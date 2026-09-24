@@ -137,6 +137,21 @@ export function createBridgeClient({
 			return /** @type {Promise<Uint8Array>} */ (call(`/mail/attachment?${q}`, {}, true));
 		},
 		/**
+		 * The targeted search in the whole mailbox for one missing receipt: vendor
+		 * text and every spelling of an amount, ± days around a day. Only the hits
+		 * are read (bridge/README.md).
+		 *
+		 * @param {{ text?: string | null, amount?: string | null, around?: string | null, days?: number }} query
+		 * @returns {Promise<{ messages: any[] }>} each with `matched`: the criteria that hit
+		 */
+		async mailSearch({ text = null, amount = null, around = null, days = 14 }) {
+			const q = new URLSearchParams({ days: String(days) });
+			if (text) q.set('text', text);
+			if (amount) q.set('amount', amount);
+			if (around) q.set('around', around);
+			return call(`/mail/search?${q}`);
+		},
+		/**
 		 * @param {{ text: string, hints?: Record<string, string>, source?: { mailId: string }, confirmedByUser?: boolean }} body
 		 * @returns {Promise<{ extraction: any, model: string, usage: any, attempts: any[] }>}
 		 */

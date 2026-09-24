@@ -4,6 +4,9 @@ import {
 	loadStoredPasskeyCredential,
 	restorePasskeyCredential
 } from './passkey-identity.js';
+import { getSetting } from './store/settings.js';
+import { classifyTransaction } from './matching/classify.js';
+import { buildMatchingContext } from './matching/context.js';
 
 /** @typedef {import('./node.js').Session} Session */
 /** @typedef {import('./store/repository.js').StoredRecord} StoredRecord */
@@ -22,7 +25,17 @@ export const app = $state({
 	/** @type {StoredRecord[]} */
 	partners: [],
 	/** @type {StoredRecord[]} */
-	accounts: []
+	accounts: [],
+	/** @type {StoredRecord[]} */
+	matches: [],
+	/** @type {StoredRecord[]} */
+	questions: [],
+	/** @type {Record<string, import('./matching/classify.js').Classification>} bookings that need no receipt, by id */
+	classifications: {},
+	/** @type {any} the stored "Eigene Anweisungen" (settings key `matching`) */
+	matchingSettings: null,
+	/** whether an "Abgleich" is running */
+	matching: false
 });
 
 /** @type {Session | null} */
@@ -40,16 +53,59 @@ export function currentBlobs() {
 
 async function refresh() {
 	if (!session) return;
-	const [transactions, receipts, partners, accounts] = await Promise.all([
-		session.store.transactions.list(),
-		session.store.receipts.list(),
-		session.store.partners.list(),
-		session.store.accounts.list()
-	]);
+	const [transactions, receipts, partners, accounts, matches, questions, matchingSettings] =
+		await Promise.all([
+			session.store.transactions.list(),
+			session.store.receipts.list(),
+			session.store.partners.list(),
+			session.store.accounts.list(),
+			session.store.matches.list(),
+			session.store.questions.list(),
+			getSetting(session.store.settings, 'matching')
+		]);
+	const ctx = await buildMatchingContext({ accounts, transactions, settings: matchingSettings });
+	/** @type {Record<string, import('./matching/classify.js').Classification>} */
+	const classifications = {};
+	for (const tx of transactions) {
+		const c = classifyTransaction(tx, ctx);
+		if (c) classifications[tx.id] = c;
+	}
 	app.transactions = transactions;
 	app.receipts = receipts;
 	app.partners = partners;
 	app.accounts = accounts;
+	app.matches = matches;
+	app.questions = questions;
+	app.classifications = classifications;
+	app.matchingSettings = matchingSettings;
+}
+
+/** @type {Promise<unknown>} */
+let matchingQueue = Promise.resolve();
+
+/**
+ * "Abgleich": receipts against transactions (matching/engine.js). Runs one at
+ * a time; the lists are read again afterwards.
+ *
+ * @returns {Promise<{ sure: number, open: number, resolved: number, writes: number } | null>}
+ */
+export function runMatchingNow() {
+	const next = matchingQueue.then(async () => {
+		if (!session) return null;
+		app.matching = true;
+		try {
+			const { runMatching } = await import('./matching/engine.js');
+			return await runMatching({ store: session.store });
+		} catch (error) {
+			console.error('matching failed:', error);
+			return null;
+		} finally {
+			app.matching = false;
+			await refresh();
+		}
+	});
+	matchingQueue = next;
+	return next;
 }
 
 /** @type {ReturnType<typeof setTimeout> | null} */
@@ -75,7 +131,15 @@ async function unlockWith(credential) {
 	const { startSession } = await import('./node.js');
 	session = await startSession(credential);
 	app.did = session.did;
-	for (const name of /** @type {const} */ (['transactions', 'receipts', 'partners', 'accounts'])) {
+	for (const name of /** @type {const} */ ([
+		'transactions',
+		'receipts',
+		'partners',
+		'accounts',
+		'matches',
+		'questions',
+		'settings'
+	])) {
 		session.store[name].onChange(scheduleRefresh);
 	}
 	await refresh();

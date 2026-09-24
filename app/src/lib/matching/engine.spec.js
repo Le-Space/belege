@@ -300,7 +300,12 @@ describe('runMatching', () => {
 		const missing = /** @type {any} */ (qs.find((x) => x.kind === 'missing-receipt'));
 		const sender = /** @type {any} */ (qs.find((x) => x.kind === 'unknown-sender'));
 
-		await answerQuestion(store, unsure.id, { choice: 'candidate', transactionId: t.strom.id });
+		// As the page sends it: the side the question already names is undefined.
+		await answerQuestion(store, unsure.id, {
+			choice: 'candidate',
+			transactionId: t.strom.id,
+			receiptId: undefined
+		});
 		expect((await store.transactions.get(t.strom.id))?.receiptId).toBe(r.strom.id);
 		expect((await store.receipts.get(r.strom.id))?.status).toBe('zugeordnet');
 

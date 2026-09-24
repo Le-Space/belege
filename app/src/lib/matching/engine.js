@@ -37,7 +37,7 @@ export const isActive = (m) => !m.deleted && ACTIVE.has(String(m.state));
 /** @param {string} receiptId @param {string} transactionId */
 export const pairKey = (receiptId, transactionId) => `${receiptId}|${transactionId}`;
 
-/** @param {{ kind: string, receiptId?: string | null, transactionId?: string | null }} q */
+/** @param {Record<string, any>} q kind, receiptId, transactionId */
 export const questionKey = (q) => `${q.kind}:${q.receiptId ?? ''}:${q.transactionId ?? ''}`;
 
 /**

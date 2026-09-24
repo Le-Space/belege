@@ -140,10 +140,11 @@ export async function importFile({
  * @param {import('../store/repository.js').Collection} params.receipts
  * @param {import('./blob-store.js').BlobStore} params.blobs
  * @param {{ mailAttachment: (id: string, part: string) => Promise<Uint8Array> }} params.client
- * @param {any[]} params.messages from GET /mail/messages
+ * @param {any[]} params.messages from GET /mail/messages (or hits of /mail/search)
+ * @param {import('../store/repository.js').StoredRecord[]} [params.created] the new records are pushed here
  * @returns {Promise<MailCounts>}
  */
-export async function importMailMessages({ receipts, blobs, client, messages }) {
+export async function importMailMessages({ receipts, blobs, client, messages, created }) {
 	const seen = await known(receipts);
 	/** @type {MailCounts} */
 	const counts = { new: 0, duplicate: 0, skipped: 0, unsupported: 0 };
@@ -170,7 +171,7 @@ export async function importMailMessages({ receipts, blobs, client, messages }) 
 				counts.unsupported++;
 				continue;
 			}
-			await receipts.put({
+			const record = await receipts.put({
 				source: 'mail',
 				sourceRef,
 				...fields,
@@ -185,6 +186,7 @@ export async function importMailMessages({ receipts, blobs, client, messages }) 
 				confirmedByUser: false,
 				status: needsConfirmation({ source: 'mail', ...fields }) ? 'rückfrage' : 'neu'
 			});
+			created?.push(record);
 			seen.refs.add(sourceRef);
 			counts.new++;
 			continue;
@@ -196,7 +198,7 @@ export async function importMailMessages({ receipts, blobs, client, messages }) 
 				continue;
 			}
 			const bytes = await client.mailAttachment(m.id, a.part);
-			const { outcome } = await importFile({
+			const { outcome, record } = await importFile({
 				receipts,
 				blobs,
 				bytes,
@@ -206,6 +208,7 @@ export async function importMailMessages({ receipts, blobs, client, messages }) 
 				fields,
 				seen
 			});
+			if (record) created?.push(record);
 			if (outcome === 'new') counts.new++;
 			else if (outcome === 'duplicate') counts.duplicate++;
 			else counts.unsupported++;

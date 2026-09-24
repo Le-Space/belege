@@ -161,9 +161,11 @@ export async function answerQuestion(store, questionId, answer) {
 		const r = await store.receipts.get(q.receiptId);
 		if (r) await store.receipts.put({ ...r, status: 'ignoriert' });
 	}
+	// Only what was given: the store encodes with dag-cbor, which has no `undefined`.
+	const stored = Object.fromEntries(Object.entries(answer).filter(([, v]) => v !== undefined));
 	return store.questions.put({
 		...q,
 		state: 'answered',
-		answer: { ...answer, at: new Date().toISOString() }
+		answer: { ...stored, at: new Date().toISOString() }
 	});
 }
