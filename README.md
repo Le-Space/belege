@@ -18,5 +18,6 @@ read -s HIBISCUS_PASSWORD && export HIBISCUS_PASSWORD
 pnpm spike:hibiscus
 
 cp .env.example .env   # fill in IMAP_*
-pnpm spike:imap -- --month 2026-08 --all-folders
+pnpm spike:imap -- --month 2026-08 --accounting              # the accounting alias only
+pnpm spike:imap -- --find Vodafone --amount 52,59 --around 2026-08-22   # one missing receipt
 ```
