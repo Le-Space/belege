@@ -1,4 +1,8 @@
-<h1 class="text-2xl font-semibold text-slate-900">Export</h1>
-<p class="mt-6 rounded-lg border border-slate-200 bg-white p-6 text-slate-600">
-	Der monatliche DATEV-Export folgt in einem späteren Schritt.
+<script>
+	import { t } from '$lib/i18n/index.js';
+</script>
+
+<h1 class="text-2xl font-bold text-heading">{t('export.title')}</h1>
+<p class="mt-6 rounded-lg border border-border bg-surface px-5 py-4 text-text shadow-sm">
+	{t('export.empty')}
 </p>

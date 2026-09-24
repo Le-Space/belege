@@ -57,6 +57,7 @@
 		"datastore-level": "13.0.1",
 		"helia": "7.1.0",
 		"libp2p": "3.3.6",
-		"multiformats": "14.0.5"
+		"multiformats": "14.0.5",
+		"uqr": "0.1.3"
 	}
 }

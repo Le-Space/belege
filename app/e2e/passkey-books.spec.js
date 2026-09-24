@@ -12,6 +12,7 @@ import {
 	takeCeremonies
 } from './webauthn.js';
 import { everythingStoredAsText, spellings } from './storage-scan.js';
+import { acceptConsent } from './consent.js';
 
 /** @param {import('@playwright/test').Page} page */
 async function sessionFacts(page) {
@@ -72,6 +73,7 @@ test('a passkey opens sealed books that survive a reload', async ({ page }) => {
 
 	// Create a passkey: the books open, empty.
 	await page.goto('/');
+	await acceptConsent(page);
 	await page.getByTestId('passkey-label').fill('E2E');
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
 	const didBadge = page.getByTestId('own-did');
@@ -184,6 +186,7 @@ test('a restored passkey derives the same signing key and keeps none', async ({ 
 	await recordCeremonies(page);
 
 	await page.goto('/');
+	await acceptConsent(page);
 	await page.getByTestId('passkey-label').fill('E2E');
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
@@ -193,6 +196,7 @@ test('a restored passkey derives the same signing key and keeps none', async ({ 
 	// A device that has never seen this passkey: nothing stored, no credential.
 	await forgetThisDevice(page);
 	await page.goto('/');
+	await acceptConsent(page);
 	await page.getByTestId('passkey-restore').click();
 	await expect(page.getByTestId('own-did')).toHaveAttribute('data-did', created.did);
 
@@ -244,6 +248,7 @@ test('without PRF the books stay shut, with a clear message', async ({ page }) =
 	});
 
 	await page.goto('/');
+	await acceptConsent(page);
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
 
 	await expect(page.getByTestId('passkey-error')).toContainText('kein PRF-Geheimnis');
