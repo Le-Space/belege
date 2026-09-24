@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic test data in the shape of a Revolut Business CAMT.053 export.
+     No real account, person or amount: IBANs carry check digits 00. -->
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.08">
+  <BkToCstmrStmt>
+    <GrpHdr>
+      <MsgId>REV-TEST-2026-09</MsgId>
+      <CreDtTm>2026-09-30T23:59:59Z</CreDtTm>
+    </GrpHdr>
+    <Stmt>
+      <Id>REV-STMT-TEST-0001</Id>
+      <CreDtTm>2026-09-30T23:59:59Z</CreDtTm>
+      <Acct>
+        <Id>
+          <IBAN>LT000000000000000001</IBAN>
+        </Id>
+        <Ccy>EUR</Ccy>
+        <Nm>Revolut Testkonto</Nm>
+        <Svcr>
+          <FinInstnId>
+            <BICFI>REVOLT21</BICFI>
+            <Nm>Revolut Bank UAB</Nm>
+          </FinInstnId>
+        </Svcr>
+      </Acct>
+      <Bal>
+        <Tp><CdOrPrtry><Cd>CLBD</Cd></CdOrPrtry></Tp>
+        <Amt Ccy="EUR">512.30</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt><Dt>2026-09-30</Dt></Dt>
+      </Bal>
+      <Ntry>
+        <NtryRef>rev-entry-0001</NtryRef>
+        <Amt Ccy="EUR">19.99</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts><Cd>BOOK</Cd></Sts>
+        <BookgDt><DtTm>2026-09-18T10:21:07Z</DtTm></BookgDt>
+        <ValDt><DtTm>2026-09-18T10:21:07Z</DtTm></ValDt>
+        <AcctSvcrRef>rev-svc-0001</AcctSvcrRef>
+        <BkTxCd><Prtry><Cd>CARD_PAYMENT</Cd></Prtry></BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <AcctSvcrRef>rev-tx-0001</AcctSvcrRef>
+              <EndToEndId>NOTPROVIDED</EndToEndId>
+            </Refs>
+            <Amt Ccy="EUR">19.99</Amt>
+            <CdtDbtInd>DBIT</CdtDbtInd>
+            <RltdPties>
+              <Cdtr><Pty><Nm>Wolkenspeicher Testdienst Ltd</Nm></Pty></Cdtr>
+            </RltdPties>
+            <RmtInf><Ustrd>Kartenzahlung Wolkenspeicher Abo</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <NtryRef>rev-entry-0002</NtryRef>
+        <Amt Ccy="EUR">1500.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts><Cd>BOOK</Cd></Sts>
+        <BookgDt><Dt>2026-09-10</Dt></BookgDt>
+        <ValDt><Dt>2026-09-10</Dt></ValDt>
+        <AcctSvcrRef>rev-svc-0002</AcctSvcrRef>
+        <BkTxCd><Prtry><Cd>TRANSFER</Cd></Prtry></BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <AcctSvcrRef>rev-tx-0002</AcctSvcrRef>
+              <EndToEndId>E2E-REV-0002</EndToEndId>
+            </Refs>
+            <Amt Ccy="EUR">1500.00</Amt>
+            <CdtDbtInd>CRDT</CdtDbtInd>
+            <RltdPties>
+              <Dbtr><Pty><Nm>Umbuchung Eigenkonto Test</Nm></Pty></Dbtr>
+              <DbtrAcct><Id><IBAN>DE00000000000000004711</IBAN></Id></DbtrAcct>
+            </RltdPties>
+            <RmtInf><Ustrd>Aufladung Revolut</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <NtryRef>rev-entry-0003</NtryRef>
+        <Amt Ccy="EUR">4.20</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts><Cd>PDNG</Cd></Sts>
+        <BookgDt><DtTm>2026-09-30T08:00:00Z</DtTm></BookgDt>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><AcctSvcrRef>rev-tx-0003</AcctSvcrRef></Refs>
+            <RltdPties>
+              <Cdtr><Pty><Nm>Vorgemerkt Kiosk Test</Nm></Pty></Cdtr>
+            </RltdPties>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>

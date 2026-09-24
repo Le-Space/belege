@@ -1,0 +1,161 @@
+// German formatting, grouping and search for the Zahlungen view. Pure, so it
+// is tested without a database or a browser.
+
+const DAY = new Intl.DateTimeFormat('de-DE', {
+	weekday: 'long',
+	day: 'numeric',
+	month: 'numeric',
+	year: 'numeric',
+	timeZone: 'UTC'
+});
+const MONTH = new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+const SHORT_DATE = new Intl.DateTimeFormat('de-DE', {
+	day: '2-digit',
+	month: '2-digit',
+	year: 'numeric',
+	timeZone: 'UTC'
+});
+
+/** @type {Map<string, Intl.NumberFormat>} */
+const moneyFormats = new Map();
+
+/**
+ * `-22,42 EUR`, `1.439,76 EUR` (the space is a no-break space).
+ *
+ * @param {number} cents
+ * @param {string} [currency]
+ */
+export function formatMoney(cents, currency = 'EUR') {
+	const code = /^[A-Z]{3}$/.test(currency) ? currency : 'EUR';
+	let format = moneyFormats.get(code);
+	if (!format) {
+		format = new Intl.NumberFormat('de-DE', {
+			style: 'currency',
+			currency: code,
+			currencyDisplay: 'code'
+		});
+		moneyFormats.set(code, format);
+	}
+	return format.format(cents / 100);
+}
+
+/** `2026-09-22` → `Dienstag, 22.9.2026` */
+export function formatDayHeading(/** @type {string} */ isoDate) {
+	return DAY.format(new Date(`${isoDate}T00:00:00Z`));
+}
+
+/** `2026-09` → `September 2026` */
+export function formatMonth(/** @type {string} */ month) {
+	return /^\d{4}-\d{2}$/.test(month)
+		? MONTH.format(new Date(`${month}-01T00:00:00Z`))
+		: 'Ohne Datum';
+}
+
+/** `2026-09-22` → `22.09.2026` */
+export function formatDate(/** @type {string} */ isoDate) {
+	return SHORT_DATE.format(new Date(`${isoDate}T00:00:00Z`));
+}
+
+/** @param {{ receiptId?: string | null }} tx */
+export function hasReceipt(tx) {
+	return Boolean(tx.receiptId);
+}
+
+/**
+ * @typedef {{ id: string, bookedOn: string, amountCents?: number, counterparty?: string, purpose?: string, receiptId?: string | null }} TxLike
+ */
+
+/**
+ * Months, newest first, with how many transactions and how many of them have
+ * a receipt.
+ *
+ * @template {TxLike} T
+ * @param {T[]} transactions
+ * @returns {{ month: string, label: string, count: number, withReceipt: number, coverage: number }[]}
+ */
+export function monthSummaries(transactions) {
+	/** @type {Map<string, { count: number, withReceipt: number }>} */
+	const months = new Map();
+	for (const tx of transactions) {
+		const month = String(tx.bookedOn ?? '').slice(0, 7) || 'unbekannt';
+		const m = months.get(month) ?? { count: 0, withReceipt: 0 };
+		m.count++;
+		if (hasReceipt(tx)) m.withReceipt++;
+		months.set(month, m);
+	}
+	return [...months.entries()]
+		.sort(([a], [b]) => (a < b ? 1 : a > b ? -1 : 0))
+		.map(([month, m]) => ({
+			month,
+			label: formatMonth(month),
+			count: m.count,
+			withReceipt: m.withReceipt,
+			coverage: m.count ? Math.round((m.withReceipt / m.count) * 100) : 0
+		}));
+}
+
+/**
+ * Transactions grouped by booking day, newest day first; inside a day, the
+ * order they came in (newest id first).
+ *
+ * @template {TxLike} T
+ * @param {T[]} transactions
+ * @returns {{ day: string, label: string, items: T[] }[]}
+ */
+export function groupByDay(transactions) {
+	/** @type {Map<string, T[]>} */
+	const days = new Map();
+	for (const tx of transactions) {
+		const day = String(tx.bookedOn ?? '');
+		const items = days.get(day) ?? [];
+		items.push(tx);
+		days.set(day, items);
+	}
+	return [...days.entries()]
+		.sort(([a], [b]) => (a < b ? 1 : a > b ? -1 : 0))
+		.map(([day, items]) => ({
+			day,
+			label: /^\d{4}-\d{2}-\d{2}$/.test(day) ? formatDayHeading(day) : 'Ohne Datum',
+			items: items.sort((x, y) => (x.id < y.id ? 1 : x.id > y.id ? -1 : 0))
+		}));
+}
+
+/** The ways a person types an amount: `22,42`, `22.42`, `1.439,76`, `1439,76`, `-22,42`. */
+function amountSpellings(/** @type {number} */ cents) {
+	const abs = Math.abs(cents);
+	const euros = Math.floor(abs / 100);
+	const rest = String(abs % 100).padStart(2, '0');
+	const grouped = euros.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+	const plain = [`${euros},${rest}`, `${euros}.${rest}`, `${grouped},${rest}`];
+	return [...plain, ...plain.map((s) => (cents < 0 ? `-${s}` : `+${s}`))];
+}
+
+/** The ways a person types a date: `22.9.2026`, `22.09.2026`, `22.09.`, `2026-09-22`. */
+function dateSpellings(/** @type {string} */ iso) {
+	const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+	if (!m) return [];
+	const [, y, mo, d] = m;
+	const dn = String(Number(d));
+	const mn = String(Number(mo));
+	return [iso, `${d}.${mo}.${y}`, `${dn}.${mn}.${y}`, `${d}.${mo}.`, `${dn}.${mn}.`];
+}
+
+/**
+ * Does a transaction match what was typed into the search box? Name and
+ * purpose by substring (case-insensitive); an amount or a date by any of the
+ * usual spellings, also as a prefix (`22,4` finds `22,42`).
+ *
+ * @param {TxLike} tx
+ * @param {string} query
+ */
+export function matchesSearch(tx, query) {
+	const q = query.trim().toLowerCase();
+	if (!q) return true;
+	const texts = [tx.counterparty, tx.purpose].map((s) => String(s ?? '').toLowerCase());
+	if (texts.some((t) => t.includes(q))) return true;
+	const compact = q.replace(/\s|€|eur/g, '');
+	if (/^[+-]?[\d.,]+$/.test(compact)) {
+		if (amountSpellings(tx.amountCents ?? 0).some((s) => s.startsWith(compact))) return true;
+	}
+	return dateSpellings(tx.bookedOn).some((s) => s.startsWith(q));
+}

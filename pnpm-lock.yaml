@@ -75,6 +75,9 @@ importers:
         specifier: 14.0.5
         version: 14.0.5
     devDependencies:
+      '@belege/bridge':
+        specifier: workspace:*
+        version: link:../bridge
       '@eslint/compat':
         specifier: ^1.2.5
         version: 1.4.1(eslint@9.32.0(jiti@2.7.0))
@@ -96,6 +99,9 @@ importers:
       '@tailwindcss/vite':
         specifier: 4.1.11
         version: 4.1.11(vite@7.0.6(@types/node@26.6.2)(jiti@2.7.0)(lightningcss@1.30.1)(terser@5.51.2))
+      '@xmldom/xmldom':
+        specifier: 0.9.12
+        version: 0.9.12
       eslint:
         specifier: 9.32.0
         version: 9.32.0(jiti@2.7.0)
@@ -1341,6 +1347,10 @@ packages:
 
   '@vitest/utils@3.2.4':
     resolution: {integrity: sha512-fB2V0JFrQSMsCo9HiSq3Ezpdv4iYaXRG1Sx8edX3MwxfyNn83mKiGzOcH+Fkxt4MHxr3y42fQi1oeAInqgX2QA==}
+
+  '@xmldom/xmldom@0.9.12':
+    resolution: {integrity: sha512-5AXjrcMClTryPe9LgZrygpB1lj7s0S9E0+W+AHaVKAVyHanafK86iPSvG5xHVSp/jC+VH1UXu0TAEmY279xH7A==}
+    engines: {node: '>=14.6'}
 
   '@zone-eu/mailsplit@5.4.17':
     resolution: {integrity: sha512-LOMzdrKRVgaghLaezIPdHRhsGpfDiWNQo1RptWc84CRllI4dWLwqX/L4x1iTt1CaeyvyUfMXM/6mjIsEisT3Tg==}
@@ -5752,6 +5762,8 @@ snapshots:
       '@vitest/pretty-format': 3.2.4
       loupe: 3.2.1
       tinyrainbow: 2.0.0
+
+  '@xmldom/xmldom@0.9.12': {}
 
   '@zone-eu/mailsplit@5.4.17':
     dependencies:

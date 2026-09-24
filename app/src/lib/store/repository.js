@@ -18,7 +18,13 @@ import { deriveDatabaseName } from '../database-keys.js';
 import { ulid, isUlid } from './ids.js';
 import SealedDocuments from './sealed-documents.js';
 
-export const COLLECTIONS = /** @type {const} */ (['transactions', 'receipts', 'partners']);
+export const COLLECTIONS = /** @type {const} */ ([
+	'transactions',
+	'receipts',
+	'partners',
+	'accounts',
+	'settings'
+]);
 
 /** @typedef {typeof COLLECTIONS[number]} CollectionName */
 
@@ -123,7 +129,7 @@ export function createCollection(db, name, { author, now = () => new Date() }) {
  * @param {Uint8Array} params.encryptionKey 32 bytes from `deriveDatabaseKey`
  * @param {Uint8Array} params.prfOutput names the databases, see `deriveDatabaseName`
  * @param {Record<string, any>} [params.openOptions] extra `orbitdb.open` options (tests pass memory storages)
- * @returns {Promise<{ transactions: Collection, receipts: Collection, partners: Collection, close: () => Promise<void> }>}
+ * @returns {Promise<{ transactions: Collection, receipts: Collection, partners: Collection, accounts: Collection, settings: Collection, close: () => Promise<void> }>}
  */
 export async function openStore({ orbitdb, encryptionKey, prfOutput, openOptions = {} }) {
 	if (!(encryptionKey instanceof Uint8Array) || encryptionKey.length !== 32) {
@@ -150,6 +156,8 @@ export async function openStore({ orbitdb, encryptionKey, prfOutput, openOptions
 		transactions: collections.transactions,
 		receipts: collections.receipts,
 		partners: collections.partners,
+		accounts: collections.accounts,
+		settings: collections.settings,
 		async close() {
 			await Promise.allSettled(Object.values(dbs).map((db) => db.close()));
 		}
