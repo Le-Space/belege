@@ -19,7 +19,7 @@ import { defaultConfigPath, loadConfig, saveConfig } from './config.js';
 import { createHibiscusClient, normalizeFingerprint, peerFingerprint } from './hibiscus.js';
 import { macosKeychain } from './keychain.js';
 import { ibanAllowed, maskIban } from './normalize.js';
-import { ask, askHidden } from './prompt.js';
+import { ask, askHidden, closePrompts } from './prompt.js';
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 
@@ -32,9 +32,16 @@ const yes = (answer) => /^(y|yes|j|ja)$/i.test(answer.trim());
  * @param {import('./keychain.js').Keychain} deps.keychain
  * @param {string} deps.configPath
  * @param {typeof peerFingerprint} [deps.fingerprintOf]
+ * @param {string} [deps.envPassword] HIBISCUS_PASSWORD from the repo's .env (phase 0), offered once
  * @returns {Promise<boolean>} true when the configuration was saved
  */
-export async function runSetup({ io, keychain, configPath, fingerprintOf = peerFingerprint }) {
+export async function runSetup({
+	io,
+	keychain,
+	configPath,
+	fingerprintOf = peerFingerprint,
+	envPassword
+}) {
 	const config = await loadConfig(configPath);
 	const h = config.hibiscus;
 
@@ -103,15 +110,45 @@ export async function runSetup({ io, keychain, configPath, fingerprintOf = peerF
 		}
 	}
 
-	const password = await io.askHidden(
-		'Jameica master password (hidden; empty keeps the stored one): '
+	const stored = await keychain.read().then(
+		() => true,
+		() => false
 	);
+	let password = '';
+	if (!stored && envPassword) {
+		// The phase-0 spikes read it from .env; move it where the bridge looks.
+		if (
+			yes(
+				(await io.ask('HIBISCUS_PASSWORD found in .env. Store it in the keychain? [Y/n]: ')) || 'y'
+			)
+		) {
+			password = envPassword;
+		}
+	}
+	// Empty keeps the stored password – but only when there is one. The first
+	// run used to offer that too, and a plain Enter ended the setup with an error.
+	for (let tries = 0; !password && tries < 3; tries++) {
+		password = await io.askHidden(
+			stored
+				? 'Jameica master password (hidden; empty keeps the stored one): '
+				: 'Jameica master password (hidden; none is stored yet): '
+		);
+		if (!password && stored) break;
+		if (!password) io.print('No password is stored yet, so it cannot be kept – please type it.');
+	}
 	if (password) {
 		await keychain.write(password);
 		io.print('Password stored in the keychain (service belege-bridge, account hibiscus).');
-	} else {
-		await keychain.read(); // throws with a clear message when there is none
+		if (password === envPassword) {
+			io.print(
+				'You can now delete HIBISCUS_PASSWORD from .env: the bridge reads only the keychain.'
+			);
+		}
+	} else if (stored) {
 		io.print('Keeping the password already in the keychain.');
+	} else {
+		io.print('Nothing stored: no password given.');
+		return false;
 	}
 
 	config.hibiscus = { host, port, certSha256: seen, ibanSuffixes: suffixes };
@@ -137,11 +174,18 @@ export async function runSetup({ io, keychain, configPath, fingerprintOf = peerF
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
 	const configPath = defaultConfigPath();
 	try {
+		process.loadEnvFile(fileURLToPath(new URL('../../.env', import.meta.url)));
+	} catch {
+		// no .env: nothing to offer
+	}
+	try {
 		const saved = await runSetup({
 			io: { ask, askHidden, print: (line) => console.log(line) },
 			keychain: macosKeychain(),
-			configPath
+			configPath,
+			envPassword: process.env.HIBISCUS_PASSWORD || undefined
 		});
+		closePrompts();
 		process.exit(saved ? 0 : 1);
 	} catch (/** @type {any} */ error) {
 		console.error(`Setup failed: ${error.message}`);
