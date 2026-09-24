@@ -39,6 +39,19 @@ pnpm test:e2e     # Playwright, Chromium with a virtual passkey (PRF)
 Several files are ported from [Le-Space/simple-todo](https://github.com/Le-Space/simple-todo)
 `apps/invoice01`; each says so in its header, with what changed.
 
+## Interface
+
+- **Look**: the Le-Space brand tokens and layout of Le-Space/simple-todo `apps/escrow01`
+  (`src/app.css`), light and dark (`.dark` on `<html>`, chosen in the header). Two brand values
+  miss WCAG AA for text and are adjusted there; `src/lib/contrast.spec.js` checks every text pair.
+- **Consent first** (`src/lib/ConsentModal.svelte`): on a first visit, before the passkey. Plain
+  sentences for everyone, the technical detail only with "Technisch" (`technical-view.js`).
+  "Verstanden" stores the flag `belege.consent`; the footer and "Nur dieses Gerät" reopen it.
+  Bump `CONSENT_VERSION` in `consent.js` when what it says changes.
+- **Strings** live in `src/lib/i18n/de.js`; English is one more file of the same shape.
+- **Footer**: "Gebaut mit Le Space", the build commit and its instant (from `git log`, in the
+  reader's zone, UTC on hover) and "Quellcode" linking to this repository.
+
 ## Bank import (step 2)
 
 - **Hibiscus through the bridge** (`src/lib/bridge/`, `src/lib/bank/hibiscus-sync.js`): pair on

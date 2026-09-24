@@ -8,6 +8,7 @@
 	import { parseCamt053 } from '$lib/bank/camt.js';
 	import { importCamtStatements } from '$lib/bank/import.js';
 	import { formatDate, formatMoney } from '$lib/bank/format.js';
+	import { t } from '$lib/i18n/index.js';
 
 	/** @typedef {import('$lib/bridge/client.js').BridgeAccount} BridgeAccount */
 	/** @typedef {{ new: number, updated: number, skipped: number }} Counts */
@@ -99,9 +100,7 @@
 			// The bridge forgets the token too, so a copy of it is worthless.
 			await client.unpair();
 		} catch {
-			bridgeError =
-				'Die Bridge war nicht erreichbar: Die Kopplung ist nur auf diesem Gerät gelöst. ' +
-				'Auf der Bridge entfernt `pnpm bridge -- --revoke-all` alle Kopplungen.';
+			bridgeError = t('integrationen.bridge.unpairOffline');
 		}
 		await setSetting(store.settings, 'bridge', { url: bridgeUrl, token: null });
 		token = null;
@@ -185,7 +184,7 @@
 
 	/** @param {Counts} c */
 	const countsText = (c) =>
-		`Neu: ${c.new} · Aktualisiert: ${c.updated} · Übersprungen: ${c.skipped}`;
+		t('integrationen.counts', { new: c.new, updated: c.updated, skipped: c.skipped });
 
 	/** @param {string} id */
 	function lastSync(id) {
@@ -194,49 +193,49 @@
 	}
 </script>
 
-<h1 class="text-2xl font-semibold text-slate-900">Integrationen</h1>
+<h1 class="text-2xl font-bold text-heading">{t('integrationen.title')}</h1>
 
-<section class="mt-6 rounded-lg border border-slate-200 bg-white p-5" aria-labelledby="bridge-h">
+<section
+	class="mt-6 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm"
+	aria-labelledby="bridge-h"
+>
 	<div class="flex flex-wrap items-center justify-between gap-3">
-		<h2 id="bridge-h" class="text-lg font-semibold text-slate-900">Bridge</h2>
+		<h2 id="bridge-h" class="text-lg font-semibold">{t('integrationen.bridge.title')}</h2>
 		<button
 			type="button"
-			class="rounded-md border border-slate-300 px-3 py-1 text-sm hover:bg-slate-100"
-			onclick={checkBridge}>Status prüfen</button
+			class="rounded-md border border-border px-3 py-1 text-sm text-text hover:bg-surface-2 hover:text-heading"
+			onclick={checkBridge}>{t('integrationen.bridge.check')}</button
 		>
 	</div>
-	<p class="mt-1 text-sm text-slate-600">
-		Die Bridge läuft auf diesem Rechner (127.0.0.1) und holt Umsätze aus Hibiscus. Konten, deren
-		IBAN nicht freigegeben ist, verlassen sie nie.
-	</p>
-	<p class="mt-3 text-sm" data-testid="bridge-status" data-state={bridgeState}>
+	<p class="mt-1 text-sm text-text">{t('integrationen.bridge.intro')}</p>
+	<p class="mt-3 text-sm text-text" data-testid="bridge-status" data-state={bridgeState}>
 		{#if bridgeState === 'checking'}
-			Prüfe …
+			{t('integrationen.bridge.checking')}
 		{:else if bridgeState === 'online'}
-			<span class="font-medium text-emerald-700">Bridge erreichbar</span>
-			· {token ? 'dieses Gerät ist gekoppelt' : 'nicht gekoppelt'}
-			{#if !hibiscusConfigured}· Hibiscus ist noch nicht eingerichtet{/if}
+			<span class="font-medium text-success">{t('integrationen.bridge.online')}</span>
+			· {token ? t('integrationen.bridge.paired') : t('integrationen.bridge.unpaired')}
+			{#if !hibiscusConfigured}· {t('integrationen.bridge.noHibiscus')}{/if}
 		{:else if bridgeState === 'offline'}
-			<span class="font-medium text-red-700">Bridge nicht erreichbar</span>
+			<span class="font-medium text-danger">{t('integrationen.bridge.offline')}</span>
 		{:else}
-			Status unbekannt
+			{t('integrationen.bridge.unknown')}
 		{/if}
 	</p>
 
 	{#if !token}
 		<form class="mt-4 flex flex-wrap items-end gap-3" onsubmit={pair}>
 			<label class="flex flex-col text-sm">
-				<span class="text-slate-600">Bridge-Adresse</span>
+				<span class="text-faint">{t('integrationen.bridge.url')}</span>
 				<input
-					class="mt-1 w-64 rounded-md border border-slate-300 px-2 py-1.5 font-mono text-sm"
+					class="mt-1 w-64 max-w-full rounded-md border px-2 py-1.5 font-mono text-sm"
 					bind:value={bridgeUrl}
 					data-testid="bridge-url"
 				/>
 			</label>
 			<label class="flex flex-col text-sm">
-				<span class="text-slate-600">Kopplungscode</span>
+				<span class="text-faint">{t('integrationen.bridge.code')}</span>
 				<input
-					class="mt-1 w-40 rounded-md border border-slate-300 px-2 py-1.5 font-mono text-sm uppercase"
+					class="mt-1 w-40 rounded-md border px-2 py-1.5 font-mono text-sm uppercase"
 					bind:value={code}
 					placeholder="ABCD-EFGH"
 					autocomplete="off"
@@ -245,54 +244,63 @@
 			</label>
 			<button
 				type="submit"
-				class="rounded-md bg-slate-900 px-4 py-1.5 text-sm text-white hover:bg-slate-700 disabled:opacity-50"
-				disabled={pairing || !code.trim()}>Koppeln</button
+				class="rounded-md bg-coral-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50"
+				disabled={pairing || !code.trim()}>{t('integrationen.bridge.pair')}</button
 			>
 		</form>
-		<p class="mt-2 text-xs text-slate-500">
-			Den Code zeigt die Bridge beim Start im Terminal an ({bridgePaired
-				? 'schon ein Gerät gekoppelt: mit --pair neu starten'
-				: 'einmalig, 10 Minuten gültig'}).
+		<p class="mt-2 text-xs text-faint">
+			{t('integrationen.bridge.codeHint', {
+				when: bridgePaired
+					? t('integrationen.bridge.codeHintPaired')
+					: t('integrationen.bridge.codeHintFirst')
+			})}
 		</p>
 	{:else}
 		<button
 			type="button"
-			class="mt-3 text-sm text-slate-600 underline"
+			class="mt-3 text-sm text-text underline hover:text-heading"
 			onclick={unpair}
-			data-testid="unpair">Kopplung lösen</button
+			data-testid="unpair">{t('integrationen.bridge.unpair')}</button
 		>
 	{/if}
 	{#if bridgeError}
-		<p class="mt-3 text-sm text-red-700" role="alert" data-testid="bridge-error">{bridgeError}</p>
+		<p class="mt-3 text-sm text-danger" role="alert" data-testid="bridge-error">{bridgeError}</p>
 	{/if}
 </section>
 
 {#if token}
-	<section class="mt-6 rounded-lg border border-slate-200 bg-white p-5" aria-labelledby="hib-h">
-		<h2 id="hib-h" class="text-lg font-semibold text-slate-900">Hibiscus</h2>
+	<section
+		class="mt-6 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm"
+		aria-labelledby="hib-h"
+	>
+		<h2 id="hib-h" class="text-lg font-semibold">{t('integrationen.hibiscus.title')}</h2>
 		{#if bridgeAccounts.length === 0}
-			<p class="mt-2 text-sm text-slate-600">
-				Keine freigegebenen Konten.
-				<button type="button" class="underline" onclick={loadAccounts}>Neu laden</button>
+			<p class="mt-2 text-sm text-text">
+				{t('integrationen.hibiscus.none')}
+				<button type="button" class="underline" onclick={loadAccounts}
+					>{t('integrationen.hibiscus.reload')}</button
+				>
 			</p>
 		{:else}
-			<ul class="mt-3 divide-y divide-slate-100" data-testid="hibiscus-accounts">
+			<ul class="mt-3 divide-y divide-border" data-testid="hibiscus-accounts">
 				{#each bridgeAccounts as account (account.id)}
 					<li class="flex flex-wrap items-center gap-3 py-2" data-testid="hibiscus-account">
 						<label class="flex min-w-0 flex-1 items-center gap-3">
 							<input
 								type="checkbox"
+								class="h-4 w-4 accent-cyan-800 dark:accent-cyan"
 								checked={selected.has(account.id)}
 								onchange={(e) =>
 									e.currentTarget.checked ? selected.add(account.id) : selected.delete(account.id)}
 							/>
 							<span class="min-w-0">
-								<span class="block font-medium text-slate-900">{account.name}</span>
-								<span class="block font-mono text-xs text-slate-500"
+								<span class="block font-medium text-heading">{account.name}</span>
+								<span class="block font-mono text-xs text-faint"
 									>{[
 										account.ibanMasked,
 										account.currency,
-										lastSync(account.id) && `zuletzt ${lastSync(account.id)}`
+										lastSync(account.id) &&
+											t('integrationen.hibiscus.lastSync', { date: lastSync(account.id) ?? '' })
 									]
 										.filter(Boolean)
 										.join(' · ')}</span
@@ -300,11 +308,15 @@
 							</span>
 						</label>
 						{#if account.balanceCents !== null}
-							<span class="font-mono text-sm tabular-nums"
+							<span class="font-mono text-sm text-heading tabular-nums"
 								>{formatMoney(account.balanceCents, account.currency)}</span
 							>
 							{#if account.balanceDate}
-								<span class="text-xs text-slate-500">am {formatDate(account.balanceDate)}</span>
+								<span class="text-xs text-faint"
+									>{t('integrationen.hibiscus.balanceOn', {
+										date: formatDate(account.balanceDate)
+									})}</span
+								>
 							{/if}
 						{/if}
 					</li>
@@ -312,65 +324,66 @@
 			</ul>
 			<button
 				type="button"
-				class="mt-4 rounded-md bg-slate-900 px-4 py-1.5 text-sm text-white hover:bg-slate-700 disabled:opacity-50"
+				class="mt-4 rounded-md bg-coral-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50"
 				disabled={syncing || selected.size === 0}
-				onclick={sync}>{syncing ? 'Synchronisiere …' : 'Jetzt synchronisieren'}</button
+				onclick={sync}
+				>{syncing ? t('integrationen.hibiscus.syncing') : t('integrationen.hibiscus.sync')}</button
 			>
-			<p class="mt-1 text-xs text-slate-500">
-				Beim ersten Mal die letzten 90 Tage, danach ab der letzten Synchronisierung.
-			</p>
+			<p class="mt-1 text-xs text-faint">{t('integrationen.hibiscus.syncHint')}</p>
 		{/if}
 		{#if syncResult}
-			<p class="mt-3 text-sm text-slate-700" role="status" data-testid="sync-result">
+			<p class="mt-3 text-sm text-heading" role="status" data-testid="sync-result">
 				{countsText(syncResult)}
 			</p>
 		{/if}
 		{#if syncError}
-			<p class="mt-3 text-sm text-red-700" role="alert" data-testid="sync-error">{syncError}</p>
+			<p class="mt-3 text-sm text-danger" role="alert" data-testid="sync-error">{syncError}</p>
 		{/if}
 	</section>
 {/if}
 
-<section class="mt-6 rounded-lg border border-slate-200 bg-white p-5" aria-labelledby="camt-h">
-	<h2 id="camt-h" class="text-lg font-semibold text-slate-900">
-		Kontoauszug importieren (CAMT.053)
-	</h2>
-	<p class="mt-1 text-sm text-slate-600">
-		Für Banken ohne Hibiscus-Anbindung (etwa Revolut): die CAMT.053-Datei des Kontoauszugs. Sie wird
-		nur hier im Browser gelesen.
-	</p>
-	<label class="mt-3 inline-block text-sm">
-		<span class="sr-only">Kontoauszug importieren (CAMT.053)</span>
+<section
+	class="mt-6 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm"
+	aria-labelledby="camt-h"
+>
+	<h2 id="camt-h" class="text-lg font-semibold">{t('integrationen.camt.title')}</h2>
+	<p class="mt-1 text-sm text-text">{t('integrationen.camt.intro')}</p>
+	<label class="mt-3 inline-block max-w-full text-sm text-text">
+		<span class="sr-only">{t('integrationen.camt.title')}</span>
 		<input
 			type="file"
 			accept=".xml,application/xml,text/xml"
 			multiple
 			disabled={camtBusy}
 			onchange={importCamt}
+			class="max-w-full file:mr-3 file:rounded-md file:border file:border-border file:bg-surface-2 file:px-3 file:py-1.5 file:text-sm file:text-heading"
 			data-testid="camt-file"
 		/>
 	</label>
 	{#each camtResults as result, i (i)}
-		<p class="mt-2 text-sm text-slate-700" role="status" data-testid="camt-result">
+		<p class="mt-2 text-sm text-heading" role="status" data-testid="camt-result">
 			{result.label}: {countsText(result.counts)}{result.pending
-				? ` · ${result.pending} vorgemerkt (nicht importiert)`
+				? t('integrationen.camt.pending', { count: result.pending })
 				: ''}
 		</p>
 	{/each}
 	{#if camtError}
-		<p class="mt-2 text-sm text-red-700" role="alert" data-testid="camt-error">{camtError}</p>
+		<p class="mt-2 text-sm text-danger" role="alert" data-testid="camt-error">{camtError}</p>
 	{/if}
 </section>
 
 {#if app.accounts.length}
-	<section class="mt-6 rounded-lg border border-slate-200 bg-white p-5" aria-labelledby="acc-h">
-		<h2 id="acc-h" class="text-lg font-semibold text-slate-900">Konten in den Büchern</h2>
-		<ul class="mt-2 text-sm" data-testid="book-accounts">
+	<section
+		class="mt-6 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm"
+		aria-labelledby="acc-h"
+	>
+		<h2 id="acc-h" class="text-lg font-semibold">{t('integrationen.books.title')}</h2>
+		<ul class="mt-2 text-sm text-text" data-testid="book-accounts">
 			{#each app.accounts as account (account.id)}
 				<li class="py-1" data-testid="book-account">
 					{account.name} ···{account.ibanLast4} · {account.source === 'camt'
-						? 'CAMT-Import'
-						: 'Hibiscus'} · {account.currency}
+						? t('integrationen.books.camt')
+						: t('integrationen.books.hibiscus')} · {account.currency}
 				</li>
 			{/each}
 		</ul>
