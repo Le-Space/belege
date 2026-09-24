@@ -2,7 +2,7 @@
 	"name": "@belege/bridge",
 	"private": true,
 	"version": "0.2.0",
-	"description": "The belege bridge on 127.0.0.1: what a browser cannot do (Hibiscus XML-RPC, IMAP, the LLM call).",
+	"description": "The belege bridge on 127.0.0.1: what a browser cannot do (Hibiscus XML-RPC, IMAP, the LLM call, customer portals).",
 	"type": "module",
 	"engines": {
 		"node": ">=22"
@@ -15,20 +15,23 @@
 		"./testing": "./test/support/fake-hibiscus.js",
 		"./testing/imap": "./test/support/fake-imap.js",
 		"./testing/llm": "./test/support/fake-llm.js",
-		"./testing/pdf": "./test/support/synthetic-pdf.js"
+		"./testing/pdf": "./test/support/synthetic-pdf.js",
+		"./testing/portal": "./test/support/fake-portal.js"
 	},
 	"scripts": {
 		"start": "node src/cli.js",
 		"setup:hibiscus": "node src/setup-hibiscus.js",
 		"setup:mail": "node src/setup-mail.js",
 		"setup:llm": "node src/setup-llm.js",
+		"setup:portal": "node src/setup-portal.js",
 		"test": "node --test --test-reporter=spec \"test/*.test.js\"",
 		"lint": "prettier --check src test",
 		"format": "prettier --write src test"
 	},
 	"dependencies": {
 		"fast-xml-parser": "5.11.1",
-		"imapflow": "2.0.6"
+		"imapflow": "2.0.6",
+		"playwright": "1.61.1"
 	},
 	"devDependencies": {
 		"hoodiecrow-imap": "2.1.0",

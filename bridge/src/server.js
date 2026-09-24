@@ -9,6 +9,7 @@
 //   GET  /mail/search?text=&amount=&around=YYYY-MM-DD&days=       token
 //   GET  /llm/status                                              token → provider, models, key present?
 //   POST /extract      { text, hints, source, confirmedByUser }   token
+//   /portals…          customer portals (portals/routes.js)            token
 //
 // Guards, in this order, on every request:
 //   1. Host header is 127.0.0.1:<port> or localhost:<port> (DNS rebinding)
@@ -26,6 +27,7 @@ import http from 'node:http';
 import { HibiscusUnreachableError, PinMismatchError } from './hibiscus.js';
 import { ibanAllowed, normalizeAccount, normalizeTransaction } from './normalize.js';
 import { decodeMailId, isIsoDay, isPartNumber } from './mail/mime.js';
+import { handlePortalRequest } from './portals/routes.js';
 
 export const LOOPBACK = '127.0.0.1';
 const VERSION = '0.2.0';
@@ -43,6 +45,7 @@ const MAX_EXTRACT_BODY = 256 * 1024;
  * @param {import('./llm/extract.js').Extractor | null} [options.llm] null when no LLM is set up
  * @param {() => Promise<boolean>} [options.llmKeyPresent] whether the keychain holds an API key;
  *   says yes or no, never hands the key out
+ * @param {import('./portals/manager.js').PortalManager | null} [options.portals] the portal connector
  * @param {(message: string) => void} [options.log] never gets a secret, bank data, mail or receipt text
  */
 export function createBridgeServer({
@@ -52,6 +55,7 @@ export function createBridgeServer({
 	mail = null,
 	llm = null,
 	llmKeyPresent = async () => false,
+	portals = null,
 	log = () => {}
 }) {
 	const allowedOrigins = new Set(config.appOrigins.map((o) => o.replace(/\/$/, '')));
@@ -169,7 +173,8 @@ export function createBridgeServer({
 					configured: Boolean(mail),
 					accountingAddress: mail ? config.mail.accountingAddress : null
 				},
-				llm: { configured: Boolean(llm), models: llm ? llm.models : [] }
+				llm: { configured: Boolean(llm), models: llm ? llm.models : [] },
+				portals: { available: Boolean(portals) }
 			});
 		}
 
@@ -336,6 +341,10 @@ export function createBridgeServer({
 			return send(res, 200, result);
 		}
 
+		if (await handlePortalRequest({ req, res, url, path, portals, send, sendBytes, readJson })) {
+			return;
+		}
+
 		return send(res, 404, { error: 'not found' });
 	}
 
@@ -386,7 +395,9 @@ export function createBridgeServer({
 				send(res, status, {
 					error: error.message,
 					code: error.code ?? null,
-					...(Array.isArray(error.attempts) ? { attempts: error.attempts } : {})
+					...(Array.isArray(error.attempts) ? { attempts: error.attempts } : {}),
+					...(error.step ? { step: error.step } : {}),
+					...(error.reason ? { reason: error.reason } : {})
 				});
 			}
 		}

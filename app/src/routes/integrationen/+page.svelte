@@ -7,6 +7,7 @@
 	import { extractionTotals } from '$lib/activity/events.js';
 	import { integer } from '$lib/receipts/how.js';
 	import { describeMoment } from '$lib/moment.js';
+	import PortalsCard from '$lib/portals/PortalsCard.svelte';
 	import { app, currentStore, refreshNow, runMatchingNow } from '$lib/session.svelte.js';
 	import { createBridgeClient, DEFAULT_BRIDGE_URL } from '$lib/bridge/client.js';
 	import { getSetting, setSetting } from '$lib/store/settings.js';
@@ -517,5 +518,7 @@
 		</ul>
 	</section>
 {/if}
+
+<PortalsCard url={bridgeUrl} {token} />
 
 <MatchingSettings />

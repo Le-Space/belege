@@ -8,6 +8,8 @@ import { createBridgeServer } from './server.js';
 import { createMailClient } from './mail/imap.js';
 import { domainOf } from './mail/auth-results.js';
 import { createExtractor } from './llm/extract.js';
+import { buildRecipes, createPortalManager, keychainAccount } from './portals/index.js';
+import { dirname, join } from 'node:path';
 
 export { createBridgeServer, LOOPBACK } from './server.js';
 export { createPairing, hashToken } from './pairing.js';
@@ -23,6 +25,7 @@ export * from './normalize.js';
 export { createMailClient } from './mail/imap.js';
 export { createExtractor, checkExtraction } from './llm/extract.js';
 export { redact } from './llm/redact.js';
+export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
 
 /**
  * @param {object} [options]
@@ -30,6 +33,8 @@ export { redact } from './llm/redact.js';
  * @param {import('./keychain.js').Keychain} [options.keychain] the Hibiscus password
  * @param {import('./keychain.js').Keychain} [options.mailKeychain] the mail password
  * @param {import('./keychain.js').Keychain} [options.llmKeychain] the LLM API key
+ * @param {(portalId: string) => import('./keychain.js').Keychain} [options.portalKeychain] a portal's password
+ * @param {'auto' | 'always'} [options.portalHeadless] `always` for tests: no window ever opens
  * @param {boolean} [options.forcePairingCode] issue a code even when already paired
  * @param {number} [options.port] overrides the config
  * @param {(line: string) => void} [options.print] the console; gets the pairing code
@@ -40,6 +45,8 @@ export async function startBridge({
 	keychain = macosKeychain(),
 	mailKeychain = macosKeychain({ account: 'imap' }),
 	llmKeychain = macosKeychain({ account: 'llm' }),
+	portalKeychain = (id) => macosKeychain({ account: keychainAccount(id) }),
+	portalHeadless = 'auto',
 	forcePairingCode = false,
 	port,
 	print = (line) => console.log(line),
@@ -88,6 +95,25 @@ export async function startBridge({
 		: null;
 	if (!llm) log('No LLM is set up: run `pnpm setup:llm`.');
 
+	// Customer portals: a browser with a profile per portal next to bridge.json.
+	const portals = createPortalManager({
+		recipes: buildRecipes(config.portals),
+		dir: join(dirname(configPath), 'portals'),
+		headless: portalHeadless,
+		visibleFetch: (id) => config.portals[id]?.headless === false,
+		credentials: async (id) => {
+			const p = config.portals[id];
+			if (!p?.username || !p.passwordStored) return null;
+			try {
+				return { username: p.username, password: await portalKeychain(id).read() };
+			} catch {
+				log(`portal ${id}: no password in the keychain; the user logs in by hand`);
+				return null;
+			}
+		},
+		log
+	});
+
 	const bridge = createBridgeServer({
 		config,
 		pairing,
@@ -102,6 +128,7 @@ export async function startBridge({
 				return false;
 			}
 		},
+		portals,
 		log
 	});
 	const address = await bridge.listen({ port: port ?? config.bridge.port });
@@ -114,5 +141,15 @@ export async function startBridge({
 		print('Enter it in the app under Integrationen → Bridge koppeln.');
 	}
 
-	return { ...bridge, address, config, pairing };
+	return {
+		...bridge,
+		address,
+		config,
+		pairing,
+		portals,
+		close() {
+			portals.close();
+			return bridge.close();
+		}
+	};
 }

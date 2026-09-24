@@ -3,7 +3,8 @@ name: CI
 # The app and the bridge. The phase-0 spikes under spikes/ talk to a local
 # Hibiscus, a mail server and an LLM API; they are not run here. The bridge
 # tests and the app's specs use fakes only: a fake Hibiscus, a fake IMAP
-# server (hoodiecrow) with a synthetic mailbox, a fake OpenAI-compatible API.
+# server (hoodiecrow) with a synthetic mailbox, a fake OpenAI-compatible API,
+# and a fake customer portal that the bridge's Chromium (Playwright) logs in to.
 
 permissions:
   contents: read
@@ -34,6 +35,9 @@ jobs:
           cache: pnpm
       - name: Install
         run: pnpm install --frozen-lockfile --filter @belege/bridge...
+      # The portal tests drive a real headless Chromium against a fake portal.
+      - name: Install Chromium for the portal tests
+        run: pnpm --filter @belege/bridge exec playwright install --with-deps --only-shell chromium
       - name: Format
         run: pnpm --filter @belege/bridge lint
       - name: Tests

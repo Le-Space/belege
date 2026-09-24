@@ -54,7 +54,8 @@
 		{ id: 'bridge', status: 'whenPaired' },
 		{ id: 'camt', status: 'active' },
 		{ id: 'enableBanking', status: 'notYet', planned: true },
-		{ id: 'deepseek', status: 'whenSetUp' }
+		{ id: 'deepseek', status: 'whenSetUp' },
+		{ id: 'portals', status: 'whenSetUp' }
 	];
 
 	const chip = {

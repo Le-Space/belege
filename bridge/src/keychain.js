@@ -3,6 +3,7 @@
 //   service `belege-bridge`, account `hibiscus`  the Jameica master password
 //                            account `imap`      the mail password or auth token
 //                            account `llm`       the LLM provider's API key
+//                            account `portal:<id>` a customer portal's password (optional)
 //
 // The password never goes through argv (where `ps` would show it): reading
 // uses `security find-generic-password -w`, which prints it on stdout;
@@ -24,7 +25,8 @@ export const ACCOUNT = 'hibiscus';
 export const ACCOUNTS = /** @type {const} */ ({
 	hibiscus: { what: 'Hibiscus password', setup: 'setup:hibiscus' },
 	imap: { what: 'mail password', setup: 'setup:mail' },
-	llm: { what: 'LLM API key', setup: 'setup:llm' }
+	llm: { what: 'LLM API key', setup: 'setup:llm' },
+	'portal:vodafone': { what: 'Vodafone password', setup: 'setup:portal vodafone' }
 });
 
 /** @param {string} account */

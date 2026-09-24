@@ -2,7 +2,8 @@
 
 A small local service on `127.0.0.1` that does what the browser app cannot: read accounts and
 transactions from a local [Hibiscus](https://github.com/willuhn/hibiscus) over XML-RPC, read receipt
-mails over IMAP, and ask an LLM to read a receipt. The app calls it with a bearer token it got by
+mails over IMAP, ask an LLM to read a receipt, and download invoices from a customer portal
+([Kundenportale](#kundenportale)) with a browser of its own. The app calls it with a bearer token it got by
 pairing; the bridge hands out only accounts whose IBAN ends in a suffix you allowed, only mails
 addressed to the accounting alias, and sends only redacted text to the LLM.
 
@@ -46,7 +47,9 @@ addressed to the accounting alias, and sends only redacted text to the LLM.
 | Hibiscus master password | macOS keychain, service `belege-bridge`, account `hibiscus` |
 | IMAP password or auth token | macOS keychain, service `belege-bridge`, account `imap` |
 | LLM API key | macOS keychain, service `belege-bridge`, account `llm` |
-| Host, port, pinned SHA-256, IBAN suffixes, app origins, hashes of paired tokens; IMAP host/port/user, accounting address; LLM URL, models, terms to black out | `~/.config/belege/bridge.json` (0600; `BELEGE_BRIDGE_CONFIG` overrides) |
+| A portal password (optional) | macOS keychain, service `belege-bridge`, account `portal:vodafone` |
+| A portal's browser profile (cookies, the live session) and `state.json` (last login, last run) | `~/.config/belege/portals/<portal>/` (0700), next to `bridge.json` |
+| Host, port, pinned SHA-256, IBAN suffixes, app origins, hashes of paired tokens; IMAP host/port/user, accounting address; LLM URL, models, terms to black out; a portal's user name | `~/.config/belege/bridge.json` (0600; `BELEGE_BRIDGE_CONFIG` overrides) |
 | The bearer token | the app's encrypted store (`settings`), never on the bridge's disk |
 
 ## API
@@ -56,7 +59,7 @@ All JSON, `127.0.0.1:8765` by default. Everything except `/health` and `/pair` n
 
 | | |
 |---|---|
-| `GET /health` | `{ ok, paired, pairingOpen, hibiscus: { configured }, mail: { configured, accountingAddress }, llm: { configured, models } }` |
+| `GET /health` | `{ ok, paired, pairingOpen, hibiscus: { configured }, mail: { configured, accountingAddress }, llm: { configured, models }, portals: { available } }` |
 | `POST /pair` `{ code }` | `{ token }`, once per code |
 | `POST /unpair` | forgets the calling token; `{ ok: true }` |
 | `GET /hibiscus/accounts` | allowed accounts: `id, ibanMasked, ibanLast4, name, currency, balanceCents, balanceDate` |
@@ -66,6 +69,15 @@ All JSON, `127.0.0.1:8765` by default. Everything except `/health` and `/pair` n
 | `GET /mail/search?text=&amount=&around=YYYY-MM-DD&days=14` | the targeted search in the whole mailbox (Junk included, Trash and Drafts not): the same shape plus `matched` (`"text"`, or which amount spelling) |
 | `GET /llm/status` | `{ configured, provider, models { primary, fallback }, keyConfigured, redactTerms, mail { authServId } }`: the provider's host only (no path, query or `user:password@`), whether the keychain holds a key (yes/no, never the key), and how many terms are blacked out (a count, never the terms) |
 | `POST /extract` `{ text, hints: { subject, from, fileName, receivedAt }, source: { mailId }, confirmedByUser }` | `{ extraction, model, usage { prompt, completion, reasoning }, ms, attempts [{ model, ok, reason, ms, usage }], fallback { used, reason }, redactions { terms, iban, email, street, postcode, total }, sentText }`; 403 `SENDER_UNVERIFIED` for a mail whose sender did not pass, 502 `EXTRACT_FAILED` with the attempts when no model gave a usable answer |
+| `GET /portals` | every portal the bridge knows: `id, name, recipeVersion, state, lastLoginAt, lastRun { at, ok, count, code, step }, running`, with `state` one of `logged-in`, `needs-login`, `never`; starts no browser |
+| `POST /portals/:id/login` | opens the visible window and answers once logged in: `{ state: 'logged-in' }`; 408 `PORTAL_LOGIN_TIMEOUT` after 10 minutes, 409 `PORTAL_CANCELLED` when the window was closed or the login cancelled |
+| `POST /portals/:id/cancel` | ends a waiting login |
+| `POST /portals/:id/fetch?since=YYYY-MM` `{ known: [invoice ids] }` | lists the invoices from that month on and downloads those not in `known`: `{ listed, skipped, invoices [{ id, date, period, amountCents, invoiceNumber, fileName, size, sha256 }], errors [{ id, code }] }`; 409 `PORTAL_NEEDS_LOGIN` (with `reason`: `never`, `expired`, `otp`, `captcha`, …) when nobody is logged in |
+| `GET /portals/:id/invoice?ref=<invoice id>` | the PDF's bytes, from the last fetch (kept in memory only) |
+| `POST /portals/:id/logout` | logs out on the portal when it can, deletes the profile: `{ state: 'never' }` |
+
+All portal calls answer 409 `PORTAL_BUSY` while another run of the same portal is going on, and 502
+`PORTAL_STEP_FAILED` with `step` when the portal did not look as the recipe expects.
 
 ### Mail
 
@@ -114,6 +126,88 @@ All JSON, `127.0.0.1:8765` by default. Everything except `/health` and `/pair` n
   changed with `pnpm setup:llm`, not from the browser: a key typed into the page would be readable
   by any script that ever runs there.
 
+## Kundenportale
+
+Invoices that only exist in a customer portal (first: **Vodafone MeinKabel**, i.e. MeinVodafone
+for cable customers) are fetched by a browser the bridge starts on this Mac: Playwright's own
+Chromium, **not** your everyday Chrome, with one persistent profile per portal. No cloud browser,
+no LLM in the login, no screenshots anywhere.
+
+### Setup and the first login
+
+1. Install the browser once: `pnpm --filter @belege/bridge exec playwright install chromium`.
+2. Optional: `pnpm setup:portal vodafone` stores your user name (in `bridge.json`) and the password
+   (hidden prompt, keychain account `portal:vodafone`). Without it you type both in the window at
+   every login. Restart the bridge.
+3. In the app: Integrationen → Kundenportale → **Anmelden**. A browser window opens on the portal's
+   login page. With a stored password the bridge fills the form and ticks "Angemeldet bleiben";
+   the cookie banner gets "Nur notwendige". A one-time code (SMS, e-mail) or a bot check is always
+   yours: type it in the window. The bridge waits up to 10 minutes until it sees you logged in,
+   then closes the window. Closing the window yourself, or "Abbrechen" in the app, cancels.
+4. **Rechnungen holen** (from a month on): headless on the saved session. The app sends the ids it
+   already has, the bridge lists the invoices, downloads only the new ones, checks every file is a
+   PDF by its bytes (≤ 15 MB) and hands them to the app, which seals them as receipts of source
+   "Vodafone MeinKabel" (`sourceRef` `vodafone:<invoice id>`, no duplicates by that or by SHA-256),
+   reads them with the LLM when one is set up, and matches them to bookings.
+5. When the session has expired, the bridge logs in again headless with the stored password if
+   that works without you; otherwise the app shows "Anmeldung abgelaufen" and you press
+   **Anmelden** again.
+6. **Abmelden** logs out on the portal when it can and deletes the profile.
+
+### The recipe, the first real run, and when the portal changes
+
+A recipe is **data**: `src/portals/recipes/vodafone-meinkabel.json` holds the paths, the selectors
+(German labels first: `Anmelden`, `Rechnungen`, `Rechnung herunterladen`, `PDF`, `Angemeldet
+bleiben`, each with fallbacks), the login steps (`click`, `fill`, `check`, `stopIf`, `outcome`;
+the password step is `{ "value": "$password", "secret": true }`) and the extraction rules. The
+engine (`src/portals/recipe.js`) has nothing portal-specific in it and refuses a recipe it cannot
+run, saying where. Invoices are listed by the first strategy that works:
+
+1. **api**: the JSON endpoints the portal's own web client calls after login (for MeinVodafone,
+   per public open-source downloaders: `api.vodafone.de/meinvodafone/v2/user/userInfo` → cable
+   contracts → `…/customer/urn:vf-de:cable:can:<contract>/invoice` → `…/invoiceDocument/<id>` as
+   base64). The bridge does not log in to the API itself: it reuses the `Authorization` and
+   `x-api-key` headers the logged-in page sent to that host during the same browser run (in
+   memory only, never logged or stored), and only for the paths in the recipe.
+2. **dom**: the download controls on the documents page
+   (`/meinvodafone/services/notifizierung/dokumente`), and the date, month, amount and invoice
+   number read from the text around each one; plain links are fetched with the browser's cookies,
+   anything else is clicked and the download taken.
+
+The recipe was written **without visiting the live portal** (`"verified": false`, shown in
+`GET /portals` as "unverified"). The tests run it against a fake portal built from the same
+assumptions, so they prove the machinery, not the paths and selectors. Expect the first real run
+to need an edit:
+
+- When something does not fit, the app says which **step** failed (e.g. `login.username`,
+  `invoices.open`, `invoices.download`) and the bridge logs `portal vodafone: step … failed
+  (TimeoutError)` and which strategy it used (`strategy api: 12 invoice(s)` or `strategy api
+  unavailable (401)`) – never page content, a user name, a password or a token. Report the step
+  and what you saw in the window; if you edit the JSON yourself, bump `version`.
+- Portals often end sessions after some days or when the browser closes; if you are asked to log
+  in every time, "Angemeldet bleiben" may be named differently (the `remember` selectors).
+- Portals may treat a headless browser as a bot. If fetching fails where the window works, set
+  `"headless": false` under `portals.vodafone` in `bridge.json`: fetches then run in a visible
+  window too.
+
+**Planned: "Portal aufzeichnen".** Because a recipe is steps + selectors + rules as data, a later
+mode can record the user's clicks in the visible window (Playwright) and write or repair a recipe:
+each action one step, each clicked element one selector. Password fields are never recorded; they
+become the `$password` step marked `secret`, filled from the keychain.
+
+### What is stored, and the risks
+
+- The **profile holds a live session**: anyone who can use your macOS account (or read
+  `~/.config/belege/portals/`) can use your portal account without the password until the
+  session ends. Keep FileVault on; **Abmelden** deletes the profile. The directories are 0700.
+- The optional password is in the keychain and is only ever typed into the portal's login form by
+  Playwright; it is not logged, not in any response and not sent anywhere else.
+- Downloads are kept in the bridge's memory until the app has taken them; Playwright's own
+  download folder is temporary. `state.json` holds times and counts only.
+- **Terms of service**: a portal's terms may restrict automated access, even to your own account.
+  The connector only does what you would do by hand (log in, open the invoice list, download
+  PDFs), at your click, at human pace – but check the terms of your provider.
+
 ## Threat model
 
 - **Other machines**: the bridge binds `127.0.0.1` only and refuses to start on anything else;
@@ -136,17 +230,26 @@ All JSON, `127.0.0.1:8765` by default. Everything except `/health` and `/pair` n
 - **Look-alike phishing and malicious PDFs**: mails whose sender did not pass DKIM/SPF are neither
   sent to the LLM (the bridge refuses) nor previewed in the app (pdf.js, with eval off) until you
   confirm them. The bridge hands out only PDFs and images, by their bytes.
+- **Customer portals**: the browser talks to the portal's own site only (a base URL in
+  `bridge.json` is honoured for loopback test servers alone); a download is accepted only as a PDF
+  by its bytes. The browser profile with the live session is the new asset here, see
+  [Kundenportale](#kundenportale).
 - **Not covered**: other processes running as your user can read the config and ask the keychain
-  (macOS may prompt); a stolen app token works until you remove its hash from `bridge.json`.
+  (macOS may prompt), and can use a portal session from its profile; a stolen app token works
+  until you remove its hash from `bridge.json`.
 
 ## Development
 
 ```bash
 pnpm test:bridge            # node:test: a fake HTTPS Hibiscus, a fake IMAP server (hoodiecrow)
-                            # with a synthetic mailbox, a fake OpenAI-compatible API
+                            # with a synthetic mailbox, a fake OpenAI-compatible API, and a fake
+                            # Kundenportal driven by a real headless Chromium
+pnpm --filter @belege/bridge exec playwright install chromium   # once, for the portal tests
 pnpm --filter @belege/bridge lint
 ```
 
 `--test-mode` (used by the app's E2E suite) takes the secrets from `BELEGE_BRIDGE_TEST_PASSWORD`,
-`BELEGE_BRIDGE_TEST_IMAP_PASSWORD` and `BELEGE_BRIDGE_TEST_LLM_KEY` instead of the keychain and
-refuses the real config file. No test talks to a real mail server, Hibiscus or LLM.
+`BELEGE_BRIDGE_TEST_IMAP_PASSWORD`, `BELEGE_BRIDGE_TEST_LLM_KEY` and
+`BELEGE_BRIDGE_TEST_PORTAL_PASSWORD` instead of the keychain, never opens a portal window
+(headless only), and refuses the real config file. No test talks to a real mail server, Hibiscus,
+LLM or portal.

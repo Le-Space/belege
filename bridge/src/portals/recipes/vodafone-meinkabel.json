@@ -1,0 +1,157 @@
+{
+	"$comment": [
+		"Recipe: Vodafone MeinKabel (the cable customers' part of MeinVodafone on www.vodafone.de).",
+		"Data only: the engine in ../recipe.js runs it. Edit this file when the portal changes; bump version.",
+		"UNVERIFIED: written without visiting the live portal, from public knowledge and from reading two",
+		"open-source downloaders (cbrand/vodafone-billing-downloader, heeplr/document-dl). Every path,",
+		"endpoint and selector below may need an edit on the first real run; the bridge logs the step that failed.",
+		"Regular expressions are { re, flags }; values '$username' and '$password' come from bridge.json and",
+		"the keychain; a step with secret: true is never logged and never recorded."
+	],
+	"id": "vodafone",
+	"name": "Vodafone MeinKabel",
+	"version": "2026-09-24.2",
+	"verified": false,
+	"baseUrl": "https://www.vodafone.de",
+	"paths": {
+		"login": "/meinvodafone/account/login",
+		"invoices": "/meinvodafone/services/notifizierung/dokumente",
+		"logout": "/logout"
+	},
+	"selectors": {
+		"cookieReject": [
+			{
+				"role": "button",
+				"name": { "re": "^(Nur notwendige|Nur erforderliche|Alle ablehnen|Ablehnen)", "flags": "i" }
+			},
+			{ "css": "#onetrust-reject-all-handler" },
+			{ "css": "#dip-consent-summary-reject-all" }
+		],
+		"username": [
+			{ "css": "input#txtUsername" },
+			{ "css": "input[name=\"username\"]" },
+			{ "css": "input[autocomplete=\"username\"]" },
+			{ "label": { "re": "Benutzername|E-Mail-Adresse|Login-Name", "flags": "i" } }
+		],
+		"password": [
+			{ "css": "input#txtPassword" },
+			{ "css": "input[name=\"password\"]" },
+			{ "css": "input[type=\"password\"]" }
+		],
+		"remember": [
+			{ "label": { "re": "Angemeldet bleiben|Eingeloggt bleiben|Login merken", "flags": "i" } }
+		],
+		"submit": [
+			{ "role": "button", "name": { "re": "^(Anmelden|Einloggen|Login|Weiter)$", "flags": "i" } },
+			{ "css": "button[type=\"submit\"]" }
+		],
+		"otp": [
+			{ "css": "input[autocomplete=\"one-time-code\"]" },
+			{
+				"label": {
+					"re": "Sicherheitscode|Bestätigungscode|Einmalcode|SMS-Code|Verifizierungscode",
+					"flags": "i"
+				}
+			}
+		],
+		"captcha": [
+			{ "css": "iframe[src*=\"captcha\" i]" },
+			{ "css": "iframe[title*=\"reCAPTCHA\" i]" },
+			{ "css": "[class*=\"captcha\" i]" },
+			{ "text": { "re": "kein Roboter|Sicherheitsprüfung|Bot-Schutz", "flags": "i" } }
+		],
+		"loginError": [
+			{
+				"text": {
+					"re": "(Benutzername|Passwort|Zugangsdaten|Login-Daten).{0,40}(falsch|ungültig|nicht korrekt|stimmen nicht)",
+					"flags": "i"
+				}
+			}
+		],
+		"loggedIn": [
+			{ "css": ".contract-info" },
+			{ "css": "a[href*=\"logout\" i]" },
+			{ "role": "link", "name": { "re": "^(Abmelden|Ausloggen|Logout)$", "flags": "i" } },
+			{ "role": "button", "name": { "re": "^(Abmelden|Ausloggen|Logout)$", "flags": "i" } }
+		],
+		"logout": [
+			{ "role": "link", "name": { "re": "^(Abmelden|Ausloggen|Logout)$", "flags": "i" } },
+			{ "role": "button", "name": { "re": "^(Abmelden|Ausloggen|Logout)$", "flags": "i" } },
+			{ "css": "a[href*=\"logout\" i]" }
+		],
+		"invoicesNav": [
+			{ "role": "link", "name": { "re": "^(Meine )?(Rechnungen|Dokumente)$", "flags": "i" } },
+			{
+				"role": "link",
+				"name": { "re": "Rechnungen (ansehen|anzeigen)|Rechnungsübersicht|Postfach", "flags": "i" }
+			}
+		],
+		"showMore": [
+			{
+				"role": "button",
+				"name": {
+					"re": "(Weitere|Ältere|Mehr) (Rechnungen |Dokumente )?anzeigen|Mehr laden",
+					"flags": "i"
+				}
+			}
+		]
+	},
+	"login": [
+		{ "do": "click", "target": "cookieReject", "optional": true },
+		{ "do": "stopIf", "target": "captcha", "outcome": "captcha" },
+		{ "do": "fill", "target": "username", "value": "$username" },
+		{ "do": "fill", "target": "password", "value": "$password", "secret": true },
+		{ "do": "check", "target": "remember", "optional": true },
+		{ "do": "click", "target": "submit" },
+		{ "do": "outcome" }
+	],
+	"strategies": ["api", "dom"],
+	"api": {
+		"$comment": "The JSON endpoints the web client calls after login. The bridge sends the headers the logged-in page itself sent to this host (never logged, never stored); it logs in nothing by itself.",
+		"base": "https://api.vodafone.de",
+		"forwardHeaders": ["authorization", "x-api-key"],
+		"contracts": {
+			"url": "/meinvodafone/v2/user/userInfo",
+			"list": "userAccountVBO.cable",
+			"id": "id"
+		},
+		"invoices": {
+			"url": "/meinvodafone/v2/customer/urn:vf-de:cable:can:{contract}/invoice",
+			"customer": "customerId",
+			"list": "invoices",
+			"number": "number",
+			"date": "date",
+			"amount": "amount",
+			"documents": "documents",
+			"documentId": "documentId",
+			"documentPick": { "field": "category", "re": "rechnung|invoice|bill", "flags": "i" }
+		},
+		"document": {
+			"url": "/meinvodafone/v2/customer/{customer}/invoiceDocument/{document}",
+			"base64": "data"
+		}
+	},
+	"dom": {
+		"downloadControls": [{ "css": "[automation-id=\"documentsInboxes_download_btn\"]" }],
+		"downloadText": {
+			"re": "Rechnung herunterladen|herunterladen|Download|\\bPDF\\b",
+			"flags": "i"
+		},
+		"fields": {
+			"invoiceNumber": {
+				"re": "Rechnungs(?:nummer|nr\\.?)\\s*:?\\s*([A-Z0-9][A-Z0-9/-]{3,30})",
+				"flags": "i"
+			},
+			"amount": {
+				"re": "(?:Rechnungsbetrag|Betrag|Summe|Gesamt)\\s*:?\\s*(-?\\d{1,3}(?:\\.\\d{3})*,\\d{2})\\s*(?:€|EUR)",
+				"flags": "i"
+			},
+			"anyAmount": { "re": "(-?\\d{1,3}(?:\\.\\d{3})*,\\d{2})\\s*(?:€|EUR)", "flags": "" },
+			"date": { "re": "(\\d{2})\\.(\\d{2})\\.(\\d{4})", "flags": "" },
+			"period": {
+				"re": "(Januar|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)\\s+(\\d{4})",
+				"flags": "i"
+			}
+		}
+	}
+}

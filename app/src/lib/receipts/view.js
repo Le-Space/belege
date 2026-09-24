@@ -23,13 +23,14 @@ import { formatMonth } from '../bank/format.js';
 
 /**
  * The day a receipt belongs to: the document's own date once read, else the
- * day the mail arrived; an upload not yet read has none.
+ * day the mail arrived (or the date a portal lists for the invoice); an
+ * upload not yet read has none.
  *
  * @param {ReceiptLike} r
  * @returns {string | null} YYYY-MM-DD
  */
 export function receiptDate(r) {
-	const d = r.documentDate ?? (r.source === 'mail' ? r.receivedAt : null);
+	const d = r.documentDate ?? (r.source === 'mail' || r.source === 'portal' ? r.receivedAt : null);
 	return typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d) ? d.slice(0, 10) : null;
 }
 

@@ -16,7 +16,8 @@ import { writable } from 'svelte/store';
  */
 export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 2: receipts from the mailbox, and DeepSeek reading them (phase 1, step 3).
-export const CONSENT_VERSION = '2';
+// 3: customer portals (Vodafone) through a browser the bridge starts.
+export const CONSENT_VERSION = '3';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

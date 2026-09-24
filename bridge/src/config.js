@@ -3,8 +3,8 @@
 // Holds the Hibiscus host and port, the pinned certificate fingerprint, the
 // IBAN suffixes that may leave the bridge, the app origins CORS lets in, the
 // SHA-256 hashes of paired tokens (never a token), the mail server and the
-// accounting address, the LLM provider's URL and models, and the terms to
-// black out before text goes to it. No password, token or API key is here:
+// accounting address, the LLM provider's URL and models, the terms to
+// black out before text goes to it, and a customer portal's user name. No password, token or API key is here:
 // they live in the macOS keychain (keychain.js).
 
 import { chmod, mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
@@ -25,6 +25,7 @@ export function defaultConfigPath() {
  * @property {{ hash: string, createdAt: string }[]} pairedTokens
  * @property {MailConfig} mail
  * @property {LlmConfig} llm
+ * @property {Record<string, import('./portals/index.js').PortalConfig>} portals customer portals, by id
  */
 
 /**
@@ -79,7 +80,8 @@ export function defaultConfig() {
 		hibiscus: { host: '127.0.0.1', port: 8080, certSha256: null, ibanSuffixes: [] },
 		pairedTokens: [],
 		mail: defaultMailConfig(),
-		llm: defaultLlmConfig()
+		llm: defaultLlmConfig(),
+		portals: {}
 	};
 }
 
@@ -105,7 +107,11 @@ export function withDefaults(raw) {
 			...d.llm,
 			...(raw?.llm ?? {}),
 			redactTerms: Array.isArray(raw?.llm?.redactTerms) ? raw.llm.redactTerms.map(String) : []
-		}
+		},
+		portals:
+			raw?.portals && typeof raw.portals === 'object' && !Array.isArray(raw.portals)
+				? raw.portals
+				: {}
 	};
 }
 

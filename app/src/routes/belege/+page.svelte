@@ -1,8 +1,9 @@
 <script>
 	// Belege: sources on the left, receipts by month in the middle, the chosen
 	// one on the right with a preview and what was read from it. Receipts come
-	// from the accounting mailbox (through the bridge), from uploads and from a
-	// shared folder; every file is sealed before it is stored.
+	// from the accounting mailbox (through the bridge), from uploads, from a
+	// shared folder and from customer portals (Integrationen → Kundenportale);
+	// every file is sealed before it is stored.
 	import { onMount, tick } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { resolve } from '$app/paths';
@@ -42,6 +43,8 @@
 		savedFolder
 	} from '$lib/receipts/folder.js';
 	import { list, t } from '$lib/i18n/index.js';
+	import { portalSources, receiptSourceKey } from '$lib/portals/sources.js';
+	import { PORTAL_NAMES } from '$lib/portals/import.js';
 
 	/** @typedef {import('$lib/store/repository.js').StoredRecord} Receipt */
 
@@ -50,7 +53,7 @@
 	/** @type {{ mail: boolean, llm: boolean, address: string } | null} */
 	let bridgeInfo = $state(null);
 
-	/** @type {'all' | 'mail' | 'upload' | 'folder'} */
+	/** @type {string} 'all', 'mail', 'upload', 'folder' or `portal:<id>` */
 	let source = $state('all');
 	let query = $state('');
 	/** @type {string | null} */
@@ -86,7 +89,7 @@
 	let counts = $derived(sourceCounts(receipts));
 	let filtered = $derived(
 		receipts.filter(
-			(r) => (source === 'all' || r.source === source) && matchesReceiptSearch(r, query)
+			(r) => (source === 'all' || receiptSourceKey(r) === source) && matchesReceiptSearch(r, query)
 		)
 	);
 	let groups = $derived(groupReceiptsByMonth(filtered));
@@ -383,6 +386,11 @@
 		r.outgoing ? t('belege.verdict.outgoing') : t(`belege.verdict.${r.authVerdict ?? 'none'}`);
 
 	const sourceButtons = /** @type {const} */ (['all', 'mail', 'upload', 'folder']);
+	// A portal is listed once it has receipts.
+	let sourceList = $derived([
+		...sourceButtons.map((s) => ({ key: s, label: sourceLabel(s), count: counts[s] })),
+		...portalSources(receipts)
+	]);
 	/** @param {'all' | 'mail' | 'upload' | 'folder'} s */
 	function sourceLabel(s) {
 		if (s === 'all') return t('belege.sourceAll');
@@ -536,21 +544,21 @@
 				<ul
 					class="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:gap-1 lg:overflow-visible lg:pb-0"
 				>
-					{#each sourceButtons as s (s)}
+					{#each sourceList as s (s.key)}
 						<li class="shrink-0">
 							<button
 								type="button"
 								class="flex w-full items-baseline justify-between gap-2 rounded-md border px-3 py-2 text-left text-sm {source ===
-								s
+								s.key
 									? 'border-cyan-800 bg-surface shadow-sm dark:border-cyan'
 									: 'border-transparent hover:bg-surface/60'}"
-								aria-pressed={source === s}
-								onclick={() => (source = s)}
+								aria-pressed={source === s.key}
+								onclick={() => (source = s.key)}
 								data-testid="receipt-source"
-								data-source={s}
+								data-source={s.key}
 							>
-								<span class="min-w-0 truncate font-medium text-heading">{sourceLabel(s)}</span>
-								<span class="text-faint tabular-nums" data-testid="source-count">{counts[s]}</span>
+								<span class="min-w-0 truncate font-medium text-heading">{s.label}</span>
+								<span class="text-faint tabular-nums" data-testid="source-count">{s.count}</span>
 							</button>
 						</li>
 					{/each}
@@ -734,7 +742,11 @@
 								</dd>
 							{/if}
 							<dt class="text-faint">{t('belege.fields.source')}</dt>
-							<dd class="text-text">{t(`belege.sourceName.${selected.source}`)}</dd>
+							<dd class="text-text" data-testid="field-source">
+								{selected.source === 'portal'
+									? (PORTAL_NAMES[selected.portal] ?? t('belege.sourceName.portal'))
+									: t(`belege.sourceName.${selected.source}`)}
+							</dd>
 							{#if selected.source === 'mail'}
 								<dt class="text-faint">{t('belege.fields.from')}</dt>
 								<dd class="break-all text-text" data-testid="field-from">{selected.from}</dd>
