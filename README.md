@@ -18,5 +18,5 @@ read -s HIBISCUS_PASSWORD && export HIBISCUS_PASSWORD
 pnpm spike:hibiscus
 
 cp .env.example .env   # fill in IMAP_*
-pnpm spike:imap
+pnpm spike:imap -- --month 2026-08 --all-folders
 ```
