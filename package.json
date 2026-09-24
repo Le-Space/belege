@@ -7,7 +7,8 @@
   },
   "scripts": {
     "spike:hibiscus": "node spikes/hibiscus/probe.mjs",
-    "spike:imap": "node spikes/imap/probe.mjs"
+    "spike:imap": "node spikes/imap/probe.mjs",
+    "spike:llm-key": "node spikes/llm/check-key.mjs"
   },
   "devDependencies": {
     "fast-xml-parser": "^5.2.5",
