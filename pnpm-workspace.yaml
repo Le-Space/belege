@@ -1,1 +1,8 @@
 nodeLinker: isolated
+packages:
+  - app
+# Same pin as Le-Space/simple-todo: OrbitDB's sync needs gossipsub on libp2p v3.
+overrides:
+  '@libp2p/gossipsub': 16.1.0
+onlyBuiltDependencies:
+  - esbuild

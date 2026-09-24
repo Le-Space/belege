@@ -2,10 +2,17 @@
   "name": "belege",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.33.0",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
+    "dev": "pnpm --filter @belege/app dev",
+    "build": "pnpm --filter @belege/app build",
+    "check": "pnpm --filter @belege/app check",
+    "lint": "pnpm --filter @belege/app lint",
+    "test:unit": "pnpm --filter @belege/app test:unit",
+    "test:e2e": "pnpm --filter @belege/app test:e2e",
     "spike:hibiscus": "node spikes/hibiscus/probe.mjs",
     "spike:imap": "node spikes/imap/probe.mjs",
     "spike:llm-key": "node spikes/llm/check-key.mjs",

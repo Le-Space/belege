@@ -2,7 +2,17 @@
 
 Local-first bookkeeping helper: matches bank transactions (via [Hibiscus](https://github.com/willuhn/hibiscus)) with receipts from e-mail, folders and Telegram, and exports a monthly DATEV package. Runs in the browser; a small bridge on `127.0.0.1` does what a browser cannot (IMAP, Hibiscus XML-RPC, Telegram).
 
-## Status: phase 0 (feasibility spikes)
+## Status: phase 1, step 1
+
+The app lives in [`app/`](app/README.md): passkey identity, every record encrypted with a key from the passkey, stored locally in the browser (OrbitDB + Helia on IndexedDB). A navigation shell; bank import follows in step 2.
+
+```bash
+pnpm install
+pnpm dev
+pnpm lint && pnpm check && pnpm test:unit && pnpm test:e2e
+```
+
+## Phase 0 (feasibility spikes)
 
 | Spike | Question | State |
 |---|---|---|
