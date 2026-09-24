@@ -18,14 +18,16 @@ import https from 'node:https'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { XMLParser } from 'fast-xml-parser'
 
+// .env first: the constants below must see its values.
+try {
+  process.loadEnvFile(new URL('../../.env', import.meta.url))
+} catch {}
+
 const HOST = process.env.HIBISCUS_HOST ?? '127.0.0.1'
 const PORT = Number(process.env.HIBISCUS_PORT ?? 8080)
 const PASSWORD = process.env.HIBISCUS_PASSWORD
 const PINNED = process.env.HIBISCUS_CERT_SHA256?.toUpperCase()
 const days = Number(argValue('--days') ?? 90)
-try {
-  process.loadEnvFile(new URL('../../.env', import.meta.url))
-} catch {}
 const suffixes = (argValue('--iban-suffix') ?? process.env.HIBISCUS_IBAN_SUFFIX ?? '').split(',').map((x) => x.trim()).filter(Boolean)
 
 if (!PASSWORD) fail('HIBISCUS_PASSWORD is not set (the Jameica master password).')
