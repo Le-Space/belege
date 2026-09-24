@@ -2,11 +2,15 @@
   "name": "belege",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "spike:hibiscus": "node spikes/hibiscus/probe.mjs"
+    "spike:hibiscus": "node spikes/hibiscus/probe.mjs",
+    "spike:imap": "node spikes/imap/probe.mjs"
   },
   "devDependencies": {
-    "fast-xml-parser": "^5.2.5"
+    "fast-xml-parser": "^5.2.5",
+    "imapflow": "^2.0.6"
   }
 }

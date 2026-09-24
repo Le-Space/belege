@@ -8,7 +8,7 @@ Local-first bookkeeping helper: matches bank transactions (via [Hibiscus](https:
 |---|---|---|
 | `spikes/hibiscus` | Can we read accounts and transactions from a local Hibiscus over XML-RPC? | script ready, waiting for Hibiscus |
 | Revolut → Hibiscus | Does Revolut's CSV/CAMT export import into a Hibiscus offline account? | open |
-| IMAP | Can the bridge list and fetch receipt mails? | open |
+| `spikes/imap` | Can the bridge list receipt mails, and what do their attachments look like? | script ready, waiting for `.env` |
 | LLM extraction | How well does DeepSeek extract amount, date, invoice number from real receipts? | open |
 | DATEV → MonkeyOffice | Which EXTF fields and receipt links does MonkeyOffice import? | later |
 
@@ -16,4 +16,7 @@ Local-first bookkeeping helper: matches bank transactions (via [Hibiscus](https:
 pnpm install
 read -s HIBISCUS_PASSWORD && export HIBISCUS_PASSWORD
 pnpm spike:hibiscus
+
+cp .env.example .env   # fill in IMAP_*
+pnpm spike:imap
 ```
