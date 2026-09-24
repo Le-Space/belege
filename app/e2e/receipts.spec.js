@@ -287,6 +287,15 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	await expect(
 		receipts.filter({ hasText: RECEIPTS.wolkenfabrik.vendor }).getByTestId('receipt-status')
 	).toHaveText('Nicht zugeordnet');
+	// On a phone: no sideways scrolling, the list and the detail stacked.
+	await page.setViewportSize({ width: 375, height: 812 });
+	await expect(detail.getByTestId('preview-pdf')).toBeVisible();
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+		true
+	);
+	await page.screenshot({ path: test.info().outputPath('belege-phone.png'), fullPage: true });
+	await page.setViewportSize({ width: 1280, height: 720 });
+
 	await tab('Home').click();
 	await expect(page.getByTestId('count-receipts')).toHaveText('7');
 

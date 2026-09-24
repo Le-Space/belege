@@ -3,7 +3,7 @@
 	// one on the right with a preview and what was read from it. Receipts come
 	// from the accounting mailbox (through the bridge), from uploads and from a
 	// shared folder; every file is sealed before it is stored.
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { resolve } from '$app/paths';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
@@ -102,6 +102,18 @@
 			bridgeInfo = null;
 		}
 	});
+
+	/** @type {HTMLElement | undefined} */
+	let detailPanel = $state();
+
+	/** On a phone the detail sits under the list: bring it into view. */
+	async function select(/** @type {string} */ id) {
+		selectedId = id;
+		if (!window.matchMedia('(min-width: 1024px)').matches) {
+			await tick();
+			detailPanel?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+		}
+	}
 
 	/** @param {unknown} error */
 	const message = (error) => (error instanceof Error ? error.message : String(error));
@@ -489,7 +501,9 @@
 			{t('belege.empty')}
 		</p>
 	{:else}
-		<div class="mt-4 grid gap-4 lg:grid-cols-[11rem_minmax(0,1fr)_minmax(0,20rem)]">
+		<div
+			class="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[11rem_minmax(0,1fr)_minmax(0,20rem)]"
+		>
 			<nav aria-label={t('belege.sources')}>
 				<ul
 					class="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:gap-1 lg:overflow-visible lg:pb-0"
@@ -554,7 +568,7 @@
 											? 'bg-surface-2'
 											: ''}"
 										aria-current={selectedId === r.id ? 'true' : undefined}
-										onclick={() => (selectedId = r.id)}
+										onclick={() => select(r.id)}
 										data-testid="receipt"
 										data-source={r.source}
 										data-status={r.status}
@@ -601,7 +615,12 @@
 				{/each}
 			</section>
 
-			<aside aria-label={t('belege.detail')} class="min-w-0" data-testid="receipt-detail">
+			<aside
+				aria-label={t('belege.detail')}
+				class="min-w-0 scroll-mt-4"
+				bind:this={detailPanel}
+				data-testid="receipt-detail"
+			>
 				{#if !selected}
 					<p class="{card} px-5 py-4 text-sm text-faint">{t('belege.chooseOne')}</p>
 				{:else}
