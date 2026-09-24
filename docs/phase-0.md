@@ -86,3 +86,34 @@ payment reminder, a receipt, a bus and two train tickets, a credit-card statemen
 - An experimental Hibiscus plugin for the Revolut Business API exists (UB-GH/HibiscusRevolut,
   June 2026, untested, one star). It would hold API credentials for a bank account; do not use
   it without a review. The Revolut Business API can later be called by the bridge directly.
+
+## Hibiscus (GLS via FinTS)
+
+- Works: `hibiscus.xmlrpc.konto.find` and `hibiscus.xmlrpc.umsatz.list` over HTTPS with the
+  master password; the certificate is pinned. Only the `konto` and `umsatz` services are shared.
+- Plugins `jameica.webadmin`, `jameica.xmlrpc`, `hibiscus.xmlrpc` live in the repository
+  "Plattform-Erweiterungen" (`…/jameica/updates/extensions`), not in the default one.
+- The web server listens on all interfaces (`*:8080`) by default; `listener.http.address`
+  restricts it. With the macOS firewall off it is reachable from the LAN (password-protected).
+- One Hibiscus may hold private accounts too: filter by IBAN suffix before reading anything.
+- Formats: `betrag` and `saldo` as German strings (`-22,42`), `datum`/`valuta` ISO. `gvcode` is
+  empty; `art` carries the booking type (Basislastschrift, Überweisungsauftrag, Abschluss …).
+- `zweck_raw` carries what matching needs: invoice numbers, customer numbers, `EREF`, `MREF`,
+  `CRED` (creditor id) and the counterparty `IBAN`; `endtoendid` separately.
+
+## Matching (first try, spikes/matching)
+
+Score: amount 40, invoice number in the purpose text 50, customer number 20, vendor IBAN 15,
+vendor name 20, date window 10; penalties for far-off dates and for incoming money.
+
+- All 6 business receipts with a GLS booking matched, each with a clear lead.
+- The invoice number decides where amount and vendor cannot: Sage bills 7,47 € every month.
+  The invoice of 13.08. belongs to the debit of 17.09., the direct-debit notice to 20.08.
+- Cyberport (bank transfer) matched through the customer number we put in the reference.
+- Anthropic is paid by card from Revolut: no GLS match is right. The GLS side shows only the
+  transfer to our own Revolut account.
+- Bookings that need no receipt are recognisable: own transfers (counterparty is our own
+  company → neutral account 1360), bank fees (`Abschluss`, `Mehrwertsteuerbelastung`, receipt is
+  the statement), a shareholder loan.
+- Incoming payments name our outgoing invoice numbers ("Rechnung 2026-004"): customers are
+  matched from the Sent folder.
