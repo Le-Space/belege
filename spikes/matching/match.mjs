@@ -103,7 +103,10 @@ function days(iso) {
 }
 
 function parseAmount(v) {
-  return typeof v === 'number' ? v : Number(String(v).replace(/\./g, '').replace(',', '.'))
+  // Hibiscus mixes formats: betrag "-1.190,00" (German), saldo "1439.76" (dot decimal)
+  if (typeof v === 'number') return v
+  const s = String(v)
+  return Number(s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s)
 }
 
 async function newest(dir, prefix) {
