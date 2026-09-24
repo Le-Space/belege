@@ -56,9 +56,13 @@ jobs:
           node -e '
             const fs = require("fs");
             for (const f of ["package.json", "app/package.json"]) {
-              const p = JSON.parse(fs.readFileSync(f, "utf8"));
+              const text = fs.readFileSync(f, "utf8");
+              const p = JSON.parse(text);
               p.version = process.env.VERSION;
-              fs.writeFileSync(f, JSON.stringify(p, null, 2) + "\n");
+              // Keep the file's own indentation (app/ uses tabs, the root two spaces):
+              // prettier checks it, and a whole-file reformat collides with every change.
+              const indent = /^\{\n(\s+)"/.exec(text)?.[1] ?? "  ";
+              fs.writeFileSync(f, JSON.stringify(p, null, indent) + "\n");
             }
             const today = new Date().toISOString().slice(0, 10);
             const log = fs.readFileSync("CHANGELOG.md", "utf8").replace(
