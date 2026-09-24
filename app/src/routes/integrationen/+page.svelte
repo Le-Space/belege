@@ -1,7 +1,8 @@
 <script>
 	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { app, currentStore, refreshNow } from '$lib/session.svelte.js';
+	import MatchingSettings from '$lib/MatchingSettings.svelte';
+	import { app, currentStore, refreshNow, runMatchingNow } from '$lib/session.svelte.js';
 	import { createBridgeClient, DEFAULT_BRIDGE_URL } from '$lib/bridge/client.js';
 	import { getSetting, setSetting } from '$lib/store/settings.js';
 	import { syncHibiscus } from '$lib/bank/hibiscus-sync.js';
@@ -151,6 +152,7 @@
 			}
 			syncResult = totals;
 			await refreshNow();
+			await runMatchingNow();
 		} catch (error) {
 			syncError = error instanceof Error ? error.message : String(error);
 		} finally {
@@ -179,6 +181,7 @@
 				}
 			}
 			await refreshNow();
+			await runMatchingNow();
 		} catch (error) {
 			camtError = error instanceof Error ? error.message : String(error);
 		} finally {
@@ -406,3 +409,5 @@
 		</ul>
 	</section>
 {/if}
+
+<MatchingSettings />

@@ -80,7 +80,7 @@ export default {
 			technical: [
 				'Aus der PRF-Antwort des Passkeys leitet HKDF-SHA-256 den AES-GCM-Schlüssel ab, mit dem jede Datenbank versiegelt ist (info belege/db-key/v1), und die Namen der Datenbanken (belege/db-name/v1:<Sammlung>), damit sich keine Adresse aus der DID erraten lässt. Nichts davon wird gespeichert.',
 				'Kein privater Schlüssel liegt auf dem Gerät: Den OrbitDB-Signaturschlüssel (secp256k1) leitet der Identity-Provider bei jedem Entsperren aus derselben PRF-Antwort ab. Er lebt nur im Arbeitsspeicher dieser Sitzung.',
-				'Gespeichert werden die OrbitDB-Dokumentdatenbanken transactions, receipts, partners, accounts und settings, auf Helia mit LevelBlockstore und LevelDatastore in IndexedDB (belege/helia-blocks, belege/helia-data, belege/orbitdb). Jeder Eintrag ist mit AES-GCM verschlüsselt, Belegdateien mit einem eigenen Schlüssel (belege/blob-key/v1).',
+				'Gespeichert werden die OrbitDB-Dokumentdatenbanken transactions, receipts, partners, accounts, settings, matches und questions, auf Helia mit LevelBlockstore und LevelDatastore in IndexedDB (belege/helia-blocks, belege/helia-data, belege/orbitdb). Jeder Eintrag ist mit AES-GCM verschlüsselt, Belegdateien mit einem eigenen Schlüssel (belege/blob-key/v1).',
 				'Im localStorage liegt nur Öffentliches: die Angaben zum Passkey (Credential-ID, öffentlicher Schlüssel, DID, PRF-Eingabe), die Signatur des Passkeys über das Identitätsdokument und drei Merker dieser Seite (Hinweis gelesen, Hell/Dunkel, Technisch).'
 			]
 		},
@@ -184,10 +184,121 @@ export default {
 		identity: 'Deine Identität',
 		identityHint:
 			'Die DID ist der öffentliche Schlüssel deines Passkeys. Sie verrät nichts über deine Daten.',
+		agentTitle: 'Dein Beleg-Agent wartet auf dich',
+		agentKind: 'Rückfrage',
+		agentOpenOne: '1 offene Rückfrage',
+		agentOpenMany: '{count} offene Rückfragen',
+		agentNone: 'Keine offenen Rückfragen – alles zugeordnet, was sich zuordnen lässt.',
+		agentProgress: '{done} von {total} erledigt',
+		agentAnswer: 'Rückfragen beantworten',
+		coverage: 'Zahlungen mit Beleg',
+		coverageText: '{covered} von {count} ({percent} %)',
+		matchRun: 'Abgleich starten',
+		matchRunning: 'Gleiche ab …',
+		matchResult: 'Abgleich: {sure} sicher zugeordnet · {questions}',
+		matchFailed: 'Der Abgleich ist fehlgeschlagen.',
 		technical: [
-			'Die Bücher sind fünf OrbitDB-Dokumentdatenbanken (transactions, receipts, partners, accounts, settings), jeder Eintrag mit AES-GCM versiegelt; Beträge in ganzen Cent, gelöscht wird weich (deleted).',
+			'Die Bücher sind sieben OrbitDB-Dokumentdatenbanken (transactions, receipts, partners, accounts, settings, matches, questions), jeder Eintrag mit AES-GCM versiegelt; Beträge in ganzen Cent, gelöscht wird weich (deleted).',
 			'Schlüssel und Datenbanknamen kommen per HKDF-SHA-256 aus der PRF-Antwort des Passkeys und werden bei jedem Entsperren neu abgeleitet.'
 		]
+	},
+	matching: {
+		reason: {
+			amount: 'Betrag',
+			'invoice-number': 'Rechnungsnummer',
+			'customer-number': 'Kundennummer',
+			iban: 'IBAN',
+			vendor: 'Anbieter',
+			'vendor-in-purpose': 'Anbieter im Zweck',
+			date: 'Datum',
+			'far-date': 'Datum weit weg',
+			'wrong-direction': 'Richtung falsch',
+			manual: 'von Hand'
+		},
+		badge: {
+			receipt: 'Beleg',
+			'no-receipt': 'Kein Beleg nötig',
+			'own-transfer': 'Eigene Umbuchung',
+			'bank-fee': 'Kontoauszug',
+			loan: 'Darlehen',
+			'rule-ignore': 'Ignoriert',
+			'rule-private': 'Privat'
+		},
+		kind: {
+			'own-transfer': 'Eigene Umbuchung (1360) – kein Beleg nötig',
+			'bank-fee': 'Bankentgelt – der Kontoauszug ist der Beleg',
+			loan: 'Darlehen – der Vertrag ist der Beleg',
+			'rule-ignore': 'Ignoriert nach eigener Anweisung: {reason}',
+			'rule-private': 'Privat nach eigener Anweisung: {reason}',
+			'no-receipt': 'Kein Beleg nötig: {reason}'
+		},
+		state: { auto: 'automatisch', confirmed: 'bestätigt' },
+		score: '{score} Punkte'
+	},
+	rueckfragen: {
+		title: 'Rückfragen',
+		intro:
+			'Wo der Abgleich nicht sicher ist, fragt er dich. Deine Antwort gilt: Ein späterer Abgleich überschreibt sie nicht.',
+		back: 'Zurück zu Home',
+		empty: 'Keine offenen Rückfragen.',
+		answered: 'Erledigt ({count})',
+		kind: {
+			'unsure-match': 'Welche Zahlung gehört zu diesem Beleg?',
+			'missing-receipt': 'Für diese Zahlung fehlt ein Beleg',
+			'missing-income': 'Zu diesem Zahlungseingang fehlt die Ausgangsrechnung',
+			'unknown-sender': 'Absender nicht bestätigt'
+		},
+		unknownSender:
+			'Diese E-Mail hat die Absenderprüfung (DKIM/SPF) nicht bestanden. Erst freigeben, dann wird sie ausgelesen und abgeglichen.',
+		candidates: 'Vorschläge',
+		receiptCandidates: 'Passende Belege',
+		noCandidates: 'Kein passender Beleg gefunden.',
+		choose: 'Das ist es',
+		none: 'Keiner davon',
+		noReceipt: 'Kein Beleg nötig',
+		reason: 'Grund',
+		reasonPlaceholder: 'z. B. Bewirtung, Beleg verloren',
+		ignore: 'Ignorieren',
+		confirmSender: 'Absender geprüft – freigeben',
+		openTx: 'Zahlung öffnen',
+		auto: 'hat sich erledigt',
+		answer: {
+			candidate: 'zugeordnet',
+			none: 'keiner davon',
+			'no-receipt': 'kein Beleg nötig',
+			ignore: 'ignoriert',
+			'confirm-sender': 'freigegeben',
+			auto: 'hat sich erledigt'
+		}
+	},
+	anweisungen: {
+		title: 'Eigene Anweisungen',
+		intro:
+			'Was der Abgleich über dich wissen muss: dein Firmenname, deine eigenen Konten und Zahlungen, die keinen Beleg brauchen.',
+		companyNames: 'Firmenname(n)',
+		companyHint:
+			'Ein Name je Zeile, z. B. „le space UG“. Zahlungen an diesen Namen gelten als eigene Umbuchung (Konto 1360), Rechnungen von ihm als deine Ausgangsrechnungen.',
+		ownIbans: 'Eigene IBANs',
+		ownIbansHint:
+			'Eine IBAN je Zeile. Zahlungen an diese Konten gelten als eigene Umbuchung. Konten aus den Büchern kennt der Abgleich schon: {list}.',
+		ownIbansNone: 'noch keine',
+		rules: 'Regeln',
+		noRules: 'Noch keine Regeln.',
+		field: 'Wo',
+		fieldCounterparty: 'Gegenpartei enthält',
+		fieldPurpose: 'Verwendungszweck enthält',
+		fieldAny: 'Gegenpartei oder Zweck enthält',
+		contains: 'Text',
+		action: 'Dann',
+		actionIgnore: 'ignorieren (kein Beleg nötig)',
+		actionPrivate: 'als privat markieren',
+		reason: 'Grund',
+		reasonPlaceholder: 'z. B. Steuerbescheid liegt vor',
+		add: 'Regel hinzufügen',
+		remove: 'Entfernen',
+		save: 'Speichern',
+		saved: 'Gespeichert. Der Abgleich läuft mit den neuen Anweisungen.',
+		ruleText: '{field} „{contains}“ → {action}'
 	},
 	belege: {
 		title: 'Belege',
@@ -275,6 +386,10 @@ export default {
 			outgoing: 'eigene E-Mail (Gesendet)'
 		},
 		sourceName: { mail: 'E-Mail', upload: 'Hochgeladen', folder: 'Ordner' },
+		linkedTo: 'Zugeordnet zu',
+		openTx: 'Zahlung öffnen',
+		reminderNote:
+			'Mahnung – ordnet keine Zahlung selbst zu. Bei Bedarf unter Zahlungen von Hand zuordnen.',
 		technical: [
 			'Jede Datei wird im Browser mit AES-GCM versiegelt (Schlüssel per HKDF aus der PRF-Antwort des Passkeys, info belege/blob-key/v1) und in 1-MiB-Blöcken in Helias Blockstore abgelegt. Doppelte erkennt die App am SHA-256 des Inhalts, der nur im versiegelten Datensatz steht.',
 			'Zum Auslesen geht nur die Textebene des PDFs an die Bridge. Die Bridge schwärzt Namen, IBANs, eigene E-Mail-Adressen, Straßen und Postleitzahlen und fragt dann das Sprachmodell; die Datei selbst verlässt den Browser nicht.'
@@ -302,7 +417,56 @@ export default {
 		coverageText: '{percent} % mit Beleg',
 		noMatches: 'Keine Treffer',
 		bookings: 'Buchungen',
-		noneForSelection: 'Keine Zahlungen für diese Auswahl.'
+		noneForSelection: 'Keine Zahlungen für diese Auswahl.',
+		open: 'Zahlung öffnen',
+		detail: {
+			title: 'Zahlung',
+			close: 'Schließen',
+			date: 'Buchungstag',
+			valueDate: 'Wertstellung',
+			amount: 'Betrag',
+			account: 'Konto',
+			bookingType: 'Buchungsart',
+			iban: 'IBAN der Gegenseite',
+			purpose: 'Verwendungszweck (vollständig)',
+			receipts: 'Beleg',
+			noReceipt: 'Noch kein Beleg zugeordnet.',
+			unlink: 'Zuordnung lösen',
+			assign: 'Beleg zuordnen',
+			suggestions: 'Vorschläge',
+			allReceipts: 'Alle anderen Belege',
+			choose: 'Zuordnen',
+			noChoices: 'Keine Belege, die sich zuordnen lassen.',
+			noReceiptNeeded: 'Kein Beleg nötig',
+			reason: 'Grund',
+			reasonPlaceholder: 'z. B. Bewirtung, Beleg verloren',
+			save: 'Speichern',
+			cancel: 'Abbrechen',
+			needsReceipt: 'Doch einen Beleg zuordnen',
+			others: 'Weitere Zahlungen an {name}',
+			othersNone: 'Keine weiteren Zahlungen an diese Gegenpartei.',
+			withReceipt: 'mit Beleg',
+			withoutReceipt: 'ohne Beleg',
+			privateSearch: 'Im privaten Postfach suchen',
+			privateHint:
+				'Die Bridge sucht im ganzen Postfach nach „{text}“ und {amount} zwischen {from} und {to}. Gelesen werden nur die Treffer.',
+			privateHintAmount:
+				'Die Bridge sucht im ganzen Postfach nach {amount} zwischen {from} und {to}. Gelesen werden nur die Treffer.',
+			privateSearching: 'Suche …',
+			privateNone: 'Keine Treffer im privaten Postfach.',
+			privateHits: '{count} Treffer',
+			criteria: { text: 'Anbieter', amount: 'Betrag' },
+			privateMatched: 'passt: {criteria}',
+			privateAttachments: 'Anhang: {names}',
+			privateNoAttachment: 'ohne Anhang (der Text der E-Mail wird übernommen)',
+			privateImport: 'Als Beleg übernehmen',
+			privateImporting: 'Übernehme …',
+			privateImported: 'Übernommen, ausgelesen und abgeglichen.',
+			privateImportedUnverified:
+				'Übernommen. Der Absender ist nicht bestätigt: unter Belege prüfen und freigeben.',
+			privateDuplicate: 'Diesen Beleg gibt es schon.',
+			noBridge: 'Für die Suche die Bridge unter Integrationen koppeln.'
+		}
 	},
 	integrationen: {
 		title: 'Integrationen',
