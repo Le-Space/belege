@@ -126,6 +126,10 @@
 		}
 	}
 
+	/** Empty: automatic (90 days the first time, then from the last sync). */
+	let syncFrom = $state('');
+	const today = new Date().toISOString().slice(0, 10);
+
 	async function sync() {
 		const store = currentStore();
 		if (!store) return;
@@ -136,7 +140,8 @@
 			const { totals } = await syncHibiscus({
 				client,
 				store,
-				accounts: bridgeAccounts.filter((a) => selected.has(a.id))
+				accounts: bridgeAccounts.filter((a) => selected.has(a.id)),
+				from: syncFrom || undefined
 			});
 			// Accounts left out this time are remembered as such.
 			for (const record of app.accounts.filter((a) => a.source === 'hibiscus')) {
@@ -322,14 +327,26 @@
 					</li>
 				{/each}
 			</ul>
+			<label class="mt-4 block text-sm text-text">
+				{t('integrationen.hibiscus.fromLabel')}
+				<input
+					type="date"
+					class="ml-2 rounded-md border border-border bg-surface px-2 py-1 text-sm text-heading"
+					max={today}
+					bind:value={syncFrom}
+					data-testid="sync-from"
+				/>
+			</label>
 			<button
 				type="button"
-				class="mt-4 rounded-md bg-coral-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50"
+				class="mt-3 rounded-md bg-coral-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50"
 				disabled={syncing || selected.size === 0}
 				onclick={sync}
 				>{syncing ? t('integrationen.hibiscus.syncing') : t('integrationen.hibiscus.sync')}</button
 			>
-			<p class="mt-1 text-xs text-faint">{t('integrationen.hibiscus.syncHint')}</p>
+			<p class="mt-1 text-xs text-faint">
+				{syncFrom ? t('integrationen.hibiscus.syncHintFrom') : t('integrationen.hibiscus.syncHint')}
+			</p>
 		{/if}
 		{#if syncResult}
 			<p class="mt-3 text-sm text-heading" role="status" data-testid="sync-result">

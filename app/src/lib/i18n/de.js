@@ -248,7 +248,10 @@ export default {
 			balanceOn: 'am {date}',
 			sync: 'Jetzt synchronisieren',
 			syncing: 'Synchronisiere …',
-			syncHint: 'Beim ersten Mal die letzten 90 Tage, danach ab der letzten Synchronisierung.'
+			syncHint: 'Beim ersten Mal die letzten 90 Tage, danach ab der letzten Synchronisierung.',
+			fromLabel: 'Ab Datum (optional)',
+			syncHintFrom:
+				'Holt alle Umsätze ab diesem Tag, soweit Hibiscus sie von der Bank abgerufen hat. Schon vorhandene werden nicht doppelt angelegt.'
 		},
 		camt: {
 			title: 'Kontoauszug importieren (CAMT.053)',

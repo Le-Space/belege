@@ -18,8 +18,11 @@ function isoDaysBefore(date, days) {
  * @param {{ accounts: import('../store/repository.js').Collection, transactions: import('../store/repository.js').Collection }} params.store
  * @param {import('../bridge/client.js').BridgeAccount[]} params.accounts the chosen ones
  * @param {Date} [params.now]
+ * @param {string} [params.from] YYYY-MM-DD: fetch from this day instead of the automatic start
  */
-export async function syncHibiscus({ client, store, accounts, now = new Date() }) {
+export async function syncHibiscus({ client, store, accounts, now = new Date(), from }) {
+	if (from !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(from))
+		throw new Error(`Kein Datum: ${from}`);
 	const today = now.toISOString().slice(0, 10);
 	const totals = { new: 0, updated: 0, skipped: 0 };
 	/** @type {{ accountId: string, name: string, since: string, counts: typeof totals }[]} */
@@ -33,9 +36,11 @@ export async function syncHibiscus({ client, store, accounts, now = new Date() }
 			name: bridgeAccount.name || `Konto ···${bridgeAccount.ibanLast4}`,
 			currency: bridgeAccount.currency || 'EUR'
 		});
-		const since = record.lastSyncedOn
-			? isoDaysBefore(new Date(`${record.lastSyncedOn}T00:00:00Z`), OVERLAP_DAYS)
-			: isoDaysBefore(now, DEFAULT_DAYS);
+		const since = from
+			? from
+			: record.lastSyncedOn
+				? isoDaysBefore(new Date(`${record.lastSyncedOn}T00:00:00Z`), OVERLAP_DAYS)
+				: isoDaysBefore(now, DEFAULT_DAYS);
 		const incoming = await client.transactions(bridgeAccount.id, since);
 		const counts = await importTransactions({
 			transactions: store.transactions,
