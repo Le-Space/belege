@@ -154,12 +154,12 @@
 				duplicate: c.duplicate
 			});
 			await refreshNow();
-			await runMatchingNow();
 		} catch (error) {
 			fetchError = message(error);
 		} finally {
 			fetching = false;
 		}
+		if (fetchResult) await runMatchingNow();
 	}
 
 	/** @param {{ name: string, path?: string, bytes: () => Promise<Uint8Array> }[]} files @param {'upload' | 'folder'} kind */

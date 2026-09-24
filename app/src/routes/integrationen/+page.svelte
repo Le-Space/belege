@@ -152,12 +152,13 @@
 			}
 			syncResult = totals;
 			await refreshNow();
-			await runMatchingNow();
 		} catch (error) {
 			syncError = error instanceof Error ? error.message : String(error);
 		} finally {
 			syncing = false;
 		}
+		// After the sync, not inside it: the buttons are free again meanwhile.
+		if (syncResult) await runMatchingNow();
 	}
 
 	/** @param {Event} event */
@@ -181,13 +182,13 @@
 				}
 			}
 			await refreshNow();
-			await runMatchingNow();
 		} catch (error) {
 			camtError = error instanceof Error ? error.message : String(error);
 		} finally {
 			camtBusy = false;
 			input.value = '';
 		}
+		if (camtResults.length) await runMatchingNow();
 	}
 
 	/** @param {Counts} c */
