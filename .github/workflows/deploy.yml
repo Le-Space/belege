@@ -1,0 +1,96 @@
+# Publish Le Space Belege to Aleph IPFS and point https://belege.le-space.de at it.
+#
+# Modelled on Le-Space/ablage's deploy.yml (same tooling, same retention).
+# It runs for a published GitHub release, or by hand – never for a plain push:
+# whoever can change what this domain serves can read the books a browser
+# decrypts there, so only a tested, released state goes out.
+#
+# Needs the repository secret ALEPH_PRIVATE_KEY: the key of the account whose
+# address is in the TXT record _control.belege.le-space.de (the same account
+# as the other le-space.de sites). DNS: see docs/deploy.md.
+name: Deploy to Aleph
+
+permissions:
+  contents: read
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      link_domain:
+        description: Point belege.le-space.de at this build (off for a test publish)
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  SITE_DOMAIN: belege.le-space.de
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      cid: ${{ steps.publish.outputs.ipfs_cid }}
+      item_hash: ${{ steps.publish.outputs.item_hash }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # A production build: no test hooks, no "Testbuchung anlegen".
+      - run: pnpm run build
+      - name: Install isolated Aleph deploy tooling
+        run: npm install --prefix /tmp/le-space-deployer @le-space/node@0.9.9
+      - name: Publish to Aleph IPFS
+        id: publish
+        env:
+          ALEPH_VM_MODE: site-publish
+          ALEPH_SITE_DIRECTORY: ${{ github.workspace }}/app/build
+          ALEPH_SITE_PIN: 'true'
+          ALEPH_SITE_NAME: belege
+          ALEPH_SITE_RETENTION_KEEP_COUNT: '3'
+          ALEPH_SITE_CHANNEL: ALEPH-CLOUDSOLUTIONS
+          ALEPH_PRIVATE_KEY: ${{ secrets.ALEPH_PRIVATE_KEY }}
+        run: |
+          for attempt in 1 2 3; do
+            if node --input-type=module -e "import('/tmp/le-space-deployer/node_modules/@le-space/node/index.js').then((m) => m.runSiteMode())"; then
+              exit 0
+            fi
+            echo "::warning::publish attempt $attempt failed, retrying in 30 s"
+            sleep 30
+          done
+          exit 1
+
+  link-domain:
+    needs: publish
+    # A release moves the domain; a manual run only when asked.
+    if: github.event_name == 'release' || inputs.link_domain
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install isolated Aleph deploy tooling
+        run: npm install --prefix /tmp/le-space-deployer @le-space/node@0.9.9
+      - name: Link the custom domain
+        env:
+          ALEPH_VM_MODE: site-domain-link
+          ALEPH_SITE_ITEM_HASH: ${{ needs.publish.outputs.item_hash }}
+          ALEPH_SITE_IPFS_CID: ${{ needs.publish.outputs.cid }}
+          ALEPH_SITE_DOMAIN: ${{ env.SITE_DOMAIN }}
+          # A single-page app: every path serves index.html.
+          ALEPH_SITE_DOMAIN_CATCH_ALL_PATH: /index.html
+          ALEPH_PRIVATE_KEY: ${{ secrets.ALEPH_PRIVATE_KEY }}
+        run: node --input-type=module -e "import('/tmp/le-space-deployer/node_modules/@le-space/node/index.js').then((m) => m.runSiteMode())"
+      - name: Summary
+        run: |
+          echo "**Live:** https://${SITE_DOMAIN}" >> "$GITHUB_STEP_SUMMARY"
+          echo "CID: ${{ needs.publish.outputs.cid }}" >> "$GITHUB_STEP_SUMMARY"

@@ -75,7 +75,7 @@ export function defaultLlmConfig() {
 export function defaultConfig() {
 	return {
 		bridge: { port: DEFAULT_PORT },
-		appOrigins: ['http://localhost:5173'],
+		appOrigins: ['http://localhost:5173', 'https://belege.le-space.de'],
 		hibiscus: { host: '127.0.0.1', port: 8080, certSha256: null, ibanSuffixes: [] },
 		pairedTokens: [],
 		mail: defaultMailConfig(),
