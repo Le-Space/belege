@@ -173,7 +173,7 @@
 		const booking = tx;
 		try {
 			const r = await attachUpload({
-				store: /** @type {any} */ (store),
+				store,
 				blobs,
 				client,
 				tx: booking,
