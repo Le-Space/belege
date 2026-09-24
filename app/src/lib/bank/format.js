@@ -71,16 +71,17 @@ export function hasReceipt(tx) {
  *
  * @template {TxLike} T
  * @param {T[]} transactions
+ * @param {(tx: T) => boolean} [covered] has a receipt or needs none; by default a linked receipt
  * @returns {{ month: string, label: string, count: number, withReceipt: number, coverage: number }[]}
  */
-export function monthSummaries(transactions) {
+export function monthSummaries(transactions, covered = hasReceipt) {
 	/** @type {Map<string, { count: number, withReceipt: number }>} */
 	const months = new Map();
 	for (const tx of transactions) {
 		const month = String(tx.bookedOn ?? '').slice(0, 7) || 'unbekannt';
 		const m = months.get(month) ?? { count: 0, withReceipt: 0 };
 		m.count++;
-		if (hasReceipt(tx)) m.withReceipt++;
+		if (covered(tx)) m.withReceipt++;
 		months.set(month, m);
 	}
 	return [...months.entries()]
@@ -164,18 +165,27 @@ export function matchesSearch(tx, query) {
 const SEPA_TAG =
 	/(?:^|\s)(EREF|KREF|MREF|CRED|DEBT|COAM|OAMT|SVWZ|ABWA|ABWE|IBAN|BIC|PURP)\s*[:+]\s*/g;
 
+// What GLS appends to an order made in its app: the TAN method, not the purpose.
+const TAN_NOISE =
+	/(?:^|[\s,;/|-]+)(?:TAN[- ]?(?:Verfahren)?:?\s*)?(?:SecureGo(?:\s*plus)?|pushTAN|chipTAN(?:\s*(?:QR|optisch|manuell|USB|comfort))?|smsTAN|mobileTAN|photoTAN|appTAN)(?=$|[\s,;/|-])/gi;
+
+/** @param {string} text */
+function withoutTanNoise(text) {
+	return text.replace(TAN_NOISE, '').replace(/\s+/g, ' ').trim();
+}
+
 /**
  * The part of a raw purpose a person wants to read: the `SVWZ` value when the
  * bank tags it, otherwise the text in front of the first tag (GLS puts
  * "Kundennummer … Rechnungsnummer …" there and tags only EREF, MREF, CRED,
- * IBAN, BIC). The raw text stays stored: matching needs the references.
+ * IBAN, BIC). The TAN method GLS appends ("SecureGo plus", "pushTAN",
+ * "chipTAN") is dropped. The raw text stays stored: matching needs the
+ * references.
  *
  * @param {string | null | undefined} raw
  */
 export function displayPurpose(raw) {
-	const text = String(raw ?? '')
-		.replace(/\s+/g, ' ')
-		.trim();
+	const text = withoutTanNoise(String(raw ?? ''));
 	/** @type {{ tag: string, start: number, end: number }[]} */
 	const tags = [];
 	for (const m of text.matchAll(SEPA_TAG)) {
