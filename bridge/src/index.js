@@ -1,10 +1,13 @@
-// Wires config, keychain, pairing and Hibiscus into a running bridge.
+// Wires config, keychain, pairing, Hibiscus, mail and the LLM into a running bridge.
 
 import { loadConfig, saveConfig, defaultConfigPath } from './config.js';
 import { createHibiscusClient } from './hibiscus.js';
 import { macosKeychain } from './keychain.js';
 import { createPairing } from './pairing.js';
 import { createBridgeServer } from './server.js';
+import { createMailClient } from './mail/imap.js';
+import { domainOf } from './mail/auth-results.js';
+import { createExtractor } from './llm/extract.js';
 
 export { createBridgeServer, LOOPBACK } from './server.js';
 export { createPairing, hashToken } from './pairing.js';
@@ -17,11 +20,16 @@ export {
 export { macosKeychain, memoryKeychain, KeychainError } from './keychain.js';
 export { loadConfig, saveConfig, defaultConfig, defaultConfigPath } from './config.js';
 export * from './normalize.js';
+export { createMailClient } from './mail/imap.js';
+export { createExtractor, checkExtraction } from './llm/extract.js';
+export { redact } from './llm/redact.js';
 
 /**
  * @param {object} [options]
  * @param {string} [options.configPath]
- * @param {import('./keychain.js').Keychain} [options.keychain]
+ * @param {import('./keychain.js').Keychain} [options.keychain] the Hibiscus password
+ * @param {import('./keychain.js').Keychain} [options.mailKeychain] the mail password
+ * @param {import('./keychain.js').Keychain} [options.llmKeychain] the LLM API key
  * @param {boolean} [options.forcePairingCode] issue a code even when already paired
  * @param {number} [options.port] overrides the config
  * @param {(line: string) => void} [options.print] the console; gets the pairing code
@@ -30,6 +38,8 @@ export * from './normalize.js';
 export async function startBridge({
 	configPath = defaultConfigPath(),
 	keychain = macosKeychain(),
+	mailKeychain = macosKeychain({ account: 'imap' }),
+	llmKeychain = macosKeychain({ account: 'llm' }),
 	forcePairingCode = false,
 	port,
 	print = (line) => console.log(line),
@@ -61,10 +71,29 @@ export async function startBridge({
 			})
 		: null;
 
+	const mail =
+		config.mail.host && config.mail.user
+			? createMailClient({ config: config.mail, getPassword: () => mailKeychain.read() })
+			: null;
+	if (!mail) log('Mail is not set up: run `pnpm setup:mail`.');
+
+	// Our own addresses are blacked out before text goes to the LLM.
+	const ownDomains = [
+		...new Set(
+			[domainOf(config.mail.user), domainOf(config.mail.accountingAddress)].filter(Boolean)
+		)
+	];
+	const llm = config.llm.configured
+		? createExtractor({ config: config.llm, getKey: () => llmKeychain.read(), ownDomains })
+		: null;
+	if (!llm) log('No LLM is set up: run `pnpm setup:llm`.');
+
 	const bridge = createBridgeServer({
 		config,
 		pairing,
 		hibiscus: client ? () => client : null,
+		mail,
+		llm,
 		log
 	});
 	const address = await bridge.listen({ port: port ?? config.bridge.port });

@@ -68,3 +68,35 @@ test('prints a pairing code on start, and the code pairs', async () => {
 		await bridge.exited;
 	}
 });
+
+test('test mode: mail and LLM secrets from the environment; /health says both are set up', async () => {
+	const configPath = join(dir, 'bridge-mail.json');
+	await saveConfig(
+		{
+			...defaultConfig(),
+			bridge: { port: 0 },
+			mail: { ...defaultConfig().mail, host: '127.0.0.1', port: 1, user: 'u', tls: 'none' },
+			llm: { ...defaultConfig().llm, baseUrl: 'http://127.0.0.1:1', configured: true }
+		},
+		configPath
+	);
+	const bridge = run(['--test-mode', '--config', configPath, '--port', '0'], {
+		BELEGE_BRIDGE_TEST_IMAP_PASSWORD: 'x',
+		BELEGE_BRIDGE_TEST_LLM_KEY: 'y'
+	});
+	try {
+		const [, port] = await waitFor(bridge.out, /listening on http:\/\/127\.0\.0\.1:(\d+)/);
+		const res = await request(Number(port), '/health');
+		assert.deepEqual(res.json.mail, {
+			configured: true,
+			accountingAddress: 'buchhaltung@le-space.de'
+		});
+		assert.deepEqual(res.json.llm, {
+			configured: true,
+			models: ['deepseek-flash', 'deepseek-v4-pro']
+		});
+	} finally {
+		bridge.child.kill('SIGTERM');
+		await bridge.exited;
+	}
+});

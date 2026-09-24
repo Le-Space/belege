@@ -101,3 +101,27 @@ test('the in-memory fake counts reads and refuses when empty', async () => {
 	assert.equal(await fake.read(), 'x');
 	assert.equal(fake.reads, 2);
 });
+
+test('one entry per secret: the mail and LLM accounts, each naming its own setup', async () => {
+	await writeFile(join(dir, 'store.txt'), '');
+	for (const [account, setup, what] of [
+		['imap', 'setup:mail', 'mail password'],
+		['llm', 'setup:llm', 'LLM API key']
+	]) {
+		const keychain = macosKeychain({ platform: 'darwin', securityPath: security, account });
+		await assert.rejects(keychain.read(), (/** @type {any} */ e) => {
+			assert.equal(e.code, 'KEYCHAIN_MISSING');
+			assert.match(e.message, new RegExp(`No ${what} .*account ${account}.*pnpm ${setup}`));
+			return true;
+		});
+	}
+	const llm = macosKeychain({ platform: 'darwin', securityPath: security, account: 'llm' });
+	await llm.write('sk-test-key');
+	const stdin = await readFile(join(dir, 'stdin.log'), 'utf8');
+	assert.match(
+		stdin,
+		/add-generic-password -U -s belege-bridge -a llm -l belege-bridge-llm -w hex:/
+	);
+	assert.equal(stdin.includes('sk-test-key'), false);
+	await assert.rejects(memoryKeychain(null, 'imap').read(), /No mail password/);
+});

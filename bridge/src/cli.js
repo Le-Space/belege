@@ -10,9 +10,10 @@
 // Options: --config <path> (default ~/.config/belege/bridge.json or
 // $BELEGE_BRIDGE_CONFIG), --port <n>.
 //
-// --test-mode is for the E2E suite: the master password comes from
-// $BELEGE_BRIDGE_TEST_PASSWORD instead of the keychain, and it refuses to run
-// on the real config file.
+// --test-mode is for the E2E suite: the secrets come from environment
+// variables instead of the keychain ($BELEGE_BRIDGE_TEST_PASSWORD for Hibiscus,
+// $BELEGE_BRIDGE_TEST_IMAP_PASSWORD, $BELEGE_BRIDGE_TEST_LLM_KEY), and it refuses
+// to run on the real config file.
 
 import { resolve } from 'node:path';
 import { homedir } from 'node:os';
@@ -52,6 +53,8 @@ if (pairingAction) {
 }
 
 let keychain;
+let mailKeychain;
+let llmKeychain;
 if (testMode) {
 	if (configPath === join(homedir(), '.config', 'belege', 'bridge.json')) {
 		console.error(
@@ -59,14 +62,18 @@ if (testMode) {
 		);
 		process.exit(1);
 	}
-	console.error('[bridge] TEST MODE: password from BELEGE_BRIDGE_TEST_PASSWORD, not the keychain.');
+	console.error('[bridge] TEST MODE: secrets from BELEGE_BRIDGE_TEST_*, not the keychain.');
 	keychain = memoryKeychain(process.env.BELEGE_BRIDGE_TEST_PASSWORD ?? null);
+	mailKeychain = memoryKeychain(process.env.BELEGE_BRIDGE_TEST_IMAP_PASSWORD ?? null, 'imap');
+	llmKeychain = memoryKeychain(process.env.BELEGE_BRIDGE_TEST_LLM_KEY ?? null, 'llm');
 }
 
 try {
 	const bridge = await startBridge({
 		configPath,
 		keychain,
+		mailKeychain,
+		llmKeychain,
 		port,
 		forcePairingCode: args.includes('--pair')
 	});

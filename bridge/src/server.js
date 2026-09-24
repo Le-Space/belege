@@ -4,6 +4,10 @@
 //   POST /pair         { code }          no token → { token }
 //   GET  /hibiscus/accounts              token
 //   GET  /hibiscus/transactions?account=<id>&since=YYYY-MM-DD   token
+//   GET  /mail/messages?since=YYYY-MM-DD[&until=YYYY-MM-DD]&scope=accounting   token
+//   GET  /mail/attachment?id=<mail id>&part=<n>                   token → the bytes
+//   GET  /mail/search?text=&amount=&around=YYYY-MM-DD&days=       token
+//   POST /extract      { text, hints, source, confirmedByUser }   token
 //
 // Guards, in this order, on every request:
 //   1. Host header is 127.0.0.1:<port> or localhost:<port> (DNS rebinding)
@@ -20,10 +24,13 @@ import http from 'node:http';
 
 import { HibiscusUnreachableError, PinMismatchError } from './hibiscus.js';
 import { ibanAllowed, normalizeAccount, normalizeTransaction } from './normalize.js';
+import { decodeMailId, isIsoDay, isPartNumber } from './mail/mime.js';
 
 export const LOOPBACK = '127.0.0.1';
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 const MAX_BODY = 4096;
+/** /extract carries a receipt's text: 30 000 characters are sent on, some room for hints. */
+const MAX_EXTRACT_BODY = 256 * 1024;
 
 /**
  * @param {object} options
@@ -31,9 +38,18 @@ const MAX_BODY = 4096;
  * @param {ReturnType<typeof import('./pairing.js').createPairing>} options.pairing
  * @param {(() => import('./hibiscus.js').HibiscusClient) | null} options.hibiscus
  *   null when Hibiscus is not set up yet
- * @param {(message: string) => void} [options.log] never gets a secret or bank data
+ * @param {import('./mail/imap.js').MailClient | null} [options.mail] null when mail is not set up
+ * @param {import('./llm/extract.js').Extractor | null} [options.llm] null when no LLM is set up
+ * @param {(message: string) => void} [options.log] never gets a secret, bank data, mail or receipt text
  */
-export function createBridgeServer({ config, pairing, hibiscus, log = () => {} }) {
+export function createBridgeServer({
+	config,
+	pairing,
+	hibiscus,
+	mail = null,
+	llm = null,
+	log = () => {}
+}) {
 	const allowedOrigins = new Set(config.appOrigins.map((o) => o.replace(/\/$/, '')));
 	const suffixes = config.hibiscus.ibanSuffixes;
 
@@ -67,14 +83,43 @@ export function createBridgeServer({ config, pairing, hibiscus, log = () => {} }
 		return m ? m[1] : null;
 	}
 
-	/** @param {http.IncomingMessage} req */
-	function readJson(req) {
+	/**
+	 * @param {http.ServerResponse} res
+	 * @param {Buffer} bytes
+	 * @param {string} mime
+	 */
+	function sendBytes(res, bytes, mime) {
+		res.writeHead(200, {
+			'Content-Type': mime,
+			'Content-Length': bytes.length,
+			'Cache-Control': 'no-store',
+			'X-Content-Type-Options': 'nosniff',
+			// Bytes for the app to read, never a page to render here.
+			'Content-Security-Policy': "default-src 'none'; sandbox",
+			'Content-Disposition': 'attachment'
+		});
+		res.end(bytes);
+	}
+
+	/** @param {string} what */
+	function notSetUp(what) {
+		return Object.assign(
+			new Error(`${what} is not set up: run \`pnpm setup:${what === 'Mail' ? 'mail' : 'llm'}\`.`),
+			{
+				status: 503,
+				code: `${what.toUpperCase()}_NOT_SET_UP`
+			}
+		);
+	}
+
+	/** @param {http.IncomingMessage} req @param {number} [limit] */
+	function readJson(req, limit = MAX_BODY) {
 		return new Promise((resolve, reject) => {
 			let size = 0;
 			/** @type {Buffer[]} */ const chunks = [];
 			req.on('data', (/** @type {Buffer} */ c) => {
 				size += c.length;
-				if (size > MAX_BODY) {
+				if (size > limit) {
 					reject(Object.assign(new Error('Body too large'), { status: 413 }));
 					req.destroy();
 				} else chunks.push(c);
@@ -115,7 +160,12 @@ export function createBridgeServer({ config, pairing, hibiscus, log = () => {} }
 				version: VERSION,
 				paired: pairing.isPaired(),
 				pairingOpen: pairing.hasPendingCode(),
-				hibiscus: { configured: Boolean(hibiscus) }
+				hibiscus: { configured: Boolean(hibiscus) },
+				mail: {
+					configured: Boolean(mail),
+					accountingAddress: mail ? config.mail.accountingAddress : null
+				},
+				llm: { configured: Boolean(llm), models: llm ? llm.models : [] }
 			});
 		}
 
@@ -163,6 +213,95 @@ export function createBridgeServer({ config, pairing, hibiscus, log = () => {} }
 			return send(res, 200, { account: normalized.id, since, transactions });
 		}
 
+		if (path === '/mail/messages' && req.method === 'GET') {
+			const since = url.searchParams.get('since') ?? '';
+			const until = url.searchParams.get('until') || null;
+			const scope = url.searchParams.get('scope') ?? 'accounting';
+			if (!isIsoDay(since)) return send(res, 400, { error: 'since must be YYYY-MM-DD' });
+			if (until !== null && (!isIsoDay(until) || until <= since)) {
+				return send(res, 400, { error: 'until must be a later YYYY-MM-DD' });
+			}
+			// The only scope there is: the private mailbox is read through /mail/search alone.
+			if (scope !== 'accounting') return send(res, 400, { error: 'scope must be accounting' });
+			if (!mail) throw notSetUp('Mail');
+			const messages = await mail.listMessages({ since, until });
+			log(`listed ${messages.length} accounting mail(s)`);
+			return send(res, 200, {
+				scope,
+				accountingAddress: config.mail.accountingAddress,
+				since,
+				until,
+				messages
+			});
+		}
+
+		if (path === '/mail/attachment' && req.method === 'GET') {
+			const id = url.searchParams.get('id') ?? '';
+			const part = url.searchParams.get('part') ?? '';
+			if (!decodeMailId(id)) return send(res, 400, { error: 'id is not a mail id' });
+			if (!isPartNumber(part)) return send(res, 400, { error: 'part is not a part number' });
+			if (!mail) throw notSetUp('Mail');
+			const { bytes, mime } = await mail.attachment(id, part);
+			return sendBytes(res, bytes, mime);
+		}
+
+		if (path === '/mail/search' && req.method === 'GET') {
+			const text = (url.searchParams.get('text') ?? '').trim() || null;
+			const amount = (url.searchParams.get('amount') ?? '').trim() || null;
+			const around = url.searchParams.get('around') || null;
+			const daysParam = url.searchParams.get('days');
+			const days = daysParam === null || daysParam === '' ? 14 : Number(daysParam);
+			if (!text && !amount) return send(res, 400, { error: 'text or amount is required' });
+			if (text && (text.length < 3 || text.length > 100 || /["\\\r\n]/.test(text))) {
+				return send(res, 400, { error: 'text must be 3–100 plain characters' });
+			}
+			if (amount && !/^-?[\d.,]{1,15}$/.test(amount)) {
+				return send(res, 400, { error: 'amount must look like 52,59' });
+			}
+			if (around !== null && !isIsoDay(around)) {
+				return send(res, 400, { error: 'around must be YYYY-MM-DD' });
+			}
+			if (!Number.isInteger(days) || days < 0 || days > 60) {
+				return send(res, 400, { error: 'days must be 0–60' });
+			}
+			if (!mail) throw notSetUp('Mail');
+			const messages = await mail.search({ text, amount, around, days });
+			log(`search found ${messages.length} mail(s)`);
+			return send(res, 200, { messages });
+		}
+
+		if (path === '/extract' && req.method === 'POST') {
+			const body = /** @type {any} */ (await readJson(req, MAX_EXTRACT_BODY));
+			if (typeof body?.text !== 'string' || !body.text.trim()) {
+				return send(res, 400, { error: 'text is required' });
+			}
+			/** @type {Record<string, string>} */
+			const hints = {};
+			for (const k of ['subject', 'from', 'fileName', 'receivedAt']) {
+				if (typeof body.hints?.[k] === 'string') hints[k] = body.hints[k];
+			}
+			const mailId = body.source?.mailId;
+			if (mailId !== undefined && mailId !== null) {
+				if (!decodeMailId(mailId))
+					return send(res, 400, { error: 'source.mailId is not a mail id' });
+				if (!mail) throw notSetUp('Mail');
+				// The bridge checks the sender itself; the app's word is not enough.
+				const { verdict, outgoing } = await mail.verdictOf(mailId);
+				if (verdict !== 'pass' && !outgoing && body.confirmedByUser !== true) {
+					log(`refused /extract for a mail whose sender did not pass (${verdict})`);
+					return send(res, 403, {
+						error: 'The sender of this mail is not verified (DKIM/SPF). Confirm it first.',
+						code: 'SENDER_UNVERIFIED',
+						verdict
+					});
+				}
+			}
+			if (!llm) throw notSetUp('LLM');
+			const result = await llm.extract({ text: body.text, hints });
+			log(`extracted with ${result.model} (${result.attempts.length} attempt(s))`);
+			return send(res, 200, result);
+		}
+
 		return send(res, 404, { error: 'not found' });
 	}
 
@@ -207,9 +346,15 @@ export function createBridgeServer({ config, pairing, hibiscus, log = () => {} }
 							: error.code?.startsWith?.('HIBISCUS')
 								? 502
 								: 500);
-			// Messages are the bridge's own; they carry no password and no bank data.
+			// Messages are the bridge's own; they carry no password, no bank data and no mail text.
 			log(`${req.method} ${url.pathname}: ${error.code ?? error.name}: ${error.message}`);
-			if (!res.headersSent) send(res, status, { error: error.message, code: error.code ?? null });
+			if (!res.headersSent) {
+				send(res, status, {
+					error: error.message,
+					code: error.code ?? null,
+					...(Array.isArray(error.attempts) ? { attempts: error.attempts } : {})
+				});
+			}
 		}
 	});
 

@@ -1,9 +1,11 @@
 // Non-secret configuration: ~/.config/belege/bridge.json, mode 0600.
 //
 // Holds the Hibiscus host and port, the pinned certificate fingerprint, the
-// IBAN suffixes that may leave the bridge, the app origins CORS lets in, and
-// the SHA-256 hashes of paired tokens (never a token). The master password is
-// not here: it lives in the macOS keychain (keychain.js).
+// IBAN suffixes that may leave the bridge, the app origins CORS lets in, the
+// SHA-256 hashes of paired tokens (never a token), the mail server and the
+// accounting address, the LLM provider's URL and models, and the terms to
+// black out before text goes to it. No password, token or API key is here:
+// they live in the macOS keychain (keychain.js).
 
 import { chmod, mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -21,7 +23,53 @@ export function defaultConfigPath() {
  * @property {string[]} appOrigins
  * @property {{ host: string, port: number, certSha256: string | null, ibanSuffixes: string[] }} hibiscus
  * @property {{ hash: string, createdAt: string }[]} pairedTokens
+ * @property {MailConfig} mail
+ * @property {LlmConfig} llm
  */
+
+/**
+ * @typedef {object} MailConfig
+ * @property {string | null} host
+ * @property {number} port
+ * @property {string | null} user
+ * @property {'implicit' | 'starttls' | 'none'} tls `none` only for a server on this machine (tests)
+ * @property {string} accountingAddress the alias receipts are sent to
+ * @property {string | null} authServId when set, only `Authentication-Results` of this server count
+ */
+
+/**
+ * @typedef {object} LlmConfig
+ * @property {string} baseUrl OpenAI-compatible, `…/chat/completions` is appended
+ * @property {string} model
+ * @property {string} retryModel
+ * @property {string[]} redactTerms blacked out before any text leaves (own name, family names)
+ * @property {boolean} configured set by setup:llm once a key is in the keychain
+ */
+
+export const DEFAULT_ACCOUNTING_ADDRESS = 'buchhaltung@le-space.de';
+
+/** @returns {MailConfig} */
+export function defaultMailConfig() {
+	return {
+		host: null,
+		port: 993,
+		user: null,
+		tls: 'implicit',
+		accountingAddress: DEFAULT_ACCOUNTING_ADDRESS,
+		authServId: null
+	};
+}
+
+/** @returns {LlmConfig} */
+export function defaultLlmConfig() {
+	return {
+		baseUrl: 'https://api.deepseek.com',
+		model: 'deepseek-flash',
+		retryModel: 'deepseek-v4-pro',
+		redactTerms: [],
+		configured: false
+	};
+}
 
 /** @returns {BridgeConfig} */
 export function defaultConfig() {
@@ -29,7 +77,9 @@ export function defaultConfig() {
 		bridge: { port: DEFAULT_PORT },
 		appOrigins: ['http://localhost:5173'],
 		hibiscus: { host: '127.0.0.1', port: 8080, certSha256: null, ibanSuffixes: [] },
-		pairedTokens: []
+		pairedTokens: [],
+		mail: defaultMailConfig(),
+		llm: defaultLlmConfig()
 	};
 }
 
@@ -49,7 +99,13 @@ export function withDefaults(raw) {
 				? raw.hibiscus.ibanSuffixes.map(String)
 				: []
 		},
-		pairedTokens: Array.isArray(raw?.pairedTokens) ? raw.pairedTokens : []
+		pairedTokens: Array.isArray(raw?.pairedTokens) ? raw.pairedTokens : [],
+		mail: { ...d.mail, ...(raw?.mail ?? {}) },
+		llm: {
+			...d.llm,
+			...(raw?.llm ?? {}),
+			redactTerms: Array.isArray(raw?.llm?.redactTerms) ? raw.llm.redactTerms.map(String) : []
+		}
 	};
 }
 
