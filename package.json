@@ -8,10 +8,13 @@
   "scripts": {
     "spike:hibiscus": "node spikes/hibiscus/probe.mjs",
     "spike:imap": "node spikes/imap/probe.mjs",
-    "spike:llm-key": "node spikes/llm/check-key.mjs"
+    "spike:llm-key": "node spikes/llm/check-key.mjs",
+    "spike:llm-samples": "node spikes/llm/fetch-samples.mjs",
+    "spike:llm-extract": "node spikes/llm/extract.mjs"
   },
   "devDependencies": {
     "fast-xml-parser": "^5.2.5",
-    "imapflow": "^2.0.6"
+    "imapflow": "^2.0.6",
+    "unpdf": "^1.8.1"
   }
 }

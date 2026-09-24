@@ -51,3 +51,38 @@
   tokens both stop with `finish_reason: length` and an empty answer. A one-line invoice needs
   about 100–140 reasoning tokens. Budget generously and treat anything but `stop` as a failure.
 - On the test invoice both return the same correct JSON; flash in about 1.4 s, v4-pro in about 2.8 s.
+
+### Extraction test: 12 real PDFs, both models
+
+Samples: invoices (Sage, easyname, Hetzner, Anthropic, Cyberport), a direct-debit notice, a
+payment reminder, a receipt, a bus and two train tickets, a credit-card statement.
+
+- All 12 PDFs have a text layer; no OCR needed for this set. unpdf (pdf.js) extracts it.
+- Redaction needs a positional rule: street lines without a suffix ("Name 44") are only
+  recognisable as the line above a postcode line. Tickets carry fellow travellers' names –
+  `REDACT_TERMS` must cover the family name. Station names stay: travel expenses need them.
+- Vendor, gross amount, currency, document type: identical and correct in both models for
+  all 11 documents both answered.
+- Where they differ: flash marked a card fee as reverse charge (wrong), missed the paid date on
+  a receipt, but found a ticket's order number that v4-pro missed. v4-pro took the right last
+  digits of our own masked IBAN on a direct-debit invoice (the account that will be debited –
+  it tells which bank account to match against).
+- Both got the date of one direct-debit notice wrong: pdf.js glued a table row together
+  (`2026-122069916.07.2026 15.08.2026`). Tables need a layout-aware extraction or a check
+  against the letter date.
+- Text extraction mangles numbers: `ZIVYFQIJ 0002` for `ZIVYFQIJ-0002`. Matching must compare
+  invoice numbers with separators stripped.
+- flash: 113 s for 12 documents, one failure (reasoning ran past 6000 tokens). v4-pro: 354 s,
+  no failure. Output tokens are similar; both runs together cost about 0.07 USD.
+- Plan: flash by default, v4-pro as retry when flash fails or checks fail (net + VAT ≠ gross,
+  date outside the mail's date ± 60 days, missing gross). Extraction runs in the background,
+  so 10–30 s per document is acceptable.
+
+## Revolut and Hibiscus
+
+- Revolut offers no FinTS/HBCI, so Hibiscus cannot fetch Revolut itself.
+- Revolut Business exports an "accounting export" as CAMT.053 or MT940; Hibiscus imports MT940
+  into an offline account. That is the phase 0 path.
+- An experimental Hibiscus plugin for the Revolut Business API exists (UB-GH/HibiscusRevolut,
+  June 2026, untested, one star). It would hold API credentials for a bank account; do not use
+  it without a review. The Revolut Business API can later be called by the bridge directly.
