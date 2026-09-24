@@ -61,11 +61,23 @@ jobs:
           ALEPH_SITE_NAME: belege
           ALEPH_SITE_RETENTION_KEEP_COUNT: '3'
           ALEPH_SITE_CHANNEL: ALEPH-CLOUDSOLUTIONS
+          # Wait up to 20 minutes for Aleph to process the STORE (default: 5).
+          # On 2026-09-24 two STOREs stayed pending for more than 20 minutes;
+          # every retry of this step uploads again and pays another STORE, so
+          # it waits long once instead of retrying a pending one.
+          ALEPH_SITE_ALEPH_MESSAGE_WAIT_ATTEMPTS: '240'
+          ALEPH_SITE_ALEPH_MESSAGE_WAIT_DELAY_MS: '5000'
           ALEPH_PRIVATE_KEY: ${{ secrets.ALEPH_PRIVATE_KEY }}
         run: |
+          # Retry only a failed upload; a STORE that stays pending is not
+          # helped by publishing it a second time.
           for attempt in 1 2 3; do
-            if node --input-type=module -e "import('/tmp/le-space-deployer/node_modules/@le-space/node/index.js').then((m) => m.runSiteMode())"; then
+            if node --input-type=module -e "import('/tmp/le-space-deployer/node_modules/@le-space/node/index.js').then((m) => m.runSiteMode())" 2> >(tee /tmp/publish-err.txt >&2); then
               exit 0
+            fi
+            if grep -q 'stayed pending after the wait window' /tmp/publish-err.txt; then
+              echo "::error::Aleph did not process the STORE within 20 minutes. The files are on IPFS; run this workflow again later instead of re-uploading now."
+              exit 1
             fi
             echo "::warning::publish attempt $attempt failed, retrying in 30 s"
             sleep 30
