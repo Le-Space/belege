@@ -1,7 +1,8 @@
 name: CI
 
-# The app only. The phase-0 spikes under spikes/ talk to a local Hibiscus, a
-# mail server and an LLM API; they are not run here.
+# The app and the bridge. The phase-0 spikes under spikes/ talk to a local
+# Hibiscus, a mail server and an LLM API; they are not run here. The bridge
+# tests and the app's bank-import spec use a fake Hibiscus, never a real one.
 
 permissions:
   contents: read
@@ -17,6 +18,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile --filter @belege/bridge...
+      - name: Format
+        run: pnpm --filter @belege/bridge lint
+      - name: Tests
+        run: pnpm run test:bridge
+
   app:
     runs-on: ubuntu-latest
     # Same Playwright version as app/package.json, so the browsers are there.
@@ -34,7 +52,7 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
       - name: Lint
-        run: pnpm run lint
+        run: pnpm --filter @belege/app lint
       - name: Types
         run: pnpm run check
       - name: Unit tests

@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic test data in the shape of a German bank's CAMT.053 (DK format,
+     camt.053.001.02). No real account, person or amount: IBANs carry check
+     digits 00, creditor ids are made up. -->
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <BkToCstmrStmt>
+    <GrpHdr>
+      <MsgId>DE-TEST-0815</MsgId>
+      <CreDtTm>2026-08-31T20:00:00+02:00</CreDtTm>
+    </GrpHdr>
+    <Stmt>
+      <Id>DE-STMT-TEST-2026-08</Id>
+      <ElctrncSeqNb>8</ElctrncSeqNb>
+      <CreDtTm>2026-08-31T20:00:00+02:00</CreDtTm>
+      <Acct>
+        <Id>
+          <IBAN>DE00000000000000002222</IBAN>
+        </Id>
+        <Ccy>EUR</Ccy>
+        <Ownr><Nm>Muster Test GmbH</Nm></Ownr>
+        <Svcr>
+          <FinInstnId>
+            <BIC>TESTDEFFXXX</BIC>
+            <Nm>Testbank eG</Nm>
+          </FinInstnId>
+        </Svcr>
+      </Acct>
+      <Ntry>
+        <Amt Ccy="EUR">52.59</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-08-22</Dt></BookgDt>
+        <ValDt><Dt>2026-08-22</Dt></ValDt>
+        <AcctSvcrRef>2026082200001</AcctSvcrRef>
+        <BkTxCd>
+          <Prtry><Cd>NDDT+105+9248+992</Cd><Issr>DK</Issr></Prtry>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <EndToEndId>MOBIL-2026-08-4411</EndToEndId>
+              <MndtId>MANDAT-TEST-77</MndtId>
+            </Refs>
+            <RltdPties>
+              <Cdtr><Nm>Mobilfunk Beispiel GmbH</Nm></Cdtr>
+              <CdtrAcct><Id><IBAN>DE00000000000000003333</IBAN></Id></CdtrAcct>
+            </RltdPties>
+            <RmtInf>
+              <Ustrd>Kundennr. 4711-0815</Ustrd>
+              <Ustrd>Rechnung 2026-08 vom 15.08.2026</Ustrd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+        <AddtlNtryInf>Basislastschrift</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="EUR">300.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-08-28</Dt></BookgDt>
+        <ValDt><Dt>2026-08-28</Dt></ValDt>
+        <AcctSvcrRef>2026082800007</AcctSvcrRef>
+        <BkTxCd><Prtry><Cd>NMSC+191+9248+997</Cd><Issr>DK</Issr></Prtry></BkTxCd>
+        <NtryDtls>
+          <Btch><NbOfTxs>2</NbOfTxs></Btch>
+          <TxDtls>
+            <Refs><EndToEndId>SAMMEL-1</EndToEndId></Refs>
+            <AmtDtls><TxAmt><Amt Ccy="EUR">120.00</Amt></TxAmt></AmtDtls>
+            <RltdPties>
+              <Cdtr><Nm>Druckerei Probelauf KG</Nm></Cdtr>
+              <CdtrAcct><Id><IBAN>DE00000000000000004444</IBAN></Id></CdtrAcct>
+            </RltdPties>
+            <RmtInf><Ustrd>RE-2026-118</Ustrd></RmtInf>
+          </TxDtls>
+          <TxDtls>
+            <Refs><EndToEndId>SAMMEL-2</EndToEndId></Refs>
+            <AmtDtls><TxAmt><Amt Ccy="EUR">180.00</Amt></TxAmt></AmtDtls>
+            <RltdPties>
+              <Cdtr><Nm>Steuerbüro Beispielhaft</Nm></Cdtr>
+              <CdtrAcct><Id><IBAN>DE00000000000000005555</IBAN></Id></CdtrAcct>
+            </RltdPties>
+            <RmtInf><Ustrd>Honorar Juli</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+        <AddtlNtryInf>Sammelüberweisung</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="EUR">1190.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-08-30</Dt></BookgDt>
+        <ValDt><Dt>2026-08-31</Dt></ValDt>
+        <BkTxCd><Prtry><Cd>NTRF+166+9248+997</Cd><Issr>DK</Issr></Prtry></BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><EndToEndId>NOTPROVIDED</EndToEndId></Refs>
+            <RltdPties>
+              <Dbtr><Nm>Kundschaft Probe AG</Nm></Dbtr>
+              <DbtrAcct><Id><IBAN>DE00000000000000006666</IBAN></Id></DbtrAcct>
+            </RltdPties>
+            <RmtInf><Ustrd>Rechnung 2026-004</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+        <AddtlNtryInf>Gutschrift</AddtlNtryInf>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>

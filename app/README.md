@@ -8,7 +8,7 @@ pnpm test:unit    # vitest, Node
 pnpm test:e2e     # Playwright, Chromium with a virtual passkey (PRF)
 ```
 
-## Architecture (phase 1, step 1)
+## Architecture (phase 1, steps 1 and 2)
 
 - **Identity = passkey.** A WebAuthn passkey is the identity: its P-256 key gives the DID
   (`did:key:…`, via `@le-space/orbitdb-identity-provider-webauthn-did`). Create a passkey, or
@@ -30,7 +30,7 @@ pnpm test:e2e     # Playwright, Chromium with a virtual passkey (PRF)
 - **Persistent storage.** Helia on `LevelBlockstore`/`LevelDatastore` (IndexedDB
   `belege/helia-blocks`, `belege/helia-data`), OrbitDB logs under `belege/orbitdb`; no keystore.
 - **Data layer** (`src/lib/store/`): sealed OrbitDB documents databases `transactions`,
-  `receipts`, `partners`, indexed by a ULID `id`; every record has `createdAt`, `updatedAt`,
+  `receipts`, `partners`, `accounts`, `settings`, indexed by a ULID `id`; every record has `createdAt`, `updatedAt`,
   `deleted` (soft delete) and `author` (DID); money in integer cents. `sealed-documents.js` exists
   because `@orbitdb/core` 4.0.0 drops the `encryption` option for documents databases.
 - **P2P prepared, not used.** libp2p runs with gossipsub for OrbitDB but no transports, no
@@ -38,3 +38,18 @@ pnpm test:e2e     # Playwright, Chromium with a virtual passkey (PRF)
 
 Several files are ported from [Le-Space/simple-todo](https://github.com/Le-Space/simple-todo)
 `apps/invoice01`; each says so in its header, with what changed.
+
+## Bank import (step 2)
+
+- **Hibiscus through the bridge** (`src/lib/bridge/`, `src/lib/bank/hibiscus-sync.js`): pair on
+  Integrationen with the code the bridge prints; the token goes into the sealed `settings`
+  collection. A sync asks for 90 days the first time, then from a week before the last sync.
+- **CAMT.053** (`src/lib/bank/camt.js`): parsed in the browser with `DOMParser`; the account comes
+  from the statement's IBAN, kept only as its last four digits and a hash.
+- **No duplicates** (`src/lib/bank/import.js`): matched by source, account and source id, else by a
+  fingerprint of account, date, amount, purpose and counterparty (the bridge computes the same),
+  with a repeat count so two identical bookings on one day stay two. Re-imports update changed
+  bookings and skip the rest; soft-deleted bookings do not come back.
+- **Zahlungen**: months with count and receipt coverage, bookings by day, search, account filter,
+  "Nur ohne Beleg"/"Alle".
+- The E2E spec `e2e/bank-import.spec.js` runs a fake Hibiscus and the real bridge in test mode.
