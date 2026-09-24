@@ -6,7 +6,10 @@
 // span, it is split around it (`…Before`, `…After`).
 export default {
 	app: {
-		name: 'Belege',
+		name: 'Le Space Belege',
+		// The name in two parts, so a phone can set it on two lines.
+		maker: 'Le Space',
+		product: 'Belege',
 		tagline: 'Zahlungen und Belege, nur auf diesem Gerät'
 	},
 	nav: {
@@ -49,10 +52,10 @@ export default {
 	consent: {
 		title: 'Bevor du anfängst',
 		intro:
-			'Belege bringt deine Kontoumsätze und Belege zusammen. Hier steht, wo deine Daten liegen und was diesen Rechner verlässt – kurz für alle, und mit dem Schalter „Technisch“ im Detail.',
+			'Le Space Belege bringt deine Kontoumsätze und Belege zusammen. Hier steht, wo deine Daten liegen und was diesen Rechner verlässt – kurz für alle, und mit dem Schalter „Technisch“ im Detail.',
 		earlyHeading: 'Noch früh.',
 		earlyBody:
-			'Belege ist in Entwicklung. Bewahre Kontoauszüge und Belege weiterhin auch anderswo auf.',
+			'Le Space Belege ist in Entwicklung. Bewahre Kontoauszüge und Belege weiterhin auch anderswo auf.',
 		technicalHeading: 'Unter der Haube',
 		identity: {
 			title: 'Identität: dein Passkey',
@@ -84,7 +87,7 @@ export default {
 		network: {
 			title: 'Netzwerk: aus',
 			simple: [
-				'Belege verbindet sich mit niemandem. Kein Peer-to-Peer, kein Relay, kein Server: Deine Bücher verlassen diesen Browser nicht.'
+				'Le Space Belege verbindet sich mit niemandem. Kein Peer-to-Peer, kein Relay, kein Server: Deine Bücher verlassen diesen Browser nicht.'
 			],
 			options: 'Einstellungen',
 			collaboration: 'Zusammenarbeit',

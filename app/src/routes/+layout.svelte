@@ -6,7 +6,7 @@
 	import '../app.css';
 	import AppFooter from '$lib/AppFooter.svelte';
 	import ConsentModal from '$lib/ConsentModal.svelte';
-	import LeSpaceLogo from '$lib/LeSpaceLogo.svelte';
+	import BelegeMark from '$lib/BelegeMark.svelte';
 	import LocalOnlyBadge from '$lib/LocalOnlyBadge.svelte';
 	import PageQr from '$lib/PageQr.svelte';
 	import PasskeyOnboarding from '$lib/PasskeyOnboarding.svelte';
@@ -48,11 +48,15 @@
 				title={t('header.localFirst')}
 				data-testid="local-first-link"
 			>
-				<LeSpaceLogo size={44} />
+				<BelegeMark size={44} />
 			</a>
 			<div class="min-w-0">
-				<p class="truncate text-xl font-bold text-heading sm:text-3xl" data-testid="app-name">
-					{t('app.name')}
+				<p class="font-bold text-heading sm:truncate sm:text-3xl" data-testid="app-name">
+					<span
+						class="block text-xs font-semibold tracking-wide text-faint sm:inline sm:text-3xl sm:font-bold sm:tracking-normal sm:text-heading"
+						>{t('app.maker')}</span
+					>
+					<span class="block text-xl leading-tight sm:inline sm:text-3xl">{t('app.product')}</span>
 				</p>
 				<p class="mt-0.5 hidden text-sm text-faint sm:block">{t('app.tagline')}</p>
 			</div>
