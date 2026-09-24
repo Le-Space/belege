@@ -5,6 +5,11 @@
 //   pnpm spike:hibiscus                    # first run: prints the certificate fingerprint and stops
 //   export HIBISCUS_CERT_SHA256=AB:CD:...  # after comparing it with the one Jameica shows
 //   pnpm spike:hibiscus -- --days 90
+//   pnpm spike:hibiscus -- --iban-suffix 1400   # only the account whose IBAN ends in 1400
+//
+// With --iban-suffix (or HIBISCUS_IBAN_SUFFIX, comma-separated) every other account is
+// skipped before anything about it is printed or its transactions are fetched: private
+// accounts in the same Hibiscus stay out.
 //
 // The raw answers land in spikes/hibiscus/out/ (git-ignored). The console only shows masked IBANs.
 
@@ -18,6 +23,10 @@ const PORT = Number(process.env.HIBISCUS_PORT ?? 8080)
 const PASSWORD = process.env.HIBISCUS_PASSWORD
 const PINNED = process.env.HIBISCUS_CERT_SHA256?.toUpperCase()
 const days = Number(argValue('--days') ?? 90)
+try {
+  process.loadEnvFile(new URL('../../.env', import.meta.url))
+} catch {}
+const suffixes = (argValue('--iban-suffix') ?? process.env.HIBISCUS_IBAN_SUFFIX ?? '').split(',').map((x) => x.trim()).filter(Boolean)
 
 if (!PASSWORD) fail('HIBISCUS_PASSWORD is not set (the Jameica master password).')
 
@@ -33,15 +42,17 @@ if (cert.fingerprint256 !== PINNED) fail(`Certificate fingerprint mismatch: got 
 const ca = `-----BEGIN CERTIFICATE-----\n${cert.raw.toString('base64').match(/.{1,64}/g).join('\n')}\n-----END CERTIFICATE-----\n`
 
 // 2. Accounts
-const konten = await call('hibiscus.xmlrpc.konto.find')
-console.log(`\n${konten.length} account(s):`)
+const all = await call('hibiscus.xmlrpc.konto.find')
+const konten = suffixes.length ? all.filter((k) => suffixes.some((x) => String(k.iban ?? '').replace(/\s/g, '').endsWith(x))) : all
+if (!suffixes.length) console.log('No --iban-suffix given: reading every account in Hibiscus.')
+console.log(`\n${konten.length} account(s)${all.length > konten.length ? `, ${all.length - konten.length} other(s) skipped` : ''}:`)
 for (const k of konten) {
   console.log(`  [${k.id}] ${k.bezeichnung || k.name} · ${maskIban(k.iban)} · ${k.waehrung} · balance ${k.saldo} (${k.saldo_datum})`)
 }
 
 // 3. Transactions per account for the last N days
 const since = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10)
-const out = { fetchedAt: new Date().toISOString(), since, konten, umsaetze: {} }
+const out = { fetchedAt: new Date().toISOString(), since, konten, umsaetze: {} } // skipped accounts are not stored
 for (const k of konten) {
   const umsaetze = await call('hibiscus.xmlrpc.umsatz.list', { konto_id: String(k.id), 'datum:min': since })
   out.umsaetze[k.id] = umsaetze
