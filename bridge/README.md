@@ -25,6 +25,9 @@ in a suffix you allowed.
 4. **Start it**: `pnpm bridge`. Until a browser is paired it prints a one-time pairing code (10
    minutes, one use). `pnpm bridge -- --pair` prints a new one to pair another browser.
 5. **Pair**: in the app, Integrationen → Bridge → enter the code → Koppeln.
+6. **Unpair**: "Kopplung lösen" in the app makes the bridge forget that token too. For a device
+   that cannot do it itself (lost, wiped, or the bridge was off): stop the bridge, then
+   `pnpm bridge -- --list-pairings`, `pnpm bridge -- --revoke <n>` or `pnpm bridge -- --revoke-all`.
 
 ## Where things are kept
 
@@ -43,6 +46,7 @@ All JSON, `127.0.0.1:8765` by default. Everything except `/health` and `/pair` n
 |---|---|
 | `GET /health` | `{ ok, paired, pairingOpen, hibiscus: { configured } }` |
 | `POST /pair` `{ code }` | `{ token }`, once per code |
+| `POST /unpair` | forgets the calling token; `{ ok: true }` |
 | `GET /hibiscus/accounts` | allowed accounts: `id, ibanMasked, ibanLast4, name, currency, balanceCents, balanceDate` |
 | `GET /hibiscus/transactions?account=<id>&since=YYYY-MM-DD` | `date, valueDate, amountCents, currency, counterpartyName, counterpartyIban, purpose, endToEndId, bookingType, sourceId, fingerprint` |
 

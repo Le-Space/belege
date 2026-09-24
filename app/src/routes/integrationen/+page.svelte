@@ -94,6 +94,15 @@
 	async function unpair() {
 		const store = currentStore();
 		if (!store) return;
+		bridgeError = null;
+		try {
+			// The bridge forgets the token too, so a copy of it is worthless.
+			await client.unpair();
+		} catch {
+			bridgeError =
+				'Die Bridge war nicht erreichbar: Die Kopplung ist nur auf diesem Gerät gelöst. ' +
+				'Auf der Bridge entfernt `pnpm bridge -- --revoke-all` alle Kopplungen.';
+		}
 		await setSetting(store.settings, 'bridge', { url: bridgeUrl, token: null });
 		token = null;
 		bridgeAccounts = [];
@@ -250,7 +259,7 @@
 			type="button"
 			class="mt-3 text-sm text-slate-600 underline"
 			onclick={unpair}
-			data-testid="unpair">Kopplung auf diesem Gerät lösen</button
+			data-testid="unpair">Kopplung lösen</button
 		>
 	{/if}
 	{#if bridgeError}

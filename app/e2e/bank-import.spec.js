@@ -235,4 +235,14 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	const local = await page.evaluate(() => JSON.stringify({ ...localStorage }));
 	expect(local.includes(token)).toBe(false);
 	expect(local.includes(token.slice(0, 16))).toBe(false);
+
+	// "Kopplung lösen" also kills the token on the bridge, not just in the browser.
+	await page.getByRole('link', { name: 'Integrationen' }).click();
+	await page.getByTestId('unpair').click();
+	await expect(page.getByTestId('pairing-code')).toBeVisible();
+	await expect(page.getByTestId('bridge-error')).toHaveCount(0);
+	const stale = await page.request.get(`http://127.0.0.1:${BRIDGE_PORT}/hibiscus/accounts`, {
+		headers: { authorization: `Bearer ${token}` }
+	});
+	expect(stale.status()).toBe(401);
 });

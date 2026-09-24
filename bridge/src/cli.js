@@ -4,6 +4,9 @@
 //   pnpm --filter @belege/bridge start            # prints a pairing code until one client is paired
 //   pnpm --filter @belege/bridge start -- --pair  # a new code, to pair another browser
 //
+//   pnpm --filter @belege/bridge start -- --list-pairings | --revoke <n> | --revoke-all
+//                                                  # manage paired devices, then exit (pairings.js)
+//
 // Options: --config <path> (default ~/.config/belege/bridge.json or
 // $BELEGE_BRIDGE_CONFIG), --port <n>.
 //
@@ -18,6 +21,7 @@ import { join } from 'node:path';
 import { startBridge } from './index.js';
 import { defaultConfigPath } from './config.js';
 import { memoryKeychain } from './keychain.js';
+import { managePairings } from './pairings.js';
 
 const args = process.argv.slice(2);
 /** @param {string} name */
@@ -29,6 +33,23 @@ const value = (name) => {
 const testMode = args.includes('--test-mode');
 const configPath = resolve(value('--config') ?? defaultConfigPath());
 const port = value('--port') ? Number(value('--port')) : undefined;
+
+const pairingAction = args.includes('--list-pairings')
+	? 'list'
+	: args.includes('--revoke-all')
+		? 'revoke-all'
+		: args.includes('--revoke')
+			? 'revoke'
+			: null;
+if (pairingAction) {
+	process.exit(
+		await managePairings({
+			configPath,
+			action: pairingAction,
+			index: Number(value('--revoke'))
+		})
+	);
+}
 
 let keychain;
 if (testMode) {

@@ -159,3 +159,33 @@ export function matchesSearch(tx, query) {
 	}
 	return dateSpellings(tx.bookedOn).some((s) => s.startsWith(q));
 }
+
+// SEPA tags a bank puts into the raw purpose (DFÜ-Abkommen): `EREF+…` or `EREF: …`.
+const SEPA_TAG =
+	/(?:^|\s)(EREF|KREF|MREF|CRED|DEBT|COAM|OAMT|SVWZ|ABWA|ABWE|IBAN|BIC|PURP)\s*[:+]\s*/g;
+
+/**
+ * The part of a raw purpose a person wants to read: the `SVWZ` value when the
+ * bank tags it, otherwise the text in front of the first tag (GLS puts
+ * "Kundennummer … Rechnungsnummer …" there and tags only EREF, MREF, CRED,
+ * IBAN, BIC). The raw text stays stored: matching needs the references.
+ *
+ * @param {string | null | undefined} raw
+ */
+export function displayPurpose(raw) {
+	const text = String(raw ?? '')
+		.replace(/\s+/g, ' ')
+		.trim();
+	/** @type {{ tag: string, start: number, end: number }[]} */
+	const tags = [];
+	for (const m of text.matchAll(SEPA_TAG)) {
+		tags.push({ tag: m[1], start: m.index, end: m.index + m[0].length });
+	}
+	if (!tags.length) return text;
+	const svwz = tags.findIndex((t) => t.tag === 'SVWZ');
+	if (svwz > -1) {
+		const value = text.slice(tags[svwz].end, tags[svwz + 1]?.start ?? text.length).trim();
+		if (value) return value;
+	}
+	return text.slice(0, tags[0].start).trim() || text;
+}

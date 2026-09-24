@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { app, currentStore } from '$lib/session.svelte.js';
 	import {
+		displayPurpose,
 		formatMoney,
 		groupByDay,
 		hasReceipt,
@@ -175,8 +176,10 @@
 									<span class="block truncate font-medium text-slate-900"
 										>{tx.counterparty || '—'}</span
 									>
-									{#if tx.purpose}<span class="block truncate text-sm text-slate-500"
-											>{tx.purpose}</span
+									{#if tx.purpose}<span
+											class="block truncate text-sm text-slate-500"
+											title={tx.purpose}
+											data-testid="purpose">{displayPurpose(tx.purpose)}</span
 										>{/if}
 								</span>
 								{#if badge(tx)}
