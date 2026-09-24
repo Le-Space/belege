@@ -306,25 +306,45 @@ export async function fetchAccountingMail({ store, blobs, client, since, until }
  * @param {import('./blob-store.js').BlobStore} params.blobs
  * @param {{ name: string, path?: string, bytes: () => Promise<Uint8Array> }[]} params.files
  * @param {'upload' | 'folder'} params.source
- * @returns {Promise<{ new: number, duplicate: number, unsupported: number }>}
+ * @param {boolean} [params.skipKnown] skip a path already imported without reading it (the folder watch)
+ * @param {import('../store/repository.js').StoredRecord[]} [params.created] the new records are pushed here
+ * @param {import('../store/repository.js').Collection} [params.events] one event when anything was read
+ * @returns {Promise<{ new: number, duplicate: number, unsupported: number, known: number }>}
  */
-export async function importFiles({ receipts, blobs, files, source }) {
+export async function importFiles({
+	receipts,
+	blobs,
+	files,
+	source,
+	skipKnown = false,
+	created,
+	events
+}) {
 	const seen = await known(receipts);
-	const counts = { new: 0, duplicate: 0, unsupported: 0 };
+	const counts = { new: 0, duplicate: 0, unsupported: 0, known: 0 };
 	for (const f of files) {
+		const sourceRef = `${source}:${f.path ?? f.name}`;
+		if (skipKnown && seen.refs.has(sourceRef)) {
+			counts.known++;
+			continue;
+		}
 		const bytes = await f.bytes();
-		const { outcome } = await importFile({
+		const { outcome, record } = await importFile({
 			receipts,
 			blobs,
 			bytes,
 			fileName: f.name,
 			source,
-			sourceRef: `${source}:${f.path ?? f.name}`,
+			sourceRef,
 			seen
 		});
+		if (record) created?.push(record);
 		if (outcome === 'new') counts.new++;
 		else if (outcome === 'duplicate') counts.duplicate++;
 		else counts.unsupported++;
+	}
+	if (counts.new + counts.duplicate + counts.unsupported > 0) {
+		await recordEvent(events, 'file-import', { source, files: files.length, ...counts });
 	}
 	return counts;
 }

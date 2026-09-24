@@ -53,6 +53,16 @@ export function describeEvent(e, { receipts = [], transactions = [] } = {}) {
 						duplicate: e.duplicate ?? 0
 					}) + (e.verdicts ? t('belege.mailVerdicts', { count: e.verdicts }) : '')
 			};
+		case 'file-import':
+			return {
+				...base,
+				title: t(`verlauf.kind.file-import-${e.source === 'folder' ? 'folder' : 'upload'}`),
+				text: t('verlauf.text.fileImport', {
+					new: e.new ?? 0,
+					duplicate: e.duplicate ?? 0,
+					unsupported: e.unsupported ?? 0
+				})
+			};
 		case 'sender-verdict':
 			return {
 				...base,

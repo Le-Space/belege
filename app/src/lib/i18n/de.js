@@ -519,6 +519,8 @@ export default {
 		kind: {
 			'bank-sync': 'Umsätze abgerufen',
 			'mail-fetch': 'E-Mails abgerufen',
+			'file-import-upload': 'Belege hochgeladen',
+			'file-import-folder': 'Ordner eingelesen',
 			'sender-verdict': 'Absenderprüfung aktualisiert',
 			extract: 'Beleg ausgelesen',
 			extractFailed: 'Auslesen fehlgeschlagen',
@@ -530,6 +532,7 @@ export default {
 				'{source}: {accounts} Konto/Konten · neu: {new} · aktualisiert: {updated} · übersprungen: {skipped}',
 			mailFetch:
 				'{from} bis {to}: {mails} E-Mails · neu: {new} · schon vorhanden: {skipped} · doppelt: {duplicate}',
+			fileImport: 'neu: {new} · doppelt: {duplicate} · nicht unterstützt: {unsupported}',
 			senderVerdict: '{vendor}: {was} → {now}',
 			senderReleased: ' – zum Auslesen freigegeben',
 			extract:
@@ -557,6 +560,7 @@ export default {
 			'no-receipt': '„Kein Beleg nötig“ gesetzt',
 			'needs-receipt': '„Kein Beleg nötig“ zurückgenommen',
 			'confirm-sender': 'Absender freigegeben',
+			'upload-link': 'Beleg hochgeladen und dieser Zahlung zugeordnet',
 			answer: 'Rückfrage beantwortet: {choice}'
 		},
 		source: { hibiscus: 'Hibiscus', camt: 'CAMT-Import' },
@@ -635,7 +639,33 @@ export default {
 			privateImportedUnverified:
 				'Übernommen. Der Absender ist nicht bestätigt: unter Belege prüfen und freigeben.',
 			privateDuplicate: 'Diesen Beleg gibt es schon.',
-			noBridge: 'Für die Suche die Bridge unter Integrationen koppeln.'
+			noBridge: 'Für die Suche die Bridge unter Integrationen koppeln.',
+			portal: 'Portal öffnen',
+			portalFromPurpose: 'aus dem Verwendungszweck',
+			portalFromPartner: 'beim Partner gespeichert',
+			upload: 'Beleg hochladen und dieser Zahlung zuordnen',
+			uploadHint:
+				'PDF oder Bild, auch per Drag & Drop hierher. Der Beleg wird wie unter Belege verschlüsselt abgelegt, ausgelesen und dieser Zahlung zugeordnet – als deine Entscheidung, auch bei wenigen Punkten.',
+			uploading: 'Lege ab und lese aus …',
+			uploaded: 'Zugeordnet: {vendor}',
+			uploadedPoints: ' – {line}',
+			uploadedDuplicate: ' (diesen Beleg gab es schon)',
+			uploadUnsupported: 'Das ist kein PDF und kein Bild.',
+			uploadTooLarge: 'Die Datei ist größer als 15 MB.',
+			uploadReadFailed: 'Auslesen fehlgeschlagen: {error}',
+			warn: {
+				amount: 'Achtung: Der Beleg nennt {receipt}, die Zahlung {tx}.',
+				'invoice-number': 'Achtung: Die Rechnungsnummer {number} steht nicht im Verwendungszweck.',
+				unread:
+					'Der Beleg ist nicht ausgelesen: Betrag und Rechnungsnummer ließen sich nicht prüfen.'
+			},
+			drop: 'Loslassen: Beleg dieser Zahlung zuordnen',
+			folderCheck: 'Ordner jetzt prüfen',
+			folderChecking: 'Prüfe den Ordner …',
+			folderResult: 'Ordner: {count} neu eingelesen und abgeglichen.',
+			folderNothing: 'Ordner: nichts Neues.',
+			folderDenied: 'Der Browser hat keinen Lesezugriff auf den Ordner erhalten.',
+			folderHint: 'Solange die App offen ist, prüft sie den freigegebenen Ordner jede Minute.'
 		}
 	},
 	integrationen: {

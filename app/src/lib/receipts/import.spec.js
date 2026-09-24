@@ -95,7 +95,7 @@ describe('receipt import', () => {
 			source: 'folder',
 			files: [{ name: 'b.pdf', path: 'x/b.pdf', bytes: async () => pdf('B') }]
 		});
-		expect(counts).toEqual({ new: 0, duplicate: 1, unsupported: 0 });
+		expect(counts).toEqual({ new: 0, duplicate: 1, unsupported: 0, known: 0 });
 	});
 
 	it('files that are no PDF or image are refused', async () => {
@@ -109,7 +109,7 @@ describe('receipt import', () => {
 				{ name: 'bild.png', bytes: async () => png }
 			]
 		});
-		expect(counts).toEqual({ new: 1, duplicate: 0, unsupported: 1 });
+		expect(counts).toEqual({ new: 1, duplicate: 0, unsupported: 1, known: 0 });
 		const [only] = await receipts.list();
 		expect(only.mime).toBe('image/png');
 	});

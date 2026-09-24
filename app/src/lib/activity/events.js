@@ -4,7 +4,7 @@
 // cannot forget it.
 //
 // A record holds
-//   kind      bank-sync | mail-fetch | sender-verdict | extract | matching | decision
+//   kind      bank-sync | mail-fetch | file-import | sender-verdict | extract | matching | decision
 //   at        ISO 8601
 //   ids       receiptId, transactionId, matchId, questionId, where there is one
 //   summary   counts and small facts (model, tokens, redactions by kind, …)
@@ -14,13 +14,14 @@
 /** @typedef {import('../store/repository.js').Collection} Collection */
 /** @typedef {import('../store/repository.js').StoredRecord} StoredRecord */
 
-/** @typedef {'bank-sync' | 'mail-fetch' | 'sender-verdict' | 'extract' | 'matching' | 'decision'} EventKind */
+/** @typedef {'bank-sync' | 'mail-fetch' | 'file-import' | 'sender-verdict' | 'extract' | 'matching' | 'decision'} EventKind */
 /** @typedef {'auslesen' | 'abgleich' | 'abruf' | 'entscheidungen'} EventGroup */
 
 /** @type {Record<EventKind, EventGroup>} */
 export const GROUP_OF = {
 	'bank-sync': 'abruf',
 	'mail-fetch': 'abruf',
+	'file-import': 'abruf',
 	'sender-verdict': 'abruf',
 	extract: 'auslesen',
 	matching: 'abgleich',
