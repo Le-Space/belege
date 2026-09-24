@@ -17,6 +17,12 @@ both behind; moving the domain to another host (Aleph today) does not.
 | CNAME | `_dnslink.belege` | `_dnslink.belege.le-space.de.static.public.aleph.sh` | DNS only |
 | TXT | `_control.belege` | `0xD139E44669fD96C714F888B6b04Fe5D02D02B4fD` | – |
 
+Or through the Cloudflare API with a token that may edit DNS of the zone (asked for hidden):
+
+```bash
+bash scripts/cloudflare-dns.sh
+```
+
 `le-space.de` has a wildcard A record; the explicit CNAME overrides it. The `_control`
 address is the account that signs the publish (the same as for the other le-space.de
 sites); it must match the secret below. Check:
