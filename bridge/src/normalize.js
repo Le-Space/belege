@@ -19,11 +19,11 @@ export function parseAmountCents(value) {
 	}
 	let s = String(value ?? '')
 		.trim()
-		.replace(/[\s ']/g, '')
+		.replace(/[\s\u00a0']/g, '')
 		.replace(/^\+/, '');
 	if (!s) throw new Error('Empty amount');
 	let negative = false;
-	if (s.startsWith('-') || s.startsWith('−')) {
+	if (s.startsWith('-') || s.startsWith('\u2212')) {
 		negative = true;
 		s = s.slice(1);
 	} else if (s.endsWith('-')) {
