@@ -47,3 +47,7 @@
   browser could call DeepSeek directly; whether it should (the key would live in the browser)
   is a separate decision.
 - A key with no credit passes `/models` but every completion fails with HTTP 402.
+- Both models reason before answering, and the reasoning counts against `max_tokens`: with 60
+  tokens both stop with `finish_reason: length` and an empty answer. A one-line invoice needs
+  about 100–140 reasoning tokens. Budget generously and treat anything but `stop` as a failure.
+- On the test invoice both return the same correct JSON; flash in about 1.4 s, v4-pro in about 2.8 s.

@@ -44,7 +44,8 @@ const chat = await fetch(`${base}/chat/completions`, {
   headers: { ...auth, 'Content-Type': 'application/json' },
   body: JSON.stringify({
     model,
-    max_tokens: 60,
+    // Both models reason before they answer; the reasoning counts against max_tokens.
+    max_tokens: 800,
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: 'Extract invoice data. Answer as JSON with keys vendor, amount, currency, date (YYYY-MM-DD).' },
@@ -55,8 +56,9 @@ const chat = await fetch(`${base}/chat/completions`, {
 if (chat.status === 402) throw new Error('completion: 402, no balance left – the key works, but the account needs credit')
 if (!chat.ok) throw new Error(`completion: HTTP ${chat.status} ${await chat.text()}`)
 const c = await chat.json()
+if (c.choices[0].finish_reason !== 'stop') throw new Error(`completion stopped early (${c.choices[0].finish_reason}): raise max_tokens`)
 console.log(`✓ ${model} answered in ${Date.now() - t0} ms: ${c.choices[0].message.content.replace(/\s+/g, ' ')}`)
-console.log(`  tokens: ${c.usage.prompt_tokens} in, ${c.usage.completion_tokens} out`)
+console.log(`  tokens: ${c.usage.prompt_tokens} in, ${c.usage.completion_tokens} out (${c.usage.completion_tokens_details?.reasoning_tokens ?? 0} of them reasoning)`)
 }
 
 // 4. Could the browser call the API directly? (CORS preflight, no key sent)
