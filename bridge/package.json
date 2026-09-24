@@ -1,0 +1,31 @@
+{
+	"name": "@belege/bridge",
+	"private": true,
+	"version": "0.1.0",
+	"description": "The belege bridge on 127.0.0.1: what a browser cannot do (Hibiscus XML-RPC).",
+	"type": "module",
+	"engines": {
+		"node": ">=22"
+	},
+	"bin": {
+		"belege-bridge": "src/cli.js"
+	},
+	"exports": {
+		".": "./src/index.js",
+		"./testing": "./test/support/fake-hibiscus.js"
+	},
+	"scripts": {
+		"start": "node src/cli.js",
+		"setup:hibiscus": "node src/setup-hibiscus.js",
+		"test": "node --test --test-reporter=spec \"test/*.test.js\"",
+		"lint": "prettier --check src test",
+		"format": "prettier --write src test"
+	},
+	"dependencies": {
+		"fast-xml-parser": "5.11.1"
+	},
+	"devDependencies": {
+		"selfsigned": "5.5.0",
+		"prettier": "3.6.2"
+	}
+}
