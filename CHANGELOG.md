@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] – 2026-09-24
+
 ### Added
 
 - **Phase 1, step 1 – identity and sealed books.** A passkey is the identity (DID from its P-256

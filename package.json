@@ -29,5 +29,6 @@
     "fast-xml-parser": "^5.2.5",
     "imapflow": "^2.0.6",
     "unpdf": "^1.8.1"
-  }
+  },
+  "version": "0.1.0"
 }
