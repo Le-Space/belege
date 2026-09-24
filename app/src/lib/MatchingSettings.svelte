@@ -5,7 +5,11 @@
 	import { onMount } from 'svelte';
 	import { app, currentStore, runMatchingNow } from './session.svelte.js';
 	import { setSetting } from './store/settings.js';
-	import { cleanMatchingSettings } from './matching/classify.js';
+	import {
+		cleanMatchingSettings,
+		DEFAULT_GRACE_DAYS,
+		MAX_GRACE_DAYS
+	} from './matching/classify.js';
 	import { ulid } from './store/ids.js';
 	import { t } from './i18n/index.js';
 
@@ -20,6 +24,8 @@
 	/** @type {'ignore' | 'private'} */
 	let action = $state('ignore');
 	let reason = $state('');
+	/** @type {number | string} */
+	let graceDays = $state(DEFAULT_GRACE_DAYS);
 
 	let saving = $state(false);
 	/** @type {string | null} */
@@ -30,6 +36,7 @@
 		companyText = current.companyNames.join('\n');
 		ibanText = current.ownIbans.join('\n');
 		rules = current.rules;
+		graceDays = current.graceDays;
 	});
 
 	let bookAccounts = $derived(
@@ -70,8 +77,10 @@
 			const value = cleanMatchingSettings({
 				companyNames: lines(companyText),
 				ownIbans: lines(ibanText),
-				rules: $state.snapshot(rules)
+				rules: $state.snapshot(rules),
+				graceDays: String(graceDays)
 			});
+			graceDays = value.graceDays;
 			await setSetting(store.settings, 'matching', value);
 			saved = t('anweisungen.saved');
 			await runMatchingNow();
@@ -126,6 +135,23 @@
 			<span class="mt-1 text-xs text-faint"
 				>{t('anweisungen.ownIbansHint', { list: bookAccounts })}</span
 			>
+		</label>
+
+		<label class="flex flex-col text-sm">
+			<span class="font-medium text-heading">{t('anweisungen.grace')}</span>
+			<span class="mt-1 flex items-center gap-2">
+				<input
+					type="number"
+					min="0"
+					max={MAX_GRACE_DAYS}
+					step="1"
+					class="{input} mt-0 w-20 tabular-nums"
+					bind:value={graceDays}
+					data-testid="grace-days"
+				/>
+				<span class="text-text">{t('anweisungen.graceUnit')}</span>
+			</span>
+			<span class="mt-1 text-xs text-faint">{t('anweisungen.graceHint')}</span>
 		</label>
 
 		<fieldset class="text-sm">

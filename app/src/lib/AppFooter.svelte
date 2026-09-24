@@ -13,10 +13,12 @@
 	//
 	// Then what is deployed: the commit and its instant, in the reader's locale,
 	// clock and zone, UTC on hover (the Le-Space time and date convention).
+	import { resolve } from '$app/paths';
 	import { builtFrom, SOURCE_URL } from './build-info.js';
 	import { consent } from './consent.js';
 	import { t } from './i18n/index.js';
 	import { describeMoment } from './moment.js';
+	import { app } from './session.svelte.js';
 
 	const build = builtFrom();
 	// Formatted here, in the browser: only the reader's browser knows their
@@ -26,6 +28,14 @@
 
 <footer class="mt-10 border-t border-border pt-4 pb-2 text-xs text-faint" data-testid="app-footer">
 	<p class="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+		{#if app.status === 'ready'}
+			<a
+				href={resolve('/verlauf')}
+				class="text-text underline hover:text-heading"
+				data-testid="footer-verlauf">{t('footer.verlauf')}</a
+			>
+			<span aria-hidden="true">·</span>
+		{/if}
 		<span>{t('footer.madeWith')}</span>
 		<a
 			href="https://le-space.de"

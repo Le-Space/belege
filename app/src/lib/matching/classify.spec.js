@@ -31,7 +31,8 @@ describe('classifyTransaction', () => {
 	it('bank fees: the statement is the receipt', () => {
 		for (const bookingType of ['Abschluss', 'Entgelt', 'Mehrwertsteuerbelastung']) {
 			expect(classifyTransaction(tx({ amountCents: -1190, bookingType }), ctx())).toEqual({
-				kind: 'bank-fee'
+				kind: 'bank-fee',
+				bookingType
 			});
 		}
 		expect(
@@ -46,7 +47,12 @@ describe('classifyTransaction', () => {
 			bookingType: 'Überweisungsauftrag',
 			purpose: 'Umbuchung Revolut'
 		});
-		expect(classifyTransaction(t, ctx())).toEqual({ kind: 'own-transfer', account: '1360' });
+		expect(classifyTransaction(t, ctx())).toEqual({
+			kind: 'own-transfer',
+			account: '1360',
+			via: 'company',
+			company: 'le space UG'
+		});
 		expect(classifyTransaction(t, ctx({ companyNames: [] }))).toBeNull();
 	});
 
@@ -106,14 +112,18 @@ describe('classifyTransaction', () => {
 		).toEqual({
 			kind: 'rule-ignore',
 			reason: 'Steuerbescheid liegt vor',
-			ruleId: 'r1'
+			ruleId: 'r1',
+			ruleField: 'counterparty',
+			ruleContains: 'Finanzamt'
 		});
 		expect(
 			classifyTransaction(tx({ amountCents: -100, purpose: 'Taschengeld Oktober' }), ctx({ rules }))
 		).toEqual({
 			kind: 'rule-private',
 			reason: 'Taschengeld',
-			ruleId: 'r2'
+			ruleId: 'r2',
+			ruleField: 'purpose',
+			ruleContains: 'Taschengeld'
 		});
 		// The rule wins over the bank-fee default.
 		expect(
@@ -147,9 +157,27 @@ describe('cleanMatchingSettings', () => {
 		).toEqual({
 			companyNames: ['le space UG'],
 			ownIbans: ['DE00111122223333444455'],
-			rules: [{ id: 'ok', field: 'counterparty', contains: 'Miete', action: 'private', reason: '' }]
+			rules: [
+				{ id: 'ok', field: 'counterparty', contains: 'Miete', action: 'private', reason: '' }
+			],
+			graceDays: 7
 		});
-		expect(cleanMatchingSettings(null)).toEqual({ companyNames: [], ownIbans: [], rules: [] });
+		expect(cleanMatchingSettings(null)).toEqual({
+			companyNames: [],
+			ownIbans: [],
+			rules: [],
+			graceDays: 7
+		});
+	});
+
+	it('the grace period: whole days 0–90, from a form field too; anything else is the default', () => {
+		expect(cleanMatchingSettings({ graceDays: 0 }).graceDays).toBe(0);
+		expect(cleanMatchingSettings({ graceDays: 14 }).graceDays).toBe(14);
+		expect(cleanMatchingSettings({ graceDays: '3' }).graceDays).toBe(3);
+		expect(cleanMatchingSettings({ graceDays: 90 }).graceDays).toBe(90);
+		for (const bad of [-1, 91, 2.5, '', 'bald', null]) {
+			expect(cleanMatchingSettings({ graceDays: bad }).graceDays, String(bad)).toBe(7);
+		}
 	});
 });
 

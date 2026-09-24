@@ -27,6 +27,24 @@ All notable changes to Le Space Belege. The format follows
   marks "Kein Beleg nötig", and searches the private mailbox for a missing receipt (only the hits
   are read). Matches and questions are sealed like everything else; a person's decision is never
   overridden by a later run.
+- **Transparency: how things happen.** Integrationen has a "KI – Beleg-Auslesen" card (provider
+  host, models, whether the bridge holds an API key – never the key –, redaction terms as a count,
+  the mail server id, last extraction, totals) and says plainly that the AI only reads receipts
+  while the app matches by points. A receipt shows the model, duration, tokens and redactions and
+  the redacted text that was sent; a booking says why it was matched, which rule made it need no
+  receipt, or which candidates a question offers with their points. A sealed activity log
+  (`events`) is listed under Verlauf with filters and links. The bridge adds `GET /llm/status` and
+  a fuller `POST /extract` answer.
+- **Grace period** for missing receipts: no question before a booking is older than 7 days
+  (configurable in Eigene Anweisungen); until then it shows "wartet noch (x Tage)".
+- **One booking, one click further**: "Portal öffnen" when the purpose names the vendor's portal,
+  "Beleg hochladen und dieser Zahlung zuordnen" (drag and drop too), and "Ordner jetzt prüfen"
+  with a folder check every minute while the app is visible.
+
+### Fixed
+
+- A mail fetched again brings a changed sender verdict up to date (a bridge fixed since the first
+  fetch left "Absender nicht bestätigt" standing), unless you already confirmed or ignored it.
 
 ### Changed
 

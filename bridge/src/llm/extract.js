@@ -14,7 +14,7 @@
 // The text is redacted (redact.js) before anything is sent, here and not in
 // the browser. Neither the text nor the answer is ever logged.
 
-import { redact } from './redact.js';
+import { redact, sumCounts } from './redact.js';
 
 export const MAX_TOKENS = 6000;
 export const MAX_TEXT = 30_000;
@@ -188,66 +188,91 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 			return { ok: false, reason: 'answer is not JSON' };
 		}
 		const choice = body?.choices?.[0];
+		// Tokens are counted (and billed) whether the answer is usable or not.
+		const u = body?.usage ?? {};
+		const usage = {
+			prompt: Number(u.prompt_tokens ?? 0) || 0,
+			completion: Number(u.completion_tokens ?? 0) || 0,
+			reasoning: Number(u.completion_tokens_details?.reasoning_tokens ?? 0) || 0
+		};
 		if (choice?.finish_reason !== 'stop') {
-			return { ok: false, reason: `stopped early: ${choice?.finish_reason ?? 'no choice'}` };
+			return {
+				ok: false,
+				reason: `stopped early: ${choice?.finish_reason ?? 'no choice'}`,
+				usage
+			};
 		}
 		let data;
 		try {
 			data = JSON.parse(choice.message?.content ?? '');
 		} catch {
-			return { ok: false, reason: 'content is not JSON' };
+			return { ok: false, reason: 'content is not JSON', usage };
 		}
 		const problems = checkExtraction(data);
-		if (problems.length) return { ok: false, reason: `checks failed: ${problems.join(', ')}` };
-		const usage = body.usage ?? {};
-		return {
-			ok: true,
-			reason: 'ok',
-			data,
-			usage: {
-				prompt: usage.prompt_tokens ?? 0,
-				completion: usage.completion_tokens ?? 0,
-				reasoning: usage.completion_tokens_details?.reasoning_tokens ?? 0
-			}
-		};
+		if (problems.length) {
+			return { ok: false, reason: `checks failed: ${problems.join(', ')}`, usage };
+		}
+		return { ok: true, reason: 'ok', data, usage };
 	}
+
+	const provider = url.host;
 
 	return {
 		models,
+		/** Where the text goes, without path, query or credentials: for GET /llm/status. */
+		provider,
 		/**
 		 * @param {{ text: string, hints?: Record<string, string> }} input
+		 * @returns {Promise<ExtractResult>}
 		 */
 		async extract({ text, hints = {} }) {
 			const options = { terms: config.redactTerms, ownDomains };
 			const body = redact(text, options);
+			const counts = { ...body.counts };
 			/** @type {Record<string, string>} */
 			const safeHints = {};
-			let hintRedactions = 0;
 			for (const [k, v] of Object.entries(hints)) {
 				if (typeof v !== 'string' || !v) continue;
 				const r = redact(v.slice(0, 300), options);
 				safeHints[k] = r.text;
-				hintRedactions += r.count;
+				for (const kind of /** @type {(keyof typeof counts)[]} */ (Object.keys(counts))) {
+					counts[kind] += r.counts[kind];
+				}
 			}
 			if (body.text.trim().length < 20) {
 				throw new ExtractError('too little text to read (no text layer?)', 422, 'EXTRACT_NO_TEXT');
 			}
 			const content = userMessage(body.text, safeHints);
 			const key = await getKey();
-			/** @type {{ model: string, ok: boolean, reason: string }[]} */
+			/** @type {Attempt[]} */
 			const attempts = [];
+			const started = Date.now();
 			for (const model of models) {
 				const t0 = Date.now();
 				const r = await ask(model, key, content);
-				attempts.push({ model, ok: r.ok, reason: r.reason });
+				attempts.push({
+					model,
+					ok: r.ok,
+					reason: r.reason,
+					ms: Date.now() - t0,
+					...(r.usage ? { usage: r.usage } : {})
+				});
 				if (r.ok) {
+					const first = attempts[0];
 					return {
 						extraction: r.data,
 						model,
 						usage: r.usage,
-						ms: Date.now() - t0,
+						ms: Date.now() - started,
 						attempts,
-						redactions: body.count + hintRedactions
+						fallback: {
+							used: attempts.length > 1,
+							reason: attempts.length > 1 ? first.reason : null
+						},
+						redactions: { ...counts, total: sumCounts(counts) },
+						// Exactly what went to the provider as the user message (the system
+						// prompt is the fixed SYSTEM above): already redacted.
+						sentText: content
 					};
 				}
 				// A wrong key is wrong for every model.
@@ -257,5 +282,19 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 		}
 	};
 }
+
+/**
+ * @typedef {{ prompt: number, completion: number, reasoning: number }} Usage
+ * @typedef {{ model: string, ok: boolean, reason: string, ms: number, usage?: Usage }} Attempt
+ * @typedef {object} ExtractResult
+ * @property {any} extraction the checked answer
+ * @property {string} model the model whose answer this is
+ * @property {Usage} usage that model's tokens
+ * @property {number} ms the whole call, every attempt
+ * @property {Attempt[]} attempts
+ * @property {{ used: boolean, reason: string | null }} fallback whether the second model answered, and why the first did not
+ * @property {import('./redact.js').RedactionCounts & { total: number }} redactions places blacked out, by kind
+ * @property {string} sentText the redacted user message, as sent
+ */
 
 /** @typedef {ReturnType<typeof createExtractor>} Extractor */

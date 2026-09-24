@@ -27,18 +27,20 @@ const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /**
  * @param {string} input
  * @param {{ terms?: string[], ownDomains?: string[] }} [options]
- * @returns {{ text: string, count: number }}
+ * @returns {{ text: string, count: number, counts: RedactionCounts }}
  */
 export function redact(input, { terms = [], ownDomains = [] } = {}) {
-	let count = 0;
+	/** @type {RedactionCounts} */
+	const counts = emptyCounts();
 	/**
+	 * @param {keyof RedactionCounts} kind
 	 * @param {string} s
 	 * @param {RegExp} re
 	 * @param {string | ((...m: string[]) => string)} rep
 	 */
-	const sub = (s, re, rep) =>
+	const sub = (kind, s, re, rep) =>
 		s.replace(re, (...m) => {
-			count++;
+			counts[kind]++;
 			return typeof rep === 'function' ? rep(...m) : rep;
 		});
 	let t = String(input ?? '');
@@ -47,11 +49,11 @@ export function redact(input, { terms = [], ownDomains = [] } = {}) {
 		(a, b) => b.length - a.length
 	);
 	for (const term of sorted) {
-		t = sub(t, new RegExp(escape(term).replace(/\s+/g, '\\s+'), 'gi'), '[NAME]');
+		t = sub('terms', t, new RegExp(escape(term).replace(/\s+/g, '\\s+'), 'gi'), '[NAME]');
 	}
-	t = sub(t, /\b[A-Z]{2} ?\d{2}(?: ?[A-Z0-9]{4}){3,7}(?: ?[A-Z0-9]{1,3})?\b/g, (m) => {
+	t = sub('iban', t, /\b[A-Z]{2} ?\d{2}(?: ?[A-Z0-9]{4}){3,7}(?: ?[A-Z0-9]{1,3})?\b/g, (m) => {
 		if (/ZZZ/.test(m)) {
-			count--;
+			counts.iban--;
 			return m;
 		}
 		return `[IBAN …${m.replace(/\s/g, '').slice(-4)}]`;
@@ -59,22 +61,42 @@ export function redact(input, { terms = [], ownDomains = [] } = {}) {
 	for (const domain of new Set(
 		ownDomains.map((d) => String(d).trim().toLowerCase()).filter(Boolean)
 	)) {
-		t = sub(t, new RegExp(`[\\w.+-]+@${escape(domain)}`, 'gi'), '[EMAIL]');
+		t = sub('email', t, new RegExp(`[\\w.+-]+@${escape(domain)}`, 'gi'), '[EMAIL]');
 	}
 	t = sub(
+		'postcode',
 		t,
 		/\b\d{5}[ \t]+[A-ZÄÖÜ][\wäöüß.\-]+(?:[ \t]+[A-ZÄÖÜ(][\wäöüß.\-)]*){0,3}/g,
 		'[PLZ ORT]'
 	);
 	t = sub(
+		'street',
 		t,
 		/\b[A-ZÄÖÜ][\wäöüß.\-]*(?:straße|strasse|str\.|weg|platz|allee|gasse|ring|damm|ufer|chaussee)[ \t]+\d+[a-z]?\b/gi,
 		'[STRASSE]'
 	);
 	t = sub(
+		'street',
 		t,
 		/^[A-ZÄÖÜ][\wäöüß.\- ]{1,40}? \d{1,4}[a-z]?(?=\s*\n(?:D-)?\[PLZ ORT\])/gim,
 		'[STRASSE]'
 	);
-	return { text: t, count };
+	return { text: t, count: sumCounts(counts), counts };
+}
+
+/**
+ * How many places were blacked out, by kind. `postcode` is a postcode with its
+ * town, `street` a street with its number.
+ *
+ * @typedef {{ terms: number, iban: number, email: number, street: number, postcode: number }} RedactionCounts
+ */
+
+/** @returns {RedactionCounts} */
+export function emptyCounts() {
+	return { terms: 0, iban: 0, email: 0, street: 0, postcode: 0 };
+}
+
+/** @param {RedactionCounts} c */
+export function sumCounts(c) {
+	return c.terms + c.iban + c.email + c.street + c.postcode;
 }

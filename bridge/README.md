@@ -64,7 +64,8 @@ All JSON, `127.0.0.1:8765` by default. Everything except `/health` and `/pair` n
 | `GET /mail/messages?since=YYYY-MM-DD[&until=YYYY-MM-DD]&scope=accounting` | mails to the accounting address received in [since, until): `id, folder, uid, date, receivedAt, from { address, name }, subject, auth { verdict, dkim, spf, dmarc, domain }, outgoing, attachments [{ part, name, type, size, kind, isPdf, mime }], excerpt, addressedBy` |
 | `GET /mail/attachment?id=<id>&part=<n>` | the bytes of one attachment: PDFs and images only (by their bytes), at most 15 MB |
 | `GET /mail/search?text=&amount=&around=YYYY-MM-DD&days=14` | the targeted search in the whole mailbox (Junk included, Trash and Drafts not): the same shape plus `matched` (`"text"`, or which amount spelling) |
-| `POST /extract` `{ text, hints: { subject, from, fileName, receivedAt }, source: { mailId }, confirmedByUser }` | `{ extraction, model, usage { prompt, completion, reasoning }, attempts [{ model, ok, reason }], redactions }`; 403 `SENDER_UNVERIFIED` for a mail whose sender did not pass, 502 `EXTRACT_FAILED` with the attempts when no model gave a usable answer |
+| `GET /llm/status` | `{ configured, provider, models { primary, fallback }, keyConfigured, redactTerms, mail { authServId } }`: the provider's host only (no path, query or `user:password@`), whether the keychain holds a key (yes/no, never the key), and how many terms are blacked out (a count, never the terms) |
+| `POST /extract` `{ text, hints: { subject, from, fileName, receivedAt }, source: { mailId }, confirmedByUser }` | `{ extraction, model, usage { prompt, completion, reasoning }, ms, attempts [{ model, ok, reason, ms, usage }], fallback { used, reason }, redactions { terms, iban, email, street, postcode, total }, sentText }`; 403 `SENDER_UNVERIFIED` for a mail whose sender did not pass, 502 `EXTRACT_FAILED` with the attempts when no model gave a usable answer |
 
 ### Mail
 
@@ -100,7 +101,18 @@ All JSON, `127.0.0.1:8765` by default. Everything except `/health` and `/pair` n
 - Before a mail's text goes out, the bridge looks up that mail's sender verdict itself (from the
   last listing, else from its headers); unless it passed or the mail is our own (Sent), the
   request must carry `confirmedByUser: true`.
-- Neither the text nor the answer is logged; the log says which model answered.
+- Neither the text nor the answer is logged; the log says which model answered, how long it
+  took and how many places were blacked out.
+- `/extract` answers with what it did, so the app can show it: the model that answered, whether
+  the retry model was needed and why (the first attempt's reason), the duration, the tokens of
+  every attempt (a failed attempt is billed too), the blacked-out places by kind, and `sentText`,
+  the redacted user message exactly as it went to the provider. The app keeps it inside the
+  sealed receipt record ("An die KI gesendet"). The system prompt is the fixed `SYSTEM` in
+  `src/llm/extract.js`.
+- The API key stays in the keychain. It is read for each `/extract` and by `/llm/status` to say
+  whether it is there; no response carries it (`test/extract.test.js` checks every one). It is
+  changed with `pnpm setup:llm`, not from the browser: a key typed into the page would be readable
+  by any script that ever runs there.
 
 ## Threat model
 

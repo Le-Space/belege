@@ -1,6 +1,7 @@
 // "Jetzt synchronisieren": the chosen Hibiscus accounts, through the bridge,
 // into the sealed store.
 
+import { recordEvent } from '../activity/events.js';
 import { importTransactions, upsertAccount } from './import.js';
 
 export const DEFAULT_DAYS = 90;
@@ -15,7 +16,7 @@ function isoDaysBefore(date, days) {
 /**
  * @param {object} params
  * @param {import('../bridge/client.js').BridgeClient} params.client
- * @param {{ accounts: import('../store/repository.js').Collection, transactions: import('../store/repository.js').Collection }} params.store
+ * @param {{ accounts: import('../store/repository.js').Collection, transactions: import('../store/repository.js').Collection, events?: import('../store/repository.js').Collection }} params.store
  * @param {import('../bridge/client.js').BridgeAccount[]} params.accounts the chosen ones
  * @param {Date} [params.now]
  * @param {string} [params.from] YYYY-MM-DD: fetch from this day instead of the automatic start
@@ -57,5 +58,12 @@ export async function syncHibiscus({ client, store, accounts, now = new Date(), 
 		totals.skipped += counts.skipped;
 		perAccount.push({ accountId: record.id, name: record.name, since, counts });
 	}
+	await recordEvent(store.events, 'bank-sync', {
+		source: 'hibiscus',
+		accounts: perAccount.length,
+		accountIds: perAccount.map((a) => a.accountId),
+		since: perAccount.map((a) => a.since).sort()[0] ?? null,
+		...totals
+	});
 	return { totals, perAccount };
 }

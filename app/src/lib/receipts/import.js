@@ -12,6 +12,7 @@
 // sent to the LLM until someone confirms it (docs/phase-0.md: look-alike
 // phishing, PDFs as a malware vector).
 
+import { recordEvent } from '../activity/events.js';
 import { sha256Hex } from './blob-store.js';
 
 /** @typedef {'mail' | 'upload' | 'folder'} ReceiptSource */
@@ -63,8 +64,49 @@ async function known(receipts) {
 	const all = await receipts.list({ includeDeleted: true });
 	return {
 		sha: new Set(all.map((r) => r.sha256).filter(Boolean)),
-		refs: new Set(all.map((r) => r.sourceRef).filter(Boolean))
+		refs: new Set(all.map((r) => r.sourceRef).filter(Boolean)),
+		/** @type {Map<string, import('../store/repository.js').StoredRecord>} */
+		byRef: new Map(all.filter((r) => r.sourceRef && !r.deleted).map((r) => [r.sourceRef, r]))
 	};
+}
+
+/**
+ * A mail fetched again whose sender verdict the bridge now reports otherwise
+ * (a bridge update fixed its check, say): the stored verdict follows, unless
+ * the person already decided – confirmed the sender, or ignored the receipt.
+ * A verdict that now passes lifts the hold on reading it; one that no longer
+ * does puts a receipt not yet read on hold.
+ *
+ * @param {import('../store/repository.js').Collection} receipts
+ * @param {import('../store/repository.js').StoredRecord | undefined} record
+ * @param {{ authVerdict: string, outgoing: boolean }} fields as the bridge reports them now
+ * @param {import('../store/repository.js').Collection} [events]
+ * @returns {Promise<boolean>} whether the record changed
+ */
+export async function refreshVerdict(receipts, record, fields, events) {
+	if (!record || record.source !== 'mail') return false;
+	if (record.confirmedByUser === true || record.status === 'ignoriert') return false;
+	if (record.authVerdict === fields.authVerdict && Boolean(record.outgoing) === fields.outgoing) {
+		return false;
+	}
+	const next = { ...record, authVerdict: fields.authVerdict, outgoing: fields.outgoing };
+	const held = needsConfirmation(next);
+	const status =
+		record.status === 'rückfrage' && !held
+			? record.extraction
+				? 'ausgelesen'
+				: 'neu'
+			: record.status === 'neu' && held
+				? 'rückfrage'
+				: record.status;
+	await receipts.put({ ...next, status });
+	await recordEvent(events, 'sender-verdict', {
+		receiptId: record.id,
+		was: record.outgoing ? 'outgoing' : (record.authVerdict ?? 'none'),
+		now: fields.outgoing ? 'outgoing' : fields.authVerdict,
+		released: record.status === 'rückfrage' && !held
+	});
+	return true;
 }
 
 /**
@@ -128,7 +170,8 @@ export async function importFile({
 }
 
 /**
- * @typedef {{ new: number, duplicate: number, skipped: number, unsupported: number }} MailCounts
+ * @typedef {{ new: number, duplicate: number, skipped: number, unsupported: number, verdicts: number }} MailCounts
+ * `verdicts`: receipts already here whose sender verdict was brought up to date
  */
 
 /**
@@ -142,12 +185,20 @@ export async function importFile({
  * @param {{ mailAttachment: (id: string, part: string) => Promise<Uint8Array> }} params.client
  * @param {any[]} params.messages from GET /mail/messages (or hits of /mail/search)
  * @param {import('../store/repository.js').StoredRecord[]} [params.created] the new records are pushed here
+ * @param {import('../store/repository.js').Collection} [params.events] for "Absenderprüfung aktualisiert"
  * @returns {Promise<MailCounts>}
  */
-export async function importMailMessages({ receipts, blobs, client, messages, created }) {
+export async function importMailMessages({ receipts, blobs, client, messages, created, events }) {
 	const seen = await known(receipts);
 	/** @type {MailCounts} */
-	const counts = { new: 0, duplicate: 0, skipped: 0, unsupported: 0 };
+	const counts = { new: 0, duplicate: 0, skipped: 0, unsupported: 0, verdicts: 0 };
+	/** @param {string} sourceRef @param {{ authVerdict: string, outgoing: boolean }} fields */
+	const again = async (sourceRef, fields) => {
+		counts.skipped++;
+		if (await refreshVerdict(receipts, seen.byRef.get(sourceRef), fields, events)) {
+			counts.verdicts++;
+		}
+	};
 	for (const m of messages) {
 		const fields = {
 			mailId: m.id,
@@ -164,7 +215,7 @@ export async function importMailMessages({ receipts, blobs, client, messages, cr
 		if (files.length === 0) {
 			const sourceRef = `${m.id}#text`;
 			if (seen.refs.has(sourceRef)) {
-				counts.skipped++;
+				await again(sourceRef, fields);
 				continue;
 			}
 			if (!fields.excerpt.trim()) {
@@ -194,7 +245,7 @@ export async function importMailMessages({ receipts, blobs, client, messages, cr
 		for (const a of files) {
 			const sourceRef = `${m.id}#${a.part}`;
 			if (seen.refs.has(sourceRef)) {
-				counts.skipped++;
+				await again(sourceRef, fields);
 				continue;
 			}
 			const bytes = await client.mailAttachment(m.id, a.part);
@@ -218,6 +269,36 @@ export async function importMailMessages({ receipts, blobs, client, messages, cr
 }
 
 /**
+ * "E-Mails abrufen": the accounting mails of [since, until) from the bridge,
+ * into the store, and one event with the counts.
+ *
+ * @param {object} params
+ * @param {{ receipts: import('../store/repository.js').Collection, events?: import('../store/repository.js').Collection }} params.store
+ * @param {import('./blob-store.js').BlobStore} params.blobs
+ * @param {{ mailMessages: (since: string, until: string | null) => Promise<{ messages: any[] }>, mailAttachment: (id: string, part: string) => Promise<Uint8Array> }} params.client
+ * @param {string} params.since YYYY-MM-DD
+ * @param {string | null} params.until YYYY-MM-DD, exclusive, or open
+ * @returns {Promise<{ mails: number, counts: MailCounts }>}
+ */
+export async function fetchAccountingMail({ store, blobs, client, since, until }) {
+	const { messages } = await client.mailMessages(since, until);
+	const counts = await importMailMessages({
+		receipts: store.receipts,
+		blobs,
+		client,
+		messages,
+		events: store.events
+	});
+	await recordEvent(store.events, 'mail-fetch', {
+		since,
+		until,
+		mails: messages.length,
+		...counts
+	});
+	return { mails: messages.length, counts };
+}
+
+/**
  * Files from an upload or a folder.
  *
  * @param {object} params
@@ -225,25 +306,45 @@ export async function importMailMessages({ receipts, blobs, client, messages, cr
  * @param {import('./blob-store.js').BlobStore} params.blobs
  * @param {{ name: string, path?: string, bytes: () => Promise<Uint8Array> }[]} params.files
  * @param {'upload' | 'folder'} params.source
- * @returns {Promise<{ new: number, duplicate: number, unsupported: number }>}
+ * @param {boolean} [params.skipKnown] skip a path already imported without reading it (the folder watch)
+ * @param {import('../store/repository.js').StoredRecord[]} [params.created] the new records are pushed here
+ * @param {import('../store/repository.js').Collection} [params.events] one event when anything was read
+ * @returns {Promise<{ new: number, duplicate: number, unsupported: number, known: number }>}
  */
-export async function importFiles({ receipts, blobs, files, source }) {
+export async function importFiles({
+	receipts,
+	blobs,
+	files,
+	source,
+	skipKnown = false,
+	created,
+	events
+}) {
 	const seen = await known(receipts);
-	const counts = { new: 0, duplicate: 0, unsupported: 0 };
+	const counts = { new: 0, duplicate: 0, unsupported: 0, known: 0 };
 	for (const f of files) {
+		const sourceRef = `${source}:${f.path ?? f.name}`;
+		if (skipKnown && seen.refs.has(sourceRef)) {
+			counts.known++;
+			continue;
+		}
 		const bytes = await f.bytes();
-		const { outcome } = await importFile({
+		const { outcome, record } = await importFile({
 			receipts,
 			blobs,
 			bytes,
 			fileName: f.name,
 			source,
-			sourceRef: `${source}:${f.path ?? f.name}`,
+			sourceRef,
 			seen
 		});
+		if (record) created?.push(record);
 		if (outcome === 'new') counts.new++;
 		else if (outcome === 'duplicate') counts.duplicate++;
 		else counts.unsupported++;
+	}
+	if (counts.new + counts.duplicate + counts.unsupported > 0) {
+		await recordEvent(events, 'file-import', { source, files: files.length, ...counts });
 	}
 	return counts;
 }

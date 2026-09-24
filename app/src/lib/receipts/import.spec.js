@@ -95,7 +95,7 @@ describe('receipt import', () => {
 			source: 'folder',
 			files: [{ name: 'b.pdf', path: 'x/b.pdf', bytes: async () => pdf('B') }]
 		});
-		expect(counts).toEqual({ new: 0, duplicate: 1, unsupported: 0 });
+		expect(counts).toEqual({ new: 0, duplicate: 1, unsupported: 0, known: 0 });
 	});
 
 	it('files that are no PDF or image are refused', async () => {
@@ -109,7 +109,7 @@ describe('receipt import', () => {
 				{ name: 'bild.png', bytes: async () => png }
 			]
 		});
-		expect(counts).toEqual({ new: 1, duplicate: 0, unsupported: 1 });
+		expect(counts).toEqual({ new: 1, duplicate: 0, unsupported: 1, known: 0 });
 		const [only] = await receipts.list();
 		expect(only.mime).toBe('image/png');
 	});
@@ -136,7 +136,7 @@ describe('receipt import', () => {
 			mail({ id: 'bWFpbC0z', attachments: [], excerpt: 'Ihre Bestellung: 23,80 EUR' })
 		];
 		const counts = await importMailMessages({ receipts, blobs, client, messages });
-		expect(counts).toEqual({ new: 3, duplicate: 0, skipped: 0, unsupported: 0 });
+		expect(counts).toEqual({ new: 3, duplicate: 0, skipped: 0, unsupported: 0, verdicts: 0 });
 		expect(downloads).toEqual(['bWFpbC0x#2', 'bWFpbC0y#3']);
 		const all = await receipts.list();
 		const text = all.find((r) => r.sourceRef === 'bWFpbC0z#text');
@@ -156,7 +156,7 @@ describe('receipt import', () => {
 		});
 
 		const again = await importMailMessages({ receipts, blobs, client, messages });
-		expect(again).toEqual({ new: 0, duplicate: 0, skipped: 3, unsupported: 0 });
+		expect(again).toEqual({ new: 0, duplicate: 0, skipped: 3, unsupported: 0, verdicts: 0 });
 		expect(downloads).toHaveLength(2);
 	});
 
@@ -169,7 +169,7 @@ describe('receipt import', () => {
 			client,
 			messages: [mail(), mail({ id: 'bWFpbC05' })]
 		});
-		expect(counts).toEqual({ new: 1, duplicate: 1, skipped: 0, unsupported: 0 });
+		expect(counts).toEqual({ new: 1, duplicate: 1, skipped: 0, unsupported: 0, verdicts: 0 });
 	});
 
 	it('mail: a sender that failed DKIM/SPF is a question; our own forward (Sent) is not', async () => {
@@ -194,5 +194,69 @@ describe('receipt import', () => {
 		expect(needsConfirmation(byId.c2VudDE)).toBe(false);
 		expect(needsConfirmation({ ...byId.cGhpc2gx, confirmedByUser: true })).toBe(false);
 		expect(needsConfirmation({ source: 'upload' })).toBe(false);
+	});
+
+	it('a re-fetch brings a changed sender verdict up to date, unless the person already decided', async () => {
+		const { receipts, blobs } = await setup();
+		const { collection: events } = memoryCollection('events');
+		let n = 0;
+		const client = { mailAttachment: async () => pdf(`v${n++}`) };
+		// Fetched while the bridge still said "none" for our own forward …
+		const before = [
+			mail({ id: 'b3duMQ', auth: { verdict: 'none' }, outgoing: false }),
+			mail({ id: 'c2VlbjE', auth: { verdict: 'none' } }),
+			mail({ id: 'aWdub3Jl', auth: { verdict: 'none' } })
+		];
+		await importMailMessages({ receipts, blobs, client, messages: before, events });
+		const byMail = async () =>
+			Object.fromEntries((await receipts.list()).map((r) => [r.mailId, r]));
+		let r = await byMail();
+		expect(r.b3duMQ.status).toBe('rückfrage');
+		// … the person confirmed one and ignored another.
+		await receipts.put({ ...r.c2VlbjE, confirmedByUser: true, status: 'neu' });
+		await receipts.put({ ...r.aWdub3Jl, status: 'ignoriert' });
+
+		// After the bridge update: our own forward (Sent), and passes for the others.
+		const after = [
+			mail({ id: 'b3duMQ', auth: { verdict: 'none' }, outgoing: true }),
+			mail({ id: 'c2VlbjE', auth: { verdict: 'pass' } }),
+			mail({ id: 'aWdub3Jl', auth: { verdict: 'pass' } })
+		];
+		const counts = await importMailMessages({ receipts, blobs, client, messages: after, events });
+		expect(counts).toMatchObject({ new: 0, skipped: 3, verdicts: 1 });
+		expect(n).toBe(3);
+		r = await byMail();
+		expect(r.b3duMQ).toMatchObject({ outgoing: true, status: 'neu' });
+		expect(needsConfirmation(r.b3duMQ)).toBe(false);
+		expect(r.c2VlbjE.authVerdict).toBe('none');
+		expect(r.aWdub3Jl).toMatchObject({ authVerdict: 'none', status: 'ignoriert' });
+		const [e] = await events.list();
+		expect(e).toMatchObject({
+			kind: 'sender-verdict',
+			receiptId: r.b3duMQ.id,
+			was: 'none',
+			now: 'outgoing',
+			released: true
+		});
+
+		// A verdict that gets worse puts a receipt not yet read on hold again.
+		await importMailMessages({
+			receipts,
+			blobs,
+			client,
+			messages: [mail({ id: 'b3duMQ', auth: { verdict: 'fail' }, outgoing: false })],
+			events
+		});
+		expect((await byMail()).b3duMQ).toMatchObject({ authVerdict: 'fail', status: 'rückfrage' });
+		// Nothing changed: nothing written.
+		const again = await importMailMessages({
+			receipts,
+			blobs,
+			client,
+			messages: [mail({ id: 'b3duMQ', auth: { verdict: 'fail' }, outgoing: false })],
+			events
+		});
+		expect(again.verdicts).toBe(0);
+		expect(await events.list()).toHaveLength(2);
 	});
 });

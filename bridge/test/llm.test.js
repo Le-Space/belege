@@ -34,6 +34,16 @@ test('redact: terms, IBANs (last four kept), own e-mail, postcode, streets', () 
 		].join('\n')
 	);
 	assert.equal(count, 9);
+	assert.deepEqual(
+		redact(input, { terms: ['Maria Muster', 'Muster'], ownDomains: ['le-space.de'] }).counts,
+		{
+			terms: 2,
+			iban: 2,
+			email: 1,
+			street: 2,
+			postcode: 2
+		}
+	);
 });
 
 test('redact: no terms, no domains – still IBANs and addresses; regex characters in terms are literal', () => {

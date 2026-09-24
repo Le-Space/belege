@@ -94,6 +94,14 @@ export async function startBridge({
 		hibiscus: client ? () => client : null,
 		mail,
 		llm,
+		// Reads the keychain entry to see that there is one; the value stays here.
+		llmKeyPresent: async () => {
+			try {
+				return Boolean(await llmKeychain.read());
+			} catch {
+				return false;
+			}
+		},
 		log
 	});
 	const address = await bridge.listen({ port: port ?? config.bridge.port });

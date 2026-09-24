@@ -7,6 +7,7 @@
 //   GET  /mail/messages?since=YYYY-MM-DD[&until=YYYY-MM-DD]&scope=accounting   token
 //   GET  /mail/attachment?id=<mail id>&part=<n>                   token → the bytes
 //   GET  /mail/search?text=&amount=&around=YYYY-MM-DD&days=       token
+//   GET  /llm/status                                              token → provider, models, key present?
 //   POST /extract      { text, hints, source, confirmedByUser }   token
 //
 // Guards, in this order, on every request:
@@ -40,6 +41,8 @@ const MAX_EXTRACT_BODY = 256 * 1024;
  *   null when Hibiscus is not set up yet
  * @param {import('./mail/imap.js').MailClient | null} [options.mail] null when mail is not set up
  * @param {import('./llm/extract.js').Extractor | null} [options.llm] null when no LLM is set up
+ * @param {() => Promise<boolean>} [options.llmKeyPresent] whether the keychain holds an API key;
+ *   says yes or no, never hands the key out
  * @param {(message: string) => void} [options.log] never gets a secret, bank data, mail or receipt text
  */
 export function createBridgeServer({
@@ -48,6 +51,7 @@ export function createBridgeServer({
 	hibiscus,
 	mail = null,
 	llm = null,
+	llmKeyPresent = async () => false,
 	log = () => {}
 }) {
 	const allowedOrigins = new Set(config.appOrigins.map((o) => o.replace(/\/$/, '')));
@@ -270,6 +274,34 @@ export function createBridgeServer({
 			return send(res, 200, { messages });
 		}
 
+		if (path === '/llm/status' && req.method === 'GET') {
+			// What the app shows under Integrationen → "KI – Beleg-Auslesen". The
+			// host only (no path, no query, no user:password@), the model names, and
+			// whether a key is there – never the key, never the terms themselves.
+			let provider = null;
+			try {
+				provider = new URL(config.llm.baseUrl).host || null;
+			} catch {}
+			let keyConfigured = false;
+			try {
+				keyConfigured = (await llmKeyPresent()) === true;
+			} catch {}
+			return send(res, 200, {
+				configured: Boolean(llm),
+				provider,
+				models: {
+					primary: config.llm.model || null,
+					fallback:
+						config.llm.retryModel && config.llm.retryModel !== config.llm.model
+							? config.llm.retryModel
+							: null
+				},
+				keyConfigured,
+				redactTerms: config.llm.redactTerms.length,
+				mail: { authServId: config.mail.authServId ?? null }
+			});
+		}
+
 		if (path === '/extract' && req.method === 'POST') {
 			const body = /** @type {any} */ (await readJson(req, MAX_EXTRACT_BODY));
 			if (typeof body?.text !== 'string' || !body.text.trim()) {
@@ -298,7 +330,9 @@ export function createBridgeServer({
 			}
 			if (!llm) throw notSetUp('LLM');
 			const result = await llm.extract({ text: body.text, hints });
-			log(`extracted with ${result.model} (${result.attempts.length} attempt(s))`);
+			log(
+				`extracted with ${result.model} (${result.attempts.length} attempt(s), ${result.ms} ms, ${result.redactions.total} redaction(s))`
+			);
 			return send(res, 200, result);
 		}
 

@@ -25,7 +25,8 @@ export const COLLECTIONS = /** @type {const} */ ([
 	'accounts',
 	'settings',
 	'matches',
-	'questions'
+	'questions',
+	'events'
 ]);
 
 /** @typedef {typeof COLLECTIONS[number]} CollectionName */
@@ -131,7 +132,7 @@ export function createCollection(db, name, { author, now = () => new Date() }) {
  * @param {Uint8Array} params.encryptionKey 32 bytes from `deriveDatabaseKey`
  * @param {Uint8Array} params.prfOutput names the databases, see `deriveDatabaseName`
  * @param {Record<string, any>} [params.openOptions] extra `orbitdb.open` options (tests pass memory storages)
- * @returns {Promise<{ transactions: Collection, receipts: Collection, partners: Collection, accounts: Collection, settings: Collection, matches: Collection, questions: Collection, close: () => Promise<void> }>}
+ * @returns {Promise<{ transactions: Collection, receipts: Collection, partners: Collection, accounts: Collection, settings: Collection, matches: Collection, questions: Collection, events: Collection, close: () => Promise<void> }>}
  */
 export async function openStore({ orbitdb, encryptionKey, prfOutput, openOptions = {} }) {
 	if (!(encryptionKey instanceof Uint8Array) || encryptionKey.length !== 32) {
@@ -162,6 +163,7 @@ export async function openStore({ orbitdb, encryptionKey, prfOutput, openOptions
 		settings: collections.settings,
 		matches: collections.matches,
 		questions: collections.questions,
+		events: collections.events,
 		async close() {
 			await Promise.allSettled(Object.values(dbs).map((db) => db.close()));
 		}

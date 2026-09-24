@@ -6,6 +6,7 @@
 	import { onMount, tick } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
 	import {
 		app,
@@ -18,8 +19,10 @@
 	import { createBridgeClient } from '$lib/bridge/client.js';
 	import { getSetting } from '$lib/store/settings.js';
 	import { formatDate, formatMoney } from '$lib/bank/format.js';
-	import { importFiles, importMailMessages, needsConfirmation } from '$lib/receipts/import.js';
+	import { fetchAccountingMail, importFiles, needsConfirmation } from '$lib/receipts/import.js';
 	import { extractReceipt, extractable } from '$lib/receipts/extract.js';
+	import { extractionHow } from '$lib/receipts/how.js';
+	import { confirmSender as confirmSenderAction } from '$lib/matching/actions.js';
 	import {
 		defaultMailMonths,
 		groupReceiptsByMonth,
@@ -96,9 +99,14 @@
 			: null
 	);
 
+	let how = $derived(selected ? extractionHow(selected) : null);
+
 	onMount(async () => {
 		const store = currentStore();
 		if (!store) return;
+		// From the Verlauf: open this receipt.
+		const wanted = page.url.searchParams.get('receipt');
+		if (wanted) selectedId = wanted;
 		folderHandle = await savedFolder();
 		const saved = await getSetting(store.settings, 'bridge');
 		if (!saved?.token) return;
@@ -140,19 +148,20 @@
 		fetchResult = null;
 		try {
 			const { since, until } = mailWindow(monthFrom, monthTo);
-			const { messages } = await client.mailMessages(since, until);
-			const c = await importMailMessages({
-				receipts: store.receipts,
+			const { mails, counts: c } = await fetchAccountingMail({
+				store,
 				blobs,
 				client,
-				messages
+				since,
+				until
 			});
-			fetchResult = t('belege.mailResult', {
-				mails: messages.length,
-				new: c.new,
-				known: c.skipped,
-				duplicate: c.duplicate
-			});
+			fetchResult =
+				t('belege.mailResult', {
+					mails,
+					new: c.new,
+					known: c.skipped,
+					duplicate: c.duplicate
+				}) + (c.verdicts ? t('belege.mailVerdicts', { count: c.verdicts }) : '');
 			await refreshNow();
 		} catch (error) {
 			fetchError = message(error);
@@ -245,7 +254,13 @@
 		delete rest[record.id];
 		extractErrors = rest;
 		try {
-			await extractReceipt({ client, receipts: store.receipts, blobs, record });
+			await extractReceipt({
+				client,
+				receipts: store.receipts,
+				blobs,
+				record,
+				events: store.events
+			});
 		} catch (error) {
 			extractErrors = { ...extractErrors, [record.id]: message(error) };
 		} finally {
@@ -270,11 +285,7 @@
 	async function confirmSender(record) {
 		const store = currentStore();
 		if (!store) return;
-		await store.receipts.put({
-			...record,
-			confirmedByUser: true,
-			status: record.status === 'rückfrage' ? 'neu' : record.status
-		});
+		await confirmSenderAction(store, record.id);
 		await refreshNow();
 		await runMatchingNow();
 	}
@@ -739,6 +750,39 @@
 								<dd class="text-text" data-testid="field-verdict">{verdictText(selected)}</dd>
 							{/if}
 						</dl>
+
+						{#if how}
+							<div
+								class="mt-3 border-l-2 border-infra pl-3 text-xs text-text"
+								data-testid="extract-how"
+							>
+								<p class="font-medium text-heading" data-testid="extract-how-line">{how.line}</p>
+								{#if how.fallback}
+									<p data-testid="extract-how-fallback">{how.fallback}</p>
+								{/if}
+								<p class="mt-1 text-faint">{t('belege.how.notAi')}</p>
+								{#if selected.extractionSent}
+									<details class="mt-2" data-testid="extract-sent">
+										<summary class="cursor-pointer text-sm text-text underline"
+											>{t('belege.how.sent')}</summary
+										>
+										<p class="mt-1 text-faint">{t('belege.how.sentHint')}</p>
+										<pre
+											class="mt-1 max-h-72 overflow-auto rounded border border-border bg-surface-2 p-2 font-mono text-[11px] break-words whitespace-pre-wrap text-text"
+											data-testid="extract-sent-text">{selected.extractionSent}</pre>
+									</details>
+								{:else}
+									<p class="mt-1 text-faint" data-testid="extract-sent-missing">
+										{t('belege.how.sentMissing')}
+									</p>
+								{/if}
+								<TechnicalNote
+									class="mt-2"
+									testid="extract-how-technical"
+									lines={[how.redactions, how.tokens, how.attempts].filter((x) => x !== null)}
+								/>
+							</div>
+						{/if}
 
 						{#if selectedTx}
 							<div

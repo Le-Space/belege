@@ -6,7 +6,18 @@
 	// for the missing receipt (only the hits are read).
 	import { onMount } from 'svelte';
 	import ReceiptPreview from './ReceiptPreview.svelte';
-	import { app, currentBlobs, currentStore, refreshNow, runMatchingNow } from './session.svelte.js';
+	import TechnicalNote from './TechnicalNote.svelte';
+	import {
+		app,
+		checkFolderNow,
+		currentBlobs,
+		currentStore,
+		refreshNow,
+		runMatchingNow
+	} from './session.svelte.js';
+	import { portalLink } from './matching/portal.js';
+	import { attachUpload } from './receipts/attach.js';
+	import { folderSupported, savedFolder } from './receipts/folder.js';
 	import { createBridgeClient } from './bridge/client.js';
 	import { getSetting } from './store/settings.js';
 	import { formatDate, formatMoney } from './bank/format.js';
@@ -24,12 +35,23 @@
 		rankHits,
 		receiptChoices
 	} from './matching/view.js';
-	import { t } from './i18n/index.js';
+	import {
+		candidateLine,
+		classificationLine,
+		matchLine,
+		pointsBreakdown,
+		thresholdsText
+	} from './matching/explain.js';
+	import { cleanMatchingSettings } from './matching/classify.js';
+	import { graceWait, localDay } from './matching/grace.js';
+	import { list, t } from './i18n/index.js';
 
 	/** @type {{ txId: string, onclose: () => void, onopen: (id: string) => void }} */
 	let { txId, onclose, onopen } = $props();
 
 	let tx = $derived(app.transactions.find((x) => x.id === txId) ?? null);
+	/** @param {string} id */
+	const receiptById = (id) => app.receipts.find((r) => r.id === id) ?? null;
 	let account = $derived(tx ? (app.accounts.find((a) => a.id === tx.accountId) ?? null) : null);
 	let classification = $derived(tx ? (app.classifications[tx.id] ?? null) : null);
 	let links = $derived(tx ? matchesOfTx(tx.id, app.matches) : []);
@@ -49,6 +71,41 @@
 	let suggestions = $derived(choices.filter((c) => c.suggested));
 	let rest = $derived(choices.filter((c) => !c.suggested));
 	let others = $derived(tx ? otherPayments(tx, app.transactions) : []);
+	let ruleLine = $derived(
+		tx
+			? classificationLine(classification, { accounts: app.accounts, noReceipt: tx.noReceipt })
+			: null
+	);
+	// The open questions about this booking: its missing receipt (with the
+	// receipts that come close), or a receipt that might be this booking's.
+	let openQuestions = $derived(
+		tx
+			? app.questions
+					.filter((q) => q.state === 'open' && !q.deleted)
+					.map((q) => {
+						const candidates = Array.isArray(q.candidates) ? q.candidates : [];
+						const items =
+							q.transactionId === tx.id
+								? candidates.map((/** @type {any} */ c) => ({
+										receipt: receiptById(c.receiptId),
+										candidate: c
+									}))
+								: candidates
+										.filter((/** @type {any} */ c) => c.transactionId === tx.id)
+										.map((/** @type {any} */ c) => ({
+											receipt: receiptById(q.receiptId),
+											candidate: c
+										}));
+						return { q, items, mine: q.transactionId === tx.id };
+					})
+					.filter((x) => x.mine || x.items.length > 0)
+			: []
+	);
+	let waitDays = $derived(
+		tx && !isTxCovered(tx, app.classifications)
+			? graceWait(tx, cleanMatchingSettings(app.matchingSettings).graceDays, localDay())
+			: null
+	);
 
 	let assigning = $state(false);
 	let showAll = $state(false);
@@ -71,10 +128,21 @@
 	/** @type {HTMLElement | undefined} */
 	let panel = $state();
 
+	let portal = $derived(tx ? portalLink(tx, app.partners) : null);
+	let uploading = $state(false);
+	/** @type {{ text: string, warnings: string[] } | null} */
+	let uploadResult = $state(null);
+	let dropping = $state(false);
+	let hasFolder = $state(false);
+	let folderChecking = $state(false);
+	/** @type {string | null} */
+	let folderNote = $state(null);
+
 	onMount(() => {
 		panel?.focus();
 		const store = currentStore();
 		if (!store) return;
+		if (folderSupported()) savedFolder().then((h) => (hasFolder = Boolean(h)));
 		getSetting(store.settings, 'bridge').then((saved) => {
 			if (saved?.token) client = createBridgeClient({ url: saved.url, token: saved.token });
 		});
@@ -90,7 +158,102 @@
 		error = null;
 		hits = null;
 		importNote = null;
+		uploadResult = null;
+		folderNote = null;
 	});
+
+	/** @param {File | undefined} file */
+	async function uploadHere(file) {
+		const store = currentStore();
+		const blobs = currentBlobs();
+		if (!file || !store || !blobs || !tx) return;
+		uploading = true;
+		error = null;
+		uploadResult = null;
+		const booking = tx;
+		try {
+			const r = await attachUpload({
+				store,
+				blobs,
+				client,
+				tx: booking,
+				file: { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) },
+				ctx: { companyNames: app.matchingSettings?.companyNames ?? [] }
+			});
+			if (r.outcome !== 'linked' || !r.receipt) {
+				uploadResult = {
+					text: t(
+						r.outcome === 'too-large'
+							? 'zahlungen.detail.uploadTooLarge'
+							: 'zahlungen.detail.uploadUnsupported'
+					),
+					warnings: []
+				};
+				return;
+			}
+			const receipt = r.receipt;
+			const line = matchLine(
+				{ state: 'confirmed', score: r.score, reasons: [...r.reasons, 'manual'] },
+				{ tx: booking, receipt }
+			);
+			uploadResult = {
+				text:
+					t('zahlungen.detail.uploaded', { vendor: receiptVendor(receipt) }) +
+					(r.duplicate ? t('zahlungen.detail.uploadedDuplicate') : '') +
+					t('zahlungen.detail.uploadedPoints', { line }),
+				warnings: [
+					...r.warnings.map((w) =>
+						t(`zahlungen.detail.warn.${w}`, {
+							receipt: receiptAmount(receipt),
+							tx: formatMoney(booking.amountCents ?? 0, booking.currency),
+							number: receipt.invoiceNumber ?? ''
+						})
+					),
+					...(r.extractError
+						? [t('zahlungen.detail.uploadReadFailed', { error: r.extractError })]
+						: [])
+				]
+			};
+			await refreshNow();
+			await runMatchingNow();
+		} catch (e) {
+			error = message(e);
+		} finally {
+			uploading = false;
+		}
+	}
+
+	/** @param {Event} event */
+	async function onUploadHere(event) {
+		const input = /** @type {HTMLInputElement} */ (event.currentTarget);
+		await uploadHere(input.files?.[0]);
+		input.value = '';
+	}
+
+	/** @param {DragEvent} event */
+	async function onDropHere(event) {
+		event.preventDefault();
+		dropping = false;
+		await uploadHere(event.dataTransfer?.files?.[0]);
+	}
+
+	async function checkFolder() {
+		folderChecking = true;
+		folderNote = null;
+		error = null;
+		try {
+			const r = await checkFolderNow({ prompt: true });
+			folderNote = !r?.permitted
+				? t('zahlungen.detail.folderDenied')
+				: r.created
+					? t('zahlungen.detail.folderResult', { count: r.created })
+					: t('zahlungen.detail.folderNothing');
+		} catch (e) {
+			error = message(e);
+		} finally {
+			folderChecking = false;
+		}
+	}
 
 	/** @param {unknown} e */
 	const message = (e) => (e instanceof Error ? e.message : String(e));
@@ -184,7 +347,8 @@
 				blobs,
 				client,
 				messages: [hit],
-				created
+				created,
+				events: store.events
 			});
 			if (created.length === 0) {
 				importNote = t('zahlungen.detail.privateDuplicate');
@@ -197,7 +361,13 @@
 					continue;
 				}
 				if (String(record.mime).startsWith('image/')) continue;
-				await extractReceipt({ client, receipts: store.receipts, blobs, record });
+				await extractReceipt({
+					client,
+					receipts: store.receipts,
+					blobs,
+					record,
+					events: store.events
+				});
 			}
 			await runMatchingNow();
 			importNote = unverified
@@ -255,8 +425,25 @@
 		tabindex="-1"
 		onclick={(e) => e.stopPropagation()}
 		onkeydown={onKey}
+		ondragover={(e) => {
+			if (e.dataTransfer?.types?.includes('Files')) {
+				e.preventDefault();
+				dropping = true;
+			}
+		}}
+		ondragleave={(e) => {
+			if (e.currentTarget === e.target) dropping = false;
+		}}
+		ondrop={onDropHere}
 		data-testid="tx-detail"
 	>
+		{#if dropping}
+			<div
+				class="pointer-events-none fixed inset-y-0 right-0 z-10 flex w-full max-w-xl items-center justify-center border-2 border-dashed border-cyan-800 bg-surface/90 text-lg font-semibold text-heading dark:border-cyan"
+			>
+				{t('zahlungen.detail.drop')}
+			</div>
+		{/if}
 		{#if !tx}
 			<p class="text-sm text-faint">{t('zahlungen.noneForSelection')}</p>
 		{:else}
@@ -317,6 +504,25 @@
 					{tx.purpose}
 				</p>
 			{/if}
+			{#if portal}
+				<p class="mt-2 flex flex-wrap items-center gap-2 text-sm" data-testid="tx-portal">
+					<a
+						href={portal.url}
+						target="_blank"
+						rel="noopener noreferrer"
+						class={button}
+						data-testid="tx-portal-link">{t('zahlungen.detail.portal')}</a
+					>
+					<span class="font-mono text-xs text-heading" data-testid="tx-portal-host"
+						>{portal.host}</span
+					>
+					<span class="text-xs text-faint"
+						>({portal.from === 'partner'
+							? t('zahlungen.detail.portalFromPartner')
+							: t('zahlungen.detail.portalFromPurpose')})</span
+					>
+				</p>
+			{/if}
 
 			<section class="mt-4 rounded-lg border border-border bg-surface px-4 py-3 shadow-sm">
 				<h3 class="text-sm font-semibold text-heading">{t('zahlungen.detail.receipts')}</h3>
@@ -325,6 +531,42 @@
 						{coverageText(classification)}
 					</p>
 				{/if}
+				{#if ruleLine && !tx.receiptId}
+					<div
+						class="mt-2 rounded-md border border-l-4 border-border border-l-cyan-800 bg-surface-2 px-3 py-2 dark:border-l-cyan"
+						data-testid="tx-why-rule"
+					>
+						<p class="text-xs font-semibold text-heading">{t('explain.whyNone')}</p>
+						<p class="mt-0.5 text-sm text-text" data-testid="tx-why-rule-line">{ruleLine}</p>
+					</div>
+				{/if}
+				{#if waitDays !== null}
+					<p class="mt-1 text-sm text-text" data-testid="tx-waiting">
+						{waitDays === 1 ? t('explain.waitingOne') : t('explain.waiting', { days: waitDays })}
+					</p>
+				{/if}
+				{#each openQuestions as { q, items } (q.id)}
+					<div
+						class="mt-2 rounded-md border border-l-4 border-border border-l-coral-700 bg-surface-2 px-3 py-2"
+						data-testid="tx-why-question"
+					>
+						<p class="text-xs font-semibold text-heading">{t('explain.question')}</p>
+						{#if items.length === 0}
+							<p class="mt-0.5 text-sm text-text">{t('explain.noCandidates')}</p>
+						{:else}
+							<ul class="mt-0.5 text-sm text-text">
+								{#each items as item, i (i)}
+									<li data-testid="tx-why-candidate">
+										<span class="font-medium text-heading"
+											>{item.receipt ? receiptVendor(item.receipt) : '—'}</span
+										>
+										· {candidateLine(item.candidate, { tx, receipt: item.receipt })}
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</div>
+				{/each}
 				{#if tx.noReceipt}
 					<p class="mt-1 text-sm text-text" data-testid="tx-detail-no-receipt">
 						{t('matching.kind.no-receipt', { reason: tx.noReceipt.reason ?? '' })}
@@ -351,6 +593,25 @@
 								? ` · ${t('matching.score', { score: l.match.score })}`
 								: ''}{l.match.reasons?.length ? ` · ${reasonText(l.match.reasons)}` : ''}
 						</p>
+						<div
+							class="mt-2 rounded-md border border-l-4 border-border border-l-cyan-800 bg-surface-2 px-3 py-2 dark:border-l-cyan"
+							data-testid="tx-why"
+						>
+							<p class="text-xs font-semibold text-heading">{t('explain.why')}</p>
+							<p class="mt-0.5 text-sm text-text" data-testid="tx-why-line">
+								{matchLine(l.match, { tx, receipt: r })}
+							</p>
+							<p class="mt-0.5 text-xs text-faint">{t('explain.notAi')}</p>
+							<TechnicalNote
+								class="mt-2"
+								testid="tx-why-technical"
+								lines={[
+									pointsBreakdown(l.match.reasons, l.match.score),
+									thresholdsText(),
+									...list('explain.technical')
+								].filter(Boolean)}
+							/>
+						</div>
 						<div class="mt-2"><ReceiptPreview receipt={r} /></div>
 						<button
 							type="button"
@@ -386,6 +647,47 @@
 							aria-expanded={askingReason}
 							data-testid="tx-no-receipt">{t('zahlungen.detail.noReceiptNeeded')}</button
 						>
+					{/if}
+				</div>
+
+				<div class="mt-3 border-t border-border pt-3" data-testid="tx-upload">
+					<label class="{button} inline-block cursor-pointer" data-testid="tx-upload-label">
+						{uploading ? t('zahlungen.detail.uploading') : t('zahlungen.detail.upload')}
+						<input
+							type="file"
+							class="sr-only"
+							accept=".pdf,application/pdf,image/png,image/jpeg,image/gif,image/webp"
+							disabled={uploading || busy}
+							onchange={onUploadHere}
+							data-testid="tx-upload-input"
+						/>
+					</label>
+					{#if hasFolder}
+						<button
+							type="button"
+							class="ml-2 {button}"
+							onclick={checkFolder}
+							disabled={folderChecking}
+							title={t('zahlungen.detail.folderHint')}
+							data-testid="tx-folder-check"
+							>{folderChecking
+								? t('zahlungen.detail.folderChecking')
+								: t('zahlungen.detail.folderCheck')}</button
+						>
+					{/if}
+					<p class="mt-1 text-xs text-faint">{t('zahlungen.detail.uploadHint')}</p>
+					{#if uploadResult}
+						<p class="mt-2 text-sm text-heading" role="status" data-testid="tx-upload-result">
+							{uploadResult.text}
+						</p>
+						{#each uploadResult.warnings as w (w)}
+							<p class="mt-1 text-sm text-danger" data-testid="tx-upload-warning">⚠ {w}</p>
+						{/each}
+					{/if}
+					{#if folderNote}
+						<p class="mt-2 text-sm text-heading" role="status" data-testid="tx-folder-result">
+							{folderNote}
+						</p>
 					{/if}
 				</div>
 
