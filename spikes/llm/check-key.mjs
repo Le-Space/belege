@@ -10,7 +10,7 @@ try {
   fail('No .env in the repo root. Copy .env.example to .env and fill in DEEPSEEK_API_KEY.')
 }
 
-const { DEEPSEEK_API_KEY: key, DEEPSEEK_BASE_URL: base = 'https://api.deepseek.com', DEEPSEEK_MODEL: model = 'deepseek-chat' } = process.env
+const { DEEPSEEK_API_KEY: key, DEEPSEEK_BASE_URL: base = 'https://api.deepseek.com', DEEPSEEK_MODEL: model = 'deepseek-flash' } = process.env
 if (!key) fail('DEEPSEEK_API_KEY is not set in .env.')
 console.log(`Key: ${key.length} characters`)
 
@@ -20,7 +20,9 @@ const auth = { Authorization: `Bearer ${key}` }
 const models = await fetch(`${base}/models`, { headers: auth })
 if (models.status === 401) fail('401: the key is not accepted (wrong, revoked, or copied with extra characters).')
 if (!models.ok) fail(`/models: HTTP ${models.status} ${await models.text()}`)
-console.log(`✓ key accepted · models: ${(await models.json()).data.map((m) => m.id).join(', ')}`)
+const ids = (await models.json()).data.map((m) => m.id)
+console.log(`✓ key accepted · models: ${ids.join(', ')}`)
+if (!ids.includes(model)) console.log(`✗ DEEPSEEK_MODEL=${model} is not in that list – set it to one of them`)
 
 // 2. Balance – a key with no credit passes step 1 but fails every real call (HTTP 402)
 const balance = await fetch(`${base}/user/balance`, { headers: auth })
@@ -33,6 +35,9 @@ if (balance.ok) {
 }
 
 // 3. One tiny completion in JSON mode – the way extraction will call it
+await completion().catch((e) => console.log(`✗ ${e.message}`))
+
+async function completion() {
 const t0 = Date.now()
 const chat = await fetch(`${base}/chat/completions`, {
   method: 'POST',
@@ -47,11 +52,12 @@ const chat = await fetch(`${base}/chat/completions`, {
     ],
   }),
 })
-if (chat.status === 402) fail('402: no balance left – the key works, but the account needs credit.')
-if (!chat.ok) fail(`/chat/completions: HTTP ${chat.status} ${await chat.text()}`)
+if (chat.status === 402) throw new Error('completion: 402, no balance left – the key works, but the account needs credit')
+if (!chat.ok) throw new Error(`completion: HTTP ${chat.status} ${await chat.text()}`)
 const c = await chat.json()
 console.log(`✓ ${model} answered in ${Date.now() - t0} ms: ${c.choices[0].message.content.replace(/\s+/g, ' ')}`)
 console.log(`  tokens: ${c.usage.prompt_tokens} in, ${c.usage.completion_tokens} out`)
+}
 
 // 4. Could the browser call the API directly? (CORS preflight, no key sent)
 const pre = await fetch(`${base}/chat/completions`, {

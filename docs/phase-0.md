@@ -38,3 +38,12 @@
 - The server search does not see amounts inside PDF attachments.
 - imapflow turns `SINCE`/`BEFORE` into `YOUNGER`/`OLDER`; Dovecot rejects `OLDER 0`, so a
   window that reaches into the future must leave its end open.
+
+## DeepSeek
+
+- The API lists `deepseek-flash` and `deepseek-v4-pro`; `deepseek-chat` is gone. The key check
+  warns when `DEEPSEEK_MODEL` is not in the list.
+- CORS is open: the API answers a preflight from `http://localhost:5173` with that origin. The
+  browser could call DeepSeek directly; whether it should (the key would live in the browser)
+  is a separate decision.
+- A key with no credit passes `/models` but every completion fails with HTTP 402.
