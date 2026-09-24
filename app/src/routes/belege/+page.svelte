@@ -7,7 +7,14 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { resolve } from '$app/paths';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
-	import { app, currentBlobs, currentStore, refreshNow } from '$lib/session.svelte.js';
+	import {
+		app,
+		currentBlobs,
+		currentStore,
+		refreshNow,
+		runMatchingNow
+	} from '$lib/session.svelte.js';
+	import { matchOfReceipt } from '$lib/matching/view.js';
 	import { createBridgeClient } from '$lib/bridge/client.js';
 	import { getSetting } from '$lib/store/settings.js';
 	import { formatDate, formatMoney } from '$lib/bank/format.js';
@@ -82,6 +89,12 @@
 	let groups = $derived(groupReceiptsByMonth(filtered));
 	let selected = $derived(receipts.find((r) => r.id === selectedId) ?? null);
 	let todo = $derived(extractable(receipts));
+	let selectedMatch = $derived(selected ? matchOfReceipt(selected.id, app.matches) : null);
+	let selectedTx = $derived(
+		selectedMatch
+			? (app.transactions.find((x) => x.id === selectedMatch.transactionId) ?? null)
+			: null
+	);
 
 	onMount(async () => {
 		const store = currentStore();
@@ -146,6 +159,7 @@
 		} finally {
 			fetching = false;
 		}
+		if (fetchResult) await runMatchingNow();
 	}
 
 	/** @param {{ name: string, path?: string, bytes: () => Promise<Uint8Array> }[]} files @param {'upload' | 'folder'} kind */
@@ -221,8 +235,8 @@
 		folderHandle = null;
 	}
 
-	/** @param {Receipt} record */
-	async function extract(record) {
+	/** @param {Receipt} record @param {boolean} [match] run the matching afterwards */
+	async function extract(record, match = true) {
 		const store = currentStore();
 		const blobs = currentBlobs();
 		if (!store || !blobs || !client) return;
@@ -238,15 +252,17 @@
 			busy.delete(record.id);
 			await refreshNow();
 		}
+		if (match) await runMatchingNow();
 	}
 
 	async function extractAll() {
 		const pending = [...todo];
 		bulk = { done: 0, count: pending.length };
 		for (const record of pending) {
-			await extract(record);
+			await extract(record, false);
 			bulk = { done: (bulk?.done ?? 0) + 1, count: pending.length };
 		}
+		await runMatchingNow();
 		bulk = null;
 	}
 
@@ -260,6 +276,7 @@
 			status: record.status === 'rückfrage' ? 'neu' : record.status
 		});
 		await refreshNow();
+		await runMatchingNow();
 	}
 
 	// The preview: page 1 of a PDF on a canvas, an image as it is, a mail's text.
@@ -723,6 +740,29 @@
 							{/if}
 						</dl>
 
+						{#if selectedTx}
+							<div
+								class="mt-3 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm"
+								data-testid="receipt-linked"
+							>
+								<p class="text-xs font-semibold text-success">{t('belege.linkedTo')}</p>
+								<p class="text-heading" data-testid="receipt-linked-tx">
+									{selectedTx.counterparty || '—'} · {formatDate(selectedTx.bookedOn)} · {formatMoney(
+										selectedTx.amountCents ?? 0,
+										selectedTx.currency
+									)}
+								</p>
+								<a
+									class="text-sm text-text underline"
+									href={`${resolve('/zahlungen')}?tx=${encodeURIComponent(selectedTx.id)}`}
+									data-testid="receipt-open-tx">{t('belege.openTx')}</a
+								>
+							</div>
+						{:else if selected.extraction?.document_type === 'payment_reminder'}
+							<p class="mt-3 text-xs text-faint" data-testid="receipt-reminder">
+								{t('belege.reminderNote')}
+							</p>
+						{/if}
 						{#if extractionNote(selected)}
 							<p class="mt-3 text-sm text-danger" role="status" data-testid="extract-note">
 								{extractionNote(selected)}

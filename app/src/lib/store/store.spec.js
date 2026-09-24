@@ -146,6 +146,30 @@ describe('store (real OrbitDB + Helia, sealed)', () => {
 		expect(text).not.toContain('Abschlag August');
 	});
 
+	it('seals matches and questions like every other collection', async () => {
+		const reason = 'Match-Marker-8d21';
+		const m = await store.matches.put({
+			transactionId: 'T',
+			receiptId: 'R',
+			score: 120,
+			reasons: [reason],
+			state: 'auto'
+		});
+		const q = await store.questions.put({
+			kind: 'unsure-match',
+			receiptId: 'R',
+			candidates: [{ transactionId: 'Question-Marker-4a7e', score: 70, reasons: [] }],
+			state: 'open',
+			answer: null
+		});
+		expect((await store.matches.get(m.id))?.reasons).toEqual([reason]);
+		expect((await store.questions.list()).map((x) => x.id)).toContain(q.id);
+		expect(store.matches.address).not.toBe(store.questions.address);
+		const text = await blockstoreText();
+		expect(text).not.toContain(reason);
+		expect(text).not.toContain('Question-Marker-4a7e');
+	});
+
 	it('guards the upstream bug: stock Documents leaves the same data readable', async () => {
 		// When this starts failing, @orbitdb/core forwards `encryption` for
 		// documents again and sealed-documents.js can go.

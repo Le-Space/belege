@@ -1,7 +1,8 @@
 <script>
 	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { app, currentStore, refreshNow } from '$lib/session.svelte.js';
+	import MatchingSettings from '$lib/MatchingSettings.svelte';
+	import { app, currentStore, refreshNow, runMatchingNow } from '$lib/session.svelte.js';
 	import { createBridgeClient, DEFAULT_BRIDGE_URL } from '$lib/bridge/client.js';
 	import { getSetting, setSetting } from '$lib/store/settings.js';
 	import { syncHibiscus } from '$lib/bank/hibiscus-sync.js';
@@ -156,6 +157,8 @@
 		} finally {
 			syncing = false;
 		}
+		// After the sync, not inside it: the buttons are free again meanwhile.
+		if (syncResult) await runMatchingNow();
 	}
 
 	/** @param {Event} event */
@@ -185,6 +188,7 @@
 			camtBusy = false;
 			input.value = '';
 		}
+		if (camtResults.length) await runMatchingNow();
 	}
 
 	/** @param {Counts} c */
@@ -406,3 +410,5 @@
 		</ul>
 	</section>
 {/if}
+
+<MatchingSettings />

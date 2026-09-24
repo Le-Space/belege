@@ -8,7 +8,7 @@ pnpm test:unit    # vitest, Node
 pnpm test:e2e     # Playwright, Chromium with a virtual passkey (PRF)
 ```
 
-## Architecture (phase 1, steps 1 to 3)
+## Architecture (phase 1, steps 1 to 4)
 
 - **Identity = passkey.** A WebAuthn passkey is the identity: its P-256 key gives the DID
   (`did:key:…`, via `@le-space/orbitdb-identity-provider-webauthn-did`). Create a passkey, or
@@ -30,7 +30,7 @@ pnpm test:e2e     # Playwright, Chromium with a virtual passkey (PRF)
 - **Persistent storage.** Helia on `LevelBlockstore`/`LevelDatastore` (IndexedDB
   `belege/helia-blocks`, `belege/helia-data`), OrbitDB logs under `belege/orbitdb`; no keystore.
 - **Data layer** (`src/lib/store/`): sealed OrbitDB documents databases `transactions`,
-  `receipts`, `partners`, `accounts`, `settings`, indexed by a ULID `id`; every record has `createdAt`, `updatedAt`,
+  `receipts`, `partners`, `accounts`, `settings`, `matches`, `questions`, indexed by a ULID `id`; every record has `createdAt`, `updatedAt`,
   `deleted` (soft delete) and `author` (DID); money in integer cents. `sealed-documents.js` exists
   because `@orbitdb/core` 4.0.0 drops the `encryption` option for documents databases.
 - **P2P prepared, not used.** libp2p runs with gossipsub for OrbitDB but no transports, no
@@ -97,6 +97,47 @@ Several files are ported from [Le-Space/simple-todo](https://github.com/Le-Space
 - The E2E spec `e2e/receipts.spec.js` runs a fake IMAP server with a synthetic mailbox, a fake LLM
   and the real bridge in test mode.
 
+## Matching (step 4)
+
+`src/lib/matching/`, pure except `engine.js` and `actions.js`. Ported from `spikes/matching`.
+
+- **Score** (`score.js`) of a receipt against a booking: amount 40 (absolute cents, same
+  currency), invoice number in the purpose or end-to-end id 50, customer number 20 (both with
+  separators stripped, at least 5 characters), vendor IBAN 15 (full, or the last four digits),
+  vendor name 20 (word overlap without legal forms; 10 when the name only shows in the purpose),
+  date window 10 (invoice date −5 … due/debit date +10; +30 for our own invoices without a due
+  date), −30 more than 60 days outside it, −40 for the wrong direction. Our own invoices (vendor =
+  our company name) and credit notes expect incoming money.
+- **Sure** at ≥ 90 and 30 ahead of every rival – the receipt's other bookings and the booking's
+  other receipts – so equal monthly amounts are only taken when the invoice number decides.
+  Otherwise a question with up to three candidates (≥ 40). Payment reminders never take a booking
+  and never block their invoice.
+- **No receipt needed** (`classify.js`), in this order: own rules ("Eigene Anweisungen":
+  counterparty/purpose contains → ignore with a reason, or private), bank fees (booking type
+  Abschluss, Entgelt, Mehrwertsteuerbelastung – the statement is the receipt), own transfers
+  (counterparty IBAN typed in as ours, or a CAMT account's IBAN by its hash, or a Hibiscus
+  account's last four digits together with the counter-booking on that account, or our company
+  name → 1360), loans ("Darlehen").
+- **Records**: `matches` (`transactionId`, `receiptId`, `score`, `reasons`, `state`
+  `auto`/`confirmed`/`rejected`) and `questions` (`kind` `unsure-match`/`missing-receipt`/
+  `unknown-sender`, `receiptId`, `transactionId`, `candidates`, `state` `open`/`answered`,
+  `answer`), sealed like everything else; `transactions.receiptId`, `transactions.noReceipt` and
+  `receipts.status` (`zugeordnet`) follow them.
+- **Engine** (`engine.js`): after a sync or CAMT import, a mail fetch, reading receipts, saving the
+  instructions, and on "Abgleich starten" (Home). Idempotent (a second run writes nothing). It
+  never overrides a person: confirmed stays, a rejected pair ("Zuordnung lösen", "keiner davon")
+  is never proposed again, answered questions stay answered; open ones that no longer apply are
+  closed as settled.
+- **Interface**: Zahlungen shows coverage per month, "Nur ohne Beleg" and badges; a click opens the
+  booking with its receipt and preview, other payments to the same counterparty, "Beleg
+  zuordnen", "Zuordnung lösen", "Kein Beleg nötig" and "Im privaten Postfach suchen" (the bridge's
+  `/mail/search`: the counterparty's first telling word, the amount, the booking day ± 14 days;
+  only on that click, only the hits are read; a hit is imported sealed, read and matched). Home
+  has the "Beleg-Agent" card with open questions and progress; `/rueckfragen` answers them.
+  "Eigene Anweisungen" live under Integrationen.
+- The E2E spec `e2e/matching.spec.js` runs fake Hibiscus, fake IMAP (with a receipt billed to the
+  personal address), fake LLM and the real bridge.
+
 ### Gaps
 
 - **Images**: no OCR yet; photographed receipts are stored and shown ("Bild – Auslesen folgt").
@@ -106,5 +147,10 @@ Several files are ported from [Le-Space/simple-todo](https://github.com/Le-Space
 - **Portal downloads**: "your invoice is online" mails only link to a vendor portal; the receipt
   itself has to be downloaded by hand and uploaded.
 - **Tables**: pdf.js glues table rows together (docs/phase-0.md); dates in tables can be read
-  wrong. Invoice numbers are compared with separators stripped only once matching comes (step 4).
+  wrong.
+- **Matching**: one receipt pays one booking (instalments need a link by hand per booking); a
+  booking can carry several receipts, the list shows the first. Card payments on another bank's
+  statement (Revolut) match once that statement is imported. Four digits of a Hibiscus account
+  count as ours only with the counter-booking; enter full IBANs under "Eigene Anweisungen"
+  otherwise. Private-mailbox hits are imported only by hand.
 - The folder is read when you press the button, not watched.

@@ -43,7 +43,14 @@ export const RECEIPTS = {
 	},
 	papierladen: { vendor: 'Papierladen Test KG', gross: '23,80' },
 	phishing: { vendor: 'PayPaI Abrechnung', marker: 'MARKER-PHISH-0000' },
-	buero: { vendor: 'Buerobedarf Muster OHG', gross: '35,70', marker: 'MARKER-BUERO-55AA' }
+	buero: { vendor: 'Buerobedarf Muster OHG', gross: '35,70', marker: 'MARKER-BUERO-55AA' },
+	/** Only with `privateReceipt: true`: billed to the personal address, found by /mail/search alone. */
+	mobilfunk: {
+		vendor: 'Mobilfunk Beispiel GmbH',
+		invoice: 'MF-2026-0909',
+		gross: '39,99',
+		marker: 'MARKER-MOBIL-6E1D'
+	}
 };
 
 /**
@@ -171,9 +178,16 @@ const authResults = (domain, result = 'pass') =>
  * ago, so a default "this month and the last" window always holds the
  * receipts).
  *
- * @param {{ base?: Date }} [options]
+ * `privateReceipt: true` adds a receipt billed to the personal address (the
+ * phase-0 Vodafone case): not in the accounting scope, only found by
+ * `/mail/search`.
+ *
+ * @param {{ base?: Date, privateReceipt?: boolean }} [options]
  */
-export function sampleMailbox({ base = new Date(Date.now() - 3 * 864e5) } = {}) {
+export function sampleMailbox({
+	base = new Date(Date.now() - 3 * 864e5),
+	privateReceipt = false
+} = {}) {
 	const day = (/** @type {number} */ offset) => new Date(base.getTime() - offset * 864e5);
 	const w = RECEIPTS.wolkenfabrik;
 	const s = RECEIPTS.stromwerk;
@@ -318,6 +332,29 @@ export function sampleMailbox({ base = new Date(Date.now() - 3 * 864e5) } = {}) 
 			})
 		)
 	];
+
+	if (privateReceipt) {
+		const mo = RECEIPTS.mobilfunk;
+		const pdfM = makePdf(
+			invoiceLines({ ...mo, date: isoDay(day(2)), net: '33,61', vat: '6,38', gross: mo.gross })
+		);
+		inbox.push(
+			msg(
+				day(2),
+				mime({
+					headers: [authResults('mobilfunk.example'), received(PERSONAL, day(2))],
+					from: `"${mo.vendor}" <rechnung@mobilfunk.example>`,
+					to: PERSONAL,
+					subject: 'Ihre Mobilfunk-Rechnung',
+					date: day(2),
+					text: `Ihre Rechnung ueber ${mo.gross} EUR liegt bei.`,
+					attachments: [
+						{ name: `Rechnung-${mo.invoice}.pdf`, type: 'application/pdf', bytes: pdfM }
+					]
+				})
+			)
+		);
+	}
 
 	const sent = [
 		// 9. A receipt we forwarded from our own address to the alias: no Authentication-Results.

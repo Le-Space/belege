@@ -1,17 +1,20 @@
 <script>
+	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import TransactionDetail from '$lib/TransactionDetail.svelte';
 	import { app, currentStore } from '$lib/session.svelte.js';
 	import { t } from '$lib/i18n/index.js';
 	import {
 		displayPurpose,
 		formatMoney,
 		groupByDay,
-		hasReceipt,
 		matchesSearch,
 		monthSummaries
 	} from '$lib/bank/format.js';
+	import { coverageBadge, isTxCovered } from '$lib/matching/view.js';
 
-	/** @typedef {{ id: string, bookedOn: string, counterparty?: string, purpose?: string, amountCents?: number, currency?: string, accountId?: string, source?: string, receiptId?: string | null }} Tx */
+	/** @typedef {{ id: string, bookedOn: string, counterparty?: string, purpose?: string, amountCents?: number, currency?: string, accountId?: string, source?: string, receiptId?: string | null, noReceipt?: any }} Tx */
 
 	let accountId = $state('');
 	let query = $state('');
@@ -29,9 +32,20 @@
 			(tx) => (!accountId || tx.accountId === accountId) && matchesSearch(tx, query)
 		)
 	);
-	let withoutReceipt = $derived(searched.filter((tx) => !hasReceipt(tx)));
+	/** @param {Tx} tx */
+	const covered = (tx) => isTxCovered(tx, app.classifications);
+	let withoutReceipt = $derived(searched.filter((tx) => !covered(tx)));
 	let filtered = $derived(receiptFilter === 'ohne' ? withoutReceipt : searched);
-	let months = $derived(monthSummaries(filtered));
+	// Coverage per month counts all bookings of the search, not only the filtered ones.
+	let coverageByMonth = $derived(
+		new Map(monthSummaries(searched, covered).map((m) => [m.month, m.coverage]))
+	);
+	let months = $derived(
+		monthSummaries(filtered, covered).map((m) => ({
+			...m,
+			coverage: coverageByMonth.get(m.month) ?? m.coverage
+		}))
+	);
 	let month = $derived(
 		chosenMonth && months.some((m) => m.month === chosenMonth)
 			? chosenMonth
@@ -40,6 +54,24 @@
 	let days = $derived(
 		groupByDay(filtered.filter((tx) => String(tx.bookedOn ?? '').slice(0, 7) === month))
 	);
+
+	/** @type {string | null} */
+	let openId = $state(null);
+	onMount(() => {
+		const id = page.url.searchParams.get('tx');
+		if (id) openId = id;
+	});
+
+	/** @type {Record<string, string>} */
+	const coverageClass = {
+		receipt: 'border-success/30 bg-success/10 text-success',
+		'no-receipt': 'border-border bg-surface-2 text-text',
+		'own-transfer': 'border-infra/30 bg-infra/10 text-infra-800 dark:text-infra',
+		'bank-fee': 'border-border bg-surface-2 text-text',
+		loan: 'border-border bg-surface-2 text-text',
+		'rule-ignore': 'border-border bg-surface-2 text-faint',
+		'rule-private': 'border-border bg-surface-2 text-faint'
+	};
 
 	/** @param {Tx} tx */
 	function badge(tx) {
@@ -182,34 +214,53 @@
 						class="mt-1.5 divide-y divide-border rounded-lg border border-border bg-surface shadow-sm"
 					>
 						{#each day.items as tx (tx.id)}
-							<li class="flex items-center gap-3 px-4 py-3" data-testid="transaction">
-								<span class="min-w-0 flex-1">
-									<span class="block truncate font-medium text-heading"
-										>{tx.counterparty || '—'}</span
-									>
-									{#if tx.purpose}<span
-											class="block truncate text-sm text-faint"
-											title={tx.purpose}
-											data-testid="purpose">{displayPurpose(tx.purpose)}</span
-										>{/if}
-								</span>
-								{#if badge(tx)}
-									<span
-										class="shrink-0 rounded border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-text"
-										data-testid="account-badge">{badge(tx)}</span
-									>
-								{/if}
-								<span
-									class="shrink-0 font-mono whitespace-nowrap tabular-nums {(tx.amountCents ?? 0) <
-									0
-										? 'text-red-700 dark:text-red-400'
-										: (tx.amountCents ?? 0) > 0
-											? 'text-emerald-700 dark:text-emerald-400'
-											: 'text-heading'}"
-									data-testid="amount"
+							{@const cover = coverageBadge(tx, app.classifications)}
+							<li>
+								<button
+									type="button"
+									class="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface-2/60"
+									onclick={() => (openId = tx.id)}
+									aria-label={`${t('zahlungen.open')}: ${tx.counterparty || '—'}`}
+									data-testid="transaction"
+									data-covered={cover ? 'true' : 'false'}
 								>
-									{formatMoney(tx.amountCents ?? 0, tx.currency)}
-								</span>
+									<span class="min-w-0 flex-1">
+										<span class="block truncate font-medium text-heading"
+											>{tx.counterparty || '—'}</span
+										>
+										{#if tx.purpose}<span
+												class="block truncate text-sm text-faint"
+												title={tx.purpose}
+												data-testid="purpose">{displayPurpose(tx.purpose)}</span
+											>{/if}
+										{#if cover}
+											<span
+												class="mt-1 inline-block rounded border px-1.5 py-0.5 text-xs font-medium {coverageClass[
+													cover
+												]}"
+												data-testid="coverage-badge"
+												data-kind={cover}>{t(`matching.badge.${cover}`)}</span
+											>
+										{/if}
+									</span>
+									{#if badge(tx)}
+										<span
+											class="shrink-0 rounded border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-text"
+											data-testid="account-badge">{badge(tx)}</span
+										>
+									{/if}
+									<span
+										class="shrink-0 font-mono whitespace-nowrap tabular-nums {(tx.amountCents ??
+											0) < 0
+											? 'text-red-700 dark:text-red-400'
+											: (tx.amountCents ?? 0) > 0
+												? 'text-emerald-700 dark:text-emerald-400'
+												: 'text-heading'}"
+										data-testid="amount"
+									>
+										{formatMoney(tx.amountCents ?? 0, tx.currency)}
+									</span>
+								</button>
 							</li>
 						{/each}
 					</ul>
@@ -221,4 +272,8 @@
 			{/each}
 		</section>
 	</div>
+{/if}
+
+{#if openId}
+	<TransactionDetail txId={openId} onclose={() => (openId = null)} onopen={(id) => (openId = id)} />
 {/if}

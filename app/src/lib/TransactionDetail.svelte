@@ -1,0 +1,577 @@
+<script>
+	// One booking in full: counterparty, date, the whole purpose, the amount;
+	// its receipt(s) with a preview; the other payments to the same
+	// counterparty; and what a person can do: link a receipt, undo a link,
+	// "Kein Beleg nötig", and – only on a click – search the private mailbox
+	// for the missing receipt (only the hits are read).
+	import { onMount } from 'svelte';
+	import ReceiptPreview from './ReceiptPreview.svelte';
+	import { app, currentBlobs, currentStore, refreshNow, runMatchingNow } from './session.svelte.js';
+	import { createBridgeClient } from './bridge/client.js';
+	import { getSetting } from './store/settings.js';
+	import { formatDate, formatMoney } from './bank/format.js';
+	import { receiptDate, receiptVendor } from './receipts/view.js';
+	import { importMailMessages, needsConfirmation } from './receipts/import.js';
+	import { extractReceipt } from './receipts/extract.js';
+	import { confirmMatch, setNoReceipt, unlinkMatch } from './matching/actions.js';
+	import {
+		coverageBadge,
+		hitCriteria,
+		isTxCovered,
+		matchesOfTx,
+		otherPayments,
+		privateSearchQuery,
+		rankHits,
+		receiptChoices
+	} from './matching/view.js';
+	import { t } from './i18n/index.js';
+
+	/** @type {{ txId: string, onclose: () => void, onopen: (id: string) => void }} */
+	let { txId, onclose, onopen } = $props();
+
+	let tx = $derived(app.transactions.find((x) => x.id === txId) ?? null);
+	let account = $derived(tx ? (app.accounts.find((a) => a.id === tx.accountId) ?? null) : null);
+	let classification = $derived(tx ? (app.classifications[tx.id] ?? null) : null);
+	let links = $derived(tx ? matchesOfTx(tx.id, app.matches) : []);
+	let linked = $derived(
+		links.flatMap((m) => {
+			const receipt = app.receipts.find((r) => r.id === m.receiptId);
+			return receipt ? [{ match: m, receipt }] : [];
+		})
+	);
+	let choices = $derived(
+		tx
+			? receiptChoices(tx, app.receipts, app.matches, {
+					companyNames: app.matchingSettings?.companyNames ?? []
+				})
+			: []
+	);
+	let suggestions = $derived(choices.filter((c) => c.suggested));
+	let rest = $derived(choices.filter((c) => !c.suggested));
+	let others = $derived(tx ? otherPayments(tx, app.transactions) : []);
+
+	let assigning = $state(false);
+	let showAll = $state(false);
+	let askingReason = $state(false);
+	let reason = $state('');
+	/** @type {string | null} */
+	let error = $state(null);
+	let busy = $state(false);
+
+	/** @type {ReturnType<typeof createBridgeClient> | null} */
+	let client = $state(null);
+	/** @type {any[] | null} */
+	let hits = $state(null);
+	let searching = $state(false);
+	/** @type {string | null} */
+	let importingId = $state(null);
+	/** @type {string | null} */
+	let importNote = $state(null);
+
+	/** @type {HTMLElement | undefined} */
+	let panel = $state();
+
+	onMount(() => {
+		panel?.focus();
+		const store = currentStore();
+		if (!store) return;
+		getSetting(store.settings, 'bridge').then((saved) => {
+			if (saved?.token) client = createBridgeClient({ url: saved.url, token: saved.token });
+		});
+	});
+
+	// Another booking opened in the same panel starts afresh.
+	$effect(() => {
+		void txId;
+		assigning = false;
+		showAll = false;
+		askingReason = false;
+		reason = '';
+		error = null;
+		hits = null;
+		importNote = null;
+	});
+
+	/** @param {unknown} e */
+	const message = (e) => (e instanceof Error ? e.message : String(e));
+
+	/** @param {() => Promise<unknown>} fn */
+	async function act(fn) {
+		const store = currentStore();
+		if (!store) return;
+		busy = true;
+		error = null;
+		try {
+			await fn();
+			await refreshNow();
+		} catch (e) {
+			error = message(e);
+		} finally {
+			busy = false;
+		}
+	}
+
+	/** @param {string} receiptId @param {number} score @param {string[]} reasons */
+	const assign = (receiptId, score, reasons) =>
+		act(async () => {
+			const store = /** @type {any} */ (currentStore());
+			await confirmMatch(store, {
+				receiptId,
+				transactionId: txId,
+				score,
+				reasons: [...reasons, 'manual']
+			});
+			assigning = false;
+		});
+
+	/** @param {string} matchId */
+	const unlink = (matchId) =>
+		act(async () => unlinkMatch(/** @type {any} */ (currentStore()), matchId));
+
+	const saveNoReceipt = () =>
+		act(async () => {
+			await setNoReceipt(/** @type {any} */ (currentStore()), txId, reason);
+			askingReason = false;
+			reason = '';
+		});
+
+	const needsReceipt = () =>
+		act(async () => setNoReceipt(/** @type {any} */ (currentStore()), txId, null));
+
+	let query = $derived(tx ? privateSearchQuery(tx) : null);
+	/** @param {string} iso @param {number} days */
+	const shift = (iso, days) =>
+		formatDate(new Date(Date.parse(`${iso}T00:00:00Z`) + days * 864e5).toISOString().slice(0, 10));
+	let searchHint = $derived(
+		query
+			? t(query.text ? 'zahlungen.detail.privateHint' : 'zahlungen.detail.privateHintAmount', {
+					text: query.text ?? '',
+					amount: `${query.amount} €`,
+					from: shift(query.around, -query.days),
+					to: shift(query.around, query.days)
+				})
+			: ''
+	);
+
+	async function search() {
+		if (!client || !query) return;
+		searching = true;
+		error = null;
+		importNote = null;
+		try {
+			const { messages } = await client.mailSearch(query);
+			hits = rankHits(messages);
+		} catch (e) {
+			error = message(e);
+		} finally {
+			searching = false;
+		}
+	}
+
+	/** @param {any} hit */
+	async function importHit(hit) {
+		const store = currentStore();
+		const blobs = currentBlobs();
+		if (!store || !blobs || !client) return;
+		importingId = hit.id;
+		error = null;
+		importNote = null;
+		try {
+			/** @type {any[]} */
+			const created = [];
+			await importMailMessages({
+				receipts: store.receipts,
+				blobs,
+				client,
+				messages: [hit],
+				created
+			});
+			if (created.length === 0) {
+				importNote = t('zahlungen.detail.privateDuplicate');
+				return;
+			}
+			let unverified = false;
+			for (const record of created) {
+				if (needsConfirmation(record)) {
+					unverified = true;
+					continue;
+				}
+				if (String(record.mime).startsWith('image/')) continue;
+				await extractReceipt({ client, receipts: store.receipts, blobs, record });
+			}
+			await runMatchingNow();
+			importNote = unverified
+				? t('zahlungen.detail.privateImportedUnverified')
+				: t('zahlungen.detail.privateImported');
+		} catch (e) {
+			error = message(e);
+			await refreshNow();
+		} finally {
+			importingId = null;
+		}
+	}
+
+	/** @param {any} hit @returns {{ name: string, kind: string }[]} */
+	const hitFiles = (hit) =>
+		(hit.attachments ?? []).filter(
+			(/** @type {any} */ a) => a.kind === 'pdf' || a.kind === 'image'
+		);
+
+	/** @param {KeyboardEvent} e */
+	function onKey(e) {
+		if (e.key === 'Escape') onclose();
+	}
+
+	/** @param {import('$lib/store/repository.js').StoredRecord} r */
+	const receiptAmount = (r) =>
+		typeof r.amountCents === 'number' ? formatMoney(r.amountCents, r.currency ?? 'EUR') : '—';
+	/** @param {import('$lib/store/repository.js').StoredRecord} r */
+	const receiptDay = (r) => {
+		const d = receiptDate(r);
+		return d ? formatDate(d) : '';
+	};
+	/** @param {string[]} reasons */
+	const reasonText = (reasons) => (reasons ?? []).map((x) => t(`matching.reason.${x}`)).join(' · ');
+
+	/** @param {Record<string, any>} c */
+	function coverageText(c) {
+		if (!c) return '';
+		return t(`matching.kind.${c.kind}`, { reason: c.reason ?? '' });
+	}
+
+	const button =
+		'rounded-md border border-border px-3 py-1.5 text-sm text-text hover:bg-surface-2 hover:text-heading disabled:cursor-not-allowed disabled:opacity-50';
+	const primary =
+		'rounded-md bg-coral-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50';
+</script>
+
+<div class="fixed inset-0 z-50 flex justify-end bg-black/40" role="presentation" onclick={onclose}>
+	<div
+		bind:this={panel}
+		class="h-full w-full max-w-xl overflow-y-auto bg-bg px-4 py-4 shadow-xl sm:px-6"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="tx-detail-title"
+		tabindex="-1"
+		onclick={(e) => e.stopPropagation()}
+		onkeydown={onKey}
+		data-testid="tx-detail"
+	>
+		{#if !tx}
+			<p class="text-sm text-faint">{t('zahlungen.noneForSelection')}</p>
+		{:else}
+			<div class="flex items-start justify-between gap-3">
+				<div class="min-w-0">
+					<p class="text-xs font-semibold tracking-wide text-faint uppercase">
+						{t('zahlungen.detail.title')}
+					</p>
+					<h2
+						id="tx-detail-title"
+						class="text-xl font-bold break-words text-heading"
+						data-testid="tx-detail-counterparty"
+					>
+						{tx.counterparty || '—'}
+					</h2>
+				</div>
+				<button type="button" class={button} onclick={onclose} data-testid="tx-detail-close"
+					>{t('zahlungen.detail.close')}</button
+				>
+			</div>
+			<p
+				class="mt-2 font-mono text-2xl font-semibold tabular-nums {(tx.amountCents ?? 0) < 0
+					? 'text-red-700 dark:text-red-400'
+					: 'text-emerald-700 dark:text-emerald-400'}"
+				data-testid="tx-detail-amount"
+			>
+				{formatMoney(tx.amountCents ?? 0, tx.currency)}
+			</p>
+
+			<dl class="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
+				<dt class="text-faint">{t('zahlungen.detail.date')}</dt>
+				<dd class="text-heading" data-testid="tx-detail-date">{formatDate(tx.bookedOn)}</dd>
+				{#if tx.valueDate && tx.valueDate !== tx.bookedOn}
+					<dt class="text-faint">{t('zahlungen.detail.valueDate')}</dt>
+					<dd class="text-heading">{formatDate(tx.valueDate)}</dd>
+				{/if}
+				{#if account}
+					<dt class="text-faint">{t('zahlungen.detail.account')}</dt>
+					<dd class="text-heading">{account.name} ···{account.ibanLast4}</dd>
+				{/if}
+				{#if tx.bookingType}
+					<dt class="text-faint">{t('zahlungen.detail.bookingType')}</dt>
+					<dd class="text-heading">{tx.bookingType}</dd>
+				{/if}
+				{#if tx.counterpartyIban}
+					<dt class="text-faint">{t('zahlungen.detail.iban')}</dt>
+					<dd class="font-mono text-xs break-all text-heading">{tx.counterpartyIban}</dd>
+				{/if}
+			</dl>
+			{#if tx.purpose}
+				<h3 class="mt-3 text-xs font-semibold tracking-wide text-faint uppercase">
+					{t('zahlungen.detail.purpose')}
+				</h3>
+				<p
+					class="mt-1 rounded border border-border bg-surface-2 px-2 py-1.5 font-mono text-xs break-words whitespace-pre-wrap text-text"
+					data-testid="tx-detail-purpose"
+				>
+					{tx.purpose}
+				</p>
+			{/if}
+
+			<section class="mt-4 rounded-lg border border-border bg-surface px-4 py-3 shadow-sm">
+				<h3 class="text-sm font-semibold text-heading">{t('zahlungen.detail.receipts')}</h3>
+				{#if classification && !tx.receiptId}
+					<p class="mt-1 text-sm text-text" data-testid="tx-detail-classification">
+						{coverageText(classification)}
+					</p>
+				{/if}
+				{#if tx.noReceipt}
+					<p class="mt-1 text-sm text-text" data-testid="tx-detail-no-receipt">
+						{t('matching.kind.no-receipt', { reason: tx.noReceipt.reason ?? '' })}
+					</p>
+					<button type="button" class="mt-2 {button}" onclick={needsReceipt} disabled={busy}
+						>{t('zahlungen.detail.needsReceipt')}</button
+					>
+				{/if}
+				{#each linked as l (l.match.id)}
+					{@const r = l.receipt}
+					<div class="mt-2 border-t border-border pt-2" data-testid="tx-linked-receipt">
+						<div class="flex flex-wrap items-baseline justify-between gap-2">
+							<span class="font-medium text-heading" data-testid="tx-linked-vendor"
+								>{receiptVendor(r)}</span
+							>
+							<span class="font-mono text-sm text-heading tabular-nums">{receiptAmount(r)}</span>
+						</div>
+						<p class="text-xs text-faint">
+							{[receiptDay(r), r.invoiceNumber, r.fileName].filter(Boolean).join(' · ')}
+						</p>
+						<p class="mt-0.5 text-xs text-faint" data-testid="tx-linked-state">
+							{t(`matching.state.${l.match.state}`)}{l.match.score !== null &&
+							l.match.score !== undefined
+								? ` · ${t('matching.score', { score: l.match.score })}`
+								: ''}{l.match.reasons?.length ? ` · ${reasonText(l.match.reasons)}` : ''}
+						</p>
+						<div class="mt-2"><ReceiptPreview receipt={r} /></div>
+						<button
+							type="button"
+							class="mt-2 {button}"
+							onclick={() => unlink(l.match.id)}
+							disabled={busy}
+							data-testid="tx-unlink">{t('zahlungen.detail.unlink')}</button
+						>
+					</div>
+				{:else}
+					{#if !classification && !tx.noReceipt}
+						<p class="mt-1 text-sm text-text" data-testid="tx-detail-missing">
+							{t('zahlungen.detail.noReceipt')}
+						</p>
+					{/if}
+				{/each}
+
+				<div class="mt-3 flex flex-wrap gap-2">
+					<button
+						type="button"
+						class={primary}
+						onclick={() => (assigning = !assigning)}
+						disabled={busy}
+						aria-expanded={assigning}
+						data-testid="tx-assign">{t('zahlungen.detail.assign')}</button
+					>
+					{#if !tx.noReceipt}
+						<button
+							type="button"
+							class={button}
+							onclick={() => (askingReason = !askingReason)}
+							disabled={busy}
+							aria-expanded={askingReason}
+							data-testid="tx-no-receipt">{t('zahlungen.detail.noReceiptNeeded')}</button
+						>
+					{/if}
+				</div>
+
+				{#if askingReason}
+					<form
+						class="mt-2 flex flex-wrap items-end gap-2"
+						onsubmit={(e) => {
+							e.preventDefault();
+							saveNoReceipt();
+						}}
+					>
+						<label class="flex min-w-48 flex-1 flex-col text-sm">
+							<span class="text-faint">{t('zahlungen.detail.reason')}</span>
+							<input
+								class="mt-1 rounded-md border px-2 py-1.5 text-sm"
+								bind:value={reason}
+								placeholder={t('zahlungen.detail.reasonPlaceholder')}
+								data-testid="tx-no-receipt-reason"
+							/>
+						</label>
+						<button type="submit" class={primary} disabled={busy} data-testid="tx-no-receipt-save"
+							>{t('zahlungen.detail.save')}</button
+						>
+					</form>
+				{/if}
+
+				{#if assigning}
+					<div class="mt-3" data-testid="tx-choices">
+						<h4 class="text-xs font-semibold tracking-wide text-faint uppercase">
+							{t('zahlungen.detail.suggestions')}
+						</h4>
+						{#each showAll ? choices : suggestions as c (c.receipt.id)}
+							<div
+								class="mt-1 flex items-center gap-2 border-t border-border py-2"
+								data-testid="tx-choice"
+								data-suggested={c.suggested ? 'true' : 'false'}
+							>
+								<span class="min-w-0 flex-1">
+									<span class="block truncate text-sm font-medium text-heading"
+										>{receiptVendor(c.receipt)}</span
+									>
+									<span class="block truncate text-xs text-faint"
+										>{[receiptAmount(c.receipt), receiptDay(c.receipt), c.receipt.invoiceNumber]
+											.filter(Boolean)
+											.join(' · ')}{c.score > 0
+											? ` · ${t('matching.score', { score: c.score })} (${reasonText(c.reasons)})`
+											: ''}</span
+									>
+								</span>
+								<button
+									type="button"
+									class={button}
+									onclick={() => assign(c.receipt.id, c.score, c.reasons)}
+									disabled={busy}
+									data-testid="tx-choose">{t('zahlungen.detail.choose')}</button
+								>
+							</div>
+						{:else}
+							<p class="mt-1 text-sm text-faint">{t('zahlungen.detail.noChoices')}</p>
+						{/each}
+						{#if rest.length}
+							<button
+								type="button"
+								class="mt-2 text-sm text-text underline"
+								onclick={() => (showAll = !showAll)}
+								aria-expanded={showAll}
+								data-testid="tx-show-all"
+								>{t('zahlungen.detail.allReceipts')} ({rest.length})</button
+							>
+						{/if}
+					</div>
+				{/if}
+			</section>
+
+			<section class="mt-4 rounded-lg border border-border bg-surface px-4 py-3 shadow-sm">
+				<h3 class="text-sm font-semibold text-heading">{t('zahlungen.detail.privateSearch')}</h3>
+				{#if !client}
+					<p class="mt-1 text-sm text-faint">{t('zahlungen.detail.noBridge')}</p>
+				{:else}
+					<p class="mt-1 text-xs text-faint" data-testid="tx-private-hint">{searchHint}</p>
+					<button
+						type="button"
+						class="mt-2 {button}"
+						onclick={search}
+						disabled={searching || busy}
+						data-testid="tx-private-search"
+						>{searching
+							? t('zahlungen.detail.privateSearching')
+							: t('zahlungen.detail.privateSearch')}</button
+					>
+					{#if hits}
+						{#if hits.length === 0}
+							<p class="mt-2 text-sm text-faint" data-testid="tx-private-none">
+								{t('zahlungen.detail.privateNone')}
+							</p>
+						{:else}
+							<p class="mt-2 text-xs text-faint">
+								{t('zahlungen.detail.privateHits', { count: hits.length })}
+							</p>
+							<ul class="mt-1 divide-y divide-border">
+								{#each hits as hit (hit.id)}
+									{@const files = hitFiles(hit)}
+									<li class="py-2" data-testid="tx-private-hit">
+										<p class="text-sm font-medium break-words text-heading">{hit.subject}</p>
+										<p class="text-xs break-all text-faint">
+											{hit.from?.name ?? ''} &lt;{hit.from?.address ?? ''}&gt; · {hit.receivedAt
+												? formatDate(String(hit.receivedAt).slice(0, 10))
+												: ''}
+										</p>
+										<p class="text-xs text-text" data-testid="tx-private-criteria">
+											{t('zahlungen.detail.privateMatched', {
+												criteria: hitCriteria(hit)
+													.map((c) => t(`zahlungen.detail.criteria.${c}`))
+													.join(' + ')
+											})} · {files.length
+												? t('zahlungen.detail.privateAttachments', {
+														names: files.map((a) => a.name).join(', ')
+													})
+												: t('zahlungen.detail.privateNoAttachment')}
+											{#if hit.auth?.verdict !== 'pass' && !hit.outgoing}
+												· <span class="text-danger">⚠ {t('belege.unverified')}</span>
+											{/if}
+										</p>
+										<button
+											type="button"
+											class="mt-1 {button}"
+											onclick={() => importHit(hit)}
+											disabled={importingId !== null}
+											data-testid="tx-private-import"
+											>{importingId === hit.id
+												? t('zahlungen.detail.privateImporting')
+												: t('zahlungen.detail.privateImport')}</button
+										>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					{/if}
+					{#if importNote}
+						<p class="mt-2 text-sm text-heading" role="status" data-testid="tx-private-result">
+							{importNote}
+						</p>
+					{/if}
+				{/if}
+			</section>
+
+			{#if error}
+				<p class="mt-3 text-sm text-danger" role="alert" data-testid="tx-detail-error">{error}</p>
+			{/if}
+
+			<section class="mt-4">
+				<h3 class="text-sm font-semibold text-heading">
+					{t('zahlungen.detail.others', { name: tx.counterparty || '—' })}
+				</h3>
+				{#if others.length === 0}
+					<p class="mt-1 text-sm text-faint">{t('zahlungen.detail.othersNone')}</p>
+				{:else}
+					<ul
+						class="mt-1 divide-y divide-border rounded-lg border border-border bg-surface shadow-sm"
+					>
+						{#each others as o (o.id)}
+							<li>
+								<button
+									type="button"
+									class="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-surface-2"
+									onclick={() => onopen(o.id)}
+									data-testid="tx-other"
+								>
+									<span class="flex-1 text-text">{formatDate(o.bookedOn)}</span>
+									<span
+										class="rounded border px-1.5 py-0.5 text-xs {isTxCovered(o, app.classifications)
+											? 'border-success/30 bg-success/10 text-success'
+											: 'border-border bg-surface-2 text-faint'}"
+										>{coverageBadge(o, app.classifications)
+											? t(`matching.badge.${coverageBadge(o, app.classifications)}`)
+											: t('zahlungen.detail.withoutReceipt')}</span
+									>
+									<span class="font-mono text-heading tabular-nums"
+										>{formatMoney(o.amountCents ?? 0, o.currency)}</span
+									>
+								</button>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
+		{/if}
+	</div>
+</div>

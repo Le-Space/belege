@@ -40,6 +40,11 @@ describe('grouping', () => {
 		]);
 	});
 
+	it('counts what the caller calls covered (a receipt, or none needed)', () => {
+		const all = monthSummaries(txs, () => true);
+		expect(all.map((m) => m.coverage)).toEqual([100, 100]);
+	});
+
 	it('days newest first, newest id first inside a day', () => {
 		const days = groupByDay(txs);
 		expect(days.map((d) => d.day)).toEqual(['2026-09-22', '2026-09-01', '2026-08-14']);
@@ -107,6 +112,18 @@ describe('displayPurpose', () => {
 		expect(displayPurpose('2680709 / 2680709 IBAN: DE00000000000000000000 BIC: TESTDEFF')).toBe(
 			'2680709 / 2680709'
 		);
+	});
+
+	it('drops the TAN method GLS appends (SecureGo plus, pushTAN, chipTAN)', () => {
+		expect(displayPurpose('Miete Oktober SecureGo plus')).toBe('Miete Oktober');
+		expect(
+			displayPurpose('Rechnung 2026-17 SecureGo plus IBAN: DE00000000000000000000 BIC: TESTDEFF')
+		).toBe('Rechnung 2026-17');
+		expect(displayPurpose('Beitrag 3. Quartal / pushTAN')).toBe('Beitrag 3. Quartal');
+		expect(displayPurpose('SVWZ+Abo Oktober chipTAN QR')).toBe('Abo Oktober');
+		expect(displayPurpose('TAN-Verfahren: SecureGo plus Spende')).toBe('Spende');
+		// A word that merely contains the letters stays.
+		expect(displayPurpose('Securegoods Lieferung')).toBe('Securegoods Lieferung');
 	});
 
 	it('leaves untagged text alone and does not mistake words for tags', () => {
