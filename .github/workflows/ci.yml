@@ -13,9 +13,12 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # deploy.yml runs the same gates before it publishes anything.
+  workflow_call:
 
 concurrency:
-  group: ci-${{ github.head_ref || github.sha }}
+  # github.workflow keeps a run called from deploy.yml apart from the push run.
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.sha }}
   cancel-in-progress: true
 
 jobs:
