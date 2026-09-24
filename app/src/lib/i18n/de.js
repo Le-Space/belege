@@ -44,6 +44,7 @@ export default {
 		hint: 'Mit dem Telefon scannen – öffnet genau diese Seite.'
 	},
 	footer: {
+		verlauf: 'Verlauf',
 		madeWith: 'Gebaut mit',
 		build: 'Stand',
 		source: 'Quellcode',
@@ -80,7 +81,7 @@ export default {
 			technical: [
 				'Aus der PRF-Antwort des Passkeys leitet HKDF-SHA-256 den AES-GCM-Schlüssel ab, mit dem jede Datenbank versiegelt ist (info belege/db-key/v1), und die Namen der Datenbanken (belege/db-name/v1:<Sammlung>), damit sich keine Adresse aus der DID erraten lässt. Nichts davon wird gespeichert.',
 				'Kein privater Schlüssel liegt auf dem Gerät: Den OrbitDB-Signaturschlüssel (secp256k1) leitet der Identity-Provider bei jedem Entsperren aus derselben PRF-Antwort ab. Er lebt nur im Arbeitsspeicher dieser Sitzung.',
-				'Gespeichert werden die OrbitDB-Dokumentdatenbanken transactions, receipts, partners, accounts, settings, matches und questions, auf Helia mit LevelBlockstore und LevelDatastore in IndexedDB (belege/helia-blocks, belege/helia-data, belege/orbitdb). Jeder Eintrag ist mit AES-GCM verschlüsselt, Belegdateien mit einem eigenen Schlüssel (belege/blob-key/v1).',
+				'Gespeichert werden die OrbitDB-Dokumentdatenbanken transactions, receipts, partners, accounts, settings, matches, questions und events, auf Helia mit LevelBlockstore und LevelDatastore in IndexedDB (belege/helia-blocks, belege/helia-data, belege/orbitdb). Jeder Eintrag ist mit AES-GCM verschlüsselt, Belegdateien mit einem eigenen Schlüssel (belege/blob-key/v1).',
 				'Im localStorage liegt nur Öffentliches: die Angaben zum Passkey (Credential-ID, öffentlicher Schlüssel, DID, PRF-Eingabe), die Signatur des Passkeys über das Identitätsdokument und drei Merker dieser Seite (Hinweis gelesen, Hell/Dunkel, Technisch).'
 			]
 		},
@@ -195,10 +196,22 @@ export default {
 		coverageText: '{covered} von {count} ({percent} %)',
 		matchRun: 'Abgleich starten',
 		matchRunning: 'Gleiche ab …',
-		matchResult: 'Abgleich: {sure} sicher zugeordnet · {questions}',
+		matchResult: '{sure} zugeordnet · {questions} · {classified} ohne Beleg-Pflicht',
+		matchWaiting: ' · {count} warten noch',
+		matchQuestionsOne: '1 Rückfrage',
+		matchQuestionsMany: '{count} Rückfragen',
 		matchFailed: 'Der Abgleich ist fehlgeschlagen.',
+		matchStep: {
+			read: 'Lese Zahlungen und Belege …',
+			score: 'Vergleiche {receipts} Belege mit {transactions} Zahlungen …',
+			write: 'Schreibe die Zuordnungen …',
+			done: 'Fertig.'
+		},
+		matchHow:
+			'Der Abgleich vergleicht jeden Beleg mit jeder offenen Zahlung und vergibt Punkte für Betrag, Rechnungsnummer, Anbieter, IBAN und Datum. Das macht die App selbst, auf diesem Gerät – die KI liest nur die Belege aus.',
+		verlaufLink: 'Im Verlauf ansehen',
 		technical: [
-			'Die Bücher sind sieben OrbitDB-Dokumentdatenbanken (transactions, receipts, partners, accounts, settings, matches, questions), jeder Eintrag mit AES-GCM versiegelt; Beträge in ganzen Cent, gelöscht wird weich (deleted).',
+			'Die Bücher sind acht OrbitDB-Dokumentdatenbanken (transactions, receipts, partners, accounts, settings, matches, questions, events), jeder Eintrag mit AES-GCM versiegelt; Beträge in ganzen Cent, gelöscht wird weich (deleted).',
 			'Schlüssel und Datenbanknamen kommen per HKDF-SHA-256 aus der PRF-Antwort des Passkeys und werden bei jedem Entsperren neu abgeleitet.'
 		]
 	},
@@ -233,7 +246,63 @@ export default {
 			'no-receipt': 'Kein Beleg nötig: {reason}'
 		},
 		state: { auto: 'automatisch', confirmed: 'bestätigt' },
-		score: '{score} Punkte'
+		score: '{score} Punkte',
+		waiting: 'wartet noch ({days} Tage)',
+		waitingOne: 'wartet noch (1 Tag)'
+	},
+	explain: {
+		reason: {
+			amount: 'Betrag gleich',
+			amountValue: 'Betrag gleich ({amount})',
+			invoice: 'Rechnungsnummer im Verwendungszweck',
+			invoiceValue: 'Rechnungsnummer {number} im Verwendungszweck',
+			customer: 'Kundennummer im Verwendungszweck',
+			customerValue: 'Kundennummer {number} im Verwendungszweck',
+			vendor: 'Anbieter passt',
+			vendorValue: 'Anbieter {vendor}',
+			vendorInPurpose: 'Anbieter im Verwendungszweck',
+			vendorInPurposeValue: 'Anbieter {vendor} im Verwendungszweck',
+			iban: 'IBAN des Anbieters ist das Gegenkonto',
+			date: 'Datum passt',
+			'far-date': 'Datum liegt weit weg',
+			'wrong-direction': 'Richtung passt nicht (Eingang statt Ausgang oder umgekehrt)'
+		},
+		how: {
+			auto: 'automatisch zugeordnet',
+			confirmed: 'von dir bestätigt',
+			manual: 'von dir zugeordnet'
+		},
+		points: '{score} Punkte',
+		thresholds:
+			'Automatisch zugeordnet wird ab {sure} Punkten, und nur, wenn kein anderer Beleg und keine andere Zahlung näher als {lead} Punkte herankommt. Sonst fragt die App nach.',
+		field: {
+			counterparty: 'Gegenpartei',
+			purpose: 'Verwendungszweck',
+			any: 'Gegenpartei oder Zweck'
+		},
+		rule: {
+			noReceipt: 'Von dir entschieden: Kein Beleg nötig – {reason}',
+			noReason: 'ohne Grund',
+			ownCompany: 'Eigene Umbuchung: Die Gegenpartei ist deine Firma „{company}“',
+			ownIban: 'Eigene Umbuchung: Das Gegenkonto ist dein Konto {account}',
+			ownMirrored:
+				'Eigene Umbuchung: Das Gegenkonto endet wie dein Konto {account}, und dort steht die Gegenbuchung',
+			bankFee: 'Bankentgelt: Buchungsart „{type}“ – der Kontoauszug ist der Beleg',
+			loan: 'Darlehen: „Darlehen“ im Verwendungszweck – der Vertrag ist der Beleg',
+			ignore: 'Eigene Anweisung: {field} enthält „{contains}“ → ignoriert ({reason})',
+			private: 'Eigene Anweisung: {field} enthält „{contains}“ → privat ({reason})'
+		},
+		why: 'Warum diese Zuordnung?',
+		whyNone: 'Warum kein Beleg nötig?',
+		question: 'Offene Rückfrage: diese Belege kommen in Frage',
+		noCandidates: 'Kein Beleg erreicht genug Punkte, um ihn vorzuschlagen.',
+		waiting: 'Noch kein Beleg – der Abgleich wartet noch {days} Tage, dann fragt er nach.',
+		waitingOne: 'Noch kein Beleg – der Abgleich wartet noch 1 Tag, dann fragt er nach.',
+		notAi: 'Die Zuordnung macht die App selbst nach Punkten, nicht die KI.',
+		technical: [
+			'Die Punkte kommen aus app/src/lib/matching/score.js: Betrag 40, Rechnungsnummer im Zweck oder in der End-to-End-ID 50, Kundennummer 20, IBAN 15, Anbieter 20 (im Zweck 10), Datum im Fenster Rechnungsdatum −5 bis Fälligkeit +10 Tage 10; mehr als 60 Tage daneben −30, falsche Richtung −40.',
+			'Gespeichert sind Punkte und Gründe im versiegelten Datensatz der Zuordnung (matches), so wie der Abgleich sie damals vergeben hat.'
+		]
 	},
 	rueckfragen: {
 		title: 'Rückfragen',
@@ -296,6 +365,10 @@ export default {
 		reasonPlaceholder: 'z. B. Steuerbescheid liegt vor',
 		add: 'Regel hinzufügen',
 		remove: 'Entfernen',
+		grace: 'Rückfrage bei fehlendem Beleg nach',
+		graceUnit: 'Tagen',
+		graceHint:
+			'Ein Beleg kommt oft ein paar Tage nach der Abbuchung. So lange zählt die Zahlung als ohne Beleg, aber der Abgleich fragt noch nicht. 0 = sofort fragen.',
 		save: 'Speichern',
 		saved: 'Gespeichert. Der Abgleich läuft mit den neuen Anweisungen.',
 		ruleText: '{field} „{contains}“ → {action}'
@@ -327,6 +400,7 @@ export default {
 		llmNotSetUp:
 			'Das Auslesen ist auf der Bridge nicht eingerichtet: pnpm setup:llm, dann die Bridge neu starten.',
 		mailResult: '{mails} E-Mails · neu: {new} · schon vorhanden: {known} · doppelt: {duplicate}',
+		mailVerdicts: ' · Absenderprüfung aktualisiert: {count}',
 		importResult: 'Neu: {new} · doppelt: {duplicate} · nicht unterstützt: {unsupported}',
 		sources: 'Quellen',
 		sourceAll: 'Alle',
@@ -390,9 +464,105 @@ export default {
 		openTx: 'Zahlung öffnen',
 		reminderNote:
 			'Mahnung – ordnet keine Zahlung selbst zu. Bei Bedarf unter Zahlungen von Hand zuordnen.',
+		how: {
+			line: 'Ausgelesen mit {model} · {seconds} s · {tokens} Tokens · {redactions} Stellen geschwärzt',
+			lineOld: 'Ausgelesen mit {model}',
+			fallback: 'zweiter Versuch mit {model}, weil {reason}',
+			sent: 'An die KI gesendet (geschwärzt)',
+			sentHint:
+				'Genau dieser Text ging von der Bridge an das Sprachmodell. Geschwärzte Stellen stehen in eckigen Klammern, etwa [NAME] oder [IBAN …1234].',
+			sentMissing:
+				'Mit einer älteren Bridge ausgelesen: Welcher Text gesendet wurde, ist nicht gespeichert. „Erneut auslesen“ holt es nach.',
+			redactions:
+				'Geschwärzt: {terms} Namen, {iban} IBANs, {email} E-Mail-Adressen, {street} Straßen, {postcode} PLZ und Ort',
+			attempts: 'Versuche: {list}',
+			tokens: 'Tokens: {prompt} hin, {completion} zurück, davon {reasoning} zum Nachdenken',
+			notAi:
+				'Die KI liest nur diese Felder aus. Welcher Zahlung der Beleg gehört, entscheidet danach die App nach Punkten.',
+			why: {
+				'stopped early: length': 'die Antwort abbrach (Token-Grenze erreicht)',
+				'content is not JSON': 'die Antwort kein JSON war',
+				'answer is not JSON': 'die Antwort kein JSON war',
+				checks: 'die Antwort nicht aufging ({detail})',
+				http: 'der Dienst einen Fehler meldete ({detail})',
+				unreachable: 'der Dienst nicht erreichbar war',
+				other: '{detail}'
+			}
+		},
 		technical: [
 			'Jede Datei wird im Browser mit AES-GCM versiegelt (Schlüssel per HKDF aus der PRF-Antwort des Passkeys, info belege/blob-key/v1) und in 1-MiB-Blöcken in Helias Blockstore abgelegt. Doppelte erkennt die App am SHA-256 des Inhalts, der nur im versiegelten Datensatz steht.',
 			'Zum Auslesen geht nur die Textebene des PDFs an die Bridge. Die Bridge schwärzt Namen, IBANs, eigene E-Mail-Adressen, Straßen und Postleitzahlen und fragt dann das Sprachmodell; die Datei selbst verlässt den Browser nicht.'
+		]
+	},
+	verlauf: {
+		title: 'Verlauf',
+		intro:
+			'Was die App getan hat und was du entschieden hast, neueste zuerst. Die Einträge liegen versiegelt in deinen Büchern, wie alles andere.',
+		filters: 'Filter',
+		all: 'Alle ({count})',
+		group: {
+			auslesen: 'Auslesen ({count})',
+			abgleich: 'Abgleich ({count})',
+			abruf: 'Abruf ({count})',
+			entscheidungen: 'Entscheidungen ({count})'
+		},
+		groupName: {
+			auslesen: 'Auslesen',
+			abgleich: 'Abgleich',
+			abruf: 'Abruf',
+			entscheidungen: 'Entscheidung'
+		},
+		empty: 'Noch nichts im Verlauf.',
+		more: 'Ältere anzeigen ({count})',
+		openReceipt: 'Beleg öffnen',
+		openTx: 'Zahlung öffnen',
+		kind: {
+			'bank-sync': 'Umsätze abgerufen',
+			'mail-fetch': 'E-Mails abgerufen',
+			'sender-verdict': 'Absenderprüfung aktualisiert',
+			extract: 'Beleg ausgelesen',
+			extractFailed: 'Auslesen fehlgeschlagen',
+			matching: 'Abgleich',
+			decision: 'Entscheidung'
+		},
+		text: {
+			bankSync:
+				'{source}: {accounts} Konto/Konten · neu: {new} · aktualisiert: {updated} · übersprungen: {skipped}',
+			mailFetch:
+				'{from} bis {to}: {mails} E-Mails · neu: {new} · schon vorhanden: {skipped} · doppelt: {duplicate}',
+			senderVerdict: '{vendor}: {was} → {now}',
+			senderReleased: ' – zum Auslesen freigegeben',
+			extract:
+				'{vendor} · {model} · {seconds} s · {tokens} Tokens · {redactions} Stellen geschwärzt',
+			extractFallback: ' · zweiter Versuch, weil {reason}',
+			extractFailed: '{vendor}: {error}',
+			matching:
+				'{sure} zugeordnet · {created} neue Rückfragen · {resolved} erledigt · {classified} ohne Beleg-Pflicht · {waiting} warten noch',
+			today: 'heute',
+			matchingManual: 'von dir gestartet',
+			matchingAuto: 'nach einem Abruf oder Auslesen',
+			pairs: 'Zugeordnet: {list}'
+		},
+		verdict: {
+			pass: 'bestanden',
+			fail: 'nicht bestanden',
+			none: 'keine Angabe',
+			outgoing: 'eigene E-Mail'
+		},
+		decision: {
+			confirm: 'Zuordnung bestätigt',
+			link: 'Beleg von Hand zugeordnet',
+			unlink: 'Zuordnung gelöst',
+			reject: 'Vorschlag abgelehnt',
+			'no-receipt': '„Kein Beleg nötig“ gesetzt',
+			'needs-receipt': '„Kein Beleg nötig“ zurückgenommen',
+			'confirm-sender': 'Absender freigegeben',
+			answer: 'Rückfrage beantwortet: {choice}'
+		},
+		source: { hibiscus: 'Hibiscus', camt: 'CAMT-Import' },
+		technical: [
+			'Jeder Eintrag ist ein Datensatz der versiegelten OrbitDB-Sammlung events (AES-GCM wie alle anderen): Art, Zeitpunkt, die IDs von Beleg, Zahlung, Zuordnung oder Rückfrage und Zahlen – Modell, Dauer, Tokens, Schwärzungen je Art, Treffer. Kein Token, kein Schlüssel, kein Belegtext.',
+			'Geschrieben wird er von der Aktion selbst: Synchronisieren, CAMT-Import, E-Mail-Abruf, Auslesen, Abgleich und jede Entscheidung. Ein automatischer Abgleich, der nichts ändert, schreibt keinen Eintrag; ein von dir gestarteter immer.'
 		]
 	},
 	export: {
@@ -510,6 +680,39 @@ export default {
 			intro:
 				'Für Banken ohne Hibiscus-Anbindung (etwa Revolut): die CAMT.053-Datei des Kontoauszugs. Sie wird nur hier im Browser gelesen.',
 			pending: ' · {count} vorgemerkt (nicht importiert)'
+		},
+		ki: {
+			title: 'KI – Beleg-Auslesen',
+			simple:
+				'Die KI liest nur Belege aus: Anbieter, Betrag, Datum, Rechnungsnummer. Die Zuordnung zu Zahlungen macht die App selbst, nachvollziehbar nach Punkten.',
+			keyWhere:
+				'Der API-Key liegt nur im Schlüsselbund der Bridge – ändern mit pnpm setup:llm. Er kommt nie in den Browser.',
+			noBridge: 'Die Bridge ist nicht gekoppelt: Einstellungen erst nach dem Koppeln sichtbar.',
+			unreachable: 'Die Bridge sagt nichts über das Auslesen (ältere Version?): {error}',
+			provider: 'Anbieter (Host)',
+			models: 'Modelle',
+			modelsValue: '{primary}, beim zweiten Versuch {fallback}',
+			key: 'API-Key',
+			keyOk: 'eingerichtet ✓',
+			keyMissing: 'fehlt – pnpm setup:llm',
+			terms: 'Schwärzungsbegriffe',
+			authServ: 'Server-Kennung (Absenderprüfung)',
+			authServNone: 'nicht gesetzt – pnpm setup:mail',
+			authServNoneHint:
+				'Ohne Kennung zählt der oberste Authentication-Results-Header der E-Mail (der deines Servers). Mit Kennung nur Header genau dieses Servers.',
+			notSetUp: 'nicht eingerichtet – pnpm setup:llm, dann die Bridge neu starten',
+			last: 'Zuletzt ausgelesen',
+			lastNone: 'noch nie',
+			totals: 'Bisher',
+			totalsValue: '{calls} Aufrufe · {tokens} Tokens',
+			totalsFailed: ' · {count} fehlgeschlagen',
+			totalsFallback: ' · {count}× zweiter Versuch',
+			verlauf: 'Alle Aufrufe im Verlauf',
+			technical: [
+				'Die Bridge schickt die Textebene eines PDFs (oder den Text einer E-Mail) an die OpenAI-kompatible Chat-API des Anbieters (/chat/completions, JSON-Modus, max_tokens 6000). Vorher schwärzt sie Namen aus ihrer Liste, IBANs bis auf die letzten vier Stellen, eigene E-Mail-Adressen, Straßen und Postleitzahlen. Was gesendet wurde, steht beim Beleg unter „An die KI gesendet“.',
+				'Die Antwort wird geprüft (Brutto da, Währung ISO, Daten gültig, Netto + USt = Brutto). Fällt sie durch oder bricht sie ab, fragt die Bridge das zweite Modell.',
+				'Warum der Key nicht hier eingetragen wird: Ein Schlüssel in der Webseite ist für jedes Skript lesbar, das je auf ihr läuft. In der Bridge liegt er im macOS-Schlüsselbund, und keine Antwort der Bridge enthält ihn – GET /llm/status sagt nur „da“ oder „fehlt“. Modelle und Begriffe stellt ebenfalls pnpm setup:llm ein.'
+			]
 		},
 		books: {
 			title: 'Konten in den Büchern',

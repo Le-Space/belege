@@ -11,6 +11,7 @@
 // updated in place; one that did not is skipped. A soft-deleted record still
 // counts as known: deleting a booking and syncing again does not bring it back.
 
+import { recordEvent } from '../activity/events.js';
 import { fingerprint as computeFingerprint, ibanKey } from './fingerprint.js';
 
 /** The fields an import owns. Anything else on a record (a receipt link) stays. */
@@ -199,7 +200,7 @@ export async function camtAccountInput(account) {
 /**
  * Import parsed CAMT statements: one account per statement IBAN.
  *
- * @param {{ accounts: import('../store/repository.js').Collection, transactions: import('../store/repository.js').Collection }} store
+ * @param {{ accounts: import('../store/repository.js').Collection, transactions: import('../store/repository.js').Collection, events?: import('../store/repository.js').Collection }} store
  * @param {import('./camt.js').CamtStatement[]} statements
  */
 export async function importCamtStatements(store, statements) {
@@ -218,6 +219,19 @@ export async function importCamtStatements(store, statements) {
 			incoming: statement.transactions
 		});
 		results.push({ account, counts, pending: statement.skipped });
+	}
+	if (results.length) {
+		const sum = (/** @type {'new' | 'updated' | 'skipped'} */ k) =>
+			results.reduce((n, r) => n + r.counts[k], 0);
+		await recordEvent(store.events, 'bank-sync', {
+			source: 'camt',
+			accounts: results.length,
+			accountIds: results.map((r) => r.account.id),
+			new: sum('new'),
+			updated: sum('updated'),
+			skipped: sum('skipped'),
+			pending: results.reduce((n, r) => n + r.pending, 0)
+		});
 	}
 	return results;
 }

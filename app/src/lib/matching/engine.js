@@ -17,16 +17,34 @@
 // and it keeps `transactions.receiptId` and `receipts.status` in step with
 // the active matches.
 
+import { recordEvent } from '../activity/events.js';
 import { needsConfirmation } from '../receipts/import.js';
 import { getSetting } from '../store/settings.js';
-import { classifyTransaction } from './classify.js';
+import { classifyTransaction, DEFAULT_GRACE_DAYS } from './classify.js';
 import { buildMatchingContext } from './context.js';
+import { graceWait, localDay } from './grace.js';
 import { assign, receiptFacts, txFacts } from './score.js';
 
 /** @typedef {import('../store/repository.js').Collection} Collection */
 /** @typedef {import('../store/repository.js').StoredRecord} StoredRecord */
 /**
- * @typedef {{ transactions: Collection, receipts: Collection, matches: Collection, questions: Collection, settings: Collection, accounts: Collection }} MatchingStore
+ * @typedef {{ transactions: Collection, receipts: Collection, matches: Collection, questions: Collection, settings: Collection, accounts: Collection, events?: Collection }} MatchingStore
+ */
+
+/**
+ * @typedef {object} MatchingResult
+ * @property {number} sure pairs matched automatically in this run
+ * @property {number} open questions open after the run
+ * @property {number} created questions this run asked (new or asked again)
+ * @property {number} resolved questions that settled themselves
+ * @property {number} classified bookings that need no receipt (a rule, a fee, an own transfer, a loan, a person's "Kein Beleg nötig")
+ * @property {number} waiting bookings without a receipt still inside the grace period
+ * @property {number} writes records written
+ */
+
+/**
+ * @typedef {'read' | 'score' | 'write' | 'done'} MatchingStep
+ * @typedef {{ step: MatchingStep, receipts?: number, transactions?: number }} MatchingProgress
  */
 
 export const ACTIVE = new Set(['auto', 'confirmed']);
@@ -118,9 +136,18 @@ export async function syncLinks(store) {
 /**
  * @param {object} params
  * @param {MatchingStore} params.store
- * @returns {Promise<{ sure: number, open: number, resolved: number, writes: number }>}
+ * @param {Date} [params.now] "today", for the grace period
+ * @param {'manual' | 'auto'} [params.trigger] a manual run is always logged; an automatic one only when it changed something
+ * @param {(p: MatchingProgress) => void} [params.onProgress]
+ * @returns {Promise<MatchingResult>}
  */
-export async function runMatching({ store }) {
+export async function runMatching({
+	store,
+	now = new Date(),
+	trigger = 'auto',
+	onProgress = () => {}
+}) {
+	onProgress({ step: 'read' });
 	const [txs, receipts, matches, questions, accounts, settings] = await Promise.all([
 		store.transactions.list(),
 		store.receipts.list(),
@@ -130,6 +157,8 @@ export async function runMatching({ store }) {
 		getSetting(store.settings, 'matching')
 	]);
 	const ctx = await buildMatchingContext({ accounts, transactions: txs, settings });
+	const today = localDay(now);
+	const graceDays = ctx.graceDays ?? DEFAULT_GRACE_DAYS;
 	let writes = 0;
 
 	const txById = new Map(txs.map((t) => [t.id, t]));
@@ -154,11 +183,17 @@ export async function runMatching({ store }) {
 	const matchedTx = new Set(active.map((m) => m.transactionId));
 	const matchedReceipt = new Set(active.map((m) => m.receiptId));
 
-	const openTx = txs.filter(
-		(t) => !matchedTx.has(t.id) && !t.noReceipt && !classifyTransaction(t, ctx)
-	);
+	let classified = 0;
+	const openTx = txs.filter((t) => {
+		if (t.noReceipt || classifyTransaction(t, ctx)) {
+			if (!t.receiptId) classified++;
+			return false;
+		}
+		return !matchedTx.has(t.id);
+	});
 	const openReceipts = receipts.filter((r) => matchable(r) && !matchedReceipt.has(r.id));
 	const receiptFactsList = openReceipts.map((r) => receiptFacts(r, ctx)).filter((f) => f !== null);
+	onProgress({ step: 'score', receipts: receiptFactsList.length, transactions: openTx.length });
 
 	const result = assign({
 		receipts: /** @type {import('./score.js').ReceiptFacts[]} */ (receiptFactsList),
@@ -166,6 +201,7 @@ export async function runMatching({ store }) {
 		excluded: (r, t) => rejected.has(pairKey(r, t))
 	});
 
+	onProgress({ step: 'write' });
 	for (const s of result.sure) {
 		await store.matches.put({
 			transactionId: s.transactionId,
@@ -195,8 +231,15 @@ export async function runMatching({ store }) {
 		wanted.set(questionKey(q), q);
 		for (const c of u.candidates) offered.add(c.transactionId);
 	}
+	// Bookings still inside the grace period: no question yet, and an open one
+	// (asked before the grace was raised) is left as it is.
+	const waiting = new Set();
 	for (const u of result.unmatched) {
-		if (offered.has(u.transactionId)) continue;
+		const t = txById.get(u.transactionId);
+		if (t && graceWait(t, graceDays, today) !== null) waiting.add(u.transactionId);
+	}
+	for (const u of result.unmatched) {
+		if (offered.has(u.transactionId) || waiting.has(u.transactionId)) continue;
 		const candidates = u.candidates.filter((c) => !reminders.has(c.receiptId));
 		const q = {
 			kind: 'missing-receipt',
@@ -218,11 +261,13 @@ export async function runMatching({ store }) {
 	for (const q of questions) existing.set(questionKey(q), q);
 
 	let resolved = 0;
+	let created = 0;
 	for (const [key, q] of wanted) {
 		const found = existing.get(key);
 		if (!found) {
 			await store.questions.put({ ...q, state: 'open', answer: null });
 			writes++;
+			created++;
 		} else if (found.state === 'open') {
 			if (!same(found.candidates, q.candidates)) {
 				await store.questions.put({ ...found, candidates: q.candidates });
@@ -237,10 +282,16 @@ export async function runMatching({ store }) {
 				candidates: q.candidates
 			});
 			writes++;
+			created++;
 		}
 	}
 	for (const [key, found] of existing) {
-		if (found.state === 'open' && !wanted.has(key)) {
+		const keep =
+			found.kind === 'missing-receipt' &&
+			found.transactionId &&
+			waiting.has(found.transactionId) &&
+			!offered.has(found.transactionId);
+		if (found.state === 'open' && !wanted.has(key) && !keep) {
 			await store.questions.put({
 				...found,
 				state: 'answered',
@@ -253,5 +304,36 @@ export async function runMatching({ store }) {
 
 	writes += await syncLinks(store);
 	const open = (await store.questions.list({ where: (q) => q.state === 'open' })).length;
-	return { sure: result.sure.length, open, resolved, writes };
+	/** @type {MatchingResult} */
+	const summary = {
+		sure: result.sure.length,
+		open,
+		created,
+		resolved,
+		classified,
+		waiting: waiting.size,
+		writes
+	};
+	// Every run is logged when a person started it; the automatic ones (after
+	// each sync, fetch and read) only when they changed something.
+	if (trigger === 'manual' || writes > 0) {
+		await recordEvent(store.events, 'matching', {
+			trigger,
+			sure: summary.sure,
+			open: summary.open,
+			created,
+			resolved,
+			classified,
+			waiting: summary.waiting,
+			writes,
+			// Which pairs were taken, for the links on the Verlauf page.
+			pairs: result.sure.slice(0, 50).map((p) => ({
+				receiptId: p.receiptId,
+				transactionId: p.transactionId,
+				score: p.score
+			}))
+		});
+	}
+	onProgress({ step: 'done' });
+	return summary;
 }

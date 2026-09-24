@@ -76,11 +76,24 @@ export function isOwnName(name, company) {
  * @property {string[]} companyNames
  * @property {string[]} ownIbans full IBANs the person typed in
  * @property {Rule[]} rules
+ * @property {number} graceDays a booking without a receipt is asked about only once it is older than this (0: at once)
  */
+
+/** A receipt often arrives days after the debit: no question before then. */
+export const DEFAULT_GRACE_DAYS = 7;
+export const MAX_GRACE_DAYS = 90;
 
 /** @returns {MatchingSettings} */
 export function defaultMatchingSettings() {
-	return { companyNames: [], ownIbans: [], rules: [] };
+	return { companyNames: [], ownIbans: [], rules: [], graceDays: DEFAULT_GRACE_DAYS };
+}
+
+/** @param {unknown} v @returns {number} */
+function graceDaysOf(v) {
+	const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v;
+	return typeof n === 'number' && Number.isInteger(n) && n >= 0 && n <= MAX_GRACE_DAYS
+		? n
+		: DEFAULT_GRACE_DAYS;
 }
 
 /**
@@ -112,7 +125,8 @@ export function cleanMatchingSettings(value) {
 				contains: r.contains.trim(),
 				action: r.action,
 				reason: typeof r.reason === 'string' ? r.reason.trim() : ''
-			}))
+			})),
+		graceDays: graceDaysOf(value?.graceDays)
 	};
 }
 
@@ -123,6 +137,7 @@ export function cleanMatchingSettings(value) {
  * @property {Map<string, string[]>} ownLast4 last four digits → ids of our accounts whose full IBAN we do not keep (Hibiscus hands out only those)
  * @property {(tx: Record<string, any>, accountIds: string[]) => boolean} [mirrored] whether one of those accounts booked the same amount the other way within a few days
  * @property {Rule[]} rules
+ * @property {number} [graceDays] see grace.js
  */
 
 /**
@@ -131,6 +146,12 @@ export function cleanMatchingSettings(value) {
  * @property {string} [reason] the person's own words, for a rule
  * @property {string} [account] SKR 03 account, where one is known
  * @property {string} [ruleId]
+ * @property {'counterparty' | 'purpose' | 'any'} [ruleField] what the rule looked at
+ * @property {string} [ruleContains] the rule's text
+ * @property {'iban' | 'mirrored' | 'company'} [via] how an own transfer was recognised
+ * @property {string} [ibanLast4] the counterparty account's last four, for an own transfer by IBAN
+ * @property {string} [company] our company name the counterparty matched
+ * @property {string} [bookingType] for a bank fee
  */
 
 const BANK_FEE = /abschluss|entgelt|mehrwertsteuerbelast|kontof(?:u|ü)hrung/i;
@@ -160,20 +181,27 @@ export function classifyTransaction(tx, ctx) {
 			return {
 				kind: rule.action === 'private' ? 'rule-private' : 'rule-ignore',
 				reason: rule.reason || rule.contains,
-				ruleId: rule.id
+				ruleId: rule.id,
+				ruleField: rule.field,
+				ruleContains: rule.contains
 			};
 		}
 	}
-	if (BANK_FEE.test(String(tx.bookingType ?? ''))) return { kind: 'bank-fee' };
+	if (BANK_FEE.test(String(tx.bookingType ?? ''))) {
+		return { kind: 'bank-fee', bookingType: String(tx.bookingType) };
+	}
 	const iban = compactIban(tx.counterpartyIban);
-	if (iban && ctx.ownIbans.has(iban)) return { kind: 'own-transfer', account: '1360' };
+	if (iban && ctx.ownIbans.has(iban)) {
+		return { kind: 'own-transfer', account: '1360', via: 'iban', ibanLast4: iban.slice(-4) };
+	}
 	// Four digits alone match a vendor's IBAN one time in 10 000: only with the
 	// counter-booking on that account.
 	const last4 = iban ? ctx.ownLast4.get(iban.slice(-4)) : undefined;
-	if (last4?.length && ctx.mirrored?.(tx, last4)) return { kind: 'own-transfer', account: '1360' };
-	if (ctx.companyNames.some((c) => isOwnName(counterparty, c))) {
-		return { kind: 'own-transfer', account: '1360' };
+	if (last4?.length && ctx.mirrored?.(tx, last4)) {
+		return { kind: 'own-transfer', account: '1360', via: 'mirrored', ibanLast4: iban.slice(-4) };
 	}
+	const company = ctx.companyNames.find((c) => isOwnName(counterparty, c));
+	if (company) return { kind: 'own-transfer', account: '1360', via: 'company', company };
 	if (LOAN.test(purpose)) return { kind: 'loan' };
 	return null;
 }

@@ -60,6 +60,7 @@ export async function buildMatchingContext({ accounts, transactions, settings })
 		ownIbans,
 		ownLast4,
 		rules: clean.rules,
+		graceDays: clean.graceDays,
 		mirrored(tx, accountIds) {
 			const day = dayNumber(tx.bookedOn);
 			if (day === null) return false;
