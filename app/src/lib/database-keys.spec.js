@@ -3,7 +3,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { newKey, sealer } from './db-encryption.js';
-import { DB_KEY_INFO, deriveDatabaseKey, deriveDatabaseName } from './database-keys.js';
+import {
+	DB_KEY_INFO,
+	deriveBlobKey,
+	deriveDatabaseKey,
+	deriveDatabaseName
+} from './database-keys.js';
 
 const prf = () => crypto.getRandomValues(new Uint8Array(32));
 const hex = (/** @type {Uint8Array} */ b) => Buffer.from(b).toString('hex');
@@ -66,5 +71,14 @@ describe('database-keys', () => {
 		expect(again).toBe(transactions);
 		expect(receipts).not.toBe(transactions);
 		expect(key).not.toContain(transactions.split('.')[2]);
+	});
+
+	it('derives the receipt-file key under its own info string: fixed, and not the database key', async () => {
+		// Node: crypto.hkdfSync(sha256, 32 × 0x07, empty salt, "belege/blob-key/v1", 32).
+		const output = new Uint8Array(32).fill(7);
+		const blob = hex(await deriveBlobKey(output));
+		expect(blob).toBe('cff696c08bd035566a96fc18e80679a6bb0875a7fbef13840e7665c2a816f360');
+		expect(blob).not.toBe(hex(await deriveDatabaseKey(output)));
+		await expect(deriveBlobKey(new Uint8Array(8))).rejects.toThrow(/PRF output/);
 	});
 });

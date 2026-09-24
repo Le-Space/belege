@@ -80,7 +80,7 @@ export default {
 			technical: [
 				'Aus der PRF-Antwort des Passkeys leitet HKDF-SHA-256 den AES-GCM-Schlüssel ab, mit dem jede Datenbank versiegelt ist (info belege/db-key/v1), und die Namen der Datenbanken (belege/db-name/v1:<Sammlung>), damit sich keine Adresse aus der DID erraten lässt. Nichts davon wird gespeichert.',
 				'Kein privater Schlüssel liegt auf dem Gerät: Den OrbitDB-Signaturschlüssel (secp256k1) leitet der Identity-Provider bei jedem Entsperren aus derselben PRF-Antwort ab. Er lebt nur im Arbeitsspeicher dieser Sitzung.',
-				'Gespeichert werden die OrbitDB-Dokumentdatenbanken transactions, receipts, partners, accounts und settings, auf Helia mit LevelBlockstore und LevelDatastore in IndexedDB (belege/helia-blocks, belege/helia-data, belege/orbitdb). Jeder Eintrag ist mit AES-GCM verschlüsselt.',
+				'Gespeichert werden die OrbitDB-Dokumentdatenbanken transactions, receipts, partners, accounts und settings, auf Helia mit LevelBlockstore und LevelDatastore in IndexedDB (belege/helia-blocks, belege/helia-data, belege/orbitdb). Jeder Eintrag ist mit AES-GCM verschlüsselt, Belegdateien mit einem eigenen Schlüssel (belege/blob-key/v1).',
 				'Im localStorage liegt nur Öffentliches: die Angaben zum Passkey (Credential-ID, öffentlicher Schlüssel, DID, PRF-Eingabe), die Signatur des Passkeys über das Identitätsdokument und drei Merker dieser Seite (Hinweis gelesen, Hell/Dunkel, Technisch).'
 			]
 		},
@@ -105,11 +105,11 @@ export default {
 			leaves: 'Was den Rechner verlässt:',
 			bridge: {
 				name: 'Bridge auf diesem Rechner (127.0.0.1)',
-				text: 'Holt Umsätze aus Hibiscus. Bei der App kommen nur Konten an, die du auf der Bridge freigegeben hast.',
+				text: 'Holt Umsätze aus Hibiscus und Belege aus deinem Postfach. Bei der App kommen nur Konten an, die du auf der Bridge freigegeben hast, und nur E-Mails an die Buchhaltungsadresse.',
 				leaves:
-					'Die Bridge selbst schickt nichts hinaus. Die Verbindung zur GLS Bank (FinTS) baut Hibiscus auf.',
+					'Die Bridge fragt dein Postfach (IMAP) ab und schickt zum Auslesen geschwärzten Text an das Sprachmodell (siehe unten). Die Verbindung zur GLS Bank (FinTS) baut Hibiscus auf.',
 				technical:
-					'Die Bridge hört nur auf 127.0.0.1 (Port 8765) und startet auf keiner anderen Adresse. Gekoppelt wird mit einem Einmalcode; das Bearer-Token liegt verschlüsselt in den Einstellungen der App, auf der Bridge nur sein Hash. CORS lässt nur die eingetragenen App-Adressen zu, der Host-Header muss 127.0.0.1 oder localhost sein. Das Zertifikat von Jameica ist gepinnt, das Hibiscus-Passwort liegt im macOS-Schlüsselbund. Konten ohne freigegebene IBAN-Endung werden gar nicht erst abgefragt.'
+					'Die Bridge hört nur auf 127.0.0.1 (Port 8765) und startet auf keiner anderen Adresse. Gekoppelt wird mit einem Einmalcode; das Bearer-Token liegt verschlüsselt in den Einstellungen der App, auf der Bridge nur sein Hash. CORS lässt nur die eingetragenen App-Adressen zu, der Host-Header muss 127.0.0.1 oder localhost sein. Das Zertifikat von Jameica ist gepinnt; Hibiscus-Passwort, IMAP-Token und API-Schlüssel liegen im macOS-Schlüsselbund. Konten ohne freigegebene IBAN-Endung werden gar nicht erst abgefragt. Postfächer öffnet die Bridge nur lesend.'
 			},
 			camt: {
 				name: 'Kontoauszug-Import (CAMT.053)',
@@ -127,11 +127,11 @@ export default {
 			},
 			deepseek: {
 				name: 'DeepSeek (Belege auslesen)',
-				text: 'Geplant, um Betrag, Datum und Rechnungsnummer aus Belegen zu lesen.',
+				text: 'Liest Betrag, Datum und Rechnungsnummer aus Belegen – nur wenn du „Auslesen“ drückst.',
 				leaves:
 					'Nur geschwärzter Text eines Belegs, ohne Namen und Anschriften. Die Server stehen außerhalb der EU.',
 				technical:
-					'Nur die Textebene eines PDFs, nachdem Namen und Anschriften geschwärzt wurden, nie die Datei selbst. DeepSeek betreibt seine Server in China. Wo der API-Schlüssel liegen soll, ist noch nicht entschieden. Bisher nur in einem Versuch (spikes/llm), in der App nicht eingebaut.'
+					'Die Bridge schickt nur die Textebene eines PDFs (oder den Text einer E-Mail) mit Betreff und Absender, nachdem sie Namen aus ihrer Liste, IBANs (bis auf die letzten vier Stellen), eigene E-Mail-Adressen, Straßen und Postleitzahlen geschwärzt hat – nie die Datei selbst. DeepSeek betreibt seine Server in China. Der API-Schlüssel liegt im macOS-Schlüsselbund der Bridge, nie im Browser. E-Mails von Absendern ohne bestandene DKIM/SPF-Prüfung liest die Bridge erst nach deiner Freigabe aus.'
 			}
 		},
 		status: {
@@ -139,7 +139,8 @@ export default {
 			active: 'aktiv',
 			whenPaired: 'wenn gekoppelt',
 			planned: 'geplant',
-			notYet: 'noch nicht aktiv'
+			notYet: 'noch nicht aktiv',
+			whenSetUp: 'wenn eingerichtet'
 		},
 		where: {
 			heading: 'Was wo liegt',
@@ -147,7 +148,7 @@ export default {
 				'In diesem Browser: deine Bücher, verschlüsselt.',
 				'In diesem Browser, lesbar: die öffentlichen Angaben zu deinem Passkey und drei Merker dieser Seite.',
 				'Auf deinem Passkey: der einzige Schlüssel zu allem.',
-				'Auf diesem Rechner außerhalb des Browsers, nur wenn du die Bridge einrichtest: ihre Einstellungen und das Hibiscus-Passwort im Schlüsselbund.',
+				'Auf diesem Rechner außerhalb des Browsers, nur wenn du die Bridge einrichtest: ihre Einstellungen, das Hibiscus-Passwort, das IMAP-Token und der API-Schlüssel im Schlüsselbund.',
 				'Bei uns: nichts. Wir betreiben keinen Server und bekommen keine Kopie.'
 			],
 			cookies: 'Keine Cookies, kein Tracking.'
@@ -190,7 +191,94 @@ export default {
 	},
 	belege: {
 		title: 'Belege',
-		empty: 'Hier landen deine Belege aus E-Mail, Ordnern und Telegram.'
+		empty: 'Noch keine Belege. E-Mails abrufen, Dateien hochladen oder einen Ordner freigeben.',
+		upload: 'Belege hochladen',
+		uploadHint: 'PDFs und Bilder, auch per Drag & Drop hierher.',
+		drop: 'Loslassen zum Hochladen',
+		folder: 'Ordner freigeben',
+		folderAgain: 'Ordner „{name}“ einlesen',
+		folderForget: 'Ordner vergessen',
+		folderHint:
+			'Der Ordner wird nur gelesen. Die Freigabe fragt der Browser in jeder Sitzung neu ab.',
+		folderDenied: 'Der Browser hat keinen Lesezugriff auf den Ordner erhalten.',
+		mailTitle: 'E-Mails abrufen',
+		mailIntro:
+			'Holt über die Bridge die E-Mails an {address} aus den gewählten Monaten, nur lesend. Private Post bleibt im Postfach.',
+		mailFrom: 'Von Monat',
+		mailTo: 'Bis Monat',
+		mailFetch: 'E-Mails abrufen',
+		mailFetching: 'Rufe ab …',
+		mailNoBridge: 'Für E-Mails und das Auslesen die Bridge unter ',
+		mailNoBridgeLink: 'Integrationen',
+		mailNoBridgeAfter: ' koppeln.',
+		mailNotSetUp:
+			'Das Postfach ist auf der Bridge nicht eingerichtet: pnpm setup:mail, dann die Bridge neu starten.',
+		llmNotSetUp:
+			'Das Auslesen ist auf der Bridge nicht eingerichtet: pnpm setup:llm, dann die Bridge neu starten.',
+		mailResult: '{mails} E-Mails · neu: {new} · schon vorhanden: {known} · doppelt: {duplicate}',
+		importResult: 'Neu: {new} · doppelt: {duplicate} · nicht unterstützt: {unsupported}',
+		sources: 'Quellen',
+		sourceAll: 'Alle',
+		sourceMail: 'E-Mail {address}',
+		sourceUpload: 'Hochgeladen',
+		sourceFolder: 'Ordner',
+		search: 'Belege durchsuchen',
+		searchPlaceholder: 'Suchen: Anbieter, Betrag, Datum, Rechnungsnummer',
+		extractAll: 'Alle neuen auslesen ({count})',
+		extracting: 'Lese aus … {done}/{count}',
+		list: 'Belegliste',
+		noMatches: 'Keine Belege für diese Auswahl.',
+		noDate: 'Ohne Datum',
+		textMail: 'E-Mail ohne Anhang',
+		status: {
+			new: 'Neu',
+			unassigned: 'Nicht zugeordnet',
+			question: 'Rückfrage',
+			assigned: 'Zugeordnet',
+			ignored: 'Ignoriert'
+		},
+		unverified: 'Absender prüfen',
+		detail: 'Beleg',
+		chooseOne: 'Einen Beleg links auswählen.',
+		warningTitle: 'Absender nicht bestätigt',
+		warningFail:
+			'Diese E-Mail hat die Absenderprüfung (DKIM/SPF) nicht bestanden. Sie könnte gefälscht sein – etwa eine Phishing-Mail, die wie eine Rechnung aussieht.',
+		warningNone:
+			'Für diese E-Mail liegt keine bestandene Absenderprüfung (DKIM/SPF) vor. Prüfe, ob du den Absender kennst.',
+		warningAfter: 'Die Datei wird erst angezeigt und ausgelesen, wenn du sie freigibst.',
+		confirm: 'Absender geprüft – öffnen und freigeben',
+		preview: 'Vorschau',
+		previewFailed: 'Die Vorschau ließ sich nicht erzeugen.',
+		extract: 'Auslesen',
+		extractAgain: 'Erneut auslesen',
+		extractBusy: 'Lese aus …',
+		imageGap: 'Bild – Auslesen folgt (noch keine Texterkennung).',
+		noText: 'Kein Text im PDF (vermutlich ein Scan) – Auslesen folgt.',
+		fields: {
+			vendor: 'Anbieter',
+			amount: 'Betrag',
+			date: 'Rechnungsdatum',
+			invoiceNumber: 'Rechnungsnummer',
+			summary: 'Inhalt',
+			model: 'Ausgelesen mit',
+			from: 'Von',
+			subject: 'Betreff',
+			received: 'Eingegangen',
+			file: 'Datei',
+			source: 'Quelle',
+			sender: 'Absenderprüfung'
+		},
+		verdict: {
+			pass: 'bestanden',
+			fail: 'nicht bestanden',
+			none: 'keine Angabe',
+			outgoing: 'eigene E-Mail (Gesendet)'
+		},
+		sourceName: { mail: 'E-Mail', upload: 'Hochgeladen', folder: 'Ordner' },
+		technical: [
+			'Jede Datei wird im Browser mit AES-GCM versiegelt (Schlüssel per HKDF aus der PRF-Antwort des Passkeys, info belege/blob-key/v1) und in 1-MiB-Blöcken in Helias Blockstore abgelegt. Doppelte erkennt die App am SHA-256 des Inhalts, der nur im versiegelten Datensatz steht.',
+			'Zum Auslesen geht nur die Textebene des PDFs an die Bridge. Die Bridge schwärzt Namen, IBANs, eigene E-Mail-Adressen, Straßen und Postleitzahlen und fragt dann das Sprachmodell; die Datei selbst verlässt den Browser nicht.'
+		]
 	},
 	export: {
 		title: 'Export',

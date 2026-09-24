@@ -47,14 +47,14 @@
 	}
 
 	/**
-	 * @typedef {{ id: string, status: 'active' | 'whenPaired' | 'notYet', planned?: boolean }} Service
+	 * @typedef {{ id: string, status: 'active' | 'whenPaired' | 'whenSetUp' | 'notYet', planned?: boolean }} Service
 	 * @type {Service[]}
 	 */
 	const SERVICES = [
 		{ id: 'bridge', status: 'whenPaired' },
 		{ id: 'camt', status: 'active' },
 		{ id: 'enableBanking', status: 'notYet', planned: true },
-		{ id: 'deepseek', status: 'notYet', planned: true }
+		{ id: 'deepseek', status: 'whenSetUp' }
 	];
 
 	const chip = {
@@ -211,8 +211,8 @@
 										? chip.planned
 										: chip.active}"
 									data-testid="consent-service-status"
-									>{service.status === 'whenPaired'
-										? `${t('consent.status.active')}, ${t('consent.status.whenPaired')}`
+									>{service.status === 'whenPaired' || service.status === 'whenSetUp'
+										? `${t('consent.status.active')}, ${t(`consent.status.${service.status}`)}`
 										: t(`consent.status.${service.status}`)}</span
 								>
 							</span>

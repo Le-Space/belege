@@ -22,9 +22,10 @@ async function sessionFacts(page) {
 			did: /** @type {string} */ (e2e.did()),
 			identityHash: /** @type {string} */ (e2e.identityHash()),
 			peerId: /** @type {string} */ (e2e.peerId()),
-			secrets: /** @type {{ signingKey: string, databaseKey: string, peerKey: string }} */ (
-				e2e.secrets()
-			)
+			secrets:
+				/** @type {{ signingKey: string, databaseKey: string, blobKey: string, peerKey: string }} */ (
+					e2e.secrets()
+				)
 		};
 	});
 }
@@ -131,6 +132,8 @@ test('a passkey opens sealed books that survive a reload', async ({ page }) => {
 	expect(second.identityHash).toBe(first.identityHash);
 	expect(second.secrets.signingKey).toBe(first.secrets.signingKey);
 	expect(second.secrets.databaseKey).toBe(first.secrets.databaseKey);
+	expect(second.secrets.blobKey).toBe(first.secrets.blobKey);
+	expect(second.secrets.blobKey).not.toBe(first.secrets.databaseKey);
 	expect(second.peerId).not.toBe(first.peerId);
 	expect(second.secrets.peerKey).not.toBe(first.secrets.peerKey);
 
@@ -170,6 +173,7 @@ test('a passkey opens sealed books that survive a reload', async ({ page }) => {
 	const secrets = {
 		'signing key': first.secrets.signingKey,
 		'database key': first.secrets.databaseKey,
+		'blob key': first.secrets.blobKey,
 		'peer key (1st session)': first.secrets.peerKey,
 		'peer key (2nd session)': second.secrets.peerKey,
 		'peer key (3rd session)': third.secrets.peerKey
@@ -225,6 +229,7 @@ test('a restored passkey derives the same signing key and keeps none', async ({ 
 	for (const spelling of [
 		...spellings(restored.secrets.signingKey),
 		...spellings(restored.secrets.databaseKey),
+		...spellings(restored.secrets.blobKey),
 		...spellings(restored.secrets.peerKey)
 	]) {
 		expect(text.includes(spelling), `stored as ${spelling.slice(0, 12)}…`).toBe(false);

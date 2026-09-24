@@ -1,6 +1,8 @@
-// The Hibiscus master password, in the macOS keychain.
+// The bridge's secrets, in the macOS keychain, one entry per account:
 //
-//   service `belege-bridge`, account `hibiscus`
+//   service `belege-bridge`, account `hibiscus`  the Jameica master password
+//                            account `imap`      the mail password or auth token
+//                            account `llm`       the LLM provider's API key
 //
 // The password never goes through argv (where `ps` would show it): reading
 // uses `security find-generic-password -w`, which prints it on stdout;
@@ -17,6 +19,23 @@ import { execFile, spawn } from 'node:child_process';
 
 export const SERVICE = 'belege-bridge';
 export const ACCOUNT = 'hibiscus';
+
+/** What each account holds, and which setup command puts it there; for error messages. */
+export const ACCOUNTS = /** @type {const} */ ({
+	hibiscus: { what: 'Hibiscus password', setup: 'setup:hibiscus' },
+	imap: { what: 'mail password', setup: 'setup:mail' },
+	llm: { what: 'LLM API key', setup: 'setup:llm' }
+});
+
+/** @param {string} account */
+function describe(account) {
+	return (
+		/** @type {Record<string, { what: string, setup: string }>} */ (ACCOUNTS)[account] ?? {
+			what: `${account} secret`,
+			setup: 'setup'
+		}
+	);
+}
 
 export class KeychainError extends Error {
 	/** @param {string} message @param {string} code */
@@ -43,10 +62,11 @@ export function macosKeychain({
 	platform = process.platform,
 	securityPath = '/usr/bin/security'
 } = {}) {
+	const { what, setup } = describe(account);
 	function assertMac() {
 		if (platform !== 'darwin') {
 			throw new KeychainError(
-				`The bridge keeps the Hibiscus password in the macOS keychain; this is ${platform}. There is no other store yet.`,
+				`The bridge keeps the ${what} in the macOS keychain; this is ${platform}. There is no other store yet.`,
 				'KEYCHAIN_UNSUPPORTED'
 			);
 		}
@@ -75,8 +95,8 @@ export function macosKeychain({
 							return reject(
 								new KeychainError(
 									code === 44
-										? `No Hibiscus password in the keychain (service ${service}). Run \`pnpm --filter @belege/bridge setup:hibiscus\`.`
-										: `The keychain refused to hand out the Hibiscus password (exit ${code}).`,
+										? `No ${what} in the keychain (service ${service}, account ${account}). Run \`pnpm ${setup}\`.`
+										: `The keychain refused to hand out the ${what} (exit ${code}).`,
 									code === 44 ? 'KEYCHAIN_MISSING' : 'KEYCHAIN_DENIED'
 								)
 							);
@@ -121,7 +141,7 @@ export function macosKeychain({
 					resolve(undefined);
 				});
 				child.stdin.end(
-					`add-generic-password -U -s ${service} -a ${account} -l belege-bridge-hibiscus -w hex:${hex}\n`
+					`add-generic-password -U -s ${service} -a ${account} -l belege-bridge-${account} -w hex:${hex}\n`
 				);
 			});
 		}
@@ -132,15 +152,19 @@ export function macosKeychain({
  * For tests and `--test-mode`: a keychain in memory that counts its reads.
  *
  * @param {string | null} [initial]
+ * @param {string} [account] only for the error message
  */
-export function memoryKeychain(initial = null) {
+export function memoryKeychain(initial = null, account = ACCOUNT) {
 	let value = initial;
 	const keychain = {
 		reads: 0,
 		async read() {
 			keychain.reads++;
 			if (!value)
-				throw new KeychainError('No Hibiscus password in the (test) keychain.', 'KEYCHAIN_MISSING');
+				throw new KeychainError(
+					`No ${describe(account).what} in the (test) keychain.`,
+					'KEYCHAIN_MISSING'
+				);
 			return value;
 		},
 		/** @param {string} password */

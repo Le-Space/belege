@@ -15,11 +15,13 @@
 //   - the AES-GCM key every OrbitDB database is sealed with
 //     (`belege/db-key/v1`), and
 //   - the database names (`belege/db-name/v1:<collection>`), so that an
-//     address cannot be guessed from the DID alone.
+//     address cannot be guessed from the DID alone, and
+//   - the AES-GCM key receipt files (PDFs, images) are sealed with before
+//     they go into Helia's blockstore (`belege/blob-key/v1`).
 //
 // The identity provider derives its OrbitDB signing key from the same PRF
 // output under its own info string; HKDF with different info strings yields
-// independent keys, so one secret serves all three without one revealing
+// independent keys, so one secret serves all of them without one revealing
 // another.
 //
 // Nothing derived here is written anywhere. A reload asks the passkey again.
@@ -29,6 +31,9 @@ export const DB_KEY_INFO = 'belege/db-key/v1';
 
 /** Bumping this renames every database: existing data is no longer found. */
 export const DB_NAME_INFO = 'belege/db-name/v1';
+
+/** Bumping this rotates the receipt-file key: every stored file becomes unreadable. */
+export const BLOB_KEY_INFO = 'belege/blob-key/v1';
 
 const KEY_BYTES = 32;
 const NAME_BYTES = 16;
@@ -80,6 +85,18 @@ function assertPrfOutput(prfOutput) {
 export async function deriveDatabaseKey(prfOutput, info = DB_KEY_INFO) {
 	assertPrfOutput(prfOutput);
 	return hkdf(prfOutput, info, KEY_BYTES);
+}
+
+/**
+ * The AES-GCM key for receipt files (PDFs, images) in the blockstore. A key of
+ * its own, not the database key: a file and a record never share a key.
+ *
+ * @param {Uint8Array} prfOutput the passkey's PRF result
+ * @returns {Promise<Uint8Array>} 32 bytes
+ */
+export async function deriveBlobKey(prfOutput) {
+	assertPrfOutput(prfOutput);
+	return hkdf(prfOutput, BLOB_KEY_INFO, KEY_BYTES);
 }
 
 /**

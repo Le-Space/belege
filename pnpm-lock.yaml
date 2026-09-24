@@ -74,6 +74,9 @@ importers:
       multiformats:
         specifier: 14.0.5
         version: 14.0.5
+      unpdf:
+        specifier: 1.8.1
+        version: 1.8.1
       uqr:
         specifier: 0.1.3
         version: 0.1.3
@@ -156,7 +159,13 @@ importers:
       fast-xml-parser:
         specifier: 5.11.1
         version: 5.11.1
+      imapflow:
+        specifier: 2.0.6
+        version: 2.0.6
     devDependencies:
+      hoodiecrow-imap:
+        specifier: 2.1.0
+        version: 2.1.0
       prettier:
         specifier: 3.6.2
         version: 3.6.2
@@ -1490,6 +1499,9 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
+  big.js@3.1.3:
+    resolution: {integrity: sha512-xKtxdFfTJM5jTmX8V38jauBmQW041sAj3OEwQszpX65wGip4cyQr2HOVF4vMISxZSY74Wi3GEi5k3tF7AH/GfQ==}
+
   bigint-mod-arith@3.3.1:
     resolution: {integrity: sha512-pX/cYW3dCa87Jrzv6DAr8ivbbJRzEX5yGhdt8IutnX/PCIXfpx+mabWNK/M8qqh+zQ0J3thftUBHW0ByuUlG0w==}
     engines: {node: '>=10.4.0'}
@@ -2248,6 +2260,10 @@ packages:
   hmac-drbg@1.0.1:
     resolution: {integrity: sha512-Tti3gMqLdZfhOQY1Mzf/AanLiqh1WTiJgEj26ZuYQ9fbkLomzGchCws4FyrSd4VkpBfiNhaE1On+lOz894jvXg==}
 
+  hoodiecrow-imap@2.1.0:
+    resolution: {integrity: sha512-2RKZR0WN9ec+UWI1k2VBeH8IYIxFRKBcSZszVL9upwmirZ2/oRMwjvnLMVJiCrI2O5hBEp4ipB3rOumCahoOMA==}
+    hasBin: true
+
   http-errors@2.0.1:
     resolution: {integrity: sha512-4FbRdAX+bSdmo4AUFuS0WNiPz8NgFt+r8ThgNWmlrjQjt1Q7ZR9+zTlce2859x4KSXrwIsaeTqDoKQmtP8pLmQ==}
     engines: {node: '>= 0.8'}
@@ -2276,6 +2292,9 @@ packages:
   ignore@5.3.2:
     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
     engines: {node: '>= 4'}
+
+  imap-handler@0.1.12:
+    resolution: {integrity: sha512-tVH4XKy3pJQSJ8r1zVJCMmPuv4dvRgmOKUnV7K/4FVoJIKY+ZHH06lbMXmEaghSHH1PNuwVmq5PrG7/AMgOP5Q==}
 
   imapflow@2.0.6:
     resolution: {integrity: sha512-CBkIFs1za9CW3TIe/x9DSVibN4iEXIMStfOyJIOPCys2MO5Y/9efVF9L//Bb/2RKSFWlnbYRqRBLU3RUm+yJZg==}
@@ -2847,6 +2866,9 @@ packages:
   minimatch@3.1.5:
     resolution: {integrity: sha512-VgjWUsnnT6n+NUk6eZq77zeFdpW2LWDzP6zFGrCbHXiYNul5Dzqk2HHQ5uFH2DNW5Xbp8+jVzaeNt94ssEEl4w==}
 
+  minimist@0.0.10:
+    resolution: {integrity: sha512-iotkTvxc+TwOm5Ieim8VnSNvCDjCK9S8G3scJ50ZthspSxa7jx50jkhYduuAtAjvfDUwSgOwf8+If99AlOEhyw==}
+
   minipass@7.1.3:
     resolution: {integrity: sha512-tEBHqDnIoM/1rXME1zgka9g6Q2lcoCkxHLuc7ODJ5BxbP5d4c2Z5cGgtXAku59200Cx7diuHTOYfSBD8n6mm8A==}
     engines: {node: '>=16 || 14 >=14.17'}
@@ -2994,6 +3016,9 @@ packages:
   open@7.4.2:
     resolution: {integrity: sha512-MVHddDVweXZF3awtlAS+6pgKLlm/JgxZ90+/NBurBoQctVOOB/zDdVjcyPzQ+0laDGbsWgrRkflI65sQeOgT9Q==}
     engines: {node: '>=8'}
+
+  optimist@0.6.1:
+    resolution: {integrity: sha512-snN4O4TkigujZphWLN0E//nQmm7790RYaE53DdL7ZYwee2D8DDo9/EyYiKUfN3rneWUjhJnueija3G9I2i0h3g==}
 
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
@@ -3305,6 +3330,10 @@ packages:
   race-signal@2.0.2:
     resolution: {integrity: sha512-IuNNNY5NLriMFEGl3BVei2xq9NIcpkuAklhPWamhu5tRJrJz0w9sloUMz73YXpmUluE2EZocmJm9rpQqXmCPiA==}
 
+  rai@0.1.12:
+    resolution: {integrity: sha512-2hGgkmT6rH8RCWDcpj71QGOliE2M0BH3AThwA10PBmvADpDnVhZuM7wzsZtzpkZBSBMxzkV+II3JLHDoneDXEA==}
+    engines: {'0': node >=0.4.0}
+
   random-int@3.1.0:
     resolution: {integrity: sha512-h8CRz8cpvzj0hC/iH/1Gapgcl2TQ6xtnCpyOI5WvWfXf/yrDx2DOU+tD9rX23j36IF11xg1KqB9W11Z18JPMdw==}
     engines: {node: '>=12'}
@@ -3513,6 +3542,10 @@ packages:
 
   siginfo@2.0.0:
     resolution: {integrity: sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==}
+
+  simplesmtp@0.3.35:
+    resolution: {integrity: sha512-iyZStSmRkqM2Cdu74pPbOytjv6wq5RPI78Gzw8vmmW5dclEDhuwAfwvo8XzrAdlrzBPs1VSNGxiN22Fj0lF9AA==}
+    engines: {node: '>=0.8.0'}
 
   sirv@3.0.2:
     resolution: {integrity: sha512-2wcC/oGxHis/BoHkkPwldgiPSYcpZK3JU28WoMVv55yHJgcZ8rlXvuG9iZggz+sU1d4bRgIGASwyWqjxu3FM0g==}
@@ -3966,6 +3999,10 @@ packages:
     resolution: {integrity: sha512-BN22B5eaMMI9UMtjrGd5g5eCYPpCPDUy0FJXbYsaT5zYxjFOckS53SQDE3pWkVoWpHXVb3BrYcEN4Twa55B5cA==}
     engines: {node: '>=0.10.0'}
 
+  wordwrap@0.0.3:
+    resolution: {integrity: sha512-1tMA907+V4QmxV7dbRvb4/8MaRALK6q9Abid3ndMYnbyo8piisCmeONVqVSXqQA3KaP4SLt5b7ud6E2sqP8TFw==}
+    engines: {node: '>=0.4.0'}
+
   wrap-ansi@7.0.0:
     resolution: {integrity: sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q==}
     engines: {node: '>=10'}
@@ -4005,6 +4042,9 @@ packages:
   xmlbuilder@11.0.1:
     resolution: {integrity: sha512-fDlsI/kFEx7gLvbecc0/ohLG50fugQp8ryHzMTuW9vSa1GJ0XYWKnhsUx7oie3G98+r56aTQIUB4kht42R3JvA==}
     engines: {node: '>=4.0'}
+
+  xoauth2@0.1.8:
+    resolution: {integrity: sha512-pIjeEM2qvkwE23U6mnugihmlntul1Z+TqOhkZ9/5oE3opRGnSIQ7Srb+0M9BkEKgcVhqCFfhNh3zWcE3EvMfVQ==}
 
   xtend@4.0.2:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
@@ -5916,6 +5956,8 @@ snapshots:
 
   baseline-browser-mapping@2.11.25: {}
 
+  big.js@3.1.3: {}
+
   bigint-mod-arith@3.3.1: {}
 
   birnam@1.0.0:
@@ -6827,6 +6869,14 @@ snapshots:
       minimalistic-assert: 1.0.1
       minimalistic-crypto-utils: 1.0.1
 
+  hoodiecrow-imap@2.1.0:
+    dependencies:
+      big.js: 3.1.3
+      imap-handler: 0.1.12
+    optionalDependencies:
+      optimist: 0.6.1
+      simplesmtp: 0.3.35
+
   http-errors@2.0.1:
     dependencies:
       depd: 2.0.0
@@ -6860,6 +6910,8 @@ snapshots:
   ieee754@1.2.1: {}
 
   ignore@5.3.2: {}
+
+  imap-handler@0.1.12: {}
 
   imapflow@2.0.6:
     dependencies:
@@ -7569,6 +7621,9 @@ snapshots:
     dependencies:
       brace-expansion: 1.1.21
 
+  minimist@0.0.10:
+    optional: true
+
   minipass@7.1.3: {}
 
   minizlib@3.1.0:
@@ -7719,6 +7774,12 @@ snapshots:
     dependencies:
       is-docker: 2.2.1
       is-wsl: 2.2.0
+
+  optimist@0.6.1:
+    dependencies:
+      minimist: 0.0.10
+      wordwrap: 0.0.3
+    optional: true
 
   optionator@0.9.4:
     dependencies:
@@ -7963,6 +8024,9 @@ snapshots:
       abort-error: 1.0.2
 
   race-signal@2.0.2: {}
+
+  rai@0.1.12:
+    optional: true
 
   random-int@3.1.0: {}
 
@@ -8250,6 +8314,12 @@ snapshots:
       side-channel-weakmap: 1.0.2
 
   siginfo@2.0.0: {}
+
+  simplesmtp@0.3.35:
+    dependencies:
+      rai: 0.1.12
+      xoauth2: 0.1.8
+    optional: true
 
   sirv@3.0.2:
     dependencies:
@@ -8710,6 +8780,9 @@ snapshots:
 
   word-wrap@1.2.5: {}
 
+  wordwrap@0.0.3:
+    optional: true
+
   wrap-ansi@7.0.0:
     dependencies:
       ansi-styles: 4.3.0
@@ -8728,6 +8801,9 @@ snapshots:
       xmlbuilder: 11.0.1
 
   xmlbuilder@11.0.1: {}
+
+  xoauth2@0.1.8:
+    optional: true
 
   xtend@4.0.2: {}
 
