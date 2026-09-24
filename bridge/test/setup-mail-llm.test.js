@@ -49,7 +49,7 @@ test('setup:mail stores host, user and the alias in a 0600 file, the token in th
 	const configPath = join(dir, 'mail.json');
 	const keychain = memoryKeychain(null, 'imap');
 	const { io, out, hiddenQuestions } = scripted(
-		['127.0.0.1', String(imap.port), 'y', imap.user, '', 'y'],
+		['127.0.0.1', String(imap.port), 'y', imap.user, '', '', 'y'],
 		[FAKE_IMAP_PASSWORD]
 	);
 	assert.equal(await runMailSetup({ io, keychain, configPath }), true);
@@ -65,14 +65,16 @@ test('setup:mail stores host, user and the alias in a 0600 file, the token in th
 			port: mail.port,
 			user: mail.user,
 			tls: mail.tls,
-			address: mail.accountingAddress
+			address: mail.accountingAddress,
+			authServId: mail.authServId
 		},
 		{
 			host: '127.0.0.1',
 			port: imap.port,
 			user: imap.user,
 			tls: 'none',
-			address: 'buchhaltung@le-space.de'
+			address: 'buchhaltung@le-space.de',
+			authServId: '127.0.0.1' // defaults to the IMAP host: Mailu names itself after it
 		}
 	);
 	assert.ok(
