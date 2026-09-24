@@ -22,6 +22,20 @@ on:
         description: Point belege.le-space.de at this build (off for a test publish)
         type: boolean
         default: false
+  # release.yml calls this after it created the release: a release made with
+  # GITHUB_TOKEN does not fire the `release` event for other workflows.
+  workflow_call:
+    inputs:
+      link_domain:
+        type: boolean
+        default: true
+      ref:
+        description: The tag to build
+        type: string
+        required: true
+    secrets:
+      ALEPH_PRIVATE_KEY:
+        required: true
 
 concurrency:
   group: deploy
@@ -42,6 +56,8 @@ jobs:
       item_hash: ${{ steps.publish.outputs.item_hash }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
