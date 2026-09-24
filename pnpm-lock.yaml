@@ -41,6 +41,9 @@ importers:
       '@le-space/orbitdb-identity-provider-webauthn-did':
         specifier: 0.8.0
         version: 0.8.0(@orbitdb/core@4.0.0)
+      '@libp2p/crypto':
+        specifier: 5.1.23
+        version: 5.1.23
       '@libp2p/gossipsub':
         specifier: 16.1.0
         version: 16.1.0
