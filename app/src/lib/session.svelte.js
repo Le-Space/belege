@@ -20,7 +20,9 @@ export const app = $state({
 	/** @type {StoredRecord[]} */
 	receipts: [],
 	/** @type {StoredRecord[]} */
-	partners: []
+	partners: [],
+	/** @type {StoredRecord[]} */
+	accounts: []
 });
 
 /** @type {Session | null} */
@@ -33,14 +35,32 @@ export function currentStore() {
 
 async function refresh() {
 	if (!session) return;
-	const [transactions, receipts, partners] = await Promise.all([
+	const [transactions, receipts, partners, accounts] = await Promise.all([
 		session.store.transactions.list(),
 		session.store.receipts.list(),
-		session.store.partners.list()
+		session.store.partners.list(),
+		session.store.accounts.list()
 	]);
 	app.transactions = transactions;
 	app.receipts = receipts;
 	app.partners = partners;
+	app.accounts = accounts;
+}
+
+/** @type {ReturnType<typeof setTimeout> | null} */
+let refreshTimer = null;
+/** An import writes hundreds of records; the lists are read again once, after the burst. */
+function scheduleRefresh() {
+	if (refreshTimer) return;
+	refreshTimer = setTimeout(() => {
+		refreshTimer = null;
+		void refresh();
+	}, 100);
+}
+
+/** Read the lists again now (after an import, so its result shows at once). */
+export function refreshNow() {
+	return refresh();
 }
 
 /** @param {any} credential */
@@ -50,8 +70,8 @@ async function unlockWith(credential) {
 	const { startSession } = await import('./node.js');
 	session = await startSession(credential);
 	app.did = session.did;
-	for (const name of /** @type {const} */ (['transactions', 'receipts', 'partners'])) {
-		session.store[name].onChange(() => void refresh());
+	for (const name of /** @type {const} */ (['transactions', 'receipts', 'partners', 'accounts'])) {
+		session.store[name].onChange(scheduleRefresh);
 	}
 	await refresh();
 	installE2EHooks();
@@ -100,8 +120,8 @@ export function unlockStoredPasskey() {
 }
 
 /**
- * A dev/E2E-only hook: tests add records through the real store, exactly as
- * the bank import in step 2 will, without a form that does not exist yet.
+ * A dev/E2E-only hook: tests add records through the real store, the way the
+ * bank import does.
  */
 function installE2EHooks() {
 	if (!(import.meta.env.DEV || import.meta.env.VITE_E2E === 'true')) return;
