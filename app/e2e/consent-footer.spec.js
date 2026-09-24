@@ -28,12 +28,13 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	await expect(collaboration).toContainText('geplant');
 	await expect(dialog.getByTestId('consent-collaboration-switch')).toBeDisabled();
 	await expect(dialog.getByTestId('consent-collaboration-switch')).not.toBeChecked();
-	// Planned services say so.
-	for (const id of ['enableBanking', 'deepseek']) {
-		await expect(
-			dialog.locator(`[data-service="${id}"]`).getByTestId('consent-service-status')
-		).toHaveText('noch nicht aktiv');
-	}
+	// Planned services say so; the LLM runs only once it is set up on the bridge.
+	await expect(
+		dialog.locator('[data-service="enableBanking"]').getByTestId('consent-service-status')
+	).toHaveText('noch nicht aktiv');
+	await expect(
+		dialog.locator('[data-service="deepseek"]').getByTestId('consent-service-status')
+	).toHaveText('aktiv, wenn eingerichtet');
 	await expect(dialog.locator('[data-service="deepseek"]')).toContainText('außerhalb der EU');
 
 	const before = await page.evaluate(() => Object.keys(localStorage).sort());
@@ -43,7 +44,8 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 		Object.fromEntries(Object.keys(localStorage).map((key) => [key, localStorage.getItem(key)]))
 	);
 	expect(Object.keys(after).filter((key) => !before.includes(key))).toEqual(['belege.consent']);
-	expect(after['belege.consent']).toBe('1');
+	// CONSENT_VERSION in src/lib/consent.js.
+	expect(after['belege.consent']).toBe('2');
 	await expect(page.getByTestId('passkey-onboarding')).toBeVisible();
 
 	await page.reload();

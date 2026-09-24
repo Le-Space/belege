@@ -32,8 +32,8 @@ export function createBridgeClient({
 } = {}) {
 	const base = url.replace(/\/+$/, '');
 
-	/** @param {string} path @param {RequestInit} [init] */
-	async function call(path, init = {}) {
+	/** @param {string} path @param {RequestInit} [init] @param {boolean} [binary] */
+	async function call(path, init = {}, binary = false) {
 		let res;
 		try {
 			res = await f(`${base}${path}`, {
@@ -52,6 +52,7 @@ export function createBridgeClient({
 				0
 			);
 		}
+		if (binary && res.ok) return new Uint8Array(await res.arrayBuffer());
 		const body = await res.json().catch(() => ({}));
 		if (!res.ok) {
 			const messages = /** @type {Record<number, string>} */ ({
@@ -60,8 +61,26 @@ export function createBridgeClient({
 					body?.error === 'origin not allowed'
 						? 'Diese App-Adresse ist in der Bridge nicht erlaubt.'
 						: 'Falscher Kopplungscode.',
-				410: 'Kein Kopplungscode aktiv: Bridge mit --pair neu starten.'
+				410: 'Kein Kopplungscode aktiv: Bridge mit --pair neu starten.',
+				503:
+					body?.code === 'MAIL_NOT_SET_UP'
+						? 'Das Postfach ist auf der Bridge nicht eingerichtet (pnpm setup:mail).'
+						: body?.code === 'LLM_NOT_SET_UP'
+							? 'Das Auslesen ist auf der Bridge nicht eingerichtet (pnpm setup:llm).'
+							: body?.error
 			});
+			if (res.status === 403 && body?.code === 'SENDER_UNVERIFIED') {
+				throw new BridgeError('Der Absender ist nicht bestätigt (DKIM/SPF): erst freigeben.', 403);
+			}
+			if (res.status === 502 && body?.code === 'EXTRACT_FAILED') {
+				const reasons = (body.attempts ?? []).map(
+					(/** @type {any} */ a) => `${a.model}: ${a.reason}`
+				);
+				throw new BridgeError(
+					`Kein Modell lieferte eine brauchbare Antwort (${reasons.join('; ')}).`,
+					502
+				);
+			}
 			throw new BridgeError(
 				messages[res.status] ?? body?.error ?? `Bridge: HTTP ${res.status}`,
 				res.status
@@ -72,7 +91,7 @@ export function createBridgeClient({
 
 	return {
 		url: base,
-		/** @returns {Promise<{ ok: boolean, paired: boolean, pairingOpen: boolean, hibiscus: { configured: boolean } }>} */
+		/** @returns {Promise<{ ok: boolean, paired: boolean, pairingOpen: boolean, hibiscus: { configured: boolean }, mail?: { configured: boolean, accountingAddress: string | null }, llm?: { configured: boolean, models: string[] } }>} */
 		health: () => call('/health'),
 		/** @param {string} code @returns {Promise<string>} the token */
 		async pair(code) {
@@ -95,6 +114,34 @@ export function createBridgeClient({
 		async transactions(accountId, since) {
 			const q = new URLSearchParams({ account: accountId, since });
 			return (await call(`/hibiscus/transactions?${q}`)).transactions;
+		},
+		/**
+		 * Mails to the accounting address that arrived in [since, until).
+		 *
+		 * @param {string} since YYYY-MM-DD
+		 * @param {string | null} [until] YYYY-MM-DD, exclusive; null leaves the end open
+		 * @returns {Promise<{ accountingAddress: string, messages: any[] }>}
+		 */
+		async mailMessages(since, until = null) {
+			const q = new URLSearchParams({ since, scope: 'accounting' });
+			if (until) q.set('until', until);
+			return call(`/mail/messages?${q}`);
+		},
+		/**
+		 * @param {string} id
+		 * @param {string} part
+		 * @returns {Promise<Uint8Array>}
+		 */
+		async mailAttachment(id, part) {
+			const q = new URLSearchParams({ id, part });
+			return /** @type {Promise<Uint8Array>} */ (call(`/mail/attachment?${q}`, {}, true));
+		},
+		/**
+		 * @param {{ text: string, hints?: Record<string, string>, source?: { mailId: string }, confirmedByUser?: boolean }} body
+		 * @returns {Promise<{ extraction: any, model: string, usage: any, attempts: any[] }>}
+		 */
+		async extract(body) {
+			return call('/extract', { method: 'POST', body: JSON.stringify(body) });
 		}
 	};
 }

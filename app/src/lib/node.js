@@ -25,10 +25,11 @@ import {
 import * as dagCbor from '@ipld/dag-cbor';
 
 import { createEphemeralPeerKey, createOfflineLibp2p } from './network.js';
-import { deriveDatabaseKey } from './database-keys.js';
+import { deriveBlobKey, deriveDatabaseKey } from './database-keys.js';
 import { readPrfOutput } from './passkey-identity.js';
 import { createSessionIdentities, forgetLegacyKeystore } from './session-identities.js';
 import { openStore } from './store/repository.js';
+import { createBlobStore } from './receipts/blob-store.js';
 
 /**
  * IndexedDB names. Everything belege keeps lives under `belege/`. There is no
@@ -44,10 +45,11 @@ export const STORAGE_PATHS = Object.freeze({
  * @typedef {object} Session
  * @property {string} did
  * @property {Awaited<ReturnType<typeof openStore>>} store
+ * @property {import('./receipts/blob-store.js').BlobStore} blobs receipt files, sealed with the blob key
  * @property {string} identityHash the identity document's hash
  * @property {string} peerId this session's libp2p peer id
  * @property {() => Promise<void>} stop
- * @property {{ signingKey: Uint8Array, databaseKey: Uint8Array, peerKey: Uint8Array }} [secretsForE2E]
+ * @property {{ signingKey: Uint8Array, databaseKey: Uint8Array, blobKey: Uint8Array, peerKey: Uint8Array }} [secretsForE2E]
  *   only in E2E builds
  */
 
@@ -69,6 +71,7 @@ export async function startSession(credential) {
 	// without a key nothing is read or written. No plaintext fallback.
 	const prfOutput = await readPrfOutput(credential);
 	const encryptionKey = await deriveDatabaseKey(prfOutput);
+	const blobKey = await deriveBlobKey(prfOutput);
 
 	// A PR #1 build kept the signing key in IndexedDB. Gone before anything opens.
 	await forgetLegacyKeystore();
@@ -114,16 +117,25 @@ export async function startSession(credential) {
 			directory: STORAGE_PATHS.orbitdb
 		});
 		const store = await openStore({ orbitdb, encryptionKey, prfOutput });
+		const blobs = await createBlobStore({ blockstore: helia.blockstore, key: blobKey });
 
 		return {
 			did: identity.id,
 			identityHash: identity.hash,
 			peerId: libp2p.peerId.toString(),
 			store,
+			blobs,
 			// Only in E2E builds, so the test can look for these bytes on disk.
 			// Written inline so every other build drops it, not just skips it.
 			...(import.meta.env.VITE_E2E === 'true'
-				? { secretsForE2E: { signingKey, databaseKey: encryptionKey, peerKey: peerKey.raw } }
+				? {
+						secretsForE2E: {
+							signingKey,
+							databaseKey: encryptionKey,
+							blobKey,
+							peerKey: peerKey.raw
+						}
+					}
 				: {}),
 			async stop() {
 				await store.close();

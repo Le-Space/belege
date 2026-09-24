@@ -33,6 +33,11 @@ export function currentStore() {
 	return session?.store ?? null;
 }
 
+/** @returns {Session['blobs'] | null} receipt files, sealed */
+export function currentBlobs() {
+	return session?.blobs ?? null;
+}
+
 async function refresh() {
 	if (!session) return;
 	const [transactions, receipts, partners, accounts] = await Promise.all([
@@ -139,6 +144,7 @@ function installE2EHooks() {
 			return {
 				signingKey: hex(secrets.signingKey),
 				databaseKey: hex(secrets.databaseKey),
+				blobKey: hex(secrets.blobKey),
 				peerKey: hex(secrets.peerKey)
 			};
 		},

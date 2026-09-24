@@ -15,7 +15,8 @@ import { writable } from 'svelte/store';
  * buttons call WebAuthn directly from their own click.
  */
 export const CONSENT_STORAGE_KEY = 'belege.consent';
-export const CONSENT_VERSION = '1';
+// 2: receipts from the mailbox, and DeepSeek reading them (phase 1, step 3).
+export const CONSENT_VERSION = '2';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 
