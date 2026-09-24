@@ -7,6 +7,11 @@
 // signing with its own key, a look-alike that signs for itself but claims
 // someone else in From:) is no pass.
 //
+// A mail our own server accepted from a logged-in sender (`auth=pass`, how
+// Mailu marks a forward you send to the accounting address) carries no DKIM
+// or SPF result at all; it passes when that sender's domain is the From:
+// domain – the server checked the login, which is more than DKIM proves.
+//
 // Which header counts: a sender can put any `Authentication-Results` into its
 // mail. Our server adds its own on top, so only the topmost one is read, or,
 // when `authServId` is configured, only those our server (that id) wrote.
@@ -123,6 +128,11 @@ export function authVerdict({ headers, from, authServId = null }) {
 			)
 	);
 	const dmarcPass = dmarc.some((r) => r.result === 'pass');
+	const submitted = of('auth').some(
+		(r) =>
+			r.result === 'pass' &&
+			aligned(domainOf(r.props['smtp.mailfrom']) || domainOf(r.props['smtp.auth']), domain ?? '')
+	);
 	const dmarcFail = dmarc.some((r) => FAILING.has(r.result));
 	const anyFail = [...dkim, ...spf, ...dmarc].some((r) => FAILING.has(r.result));
 
@@ -131,7 +141,7 @@ export function authVerdict({ headers, from, authServId = null }) {
 	// so the app asks.
 	/** @type {Verdict} */
 	let verdict = 'none';
-	if (!dmarcFail && (dmarcPass || dkimPass || spfPass)) verdict = 'pass';
+	if (!dmarcFail && (dmarcPass || dkimPass || spfPass || submitted)) verdict = 'pass';
 	else if (anyFail) verdict = 'fail';
 
 	/** @param {typeof dkim} list */

@@ -71,6 +71,29 @@ test('Authentication-Results: none at all is none; a forged lower header does no
 	);
 });
 
+test('Authentication-Results: a forward sent through our own server (auth=pass) passes – for its own domain only', () => {
+	const own = authVerdict({
+		headers: headers('mail.example.org; auth=pass smtp.mailfrom=someone@example.org'),
+		from: 'Someone <someone@example.org>',
+		authServId: 'mail.example.org'
+	});
+	assert.equal(own.verdict, 'pass');
+	// Logged in as one domain, claiming another in From:: no pass.
+	const other = authVerdict({
+		headers: headers('mail.example.org; auth=pass smtp.mailfrom=someone@example.org'),
+		from: 'Rechnung <billing@vendor.example>',
+		authServId: 'mail.example.org'
+	});
+	assert.equal(other.verdict, 'none');
+	// Written by another server than ours: does not count.
+	const forged = authVerdict({
+		headers: headers('mx.attacker.example; auth=pass smtp.mailfrom=someone@example.org'),
+		from: 'someone@example.org',
+		authServId: 'mail.example.org'
+	});
+	assert.equal(forged.verdict, 'none');
+});
+
 test('headerValues unfolds; parseAuthenticationResults ignores comments', () => {
 	assert.deepEqual(headerValues('A: 1\r\nB: two\r\n  lines\r\nb: 3\r\n', 'b'), ['two lines', '3']);
 	const { servId, results } = parseAuthenticationResults(
