@@ -6,6 +6,10 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const port = Number(process.env.E2E_PORT || 4391);
+// The bridge the bank-import spec starts (in test mode, against a fake
+// Hibiscus). The app is built to call it there; the spec reads the same value.
+process.env.E2E_BRIDGE_PORT ||= '4392';
+const bridgePort = Number(process.env.E2E_BRIDGE_PORT);
 
 export default defineConfig({
 	testDir: 'e2e',
@@ -15,7 +19,7 @@ export default defineConfig({
 	expect: { timeout: 30_000 },
 	webServer: {
 		command: `pnpm exec vite build && pnpm exec vite preview --port ${port} --strictPort`,
-		env: { VITE_E2E: 'true' },
+		env: { VITE_E2E: 'true', VITE_BRIDGE_URL: `http://127.0.0.1:${bridgePort}` },
 		port,
 		reuseExistingServer: false,
 		timeout: 240_000
