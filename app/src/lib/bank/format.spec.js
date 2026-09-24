@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+	displayPurpose,
 	formatDayHeading,
 	formatMoney,
 	groupByDay,
@@ -84,5 +85,40 @@ describe('search', () => {
 			expect(matchesSearch(tx, q), q).toBe(true);
 		}
 		expect(matchesSearch(tx, '23.9.2026')).toBe(false);
+	});
+});
+
+describe('displayPurpose', () => {
+	it('takes the SVWZ value when the bank tags it', () => {
+		expect(
+			displayPurpose(
+				'EREF+RE-2026-17 MREF+M-1 CRED+DE00ZZZ00000000000 SVWZ+Rechnung 2026-17 vom 03.08. ABWA+Jemand'
+			)
+		).toBe('Rechnung 2026-17 vom 03.08.');
+		expect(displayPurpose('SVWZ: Miete August')).toBe('Miete August');
+	});
+
+	it('takes the text before the first tag when there is no SVWZ (GLS style)', () => {
+		expect(
+			displayPurpose(
+				'Kundennummer: K000 Rechnungsnummer: 0000123 EREF: 999 MREF: M-K000-0001 CRED: DE00ZZZ00000000000 IBAN: DE00000000000000000000 BIC: TESTDEFF'
+			)
+		).toBe('Kundennummer: K000 Rechnungsnummer: 0000123');
+		expect(displayPurpose('2680709 / 2680709 IBAN: DE00000000000000000000 BIC: TESTDEFF')).toBe(
+			'2680709 / 2680709'
+		);
+	});
+
+	it('leaves untagged text alone and does not mistake words for tags', () => {
+		expect(displayPurpose('D170138619,2026-1220699   7,47 0,00')).toBe(
+			'D170138619,2026-1220699 7,47 0,00'
+		);
+		expect(displayPurpose('Credit for services')).toBe('Credit for services');
+		expect(displayPurpose('')).toBe('');
+		expect(displayPurpose(undefined)).toBe('');
+	});
+
+	it('falls back to the raw text when only tags are there', () => {
+		expect(displayPurpose('EREF: 123 MREF: 456')).toBe('EREF: 123 MREF: 456');
 	});
 });
