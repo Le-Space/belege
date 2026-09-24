@@ -1,0 +1,99 @@
+# Release Le Space Belege – from a button.
+#
+#   gh workflow run release.yml -R Le-Space/belege -f version=0.1.0
+#
+# Runs the CI gates on main, writes the version into package.json and app/package.json,
+# turns "## [Unreleased]" in CHANGELOG.md into "## [x.y.z] – date", commits, tags vX.Y.Z and
+# pushes both, creates the GitHub release with that CHANGELOG section as its notes, and then
+# publishes the tag to Aleph and points belege.le-space.de at it (deploy.yml).
+# A version that fails its tests never gets a tag.
+name: Release
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release, e.g. 0.1.0
+        required: true
+        type: string
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  tag:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the version commit, the tag and the release
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+      - name: Commit the version and tag it
+        id: version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          # The input reaches the shell as an environment variable, never pasted into the script.
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Not a version: $VERSION"; exit 1
+          fi
+          TAG="v$VERSION"
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+            echo "::error::$TAG exists already"; exit 1
+          fi
+          grep -q '^## \[Unreleased\]' CHANGELOG.md || { echo "::error::CHANGELOG.md has no [Unreleased] section"; exit 1; }
+          node -e '
+            const fs = require("fs");
+            for (const f of ["package.json", "app/package.json"]) {
+              const p = JSON.parse(fs.readFileSync(f, "utf8"));
+              p.version = process.env.VERSION;
+              fs.writeFileSync(f, JSON.stringify(p, null, 2) + "\n");
+            }
+            const today = new Date().toISOString().slice(0, 10);
+            const log = fs.readFileSync("CHANGELOG.md", "utf8").replace(
+              /^## \[Unreleased\]/m,
+              `## [Unreleased]\n\n## [${process.env.VERSION}] – ${today}`
+            );
+            fs.writeFileSync("CHANGELOG.md", log);
+          '
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json app/package.json CHANGELOG.md
+          git commit -m "release: $TAG"
+          git tag -a "$TAG" -m "Le Space Belege $TAG"
+          # Fails if main moved while the tests ran – then run it again.
+          git push origin HEAD:main "$TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          # The notes are this version's CHANGELOG section.
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          gh release create "$TAG" --title "Le Space Belege $TAG" --notes-file notes.md --verify-tag
+
+  deploy:
+    needs: tag
+    uses: ./.github/workflows/deploy.yml
+    with:
+      link_domain: true
+      ref: ${{ needs.tag.outputs.tag }}
+    secrets:
+      ALEPH_PRIVATE_KEY: ${{ secrets.ALEPH_PRIVATE_KEY }}
