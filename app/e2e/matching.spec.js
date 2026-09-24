@@ -4,7 +4,9 @@
 //
 // Eigene Anweisungen (company name) → sync six bookings → fetch and read the
 // accounting mails → the sure pair is matched, the own transfer and the bank
-// fee need no receipt, the unsure one is a question → answer on Rückfragen →
+// fee need no receipt, the unsure one is a question; the bookings without a
+// receipt are two days old and wait (grace period 7 days) → grace 0: they
+// become questions → answer on Rückfragen →
 // coverage per month → detail view: undo a link, link by hand → search the
 // private mailbox for the missing one, import the hit, it matches → the
 // receipt links back to its booking → "Abgleich starten" changes nothing →
@@ -198,10 +200,29 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await expect(page.getByTestId('extract-all')).toHaveCount(0);
 	expect(llm.requests.length).toBe(4);
 
-	// Home: the agent asks; two questions settled themselves on the way.
+	// Home: the agent asks about the receipts; the two-day-old bookings without
+	// one wait (grace period, default 7 days) instead of asking.
+	await tab('Home').click();
+	await expect(page.getByTestId('agent-open')).toHaveText('2 offene Rückfragen');
+	await expect(page.getByTestId('agent-progress')).toHaveText('0 von 2 erledigt');
+	await expect(page.getByTestId('coverage-percent')).toHaveText('50 %');
+	await tab('Zahlungen').click();
+	await page.getByTestId('filter-all').click();
+	const waitingRow = page.getByTestId('transaction').filter({ hasText: NAMES.mobil });
+	await expect(waitingRow.getByTestId('waiting-badge')).toHaveText(/^wartet noch \(\d Tage\)$/);
+	await waitingRow.click();
+	await expect(page.getByTestId('tx-waiting')).toContainText('wartet noch');
+	await page.getByTestId('tx-detail-close').click();
+
+	// Eigene Anweisungen: ask at once.
+	await tab('Integrationen').click();
+	await expect(page.getByTestId('grace-days')).toHaveValue('7');
+	await page.getByTestId('grace-days').fill('0');
+	await page.getByTestId('matching-save').click();
+	await expect(page.getByTestId('matching-saved')).toBeVisible();
 	await tab('Home').click();
 	await expect(page.getByTestId('agent-open')).toHaveText('4 offene Rückfragen');
-	await expect(page.getByTestId('agent-progress')).toHaveText('2 von 6 erledigt');
+	await expect(page.getByTestId('agent-progress')).toHaveText('0 von 4 erledigt');
 	await expect(page.getByTestId('coverage-percent')).toHaveText('50 %');
 
 	// Rückfragen: the Stromwerk receipt fits one booking, but only at 70 points.
@@ -225,7 +246,7 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await expect(questions).toHaveCount(2);
 	await expect(page.locator('[data-testid="question"][data-kind="unknown-sender"]')).toHaveCount(1);
 	await tab('Home').click();
-	await expect(page.getByTestId('agent-progress')).toHaveText('4 von 6 erledigt');
+	await expect(page.getByTestId('agent-progress')).toHaveText('2 von 4 erledigt');
 	await expect(page.getByTestId('coverage-percent')).toHaveText('83 %');
 
 	// Zahlungen: coverage and badges are real.
@@ -259,6 +280,11 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await expect(detail.getByTestId('tx-detail-purpose')).toContainText('SecureGo plus');
 	await expect(detail.getByTestId('tx-linked-vendor')).toHaveText(NAMES.wolke);
 	await expect(detail.getByTestId('tx-linked-state')).toContainText('automatisch · 120 Punkte');
+	// Why: in words, from the stored reasons and points – not the AI's doing.
+	await expect(detail.getByTestId('tx-why-line')).toHaveText(
+		`Betrag gleich (-119,00\u00a0EUR) · Rechnungsnummer ${RECEIPTS.wolkenfabrik.invoice} im Verwendungszweck · Anbieter ${NAMES.wolke} · Datum passt – 120 Punkte, automatisch zugeordnet`
+	);
+	await expect(detail.getByTestId('tx-why')).toContainText('nicht die KI');
 	await expect(detail.getByTestId('tx-receipt-preview')).toHaveAttribute('data-rendered', 'true');
 	await detail.getByTestId('tx-unlink').click();
 	await expect(detail.getByTestId('tx-detail-missing')).toBeVisible();
@@ -270,13 +296,28 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await expect(first).toHaveAttribute('data-suggested', 'true');
 	await first.getByTestId('tx-choose').click();
 	await expect(detail.getByTestId('tx-linked-state')).toContainText('bestätigt');
+	await expect(detail.getByTestId('tx-why-line')).toContainText('120 Punkte, von dir bestätigt');
 	await expect(page.getByTestId('filter-without-receipt')).toHaveText('Nur ohne Beleg (1)');
 	await detail.getByTestId('tx-detail-close').click();
 	await expect(detail).toHaveCount(0);
 
+	// No receipt needed, and the rule that says so.
+	await row(NAMES.own).click();
+	await expect(detail.getByTestId('tx-why-rule-line')).toHaveText(
+		`Eigene Umbuchung: Die Gegenpartei ist deine Firma „${COMPANY}“`
+	);
+	await detail.getByTestId('tx-detail-close').click();
+	await row('Abschluss per Quartalsende').click();
+	await expect(detail.getByTestId('tx-why-rule-line')).toHaveText(
+		'Bankentgelt: Buchungsart „Abschluss“ – der Kontoauszug ist der Beleg'
+	);
+	await detail.getByTestId('tx-detail-close').click();
+
 	// The missing one: search the private mailbox, only on this click.
 	await row(NAMES.mobil).click();
 	await expect(detail.getByTestId('tx-detail-missing')).toBeVisible();
+	// Its open question, with what came close (nothing did).
+	await expect(detail.getByTestId('tx-why-question')).toBeVisible();
 	await expect(detail.getByTestId('tx-private-hint')).toContainText('„Mobilfunk“ und 39,99 €');
 	await expect(detail.getByTestId('tx-private-hint')).toContainText('nur die Treffer');
 	await detail.getByTestId('tx-private-search').click();
@@ -323,21 +364,53 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	// Home: one question left (the unverified sender); a new run changes nothing.
 	await tab('Home').click();
 	await expect(page.getByTestId('agent-open')).toHaveText('1 offene Rückfrage');
-	await expect(page.getByTestId('agent-progress')).toHaveText('5 von 6 erledigt');
+	await expect(page.getByTestId('agent-progress')).toHaveText('3 von 4 erledigt');
 	await expect(page.getByTestId('coverage-percent')).toHaveText('100 %');
 	await page.screenshot({ path: test.info().outputPath('home.png'), fullPage: true });
 	await page.getByTestId('match-run').click();
 	await expect(page.getByTestId('match-result')).toHaveText(
-		'Abgleich: 0 sicher zugeordnet · 1 offene Rückfrage'
+		'0 zugeordnet · 1 Rückfrage · 3 ohne Beleg-Pflicht'
 	);
-	await expect(page.getByTestId('agent-progress')).toHaveText('5 von 6 erledigt');
+	await expect(page.getByTestId('agent-progress')).toHaveText('3 von 4 erledigt');
+
+	// Verlauf: the reads, the runs, the decisions, each with its links.
+	await page.getByTestId('home-verlauf').click();
+	const events = page.getByTestId('verlauf-event');
+	await expect(events.first()).toHaveAttribute('data-kind', 'matching');
+	await expect(events.first().getByTestId('verlauf-title')).toHaveText(
+		'Abgleich (von dir gestartet)'
+	);
+	await page.locator('[data-testid="verlauf-filter"][data-group="auslesen"]').click();
+	await expect(events).toHaveCount(5);
+	await expect(events.filter({ hasText: NAMES.wolke }).getByTestId('verlauf-text')).toContainText(
+		'deepseek-flash'
+	);
+	await page.locator('[data-testid="verlauf-filter"][data-group="abgleich"]').click();
+	const auto = events.filter({ hasText: `Zugeordnet: ${NAMES.wolke}` });
+	await expect(auto).toHaveCount(1);
+	await page.locator('[data-testid="verlauf-filter"][data-group="entscheidungen"]').click();
+	await expect(events.filter({ hasText: 'Zuordnung gelöst' })).toHaveCount(1);
+	await expect(events.filter({ hasText: 'Rückfrage beantwortet: kein Beleg nötig' })).toHaveCount(
+		1
+	);
+	await page.locator('[data-testid="verlauf-filter"][data-group="abruf"]').click();
+	await expect(events.filter({ hasText: 'Umsätze abgerufen' })).toHaveCount(1);
+	await expect(events.filter({ hasText: 'E-Mails abgerufen' })).toHaveCount(1);
+	await page.screenshot({ path: test.info().outputPath('verlauf.png'), fullPage: true });
+	// A link leads to the booking.
+	await page.locator('[data-testid="verlauf-filter"][data-group="abgleich"]').click();
+	await auto.getByTestId('verlauf-open-tx').click();
+	await expect(page.getByTestId('tx-detail-counterparty')).toHaveText(NAMES.wolke);
+	await page.getByTestId('tx-detail-close').click();
+	await tab('Home').click();
+	await expect(page.getByTestId('agent-card')).toBeVisible();
 
 	// After a reload, the decisions are still there.
 	await page.reload();
 	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
 	await expect(page.getByTestId('coverage-percent')).toHaveText('100 %');
-	await expect(page.getByTestId('agent-progress')).toHaveText('5 von 6 erledigt');
+	await expect(page.getByTestId('agent-progress')).toHaveText('3 von 4 erledigt');
 
 	// At rest: matches, questions, rules and reasons are sealed like everything else.
 	const { inventory, text } = await everythingStoredAsText(page);
@@ -353,7 +426,11 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 		'Finanzamt',
 		'invoice-number',
 		'unsure-match',
-		'missing-receipt'
+		'missing-receipt',
+		'mail-fetch',
+		'bank-sync',
+		'deepseek-flash',
+		'no-receipt'
 	]) {
 		expect(text.includes(secret), `${secret} readable at rest`).toBe(false);
 	}

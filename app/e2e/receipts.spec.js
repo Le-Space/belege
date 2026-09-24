@@ -142,6 +142,20 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	await page.getByRole('button', { name: 'Koppeln' }).click();
 	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
 
+	// The KI card: what the bridge reads receipts with; the key only as "there".
+	const ki = page.getByTestId('ki-card');
+	await expect(ki.getByTestId('ki-simple')).toContainText('Die KI liest nur Belege aus');
+	await expect(ki.getByTestId('ki-simple')).toContainText('macht die App selbst');
+	await expect(ki.getByTestId('ki-key')).toHaveText('eingerichtet ✓');
+	await expect(ki.getByTestId('ki-provider')).toHaveText(new URL(llm.url).host);
+	await expect(ki.getByTestId('ki-models')).toHaveText(
+		'deepseek-flash, beim zweiten Versuch deepseek-v4-pro'
+	);
+	await expect(ki.getByTestId('ki-terms')).toHaveText('1');
+	await expect(ki.getByTestId('ki-authserv')).toContainText('nicht gesetzt – pnpm setup:mail');
+	await expect(ki.getByTestId('ki-totals')).toHaveText('0 Aufrufe · 0 Tokens');
+	expect((await page.content()).includes(FAKE_LLM_KEY)).toBe(false);
+
 	// "E-Mails abrufen": this month and the last, the accounting mails only.
 	await tab('Belege').click();
 	await expect(page.getByTestId('mail-fetch')).toBeEnabled();
@@ -203,6 +217,34 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	await expect(read.getByTestId('receipt-amount')).toHaveText(/119,00\sEUR/);
 	await expect(read.getByTestId('receipt-date')).toHaveText(DATE.format(day(1)));
 
+	// How it was read, and what was sent: the redacted text, kept with the receipt.
+	await expect(detail.getByTestId('extract-how-line')).toHaveText(
+		/^Ausgelesen mit deepseek-flash · \d+(,\d)? s · [\d.]+ Tokens · \d+ Stellen geschwärzt$/
+	);
+	await expect(detail.getByTestId('extract-how-fallback')).toHaveCount(0);
+	await expect(detail.getByTestId('extract-sent-text')).toBeHidden();
+	await detail.getByTestId('extract-sent').locator('summary').click();
+	const sentText = detail.getByTestId('extract-sent-text');
+	await expect(sentText).toBeVisible();
+	await expect(sentText).toContainText('[NAME]');
+	await expect(sentText).toContainText('[IBAN …');
+	await expect(sentText).toContainText(RECEIPTS.wolkenfabrik.invoice);
+	const shown = (await sentText.textContent()) ?? '';
+	for (const secret of [
+		SECRETS.customerName,
+		SECRETS.iban,
+		SECRETS.iban.replace(/\s/g, ''),
+		SECRETS.street,
+		SECRETS.postcode,
+		SECRETS.ownMail
+	]) {
+		expect(shown.includes(secret), `${secret} shown as sent`).toBe(false);
+	}
+	const userMessage = llm.requests[0].body.messages.find(
+		(/** @type {any} */ m) => m.role === 'user'
+	).content;
+	expect(shown.trim()).toBe(userMessage.trim());
+
 	// What reached the LLM: the PDF's text, redacted by the bridge.
 	expect(llm.requests.length).toBe(1);
 	const sent = llm.requests.map((r) => r.raw).join('\n');
@@ -217,6 +259,22 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	]) {
 		expect(sent.includes(secret), `${secret} reached the LLM`).toBe(false);
 	}
+
+	// The KI card counts it; the Verlauf has the fetch and the read.
+	await tab('Integrationen').click();
+	await expect(page.getByTestId('ki-totals')).toHaveText(/^1 Aufrufe · [\d.]+ Tokens$/);
+	await expect(page.getByTestId('ki-last')).toContainText('deepseek-flash');
+	await page.getByTestId('footer-verlauf').click();
+	const events = page.getByTestId('verlauf-event');
+	await page.locator('[data-testid="verlauf-filter"][data-group="auslesen"]').click();
+	await expect(events).toHaveCount(1);
+	await expect(events.getByTestId('verlauf-text')).toContainText(RECEIPTS.wolkenfabrik.vendor);
+	await expect(events.getByTestId('verlauf-text')).toContainText('Stellen geschwärzt');
+	await page.locator('[data-testid="verlauf-filter"][data-group="abruf"]').click();
+	await expect(events.filter({ hasText: 'E-Mails abgerufen' })).toHaveCount(2);
+	await page.locator('[data-testid="verlauf-filter"][data-group="auslesen"]').click();
+	await events.getByTestId('verlauf-open-receipt').click();
+	await expect(detail.getByTestId('detail-vendor')).toHaveText(RECEIPTS.wolkenfabrik.vendor);
 
 	// The phishing look-alike: a warning, no preview, no "Auslesen" – until confirmed.
 	const phish = receipts.filter({ has: page.getByTestId('receipt-unverified') }).filter({
@@ -317,6 +375,9 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 		'Ihre Rechnung',
 		'wolkenfabrik.example',
 		SECRETS.customerName,
+		'[NAME]',
+		'Stellen geschwärzt',
+		'deepseek-flash',
 		'%PDF-1.4',
 		pdfHead
 	]) {
