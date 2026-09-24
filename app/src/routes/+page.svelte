@@ -21,18 +21,26 @@
 
 	async function run() {
 		result = null;
-		const r = await runMatchingNow();
+		const r = await runMatchingNow('manual');
 		result = r
 			? t('home.matchResult', {
 					sure: r.sure,
 					questions:
-						r.open === 0
-							? t('home.agentNone')
-							: r.open === 1
-								? t('home.agentOpenOne')
-								: t('home.agentOpenMany', { count: r.open })
-				})
+						r.open === 1
+							? t('home.matchQuestionsOne')
+							: t('home.matchQuestionsMany', { count: r.open }),
+					classified: r.classified
+				}) + (r.waiting ? t('home.matchWaiting', { count: r.waiting }) : '')
 			: t('home.matchFailed');
+	}
+
+	/** @param {import('$lib/matching/engine.js').MatchingProgress | null} p */
+	function stepText(p) {
+		if (!p) return t('home.matchStep.read');
+		return t(`home.matchStep.${p.step}`, {
+			receipts: p.receipts ?? 0,
+			transactions: p.transactions ?? 0
+		});
 	}
 </script>
 
@@ -94,10 +102,22 @@
 			disabled={app.matching}
 			data-testid="match-run">{app.matching ? t('home.matchRunning') : t('home.matchRun')}</button
 		>
-		{#if result}
+		{#if app.matching}
+			<p class="text-sm text-faint" role="status" data-testid="match-progress">
+				{stepText(app.matchingProgress)}
+			</p>
+		{:else if result}
 			<p class="text-sm text-heading" role="status" data-testid="match-result">{result}</p>
 		{/if}
+		<a
+			href={resolve('/verlauf')}
+			class="ml-auto text-sm text-text underline hover:text-heading"
+			data-testid="home-verlauf">{t('home.verlaufLink')}</a
+		>
 	</div>
+	<p class="border-t border-border px-5 py-2 text-xs text-faint" data-testid="match-how">
+		{t('home.matchHow')}
+	</p>
 </section>
 
 <dl class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

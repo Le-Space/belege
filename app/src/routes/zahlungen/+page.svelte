@@ -13,6 +13,8 @@
 		monthSummaries
 	} from '$lib/bank/format.js';
 	import { coverageBadge, isTxCovered } from '$lib/matching/view.js';
+	import { cleanMatchingSettings } from '$lib/matching/classify.js';
+	import { graceWait, localDay } from '$lib/matching/grace.js';
 
 	/** @typedef {{ id: string, bookedOn: string, counterparty?: string, purpose?: string, amountCents?: number, currency?: string, accountId?: string, source?: string, receiptId?: string | null, noReceipt?: any }} Tx */
 
@@ -54,6 +56,11 @@
 	let days = $derived(
 		groupByDay(filtered.filter((tx) => String(tx.bookedOn ?? '').slice(0, 7) === month))
 	);
+
+	let graceDays = $derived(cleanMatchingSettings(app.matchingSettings).graceDays);
+	const today = localDay();
+	/** A booking without a receipt that the matching does not ask about yet. @param {Tx} tx */
+	const waitingDays = (tx) => (covered(tx) ? null : graceWait(tx, graceDays, today));
 
 	/** @type {string | null} */
 	let openId = $state(null);
@@ -240,6 +247,15 @@
 												]}"
 												data-testid="coverage-badge"
 												data-kind={cover}>{t(`matching.badge.${cover}`)}</span
+											>
+										{:else if waitingDays(tx) !== null}
+											{@const days = waitingDays(tx)}
+											<span
+												class="mt-1 inline-block rounded border border-border bg-surface-2 px-1.5 py-0.5 text-xs text-faint"
+												data-testid="waiting-badge"
+												>{days === 1
+													? t('matching.waitingOne')
+													: t('matching.waiting', { days: days ?? 0 })}</span
 											>
 										{/if}
 									</span>
