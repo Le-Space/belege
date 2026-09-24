@@ -253,4 +253,24 @@ describe('bridge server', () => {
 		}
 		assert.equal(hibiscus.requests.length, before);
 	});
+
+	// Last on purpose: it ends the pairing the other tests use.
+	test('unpair: needs the token, forgets it on the bridge and on disk', async () => {
+		assert.equal(
+			(await request(port(), '/unpair', { method: 'POST', headers: { origin: APP } })).status,
+			401
+		);
+		const res = await request(port(), '/unpair', {
+			method: 'POST',
+			headers: { origin: APP, ...auth() }
+		});
+		assert.equal(res.status, 200);
+		assert.equal(
+			(await request(port(), '/hibiscus/accounts', { headers: { origin: APP, ...auth() } })).status,
+			401,
+			'the token is dead at once'
+		);
+		assert.equal(JSON.parse(await readFile(configPath, 'utf8')).pairedTokens.length, 0);
+		assert.equal((await request(port(), '/health')).json.paired, false);
+	});
 });

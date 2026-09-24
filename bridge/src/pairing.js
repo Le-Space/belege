@@ -87,6 +87,21 @@ export function createPairing({
 			return token;
 		},
 
+		/**
+		 * Forget one paired token (the app's "Kopplung lösen").
+		 *
+		 * @param {string | undefined | null} token
+		 * @returns {Promise<boolean>} whether it was known
+		 */
+		async revoke(token) {
+			if (!token) return false;
+			const hash = hashToken(token);
+			const kept = getHashes().filter((entry) => entry.hash !== hash);
+			if (kept.length === getHashes().length) return false;
+			await saveHashes(kept);
+			return true;
+		},
+
 		/** @param {string | undefined | null} token */
 		verify(token) {
 			if (!token) return false;

@@ -79,6 +79,10 @@ export function createBridgeClient({
 			const { token } = await call('/pair', { method: 'POST', body: JSON.stringify({ code }) });
 			return token;
 		},
+		/** Tells the bridge to forget this device's token. */
+		async unpair() {
+			await call('/unpair', { method: 'POST' });
+		},
 		/** @returns {Promise<BridgeAccount[]>} */
 		async accounts() {
 			return (await call('/hibiscus/accounts')).accounts;

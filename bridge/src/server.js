@@ -130,6 +130,12 @@ export function createBridgeServer({ config, pairing, hibiscus, log = () => {} }
 			return send(res, 401, { error: 'unauthorized' });
 		}
 
+		if (path === '/unpair' && req.method === 'POST') {
+			await pairing.revoke(bearer(req));
+			log('a client unpaired itself');
+			return send(res, 200, { ok: true });
+		}
+
 		if (path === '/hibiscus/accounts' && req.method === 'GET') {
 			const accounts = (await allowedAccounts()).map(normalizeAccount);
 			return send(res, 200, { accounts });
