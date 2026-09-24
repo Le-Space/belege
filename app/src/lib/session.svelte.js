@@ -98,7 +98,7 @@ async function run(getCredential, nothingFound) {
 
 /** @param {string} label shown in the passkey picker; identifies nothing */
 export function createPasskey(label) {
-	const name = label.trim() || 'Belege';
+	const name = label.trim() || 'Le Space Belege';
 	return run(
 		() => createPasskeyCredential({ userId: `belege-${crypto.randomUUID()}`, displayName: name }),
 		'Der Passkey konnte nicht angelegt werden.'
