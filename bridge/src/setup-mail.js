@@ -94,7 +94,21 @@ export async function runMailSetup({
 	});
 	if (!stored) return false;
 
-	config.mail = { ...m, host, port, tls, user, accountingAddress: address };
+	// Only the Authentication-Results our own server writes count; Mailu names
+	// itself after its host (e.g. mail.le-space.de).
+	const servDefault = m.authServId ?? host;
+	const servId =
+		(await io.ask(`Name your server writes into Authentication-Results [${servDefault}]: `)) ||
+		servDefault;
+	config.mail = {
+		...m,
+		host,
+		port,
+		tls,
+		user,
+		accountingAddress: address,
+		authServId: servId.toLowerCase()
+	};
 	await saveConfig(config, configPath);
 	io.print(`Saved ${configPath}`);
 	io.print('Restart the bridge (pnpm bridge) to use it.');
