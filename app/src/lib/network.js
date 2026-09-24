@@ -14,19 +14,46 @@
 // `runOnLimitedConnection: true` from there — OrbitDB sync over a relayed
 // connection depends on it. The data is sealed before it reaches the log, so a
 // relay or a peer only ever sees ciphertext.
+//
+// The peer key: generated here, per session, and handed to libp2p together
+// with no datastore, so libp2p and Helia's keychain have nowhere to write it.
+// A reload is a new peer id, which costs nothing while nobody dials us. When
+// P2P comes, do not switch to `createHelia`'s defaults, which load or create
+// the self key in the Helia datastore (`belege/helia-data`, IndexedDB): keep
+// it ephemeral, or, if a stable peer id is wanted, derive it from the passkey's
+// PRF answer with HKDF under its own `info` string, as the database key and
+// the signing key are. Never persist it.
 
 import { createLibp2p } from 'libp2p';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { identify } from '@libp2p/identify';
 import { gossipsub } from '@libp2p/gossipsub';
+import { generateKeyPair } from '@libp2p/crypto/keys';
 
 /** Off until device sync exists; see the TODO above. */
 export const P2P_ENABLED = false;
 
-/** @returns {import('libp2p').Libp2pOptions<any>} */
-export function createOfflineLibp2pConfig() {
+/** @typedef {NonNullable<import('libp2p').Libp2pOptions['privateKey']>} PeerKey */
+
+/**
+ * A peer key for this session only. It is never written anywhere.
+ *
+ * @returns {Promise<PeerKey>}
+ */
+export function createEphemeralPeerKey() {
+	return generateKeyPair('Ed25519');
+}
+
+/**
+ * @param {PeerKey} privateKey from `createEphemeralPeerKey`
+ * @returns {import('libp2p').Libp2pOptions<any>}
+ */
+export function createOfflineLibp2pConfig(privateKey) {
+	if (!privateKey) throw new Error('A peer key is required; see createEphemeralPeerKey.');
 	return {
+		privateKey,
+		// No `datastore`: libp2p keeps its peer store and keychain in memory.
 		addresses: { listen: [] },
 		transports: [],
 		connectionEncrypters: [noise()],
@@ -44,10 +71,13 @@ export function createOfflineLibp2pConfig() {
 	};
 }
 
-/** @returns {Promise<any>} a started libp2p node that talks to nobody */
-export async function createOfflineLibp2p() {
+/**
+ * @param {PeerKey} [privateKey] defaults to a fresh one
+ * @returns {Promise<any>} a started libp2p node that talks to nobody
+ */
+export async function createOfflineLibp2p(privateKey) {
 	if (P2P_ENABLED) {
 		throw new Error('P2P is not implemented yet; see the TODO in network.js.');
 	}
-	return createLibp2p(createOfflineLibp2pConfig());
+	return createLibp2p(createOfflineLibp2pConfig(privateKey ?? (await createEphemeralPeerKey())));
 }

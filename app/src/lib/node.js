@@ -7,14 +7,16 @@
 // todo list, delegation, relay or diagnostics code; the database key is
 // derived from the passkey's PRF output before anything is opened, and the
 // same PRF answer seeds the identity's signing key, which spares the passkey
-// the provider's own PRF prompt.
+// the provider's own PRF prompt. That key lives in a session-only keystore
+// (session-identities.js) and the libp2p peer key is ephemeral (network.js):
+// no private key is kept in IndexedDB or localStorage.
 
 import { createHeliaLight } from 'helia';
 import { withBitswap } from '@helia/bitswap';
 import { withLibp2p } from '@helia/libp2p';
 import { LevelBlockstore } from 'blockstore-level';
 import { LevelDatastore } from 'datastore-level';
-import { createOrbitDB, Identities, KeyStore, useIdentityProvider } from '@orbitdb/core';
+import { createOrbitDB, useIdentityProvider } from '@orbitdb/core';
 import {
 	OrbitDBWebAuthnIdentityProviderFunction,
 	WebAuthnDIDProvider,
@@ -22,33 +24,41 @@ import {
 } from '@le-space/orbitdb-identity-provider-webauthn-did';
 import * as dagCbor from '@ipld/dag-cbor';
 
-import { createOfflineLibp2p } from './network.js';
+import { createEphemeralPeerKey, createOfflineLibp2p } from './network.js';
 import { deriveDatabaseKey } from './database-keys.js';
 import { readPrfOutput } from './passkey-identity.js';
-import { seedRestoredSigningKey, withRestoredSigningKey } from './restored-signing-key.js';
+import { createSessionIdentities, forgetLegacyKeystore } from './session-identities.js';
 import { openStore } from './store/repository.js';
 
-/** IndexedDB names. Everything belege keeps lives under `belege/`. */
+/**
+ * IndexedDB names. Everything belege keeps lives under `belege/`. There is no
+ * keystore among them: see session-identities.js.
+ */
 export const STORAGE_PATHS = Object.freeze({
 	blockstore: 'belege/helia-blocks',
 	datastore: 'belege/helia-data',
-	orbitdb: 'belege/orbitdb',
-	keystore: 'belege/orbitdb/keystore'
+	orbitdb: 'belege/orbitdb'
 });
 
 /**
  * @typedef {object} Session
  * @property {string} did
  * @property {Awaited<ReturnType<typeof openStore>>} store
+ * @property {string} identityHash the identity document's hash
+ * @property {string} peerId this session's libp2p peer id
  * @property {() => Promise<void>} stop
+ * @property {{ signingKey: Uint8Array, databaseKey: Uint8Array, peerKey: Uint8Array }} [secretsForE2E]
+ *   only in E2E builds
  */
 
 /**
  * Unlock the books with a passkey: PRF → key, then Helia, OrbitDB and the
  * sealed databases.
  *
- * Prompts: one for the PRF output here, and one when the provider signs the
- * identity. A new passkey adds its `create`, a restore its two touches.
+ * Prompts: one for the PRF output here. The provider signs the identity with
+ * the passkey once per identity document and keeps that (public) proof, so a
+ * new passkey adds its `create` and that signature, a restore its two touches
+ * and that signature, and an unlock nothing.
  *
  * @param {any} credential from passkey-identity.js
  * @returns {Promise<Session>}
@@ -60,9 +70,13 @@ export async function startSession(credential) {
 	const prfOutput = await readPrfOutput(credential);
 	const encryptionKey = await deriveDatabaseKey(prfOutput);
 
+	// A PR #1 build kept the signing key in IndexedDB. Gone before anything opens.
+	await forgetLegacyKeystore();
+
 	const blockstore = new LevelBlockstore(STORAGE_PATHS.blockstore);
 	const datastore = new LevelDatastore(STORAGE_PATHS.datastore);
-	const libp2p = await createOfflineLibp2p();
+	const peerKey = await createEphemeralPeerKey();
+	const libp2p = await createOfflineLibp2p(peerKey);
 	const helia = await withBitswap(
 		withLibp2p(createHeliaLight({ codecs: [dagCbor], blockstore, datastore }), libp2p)
 	).start();
@@ -74,19 +88,20 @@ export async function startSession(credential) {
 			// Already registered.
 		}
 
-		const keystore = await KeyStore({ path: STORAGE_PATHS.keystore });
-		const identities = await Identities({ ipfs: helia, keystore });
-
 		// The provider would ask the passkey for this very PRF output again to
 		// derive its secp256k1 signing key. Derived here from the answer already
 		// in hand, with the provider's own function, it is the same key — and in
-		// the keystore before the provider looks, so it does not ask.
+		// the keystore before the provider looks, so it does not ask. The
+		// keystore is in memory: the next unlock derives the key again.
+		//
+		// secp256k1, the provider's default, as before: the key, and with it the
+		// identity document and its cached passkey proof, stay what PR #1 made.
 		const did = credential.did ?? (await WebAuthnDIDProvider.createDID(credential));
 		const signingKey =
 			credential.signingKey instanceof Uint8Array
 				? credential.signingKey
 				: await deriveSigningKeyBytes(prfOutput, did);
-		await seedRestoredSigningKey(keystore, withRestoredSigningKey({ did }, signingKey));
+		const identities = await createSessionIdentities(helia, { did, signingKey });
 
 		const identity = await identities.createIdentity({
 			provider: OrbitDBWebAuthnIdentityProviderFunction({ webauthnCredential: credential })
@@ -102,7 +117,14 @@ export async function startSession(credential) {
 
 		return {
 			did: identity.id,
+			identityHash: identity.hash,
+			peerId: libp2p.peerId.toString(),
 			store,
+			// Only in E2E builds, so the test can look for these bytes on disk.
+			// Written inline so every other build drops it, not just skips it.
+			...(import.meta.env.VITE_E2E === 'true'
+				? { secretsForE2E: { signingKey, databaseKey: encryptionKey, peerKey: peerKey.raw } }
+				: {}),
 			async stop() {
 				await store.close();
 				await orbitdb.stop();

@@ -1,6 +1,7 @@
 // Ported from Le-Space/simple-todo packages/todo (src/restored-signing-key.js) at 56647d5.
-// Changed: nothing but this header. belege also uses seedRestoredSigningKey for
-// a freshly created passkey, see node.js.
+// Changed: `seedRestoredSigningKey` is gone. belege never keeps a keystore
+// across sessions, so node.js puts the key (restored or derived) into a fresh
+// session-only keystore directly, see session-identities.js.
 //
 /**
  * A passkey restored on this device brings its OrbitDB signing key with it.
@@ -18,21 +19,6 @@
  * so no serialiser writes it down: `storeWebAuthnCredential` spreads the
  * credential, and a spread copies only what is enumerable.
  */
-
-/**
- * @param {{ getKey: (id: string) => Promise<unknown>, addKey: (id: string, key: { privateKey: Uint8Array }) => Promise<unknown> } | null | undefined} keystore
- * @param {{ did?: string, signingKey?: Uint8Array } | null | undefined} credential
- * @returns {Promise<boolean>} whether the key was added
- */
-export async function seedRestoredSigningKey(keystore, credential) {
-	const privateKey = credential?.signingKey;
-	if (!keystore || !credential?.did || !(privateKey instanceof Uint8Array)) return false;
-	// A key already there has a history (a keep-mode keystore from an earlier
-	// visit); replacing it would mint a second identity document for the DID.
-	if (await keystore.getKey(credential.did)) return false;
-	await keystore.addKey(credential.did, { privateKey });
-	return true;
-}
 
 /**
  * Attach a restored signing key so it travels with the credential in memory

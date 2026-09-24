@@ -45,6 +45,7 @@
 		"@helia/libp2p": "1.0.6",
 		"@ipld/dag-cbor": "10.0.1",
 		"@le-space/orbitdb-identity-provider-webauthn-did": "0.8.0",
+		"@libp2p/crypto": "5.1.23",
 		"@libp2p/gossipsub": "16.1.0",
 		"@libp2p/identify": "4.1.10",
 		"@orbitdb/core": "4.0.0",

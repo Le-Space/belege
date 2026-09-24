@@ -105,8 +105,23 @@ export function unlockStoredPasskey() {
  */
 function installE2EHooks() {
 	if (!(import.meta.env.DEV || import.meta.env.VITE_E2E === 'true')) return;
+	/** @param {Uint8Array} bytes */
+	const hex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 	/** @type {any} */ (window).__belegeE2E = {
 		did: () => app.did,
+		identityHash: () => session?.identityHash,
+		peerId: () => session?.peerId,
+		// Hex, so the test can look for them on disk. Present only in E2E
+		// builds: node.js leaves `secretsForE2E` out of every other build.
+		secrets: () => {
+			const secrets = session?.secretsForE2E;
+			if (!secrets) return null;
+			return {
+				signingKey: hex(secrets.signingKey),
+				databaseKey: hex(secrets.databaseKey),
+				peerKey: hex(secrets.peerKey)
+			};
+		},
 		addTransaction: (/** @type {Record<string, any>} */ tx) => session?.store.transactions.put(tx)
 	};
 }
