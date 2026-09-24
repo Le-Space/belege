@@ -30,7 +30,7 @@ pnpm test:e2e     # Playwright, Chromium with a virtual passkey (PRF)
 - **Persistent storage.** Helia on `LevelBlockstore`/`LevelDatastore` (IndexedDB
   `belege/helia-blocks`, `belege/helia-data`), OrbitDB logs under `belege/orbitdb`; no keystore.
 - **Data layer** (`src/lib/store/`): sealed OrbitDB documents databases `transactions`,
-  `receipts`, `partners`, `accounts`, `settings`, `matches`, `questions`, indexed by a ULID `id`; every record has `createdAt`, `updatedAt`,
+  `receipts`, `partners`, `accounts`, `settings`, `matches`, `questions`, `events`, indexed by a ULID `id`; every record has `createdAt`, `updatedAt`,
   `deleted` (soft delete) and `author` (DID); money in integer cents. `sealed-documents.js` exists
   because `@orbitdb/core` 4.0.0 drops the `encryption` option for documents databases.
 - **P2P prepared, not used.** libp2p runs with gossipsub for OrbitDB but no transports, no
@@ -138,6 +138,61 @@ Several files are ported from [Le-Space/simple-todo](https://github.com/Le-Space
 - The E2E spec `e2e/matching.spec.js` runs fake Hibiscus, fake IMAP (with a receipt billed to the
   personal address), fake LLM and the real bridge.
 
+## Transparency: how things happen
+
+Two things happen that a person should be able to follow, and they are different:
+
+- **The AI reads receipts, nothing else.** "Auslesen" sends a receipt's text to the bridge's
+  `POST /extract`; the bridge redacts it and asks the LLM for the fields (vendor, amount, dates,
+  invoice number). The answer carries what was done (bridge/README.md), and the receipt keeps it
+  in `extractionInfo` (model, second attempt and why, duration, tokens of every attempt,
+  redactions by kind) and `extractionSent` (the redacted text exactly as it was sent), sealed.
+  The Belege detail shows "Ausgelesen mit deepseek-flash · 1,4 s · 812 Tokens · 7 Stellen
+  geschwärzt", the second attempt when there was one, and, folded, "An die KI gesendet
+  (geschwärzt)".
+- **The app matches, by points.** Matching is `src/lib/matching/` alone, deterministic, no LLM.
+  `explain.js` turns the stored reasons and score into German: the Zahlungen detail says "Warum
+  diese Zuordnung?" ("Betrag gleich (−15,46 EUR) · Rechnungsnummer … im Verwendungszweck ·
+  Anbieter … · Datum passt – 140 Punkte, automatisch zugeordnet" / "von dir bestätigt"), which
+  rule made a booking need no receipt ("Eigene Umbuchung: Das Gegenkonto ist dein Konto ···1234"),
+  and for an open question the candidates with their points. "Technisch" adds the points per
+  reason and the thresholds.
+- **Integrationen → "KI – Beleg-Auslesen"**: provider host, models, "API-Key: eingerichtet ✓ /
+  fehlt", the number of redaction terms, the mail server id of the sender check (or "nicht
+  gesetzt"), the last extraction and the totals (calls, tokens) from the log; all from the
+  bridge's `GET /llm/status`, which never carries the key. **No key entry in the browser**, by
+  decision: a key in the page is readable by any script that ever runs there. The key stays in
+  the bridge's keychain and is changed with `pnpm setup:llm`; model choice and terms too.
+- **Verlauf** (`/verlauf`, from Home and the footer): the sealed `events` collection
+  (`src/lib/activity/`), newest first, filters Auslesen / Abgleich / Abruf / Entscheidungen, each
+  entry linking to its receipt and booking. Written by the actions themselves: bank sync and CAMT
+  import (counts), mail fetch (window, counts), uploads and folder imports, a changed sender
+  verdict, each extraction, a matching run (a manual one always, an automatic one only when it
+  changed something), and each decision (confirm, link, unlink, reject, no receipt and back,
+  confirm sender, an answer, an upload onto a booking). An event holds ids and numbers; field
+  names that could carry a secret or a receipt's text are refused.
+- **Grace period**: a booking without a receipt becomes a "Fehlender Beleg" question only once it
+  is older than N days (Eigene Anweisungen, default 7, 0 = at once; a booking of 1 September is
+  asked about from the 9th). Until then it counts as uncovered and shows "wartet noch (x Tage)".
+- **Home**: "Abgleich starten" shows where it is and then "12 zugeordnet · 3 Rückfragen · 8 ohne
+  Beleg-Pflicht", with a link to the Verlauf.
+
+## One booking, one click further
+
+- **Portal öffnen** (`matching/portal.js`): when the purpose names the vendor's portal
+  ("www.vodafone.de/meinkabel") or a partner record has a `portalUrl`. Only a written-out host with
+  a known top-level domain, always https, no query; never `javascript:`, `data:`, an IP,
+  `user:password@` or an e-mail address. The host is shown; the link opens a new tab with
+  `rel="noopener noreferrer"`.
+- **Beleg hochladen und dieser Zahlung zuordnen** (`receipts/attach.js`): a file picked or dropped
+  onto the detail view is stored like any upload (sealed, deduplicated), read, and linked to that
+  booking as `confirmed` even with few points; the points are shown, and another amount or an
+  invoice number missing from the purpose is warned about.
+- **Ordner jetzt prüfen** (`receipts/folder-watch.js`): with a shared folder, the detail view
+  checks it on a click, and the session every 60 s while the page is visible – only new paths are
+  read, only with permission already granted (the timer never asks), new files are read and
+  matched.
+
 ### Gaps
 
 - **Images**: no OCR yet; photographed receipts are stored and shown ("Bild – Auslesen folgt").
@@ -145,7 +200,7 @@ Several files are ported from [Le-Space/simple-todo](https://github.com/Le-Space
 - **HTML-only invoices**: a mail without an attachment is read from its first 2 KB of text only;
   longer HTML invoices lose their tail, and tables lose their layout.
 - **Portal downloads**: "your invoice is online" mails only link to a vendor portal; the receipt
-  itself has to be downloaded by hand and uploaded.
+  itself has to be downloaded by hand ("Portal öffnen") and uploaded onto the booking.
 - **Tables**: pdf.js glues table rows together (docs/phase-0.md); dates in tables can be read
   wrong.
 - **Matching**: one receipt pays one booking (instalments need a link by hand per booking); a
@@ -153,4 +208,6 @@ Several files are ported from [Le-Space/simple-todo](https://github.com/Le-Space
   statement (Revolut) match once that statement is imported. Four digits of a Hibiscus account
   count as ours only with the counter-booking; enter full IBANs under "Eigene Anweisungen"
   otherwise. Private-mailbox hits are imported only by hand.
-- The folder is read when you press the button, not watched.
+- The folder watch skips a path it imported before, so a file replaced under the same name is not
+  read again; it runs only while the app is open.
+- The Verlauf keeps every event; there is no pruning yet.
