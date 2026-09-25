@@ -5,8 +5,10 @@
 //
 // Pair → sync → Integrationen → Kundenportale: Anmelden → Rechnungen holen →
 // the invoices are receipts of source "Vodafone MeinKabel", read, and the
-// one with the booked invoice number is matched → Portal aufzeichnen (started,
-// stopped, discarded) → Abmelden.
+// one with the booked invoice number is matched → "Beim Anbieter holen" in the
+// booking's detail → Portal aufzeichnen and Neues Portal aufzeichnen (each
+// started, stopped, discarded) → Abmelden → Zugangsdaten löschen and speichern (the
+// password from the bridge's dialog, which test mode answers without a window).
 import { test, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { mkdtemp, rm, stat } from 'node:fs/promises';
@@ -97,7 +99,9 @@ test.beforeAll(async () => {
 			...process.env,
 			BELEGE_BRIDGE_TEST_PASSWORD: FAKE_PASSWORD,
 			BELEGE_BRIDGE_TEST_LLM_KEY: FAKE_LLM_KEY,
-			BELEGE_BRIDGE_TEST_PORTAL_PASSWORD: FAKE_PORTAL_PASSWORD
+			BELEGE_BRIDGE_TEST_PORTAL_PASSWORD: FAKE_PORTAL_PASSWORD,
+			// What the (never shown) password dialog answers in test mode.
+			BELEGE_BRIDGE_TEST_PORTAL_DIALOG: FAKE_PORTAL_PASSWORD
 		},
 		stdio: ['ignore', 'pipe', 'pipe']
 	});
@@ -191,6 +195,21 @@ test('Vodafone invoices from the portal become receipts and match the booking', 
 	await expect(vodafone.getByTestId('portal-result')).toContainText('neu: 0 · schon vorhanden: 3');
 	expect(portal.state.downloads).toBe(downloads);
 
+	// Beim Anbieter holen: the booking's detail finds the portal by its counterparty.
+	await tab('Zahlungen').click();
+	// It has its receipt already: shown under "Alle".
+	await page.getByRole('button', { name: /^Alle \(/ }).click();
+	await page.getByTestId('transaction').filter({ hasText: PORTAL_VENDOR }).click();
+	const detail = page.getByTestId('tx-detail');
+	await expect(detail.getByTestId('tx-vendor-portal')).toContainText('Vodafone MeinKabel');
+	await detail.getByTestId('tx-vendor-fetch').click();
+	await expect(detail.getByTestId('tx-vendor-result')).toHaveText(
+		/^\d Rechnungen gefunden · neu: 0 · schon vorhanden: \d\.$/
+	);
+	await expect(detail.getByTestId('tx-vendor-fit')).toHaveCount(0);
+	await detail.getByTestId('tx-detail-close').click();
+	await tab('Integrationen').click();
+
 	// Portal aufzeichnen: the window opens (headless here, nobody clicks), the
 	// review says nothing was downloaded, so it cannot be saved; discarded.
 	await vodafone.getByTestId('portal-record').click();
@@ -206,10 +225,43 @@ test('Vodafone invoices from the portal become receipts and match the booking', 
 	await expect(vodafone.getByTestId('portal-review')).toHaveCount(0);
 	await expect(vodafone.getByTestId('portal-recipe-export')).toHaveCount(0);
 
+	// Neues Portal aufzeichnen: a name and a start page (test mode lets it be a
+	// server on this machine); its row shows the recording, the review lists
+	// nothing, discarded it is gone again, with its profile.
+	const fresh = page.getByTestId('portals-new');
+	await fresh.getByTestId('new-portal-name').fill('Beispiel Cloud');
+	await fresh.getByTestId('new-portal-url').fill(`${portal.url}/`);
+	await fresh.getByTestId('new-portal-start').click();
+	const own = page.locator('[data-testid="portal"][data-portal="local-beispiel-cloud"]');
+	await expect(own).toContainText('Beispiel Cloud');
+	await expect(own.getByTestId('portal-local')).toHaveText('eigenes Rezept, lokal');
+	await expect(own.getByTestId('portal-recording')).toBeVisible();
+	await own.getByTestId('portal-record-stop').click();
+	await expect(own.getByTestId('portal-review')).toContainText('Kein Klick aufgezeichnet.');
+	await expect(own.getByTestId('portal-record-save')).toBeDisabled();
+	await own.getByTestId('portal-review-discard').click();
+	await expect(own).toHaveCount(0);
+	await expect(stat(join(dir, 'portals', 'local-beispiel-cloud'))).rejects.toThrow();
+
 	// Abmelden: the session ends, the profile is gone.
 	await vodafone.getByTestId('portal-logout').click();
 	await expect(vodafone.getByTestId('portal-state')).toHaveAttribute('data-state', 'never');
 	await expect(stat(join(dir, 'portals', 'vodafone'))).rejects.toThrow();
+
+	// Zugangsdaten: stored by setup, deleted here, stored again with a user
+	// name from the page and the password from the bridge's dialog.
+	const credentials = vodafone.getByTestId('portal-credentials');
+	await expect(credentials.getByTestId('portal-credentials-stored')).toBeVisible();
+	await credentials.getByTestId('portal-credentials-delete').click();
+	await expect(vodafone.getByTestId('portal-result')).toHaveText('Zugangsdaten gelöscht.');
+	await expect(credentials.getByTestId('portal-credentials-save')).toBeDisabled();
+	await credentials.getByTestId('portal-credentials-username').fill(FAKE_PORTAL_USER);
+	await credentials.getByTestId('portal-credentials-save').click();
+	await expect(vodafone.getByTestId('portal-result')).toHaveText(
+		'Zugangsdaten gespeichert: die Bridge füllt künftig das Anmeldeformular aus.'
+	);
+	await expect(credentials.getByTestId('portal-credentials-stored')).toBeVisible();
+	await expect(page.locator('body')).not.toContainText(FAKE_PORTAL_PASSWORD);
 
 	// Nothing of the portal's pages and no password in the bridge's output.
 	expect(bridgeOut).not.toContain(FAKE_PORTAL_PASSWORD);

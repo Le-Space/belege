@@ -17,6 +17,11 @@ import { t } from '../i18n/index.js';
  * @property {boolean} [recordable] the bridge can record this portal ("Portal aufzeichnen")
  * @property {boolean} [recorded] a recorded recipe is saved for it
  * @property {boolean} [review] a stopped recording waits to be saved or discarded
+ * @property {boolean} [credentials] the bridge can store credentials from here ("Zugangsdaten speichern")
+ * @property {boolean} [hasCredentials] a user name and a password are stored on the bridge
+ * @property {'bundled' | 'local'} [source] local: a portal of your own ("Neues Portal aufzeichnen")
+ * @property {boolean} [pending] a new portal being recorded, never saved yet
+ * @property {string} [host] the portal's site, e.g. claude.ai
  */
 
 /**
@@ -27,6 +32,7 @@ import { t } from '../i18n/index.js';
  * @property {boolean} [download]
  * @property {boolean} [usable] false: no stable selector, left out of the recipe
  * @property {string} [path] a page, masked
+ * @property {string} [host] on another host than the portal's site
  */
 
 /**
@@ -35,6 +41,17 @@ import { t } from '../i18n/index.js';
  * @property {boolean} download
  * @property {number} pausedOnLogin
  * @property {RecordedStep[]} steps
+ * @property {string[]} [hosts] other hosts the way passed through: each needs a yes before saving
+ * @property {boolean} [invoice] the downloaded invoice was kept and comes with the save
+ */
+
+/**
+ * @typedef {object} RecordingSaved
+ * @property {boolean} saved
+ * @property {string} recipeVersion
+ * @property {number} route
+ * @property {string[]} [allowedHosts]
+ * @property {PortalInvoice[]} [invoices] the invoice downloaded while recording
  */
 
 /**
@@ -64,7 +81,15 @@ const MESSAGES = /** @type {Record<string, string>} */ ({
 	PORTAL_RECORDING_NO_DOWNLOAD: 'portals.error.noDownload',
 	PORTAL_RECORDING_UNUSABLE: 'portals.error.unusable',
 	PORTAL_RECIPE_REJECTED: 'portals.error.rejected',
-	PORTAL_NO_RECORDED_RECIPE: 'portals.error.noRecipe'
+	PORTAL_NO_RECORDED_RECIPE: 'portals.error.noRecipe',
+	PORTAL_CREDENTIALS_CANCELLED: 'portals.error.credentialsCancelled',
+	PORTAL_CREDENTIALS_EMPTY: 'portals.error.credentialsEmpty',
+	PORTAL_CREDENTIALS_INVALID: 'portals.error.credentialsInvalid',
+	PORTAL_CREDENTIALS_UNSUPPORTED: 'portals.error.credentialsUnsupported',
+	PORTAL_CREDENTIALS_OFF: 'portals.error.credentialsOff',
+	PORTAL_HOSTS_UNCONFIRMED: 'portals.error.hostsUnconfirmed',
+	PORTAL_NEW_INVALID: 'portals.error.newInvalid',
+	PORTAL_NOT_LOCAL: 'portals.error.notLocal'
 });
 
 export class PortalError extends BridgeError {
@@ -159,12 +184,38 @@ export function createPortalClient({ url, token, fetch: f = fetch }) {
 		 * @returns {Promise<RecordingReview>}
 		 */
 		recordStop: (id) => call(`${at(id)}/record/stop`, { method: 'POST' }),
-		/** @param {string} id @returns {Promise<{ saved: boolean, recipeVersion: string, route: number }>} */
-		recordSave: (id) => call(`${at(id)}/record/save`, { method: 'POST' }),
+		/**
+		 * @param {string} id
+		 * @param {string[]} [hosts] the other hosts the user confirmed
+		 * @returns {Promise<RecordingSaved>}
+		 */
+		recordSave: (id, hosts = []) =>
+			call(`${at(id)}/record/save`, { method: 'POST', body: JSON.stringify({ hosts }) }),
+		/**
+		 * "Neues Portal aufzeichnen": a portal of your own, recorded at once.
+		 *
+		 * @param {{ name: string, startUrl: string }} body
+		 * @returns {Promise<{ id: string, recording: boolean }>}
+		 */
+		recordNew: (body) => call('/portals/new', { method: 'POST', body: JSON.stringify(body) }),
+		/** "Portal entfernen": a portal of your own, recipe and profile. @param {string} id */
+		remove: (id) => call(`${at(id)}/remove`, { method: 'POST' }),
 		/** @param {string} id */
 		recordDiscard: (id) => call(`${at(id)}/record/discard`, { method: 'POST' }),
 		/** The saved recipe override, as JSON to share. @param {string} id */
-		exportRecipe: (id) => call(`${at(id)}/recipe/export`)
+		exportRecipe: (id) => call(`${at(id)}/recipe/export`),
+		/**
+		 * "Zugangsdaten speichern": the user name only. The bridge asks for the
+		 * password in a window on its Mac; it never passes through here.
+		 *
+		 * @param {string} id
+		 * @param {string} username
+		 * @returns {Promise<{ hasCredentials: boolean }>}
+		 */
+		saveCredentials: (id, username) =>
+			call(`${at(id)}/credentials`, { method: 'POST', body: JSON.stringify({ username }) }),
+		/** @param {string} id @returns {Promise<{ hasCredentials: boolean }>} */
+		deleteCredentials: (id) => call(`${at(id)}/credentials`, { method: 'DELETE' })
 	};
 }
 

@@ -13,12 +13,20 @@
 //        logged-in page itself sent to that host (captured per browser run,
 //        in memory, never logged); no login of its own
 //   dom  the download controls on the invoice page and the text around them
+//
+// A recorded route may leave the portal's site (an invoice page on
+// invoice.stripe.com): a step then names its `host`, and a click that opens a
+// new window follows it there. Hosts other than the site's are only visited
+// when the recipe lists them in `allowedHosts` (the user confirmed each one
+// after recording); a recipe with `allowedHosts` has every other top-level
+// navigation of the replay aborted, and a download from another host refused.
 
 import { readFileSync } from 'node:fs';
 
 import { find, isSelector, present, toLocator, toRegExp, waitFind } from './locate.js';
 
-const STEP_KINDS = new Set(['click', 'fill', 'check', 'stopIf', 'outcome']);
+const STEP_KINDS = new Set(['click', 'fill', 'check', 'stopIf', 'stopUnless', 'outcome']);
+const HOST = /^(?=.{1,253}$)[a-z0-9-]{1,63}(\.[a-z0-9-]{1,63})*$/;
 const MONTHS = [
 	'januar',
 	'februar',
@@ -41,14 +49,16 @@ const MONTHS = [
  * @property {string} version
  * @property {boolean} [verified]
  * @property {string} baseUrl
- * @property {{ login: string, invoices: string, logout?: string }} paths
+ * @property {{ login: string, invoices: string, logout?: string, start?: string }} paths start: where a route and a recording begin (default baseUrl)
  * @property {Record<string, import('./locate.js').Selector[]>} selectors
  * @property {{ do: string, target?: string, value?: string, secret?: boolean, optional?: boolean, outcome?: string }[]} login
  * @property {('api' | 'dom')[]} strategies
  * @property {any} [api]
  * @property {any} dom
- * @property {{ do: 'click', target: import('./locate.js').Selector }[]} [route] recorded: from baseUrl to the invoice list
+ * @property {{ do: 'click', target: import('./locate.js').Selector, host?: string }[]} [route] recorded: from the start page to the invoice
  * @property {{ at: string, steps: any[] }} [recorded] what was recorded, for review
+ * @property {string[]} [allowedHosts] other hosts the replay may visit (confirmed by the user)
+ * @property {{ name: string, baseUrl: string, start: string }} [local] a portal made with "Neues Portal aufzeichnen" (./local.js)
  */
 
 /**
@@ -99,8 +109,22 @@ export function validateDefinition(def) {
 	if (def.route !== undefined) {
 		need(Array.isArray(def.route) && def.route.length <= 40, 'route');
 		for (const [i, step] of def.route.entries()) {
-			need(step?.do === 'click' && isSelector(step.target), `route[${i}]`);
+			need(
+				step?.do === 'click' &&
+					isSelector(step.target) &&
+					(step.host === undefined ||
+						(HOST.test(step.host) && def.allowedHosts?.includes(step.host))),
+				`route[${i}]`
+			);
 		}
+	}
+	if (def.allowedHosts !== undefined) {
+		need(
+			Array.isArray(def.allowedHosts) &&
+				def.allowedHosts.length <= 10 &&
+				def.allowedHosts.every((/** @type {unknown} */ h) => typeof h === 'string' && HOST.test(h)),
+			'allowedHosts'
+		);
 	}
 	need(Boolean(def.dom?.fields && def.dom?.downloadText), 'dom');
 }
@@ -142,6 +166,111 @@ export function parseRow(fields, text) {
 	return { date, period, amountCents, invoiceNumber: n ? n[1] : null };
 }
 
+// ── loose fields: German and English dates and amounts, for local recipes ──
+
+const MONTH_NAME =
+	'(Jan(?:uar|uary)?|Feb(?:ruar|ruary)?|März|Maerz|Mär|Mar(?:ch)?|Apr(?:il)?|Mai|May|Jun[ei]?|Jul[iy]?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|O[ck]t(?:ober)?|Nov(?:ember)?|De[cz](?:ember)?)\\.?';
+/** YYYY-MM-DD, DD.MM.YYYY, "September 3, 2026", "3. September 2026" / "3 Sep 2026". */
+const LOOSE_DATES = [
+	'\\b(\\d{4})-(\\d{2})-(\\d{2})\\b',
+	'\\b(\\d{1,2})\\.(\\d{1,2})\\.(\\d{4})\\b',
+	`\\b${MONTH_NAME}\\s+(\\d{1,2}),?\\s+(\\d{4})\\b`,
+	`\\b(\\d{1,2})\\.?\\s+${MONTH_NAME}\\s+(\\d{4})\\b`
+];
+const LOOSE_PERIOD = `\\b${MONTH_NAME}\\s+(\\d{4})\\b`;
+const CURRENCY = '(?:€|EUR|\\$|USD|£|GBP|CHF)';
+const MONEY = '(-?\\d{1,3}(?:[.,\\u00a0 ]\\d{3})*[.,]\\d{2})';
+
+/** @param {string} word */
+function monthOf(word) {
+	const w = word.toLowerCase().replace(/\.$/, '');
+	const i = [
+		'jan',
+		'feb',
+		'mar',
+		'apr',
+		'ma',
+		'jun',
+		'jul',
+		'aug',
+		'sep',
+		'o',
+		'nov',
+		'de'
+	].findIndex((p, n) =>
+		n === 2
+			? /^(mär|maerz|mar)/.test(w)
+			: n === 4
+				? w === 'mai' || w === 'may'
+				: n === 9
+					? /^o[ck]t/.test(w)
+					: n === 11
+						? /^de[cz]/.test(w)
+						: w.startsWith(p)
+	);
+	return i + 1;
+}
+
+/** "1.039,99" / "1,039.99" / "20.00" → cents. @param {string} s */
+function cents(s) {
+	const t = s.replace(/[\u00a0 ]/g, '');
+	const neg = t.startsWith('-');
+	const digits = t.replace(/^-/, '');
+	const whole = digits.slice(0, -3).replace(/[.,]/g, '');
+	return (neg ? -1 : 1) * (Number(whole) * 100 + Number(digits.slice(-2)));
+}
+
+/**
+ * One row's text → the invoice's fields, for a recipe without its own rules:
+ * the first date and the labelled total (else the first amount) in German or
+ * English formats.
+ *
+ * @param {string} text
+ */
+export function parseLooseRow(text) {
+	/** @type {string | null} */
+	let date = null;
+	for (const [i, source] of LOOSE_DATES.entries()) {
+		const m = new RegExp(source, 'i').exec(text);
+		if (!m) continue;
+		const [y, mo, d] =
+			i === 0
+				? [m[1], Number(m[2]), Number(m[3])]
+				: i === 1
+					? [m[3], Number(m[2]), Number(m[1])]
+					: i === 2
+						? [m[3], monthOf(m[1]), Number(m[2])]
+						: [m[3], monthOf(m[2]), Number(m[1])];
+		if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
+			date = `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+			break;
+		}
+	}
+	const p = date ? null : new RegExp(LOOSE_PERIOD, 'i').exec(text);
+	const period = date
+		? date.slice(0, 7)
+		: p
+			? `${p[2]}-${String(monthOf(p[1])).padStart(2, '0')}`
+			: null;
+	const labelled = new RegExp(
+		`(?:Rechnungsbetrag|Gesamtbetrag|Gesamt|Summe|Betrag|Total|Amount(?: due| paid)?)\\s*:?\\s*(?:${CURRENCY}\\s?${MONEY}|${MONEY}\\s?${CURRENCY})`,
+		'i'
+	).exec(text);
+	const any = new RegExp(`${CURRENCY}\\s?${MONEY}|${MONEY}\\s?${CURRENCY}`, 'i').exec(text);
+	const a = labelled ?? any;
+	const amount = a ? (a[1] ?? a[2]) : null;
+	const n =
+		/(?:Rechnungs(?:nummer|nr\.?)|Invoice\s*(?:number|no\.?|#)|Beleg(?:nummer|nr\.?)|Receipt\s*(?:number|#))\s*[:#]?\s*([A-Z0-9][A-Z0-9/-]{3,30})/i.exec(
+			text
+		);
+	return {
+		date,
+		period,
+		amountCents: amount ? Math.abs(cents(amount)) : null,
+		invoiceNumber: n ? n[1] : null
+	};
+}
+
 /** @param {string} s */
 const safeId = (s) => s.replace(/[^A-Za-z0-9._-]+/g, '-').slice(0, 80);
 
@@ -180,6 +309,11 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 	const captured = new WeakMap();
 	/** Per browser context, unverified recipes only: the requests the page made, masked. */
 	const seen = new WeakMap();
+	/** Browser contexts whose top-level navigations are held to the site and allowedHosts. */
+	const guarded = new WeakSet();
+	const allowedHosts = new Set(def.allowedHosts ?? []);
+	const startUrl = def.paths.start ? url(def.paths.start) : base.toString();
+	const loose = def.dom.fields?.loose === true;
 
 	/** @param {string} href */
 	function onApiHost(href) {
@@ -209,10 +343,68 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 		}
 	}
 
+	/**
+	 * The site's own hosts, or one the user confirmed for this recipe.
+	 *
+	 * @param {string | null} href
+	 */
+	function allowed(href) {
+		if (sameSite(href)) return true;
+		try {
+			const u = new URL(String(href));
+			return (
+				(u.protocol === 'https:' || (u.protocol === 'http:' && base.protocol === 'http:')) &&
+				allowedHosts.has(u.hostname)
+			);
+		} catch {
+			return false;
+		}
+	}
+
+	/**
+	 * Aborts every top-level navigation of this context to a host that is not
+	 * allowed; subresources (scripts, frames of a payment provider) pass. Only
+	 * for recipes that carry `allowedHosts`, only while invoices are fetched.
+	 *
+	 * @param {import('playwright').BrowserContext} context
+	 */
+	async function guard(context) {
+		if (!def.allowedHosts || guarded.has(context)) return;
+		guarded.add(context);
+		await context.route(
+			(u) => /^https?:$/.test(u.protocol) && !allowed(u.href),
+			async (route) => {
+				const request = route.request();
+				let top = request.isNavigationRequest();
+				try {
+					top &&= request.frame().parentFrame() === null;
+				} catch {
+					// A new window's first navigation has no frame yet: it is a top-level one.
+				}
+				if (top) return route.abort('blockedbyclient');
+				return route.continue();
+			}
+		);
+	}
+
+	/**
+	 * What says "logged in" on a recipe without `loggedIn` selectors (a local
+	 * one): the first recorded control, else the recorded download control.
+	 */
+	const sessionMarks = () => {
+		const first = def.route?.[0];
+		if (first && !first.host) return [first.target];
+		return (def.dom.downloadControls ?? []).slice(0, 1);
+	};
+
 	/** @param {import('playwright').Page} page */
 	async function isLoggedIn(page) {
 		if (!/^https?:/.test(page.url())) return false;
 		if (await find(page, sel('password'))) return false;
+		if (sel('loggedIn').length === 0) {
+			const marks = sessionMarks();
+			return marks.length > 0 && Boolean(await waitFind(page, marks, 5_000));
+		}
 		return present(page, sel('loggedIn'));
 	}
 
@@ -247,9 +439,17 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 				.catch(() => {});
 		}
 		return page.evaluate(
-			({ css, downloadSource, downloadFlags, dateSource, periodSource, periodFlags }) => {
+			({
+				css,
+				downloadSource,
+				downloadFlags,
+				dateSource,
+				dateFlags,
+				periodSource,
+				periodFlags
+			}) => {
 				const download = new RegExp(downloadSource, downloadFlags);
-				const date = new RegExp(dateSource);
+				const date = new RegExp(dateSource, dateFlags);
 				const period = new RegExp(periodSource, periodFlags);
 				/** @type {Element[]} */
 				const controls = [];
@@ -295,9 +495,10 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 				],
 				downloadSource: toRegExp(def.dom.downloadText).source,
 				downloadFlags: toRegExp(def.dom.downloadText).flags,
-				dateSource: toRegExp(def.dom.fields.date).source,
-				periodSource: toRegExp(def.dom.fields.period).source,
-				periodFlags: toRegExp(def.dom.fields.period).flags
+				dateSource: loose ? LOOSE_DATES.join('|') : toRegExp(def.dom.fields.date).source,
+				dateFlags: loose ? 'i' : toRegExp(def.dom.fields.date).flags,
+				periodSource: loose ? LOOSE_PERIOD : toRegExp(def.dom.fields.period).source,
+				periodFlags: loose ? 'i' : toRegExp(def.dom.fields.period).flags
 			}
 		);
 	}
@@ -351,14 +552,16 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 			rows = await scan(page);
 		}
 		return rows.map((row) => {
-			const fields = parseRow(def.dom.fields, row.text);
+			const fields = loose ? parseLooseRow(row.text) : parseRow(def.dom.fields, row.text);
 			return {
 				key: fields.invoiceNumber ?? fields.date ?? fields.period ?? `row-${row.index}`,
 				...fields,
 				downloadRef: {
 					kind: 'dom',
 					index: row.index,
-					href: sameSite(row.href) ? row.href : null
+					href: allowed(row.href) ? row.href : null,
+					// The window the list is in (a route may have opened another one); memory only.
+					page
 				}
 			};
 		});
@@ -404,29 +607,73 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 	}
 
 	/**
-	 * To the invoice list: by the recorded route, else by its path.
+	 * A window of the context on `host`, the current one first, else the
+	 * newest; waits up to 15 s for one to get there.
+	 *
+	 * @param {import('playwright').Page} current
+	 * @param {string} host
+	 */
+	async function pageOn(current, host) {
+		const on = (/** @type {import('playwright').Page} */ p) => {
+			try {
+				return new URL(p.url()).hostname === host;
+			} catch {
+				return false;
+			}
+		};
+		const end = Date.now() + 15_000;
+		for (;;) {
+			if (on(current)) return current;
+			const other = current.context().pages().filter(on).at(-1);
+			if (other) return other;
+			if (Date.now() > end) throw new Error(`no window on ${host}`);
+			await current.waitForTimeout(250);
+		}
+	}
+
+	/**
+	 * To the invoice list: by the recorded route, else by its path. Returns the
+	 * window the list is in: a click that opens a new window is followed there.
 	 *
 	 * @param {import('playwright').Page} page
 	 * @param {(name: string, fn: () => Promise<any>) => Promise<any>} step
+	 * @returns {Promise<import('playwright').Page>}
 	 */
 	async function openInvoices(page, step) {
 		if (!def.route?.length) {
 			await step('invoices.open', () => page.goto(url(def.paths.invoices)));
-			return;
+			return page;
 		}
-		await step('route.open', () => page.goto(base.toString()));
+		await guard(page.context());
+		await step('route.open', () => page.goto(startUrl));
+		let active = page;
 		for (const [i, s] of def.route.entries()) {
-			const before = page.url();
 			await step(`route.${i + 1}`, async () => {
-				const hit = await waitFind(page, [s.target], 15_000);
+				if (s.host) active = await pageOn(active, s.host);
+				const hit = await waitFind(active, [s.target], 15_000);
 				if (!hit) throw new Error('not found');
+				const before = active.url();
+				const popup = active
+					.context()
+					.waitForEvent('page', { timeout: 2_500 })
+					.catch(() => null);
 				await hit.click();
+				// A click that navigates: wait for the next page; one that opens a window:
+				// go on there; one that does neither costs 2.5 s.
+				const moved = active
+					.waitForURL((u) => u.href !== before, { timeout: 2_500, waitUntil: 'domcontentloaded' })
+					.then(
+						() => null,
+						() => null
+					);
+				const opened = await Promise.race([popup, moved]);
+				if (opened) {
+					await opened.waitForLoadState('domcontentloaded').catch(() => {});
+					active = opened;
+				}
 			});
-			// A click that navigates: wait for the next page; one that does not costs 2 s.
-			await page
-				.waitForURL((u) => u.href !== before, { timeout: 2_000, waitUntil: 'domcontentloaded' })
-				.catch(() => {});
 		}
+		return active;
 	}
 
 	// ── api strategy ──────────────────────────────────────────────────────────
@@ -494,8 +741,11 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 		version: `${def.version}${def.verified ? '' : ' (unverified)'}`,
 		loginUrl: url(def.paths.login),
 		invoicesUrl: url(def.paths.invoices),
-		/** Where a recording and a route start. */
 		baseUrl: base.toString(),
+		/** Where a recording and a route start. */
+		startUrl,
+		/** @param {string | null} href a host this recipe may visit */
+		allowed,
 		definition: def,
 		isLoggedIn,
 
@@ -549,6 +799,10 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 					if (await find(page, targets)) return s.outcome ?? 'unknown';
 					continue;
 				}
+				if (s.do === 'stopUnless') {
+					if (!(await waitFind(page, targets, 5_000))) return s.outcome ?? 'unknown';
+					continue;
+				}
 				const el = s.optional
 					? await find(page, targets)
 					: await step(name, async () => {
@@ -584,12 +838,12 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 		 * @param {(line: string) => void} [log]
 		 */
 		async listInvoices(page, step, log = () => {}) {
-			await openInvoices(page, step);
+			const active = await openInvoices(page, step);
 			/** @type {any[]} */
 			let rows = [];
 			for (const strategy of def.strategies) {
 				try {
-					rows = strategy === 'api' ? await listByApi(page) : await listByDom(page, step);
+					rows = strategy === 'api' ? await listByApi(active) : await listByDom(active, step);
 					log(`strategy ${strategy}: ${rows.length} invoice(s)`);
 					if (rows.length > 0 || strategy === def.strategies.at(-1)) break;
 				} catch (/** @type {any} */ error) {
@@ -599,7 +853,7 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 					);
 				}
 			}
-			if (!def.verified && rows.length === 0) await trace(page, log);
+			if (!def.verified && rows.length === 0) await trace(active, log);
 			/** @type {Set<string>} */
 			const ids = new Set();
 			return rows.map((row, i) => {
@@ -632,22 +886,28 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 				return Buffer.from(data, 'base64');
 			}
 			if (ref.href) {
+				if (!allowed(ref.href)) throw new Error('off the allowed hosts');
 				const res = await page.context().request.get(ref.href, { timeout: 60_000 });
 				if (Number(res.headers()['content-length'] ?? 0) > maxBytes) throw tooLarge();
 				if (!res.ok()) throw new Error(`HTTP ${res.status()}`);
 				return res.body();
 			}
 			// No plain link: click it where it is and take the download.
-			let control = page.locator(`[data-belege-download="${ref.index}"]`);
+			let where = ref.page && !ref.page.isClosed() ? ref.page : page;
+			let control = where.locator(`[data-belege-download="${ref.index}"]`);
 			if ((await control.count()) === 0) {
-				await openInvoices(page, (_name, fn) => fn());
-				await scan(page);
-				control = page.locator(`[data-belege-download="${ref.index}"]`);
+				where = await openInvoices(page, (_name, fn) => fn());
+				await scan(where);
+				control = where.locator(`[data-belege-download="${ref.index}"]`);
 			}
 			const [download] = await Promise.all([
-				page.waitForEvent('download', { timeout: 60_000 }),
+				where.waitForEvent('download', { timeout: 60_000 }),
 				control.click()
 			]);
+			if (/^https?:/.test(download.url()) && !allowed(download.url())) {
+				await download.cancel().catch(() => {});
+				throw new Error('a download from a host that is not allowed');
+			}
 			const path = await download.path();
 			const { readFile, stat } = await import('node:fs/promises');
 			if ((await stat(path)).size > maxBytes) throw tooLarge();

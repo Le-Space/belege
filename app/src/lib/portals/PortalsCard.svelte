@@ -6,16 +6,25 @@
 	// window and downloads one; the steps are shown for review, then saved as
 	// the portal's recipe (replayed by later fetches) or discarded, and the
 	// saved recipe can be exported as JSON.
+	// "Neues Portal aufzeichnen": a name and a start page make a portal of your
+	// own (NewPortal.svelte); its row then shows the recording like any other,
+	// and once saved it is listed as „eigenes Rezept, lokal“ with "Portal
+	// entfernen". The other hosts a recording passed through are confirmed in
+	// the review (RecordingReview.svelte); the invoice downloaded while
+	// recording becomes a receipt when the recipe is saved.
+	// "Zugangsdaten speichern": a user name here, the password in a window on
+	// the bridge's Mac (straight into its keychain, never through this page);
+	// "Zugangsdaten löschen" removes both.
 	// Fetched invoices become receipts (source 'portal'), are read by the LLM
 	// when the bridge has one, and go through the matching like every receipt.
 	import TechnicalNote from '../TechnicalNote.svelte';
+	import NewPortal from './NewPortal.svelte';
+	import RecordingReview from './RecordingReview.svelte';
 	import { currentBlobs, currentStore, refreshNow, runMatchingNow } from '../session.svelte.js';
-	import { createBridgeClient } from '../bridge/client.js';
-	import { extractReceipt, extractable } from '../receipts/extract.js';
 	import { formatDate } from '../bank/format.js';
 	import { list, t } from '../i18n/index.js';
 	import { createPortalClient } from './client.js';
-	import { importPortalInvoices, knownInvoiceIds } from './import.js';
+	import { fetchPortal, importInvoices } from './actions.js';
 
 	/** @type {{ url: string, token: string | null }} */
 	let { url, token } = $props();
@@ -31,6 +40,8 @@
 	let errors = $state({});
 	/** @type {Record<string, import('./client.js').RecordingReview>} stopped recordings, per portal */
 	let reviews = $state({});
+	/** @type {Record<string, string>} the user name typed per portal, for "Zugangsdaten speichern" */
+	let usernames = $state({});
 
 	/** Three months back by default. */
 	const now = new Date();
@@ -105,37 +116,26 @@
 		});
 
 	/** @param {string} id */
+	const nameOf = (id) => portals.find((p) => p.id === id)?.name ?? id;
+
+	/** @param {string} id */
 	const fetchInvoices = (id) =>
 		run(id, 'fetch', async () => {
 			const store = currentStore();
 			const blobs = currentBlobs();
 			if (!store || !blobs) return;
-			const known = await knownInvoiceIds(store.receipts, id);
-			const answer = await client.fetch(id, since, known);
-			/** @type {import('../store/repository.js').StoredRecord[]} */
-			const created = [];
-			const counts = await importPortalInvoices({
-				receipts: store.receipts,
-				blobs,
+			// Imported, then read through the existing pipeline when the bridge can.
+			const { answer, counts, read } = await fetchPortal({
+				url,
+				token,
 				client,
 				portal: id,
-				invoices: answer.invoices,
-				created
+				name: nameOf(id),
+				since,
+				store,
+				blobs
 			});
 			await refreshNow();
-
-			// Read through the existing pipeline, when the bridge can.
-			const bridge = createBridgeClient({ url, token });
-			let read = 0;
-			const health = await bridge.health().catch(() => null);
-			if (health?.llm?.configured) {
-				for (const record of extractable(created)) {
-					await extractReceipt({ client: bridge, receipts: store.receipts, blobs, record })
-						.then(() => read++)
-						.catch(() => {});
-				}
-				await refreshNow();
-			}
 			results = {
 				...results,
 				[id]:
@@ -165,13 +165,44 @@
 			reviews = { ...reviews, [id]: await client.recordStop(id) };
 		});
 
-	/** @param {string} id */
-	const recordSave = (id) =>
+	/** @param {string} id @param {string[]} hosts the other hosts the user ticked */
+	const recordSave = (id, hosts) =>
 		run(id, 'record-save', async () => {
-			await client.recordSave(id);
+			const saved = await client.recordSave(id, hosts);
 			reviews = without(reviews, id);
-			results = { ...results, [id]: t('portals.record.saved') };
+			// The invoice downloaded while recording: a receipt like a fetched one.
+			let imported = 0;
+			const store = currentStore();
+			const blobs = currentBlobs();
+			if (store && blobs && saved.invoices?.length) {
+				const { counts } = await importInvoices({
+					url,
+					token,
+					client,
+					portal: id,
+					name: nameOf(id),
+					invoices: saved.invoices,
+					store,
+					blobs
+				});
+				imported = counts.new;
+				await refreshNow();
+				if (imported) await runMatchingNow();
+			}
+			results = {
+				...results,
+				[id]: t('portals.record.saved') + (imported ? t('portals.record.savedInvoice') : '')
+			};
 		});
+
+	/** "Portal entfernen", after a yes. @param {string} id */
+	const removePortal = (id) => {
+		if (!confirm(t('portals.local.removeConfirm', { name: nameOf(id) }))) return;
+		return run(id, 'remove', async () => {
+			await client.remove(id);
+			reviews = without(reviews, id);
+		});
+	};
 
 	/** @param {string} id */
 	const recordDiscard = (id) =>
@@ -195,16 +226,20 @@
 			setTimeout(() => URL.revokeObjectURL(href), 1000);
 		});
 
-	/** @param {import('./client.js').RecordedStep} step */
-	function stepText(step) {
-		if (step.kind === 'page') return t('portals.record.page', { path: step.path ?? '' });
-		const role = t(`portals.record.role.${step.role ?? 'element'}`);
-		return (
-			(step.label ? `${role} ‚${step.label}‘` : role) +
-			(step.download ? t('portals.record.download') : '') +
-			(step.usable === false ? t('portals.record.unusable') : '')
-		);
-	}
+	/** @param {string} id */
+	const saveCredentials = (id) =>
+		run(id, 'credentials', async () => {
+			await client.saveCredentials(id, (usernames[id] ?? '').trim());
+			usernames = without(usernames, id);
+			results = { ...results, [id]: t('portals.credentials.stored') };
+		});
+
+	/** @param {string} id */
+	const deleteCredentials = (id) =>
+		run(id, 'credentials-delete', async () => {
+			await client.deleteCredentials(id);
+			results = { ...results, [id]: t('portals.credentials.deleted') };
+		});
 
 	/** @param {string | null | undefined} iso */
 	const day = (iso) => (iso ? formatDate(iso.slice(0, 10)) : '');
@@ -236,6 +271,13 @@
 				<li class="py-3" data-testid="portal" data-portal={portal.id}>
 					<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
 						<span class="font-medium text-heading">{portal.name}</span>
+						{#if portal.source === 'local'}
+							<span
+								class="rounded border border-border bg-surface-2 px-1.5 py-0.5 text-xs text-text"
+								data-testid="portal-local"
+								title={portal.host}>{t('portals.local.badge')}</span
+							>
+						{/if}
 						<span
 							class="rounded border px-1.5 py-0.5 text-xs font-medium {portal.state === 'logged-in'
 								? 'border-success/30 bg-success/10 text-success'
@@ -285,6 +327,10 @@
 									>
 								</div>
 							</div>
+						{:else if portal.pending}
+							<p class="text-sm text-text" data-testid="portal-pending">
+								{t('portals.local.pending')}
+							</p>
 						{:else if busy[portal.id] === 'login'}
 							<p class="text-sm text-heading" role="status" data-testid="portal-waiting">
 								{t('portals.loggingIn')}
@@ -352,58 +398,86 @@
 									>
 								{/if}
 							{/if}
+							{#if portal.source === 'local'}
+								<button
+									type="button"
+									class="text-sm text-danger underline disabled:opacity-50"
+									disabled={Boolean(busy[portal.id])}
+									title={t('portals.local.removeHint')}
+									onclick={() => removePortal(portal.id)}
+									data-testid="portal-remove">{t('portals.local.remove')}</button
+								>
+							{/if}
 						{/if}
 					</div>
 					{#if reviews[portal.id] && portal.running !== 'record'}
-						{@const review = reviews[portal.id]}
-						<div
-							class="mt-3 rounded-md border border-border bg-surface-2 px-3 py-2"
-							data-testid="portal-review"
-						>
-							<p class="text-sm font-medium text-heading">{t('portals.record.reviewTitle')}</p>
-							{#if review.steps.some((s) => s.kind === 'click')}
-								<ol class="mt-1 list-decimal pl-5 text-sm text-text">
-									{#each review.steps as step, i (i)}
-										<li
-											class={step.kind === 'page' ? 'list-none text-xs text-faint' : ''}
-											data-testid={step.kind === 'click' ? 'portal-review-step' : null}
-										>
-											{stepText(step)}
-										</li>
-									{/each}
-								</ol>
+						<RecordingReview
+							review={reviews[portal.id]}
+							busy={Boolean(busy[portal.id])}
+							onsave={(hosts) => recordSave(portal.id, hosts)}
+							ondiscard={() => recordDiscard(portal.id)}
+						/>
+					{/if}
+					{#if portal.credentials && portal.running !== 'record' && !portal.pending}
+						<div class="mt-3 border-t border-border pt-3" data-testid="portal-credentials">
+							{#if portal.hasCredentials}
+								<div class="flex flex-wrap items-center gap-3">
+									<span
+										class="rounded border border-success/30 bg-success/10 px-1.5 py-0.5 text-xs font-medium text-success"
+										data-testid="portal-credentials-stored"
+										>{t('portals.credentials.storedBadge')}</span
+									>
+									<button
+										type="button"
+										class="text-sm text-text underline hover:text-heading disabled:opacity-50"
+										disabled={Boolean(busy[portal.id])}
+										onclick={() => deleteCredentials(portal.id)}
+										data-testid="portal-credentials-delete"
+										>{t('portals.credentials.delete')}</button
+									>
+								</div>
 							{:else}
-								<p class="mt-1 text-sm text-text">{t('portals.record.none')}</p>
-							{/if}
-							{#if review.pausedOnLogin > 0}
-								<p class="mt-1 text-xs text-faint">
-									{t('portals.record.paused', { count: review.pausedOnLogin })}
-								</p>
-							{/if}
-							{#if !review.download}
-								<p class="mt-1 text-sm text-danger" data-testid="portal-review-no-download">
-									{t('portals.record.noDownload')}
-								</p>
-							{/if}
-							<div class="mt-2 flex flex-wrap gap-3">
-								<button
-									type="button"
-									class={primary}
-									disabled={Boolean(busy[portal.id]) || !review.download}
-									onclick={() => recordSave(portal.id)}
-									data-testid="portal-record-save">{t('portals.record.save')}</button
+								<form
+									class="flex flex-wrap items-end gap-3"
+									onsubmit={(e) => {
+										e.preventDefault();
+										saveCredentials(portal.id);
+									}}
 								>
-								<button
-									type="button"
-									class={button}
-									disabled={Boolean(busy[portal.id])}
-									onclick={() => recordDiscard(portal.id)}
-									data-testid="portal-review-discard">{t('portals.record.discard')}</button
-								>
-							</div>
+									<label class="flex min-w-48 flex-1 flex-col text-sm">
+										<span class="text-faint">{t('portals.credentials.username')}</span>
+										<input
+											class="mt-1 rounded-md border border-border bg-surface px-2 py-1 text-sm text-heading"
+											autocomplete="username"
+											value={usernames[portal.id] ?? ''}
+											oninput={(e) =>
+												(usernames = {
+													...usernames,
+													[portal.id]: /** @type {HTMLInputElement} */ (e.currentTarget).value
+												})}
+											data-testid="portal-credentials-username"
+										/>
+									</label>
+									<button
+										type="submit"
+										class={button}
+										disabled={Boolean(busy[portal.id]) || !(usernames[portal.id] ?? '').trim()}
+										data-testid="portal-credentials-save"
+										>{busy[portal.id] === 'credentials'
+											? t('portals.credentials.saving')
+											: t('portals.credentials.save')}</button
+									>
+								</form>
+								<p class="mt-1 text-xs text-faint">{t('portals.credentials.hint')}</p>
+							{/if}
+							<TechnicalNote
+								class="mt-2"
+								testid="portal-credentials-technical"
+								lines={list('portals.credentials.technical')}
+							/>
 						</div>
 					{/if}
-					{#if busy[portal.id] === 'login' || portal.state !== 'logged-in'}
+					{#if !portal.pending && (busy[portal.id] === 'login' || portal.state !== 'logged-in')}
 						<p class="mt-2 text-xs text-faint">{t('portals.loginHint')}</p>
 					{/if}
 					{#if results[portal.id]}
@@ -419,6 +493,15 @@
 				</li>
 			{/each}
 		</ul>
+		{#if portals.some((p) => p.recordable)}
+			<div class="mt-2 border-t border-border pt-3" data-testid="portals-new">
+				<h3 class="text-sm font-semibold text-heading">{t('portals.new.title')}</h3>
+				<p class="mt-1 text-sm text-text">{t('portals.new.intro')}</p>
+				<div class="mt-2">
+					<NewPortal {url} {token} onstarted={() => load(client)} />
+				</div>
+			</div>
+		{/if}
 		<TechnicalNote class="mt-2" lines={list('portals.technical')} />
 	</section>
 {/if}

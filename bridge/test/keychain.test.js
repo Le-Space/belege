@@ -31,6 +31,10 @@ if [ "$1" = "find-generic-password" ]; then
   echo "security: SecKeychainSearchCopyNext: The specified item could not be found in the keychain." >&2
   exit 44
 fi
+if [ "$1" = "delete-generic-password" ]; then
+  if [ -s "${dir}/store.txt" ]; then : > "${dir}/store.txt"; exit 0; fi
+  exit 44
+fi
 exit 1
 `
 	);
@@ -124,4 +128,22 @@ test('one entry per secret: the mail and LLM accounts, each naming its own setup
 	);
 	assert.equal(stdin.includes('sk-test-key'), false);
 	await assert.rejects(memoryKeychain(null, 'imap').read(), /No mail password/);
+});
+
+test('remove: the entry is gone, and removing nothing is fine', async () => {
+	const keychain = macosKeychain({
+		platform: 'darwin',
+		securityPath: security,
+		account: 'portal:vodafone'
+	});
+	await keychain.write('zu löschen');
+	assert.equal(await keychain.read(), 'zu löschen');
+	await keychain.remove?.();
+	await assert.rejects(keychain.read(), { code: 'KEYCHAIN_MISSING' });
+	await keychain.remove?.();
+	const argv = await readFile(join(dir, 'argv.log'), 'utf8');
+	assert.match(argv, /delete-generic-password -s belege-bridge -a portal:vodafone/);
+	const memory = memoryKeychain('x');
+	await memory.remove();
+	await assert.rejects(memory.read(), { code: 'KEYCHAIN_MISSING' });
 });

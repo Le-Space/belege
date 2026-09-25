@@ -14,7 +14,9 @@
 // variables instead of the keychain ($BELEGE_BRIDGE_TEST_PASSWORD for Hibiscus,
 // $BELEGE_BRIDGE_TEST_IMAP_PASSWORD, $BELEGE_BRIDGE_TEST_LLM_KEY,
 // $BELEGE_BRIDGE_TEST_PORTAL_PASSWORD), portal browsers never open a window,
-// and it refuses to run on the real config file.
+// the portal password dialog never opens either (it answers
+// $BELEGE_BRIDGE_TEST_PORTAL_DIALOG, or is cancelled without it), and it
+// refuses to run on the real config file.
 
 import { resolve } from 'node:path';
 import { homedir } from 'node:os';
@@ -58,6 +60,8 @@ let mailKeychain;
 let llmKeychain;
 /** @type {((id: string) => import('./keychain.js').Keychain) | undefined} */
 let portalKeychain;
+/** @type {import('./portals/credentials.js').AskPassword | undefined} */
+let portalPasswordDialog;
 if (testMode) {
 	if (configPath === join(homedir(), '.config', 'belege', 'bridge.json')) {
 		console.error(
@@ -71,6 +75,7 @@ if (testMode) {
 	llmKeychain = memoryKeychain(process.env.BELEGE_BRIDGE_TEST_LLM_KEY ?? null, 'llm');
 	const portalPassword = memoryKeychain(process.env.BELEGE_BRIDGE_TEST_PORTAL_PASSWORD ?? null);
 	portalKeychain = () => portalPassword;
+	portalPasswordDialog = async () => process.env.BELEGE_BRIDGE_TEST_PORTAL_DIALOG ?? null;
 }
 
 try {
@@ -80,6 +85,9 @@ try {
 		mailKeychain,
 		llmKeychain,
 		portalKeychain,
+		portalPasswordDialog,
+		// Test mode: a new portal may start on a fake portal on this machine.
+		portalLoopback: testMode,
 		portalHeadless: testMode ? 'always' : 'auto',
 		port,
 		forcePairingCode: args.includes('--pair')

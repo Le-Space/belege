@@ -75,3 +75,35 @@ test('setup:portal refuses an unknown portal and an empty user name', async () =
 		false
 	);
 });
+
+test('setup:portal knows a portal of your own by its recipe next to bridge.json', async () => {
+	const own = join(dir, 'own');
+	const configPath = join(own, 'bridge.json');
+	const { mkdir, writeFile } = await import('node:fs/promises');
+	await mkdir(join(own, 'recipes'), { recursive: true });
+	await writeFile(
+		join(own, 'recipes', 'local-anthropic.json'),
+		JSON.stringify({
+			id: 'local-anthropic',
+			version: 'local+rec.2026-09-25',
+			verified: false,
+			local: { name: 'Anthropic', baseUrl: 'https://claude.ai', start: '/' },
+			route: [],
+			dom: { downloadControls: [{ role: 'button', name: { re: '^Download$', flags: 'i' } }] }
+		})
+	);
+	const keychain = memoryKeychain(null, 'portal:local-anthropic');
+	const { io, out } = scripted(['kunde@example.test', 'y'], ['Geheim-1']);
+	assert.equal(await runPortalSetup({ portal: 'local-anthropic', io, keychain, configPath }), true);
+	assert.ok(out[0].startsWith('Anthropic:'));
+	assert.equal(await keychain.read(), 'Geheim-1');
+	assert.equal(
+		(await loadConfig(configPath)).portals['local-anthropic'].username,
+		'kunde@example.test'
+	);
+	const other = scripted([]);
+	assert.equal(
+		await runPortalSetup({ portal: 'local-nope', io: other.io, keychain, configPath }),
+		false
+	);
+});

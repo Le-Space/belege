@@ -10,13 +10,21 @@
 // A portal recorded with "Portal aufzeichnen" has an override in
 // <config dir>/recipes/<id>.json; it is merged over the bundled recipe here
 // (./recorder.js mergeOverride). One that does not pass is ignored, logged.
+//
+// A portal of the user's own ("Neues Portal aufzeichnen", ./local.js) is a
+// file <config dir>/recipes/local-<slug>.json; every such file that passes
+// becomes a portal next to the bundled ones.
+
+import { readdirSync } from 'node:fs';
 
 import { createRecipe, loadDefinition } from './recipe.js';
 import { mergeOverride, readOverride } from './recorder.js';
+import { buildLocalRecipe } from './local.js';
 
 export { createPortalManager, launchChromium, LOGIN_TIMEOUT_MS } from './manager.js';
 export { validateOverride, mergeOverride, readOverride, describeTarget } from './recorder.js';
 export { PortalError } from './errors.js';
+export { buildLocalRecipe, checkName, checkStart, localId, LOCAL_PREFIX } from './local.js';
 export { createRecipe, loadDefinition, validateDefinition, parseRow } from './recipe.js';
 export { isPdf, MAX_INVOICE_BYTES } from './pdf.js';
 
@@ -45,10 +53,15 @@ export function loopbackUrl(url) {
 
 /**
  * @param {Record<string, PortalConfig>} portalsConfig
- * @param {{ recipesDir?: string, log?: (line: string) => void }} [options] recipesDir: recorded overrides
+ * @param {{ recipesDir?: string, log?: (line: string) => void, allowLoopback?: boolean }} [options]
+ *   recipesDir: recorded overrides and local portals; allowLoopback: a local portal on
+ *   http://127.0.0.1 counts (tests only)
  * @returns {Record<string, import('./recipe.js').Recipe>}
  */
-export function buildRecipes(portalsConfig = {}, { recipesDir, log = () => {} } = {}) {
+export function buildRecipes(
+	portalsConfig = {},
+	{ recipesDir, log = () => {}, allowLoopback = false } = {}
+) {
 	/** @type {Record<string, import('./recipe.js').Recipe>} */
 	const out = {};
 	for (const [id, bundled] of Object.entries(RECIPES)) {
@@ -71,6 +84,26 @@ export function buildRecipes(portalsConfig = {}, { recipesDir, log = () => {} } 
 				? { baseUrl, apiBaseUrl: `${String(baseUrl).replace(/\/$/, '')}/api` }
 				: {}
 		);
+	}
+	if (recipesDir) {
+		let files = [];
+		try {
+			files = readdirSync(recipesDir);
+		} catch {
+			// no recipes yet
+		}
+		for (const file of files.sort()) {
+			const id = /^(local-[a-z0-9-]{1,34})\.json$/.exec(file)?.[1];
+			if (!id) continue;
+			try {
+				const patch = readOverride(recipesDir, id);
+				if (patch) out[id] = buildLocalRecipe(id, patch.local, { patch, allowLoopback });
+			} catch (/** @type {any} */ error) {
+				log(
+					`portal ${id}: local recipe ignored (${error?.code ?? error?.name ?? 'Error'}${error?.step ? ` at ${error.step}` : ''})`
+				);
+			}
+		}
 	}
 	return out;
 }

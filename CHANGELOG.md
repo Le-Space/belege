@@ -33,6 +33,30 @@ All notable changes to Le Space Belege. The format follows
   refused when it would hold an e-mail address, an IBAN or five digits in a row, and can be
   exported as JSON for sharing. New endpoints `POST /portals/:id/record/{start,stop,save,discard}`
   and `GET /portals/:id/recipe/export`.
+- **"Zugangsdaten speichern" from the app.** Each portal card takes a user name; the bridge asks
+  for the password in a native macOS dialog on its own Mac (`osascript … with hidden answer`, the
+  portal's name and host passed as argv, never into the script) and stores it in the keychain
+  (`portal:<id>`), the user name in `bridge.json`. The password never passes through the web app,
+  no log line or response carries it, and `GET /portals` only says `hasCredentials`. Cancelled or
+  empty: nothing stored. "Zugangsdaten löschen" removes both. New endpoints
+  `POST`/`DELETE /portals/:id/credentials`; off macOS they point to `pnpm setup:portal`.
+- **"Neues Portal aufzeichnen" – portals of your own.** From a name and an https start page (e.g.
+  Anthropic, `https://claude.ai`) the bridge makes a local portal (`local-<slug>`, never colliding
+  with a bundled id) and opens its recording window there; you log in by hand (magic links, SSO,
+  codes and bot checks stay yours; login pages are not recorded and restart the route) and click to
+  one invoice. Hosts other than the site's that the way passed through (`invoice.stripe.com`,
+  `pay.stripe.com`) are listed in the review and must each be confirmed; they become the recipe's
+  `allowedHosts`, and the replay aborts every other top-level navigation and refuses downloads from
+  elsewhere. Saved as `~/.config/belege/recipes/local-<slug>.json` (0600), the portal is listed as
+  „eigenes Rezept, lokal“ with Anmelden, Rechnungen holen, Portal aufzeichnen, Zugangsdaten and
+  "Portal entfernen" (recipe, profile, credentials). Its generic login fills stored credentials
+  only when a password field is on screen; dates and amounts are read in German and English
+  formats. The invoice downloaded while recording (any recording) is kept and becomes a receipt
+  right away. Also offered from a payment's detail ("Beim Anbieter holen": a portal matching the
+  counterparty → Rechnungen holen, else Neues Portal aufzeichnen; an invoice that fits the payment
+  is offered for it) and from a mail receipt that links to the vendor ("Portal für <host>
+  aufzeichnen", the link's origin only). New endpoints `POST /portals/new`,
+  `POST /portals/:id/remove`; `record/save` takes `{ hosts }` and returns the recorded invoice.
 
 ## [0.1.0] – 2026-09-24
 

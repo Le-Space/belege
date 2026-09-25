@@ -45,6 +45,9 @@
 	import { list, t } from '$lib/i18n/index.js';
 	import { portalSources, receiptSourceKey } from '$lib/portals/sources.js';
 	import { PORTAL_NAMES } from '$lib/portals/import.js';
+	import NewPortal from '$lib/portals/NewPortal.svelte';
+	import { createPortalClient } from '$lib/portals/client.js';
+	import { mailVendorOrigin } from '$lib/portals/actions.js';
 
 	/** @typedef {import('$lib/store/repository.js').StoredRecord} Receipt */
 
@@ -104,6 +107,22 @@
 
 	let how = $derived(selected ? extractionHow(selected) : null);
 
+	// A mail that links to a vendor site: "Portal für <host> aufzeichnen", with
+	// the link's origin only as the start page (the link itself may carry a
+	// token); not offered when a portal on that host exists already.
+	/** @type {{ url: string, token: string } | null} */
+	let bridgeAt = $state(null);
+	/** @type {string[]} */
+	let portalHosts = $state([]);
+	/** @type {string | null} the receipt whose "Portal aufzeichnen" is open */
+	let recordingFor = $state(null);
+	let vendorSite = $derived.by(() => {
+		const site = mailVendorOrigin(selected);
+		if (!site) return null;
+		const bare = (/** @type {string} */ h) => h.replace(/^www\./, '');
+		return portalHosts.some((h) => bare(h) === bare(site.host)) ? null : site;
+	});
+
 	onMount(async () => {
 		const store = currentStore();
 		if (!store) return;
@@ -115,6 +134,11 @@
 		if (!saved?.token) return;
 		const c = createBridgeClient({ url: saved.url, token: saved.token });
 		client = c;
+		bridgeAt = { url: saved.url, token: saved.token };
+		createPortalClient(bridgeAt)
+			.list()
+			.then((list) => (portalHosts = list.map((p) => p.host ?? '').filter(Boolean)))
+			.catch(() => {});
 		try {
 			const health = await c.health();
 			bridgeInfo = {
@@ -744,7 +768,9 @@
 							<dt class="text-faint">{t('belege.fields.source')}</dt>
 							<dd class="text-text" data-testid="field-source">
 								{selected.source === 'portal'
-									? (PORTAL_NAMES[selected.portal] ?? t('belege.sourceName.portal'))
+									? (PORTAL_NAMES[selected.portal] ??
+										selected.portalName ??
+										t('belege.sourceName.portal'))
 									: t(`belege.sourceName.${selected.source}`)}
 							</dd>
 							{#if selected.source === 'mail'}
@@ -762,6 +788,33 @@
 								<dd class="text-text" data-testid="field-verdict">{verdictText(selected)}</dd>
 							{/if}
 						</dl>
+
+						{#if vendorSite && bridgeAt}
+							{@const site = vendorSite}
+							<div class="mt-3 border-t border-border pt-3" data-testid="receipt-vendor-portal">
+								{#if recordingFor === selected.id}
+									<NewPortal
+										url={bridgeAt.url}
+										token={bridgeAt.token}
+										name={selected.vendor ?? receiptVendor(selected)}
+										startUrl={site.origin}
+										testid="receipt-new-portal"
+										onimported={() => {
+											portalHosts = [...portalHosts, site.host];
+										}}
+									/>
+								{:else}
+									<button
+										type="button"
+										class={button}
+										onclick={() => (recordingFor = selected?.id ?? null)}
+										data-testid="receipt-record-portal"
+										>{t('belege.recordPortal', { host: site.host })}</button
+									>
+									<p class="mt-1 text-xs text-faint">{t('belege.recordPortalHint')}</p>
+								{/if}
+							</div>
+						{/if}
 
 						{#if how}
 							<div
