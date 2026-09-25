@@ -43,7 +43,7 @@ const bridge = (answer) => ({
 		usage: { prompt: 10, completion: 10, reasoning: 0 },
 		ms: 100,
 		attempts: [],
-		redactions: { terms: 0, iban: 0, email: 0, street: 0, postcode: 0, total: 0 },
+		redactions: { terms: 0, iban: 0, email: 0, street: 0, postcode: 0, link: 0, total: 0 },
 		sentText: 'x'
 	})
 });

@@ -57,7 +57,8 @@ export function extractionInfo(result) {
 					iban: num(r.iban),
 					email: num(r.email),
 					street: num(r.street),
-					postcode: num(r.postcode)
+					postcode: num(r.postcode),
+					link: num(r.link)
 				}
 			: null;
 	const attempts = Array.isArray(result?.attempts) ? result.attempts : [];
@@ -90,7 +91,7 @@ export function extractionInfo(result) {
 		redactions: counts
 			? { ...counts, total: typeof r.total === 'number' ? r.total : sum(counts) }
 			: typeof r === 'number'
-				? { terms: 0, iban: 0, email: 0, street: 0, postcode: 0, total: r }
+				? { terms: 0, iban: 0, email: 0, street: 0, postcode: 0, link: 0, total: r }
 				: null
 	};
 }
@@ -170,7 +171,13 @@ export async function extractReceipt({
 		extractionSent: typeof result.sentText === 'string' ? result.sentText : null,
 		extractionError: null,
 		extractedAt: now().toISOString(),
-		status: record.status === 'zugeordnet' ? 'zugeordnet' : 'ausgelesen'
+		// No receipt at all (a sign-in link, a newsletter): out of the matching.
+		status:
+			record.status === 'zugeordnet'
+				? 'zugeordnet'
+				: result.extraction?.document_type === 'none'
+					? 'ignoriert'
+					: 'ausgelesen'
 	});
 	await recordEvent(events, 'extract', {
 		receiptId: record.id,

@@ -43,7 +43,7 @@ describe('extractionInfo', () => {
 			ms: 1400,
 			usage: { prompt: 500, completion: 312, reasoning: 200 },
 			tokensTotal: 7312,
-			redactions: { terms: 2, iban: 1, email: 1, street: 2, postcode: 1, total: 7 }
+			redactions: { terms: 2, iban: 1, email: 1, street: 2, postcode: 1, link: 0, total: 7 }
 		});
 	});
 
@@ -79,7 +79,7 @@ describe('extractionHow', () => {
 			'zweiter Versuch mit deepseek-v4-pro, weil die Antwort abbrach (Token-Grenze erreicht)'
 		);
 		expect(how?.redactions).toBe(
-			'Geschwärzt: 2 Namen, 1 IBANs, 1 E-Mail-Adressen, 2 Straßen, 1 PLZ und Ort'
+			'Geschwärzt: 2 Namen, 1 IBANs, 1 E-Mail-Adressen, 2 Straßen, 1 PLZ und Ort, 0 Links'
 		);
 	});
 

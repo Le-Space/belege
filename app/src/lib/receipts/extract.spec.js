@@ -88,6 +88,39 @@ describe('extractReceipt', () => {
 		});
 	});
 
+	it('no receipt at all ("none", e.g. a sign-in link): read, then out of the matching', async () => {
+		const { receipts, blobs } = await setup();
+		const client = {
+			extract: async () => ({
+				extraction: { document_type: 'none', vendor: 'Anthropic', gross: null, currency: null },
+				model: 'deepseek-flash',
+				usage: {},
+				attempts: []
+			})
+		};
+		const { record } = await importFile({
+			receipts,
+			blobs,
+			bytes: pdfBytes,
+			fileName: 'link.pdf',
+			source: 'upload',
+			sourceRef: 'none#1',
+			fields: {}
+		});
+		const updated = await extractReceipt({
+			client,
+			receipts,
+			blobs,
+			record: /** @type {any} */ (record),
+			pdfText
+		});
+		expect(updated).toMatchObject({
+			status: 'ignoriert',
+			amountCents: null,
+			extractionError: null
+		});
+	});
+
 	it('an unverified sender: nothing is sent until confirmed; then confirmedByUser goes along', async () => {
 		const { receipts, blobs, client, sent } = await setup();
 		const { record } = await importFile({

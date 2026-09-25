@@ -8,6 +8,9 @@
 //   - e-mail addresses of our own domains
 //   - postcode + town, street + house number (vendors' too: the VAT id
 //     identifies a vendor, the street is not needed)
+//   - links: every http(s) URL becomes `[LINK host]`. Links in mails carry
+//     sign-in, unsubscribe and tracking tokens; the host is enough to read
+//     who wrote.
 //   - streets without a suffix ("Lichtenberg 44"), recognised by position:
 //     the line right above a postcode line in an address block
 //
@@ -58,6 +61,13 @@ export function redact(input, { terms = [], ownDomains = [] } = {}) {
 		}
 		return `[IBAN …${m.replace(/\s/g, '').slice(-4)}]`;
 	});
+	t = sub('link', t, /\bhttps?:\/\/[^\s<>"'\])]+/gi, (m) => {
+		let host = '';
+		try {
+			host = new URL(m).hostname;
+		} catch {}
+		return host ? `[LINK ${host}]` : '[LINK]';
+	});
 	for (const domain of new Set(
 		ownDomains.map((d) => String(d).trim().toLowerCase()).filter(Boolean)
 	)) {
@@ -88,15 +98,15 @@ export function redact(input, { terms = [], ownDomains = [] } = {}) {
  * How many places were blacked out, by kind. `postcode` is a postcode with its
  * town, `street` a street with its number.
  *
- * @typedef {{ terms: number, iban: number, email: number, street: number, postcode: number }} RedactionCounts
+ * @typedef {{ terms: number, iban: number, email: number, street: number, postcode: number, link: number }} RedactionCounts
  */
 
 /** @returns {RedactionCounts} */
 export function emptyCounts() {
-	return { terms: 0, iban: 0, email: 0, street: 0, postcode: 0 };
+	return { terms: 0, iban: 0, email: 0, street: 0, postcode: 0, link: 0 };
 }
 
 /** @param {RedactionCounts} c */
 export function sumCounts(c) {
-	return c.terms + c.iban + c.email + c.street + c.postcode;
+	return c.terms + c.iban + c.email + c.street + c.postcode + c.link;
 }

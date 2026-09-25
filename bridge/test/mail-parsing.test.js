@@ -213,3 +213,12 @@ test('searchWindow leaves the end open when it reaches into the future (Dovecot 
 	assert.deepEqual(searchWindow(since, null, now), { since });
 	assert.ok(isIsoDay('2026-02-28') && !isIsoDay('2026-02-30') && !isIsoDay('2026-2-1'));
 });
+
+test('htmlToText: a tag cut off at the end leaves no markup', () => {
+	assert.equal(
+		htmlToText(
+			'<p>Anthropic, PBC</p><table align="right" border="0" style="float:none;disp'
+		).trim(),
+		'Anthropic, PBC'
+	);
+});

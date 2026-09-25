@@ -41,7 +41,8 @@ test('redact: terms, IBANs (last four kept), own e-mail, postcode, streets', () 
 			iban: 2,
 			email: 1,
 			street: 2,
-			postcode: 2
+			postcode: 2,
+			link: 0
 		}
 	);
 });
@@ -92,4 +93,28 @@ test('userMessage: hints before the text, the text capped', () => {
 		'Absender der E-Mail: a@b.example\nBetreff der E-Mail: Rechnung\n---\n'.length + MAX_TEXT
 	);
 	assert.equal(userMessage('nur Text'), 'nur Text');
+});
+
+test('checkExtraction: "none" (no receipt at all) needs no amount', () => {
+	assert.deepEqual(
+		checkExtraction({
+			document_type: 'none',
+			vendor: 'Anthropic',
+			gross: null,
+			currency: null,
+			vat: []
+		}),
+		[]
+	);
+	assert.deepEqual(checkExtraction({ document_type: 'invoice', gross: null, currency: 'EUR' }), [
+		'gross missing'
+	]);
+});
+
+test('redact: links become their host, tokens and all', () => {
+	const r = redact(
+		'Anmelden: https://claude.ai/magic-link#abc123token?x=1 und http://t.example.com/u/9f8e'
+	);
+	assert.equal(r.text, 'Anmelden: [LINK claude.ai] und [LINK t.example.com]');
+	assert.equal(r.counts.link, 2);
 });
