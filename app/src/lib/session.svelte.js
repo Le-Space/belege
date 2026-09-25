@@ -68,7 +68,12 @@ async function refresh() {
 			session.store.events.list(),
 			getSetting(session.store.settings, 'matching')
 		]);
-	const ctx = await buildMatchingContext({ accounts, transactions, settings: matchingSettings });
+	const ctx = await buildMatchingContext({
+		accounts,
+		transactions,
+		settings: matchingSettings,
+		partners
+	});
 	/** @type {Record<string, import('./matching/classify.js').Classification>} */
 	const classifications = {};
 	for (const tx of transactions) {

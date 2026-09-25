@@ -9,6 +9,7 @@
 import { ibanKey } from '../bank/fingerprint.js';
 import { cleanMatchingSettings } from './classify.js';
 import { compactIban, dayNumber } from './normalize.js';
+import { learnedVendors } from './partners.js';
 
 /** A transfer between our accounts lands within this many days on the other side. */
 export const MIRROR_DAYS = 4;
@@ -18,9 +19,10 @@ export const MIRROR_DAYS = 4;
  * @param {Record<string, any>[]} params.accounts
  * @param {Record<string, any>[]} params.transactions
  * @param {any} params.settings the stored `matching` value, or null
- * @returns {Promise<import('./classify.js').ClassifyContext>}
+ * @param {Record<string, any>[]} [params.partners] what people's links taught (partners.js)
+ * @returns {Promise<import('./classify.js').ClassifyContext & { learnedVendors: Map<string, string[]> }>}
  */
-export async function buildMatchingContext({ accounts, transactions, settings }) {
+export async function buildMatchingContext({ accounts, transactions, settings, partners = [] }) {
 	const clean = cleanMatchingSettings(settings);
 	const ownIbans = new Set(clean.ownIbans);
 
@@ -61,6 +63,7 @@ export async function buildMatchingContext({ accounts, transactions, settings })
 		ownLast4,
 		rules: clean.rules,
 		graceDays: clean.graceDays,
+		learnedVendors: learnedVendors(partners),
 		mirrored(tx, accountIds) {
 			const day = dayNumber(tx.bookedOn);
 			if (day === null) return false;

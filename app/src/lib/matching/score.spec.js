@@ -238,7 +238,7 @@ describe('assign: the phase-0 cases', () => {
 	const run = (receipts, txs, excluded) =>
 		assign({
 			receipts: receipts.map((r) => /** @type {any} */ (receiptFacts(r, COMPANY))),
-			transactions: txs.map(txFacts),
+			transactions: txs.map((t) => txFacts(t)),
 			excluded
 		});
 
@@ -453,7 +453,7 @@ describe('assign: the phase-0 cases', () => {
 		const worse = tx({ bookedOn: '2026-08-02', amountCents: -11900 });
 		const ranked = rankTransactions(
 			/** @type {any} */ (receiptFacts(r)),
-			[worse, good].map(txFacts)
+			[worse, good].map((t) => txFacts(t))
 		);
 		expect(ranked.map((c) => c.transactionId)).toEqual([good.id, worse.id]);
 	});

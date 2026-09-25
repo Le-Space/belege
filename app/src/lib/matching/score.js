@@ -9,6 +9,10 @@
 //   vendor IBAN       15  full IBAN, or the last four digits, = counterparty IBAN
 //   vendor name       20  token overlap with the counterparty (10 when the
 //                         name only shows in the purpose, as on card payments)
+//   learned vendor    40  a person linked this counterparty to this vendor
+//                         before (partners.js): stronger than a name overlap,
+//                         so amount + learned vendor + date is sure – still
+//                         only 30 ahead of every rival, like every pair
 //   date window       10  invoice date −5 … due/debit date (or invoice date) +10
 //   far-off date     −30  more than 60 days outside that window
 //   wrong direction  −40  money came in for an expense, or went out for an
@@ -20,6 +24,7 @@
 // tells the two debits apart, and without it neither may be taken.
 
 import { compactIban, dayNumber, normalizeRef, sameVendor } from './normalize.js';
+import { counterpartyKey } from './partners.js';
 import { isOwnName } from './classify.js';
 
 export const POINTS = Object.freeze({
@@ -29,6 +34,7 @@ export const POINTS = Object.freeze({
 	iban: 15,
 	vendor: 20,
 	vendorInPurpose: 10,
+	vendorLearned: 40,
 	date: 10,
 	farDate: -30,
 	wrongDirection: -40
@@ -75,6 +81,7 @@ export const SHOWN = 40;
  * @property {string} counterparty
  * @property {string} counterpartyIban compact, or ''
  * @property {number | null} day
+ * @property {string[]} learnedVendors vendors a person linked this counterparty to (partners.js)
  */
 
 /** @typedef {{ score: number, reasons: string[] }} Score */
@@ -131,9 +138,10 @@ export function receiptFacts(r, ctx = {}) {
  * What matching needs of a transaction record.
  *
  * @param {Record<string, any>} t a transactions record
+ * @param {{ learnedVendors?: Map<string, string[]> }} [ctx]
  * @returns {TxFacts}
  */
-export function txFacts(t) {
+export function txFacts(t, ctx = {}) {
 	const purpose = String(t.purpose ?? '');
 	const tagged =
 		/(?:^|\s)IBAN\s*[:+]\s*(.*?)(?=\s+(?:BIC|EREF|KREF|MREF|CRED|DEBT|SVWZ|ABWA|ABWE|PURP)\s*[:+]|$)/i.exec(
@@ -147,7 +155,8 @@ export function txFacts(t) {
 		purpose,
 		counterparty: String(t.counterparty ?? ''),
 		counterpartyIban: compactIban(t.counterpartyIban) || compactIban(tagged),
-		day: dayNumber(t.bookedOn)
+		day: dayNumber(t.bookedOn),
+		learnedVendors: ctx.learnedVendors?.get(counterpartyKey(t.counterparty)) ?? []
 	};
 }
 
@@ -188,6 +197,9 @@ export function scorePair(r, t) {
 	// Our own invoice names us as vendor, and the payer is the customer: no name to compare.
 	if (!r.ours && r.vendor) {
 		if (sameVendor(r.vendor, t.counterparty)) add('vendor', 'vendor');
+		// A person linked this counterparty to this vendor before.
+		else if ((t.learnedVendors ?? []).some((v) => sameVendor(r.vendor, v)))
+			add('vendorLearned', 'vendor-learned');
 		else if (sameVendor(r.vendor, t.purpose)) add('vendorInPurpose', 'vendor-in-purpose');
 	}
 	if (r.from !== null && r.to !== null && t.day !== null) {

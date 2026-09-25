@@ -3,7 +3,7 @@
 	// `settings` under `matching` (matching/classify.js), read by every
 	// "Abgleich".
 	import { onMount } from 'svelte';
-	import { app, currentStore, runMatchingNow } from './session.svelte.js';
+	import { app, currentStore, refreshNow, runMatchingNow } from './session.svelte.js';
 	import { setSetting } from './store/settings.js';
 	import {
 		cleanMatchingSettings,
@@ -38,6 +38,19 @@
 		rules = current.rules;
 		graceDays = current.graceDays;
 	});
+
+	// What people's links taught (matching/partners.js); wrong ones can go.
+	let learned = $derived(
+		(app.partners ?? []).filter((p) => !p.deleted && (p.aliases ?? []).length)
+	);
+
+	/** @param {string} id */
+	async function forget(id) {
+		const store = currentStore();
+		if (!store) return;
+		await store.partners.softDelete(id);
+		await refreshNow();
+	}
 
 	let bookAccounts = $derived(
 		app.accounts.map((a) => `${a.name} ···${a.ibanLast4}`).join(', ') ||
@@ -208,6 +221,34 @@
 					data-testid="rule-add">{t('anweisungen.add')}</button
 				>
 			</div>
+		</fieldset>
+
+		<fieldset class="text-sm">
+			<legend class="font-medium text-heading">{t('anweisungen.learned')}</legend>
+			<p class="mt-1 text-xs text-faint">{t('anweisungen.learnedHint')}</p>
+			<ul class="mt-1 divide-y divide-border" data-testid="learned-partners">
+				{#each learned as p (p.id)}
+					<li class="flex items-center gap-3 py-1.5" data-testid="learned-partner">
+						<span class="flex-1 text-text">
+							<span class="font-medium text-heading">{p.name}</span>
+							← {(p.aliases ?? []).map((/** @type {string} */ a) => `„${a}“`).join(', ')}
+							{#if (p.senderDomains ?? []).length}
+								<span class="text-faint"
+									>· {t('anweisungen.learnedMail', { domains: p.senderDomains.join(', ') })}</span
+								>
+							{/if}
+						</span>
+						<button
+							type="button"
+							class="text-sm text-faint underline hover:text-heading"
+							onclick={() => forget(p.id)}
+							data-testid="learned-forget">{t('anweisungen.forget')}</button
+						>
+					</li>
+				{:else}
+					<li class="py-1.5 text-faint">{t('anweisungen.noLearned')}</li>
+				{/each}
+			</ul>
 		</fieldset>
 
 		<div class="flex flex-wrap items-center gap-3">

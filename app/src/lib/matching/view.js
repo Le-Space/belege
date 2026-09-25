@@ -65,7 +65,7 @@ export function matchOfReceipt(receiptId, matches) {
  * @param {Rec} tx
  * @param {R[]} receipts
  * @param {Record<string, any>[]} matches
- * @param {{ companyNames?: string[] }} [ctx]
+ * @param {{ companyNames?: string[], learnedVendors?: Map<string, string[]> }} [ctx]
  * @returns {{ receipt: R, score: number, reasons: string[], suggested: boolean }[]}
  */
 export function receiptChoices(tx, receipts, matches, ctx = {}) {
@@ -73,7 +73,7 @@ export function receiptChoices(tx, receipts, matches, ctx = {}) {
 		matches.filter((m) => isActive(m) && m.transactionId !== tx.id).map((m) => m.receiptId)
 	);
 	const linkedHere = new Set(matchesOfTx(tx.id, matches).map((m) => m.receiptId));
-	const t = txFacts(tx);
+	const t = txFacts(tx, ctx);
 	return receipts
 		.filter(
 			(r) =>

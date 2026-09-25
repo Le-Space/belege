@@ -7,7 +7,10 @@
 // answer to a question is one event, not one per step it takes.
 
 import { recordEvent } from '../activity/events.js';
+import { getSetting } from '../store/settings.js';
+import { cleanMatchingSettings } from './classify.js';
 import { isActive, syncLinks } from './engine.js';
+import { learnFromLink } from './partners.js';
 
 /** @typedef {import('./engine.js').MatchingStore} MatchingStore */
 /** @typedef {{ log?: boolean }} ActionOptions `log: false` when a caller logs the decision itself */
@@ -51,6 +54,12 @@ export async function confirmMatch(
 			});
 	const tx = await store.transactions.get(transactionId);
 	if (tx?.noReceipt) await store.transactions.put({ ...tx, noReceipt: null });
+	// A person's link teaches: this counterparty is this vendor (partners.js).
+	const receipt = await store.receipts.get(receiptId);
+	if (store.partners && receipt && tx) {
+		const { companyNames } = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+		await learnFromLink(store.partners, receipt, tx, { companyNames });
+	}
 	await syncLinks(store);
 	if (log) {
 		await decided(store, found ? 'confirm' : 'link', {
