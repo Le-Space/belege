@@ -4,6 +4,7 @@
 	// "Abgleich".
 	import { onMount } from 'svelte';
 	import { app, currentStore, refreshNow, runMatchingNow } from './session.svelte.js';
+	import { forgetBankFee } from './matching/actions.js';
 	import { setSetting } from './store/settings.js';
 	import {
 		cleanMatchingSettings,
@@ -52,6 +53,24 @@
 		await refreshNow();
 	}
 
+	// Bank fees a person taught (classify.js feeKey: account id | purpose words).
+	let learnedFees = $derived(
+		cleanMatchingSettings(app.matchingSettings).feeKeys.map((key) => {
+			const [accountId, words] = key.split('|');
+			const a = app.accounts.find((x) => x.id === accountId);
+			return { key, words, account: a ? `${a.name} ···${a.ibanLast4}` : '—' };
+		})
+	);
+
+	/** @param {string} key */
+	async function forgetFee(key) {
+		const store = currentStore();
+		if (!store) return;
+		await forgetBankFee(/** @type {any} */ (store), key);
+		await refreshNow();
+		await runMatchingNow();
+	}
+
 	let bookAccounts = $derived(
 		app.accounts.map((a) => `${a.name} ···${a.ibanLast4}`).join(', ') ||
 			t('anweisungen.ownIbansNone')
@@ -91,7 +110,9 @@
 				companyNames: lines(companyText),
 				ownIbans: lines(ibanText),
 				rules: $state.snapshot(rules),
-				graceDays: String(graceDays)
+				graceDays: String(graceDays),
+				// Not edited here: kept as they are.
+				feeKeys: cleanMatchingSettings(app.matchingSettings).feeKeys
 			});
 			graceDays = value.graceDays;
 			await setSetting(store.settings, 'matching', value);
@@ -221,6 +242,28 @@
 					data-testid="rule-add">{t('anweisungen.add')}</button
 				>
 			</div>
+		</fieldset>
+
+		<fieldset class="text-sm">
+			<legend class="font-medium text-heading">{t('anweisungen.learnedFees')}</legend>
+			<p class="mt-1 text-xs text-faint">{t('anweisungen.learnedFeesHint')}</p>
+			<ul class="mt-1 divide-y divide-border" data-testid="learned-fees">
+				{#each learnedFees as f (f.key)}
+					<li class="flex items-center gap-3 py-1.5" data-testid="learned-fee">
+						<span class="flex-1 text-text"
+							><span class="font-medium text-heading">{f.account}</span> · „{f.words}“</span
+						>
+						<button
+							type="button"
+							class="text-sm text-faint underline hover:text-heading"
+							onclick={() => forgetFee(f.key)}
+							data-testid="learned-fee-forget">{t('anweisungen.forget')}</button
+						>
+					</li>
+				{:else}
+					<li class="py-1.5 text-faint">{t('anweisungen.noLearnedFees')}</li>
+				{/each}
+			</ul>
 		</fieldset>
 
 		<fieldset class="text-sm">

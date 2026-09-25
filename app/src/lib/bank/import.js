@@ -29,7 +29,8 @@ const FIELDS = /** @type {const} */ ([
 	'counterpartyIban',
 	'purpose',
 	'endToEndId',
-	'bookingType'
+	'bookingType',
+	'bankCode'
 ]);
 
 /**
@@ -44,6 +45,7 @@ const FIELDS = /** @type {const} */ ([
  * @property {string} [purpose]
  * @property {string} [endToEndId]
  * @property {string} [bookingType]
+ * @property {string} [bankCode] ISO 20022 domain/family/sub-family (CAMT only)
  * @property {string} [fingerprint] the bridge sends it; computed when missing
  */
 
@@ -114,7 +116,8 @@ export async function importTransactions({ transactions, account, incoming }) {
 			counterpartyIban: tx.counterpartyIban ?? '',
 			purpose: tx.purpose ?? '',
 			endToEndId: tx.endToEndId ?? '',
-			bookingType: tx.bookingType ?? ''
+			bookingType: tx.bookingType ?? '',
+			bankCode: tx.bankCode ?? ''
 		};
 
 		let match = fields.sourceId ? bySourceId.get(fields.sourceId) : undefined;

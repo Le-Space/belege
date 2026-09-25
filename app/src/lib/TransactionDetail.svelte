@@ -38,7 +38,7 @@
 	import { receiptDate, receiptVendor } from './receipts/view.js';
 	import { importMailMessages, needsConfirmation } from './receipts/import.js';
 	import { extractReceipt } from './receipts/extract.js';
-	import { confirmMatch, setNoReceipt, unlinkMatch } from './matching/actions.js';
+	import { confirmMatch, markBankFee, setNoReceipt, unlinkMatch } from './matching/actions.js';
 	import {
 		coverageBadge,
 		hitCriteria,
@@ -421,6 +421,12 @@
 			await setNoReceipt(/** @type {any} */ (currentStore()), txId, reason);
 			askingReason = false;
 			reason = '';
+		});
+
+	const bankFee = () =>
+		act(async () => {
+			await markBankFee(/** @type {any} */ (currentStore()), txId);
+			await runMatchingNow();
 		});
 
 	const needsReceipt = () =>
@@ -832,6 +838,16 @@
 							disabled={busy}
 							aria-expanded={askingReason}
 							data-testid="tx-no-receipt">{t('zahlungen.detail.noReceiptNeeded')}</button
+						>
+					{/if}
+					{#if !tx.noReceipt && !classification && (tx.amountCents ?? 0) < 0}
+						<button
+							type="button"
+							class={button}
+							onclick={bankFee}
+							disabled={busy}
+							title={t('zahlungen.detail.bankFeeTitle')}
+							data-testid="tx-bank-fee">{t('zahlungen.detail.bankFee')}</button
 						>
 					{/if}
 				</div>

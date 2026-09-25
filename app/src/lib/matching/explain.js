@@ -170,6 +170,9 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 			});
 		}
 		case 'bank-fee':
+			if (c.via === 'bank-code') return t('explain.rule.bankFeeCode', { code: c.bankCode ?? '' });
+			if (c.via === 'fee-words') return t('explain.rule.bankFeeWords', { word: c.feeWord ?? '' });
+			if (c.via === 'learned') return t('explain.rule.bankFeeLearned');
 			return t('explain.rule.bankFee', { type: c.bookingType ?? '' });
 		case 'loan':
 			return t('explain.rule.loan');
