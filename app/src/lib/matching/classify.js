@@ -79,6 +79,7 @@ export function isOwnName(name, company) {
  * @property {Rule[]} rules
  * @property {number} graceDays a booking without a receipt is asked about only once it is older than this (0: at once)
  * @property {string[]} feeKeys bookings a person called a bank fee (`feeKey`)
+ * @property {string[]} notTransfers pairs of booking ids a person said are no transfer (`transferPairKey`)
  */
 
 /** A receipt often arrives days after the debit: no question before then. */
@@ -92,7 +93,8 @@ export function defaultMatchingSettings() {
 		ownIbans: [],
 		rules: [],
 		graceDays: DEFAULT_GRACE_DAYS,
-		feeKeys: []
+		feeKeys: [],
+		notTransfers: []
 	};
 }
 
@@ -136,8 +138,20 @@ export function cleanMatchingSettings(value) {
 			})),
 		graceDays: graceDaysOf(value?.graceDays),
 		// Bookings a person called a bank fee (feeKey below): the next like it is one too.
-		feeKeys: [...new Set(strings(value?.feeKeys))].slice(-200)
+		feeKeys: [...new Set(strings(value?.feeKeys))].slice(-200),
+		// Counter-bookings a person said were no transfer (transferPairKey).
+		notTransfers: [...new Set(strings(value?.notTransfers))].slice(-200)
 	};
+}
+
+/**
+ * Two bookings as one key, whichever comes first.
+ *
+ * @param {string} a
+ * @param {string} b
+ */
+export function transferPairKey(a, b) {
+	return a < b ? `${a}|${b}` : `${b}|${a}`;
 }
 
 /**
@@ -161,6 +175,8 @@ export function feeKey(tx) {
  * @property {Rule[]} rules
  * @property {number} [graceDays] see grace.js
  * @property {Set<string>} [feeKeys] learned bank fees (feeKey)
+ * @property {(tx: Record<string, any>) => Record<string, any>[]} [counterBookings] bookings on our other accounts with the opposite amount within a few days
+ * @property {Set<string>} [notTransfers] pairs a person said are no transfer (transferPairKey)
  */
 
 /**
@@ -171,7 +187,11 @@ export function feeKey(tx) {
  * @property {string} [ruleId]
  * @property {'counterparty' | 'purpose' | 'any'} [ruleField] what the rule looked at
  * @property {string} [ruleContains] the rule's text
- * @property {'iban' | 'mirrored' | 'company' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned'} [via] how an own transfer or a bank fee was recognised
+ * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned'} [via] how an own transfer or a bank fee was recognised
+ * @property {string} [counterBookingId] the other side of a transfer, for via 'counter-booking'
+ * @property {string} [counterAccountId]
+ * @property {string} [counterDay] YYYY-MM-DD
+ * @property {string} [sign] what besides the amount says transfer: a word from the purpose, or our company name
  * @property {string} [ibanLast4] the counterparty account's last four, for an own transfer by IBAN
  * @property {string} [company] our company name the counterparty matched
  * @property {string} [bookingType] for a bank fee
@@ -189,6 +209,24 @@ const FEE_WORDS =
 const BANK_NAME =
 	/\bbank\b|gemeinschaftsbank|revolut|sparkasse|volksbank|raiffeisen|\bgls\b|\bn26\b|qonto|commerzbank|postbank/i;
 const LOAN = /darlehen/i;
+/** A purpose or name that says money moves between one's own accounts. */
+const TRANSFER_WORDS =
+	/umbuchung|übertrag|uebertrag|\btransfer\b|top.?up|aufladung|einzahlung|eigenes konto|own account/i;
+
+/**
+ * What besides the amount says a booking is a transfer: a transfer word in
+ * its purpose or counterparty, or our company as counterparty.
+ *
+ * @param {Record<string, any>} tx
+ * @param {string[]} companyNames
+ * @returns {string | null}
+ */
+function transferSign(tx, companyNames) {
+	const text = `${tx.purpose ?? ''} ${tx.counterparty ?? ''}`;
+	const word = TRANSFER_WORDS.exec(text)?.[0];
+	if (word) return word;
+	return companyNames.find((c) => isOwnName(String(tx.counterparty ?? ''), c)) ?? null;
+}
 
 /**
  * Whether a transaction needs no receipt, and why; null when it needs one.
@@ -241,6 +279,30 @@ export function classifyTransaction(tx, ctx) {
 	const last4 = iban ? ctx.ownLast4.get(iban.slice(-4)) : undefined;
 	if (last4?.length && ctx.mirrored?.(tx, last4)) {
 		return { kind: 'own-transfer', account: '1360', via: 'mirrored', ibanLast4: iban.slice(-4) };
+	}
+	// The other side on one of our accounts: the same amount the other way within
+	// a few days, and a word or name that says transfer on either side. Exactly
+	// one such booking, or none is taken: two 200,00 in one week are a question.
+	const counter = (ctx.counterBookings?.(tx) ?? []).filter(
+		(o) => !ctx.notTransfers?.has(transferPairKey(String(tx.id), String(o.id)))
+	);
+	const signed = counter
+		.map((o) => ({
+			o,
+			sign: transferSign(tx, ctx.companyNames) ?? transferSign(o, ctx.companyNames)
+		}))
+		.filter((x) => x.sign);
+	if (signed.length === 1) {
+		const { o, sign } = signed[0];
+		return {
+			kind: 'own-transfer',
+			account: '1360',
+			via: 'counter-booking',
+			counterBookingId: String(o.id),
+			counterAccountId: String(o.accountId ?? ''),
+			counterDay: String(o.bookedOn ?? ''),
+			sign: /** @type {string} */ (sign)
+		};
 	}
 	const company = ctx.companyNames.find((c) => isOwnName(counterparty, c));
 	if (company) return { kind: 'own-transfer', account: '1360', via: 'company', company };

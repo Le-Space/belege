@@ -57,8 +57,31 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 		byAccount.set(tx.accountId, list);
 	}
 
+	// Bookings by amount and currency, to find a transfer's other side.
+	/** @type {Map<string, Record<string, any>[]>} */
+	const byAmount = new Map();
+	for (const tx of transactions) {
+		if (tx.deleted) continue;
+		const key = `${tx.amountCents}|${tx.currency ?? 'EUR'}`;
+		byAmount.set(key, [...(byAmount.get(key) ?? []), tx]);
+	}
+
 	return {
 		companyNames: clean.companyNames,
+		notTransfers: new Set(clean.notTransfers),
+		counterBookings(tx) {
+			const day = dayNumber(tx.bookedOn);
+			if (day === null || !tx.amountCents) return [];
+			return (byAmount.get(`${-tx.amountCents}|${tx.currency ?? 'EUR'}`) ?? []).filter((o) => {
+				const d = dayNumber(o.bookedOn);
+				return (
+					o.id !== tx.id &&
+					o.accountId !== tx.accountId &&
+					d !== null &&
+					Math.abs(d - day) <= MIRROR_DAYS
+				);
+			});
+		},
 		ownIbans,
 		ownLast4,
 		rules: clean.rules,

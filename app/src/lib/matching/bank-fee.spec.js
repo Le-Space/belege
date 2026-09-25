@@ -1,11 +1,11 @@
-// "Bankgebühr – kein Beleg nötig": a person's call, learned for the next one
-// like it, and forgettable.
+// A person's calls on bookings without a receipt: "Bankgebühr" (learned for the
+// next one like it, and forgettable) and "Keine Umbuchung".
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { memoryCollection } from '../bank/test-support.js';
 import { getSetting, setSetting } from '../store/settings.js';
 import { tx } from './fixtures.js';
-import { forgetBankFee, markBankFee } from './actions.js';
+import { forgetBankFee, markBankFee, rejectTransfer } from './actions.js';
 import { buildMatchingContext } from './context.js';
 import { classifyTransaction } from './classify.js';
 
@@ -78,5 +78,28 @@ describe('markBankFee and forgetBankFee', () => {
 		await markBankFee(store, t.id);
 		expect((await store.transactions.get(t.id)).noReceipt.reason).toBe('Bankgebühr');
 		expect((await getSetting(store.settings, 'matching')).feeKeys ?? []).toEqual([]);
+	});
+});
+
+describe('rejectTransfer', () => {
+	it('"Keine Umbuchung": the pair is kept apart, the other settings stay', async () => {
+		const out = await addTx(
+			tx({
+				accountId: 'ACC-GLS',
+				bookedOn: '2026-09-17',
+				amountCents: -20000,
+				purpose: 'Umbuchung'
+			})
+		);
+		const into = await addTx(
+			tx({ accountId: 'ACC-REV', bookedOn: '2026-09-18', amountCents: 20000, purpose: 'Umbuchung' })
+		);
+		expect((await classify(into))?.via).toBe('counter-booking');
+		await rejectTransfer(store, into.id, out.id);
+		expect(await classify(into)).toBeNull();
+		expect(await classify(out)).toBeNull();
+		const settings = await getSetting(store.settings, 'matching');
+		expect(settings.companyNames).toEqual(['le space UG']);
+		expect(settings.notTransfers).toHaveLength(1);
 	});
 });

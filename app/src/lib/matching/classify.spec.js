@@ -4,7 +4,13 @@ import { describe, expect, it } from 'vitest';
 import { ibanKey } from '../bank/fingerprint.js';
 import { ACCOUNTS, tx } from './fixtures.js';
 import { buildMatchingContext } from './context.js';
-import { classifyTransaction, cleanMatchingSettings, feeKey, isOwnName } from './classify.js';
+import {
+	classifyTransaction,
+	cleanMatchingSettings,
+	feeKey,
+	isOwnName,
+	transferPairKey
+} from './classify.js';
 
 /** @param {Partial<import('./classify.js').ClassifyContext>} [over] */
 const ctx = (over = {}) => ({
@@ -103,6 +109,83 @@ describe('classifyTransaction', () => {
 		expect(classifyTransaction(next, taught)).toEqual({ kind: 'bank-fee', via: 'learned' });
 		expect(classifyTransaction({ ...next, accountId: 'ACC-GLS' }, taught)).toBeNull();
 		expect(feeKey(tx({ purpose: '2026 0815' }))).toBe('');
+	});
+
+	describe('own transfer by its counter-booking on our other account (#29)', () => {
+		const out = tx({
+			id: 'T-GLS-OUT',
+			accountId: 'ACC-GLS',
+			bookedOn: '2026-09-17',
+			amountCents: -20000,
+			counterparty: 'LE SPACE UG (HAFTUNGSBESCHRAENKT)',
+			purpose: 'Umbuchung'
+		});
+		const into = tx({
+			id: 'T-REV-IN',
+			accountId: 'ACC-REV',
+			bookedOn: '2026-09-18',
+			amountCents: 20000,
+			counterparty: 'LE SPACE UG (HAFTUNGSBESCHRAENKT)',
+			purpose: 'Umbuchung'
+		});
+		/** @param {Record<string, any>[]} transactions @param {any} [settings] */
+		const context = (transactions, settings = { companyNames: [] }) =>
+			buildMatchingContext({ accounts: ACCOUNTS, transactions, settings });
+
+		it('both sides, without a company name or an IBAN', async () => {
+			const c = await context([out, into]);
+			expect(classifyTransaction(into, c)).toEqual({
+				kind: 'own-transfer',
+				account: '1360',
+				via: 'counter-booking',
+				counterBookingId: 'T-GLS-OUT',
+				counterAccountId: 'ACC-GLS',
+				counterDay: '2026-09-17',
+				sign: 'Umbuchung'
+			});
+			expect(classifyTransaction(out, c)?.counterBookingId).toBe('T-REV-IN');
+		});
+
+		it('only one side imported: no counter-booking, no guess', async () => {
+			expect(classifyTransaction(into, await context([into]))).toBeNull();
+		});
+
+		it('two equal transfers in the window: no guess', async () => {
+			const twin = { ...out, id: 'T-GLS-OUT-2', bookedOn: '2026-09-19' };
+			expect(classifyTransaction(into, await context([out, twin, into]))).toBeNull();
+		});
+
+		it('a vendor refund of the same amount on another account is no transfer (no sign)', async () => {
+			const payment = tx({
+				id: 'T-GLS-PAY',
+				accountId: 'ACC-GLS',
+				bookedOn: '2026-09-10',
+				amountCents: -4999,
+				counterparty: 'Versand Test GmbH',
+				purpose: 'Bestellung 4711'
+			});
+			const refund = tx({
+				id: 'T-REV-REF',
+				accountId: 'ACC-REV',
+				bookedOn: '2026-09-12',
+				amountCents: 4999,
+				counterparty: 'Versand Test GmbH',
+				purpose: 'Erstattung Bestellung 4711'
+			});
+			expect(classifyTransaction(refund, await context([payment, refund]))).toBeNull();
+		});
+
+		it('too far apart, the same account, or marked "keine Umbuchung": not paired', async () => {
+			const late = { ...out, bookedOn: '2026-09-25' };
+			expect(classifyTransaction(into, await context([late, into]))).toBeNull();
+			const sameAccount = { ...out, accountId: 'ACC-REV' };
+			expect(classifyTransaction(into, await context([sameAccount, into]))).toBeNull();
+			const c = await context([out, into], {
+				companyNames: [],
+				notTransfers: [transferPairKey('T-REV-IN', 'T-GLS-OUT')]
+			});
+			expect(classifyTransaction(into, c)).toBeNull();
+		});
 	});
 
 	it('own transfer by company name: neutral account 1360', () => {
@@ -226,14 +309,16 @@ describe('cleanMatchingSettings', () => {
 				{ id: 'ok', field: 'counterparty', contains: 'Miete', action: 'private', reason: '' }
 			],
 			graceDays: 7,
-			feeKeys: []
+			feeKeys: [],
+			notTransfers: []
 		});
 		expect(cleanMatchingSettings(null)).toEqual({
 			companyNames: [],
 			ownIbans: [],
 			rules: [],
 			graceDays: 7,
-			feeKeys: []
+			feeKeys: [],
+			notTransfers: []
 		});
 	});
 

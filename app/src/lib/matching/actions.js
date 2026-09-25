@@ -8,7 +8,7 @@
 
 import { recordEvent } from '../activity/events.js';
 import { getSetting, setSetting } from '../store/settings.js';
-import { cleanMatchingSettings, feeKey } from './classify.js';
+import { cleanMatchingSettings, feeKey, transferPairKey } from './classify.js';
 import { isActive, syncLinks } from './engine.js';
 import { learnFromLink } from './partners.js';
 
@@ -174,6 +174,23 @@ export async function markBankFee(store, transactionId) {
 	});
 	await syncLinks(store);
 	await decided(store, 'bank-fee', { transactionId });
+}
+
+/**
+ * "Keine Umbuchung": the two bookings are not each other's other side; both
+ * need a receipt again (or another rule).
+ *
+ * @param {MatchingStore} store
+ * @param {string} transactionId
+ * @param {string} counterBookingId
+ */
+export async function rejectTransfer(store, transactionId, counterBookingId) {
+	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+	await setSetting(store.settings, 'matching', {
+		...current,
+		notTransfers: [...current.notTransfers, transferPairKey(transactionId, counterBookingId)]
+	});
+	await decided(store, 'not-transfer', { transactionId, counterBookingId });
 }
 
 /**
