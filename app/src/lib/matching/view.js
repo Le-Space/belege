@@ -4,8 +4,10 @@
 
 import { isActive } from './engine.js';
 import { receiptFacts, scorePair, txFacts } from './score.js';
-import { STOP_WORDS } from './normalize.js';
+import { STOP_WORDS, dayNumber, vendorWords } from './normalize.js';
 import { partnerOfTx } from './partners.js';
+import { isOwnName } from './classify.js';
+import { MIRROR_DAYS } from './context.js';
 
 /** @typedef {import('./classify.js').Classification} Classification */
 /** @typedef {{ id: string } & Record<string, any>} Rec */
@@ -90,6 +92,39 @@ export function receiptChoices(tx, receipts, matches, ctx = {}) {
 			return { receipt: r, ...s, suggested: s.score >= 40 };
 		})
 		.sort((a, b) => b.score - a.score || (a.receipt.id < b.receipt.id ? 1 : -1));
+}
+
+/**
+ * A name worth asking "Ist das deine Firma?": a booking on another of our
+ * accounts has the opposite amount within a few days and names the same
+ * counterparty. That is a transfer between our accounts – or a vendor who
+ * refunded to the other account; the person knows which, the matching does
+ * not guess (classify.js).
+ *
+ * @param {Rec} tx
+ * @param {Rec[]} transactions
+ * @param {string[]} [companyNames] already known: nothing to ask
+ * @returns {{ name: string, other: Rec } | null}
+ */
+export function ownNameCandidate(tx, transactions, companyNames = []) {
+	const words = vendorWords(tx.counterparty).join(' ');
+	const day = dayNumber(tx.bookedOn);
+	if (!words || day === null || !tx.amountCents) return null;
+	if (companyNames.some((c) => isOwnName(String(tx.counterparty ?? ''), c))) return null;
+	const other = transactions.find((o) => {
+		const d = dayNumber(o.bookedOn);
+		return (
+			!o.deleted &&
+			o.id !== tx.id &&
+			o.accountId !== tx.accountId &&
+			o.amountCents === -tx.amountCents &&
+			(o.currency ?? 'EUR') === (tx.currency ?? 'EUR') &&
+			d !== null &&
+			Math.abs(d - day) <= MIRROR_DAYS &&
+			vendorWords(o.counterparty).join(' ') === words
+		);
+	});
+	return other ? { name: String(tx.counterparty).trim(), other } : null;
 }
 
 /**

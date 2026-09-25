@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { memoryCollection } from '../bank/test-support.js';
 import { getSetting, setSetting } from '../store/settings.js';
 import { tx } from './fixtures.js';
-import { forgetBankFee, markBankFee, rejectTransfer } from './actions.js';
+import { addCompanyName, forgetBankFee, markBankFee, rejectTransfer } from './actions.js';
 import { buildMatchingContext } from './context.js';
 import { classifyTransaction } from './classify.js';
 
@@ -101,5 +101,25 @@ describe('rejectTransfer', () => {
 		const settings = await getSetting(store.settings, 'matching');
 		expect(settings.companyNames).toEqual(['le space UG']);
 		expect(settings.notTransfers).toHaveLength(1);
+	});
+});
+
+describe('addCompanyName', () => {
+	it('adds the name once, keeps the rest; the transfer is recognised', async () => {
+		const into = await addTx(
+			tx({
+				accountId: 'ACC-REV',
+				amountCents: 20000,
+				counterparty: 'NORDLICHT WERKSTATT GMBH',
+				purpose: 'Claude Code (KI)'
+			})
+		);
+		expect(await classify(into)).toBeNull();
+		await addCompanyName(store, 'NORDLICHT WERKSTATT GMBH');
+		await addCompanyName(store, 'NORDLICHT WERKSTATT GMBH');
+		const settings = await getSetting(store.settings, 'matching');
+		expect(settings.companyNames).toEqual(['le space UG', 'NORDLICHT WERKSTATT GMBH']);
+		expect(settings.rules).toHaveLength(1);
+		expect((await classify(into))?.kind).toBe('own-transfer');
 	});
 });

@@ -11,6 +11,7 @@ import {
 	privateSearchQuery,
 	questionProgress,
 	rankHits,
+	ownNameCandidate,
 	hitScore,
 	likelyHit,
 	receiptChoices,
@@ -238,5 +239,36 @@ describe('hitScore, rankHits and likelyHit', () => {
 	it('no clear winner: no likely hit', () => {
 		expect(likelyHit(rankHits([signIn, newsletter], context), context)).toBeNull();
 		expect(likelyHit([], context)).toBeNull();
+	});
+});
+
+describe('ownNameCandidate', () => {
+	const away = tx({
+		id: 'A',
+		accountId: 'ACC-GLS',
+		bookedOn: '2026-07-18',
+		amountCents: -20000,
+		counterparty: 'LE SPACE UG (HAFTUNGSBESCHRAENKT)',
+		purpose: 'Claude Code (KI)'
+	});
+	const into = tx({
+		id: 'B',
+		accountId: 'ACC-REV',
+		bookedOn: '2026-07-19',
+		amountCents: 20000,
+		counterparty: 'LE SPACE UG (HAFTUNGSBESCHRAENKT)',
+		purpose: 'Claude Code (KI)'
+	});
+	it('the same name on both sides of opposite amounts: ask', () => {
+		expect(ownNameCandidate(into, [away, into])).toMatchObject({
+			name: 'LE SPACE UG (HAFTUNGSBESCHRAENKT)',
+			other: { id: 'A' }
+		});
+	});
+	it('not when the name is known, the other side is missing, far away or on the same account', () => {
+		expect(ownNameCandidate(into, [away, into], ['le space UG'])).toBeNull();
+		expect(ownNameCandidate(into, [into])).toBeNull();
+		expect(ownNameCandidate(into, [{ ...away, bookedOn: '2026-07-30' }, into])).toBeNull();
+		expect(ownNameCandidate(into, [{ ...away, accountId: 'ACC-REV' }, into])).toBeNull();
 	});
 });

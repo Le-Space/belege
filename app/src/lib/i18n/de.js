@@ -810,6 +810,7 @@ export default {
 			'bank-fee': 'Als Bankgebühr eingeordnet',
 			'bank-fee-forget': 'Bankgebühr vergessen',
 			'not-transfer': 'Als „keine Umbuchung“ markiert',
+			'company-name': 'Firmennamen übernommen',
 			'needs-receipt': '„Kein Beleg nötig“ zurückgenommen',
 			'confirm-sender': 'Absender freigegeben',
 			'upload-link': 'Beleg hochgeladen und dieser Zahlung zugeordnet',
@@ -871,6 +872,10 @@ export default {
 			needsReceipt: 'Doch einen Beleg zuordnen',
 			bankFee: 'Bankgebühr – kein Beleg nötig',
 			counterOpen: 'Gegenbuchung öffnen',
+			ownName:
+				'Ist „{name}“ deine Firma? Auf {account} steht am {date} derselbe Betrag in die andere Richtung, mit demselben Namen – das sieht nach einer Umbuchung zwischen deinen Konten aus.',
+			ownNameYes: 'Ja, als Firmennamen übernehmen',
+			ownNameNo: 'Nein, ein Anbieter',
 			notTransfer: 'Keine Umbuchung – Beleg nötig',
 			bankFeeTitle:
 				'Diese Buchung ist ein Entgelt der Bank; der Kontoauszug ist der Beleg. Der Abgleich merkt sich den Verwendungszweck (ohne Zahlen) auf diesem Konto und ordnet die nächste gleiche Buchung selbst ein. Unter Eigene Anweisungen lässt es sich vergessen.',

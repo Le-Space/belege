@@ -39,6 +39,7 @@
 	import { importMailMessages, needsConfirmation } from './receipts/import.js';
 	import { extractReceipt } from './receipts/extract.js';
 	import {
+		addCompanyName,
 		confirmMatch,
 		markBankFee,
 		rejectTransfer,
@@ -55,6 +56,7 @@
 		rankHits,
 		likelyHit,
 		matchOfReceipt,
+		ownNameCandidate,
 		receiptChoices
 	} from './matching/view.js';
 	import {
@@ -437,6 +439,19 @@
 			await setNoReceipt(/** @type {any} */ (currentStore()), txId, reason);
 			askingReason = false;
 			reason = '';
+		});
+
+	let ownName = $derived(
+		tx && !classification && !tx.noReceipt
+			? ownNameCandidate(tx, app.transactions, app.matchingSettings?.companyNames ?? [])
+			: null
+	);
+	let ownNameDismissed = $state(false);
+	const acceptOwnName = () =>
+		act(async () => {
+			if (!ownName) return;
+			await addCompanyName(/** @type {any} */ (currentStore()), ownName.name);
+			await runMatchingNow();
 		});
 
 	const notTransfer = () =>
@@ -847,6 +862,36 @@
 								>
 							</div>
 						{/if}
+					</div>
+				{/if}
+				{#if ownName && !ownNameDismissed}
+					{@const acc = app.accounts.find((a) => a.id === ownName.other.accountId)}
+					<div
+						class="mt-2 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
+						data-testid="tx-own-name"
+					>
+						<p class="text-text">
+							{t('zahlungen.detail.ownName', {
+								name: ownName.name,
+								date: formatDate(ownName.other.bookedOn),
+								account: acc ? `${acc.name} ···${acc.ibanLast4}` : '—'
+							})}
+						</p>
+						<div class="mt-1.5 flex flex-wrap gap-3">
+							<button
+								type="button"
+								class={primary}
+								onclick={acceptOwnName}
+								disabled={busy}
+								data-testid="tx-own-name-yes">{t('zahlungen.detail.ownNameYes')}</button
+							>
+							<button
+								type="button"
+								class="text-sm text-faint underline hover:text-heading"
+								onclick={() => (ownNameDismissed = true)}
+								data-testid="tx-own-name-no">{t('zahlungen.detail.ownNameNo')}</button
+							>
+						</div>
 					</div>
 				{/if}
 				{#if waitDays !== null}
