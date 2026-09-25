@@ -96,9 +96,13 @@ export async function startBridge({
 	if (!llm) log('No LLM is set up: run `pnpm setup:llm`.');
 
 	// Customer portals: a browser with a profile per portal next to bridge.json.
+	// Recorded recipes ("Portal aufzeichnen") are kept next to them.
+	const recipesDir = join(dirname(configPath), 'recipes');
 	const portals = createPortalManager({
-		recipes: buildRecipes(config.portals),
+		recipes: buildRecipes(config.portals, { recipesDir, log }),
 		dir: join(dirname(configPath), 'portals'),
+		recipesDir,
+		rebuild: (id) => buildRecipes(config.portals, { recipesDir, log })[id],
 		headless: portalHeadless,
 		visibleFetch: (id) => config.portals[id]?.headless === false,
 		credentials: async (id) => {

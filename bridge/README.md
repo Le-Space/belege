@@ -49,6 +49,7 @@ addressed to the accounting alias, and sends only redacted text to the LLM.
 | LLM API key | macOS keychain, service `belege-bridge`, account `llm` |
 | A portal password (optional) | macOS keychain, service `belege-bridge`, account `portal:vodafone` |
 | A portal's browser profile (cookies, the live session) and `state.json` (last login, last run) | `~/.config/belege/portals/<portal>/` (0700), next to `bridge.json` |
+| A recorded recipe ("Portal aufzeichnen"): route, download control, review | `~/.config/belege/recipes/<portal>.json` (0600, directory 0700) |
 | Host, port, pinned SHA-256, IBAN suffixes, app origins, hashes of paired tokens; IMAP host/port/user, accounting address; LLM URL, models, terms to black out; a portal's user name | `~/.config/belege/bridge.json` (0600; `BELEGE_BRIDGE_CONFIG` overrides) |
 | The bearer token | the app's encrypted store (`settings`), never on the bridge's disk |
 
@@ -69,12 +70,17 @@ All JSON, `127.0.0.1:8765` by default. Everything except `/health` and `/pair` n
 | `GET /mail/search?text=&amount=&around=YYYY-MM-DD&days=14` | the targeted search in the whole mailbox (Junk included, Trash and Drafts not): the same shape plus `matched` (`"text"`, or which amount spelling) |
 | `GET /llm/status` | `{ configured, provider, models { primary, fallback }, keyConfigured, redactTerms, mail { authServId } }`: the provider's host only (no path, query or `user:password@`), whether the keychain holds a key (yes/no, never the key), and how many terms are blacked out (a count, never the terms) |
 | `POST /extract` `{ text, hints: { subject, from, fileName, receivedAt }, source: { mailId }, confirmedByUser }` | `{ extraction, model, usage { prompt, completion, reasoning }, ms, attempts [{ model, ok, reason, ms, usage }], fallback { used, reason }, redactions { terms, iban, email, street, postcode, total }, sentText }`; 403 `SENDER_UNVERIFIED` for a mail whose sender did not pass, 502 `EXTRACT_FAILED` with the attempts when no model gave a usable answer |
-| `GET /portals` | every portal the bridge knows: `id, name, recipeVersion, state, lastLoginAt, lastRun { at, ok, count, code, step }, running`, with `state` one of `logged-in`, `needs-login`, `never`; starts no browser |
+| `GET /portals` | every portal the bridge knows: `id, name, recipeVersion, state, lastLoginAt, lastRun { at, ok, count, code, step }, running, recordable, recorded, review`, with `state` one of `logged-in`, `needs-login`, `never`; starts no browser |
 | `POST /portals/:id/login` | opens the visible window and answers once logged in: `{ state: 'logged-in' }`; 408 `PORTAL_LOGIN_TIMEOUT` after 10 minutes, 409 `PORTAL_CANCELLED` when the window was closed or the login cancelled |
 | `POST /portals/:id/cancel` | ends a waiting login |
 | `POST /portals/:id/fetch?since=YYYY-MM` `{ known: [invoice ids] }` | lists the invoices from that month on and downloads those not in `known`: `{ listed, skipped, invoices [{ id, date, period, amountCents, invoiceNumber, fileName, size, sha256 }], errors [{ id, code }] }`; 409 `PORTAL_NEEDS_LOGIN` (with `reason`: `never`, `expired`, `otp`, `captcha`, …) when nobody is logged in |
 | `GET /portals/:id/invoice?ref=<invoice id>` | the PDF's bytes, from the last fetch (kept in memory only) |
 | `POST /portals/:id/logout` | logs out on the portal when it can, deletes the profile: `{ state: 'never' }` |
+| `POST /portals/:id/record/start` | "Portal aufzeichnen": opens the visible window on the portal's start page and answers `{ recording: true }` once it is open |
+| `POST /portals/:id/record/stop` | ends the recording (or returns the stopped one): `{ at, download, pausedOnLogin, steps [{ kind: 'click', role, label, download, usable } \| { kind: 'page', path }] }`; 409 `PORTAL_NOT_RECORDED` |
+| `POST /portals/:id/record/save` | the recording becomes the portal's recipe override: `{ saved, recipeVersion, route }`; 422 `PORTAL_RECORDING_NO_DOWNLOAD`, `PORTAL_RECORDING_UNUSABLE`, or `PORTAL_RECIPE_REJECTED` with `step` (a JSON path) and `reason` (`email`, `iban`, `digits`, `shape`) |
+| `POST /portals/:id/record/discard` | ends and drops a recording: `{ discarded }` |
+| `GET /portals/:id/recipe/export` | the saved override as JSON, for sharing; 404 `PORTAL_NO_RECORDED_RECIPE` |
 
 All portal calls answer 409 `PORTAL_BUSY` while another run of the same portal is going on, and 502
 `PORTAL_STEP_FAILED` with `step` when the portal did not look as the recipe expects.
@@ -190,10 +196,37 @@ to need an edit:
   `"headless": false` under `portals.vodafone` in `bridge.json`: fetches then run in a visible
   window too.
 
-**Planned: "Portal aufzeichnen".** Because a recipe is steps + selectors + rules as data, a later
-mode can record the user's clicks in the visible window (Playwright) and write or repair a recipe:
-each action one step, each clicked element one selector. Password fields are never recorded; they
-become the `$password` step marked `secret`, filled from the keychain.
+### Portal aufzeichnen
+
+When the bundled recipe does not find the invoices, record the way once (Integrationen →
+Kundenportale → **Portal aufzeichnen**, after a login). The bridge opens its window on the portal's
+start page (`baseUrl`); you click to your invoices and download one. **Aufzeichnung beenden**
+shows the steps (e.g. `Link ‚Rechnungen‘`, `Button ‚herunterladen‘ (Download)`); **Als Rezept
+speichern** keeps them, **Verwerfen** drops them. From then on every fetch replays the clicks,
+without an LLM (`src/portals/recorder.js`, engine in `src/portals/recipe.js`):
+
+- **What is recorded**: only real (trusted) clicks on `a`, `button` and `[role=button|tab|link|menuitem]`
+  in the top frame. Each becomes one selector: `{ role, name }` by the accessible name, digits
+  turned into `\d+` and anchored (`Rechnung vom 01.07.2026` → `^Rechnung vom \d+\.\d+\.\d+$`),
+  else a stable attribute (`[automation-id]`, `[data-testid]`, …, an `#id` without digits). A
+  control with neither (or whose name holds an e-mail address or an IBAN) is shown as not usable
+  and left out. Pages appear as masked paths in the review only; the replay never opens a recorded
+  URL.
+- **What never is**: input values, keystrokes, anything in or at an input, textarea, select or
+  contenteditable, and anything while a password field is on the page (login pages are only
+  counted). The downloaded file is cancelled and deleted.
+- **The result** is an override in `~/.config/belege/recipes/<portal>.json` (0600): `route` (the
+  clicks before the download), `dom.downloadControls` (the control that downloaded, put before the
+  bundled ones), `recorded { at, steps }`, `verified: false`, version `<bundled>+rec.<day>`. It is
+  merged over the bundled recipe whenever the recipes are built (bridge start, and right after
+  saving); one that does not pass is ignored and logged.
+- **The replay**: with a `route`, `listInvoices` opens `baseUrl` and clicks each target (failures are
+  steps `route.open`, `route.1`, …), then lists by the recipe's strategies as before; the `dom`
+  strategy also finds the recorded `{ role, name }` control. The API strategy, when it works,
+  still comes first.
+- **Sharing**: **Rezept exportieren** (`GET /portals/:id/recipe/export`) downloads the override as
+  JSON, meant for a future open `@le-space/portal-recipes` package. Before it is saved (and when it
+  is read) it is refused if any value holds an e-mail address, an IBAN or a run of five digits.
 
 ### What is stored, and the risks
 

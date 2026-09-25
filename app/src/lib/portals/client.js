@@ -13,7 +13,28 @@ import { t } from '../i18n/index.js';
  * @property {'logged-in' | 'needs-login' | 'never'} state
  * @property {string | null} lastLoginAt
  * @property {{ at: string, ok: boolean, count?: number, refused?: number, code?: string, step?: string | null } | null} lastRun
- * @property {string | null} running
+ * @property {string | null} running login, fetch, logout, record
+ * @property {boolean} [recordable] the bridge can record this portal ("Portal aufzeichnen")
+ * @property {boolean} [recorded] a recorded recipe is saved for it
+ * @property {boolean} [review] a stopped recording waits to be saved or discarded
+ */
+
+/**
+ * @typedef {object} RecordedStep
+ * @property {'click' | 'page'} kind
+ * @property {string} [role] link, button, tab, menuitem, element
+ * @property {string} [label] the control's name, digits as #
+ * @property {boolean} [download]
+ * @property {boolean} [usable] false: no stable selector, left out of the recipe
+ * @property {string} [path] a page, masked
+ */
+
+/**
+ * @typedef {object} RecordingReview
+ * @property {string} at
+ * @property {boolean} download
+ * @property {number} pausedOnLogin
+ * @property {RecordedStep[]} steps
  */
 
 /**
@@ -37,7 +58,13 @@ const MESSAGES = /** @type {Record<string, string>} */ ({
 	PORTAL_STEP_FAILED: 'portals.error.step',
 	PORTAL_BROWSER_MISSING: 'portals.error.browser',
 	PORTAL_PROFILE_IN_USE: 'portals.error.profile',
-	PORTAL_UNKNOWN_INVOICE: 'portals.error.unknownInvoice'
+	PORTAL_UNKNOWN_INVOICE: 'portals.error.unknownInvoice',
+	PORTAL_RECORDING_OFF: 'portals.error.recordingOff',
+	PORTAL_NOT_RECORDED: 'portals.error.notRecorded',
+	PORTAL_RECORDING_NO_DOWNLOAD: 'portals.error.noDownload',
+	PORTAL_RECORDING_UNUSABLE: 'portals.error.unusable',
+	PORTAL_RECIPE_REJECTED: 'portals.error.rejected',
+	PORTAL_NO_RECORDED_RECIPE: 'portals.error.noRecipe'
 });
 
 export class PortalError extends BridgeError {
@@ -122,7 +149,22 @@ export function createPortalClient({ url, token, fetch: f = fetch }) {
 				call(`${at(id)}/invoice?${new URLSearchParams({ ref: invoiceId })}`, {}, true)
 			),
 		/** @param {string} id */
-		logout: (id) => call(`${at(id)}/logout`, { method: 'POST' })
+		logout: (id) => call(`${at(id)}/logout`, { method: 'POST' }),
+		/** "Portal aufzeichnen": opens the window on the portal's start page. @param {string} id */
+		recordStart: (id) => call(`${at(id)}/record/start`, { method: 'POST' }),
+		/**
+		 * Ends the recording; the steps for review.
+		 *
+		 * @param {string} id
+		 * @returns {Promise<RecordingReview>}
+		 */
+		recordStop: (id) => call(`${at(id)}/record/stop`, { method: 'POST' }),
+		/** @param {string} id @returns {Promise<{ saved: boolean, recipeVersion: string, route: number }>} */
+		recordSave: (id) => call(`${at(id)}/record/save`, { method: 'POST' }),
+		/** @param {string} id */
+		recordDiscard: (id) => call(`${at(id)}/record/discard`, { method: 'POST' }),
+		/** The saved recipe override, as JSON to share. @param {string} id */
+		exportRecipe: (id) => call(`${at(id)}/recipe/export`)
 	};
 }
 

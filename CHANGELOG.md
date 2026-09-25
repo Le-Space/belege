@@ -21,6 +21,16 @@ All notable changes to Le Space Belege. The format follows
   API with the headers the logged-in page sent, else from the page. The Vodafone recipe is
   written without visiting the live portal and may need an edit on the first real run. The
   consent screen lists the portals (version 3, so it opens once more).
+- **"Portal aufzeichnen".** Integrationen → Kundenportale: click through the portal once in the
+  bridge's window, from the start page to the invoices, and download one. The bridge records the
+  trusted clicks on links, buttons, tabs and menu items as `{ role, name }` selectors (digits as
+  `\d+`, anchored) or stable attributes – never an input value, a keystroke or anything on a page
+  with a password field – and the control that downloaded. After a review ("Als Rezept speichern"
+  / "Verwerfen") it is saved as a recipe override `~/.config/belege/recipes/<portal>.json` (0600),
+  merged over the bundled recipe; later fetches replay the route without an LLM. The override is
+  refused when it would hold an e-mail address, an IBAN or five digits in a row, and can be
+  exported as JSON for sharing. New endpoints `POST /portals/:id/record/{start,stop,save,discard}`
+  and `GET /portals/:id/recipe/export`.
 
 ## [0.1.0] – 2026-09-24
 

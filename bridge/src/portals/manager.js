@@ -13,7 +13,12 @@
 // - Every download must be a PDF by its bytes and at most 15 MB. The bytes
 //   are kept in memory for the app to pick up (GET …/invoice), never on disk
 //   outside the browser's own download folder, which Playwright deletes.
-// - One run at a time per portal.
+// - Record ("Portal aufzeichnen", ./recorder.js): the visible window on the
+//   portal's start page; the user clicks to the invoices and downloads one.
+//   Stop returns the steps for review, save writes the route as a local
+//   recipe override (<config dir>/recipes/<id>.json, 0600) and rebuilds the
+//   portal's recipe, so the next fetch replays it.
+// - One run at a time per portal; a recording counts as one.
 //
 // Nothing of a page (text, HTML, screenshots) is logged, stored or sent
 // anywhere; the log names the step that failed. No LLM is involved.
@@ -24,8 +29,17 @@ import { join } from 'node:path';
 
 import { PortalError, busy, needsLogin, stepFailed, unknownPortal } from './errors.js';
 import { MAX_INVOICE_BYTES, isPdf } from './pdf.js';
+import {
+	buildOverride,
+	readOverride,
+	review,
+	startRecording,
+	validateOverride,
+	writeOverride
+} from './recorder.js';
 
 export const LOGIN_TIMEOUT_MS = 10 * 60 * 1000;
+export const RECORD_TIMEOUT_MS = 30 * 60 * 1000;
 
 /**
  * @typedef {object} PortalState what is on disk in state.json; no secret, no page content
@@ -72,8 +86,11 @@ export async function launchChromium(profileDir, { headless }) {
  * @param {'auto' | 'always'} [options.headless] `always` only in tests: nobody could act in a window
  * @param {(id: string) => boolean} [options.visibleFetch] true: fetches in a visible window too
  * @param {number} [options.loginTimeoutMs]
+ * @param {number} [options.recordTimeoutMs] a recording nobody stops ends by itself
+ * @param {string} [options.recipesDir] <config dir>/recipes, where recordings are saved; none: recording is off
+ * @param {(id: string) => import('./recipe.js').Recipe} [options.rebuild] the portal's recipe as built from disk again
  * @param {(event: { portal: string, reason: string, page: import('playwright').Page }) => void} [options.onUserNeeded]
- *   for tests: what a person would do in the window
+ *   for tests: what a person would do in the window (reason `record` while recording)
  * @param {(line: string) => void} [options.log]
  */
 export function createPortalManager({
@@ -84,6 +101,9 @@ export function createPortalManager({
 	headless = 'auto',
 	visibleFetch = () => false,
 	loginTimeoutMs = LOGIN_TIMEOUT_MS,
+	recordTimeoutMs = RECORD_TIMEOUT_MS,
+	recipesDir,
+	rebuild,
 	onUserNeeded,
 	log = () => {}
 }) {
@@ -91,6 +111,10 @@ export function createPortalManager({
 	const running = new Map();
 	/** @type {Map<string, Map<string, { meta: InvoiceMeta, bytes: Buffer | null, ref: any }>>} */
 	const invoices = new Map();
+	/** @type {Map<string, { stop: () => Promise<void> }>} recordings in progress */
+	const recordings = new Map();
+	/** @type {Map<string, import('./recorder.js').Recording>} stopped, not yet saved or discarded */
+	const recorded = new Map();
 
 	/** @param {string} id */
 	function recipeOf(id) {
@@ -277,7 +301,10 @@ export function createPortalManager({
 								: 'needs-login',
 					lastLoginAt: state.lastLoginAt,
 					lastRun: state.lastRun,
-					running: running.get(id)?.kind ?? null
+					running: running.get(id)?.kind ?? null,
+					recordable: Boolean(recipesDir && rebuild),
+					recorded: Boolean(recipe.definition.recorded),
+					review: recorded.has(id)
 				});
 			}
 			return out;
@@ -470,7 +497,129 @@ export function createPortalManager({
 			});
 		},
 
-		/** Cancels waiting logins; for the bridge's shutdown. */
+		/**
+		 * Opens the visible window on the portal's start page and records the
+		 * user's clicks until `recordStop`. Returns once the page is open.
+		 *
+		 * @param {string} id
+		 */
+		async recordStart(id) {
+			const recipe = recipeOf(id);
+			if (!recipesDir || !rebuild) throw recordingOff();
+			if (running.has(id)) throw busy(id);
+			/** @type {() => void} */
+			let cancel = () => {};
+			running.set(id, { kind: 'record', cancel: () => cancel() });
+			recorded.delete(id);
+			try {
+				const step = stepper(id);
+				const { context, page } = await open(id, false);
+				const session = await startRecording({
+					context,
+					recipe,
+					log: (line) => log(`portal ${id}: ${line}`)
+				}).catch(async (error) => {
+					await context.close().catch(() => {});
+					throw error;
+				});
+				/** @type {Promise<void> | null} */
+				let stopping = null;
+				// Once, whoever ends it first (stop, discard, the window, the timeout); the others wait for it.
+				const stop = () => (stopping ??= end());
+				const end = async () => {
+					clearTimeout(timer);
+					recorded.set(id, await session.stop());
+					recordings.delete(id);
+					running.delete(id);
+					await context.close().catch(() => {});
+					const r = session.recording;
+					log(
+						`portal ${id}: recording stopped: ${r.steps.filter((s) => s.kind === 'click').length} click(s), download ${r.download ? 'seen' : 'not seen'}, ${r.pausedOnLogin} on a login page not recorded`
+					);
+				};
+				const timer = setTimeout(() => void stop(), recordTimeoutMs);
+				// Closing the window ends the recording too; what was recorded stays for review.
+				context.once('close', () => void stop());
+				cancel = () => void stop();
+				recordings.set(id, { stop });
+				try {
+					await step('record.open', () => page.goto(recipe.baseUrl));
+				} catch (error) {
+					await stop();
+					recorded.delete(id);
+					throw error;
+				}
+				log(`portal ${id}: recording`);
+				onUserNeeded?.({ portal: id, reason: 'record', page });
+				return { recording: true };
+			} catch (error) {
+				if (!recordings.has(id)) running.delete(id);
+				throw error;
+			}
+		},
+
+		/**
+		 * Ends the recording (if one runs) and returns its steps for review:
+		 * roles, labels and masked paths only.
+		 *
+		 * @param {string} id
+		 */
+		async recordStop(id) {
+			recipeOf(id);
+			await recordings.get(id)?.stop();
+			const r = recorded.get(id);
+			if (!r) throw nothingRecorded();
+			return review(r);
+		},
+
+		/**
+		 * Saves the stopped recording as the portal's recipe override and
+		 * rebuilds the recipe: the next fetch replays the route.
+		 *
+		 * @param {string} id
+		 */
+		async recordSave(id) {
+			const recipe = recipeOf(id);
+			if (!recipesDir || !rebuild) throw recordingOff();
+			if (running.has(id)) throw busy(id);
+			const r = recorded.get(id);
+			if (!r) throw nothingRecorded();
+			const patch = validateOverride(buildOverride(recipe.definition, r), id);
+			writeOverride(recipesDir, id, patch);
+			recipes[id] = rebuild(id);
+			recorded.delete(id);
+			log(`portal ${id}: recorded recipe saved (${patch.route.length} route step(s))`);
+			return { saved: true, recipeVersion: recipes[id].version, route: patch.route.length };
+		},
+
+		/** Ends a recording and drops it, or drops a stopped one. @param {string} id */
+		async recordDiscard(id) {
+			recipeOf(id);
+			await recordings.get(id)?.stop();
+			const had = recorded.delete(id);
+			if (had) log(`portal ${id}: recording discarded`);
+			return { discarded: had };
+		},
+
+		/**
+		 * The saved override, for sharing (a future @le-space/portal-recipes).
+		 *
+		 * @param {string} id
+		 */
+		recipeExport(id) {
+			recipeOf(id);
+			const patch = recipesDir ? readOverride(recipesDir, id) : null;
+			if (!patch) {
+				throw new PortalError(
+					'This portal has no recorded recipe.',
+					'PORTAL_NO_RECORDED_RECIPE',
+					404
+				);
+			}
+			return patch;
+		},
+
+		/** Cancels waiting logins and ends recordings; for the bridge's shutdown. */
 		close() {
 			for (const run of running.values()) run.cancel();
 		}
@@ -505,6 +654,12 @@ export function createPortalManager({
 		return bytes;
 	}
 }
+
+const recordingOff = () =>
+	new PortalError('Recording is not available on this bridge.', 'PORTAL_RECORDING_OFF', 503);
+
+const nothingRecorded = () =>
+	new PortalError('Nothing was recorded; start a recording first.', 'PORTAL_NOT_RECORDED', 409);
 
 /**
  * What a download is instead of a PDF, from its first bytes; its content is never logged.

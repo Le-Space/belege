@@ -85,3 +85,45 @@ export async function present(page, selectors) {
 	}
 	return false;
 }
+
+/** The ARIA roles a recorded click may name (portals/recorder.js). */
+export const CLICK_ROLES = new Set(['link', 'button', 'tab', 'menuitem']);
+
+/** @param {unknown} p @returns {boolean} */
+function isPattern(p) {
+	if (p instanceof RegExp) return true;
+	const q = /** @type {any} */ (p);
+	if (typeof q?.re !== 'string' || q.re.length > 300) return false;
+	if (q.flags !== undefined && !/^[imsu]{0,4}$/.test(q.flags)) return false;
+	try {
+		toRegExp(q);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Whether `s` has the shape of one selector: exactly one kind, a compiling pattern.
+ *
+ * @param {unknown} s
+ * @returns {s is Selector}
+ */
+export function isSelector(s) {
+	if (!s || typeof s !== 'object' || Array.isArray(s)) return false;
+	const o = /** @type {any} */ (s);
+	const keys = Object.keys(o);
+	if ('css' in o) return keys.length === 1 && typeof o.css === 'string' && o.css.length <= 200;
+	if ('role' in o) {
+		return (
+			keys.every((k) => k === 'role' || k === 'name') &&
+			typeof o.role === 'string' &&
+			/^[a-z]{2,20}$/.test(o.role) &&
+			(o.name === undefined || isPattern(o.name))
+		);
+	}
+	for (const kind of ['label', 'placeholder', 'text']) {
+		if (kind in o) return keys.length === 1 && isPattern(o[kind]);
+	}
+	return false;
+}
