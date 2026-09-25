@@ -36,6 +36,8 @@ export const app = $state({
 	classifications: {},
 	/** @type {any} the stored "Eigene Anweisungen" (settings key `matching`) */
 	matchingSettings: null,
+	/** @type {any} the stored DATEV values (settings key `datev`, booking/settings.js) */
+	datevSettings: null,
 	/** whether an "Abgleich" is running */
 	matching: false,
 	/** @type {import('./matching/engine.js').MatchingProgress | null} where the running "Abgleich" is */
@@ -57,17 +59,27 @@ export function currentBlobs() {
 
 async function refresh() {
 	if (!session) return;
-	const [transactions, receipts, partners, accounts, matches, questions, events, matchingSettings] =
-		await Promise.all([
-			session.store.transactions.list(),
-			session.store.receipts.list(),
-			session.store.partners.list(),
-			session.store.accounts.list(),
-			session.store.matches.list(),
-			session.store.questions.list(),
-			session.store.events.list(),
-			getSetting(session.store.settings, 'matching')
-		]);
+	const [
+		transactions,
+		receipts,
+		partners,
+		accounts,
+		matches,
+		questions,
+		events,
+		matchingSettings,
+		datevSettings
+	] = await Promise.all([
+		session.store.transactions.list(),
+		session.store.receipts.list(),
+		session.store.partners.list(),
+		session.store.accounts.list(),
+		session.store.matches.list(),
+		session.store.questions.list(),
+		session.store.events.list(),
+		getSetting(session.store.settings, 'matching'),
+		getSetting(session.store.settings, 'datev')
+	]);
 	const ctx = await buildMatchingContext({
 		accounts,
 		transactions,
@@ -89,6 +101,7 @@ async function refresh() {
 	app.events = events;
 	app.classifications = classifications;
 	app.matchingSettings = matchingSettings;
+	app.datevSettings = datevSettings;
 }
 
 /** @type {Promise<unknown>} */
@@ -290,6 +303,8 @@ function installE2EHooks() {
 				peerKey: hex(secrets.peerKey)
 			};
 		},
-		addTransaction: (/** @type {Record<string, any>} */ tx) => session?.store.transactions.put(tx)
+		addTransaction: (/** @type {Record<string, any>} */ tx) => session?.store.transactions.put(tx),
+		// A bank account as an import creates it (bank/import.js), for the export spec.
+		addAccount: (/** @type {Record<string, any>} */ account) => session?.store.accounts.put(account)
 	};
 }

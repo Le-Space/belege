@@ -584,6 +584,32 @@ export default {
 		graceUnit: 'Tagen',
 		graceHint:
 			'Ein Beleg kommt oft ein paar Tage nach der Abbuchung. So lange zählt die Zahlung als ohne Beleg, aber der Abgleich fragt noch nicht. 0 = sofort fragen.',
+		books: {
+			title: 'Buchhaltung (MonkeyOffice / DATEV)',
+			hint: 'Was der DATEV-Export über deine Buchhaltung wissen muss. Prüfe die Werte in MonkeyOffice – dort steht, was es beim Import erwartet.',
+			ledger: 'Sachkonto in MonkeyOffice',
+			ledgerHint:
+				'Das Sachkonto, unter dem dieses Bankkonto in deiner Buchhaltung geführt wird. Vorschlag nach SKR 03: {suggestion} – nur ein Platzhalter, trag die Nummer aus MonkeyOffice ein.',
+			noAccounts: 'Noch keine Bankkonten in den Büchern.',
+			consultant: 'Beraternummer',
+			client: 'Mandantennummer',
+			numbersHint:
+				'Für die eigene Buchhaltung ohne Steuerberatung nimmt MonkeyOffice meist 1001 und 1. Prüfe in MonkeyOffice, was es beim DATEV-Import erwartet.',
+			fiscalStart: 'Wirtschaftsjahr beginnt im',
+			accountLength: 'Sachkontenlänge',
+			accountLengthHint: 'Stellen deiner Sachkonten, bei SKR 03 meist 4.',
+			taxKeys: 'BU-Schlüssel',
+			taxKeysHint:
+				'Die Schlüssel, die die App aus dem Beleg vorschlägt. Voreingestellt nach SKR 03; ändere sie nur nach Rücksprache mit deiner Steuerberatung.',
+			input19: 'Vorsteuer 19 %',
+			input7: 'Vorsteuer 7 %',
+			output19: 'Umsatzsteuer 19 %',
+			output7: 'Umsatzsteuer 7 %',
+			reverseCharge: '§13b (Reverse Charge)',
+			reverseChargeHint: 'mit der Steuerberatung prüfen',
+			invalidLedger: 'Ein Sachkonto hat 4 bis 8 Ziffern: {name}',
+			learnedAccount: 'Konto {account}'
+		},
 		save: 'Speichern',
 		saved: 'Gespeichert. Der Abgleich läuft mit den neuen Anweisungen.',
 		ruleText: '{field} „{contains}“ → {action}'
@@ -832,12 +858,64 @@ export default {
 			'needs-receipt': '„Kein Beleg nötig“ zurückgenommen',
 			'confirm-sender': 'Absender freigegeben',
 			'upload-link': 'Beleg hochgeladen und dieser Zahlung zugeordnet',
+			booking: 'Konto übernommen',
+			bookings: 'Automatische Konten übernommen',
 			answer: 'Rückfrage beantwortet: {choice}'
 		},
 		source: { hibiscus: 'Hibiscus', camt: 'CAMT-Import' },
 		technical: [
 			'Jeder Eintrag ist ein Datensatz der versiegelten OrbitDB-Sammlung events (AES-GCM wie alle anderen): Art, Zeitpunkt, die IDs von Beleg, Zahlung, Zuordnung oder Rückfrage und Zahlen – Modell, Dauer, Tokens, Schwärzungen je Art, Treffer. Kein Token, kein Schlüssel, kein Belegtext.',
 			'Geschrieben wird er von der Aktion selbst: Synchronisieren, CAMT-Import, E-Mail-Abruf, Auslesen, Abgleich und jede Entscheidung. Ein automatischer Abgleich, der nichts ändert, schreibt keinen Eintrag; ein von dir gestarteter immer.'
+		]
+	},
+	booking: {
+		title: 'Konto',
+		intro:
+			'Auf welches Konto diese Zahlung gebucht wird (Gegenkonto, SKR 03) und mit welchem BU-Schlüssel. Die App schlägt vor, du übernimmst – exportiert wird nur, was du übernommen hast.',
+		suggestion: 'Vorschlag',
+		source: {
+			transfer: 'Umbuchung',
+			fee: 'Bankgebühr',
+			learned: 'gelernt',
+			learnedFrom: 'gelernt von {vendor}',
+			confirmed: 'übernommen',
+			none: 'Kein Vorschlag – wähle ein Konto aus der Liste oder gib eine Nummer ein.'
+		},
+		account: 'Gegenkonto',
+		accountPlaceholder: 'Nummer oder Name, z. B. 4930 oder Büro',
+		ownNumber: 'Eigene Kontonummer, nicht im Katalog',
+		taxKey: 'BU-Schlüssel',
+		taxKeyPlaceholder: 'leer = ohne',
+		taxVia: {
+			vat19: 'Aus dem Beleg: USt 19 %',
+			vat7: 'Aus dem Beleg: USt 7 %',
+			'reverse-charge': 'Aus dem Beleg: §13b (Reverse Charge) – mit der Steuerberatung prüfen',
+			'reverse-charge-income':
+				'Beleg mit Reverse Charge auf einer Einnahme – kein Schlüssel, mit der Steuerberatung prüfen',
+			'no-vat': 'Der Beleg weist keine Umsatzsteuer aus – kein Schlüssel',
+			'other-rate': 'Der Beleg hat {rate} % – kein deutscher Satz, bitte selbst prüfen',
+			mixed: 'Der Beleg hat mehrere Steuersätze – bitte selbst prüfen',
+			'no-receipt': 'Ohne Beleg kein Schlüssel aus dem Beleg',
+			automatic: 'Automatikkonto: die Umsatzsteuer steckt im Konto, kein BU-Schlüssel',
+			learned: 'Vom Anbieter gelernt',
+			confirmed: 'Übernommen',
+			none: 'Ohne Umsatzsteuer'
+		},
+		confirm: 'Übernehmen',
+		confirmChange: 'Änderung übernehmen',
+		confirmed: 'Übernommen: {account} · {key} · am {date}',
+		keyValue: 'BU {key}',
+		keyNone: 'ohne BU-Schlüssel',
+		notConfirmed:
+			'Noch nicht übernommen – ohne übernommenes Konto kann dieser Monat nicht exportiert werden.',
+		invalidAccount: 'Ein Konto hat 4 bis 8 Ziffern.',
+		invalidKey: 'Ein BU-Schlüssel hat bis zu 4 Ziffern.',
+		catalogueNote:
+			'Die Kontenliste ist ein Ausgangspunkt nach SKR 03 – welches Konto richtig ist, entscheidest du mit deiner Steuerberatung.',
+		technical: [
+			'Übernommen wird auf der Zahlung selbst: booking = { account, taxKey, confirmedAt }, versiegelt wie jeder Datensatz.',
+			'Vorschläge in dieser Reihenfolge: eigene Umbuchung → 1360, Bankgebühr → 4970 (beide ohne Schlüssel), sonst das Konto, das du diesem Anbieter zuletzt gegeben hast (partners: account, taxKey – über den Anbieter des Belegs oder die Gegenpartei auf dem Kontoauszug).',
+			'Der BU-Schlüssel kommt aus dem ausgelesenen Beleg: USt 19 % → 9 (Einnahme 3), 7 % → 8 (Einnahme 2), reverse_charge → 94; die Schlüssel lassen sich unter Eigene Anweisungen ändern. Nichts davon fragt ein Sprachmodell.'
 		]
 	},
 	export: {
@@ -856,6 +934,8 @@ export default {
 		searchPlaceholder: 'Suchen: Name, Betrag, Datum',
 		receiptFilter: 'Belegfilter',
 		withoutReceipt: 'Nur ohne Beleg ({count})',
+		withoutAccount: 'Ohne Konto ({count})',
+		noAccountBadge: 'ohne Konto',
 		all: 'Alle ({count})',
 		months: 'Monate',
 		coverage: 'Belegabdeckung {month}',

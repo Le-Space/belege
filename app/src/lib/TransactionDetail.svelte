@@ -2,13 +2,15 @@
 	// One booking in full: counterparty, date, the whole purpose, the amount;
 	// its receipt(s) with a preview; the other payments to the same
 	// counterparty; and what a person can do: link a receipt, undo a link,
-	// "Kein Beleg nötig", and – only on a click – search the private mailbox
-	// for the missing receipt (only the hits are read), or fetch it from the
-	// vendor's customer portal ("Beim Anbieter holen": a portal whose name fits
+	// "Kein Beleg nötig", confirm its account ("Konto", BookingBlock.svelte),
+	// and – only on a click – search the private mailbox for the missing
+	// receipt (only the hits are read), or fetch it from the vendor's customer
+	// portal ("Beim Anbieter holen": a portal whose name fits
 	// the counterparty, else "Neues Portal aufzeichnen" for it). A fetched
 	// invoice that fits this booking is offered for it, as the person's decision.
 	import { onMount } from 'svelte';
 	import ReceiptPreview from './ReceiptPreview.svelte';
+	import BookingBlock from './BookingBlock.svelte';
 	import TechnicalNote from './TechnicalNote.svelte';
 	import AiMark from './AiMark.svelte';
 	import { recordEvent } from './activity/events.js';
@@ -1130,6 +1132,8 @@
 					</div>
 				{/if}
 			</section>
+
+			<BookingBlock {tx} />
 
 			<section class="mt-4 rounded-lg border border-border bg-surface px-4 py-3 shadow-sm">
 				<h3 class="text-sm font-semibold text-heading">{t('zahlungen.detail.privateSearch')}</h3>

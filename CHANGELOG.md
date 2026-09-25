@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Account assignment (_Konto_, SKR 03).** Every booking gets a contra account and a BU key: the app suggests, the person confirms with _Übernehmen_ (stored sealed on the transaction as `booking: { account, taxKey, confirmedAt }`). Suggestions: own transfer → 1360, bank fee → 4970 (no BU key), else the account the person gave this vendor last time (_gelernt_: confirming a booking whose receipt names a vendor stores `account` and `taxKey` on the vendor's partner record), else a small SKR 03 catalogue to search, or any 4–8 digit number. The BU key comes from the receipt: VAT 19 % → 9, 7 % → 8 on money out, 3 / 2 on money in, `reverse_charge` → 94 (to be checked with the tax adviser), none on an Automatikkonto (8400, 8300). _Zahlungen_ marks bookings _ohne Konto_ and filters them. _Eigene Anweisungen → Buchhaltung (MonkeyOffice / DATEV)_: each bank account's ledger account (placeholder 1200, 1210, …), Beraternummer, Mandantennummer, start of the fiscal year, Sachkontenlänge and the BU keys.
+
 ## [0.2.0] – 2026-09-25
 
 ### Added
