@@ -1,6 +1,7 @@
 {
 	"name": "@belege/bridge",
 	"private": true,
+	"license": "AGPL-3.0-or-later",
 	"version": "0.2.0",
 	"description": "The belege bridge on 127.0.0.1: what a browser cannot do (Hibiscus XML-RPC, IMAP, the LLM call, customer portals).",
 	"type": "module",

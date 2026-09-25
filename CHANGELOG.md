@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **License.** App and bridge under AGPL-3.0-or-later (`LICENSE`); the portal recipes in
+  `bridge/src/portals/recipes/` under MIT, so they can be reused anywhere.
 - **Customer portals – Vodafone MeinKabel.** The bridge starts its own Chromium (Playwright) with
   a persistent profile per portal (`~/.config/belege/portals/<portal>/profile`, 0700): the first
   login happens in a visible window (the user types any one-time code or bot check), later runs
