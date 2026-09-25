@@ -2,6 +2,10 @@
 	// Integrationen → Kundenportale: each portal the bridge knows, its session,
 	// and "Anmelden" (a window on the bridge's Mac), "Rechnungen holen" (from
 	// a month on) and "Abmelden" (ends the session, deletes the profile).
+	// "Portal aufzeichnen": the user clicks to the invoices once in the bridge's
+	// window and downloads one; the steps are shown for review, then saved as
+	// the portal's recipe (replayed by later fetches) or discarded, and the
+	// saved recipe can be exported as JSON.
 	// Fetched invoices become receipts (source 'portal'), are read by the LLM
 	// when the bridge has one, and go through the matching like every receipt.
 	import TechnicalNote from '../TechnicalNote.svelte';
@@ -25,6 +29,8 @@
 	let results = $state({});
 	/** @type {Record<string, string>} */
 	let errors = $state({});
+	/** @type {Record<string, import('./client.js').RecordingReview>} stopped recordings, per portal */
+	let reviews = $state({});
 
 	/** Three months back by default. */
 	const now = new Date();
@@ -42,6 +48,13 @@
 	async function load(c) {
 		try {
 			portals = await c.list();
+			// A recording stopped before the page was reloaded: fetch its review again.
+			for (const p of portals) {
+				if (p.review && !reviews[p.id]) {
+					const r = await c.recordStop(p.id).catch(() => null);
+					if (r) reviews = { ...reviews, [p.id]: r };
+				}
+			}
 		} catch (error) {
 			errors = { ...errors, _: message(error) };
 		} finally {
@@ -49,7 +62,7 @@
 		}
 	}
 
-	/** @param {Record<string, string>} map @param {string} key */
+	/** @template T @param {Record<string, T>} map @param {string} key @returns {Record<string, T>} */
 	const without = (map, key) => Object.fromEntries(Object.entries(map).filter(([k]) => k !== key));
 
 	/** @param {unknown} error */
@@ -139,6 +152,60 @@
 			if (counts.new) await runMatchingNow();
 		});
 
+	/** @param {string} id */
+	const recordStart = (id) =>
+		run(id, 'record', async () => {
+			reviews = without(reviews, id);
+			await client.recordStart(id);
+		});
+
+	/** @param {string} id */
+	const recordStop = (id) =>
+		run(id, 'record-stop', async () => {
+			reviews = { ...reviews, [id]: await client.recordStop(id) };
+		});
+
+	/** @param {string} id */
+	const recordSave = (id) =>
+		run(id, 'record-save', async () => {
+			await client.recordSave(id);
+			reviews = without(reviews, id);
+			results = { ...results, [id]: t('portals.record.saved') };
+		});
+
+	/** @param {string} id */
+	const recordDiscard = (id) =>
+		run(id, 'record-discard', async () => {
+			await client.recordDiscard(id);
+			reviews = without(reviews, id);
+		});
+
+	/** The saved recipe as a JSON file. @param {string} id */
+	const exportRecipe = (id) =>
+		run(id, 'export', async () => {
+			const recipe = await client.exportRecipe(id);
+			const blob = new Blob([`${JSON.stringify(recipe, null, '\t')}\n`], {
+				type: 'application/json'
+			});
+			const href = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = href;
+			a.download = `portal-recipe-${id}.json`;
+			a.click();
+			setTimeout(() => URL.revokeObjectURL(href), 1000);
+		});
+
+	/** @param {import('./client.js').RecordedStep} step */
+	function stepText(step) {
+		if (step.kind === 'page') return t('portals.record.page', { path: step.path ?? '' });
+		const role = t(`portals.record.role.${step.role ?? 'element'}`);
+		return (
+			(step.label ? `${role} ‚${step.label}‘` : role) +
+			(step.download ? t('portals.record.download') : '') +
+			(step.usable === false ? t('portals.record.unusable') : '')
+		);
+	}
+
 	/** @param {string | null | undefined} iso */
 	const day = (iso) => (iso ? formatDate(iso.slice(0, 10)) : '');
 
@@ -198,7 +265,27 @@
 					</div>
 
 					<div class="mt-3 flex flex-wrap items-end gap-3">
-						{#if busy[portal.id] === 'login'}
+						{#if portal.running === 'record'}
+							<div class="w-full" data-testid="portal-recording">
+								<p class="text-sm text-heading" role="status">{t('portals.record.hint')}</p>
+								<div class="mt-2 flex flex-wrap gap-3">
+									<button
+										type="button"
+										class={primary}
+										disabled={Boolean(busy[portal.id])}
+										onclick={() => recordStop(portal.id)}
+										data-testid="portal-record-stop">{t('portals.record.stop')}</button
+									>
+									<button
+										type="button"
+										class={button}
+										disabled={Boolean(busy[portal.id])}
+										onclick={() => recordDiscard(portal.id)}
+										data-testid="portal-record-discard">{t('portals.record.discard')}</button
+									>
+								</div>
+							</div>
+						{:else if busy[portal.id] === 'login'}
 							<p class="text-sm text-heading" role="status" data-testid="portal-waiting">
 								{t('portals.loggingIn')}
 							</p>
@@ -244,9 +331,78 @@
 									onclick={() => logout(portal.id)}
 									data-testid="portal-logout">{t('portals.logout')}</button
 								>
+								{#if portal.recordable && !reviews[portal.id]}
+									<button
+										type="button"
+										class={button}
+										disabled={Boolean(busy[portal.id])}
+										title={t('portals.record.startHint')}
+										onclick={() => recordStart(portal.id)}
+										data-testid="portal-record">{t('portals.record.start')}</button
+									>
+								{/if}
+								{#if portal.recorded}
+									<button
+										type="button"
+										class="text-sm text-text underline hover:text-heading disabled:opacity-50"
+										disabled={Boolean(busy[portal.id])}
+										title={t('portals.record.exportHint')}
+										onclick={() => exportRecipe(portal.id)}
+										data-testid="portal-recipe-export">{t('portals.record.export')}</button
+									>
+								{/if}
 							{/if}
 						{/if}
 					</div>
+					{#if reviews[portal.id] && portal.running !== 'record'}
+						{@const review = reviews[portal.id]}
+						<div
+							class="mt-3 rounded-md border border-border bg-surface-2 px-3 py-2"
+							data-testid="portal-review"
+						>
+							<p class="text-sm font-medium text-heading">{t('portals.record.reviewTitle')}</p>
+							{#if review.steps.some((s) => s.kind === 'click')}
+								<ol class="mt-1 list-decimal pl-5 text-sm text-text">
+									{#each review.steps as step, i (i)}
+										<li
+											class={step.kind === 'page' ? 'list-none text-xs text-faint' : ''}
+											data-testid={step.kind === 'click' ? 'portal-review-step' : null}
+										>
+											{stepText(step)}
+										</li>
+									{/each}
+								</ol>
+							{:else}
+								<p class="mt-1 text-sm text-text">{t('portals.record.none')}</p>
+							{/if}
+							{#if review.pausedOnLogin > 0}
+								<p class="mt-1 text-xs text-faint">
+									{t('portals.record.paused', { count: review.pausedOnLogin })}
+								</p>
+							{/if}
+							{#if !review.download}
+								<p class="mt-1 text-sm text-danger" data-testid="portal-review-no-download">
+									{t('portals.record.noDownload')}
+								</p>
+							{/if}
+							<div class="mt-2 flex flex-wrap gap-3">
+								<button
+									type="button"
+									class={primary}
+									disabled={Boolean(busy[portal.id]) || !review.download}
+									onclick={() => recordSave(portal.id)}
+									data-testid="portal-record-save">{t('portals.record.save')}</button
+								>
+								<button
+									type="button"
+									class={button}
+									disabled={Boolean(busy[portal.id])}
+									onclick={() => recordDiscard(portal.id)}
+									data-testid="portal-review-discard">{t('portals.record.discard')}</button
+								>
+							</div>
+						</div>
+					{/if}
 					{#if busy[portal.id] === 'login' || portal.state !== 'logged-in'}
 						<p class="mt-2 text-xs text-faint">{t('portals.loginHint')}</p>
 					{/if}

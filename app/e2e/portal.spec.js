@@ -5,7 +5,8 @@
 //
 // Pair → sync → Integrationen → Kundenportale: Anmelden → Rechnungen holen →
 // the invoices are receipts of source "Vodafone MeinKabel", read, and the
-// one with the booked invoice number is matched → Abmelden.
+// one with the booked invoice number is matched → Portal aufzeichnen (started,
+// stopped, discarded) → Abmelden.
 import { test, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { mkdtemp, rm, stat } from 'node:fs/promises';
@@ -189,6 +190,21 @@ test('Vodafone invoices from the portal become receipts and match the booking', 
 	await vodafone.getByTestId('portal-fetch').click();
 	await expect(vodafone.getByTestId('portal-result')).toContainText('neu: 0 · schon vorhanden: 3');
 	expect(portal.state.downloads).toBe(downloads);
+
+	// Portal aufzeichnen: the window opens (headless here, nobody clicks), the
+	// review says nothing was downloaded, so it cannot be saved; discarded.
+	await vodafone.getByTestId('portal-record').click();
+	await expect(vodafone.getByTestId('portal-recording')).toContainText(
+		'Passwörter und Eingaben werden nie aufgezeichnet.'
+	);
+	await vodafone.getByTestId('portal-record-stop').click();
+	const review = vodafone.getByTestId('portal-review');
+	await expect(review).toContainText('Kein Klick aufgezeichnet.');
+	await expect(review.getByTestId('portal-review-no-download')).toBeVisible();
+	await expect(review.getByTestId('portal-record-save')).toBeDisabled();
+	await review.getByTestId('portal-review-discard').click();
+	await expect(vodafone.getByTestId('portal-review')).toHaveCount(0);
+	await expect(vodafone.getByTestId('portal-recipe-export')).toHaveCount(0);
 
 	// Abmelden: the session ends, the profile is gone.
 	await vodafone.getByTestId('portal-logout').click();

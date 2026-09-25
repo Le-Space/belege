@@ -1,12 +1,14 @@
 // The recipe engine: a portal recipe is data (recipes/<portal>.json) – paths,
 // selectors, login steps and extraction rules – and this file runs it. Nothing
-// portal-specific lives here, so a recipe can be fixed by editing its JSON,
-// and a later "Portal aufzeichnen" mode (Playwright recording the user's
-// clicks in the visible window) can write or repair one: a recorded step is
-// one entry of `login`, a clicked element one selector; a password field
-// becomes `{ "value": "$password", "secret": true }` and is never recorded.
+// portal-specific lives here, so a recipe can be fixed by editing its JSON.
+// "Portal aufzeichnen" (./recorder.js) adds to one: the clicks the user made
+// in the visible window from the start page to the invoice list become the
+// recipe's `route`, the control that downloaded an invoice goes first in
+// `dom.downloadControls`. Nothing on a login page and no input is recorded.
 //
-// Invoices are listed by the first strategy that works, in the recipe's order:
+// The invoice list is reached by the recipe's `route` when it has one (open
+// baseUrl, then click each target in turn), else by opening paths.invoices.
+// Invoices are then listed by the first strategy that works, in the recipe's order:
 //   api  the portal's own JSON endpoints, called with the headers the
 //        logged-in page itself sent to that host (captured per browser run,
 //        in memory, never logged); no login of its own
@@ -14,7 +16,7 @@
 
 import { readFileSync } from 'node:fs';
 
-import { find, present, toRegExp, waitFind } from './locate.js';
+import { find, isSelector, present, toLocator, toRegExp, waitFind } from './locate.js';
 
 const STEP_KINDS = new Set(['click', 'fill', 'check', 'stopIf', 'outcome']);
 const MONTHS = [
@@ -45,6 +47,8 @@ const MONTHS = [
  * @property {('api' | 'dom')[]} strategies
  * @property {any} [api]
  * @property {any} dom
+ * @property {{ do: 'click', target: import('./locate.js').Selector }[]} [route] recorded: from baseUrl to the invoice list
+ * @property {{ at: string, steps: any[] }} [recorded] what was recorded, for review
  */
 
 /**
@@ -92,6 +96,12 @@ export function validateDefinition(def) {
 		'strategies'
 	);
 	if (def.strategies.includes('api')) need(/^https:\/\//.test(def.api?.base), 'api.base');
+	if (def.route !== undefined) {
+		need(Array.isArray(def.route) && def.route.length <= 40, 'route');
+		for (const [i, step] of def.route.entries()) {
+			need(step?.do === 'click' && isSelector(step.target), `route[${i}]`);
+		}
+	}
 	need(Boolean(def.dom?.fields && def.dom?.downloadText), 'dom');
 }
 
@@ -229,6 +239,13 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 
 	/** @param {import('playwright').Page} page */
 	async function scan(page) {
+		// A recorded control is usually { role, name }: marked here, found by the mark below.
+		const other = (def.dom.downloadControls ?? []).filter((/** @type {any} */ s) => !('css' in s));
+		for (const s of other) {
+			await toLocator(page, s)
+				.evaluateAll((els) => els.forEach((el) => el.setAttribute('data-belege-control', '')))
+				.catch(() => {});
+		}
 		return page.evaluate(
 			({ css, downloadSource, downloadFlags, dateSource, periodSource, periodFlags }) => {
 				const download = new RegExp(downloadSource, downloadFlags);
@@ -270,9 +287,12 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 				return found;
 			},
 			{
-				css: (def.dom.downloadControls ?? [])
-					.filter((/** @type {any} */ s) => 'css' in s)
-					.map((/** @type {any} */ s) => s.css),
+				css: [
+					...(def.dom.downloadControls ?? [])
+						.filter((/** @type {any} */ s) => 'css' in s)
+						.map((/** @type {any} */ s) => s.css),
+					...(other.length ? ['[data-belege-control]'] : [])
+				],
 				downloadSource: toRegExp(def.dom.downloadText).source,
 				downloadFlags: toRegExp(def.dom.downloadText).flags,
 				dateSource: toRegExp(def.dom.fields.date).source,
@@ -383,6 +403,32 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 		for (const line of lines) log(`trace:   ${line}`);
 	}
 
+	/**
+	 * To the invoice list: by the recorded route, else by its path.
+	 *
+	 * @param {import('playwright').Page} page
+	 * @param {(name: string, fn: () => Promise<any>) => Promise<any>} step
+	 */
+	async function openInvoices(page, step) {
+		if (!def.route?.length) {
+			await step('invoices.open', () => page.goto(url(def.paths.invoices)));
+			return;
+		}
+		await step('route.open', () => page.goto(base.toString()));
+		for (const [i, s] of def.route.entries()) {
+			const before = page.url();
+			await step(`route.${i + 1}`, async () => {
+				const hit = await waitFind(page, [s.target], 15_000);
+				if (!hit) throw new Error('not found');
+				await hit.click();
+			});
+			// A click that navigates: wait for the next page; one that does not costs 2 s.
+			await page
+				.waitForURL((u) => u.href !== before, { timeout: 2_000, waitUntil: 'domcontentloaded' })
+				.catch(() => {});
+		}
+	}
+
 	// ── api strategy ──────────────────────────────────────────────────────────
 
 	/** @param {import('playwright').Page} page @param {string} path */
@@ -448,6 +494,8 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 		version: `${def.version}${def.verified ? '' : ' (unverified)'}`,
 		loginUrl: url(def.paths.login),
 		invoicesUrl: url(def.paths.invoices),
+		/** Where a recording and a route start. */
+		baseUrl: base.toString(),
 		definition: def,
 		isLoggedIn,
 
@@ -536,7 +584,7 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 		 * @param {(line: string) => void} [log]
 		 */
 		async listInvoices(page, step, log = () => {}) {
-			await step('invoices.open', () => page.goto(url(def.paths.invoices)));
+			await openInvoices(page, step);
 			/** @type {any[]} */
 			let rows = [];
 			for (const strategy of def.strategies) {
@@ -592,7 +640,7 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 			// No plain link: click it where it is and take the download.
 			let control = page.locator(`[data-belege-download="${ref.index}"]`);
 			if ((await control.count()) === 0) {
-				await page.goto(url(def.paths.invoices));
+				await openInvoices(page, (_name, fn) => fn());
 				await scan(page);
 				control = page.locator(`[data-belege-download="${ref.index}"]`);
 			}

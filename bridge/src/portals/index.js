@@ -6,10 +6,16 @@
 // password itself is in the keychain (service belege-bridge, account
 // portal:vodafone). `baseUrl` is honoured only for a loopback address: it is
 // how the tests point a recipe at the fake portal, and nothing else can.
+//
+// A portal recorded with "Portal aufzeichnen" has an override in
+// <config dir>/recipes/<id>.json; it is merged over the bundled recipe here
+// (./recorder.js mergeOverride). One that does not pass is ignored, logged.
 
 import { createRecipe, loadDefinition } from './recipe.js';
+import { mergeOverride, readOverride } from './recorder.js';
 
 export { createPortalManager, launchChromium, LOGIN_TIMEOUT_MS } from './manager.js';
+export { validateOverride, mergeOverride, readOverride, describeTarget } from './recorder.js';
 export { PortalError } from './errors.js';
 export { createRecipe, loadDefinition, validateDefinition, parseRow } from './recipe.js';
 export { isPdf, MAX_INVOICE_BYTES } from './pdf.js';
@@ -39,12 +45,24 @@ export function loopbackUrl(url) {
 
 /**
  * @param {Record<string, PortalConfig>} portalsConfig
+ * @param {{ recipesDir?: string, log?: (line: string) => void }} [options] recipesDir: recorded overrides
  * @returns {Record<string, import('./recipe.js').Recipe>}
  */
-export function buildRecipes(portalsConfig = {}) {
+export function buildRecipes(portalsConfig = {}, { recipesDir, log = () => {} } = {}) {
 	/** @type {Record<string, import('./recipe.js').Recipe>} */
 	const out = {};
-	for (const [id, def] of Object.entries(RECIPES)) {
+	for (const [id, bundled] of Object.entries(RECIPES)) {
+		let def = bundled;
+		if (recipesDir) {
+			try {
+				const patch = readOverride(recipesDir, id);
+				if (patch) def = mergeOverride(bundled, patch);
+			} catch (/** @type {any} */ error) {
+				log(
+					`portal ${id}: recorded recipe ignored (${error?.code ?? error?.name ?? 'Error'}${error?.step ? ` at ${error.step}` : ''})`
+				);
+			}
+		}
 		const baseUrl = portalsConfig[id]?.baseUrl;
 		// A loopback test portal serves the API under <baseUrl>/api.
 		out[id] = createRecipe(

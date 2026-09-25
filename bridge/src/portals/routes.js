@@ -7,6 +7,11 @@
 //   POST /portals/:id/fetch?since=YYYY-MM       { known: [invoice ids] } → lists, downloads new ones
 //   GET  /portals/:id/invoice?ref=<invoice id>  the PDF's bytes, from the last fetch
 //   POST /portals/:id/logout                    ends the session and deletes the profile
+//   POST /portals/:id/record/start              "Portal aufzeichnen": opens the window on the start page
+//   POST /portals/:id/record/stop               ends it; the steps for review (roles, labels, masked paths)
+//   POST /portals/:id/record/save               the recording becomes the portal's recipe override
+//   POST /portals/:id/record/discard            drops the recording
+//   GET  /portals/:id/recipe/export             the saved override, as JSON for sharing
 
 const ID = /^[a-z0-9-]{1,40}$/;
 const INVOICE_ID = /^[A-Za-z0-9._-]{1,80}$/;
@@ -42,13 +47,16 @@ export async function handlePortalRequest({
 		send(res, 200, { portals: await portals.list() });
 		return true;
 	}
-	const m = /^\/portals\/([^/]+)\/(login|cancel|fetch|invoice|logout)$/.exec(path);
+	const m =
+		/^\/portals\/([^/]+)\/(login|cancel|fetch|invoice|logout|record\/(?:start|stop|save|discard)|recipe\/export)$/.exec(
+			path
+		);
 	if (!m || !ID.test(m[1])) {
 		send(res, 404, { error: 'not found' });
 		return true;
 	}
 	const [, id, action] = m;
-	const method = action === 'invoice' ? 'GET' : 'POST';
+	const method = action === 'invoice' || action === 'recipe/export' ? 'GET' : 'POST';
 	if (req.method !== method) {
 		send(res, 405, { error: `${method} only` });
 		return true;
@@ -60,6 +68,16 @@ export async function handlePortalRequest({
 		send(res, 200, portals.cancel(id));
 	} else if (action === 'logout') {
 		send(res, 200, await portals.logout(id));
+	} else if (action === 'record/start') {
+		send(res, 200, await portals.recordStart(id));
+	} else if (action === 'record/stop') {
+		send(res, 200, await portals.recordStop(id));
+	} else if (action === 'record/save') {
+		send(res, 200, await portals.recordSave(id));
+	} else if (action === 'record/discard') {
+		send(res, 200, await portals.recordDiscard(id));
+	} else if (action === 'recipe/export') {
+		send(res, 200, portals.recipeExport(id));
 	} else if (action === 'fetch') {
 		const since = url.searchParams.get('since') ?? '';
 		if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(since)) {

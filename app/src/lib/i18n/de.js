@@ -83,12 +83,49 @@ export default {
 			browser:
 				'Der Browser für die Portale fehlt auf der Bridge: pnpm --filter @belege/bridge exec playwright install chromium',
 			profile: 'Das Browserprofil des Portals ist noch geöffnet.',
-			unknownInvoice: 'Diese Rechnung ist nicht mehr auf der Bridge: bitte erneut holen.'
+			unknownInvoice: 'Diese Rechnung ist nicht mehr auf der Bridge: bitte erneut holen.',
+			recordingOff: 'Diese Bridge kann keine Portale aufzeichnen.',
+			notRecorded: 'Es liegt keine Aufzeichnung vor.',
+			noDownload:
+				'In der Aufzeichnung wurde keine Rechnung heruntergeladen: bitte noch einmal aufzeichnen und eine herunterladen.',
+			unusable:
+				'Der Download-Knopf hat weder einen Namen noch ein festes Merkmal: so lässt er sich nicht wiederfinden.',
+			rejected:
+				'Das Rezept enthielte persönliche Daten (E-Mail, IBAN oder eine lange Nummer) und wurde nicht gespeichert.',
+			noRecipe: 'Für dieses Portal ist kein aufgezeichnetes Rezept gespeichert.'
+		},
+		record: {
+			start: 'Portal aufzeichnen',
+			startHint:
+				'Einmal selbst zu den Rechnungen klicken – die Bridge merkt sich den Weg und geht ihn künftig allein.',
+			hint: 'Klicke im Fenster der Bridge zu deinen Rechnungen und lade eine herunter. Passwörter und Eingaben werden nie aufgezeichnet.',
+			stop: 'Aufzeichnung beenden',
+			reviewTitle: 'Aufgezeichnete Schritte',
+			none: 'Kein Klick aufgezeichnet.',
+			noDownload: 'Kein Download erkannt – so lässt sich die Aufzeichnung nicht speichern.',
+			paused: 'Auf Anmeldeseiten ({count} Klicks) wurde nichts aufgezeichnet.',
+			download: ' (Download)',
+			unusable: ' – nicht wiederzufinden, wird übersprungen',
+			page: 'Seite {path}',
+			save: 'Als Rezept speichern',
+			discard: 'Verwerfen',
+			saved: 'Rezept gespeichert: der nächste Abruf geht diesen Weg.',
+			export: 'Rezept exportieren',
+			exportHint:
+				'Lädt das Rezept als JSON herunter – zum Teilen, etwa für eine künftige offene Rezeptsammlung (@le-space/portal-recipes). Es enthält nur Rollen, Namen von Knöpfen und Links und Muster, keine Eingaben.',
+			role: {
+				link: 'Link',
+				button: 'Button',
+				tab: 'Reiter',
+				menuitem: 'Menüpunkt',
+				element: 'Element'
+			}
 		},
 		technical: [
 			'Die Bridge startet ein eigenes Chromium (Playwright) mit einem Profil pro Portal unter ~/.config/belege/portals/<portal>/profile (0700) – nicht dein Alltags-Chrome. Die Sitzung bleibt in diesem Profil; „Abmelden“ beendet sie und löscht es.',
 			'Ein Passwort, falls du es mit pnpm setup:portal hinterlegst, liegt im macOS-Schlüsselbund (belege-bridge, portal:vodafone). Codes und Sicherheitsprüfungen gibst immer du ein. Kein Sprachmodell und keine Bildschirmfotos sind beteiligt.',
-			'Jede Datei muss nach ihren Bytes ein PDF sein (höchstens 15 MB). Doppelte erkennt die App an der Rechnungskennung (vodafone:<id>) und am SHA-256.'
+			'Jede Datei muss nach ihren Bytes ein PDF sein (höchstens 15 MB). Doppelte erkennt die App an der Rechnungskennung (vodafone:<id>) und am SHA-256.',
+			'„Portal aufzeichnen“ merkt sich nur echte Klicks auf Links und Knöpfe als Rolle und Namen (Ziffern als Muster \\d+) und besuchte Seiten als maskierte Pfade. Eingabefelder, Tastendrücke und alles auf Seiten mit Passwortfeld bleiben außen vor; die heruntergeladene Datei wird verworfen. Das Rezept liegt als ~/.config/belege/recipes/<portal>.json (0600) auf dem Mac und wird abgelehnt, wenn es eine E-Mail-Adresse, eine IBAN oder fünf Ziffern am Stück enthielte. Der Abruf spielt die Klicks danach ohne Sprachmodell nach.'
 		]
 	},
 	footer: {

@@ -7,6 +7,11 @@
 // with a bearer token the logged-in page holds. Every name, number and amount
 // in it is made up.
 //
+// For "Portal aufzeichnen" a second way to the invoices, which no recipe
+// knows: Übersicht → "Mein Konto" (a search field, a note, the user's e-mail
+// address, a "Passwort ändern" page) → tab "Dokumente" → rows "Rechnung vom
+// DD.MM.YYYY" with a button "Beleg öffnen" that downloads the PDF by script.
+//
 // The session cookie lasts across browser restarts only when "Angemeldet
 // bleiben" was ticked, as on real portals.
 
@@ -234,6 +239,42 @@ ${state.captcha ? '<div class="captcha-box"><p>Bitte bestätigen Sie, dass Sie k
 		);
 	}
 
+	/** Mein Konto: fields that must never be recorded, and the tab to the documents. */
+	const accountPage = () =>
+		page(
+			'Mein Konto | MeinVodafone',
+			`${nav}<h1>Mein Konto</h1>
+<p class="contract-info">Angemeldet als <a href="/meinvodafone/services/konto">${esc(username)}</a> · Kundennummer ${CUSTOMER_NUMBER}</p>
+<p><label for="suche">Suche</label> <input id="suche" name="suche"></p>
+<p><label for="notiz">Notiz</label> <textarea id="notiz"></textarea></p>
+<p><a href="/meinvodafone/services/konto/passwort">Passwort ändern</a></p>
+<div role="tablist"><button type="button" role="tab" aria-selected="false" onclick="location.href='/meinvodafone/services/konto/belege'">Dokumente</button></div>`
+		);
+
+	/** A page with a password field: the recorder must not record here. */
+	const passwordPage = () =>
+		page(
+			'Passwort ändern | MeinVodafone',
+			`${nav}<h1>Passwort ändern</h1>
+<form onsubmit="return false"><p><label for="neu">Neues Passwort</label> <input id="neu" type="password"></p>
+<button type="submit">Speichern</button> <a href="/meinvodafone/services/konto">Zurück</a></form>`
+		);
+
+	/** The documents tab: no link, no "herunterladen" – only the recorded control finds them. */
+	const documentsPage = () =>
+		page(
+			'Dokumente | MeinVodafone',
+			`${nav}<h1>Dokumente</h1><p class="contract-info">Kundennummer ${CUSTOMER_NUMBER}</p><ul>${state.invoices
+				.map((inv) => {
+					const [y, m, d] = inv.date.split('-');
+					const href = `/meinvodafone/services/notifizierung/dokumente/${encodeURIComponent(inv.number)}.pdf`;
+					return `<li class="beleg"><button type="button" aria-expanded="false" onclick="this.setAttribute('aria-expanded','true')">Rechnung vom ${d}.${m}.${y}</button>
+<span>Rechnungsnr. ${esc(inv.number)}</span> <span>${esc(inv.gross)} €</span>
+<button type="button" onclick="location.href='${href}'">Beleg öffnen</button></li>`;
+				})
+				.join('\n')}</ul>`
+		);
+
 	/** @param {FakeInvoice} inv */
 	const fileOf = (inv) => inv.body ?? makePdf(portalInvoiceLines(inv));
 
@@ -367,12 +408,15 @@ ${state.captcha ? '<div class="captcha-box"><p>Bitte bestätigen Sie, dass Sie k
 				res,
 				page(
 					'Übersicht | MeinVodafone',
-					`${nav}<h1>Willkommen in MeinVodafone</h1><p class="contract-info">Ihr Kabel-Vertrag</p>${apiScript(req)}`
+					`${nav}<h1>Willkommen in MeinVodafone</h1><p class="contract-info">Ihr Kabel-Vertrag</p><p><a href="/meinvodafone/services/konto">Mein Konto</a></p>${apiScript(req)}`
 				)
 			);
 		}
 		if (path === '/meinvodafone/services/notifizierung/dokumente')
 			return html(res, invoicesPage(req));
+		if (path === '/meinvodafone/services/konto') return html(res, accountPage());
+		if (path === '/meinvodafone/services/konto/passwort') return html(res, passwordPage());
+		if (path === '/meinvodafone/services/konto/belege') return html(res, documentsPage());
 		const m = /^\/meinvodafone\/services\/notifizierung\/dokumente\/(.+)\.pdf$/.exec(path);
 		if (m) {
 			const inv = state.invoices.find((i) => i.number === decodeURIComponent(m[1]));
