@@ -186,7 +186,10 @@
 										? t('portals.lastRun', {
 												date: day(portal.lastRun.at),
 												count: portal.lastRun.count ?? 0
-											})
+											}) +
+											(portal.lastRun.refused
+												? t('portals.lastRunRefused', { count: portal.lastRun.refused })
+												: '')
 										: t('portals.lastRunFailed', { date: day(portal.lastRun.at) }))
 							]
 								.filter(Boolean)

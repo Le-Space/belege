@@ -12,7 +12,7 @@ import { t } from '../i18n/index.js';
  * @property {string} recipeVersion
  * @property {'logged-in' | 'needs-login' | 'never'} state
  * @property {string | null} lastLoginAt
- * @property {{ at: string, ok: boolean, count?: number, code?: string, step?: string | null } | null} lastRun
+ * @property {{ at: string, ok: boolean, count?: number, refused?: number, code?: string, step?: string | null } | null} lastRun
  * @property {string | null} running
  */
 

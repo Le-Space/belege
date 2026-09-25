@@ -31,7 +31,7 @@ export const LOGIN_TIMEOUT_MS = 10 * 60 * 1000;
  * @typedef {object} PortalState what is on disk in state.json; no secret, no page content
  * @property {string | null} lastLoginAt
  * @property {'logged-in' | 'needs-login' | null} session
- * @property {{ at: string, ok: boolean, count?: number, code?: string, step?: string | null } | null} lastRun
+ * @property {{ at: string, ok: boolean, count?: number, refused?: number, code?: string, step?: string | null } | null} lastRun
  */
 
 /**
@@ -393,9 +393,10 @@ export function createPortalManager({
 						session: 'logged-in',
 						lastRun: {
 							at: new Date().toISOString(),
-							ok: errors.length === 0,
+							// Some invoices fetched and some refused is a run that worked.
+							ok: errors.length === 0 || out.length > 0,
 							count: out.length,
-							...(errors.length ? { code: errors[0].code } : {})
+							...(errors.length ? { refused: errors.length, code: errors[0].code } : {})
 						}
 					});
 					log(
@@ -496,11 +497,33 @@ export function createPortalManager({
 			throw new PortalError('Larger than 15 MB.', 'PORTAL_TOO_LARGE', 502);
 		}
 		if (!isPdf(bytes)) {
-			log(`portal ${id}: refused a download that is not a PDF`);
+			log(
+				`portal ${id}: refused a download that is not a PDF (${sniff(bytes)}, ${bytes.length} bytes, by ${ref?.href ? 'link' : ref?.kind === 'api' ? 'api' : 'click'})`
+			);
 			throw new PortalError('Not a PDF.', 'PORTAL_NOT_PDF', 502);
 		}
 		return bytes;
 	}
+}
+
+/**
+ * What a download is instead of a PDF, from its first bytes; its content is never logged.
+ *
+ * @param {Uint8Array} bytes
+ */
+export function sniff(bytes) {
+	if (!bytes?.length) return 'empty';
+	const head = Buffer.from(bytes.buffer, bytes.byteOffset, Math.min(bytes.length, 512))
+		.toString('latin1')
+		.trimStart()
+		.toLowerCase();
+	if (head.startsWith('<!doctype html') || head.startsWith('<html')) return 'html';
+	if (head.startsWith('<?xml') || head.startsWith('<')) return 'xml or html';
+	if (head.startsWith('{') || head.startsWith('[')) return 'json';
+	if (head.startsWith('pk')) return 'zip';
+	if (head.startsWith('\x89png')) return 'png';
+	if (head.startsWith('\xff\xd8')) return 'jpeg';
+	return 'unknown';
 }
 
 /** @typedef {ReturnType<typeof createPortalManager>} PortalManager */

@@ -237,9 +237,20 @@ describe('portal manager with Chromium against the fake portal', () => {
 		list[1] = { ...list[1], body: '<!doctype html><p>Wartungsarbeiten</p>' };
 		portal.setInvoices(list);
 		try {
-			const result = await manager({ creds: null }).fetch('vodafone', { since: longAgo });
+			const before = logs.length;
+			const m = manager({ creds: null });
+			const result = await m.fetch('vodafone', { since: longAgo });
 			assert.deepEqual(result.errors, [{ id: list[1].number, code: 'PORTAL_NOT_PDF' }]);
 			assert.equal(result.invoices.length, 2);
+			assert.ok(
+				logs
+					.slice(before)
+					.some((l) => /not a PDF \(html, \d+ bytes, by (link|click|api)\)/.test(l)),
+				'the log says what came instead, not what it said'
+			);
+			const [p] = await m.list();
+			assert.equal(p.lastRun?.ok, true, 'two of three fetched is a run that worked');
+			assert.equal(p.lastRun?.refused, 1);
 		} finally {
 			portal.setInvoices(sampleInvoices());
 		}
