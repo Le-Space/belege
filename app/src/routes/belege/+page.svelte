@@ -32,7 +32,12 @@
 	import { fetchAccountingMail, importFiles, needsConfirmation } from '$lib/receipts/import.js';
 	import { extractReceipt, extractable } from '$lib/receipts/extract.js';
 	import { extractionHow } from '$lib/receipts/how.js';
-	import { confirmSender as confirmSenderAction } from '$lib/matching/actions.js';
+	import {
+		confirmSender as confirmSenderAction,
+		restoreReceipt,
+		setAsideReceipt
+	} from '$lib/matching/actions.js';
+	import { findDuplicates } from '$lib/receipts/duplicates.js';
 	import {
 		defaultMailMonths,
 		groupReceiptsByMonth,
@@ -109,6 +114,25 @@
 		)
 	);
 	let originTotals = $derived(originCounts(bySource, matchOf));
+	let duplicates = $derived(findDuplicates(receipts, matchOf));
+
+	/** @param {string} id @param {string | null} [of] */
+	async function setAside(id, of = null) {
+		const store = currentStore();
+		if (!store) return;
+		await setAsideReceipt(store, id, { duplicateOf: of });
+		await refreshNow();
+		await runMatchingNow();
+	}
+
+	/** @param {string} id */
+	async function restore(id) {
+		const store = currentStore();
+		if (!store) return;
+		await restoreReceipt(store, id);
+		await refreshNow();
+		await runMatchingNow();
+	}
 	let filtered = $derived(
 		origin === 'all'
 			? bySource
@@ -131,6 +155,10 @@
 	}
 	let groups = $derived(groupReceiptsByMonth(filtered));
 	let selected = $derived(receipts.find((r) => r.id === selectedId) ?? null);
+	let selectedDuplicate = $derived(selected ? (duplicates.get(selected.id) ?? null) : null);
+	let duplicateKeeper = $derived(
+		selectedDuplicate ? (receipts.find((r) => r.id === selectedDuplicate.of) ?? null) : null
+	);
 	let todo = $derived(extractable(receipts));
 	let selectedMatch = $derived(selected ? matchOfReceipt(selected.id, app.matches) : null);
 	let selectedTx = $derived(
@@ -750,6 +778,12 @@
 														data-testid="receipt-ai-found"><AiMark />{t('belege.origin.ai')}</span
 													>
 												{/if}
+												{#if duplicates.has(r.id)}
+													<span
+														class="rounded border border-danger/40 bg-danger/10 px-1.5 py-0.5 text-xs font-medium text-danger"
+														data-testid="receipt-duplicate">{t('belege.duplicate.badge')}</span
+													>
+												{/if}
 												{#if needsConfirmation(r)}
 													<span
 														class="rounded border border-danger/40 bg-danger/10 px-1.5 py-0.5 text-xs font-medium text-danger"
@@ -973,6 +1007,52 @@
 							<p class="mt-3 text-xs text-faint" data-testid="receipt-reminder">
 								{t('belege.reminderNote')}
 							</p>
+						{/if}
+						{#if selectedDuplicate && duplicateKeeper}
+							<div
+								class="mt-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm"
+								data-testid="receipt-duplicate-note"
+							>
+								<p class="text-heading">
+									{t('belege.duplicate.note', {
+										number: duplicateKeeper.invoiceNumber ?? '',
+										date: formatDate(receiptDate(duplicateKeeper) ?? '') || '?',
+										file: duplicateKeeper.fileName ?? t('belege.textMail'),
+										linked: matchOf(duplicateKeeper.id)
+											? t('belege.duplicate.linked')
+											: t('belege.duplicate.unlinked')
+									})}
+								</p>
+								<button
+									type="button"
+									class="mt-1.5 {primary}"
+									onclick={() => selected && setAside(selected.id, duplicateKeeper?.id ?? null)}
+									data-testid="receipt-set-aside-duplicate">{t('belege.duplicate.setAside')}</button
+								>
+							</div>
+						{/if}
+						{#if selected.status === 'ignoriert' && selected.setAside}
+							<p class="mt-3 text-sm text-faint" data-testid="receipt-set-aside-note">
+								{t(
+									selected.setAside.reason === 'duplicate'
+										? 'belege.setAside.duplicate'
+										: 'belege.setAside.notNeeded'
+								)}
+								<button
+									type="button"
+									class="ml-1 underline"
+									onclick={() => selected && restore(selected.id)}
+									data-testid="receipt-restore">{t('belege.setAside.restore')}</button
+								>
+							</p>
+						{:else if selected.status !== 'ignoriert' && !selectedDuplicate}
+							<button
+								type="button"
+								class="mt-3 text-sm text-faint underline hover:text-heading"
+								onclick={() => selected && setAside(selected.id)}
+								title={t('belege.setAside.title')}
+								data-testid="receipt-set-aside">{t('belege.setAside.action')}</button
+							>
 						{/if}
 						{#if extractionNote(selected)}
 							<p class="mt-3 text-sm text-danger" role="status" data-testid="extract-note">
