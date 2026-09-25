@@ -33,3 +33,12 @@ cp .env.example .env   # fill in IMAP_*
 pnpm spike:imap -- --month 2026-08 --accounting              # the accounting alias only
 pnpm spike:imap -- --find Vodafone --amount 52,59 --around 2026-08-22   # one missing receipt
 ```
+
+## License
+
+Belege (app and bridge) is licensed under the [GNU Affero General Public License v3.0 or later](LICENSE):
+use it, change it and run it yourself; whoever offers a changed version as a service to others
+must publish their changes too.
+
+The portal recipes in [`bridge/src/portals/recipes/`](bridge/src/portals/recipes/) are
+[MIT-licensed](bridge/src/portals/recipes/LICENSE), so they can be reused in any tool, open or not.
