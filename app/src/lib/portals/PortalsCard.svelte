@@ -18,6 +18,7 @@
 	// Fetched invoices become receipts (source 'portal'), are read by the LLM
 	// when the bridge has one, and go through the matching like every receipt.
 	import TechnicalNote from '../TechnicalNote.svelte';
+	import AiMark from '../AiMark.svelte';
 	import NewPortal from './NewPortal.svelte';
 	import RecordingReview from './RecordingReview.svelte';
 	import { currentBlobs, currentStore, refreshNow, runMatchingNow } from '../session.svelte.js';
@@ -361,11 +362,14 @@
 								</label>
 								<button
 									type="button"
-									class={portal.state === 'logged-in' ? primary : button}
+									class="inline-flex items-center gap-1.5 {portal.state === 'logged-in'
+										? primary
+										: button}"
 									disabled={Boolean(busy[portal.id]) || !/^\d{4}-\d{2}$/.test(since)}
 									onclick={() => fetchInvoices(portal.id)}
+									title={t('ai.portal')}
 									data-testid="portal-fetch"
-									>{busy[portal.id] === 'fetch'
+									><AiMark />{busy[portal.id] === 'fetch'
 										? t('portals.fetching')
 										: t('portals.fetch')}</button
 								>
