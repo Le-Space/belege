@@ -5,7 +5,15 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { memoryCollection } from '../bank/test-support.js';
 import { getSetting, setSetting } from '../store/settings.js';
 import { tx } from './fixtures.js';
-import { addCompanyName, forgetBankFee, markBankFee, rejectTransfer } from './actions.js';
+import {
+	addCompanyName,
+	confirmMatch,
+	forgetBankFee,
+	markBankFee,
+	rejectTransfer,
+	restoreReceipt,
+	setAsideReceipt
+} from './actions.js';
 import { buildMatchingContext } from './context.js';
 import { classifyTransaction } from './classify.js';
 
@@ -121,5 +129,28 @@ describe('addCompanyName', () => {
 		expect(settings.companyNames).toEqual(['le space UG', 'NORDLICHT WERKSTATT GMBH']);
 		expect(settings.rules).toHaveLength(1);
 		expect((await classify(into))?.kind).toBe('own-transfer');
+	});
+});
+
+describe('setAsideReceipt and restoreReceipt', () => {
+	it('a copy is set aside: out of the matching, its link undone; restored it is read again', async () => {
+		const t = await addTx(tx({ amountCents: -11900, counterparty: 'Wolkenfabrik' }));
+		const r = await store.receipts.put({
+			status: 'ausgelesen',
+			extraction: { vendor: 'W' },
+			vendor: 'W'
+		});
+		await confirmMatch(store, { receiptId: r.id, transactionId: t.id });
+		await setAsideReceipt(store, r.id, { duplicateOf: 'R-KEEP' });
+		const aside = await store.receipts.get(r.id);
+		expect(aside).toMatchObject({
+			status: 'ignoriert',
+			setAside: { reason: 'duplicate', of: 'R-KEEP' }
+		});
+		expect(
+			(await store.matches.list()).every((/** @type {any} */ m) => m.state === 'rejected')
+		).toBe(true);
+		await restoreReceipt(store, r.id);
+		expect(await store.receipts.get(r.id)).toMatchObject({ status: 'ausgelesen', setAside: null });
 	});
 });

@@ -234,6 +234,45 @@ export async function forgetBankFee(store, key) {
 }
 
 /**
+ * "Aussortieren": the receipt is no receipt of ours – a copy of another
+ * (`duplicateOf`) or not needed. Out of the matching; its links are undone.
+ * "Wieder aufnehmen" (`restoreReceipt`) takes it back.
+ *
+ * @param {MatchingStore} store
+ * @param {string} receiptId
+ * @param {{ duplicateOf?: string | null }} [options]
+ */
+export async function setAsideReceipt(store, receiptId, { duplicateOf = null } = {}) {
+	const r = await store.receipts.get(receiptId);
+	if (!r) throw new Error(`No receipt ${receiptId}`);
+	for (const m of await store.matches.list({ where: (m) => m.receiptId === receiptId })) {
+		if (isActive(m)) await store.matches.put({ ...m, state: 'rejected' });
+	}
+	await store.receipts.put({
+		...r,
+		status: 'ignoriert',
+		setAside: {
+			reason: duplicateOf ? 'duplicate' : 'not-needed',
+			of: duplicateOf,
+			at: new Date().toISOString()
+		}
+	});
+	await syncLinks(store);
+	await decided(store, duplicateOf ? 'receipt-duplicate' : 'receipt-set-aside', { receiptId });
+}
+
+/**
+ * @param {MatchingStore} store
+ * @param {string} receiptId
+ */
+export async function restoreReceipt(store, receiptId) {
+	const r = await store.receipts.get(receiptId);
+	if (!r) throw new Error(`No receipt ${receiptId}`);
+	await store.receipts.put({ ...r, status: r.extraction ? 'ausgelesen' : 'neu', setAside: null });
+	await decided(store, 'receipt-restore', { receiptId });
+}
+
+/**
  * "Absender geprüft – freigeben": the receipt may be opened and read.
  *
  * @param {MatchingStore} store

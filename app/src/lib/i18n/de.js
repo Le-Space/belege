@@ -638,6 +638,21 @@ export default {
 			ignored: 'Ignoriert'
 		},
 		unverified: 'Absender prüfen',
+		duplicate: {
+			badge: 'Doppelt',
+			note: 'Doppelt: Rechnungsnummer {number} gibt es schon – {file} vom {date}, {linked}. Die Dateien unterscheiden sich, der Inhalt ist dieselbe Rechnung.',
+			linked: 'einer Zahlung zugeordnet',
+			unlinked: 'noch nicht zugeordnet',
+			setAside: 'Als Duplikat aussortieren'
+		},
+		setAside: {
+			action: 'Aussortieren – kein Beleg',
+			title:
+				'Kommt nicht in den Abgleich und nicht in den Export; eine Zuordnung wird gelöst. Lässt sich wieder aufnehmen.',
+			duplicate: 'Als Duplikat aussortiert.',
+			notNeeded: 'Aussortiert – kein Beleg.',
+			restore: 'Wieder aufnehmen'
+		},
 		origin: {
 			label: 'Wie zugeordnet',
 			filter: {
@@ -811,6 +826,9 @@ export default {
 			'bank-fee-forget': 'Bankgebühr vergessen',
 			'not-transfer': 'Als „keine Umbuchung“ markiert',
 			'company-name': 'Firmennamen übernommen',
+			'receipt-duplicate': 'Beleg als Duplikat aussortiert',
+			'receipt-set-aside': 'Beleg aussortiert',
+			'receipt-restore': 'Beleg wieder aufgenommen',
 			'needs-receipt': '„Kein Beleg nötig“ zurückgenommen',
 			'confirm-sender': 'Absender freigegeben',
 			'upload-link': 'Beleg hochgeladen und dieser Zahlung zugeordnet',
