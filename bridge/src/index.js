@@ -8,6 +8,7 @@ import { createBridgeServer } from './server.js';
 import { createMailClient } from './mail/imap.js';
 import { domainOf } from './mail/auth-results.js';
 import { createExtractor } from './llm/extract.js';
+import { createMailAssist } from './llm/assist.js';
 import { buildRecipes, createPortalManager, keychainAccount } from './portals/index.js';
 import { macosPasswordDialog } from './portals/credentials.js';
 import { dirname, join } from 'node:path';
@@ -100,6 +101,10 @@ export async function startBridge({
 		? createExtractor({ config: config.llm, getKey: () => llmKeychain.read(), ownDomains })
 		: null;
 	if (!llm) log('No LLM is set up: run `pnpm setup:llm`.');
+	const assist =
+		llm && mail
+			? createMailAssist({ llm, mail, redaction: { terms: config.llm.redactTerms, ownDomains } })
+			: null;
 
 	// Customer portals: a browser with a profile per portal next to bridge.json.
 	// Recorded recipes ("Portal aufzeichnen") are kept next to them.
@@ -155,6 +160,7 @@ export async function startBridge({
 		hibiscus: client ? () => client : null,
 		mail,
 		llm,
+		assist,
 		// Reads the keychain entry to see that there is one; the value stays here.
 		llmKeyPresent: async () => {
 			try {
