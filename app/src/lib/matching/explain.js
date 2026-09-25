@@ -17,6 +17,7 @@ const POINT_KEY = /** @type {Record<string, keyof typeof POINTS>} */ ({
 	iban: 'iban',
 	vendor: 'vendor',
 	'vendor-in-purpose': 'vendorInPurpose',
+	'vendor-learned': 'vendorLearned',
 	date: 'date',
 	'far-date': 'farDate',
 	'wrong-direction': 'wrongDirection'
@@ -54,6 +55,13 @@ export function reasonPhrase(code, { tx = null, receipt = null } = {}) {
 				: t('explain.reason.customer');
 		case 'vendor':
 			return vendor ? t('explain.reason.vendorValue', { vendor }) : t('explain.reason.vendor');
+		case 'vendor-learned':
+			return vendor
+				? t('explain.reason.vendorLearnedValue', {
+						vendor,
+						counterparty: String(tx?.counterparty ?? '').trim()
+					})
+				: t('explain.reason.vendorLearned');
 		case 'vendor-in-purpose':
 			return vendor
 				? t('explain.reason.vendorInPurposeValue', { vendor })

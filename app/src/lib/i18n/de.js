@@ -382,6 +382,7 @@ export default {
 			iban: 'IBAN',
 			vendor: 'Anbieter',
 			'vendor-in-purpose': 'Anbieter im Zweck',
+			'vendor-learned': 'Anbieter (gelernt)',
 			date: 'Datum',
 			'far-date': 'Datum weit weg',
 			'wrong-direction': 'Richtung falsch',
@@ -419,6 +420,9 @@ export default {
 			customerValue: 'Kundennummer {number} im Verwendungszweck',
 			vendor: 'Anbieter passt',
 			vendorValue: 'Anbieter {vendor}',
+			vendorLearned: 'Anbieter passt – so hast du es schon einmal zugeordnet',
+			vendorLearnedValue:
+				'Anbieter {vendor} – „{counterparty}“ hast du ihm schon einmal zugeordnet',
 			vendorInPurpose: 'Anbieter im Verwendungszweck',
 			vendorInPurposeValue: 'Anbieter {vendor} im Verwendungszweck',
 			iban: 'IBAN des Anbieters ist das Gegenkonto',
@@ -524,6 +528,12 @@ export default {
 		reasonPlaceholder: 'z. B. Steuerbescheid liegt vor',
 		add: 'Regel hinzufügen',
 		remove: 'Entfernen',
+		learned: 'Gelernte Anbieter',
+		learnedHint:
+			'Wenn du einen Beleg einer Zahlung zuordnest oder eine Zuordnung bestätigst, merkt sich der Abgleich, dass diese Gegenpartei auf dem Kontoauszug zu diesem Anbieter gehört – und woher seine Belege per E-Mail kommen. Beim nächsten Mal zählt das 40 Punkte und hilft der Suche im Postfach.',
+		learnedMail: 'Belege von {domains}',
+		noLearned: 'Noch nichts gelernt.',
+		forget: 'Vergessen',
 		grace: 'Rückfrage bei fehlendem Beleg nach',
 		graceUnit: 'Tagen',
 		graceHint:

@@ -27,6 +27,7 @@
 		runMatchingNow
 	} from './session.svelte.js';
 	import { portalLink } from './matching/portal.js';
+	import { learnedVendors } from './matching/partners.js';
 	import { attachUpload } from './receipts/attach.js';
 	import { folderSupported, savedFolder } from './receipts/folder.js';
 	import { createBridgeClient } from './bridge/client.js';
@@ -76,7 +77,8 @@
 	let choices = $derived(
 		tx
 			? receiptChoices(tx, app.receipts, app.matches, {
-					companyNames: app.matchingSettings?.companyNames ?? []
+					companyNames: app.matchingSettings?.companyNames ?? [],
+					learnedVendors: learnedVendors(app.partners ?? [])
 				})
 			: []
 	);

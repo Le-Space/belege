@@ -28,7 +28,7 @@ import { assign, receiptFacts, txFacts } from './score.js';
 /** @typedef {import('../store/repository.js').Collection} Collection */
 /** @typedef {import('../store/repository.js').StoredRecord} StoredRecord */
 /**
- * @typedef {{ transactions: Collection, receipts: Collection, matches: Collection, questions: Collection, settings: Collection, accounts: Collection, events?: Collection }} MatchingStore
+ * @typedef {{ transactions: Collection, receipts: Collection, matches: Collection, questions: Collection, settings: Collection, accounts: Collection, events?: Collection, partners?: Collection }} MatchingStore
  */
 
 /**
@@ -148,15 +148,16 @@ export async function runMatching({
 	onProgress = () => {}
 }) {
 	onProgress({ step: 'read' });
-	const [txs, receipts, matches, questions, accounts, settings] = await Promise.all([
+	const [txs, receipts, matches, questions, accounts, settings, partners] = await Promise.all([
 		store.transactions.list(),
 		store.receipts.list(),
 		store.matches.list(),
 		store.questions.list(),
 		store.accounts.list(),
-		getSetting(store.settings, 'matching')
+		getSetting(store.settings, 'matching'),
+		store.partners ? store.partners.list() : []
 	]);
-	const ctx = await buildMatchingContext({ accounts, transactions: txs, settings });
+	const ctx = await buildMatchingContext({ accounts, transactions: txs, settings, partners });
 	const today = localDay(now);
 	const graceDays = ctx.graceDays ?? DEFAULT_GRACE_DAYS;
 	let writes = 0;
@@ -197,7 +198,7 @@ export async function runMatching({
 
 	const result = assign({
 		receipts: /** @type {import('./score.js').ReceiptFacts[]} */ (receiptFactsList),
-		transactions: openTx.map(txFacts),
+		transactions: openTx.map((t) => txFacts(t, ctx)),
 		excluded: (r, t) => rejected.has(pairKey(r, t))
 	});
 
