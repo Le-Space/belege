@@ -20,6 +20,7 @@
 	import { consent } from './consent.js';
 	import TechnicalToggle from './TechnicalToggle.svelte';
 	import TechnicalNote from './TechnicalNote.svelte';
+	import AiMark from './AiMark.svelte';
 	import { technicalView } from './technical-view.js';
 
 	/** @type {HTMLDialogElement | undefined} */
@@ -186,6 +187,32 @@
 					class="mt-3"
 					lines={list('consent.network.technical')}
 					testid="consent-technical-network"
+				/>
+			</section>
+
+			<!-- Where a language model helps, and whose it is -->
+			<section class="border-l-4 border-l-coral pl-3" data-testid="consent-ai">
+				<h3 class="flex items-center gap-1.5 text-base font-semibold">
+					<AiMark />{t('consent.ai.title')}
+				</h3>
+				{#each list('consent.ai.simple') as line (line)}
+					<p class="mt-1.5 text-sm leading-relaxed">{line}</p>
+				{/each}
+				<p class="mt-2 text-sm font-medium text-heading">{t('consent.ai.usesHeading')}</p>
+				<ul class="mt-1 flex list-disc flex-col gap-1 pl-5 text-sm" data-testid="consent-ai-uses">
+					{#each list('consent.ai.uses') as line (line)}
+						<li>{line}</li>
+					{/each}
+				</ul>
+				<p class="mt-2 text-sm">
+					<span class="font-medium text-heading">{t('consent.ai.withoutHeading')}:</span>
+					{t('consent.ai.without')}
+				</p>
+				<p class="mt-1.5 text-sm">{t('consent.ai.check')}</p>
+				<TechnicalNote
+					class="mt-2"
+					lines={list('consent.ai.technical')}
+					testid="consent-technical-ai"
 				/>
 			</section>
 

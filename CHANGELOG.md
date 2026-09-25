@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **Where AI is used, said everywhere.** Every button that calls the language model carries the ✦ mark with a hover of what goes out (_Auslesen_, _Alle neuen auslesen_, upload to a booking, _Als Beleg übernehmen_, _Rechnungen holen_, _Mit KI weitersuchen_). The consent screen has a section _KI: wo ein Sprachmodell hilft_: Le Space runs no AI, each installation sets up its own model, public or local; what uses it and what runs on fixed rules (version 4, so it opens once more). README section _AI_ and `docs/ai.md` / `docs/ai.de.md`.
+
 - **License.** App and bridge under AGPL-3.0-or-later (`LICENSE`); the portal recipes in
   `bridge/src/portals/recipes/` under MIT, so they can be reused anywhere.
 - **Customer portals – Vodafone MeinKabel.** The bridge starts its own Chromium (Playwright) with

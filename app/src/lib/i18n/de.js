@@ -250,6 +250,28 @@ export default {
 				'Die Seite lädt keine Schriften, Skripte oder Bilder von Dritten.'
 			]
 		},
+		ai: {
+			title: 'KI: wo ein Sprachmodell hilft',
+			simple: [
+				'Le Space betreibt keine KI und bekommt nichts davon zu sehen. Die Bridge auf deinem Rechner fragt das Sprachmodell, das du selbst einstellst: ein öffentliches wie DeepSeek oder ein lokales auf deinem eigenen Rechner. Ist keins eingestellt, läuft nichts davon.',
+				'KI hilft nur dort, wo ein Knopf das Zeichen ✦ trägt, und nur, wenn du ihn drückst. Was dabei hinausgeht, steht beim Darüberfahren mit der Maus.'
+			],
+			usesHeading: 'Mit KI',
+			uses: [
+				'Belege auslesen: Anbieter, Betrag, Datum, Rechnungs- und Kundennummer aus dem Text eines Belegs – und ob es überhaupt ein Beleg ist (Anmelde-Mails und Newsletter nicht). Bei „Auslesen“, „Alle neuen auslesen“, „Beleg hochladen“, „Als Beleg übernehmen“ und „Rechnungen holen“.',
+				'„Mit KI weitersuchen“ im privaten Postfach: Suchwörter und Absender vorschlagen, dann unter den Treffern den Beleg wählen – nach Betreff, Absender-Domain und Dateinamen, nie nach dem Text der E-Mails.'
+			],
+			withoutHeading: 'Ohne KI, nach festen Regeln',
+			without:
+				'Zuordnen mit Punkten, Rückfragen, Sortierung der Suchtreffer, Umbuchungen und Bankgebühren, was der Abgleich aus deinen Entscheidungen lernt, und die Portal-Rezepte. Jede Zuordnung begründet „Warum diese Zuordnung?“.',
+			check:
+				'Was die KI liefert, prüfst du: Am Beleg stehen das Modell und der gesendete Text, ein KI-Vorschlag wird erst auf deinen Klick übernommen, und der Verlauf nennt jeden Aufruf.',
+			technical: [
+				'Das Sprachmodell stellst du in der Bridge ein (pnpm setup:llm): jede Schnittstelle im OpenAI-Format (/chat/completions) – per https, oder per http nur auf diesem Rechner (127.0.0.1, localhost), etwa Ollama oder LM Studio. Voreingestellt sind deepseek-flash, mit deepseek-v4-pro als zweitem Versuch.',
+				'Vor jedem Aufruf schwärzt die Bridge Namen aus deiner Liste, IBANs bis auf die letzten vier Stellen, eigene E-Mail-Adressen, Straßen, Postleitzahlen und Links (nur der Host bleibt). Die Antworten sind JSON und werden geprüft (Summen, Datumsformate, Kandidatennummern); was nicht passt, wird verworfen.',
+				'Der API-Schlüssel liegt im macOS-Schlüsselbund der Bridge, nie im Browser. Das Protokoll der Bridge nennt nur Zahlen, nie Text. Im Verlauf der App stehen Modell, Dauer und Tokens jedes Aufrufs.'
+			]
+		},
 		services: {
 			title: 'Externe Dienste',
 			simple: ['Nur wenn du sie benutzt, und nur mit dem, was hier steht.'],
@@ -277,10 +299,10 @@ export default {
 					'Ein Kontoinformationsdienst (AIS) nach PSD2: Nach deiner Freigabe bei der Bank ruft er Konten und Umsätze ab und reicht sie weiter; sie passieren dabei seine Server. Bisher nur in einem Versuch (spikes/enablebanking), in der App nicht eingebaut.'
 			},
 			deepseek: {
-				name: 'DeepSeek (Belege auslesen)',
-				text: 'Liest Betrag, Datum und Rechnungsnummer aus Belegen – nur wenn du „Auslesen“ drückst.',
+				name: 'Sprachmodell – voreingestellt DeepSeek (Belege auslesen, KI-Suche)',
+				text: 'Das Modell, das du in der Bridge einstellst. Nur bei Knöpfen mit ✦ (siehe „KI“ oben).',
 				leaves:
-					'Nur geschwärzter Text eines Belegs, ohne Namen und Anschriften. Die Server stehen außerhalb der EU.',
+					'Beim Auslesen der geschwärzte Text eines Belegs; bei „Mit KI weitersuchen“ Gegenpartei und Verwendungszweck sowie Betreff, Absender-Domain und Dateinamen der Treffer, geschwärzt. Bei DeepSeek stehen die Server außerhalb der EU; ein lokales Modell verlässt diesen Rechner nicht.',
 				technical:
 					'Die Bridge schickt nur die Textebene eines PDFs (oder den Text einer E-Mail) mit Betreff und Absender, nachdem sie Namen aus ihrer Liste, IBANs (bis auf die letzten vier Stellen), eigene E-Mail-Adressen, Straßen und Postleitzahlen geschwärzt hat – nie die Datei selbst. DeepSeek betreibt seine Server in China. Der API-Schlüssel liegt im macOS-Schlüsselbund der Bridge, nie im Browser. E-Mails von Absendern ohne bestandene DKIM/SPF-Prüfung liest die Bridge erst nach deiner Freigabe aus.'
 			},
@@ -504,7 +526,15 @@ export default {
 		}
 	},
 	ai: {
-		mark: 'KI'
+		mark: 'KI',
+		extract:
+			'Mit KI: Die Bridge schickt den Text des Belegs – geschwärzt, nie die Datei – an das Sprachmodell, das du eingestellt hast, und bekommt Anbieter, Betrag, Datum und Nummern zurück.',
+		upload:
+			'Mit KI: Nach dem Hochladen liest die Bridge den Beleg mit deinem Sprachmodell aus (nur der Text, geschwärzt). Zugeordnet wird er ohne KI.',
+		import:
+			'Mit KI: Nach der Übernahme liest die Bridge die E-Mail oder ihren Anhang mit deinem Sprachmodell aus (nur der Text, geschwärzt). Zugeordnet wird ohne KI.',
+		portal:
+			'Mit KI: Die geholten Rechnungen liest die Bridge mit deinem Sprachmodell aus (nur der Text, geschwärzt). Anmelden und Holen kommen ohne KI aus.'
 	},
 	anweisungen: {
 		title: 'Eigene Anweisungen',
@@ -801,8 +831,9 @@ export default {
 			save: 'Speichern',
 			cancel: 'Abbrechen',
 			needsReceipt: 'Doch einen Beleg zuordnen',
-			others: 'Weitere Zahlungen an {name}',
-			othersNone: 'Keine weiteren Zahlungen an diese Gegenpartei.',
+			othersOut: 'Weitere Zahlungen an {name}',
+			othersIn: 'Weitere Zahlungen von {name}',
+			othersNone: 'Keine weiteren Zahlungen mit dieser Gegenpartei.',
 			withReceipt: 'mit Beleg',
 			withoutReceipt: 'ohne Beleg',
 			privateSearch: 'Im privaten Postfach suchen',
@@ -838,6 +869,8 @@ export default {
 			noBridge: 'Für die Suche die Bridge unter Integrationen koppeln.',
 			vendor: {
 				title: 'Beim Anbieter holen',
+				income:
+					'Ein Zahlungseingang: Der Beleg dazu ist deine eigene Ausgangsrechnung, nicht die Rechnung eines Anbieters. Lade sie oben hoch oder ordne sie zu.',
 				noBridge: 'Dafür die Bridge unter Integrationen koppeln.',
 				found:
 					'Kundenportal „{name}“: holt die Rechnungen ab {since} über die Bridge und prüft, ob eine zu dieser Zahlung passt.',

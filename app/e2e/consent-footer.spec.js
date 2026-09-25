@@ -36,6 +36,12 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 		dialog.locator('[data-service="deepseek"]').getByTestId('consent-service-status')
 	).toHaveText('aktiv, wenn eingerichtet');
 	await expect(dialog.locator('[data-service="deepseek"]')).toContainText('außerhalb der EU');
+	// Where KI helps: not ours, the model each installation sets up, only on a ✦ button.
+	const ai = dialog.getByTestId('consent-ai');
+	await expect(ai).toContainText('Le Space betreibt keine KI');
+	await expect(ai).toContainText('lokales auf deinem eigenen Rechner');
+	await expect(ai.getByTestId('consent-ai-uses').locator('li')).toHaveCount(2);
+	await expect(ai).toContainText('Ohne KI, nach festen Regeln');
 	// The customer portals: a browser on this Mac, only once set up.
 	await expect(
 		dialog.locator('[data-service="portals"]').getByTestId('consent-service-status')
@@ -52,7 +58,7 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	);
 	expect(Object.keys(after).filter((key) => !before.includes(key))).toEqual(['belege.consent']);
 	// CONSENT_VERSION in src/lib/consent.js.
-	expect(after['belege.consent']).toBe('3');
+	expect(after['belege.consent']).toBe('4');
 	await expect(page.getByTestId('passkey-onboarding')).toBeVisible();
 
 	await page.reload();

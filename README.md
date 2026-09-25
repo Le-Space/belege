@@ -14,15 +14,19 @@ pnpm setup:portal vodafone   # optional: Vodafone MeinKabel invoices, see bridge
 pnpm lint && pnpm check && pnpm test:unit && pnpm test:bridge && pnpm test:e2e
 ```
 
+## AI
+
+Belege uses a language model in two places, both only on a click of a button marked **✦**: reading a receipt's text (vendor, amounts, dates, numbers), and _Mit KI weitersuchen_ in the private mailbox (search words, then a pick from the hits' subjects, sender domains and file names). Matching, questions, transfers, fees, learning and the portals run on fixed rules. **Le Space runs no AI:** each installation sets up its own model in the bridge, a public one such as DeepSeek or a local one such as Ollama, and everything sent is redacted first. Details: [docs/ai.md](docs/ai.md) ([Deutsch](docs/ai.de.md)).
+
 ## Phase 0 (feasibility spikes)
 
-| Spike | Question | State |
-|---|---|---|
-| `spikes/hibiscus` | Can we read accounts and transactions from a local Hibiscus over XML-RPC? | script ready, waiting for Hibiscus |
-| Revolut → Hibiscus | Does Revolut's CSV/CAMT export import into a Hibiscus offline account? | open |
-| `spikes/imap` | Can the bridge list receipt mails, and what do their attachments look like? | done: works with a Mailu auth token; 1 month ≈ 420 mails, ≈ 5 % with a PDF, many PDFs sent as `application/octet-stream`; see `docs/phase-0.md` |
-| LLM extraction | How well does DeepSeek extract amount, date, invoice number from real receipts? | done: 12 real PDFs, both models right on vendor, gross, currency; flash with v4-pro as retry; see `docs/phase-0.md` |
-| DATEV → MonkeyOffice | Which EXTF fields and receipt links does MonkeyOffice import? | later |
+| Spike                | Question                                                                        | State                                                                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `spikes/hibiscus`    | Can we read accounts and transactions from a local Hibiscus over XML-RPC?       | script ready, waiting for Hibiscus                                                                                                              |
+| Revolut → Hibiscus   | Does Revolut's CSV/CAMT export import into a Hibiscus offline account?          | open                                                                                                                                            |
+| `spikes/imap`        | Can the bridge list receipt mails, and what do their attachments look like?     | done: works with a Mailu auth token; 1 month ≈ 420 mails, ≈ 5 % with a PDF, many PDFs sent as `application/octet-stream`; see `docs/phase-0.md` |
+| LLM extraction       | How well does DeepSeek extract amount, date, invoice number from real receipts? | done: 12 real PDFs, both models right on vendor, gross, currency; flash with v4-pro as retry; see `docs/phase-0.md`                             |
+| DATEV → MonkeyOffice | Which EXTF fields and receipt links does MonkeyOffice import?                   | later                                                                                                                                           |
 
 ```bash
 pnpm install

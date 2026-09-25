@@ -9,6 +9,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
+	import AiMark from '$lib/AiMark.svelte';
 	import {
 		app,
 		currentBlobs,
@@ -604,11 +605,12 @@
 					{#if client && todo.length > 0}
 						<button
 							type="button"
-							class={button}
+							class="inline-flex items-center gap-1.5 {button}"
 							onclick={extractAll}
 							disabled={bulk !== null}
+							title={t('ai.extract')}
 							data-testid="extract-all"
-							>{bulk
+							><AiMark />{bulk
 								? t('belege.extracting', { done: bulk.done, count: bulk.count })
 								: t('belege.extractAll', { count: todo.length })}</button
 						>
@@ -880,11 +882,12 @@
 						{#if client && !needsConfirmation(selected) && !String(selected.mime).startsWith('image/')}
 							<button
 								type="button"
-								class="mt-3 {primary}"
+								class="mt-3 inline-flex items-center gap-1.5 {primary}"
 								onclick={() => selected && extract(selected)}
 								disabled={busy.has(selected.id) || bulk !== null}
+								title={t('ai.extract')}
 								data-testid="extract"
-								>{busy.has(selected.id)
+								><AiMark />{busy.has(selected.id)
 									? t('belege.extractBusy')
 									: selected.extraction
 										? t('belege.extractAgain')

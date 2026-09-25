@@ -837,7 +837,12 @@
 				</div>
 
 				<div class="mt-3 border-t border-border pt-3" data-testid="tx-upload">
-					<label class="{button} inline-block cursor-pointer" data-testid="tx-upload-label">
+					<label
+						class="{button} inline-flex cursor-pointer items-center gap-1.5"
+						title={t('ai.upload')}
+						data-testid="tx-upload-label"
+					>
+						<AiMark />
 						{uploading ? t('zahlungen.detail.uploading') : t('zahlungen.detail.upload')}
 						<input
 							type="file"
@@ -1018,11 +1023,12 @@
 										</p>
 										<button
 											type="button"
-											class="mt-1 {button}"
+											class="mt-1 inline-flex items-center gap-1.5 {button}"
 											onclick={() => importHit(hit)}
 											disabled={importingId !== null}
+											title={t('ai.import')}
 											data-testid="tx-private-import"
-											>{importingId === hit.id
+											><AiMark />{importingId === hit.id
 												? t('zahlungen.detail.privateImporting')
 												: t('zahlungen.detail.privateImport')}</button
 										>
@@ -1083,7 +1089,11 @@
 				data-testid="tx-vendor"
 			>
 				<h3 class="text-sm font-semibold text-heading">{t('zahlungen.detail.vendor.title')}</h3>
-				{#if !portalClient}
+				{#if (tx.amountCents ?? 0) > 0}
+					<p class="mt-1 text-sm text-faint" data-testid="tx-vendor-income">
+						{t('zahlungen.detail.vendor.income')}
+					</p>
+				{:else if !portalClient}
 					<p class="mt-1 text-sm text-faint">{t('zahlungen.detail.vendor.noBridge')}</p>
 				{:else if vendorPortal}
 					<p class="mt-1 text-xs text-faint" data-testid="tx-vendor-portal">
@@ -1106,11 +1116,12 @@
 						{#if vendorPortal.state !== 'never'}
 							<button
 								type="button"
-								class={button}
+								class="inline-flex items-center gap-1.5 {button}"
 								onclick={vendorFetch}
 								disabled={vendorBusy || busy}
+								title={t('ai.portal')}
 								data-testid="tx-vendor-fetch"
-								>{vendorBusy
+								><AiMark />{vendorBusy
 									? t('zahlungen.detail.vendor.fetching')
 									: t('zahlungen.detail.vendor.fetch', { name: vendorPortal.name })}</button
 							>
@@ -1185,7 +1196,12 @@
 
 			<section class="mt-4">
 				<h3 class="text-sm font-semibold text-heading">
-					{t('zahlungen.detail.others', { name: tx.counterparty || '—' })}
+					{t(
+						(tx.amountCents ?? 0) > 0 ? 'zahlungen.detail.othersIn' : 'zahlungen.detail.othersOut',
+						{
+							name: tx.counterparty || '—'
+						}
+					)}
 				</h3>
 				{#if others.length === 0}
 					<p class="mt-1 text-sm text-faint">{t('zahlungen.detail.othersNone')}</p>
