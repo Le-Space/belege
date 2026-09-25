@@ -54,6 +54,7 @@
 		privateSearchQuery,
 		rankHits,
 		likelyHit,
+		matchOfReceipt,
 		receiptChoices
 	} from './matching/view.js';
 	import {
@@ -153,6 +154,15 @@
 	let importingId = $state(null);
 	/** @type {string | null} */
 	let importNote = $state(null);
+	/** @type {string | null} the mail last taken over: its receipts are offered for this booking */
+	let hitMailId = $state(null);
+	let hitReceipts = $derived(
+		hitMailId
+			? app.receipts
+					.filter((r) => !r.deleted && r.mailId === hitMailId)
+					.map((r) => ({ receipt: r, match: matchOfReceipt(r.id, app.matches) }))
+			: []
+	);
 
 	/** @type {HTMLElement | undefined} */
 	let panel = $state();
@@ -548,6 +558,7 @@
 		importingId = hit.id;
 		error = null;
 		importNote = null;
+		hitMailId = null;
 		try {
 			/** @type {any[]} */
 			const created = [];
@@ -572,6 +583,21 @@
 					: { kind: 'mail-search' }
 			});
 			if (created.length === 0) {
+				// Already in the books (the accounting fetch, an earlier click): read what
+				// is not read yet, match, and offer it for this booking below.
+				for (const record of app.receipts.filter((r) => !r.deleted && r.mailId === hit.id)) {
+					if (record.extraction || needsConfirmation(record)) continue;
+					if (String(record.mime).startsWith('image/')) continue;
+					await extractReceipt({
+						client,
+						receipts: store.receipts,
+						blobs,
+						record,
+						events: store.events
+					});
+				}
+				await runMatchingNow();
+				hitMailId = hit.id;
 				importNote = t('zahlungen.detail.privateDuplicate');
 				return;
 			}
@@ -591,6 +617,7 @@
 				});
 			}
 			await runMatchingNow();
+			hitMailId = hit.id;
 			importNote = unverified
 				? t('zahlungen.detail.privateImportedUnverified')
 				: t('zahlungen.detail.privateImported');
@@ -1143,6 +1170,54 @@
 						<p class="mt-2 text-sm text-heading" role="status" data-testid="tx-private-result">
 							{importNote}
 						</p>
+					{/if}
+					{#if hitReceipts.length}
+						<ul class="mt-1 divide-y divide-border text-sm" data-testid="tx-private-receipts">
+							{#each hitReceipts as { receipt, match } (receipt.id)}
+								{@const other = match
+									? app.transactions.find((x) => x.id === match.transactionId)
+									: null}
+								<li
+									class="flex flex-wrap items-center gap-2 py-1.5"
+									data-testid="tx-private-receipt"
+								>
+									<span class="flex-1 text-text"
+										>{receiptVendor(receipt)} · {receiptAmount(receipt)} · {receipt.fileName ??
+											t('belege.textMail')}</span
+									>
+									{#if match?.transactionId === txId}
+										<span class="text-success" data-testid="tx-private-receipt-here"
+											>{t('zahlungen.detail.receiptHere')}</span
+										>
+									{:else if match}
+										<button
+											type="button"
+											class="underline"
+											onclick={() => onopen(match.transactionId)}
+											data-testid="tx-private-receipt-elsewhere"
+											>{t('zahlungen.detail.receiptElsewhere', {
+												name: other?.counterparty || '—',
+												date: other?.bookedOn ? formatDate(other.bookedOn) : '?'
+											})}</button
+										>
+									{:else if needsConfirmation(receipt)}
+										<span class="text-danger">⚠ {t('zahlungen.detail.receiptConfirmFirst')}</span>
+									{:else}
+										{@const c = choices.find((x) => x.receipt.id === receipt.id)}
+										<button
+											type="button"
+											class={primary}
+											onclick={() => assign(receipt.id, c?.score ?? 0, c?.reasons ?? [])}
+											disabled={busy}
+											data-testid="tx-private-receipt-assign"
+											>{t('zahlungen.detail.receiptAssign')}{c
+												? t('zahlungen.detail.receiptPoints', { score: c.score })
+												: ''}</button
+										>
+									{/if}
+								</li>
+							{/each}
+						</ul>
 					{/if}
 				{/if}
 			</section>

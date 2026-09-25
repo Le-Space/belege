@@ -335,6 +335,13 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await expect(detail.getByTestId('tx-linked-vendor')).toHaveText(NAMES.mobil);
 	await expect(detail.getByTestId('tx-linked-state')).toContainText('automatisch');
 	await expect(detail.getByTestId('tx-receipt-preview')).toHaveAttribute('data-rendered', 'true');
+	await expect(detail.getByTestId('tx-private-receipt-here')).toBeVisible();
+	// Taking the same mail again: it is there already, and says where it is linked.
+	await hits.getByTestId('tx-private-import').click();
+	await expect(detail.getByTestId('tx-private-result')).toHaveText(
+		'Diesen Beleg gibt es schon in deinen Büchern:'
+	);
+	await expect(detail.getByTestId('tx-private-receipt-here')).toBeVisible();
 	expect(llm.requests.length).toBe(5);
 	await page.screenshot({ path: test.info().outputPath('zahlung-detail.png') });
 	// On a phone the panel fills the screen, without sideways scrolling.

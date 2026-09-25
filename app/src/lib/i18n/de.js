@@ -908,7 +908,12 @@ export default {
 			privateImported: 'Übernommen, ausgelesen und abgeglichen.',
 			privateImportedUnverified:
 				'Übernommen. Der Absender ist nicht bestätigt: unter Belege prüfen und freigeben.',
-			privateDuplicate: 'Diesen Beleg gibt es schon.',
+			privateDuplicate: 'Diesen Beleg gibt es schon in deinen Büchern:',
+			receiptHere: 'ist dieser Zahlung zugeordnet',
+			receiptElsewhere: 'zugeordnet zu {name} vom {date} – öffnen',
+			receiptConfirmFirst: 'Absender erst unter Belege freigeben',
+			receiptAssign: 'Dieser Zahlung zuordnen',
+			receiptPoints: ' ({score} P.)',
 			noBridge: 'Für die Suche die Bridge unter Integrationen koppeln.',
 			vendor: {
 				title: 'Beim Anbieter holen',
