@@ -12,6 +12,8 @@
 //   TxDtls/Refs/EndToEndId                          → end-to-end id
 //   TxDtls/Refs/AcctSvcrRef, else Ntry/AcctSvcrRef  → sourceId
 //   Ntry/AddtlNtryInf, else BkTxCd/Prtry/Cd         → booking type
+//   Ntry/BkTxCd/Domn/{Cd, Fmly/Cd, Fmly/SubFmlyCd}  → bank code, e.g.
+//     ACMT/MDOP/CHRG (ISO 20022: a charge – a bank fee, see classify.js)
 //
 // Only booked entries (Sts BOOK) are returned; pending ones are counted.
 // An entry with several TxDtls (a batch) becomes one transaction per TxDtls.
@@ -28,6 +30,7 @@
  * @property {string} purpose
  * @property {string} endToEndId
  * @property {string} bookingType
+ * @property {string} bankCode ISO 20022 domain/family/sub-family, '' when the bank sends none
  */
 
 /**
@@ -135,6 +138,13 @@ export function parseCamt053(xml, { DOMParser: Parser = globalThis.DOMParser } =
 			const date = dateOf(child(ntry, 'BookgDt'));
 			const valueDate = dateOf(child(ntry, 'ValDt')) || date;
 			const bookingType = text(ntry, 'AddtlNtryInf') || text(ntry, 'BkTxCd', 'Prtry', 'Cd');
+			const bankCode = [
+				text(ntry, 'BkTxCd', 'Domn', 'Cd'),
+				text(ntry, 'BkTxCd', 'Domn', 'Fmly', 'Cd'),
+				text(ntry, 'BkTxCd', 'Domn', 'Fmly', 'SubFmlyCd')
+			]
+				.filter(Boolean)
+				.join('/');
 			const entryRef = text(ntry, 'AcctSvcrRef') || text(ntry, 'NtryRef');
 			const details = children(ntry, 'NtryDtls').flatMap((d) => children(d, 'TxDtls'));
 			const txs = details.length ? details : [null];
@@ -168,7 +178,8 @@ export function parseCamt053(xml, { DOMParser: Parser = globalThis.DOMParser } =
 					purpose:
 						purpose || text(tx, 'RmtInf', 'Strd', 'CdtrRefInf', 'Ref') || text(tx, 'AddtlTxInf'),
 					endToEndId: endToEndId === 'NOTPROVIDED' ? '' : endToEndId,
-					bookingType
+					bookingType,
+					bankCode
 				});
 			});
 		}

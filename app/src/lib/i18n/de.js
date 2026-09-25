@@ -473,6 +473,12 @@ export default {
 			ownMirrored:
 				'Eigene Umbuchung: Das Gegenkonto endet wie dein Konto {account}, und dort steht die Gegenbuchung',
 			bankFee: 'Bankentgelt: Buchungsart „{type}“ – der Kontoauszug ist der Beleg',
+			bankFeeCode:
+				'Bankentgelt: Buchungscode der Bank „{code}“ (Gebühren) – der Kontoauszug ist der Beleg',
+			bankFeeWords:
+				'Bankentgelt: „{word}“ im Verwendungszweck, und außer der Bank keine Gegenpartei – der Kontoauszug ist der Beleg',
+			bankFeeLearned:
+				'Bankentgelt: So hast du eine Buchung mit diesem Verwendungszweck schon einmal eingeordnet – der Kontoauszug ist der Beleg',
 			loan: 'Darlehen: „Darlehen“ im Verwendungszweck – der Vertrag ist der Beleg',
 			ignore: 'Eigene Anweisung: {field} enthält „{contains}“ → ignoriert ({reason})',
 			private: 'Eigene Anweisung: {field} enthält „{contains}“ → privat ({reason})'
@@ -561,6 +567,10 @@ export default {
 		reasonPlaceholder: 'z. B. Steuerbescheid liegt vor',
 		add: 'Regel hinzufügen',
 		remove: 'Entfernen',
+		learnedFees: 'Gelernte Bankgebühren',
+		learnedFeesHint:
+			'Buchungen, die du als Bankgebühr eingeordnet hast: Konto und Verwendungszweck ohne Zahlen. Die nächste gleiche Buchung braucht keinen Beleg.',
+		noLearnedFees: 'Noch keine.',
 		learned: 'Gelernte Anbieter',
 		learnedHint:
 			'Wenn du einen Beleg einer Zahlung zuordnest oder eine Zuordnung bestätigst, merkt sich der Abgleich, dass diese Gegenpartei auf dem Kontoauszug zu diesem Anbieter gehört – und woher seine Belege per E-Mail kommen. Beim nächsten Mal zählt das 40 Punkte und hilft der Suche im Postfach.',
@@ -772,6 +782,8 @@ export default {
 			unlink: 'Zuordnung gelöst',
 			reject: 'Vorschlag abgelehnt',
 			'no-receipt': '„Kein Beleg nötig“ gesetzt',
+			'bank-fee': 'Als Bankgebühr eingeordnet',
+			'bank-fee-forget': 'Bankgebühr vergessen',
 			'needs-receipt': '„Kein Beleg nötig“ zurückgenommen',
 			'confirm-sender': 'Absender freigegeben',
 			'upload-link': 'Beleg hochgeladen und dieser Zahlung zugeordnet',
@@ -831,6 +843,9 @@ export default {
 			save: 'Speichern',
 			cancel: 'Abbrechen',
 			needsReceipt: 'Doch einen Beleg zuordnen',
+			bankFee: 'Bankgebühr – kein Beleg nötig',
+			bankFeeTitle:
+				'Diese Buchung ist ein Entgelt der Bank; der Kontoauszug ist der Beleg. Der Abgleich merkt sich den Verwendungszweck (ohne Zahlen) auf diesem Konto und ordnet die nächste gleiche Buchung selbst ein. Unter Eigene Anweisungen lässt es sich vergessen.',
 			othersOut: 'Weitere Zahlungen an {name}',
 			othersIn: 'Weitere Zahlungen von {name}',
 			othersNone: 'Keine weiteren Zahlungen mit dieser Gegenpartei.',

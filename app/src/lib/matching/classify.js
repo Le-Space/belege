@@ -12,6 +12,7 @@
 //   4. loans: "Darlehen" in the purpose – the contract is the receipt
 // (docs/phase-0.md, "Matching").
 
+import { counterpartyKey } from './partners.js';
 import { compactIban, normalizeRef } from './normalize.js';
 
 /** Legal forms dropped before two company names are compared. */
@@ -77,6 +78,7 @@ export function isOwnName(name, company) {
  * @property {string[]} ownIbans full IBANs the person typed in
  * @property {Rule[]} rules
  * @property {number} graceDays a booking without a receipt is asked about only once it is older than this (0: at once)
+ * @property {string[]} feeKeys bookings a person called a bank fee (`feeKey`)
  */
 
 /** A receipt often arrives days after the debit: no question before then. */
@@ -85,7 +87,13 @@ export const MAX_GRACE_DAYS = 90;
 
 /** @returns {MatchingSettings} */
 export function defaultMatchingSettings() {
-	return { companyNames: [], ownIbans: [], rules: [], graceDays: DEFAULT_GRACE_DAYS };
+	return {
+		companyNames: [],
+		ownIbans: [],
+		rules: [],
+		graceDays: DEFAULT_GRACE_DAYS,
+		feeKeys: []
+	};
 }
 
 /** @param {unknown} v @returns {number} */
@@ -126,8 +134,22 @@ export function cleanMatchingSettings(value) {
 				action: r.action,
 				reason: typeof r.reason === 'string' ? r.reason.trim() : ''
 			})),
-		graceDays: graceDaysOf(value?.graceDays)
+		graceDays: graceDaysOf(value?.graceDays),
+		// Bookings a person called a bank fee (feeKey below): the next like it is one too.
+		feeKeys: [...new Set(strings(value?.feeKeys))].slice(-200)
 	};
+}
+
+/**
+ * What makes two bank fees "the same" for learning: the account and the
+ * purpose's words, without digits (dates and numbers change every month).
+ *
+ * @param {Record<string, any>} tx
+ * @returns {string} '' when the purpose has no words to go by
+ */
+export function feeKey(tx) {
+	const words = counterpartyKey(tx.purpose);
+	return words ? `${tx.accountId ?? ''}|${words}` : '';
 }
 
 /**
@@ -138,6 +160,7 @@ export function cleanMatchingSettings(value) {
  * @property {(tx: Record<string, any>, accountIds: string[]) => boolean} [mirrored] whether one of those accounts booked the same amount the other way within a few days
  * @property {Rule[]} rules
  * @property {number} [graceDays] see grace.js
+ * @property {Set<string>} [feeKeys] learned bank fees (feeKey)
  */
 
 /**
@@ -148,13 +171,23 @@ export function cleanMatchingSettings(value) {
  * @property {string} [ruleId]
  * @property {'counterparty' | 'purpose' | 'any'} [ruleField] what the rule looked at
  * @property {string} [ruleContains] the rule's text
- * @property {'iban' | 'mirrored' | 'company'} [via] how an own transfer was recognised
+ * @property {'iban' | 'mirrored' | 'company' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned'} [via] how an own transfer or a bank fee was recognised
  * @property {string} [ibanLast4] the counterparty account's last four, for an own transfer by IBAN
  * @property {string} [company] our company name the counterparty matched
  * @property {string} [bookingType] for a bank fee
+ * @property {string} [bankCode] for a bank fee by its ISO 20022 code
+ * @property {string} [feeWord] for a bank fee by the words of its purpose
  */
 
 const BANK_FEE = /abschluss|entgelt|mehrwertsteuerbelast|kontof(?:u|ü)hrung/i;
+/** ISO 20022 families and sub-families that mean a charge (BkTxCd, CAMT). */
+const FEE_CODES = new Set(['CHRG', 'FEES', 'COMM']);
+/** A fee in the purpose, when no one but the bank is on the other side. */
+const FEE_WORDS =
+	/geb(?:ü|ue)hr|entgelt|kontof(?:ü|ue|u)hrung|\bfees?\b|\bcharges?\b|\bplan fee\b|\bsubscription fee\b/i;
+/** A counterparty that is a bank, not a vendor. */
+const BANK_NAME =
+	/\bbank\b|gemeinschaftsbank|revolut|sparkasse|volksbank|raiffeisen|\bgls\b|\bn26\b|qonto|commerzbank|postbank/i;
 const LOAN = /darlehen/i;
 
 /**
@@ -188,8 +221,17 @@ export function classifyTransaction(tx, ctx) {
 		}
 	}
 	if (BANK_FEE.test(String(tx.bookingType ?? ''))) {
-		return { kind: 'bank-fee', bookingType: String(tx.bookingType) };
+		return { kind: 'bank-fee', via: 'booking-type', bookingType: String(tx.bookingType) };
 	}
+	const code = String(tx.bankCode ?? '');
+	if (code && code.split('/').some((c) => FEE_CODES.has(c.toUpperCase()))) {
+		return { kind: 'bank-fee', via: 'bank-code', bankCode: code };
+	}
+	const key = feeKey(tx);
+	if (key && ctx.feeKeys?.has(key)) return { kind: 'bank-fee', via: 'learned' };
+	const onlyBank = !counterparty.trim() || BANK_NAME.test(counterparty);
+	const word = Number(tx.amountCents ?? 0) < 0 && onlyBank ? FEE_WORDS.exec(purpose)?.[0] : null;
+	if (word) return { kind: 'bank-fee', via: 'fee-words', feeWord: word };
 	const iban = compactIban(tx.counterpartyIban);
 	if (iban && ctx.ownIbans.has(iban)) {
 		return { kind: 'own-transfer', account: '1360', via: 'iban', ibanLast4: iban.slice(-4) };

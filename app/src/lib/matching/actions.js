@@ -7,8 +7,8 @@
 // answer to a question is one event, not one per step it takes.
 
 import { recordEvent } from '../activity/events.js';
-import { getSetting } from '../store/settings.js';
-import { cleanMatchingSettings } from './classify.js';
+import { getSetting, setSetting } from '../store/settings.js';
+import { cleanMatchingSettings, feeKey } from './classify.js';
 import { isActive, syncLinks } from './engine.js';
 import { learnFromLink } from './partners.js';
 
@@ -152,6 +152,43 @@ export async function setNoReceipt(store, transactionId, reason, { log = true } 
 	await syncLinks(store);
 	if (log)
 		await decided(store, reason === null ? 'needs-receipt' : 'no-receipt', { transactionId });
+}
+
+/**
+ * "Bankgebühr": this booking is a bank fee, and so is the next one on the same
+ * account with the same purpose words (classify.js `feeKey`). A purpose
+ * without words to learn from makes it "Kein Beleg nötig: Bankgebühr".
+ *
+ * @param {MatchingStore} store
+ * @param {string} transactionId
+ */
+export async function markBankFee(store, transactionId) {
+	const tx = await store.transactions.get(transactionId);
+	if (!tx) throw new Error(`No transaction ${transactionId}`);
+	const key = feeKey(tx);
+	if (!key) return setNoReceipt(store, transactionId, 'Bankgebühr');
+	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+	await setSetting(store.settings, 'matching', {
+		...current,
+		feeKeys: [...current.feeKeys, key]
+	});
+	await syncLinks(store);
+	await decided(store, 'bank-fee', { transactionId });
+}
+
+/**
+ * "Vergessen" for a learned bank fee: its bookings need a receipt again.
+ *
+ * @param {MatchingStore} store
+ * @param {string} key as stored (classify.js `feeKey`)
+ */
+export async function forgetBankFee(store, key) {
+	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+	await setSetting(store.settings, 'matching', {
+		...current,
+		feeKeys: current.feeKeys.filter((k) => k !== key)
+	});
+	await decided(store, 'bank-fee-forget', {});
 }
 
 /**

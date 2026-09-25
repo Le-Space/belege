@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { ibanKey } from '../bank/fingerprint.js';
 import { ACCOUNTS, tx } from './fixtures.js';
 import { buildMatchingContext } from './context.js';
-import { classifyTransaction, cleanMatchingSettings, isOwnName } from './classify.js';
+import { classifyTransaction, cleanMatchingSettings, feeKey, isOwnName } from './classify.js';
 
 /** @param {Partial<import('./classify.js').ClassifyContext>} [over] */
 const ctx = (over = {}) => ({
@@ -32,12 +32,77 @@ describe('classifyTransaction', () => {
 		for (const bookingType of ['Abschluss', 'Entgelt', 'Mehrwertsteuerbelastung']) {
 			expect(classifyTransaction(tx({ amountCents: -1190, bookingType }), ctx())).toEqual({
 				kind: 'bank-fee',
+				via: 'booking-type',
 				bookingType
 			});
 		}
 		expect(
 			classifyTransaction(tx({ amountCents: -1190, bookingType: 'Basislastschrift' }), ctx())
 		).toBeNull();
+	});
+
+	it('bank fees by the bank transaction code (CAMT): CHRG, FEES, COMM', () => {
+		expect(
+			classifyTransaction(tx({ amountCents: -1000, bankCode: 'ACMT/MDOP/CHRG' }), ctx())
+		).toEqual({ kind: 'bank-fee', via: 'bank-code', bankCode: 'ACMT/MDOP/CHRG' });
+		expect(
+			classifyTransaction(tx({ amountCents: -1000, bankCode: 'PMNT/CCRD/POSD' }), ctx())
+		).toBeNull();
+	});
+
+	it('bank fees by the words of the purpose, when only the bank is on the other side', () => {
+		// The Revolut plan fee: no counterparty, "Gebühr" in the purpose.
+		const revolut = tx({
+			amountCents: -1000,
+			counterparty: '',
+			purpose: 'Gebühr für Revolut Business • Gebühr für das Basic-Abo',
+			bookingType: 'FEE'
+		});
+		expect(classifyTransaction(revolut, ctx())).toEqual({
+			kind: 'bank-fee',
+			via: 'fee-words',
+			feeWord: 'Gebühr'
+		});
+		// The bank as counterparty counts as none.
+		expect(
+			classifyTransaction(
+				tx({
+					amountCents: -250,
+					counterparty: 'GLS Gemeinschaftsbank eG',
+					purpose: 'Entgelt Girocard'
+				}),
+				ctx()
+			)?.via
+		).toBe('fee-words');
+		// A vendor's "Servicegebühr" needs its receipt; so does money coming in.
+		expect(
+			classifyTransaction(
+				tx({ amountCents: -500, counterparty: 'Ticketshop Test GmbH', purpose: 'Servicegebühr' }),
+				ctx()
+			)
+		).toBeNull();
+		expect(
+			classifyTransaction(
+				tx({ amountCents: 500, counterparty: '', purpose: 'Gebühr erstattet' }),
+				ctx()
+			)
+		).toBeNull();
+	});
+
+	it('bank fees a person taught: same account, same purpose words', () => {
+		const porto = tx({
+			accountId: 'ACC-REV',
+			amountCents: -390,
+			counterparty: '',
+			purpose: 'Porto 09/2026'
+		});
+		expect(classifyTransaction(porto, ctx())).toBeNull();
+		const taught = ctx({ feeKeys: new Set([feeKey(porto)]) });
+		const next = { ...porto, purpose: 'Porto 10/2026' };
+		expect(feeKey(next)).toBe('ACC-REV|porto');
+		expect(classifyTransaction(next, taught)).toEqual({ kind: 'bank-fee', via: 'learned' });
+		expect(classifyTransaction({ ...next, accountId: 'ACC-GLS' }, taught)).toBeNull();
+		expect(feeKey(tx({ purpose: '2026 0815' }))).toBe('');
 	});
 
 	it('own transfer by company name: neutral account 1360', () => {
@@ -160,13 +225,15 @@ describe('cleanMatchingSettings', () => {
 			rules: [
 				{ id: 'ok', field: 'counterparty', contains: 'Miete', action: 'private', reason: '' }
 			],
-			graceDays: 7
+			graceDays: 7,
+			feeKeys: []
 		});
 		expect(cleanMatchingSettings(null)).toEqual({
 			companyNames: [],
 			ownIbans: [],
 			rules: [],
-			graceDays: 7
+			graceDays: 7,
+			feeKeys: []
 		});
 	});
 

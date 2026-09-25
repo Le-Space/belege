@@ -35,7 +35,8 @@ describe('CAMT.053, Revolut-style (camt.053.001.08)', () => {
 				counterpartyIban: '',
 				purpose: 'Kartenzahlung Wolkenspeicher Abo',
 				endToEndId: '',
-				bookingType: 'CARD_PAYMENT'
+				bookingType: 'CARD_PAYMENT',
+				bankCode: ''
 			},
 			{
 				sourceId: 'rev-tx-0002',
@@ -47,7 +48,8 @@ describe('CAMT.053, Revolut-style (camt.053.001.08)', () => {
 				counterpartyIban: 'DE00000000000000004711',
 				purpose: 'Aufladung Revolut',
 				endToEndId: 'E2E-REV-0002',
-				bookingType: 'TRANSFER'
+				bookingType: 'TRANSFER',
+				bankCode: ''
 			}
 		]);
 	});
@@ -75,7 +77,8 @@ describe('CAMT.053, German bank style (camt.053.001.02, DK)', () => {
 			counterpartyIban: 'DE00000000000000003333',
 			purpose: 'Kundennr. 4711-0815 Rechnung 2026-08 vom 15.08.2026',
 			endToEndId: 'MOBIL-2026-08-4411',
-			bookingType: 'Basislastschrift'
+			bookingType: 'Basislastschrift',
+			bankCode: ''
 		});
 	});
 
@@ -120,5 +123,29 @@ describe('CAMT.053 errors and amounts', () => {
 		expect(camtAmountCents('0.1')).toBe(10);
 		expect(() => camtAmountCents('1,50')).toThrow();
 		expect(() => camtAmountCents('1.505')).toThrow();
+	});
+});
+
+describe('CAMT.053, the bank transaction code', () => {
+	it('keeps Domn/Fmly/SubFmlyCd as bankCode (a Revolut plan fee: ACMT/MDOP/CHRG)', () => {
+		const xml = `<?xml version="1.0"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.08"><BkToCstmrStmt><Stmt>
+  <Id>FEE-TEST</Id>
+  <Acct><Id><IBAN>LT000000000000000001</IBAN></Id><Ccy>EUR</Ccy></Acct>
+  <Ntry>
+    <Amt Ccy="EUR">10.00</Amt><CdtDbtInd>DBIT</CdtDbtInd><Sts><Cd>BOOK</Cd></Sts>
+    <BookgDt><Dt>2026-09-06</Dt></BookgDt>
+    <BkTxCd><Domn><Cd>ACMT</Cd><Fmly><Cd>MDOP</Cd><SubFmlyCd>CHRG</SubFmlyCd></Fmly></Domn><Prtry><Cd>FEE</Cd></Prtry></BkTxCd>
+    <NtryDtls><TxDtls><Refs><AcctSvcrRef>fee-1</AcctSvcrRef></Refs>
+      <RmtInf><Ustrd>Gebühr für das Basic-Abo</Ustrd></RmtInf></TxDtls></NtryDtls>
+  </Ntry>
+</Stmt></BkToCstmrStmt></Document>`;
+		const [statement] = parse(xml);
+		expect(statement.transactions[0]).toMatchObject({
+			amountCents: -1000,
+			bookingType: 'FEE',
+			bankCode: 'ACMT/MDOP/CHRG',
+			counterpartyName: ''
+		});
 	});
 });

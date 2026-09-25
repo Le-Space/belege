@@ -63,6 +63,7 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 		ownLast4,
 		rules: clean.rules,
 		graceDays: clean.graceDays,
+		feeKeys: new Set(clean.feeKeys),
 		learnedVendors: learnedVendors(partners),
 		mirrored(tx, accountIds) {
 			const day = dayNumber(tx.bookedOn);
