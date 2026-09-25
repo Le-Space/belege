@@ -146,6 +146,31 @@ describe('classifyTransaction', () => {
 			expect(classifyTransaction(out, c)?.counterBookingId).toBe('T-REV-IN');
 		});
 
+		it('a purpose that gives the reason, not "Umbuchung": the same name on both sides alone is no sign', async () => {
+			const why = { ...into, purpose: 'Claude Code (KI)' };
+			const away = { ...out, purpose: 'Claude Code (KI)' };
+			expect(classifyTransaction(why, await context([away, why]))).toBeNull();
+			// With the company name set up, it is one.
+			const c = await context([away, why], { companyNames: ['le space UG'] });
+			expect(classifyTransaction(why, c)?.via).toBe('counter-booking');
+		});
+
+		it('the other side names this account as its counterparty account: the sign', async () => {
+			const why = { ...into, purpose: 'Claude Code (KI)', counterparty: '' };
+			// GLS paid to the Revolut account (···0001 is ACC-REV's last four).
+			const away = {
+				...out,
+				purpose: 'Claude Code (KI)',
+				counterparty: 'Irgendein Name',
+				counterpartyIban: 'LT000000000000000001'
+			};
+			const c = await context([away, why]);
+			expect(classifyTransaction(why, c)).toMatchObject({
+				via: 'counter-booking',
+				sign: 'eigenes Konto'
+			});
+		});
+
 		it('only one side imported: no counter-booking, no guess', async () => {
 			expect(classifyTransaction(into, await context([into]))).toBeNull();
 		});

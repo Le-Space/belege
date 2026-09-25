@@ -184,6 +184,24 @@ export async function markBankFee(store, transactionId) {
 }
 
 /**
+ * "Ja, das ist meine Firma": the name joins the company names (Eigene
+ * Anweisungen); payments to or from it are own transfers from now on.
+ *
+ * @param {MatchingStore} store
+ * @param {string} name
+ */
+export async function addCompanyName(store, name) {
+	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+	const clean = String(name ?? '').trim();
+	if (!clean || current.companyNames.includes(clean)) return;
+	await setSetting(store.settings, 'matching', {
+		...current,
+		companyNames: [...current.companyNames, clean]
+	});
+	await decided(store, 'company-name', {});
+}
+
+/**
  * "Keine Umbuchung": the two bookings are not each other's other side; both
  * need a receipt again (or another rule).
  *

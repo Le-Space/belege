@@ -229,6 +229,26 @@ function transferSign(tx, companyNames) {
 }
 
 /**
+ * What the other side says: its counterparty account is this booking's
+ * account (a full IBAN we know, or the last four digits of this account).
+ * The same name on both sides is no sign on its own: a vendor who refunds
+ * to the other account looks alike (see `ownNameCandidate` in view.js).
+ *
+ * @param {Record<string, any>} tx
+ * @param {Record<string, any>} other
+ * @param {ClassifyContext} ctx
+ * @returns {string | null}
+ */
+function pairSign(tx, other, ctx) {
+	const iban = compactIban(other.counterpartyIban);
+	if (iban && ctx.ownIbans.has(iban)) return 'eigenes Konto';
+	if (iban && (ctx.ownLast4.get(iban.slice(-4)) ?? []).includes(String(tx.accountId))) {
+		return 'eigenes Konto';
+	}
+	return null;
+}
+
+/**
  * Whether a transaction needs no receipt, and why; null when it needs one.
  *
  * @param {Record<string, any>} tx a transactions record
@@ -289,7 +309,10 @@ export function classifyTransaction(tx, ctx) {
 	const signed = counter
 		.map((o) => ({
 			o,
-			sign: transferSign(tx, ctx.companyNames) ?? transferSign(o, ctx.companyNames)
+			sign:
+				transferSign(tx, ctx.companyNames) ??
+				transferSign(o, ctx.companyNames) ??
+				pairSign(tx, o, ctx)
 		}))
 		.filter((x) => x.sign);
 	if (signed.length === 1) {
