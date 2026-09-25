@@ -296,7 +296,7 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await expect(first).toHaveAttribute('data-suggested', 'true');
 	await first.getByTestId('tx-choose').click();
 	await expect(detail.getByTestId('tx-linked-state')).toContainText('bestätigt');
-	await expect(detail.getByTestId('tx-why-line')).toContainText('120 Punkte, von dir bestätigt');
+	await expect(detail.getByTestId('tx-why-line')).toContainText('120 Punkte, von dir zugeordnet');
 	await expect(page.getByTestId('filter-without-receipt')).toHaveText('Nur ohne Beleg (1)');
 	await detail.getByTestId('tx-detail-close').click();
 	await expect(detail).toHaveCount(0);
@@ -350,6 +350,25 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	// Only the hit came in: no other private mail is anywhere on the page.
 	await tab('Belege').click();
 	await expect(receipts).toHaveCount(7);
+	// How each was linked (#31): automatic with points, by hand, open; no KI find here.
+	const filters = page.getByTestId('origin-filters');
+	const chip = (/** @type {string} */ f) => filters.locator(`[data-origin="${f}"]`);
+	await expect(chip('all')).toContainText('7');
+	await expect(chip('ai')).toContainText('0');
+	// Wolkenfabrik was undone and chosen again from "Beleg zuordnen": by hand.
+	await expect(chip('manual')).toContainText('1');
+	await chip('auto').click();
+	const autoCount = await receipts.count();
+	expect(autoCount).toBeGreaterThan(0);
+	for (const origin of await receipts.getByTestId('receipt-origin').all()) {
+		expect(await origin.getAttribute('data-origin')).toMatch(/^auto/);
+		await expect(origin).toContainText('P.');
+	}
+	await chip('open').click();
+	await expect(receipts.getByTestId('receipt-origin')).toHaveCount(0);
+	await chip('all').click();
+	await expect(receipts).toHaveCount(7);
+	await expect(page.getByTestId('receipt-month-origins').first()).toContainText('automatisch');
 	const content = await page.content();
 	for (const privateText of ['Privatgeheimnis', 'Planung.pdf', 'Energie-News', 'Junkordner']) {
 		expect(content.includes(privateText), privateText).toBe(false);

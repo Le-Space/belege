@@ -638,6 +638,28 @@ export default {
 			ignored: 'Ignoriert'
 		},
 		unverified: 'Absender prüfen',
+		origin: {
+			label: 'Wie zugeordnet',
+			filter: {
+				all: 'Alle',
+				auto: 'Automatisch',
+				confirmed: 'Bestätigt',
+				manual: 'Von Hand',
+				ai: 'KI-Fund',
+				open: 'Ohne Zuordnung'
+			},
+			badge: {
+				auto: 'Automatisch · {score} P.',
+				'auto-learned': 'Automatisch (gelernt) · {score} P.',
+				confirmed: 'Bestätigt',
+				manual: 'Von Hand'
+			},
+			ai: 'KI-Fund',
+			aiTitle: 'Gefunden mit „Mit KI weitersuchen“ ({confidence}): {reason}',
+			aiTitleNone: 'Gefunden mit „Mit KI weitersuchen“',
+			month:
+				'{auto} automatisch · {confirmed} bestätigt · {manual} von Hand · {ai} KI-Fund · {open} offen'
+		},
 		detail: 'Beleg',
 		chooseOne: 'Einen Beleg links auswählen.',
 		warningTitle: 'Absender nicht bestätigt',

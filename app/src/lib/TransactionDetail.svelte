@@ -551,13 +551,25 @@
 		try {
 			/** @type {any[]} */
 			const created = [];
+			// How it was found (receipts/origin.js): by the KI search, or the plain one.
+			const found = assist;
+			const byAi = found?.messages.some((m) => m.id === hit.id) ?? false;
+			const pick = found?.pick && found.pick.id === hit.id ? found.pick : null;
+			const model = found?.llm.calls.at(-1)?.model ?? null;
 			await importMailMessages({
 				receipts: store.receipts,
 				blobs,
 				client,
 				messages: [hit],
 				created,
-				events: store.events
+				events: store.events,
+				foundBy: byAi
+					? {
+							kind: 'mail-assist',
+							...(pick ? { confidence: pick.confidence, reason: pick.reason } : {}),
+							...(model ? { model: String(model) } : {})
+						}
+					: { kind: 'mail-search' }
 			});
 			if (created.length === 0) {
 				importNote = t('zahlungen.detail.privateDuplicate');
