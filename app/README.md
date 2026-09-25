@@ -199,8 +199,10 @@ Two things happen that a person should be able to follow, and they are different
   Scanned PDFs without a text layer are marked the same way.
 - **HTML-only invoices**: a mail without an attachment is read from its first 2 KB of text only;
   longer HTML invoices lose their tail, and tables lose their layout.
-- **Portal downloads**: "your invoice is online" mails only link to a vendor portal; the receipt
-  itself has to be downloaded by hand ("Portal öffnen") and uploaded onto the booking.
+- **Portal downloads**: "your invoice is online" mails only link to a vendor portal. Vodafone
+  MeinKabel has a connector (Integrationen → Kundenportale, see
+  [bridge/README.md](../bridge/README.md#kundenportale)); for every other portal the receipt still
+  has to be downloaded by hand ("Portal öffnen") and uploaded onto the booking.
 - **Tables**: pdf.js glues table rows together (docs/phase-0.md); dates in tables can be read
   wrong.
 - **Matching**: one receipt pays one booking (instalments need a link by hand per booking); a

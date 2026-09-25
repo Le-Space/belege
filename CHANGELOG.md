@@ -6,6 +6,22 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Customer portals – Vodafone MeinKabel.** The bridge starts its own Chromium (Playwright) with
+  a persistent profile per portal (`~/.config/belege/portals/<portal>/profile`, 0700): the first
+  login happens in a visible window (the user types any one-time code or bot check), later runs
+  are headless on the saved session. An optional password (`pnpm setup:portal vodafone`) lives in
+  the keychain and is only typed into the portal's login form. Invoices must be PDFs by their
+  bytes (≤ 15 MB). New endpoints under `/portals`; one run at a time per portal; "Abmelden" ends
+  the session and deletes the profile. In the app: Integrationen → Kundenportale, receipts of
+  source "Vodafone MeinKabel" (deduplicated by `vodafone:<invoice id>` and SHA-256), read and
+  matched like every receipt. Recipes are data (`bridge/src/portals/recipes/*.json`: steps,
+  selectors, extraction rules) run by a generic engine; invoices come from the portal's own JSON
+  API with the headers the logged-in page sent, else from the page. The Vodafone recipe is
+  written without visiting the live portal and may need an edit on the first real run. The
+  consent screen lists the portals (version 3, so it opens once more).
+
 ## [0.1.0] – 2026-09-24
 
 ### Added

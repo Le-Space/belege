@@ -12,8 +12,9 @@
 //
 // --test-mode is for the E2E suite: the secrets come from environment
 // variables instead of the keychain ($BELEGE_BRIDGE_TEST_PASSWORD for Hibiscus,
-// $BELEGE_BRIDGE_TEST_IMAP_PASSWORD, $BELEGE_BRIDGE_TEST_LLM_KEY), and it refuses
-// to run on the real config file.
+// $BELEGE_BRIDGE_TEST_IMAP_PASSWORD, $BELEGE_BRIDGE_TEST_LLM_KEY,
+// $BELEGE_BRIDGE_TEST_PORTAL_PASSWORD), portal browsers never open a window,
+// and it refuses to run on the real config file.
 
 import { resolve } from 'node:path';
 import { homedir } from 'node:os';
@@ -55,6 +56,8 @@ if (pairingAction) {
 let keychain;
 let mailKeychain;
 let llmKeychain;
+/** @type {((id: string) => import('./keychain.js').Keychain) | undefined} */
+let portalKeychain;
 if (testMode) {
 	if (configPath === join(homedir(), '.config', 'belege', 'bridge.json')) {
 		console.error(
@@ -66,6 +69,8 @@ if (testMode) {
 	keychain = memoryKeychain(process.env.BELEGE_BRIDGE_TEST_PASSWORD ?? null);
 	mailKeychain = memoryKeychain(process.env.BELEGE_BRIDGE_TEST_IMAP_PASSWORD ?? null, 'imap');
 	llmKeychain = memoryKeychain(process.env.BELEGE_BRIDGE_TEST_LLM_KEY ?? null, 'llm');
+	const portalPassword = memoryKeychain(process.env.BELEGE_BRIDGE_TEST_PORTAL_PASSWORD ?? null);
+	portalKeychain = () => portalPassword;
 }
 
 try {
@@ -74,6 +79,8 @@ try {
 		keychain,
 		mailKeychain,
 		llmKeychain,
+		portalKeychain,
+		portalHeadless: testMode ? 'always' : 'auto',
 		port,
 		forcePairingCode: args.includes('--pair')
 	});

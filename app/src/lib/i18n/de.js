@@ -43,6 +43,53 @@ export default {
 		dialog: 'QR-Code dieser Seite',
 		hint: 'Mit dem Telefon scannen – öffnet genau diese Seite.'
 	},
+	portals: {
+		title: 'Kundenportale',
+		intro:
+			'Rechnungen direkt aus deinem Kundenkonto holen. Ein Browser auf dem Mac der Bridge meldet sich an und lädt nur die Rechnungen herunter.',
+		unpaired: 'Erst die Bridge koppeln.',
+		none: 'Die Bridge kennt keine Kundenportale.',
+		state: {
+			'logged-in': 'angemeldet',
+			'needs-login': 'Anmeldung abgelaufen',
+			never: 'noch nie angemeldet'
+		},
+		lastLogin: 'angemeldet am {date}',
+		lastRun: 'zuletzt geholt am {date}: {count} Rechnungen',
+		lastRunFailed: 'letzter Abruf am {date} fehlgeschlagen',
+		login: 'Anmelden',
+		loggingIn: 'Warte auf die Anmeldung im Browserfenster …',
+		loginHint:
+			'Auf dem Mac der Bridge öffnet sich ein Browserfenster. Melde dich dort an – einen Code oder eine Sicherheitsprüfung gibst du selbst ein. Danach schließt sich das Fenster.',
+		cancel: 'Abbrechen',
+		fetch: 'Rechnungen holen',
+		fetching: 'Hole Rechnungen …',
+		fromMonth: 'ab Monat',
+		logout: 'Abmelden',
+		logoutHint: 'Beendet die Sitzung und löscht das Browserprofil auf dem Mac.',
+		result:
+			'{listed} Rechnungen ab {since} · neu: {new} · schon vorhanden: {known} · doppelt: {duplicate}',
+		refused: ' · abgelehnt (kein PDF o. Ä.): {count}',
+		read: ' · ausgelesen: {count}',
+		error: {
+			offline: 'Die Bridge ist nicht erreichbar.',
+			unpaired: 'Die Bridge kennt dieses Gerät nicht (neu koppeln).',
+			needsLogin: 'Die Anmeldung ist abgelaufen: bitte „Anmelden“.',
+			busy: 'Das Portal ist gerade mit einem anderen Vorgang beschäftigt.',
+			cancelled: 'Anmeldung abgebrochen.',
+			timeout: 'In 10 Minuten kam keine Anmeldung zustande.',
+			step: 'Das Portal sah anders aus als erwartet (Schritt „{step}“). Siehe bridge/README.md, Kundenportale.',
+			browser:
+				'Der Browser für die Portale fehlt auf der Bridge: pnpm --filter @belege/bridge exec playwright install chromium',
+			profile: 'Das Browserprofil des Portals ist noch geöffnet.',
+			unknownInvoice: 'Diese Rechnung ist nicht mehr auf der Bridge: bitte erneut holen.'
+		},
+		technical: [
+			'Die Bridge startet ein eigenes Chromium (Playwright) mit einem Profil pro Portal unter ~/.config/belege/portals/<portal>/profile (0700) – nicht dein Alltags-Chrome. Die Sitzung bleibt in diesem Profil; „Abmelden“ beendet sie und löscht es.',
+			'Ein Passwort, falls du es mit pnpm setup:portal hinterlegst, liegt im macOS-Schlüsselbund (belege-bridge, portal:vodafone). Codes und Sicherheitsprüfungen gibst immer du ein. Kein Sprachmodell und keine Bildschirmfotos sind beteiligt.',
+			'Jede Datei muss nach ihren Bytes ein PDF sein (höchstens 15 MB). Doppelte erkennt die App an der Rechnungskennung (vodafone:<id>) und am SHA-256.'
+		]
+	},
 	footer: {
 		verlauf: 'Verlauf',
 		madeWith: 'Gebaut mit',
@@ -133,6 +180,14 @@ export default {
 					'Nur geschwärzter Text eines Belegs, ohne Namen und Anschriften. Die Server stehen außerhalb der EU.',
 				technical:
 					'Die Bridge schickt nur die Textebene eines PDFs (oder den Text einer E-Mail) mit Betreff und Absender, nachdem sie Namen aus ihrer Liste, IBANs (bis auf die letzten vier Stellen), eigene E-Mail-Adressen, Straßen und Postleitzahlen geschwärzt hat – nie die Datei selbst. DeepSeek betreibt seine Server in China. Der API-Schlüssel liegt im macOS-Schlüsselbund der Bridge, nie im Browser. E-Mails von Absendern ohne bestandene DKIM/SPF-Prüfung liest die Bridge erst nach deiner Freigabe aus.'
+			},
+			portals: {
+				name: 'Kundenportale (Vodafone)',
+				text: 'Ein Browser auf diesem Mac meldet sich in deinem Kundenkonto an und lädt nur die Rechnungen herunter – nur wenn du „Anmelden“ oder „Rechnungen holen“ drückst.',
+				leaves:
+					'Deine Anmeldung beim Portal (Vodafone) und die Abrufe der Rechnungsseiten, direkt von diesem Mac. Die Sitzung bleibt in einem Browserprofil auf dem Mac; ein Passwort nur, wenn du es im Schlüsselbund hinterlegst.',
+				technical:
+					'Die Bridge startet ein eigenes Chromium (Playwright) mit einem Profil pro Portal unter ~/.config/belege/portals/<portal>/profile (Verzeichnis 0700), nicht deinen Alltags-Browser. Beim ersten Mal (und wenn die Sitzung abläuft) öffnet es ein sichtbares Fenster: Du meldest dich an, Codes (SMS, E-Mail) und Sicherheitsprüfungen gibst immer du ein. Danach holt es die Rechnungen ohne Fenster. Ein optionales Passwort (pnpm setup:portal vodafone) liegt im macOS-Schlüsselbund und wird nur in das Anmeldeformular des Portals getippt. Nur PDFs (nach ihren Bytes, höchstens 15 MB) kommen in der App an. Kein Sprachmodell, keine Bildschirmfotos; das Protokoll nennt nur den Schritt, der scheiterte. Wer dein macOS-Konto benutzen kann, kann auch die Sitzung im Profil benutzen: FileVault einschalten, „Abmelden“ löscht das Profil. Die Nutzungsbedingungen eines Portals können automatisierten Zugriff einschränken.'
 			}
 		},
 		status: {
@@ -150,6 +205,7 @@ export default {
 				'In diesem Browser, lesbar: die öffentlichen Angaben zu deinem Passkey und drei Merker dieser Seite.',
 				'Auf deinem Passkey: der einzige Schlüssel zu allem.',
 				'Auf diesem Rechner außerhalb des Browsers, nur wenn du die Bridge einrichtest: ihre Einstellungen, das Hibiscus-Passwort, das IMAP-Token und der API-Schlüssel im Schlüsselbund.',
+				'Auf diesem Rechner, nur wenn du ein Kundenportal anmeldest: dessen Browserprofil mit der Sitzung, und ein Portal-Passwort nur, wenn du es im Schlüsselbund hinterlegst.',
 				'Bei uns: nichts. Wir betreiben keinen Server und bekommen keine Kopie.'
 			],
 			cookies: 'Keine Cookies, kein Tracking.'
@@ -459,7 +515,12 @@ export default {
 			none: 'keine Angabe',
 			outgoing: 'eigene E-Mail (Gesendet)'
 		},
-		sourceName: { mail: 'E-Mail', upload: 'Hochgeladen', folder: 'Ordner' },
+		sourceName: {
+			mail: 'E-Mail',
+			upload: 'Hochgeladen',
+			folder: 'Ordner',
+			portal: 'Kundenportal'
+		},
 		linkedTo: 'Zugeordnet zu',
 		openTx: 'Zahlung öffnen',
 		reminderNote:
