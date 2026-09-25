@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createPortalManager, buildRecipes, isPdf } from '../src/portals/index.js';
+import { maskPath } from '../src/portals/recipe.js';
 import { RECIPES, parseRow, validateDefinition } from '../src/portals/index.js';
 import { startBridge } from '../src/index.js';
 import { defaultConfig, saveConfig } from '../src/config.js';
@@ -505,5 +506,19 @@ describe('portal endpoints', () => {
 		for (const secret of [FAKE_PORTAL_PASSWORD, CUSTOMER_NUMBER]) {
 			assert.equal(everything.includes(secret), false, secret);
 		}
+	});
+});
+
+describe('maskPath', () => {
+	test('replaces every segment that could name the user', () => {
+		assert.equal(
+			maskPath('/meinvodafone/v2/customer/urn:vf-de:cable:can:123456789/invoice'),
+			'/meinvodafone/v2/customer/{id}/invoice'
+		);
+		assert.equal(maskPath('/api/doc/4711/abcdefghijklmnopqrstuvwxyz0123'), '/api/doc/{id}/{id}');
+		assert.equal(
+			maskPath('/meinvodafone/services/rechnungen'),
+			'/meinvodafone/services/rechnungen'
+		);
 	});
 });
