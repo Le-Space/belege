@@ -323,7 +323,7 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await detail.getByTestId('tx-private-search').click();
 	const hits = detail.getByTestId('tx-private-hit');
 	await expect(hits).toHaveCount(1);
-	await expect(hits.getByTestId('tx-private-criteria')).toContainText('passt: Anbieter + Betrag');
+	await expect(hits.getByTestId('tx-private-criteria')).toContainText('passt: Suchwort + Betrag');
 	await expect(hits).toContainText(`Rechnung-${RECEIPTS.mobilfunk.invoice}.pdf`);
 	await hits.getByTestId('tx-private-import').click();
 	await expect(detail.getByTestId('tx-private-result')).toHaveText(

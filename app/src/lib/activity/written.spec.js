@@ -149,7 +149,7 @@ describe('events written by each action', () => {
 				ms: 1400,
 				attempts: [{ model: 'deepseek-flash', ok: true, reason: 'ok', ms: 1400 }],
 				fallback: { used: false, reason: null },
-				redactions: { terms: 1, iban: 0, email: 0, street: 0, postcode: 0, total: 1 },
+				redactions: { terms: 1, iban: 0, email: 0, street: 0, postcode: 0, link: 0, total: 1 },
 				sentText: 'Betreff der E-Mail: Rechnung\n---\n[NAME] Summe 12,00 EUR'
 			})
 		};

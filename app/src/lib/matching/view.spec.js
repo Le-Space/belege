@@ -11,6 +11,8 @@ import {
 	privateSearchQuery,
 	questionProgress,
 	rankHits,
+	hitScore,
+	likelyHit,
 	receiptChoices,
 	searchAmount
 } from './view.js';
@@ -130,7 +132,8 @@ describe('private mailbox search', () => {
 			auth: { verdict: 'pass' },
 			receivedAt: '2026-08-20'
 		};
-		expect(rankHits([news, spam, bill]).map((h) => h.id)).toEqual(['bill', 'news', 'spam']);
+		// The exact amount says more than the word somewhere in the text.
+		expect(rankHits([news, spam, bill]).map((h) => h.id)).toEqual(['bill', 'spam', 'news']);
 	});
 });
 
@@ -144,5 +147,57 @@ describe('questionProgress', () => {
 				{ state: 'open', deleted: true }
 			])
 		).toEqual({ open: 1, done: 2, total: 3 });
+	});
+});
+
+describe('hitScore, rankHits and likelyHit', () => {
+	const context = { word: 'Anthropic', around: '2026-09-20' };
+	const receipt = {
+		id: 'receipt',
+		subject: 'Your receipt from Anthropic, PBC #1234',
+		from: { address: 'invoice+statements@mail.anthropic.com', name: 'Anthropic, PBC' },
+		matched: ['"Anthropic"'],
+		attachments: [{ kind: 'pdf', name: 'Invoice-ABC-0003.pdf' }],
+		auth: { verdict: 'pass' },
+		receivedAt: '2026-09-19T15:00:00Z'
+	};
+	const signIn = {
+		id: 'sign-in',
+		subject: 'Dein sicherer Link zu Claude.ai ist da',
+		from: { address: 'no-reply-x@mail.anthropic.com', name: 'Anthropic' },
+		matched: ['"Anthropic"'],
+		attachments: [],
+		auth: { verdict: 'pass' },
+		receivedAt: '2026-09-19T15:50:00Z'
+	};
+	const newsletter = {
+		id: 'news',
+		subject: 'Nobody Will Say Who Sent the Agents',
+		from: { address: 'newsletter@aicollective.example', name: 'AI Newsletter' },
+		matched: ['"Anthropic"', '180,00'],
+		attachments: [],
+		auth: { verdict: 'pass' },
+		bulk: true,
+		receivedAt: '2026-09-07T08:00:00Z'
+	};
+	const otherBill = {
+		id: 'other',
+		subject: 'Ihr Versicherungsantrag',
+		from: { address: 'vertrag@versicherung.example', name: 'Versicherung' },
+		matched: ['180,00'],
+		attachments: [{ kind: 'pdf', name: 'Rechnung.pdf' }],
+		auth: { verdict: 'pass' },
+		receivedAt: '2026-09-07T08:00:00Z'
+	};
+	it("the vendor's receipt with a PDF comes first; sign-in mails and newsletters sink", () => {
+		const ranked = rankHits([signIn, newsletter, otherBill, receipt], context);
+		expect(ranked.map((h) => h.id)).toEqual(['receipt', 'other', 'sign-in', 'news']);
+		expect(hitScore(signIn, context).why).toContain('sign-in');
+		expect(hitScore(newsletter, context).why).toContain('newsletter');
+		expect(likelyHit(ranked, context)?.id).toBe('receipt');
+	});
+	it('no clear winner: no likely hit', () => {
+		expect(likelyHit(rankHits([signIn, newsletter], context), context)).toBeNull();
+		expect(likelyHit([], context)).toBeNull();
 	});
 });

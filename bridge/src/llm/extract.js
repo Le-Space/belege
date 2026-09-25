@@ -23,7 +23,7 @@ const TIMEOUT_MS = 180_000;
 export const SYSTEM = `You extract bookkeeping data from German or English receipts for a German company (UG).
 Answer with one JSON object and nothing else, using exactly these keys (null when not present):
 {
-  "document_type": "invoice" | "receipt" | "direct_debit_notice" | "payment_reminder" | "credit_card_statement" | "ticket" | "other",
+  "document_type": "invoice" | "receipt" | "direct_debit_notice" | "payment_reminder" | "credit_card_statement" | "ticket" | "other" | "none",
   "vendor": string,                 // the company that issued the document
   "vendor_vat_id": string | null,
   "invoice_number": string | null,
@@ -41,7 +41,10 @@ Answer with one JSON object and nothing else, using exactly these keys (null whe
   "travel": { "from": string, "to": string, "departure": "YYYY-MM-DDTHH:MM" | null } | null,
   "summary": string                 // what was bought, max 12 words, German
 }
-Amounts are numbers with a dot as decimal separator. Never guess a value that is not in the text.`;
+Amounts are numbers with a dot as decimal separator. Never guess a value that is not in the text.
+Use "none" when the text is no bookkeeping document at all (a sign-in link, a newsletter, a
+shipping or account notice without an amount to pay); then gross and currency are null and the
+summary says what it is.`;
 
 export class ExtractError extends Error {
 	/**
@@ -79,9 +82,11 @@ export function checkExtraction(data) {
 	/** @type {string[]} */
 	const problems = [];
 	if (!data || typeof data !== 'object' || Array.isArray(data)) return ['not an object'];
-	if (typeof data.gross !== 'number' || !Number.isFinite(data.gross))
+	// "none": no receipt at all, nothing to add up.
+	const none = data.document_type === 'none';
+	if (!none && (typeof data.gross !== 'number' || !Number.isFinite(data.gross)))
 		problems.push('gross missing');
-	if (typeof data.currency !== 'string' || !/^[A-Z]{3}$/.test(data.currency)) {
+	if (!none && (typeof data.currency !== 'string' || !/^[A-Z]{3}$/.test(data.currency))) {
 		problems.push('currency is not an ISO code');
 	}
 	for (const key of ['invoice_date', 'due_or_debit_date']) {

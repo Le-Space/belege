@@ -573,7 +573,7 @@ export default {
 			sentMissing:
 				'Mit einer älteren Bridge ausgelesen: Welcher Text gesendet wurde, ist nicht gespeichert. „Erneut auslesen“ holt es nach.',
 			redactions:
-				'Geschwärzt: {terms} Namen, {iban} IBANs, {email} E-Mail-Adressen, {street} Straßen, {postcode} PLZ und Ort',
+				'Geschwärzt: {terms} Namen, {iban} IBANs, {email} E-Mail-Adressen, {street} Straßen, {postcode} PLZ und Ort, {link} Links',
 			attempts: 'Versuche: {list}',
 			tokens: 'Tokens: {prompt} hin, {completion} zurück, davon {reasoning} zum Nachdenken',
 			notAi:
@@ -728,7 +728,9 @@ export default {
 			privateSearching: 'Suche …',
 			privateNone: 'Keine Treffer im privaten Postfach.',
 			privateHits: '{count} Treffer',
-			criteria: { text: 'Anbieter', amount: 'Betrag' },
+			criteria: { text: 'Suchwort', amount: 'Betrag' },
+			privateLikely: 'Wahrscheinlich der Beleg',
+			privateMore: 'Weitere {count} Treffer anzeigen',
 			privateMatched: 'passt: {criteria}',
 			privateAttachments: 'Anhang: {names}',
 			privateNoAttachment: 'ohne Anhang (der Text der E-Mail wird übernommen)',

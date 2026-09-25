@@ -126,13 +126,17 @@ const codePoint = (n) => (n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : '')
 
 /** HTML → text: no tags, no scripts or styles, entities for the common cases. */
 export function htmlToText(/** @type {string} */ html) {
-	return String(html ?? '')
-		.replace(/<(script|style|head)[\s\S]*?<\/\1>/gi, ' ')
-		.replace(/<br\s*\/?>|<\/(p|div|tr|li|h\d|table)>/gi, '\n')
-		.replace(/<[^>]+>/g, ' ')
-		.replace(/&([a-zA-Z]+);/g, (m, name) => ENTITIES[name] ?? m)
-		.replace(/&#(\d{1,7});/g, (_, n) => codePoint(Number(n)))
-		.replace(/&#x([0-9a-f]{1,6});/gi, (_, n) => codePoint(parseInt(n, 16)));
+	return (
+		String(html ?? '')
+			.replace(/<(script|style|head)[\s\S]*?<\/\1>/gi, ' ')
+			.replace(/<br\s*\/?>|<\/(p|div|tr|li|h\d|table)>/gi, '\n')
+			.replace(/<[^>]+>/g, ' ')
+			// A tag cut off at the end (a mail cut to size) has no `>`.
+			.replace(/<[a-zA-Z/!][^>]*$/, ' ')
+			.replace(/&([a-zA-Z]+);/g, (m, name) => ENTITIES[name] ?? m)
+			.replace(/&#(\d{1,7});/g, (_, n) => codePoint(Number(n)))
+			.replace(/&#x([0-9a-f]{1,6});/gi, (_, n) => codePoint(parseInt(n, 16)))
+	);
 }
 
 /**

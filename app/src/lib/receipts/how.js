@@ -77,7 +77,8 @@ export function extractionHow(record) {
 					iban: r.iban ?? 0,
 					email: r.email ?? 0,
 					street: r.street ?? 0,
-					postcode: r.postcode ?? 0
+					postcode: r.postcode ?? 0,
+					link: r.link ?? 0
 				})
 			: null,
 		tokens: info.usage
