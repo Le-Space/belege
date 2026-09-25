@@ -38,7 +38,13 @@
 	import { receiptDate, receiptVendor } from './receipts/view.js';
 	import { importMailMessages, needsConfirmation } from './receipts/import.js';
 	import { extractReceipt } from './receipts/extract.js';
-	import { confirmMatch, markBankFee, setNoReceipt, unlinkMatch } from './matching/actions.js';
+	import {
+		confirmMatch,
+		markBankFee,
+		rejectTransfer,
+		setNoReceipt,
+		unlinkMatch
+	} from './matching/actions.js';
 	import {
 		coverageBadge,
 		hitCriteria,
@@ -423,6 +429,17 @@
 			reason = '';
 		});
 
+	const notTransfer = () =>
+		act(async () => {
+			if (!classification?.counterBookingId) return;
+			await rejectTransfer(
+				/** @type {any} */ (currentStore()),
+				txId,
+				classification.counterBookingId
+			);
+			await runMatchingNow();
+		});
+
 	const bankFee = () =>
 		act(async () => {
 			await markBankFee(/** @type {any} */ (currentStore()), txId);
@@ -730,6 +747,24 @@
 					>
 						<p class="text-xs font-semibold text-heading">{t('explain.whyNone')}</p>
 						<p class="mt-0.5 text-sm text-text" data-testid="tx-why-rule-line">{ruleLine}</p>
+						{#if classification?.via === 'counter-booking' && classification.counterBookingId && !tx.noReceipt}
+							<div class="mt-1.5 flex flex-wrap gap-3 text-sm">
+								<button
+									type="button"
+									class="underline"
+									onclick={() =>
+										classification?.counterBookingId && onopen(classification.counterBookingId)}
+									data-testid="tx-counter-open">{t('zahlungen.detail.counterOpen')}</button
+								>
+								<button
+									type="button"
+									class="text-faint underline hover:text-heading"
+									onclick={notTransfer}
+									disabled={busy}
+									data-testid="tx-not-transfer">{t('zahlungen.detail.notTransfer')}</button
+								>
+							</div>
+						{/if}
 					</div>
 				{/if}
 				{#if waitDays !== null}

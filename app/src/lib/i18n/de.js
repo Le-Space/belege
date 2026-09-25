@@ -470,6 +470,9 @@ export default {
 			noReason: 'ohne Grund',
 			ownCompany: 'Eigene Umbuchung: Die Gegenpartei ist deine Firma „{company}“',
 			ownIban: 'Eigene Umbuchung: Das Gegenkonto ist dein Konto {account}',
+			ownCounter:
+				'Eigene Umbuchung: Die Gegenbuchung steht auf {account} am {date} – gleicher Betrag in die andere Richtung, und „{sign}“ sagt Umbuchung. Kein Beleg nötig (Konto 1360).',
+			otherAccount: 'deinem anderen Konto',
 			ownMirrored:
 				'Eigene Umbuchung: Das Gegenkonto endet wie dein Konto {account}, und dort steht die Gegenbuchung',
 			bankFee: 'Bankentgelt: Buchungsart „{type}“ – der Kontoauszug ist der Beleg',
@@ -784,6 +787,7 @@ export default {
 			'no-receipt': '„Kein Beleg nötig“ gesetzt',
 			'bank-fee': 'Als Bankgebühr eingeordnet',
 			'bank-fee-forget': 'Bankgebühr vergessen',
+			'not-transfer': 'Als „keine Umbuchung“ markiert',
 			'needs-receipt': '„Kein Beleg nötig“ zurückgenommen',
 			'confirm-sender': 'Absender freigegeben',
 			'upload-link': 'Beleg hochgeladen und dieser Zahlung zugeordnet',
@@ -844,6 +848,8 @@ export default {
 			cancel: 'Abbrechen',
 			needsReceipt: 'Doch einen Beleg zuordnen',
 			bankFee: 'Bankgebühr – kein Beleg nötig',
+			counterOpen: 'Gegenbuchung öffnen',
+			notTransfer: 'Keine Umbuchung – Beleg nötig',
 			bankFeeTitle:
 				'Diese Buchung ist ein Entgelt der Bank; der Kontoauszug ist der Beleg. Der Abgleich merkt sich den Verwendungszweck (ohne Zahlen) auf diesem Konto und ordnet die nächste gleiche Buchung selbst ein. Unter Eigene Anweisungen lässt es sich vergessen.',
 			othersOut: 'Weitere Zahlungen an {name}',

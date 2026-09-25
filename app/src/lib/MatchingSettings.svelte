@@ -112,7 +112,8 @@
 				rules: $state.snapshot(rules),
 				graceDays: String(graceDays),
 				// Not edited here: kept as they are.
-				feeKeys: cleanMatchingSettings(app.matchingSettings).feeKeys
+				feeKeys: cleanMatchingSettings(app.matchingSettings).feeKeys,
+				notTransfers: cleanMatchingSettings(app.matchingSettings).notTransfers
 			});
 			graceDays = value.graceDays;
 			await setSetting(store.settings, 'matching', value);

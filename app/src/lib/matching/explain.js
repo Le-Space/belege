@@ -3,7 +3,7 @@
 // in plain German. The matching itself is deterministic (score.js); these
 // lines only say what it counted. Pure, so the sentences are tested.
 
-import { formatMoney } from '../bank/format.js';
+import { formatDate, formatMoney } from '../bank/format.js';
 import { t } from '../i18n/index.js';
 import { POINTS, SURE, LEAD } from './score.js';
 
@@ -158,6 +158,14 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 	if (!c) return null;
 	switch (c.kind) {
 		case 'own-transfer': {
+			if (c.via === 'counter-booking') {
+				const other = accounts.find((a) => a.id === c.counterAccountId);
+				return t('explain.rule.ownCounter', {
+					account: other ? `${other.name} ···${other.ibanLast4}` : t('explain.rule.otherAccount'),
+					date: c.counterDay ? formatDate(c.counterDay) : '?',
+					sign: c.sign ?? ''
+				});
+			}
 			if (c.via === 'company') {
 				return t('explain.rule.ownCompany', { company: c.company ?? '' });
 			}
