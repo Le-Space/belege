@@ -33,6 +33,7 @@
 		otherPayments,
 		privateSearchQuery,
 		rankHits,
+		likelyHit,
 		receiptChoices
 	} from './matching/view.js';
 	import {
@@ -119,6 +120,10 @@
 	let client = $state(null);
 	/** @type {any[] | null} */
 	let hits = $state(null);
+	/** @type {any | null} the hit that is clearly the receipt (likelyHit) */
+	let likely = $state(null);
+	/** Without a clear hit every hit shows; with one, the rest on request. */
+	let allHits = $state(true);
 	let searching = $state(false);
 	/** @type {string | null} */
 	let importingId = $state(null);
@@ -323,7 +328,10 @@
 		importNote = null;
 		try {
 			const { messages } = await client.mailSearch(query);
-			hits = rankHits(messages);
+			const context = { word: query.text, around: query.around };
+			hits = rankHits(messages, context);
+			likely = likelyHit(hits, context);
+			allHits = !likely;
 		} catch (e) {
 			error = message(e);
 		} finally {
@@ -788,9 +796,17 @@
 								{t('zahlungen.detail.privateHits', { count: hits.length })}
 							</p>
 							<ul class="mt-1 divide-y divide-border">
-								{#each hits as hit (hit.id)}
+								{#each allHits ? hits : hits.slice(0, 1) as hit (hit.id)}
 									{@const files = hitFiles(hit)}
 									<li class="py-2" data-testid="tx-private-hit">
+										{#if likely && hit.id === likely.id}
+											<p
+												class="border-accent text-accent mb-1 inline-block rounded border px-2 py-0.5 text-xs"
+												data-testid="tx-private-likely"
+											>
+												{t('zahlungen.detail.privateLikely')}
+											</p>
+										{/if}
 										<p class="text-sm font-medium break-words text-heading">{hit.subject}</p>
 										<p class="text-xs break-all text-faint">
 											{hit.from?.name ?? ''} &lt;{hit.from?.address ?? ''}&gt; · {hit.receivedAt
@@ -824,6 +840,15 @@
 									</li>
 								{/each}
 							</ul>
+							{#if !allHits && hits.length > 1}
+								<button
+									type="button"
+									class="mt-1 text-sm underline"
+									onclick={() => (allHits = true)}
+									data-testid="tx-private-more"
+									>{t('zahlungen.detail.privateMore', { count: hits.length - 1 })}</button
+								>
+							{/if}
 						{/if}
 					{/if}
 					{#if importNote}

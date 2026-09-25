@@ -170,24 +170,92 @@ export function hitCriteria(hit) {
 	return out;
 }
 
+const RECEIPT_WORDS =
+	/receipt|invoice|rechnung|quittung|beleg|zahlungsbest|payment confirm|bestellbest|order confirm/i;
+const SIGN_IN_WORDS =
+	/anmeld|sign.?in|log.?in|magic link|sicherer link|secure link|verif|bestätigungscode|security code|passwort|password/i;
+
 /**
- * Hits, most likely receipt first: both criteria, then an attachment, then a
- * passed sender check, then the newest (docs/phase-0.md: a vendor search
- * also finds newsletters, an amount search unrelated mails).
+ * How much a hit looks like the receipt, and why (docs/phase-0.md: a vendor
+ * search also finds newsletters and sign-in mails, an amount search unrelated
+ * mails). No LLM: the mail's own fields, deterministic.
  *
- * @template {{ matched?: string[], attachments?: any[], auth?: { verdict?: string }, receivedAt?: string }} H
+ * @param {{ matched?: string[], attachments?: any[], auth?: { verdict?: string }, receivedAt?: string | null, subject?: string, from?: { address?: string, name?: string }, bulk?: boolean }} h
+ * @param {{ word?: string | null, around?: string | null }} [context] the search word, the booking day
+ * @returns {{ score: number, why: string[] }}
+ */
+export function hitScore(h, { word = null, around = null } = {}) {
+	let score = 0;
+	/** @type {string[]} */
+	const why = [];
+	const add = (/** @type {number} */ n, /** @type {string} */ reason) => {
+		score += n;
+		why.push(reason);
+	};
+	const criteria = hitCriteria(h);
+	if (criteria.includes('amount')) add(4, 'amount');
+	if (criteria.includes('text')) add(1, 'word');
+	const w = String(word ?? '')
+		.toLowerCase()
+		.replace(/[^a-z0-9äöüß]/g, '');
+	const address = String(h.from?.address ?? '').toLowerCase();
+	const domain = address.split('@')[1] ?? '';
+	if (
+		w.length >= 3 &&
+		(domain.includes(w) ||
+			String(h.from?.name ?? '')
+				.toLowerCase()
+				.includes(w))
+	)
+		add(4, 'sender');
+	const files = (h.attachments ?? []).filter((a) => a.kind === 'pdf' || a.kind === 'image');
+	if (files.length) add(3, 'attachment');
+	if (files.some((a) => RECEIPT_WORDS.test(String(a.name ?? '')))) add(2, 'attachment-name');
+	const subject = String(h.subject ?? '');
+	if (RECEIPT_WORDS.test(subject)) add(3, 'subject');
+	if (SIGN_IN_WORDS.test(subject)) add(-4, 'sign-in');
+	if (h.bulk) add(-3, 'newsletter');
+	if (h.auth?.verdict === 'pass') add(1, 'sender-check');
+	if (around && h.receivedAt) {
+		const days =
+			Math.abs(Date.parse(String(h.receivedAt)) - Date.parse(`${around}T12:00:00Z`)) / 864e5;
+		if (days <= 3) add(2, 'date');
+	}
+	return { score, why };
+}
+
+/**
+ * Hits, most likely receipt first (hitScore), then the newest.
+ *
+ * @template {Parameters<typeof hitScore>[0]} H
  * @param {H[]} hits
+ * @param {Parameters<typeof hitScore>[1]} [context]
  * @returns {H[]}
  */
-export function rankHits(hits) {
-	const rank = (/** @type {H} */ h) =>
-		hitCriteria(h).length * 4 +
-		((h.attachments ?? []).some((a) => a.kind === 'pdf' || a.kind === 'image') ? 2 : 0) +
-		(h.auth?.verdict === 'pass' ? 1 : 0);
-	return [...hits].sort(
-		(a, b) =>
-			rank(b) - rank(a) || String(b.receivedAt ?? '').localeCompare(String(a.receivedAt ?? ''))
-	);
+export function rankHits(hits, context = {}) {
+	const scored = hits.map((h) => ({ h, s: hitScore(h, context).score }));
+	return scored
+		.sort(
+			(a, b) =>
+				b.s - a.s || String(b.h.receivedAt ?? '').localeCompare(String(a.h.receivedAt ?? ''))
+		)
+		.map((x) => x.h);
+}
+
+/**
+ * The one hit that is clearly the receipt: it looks like one (score ≥ 10) and
+ * leads the next by 4 or more. Null when it is not that clear.
+ *
+ * @template {Parameters<typeof hitScore>[0]} H
+ * @param {H[]} ranked from rankHits
+ * @param {Parameters<typeof hitScore>[1]} [context]
+ * @returns {H | null}
+ */
+export function likelyHit(ranked, context = {}) {
+	if (!ranked.length) return null;
+	const first = hitScore(ranked[0], context).score;
+	const second = ranked[1] ? hitScore(ranked[1], context).score : -Infinity;
+	return first >= 10 && first - second >= 4 ? ranked[0] : null;
 }
 
 /**

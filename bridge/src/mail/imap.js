@@ -88,6 +88,7 @@ export class MailError extends Error {
  * @property {string} excerpt up to about 2 KB of the text, HTML stripped
  * @property {'to' | 'received' | null} [addressedBy] how it reached the accounting address
  * @property {string[]} [matched] search only: which criteria matched
+ * @property {boolean} bulk a newsletter or list mail (List-Unsubscribe, List-Id, Precedence: bulk)
  */
 
 /**
@@ -269,7 +270,8 @@ export function createMailClient({
 			outgoing: folder.sent,
 			attachments,
 			excerpt: text,
-			addressedBy: addressedBy(msg.envelope, headers)
+			addressedBy: addressedBy(msg.envelope, headers),
+			bulk: /^(list-unsubscribe|list-id):|^precedence:\s*(bulk|list|junk)/im.test(headers)
 		};
 	}
 
@@ -278,7 +280,15 @@ export function createMailClient({
 		envelope: true,
 		bodyStructure: true,
 		internalDate: true,
-		headers: ['authentication-results', 'received', 'to', 'cc']
+		headers: [
+			'authentication-results',
+			'received',
+			'to',
+			'cc',
+			'list-unsubscribe',
+			'list-id',
+			'precedence'
+		]
 	};
 
 	/**
