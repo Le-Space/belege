@@ -283,18 +283,44 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 	}
 
 	/**
+	 * The invoice page is a single-page app: after the document arrives it still
+	 * signs in (OIDC token), then fetches the list and draws it. Scan until rows
+	 * show up or the network has been quiet for a while, at most 25 s.
+	 *
+	 * @param {import('playwright').Page} page
+	 */
+	async function settledScan(page) {
+		const end = Date.now() + 25_000;
+		let quiet = false;
+		page.waitForLoadState('networkidle', { timeout: 25_000 }).then(
+			() => (quiet = true),
+			() => (quiet = true)
+		);
+		for (;;) {
+			const rows = await scan(page);
+			if (rows.length > 0 || Date.now() > end) return rows;
+			if (quiet) {
+				// Idle once more after a short pause: a list drawn after the last request.
+				await page.waitForTimeout(1_500);
+				return scan(page);
+			}
+			await page.waitForTimeout(500);
+		}
+	}
+
+	/**
 	 * @param {import('playwright').Page} page
 	 * @param {(name: string, fn: () => Promise<any>) => Promise<any>} step
 	 */
 	async function listByDom(page, step) {
 		await rejectCookies(page);
-		let rows = await scan(page);
+		let rows = await settledScan(page);
 		if (rows.length === 0) {
 			const nav = await find(page, sel('invoicesNav'));
 			if (nav) {
 				await step('invoices.nav', () => nav.click());
 				await page.waitForLoadState('domcontentloaded').catch(() => {});
-				rows = await scan(page);
+				rows = await settledScan(page);
 			}
 		}
 		for (let i = 0; i < 5; i++) {
