@@ -15,12 +15,13 @@
 	import { coverageBadge, isTxCovered } from '$lib/matching/view.js';
 	import { cleanMatchingSettings } from '$lib/matching/classify.js';
 	import { graceWait, localDay } from '$lib/matching/grace.js';
+	import { isBookingConfirmed } from '$lib/booking/suggest.js';
 
-	/** @typedef {{ id: string, bookedOn: string, counterparty?: string, purpose?: string, amountCents?: number, currency?: string, accountId?: string, source?: string, receiptId?: string | null, noReceipt?: any }} Tx */
+	/** @typedef {{ id: string, bookedOn: string, counterparty?: string, purpose?: string, amountCents?: number, currency?: string, accountId?: string, source?: string, receiptId?: string | null, noReceipt?: any, booking?: any }} Tx */
 
 	let accountId = $state('');
 	let query = $state('');
-	/** @type {'ohne' | 'alle'} */
+	/** @type {'ohne' | 'alle' | 'konto'} */
 	let receiptFilter = $state('ohne');
 	/** @type {string | null} */
 	let chosenMonth = $state(null);
@@ -37,7 +38,15 @@
 	/** @param {Tx} tx */
 	const covered = (tx) => isTxCovered(tx, app.classifications);
 	let withoutReceipt = $derived(searched.filter((tx) => !covered(tx)));
-	let filtered = $derived(receiptFilter === 'ohne' ? withoutReceipt : searched);
+	// Bookings without a confirmed account ("Konto"): the export waits for them.
+	let withoutAccount = $derived(searched.filter((tx) => !isBookingConfirmed(tx)));
+	let filtered = $derived(
+		receiptFilter === 'ohne'
+			? withoutReceipt
+			: receiptFilter === 'konto'
+				? withoutAccount
+				: searched
+	);
 	// Coverage per month counts all bookings of the search, not only the filtered ones.
 	let coverageByMonth = $derived(
 		new Map(monthSummaries(searched, covered).map((m) => [m.month, m.coverage]))
@@ -168,6 +177,16 @@
 				onclick={() => (receiptFilter = 'alle')}
 				data-testid="filter-all">{t('zahlungen.all', { count: searched.length })}</button
 			>
+			<button
+				type="button"
+				class="rounded px-3 py-1 {receiptFilter === 'konto'
+					? 'bg-cyan-800 text-white dark:bg-cyan dark:text-bg'
+					: 'text-text hover:text-heading'}"
+				aria-pressed={receiptFilter === 'konto'}
+				onclick={() => (receiptFilter = 'konto')}
+				data-testid="filter-without-account"
+				>{t('zahlungen.withoutAccount', { count: withoutAccount.length })}</button
+			>
 		</div>
 	</div>
 
@@ -240,6 +259,12 @@
 												title={tx.purpose}
 												data-testid="purpose">{displayPurpose(tx.purpose)}</span
 											>{/if}
+										{#if !isBookingConfirmed(tx)}
+											<span
+												class="mt-1 mr-1 inline-block rounded border border-coral-700/40 px-1.5 py-0.5 text-xs text-coral-800 dark:border-coral/40 dark:text-coral"
+												data-testid="no-account-badge">{t('zahlungen.noAccountBadge')}</span
+											>
+										{/if}
 										{#if cover}
 											<span
 												class="mt-1 inline-block rounded border px-1.5 py-0.5 text-xs font-medium {coverageClass[

@@ -1,7 +1,9 @@
 <script>
 	// "Eigene Anweisungen": company names, own IBANs, rules. Stored sealed in
 	// `settings` under `matching` (matching/classify.js), read by every
-	// "Abgleich".
+	// "Abgleich". And what the DATEV export needs: each bank account's ledger
+	// account (on its `accounts` record) and the header values and BU keys
+	// under `datev` (booking/settings.js).
 	import { onMount } from 'svelte';
 	import { app, currentStore, refreshNow, runMatchingNow } from './session.svelte.js';
 	import { forgetBankFee } from './matching/actions.js';
@@ -12,6 +14,12 @@
 		MAX_GRACE_DAYS
 	} from './matching/classify.js';
 	import { ulid } from './store/ids.js';
+	import {
+		accountsInOrder,
+		cleanDatevSettings,
+		suggestedLedgerAccount
+	} from './booking/settings.js';
+	import { isAccountNumber } from './booking/skr03.js';
 	import { t } from './i18n/index.js';
 
 	let companyText = $state('');
@@ -28,6 +36,24 @@
 	/** @type {number | string} */
 	let graceDays = $state(DEFAULT_GRACE_DAYS);
 
+	/** @type {Record<string, string>} bank account id → its ledger account, as typed */
+	let ledgers = $state({});
+	let datev = $state(cleanDatevSettings(null));
+	/** @type {string | null} */
+	let invalid = $state(null);
+	const MONTHS = Array.from({ length: 12 }, (_, i) =>
+		new Intl.DateTimeFormat('de-DE', { month: 'long', timeZone: 'UTC' }).format(
+			new Date(Date.UTC(2026, i, 1))
+		)
+	);
+	const TAX_KEYS = /** @type {const} */ ([
+		'input19',
+		'input7',
+		'output19',
+		'output7',
+		'reverseCharge'
+	]);
+
 	let saving = $state(false);
 	/** @type {string | null} */
 	let saved = $state(null);
@@ -38,7 +64,11 @@
 		ibanText = current.ownIbans.join('\n');
 		rules = current.rules;
 		graceDays = current.graceDays;
+		datev = cleanDatevSettings(app.datevSettings);
+		ledgers = Object.fromEntries(app.accounts.map((a) => [a.id, String(a.ledgerAccount ?? '')]));
 	});
+
+	let bankAccounts = $derived(accountsInOrder(app.accounts));
 
 	// What people's links taught (matching/partners.js); wrong ones can go.
 	let learned = $derived(
@@ -103,9 +133,27 @@
 		event.preventDefault();
 		const store = currentStore();
 		if (!store) return;
+		invalid = null;
+		const wrong = bankAccounts.find(
+			(a) => (ledgers[a.id] ?? '').trim() && !isAccountNumber(ledgers[a.id])
+		);
+		if (wrong) {
+			invalid = t('anweisungen.books.invalidLedger', {
+				name: `${wrong.name} ···${wrong.ibanLast4}`
+			});
+			return;
+		}
 		saving = true;
 		saved = null;
 		try {
+			for (const a of bankAccounts) {
+				const next = (ledgers[a.id] ?? '').trim();
+				if (next !== String(a.ledgerAccount ?? '')) {
+					await store.accounts.put({ ...$state.snapshot(a), ledgerAccount: next || null });
+				}
+			}
+			datev = cleanDatevSettings($state.snapshot(datev));
+			await setSetting(store.settings, 'datev', datev);
 			const value = cleanMatchingSettings({
 				companyNames: lines(companyText),
 				ownIbans: lines(ibanText),
@@ -276,6 +324,13 @@
 						<span class="flex-1 text-text">
 							<span class="font-medium text-heading">{p.name}</span>
 							← {(p.aliases ?? []).map((/** @type {string} */ a) => `„${a}“`).join(', ')}
+							{#if p.account}
+								<span class="text-faint" data-testid="learned-account"
+									>· {t('anweisungen.books.learnedAccount', {
+										account: p.taxKey ? `${p.account} / BU ${p.taxKey}` : p.account
+									})}</span
+								>
+							{/if}
 							{#if (p.senderDomains ?? []).length}
 								<span class="text-faint"
 									>· {t('anweisungen.learnedMail', { domains: p.senderDomains.join(', ') })}</span
@@ -295,6 +350,99 @@
 			</ul>
 		</fieldset>
 
+		<fieldset class="text-sm" data-testid="books-settings">
+			<legend class="font-medium text-heading">{t('anweisungen.books.title')}</legend>
+			<p class="mt-1 text-xs text-faint">{t('anweisungen.books.hint')}</p>
+			<ul class="mt-2 flex flex-col gap-2">
+				{#each bankAccounts as a, i (a.id)}
+					<li>
+						<label class="flex flex-col">
+							<span class="text-text"
+								>{t('anweisungen.books.ledger')}:
+								<span class="font-medium text-heading">{a.name} ···{a.ibanLast4}</span></span
+							>
+							<input
+								class="{input} w-32 font-mono"
+								inputmode="numeric"
+								bind:value={ledgers[a.id]}
+								placeholder={suggestedLedgerAccount(i)}
+								data-testid="ledger-account"
+								data-account={a.ibanLast4}
+							/>
+							<span class="mt-1 text-xs text-faint"
+								>{t('anweisungen.books.ledgerHint', {
+									suggestion: suggestedLedgerAccount(i)
+								})}</span
+							>
+						</label>
+					</li>
+				{:else}
+					<li class="text-faint">{t('anweisungen.books.noAccounts')}</li>
+				{/each}
+			</ul>
+			<div class="mt-3 flex flex-wrap items-end gap-3">
+				<label class="flex flex-col">
+					<span class="text-faint">{t('anweisungen.books.consultant')}</span>
+					<input
+						class="{input} w-28 font-mono"
+						inputmode="numeric"
+						bind:value={datev.consultantNumber}
+						data-testid="datev-consultant"
+					/>
+				</label>
+				<label class="flex flex-col">
+					<span class="text-faint">{t('anweisungen.books.client')}</span>
+					<input
+						class="{input} w-24 font-mono"
+						inputmode="numeric"
+						bind:value={datev.clientNumber}
+						data-testid="datev-client"
+					/>
+				</label>
+				<label class="flex flex-col">
+					<span class="text-faint">{t('anweisungen.books.fiscalStart')}</span>
+					<select
+						class={input}
+						bind:value={datev.fiscalYearStartMonth}
+						data-testid="datev-fiscal-start"
+					>
+						{#each MONTHS as name, i (i)}
+							<option value={i + 1}>{name}</option>
+						{/each}
+					</select>
+				</label>
+				<label class="flex flex-col">
+					<span class="text-faint">{t('anweisungen.books.accountLength')}</span>
+					<select class={input} bind:value={datev.accountLength} data-testid="datev-account-length">
+						{#each [4, 5, 6, 7, 8] as n (n)}
+							<option value={n}>{n}</option>
+						{/each}
+					</select>
+				</label>
+			</div>
+			<p class="mt-1 text-xs text-faint">{t('anweisungen.books.numbersHint')}</p>
+			<p class="mt-1 text-xs text-faint">{t('anweisungen.books.accountLengthHint')}</p>
+			<p class="mt-3 text-text">{t('anweisungen.books.taxKeys')}</p>
+			<div class="mt-1 flex flex-wrap items-end gap-3">
+				{#each TAX_KEYS as k (k)}
+					<label class="flex flex-col">
+						<span class="text-faint"
+							>{t(`anweisungen.books.${k}`)}{k === 'reverseCharge'
+								? ` (${t('anweisungen.books.reverseChargeHint')})`
+								: ''}</span
+						>
+						<input
+							class="{input} w-20 font-mono"
+							inputmode="numeric"
+							bind:value={datev.taxKeys[k]}
+							data-testid="datev-key-{k}"
+						/>
+					</label>
+				{/each}
+			</div>
+			<p class="mt-1 text-xs text-faint">{t('anweisungen.books.taxKeysHint')}</p>
+		</fieldset>
+
 		<div class="flex flex-wrap items-center gap-3">
 			<button
 				type="submit"
@@ -302,6 +450,9 @@
 				disabled={saving}
 				data-testid="matching-save">{t('anweisungen.save')}</button
 			>
+			{#if invalid}
+				<p class="text-sm text-danger" role="alert" data-testid="matching-invalid">{invalid}</p>
+			{/if}
 			{#if saved}
 				<p class="text-sm text-heading" role="status" data-testid="matching-saved">{saved}</p>
 			{/if}

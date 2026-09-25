@@ -157,6 +157,16 @@ export function describeEvent(e, { receipts = [], transactions = [] } = {}) {
 			].filter(Boolean);
 			return { ...base, title, text: parts.join(' · ') };
 		}
+		case 'export':
+			return {
+				...base,
+				title: t('verlauf.kind.export'),
+				text: t('verlauf.text.export', {
+					month: String(e.month ?? '?'),
+					bookings: e.bookings ?? 0,
+					receipts: e.receipts ?? 0
+				})
+			};
 		default:
 			return { ...base, title: String(e.kind), text: '' };
 	}

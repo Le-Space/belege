@@ -98,6 +98,52 @@ export async function learnFromLink(partners, receipt, tx, { companyNames = [] }
 }
 
 /**
+ * Learn the account a person confirmed for a booking (booking/actions.js):
+ * stored on the vendor's partner record as `account` and `taxKey`, so the
+ * next booking of that vendor – by the receipt's vendor or the counterparty
+ * on the statement – gets it as a suggestion ("gelernt"). The partner is
+ * created or merged like `learnFromLink` does. Nothing is learned without a
+ * receipt that names a vendor, or for our own invoices.
+ *
+ * @param {import('../store/repository.js').Collection} partners
+ * @param {Rec} receipt
+ * @param {Rec} tx
+ * @param {{ account: string, taxKey: string }} booking
+ * @param {{ companyNames?: string[] }} [ctx]
+ * @returns {Promise<Rec | null>}
+ */
+export async function learnAccount(partners, receipt, tx, booking, { companyNames = [] } = {}) {
+	const vendor = vendorOf(receipt);
+	if (!vendor) return null;
+	if (companyNames.some((name) => sameVendor(vendor, name))) return null;
+	const alias = counterpartyKey(tx.counterparty);
+	const existing = findPartner(await partners.list(), vendor);
+	const aliases = [
+		...new Set([
+			...(existing?.aliases ?? []),
+			...(alias && vendorWords(alias).length ? [alias] : [])
+		])
+	].slice(-20);
+	if (
+		existing &&
+		existing.account === booking.account &&
+		(existing.taxKey ?? '') === booking.taxKey &&
+		aliases.length === (existing.aliases ?? []).length
+	) {
+		return existing;
+	}
+	return partners.put({
+		...(existing ?? {}),
+		name: existing?.name ?? vendor,
+		aliases,
+		senderDomains: existing?.senderDomains ?? [],
+		learnedFrom: existing?.learnedFrom ?? 'booking',
+		account: booking.account,
+		taxKey: booking.taxKey
+	});
+}
+
+/**
  * Counterparty key → the vendor names people linked it to.
  *
  * @param {Rec[]} partners
