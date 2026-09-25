@@ -305,6 +305,8 @@ function installE2EHooks() {
 		},
 		addTransaction: (/** @type {Record<string, any>} */ tx) => session?.store.transactions.put(tx),
 		// A bank account as an import creates it (bank/import.js), for the export spec.
-		addAccount: (/** @type {Record<string, any>} */ account) => session?.store.accounts.put(account)
+		addAccount: (/** @type {Record<string, any>} */ account) =>
+			session?.store.accounts.put(account),
+		accounts: () => session?.store.accounts.list()
 	};
 }

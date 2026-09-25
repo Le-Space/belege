@@ -812,7 +812,8 @@ export default {
 			extractFailed: 'Auslesen fehlgeschlagen',
 			'mail-assist': 'Mit KI im Postfach gesucht',
 			matching: 'Abgleich',
-			decision: 'Entscheidung'
+			decision: 'Entscheidung',
+			export: 'DATEV-Export'
 		},
 		text: {
 			bankSync:
@@ -829,6 +830,7 @@ export default {
 			mailAssist:
 				'{model} · {terms} Suchwörter · {domains} Absender · {mails} Treffer · {seconds} s · {tokens} Tokens',
 			mailAssistPick: ' · Vorschlag: {confidence}',
+			export: 'DATEV-Export {month}: {bookings} Buchungen, {receipts} Belege',
 			matching:
 				'{sure} zugeordnet · {created} neue Rückfragen · {resolved} erledigt · {classified} ohne Beleg-Pflicht · {waiting} warten noch',
 			today: 'heute',
@@ -920,7 +922,51 @@ export default {
 	},
 	export: {
 		title: 'Export',
-		empty: 'Der monatliche DATEV-Export folgt in einem späteren Schritt.'
+		intro:
+			'Einmal im Monat: die Buchungen als DATEV-Buchungsstapel für MonkeyOffice und die Belege als PDF, zusammen in einer ZIP-Datei. Sie entsteht nur hier im Browser und wird auf dein Gerät geladen – nichts geht an einen Server.',
+		empty: 'Noch keine Zahlungen – erst die Bank anbinden oder einen Kontoauszug importieren.',
+		month: 'Monat',
+		summary: '{bookings} Buchungen · {lines} im Buchungsstapel · {receipts} Belege im ZIP',
+		settings:
+			'Beraternummer {consultant} · Mandantennummer {client} · Wirtschaftsjahr ab {fiscal} · Sachkontenlänge {length}',
+		settingsLink: 'ändern unter Integrationen → Eigene Anweisungen',
+		checks: 'Vor dem Export',
+		check: {
+			unassignedOk: 'Jede Buchung hat ein übernommenes Konto.',
+			unassigned: '{count} Buchungen ohne übernommenes Konto – so lange geht kein Export.',
+			autoConfirm: 'Konten aus Umbuchung und Bankgebühr übernehmen ({count})',
+			autoConfirmHint:
+				'Übernimmt 1360 für eigene Umbuchungen und 4970 für Bankgebühren – dieselben Vorschläge wie in der Zahlung, mit einem Klick für alle.',
+			ledgerOk: 'Jedes Bankkonto hat sein Sachkonto.',
+			noLedger: 'Sachkonto fehlt für {list} – unter Integrationen → Eigene Anweisungen eintragen.',
+			noBankAccount: '{count} Buchungen gehören zu keinem Bankkonto der Bücher.',
+			missingReceiptOk: 'Jede Buchung hat einen Beleg oder einen Grund, warum keiner nötig ist.',
+			missingReceipt:
+				'{count} Buchungen ohne Beleg und ohne „Kein Beleg nötig“ – der Export geht, prüfe sie aber.',
+			unlinkedOk: 'Kein Beleg dieses Monats ist übrig.',
+			unlinked: '{count} Belege dieses Monats sind keiner Zahlung zugeordnet.',
+			unverifiedOk: 'Kein Beleg wartet auf die Absenderprüfung.',
+			unverified: '{count} Belege mit unbestätigtem Absender – sie kommen nicht ins ZIP.',
+			more: '… und {count} weitere'
+		},
+		open: 'öffnen',
+		download: 'DATEV-Export herunterladen',
+		building: 'Erstelle ZIP …',
+		done: 'Heruntergeladen: {file} – {bookings} Buchungen, {receipts} Belege.',
+		blocked: 'Erst die rot markierten Punkte erledigen.',
+		failed: 'Der Export ist fehlgeschlagen: {error}',
+		overview: {
+			noReceipt: 'ohne Beleg',
+			noFile: 'Beleg {number} ohne Datei (E-Mail-Text)',
+			transferLine: 'Umbuchung, Gegenbuchung am {date} ist in dieser Zeile enthalten',
+			transferSide: 'nicht im Buchungsstapel: enthalten in der Gegenbuchung vom {date} ({bank})'
+		},
+		technical: [
+			'Buchungsstapel im DATEV-Format EXTF, Version 700, Kategorie 21, Formatversion 13: Kopfzeile mit 31 Feldern, Spaltenüberschriften, eine Zeile je Buchung mit 125 Feldern; Trennzeichen „;“, Zeilenende CRLF, Zeichensatz Windows-1252 (ANSI).',
+			'Konto = Sachkonto des Bankkontos, Gegenkonto = das übernommene Konto, S = Geld kam herein, H = Geld ging hinaus (aus Sicht des Bankkontos); Belegdatum TTMM = Buchungstag, Belegfeld 1 = Belegnummer JJJJ-MM-NNN, Buchungstext = Anbieter oder Gegenpartei (höchstens 60 Zeichen).',
+			'Eine eigene Umbuchung, deren Gegenbuchung in den Büchern steht, kommt einmal hinein: vom Bankkonto mit dem kleineren Sachkonto gegen das Sachkonto des anderen.',
+			'Die ZIP-Datei entsteht mit fflate im Browser; die Belege werden dafür aus dem versiegelten Speicher geöffnet. Die vergebenen Belegnummern bleiben am Beleg (exportNumber), ein zweiter Export vergibt dieselben.'
+		]
 	},
 	zahlungen: {
 		title: 'Zahlungen',

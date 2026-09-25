@@ -18,6 +18,10 @@ pnpm lint && pnpm check && pnpm test:unit && pnpm test:bridge && pnpm test:e2e
 
 Belege uses a language model in two places, both only on a click of a button marked **✦**: reading a receipt's text (vendor, amounts, dates, numbers), and _Mit KI weitersuchen_ in the private mailbox (search words, then a pick from the hits' subjects, sender domains and file names). Matching, questions, transfers, fees, learning and the portals run on fixed rules. **Le Space runs no AI:** each installation sets up its own model in the bridge, a public one such as DeepSeek or a local one such as Ollama, and everything sent is redacted first. Details: [docs/ai.md](docs/ai.md) ([Deutsch](docs/ai.de.md)).
 
+## Accounts and DATEV export
+
+Every booking gets an SKR 03 account and a BU key: suggested (own transfer, bank fee, learned per vendor, VAT from the receipt), confirmed by you. Once a month, _Export_ makes a ZIP in the browser: a DATEV Buchungsstapel (EXTF) for MonkeyOffice and the receipts as PDFs. How to import it and what to check with the tax adviser: [docs/export.md](docs/export.md) ([Deutsch](docs/export.de.md)).
+
 ## Phase 0 (feasibility spikes)
 
 | Spike                | Question                                                                        | State                                                                                                                                           |
