@@ -135,6 +135,19 @@ export function parseRow(fields, text) {
 /** @param {string} s */
 const safeId = (s) => s.replace(/[^A-Za-z0-9._-]+/g, '-').slice(0, 80);
 
+/**
+ * A path with every segment that could name the user (customer and contract
+ * numbers, ids, tokens) replaced by `{id}`. The query is dropped.
+ *
+ * @param {string} pathname
+ */
+export function maskPath(pathname) {
+	return pathname
+		.split('/')
+		.map((seg) => (/\d{3,}|[A-Za-z0-9_-]{24,}|:/.test(seg) ? '{id}' : seg))
+		.join('/');
+}
+
 /** @param {string} template @param {Record<string, string>} values */
 const fill = (template, values) =>
 	template.replace(/\{(\w+)\}/g, (_, k) => encodeURIComponent(values[k] ?? ''));
@@ -155,6 +168,8 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 
 	/** Per browser context: the headers the page sent to the API host. */
 	const captured = new WeakMap();
+	/** Per browser context, unverified recipes only: the requests the page made, masked. */
+	const seen = new WeakMap();
 
 	/** @param {string} href */
 	function onApiHost(href) {
@@ -303,6 +318,45 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 		});
 	}
 
+	/**
+	 * For a recipe still being fitted to its portal: where the browser ended up,
+	 * which requests the page made, and which controls could be about invoices.
+	 * Paths are masked and digits in labels are replaced; no page text, no
+	 * header, no body is logged.
+	 *
+	 * @param {import('playwright').Page} page
+	 * @param {(line: string) => void} log
+	 */
+	async function trace(page, log) {
+		const here = /^https?:/.test(page.url()) ? new URL(page.url()) : null;
+		log(`trace: page ${here ? `${here.host}${maskPath(here.pathname)}` : '(none)'}`);
+		const controls = await page
+			.evaluate((source) => {
+				const about = new RegExp(source, 'i');
+				const out = [];
+				for (const el of document.querySelectorAll('a, button, [role="button"], [role="tab"]')) {
+					const label = [el.textContent, el.getAttribute('aria-label'), el.getAttribute('title')]
+						.join(' ')
+						.replace(/\s+/g, ' ')
+						.trim();
+					if (!about.test(label)) continue;
+					const href = el instanceof HTMLAnchorElement ? el.pathname : '';
+					out.push({ tag: el.tagName.toLowerCase(), label, href });
+					if (out.length >= 25) break;
+				}
+				return out;
+			}, 'rechnung|dokument|postfach|download|herunterladen|pdf|archiv|kundenkonto')
+			.catch(() => []);
+		log(`trace: ${controls.length} control(s) about invoices`);
+		for (const c of controls) {
+			const label = c.label.replace(/\d/g, '#').slice(0, 60);
+			log(`trace:   ${c.tag} "${label}"${c.href ? ` → ${maskPath(c.href)}` : ''}`);
+		}
+		const lines = [...(seen.get(page.context()) ?? [])];
+		log(`trace: ${lines.length} request(s) of the page`);
+		for (const line of lines) log(`trace:   ${line}`);
+	}
+
 	// ── api strategy ──────────────────────────────────────────────────────────
 
 	/** @param {import('playwright').Page} page @param {string} path */
@@ -315,7 +369,12 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 			headers: { ...headers, accept: 'application/json, text/plain, */*' },
 			timeout: 60_000
 		});
-		if (!res.ok()) throw Object.assign(new Error(`HTTP ${res.status()}`), { status: res.status() });
+		if (!res.ok()) {
+			throw Object.assign(new Error(`HTTP ${res.status()}`), {
+				status: res.status(),
+				path: maskPath(target.pathname)
+			});
+		}
 		return res;
 	}
 
@@ -372,6 +431,22 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 		 * @param {import('playwright').BrowserContext} context
 		 */
 		attach(context) {
+			if (!def.verified) {
+				/** @type {Set<string>} */
+				const lines = new Set();
+				seen.set(context, lines);
+				context.on('response', (response) => {
+					const request = response.request();
+					if (!['xhr', 'fetch', 'document'].includes(request.resourceType())) return;
+					if (!sameSite(response.url()) && !onApiHost(response.url())) return;
+					if (lines.size >= 150) return;
+					const u = new URL(response.url());
+					const type = String(response.headers()['content-type'] ?? '').split(';')[0];
+					lines.add(
+						`${request.method()} ${u.host}${maskPath(u.pathname)} → ${response.status()} ${type}`
+					);
+				});
+			}
 			if (!apiBase || forward.size === 0) return;
 			context.on('request', (request) => {
 				if (!onApiHost(request.url())) return;
@@ -446,10 +521,11 @@ export function createRecipe(def, { baseUrl = def.baseUrl, apiBaseUrl = def.api?
 				} catch (/** @type {any} */ error) {
 					if (strategy === def.strategies.at(-1)) throw error;
 					log(
-						`strategy ${strategy} unavailable (${error?.noApi ? 'no api headers seen' : (error?.status ?? error?.name ?? 'Error')})`
+						`strategy ${strategy} unavailable (${error?.noApi ? 'no api headers seen' : (error?.status ?? error?.name ?? 'Error')}${error?.path ? ` at ${error.path}` : ''})`
 					);
 				}
 			}
+			if (!def.verified && rows.length === 0) await trace(page, log);
 			/** @type {Set<string>} */
 			const ids = new Set();
 			return rows.map((row, i) => {
