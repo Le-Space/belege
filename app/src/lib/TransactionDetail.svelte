@@ -550,6 +550,41 @@
 		}
 	}
 
+	/**
+	 * After a mail was taken over from this booking's search: when the matching
+	 * did not link one of its receipts here, the best one that is free is linked
+	 * here as the person's decision (they searched for this booking), like an
+	 * upload to it. Returns what happened, for the note.
+	 *
+	 * @param {any} store
+	 * @param {string} mailId
+	 * @returns {Promise<{ outcome: 'here' | 'linked' | 'elsewhere' | 'unverified' | 'none', score?: number }>}
+	 */
+	async function linkHitHere(store, mailId) {
+		const mine = app.receipts.filter((r) => !r.deleted && r.mailId === mailId);
+		const linked = mine.map((r) => ({ r, m: matchOfReceipt(r.id, app.matches) }));
+		if (linked.some((x) => x.m?.transactionId === txId)) return { outcome: 'here' };
+		const free = linked.filter(
+			(x) => !x.m && !needsConfirmation(x.r) && x.r.status !== 'ignoriert'
+		);
+		const best = choices
+			.filter((c) => free.some((x) => x.r.id === c.receipt.id))
+			.sort((a, b) => b.score - a.score)[0];
+		if (best) {
+			await confirmMatch(store, {
+				receiptId: best.receipt.id,
+				transactionId: txId,
+				score: best.score,
+				reasons: [...best.reasons, 'manual']
+			});
+			await refreshNow();
+			return { outcome: 'linked', score: best.score };
+		}
+		if (linked.some((x) => x.m)) return { outcome: 'elsewhere' };
+		if (mine.some((r) => needsConfirmation(r))) return { outcome: 'unverified' };
+		return { outcome: 'none' };
+	}
+
 	/** @param {any} hit */
 	async function importHit(hit) {
 		const store = currentStore();
@@ -598,7 +633,11 @@
 				}
 				await runMatchingNow();
 				hitMailId = hit.id;
-				importNote = t('zahlungen.detail.privateDuplicate');
+				const r = await linkHitHere(store, hit.id);
+				importNote =
+					t('zahlungen.detail.privateDuplicate') +
+					' ' +
+					t(`zahlungen.detail.hitOutcome.${r.outcome}`, { score: r.score ?? 0 });
 				return;
 			}
 			let unverified = false;
@@ -618,9 +657,13 @@
 			}
 			await runMatchingNow();
 			hitMailId = hit.id;
-			importNote = unverified
-				? t('zahlungen.detail.privateImportedUnverified')
-				: t('zahlungen.detail.privateImported');
+			const r = await linkHitHere(store, hit.id);
+			importNote =
+				unverified && r.outcome !== 'here' && r.outcome !== 'linked'
+					? t('zahlungen.detail.privateImportedUnverified')
+					: t('zahlungen.detail.privateImported') +
+						' ' +
+						t(`zahlungen.detail.hitOutcome.${r.outcome}`, { score: r.score ?? 0 });
 		} catch (e) {
 			error = message(e);
 			await refreshNow();

@@ -905,10 +905,17 @@ export default {
 			privateNoAttachment: 'ohne Anhang (der Text der E-Mail wird übernommen)',
 			privateImport: 'Als Beleg übernehmen',
 			privateImporting: 'Übernehme …',
-			privateImported: 'Übernommen, ausgelesen und abgeglichen.',
+			privateImported: 'Übernommen und ausgelesen.',
+			hitOutcome: {
+				here: 'Er ist dieser Zahlung zugeordnet.',
+				linked: 'Dieser Zahlung zugeordnet – als deine Entscheidung ({score} Punkte).',
+				elsewhere: 'Er ist schon einer anderen Zahlung zugeordnet (siehe unten).',
+				unverified: 'Der Absender ist nicht bestätigt: unter Belege prüfen und freigeben.',
+				none: 'Keiner seiner Belege lässt sich zuordnen (siehe unten).'
+			},
 			privateImportedUnverified:
 				'Übernommen. Der Absender ist nicht bestätigt: unter Belege prüfen und freigeben.',
-			privateDuplicate: 'Diesen Beleg gibt es schon in deinen Büchern:',
+			privateDuplicate: 'Diesen Beleg gibt es schon in deinen Büchern.',
 			receiptHere: 'ist dieser Zahlung zugeordnet',
 			receiptElsewhere: 'zugeordnet zu {name} vom {date} – öffnen',
 			receiptConfirmFirst: 'Absender erst unter Belege freigeben',
