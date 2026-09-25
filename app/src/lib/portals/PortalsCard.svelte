@@ -6,6 +6,9 @@
 	// window and downloads one; the steps are shown for review, then saved as
 	// the portal's recipe (replayed by later fetches) or discarded, and the
 	// saved recipe can be exported as JSON.
+	// "Zugangsdaten speichern": a user name here, the password in a window on
+	// the bridge's Mac (straight into its keychain, never through this page);
+	// "Zugangsdaten löschen" removes both.
 	// Fetched invoices become receipts (source 'portal'), are read by the LLM
 	// when the bridge has one, and go through the matching like every receipt.
 	import TechnicalNote from '../TechnicalNote.svelte';
@@ -31,6 +34,8 @@
 	let errors = $state({});
 	/** @type {Record<string, import('./client.js').RecordingReview>} stopped recordings, per portal */
 	let reviews = $state({});
+	/** @type {Record<string, string>} the user name typed per portal, for "Zugangsdaten speichern" */
+	let usernames = $state({});
 
 	/** Three months back by default. */
 	const now = new Date();
@@ -193,6 +198,21 @@
 			a.download = `portal-recipe-${id}.json`;
 			a.click();
 			setTimeout(() => URL.revokeObjectURL(href), 1000);
+		});
+
+	/** @param {string} id */
+	const saveCredentials = (id) =>
+		run(id, 'credentials', async () => {
+			await client.saveCredentials(id, (usernames[id] ?? '').trim());
+			usernames = without(usernames, id);
+			results = { ...results, [id]: t('portals.credentials.stored') };
+		});
+
+	/** @param {string} id */
+	const deleteCredentials = (id) =>
+		run(id, 'credentials-delete', async () => {
+			await client.deleteCredentials(id);
+			results = { ...results, [id]: t('portals.credentials.deleted') };
 		});
 
 	/** @param {import('./client.js').RecordedStep} step */
@@ -401,6 +421,65 @@
 									data-testid="portal-review-discard">{t('portals.record.discard')}</button
 								>
 							</div>
+						</div>
+					{/if}
+					{#if portal.credentials && portal.running !== 'record'}
+						<div class="mt-3 border-t border-border pt-3" data-testid="portal-credentials">
+							{#if portal.hasCredentials}
+								<div class="flex flex-wrap items-center gap-3">
+									<span
+										class="rounded border border-success/30 bg-success/10 px-1.5 py-0.5 text-xs font-medium text-success"
+										data-testid="portal-credentials-stored"
+										>{t('portals.credentials.storedBadge')}</span
+									>
+									<button
+										type="button"
+										class="text-sm text-text underline hover:text-heading disabled:opacity-50"
+										disabled={Boolean(busy[portal.id])}
+										onclick={() => deleteCredentials(portal.id)}
+										data-testid="portal-credentials-delete"
+										>{t('portals.credentials.delete')}</button
+									>
+								</div>
+							{:else}
+								<form
+									class="flex flex-wrap items-end gap-3"
+									onsubmit={(e) => {
+										e.preventDefault();
+										saveCredentials(portal.id);
+									}}
+								>
+									<label class="flex min-w-48 flex-1 flex-col text-sm">
+										<span class="text-faint">{t('portals.credentials.username')}</span>
+										<input
+											class="mt-1 rounded-md border border-border bg-surface px-2 py-1 text-sm text-heading"
+											autocomplete="username"
+											value={usernames[portal.id] ?? ''}
+											oninput={(e) =>
+												(usernames = {
+													...usernames,
+													[portal.id]: /** @type {HTMLInputElement} */ (e.currentTarget).value
+												})}
+											data-testid="portal-credentials-username"
+										/>
+									</label>
+									<button
+										type="submit"
+										class={button}
+										disabled={Boolean(busy[portal.id]) || !(usernames[portal.id] ?? '').trim()}
+										data-testid="portal-credentials-save"
+										>{busy[portal.id] === 'credentials'
+											? t('portals.credentials.saving')
+											: t('portals.credentials.save')}</button
+									>
+								</form>
+								<p class="mt-1 text-xs text-faint">{t('portals.credentials.hint')}</p>
+							{/if}
+							<TechnicalNote
+								class="mt-2"
+								testid="portal-credentials-technical"
+								lines={list('portals.credentials.technical')}
+							/>
 						</div>
 					{/if}
 					{#if busy[portal.id] === 'login' || portal.state !== 'logged-in'}

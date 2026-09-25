@@ -52,6 +52,7 @@ export class KeychainError extends Error {
  * @typedef {object} Keychain
  * @property {() => Promise<string>} read the password; throws KeychainError when there is none
  * @property {(password: string) => Promise<void>} write
+ * @property {() => Promise<void>} [remove] deletes the entry; no entry is fine
  */
 
 /**
@@ -146,6 +147,28 @@ export function macosKeychain({
 					`add-generic-password -U -s ${service} -a ${account} -l belege-bridge-${account} -w hex:${hex}\n`
 				);
 			});
+		},
+
+		async remove() {
+			assertMac();
+			await new Promise((resolve, reject) => {
+				execFile(
+					securityPath,
+					['delete-generic-password', '-s', service, '-a', account],
+					{ encoding: 'utf8', timeout: 30_000 },
+					(error) => {
+						const code = /** @type {any} */ (error)?.code;
+						// 44: errSecItemNotFound – nothing to delete is what was wanted.
+						if (!error || code === 44) return resolve(undefined);
+						reject(
+							new KeychainError(
+								`The keychain refused to delete the ${what} (exit ${code}).`,
+								'KEYCHAIN_DENIED'
+							)
+						);
+					}
+				);
+			});
 		}
 	};
 }
@@ -172,6 +195,9 @@ export function memoryKeychain(initial = null, account = ACCOUNT) {
 		/** @param {string} password */
 		async write(password) {
 			value = password;
+		},
+		async remove() {
+			value = null;
 		}
 	};
 	return keychain;

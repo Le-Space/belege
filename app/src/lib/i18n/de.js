@@ -92,7 +92,30 @@ export default {
 				'Der Download-Knopf hat weder einen Namen noch ein festes Merkmal: so lässt er sich nicht wiederfinden.',
 			rejected:
 				'Das Rezept enthielte persönliche Daten (E-Mail, IBAN oder eine lange Nummer) und wurde nicht gespeichert.',
-			noRecipe: 'Für dieses Portal ist kein aufgezeichnetes Rezept gespeichert.'
+			noRecipe: 'Für dieses Portal ist kein aufgezeichnetes Rezept gespeichert.',
+			credentialsCancelled: 'Kein Passwort eingegeben – nichts gespeichert.',
+			credentialsEmpty: 'Das Passwort war leer – nichts gespeichert.',
+			credentialsInvalid:
+				'Bitte einen Benutzernamen oder eine E-Mail-Adresse eingeben (eine Zeile).',
+			credentialsUnsupported:
+				'Das Passwortfenster gibt es nur auf dem Mac. Auf dem Rechner der Bridge: pnpm setup:portal',
+			credentialsOff: 'Diese Bridge kann keine Zugangsdaten von hier speichern.'
+		},
+		credentials: {
+			title: 'Zugangsdaten',
+			username: 'Benutzername oder E-Mail',
+			save: 'Zugangsdaten speichern',
+			saving: 'Warte auf das Passwortfenster …',
+			hint: 'Das Passwort gibst du in einem Fenster deines Macs ein – es geht direkt in den Schlüsselbund und nie durch diese Seite.',
+			stored: 'Zugangsdaten gespeichert: die Bridge füllt künftig das Anmeldeformular aus.',
+			storedBadge: 'Zugangsdaten gespeichert',
+			delete: 'Zugangsdaten löschen',
+			deleted: 'Zugangsdaten gelöscht.',
+			technical: [
+				'Die App schickt nur den Benutzernamen an die Bridge (POST /portals/<portal>/credentials). Die Bridge öffnet mit osascript einen macOS-Dialog mit verdeckter Eingabe; Name und Adresse des Portals gehen als Argumente hinein, nicht in das Skript.',
+				'Das Passwort landet im macOS-Schlüsselbund (Dienst belege-bridge, Konto portal:<portal>), der Benutzername in ~/.config/belege/bridge.json. Kein Protokoll und keine Antwort enthält das Passwort; die App erfährt nur, dass Zugangsdaten da sind.',
+				'„Zugangsdaten löschen“ entfernt beides. Codes (SMS, E-Mail) und Sicherheitsprüfungen gibst du weiterhin selbst im Fenster ein.'
+			]
 		},
 		record: {
 			start: 'Portal aufzeichnen',
@@ -123,7 +146,7 @@ export default {
 		},
 		technical: [
 			'Die Bridge startet ein eigenes Chromium (Playwright) mit einem Profil pro Portal unter ~/.config/belege/portals/<portal>/profile (0700) – nicht dein Alltags-Chrome. Die Sitzung bleibt in diesem Profil; „Abmelden“ beendet sie und löscht es.',
-			'Ein Passwort, falls du es mit pnpm setup:portal hinterlegst, liegt im macOS-Schlüsselbund (belege-bridge, portal:vodafone). Codes und Sicherheitsprüfungen gibst immer du ein. Kein Sprachmodell und keine Bildschirmfotos sind beteiligt.',
+			'Ein Passwort, falls du es mit „Zugangsdaten speichern“ oder pnpm setup:portal hinterlegst, liegt im macOS-Schlüsselbund (belege-bridge, portal:<portal>). Codes und Sicherheitsprüfungen gibst immer du ein. Kein Sprachmodell und keine Bildschirmfotos sind beteiligt.',
 			'Jede Datei muss nach ihren Bytes ein PDF sein (höchstens 15 MB). Doppelte erkennt die App an der Rechnungskennung (vodafone:<id>) und am SHA-256.',
 			'„Portal aufzeichnen“ merkt sich nur echte Klicks auf Links und Knöpfe als Rolle und Namen (Ziffern als Muster \\d+) und besuchte Seiten als maskierte Pfade. Eingabefelder, Tastendrücke und alles auf Seiten mit Passwortfeld bleiben außen vor; die heruntergeladene Datei wird verworfen. Das Rezept liegt als ~/.config/belege/recipes/<portal>.json (0600) auf dem Mac und wird abgelehnt, wenn es eine E-Mail-Adresse, eine IBAN oder fünf Ziffern am Stück enthielte. Der Abruf spielt die Klicks danach ohne Sprachmodell nach.'
 		]

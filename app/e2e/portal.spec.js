@@ -6,7 +6,8 @@
 // Pair → sync → Integrationen → Kundenportale: Anmelden → Rechnungen holen →
 // the invoices are receipts of source "Vodafone MeinKabel", read, and the
 // one with the booked invoice number is matched → Portal aufzeichnen (started,
-// stopped, discarded) → Abmelden.
+// stopped, discarded) → Abmelden → Zugangsdaten löschen and speichern (the
+// password from the bridge's dialog, which test mode answers without a window).
 import { test, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { mkdtemp, rm, stat } from 'node:fs/promises';
@@ -97,7 +98,9 @@ test.beforeAll(async () => {
 			...process.env,
 			BELEGE_BRIDGE_TEST_PASSWORD: FAKE_PASSWORD,
 			BELEGE_BRIDGE_TEST_LLM_KEY: FAKE_LLM_KEY,
-			BELEGE_BRIDGE_TEST_PORTAL_PASSWORD: FAKE_PORTAL_PASSWORD
+			BELEGE_BRIDGE_TEST_PORTAL_PASSWORD: FAKE_PORTAL_PASSWORD,
+			// What the (never shown) password dialog answers in test mode.
+			BELEGE_BRIDGE_TEST_PORTAL_DIALOG: FAKE_PORTAL_PASSWORD
 		},
 		stdio: ['ignore', 'pipe', 'pipe']
 	});
@@ -210,6 +213,21 @@ test('Vodafone invoices from the portal become receipts and match the booking', 
 	await vodafone.getByTestId('portal-logout').click();
 	await expect(vodafone.getByTestId('portal-state')).toHaveAttribute('data-state', 'never');
 	await expect(stat(join(dir, 'portals', 'vodafone'))).rejects.toThrow();
+
+	// Zugangsdaten: stored by setup, deleted here, stored again with a user
+	// name from the page and the password from the bridge's dialog.
+	const credentials = vodafone.getByTestId('portal-credentials');
+	await expect(credentials.getByTestId('portal-credentials-stored')).toBeVisible();
+	await credentials.getByTestId('portal-credentials-delete').click();
+	await expect(vodafone.getByTestId('portal-result')).toHaveText('Zugangsdaten gelöscht.');
+	await expect(credentials.getByTestId('portal-credentials-save')).toBeDisabled();
+	await credentials.getByTestId('portal-credentials-username').fill(FAKE_PORTAL_USER);
+	await credentials.getByTestId('portal-credentials-save').click();
+	await expect(vodafone.getByTestId('portal-result')).toHaveText(
+		'Zugangsdaten gespeichert: die Bridge füllt künftig das Anmeldeformular aus.'
+	);
+	await expect(credentials.getByTestId('portal-credentials-stored')).toBeVisible();
+	await expect(page.locator('body')).not.toContainText(FAKE_PORTAL_PASSWORD);
 
 	// Nothing of the portal's pages and no password in the bridge's output.
 	expect(bridgeOut).not.toContain(FAKE_PORTAL_PASSWORD);

@@ -18,7 +18,11 @@
 //   Stop returns the steps for review, save writes the route as a local
 //   recipe override (<config dir>/recipes/<id>.json, 0600) and rebuilds the
 //   portal's recipe, so the next fetch replays it.
-// - One run at a time per portal; a recording counts as one.
+// - Credentials ("Zugangsdaten speichern", ./credentials.js): the app sends a
+//   user name; the password is asked for in a native macOS dialog on this Mac
+//   and goes straight into the keychain. It never passes through the app, and
+//   no response and no log line carries it. The list says `hasCredentials`.
+// - One run at a time per portal; a recording and an open password dialog count as one.
 //
 // Nothing of a page (text, HTML, screenshots) is logged, stored or sent
 // anywhere; the log names the step that failed. No LLM is involved.
@@ -28,6 +32,7 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 
 import { PortalError, busy, needsLogin, stepFailed, unknownPortal } from './errors.js';
+import { credentialsCancelled, validUsername } from './credentials.js';
 import { MAX_INVOICE_BYTES, isPdf } from './pdf.js';
 import {
 	buildOverride,
@@ -77,6 +82,15 @@ export async function launchChromium(profileDir, { headless }) {
 }
 
 /**
+ * Where a portal's user name and password are kept (bridge.json and the keychain).
+ *
+ * @typedef {object} CredentialStore
+ * @property {(id: string) => boolean} has a user name and a stored password
+ * @property {(id: string, creds: { username: string, password: string }) => Promise<void>} save
+ * @property {(id: string) => Promise<void>} remove both; none is fine
+ */
+
+/**
  * @param {object} options
  * @param {Record<string, import('./recipe.js').Recipe>} options.recipes by id
  * @param {string} options.dir <config dir>/portals
@@ -91,6 +105,8 @@ export async function launchChromium(profileDir, { headless }) {
  * @param {(id: string) => import('./recipe.js').Recipe} [options.rebuild] the portal's recipe as built from disk again
  * @param {(event: { portal: string, reason: string, page: import('playwright').Page }) => void} [options.onUserNeeded]
  *   for tests: what a person would do in the window (reason `record` while recording)
+ * @param {CredentialStore} [options.credentialStore] none: "Zugangsdaten speichern" is off
+ * @param {import('./credentials.js').AskPassword} [options.askPassword] the native password dialog
  * @param {(line: string) => void} [options.log]
  */
 export function createPortalManager({
@@ -105,6 +121,8 @@ export function createPortalManager({
 	recipesDir,
 	rebuild,
 	onUserNeeded,
+	credentialStore,
+	askPassword,
 	log = () => {}
 }) {
 	/** @type {Map<string, { kind: string, cancel: () => void }>} */
@@ -304,7 +322,9 @@ export function createPortalManager({
 					running: running.get(id)?.kind ?? null,
 					recordable: Boolean(recipesDir && rebuild),
 					recorded: Boolean(recipe.definition.recorded),
-					review: recorded.has(id)
+					review: recorded.has(id),
+					credentials: Boolean(credentialStore && askPassword),
+					hasCredentials: Boolean(credentialStore?.has(id))
 				});
 			}
 			return out;
@@ -619,6 +639,59 @@ export function createPortalManager({
 			return patch;
 		},
 
+		/**
+		 * "Zugangsdaten speichern": asks for the password in the native dialog
+		 * and stores it with the user name. Resolves once stored.
+		 *
+		 * @param {string} id
+		 * @param {{ username: unknown }} body
+		 */
+		async saveCredentials(id, { username }) {
+			const recipe = recipeOf(id);
+			if (!credentialStore || !askPassword) throw credentialsOff();
+			if (!validUsername(username)) {
+				throw new PortalError(
+					'A user name is needed (one line, at most 200 characters).',
+					'PORTAL_CREDENTIALS_INVALID',
+					400
+				);
+			}
+			const user = String(username).trim();
+			return exclusive(id, 'credentials', async () => {
+				const password = await askPassword({
+					id,
+					name: recipe.name,
+					host: new URL(recipe.baseUrl).host
+				});
+				if (password === null) {
+					log(`portal ${id}: password dialog cancelled; nothing stored`);
+					throw credentialsCancelled(id);
+				}
+				if (!password) {
+					log(`portal ${id}: empty password; nothing stored`);
+					throw new PortalError(
+						'The password was empty; nothing is stored.',
+						'PORTAL_CREDENTIALS_EMPTY',
+						422
+					);
+				}
+				await credentialStore.save(id, { username: user, password });
+				log(
+					`portal ${id}: credentials stored (user name in bridge.json, password in the keychain)`
+				);
+				return { hasCredentials: true };
+			});
+		},
+
+		/** "Zugangsdaten löschen": user name and password. @param {string} id */
+		async deleteCredentials(id) {
+			recipeOf(id);
+			if (!credentialStore) throw credentialsOff();
+			await credentialStore.remove(id);
+			log(`portal ${id}: credentials deleted`);
+			return { hasCredentials: false };
+		},
+
 		/** Cancels waiting logins and ends recordings; for the bridge's shutdown. */
 		close() {
 			for (const run of running.values()) run.cancel();
@@ -657,6 +730,13 @@ export function createPortalManager({
 
 const recordingOff = () =>
 	new PortalError('Recording is not available on this bridge.', 'PORTAL_RECORDING_OFF', 503);
+
+const credentialsOff = () =>
+	new PortalError(
+		'Storing credentials from the app is not available on this bridge.',
+		'PORTAL_CREDENTIALS_OFF',
+		503
+	);
 
 const nothingRecorded = () =>
 	new PortalError('Nothing was recorded; start a recording first.', 'PORTAL_NOT_RECORDED', 409);

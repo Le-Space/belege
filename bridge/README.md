@@ -47,7 +47,7 @@ addressed to the accounting alias, and sends only redacted text to the LLM.
 | Hibiscus master password | macOS keychain, service `belege-bridge`, account `hibiscus` |
 | IMAP password or auth token | macOS keychain, service `belege-bridge`, account `imap` |
 | LLM API key | macOS keychain, service `belege-bridge`, account `llm` |
-| A portal password (optional) | macOS keychain, service `belege-bridge`, account `portal:vodafone` |
+| A portal password (optional; `pnpm setup:portal` or "Zugangsdaten speichern") | macOS keychain, service `belege-bridge`, account `portal:<portal>` |
 | A portal's browser profile (cookies, the live session) and `state.json` (last login, last run) | `~/.config/belege/portals/<portal>/` (0700), next to `bridge.json` |
 | A recorded recipe ("Portal aufzeichnen"): route, download control, review | `~/.config/belege/recipes/<portal>.json` (0600, directory 0700) |
 | Host, port, pinned SHA-256, IBAN suffixes, app origins, hashes of paired tokens; IMAP host/port/user, accounting address; LLM URL, models, terms to black out; a portal's user name | `~/.config/belege/bridge.json` (0600; `BELEGE_BRIDGE_CONFIG` overrides) |
@@ -70,7 +70,7 @@ All JSON, `127.0.0.1:8765` by default. Everything except `/health` and `/pair` n
 | `GET /mail/search?text=&amount=&around=YYYY-MM-DD&days=14` | the targeted search in the whole mailbox (Junk included, Trash and Drafts not): the same shape plus `matched` (`"text"`, or which amount spelling) |
 | `GET /llm/status` | `{ configured, provider, models { primary, fallback }, keyConfigured, redactTerms, mail { authServId } }`: the provider's host only (no path, query or `user:password@`), whether the keychain holds a key (yes/no, never the key), and how many terms are blacked out (a count, never the terms) |
 | `POST /extract` `{ text, hints: { subject, from, fileName, receivedAt }, source: { mailId }, confirmedByUser }` | `{ extraction, model, usage { prompt, completion, reasoning }, ms, attempts [{ model, ok, reason, ms, usage }], fallback { used, reason }, redactions { terms, iban, email, street, postcode, total }, sentText }`; 403 `SENDER_UNVERIFIED` for a mail whose sender did not pass, 502 `EXTRACT_FAILED` with the attempts when no model gave a usable answer |
-| `GET /portals` | every portal the bridge knows: `id, name, recipeVersion, state, lastLoginAt, lastRun { at, ok, count, code, step }, running, recordable, recorded, review`, with `state` one of `logged-in`, `needs-login`, `never`; starts no browser |
+| `GET /portals` | every portal the bridge knows: `id, name, recipeVersion, state, lastLoginAt, lastRun { at, ok, count, code, step }, running, recordable, recorded, review, credentials, hasCredentials`, with `state` one of `logged-in`, `needs-login`, `never`; starts no browser |
 | `POST /portals/:id/login` | opens the visible window and answers once logged in: `{ state: 'logged-in' }`; 408 `PORTAL_LOGIN_TIMEOUT` after 10 minutes, 409 `PORTAL_CANCELLED` when the window was closed or the login cancelled |
 | `POST /portals/:id/cancel` | ends a waiting login |
 | `POST /portals/:id/fetch?since=YYYY-MM` `{ known: [invoice ids] }` | lists the invoices from that month on and downloads those not in `known`: `{ listed, skipped, invoices [{ id, date, period, amountCents, invoiceNumber, fileName, size, sha256 }], errors [{ id, code }] }`; 409 `PORTAL_NEEDS_LOGIN` (with `reason`: `never`, `expired`, `otp`, `captcha`, …) when nobody is logged in |
@@ -81,6 +81,8 @@ All JSON, `127.0.0.1:8765` by default. Everything except `/health` and `/pair` n
 | `POST /portals/:id/record/save` | the recording becomes the portal's recipe override: `{ saved, recipeVersion, route }`; 422 `PORTAL_RECORDING_NO_DOWNLOAD`, `PORTAL_RECORDING_UNUSABLE`, or `PORTAL_RECIPE_REJECTED` with `step` (a JSON path) and `reason` (`email`, `iban`, `digits`, `shape`) |
 | `POST /portals/:id/record/discard` | ends and drops a recording: `{ discarded }` |
 | `GET /portals/:id/recipe/export` | the saved override as JSON, for sharing; 404 `PORTAL_NO_RECORDED_RECIPE` |
+| `POST /portals/:id/credentials` `{ username }` | "Zugangsdaten speichern": asks for the password in a native macOS dialog on the bridge's Mac, stores it in the keychain and the user name in `bridge.json`: `{ hasCredentials: true }`; 409 `PORTAL_CREDENTIALS_CANCELLED`, 422 `PORTAL_CREDENTIALS_EMPTY` (nothing stored either way), 400 `PORTAL_CREDENTIALS_INVALID`, 501 `PORTAL_CREDENTIALS_UNSUPPORTED` off macOS (use `pnpm setup:portal <id>`) |
+| `DELETE /portals/:id/credentials` | "Zugangsdaten löschen": the keychain entry and the user name: `{ hasCredentials: false }` |
 
 All portal calls answer 409 `PORTAL_BUSY` while another run of the same portal is going on, and 502
 `PORTAL_STEP_FAILED` with `step` when the portal did not look as the recipe expects.
@@ -142,9 +144,10 @@ no LLM in the login, no screenshots anywhere.
 ### Setup and the first login
 
 1. Install the browser once: `pnpm --filter @belege/bridge exec playwright install chromium`.
-2. Optional: `pnpm setup:portal vodafone` stores your user name (in `bridge.json`) and the password
-   (hidden prompt, keychain account `portal:vodafone`). Without it you type both in the window at
-   every login. Restart the bridge.
+2. Optional: store your user name and password, either in the app (Integrationen → Kundenportale →
+   **Zugangsdaten speichern**, see below) or with `pnpm setup:portal vodafone` (user name in
+   `bridge.json`, password from a hidden prompt into the keychain account `portal:vodafone`; restart
+   the bridge afterwards). Without them you type both in the window at every login.
 3. In the app: Integrationen → Kundenportale → **Anmelden**. A browser window opens on the portal's
    login page. With a stored password the bridge fills the form and ticks "Angemeldet bleiben";
    the cookie banner gets "Nur notwendige". A one-time code (SMS, e-mail) or a bot check is always
@@ -159,6 +162,26 @@ no LLM in the login, no screenshots anywhere.
    that works without you; otherwise the app shows "Anmeldung abgelaufen" and you press
    **Anmelden** again.
 6. **Abmelden** logs out on the portal when it can and deletes the profile.
+
+### Zugangsdaten speichern (from the app)
+
+Each portal card has a user name field and **Zugangsdaten speichern**. The app sends the user name
+only (`POST /portals/:id/credentials`). The bridge then asks for the password in a **native macOS
+dialog** on its own Mac (`osascript`, `display dialog … with hidden answer`, title "Le Space
+Belege", naming the portal and its host) and stores it in the keychain (service `belege-bridge`,
+account `portal:<id>`), the user name in `bridge.json` – the same places `pnpm setup:portal` uses,
+effective at once, no restart. The password never passes through the web app and is in no log line
+and no response; `GET /portals` says `hasCredentials: true|false`, nothing more.
+
+- The portal's name and host reach the AppleScript as `argv` (`on run argv`, after `--`), never
+  interpolated into the script, so a portal name cannot change what runs.
+- **Abbrechen** in the dialog (or 5 minutes without an answer) → 409 `PORTAL_CREDENTIALS_CANCELLED`;
+  an empty password → 422 `PORTAL_CREDENTIALS_EMPTY`. Nothing is stored in either case.
+- Not macOS → 501 `PORTAL_CREDENTIALS_UNSUPPORTED`: use `pnpm setup:portal <id>` there.
+- **Zugangsdaten löschen** (`DELETE /portals/:id/credentials`) removes the keychain entry and the
+  user name.
+- The dialog is a function `startBridge` is handed (`portalPasswordDialog`); the tests hand in a
+  fake, and `--test-mode` answers `$BELEGE_BRIDGE_TEST_PORTAL_DIALOG` (or cancels) without a window.
 
 ### The recipe, the first real run, and when the portal changes
 

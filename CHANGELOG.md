@@ -33,6 +33,13 @@ All notable changes to Le Space Belege. The format follows
   refused when it would hold an e-mail address, an IBAN or five digits in a row, and can be
   exported as JSON for sharing. New endpoints `POST /portals/:id/record/{start,stop,save,discard}`
   and `GET /portals/:id/recipe/export`.
+- **"Zugangsdaten speichern" from the app.** Each portal card takes a user name; the bridge asks
+  for the password in a native macOS dialog on its own Mac (`osascript … with hidden answer`, the
+  portal's name and host passed as argv, never into the script) and stores it in the keychain
+  (`portal:<id>`), the user name in `bridge.json`. The password never passes through the web app,
+  no log line or response carries it, and `GET /portals` only says `hasCredentials`. Cancelled or
+  empty: nothing stored. "Zugangsdaten löschen" removes both. New endpoints
+  `POST`/`DELETE /portals/:id/credentials`; off macOS they point to `pnpm setup:portal`.
 
 ## [0.1.0] – 2026-09-24
 

@@ -364,7 +364,7 @@ export function createBridgeServer({
 
 		if (req.method === 'OPTIONS') {
 			if (origin === undefined) return send(res, 400, { error: 'preflight without origin' });
-			res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+			res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
 			res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
 			res.setHeader('Access-Control-Max-Age', '600');
 			// Chrome's Private/Local Network Access asks this of loopback targets.

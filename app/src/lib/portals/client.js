@@ -17,6 +17,8 @@ import { t } from '../i18n/index.js';
  * @property {boolean} [recordable] the bridge can record this portal ("Portal aufzeichnen")
  * @property {boolean} [recorded] a recorded recipe is saved for it
  * @property {boolean} [review] a stopped recording waits to be saved or discarded
+ * @property {boolean} [credentials] the bridge can store credentials from here ("Zugangsdaten speichern")
+ * @property {boolean} [hasCredentials] a user name and a password are stored on the bridge
  */
 
 /**
@@ -64,7 +66,12 @@ const MESSAGES = /** @type {Record<string, string>} */ ({
 	PORTAL_RECORDING_NO_DOWNLOAD: 'portals.error.noDownload',
 	PORTAL_RECORDING_UNUSABLE: 'portals.error.unusable',
 	PORTAL_RECIPE_REJECTED: 'portals.error.rejected',
-	PORTAL_NO_RECORDED_RECIPE: 'portals.error.noRecipe'
+	PORTAL_NO_RECORDED_RECIPE: 'portals.error.noRecipe',
+	PORTAL_CREDENTIALS_CANCELLED: 'portals.error.credentialsCancelled',
+	PORTAL_CREDENTIALS_EMPTY: 'portals.error.credentialsEmpty',
+	PORTAL_CREDENTIALS_INVALID: 'portals.error.credentialsInvalid',
+	PORTAL_CREDENTIALS_UNSUPPORTED: 'portals.error.credentialsUnsupported',
+	PORTAL_CREDENTIALS_OFF: 'portals.error.credentialsOff'
 });
 
 export class PortalError extends BridgeError {
@@ -164,7 +171,19 @@ export function createPortalClient({ url, token, fetch: f = fetch }) {
 		/** @param {string} id */
 		recordDiscard: (id) => call(`${at(id)}/record/discard`, { method: 'POST' }),
 		/** The saved recipe override, as JSON to share. @param {string} id */
-		exportRecipe: (id) => call(`${at(id)}/recipe/export`)
+		exportRecipe: (id) => call(`${at(id)}/recipe/export`),
+		/**
+		 * "Zugangsdaten speichern": the user name only. The bridge asks for the
+		 * password in a window on its Mac; it never passes through here.
+		 *
+		 * @param {string} id
+		 * @param {string} username
+		 * @returns {Promise<{ hasCredentials: boolean }>}
+		 */
+		saveCredentials: (id, username) =>
+			call(`${at(id)}/credentials`, { method: 'POST', body: JSON.stringify({ username }) }),
+		/** @param {string} id @returns {Promise<{ hasCredentials: boolean }>} */
+		deleteCredentials: (id) => call(`${at(id)}/credentials`, { method: 'DELETE' })
 	};
 }
 
