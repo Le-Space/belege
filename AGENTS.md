@@ -14,10 +14,10 @@ Not in issues, pull requests, comments, commit messages, code, tests, fixtures, 
 - subjects or texts of real mails, text from real receipts, purposes of real bookings,
 - logs or network traces that contain any of the above.
 
-**Use made-up examples instead**, as the tests do: *Wolkenfabrik Hosting GmbH*, *Stromwerk Test AG*, *Konto A → Konto B*, *−12,34 €*, *DE00 0000 …*, *example.com*. Describe the **pattern**, not the case:
+**Use made-up examples instead**, as the tests do: _Wolkenfabrik Hosting GmbH_, _Stromwerk Test AG_, _Konto A → Konto B_, _−12,34 €_, _DE00 0000 …_, _example.com_. Describe the **pattern**, not the case:
 
-- ✗ "Revolut ···5281 received 200,00 from LE SPACE UG on 18.09. with purpose *Claude Code (KI)*"
-- ✓ "A transfer between two of our accounts whose purpose gives the reason instead of *Umbuchung*"
+- ✗ "Revolut ···5281 received 200,00 from LE SPACE UG on 18.09. with purpose _Claude Code (KI)_"
+- ✓ "A transfer between two of our accounts whose purpose gives the reason instead of _Umbuchung_"
 
 This holds when a person pastes a screenshot or a log into a chat with an agent: the chat may quote it, the repository may not. If something slipped through, say so, and fix the issue or PR text right away.
 
