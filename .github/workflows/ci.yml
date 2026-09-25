@@ -40,6 +40,9 @@ jobs:
         run: pnpm --filter @belege/bridge exec playwright install --with-deps --only-shell chromium
       - name: Format
         run: pnpm --filter @belege/bridge lint
+      # release.yml's steps run only at a release: check their shell here.
+      - name: Workflow shell syntax
+        run: ruby scripts/check-workflow-shell.rb
       - name: Tests
         run: pnpm run test:bridge
 
