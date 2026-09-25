@@ -59,7 +59,7 @@ jobs:
               const text = fs.readFileSync(f, "utf8");
               const p = JSON.parse(text);
               p.version = process.env.VERSION;
-              // Keep the file's own indentation (app/ uses tabs, the root two spaces):
+              // Keep the indentation each file has (app/ uses tabs, the root two spaces):
               // prettier checks it, and a whole-file reformat collides with every change.
               const indent = /^\{\n(\s+)"/.exec(text)?.[1] ?? "  ";
               fs.writeFileSync(f, JSON.stringify(p, null, indent) + "\n");
