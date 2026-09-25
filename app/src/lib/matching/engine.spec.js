@@ -269,6 +269,31 @@ describe('runMatching', () => {
 		expect((await runMatching({ store })).writes).toBe(0);
 	});
 
+	it('a pair undone and then linked by hand again counts as "Von Hand", not as a confirmed suggestion', async () => {
+		const { r } = await seedMonth();
+		await runMatching({ store });
+		const sage = /** @type {any} */ ((await active()).find((m) => m.receiptId === r.sageAug.id));
+		await unlinkMatch(store, sage.id);
+		await confirmMatch(store, {
+			receiptId: r.sageAug.id,
+			transactionId: sage.transactionId,
+			score: 40,
+			reasons: ['amount', 'manual']
+		});
+		const again = (await active()).find((m) => m.receiptId === r.sageAug.id);
+		expect(again).toMatchObject({ id: sage.id, state: 'confirmed', score: 40 });
+		expect(again?.reasons).toContain('manual');
+		// Confirming a suggestion without "manual" keeps its reasons and points.
+		const strom = /** @type {any} */ (
+			(await store.matches.list()).find((m) => m.receiptId === r.strom.id)
+		);
+		if (strom) {
+			await confirmMatch(store, { receiptId: strom.receiptId, transactionId: strom.transactionId });
+			const kept = await store.matches.get(strom.id);
+			expect(kept?.reasons).toEqual(strom.reasons);
+		}
+	});
+
 	it('an answered question stays answered; "none of these" reopens only for a new candidate', async () => {
 		const { t, r } = await seedMonth();
 		await runMatching({ store });

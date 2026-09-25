@@ -186,9 +186,18 @@ export async function importFile({
  * @param {any[]} params.messages from GET /mail/messages (or hits of /mail/search)
  * @param {import('../store/repository.js').StoredRecord[]} [params.created] the new records are pushed here
  * @param {import('../store/repository.js').Collection} [params.events] for "Absenderprüfung aktualisiert"
+ * @param {Record<string, string> | null} [params.foundBy] kept on each new receipt: `{ kind: 'mail-search' }`, `{ kind: 'mail-assist', confidence, reason, model }` (receipts/origin.js)
  * @returns {Promise<MailCounts>}
  */
-export async function importMailMessages({ receipts, blobs, client, messages, created, events }) {
+export async function importMailMessages({
+	receipts,
+	blobs,
+	client,
+	messages,
+	created,
+	events,
+	foundBy = null
+}) {
 	const seen = await known(receipts);
 	/** @type {MailCounts} */
 	const counts = { new: 0, duplicate: 0, skipped: 0, unsupported: 0, verdicts: 0 };
@@ -207,7 +216,9 @@ export async function importMailMessages({ receipts, blobs, client, messages, cr
 			subject: m.subject ?? '',
 			authVerdict: m.auth?.verdict ?? 'none',
 			outgoing: Boolean(m.outgoing),
-			excerpt: String(m.excerpt ?? '').slice(0, 2000)
+			excerpt: String(m.excerpt ?? '').slice(0, 2000),
+			// How it was found, when not by the accounting fetch (receipts/origin.js).
+			...(foundBy ? { foundBy } : {})
 		};
 		const files = (m.attachments ?? []).filter(
 			(/** @type {any} */ a) => a.kind === 'pdf' || a.kind === 'image'

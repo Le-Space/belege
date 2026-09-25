@@ -18,6 +18,14 @@
 		runMatchingNow
 	} from '$lib/session.svelte.js';
 	import { matchOfReceipt } from '$lib/matching/view.js';
+	import { matchLine } from '$lib/matching/explain.js';
+	import {
+		ORIGIN_FILTERS,
+		foundByAi,
+		inOrigin,
+		matchOrigin,
+		originCounts
+	} from '$lib/receipts/origin.js';
 	import { createBridgeClient } from '$lib/bridge/client.js';
 	import { getSetting } from '$lib/store/settings.js';
 	import { formatDate, formatMoney } from '$lib/bank/format.js';
@@ -60,6 +68,8 @@
 	/** @type {string} 'all', 'mail', 'upload', 'folder' or `portal:<id>` */
 	let source = $state('all');
 	let query = $state('');
+	/** @type {'all' | import('$lib/receipts/origin.js').OriginFilter} */
+	let origin = $state('all');
 	/** @type {string | null} */
 	let selectedId = $state(null);
 
@@ -91,11 +101,34 @@
 
 	let receipts = $derived(/** @type {Receipt[]} */ (app.receipts));
 	let counts = $derived(sourceCounts(receipts));
-	let filtered = $derived(
+	/** @param {string} id */
+	const matchOf = (id) => matchOfReceipt(id, app.matches);
+	let bySource = $derived(
 		receipts.filter(
 			(r) => (source === 'all' || receiptSourceKey(r) === source) && matchesReceiptSearch(r, query)
 		)
 	);
+	let originTotals = $derived(originCounts(bySource, matchOf));
+	let filtered = $derived(
+		origin === 'all'
+			? bySource
+			: bySource.filter((r) =>
+					inOrigin(
+						r,
+						matchOf(r.id),
+						/** @type {import('$lib/receipts/origin.js').OriginFilter} */ (origin)
+					)
+				)
+	);
+
+	/** The line under a linked receipt's badge: how it was linked, with the reasons. */
+	/** @param {Receipt} r */
+	function originTitle(r) {
+		const m = matchOf(r.id);
+		if (!m) return '';
+		const tx = app.transactions.find((x) => x.id === m.transactionId) ?? null;
+		return matchLine(m, { tx, receipt: r });
+	}
 	let groups = $derived(groupReceiptsByMonth(filtered));
 	let selected = $derived(receipts.find((r) => r.id === selectedId) ?? null);
 	let todo = $derived(extractable(receipts));
@@ -396,6 +429,13 @@
 		ignored: 'border-border bg-surface-2 text-faint'
 	};
 
+	const originClass = {
+		auto: 'border-success/30 bg-success/10 text-success',
+		'auto-learned': 'border-success/30 bg-success/10 text-success',
+		confirmed: 'border-border bg-surface-2 text-text',
+		manual: 'border-border bg-surface-2 text-text'
+	};
+
 	/** @param {Receipt} r */
 	function extractionNote(r) {
 		if (extractErrors[r.id]) return extractErrors[r.id];
@@ -617,9 +657,42 @@
 					{/if}
 				</div>
 
+				<div
+					class="mt-3 flex flex-wrap gap-1.5 text-xs"
+					role="group"
+					aria-label={t('belege.origin.label')}
+					data-testid="origin-filters"
+				>
+					{#each ['all', ...ORIGIN_FILTERS] as f (f)}
+						<button
+							type="button"
+							class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 {origin === f
+								? 'border-heading bg-surface-2 font-medium text-heading'
+								: 'border-border text-text hover:bg-surface-2'}"
+							aria-pressed={origin === f}
+							onclick={() => (origin = /** @type {any} */ (f))}
+							data-testid="origin-filter"
+							data-origin={f}
+						>
+							{#if f === 'ai'}<AiMark />{/if}{t(`belege.origin.filter.${f}`)}
+							<span class="text-faint tabular-nums"
+								>{f === 'all'
+									? bySource.length
+									: originTotals[
+											/** @type {import('$lib/receipts/origin.js').OriginFilter} */ (f)
+										]}</span
+							>
+						</button>
+					{/each}
+				</div>
+
 				{#each groups as group (group.month)}
+					{@const monthCounts = originCounts(group.items, matchOf)}
 					<div class="mt-4" data-testid="receipt-month" data-month={group.month}>
 						<h2 class="text-xs font-semibold tracking-wide text-faint uppercase">{group.label}</h2>
+						<p class="text-xs text-faint" data-testid="receipt-month-origins">
+							{t('belege.origin.month', monthCounts)}
+						</p>
 						<ul class="mt-1.5 divide-y divide-border {card}">
 							{#each group.items as r (r.id)}
 								<li>
@@ -650,6 +723,33 @@
 													]}"
 													data-testid="receipt-status">{t(`belege.status.${statusKey(r)}`)}</span
 												>
+												{#if matchOrigin(matchOf(r.id))}
+													{@const o = matchOrigin(matchOf(r.id))}
+													<span
+														class="rounded border px-1.5 py-0.5 text-xs font-medium {originClass[
+															o?.kind ?? 'auto'
+														]}"
+														title={originTitle(r)}
+														data-testid="receipt-origin"
+														data-origin={o?.kind}
+														>{t(`belege.origin.badge.${o?.kind}`, { score: o?.score ?? '?' })}</span
+													>
+												{/if}
+												{#if foundByAi(r)}
+													{@const ai = foundByAi(r)}
+													<span
+														class="inline-flex items-center gap-1 rounded border border-cyan-500 px-1.5 py-0.5 text-xs font-medium text-cyan-800 dark:text-cyan-200"
+														title={ai?.reason
+															? t('belege.origin.aiTitle', {
+																	reason: ai.reason,
+																	confidence: ai.confidence
+																		? t(`zahlungen.detail.aiConfidence.${ai.confidence}`)
+																		: '?'
+																})
+															: t('belege.origin.aiTitleNone')}
+														data-testid="receipt-ai-found"><AiMark />{t('belege.origin.ai')}</span
+													>
+												{/if}
 												{#if needsConfirmation(r)}
 													<span
 														class="rounded border border-danger/40 bg-danger/10 px-1.5 py-0.5 text-xs font-medium text-danger"

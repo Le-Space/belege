@@ -43,8 +43,15 @@ export async function confirmMatch(
 		}
 	}
 	const found = matches.find((m) => m.receiptId === receiptId && m.transactionId === transactionId);
+	// A link made by hand stays one, also where the pair was suggested or undone
+	// before: its reasons carry 'manual' (receipts/origin.js "Von Hand").
+	const byHand = reasons?.includes('manual') === true;
 	const record = found
-		? await store.matches.put({ ...found, state: 'confirmed' })
+		? await store.matches.put({
+				...found,
+				state: 'confirmed',
+				...(byHand ? { reasons, score } : {})
+			})
 		: await store.matches.put({
 				transactionId,
 				receiptId,
@@ -62,7 +69,7 @@ export async function confirmMatch(
 	}
 	await syncLinks(store);
 	if (log) {
-		await decided(store, found ? 'confirm' : 'link', {
+		await decided(store, found && !byHand ? 'confirm' : 'link', {
 			receiptId,
 			transactionId,
 			matchId: record.id,

@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **How each receipt was linked, in the receipts overview (#31).** Every linked receipt carries _Automatisch · 120 P._, _Automatisch (gelernt) · 90 P._, _Bestätigt_ or _Von Hand_, with the reasons on hover (the words of _Warum diese Zuordnung?_); a receipt that _Mit KI weitersuchen_ found carries _✦ KI-Fund_ with the model's reason. Filters by origin with counts, and per month _1 automatisch · 2 bestätigt · 0 von Hand · 0 KI-Fund · 4 offen_. Receipts taken from the private mailbox keep `foundBy` (`mail-search` or `mail-assist`).
+
 - **Transfers between our own accounts by their counter-booking (#29).** A booking with exactly one booking of the opposite amount on another of our accounts within 4 days, and a sign on either side (_Umbuchung_, _Übertrag_, _Transfer_, _Top-up_, _Aufladung_, _Einzahlung_, or our company as counterparty), is an own transfer (1360) on both sides – without a company name set up and without IBANs (Revolut CAMT gives names only). Two candidates, no sign, too far apart: nothing is guessed. _Warum kein Beleg nötig?_ names the other side and links it (_Gegenbuchung öffnen_); _Keine Umbuchung – Beleg nötig_ keeps the pair apart for good.
 
 - **Bank fees on every account (#32, rules part).** Besides the booking type (GLS _Abschluss_, _Entgelt_), a booking is a bank fee when its CAMT bank transaction code is a charge (`BkTxCd` family or sub-family `CHRG`, `FEES`, `COMM`, now kept as `bankCode`), or when its purpose names a fee (_Gebühr_, _Entgelt_, _Kontoführung_, _fee_, _charge_) and nobody but the bank is on the other side (the Revolut plan fee). _Bankgebühr – kein Beleg nötig_ on a booking teaches the account and the purpose words without digits; the next one like it needs no receipt either. _Eigene Anweisungen → Gelernte Bankgebühren_ lists them with _Vergessen_. _Warum kein Beleg nötig?_ names the rule that fired.
@@ -63,6 +65,10 @@ All notable changes to Le Space Belege. The format follows
   is offered for it) and from a mail receipt that links to the vendor ("Portal für <host>
   aufzeichnen", the link's origin only). New endpoints `POST /portals/new`,
   `POST /portals/:id/remove`; `record/save` takes `{ hosts }` and returns the recorded invoice.
+
+### Fixed
+
+- A pair that was undone and then linked by hand again counted as _bestätigt_ with the old reasons; it is _von dir zugeordnet_ now, with the reasons it was linked on.
 
 ## [0.1.0] – 2026-09-24
 
