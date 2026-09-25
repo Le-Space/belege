@@ -32,13 +32,22 @@ export async function knownInvoiceIds(receipts, portal) {
  * @param {import('../store/repository.js').Collection} params.receipts
  * @param {import('../receipts/blob-store.js').BlobStore} params.blobs
  * @param {{ invoice: (portal: string, invoiceId: string) => Promise<Uint8Array> }} params.client
- * @param {string} params.portal e.g. vodafone
+ * @param {string} params.portal e.g. vodafone, local-anthropic
+ * @param {string} [params.name] the portal's name as the bridge lists it (a portal of your own is not in PORTAL_NAMES)
  * @param {import('./client.js').PortalInvoice[]} params.invoices from POST /portals/:id/fetch
  * @param {import('../store/repository.js').StoredRecord[]} [params.created] the new records are pushed here
  * @returns {Promise<{ new: number, known: number, duplicate: number, unsupported: number }>}
  */
-export async function importPortalInvoices({ receipts, blobs, client, portal, invoices, created }) {
-	const name = PORTAL_NAMES[portal] ?? portal;
+export async function importPortalInvoices({
+	receipts,
+	blobs,
+	client,
+	portal,
+	name: listedName,
+	invoices,
+	created
+}) {
+	const name = PORTAL_NAMES[portal] ?? listedName ?? portal;
 	const all = await receipts.list({ includeDeleted: true });
 	const seen = {
 		sha: new Set(all.map((r) => r.sha256).filter(Boolean)),
@@ -61,6 +70,7 @@ export async function importPortalInvoices({ receipts, blobs, client, portal, in
 			sourceRef,
 			fields: {
 				portal,
+				portalName: name,
 				from: name,
 				subject: [name, inv.invoiceNumber ? `Rechnung ${inv.invoiceNumber}` : 'Rechnung']
 					.filter(Boolean)

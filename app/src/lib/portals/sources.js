@@ -21,16 +21,24 @@ export function receiptSourceKey(r) {
 export function portalSources(receipts) {
 	/** @type {Map<string, number>} */
 	const counts = new Map();
+	/** @type {Map<string, string>} a portal of your own is named on its receipts */
+	const names = new Map();
 	for (const r of receipts) {
 		if (r.source !== 'portal') continue;
 		const key = receiptSourceKey(r);
 		counts.set(key, (counts.get(key) ?? 0) + 1);
+		if (typeof r.portalName === 'string' && r.portalName) names.set(key, r.portalName);
 	}
 	const order = Object.keys(PORTAL_NAMES);
 	return [...counts.entries()]
 		.map(([key, count]) => {
 			const id = key.slice('portal:'.length);
-			return { key, label: PORTAL_NAMES[id] ?? id, count, rank: order.indexOf(id) };
+			return {
+				key,
+				label: PORTAL_NAMES[id] ?? names.get(key) ?? id,
+				count,
+				rank: order.indexOf(id)
+			};
 		})
 		.sort((a, b) => (a.rank < 0 ? 99 : a.rank) - (b.rank < 0 ? 99 : b.rank))
 		.map(({ key, label, count }) => ({ key, label, count }));

@@ -17,7 +17,14 @@
 //   portal's start page; the user clicks to the invoices and downloads one.
 //   Stop returns the steps for review, save writes the route as a local
 //   recipe override (<config dir>/recipes/<id>.json, 0600) and rebuilds the
-//   portal's recipe, so the next fetch replays it.
+//   portal's recipe, so the next fetch replays it. The invoice downloaded
+//   while recording is kept (in memory) and handed out like a fetched one.
+// - New portal ("Neues Portal aufzeichnen", ./local.js): from a name and a
+//   start URL the bridge makes a local portal (id local-<slug>) and records
+//   it the same way; the user logs in in that window. Saved, it is a portal
+//   like the bundled ones, from <config dir>/recipes/local-<slug>.json;
+//   discarded before it was ever saved, it and its profile are gone. "Portal
+//   entfernen" deletes a local portal's recipe, profile and credentials.
 // - Credentials ("Zugangsdaten speichern", ./credentials.js): the app sends a
 //   user name; the password is asked for in a native macOS dialog on this Mac
 //   and goes straight into the keychain. It never passes through the app, and
@@ -33,9 +40,11 @@ import { join } from 'node:path';
 
 import { PortalError, busy, needsLogin, stepFailed, unknownPortal } from './errors.js';
 import { credentialsCancelled, validUsername } from './credentials.js';
+import { buildLocalRecipe, checkName, checkStart, localId } from './local.js';
 import { MAX_INVOICE_BYTES, isPdf } from './pdf.js';
 import {
 	buildOverride,
+	overridePath,
 	readOverride,
 	review,
 	startRecording,
@@ -107,6 +116,7 @@ export async function launchChromium(profileDir, { headless }) {
  *   for tests: what a person would do in the window (reason `record` while recording)
  * @param {CredentialStore} [options.credentialStore] none: "Zugangsdaten speichern" is off
  * @param {import('./credentials.js').AskPassword} [options.askPassword] the native password dialog
+ * @param {boolean} [options.allowLoopback] a new portal may start on http://127.0.0.1 (tests only)
  * @param {(line: string) => void} [options.log]
  */
 export function createPortalManager({
@@ -123,6 +133,7 @@ export function createPortalManager({
 	onUserNeeded,
 	credentialStore,
 	askPassword,
+	allowLoopback = false,
 	log = () => {}
 }) {
 	/** @type {Map<string, { kind: string, cancel: () => void }>} */
@@ -133,6 +144,8 @@ export function createPortalManager({
 	const recordings = new Map();
 	/** @type {Map<string, import('./recorder.js').Recording>} stopped, not yet saved or discarded */
 	const recorded = new Map();
+	/** @type {Set<string>} new portals being recorded, never saved yet */
+	const pending = new Set();
 
 	/** @param {string} id */
 	function recipeOf(id) {
@@ -300,7 +313,17 @@ export function createPortalManager({
 		return result;
 	}
 
-	return {
+	/** Drops a new portal that was never saved: its recipe in memory, its profile. @param {string} id */
+	async function dropPending(id) {
+		if (!pending.delete(id)) return;
+		delete recipes[id];
+		recorded.delete(id);
+		invoices.delete(id);
+		await rm(portalDir(id), { recursive: true, force: true });
+		log(`portal ${id}: new portal dropped`);
+	}
+
+	const api = {
 		/** Every known portal, with what is on disk about it. Starts no browser. */
 		async list() {
 			const out = [];
@@ -324,7 +347,10 @@ export function createPortalManager({
 					recorded: Boolean(recipe.definition.recorded),
 					review: recorded.has(id),
 					credentials: Boolean(credentialStore && askPassword),
-					hasCredentials: Boolean(credentialStore?.has(id))
+					hasCredentials: Boolean(credentialStore?.has(id)),
+					source: recipe.definition.local ? 'local' : 'bundled',
+					pending: pending.has(id),
+					host: new URL(recipe.baseUrl).host
 				});
 			}
 			return out;
@@ -563,7 +589,7 @@ export function createPortalManager({
 				cancel = () => void stop();
 				recordings.set(id, { stop });
 				try {
-					await step('record.open', () => page.goto(recipe.baseUrl));
+					await step('record.open', () => page.goto(recipe.startUrl));
 				} catch (error) {
 					await stop();
 					recorded.delete(id);
@@ -576,6 +602,29 @@ export function createPortalManager({
 				if (!recordings.has(id)) running.delete(id);
 				throw error;
 			}
+		},
+
+		/**
+		 * "Neues Portal aufzeichnen": a local portal from a name and a start URL,
+		 * recorded at once. Returns its id once the window is open.
+		 *
+		 * @param {{ name?: unknown, startUrl?: unknown }} body
+		 */
+		async recordNew({ name, startUrl } = {}) {
+			if (!recipesDir || !rebuild) throw recordingOff();
+			const clean = checkName(name);
+			const { baseUrl, start, host } = checkStart(startUrl, { allowLoopback });
+			const id = localId(clean, host, new Set([...Object.keys(recipes), ...pending]));
+			recipes[id] = buildLocalRecipe(id, { name: clean, baseUrl, start }, { allowLoopback });
+			pending.add(id);
+			log(`portal ${id}: new portal`);
+			try {
+				await api.recordStart(id);
+			} catch (error) {
+				await dropPending(id);
+				throw error;
+			}
+			return { id, recording: true };
 		},
 
 		/**
@@ -594,22 +643,64 @@ export function createPortalManager({
 
 		/**
 		 * Saves the stopped recording as the portal's recipe override and
-		 * rebuilds the recipe: the next fetch replays the route.
+		 * rebuilds the recipe: the next fetch replays the route. The invoice
+		 * downloaded while recording is handed out like a fetched one.
 		 *
 		 * @param {string} id
+		 * @param {{ hosts?: unknown }} [confirmed] the other hosts the user said yes to
 		 */
-		async recordSave(id) {
+		async recordSave(id, { hosts } = {}) {
 			const recipe = recipeOf(id);
 			if (!recipesDir || !rebuild) throw recordingOff();
 			if (running.has(id)) throw busy(id);
 			const r = recorded.get(id);
 			if (!r) throw nothingRecorded();
-			const patch = validateOverride(buildOverride(recipe.definition, r), id);
+			const patch = validateOverride(buildOverride(recipe.definition, r, { hosts }), id);
 			writeOverride(recipesDir, id, patch);
-			recipes[id] = rebuild(id);
+			const next = rebuild(id);
+			if (!next) {
+				await rm(overridePath(recipesDir, id), { force: true });
+				throw new PortalError(
+					'The recorded recipe could not be built.',
+					'PORTAL_RECIPE_REJECTED',
+					422,
+					{ step: '$', reason: 'shape' }
+				);
+			}
+			recipes[id] = next;
+			pending.delete(id);
 			recorded.delete(id);
-			log(`portal ${id}: recorded recipe saved (${patch.route.length} route step(s))`);
-			return { saved: true, recipeVersion: recipes[id].version, route: patch.route.length };
+			// The user reached an invoice in the window: the profile holds a session.
+			await writeState(id, { lastLoginAt: new Date().toISOString(), session: 'logged-in' });
+			/** @type {InvoiceMeta[]} */
+			const kept = [];
+			if (r.invoice) {
+				const sha256 = createHash('sha256').update(r.invoice.bytes).digest('hex');
+				const meta = {
+					id: `recorded-${sha256.slice(0, 12)}`,
+					date: null,
+					period: null,
+					amountCents: null,
+					invoiceNumber: null,
+					fileName: `${next.name.replace(/[^\p{L}\p{N}._-]+/gu, '-')}-${sha256.slice(0, 12)}.pdf`,
+					size: r.invoice.bytes.length,
+					sha256
+				};
+				const cache = invoices.get(id) ?? new Map();
+				invoices.set(id, cache);
+				cache.set(meta.id, { meta, bytes: r.invoice.bytes, ref: null });
+				kept.push(meta);
+			}
+			log(
+				`portal ${id}: recorded recipe saved (${patch.route.length} route step(s), ${patch.allowedHosts?.length ?? 0} other host(s), invoice ${kept.length ? 'kept' : 'none'})`
+			);
+			return {
+				saved: true,
+				recipeVersion: next.version,
+				route: patch.route.length,
+				allowedHosts: patch.allowedHosts ?? [],
+				invoices: kept
+			};
 		},
 
 		/** Ends a recording and drops it, or drops a stopped one. @param {string} id */
@@ -618,7 +709,34 @@ export function createPortalManager({
 			await recordings.get(id)?.stop();
 			const had = recorded.delete(id);
 			if (had) log(`portal ${id}: recording discarded`);
+			// A new portal that was never saved goes with its recording.
+			await dropPending(id);
 			return { discarded: had };
+		},
+
+		/**
+		 * "Portal entfernen": a local portal's recipe file, profile, credentials.
+		 *
+		 * @param {string} id
+		 */
+		async remove(id) {
+			const recipe = recipeOf(id);
+			if (!recipe.definition.local) {
+				throw new PortalError('Only a portal of your own can be removed.', 'PORTAL_NOT_LOCAL', 409);
+			}
+			return exclusive(id, 'remove', async () => {
+				if (recipesDir) await rm(overridePath(recipesDir, id), { force: true });
+				await rm(portalDir(id), { recursive: true, force: true });
+				await credentialStore?.remove(id).catch(() => {
+					log(`portal ${id}: credentials could not be deleted`);
+				});
+				delete recipes[id];
+				pending.delete(id);
+				recorded.delete(id);
+				invoices.delete(id);
+				log(`portal ${id}: removed (recipe, profile, credentials)`);
+				return { removed: true };
+			});
 		},
 
 		/**
@@ -697,6 +815,7 @@ export function createPortalManager({
 			for (const run of running.values()) run.cancel();
 		}
 	};
+	return api;
 
 	/**
 	 * @param {string} id

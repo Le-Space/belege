@@ -99,7 +99,42 @@ export default {
 				'Bitte einen Benutzernamen oder eine E-Mail-Adresse eingeben (eine Zeile).',
 			credentialsUnsupported:
 				'Das Passwortfenster gibt es nur auf dem Mac. Auf dem Rechner der Bridge: pnpm setup:portal',
-			credentialsOff: 'Diese Bridge kann keine Zugangsdaten von hier speichern.'
+			credentialsOff: 'Diese Bridge kann keine Zugangsdaten von hier speichern.',
+			hostsUnconfirmed: 'Bitte erst jede weitere Adresse bestätigen, die der Weg besucht.',
+			newInvalid:
+				'Bitte einen Namen (ohne E-Mail-Adresse und lange Nummern) und eine Startseite mit https:// angeben.',
+			notLocal: 'Nur eigene Portale lassen sich entfernen.'
+		},
+		local: {
+			badge: 'eigenes Rezept, lokal',
+			pending:
+				'Neues Portal – noch nicht gespeichert. Beende die Aufzeichnung und speichere sie, sonst verschwindet es wieder.',
+			remove: 'Portal entfernen',
+			removeHint:
+				'Löscht das Rezept, das Browserprofil und die Zugangsdaten dieses Portals auf dem Mac.',
+			removeConfirm:
+				'„{name}“ entfernen? Rezept, Browserprofil (die Sitzung) und gespeicherte Zugangsdaten werden auf dem Mac gelöscht. Schon geholte Belege bleiben.'
+		},
+		new: {
+			title: 'Neues Portal aufzeichnen',
+			intro:
+				'Für einen Anbieter, den die Bridge noch nicht kennt: Name und Startseite eingeben, im Fenster der Bridge anmelden, zu einer Rechnung klicken und sie herunterladen. Danach holt die Bridge die Rechnungen dort selbst.',
+			name: 'Name',
+			namePlaceholder: 'z. B. Anthropic',
+			start: 'Startseite',
+			button: 'Neues Portal aufzeichnen',
+			starting: 'Öffne das Fenster …',
+			hint: 'Die Anmeldung machst du selbst im Fenster – auch Codes, „Mit Google anmelden“ und Sicherheitsprüfungen. Passwörter und Eingaben werden nie aufgezeichnet.',
+			recording:
+				'Melde dich im Fenster der Bridge an, klicke zu einer Rechnung und lade sie herunter. Dann hier „Aufzeichnung beenden“.',
+			saved: '„{name}“ gespeichert – es steht jetzt unter Integrationen → Kundenportale.',
+			imported: ' Die heruntergeladene Rechnung ist als Beleg übernommen.',
+			technical: [
+				'Die Bridge legt ein eigenes Portal an (Kennung local-<name>) mit einem eigenen Browserprofil unter ~/.config/belege/portals/local-<name>/ und öffnet ihr Chromium auf der Startseite. Von der Adresse bleiben nur Herkunft und Pfad; Parameter und Anker (oft mit Tokens) werden verworfen.',
+				'Aufgezeichnet werden echte Klicks auf Links und Knöpfe als Rolle und Name. Anmeldeseiten (Passwortfeld, Adressen wie …/login oder accounts.…) werden nicht aufgezeichnet, und was davor lag, fällt weg: Der spätere Abruf beginnt angemeldet.',
+				'Liegt die Rechnung auf einer anderen Adresse (etwa invoice.stripe.com), zeigt die Prüfung sie an, und du bestätigst jede einzeln. Nur diese Adressen (allowedHosts) darf der Abruf außer der Seite des Anbieters besuchen; jede andere Navigation wird abgebrochen.',
+				'Das Rezept liegt nur auf dem Mac: ~/.config/belege/recipes/local-<name>.json (0600), ohne E-Mail-Adressen, IBANs und lange Nummern. Die heruntergeladene PDF wird ein Beleg wie jede geholte Rechnung.'
+			]
 		},
 		credentials: {
 			title: 'Zugangsdaten',
@@ -130,6 +165,13 @@ export default {
 			download: ' (Download)',
 			unusable: ' – nicht wiederzufinden, wird übersprungen',
 			page: 'Seite {path}',
+			on: ' auf {host}',
+			invoiceKept: 'Die heruntergeladene Rechnung wird beim Speichern als Beleg übernommen.',
+			hostsTitle: 'Weitere Adressen',
+			hostsHint:
+				'Der Weg führt über Adressen außerhalb der Seite des Anbieters. Nur was du hier bestätigst, darf der Abruf später besuchen.',
+			hostConfirm: '{host} gehört zum Rechnungsweg',
+			savedInvoice: ' Die heruntergeladene Rechnung ist als Beleg übernommen.',
 			save: 'Als Rezept speichern',
 			discard: 'Verwerfen',
 			saved: 'Rezept gespeichert: der nächste Abruf geht diesen Weg.',
@@ -148,7 +190,7 @@ export default {
 			'Die Bridge startet ein eigenes Chromium (Playwright) mit einem Profil pro Portal unter ~/.config/belege/portals/<portal>/profile (0700) – nicht dein Alltags-Chrome. Die Sitzung bleibt in diesem Profil; „Abmelden“ beendet sie und löscht es.',
 			'Ein Passwort, falls du es mit „Zugangsdaten speichern“ oder pnpm setup:portal hinterlegst, liegt im macOS-Schlüsselbund (belege-bridge, portal:<portal>). Codes und Sicherheitsprüfungen gibst immer du ein. Kein Sprachmodell und keine Bildschirmfotos sind beteiligt.',
 			'Jede Datei muss nach ihren Bytes ein PDF sein (höchstens 15 MB). Doppelte erkennt die App an der Rechnungskennung (vodafone:<id>) und am SHA-256.',
-			'„Portal aufzeichnen“ merkt sich nur echte Klicks auf Links und Knöpfe als Rolle und Namen (Ziffern als Muster \\d+) und besuchte Seiten als maskierte Pfade. Eingabefelder, Tastendrücke und alles auf Seiten mit Passwortfeld bleiben außen vor; die heruntergeladene Datei wird verworfen. Das Rezept liegt als ~/.config/belege/recipes/<portal>.json (0600) auf dem Mac und wird abgelehnt, wenn es eine E-Mail-Adresse, eine IBAN oder fünf Ziffern am Stück enthielte. Der Abruf spielt die Klicks danach ohne Sprachmodell nach.'
+			'„Portal aufzeichnen“ merkt sich nur echte Klicks auf Links und Knöpfe als Rolle und Namen (Ziffern als Muster \\d+) und besuchte Seiten als maskierte Pfade. Eingabefelder, Tastendrücke und alles auf Seiten mit Passwortfeld bleiben außen vor; die heruntergeladene Rechnung (ein PDF) wird beim Speichern ein Beleg. Das Rezept liegt als ~/.config/belege/recipes/<portal>.json (0600) auf dem Mac und wird abgelehnt, wenn es eine E-Mail-Adresse, eine IBAN oder fünf Ziffern am Stück enthielte. Der Abruf spielt die Klicks danach ohne Sprachmodell nach.'
 		]
 	},
 	footer: {
@@ -582,6 +624,9 @@ export default {
 			folder: 'Ordner',
 			portal: 'Kundenportal'
 		},
+		recordPortal: 'Portal für {host} aufzeichnen',
+		recordPortalHint:
+			'Die E-Mail verweist auf die Seite des Anbieters. Zeichne einmal auf, wie du dort zu den Rechnungen kommst – die Bridge holt sie danach selbst. Als Startseite dient nur die Adresse der Seite, nie der Link aus der E-Mail.',
 		linkedTo: 'Zugeordnet zu',
 		openTx: 'Zahlung öffnen',
 		reminderNote:
@@ -762,6 +807,26 @@ export default {
 				'Übernommen. Der Absender ist nicht bestätigt: unter Belege prüfen und freigeben.',
 			privateDuplicate: 'Diesen Beleg gibt es schon.',
 			noBridge: 'Für die Suche die Bridge unter Integrationen koppeln.',
+			vendor: {
+				title: 'Beim Anbieter holen',
+				noBridge: 'Dafür die Bridge unter Integrationen koppeln.',
+				found:
+					'Kundenportal „{name}“: holt die Rechnungen ab {since} über die Bridge und prüft, ob eine zu dieser Zahlung passt.',
+				login: 'Bei {name} anmelden',
+				fetch: 'Rechnungen holen bei {name}',
+				fetching: 'Hole Rechnungen …',
+				none: 'Für „{name}“ gibt es noch kein Kundenportal. Zeichne es einmal auf: anmelden, zu einer Rechnung klicken, herunterladen.',
+				result: '{listed} Rechnungen gefunden · neu: {new} · schon vorhanden: {known}.',
+				linked: ' Eine davon ist dieser Zahlung zugeordnet.',
+				nothingFits: ' Keine der neuen Rechnungen passt nach Betrag und Datum zu dieser Zahlung.',
+				fits: 'Passt zu dieser Zahlung: {vendor} · {amount} · {date}',
+				assign: 'Dieser Zahlung zuordnen',
+				assigned: 'Zugeordnet.',
+				technical: [
+					'Das Portal wird über seinen Namen oder seine Adresse zur Gegenpartei gefunden. Die Bridge holt die Rechnungen ab dem Monat vor der Buchung; neue werden verschlüsselt als Belege abgelegt, ausgelesen (wenn ein Sprachmodell eingerichtet ist) und laufen durch den normalen Abgleich.',
+					'Passt eine nach Betrag, Datum und Anbieter (mindestens 40 Punkte), wird sie hier angeboten; zugeordnet wird sie erst auf deinen Klick, wie beim Hochladen.'
+				]
+			},
 			portal: 'Portal öffnen',
 			portalFromPurpose: 'aus dem Verwendungszweck',
 			portalFromPartner: 'beim Partner gespeichert',

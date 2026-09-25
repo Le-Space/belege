@@ -36,6 +36,7 @@ export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
  * @param {import('./keychain.js').Keychain} [options.llmKeychain] the LLM API key
  * @param {(portalId: string) => import('./keychain.js').Keychain} [options.portalKeychain] a portal's password
  * @param {'auto' | 'always'} [options.portalHeadless] `always` for tests: no window ever opens
+ * @param {boolean} [options.portalLoopback] a new portal may start on http://127.0.0.1 (tests only)
  * @param {import('./portals/credentials.js').AskPassword} [options.portalPasswordDialog]
  *   asks for a portal's password on this Mac ("Zugangsdaten speichern"); tests hand in a fake
  * @param {boolean} [options.forcePairingCode] issue a code even when already paired
@@ -50,6 +51,7 @@ export async function startBridge({
 	llmKeychain = macosKeychain({ account: 'llm' }),
 	portalKeychain = (id) => macosKeychain({ account: keychainAccount(id) }),
 	portalHeadless = 'auto',
+	portalLoopback = false,
 	portalPasswordDialog = macosPasswordDialog(),
 	forcePairingCode = false,
 	port,
@@ -103,10 +105,12 @@ export async function startBridge({
 	// Recorded recipes ("Portal aufzeichnen") are kept next to them.
 	const recipesDir = join(dirname(configPath), 'recipes');
 	const portals = createPortalManager({
-		recipes: buildRecipes(config.portals, { recipesDir, log }),
+		recipes: buildRecipes(config.portals, { recipesDir, log, allowLoopback: portalLoopback }),
 		dir: join(dirname(configPath), 'portals'),
 		recipesDir,
-		rebuild: (id) => buildRecipes(config.portals, { recipesDir, log })[id],
+		rebuild: (id) =>
+			buildRecipes(config.portals, { recipesDir, log, allowLoopback: portalLoopback })[id],
+		allowLoopback: portalLoopback,
 		headless: portalHeadless,
 		visibleFetch: (id) => config.portals[id]?.headless === false,
 		// "Zugangsdaten speichern": the user name into bridge.json, the password

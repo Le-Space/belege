@@ -2,6 +2,7 @@
 // Optional: let the bridge fill a customer portal's login form itself.
 //
 //   pnpm setup:portal vodafone
+//   pnpm setup:portal local-anthropic   # a portal of your own ("Neues Portal aufzeichnen")
 //
 // 1. The user name (or e-mail) for the portal, into bridge.json.
 // 2. The password, from a hidden prompt, into the macOS keychain (service
@@ -11,13 +12,14 @@
 // A one-time code (SMS, e-mail) and a bot check are always yours, in the
 // window the bridge opens. Nothing here is needed to log in by hand.
 
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { defaultConfigPath, loadConfig, saveConfig } from './config.js';
 import { macosKeychain } from './keychain.js';
 import { ask, askHidden, closePrompts } from './prompt.js';
 import { storeSecret } from './setup-secret.js';
-import { RECIPES, keychainAccount } from './portals/index.js';
+import { RECIPES, keychainAccount, readOverride } from './portals/index.js';
 
 /**
  * @param {object} deps
@@ -28,13 +30,15 @@ import { RECIPES, keychainAccount } from './portals/index.js';
  * @returns {Promise<boolean>}
  */
 export async function runPortalSetup({ portal, io, keychain, configPath }) {
-	if (!Object.hasOwn(RECIPES, portal)) {
+	const name = Object.hasOwn(RECIPES, portal)
+		? RECIPES[/** @type {keyof typeof RECIPES} */ (portal)].name
+		: localName(portal, configPath);
+	if (!name) {
 		io.print(
-			`Unknown portal ${JSON.stringify(portal)}. Known: ${Object.keys(RECIPES).join(', ')}.`
+			`Unknown portal ${JSON.stringify(portal)}. Known: ${Object.keys(RECIPES).join(', ')}, or a local-… portal you recorded.`
 		);
 		return false;
 	}
-	const name = RECIPES[/** @type {keyof typeof RECIPES} */ (portal)].name;
 	const config = await loadConfig(configPath);
 	const current = config.portals[portal] ?? {};
 
@@ -68,6 +72,21 @@ export async function runPortalSetup({ portal, io, keychain, configPath }) {
 	io.print(`Saved ${configPath}${passwordStored ? '' : ' (no password stored)'}.`);
 	io.print('Restart the bridge (pnpm bridge), then Integrationen → Kundenportale → Anmelden.');
 	return true;
+}
+
+/**
+ * The name of a portal of your own, from its recipe next to bridge.json; null when there is none.
+ *
+ * @param {string} portal
+ * @param {string} configPath
+ */
+function localName(portal, configPath) {
+	if (!/^local-[a-z0-9-]{1,34}$/.test(portal)) return null;
+	try {
+		return readOverride(join(dirname(configPath), 'recipes'), portal)?.local?.name ?? null;
+	} catch {
+		return null;
+	}
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

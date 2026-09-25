@@ -41,7 +41,8 @@ const TLDS = new Set([
 	'store',
 	'tech',
 	'digital',
-	'services'
+	'services',
+	'ai'
 ]);
 
 const LABEL = /^(?!-)[a-z0-9-]{1,63}(?<!-)$/;
@@ -70,7 +71,19 @@ const CANDIDATE =
  * @returns {{ url: string, host: string } | null}
  */
 export function findPortalUrl(text) {
+	return findPortalUrls(text, 1)[0] ?? null;
+}
+
+/**
+ * Every portal URL written in a text, in order, by the same rules.
+ *
+ * @param {unknown} text
+ * @param {number} [limit]
+ * @returns {{ url: string, host: string }[]}
+ */
+export function findPortalUrls(text, limit = 20) {
 	const s = String(text ?? '');
+	const out = [];
 	for (const m of s.matchAll(CANDIDATE)) {
 		const [, scheme, rawHost, rawPath = ''] = m;
 		const host = rawHost.toLowerCase();
@@ -79,9 +92,10 @@ export function findPortalUrl(text) {
 		if (!plausibleHost(host)) continue;
 		const path = rawPath.replace(/[.]+$/, '');
 		const url = safeUrl(`https://${host}${path}`);
-		if (url) return url;
+		if (url) out.push(url);
+		if (out.length >= limit) break;
 	}
-	return null;
+	return out;
 }
 
 /**

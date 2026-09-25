@@ -20,7 +20,19 @@
 // - Pages as masked paths (./recipe.js maskPath), for the review only; the
 //   replay clicks, it never opens a recorded URL.
 // - The download: the Playwright download event, or a PDF response, after a
-//   click marks that click. The file is cancelled and deleted.
+//   click marks that click. When the file is a PDF (by its bytes, ≤ 15 MB) it
+//   is kept in memory and handed to the app as the portal's first invoice
+//   once the recording is saved; Playwright's download folder is temporary.
+// - Hosts: clicks and pages on other hosts than the portal's site are
+//   recorded with their host (an invoice page on invoice.stripe.com, a PDF
+//   from pay.stripe.com). The review lists these hosts, and the recording is
+//   only saved when the user confirmed each one; they become the recipe's
+//   `allowedHosts`, the only other hosts the replay visits (./recipe.js).
+// - A new portal ("Neues Portal aufzeichnen", ./local.js) is logged in to in
+//   the recording window itself. For those, a page also counts as a login
+//   page by its address (…/login, …/signin, accounts.…) or a user-name or
+//   one-time-code field, and every login page starts the route afresh: the
+//   replay begins logged in, so nothing clicked before a login belongs in it.
 //
 // A recording is saved as a local override, <config dir>/recipes/<id>.json
 // (0600), merged over the bundled recipe when the recipes are built. It is
@@ -30,8 +42,11 @@
 import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { readFile, rm, stat } from 'node:fs/promises';
+
 import { PortalError } from './errors.js';
 import { CLICK_ROLES, isSelector } from './locate.js';
+import { MAX_INVOICE_BYTES, isPdf } from './pdf.js';
 import { maskPath, validateDefinition } from './recipe.js';
 
 const BINDING = '__belegeRecorder';
@@ -43,6 +58,11 @@ const STABLE_ATTRIBUTES = ['automation-id', 'data-testid', 'data-test-id', 'data
 const EMAIL = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 const IBAN = /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]){11,30}\b/i;
 const DIGITS = /\d{5,}/;
+const HOST = /^(?=.{1,253}$)[a-z0-9-]{1,63}(\.[a-z0-9-]{1,63})*$/;
+/** For new portals: a page whose address says "login". */
+const LOGIN_PATH =
+	'(^|[/._-])(log-?in|sign-?in|signon|auth|oauth2?|sso|anmeld\\w*|einloggen|magic-link)([/._-]|$)';
+const LOGIN_HOST = '^(login|auth|accounts?|sso|signin|id)\\.';
 
 /**
  * @typedef {object} RecordedStep one line of the review; no page text beyond a control's name
@@ -52,6 +72,7 @@ const DIGITS = /\d{5,}/;
  * @property {boolean} [download] click: this one downloaded the invoice
  * @property {boolean} [usable] click: false when no stable selector was found; left out of the route
  * @property {string} [path] page: the masked path
+ * @property {string} [host] click or page on another host than the portal's site
  */
 
 /**
@@ -60,6 +81,8 @@ const DIGITS = /\d{5,}/;
  * @property {(RecordedStep & { target?: import('./locate.js').Selector | null })[]} steps
  * @property {number} pausedOnLogin clicks not recorded because a password field was on the page
  * @property {boolean} download
+ * @property {string | null} [downloadHost] the download came from another host than the site's
+ * @property {{ bytes: Buffer, name: string } | null} [invoice] the downloaded PDF, memory only
  */
 
 /** @param {string} s */
@@ -108,9 +131,10 @@ export function describeTarget(raw) {
  * Runs in the portal's pages (every frame, every navigation). Reports clicks
  * on controls and page loads to the bridge; reads no value, no keystroke.
  *
- * @param {{ binding: string, passwordCss: string[] }} options
+ * @param {{ binding: string, passwordCss: string[], strict: boolean, loginPath: string, loginHost: string }} options
+ *   strict: a new portal's recording, where a login page is also known by its address
  */
-function capture({ binding, passwordCss }) {
+function capture({ binding, passwordCss, strict, loginPath, loginHost }) {
 	const CONTROLS = 'a, button, [role="button"], [role="tab"], [role="link"], [role="menuitem"]';
 	const FIELDS = 'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
 	const ATTRS = ['automation-id', 'data-testid', 'data-test-id', 'data-qa', 'data-cy'];
@@ -127,6 +151,16 @@ function capture({ binding, passwordCss }) {
 			} catch {
 				// not a selector this browser knows
 			}
+		}
+		if (strict) {
+			if (new RegExp(loginPath, 'i').test(location.pathname)) return true;
+			if (new RegExp(loginHost, 'i').test(location.hostname)) return true;
+			if (
+				document.querySelector(
+					'input[autocomplete~="username"], input[autocomplete~="one-time-code"], input[autocomplete~="webauthn"]'
+				)
+			)
+				return true;
 		}
 		return false;
 	};
@@ -190,45 +224,79 @@ export async function startRecording({ context, recipe, log = () => {} }) {
 	const base = new URL(recipe.baseUrl);
 	const root = base.hostname.replace(/^www\./, '');
 	const loginPath = def.paths.login;
+	// A new portal: the user logs in in this window.
+	const strict = Boolean(def.local);
 	/** @type {Recording} */
-	const recording = { at: new Date().toISOString(), steps: [], pausedOnLogin: 0, download: false };
+	const recording = {
+		at: new Date().toISOString(),
+		steps: [],
+		pausedOnLogin: 0,
+		download: false,
+		downloadHost: null,
+		invoice: null
+	};
 	/** @type {(RecordedStep & { target?: any, time: number }) | null} */
 	let lastClick = null;
 	let clicks = 0;
 	let ended = false;
 
-	/** @param {import('playwright').Page} page */
-	const sameSite = (page) => {
+	/** The host of an http(s) address, or null. @param {string} href */
+	const hostOf = (href) => {
 		try {
-			const u = new URL(page.url());
-			return u.hostname === base.hostname || u.hostname === root || u.hostname.endsWith(`.${root}`);
+			const u = new URL(href);
+			return /^https?:$/.test(u.protocol) ? u.hostname : null;
 		} catch {
-			return false;
+			return null;
 		}
 	};
+	/** @param {string} host */
+	const onSite = (host) => host === base.hostname || host === root || host.endsWith(`.${root}`);
 
-	function markDownload() {
-		if (ended || recording.download || !lastClick) return;
-		if (Date.now() - lastClick.time > DOWNLOAD_AFTER_CLICK_MS) return;
+	/** A login page of a new portal: what came before it is not part of the route. */
+	function restart() {
+		if (!strict || recording.steps.length === 0) return;
+		recording.steps = [];
+		lastClick = null;
+		clicks = 0;
+	}
+
+	/** @param {string | null} host where the file came from */
+	function markDownload(host) {
+		if (ended || recording.download || !lastClick) return false;
+		if (Date.now() - lastClick.time > DOWNLOAD_AFTER_CLICK_MS) return false;
 		lastClick.download = true;
 		recording.download = true;
+		if (host && !onSite(host)) recording.downloadHost = host;
 		log('recording: download seen');
+		return true;
+	}
+
+	/** @param {Buffer} bytes @param {string} name */
+	function keep(bytes, name) {
+		if (recording.invoice || bytes.length > MAX_INVOICE_BYTES || !isPdf(bytes)) return;
+		recording.invoice = { bytes, name };
+		log(`recording: invoice kept (${bytes.length} bytes)`);
 	}
 
 	await context.exposeBinding(BINDING, (source, raw) => {
 		// Once the invoice came, the recording is complete: later clicks are not part of it.
 		if (ended || recording.download) return;
-		if (source.frame !== source.page.mainFrame() || !sameSite(source.page)) return;
+		if (source.frame !== source.page.mainFrame()) return;
+		const host = hostOf(source.page.url());
+		if (!host) return;
+		const off = onSite(host) ? {} : { host };
 		if (raw?.paused) {
 			recording.pausedOnLogin++;
+			restart();
 			return;
 		}
 		if (typeof raw?.page === 'string') {
-			if (raw.login || raw.page.startsWith(loginPath)) return;
+			if (raw.login) return restart();
+			if (!strict && !off.host && raw.page.startsWith(loginPath)) return;
 			const path = maskPath(raw.page).slice(0, 200);
 			const last = recording.steps.at(-1);
-			if (!(last?.kind === 'page' && last.path === path))
-				recording.steps.push({ kind: 'page', path });
+			if (!(last?.kind === 'page' && last.path === path && last.host === off.host))
+				recording.steps.push({ kind: 'page', path, ...off });
 			return;
 		}
 		if (clicks >= MAX_CLICKS) return;
@@ -241,6 +309,7 @@ export async function startRecording({ context, recipe, log = () => {} }) {
 			download: false,
 			usable: Boolean(d.target),
 			target: d.target,
+			...off,
 			time: Date.now()
 		};
 		recording.steps.push(step);
@@ -250,18 +319,28 @@ export async function startRecording({ context, recipe, log = () => {} }) {
 		binding: BINDING,
 		passwordCss: (def.selectors.password ?? [])
 			.filter((/** @type {any} */ s) => 'css' in s)
-			.map((/** @type {any} */ s) => s.css)
+			.map((/** @type {any} */ s) => s.css),
+		strict,
+		loginPath: LOGIN_PATH,
+		loginHost: LOGIN_HOST
 	});
 
+	/** @type {Promise<void>[]} files still being read */
+	const reading = [];
 	/** @param {import('playwright').Download} download */
 	const onDownload = (download) => {
-		markDownload();
-		// The recording needs the fact, not the file.
-		void download
-			.cancel()
+		const marked = markDownload(hostOf(download.url()) ?? hostOf(download.page().url()));
+		// The recorded invoice is kept (a PDF, in memory); the file itself is deleted.
+		const read = (async () => {
+			// The same file may have been seen as a PDF response first.
+			if (!marked && !(recording.download && !recording.invoice && !ended)) return;
+			const path = await download.path();
+			if ((await stat(path)).size > MAX_INVOICE_BYTES) return;
+			keep(await readFile(path), download.suggestedFilename());
+		})()
 			.catch(() => {})
-			.then(() => download.delete())
-			.catch(() => {});
+			.finally(() => download.delete().catch(() => {}));
+		reading.push(read);
 	};
 	/** @param {import('playwright').Page} page */
 	const watch = (page) => page.on('download', onDownload);
@@ -269,7 +348,17 @@ export async function startRecording({ context, recipe, log = () => {} }) {
 	context.on('page', watch);
 	context.on('response', (response) => {
 		const type = String(response.headers()['content-type'] ?? '').toLowerCase();
-		if (type.startsWith('application/pdf')) markDownload();
+		if (!type.startsWith('application/pdf')) return;
+		const marked = markDownload(hostOf(response.url()));
+		if (!marked && !(recording.download && !recording.invoice)) return;
+		// A PDF shown in the window rather than downloaded: its bytes, when the browser has them.
+		if (Number(response.headers()['content-length'] ?? 0) > MAX_INVOICE_BYTES) return;
+		reading.push(
+			response
+				.body()
+				.then((bytes) => keep(bytes, 'rechnung.pdf'))
+				.catch(() => {})
+		);
 	});
 
 	return {
@@ -282,6 +371,11 @@ export async function startRecording({ context, recipe, log = () => {} }) {
 		async stop() {
 			if (!ended) await new Promise((resolve) => setTimeout(resolve, 300));
 			ended = true;
+			// A download still being written: wait for it (at most 20 s), before the window closes.
+			await Promise.race([
+				Promise.allSettled(reading),
+				new Promise((resolve) => setTimeout(resolve, 20_000))
+			]);
 			return recording;
 		}
 	};
@@ -297,7 +391,9 @@ export function review(recording) {
 		at: recording.at,
 		download: recording.download,
 		pausedOnLogin: recording.pausedOnLogin,
-		steps: reviewSteps(recording)
+		steps: reviewSteps(recording),
+		hosts: extraHosts(recording),
+		invoice: Boolean(recording.invoice)
 	};
 }
 
@@ -305,15 +401,31 @@ export function review(recording) {
 function reviewSteps(recording) {
 	return recording.steps.map((s) =>
 		s.kind === 'page'
-			? { kind: 'page', path: s.path }
+			? { kind: 'page', path: s.path, ...(s.host ? { host: s.host } : {}) }
 			: {
 					kind: 'click',
 					role: s.role,
 					label: s.label,
 					download: Boolean(s.download),
-					usable: Boolean(s.usable)
+					usable: Boolean(s.usable),
+					...(s.host ? { host: s.host } : {})
 				}
 	);
+}
+
+/**
+ * The other hosts than the site's that the way to the invoice passed through,
+ * up to the download, and the download's own: each one needs the user's yes.
+ *
+ * @param {Recording} recording
+ * @returns {string[]}
+ */
+export function extraHosts(recording) {
+	const end = recording.steps.findIndex((s) => s.download);
+	const upTo = end < 0 ? recording.steps : recording.steps.slice(0, end + 1);
+	const hosts = new Set(upTo.map((s) => s.host).filter((h) => typeof h === 'string'));
+	if (recording.downloadHost) hosts.add(recording.downloadHost);
+	return [...hosts].filter((h) => HOST.test(h)).sort();
 }
 
 /**
@@ -322,8 +434,9 @@ function reviewSteps(recording) {
  *
  * @param {import('./recipe.js').RecipeDefinition} def the bundled recipe
  * @param {Recording} recording
+ * @param {{ hosts?: unknown }} [confirmed] the other hosts the user said yes to
  */
-export function buildOverride(def, recording) {
+export function buildOverride(def, recording, { hosts } = {}) {
 	const clicks = recording.steps.filter((s) => s.kind === 'click');
 	const at = clicks.findIndex((s) => s.download);
 	if (at < 0) {
@@ -341,19 +454,37 @@ export function buildOverride(def, recording) {
 			422
 		);
 	}
+	const needed = extraHosts(recording);
+	const yes = new Set(Array.isArray(hosts) ? hosts : []);
+	const missing = needed.filter((h) => !yes.has(h));
+	if (missing.length) {
+		throw new PortalError(
+			`Confirm the other hosts first: ${missing.join(', ')}.`,
+			'PORTAL_HOSTS_UNCONFIRMED',
+			422,
+			{ step: missing[0], reason: 'host' }
+		);
+	}
 	const route = clicks
 		.slice(0, at)
 		.filter((s) => s.target)
-		.map((s) => ({ do: /** @type {const} */ ('click'), target: /** @type {any} */ (s.target) }));
+		.map((s) => ({
+			do: /** @type {const} */ ('click'),
+			target: /** @type {any} */ (s.target),
+			...(s.host ? { host: s.host } : {})
+		}));
 	const steps = reviewSteps(recording);
 	const end = steps.findIndex((s) => s.download);
 	return {
-		$comment:
-			'Recorded with "Portal aufzeichnen": the clicks from baseUrl to the invoice list, and the control that downloaded an invoice. Merged over the bundled recipe.',
+		$comment: def.local
+			? 'Recorded with "Neues Portal aufzeichnen": a portal of your own. The clicks from the start page to an invoice, the control that downloaded it, and the other hosts you confirmed.'
+			: 'Recorded with "Portal aufzeichnen": the clicks from baseUrl to the invoice list, and the control that downloaded an invoice. Merged over the bundled recipe.',
 		id: def.id,
 		// The bundled version, also when an earlier recording is replaced.
 		version: `${def.version.replace(/\+rec\..*$/, '')}+rec.${recording.at.slice(0, 10)}`,
 		verified: false,
+		...(def.local ? { local: { ...def.local } } : {}),
+		allowedHosts: needed,
 		route,
 		dom: { downloadControls: [control] },
 		recorded: { at: recording.at, steps: steps.slice(0, end + 1) }
@@ -379,15 +510,61 @@ export function validateOverride(patch, id) {
 		);
 	};
 	if (!patch || typeof patch !== 'object' || Array.isArray(patch)) reject('$', 'shape');
-	const allowed = new Set(['$comment', 'id', 'version', 'verified', 'route', 'dom', 'recorded']);
+	const allowed = new Set([
+		'$comment',
+		'id',
+		'version',
+		'verified',
+		'local',
+		'allowedHosts',
+		'route',
+		'dom',
+		'recorded'
+	]);
 	for (const key of Object.keys(patch)) if (!allowed.has(key)) reject(key, 'shape');
 	if (typeof patch.id !== 'string' || (id !== undefined && patch.id !== id)) reject('id', 'shape');
+	// A portal of its own ("Neues Portal aufzeichnen") has a `local` block; a bundled one never.
+	const local = patch.id.startsWith('local-');
+	if (!/^[a-z0-9-]{1,40}$/.test(patch.id)) reject('id', 'shape');
+	if (local !== (patch.local !== undefined)) reject('local', 'shape');
+	if (local) {
+		const l = patch.local;
+		if (
+			!l ||
+			typeof l !== 'object' ||
+			Object.keys(l).sort().join() !== 'baseUrl,name,start' ||
+			typeof l.name !== 'string' ||
+			l.name.length < 1 ||
+			l.name.length > 60 ||
+			typeof l.baseUrl !== 'string' ||
+			!/^(https:\/\/[a-z0-9.-]+|http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d{1,5})?)$/.test(
+				l.baseUrl
+			) ||
+			typeof l.start !== 'string' ||
+			!/^\/[A-Za-z0-9/._~%-]{0,199}$/.test(l.start)
+		)
+			reject('local', 'shape');
+	}
+	if (patch.allowedHosts !== undefined) {
+		if (
+			!Array.isArray(patch.allowedHosts) ||
+			patch.allowedHosts.length > 10 ||
+			!patch.allowedHosts.every((/** @type {unknown} */ h) => typeof h === 'string' && HOST.test(h))
+		)
+			reject('allowedHosts', 'shape');
+	}
 	if (typeof patch.version !== 'string' || patch.version.length > 60) reject('version', 'shape');
 	if (patch.verified !== undefined && typeof patch.verified !== 'boolean')
 		reject('verified', 'shape');
 	if (!Array.isArray(patch.route) || patch.route.length > 40) reject('route', 'shape');
 	for (const [i, s] of patch.route.entries()) {
-		if (s?.do !== 'click' || Object.keys(s).length !== 2 || !isSelector(s.target))
+		const keys = Object.keys(s ?? {});
+		if (
+			s?.do !== 'click' ||
+			!isSelector(s.target) ||
+			!keys.every((k) => k === 'do' || k === 'target' || k === 'host') ||
+			(s.host !== undefined && !(patch.allowedHosts ?? []).includes(s.host))
+		)
 			reject(`route[${i}]`, 'shape');
 	}
 	const controls = patch.dom?.downloadControls;
@@ -412,7 +589,8 @@ export function validateOverride(patch, id) {
 			if (v.length > 500) reject(where, 'shape');
 			if (EMAIL.test(v)) reject(where, 'email');
 			if (IBAN.test(v)) reject(where, 'iban');
-			if (DIGITS.test(v)) reject(where, 'digits');
+			// An origin (checked above) may carry a test server's port.
+			if (DIGITS.test(v) && where !== 'local.baseUrl') reject(where, 'digits');
 		} else if (Array.isArray(v)) {
 			v.forEach((x, i) => walk(x, `${where}[${i}]`));
 		} else if (v && typeof v === 'object') {
@@ -442,6 +620,7 @@ export function mergeOverride(def, patch) {
 		verified: patch.verified ?? false,
 		route: patch.route,
 		recorded: patch.recorded,
+		...(patch.allowedHosts ? { allowedHosts: patch.allowedHosts } : {}),
 		dom: {
 			...def.dom,
 			downloadControls: [

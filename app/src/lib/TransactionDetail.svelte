@@ -3,10 +3,21 @@
 	// its receipt(s) with a preview; the other payments to the same
 	// counterparty; and what a person can do: link a receipt, undo a link,
 	// "Kein Beleg nötig", and – only on a click – search the private mailbox
-	// for the missing receipt (only the hits are read).
+	// for the missing receipt (only the hits are read), or fetch it from the
+	// vendor's customer portal ("Beim Anbieter holen": a portal whose name fits
+	// the counterparty, else "Neues Portal aufzeichnen" for it). A fetched
+	// invoice that fits this booking is offered for it, as the person's decision.
 	import { onMount } from 'svelte';
 	import ReceiptPreview from './ReceiptPreview.svelte';
 	import TechnicalNote from './TechnicalNote.svelte';
+	import NewPortal from './portals/NewPortal.svelte';
+	import { createPortalClient } from './portals/client.js';
+	import {
+		fetchPortal,
+		fittingReceipt,
+		portalForCounterparty,
+		sinceFor
+	} from './portals/actions.js';
 	import {
 		app,
 		checkFolderNow,
@@ -138,13 +149,30 @@
 	/** @type {string | null} */
 	let folderNote = $state(null);
 
+	// "Beim Anbieter holen"
+	/** @type {{ url: string, token: string } | null} */
+	let bridgeAt = $state(null);
+	/** @type {import('./portals/client.js').PortalInfo[]} */
+	let vendorPortals = $state([]);
+	let vendorBusy = $state(false);
+	/** @type {string | null} */
+	let vendorNote = $state(null);
+	/** @type {{ receipt: import('$lib/store/repository.js').StoredRecord, score: number, reasons: string[] } | null} */
+	let vendorFit = $state(null);
+	let recordingVendor = $state(false);
+	let portalClient = $derived(bridgeAt ? createPortalClient(bridgeAt) : null);
+	let vendorPortal = $derived(tx ? portalForCounterparty(vendorPortals, tx.counterparty) : null);
+
 	onMount(() => {
 		panel?.focus();
 		const store = currentStore();
 		if (!store) return;
 		if (folderSupported()) savedFolder().then((h) => (hasFolder = Boolean(h)));
 		getSetting(store.settings, 'bridge').then((saved) => {
-			if (saved?.token) client = createBridgeClient({ url: saved.url, token: saved.token });
+			if (!saved?.token) return;
+			client = createBridgeClient({ url: saved.url, token: saved.token });
+			bridgeAt = { url: saved.url, token: saved.token };
+			void loadPortals();
 		});
 	});
 
@@ -160,7 +188,88 @@
 		importNote = null;
 		uploadResult = null;
 		folderNote = null;
+		vendorNote = null;
+		vendorFit = null;
+		recordingVendor = false;
 	});
+
+	async function loadPortals() {
+		if (!portalClient) return;
+		vendorPortals = await portalClient.list().catch(() => []);
+	}
+
+	/**
+	 * After new receipts came from a portal: linked to this booking already by
+	 * the matching, or the one that fits offered for it.
+	 *
+	 * @param {string[]} ids the new receipts
+	 * @param {string} [counts] what the fetch said
+	 */
+	function offerFrom(ids, counts = '') {
+		vendorFit = null;
+		if (!tx) return;
+		const linkedHere = new Set(matchesOfTx(tx.id, app.matches).map((m) => m.receiptId));
+		if (ids.some((id) => linkedHere.has(id))) {
+			vendorNote = counts + t('zahlungen.detail.vendor.linked');
+			return;
+		}
+		const fresh = app.receipts.filter((r) => ids.includes(r.id));
+		vendorFit = fittingReceipt(tx, fresh, app.matches, {
+			companyNames: app.matchingSettings?.companyNames ?? []
+		});
+		vendorNote =
+			counts + (ids.length && !vendorFit ? t('zahlungen.detail.vendor.nothingFits') : '');
+	}
+
+	async function vendorLogin() {
+		if (!portalClient || !vendorPortal) return;
+		vendorBusy = true;
+		error = null;
+		try {
+			await portalClient.login(vendorPortal.id);
+			await loadPortals();
+		} catch (e) {
+			error = message(e);
+		} finally {
+			vendorBusy = false;
+		}
+	}
+
+	async function vendorFetch() {
+		const store = currentStore();
+		const blobs = currentBlobs();
+		if (!portalClient || !bridgeAt || !vendorPortal || !store || !blobs || !tx) return;
+		vendorBusy = true;
+		error = null;
+		vendorNote = null;
+		vendorFit = null;
+		try {
+			const r = await fetchPortal({
+				...bridgeAt,
+				client: portalClient,
+				portal: vendorPortal.id,
+				name: vendorPortal.name,
+				since: sinceFor(tx.bookedOn),
+				store,
+				blobs
+			});
+			await refreshNow();
+			if (r.created.length) await runMatchingNow();
+			offerFrom(
+				r.created.map((x) => x.id),
+				t('zahlungen.detail.vendor.result', {
+					listed: r.answer.listed,
+					new: r.counts.new,
+					known: r.counts.known + r.answer.skipped
+				})
+			);
+		} catch (e) {
+			error = message(e);
+		} finally {
+			vendorBusy = false;
+			void loadPortals();
+		}
+	}
 
 	/** @param {File | undefined} file */
 	async function uploadHere(file) {
@@ -285,6 +394,10 @@
 				reasons: [...reasons, 'manual']
 			});
 			assigning = false;
+			if (vendorFit?.receipt.id === receiptId) {
+				vendorFit = null;
+				vendorNote = t('zahlungen.detail.vendor.assigned');
+			}
 		});
 
 	/** @param {string} matchId */
@@ -832,6 +945,107 @@
 						</p>
 					{/if}
 				{/if}
+			</section>
+
+			<section
+				class="mt-4 rounded-lg border border-border bg-surface px-4 py-3 shadow-sm"
+				data-testid="tx-vendor"
+			>
+				<h3 class="text-sm font-semibold text-heading">{t('zahlungen.detail.vendor.title')}</h3>
+				{#if !portalClient}
+					<p class="mt-1 text-sm text-faint">{t('zahlungen.detail.vendor.noBridge')}</p>
+				{:else if vendorPortal}
+					<p class="mt-1 text-xs text-faint" data-testid="tx-vendor-portal">
+						{t('zahlungen.detail.vendor.found', {
+							name: vendorPortal.name,
+							since: sinceFor(tx.bookedOn)
+						})}
+					</p>
+					<div class="mt-2 flex flex-wrap gap-2">
+						{#if vendorPortal.state !== 'logged-in'}
+							<button
+								type="button"
+								class={button}
+								onclick={vendorLogin}
+								disabled={vendorBusy || busy}
+								data-testid="tx-vendor-login"
+								>{t('zahlungen.detail.vendor.login', { name: vendorPortal.name })}</button
+							>
+						{/if}
+						{#if vendorPortal.state !== 'never'}
+							<button
+								type="button"
+								class={button}
+								onclick={vendorFetch}
+								disabled={vendorBusy || busy}
+								data-testid="tx-vendor-fetch"
+								>{vendorBusy
+									? t('zahlungen.detail.vendor.fetching')
+									: t('zahlungen.detail.vendor.fetch', { name: vendorPortal.name })}</button
+							>
+						{/if}
+					</div>
+				{:else if recordingVendor && bridgeAt}
+					<div class="mt-2">
+						<NewPortal
+							url={bridgeAt.url}
+							token={bridgeAt.token}
+							name={tx.counterparty ?? ''}
+							startUrl={portal ? `https://${portal.host}` : ''}
+							testid="tx-vendor-new"
+							onimported={(ids) => {
+								offerFrom(ids);
+								void loadPortals();
+							}}
+						/>
+					</div>
+				{:else}
+					<p class="mt-1 text-xs text-faint">
+						{t('zahlungen.detail.vendor.none', { name: tx.counterparty || '—' })}
+					</p>
+					<button
+						type="button"
+						class="mt-2 {button}"
+						onclick={() => (recordingVendor = true)}
+						disabled={busy}
+						data-testid="tx-vendor-record">{t('portals.new.button')}</button
+					>
+				{/if}
+				{#if vendorNote}
+					<p class="mt-2 text-sm text-heading" role="status" data-testid="tx-vendor-result">
+						{vendorNote}
+					</p>
+				{/if}
+				{#if vendorFit}
+					{@const fit = vendorFit}
+					<div
+						class="mt-2 rounded-md border border-l-4 border-border border-l-cyan-800 bg-surface-2 px-3 py-2 dark:border-l-cyan"
+						data-testid="tx-vendor-fit"
+					>
+						<p class="text-sm text-heading">
+							{t('zahlungen.detail.vendor.fits', {
+								vendor: receiptVendor(fit.receipt),
+								amount: receiptAmount(fit.receipt),
+								date: receiptDay(fit.receipt) || '—'
+							})}
+						</p>
+						<p class="mt-0.5 text-xs text-faint">
+							{t('matching.score', { score: fit.score })} · {reasonText(fit.reasons)}
+						</p>
+						<button
+							type="button"
+							class="mt-2 {primary}"
+							onclick={() => assign(fit.receipt.id, fit.score, fit.reasons)}
+							disabled={busy}
+							data-testid="tx-vendor-assign">{t('zahlungen.detail.vendor.assign')}</button
+						>
+					</div>
+				{/if}
+				<TechnicalNote
+					class="mt-2"
+					testid="tx-vendor-technical"
+					lines={list('zahlungen.detail.vendor.technical')}
+				/>
 			</section>
 
 			{#if error}

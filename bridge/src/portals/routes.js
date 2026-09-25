@@ -9,12 +9,15 @@
 //   POST /portals/:id/logout                    ends the session and deletes the profile
 //   POST /portals/:id/record/start              "Portal aufzeichnen": opens the window on the start page
 //   POST /portals/:id/record/stop               ends it; the steps for review (roles, labels, masked paths)
-//   POST /portals/:id/record/save               the recording becomes the portal's recipe override
+//   POST /portals/:id/record/save  { hosts }    the recording becomes the portal's recipe override;
+//                                               hosts: the other hosts the user confirmed
 //   POST /portals/:id/record/discard            drops the recording
 //   GET  /portals/:id/recipe/export             the saved override, as JSON for sharing
 //   POST /portals/:id/credentials  { username } "Zugangsdaten speichern": the password is asked
 //                                               for in a native dialog on the bridge's Mac
 //   DELETE /portals/:id/credentials             "Zugangsdaten löschen"
+//   POST /portals/new  { name, startUrl }       "Neues Portal aufzeichnen": a local portal, recording
+//   POST /portals/:id/remove                    "Portal entfernen": a local portal's recipe, profile, credentials
 
 const ID = /^[a-z0-9-]{1,40}$/;
 const INVOICE_ID = /^[A-Za-z0-9._-]{1,80}$/;
@@ -50,8 +53,17 @@ export async function handlePortalRequest({
 		send(res, 200, { portals: await portals.list() });
 		return true;
 	}
+	if (path === '/portals/new') {
+		if (req.method !== 'POST') {
+			send(res, 405, { error: 'POST only' });
+			return true;
+		}
+		const body = await readJson(req, 4096);
+		send(res, 200, await portals.recordNew({ name: body?.name, startUrl: body?.startUrl }));
+		return true;
+	}
 	const m =
-		/^\/portals\/([^/]+)\/(login|cancel|fetch|invoice|logout|record\/(?:start|stop|save|discard)|recipe\/export|credentials)$/.exec(
+		/^\/portals\/([^/]+)\/(login|cancel|fetch|invoice|logout|record\/(?:start|stop|save|discard)|recipe\/export|credentials|remove)$/.exec(
 			path
 		);
 	if (!m || !ID.test(m[1])) {
@@ -81,7 +93,10 @@ export async function handlePortalRequest({
 	} else if (action === 'record/stop') {
 		send(res, 200, await portals.recordStop(id));
 	} else if (action === 'record/save') {
-		send(res, 200, await portals.recordSave(id));
+		const body = await readJson(req, 4096);
+		send(res, 200, await portals.recordSave(id, { hosts: body?.hosts }));
+	} else if (action === 'remove') {
+		send(res, 200, await portals.remove(id));
 	} else if (action === 'record/discard') {
 		send(res, 200, await portals.recordDiscard(id));
 	} else if (action === 'credentials') {

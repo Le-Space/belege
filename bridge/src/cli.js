@@ -86,6 +86,8 @@ try {
 		llmKeychain,
 		portalKeychain,
 		portalPasswordDialog,
+		// Test mode: a new portal may start on a fake portal on this machine.
+		portalLoopback: testMode,
 		portalHeadless: testMode ? 'always' : 'auto',
 		port,
 		forcePairingCode: args.includes('--pair')
