@@ -214,6 +214,27 @@ describe('hitScore, rankHits and likelyHit', () => {
 		expect(hitScore(newsletter, context).why).toContain('newsletter');
 		expect(likelyHit(ranked, context)?.id).toBe('receipt');
 	});
+	it('a failed-payment notice sinks below the receipt that came with the retry', () => {
+		const failed = {
+			id: 'failed',
+			subject: '[GitHub] We had a problem billing your account',
+			from: { address: 'noreply@github.com', name: 'GitHub' },
+			matched: ['"Github"'],
+			attachments: [],
+			auth: { verdict: 'pass' },
+			receivedAt: '2026-06-08T08:00:00Z'
+		};
+		const receiptMail = {
+			...failed,
+			id: 'receipt',
+			subject: '[GitHub] Payment receipt for your account',
+			receivedAt: '2026-06-10T08:00:00Z'
+		};
+		const gh = { word: 'Github', around: '2026-06-10' };
+		expect(hitScore(failed, gh).why).toContain('payment-failed');
+		expect(rankHits([failed, receiptMail], gh).map((h) => h.id)).toEqual(['receipt', 'failed']);
+	});
+
 	it('no clear winner: no likely hit', () => {
 		expect(likelyHit(rankHits([signIn, newsletter], context), context)).toBeNull();
 		expect(likelyHit([], context)).toBeNull();

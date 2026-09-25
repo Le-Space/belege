@@ -180,6 +180,9 @@ const RECEIPT_WORDS =
 	/receipt|invoice|rechnung|quittung|beleg|zahlungsbest|payment confirm|bestellbest|order confirm/i;
 const SIGN_IN_WORDS =
 	/anmeld|sign.?in|log.?in|magic link|sicherer link|secure link|verif|bestätigungscode|security code|passwort|password/i;
+/** A payment that did not go through: a notice, not the receipt (that comes with the retry). */
+const FAILED_WORDS =
+	/problem billing|payment (?:failed|declined|unsuccessful)|could not (?:be )?(?:charge|process)|zahlung (?:fehlgeschlagen|abgelehnt|nicht möglich)|konnte nicht (?:abgebucht|eingezogen)|zahlungsmethode aktualisieren|update your payment/i;
 
 /**
  * How much a hit looks like the receipt, and why (docs/phase-0.md: a vendor
@@ -221,6 +224,7 @@ export function hitScore(h, { word = null, around = null } = {}) {
 	const subject = String(h.subject ?? '');
 	if (RECEIPT_WORDS.test(subject)) add(3, 'subject');
 	if (SIGN_IN_WORDS.test(subject)) add(-4, 'sign-in');
+	if (FAILED_WORDS.test(subject)) add(-4, 'payment-failed');
 	if (h.bulk) add(-3, 'newsletter');
 	if (h.auth?.verdict === 'pass') add(1, 'sender-check');
 	if (around && h.receivedAt) {
