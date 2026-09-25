@@ -503,6 +503,9 @@ export default {
 			auto: 'hat sich erledigt'
 		}
 	},
+	ai: {
+		mark: 'KI'
+	},
 	anweisungen: {
 		title: 'Eigene Anweisungen',
 		intro:
@@ -701,6 +704,7 @@ export default {
 			'sender-verdict': 'Absenderprüfung aktualisiert',
 			extract: 'Beleg ausgelesen',
 			extractFailed: 'Auslesen fehlgeschlagen',
+			'mail-assist': 'Mit KI im Postfach gesucht',
 			matching: 'Abgleich',
 			decision: 'Entscheidung'
 		},
@@ -716,6 +720,9 @@ export default {
 				'{vendor} · {model} · {seconds} s · {tokens} Tokens · {redactions} Stellen geschwärzt',
 			extractFallback: ' · zweiter Versuch, weil {reason}',
 			extractFailed: '{vendor}: {error}',
+			mailAssist:
+				'{model} · {terms} Suchwörter · {domains} Absender · {mails} Treffer · {seconds} s · {tokens} Tokens',
+			mailAssistPick: ' · Vorschlag: {confidence}',
 			matching:
 				'{sure} zugeordnet · {created} neue Rückfragen · {resolved} erledigt · {classified} ohne Beleg-Pflicht · {waiting} warten noch',
 			today: 'heute',
@@ -806,8 +813,18 @@ export default {
 			privateSearching: 'Suche …',
 			privateNone: 'Keine Treffer im privaten Postfach.',
 			privateHits: '{count} Treffer',
-			criteria: { text: 'Suchwort', amount: 'Betrag' },
+			criteria: { text: 'Suchwort', sender: 'bekannter Absender', amount: 'Betrag' },
 			privateLikely: 'Wahrscheinlich der Beleg',
+			aiSearch: 'Mit KI weitersuchen',
+			aiSearching: 'KI sucht …',
+			aiSearchTitle:
+				'Die Bridge fragt dein eingestelltes Sprachmodell zweimal: 1. Gegenpartei und Verwendungszweck (geschwärzt) → Suchwörter und Absender-Domains. 2. Betreff, Absender-Domain, Anhangnamen und Eingangstag der Treffer (geschwärzt) → welche E-Mail der Beleg ist. Kein E-Mail-Text, keine vollständige Adresse.',
+			aiSearchHint:
+				'Kein klarer Treffer? Das Sprachmodell schlägt Suchwörter vor und beurteilt die Treffer – nur nach Betreff, Absender-Domain und Dateinamen, nie nach dem Text der E-Mails.',
+			aiSummary: 'KI-Suche: Suchwörter {terms} · Absender {domains} · {count} Treffer',
+			aiSent: 'Was an das Sprachmodell ging',
+			aiPick: 'KI-Vorschlag ({confidence}): {reason}',
+			aiConfidence: { high: 'sicher', medium: 'wahrscheinlich', low: 'unsicher' },
 			privateMore: 'Weitere {count} Treffer anzeigen',
 			privateMatched: 'passt: {criteria}',
 			privateAttachments: 'Anhang: {names}',

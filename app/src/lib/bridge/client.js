@@ -141,13 +141,14 @@ export function createBridgeClient({
 		 * text and every spelling of an amount, ± days around a day. Only the hits
 		 * are read (bridge/README.md).
 		 *
-		 * @param {{ text?: string | null, amount?: string | null, around?: string | null, days?: number }} query
+		 * @param {{ text?: string | null, amount?: string | null, from?: string[], around?: string | null, days?: number }} query
 		 * @returns {Promise<{ messages: any[] }>} each with `matched`: the criteria that hit
 		 */
-		async mailSearch({ text = null, amount = null, around = null, days = 14 }) {
+		async mailSearch({ text = null, amount = null, from = [], around = null, days = 14 }) {
 			const q = new URLSearchParams({ days: String(days) });
 			if (text) q.set('text', text);
 			if (amount) q.set('amount', amount);
+			if (from.length) q.set('from', from.slice(0, 3).join(','));
 			if (around) q.set('around', around);
 			return call(`/mail/search?${q}`);
 		},
@@ -159,6 +160,15 @@ export function createBridgeClient({
 		 * @returns {Promise<{ configured: boolean, provider: string | null, models: { primary: string | null, fallback: string | null }, keyConfigured: boolean, redactTerms: number, mail: { authServId: string | null } }>}
 		 */
 		llmStatus: () => call('/llm/status'),
+		/**
+		 * "Mit KI weitersuchen": the LLM suggests search words and sender domains
+		 * from the booking (redacted by the bridge), the bridge searches, and the
+		 * LLM picks among the hits' subjects, domains and file names.
+		 *
+		 * @param {{ counterparty: string, purpose?: string, amount?: string | null, around?: string | null, days?: number, knownDomains?: string[] }} body
+		 * @returns {Promise<{ vendor: string | null, terms: string[], domains: string[], messages: any[], pick: { id: string, confidence: 'high' | 'medium' | 'low', reason: string } | null, llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
+		 */
+		mailAssist: (body) => call('/mail/assist', { method: 'POST', body: JSON.stringify(body) }),
 		/**
 		 * @param {{ text: string, hints?: Record<string, string>, source?: { mailId: string }, confirmedByUser?: boolean }} body
 		 * @returns {Promise<{ extraction: any, model: string, usage: any, ms?: number, attempts: any[], fallback?: { used: boolean, reason: string | null }, redactions?: any, sentText?: string }>}

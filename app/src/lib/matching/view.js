@@ -5,6 +5,7 @@
 import { isActive } from './engine.js';
 import { receiptFacts, scorePair, txFacts } from './score.js';
 import { STOP_WORDS } from './normalize.js';
+import { partnerOfTx } from './partners.js';
 
 /** @typedef {import('./classify.js').Classification} Classification */
 /** @typedef {{ id: string } & Record<string, any>} Rec */
@@ -141,32 +142,37 @@ export const SEARCH_DAYS = 14;
  * first telling word (the purpose's, when the counterparty has none), the
  * amount, and the booking day ± 14 days.
  *
+ * With a learned partner (partners.js) its sender domains are searched too.
+ *
  * @param {Record<string, any>} tx
- * @returns {{ text: string | null, amount: string, around: string, days: number }}
+ * @param {Record<string, any>[]} [partners]
+ * @returns {{ text: string | null, amount: string, from: string[], around: string, days: number }}
  */
-export function privateSearchQuery(tx) {
+export function privateSearchQuery(tx, partners = []) {
 	const text = searchWord(tx.counterparty) ?? searchWord(tx.purpose);
 	return {
 		text: text ? text.slice(0, 100) : null,
 		amount: searchAmount(Number(tx.amountCents ?? 0)),
+		from: (partnerOfTx(partners, tx)?.senderDomains ?? []).slice(0, 3),
 		around: String(tx.bookedOn),
 		days: SEARCH_DAYS
 	};
 }
 
 /**
- * Which criteria a hit matched: `text` (the vendor word), `amount` (any
- * spelling).
+ * Which criteria a hit matched: `text` (a search word, `"…"`), `sender` (a
+ * known sender domain, `@…`), `amount` (any spelling).
  *
  * @param {{ matched?: string[] }} hit
- * @returns {('text' | 'amount')[]}
+ * @returns {('text' | 'sender' | 'amount')[]}
  */
 export function hitCriteria(hit) {
 	const m = hit.matched ?? [];
-	/** @type {('text' | 'amount')[]} */
+	/** @type {('text' | 'sender' | 'amount')[]} */
 	const out = [];
 	if (m.some((x) => x.startsWith('"'))) out.push('text');
-	if (m.some((x) => !x.startsWith('"'))) out.push('amount');
+	if (m.some((x) => x.startsWith('@'))) out.push('sender');
+	if (m.some((x) => !x.startsWith('"') && !x.startsWith('@'))) out.push('amount');
 	return out;
 }
 
@@ -200,7 +206,8 @@ export function hitScore(h, { word = null, around = null } = {}) {
 		.replace(/[^a-z0-9äöüß]/g, '');
 	const address = String(h.from?.address ?? '').toLowerCase();
 	const domain = address.split('@')[1] ?? '';
-	if (
+	if (criteria.includes('sender')) add(4, 'known-sender');
+	else if (
 		w.length >= 3 &&
 		(domain.includes(w) ||
 			String(h.from?.name ?? '')

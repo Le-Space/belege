@@ -82,7 +82,20 @@ describe('private mailbox search', () => {
 			privateSearchQuery(
 				tx({ bookedOn: '2026-08-22', amountCents: -5259, counterparty: 'Stromwerk Test AG' })
 			)
-		).toEqual({ text: 'Stromwerk', amount: '52,59', around: '2026-08-22', days: 14 });
+		).toEqual({ text: 'Stromwerk', amount: '52,59', from: [], around: '2026-08-22', days: 14 });
+		// A learned partner adds the domains its receipts came from.
+		expect(
+			privateSearchQuery(
+				tx({ bookedOn: '2026-08-22', amountCents: -1999, counterparty: 'PAYPAL *WOLKENFAB 4029' }),
+				[
+					{
+						name: 'Wolkenfabrik',
+						aliases: ['paypal wolkenfab'],
+						senderDomains: ['wolkenfabrik.example']
+					}
+				]
+			).from
+		).toEqual(['wolkenfabrik.example']);
 		expect(
 			privateSearchQuery(
 				tx({
@@ -189,6 +202,11 @@ describe('hitScore, rankHits and likelyHit', () => {
 		auth: { verdict: 'pass' },
 		receivedAt: '2026-09-07T08:00:00Z'
 	};
+	it('a hit from a known sender domain counts as "known-sender"', () => {
+		const h = { ...otherBill, matched: ['@versicherung.example'] };
+		expect(hitCriteria(h)).toEqual(['sender']);
+		expect(hitScore(h, context).why).toContain('known-sender');
+	});
 	it("the vendor's receipt with a PDF comes first; sign-in mails and newsletters sink", () => {
 		const ranked = rankHits([signIn, newsletter, otherBill, receipt], context);
 		expect(ranked.map((h) => h.id)).toEqual(['receipt', 'other', 'sign-in', 'news']);
