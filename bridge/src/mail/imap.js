@@ -340,17 +340,20 @@ export function createMailClient({
 		 * The targeted search in the whole mailbox (Junk included): vendor text
 		 * and every spelling of an amount, within ± days of a day.
 		 *
-		 * @param {{ text?: string | null, amount?: string | null, around?: string | null, days?: number }} query
+		 * @param {{ text?: string | null, amount?: string | null, from?: string[], around?: string | null, days?: number }} query
+		 *   `from`: sender domains, e.g. the ones a vendor's receipts came from before
 		 * @returns {Promise<MailMessage[]>}
 		 */
-		async search({ text = null, amount = null, around = null, days = 14 }) {
+		async search({ text = null, amount = null, from = [], around = null, days = 14 }) {
 			const range = aroundWindow(around, days);
 			const base = searchWindow(range.since, range.before, now());
 			/** @type {[string, Record<string, any>][]} */
 			const criteria = [];
 			if (text) criteria.push([`"${text}"`, { text }]);
 			for (const a of amount ? amountVariants(amount) : []) criteria.push([a, { body: a }]);
-			if (!criteria.length) throw new MailError('text or amount is required', 400, 'MAIL_QUERY');
+			for (const d of from) criteria.push([`@${d}`, { from: d }]);
+			if (!criteria.length)
+				throw new MailError('text, amount or from is required', 400, 'MAIL_QUERY');
 			return session(async (client) => {
 				/** @type {MailMessage[]} */
 				const out = [];

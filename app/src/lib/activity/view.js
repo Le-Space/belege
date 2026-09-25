@@ -102,6 +102,25 @@ export function describeEvent(e, { receipts = [], transactions = [] } = {}) {
 						? t('verlauf.text.extractFallback', { reason: attemptReasonText(e.fallbackReason) })
 						: '')
 			};
+		case 'mail-assist':
+			return {
+				...base,
+				title: t('verlauf.kind.mail-assist'),
+				text:
+					t('verlauf.text.mailAssist', {
+						model: e.model ?? '?',
+						terms: e.terms ?? 0,
+						domains: e.domains ?? 0,
+						mails: e.mails ?? 0,
+						seconds: typeof e.ms === 'number' ? seconds(e.ms) : '?',
+						tokens: integer(e.tokensTotal ?? 0)
+					}) +
+					(e.pick
+						? t('verlauf.text.mailAssistPick', {
+								confidence: t(`zahlungen.detail.aiConfidence.${e.pick}`)
+							})
+						: '')
+			};
 		case 'matching': {
 			const pairs = Array.isArray(e.pairs) ? e.pairs : [];
 			const named = pairs.flatMap((/** @type {Rec} */ p) => {

@@ -10,6 +10,8 @@
 	import { onMount } from 'svelte';
 	import ReceiptPreview from './ReceiptPreview.svelte';
 	import TechnicalNote from './TechnicalNote.svelte';
+	import AiMark from './AiMark.svelte';
+	import { recordEvent } from './activity/events.js';
 	import NewPortal from './portals/NewPortal.svelte';
 	import { createPortalClient } from './portals/client.js';
 	import {
@@ -138,6 +140,9 @@
 	/** Without a clear hit every hit shows; with one, the rest on request. */
 	let allHits = $state(true);
 	let searching = $state(false);
+	let assisting = $state(false);
+	/** @type {Awaited<ReturnType<ReturnType<typeof createBridgeClient>['mailAssist']>> | null} */
+	let assist = $state(null);
 	/** @type {string | null} */
 	let importingId = $state(null);
 	/** @type {string | null} */
@@ -421,7 +426,7 @@
 	const needsReceipt = () =>
 		act(async () => setNoReceipt(/** @type {any} */ (currentStore()), txId, null));
 
-	let query = $derived(tx ? privateSearchQuery(tx) : null);
+	let query = $derived(tx ? privateSearchQuery(tx, app.partners ?? []) : null);
 	/** @param {string} iso @param {number} days */
 	const shift = (iso, days) =>
 		formatDate(new Date(Date.parse(`${iso}T00:00:00Z`) + days * 864e5).toISOString().slice(0, 10));
@@ -447,10 +452,68 @@
 			hits = rankHits(messages, context);
 			likely = likelyHit(hits, context);
 			allHits = !likely;
+			assist = null;
 		} catch (e) {
 			error = message(e);
 		} finally {
 			searching = false;
+		}
+	}
+
+	/**
+	 * "Mit KI weitersuchen" (bridge POST /mail/assist): new hits join the old
+	 * ones; the model's pick, when there is one, goes first and is marked.
+	 */
+	async function assistSearch() {
+		if (!client || !tx || !query) return;
+		assisting = true;
+		error = null;
+		importNote = null;
+		try {
+			const r = await client.mailAssist({
+				counterparty: String(tx.counterparty ?? '').trim() || query.text || '—',
+				purpose: String(tx.purpose ?? ''),
+				amount: query.amount,
+				around: query.around,
+				days: query.days,
+				knownDomains: query.from
+			});
+			// Old and new hits by id, their matched criteria joined.
+			/** @type {any[]} */
+			const joined = [...(hits ?? [])];
+			for (const m of r.messages) {
+				const k = joined.findIndex((h) => h.id === m.id);
+				if (k === -1) joined.push(m);
+				else
+					joined[k] = {
+						...joined[k],
+						matched: [...new Set([...(joined[k].matched ?? []), ...(m.matched ?? [])])]
+					};
+			}
+			const context = { word: query.text, around: query.around };
+			const ranked = rankHits(joined, context);
+			const picked = r.pick ? (ranked.find((h) => h.id === r.pick?.id) ?? null) : null;
+			hits = picked ? [picked, ...ranked.filter((h) => h !== picked)] : ranked;
+			likely = picked ?? likelyHit(ranked, context);
+			allHits = !likely;
+			assist = r;
+			await recordEvent(currentStore()?.events, 'mail-assist', {
+				transactionId: tx.id,
+				terms: r.terms.length,
+				domains: r.domains.length,
+				mails: r.messages.length,
+				pick: r.pick?.confidence ?? null,
+				model: r.llm.calls.at(-1)?.model ?? null,
+				ms: r.llm.calls.reduce((n, c) => n + (c.ms ?? 0), 0),
+				tokensTotal: r.llm.calls.reduce(
+					(n, c) => n + (c.usage?.prompt ?? 0) + (c.usage?.completion ?? 0),
+					0
+				)
+			});
+		} catch (e) {
+			error = message(e);
+		} finally {
+			assisting = false;
 		}
 	}
 
@@ -914,9 +977,20 @@
 								{#each allHits ? hits : hits.slice(0, 1) as hit (hit.id)}
 									{@const files = hitFiles(hit)}
 									<li class="py-2" data-testid="tx-private-hit">
-										{#if likely && hit.id === likely.id}
+										{#if assist?.pick && hit.id === assist.pick.id}
 											<p
-												class="border-accent text-accent mb-1 inline-block rounded border px-2 py-0.5 text-xs"
+												class="mb-1 inline-flex items-center gap-1 rounded border border-cyan-500 px-2 py-0.5 text-xs text-cyan-800 dark:text-cyan-200"
+												data-testid="tx-private-ai-pick"
+											>
+												<AiMark />
+												{t('zahlungen.detail.aiPick', {
+													confidence: t(`zahlungen.detail.aiConfidence.${assist.pick.confidence}`),
+													reason: assist.pick.reason
+												})}
+											</p>
+										{:else if likely && hit.id === likely.id}
+											<p
+												class="mb-1 inline-block rounded border border-success px-2 py-0.5 text-xs text-success"
 												data-testid="tx-private-likely"
 											>
 												{t('zahlungen.detail.privateLikely')}
@@ -964,6 +1038,36 @@
 									>{t('zahlungen.detail.privateMore', { count: hits.length - 1 })}</button
 								>
 							{/if}
+						{/if}
+						{#if assist}
+							<p class="mt-2 text-xs text-faint" data-testid="tx-private-ai-summary">
+								<AiMark />
+								{t('zahlungen.detail.aiSummary', {
+									terms: assist.terms.map((x) => `„${x}“`).join(', ') || '—',
+									domains: assist.domains.join(', ') || '—',
+									count: assist.messages.length
+								})}
+							</p>
+							<details class="mt-1 text-xs text-faint" data-testid="tx-private-ai-sent">
+								<summary class="cursor-pointer">{t('zahlungen.detail.aiSent')}</summary>
+								{#each assist.llm.sent as sent, i (i)}
+									<pre
+										class="mt-1 max-h-40 overflow-auto rounded border border-border bg-surface-2 p-2 font-mono break-words whitespace-pre-wrap">{sent}</pre>
+								{/each}
+							</details>
+						{:else if !likely}
+							<button
+								type="button"
+								class="mt-2 inline-flex items-center gap-1.5 {button}"
+								onclick={assistSearch}
+								disabled={assisting || busy}
+								title={t('zahlungen.detail.aiSearchTitle')}
+								data-testid="tx-private-ai"
+							>
+								<AiMark />
+								{assisting ? t('zahlungen.detail.aiSearching') : t('zahlungen.detail.aiSearch')}
+							</button>
+							<p class="mt-1 text-xs text-faint">{t('zahlungen.detail.aiSearchHint')}</p>
 						{/if}
 					{/if}
 					{#if importNote}

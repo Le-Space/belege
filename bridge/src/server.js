@@ -6,7 +6,8 @@
 //   GET  /hibiscus/transactions?account=<id>&since=YYYY-MM-DD   token
 //   GET  /mail/messages?since=YYYY-MM-DD[&until=YYYY-MM-DD]&scope=accounting   token
 //   GET  /mail/attachment?id=<mail id>&part=<n>                   token → the bytes
-//   GET  /mail/search?text=&amount=&around=YYYY-MM-DD&days=       token
+//   GET  /mail/search?text=&amount=&from=a.example,b.example&around=YYYY-MM-DD&days=   token
+//   POST /mail/assist  { counterparty, purpose, amount, around, days, knownDomains }   token → LLM terms, hits, pick
 //   GET  /llm/status                                              token → provider, models, key present?
 //   POST /extract      { text, hints, source, confirmedByUser }   token
 //   /portals…          customer portals (portals/routes.js)            token
@@ -30,6 +31,23 @@ import { decodeMailId, isIsoDay, isPartNumber } from './mail/mime.js';
 import { handlePortalRequest } from './portals/routes.js';
 
 export const LOOPBACK = '127.0.0.1';
+
+const DOMAIN = /^(?=.{4,100}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/;
+
+/**
+ * `a.example,b.example` → the domains; [] for none; null when one is no domain
+ * or there are more than three.
+ *
+ * @param {string | null} raw
+ */
+function domainList(raw) {
+	if (!raw) return [];
+	const list = raw
+		.split(',')
+		.map((d) => d.trim().toLowerCase())
+		.filter(Boolean);
+	return list.length <= 3 && list.every((d) => DOMAIN.test(d)) ? list : null;
+}
 const VERSION = '0.2.0';
 const MAX_BODY = 4096;
 /** /extract carries a receipt's text: 30 000 characters are sent on, some room for hints. */
@@ -45,6 +63,8 @@ const MAX_EXTRACT_BODY = 256 * 1024;
  * @param {import('./llm/extract.js').Extractor | null} [options.llm] null when no LLM is set up
  * @param {() => Promise<boolean>} [options.llmKeyPresent] whether the keychain holds an API key;
  *   says yes or no, never hands the key out
+ * @param {ReturnType<typeof import('./llm/assist.js').createMailAssist> | null} [options.assist]
+ *   "Mit KI weitersuchen": null without mail or LLM
  * @param {import('./portals/manager.js').PortalManager | null} [options.portals] the portal connector
  * @param {(message: string) => void} [options.log] never gets a secret, bank data, mail or receipt text
  */
@@ -55,6 +75,7 @@ export function createBridgeServer({
 	mail = null,
 	llm = null,
 	llmKeyPresent = async () => false,
+	assist = null,
 	portals = null,
 	log = () => {}
 }) {
@@ -257,10 +278,13 @@ export function createBridgeServer({
 		if (path === '/mail/search' && req.method === 'GET') {
 			const text = (url.searchParams.get('text') ?? '').trim() || null;
 			const amount = (url.searchParams.get('amount') ?? '').trim() || null;
+			const from = domainList(url.searchParams.get('from'));
+			if (from === null) return send(res, 400, { error: 'from must be up to 3 mail domains' });
 			const around = url.searchParams.get('around') || null;
 			const daysParam = url.searchParams.get('days');
 			const days = daysParam === null || daysParam === '' ? 14 : Number(daysParam);
-			if (!text && !amount) return send(res, 400, { error: 'text or amount is required' });
+			if (!text && !amount && !from.length)
+				return send(res, 400, { error: 'text, amount or from is required' });
 			if (text && (text.length < 3 || text.length > 100 || /["\\\r\n]/.test(text))) {
 				return send(res, 400, { error: 'text must be 3–100 plain characters' });
 			}
@@ -274,9 +298,46 @@ export function createBridgeServer({
 				return send(res, 400, { error: 'days must be 0–60' });
 			}
 			if (!mail) throw notSetUp('Mail');
-			const messages = await mail.search({ text, amount, around, days });
+			const messages = await mail.search({ text, amount, from, around, days });
 			log(`search found ${messages.length} mail(s)`);
 			return send(res, 200, { messages });
+		}
+
+		if (path === '/mail/assist' && req.method === 'POST') {
+			const body = /** @type {any} */ (await readJson(req, MAX_BODY));
+			const counterparty = typeof body?.counterparty === 'string' ? body.counterparty.trim() : '';
+			const purpose = typeof body?.purpose === 'string' ? body.purpose : '';
+			const amount = typeof body?.amount === 'string' && body.amount ? body.amount : null;
+			const around = body?.around ?? null;
+			const days = body?.days ?? 14;
+			const knownDomains = domainList(
+				Array.isArray(body?.knownDomains) ? body.knownDomains.join(',') : null
+			);
+			if (counterparty.length < 2 || counterparty.length > 200)
+				return send(res, 400, { error: 'counterparty must be 2–200 characters' });
+			if (purpose.length > 1000) return send(res, 400, { error: 'purpose is too long' });
+			if (amount && !/^-?[\d.,]{1,15}$/.test(amount))
+				return send(res, 400, { error: 'amount must look like 52,59' });
+			if (around !== null && !isIsoDay(around))
+				return send(res, 400, { error: 'around must be YYYY-MM-DD' });
+			if (!Number.isInteger(days) || days < 0 || days > 60)
+				return send(res, 400, { error: 'days must be 0–60' });
+			if (knownDomains === null)
+				return send(res, 400, { error: 'knownDomains must be up to 3 mail domains' });
+			if (!mail) throw notSetUp('Mail');
+			if (!llm || !assist) throw notSetUp('LLM');
+			const result = await assist.search({
+				counterparty,
+				purpose,
+				amount,
+				around,
+				days,
+				knownDomains
+			});
+			log(
+				`assisted search: ${result.terms.length} term(s), ${result.domains.length} domain(s), ${result.messages.length} mail(s), ${result.pick ? `pick ${result.pick.confidence}` : 'no pick'}`
+			);
+			return send(res, 200, result);
 		}
 
 		if (path === '/llm/status' && req.method === 'GET') {

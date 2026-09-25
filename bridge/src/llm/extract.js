@@ -157,8 +157,9 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 	 * @param {string} model
 	 * @param {string} key
 	 * @param {string} content
+	 * @param {{ system?: string, check?: (data: any) => string[] }} [task] another question than a receipt's
 	 */
-	async function ask(model, key, content) {
+	async function ask(model, key, content, { system = SYSTEM, check = checkExtraction } = {}) {
 		let res;
 		try {
 			res = await f(`${base}/chat/completions`, {
@@ -169,7 +170,7 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 					max_tokens: MAX_TOKENS,
 					response_format: { type: 'json_object' },
 					messages: [
-						{ role: 'system', content: SYSTEM },
+						{ role: 'system', content: system },
 						{ role: 'user', content }
 					]
 				}),
@@ -213,7 +214,7 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 		} catch {
 			return { ok: false, reason: 'content is not JSON', usage };
 		}
-		const problems = checkExtraction(data);
+		const problems = check(data);
 		if (problems.length) {
 			return { ok: false, reason: `checks failed: ${problems.join(', ')}`, usage };
 		}
@@ -226,6 +227,35 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 		models,
 		/** Where the text goes, without path, query or credentials: for GET /llm/status. */
 		provider,
+		/**
+		 * Another JSON question to the same models, flash first, v4-pro when the
+		 * answer does not check out. The caller redacts the content.
+		 *
+		 * @param {{ system: string, content: string, check: (data: any) => string[] }} task
+		 * @returns {Promise<{ data: any, model: string, usage: Usage, ms: number, attempts: Attempt[] }>}
+		 */
+		async json({ system, content, check }) {
+			const key = await getKey();
+			/** @type {Attempt[]} */
+			const attempts = [];
+			const started = Date.now();
+			for (const model of models) {
+				const t0 = Date.now();
+				const r = await ask(model, key, content, { system, check });
+				attempts.push({
+					model,
+					ok: r.ok,
+					reason: r.reason,
+					ms: Date.now() - t0,
+					...(r.usage ? { usage: r.usage } : {})
+				});
+				if (r.ok) {
+					return { data: r.data, model, usage: r.usage, ms: Date.now() - started, attempts };
+				}
+				if (r.status === 401) break;
+			}
+			throw new ExtractError('no model gave a usable answer', 502, 'EXTRACT_FAILED', attempts);
+		},
 		/**
 		 * @param {{ text: string, hints?: Record<string, string> }} input
 		 * @returns {Promise<ExtractResult>}

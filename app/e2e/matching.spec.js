@@ -325,6 +325,9 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await expect(hits).toHaveCount(1);
 	await expect(hits.getByTestId('tx-private-criteria')).toContainText('passt: Suchwort + Betrag');
 	await expect(hits).toContainText(`Rechnung-${RECEIPTS.mobilfunk.invoice}.pdf`);
+	// A clear hit: marked, and no "Mit KI weitersuchen" – nothing goes to the LLM for it.
+	await expect(hits.getByTestId('tx-private-likely')).toHaveText('Wahrscheinlich der Beleg');
+	await expect(detail.getByTestId('tx-private-ai')).toHaveCount(0);
 	await hits.getByTestId('tx-private-import').click();
 	await expect(detail.getByTestId('tx-private-result')).toHaveText(
 		'Übernommen, ausgelesen und abgeglichen.'
