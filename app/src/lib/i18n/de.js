@@ -57,6 +57,7 @@ export default {
 		lastLogin: 'angemeldet am {date}',
 		lastRun: 'zuletzt geholt am {date}: {count} Rechnungen',
 		lastRunFailed: 'letzter Abruf am {date} fehlgeschlagen',
+		lastRunRefused: ', {count} abgelehnt',
 		login: 'Anmelden',
 		loggingIn: 'Warte auf die Anmeldung im Browserfenster …',
 		loginHint:
