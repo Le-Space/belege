@@ -15,7 +15,7 @@
 import { recordEvent } from '../activity/events.js';
 import { sha256Hex } from './blob-store.js';
 
-/** @typedef {'mail' | 'upload' | 'folder' | 'portal'} ReceiptSource portal: portals/import.js */
+/** @typedef {'mail' | 'upload' | 'folder' | 'portal' | 'eigenbeleg'} ReceiptSource portal: portals/import.js; eigenbeleg: eigenbeleg.js */
 /** @typedef {'neu' | 'ausgelesen' | 'rückfrage' | 'zugeordnet' | 'ignoriert'} ReceiptStatus */
 
 export const MAX_FILE_BYTES = 15 * 1024 * 1024;

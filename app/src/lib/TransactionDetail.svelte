@@ -33,6 +33,7 @@
 	import { portalLink } from './matching/portal.js';
 	import { learnedVendors } from './matching/partners.js';
 	import { attachUpload } from './receipts/attach.js';
+	import EigenbelegForm from './receipts/EigenbelegForm.svelte';
 	import { folderSupported, savedFolder } from './receipts/folder.js';
 	import { createBridgeClient } from './bridge/client.js';
 	import { getSetting } from './store/settings.js';
@@ -1122,6 +1123,9 @@
 						</p>
 					{/if}
 				</div>
+				{#if !tx.receiptId}
+					<EigenbelegForm {tx} {account} />
+				{/if}
 
 				{#if askingReason}
 					<form
