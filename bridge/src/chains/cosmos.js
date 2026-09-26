@@ -313,7 +313,7 @@ export function createCosmosClient({ fetch: f = fetch, timeoutMs, maxPages = 200
 	/**
 	 * @param {string} rpc
 	 * @param {string} method
-	 * @param {Record<string, string>} params
+	 * @param {Record<string, string | boolean>} params CometBFT: integers as strings, bools as bools
 	 */
 	async function rpcCall(rpc, method, params) {
 		const body = await getJson(
