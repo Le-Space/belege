@@ -57,7 +57,8 @@ test('a payment without a receipt gets an Eigenbeleg, linked and in the Verlauf'
 	await page.getByTestId('tx-detail-close').click();
 
 	await tab('Belege').click();
-	await expect(page.getByText('Eigenbeleg').first()).toBeVisible();
+	// Visible ones only: the closed consent dialog stays in the page and names Eigenbelege too.
+	await expect(page.getByText('Eigenbeleg').filter({ visible: true }).first()).toBeVisible();
 
 	await tab('Home').click();
 	await page.getByTestId('home-verlauf').click();

@@ -1,15 +1,16 @@
 <script>
 	// "Eigenbeleg erstellen" in the detail of a booking without a receipt
-	// (eigenbeleg.js).
-	import { app, currentBlobs, currentStore, refreshNow } from '$lib/session.svelte.js';
+	// (eigenbeleg.js) — here, or by the paired invoicing app (ucep/consumer.js).
+	import { app, currentBlobs, currentStore, currentUcep, refreshNow } from '$lib/session.svelte.js';
 	import { t } from '$lib/i18n/index.js';
-	import { createEigenbeleg, eigenbelegDraft } from './eigenbeleg.js';
+	import { attachRemoteEigenbeleg, createEigenbeleg, eigenbelegDraft } from './eigenbeleg.js';
 
 	/** @type {{ tx: Record<string, any>, account: Record<string, any> | null }} */
 	let { tx, account } = $props();
 
 	let open = $state(false);
 	let busy = $state(false);
+	let remote = $state(false);
 	/** @type {string | null} */
 	let error = $state(null);
 	/** @type {string | null} */
@@ -56,6 +57,49 @@
 		}
 	}
 
+	/** The paired invoicing app makes it: its number range, its letterhead. */
+	async function viaInvoiceApp() {
+		const store = currentStore();
+		const blobs = currentBlobs();
+		const ucep = currentUcep();
+		if (!store || !blobs || !ucep || !app.ucep.app) return;
+		if (!description.trim() || reason.trim().length < 10) {
+			error = !description.trim()
+				? 'Was wurde bezahlt? Das gehört auf den Eigenbeleg.'
+				: 'Warum gibt es keinen Beleg der Gegenseite? Ein Satz genügt.';
+			return;
+		}
+		busy = true;
+		remote = true;
+		error = null;
+		try {
+			const { requestEigenbeleg } = await import('$lib/ucep/consumer.js');
+			const input = { counterparty, description, reason };
+			const made = await requestEigenbeleg({
+				consumer: ucep.consumer,
+				app: app.ucep.app,
+				tx,
+				input
+			});
+			const { number } = await attachRemoteEigenbeleg({
+				store,
+				blobs,
+				tx,
+				input,
+				made,
+				appPeerId: app.ucep.app.peerId
+			});
+			done = t('zahlungen.detail.eigenbeleg.doneRemote', { number });
+			open = false;
+			await refreshNow();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			busy = false;
+			remote = false;
+		}
+	}
+
 	const button =
 		'rounded-md border border-border px-3 py-1.5 text-sm text-text hover:bg-surface-2 hover:text-heading disabled:cursor-not-allowed disabled:opacity-50';
 	const field =
@@ -93,16 +137,28 @@
 					data-testid="tx-eigenbeleg-reason"
 				></textarea>
 			</label>
-			<div class="flex gap-2">
+			<div class="flex flex-wrap gap-2">
 				<button
 					type="submit"
 					class="rounded-md bg-coral-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50"
 					disabled={busy}
 					data-testid="tx-eigenbeleg-create"
-					>{busy
+					>{busy && !remote
 						? t('zahlungen.detail.eigenbeleg.creating')
 						: t('zahlungen.detail.eigenbeleg.create')}</button
 				>
+				{#if app.ucep.app}
+					<button
+						type="button"
+						class={button}
+						disabled={busy}
+						onclick={viaInvoiceApp}
+						data-testid="tx-eigenbeleg-remote"
+						>{remote
+							? t('zahlungen.detail.eigenbeleg.creatingRemote')
+							: t('zahlungen.detail.eigenbeleg.createRemote')}</button
+					>
+				{/if}
 				<button type="button" class={button} onclick={() => (open = false)} disabled={busy}
 					>{t('zahlungen.detail.eigenbeleg.cancel')}</button
 				>

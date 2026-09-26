@@ -44,8 +44,73 @@ export const app = $state({
 	/** whether an "Abgleich" is running */
 	matching: false,
 	/** @type {import('./matching/engine.js').MatchingProgress | null} where the running "Abgleich" is */
-	matchingProgress: null
+	matchingProgress: null,
+	/** Belege as a UCEP consumer (ucep/): the invoicing app it is paired with. */
+	ucep: {
+		/** @type {'off' | 'starting' | 'running' | 'failed'} */
+		status: 'off',
+		/** @type {string | null} */
+		peerId: null,
+		/** @type {string | null} */
+		error: null,
+		/** @type {import('./ucep/consumer.js').PairedApp | null} */
+		app: null
+	}
 });
+
+/** @type {{ node: any, consumer: any, relays: string[] } | null} */
+let ucep = null;
+
+/** The running consumer and its relays, for the pairing card and the Eigenbeleg form. */
+export function currentUcep() {
+	return ucep;
+}
+
+/** Only when a paired app exists; see `startUcep`. */
+async function startUcepIfPaired() {
+	if (!session) return;
+	const { pairedApp } = await import('./ucep/consumer.js');
+	if (await pairedApp(session.store.settings)) await startUcep();
+}
+
+/** Read the paired app again, after pairing or unpairing. */
+export async function refreshUcep() {
+	if (!session) return;
+	const { pairedApp } = await import('./ucep/consumer.js');
+	app.ucep.app = await pairedApp(session.store.settings);
+}
+
+/**
+ * Start UCEP: after unlocking only when Belege is paired (the relay sees our
+ * IP address, and nobody who does not use UCEP should pay that), otherwise
+ * when the person asks for it on the Integrationen card. In the background: an
+ * unreachable relay must not keep anybody from their books.
+ */
+export async function startUcep() {
+	if (!session || ucep) return;
+	app.ucep.status = 'starting';
+	app.ucep.error = null;
+	try {
+		const { startUcepNode, relayAddrs } = await import('./ucep/net.js');
+		const { createBelegeConsumer } = await import('./ucep/consumer.js');
+		const relays = relayAddrs();
+		const node = await startUcepNode({ seed: session.ucepSeed, relays });
+		const consumer = createBelegeConsumer({
+			libp2p: node,
+			settings: session.store.settings,
+			label: 'Belege'
+		});
+		await consumer.start();
+		ucep = { node, consumer, relays };
+		app.ucep.peerId = node.peerId.toString();
+		await refreshUcep();
+		app.ucep.status = 'running';
+	} catch (error) {
+		console.error('UCEP did not start:', error);
+		app.ucep.status = 'failed';
+		app.ucep.error = error instanceof Error ? error.message : String(error);
+	}
+}
 
 /** @type {Session | null} */
 let session = null;
@@ -282,6 +347,8 @@ async function unlockWith(credential) {
 	}
 	await refresh();
 	installE2EHooks();
+	// Not awaited: the books are open, whatever the relay does.
+	startUcepIfPaired();
 	const { folderSupported } = await import('./receipts/folder.js');
 	if (folderSupported() && !stopFolderWatch) {
 		const { watchFolder } = await import('./receipts/folder-watch.js');

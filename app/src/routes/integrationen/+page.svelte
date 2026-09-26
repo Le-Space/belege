@@ -10,6 +10,7 @@
 	import PortalsCard from '$lib/portals/PortalsCard.svelte';
 	import KrakenCard from '$lib/exchanges/KrakenCard.svelte';
 	import WalletsCard from '$lib/wallets/WalletsCard.svelte';
+	import InvoiceAppCard from '$lib/ucep/InvoiceAppCard.svelte';
 	import { isWalletSource } from '$lib/wallets/chains.js';
 	import { app, currentStore, refreshNow, runMatchingNow } from '$lib/session.svelte.js';
 	import { createBridgeClient, DEFAULT_BRIDGE_URL } from '$lib/bridge/client.js';
@@ -531,6 +532,8 @@
 <KrakenCard url={bridgeUrl} {token} configured={krakenConfigured} />
 
 <WalletsCard url={bridgeUrl} {token} />
+
+<InvoiceAppCard />
 
 <PortalsCard url={bridgeUrl} {token} />
 

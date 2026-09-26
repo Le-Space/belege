@@ -144,13 +144,7 @@ export async function createEigenbeleg({
 	if (input.reason.trim().length < 10) {
 		throw new Error('Warum gibt es keinen Beleg der Gegenseite? Ein Satz genügt.');
 	}
-	const all = await store.receipts.list({ includeDeleted: true });
-	const existing = all.find(
-		(r) => !r.deleted && r.source === 'eigenbeleg' && r.sourceRef === `eigenbeleg:${tx.id}`
-	);
-	if (existing) {
-		throw new Error(`Für diese Zahlung gibt es schon den Eigenbeleg ${existing.selfNumber}.`);
-	}
+	const all = await existingEigenbeleg(store, tx);
 
 	const created = now();
 	const number = nextSelfNumber(all, String(tx.bookedOn).slice(0, 4));
@@ -158,6 +152,93 @@ export async function createEigenbeleg({
 	const { eigenbelegPdf } = await import('./eigenbeleg-pdf.js');
 	const bytes = await eigenbelegPdf(doc);
 
+	return storeEigenbeleg({
+		store,
+		blobs,
+		tx,
+		bytes,
+		number,
+		selfReceipt: {
+			counterparty: doc.counterparty,
+			description: doc.description,
+			reason: doc.reason,
+			createdAt: doc.createdAt,
+			createdBy: doc.createdBy
+		}
+	});
+}
+
+/**
+ * Take an Eigenbeleg the paired invoicing app made (ucep/consumer.js) as the
+ * booking's receipt: stored and linked like one made here, with its number
+ * from the app's own range, and a note of which app and which document it was.
+ *
+ * @param {object} params
+ * @param {import('../matching/engine.js').MatchingStore} params.store
+ * @param {import('./blob-store.js').BlobStore} params.blobs
+ * @param {Record<string, any>} params.tx
+ * @param {{ counterparty: string, description: string, reason: string }} params.input
+ * @param {{ number: string, documentId: string, bytes: Uint8Array, sha256: string }} params.made
+ * @param {string} params.appPeerId
+ * @param {() => Date} [params.now]
+ * @returns {Promise<{ receipt: StoredRecord, number: string }>}
+ */
+export async function attachRemoteEigenbeleg({
+	store,
+	blobs,
+	tx,
+	input,
+	made,
+	appPeerId,
+	now = () => new Date()
+}) {
+	await existingEigenbeleg(store, tx);
+	return storeEigenbeleg({
+		store,
+		blobs,
+		tx,
+		bytes: made.bytes,
+		number: made.number,
+		selfReceipt: {
+			counterparty: input.counterparty.trim(),
+			description: input.description.trim(),
+			reason: input.reason.trim(),
+			createdAt: now().toISOString(),
+			createdBy: 'Rechnungs-App',
+			madeBy: { peerId: appPeerId, documentId: made.documentId, sha256: made.sha256 }
+		}
+	});
+}
+
+/**
+ * Every receipt, after making sure this booking has no Eigenbeleg yet.
+ *
+ * @param {import('../matching/engine.js').MatchingStore} store
+ * @param {Record<string, any>} tx
+ */
+async function existingEigenbeleg(store, tx) {
+	const all = await store.receipts.list({ includeDeleted: true });
+	const existing = all.find(
+		(r) => !r.deleted && r.source === 'eigenbeleg' && r.sourceRef === `eigenbeleg:${tx.id}`
+	);
+	if (existing) {
+		throw new Error(`Für diese Zahlung gibt es schon den Eigenbeleg ${existing.selfNumber}.`);
+	}
+	return all;
+}
+
+/**
+ * Store an Eigenbeleg's PDF as a receipt and link it to its booking.
+ *
+ * @param {object} params
+ * @param {import('../matching/engine.js').MatchingStore} params.store
+ * @param {import('./blob-store.js').BlobStore} params.blobs
+ * @param {Record<string, any>} params.tx
+ * @param {Uint8Array} params.bytes
+ * @param {string} params.number
+ * @param {Record<string, any>} params.selfReceipt
+ */
+async function storeEigenbeleg({ store, blobs, tx, bytes, number, selfReceipt }) {
 	const { record } = await importFile({
 		receipts: store.receipts,
 		blobs,
@@ -168,17 +249,11 @@ export async function createEigenbeleg({
 		fields: {
 			confirmedByUser: true,
 			vendor: 'Eigenbeleg',
-			documentDate: doc.date,
-			amountCents: Math.abs(doc.amountCents),
+			documentDate: String(tx.bookedOn),
+			amountCents: Math.abs(Number(tx.amountCents ?? 0)),
 			currency: 'EUR',
 			selfNumber: number,
-			selfReceipt: {
-				counterparty: doc.counterparty,
-				description: doc.description,
-				reason: doc.reason,
-				createdAt: doc.createdAt,
-				createdBy: doc.createdBy
-			}
+			selfReceipt
 		}
 	});
 	if (!record) throw new Error('Der Eigenbeleg konnte nicht gespeichert werden.');

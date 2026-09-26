@@ -35,6 +35,12 @@ export const DB_NAME_INFO = 'belege/db-name/v1';
 /** Bumping this rotates the receipt-file key: every stored file becomes unreadable. */
 export const BLOB_KEY_INFO = 'belege/blob-key/v1';
 
+/**
+ * Bumping this gives Belege another libp2p peer id: every app it is paired
+ * with over UCEP (ucep/) would have to pair again.
+ */
+export const PEER_KEY_INFO = 'belege/peer-key/v1';
+
 const KEY_BYTES = 32;
 const NAME_BYTES = 16;
 
@@ -117,4 +123,21 @@ export async function deriveDatabaseName(prfOutput, collection) {
 	}
 	const suffix = await hkdf(prfOutput, `${DB_NAME_INFO}:${collection}`, NAME_BYTES);
 	return `belege.${collection}.${Array.from(suffix, (b) => b.toString(16).padStart(2, '0')).join('')}`;
+}
+
+/**
+ * The seed of the UCEP node's peer key (Ed25519, ucep/net.js).
+ *
+ * A provider keeps Belege's grant under its peer id, so the id has to stay
+ * the same from one unlock to the next and on every device the passkey is
+ * synced to. Derived like the other keys, under its own info string, and never
+ * written anywhere.
+ *
+ * @param {Uint8Array} prfOutput
+ * @param {string} [info]
+ * @returns {Promise<Uint8Array>} 32 bytes
+ */
+export async function derivePeerKeySeed(prfOutput, info = PEER_KEY_INFO) {
+	assertPrfOutput(prfOutput);
+	return hkdf(prfOutput, info, KEY_BYTES);
 }
