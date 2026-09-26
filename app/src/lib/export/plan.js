@@ -29,6 +29,7 @@ import { MIRROR_DAYS } from '../matching/context.js';
 import { needsConfirmation } from '../receipts/import.js';
 import { receiptDate, receiptVendor } from '../receipts/view.js';
 import { TRANSFER_ACCOUNT } from '../booking/skr03.js';
+import { quantityText } from '../assets/valuation.js';
 
 /** @typedef {Record<string, any>} Rec */
 /** @typedef {import('../matching/classify.js').Classification} Classification */
@@ -158,15 +159,22 @@ export function numberReceipts(month, ordered, allReceipts) {
 
 /**
  * What the Buchungstext says: the receipt's vendor, else the counterparty,
- * else the purpose.
+ * else the purpose. A crypto movement adds what moved (`… 0,015 BTC`), in
+ * front of the 60-character cut, so the quantity is never the part cut off.
  *
  * @param {Rec} tx
  * @param {Rec | null} receipt
  */
 export function bookingText(tx, receipt) {
 	const vendor = receipt ? receiptVendor(/** @type {any} */ (receipt)) : '';
-	if (vendor && vendor !== '—') return vendor;
-	return String(tx.counterparty ?? '').trim() || String(tx.purpose ?? '').trim();
+	const base =
+		vendor && vendor !== '—'
+			? vendor
+			: String(tx.counterparty ?? '').trim() || String(tx.purpose ?? '').trim();
+	const quantity = quantityText(tx).replace(/\u00a0/g, ' ');
+	if (!quantity) return base;
+	const room = 60 - quantity.length - 1;
+	return base ? `${base.slice(0, Math.max(room, 0)).trim()} ${quantity}` : quantity;
 }
 
 /**

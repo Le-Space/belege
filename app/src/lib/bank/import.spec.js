@@ -29,6 +29,68 @@ const tx = (over = {}) => ({
 });
 
 describe('importTransactions', () => {
+	it('keeps what moved in a crypto transaction, and a new rate updates it', async () => {
+		const { collection } = memoryCollection('transactions');
+		const crypto = (/** @type {string} */ rate, /** @type {number} */ amountCents) =>
+			tx({
+				sourceId: 'L-1',
+				amountCents,
+				counterpartyName: 'Konto B',
+				purpose: 'Auszahlung',
+				crypto: {
+					asset: 'BTC',
+					quantity: '-1500000',
+					decimals: 8,
+					movement: 'transfer',
+					txRef: '00ab',
+					valuation: { rate, currency: 'EUR', source: 'coingecko', at: '2026-09-22T00:00:00Z' }
+				}
+			});
+
+		await importTransactions({
+			transactions: collection,
+			account: ACCOUNT,
+			incoming: [crypto('60000', -90000)]
+		});
+		const [stored] = await collection.list();
+		expect(stored).toMatchObject({
+			amountCents: -90000,
+			currency: 'EUR',
+			asset: 'BTC',
+			quantity: '-1500000',
+			decimals: 8,
+			movement: 'transfer',
+			txRef: '00ab',
+			valuation: { rate: '60000', source: 'coingecko' }
+		});
+
+		expect(
+			await importTransactions({
+				transactions: collection,
+				account: ACCOUNT,
+				incoming: [crypto('60000', -90000)]
+			})
+		).toEqual({ new: 0, updated: 0, skipped: 1 });
+		expect(
+			await importTransactions({
+				transactions: collection,
+				account: ACCOUNT,
+				incoming: [crypto('61000', -91500)]
+			})
+		).toEqual({ new: 0, updated: 1, skipped: 0 });
+		const [after] = await collection.list();
+		expect(after.valuation.rate).toBe('61000');
+		expect(after.amountCents).toBe(-91500);
+	});
+
+	it('leaves bank transactions without crypto fields', async () => {
+		const { collection } = memoryCollection('transactions');
+		await importTransactions({ transactions: collection, account: ACCOUNT, incoming: [tx()] });
+		const [stored] = await collection.list();
+		expect(stored).not.toHaveProperty('quantity');
+		expect(stored).not.toHaveProperty('valuation');
+	});
+
 	it('creates, then skips on a second run, and keeps cents', async () => {
 		const { collection } = memoryCollection('transactions');
 		const incoming = [

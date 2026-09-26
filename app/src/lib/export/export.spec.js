@@ -19,7 +19,7 @@ import {
 	text
 } from './datev.js';
 import { fileSlug, runMonthExport } from './build.js';
-import { numberReceipts, planMonth, transferCounterpart } from './plan.js';
+import { bookingText, numberReceipts, planMonth, transferCounterpart } from './plan.js';
 
 const SETTINGS = defaultDatevSettings();
 const CREATED = new Date(Date.UTC(2026, 9, 2, 8, 30, 15, 123));
@@ -151,6 +151,27 @@ describe('DATEV fields', () => {
 		expect(lines[2]).toBe('');
 		expect(lines[1]).toBe(COLUMNS.join(';'));
 		expect(csv.includes('\n\n')).toBe(false);
+	});
+});
+
+describe('Buchungstext', () => {
+	const crypto = {
+		counterparty: 'Wolkenfabrik Hosting GmbH',
+		asset: 'AKT',
+		quantity: '-4200000',
+		decimals: 6
+	};
+
+	it('adds what moved to a crypto booking', () => {
+		expect(bookingText(crypto, null)).toBe('Wolkenfabrik Hosting GmbH -4,2 AKT');
+		expect(bookingText({ ...crypto, counterparty: '' }, null)).toBe('-4,2 AKT');
+		expect(bookingText({ counterparty: 'Stromwerk Test AG' }, null)).toBe('Stromwerk Test AG');
+	});
+
+	it('cuts the name, never the quantity, to stay within 60 characters', () => {
+		const long = bookingText({ ...crypto, counterparty: 'A'.repeat(80) }, null);
+		expect(long.length).toBeLessThanOrEqual(60);
+		expect(long.endsWith('-4,2 AKT')).toBe(true);
 	});
 });
 

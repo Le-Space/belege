@@ -10,6 +10,7 @@
 //   POST /mail/assist  { counterparty, purpose, amount, around, days, knownDomains }   token → LLM terms, hits, pick
 //   GET  /llm/status                                              token → provider, models, key present?
 //   POST /extract      { text, hints, source, confirmedByUser }   token
+//   GET  /rates?asset=BTC&date=YYYY-MM-DD                         token → EUR per unit, source (rates.js)
 //   /portals…          customer portals (portals/routes.js)            token
 //
 // Guards, in this order, on every request:
@@ -66,6 +67,7 @@ const MAX_EXTRACT_BODY = 256 * 1024;
  * @param {ReturnType<typeof import('./llm/assist.js').createMailAssist> | null} [options.assist]
  *   "Mit KI weitersuchen": null without mail or LLM
  * @param {import('./portals/manager.js').PortalManager | null} [options.portals] the portal connector
+ * @param {ReturnType<typeof import('./rates.js').createRateService> | null} [options.rates] exchange rates
  * @param {(message: string) => void} [options.log] never gets a secret, bank data, mail or receipt text
  */
 export function createBridgeServer({
@@ -77,6 +79,7 @@ export function createBridgeServer({
 	llmKeyPresent = async () => false,
 	assist = null,
 	portals = null,
+	rates = null,
 	log = () => {}
 }) {
 	const allowedOrigins = new Set(config.appOrigins.map((o) => o.replace(/\/$/, '')));
@@ -338,6 +341,14 @@ export function createBridgeServer({
 				`assisted search: ${result.terms.length} term(s), ${result.domains.length} domain(s), ${result.messages.length} mail(s), ${result.pick ? `pick ${result.pick.confidence}` : 'no pick'}`
 			);
 			return send(res, 200, result);
+		}
+
+		if (path === '/rates' && req.method === 'GET') {
+			if (!rates) return send(res, 503, { error: 'exchange rates are not available' });
+			const asset = url.searchParams.get('asset') ?? '';
+			const date = url.searchParams.get('date') ?? '';
+			if (!/^[A-Z0-9]{2,10}$/.test(asset)) return send(res, 400, { error: 'asset is required' });
+			return send(res, 200, await rates.rate(asset, date));
 		}
 
 		if (path === '/llm/status' && req.method === 'GET') {

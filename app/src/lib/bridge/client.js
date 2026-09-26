@@ -161,6 +161,16 @@ export function createBridgeClient({
 		 */
 		llmStatus: () => call('/llm/status'),
 		/**
+		 * What one unit of an asset was worth in EUR on a day, and where that
+		 * number comes from (bridge/src/rates.js).
+		 *
+		 * @param {string} asset a symbol from assets/registry.js, e.g. `BTC`
+		 * @param {string} date YYYY-MM-DD
+		 * @returns {Promise<import('../assets/valuation.js').Rate>}
+		 */
+		rate: (asset, date) =>
+			call(`/rates?asset=${encodeURIComponent(asset)}&date=${encodeURIComponent(date)}`),
+		/**
 		 * "Mit KI weitersuchen": the LLM suggests search words and sender domains
 		 * from the booking (redacted by the bridge), the bridge searches, and the
 		 * LLM picks among the hits' subjects, domains and file names.
