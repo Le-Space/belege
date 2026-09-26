@@ -59,6 +59,8 @@ export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
  * @param {Record<string, string> | null} [options.fixedRates] tests only: EUR per unit by asset,
  *   answered for every day instead of asking CoinGecko, Kraken or the ECB (source `manual`)
  * @param {typeof fetch} [options.walletFetch] fetch for the chain nodes (tests hand in a fake)
+ * @param {import('./keychain.js').Keychain} [options.bitcoinKeychain] the Bitcoin zpub (read only)
+ * @param {number} [options.bitcoinPauseMs] between Esplora requests (tests: 0)
  * @param {boolean} [options.walletLoopback] a wallet may name an endpoint on http://127.0.0.1 (tests only)
  * @param {(portalId: string) => import('./keychain.js').Keychain} [options.portalKeychain] a portal's password
  * @param {'auto' | 'always'} [options.portalHeadless] `always` for tests: no window ever opens
@@ -81,6 +83,8 @@ export async function startBridge({
 	rateFetch = fetch,
 	fixedRates = null,
 	walletFetch = fetch,
+	bitcoinKeychain = macosKeychain({ account: 'bitcoin' }),
+	bitcoinPauseMs,
 	walletLoopback = false,
 	portalKeychain = (id) => macosKeychain({ account: keychainAccount(id) }),
 	portalHeadless = 'auto',
@@ -221,7 +225,12 @@ export async function startBridge({
 					fetch: rateFetch,
 					coingeckoKey: () => coingeckoKeychain.read().catch(() => null)
 				}),
-		wallets: createWalletService({ fetch: walletFetch, allowLoopback: walletLoopback }),
+		wallets: createWalletService({
+			fetch: walletFetch,
+			allowLoopback: walletLoopback,
+			getZpub: () => bitcoinKeychain.read().catch(() => null),
+			bitcoinPauseMs
+		}),
 		log
 	});
 	const address = await bridge.listen({ port: port ?? config.bridge.port });

@@ -19,7 +19,8 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 3: customer portals (Vodafone) through a browser the bridge starts.
 // 4: where AI is used.
 // 5: own wallets: the bridge asks public blockchain nodes about their addresses.
-export const CONSENT_VERSION = '5';
+// 6: Bitcoin: every derived address is asked of an Esplora API from one IP.
+export const CONSENT_VERSION = '6';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

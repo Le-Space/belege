@@ -30,12 +30,15 @@
 		"setup:portal": "node src/setup-portal.js",
 		"setup:kraken": "node src/setup-kraken.js",
 		"setup:coingecko": "node src/setup-coingecko.js",
+		"setup:bitcoin": "node src/setup-bitcoin.js",
 		"test": "node --test --test-reporter=spec \"test/*.test.js\"",
 		"lint": "prettier --check src test",
 		"format": "prettier --write src test"
 	},
 	"dependencies": {
 		"@noble/hashes": "2.4.0",
+		"@scure/base": "2.4.0",
+		"@scure/bip32": "2.4.0",
 		"fast-xml-parser": "5.11.1",
 		"imapflow": "2.0.6",
 		"playwright": "1.61.1"

@@ -112,6 +112,16 @@ describe('the chain table', () => {
 	});
 });
 
+describe('a Bitcoin wallet', () => {
+	it('is known by the fingerprint of the key in the bridge, never by an address', () => {
+		const btc = WALLET_CHAINS.bitcoin;
+		expect(looksLikeAddress(btc, 'btc-0a1b2c3d')).toBe(true);
+		expect(looksLikeAddress(btc, 'bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu')).toBe(false);
+		expect(looksLikeAddress(btc, 'zpub6r')).toBe(false);
+		expect(walletAccountName(btc, 'BTC', 'btc-0a1b2c3d')).toBe('Wallet BTC ···1b2c3d');
+	});
+});
+
 describe('walletTransactions', () => {
 	/** @param {Partial<import('../bridge/client.js').WalletEntry>} e @returns {import('../bridge/client.js').WalletEntry} */
 	const entry = (e) => ({

@@ -2,11 +2,13 @@
 // the kind of API, the address format, the assets it books, the default
 // endpoints and the block explorer to link to.
 //
-// Two kinds so far:
-//   cosmos  CometBFT RPC (tx_search, header, status) + the REST (LCD) API
-//           for balances. Nym's Nyx and Akash.
-//   evm     Blockscout's Etherscan-compatible API (`/api?module=account…`),
-//           no key needed. Ethereum, Base, Arbitrum, Optimism, Polygon.
+// Three kinds:
+//   cosmos   CometBFT RPC (tx_search, header, status) + the REST (LCD) API
+//            for balances. Nym's Nyx and Akash.
+//   evm      Blockscout's Etherscan-compatible API (`/api?module=account…`),
+//            no key needed. Ethereum, Base, Arbitrum, Optimism, Polygon.
+//   bitcoin  an Esplora API (mempool.space), read by the addresses derived
+//            from a zpub kept in the bridge's keychain (bitcoin.js).
 //
 // Only assets listed here are booked. A Cosmos denom or an ERC-20 contract
 // that is not listed is counted and left out: a token contract can name
@@ -59,7 +61,20 @@
  * @property {Explorer} explorer
  */
 
-/** @typedef {CosmosChain | EvmChain} Chain */
+/**
+ * @typedef {object} BitcoinChain
+ * @property {string} id
+ * @property {'bitcoin'} kind
+ * @property {string} name
+ * @property {string} shortName
+ * @property {string} caip2
+ * @property {ChainAsset} native
+ * @property {{ api: string }} endpoints an Esplora API, …/api
+ * @property {{ api: string[] }} alternatives
+ * @property {Explorer} explorer
+ */
+
+/** @typedef {CosmosChain | EvmChain | BitcoinChain} Chain */
 
 const USDC = { symbol: 'USDC', decimals: 6 };
 const ETH = { symbol: 'ETH', decimals: 18 };
@@ -188,6 +203,21 @@ export const CHAINS = Object.freeze({
 		endpoints: { api: 'https://polygon.blockscout.com/api' },
 		alternatives: { api: [] },
 		explorer: etherscanLike('Polygonscan', 'https://polygonscan.com')
+	},
+	bitcoin: {
+		id: 'bitcoin',
+		kind: 'bitcoin',
+		name: 'Bitcoin',
+		shortName: 'Bitcoin',
+		caip2: 'bip122:000000000019d6689c085ae165831e93',
+		native: { symbol: 'BTC', decimals: 8 },
+		endpoints: { api: 'https://mempool.space/api' },
+		alternatives: { api: ['https://blockstream.info/api'] },
+		explorer: {
+			name: 'mempool.space',
+			tx: 'https://mempool.space/tx/{tx}',
+			address: 'https://mempool.space/address/{address}'
+		}
 	}
 });
 
@@ -218,10 +248,12 @@ export function publicChains() {
 					assets: Object.values(c.denoms).map((a) => a.symbol),
 					nativeSymbol: c.denoms[c.nativeDenom].symbol
 				}
-			: {
-					assets: [c.native.symbol, ...Object.values(c.tokens).map((a) => a.symbol)],
-					nativeSymbol: c.native.symbol
-				}),
+			: c.kind === 'evm'
+				? {
+						assets: [c.native.symbol, ...Object.values(c.tokens).map((a) => a.symbol)],
+						nativeSymbol: c.native.symbol
+					}
+				: { assets: [c.native.symbol], nativeSymbol: c.native.symbol }),
 		endpoints: c.endpoints,
 		alternatives: c.alternatives,
 		explorer: c.explorer

@@ -15,6 +15,7 @@
 //   GET  /kraken/balances                                         token → non-zero balances (kraken.js)
 //   GET  /kraken/ledgers?since=YYYY-MM-DD                         token → the ledger, oldest first
 //   GET  /chains                                                  token → chains, endpoints, explorers (chains/)
+//   GET  /bitcoin/key                                             token → the zpub's fingerprint, never the zpub
 //   POST /<chain>/wallet { address, endpoints? }                  token → an own wallet's transfers and balance
 //   /portals…          customer portals (portals/routes.js)            token
 //
@@ -426,6 +427,11 @@ export function createBridgeServer({
 		if (path === '/chains' && req.method === 'GET') {
 			if (!wallets) return send(res, 503, { error: 'wallets are not available' });
 			return send(res, 200, { chains: wallets.chains() });
+		}
+		if (path === '/bitcoin/key' && req.method === 'GET') {
+			if (!wallets) return send(res, 503, { error: 'wallets are not available' });
+			const fingerprint = await wallets.bitcoinKey();
+			return send(res, 200, { configured: Boolean(fingerprint), fingerprint });
 		}
 		const walletPath = /^\/([a-z0-9-]{2,30})\/wallet$/.exec(path);
 		if (walletPath && req.method === 'POST' && wallets?.has(walletPath[1])) {
