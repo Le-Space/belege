@@ -35,8 +35,14 @@ addressed to the accounting alias, and sends only redacted text to the LLM.
    `https://api.deepseek.com`, https only), the model and the retry model (default `deepseek-flash`,
    `deepseek-v4-pro`), the terms to black out (your name, family names; `;`-separated) and the API
    key (hidden prompt, into the keychain). `DEEPSEEK_*` and `REDACT_TERMS` from `.env` are offered.
-8. **Restart the bridge** after either setup: `pnpm bridge`. `/health` says what is set up.
-9. **Unpair**: "Kopplung lösen" in the app makes the bridge forget that token too. For a device
+8. **Alchemy** (optional, for own EVM wallets): `pnpm setup:alchemy` asks for an Alchemy API key
+   in a hidden prompt (Enter keeps a stored one, `-` deletes it), checks it with `eth_chainId` on
+   each network (Ethereum, Base, Arbitrum, OP Mainnet, Polygon – enable them for the app in the
+   Alchemy dashboard) and stores it in the keychain. Without it, EVM wallets are read from
+   Blockscout, which answers only a few requests per half hour and IP address. Read on every
+   sync: no restart needed. Nothing is taken from `.env`.
+9. **Restart the bridge** after either setup: `pnpm bridge`. `/health` says what is set up.
+10. **Unpair**: "Kopplung lösen" in the app makes the bridge forget that token too. For a device
    that cannot do it itself (lost, wiped, or the bridge was off): stop the bridge, then
    `pnpm bridge -- --list-pairings`, `pnpm bridge -- --revoke <n>` or `pnpm bridge -- --revoke-all`.
 
@@ -47,6 +53,7 @@ addressed to the accounting alias, and sends only redacted text to the LLM.
 | Hibiscus master password | macOS keychain, service `belege-bridge`, account `hibiscus` |
 | IMAP password or auth token | macOS keychain, service `belege-bridge`, account `imap` |
 | LLM API key | macOS keychain, service `belege-bridge`, account `llm` |
+| Alchemy API key (optional; `pnpm setup:alchemy`) | macOS keychain, service `belege-bridge`, account `alchemy`; only ever in the URL of the bridge's requests to Alchemy |
 | A portal password (optional; `pnpm setup:portal` or "Zugangsdaten speichern") | macOS keychain, service `belege-bridge`, account `portal:<portal>` |
 | A portal's browser profile (cookies, the live session) and `state.json` (last login, last run) | `~/.config/belege/portals/<portal>/` (0700), next to `bridge.json` |
 | A recorded recipe ("Portal aufzeichnen"): route, download control, confirmed other hosts, review | `~/.config/belege/recipes/<portal>.json` (0600, directory 0700) |
@@ -74,8 +81,8 @@ All JSON, `127.0.0.1:8765` by default. Everything except `/health` and `/pair` n
 | `GET /kraken/balances` | `{ balances: [{ asset, wallet: 'spot' \| 'earn', amount, decimals }] }`: every non-zero balance, Kraken's asset codes normalised (`XXBT` → BTC, `DOT.S` → DOT/earn). 503 until `pnpm setup:kraken` |
 | `GET /kraken/ledgers?since=YYYY-MM-DD` | `{ since, entries: [{ id, refid, time, date, type, subtype, asset, wallet, amount, fee, decimals }] }`, oldest first; all pages (`ofs`), with a pause between pages and retries on Kraken's rate limit. The log gets counts, never amounts |
 | `GET /rates?asset=BTC&date=YYYY-MM-DD[&prefer=kraken]` | `{ asset, date, currency: 'EUR', rate, usdRate, source, at }`: EUR per whole unit at 00:00 UTC of the day, from CoinGecko, else Kraken (daily candle open); USD from the ECB reference rate. Rates are decimal strings. 400 for an unknown asset or a future day, 502 when no source answers. See [docs/crypto.md](../docs/crypto.md) |
-| `GET /chains` | the chains an own wallet can be on: `id, kind (cosmos \| evm), name, shortName, caip2, assets, nativeSymbol, bech32Prefix?, endpoints, alternatives, explorer { name, tx, address }` |
-| `POST /<chain>/wallet` `{ address, endpoints? }` | an own wallet's whole history and balance, read from a public node (or the https `endpoints` given): `{ chain, endpoints, entries [{ id, hash, height, time, date, type (sent \| received \| fee), kind, asset, amount, decimals, counterparty, counterpartyLabel, memo, success, explorerUrl }], balances [{ asset, amount, decimals }], transactions, unknownAssets, history { earliestHeight, earliestTime, pruned }, addressUrl }`. 400 `WALLET_ADDRESS` (bech32 prefix or EIP-55 checksum wrong; no node is asked), `WALLET_ENDPOINT`, `WALLET_WRONG_CHAIN` (the node or the Blockscout API serves another chain); 502 `WALLET_CHAIN_UNVERIFIED` (a Blockscout API that does not say its chain id); 502/504 `WALLET_UNREACHABLE`, `WALLET_NODE`, `WALLET_TIMEOUT`, 429 `WALLET_RATE_LIMIT`. The log gets counts, never an address. See [docs/crypto.md](../docs/crypto.md#own-wallets) |
+| `GET /chains` | the chains an own wallet can be on: `{ chains: [{ id, kind (cosmos \| evm), name, shortName, caip2, assets, nativeSymbol, bech32Prefix?, endpoints, alternatives, explorer { name, tx, address }, alchemySupported?, alchemyInternal? }], alchemy }`; `alchemy`: whether an Alchemy key is set up – never the key |
+| `POST /<chain>/wallet` `{ address, endpoints? }` | an own wallet's whole history and balance, read from a public node, from Alchemy for an EVM chain when a key is set up and the wallet names no `api` endpoint of its own, or from the https `endpoints` given: `{ chain, endpoints, source (evm: alchemy \| blockscout), entries [{ id, hash, height, time, date, type (sent \| received \| fee), kind, asset, amount, decimals, counterparty, counterpartyLabel, memo, success, explorerUrl }], balances [{ asset, amount, decimals }], transactions, unknownAssets, history { earliestHeight, earliestTime, pruned }, addressUrl }`. 400 `WALLET_ADDRESS` (bech32 prefix or EIP-55 checksum wrong; no node is asked), `WALLET_ENDPOINT`, `WALLET_WRONG_CHAIN` (the node or the Blockscout API serves another chain); 502 `WALLET_CHAIN_UNVERIFIED` (a Blockscout API that does not say its chain id); 502/504 `WALLET_UNREACHABLE`, `WALLET_NODE`, `WALLET_TIMEOUT`, 429 `WALLET_RATE_LIMIT`; with Alchemy 502 `WALLET_ALCHEMY_AUTH` (key refused: run `pnpm setup:alchemy`), `WALLET_ALCHEMY_DENIED` (network not enabled for the Alchemy app, capacity used up), `WALLET_ALCHEMY` (a call refused), 429 `WALLET_ALCHEMY_RATE_LIMIT`. The log gets counts, never an address. See [docs/crypto.md](../docs/crypto.md#own-wallets) |
 | `POST /extract` `{ text, hints: { subject, from, fileName, receivedAt }, source: { mailId }, confirmedByUser }` | `{ extraction, model, usage { prompt, completion, reasoning }, ms, attempts [{ model, ok, reason, ms, usage }], fallback { used, reason }, redactions { terms, iban, email, street, postcode, total }, sentText }`; 403 `SENDER_UNVERIFIED` for a mail whose sender did not pass, 502 `EXTRACT_FAILED` with the attempts when no model gave a usable answer |
 | `GET /portals` | every portal the bridge knows: `id, name, recipeVersion, state, lastLoginAt, lastRun { at, ok, count, code, step }, running, recordable, recorded, review, credentials, hasCredentials, source, pending, host`, with `source` `bundled` or `local` (a portal of your own), `pending` for a new one not saved yet, and `state` one of `logged-in`, `needs-login`, `never`; starts no browser |
 | `POST /portals/:id/login` | opens the visible window and answers once logged in: `{ state: 'logged-in' }`; 408 `PORTAL_LOGIN_TIMEOUT` after 10 minutes, 409 `PORTAL_CANCELLED` when the window was closed or the login cancelled |
@@ -362,6 +369,10 @@ pnpm --filter @belege/bridge lint
 
 `--test-mode` (used by the app's E2E suite) takes the secrets from `BELEGE_BRIDGE_TEST_PASSWORD`,
 `BELEGE_BRIDGE_TEST_IMAP_PASSWORD`, `BELEGE_BRIDGE_TEST_LLM_KEY` and
-`BELEGE_BRIDGE_TEST_PORTAL_PASSWORD` instead of the keychain, never opens a portal window
-(headless only), and refuses the real config file. No test talks to a real mail server, Hibiscus,
-LLM or portal.
+`BELEGE_BRIDGE_TEST_PORTAL_PASSWORD` (and the Kraken, CoinGecko and Alchemy keys from
+`BELEGE_BRIDGE_TEST_KRAKEN_KEY`, `…_COINGECKO_KEY`, `…_ALCHEMY_KEY`) instead of the keychain, sends
+an Alchemy key only to the fake at `BELEGE_BRIDGE_TEST_ALCHEMY_URL` (`http://127.0.0.1:<port>`;
+without it the key is refused), never opens a portal window (headless only), and refuses the real
+config file. No test talks to a real mail server, Hibiscus, LLM, portal, chain node or Alchemy
+(`test/support/fake-alchemy.js` is as strict as Alchemy about methods, parameter types and error
+shapes).

@@ -321,9 +321,9 @@ export default {
 				name: 'Blockchain-Abfrage (Nym/Cosmos, Ethereum/EVM, Bitcoin)',
 				text: 'Nur für eigene Wallets, die du unter Integrationen einträgst, und nur wenn du „Synchronisieren“ drückst: Die Bridge fragt einen öffentlichen Knoten nach den Überweisungen und dem Bestand der Adresse.',
 				leaves:
-					'Die Adresse der Wallet und die IP-Adresse dieses Macs – an den Betreiber des Knotens: voreingestellt Nym (rpc.nymtech.net) für Nyx, Polkachu für Akash, Blockscout für Ethereum, Base, Arbitrum, Optimism und Polygon, oder den Knoten, den du selbst einträgst. Er kann daraus ablesen, dass diese Adresse zu dir gehört. Bei Bitcoin fragt die Bridge mempool.space (oder deinen eigenen Esplora-Server) nach jeder Adresse, die sie aus deinem Kontoschlüssel ableitet, kurz nacheinander von derselben IP: Der Betreiber kann daraus schließen, dass alle diese Adressen zusammengehören.',
+					'Die Adresse der Wallet und die IP-Adresse dieses Macs – an den Betreiber des Knotens: voreingestellt Nym (rpc.nymtech.net) für Nyx, Polkachu für Akash, Blockscout für Ethereum, Base, Arbitrum, Optimism und Polygon – oder Alchemy, wenn du einen Alchemy-API-Schlüssel eingerichtet hast –, oder den Knoten, den du selbst einträgst. Er kann daraus ablesen, dass diese Adresse zu dir gehört; Alchemy ordnet die Abfragen zudem deinem Alchemy-Konto zu. Bei Bitcoin fragt die Bridge mempool.space (oder deinen eigenen Esplora-Server) nach jeder Adresse, die sie aus deinem Kontoschlüssel ableitet, kurz nacheinander von derselben IP: Der Betreiber kann daraus schließen, dass alle diese Adressen zusammengehören.',
 				technical:
-					'Gefragt wird per HTTPS: bei Cosmos-Chains die CometBFT-RPC (tx_search nach transfer.sender und transfer.recipient, header, status) und die REST-API (Bestand), bei EVM-Chains die Etherscan-kompatible API von Blockscout (txlist, txlistinternal, tokentx, balance). Die App schickt die Adresse im Rumpf einer Anfrage an die Bridge, nie in einer URL (an Blockscout geht sie, wie dessen API es verlangt, in der Abfrage-URL); das Protokoll der Bridge nennt nur Zahlen. Kein Schlüssel, keine Signatur: die Adresse ist öffentlich, die Liste deiner Wallets liegt verschlüsselt in deinen Büchern, nicht in der Bridge. Gebucht werden nur Assets aus der Liste der Chain (NYM, NYX, AKT, ETH, POL, USDC mit geprüftem Vertrag); andere Token werden gezählt und ausgelassen. Bei Bitcoin liegt der Kontoschlüssel (xpub, ypub oder zpub) nur im macOS-Schlüsselbund der Bridge; die Bridge leitet daraus die Adressen ab (bis 20 unbenutzte in Folge) und fragt deren bestätigte Transaktionen ab (Esplora-API: address, address/txs/chain). Die App kennt nur einen Fingerabdruck des Schlüssels. Links zum Block-Explorer öffnen erst, wenn du sie anklickst.'
+					'Gefragt wird per HTTPS: bei Cosmos-Chains die CometBFT-RPC (tx_search nach transfer.sender und transfer.recipient, header, status) und die REST-API (Bestand), bei EVM-Chains die Etherscan-kompatible API von Blockscout (txlist, txlistinternal, tokentx, balance) oder, mit Schlüssel, Alchemy (alchemy_getAssetTransfers, Quittungen, Nonce, Bestand; interne Transaktionen auf Arbitrum und Optimism weiter bei Blockscout). Der Alchemy-Schlüssel liegt im macOS-Schlüsselbund der Bridge (pnpm setup:alchemy) und steht nur in der Adresse der Anfragen an Alchemy – nie im Browser, nie im Protokoll. Die App schickt die Adresse im Rumpf einer Anfrage an die Bridge, nie in einer URL (an Blockscout geht sie, wie dessen API es verlangt, in der Abfrage-URL); das Protokoll der Bridge nennt nur Zahlen. Kein Schlüssel, keine Signatur: die Adresse ist öffentlich, die Liste deiner Wallets liegt verschlüsselt in deinen Büchern, nicht in der Bridge. Gebucht werden nur Assets aus der Liste der Chain (NYM, NYX, AKT, ETH, POL, USDC mit geprüftem Vertrag); andere Token werden gezählt und ausgelassen. Bei Bitcoin liegt der Kontoschlüssel (xpub, ypub oder zpub) nur im macOS-Schlüsselbund der Bridge; die Bridge leitet daraus die Adressen ab (bis 20 unbenutzte in Folge) und fragt deren bestätigte Transaktionen ab (Esplora-API: address, address/txs/chain). Die App kennt nur einen Fingerabdruck des Schlüssels. Links zum Block-Explorer öffnen erst, wenn du sie anklickst.'
 			}
 		},
 		status: {
@@ -1298,6 +1298,29 @@ export default {
 			title: 'Eigene Wallets',
 			intro:
 				'Nur lesend, über die Adresse: Die Bridge fragt einen öffentlichen Knoten der Chain nach allen Überweisungen und Gebühren dieser Adresse und nach ihrem Bestand. Nie ein Schlüssel, nie eine Seed-Phrase. Jedes Asset bekommt ein eigenes Konto; bewertet wird zum Tageskurs (CoinGecko, Kraken als Rückfall).',
+			// Where EVM wallets are read: Alchemy with a key, Blockscout without.
+			source: {
+				alchemy:
+					'Ethereum, Base, Arbitrum, Optimism und Polygon liest die Bridge über Alchemy – mit deinem Alchemy-API-Schlüssel, der nur auf diesem Mac liegt.',
+				blockscout:
+					'Ethereum, Base, Arbitrum, Optimism und Polygon liest die Bridge ohne Schlüssel bei Blockscout. Blockscout beantwortet so nur wenige Abfragen (beobachtet: etwa zehn je halbe Stunde) – schon die zweite Synchronisierung kurz nacheinander kann an „zu viele Anfragen“ scheitern. Mit einem kostenlosen Alchemy-Schlüssel entfällt das; im Terminal:',
+				technicalAlchemy: [
+					'Alchemy: alchemy_getAssetTransfers (von und an die Adresse; external, erc20, internal), das Gas aus den Quittungen (eth_getTransactionReceipt: gasUsed × effectiveGasPrice), fehlgeschlagene Transaktionen und Freigaben über den Nonce (eth_getTransactionCount, eth_getBlockByNumber), der Bestand über eth_getBalance und alchemy_getTokenBalances.',
+					'Arbitrum und Optimism: dort hat Alchemy keine internen Transaktionen; die liest die Bridge weiter bei Blockscout (eine Abfrage je Synchronisierung).',
+					'Eine Wallet mit eigenem API-Endpunkt wird dort gelesen, nicht bei Alchemy.',
+					'Der Schlüssel liegt im macOS-Schlüsselbund (Dienst belege-bridge, Konto alchemy) und steht nur in der Adresse der Anfragen an Alchemy – nie im Protokoll, nie in der App; die App erfährt nur, dass es einen gibt. Alchemy sieht die abgefragten Adressen und die IP-Adresse dieses Macs.',
+					'Schlüssel ändern oder löschen: pnpm setup:alchemy (Enter behält ihn, „-“ löscht ihn).'
+				],
+				technicalBlockscout: [
+					'Blockscouts Etherscan-kompatible API ohne Schlüssel: eth_chainId, txlist, txlistinternal, tokentx, balance, tokenbalance – mindestens sechs Abfragen je Synchronisierung; über der Grenze antwortet Blockscout mit HTTP 429 (WALLET_RATE_LIMIT).',
+					'pnpm setup:alchemy fragt den Schlüssel verdeckt ab, prüft ihn mit eth_chainId auf jedem Netz und legt ihn im macOS-Schlüsselbund ab (Dienst belege-bridge, Konto alchemy). Die Bridge nimmt ihn ab der nächsten Synchronisierung, ohne Neustart; diese Seite zeigt es nach dem Neuladen.',
+					'In der Alchemy-App müssen die Netze Ethereum, Base, Arbitrum, OP Mainnet und Polygon PoS freigeschaltet sein, sonst meldet die Bridge WALLET_ALCHEMY_DENIED.'
+				],
+				wallet: 'Datenquelle: Alchemy',
+				internalVia: 'interne Transaktionen: Blockscout',
+				customReplaces:
+					'Mit Alchemy-Schlüssel liest die Bridge über Alchemy; ein eigener Endpunkt hier ersetzt Alchemy für diese Wallet.'
+			},
 			addTitle: 'Wallet hinzufügen',
 			chain: 'Chain',
 			address: 'Adresse',

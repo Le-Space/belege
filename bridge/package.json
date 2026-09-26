@@ -20,7 +20,8 @@
 		"./testing/pdf": "./test/support/synthetic-pdf.js",
 		"./testing/portal": "./test/support/fake-portal.js",
 		"./testing/kraken": "./test/support/fake-kraken.js",
-		"./testing/chains": "./test/support/fake-chains.js"
+		"./testing/chains": "./test/support/fake-chains.js",
+		"./testing/alchemy": "./test/support/fake-alchemy.js"
 	},
 	"scripts": {
 		"start": "node src/cli.js",
@@ -31,6 +32,7 @@
 		"setup:kraken": "node src/setup-kraken.js",
 		"setup:coingecko": "node src/setup-coingecko.js",
 		"setup:bitcoin": "node src/setup-bitcoin.js",
+		"setup:alchemy": "node src/setup-alchemy.js",
 		"test": "node --test --test-reporter=spec \"test/*.test.js\"",
 		"lint": "prettier --check src test",
 		"format": "prettier --write src test"

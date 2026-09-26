@@ -54,6 +54,8 @@ export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
  * @param {import('./keychain.js').Keychain} [options.llmKeychain] the LLM API key
  * @param {import('./keychain.js').Keychain} [options.coingeckoKeychain] an optional CoinGecko demo key
  * @param {import('./keychain.js').Keychain} [options.krakenKeychain] the Kraken API key, JSON { key, secret }
+ * @param {import('./keychain.js').Keychain} [options.alchemyKeychain] an optional Alchemy API key (own EVM wallets)
+ * @param {(network: string) => string} [options.alchemyBaseUrl] tests: a fake Alchemy on 127.0.0.1
  * @param {number} [options.krakenPageDelayMs] pause between Kraken ledger pages (tests: 0)
  * @param {typeof fetch} [options.rateFetch] fetch for the exchange-rate sources (tests hand in a fake)
  * @param {Record<string, string> | null} [options.fixedRates] tests only: EUR per unit by asset,
@@ -79,6 +81,8 @@ export async function startBridge({
 	llmKeychain = macosKeychain({ account: 'llm' }),
 	coingeckoKeychain = macosKeychain({ account: 'coingecko' }),
 	krakenKeychain = macosKeychain({ account: 'kraken' }),
+	alchemyKeychain = macosKeychain({ account: 'alchemy' }),
+	alchemyBaseUrl,
 	krakenPageDelayMs,
 	rateFetch = fetch,
 	fixedRates = null,
@@ -229,7 +233,10 @@ export async function startBridge({
 			fetch: walletFetch,
 			allowLoopback: walletLoopback,
 			getZpub: () => bitcoinKeychain.read().catch(() => null),
-			bitcoinPauseMs
+			bitcoinPauseMs,
+			// Read on every sync, so a key set up while the bridge runs counts at once.
+			alchemyKey: () => alchemyKeychain.read().catch(() => null),
+			alchemyBaseUrl
 		}),
 		log
 	});

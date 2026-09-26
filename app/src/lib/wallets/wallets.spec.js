@@ -12,6 +12,12 @@ import {
 	startFakeBlockscout,
 	startFakeCosmos
 } from '@belege/bridge/testing/chains';
+import {
+	FAKE_ALCHEMY_KEY,
+	blockscoutView,
+	evmChain,
+	startFakeAlchemy
+} from '@belege/bridge/testing/alchemy';
 import { memoryCollection } from '../bank/test-support.js';
 import { buildMatchingContext } from '../matching/context.js';
 import { classifyTransaction } from '../matching/classify.js';
@@ -28,6 +34,7 @@ import {
 import {
 	addWallet,
 	loadWallets,
+	reconcileSourceIds,
 	removeWallet,
 	syncWallet,
 	walletTransactions
@@ -64,9 +71,20 @@ function store() {
 	};
 }
 
-/** A bridge client that is the bridge's own wallet service, pointed at fakes. */
-function clientFor(/** @type {Record<string, Record<string, string>>} */ endpoints) {
-	const service = createWalletService({ allowLoopback: true, sleep: async () => {} });
+/**
+ * A bridge client that is the bridge's own wallet service, pointed at fakes.
+ *
+ * @param {Record<string, Record<string, string>>} endpoints
+ * @param {{ alchemyBaseUrl?: (network: string) => string }} [alchemy] a fake Alchemy, with its key
+ */
+function clientFor(endpoints, alchemy = {}) {
+	const service = createWalletService({
+		allowLoopback: true,
+		sleep: async () => {},
+		...(alchemy.alchemyBaseUrl
+			? { alchemyKey: async () => FAKE_ALCHEMY_KEY, alchemyBaseUrl: alchemy.alchemyBaseUrl }
+			: {})
+	});
 	/** @type {string[]} */ const rateCalls = [];
 	const client = /** @type {any} */ ({
 		walletHistory: (/** @type {string} */ chain, /** @type {any} */ body) =>
@@ -603,4 +621,108 @@ describe('which wallet bookings need no receipt', () => {
 			via: 'exchange-fee'
 		});
 	});
+});
+
+describe('changing the source of an EVM wallet books nothing twice', () => {
+	const hash = `0x${'ab'.repeat(32)}`;
+	/** @param {string} sourceId @param {string} quantity @param {string} [counterpartyAddress] */
+	const incoming = (sourceId, quantity, counterpartyAddress = EVM.contract) =>
+		/** @type {any} */ ({
+			sourceId,
+			txRef: hash,
+			counterpartyAddress,
+			crypto: { asset: 'ETH', quantity, decimals: 18 }
+		});
+
+	it('an internal transfer takes the id it was booked under, each stored one once', () => {
+		const stored = [
+			{
+				sourceId: `${hash}:internal:1`,
+				txRef: hash,
+				quantity: '5',
+				counterpartyAddress: EVM.contract
+			},
+			{
+				sourceId: `${hash}:internal:4`,
+				txRef: hash,
+				quantity: '5',
+				counterpartyAddress: EVM.contract
+			},
+			{ sourceId: `${hash}:value`, txRef: hash, quantity: '5', counterpartyAddress: EVM.contract }
+		];
+		const out = reconcileSourceIds(stored, [
+			incoming(`${hash}:internal:trace:3_0`, '5'),
+			incoming(`${hash}:internal:trace:0_3_0`, '5'),
+			incoming(`${hash}:internal:trace:2`, '5')
+		]);
+		expect(out.map((t) => t.sourceId)).toEqual([
+			`${hash}:internal:1`,
+			`${hash}:internal:4`,
+			// A third one is new: nothing stored is left for it (the value is another kind).
+			`${hash}:internal:trace:2`
+		]);
+	});
+
+	it('pairs nothing that differs in quantity, other address or kind, nor an id the incoming list names', () => {
+		const stored = [
+			{
+				sourceId: `${hash}:internal:1`,
+				txRef: hash,
+				quantity: '5',
+				counterpartyAddress: EVM.contract
+			},
+			{
+				sourceId: `${hash}:internal:2`,
+				txRef: hash,
+				quantity: '7',
+				counterpartyAddress: EVM.friend
+			}
+		];
+		const out = reconcileSourceIds(stored, [
+			incoming(`${hash}:internal:trace:0`, '6'),
+			incoming(`${hash}:internal:trace:1`, '7'),
+			incoming(`${hash}:log:3`, '5'),
+			incoming(`${hash}:internal:1`, '5')
+		]);
+		expect(out.map((t) => t.sourceId)).toEqual([
+			`${hash}:internal:trace:0`,
+			`${hash}:internal:trace:1`,
+			`${hash}:log:3`,
+			`${hash}:internal:1`
+		]);
+	});
+
+	/** @type {Awaited<ReturnType<typeof startFakeAlchemy>>} */ let alchemy;
+	/** @type {Awaited<ReturnType<typeof startFakeBlockscout>>} */ let scout;
+	beforeAll(async () => {
+		const txs = evmChain();
+		alchemy = await startFakeAlchemy({ txs });
+		scout = await startFakeBlockscout({ history: blockscoutView(txs) });
+	});
+	afterAll(async () => {
+		await alchemy?.close();
+		await scout?.close();
+	});
+
+	for (const order of [
+		['blockscout', 'alchemy'],
+		['alchemy', 'blockscout']
+	]) {
+		it(`${order[0]} first, then ${order[1]}: the second sync adds nothing`, async () => {
+			const s = store();
+			const wallet = await addWallet(s.settings, { chain: 'ethereum', address: EVM.wallet });
+			const via = (/** @type {string} */ source) =>
+				source === 'alchemy'
+					? clientFor({ ethereum: {} }, { alchemyBaseUrl: alchemy.baseUrl }).client
+					: clientFor({ ethereum: scout.endpoints }).client;
+			const first = await syncWallet({ client: via(order[0]), store: s, wallet });
+			expect(first.source).toBe(order[0]);
+			expect(first.totals.new).toBeGreaterThan(10);
+			const second = await syncWallet({ client: via(order[1]), store: s, wallet });
+			expect(second.source).toBe(order[1]);
+			expect(second.totals).toEqual({ new: 0, updated: 0, skipped: first.totals.new });
+			const ids = (await s.transactions.list()).map((t) => t.sourceId);
+			expect(new Set(ids).size).toBe(ids.length);
+		});
+	}
 });

@@ -7,6 +7,8 @@
 //            for balances. Nym's Nyx and Akash.
 //   evm      Blockscout's Etherscan-compatible API (`/api?module=account…`),
 //            no key needed. Ethereum, Base, Arbitrum, Optimism, Polygon.
+//            With an Alchemy key (`pnpm setup:alchemy`) Alchemy instead
+//            (chains/alchemy.js); the network names are below.
 //   bitcoin  an Esplora API (mempool.space), read by the addresses derived
 //            from a zpub kept in the bridge's keychain (bitcoin.js).
 //
@@ -59,6 +61,14 @@
  * @property {{ api: string }} endpoints Blockscout, …/api
  * @property {{ api: string[] }} alternatives
  * @property {Explorer} explorer
+ * @property {AlchemyNetwork} [alchemy] read through Alchemy instead, when a key is set up
+ */
+
+/**
+ * @typedef {object} AlchemyNetwork
+ * @property {string} network the host's first label: `https://<network>.g.alchemy.com/v2/<key>`
+ * @property {boolean} internal whether alchemy_getAssetTransfers offers the category `internal`
+ *   there; where it does not, internal transactions still come from Blockscout
  */
 
 /**
@@ -150,7 +160,8 @@ export const CHAINS = Object.freeze({
 		tokens: { '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': USDC },
 		endpoints: { api: 'https://eth.blockscout.com/api' },
 		alternatives: { api: [] },
-		explorer: etherscanLike('Etherscan', 'https://etherscan.io')
+		explorer: etherscanLike('Etherscan', 'https://etherscan.io'),
+		alchemy: { network: 'eth-mainnet', internal: true }
 	},
 	base: {
 		id: 'base',
@@ -163,7 +174,8 @@ export const CHAINS = Object.freeze({
 		tokens: { '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': USDC },
 		endpoints: { api: 'https://base.blockscout.com/api' },
 		alternatives: { api: [] },
-		explorer: etherscanLike('Basescan', 'https://basescan.org')
+		explorer: etherscanLike('Basescan', 'https://basescan.org'),
+		alchemy: { network: 'base-mainnet', internal: true }
 	},
 	arbitrum: {
 		id: 'arbitrum',
@@ -176,7 +188,8 @@ export const CHAINS = Object.freeze({
 		tokens: { '0xaf88d065e77c8cc2239327c5edb3a432268e5831': USDC },
 		endpoints: { api: 'https://arbitrum.blockscout.com/api' },
 		alternatives: { api: [] },
-		explorer: etherscanLike('Arbiscan', 'https://arbiscan.io')
+		explorer: etherscanLike('Arbiscan', 'https://arbiscan.io'),
+		alchemy: { network: 'arb-mainnet', internal: false }
 	},
 	optimism: {
 		id: 'optimism',
@@ -189,7 +202,8 @@ export const CHAINS = Object.freeze({
 		tokens: { '0x0b2c639c533813f4aa9d7837caf62653d097ff85': USDC },
 		endpoints: { api: 'https://explorer.optimism.io/api' },
 		alternatives: { api: [] },
-		explorer: etherscanLike('Optimistic Etherscan', 'https://optimistic.etherscan.io')
+		explorer: etherscanLike('Optimistic Etherscan', 'https://optimistic.etherscan.io'),
+		alchemy: { network: 'opt-mainnet', internal: false }
 	},
 	polygon: {
 		id: 'polygon',
@@ -202,7 +216,8 @@ export const CHAINS = Object.freeze({
 		tokens: { '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359': USDC },
 		endpoints: { api: 'https://polygon.blockscout.com/api' },
 		alternatives: { api: [] },
-		explorer: etherscanLike('Polygonscan', 'https://polygonscan.com')
+		explorer: etherscanLike('Polygonscan', 'https://polygonscan.com'),
+		alchemy: { network: 'polygon-mainnet', internal: true }
 	},
 	bitcoin: {
 		id: 'bitcoin',
@@ -256,6 +271,10 @@ export function publicChains() {
 				: { assets: [c.native.symbol], nativeSymbol: c.native.symbol }),
 		endpoints: c.endpoints,
 		alternatives: c.alternatives,
+		// Whether Alchemy reads this chain when a key is set up, and its internal transfers too.
+		...(c.kind === 'evm'
+			? { alchemySupported: Boolean(c.alchemy), alchemyInternal: Boolean(c.alchemy?.internal) }
+			: {}),
 		explorer: c.explorer
 	}));
 }

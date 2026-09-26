@@ -17,6 +17,7 @@
     "setup:kraken": "pnpm --filter @belege/bridge setup:kraken",
     "setup:coingecko": "pnpm --filter @belege/bridge setup:coingecko",
     "setup:bitcoin": "pnpm --filter @belege/bridge setup:bitcoin",
+    "setup:alchemy": "pnpm --filter @belege/bridge setup:alchemy",
     "build": "pnpm --filter @belege/app build",
     "check": "pnpm --filter @belege/app check",
     "lint": "pnpm --filter @belege/app lint && pnpm --filter @belege/bridge lint",

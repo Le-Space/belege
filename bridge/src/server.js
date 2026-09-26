@@ -14,7 +14,7 @@
 //   GET  /rates?asset=BTC&date=YYYY-MM-DD[&prefer=kraken]         token → EUR per unit, source (rates.js)
 //   GET  /kraken/balances                                         token → non-zero balances (kraken.js)
 //   GET  /kraken/ledgers?since=YYYY-MM-DD                         token → the ledger, oldest first
-//   GET  /chains                                                  token → chains, endpoints, explorers (chains/)
+//   GET  /chains                                                  token → chains, endpoints, explorers, alchemy: bool (chains/)
 //   GET  /bitcoin/key                                             token → the zpub's fingerprint, never the zpub
 //   POST /<chain>/wallet { address, endpoints? }                  token → an own wallet's transfers and balance
 //   /portals…          customer portals (portals/routes.js)            token
@@ -426,7 +426,8 @@ export function createBridgeServer({
 		// Own wallets: GET /chains, POST /<chain>/wallet (chains/index.js).
 		if (path === '/chains' && req.method === 'GET') {
 			if (!wallets) return send(res, 503, { error: 'wallets are not available' });
-			return send(res, 200, { chains: wallets.chains() });
+			// Whether an Alchemy key is set up (EVM wallets are then read there); never the key.
+			return send(res, 200, { chains: wallets.chains(), alchemy: await wallets.alchemy() });
 		}
 		if (path === '/bitcoin/key' && req.method === 'GET') {
 			if (!wallets) return send(res, 503, { error: 'wallets are not available' });
@@ -439,7 +440,7 @@ export function createBridgeServer({
 			const body = /** @type {any} */ (await readJson(req));
 			const result = await wallets.sync({ ...body, chain: walletPath[1] });
 			log(
-				`${result.chain}: ${result.transactions} transaction(s), ${result.entries.length} entries, ${result.balances.length} balance(s), ${result.unknownAssets} unknown asset(s)`
+				`${result.chain}: ${result.transactions} transaction(s), ${result.entries.length} entries, ${result.balances.length} balance(s), ${result.unknownAssets} unknown asset(s)${result.unknownStatus ? `, ${result.unknownStatus} without a receipt status (value not booked)` : ''}`
 			);
 			return send(res, 200, result);
 		}

@@ -48,7 +48,7 @@ export class BridgeError extends Error {
 
 /**
  * @typedef {object} WalletEntry what the bridge reads from an own wallet (bridge/src/chains/)
- * @property {string} id stable: Cosmos `<hash>:m<msg>:e<event>.<n>:<asset>`, EVM `<hash>:value` / `:log:<i>` / `:internal:<i>`; the fee `<hash>:fee`
+ * @property {string} id stable: Cosmos `<hash>:m<msg>:e<event>.<n>:<asset>`, EVM `<hash>:value` / `:erc20:…` or `:log:<i>` / `:internal:<i>` (Alchemy: `:internal:trace:<address>`); the fee `<hash>:fee`
  * @property {string} hash as the chain gives it
  * @property {number} height
  * @property {string} time ISO 8601
@@ -75,6 +75,7 @@ export class BridgeError extends Error {
  * @property {number} unknownAssets denoms or tokens that are not booked
  * @property {{ earliestHeight: number, earliestTime: string | null, pruned: boolean }} history
  * @property {string} addressUrl
+ * @property {'alchemy' | 'blockscout'} [source] EVM: where it was read
  */
 
 /**
@@ -89,6 +90,8 @@ export class BridgeError extends Error {
  * @property {Record<string, string>} endpoints
  * @property {Record<string, string[]>} alternatives
  * @property {{ name: string, tx: string, address: string }} explorer
+ * @property {boolean} [alchemySupported] EVM: read through Alchemy when a key is set up
+ * @property {boolean} [alchemyInternal] EVM: Alchemy has its internal transfers too
  */
 
 /**
@@ -258,7 +261,8 @@ export function createBridgeClient({
 		/**
 		 * The chains an own wallet can be on: endpoints and explorers.
 		 *
-		 * @returns {Promise<{ chains: ChainInfo[] }>}
+		 * @returns {Promise<{ chains: ChainInfo[], alchemy?: boolean }>} `alchemy`: whether an
+		 *   Alchemy API key is set up in the bridge (never the key)
 		 */
 		chains: () => call('/chains'),
 		/**

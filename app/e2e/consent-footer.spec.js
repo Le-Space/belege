@@ -58,6 +58,8 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	await expect(blockchain).toContainText('Blockchain-Abfrage (Nym/Cosmos, Ethereum/EVM, Bitcoin)');
 	await expect(blockchain).toContainText('IP-Adresse dieses Macs');
 	await expect(blockchain).toContainText('Synchronisieren');
+	// Alchemy, when a key is set up; the key stays on the Mac.
+	await expect(blockchain).toContainText('Alchemy, wenn du einen Alchemy-API-Schlüssel');
 
 	const before = await page.evaluate(() => Object.keys(localStorage).sort());
 	await acceptConsent(page);
@@ -67,7 +69,7 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	);
 	expect(Object.keys(after).filter((key) => !before.includes(key))).toEqual(['belege.consent']);
 	// CONSENT_VERSION in src/lib/consent.js.
-	expect(after['belege.consent']).toBe('6');
+	expect(after['belege.consent']).toBe('7');
 	await expect(page.getByTestId('passkey-onboarding')).toBeVisible();
 
 	await page.reload();

@@ -3,6 +3,7 @@
 //   service `belege-bridge`, account `hibiscus`  the Jameica master password
 //                            account `imap`      the mail password or auth token
 //                            account `llm`       the LLM provider's API key
+//                            account `alchemy`   an optional Alchemy API key (own EVM wallets)
 //                            account `portal:<id>` a customer portal's password (optional)
 //
 // The password never goes through argv (where `ps` would show it): reading
@@ -29,6 +30,7 @@ export const ACCOUNTS = /** @type {const} */ ({
 	kraken: { what: 'Kraken API key', setup: 'setup:kraken' },
 	bitcoin: { what: 'Bitcoin zpub', setup: 'setup:bitcoin' },
 	coingecko: { what: 'CoinGecko API key', setup: 'setup:coingecko' },
+	alchemy: { what: 'Alchemy API key', setup: 'setup:alchemy' },
 	'portal:vodafone': { what: 'Vodafone password', setup: 'setup:portal vodafone' }
 });
 

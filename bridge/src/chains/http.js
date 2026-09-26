@@ -12,6 +12,10 @@ export class WalletError extends Error {
 		this.name = 'WalletError';
 		this.code = code;
 		this.status = status;
+		/** @type {number | undefined} the HTTP status of a refusal, when there was one */
+		this.httpStatus = undefined;
+		/** @type {unknown} its JSON body, never sent on or logged */
+		this.body = undefined;
 	}
 }
 
@@ -104,7 +108,11 @@ export function createJsonFetcher({
 				continue;
 			}
 			if (!res.ok) {
-				throw new WalletError(`${host} answered ${res.status}`, 'WALLET_NODE');
+				const error = new WalletError(`${host} answered ${res.status}`, 'WALLET_NODE');
+				// For a caller that tells its API's refusals apart (Alchemy: 401, 403).
+				error.httpStatus = res.status;
+				error.body = body;
+				throw error;
 			}
 			return body;
 		}

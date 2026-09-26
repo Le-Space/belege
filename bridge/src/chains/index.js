@@ -3,10 +3,12 @@
 // the list of wallets in its sealed store and names chain, address and,
 // optionally, its own endpoints on every request; the bridge keeps nothing.
 //
-// No key, no mnemonic, no signature: an address is public, and all the
-// bridge does is ask a public node about it. That node (Nym's RPC,
-// Blockscout, or the one the person named) sees the address and this
-// Mac's IP address – the consent screen says so.
+// No wallet key, no mnemonic, no signature: an address is public, and all
+// the bridge does is ask a node about it. That node (Nym's RPC, Blockscout,
+// Alchemy when an Alchemy API key is set up, or the one the person named)
+// sees the address and this Mac's IP address – the consent screen says so.
+// The Alchemy key stays in the bridge: GET /chains says only whether there
+// is one.
 
 import { chainOf, publicChains } from './registry.js';
 import { createCosmosClient } from './cosmos.js';
@@ -35,6 +37,8 @@ export {
  * @param {(ms: number) => Promise<void>} [options.sleep]
  * @param {() => Promise<string | null>} [options.getZpub] the Bitcoin key's keychain entry
  * @param {number} [options.bitcoinPauseMs] between Esplora requests (tests: 0)
+ * @param {() => Promise<string | null>} [options.alchemyKey] the Alchemy API key, or null
+ * @param {(network: string) => string} [options.alchemyBaseUrl] tests: a fake Alchemy
  */
 export function createWalletService({
 	fetch: f = fetch,
@@ -42,10 +46,17 @@ export function createWalletService({
 	timeoutMs,
 	sleep,
 	getZpub = async () => null,
-	bitcoinPauseMs
+	bitcoinPauseMs,
+	alchemyKey = async () => null,
+	alchemyBaseUrl
 } = {}) {
 	const cosmos = createCosmosClient({ fetch: f, timeoutMs, sleep });
-	const evm = createEvmClient({ fetch: f, timeoutMs, sleep });
+	const evm = createEvmClient({
+		fetch: f,
+		timeoutMs,
+		sleep,
+		alchemy: { key: alchemyKey, baseUrl: alchemyBaseUrl }
+	});
 	const bitcoin = createBitcoinClient({
 		fetch: f,
 		getZpub,
@@ -58,6 +69,8 @@ export function createWalletService({
 		chains: publicChains,
 		/** The fingerprint of the Bitcoin key in the keychain, or null. */
 		bitcoinKey: () => bitcoin.fingerprint(),
+		/** Whether an Alchemy key is set up; never the key. */
+		alchemy: async () => Boolean(await alchemyKey().catch(() => null)),
 		/** @param {string} id */
 		has: (id) => Boolean(chainOf(id)),
 
@@ -73,6 +86,7 @@ export function createWalletService({
 			);
 			/** @type {Record<string, string>} */
 			const endpoints = {};
+			let ownEndpoint = false;
 			for (const [name, fallback] of Object.entries(chain.endpoints)) {
 				const value = given[name];
 				if (value === undefined || value === null || value === '') {
@@ -88,6 +102,7 @@ export function createWalletService({
 					);
 				}
 				endpoints[name] = checked;
+				ownEndpoint = true;
 			}
 			const result =
 				chain.kind === 'bitcoin'
@@ -105,7 +120,8 @@ export function createWalletService({
 						: await evm.history({
 								chain,
 								address,
-								endpoints: /** @type {{ api: string }} */ (endpoints)
+								endpoints: /** @type {{ api: string }} */ (endpoints),
+								ownEndpoint
 							});
 			return { chain: chain.id, endpoints, ...result };
 		}

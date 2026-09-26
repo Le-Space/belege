@@ -20,7 +20,8 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 4: where AI is used.
 // 5: own wallets: the bridge asks public blockchain nodes about their addresses.
 // 6: Bitcoin: every derived address is asked of an Esplora API from one IP.
-export const CONSENT_VERSION = '6';
+// 7: own EVM wallets may be read through Alchemy, with the person's own key.
+export const CONSENT_VERSION = '7';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

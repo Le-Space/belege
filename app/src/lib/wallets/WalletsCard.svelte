@@ -6,7 +6,8 @@
 	import { formatDate } from '$lib/bank/format.js';
 	import { formatQuantity, toUnits } from '$lib/assets/quantity.js';
 	import { app, currentStore, refreshNow, runMatchingNow } from '$lib/session.svelte.js';
-	import { t } from '$lib/i18n/index.js';
+	import { list, t } from '$lib/i18n/index.js';
+	import TechnicalNote from '$lib/TechnicalNote.svelte';
 	import { WALLET_CHAINS, looksLikeAddress, safeExplorerUrl, walletChain } from './chains.js';
 	import { addWallet, loadWallets, removeWallet, syncWallet } from './wallet-sync.js';
 
@@ -17,6 +18,9 @@
 
 	/** @type {import('$lib/bridge/client.js').ChainInfo[]} */
 	let chains = $state([]);
+	/** Whether the bridge has an Alchemy key (never the key); null until known. */
+	/** @type {boolean | null} */
+	let alchemy = $state(null);
 	/** @type {import('./wallet-sync.js').Wallet[]} */
 	let wallets = $state([]);
 	let chainId = $state('nyx');
@@ -45,7 +49,9 @@
 		const store = currentStore();
 		if (store) wallets = await loadWallets(store.settings);
 		try {
-			chains = (await client.chains()).chains.filter((c) => walletChain(c.id));
+			const answer = await client.chains();
+			chains = answer.chains.filter((c) => walletChain(c.id));
+			alchemy = typeof answer.alchemy === 'boolean' ? answer.alchemy : null;
 		} catch (e) {
 			addError = e instanceof Error ? e.message : String(e);
 		}
@@ -83,6 +89,17 @@
 			url: wallet.endpoints?.[name] || url,
 			own: Boolean(wallet.endpoints?.[name])
 		}));
+	}
+
+	/**
+	 * Alchemy reads this wallet when there is a key, the chain is one of
+	 * Alchemy's and the wallet names no API endpoint of its own.
+	 *
+	 * @param {import('./wallet-sync.js').Wallet} wallet
+	 */
+	function readByAlchemy(wallet) {
+		const info = chains.find((c) => c.id === wallet.chain);
+		return Boolean(alchemy && info?.alchemySupported && !wallet.endpoints?.api);
 	}
 
 	/** @param {import('./wallet-sync.js').Wallet} wallet */
@@ -168,6 +185,31 @@
 	>
 		<h2 id="wallets-h" class="text-lg font-semibold">{t('integrationen.wallets.title')}</h2>
 		<p class="mt-2 text-sm text-text">{t('integrationen.wallets.intro')}</p>
+		{#if alchemy !== null}
+			<div
+				class="mt-2 text-sm text-text"
+				data-testid="wallets-source"
+				data-source={alchemy ? 'alchemy' : 'blockscout'}
+			>
+				{#if alchemy}
+					<p>{t('integrationen.wallets.source.alchemy')}</p>
+				{:else}
+					<p>{t('integrationen.wallets.source.blockscout')}</p>
+					<pre
+						class="mt-1 overflow-x-auto rounded bg-surface-2 px-3 py-2 font-mono text-xs text-heading"
+						data-testid="wallets-setup-alchemy">pnpm setup:alchemy</pre>
+				{/if}
+				<TechnicalNote
+					class="mt-2"
+					testid="wallets-source-technical"
+					lines={list(
+						alchemy
+							? 'integrationen.wallets.source.technicalAlchemy'
+							: 'integrationen.wallets.source.technicalBlockscout'
+					)}
+				/>
+			</div>
+		{/if}
 
 		{#if wallets.length}
 			<ul class="mt-3 divide-y divide-border" data-testid="wallets">
@@ -190,12 +232,18 @@
 							{/if}
 						</div>
 						<ul class="mt-1 text-xs text-faint" data-testid="wallet-endpoints">
+							{#if readByAlchemy(wallet)}
+								<li data-testid="wallet-source">{t('integrationen.wallets.source.wallet')}</li>
+							{/if}
 							{#each endpointsOf(wallet) as e (e.name)}
-								<li>
-									{endpointLabel(e.name)}:
-									<span class="font-mono">{e.url}</span>
-									{e.own ? t('integrationen.wallets.own') : t('integrationen.wallets.default')}
-								</li>
+								{#if !readByAlchemy(wallet) || !chains.find((c) => c.id === wallet.chain)?.alchemyInternal}
+									<li>
+										{#if readByAlchemy(wallet)}{t('integrationen.wallets.source.internalVia')} –{/if}
+										{endpointLabel(e.name)}:
+										<span class="font-mono">{e.url}</span>
+										{e.own ? t('integrationen.wallets.own') : t('integrationen.wallets.default')}
+									</li>
+								{/if}
 							{/each}
 						</ul>
 						{#if wallet.lastSyncedAt}
@@ -346,6 +394,11 @@
 							</p>
 						{/if}
 					{/each}
+					{#if alchemy && info.alchemySupported}
+						<p class="mt-1 text-xs" data-testid="wallet-uses-alchemy">
+							{t('integrationen.wallets.source.customReplaces')}
+						</p>
+					{/if}
 					<p class="mt-1 text-xs">
 						{t('integrationen.wallets.explorer', { name: info.explorer.name })}
 					</p>
