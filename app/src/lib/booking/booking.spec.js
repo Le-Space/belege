@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { memoryCollection } from '../bank/test-support.js';
 import { receipt, tx } from '../matching/fixtures.js';
 import { setSetting } from '../store/settings.js';
-import { confirmBooking, confirmBookings } from './actions.js';
+import { acknowledgeImportChange, confirmBooking, confirmBookings } from './actions.js';
 import {
 	accountsInOrder,
 	cleanDatevSettings,
@@ -179,6 +179,29 @@ describe('catalogue and settings', () => {
 		]);
 		expect(ledgerOf({ ledgerAccount: '1234' })).toBe('1234');
 		expect(ledgerOf({ ledgerAccount: '' })).toBeNull();
+	});
+});
+
+describe('a booking changed on re-import', () => {
+	it('"Geprüft" removes the mark; confirming the account again does too', async () => {
+		const { collection: transactions } = memoryCollection('transactions');
+		const store = /** @type {any} */ ({ transactions });
+		const change = { at: '2026-09-26T12:00:00Z', fromCents: 100, toCents: -100, signFlipped: true };
+		const a = await transactions.put({
+			bookedOn: '2026-09-01',
+			amountCents: -100,
+			importChange: change
+		});
+		const b = await transactions.put({
+			bookedOn: '2026-09-01',
+			amountCents: -100,
+			importChange: change
+		});
+		await acknowledgeImportChange(store, a.id);
+		expect((await transactions.get(a.id))?.importChange).toBeNull();
+		const matches = memoryCollection('matches').collection;
+		await confirmBooking({ ...store, matches }, b.id, { account: '4900' }, { log: false });
+		expect((await transactions.get(b.id))?.importChange).toBeNull();
 	});
 });
 

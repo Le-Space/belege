@@ -859,6 +859,7 @@ export default {
 		openTx: 'Zahlung öffnen',
 		kind: {
 			'bank-sync': 'Umsätze abgerufen',
+			'booking-changed': 'Buchung beim Abruf geändert',
 			'mail-fetch': 'E-Mails abgerufen',
 			'file-import-upload': 'Belege hochgeladen',
 			'file-import-folder': 'Ordner eingelesen',
@@ -872,6 +873,10 @@ export default {
 			export: 'DATEV-Export'
 		},
 		text: {
+			bookingChanged: 'vorher {from}, jetzt {to}{flipped}{unconfirmed}{receipt}',
+			bookingChangedFlipped: ' – die Richtung hat sich umgekehrt',
+			bookingChangedUnconfirmed: ' · Kontierung zurückgenommen',
+			bookingChangedReceipt: ' · Beleg prüfen',
 			bankSync:
 				'{source}: {accounts} Konto/Konten · neu: {new} · aktualisiert: {updated} · übersprungen: {skipped}',
 			mailFetch:
@@ -1054,6 +1059,8 @@ export default {
 		receiptFilter: 'Belegfilter',
 		withoutReceipt: 'Nur ohne Beleg ({count})',
 		withoutAccount: 'Ohne Konto ({count})',
+		changedFilter: 'Beim Abruf geändert ({count})',
+		changedBadge: 'beim Abruf geändert',
 		noAccountBadge: 'ohne Konto',
 		all: 'Alle ({count})',
 		months: 'Monate',
@@ -1068,6 +1075,13 @@ export default {
 		tradeOpen: 'andere Seite öffnen',
 		time: '{time} Uhr',
 		detail: {
+			changedTitle: 'Beim Abruf am {date} geändert',
+			changedText: 'Die Quelle meldet diese Buchung jetzt anders: vorher {from}, jetzt {to}.',
+			changedFlipped: ' Aus einer Einnahme wurde eine Ausgabe oder umgekehrt.',
+			changedAccount:
+				' Die Kontierung wurde deshalb zurückgenommen – bitte unter „Konto“ neu übernehmen.',
+			changedReceipt: ' Prüfe auch, ob der zugeordnete Beleg noch passt.',
+			changedOk: 'Geprüft',
 			poisonTitle: 'Achtung: mögliche Adressvergiftung',
 			poisonText:
 				'Die Absenderadresse {address} beginnt und endet wie {known}, mit der du zu tun hattest, ist aber eine andere. So eine Adresse wird mit einem winzigen Betrag in deine Historie gelegt, damit du sie beim nächsten Senden versehentlich kopierst. Nie an diese Adresse senden; die Empfängeradresse immer vollständig vergleichen.',

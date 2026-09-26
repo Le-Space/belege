@@ -114,15 +114,51 @@ const comparable = (v) =>
 const same = (a, b) => comparable(a) === comparable(b);
 
 /**
+ * Whether a re-imported booking changed in what it is, not only in how it is
+ * valued: the direction (an income became an expense or back); for euros,
+ * the amount; for a crypto movement, the quantity. A new rate for the same
+ * quantity is no such change.
+ *
+ * @param {Record<string, any>} stored
+ * @param {Record<string, any>} next
+ */
+export function movedDifferently(stored, next) {
+	const before = Number(stored.amountCents);
+	const after = Number(next.amountCents);
+	if (!Number.isFinite(before) || !Number.isFinite(after)) return false;
+	// A crypto movement: the quantity carries the direction; its euro value may
+	// move with the rate (or round to 0 cents) without the booking changing.
+	if (typeof stored.quantity === 'string' || typeof next.quantity === 'string') {
+		return String(stored.quantity ?? '') !== String(next.quantity ?? '');
+	}
+	return before !== after;
+}
+
+/**
  * @param {object} params
  * @param {import('../store/repository.js').Collection} params.transactions
  * @param {{ id: string, source: string, fingerprintAccount: string }} params.account
  *   source: 'hibiscus', 'camt', 'kraken', or a wallet's chain (wallets/chains.js)
  *   the stored account record's id, its source, and the account key the fingerprint uses
  * @param {IncomingTransaction[]} params.incoming
+ * @param {import('../store/repository.js').Collection} [params.events] the Verlauf: a booking that
+ *   changed in what it is gets an entry
+ * @param {() => Date} [params.now]
  * @returns {Promise<ImportCounts>}
+ *
+ * A stored booking that comes again changed in what it is (movedDifferently)
+ * keeps its id, but loses its confirmed account – it was confirmed for what
+ * the booking was – and carries `importChange` { at, fromCents, toCents,
+ * signFlipped } until a person says they looked at it. Its receipt link
+ * stays; the detail says to check it.
  */
-export async function importTransactions({ transactions, account, incoming }) {
+export async function importTransactions({
+	transactions,
+	account,
+	incoming,
+	events,
+	now = () => new Date()
+}) {
 	const existing = await transactions.list({
 		includeDeleted: true,
 		where: (r) => r.accountId === account.id && r.source === account.source
@@ -228,7 +264,32 @@ export async function importTransactions({ transactions, account, incoming }) {
 			(f) => !same(/** @type {any} */ (next)[f], /** @type {any} */ (match)[f])
 		);
 		if (changed && !match.deleted) {
-			await transactions.put({ ...match, ...next });
+			/** @type {Record<string, any>} */
+			const record = { ...match, ...next };
+			if (movedDifferently(match, next)) {
+				// Measured from what a person last saw: a second change keeps the first "before".
+				const fromCents = Number(match.importChange?.fromCents ?? match.amountCents);
+				const toCents = Number(next.amountCents);
+				record.importChange = {
+					at: now().toISOString(),
+					fromCents,
+					toCents,
+					signFlipped: Math.sign(fromCents) !== Math.sign(toCents)
+				};
+				const wasConfirmed = Boolean(match.booking?.confirmedAt);
+				if (wasConfirmed) record.booking = { ...match.booking, confirmedAt: null };
+				await recordEvent(events, 'booking-changed', {
+					transactionId: match.id,
+					accountId: account.id,
+					source: account.source,
+					fromCents,
+					toCents,
+					signFlipped: record.importChange.signFlipped,
+					unconfirmed: wasConfirmed,
+					withReceipt: Boolean(match.receiptId)
+				});
+			}
+			await transactions.put(record);
 			counts.updated++;
 		} else {
 			counts.skipped++;
@@ -292,6 +353,7 @@ export async function importCamtStatements(store, statements) {
 		const account = await upsertAccount(store.accounts, input);
 		const counts = await importTransactions({
 			transactions: store.transactions,
+			events: store.events,
 			account: {
 				id: account.id,
 				source: 'camt',

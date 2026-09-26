@@ -45,6 +45,8 @@
 		formatTxAmount
 	} from './bank/format.js';
 	import { tradeArrow, tradeSides, tradeSideWhat } from './exchanges/trades.js';
+	import { acknowledgeImportChange } from './booking/actions.js';
+	import { isBookingConfirmed } from './booking/suggest.js';
 	import { quantityText, valuationText } from './assets/valuation.js';
 	import { txRefsOf } from './matching/context.js';
 	import { safeExplorerUrl, walletChain } from './wallets/chains.js';
@@ -449,6 +451,11 @@
 
 	/** @param {unknown} e */
 	const message = (e) => (e instanceof Error ? e.message : String(e));
+
+	const acknowledgeChange = () =>
+		act(async () => {
+			await acknowledgeImportChange(/** @type {any} */ (currentStore()), txId);
+		});
 
 	/** @param {() => Promise<unknown>} fn */
 	async function act(fn) {
@@ -876,6 +883,35 @@
 			>
 				{formatTxAmount(tx)}
 			</p>
+			{#if tx.importChange}
+				<div
+					class="mt-2 rounded-md border border-l-4 border-red-300 border-l-red-700 bg-red-50 px-3 py-2 text-sm dark:border-red-900 dark:border-l-red-400 dark:bg-red-950/40"
+					role="alert"
+					data-testid="tx-import-change"
+				>
+					<p class="font-semibold text-red-800 dark:text-red-300">
+						{t('zahlungen.detail.changedTitle', {
+							date: formatDate(String(tx.importChange.at).slice(0, 10))
+						})}
+					</p>
+					<p class="mt-0.5 text-text">
+						{t('zahlungen.detail.changedText', {
+							from: formatMoney(Number(tx.importChange.fromCents), tx.currency),
+							to: formatMoney(Number(tx.importChange.toCents), tx.currency)
+						})}
+						{#if tx.importChange.signFlipped}{t('zahlungen.detail.changedFlipped')}{/if}
+						{#if !isBookingConfirmed(tx)}{t('zahlungen.detail.changedAccount')}{/if}
+						{#if links.length}{t('zahlungen.detail.changedReceipt')}{/if}
+					</p>
+					<button
+						type="button"
+						class="mt-1.5 text-sm underline"
+						onclick={acknowledgeChange}
+						disabled={busy}
+						data-testid="tx-import-change-ok">{t('zahlungen.detail.changedOk')}</button
+					>
+				</div>
+			{/if}
 
 			<dl class="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
 				<dt class="text-faint">{t('zahlungen.detail.date')}</dt>

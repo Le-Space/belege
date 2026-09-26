@@ -32,7 +32,9 @@ export async function confirmBooking(
 	if (!tx) throw new Error(`No transaction ${transactionId}`);
 	const record = await store.transactions.put({
 		...tx,
-		booking: { account: number, taxKey: key, confirmedAt: now().toISOString() }
+		booking: { account: number, taxKey: key, confirmedAt: now().toISOString() },
+		// Confirmed again after a change on re-import: looked at.
+		importChange: null
 	});
 	const [first] = matchesOfTx(
 		transactionId,
@@ -82,4 +84,17 @@ export async function confirmBookings(store, items) {
 			count: items.length
 		});
 	}
+}
+
+/**
+ * "Geprüft": a person looked at a booking that changed on re-import
+ * (bank/import.js `importChange`); the mark goes, the booking stays as it is.
+ *
+ * @param {MatchingStore} store
+ * @param {string} transactionId
+ */
+export async function acknowledgeImportChange(store, transactionId) {
+	const tx = await store.transactions.get(transactionId);
+	if (!tx?.importChange) return tx;
+	return store.transactions.put({ ...tx, importChange: null });
 }
