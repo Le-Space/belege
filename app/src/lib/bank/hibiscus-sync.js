@@ -45,6 +45,7 @@ export async function syncHibiscus({ client, store, accounts, now = new Date(), 
 		const incoming = await client.transactions(bridgeAccount.id, since);
 		const counts = await importTransactions({
 			transactions: store.transactions,
+			events: store.events,
 			account: {
 				id: record.id,
 				source: 'hibiscus',

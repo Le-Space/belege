@@ -2,7 +2,7 @@
 // the receipt and booking it links to. Names are looked up by id at render
 // time (the event itself keeps ids and numbers only). Pure.
 
-import { formatDate } from '../bank/format.js';
+import { formatDate, formatMoney } from '../bank/format.js';
 import { t } from '../i18n/index.js';
 import { receiptVendor } from '../receipts/view.js';
 import { attemptReasonText, integer, seconds } from '../receipts/how.js';
@@ -40,6 +40,18 @@ export function describeEvent(e, { receipts = [], transactions = [] } = {}) {
 					new: e.new ?? 0,
 					updated: e.updated ?? 0,
 					skipped: e.skipped ?? 0
+				})
+			};
+		case 'booking-changed':
+			return {
+				...base,
+				title: t('verlauf.kind.booking-changed'),
+				text: t('verlauf.text.bookingChanged', {
+					from: formatMoney(Number(e.fromCents ?? 0)),
+					to: formatMoney(Number(e.toCents ?? 0)),
+					flipped: e.signFlipped ? t('verlauf.text.bookingChangedFlipped') : '',
+					unconfirmed: e.unconfirmed ? t('verlauf.text.bookingChangedUnconfirmed') : '',
+					receipt: e.withReceipt ? t('verlauf.text.bookingChangedReceipt') : ''
 				})
 			};
 		case 'mail-fetch':

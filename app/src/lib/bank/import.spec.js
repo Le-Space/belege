@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { DOMParser } from '@xmldom/xmldom';
 
-import { importCamtStatements, importTransactions } from './import.js';
+import { importCamtStatements, importTransactions, movedDifferently } from './import.js';
 import { parseCamt053 } from './camt.js';
 import { syncHibiscus } from './hibiscus-sync.js';
 import { memoryCollection } from './test-support.js';
@@ -177,6 +177,85 @@ describe('importTransactions', () => {
 		});
 		const other = (await collection.list()).find((r) => r.sourceId === '102');
 		expect(other?.bookedAt).toBeUndefined();
+	});
+
+	it('an income that comes back as an expense: confirmation dropped, marked, one event', async () => {
+		const { collection } = memoryCollection('transactions');
+		const events = memoryCollection('events').collection;
+		const at = () => new Date('2026-09-26T12:00:00Z');
+		await importTransactions({
+			transactions: collection,
+			account: ACCOUNT,
+			incoming: [tx({ amountCents: 4912 })]
+		});
+		const [first] = await collection.list();
+		await collection.put({
+			...first,
+			receiptId: 'R-1',
+			booking: { account: '8400', taxKey: '', confirmedAt: '2026-09-01T00:00:00Z' }
+		});
+
+		const counts = await importTransactions({
+			transactions: collection,
+			account: ACCOUNT,
+			incoming: [tx({ amountCents: -4912 })],
+			events,
+			now: at
+		});
+		expect(counts).toEqual({ new: 0, updated: 1, skipped: 0 });
+		const [after] = await collection.list();
+		expect(after.id).toBe(first.id);
+		expect(after.amountCents).toBe(-4912);
+		expect(after.booking).toEqual({ account: '8400', taxKey: '', confirmedAt: null });
+		expect(after.receiptId).toBe('R-1');
+		expect(after.importChange).toEqual({
+			at: '2026-09-26T12:00:00.000Z',
+			fromCents: 4912,
+			toCents: -4912,
+			signFlipped: true
+		});
+		const [event] = await events.list();
+		expect(event).toMatchObject({
+			kind: 'booking-changed',
+			transactionId: first.id,
+			fromCents: 4912,
+			toCents: -4912,
+			signFlipped: true,
+			unconfirmed: true,
+			withReceipt: true
+		});
+
+		// A second change keeps the first "before".
+		await importTransactions({
+			transactions: collection,
+			account: ACCOUNT,
+			incoming: [tx({ amountCents: -5000 })],
+			events,
+			now: at
+		});
+		const [again] = await collection.list();
+		expect(again.importChange).toMatchObject({ fromCents: 4912, toCents: -5000 });
+		expect(await events.list()).toHaveLength(2);
+	});
+
+	it('what counts as changed: direction, a euro amount, a quantity – not a new rate', () => {
+		expect(movedDifferently({ amountCents: 100 }, { amountCents: -100 })).toBe(true);
+		expect(movedDifferently({ amountCents: -100 }, { amountCents: -120 })).toBe(true);
+		expect(movedDifferently({ amountCents: -100 }, { amountCents: -100 })).toBe(false);
+		// Crypto: the same quantity at another rate is no change; another quantity is.
+		expect(
+			movedDifferently({ amountCents: -100, quantity: '-5' }, { amountCents: -130, quantity: '-5' })
+		).toBe(false);
+		expect(
+			movedDifferently({ amountCents: -100, quantity: '-5' }, { amountCents: -100, quantity: '-6' })
+		).toBe(true);
+		// Dust valued at 0 cents, then at 1: the same movement.
+		expect(
+			movedDifferently({ amountCents: 0, quantity: '5' }, { amountCents: 1, quantity: '5' })
+		).toBe(false);
+		expect(
+			movedDifferently({ amountCents: 1, quantity: '5' }, { amountCents: -1, quantity: '-5' })
+		).toBe(true);
 	});
 
 	it('without a sourceId, the fingerprint dedups, and identical twins stay two', async () => {

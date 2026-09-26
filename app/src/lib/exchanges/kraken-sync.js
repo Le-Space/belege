@@ -316,6 +316,7 @@ export async function syncKraken({ client, store, now = new Date(), from }) {
 		});
 		const counts = await importTransactions({
 			transactions: store.transactions,
+			events: store.events,
 			account: { id: record.id, source: 'kraken', fingerprintAccount: `kraken:${key}` },
 			incoming: byAccount.get(key) ?? []
 		});

@@ -21,11 +21,11 @@
 	import { isWalletSource } from '$lib/wallets/chains.js';
 	import { tradeArrow, tradeSides, tradeSideWhat } from '$lib/exchanges/trades.js';
 
-	/** @typedef {{ id: string, bookedOn: string, counterparty?: string, purpose?: string, amountCents?: number, currency?: string, accountId?: string, source?: string, receiptId?: string | null, noReceipt?: any, booking?: any }} Tx */
+	/** @typedef {{ id: string, bookedOn: string, counterparty?: string, purpose?: string, amountCents?: number, currency?: string, accountId?: string, source?: string, receiptId?: string | null, noReceipt?: any, booking?: any, importChange?: any }} Tx */
 
 	let accountId = $state('');
 	let query = $state('');
-	/** @type {'ohne' | 'alle' | 'konto'} */
+	/** @type {'ohne' | 'alle' | 'konto' | 'geaendert'} */
 	let receiptFilter = $state('ohne');
 	/** @type {string | null} */
 	let chosenMonth = $state(null);
@@ -46,12 +46,16 @@
 	let withoutReceipt = $derived(searched.filter((tx) => !covered(tx)));
 	// Bookings without a confirmed account ("Konto"): the export waits for them.
 	let withoutAccount = $derived(searched.filter((tx) => !isBookingConfirmed(tx)));
+	// Changed in what they are on a re-import, not yet looked at (bank/import.js).
+	let changed = $derived(searched.filter((tx) => tx.importChange));
 	let filtered = $derived(
 		receiptFilter === 'ohne'
 			? withoutReceipt
 			: receiptFilter === 'konto'
 				? withoutAccount
-				: searched
+				: receiptFilter === 'geaendert'
+					? changed
+					: searched
 	);
 	// Coverage per month counts all bookings of the search, not only the filtered ones.
 	let coverageByMonth = $derived(
@@ -197,6 +201,18 @@
 				data-testid="filter-without-account"
 				>{t('zahlungen.withoutAccount', { count: withoutAccount.length })}</button
 			>
+			{#if changed.length || receiptFilter === 'geaendert'}
+				<button
+					type="button"
+					class="rounded px-3 py-1 {receiptFilter === 'geaendert'
+						? 'bg-cyan-800 text-white dark:bg-cyan dark:text-bg'
+						: 'text-danger hover:text-heading'}"
+					aria-pressed={receiptFilter === 'geaendert'}
+					onclick={() => (receiptFilter = 'geaendert')}
+					data-testid="filter-changed"
+					>{t('zahlungen.changedFilter', { count: changed.length })}</button
+				>
+			{/if}
 		</div>
 	</div>
 
@@ -281,6 +297,12 @@
 													arrow: tradeArrow(tx),
 													what: tradeSideWhat(sides.get(tx.id) ?? {})
 												})}</span
+											>
+										{/if}
+										{#if tx.importChange}
+											<span
+												class="mt-1 mr-1 inline-block rounded border border-red-300 bg-red-50 px-1.5 py-0.5 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+												data-testid="changed-badge">{t('zahlungen.changedBadge')}</span
 											>
 										{/if}
 										{#if !isBookingConfirmed(tx)}

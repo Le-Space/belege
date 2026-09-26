@@ -419,6 +419,7 @@ export async function syncWallet({ client, store, wallet, now = new Date() }) {
 		});
 		const counts = await importTransactions({
 			transactions: store.transactions,
+			events: store.events,
 			account: { id: record.id, source: chain.id, fingerprintAccount: `${chain.id}:${key}` },
 			incoming: reconcileSourceIds(/** @type {any[]} */ (stored), byAsset.get(asset) ?? [])
 		});
