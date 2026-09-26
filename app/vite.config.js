@@ -5,6 +5,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
@@ -35,6 +36,31 @@ function lastAppCommit() {
 
 const built = lastAppCommit();
 
+/**
+ * The release this build is: `v0.2.0` on a release tag, `v0.2.0+3` three
+ * commits after it (git describe), else the version in package.json (a
+ * checkout without tags, e.g. a shallow CI clone of a tag, where that version
+ * is the release's). The release workflow writes the version before tagging.
+ */
+function releaseName() {
+	const cwd = fileURLToPath(new URL('.', import.meta.url));
+	const version = JSON.parse(
+		readFileSync(fileURLToPath(new URL('./package.json', import.meta.url)), 'utf8')
+	).version;
+	try {
+		const described = execFileSync('git', ['describe', '--tags', '--match', 'v[0-9]*'], {
+			cwd,
+			encoding: 'utf8',
+			stdio: ['ignore', 'pipe', 'ignore']
+		}).trim();
+		const m = /^(v\d+\.\d+\.\d+)(?:-(\d+)-g[0-9a-f]+)?$/.exec(described);
+		if (m) return m[2] ? `${m[1]}+${m[2]}` : m[1];
+	} catch {
+		// no tags here: the package version
+	}
+	return typeof version === 'string' && version ? `v${version}` : '';
+}
+
 export default defineConfig({
 	test: {
 		include: ['src/**/*.spec.js'],
@@ -43,7 +69,8 @@ export default defineConfig({
 	},
 	define: {
 		__BUILD_COMMIT__: JSON.stringify(built.commit),
-		__BUILD_DATE__: JSON.stringify(built.date)
+		__BUILD_DATE__: JSON.stringify(built.date),
+		__BUILD_RELEASE__: JSON.stringify(releaseName())
 	},
 	plugins: [
 		tailwindcss(),

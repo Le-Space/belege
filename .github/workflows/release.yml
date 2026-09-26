@@ -1,7 +1,11 @@
 # Release Le Space Belege – from a button.
 #
-#   gh workflow run release.yml -R Le-Space/belege -f version=0.1.0
+#   gh workflow run release.yml -R Le-Space/belege                   # the next patch: 0.2.0 → 0.2.1
+#   gh workflow run release.yml -R Le-Space/belege -f bump=minor     # 0.2.1 → 0.3.0
+#   gh workflow run release.yml -R Le-Space/belege -f version=1.0.0  # exactly this one
 #
+# Without a version, it counts up from the highest vX.Y.Z tag (patch unless
+# `bump` says minor or major).
 # Runs the CI gates on main, writes the version into package.json and app/package.json,
 # turns "## [Unreleased]" in CHANGELOG.md into "## [x.y.z] – date", commits, tags vX.Y.Z and
 # pushes both, creates the GitHub release with that CHANGELOG section as its notes, and then
@@ -16,9 +20,16 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version to release, e.g. 0.1.0
-        required: true
+        description: Version to release, e.g. 1.0.0 (empty = count up from the last tag)
+        required: false
         type: string
+        default: ''
+      bump:
+        description: Without a version, which part to count up
+        required: false
+        type: choice
+        options: [patch, minor, major]
+        default: patch
 
 concurrency:
   group: release
@@ -43,8 +54,22 @@ jobs:
         id: version
         env:
           VERSION: ${{ inputs.version }}
+          BUMP: ${{ inputs.bump }}
         run: |
-          # The input reaches the shell as an environment variable, never pasted into the script.
+          # The inputs reach the shell as environment variables, never pasted into the script.
+          if [ -z "$VERSION" ]; then
+            git fetch --quiet --tags origin
+            LAST=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)
+            LAST=${LAST#v}
+            [ -n "$LAST" ] || LAST=0.0.0
+            IFS=. read -r MAJOR MINOR PATCH <<< "$LAST"
+            case "$BUMP" in
+              major) VERSION="$((MAJOR + 1)).0.0" ;;
+              minor) VERSION="$MAJOR.$((MINOR + 1)).0" ;;
+              *) VERSION="$MAJOR.$MINOR.$((PATCH + 1))" ;;
+            esac
+            echo "Counting up from v$LAST ($BUMP): $VERSION"
+          fi
           if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo "::error::Not a version: $VERSION"; exit 1
           fi
@@ -79,11 +104,12 @@ jobs:
           # Fails if main moved while the tests ran – then run it again.
           git push origin HEAD:main "$TAG"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - name: Create the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           # The notes are this version's CHANGELOG section.
           awk -v v="$VERSION" '

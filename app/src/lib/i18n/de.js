@@ -197,6 +197,8 @@ export default {
 		verlauf: 'Verlauf',
 		madeWith: 'Gebaut mit',
 		build: 'Stand',
+		releaseExact: 'Veröffentlichte Version – die Notizen stehen im Release auf GitHub.',
+		releaseAfter: '{count} Änderungen nach der Version {release}, noch nicht veröffentlicht.',
 		source: 'Quellcode',
 		privacy: 'Datenschutz & Technik'
 	},

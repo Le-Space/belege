@@ -136,4 +136,11 @@ test('the footer credits Le Space and names this repository as the source', asyn
 		'href',
 		/^https:\/\/github\.com\/Le-Space\/belege\/commit\/[0-9a-f]{40}$/
 	);
+	// The release: v0.2.0 on a tag, v0.2.0+3 after it, linked to its GitHub release.
+	const release = footer.getByTestId('release');
+	await expect(release).toHaveText(/^v\d+\.\d+\.\d+(\+\d+)?$/);
+	await expect(release).toHaveAttribute(
+		'href',
+		/^https:\/\/github\.com\/Le-Space\/belege\/releases\/tag\/v\d+\.\d+\.\d+$/
+	);
 });

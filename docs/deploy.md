@@ -11,11 +11,11 @@ both behind; moving the domain to another host (Aleph today) does not.
 
 ## DNS (Cloudflare, once)
 
-| Type | Name | Value | Proxy |
-| --- | --- | --- | --- |
-| CNAME | `belege` | `ipfs.public.aleph.sh` | DNS only |
+| Type  | Name              | Value                                                | Proxy    |
+| ----- | ----------------- | ---------------------------------------------------- | -------- |
+| CNAME | `belege`          | `ipfs.public.aleph.sh`                               | DNS only |
 | CNAME | `_dnslink.belege` | `_dnslink.belege.le-space.de.static.public.aleph.sh` | DNS only |
-| TXT | `_control.belege` | `0xD139E44669fD96C714F888B6b04Fe5D02D02B4fD` | – |
+| TXT   | `_control.belege` | `0xD139E44669fD96C714F888B6b04Fe5D02D02B4fD`         | –        |
 
 Or through the Cloudflare API with a token that may edit DNS of the zone (asked for hidden):
 
@@ -43,3 +43,9 @@ Repository secret `ALEPH_PRIVATE_KEY` in Le-Space/belege: the key of that accoun
 `~/.config/belege/bridge.json` keeps its own list: add it with `pnpm setup:hibiscus`
 (question "App origins"). The bridge answers Chrome's Private Network Access preflight,
 which a public HTTPS page needs to reach `http://127.0.0.1`.
+
+## Version numbers
+
+`gh workflow run release.yml -R Le-Space/belege` without a version counts up from the highest `vX.Y.Z` tag: the next patch (`0.2.0 → 0.2.1`), or `-f bump=minor` / `-f bump=major`; `-f version=1.0.0` sets one exactly. The workflow writes it into `package.json` and `app/package.json`, the CHANGELOG, the tag and the GitHub release.
+
+The footer shows the release next to the build stamp and links to its GitHub release: `v0.2.1` for a build of the tag (what `belege.le-space.de` serves), `v0.2.1+3` for a build three commits after it (local development, previews).
