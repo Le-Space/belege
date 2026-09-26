@@ -160,6 +160,8 @@ Eine Bitcoin-Wallet liest Belege über den **erweiterten öffentlichen Schlüsse
 
 Der Buchungstext einer Krypto-Buchung endet mit der Menge, z. B. `Konto B -0,015 BTC`. Reichen die 60 Zeichen von DATEV nicht, wird der Name gekürzt, nie die Menge. Der Umsatz steht wie bei jeder anderen Zeile in Euro.
 
+Jede eigene Wallet kann eine **Bezeichnung** (Projekt, Zweck), ein **Konto** und eine **Kostenstelle** haben, beim Hinzufügen oder später unter _Bezeichnung, Konto, Kostenstelle_. Die Bezeichnung ersetzt das Adressende an allen ihren Asset-Konten (`Projekt Nord · USDC (Ethereum)`); Konto und Kostenstelle gelten für alle und gehen in den DATEV-Export (_Konto_, _KOST1_). Eine Wallet ohne Konto lässt die Konten ihrer Assets, wie sie sind.
+
 ## In der App
 
 Die Detailansicht einer Zahlung zeigt **Menge** (`-0,015 BTC`) und **Kurs** (`60.000,00 EUR je BTC · CoinGecko, 01.09.2026 00:00 UTC`).

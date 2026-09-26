@@ -160,6 +160,8 @@ A Bitcoin wallet is read by its account's **extended public key**, not by one ad
 
 The Buchungstext of a crypto booking ends with what moved, e.g. `Konto B -0,015 BTC`. The name is shortened when the 60 characters DATEV allows are not enough; the quantity never is. The amount (Umsatz) is in EUR, like every other line.
 
+Each own wallet can have a **name** (a project, a purpose), a **ledger account** and a **cost centre**, set when it is added or later under _Bezeichnung, Konto, Kostenstelle_. The name replaces the address tail on all its asset accounts (`Projekt Nord · USDC (Ethereum)`); the ledger account and cost centre go to all of them and into the DATEV export (_Konto_, _KOST1_). A wallet without a ledger account leaves its accounts' own as they are.
+
 ## In the app
 
 The detail of a payment shows **Menge** (`-0,015 BTC`) and **Kurs** (`60.000,00 EUR je BTC · CoinGecko, 01.09.2026 00:00 UTC`).

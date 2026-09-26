@@ -29,6 +29,7 @@ import { toUnits } from '../assets/quantity.js';
 import { valuedFields } from '../assets/valuation.js';
 import { getSetting, setSetting } from '../store/settings.js';
 import { normalizeAddress, safeExplorerUrl, walletAccountName, walletChain } from './chains.js';
+import { isAccountNumber } from '../booking/skr03.js';
 
 /**
  * @typedef {object} Wallet an entry of the settings key `wallets`
@@ -39,7 +40,71 @@ import { normalizeAddress, safeExplorerUrl, walletAccountName, walletChain } fro
  * @property {string} addedAt ISO 8601
  * @property {string} [addressUrl] the explorer's page of the address, from the last sync
  * @property {string} [lastSyncedAt]
+ * @property {string} [name] the person's name for it (a project), shown instead of the address tail
+ * @property {string} [ledgerAccount] the ledger account of its asset accounts (DATEV Konto)
+ * @property {string} [costCentre] a cost centre for all its bookings (DATEV KOST1)
  */
+
+/** DATEV KOST1: up to 36 characters; letters and digits keep every import happy. */
+export const COST_CENTRE = /^[A-Za-z0-9]{1,36}$/;
+
+/**
+ * A wallet's name, ledger account and cost centre as kept: a name of at most
+ * 60 characters, an account number, a cost centre of letters and digits; ''
+ * for none. Throws on a ledger account or cost centre that cannot be one.
+ *
+ * @param {{ name?: unknown, ledgerAccount?: unknown, costCentre?: unknown }} input
+ * @returns {{ name: string, ledgerAccount: string, costCentre: string }}
+ */
+export function cleanWalletMeta(input) {
+	const name = String(input.name ?? '')
+		.replace(/\s+/g, ' ')
+		.trim()
+		.slice(0, 60);
+	const ledgerAccount = String(input.ledgerAccount ?? '').trim();
+	const costCentre = String(input.costCentre ?? '').trim();
+	if (ledgerAccount && !isAccountNumber(ledgerAccount)) {
+		throw new Error(`Keine Kontonummer: ${ledgerAccount}`);
+	}
+	if (costCentre && !COST_CENTRE.test(costCentre)) {
+		throw new Error(
+			`Kostenstelle: bis zu 36 Buchstaben und Ziffern, ohne Leerzeichen – ${costCentre}`
+		);
+	}
+	return { name, ledgerAccount, costCentre };
+}
+
+/**
+ * The name of a wallet's account for one asset: the person's name for the
+ * wallet with the asset (`Projekt X · NYM`, `Projekt X · USDC (Ethereum)`), or
+ * `Wallet NYM ···abc123` without one.
+ *
+ * @param {import('./chains.js').WalletChain} chain
+ * @param {string} asset
+ * @param {{ address: string, name?: string }} wallet
+ */
+export function walletAccountLabel(chain, asset, wallet) {
+	if (!wallet.name) return walletAccountName(chain, asset, wallet.address);
+	const where = chain.kind === 'evm' ? ` (${chain.shortName})` : '';
+	return `${wallet.name} · ${asset}${where}`;
+}
+
+/**
+ * What a wallet gives its asset accounts: the name, and its ledger account
+ * and cost centre where it has them (an account keeps its own ledger account
+ * when the wallet names none).
+ *
+ * @param {import('./chains.js').WalletChain} chain
+ * @param {Record<string, any>} account
+ * @param {Wallet} wallet
+ */
+export function walletAccountFields(chain, account, wallet) {
+	return {
+		name: walletAccountLabel(chain, String(account.asset ?? ''), wallet),
+		...(wallet.ledgerAccount ? { ledgerAccount: wallet.ledgerAccount } : {}),
+		costCentre: wallet.costCentre || null
+	};
+}
 
 /**
  * @typedef {import('../bridge/client.js').WalletEntry} Entry
@@ -212,7 +277,7 @@ export async function loadWallets(settings) {
  * Add a wallet to the list; the same chain and address twice is one.
  *
  * @param {import('../store/repository.js').Collection} settings
- * @param {{ chain: string, address: string, endpoints?: Record<string, string> }} input
+ * @param {{ chain: string, address: string, endpoints?: Record<string, string>, name?: string, ledgerAccount?: string, costCentre?: string }} input
  * @param {Date} [now]
  * @returns {Promise<Wallet>}
  */
@@ -226,6 +291,7 @@ export async function addWallet(settings, input, now = new Date()) {
 		const trimmed = String(url ?? '').trim();
 		if (trimmed) endpoints[name] = trimmed;
 	}
+	const meta = cleanWalletMeta(input);
 	const wallets = await loadWallets(settings);
 	const known = wallets.find((w) => w.chain === chain.id && w.address === address);
 	if (known) return known;
@@ -235,7 +301,10 @@ export async function addWallet(settings, input, now = new Date()) {
 		chain: chain.id,
 		address,
 		endpoints,
-		addedAt: now.toISOString()
+		addedAt: now.toISOString(),
+		...(meta.name ? { name: meta.name } : {}),
+		...(meta.ledgerAccount ? { ledgerAccount: meta.ledgerAccount } : {}),
+		...(meta.costCentre ? { costCentre: meta.costCentre } : {})
 	};
 	await setSetting(settings, 'wallets', [...wallets, wallet]);
 	return wallet;
@@ -254,6 +323,37 @@ export async function removeWallet(settings, id) {
 		'wallets',
 		wallets.filter((w) => w.id !== id)
 	);
+}
+
+/**
+ * Change a wallet's name, ledger account and cost centre, and carry them to
+ * its asset accounts at once.
+ *
+ * @param {{ settings: import('../store/repository.js').Collection, accounts: import('../store/repository.js').Collection }} store
+ * @param {string} id
+ * @param {{ name?: unknown, ledgerAccount?: unknown, costCentre?: unknown }} input
+ * @returns {Promise<Wallet>}
+ */
+export async function updateWalletMeta(store, id, input) {
+	const meta = cleanWalletMeta(input);
+	const wallets = await loadWallets(store.settings);
+	const found = wallets.find((w) => w.id === id);
+	const chain = found ? walletChain(found.chain) : null;
+	if (!found || !chain) throw new Error(`Unbekannte Wallet: ${id}`);
+	/** @type {Wallet} */
+	const wallet = { ...found };
+	for (const key of /** @type {const} */ (['name', 'ledgerAccount', 'costCentre'])) {
+		if (meta[key]) wallet[key] = meta[key];
+		else delete wallet[key];
+	}
+	await saveWallet(store.settings, wallet);
+	const accounts = await store.accounts.list({
+		where: (a) => a.source === chain.id && a.walletAddress === wallet.address
+	});
+	for (const account of accounts) {
+		await store.accounts.put({ ...account, ...walletAccountFields(chain, account, wallet) });
+	}
+	return wallet;
 }
 
 /** @param {import('../store/repository.js').Collection} settings @param {Wallet} wallet */
@@ -307,7 +407,7 @@ export async function syncWallet({ client, store, wallet, now = new Date() }) {
 			source: chain.id,
 			sourceAccountId: key,
 			ibanLast4: '',
-			name: walletAccountName(chain, asset, wallet.address),
+			name: walletAccountLabel(chain, asset, wallet),
 			currency: 'EUR',
 			kind: 'wallet',
 			asset,
@@ -324,6 +424,7 @@ export async function syncWallet({ client, store, wallet, now = new Date() }) {
 		});
 		await store.accounts.put({
 			...record,
+			...walletAccountFields(chain, { ...record, asset }, wallet),
 			importEnabled: true,
 			walletAddress: wallet.address,
 			addressUrl: safeExplorerUrl(result.addressUrl) ?? '',

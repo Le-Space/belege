@@ -33,10 +33,13 @@ import {
 } from './chains.js';
 import {
 	addWallet,
+	cleanWalletMeta,
 	loadWallets,
 	reconcileSourceIds,
 	removeWallet,
 	syncWallet,
+	updateWalletMeta,
+	walletAccountLabel,
 	walletTransactions
 } from './wallet-sync.js';
 
@@ -273,6 +276,81 @@ describe('wallets in the settings', () => {
 		await removeWallet(s.settings, a.id);
 		expect((await loadWallets(s.settings)).map((w) => w.chain)).toEqual(['nyx']);
 		await expect(addWallet(s.settings, { chain: 'dogecoin', address: 'x' })).rejects.toThrow();
+	});
+});
+
+describe('a wallet’s name, ledger account and cost centre', () => {
+	it('cleans them, and refuses a ledger account or cost centre that cannot be one', () => {
+		expect(
+			cleanWalletMeta({ name: '  Projekt   Nord  ', ledgerAccount: ' 1210 ', costCentre: 'P100' })
+		).toEqual({
+			name: 'Projekt Nord',
+			ledgerAccount: '1210',
+			costCentre: 'P100'
+		});
+		expect(cleanWalletMeta({})).toEqual({ name: '', ledgerAccount: '', costCentre: '' });
+		expect(() => cleanWalletMeta({ ledgerAccount: '12a' })).toThrow(/Kontonummer/);
+		expect(() => cleanWalletMeta({ costCentre: 'P 100' })).toThrow(/Kostenstelle/);
+		expect(() => cleanWalletMeta({ costCentre: 'x'.repeat(37) })).toThrow(/Kostenstelle/);
+	});
+
+	it('names the asset accounts by the wallet’s name, with the network on EVM', () => {
+		const eth = /** @type {any} */ (WALLET_CHAINS.ethereum);
+		const nyx = /** @type {any} */ (WALLET_CHAINS.nyx);
+		expect(walletAccountLabel(eth, 'USDC', { address: EVM.wallet, name: 'Projekt Nord' })).toBe(
+			'Projekt Nord · USDC (Ethereum)'
+		);
+		expect(walletAccountLabel(nyx, 'NYM', { address: NYX.wallet, name: 'Projekt Nord' })).toBe(
+			'Projekt Nord · NYM'
+		);
+		expect(walletAccountLabel(nyx, 'NYM', { address: NYX.wallet })).toBe(
+			walletAccountName(nyx, 'NYM', NYX.wallet)
+		);
+	});
+
+	it('added with them, a sync gives them to every asset account; a change carries at once', async () => {
+		const nyxNode = await startFakeCosmos();
+		try {
+			const s = store();
+			const { client } = clientFor({ nyx: nyxNode.endpoints });
+			const wallet = await addWallet(s.settings, {
+				chain: 'nyx',
+				address: NYX.wallet,
+				name: 'Projekt Nord',
+				ledgerAccount: '1210',
+				costCentre: 'P100'
+			});
+			await syncWallet({ client, store: s, wallet, now: new Date('2026-09-26T08:00:00Z') });
+			const fields = async () =>
+				(await s.accounts.list())
+					.map((a) => [a.name, a.ledgerAccount, a.costCentre])
+					.sort((a, b) => (String(a[0]) < String(b[0]) ? -1 : 1));
+			expect(await fields()).toEqual([
+				['Projekt Nord · NYM', '1210', 'P100'],
+				['Projekt Nord · NYX', '1210', 'P100']
+			]);
+
+			const changed = await updateWalletMeta(s, wallet.id, {
+				name: 'Projekt Süd',
+				ledgerAccount: '1220',
+				costCentre: ''
+			});
+			expect(changed).not.toHaveProperty('costCentre');
+			expect(await fields()).toEqual([
+				['Projekt Süd · NYM', '1220', null],
+				['Projekt Süd · NYX', '1220', null]
+			]);
+			// Without a name, the address tail again; the ledger account stays on the accounts.
+			await updateWalletMeta(s, wallet.id, { name: '', ledgerAccount: '', costCentre: '' });
+			expect((await fields()).map((f) => f.slice(0, 2))).toEqual([
+				[`Wallet NYM ···${NYX.wallet.slice(-6)}`, '1220'],
+				[`Wallet NYX ···${NYX.wallet.slice(-6)}`, '1220']
+			]);
+			await expect(updateWalletMeta(s, wallet.id, { costCentre: 'P 1' })).rejects.toThrow();
+			await expect(updateWalletMeta(s, 'nyx:unknown', {})).rejects.toThrow(/Unbekannte/);
+		} finally {
+			await nyxNode.close();
+		}
 	});
 });
 

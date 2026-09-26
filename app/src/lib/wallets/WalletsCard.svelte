@@ -9,7 +9,13 @@
 	import { list, t } from '$lib/i18n/index.js';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
 	import { WALLET_CHAINS, looksLikeAddress, safeExplorerUrl, walletChain } from './chains.js';
-	import { addWallet, loadWallets, removeWallet, syncWallet } from './wallet-sync.js';
+	import {
+		addWallet,
+		loadWallets,
+		removeWallet,
+		syncWallet,
+		updateWalletMeta
+	} from './wallet-sync.js';
 
 	/** @type {{ url: string, token: string | null }} */
 	let { url, token } = $props();
@@ -25,6 +31,16 @@
 	let wallets = $state([]);
 	let chainId = $state('nyx');
 	let address = $state('');
+	let newName = $state('');
+	let newLedger = $state('');
+	let newCostCentre = $state('');
+	/** @type {string | null} the wallet whose name, account and cost centre are open */
+	let editing = $state(null);
+	let editName = $state('');
+	let editLedger = $state('');
+	let editCostCentre = $state('');
+	/** @type {string | null} */
+	let editError = $state(null);
 	/** @type {Record<string, string>} */
 	let custom = $state({});
 	let adding = $state(false);
@@ -59,6 +75,43 @@
 
 	/** @param {string} name */
 	const endpointLabel = (name) => t(`integrationen.wallets.endpoint.${name}`);
+
+	/**
+	 * Alchemy reads a new wallet of this chain unless an own API endpoint is
+	 * given: then the field is that own endpoint, not Blockscout.
+	 *
+	 * @param {string} name
+	 */
+	const alchemyField = (name) => Boolean(alchemy && info?.alchemySupported && name === 'api');
+
+	/** @param {import('./wallet-sync.js').Wallet} wallet */
+	function openEdit(wallet) {
+		editing = wallet.id;
+		editName = wallet.name ?? '';
+		editLedger = wallet.ledgerAccount ?? '';
+		editCostCentre = wallet.costCentre ?? '';
+		editError = null;
+	}
+
+	/** @param {SubmitEvent} event @param {import('./wallet-sync.js').Wallet} wallet */
+	async function saveEdit(event, wallet) {
+		event.preventDefault();
+		const store = currentStore();
+		if (!store) return;
+		editError = null;
+		try {
+			await updateWalletMeta(store, wallet.id, {
+				name: editName,
+				ledgerAccount: editLedger,
+				costCentre: editCostCentre
+			});
+			wallets = await loadWallets(store.settings);
+			await refreshNow();
+			editing = null;
+		} catch (e) {
+			editError = e instanceof Error ? e.message : String(e);
+		}
+	}
 
 	/** @param {import('./wallet-sync.js').Wallet} wallet */
 	function accountsOf(wallet) {
@@ -137,10 +190,20 @@
 		}
 		adding = true;
 		try {
-			await addWallet(store.settings, { chain: chainId, address, endpoints: custom });
+			await addWallet(store.settings, {
+				chain: chainId,
+				address,
+				endpoints: custom,
+				name: newName,
+				ledgerAccount: newLedger,
+				costCentre: newCostCentre
+			});
 			wallets = await loadWallets(store.settings);
 			address = '';
 			custom = {};
+			newName = '';
+			newLedger = '';
+			newCostCentre = '';
 		} catch (e) {
 			addError = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -176,6 +239,44 @@
 		wallets = await loadWallets(store.settings);
 	}
 </script>
+
+{#snippet metaFields(
+	/** @type {{ name: string, ledger: string, cost: string }} */ v,
+	/** @type {string} */ id
+)}
+	<label class="flex flex-col gap-1">
+		{t('integrationen.wallets.meta.name')}
+		<input
+			class="rounded-md border border-border bg-surface px-2 py-1 text-heading"
+			bind:value={v.name}
+			maxlength="60"
+			placeholder={t('integrationen.wallets.meta.namePlaceholder')}
+			data-testid={`${id}-name`}
+		/>
+	</label>
+	<div class="flex flex-wrap gap-3">
+		<label class="flex flex-col gap-1">
+			{t('integrationen.wallets.meta.ledger')}
+			<input
+				class="w-32 rounded-md border border-border bg-surface px-2 py-1 font-mono text-heading"
+				bind:value={v.ledger}
+				inputmode="numeric"
+				placeholder="1200"
+				data-testid={`${id}-ledger`}
+			/>
+		</label>
+		<label class="flex flex-col gap-1">
+			{t('integrationen.wallets.meta.costCentre')}
+			<input
+				class="w-40 rounded-md border border-border bg-surface px-2 py-1 font-mono text-heading"
+				bind:value={v.cost}
+				maxlength="36"
+				data-testid={`${id}-cost`}
+			/>
+		</label>
+	</div>
+	<p class="text-xs text-faint">{t('integrationen.wallets.meta.hint')}</p>
+{/snippet}
 
 {#if token}
 	<section
@@ -217,6 +318,11 @@
 					{@const result = results[wallet.id]}
 					<li class="py-3" data-testid="wallet" data-chain={wallet.chain}>
 						<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+							{#if wallet.name}
+								<span class="font-semibold text-heading" data-testid="wallet-name"
+									>{wallet.name}</span
+								>
+							{/if}
 							<span class="font-medium text-heading">{walletChain(wallet.chain)?.name}</span>
 							<code class="font-mono text-xs break-all text-text" data-testid="wallet-address"
 								>{wallet.address}</code
@@ -246,6 +352,17 @@
 								{/if}
 							{/each}
 						</ul>
+						{#if wallet.ledgerAccount || wallet.costCentre}
+							<p class="mt-1 text-xs text-faint" data-testid="wallet-booking">
+								{#if wallet.ledgerAccount}{t('integrationen.wallets.meta.ledgerShort', {
+										account: wallet.ledgerAccount
+									})}{/if}{#if wallet.ledgerAccount && wallet.costCentre}
+									·
+								{/if}{#if wallet.costCentre}{t('integrationen.wallets.meta.costCentreShort', {
+										costCentre: wallet.costCentre
+									})}{/if}
+							</p>
+						{/if}
 						{#if wallet.lastSyncedAt}
 							<p class="mt-1 text-xs text-faint">
 								{t('integrationen.wallets.lastSync', {
@@ -283,12 +400,68 @@
 							>
 							<button
 								type="button"
+								class="text-sm text-text underline hover:text-heading"
+								onclick={() => (editing === wallet.id ? (editing = null) : openEdit(wallet))}
+								aria-expanded={editing === wallet.id}
+								data-testid="wallet-edit">{t('integrationen.wallets.meta.edit')}</button
+							>
+							<button
+								type="button"
 								class="text-sm text-faint underline hover:text-heading"
 								disabled={syncing !== null}
 								onclick={() => remove(wallet)}
 								data-testid="wallet-remove">{t('integrationen.wallets.remove')}</button
 							>
 						</div>
+						{#if editing === wallet.id}
+							<form
+								class="mt-2 flex flex-col gap-2 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
+								onsubmit={(e) => saveEdit(e, wallet)}
+								data-testid="wallet-edit-form"
+							>
+								{@render metaFields(
+									{
+										get name() {
+											return editName;
+										},
+										set name(v) {
+											editName = v;
+										},
+										get ledger() {
+											return editLedger;
+										},
+										set ledger(v) {
+											editLedger = v;
+										},
+										get cost() {
+											return editCostCentre;
+										},
+										set cost(v) {
+											editCostCentre = v;
+										}
+									},
+									'wallet-edit'
+								)}
+								<div class="flex gap-3">
+									<button
+										type="submit"
+										class="rounded-md border border-border bg-surface px-3 py-1 font-medium text-heading hover:bg-surface-2"
+										data-testid="wallet-edit-save">{t('integrationen.wallets.meta.save')}</button
+									>
+									<button
+										type="button"
+										class="text-faint underline hover:text-heading"
+										onclick={() => (editing = null)}
+										>{t('integrationen.wallets.meta.cancel')}</button
+									>
+								</div>
+								{#if editError}
+									<p class="text-danger" role="alert" data-testid="wallet-edit-error">
+										{editError}
+									</p>
+								{/if}
+							</form>
+						{/if}
 						{#if result}
 							<p class="mt-2 text-sm text-heading" role="status" data-testid="wallet-result">
 								{t('integrationen.counts', result.totals)}
@@ -369,6 +542,29 @@
 				</label>
 				<p class="text-xs text-faint">{t('integrationen.wallets.addressHint')}</p>
 			{/if}
+			{@render metaFields(
+				{
+					get name() {
+						return newName;
+					},
+					set name(v) {
+						newName = v;
+					},
+					get ledger() {
+						return newLedger;
+					},
+					set ledger(v) {
+						newLedger = v;
+					},
+					get cost() {
+						return newCostCentre;
+					},
+					set cost(v) {
+						newCostCentre = v;
+					}
+				},
+				'wallet-new'
+			)}
 			{#if info}
 				<div
 					class="rounded-md border border-border bg-surface-2 px-3 py-2"
@@ -377,12 +573,16 @@
 					<p class="text-xs font-semibold text-heading">{t('integrationen.wallets.uses')}</p>
 					{#each Object.entries(info.endpoints) as [name, fallback] (name)}
 						<label class="mt-1 flex flex-col gap-0.5 text-xs">
-							<span>{endpointLabel(name)} ({t('integrationen.wallets.customHint')})</span>
+							<span
+								>{alchemyField(name)
+									? t('integrationen.wallets.endpoint.apiOwn')
+									: `${endpointLabel(name)} (${t('integrationen.wallets.customHint')})`}</span
+							>
 							<input
 								class="rounded-md border border-border bg-surface px-2 py-1 font-mono text-heading"
 								value={custom[name] ?? ''}
 								oninput={(e) => (custom = { ...custom, [name]: e.currentTarget.value })}
-								placeholder={fallback}
+								placeholder={alchemyField(name) ? 'https://…' : fallback}
 								data-testid={`wallet-endpoint-${name}`}
 							/>
 						</label>

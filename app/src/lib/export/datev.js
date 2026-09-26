@@ -280,7 +280,11 @@ export function headerLine({ settings, month, created, label }) {
  * @property {string} date YYYY-MM-DD, the booking date
  * @property {string} receiptNumber Belegfeld 1, '' for none
  * @property {string} text Buchungstext
+ * @property {string} [costCentre] KOST1, '' or absent for none
  */
+
+/** The column of KOST1 (Kostenstelle). */
+const KOST1 = COLUMNS.indexOf('KOST1 – Kostenstelle');
 
 /**
  * One booking.
@@ -308,6 +312,7 @@ export function bookingLine(b) {
 		text(b.text, 60) // Buchungstext
 	];
 	while (fields.length < COLUMNS.length) fields.push('');
+	if (b.costCentre) fields[KOST1] = text(b.costCentre, 36);
 	return fields.join(';');
 }
 
