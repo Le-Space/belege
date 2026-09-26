@@ -5,6 +5,7 @@
 //
 //   DATEV/EXTF_Buchungsstapel_<YYYY-MM>.csv
 //   Belege/<receipt number>_<vendor>.pdf
+//   Kontoauszuege/<statement number>_<account>.pdf   one per account (statement.js)
 //   Uebersicht_<YYYY-MM>.csv
 
 import { zipSync, strToU8 } from 'fflate';
@@ -14,6 +15,7 @@ import { receiptVendor } from '../receipts/view.js';
 import { encodeWindows1252 } from './cp1252.js';
 import { buchungsstapel } from './datev.js';
 import { overviewCsv } from './overview.js';
+import { statementPdf } from './statement-pdf.js';
 
 /** @typedef {Record<string, any>} Rec */
 
@@ -61,6 +63,15 @@ export function receiptPath(number, receipt) {
 }
 
 /**
+ * The path of an account's statement in the ZIP.
+ *
+ * @param {import('./statement.js').Statement} statement
+ */
+export function statementPath(statement) {
+	return `Kontoauszuege/${statement.number}_${fileSlug(String(statement.account.name ?? ''))}.pdf`;
+}
+
+/**
  * @param {object} params
  * @param {import('./plan.js').MonthPlan} params.plan
  * @param {import('../booking/settings.js').DatevSettings} params.settings
@@ -86,6 +97,9 @@ export async function buildMonthZip({ plan, settings, accounts, classifications,
 		const number = plan.numbers.get(r.id);
 		if (!number) continue;
 		files[receiptPath(number, r)] = await blobs.get(String(r.fileCid));
+	}
+	for (const s of plan.statements) {
+		files[statementPath(s)] = await statementPdf(s, { created });
 	}
 	files[`Uebersicht_${plan.month}.csv`] = strToU8(overviewCsv(plan, { accounts, classifications }));
 	const zip = zipSync(files, { level: 6, mtime: created });
@@ -130,6 +144,7 @@ export async function runMonthExport({
 		month: plan.month,
 		bookings: plan.lines.length,
 		receipts: plan.receipts.length,
+		statements: plan.statements.length,
 		skipped: plan.transferSides.length
 	});
 	return built;

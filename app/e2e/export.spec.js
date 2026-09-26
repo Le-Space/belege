@@ -282,7 +282,7 @@ test('assign accounts, export a month as DATEV Buchungsstapel with its receipts'
 	await expect(check('missing-receipt')).toHaveAttribute('data-state', 'warning');
 	await expect(check('missing-receipt')).toContainText(CUSTOMER);
 	await expect(page.getByTestId('export-summary')).toHaveText(
-		'5 Buchungen · 4 im Buchungsstapel · 1 Belege im ZIP'
+		'5 Buchungen · 4 im Buchungsstapel · 1 Belege und 2 Kontoauszüge im ZIP'
 	);
 	await page.screenshot({ path: test.info().outputPath('export.png'), fullPage: true });
 	await page.setViewportSize({ width: 375, height: 812 });
@@ -297,14 +297,19 @@ test('assign accounts, export a month as DATEV Buchungsstapel with its receipts'
 	]);
 	expect(download.suggestedFilename()).toBe(`DATEV_${MONTH}.zip`);
 	await expect(page.getByTestId('export-done')).toHaveText(
-		`Heruntergeladen: DATEV_${MONTH}.zip – 4 Buchungen, 1 Belege.`
+		`Heruntergeladen: DATEV_${MONTH}.zip – 4 Buchungen, 1 Belege, 2 Kontoauszüge.`
 	);
 	const zip = unzipSync(new Uint8Array(await readFile(await download.path())));
 	expect(Object.keys(zip).sort()).toEqual([
 		`Belege/${MONTH}-001_Kabelnetz_Beispiel_GmbH.pdf`,
 		`DATEV/EXTF_Buchungsstapel_${MONTH}.csv`,
+		`Kontoauszuege/KA-${MONTH}-1200_Konto_A_Test.pdf`,
+		`Kontoauszuege/KA-${MONTH}-1210_Konto_B_Test.pdf`,
 		`Uebersicht_${MONTH}.csv`
 	]);
+	expect(strFromU8(zip[`Kontoauszuege/KA-${MONTH}-1200_Konto_A_Test.pdf`].slice(0, 5))).toBe(
+		'%PDF-'
+	);
 	expect(strFromU8(zip[`Belege/${MONTH}-001_Kabelnetz_Beispiel_GmbH.pdf`].slice(0, 5))).toBe(
 		'%PDF-'
 	);
@@ -320,9 +325,9 @@ test('assign accounts, export a month as DATEV Buchungsstapel with its receipts'
 	const head = (/** @type {string} */ line) => line.split(';').slice(0, 14).join(';');
 	expect(lines.slice(2, 6).map(head)).toEqual([
 		`39,99;"H";;;;;1200;4925;"9";0109;"${MONTH}-001";;;"${KABEL.vendor}"`,
-		`119,00;"S";;;;;1200;8400;;1509;;;;"${CUSTOMER}"`,
-		'500,00;"H";;;;;1200;1210;;2009;;;;"MUSTER UG"',
-		'9,90;"H";;;;;1200;4970;;3009;;;;"Abschluss per Quartalsende"'
+		`119,00;"S";;;;;1200;8400;;1509;"KA-${MONTH}-1200";;;"${CUSTOMER}"`,
+		`500,00;"H";;;;;1200;1210;;2009;"KA-${MONTH}-1200";;;"MUSTER UG"`,
+		`9,90;"H";;;;;1200;4970;;3009;"KA-${MONTH}-1200";;;"Abschluss per Quartalsende"`
 	]);
 	// Windows-1252: "ö" is one byte, not UTF-8's two.
 	expect(raw.includes(0xf6)).toBe(true);
