@@ -10,6 +10,7 @@ import { createMailClient } from '../src/mail/imap.js';
 import { encodeMailId } from '../src/mail/mime.js';
 import {
 	ACCOUNTING,
+	CRYPTO_PAYMENT,
 	FAKE_IMAP_PASSWORD,
 	RECEIPTS,
 	isoDay,
@@ -33,7 +34,7 @@ describe('mail endpoints', () => {
 	/** @type {string[]} */ const logged = [];
 
 	before(async () => {
-		imap = await startFakeImap({ storage: sampleMailbox({ base: BASE }) });
+		imap = await startFakeImap({ storage: sampleMailbox({ base: BASE, cryptoPayment: true }) });
 		const config = {
 			...defaultConfig(),
 			appOrigins: [APP],
@@ -285,6 +286,32 @@ describe('mail endpoints', () => {
 		);
 		const far = await get(`/mail/search?text=Stromwerk&around=2026-01-15&days=3`);
 		assert.deepEqual(far.json.messages, []);
+	});
+
+	test('search by terms: the hash or quantity of a crypto payment finds its mail; bad terms are refused', async () => {
+		const around = isoDay(new Date(BASE.getTime() - 2 * 864e5));
+		const q = new URLSearchParams({ around, days: '3' });
+		q.append('term', CRYPTO_PAYMENT.hash);
+		q.append('term', CRYPTO_PAYMENT.address);
+		q.append('term', CRYPTO_PAYMENT.quantity);
+		const res = await get(`/mail/search?${q}`);
+		assert.equal(res.status, 200);
+		assert.deepEqual(
+			res.json.messages.map((/** @type {any} */ m) => [m.subject, [...m.matched].sort()]),
+			[
+				[
+					'Your subscription is active',
+					[`"${CRYPTO_PAYMENT.hash}"`, `"${CRYPTO_PAYMENT.quantity}"`].sort()
+				]
+			]
+		);
+		for (const bad of ['ab', 'a"b', 'x y z', 'a'.repeat(101)]) {
+			const r = await get(`/mail/search?term=${encodeURIComponent(bad)}`);
+			assert.equal(r.status, 400, bad);
+		}
+		const seven = new URLSearchParams();
+		for (let i = 0; i < 7; i++) seven.append('term', `term${i}`);
+		assert.equal((await get(`/mail/search?${seven}`)).status, 400);
 	});
 
 	test('nothing about a mail is logged', () => {

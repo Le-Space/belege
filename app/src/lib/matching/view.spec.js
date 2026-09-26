@@ -8,7 +8,10 @@ import {
 	matchOfReceipt,
 	matchesOfTx,
 	otherPayments,
+	cryptoSearchTerms,
+	memoOf,
 	privateSearchQuery,
+	quantitySpellings,
 	questionProgress,
 	rankHits,
 	ownNameCandidate,
@@ -78,13 +81,68 @@ describe('otherPayments', () => {
 	});
 });
 
+describe('private mailbox search for a crypto payment', () => {
+	const HASH = 'AB12'.repeat(16);
+	const VENDOR = 'n1madeupvendor00000000000000000000000zzzz';
+	const payment = tx({
+		source: 'nyx',
+		movement: 'transfer',
+		bookedOn: '2026-03-25',
+		amountCents: -3370,
+		asset: 'NYM',
+		quantity: '-1171288052',
+		decimals: 6,
+		txRef: HASH,
+		counterparty: VENDOR,
+		counterpartyAddress: VENDOR,
+		purpose: 'Gesendet · Memo: order 42 · Tx AB12AB12…AB12'
+	});
+
+	it('spells a quantity as mails write it: exact and to two decimals, point and comma', () => {
+		expect(quantitySpellings('-1171288052', 6)).toEqual([
+			'1171.288052',
+			'1171,288052',
+			'1171.29',
+			'1171,29'
+		]);
+		expect(quantitySpellings('128000000', 6)).toEqual(['128', '128.00', '128,00']);
+		expect(quantitySpellings('5', 6)).toEqual(['0.000005', '0,000005', '0.00', '0,00']);
+		expect(quantitySpellings('x', 6)).toEqual([]);
+	});
+
+	it('searches by hash, address and quantity, ± 3 days, not by our euro valuation', () => {
+		const q = privateSearchQuery(payment);
+		expect(q.terms).toEqual([HASH, VENDOR, '1171.288052', '1171,288052', '1171.29', '1171,29']);
+		expect(q).toMatchObject({ amount: null, around: '2026-03-25', days: 3, from: [] });
+		// No learned vendor: the memo's first telling word.
+		expect(q.text).toBe('order');
+		expect(memoOf(payment)).toBe('order 42');
+		expect(cryptoSearchTerms({ ...payment, txRef: 'a b' })[0]).toBe(VENDOR);
+	});
+
+	it('a vendor learned for the address gives the text and its mail domains', () => {
+		const q = privateSearchQuery(payment, [
+			{ name: 'Beispiel VPN', aliases: [`addr:nyx:${VENDOR}`], senderDomains: ['vpn.example'] }
+		]);
+		expect(q.text).toBe('Beispiel');
+		expect(q.from).toEqual(['vpn.example']);
+	});
+});
+
 describe('private mailbox search', () => {
 	it('asks for the counterparty’s telling word, the amount and ± 14 days', () => {
 		expect(
 			privateSearchQuery(
 				tx({ bookedOn: '2026-08-22', amountCents: -5259, counterparty: 'Stromwerk Test AG' })
 			)
-		).toEqual({ text: 'Stromwerk', amount: '52,59', from: [], around: '2026-08-22', days: 14 });
+		).toEqual({
+			text: 'Stromwerk',
+			amount: '52,59',
+			from: [],
+			terms: [],
+			around: '2026-08-22',
+			days: 14
+		});
 		// A learned partner adds the domains its receipts came from.
 		expect(
 			privateSearchQuery(
