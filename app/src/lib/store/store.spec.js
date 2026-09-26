@@ -170,6 +170,60 @@ describe('store (real OrbitDB + Helia, sealed)', () => {
 		expect(text).not.toContain('Question-Marker-4a7e');
 	});
 
+	it('the index: newest version per id, copies out, and a rebuild for what came from elsewhere', async () => {
+		const db = await orbitdb.open('sealed-index-check', {
+			type: SealedDocuments.type,
+			Database: SealedDocuments({ indexBy: 'id' }),
+			encryption: await payloadEncryption(await deriveDatabaseKey(prfOutput)),
+			...(await memoryStorages())
+		});
+		// Written before the first read, then read: the index is built from the log.
+		await db.put({ id: 'a', n: 1 });
+		await db.put({ id: 'b', n: 1 });
+		await db.put({ id: 'a', n: 2 });
+		expect((await db.get('a'))?.value).toEqual({ id: 'a', n: 2 });
+		expect((await db.all()).map((/** @type {any} */ d) => d.value)).toEqual([
+			{ id: 'b', n: 1 },
+			{ id: 'a', n: 2 }
+		]);
+
+		// Written after: kept up to date without walking the log again.
+		await db.put({ id: 'b', n: 3 });
+		await db.put({ id: 'c', n: 1 });
+		expect((await db.all()).map((/** @type {any} */ d) => [d.key, d.value.n])).toEqual([
+			['a', 2],
+			['b', 3],
+			['c', 1]
+		]);
+		const newestFirst = [];
+		for await (const d of db.iterator({ amount: 2 })) newestFirst.push(d.key);
+		expect(newestFirst).toEqual(['c', 'b']);
+		expect(await db.query((/** @type {any} */ v) => v.n === 1)).toEqual([{ id: 'c', n: 1 }]);
+
+		// Copies: changing what came out changes nothing inside.
+		const got = await db.get('a');
+		got.value.n = 99;
+		(await db.all())[0].value.n = 98;
+		expect((await db.get('a'))?.value.n).toBe(2);
+
+		// A page's $state object is a Proxy: taken as the plain record it stands for.
+		const proxied = new Proxy({ id: 'p', list: [1, 2], nested: { ok: true } }, {});
+		await db.put(proxied);
+		expect((await db.get('p'))?.value).toEqual({ id: 'p', list: [1, 2], nested: { ok: true } });
+		await db.del('p');
+
+		await db.del('c');
+		expect(await db.get('c')).toBeUndefined();
+
+		// An entry that did not come through put (as replication delivers it):
+		// the next read walks the log again and sees it.
+		const entry = await db.log.append({ op: 'PUT', key: 'd', value: { id: 'd', n: 1 } });
+		db.events.emit('update', entry);
+		expect((await db.get('d'))?.value).toEqual({ id: 'd', n: 1 });
+		expect((await db.all()).map((/** @type {any} */ d) => d.key)).toEqual(['a', 'b', 'd']);
+		await db.close();
+	});
+
 	it('guards the upstream bug: stock Documents leaves the same data readable', async () => {
 		// When this starts failing, @orbitdb/core forwards `encryption` for
 		// documents again and sealed-documents.js can go.

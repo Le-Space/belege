@@ -25,6 +25,24 @@ The books per size _n_: _n_ bookings over a year on two accounts, about 0,6 _n_ 
 
 A micro company reaches 1 000 bookings in one to two years.
 
+## After the first fixes of #78
+
+Same books (1 000 bookings), same machine, nothing else running. `app/bench/results/2026-09-26-1000-*.json`.
+
+|                                | baseline | refresh once after a burst | + id index in `SealedDocuments` |
+| ------------------------------ | -------- | -------------------------- | ------------------------------- |
+| **first matching run**         | 18 min   | 3.1 min                    | **24 s**                        |
+| `refresh()`                    | 7.9 s    | 1.4 s                      | **24 ms**                       |
+| update the newest 100 bookings | 14.5 s   | 1.9 s                      | **1.0 s**                       |
+| read the oldest booking        | 1.1 s    | 0.8 s                      | **< 1 ms**                      |
+| update the oldest booking      | 2.4 s    | 1.4 s                      | **10 ms**                       |
+| write 1 000 bookings           | 15 s     | 8.6 s                      | 9.3 s                           |
+| unlock to Home                 | 4.6 s    | 3.5 s                      | 3.0 s                           |
+
+- **Refresh once after a burst:** a write schedules `refresh()` 250 ms after the _last_ write (at the latest every 2 s during a long burst), not 100 ms after the first; nothing during a matching run, which refreshes when it ends; a refresh asked for while one runs runs once more afterwards instead of side by side.
+- **The index:** `SealedDocuments` walks the log once, on the first read, into key → newest version, and keeps that up to date with its own writes; an entry from elsewhere (replication) makes the next read walk again. Reads hand out copies.
+- Still open: writing (about 9 ms a record: sign, encrypt, IndexedDB), the one walk of every log at unlock, and matching (24 s at 1 000 is still all pairs) – the next steps of #78.
+
 ## Why
 
 - `SealedDocuments` has no index: `get` walks back from the heads, `all` walks the whole oplog with every superseded version; each entry is an IndexedDB read, an AES-GCM decrypt and a CBOR decode. The oldest record costs ten times the newest.

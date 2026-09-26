@@ -60,7 +60,35 @@ export function currentBlobs() {
 	return session?.blobs ?? null;
 }
 
-async function refresh() {
+/** @type {Promise<void> | null} the refresh running now */
+let refreshing = null;
+/** Whether something asked for a refresh while one was running. */
+let refreshAgain = false;
+
+/**
+ * Read the lists again. One at a time: asked while one runs, it runs once
+ * more after that one (so a caller that just wrote sees its write), instead
+ * of a second full read side by side.
+ *
+ * @returns {Promise<void>}
+ */
+function refresh() {
+	if (refreshing) {
+		refreshAgain = true;
+		return refreshing;
+	}
+	refreshing = (async () => {
+		do {
+			refreshAgain = false;
+			await readAll();
+		} while (refreshAgain && session);
+	})().finally(() => {
+		refreshing = null;
+	});
+	return refreshing;
+}
+
+async function readAll() {
 	if (!session) return;
 	const [
 		transactions,
@@ -145,15 +173,33 @@ export function runMatchingNow(trigger = 'auto') {
 	return next;
 }
 
+/** Quiet this long after the last write, and the lists are read again. */
+export const REFRESH_QUIET_MS = 250;
+/** A long burst (an import, reading many receipts) still shows progress this often. */
+export const REFRESH_MAX_WAIT_MS = 2000;
+
 /** @type {ReturnType<typeof setTimeout> | null} */
 let refreshTimer = null;
-/** An import writes hundreds of records; the lists are read again once, after the burst. */
+/** When the first write of the current burst came; 0 when none waits. */
+let burstStart = 0;
+/**
+ * An import writes hundreds of records; the lists are read again once the
+ * writes stop (REFRESH_QUIET_MS), and during a long burst at most every
+ * REFRESH_MAX_WAIT_MS – not after every write: each read goes through all
+ * the books (docs/performance.md). A matching run reads them itself when it
+ * ends, so its writes schedule nothing.
+ */
 function scheduleRefresh() {
-	if (refreshTimer) return;
+	if (app.matching) return;
+	const now = Date.now();
+	if (!burstStart) burstStart = now;
+	if (refreshTimer) clearTimeout(refreshTimer);
+	const wait = Math.max(0, Math.min(REFRESH_QUIET_MS, burstStart + REFRESH_MAX_WAIT_MS - now));
 	refreshTimer = setTimeout(() => {
 		refreshTimer = null;
+		burstStart = 0;
 		void refresh();
-	}, 100);
+	}, wait);
 }
 
 /** Read the lists again now (after an import, so its result shows at once). */

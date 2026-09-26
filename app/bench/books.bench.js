@@ -229,11 +229,13 @@ test.afterAll(async () => {
 		memGB: Math.round(totalmem() / 2 ** 30)
 	};
 	const date = new Date().toISOString().slice(0, 10);
+	// What this run measures (BENCH_LABEL, e.g. the change under test): part of the file name.
+	const label = (process.env.BENCH_LABEL ?? '').replace(/[^a-z0-9-]/gi, '').slice(0, 40);
 	await mkdir(new URL('./results/', import.meta.url), { recursive: true });
 	for (const r of results) {
 		await writeFile(
-			new URL(`./results/${date}-${r.size}.json`, import.meta.url),
-			JSON.stringify({ date, machine, ...r }, null, '\t') + '\n'
+			new URL(`./results/${date}-${r.size}${label ? `-${label}` : ''}.json`, import.meta.url),
+			JSON.stringify({ date, ...(label ? { label } : {}), machine, ...r }, null, '\t') + '\n'
 		);
 	}
 	console.table(results);
