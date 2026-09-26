@@ -17,6 +17,7 @@
 // and it keeps `transactions.receiptId` and `receipts.status` in step with
 // the active matches.
 
+import { scamContext, scamSigns } from '../receipts/scam.js';
 import { recordEvent } from '../activity/events.js';
 import { needsConfirmation } from '../receipts/import.js';
 import { getSetting } from '../store/settings.js';
@@ -203,7 +204,20 @@ export async function runMatching({
 	});
 
 	onProgress({ step: 'write' });
+	// A receipt that looks like a scam is not linked on points alone
+	// (receipts/scam.js): its sure pair becomes a question for a person.
+	const scam = scamContext({ partners, transactions: txs, accounts });
+	const sure = [];
 	for (const s of result.sure) {
+		const r = receiptById.get(s.receiptId);
+		if (r && scamSigns(r, scam).suspicious) {
+			result.unsure.push({
+				receiptId: s.receiptId,
+				candidates: [{ transactionId: s.transactionId, score: s.score, reasons: s.reasons }]
+			});
+		} else sure.push(s);
+	}
+	for (const s of sure) {
 		await store.matches.put({
 			transactionId: s.transactionId,
 			receiptId: s.receiptId,
@@ -307,7 +321,7 @@ export async function runMatching({
 	const open = (await store.questions.list({ where: (q) => q.state === 'open' })).length;
 	/** @type {MatchingResult} */
 	const summary = {
-		sure: result.sure.length,
+		sure: sure.length,
 		open,
 		created,
 		resolved,
@@ -328,7 +342,7 @@ export async function runMatching({
 			waiting: summary.waiting,
 			writes,
 			// Which pairs were taken, for the links on the Verlauf page.
-			pairs: result.sure.slice(0, 50).map((p) => ({
+			pairs: sure.slice(0, 50).map((p) => ({
 				receiptId: p.receiptId,
 				transactionId: p.transactionId,
 				score: p.score

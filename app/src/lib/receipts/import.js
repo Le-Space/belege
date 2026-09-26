@@ -289,16 +289,19 @@ export async function importMailMessages({
  * @param {{ mailMessages: (since: string, until: string | null) => Promise<{ messages: any[] }>, mailAttachment: (id: string, part: string) => Promise<Uint8Array> }} params.client
  * @param {string} params.since YYYY-MM-DD
  * @param {string | null} params.until YYYY-MM-DD, exclusive, or open
- * @returns {Promise<{ mails: number, counts: MailCounts }>}
+ * @returns {Promise<{ mails: number, counts: MailCounts, createdIds: string[] }>} `createdIds`: the new receipts, to read them
  */
 export async function fetchAccountingMail({ store, blobs, client, since, until }) {
 	const { messages } = await client.mailMessages(since, until);
+	/** @type {import('../store/repository.js').StoredRecord[]} */
+	const created = [];
 	const counts = await importMailMessages({
 		receipts: store.receipts,
 		blobs,
 		client,
 		messages,
-		events: store.events
+		events: store.events,
+		created
 	});
 	await recordEvent(store.events, 'mail-fetch', {
 		since,
@@ -306,7 +309,7 @@ export async function fetchAccountingMail({ store, blobs, client, since, until }
 		mails: messages.length,
 		...counts
 	});
-	return { mails: messages.length, counts };
+	return { mails: messages.length, counts, createdIds: created.map((r) => r.id) };
 }
 
 /**

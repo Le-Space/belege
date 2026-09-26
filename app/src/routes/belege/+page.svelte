@@ -8,6 +8,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
+	import { scamContext, scamSigns } from '$lib/receipts/scam.js';
 	import MonthPicker from '$lib/MonthPicker.svelte';
 	import AiMark from '$lib/AiMark.svelte';
 	import {
@@ -27,7 +28,7 @@
 		originCounts
 	} from '$lib/receipts/origin.js';
 	import { createBridgeClient } from '$lib/bridge/client.js';
-	import { getSetting } from '$lib/store/settings.js';
+	import { getSetting, setSetting } from '$lib/store/settings.js';
 	import { formatDate, formatMoney } from '$lib/bank/format.js';
 	import { fetchAccountingMail, importFiles, needsConfirmation } from '$lib/receipts/import.js';
 	import { extractable } from '$lib/receipts/extract.js';
@@ -41,6 +42,7 @@
 	import { extractionHow } from '$lib/receipts/how.js';
 	import {
 		confirmSender as confirmSenderAction,
+		clearScam as clearScamAction,
 		restoreReceipt,
 		setAsideReceipt
 	} from '$lib/matching/actions.js';
@@ -89,6 +91,8 @@
 	let monthFrom = $state(months.from);
 	let monthTo = $state(months.to);
 	let fetching = $state(false);
+	/** Read new mail receipts right after a fetch (settings key `mailFetch`); on by default. */
+	let readAfterFetch = $state(true);
 	/** @type {string | null} */
 	let fetchResult = $state(null);
 	/** @type {string | null} */
@@ -175,6 +179,13 @@
 	);
 	let todo = $derived(extractable(receipts));
 	let selectedMatch = $derived(selected ? matchOfReceipt(selected.id, app.matches) : null);
+	// Signs of a scam (receipts/scam.js), from what the books know of each vendor.
+	let scamCtx = $derived(
+		scamContext({ partners: app.partners, transactions: app.transactions, accounts: app.accounts })
+	);
+	/** @param {Receipt} r */
+	const scamOf = (r) => scamSigns(r, scamCtx);
+	let selectedScam = $derived(selected ? scamOf(selected) : null);
 	let selectedTx = $derived(
 		selectedMatch
 			? (app.transactions.find((x) => x.id === selectedMatch.transactionId) ?? null)
@@ -206,6 +217,7 @@
 		const wanted = page.url.searchParams.get('receipt');
 		if (wanted) selectedId = wanted;
 		folderHandle = await savedFolder();
+		readAfterFetch = (await getSetting(store.settings, 'mailFetch'))?.readAfterFetch !== false;
 		const saved = await getSetting(store.settings, 'bridge');
 		if (!saved?.token) return;
 		const c = createBridgeClient({ url: saved.url, token: saved.token });
@@ -242,16 +254,29 @@
 	/** @param {unknown} error */
 	const message = (error) => (error instanceof Error ? error.message : String(error));
 
+	/** @param {boolean} on */
+	async function setReadAfterFetch(on) {
+		readAfterFetch = on;
+		const store = currentStore();
+		if (store) await setSetting(store.settings, 'mailFetch', { readAfterFetch: on });
+	}
+
 	async function fetchMail() {
 		const store = currentStore();
 		const blobs = currentBlobs();
 		if (!store || !blobs || !client) return;
+		/** @type {string[]} */
+		let toRead = [];
 		fetching = true;
 		fetchError = null;
 		fetchResult = null;
 		try {
 			const { since, until } = mailWindow(monthFrom, monthTo);
-			const { mails, counts: c } = await fetchAccountingMail({
+			const {
+				mails,
+				counts: c,
+				createdIds
+			} = await fetchAccountingMail({
 				store,
 				blobs,
 				client,
@@ -266,12 +291,19 @@
 					duplicate: c.duplicate
 				}) + (c.verdicts ? t('belege.mailVerdicts', { count: c.verdicts }) : '');
 			await refreshNow();
+			toRead = createdIds;
 		} catch (error) {
 			fetchError = message(error);
 		} finally {
 			fetching = false;
 		}
-		if (fetchResult) await runMatchingNow();
+		if (!fetchResult) return;
+		// Read the new receipts right away (switchable): through the app-wide
+		// queue, so it shows on the Belege tab and can be cancelled; the
+		// matching run comes after, with their amounts and vendors.
+		const ctx = queueContext();
+		if (readAfterFetch && ctx && toRead.length) await extractAll(ctx, toRead);
+		await runMatchingNow();
 	}
 
 	/** @param {{ name: string, path?: string, bytes: () => Promise<Uint8Array> }[]} files @param {'upload' | 'folder'} kind */
@@ -363,6 +395,15 @@
 			)
 		)
 			await runMatchingNow();
+	}
+
+	/** @param {Receipt} record */
+	async function clearScam(record) {
+		const store = currentStore();
+		if (!store) return;
+		await clearScamAction(store, record.id);
+		await refreshNow();
+		await runMatchingNow();
 	}
 
 	/** @param {Receipt} record */
@@ -603,6 +644,15 @@
 					>{fetching ? t('belege.mailFetching') : t('belege.mailFetch')}</button
 				>
 			</div>
+			<label class="mt-2 flex items-center gap-2 text-sm text-text">
+				<input
+					type="checkbox"
+					checked={readAfterFetch}
+					onchange={(e) => setReadAfterFetch(e.currentTarget.checked)}
+					data-testid="mail-read-after"
+				/>
+				<span class="inline-flex items-center gap-1"><AiMark />{t('belege.mailReadAfter')}</span>
+			</label>
 			{#if fetchResult}
 				<p class="mt-2 text-sm text-heading" role="status" data-testid="mail-result">
 					{fetchResult}
@@ -755,6 +805,12 @@
 													]}"
 													data-testid="receipt-status">{t(`belege.status.${statusKey(r)}`)}</span
 												>
+												{#if scamOf(r).suspicious}
+													<span
+														class="rounded border border-red-300 bg-red-50 px-1.5 py-0.5 text-xs font-medium text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+														data-testid="receipt-scam">{t('belege.scam.badge')}</span
+													>
+												{/if}
 												{#if matchOrigin(matchOf(r.id))}
 													{@const o = matchOrigin(matchOf(r.id))}
 													<span
@@ -832,6 +888,32 @@
 							{selected.fileName ?? t('belege.textMail')}
 						</p>
 
+						{#if selectedScam?.suspicious}
+							<div
+								class="mt-3 rounded-md border border-l-4 border-red-300 border-l-red-700 bg-red-50 px-3 py-2 text-sm dark:border-red-900 dark:border-l-red-400 dark:bg-red-950/40"
+								role="alert"
+								data-testid="scam-warning"
+							>
+								<p class="font-semibold text-red-800 dark:text-red-300">
+									{t('belege.scam.title')}
+								</p>
+								<p class="mt-1 text-text">{t('belege.scam.intro')}</p>
+								<ul class="mt-1 list-disc pl-5 text-text" data-testid="scam-signs">
+									{#each selectedScam.signs as sign (sign.code)}
+										<li data-code={sign.code}>
+											{t(`belege.scam.sign.${sign.code}`, { detail: sign.detail })}
+										</li>
+									{/each}
+								</ul>
+								<button
+									type="button"
+									class="mt-2 {button}"
+									onclick={() => selected && clearScam(selected)}
+									data-testid="scam-ok">{t('belege.scam.ok')}</button
+								>
+								<p class="mt-1 text-xs text-faint">{t('belege.scam.okHint')}</p>
+							</div>
+						{/if}
 						{#if needsConfirmation(selected)}
 							<div
 								class="mt-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-heading"
