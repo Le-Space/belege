@@ -14,6 +14,12 @@
 import { recordEvent } from '../activity/events.js';
 import { fingerprint as computeFingerprint, ibanKey } from './fingerprint.js';
 
+/** An ISO 8601 time with its offset, as `bookedAt` keeps it. @param {unknown} v */
+export const isIsoTime = (v) =>
+	typeof v === 'string' &&
+	/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/.test(v) &&
+	Number.isFinite(Date.parse(v));
+
 /** The fields an import owns. Anything else on a record (a receipt link) stays. */
 const FIELDS = /** @type {const} */ ([
 	'accountId',
@@ -22,6 +28,7 @@ const FIELDS = /** @type {const} */ ([
 	'fingerprint',
 	'fingerprintSeq',
 	'bookedOn',
+	'bookedAt',
 	'valueDate',
 	'amountCents',
 	'currency',
@@ -52,6 +59,7 @@ const FIELDS = /** @type {const} */ ([
  * @property {string | null} date
  * @property {string | null} [valueDate]
  * @property {number} amountCents
+ * @property {string} [bookedAt] ISO 8601 with offset: the time, where the source knows it
  * @property {string} [currency]
  * @property {string} [counterpartyName]
  * @property {string} [counterpartyIban]
@@ -159,6 +167,7 @@ export async function importTransactions({ transactions, account, incoming }) {
 			fingerprint: fp,
 			fingerprintSeq: seq,
 			bookedOn: tx.date,
+			...(isIsoTime(tx.bookedAt) ? { bookedAt: tx.bookedAt } : {}),
 			valueDate: tx.valueDate || tx.date,
 			amountCents: tx.amountCents,
 			currency: tx.currency || 'EUR',

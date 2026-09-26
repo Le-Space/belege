@@ -22,12 +22,13 @@ describe('CAMT.053, Revolut-style (camt.053.001.08)', () => {
 		});
 	});
 
-	it('reads booked entries only, with Pty-nested names and DtTm dates', () => {
+	it('reads booked entries only, with Pty-nested names and DtTm dates (and the time)', () => {
 		expect(statement.skipped).toBe(1);
 		expect(statement.transactions).toEqual([
 			{
 				sourceId: 'rev-tx-0001',
 				date: '2026-09-18',
+				bookedAt: '2026-09-18T10:21:07Z',
 				valueDate: '2026-09-18',
 				amountCents: -1999,
 				currency: 'EUR',

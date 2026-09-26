@@ -22,6 +22,7 @@
  * @typedef {object} CamtTransaction
  * @property {string | null} sourceId
  * @property {string} date YYYY-MM-DD
+ * @property {string} [bookedAt] ISO 8601 with offset, when the bank gives the time (BookgDt/DtTm)
  * @property {string} valueDate
  * @property {number} amountCents
  * @property {string} currency
@@ -92,6 +93,18 @@ function dateOf(dateEl) {
 	return m ? m[1] : '';
 }
 
+/**
+ * The booking time, when the bank gives one with its offset: `DtTm`
+ * (Revolut, for card payments to the second). A time without an offset says
+ * nothing sure and is left out.
+ *
+ * @param {Element | null} dateEl BookgDt
+ */
+function timeOf(dateEl) {
+	const s = text(dateEl, 'DtTm');
+	return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/.test(s) ? s : '';
+}
+
 /** A party's name: `Cdtr/Nm` (.02) or `Cdtr/Pty/Nm` (.08). */
 function partyName(/** @type {Element | null} */ party) {
 	return text(party, 'Nm') || text(party, 'Pty', 'Nm');
@@ -136,6 +149,7 @@ export function parseCamt053(xml, { DOMParser: Parser = globalThis.DOMParser } =
 			const entryAmt = child(ntry, 'Amt');
 			const entrySign = text(ntry, 'CdtDbtInd') === 'DBIT' ? -1 : 1;
 			const date = dateOf(child(ntry, 'BookgDt'));
+			const bookedAt = timeOf(child(ntry, 'BookgDt'));
 			const valueDate = dateOf(child(ntry, 'ValDt')) || date;
 			const bookingType = text(ntry, 'AddtlNtryInf') || text(ntry, 'BkTxCd', 'Prtry', 'Cd');
 			const bankCode = [
@@ -168,6 +182,7 @@ export function parseCamt053(xml, { DOMParser: Parser = globalThis.DOMParser } =
 					sourceId:
 						ref || (entryRef ? (txs.length > 1 ? `${entryRef}/${index + 1}` : entryRef) : null),
 					date,
+					...(bookedAt ? { bookedAt } : {}),
 					valueDate,
 					amountCents: sign * camtAmountCents(amtEl.textContent ?? ''),
 					currency: amtEl.getAttribute('Ccy') || currency,

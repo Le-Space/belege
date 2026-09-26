@@ -8,6 +8,7 @@
 	import {
 		accountLabel,
 		displayPurpose,
+		formatBookingTime,
 		formatTxAmount,
 		groupByDay,
 		matchesSearch,
@@ -18,6 +19,7 @@
 	import { graceWait, localDay } from '$lib/matching/grace.js';
 	import { isBookingConfirmed } from '$lib/booking/suggest.js';
 	import { isWalletSource } from '$lib/wallets/chains.js';
+	import { tradeArrow, tradeSides, tradeSideWhat } from '$lib/exchanges/trades.js';
 
 	/** @typedef {{ id: string, bookedOn: string, counterparty?: string, purpose?: string, amountCents?: number, currency?: string, accountId?: string, source?: string, receiptId?: string | null, noReceipt?: any, booking?: any }} Tx */
 
@@ -30,6 +32,8 @@
 
 	let transactions = $derived(/** @type {Tx[]} */ (/** @type {unknown} */ (app.transactions)));
 	let accountsById = $derived(new Map(app.accounts.map((a) => [a.id, a])));
+	// Each exchange trade leg's other leg: "Tausch → 128 USDC".
+	let sides = $derived(tradeSides(transactions));
 
 	/** Account and search, but not the receipt filter: its buttons count both ways. */
 	let searched = $derived(
@@ -260,11 +264,25 @@
 										<span class="block truncate font-medium text-heading"
 											>{tx.counterparty || '—'}</span
 										>
-										{#if tx.purpose}<span
+										{#if tx.purpose || formatBookingTime(tx)}<span
 												class="block truncate text-sm text-faint"
 												title={tx.purpose}
-												data-testid="purpose">{displayPurpose(tx.purpose)}</span
+												data-testid="purpose"
+												>{#if formatBookingTime(tx)}<span
+														class="tabular-nums"
+														data-testid="booking-time">{formatBookingTime(tx)}</span
+													>{#if tx.purpose}&nbsp;·&#32;{/if}{/if}{displayPurpose(
+													tx.purpose ?? ''
+												)}</span
 											>{/if}
+										{#if sides.get(tx.id)}
+											<span class="block truncate text-sm text-text" data-testid="trade-side"
+												>{t('zahlungen.trade', {
+													arrow: tradeArrow(tx),
+													what: tradeSideWhat(sides.get(tx.id) ?? {})
+												})}</span
+											>
+										{/if}
 										{#if !isBookingConfirmed(tx)}
 											<span
 												class="mt-1 mr-1 inline-block rounded border border-coral-700/40 px-1.5 py-0.5 text-xs text-coral-800 dark:border-coral/40 dark:text-coral"

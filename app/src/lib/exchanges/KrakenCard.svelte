@@ -131,6 +131,11 @@
 			<p class="mt-3 text-sm text-heading" role="status" data-testid="kraken-result">
 				{t('integrationen.counts', result.totals)}
 			</p>
+			{#if result.transferRefs === 'refused'}
+				<p class="mt-2 text-sm text-danger" role="alert" data-testid="kraken-no-hashes">
+					{t('integrationen.kraken.noHashes')}
+				</p>
+			{/if}
 			{#if result.unpriced.length}
 				<div class="mt-2 text-sm text-danger" role="alert" data-testid="kraken-unpriced">
 					{t('integrationen.kraken.unpriced', { count: result.unpriced.length })}

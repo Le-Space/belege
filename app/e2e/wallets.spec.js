@@ -34,8 +34,10 @@ const B = fakeCosmosAddress('second own wallet');
 const tail = (/** @type {string} */ a) => a.slice(-6);
 
 // Two days ago and yesterday, whenever this runs: inside every default view.
+// Fixed once, as a real block's time is: a second sync must see the same time.
+const STARTED = Date.now();
 const time = (/** @type {number} */ height) =>
-	new Date(Date.now() - (height === 1000 ? 2 : 1) * 864e5).toISOString();
+	new Date(STARTED - (height === 1000 ? 2 : 1) * 864e5).toISOString();
 
 function history() {
 	return [

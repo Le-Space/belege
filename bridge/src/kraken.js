@@ -15,7 +15,8 @@
 // reports in DepositStatus / WithdrawStatus under the same refid – the
 // on-chain transaction hash for crypto, the bank's reference for euros. That
 // lets the app pair a withdrawal with the wallet that received it. If the key
-// may not read those lists, entries simply have none.
+// may not read those lists (Funds → Query), entries have none, and the
+// ledger says so (`transferRefs: 'refused'`, with Kraken's error code).
 //
 // What leaves this module is normalised: Kraken's asset codes (`XXBT`,
 // `ZEUR`, `DOT.S`) become a symbol (`BTC`, `EUR`, `DOT`) and a wallet
@@ -234,15 +235,18 @@ export function createKrakenClient({
 	}
 
 	/**
-	 * refid → txid of deposits and withdrawals since `start`, paged by cursor.
-	 * Empty when the key may not read them.
+	 * refid → txid of deposits and withdrawals since `start`, paged by cursor,
+	 * and whether Kraken gave them: `refused` with its error (no values in it)
+	 * when a list was refused, e.g. for a key without Funds → Query.
 	 *
 	 * @param {string} start unix seconds
-	 * @returns {Promise<Map<string, string>>}
+	 * @returns {Promise<{ refs: Map<string, string>, status: 'ok' | 'refused', reason: string }>}
 	 */
 	async function transferRefs(start) {
 		/** @type {Map<string, string>} */
 		const refs = new Map();
+		let status = /** @type {'ok' | 'refused'} */ ('ok');
+		let reason = '';
 		for (const method of ['DepositStatus', 'WithdrawStatus']) {
 			/** @type {string | boolean} */
 			let cursor = true;
@@ -253,7 +257,11 @@ export function createKrakenClient({
 				try {
 					result = await privateCall(method, { start, cursor: String(cursor) });
 				} catch (error) {
-					if (error instanceof KrakenError && error.code !== 'KRAKEN_RATE_LIMIT') break;
+					if (error instanceof KrakenError && error.code !== 'KRAKEN_RATE_LIMIT') {
+						status = 'refused';
+						reason ||= `${method}: ${error.message}`.slice(0, 160);
+						break;
+					}
 					throw error;
 				}
 				const list = Array.isArray(result)
@@ -265,7 +273,7 @@ export function createKrakenClient({
 				cursor = Array.isArray(result) ? false : (result?.next_cursor ?? false);
 			}
 		}
-		return refs;
+		return { refs, status, reason };
 	}
 
 	return {
@@ -289,7 +297,8 @@ export function createKrakenClient({
 		 * The ledger from the start of `since` (UTC) until now, oldest first.
 		 *
 		 * @param {string} since YYYY-MM-DD
-		 * @returns {Promise<LedgerEntry[]>}
+		 * @returns {Promise<{ entries: LedgerEntry[], transferRefs: 'ok' | 'refused', transferRefsReason: string }>}
+		 *   `transferRefs`: whether Kraken gave the on-chain hashes of deposits and withdrawals
 		 */
 		async ledgers(since) {
 			const known = await assets();
@@ -309,14 +318,15 @@ export function createKrakenClient({
 				if (!batch.length || ofs >= count) break;
 				if (page >= 1000) throw new KrakenError('Kraken ledger does not end', 'KRAKEN_ERROR');
 			}
-			const refs = await transferRefs(String(Number(start) - 7 * 86400));
+			const { refs, status, reason } = await transferRefs(String(Number(start) - 7 * 86400));
 			for (const e of entries.values()) {
 				if (e.type === 'deposit' || e.type === 'withdrawal')
 					e.transferRef = refs.get(e.refid) ?? '';
 			}
-			return [...entries.values()].sort((a, b) =>
+			const sorted = [...entries.values()].sort((a, b) =>
 				a.time === b.time ? (a.id < b.id ? -1 : 1) : a.time < b.time ? -1 : 1
 			);
+			return { entries: sorted, transferRefs: status, transferRefsReason: reason };
 		}
 	};
 }
