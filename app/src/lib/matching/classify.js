@@ -19,11 +19,15 @@
 // is an own transfer; the two legs of one transaction between our wallets
 // share the hash as `txRef`. Tokens delegated to staking (movement `stake`)
 // stay ours: no receipt, a kind of their own (`crypto-stake`), not 1360.
+// Dust – an incoming transfer worth less than a cent – needs no receipt
+// (`crypto-dust`); when its sender's address looks like one the person deals
+// with, it is likely address poisoning, and the classification names that one.
 // (docs/phase-0.md, "Matching"; docs/crypto.md, "Own wallets").
 
 import { counterpartyKey } from './partners.js';
 import { compactIban, normalizeRef } from './normalize.js';
 import { normalizeAddress, walletChain } from '../wallets/chains.js';
+import { isDust } from './dust.js';
 
 /** Legal forms dropped before two company names are compared. */
 const LEGAL_FORMS = new Set([
@@ -189,11 +193,13 @@ export function feeKey(tx) {
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [sameReference] bookings on our other accounts with the same reference or transaction hash, the other way (context.js)
  * @property {Set<string>} [notTransfers] pairs a person said are no transfer (transferPairKey)
  * @property {Map<string, Map<string, string>>} [ownAddresses] `<chain>:<address>` (normalised) of our own wallets → their accounts by asset ('' = the first)
+ * @property {(tx: Record<string, any>) => string | null} [lookalikeOf] a known address the booking's other side looks like, but is not
  */
 
 /**
  * @typedef {object} Classification
- * @property {'rule-ignore' | 'rule-private' | 'bank-fee' | 'own-transfer' | 'loan' | 'crypto-reward' | 'crypto-stake'} kind
+ * @property {'rule-ignore' | 'rule-private' | 'bank-fee' | 'own-transfer' | 'loan' | 'crypto-reward' | 'crypto-stake' | 'crypto-dust'} kind
+ *   `crypto-dust`: an incoming wallet transfer worth less than a cent
  *   `crypto-stake`: tokens delegated to staking (or back); no receipt, and not
  *   on 1360: the return at the end of an unbonding is no transaction, so a
  *   transit account would never balance
@@ -204,6 +210,7 @@ export function feeKey(tx) {
  * @property {string} [ruleContains] the rule's text
  * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee'} [via] how an own transfer or a bank fee was recognised
  * @property {string} [address] our own wallet's address, for via 'own-address'
+ * @property {string} [lookalike] for dust: the known address its sender's looks like
  * @property {string} [counterBookingId] the other side of a transfer, for via 'counter-booking'
  * @property {string} [counterAccountId]
  * @property {string} [counterDay] YYYY-MM-DD
@@ -363,6 +370,10 @@ export function classifyTransaction(tx, ctx) {
 			address,
 			counterAccountId: ownAccount
 		};
+	}
+	if (isDust(tx)) {
+		const lookalike = ctx.lookalikeOf?.(tx);
+		return { kind: 'crypto-dust', ...(lookalike ? { lookalike } : {}) };
 	}
 	const counter = (ctx.counterBookings?.(tx) ?? []).filter(unpaired);
 	const signed = counter

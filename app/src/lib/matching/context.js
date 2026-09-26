@@ -11,6 +11,7 @@ import { cleanMatchingSettings } from './classify.js';
 import { compactIban, dayNumber } from './normalize.js';
 import { learnedVendors } from './partners.js';
 import { normalizeAddress, walletChain } from '../wallets/chains.js';
+import { LOOKALIKE_CHARS, addressBody, isDust, looksAlike } from './dust.js';
 
 /** A transfer between our accounts lands within this many days on the other side. */
 export const MIRROR_DAYS = 4;
@@ -37,6 +38,14 @@ export const normalizeTxRef = (ref) =>
 export function txRefsOf(tx) {
 	return [tx.txRef, tx.chainTxRef].map(normalizeTxRef).filter((r) => r.length >= 4);
 }
+
+/**
+ * Where addresses are compared: every EVM chain shares its addresses, a
+ * bech32 chain has its own prefix.
+ *
+ * @param {import('../wallets/chains.js').WalletChain} chain
+ */
+const addressFamily = (chain) => (chain.kind === 'evm' ? 'evm' : chain.id);
 
 /**
  * @param {object} params
@@ -82,6 +91,32 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 		if (!byAsset.has('')) byAsset.set('', a.id);
 		if (a.asset && !byAsset.has(String(a.asset))) byAsset.set(String(a.asset), a.id);
 		ownAddresses.set(key, byAsset);
+	}
+
+	// Addresses the person really deals with, by their ends, to spot a lookalike:
+	// own wallets, and the other side of every wallet booking that is not dust.
+	/** @type {Map<string, Set<string>>} `<family>:<first>…<last>` → addresses */
+	const knownByEnds = new Map();
+	const n = LOOKALIKE_CHARS;
+	/** @param {import('../wallets/chains.js').WalletChain} chain @param {string} address */
+	const know = (chain, address) => {
+		const a = normalizeAddress(chain, address);
+		const body = addressBody(a);
+		if (body.length <= 2 * n) return;
+		const key = `${addressFamily(chain)}:${body.slice(0, n)}…${body.slice(-n)}`;
+		knownByEnds.set(key, (knownByEnds.get(key) ?? new Set()).add(a));
+	};
+	for (const a of accounts) {
+		const chain = walletChain(a.source);
+		if (chain && !a.deleted && typeof a.walletAddress === 'string' && a.walletAddress) {
+			know(chain, a.walletAddress);
+		}
+	}
+	for (const tx of transactions) {
+		const chain = walletChain(tx.source);
+		if (chain && !tx.deleted && tx.counterpartyAddress && !isDust(tx)) {
+			know(chain, String(tx.counterpartyAddress));
+		}
 	}
 
 	/** @type {Map<string, string[]>} */
@@ -154,6 +189,15 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 		ownIbans,
 		ownLast4,
 		ownAddresses,
+		lookalikeOf(tx) {
+			const chain = walletChain(tx.source);
+			if (!chain || !tx.counterpartyAddress) return null;
+			const a = normalizeAddress(chain, String(tx.counterpartyAddress));
+			const body = addressBody(a);
+			const key = `${addressFamily(chain)}:${body.slice(0, n)}…${body.slice(-n)}`;
+			for (const known of knownByEnds.get(key) ?? []) if (looksAlike(a, known)) return known;
+			return null;
+		},
 		rules: clean.rules,
 		graceDays: clean.graceDays,
 		feeKeys: new Set(clean.feeKeys),

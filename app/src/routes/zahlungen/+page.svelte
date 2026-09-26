@@ -8,7 +8,7 @@
 	import {
 		accountLabel,
 		displayPurpose,
-		formatMoney,
+		formatTxAmount,
 		groupByDay,
 		matchesSearch,
 		monthSummaries
@@ -89,6 +89,7 @@
 		loan: 'border-border bg-surface-2 text-text',
 		'crypto-reward': 'border-border bg-surface-2 text-text',
 		'crypto-stake': 'border-border bg-surface-2 text-text',
+		'crypto-dust': 'border-border bg-surface-2 text-faint',
 		'rule-ignore': 'border-border bg-surface-2 text-faint',
 		'rule-private': 'border-border bg-surface-2 text-faint'
 	};
@@ -304,7 +305,7 @@
 												: 'text-heading'}"
 										data-testid="amount"
 									>
-										{formatMoney(tx.amountCents ?? 0, tx.currency)}
+										{formatTxAmount(tx)}
 									</span>
 								</button>
 							</li>

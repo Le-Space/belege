@@ -199,6 +199,10 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 			return t('explain.rule.loan');
 		case 'crypto-stake':
 			return t('explain.rule.staking');
+		case 'crypto-dust':
+			return c.lookalike
+				? t('explain.rule.dustLookalike', { known: c.lookalike })
+				: t('explain.rule.dust');
 		case 'crypto-reward':
 			return t('explain.rule.cryptoReward');
 		case 'rule-ignore':
