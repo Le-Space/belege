@@ -247,7 +247,7 @@ export default {
 			collaborationText:
 				'Gemeinsame Bücher mit Kolleginnen, Kollegen oder der Steuerberatung, Chat und später Video. Das kommt später und wird dann hier ausdrücklich eingeschaltet – nicht vorher und nicht von selbst.',
 			technical: [
-				'Im Browser läuft ein libp2p-Knoten, weil OrbitDB einen braucht – ohne Transporte, ohne Bootstrap-Liste und ohne Peer-Discovery. Er kann niemanden anwählen und hört auf keiner Adresse.',
+				'Im Browser läuft ein libp2p-Knoten, weil OrbitDB einen braucht – ohne Transporte, ohne Bootstrap-Liste und ohne Peer-Discovery. Er kann niemanden anwählen und hört auf keiner Adresse. Nur wenn du Belege mit deiner Rechnungs-App koppelst, kommt ein zweiter, eigener Knoten dazu, der sich mit einem Relay verbindet (siehe „Rechnungs-App“ unten); an deine Bücher kommt er nicht.',
 				'Sein Peer-Schlüssel (Ed25519) entsteht in jeder Sitzung neu und wird nirgends gespeichert.',
 				'Die Seite lädt keine Schriften, Skripte oder Bilder von Dritten.'
 			]
@@ -324,6 +324,14 @@ export default {
 					'Die Adresse der Wallet und die IP-Adresse dieses Macs – an den Betreiber des Knotens: voreingestellt Nym (rpc.nymtech.net) für Nyx, Polkachu für Akash, Blockscout für Ethereum, Base, Arbitrum, Optimism und Polygon – oder Alchemy, wenn du einen Alchemy-API-Schlüssel eingerichtet hast –, oder den Knoten, den du selbst einträgst. Er kann daraus ablesen, dass diese Adresse zu dir gehört; Alchemy ordnet die Abfragen zudem deinem Alchemy-Konto zu. Bei Bitcoin fragt die Bridge mempool.space (oder deinen eigenen Esplora-Server) nach jeder Adresse, die sie aus deinem Kontoschlüssel ableitet, kurz nacheinander von derselben IP: Der Betreiber kann daraus schließen, dass alle diese Adressen zusammengehören.',
 				technical:
 					'Gefragt wird per HTTPS: bei Cosmos-Chains die CometBFT-RPC (tx_search nach transfer.sender und transfer.recipient, header, status) und die REST-API (Bestand), bei EVM-Chains die Etherscan-kompatible API von Blockscout (txlist, txlistinternal, tokentx, balance) oder, mit Schlüssel, Alchemy (alchemy_getAssetTransfers, Quittungen, Nonce, Bestand; interne Transaktionen auf Arbitrum und Optimism weiter bei Blockscout). Der Alchemy-Schlüssel liegt im macOS-Schlüsselbund der Bridge (pnpm setup:alchemy) und steht nur in der Adresse der Anfragen an Alchemy – nie im Browser, nie im Protokoll. Die App schickt die Adresse im Rumpf einer Anfrage an die Bridge, nie in einer URL (an Blockscout geht sie, wie dessen API es verlangt, in der Abfrage-URL); das Protokoll der Bridge nennt nur Zahlen. Kein Schlüssel, keine Signatur: die Adresse ist öffentlich, die Liste deiner Wallets liegt verschlüsselt in deinen Büchern, nicht in der Bridge. Gebucht werden nur Assets aus der Liste der Chain (NYM, NYX, AKT, ETH, POL, USDC mit geprüftem Vertrag); andere Token werden gezählt und ausgelassen. Bei Bitcoin liegt der Kontoschlüssel (xpub, ypub oder zpub) nur im macOS-Schlüsselbund der Bridge; die Bridge leitet daraus die Adressen ab (bis 20 unbenutzte in Folge) und fragt deren bestätigte Transaktionen ab (Esplora-API: address, address/txs/chain). Die App kennt nur einen Fingerabdruck des Schlüssels. Links zum Block-Explorer öffnen erst, wenn du sie anklickst.'
+			},
+			ucep: {
+				name: 'Rechnungs-App (UCEP über ein Relay)',
+				text: 'Nur wenn du Belege unter Integrationen mit deiner Rechnungs-App koppelst: Belege verbindet sich über ein Relay mit ihr, um für eine Zahlung ohne Beleg einen Eigenbeleg erstellen zu lassen.',
+				leaves:
+					'Die IP-Adresse dieses Geräts und die Peer-ID von Belege – an den Betreiber des Relays (voreingestellt das Le-Space-Relay). Für einen Eigenbeleg die Angaben dieser einen Zahlung (Datum, Betrag, Beschreibung, Grund, bei Krypto Menge, Kurs und Hash) – an deine Rechnungs-App, sonst niemanden.',
+				technical:
+					'libp2p mit WebSocket zum Relay (Circuit Relay v2) und WebRTC für die direkte Verbindung; Noise verschlüsselt jede Verbindung Ende zu Ende, das Relay sieht nur Chiffretext. Die Peer-ID kommt aus einem Schlüssel, der aus deinem Passkey abgeleitet und nie gespeichert wird. Die Kopplung (UCEP, Le-Space/ucep-spec) gibt Belege nur die Rechte „Eigenbelege erstellen“ und „eigene Dokumente lesen“. Ohne Kopplung baut Belege keine Verbindung auf.'
 			}
 		},
 		status: {
@@ -1101,6 +1109,10 @@ export default {
 				create: 'Eigenbeleg erstellen und zuordnen',
 				creating: 'Erstelle …',
 				cancel: 'Abbrechen',
+				createRemote: 'Über die Rechnungs-App erstellen',
+				creatingRemote: 'Die Rechnungs-App erstellt ihn …',
+				doneRemote:
+					'Die Rechnungs-App hat den Eigenbeleg {number} erstellt; er ist dieser Zahlung zugeordnet.',
 				done: 'Eigenbeleg {number} erstellt und dieser Zahlung zugeordnet.'
 			},
 			exchangeType: 'Art bei der Börse',
@@ -1247,6 +1259,25 @@ export default {
 		}
 	},
 	integrationen: {
+		invoiceApp: {
+			title: 'Rechnungs-App',
+			intro:
+				'Koppel Belege mit deiner Rechnungs-App (Le Space Rechnungen). Dann kann sie für eine Zahlung ohne Beleg einen Eigenbeleg erstellen – mit ihrem Nummernkreis und deinem Firmenkopf –, und Belege ordnet ihn der Zahlung zu. Die Verbindung läuft über ein Relay und ist Ende zu Ende verschlüsselt; es gehen nur die Angaben dieser einen Zahlung hinüber.',
+			start: 'Verbindung aufbauen',
+			offHint:
+				'Erst wenn du hier klickst, verbindet sich Belege mit dem Relay; danach nur, solange eine Rechnungs-App gekoppelt ist.',
+			starting: 'Verbindung wird aufgebaut …',
+			failed: 'Die Verbindung konnte nicht aufgebaut werden:',
+			invitation: 'Einladungslink aus der Rechnungs-App (Verbindungen → Einladung)',
+			pair: 'Mit Einladung verbinden',
+			peerId: 'Oder: Peer-ID der Rechnungs-App (Verbindungen → Diese App)',
+			pairByCode: 'Per Code verbinden',
+			showCode: 'Tippe diesen Code in der Rechnungs-App ein und stimme dort zu:',
+			busy: 'Verbinde …',
+			paired: 'Gekoppelt seit {since}.',
+			unpair: 'Entkoppeln',
+			ownPeerId: 'Peer-ID von Belege:'
+		},
 		title: 'Integrationen',
 		bridge: {
 			title: 'Bridge',

@@ -25,7 +25,7 @@ import {
 import * as dagCbor from '@ipld/dag-cbor';
 
 import { createEphemeralPeerKey, createOfflineLibp2p } from './network.js';
-import { deriveBlobKey, deriveDatabaseKey } from './database-keys.js';
+import { deriveBlobKey, deriveDatabaseKey, derivePeerKeySeed } from './database-keys.js';
 import { readPrfOutput } from './passkey-identity.js';
 import { createSessionIdentities, forgetLegacyKeystore } from './session-identities.js';
 import { openStore } from './store/repository.js';
@@ -48,6 +48,7 @@ export const STORAGE_PATHS = Object.freeze({
  * @property {import('./receipts/blob-store.js').BlobStore} blobs receipt files, sealed with the blob key
  * @property {string} identityHash the identity document's hash
  * @property {string} peerId this session's libp2p peer id
+ * @property {Uint8Array} ucepSeed the seed of the UCEP node's peer key, derived from the passkey
  * @property {() => Promise<void>} stop
  * @property {{ signingKey: Uint8Array, databaseKey: Uint8Array, blobKey: Uint8Array, peerKey: Uint8Array }} [secretsForE2E]
  *   only in E2E builds
@@ -72,6 +73,8 @@ export async function startSession(credential) {
 	const prfOutput = await readPrfOutput(credential);
 	const encryptionKey = await deriveDatabaseKey(prfOutput);
 	const blobKey = await deriveBlobKey(prfOutput);
+	// The UCEP node's key (ucep/net.js): the same peer id on every unlock.
+	const ucepSeed = await derivePeerKeySeed(prfOutput);
 
 	// A PR #1 build kept the signing key in IndexedDB. Gone before anything opens.
 	await forgetLegacyKeystore();
@@ -125,6 +128,7 @@ export async function startSession(credential) {
 			peerId: libp2p.peerId.toString(),
 			store,
 			blobs,
+			ucepSeed,
 			// Only in E2E builds, so the test can look for these bytes on disk.
 			// Written inline so every other build drops it, not just skips it.
 			...(import.meta.env.VITE_E2E === 'true'

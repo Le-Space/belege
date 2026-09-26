@@ -61,6 +61,11 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	// Alchemy, when a key is set up; the key stays on the Mac.
 	await expect(blockchain).toContainText('Alchemy, wenn du einen Alchemy-API-Schlüssel');
 
+	// The invoicing app over UCEP: a relay sees the IP, only once paired.
+	const ucep = dialog.locator('[data-service="ucep"]');
+	await expect(ucep.getByTestId('consent-service-status')).toHaveText('aktiv, wenn gekoppelt');
+	await expect(ucep).toContainText('Betreiber des Relays');
+
 	const before = await page.evaluate(() => Object.keys(localStorage).sort());
 	await acceptConsent(page);
 	// A flag, and nothing else.
@@ -69,7 +74,7 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	);
 	expect(Object.keys(after).filter((key) => !before.includes(key))).toEqual(['belege.consent']);
 	// CONSENT_VERSION in src/lib/consent.js.
-	expect(after['belege.consent']).toBe('7');
+	expect(after['belege.consent']).toBe('8');
 	await expect(page.getByTestId('passkey-onboarding')).toBeVisible();
 
 	await page.reload();
@@ -109,7 +114,7 @@ test('the technical explanation stays hidden until "Technisch" is switched on', 
 	await expect(dialog.getByTestId('consent-technical-identity')).toContainText('PRF-Erweiterung');
 	await expect(dialog.getByTestId('consent-technical-storage')).toContainText('HKDF-SHA-256');
 	await expect(dialog.getByTestId('consent-technical-network')).toContainText('ohne Transporte');
-	await expect(dialog.getByTestId('consent-technical-service')).toHaveCount(6);
+	await expect(dialog.getByTestId('consent-technical-service')).toHaveCount(7);
 	await expect(
 		dialog.locator('[data-service="portals"]').getByTestId('consent-technical-service')
 	).toContainText('FileVault');

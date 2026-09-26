@@ -3,23 +3,34 @@
 // with VITE_E2E=true and served by `vite preview` on a port of its own, and
 // Playwright never reuses a server it did not start (simple-todo#197: a
 // suite once tested another branch's preview that happened to be running).
+// Since UCEP: a circuit relay on this machine (e2e/relay.js, global-setup.js)
+// for the invoicing-app spec; the app is built with its address.
 import { defineConfig, devices } from '@playwright/test';
+import { relayAddr } from './e2e/relay.js';
 
 const port = Number(process.env.E2E_PORT || 4391);
 // The bridge the bank-import spec starts (in test mode, against a fake
 // Hibiscus). The app is built to call it there; the spec reads the same value.
 process.env.E2E_BRIDGE_PORT ||= '4392';
 const bridgePort = Number(process.env.E2E_BRIDGE_PORT);
+// The UCEP spec's relay (e2e/relay.js, started in global-setup.js); the app is
+// built to reach paired apps through it.
+const relay = await relayAddr();
 
 export default defineConfig({
 	testDir: 'e2e',
+	globalSetup: './e2e/global-setup.js',
 	retries: process.env.CI ? 1 : 0,
 	workers: 1,
 	timeout: 90_000,
 	expect: { timeout: 30_000 },
 	webServer: {
 		command: `pnpm exec vite build && pnpm exec vite preview --port ${port} --strictPort`,
-		env: { VITE_E2E: 'true', VITE_BRIDGE_URL: `http://127.0.0.1:${bridgePort}` },
+		env: {
+			VITE_E2E: 'true',
+			VITE_BRIDGE_URL: `http://127.0.0.1:${bridgePort}`,
+			VITE_RELAY_ADDRS: relay
+		},
 		port,
 		reuseExistingServer: false,
 		timeout: 240_000

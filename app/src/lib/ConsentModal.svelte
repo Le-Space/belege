@@ -57,7 +57,8 @@
 		{ id: 'enableBanking', status: 'notYet', planned: true },
 		{ id: 'deepseek', status: 'whenSetUp' },
 		{ id: 'portals', status: 'whenSetUp' },
-		{ id: 'blockchain', status: 'whenSetUp' }
+		{ id: 'blockchain', status: 'whenSetUp' },
+		{ id: 'ucep', status: 'whenPaired' }
 	];
 
 	const chip = {
