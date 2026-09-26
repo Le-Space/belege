@@ -522,7 +522,8 @@ export function sampleEvmHistory({ fillerTokens = 0 } = {}) {
 
 /**
  * @param {object} [options]
- * @param {ReturnType<typeof sampleEvmHistory>} [options.history]
+ * @param {{ normal: Record<string, string>[], internal: Record<string, string>[], tokens: Record<string, string>[] }} [options.history]
+ *   as sampleEvmHistory, or fake-alchemy.js's blockscoutView
  * @param {Record<string, string>} [options.balances] `native` and contract → units
  * @param {number} [options.rateLimitedCalls] this many answer Blockscout's "rate limit" first
  * @param {number} [options.maxOffset] page × offset beyond this is refused, as Blockscout does

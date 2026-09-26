@@ -116,6 +116,15 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 
 	const card = page.getByTestId('wallets-card');
 	await expect(card).toBeVisible();
+	// No Alchemy key in this bridge: EVM wallets come from Blockscout, and
+	// the card says how to lift its rate limit.
+	const source = card.getByTestId('wallets-source');
+	await expect(source).toHaveAttribute('data-source', 'blockscout');
+	await expect(source).toContainText('ohne Schlüssel bei Blockscout');
+	await expect(source).toContainText('zu viele Anfragen');
+	await expect(source.getByTestId('wallets-setup-alchemy')).toHaveText('pnpm setup:alchemy');
+	// The technical level only with the switch.
+	await expect(source.getByTestId('wallets-source-technical')).toHaveCount(0);
 	// Before adding: which node and explorer will be used.
 	await card.getByTestId('wallet-chain').selectOption('nyx');
 	const uses = card.getByTestId('wallet-uses');

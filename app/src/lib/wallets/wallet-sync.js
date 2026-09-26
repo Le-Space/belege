@@ -143,6 +143,64 @@ export async function walletTransactions(entries, getRate) {
 	return { byAsset, unpriced };
 }
 
+/**
+ * What kind of movement an EVM id names, after its hash: the gas, the value,
+ * a token transfer or an internal one; null for anything else (Cosmos ids).
+ *
+ * @param {string} id
+ * @param {string} hash
+ */
+function idFamily(id, hash) {
+	if (!/^0x[0-9a-f]{64}$/.test(hash) || !id.startsWith(`${hash}:`)) return null;
+	const rest = id.slice(hash.length + 1);
+	if (rest === 'fee' || rest === 'value') return rest;
+	if (rest.startsWith('internal:')) return 'internal';
+	if (rest.startsWith('erc20:') || rest.startsWith('log:')) return 'token';
+	return null;
+}
+
+/**
+ * The same transfer read from another source keeps the id it was booked
+ * under. Blockscout and Alchemy give an EVM transfer the same id – except an
+ * internal one, which Blockscout numbers by its place among all calls
+ * (`<hash>:internal:<index>`) and Alchemy by its trace address
+ * (`<hash>:internal:trace:<address>`); a custom endpoint may number token
+ * transfers by log index. An incoming entry whose id is not stored takes
+ * the id of a stored booking of the same transaction, kind, quantity and
+ * other address that no incoming entry names – each stored one once – so a
+ * change of source books nothing twice (docs/crypto.md, "Own wallets").
+ *
+ * @param {{ sourceId?: string | null, txRef?: string, quantity?: string, counterpartyAddress?: string }[]} stored
+ *   the account's bookings, the deleted ones too
+ * @param {Incoming[]} incoming
+ * @returns {Incoming[]}
+ */
+export function reconcileSourceIds(stored, incoming) {
+	const known = new Set(stored.map((r) => r.sourceId).filter(Boolean));
+	const named = new Set(incoming.map((tx) => tx.sourceId).filter(Boolean));
+	const free = stored.filter(
+		(r) => r.sourceId && r.txRef && !named.has(r.sourceId) && idFamily(r.sourceId, r.txRef)
+	);
+	/** @type {Set<unknown>} */
+	const taken = new Set();
+	return incoming.map((tx) => {
+		if (!tx.sourceId || known.has(tx.sourceId) || !tx.txRef) return tx;
+		const family = idFamily(tx.sourceId, tx.txRef);
+		if (!family) return tx;
+		const match = free.find(
+			(r) =>
+				!taken.has(r) &&
+				r.txRef === tx.txRef &&
+				idFamily(String(r.sourceId), String(tx.txRef)) === family &&
+				r.quantity === tx.crypto?.quantity &&
+				(r.counterpartyAddress ?? '') === (tx.counterpartyAddress ?? '')
+		);
+		if (!match) return tx;
+		taken.add(match);
+		return { ...tx, sourceId: /** @type {string} */ (match.sourceId) };
+	});
+}
+
 /** @param {import('../store/repository.js').Collection} settings @returns {Promise<Wallet[]>} */
 export async function loadWallets(settings) {
 	const value = await getSetting(settings, 'wallets');
@@ -254,10 +312,14 @@ export async function syncWallet({ client, store, wallet, now = new Date() }) {
 			asset,
 			decimals: info.decimals
 		});
+		const stored = await store.transactions.list({
+			includeDeleted: true,
+			where: (r) => r.accountId === record.id && r.source === chain.id
+		});
 		const counts = await importTransactions({
 			transactions: store.transactions,
 			account: { id: record.id, source: chain.id, fingerprintAccount: `${chain.id}:${key}` },
-			incoming: byAsset.get(asset) ?? []
+			incoming: reconcileSourceIds(/** @type {any[]} */ (stored), byAsset.get(asset) ?? [])
 		});
 		await store.accounts.put({
 			...record,
@@ -287,6 +349,7 @@ export async function syncWallet({ client, store, wallet, now = new Date() }) {
 		...totals
 	});
 	return {
+		source: result.source ?? null,
 		totals,
 		perAccount,
 		unpriced,

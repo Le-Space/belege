@@ -26,12 +26,17 @@
 //     contract called "USDC"). Others are counted and left out.
 //
 // The log gets counts, never an address.
+//
+// With an Alchemy key (`pnpm setup:alchemy`) and no endpoint of the wallet's
+// own, the lists come from Alchemy instead (alchemy.js), in the same shape,
+// and become entries here in the same way.
 
 import { keccak_256 } from '@noble/hashes/sha3.js';
 
 import { addressUrl, txUrl } from './registry.js';
 import { createJsonFetcher, WalletError } from './http.js';
 import { unitsToDecimal } from './cosmos.js';
+import { alchemyBaseUrl, createAlchemyReader } from './alchemy.js';
 
 const PAGE = 1000;
 
@@ -184,8 +189,11 @@ export function normalizeEvm({ normal, internal, tokens }, { address, chain }) {
 		if (raw.isError === '1' || value === 0n || (from === address) === (to === address)) continue;
 		const out = from === address;
 		const at = raw.index ?? raw.traceId;
-		const internalId =
-			at !== undefined && at !== ''
+		// Alchemy names an internal transfer by its trace address, which is not
+		// Blockscout's index: a prefix of its own, so the two never collide.
+		const internalId = raw.alchemyTrace
+			? `${hash}:internal:trace:${raw.alchemyTrace}`
+			: at !== undefined && at !== ''
 				? `${hash}:internal:${at}`
 				: `${hash}:internal:${from}:${to}:${value}`;
 		push(
@@ -231,7 +239,7 @@ export function normalizeEvm({ normal, internal, tokens }, { address, chain }) {
 		push(
 			raw,
 			hash,
-			`${pad(raw.blockNumber)}:${pad(raw.transactionIndex)}:3:${pad(raw.logIndex)}`,
+			`${pad(raw.blockNumber)}:${pad(raw.transactionIndex)}:3:${pad(raw.logIndex ?? raw.position)}`,
 			tokenId,
 			{
 				type: out ? 'sent' : 'received',
@@ -257,8 +265,25 @@ export function normalizeEvm({ normal, internal, tokens }, { address, chain }) {
  * @param {number} [options.timeoutMs]
  * @param {number} [options.maxPages] per list
  * @param {(ms: number) => Promise<void>} [options.sleep]
+ * @param {object} [options.alchemy]
+ * @param {() => Promise<string | null>} options.alchemy.key the key, or null when none is set up
+ * @param {(network: string) => string} [options.alchemy.baseUrl] tests: a fake on 127.0.0.1
+ * @param {number} [options.alchemy.maxHiddenBlocks]
  */
-export function createEvmClient({ fetch: f = fetch, timeoutMs, maxPages = 50, sleep } = {}) {
+export function createEvmClient({
+	fetch: f = fetch,
+	timeoutMs,
+	maxPages = 50,
+	sleep,
+	alchemy
+} = {}) {
+	const alchemyReader = createAlchemyReader({
+		fetch: f,
+		timeoutMs,
+		sleep,
+		maxPages,
+		maxHiddenBlocks: alchemy?.maxHiddenBlocks
+	});
 	const getJson = createJsonFetcher({
 		fetch: f,
 		timeoutMs,
@@ -370,14 +395,20 @@ export function createEvmClient({ fetch: f = fetch, timeoutMs, maxPages = 50, sl
 		return [...seen.values()];
 	}
 
+	/** @param {any} r */
+	const internalKey = (r) =>
+		`${String(r.transactionHash ?? r.hash).toLowerCase()}:${r.index ?? r.traceId ?? ''}:${r.from}:${r.to}:${r.value}`;
+
 	return {
 		/**
 		 * @param {object} params
 		 * @param {import('./registry.js').EvmChain} params.chain
 		 * @param {string} params.address
 		 * @param {{ api: string }} params.endpoints already checked
+		 * @param {boolean} [params.ownEndpoint] the wallet names its own API: that one is asked,
+		 *   never Alchemy
 		 */
-		async history({ chain, address, endpoints }) {
+		async history({ chain, address, endpoints, ownEndpoint = false }) {
 			if (!isEvmAddress(address)) {
 				throw new WalletError(
 					'not an EVM address (0x and 40 hex digits; mixed case must match its EIP-55 checksum)',
@@ -385,18 +416,50 @@ export function createEvmClient({ fetch: f = fetch, timeoutMs, maxPages = 50, sl
 					400
 				);
 			}
-			await checkChain(endpoints.api, chain);
 			const lower = address.toLowerCase();
+			const key = chain.alchemy && !ownEndpoint && alchemy ? await alchemy.key() : null;
+			if (key) {
+				const network = /** @type {import('./registry.js').AlchemyNetwork} */ (chain.alchemy);
+				const read = await alchemyReader.read({
+					chain,
+					address: lower,
+					key,
+					baseUrl: (alchemy?.baseUrl ?? alchemyBaseUrl)(network.network),
+					// Arbitrum and Optimism: Alchemy has no internal transfers there.
+					blockscoutInternal: network.internal
+						? undefined
+						: async () => {
+								await checkChain(endpoints.api, chain);
+								return list(endpoints.api, 'txlistinternal', lower, internalKey);
+							}
+				});
+				const { entries, unknownTokens } = normalizeEvm(read, { address: lower, chain });
+				/** @type {{ asset: string, amount: string, decimals: number }[]} */
+				const balances = [];
+				for (const [what, units] of read.balances) {
+					const asset = what === 'native' ? chain.native : chain.tokens[what];
+					balances.push({
+						asset: asset.symbol,
+						amount: unitsToDecimal(units, asset.decimals),
+						decimals: asset.decimals
+					});
+				}
+				return {
+					source: /** @type {const} */ ('alchemy'),
+					internalSource: network.internal ? 'alchemy' : 'blockscout',
+					entries,
+					balances,
+					transactions: new Set(entries.map((e) => e.hash)).size,
+					unknownAssets: unknownTokens.length,
+					history: { earliestHeight: 0, earliestTime: null, pruned: false },
+					addressUrl: addressUrl(chain.explorer, address)
+				};
+			}
+			await checkChain(endpoints.api, chain);
 			const normal = await list(endpoints.api, 'txlist', lower, (r) =>
 				String(r.hash).toLowerCase()
 			);
-			const internal = await list(
-				endpoints.api,
-				'txlistinternal',
-				lower,
-				(r) =>
-					`${String(r.transactionHash ?? r.hash).toLowerCase()}:${r.index ?? r.traceId ?? ''}:${r.from}:${r.to}:${r.value}`
-			);
+			const internal = await list(endpoints.api, 'txlistinternal', lower, internalKey);
 			const tokens = await list(endpoints.api, 'tokentx', lower, (r, occurrences) => {
 				if (r.logIndex !== undefined && r.logIndex !== '') {
 					return `${String(r.hash).toLowerCase()}:${r.logIndex}`;
@@ -443,6 +506,7 @@ export function createEvmClient({ fetch: f = fetch, timeoutMs, maxPages = 50, sl
 				}
 			}
 			return {
+				source: /** @type {const} */ ('blockscout'),
 				entries,
 				balances,
 				transactions: new Set(entries.map((e) => e.hash)).size,

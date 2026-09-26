@@ -14,9 +14,13 @@
 // variables instead of the keychain ($BELEGE_BRIDGE_TEST_PASSWORD for Hibiscus,
 // $BELEGE_BRIDGE_TEST_IMAP_PASSWORD, $BELEGE_BRIDGE_TEST_LLM_KEY,
 // $BELEGE_BRIDGE_TEST_PORTAL_PASSWORD, $BELEGE_BRIDGE_TEST_KRAKEN_KEY as the
-// keychain's JSON, $BELEGE_BRIDGE_TEST_COINGECKO_KEY; the macOS keychain is
-// never read), exchange rates come from $BELEGE_BRIDGE_TEST_FIXED_RATES
-// (JSON, EUR per unit by symbol) when it is set, a wallet may name a chain
+// keychain's JSON, $BELEGE_BRIDGE_TEST_COINGECKO_KEY,
+// $BELEGE_BRIDGE_TEST_ALCHEMY_KEY; the macOS keychain is never read), an
+// Alchemy key is sent only to a fake Alchemy at $BELEGE_BRIDGE_TEST_ALCHEMY_URL
+// (http://127.0.0.1:<port>, asked as `<url>/<network>/v2/<key>`; a key
+// without it is refused), exchange rates come from
+// $BELEGE_BRIDGE_TEST_FIXED_RATES (JSON, EUR per unit by symbol) when it is
+// set, a wallet may name a chain
 // node on http://127.0.0.1, portal browsers never open a window,
 // the portal password dialog never opens either (it answers
 // $BELEGE_BRIDGE_TEST_PORTAL_DIALOG, or is cancelled without it), and it
@@ -65,6 +69,9 @@ let llmKeychain;
 let krakenKeychain;
 let coingeckoKeychain;
 let bitcoinKeychain;
+let alchemyKeychain;
+/** @type {((network: string) => string) | undefined} */
+let alchemyBaseUrl;
 /** @type {Record<string, string> | null} */
 let fixedRates = null;
 /** @type {((id: string) => import('./keychain.js').Keychain) | undefined} */
@@ -91,6 +98,18 @@ if (testMode) {
 		'coingecko'
 	);
 	bitcoinKeychain = memoryKeychain(process.env.BELEGE_BRIDGE_TEST_BITCOIN_KEY ?? null, 'bitcoin');
+	alchemyKeychain = memoryKeychain(process.env.BELEGE_BRIDGE_TEST_ALCHEMY_KEY ?? null, 'alchemy');
+	const fakeAlchemy = process.env.BELEGE_BRIDGE_TEST_ALCHEMY_URL;
+	if (fakeAlchemy) {
+		if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(fakeAlchemy)) {
+			console.error('BELEGE_BRIDGE_TEST_ALCHEMY_URL must be http://127.0.0.1:<port>.');
+			process.exit(1);
+		}
+		alchemyBaseUrl = (network) => `${fakeAlchemy}/${network}/v2`;
+	} else if (process.env.BELEGE_BRIDGE_TEST_ALCHEMY_KEY) {
+		console.error('BELEGE_BRIDGE_TEST_ALCHEMY_KEY needs BELEGE_BRIDGE_TEST_ALCHEMY_URL (a fake).');
+		process.exit(1);
+	}
 	if (process.env.BELEGE_BRIDGE_TEST_FIXED_RATES) {
 		fixedRates = JSON.parse(process.env.BELEGE_BRIDGE_TEST_FIXED_RATES);
 	}
@@ -105,6 +124,8 @@ try {
 		krakenKeychain,
 		coingeckoKeychain,
 		bitcoinKeychain,
+		alchemyKeychain,
+		alchemyBaseUrl,
 		fixedRates,
 		walletLoopback: testMode,
 		portalKeychain,
