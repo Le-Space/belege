@@ -313,6 +313,28 @@ function installE2EHooks() {
 		// A bank account as an import creates it (bank/import.js), for the export spec.
 		addAccount: (/** @type {Record<string, any>} */ account) =>
 			session?.store.accounts.put(account),
-		accounts: () => session?.store.accounts.list()
+		accounts: () => session?.store.accounts.list(),
+		// For the benchmark (app/bench/): made-up books written through the real
+		// store, and the app's own read, refresh and matching paths timed in the page.
+		bench: {
+			/** @param {string} name @param {Record<string, any>[]} records */
+			async putMany(name, records) {
+				const collection = /** @type {any} */ (session?.store)?.[name];
+				const ids = [];
+				for (const r of records) ids.push((await collection.put(r)).id);
+				return ids;
+			},
+			/** @param {string} name @param {string} id */
+			async get(name, id) {
+				return /** @type {any} */ (session?.store)?.[name].get(id);
+			},
+			/** @param {string} name */
+			async count(name) {
+				return ((await /** @type {any} */ (session?.store)?.[name].list()) ?? []).length;
+			},
+			refresh: () => refresh(),
+			match: () => runMatchingNow('manual'),
+			estimate: () => navigator.storage.estimate()
+		}
 	};
 }

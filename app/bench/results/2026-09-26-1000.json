@@ -1,0 +1,19 @@
+{
+	"date": "2026-09-26",
+	"note": "stopped before the 10 000 run; another Playwright suite ran on the same machine at the same time",
+	"size": 1000,
+	"receipts": 590,
+	"events": 1000,
+	"writeTransactionsMs": 15247,
+	"writeReceiptsMs": 12616,
+	"writeEventsMs": 25787,
+	"updateNewestTenthMs": 14508,
+	"refreshMs": 7941,
+	"getNewestMs": 100,
+	"getOldestMs": 1078,
+	"matchingMs": 1092088,
+	"refreshAfterMatchingMs": 1944,
+	"updateOldestMs": 2350,
+	"unlockToHomeMs": 4649,
+	"storageMB": 11.2
+}
