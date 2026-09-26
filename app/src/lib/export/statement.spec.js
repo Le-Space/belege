@@ -80,6 +80,22 @@ describe('statement', () => {
 		});
 	});
 
+	it('names what stands in for a receipt, also for staking (#57)', () => {
+		const s = buildStatement({
+			month: '2026-09',
+			account: BTC,
+			index: 0,
+			transactions: TXS,
+			classifications: {
+				T1: { kind: 'crypto-stake' },
+				T2: { kind: 'crypto-reward' },
+				T3: { kind: 'bank-fee' }
+			},
+			receiptNumbers: new Map()
+		});
+		expect(s.lines.map((l) => l.receipt)).toEqual(['Staking', 'Ertrag', 'Gebühr']);
+	});
+
 	it('works the balance back from the last known one, exactly in the asset', () => {
 		// now 0.007; after the month −0.002 → end 0.009; the month +0.007 → start 0.002
 		expect(balancesOf(BTC, TXS, '2026-09')).toEqual({
