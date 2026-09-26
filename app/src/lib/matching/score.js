@@ -24,7 +24,7 @@
 // tells the two debits apart, and without it neither may be taken.
 
 import { compactIban, dayNumber, normalizeRef, sameVendor } from './normalize.js';
-import { counterpartyKey } from './partners.js';
+import { txAlias } from './partners.js';
 import { isOwnName } from './classify.js';
 
 export const POINTS = Object.freeze({
@@ -156,7 +156,7 @@ export function txFacts(t, ctx = {}) {
 		counterparty: String(t.counterparty ?? ''),
 		counterpartyIban: compactIban(t.counterpartyIban) || compactIban(tagged),
 		day: dayNumber(t.bookedOn),
-		learnedVendors: ctx.learnedVendors?.get(counterpartyKey(t.counterparty)) ?? []
+		learnedVendors: ctx.learnedVendors?.get(txAlias(t)) ?? []
 	};
 }
 

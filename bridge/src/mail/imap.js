@@ -340,20 +340,22 @@ export function createMailClient({
 		 * The targeted search in the whole mailbox (Junk included): vendor text
 		 * and every spelling of an amount, within ± days of a day.
 		 *
-		 * @param {{ text?: string | null, amount?: string | null, from?: string[], around?: string | null, days?: number }} query
-		 *   `from`: sender domains, e.g. the ones a vendor's receipts came from before
+		 * @param {{ text?: string | null, amount?: string | null, from?: string[], terms?: string[], around?: string | null, days?: number }} query
+		 *   `from`: sender domains, e.g. the ones a vendor's receipts came from before;
+		 *   `terms`: more words anywhere in the mail (a crypto payment's hash, address, quantity)
 		 * @returns {Promise<MailMessage[]>}
 		 */
-		async search({ text = null, amount = null, from = [], around = null, days = 14 }) {
+		async search({ text = null, amount = null, from = [], terms = [], around = null, days = 14 }) {
 			const range = aroundWindow(around, days);
 			const base = searchWindow(range.since, range.before, now());
 			/** @type {[string, Record<string, any>][]} */
 			const criteria = [];
 			if (text) criteria.push([`"${text}"`, { text }]);
+			for (const term of terms) criteria.push([`"${term}"`, { text: term }]);
 			for (const a of amount ? amountVariants(amount) : []) criteria.push([a, { body: a }]);
 			for (const d of from) criteria.push([`@${d}`, { from: d }]);
 			if (!criteria.length)
-				throw new MailError('text, amount or from is required', 400, 'MAIL_QUERY');
+				throw new MailError('text, amount, from or term is required', 400, 'MAIL_QUERY');
 			return session(async (client) => {
 				/** @type {MailMessage[]} */
 				const out = [];

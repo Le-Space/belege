@@ -1130,6 +1130,11 @@ export default {
 				'Die Bridge sucht im ganzen Postfach nach „{text}“ und {amount} zwischen {from} und {to}. Gelesen werden nur die Treffer.',
 			privateHintAmount:
 				'Die Bridge sucht im ganzen Postfach nach {amount} zwischen {from} und {to}. Gelesen werden nur die Treffer.',
+			privateHintCrypto:
+				'Die Bridge sucht im ganzen Postfach zwischen {from} und {to} nach dem Transaktions-Hash, der Adresse und der Menge{text} – das, was Bestätigungsmails von Krypto-Zahlungen nennen. Gelesen werden nur die Treffer.',
+			privateHintCryptoText: ' sowie nach „{text}“',
+			memoIn:
+				'Ein Eingang mit Memo „{memo}“ ist meist deine eigene Auszahlung von einer Börse, bei der du das Memo selbst eingetragen hast – keine Zahlung an dich. Die zugehörige Börsenbuchung paart sich über den Transaktions-Hash, sobald die Börse diesen Zeitraum abgerufen hat.',
 			privateSearching: 'Suche …',
 			privateNone: 'Keine Treffer im privaten Postfach.',
 			privateHits: '{count} Treffer',

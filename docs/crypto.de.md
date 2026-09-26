@@ -165,3 +165,5 @@ Jede eigene Wallet kann eine **Bezeichnung** (Projekt, Zweck), ein **Konto** und
 ## In der App
 
 Die Detailansicht einer Zahlung zeigt **Menge** (`-0,015 BTC`) und **Kurs** (`60.000,00 EUR je BTC · CoinGecko, 01.09.2026 00:00 UTC`).
+
+**Die Mail zu einer Krypto-Zahlung finden.** _Im privaten Postfach suchen_ sucht bei einer Buchung einer eigenen Wallet nach dem, was die Bestätigung eines Anbieters nennt: Transaktions-Hash, Gegenadresse und Menge (genau und auf zwei Stellen, mit Punkt und Komma), ± 3 Tage; als Text der für diese Adresse gelernte Anbieter, sonst das erste Wort des Memos. Nicht der Euro-Betrag: der ist unsere eigene Bewertung. Ein Beleg, der einer Wallet-Zahlung zugeordnet wird, lehrt deren Adresse (`addr:<Chain oder evm>:<Adresse>` unter den Aliasen des Partners); die nächste Zahlung an dieselbe Adresse bekommt so die Anbieter-Punkte und die Suche seine Mail-Domains. Ein Eingang mit Memo, den sonst nichts erklärt, sagt, dass er meist die eigene Auszahlung von einer Börse ist, mit dort eingetragenem Memo.

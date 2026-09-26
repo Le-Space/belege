@@ -8,6 +8,8 @@ import { STOP_WORDS, dayNumber, vendorWords } from './normalize.js';
 import { partnerOfTx } from './partners.js';
 import { isOwnName } from './classify.js';
 import { MIRROR_DAYS } from './context.js';
+import { assetOf } from '../assets/registry.js';
+import { walletChain } from '../wallets/chains.js';
 
 /** @typedef {import('./classify.js').Classification} Classification */
 /** @typedef {{ id: string } & Record<string, any>} Rec */
@@ -215,6 +217,63 @@ export function searchAmount(/** @type {number} */ cents) {
 
 export const SEARCH_DAYS = 14;
 
+/** A crypto payment: its confirmation mail comes within days, not weeks. */
+export const CRYPTO_SEARCH_DAYS = 3;
+/** The bridge takes at most this many extra terms. */
+export const MAX_TERMS = 6;
+
+/**
+ * A quantity of units as a vendor's mail may write it: exact (`1171.288052`)
+ * and to two decimals (`1171.29`), each with a point and a comma; no sign,
+ * no thousands separator.
+ *
+ * @param {string} units integer string, maybe negative
+ * @param {number} decimals
+ * @returns {string[]}
+ */
+export function quantitySpellings(units, decimals) {
+	if (!/^-?\d+$/.test(units) || !Number.isInteger(decimals) || decimals < 0) return [];
+	const abs = units.replace(/^-/, '').padStart(decimals + 1, '0');
+	const int = abs.slice(0, abs.length - decimals).replace(/^0+(?=\d)/, '');
+	const frac = abs.slice(abs.length - decimals).replace(/0+$/, '');
+	const exact = frac ? `${int}.${frac}` : int;
+	// Two decimals, rounded half up, in integers only.
+	const scaled = BigInt(abs) * 100n;
+	const unit = 10n ** BigInt(decimals);
+	const cents = (scaled * 2n + unit) / (unit * 2n);
+	const two = `${cents / 100n}.${String(cents % 100n).padStart(2, '0')}`;
+	const spellings = [exact, two].filter((v, i, all) => all.indexOf(v) === i);
+	return spellings.flatMap((v) => (v.includes('.') ? [v, v.replace('.', ',')] : [v]));
+}
+
+/**
+ * The terms a crypto payment's mail is found by, most telling first: the
+ * transaction hash, the other address, the quantity. Only letters, digits
+ * and `.,:_-`, 3 to 100 characters (what the bridge accepts).
+ *
+ * @param {Record<string, any>} tx
+ * @returns {string[]}
+ */
+export function cryptoSearchTerms(tx) {
+	const terms = [
+		String(tx.txRef ?? '').trim(),
+		String(tx.counterpartyAddress ?? '').trim(),
+		...(typeof tx.quantity === 'string'
+			? quantitySpellings(tx.quantity, Number(tx.decimals ?? assetOf(tx.asset)?.decimals))
+			: [])
+	];
+	return terms
+		.filter((v) => /^[\w.,:-]{3,100}$/.test(v))
+		.filter((v, i, all) => all.indexOf(v) === i)
+		.slice(0, MAX_TERMS);
+}
+
+/** A wallet booking's memo, from its purpose (`… · Memo: … · Tx …`). @param {Record<string, any>} tx */
+export function memoOf(tx) {
+	const m = /(?:^|·)\s*Memo:\s*([^·]+?)\s*(?:·|$)/.exec(String(tx.purpose ?? ''));
+	return m ? m[1].slice(0, 100) : null;
+}
+
 /**
  * What "Im privaten Postfach suchen" asks the bridge: the counterparty's
  * first telling word (the purpose's, when the counterparty has none), the
@@ -222,16 +281,35 @@ export const SEARCH_DAYS = 14;
  *
  * With a learned partner (partners.js) its sender domains are searched too.
  *
+ * An own wallet's booking is searched by what its mail carries instead
+ * (cryptoSearchTerms): hash, address, quantity; the learned vendor of that
+ * address, else the memo, as the text; ± 3 days. Not the euro amount: that
+ * is our own valuation, not what the vendor billed.
+ *
  * @param {Record<string, any>} tx
  * @param {Record<string, any>[]} [partners]
- * @returns {{ text: string | null, amount: string, from: string[], around: string, days: number }}
+ * @returns {{ text: string | null, amount: string | null, from: string[], terms: string[], around: string, days: number }}
  */
 export function privateSearchQuery(tx, partners = []) {
+	const partner = partnerOfTx(partners, tx);
+	const from = (partner?.senderDomains ?? []).slice(0, 3);
+	if (walletChain(tx.source)) {
+		const word = partner ? searchWord(partner.name) : searchWord(memoOf(tx));
+		return {
+			text: word ? word.slice(0, 100) : null,
+			amount: null,
+			from,
+			terms: cryptoSearchTerms(tx),
+			around: String(tx.bookedOn),
+			days: CRYPTO_SEARCH_DAYS
+		};
+	}
 	const text = searchWord(tx.counterparty) ?? searchWord(tx.purpose);
 	return {
 		text: text ? text.slice(0, 100) : null,
 		amount: searchAmount(Number(tx.amountCents ?? 0)),
-		from: (partnerOfTx(partners, tx)?.senderDomains ?? []).slice(0, 3),
+		from,
+		terms: [],
 		around: String(tx.bookedOn),
 		days: SEARCH_DAYS
 	};

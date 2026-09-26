@@ -22,6 +22,7 @@
 		suggestedLedgerAccount
 	} from './booking/settings.js';
 	import { isAccountNumber } from './booking/skr03.js';
+	import { aliasLabel } from './matching/partners.js';
 	import { list, t } from './i18n/index.js';
 
 	let companyText = $state('');
@@ -371,7 +372,9 @@
 					<li class="flex items-center gap-3 py-1.5" data-testid="learned-partner">
 						<span class="flex-1 text-text">
 							<span class="font-medium text-heading">{p.name}</span>
-							← {(p.aliases ?? []).map((/** @type {string} */ a) => `„${a}“`).join(', ')}
+							← {(p.aliases ?? [])
+								.map((/** @type {string} */ a) => `„${aliasLabel(a)}“`)
+								.join(', ')}
 							{#if p.account}
 								<span class="text-faint" data-testid="learned-account"
 									>· {t('anweisungen.books.learnedAccount', {

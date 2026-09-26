@@ -47,7 +47,7 @@
 	import { tradeArrow, tradeSides, tradeSideWhat } from './exchanges/trades.js';
 	import { quantityText, valuationText } from './assets/valuation.js';
 	import { txRefsOf } from './matching/context.js';
-	import { safeExplorerUrl } from './wallets/chains.js';
+	import { safeExplorerUrl, walletChain } from './wallets/chains.js';
 	import { receiptDate, receiptVendor } from './receipts/view.js';
 	import { importMailMessages, needsConfirmation } from './receipts/import.js';
 	import { extractReceipt } from './receipts/extract.js';
@@ -65,7 +65,9 @@
 		isTxCovered,
 		matchesOfTx,
 		otherPayments,
+		memoOf,
 		privateSearchQuery,
+		searchAmount,
 		rankHits,
 		likelyHit,
 		assistCandidates,
@@ -103,6 +105,18 @@
 			);
 	});
 	let classification = $derived(tx ? (app.classifications[tx.id] ?? null) : null);
+	// A wallet's incoming transfer with a memo, not yet explained: usually one's own
+	// withdrawal from an exchange, with the memo typed there.
+	let memoIn = $derived(
+		tx &&
+			!classification &&
+			!tx.receiptId &&
+			walletChain(tx.source) &&
+			tx.movement === 'transfer' &&
+			Number(tx.amountCents ?? 0) > 0
+			? memoOf(tx)
+			: null
+	);
 	// An exchange trade's other leg, when this booking is one.
 	let tradeOther = $derived(
 		tx && tx.movement === 'trade' ? (tradeSides(app.transactions).get(tx.id) ?? null) : null
@@ -557,14 +571,20 @@
 	const shift = (iso, days) =>
 		formatDate(new Date(Date.parse(`${iso}T00:00:00Z`) + days * 864e5).toISOString().slice(0, 10));
 	let searchHint = $derived(
-		query
-			? t(query.text ? 'zahlungen.detail.privateHint' : 'zahlungen.detail.privateHintAmount', {
-					text: query.text ?? '',
-					amount: `${query.amount} €`,
+		query && query.terms.length
+			? t('zahlungen.detail.privateHintCrypto', {
 					from: shift(query.around, -query.days),
-					to: shift(query.around, query.days)
+					to: shift(query.around, query.days),
+					text: query.text ? t('zahlungen.detail.privateHintCryptoText', { text: query.text }) : ''
 				})
-			: ''
+			: query
+				? t(query.text ? 'zahlungen.detail.privateHint' : 'zahlungen.detail.privateHintAmount', {
+						text: query.text ?? '',
+						amount: `${query.amount} €`,
+						from: shift(query.around, -query.days),
+						to: shift(query.around, query.days)
+					})
+				: ''
 	);
 
 	async function search() {
@@ -599,7 +619,7 @@
 			const r = await client.mailAssist({
 				counterparty: String(tx.counterparty ?? '').trim() || query.text || '—',
 				purpose: String(tx.purpose ?? ''),
-				amount: query.amount,
+				amount: query.amount ?? searchAmount(Number(tx.amountCents ?? 0)),
 				around: query.around,
 				days: query.days,
 				knownDomains: query.from
@@ -967,6 +987,14 @@
 
 			<section class="mt-4 rounded-lg border border-border bg-surface px-4 py-3 shadow-sm">
 				<h3 class="text-sm font-semibold text-heading">{t('zahlungen.detail.receipts')}</h3>
+				{#if memoIn}
+					<p
+						class="mt-2 rounded-md border border-l-4 border-border border-l-cyan-800 bg-surface-2 px-3 py-2 text-sm text-text dark:border-l-cyan"
+						data-testid="tx-memo-in"
+					>
+						{t('zahlungen.detail.memoIn', { memo: memoIn })}
+					</p>
+				{/if}
 				{#if classification?.lookalike}
 					<div
 						class="mt-2 rounded-md border border-l-4 border-red-300 border-l-red-700 bg-red-50 px-3 py-2 dark:border-red-900 dark:border-l-red-400 dark:bg-red-950/40"

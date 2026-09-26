@@ -18,6 +18,13 @@ export const FAKE_IMAP_PASSWORD = 'fake-imap-token-for-tests';
 export const ACCOUNTING = 'buchhaltung@le-space.de';
 export const PERSONAL = 'person@le-space.de';
 
+/** A made-up crypto payment, confirmed by mail (`cryptoPayment: true`). */
+export const CRYPTO_PAYMENT = Object.freeze({
+	hash: 'C0FFEE00'.repeat(8),
+	address: 'n1testvendoraddress0000000000000000000qqqq',
+	quantity: '1234.5'
+});
+
 /** Made-up personal data the redaction must black out before the LLM sees it. */
 export const SECRETS = {
 	customerName: 'Erika Beispielkund',
@@ -182,11 +189,16 @@ const authResults = (domain, result = 'pass') =>
  * phase-0 Vodafone case): not in the accounting scope, only found by
  * `/mail/search`.
  *
- * @param {{ base?: Date, privateReceipt?: boolean }} [options]
+ * `cryptoPayment: true` adds a VPN provider's confirmation of a payment in
+ * tokens (CRYPTO_PAYMENT): it names the hash and the quantity, not the vendor
+ * as the wallet sees it and no euro amount.
+ *
+ * @param {{ base?: Date, privateReceipt?: boolean, cryptoPayment?: boolean }} [options]
  */
 export function sampleMailbox({
 	base = new Date(Date.now() - 3 * 864e5),
-	privateReceipt = false
+	privateReceipt = false,
+	cryptoPayment = false
 } = {}) {
 	const day = (/** @type {number} */ offset) => new Date(base.getTime() - offset * 864e5);
 	const w = RECEIPTS.wolkenfabrik;
@@ -351,6 +363,22 @@ export function sampleMailbox({
 					attachments: [
 						{ name: `Rechnung-${mo.invoice}.pdf`, type: 'application/pdf', bytes: pdfM }
 					]
+				})
+			)
+		);
+	}
+
+	if (cryptoPayment) {
+		inbox.push(
+			msg(
+				day(2),
+				mime({
+					headers: [authResults('vpn.example'), received(PERSONAL, day(2))],
+					from: '"Beispiel VPN" <billing@vpn.example>',
+					to: PERSONAL,
+					subject: 'Your subscription is active',
+					date: day(2),
+					text: `Thanks! We received ${CRYPTO_PAYMENT.quantity} TOKEN.\nTransaction: ${CRYPTO_PAYMENT.hash}`
 				})
 			)
 		);

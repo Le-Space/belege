@@ -9,6 +9,7 @@
 // search (the vendor's name and mail domains as search terms).
 
 import { sameVendor, vendorWords } from './normalize.js';
+import { normalizeAddress, walletChain } from '../wallets/chains.js';
 
 /** @typedef {Record<string, any>} Rec */
 
@@ -29,6 +30,37 @@ export function counterpartyKey(s) {
 		.join(' ')
 		.slice(0, 80);
 }
+
+/**
+ * What a booking's other side is known by: for an own wallet's booking the
+ * other address (`addr:evm:0x…`, `addr:nyx:n1…`; an EVM address is the same
+ * on every EVM chain), else the counterparty as a key. An address has no
+ * words to learn from, so it is the address itself that is remembered.
+ *
+ * @param {Rec} tx
+ */
+export function txAlias(tx) {
+	const chain = walletChain(tx.source);
+	if (chain && typeof tx.counterpartyAddress === 'string' && tx.counterpartyAddress.trim()) {
+		const family = chain.kind === 'evm' ? 'evm' : chain.id;
+		return `addr:${family}:${normalizeAddress(chain, tx.counterpartyAddress)}`;
+	}
+	return counterpartyKey(tx.counterparty);
+}
+
+/** Whether an alias is an address (txAlias). @param {string} alias */
+export const isAddressAlias = (alias) => alias.startsWith('addr:');
+
+/** An alias as shown: an address shortened, a counterparty key as it is. @param {string} alias */
+export function aliasLabel(alias) {
+	if (!isAddressAlias(alias)) return alias;
+	const address = alias.split(':').slice(2).join(':');
+	return address.length > 16 ? `${address.slice(0, 8)}…${address.slice(-6)}` : address;
+}
+
+/** Whether an alias names someone: an address, or a key with a word beyond a legal form. @param {string} alias */
+const namesSomeone = (alias) =>
+	Boolean(alias) && (isAddressAlias(alias) || vendorWords(alias).length > 0);
 
 /**
  * The domain of a mail address, from "Name <a@b.c>" or "a@b.c".
@@ -69,9 +101,9 @@ export function findPartner(partners, vendor) {
  */
 export async function learnFromLink(partners, receipt, tx, { companyNames = [] } = {}) {
 	const vendor = vendorOf(receipt);
-	const alias = counterpartyKey(tx.counterparty);
+	const alias = txAlias(tx);
 	// "GmbH" alone, or only digits and short words, names nobody.
-	if (!vendor || !alias || !vendorWords(alias).length) return null;
+	if (!vendor || !namesSomeone(alias)) return null;
 	if (companyNames.some((name) => sameVendor(vendor, name))) return null;
 	const domain =
 		receipt.source === 'mail' && receipt.authVerdict === 'pass' ? mailDomain(receipt.from) : null;
@@ -116,13 +148,10 @@ export async function learnAccount(partners, receipt, tx, booking, { companyName
 	const vendor = vendorOf(receipt);
 	if (!vendor) return null;
 	if (companyNames.some((name) => sameVendor(vendor, name))) return null;
-	const alias = counterpartyKey(tx.counterparty);
+	const alias = txAlias(tx);
 	const existing = findPartner(await partners.list(), vendor);
 	const aliases = [
-		...new Set([
-			...(existing?.aliases ?? []),
-			...(alias && vendorWords(alias).length ? [alias] : [])
-		])
+		...new Set([...(existing?.aliases ?? []), ...(namesSomeone(alias) ? [alias] : [])])
 	].slice(-20);
 	if (
 		existing &&
@@ -169,7 +198,7 @@ export function learnedVendors(partners) {
  * @returns {Rec | null}
  */
 export function partnerOfTx(partners, tx) {
-	const key = counterpartyKey(tx.counterparty);
+	const key = txAlias(tx);
 	if (!key) return null;
 	return partners.find((p) => !p.deleted && (p.aliases ?? []).includes(key)) ?? null;
 }

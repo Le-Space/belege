@@ -213,12 +213,21 @@ export function createBridgeClient({
 		 * text and every spelling of an amount, ± days around a day. Only the hits
 		 * are read (bridge/README.md).
 		 *
-		 * @param {{ text?: string | null, amount?: string | null, from?: string[], around?: string | null, days?: number }} query
+		 * @param {{ text?: string | null, amount?: string | null, from?: string[], terms?: string[], around?: string | null, days?: number }} query
+		 *   `terms`: more words to find in the whole mail (a crypto payment's hash, address, quantity), at most 6
 		 * @returns {Promise<{ messages: any[] }>} each with `matched`: the criteria that hit
 		 */
-		async mailSearch({ text = null, amount = null, from = [], around = null, days = 14 }) {
+		async mailSearch({
+			text = null,
+			amount = null,
+			from = [],
+			terms = [],
+			around = null,
+			days = 14
+		}) {
 			const q = new URLSearchParams({ days: String(days) });
 			if (text) q.set('text', text);
+			for (const term of terms.slice(0, 6)) q.append('term', term);
 			if (amount) q.set('amount', amount);
 			if (from.length) q.set('from', from.slice(0, 3).join(','));
 			if (around) q.set('around', around);

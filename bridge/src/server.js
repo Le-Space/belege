@@ -6,7 +6,7 @@
 //   GET  /hibiscus/transactions?account=<id>&since=YYYY-MM-DD   token
 //   GET  /mail/messages?since=YYYY-MM-DD[&until=YYYY-MM-DD]&scope=accounting   token
 //   GET  /mail/attachment?id=<mail id>&part=<n>                   token → the bytes
-//   GET  /mail/search?text=&amount=&from=a.example,b.example&around=YYYY-MM-DD&days=   token
+//   GET  /mail/search?text=&amount=&from=a.example,b.example&term=…&around=YYYY-MM-DD&days=   token
 //   POST /mail/assist  { counterparty, purpose, amount, around, days, knownDomains }   token → LLM terms, hits, pick
 //   POST /match/assist { booking, candidates }                  token → the LLM's pick among receipts
 //   GET  /llm/status                                              token → provider, models, key present?
@@ -298,11 +298,16 @@ export function createBridgeServer({
 			const amount = (url.searchParams.get('amount') ?? '').trim() || null;
 			const from = domainList(url.searchParams.get('from'));
 			if (from === null) return send(res, 400, { error: 'from must be up to 3 mail domains' });
+			// A crypto payment's hash, address or quantity: plain tokens only.
+			const terms = url.searchParams.getAll('term').map((t) => t.trim());
+			if (terms.length > 6 || terms.some((t) => !/^[\w.,:-]{3,100}$/.test(t))) {
+				return send(res, 400, { error: 'term: up to 6, each 3–100 of letters, digits and .,:_-' });
+			}
 			const around = url.searchParams.get('around') || null;
 			const daysParam = url.searchParams.get('days');
 			const days = daysParam === null || daysParam === '' ? 14 : Number(daysParam);
-			if (!text && !amount && !from.length)
-				return send(res, 400, { error: 'text, amount or from is required' });
+			if (!text && !amount && !from.length && !terms.length)
+				return send(res, 400, { error: 'text, amount, from or term is required' });
 			if (text && (text.length < 3 || text.length > 100 || /["\\\r\n]/.test(text))) {
 				return send(res, 400, { error: 'text must be 3–100 plain characters' });
 			}
@@ -316,7 +321,7 @@ export function createBridgeServer({
 				return send(res, 400, { error: 'days must be 0–60' });
 			}
 			if (!mail) throw notSetUp('Mail');
-			const messages = await mail.search({ text, amount, from, around, days });
+			const messages = await mail.search({ text, amount, from, terms, around, days });
 			log(`search found ${messages.length} mail(s)`);
 			return send(res, 200, { messages });
 		}

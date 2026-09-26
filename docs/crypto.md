@@ -165,3 +165,5 @@ Each own wallet can have a **name** (a project, a purpose), a **ledger account**
 ## In the app
 
 The detail of a payment shows **Menge** (`-0,015 BTC`) and **Kurs** (`60.000,00 EUR je BTC · CoinGecko, 01.09.2026 00:00 UTC`).
+
+**Finding the mail of a crypto payment.** _Im privaten Postfach suchen_ on an own wallet's booking searches by what a vendor's confirmation names: the transaction hash, the other address and the quantity (exact and to two decimals, with a point and a comma), ± 3 days; as text the vendor learned for that address, else the memo's first word. Not the euro amount: that is our own valuation. A receipt linked to a wallet payment teaches its address (`addr:<chain or evm>:<address>` among the partner's aliases), so the next payment to the same address scores the vendor and searches its mail domains. An incoming transfer with a memo and nothing else explaining it says that it is usually one's own withdrawal from an exchange, with the memo typed there.

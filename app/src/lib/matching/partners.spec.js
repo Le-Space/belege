@@ -8,7 +8,9 @@ import { receipt, tx } from './fixtures.js';
 import { confirmMatch } from './actions.js';
 import { runMatching } from './engine.js';
 import {
+	aliasLabel,
 	counterpartyKey,
+	txAlias,
 	learnFromLink,
 	learnedVendors,
 	mailDomain,
@@ -57,6 +59,49 @@ describe('counterpartyKey and mailDomain', () => {
 		);
 		expect(mailDomain('rechnung@wolkenfabrik.example')).toBe('wolkenfabrik.example');
 		expect(mailDomain('no address')).toBeNull();
+	});
+});
+
+describe('txAlias', () => {
+	it('a wallet booking is known by the other address, the same on every EVM chain', () => {
+		const addr = '0xAbCd000000000000000000000000000000001234';
+		expect(txAlias({ source: 'ethereum', counterpartyAddress: addr, counterparty: addr })).toBe(
+			`addr:evm:${addr.toLowerCase()}`
+		);
+		expect(txAlias({ source: 'base', counterpartyAddress: addr })).toBe(
+			`addr:evm:${addr.toLowerCase()}`
+		);
+		expect(txAlias({ source: 'nyx', counterpartyAddress: 'n1abc' })).toBe('addr:nyx:n1abc');
+		// A bank booking: the counterparty key, as before.
+		expect(txAlias({ source: 'hibiscus', counterparty: 'PAYPAL *WOLKENFAB 4029' })).toBe(
+			'paypal wolkenfab'
+		);
+		expect(aliasLabel(`addr:evm:${addr.toLowerCase()}`)).toBe('0xabcd00…001234');
+		expect(aliasLabel('paypal wolkenfab')).toBe('paypal wolkenfab');
+	});
+
+	it('a link on a wallet payment teaches the address; the next payment there scores the vendor', async () => {
+		const VENDOR = 'n1madeupvendor00000000000000000000000zzzz';
+		const pay = (/** @type {string} */ day) =>
+			tx({
+				source: 'nyx',
+				bookedOn: day,
+				amountCents: -3370,
+				counterparty: VENDOR,
+				counterpartyAddress: VENDOR
+			});
+		const first = await add('transactions', pay('2026-03-25'));
+		const bill = await add(
+			'receipts',
+			receipt({ vendor: 'Beispiel VPN Ltd', gross: 33.7, invoice_date: '2026-03-25' })
+		);
+		await confirmMatch(store, { receiptId: bill.id, transactionId: first.id });
+		const [partner] = await store.partners.list();
+		expect(partner.aliases).toEqual([`addr:nyx:${VENDOR}`]);
+		expect(partnerOfTx([partner], pay('2026-04-25'))?.name).toBe('Beispiel VPN Ltd');
+		const learned = learnedVendors([partner]);
+		const facts = txFacts(pay('2026-04-25'), /** @type {any} */ ({ learnedVendors: learned }));
+		expect(facts.learnedVendors).toEqual(['Beispiel VPN Ltd']);
 	});
 });
 
