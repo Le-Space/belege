@@ -259,7 +259,8 @@ export default {
 			usesHeading: 'Mit KI',
 			uses: [
 				'Belege auslesen: Anbieter, Betrag, Datum, Rechnungs- und Kundennummer aus dem Text eines Belegs – und ob es überhaupt ein Beleg ist (Anmelde-Mails und Newsletter nicht). Bei „Auslesen“, „Alle neuen auslesen“, „Beleg hochladen“, „Als Beleg übernehmen“ und „Rechnungen holen“.',
-				'„Mit KI weitersuchen“ im privaten Postfach: Suchwörter und Absender vorschlagen, dann unter den Treffern den Beleg wählen – nach Betreff, Absender-Domain und Dateinamen, nie nach dem Text der E-Mails.'
+				'„Mit KI weitersuchen“ im privaten Postfach: Suchwörter und Absender vorschlagen, dann unter den Treffern den Beleg wählen – nach Betreff, Absender-Domain und Dateinamen, nie nach dem Text der E-Mails.',
+				'„KI-Vorschlag“ unter „Beleg zuordnen“: unter bis zu 25 deiner Belege den passenden zu einer Buchung nennen – nach Anbieter, Betrag, Datum, Rechnungsnummer und Kurzbeschreibung. Zuordnen tust du.'
 			],
 			withoutHeading: 'Ohne KI, nach festen Regeln',
 			without:
@@ -835,6 +836,7 @@ export default {
 			extract: 'Beleg ausgelesen',
 			extractFailed: 'Auslesen fehlgeschlagen',
 			'mail-assist': 'Mit KI im Postfach gesucht',
+			'match-assist': 'KI-Vorschlag für eine Zuordnung',
 			matching: 'Abgleich',
 			decision: 'Entscheidung',
 			export: 'DATEV-Export'
@@ -854,6 +856,7 @@ export default {
 			mailAssist:
 				'{model} · {terms} Suchwörter · {domains} Absender · {mails} Treffer · {seconds} s · {tokens} Tokens',
 			mailAssistPick: ' · Vorschlag: {confidence}',
+			matchAssist: '{model} · {candidates} Belege geprüft · {seconds} s · {tokens} Tokens',
 			export: 'DATEV-Export {month}: {bookings} Buchungen, {receipts} Belege',
 			matching:
 				'{sure} zugeordnet · {created} neue Rückfragen · {resolved} erledigt · {classified} ohne Beleg-Pflicht · {waiting} warten noch',
@@ -1067,6 +1070,11 @@ export default {
 			privateHits: '{count} Treffer',
 			criteria: { text: 'Suchwort', sender: 'bekannter Absender', amount: 'Betrag' },
 			privateLikely: 'Wahrscheinlich der Beleg',
+			aiChoice: 'KI-Vorschlag',
+			aiChoiceBusy: 'KI prüft …',
+			aiChoiceTitle:
+				'Die Bridge schickt dein eingestelltes Sprachmodell die Buchung (Gegenpartei, Verwendungszweck, Betrag, Tag) und bis zu 25 passende Belege mit Anbieter, Betrag, Datum, Rechnungsnummer und Kurzbeschreibung – geschwärzt. Es nennt den passenden Beleg; zuordnen tust du.',
+			aiChoiceNone: 'Das Sprachmodell hält keinen der Belege für passend.',
 			aiSearch: 'Mit KI weitersuchen',
 			aiSearching: 'KI sucht …',
 			aiSearchTitle:

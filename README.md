@@ -16,7 +16,7 @@ pnpm lint && pnpm check && pnpm test:unit && pnpm test:bridge && pnpm test:e2e
 
 ## AI
 
-Belege uses a language model in two places, both only on a click of a button marked **✦**: reading a receipt's text (vendor, amounts, dates, numbers), and _Mit KI weitersuchen_ in the private mailbox (search words, then a pick from the hits' subjects, sender domains and file names). Matching, questions, transfers, fees, learning and the portals run on fixed rules. **Le Space runs no AI:** each installation sets up its own model in the bridge, a public one such as DeepSeek or a local one such as Ollama, and everything sent is redacted first. Details: [docs/ai.md](docs/ai.md) ([Deutsch](docs/ai.de.md)).
+Belege uses a language model in three places, each only on a click of a button marked **✦**: reading a receipt's text (vendor, amounts, dates, numbers), _Mit KI weitersuchen_ in the private mailbox (search words, then a pick from the hits' subjects, sender domains and file names), and _KI-Vorschlag_ under _Beleg zuordnen_ (a pick among receipts by their read fields; the person links). Matching, questions, transfers, fees, learning and the portals run on fixed rules. **Le Space runs no AI:** each installation sets up its own model in the bridge, a public one such as DeepSeek or a local one such as Ollama, and everything sent is redacted first. Details: [docs/ai.md](docs/ai.md) ([Deutsch](docs/ai.de.md)).
 
 ## Accounts and DATEV export
 
