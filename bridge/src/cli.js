@@ -13,7 +13,11 @@
 // --test-mode is for the E2E suite: the secrets come from environment
 // variables instead of the keychain ($BELEGE_BRIDGE_TEST_PASSWORD for Hibiscus,
 // $BELEGE_BRIDGE_TEST_IMAP_PASSWORD, $BELEGE_BRIDGE_TEST_LLM_KEY,
-// $BELEGE_BRIDGE_TEST_PORTAL_PASSWORD), portal browsers never open a window,
+// $BELEGE_BRIDGE_TEST_PORTAL_PASSWORD, $BELEGE_BRIDGE_TEST_KRAKEN_KEY as the
+// keychain's JSON, $BELEGE_BRIDGE_TEST_COINGECKO_KEY; the macOS keychain is
+// never read), exchange rates come from $BELEGE_BRIDGE_TEST_FIXED_RATES
+// (JSON, EUR per unit by symbol) when it is set, a wallet may name a chain
+// node on http://127.0.0.1, portal browsers never open a window,
 // the portal password dialog never opens either (it answers
 // $BELEGE_BRIDGE_TEST_PORTAL_DIALOG, or is cancelled without it), and it
 // refuses to run on the real config file.
@@ -58,6 +62,10 @@ if (pairingAction) {
 let keychain;
 let mailKeychain;
 let llmKeychain;
+let krakenKeychain;
+let coingeckoKeychain;
+/** @type {Record<string, string> | null} */
+let fixedRates = null;
 /** @type {((id: string) => import('./keychain.js').Keychain) | undefined} */
 let portalKeychain;
 /** @type {import('./portals/credentials.js').AskPassword | undefined} */
@@ -76,6 +84,14 @@ if (testMode) {
 	const portalPassword = memoryKeychain(process.env.BELEGE_BRIDGE_TEST_PORTAL_PASSWORD ?? null);
 	portalKeychain = () => portalPassword;
 	portalPasswordDialog = async () => process.env.BELEGE_BRIDGE_TEST_PORTAL_DIALOG ?? null;
+	krakenKeychain = memoryKeychain(process.env.BELEGE_BRIDGE_TEST_KRAKEN_KEY ?? null, 'kraken');
+	coingeckoKeychain = memoryKeychain(
+		process.env.BELEGE_BRIDGE_TEST_COINGECKO_KEY ?? null,
+		'coingecko'
+	);
+	if (process.env.BELEGE_BRIDGE_TEST_FIXED_RATES) {
+		fixedRates = JSON.parse(process.env.BELEGE_BRIDGE_TEST_FIXED_RATES);
+	}
 }
 
 try {
@@ -84,6 +100,10 @@ try {
 		keychain,
 		mailKeychain,
 		llmKeychain,
+		krakenKeychain,
+		coingeckoKeychain,
+		fixedRates,
+		walletLoopback: testMode,
 		portalKeychain,
 		portalPasswordDialog,
 		// Test mode: a new portal may start on a fake portal on this machine.

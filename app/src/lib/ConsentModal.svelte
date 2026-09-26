@@ -56,7 +56,8 @@
 		{ id: 'camt', status: 'active' },
 		{ id: 'enableBanking', status: 'notYet', planned: true },
 		{ id: 'deepseek', status: 'whenSetUp' },
-		{ id: 'portals', status: 'whenSetUp' }
+		{ id: 'portals', status: 'whenSetUp' },
+		{ id: 'blockchain', status: 'whenSetUp' }
 	];
 
 	const chip = {

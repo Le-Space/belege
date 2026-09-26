@@ -81,6 +81,25 @@ describe('importTransactions', () => {
 		const [after] = await collection.list();
 		expect(after.valuation.rate).toBe('61000');
 		expect(after.amountCents).toBe(-91500);
+
+		// The store hands the valuation back with its keys sorted (dag-cbor): no change.
+		const { valuation } = after;
+		await collection.put({
+			...after,
+			valuation: {
+				at: valuation.at,
+				rate: valuation.rate,
+				source: valuation.source,
+				currency: valuation.currency
+			}
+		});
+		expect(
+			await importTransactions({
+				transactions: collection,
+				account: ACCOUNT,
+				incoming: [crypto('61000', -91500)]
+			})
+		).toEqual({ new: 0, updated: 0, skipped: 1 });
 	});
 
 	it('leaves bank transactions without crypto fields', async () => {

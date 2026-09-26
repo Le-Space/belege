@@ -2,7 +2,7 @@
 
 _Deutsch: [crypto.de.md](crypto.de.md)_
 
-Belege keeps accounts on exchanges (Kraken) and, next, wallets on blockchains (Cosmos, EVM, Bitcoin). This page describes what they share and the Kraken connector.
+Belege keeps accounts on exchanges (Kraken) and own wallets on blockchains (Cosmos, EVM; Bitcoin later). This page describes what they share, the Kraken connector and the wallets.
 
 ## One account per asset
 
@@ -65,6 +65,53 @@ Two sides paired by reference but valued apart (a Kraken withdrawal and the wall
 An entry whose rate cannot be found is left out with the rest of its trade, listed after the sync, and fetched again next time.
 
 **Not decided here**: gains and losses when crypto is sold (acquisition cost by FIFO or average) and the year-end valuation. Every booking keeps quantity, rate and source, so the tax adviser's method can be applied to it.
+
+## Own wallets
+
+Tokens withdrawn from an exchange to a wallet of our own stay the company's. _Integrationen → Eigene Wallets_ adds such a wallet by **chain and address**: read only, never a key or a seed phrase. The list of wallets is kept sealed in the books (settings key `wallets`); the bridge keeps nothing about them.
+
+**Chains**: Nym (Nyx) and Akash (Cosmos SDK), Ethereum, Base, Arbitrum One, OP Mainnet and Polygon PoS (EVM). The table is `bridge/src/chains/registry.js`; the app's names for them are in `app/src/lib/wallets/chains.js`.
+
+**Sync** (_Synchronisieren_, per wallet): the app sends the address in the body of `POST /<chain>/wallet` to the bridge, and the bridge asks a public node (see below; a wallet may name its own https endpoint instead). It reads the whole history each time; what is known is skipped.
+
+- **Cosmos**: CometBFT RPC `tx_search` for `transfer.sender='<address>'` and `transfer.recipient='<address>'` (every balance change of the bank module is a `transfer` event, the fee included), 100 a page, oldest first, merged by hash; `header` for each block's time; `status` for the oldest block the node still has; REST `/cosmos/bank/v1beta1/balances/<address>` for the balance; the memo from the transaction's bytes.
+- **EVM**: first Blockscout's JSON-RPC proxy (`…/api/eth-rpc`, `eth_chainId`) must name the chain (else `WALLET_WRONG_CHAIN`, or `WALLET_CHAIN_UNVERIFIED` when it cannot say); then its Etherscan-compatible API, no key: `txlist`, `txlistinternal`, `tokentx`, `balance`, `tokenbalance`. Paged by start block past Blockscout's 10 000-entry window, with retries on its rate limit.
+
+**Accounts**: one per wallet and asset, with the chain as source: _Wallet NYM ···w6d0y_, _Wallet USDC (Base) ···81efcf_ (an EVM address is the same on every EVM chain, so the chain is named). Balance and its day as for Kraken.
+
+**Bookings**: one per movement, valued at the day's rate (CoinGecko first, Kraken as the fallback; no `prefer`, this is no exchange booking).
+
+| What happened                                    | Booking                                                                                                                                                                     | Receipt                                                                                                                                                                                  |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| sent / received                                  | movement `transfer`, sourceId `<hash>:m<msg>:e<event>.<n>:<asset>` (Cosmos), `<hash>:value` / `:log:<i>` / `:internal:<i>` (EVM), `counterpartyAddress` = the other address | needed – unless the other address is an own wallet                                                                                                                                       |
+| between two own wallets                          | both legs share `txRef` (the hash)                                                                                                                                          | own transfer (1360), paired by the hash                                                                                                                                                  |
+| to an own wallet not synced yet                  | as above                                                                                                                                                                    | own transfer (1360), by the address                                                                                                                                                      |
+| the fee this address paid (also for a failed tx) | movement `fee`, sourceId `<hash>:fee`                                                                                                                                       | network fee: the transaction is the receipt                                                                                                                                              |
+| a staking reward (from `distribution`)           | movement `reward`                                                                                                                                                           | none (as an exchange's reward)                                                                                                                                                           |
+| a delegation (to `bonded_tokens_pool`)           | movement `stake`                                                                                                                                                            | none, kind `crypto-stake`: the tokens stay ours; **not 1360** – their return after unbonding is no transaction, a transit account would never balance; the account is the adviser's call |
+| an IBC transfer out                              | movement `transfer`, the receiver on the other chain as counterparty                                                                                                        | needed                                                                                                                                                                                   |
+
+`txRef` is the hash exactly as the chain gives it: Cosmos upper-case hex, EVM `0x` + lower-case hex. Kraken's crypto deposits and withdrawals carry the on-chain hash as `chainTxRef` (from DepositStatus/WithdrawStatus), so they pair with the wallet booking of the same hash, whatever the euro amounts. Every booking keeps `explorerUrl`, its transaction in the block explorer; _Zahlungen_ shows _Im Block-Explorer ansehen_ and the _Gegenadresse_.
+
+**Left out, and said so**: denoms and tokens not in the chain's list (IBC vouchers `ibc/…`, factory denoms, any ERC-20 but the listed USDC – a contract can call itself "USDC"); entries without a rate (NYX has none at CoinGecko or Kraken), fetched again next time; a pruned node's older history (the sync shows from which day the node knows the chain – use an archive node then). **Not seen at all**: tokens that return when an unbonding ends (the chain does that without a transaction), vesting, and on rollups (Base, Optimism, Arbitrum) the L1 data fee, which Blockscout's Etherscan-compatible API does not report. The balance shows the truth; a difference is for a person to look at.
+
+**What the node sees**: the address and the Mac's IP address, only on _Synchronisieren_ (consent screen, _Blockchain-Abfrage_). The bridge's log has counts, never an address or an amount.
+
+### Where the defaults come from (checked 2026-09-26)
+
+| Chain     | Chain id     | Address                          | Assets (decimals)                | Default endpoints                                                                                        | Explorer (tx / address)                                      |
+| --------- | ------------ | -------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Nym (Nyx) | `nyx`        | bech32 `n1…`                     | NYM `unym` (6), NYX `unyx` (6)   | RPC `rpc.nymtech.net`, REST `api.nymtech.net` (Nym); archive: `rpc.nyx.nodes.guru`, `api.nyx.nodes.guru` | `nym.explorers.guru/transaction/{tx}`, `/account/{address}`  |
+| Akash     | `akashnet-2` | bech32 `akash1…`                 | AKT `uakt` (6)                   | RPC `akash-rpc.polkachu.com`, REST `akash-api.polkachu.com`; `rpc-akash.ecostake.com`                    | `mintscan.io/akash/transactions/{tx}`, `/accounts/{address}` |
+| Ethereum  | 1            | `0x` + 40 hex, EIP-55 when mixed | ETH (18), USDC `0xA0b8…eB48` (6) | `eth.blockscout.com/api`                                                                                 | `etherscan.io/tx/{tx}`, `/address/{address}`                 |
+| Base      | 8453         | as Ethereum                      | ETH (18), USDC `0x8335…2913` (6) | `base.blockscout.com/api`                                                                                | `basescan.org/tx/…`, `/address/…`                            |
+| Arbitrum  | 42161        | as Ethereum                      | ETH (18), USDC `0xaf88…5831` (6) | `arbitrum.blockscout.com/api`                                                                            | `arbiscan.io/tx/…`, `/address/…`                             |
+| Optimism  | 10           | as Ethereum                      | ETH (18), USDC `0x0b2C…Ff85` (6) | `explorer.optimism.io/api` (Blockscout)                                                                  | `optimistic.etherscan.io/tx/…`, `/address/…`                 |
+| Polygon   | 137          | as Ethereum                      | POL (18), USDC `0x3c49…3359` (6) | `polygon.blockscout.com/api`                                                                             | `polygonscan.com/tx/…`, `/address/…`                         |
+
+- **Checked against the source**: Nyx and Akash chain id, bech32 prefix, denoms, exponents, RPC/REST and explorer URL patterns against the Cosmos chain registry (`nyx/`, `akash/` `chain.json` and `assetlist.json`); Nyx's node reports chain `nyx`, CometBFT 0.38 and cosmos-sdk 0.53 (so events are plain text, the fee is in the `tx` event). The USDC contracts against Circle's list of USDC contract addresses, their 6 decimals against each chain's Blockscout. The Blockscout API answers on each host (Optimism's Blockscout moved to `explorer.optimism.io`) and reports chain ids 1, 42161, 10 and 137.
+- **Checked by trying**: Nym's RPC answers `tx_search` for `transfer.sender` and `transfer.recipient` in well under a second (an earlier project found sender queries hanging; not reproduced). It is **pruned** (its oldest block is from 2025); Nodes Guru's RPC goes back to the first block. Blockscout refuses page × offset above 10 000. Blockscout's `tokentx` gives no log index, so a token transfer's id is built from contract, sender, receiver and value (stable, but not a log index).
+- **Not checked**: Base's chain id through its API (rate-limited at the time; 8453 is the well-known id); that the explorers' pages render (they are single-page apps and answer 200 for anything); Akash's history depth on Polkachu's node.
 
 ## In the export
 

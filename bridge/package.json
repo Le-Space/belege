@@ -13,12 +13,14 @@
 	},
 	"exports": {
 		".": "./src/index.js",
+		"./chains": "./src/chains/index.js",
 		"./testing": "./test/support/fake-hibiscus.js",
 		"./testing/imap": "./test/support/fake-imap.js",
 		"./testing/llm": "./test/support/fake-llm.js",
 		"./testing/pdf": "./test/support/synthetic-pdf.js",
 		"./testing/portal": "./test/support/fake-portal.js",
-		"./testing/kraken": "./test/support/fake-kraken.js"
+		"./testing/kraken": "./test/support/fake-kraken.js",
+		"./testing/chains": "./test/support/fake-chains.js"
 	},
 	"scripts": {
 		"start": "node src/cli.js",
@@ -33,6 +35,7 @@
 		"format": "prettier --write src test"
 	},
 	"dependencies": {
+		"@noble/hashes": "2.4.0",
 		"fast-xml-parser": "5.11.1",
 		"imapflow": "2.0.6",
 		"playwright": "1.61.1"

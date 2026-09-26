@@ -53,6 +53,7 @@ addressed to the accounting alias, and sends only redacted text to the LLM.
 | A portal of your own ("Neues Portal aufzeichnen"): name, start page, route, … | `~/.config/belege/recipes/local-<slug>.json` (0600) |
 | Host, port, pinned SHA-256, IBAN suffixes, app origins, hashes of paired tokens; IMAP host/port/user, accounting address; LLM URL, models, terms to black out; a portal's user name | `~/.config/belege/bridge.json` (0600; `BELEGE_BRIDGE_CONFIG` overrides) |
 | The bearer token | the app's encrypted store (`settings`), never on the bridge's disk |
+| Own wallets (chain, address, own endpoints) | the app's encrypted store (`settings`, key `wallets`); the bridge keeps nothing, it gets them with each `POST /<chain>/wallet` |
 
 ## API
 
@@ -61,7 +62,7 @@ All JSON, `127.0.0.1:8765` by default. Everything except `/health` and `/pair` n
 
 | | |
 |---|---|
-| `GET /health` | `{ ok, paired, pairingOpen, hibiscus: { configured }, mail: { configured, accountingAddress }, llm: { configured, models }, portals: { available } }` |
+| `GET /health` | `{ ok, paired, pairingOpen, hibiscus: { configured }, mail: { configured, accountingAddress }, llm: { configured, models }, portals: { available }, kraken: { configured }, wallets: { available } }` |
 | `POST /pair` `{ code }` | `{ token }`, once per code |
 | `POST /unpair` | forgets the calling token; `{ ok: true }` |
 | `GET /hibiscus/accounts` | allowed accounts: `id, ibanMasked, ibanLast4, name, currency, balanceCents, balanceDate` |
@@ -73,6 +74,8 @@ All JSON, `127.0.0.1:8765` by default. Everything except `/health` and `/pair` n
 | `GET /kraken/balances` | `{ balances: [{ asset, wallet: 'spot' \| 'earn', amount, decimals }] }`: every non-zero balance, Kraken's asset codes normalised (`XXBT` → BTC, `DOT.S` → DOT/earn). 503 until `pnpm setup:kraken` |
 | `GET /kraken/ledgers?since=YYYY-MM-DD` | `{ since, entries: [{ id, refid, time, date, type, subtype, asset, wallet, amount, fee, decimals }] }`, oldest first; all pages (`ofs`), with a pause between pages and retries on Kraken's rate limit. The log gets counts, never amounts |
 | `GET /rates?asset=BTC&date=YYYY-MM-DD[&prefer=kraken]` | `{ asset, date, currency: 'EUR', rate, usdRate, source, at }`: EUR per whole unit at 00:00 UTC of the day, from CoinGecko, else Kraken (daily candle open); USD from the ECB reference rate. Rates are decimal strings. 400 for an unknown asset or a future day, 502 when no source answers. See [docs/crypto.md](../docs/crypto.md) |
+| `GET /chains` | the chains an own wallet can be on: `id, kind (cosmos \| evm), name, shortName, caip2, assets, nativeSymbol, bech32Prefix?, endpoints, alternatives, explorer { name, tx, address }` |
+| `POST /<chain>/wallet` `{ address, endpoints? }` | an own wallet's whole history and balance, read from a public node (or the https `endpoints` given): `{ chain, endpoints, entries [{ id, hash, height, time, date, type (sent \| received \| fee), kind, asset, amount, decimals, counterparty, counterpartyLabel, memo, success, explorerUrl }], balances [{ asset, amount, decimals }], transactions, unknownAssets, history { earliestHeight, earliestTime, pruned }, addressUrl }`. 400 `WALLET_ADDRESS` (bech32 prefix or EIP-55 checksum wrong; no node is asked), `WALLET_ENDPOINT`, `WALLET_WRONG_CHAIN` (the node or the Blockscout API serves another chain); 502 `WALLET_CHAIN_UNVERIFIED` (a Blockscout API that does not say its chain id); 502/504 `WALLET_UNREACHABLE`, `WALLET_NODE`, `WALLET_TIMEOUT`, 429 `WALLET_RATE_LIMIT`. The log gets counts, never an address. See [docs/crypto.md](../docs/crypto.md#own-wallets) |
 | `POST /extract` `{ text, hints: { subject, from, fileName, receivedAt }, source: { mailId }, confirmedByUser }` | `{ extraction, model, usage { prompt, completion, reasoning }, ms, attempts [{ model, ok, reason, ms, usage }], fallback { used, reason }, redactions { terms, iban, email, street, postcode, total }, sentText }`; 403 `SENDER_UNVERIFIED` for a mail whose sender did not pass, 502 `EXTRACT_FAILED` with the attempts when no model gave a usable answer |
 | `GET /portals` | every portal the bridge knows: `id, name, recipeVersion, state, lastLoginAt, lastRun { at, ok, count, code, step }, running, recordable, recorded, review, credentials, hasCredentials, source, pending, host`, with `source` `bundled` or `local` (a portal of your own), `pending` for a new one not saved yet, and `state` one of `logged-in`, `needs-login`, `never`; starts no browser |
 | `POST /portals/:id/login` | opens the visible window and answers once logged in: `{ state: 'logged-in' }`; 408 `PORTAL_LOGIN_TIMEOUT` after 10 minutes, 409 `PORTAL_CANCELLED` when the window was closed or the login cancelled |

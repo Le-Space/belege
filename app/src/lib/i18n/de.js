@@ -316,6 +316,14 @@ export default {
 					'Deine Anmeldung beim Portal (Vodafone) und die Abrufe der Rechnungsseiten, direkt von diesem Mac. Die Sitzung bleibt in einem Browserprofil auf dem Mac; ein Passwort nur, wenn du es im Schlüsselbund hinterlegst.',
 				technical:
 					'Die Bridge startet ein eigenes Chromium (Playwright) mit einem Profil pro Portal unter ~/.config/belege/portals/<portal>/profile (Verzeichnis 0700), nicht deinen Alltags-Browser. Beim ersten Mal (und wenn die Sitzung abläuft) öffnet es ein sichtbares Fenster: Du meldest dich an, Codes (SMS, E-Mail) und Sicherheitsprüfungen gibst immer du ein. Danach holt es die Rechnungen ohne Fenster. Ein optionales Passwort (pnpm setup:portal vodafone) liegt im macOS-Schlüsselbund und wird nur in das Anmeldeformular des Portals getippt. Nur PDFs (nach ihren Bytes, höchstens 15 MB) kommen in der App an. Kein Sprachmodell, keine Bildschirmfotos; das Protokoll nennt nur den Schritt, der scheiterte. Wer dein macOS-Konto benutzen kann, kann auch die Sitzung im Profil benutzen: FileVault einschalten, „Abmelden“ löscht das Profil. Die Nutzungsbedingungen eines Portals können automatisierten Zugriff einschränken.'
+			},
+			blockchain: {
+				name: 'Blockchain-Abfrage (Nym/Cosmos, Ethereum/EVM)',
+				text: 'Nur für eigene Wallets, die du unter Integrationen einträgst, und nur wenn du „Synchronisieren“ drückst: Die Bridge fragt einen öffentlichen Knoten nach den Überweisungen und dem Bestand der Adresse.',
+				leaves:
+					'Die Adresse der Wallet und die IP-Adresse dieses Macs – an den Betreiber des Knotens: voreingestellt Nym (rpc.nymtech.net) für Nyx, Polkachu für Akash, Blockscout für Ethereum, Base, Arbitrum, Optimism und Polygon, oder den Knoten, den du selbst einträgst. Er kann daraus ablesen, dass diese Adresse zu dir gehört.',
+				technical:
+					'Gefragt wird per HTTPS: bei Cosmos-Chains die CometBFT-RPC (tx_search nach transfer.sender und transfer.recipient, header, status) und die REST-API (Bestand), bei EVM-Chains die Etherscan-kompatible API von Blockscout (txlist, txlistinternal, tokentx, balance). Die App schickt die Adresse im Rumpf einer Anfrage an die Bridge, nie in einer URL (an Blockscout geht sie, wie dessen API es verlangt, in der Abfrage-URL); das Protokoll der Bridge nennt nur Zahlen. Kein Schlüssel, keine Signatur: die Adresse ist öffentlich, die Liste deiner Wallets liegt verschlüsselt in deinen Büchern, nicht in der Bridge. Gebucht werden nur Assets aus der Liste der Chain (NYM, NYX, AKT, ETH, POL, USDC mit geprüftem Vertrag); andere Token werden gezählt und ausgelassen. Links zum Block-Explorer öffnen erst, wenn du sie anklickst.'
 			}
 		},
 		status: {
@@ -420,6 +428,7 @@ export default {
 			'bank-fee': 'Kontoauszug',
 			loan: 'Darlehen',
 			'crypto-reward': 'Ertrag der Börse',
+			'crypto-stake': 'Staking',
 			'rule-ignore': 'Ignoriert',
 			'rule-private': 'Privat'
 		},
@@ -428,6 +437,7 @@ export default {
 			'bank-fee': 'Bankentgelt – der Kontoauszug ist der Beleg',
 			loan: 'Darlehen – der Vertrag ist der Beleg',
 			'crypto-reward': 'Staking- oder Earn-Ertrag – der Kontoauszug der Börse ist der Beleg',
+			'crypto-stake': 'Delegiert ins Staking – kein Beleg nötig, nicht auf 1360',
 			'rule-ignore': 'Ignoriert nach eigener Anweisung: {reason}',
 			'rule-private': 'Privat nach eigener Anweisung: {reason}',
 			'no-receipt': 'Kein Beleg nötig: {reason}'
@@ -490,6 +500,11 @@ export default {
 			loan: 'Darlehen: „Darlehen“ im Verwendungszweck – der Vertrag ist der Beleg',
 			exchangeFee:
 				'Gebühr der Börse: Kraken hat sie zu dieser Buchung berechnet – der Kontoauszug der Börse ist der Beleg',
+			networkFee: 'Netzwerkgebühr der Blockchain: die Transaktion im Block-Explorer ist der Beleg',
+			ownAddress:
+				'Eigene Übertragung: Die Gegenadresse {address} ist deine Wallet {account}. Kein Beleg nötig (Konto 1360).',
+			staking:
+				'Staking: Die Tokens sind delegiert und bleiben deine. Kein Beleg nötig. Nicht auf 1360 – ihre Rückkehr nach dem Unbonding ist keine Transaktion, eine Umbuchung ginge nie auf; das Konto klärt ihr mit dem Steuerberater.',
 			cryptoReward:
 				'Staking- oder Earn-Ertrag der Börse – der Kontoauszug ist der Beleg. Auf welches Konto er gehört, klärt ihr mit dem Steuerberater.',
 			ignore: 'Eigene Anweisung: {field} enthält „{contains}“ → ignoriert ({reason})',
@@ -900,7 +915,18 @@ export default {
 			bookings: 'Automatische Konten übernommen',
 			answer: 'Rückfrage beantwortet: {choice}'
 		},
-		source: { hibiscus: 'Hibiscus', camt: 'CAMT-Import', kraken: 'Kraken' },
+		source: {
+			hibiscus: 'Hibiscus',
+			camt: 'CAMT-Import',
+			kraken: 'Kraken',
+			nyx: 'Wallet (Nym/Nyx)',
+			akash: 'Wallet (Akash)',
+			ethereum: 'Wallet (Ethereum)',
+			base: 'Wallet (Base)',
+			arbitrum: 'Wallet (Arbitrum)',
+			optimism: 'Wallet (Optimism)',
+			polygon: 'Wallet (Polygon)'
+		},
 		technical: [
 			'Jeder Eintrag ist ein Datensatz der versiegelten OrbitDB-Sammlung events (AES-GCM wie alle anderen): Art, Zeitpunkt, die IDs von Beleg, Zahlung, Zuordnung oder Rückfrage und Zahlen – Modell, Dauer, Tokens, Schwärzungen je Art, Treffer. Kein Token, kein Schlüssel, kein Belegtext.',
 			'Geschrieben wird er von der Aktion selbst: Synchronisieren, CAMT-Import, E-Mail-Abruf, Auslesen, Abgleich und jede Entscheidung. Ein automatischer Abgleich, der nichts ändert, schreibt keinen Eintrag; ein von dir gestarteter immer.'
@@ -1051,6 +1077,8 @@ export default {
 			txRef: 'Referenz',
 			chainTxRef: 'Transaktions-Hash',
 			related: 'Gehört zusammen mit (gleiche Referenz)',
+			address: 'Gegenadresse',
+			explorer: 'Im Block-Explorer ansehen',
 			valueDate: 'Wertstellung',
 			amount: 'Betrag',
 			account: 'Konto',
@@ -1263,7 +1291,38 @@ export default {
 			title: 'Konten in den Büchern',
 			camt: 'CAMT-Import',
 			hibiscus: 'Hibiscus',
-			kraken: 'Kraken'
+			kraken: 'Kraken',
+			wallet: 'Eigene Wallet'
+		},
+		wallets: {
+			title: 'Eigene Wallets',
+			intro:
+				'Nur lesend, über die Adresse: Die Bridge fragt einen öffentlichen Knoten der Chain nach allen Überweisungen und Gebühren dieser Adresse und nach ihrem Bestand. Nie ein Schlüssel, nie eine Seed-Phrase. Jedes Asset bekommt ein eigenes Konto; bewertet wird zum Tageskurs (CoinGecko, Kraken als Rückfall).',
+			addTitle: 'Wallet hinzufügen',
+			chain: 'Chain',
+			address: 'Adresse',
+			addressHint:
+				'Nur die öffentliche Adresse. Sie bleibt verschlüsselt in deinen Büchern und geht nur beim Synchronisieren an den Knoten unten.',
+			badAddress: 'Das ist keine Adresse auf {chain}.',
+			uses: 'Abgefragt wird',
+			customHint: 'leer lassen für den voreingestellten',
+			alternatives: 'Weitere öffentliche: {list}',
+			explorer: 'Links führen zum Block-Explorer {name}.',
+			endpoint: { rpc: 'RPC', rest: 'REST', api: 'API (Blockscout)' },
+			own: '(eigener)',
+			default: '(voreingestellt)',
+			add: 'Hinzufügen',
+			addressLink: 'Adresse im Block-Explorer',
+			lastSync: 'zuletzt synchronisiert {date}',
+			sync: 'Synchronisieren',
+			syncing: 'Synchronisiere …',
+			remove: 'Entfernen (Buchungen bleiben)',
+			unpriced:
+				'{count} Einträge ohne Kurs ({assets}) – sie fehlen noch und werden beim nächsten Abruf erneut versucht.',
+			unknownAssets:
+				'{count} weitere Token oder Denoms nicht gebucht (nicht in der Liste der Chain, z. B. IBC-Gutscheine oder unbekannte Verträge).',
+			pruned:
+				'Dieser Knoten kennt die Chain erst ab {date}: ältere Buchungen fehlen. Für die ganze Geschichte einen Archivknoten eintragen (siehe „Weitere öffentliche“).'
 		},
 		kraken: {
 			title: 'Kraken (Börse)',

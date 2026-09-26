@@ -162,6 +162,9 @@ importers:
 
   bridge:
     dependencies:
+      '@noble/hashes':
+        specifier: 2.4.0
+        version: 2.4.0
       fast-xml-parser:
         specifier: 5.11.1
         version: 5.11.1

@@ -17,7 +17,9 @@ import { writable } from 'svelte/store';
 export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 2: receipts from the mailbox, and DeepSeek reading them (phase 1, step 3).
 // 3: customer portals (Vodafone) through a browser the bridge starts.
-export const CONSENT_VERSION = '4';
+// 4: where AI is used.
+// 5: own wallets: the bridge asks public blockchain nodes about their addresses.
+export const CONSENT_VERSION = '5';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

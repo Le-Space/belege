@@ -40,6 +40,7 @@
 	import { accountLabel, formatDate, formatMoney } from './bank/format.js';
 	import { quantityText, valuationText } from './assets/valuation.js';
 	import { txRefsOf } from './matching/context.js';
+	import { safeExplorerUrl } from './wallets/chains.js';
 	import { receiptDate, receiptVendor } from './receipts/view.js';
 	import { importMailMessages, needsConfirmation } from './receipts/import.js';
 	import { extractReceipt } from './receipts/extract.js';
@@ -884,6 +885,12 @@
 					<dt class="text-faint">{t('zahlungen.detail.bookingType')}</dt>
 					<dd class="text-heading">{tx.bookingType}</dd>
 				{/if}
+				{#if tx.counterpartyAddress}
+					<dt class="text-faint">{t('zahlungen.detail.address')}</dt>
+					<dd class="font-mono text-xs break-all text-heading" data-testid="tx-detail-address">
+						{tx.counterpartyAddress}
+					</dd>
+				{/if}
 				{#if tx.counterpartyIban}
 					<dt class="text-faint">{t('zahlungen.detail.iban')}</dt>
 					<dd class="font-mono text-xs break-all text-heading">{tx.counterpartyIban}</dd>
@@ -898,6 +905,17 @@
 					data-testid="tx-detail-purpose"
 				>
 					{tx.purpose}
+				</p>
+			{/if}
+			{#if safeExplorerUrl(tx.explorerUrl)}
+				<p class="mt-2 text-sm">
+					<a
+						href={safeExplorerUrl(tx.explorerUrl)}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="underline"
+						data-testid="tx-explorer">{t('zahlungen.detail.explorer')}</a
+					>
 				</p>
 			{/if}
 			{#if portal}

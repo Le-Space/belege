@@ -138,6 +138,10 @@ export function thresholdsText() {
 	return t('explain.thresholds', { sure: SURE, lead: LEAD });
 }
 
+/** `n1u6tl…w6d0y`: an address short enough for a sentence. @param {string} address */
+const shortAddress = (address) =>
+	address.length > 16 ? `${address.slice(0, 8)}…${address.slice(-6)}` : address;
+
 const FIELD_KEY = /** @type {Record<string, string>} */ ({
 	counterparty: 'explain.field.counterparty',
 	purpose: 'explain.field.purpose',
@@ -166,6 +170,13 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 					sign: c.sign ?? ''
 				});
 			}
+			if (c.via === 'own-address') {
+				const other = accounts.find((a) => a.id === c.counterAccountId);
+				return t('explain.rule.ownAddress', {
+					address: shortAddress(c.address ?? ''),
+					account: other ? accountLabel(other) : t('explain.rule.otherAccount')
+				});
+			}
 			if (c.via === 'company') {
 				return t('explain.rule.ownCompany', { company: c.company ?? '' });
 			}
@@ -179,12 +190,15 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 		}
 		case 'bank-fee':
 			if (c.via === 'exchange-fee') return t('explain.rule.exchangeFee');
+			if (c.via === 'network-fee') return t('explain.rule.networkFee');
 			if (c.via === 'bank-code') return t('explain.rule.bankFeeCode', { code: c.bankCode ?? '' });
 			if (c.via === 'fee-words') return t('explain.rule.bankFeeWords', { word: c.feeWord ?? '' });
 			if (c.via === 'learned') return t('explain.rule.bankFeeLearned');
 			return t('explain.rule.bankFee', { type: c.bookingType ?? '' });
 		case 'loan':
 			return t('explain.rule.loan');
+		case 'crypto-stake':
+			return t('explain.rule.staking');
 		case 'crypto-reward':
 			return t('explain.rule.cryptoReward');
 		case 'rule-ignore':

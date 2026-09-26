@@ -17,6 +17,7 @@
 	import { cleanMatchingSettings } from '$lib/matching/classify.js';
 	import { graceWait, localDay } from '$lib/matching/grace.js';
 	import { isBookingConfirmed } from '$lib/booking/suggest.js';
+	import { isWalletSource } from '$lib/wallets/chains.js';
 
 	/** @typedef {{ id: string, bookedOn: string, counterparty?: string, purpose?: string, amountCents?: number, currency?: string, accountId?: string, source?: string, receiptId?: string | null, noReceipt?: any, booking?: any }} Tx */
 
@@ -86,6 +87,8 @@
 		'own-transfer': 'border-infra/30 bg-infra/10 text-infra-800 dark:text-infra',
 		'bank-fee': 'border-border bg-surface-2 text-text',
 		loan: 'border-border bg-surface-2 text-text',
+		'crypto-reward': 'border-border bg-surface-2 text-text',
+		'crypto-stake': 'border-border bg-surface-2 text-text',
 		'rule-ignore': 'border-border bg-surface-2 text-faint',
 		'rule-private': 'border-border bg-surface-2 text-faint'
 	};
@@ -94,7 +97,7 @@
 	function badge(tx) {
 		const account = tx.accountId ? accountsById.get(tx.accountId) : null;
 		if (!account) return tx.source === 'camt' ? 'CAMT' : '';
-		if (account.source === 'kraken') return account.name;
+		if (account.source === 'kraken' || isWalletSource(account.source)) return account.name;
 		return `${account.source === 'camt' ? 'CAMT' : 'Hibiscus'} ···${account.ibanLast4}`;
 	}
 
