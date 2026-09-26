@@ -320,6 +320,24 @@ export async function startFakeCosmos({
 				return ok({ header: { height: String(params.height), time: time(Number(params.height)) } });
 			}
 			if (method === 'tx_search') {
+				// As strict as CometBFT 0.38: `prove` a JSON bool, page and per_page
+				// integers or strings of digits.
+				const badParam =
+					('prove' in params && typeof params.prove !== 'boolean') ||
+					['page', 'per_page'].some(
+						(k) => k in params && !(Number.isInteger(params[k]) || /^\d+$/.test(String(params[k])))
+					);
+				if (badParam) {
+					return reply(200, {
+						jsonrpc: '2.0',
+						id: body.id,
+						error: {
+							code: -32602,
+							message: 'Invalid params',
+							data: 'error converting json params to arguments: json: cannot unmarshal string into Go value of type bool'
+						}
+					});
+				}
 				const m = /^(transfer\.sender|transfer\.recipient)='([a-z0-9]+)'$/.exec(
 					String(params.query)
 				);

@@ -313,7 +313,7 @@ export function createCosmosClient({ fetch: f = fetch, timeoutMs, maxPages = 200
 	/**
 	 * @param {string} rpc
 	 * @param {string} method
-	 * @param {Record<string, string>} params
+	 * @param {Record<string, string | boolean>} params CometBFT: integers as strings, bools as bools
 	 */
 	async function rpcCall(rpc, method, params) {
 		const body = await getJson(
@@ -378,7 +378,10 @@ export function createCosmosClient({ fetch: f = fetch, timeoutMs, maxPages = 200
 					}
 					const result = await rpcCall(endpoints.rpc, 'tx_search', {
 						query: `${key}='${address}'`,
-						prove: 'false',
+						// CometBFT's JSON-RPC takes integers as strings, but a bool must be a
+						// JSON bool: "false" is refused ("cannot unmarshal string into Go
+						// value of type bool").
+						prove: false,
 						page: String(page),
 						per_page: String(PER_PAGE),
 						order_by: 'asc'
