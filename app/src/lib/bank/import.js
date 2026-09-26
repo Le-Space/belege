@@ -36,6 +36,9 @@ const FIELDS = /** @type {const} */ ([
 	'txRef',
 	'chainTxRef',
 	'exchangeType',
+	// an own wallet's booking: the other side's address, the transaction in the explorer
+	'counterpartyAddress',
+	'explorerUrl',
 	// a crypto movement (assets/valuation.js)
 	'asset',
 	'quantity',
@@ -61,6 +64,8 @@ const FIELDS = /** @type {const} */ ([
  * @property {string} [txRef] transaction hash or the exchange's reference, shared by the legs of a trade
  * @property {string} [chainTxRef] an exchange's deposit or withdrawal: the on-chain hash, to pair it with a wallet
  * @property {string} [exchangeType] as the exchange names the entry, e.g. `transfer/spottostaking`
+ * @property {string} [counterpartyAddress] an own wallet's booking: the other side's address on the chain
+ * @property {string} [explorerUrl] an own wallet's booking: the transaction in the block explorer (https)
  * @property {CryptoFields} [crypto] for a crypto asset: what moved and how `amountCents`
  *   (EUR) was valued; see assets/valuation.js
  */
@@ -77,16 +82,34 @@ const FIELDS = /** @type {const} */ ([
  * @typedef {{ new: number, updated: number, skipped: number }} ImportCounts
  */
 
-/** @param {unknown} v */
+/**
+ * An object's keys in one order: the store hands records back with their
+ * keys sorted (dag-cbor), so `{ rate, currency, source, at }` must equal
+ * `{ at, rate, source, currency }` – else every re-sync "updates" every
+ * crypto booking.
+ *
+ * @param {unknown} v
+ */
 const comparable = (v) =>
-	v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : v;
+	v === null || v === undefined
+		? ''
+		: typeof v === 'object'
+			? JSON.stringify(v, (_key, value) =>
+					value && typeof value === 'object' && !Array.isArray(value)
+						? Object.fromEntries(
+								Object.entries(value).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+							)
+						: value
+				)
+			: v;
 /** @param {unknown} a @param {unknown} b */
 const same = (a, b) => comparable(a) === comparable(b);
 
 /**
  * @param {object} params
  * @param {import('../store/repository.js').Collection} params.transactions
- * @param {{ id: string, source: 'hibiscus' | 'camt' | 'kraken', fingerprintAccount: string }} params.account
+ * @param {{ id: string, source: string, fingerprintAccount: string }} params.account
+ *   source: 'hibiscus', 'camt', 'kraken', or a wallet's chain (wallets/chains.js)
  *   the stored account record's id, its source, and the account key the fingerprint uses
  * @param {IncomingTransaction[]} params.incoming
  * @returns {Promise<ImportCounts>}
@@ -148,6 +171,8 @@ export async function importTransactions({ transactions, account, incoming }) {
 			...(tx.movement ? { movement: tx.movement, txRef: tx.txRef ?? '' } : {}),
 			...(tx.chainTxRef ? { chainTxRef: tx.chainTxRef } : {}),
 			...(tx.exchangeType ? { exchangeType: tx.exchangeType } : {}),
+			...(tx.counterpartyAddress ? { counterpartyAddress: tx.counterpartyAddress } : {}),
+			...(tx.explorerUrl ? { explorerUrl: tx.explorerUrl } : {}),
 			...(tx.crypto
 				? {
 						asset: tx.crypto.asset,
@@ -208,7 +233,7 @@ export async function importTransactions({ transactions, account, incoming }) {
  * Find or create the account record for a source's account.
  *
  * @param {import('../store/repository.js').Collection} accounts
- * @param {{ source: 'hibiscus' | 'camt' | 'kraken', sourceAccountId: string, ibanLast4: string, name: string, currency: string, kind?: 'exchange' | 'wallet', asset?: string, decimals?: number }} input
+ * @param {{ source: string, sourceAccountId: string, ibanLast4: string, name: string, currency: string, kind?: 'exchange' | 'wallet', asset?: string, decimals?: number }} input
  *   `kind`, `asset`, `decimals`: an account on an exchange or a wallet, holding one asset
  */
 export async function upsertAccount(accounts, input) {

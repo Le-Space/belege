@@ -12,6 +12,7 @@ import { createMailAssist } from './llm/assist.js';
 import { createRateService } from './rates.js';
 import { createMatchAssist } from './llm/match-assist.js';
 import { createKrakenClient, parseKrakenCredentials } from './kraken.js';
+import { createWalletService } from './chains/index.js';
 import { buildRecipes, createPortalManager, keychainAccount } from './portals/index.js';
 import { macosPasswordDialog } from './portals/credentials.js';
 import { dirname, join } from 'node:path';
@@ -32,6 +33,17 @@ export { createExtractor, checkExtraction } from './llm/extract.js';
 export { redact } from './llm/redact.js';
 export { createRateService, RATE_SOURCES, RateError } from './rates.js';
 export { createKrakenClient, KrakenError, parseAsset } from './kraken.js';
+export {
+	createWalletService,
+	CHAINS,
+	publicChains,
+	WalletError,
+	isCosmosAddress,
+	isEvmAddress,
+	bech32Encode,
+	moduleAddress,
+	toChecksumAddress
+} from './chains/index.js';
 export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
 
 /**
@@ -44,6 +56,10 @@ export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
  * @param {import('./keychain.js').Keychain} [options.krakenKeychain] the Kraken API key, JSON { key, secret }
  * @param {number} [options.krakenPageDelayMs] pause between Kraken ledger pages (tests: 0)
  * @param {typeof fetch} [options.rateFetch] fetch for the exchange-rate sources (tests hand in a fake)
+ * @param {Record<string, string> | null} [options.fixedRates] tests only: EUR per unit by asset,
+ *   answered for every day instead of asking CoinGecko, Kraken or the ECB (source `manual`)
+ * @param {typeof fetch} [options.walletFetch] fetch for the chain nodes (tests hand in a fake)
+ * @param {boolean} [options.walletLoopback] a wallet may name an endpoint on http://127.0.0.1 (tests only)
  * @param {(portalId: string) => import('./keychain.js').Keychain} [options.portalKeychain] a portal's password
  * @param {'auto' | 'always'} [options.portalHeadless] `always` for tests: no window ever opens
  * @param {boolean} [options.portalLoopback] a new portal may start on http://127.0.0.1 (tests only)
@@ -63,6 +79,9 @@ export async function startBridge({
 	krakenKeychain = macosKeychain({ account: 'kraken' }),
 	krakenPageDelayMs,
 	rateFetch = fetch,
+	fixedRates = null,
+	walletFetch = fetch,
+	walletLoopback = false,
 	portalKeychain = (id) => macosKeychain({ account: keychainAccount(id) }),
 	portalHeadless = 'auto',
 	portalLoopback = false,
@@ -194,10 +213,15 @@ export async function startBridge({
 					getCredentials: async () => parseKrakenCredentials(await krakenKeychain.read())
 				})
 			: null,
-		rates: createRateService({
-			fetch: rateFetch,
-			coingeckoKey: () => coingeckoKeychain.read().catch(() => null)
-		}),
+		rates: fixedRates
+			? /** @type {ReturnType<typeof createRateService>} */ (
+					/** @type {unknown} */ (fixedRateService(fixedRates))
+				)
+			: createRateService({
+					fetch: rateFetch,
+					coingeckoKey: () => coingeckoKeychain.read().catch(() => null)
+				}),
+		wallets: createWalletService({ fetch: walletFetch, allowLoopback: walletLoopback }),
 		log
 	});
 	const address = await bridge.listen({ port: port ?? config.bridge.port });
@@ -219,6 +243,33 @@ export async function startBridge({
 		close() {
 			portals.close();
 			return bridge.close();
+		}
+	};
+}
+
+/**
+ * The same answer for every day: for the E2E suite, which must not ask the
+ * real rate sources.
+ *
+ * @param {Record<string, string>} rates EUR per unit, by symbol
+ */
+function fixedRateService(rates) {
+	return {
+		/** @param {string} asset @param {string} date */
+		async rate(asset, date) {
+			const rate = Object.hasOwn(rates, asset) ? rates[asset] : null;
+			if (!rate) {
+				throw Object.assign(new Error(`no rate source for ${asset}`), { status: 400 });
+			}
+			return {
+				asset,
+				date,
+				currency: /** @type {const} */ ('EUR'),
+				rate,
+				usdRate: null,
+				source: /** @type {const} */ ('manual'),
+				at: `${date}T00:00:00Z`
+			};
 		}
 	};
 }

@@ -47,6 +47,51 @@ export class BridgeError extends Error {
  */
 
 /**
+ * @typedef {object} WalletEntry what the bridge reads from an own wallet (bridge/src/chains/)
+ * @property {string} id `<hash>:<n>`, the fee `<hash>:fee`
+ * @property {string} hash as the chain gives it
+ * @property {number} height
+ * @property {string} time ISO 8601
+ * @property {string} date YYYY-MM-DD (UTC)
+ * @property {'sent' | 'received' | 'fee'} type
+ * @property {'transfer' | 'reward' | 'stake' | 'ibc' | 'fee'} kind
+ * @property {string} asset symbol
+ * @property {string} amount signed decimal
+ * @property {number} decimals
+ * @property {string} counterparty the other address, '' for a fee
+ * @property {string} counterpartyLabel a module's name (staking, rewards), or ''
+ * @property {string} memo
+ * @property {boolean} success
+ * @property {string} explorerUrl
+ */
+
+/**
+ * @typedef {object} WalletHistory
+ * @property {string} chain
+ * @property {Record<string, string>} endpoints the ones asked
+ * @property {WalletEntry[]} entries oldest first
+ * @property {{ asset: string, amount: string, decimals: number }[]} balances
+ * @property {number} transactions
+ * @property {number} unknownAssets denoms or tokens that are not booked
+ * @property {{ earliestHeight: number, earliestTime: string | null, pruned: boolean }} history
+ * @property {string} addressUrl
+ */
+
+/**
+ * @typedef {object} ChainInfo one of GET /chains
+ * @property {string} id
+ * @property {'cosmos' | 'evm'} kind
+ * @property {string} name
+ * @property {string} shortName
+ * @property {string[]} assets
+ * @property {string} nativeSymbol
+ * @property {string} [bech32Prefix]
+ * @property {Record<string, string>} endpoints
+ * @property {Record<string, string[]>} alternatives
+ * @property {{ name: string, tx: string, address: string }} explorer
+ */
+
+/**
  * @param {{ url?: string, token?: string | null, fetch?: typeof fetch }} [options]
  */
 export function createBridgeClient({
@@ -115,7 +160,7 @@ export function createBridgeClient({
 
 	return {
 		url: base,
-		/** @returns {Promise<{ ok: boolean, paired: boolean, pairingOpen: boolean, hibiscus: { configured: boolean }, mail?: { configured: boolean, accountingAddress: string | null }, llm?: { configured: boolean, models: string[] }, kraken?: { configured: boolean } }>} */
+		/** @returns {Promise<{ ok: boolean, paired: boolean, pairingOpen: boolean, hibiscus: { configured: boolean }, mail?: { configured: boolean, accountingAddress: string | null }, llm?: { configured: boolean, models: string[] }, kraken?: { configured: boolean }, wallets?: { available: boolean } }>} */
 		health: () => call('/health'),
 		/** @param {string} code @returns {Promise<string>} the token */
 		async pair(code) {
@@ -210,6 +255,22 @@ export function createBridgeClient({
 		 * @returns {Promise<{ since: string, entries: KrakenLedgerEntry[] }>}
 		 */
 		krakenLedgers: (since) => call(`/kraken/ledgers?since=${encodeURIComponent(since)}`),
+		/**
+		 * The chains an own wallet can be on: endpoints and explorers.
+		 *
+		 * @returns {Promise<{ chains: ChainInfo[] }>}
+		 */
+		chains: () => call('/chains'),
+		/**
+		 * An own wallet's whole history and balance, read by the bridge from a
+		 * public node (in the body, so the address is in no URL).
+		 *
+		 * @param {string} chain e.g. `nyx`
+		 * @param {{ address: string, endpoints?: Record<string, string> }} body
+		 * @returns {Promise<WalletHistory>}
+		 */
+		walletHistory: (chain, body) =>
+			call(`/${encodeURIComponent(chain)}/wallet`, { method: 'POST', body: JSON.stringify(body) }),
 		/**
 		 * "Mit KI weitersuchen": the LLM suggests search words and sender domains
 		 * from the booking (redacted by the bridge), the bridge searches, and the

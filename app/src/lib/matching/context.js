@@ -10,6 +10,7 @@ import { ibanKey } from '../bank/fingerprint.js';
 import { cleanMatchingSettings } from './classify.js';
 import { compactIban, dayNumber } from './normalize.js';
 import { learnedVendors } from './partners.js';
+import { normalizeAddress, walletChain } from '../wallets/chains.js';
 
 /** A transfer between our accounts lands within this many days on the other side. */
 export const MIRROR_DAYS = 4;
@@ -62,6 +63,16 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 			seen.add(iban);
 			if (camtKeys.has(await ibanKey(iban))) ownIbans.add(iban);
 		}
+	}
+
+	// Our own wallets' addresses (wallets/wallet-sync.js keeps them on the accounts).
+	/** @type {Map<string, string>} address → the id of one of its accounts */
+	const ownAddresses = new Map();
+	for (const a of accounts) {
+		const chain = walletChain(a.source);
+		if (!chain || a.deleted || typeof a.walletAddress !== 'string' || !a.walletAddress) continue;
+		const key = normalizeAddress(chain, a.walletAddress);
+		if (!ownAddresses.has(key)) ownAddresses.set(key, a.id);
 	}
 
 	/** @type {Map<string, string[]>} */
@@ -133,6 +144,7 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 		},
 		ownIbans,
 		ownLast4,
+		ownAddresses,
 		rules: clean.rules,
 		graceDays: clean.graceDays,
 		feeKeys: new Set(clean.feeKeys),

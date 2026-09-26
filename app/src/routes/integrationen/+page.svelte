@@ -9,6 +9,8 @@
 	import { describeMoment } from '$lib/moment.js';
 	import PortalsCard from '$lib/portals/PortalsCard.svelte';
 	import KrakenCard from '$lib/exchanges/KrakenCard.svelte';
+	import WalletsCard from '$lib/wallets/WalletsCard.svelte';
+	import { isWalletSource } from '$lib/wallets/chains.js';
 	import { app, currentStore, refreshNow, runMatchingNow } from '$lib/session.svelte.js';
 	import { createBridgeClient, DEFAULT_BRIDGE_URL } from '$lib/bridge/client.js';
 	import { getSetting, setSetting } from '$lib/store/settings.js';
@@ -517,7 +519,9 @@
 						? t('integrationen.books.camt')
 						: account.source === 'kraken'
 							? t('integrationen.books.kraken')
-							: t('integrationen.books.hibiscus')} · {account.asset ?? account.currency}
+							: isWalletSource(account.source)
+								? t('integrationen.books.wallet')
+								: t('integrationen.books.hibiscus')} · {account.asset ?? account.currency}
 				</li>
 			{/each}
 		</ul>
@@ -525,6 +529,8 @@
 {/if}
 
 <KrakenCard url={bridgeUrl} {token} configured={krakenConfigured} />
+
+<WalletsCard url={bridgeUrl} {token} />
 
 <PortalsCard url={bridgeUrl} {token} />
 

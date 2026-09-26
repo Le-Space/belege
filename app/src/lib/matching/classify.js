@@ -14,10 +14,16 @@
 // `movement`: its fees are fees, its staking and earn rewards need no receipt
 // (the statement is the receipt), and the two legs of one trade or transfer
 // share a reference (`txRef`) and are an own transfer.
-// (docs/phase-0.md, "Matching").
+// An own wallet's bookings (wallets/wallet-sync.js) come with the other
+// side's address: when that address is one of our own wallets, the transfer
+// is an own transfer; the two legs of one transaction between our wallets
+// share the hash as `txRef`. Tokens delegated to staking (movement `stake`)
+// stay ours: no receipt.
+// (docs/phase-0.md, "Matching"; docs/crypto.md, "Own wallets").
 
 import { counterpartyKey } from './partners.js';
 import { compactIban, normalizeRef } from './normalize.js';
+import { normalizeAddress, walletChain } from '../wallets/chains.js';
 
 /** Legal forms dropped before two company names are compared. */
 const LEGAL_FORMS = new Set([
@@ -182,6 +188,7 @@ export function feeKey(tx) {
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [counterBookings] bookings on our other accounts with the opposite amount within a few days
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [sameReference] bookings on our other accounts with the same reference or transaction hash, the other way (context.js)
  * @property {Set<string>} [notTransfers] pairs a person said are no transfer (transferPairKey)
+ * @property {Map<string, string>} [ownAddresses] our own wallets' addresses (normalised) → one of their accounts
  */
 
 /**
@@ -192,7 +199,8 @@ export function feeKey(tx) {
  * @property {string} [ruleId]
  * @property {'counterparty' | 'purpose' | 'any'} [ruleField] what the rule looked at
  * @property {string} [ruleContains] the rule's text
- * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee'} [via] how an own transfer or a bank fee was recognised
+ * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'staking' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee'} [via] how an own transfer or a bank fee was recognised
+ * @property {string} [address] our own wallet's address, for via 'own-address'
  * @property {string} [counterBookingId] the other side of a transfer, for via 'counter-booking'
  * @property {string} [counterAccountId]
  * @property {string} [counterDay] YYYY-MM-DD
@@ -285,8 +293,13 @@ export function classifyTransaction(tx, ctx) {
 			};
 		}
 	}
-	if (tx.movement === 'fee') return { kind: 'bank-fee', via: 'exchange-fee' };
+	const wallet = walletChain(tx.source);
+	if (tx.movement === 'fee') {
+		return { kind: 'bank-fee', via: wallet ? 'network-fee' : 'exchange-fee' };
+	}
 	if (tx.movement === 'reward') return { kind: 'crypto-reward' };
+	if (wallet && tx.movement === 'stake')
+		return { kind: 'own-transfer', account: '1360', via: 'staking' };
 	if (BANK_FEE.test(String(tx.bookingType ?? ''))) {
 		return { kind: 'bank-fee', via: 'booking-type', bookingType: String(tx.bookingType) };
 	}
@@ -330,6 +343,19 @@ export function classifyTransaction(tx, ctx) {
 				tx.txRef && o.txRef && tx.txRef === o.txRef
 					? `Ref. ${tx.txRef}`
 					: 'gleicher Transaktions-Hash'
+		};
+	}
+	// To or from one of our own wallets.
+	const address =
+		wallet && tx.counterpartyAddress ? normalizeAddress(wallet, tx.counterpartyAddress) : '';
+	const ownAccount = address ? ctx.ownAddresses?.get(address) : undefined;
+	if (ownAccount && ownAccount !== tx.accountId) {
+		return {
+			kind: 'own-transfer',
+			account: '1360',
+			via: 'own-address',
+			address,
+			counterAccountId: ownAccount
 		};
 	}
 	const counter = (ctx.counterBookings?.(tx) ?? []).filter(unpaired);

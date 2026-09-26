@@ -65,6 +65,15 @@ export const ASSETS = Object.freeze({
 		caip19: null,
 		denom: 'unym'
 	},
+	NYX: {
+		symbol: 'NYX',
+		name: 'NYX (Nyx-Staking)',
+		decimals: 6,
+		kind: 'crypto',
+		chain: 'cosmos:nyx',
+		caip19: null,
+		denom: 'unyx'
+	},
 	AKT: {
 		symbol: 'AKT',
 		name: 'Akash',
@@ -73,6 +82,14 @@ export const ASSETS = Object.freeze({
 		chain: 'cosmos:akashnet-2',
 		caip19: null,
 		denom: 'uakt'
+	},
+	POL: {
+		symbol: 'POL',
+		name: 'Polygon',
+		decimals: 18,
+		kind: 'crypto',
+		chain: 'eip155:137',
+		caip19: null
 	},
 	FIL: { symbol: 'FIL', name: 'Filecoin', decimals: 18, kind: 'crypto', chain: null, caip19: null }
 });

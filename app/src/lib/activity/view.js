@@ -6,6 +6,7 @@ import { formatDate } from '../bank/format.js';
 import { t } from '../i18n/index.js';
 import { receiptVendor } from '../receipts/view.js';
 import { attemptReasonText, integer, seconds } from '../receipts/how.js';
+import { isWalletSource } from '../wallets/chains.js';
 
 /** @typedef {{ id: string } & Record<string, any>} Rec */
 
@@ -33,7 +34,7 @@ export function describeEvent(e, { receipts = [], transactions = [] } = {}) {
 				title: t('verlauf.kind.bank-sync'),
 				text: t('verlauf.text.bankSync', {
 					source: t(
-						`verlauf.source.${e.source === 'camt' || e.source === 'kraken' ? e.source : 'hibiscus'}`
+						`verlauf.source.${e.source === 'camt' || e.source === 'kraken' || isWalletSource(e.source) ? e.source : 'hibiscus'}`
 					),
 					accounts: e.accounts ?? 0,
 					new: e.new ?? 0,

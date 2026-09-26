@@ -14,6 +14,8 @@
 //   GET  /rates?asset=BTC&date=YYYY-MM-DD[&prefer=kraken]         token → EUR per unit, source (rates.js)
 //   GET  /kraken/balances                                         token → non-zero balances (kraken.js)
 //   GET  /kraken/ledgers?since=YYYY-MM-DD                         token → the ledger, oldest first
+//   GET  /chains                                                  token → chains, endpoints, explorers (chains/)
+//   POST /<chain>/wallet { address, endpoints? }                  token → an own wallet's transfers and balance
 //   /portals…          customer portals (portals/routes.js)            token
 //
 // Guards, in this order, on every request:
@@ -74,6 +76,7 @@ const MAX_EXTRACT_BODY = 256 * 1024;
  * @param {import('./portals/manager.js').PortalManager | null} [options.portals] the portal connector
  * @param {ReturnType<typeof import('./rates.js').createRateService> | null} [options.rates] exchange rates
  * @param {ReturnType<typeof import('./kraken.js').createKrakenClient> | null} [options.kraken] null when Kraken is not set up
+ * @param {ReturnType<typeof import('./chains/index.js').createWalletService> | null} [options.wallets] own wallets on public chains
  * @param {(message: string) => void} [options.log] never gets a secret, bank data, mail or receipt text
  */
 export function createBridgeServer({
@@ -88,6 +91,7 @@ export function createBridgeServer({
 	portals = null,
 	rates = null,
 	kraken = null,
+	wallets = null,
 	log = () => {}
 }) {
 	const allowedOrigins = new Set(config.appOrigins.map((o) => o.replace(/\/$/, '')));
@@ -207,7 +211,8 @@ export function createBridgeServer({
 				},
 				llm: { configured: Boolean(llm), models: llm ? llm.models : [] },
 				portals: { available: Boolean(portals) },
-				kraken: { configured: Boolean(kraken) }
+				kraken: { configured: Boolean(kraken) },
+				wallets: { available: Boolean(wallets) }
 			});
 		}
 
@@ -415,6 +420,22 @@ export function createBridgeServer({
 				log(`kraken: ${entries.length} ledger entries since ${since}`);
 				return send(res, 200, { since, entries });
 			}
+		}
+
+		// Own wallets: GET /chains, POST /<chain>/wallet (chains/index.js).
+		if (path === '/chains' && req.method === 'GET') {
+			if (!wallets) return send(res, 503, { error: 'wallets are not available' });
+			return send(res, 200, { chains: wallets.chains() });
+		}
+		const walletPath = /^\/([a-z0-9-]{2,30})\/wallet$/.exec(path);
+		if (walletPath && req.method === 'POST' && wallets?.has(walletPath[1])) {
+			// A POST, so the address is in no URL and no access log.
+			const body = /** @type {any} */ (await readJson(req));
+			const result = await wallets.sync({ ...body, chain: walletPath[1] });
+			log(
+				`${result.chain}: ${result.transactions} transaction(s), ${result.entries.length} entries, ${result.balances.length} balance(s), ${result.unknownAssets} unknown asset(s)`
+			);
+			return send(res, 200, result);
 		}
 
 		if (path === '/llm/status' && req.method === 'GET') {
