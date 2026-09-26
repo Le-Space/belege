@@ -8,6 +8,7 @@
 //   GET  /mail/attachment?id=<mail id>&part=<n>                   token → the bytes
 //   GET  /mail/search?text=&amount=&from=a.example,b.example&around=YYYY-MM-DD&days=   token
 //   POST /mail/assist  { counterparty, purpose, amount, around, days, knownDomains }   token → LLM terms, hits, pick
+//   POST /match/assist { booking, candidates }                  token → the LLM's pick among receipts
 //   GET  /llm/status                                              token → provider, models, key present?
 //   POST /extract      { text, hints, source, confirmedByUser }   token
 //   GET  /rates?asset=BTC&date=YYYY-MM-DD                         token → EUR per unit, source (rates.js)
@@ -66,6 +67,8 @@ const MAX_EXTRACT_BODY = 256 * 1024;
  *   says yes or no, never hands the key out
  * @param {ReturnType<typeof import('./llm/assist.js').createMailAssist> | null} [options.assist]
  *   "Mit KI weitersuchen": null without mail or LLM
+ * @param {ReturnType<typeof import('./llm/match-assist.js').createMatchAssist> | null} [options.matchAssist]
+ *   "✦ KI-Vorschlag" under "Beleg zuordnen": null without an LLM
  * @param {import('./portals/manager.js').PortalManager | null} [options.portals] the portal connector
  * @param {ReturnType<typeof import('./rates.js').createRateService> | null} [options.rates] exchange rates
  * @param {(message: string) => void} [options.log] never gets a secret, bank data, mail or receipt text
@@ -78,6 +81,7 @@ export function createBridgeServer({
 	llm = null,
 	llmKeyPresent = async () => false,
 	assist = null,
+	matchAssist = null,
 	portals = null,
 	rates = null,
 	log = () => {}
@@ -304,6 +308,41 @@ export function createBridgeServer({
 			const messages = await mail.search({ text, amount, from, around, days });
 			log(`search found ${messages.length} mail(s)`);
 			return send(res, 200, { messages });
+		}
+
+		if (path === '/match/assist' && req.method === 'POST') {
+			const body = /** @type {any} */ (await readJson(req, MAX_EXTRACT_BODY));
+			const b = body?.booking;
+			const list = body?.candidates;
+			/** @param {unknown} v @param {number} max */
+			const str = (v, max) => typeof v === 'string' && v.length <= max;
+			const okBooking =
+				b &&
+				typeof b === 'object' &&
+				['counterparty', 'purpose', 'amount', 'day'].every(
+					(k) => b[k] === undefined || str(b[k], k === 'purpose' ? 1000 : 200)
+				);
+			const okList =
+				Array.isArray(list) &&
+				list.length >= 1 &&
+				list.length <= 25 &&
+				list.every(
+					(c) =>
+						c &&
+						str(c.id, 64) &&
+						['vendor', 'amount', 'currency', 'date', 'number', 'summary'].every(
+							(k) => c[k] === undefined || c[k] === null || str(c[k], 200)
+						)
+				);
+			if (!okBooking || !okList) {
+				return send(res, 400, { error: 'booking and 1–25 candidates are required' });
+			}
+			if (!llm || !matchAssist) throw notSetUp('LLM');
+			const result = await matchAssist.pick({ booking: b, candidates: list });
+			log(
+				`receipt pick: ${list.length} candidate(s), ${result.pick ? `pick ${result.pick.confidence}` : 'no pick'}`
+			);
+			return send(res, 200, result);
 		}
 
 		if (path === '/mail/assist' && req.method === 'POST') {

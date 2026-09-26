@@ -10,6 +10,7 @@ import { domainOf } from './mail/auth-results.js';
 import { createExtractor } from './llm/extract.js';
 import { createMailAssist } from './llm/assist.js';
 import { createRateService } from './rates.js';
+import { createMatchAssist } from './llm/match-assist.js';
 import { buildRecipes, createPortalManager, keychainAccount } from './portals/index.js';
 import { macosPasswordDialog } from './portals/credentials.js';
 import { dirname, join } from 'node:path';
@@ -107,6 +108,9 @@ export async function startBridge({
 		? createExtractor({ config: config.llm, getKey: () => llmKeychain.read(), ownDomains })
 		: null;
 	if (!llm) log('No LLM is set up: run `pnpm setup:llm`.');
+	const matchAssist = llm
+		? createMatchAssist({ llm, redaction: { terms: config.llm.redactTerms, ownDomains } })
+		: null;
 	const assist =
 		llm && mail
 			? createMailAssist({ llm, mail, redaction: { terms: config.llm.redactTerms, ownDomains } })
@@ -167,6 +171,7 @@ export async function startBridge({
 		mail,
 		llm,
 		assist,
+		matchAssist,
 		// Reads the keychain entry to see that there is one; the value stays here.
 		llmKeyPresent: async () => {
 			try {

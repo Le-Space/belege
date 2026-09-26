@@ -12,6 +12,7 @@ import {
 	questionProgress,
 	rankHits,
 	ownNameCandidate,
+	assistCandidates,
 	hitScore,
 	likelyHit,
 	receiptChoices,
@@ -270,5 +271,43 @@ describe('ownNameCandidate', () => {
 		expect(ownNameCandidate(into, [into])).toBeNull();
 		expect(ownNameCandidate(into, [{ ...away, bookedOn: '2026-07-30' }, into])).toBeNull();
 		expect(ownNameCandidate(into, [{ ...away, accountId: 'ACC-REV' }, into])).toBeNull();
+	});
+});
+
+describe('assistCandidates', () => {
+	it('nearest by amount, then by date; read fields only; capped', () => {
+		const t = tx({ bookedOn: '2026-09-20', amountCents: -1999 });
+		const r = (
+			/** @type {string} */ id,
+			/** @type {number} */ cents,
+			/** @type {string} */ date
+		) => ({
+			receipt: {
+				id,
+				amountCents: cents,
+				currency: 'EUR',
+				documentDate: date,
+				vendor: `Anbieter ${id}`,
+				invoiceNumber: `N-${id}`,
+				extraction: { summary: 'Test', vendor: `Anbieter ${id}` },
+				excerpt: 'geheimer Mailtext'
+			}
+		});
+		const out = assistCandidates(
+			t,
+			[r('A', 5000, '2026-09-19'), r('B', 1999, '2026-06-01'), r('C', 1999, '2026-09-18')],
+			2
+		);
+		expect(out.map((c) => c.id)).toEqual(['C', 'B']);
+		expect(out[0]).toEqual({
+			id: 'C',
+			vendor: 'Anbieter C',
+			amount: '19,99',
+			currency: 'EUR',
+			date: '2026-09-18',
+			number: 'N-C',
+			summary: 'Test'
+		});
+		expect(JSON.stringify(out)).not.toContain('geheimer Mailtext');
 	});
 });

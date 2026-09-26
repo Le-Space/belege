@@ -291,6 +291,23 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await expect(page.getByTestId('filter-without-receipt')).toHaveText('Nur ohne Beleg (2)');
 	await expect(monthButton.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '67');
 	await detail.getByTestId('tx-assign').click();
+	// ✦ KI-Vorschlag: the model picks among the receipts by their read fields.
+	llm.answers.respond = (/** @type {any} */ body) => {
+		if (!String(body.messages[0].content).startsWith('You match a bank booking')) return undefined;
+		const line = String(body.messages[1].content)
+			.split('\n')
+			.find((l) => /^\d+\. /.test(l) && l.includes('Wolkenfabrik'));
+		return {
+			best: Number(String(line).split('.')[0]),
+			confidence: 'high',
+			reason: 'Betrag und Anbieter passen'
+		};
+	};
+	await detail.getByTestId('tx-ai-choice-ask').click();
+	const aiPick = detail.getByTestId('tx-ai-choice-pick');
+	await expect(aiPick).toContainText('KI-Vorschlag (sicher): Betrag und Anbieter passen');
+	await expect(aiPick).toContainText(NAMES.wolke);
+	delete llm.answers.respond;
 	const first = detail.getByTestId('tx-choice').first();
 	await expect(first).toContainText(NAMES.wolke);
 	await expect(first).toHaveAttribute('data-suggested', 'true');
@@ -342,7 +359,7 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 		'Diesen Beleg gibt es schon in deinen Büchern. Er ist dieser Zahlung zugeordnet.'
 	);
 	await expect(detail.getByTestId('tx-private-receipt-here')).toBeVisible();
-	expect(llm.requests.length).toBe(5);
+	expect(llm.requests.length).toBe(6);
 	await page.screenshot({ path: test.info().outputPath('zahlung-detail.png') });
 	// On a phone the panel fills the screen, without sideways scrolling.
 	await page.setViewportSize({ width: 375, height: 812 });

@@ -95,6 +95,49 @@ export function receiptChoices(tx, receipts, matches, ctx = {}) {
 }
 
 /**
+ * The receipts "✦ KI-Vorschlag" sends for a booking: at most `max` of the
+ * free ones, nearest first – by amount, then by date – and each as its read
+ * fields only (vendor, amount, currency, date, invoice number, summary).
+ *
+ * @param {Rec} tx
+ * @param {{ receipt: Rec }[]} choices from receiptChoices
+ * @param {number} [max]
+ * @returns {{ id: string, vendor?: string, amount?: string, currency?: string, date?: string, number?: string, summary?: string }[]}
+ */
+export function assistCandidates(tx, choices, max = 25) {
+	const cents = Math.abs(Number(tx.amountCents ?? 0));
+	const day = dayNumber(tx.bookedOn) ?? 0;
+	/** @param {Rec} r */
+	const dateOf = (r) =>
+		r.documentDate ?? r.extraction?.invoice_date ?? String(r.receivedAt ?? '').slice(0, 10);
+	return choices
+		.map((c) => c.receipt)
+		.filter((r) => r.extraction)
+		.map((r) => ({
+			r,
+			amountGap:
+				typeof r.amountCents === 'number' ? Math.abs(Math.abs(r.amountCents) - cents) : Infinity,
+			dayGap: Math.abs((dayNumber(dateOf(r)) ?? day + 9999) - day)
+		}))
+		.sort((a, b) => a.amountGap - b.amountGap || a.dayGap - b.dayGap)
+		.slice(0, max)
+		.map(({ r }) => {
+			/** @type {{ id: string } & Record<string, string>} */
+			const out = { id: String(r.id) };
+			const vendor = r.vendor ?? r.extraction?.vendor;
+			if (vendor) out.vendor = String(vendor).slice(0, 120);
+			if (typeof r.amountCents === 'number')
+				out.amount = (r.amountCents / 100).toFixed(2).replace('.', ',');
+			if (r.currency) out.currency = String(r.currency).slice(0, 3);
+			if (dateOf(r)) out.date = String(dateOf(r)).slice(0, 10);
+			const number = r.invoiceNumber ?? r.extraction?.invoice_number;
+			if (number) out.number = String(number).slice(0, 60);
+			if (r.extraction?.summary) out.summary = String(r.extraction.summary).slice(0, 120);
+			return out;
+		});
+}
+
+/**
  * A name worth asking "Ist das deine Firma?": a booking on another of our
  * accounts has the opposite amount within a few days and names the same
  * counterparty. That is a transfer between our accounts – or a vendor who

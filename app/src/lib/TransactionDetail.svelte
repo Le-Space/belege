@@ -58,6 +58,7 @@
 		privateSearchQuery,
 		rankHits,
 		likelyHit,
+		assistCandidates,
 		matchOfReceipt,
 		ownNameCandidate,
 		receiptChoices
@@ -152,6 +153,16 @@
 	/** Without a clear hit every hit shows; with one, the rest on request. */
 	let allHits = $state(true);
 	let searching = $state(false);
+	// "✦ KI-Vorschlag" under "Beleg zuordnen" (bridge POST /match/assist).
+	let aiPicking = $state(false);
+	/** @type {{ pick: { id: string, confidence: string, reason: string } | null, sent: string[] } | null} */
+	let aiChoice = $state(null);
+	let aiChoiceRow = $derived.by(() => {
+		const id = /** @type {string | undefined} */ (
+			aiChoice ? /** @type {any} */ (aiChoice).pick?.id : undefined
+		);
+		return id ? (choices.find((c) => c.receipt.id === id) ?? null) : null;
+	});
 	let assisting = $state(false);
 	/** @type {Awaited<ReturnType<ReturnType<typeof createBridgeClient>['mailAssist']>> | null} */
 	let assist = $state(null);
@@ -432,6 +443,45 @@
 				vendorNote = t('zahlungen.detail.vendor.assigned');
 			}
 		});
+
+	async function suggestByAi() {
+		if (!client || !tx) return;
+		aiPicking = true;
+		error = null;
+		aiChoice = null;
+		try {
+			const candidates = assistCandidates(tx, choices);
+			if (!candidates.length) {
+				aiChoice = { pick: null, sent: [] };
+				return;
+			}
+			const r = await client.matchAssist({
+				booking: {
+					counterparty: String(tx.counterparty ?? '').slice(0, 200),
+					purpose: String(tx.purpose ?? '').slice(0, 1000),
+					amount: formatMoney(tx.amountCents ?? 0, tx.currency).replace(/\s*EUR$/, ''),
+					day: String(tx.bookedOn ?? '')
+				},
+				candidates
+			});
+			aiChoice = { pick: r.pick, sent: r.llm.sent };
+			await recordEvent(currentStore()?.events, 'match-assist', {
+				transactionId: tx.id,
+				candidates: candidates.length,
+				pick: r.pick?.confidence ?? null,
+				model: r.llm.calls.at(-1)?.model ?? null,
+				ms: r.llm.calls.reduce((n, c) => n + (c.ms ?? 0), 0),
+				tokensTotal: r.llm.calls.reduce(
+					(n, c) => n + (c.usage?.prompt ?? 0) + (c.usage?.completion ?? 0),
+					0
+				)
+			});
+		} catch (e) {
+			error = message(e);
+		} finally {
+			aiPicking = false;
+		}
+	}
 
 	/** @param {string} matchId */
 	const unlink = (matchId) =>
@@ -1098,6 +1148,74 @@
 
 				{#if assigning}
 					<div class="mt-3" data-testid="tx-choices">
+						{#if client && choices.length}
+							<div class="mb-2" data-testid="tx-ai-choice">
+								<button
+									type="button"
+									class="inline-flex items-center gap-1.5 {button}"
+									onclick={suggestByAi}
+									disabled={aiPicking || busy}
+									title={t('zahlungen.detail.aiChoiceTitle')}
+									data-testid="tx-ai-choice-ask"
+									><AiMark />{aiPicking
+										? t('zahlungen.detail.aiChoiceBusy')
+										: t('zahlungen.detail.aiChoice')}</button
+								>
+								{#if aiChoice && !aiChoice.pick}
+									<p class="mt-1 text-sm text-faint" data-testid="tx-ai-choice-none">
+										{t('zahlungen.detail.aiChoiceNone')}
+									</p>
+								{/if}
+								{#if aiChoiceRow && aiChoice?.pick}
+									<div
+										class="mt-2 flex items-center gap-2 rounded-md border border-cyan-500 px-3 py-2"
+										data-testid="tx-ai-choice-pick"
+									>
+										<span class="min-w-0 flex-1">
+											<span
+												class="flex items-center gap-1 text-xs font-medium text-cyan-800 dark:text-cyan-200"
+												><AiMark />{t('zahlungen.detail.aiPick', {
+													confidence: t(
+														`zahlungen.detail.aiConfidence.${aiChoice.pick.confidence}`
+													),
+													reason: aiChoice.pick.reason
+												})}</span
+											>
+											<span class="block truncate text-sm font-medium text-heading"
+												>{receiptVendor(aiChoiceRow.receipt)}</span
+											>
+											<span class="block truncate text-xs text-faint"
+												>{[
+													receiptAmount(aiChoiceRow.receipt),
+													receiptDay(aiChoiceRow.receipt),
+													aiChoiceRow.receipt.invoiceNumber
+												]
+													.filter(Boolean)
+													.join(' · ')}</span
+											>
+										</span>
+										<button
+											type="button"
+											class={primary}
+											onclick={() =>
+												aiChoiceRow &&
+												assign(aiChoiceRow.receipt.id, aiChoiceRow.score, aiChoiceRow.reasons)}
+											disabled={busy}
+											data-testid="tx-ai-choice-assign">{t('zahlungen.detail.choose')}</button
+										>
+									</div>
+								{/if}
+								{#if aiChoice?.sent.length}
+									<details class="mt-1 text-xs text-faint">
+										<summary class="cursor-pointer">{t('zahlungen.detail.aiSent')}</summary>
+										{#each aiChoice.sent as sent, i (i)}
+											<pre
+												class="mt-1 max-h-40 overflow-auto rounded border border-border bg-surface-2 p-2 font-mono break-words whitespace-pre-wrap">{sent}</pre>
+										{/each}
+									</details>
+								{/if}
+							</div>
+						{/if}
 						<h4 class="text-xs font-semibold tracking-wide text-faint uppercase">
 							{t('zahlungen.detail.suggestions')}
 						</h4>
