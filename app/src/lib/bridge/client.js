@@ -209,6 +209,18 @@ export function createBridgeClient({
 			return /** @type {Promise<Uint8Array>} */ (call(`/mail/attachment?${q}`, {}, true));
 		},
 		/**
+		 * Move one mail to the mailbox's Trash – the bridge's only write to the
+		 * mailbox, on a person's confirmed click. Not a delete.
+		 *
+		 * @param {string} id the mail's id
+		 * @returns {Promise<{ trashed: true, trash: string }>}
+		 */
+		mailTrash: (id) =>
+			call('/mail/trash', {
+				method: 'POST',
+				body: JSON.stringify({ id })
+			}),
+		/**
 		 * The targeted search in the whole mailbox for one missing receipt: vendor
 		 * text and every spelling of an amount, ± days around a day. Only the hits
 		 * are read (bridge/README.md).

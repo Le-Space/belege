@@ -464,6 +464,42 @@ export function createMailClient({
 			});
 		},
 
+		/**
+		 * The one write this module does, and only on a person's click: move one
+		 * mail into the mailbox's Trash (special-use \\Trash, else a folder named
+		 * Trash / Papierkorb / Deleted). Not a delete: the mail can be taken back
+		 * from the Trash in the mail program. Nothing else is ever changed.
+		 *
+		 * @param {string} id a mail id from a listing or search
+		 * @returns {Promise<{ trash: string }>} the Trash folder's path
+		 */
+		async trash(id) {
+			const ref = decodeMailId(id);
+			if (!ref) throw new MailError('unknown mail', 404, 'MAIL_UNKNOWN');
+			return session(async (client) => {
+				const list = await client.list();
+				const trash =
+					list.find((f) => f.specialUse === '\\Trash') ??
+					list.find((f) => /^(trash|papierkorb|deleted( items| messages)?)$/i.test(f.name ?? ''));
+				if (!trash) throw new MailError('the mailbox has no Trash folder', 409, 'MAIL_NO_TRASH');
+				if (trash.path === ref.folder) {
+					throw new MailError('the mail is in the Trash already', 409, 'MAIL_IN_TRASH');
+				}
+				const box = await client.mailboxOpen(ref.folder).catch(() => null);
+				if (!box || String(box.uidValidity) !== ref.uidValidity) {
+					throw new MailError('unknown mail', 404, 'MAIL_UNKNOWN');
+				}
+				const found = await client.search({ uid: String(ref.uid) }, { uid: true });
+				if (!Array.isArray(found) || !found.includes(ref.uid)) {
+					throw new MailError('unknown mail', 404, 'MAIL_UNKNOWN');
+				}
+				const moved = await client.messageMove(String(ref.uid), trash.path, { uid: true });
+				if (!moved) throw new MailError('the mail could not be moved', 502, 'MAIL_MOVE');
+				verdicts.delete(id);
+				return { trash: trash.path };
+			});
+		},
+
 		/** For setup: log in, count folders, log out. */
 		async check() {
 			return session(async (client) => ({ folders: (await client.list()).length }));

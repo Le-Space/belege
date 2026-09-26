@@ -296,8 +296,18 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	await detail.getByTestId('confirm-sender').click();
 	await expect(detail.getByTestId('sender-warning')).toHaveCount(0);
 	// Released by the person: the failed check is no longer held against it.
+	// (Found by its vendor now: the "unverified" mark went with the release.)
+	const released = receipts.filter({ hasText: RECEIPTS.phishing.vendor });
+	await expect(released).toHaveCount(1);
 	await expect(detail.getByTestId('scam-warning')).toHaveCount(0);
-	await expect(phish.getByTestId('receipt-scam')).toHaveCount(0);
+	await expect(released.getByTestId('receipt-scam')).toHaveCount(0);
+
+	// Into the mailbox's Trash: only after a second, confirming click; the receipt stays.
+	await detail.getByTestId('mail-trash-button').click();
+	await expect(detail.getByTestId('mail-trash')).toContainText('nicht gelöscht');
+	await detail.getByTestId('mail-trash-yes').click();
+	await expect(detail.getByTestId('mail-trash-done')).toContainText('Papierkorb');
+	await expect(released).toHaveCount(1);
 	await expect(detail.getByTestId('preview-pdf')).toHaveAttribute('data-rendered', 'true');
 	await expect(detail.getByTestId('extract')).toBeVisible();
 

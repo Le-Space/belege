@@ -419,7 +419,8 @@ export default {
 			date: 'Datum',
 			'far-date': 'Datum weit weg',
 			'wrong-direction': 'Richtung falsch',
-			manual: 'von Hand'
+			manual: 'von Hand',
+			eigenbeleg: 'Eigenbeleg'
 		},
 		badge: {
 			receipt: 'Beleg',
@@ -686,6 +687,15 @@ export default {
 		mailTo: 'Bis Monat',
 		mailLastYear: 'Ganzes Vorjahr',
 		mailReadAfter: 'Neue Belege nach dem Abruf gleich auslesen',
+		trash: {
+			button: 'Mail in den Papierkorb verschieben',
+			confirm:
+				'Die Mail wird im Postfach in den Papierkorb verschoben (nicht gelöscht – im Mailprogramm lässt sie sich zurückholen). Der Beleg bleibt hier in den Büchern.',
+			yes: 'Ja, verschieben',
+			cancel: 'Abbrechen',
+			busy: 'Verschiebe …',
+			done: 'Mail liegt im Papierkorb des Postfachs (seit {date}).'
+		},
 		scam: {
 			badge: 'Verdacht',
 			title: 'Möglicher Betrug – bitte prüfen',
@@ -944,6 +954,7 @@ export default {
 			'needs-receipt': '„Kein Beleg nötig“ zurückgenommen',
 			'confirm-sender': 'Absender freigegeben',
 			'scam-cleared': 'Scam-Verdacht als unbegründet markiert',
+			'mail-trash': 'Mail in den Papierkorb verschoben',
 			'upload-link': 'Beleg hochgeladen und dieser Zahlung zugeordnet',
 			eigenbeleg: 'Eigenbeleg erstellt und zugeordnet',
 			booking: 'Konto übernommen',

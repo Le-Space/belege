@@ -446,7 +446,8 @@ export function sampleMailbox({
  */
 export async function startFakeImap({ storage = sampleMailbox() } = {}) {
 	const server = hoodiecrow({
-		plugins: ['ID', 'SPECIAL-USE', 'ENABLE', 'UNSELECT', 'NAMESPACE'],
+		// MOVE and UIDPLUS as real servers have them (Dovecot, Mailu): the Trash button moves.
+		plugins: ['ID', 'SPECIAL-USE', 'ENABLE', 'UNSELECT', 'NAMESPACE', 'MOVE', 'UIDPLUS'],
 		users: { [FAKE_IMAP_USER]: { password: FAKE_IMAP_PASSWORD } },
 		storage
 	});

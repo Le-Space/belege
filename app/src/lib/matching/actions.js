@@ -292,6 +292,23 @@ export async function confirmSender(store, receiptId, { log = true } = {}) {
 }
 
 /**
+ * "Mail in den Papierkorb verschieben": after the bridge moved the mail, every
+ * receipt from it (one per attachment) records that. The receipts stay in the
+ * books; setting one aside is a separate decision.
+ *
+ * @param {MatchingStore} store
+ * @param {string} mailId
+ * @param {{ now?: () => Date }} [options]
+ */
+export async function markMailTrashed(store, mailId, { now = () => new Date() } = {}) {
+	const at = now().toISOString();
+	const receipts = await store.receipts.list({ where: (r) => r.mailId === mailId });
+	for (const r of receipts) await store.receipts.put({ ...r, mailTrashedAt: at });
+	await decided(store, 'mail-trash', { receiptIds: receipts.map((r) => r.id) });
+	return receipts.length;
+}
+
+/**
  * "Ist in Ordnung": a person looked at a receipt the scam check flagged
  * (receipts/scam.js) and says it is genuine; the hint goes for this receipt.
  *
