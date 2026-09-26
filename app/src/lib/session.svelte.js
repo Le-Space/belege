@@ -7,6 +7,7 @@ import {
 import { getSetting } from './store/settings.js';
 import { classifyTransaction } from './matching/classify.js';
 import { buildMatchingContext } from './matching/context.js';
+import { cleanChart } from './booking/chart.js';
 
 /** @typedef {import('./node.js').Session} Session */
 /** @typedef {import('./store/repository.js').StoredRecord} StoredRecord */
@@ -38,6 +39,8 @@ export const app = $state({
 	matchingSettings: null,
 	/** @type {any} the stored DATEV values (settings key `datev`, booking/settings.js) */
 	datevSettings: null,
+	/** @type {import('./booking/chart.js').StoredChart | null} the person's chart of accounts (settings key `chart`) */
+	chart: null,
 	/** whether an "Abgleich" is running */
 	matching: false,
 	/** @type {import('./matching/engine.js').MatchingProgress | null} where the running "Abgleich" is */
@@ -68,7 +71,8 @@ async function refresh() {
 		questions,
 		events,
 		matchingSettings,
-		datevSettings
+		datevSettings,
+		chart
 	] = await Promise.all([
 		session.store.transactions.list(),
 		session.store.receipts.list(),
@@ -78,7 +82,8 @@ async function refresh() {
 		session.store.questions.list(),
 		session.store.events.list(),
 		getSetting(session.store.settings, 'matching'),
-		getSetting(session.store.settings, 'datev')
+		getSetting(session.store.settings, 'datev'),
+		getSetting(session.store.settings, 'chart')
 	]);
 	const ctx = await buildMatchingContext({
 		accounts,
@@ -102,6 +107,7 @@ async function refresh() {
 	app.classifications = classifications;
 	app.matchingSettings = matchingSettings;
 	app.datevSettings = datevSettings;
+	app.chart = cleanChart(chart);
 }
 
 /** @type {Promise<unknown>} */

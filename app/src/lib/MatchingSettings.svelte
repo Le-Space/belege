@@ -7,6 +7,7 @@
 	import { onMount } from 'svelte';
 	import { app, currentStore, refreshNow, runMatchingNow } from './session.svelte.js';
 	import { forgetBankFee } from './matching/actions.js';
+	import { cleanChart, decodeChartBytes, parseChart } from './booking/chart.js';
 	import { setSetting } from './store/settings.js';
 	import {
 		cleanMatchingSettings,
@@ -20,7 +21,7 @@
 		suggestedLedgerAccount
 	} from './booking/settings.js';
 	import { isAccountNumber } from './booking/skr03.js';
-	import { t } from './i18n/index.js';
+	import { list, t } from './i18n/index.js';
 
 	let companyText = $state('');
 	let ibanText = $state('');
@@ -99,6 +100,53 @@
 		await forgetBankFee(/** @type {any} */ (store), key);
 		await refreshNow();
 		await runMatchingNow();
+	}
+
+	// "Kontenplan einlesen" (booking/chart.js): a preview first, stored on "Übernehmen".
+	/** @type {{ parsed: import('./booking/chart.js').ParsedChart, fileName: string } | null} */
+	let chartPreview = $state(null);
+	/** @type {string | null} */
+	let chartError = $state(null);
+	let chart = $derived(cleanChart(app.chart));
+
+	/** @param {Event} event */
+	async function readChart(event) {
+		const input = /** @type {HTMLInputElement} */ (event.currentTarget);
+		const file = input.files?.[0];
+		input.value = '';
+		chartError = null;
+		chartPreview = null;
+		if (!file) return;
+		if (file.size > 5 * 1024 * 1024) {
+			chartError = t('anweisungen.chart.tooLarge');
+			return;
+		}
+		const parsed = parseChart(decodeChartBytes(new Uint8Array(await file.arrayBuffer())));
+		if (!parsed.accounts.length) {
+			chartError = t('anweisungen.chart.nothing');
+			return;
+		}
+		chartPreview = { parsed, fileName: file.name };
+	}
+
+	async function takeChart() {
+		const store = currentStore();
+		if (!store || !chartPreview) return;
+		await setSetting(store.settings, 'chart', {
+			accounts: chartPreview.parsed.accounts,
+			format: chartPreview.parsed.format,
+			fileName: chartPreview.fileName,
+			importedAt: new Date().toISOString()
+		});
+		chartPreview = null;
+		await refreshNow();
+	}
+
+	async function dropChart() {
+		const store = currentStore();
+		if (!store) return;
+		await setSetting(store.settings, 'chart', null);
+		await refreshNow();
 	}
 
 	let bookAccounts = $derived(
@@ -441,6 +489,93 @@
 				{/each}
 			</div>
 			<p class="mt-1 text-xs text-faint">{t('anweisungen.books.taxKeysHint')}</p>
+		</fieldset>
+
+		<fieldset class="text-sm" data-testid="chart">
+			<legend class="flex items-center gap-1.5 font-medium text-heading">
+				{t('anweisungen.chart.title')}
+				<span
+					class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-border text-[10px] leading-none text-faint"
+					title={t('anweisungen.chart.infoTitle')}
+					aria-hidden="true">i</span
+				>
+			</legend>
+			<p class="mt-1 text-xs text-faint">{t('anweisungen.chart.hint')}</p>
+			<details class="mt-1 text-xs text-text" data-testid="chart-how">
+				<summary class="cursor-pointer text-faint underline"
+					>{t('anweisungen.chart.howTitle')}</summary
+				>
+				<ul class="mt-1 flex list-disc flex-col gap-1 pl-5">
+					{#each list('anweisungen.chart.how') as line (line)}
+						<li>{line}</li>
+					{/each}
+				</ul>
+			</details>
+			{#if chart}
+				<p class="mt-2 text-text" data-testid="chart-current">
+					{t('anweisungen.chart.current', {
+						count: chart.accounts.length,
+						file: chart.fileName || '—',
+						date: chart.importedAt
+							? chart.importedAt.slice(0, 10).split('-').reverse().join('.')
+							: '?'
+					})}
+					<button
+						type="button"
+						class="ml-2 text-sm text-faint underline hover:text-heading"
+						onclick={dropChart}
+						data-testid="chart-drop">{t('anweisungen.chart.drop')}</button
+					>
+				</p>
+			{/if}
+			<label
+				class="mt-2 inline-block cursor-pointer rounded-md border border-border px-3 py-1.5 text-sm text-text hover:bg-surface-2 hover:text-heading"
+			>
+				{chart ? t('anweisungen.chart.replace') : t('anweisungen.chart.read')}
+				<input
+					type="file"
+					accept=".csv,.txt,text/csv,text/plain"
+					class="sr-only"
+					onchange={readChart}
+					data-testid="chart-file"
+				/>
+			</label>
+			{#if chartError}
+				<p class="mt-1 text-sm text-danger" role="alert" data-testid="chart-error">{chartError}</p>
+			{/if}
+			{#if chartPreview}
+				<div
+					class="mt-2 rounded-md border border-border bg-surface-2 px-3 py-2"
+					data-testid="chart-preview"
+				>
+					<p class="text-text">
+						{t('anweisungen.chart.found', {
+							count: chartPreview.parsed.accounts.length,
+							format: t(`anweisungen.chart.format.${chartPreview.parsed.format}`),
+							skipped: chartPreview.parsed.skipped
+						})}
+					</p>
+					<ul class="mt-1 font-mono text-xs text-faint">
+						{#each chartPreview.parsed.accounts.slice(0, 5) as a (a.number)}
+							<li>{a.number} {a.name}</li>
+						{/each}
+					</ul>
+					<div class="mt-2 flex gap-3">
+						<button
+							type="button"
+							class="rounded-md bg-coral-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-coral-800"
+							onclick={takeChart}
+							data-testid="chart-take">{t('anweisungen.chart.take')}</button
+						>
+						<button
+							type="button"
+							class="text-sm text-faint underline hover:text-heading"
+							onclick={() => (chartPreview = null)}
+							data-testid="chart-cancel">{t('anweisungen.chart.cancel')}</button
+						>
+					</div>
+				</div>
+			{/if}
 		</fieldset>
 
 		<div class="flex flex-wrap items-center gap-3">

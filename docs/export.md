@@ -53,3 +53,13 @@ MonkeyOffice imports DATEV Buchungsstapel through its DATEV import (menu names d
 - The **BU keys**, above all **§13b**: 94 is the usual key for a service from abroad at 19 %; others (e.g. for goods from the EU) exist. Which Automatikkonten your chart has (8400 and 8300 are treated as such: no key).
 - **Beraternummer, Mandantennummer**, Sachkontenlänge and fiscal year, as MonkeyOffice has them.
 - Whether the booking date as _Belegdatum_ is right for you, or the receipt's date.
+
+## Your own chart of accounts
+
+Under _Integrationen → Eigene Anweisungen → Kontenplan_ the app reads the chart of accounts of your bookkeeping program; from then on "Konto" suggests your accounts with your names instead of the built-in SKR 03 list, and marks a number that is not in your chart.
+
+- **MonKey Office:** sidebar → _Import & Export → Export DATEV → Kontenbeschriftungen_ (optionally only a range _von Konto … bis Konto_) → read the CSV file in.
+- **Other programs with a DATEV interface:** the export _Kontenbeschriftungen_ (a file that starts with `EXTF`, data category 20).
+- **Otherwise:** any CSV or text file with a column of account numbers (4–8 digits) and a column of names, separated by semicolon, comma or tab. UTF-8 and Windows-1252 are both read.
+
+The chart is kept sealed in your books in the browser, like every record. _Entfernen_ goes back to the SKR 03 list.

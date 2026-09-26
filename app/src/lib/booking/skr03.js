@@ -18,6 +18,8 @@
  * @property {19 | 7} [automatic] the VAT rate of an Automatikkonto
  */
 
+import { chartKind } from './chart.js';
+
 /** @type {readonly CatalogueAccount[]} */
 export const SKR03_ACCOUNTS = Object.freeze([
 	{ number: '1360', name: 'Geldtransit', kind: 'neutral' },
@@ -71,23 +73,42 @@ export function isAccountNumber(v) {
 }
 
 /**
- * The catalogue entry of a number, or null for a number of the person's own.
+ * The person's chart of accounts (chart.js), when they read one in: its
+ * accounts replace the built-in list in the suggestions. `automatic` still
+ * comes from the SKR 03 list (an Automatikkonto's number is the same).
+ *
+ * @typedef {import('./chart.js').StoredChart | null | undefined} Chart
+ */
+
+/**
+ * The catalogue entry of a number, or null for a number that is not in it.
  *
  * @param {unknown} number
+ * @param {Chart} [chart]
  * @returns {CatalogueAccount | null}
  */
-export function catalogueAccount(number) {
+export function catalogueAccount(number, chart = null) {
 	const n = digits(number);
-	return SKR03_ACCOUNTS.find((a) => a.number === n) ?? null;
+	const builtIn = SKR03_ACCOUNTS.find((a) => a.number === n) ?? null;
+	if (!chart) return builtIn;
+	const own = chart.accounts.find((a) => a.number === n);
+	if (!own) return null;
+	return {
+		number: own.number,
+		name: own.name,
+		kind: builtIn?.kind ?? chartKind(own.number),
+		...(builtIn?.automatic ? { automatic: builtIn.automatic } : {})
+	};
 }
 
 /**
  * "4930 Bürobedarf", or the number alone.
  *
  * @param {unknown} number
+ * @param {Chart} [chart]
  */
-export function accountLabel(number) {
-	const a = catalogueAccount(number);
+export function accountLabel(number, chart = null) {
+	const a = catalogueAccount(number, chart);
 	return a ? `${a.number} ${a.name}` : digits(number);
 }
 
@@ -96,14 +117,16 @@ export function accountLabel(number) {
  * Income first for money in, expenses first for money out.
  *
  * @param {string} query
- * @param {{ income?: boolean }} [options]
+ * @param {{ income?: boolean, chart?: Chart }} [options]
  * @returns {CatalogueAccount[]}
  */
-export function searchAccounts(query, { income = false } = {}) {
+export function searchAccounts(query, { income = false, chart = null } = {}) {
 	const q = query.trim().toLowerCase();
-	const hits = SKR03_ACCOUNTS.filter(
-		(a) => !q || a.number.startsWith(q) || a.name.toLowerCase().includes(q)
-	);
+	/** @type {CatalogueAccount[]} */
+	const all = chart
+		? chart.accounts.map((a) => /** @type {CatalogueAccount} */ (catalogueAccount(a.number, chart)))
+		: [...SKR03_ACCOUNTS];
+	const hits = all.filter((a) => !q || a.number.startsWith(q) || a.name.toLowerCase().includes(q));
 	const rank = (/** @type {CatalogueAccount} */ a) =>
 		a.kind === (income ? 'income' : 'expense') ? 0 : 1;
 	return [...hits].sort((a, b) => rank(a) - rank(b) || (a.number < b.number ? -1 : 1));

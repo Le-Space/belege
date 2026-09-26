@@ -53,3 +53,13 @@ MonkeyOffice importiert DATEV-Buchungsstapel über seinen DATEV-Import (die Men�
 - Die **BU-Schlüssel**, vor allem **§13b**: 94 ist der übliche Schlüssel für eine Leistung aus dem Ausland zu 19 %; es gibt andere (etwa für Waren aus der EU). Welche Automatikkonten dein Kontenrahmen hat (8400 und 8300 gelten als solche: kein Schlüssel).
 - **Beraternummer, Mandantennummer**, Sachkontenlänge und Wirtschaftsjahr, wie MonkeyOffice sie führt.
 - Ob der Buchungstag als _Belegdatum_ für dich richtig ist oder das Datum des Belegs.
+
+## Dein eigener Kontenplan
+
+Unter _Integrationen → Eigene Anweisungen → Kontenplan_ liest die App den Kontenplan deines Buchhaltungsprogramms ein; danach schlägt „Konto“ deine Konten mit deinen Bezeichnungen vor statt der eingebauten SKR-03-Liste und markiert Nummern, die es in deinem Plan nicht gibt.
+
+- **MonKey Office:** Seitenleiste → _Import & Export → Export DATEV → Kontenbeschriftungen_ (auf Wunsch nur ein Bereich _von Konto … bis Konto_) → die CSV-Datei einlesen.
+- **Andere Programme mit DATEV-Schnittstelle:** der Export _Kontenbeschriftungen_ (eine Datei, die mit `EXTF` beginnt, Datenkategorie 20).
+- **Sonst:** jede CSV- oder Textdatei mit einer Spalte Kontonummern (4–8 Ziffern) und einer Spalte Bezeichnungen, getrennt durch Semikolon, Komma oder Tab. UTF-8 und Windows-1252 werden beide gelesen.
+
+Der Kontenplan bleibt verschlüsselt in deinen Büchern im Browser, wie jeder Datensatz. _Entfernen_ führt zurück zur SKR-03-Liste.
