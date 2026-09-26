@@ -11,6 +11,12 @@
 // share a rate counter; ledger pages are fetched one after the other with a
 // pause, and a "Rate limit exceeded" waits and retries.
 //
+// A deposit or withdrawal also gets its transfer reference: the txid Kraken
+// reports in DepositStatus / WithdrawStatus under the same refid – the
+// on-chain transaction hash for crypto, the bank's reference for euros. That
+// lets the app pair a withdrawal with the wallet that received it. If the key
+// may not read those lists, entries simply have none.
+//
 // What leaves this module is normalised: Kraken's asset codes (`XXBT`,
 // `ZEUR`, `DOT.S`) become a symbol (`BTC`, `EUR`, `DOT`) and a wallet
 // (`spot`, or `earn` for staked and earning balances); amounts stay decimal
@@ -105,6 +111,7 @@ const isoTime = (seconds) => new Date(Math.round(Number(seconds) * 1000)).toISOS
  * @property {string} amount signed decimal, before the fee
  * @property {string} fee decimal, charged on top (the balance moves by amount − fee)
  * @property {number} decimals
+ * @property {string} transferRef the txid of a deposit or withdrawal, '' when none
  */
 
 /**
@@ -127,7 +134,8 @@ export function normalizeLedgerEntry(id, raw, assets) {
 		wallet,
 		amount: String(raw.amount ?? '0'),
 		fee: String(raw.fee ?? '0'),
-		decimals
+		decimals,
+		transferRef: ''
 	};
 }
 
@@ -225,6 +233,41 @@ export function createKrakenClient({
 		}
 	}
 
+	/**
+	 * refid → txid of deposits and withdrawals since `start`, paged by cursor.
+	 * Empty when the key may not read them.
+	 *
+	 * @param {string} start unix seconds
+	 * @returns {Promise<Map<string, string>>}
+	 */
+	async function transferRefs(start) {
+		/** @type {Map<string, string>} */
+		const refs = new Map();
+		for (const method of ['DepositStatus', 'WithdrawStatus']) {
+			/** @type {string | boolean} */
+			let cursor = true;
+			for (let page = 0; cursor && page < 100; page++) {
+				if (page > 0) await sleep(pageDelayMs);
+				/** @type {any} */
+				let result;
+				try {
+					result = await privateCall(method, { start, cursor: String(cursor) });
+				} catch (error) {
+					if (error instanceof KrakenError && error.code !== 'KRAKEN_RATE_LIMIT') break;
+					throw error;
+				}
+				const list = Array.isArray(result)
+					? result
+					: (result?.deposits ?? result?.withdrawals ?? []);
+				for (const t of list) {
+					if (t?.refid && typeof t.txid === 'string' && t.txid) refs.set(String(t.refid), t.txid);
+				}
+				cursor = Array.isArray(result) ? false : (result?.next_cursor ?? false);
+			}
+		}
+		return refs;
+	}
+
 	return {
 		/**
 		 * Every non-zero balance: symbol, wallet, amount (decimal string), decimals.
@@ -265,6 +308,11 @@ export function createKrakenClient({
 				const count = Number(result?.count ?? 0);
 				if (!batch.length || ofs >= count) break;
 				if (page >= 1000) throw new KrakenError('Kraken ledger does not end', 'KRAKEN_ERROR');
+			}
+			const refs = await transferRefs(String(Number(start) - 7 * 86400));
+			for (const e of entries.values()) {
+				if (e.type === 'deposit' || e.type === 'withdrawal')
+					e.transferRef = refs.get(e.refid) ?? '';
 			}
 			return [...entries.values()].sort((a, b) =>
 				a.time === b.time ? (a.id < b.id ? -1 : 1) : a.time < b.time ? -1 : 1

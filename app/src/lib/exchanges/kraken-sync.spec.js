@@ -185,6 +185,124 @@ describe('krakenTransactions', () => {
 	});
 });
 
+describe('Kraken transfers (#52)', () => {
+	it('labels a transfer by its subtype, and shows an unknown one as Kraken writes it', () => {
+		const e = (/** @type {string} */ type, /** @type {string} */ subtype) =>
+			describeEntry(entry({ id: 'x', refid: 'x', asset: 'NYM', amount: '-1', type, subtype }));
+		expect(e('transfer', 'spottostaking').label).toBe('Umbuchung Spot/Earn');
+		expect(e('transfer', 'spotfromfutures').label).toBe('Umbuchung Spot/Futures');
+		expect(e('transfer', '')).toEqual({ label: 'Kraken: transfer', movement: 'transfer' });
+		expect(e('transfer', 'airdrop').label).toBe('Kraken: transfer/airdrop');
+		expect(e('earn', 'allocation').label).toBe('Umbuchung Spot/Earn');
+		expect(e('adjustment', '').label).toBe('Kraken: adjustment');
+		expect(e('withdrawal', '').label).toBe('Auszahlung');
+	});
+
+	it('keeps Kraken’s type and a crypto withdrawal’s on-chain hash', async () => {
+		const hash = 'AB'.repeat(32);
+		const { byAccount } = await krakenTransactions(
+			[
+				entry({
+					id: 'L-NYM-OUT',
+					refid: 'R-NYM-OUT',
+					type: 'withdrawal',
+					asset: 'NYM',
+					decimals: 8,
+					amount: '-10.00000000',
+					transferRef: hash
+				}),
+				entry({
+					id: 'L-EUR-OUT',
+					refid: 'R-EUR-OUT',
+					type: 'withdrawal',
+					asset: 'EUR',
+					amount: '-5.0000',
+					transferRef: 'BANKREF-1'
+				})
+			],
+			async (asset, date) => ({
+				asset,
+				date,
+				currency: 'EUR',
+				rate: '0.05',
+				usdRate: null,
+				source: 'kraken',
+				at: `${date}T00:00:00Z`
+			})
+		);
+		expect(byAccount.get('NYM')?.[0]).toMatchObject({
+			exchangeType: 'withdrawal',
+			chainTxRef: hash,
+			amountCents: -50
+		});
+		// a euro withdrawal's reference is the bank's, no chain hash
+		expect(byAccount.get('EUR')?.[0]).not.toHaveProperty('chainTxRef');
+	});
+
+	it('pairs a withdrawal with the wallet that received it by hash, whatever the euro amounts', async () => {
+		const hash = 'ab'.repeat(32);
+		const transactions = [
+			{
+				id: 'K',
+				accountId: 'A-KRAKEN-NYM',
+				source: 'kraken',
+				bookedOn: '2026-09-10',
+				amountCents: -50,
+				movement: 'transfer',
+				txRef: 'R-NYM-OUT',
+				chainTxRef: hash.toUpperCase()
+			},
+			{
+				id: 'KF',
+				accountId: 'A-KRAKEN-NYM',
+				source: 'kraken',
+				bookedOn: '2026-09-10',
+				amountCents: -1,
+				movement: 'fee',
+				txRef: 'R-NYM-OUT'
+			},
+			{
+				id: 'W',
+				accountId: 'A-WALLET-NYM',
+				source: 'nym',
+				bookedOn: '2026-09-10',
+				amountCents: 52,
+				movement: 'transfer',
+				txRef: `0x${hash}`
+			},
+			{
+				id: 'X',
+				accountId: 'A-OTHER',
+				source: 'nym',
+				bookedOn: '2026-09-10',
+				amountCents: 52,
+				movement: 'transfer',
+				txRef: 'cd'.repeat(32)
+			}
+		];
+		const ctx = await buildMatchingContext({ accounts: [], transactions, settings: null });
+		expect(classifyTransaction(transactions[0], ctx)).toMatchObject({
+			kind: 'own-transfer',
+			via: 'reference',
+			counterBookingId: 'W',
+			sign: 'gleicher Transaktions-Hash'
+		});
+		expect(classifyTransaction(transactions[2], ctx)).toMatchObject({
+			via: 'reference',
+			counterBookingId: 'K'
+		});
+		// the fee is a fee, not a side of the transfer
+		expect(classifyTransaction(transactions[1], ctx)).toMatchObject({ kind: 'bank-fee' });
+		// a person who said "no transfer" is heard
+		const refused = await buildMatchingContext({
+			accounts: [],
+			transactions,
+			settings: { notTransfers: ['K|W'] }
+		});
+		expect(classifyTransaction(transactions[0], refused)?.via).not.toBe('reference');
+	});
+});
+
 describe('syncKraken', () => {
 	function store() {
 		return {

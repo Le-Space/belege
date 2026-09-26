@@ -180,6 +180,7 @@ export function feeKey(tx) {
  * @property {number} [graceDays] see grace.js
  * @property {Set<string>} [feeKeys] learned bank fees (feeKey)
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [counterBookings] bookings on our other accounts with the opposite amount within a few days
+ * @property {(tx: Record<string, any>) => Record<string, any>[]} [sameReference] bookings on our other accounts with the same reference or transaction hash, the other way (context.js)
  * @property {Set<string>} [notTransfers] pairs a person said are no transfer (transferPairKey)
  */
 
@@ -311,13 +312,11 @@ export function classifyTransaction(tx, ctx) {
 	// The other side on one of our accounts: the same amount the other way within
 	// a few days, and a word or name that says transfer on either side. Exactly
 	// one such booking, or none is taken: two 200,00 in one week are a question.
-	const counter = (ctx.counterBookings?.(tx) ?? []).filter(
-		(o) => !ctx.notTransfers?.has(transferPairKey(String(tx.id), String(o.id)))
-	);
-	// The other leg of the same trade or transfer on an exchange: same reference.
-	const sameRef = tx.txRef
-		? counter.filter((o) => o.txRef === tx.txRef && o.source === tx.source)
-		: [];
+	const unpaired = (/** @type {Record<string, any>} */ o) =>
+		!ctx.notTransfers?.has(transferPairKey(String(tx.id), String(o.id)));
+	// The other side by reference, whatever the euro amounts: the other leg of a
+	// trade (same refid), or the wallet that received a withdrawal (same hash).
+	const sameRef = (ctx.sameReference?.(tx) ?? []).filter(unpaired);
 	if (sameRef.length === 1) {
 		const [o] = sameRef;
 		return {
@@ -327,9 +326,13 @@ export function classifyTransaction(tx, ctx) {
 			counterBookingId: String(o.id),
 			counterAccountId: String(o.accountId ?? ''),
 			counterDay: String(o.bookedOn ?? ''),
-			sign: `Ref. ${tx.txRef}`
+			sign:
+				tx.txRef && o.txRef && tx.txRef === o.txRef
+					? `Ref. ${tx.txRef}`
+					: 'gleicher Transaktions-Hash'
 		};
 	}
+	const counter = (ctx.counterBookings?.(tx) ?? []).filter(unpaired);
 	const signed = counter
 		.map((o) => ({
 			o,

@@ -236,7 +236,11 @@ export function planMonth({ month, transactions, accounts, receipts, matches, cl
 		if (!ledger) continue;
 		const linked = linkedOf(tx);
 		const first = linked[0] ?? null;
-		const other = transferCounterpart(tx, live, classifications);
+		const found = transferCounterpart(tx, live, classifications);
+		// Once, against the other account, only when both sides carry the same
+		// euro amount; sides valued apart (an exchange and a wallet, on different
+		// days) go each against 1360, so the difference stays visible there.
+		const other = found && Number(found.amountCents) === -Number(tx.amountCents) ? found : null;
 		const otherLedger = other ? ledgerOf(accountOf(other)) : null;
 		if (other && otherLedger && otherLedger !== ledger) {
 			if (!exportsSide({ tx, ledger }, { tx: other, ledger: otherLedger })) {

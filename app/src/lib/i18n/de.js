@@ -1047,6 +1047,10 @@ export default {
 				cancel: 'Abbrechen',
 				done: 'Eigenbeleg {number} erstellt und dieser Zahlung zugeordnet.'
 			},
+			exchangeType: 'Art bei der Börse',
+			txRef: 'Referenz',
+			chainTxRef: 'Transaktions-Hash',
+			related: 'Gehört zusammen mit (gleiche Referenz)',
 			valueDate: 'Wertstellung',
 			amount: 'Betrag',
 			account: 'Konto',

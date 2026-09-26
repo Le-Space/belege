@@ -43,6 +43,7 @@ export class BridgeError extends Error {
  * @property {string} amount signed decimal, before the fee
  * @property {string} fee decimal, charged on top
  * @property {number} decimals
+ * @property {string} [transferRef] a deposit's or withdrawal's txid: the on-chain hash, or the bank's reference
  */
 
 /**

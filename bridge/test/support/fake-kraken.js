@@ -120,6 +120,7 @@ export function sampleLedger() {
  * @param {Record<string, any>} [options.ledger]
  * @param {Record<string, string>} [options.balance]
  * @param {number} [options.rateLimitedCalls] this many private calls answer "Rate limit exceeded" first
+ * @param {{ deposit: any[], withdrawals: any[] } | null} [options.transfers] DepositStatus / WithdrawStatus; null: permission denied
  */
 export async function startFakeKraken({
 	ledger = sampleLedger(),
@@ -131,7 +132,14 @@ export async function startFakeKraken({
 		'AKT.S': '6.17283900',
 		XDG: '0'
 	},
-	rateLimitedCalls = 0
+	rateLimitedCalls = 0,
+	transfers = {
+		deposit: [{ refid: 'R-DEP-1', asset: 'ZEUR', txid: 'BANKREF-0001', status: 'Success' }],
+		withdrawals: [
+			{ refid: 'R-WD-1', asset: 'ZEUR', txid: 'BANKREF-0002', status: 'Success' },
+			{ refid: 'R-OTHER', asset: 'XXBT', txid: '00'.repeat(32), status: 'Success' }
+		]
+	}
 } = {}) {
 	let lastNonce = 0n;
 	let limited = rateLimitedCalls;
@@ -170,6 +178,16 @@ export async function startFakeKraken({
 				return reply({ error: ['EAPI:Rate limit exceeded'] });
 			}
 			if (method === 'Balance') return reply({ error: [], result: balance });
+			if (method === 'DepositStatus' || method === 'WithdrawStatus') {
+				if (!transfers) return reply({ error: ['EGeneral:Permission denied'] });
+				const list = method === 'DepositStatus' ? transfers.deposit : transfers.withdrawals;
+				// With a cursor, one item a page, to exercise the paging.
+				if (params.cursor === undefined) return reply({ error: [], result: list });
+				const at = params.cursor === 'true' ? 0 : Number(params.cursor);
+				const next = at + 1 < list.length ? String(at + 1) : false;
+				const key = method === 'DepositStatus' ? 'deposits' : 'withdrawals';
+				return reply({ error: [], result: { [key]: list.slice(at, at + 1), next_cursor: next } });
+			}
 			if (method === 'Ledgers') {
 				const start = Number(params.start ?? 0);
 				const all = Object.entries(ledger)
