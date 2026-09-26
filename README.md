@@ -1,6 +1,6 @@
 # belege
 
-[![Sponsor](https://img.shields.io/github/sponsors/NiKrause?label=Sponsor&logo=githubsponsors&color=EA4AAA)](https://github.com/sponsors/NiKrause)
+[![Sponsor](https://img.shields.io/github/sponsors/Le-Space?label=Sponsor&logo=githubsponsors&color=EA4AAA)](https://github.com/sponsors/Le-Space)
 
 Local-first bookkeeping helper: matches bank transactions (via [Hibiscus](https://github.com/willuhn/hibiscus)) with receipts from e-mail, folders and Telegram, and exports a monthly DATEV package. Runs in the browser; a small bridge on `127.0.0.1` does what a browser cannot (IMAP, Hibiscus XML-RPC, Telegram).
 
