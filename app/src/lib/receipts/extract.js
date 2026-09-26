@@ -121,11 +121,22 @@ export async function extractReceipt({
 }) {
 	if (needsConfirmation(record)) throw new NeedsConfirmationError();
 
+	/**
+	 * Write onto the receipt as it is now, not as it was when this began: the
+	 * model takes seconds, and meanwhile a person may have deleted the
+	 * receipt, confirmed its sender or corrected it. A deleted one stays
+	 * deleted and is not written.
+	 *
+	 * @param {(latest: import('../store/repository.js').StoredRecord) => Record<string, any>} fields
+	 */
+	async function writeOnLatest(fields) {
+		const latest = (await receipts.get(record.id)) ?? record;
+		if (latest.deleted) return latest;
+		return receipts.put({ ...latest, ...fields(latest) });
+	}
+
 	if (record.mime?.startsWith('image/')) {
-		return receipts.put({
-			...record,
-			extractionError: 'image'
-		});
+		return writeOnLatest(() => ({ extractionError: 'image' }));
 	}
 
 	let text = '';
@@ -133,7 +144,7 @@ export async function extractReceipt({
 		const read = pdfText ?? (await import('./pdf.js')).extractPdfText;
 		text = (await read(await blobs.get(record.fileCid))).text;
 		if (text.replace(/\s+/g, '').length < MIN_TEXT) {
-			return receipts.put({ ...record, extractionError: 'no-text' });
+			return writeOnLatest(() => ({ extractionError: 'no-text' }));
 		}
 	} else {
 		text = [record.subject, record.excerpt].filter(Boolean).join('\n\n');
@@ -156,13 +167,12 @@ export async function extractReceipt({
 		});
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		await receipts.put({ ...record, extractionError: message });
+		await writeOnLatest(() => ({ extractionError: message }));
 		await recordEvent(events, 'extract', { receiptId: record.id, ok: false, error: message });
 		throw error;
 	}
 	const info = extractionInfo(result);
-	const updated = await receipts.put({
-		...record,
+	const updated = await writeOnLatest((latest) => ({
 		...summaryFields(result.extraction),
 		extraction: result.extraction,
 		extractionModel: result.model,
@@ -173,12 +183,12 @@ export async function extractReceipt({
 		extractedAt: now().toISOString(),
 		// No receipt at all (a sign-in link, a newsletter): out of the matching.
 		status:
-			record.status === 'zugeordnet'
+			latest.status === 'zugeordnet'
 				? 'zugeordnet'
 				: result.extraction?.document_type === 'none'
 					? 'ignoriert'
 					: 'ausgelesen'
-	});
+	}));
 	await recordEvent(events, 'extract', {
 		receiptId: record.id,
 		ok: true,

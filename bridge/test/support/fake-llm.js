@@ -59,11 +59,14 @@ export async function startFakeLlm({ behaviour = {}, key = FAKE_LLM_KEY } = {}) 
 	const requests = [];
 	/** @type {{ respond?: (body: any) => any }} */
 	const answers = {};
+	/** How long each answer waits, as a slow model does (`setDelay`). */
+	let delayMs = 0;
 	const server = http.createServer((req, res) => {
 		let raw = '';
 		req.setEncoding('utf8');
 		req.on('data', (d) => (raw += d));
-		req.on('end', () => {
+		req.on('end', async () => {
+			if (delayMs) await new Promise((resolve) => setTimeout(resolve, delayMs));
 			/** @param {number} status @param {unknown} body */
 			const send = (status, body) => {
 				const text = JSON.stringify(body);
@@ -118,6 +121,10 @@ export async function startFakeLlm({ behaviour = {}, key = FAKE_LLM_KEY } = {}) 
 		requests,
 		behaviour,
 		answers,
+		/** @param {number} ms each answer waits this long from now on */
+		setDelay: (ms) => {
+			delayMs = ms;
+		},
 		close: () =>
 			new Promise((resolve) => {
 				server.close(() => resolve(undefined));
