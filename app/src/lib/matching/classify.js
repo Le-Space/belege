@@ -188,7 +188,7 @@ export function feeKey(tx) {
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [counterBookings] bookings on our other accounts with the opposite amount within a few days
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [sameReference] bookings on our other accounts with the same reference or transaction hash, the other way (context.js)
  * @property {Set<string>} [notTransfers] pairs a person said are no transfer (transferPairKey)
- * @property {Map<string, string>} [ownAddresses] `<chain>:<address>` (normalised) of our own wallets → one of their accounts
+ * @property {Map<string, Map<string, string>>} [ownAddresses] `<chain>:<address>` (normalised) of our own wallets → their accounts by asset ('' = the first)
  */
 
 /**
@@ -352,7 +352,9 @@ export function classifyTransaction(tx, ctx) {
 		wallet && tx.counterpartyAddress ? normalizeAddress(wallet, tx.counterpartyAddress) : '';
 	// By chain and address: an EVM address is the same on every EVM chain, and
 	// being ours on Base says nothing about Ethereum.
-	const ownAccount = address ? ctx.ownAddresses?.get(`${tx.source}:${address}`) : undefined;
+	// The other side's account of the same asset: USDC goes to the USDC account.
+	const own = address ? ctx.ownAddresses?.get(`${tx.source}:${address}`) : undefined;
+	const ownAccount = own ? (own.get(String(tx.asset ?? '')) ?? own.get('')) : undefined;
 	if (ownAccount && ownAccount !== tx.accountId) {
 		return {
 			kind: 'own-transfer',
