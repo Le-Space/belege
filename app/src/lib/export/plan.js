@@ -19,6 +19,10 @@
 //     would then stay open); the other side is left out of the stack
 //   - receipt numbers YYYY-MM-NNN in booking order, kept on the receipt
 //     (`exportNumber`) once exported, so a second export gives the same ones
+//   - every account with a booking in the month gets a statement in the ZIP
+//     (statement.js); a booking without a receipt of its own – a fee, an own
+//     transfer, a reward – carries that statement's number (KA-YYYY-MM-<ledger>)
+//     in Belegfeld 1: the statement is its receipt
 
 import { isBookingConfirmed } from '../booking/suggest.js';
 import { ledgerOf } from '../booking/settings.js';
@@ -30,6 +34,7 @@ import { needsConfirmation } from '../receipts/import.js';
 import { receiptDate, receiptVendor } from '../receipts/view.js';
 import { TRANSFER_ACCOUNT } from '../booking/skr03.js';
 import { quantityText } from '../assets/valuation.js';
+import { monthStatements } from './statement.js';
 
 /** @typedef {Record<string, any>} Rec */
 /** @typedef {import('../matching/classify.js').Classification} Classification */
@@ -56,6 +61,7 @@ export const RECEIPT_NUMBER = /^(\d{4}-\d{2})-(\d{3})$/;
  * @property {Map<string, string>} numbers receipt id → its number
  * @property {{ receiptId: string, number: string }[]} newNumbers numbers given in this export
  * @property {Rec[]} receipts the receipts that go into the ZIP (with a file, released)
+ * @property {import('./statement.js').Statement[]} statements one per account with a booking in the month
  * @property {{ unassigned: Rec[], noLedger: Rec[], noBankAccount: Rec[], missingReceipt: Rec[], unlinkedReceipts: Rec[], unverified: Rec[] }} checks
  * @property {boolean} blocked
  */
@@ -203,6 +209,22 @@ export function planMonth({ month, transactions, accounts, receipts, matches, cl
 	const ordered = bookings.flatMap((tx) => linkedOf(tx).map((x) => x.receipt));
 	const { numbers, fresh } = numberReceipts(month, ordered, receipts);
 
+	/** @type {Map<string, string>} */
+	const receiptNumbers = new Map();
+	for (const tx of bookings) {
+		const first = linkedOf(tx)[0];
+		const n = first ? numbers.get(first.receipt.id) : undefined;
+		if (n) receiptNumbers.set(tx.id, n);
+	}
+	const statements = monthStatements({
+		month,
+		accounts,
+		transactions: live,
+		classifications,
+		receiptNumbers
+	});
+	const statementOf = new Map(statements.map((s) => [s.account.id, s.number]));
+
 	/** @type {PlannedLine[]} */
 	const lines = [];
 	/** @type {{ tx: Rec, other: Rec }[]} */
@@ -236,7 +258,9 @@ export function planMonth({ month, transactions, accounts, receipts, matches, cl
 				contra: transferLine ? /** @type {string} */ (otherLedger) : String(tx.booking.account),
 				taxKey: transferLine ? '' : String(tx.booking.taxKey ?? ''),
 				date: String(tx.bookedOn),
-				receiptNumber: first ? (numbers.get(first.receipt.id) ?? '') : '',
+				receiptNumber: first
+					? (numbers.get(first.receipt.id) ?? '')
+					: (statementOf.get(String(tx.accountId)) ?? ''),
 				text: bookingText(tx, first?.receipt ?? null)
 			}
 		});
@@ -271,6 +295,7 @@ export function planMonth({ month, transactions, accounts, receipts, matches, cl
 		numbers,
 		newNumbers: fresh,
 		receipts: zipReceipts,
+		statements,
 		checks,
 		blocked:
 			bookings.length === 0 ||

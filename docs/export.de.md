@@ -9,6 +9,8 @@ DATEV_2026-09.zip
 ├── DATEV/EXTF_Buchungsstapel_2026-09.csv   Windows-1252, für den Import
 ├── Belege/2026-09-001_Kabelnetz_Beispiel_GmbH.pdf
 ├── Belege/2026-09-002_….pdf
+├── Kontoauszuege/KA-2026-09-1200_Konto_A.pdf     ein Auszug je Konto mit Buchungen im Monat
+├── Kontoauszuege/KA-2026-09-1340_Kraken_BTC.pdf
 └── Uebersicht_2026-09.csv                  UTF-8, zum Lesen: jede Buchung, ihr Konto, Belegnummer, wie der Beleg zugeordnet wurde
 ```
 
@@ -36,6 +38,7 @@ MonkeyOffice importiert DATEV-Buchungsstapel über seinen DATEV-Import (die Men�
 - Betrag positiv, Dezimalkomma, keine Tausenderpunkte. **S/H bezieht sich auf _Konto_**, das Sachkonto der Bank: Geld herein ist S, Geld hinaus ist H. _Gegenkonto_ ist das übernommene Konto.
 - _Belegdatum_ `TTMM` = Buchungstag (das Jahr nimmt DATEV aus dem Wirtschaftsjahr, und jede Zeile liegt im Zeitraum des Stapels). _Belegfeld 1_ = Belegnummer `JJJJ-MM-NNN` (höchstens 36 Zeichen). _Buchungstext_ = Anbieter des Belegs, sonst Gegenpartei, sonst Verwendungszweck (höchstens 60).
 - Eine Buchung mit mehreren Belegen: die Nummer des ersten in _Belegfeld 1_, alle in der ZIP-Datei.
+- Eine Buchung ohne eigenen Beleg (Bank- oder Börsengebühr, eigene Umbuchung, Staking-Ertrag, Einnahme noch ohne Rechnung): die Auszug-Nummer ihres Kontos `KA-JJJJ-MM-<Sachkonto>` in _Belegfeld 1_. Der Auszug liegt in `Kontoauszuege/`.
 - **Eine eigene Umbuchung**, deren Gegenbuchung in den Büchern steht, kommt **einmal** hinein: vom Bankkonto mit dem kleineren Sachkonto gegen das Sachkonto der anderen Bank (1200 → 1210, nicht über 1360: mit nur einer Zeile bliebe 1360 offen). Die andere Seite steht in der Übersicht als „nicht im Buchungsstapel“. Eine Umbuchung ohne Gegenbuchung in den Büchern behält 1360.
 - Belegnummern werden in Buchungsreihenfolge vergeben und bleiben am Beleg, sobald er exportiert ist: ein zweiter Export des Monats gibt dieselben Nummern, ein später dazugekommener Beleg die nächste.
 - Code: `app/src/lib/export/datev.js` (das ganze Format, ein Modul), `plan.js` (was hineinkommt, die Prüfliste), `build.js` (die ZIP-Datei, mit [fflate](https://github.com/101arrowz/fflate), erst auf der Export-Seite geladen), `cp1252.js`; Konten in `app/src/lib/booking/`.
@@ -46,6 +49,14 @@ MonkeyOffice importiert DATEV-Buchungsstapel über seinen DATEV-Import (die Men�
 - Kopffelder 8–10 und 18 (Herkunft, Exportiert von, Importiert von, Diktatkürzel) bleiben leer, 27 (SKR) auch. Will MonkeyOffice sie haben, ist `headerLine` in `datev.js` die eine Stelle.
 - **SKR-03-Namen** im Katalog sind mit den öffentlichen Kontoseiten von buchungssatz.de verglichen, nicht mit dem DATEV-Kontenrahmen. **BU-Schlüssel** 9/8/3/2 und 94 für §13b sind die üblich dokumentierten SKR-03-Schlüssel (DATEV-Community, Hilfeseiten von Buchhaltungssoftware); nicht bei DATEV selbst geprüft.
 - **Mit MonkeyOffice noch nicht getestet.** Der erste echte Import ist der Test.
+
+## Monatsauszüge
+
+Jedes Konto mit einer Buchung im Monat bekommt einen Auszug als PDF, egal ob Bankkonto, Börsenkonto oder Wallet (`app/src/lib/export/statement.js`, gezeichnet von `statement-pdf.js`). Er listet jede Buchung des Monats auf diesem Konto mit ihrer Belegnummer oder dem, was dafür steht (_Umbuchung_, _Gebühr_, _Ertrag_), und die Summen der Eingänge, der Ausgänge und des Monats.
+
+Ein Krypto-Konto zeigt zusätzlich Menge und Kurs jeder Buchung mit der Quelle des Kurses (K = Kraken, CG = CoinGecko, EZB = EZB-Referenzkurs, H = Preis des Handels). Anfangs- und Endbestand im Asset werden aus dem letzten Bestand zurückgerechnet, den die Börse gemeldet hat.
+
+Bei einem Bankkonto zeigt der Auszug, was Belege gespeichert hat. Den Kontoauszug der Bank ersetzt er nicht.
 
 ## Mit der Steuerberatung klären
 

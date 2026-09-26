@@ -962,7 +962,8 @@ export default {
 			'Einmal im Monat: die Buchungen als DATEV-Buchungsstapel für MonkeyOffice und die Belege als PDF, zusammen in einer ZIP-Datei. Sie entsteht nur hier im Browser und wird auf dein Gerät geladen – nichts geht an einen Server.',
 		empty: 'Noch keine Zahlungen – erst die Bank anbinden oder einen Kontoauszug importieren.',
 		month: 'Monat',
-		summary: '{bookings} Buchungen · {lines} im Buchungsstapel · {receipts} Belege im ZIP',
+		summary:
+			'{bookings} Buchungen · {lines} im Buchungsstapel · {receipts} Belege und {statements} Kontoauszüge im ZIP',
 		settings:
 			'Beraternummer {consultant} · Mandantennummer {client} · Wirtschaftsjahr ab {fiscal} · Sachkontenlänge {length}',
 		settingsLink: 'ändern unter Integrationen → Eigene Anweisungen',
@@ -988,7 +989,7 @@ export default {
 		open: 'öffnen',
 		download: 'DATEV-Export herunterladen',
 		building: 'Erstelle ZIP …',
-		done: 'Heruntergeladen: {file} – {bookings} Buchungen, {receipts} Belege.',
+		done: 'Heruntergeladen: {file} – {bookings} Buchungen, {receipts} Belege, {statements} Kontoauszüge.',
 		blocked: 'Erst die rot markierten Punkte erledigen.',
 		failed: 'Der Export ist fehlgeschlagen: {error}',
 		overview: {

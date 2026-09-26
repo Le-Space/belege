@@ -9,6 +9,8 @@ DATEV_2026-09.zip
 ├── DATEV/EXTF_Buchungsstapel_2026-09.csv   Windows-1252, for the import
 ├── Belege/2026-09-001_Kabelnetz_Beispiel_GmbH.pdf
 ├── Belege/2026-09-002_….pdf
+├── Kontoauszuege/KA-2026-09-1200_Konto_A.pdf     one statement per account with a booking in the month
+├── Kontoauszuege/KA-2026-09-1340_Kraken_BTC.pdf
 └── Uebersicht_2026-09.csv                  UTF-8, for people: every booking, its account, receipt number, how the receipt was linked
 ```
 
@@ -36,6 +38,7 @@ MonkeyOffice imports DATEV Buchungsstapel through its DATEV import (menu names d
 - Amount positive, decimal comma, no thousands separator. **S/H refers to _Konto_**, the bank's ledger account: money in is S, money out is H. _Gegenkonto_ is the confirmed account.
 - _Belegdatum_ `DDMM` = the booking date (DATEV takes the year from the fiscal year, and every line lies in the stack's period). _Belegfeld 1_ = the receipt number `YYYY-MM-NNN` (at most 36 characters). _Buchungstext_ = the receipt's vendor, else the counterparty, else the purpose (at most 60).
 - A booking with several receipts: the first receipt's number in _Belegfeld 1_, all of them in the ZIP.
+- A booking without a receipt of its own (a bank or exchange fee, an own transfer, a staking reward, an income without an invoice yet): its account's statement number `KA-YYYY-MM-<ledger account>` in _Belegfeld 1_. The statement is in `Kontoauszuege/`.
 - **An own transfer** whose other side is in the books is exported **once**, from the bank account with the lower ledger number, against the other bank's ledger account (1200 → 1210, not via 1360: with one line, 1360 would stay open). The other side is listed in the overview as "nicht im Buchungsstapel". A transfer whose other side is not in the books keeps 1360.
 - Receipt numbers are given in booking order and kept on the receipt once exported: a second export of the month gives the same numbers, a receipt added later gets the next one.
 - Code: `app/src/lib/export/datev.js` (all of the format, one module), `plan.js` (what goes in, the check list), `build.js` (the ZIP, with [fflate](https://github.com/101arrowz/fflate), loaded only on the export page), `cp1252.js`; accounts in `app/src/lib/booking/`.
@@ -46,6 +49,14 @@ MonkeyOffice imports DATEV Buchungsstapel through its DATEV import (menu names d
 - Header fields 8–10 and 18 (Herkunft, Exportiert von, Importiert von, Diktatkürzel) are left empty; 27 (SKR) too. If MonkeyOffice wants them, `headerLine` in `datev.js` is the one place.
 - **SKR 03 names** in the catalogue were compared with the public account pages of buchungssatz.de, not with DATEV's chart. **BU keys** 9/8/3/2 and 94 for §13b are the commonly documented SKR 03 keys (DATEV community, tax-software help pages); not checked with DATEV itself.
 - **Not tested with MonkeyOffice yet.** The first real import is the test.
+
+## Monthly statements
+
+Every account with a booking in the month gets a statement as a PDF: bank accounts, exchange accounts and wallets alike (`app/src/lib/export/statement.js`, drawn by `statement-pdf.js`). It lists every booking of the month on that account, with its receipt number or what stands in for one (_Umbuchung_, _Gebühr_, _Ertrag_), and the totals of money in, money out and the month.
+
+A crypto account also shows the quantity and the rate of every booking, with the rate's source (K = Kraken, CG = CoinGecko, EZB = ECB, H = the price of the trade). The start and end balance in the asset is worked back from the last balance the exchange reported.
+
+For a bank account, the statement lists what Belege holds; it does not replace the bank's own statement.
 
 ## To check with the tax adviser
 

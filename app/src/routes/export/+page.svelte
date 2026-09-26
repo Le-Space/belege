@@ -98,7 +98,11 @@
 		error = null;
 		try {
 			const { runMonthExport } = await import('$lib/export/build.js');
-			const counts = { bookings: plan.lines.length, receipts: plan.receipts.length };
+			const counts = {
+				bookings: plan.lines.length,
+				receipts: plan.receipts.length,
+				statements: plan.statements.length
+			};
 			const { zip, fileName } = await runMonthExport({
 				store,
 				blobs,
@@ -216,7 +220,8 @@
 			{t('export.summary', {
 				bookings: plan.bookings.length,
 				lines: plan.lines.length,
-				receipts: plan.receipts.length
+				receipts: plan.receipts.length,
+				statements: plan.statements.length
 			})}
 		</p>
 		<p class="mt-1 text-xs text-faint" data-testid="export-settings">

@@ -317,13 +317,17 @@ describe('planMonth', () => {
 			'39,99;"H";;;;;1200;4925;"9";0109;"2026-09-001";;;"Kabelnetz Beispiel GmbH"'
 		);
 		// A ";" inside a quoted text stays text.
-		expect(income.startsWith('119,00;"S";;;;;1200;8400;;1509;;;;"Kunde ""Nord""; AG";')).toBe(true);
+		expect(
+			income.startsWith('119,00;"S";;;;;1200;8400;;1509;"KA-2026-09-1200";;;"Kunde ""Nord""; AG";')
+		).toBe(true);
 		expect(transfer.split(';').slice(0, 14).join(';')).toBe(
-			'500,00;"H";;;;;1200;1210;;2009;;;;"Muster UG"'
+			'500,00;"H";;;;;1200;1210;;2009;"KA-2026-09-1200";;;"Muster UG"'
 		);
 		expect(fee.split(';').slice(0, 14).join(';')).toBe(
-			'9,90;"H";;;;;1200;4970;;3009;;;;"Abschluss"'
+			'9,90;"H";;;;;1200;4970;;3009;"KA-2026-09-1200";;;"Abschluss"'
 		);
+		// A booking without a receipt of its own carries its account's statement number.
+		expect(plan.statements.map((st) => st.number)).toEqual(['KA-2026-09-1200', 'KA-2026-09-1210']);
 		// Both receipts of T1 are numbered and go into the ZIP; Belegfeld 1 has the first.
 		expect(plan.receipts.map((r) => r.id)).toEqual(['R-KABEL', 'R-KABEL-2']);
 		expect(plan.numbers.get('R-KABEL-2')).toBe('2026-09-002');
@@ -420,6 +424,8 @@ describe('the ZIP', () => {
 			'DATEV/EXTF_Buchungsstapel_2026-09.csv',
 			'Belege/2026-09-001_Kabelnetz_Beispiel_GmbH.pdf',
 			'Belege/2026-09-002_Kabelnetz_Beispiel_GmbH.pdf',
+			'Kontoauszuege/KA-2026-09-1200_Konto_A.pdf',
+			'Kontoauszuege/KA-2026-09-1210_Konto_B.pdf',
 			'Uebersicht_2026-09.csv'
 		]);
 		const unzipped = unzipSync(zip);
@@ -447,6 +453,32 @@ describe('the ZIP', () => {
 		expect(overview).toContain('nicht im Buchungsstapel');
 		expect(overview).toContain('"Kunde ""Nord""; AG"');
 
+		// Each account's statement: a real PDF with the month's bookings and totals.
+		const { extractText, getDocumentProxy } = await import('unpdf');
+		const statement = unzipped['Kontoauszuege/KA-2026-09-1200_Konto_A.pdf'];
+		expect(strFromU8(statement.slice(0, 5))).toBe('%PDF-');
+		const { text } = await extractText(await getDocumentProxy(new Uint8Array(statement)), {
+			mergePages: true
+		});
+		for (const part of [
+			'Kontoauszug',
+			'Konto A ···4711',
+			'Sachkonto 1200',
+			'Zeitraum 01.09.2026 – 30.09.2026',
+			'Auszug-Nr. KA-2026-09-1200',
+			'01.09.2026 KABELNETZ -39,99 2026-09-001',
+			'Muster UG · Umbuchung -500,00 Umbuchung',
+			'Abschluss -9,90 Gebühr',
+			'2026-09-001',
+			'Eingänge',
+			'Ausgänge',
+			'Summe des Monats -430,89',
+			'Ersetzt nicht den Kontoauszug der Bank',
+			'Seite 1 von 1'
+		]) {
+			expect(text).toContain(part);
+		}
+
 		// The numbers are kept, and the Verlauf says what went out.
 		/** @type {any[]} */
 		const stored = await store.receipts.list();
@@ -457,7 +489,13 @@ describe('the ZIP', () => {
 				.sort()
 		).toEqual(['2026-09-001', '2026-09-002']);
 		const [event] = await store.events.list();
-		expect(event).toMatchObject({ kind: 'export', month: '2026-09', bookings: 4, receipts: 2 });
+		expect(event).toMatchObject({
+			kind: 'export',
+			month: '2026-09',
+			bookings: 4,
+			receipts: 2,
+			statements: 2
+		});
 		// A new receipt linked to the fee later: the old numbers stay, it gets the next.
 		const again = planMonth({
 			month: '2026-09',
