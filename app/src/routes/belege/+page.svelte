@@ -43,6 +43,7 @@
 	import {
 		confirmSender as confirmSenderAction,
 		clearScam as clearScamAction,
+		markMailTrashed as markMailTrashedAction,
 		restoreReceipt,
 		setAsideReceipt
 	} from '$lib/matching/actions.js';
@@ -395,6 +396,30 @@
 			)
 		)
 			await runMatchingNow();
+	}
+
+	/** @type {string | null} the receipt whose mail is asked to go to the Trash */
+	let trashAsk = $state(null);
+	let trashing = $state(false);
+	/** @type {string | null} */
+	let trashError = $state(null);
+
+	/** "Mail in den Papierkorb verschieben", after the person confirmed. @param {Receipt} record */
+	async function trashMail(record) {
+		const store = currentStore();
+		if (!store || !client || !record.mailId) return;
+		trashing = true;
+		trashError = null;
+		try {
+			await client.mailTrash(record.mailId);
+			await markMailTrashedAction(store, record.mailId);
+			trashAsk = null;
+			await refreshNow();
+		} catch (error) {
+			trashError = message(error);
+		} finally {
+			trashing = false;
+		}
 	}
 
 	/** @param {Receipt} record */
@@ -1010,6 +1035,45 @@
 								<dd class="text-text" data-testid="field-verdict">{verdictText(selected)}</dd>
 							{/if}
 						</dl>
+
+						{#if selected.source === 'mail' && selected.mailId && client}
+							<div class="mt-3 border-t border-border pt-3 text-sm" data-testid="mail-trash">
+								{#if selected.mailTrashedAt}
+									<p class="text-faint" data-testid="mail-trash-done">
+										{t('belege.trash.done', {
+											date: formatDate(String(selected.mailTrashedAt).slice(0, 10))
+										})}
+									</p>
+								{:else if trashAsk === selected.id}
+									<p class="text-text">{t('belege.trash.confirm')}</p>
+									<div class="mt-2 flex gap-3">
+										<button
+											type="button"
+											class={button}
+											disabled={trashing}
+											onclick={() => selected && trashMail(selected)}
+											data-testid="mail-trash-yes"
+											>{trashing ? t('belege.trash.busy') : t('belege.trash.yes')}</button
+										>
+										<button
+											type="button"
+											class="text-faint underline hover:text-heading"
+											onclick={() => (trashAsk = null)}>{t('belege.trash.cancel')}</button
+										>
+									</div>
+								{:else}
+									<button
+										type="button"
+										class="text-faint underline hover:text-heading"
+										onclick={() => selected && (trashAsk = selected.id)}
+										data-testid="mail-trash-button">{t('belege.trash.button')}</button
+									>
+								{/if}
+								{#if trashError}
+									<p class="mt-1 text-danger" role="alert">{trashError}</p>
+								{/if}
+							</div>
+						{/if}
 
 						{#if vendorSite && bridgeAt}
 							{@const site = vendorSite}

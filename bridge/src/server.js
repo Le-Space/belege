@@ -6,6 +6,7 @@
 //   GET  /hibiscus/transactions?account=<id>&since=YYYY-MM-DD   token
 //   GET  /mail/messages?since=YYYY-MM-DD[&until=YYYY-MM-DD]&scope=accounting   token
 //   GET  /mail/attachment?id=<mail id>&part=<n>                   token → the bytes
+//   POST /mail/trash   { id }                                     token → the one mail moved to the Trash (a person's click)
 //   GET  /mail/search?text=&amount=&from=a.example,b.example&term=…&around=YYYY-MM-DD&days=   token
 //   POST /mail/assist  { counterparty, purpose, amount, around, days, knownDomains }   token → LLM terms, hits, pick
 //   POST /match/assist { booking, candidates }                  token → the LLM's pick among receipts
@@ -291,6 +292,15 @@ export function createBridgeServer({
 			if (!mail) throw notSetUp('Mail');
 			const { bytes, mime } = await mail.attachment(id, part);
 			return sendBytes(res, bytes, mime);
+		}
+
+		if (path === '/mail/trash' && req.method === 'POST') {
+			const body = /** @type {any} */ (await readJson(req, 2000));
+			if (!decodeMailId(body?.id)) return send(res, 400, { error: 'id must be a mail id' });
+			if (!mail) throw notSetUp('Mail');
+			const { trash } = await mail.trash(body.id);
+			log('moved 1 mail to the Trash');
+			return send(res, 200, { trashed: true, trash });
 		}
 
 		if (path === '/mail/search' && req.method === 'GET') {

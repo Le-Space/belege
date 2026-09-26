@@ -314,6 +314,39 @@ describe('mail endpoints', () => {
 		assert.equal((await get(`/mail/search?${seven}`)).status, 400);
 	});
 
+	test('trash: one mail moved to the Trash on request; gone from the listing; nothing else changes', async () => {
+		const post = (/** @type {unknown} */ body) =>
+			request(port, '/mail/trash', {
+				method: 'POST',
+				headers: {
+					origin: APP,
+					authorization: `Bearer ${token}`,
+					'content-type': 'application/json'
+				},
+				body
+			});
+		const before = (await get(`/mail/messages?since=${SINCE}&until=${UNTIL}&scope=accounting`)).json
+			.messages;
+		const target =
+			before.find((/** @type {any} */ m) => m.subject === 'Alte Rechnung') ?? before[0];
+		assert.equal((await post({ id: 'nope' })).status, 400);
+		const wrong = encodeMailId({ folder: 'INBOX', uidValidity: 999, uid: target.uid });
+		assert.equal((await post({ id: wrong })).status, 404);
+
+		const res = await post({ id: target.id });
+		assert.equal(res.status, 200);
+		assert.deepEqual(res.json, { trashed: true, trash: 'Trash' });
+		const after = (await get(`/mail/messages?since=${SINCE}&until=${UNTIL}&scope=accounting`)).json
+			.messages;
+		assert.equal(after.length, before.length - 1);
+		assert.equal(
+			after.some((/** @type {any} */ m) => m.id === target.id),
+			false
+		);
+		// Once moved, the same id names nothing any more.
+		assert.equal((await post({ id: target.id })).status, 404);
+	});
+
 	test('nothing about a mail is logged', () => {
 		const text = logged.join('\n');
 		for (const s of ['Rechnung', 'wolkenfabrik', 'Stromwerk', 'Privat', ACCOUNTING]) {
