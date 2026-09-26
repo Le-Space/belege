@@ -1,0 +1,24 @@
+{
+	"date": "2026-09-26",
+	"label": "refresh-after-burst",
+	"machine": {
+		"cpus": "Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz",
+		"cores": 16,
+		"memGB": 32
+	},
+	"size": 1000,
+	"receipts": 590,
+	"events": 1000,
+	"writeTransactionsMs": 8644,
+	"writeReceiptsMs": 5387,
+	"writeEventsMs": 8317,
+	"updateNewestTenthMs": 1905,
+	"refreshMs": 1375,
+	"getNewestMs": 1,
+	"getOldestMs": 763,
+	"matchingMs": 184574,
+	"refreshAfterMatchingMs": 2139,
+	"updateOldestMs": 1416,
+	"unlockToHomeMs": 3489,
+	"storageMB": 11.2
+}
