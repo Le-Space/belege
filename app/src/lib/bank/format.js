@@ -57,6 +57,32 @@ export function formatTxAmount(tx) {
 	return formatMoney(cents, tx.currency);
 }
 
+const BERLIN_TIME = new Intl.DateTimeFormat('de-DE', {
+	hour: '2-digit',
+	minute: '2-digit',
+	timeZone: 'Europe/Berlin'
+});
+const BERLIN_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin' });
+const BERLIN_SHORT_DAY = new Intl.DateTimeFormat('de-DE', {
+	day: '2-digit',
+	month: '2-digit',
+	timeZone: 'Europe/Berlin'
+});
+
+/**
+ * A booking's time in German time: `14:32`, or `31.08. 01:15` when that is
+ * another day than the booking day (a wallet or an exchange books by the UTC
+ * day). '' when the source gave no time.
+ *
+ * @param {Record<string, any>} tx
+ */
+export function formatBookingTime(tx) {
+	const ms = typeof tx?.bookedAt === 'string' ? Date.parse(tx.bookedAt) : NaN;
+	if (!Number.isFinite(ms)) return '';
+	const time = BERLIN_TIME.format(ms);
+	return BERLIN_DAY.format(ms) === tx.bookedOn ? time : `${BERLIN_SHORT_DAY.format(ms)} ${time}`;
+}
+
 /**
  * `Geschäftskonto ···1234`, or just `Kraken BTC` for an account without an IBAN.
  *

@@ -255,7 +255,8 @@ export function createBridgeClient({
 		 * Kraken's ledger from the start of `since` (UTC), oldest first.
 		 *
 		 * @param {string} since YYYY-MM-DD
-		 * @returns {Promise<{ since: string, entries: KrakenLedgerEntry[] }>}
+		 * @returns {Promise<{ since: string, entries: KrakenLedgerEntry[], transferRefs?: 'ok' | 'refused' }>}
+		 *   `transferRefs`: whether Kraken gave the on-chain hashes of deposits and withdrawals
 		 */
 		krakenLedgers: (since) => call(`/kraken/ledgers?since=${encodeURIComponent(since)}`),
 		/**

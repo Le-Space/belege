@@ -185,6 +185,7 @@ export async function krakenTransactions(entries, getRate) {
 				const value = /** @type {Record<string, any>} */ (values.get(leg.id));
 				const base = {
 					date: leg.date,
+					bookedAt: leg.time,
 					valueDate: leg.date,
 					currency: 'EUR',
 					counterpartyName: 'Kraken',
@@ -278,7 +279,7 @@ export async function syncKraken({ client, store, now = new Date(), from }) {
 			? isoDaysBefore(new Date(`${synced[0]}T00:00:00Z`), OVERLAP_DAYS)
 			: `${today.slice(0, 4)}-01-01`;
 
-	const [{ balances }, { entries }] = await Promise.all([
+	const [{ balances }, { entries, transferRefs = 'ok' }] = await Promise.all([
 		client.krakenBalances(),
 		client.krakenLedgers(since)
 	]);
@@ -339,5 +340,7 @@ export async function syncKraken({ client, store, now = new Date(), from }) {
 		unpriced: unpriced.length,
 		...totals
 	});
-	return { since, totals, perAccount, unpriced };
+	// 'refused': Kraken gave no on-chain hashes, so deposits and withdrawals
+	// cannot be paired with a wallet by hash (bridge/src/kraken.js).
+	return { since, totals, perAccount, unpriced, transferRefs };
 }

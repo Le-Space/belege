@@ -1061,6 +1061,10 @@ export default {
 		bookings: 'Buchungen',
 		noneForSelection: 'Keine Zahlungen für diese Auswahl.',
 		open: 'Zahlung öffnen',
+		trade: 'Tausch {arrow} {what}',
+		tradeTitle: 'Getauscht',
+		tradeOpen: 'andere Seite öffnen',
+		time: '{time} Uhr',
 		detail: {
 			poisonTitle: 'Achtung: mögliche Adressvergiftung',
 			poisonText:
@@ -1372,7 +1376,9 @@ export default {
 			sync: 'Kraken synchronisieren',
 			syncing: 'Synchronisiere …',
 			syncHint:
-				'Holt das Ledger ab eine Woche vor dem letzten Abruf; schon bekannte Einträge werden übersprungen.',
+				'Holt das Ledger ab eine Woche vor dem letzten Abruf; schon bekannte Einträge werden übersprungen. Ältere Einträge ergänzt nur ein Abruf ab einem früheren Tag.',
+			noHashes:
+				'Kraken hat die Ein- und Auszahlungslisten nicht herausgegeben: Die Buchungen haben keinen Transaktions-Hash und werden nicht mit deinen Wallets gepaart. Darf der API-Key „Query Funds“? Details stehen im Log der Bridge.',
 			syncHintFrom: 'Holt das Ledger ab dem gewählten Tag.',
 			unpriced:
 				'{count} Einträge ohne Kurs – sie fehlen noch und werden beim nächsten Abruf erneut versucht:'

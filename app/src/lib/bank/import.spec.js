@@ -153,6 +153,32 @@ describe('importTransactions', () => {
 		expect(after.receiptId).toBe('R-1');
 	});
 
+	it('keeps the booking time when the source gives one, and a later sync adds it', async () => {
+		const { collection } = memoryCollection('transactions');
+		await importTransactions({ transactions: collection, account: ACCOUNT, incoming: [tx()] });
+		const [before] = await collection.list();
+		expect(before.bookedAt).toBeUndefined();
+
+		const counts = await importTransactions({
+			transactions: collection,
+			account: ACCOUNT,
+			incoming: [tx({ bookedAt: '2026-09-22T14:32:05Z' })]
+		});
+		expect(counts).toEqual({ new: 0, updated: 1, skipped: 0 });
+		const [after] = await collection.list();
+		expect(after.id).toBe(before.id);
+		expect(after.bookedAt).toBe('2026-09-22T14:32:05Z');
+
+		// Not a time with an offset: not kept.
+		await importTransactions({
+			transactions: collection,
+			account: { ...ACCOUNT, id: 'OTHER' },
+			incoming: [tx({ sourceId: '102', bookedAt: '2026-09-22 14:32' })]
+		});
+		const other = (await collection.list()).find((r) => r.sourceId === '102');
+		expect(other?.bookedAt).toBeUndefined();
+	});
+
 	it('without a sourceId, the fingerprint dedups, and identical twins stay two', async () => {
 		const { collection } = memoryCollection('transactions');
 		const coffee = tx({

@@ -113,6 +113,7 @@ export async function walletTransactions(entries, getRate) {
 			const tx = {
 				sourceId: e.id,
 				date: e.date,
+				bookedAt: e.time,
 				valueDate: e.date,
 				amountCents: value.amountCents,
 				currency: 'EUR',

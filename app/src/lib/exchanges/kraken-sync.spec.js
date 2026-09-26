@@ -344,7 +344,13 @@ describe('syncKraken', () => {
 		const result = await syncKraken({ client, store: s, now });
 
 		expect(result.since).toBe('2026-01-01');
+		expect(result.transferRefs).toBe('ok');
 		expect(result.totals.new).toBe(LEDGER.length + 3);
+		// Every booking keeps Kraken's time.
+		const booked = await s.transactions.list();
+		expect(
+			booked.every((b) => typeof b.bookedAt === 'string' && b.bookedAt.startsWith(b.bookedOn))
+		).toBe(true);
 		expect(asked.filter((a) => a.startsWith('rate')).every((a) => a.endsWith('kraken'))).toBe(true);
 
 		const accounts = await s.accounts.list();

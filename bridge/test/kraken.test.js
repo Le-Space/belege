@@ -70,7 +70,8 @@ describe('Kraken client', () => {
 
 	test('ledgers: every page, by ofs, oldest first, only from the start day', async () => {
 		kraken.calls.length = 0;
-		const entries = await client().ledgers('2026-08-01');
+		const { entries, transferRefs } = await client().ledgers('2026-08-01');
+		assert.equal(transferRefs, 'ok');
 		const pages = kraken.calls.filter((c) => c.method === 'Ledgers');
 		assert.ok(pages.length >= 2, 'more than one page');
 		assert.deepEqual(
@@ -81,7 +82,7 @@ describe('Kraken client', () => {
 		const times = entries.map((e) => e.time);
 		assert.deepEqual(times, [...times].sort());
 		assert.ok(entries.every((e) => e.date >= '2026-08-01'));
-		assert.equal((await client().ledgers('2026-09-06')).length, 1 + 15); // withdrawal, rewards 6–20 Sept
+		assert.equal((await client().ledgers('2026-09-06')).entries.length, 1 + 15); // withdrawal, rewards 6–20 Sept
 
 		const trade = entries.filter((e) => e.refid === 'R-TR1');
 		assert.deepEqual(trade.map((e) => [e.asset, e.wallet, e.amount, e.fee, e.decimals]).sort(), [
@@ -116,16 +117,18 @@ describe('Kraken client', () => {
 		}
 	});
 
-	test('without permission for the transfer lists, the ledger still comes, without txids', async () => {
+	test('without permission for the transfer lists, the ledger still comes, without txids, and says so', async () => {
 		const denied = await startFakeKraken({ transfers: null });
 		try {
-			const entries = await createKrakenClient({
+			const { entries, transferRefs, transferRefsReason } = await createKrakenClient({
 				getCredentials: credentials,
 				baseUrl: denied.url,
 				sleep: async () => {}
 			}).ledgers('2026-09-01');
 			assert.equal(entries.length, 8 + 20);
 			assert.ok(entries.every((e) => e.transferRef === ''));
+			assert.equal(transferRefs, 'refused');
+			assert.match(transferRefsReason, /^DepositStatus: /);
 		} finally {
 			await denied.close();
 		}

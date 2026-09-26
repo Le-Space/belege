@@ -37,7 +37,14 @@
 	import { folderSupported, savedFolder } from './receipts/folder.js';
 	import { createBridgeClient } from './bridge/client.js';
 	import { getSetting } from './store/settings.js';
-	import { accountLabel, formatDate, formatMoney, formatTxAmount } from './bank/format.js';
+	import {
+		accountLabel,
+		formatBookingTime,
+		formatDate,
+		formatMoney,
+		formatTxAmount
+	} from './bank/format.js';
+	import { tradeArrow, tradeSides, tradeSideWhat } from './exchanges/trades.js';
 	import { quantityText, valuationText } from './assets/valuation.js';
 	import { txRefsOf } from './matching/context.js';
 	import { safeExplorerUrl } from './wallets/chains.js';
@@ -96,6 +103,10 @@
 			);
 	});
 	let classification = $derived(tx ? (app.classifications[tx.id] ?? null) : null);
+	// An exchange trade's other leg, when this booking is one.
+	let tradeOther = $derived(
+		tx && tx.movement === 'trade' ? (tradeSides(app.transactions).get(tx.id) ?? null) : null
+	);
 	let links = $derived(tx ? matchesOfTx(tx.id, app.matches) : []);
 	let linked = $derived(
 		links.flatMap((m) => {
@@ -848,7 +859,23 @@
 
 			<dl class="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
 				<dt class="text-faint">{t('zahlungen.detail.date')}</dt>
-				<dd class="text-heading" data-testid="tx-detail-date">{formatDate(tx.bookedOn)}</dd>
+				<dd class="text-heading" data-testid="tx-detail-date">
+					{formatDate(tx.bookedOn)}{#if formatBookingTime(tx)}, {t('zahlungen.time', {
+							time: formatBookingTime(tx)
+						})}{/if}
+				</dd>
+				{#if tradeOther}
+					<dt class="text-faint">{t('zahlungen.tradeTitle')}</dt>
+					<dd class="text-heading" data-testid="tx-detail-trade">
+						{t('zahlungen.trade', { arrow: tradeArrow(tx), what: tradeSideWhat(tradeOther) })}
+						<button
+							type="button"
+							class="ml-2 text-sm underline"
+							onclick={() => tradeOther && onopen(String(tradeOther.id))}
+							data-testid="tx-trade-open">{t('zahlungen.tradeOpen')}</button
+						>
+					</dd>
+				{/if}
 				{#if tx.valueDate && tx.valueDate !== tx.bookedOn}
 					<dt class="text-faint">{t('zahlungen.detail.valueDate')}</dt>
 					<dd class="text-heading">{formatDate(tx.valueDate)}</dd>

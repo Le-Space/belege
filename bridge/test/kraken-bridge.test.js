@@ -180,6 +180,7 @@ describe('/kraken routes', () => {
 			const ledgers = await request(port, '/kraken/ledgers?since=2026-09-01', { headers: auth });
 			assert.equal(ledgers.status, 200);
 			assert.equal(ledgers.json.entries.length, 8 + 20);
+			assert.equal(ledgers.json.transferRefs, 'ok');
 			assert.ok(
 				logged.every((l) => !/600\.0000|0\.01000/.test(l)),
 				'no amount in the log'

@@ -417,9 +417,14 @@ export function createBridgeServer({
 			if (path === '/kraken/ledgers') {
 				const since = url.searchParams.get('since') ?? '';
 				if (!isIsoDay(since)) return send(res, 400, { error: 'since must be YYYY-MM-DD' });
-				const entries = await kraken.ledgers(since);
+				const { entries, transferRefs, transferRefsReason } = await kraken.ledgers(since);
 				log(`kraken: ${entries.length} ledger entries since ${since}`);
-				return send(res, 200, { since, entries });
+				if (transferRefs === 'refused') {
+					log(
+						`kraken: deposits and withdrawals get no on-chain hash (${transferRefsReason}); does the key have Funds → Query?`
+					);
+				}
+				return send(res, 200, { since, entries, transferRefs });
 			}
 		}
 
