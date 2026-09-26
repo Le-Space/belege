@@ -1021,6 +1021,8 @@ export default {
 			title: 'Zahlung',
 			close: 'Schließen',
 			date: 'Buchungstag',
+			quantity: 'Menge',
+			valuation: 'Kurs',
 			valueDate: 'Wertstellung',
 			amount: 'Betrag',
 			account: 'Konto',

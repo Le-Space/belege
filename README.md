@@ -22,6 +22,10 @@ Belege uses a language model in two places, both only on a click of a button mar
 
 Every booking gets an SKR 03 account and a BU key: suggested (own transfer, bank fee, learned per vendor, VAT from the receipt), confirmed by you. Once a month, _Export_ makes a ZIP in the browser: a DATEV Buchungsstapel (EXTF) for MonkeyOffice and the receipts as PDFs. How to import it and what to check with the tax adviser: [docs/export.md](docs/export.md) ([Deutsch](docs/export.de.md)).
 
+## Crypto assets
+
+Exchanges and wallets are on their way as accounts: one account per asset, every crypto booking in euros with the exact quantity, the rate of its day and the rate's source kept next to it. The foundation (quantities, rates through the bridge, the Buchungstext) is described in [docs/crypto.md](docs/crypto.md) ([Deutsch](docs/crypto.de.md)); Kraken is the first connector.
+
 ## Phase 0 (feasibility spikes)
 
 | Spike                | Question                                                                        | State                                                                                                                                           |

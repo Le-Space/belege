@@ -30,7 +30,14 @@ const FIELDS = /** @type {const} */ ([
 	'purpose',
 	'endToEndId',
 	'bookingType',
-	'bankCode'
+	'bankCode',
+	// a crypto movement (assets/valuation.js); absent on bank transactions
+	'asset',
+	'quantity',
+	'decimals',
+	'movement',
+	'txRef',
+	'valuation'
 ]);
 
 /**
@@ -47,14 +54,29 @@ const FIELDS = /** @type {const} */ ([
  * @property {string} [bookingType]
  * @property {string} [bankCode] ISO 20022 domain/family/sub-family (CAMT only)
  * @property {string} [fingerprint] the bridge sends it; computed when missing
+ * @property {CryptoFields} [crypto] for a movement on an exchange or a wallet: what moved
+ *   and how `amountCents` (EUR) was valued; see assets/valuation.js
+ */
+
+/**
+ * @typedef {object} CryptoFields
+ * @property {string} asset symbol, assets/registry.js
+ * @property {string} quantity signed integer of the smallest unit, as a string
+ * @property {number} decimals
+ * @property {'transfer' | 'trade' | 'fee' | 'reward' | 'stake'} movement
+ * @property {string} [txRef] transaction hash or the exchange's reference
+ * @property {import('../assets/valuation.js').Valuation} valuation
  */
 
 /**
  * @typedef {{ new: number, updated: number, skipped: number }} ImportCounts
  */
 
+/** @param {unknown} v */
+const comparable = (v) =>
+	v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : v;
 /** @param {unknown} a @param {unknown} b */
-const same = (a, b) => (a ?? '') === (b ?? '');
+const same = (a, b) => comparable(a) === comparable(b);
 
 /**
  * @param {object} params
@@ -117,7 +139,17 @@ export async function importTransactions({ transactions, account, incoming }) {
 			purpose: tx.purpose ?? '',
 			endToEndId: tx.endToEndId ?? '',
 			bookingType: tx.bookingType ?? '',
-			bankCode: tx.bankCode ?? ''
+			bankCode: tx.bankCode ?? '',
+			...(tx.crypto
+				? {
+						asset: tx.crypto.asset,
+						quantity: tx.crypto.quantity,
+						decimals: tx.crypto.decimals,
+						movement: tx.crypto.movement,
+						txRef: tx.crypto.txRef ?? '',
+						valuation: tx.crypto.valuation
+					}
+				: {})
 		};
 
 		let match = fields.sourceId ? bySourceId.get(fields.sourceId) : undefined;

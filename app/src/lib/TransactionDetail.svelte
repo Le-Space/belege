@@ -37,6 +37,7 @@
 	import { createBridgeClient } from './bridge/client.js';
 	import { getSetting } from './store/settings.js';
 	import { formatDate, formatMoney } from './bank/format.js';
+	import { quantityText, valuationText } from './assets/valuation.js';
 	import { receiptDate, receiptVendor } from './receipts/view.js';
 	import { importMailMessages, needsConfirmation } from './receipts/import.js';
 	import { extractReceipt } from './receipts/extract.js';
@@ -791,6 +792,16 @@
 				{#if account}
 					<dt class="text-faint">{t('zahlungen.detail.account')}</dt>
 					<dd class="text-heading">{account.name} ···{account.ibanLast4}</dd>
+				{/if}
+				{#if quantityText(tx)}
+					<dt class="text-faint">{t('zahlungen.detail.quantity')}</dt>
+					<dd class="font-mono text-heading tabular-nums" data-testid="tx-detail-quantity">
+						{quantityText(tx)}
+					</dd>
+					{#if valuationText(tx)}
+						<dt class="text-faint">{t('zahlungen.detail.valuation')}</dt>
+						<dd class="text-heading" data-testid="tx-detail-valuation">{valuationText(tx)}</dd>
+					{/if}
 				{/if}
 				{#if tx.bookingType}
 					<dt class="text-faint">{t('zahlungen.detail.bookingType')}</dt>

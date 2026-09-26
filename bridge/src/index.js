@@ -9,6 +9,7 @@ import { createMailClient } from './mail/imap.js';
 import { domainOf } from './mail/auth-results.js';
 import { createExtractor } from './llm/extract.js';
 import { createMailAssist } from './llm/assist.js';
+import { createRateService } from './rates.js';
 import { buildRecipes, createPortalManager, keychainAccount } from './portals/index.js';
 import { macosPasswordDialog } from './portals/credentials.js';
 import { dirname, join } from 'node:path';
@@ -27,6 +28,7 @@ export * from './normalize.js';
 export { createMailClient } from './mail/imap.js';
 export { createExtractor, checkExtraction } from './llm/extract.js';
 export { redact } from './llm/redact.js';
+export { createRateService, RATE_SOURCES, RateError } from './rates.js';
 export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
 
 /**
@@ -35,6 +37,8 @@ export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
  * @param {import('./keychain.js').Keychain} [options.keychain] the Hibiscus password
  * @param {import('./keychain.js').Keychain} [options.mailKeychain] the mail password
  * @param {import('./keychain.js').Keychain} [options.llmKeychain] the LLM API key
+ * @param {import('./keychain.js').Keychain} [options.coingeckoKeychain] an optional CoinGecko demo key
+ * @param {typeof fetch} [options.rateFetch] fetch for the exchange-rate sources (tests hand in a fake)
  * @param {(portalId: string) => import('./keychain.js').Keychain} [options.portalKeychain] a portal's password
  * @param {'auto' | 'always'} [options.portalHeadless] `always` for tests: no window ever opens
  * @param {boolean} [options.portalLoopback] a new portal may start on http://127.0.0.1 (tests only)
@@ -50,6 +54,8 @@ export async function startBridge({
 	keychain = macosKeychain(),
 	mailKeychain = macosKeychain({ account: 'imap' }),
 	llmKeychain = macosKeychain({ account: 'llm' }),
+	coingeckoKeychain = macosKeychain({ account: 'coingecko' }),
+	rateFetch = fetch,
 	portalKeychain = (id) => macosKeychain({ account: keychainAccount(id) }),
 	portalHeadless = 'auto',
 	portalLoopback = false,
@@ -170,6 +176,10 @@ export async function startBridge({
 			}
 		},
 		portals,
+		rates: createRateService({
+			fetch: rateFetch,
+			coingeckoKey: () => coingeckoKeychain.read().catch(() => null)
+		}),
 		log
 	});
 	const address = await bridge.listen({ port: port ?? config.bridge.port });
