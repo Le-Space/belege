@@ -126,6 +126,18 @@ describe('DATEV fields', () => {
 			text: 'Kunde AG'
 		});
 		expect(inn.startsWith('119,00;"S";;;;;1200;8400;;1509;;;;"Kunde AG";')).toBe(true);
+		const withCost = bookingLine({
+			amountCents: -500,
+			account: '1210',
+			contra: '4900',
+			taxKey: '',
+			date: '2026-09-15',
+			receiptNumber: '',
+			text: 'Beispiel',
+			costCentre: 'P100'
+		}).split(';');
+		expect(withCost[COLUMNS.indexOf('KOST1 – Kostenstelle')]).toBe('"P100"');
+		expect(withCost.filter((f) => f === '"P100"')).toHaveLength(1);
 		expect(() =>
 			bookingLine({
 				amountCents: 1,
@@ -305,6 +317,19 @@ function books() {
 }
 
 describe('planMonth', () => {
+	it('an account’s cost centre goes on its lines, but not on a transfer between two banks', () => {
+		const b = books();
+		const accounts = b.accounts.map((/** @type {any} */ a) =>
+			a.id === 'ACC-GLS' ? { ...a, costCentre: 'P100' } : a
+		);
+		const plan = planMonth({ month: '2026-09', ...b, accounts });
+		const cost = (/** @type {any} */ l) =>
+			bookingLine(l.line).split(';')[COLUMNS.indexOf('KOST1 – Kostenstelle')];
+		const byId = new Map(plan.lines.map((l) => [l.tx.id, cost(l)]));
+		expect(byId.get('T1')).toBe('"P100"');
+		expect(byId.get('T3')).toBe('');
+	});
+
 	it('one line per booking; the transfer once, from the lower ledger, against the other bank', () => {
 		const b = books();
 		const plan = planMonth({ month: '2026-09', ...b });

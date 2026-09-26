@@ -265,7 +265,9 @@ export function planMonth({ month, transactions, accounts, receipts, matches, cl
 				receiptNumber: first
 					? (numbers.get(first.receipt.id) ?? '')
 					: (statementOf.get(String(tx.accountId)) ?? ''),
-				text: bookingText(tx, first?.receipt ?? null)
+				text: bookingText(tx, first?.receipt ?? null),
+				// The bank's (a wallet's) cost centre; none on a transfer between two accounts.
+				costCentre: transferLine ? '' : String(bank?.costCentre ?? '')
 			}
 		});
 	}

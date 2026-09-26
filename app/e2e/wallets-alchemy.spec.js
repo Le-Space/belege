@@ -95,6 +95,9 @@ test('with an Alchemy key the card says so, and an Ethereum wallet is read there
 	await page.getByTestId('technical-toggle').first().click();
 
 	await card.getByTestId('wallet-chain').selectOption('ethereum');
+	// With Alchemy, the endpoint field is an own endpoint, not Blockscout.
+	await expect(card.getByTestId('wallet-uses')).not.toContainText('Blockscout');
+	await expect(card.getByTestId('wallet-endpoint-api')).toHaveAttribute('placeholder', 'https://…');
 	await expect(card.getByTestId('wallet-uses-alchemy')).toContainText('ersetzt Alchemy');
 	await card.getByTestId('wallet-address-input').fill(EVM.wallet);
 	await card.getByTestId('wallet-add-button').click();
@@ -118,6 +121,23 @@ test('with an Alchemy key the card says so, and an Ethereum wallet is read there
 	await expect(wallet.getByTestId('wallet-result')).toHaveText(
 		`Neu: 0 · Aktualisiert: 0 · Übersprungen: ${count}`
 	);
+
+	// A name, a ledger account and a cost centre: on every asset account at once.
+	await wallet.getByTestId('wallet-edit').click();
+	const form = wallet.getByTestId('wallet-edit-form');
+	await form.getByTestId('wallet-edit-name').fill('Projekt Nord');
+	await form.getByTestId('wallet-edit-ledger').fill('1210');
+	await form.getByTestId('wallet-edit-cost').fill('P 1');
+	await form.getByTestId('wallet-edit-save').click();
+	await expect(form.getByTestId('wallet-edit-error')).toContainText('Kostenstelle');
+	await form.getByTestId('wallet-edit-cost').fill('P100');
+	await form.getByTestId('wallet-edit-save').click();
+	await expect(form).toHaveCount(0);
+	await expect(wallet.getByTestId('wallet-name')).toHaveText('Projekt Nord');
+	await expect(wallet.getByTestId('wallet-booking')).toContainText('Konto 1210');
+	await expect(wallet.getByTestId('wallet-booking')).toContainText('Kostenstelle P100');
+	await expect(accounts.nth(0)).toContainText('Projekt Nord · ETH (Ethereum)');
+	await expect(accounts.nth(1)).toContainText('Projekt Nord · USDC (Ethereum)');
 
 	// The key went to the fake Alchemy, in the path of its requests, and nowhere else.
 	expect(alchemy.paths.length).toBeGreaterThan(0);

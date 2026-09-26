@@ -1344,7 +1344,24 @@ export default {
 			customHint: 'leer lassen für den voreingestellten',
 			alternatives: 'Weitere öffentliche: {list}',
 			explorer: 'Links führen zum Block-Explorer {name}.',
-			endpoint: { rpc: 'RPC', rest: 'REST', api: 'API (Blockscout)' },
+			endpoint: {
+				rpc: 'RPC',
+				rest: 'REST',
+				api: 'API (Blockscout)',
+				apiOwn: 'Eigener API-Endpunkt (optional; leer lassen: Alchemy liest diese Wallet)'
+			},
+			meta: {
+				name: 'Bezeichnung (optional)',
+				namePlaceholder: 'z. B. Projekt oder Zweck',
+				ledger: 'Konto (Finanzkonto)',
+				costCentre: 'Kostenstelle (KOST1)',
+				hint: 'Die Bezeichnung steht statt der Adresse an allen Konten dieser Wallet. Konto und Kostenstelle gelten für alle ihre Assets und gehen in den DATEV-Export; die Kostenstelle nur aus Buchstaben und Ziffern.',
+				ledgerShort: 'Konto {account}',
+				costCentreShort: 'Kostenstelle {costCentre}',
+				edit: 'Bezeichnung, Konto, Kostenstelle',
+				save: 'Speichern',
+				cancel: 'Abbrechen'
+			},
 			own: '(eigener)',
 			default: '(voreingestellt)',
 			add: 'Hinzufügen',
