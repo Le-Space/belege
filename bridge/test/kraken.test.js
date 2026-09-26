@@ -88,6 +88,10 @@ describe('Kraken client', () => {
 			['BTC', 'spot', '0.0100000000', '0.0000000000', 10],
 			['EUR', 'spot', '-600.0000', '1.5600', 4]
 		]);
+		// Deposits and withdrawals carry the txid from DepositStatus / WithdrawStatus.
+		assert.equal(entries.find((e) => e.id === 'L-DEP-1')?.transferRef, 'BANKREF-0001');
+		assert.equal(entries.find((e) => e.id === 'L-WD-1')?.transferRef, 'BANKREF-0002');
+		assert.equal(entries.find((e) => e.id === 'L-TR1-BTC')?.transferRef, '');
 		const earnIn = entries.find((e) => e.id === 'L-EARN-IN');
 		assert.equal(earnIn?.asset, 'BTC');
 		assert.equal(earnIn?.wallet, 'earn');
@@ -109,6 +113,21 @@ describe('Kraken client', () => {
 			assert.deepEqual(waited, [5000, 10000]);
 		} finally {
 			await limited.close();
+		}
+	});
+
+	test('without permission for the transfer lists, the ledger still comes, without txids', async () => {
+		const denied = await startFakeKraken({ transfers: null });
+		try {
+			const entries = await createKrakenClient({
+				getCredentials: credentials,
+				baseUrl: denied.url,
+				sleep: async () => {}
+			}).ledgers('2026-09-01');
+			assert.equal(entries.length, 8 + 20);
+			assert.ok(entries.every((e) => e.transferRef === ''));
+		} finally {
+			await denied.close();
 		}
 	});
 

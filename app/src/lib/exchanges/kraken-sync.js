@@ -43,8 +43,16 @@ export const accountKey = (asset, wallet) => (wallet === 'earn' ? `${asset}.earn
 export const accountName = (asset, wallet) =>
 	`Kraken ${asset}${wallet === 'earn' ? ' (Earn)' : ''}`;
 
+/** Transfers between Kraken's own wallets, by subtype. */
+const SPOT_EARN = new Set(['spottostaking', 'stakingfromspot', 'spotfromstaking', 'stakingtospot']);
+const SPOT_FUTURES = new Set(['spottofutures', 'spotfromfutures']);
+/** Moves inside Kraken Earn that are no reward. */
+const EARN_MOVES = new Set(['allocation', 'deallocation', 'autoallocation', 'migration']);
+
 /**
- * What an entry is, for people and for matching.
+ * What an entry is, for people and for matching. Labelled by type and
+ * subtype; a subtype this does not know is shown as Kraken writes it, never
+ * guessed – a `transfer` is not spot ↔ earn unless its subtype says so.
  *
  * @param {Entry} e
  * @returns {{ label: string, movement: 'transfer' | 'trade' | 'reward' }}
@@ -63,14 +71,25 @@ export function describeEntry(e) {
 		case 'staking':
 			return { label: 'Staking-Ertrag', movement: 'reward' };
 		case 'earn':
-			return e.subtype === 'reward'
-				? { label: 'Earn-Ertrag', movement: 'reward' }
-				: { label: 'Umbuchung Earn', movement: 'transfer' };
+			if (e.subtype === 'reward') return { label: 'Earn-Ertrag', movement: 'reward' };
+			return {
+				label: EARN_MOVES.has(e.subtype) ? 'Umbuchung Spot/Earn' : raw(e),
+				movement: 'transfer'
+			};
 		case 'transfer':
-			return { label: 'Umbuchung Spot/Earn', movement: 'transfer' };
+			if (SPOT_EARN.has(e.subtype)) return { label: 'Umbuchung Spot/Earn', movement: 'transfer' };
+			if (SPOT_FUTURES.has(e.subtype)) {
+				return { label: 'Umbuchung Spot/Futures', movement: 'transfer' };
+			}
+			return { label: raw(e), movement: 'transfer' };
 		default:
-			return { label: e.type || 'Buchung', movement: 'transfer' };
+			return { label: raw(e), movement: 'transfer' };
 	}
+}
+
+/** `Kraken: transfer`, `Kraken: transfer/airdrop` – as Kraken writes it. @param {Entry} e */
+function raw(e) {
+	return `Kraken: ${e.type || 'Buchung'}${e.subtype ? `/${e.subtype}` : ''}`;
 }
 
 /** @param {Entry} e @param {string} amount */
@@ -169,7 +188,10 @@ export async function krakenTransactions(entries, getRate) {
 					valueDate: leg.date,
 					currency: 'EUR',
 					counterpartyName: 'Kraken',
-					txRef: refid
+					txRef: refid,
+					exchangeType: `${leg.type}${leg.subtype ? `/${leg.subtype}` : ''}`,
+					// The on-chain hash of a crypto deposit or withdrawal: pairs it with the wallet.
+					...(leg.transferRef && leg.asset !== 'EUR' ? { chainTxRef: leg.transferRef } : {})
 				};
 				out.push([
 					accountKey(leg.asset, leg.wallet),

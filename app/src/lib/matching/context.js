@@ -15,6 +15,29 @@ import { learnedVendors } from './partners.js';
 export const MIRROR_DAYS = 4;
 
 /**
+ * A reference as compared: case does not matter, a leading `0x` neither
+ * (`0xAB…` from one explorer is `ab…` from another).
+ *
+ * @param {unknown} ref
+ */
+export const normalizeTxRef = (ref) =>
+	String(ref ?? '')
+		.trim()
+		.toLowerCase()
+		.replace(/^0x/, '');
+
+/**
+ * What a booking can be paired by: its reference (an exchange's refid, a
+ * wallet's transaction hash) and, for an exchange's deposit or withdrawal,
+ * the on-chain hash. Too short to be unique is no reference.
+ *
+ * @param {Record<string, any>} tx
+ */
+export function txRefsOf(tx) {
+	return [tx.txRef, tx.chainTxRef].map(normalizeTxRef).filter((r) => r.length >= 4);
+}
+
+/**
  * @param {object} params
  * @param {Record<string, any>[]} params.accounts
  * @param {Record<string, any>[]} params.transactions
@@ -66,8 +89,34 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 		byAmount.set(key, [...(byAmount.get(key) ?? []), tx]);
 	}
 
+	// Bookings by reference, to find the other side of a trade or a transfer.
+	/** @type {Map<string, Record<string, any>[]>} */
+	const byRef = new Map();
+	for (const tx of transactions) {
+		if (tx.deleted) continue;
+		for (const ref of txRefsOf(tx)) byRef.set(ref, [...(byRef.get(ref) ?? []), tx]);
+	}
+
 	return {
 		companyNames: clean.companyNames,
+		sameReference(tx) {
+			if (tx.movement === 'fee' || !tx.amountCents) return [];
+			/** @type {Map<string, Record<string, any>>} */
+			const found = new Map();
+			for (const ref of txRefsOf(tx)) {
+				for (const o of byRef.get(ref) ?? []) {
+					if (
+						o.id !== tx.id &&
+						o.accountId !== tx.accountId &&
+						o.movement !== 'fee' &&
+						Math.sign(Number(o.amountCents)) === -Math.sign(Number(tx.amountCents))
+					) {
+						found.set(o.id, o);
+					}
+				}
+			}
+			return [...found.values()];
+		},
 		notTransfers: new Set(clean.notTransfers),
 		counterBookings(tx) {
 			const day = dayNumber(tx.bookedOn);

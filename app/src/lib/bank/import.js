@@ -34,6 +34,8 @@ const FIELDS = /** @type {const} */ ([
 	// an exchange or wallet booking; absent on bank transactions
 	'movement',
 	'txRef',
+	'chainTxRef',
+	'exchangeType',
 	// a crypto movement (assets/valuation.js)
 	'asset',
 	'quantity',
@@ -57,6 +59,8 @@ const FIELDS = /** @type {const} */ ([
  * @property {string} [fingerprint] the bridge sends it; computed when missing
  * @property {'transfer' | 'trade' | 'fee' | 'reward' | 'stake'} [movement] on an exchange or a wallet
  * @property {string} [txRef] transaction hash or the exchange's reference, shared by the legs of a trade
+ * @property {string} [chainTxRef] an exchange's deposit or withdrawal: the on-chain hash, to pair it with a wallet
+ * @property {string} [exchangeType] as the exchange names the entry, e.g. `transfer/spottostaking`
  * @property {CryptoFields} [crypto] for a crypto asset: what moved and how `amountCents`
  *   (EUR) was valued; see assets/valuation.js
  */
@@ -142,6 +146,8 @@ export async function importTransactions({ transactions, account, incoming }) {
 			bookingType: tx.bookingType ?? '',
 			bankCode: tx.bankCode ?? '',
 			...(tx.movement ? { movement: tx.movement, txRef: tx.txRef ?? '' } : {}),
+			...(tx.chainTxRef ? { chainTxRef: tx.chainTxRef } : {}),
+			...(tx.exchangeType ? { exchangeType: tx.exchangeType } : {}),
 			...(tx.crypto
 				? {
 						asset: tx.crypto.asset,

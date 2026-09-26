@@ -39,6 +39,7 @@
 	import { getSetting } from './store/settings.js';
 	import { accountLabel, formatDate, formatMoney } from './bank/format.js';
 	import { quantityText, valuationText } from './assets/valuation.js';
+	import { txRefsOf } from './matching/context.js';
 	import { receiptDate, receiptVendor } from './receipts/view.js';
 	import { importMailMessages, needsConfirmation } from './receipts/import.js';
 	import { extractReceipt } from './receipts/extract.js';
@@ -82,6 +83,17 @@
 	/** @param {string} id */
 	const receiptById = (id) => app.receipts.find((r) => r.id === id) ?? null;
 	let account = $derived(tx ? (app.accounts.find((a) => a.id === tx.accountId) ?? null) : null);
+	// The other bookings of one trade or transfer: same reference or hash (#52).
+	let related = $derived.by(() => {
+		if (!tx) return [];
+		const refs = new Set(txRefsOf(tx));
+		if (!refs.size) return [];
+		return app.transactions
+			.filter((o) => o.id !== tx.id && !o.deleted && txRefsOf(o).some((r) => refs.has(r)))
+			.sort((a, b) =>
+				a.bookedOn === b.bookedOn ? (a.id < b.id ? -1 : 1) : a.bookedOn < b.bookedOn ? -1 : 1
+			);
+	});
 	let classification = $derived(tx ? (app.classifications[tx.id] ?? null) : null);
 	let links = $derived(tx ? matchesOfTx(tx.id, app.matches) : []);
 	let linked = $derived(
@@ -854,6 +866,20 @@
 						<dd class="text-heading" data-testid="tx-detail-valuation">{valuationText(tx)}</dd>
 					{/if}
 				{/if}
+				{#if tx.exchangeType}
+					<dt class="text-faint">{t('zahlungen.detail.exchangeType')}</dt>
+					<dd class="font-mono text-xs text-heading">{tx.exchangeType}</dd>
+				{/if}
+				{#if tx.txRef}
+					<dt class="text-faint">{t('zahlungen.detail.txRef')}</dt>
+					<dd class="font-mono text-xs break-all text-heading" data-testid="tx-detail-ref">
+						{tx.txRef}
+					</dd>
+				{/if}
+				{#if tx.chainTxRef}
+					<dt class="text-faint">{t('zahlungen.detail.chainTxRef')}</dt>
+					<dd class="font-mono text-xs break-all text-heading">{tx.chainTxRef}</dd>
+				{/if}
 				{#if tx.bookingType}
 					<dt class="text-faint">{t('zahlungen.detail.bookingType')}</dt>
 					<dd class="text-heading">{tx.bookingType}</dd>
@@ -1555,6 +1581,38 @@
 
 			{#if error}
 				<p class="mt-3 text-sm text-danger" role="alert" data-testid="tx-detail-error">{error}</p>
+			{/if}
+
+			{#if related.length}
+				<section class="mt-4" data-testid="tx-related">
+					<h3 class="text-sm font-semibold text-heading">{t('zahlungen.detail.related')}</h3>
+					<ul
+						class="mt-1 divide-y divide-border rounded-lg border border-border bg-surface shadow-sm"
+					>
+						{#each related as o (o.id)}
+							{@const acc = app.accounts.find((a) => a.id === o.accountId)}
+							<li>
+								<button
+									type="button"
+									class="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-surface-2"
+									onclick={() => onopen(o.id)}
+									data-testid="tx-related-item"
+								>
+									<span class="text-text">{formatDate(o.bookedOn)}</span>
+									<span class="min-w-0 flex-1 truncate text-text"
+										>{acc ? accountLabel(acc) : '—'} · {o.bookingType || o.purpose || ''}</span
+									>
+									{#if quantityText(o)}
+										<span class="font-mono text-xs text-faint tabular-nums">{quantityText(o)}</span>
+									{/if}
+									<span class="font-mono text-heading tabular-nums"
+										>{formatMoney(o.amountCents ?? 0, o.currency)}</span
+									>
+								</button>
+							</li>
+						{/each}
+					</ul>
+				</section>
 			{/if}
 
 			<section class="mt-4">

@@ -333,6 +333,51 @@ describe('planMonth', () => {
 		expect(plan.numbers.get('R-KABEL-2')).toBe('2026-09-002');
 	});
 
+	it('a transfer whose sides were valued apart goes each side against 1360', () => {
+		const confirmed = { account: '1360', taxKey: '', confirmedAt: '2026-09-11T00:00:00Z' };
+		const exchange = { id: 'ACC-EX', name: 'Kraken NYM', ibanLast4: '', ledgerAccount: '1340' };
+		const wallet = { id: 'ACC-WAL', name: 'Wallet NYM', ibanLast4: '', ledgerAccount: '1341' };
+		const transactions = [
+			{
+				id: 'K',
+				accountId: 'ACC-EX',
+				bookedOn: '2026-09-10',
+				amountCents: -5000,
+				currency: 'EUR',
+				counterparty: 'Kraken',
+				booking: confirmed
+			},
+			{
+				id: 'W',
+				accountId: 'ACC-WAL',
+				bookedOn: '2026-09-10',
+				amountCents: 5200,
+				currency: 'EUR',
+				counterparty: 'Konto B',
+				booking: confirmed
+			}
+		];
+		const classifications = {
+			K: { kind: 'own-transfer', via: 'reference', counterBookingId: 'W' },
+			W: { kind: 'own-transfer', via: 'reference', counterBookingId: 'K' }
+		};
+		const plan = planMonth({
+			month: '2026-09',
+			transactions,
+			accounts: [exchange, wallet],
+			receipts: [],
+			matches: [],
+			classifications
+		});
+		expect(plan.transferSides).toEqual([]);
+		expect(
+			plan.lines.map((l) => [l.tx.id, l.line.account, l.line.contra, l.line.amountCents])
+		).toEqual([
+			['K', '1340', '1360', -5000],
+			['W', '1341', '1360', 5200]
+		]);
+	});
+
 	it('the lower ledger decides which side, not the month', () => {
 		const b = books();
 		const accounts = [

@@ -48,15 +48,19 @@ The request names an asset and a day, nothing about the bookings. Past days are 
 
 **Bookings**: one per ledger entry, plus one for each fee Kraken charged on it (so the fee is visible and booked on 4970).
 
-| Entry                                                | Euro amount                                                                     | Recognised as                                                                        |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| EUR deposit / withdrawal                             | the amount                                                                      | own transfer with the bank booking of the same amount within 4 days (sign: _Kraken_) |
-| buy or sell against EUR (`trade`, `spend`/`receive`) | the crypto leg is worth exactly what was paid or received (rate source `trade`) | own transfer between the two Kraken accounts (same reference)                        |
-| crypto against crypto                                | the outgoing leg at the day's rate, the incoming leg mirrors it                 | own transfer (same reference)                                                        |
-| spot ↔ earn                                         | the day's rate, both legs                                                       | own transfer (same reference)                                                        |
-| staking / earn reward                                | the day's rate                                                                  | _Ertrag der Börse_: no receipt needed; the account is for the tax adviser to decide  |
-| fee                                                  | at the rate of its entry                                                        | exchange fee, 4970                                                                   |
-| crypto deposit / withdrawal                          | the day's rate                                                                  | not yet: the wallet connectors will pair it with the wallet                          |
+| Entry                                                | Euro amount                                                                     | Recognised as                                                                                                                                            |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| EUR deposit / withdrawal                             | the amount                                                                      | own transfer with the bank booking of the same amount within 4 days (sign: _Kraken_)                                                                     |
+| buy or sell against EUR (`trade`, `spend`/`receive`) | the crypto leg is worth exactly what was paid or received (rate source `trade`) | own transfer between the two Kraken accounts (same reference)                                                                                            |
+| crypto against crypto                                | the outgoing leg at the day's rate, the incoming leg mirrors it                 | own transfer (same reference)                                                                                                                            |
+| spot ↔ earn                                         | the day's rate, both legs                                                       | own transfer (same reference)                                                                                                                            |
+| staking / earn reward                                | the day's rate                                                                  | _Ertrag der Börse_: no receipt needed; the account is for the tax adviser to decide                                                                      |
+| fee                                                  | at the rate of its entry                                                        | exchange fee, 4970                                                                                                                                       |
+| crypto deposit / withdrawal                          | the day's rate                                                                  | own transfer with the wallet booking that has the same transaction hash (Kraken's `txid` from DepositStatus / WithdrawStatus), whatever the euro amounts |
+
+**Labels** follow Kraken's type and subtype: only `spottostaking`, `stakingfromspot` and their like are _Umbuchung Spot/Earn_, `spottofutures`/`spotfromfutures` _Umbuchung Spot/Futures_. A subtype Belege does not know is shown as Kraken writes it (`Kraken: transfer/…`), never guessed. The payment detail shows Kraken's type, the reference and the transaction hash, and lists the other bookings with the same reference (_Gehört zusammen mit_).
+
+Two sides paired by reference but valued apart (a Kraken withdrawal and the wallet that received it, on different days) are exported each against 1360, so the difference in value stays visible there.
 
 An entry whose rate cannot be found is left out with the rest of its trade, listed after the sync, and fetched again next time.
 
