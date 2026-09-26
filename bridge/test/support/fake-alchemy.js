@@ -277,6 +277,10 @@ const invalid = (/** @type {string} */ nth, /** @type {string} */ why) =>
  * @param {string[]} [options.deniedNetworks] answer 403, as for a network not enabled for the app
  * @param {number} [options.rateLimitedRequests] this many HTTP requests answer 429 first
  * @param {number} [options.rateLimitedItems] this many batch items answer error 429 (in a 200) first
+ * @param {number} [options.computeUnitsPerSecond] Alchemy's budget: a token bucket of ten
+ *   seconds, each call charged its compute units (a batch: each call), a call over it
+ *   answering error 429; 0 is no budget
+ * @param {() => number} [options.now] milliseconds, for the budget
  * @param {Record<string, number>} [options.chainIds] a network answering another chain id
  * @param {boolean} [options.listFailedExternal] list the value of a reverted transaction as a
  *   transfer (not seen at Alchemy, but not ruled out either)
@@ -289,8 +293,34 @@ export async function startFakeAlchemy({
 	rateLimitedRequests = 0,
 	rateLimitedItems = 0,
 	listFailedExternal = false,
+	computeUnitsPerSecond = 0,
+	now = Date.now,
 	chainIds = {}
 } = {}) {
+	// Alchemy's own table (docs: reference/compute-unit-costs), kept apart from the reader's.
+	const unitsOf = (/** @type {string} */ method) =>
+		({ eth_chainId: 0, eth_blockNumber: 10, alchemy_getAssetTransfers: 120 })[method] ?? 20;
+	let bucket = computeUnitsPerSecond * 10;
+	let filledAt = now();
+	/** Whether the budget covers a call; charges it when it does. */
+	const affords = (/** @type {string} */ method) => {
+		if (!computeUnitsPerSecond) return true;
+		const t = now();
+		bucket = Math.min(
+			computeUnitsPerSecond * 10,
+			bucket + ((t - filledAt) / 1000) * computeUnitsPerSecond
+		);
+		filledAt = t;
+		if (bucket < unitsOf(method)) return false;
+		bucket -= unitsOf(method);
+		return true;
+	};
+	/** the most compute units spent in any one second, for the tests */
+	const spent = {
+		peakSecond: 0,
+		refused: 0,
+		perSecond: /** @type {Map<number, number>} */ (new Map())
+	};
 	/** @type {{ network: string, method: string, params: any, url: string }[]} */
 	const calls = [];
 	/** @type {string[]} every request path, to look for the key */
@@ -646,8 +676,16 @@ export async function startFakeAlchemy({
 					};
 				}
 				calls.push({ network, method: item.method, params: item.params, url: req.url ?? '' });
-				if (limitedItems > 0) {
-					limitedItems--;
+				const overBudget = !affords(item.method);
+				if (overBudget) spent.refused++;
+				else if (computeUnitsPerSecond) {
+					const second = Math.floor(now() / 1000);
+					const sum = (spent.perSecond.get(second) ?? 0) + unitsOf(item.method);
+					spent.perSecond.set(second, sum);
+					spent.peakSecond = Math.max(spent.peakSecond, sum);
+				}
+				if (overBudget || limitedItems > 0) {
+					if (!overBudget) limitedItems--;
 					return {
 						jsonrpc: '2.0',
 						id: itemId,
@@ -695,6 +733,7 @@ export async function startFakeAlchemy({
 		baseUrl: (/** @type {string} */ network) => `${url}/${network}/v2`,
 		calls,
 		paths,
+		spent,
 		close: () =>
 			new Promise((resolve) => {
 				server.close(() => resolve(undefined));

@@ -271,6 +271,8 @@ export function normalizeEvm({ normal, internal, tokens }, { address, chain }) {
  * @param {() => Promise<string | null>} options.alchemy.key the key, or null when none is set up
  * @param {(network: string) => string} [options.alchemy.baseUrl] tests: a fake on 127.0.0.1
  * @param {number} [options.alchemy.maxHiddenBlocks]
+ * @param {number} [options.alchemy.computeUnitsPerSecond]
+ * @param {() => number} [options.alchemy.now] tests: a clock that `sleep` moves
  */
 export function createEvmClient({
 	fetch: f = fetch,
@@ -284,7 +286,9 @@ export function createEvmClient({
 		timeoutMs,
 		sleep,
 		maxPages,
-		maxHiddenBlocks: alchemy?.maxHiddenBlocks
+		maxHiddenBlocks: alchemy?.maxHiddenBlocks,
+		computeUnitsPerSecond: alchemy?.computeUnitsPerSecond,
+		now: alchemy?.now
 	});
 	const getJson = createJsonFetcher({
 		fetch: f,
