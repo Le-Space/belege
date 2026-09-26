@@ -429,6 +429,7 @@ export default {
 			loan: 'Darlehen',
 			'crypto-reward': 'Ertrag der Börse',
 			'crypto-stake': 'Staking',
+			'crypto-dust': 'Staub',
 			'rule-ignore': 'Ignoriert',
 			'rule-private': 'Privat'
 		},
@@ -438,6 +439,7 @@ export default {
 			loan: 'Darlehen – der Vertrag ist der Beleg',
 			'crypto-reward': 'Staking- oder Earn-Ertrag – der Kontoauszug der Börse ist der Beleg',
 			'crypto-stake': 'Delegiert ins Staking – kein Beleg nötig, nicht auf 1360',
+			'crypto-dust': 'Staub unter einem Cent – kein Beleg nötig',
 			'rule-ignore': 'Ignoriert nach eigener Anweisung: {reason}',
 			'rule-private': 'Privat nach eigener Anweisung: {reason}',
 			'no-receipt': 'Kein Beleg nötig: {reason}'
@@ -505,6 +507,9 @@ export default {
 				'Eigene Übertragung: Die Gegenadresse {address} ist deine Wallet {account}. Kein Beleg nötig (Konto 1360).',
 			staking:
 				'Staking: Die Tokens sind delegiert und bleiben deine. Kein Beleg nötig. Nicht auf 1360 – ihre Rückkehr nach dem Unbonding ist keine Transaktion, eine Umbuchung ginge nie auf; das Konto klärt ihr mit dem Steuerberater.',
+			dust: 'Staub: weniger als ein Cent wert, empfangen, ohne dass du etwas getan hast. Kein Beleg nötig. Oft ein Test oder Werbung – oder der Anfang einer Adressvergiftung: Verwende die Absenderadresse nie als Empfänger.',
+			dustLookalike:
+				'Staub von einer Adresse, die aussieht wie {known}, aber eine andere ist – sehr wahrscheinlich Adressvergiftung. Kein Beleg nötig.',
 			cryptoReward:
 				'Staking- oder Earn-Ertrag der Börse – der Kontoauszug ist der Beleg. Auf welches Konto er gehört, klärt ihr mit dem Steuerberater.',
 			ignore: 'Eigene Anweisung: {field} enthält „{contains}“ → ignoriert ({reason})',
@@ -1057,6 +1062,9 @@ export default {
 		noneForSelection: 'Keine Zahlungen für diese Auswahl.',
 		open: 'Zahlung öffnen',
 		detail: {
+			poisonTitle: 'Achtung: mögliche Adressvergiftung',
+			poisonText:
+				'Die Absenderadresse {address} beginnt und endet wie {known}, mit der du zu tun hattest, ist aber eine andere. So eine Adresse wird mit einem winzigen Betrag in deine Historie gelegt, damit du sie beim nächsten Senden versehentlich kopierst. Nie an diese Adresse senden; die Empfängeradresse immer vollständig vergleichen.',
 			title: 'Zahlung',
 			close: 'Schließen',
 			date: 'Buchungstag',

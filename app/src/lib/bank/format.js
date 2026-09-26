@@ -40,6 +40,24 @@ export function formatMoney(cents, currency = 'EUR') {
 }
 
 /**
+ * A booking's euro amount; a crypto quantity worth less than a cent is
+ * `< 0,01 EUR` (in) or `> -0,01 EUR` (out), not `0,00 EUR`, which reads
+ * as if the value were missing.
+ *
+ * @param {Record<string, any>} tx
+ */
+export function formatTxAmount(tx) {
+	const cents = Number(tx.amountCents ?? 0);
+	const q = typeof tx.quantity === 'string' ? tx.quantity : '';
+	if (cents === 0 && /^-?\d+$/.test(q) && BigInt(q) !== 0n) {
+		return BigInt(q) > 0n
+			? `< ${formatMoney(1, tx.currency)}`
+			: `> ${formatMoney(-1, tx.currency)}`;
+	}
+	return formatMoney(cents, tx.currency);
+}
+
+/**
  * `Geschäftskonto ···1234`, or just `Kraken BTC` for an account without an IBAN.
  *
  * @param {Record<string, any>} account a stored account record

@@ -37,7 +37,7 @@
 	import { folderSupported, savedFolder } from './receipts/folder.js';
 	import { createBridgeClient } from './bridge/client.js';
 	import { getSetting } from './store/settings.js';
-	import { accountLabel, formatDate, formatMoney } from './bank/format.js';
+	import { accountLabel, formatDate, formatMoney, formatTxAmount } from './bank/format.js';
 	import { quantityText, valuationText } from './assets/valuation.js';
 	import { txRefsOf } from './matching/context.js';
 	import { safeExplorerUrl } from './wallets/chains.js';
@@ -843,7 +843,7 @@
 					: 'text-emerald-700 dark:text-emerald-400'}"
 				data-testid="tx-detail-amount"
 			>
-				{formatMoney(tx.amountCents ?? 0, tx.currency)}
+				{formatTxAmount(tx)}
 			</p>
 
 			<dl class="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
@@ -940,6 +940,23 @@
 
 			<section class="mt-4 rounded-lg border border-border bg-surface px-4 py-3 shadow-sm">
 				<h3 class="text-sm font-semibold text-heading">{t('zahlungen.detail.receipts')}</h3>
+				{#if classification?.lookalike}
+					<div
+						class="mt-2 rounded-md border border-l-4 border-red-300 border-l-red-700 bg-red-50 px-3 py-2 dark:border-red-900 dark:border-l-red-400 dark:bg-red-950/40"
+						role="alert"
+						data-testid="tx-poison-warning"
+					>
+						<p class="text-sm font-semibold text-red-800 dark:text-red-300">
+							{t('zahlungen.detail.poisonTitle')}
+						</p>
+						<p class="mt-0.5 text-sm break-all text-text">
+							{t('zahlungen.detail.poisonText', {
+								address: String(tx.counterpartyAddress ?? ''),
+								known: classification.lookalike
+							})}
+						</p>
+					</div>
+				{/if}
 				{#if classification && !tx.receiptId}
 					<p class="mt-1 text-sm text-text" data-testid="tx-detail-classification">
 						{coverageText(classification)}
