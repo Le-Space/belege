@@ -13,7 +13,12 @@ import {
 import { decodeTx, encodeTx } from '../src/chains/protobuf.js';
 import { CHAINS, publicChains } from '../src/chains/registry.js';
 import { createCosmosClient, normalizeCosmosTx, parseCoins } from '../src/chains/cosmos.js';
-import { createEvmClient, isEvmAddress, toChecksumAddress } from '../src/chains/evm.js';
+import {
+	createEvmClient,
+	isEvmAddress,
+	normalizeEvm,
+	toChecksumAddress
+} from '../src/chains/evm.js';
 import { checkEndpoint } from '../src/chains/http.js';
 import { createWalletService } from '../src/chains/index.js';
 import { createBridgeServer } from '../src/server.js';
@@ -180,7 +185,8 @@ describe('a Cosmos transaction', () => {
 			]
 		);
 		assert.equal(entries[0].id, `${fakeHash('u1')}:fee`);
-		assert.equal(entries[1].id, `${fakeHash('u1')}:0`);
+		// fee transfer, tx event, message event, then the transfer of message 0 at event 3
+		assert.equal(entries[1].id, `${fakeHash('u1')}:m0:e3.0:NYM`);
 		assert.equal(
 			entries[1].explorerUrl,
 			`https://nym.explorers.guru/transaction/${fakeHash('u1')}`
@@ -285,6 +291,49 @@ describe('a Cosmos transaction', () => {
 				['sent', '-0.000001']
 			]
 		);
+	});
+
+	test('the fee transfer is known by where it stands, not by how its amount is spelt', () => {
+		const raw = cosmosTx({
+			seed: 'u8',
+			height: 2000,
+			fee: { payer: NYX.wallet, amount: '5000unym' },
+			transfers: [{ sender: NYX.wallet, recipient: NYX.friend, amount: '1unym' }]
+		});
+		// The ante handler's transfer spells the fee otherwise than the tx event.
+		raw.tx_result.events[0].attributes[2].value = '5000unym,0unyx';
+		const { entries } = normalize(raw);
+		assert.deepEqual(
+			entries.map((e) => [e.type, e.amount, e.counterparty]),
+			[
+				['fee', '-0.005', ''],
+				['sent', '-0.000001', NYX.friend]
+			]
+		);
+	});
+
+	test('ids stay when a denom is listed later', () => {
+		const raw = cosmosTx({
+			seed: 'u9',
+			height: 2000,
+			fee: { payer: NYX.wallet, amount: '5000unym' },
+			transfers: [
+				{ sender: NYX.friend, recipient: NYX.wallet, amount: '7ibc/AB12' },
+				{ sender: NYX.friend, recipient: NYX.wallet, amount: '2unym' }
+			]
+		});
+		const before = normalize(raw).entries.map((e) => e.id);
+		const listed = {
+			...nyx,
+			denoms: { ...nyx.denoms, 'ibc/AB12': { symbol: 'TESTIBC', decimals: 6 } }
+		};
+		const after = normalizeCosmosTx(raw, {
+			address: NYX.wallet,
+			chain: listed,
+			time: at
+		}).entries.map((e) => e.id);
+		assert.equal(after.length, before.length + 1);
+		for (const id of before) assert.ok(after.includes(id), id);
 	});
 
 	test('unknown denoms are counted and left out', () => {
@@ -483,7 +532,7 @@ describe('Akash', () => {
 				result.entries.map((e) => [e.id.split(':').slice(1).join(':'), e.type, e.asset, e.amount]),
 				[
 					['fee', 'fee', 'AKT', '-0.0025'],
-					['0', 'sent', 'AKT', '-4']
+					['m0:e3.0:AKT', 'sent', 'AKT', '-4']
 				]
 			);
 			assert.equal(
@@ -534,10 +583,87 @@ describe('the EVM client against a fake Blockscout', () => {
 				`https://etherscan.io/address/${toChecksumAddress(EVM.wallet)}`
 			);
 			// The address travels lower case, in the query of a GET to Blockscout only.
-			assert.ok(scout.calls.every((c) => c.address === EVM.wallet));
+			assert.ok(scout.calls.filter((c) => !c.rpc).every((c) => c.address === EVM.wallet));
+			assert.deepEqual(
+				scout.calls.filter((c) => c.rpc).map((c) => c.rpc),
+				['eth_chainId']
+			);
 		} finally {
 			await scout.close();
 		}
+	});
+
+	test('ids stay when an internal transaction is indexed late or a token is listed later', () => {
+		const history = sampleEvmHistory();
+		const ids = (/** @type {any} */ h, /** @type {any} */ chain = ethereum) =>
+			normalizeEvm(h, { address: EVM.wallet, chain }).entries.map((e) => e.id);
+		const before = ids({ ...history, internal: [] });
+		const late = ids(history);
+		const spamListed = ids(history, {
+			...ethereum,
+			tokens: { ...ethereum.tokens, [EVM.spamToken]: { symbol: 'TESTTOKEN', decimals: 6 } }
+		});
+		assert.equal(late.length, before.length + 1);
+		assert.equal(spamListed.length, late.length + 1);
+		for (const id of before) {
+			assert.ok(late.includes(id), id);
+			assert.ok(spamListed.includes(id), id);
+		}
+		assert.ok(before.includes(`${fakeHash('usdc-out', true)}:fee`));
+		assert.ok(before.includes(`${fakeHash('eth-in', true)}:value`));
+	});
+
+	test('refuses an API of another chain, or one that does not say, before reading anything', async () => {
+		for (const [chainId, code] of [
+			['0x2105', 'WALLET_WRONG_CHAIN'],
+			[null, 'WALLET_CHAIN_UNVERIFIED']
+		]) {
+			const scout = await startFakeBlockscout({ chainId: /** @type {any} */ (chainId) });
+			try {
+				await assert.rejects(
+					createEvmClient({ sleep: noSleep }).history({
+						chain: ethereum,
+						address: EVM.wallet,
+						endpoints: scout.endpoints
+					}),
+					{ code }
+				);
+				assert.equal(scout.calls.filter((c) => c.action).length, 0);
+			} finally {
+				await scout.close();
+			}
+		}
+	});
+
+	test('an API error message loses addresses and hashes before it can reach the log', async () => {
+		const client = createEvmClient({
+			sleep: noSleep,
+			fetch: async (url) =>
+				new Response(
+					JSON.stringify(
+						String(url).endsWith('/eth-rpc')
+							? { jsonrpc: '2.0', id: 1, result: '0x1' }
+							: {
+									status: '0',
+									message: `Error for ${EVM.wallet} in ${fakeHash('x', true)}`,
+									result: null
+								}
+					),
+					{ status: 200, headers: { 'content-type': 'application/json' } }
+				)
+		});
+		await assert.rejects(
+			client.history({
+				chain: ethereum,
+				address: EVM.wallet,
+				endpoints: { api: 'https://api.example.org/api' }
+			}),
+			(/** @type {any} */ e) => {
+				assert.equal(e.code, 'WALLET_NODE');
+				assert.doesNotMatch(e.message, /0x[0-9a-f]{8,}/i);
+				return true;
+			}
+		);
 	});
 
 	test('pages by start block past the 10 000 window, without duplicates', async () => {

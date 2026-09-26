@@ -283,7 +283,7 @@ describe('syncWallet against the fake chains', () => {
 		expect(rateCalls.every((c) => c.endsWith(' -'))).toBe(true);
 
 		const txs = await s.transactions.list();
-		const withdrawal = txs.find((t) => t.sourceId === `${fakeHash('withdrawal')}:0`);
+		const withdrawal = txs.find((t) => t.sourceId === `${fakeHash('withdrawal')}:m0:e3.0:NYM`);
 		expect(withdrawal).toMatchObject({
 			source: 'nyx',
 			bookedOn: '2026-09-01',
@@ -297,7 +297,7 @@ describe('syncWallet against the fake chains', () => {
 		expect(withdrawal?.purpose).toContain('Memo: Test-Memo Auszahlung');
 		const failedFee = txs.find((t) => t.sourceId === `${fakeHash('failed')}:fee`);
 		expect(failedFee).toMatchObject({ movement: 'fee', quantity: '-3000' });
-		expect(txs.some((t) => t.sourceId === `${fakeHash('failed')}:0`)).toBe(false);
+		expect(txs.some((t) => t.sourceId.startsWith(`${fakeHash('failed')}:m`))).toBe(false);
 
 		const again = await syncWallet({ client, store: s, wallet, now });
 		expect(again.totals).toEqual({ new: 0, updated: 0, skipped: 125 });
@@ -448,6 +448,45 @@ describe('which wallet bookings need no receipt', () => {
 		expect(classifyTransaction(out, ctxOther)).toBe(null);
 	});
 
+	it('an address that is ours on one EVM chain is not ours on another', async () => {
+		const addr = '0x' + 'ab'.repeat(20);
+		const evmAccounts = [
+			{
+				id: 'acc-base',
+				source: 'base',
+				name: 'Wallet USDC (Base)',
+				walletAddress: addr,
+				asset: 'USDC'
+			},
+			{
+				id: 'acc-eth',
+				source: 'ethereum',
+				name: 'Wallet USDC (Ethereum)',
+				walletAddress: '0x' + 'cd'.repeat(20),
+				asset: 'USDC'
+			}
+		];
+		const onEthereum = {
+			id: 'e1',
+			accountId: 'acc-eth',
+			source: 'ethereum',
+			bookedOn: '2026-09-05',
+			currency: 'EUR',
+			movement: 'transfer',
+			asset: 'USDC',
+			amountCents: -900,
+			counterpartyAddress: addr.toUpperCase().replace('0X', '0x'),
+			txRef: fakeHash('evm send', true)
+		};
+		const ctx = await context([onEthereum], evmAccounts);
+		expect(classifyTransaction(onEthereum, ctx)).toBe(null);
+		const onBase = { ...onEthereum, id: 'b1', source: 'base', accountId: 'acc-other' };
+		expect(classifyTransaction(onBase, ctx)).toMatchObject({
+			via: 'own-address',
+			counterAccountId: 'acc-base'
+		});
+	});
+
 	it('network fees, staking rewards and delegations', async () => {
 		const ctx = await context([]);
 		const fee = booking({ id: 'f', accountId: 'acc-a', movement: 'fee', amountCents: -1 });
@@ -465,8 +504,9 @@ describe('which wallet bookings need no receipt', () => {
 			booking({ id: 's', accountId: 'acc-a', movement: 'stake', amountCents: -500 }),
 			ctx
 		);
-		expect(stake).toEqual({ kind: 'own-transfer', account: '1360', via: 'staking' });
-		expect(classificationLine(stake)).toContain('Tokens bleiben deine');
+		// Not on 1360: the tokens come back without a transaction, a transit account never balances.
+		expect(stake).toEqual({ kind: 'crypto-stake' });
+		expect(classificationLine(stake)).toContain('Nicht auf 1360');
 		// A Kraken fee stays an exchange fee.
 		expect(classifyTransaction({ ...fee, source: 'kraken' }, ctx)).toEqual({
 			kind: 'bank-fee',

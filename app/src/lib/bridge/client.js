@@ -48,7 +48,7 @@ export class BridgeError extends Error {
 
 /**
  * @typedef {object} WalletEntry what the bridge reads from an own wallet (bridge/src/chains/)
- * @property {string} id `<hash>:<n>`, the fee `<hash>:fee`
+ * @property {string} id stable: Cosmos `<hash>:m<msg>:e<event>.<n>:<asset>`, EVM `<hash>:value` / `:log:<i>` / `:internal:<i>`; the fee `<hash>:fee`
  * @property {string} hash as the chain gives it
  * @property {number} height
  * @property {string} time ISO 8601

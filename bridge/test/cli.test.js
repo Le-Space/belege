@@ -100,3 +100,36 @@ test('test mode: mail and LLM secrets from the environment; /health says both ar
 		await bridge.exited;
 	}
 });
+
+test('test mode: the Kraken key comes from the environment, never from the macOS keychain', async () => {
+	const { FAKE_KRAKEN_KEY, FAKE_KRAKEN_SECRET, startFakeKraken } = await import(
+		'./support/fake-kraken.js'
+	);
+	const kraken = await startFakeKraken();
+	const configPath = join(dir, 'bridge-kraken.json');
+	await saveConfig(
+		{ ...defaultConfig(), bridge: { port: 0 }, kraken: { configured: true, baseUrl: kraken.url } },
+		configPath
+	);
+	const bridge = run(['--test-mode', '--config', configPath, '--port', '0'], {
+		BELEGE_BRIDGE_TEST_KRAKEN_KEY: JSON.stringify({
+			key: FAKE_KRAKEN_KEY,
+			secret: FAKE_KRAKEN_SECRET
+		})
+	});
+	try {
+		const [, port] = await waitFor(bridge.out, /listening on http:\/\/127\.0\.0\.1:(\d+)/);
+		const [, code] = await waitFor(bridge.out, /Pairing code[^:]*: (\S+)/);
+		const { json } = await request(Number(port), '/pair', { method: 'POST', body: { code } });
+		const res = await request(Number(port), '/kraken/balances', {
+			headers: { authorization: `Bearer ${json.token}` }
+		});
+		assert.equal(res.status, 200, JSON.stringify(res.json));
+		assert.ok(res.json.balances.length > 0);
+		assert.ok(kraken.calls.some((c) => c.method === 'Balance'));
+	} finally {
+		bridge.child.kill('SIGTERM');
+		await bridge.exited;
+		await kraken.close();
+	}
+});

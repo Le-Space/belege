@@ -428,6 +428,7 @@ export default {
 			'bank-fee': 'Kontoauszug',
 			loan: 'Darlehen',
 			'crypto-reward': 'Ertrag der Börse',
+			'crypto-stake': 'Staking',
 			'rule-ignore': 'Ignoriert',
 			'rule-private': 'Privat'
 		},
@@ -436,6 +437,7 @@ export default {
 			'bank-fee': 'Bankentgelt – der Kontoauszug ist der Beleg',
 			loan: 'Darlehen – der Vertrag ist der Beleg',
 			'crypto-reward': 'Staking- oder Earn-Ertrag – der Kontoauszug der Börse ist der Beleg',
+			'crypto-stake': 'Delegiert ins Staking – kein Beleg nötig, nicht auf 1360',
 			'rule-ignore': 'Ignoriert nach eigener Anweisung: {reason}',
 			'rule-private': 'Privat nach eigener Anweisung: {reason}',
 			'no-receipt': 'Kein Beleg nötig: {reason}'
@@ -502,7 +504,7 @@ export default {
 			ownAddress:
 				'Eigene Übertragung: Die Gegenadresse {address} ist deine Wallet {account}. Kein Beleg nötig (Konto 1360).',
 			staking:
-				'Delegiert oder aus dem Staking zurück: Die Tokens bleiben deine. Kein Beleg nötig; das Konto klärt ihr mit dem Steuerberater.',
+				'Staking: Die Tokens sind delegiert und bleiben deine. Kein Beleg nötig. Nicht auf 1360 – ihre Rückkehr nach dem Unbonding ist keine Transaktion, eine Umbuchung ginge nie auf; das Konto klärt ihr mit dem Steuerberater.',
 			cryptoReward:
 				'Staking- oder Earn-Ertrag der Börse – der Kontoauszug ist der Beleg. Auf welches Konto er gehört, klärt ihr mit dem Steuerberater.',
 			ignore: 'Eigene Anweisung: {field} enthält „{contains}“ → ignoriert ({reason})',

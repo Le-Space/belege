@@ -177,7 +177,6 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 					account: other ? accountLabel(other) : t('explain.rule.otherAccount')
 				});
 			}
-			if (c.via === 'staking') return t('explain.rule.staking');
 			if (c.via === 'company') {
 				return t('explain.rule.ownCompany', { company: c.company ?? '' });
 			}
@@ -198,6 +197,8 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 			return t('explain.rule.bankFee', { type: c.bookingType ?? '' });
 		case 'loan':
 			return t('explain.rule.loan');
+		case 'crypto-stake':
+			return t('explain.rule.staking');
 		case 'crypto-reward':
 			return t('explain.rule.cryptoReward');
 		case 'rule-ignore':

@@ -2,7 +2,8 @@
 // its address: ETH (or the chain's native coin) in and out, the ERC-20
 // tokens listed in registry.js, and the gas it paid.
 //
-// Source: Blockscout's Etherscan-compatible API, no key needed:
+// Source: Blockscout's Etherscan-compatible API, no key needed, after its
+// JSON-RPC proxy (`…/api/eth-rpc`, eth_chainId) has said it serves the chain:
 //   module=account&action=txlist           normal transactions
 //   module=account&action=txlistinternal   ETH a contract sent (a withdrawal
 //                                          from an exchange's hot wallet contract, say)
@@ -94,19 +95,27 @@ export function normalizeEvm({ normal, internal, tokens }, { address, chain }) {
 	/** @type {Set<string>} */
 	const unknownTokens = new Set();
 	const native = chain.native;
-	/** @type {Map<string, number>} per hash, to number its entries */
-	const counters = new Map();
+	/** @type {Map<string, number>} token transfers without a log index, counted per same transfer */
+	const repeats = new Map();
 
 	/**
+	 * Ids stay what they are whatever else the lists hold (an internal
+	 * transaction indexed late, a token listed later): the gas `<hash>:fee`,
+	 * the value of the transaction `<hash>:value`, an internal transfer
+	 * `<hash>:internal:<index>`, a token transfer `<hash>:log:<logIndex>` – or,
+	 * where the API gives no log index (Blockscout's tokentx),
+	 * `<hash>:erc20:<contract>:<from>:<to>:<value>:<n>`.
+	 *
 	 * @param {any} raw
 	 * @param {string} hash
 	 * @param {string} order sorts the entries: block, position, kind
+	 * @param {string} id
 	 * @param {Omit<import('./cosmos.js').WalletEntry, 'id' | 'hash' | 'height' | 'time' | 'date' | 'explorerUrl' | 'memo'>} e
 	 */
-	const push = (raw, hash, order, e) => {
+	const push = (raw, hash, order, id, e) => {
 		const time = isoOf(raw.timeStamp);
 		entries.push({
-			id: '',
+			id,
 			hash,
 			height: Number(raw.blockNumber),
 			time,
@@ -140,7 +149,7 @@ export function normalizeEvm({ normal, internal, tokens }, { address, chain }) {
 			}
 			const fee = gasUsed * gasPrice;
 			if (fee > 0n) {
-				push(raw, hash, `${order}:0`, {
+				push(raw, hash, `${order}:0`, `${hash}:fee`, {
 					type: 'fee',
 					kind: 'fee',
 					asset: native.symbol,
@@ -155,7 +164,7 @@ export function normalizeEvm({ normal, internal, tokens }, { address, chain }) {
 		const value = bigintOf(raw.value) ?? 0n;
 		if (failed || value === 0n || (from === address) === (to === address)) continue;
 		const out = from === address;
-		push(raw, hash, `${order}:1`, {
+		push(raw, hash, `${order}:1`, `${hash}:value`, {
 			type: out ? 'sent' : 'received',
 			kind: 'transfer',
 			asset: native.symbol,
@@ -174,16 +183,27 @@ export function normalizeEvm({ normal, internal, tokens }, { address, chain }) {
 		const value = bigintOf(raw.value) ?? 0n;
 		if (raw.isError === '1' || value === 0n || (from === address) === (to === address)) continue;
 		const out = from === address;
-		push(raw, hash, `${pad(raw.blockNumber)}:${pad(raw.transactionIndex)}:2:${pad(raw.index)}`, {
-			type: out ? 'sent' : 'received',
-			kind: 'transfer',
-			asset: native.symbol,
-			amount: unitsToDecimal(out ? -value : value, native.decimals),
-			decimals: native.decimals,
-			counterparty: out ? to : from,
-			counterpartyLabel: 'Vertrag (interne Transaktion)',
-			success: true
-		});
+		const at = raw.index ?? raw.traceId;
+		const internalId =
+			at !== undefined && at !== ''
+				? `${hash}:internal:${at}`
+				: `${hash}:internal:${from}:${to}:${value}`;
+		push(
+			raw,
+			hash,
+			`${pad(raw.blockNumber)}:${pad(raw.transactionIndex)}:2:${pad(at)}`,
+			internalId,
+			{
+				type: out ? 'sent' : 'received',
+				kind: 'transfer',
+				asset: native.symbol,
+				amount: unitsToDecimal(out ? -value : value, native.decimals),
+				decimals: native.decimals,
+				counterparty: out ? to : from,
+				counterpartyLabel: 'Vertrag (interne Transaktion)',
+				success: true
+			}
+		);
 	}
 
 	for (const raw of tokens) {
@@ -199,26 +219,35 @@ export function normalizeEvm({ normal, internal, tokens }, { address, chain }) {
 		const value = bigintOf(raw.value) ?? 0n;
 		if (value === 0n || (from === address) === (to === address)) continue;
 		const out = from === address;
-		push(raw, hash, `${pad(raw.blockNumber)}:${pad(raw.transactionIndex)}:3:${pad(raw.logIndex)}`, {
-			type: out ? 'sent' : 'received',
-			kind: 'transfer',
-			asset: token.symbol,
-			amount: unitsToDecimal(out ? -value : value, token.decimals),
-			decimals: token.decimals,
-			counterparty: out ? to : from,
-			counterpartyLabel: '',
-			success: true
-		});
+		let tokenId;
+		if (raw.logIndex !== undefined && raw.logIndex !== '') {
+			tokenId = `${hash}:log:${raw.logIndex}`;
+		} else {
+			const same = `${hash}:erc20:${contract}:${from}:${to}:${value}`;
+			const n = repeats.get(same) ?? 0;
+			repeats.set(same, n + 1);
+			tokenId = `${same}:${n}`;
+		}
+		push(
+			raw,
+			hash,
+			`${pad(raw.blockNumber)}:${pad(raw.transactionIndex)}:3:${pad(raw.logIndex)}`,
+			tokenId,
+			{
+				type: out ? 'sent' : 'received',
+				kind: 'transfer',
+				asset: token.symbol,
+				amount: unitsToDecimal(out ? -value : value, token.decimals),
+				decimals: token.decimals,
+				counterparty: out ? to : from,
+				counterpartyLabel: '',
+				success: true
+			}
+		);
 	}
 
 	entries.sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0));
-	// `<hash>:<n>` for what moved, `<hash>:fee` for the gas.
-	const result = entries.map(({ order: _order, ...e }) => {
-		if (e.type === 'fee') return { ...e, id: `${e.hash}:fee` };
-		const n = counters.get(e.hash) ?? 0;
-		counters.set(e.hash, n + 1);
-		return { ...e, id: `${e.hash}:${n}` };
-	});
+	const result = entries.map(({ order: _order, ...e }) => e);
 	return { entries: result, unknownTokens: [...unknownTokens] };
 }
 
@@ -253,10 +282,48 @@ export function createEvmClient({ fetch: f = fetch, timeoutMs, maxPages = 50, sl
 		if (/invalid address/i.test(message)) {
 			throw new WalletError('the API refused the address', 'WALLET_ADDRESS', 400);
 		}
-		throw new WalletError(
-			`the API answered: ${message.slice(0, 80) || 'no result'}`,
-			'WALLET_NODE'
-		);
+		// Only the API's words: no address or hash (0x…) goes into a message, which the bridge logs.
+		const words = message.replace(/0x[0-9a-fA-F]{8,}/g, '0x…').slice(0, 80);
+		throw new WalletError(`the API answered: ${words || 'no result'}`, 'WALLET_NODE');
+	}
+
+	/**
+	 * The API belongs to the chain it is meant for: Blockscout's JSON-RPC
+	 * proxy (`…/api/eth-rpc`) names its chain id, as a Cosmos node names its
+	 * network. Another chain, or no answer to that question, and nothing is read.
+	 *
+	 * @param {string} api
+	 * @param {import('./registry.js').EvmChain} chain
+	 */
+	async function checkChain(api, chain) {
+		let body;
+		try {
+			body = await getJson(`${api}/eth-rpc`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_chainId', params: [] })
+			});
+		} catch (/** @type {any} */ error) {
+			if (error?.code !== 'WALLET_NODE') throw error;
+			body = null;
+		}
+		const id =
+			typeof body?.result === 'string' && /^0x[0-9a-f]+$/i.test(body.result)
+				? BigInt(body.result)
+				: null;
+		if (id === null) {
+			throw new WalletError(
+				'the API does not say which chain it serves (no eth_chainId at …/api/eth-rpc)',
+				'WALLET_CHAIN_UNVERIFIED'
+			);
+		}
+		if (id !== BigInt(chain.chainId)) {
+			throw new WalletError(
+				`the API serves chain ${id}, not ${chain.name} (${chain.chainId})`,
+				'WALLET_WRONG_CHAIN',
+				400
+			);
+		}
 	}
 
 	/**
@@ -318,6 +385,7 @@ export function createEvmClient({ fetch: f = fetch, timeoutMs, maxPages = 50, sl
 					400
 				);
 			}
+			await checkChain(endpoints.api, chain);
 			const lower = address.toLowerCase();
 			const normal = await list(endpoints.api, 'txlist', lower, (r) =>
 				String(r.hash).toLowerCase()

@@ -60,7 +60,7 @@ const COIN = /^(\d+)([a-zA-Z][a-zA-Z0-9/:._-]{1,127})$/;
 
 /**
  * @typedef {object} WalletEntry
- * @property {string} id unique and stable: `<hash>:<n>`, the fee `<hash>:fee`
+ * @property {string} id unique and stable: `<hash>:m<msg_index>:e<event>.<triple>:<asset>`, the fee `<hash>:fee`
  * @property {string} hash
  * @property {number} height
  * @property {string} time ISO 8601
@@ -128,18 +128,22 @@ export function readEvents(events) {
 }
 
 /**
- * The transfers of a transaction's events: `{ sender, recipient, amount }`.
- * One event may hold several (cosmos-sdk < 0.47); a triple ends with its amount.
+ * The transfers of a transaction's events: `{ sender, recipient, amount }`,
+ * with where they stand – the event's index in the transaction and the
+ * triple's within the event – so an entry keeps its id however the rest of
+ * the transaction is read. One event may hold several (cosmos-sdk < 0.47); a
+ * triple ends with its amount.
  *
  * @param {ReturnType<typeof readEvents>} events
  */
 export function transfersOf(events) {
-	/** @type {{ sender: string, recipient: string, amount: string, msgIndex: string | null }[]} */
+	/** @type {{ sender: string, recipient: string, amount: string, msgIndex: string | null, event: number, part: number }[]} */
 	const out = [];
-	for (const event of events) {
-		if (event.type !== 'transfer') continue;
+	events.forEach((event, index) => {
+		if (event.type !== 'transfer') return;
 		/** @type {Record<string, string>} */
 		let current = {};
+		let part = 0;
 		const msgIndex = event.attributes.find((a) => a.key === 'msg_index')?.value ?? null;
 		for (const { key, value } of event.attributes) {
 			if (key === 'recipient' || key === 'sender') current[key] = value;
@@ -148,12 +152,14 @@ export function transfersOf(events) {
 					sender: current.sender ?? '',
 					recipient: current.recipient ?? '',
 					amount: value,
-					msgIndex
+					msgIndex,
+					event: index,
+					part: part++
 				});
 				current = {};
 			}
 		}
-	}
+	});
 	return out;
 }
 
@@ -199,30 +205,37 @@ export function normalizeCosmosTx(raw, { address, chain, time }) {
 			?.attributes.find((a) => a.key === key)?.value;
 
 	let transfers = transfersOf(events);
-	// The fee, and who paid it.
-	const feeText =
-		txEvent('fee') ?? (decoded?.fee ?? []).map((c) => `${c.amount}${c.denom}`).join(',');
-	const feeCoins = parseCoins(feeText) ?? [];
+	// The fee and who paid it. The fee transfer is the ante handler's: to the
+	// fee collector, outside any message (no msg_index), from the payer the
+	// `tx` event names – recognised by where it stands, not by its amount
+	// text, which need not be spelt as the fee is.
+	const namedPayer = txEvent('fee_payer') ?? null;
 	const feeTransfer = transfers.find(
-		(t) => t.recipient === feeCollector && (t.amount === feeText || !feeText)
+		(t) =>
+			t.recipient === feeCollector &&
+			t.msgIndex === null &&
+			(namedPayer === null || t.sender === namedPayer)
 	);
-	const payer = txEvent('fee_payer') ?? feeTransfer?.sender ?? '';
+	const payer = namedPayer ?? feeTransfer?.sender ?? '';
 	if (feeTransfer) transfers = transfers.filter((t) => t !== feeTransfer);
+	const feeText =
+		txEvent('fee') ??
+		((decoded?.fee ?? []).map((c) => `${c.amount}${c.denom}`).join(',') ||
+			feeTransfer?.amount ||
+			'');
+	const feeCoins = parseCoins(feeText) ?? [];
 
-	/** @param {Omit<WalletEntry, 'id' | 'hash' | 'height' | 'time' | 'date' | 'explorerUrl' | 'memo'>} e */
-	const push = (e) => {
-		// `<hash>:<n>` for what moved, `<hash>:fee` for the fee (a second fee coin: `:fee:1`).
-		const n = entries.filter((x) => (x.type === 'fee') === (e.type === 'fee')).length;
-		entries.push({
-			id: e.type === 'fee' ? `${hash}:fee${n ? `:${n}` : ''}` : `${hash}:${n}`,
-			hash,
-			height,
-			time,
-			date,
-			memo,
-			explorerUrl,
-			...e
-		});
+	/**
+	 * Ids that stay what they are when the rest of the transaction is read
+	 * differently (a denom listed later, another entry found): the fee
+	 * `<hash>:fee` (in another denom than the chain's own `<hash>:fee:<asset>`),
+	 * a transfer `<hash>:m<msg_index>:e<event>.<triple>:<asset>`.
+	 *
+	 * @param {string} id
+	 * @param {Omit<WalletEntry, 'id' | 'hash' | 'height' | 'time' | 'date' | 'explorerUrl' | 'memo'>} e
+	 */
+	const push = (id, e) => {
+		entries.push({ id, hash, height, time, date, memo, explorerUrl, ...e });
 	};
 
 	/** @param {{ denom: string, amount: bigint }} coin */
@@ -236,7 +249,7 @@ export function normalizeCosmosTx(raw, { address, chain, time }) {
 		for (const coin of feeCoins) {
 			const asset = assetOf(coin);
 			if (!asset || coin.amount === 0n) continue;
-			push({
+			push(coin.denom === chain.nativeDenom ? `${hash}:fee` : `${hash}:fee:${asset.symbol}`, {
 				type: 'fee',
 				kind: 'fee',
 				asset: asset.symbol,
@@ -272,7 +285,7 @@ export function normalizeCosmosTx(raw, { address, chain, time }) {
 		for (const coin of coins) {
 			const asset = assetOf(coin);
 			if (!asset || coin.amount === 0n) continue;
-			push({
+			push(`${hash}:m${t.msgIndex ?? 'x'}:e${t.event}.${t.part}:${asset.symbol}`, {
 				type: out ? 'sent' : 'received',
 				kind,
 				asset: asset.symbol,

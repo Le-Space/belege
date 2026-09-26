@@ -66,12 +66,12 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 	}
 
 	// Our own wallets' addresses (wallets/wallet-sync.js keeps them on the accounts).
-	/** @type {Map<string, string>} address → the id of one of its accounts */
+	/** @type {Map<string, string>} `<chain>:<address>` → the id of one of its accounts */
 	const ownAddresses = new Map();
 	for (const a of accounts) {
 		const chain = walletChain(a.source);
 		if (!chain || a.deleted || typeof a.walletAddress !== 'string' || !a.walletAddress) continue;
-		const key = normalizeAddress(chain, a.walletAddress);
+		const key = `${chain.id}:${normalizeAddress(chain, a.walletAddress)}`;
 		if (!ownAddresses.has(key)) ownAddresses.set(key, a.id);
 	}
 

@@ -87,6 +87,8 @@
 		'own-transfer': 'border-infra/30 bg-infra/10 text-infra-800 dark:text-infra',
 		'bank-fee': 'border-border bg-surface-2 text-text',
 		loan: 'border-border bg-surface-2 text-text',
+		'crypto-reward': 'border-border bg-surface-2 text-text',
+		'crypto-stake': 'border-border bg-surface-2 text-text',
 		'rule-ignore': 'border-border bg-surface-2 text-faint',
 		'rule-private': 'border-border bg-surface-2 text-faint'
 	};

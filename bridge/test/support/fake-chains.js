@@ -508,18 +508,34 @@ export function sampleEvmHistory({ fillerTokens = 0 } = {}) {
  * @param {Record<string, string>} [options.balances] `native` and contract → units
  * @param {number} [options.rateLimitedCalls] this many answer Blockscout's "rate limit" first
  * @param {number} [options.maxOffset] page × offset beyond this is refused, as Blockscout does
+ * @param {string | null} [options.chainId] what `…/api/eth-rpc` answers to eth_chainId; null: 404
  */
 export async function startFakeBlockscout({
 	history = sampleEvmHistory(),
 	balances = { native: '310000000000000000', [EVM.usdc]: '450000000' },
 	rateLimitedCalls = 0,
-	maxOffset = 10_000
+	maxOffset = 10_000,
+	chainId = '0x1'
 } = {}) {
 	/** @type {Record<string, string>[]} */
 	const calls = [];
 	let limited = rateLimitedCalls;
 	const server = http.createServer((req, res) => {
 		const url = new URL(req.url ?? '/', 'http://127.0.0.1');
+		if (url.pathname === '/api/eth-rpc' && req.method === 'POST') {
+			let raw = '';
+			req.on('data', (c) => (raw += c));
+			req.on('end', () => {
+				calls.push({ rpc: JSON.parse(raw).method });
+				if (chainId === null) {
+					res.writeHead(404, { 'Content-Type': 'application/json' });
+					return res.end(JSON.stringify({ message: 'Not found' }));
+				}
+				res.writeHead(200, { 'Content-Type': 'application/json' });
+				res.end(JSON.stringify({ jsonrpc: '2.0', id: 1, result: chainId }));
+			});
+			return;
+		}
 		const p = Object.fromEntries(url.searchParams);
 		calls.push(p);
 		const reply = (/** @type {unknown} */ body) => {

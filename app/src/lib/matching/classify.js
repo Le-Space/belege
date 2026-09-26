@@ -18,7 +18,7 @@
 // side's address: when that address is one of our own wallets, the transfer
 // is an own transfer; the two legs of one transaction between our wallets
 // share the hash as `txRef`. Tokens delegated to staking (movement `stake`)
-// stay ours: no receipt.
+// stay ours: no receipt, a kind of their own (`crypto-stake`), not 1360.
 // (docs/phase-0.md, "Matching"; docs/crypto.md, "Own wallets").
 
 import { counterpartyKey } from './partners.js';
@@ -188,18 +188,21 @@ export function feeKey(tx) {
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [counterBookings] bookings on our other accounts with the opposite amount within a few days
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [sameReference] bookings on our other accounts with the same reference or transaction hash, the other way (context.js)
  * @property {Set<string>} [notTransfers] pairs a person said are no transfer (transferPairKey)
- * @property {Map<string, string>} [ownAddresses] our own wallets' addresses (normalised) → one of their accounts
+ * @property {Map<string, string>} [ownAddresses] `<chain>:<address>` (normalised) of our own wallets → one of their accounts
  */
 
 /**
  * @typedef {object} Classification
- * @property {'rule-ignore' | 'rule-private' | 'bank-fee' | 'own-transfer' | 'loan' | 'crypto-reward'} kind
+ * @property {'rule-ignore' | 'rule-private' | 'bank-fee' | 'own-transfer' | 'loan' | 'crypto-reward' | 'crypto-stake'} kind
+ *   `crypto-stake`: tokens delegated to staking (or back); no receipt, and not
+ *   on 1360: the return at the end of an unbonding is no transaction, so a
+ *   transit account would never balance
  * @property {string} [reason] the person's own words, for a rule
  * @property {string} [account] SKR 03 account, where one is known
  * @property {string} [ruleId]
  * @property {'counterparty' | 'purpose' | 'any'} [ruleField] what the rule looked at
  * @property {string} [ruleContains] the rule's text
- * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'staking' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee'} [via] how an own transfer or a bank fee was recognised
+ * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee'} [via] how an own transfer or a bank fee was recognised
  * @property {string} [address] our own wallet's address, for via 'own-address'
  * @property {string} [counterBookingId] the other side of a transfer, for via 'counter-booking'
  * @property {string} [counterAccountId]
@@ -298,8 +301,7 @@ export function classifyTransaction(tx, ctx) {
 		return { kind: 'bank-fee', via: wallet ? 'network-fee' : 'exchange-fee' };
 	}
 	if (tx.movement === 'reward') return { kind: 'crypto-reward' };
-	if (wallet && tx.movement === 'stake')
-		return { kind: 'own-transfer', account: '1360', via: 'staking' };
+	if (wallet && tx.movement === 'stake') return { kind: 'crypto-stake' };
 	if (BANK_FEE.test(String(tx.bookingType ?? ''))) {
 		return { kind: 'bank-fee', via: 'booking-type', bookingType: String(tx.bookingType) };
 	}
@@ -348,7 +350,9 @@ export function classifyTransaction(tx, ctx) {
 	// To or from one of our own wallets.
 	const address =
 		wallet && tx.counterpartyAddress ? normalizeAddress(wallet, tx.counterpartyAddress) : '';
-	const ownAccount = address ? ctx.ownAddresses?.get(address) : undefined;
+	// By chain and address: an EVM address is the same on every EVM chain, and
+	// being ours on Base says nothing about Ethereum.
+	const ownAccount = address ? ctx.ownAddresses?.get(`${tx.source}:${address}`) : undefined;
 	if (ownAccount && ownAccount !== tx.accountId) {
 		return {
 			kind: 'own-transfer',
