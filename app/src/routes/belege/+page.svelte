@@ -8,6 +8,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
+	import MonthPicker from '$lib/MonthPicker.svelte';
 	import AiMark from '$lib/AiMark.svelte';
 	import {
 		app,
@@ -581,24 +582,18 @@
 				<p class="mt-2 text-sm text-danger">{t('belege.mailNotSetUp')}</p>
 			{/if}
 			<div class="mt-3 flex flex-wrap items-end gap-3">
-				<label class="flex flex-col text-sm">
-					<span class="text-faint">{t('belege.mailFrom')}</span>
-					<input
-						type="month"
-						class="mt-1 rounded-md border px-2 py-1.5 text-sm"
-						bind:value={monthFrom}
-						data-testid="mail-from"
-					/>
-				</label>
-				<label class="flex flex-col text-sm">
-					<span class="text-faint">{t('belege.mailTo')}</span>
-					<input
-						type="month"
-						class="mt-1 rounded-md border px-2 py-1.5 text-sm"
-						bind:value={monthTo}
-						data-testid="mail-to"
-					/>
-				</label>
+				<MonthPicker bind:value={monthFrom} label={t('belege.mailFrom')} testid="mail-from" />
+				<MonthPicker bind:value={monthTo} label={t('belege.mailTo')} testid="mail-to" />
+				<button
+					type="button"
+					class="text-sm text-text underline hover:text-heading"
+					onclick={() => {
+						const last = new Date().getFullYear() - 1;
+						monthFrom = `${last}-01`;
+						monthTo = `${last}-12`;
+					}}
+					data-testid="mail-last-year">{t('belege.mailLastYear')}</button
+				>
 				<button
 					type="button"
 					class={primary}
