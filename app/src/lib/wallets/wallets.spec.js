@@ -448,6 +448,39 @@ describe('which wallet bookings need no receipt', () => {
 		expect(classifyTransaction(out, ctxOther)).toBe(null);
 	});
 
+	it('a Kraken withdrawal naming the hash pairs with the wallet that received it (#56)', async () => {
+		const received = booking({
+			id: 't-rx',
+			accountId: 'acc-a',
+			amountCents: 510,
+			quantity: '100000000',
+			counterpartyAddress: NYX.exchange,
+			txRef: hash
+		});
+		const withdrawal = {
+			id: 'k-wd',
+			accountId: 'acc-k',
+			source: 'kraken',
+			bookedOn: '2026-09-04',
+			amountCents: -495,
+			currency: 'EUR',
+			movement: 'transfer',
+			asset: 'NYM',
+			quantity: '-1000000000000',
+			txRef: 'R-WD',
+			chainTxRef: hash.toLowerCase()
+		};
+		const ctx = await context([received, withdrawal]);
+		expect(classifyTransaction(received, ctx)).toMatchObject({
+			via: 'reference',
+			counterBookingId: 'k-wd'
+		});
+		expect(classifyTransaction(withdrawal, ctx)).toMatchObject({
+			via: 'reference',
+			counterBookingId: 't-rx'
+		});
+	});
+
 	it('an address that is ours on one EVM chain is not ours on another', async () => {
 		const addr = '0x' + 'ab'.repeat(20);
 		const evmAccounts = [
