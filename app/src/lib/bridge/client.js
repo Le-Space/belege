@@ -262,6 +262,13 @@ export function createBridgeClient({
 		 */
 		chains: () => call('/chains'),
 		/**
+		 * The fingerprint of the Bitcoin key in the bridge's keychain (`btc-…`),
+		 * never the key.
+		 *
+		 * @returns {Promise<{ configured: boolean, fingerprint: string | null }>}
+		 */
+		bitcoinKey: () => call('/bitcoin/key'),
+		/**
 		 * An own wallet's whole history and balance, read by the bridge from a
 		 * public node (in the body, so the address is in no URL).
 		 *

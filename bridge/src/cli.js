@@ -64,6 +64,7 @@ let mailKeychain;
 let llmKeychain;
 let krakenKeychain;
 let coingeckoKeychain;
+let bitcoinKeychain;
 /** @type {Record<string, string> | null} */
 let fixedRates = null;
 /** @type {((id: string) => import('./keychain.js').Keychain) | undefined} */
@@ -89,6 +90,7 @@ if (testMode) {
 		process.env.BELEGE_BRIDGE_TEST_COINGECKO_KEY ?? null,
 		'coingecko'
 	);
+	bitcoinKeychain = memoryKeychain(process.env.BELEGE_BRIDGE_TEST_BITCOIN_KEY ?? null, 'bitcoin');
 	if (process.env.BELEGE_BRIDGE_TEST_FIXED_RATES) {
 		fixedRates = JSON.parse(process.env.BELEGE_BRIDGE_TEST_FIXED_RATES);
 	}
@@ -102,6 +104,7 @@ try {
 		llmKeychain,
 		krakenKeychain,
 		coingeckoKeychain,
+		bitcoinKeychain,
 		fixedRates,
 		walletLoopback: testMode,
 		portalKeychain,

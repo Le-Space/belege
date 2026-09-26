@@ -93,6 +93,21 @@
 		return pattern ? safeExplorerUrl(pattern.replace('{address}', wallet.address)) : null;
 	}
 
+	/** @type {string | null} */
+	let bitcoinNote = $state(null);
+
+	/** Bitcoin: the key is in the bridge; the app takes only its fingerprint. */
+	async function takeBitcoinKey() {
+		bitcoinNote = null;
+		try {
+			const { configured, fingerprint } = await client.bitcoinKey();
+			if (configured && fingerprint) address = fingerprint;
+			else bitcoinNote = t('integrationen.wallets.bitcoinNoKey');
+		} catch (e) {
+			bitcoinNote = e instanceof Error ? e.message : String(e);
+		}
+	}
+
 	/** @param {SubmitEvent} event */
 	async function add(event) {
 		event.preventDefault();
@@ -278,18 +293,34 @@
 					{/each}
 				</select>
 			</label>
-			<label class="flex flex-col gap-1">
-				{t('integrationen.wallets.address')}
-				<input
-					class="rounded-md border border-border bg-surface px-2 py-1 font-mono text-heading"
-					bind:value={address}
-					autocomplete="off"
-					spellcheck="false"
-					placeholder={localChain?.kind === 'evm' ? '0x…' : `${localChain?.bech32Prefix ?? ''}1…`}
-					data-testid="wallet-address-input"
-				/>
-			</label>
-			<p class="text-xs text-faint">{t('integrationen.wallets.addressHint')}</p>
+			{#if localChain?.kind === 'bitcoin'}
+				<div class="flex flex-col gap-1" data-testid="wallet-bitcoin-key">
+					<p class="text-xs text-faint">{t('integrationen.wallets.bitcoinHint')}</p>
+					<div class="flex flex-wrap items-center gap-2">
+						<button
+							type="button"
+							class="rounded-md border border-border px-3 py-1 text-sm text-text hover:bg-surface-2"
+							onclick={takeBitcoinKey}
+							data-testid="wallet-bitcoin-take">{t('integrationen.wallets.bitcoinTake')}</button
+						>
+						{#if address}<span class="font-mono text-heading">{address}</span>{/if}
+					</div>
+					{#if bitcoinNote}<p class="text-xs text-danger" role="alert">{bitcoinNote}</p>{/if}
+				</div>
+			{:else}
+				<label class="flex flex-col gap-1">
+					{t('integrationen.wallets.address')}
+					<input
+						class="rounded-md border border-border bg-surface px-2 py-1 font-mono text-heading"
+						bind:value={address}
+						autocomplete="off"
+						spellcheck="false"
+						placeholder={localChain?.kind === 'evm' ? '0x…' : `${localChain?.bech32Prefix ?? ''}1…`}
+						data-testid="wallet-address-input"
+					/>
+				</label>
+				<p class="text-xs text-faint">{t('integrationen.wallets.addressHint')}</p>
+			{/if}
 			{#if info}
 				<div
 					class="rounded-md border border-border bg-surface-2 px-3 py-2"

@@ -97,6 +97,19 @@ Tokens, die von einer Börse auf eine eigene Wallet gehen, gehören weiter der F
 
 **Was der Knoten sieht**: die Adresse und die IP-Adresse des Macs, nur bei _Synchronisieren_ (Einwilligung, _Blockchain-Abfrage_). Das Protokoll der Bridge nennt Zahlen, nie eine Adresse oder einen Betrag.
 
+### Bitcoin
+
+Eine Bitcoin-Wallet liest Belege über den **erweiterten öffentlichen Schlüssel** des Kontos, nicht über eine einzelne Adresse: Eine Wallet verteilt ihr Guthaben auf viele Adressen und schickt Wechselgeld an neue. Belege nimmt einen **zpub** (native SegWit, `bc1q…`), einen **ypub** (`3…`) oder einen **xpub**. Wallets geben einen xpub für mehr als eine Adressart heraus, deshalb fragt `pnpm setup:bitcoin` bei einem xpub nach der Art: `bc1q…` oder `1…`.
+
+- **Der Schlüssel bleibt in der Bridge.** `pnpm setup:bitcoin` legt ihn in den macOS-Schlüsselbund (Konto `bitcoin`, JSON `{ key, type }`); `BITCOIN_XPUB` aus der `.env` wird einmal angeboten. Die App kennt die Wallet nur über einen Fingerabdruck des Schlüssels (`btc-` + 8 Hex-Zeichen): _Integrationen → Eigene Wallets → Bitcoin → Schlüssel aus der Bridge übernehmen_. Bei jedem Abruf prüft die Bridge den Fingerabdruck, damit ein getauschter Schlüssel nicht auf das alte Konto bucht (`WALLET_KEY_CHANGED`).
+- **Adressen** leitet die Bridge selbst ab (`/0/i` Empfang, `/1/i` Wechselgeld), bis 20 in Folge unbenutzt sind. Jede wird bei einer Esplora-API abgefragt: voreingestellt `mempool.space/api`, als Alternative `blockstream.info/api`, oder eine eigene. Diese API sieht all diese Adressen von derselben IP und kann daraus schließen, dass sie zusammengehören (Einwilligung, _Blockchain-Abfrage_); eine eigene Esplora vermeidet das.
+- **Buchungen** aus Sicht der Wallet (alle ihre Adressen zusammen), nur bestätigte Transaktionen:
+  - alle Inputs von uns: gesendet. Die Gebühr ist eine eigene Buchung (`<txid>:fee`), der Rest ging an andere (`<txid>:value`). Wechselgeld an eigene Adressen ist keine Buchung; eine Transaktion nur zwischen eigenen Adressen ist nur ihre Gebühr.
+  - kein Input von uns: empfangen, was an unsere Adressen ging.
+  - einige Inputs von uns (Payjoin, Coinjoin): eine Buchung mit der Nettoänderung, Gebühr eingeschlossen, und ein Hinweis.
+- `txRef` ist die txid. Eine Kraken-BTC-Ein- oder -Auszahlung trägt dieselbe txid als `chainTxRef`; beide werden als eigene Umbuchung gepaart.
+- Ein Konto, _Wallet BTC ···<Fingerabdruck>_, mit Bestand (bestätigt, aus der Esplora-API).
+
 ### Woher die Voreinstellungen kommen (geprüft am 26.09.2026)
 
 | Chain     | Chain-ID     | Adresse                                         | Assets (Nachkommastellen)        | Voreingestellte Endpunkte                                                                                | Explorer (Tx / Adresse)                                      |
@@ -107,6 +120,7 @@ Tokens, die von einer Börse auf eine eigene Wallet gehen, gehören weiter der F
 | Base      | 8453         | wie Ethereum                                    | ETH (18), USDC `0x8335…2913` (6) | `base.blockscout.com/api`                                                                                | `basescan.org/tx/…`, `/address/…`                            |
 | Arbitrum  | 42161        | wie Ethereum                                    | ETH (18), USDC `0xaf88…5831` (6) | `arbitrum.blockscout.com/api`                                                                            | `arbiscan.io/tx/…`, `/address/…`                             |
 | Optimism  | 10           | wie Ethereum                                    | ETH (18), USDC `0x0b2C…Ff85` (6) | `explorer.optimism.io/api` (Blockscout)                                                                  | `optimistic.etherscan.io/tx/…`, `/address/…`                 |
+| Bitcoin   | Mainnet      | abgeleitet aus xpub, ypub oder zpub             | BTC (8)                          | `mempool.space/api` (Esplora); `blockstream.info/api`                                                    | `mempool.space/tx/{tx}`, `/address/{address}`                |
 | Polygon   | 137          | wie Ethereum                                    | POL (18), USDC `0x3c49…3359` (6) | `polygon.blockscout.com/api`                                                                             | `polygonscan.com/tx/…`, `/address/…`                         |
 
 - **An der Quelle geprüft**: Chain-ID, Bech32-Präfix, Denoms, Exponenten, RPC/REST und Explorer-Muster von Nyx und Akash an der Cosmos Chain Registry (`nyx/`, `akash/`: `chain.json`, `assetlist.json`); Nyx' Knoten meldet Chain `nyx`, CometBFT 0.38 und cosmos-sdk 0.53 (Ereignisse also als Text, die Gebühr im `tx`-Ereignis). Die USDC-Verträge an Circles Liste der USDC-Vertragsadressen, ihre 6 Nachkommastellen am Blockscout jeder Chain. Die Blockscout-API antwortet auf jedem Host (der von Optimism ist nach `explorer.optimism.io` umgezogen) und meldet die Chain-IDs 1, 42161, 10 und 137.

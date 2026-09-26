@@ -9,7 +9,7 @@
 /**
  * @typedef {object} WalletChain
  * @property {string} id
- * @property {'cosmos' | 'evm'} kind
+ * @property {'cosmos' | 'evm' | 'bitcoin'} kind
  * @property {string} name
  * @property {string} shortName
  * @property {string} nativeSymbol
@@ -62,6 +62,15 @@ export const WALLET_CHAINS = Object.freeze({
 		name: 'Polygon PoS',
 		shortName: 'Polygon',
 		nativeSymbol: 'POL'
+	},
+	// The key stays in the bridge's keychain; the app knows the wallet by the
+	// key's fingerprint (`btc-…`), taken from the bridge (bridge/src/chains/bitcoin.js).
+	bitcoin: {
+		id: 'bitcoin',
+		kind: 'bitcoin',
+		name: 'Bitcoin',
+		shortName: 'Bitcoin',
+		nativeSymbol: 'BTC'
 	}
 });
 
@@ -95,6 +104,7 @@ export function normalizeAddress(chain, address) {
 export function looksLikeAddress(chain, address) {
 	const a = String(address ?? '').trim();
 	if (chain.kind === 'evm') return /^0x[0-9a-fA-F]{40}$/.test(a);
+	if (chain.kind === 'bitcoin') return /^btc-[0-9a-f]{8}$/.test(a);
 	const prefix = chain.bech32Prefix ?? '';
 	return new RegExp(`^${prefix}1[02-9ac-hj-np-z]{38,58}$`).test(a);
 }

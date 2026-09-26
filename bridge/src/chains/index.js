@@ -11,12 +11,21 @@
 import { chainOf, publicChains } from './registry.js';
 import { createCosmosClient } from './cosmos.js';
 import { createEvmClient } from './evm.js';
+import { createBitcoinClient } from './bitcoin.js';
 import { checkEndpoint, WalletError } from './http.js';
 
 export { CHAINS, chainOf, publicChains } from './registry.js';
 export { WalletError, checkEndpoint } from './http.js';
 export { isCosmosAddress, bech32Encode, bech32Decode, moduleAddress } from './bech32.js';
 export { isEvmAddress, toChecksumAddress } from './evm.js';
+export {
+	ADDRESS_TYPES,
+	deriveAddress,
+	keyFingerprint,
+	normalizeBitcoin,
+	parseExtendedKey,
+	parseStoredKey
+} from './bitcoin.js';
 
 /**
  * @param {object} [options]
@@ -24,18 +33,31 @@ export { isEvmAddress, toChecksumAddress } from './evm.js';
  * @param {boolean} [options.allowLoopback] endpoints on http://127.0.0.1 (tests only)
  * @param {number} [options.timeoutMs]
  * @param {(ms: number) => Promise<void>} [options.sleep]
+ * @param {() => Promise<string | null>} [options.getZpub] the Bitcoin key's keychain entry
+ * @param {number} [options.bitcoinPauseMs] between Esplora requests (tests: 0)
  */
 export function createWalletService({
 	fetch: f = fetch,
 	allowLoopback = false,
 	timeoutMs,
-	sleep
+	sleep,
+	getZpub = async () => null,
+	bitcoinPauseMs
 } = {}) {
 	const cosmos = createCosmosClient({ fetch: f, timeoutMs, sleep });
 	const evm = createEvmClient({ fetch: f, timeoutMs, sleep });
+	const bitcoin = createBitcoinClient({
+		fetch: f,
+		getZpub,
+		timeoutMs,
+		sleep,
+		pauseMs: bitcoinPauseMs
+	});
 
 	return {
 		chains: publicChains,
+		/** The fingerprint of the Bitcoin key in the keychain, or null. */
+		bitcoinKey: () => bitcoin.fingerprint(),
 		/** @param {string} id */
 		has: (id) => Boolean(chainOf(id)),
 
@@ -68,17 +90,23 @@ export function createWalletService({
 				endpoints[name] = checked;
 			}
 			const result =
-				chain.kind === 'cosmos'
-					? await cosmos.history({
-							chain,
-							address,
-							endpoints: /** @type {{ rpc: string, rest: string }} */ (endpoints)
-						})
-					: await evm.history({
+				chain.kind === 'bitcoin'
+					? await bitcoin.history({
 							chain,
 							address,
 							endpoints: /** @type {{ api: string }} */ (endpoints)
-						});
+						})
+					: chain.kind === 'cosmos'
+						? await cosmos.history({
+								chain,
+								address,
+								endpoints: /** @type {{ rpc: string, rest: string }} */ (endpoints)
+							})
+						: await evm.history({
+								chain,
+								address,
+								endpoints: /** @type {{ api: string }} */ (endpoints)
+							});
 			return { chain: chain.id, endpoints, ...result };
 		}
 	};

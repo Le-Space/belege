@@ -318,12 +318,12 @@ export default {
 					'Die Bridge startet ein eigenes Chromium (Playwright) mit einem Profil pro Portal unter ~/.config/belege/portals/<portal>/profile (Verzeichnis 0700), nicht deinen Alltags-Browser. Beim ersten Mal (und wenn die Sitzung abläuft) öffnet es ein sichtbares Fenster: Du meldest dich an, Codes (SMS, E-Mail) und Sicherheitsprüfungen gibst immer du ein. Danach holt es die Rechnungen ohne Fenster. Ein optionales Passwort (pnpm setup:portal vodafone) liegt im macOS-Schlüsselbund und wird nur in das Anmeldeformular des Portals getippt. Nur PDFs (nach ihren Bytes, höchstens 15 MB) kommen in der App an. Kein Sprachmodell, keine Bildschirmfotos; das Protokoll nennt nur den Schritt, der scheiterte. Wer dein macOS-Konto benutzen kann, kann auch die Sitzung im Profil benutzen: FileVault einschalten, „Abmelden“ löscht das Profil. Die Nutzungsbedingungen eines Portals können automatisierten Zugriff einschränken.'
 			},
 			blockchain: {
-				name: 'Blockchain-Abfrage (Nym/Cosmos, Ethereum/EVM)',
+				name: 'Blockchain-Abfrage (Nym/Cosmos, Ethereum/EVM, Bitcoin)',
 				text: 'Nur für eigene Wallets, die du unter Integrationen einträgst, und nur wenn du „Synchronisieren“ drückst: Die Bridge fragt einen öffentlichen Knoten nach den Überweisungen und dem Bestand der Adresse.',
 				leaves:
-					'Die Adresse der Wallet und die IP-Adresse dieses Macs – an den Betreiber des Knotens: voreingestellt Nym (rpc.nymtech.net) für Nyx, Polkachu für Akash, Blockscout für Ethereum, Base, Arbitrum, Optimism und Polygon, oder den Knoten, den du selbst einträgst. Er kann daraus ablesen, dass diese Adresse zu dir gehört.',
+					'Die Adresse der Wallet und die IP-Adresse dieses Macs – an den Betreiber des Knotens: voreingestellt Nym (rpc.nymtech.net) für Nyx, Polkachu für Akash, Blockscout für Ethereum, Base, Arbitrum, Optimism und Polygon, oder den Knoten, den du selbst einträgst. Er kann daraus ablesen, dass diese Adresse zu dir gehört. Bei Bitcoin fragt die Bridge mempool.space (oder deinen eigenen Esplora-Server) nach jeder Adresse, die sie aus deinem Kontoschlüssel ableitet, kurz nacheinander von derselben IP: Der Betreiber kann daraus schließen, dass alle diese Adressen zusammengehören.',
 				technical:
-					'Gefragt wird per HTTPS: bei Cosmos-Chains die CometBFT-RPC (tx_search nach transfer.sender und transfer.recipient, header, status) und die REST-API (Bestand), bei EVM-Chains die Etherscan-kompatible API von Blockscout (txlist, txlistinternal, tokentx, balance). Die App schickt die Adresse im Rumpf einer Anfrage an die Bridge, nie in einer URL (an Blockscout geht sie, wie dessen API es verlangt, in der Abfrage-URL); das Protokoll der Bridge nennt nur Zahlen. Kein Schlüssel, keine Signatur: die Adresse ist öffentlich, die Liste deiner Wallets liegt verschlüsselt in deinen Büchern, nicht in der Bridge. Gebucht werden nur Assets aus der Liste der Chain (NYM, NYX, AKT, ETH, POL, USDC mit geprüftem Vertrag); andere Token werden gezählt und ausgelassen. Links zum Block-Explorer öffnen erst, wenn du sie anklickst.'
+					'Gefragt wird per HTTPS: bei Cosmos-Chains die CometBFT-RPC (tx_search nach transfer.sender und transfer.recipient, header, status) und die REST-API (Bestand), bei EVM-Chains die Etherscan-kompatible API von Blockscout (txlist, txlistinternal, tokentx, balance). Die App schickt die Adresse im Rumpf einer Anfrage an die Bridge, nie in einer URL (an Blockscout geht sie, wie dessen API es verlangt, in der Abfrage-URL); das Protokoll der Bridge nennt nur Zahlen. Kein Schlüssel, keine Signatur: die Adresse ist öffentlich, die Liste deiner Wallets liegt verschlüsselt in deinen Büchern, nicht in der Bridge. Gebucht werden nur Assets aus der Liste der Chain (NYM, NYX, AKT, ETH, POL, USDC mit geprüftem Vertrag); andere Token werden gezählt und ausgelassen. Bei Bitcoin liegt der Kontoschlüssel (xpub, ypub oder zpub) nur im macOS-Schlüsselbund der Bridge; die Bridge leitet daraus die Adressen ab (bis 20 unbenutzte in Folge) und fragt deren bestätigte Transaktionen ab (Esplora-API: address, address/txs/chain). Die App kennt nur einen Fingerabdruck des Schlüssels. Links zum Block-Explorer öffnen erst, wenn du sie anklickst.'
 			}
 		},
 		status: {
@@ -1304,6 +1304,11 @@ export default {
 			addressHint:
 				'Nur die öffentliche Adresse. Sie bleibt verschlüsselt in deinen Büchern und geht nur beim Synchronisieren an den Knoten unten.',
 			badAddress: 'Das ist keine Adresse auf {chain}.',
+			bitcoinHint:
+				'Bitcoin liest Belege über den Kontoschlüssel (xpub, ypub oder zpub). Der liegt nur im Schlüsselbund der Bridge: im Terminal `pnpm setup:bitcoin` ausführen, dann hier übernehmen. Die App kennt nur seinen Fingerabdruck.',
+			bitcoinTake: 'Schlüssel aus der Bridge übernehmen',
+			bitcoinNoKey:
+				'In der Bridge ist noch kein Bitcoin-Schlüssel: im Terminal `pnpm setup:bitcoin` ausführen und die Bridge neu starten.',
 			uses: 'Abgefragt wird',
 			customHint: 'leer lassen für den voreingestellten',
 			alternatives: 'Weitere öffentliche: {list}',
