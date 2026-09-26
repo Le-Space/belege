@@ -7,6 +7,10 @@
 //   - a crypto asset: its price at 00:00 UTC of that day
 //       1. CoinGecko /coins/{id}/history (its daily snapshot at 00:00 UTC)
 //       2. failing that, Kraken's daily candle of that day, its open price
+//     With `prefer: 'kraken'` (a booking on the Kraken exchange) the order
+//     turns: Kraken's own EUR price first, CoinGecko as the fallback; and
+//     Kraken can then price any asset it trades against EUR (`<SYMBOL>EUR`),
+//     also one Belege does not list yet.
 //   - USD: the ECB reference rate of that day, or the last one before it
 //     (weekends, holidays), inverted: EUR per USD
 // Every answer says which source it came from and for what moment, so a
@@ -185,12 +189,17 @@ export function createRateService({
 	/**
 	 * The rate of one unit of `asset` in EUR on `date`.
 	 *
-	 * @param {string} asset a symbol from RATE_SOURCES
+	 * @param {string} asset a symbol from RATE_SOURCES; with prefer 'kraken', any symbol
 	 * @param {string} date YYYY-MM-DD, not in the future
+	 * @param {{ prefer?: 'kraken' | null }} [options]
 	 * @returns {Promise<Rate>}
 	 */
-	async function rate(asset, date) {
-		const sources = Object.hasOwn(RATE_SOURCES, asset) ? RATE_SOURCES[asset] : null;
+	async function rate(asset, date, { prefer = null } = {}) {
+		const listed = Object.hasOwn(RATE_SOURCES, asset) ? RATE_SOURCES[asset] : null;
+		const sources =
+			prefer === 'kraken' && /^[A-Z0-9]{2,10}$/.test(asset)
+				? { ...listed, kraken: listed?.ecb ? undefined : (listed?.kraken ?? `${asset}EUR`) }
+				: listed;
 		if (!sources) throw new RateError(`no rate source for ${asset}`, 400);
 		if (!DAY.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) {
 			throw new RateError('date must be YYYY-MM-DD', 400);
@@ -198,14 +207,18 @@ export function createRateService({
 		if (date > now().toISOString().slice(0, 10)) {
 			throw new RateError('date lies in the future', 400);
 		}
-		const key = `${asset}@${date}`;
+		const key = `${asset}@${date}@${prefer ?? ''}`;
 		const cached = cache.get(key);
 		if (cached) return cached;
 
+		const coingecko = async () =>
+			sources.coingecko ? fromCoinGecko(sources.coingecko, date) : null;
+		const kraken = async () => (sources.kraken ? fromKraken(sources.kraken, date) : null);
 		const found =
 			(sources.ecb ? await fromEcb(date) : null) ??
-			(sources.coingecko ? await fromCoinGecko(sources.coingecko, date) : null) ??
-			(sources.kraken ? await fromKraken(sources.kraken, date) : null);
+			(prefer === 'kraken'
+				? ((await kraken()) ?? (await coingecko()))
+				: ((await coingecko()) ?? (await kraken())));
 		if (!found) throw new RateError(`no rate found for ${asset} on ${date}`, 502);
 
 		/** @type {Rate} */

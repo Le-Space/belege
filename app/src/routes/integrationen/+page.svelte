@@ -8,13 +8,14 @@
 	import { integer } from '$lib/receipts/how.js';
 	import { describeMoment } from '$lib/moment.js';
 	import PortalsCard from '$lib/portals/PortalsCard.svelte';
+	import KrakenCard from '$lib/exchanges/KrakenCard.svelte';
 	import { app, currentStore, refreshNow, runMatchingNow } from '$lib/session.svelte.js';
 	import { createBridgeClient, DEFAULT_BRIDGE_URL } from '$lib/bridge/client.js';
 	import { getSetting, setSetting } from '$lib/store/settings.js';
 	import { syncHibiscus } from '$lib/bank/hibiscus-sync.js';
 	import { parseCamt053 } from '$lib/bank/camt.js';
 	import { importCamtStatements } from '$lib/bank/import.js';
-	import { formatDate, formatMoney } from '$lib/bank/format.js';
+	import { accountLabel, formatDate, formatMoney } from '$lib/bank/format.js';
 	import { list, t } from '$lib/i18n/index.js';
 
 	/** @typedef {import('$lib/bridge/client.js').BridgeAccount} BridgeAccount */
@@ -27,6 +28,7 @@
 	let bridgeState = $state('unknown');
 	let bridgePaired = $state(false);
 	let hibiscusConfigured = $state(false);
+	let krakenConfigured = $state(false);
 	let code = $state('');
 	/** @type {string | null} */
 	let bridgeError = $state(null);
@@ -84,6 +86,7 @@
 			bridgeState = health.ok ? 'online' : 'offline';
 			bridgePaired = health.paired;
 			hibiscusConfigured = health.hibiscus?.configured ?? false;
+			krakenConfigured = health.kraken?.configured ?? false;
 		} catch (error) {
 			bridgeState = 'offline';
 			bridgeError = error instanceof Error ? error.message : String(error);
@@ -199,7 +202,7 @@
 				const statements = parseCamt053(await file.text());
 				for (const result of await importCamtStatements(store, statements)) {
 					camtResults.push({
-						label: `${result.account.name} ···${result.account.ibanLast4}`,
+						label: `${accountLabel(result.account)}`,
 						counts: result.counts,
 						pending: result.pending
 					});
@@ -510,14 +513,18 @@
 		<ul class="mt-2 text-sm text-text" data-testid="book-accounts">
 			{#each app.accounts as account (account.id)}
 				<li class="py-1" data-testid="book-account">
-					{account.name} ···{account.ibanLast4} · {account.source === 'camt'
+					{accountLabel(account)} · {account.source === 'camt'
 						? t('integrationen.books.camt')
-						: t('integrationen.books.hibiscus')} · {account.currency}
+						: account.source === 'kraken'
+							? t('integrationen.books.kraken')
+							: t('integrationen.books.hibiscus')} · {account.asset ?? account.currency}
 				</li>
 			{/each}
 		</ul>
 	</section>
 {/if}
+
+<KrakenCard url={bridgeUrl} {token} configured={krakenConfigured} />
 
 <PortalsCard url={bridgeUrl} {token} />
 

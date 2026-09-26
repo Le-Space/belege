@@ -11,6 +11,7 @@ import { createExtractor } from './llm/extract.js';
 import { createMailAssist } from './llm/assist.js';
 import { createRateService } from './rates.js';
 import { createMatchAssist } from './llm/match-assist.js';
+import { createKrakenClient, parseKrakenCredentials } from './kraken.js';
 import { buildRecipes, createPortalManager, keychainAccount } from './portals/index.js';
 import { macosPasswordDialog } from './portals/credentials.js';
 import { dirname, join } from 'node:path';
@@ -30,6 +31,7 @@ export { createMailClient } from './mail/imap.js';
 export { createExtractor, checkExtraction } from './llm/extract.js';
 export { redact } from './llm/redact.js';
 export { createRateService, RATE_SOURCES, RateError } from './rates.js';
+export { createKrakenClient, KrakenError, parseAsset } from './kraken.js';
 export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
 
 /**
@@ -39,6 +41,8 @@ export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
  * @param {import('./keychain.js').Keychain} [options.mailKeychain] the mail password
  * @param {import('./keychain.js').Keychain} [options.llmKeychain] the LLM API key
  * @param {import('./keychain.js').Keychain} [options.coingeckoKeychain] an optional CoinGecko demo key
+ * @param {import('./keychain.js').Keychain} [options.krakenKeychain] the Kraken API key, JSON { key, secret }
+ * @param {number} [options.krakenPageDelayMs] pause between Kraken ledger pages (tests: 0)
  * @param {typeof fetch} [options.rateFetch] fetch for the exchange-rate sources (tests hand in a fake)
  * @param {(portalId: string) => import('./keychain.js').Keychain} [options.portalKeychain] a portal's password
  * @param {'auto' | 'always'} [options.portalHeadless] `always` for tests: no window ever opens
@@ -56,6 +60,8 @@ export async function startBridge({
 	mailKeychain = macosKeychain({ account: 'imap' }),
 	llmKeychain = macosKeychain({ account: 'llm' }),
 	coingeckoKeychain = macosKeychain({ account: 'coingecko' }),
+	krakenKeychain = macosKeychain({ account: 'kraken' }),
+	krakenPageDelayMs,
 	rateFetch = fetch,
 	portalKeychain = (id) => macosKeychain({ account: keychainAccount(id) }),
 	portalHeadless = 'auto',
@@ -181,6 +187,13 @@ export async function startBridge({
 			}
 		},
 		portals,
+		kraken: config.kraken.configured
+			? createKrakenClient({
+					baseUrl: config.kraken.baseUrl,
+					pageDelayMs: krakenPageDelayMs,
+					getCredentials: async () => parseKrakenCredentials(await krakenKeychain.read())
+				})
+			: null,
 		rates: createRateService({
 			fetch: rateFetch,
 			coingeckoKey: () => coingeckoKeychain.read().catch(() => null)

@@ -10,6 +10,10 @@
 //      like one and that account shows the counter-booking), or the
 //      counterparty is our own company – neutral account 1360, no receipt
 //   4. loans: "Darlehen" in the purpose – the contract is the receipt
+// An exchange's own bookings (exchanges/kraken-sync.js) come with a
+// `movement`: its fees are fees, its staking and earn rewards need no receipt
+// (the statement is the receipt), and the two legs of one trade or transfer
+// share a reference (`txRef`) and are an own transfer.
 // (docs/phase-0.md, "Matching").
 
 import { counterpartyKey } from './partners.js';
@@ -181,13 +185,13 @@ export function feeKey(tx) {
 
 /**
  * @typedef {object} Classification
- * @property {'rule-ignore' | 'rule-private' | 'bank-fee' | 'own-transfer' | 'loan'} kind
+ * @property {'rule-ignore' | 'rule-private' | 'bank-fee' | 'own-transfer' | 'loan' | 'crypto-reward'} kind
  * @property {string} [reason] the person's own words, for a rule
  * @property {string} [account] SKR 03 account, where one is known
  * @property {string} [ruleId]
  * @property {'counterparty' | 'purpose' | 'any'} [ruleField] what the rule looked at
  * @property {string} [ruleContains] the rule's text
- * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned'} [via] how an own transfer or a bank fee was recognised
+ * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee'} [via] how an own transfer or a bank fee was recognised
  * @property {string} [counterBookingId] the other side of a transfer, for via 'counter-booking'
  * @property {string} [counterAccountId]
  * @property {string} [counterDay] YYYY-MM-DD
@@ -222,6 +226,8 @@ const TRANSFER_WORDS =
  * @returns {string | null}
  */
 function transferSign(tx, companyNames) {
+	// A deposit or withdrawal of euros on an exchange: money from or to a bank.
+	if (tx.source === 'kraken' && tx.movement === 'transfer' && !tx.quantity) return 'Kraken';
 	const text = `${tx.purpose ?? ''} ${tx.counterparty ?? ''}`;
 	const word = TRANSFER_WORDS.exec(text)?.[0];
 	if (word) return word;
@@ -278,6 +284,8 @@ export function classifyTransaction(tx, ctx) {
 			};
 		}
 	}
+	if (tx.movement === 'fee') return { kind: 'bank-fee', via: 'exchange-fee' };
+	if (tx.movement === 'reward') return { kind: 'crypto-reward' };
 	if (BANK_FEE.test(String(tx.bookingType ?? ''))) {
 		return { kind: 'bank-fee', via: 'booking-type', bookingType: String(tx.bookingType) };
 	}
@@ -306,6 +314,22 @@ export function classifyTransaction(tx, ctx) {
 	const counter = (ctx.counterBookings?.(tx) ?? []).filter(
 		(o) => !ctx.notTransfers?.has(transferPairKey(String(tx.id), String(o.id)))
 	);
+	// The other leg of the same trade or transfer on an exchange: same reference.
+	const sameRef = tx.txRef
+		? counter.filter((o) => o.txRef === tx.txRef && o.source === tx.source)
+		: [];
+	if (sameRef.length === 1) {
+		const [o] = sameRef;
+		return {
+			kind: 'own-transfer',
+			account: '1360',
+			via: 'reference',
+			counterBookingId: String(o.id),
+			counterAccountId: String(o.accountId ?? ''),
+			counterDay: String(o.bookedOn ?? ''),
+			sign: `Ref. ${tx.txRef}`
+		};
+	}
 	const signed = counter
 		.map((o) => ({
 			o,

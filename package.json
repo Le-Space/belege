@@ -14,6 +14,8 @@
     "setup:mail": "pnpm --filter @belege/bridge setup:mail",
     "setup:llm": "pnpm --filter @belege/bridge setup:llm",
     "setup:portal": "pnpm --filter @belege/bridge setup:portal",
+    "setup:kraken": "pnpm --filter @belege/bridge setup:kraken",
+    "setup:coingecko": "pnpm --filter @belege/bridge setup:coingecko",
     "build": "pnpm --filter @belege/app build",
     "check": "pnpm --filter @belege/app check",
     "lint": "pnpm --filter @belege/app lint && pnpm --filter @belege/bridge lint",

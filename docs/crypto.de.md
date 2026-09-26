@@ -2,7 +2,7 @@
 
 _English: [crypto.md](crypto.md)_
 
-Belege bekommt Konten bei Börsen (zuerst Kraken) und Wallets auf Blockchains (Cosmos, EVM, Bitcoin). Diese Seite beschreibt das gemeinsame Fundament. Die Anbindungen selbst folgen in späteren Schritten.
+Belege führt Konten bei Börsen (Kraken) und als Nächstes Wallets auf Blockchains (Cosmos, EVM, Bitcoin). Diese Seite beschreibt das Gemeinsame und die Kraken-Anbindung.
 
 ## Ein Konto je Asset
 
@@ -29,11 +29,38 @@ Die Bridge beantwortet `GET /rates?asset=BTC&date=2026-09-01` (`bridge/src/rates
 
 1. **CoinGecko**, dessen Tagesstand (`/coins/{id}/history`);
 2. sonst **Kraken**, der Eröffnungskurs der Tageskerze;
+
+   für eine Buchung **bei Kraken** (`prefer=kraken`) ist es umgekehrt: zuerst der EUR-Kurs von Kraken, CoinGecko als Rückfall. Kraken bepreist dann auch Assets, die Belege noch nicht kennt, über ihr `<KÜRZEL>EUR`-Paar;
+
 3. für **USD**: der **EZB-Referenzkurs** des Tages oder der letzte davor (Wochenende, Feiertag), umgerechnet in Euro je Dollar.
 
 Die Anfrage nennt nur ein Asset und einen Tag, nichts über die Buchungen. Vergangene Tage werden im Speicher gehalten. Liegt ein CoinGecko-Demo-Schlüssel im Schlüsselbund (Konto `coingecko`), geht er als Header mit.
 
 **Welcher Kurs und welches Bewertungsverfahren gelten, entscheidet der Steuerberater.** Dazu gehören die Konten für Krypto-Bestände, Kursgewinne und Kursverluste, FIFO oder Durchschnitt und die Bewertung zum Jahresende. Belege hält Kurs und Quelle an jeder Buchung fest, damit sich eine andere Entscheidung später anwenden lässt.
+
+## Kraken
+
+**Einrichten** (einmal): Bei kraken.com einen API-Key anlegen, der nur **Query Funds** und **Query Ledger Entries** darf. Dann `pnpm setup:kraken` ausführen und API-Key und privaten Schlüssel in die verdeckten Eingaben kopieren. Stehen `KRAKEN_API_KEY` und `KRAKEN_PRIVATE_KEY` in der `.env`, bietet das Setup an, sie von dort zu übernehmen. Der Key landet im Schlüsselbund (Konto `kraken`). Ein Testaufruf nennt die Zahl der Assets mit Bestand, nie einen Betrag. Danach die Bridge neu starten. Einen optionalen CoinGecko-Demo-Schlüssel richtet `pnpm setup:coingecko` genauso ein (`COINGECKO_API_KEY`).
+
+**Synchronisieren**: _Integrationen → Kraken (Börse) → Kraken synchronisieren_. Die Bridge liest das Ledger (`GET /kraken/ledgers`, seitenweise über `ofs`, 50 Einträge je Seite, mit Pause und erneutem Versuch beim Rate-Limit) und die Bestände (`GET /kraken/balances`). Der erste Abruf beginnt am 1. Januar, jeder weitere eine Woche vor dem letzten.
+
+**Konten**: eines je Asset und Wallet: _Kraken EUR_, _Kraken BTC_, _Kraken BTC (Earn)_ für gestakte oder verzinste Bestände (die `.S`-, `.M`-, …-Assets von Kraken). Jedes braucht wie ein Bankkonto sein Sachkonto in MonkeyOffice (_Eigene Anweisungen_).
+
+**Buchungen**: eine je Ledger-Eintrag, dazu eine für jede Gebühr, die Kraken darauf berechnet hat. So ist die Gebühr sichtbar und wird auf 4970 gebucht.
+
+| Eintrag                                                  | Euro-Betrag                                                                              | Erkannt als                                                                                     |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| EUR-Einzahlung / -Auszahlung                             | der Betrag                                                                               | eigene Umbuchung mit der Bankbuchung gleichen Betrags innerhalb von 4 Tagen (Hinweis: _Kraken_) |
+| Kauf oder Verkauf gegen EUR (`trade`, `spend`/`receive`) | das Krypto-Bein ist genau das wert, was bezahlt oder erhalten wurde (Kursquelle `trade`) | eigene Umbuchung zwischen den beiden Kraken-Konten (gleiche Referenz)                           |
+| Krypto gegen Krypto                                      | das abgehende Bein zum Tageskurs, das eingehende spiegelt es                             | eigene Umbuchung (gleiche Referenz)                                                             |
+| Spot ↔ Earn                                             | Tageskurs, beide Beine                                                                   | eigene Umbuchung (gleiche Referenz)                                                             |
+| Staking- / Earn-Ertrag                                   | Tageskurs                                                                                | _Ertrag der Börse_: kein Beleg nötig; das Konto legt ihr mit dem Steuerberater fest             |
+| Gebühr                                                   | zum Kurs ihres Eintrags                                                                  | Gebühr der Börse, 4970                                                                          |
+| Krypto-Einzahlung / -Auszahlung                          | Tageskurs                                                                                | noch nicht: das übernehmen die Wallet-Anbindungen                                               |
+
+Ein Eintrag ohne auffindbaren Kurs bleibt samt seinem Handel draußen. Er wird nach dem Abruf aufgeführt und beim nächsten Mal erneut geholt.
+
+**Hier nicht entschieden**: Gewinne und Verluste beim Verkauf (Anschaffungskosten nach FIFO oder Durchschnitt) und die Bewertung zum Jahresende. Jede Buchung behält Menge, Kurs und Quelle, damit sich das Verfahren des Steuerberaters darauf anwenden lässt.
 
 ## Im Export
 

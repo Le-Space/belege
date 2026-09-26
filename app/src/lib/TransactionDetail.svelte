@@ -36,7 +36,7 @@
 	import { folderSupported, savedFolder } from './receipts/folder.js';
 	import { createBridgeClient } from './bridge/client.js';
 	import { getSetting } from './store/settings.js';
-	import { formatDate, formatMoney } from './bank/format.js';
+	import { accountLabel, formatDate, formatMoney } from './bank/format.js';
 	import { quantityText, valuationText } from './assets/valuation.js';
 	import { receiptDate, receiptVendor } from './receipts/view.js';
 	import { importMailMessages, needsConfirmation } from './receipts/import.js';
@@ -841,7 +841,7 @@
 				{/if}
 				{#if account}
 					<dt class="text-faint">{t('zahlungen.detail.account')}</dt>
-					<dd class="text-heading">{account.name} ···{account.ibanLast4}</dd>
+					<dd class="text-heading">{accountLabel(account)}</dd>
 				{/if}
 				{#if quantityText(tx)}
 					<dt class="text-faint">{t('zahlungen.detail.quantity')}</dt>
@@ -937,7 +937,7 @@
 							{t('zahlungen.detail.ownName', {
 								name: ownName.name,
 								date: formatDate(ownName.other.bookedOn),
-								account: acc ? `${acc.name} ···${acc.ibanLast4}` : '—'
+								account: acc ? `${accountLabel(acc)}` : '—'
 							})}
 						</p>
 						<div class="mt-1.5 flex flex-wrap gap-3">

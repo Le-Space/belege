@@ -2,7 +2,7 @@
 
 _Deutsch: [crypto.de.md](crypto.de.md)_
 
-Belege is getting accounts on exchanges (Kraken first) and wallets on blockchains (Cosmos, EVM, Bitcoin). This page describes the foundation they share. The connectors themselves come in later steps.
+Belege keeps accounts on exchanges (Kraken) and, next, wallets on blockchains (Cosmos, EVM, Bitcoin). This page describes what they share and the Kraken connector.
 
 ## One account per asset
 
@@ -29,11 +29,38 @@ The bridge answers `GET /rates?asset=BTC&date=2026-09-01` (`bridge/src/rates.js`
 
 1. **CoinGecko**, its daily snapshot (`/coins/{id}/history`);
 2. failing that, **Kraken**, the open price of the day's daily candle;
+
+   for a booking **on Kraken** (`prefer=kraken`) the order turns: Kraken's own EUR price first, CoinGecko as the fallback. Kraken then also prices assets Belege does not list yet, by their `<SYMBOL>EUR` pair;
+
 3. for **USD**: the **ECB reference rate** of the day, or the last one before it (weekends, holidays), inverted to EUR per USD.
 
 The request names an asset and a day, nothing about the bookings. Past days are cached in memory. With a CoinGecko demo key in the keychain (account `coingecko`), it is sent as a header.
 
 **Which rate and which valuation method apply is the tax adviser's call.** This includes the accounts for crypto holdings, gains and losses on exchange rates, FIFO or average cost, and valuation at the end of the year. Belege records the rate and its source on every booking, so a different decision can be applied later.
+
+## Kraken
+
+**Set up** (once): on kraken.com create an API key with only **Query Funds** and **Query Ledger Entries**. Then run `pnpm setup:kraken` and paste the API key and the private key into the hidden prompts. If `KRAKEN_API_KEY` and `KRAKEN_PRIVATE_KEY` are in `.env`, the setup offers to take them from there. The key goes into the macOS keychain (account `kraken`), and a test call prints how many assets have a balance, never an amount. Restart the bridge. An optional CoinGecko demo key is set up the same way with `pnpm setup:coingecko` (`COINGECKO_API_KEY`).
+
+**Sync**: _Integrationen → Kraken (Börse) → Kraken synchronisieren_. The bridge reads the ledger (`GET /kraken/ledgers`, paged by `ofs`, 50 entries a page, with a pause and retries on Kraken's rate limit) and the balances (`GET /kraken/balances`). The first sync starts on 1 January; later ones start a week before the last.
+
+**Accounts**: one per asset and wallet: _Kraken EUR_, _Kraken BTC_, _Kraken BTC (Earn)_ for staked or earning balances (Kraken's `.S`, `.M`, … assets). Each needs its ledger account in MonkeyOffice like a bank account (_Eigene Anweisungen_).
+
+**Bookings**: one per ledger entry, plus one for each fee Kraken charged on it (so the fee is visible and booked on 4970).
+
+| Entry                                                | Euro amount                                                                     | Recognised as                                                                        |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| EUR deposit / withdrawal                             | the amount                                                                      | own transfer with the bank booking of the same amount within 4 days (sign: _Kraken_) |
+| buy or sell against EUR (`trade`, `spend`/`receive`) | the crypto leg is worth exactly what was paid or received (rate source `trade`) | own transfer between the two Kraken accounts (same reference)                        |
+| crypto against crypto                                | the outgoing leg at the day's rate, the incoming leg mirrors it                 | own transfer (same reference)                                                        |
+| spot ↔ earn                                         | the day's rate, both legs                                                       | own transfer (same reference)                                                        |
+| staking / earn reward                                | the day's rate                                                                  | _Ertrag der Börse_: no receipt needed; the account is for the tax adviser to decide  |
+| fee                                                  | at the rate of its entry                                                        | exchange fee, 4970                                                                   |
+| crypto deposit / withdrawal                          | the day's rate                                                                  | not yet: the wallet connectors will pair it with the wallet                          |
+
+An entry whose rate cannot be found is left out with the rest of its trade, listed after the sync, and fetched again next time.
+
+**Not decided here**: gains and losses when crypto is sold (acquisition cost by FIFO or average) and the year-end valuation. Every booking keeps quantity, rate and source, so the tax adviser's method can be applied to it.
 
 ## In the export
 

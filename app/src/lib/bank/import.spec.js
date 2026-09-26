@@ -37,12 +37,12 @@ describe('importTransactions', () => {
 				amountCents,
 				counterpartyName: 'Konto B',
 				purpose: 'Auszahlung',
+				movement: 'transfer',
+				txRef: '00ab',
 				crypto: {
 					asset: 'BTC',
 					quantity: '-1500000',
 					decimals: 8,
-					movement: 'transfer',
-					txRef: '00ab',
 					valuation: { rate, currency: 'EUR', source: 'coingecko', at: '2026-09-22T00:00:00Z' }
 				}
 			});

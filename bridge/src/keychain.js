@@ -26,6 +26,8 @@ export const ACCOUNTS = /** @type {const} */ ({
 	hibiscus: { what: 'Hibiscus password', setup: 'setup:hibiscus' },
 	imap: { what: 'mail password', setup: 'setup:mail' },
 	llm: { what: 'LLM API key', setup: 'setup:llm' },
+	kraken: { what: 'Kraken API key', setup: 'setup:kraken' },
+	coingecko: { what: 'CoinGecko API key', setup: 'setup:coingecko' },
 	'portal:vodafone': { what: 'Vodafone password', setup: 'setup:portal vodafone' }
 });
 

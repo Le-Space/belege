@@ -23,6 +23,29 @@ export class BridgeError extends Error {
  */
 
 /**
+ * @typedef {object} KrakenBalance
+ * @property {string} asset symbol
+ * @property {'spot' | 'earn'} wallet
+ * @property {string} amount decimal
+ * @property {number} decimals
+ */
+
+/**
+ * @typedef {object} KrakenLedgerEntry
+ * @property {string} id
+ * @property {string} refid shared by the legs of a trade or a transfer
+ * @property {string} time ISO 8601
+ * @property {string} date YYYY-MM-DD (UTC)
+ * @property {string} type
+ * @property {string} subtype
+ * @property {string} asset symbol
+ * @property {'spot' | 'earn'} wallet
+ * @property {string} amount signed decimal, before the fee
+ * @property {string} fee decimal, charged on top
+ * @property {number} decimals
+ */
+
+/**
  * @param {{ url?: string, token?: string | null, fetch?: typeof fetch }} [options]
  */
 export function createBridgeClient({
@@ -91,7 +114,7 @@ export function createBridgeClient({
 
 	return {
 		url: base,
-		/** @returns {Promise<{ ok: boolean, paired: boolean, pairingOpen: boolean, hibiscus: { configured: boolean }, mail?: { configured: boolean, accountingAddress: string | null }, llm?: { configured: boolean, models: string[] } }>} */
+		/** @returns {Promise<{ ok: boolean, paired: boolean, pairingOpen: boolean, hibiscus: { configured: boolean }, mail?: { configured: boolean, accountingAddress: string | null }, llm?: { configured: boolean, models: string[] }, kraken?: { configured: boolean } }>} */
 		health: () => call('/health'),
 		/** @param {string} code @returns {Promise<string>} the token */
 		async pair(code) {
@@ -166,10 +189,26 @@ export function createBridgeClient({
 		 *
 		 * @param {string} asset a symbol from assets/registry.js, e.g. `BTC`
 		 * @param {string} date YYYY-MM-DD
+		 * @param {{ prefer?: 'kraken' }} [options] a Kraken booking: Kraken's own EUR price first
 		 * @returns {Promise<import('../assets/valuation.js').Rate>}
 		 */
-		rate: (asset, date) =>
-			call(`/rates?asset=${encodeURIComponent(asset)}&date=${encodeURIComponent(date)}`),
+		rate: (asset, date, { prefer } = {}) =>
+			call(
+				`/rates?asset=${encodeURIComponent(asset)}&date=${encodeURIComponent(date)}${prefer ? `&prefer=${prefer}` : ''}`
+			),
+		/**
+		 * Kraken's non-zero balances (bridge/src/kraken.js).
+		 *
+		 * @returns {Promise<{ balances: KrakenBalance[] }>}
+		 */
+		krakenBalances: () => call('/kraken/balances'),
+		/**
+		 * Kraken's ledger from the start of `since` (UTC), oldest first.
+		 *
+		 * @param {string} since YYYY-MM-DD
+		 * @returns {Promise<{ since: string, entries: KrakenLedgerEntry[] }>}
+		 */
+		krakenLedgers: (since) => call(`/kraken/ledgers?since=${encodeURIComponent(since)}`),
 		/**
 		 * "Mit KI weitersuchen": the LLM suggests search words and sender domains
 		 * from the booking (redacted by the bridge), the bridge searches, and the

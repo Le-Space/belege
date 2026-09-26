@@ -123,6 +123,55 @@ describe('rate service', () => {
 		assert.equal(rate.at, '2026-08-28T00:00:00Z');
 	});
 
+	test('prefer kraken: Kraken first, CoinGecko only as the fallback', async () => {
+		const kraken = {
+			error: [],
+			result: { XXBTZEUR: [[DAY_START, '51000.1', '0', '0', '0', '0', '0', 0]], last: DAY_START }
+		};
+		const first = fakeFetch({
+			'https://api.coingecko.com/': coingecko(54321.5, 60000.25),
+			'https://api.kraken.com/0/public/OHLC': kraken
+		});
+		const rate = await createRateService({ fetch: first.fetch, now: NOW }).rate(
+			'BTC',
+			'2026-09-01',
+			{
+				prefer: 'kraken'
+			}
+		);
+		assert.equal(rate.source, 'kraken');
+		assert.equal(rate.rate, '51000.1');
+		assert.equal(first.calls.length, 1);
+		assert.match(first.calls[0], /pair=XBTEUR/);
+
+		const fallback = fakeFetch({
+			'https://api.coingecko.com/': coingecko(54321.5, 60000.25),
+			'https://api.kraken.com/': 503
+		});
+		const second = await createRateService({ fetch: fallback.fetch, now: NOW }).rate(
+			'BTC',
+			'2026-09-01',
+			{ prefer: 'kraken' }
+		);
+		assert.equal(second.source, 'coingecko');
+	});
+
+	test('prefer kraken prices an asset Belege does not list, by its EUR pair', async () => {
+		const { fetch, calls } = fakeFetch({
+			'https://api.kraken.com/0/public/OHLC': {
+				error: [],
+				result: { DOTEUR: [[DAY_START, '3.21', '0', '0', '0', '0', '0', 0]], last: DAY_START }
+			}
+		});
+		const rates = createRateService({ fetch, now: NOW });
+		assert.equal((await rates.rate('DOT', '2026-09-01', { prefer: 'kraken' })).rate, '3.21');
+		assert.match(calls[0], /pair=DOTEUR/);
+		await assert.rejects(
+			rates.rate('DOT', '2026-09-01'),
+			(e) => e instanceof RateError && e.status === 400
+		);
+	});
+
 	test('no source answers: 502', async () => {
 		const { fetch } = fakeFetch({});
 		await assert.rejects(
@@ -188,6 +237,10 @@ describe('GET /rates', () => {
 			assert.equal(ok.status, 200);
 			assert.equal(ok.json.rate, '3.5');
 			assert.equal(ok.json.source, 'coingecko');
+			const bad = await request(port, '/rates?asset=AKT&date=2026-09-01&prefer=binance', {
+				headers: auth
+			});
+			assert.equal(bad.status, 400);
 			const future = await request(port, '/rates?asset=AKT&date=2027-01-01', { headers: auth });
 			assert.equal(future.status, 400);
 		} finally {

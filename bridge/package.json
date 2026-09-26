@@ -17,7 +17,8 @@
 		"./testing/imap": "./test/support/fake-imap.js",
 		"./testing/llm": "./test/support/fake-llm.js",
 		"./testing/pdf": "./test/support/synthetic-pdf.js",
-		"./testing/portal": "./test/support/fake-portal.js"
+		"./testing/portal": "./test/support/fake-portal.js",
+		"./testing/kraken": "./test/support/fake-kraken.js"
 	},
 	"scripts": {
 		"start": "node src/cli.js",
@@ -25,6 +26,8 @@
 		"setup:mail": "node src/setup-mail.js",
 		"setup:llm": "node src/setup-llm.js",
 		"setup:portal": "node src/setup-portal.js",
+		"setup:kraken": "node src/setup-kraken.js",
+		"setup:coingecko": "node src/setup-coingecko.js",
 		"test": "node --test --test-reporter=spec \"test/*.test.js\"",
 		"lint": "prettier --check src test",
 		"format": "prettier --write src test"
