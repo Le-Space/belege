@@ -58,8 +58,23 @@ Ein Krypto-Konto zeigt zusätzlich Menge und Kurs jeder Buchung mit der Quelle d
 
 Bei einem Bankkonto zeigt der Auszug, was Belege gespeichert hat. Den Kontoauszug der Bank ersetzt er nicht.
 
+## Eigenbeleg
+
+Für eine Zahlung ohne Beleg der Gegenseite, etwa Gebühren auf einer Blockchain, die keine Rechnungen ausstellt, bietet die Detailansicht der Zahlung **Eigenbeleg erstellen** (`app/src/lib/receipts/eigenbeleg.js`). Du schreibst, was bezahlt wurde und warum es keinen Beleg gibt; bei einer Krypto-Zahlung ist der Grund schon vorbelegt. Belege erzeugt daraus ein PDF mit:
+
+- eigenem Nummernkreis (`EB-JJJJ-NNN`), Datum, Betrag und Konto;
+- Empfänger bzw. zahlender Seite;
+- bei Krypto: Menge, Kurs mit Quelle und Transaktionsreferenz;
+- was bezahlt wurde und warum es keinen Fremdbeleg gibt;
+- wer ihn wann erstellt hat, mit einer Zeile für die Unterschrift.
+
+Das PDF wird wie ein hochgeladener Beleg gespeichert und der Zahlung als deine Entscheidung zugeordnet. Der Export nummeriert es wie jeden anderen Beleg und legt es in `Belege/`.
+
+Ein Eigenbeleg ist keine Rechnung und berechtigt nicht zum Vorsteuerabzug.
+
 ## Mit der Steuerberatung klären
 
+- Ob und bis zu welchem Betrag Eigenbelege für Zahlungen ohne Beleg anerkannt werden (Blockchain-Gebühren, Lease-Zahlungen).
 - Die **Konten**: der Katalog ist ein Ausgangspunkt (z. B. 4964 heißt „Aufwendungen für die zeitlich befristete Überlassung von Rechten (Lizenzen, Konzessionen)“ – passt das für Software-Abos?).
 - Die **BU-Schlüssel**, vor allem **§13b**: 94 ist der übliche Schlüssel für eine Leistung aus dem Ausland zu 19 %; es gibt andere (etwa für Waren aus der EU). Welche Automatikkonten dein Kontenrahmen hat (8400 und 8300 gelten als solche: kein Schlüssel).
 - **Beraternummer, Mandantennummer**, Sachkontenlänge und Wirtschaftsjahr, wie MonkeyOffice sie führt.

@@ -893,6 +893,7 @@ export default {
 			'needs-receipt': '„Kein Beleg nötig“ zurückgenommen',
 			'confirm-sender': 'Absender freigegeben',
 			'upload-link': 'Beleg hochgeladen und dieser Zahlung zugeordnet',
+			eigenbeleg: 'Eigenbeleg erstellt und zugeordnet',
 			booking: 'Konto übernommen',
 			bookings: 'Automatische Konten übernommen',
 			answer: 'Rückfrage beantwortet: {choice}'
@@ -1033,6 +1034,17 @@ export default {
 			date: 'Buchungstag',
 			quantity: 'Menge',
 			valuation: 'Kurs',
+			eigenbeleg: {
+				open: 'Eigenbeleg erstellen',
+				hint: 'Für eine Zahlung ohne Beleg der Gegenseite, z. B. Gebühren auf einer Blockchain. Er ist keine Rechnung; ob er anerkannt wird, klärt die Steuerberatung.',
+				counterparty: 'Empfänger bzw. zahlende Seite',
+				description: 'Was wurde bezahlt?',
+				reason: 'Warum gibt es keinen Beleg der Gegenseite?',
+				create: 'Eigenbeleg erstellen und zuordnen',
+				creating: 'Erstelle …',
+				cancel: 'Abbrechen',
+				done: 'Eigenbeleg {number} erstellt und dieser Zahlung zugeordnet.'
+			},
 			valueDate: 'Wertstellung',
 			amount: 'Betrag',
 			account: 'Konto',

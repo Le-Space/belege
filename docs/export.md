@@ -58,8 +58,23 @@ A crypto account also shows the quantity and the rate of every booking, with the
 
 For a bank account, the statement lists what Belege holds; it does not replace the bank's own statement.
 
+## Eigenbeleg
+
+For a payment that has no receipt from the other side, for example fees paid on a blockchain that issues no invoices, the detail of the payment offers **Eigenbeleg erstellen** (`app/src/lib/receipts/eigenbeleg.js`). You write what was paid and why there is no receipt; a crypto payment starts with a reason filled in. Belege then draws a PDF with:
+
+- its own number range (`EB-YYYY-NNN`), date, amount and account;
+- the recipient or payer;
+- for a crypto payment: quantity, rate with its source, and the transaction reference;
+- what was paid and why no receipt exists;
+- who wrote it and when, with a line to sign.
+
+The PDF is stored like an uploaded receipt and linked to the payment as your decision. The export numbers it like any other receipt and puts it into `Belege/`.
+
+An Eigenbeleg is not an invoice and gives no input-tax deduction.
+
 ## To check with the tax adviser
 
+- Whether, and up to which amount, Eigenbelege are accepted for payments without a receipt (blockchain fees, lease payments).
 - The **accounts**: the catalogue is a starting point (e.g. 4964 is "Aufwendungen für die zeitlich befristete Überlassung von Rechten (Lizenzen, Konzessionen)" – right for software subscriptions?).
 - The **BU keys**, above all **§13b**: 94 is the usual key for a service from abroad at 19 %; others (e.g. for goods from the EU) exist. Which Automatikkonten your chart has (8400 and 8300 are treated as such: no key).
 - **Beraternummer, Mandantennummer**, Sachkontenlänge and fiscal year, as MonkeyOffice has them.
