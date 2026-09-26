@@ -21,6 +21,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- Nym/Cosmos wallets: the sync failed on real nodes with _the node refused tx_search: … cannot unmarshal string into Go value of type bool_. `tx_search` sent `prove` as the string `"false"`; CometBFT's JSON-RPC takes integers as strings but a bool only as a JSON bool. The fake node in the tests is now as strict.
+
 - **A re-sync no longer "updates" every crypto booking.** The store hands records back with their keys sorted, so a booking's `valuation` compared unequal to the same valuation just computed; Kraken and wallet syncs counted every known crypto booking as updated and rewrote it.
 - **The bridge's test mode never reads the macOS keychain.** The Kraken key and an optional CoinGecko key come from `BELEGE_BRIDGE_TEST_KRAKEN_KEY` and `BELEGE_BRIDGE_TEST_COINGECKO_KEY` like the other test secrets; before, a test bridge with Kraken set up asked the real keychain.
 
