@@ -520,6 +520,53 @@ describe('which wallet bookings need no receipt', () => {
 		});
 	});
 
+	it('to an own wallet: the counter account is the one of the same asset', async () => {
+		const addr = '0x' + 'ef'.repeat(20);
+		const evmAccounts = [
+			{
+				id: 'acc-own-eth',
+				source: 'ethereum',
+				name: 'Wallet ETH',
+				walletAddress: addr,
+				asset: 'ETH'
+			},
+			{
+				id: 'acc-own-usdc',
+				source: 'ethereum',
+				name: 'Wallet USDC',
+				walletAddress: addr,
+				asset: 'USDC'
+			},
+			{
+				id: 'acc-mine',
+				source: 'ethereum',
+				name: 'Wallet USDC (other)',
+				walletAddress: '0x' + '12'.repeat(20),
+				asset: 'USDC'
+			}
+		];
+		const send = {
+			id: 'u1',
+			accountId: 'acc-mine',
+			source: 'ethereum',
+			bookedOn: '2026-09-05',
+			currency: 'EUR',
+			movement: 'transfer',
+			asset: 'USDC',
+			amountCents: -900,
+			counterpartyAddress: addr,
+			txRef: fakeHash('usdc to own', true)
+		};
+		const ctx = await context([send], evmAccounts);
+		expect(classifyTransaction(send, ctx)).toMatchObject({
+			via: 'own-address',
+			counterAccountId: 'acc-own-usdc'
+		});
+		// An asset the other wallet has no account of yet: its first account.
+		const dai = { ...send, id: 'd1', asset: 'DAI' };
+		expect(classifyTransaction(dai, ctx)).toMatchObject({ counterAccountId: 'acc-own-eth' });
+	});
+
 	it('network fees, staking rewards and delegations', async () => {
 		const ctx = await context([]);
 		const fee = booking({ id: 'f', accountId: 'acc-a', movement: 'fee', amountCents: -1 });
