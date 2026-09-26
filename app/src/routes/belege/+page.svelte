@@ -5,7 +5,6 @@
 	// shared folder and from customer portals (Integrationen → Kundenportale);
 	// every file is sealed before it is stored.
 	import { onMount, tick } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
@@ -30,7 +29,14 @@
 	import { getSetting } from '$lib/store/settings.js';
 	import { formatDate, formatMoney } from '$lib/bank/format.js';
 	import { fetchAccountingMail, importFiles, needsConfirmation } from '$lib/receipts/import.js';
-	import { extractReceipt, extractable } from '$lib/receipts/extract.js';
+	import { extractable } from '$lib/receipts/extract.js';
+	import {
+		cancelExtractAll,
+		extractAll,
+		extractOne,
+		extractRun,
+		reading
+	} from '$lib/receipts/extract-queue.svelte.js';
 	import { extractionHow } from '$lib/receipts/how.js';
 	import {
 		confirmSender as confirmSenderAction,
@@ -98,11 +104,18 @@
 	/** @type {any} */
 	let folderHandle = $state(null);
 
-	const busy = new SvelteSet(/** @type {string[]} */ ([]));
-	/** @type {{ done: number, count: number } | null} */
-	let bulk = $state(null);
-	/** @type {Record<string, string>} */
-	let extractErrors = $state({});
+	// Reading with the model runs app-wide (receipts/extract-queue.svelte.js):
+	// it goes on, and shows where it is, when this page is left and opened again.
+	/** @returns {import('$lib/receipts/extract-queue.svelte.js').Context | null} */
+	const queueContext = () =>
+		client
+			? {
+					client,
+					store: currentStore,
+					blobs: currentBlobs,
+					refresh: refreshNow
+				}
+			: null;
 
 	let receipts = $derived(/** @type {Receipt[]} */ (app.receipts));
 	let counts = $derived(sourceCounts(receipts));
@@ -333,41 +346,22 @@
 		folderHandle = null;
 	}
 
-	/** @param {Receipt} record @param {boolean} [match] run the matching afterwards */
-	async function extract(record, match = true) {
-		const store = currentStore();
-		const blobs = currentBlobs();
-		if (!store || !blobs || !client) return;
-		busy.add(record.id);
-		const rest = { ...extractErrors };
-		delete rest[record.id];
-		extractErrors = rest;
-		try {
-			await extractReceipt({
-				client,
-				receipts: store.receipts,
-				blobs,
-				record,
-				events: store.events
-			});
-		} catch (error) {
-			extractErrors = { ...extractErrors, [record.id]: message(error) };
-		} finally {
-			busy.delete(record.id);
-			await refreshNow();
-		}
-		if (match) await runMatchingNow();
+	/** @param {Receipt} record */
+	async function extract(record) {
+		const ctx = queueContext();
+		if (ctx && (await extractOne(ctx, record))) await runMatchingNow();
 	}
 
-	async function extractAll() {
-		const pending = [...todo];
-		bulk = { done: 0, count: pending.length };
-		for (const record of pending) {
-			await extract(record, false);
-			bulk = { done: (bulk?.done ?? 0) + 1, count: pending.length };
-		}
-		await runMatchingNow();
-		bulk = null;
+	async function startExtractAll() {
+		const ctx = queueContext();
+		if (!ctx) return;
+		if (
+			await extractAll(
+				ctx,
+				todo.map((r) => r.id)
+			)
+		)
+			await runMatchingNow();
 	}
 
 	/** @param {Receipt} record */
@@ -466,7 +460,7 @@
 
 	/** @param {Receipt} r */
 	function extractionNote(r) {
-		if (extractErrors[r.id]) return extractErrors[r.id];
+		if (extractRun.errors[r.id]) return extractRun.errors[r.id];
 		if (r.extractionError === 'image' || (String(r.mime).startsWith('image/') && !r.extraction)) {
 			return t('belege.imageGap');
 		}
@@ -670,18 +664,33 @@
 						class="min-w-40 flex-1 rounded-md border px-3 py-1.5 text-sm"
 						data-testid="receipt-search"
 					/>
-					{#if client && todo.length > 0}
+					{#if client && (todo.length > 0 || extractRun.progress)}
 						<button
 							type="button"
 							class="inline-flex items-center gap-1.5 {button}"
-							onclick={extractAll}
-							disabled={bulk !== null}
+							onclick={startExtractAll}
+							disabled={extractRun.progress !== null}
 							title={t('ai.extract')}
 							data-testid="extract-all"
-							><AiMark />{bulk
-								? t('belege.extracting', { done: bulk.done, count: bulk.count })
+							><AiMark />{extractRun.progress
+								? t('belege.extracting', {
+										done: extractRun.progress.done,
+										count: extractRun.progress.count
+									})
 								: t('belege.extractAll', { count: todo.length })}</button
 						>
+						{#if extractRun.progress}
+							<button
+								type="button"
+								class="text-sm text-faint underline hover:text-heading"
+								onclick={cancelExtractAll}
+								disabled={extractRun.cancelling}
+								data-testid="extract-all-cancel"
+								>{extractRun.cancelling
+									? t('belege.extractCancelling')
+									: t('belege.extractCancel')}</button
+							>
+						{/if}
 					{/if}
 				</div>
 
@@ -1064,10 +1073,10 @@
 								type="button"
 								class="mt-3 inline-flex items-center gap-1.5 {primary}"
 								onclick={() => selected && extract(selected)}
-								disabled={busy.has(selected.id) || bulk !== null}
+								disabled={reading.has(selected.id)}
 								title={t('ai.extract')}
 								data-testid="extract"
-								><AiMark />{busy.has(selected.id)
+								><AiMark />{reading.has(selected.id)
 									? t('belege.extractBusy')
 									: selected.extraction
 										? t('belege.extractAgain')

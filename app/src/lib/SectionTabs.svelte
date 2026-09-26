@@ -11,6 +11,7 @@
 	import { resolve } from '$app/paths';
 	import { t } from './i18n/index.js';
 	import SectionIcon from './SectionIcon.svelte';
+	import { extractRun } from './receipts/extract-queue.svelte.js';
 
 	const TABS = /** @type {const} */ ([
 		{ href: '/', icon: 'home', label: 'nav.home' },
@@ -41,6 +42,17 @@
 				>
 					<SectionIcon name={tab.icon} />
 					<span class="max-w-full truncate">{t(tab.label)}</span>
+					{#if tab.icon === 'belege' && extractRun.progress}
+						<span
+							class="rounded bg-surface-2 px-1 font-mono text-[10px] text-text tabular-nums sm:text-xs"
+							title={t('belege.extracting', {
+								done: extractRun.progress.done,
+								count: extractRun.progress.count
+							})}
+							data-testid="tab-extract-progress"
+							>{extractRun.progress.done}/{extractRun.progress.count}</span
+						>
+					{/if}
 				</a>
 			</li>
 		{/each}

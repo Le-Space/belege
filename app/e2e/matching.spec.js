@@ -190,7 +190,18 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await expect(page.getByTestId('mail-result')).toHaveText(
 		'6 E-Mails · neu: 6 · schon vorhanden: 0 · doppelt: 0'
 	);
+	// A slow model: the run goes on while the person looks at another page,
+	// shows where it is on return, and does not start a second time.
+	llm.setDelay(600);
 	await page.getByTestId('extract-all').click();
+	await expect(page.getByTestId('tab-extract-progress')).toBeVisible();
+	await tab('Export').click();
+	await expect(page.getByTestId('tab-extract-progress')).toBeVisible();
+	await tab('Belege').click();
+	await expect(page.getByTestId('extract-all')).toBeDisabled();
+	await expect(page.getByTestId('extract-all')).toContainText('Lese aus');
+	await expect(page.getByTestId('extract-all-cancel')).toBeVisible();
+	llm.setDelay(0);
 	const receipts = page.getByTestId('receipt');
 	const wolke = receipts.filter({ hasText: NAMES.wolke });
 	await expect(wolke.getByTestId('receipt-status')).toHaveText('Zugeordnet');

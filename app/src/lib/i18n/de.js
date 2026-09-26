@@ -705,6 +705,8 @@ export default {
 		searchPlaceholder: 'Suchen: Anbieter, Betrag, Datum, Rechnungsnummer',
 		extractAll: 'Alle neuen auslesen ({count})',
 		extracting: 'Lese aus … {done}/{count}',
+		extractCancel: 'Abbrechen',
+		extractCancelling: 'Bricht nach diesem Beleg ab …',
 		list: 'Belegliste',
 		noMatches: 'Keine Belege für diese Auswahl.',
 		noDate: 'Ohne Datum',
