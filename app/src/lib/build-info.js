@@ -2,7 +2,18 @@
 // Changed: only `builtFrom` and `shortCommit`; this app shows no dependency
 // versions.
 
-/* global __BUILD_COMMIT__, __BUILD_DATE__ */
+/* global __BUILD_COMMIT__, __BUILD_DATE__, __BUILD_RELEASE__ */
+
+/**
+ * The release name baked in by vite.config.js: `v0.2.0`, `v0.2.0+3` (three
+ * commits after v0.2.0), or '' when unknown.
+ *
+ * @returns {string}
+ */
+export function releaseName() {
+	const r = typeof __BUILD_RELEASE__ === 'string' ? __BUILD_RELEASE__.trim() : '';
+	return /^v\d+\.\d+\.\d+(\+\d+)?$/.test(r) ? r : '';
+}
 
 /**
  * What this bundle was built from: the commit, and that commit's instant.

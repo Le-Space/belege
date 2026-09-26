@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **The release in the footer, and releases that count up.** The footer shows `v0.2.1` (a build of the release tag) or `v0.2.1+3` (three commits after it), linked to the GitHub release. `release.yml` without a version counts up from the last tag (`bump`: patch, minor or major).
+
 - **✦ KI-Vorschlag under "Beleg zuordnen".** When the list of receipts to choose from is long, the model gets the booking (counterparty, purpose, amount, day) and up to 25 receipts nearest by amount and date as their read fields (vendor, amount, currency, date, invoice number, summary), redacted by the bridge (`POST /match/assist`), and names the one that fits with a short reason; the person links. What was sent is shown; the Verlauf logs it. Listed on the consent screen, in the README and in `docs/ai.md`.
 
 - **Your own chart of accounts.** _Eigene Anweisungen → Kontenplan einlesen_ reads a DATEV _Kontenbeschriftungen_ file (MonKey Office: Import & Export → Export DATEV → Kontenbeschriftungen) or any CSV with account numbers and names, UTF-8 or Windows-1252, shows a preview and keeps it sealed. "Konto" then suggests those accounts with their names and marks numbers outside the chart. An info icon and _Wie komme ich an die Datei?_ explain the export for MonKey Office and others.

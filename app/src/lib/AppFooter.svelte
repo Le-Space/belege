@@ -14,13 +14,14 @@
 	// Then what is deployed: the commit and its instant, in the reader's locale,
 	// clock and zone, UTC on hover (the Le-Space time and date convention).
 	import { resolve } from '$app/paths';
-	import { builtFrom, SOURCE_URL } from './build-info.js';
+	import { builtFrom, releaseName, SOURCE_URL } from './build-info.js';
 	import { consent } from './consent.js';
 	import { t } from './i18n/index.js';
 	import { describeMoment } from './moment.js';
 	import { app } from './session.svelte.js';
 
 	const build = builtFrom();
+	const release = releaseName();
 	// Formatted here, in the browser: only the reader's browser knows their
 	// locale, clock and zone.
 	const moment = build ? describeMoment(build.when) : null;
@@ -93,6 +94,22 @@
 			</svg>
 			<span class="underline">Le Space</span>
 		</a>
+		{#if release}
+			<span aria-hidden="true">·</span>
+			<a
+				href="{SOURCE_URL}/releases/tag/{release.split('+')[0]}"
+				target="_blank"
+				rel="noopener noreferrer"
+				class="underline hover:text-heading"
+				title={release.includes('+')
+					? t('footer.releaseAfter', {
+							release: release.split('+')[0],
+							count: release.split('+')[1]
+						})
+					: t('footer.releaseExact')}
+				data-testid="release">{release}</a
+			>
+		{/if}
 		{#if build && moment}
 			<span aria-hidden="true">·</span>
 			<span data-testid="build-stamp"
