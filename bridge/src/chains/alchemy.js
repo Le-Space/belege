@@ -17,7 +17,9 @@
 //   eth_getTransactionReceipt   address as its sender: who sent it (a token
 //                               can leave by transferFrom in someone else's
 //                               transaction), its nonce, and the gas it
-//                               cost: gasUsed × effectiveGasPrice
+//                               cost: gasUsed × effectiveGasPrice;
+//                               for value received, the receipt only: a
+//                               reverted transaction books nothing
 //   eth_blockNumber,            what the transfers cannot show: a transaction
 //   eth_getTransactionCount,    this address sent that moved nothing (it
 //   eth_getBlockByNumber        failed, or was an approval). The nonce counts
@@ -312,11 +314,59 @@ export function createAlchemyReader({
 
 		await findHidden({ url, key, address, sent });
 
+		// Value received from someone else's transaction: whether it went through.
+		// Alchemy was not seen to list a reverted one, but does not say it never does.
+		const received = [
+			...new Set(
+				all
+					.filter(
+						(t) =>
+							t.category === 'external' &&
+							lowerAddress(t.to) === address &&
+							!sent.has(lowerAddress(t.hash))
+					)
+					.map((t) => lowerAddress(t.hash))
+			)
+		];
+		const receivedReceipts = await batch(
+			url,
+			key,
+			received.map((hash) => ({ method: 'eth_getTransactionReceipt', params: [hash] }))
+		);
+		/** @type {Map<string, any>} */
+		const receiptOf = new Map();
+		received.forEach((hash, i) => {
+			if (!receivedReceipts[i]) {
+				throw new WalletError(
+					'Alchemy has no receipt for a transaction it listed',
+					'WALLET_ALCHEMY'
+				);
+			}
+			receiptOf.set(hash, receivedReceipts[i]);
+		});
+
+		/**
+		 * A receipt's outcome. Receipts from before Byzantium (Ethereum block
+		 * 4 370 000, October 2017) carry no `status`: whether such a
+		 * transaction went through is unknown here (Blockscout knows it from
+		 * its traces). Its gas is booked – it was paid either way – its value
+		 * is not, and the wallet's result counts it (`unknownStatus`).
+		 *
+		 * @param {any} receipt
+		 * @returns {'ok' | 'failed' | 'unknown'}
+		 */
+		const outcome = (receipt) =>
+			receipt.status === '0x1' ? 'ok' : receipt.status === '0x0' ? 'failed' : 'unknown';
+		let unknownStatus = 0;
+
 		/** @type {any[]} */
 		const normal = [];
 		for (const [hash, { tx, receipt, time }] of sent) {
-			const ok = receipt.status !== '0x0';
+			const state = outcome(receipt);
+			if (state === 'unknown') unknownStatus++;
+			const ok = state !== 'failed';
 			normal.push({
+				...(state === 'unknown' ? { statusUnknown: true } : {}),
 				hash,
 				blockNumber: dec(receipt.blockNumber),
 				timeStamp: time,
@@ -345,7 +395,9 @@ export function createAlchemyReader({
 			};
 			if (t.category === 'external') {
 				// Sent ones come from the transaction itself, above.
-				if (!sent.has(hash)) {
+				const state = sent.has(hash) ? null : outcome(receiptOf.get(hash));
+				if (state === 'unknown') unknownStatus++;
+				if (state === 'ok') {
 					normal.push({
 						...base,
 						hash,
@@ -388,7 +440,7 @@ export function createAlchemyReader({
 				balances.set(contract, BigInt(b.tokenBalance));
 			}
 		}
-		return { normal, internal, tokens, balances };
+		return { normal, internal, tokens, balances, unknownStatus };
 	}
 
 	/**

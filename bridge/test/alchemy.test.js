@@ -23,6 +23,7 @@ import {
 	FAKE_ALCHEMY_KEY,
 	blockscoutView,
 	evmChain,
+	fakeTx,
 	startFakeAlchemy
 } from './support/fake-alchemy.js';
 import { request } from './support/http.js';
@@ -86,8 +87,8 @@ describe('reading an EVM wallet through Alchemy', () => {
 		assert.ok(byId.has(id('a-twice', `erc20:${EVM.usdc}:${EVM.friend}:${EVM.wallet}:1000000:0`)));
 		assert.ok(byId.has(id('a-twice', `erc20:${EVM.usdc}:${EVM.friend}:${EVM.wallet}:1000000:1`)));
 		// Internal: by Alchemy's trace address, with a prefix of its own.
-		assert.equal(byId.get(id('a-contract-pays', 'internal:trace:0'))?.amount, '0.02');
-		assert.equal(byId.get(id('a-contract-pays', 'internal:trace:1-0'))?.amount, '0.005');
+		assert.equal(byId.get(id('a-contract-pays', 'internal:trace:3_0'))?.amount, '0.02');
+		assert.equal(byId.get(id('a-contract-pays', 'internal:trace:0_3_0'))?.amount, '0.005');
 		// The token that calls itself USDC is counted, not booked.
 		assert.equal(r.unknownAssets, 1);
 		assert.ok(r.entries.every((e) => e.hash !== hashOf('a-spam')));
@@ -104,6 +105,72 @@ describe('reading an EVM wallet through Alchemy', () => {
 			[...heights].sort((a, b) => a - b)
 		);
 		assert.equal(r.addressUrl, `https://etherscan.io/address/${EVM.wallet}`);
+	});
+
+	test('value received in a reverted transaction is not booked, even when Alchemy lists it', async () => {
+		const txs = [
+			...evmChain(),
+			fakeTx({
+				seed: 'a-reverted-in',
+				block: 800,
+				from: EVM.friend,
+				to: EVM.wallet,
+				value: 70000000000000000n,
+				ok: false
+			})
+		];
+		const fake = await startFakeAlchemy({ txs, listFailedExternal: true });
+		try {
+			const r = await clientFor(fake).history({
+				chain: ethereum,
+				address: EVM.wallet,
+				endpoints: ethereum.endpoints
+			});
+			assert.ok(r.entries.every((e) => e.hash !== hashOf('a-reverted-in')));
+			// Its receipt was asked, in the batch with the other received ones.
+			const receipts = fake.calls.filter((c) => c.method === 'eth_getTransactionReceipt');
+			assert.ok(receipts.some((c) => c.params[0] === hashOf('a-reverted-in')));
+			assert.ok(receipts.some((c) => c.params[0] === hashOf('a-eth-in')));
+			assert.equal(r.entries.find((e) => e.id === `${hashOf('a-eth-in')}:value`)?.amount, '0.5');
+		} finally {
+			await fake.close();
+		}
+	});
+
+	test('receipts without a status (before Byzantium): gas booked, value not, and counted', async () => {
+		const txs = [
+			fakeTx({
+				seed: 'a-old-in',
+				block: 110,
+				from: EVM.friend,
+				to: EVM.wallet,
+				value: 300000000000000000n,
+				preByzantium: true
+			}),
+			fakeTx({
+				seed: 'a-old-out',
+				block: 120,
+				from: EVM.wallet,
+				to: EVM.friend,
+				value: 100000000000000000n,
+				preByzantium: true
+			})
+		];
+		const fake = await startFakeAlchemy({ txs });
+		try {
+			const r = await clientFor(fake).history({
+				chain: ethereum,
+				address: EVM.wallet,
+				endpoints: ethereum.endpoints
+			});
+			assert.deepEqual(
+				r.entries.map((e) => [e.id, e.amount, e.success]),
+				[[`${hashOf('a-old-out')}:fee`, '-0.000021', true]]
+			);
+			assert.equal(r.unknownStatus, 2);
+		} finally {
+			await fake.close();
+		}
 	});
 
 	test('asks the way the API wants it: both directions, the categories, metadata, asc, batches', async () => {
@@ -186,7 +253,7 @@ describe('reading an EVM wallet through Alchemy', () => {
 				entries.filter((e) => e.id.includes(':internal:'));
 			assert.deepEqual(
 				internal(viaAlchemy.entries).map((e) => e.id.split(':internal:')[1]),
-				['trace:0', 'trace:1-0']
+				['trace:3_0', 'trace:0_3_0']
 			);
 			assert.deepEqual(
 				internal(viaScout.entries).map((e) => e.id.split(':internal:')[1]),

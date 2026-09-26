@@ -145,6 +145,8 @@ export function normalizeEvm({ normal, internal, tokens }, { address, chain }) {
 		const from = String(raw.from ?? '').toLowerCase();
 		const to = String(raw.to ?? '').toLowerCase();
 		const failed = raw.isError === '1' || raw.txreceipt_status === '0';
+		// Alchemy, a receipt from before Byzantium: no status, so no value; the gas was paid.
+		const unknown = raw.statusUnknown === true;
 		const order = `${pad(raw.blockNumber)}:${pad(raw.transactionIndex)}`;
 		if (from === address) {
 			const gasUsed = bigintOf(raw.gasUsed);
@@ -167,7 +169,7 @@ export function normalizeEvm({ normal, internal, tokens }, { address, chain }) {
 			}
 		}
 		const value = bigintOf(raw.value) ?? 0n;
-		if (failed || value === 0n || (from === address) === (to === address)) continue;
+		if (failed || unknown || value === 0n || (from === address) === (to === address)) continue;
 		const out = from === address;
 		push(raw, hash, `${order}:1`, `${hash}:value`, {
 			type: out ? 'sent' : 'received',
@@ -451,6 +453,8 @@ export function createEvmClient({
 					balances,
 					transactions: new Set(entries.map((e) => e.hash)).size,
 					unknownAssets: unknownTokens.length,
+					// transactions whose receipt has no status (before Byzantium): gas booked, value not
+					unknownStatus: read.unknownStatus,
 					history: { earliestHeight: 0, earliestTime: null, pruned: false },
 					addressUrl: addressUrl(chain.explorer, address)
 				};

@@ -651,8 +651,8 @@ describe('changing the source of an EVM wallet books nothing twice', () => {
 			{ sourceId: `${hash}:value`, txRef: hash, quantity: '5', counterpartyAddress: EVM.contract }
 		];
 		const out = reconcileSourceIds(stored, [
-			incoming(`${hash}:internal:trace:0`, '5'),
-			incoming(`${hash}:internal:trace:1-0`, '5'),
+			incoming(`${hash}:internal:trace:3_0`, '5'),
+			incoming(`${hash}:internal:trace:0_3_0`, '5'),
 			incoming(`${hash}:internal:trace:2`, '5')
 		]);
 		expect(out.map((t) => t.sourceId)).toEqual([

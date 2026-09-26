@@ -26,6 +26,7 @@ import { EVM, fakeEvmAddress, fakeHash } from './fake-chains.js';
  * @property {bigint} gasUsed
  * @property {bigint} gasPrice the effective one
  * @property {boolean} ok
+ * @property {boolean} [preByzantium] its receipt carries no `status`
  * @property {FakeInternal[]} internal Alchemy's trace address and Blockscout's index of each
  * @property {FakeLog[]} logs ERC-20 Transfer events
  */
@@ -144,8 +145,8 @@ export function evmChain({ fillerTransfers = 0 } = {}) {
 			from: EVM.friend,
 			to: EVM.contract,
 			internal: [
-				{ trace: '0', index: '1', from: EVM.contract, to: w, value: 20000000000000000n },
-				{ trace: '1-0', index: '3', from: EVM.contract, to: w, value: 5000000000000000n }
+				{ trace: '3_0', index: '1', from: EVM.contract, to: w, value: 20000000000000000n },
+				{ trace: '0_3_0', index: '3', from: EVM.contract, to: w, value: 5000000000000000n }
 			]
 		}),
 		fakeTx({
@@ -277,6 +278,8 @@ const invalid = (/** @type {string} */ nth, /** @type {string} */ why) =>
  * @param {number} [options.rateLimitedRequests] this many HTTP requests answer 429 first
  * @param {number} [options.rateLimitedItems] this many batch items answer error 429 (in a 200) first
  * @param {Record<string, number>} [options.chainIds] a network answering another chain id
+ * @param {boolean} [options.listFailedExternal] list the value of a reverted transaction as a
+ *   transfer (not seen at Alchemy, but not ruled out either)
  */
 export async function startFakeAlchemy({
 	txs = evmChain(),
@@ -285,6 +288,7 @@ export async function startFakeAlchemy({
 	deniedNetworks = [],
 	rateLimitedRequests = 0,
 	rateLimitedItems = 0,
+	listFailedExternal = false,
 	chainIds = {}
 } = {}) {
 	/** @type {{ network: string, method: string, params: any, url: string }[]} */
@@ -331,7 +335,9 @@ export async function startFakeAlchemy({
 		transactionIndex: hex(t.index),
 		from: t.from,
 		to: t.to,
-		status: t.ok ? '0x1' : '0x0',
+		...(t.preByzantium
+			? { root: fakeHash(`root ${t.hash}`, true) }
+			: { status: t.ok ? '0x1' : '0x0' }),
 		gasUsed: hex(t.gasUsed),
 		cumulativeGasUsed: hex(t.gasUsed),
 		effectiveGasPrice: hex(t.gasPrice),
@@ -348,7 +354,8 @@ export async function startFakeAlchemy({
 		/** @type {any[]} */
 		const out = [];
 		for (const t of sorted) {
-			if (!t.ok) continue; // a reverted transaction moved nothing
+			// A reverted transaction moved nothing – at most its value is listed anyway.
+			if (!t.ok && !(listFailedExternal && t.value > 0n)) continue;
 			const common = {
 				blockNum: hex(t.block),
 				hash: t.hash,
@@ -369,6 +376,7 @@ export async function startFakeAlchemy({
 					rawContract: { value: hex(t.value), address: null, decimal: '0x12' }
 				});
 			}
+			if (!t.ok) continue;
 			if (NETWORKS[/** @type {keyof typeof NETWORKS} */ (network)].internal) {
 				for (const i of t.internal) {
 					out.push({

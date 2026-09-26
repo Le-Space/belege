@@ -440,7 +440,7 @@ export function createBridgeServer({
 			const body = /** @type {any} */ (await readJson(req));
 			const result = await wallets.sync({ ...body, chain: walletPath[1] });
 			log(
-				`${result.chain}: ${result.transactions} transaction(s), ${result.entries.length} entries, ${result.balances.length} balance(s), ${result.unknownAssets} unknown asset(s)`
+				`${result.chain}: ${result.transactions} transaction(s), ${result.entries.length} entries, ${result.balances.length} balance(s), ${result.unknownAssets} unknown asset(s)${result.unknownStatus ? `, ${result.unknownStatus} without a receipt status (value not booked)` : ''}`
 			);
 			return send(res, 200, result);
 		}
