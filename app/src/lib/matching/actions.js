@@ -292,6 +292,22 @@ export async function confirmSender(store, receiptId, { log = true } = {}) {
 }
 
 /**
+ * "Ist in Ordnung": a person looked at a receipt the scam check flagged
+ * (receipts/scam.js) and says it is genuine; the hint goes for this receipt.
+ *
+ * @param {MatchingStore} store
+ * @param {string} receiptId
+ * @param {{ log?: boolean }} [options]
+ */
+export async function clearScam(store, receiptId, { log = true } = {}) {
+	const r = await store.receipts.get(receiptId);
+	if (!r) throw new Error('No receipt to clear.');
+	const record = await store.receipts.put({ ...r, scamCleared: true });
+	if (log) await decided(store, 'scam-cleared', { receiptId });
+	return record;
+}
+
+/**
  * @typedef {{ choice: 'candidate', receiptId?: string, transactionId?: string }
  *   | { choice: 'none' }
  *   | { choice: 'no-receipt', reason?: string }

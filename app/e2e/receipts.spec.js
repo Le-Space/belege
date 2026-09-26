@@ -159,6 +159,9 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	// "E-Mails abrufen": this month and the last, the accounting mails only.
 	await tab('Belege').click();
 	await expect(page.getByTestId('mail-fetch')).toBeEnabled();
+	// Reading by hand is what this spec shows: switched off, and kept off.
+	await page.getByTestId('mail-read-after').uncheck();
+	await expect(page.getByTestId('mail-read-after')).not.toBeChecked();
 	await page.getByTestId('mail-fetch').click();
 	await expect(page.getByTestId('mail-result')).toHaveText(
 		'6 E-Mails · neu: 6 · schon vorhanden: 0 · doppelt: 0'
@@ -284,11 +287,17 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	await expect(phish.getByTestId('receipt-status')).toHaveText('Rückfrage');
 	await phish.click();
 	await expect(detail.getByTestId('sender-warning')).toContainText('nicht bestanden');
+	// The scam hint names the same reason, as a hint; the list marks it.
+	await expect(phish.getByTestId('receipt-scam')).toHaveText('Verdacht');
+	await expect(detail.getByTestId('scam-signs').locator('[data-code="auth-fail"]')).toBeVisible();
 	await expect(detail.getByTestId('preview-pdf')).toHaveCount(0);
 	await expect(detail.getByTestId('extract')).toHaveCount(0);
 	await expect(detail.getByTestId('field-verdict')).toHaveText('nicht bestanden');
 	await detail.getByTestId('confirm-sender').click();
 	await expect(detail.getByTestId('sender-warning')).toHaveCount(0);
+	// Released by the person: the failed check is no longer held against it.
+	await expect(detail.getByTestId('scam-warning')).toHaveCount(0);
+	await expect(phish.getByTestId('receipt-scam')).toHaveCount(0);
 	await expect(detail.getByTestId('preview-pdf')).toHaveAttribute('data-rendered', 'true');
 	await expect(detail.getByTestId('extract')).toBeVisible();
 

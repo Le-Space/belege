@@ -6,7 +6,14 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { memoryCollection } from '../bank/test-support.js';
 import { setSetting } from '../store/settings.js';
 import { receipt, tx } from './fixtures.js';
-import { answerQuestion, confirmMatch, rejectPairs, setNoReceipt, unlinkMatch } from './actions.js';
+import {
+	answerQuestion,
+	clearScam,
+	confirmMatch,
+	rejectPairs,
+	setNoReceipt,
+	unlinkMatch
+} from './actions.js';
 import { runMatching } from './engine.js';
 
 /** @type {Record<string, { collection: import('../store/repository.js').Collection, docs: Map<string, any> }>} */
@@ -229,6 +236,70 @@ describe('runMatching', () => {
 		expect((await store.receipts.get(r.card.id))?.status).toBe('ausgelesen');
 		expect((await store.receipts.get(r.reminder.id))?.status).toBe('ausgelesen');
 		expect((await store.transactions.get(t.fee.id))?.receiptId ?? null).toBeNull();
+	});
+
+	it('a receipt that looks like a scam is asked about, not linked; "Ist in Ordnung" lets it link', async () => {
+		const t = await add(
+			'transactions',
+			tx({
+				bookedOn: '2026-08-20',
+				amountCents: -11900,
+				counterparty: 'Wolkenfabrik Hosting GmbH',
+				purpose: 'Rechnung WF-2026-081'
+			})
+		);
+		const r = await add(
+			'receipts',
+			receipt(
+				{
+					vendor: 'Wolkenfabrik Hosting GmbH',
+					gross: 119,
+					invoice_date: '2026-08-18',
+					invoice_number: 'WF-2026-081'
+				},
+				// The sender check failed and the sender was not released: a strong sign.
+				{ authVerdict: 'fail', confirmedByUser: true, from: 'x <rechnung@wolkenfabrik.example>' }
+			)
+		);
+		// Released by a person, the failed check alone is no sign: linked as usual.
+		await runMatching({ store });
+		expect((await active()).map((m) => m.receiptId)).toEqual([r.id]);
+
+		const r2 = await add(
+			'receipts',
+			receipt(
+				{
+					vendor: 'Wolkenfabrik Hosting GmbH',
+					gross: 119,
+					invoice_date: '2026-08-18',
+					invoice_number: 'WF-2026-082'
+				},
+				{
+					from: 'x <rechnung@gmx.de>',
+					subject: 'Letzte Mahnung – sofort zahlen',
+					extractionSent: '[LINK pay-now.example]'
+				}
+			)
+		);
+		const t2 = await add(
+			'transactions',
+			tx({
+				bookedOn: '2026-08-21',
+				amountCents: -11900,
+				counterparty: 'Wolkenfabrik Hosting GmbH',
+				purpose: 'Rechnung WF-2026-082'
+			})
+		);
+		await runMatching({ store });
+		expect((await active()).some((m) => m.receiptId === r2.id)).toBe(false);
+		const asked = (await open()).find((q) => q.receiptId === r2.id);
+		expect(asked?.kind).toBe('unsure-match');
+		expect(asked?.candidates.map((/** @type {any} */ c) => c.transactionId)).toContain(t2.id);
+
+		await clearScam(store, r2.id);
+		await runMatching({ store });
+		expect((await active()).some((m) => m.receiptId === r2.id)).toBe(true);
+		expect(t.id).toBeTruthy();
 	});
 
 	it('is idempotent: a second run writes nothing', async () => {

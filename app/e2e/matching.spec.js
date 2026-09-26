@@ -197,14 +197,15 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await expect(page.getByTestId('mail-to-month')).toHaveValue('12');
 	for (const [i, id] of ids.entries()) await page.getByTestId(id).selectOption(before[i]);
 	for (const [i, id] of ids.entries()) await expect(page.getByTestId(id)).toHaveValue(before[i]);
+	// New receipts are read right after the fetch (on by default). A slow
+	// model: the run goes on while the person looks at another page, shows
+	// where it is on return, and does not start a second time.
+	await expect(page.getByTestId('mail-read-after')).toBeChecked();
+	llm.setDelay(600);
 	await page.getByTestId('mail-fetch').click();
 	await expect(page.getByTestId('mail-result')).toHaveText(
 		'6 E-Mails · neu: 6 · schon vorhanden: 0 · doppelt: 0'
 	);
-	// A slow model: the run goes on while the person looks at another page,
-	// shows where it is on return, and does not start a second time.
-	llm.setDelay(600);
-	await page.getByTestId('extract-all').click();
 	await expect(page.getByTestId('tab-extract-progress')).toBeVisible();
 	await tab('Export').click();
 	await expect(page.getByTestId('tab-extract-progress')).toBeVisible();

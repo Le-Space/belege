@@ -685,6 +685,27 @@ export default {
 		mailFrom: 'Von Monat',
 		mailTo: 'Bis Monat',
 		mailLastYear: 'Ganzes Vorjahr',
+		mailReadAfter: 'Neue Belege nach dem Abruf gleich auslesen',
+		scam: {
+			badge: 'Verdacht',
+			title: 'Möglicher Betrug – bitte prüfen',
+			intro:
+				'Diese Zeichen passen zu einer gefälschten Rechnung. Sie sind ein Hinweis, kein Urteil. Der Beleg wird deshalb nicht automatisch zugeordnet.',
+			ok: 'Ist in Ordnung',
+			okHint:
+				'Nur, wenn du sicher bist, dass die Rechnung echt ist – im Zweifel beim Anbieter auf dem bekannten Weg nachfragen, nicht über Kontaktdaten aus dieser Mail.',
+			sign: {
+				'auth-fail': 'Die Absenderprüfung (SPF/DKIM/DMARC) ist fehlgeschlagen: {detail}',
+				lookalike:
+					'Die Absender-Domain sieht aus wie die eines bekannten Anbieters, ist es aber nicht: {detail}',
+				'other-domain': 'Dieser Anbieter schrieb bisher von einer anderen Domain: {detail}',
+				'new-iban':
+					'Die Rechnung nennt ein Konto ({detail}), auf das an diesen Anbieter noch nie gezahlt wurde',
+				'free-mail': 'Rechnung von einer Freemail-Adresse: {detail}',
+				pressure: 'Drängende Formulierung: „{detail}“',
+				'foreign-links': 'Links zu anderen Hosts als dem Absender: {detail}'
+			}
+		},
 		mailFetch: 'E-Mails abrufen',
 		mailFetching: 'Rufe ab …',
 		mailNoBridge: 'Für E-Mails und das Auslesen die Bridge unter ',
@@ -922,6 +943,7 @@ export default {
 			'receipt-restore': 'Beleg wieder aufgenommen',
 			'needs-receipt': '„Kein Beleg nötig“ zurückgenommen',
 			'confirm-sender': 'Absender freigegeben',
+			'scam-cleared': 'Scam-Verdacht als unbegründet markiert',
 			'upload-link': 'Beleg hochgeladen und dieser Zahlung zugeordnet',
 			eigenbeleg: 'Eigenbeleg erstellt und zugeordnet',
 			booking: 'Konto übernommen',
