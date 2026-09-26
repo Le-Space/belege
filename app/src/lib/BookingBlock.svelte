@@ -38,7 +38,8 @@
 		})
 	);
 	let income = $derived((tx.amountCents ?? 0) > 0);
-	let catalogue = $derived(searchAccounts('', { income }));
+	let chart = $derived(app.chart);
+	let catalogue = $derived(searchAccounts('', { income, chart }));
 
 	let accountText = $state('');
 	let keyText = $state('');
@@ -62,7 +63,7 @@
 	/** "4930 Bürobedarf" or "4930" → "4930". */
 	let number = $derived(/^\s*(\d{4,8})(?:\s|$)/.exec(accountText)?.[1] ?? accountText.trim());
 	let valid = $derived(isAccountNumber(number) && /^\d{0,4}$/.test(keyText.trim()));
-	let known = $derived(catalogueAccount(number));
+	let known = $derived(catalogueAccount(number, chart));
 	let confirmed = $derived(suggestion.source === 'confirmed');
 	let unchanged = $derived(
 		confirmed && number === suggestion.account && keyText.trim() === suggestion.taxKey
@@ -125,7 +126,7 @@
 	{#if confirmed}
 		<p class="mt-2 text-sm text-success" data-testid="tx-booking-confirmed">
 			{t('booking.confirmed', {
-				account: accountLabel(suggestion.account),
+				account: accountLabel(suggestion.account, chart),
 				key: suggestion.taxKey
 					? t('booking.keyValue', { key: suggestion.taxKey })
 					: t('booking.keyNone'),
@@ -136,7 +137,7 @@
 		<p class="mt-2 text-sm text-text" data-testid="tx-booking-suggestion">
 			{#if suggestion.account}
 				<span class="font-medium text-heading">{t('booking.suggestion')}:</span>
-				{accountLabel(suggestion.account)}
+				{accountLabel(suggestion.account, chart)}
 				<span
 					class="ml-1 inline-block rounded border border-border bg-surface-2 px-1.5 py-0.5 text-xs text-text"
 					data-testid="tx-booking-source"
@@ -175,7 +176,11 @@
 				{/each}
 			</datalist>
 			<span class="mt-1 min-h-4 text-xs text-faint" data-testid="tx-booking-account-name"
-				>{known ? known.name : isAccountNumber(number) ? t('booking.ownNumber') : ''}</span
+				>{known
+					? known.name
+					: isAccountNumber(number)
+						? t(chart ? 'booking.notInChart' : 'booking.ownNumber')
+						: ''}</span
 			>
 		</label>
 		<label class="flex w-28 flex-col text-sm">
@@ -207,7 +212,9 @@
 	{#if !confirmed}
 		<p class="text-xs text-faint" data-testid="tx-booking-tax-via">{taxText}</p>
 	{/if}
-	<p class="mt-1 text-xs text-faint">{t('booking.catalogueNote')}</p>
+	<p class="mt-1 text-xs text-faint" data-testid="tx-booking-catalogue">
+		{chart ? t('booking.chartNote', { count: chart.accounts.length }) : t('booking.catalogueNote')}
+	</p>
 	{#if error}
 		<p class="mt-2 text-sm text-danger" role="alert" data-testid="tx-booking-error">{error}</p>
 	{/if}

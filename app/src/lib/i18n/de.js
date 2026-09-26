@@ -584,6 +584,30 @@ export default {
 		graceUnit: 'Tagen',
 		graceHint:
 			'Ein Beleg kommt oft ein paar Tage nach der Abbuchung. So lange zählt die Zahlung als ohne Beleg, aber der Abgleich fragt noch nicht. 0 = sofort fragen.',
+		chart: {
+			title: 'Kontenplan',
+			hint: 'Lies den Kontenplan deiner Buchhaltung ein: Dann schlägt „Konto“ an jeder Zahlung deine Konten mit deinen Bezeichnungen vor statt der allgemeinen SKR-03-Liste.',
+			infoTitle:
+				'Eine Datei aus deiner Buchhaltung: DATEV-„Kontenbeschriftungen“ (z. B. MonKey Office: Import & Export → Export DATEV → Kontenbeschriftungen) oder eine CSV mit Kontonummer und Bezeichnung. Sie bleibt verschlüsselt in deinen Büchern in diesem Browser.',
+			howTitle: 'Wie komme ich an die Datei?',
+			how: [
+				'MonKey Office: Seitenleiste → Import & Export → Export DATEV → „Kontenbeschriftungen“ (auf Wunsch nur ein Kontenbereich „von Konto … bis Konto“) → die CSV-Datei hier einlesen.',
+				'Andere Programme mit DATEV-Schnittstelle: den Export „Kontenbeschriftungen“ bzw. „Kontenplan (DATEV-Format)“ wählen – die Datei beginnt mit „EXTF“.',
+				'Sonst reicht eine CSV oder Textdatei mit einer Spalte Kontonummer (4–8 Ziffern) und einer Spalte Bezeichnung, getrennt durch Semikolon, Komma oder Tab – etwa der Kontenplan-Export aus Lexware, sevDesk oder Excel.',
+				'Dein Programm ist nicht dabei oder die Datei wird nicht erkannt? Schreib uns, welches Programm du nutzt – wir nehmen es auf Anfrage auf.'
+			],
+			read: 'Kontenplan einlesen …',
+			replace: 'Anderen Kontenplan einlesen …',
+			found: '{count} Konten erkannt ({format}), {skipped} Zeilen übersprungen. Die ersten:',
+			format: { datev: 'DATEV-Kontenbeschriftungen', csv: 'CSV' },
+			take: 'Übernehmen',
+			cancel: 'Verwerfen',
+			current: 'Eingelesen: {count} Konten aus „{file}“ am {date}.',
+			drop: 'Entfernen – zurück zur SKR-03-Liste',
+			nothing:
+				'In der Datei wurde kein Konto erkannt: Es braucht eine Spalte mit Kontonummern (4–8 Ziffern) und eine mit Bezeichnungen.',
+			tooLarge: 'Die Datei ist größer als 5 MB – ist es wirklich der Kontenplan?'
+		},
 		books: {
 			title: 'Buchhaltung (MonkeyOffice / DATEV)',
 			hint: 'Was der DATEV-Export über deine Buchhaltung wissen muss. Prüfe die Werte in MonkeyOffice – dort steht, was es beim Import erwartet.',
@@ -886,6 +910,9 @@ export default {
 		account: 'Gegenkonto',
 		accountPlaceholder: 'Nummer oder Name, z. B. 4930 oder Büro',
 		ownNumber: 'Eigene Kontonummer, nicht im Katalog',
+		notInChart: 'Nicht in deinem Kontenplan – prüfen, ob es das Konto in deiner Buchhaltung gibt',
+		chartNote:
+			'Vorschläge aus deinem eingelesenen Kontenplan ({count} Konten). Welches Konto richtig ist, entscheidest du mit deiner Steuerberatung.',
 		taxKey: 'BU-Schlüssel',
 		taxKeyPlaceholder: 'leer = ohne',
 		taxVia: {
