@@ -19,6 +19,7 @@
 	// when the bridge has one, and go through the matching like every receipt.
 	import TechnicalNote from '../TechnicalNote.svelte';
 	import AiMark from '../AiMark.svelte';
+	import MonthPicker from '../MonthPicker.svelte';
 	import NewPortal from './NewPortal.svelte';
 	import RecordingReview from './RecordingReview.svelte';
 	import { currentBlobs, currentStore, refreshNow, runMatchingNow } from '../session.svelte.js';
@@ -351,15 +352,11 @@
 								data-testid="portal-login">{t('portals.login')}</button
 							>
 							{#if portal.state !== 'never'}
-								<label class="flex flex-col text-sm">
-									<span class="text-faint">{t('portals.fromMonth')}</span>
-									<input
-										type="month"
-										class="mt-1 rounded-md border border-border bg-surface px-2 py-1 text-sm text-heading"
-										bind:value={since}
-										data-testid="portal-since"
-									/>
-								</label>
+								<MonthPicker
+									bind:value={since}
+									label={t('portals.fromMonth')}
+									testid="portal-since"
+								/>
 								<button
 									type="button"
 									class="inline-flex items-center gap-1.5 {portal.state === 'logged-in'

@@ -684,6 +684,7 @@ export default {
 			'Holt über die Bridge die E-Mails an {address} aus den gewählten Monaten, nur lesend. Private Post bleibt im Postfach.',
 		mailFrom: 'Von Monat',
 		mailTo: 'Bis Monat',
+		mailLastYear: 'Ganzes Vorjahr',
 		mailFetch: 'E-Mails abrufen',
 		mailFetching: 'Rufe ab …',
 		mailNoBridge: 'Für E-Mails und das Auslesen die Bridge unter ',
@@ -1046,6 +1047,7 @@ export default {
 			'Die ZIP-Datei entsteht mit fflate im Browser; die Belege werden dafür aus dem versiegelten Speicher geöffnet. Die vergebenen Belegnummern bleiben am Beleg (exportNumber), ein zweiter Export vergibt dieselben.'
 		]
 	},
+	monthPicker: { month: '{label}: Monat', year: '{label}: Jahr' },
 	zahlungen: {
 		title: 'Zahlungen',
 		addTest: 'Testbuchung anlegen',

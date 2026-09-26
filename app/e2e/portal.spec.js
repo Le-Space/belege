@@ -30,6 +30,17 @@ import {
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 
+/**
+ * A month in the app's month picker (MonthPicker.svelte): its month and year lists.
+ *
+ * @param {import('@playwright/test').Locator} picker
+ * @param {string} month YYYY-MM
+ */
+async function pickMonth(picker, month) {
+	await picker.getByTestId(/-year$/).selectOption(month.slice(0, 4));
+	await picker.getByTestId(/-month$/).selectOption(month.slice(5, 7));
+}
+
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
 const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
@@ -163,7 +174,7 @@ test('Vodafone invoices from the portal become receipts and match the booking', 
 	expect(profile.mode & 0o777).toBe(0o700);
 
 	// Rechnungen holen, from the oldest month on.
-	await vodafone.getByTestId('portal-since').fill(oldestMonth);
+	await pickMonth(vodafone.getByTestId('portal-since'), oldestMonth);
 	await vodafone.getByTestId('portal-fetch').click();
 	await expect(vodafone.getByTestId('portal-result')).toHaveText(
 		`3 Rechnungen ab ${oldestMonth} · neu: 3 · schon vorhanden: 0 · doppelt: 0 · ausgelesen: 3`
@@ -190,7 +201,7 @@ test('Vodafone invoices from the portal become receipts and match the booking', 
 	// Again: nothing new, nothing downloaded twice.
 	const downloads = portal.state.downloads;
 	await tab('Integrationen').click();
-	await vodafone.getByTestId('portal-since').fill(oldestMonth);
+	await pickMonth(vodafone.getByTestId('portal-since'), oldestMonth);
 	await vodafone.getByTestId('portal-fetch').click();
 	await expect(vodafone.getByTestId('portal-result')).toContainText('neu: 0 · schon vorhanden: 3');
 	expect(portal.state.downloads).toBe(downloads);

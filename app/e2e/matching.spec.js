@@ -186,6 +186,17 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 
 	// Receipts: fetch the accounting mails, read them all.
 	await tab('Belege').click();
+	// The month pickers: "Ganzes Vorjahr" fills both; then back to what they were.
+	const ids = ['mail-from-year', 'mail-from-month', 'mail-to-year', 'mail-to-month'];
+	const before = await Promise.all(ids.map((id) => page.getByTestId(id).inputValue()));
+	await page.getByTestId('mail-last-year').click();
+	const lastYear = String(new Date().getFullYear() - 1);
+	await expect(page.getByTestId('mail-from-year')).toHaveValue(lastYear);
+	await expect(page.getByTestId('mail-from-month')).toHaveValue('01');
+	await expect(page.getByTestId('mail-to-year')).toHaveValue(lastYear);
+	await expect(page.getByTestId('mail-to-month')).toHaveValue('12');
+	for (const [i, id] of ids.entries()) await page.getByTestId(id).selectOption(before[i]);
+	for (const [i, id] of ids.entries()) await expect(page.getByTestId(id)).toHaveValue(before[i]);
 	await page.getByTestId('mail-fetch').click();
 	await expect(page.getByTestId('mail-result')).toHaveText(
 		'6 E-Mails · neu: 6 · schon vorhanden: 0 · doppelt: 0'
