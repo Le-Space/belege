@@ -456,6 +456,48 @@ describe('Alchemy refusals: a clear code, and never the key', () => {
 		}
 	});
 
+	test('compute units: paced under a free budget of 300 a second, nothing refused; unpaced, refused calls are sent again', async () => {
+		// Many sends: their transactions and receipts alone are far more than
+		// Alchemy's ten-second bucket of 3000 compute units.
+		const sends = Array.from({ length: 120 }, (_, i) =>
+			fakeTx({
+				seed: `a-send-${i}`,
+				block: 1000 + i,
+				from: EVM.wallet,
+				to: EVM.friend,
+				value: 1000n
+			})
+		);
+		const txs = [...evmChain(), ...sends];
+		for (const [pace, paced] of [
+			[250, true],
+			[1_000_000, false]
+		]) {
+			const clock = { t: 1_000_000 };
+			const now = () => clock.t;
+			const sleep = async (/** @type {number} */ ms) => {
+				clock.t += ms;
+			};
+			const fake = await startFakeAlchemy({ txs, computeUnitsPerSecond: 300, now });
+			try {
+				const r = await createEvmClient({
+					sleep,
+					alchemy: {
+						key: async () => FAKE_ALCHEMY_KEY,
+						baseUrl: fake.baseUrl,
+						computeUnitsPerSecond: pace,
+						now
+					}
+				}).history({ chain: ethereum, address: EVM.wallet, endpoints: ethereum.endpoints });
+				assert.ok(r.entries.filter((e) => e.id.endsWith(':fee')).length >= 120);
+				if (paced) assert.equal(fake.spent.refused, 0);
+				else assert.ok(fake.spent.refused > 0, 'the fake refuses what is over its budget');
+			} finally {
+				await fake.close();
+			}
+		}
+	});
+
 	test('another chain behind the URL: WALLET_WRONG_CHAIN, nothing read', async () => {
 		const fake = await startFakeAlchemy({ chainIds: { 'eth-mainnet': 10 } });
 		try {

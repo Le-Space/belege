@@ -30,6 +30,14 @@
 //   alchemy_getTokenBalances
 // Several calls go as one batch (a JSON array, at most 50).
 //
+// Alchemy counts compute units (CU) per call – in a batch each call its own
+// – and a free app gets 300 CU a second, over a 10-second token bucket
+// (docs: reference/compute-unit-costs, reference/throughput). The reader
+// spends at most `computeUnitsPerSecond` (250 by default, below the free
+// limit) and waits before a call that would spend more. Calls Alchemy still
+// refuses with 429 – the key's budget is shared with anything else using it
+// – are sent again, only they, after 1, 2, 4, 8, 16 and 16 seconds.
+//
 // The result has the shape of Blockscout's lists (txlist, txlistinternal,
 // tokentx), so evm.js turns both into entries the same way and gives the same
 // transfer the same id whichever source read it (docs/crypto.md): the value
@@ -47,6 +55,17 @@ import { createJsonFetcher, WalletError } from './http.js';
 const PAGE = '0x3e8'; // 1000, Alchemy's most
 const BATCH = 50; // Alchemy: "aim for batches under 50"
 const SPLIT = 16; // a block range with an unexplained nonce is cut into this many parts
+
+/** Compute units per call (Alchemy's table); a method not named costs 20. */
+const COMPUTE_UNITS = /** @type {Record<string, number>} */ ({
+	eth_chainId: 0,
+	eth_blockNumber: 10,
+	alchemy_getAssetTransfers: 120
+});
+/** @param {string} method */
+export const computeUnitsOf = (method) => COMPUTE_UNITS[method] ?? 20;
+const BURST_SECONDS = 4; // spent ahead at most; Alchemy's bucket holds 10 seconds
+const LIMIT_ROUNDS = 7; // the first try and six more for calls refused with 429
 
 /** @param {string} network */
 export const alchemyBaseUrl = (network) => `https://${network}.g.alchemy.com/v2`;
@@ -85,18 +104,39 @@ const lowerAddress = (v) => (typeof v === 'string' ? v.toLowerCase() : '');
  * @param {(ms: number) => Promise<void>} [options.sleep]
  * @param {number} [options.maxPages] per direction
  * @param {number} [options.maxHiddenBlocks] blocks fetched for transactions the transfers do not show
+ * @param {number} [options.computeUnitsPerSecond] spent at most (Alchemy free: 300)
+ * @param {() => number} [options.now] milliseconds (tests: a clock that `sleep` moves)
  */
 export function createAlchemyReader({
 	fetch: f = fetch,
 	timeoutMs,
-	sleep,
+	sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 	maxPages = 50,
-	maxHiddenBlocks = 300
+	maxHiddenBlocks = 300,
+	computeUnitsPerSecond = 250,
+	now = Date.now
 } = {}) {
-	/** A batch answers 200 even when an item hit the rate limit. */
-	const limited = (/** @type {any} */ body) =>
-		(Array.isArray(body) ? body : [body]).some((item) => item?.error?.code === 429);
-	const getJson = createJsonFetcher({ fetch: f, timeoutMs, sleep, retries: 3 });
+	// HTTP 429 is waited out below, with the calls refused inside a batch.
+	const getJson = createJsonFetcher({ fetch: f, timeoutMs, sleep, retries: 1 });
+	const burstUnits = computeUnitsPerSecond * BURST_SECONDS;
+
+	// The budget as a token bucket kept by time: `due` is when all that was
+	// spent is paid back; a call may go while that is at most BURST_SECONDS ahead.
+	let due = 0;
+	/** @param {number} units */
+	async function spend(units) {
+		const start = Math.max(due, now());
+		due = start + (units / computeUnitsPerSecond) * 1000;
+		const wait = due - now() - BURST_SECONDS * 1000;
+		if (wait > 0) await sleep(Math.ceil(wait));
+	}
+	/** Alchemy refused: its bucket is empty, whatever this one thinks. */
+	const drained = () => {
+		due = Math.max(due, now() + BURST_SECONDS * 1000);
+	};
+	/** @param {number} round 1… */
+	const backoff = (round) =>
+		Math.min(1000 * 2 ** (round - 1), 16_000) + Math.floor(Math.random() * 250);
 
 	/**
 	 * Alchemy's refusals, in words that carry no key and no address.
@@ -166,37 +206,68 @@ export function createAlchemyReader({
 	async function batch(url, key, calls) {
 		/** @type {any[]} */
 		const results = [];
-		for (let i = 0; i < calls.length; i += BATCH) {
-			const chunk = calls.slice(i, i + BATCH);
-			const body = chunk.map((c, j) => ({ jsonrpc: '2.0', id: j + 1, ...c }));
-			let answer;
-			try {
-				answer = await getJson(
-					url,
-					{
+		// Chunks of at most BATCH calls and at most the burst in compute units.
+		/** @type {number[][]} indexes into calls */
+		const chunks = [];
+		let units = Infinity;
+		calls.forEach((c, i) => {
+			const cost = computeUnitsOf(c.method);
+			const last = chunks[chunks.length - 1];
+			if (!last || last.length >= BATCH || units + cost > burstUnits) {
+				chunks.push([i]);
+				units = cost;
+			} else {
+				last.push(i);
+				units += cost;
+			}
+		});
+		for (const chunk of chunks) {
+			/** @type {number[]} */
+			let pending = chunk;
+			for (let round = 0; pending.length; round++) {
+				if (round >= LIMIT_ROUNDS)
+					throw explain(new WalletError('limited', 'WALLET_RATE_LIMIT'), key);
+				if (round > 0) await sleep(backoff(round));
+				await spend(pending.reduce((sum, i) => sum + computeUnitsOf(calls[i].method), 0));
+				const body = pending.map((i) => ({ jsonrpc: '2.0', id: i + 1, ...calls[i] }));
+				let answer;
+				try {
+					answer = await getJson(url, {
 						method: 'POST',
 						headers: { 'content-type': 'application/json' },
-						body: JSON.stringify(chunk.length === 1 ? body[0] : body)
-					},
-					{ retryIf: limited }
-				);
-			} catch (error) {
-				throw explain(error, key);
-			}
-			const items = Array.isArray(answer) ? answer : [answer];
-			if (chunk.length > 1 && !Array.isArray(answer)) {
-				// A batch refused as a whole answers one error object.
-				throw explain(rpcFailure(answer?.error, chunk[0].method), key);
-			}
-			/** @type {Map<number, any>} */
-			const byId = new Map(items.map((item) => [Number(item?.id), item]));
-			for (let j = 0; j < chunk.length; j++) {
-				const item = byId.get(j + 1);
-				if (!item) {
-					throw new WalletError(`Alchemy left ${chunk[j].method} unanswered`, 'WALLET_ALCHEMY');
+						body: JSON.stringify(body.length === 1 ? body[0] : body)
+					});
+				} catch (error) {
+					if (/** @type {any} */ (error)?.code === 'WALLET_RATE_LIMIT') {
+						drained();
+						continue;
+					}
+					throw explain(error, key);
 				}
-				if (item.error) throw explain(rpcFailure(item.error, chunk[j].method), key);
-				results.push(item.result);
+				const items = Array.isArray(answer) ? answer : [answer];
+				if (pending.length > 1 && !Array.isArray(answer)) {
+					// A batch refused as a whole answers one error object.
+					if (answer?.error?.code === 429) {
+						drained();
+						continue;
+					}
+					throw explain(rpcFailure(answer?.error, calls[pending[0]].method), key);
+				}
+				/** @type {Map<number, any>} */
+				const byId = new Map(items.map((item) => [Number(item?.id), item]));
+				/** @type {number[]} */
+				const refused = [];
+				for (const i of pending) {
+					const item = byId.get(i + 1);
+					if (!item) {
+						throw new WalletError(`Alchemy left ${calls[i].method} unanswered`, 'WALLET_ALCHEMY');
+					}
+					if (item.error?.code === 429) refused.push(i);
+					else if (item.error) throw explain(rpcFailure(item.error, calls[i].method), key);
+					else results[i] = item.result;
+				}
+				if (refused.length) drained();
+				pending = refused;
 			}
 		}
 		return results;
