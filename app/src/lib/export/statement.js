@@ -21,6 +21,7 @@ const STANDS_IN = /** @type {Record<string, string>} */ ({
 	'own-transfer': 'Umbuchung',
 	'bank-fee': 'Gebühr',
 	'crypto-reward': 'Ertrag',
+	'crypto-stake': 'Staking',
 	loan: 'Darlehen',
 	'rule-ignore': 'ignoriert',
 	'rule-private': 'privat',
