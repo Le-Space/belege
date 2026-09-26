@@ -1,4 +1,5 @@
 <script>
+	import { accountLabel } from './bank/format.js';
 	// "Eigene Anweisungen": company names, own IBANs, rules. Stored sealed in
 	// `settings` under `matching` (matching/classify.js), read by every
 	// "Abgleich". And what the DATEV export needs: each bank account's ledger
@@ -89,7 +90,7 @@
 		cleanMatchingSettings(app.matchingSettings).feeKeys.map((key) => {
 			const [accountId, words] = key.split('|');
 			const a = app.accounts.find((x) => x.id === accountId);
-			return { key, words, account: a ? `${a.name} ···${a.ibanLast4}` : '—' };
+			return { key, words, account: a ? `${accountLabel(a)}` : '—' };
 		})
 	);
 
@@ -150,8 +151,7 @@
 	}
 
 	let bookAccounts = $derived(
-		app.accounts.map((a) => `${a.name} ···${a.ibanLast4}`).join(', ') ||
-			t('anweisungen.ownIbansNone')
+		app.accounts.map((a) => `${accountLabel(a)}`).join(', ') || t('anweisungen.ownIbansNone')
 	);
 
 	/** @param {string} text */
@@ -187,7 +187,7 @@
 		);
 		if (wrong) {
 			invalid = t('anweisungen.books.invalidLedger', {
-				name: `${wrong.name} ···${wrong.ibanLast4}`
+				name: `${accountLabel(wrong)}`
 			});
 			return;
 		}
@@ -407,7 +407,7 @@
 						<label class="flex flex-col">
 							<span class="text-text"
 								>{t('anweisungen.books.ledger')}:
-								<span class="font-medium text-heading">{a.name} ···{a.ibanLast4}</span></span
+								<span class="font-medium text-heading">{accountLabel(a)}</span></span
 							>
 							<input
 								class="{input} w-32 font-mono"

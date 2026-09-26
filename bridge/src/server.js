@@ -11,7 +11,9 @@
 //   POST /match/assist { booking, candidates }                  token → the LLM's pick among receipts
 //   GET  /llm/status                                              token → provider, models, key present?
 //   POST /extract      { text, hints, source, confirmedByUser }   token
-//   GET  /rates?asset=BTC&date=YYYY-MM-DD                         token → EUR per unit, source (rates.js)
+//   GET  /rates?asset=BTC&date=YYYY-MM-DD[&prefer=kraken]         token → EUR per unit, source (rates.js)
+//   GET  /kraken/balances                                         token → non-zero balances (kraken.js)
+//   GET  /kraken/ledgers?since=YYYY-MM-DD                         token → the ledger, oldest first
 //   /portals…          customer portals (portals/routes.js)            token
 //
 // Guards, in this order, on every request:
@@ -71,6 +73,7 @@ const MAX_EXTRACT_BODY = 256 * 1024;
  *   "✦ KI-Vorschlag" under "Beleg zuordnen": null without an LLM
  * @param {import('./portals/manager.js').PortalManager | null} [options.portals] the portal connector
  * @param {ReturnType<typeof import('./rates.js').createRateService> | null} [options.rates] exchange rates
+ * @param {ReturnType<typeof import('./kraken.js').createKrakenClient> | null} [options.kraken] null when Kraken is not set up
  * @param {(message: string) => void} [options.log] never gets a secret, bank data, mail or receipt text
  */
 export function createBridgeServer({
@@ -84,6 +87,7 @@ export function createBridgeServer({
 	matchAssist = null,
 	portals = null,
 	rates = null,
+	kraken = null,
 	log = () => {}
 }) {
 	const allowedOrigins = new Set(config.appOrigins.map((o) => o.replace(/\/$/, '')));
@@ -202,7 +206,8 @@ export function createBridgeServer({
 					accountingAddress: mail ? config.mail.accountingAddress : null
 				},
 				llm: { configured: Boolean(llm), models: llm ? llm.models : [] },
-				portals: { available: Boolean(portals) }
+				portals: { available: Boolean(portals) },
+				kraken: { configured: Boolean(kraken) }
 			});
 		}
 
@@ -387,7 +392,29 @@ export function createBridgeServer({
 			const asset = url.searchParams.get('asset') ?? '';
 			const date = url.searchParams.get('date') ?? '';
 			if (!/^[A-Z0-9]{2,10}$/.test(asset)) return send(res, 400, { error: 'asset is required' });
-			return send(res, 200, await rates.rate(asset, date));
+			const prefer = url.searchParams.get('prefer');
+			if (prefer !== null && prefer !== 'kraken') {
+				return send(res, 400, { error: 'prefer must be kraken' });
+			}
+			return send(res, 200, await rates.rate(asset, date, { prefer }));
+		}
+
+		if (path.startsWith('/kraken/') && req.method === 'GET') {
+			if (!kraken) {
+				return send(res, 503, { error: 'Kraken is not set up: run `pnpm setup:kraken`.' });
+			}
+			if (path === '/kraken/balances') {
+				const balances = await kraken.balances();
+				log(`kraken: ${balances.length} balance(s)`);
+				return send(res, 200, { balances });
+			}
+			if (path === '/kraken/ledgers') {
+				const since = url.searchParams.get('since') ?? '';
+				if (!isIsoDay(since)) return send(res, 400, { error: 'since must be YYYY-MM-DD' });
+				const entries = await kraken.ledgers(since);
+				log(`kraken: ${entries.length} ledger entries since ${since}`);
+				return send(res, 200, { since, entries });
+			}
 		}
 
 		if (path === '/llm/status' && req.method === 'GET') {

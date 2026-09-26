@@ -32,7 +32,9 @@ export function describeEvent(e, { receipts = [], transactions = [] } = {}) {
 				...base,
 				title: t('verlauf.kind.bank-sync'),
 				text: t('verlauf.text.bankSync', {
-					source: t(`verlauf.source.${e.source === 'camt' ? 'camt' : 'hibiscus'}`),
+					source: t(
+						`verlauf.source.${e.source === 'camt' || e.source === 'kraken' ? e.source : 'hibiscus'}`
+					),
 					accounts: e.accounts ?? 0,
 					new: e.new ?? 0,
 					updated: e.updated ?? 0,

@@ -6,6 +6,7 @@
 	import { app, currentStore } from '$lib/session.svelte.js';
 	import { t } from '$lib/i18n/index.js';
 	import {
+		accountLabel,
 		displayPurpose,
 		formatMoney,
 		groupByDay,
@@ -93,6 +94,7 @@
 	function badge(tx) {
 		const account = tx.accountId ? accountsById.get(tx.accountId) : null;
 		if (!account) return tx.source === 'camt' ? 'CAMT' : '';
+		if (account.source === 'kraken') return account.name;
 		return `${account.source === 'camt' ? 'CAMT' : 'Hibiscus'} ···${account.ibanLast4}`;
 	}
 
@@ -141,7 +143,7 @@
 		>
 			<option value="">{t('zahlungen.allAccounts')}</option>
 			{#each app.accounts as account (account.id)}
-				<option value={account.id}>{account.name} ···{account.ibanLast4}</option>
+				<option value={account.id}>{accountLabel(account)}</option>
 			{/each}
 		</select>
 		<label class="sr-only" for="transaction-search">{t('zahlungen.search')}</label>

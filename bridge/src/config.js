@@ -26,6 +26,13 @@ export function defaultConfigPath() {
  * @property {MailConfig} mail
  * @property {LlmConfig} llm
  * @property {Record<string, import('./portals/index.js').PortalConfig>} portals customer portals, by id
+ * @property {KrakenConfig} kraken
+ */
+
+/**
+ * @typedef {object} KrakenConfig
+ * @property {boolean} configured set by setup:kraken once a key is in the keychain
+ * @property {string} baseUrl https://api.kraken.com; tests point it at a fake on 127.0.0.1
  */
 
 /**
@@ -81,8 +88,27 @@ export function defaultConfig() {
 		pairedTokens: [],
 		mail: defaultMailConfig(),
 		llm: defaultLlmConfig(),
-		portals: {}
+		portals: {},
+		kraken: { configured: false, baseUrl: 'https://api.kraken.com' }
 	};
+}
+
+/**
+ * Kraken's API over https, or a fake on this machine (tests). Anything else is ignored.
+ *
+ * @param {unknown} value
+ */
+function krakenBaseUrl(value) {
+	if (typeof value !== 'string') return null;
+	try {
+		const url = new URL(value);
+		const loopback = url.hostname === '127.0.0.1' || url.hostname === 'localhost';
+		return url.protocol === 'https:' || (url.protocol === 'http:' && loopback)
+			? value.replace(/\/+$/, '')
+			: null;
+	} catch {
+		return null;
+	}
 }
 
 /**
@@ -111,7 +137,11 @@ export function withDefaults(raw) {
 		portals:
 			raw?.portals && typeof raw.portals === 'object' && !Array.isArray(raw.portals)
 				? raw.portals
-				: {}
+				: {},
+		kraken: {
+			configured: raw?.kraken?.configured === true,
+			baseUrl: krakenBaseUrl(raw?.kraken?.baseUrl) ?? d.kraken.baseUrl
+		}
 	};
 }
 

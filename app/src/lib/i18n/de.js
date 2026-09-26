@@ -417,6 +417,7 @@ export default {
 			'own-transfer': 'Eigene Umbuchung',
 			'bank-fee': 'Kontoauszug',
 			loan: 'Darlehen',
+			'crypto-reward': 'Ertrag der Börse',
 			'rule-ignore': 'Ignoriert',
 			'rule-private': 'Privat'
 		},
@@ -424,6 +425,7 @@ export default {
 			'own-transfer': 'Eigene Umbuchung (1360) – kein Beleg nötig',
 			'bank-fee': 'Bankentgelt – der Kontoauszug ist der Beleg',
 			loan: 'Darlehen – der Vertrag ist der Beleg',
+			'crypto-reward': 'Staking- oder Earn-Ertrag – der Kontoauszug der Börse ist der Beleg',
 			'rule-ignore': 'Ignoriert nach eigener Anweisung: {reason}',
 			'rule-private': 'Privat nach eigener Anweisung: {reason}',
 			'no-receipt': 'Kein Beleg nötig: {reason}'
@@ -484,6 +486,10 @@ export default {
 			bankFeeLearned:
 				'Bankentgelt: So hast du eine Buchung mit diesem Verwendungszweck schon einmal eingeordnet – der Kontoauszug ist der Beleg',
 			loan: 'Darlehen: „Darlehen“ im Verwendungszweck – der Vertrag ist der Beleg',
+			exchangeFee:
+				'Gebühr der Börse: Kraken hat sie zu dieser Buchung berechnet – der Kontoauszug der Börse ist der Beleg',
+			cryptoReward:
+				'Staking- oder Earn-Ertrag der Börse – der Kontoauszug ist der Beleg. Auf welches Konto er gehört, klärt ihr mit dem Steuerberater.',
 			ignore: 'Eigene Anweisung: {field} enthält „{contains}“ → ignoriert ({reason})',
 			private: 'Eigene Anweisung: {field} enthält „{contains}“ → privat ({reason})'
 		},
@@ -891,7 +897,7 @@ export default {
 			bookings: 'Automatische Konten übernommen',
 			answer: 'Rückfrage beantwortet: {choice}'
 		},
-		source: { hibiscus: 'Hibiscus', camt: 'CAMT-Import' },
+		source: { hibiscus: 'Hibiscus', camt: 'CAMT-Import', kraken: 'Kraken' },
 		technical: [
 			'Jeder Eintrag ist ein Datensatz der versiegelten OrbitDB-Sammlung events (AES-GCM wie alle anderen): Art, Zeitpunkt, die IDs von Beleg, Zahlung, Zuordnung oder Rückfrage und Zahlen – Modell, Dauer, Tokens, Schwärzungen je Art, Treffer. Kein Token, kein Schlüssel, kein Belegtext.',
 			'Geschrieben wird er von der Aktion selbst: Synchronisieren, CAMT-Import, E-Mail-Abruf, Auslesen, Abgleich und jede Entscheidung. Ein automatischer Abgleich, der nichts ändert, schreibt keinen Eintrag; ein von dir gestarteter immer.'
@@ -1237,7 +1243,25 @@ export default {
 		books: {
 			title: 'Konten in den Büchern',
 			camt: 'CAMT-Import',
-			hibiscus: 'Hibiscus'
+			hibiscus: 'Hibiscus',
+			kraken: 'Kraken'
+		},
+		kraken: {
+			title: 'Kraken (Börse)',
+			notSetUp:
+				'Noch nicht eingerichtet. Lege bei Kraken einen API-Key an, der nur „Query Funds“ und „Query Ledger Entries“ darf, und führe im Terminal aus:',
+			intro:
+				'Nur lesend: Belege holt das Ledger über die Bridge und führt für jedes Asset ein eigenes Konto. Beträge werden zum EUR-Kurs von Kraken bewertet (CoinGecko als Rückfall), ein Handel gegen Euro zum Preis des Handels.',
+			lastSync: 'zuletzt synchronisiert {date}',
+			balanceOn: 'Stand {date}',
+			fromLabel: 'Ab Datum (leer: seit dem letzten Abruf, beim ersten Mal ab 1. Januar)',
+			sync: 'Kraken synchronisieren',
+			syncing: 'Synchronisiere …',
+			syncHint:
+				'Holt das Ledger ab eine Woche vor dem letzten Abruf; schon bekannte Einträge werden übersprungen.',
+			syncHintFrom: 'Holt das Ledger ab dem gewählten Tag.',
+			unpriced:
+				'{count} Einträge ohne Kurs – sie fehlen noch und werden beim nächsten Abruf erneut versucht:'
 		},
 		counts: 'Neu: {new} · Aktualisiert: {updated} · Übersprungen: {skipped}'
 	}

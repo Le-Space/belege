@@ -21,7 +21,8 @@ import { formatQuantity, valueCents } from './quantity.js';
  * @property {'EUR'} currency
  * @property {string} rate EUR per whole unit, a decimal string
  * @property {string | null} usdRate USD per whole unit, when the source has it
- * @property {'coingecko' | 'kraken' | 'ecb' | 'manual'} source
+ * @property {'coingecko' | 'kraken' | 'ecb' | 'trade' | 'manual'} source
+ *   `trade`: the price of the trade itself (what was paid for the asset)
  * @property {string} at the moment the rate is for, ISO 8601
  */
 
@@ -38,23 +39,30 @@ export const SOURCE_NAMES = Object.freeze({
 	coingecko: 'CoinGecko',
 	kraken: 'Kraken',
 	ecb: 'EZB-Referenzkurs',
+	trade: 'Preis des Handels',
 	manual: 'von Hand eingetragen'
 });
 
 /**
  * The transaction fields for a movement of `units` of `asset`, valued at `rate`.
+ * `decimals` defaults to the asset's (registry.js); an exchange that keeps
+ * more digits (Kraken: 10 for BTC) passes its own, and may then also name an
+ * asset Belege does not list.
  *
- * @param {{ asset: string, units: string, rate: Pick<Rate, 'rate' | 'source' | 'at'> }} params
+ * @param {{ asset: string, units: string, rate: Pick<Rate, 'rate' | 'source' | 'at'>, decimals?: number }} params
  */
-export function valuedFields({ asset, units, rate }) {
+export function valuedFields({ asset, units, rate, decimals }) {
 	const known = assetOf(asset);
-	if (!known) throw new Error(`Unknown asset: ${asset}`);
+	const digits = decimals ?? known?.decimals;
+	if (!Number.isInteger(digits) || !/^[A-Z0-9]{2,10}$/i.test(asset)) {
+		throw new Error(`Unknown asset: ${asset}`);
+	}
 	return {
-		amountCents: valueCents(units, known.decimals, rate.rate),
+		amountCents: valueCents(units, /** @type {number} */ (digits), rate.rate),
 		currency: 'EUR',
-		asset: known.symbol,
+		asset: known?.symbol ?? asset.toUpperCase(),
 		quantity: String(units),
-		decimals: known.decimals,
+		decimals: /** @type {number} */ (digits),
 		/** @type {Valuation} */
 		valuation: { rate: rate.rate, currency: 'EUR', source: rate.source, at: rate.at }
 	};
@@ -70,6 +78,27 @@ export async function valueMovement({ asset, units, date }, getRate) {
 	const known = assetOf(asset);
 	if (!known) throw new Error(`Unknown asset: ${asset}`);
 	return valuedFields({ asset: known.symbol, units, rate: await getRate(known.symbol, date) });
+}
+
+/**
+ * EUR per whole unit when `cents` bought or sold `units`: the price of a
+ * trade, as a decimal string with up to 12 decimals.
+ *
+ * @param {number} cents
+ * @param {string} units
+ * @param {number} decimals
+ */
+export function tradeRate(cents, units, decimals) {
+	const q = BigInt(units) < 0n ? -BigInt(units) : BigInt(units);
+	if (q === 0n) throw new Error('A trade of nothing has no price.');
+	const c = BigInt(Math.abs(cents));
+	const digits = 12n;
+	// cents / 100 / (q / 10^decimals), with 12 decimals, rounded half up
+	const scaled = (c * 10n ** BigInt(decimals) * 10n ** digits * 10n) / (100n * q);
+	const rounded = (scaled + 5n) / 10n;
+	const s = rounded.toString().padStart(Number(digits) + 1, '0');
+	const out = `${s.slice(0, -Number(digits))}.${s.slice(-Number(digits))}`;
+	return out.replace(/0+$/, '').replace(/\.$/, '');
 }
 
 /** @param {Record<string, any>} tx */

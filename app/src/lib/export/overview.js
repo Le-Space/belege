@@ -4,7 +4,7 @@
 // It says how each receipt was linked (receipts/origin.js) and what is not
 // in the Buchungsstapel and why. Pure.
 
-import { formatDate } from '../bank/format.js';
+import { accountLabel, formatDate } from '../bank/format.js';
 import { t } from '../i18n/index.js';
 import { coverageBadge } from '../matching/view.js';
 import { foundByAi, matchOrigin } from '../receipts/origin.js';
@@ -64,7 +64,7 @@ export function originText(match, receipt, tx, classifications) {
 export function overviewCsv(plan, { accounts, classifications }) {
 	const bank = (/** @type {Rec} */ tx) => {
 		const a = accounts.find((x) => x.id === tx.accountId);
-		return a ? `${a.name} ···${a.ibanLast4}` : '';
+		return a ? `${accountLabel(a)}` : '';
 	};
 	/** @type {string[][]} */
 	const rows = [];

@@ -39,6 +39,16 @@ export function formatMoney(cents, currency = 'EUR') {
 	return format.format(cents / 100);
 }
 
+/**
+ * `Geschäftskonto ···1234`, or just `Kraken BTC` for an account without an IBAN.
+ *
+ * @param {Record<string, any>} account a stored account record
+ */
+export function accountLabel(account) {
+	const last4 = String(account?.ibanLast4 ?? '');
+	return `${account?.name ?? ''}${last4 ? ` ···${last4}` : ''}`;
+}
+
 /** `2026-09-22` → `Dienstag, 22.9.2026` */
 export function formatDayHeading(/** @type {string} */ isoDate) {
 	return DAY.format(new Date(`${isoDate}T00:00:00Z`));

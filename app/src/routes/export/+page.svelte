@@ -11,7 +11,7 @@
 	import { cleanDatevSettings } from '$lib/booking/settings.js';
 	import { confirmBookings } from '$lib/booking/actions.js';
 	import { suggestBooking } from '$lib/booking/suggest.js';
-	import { formatDate, formatMoney } from '$lib/bank/format.js';
+	import { accountLabel, formatDate, formatMoney } from '$lib/bank/format.js';
 	import { receiptVendor } from '$lib/receipts/view.js';
 	import { list, t } from '$lib/i18n/index.js';
 
@@ -262,7 +262,7 @@
 				plan.checks.noLedger.length || plan.checks.noBankAccount.length ? 'blocker' : 'ok',
 				plan.checks.noLedger.length
 					? t('export.check.noLedger', {
-							list: plan.checks.noLedger.map((a) => `${a.name} ···${a.ibanLast4}`).join(', ')
+							list: plan.checks.noLedger.map((a) => `${accountLabel(a)}`).join(', ')
 						})
 					: plan.checks.noBankAccount.length
 						? t('export.check.noBankAccount', { count: plan.checks.noBankAccount.length })

@@ -3,7 +3,7 @@
 // in plain German. The matching itself is deterministic (score.js); these
 // lines only say what it counted. Pure, so the sentences are tested.
 
-import { formatDate, formatMoney } from '../bank/format.js';
+import { accountLabel, formatDate, formatMoney } from '../bank/format.js';
 import { t } from '../i18n/index.js';
 import { POINTS, SURE, LEAD } from './score.js';
 
@@ -158,10 +158,10 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 	if (!c) return null;
 	switch (c.kind) {
 		case 'own-transfer': {
-			if (c.via === 'counter-booking') {
+			if (c.via === 'counter-booking' || c.via === 'reference') {
 				const other = accounts.find((a) => a.id === c.counterAccountId);
 				return t('explain.rule.ownCounter', {
-					account: other ? `${other.name} ···${other.ibanLast4}` : t('explain.rule.otherAccount'),
+					account: other ? `${accountLabel(other)}` : t('explain.rule.otherAccount'),
 					date: c.counterDay ? formatDate(c.counterDay) : '?',
 					sign: c.sign ?? ''
 				});
@@ -172,18 +172,21 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 			const own = accounts.find(
 				(a) => String(a.ibanLast4 ?? '').toUpperCase() === String(c.ibanLast4 ?? '').toUpperCase()
 			);
-			const account = own ? `${own.name} ···${own.ibanLast4}` : `···${c.ibanLast4 ?? ''}`;
+			const account = own ? `${accountLabel(own)}` : `···${c.ibanLast4 ?? ''}`;
 			return t(c.via === 'mirrored' ? 'explain.rule.ownMirrored' : 'explain.rule.ownIban', {
 				account
 			});
 		}
 		case 'bank-fee':
+			if (c.via === 'exchange-fee') return t('explain.rule.exchangeFee');
 			if (c.via === 'bank-code') return t('explain.rule.bankFeeCode', { code: c.bankCode ?? '' });
 			if (c.via === 'fee-words') return t('explain.rule.bankFeeWords', { word: c.feeWord ?? '' });
 			if (c.via === 'learned') return t('explain.rule.bankFeeLearned');
 			return t('explain.rule.bankFee', { type: c.bookingType ?? '' });
 		case 'loan':
 			return t('explain.rule.loan');
+		case 'crypto-reward':
+			return t('explain.rule.cryptoReward');
 		case 'rule-ignore':
 		case 'rule-private':
 			return t(c.kind === 'rule-private' ? 'explain.rule.private' : 'explain.rule.ignore', {

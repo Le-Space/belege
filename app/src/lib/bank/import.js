@@ -31,12 +31,13 @@ const FIELDS = /** @type {const} */ ([
 	'endToEndId',
 	'bookingType',
 	'bankCode',
-	// a crypto movement (assets/valuation.js); absent on bank transactions
+	// an exchange or wallet booking; absent on bank transactions
+	'movement',
+	'txRef',
+	// a crypto movement (assets/valuation.js)
 	'asset',
 	'quantity',
 	'decimals',
-	'movement',
-	'txRef',
 	'valuation'
 ]);
 
@@ -54,8 +55,10 @@ const FIELDS = /** @type {const} */ ([
  * @property {string} [bookingType]
  * @property {string} [bankCode] ISO 20022 domain/family/sub-family (CAMT only)
  * @property {string} [fingerprint] the bridge sends it; computed when missing
- * @property {CryptoFields} [crypto] for a movement on an exchange or a wallet: what moved
- *   and how `amountCents` (EUR) was valued; see assets/valuation.js
+ * @property {'transfer' | 'trade' | 'fee' | 'reward' | 'stake'} [movement] on an exchange or a wallet
+ * @property {string} [txRef] transaction hash or the exchange's reference, shared by the legs of a trade
+ * @property {CryptoFields} [crypto] for a crypto asset: what moved and how `amountCents`
+ *   (EUR) was valued; see assets/valuation.js
  */
 
 /**
@@ -63,8 +66,6 @@ const FIELDS = /** @type {const} */ ([
  * @property {string} asset symbol, assets/registry.js
  * @property {string} quantity signed integer of the smallest unit, as a string
  * @property {number} decimals
- * @property {'transfer' | 'trade' | 'fee' | 'reward' | 'stake'} movement
- * @property {string} [txRef] transaction hash or the exchange's reference
  * @property {import('../assets/valuation.js').Valuation} valuation
  */
 
@@ -81,7 +82,7 @@ const same = (a, b) => comparable(a) === comparable(b);
 /**
  * @param {object} params
  * @param {import('../store/repository.js').Collection} params.transactions
- * @param {{ id: string, source: 'hibiscus' | 'camt', fingerprintAccount: string }} params.account
+ * @param {{ id: string, source: 'hibiscus' | 'camt' | 'kraken', fingerprintAccount: string }} params.account
  *   the stored account record's id, its source, and the account key the fingerprint uses
  * @param {IncomingTransaction[]} params.incoming
  * @returns {Promise<ImportCounts>}
@@ -140,13 +141,12 @@ export async function importTransactions({ transactions, account, incoming }) {
 			endToEndId: tx.endToEndId ?? '',
 			bookingType: tx.bookingType ?? '',
 			bankCode: tx.bankCode ?? '',
+			...(tx.movement ? { movement: tx.movement, txRef: tx.txRef ?? '' } : {}),
 			...(tx.crypto
 				? {
 						asset: tx.crypto.asset,
 						quantity: tx.crypto.quantity,
 						decimals: tx.crypto.decimals,
-						movement: tx.crypto.movement,
-						txRef: tx.crypto.txRef ?? '',
 						valuation: tx.crypto.valuation
 					}
 				: {})
@@ -202,16 +202,22 @@ export async function importTransactions({ transactions, account, incoming }) {
  * Find or create the account record for a source's account.
  *
  * @param {import('../store/repository.js').Collection} accounts
- * @param {{ source: 'hibiscus' | 'camt', sourceAccountId: string, ibanLast4: string, name: string, currency: string }} input
+ * @param {{ source: 'hibiscus' | 'camt' | 'kraken', sourceAccountId: string, ibanLast4: string, name: string, currency: string, kind?: 'exchange' | 'wallet', asset?: string, decimals?: number }} input
+ *   `kind`, `asset`, `decimals`: an account on an exchange or a wallet, holding one asset
  */
 export async function upsertAccount(accounts, input) {
 	const [found] = await accounts.list({
 		where: (a) => a.source === input.source && a.sourceAccountId === input.sourceAccountId
 	});
 	if (!found) return accounts.put({ ...input });
-	const changed = /** @type {const} */ (['ibanLast4', 'name', 'currency']).some(
-		(f) => !same(found[f], input[f])
-	);
+	const changed = /** @type {const} */ ([
+		'ibanLast4',
+		'name',
+		'currency',
+		'kind',
+		'asset',
+		'decimals'
+	]).some((f) => !same(found[f], /** @type {any} */ (input)[f]));
 	return changed ? accounts.put({ ...found, ...input }) : found;
 }
 
