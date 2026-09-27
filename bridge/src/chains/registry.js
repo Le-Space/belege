@@ -134,14 +134,16 @@ export const CHAINS = Object.freeze({
 		bech32Prefix: 'akash',
 		nativeDenom: 'uakt',
 		denoms: { uakt: { symbol: 'AKT', decimals: 6 } },
-		// Akash runs no public RPC of its own; Polkachu's is in the chain registry.
+		// Akash runs no public RPC of its own, and the public ones are pruned:
+		// checked 2026-09-27, PublicNode's keeps the longest history (from
+		// 2026-05-25), Polkachu's and Ecostake's only a few weeks (issue #105).
 		endpoints: {
-			rpc: 'https://akash-rpc.polkachu.com',
-			rest: 'https://akash-api.polkachu.com'
+			rpc: 'https://akash-rpc.publicnode.com',
+			rest: 'https://akash-rest.publicnode.com'
 		},
 		alternatives: {
-			rpc: ['https://rpc-akash.ecostake.com'],
-			rest: ['https://rest-akash.ecostake.com']
+			rpc: ['https://akash-rpc.polkachu.com', 'https://rpc-akash.ecostake.com'],
+			rest: ['https://akash-api.polkachu.com', 'https://rest-akash.ecostake.com']
 		},
 		explorer: {
 			name: 'Mintscan',

@@ -363,8 +363,23 @@ export function createCosmosClient({ fetch: f = fetch, timeoutMs, maxPages = 200
 					400
 				);
 			}
-			const earliestHeight = Number(status?.sync_info?.earliest_block_height ?? 0);
-			const earliestTime = String(status?.sync_info?.earliest_block_time ?? '') || null;
+			// `/status` is not to be trusted here: a node restored from a snapshot
+			// says 0 and still refuses old blocks. Asking for block 1 tells: "height 1
+			// is not available, lowest height is N" (issue #105).
+			let earliestHeight = Number(status?.sync_info?.earliest_block_height ?? 0);
+			let earliestTime = String(status?.sync_info?.earliest_block_time ?? '') || null;
+			if (earliestHeight <= 1) {
+				try {
+					await rpcCall(endpoints.rpc, 'header', { height: '1' });
+					earliestHeight = 1;
+				} catch (/** @type {any} */ error) {
+					const lowest = /lowest height is (\d+)/.exec(String(error?.message ?? ''));
+					if (lowest) {
+						earliestHeight = Number(lowest[1]);
+						earliestTime = null;
+					}
+				}
+			}
 
 			/** @type {Map<string, any>} */
 			const txs = new Map();
@@ -448,6 +463,10 @@ export function createCosmosClient({ fetch: f = fetch, timeoutMs, maxPages = 200
 					}
 				];
 			});
+
+			if (earliestHeight > 1 && !earliestTime) {
+				earliestTime = await timeOf(earliestHeight).catch(() => null);
+			}
 
 			return {
 				entries,

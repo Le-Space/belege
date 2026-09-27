@@ -1604,7 +1604,9 @@ export default {
 			unknownAssets:
 				'{count} weitere Token oder Denoms nicht gebucht (nicht in der Liste der Chain, z. B. IBC-Gutscheine oder unbekannte Verträge).',
 			pruned:
-				'Dieser Knoten kennt die Chain erst ab {date}: ältere Buchungen fehlen. Für die ganze Geschichte einen Archivknoten eintragen (siehe „Weitere öffentliche“).'
+				'Dieser Knoten kennt die Chain erst ab {date}: ältere Buchungen fehlen. Für die ganze Geschichte einen Archivknoten eintragen.',
+			balanceGap:
+				'Gebucht {booked}, Bestand {balance}: Es fehlen Transaktionen – ältere, die der Knoten nicht mehr kennt, oder Tokens aus dem Unbonding, die keine Transaktion sind.'
 		},
 		kraken: {
 			title: 'Kraken (Börse)',

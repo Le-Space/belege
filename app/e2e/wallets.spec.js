@@ -31,6 +31,8 @@ const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
 
 const A = NYX.wallet;
 const B = fakeCosmosAddress('second own wallet');
+// A wallet on a node that forgot its older blocks and whose status says 0.
+const C = fakeCosmosAddress('wallet on a pruned node');
 const tail = (/** @type {string} */ a) => a.slice(-6);
 
 // Two days ago and yesterday, whenever this runs: inside every default view.
@@ -61,6 +63,7 @@ function history() {
 }
 
 /** @type {Awaited<ReturnType<typeof startFakeCosmos>>} */ let node;
+/** @type {Awaited<ReturnType<typeof startFakeCosmos>>} */ let prunedNode;
 /** @type {import('node:child_process').ChildProcess} */ let bridge;
 /** @type {string} */ let dir;
 let bridgeOut = '';
@@ -73,6 +76,20 @@ test.beforeAll(async () => {
 			[A]: [{ denom: 'unym', amount: '149995000' }],
 			[B]: [{ denom: 'unym', amount: '100000000' }]
 		}
+	});
+	prunedNode = await startFakeCosmos({
+		txs: [
+			cosmosTx({
+				seed: 'e2e-forgotten',
+				height: 500,
+				fee: { payer: NYX.exchange, amount: '4000unym' },
+				transfers: [{ sender: NYX.exchange, recipient: C, amount: '40000000unym' }]
+			})
+		],
+		time,
+		balances: { [C]: [{ denom: 'unym', amount: '40000000' }] },
+		earliestHeight: 1500,
+		statusSaysZero: true
 	});
 	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-wallets-'));
 	const configPath = join(dir, 'bridge.json');
@@ -92,6 +109,7 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
 	bridge?.kill('SIGTERM');
 	await node?.close();
+	await prunedNode?.close();
 	if (dir) await rm(dir, { recursive: true, force: true });
 });
 
@@ -142,15 +160,15 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 	await card.getByTestId('wallet-add-button').click();
 	await expect(card.getByTestId('wallet-add-error')).toContainText('keine Adresse auf Nym (Nyx)');
 
-	/** @param {string} address */
-	async function addAndSync(address) {
+	/** @param {string} address @param {string} [url] */
+	async function addAndSync(address, url = node.url) {
 		await card.getByTestId('wallet-chain').selectOption('nyx');
 		await card.getByTestId('wallet-address-input').fill(address);
-		await card.getByTestId('wallet-endpoint-rpc').fill(node.url);
-		await card.getByTestId('wallet-endpoint-rest').fill(node.url);
+		await card.getByTestId('wallet-endpoint-rpc').fill(url);
+		await card.getByTestId('wallet-endpoint-rest').fill(url);
 		await card.getByTestId('wallet-add-button').click();
 		const wallet = card.getByTestId('wallet').filter({ hasText: address });
-		await expect(wallet.getByTestId('wallet-endpoints')).toContainText(`${node.url} (eigener)`);
+		await expect(wallet.getByTestId('wallet-endpoints')).toContainText(`${url} (eigener)`);
 		await wallet.getByTestId('wallet-sync').click();
 		return wallet;
 	}
@@ -177,6 +195,22 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 	await walletA.getByTestId('wallet-sync').click();
 	await expect(walletA.getByTestId('wallet-result')).toHaveText(
 		'Neu: 0 · Aktualisiert: 0 · Übersprungen: 3'
+	);
+
+	// Where the bookings add up to the balance, nothing is said.
+	await expect(walletA.getByTestId('wallet-balance-gap')).toHaveCount(0);
+	await expect(walletB.getByTestId('wallet-balance-gap')).toHaveCount(0);
+	await expect(walletA.getByTestId('wallet-pruned')).toHaveCount(0);
+
+	// A pruned node that claims to know everything: found out, and the
+	// balance shows what is missing.
+	const walletC = await addAndSync(C, prunedNode.url);
+	await expect(walletC.getByTestId('wallet-result')).toHaveText(
+		'Neu: 0 · Aktualisiert: 0 · Übersprungen: 0'
+	);
+	await expect(walletC.getByTestId('wallet-pruned')).toContainText('kennt die Chain erst ab');
+	await expect(walletC.getByTestId('wallet-balance-gap')).toHaveText(
+		/^Gebucht 0\sNYM, Bestand 40\sNYM: Es fehlen Transaktionen/
 	);
 
 	// Zahlungen: every booking links to its transaction.
