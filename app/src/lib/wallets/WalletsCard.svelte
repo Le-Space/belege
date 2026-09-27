@@ -5,6 +5,7 @@
 	import { createBridgeClient } from '$lib/bridge/client.js';
 	import { formatDate } from '$lib/bank/format.js';
 	import { formatQuantity, toUnits } from '$lib/assets/quantity.js';
+	import { balanceGap } from './balance-check.js';
 	import { app, currentStore, refreshNow, runMatchingNow } from '$lib/session.svelte.js';
 	import { list, t } from '$lib/i18n/index.js';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
@@ -373,6 +374,7 @@
 						{#if accountsOf(wallet).length}
 							<ul class="mt-1 text-sm" data-testid="wallet-accounts">
 								{#each accountsOf(wallet) as account (account.id)}
+									{@const check = balanceGap(account, app.transactions)}
 									<li class="flex flex-wrap gap-3" data-testid="wallet-account">
 										<span class="text-heading">{account.name}</span>
 										<span class="font-mono text-heading tabular-nums">{balanceText(account)}</span>
@@ -380,6 +382,18 @@
 											<span class="text-xs text-faint"
 												>{t('integrationen.kraken.balanceOn', {
 													date: formatDate(account.balanceOn)
+												})}</span
+											>
+										{/if}
+										{#if check && check.gap !== 0n}
+											<span class="basis-full text-xs text-danger" data-testid="wallet-balance-gap"
+												>{t('integrationen.wallets.balanceGap', {
+													booked: formatQuantity(
+														String(check.booked),
+														account.decimals,
+														account.asset
+													),
+													balance: balanceText(account)
 												})}</span
 											>
 										{/if}

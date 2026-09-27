@@ -249,6 +249,7 @@ export function sampleNyxHistory({ filler = 110 } = {}) {
  * @param {any[]} [options.txs]
  * @param {Record<string, { denom: string, amount: string }[]>} [options.balances]
  * @param {number} [options.earliestHeight]
+ * @param {boolean} [options.statusSaysZero] `status` claims 0 though older blocks are gone (a node restored from a snapshot)
  * @param {number} [options.failFirst] this many requests answer 503 first
  * @param {(height: number) => string} [options.time]
  */
@@ -263,6 +264,7 @@ export async function startFakeCosmos({
 		]
 	},
 	earliestHeight = 1,
+	statusSaysZero = false,
 	failFirst = 0,
 	time = blockTime
 } = {}) {
@@ -310,13 +312,26 @@ export async function startFakeCosmos({
 				return ok({
 					node_info: { network, version: '0.38.17' },
 					sync_info: {
-						earliest_block_height: String(earliestHeight),
-						earliest_block_time: time(Math.max(earliestHeight, 1000)),
+						earliest_block_height: statusSaysZero ? '0' : String(earliestHeight),
+						earliest_block_time: statusSaysZero
+							? '1970-01-01T00:00:00Z'
+							: time(Math.max(earliestHeight, 1000)),
 						latest_block_height: '99999'
 					}
 				});
 			}
 			if (method === 'header') {
+				if (Number(params.height) < earliestHeight) {
+					return reply(200, {
+						jsonrpc: '2.0',
+						id: body.id,
+						error: {
+							code: -32603,
+							message: 'Internal error',
+							data: `height ${params.height} is not available, lowest height is ${earliestHeight}`
+						}
+					});
+				}
 				return ok({ header: { height: String(params.height), time: time(Number(params.height)) } });
 			}
 			if (method === 'tx_search') {

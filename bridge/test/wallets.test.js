@@ -417,6 +417,23 @@ describe('the Cosmos client against a fake Nyx node', () => {
 		}
 	});
 
+	test('a pruned node whose status says 0 is found out by asking for block 1', async () => {
+		const pruned = await startFakeCosmos({ earliestHeight: 2050, statusSaysZero: true });
+		try {
+			const result = await createCosmosClient({ sleep: noSleep }).history({
+				chain: nyx,
+				address: NYX.wallet,
+				endpoints: pruned.endpoints
+			});
+			assert.equal(result.history.pruned, true);
+			assert.equal(result.history.earliestHeight, 2050);
+			// The date of its first block, for "ältere fehlen".
+			assert.match(String(result.history.earliestTime), /^\d{4}-\d{2}-\d{2}T/);
+		} finally {
+			await pruned.close();
+		}
+	});
+
 	test('retries a busy node, then gives up with a code and without the address', async () => {
 		const flaky = await startFakeCosmos({ failFirst: 2 });
 		try {
