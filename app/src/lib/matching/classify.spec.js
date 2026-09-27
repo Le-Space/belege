@@ -342,6 +342,7 @@ describe('cleanMatchingSettings', () => {
 			ownTransfers: [],
 			refundPairs: [],
 			notRefunds: [],
+			prepaidVendors: [],
 			keptTransferReceipts: []
 		});
 		expect(cleanMatchingSettings(null)).toEqual({
@@ -354,6 +355,7 @@ describe('cleanMatchingSettings', () => {
 			ownTransfers: [],
 			refundPairs: [],
 			notRefunds: [],
+			prepaidVendors: [],
 			keptTransferReceipts: []
 		});
 	});

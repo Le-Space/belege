@@ -229,6 +229,8 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 				how: c.via === 'manual' ? t('explain.rule.refundManual') : t('explain.rule.refundAuto')
 			});
 		}
+		case 'prepaid-topup':
+			return t('explain.rule.prepaidTopup', { vendor: c.vendor ?? '' });
 		case 'crypto-stake':
 			return t('explain.rule.staking');
 		case 'crypto-swap':

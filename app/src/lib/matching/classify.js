@@ -24,6 +24,7 @@
 // with, it is likely address poisoning, and the classification names that one.
 // (docs/phase-0.md, "Matching"; docs/crypto.md, "Own wallets").
 
+import { cleanPrepaidVendors } from './vendor-account.js';
 import { counterpartyKey } from './partners.js';
 import { compactIban, normalizeRef } from './normalize.js';
 import { cosmosChainOf, normalizeAddress, walletChain } from '../wallets/chains.js';
@@ -97,6 +98,7 @@ export function isOwnName(name, company) {
  * @property {string[]} ownTransfers pairs a person linked as the two sides of an own transfer (`transferPairKey`)
  * @property {string[]} refundPairs `refundPairKey`: a charge and its refund a person linked (refunds.js)
  * @property {string[]} notRefunds pairs a person said are no refund
+ * @property {{ name: string, openings: Record<string, number> }[]} prepaidVendors vendors a person keeps as a prepaid account, with opening balances per year (vendor-account.js)
  * @property {string[]} keptTransferReceipts `<transaction id>|<receipt id>`: an own transfer whose receipt a person said is right
  */
 
@@ -116,6 +118,7 @@ export function defaultMatchingSettings() {
 		ownTransfers: [],
 		refundPairs: [],
 		notRefunds: [],
+		prepaidVendors: [],
 		keptTransferReceipts: []
 	};
 }
@@ -169,6 +172,7 @@ export function cleanMatchingSettings(value) {
 		// A charge and its refund, linked by hand, and pairs kept apart (refunds.js).
 		refundPairs: [...new Set(strings(value?.refundPairs))].slice(-500),
 		notRefunds: [...new Set(strings(value?.notRefunds))].slice(-500),
+		prepaidVendors: cleanPrepaidVendors(value?.prepaidVendors),
 		// An own transfer that keeps its receipt on purpose (Home, "Beleg ist richtig").
 		keptTransferReceipts: [...new Set(strings(value?.keptTransferReceipts))].slice(-500)
 	};
@@ -209,6 +213,8 @@ export function feeKey(tx) {
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [sameReference] bookings on our other accounts with the same reference or transaction hash, the other way (context.js)
  * @property {Set<string>} [notTransfers] pairs a person said are no transfer (transferPairKey)
  * @property {(tx: Record<string, any>) => { other: Record<string, any>, role: 'charge' | 'refund', full: boolean, manual: boolean } | null} [refundOf] a charge's refund or a refund's charge (refunds.js)
+ * @property {(r: Record<string, any>) => boolean} [prepaidReceipt] a statement of a confirmed prepaid vendor: covered by its account
+ * @property {(tx: Record<string, any>) => string | null} [prepaidVendorOf] the confirmed prepaid vendor a payment tops up (vendor-account.js)
  * @property {(tx: Record<string, any>) => Record<string, any> | null} [linkedTransfer] the booking a person linked as this one's other side (context.js)
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [bridgeCounterparts] the other side of a bridge transfer on another own wallet (context.js)
  * @property {Map<string, Map<string, string>>} [ownAddresses] `<chain>:<address>` (normalised) of our own wallets → their accounts by asset ('' = the first)
@@ -217,7 +223,7 @@ export function feeKey(tx) {
 
 /**
  * @typedef {object} Classification
- * @property {'rule-ignore' | 'rule-private' | 'bank-fee' | 'own-transfer' | 'loan' | 'crypto-reward' | 'crypto-stake' | 'crypto-dust' | 'crypto-swap' | 'refund'} kind
+ * @property {'rule-ignore' | 'rule-private' | 'bank-fee' | 'own-transfer' | 'loan' | 'crypto-reward' | 'crypto-stake' | 'crypto-dust' | 'crypto-swap' | 'refund' | 'prepaid-topup'} kind
  *   `crypto-dust`: an incoming wallet transfer worth less than a cent
  *   `crypto-stake`: tokens delegated to staking (or back); no receipt, and not
  *   on 1360: the return at the end of an unbonding is no transaction, so a
@@ -229,6 +235,7 @@ export function feeKey(tx) {
  * @property {string} [ruleContains] the rule's text
  * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'bridge' | 'manual' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee'} [via] how an own transfer or a bank fee was recognised
  * @property {string} [address] our own wallet's address, for via 'own-address'
+ * @property {string} [vendor] the prepaid vendor, for kind 'prepaid-topup'
  * @property {'charge' | 'refund'} [role] for a refund pair: which side this is
  * @property {string} [chain] the other wallet's chain: an IBC receiver's (via 'own-address'), a bridge's other side (via 'bridge')
  * @property {string} [lookalike] for dust: the known address its sender's looks like
@@ -349,6 +356,10 @@ export function classifyTransaction(tx, ctx) {
 			counterDay: String(refund.other.bookedOn ?? '')
 		};
 	}
+	// A top-up of a prepaid account the person keeps (vendor-account.js): the
+	// vendor's statements of what the credit was used for are its receipts.
+	const prepaid = ctx.prepaidVendorOf?.(tx);
+	if (prepaid) return { kind: 'prepaid-topup', vendor: prepaid };
 	const wallet = walletChain(tx.source);
 	if (tx.movement === 'fee') {
 		return { kind: 'bank-fee', via: wallet ? 'network-fee' : 'exchange-fee' };

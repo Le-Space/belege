@@ -32,6 +32,17 @@ A charge and its refund pair when all of this holds:
 
 A full refund needs no receipt on either side; after a partial one the charge still needs its receipt. _Als Erstattung verknüpfen …_ in the payment links a pair by hand, _Keine Erstattung_ keeps one apart (`app/src/lib/matching/refunds.js`).
 
+## Vendor accounts
+
+Some vendors never pair one payment with one receipt: a prepaid tariff books top-ups, and its monthly "invoices" are statements of what the credit was used for. _Lieferantenkonto ansehen_ (in a payment or a receipt) puts the vendor's payments and receipts on one timeline with a running balance: opening balance + top-ups − consumption. It names what does not add up:
+
+- a negative balance;
+- a month without a statement;
+- top-ups without any statement;
+- a January statement that may bill the year before.
+
+_Als Guthabenkonto führen_ makes the statements document the top-ups: no question per top-up, and the statements count as covered. The opening balance per year can be entered (`app/src/lib/matching/vendor-account.js`).
+
 ## AI
 
 Belege uses a language model in four places, each only on a click of a button marked **✦**: reading a receipt's text (vendor, amounts, dates, numbers), _Mit KI weitersuchen_ in the private mailbox (search words, then a pick from the hits' subjects, sender domains and file names), _KI-Vorschlag_ under _Beleg zuordnen_ (a pick among receipts by their read fields; the person links), and _KI-Vorschlag_ under _Als Gegenbuchung verknüpfen_ (which booking on another account is the other side of an own transfer; the person links). Matching, questions, transfers, fees, learning and the portals run on fixed rules. **Le Space runs no AI:** each installation sets up its own model in the bridge, a public one such as DeepSeek or a local one such as Ollama, and everything sent is redacted first. Details: [docs/ai.md](docs/ai.md) ([Deutsch](docs/ai.de.md)).

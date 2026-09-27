@@ -1033,7 +1033,14 @@
 		'rounded-md bg-coral-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50';
 </script>
 
-<div class="fixed inset-0 z-50 flex justify-end bg-black/40" role="presentation" onclick={onclose}>
+<!-- The backdrop closes on a click on itself only. The panel does not stop
+     clicks from bubbling: SvelteKit's router hears link clicks on the document,
+     and a stopped click made an internal link reload the page – and lock the books. -->
+<div
+	class="fixed inset-0 z-50 flex justify-end bg-black/40"
+	role="presentation"
+	onclick={(e) => e.target === e.currentTarget && onclose()}
+>
 	<div
 		bind:this={panel}
 		class="h-full w-full max-w-xl overflow-y-auto bg-bg px-4 py-4 shadow-xl sm:px-6"
@@ -1041,7 +1048,6 @@
 		aria-modal="true"
 		aria-labelledby="tx-detail-title"
 		tabindex="-1"
-		onclick={(e) => e.stopPropagation()}
 		onkeydown={onKey}
 		ondragover={(e) => {
 			if (e.dataTransfer?.types?.includes('Files')) {
@@ -1077,6 +1083,13 @@
 					>
 						{payee?.name}
 					</h2>
+					{#if payee && payee.from !== 'unknown' && !parties}
+						<a
+							class="text-sm underline"
+							href={`${resolve('/lieferantenkonto')}?name=${encodeURIComponent(payee.name)}&until=${tx.bookedOn}`}
+							data-testid="vendor-account-link">{t('vendorAccount.open')}</a
+						>
+					{/if}
 					{#if parties}
 						<!-- The full address under each name (issue #114): the list keeps the short
 						     form, here it is copied into an explorer or a wallet. -->

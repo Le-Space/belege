@@ -309,6 +309,48 @@ export async function rejectRefund(store, transactionId, otherId) {
 }
 
 /**
+ * "Als Guthabenkonto führen" / "Nicht mehr als Guthabenkonto": a vendor whose
+ * top-ups are documented by its statements (vendor-account.js).
+ *
+ * @param {MatchingStore} store
+ * @param {string} name
+ * @param {boolean} on
+ */
+export async function setPrepaidVendor(store, name, on) {
+	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+	const rest = current.prepaidVendors.filter((v) => v.name !== name);
+	const kept = current.prepaidVendors.find((v) => v.name === name);
+	await setSetting(store.settings, 'matching', {
+		...current,
+		prepaidVendors: on ? [...rest, kept ?? { name, openings: {} }] : rest
+	});
+	await decided(store, on ? 'prepaid-on' : 'prepaid-off', {});
+}
+
+/**
+ * The balance a prepaid account had at the start of a year, as the person
+ * knows it (the vendor's customer account); null forgets it.
+ *
+ * @param {MatchingStore} store
+ * @param {string} name
+ * @param {string} year YYYY
+ * @param {number | null} cents
+ */
+export async function setPrepaidOpening(store, name, year, cents) {
+	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+	await setSetting(store.settings, 'matching', {
+		...current,
+		prepaidVendors: current.prepaidVendors.map((v) => {
+			if (v.name !== name) return v;
+			const openings = { ...v.openings };
+			if (cents === null) delete openings[year];
+			else openings[year] = cents;
+			return { ...v, openings };
+		})
+	});
+}
+
+/**
  * "Vergessen" for a learned bank fee: its bookings need a receipt again.
  *
  * @param {MatchingStore} store
