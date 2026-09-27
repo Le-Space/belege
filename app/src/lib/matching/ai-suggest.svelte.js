@@ -1,7 +1,8 @@
 // "✦ KI-Vorschläge für alle offenen Rückfragen": the per-payment KI-Vorschlag
 // (bridge POST /match/assist) for every open question about a missing
-// receipt, one after another, app-wide like the extraction queue: progress,
-// "Abbrechen", one run at a time, stops when the books are locked.
+// receipt, a few at a time, app-wide on the same queue as the extraction
+// (jobs/queue.js): progress, "Abbrechen", one run at a time, slows down on
+// a rate limit, stops when the books are locked and keeps what is left.
 //
 // The model picks among the same receipts as the single suggestion (the 25
 // nearest by amount and date, view.js assistCandidates). Its answer is kept on
@@ -16,6 +17,9 @@ import { cleanMatchingSettings } from './classify.js';
 import { learnedVendors } from './partners.js';
 import { assistCandidates, receiptChoices } from './view.js';
 import { eventCalls } from '../stats/usage.js';
+import { runQueue } from '../jobs/queue.js';
+import { savePending } from '../jobs/pending.js';
+import { loadWorkers } from '../jobs/workers.js';
 
 export const aiRun = $state({
 	/** @type {{ done: number, count: number } | null} */
@@ -60,6 +64,7 @@ export function aiEstimate(events, count) {
  * @property {{ matchAssist: (body: any) => Promise<any> }} client the bridge
  * @property {() => ({ questions: any, transactions: any, receipts: any, matches: any, settings: any, partners?: any, events?: any } | null)} store the open books, or null once locked
  * @property {() => Promise<unknown>} [refresh] after each question
+ * @property {number} [workers] requests at once; else the setting (jobs/workers.js)
  */
 
 /** The time a suggestion is stored with: a timestamp, not reactive state. */
@@ -77,89 +82,79 @@ export async function suggestAll(ctx, ids, { now = clock } = {}) {
 	if (aiRun.progress) return false;
 	const books = ctx.store();
 	if (!books) return false;
-	aiRun.progress = { done: 0, count: ids.length };
-	aiRun.cancelling = false;
-	aiRun.failed = 0;
-	try {
-		const [receipts, matches, partners, settingsList] = await Promise.all([
-			books.receipts.list(),
-			books.matches.list(),
-			books.partners ? books.partners.list() : [],
-			books.settings.list()
-		]);
-		const matching = settingsList.find((/** @type {any} */ s) => s.key === 'matching')?.value;
-		const opts = {
-			companyNames: cleanMatchingSettings(matching).companyNames,
-			learnedVendors: learnedVendors(partners)
-		};
-		for (const id of ids) {
+	const [receipts, matches, partners, settingsList] = await Promise.all([
+		books.receipts.list(),
+		books.matches.list(),
+		books.partners ? books.partners.list() : [],
+		books.settings.list()
+	]);
+	const matching = settingsList.find((/** @type {any} */ s) => s.key === 'matching')?.value;
+	const opts = {
+		companyNames: cleanMatchingSettings(matching).companyNames,
+		learnedVendors: learnedVendors(partners)
+	};
+	const settings = books.settings;
+	return runQueue({
+		ids,
+		state: aiRun,
+		workers: ctx.workers ?? (await loadWorkers(settings)),
+		isOpen: () => ctx.store()?.questions === books.questions,
+		handle: async (id) => {
 			const store = ctx.store();
-			if (aiRun.cancelling || !store || store.questions !== books.questions) break;
+			if (!store) return;
 			const q = await store.questions.get(id);
 			const tx = q?.transactionId ? await store.transactions.get(q.transactionId) : null;
-			if (q && tx && q.state === 'open' && !q.aiSuggestion) {
-				try {
-					const candidates = assistCandidates(tx, receiptChoices(tx, receipts, matches, opts));
-					/** @type {Record<string, any>} */
-					let suggestion = {
-						receiptId: null,
-						confidence: null,
-						reason: '',
-						at: now().toISOString()
-					};
-					if (candidates.length) {
-						const r = await ctx.client.matchAssist({
-							booking: {
-								counterparty: String(tx.counterparty ?? '').slice(0, 200),
-								purpose: String(tx.purpose ?? '').slice(0, 1000),
-								amount: formatMoney(tx.amountCents ?? 0, tx.currency).replace(/\s*EUR$/, ''),
-								day: String(tx.bookedOn ?? '')
-							},
-							candidates
-						});
-						suggestion = {
-							receiptId: r.pick?.id ?? null,
-							confidence: r.pick?.confidence ?? null,
-							reason: String(r.pick?.reason ?? '').slice(0, 300),
-							model: r.llm?.calls?.at(-1)?.model ?? null,
-							at: now().toISOString()
-						};
-						await recordEvent(store.events, 'match-assist', {
-							transactionId: tx.id,
-							questionId: id,
-							batch: true,
-							candidates: candidates.length,
-							pick: suggestion.confidence,
-							model: suggestion.model,
-							calls: eventCalls(r.llm?.calls),
-							ms: (r.llm?.calls ?? []).reduce(
-								(/** @type {number} */ n, /** @type {any} */ c) => n + (c.ms ?? 0),
-								0
-							),
-							tokensTotal: (r.llm?.calls ?? []).reduce(
-								(/** @type {number} */ n, /** @type {any} */ c) =>
-									n + (c.usage?.prompt ?? 0) + (c.usage?.completion ?? 0),
-								0
-							)
-						});
-					}
-					// Written onto the question as it is now (the matching may have touched it).
-					const latest = await store.questions.get(id);
-					if (latest && latest.state === 'open') {
-						await store.questions.put({ ...latest, aiSuggestion: suggestion });
-					}
-				} catch {
-					aiRun.failed++;
-				}
-				await ctx.refresh?.();
+			if (!q || !tx || q.state !== 'open' || q.aiSuggestion) return;
+			const candidates = assistCandidates(tx, receiptChoices(tx, receipts, matches, opts));
+			/** @type {Record<string, any>} */
+			let suggestion = { receiptId: null, confidence: null, reason: '', at: now().toISOString() };
+			if (candidates.length) {
+				// A rate limit (429) is thrown on: the queue tries this question again later.
+				const r = await ctx.client.matchAssist({
+					booking: {
+						counterparty: String(tx.counterparty ?? '').slice(0, 200),
+						purpose: String(tx.purpose ?? '').slice(0, 1000),
+						amount: formatMoney(tx.amountCents ?? 0, tx.currency).replace(/\s*EUR$/, ''),
+						day: String(tx.bookedOn ?? '')
+					},
+					candidates
+				});
+				suggestion = {
+					receiptId: r.pick?.id ?? null,
+					confidence: r.pick?.confidence ?? null,
+					reason: String(r.pick?.reason ?? '').slice(0, 300),
+					model: r.llm?.calls?.at(-1)?.model ?? null,
+					at: now().toISOString()
+				};
+				await recordEvent(store.events, 'match-assist', {
+					transactionId: tx.id,
+					questionId: id,
+					batch: true,
+					candidates: candidates.length,
+					pick: suggestion.confidence,
+					model: suggestion.model,
+					calls: eventCalls(r.llm?.calls),
+					ms: (r.llm?.calls ?? []).reduce(
+						(/** @type {number} */ n, /** @type {any} */ c) => n + (c.ms ?? 0),
+						0
+					),
+					tokensTotal: (r.llm?.calls ?? []).reduce(
+						(/** @type {number} */ n, /** @type {any} */ c) =>
+							n + (c.usage?.prompt ?? 0) + (c.usage?.completion ?? 0),
+						0
+					)
+				});
 			}
-			aiRun.progress = { done: aiRun.progress.done + 1, count: ids.length };
-		}
-	} finally {
-		aiRun.progress = null;
-		aiRun.cancelling = false;
-	}
-	return true;
+			// Written onto the question as it is now (the matching may have touched it).
+			const latest = await store.questions.get(id);
+			if (latest && latest.state === 'open') {
+				await store.questions.put({ ...latest, aiSuggestion: suggestion });
+			}
+			await ctx.refresh?.();
+		},
+		onProgress: (left) => savePending(settings, 'suggest', left),
+		onEnd: (left, how) => savePending(settings, 'suggest', how === 'closed' ? left : [])
+	});
 }
 
 /** "Abbrechen": the question being asked about is finished, no further one is sent. */

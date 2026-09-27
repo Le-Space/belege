@@ -254,6 +254,15 @@ describe('/extract', () => {
 			down.json.attempts.map((/** @type {any} */ a) => a.reason),
 			['HTTP 500', 'HTTP 500']
 		);
+		// Both limited by the provider: 429, so the app's queue slows down instead of failing.
+		script({ 'deepseek-flash': 'http429', 'deepseek-v4-pro': 'http429' });
+		const limited = await post({ text: INVOICE_TEXT });
+		assert.equal(limited.status, 429);
+		assert.equal(limited.json.code, 'LLM_RATE_LIMIT');
+		// One limited, the other failing otherwise: a plain failure.
+		script({ 'deepseek-flash': 'http429', 'deepseek-v4-pro': 'http500' });
+		assert.equal((await post({ text: INVOICE_TEXT })).status, 502);
+		script({});
 	});
 
 	test('a wrong key is not retried with the other model', async () => {

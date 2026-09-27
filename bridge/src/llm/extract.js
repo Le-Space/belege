@@ -62,6 +62,24 @@ export class ExtractError extends Error {
 	}
 }
 
+/**
+ * Every model refused for the provider's rate limit: the caller should slow
+ * down and try again later (HTTP 429), not count it as a failed read.
+ *
+ * @param {number[]} statuses
+ * @param {any[]} attempts
+ */
+function failed(statuses, attempts) {
+	return statuses.length && statuses.every((s) => s === 429)
+		? new ExtractError(
+				'the provider limits requests; try again shortly',
+				429,
+				'LLM_RATE_LIMIT',
+				attempts
+			)
+		: new ExtractError('no model gave a usable answer', 502, 'EXTRACT_FAILED', attempts);
+}
+
 /** @param {unknown} v */
 const isDay = (v) => {
 	if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
@@ -240,10 +258,13 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 			const key = await getKey();
 			/** @type {Attempt[]} */
 			const attempts = [];
+			/** @type {number[]} */
+			const statuses = [];
 			const started = Date.now();
 			for (const model of models) {
 				const t0 = Date.now();
 				const r = await ask(model, key, content, { system, check });
+				statuses.push(Number(r.status ?? 0));
 				attempts.push({
 					model,
 					ok: r.ok,
@@ -256,7 +277,7 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 				}
 				if (r.status === 401) break;
 			}
-			throw new ExtractError('no model gave a usable answer', 502, 'EXTRACT_FAILED', attempts);
+			throw failed(statuses, attempts);
 		},
 		/**
 		 * @param {{ text: string, hints?: Record<string, string> }} input
@@ -283,10 +304,13 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 			const key = await getKey();
 			/** @type {Attempt[]} */
 			const attempts = [];
+			/** @type {number[]} */
+			const statuses = [];
 			const started = Date.now();
 			for (const model of models) {
 				const t0 = Date.now();
 				const r = await ask(model, key, content);
+				statuses.push(Number(r.status ?? 0));
 				attempts.push({
 					model,
 					ok: r.ok,
@@ -315,7 +339,7 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 				// A wrong key is wrong for every model.
 				if (r.status === 401) break;
 			}
-			throw new ExtractError('no model gave a usable answer', 502, 'EXTRACT_FAILED', attempts);
+			throw failed(statuses, attempts);
 		}
 	};
 }
