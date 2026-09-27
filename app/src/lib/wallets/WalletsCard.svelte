@@ -9,6 +9,7 @@
 	import { app, currentStore, refreshNow, runMatchingNow } from '$lib/session.svelte.js';
 	import { list, t } from '$lib/i18n/index.js';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
+	import CopyButton from '$lib/CopyButton.svelte';
 	import { WALLET_CHAINS, looksLikeAddress, safeExplorerUrl, walletChain } from './chains.js';
 	import {
 		addWallet,
@@ -326,7 +327,11 @@
 							{/if}
 							<span class="font-medium text-heading">{walletChain(wallet.chain)?.name}</span>
 							<code class="font-mono text-xs break-all text-text" data-testid="wallet-address"
-								>{wallet.address}</code
+								><CopyButton
+									text={wallet.address}
+									label={t('copy.address')}
+									testid="wallet-address-copy">{wallet.address}</CopyButton
+								></code
 							>
 							{#if addressLink(wallet)}
 								<a
