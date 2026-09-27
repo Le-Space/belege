@@ -195,7 +195,10 @@ export async function runMatching({
 		}
 		return !matchedTx.has(t.id);
 	});
-	const openReceipts = receipts.filter((r) => matchable(r) && !matchedReceipt.has(r.id));
+	// A prepaid vendor's statements are covered by its account (vendor-account.js).
+	const openReceipts = receipts.filter(
+		(r) => matchable(r) && !matchedReceipt.has(r.id) && !ctx.prepaidReceipt?.(r)
+	);
 	const receiptFactsList = openReceipts.map((r) => receiptFacts(r, ctx)).filter((f) => f !== null);
 	onProgress({ step: 'score', receipts: receiptFactsList.length, transactions: openTx.length });
 

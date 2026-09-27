@@ -5,6 +5,8 @@
 	// shared folder and from customer portals (Integrationen → Kundenportale);
 	// every file is sealed before it is stored.
 	import { onMount, tick } from 'svelte';
+	import { cleanMatchingSettings } from '$lib/matching/classify.js';
+	import { isVendorReceipt } from '$lib/matching/vendor-account.js';
 	import { addressBook, payeeName } from '$lib/bank/payee.js';
 	import { booksByYear, shownYear } from '$lib/year/year.svelte.js';
 	import { resolve } from '$app/paths';
@@ -522,8 +524,19 @@
 			'border-data-400 bg-data-100 text-data-800 dark:border-data/40 dark:bg-data/10 dark:text-data',
 		question: 'border-danger/40 bg-danger/10 text-danger',
 		assigned: 'border-success/30 bg-success/10 text-success',
-		ignored: 'border-border bg-surface-2 text-faint'
+		ignored: 'border-border bg-surface-2 text-faint',
+		prepaid: 'border-success/30 bg-success/10 text-success'
 	};
+	// A confirmed prepaid vendor's statements are covered by its account
+	// (matching/vendor-account.js): "Guthabenkonto", not "Nicht zugeordnet".
+	let prepaidNames = $derived(
+		cleanMatchingSettings(app.matchingSettings).prepaidVendors.map((v) => v.name)
+	);
+	/** @param {Receipt} r */
+	const shownStatus = (r) =>
+		statusKey(r) === 'unassigned' && prepaidNames.some((n) => isVendorReceipt(n, r))
+			? 'prepaid'
+			: statusKey(r);
 
 	const originClass = {
 		auto: 'border-success/30 bg-success/10 text-success',
@@ -833,9 +846,9 @@
 											<span class="mt-1 flex flex-wrap gap-1">
 												<span
 													class="rounded border px-1.5 py-0.5 text-xs font-medium {badgeClass[
-														statusKey(r)
+														/** @type {keyof typeof badgeClass} */ (shownStatus(r))
 													]}"
-													data-testid="receipt-status">{t(`belege.status.${statusKey(r)}`)}</span
+													data-testid="receipt-status">{t(`belege.status.${shownStatus(r)}`)}</span
 												>
 												{#if scamOf(r).suspicious}
 													<span
@@ -929,6 +942,13 @@
 						<p class="mt-0.5 text-xs break-all text-faint">
 							{selected.fileName ?? t('belege.textMail')}
 						</p>
+						{#if receiptVendor(selected) !== '—'}
+							<a
+								class="mt-1 inline-block text-sm underline"
+								href={`${resolve('/lieferantenkonto')}?name=${encodeURIComponent(receiptVendor(selected))}${receiptDate(selected) ? `&until=${receiptDate(selected)}` : ''}`}
+								data-testid="vendor-account-link">{t('vendorAccount.open')}</a
+							>
+						{/if}
 
 						{#if selectedScam?.suspicious}
 							<div

@@ -375,6 +375,44 @@ export default {
 		restore: 'Mit vorhandenem Passkey wiederherstellen',
 		busy: 'Bitte den Passkey bestätigen …'
 	},
+	vendorAccount: {
+		open: 'Lieferantenkonto ansehen',
+		title: 'Lieferantenkonto: {name}',
+		back: 'Zu den Zahlungen',
+		intro:
+			'Alle Zahlungen und Belege dieses Lieferanten auf einer Zeitleiste, mit laufendem Saldo: Anfangsbestand + Zahlungen − Verbrauch laut Belegen. Für Guthaben- und Sammelabrechnungen, bei denen eine Zahlung nie zu genau einem Beleg passt.',
+		opening: 'Anfangsbestand {date}',
+		unknown: 'unbekannt',
+		topUps: 'Zahlungen / Aufladungen',
+		usage: 'Verbrauch laut Belegen',
+		closing: 'Saldo {date}',
+		wholeYear: 'Ganzes Jahr {year} zeigen',
+		findings: 'Was nicht zusammenpasst',
+		finding: {
+			negative:
+				'Am {date} ist der Saldo negativ ({amount}): mehr verbraucht als bezahlt – eine Zahlung oder der Anfangsbestand fehlt.',
+			gap: 'Für {month} gibt es keinen Beleg – vermutlich fehlt eine Rechnung.',
+			'no-statements': 'Es gibt Zahlungen, aber keinen einzigen Beleg dieses Lieferanten.',
+			january:
+				'Der Beleg vom {date} ({amount}) kann noch das Vorjahr abrechnen – bitte prüfen, bevor er diesem Jahr zugerechnet wird.',
+			'unknown-opening':
+				'Der erste Vorgang ist ein Beleg ({date}): Ohne Anfangsbestand ist der Saldo davor unbekannt.'
+		},
+		isPrepaid:
+			'Als Guthabenkonto geführt: Aufladungen brauchen keinen eigenen Beleg, die Verbrauchsnachweise gelten als zugeordnet.',
+		openingLabel: 'Anfangsbestand am 1.1.{year} (EUR, z. B. aus dem Kundenkonto)',
+		save: 'Speichern',
+		prepaidOff: 'Nicht mehr als Guthabenkonto führen',
+		suggest:
+			'Sieht aus wie ein Guthabenkonto: Zahlungen und Belege passen nicht einzeln zusammen, die Aufladungen sind runde Beträge oder die Belege sind keine Zahlungsaufforderung.',
+		prepaidWhat:
+			'Als Guthabenkonto geführt, belegen die Verbrauchsnachweise die Aufladungen: keine Rückfragen mehr zu einzelnen Aufladungen, die Belege erscheinen als „Guthabenkonto“. Die Zeitleiste zeigt, ob alles aufgeht.',
+		prepaidOn: 'Als Guthabenkonto führen',
+		payment: 'Zahlung',
+		statement: 'Beleg',
+		empty: 'Keine Zahlungen oder Belege dieses Lieferanten in diesem Zeitraum.',
+		col: { date: 'Datum', what: 'Vorgang', topUp: 'Zahlung', usage: 'Verbrauch', balance: 'Saldo' }
+	},
 	year: {
 		label: 'Jahr',
 		fromYear: 'Beleg aus {year}',
@@ -466,6 +504,7 @@ export default {
 			'crypto-reward': 'Ertrag der Börse',
 			'crypto-stake': 'Staking',
 			refund: 'Erstattung',
+			'prepaid-topup': 'Guthabenkonto',
 			'crypto-swap': 'Tausch',
 			'crypto-dust': 'Staub',
 			'rule-ignore': 'Ignoriert',
@@ -478,6 +517,7 @@ export default {
 			'crypto-reward': 'Staking- oder Earn-Ertrag – der Kontoauszug der Börse ist der Beleg',
 			'crypto-stake': 'Delegiert ins Staking – kein Beleg nötig, nicht auf 1360',
 			refund: 'Belastung und Erstattung – kein Beleg nötig',
+			'prepaid-topup': 'Aufladung eines Guthabenkontos – belegt durch die Verbrauchsnachweise',
 			'crypto-swap': 'Tausch über eine DEX – die Transaktion im Block-Explorer ist der Beleg',
 			'crypto-dust': 'Staub unter einem Cent – kein Beleg nötig',
 			'rule-ignore': 'Ignoriert nach eigener Anweisung: {reason}',
@@ -554,6 +594,8 @@ export default {
 				'Eigene Umbuchung, von dir verknüpft: Die Gegenbuchung steht auf {account} am {date}. Kein Beleg nötig (Konto 1360).',
 			ownBridge:
 				'Eigene Übertragung über eine Bridge: Die Gegenbuchung steht auf {account} am {date} – dieselbe Kryptowährung, dieselbe Menge abzüglich der Bridge-Gebühr (höchstens 3 %), innerhalb von 8 Tagen. Kein Beleg nötig (Konto 1360).',
+			prepaidTopup:
+				'Aufladung des Guthabenkontos bei {vendor}: belegt durch dessen Verbrauchsnachweise im Lieferantenkonto – kein eigener Beleg nötig.',
 			refunded:
 				'Voll erstattet: Die Erstattung steht auf {account} am {date} ({how}). Belastung und Erstattung heben sich auf – kein Beleg nötig.',
 			refundOf:
@@ -884,7 +926,8 @@ export default {
 			unassigned: 'Nicht zugeordnet',
 			question: 'Rückfrage',
 			assigned: 'Zugeordnet',
-			ignored: 'Ignoriert'
+			ignored: 'Ignoriert',
+			prepaid: 'Guthabenkonto'
 		},
 		unverified: 'Absender prüfen',
 		duplicate: {
@@ -1087,6 +1130,8 @@ export default {
 			'not-transfer': 'Als „keine Umbuchung“ markiert',
 			'own-transfer-link': 'Als Gegenbuchung verknüpft (eigene Umbuchung)',
 			'refund-link': 'Als Erstattung verknüpft',
+			'prepaid-on': 'Als Guthabenkonto geführt',
+			'prepaid-off': 'Nicht mehr als Guthabenkonto geführt',
 			'not-refund': 'Als „keine Erstattung“ markiert',
 			'transfer-receipt-kept': 'Beleg einer Umbuchung bestätigt',
 			'company-name': 'Firmennamen übernommen',

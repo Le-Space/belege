@@ -8,6 +8,7 @@
 
 import { ibanKey } from '../bank/fingerprint.js';
 import { refundIndex } from './refunds.js';
+import { isVendorPayment, isVendorReceipt } from './vendor-account.js';
 import { cleanMatchingSettings } from './classify.js';
 import { compactIban, dayNumber } from './normalize.js';
 import { learnedVendors } from './partners.js';
@@ -246,6 +247,12 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 		},
 		notTransfers: new Set(clean.notTransfers),
 		refundOf: refundIndex(transactions, clean).refundOf,
+		prepaidVendorOf(tx) {
+			return clean.prepaidVendors.find((v) => isVendorPayment(v.name, tx))?.name ?? null;
+		},
+		prepaidReceipt(r) {
+			return clean.prepaidVendors.some((v) => isVendorReceipt(v.name, r));
+		},
 		linkedTransfer(tx) {
 			const other = linkedTo.get(String(tx.id));
 			return other ? (liveById.get(other) ?? null) : null;

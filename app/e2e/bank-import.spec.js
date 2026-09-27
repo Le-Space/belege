@@ -345,6 +345,103 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	await expect(detail.getByTestId('tx-related-chip')).toContainText('Erstattung');
 	await detail.getByTestId('tx-detail-close').click();
 
+	// Lieferantenkonto (issue #121): a prepaid tariff – two round top-ups from
+	// a third account, two small statements that pair with neither.
+	const topUp = (/** @type {string} */ ref, /** @type {string} */ day) => `
+      <Ntry>
+        <NtryRef>${ref}</NtryRef>
+        <Amt Ccy="EUR">15.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts><Cd>BOOK</Cd></Sts>
+        <BookgDt><Dt>${day}</Dt></BookgDt>
+        <ValDt><Dt>${day}</Dt></ValDt>
+        <AcctSvcrRef>${ref}</AcctSvcrRef>
+        <NtryDtls><TxDtls>
+          <Refs><AcctSvcrRef>${ref}-tx</AcctSvcrRef></Refs>
+          <Amt Ccy="EUR">15.00</Amt>
+          <CdtDbtInd>DBIT</CdtDbtInd>
+          <RltdPties><Cdtr><Pty><Nm>Funkmobil Prepaid GmbH</Nm></Pty></Cdtr></RltdPties>
+          <RmtInf><Ustrd>Aufladung Guthaben</Ustrd></RmtInf>
+        </TxDtls></NtryDtls>
+      </Ntry>`;
+	const prepaidCamt = `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.08">
+  <BkToCstmrStmt>
+    <GrpHdr><MsgId>PRE-TEST</MsgId><CreDtTm>2026-09-30T23:59:59Z</CreDtTm></GrpHdr>
+    <Stmt>
+      <Id>PRE-STMT-TEST</Id>
+      <CreDtTm>2026-09-30T23:59:59Z</CreDtTm>
+      <Acct><Id><IBAN>LT000000000000000003</IBAN></Id><Ccy>EUR</Ccy><Nm>Prepaid Testkonto</Nm></Acct>
+      ${topUp('pre-0001', '2026-09-02')}
+      ${topUp('pre-0002', '2026-09-20')}
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>`;
+	await page.getByRole('link', { name: 'Integrationen' }).click();
+	await page.getByTestId('camt-file').setInputFiles({
+		name: 'prepaid.xml',
+		mimeType: 'application/xml',
+		buffer: Buffer.from(prepaidCamt, 'utf8')
+	});
+	await expect(page.getByTestId('camt-result')).toContainText('Prepaid Testkonto ···0003: Neu: 2');
+	const statement = (/** @type {string} */ day, /** @type {string} */ gross) =>
+		makePdf([
+			'Anbieter: Funkmobil Prepaid GmbH',
+			`Rechnungsnummer: FM-${day}`,
+			`Rechnungsdatum: ${day}`,
+			`Brutto: ${gross} EUR`,
+			'Diese Rechnung stellt keine Zahlungsaufforderung dar.'
+		]);
+	await page.getByRole('link', { name: 'Belege' }).click();
+	await page.getByTestId('receipt-upload').setInputFiles([
+		{
+			name: 'funkmobil-09-15.pdf',
+			mimeType: 'application/pdf',
+			buffer: statement('2026-09-15', '1,98')
+		},
+		{
+			name: 'funkmobil-09-25.pdf',
+			mimeType: 'application/pdf',
+			buffer: statement('2026-09-25', '2,17')
+		}
+	]);
+	await expect(page.getByTestId('import-result')).toContainText('Neu: 2');
+	await page.getByTestId('extract-all').click();
+	const funkReceipts = page.getByTestId('receipt').filter({ hasText: 'Funkmobil' });
+	await expect(funkReceipts.getByTestId('receipt-status')).toHaveText([
+		'Nicht zugeordnet',
+		'Nicht zugeordnet'
+	]);
+
+	await page.getByRole('link', { name: 'Zahlungen' }).click();
+	await page.getByTestId('account-filter').selectOption('');
+	await page.getByTestId('filter-all').click();
+	await page.locator('[data-testid="transaction-month"][data-month="2026-09"]').click();
+	const topUps = page.getByTestId('transaction').filter({ hasText: 'Funkmobil' });
+	await expect(topUps).toHaveCount(2);
+	await topUps.last().click();
+	await detail.getByTestId('vendor-account-link').click();
+	await expect(page.getByTestId('vendor-account-title')).toContainText('Funkmobil Prepaid GmbH');
+	// Up to the payment clicked: its top-up only; the whole year: all four.
+	await expect(page.getByTestId('vendor-account-row')).toHaveCount(1);
+	await page.getByTestId('vendor-account-whole-year').check();
+	await expect(page.getByTestId('vendor-account-row')).toHaveCount(4);
+	await expect(page.getByTestId('vendor-account-closing')).toHaveText(/25,85\sEUR/);
+	await expect(page.getByTestId('vendor-account-suggest')).toBeVisible();
+	await page.getByTestId('vendor-account-prepaid-on').click();
+	await expect(page.getByTestId('vendor-account-prepaid')).toBeVisible();
+	await page.getByRole('link', { name: 'Zahlungen', exact: true }).click();
+	await page.getByTestId('account-filter').selectOption('');
+	await page.getByTestId('filter-all').click();
+	await page.locator('[data-testid="transaction-month"][data-month="2026-09"]').click();
+	await expect(topUps.getByTestId('coverage-badge')).toHaveText(['Guthabenkonto', 'Guthabenkonto']);
+	await page.getByRole('link', { name: 'Belege' }).click();
+	await expect(funkReceipts.getByTestId('receipt-status')).toHaveText([
+		'Guthabenkonto',
+		'Guthabenkonto'
+	]);
+	await page.getByRole('link', { name: 'Zahlungen' }).click();
+
 	// At rest: the bookings are there (the scan finds data) but no counterparty,
 	// no purpose and no token is readable; the token is not in localStorage at all.
 	const { inventory, text } = await everythingStoredAsText(page);
