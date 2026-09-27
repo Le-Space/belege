@@ -7,11 +7,89 @@
 	import { formatDate, formatMoney } from '$lib/bank/format.js';
 	import { receiptDate, receiptVendor } from '$lib/receipts/view.js';
 	import { t } from '$lib/i18n/index.js';
+	import { onMount } from 'svelte';
+	import AiMark from '$lib/AiMark.svelte';
+	import { getSetting } from '$lib/store/settings.js';
+	import { refreshNow } from '$lib/session.svelte.js';
+	import {
+		aiEligible,
+		aiEstimate,
+		aiRun,
+		cancelSuggestAll,
+		dismissSuggestion,
+		suggestAll
+	} from '$lib/matching/ai-suggest.svelte.js';
 
 	let open = $derived(app.questions.filter((q) => q.state === 'open'));
 	let answered = $derived(app.questions.filter((q) => q.state === 'answered'));
 	let txById = $derived(new Map(app.transactions.map((x) => [x.id, x])));
 	let receiptById = $derived(new Map(app.receipts.map((r) => [r.id, r])));
+
+	/** @type {{ matchAssist: (body: any) => Promise<any> } | null} */
+	let client = $state(null);
+	onMount(async () => {
+		const store = currentStore();
+		const saved = store ? await getSetting(store.settings, 'bridge') : null;
+		if (!saved?.token) return;
+		const { createBridgeClient } = await import('$lib/bridge/client.js');
+		client = createBridgeClient({ url: saved.url, token: saved.token });
+	});
+
+	// "✦ KI-Vorschläge für alle offenen Rückfragen" (matching/ai-suggest.svelte.js).
+	let eligible = $derived(aiEligible(app.questions));
+	let estimate = $derived(aiEstimate(app.events, eligible.length));
+	let aiAsk = $state(false);
+	/** Suggestions a person may take all at once: the model was sure, and not dismissed. */
+	let sureOnes = $derived(
+		open.filter(
+			(q) =>
+				q.aiSuggestion?.receiptId &&
+				q.aiSuggestion.confidence === 'high' &&
+				!q.aiSuggestion.dismissed &&
+				receiptById.has(q.aiSuggestion.receiptId)
+		)
+	);
+
+	async function startAi() {
+		const store = currentStore();
+		if (!client || !store) return;
+		aiAsk = false;
+		const c = client;
+		await suggestAll(
+			{ client: c, store: () => /** @type {any} */ (currentStore()), refresh: refreshNow },
+			eligible.map((q) => q.id)
+		);
+		await refreshNow();
+	}
+
+	/** @param {string} id */
+	async function dismiss(id) {
+		const store = currentStore();
+		if (!store) return;
+		await dismissSuggestion(/** @type {any} */ (store), id);
+		await refreshNow();
+	}
+
+	async function takeAllSure() {
+		const store = currentStore();
+		if (!store) return;
+		busy = 'all';
+		error = null;
+		try {
+			for (const q of sureOnes) {
+				await answerQuestion(/** @type {any} */ (store), q.id, {
+					choice: 'candidate',
+					receiptId: q.aiSuggestion.receiptId,
+					transactionId: q.transactionId
+				});
+			}
+			await runMatchingNow();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			busy = null;
+		}
+	}
 
 	/** @type {Record<string, string>} */
 	let reasons = $state({});
@@ -82,6 +160,73 @@
 	<p class="mt-3 text-sm text-danger" role="alert">{error}</p>
 {/if}
 
+{#if client && (eligible.length || aiRun.progress || sureOnes.length)}
+	<section class="mt-4 {card}" data-testid="ai-all">
+		<div class="flex flex-wrap items-center gap-3">
+			{#if aiRun.progress}
+				<p class="flex-1 text-sm text-heading" role="status" data-testid="ai-all-progress">
+					<AiMark />
+					{t('rueckfragen.ai.progress', {
+						done: aiRun.progress.done,
+						count: aiRun.progress.count
+					})}
+				</p>
+				<button
+					type="button"
+					class={button}
+					onclick={cancelSuggestAll}
+					disabled={aiRun.cancelling}
+					data-testid="ai-all-cancel"
+					>{aiRun.cancelling ? t('rueckfragen.ai.cancelling') : t('rueckfragen.ai.cancel')}</button
+				>
+			{:else if eligible.length}
+				<button
+					type="button"
+					class="inline-flex items-center gap-1.5 {button}"
+					onclick={() => (aiAsk = !aiAsk)}
+					aria-expanded={aiAsk}
+					data-testid="ai-all-open"
+					><AiMark />{t('rueckfragen.ai.button', { count: eligible.length })}</button
+				>
+			{/if}
+			{#if sureOnes.length && !aiRun.progress}
+				<button
+					type="button"
+					class={primary}
+					onclick={takeAllSure}
+					disabled={busy !== null}
+					data-testid="ai-take-sure"
+					>{t('rueckfragen.ai.takeSure', { count: sureOnes.length })}</button
+				>
+			{/if}
+		</div>
+		{#if aiAsk && !aiRun.progress}
+			<div class="mt-3 text-sm text-text" data-testid="ai-all-confirm">
+				<p>
+					{t('rueckfragen.ai.what', { count: estimate.requests })}
+					{estimate.tokens
+						? t('rueckfragen.ai.tokens', { tokens: estimate.tokens.toLocaleString('de-DE') })
+						: t('rueckfragen.ai.tokensUnknown')}
+				</p>
+				<p class="mt-1 text-xs text-faint">{t('rueckfragen.ai.only')}</p>
+				<div class="mt-2 flex gap-3">
+					<button type="button" class={primary} onclick={startAi} data-testid="ai-all-start"
+						>{t('rueckfragen.ai.start')}</button
+					>
+					<button type="button" class={button} onclick={() => (aiAsk = false)}
+						>{t('rueckfragen.ai.no')}</button
+					>
+				</div>
+			</div>
+		{/if}
+		{#if aiRun.failed && !aiRun.progress}
+			<p class="mt-2 text-sm text-danger" data-testid="ai-all-failed">
+				{t('rueckfragen.ai.failed', { count: aiRun.failed })}
+			</p>
+		{/if}
+	</section>
+{/if}
+
 {#each open as q (q.id)}
 	{@const r = q.receiptId ? receiptById.get(q.receiptId) : undefined}
 	{@const x = q.transactionId ? txById.get(q.transactionId) : undefined}
@@ -97,6 +242,53 @@
 				{x.counterparty || '—'}
 			</p>
 			<p class="text-sm text-faint">{txLine(x)}</p>
+		{/if}
+
+		{#if q.aiSuggestion && !q.aiSuggestion.dismissed}
+			{@const pick = q.aiSuggestion.receiptId
+				? receiptById.get(q.aiSuggestion.receiptId)
+				: undefined}
+			<div
+				class="mt-3 rounded-md border border-cyan-500 px-3 py-2 text-sm"
+				data-testid="ai-suggestion"
+				data-confidence={q.aiSuggestion.confidence ?? 'none'}
+			>
+				<p class="flex items-center gap-1 text-xs font-medium text-cyan-800 dark:text-cyan-200">
+					<AiMark />{pick
+						? t('rueckfragen.ai.pick', {
+								confidence: t(`zahlungen.detail.aiConfidence.${q.aiSuggestion.confidence}`),
+								reason: q.aiSuggestion.reason || '—'
+							})
+						: t('rueckfragen.ai.nonePick')}
+				</p>
+				{#if pick}
+					<p class="mt-1 font-medium text-heading">{receiptVendor(pick)}</p>
+					<p class="text-xs text-faint">{receiptLine(pick)}</p>
+				{/if}
+				<div class="mt-2 flex flex-wrap gap-2">
+					{#if pick}
+						<button
+							type="button"
+							class={primary}
+							disabled={busy !== null}
+							onclick={() =>
+								answer(q.id, {
+									choice: 'candidate',
+									receiptId: pick.id,
+									transactionId: q.transactionId
+								})}
+							data-testid="ai-suggestion-take">{t('rueckfragen.ai.take')}</button
+						>
+					{/if}
+					<button
+						type="button"
+						class={button}
+						disabled={busy !== null}
+						onclick={() => dismiss(q.id)}
+						data-testid="ai-suggestion-dismiss">{t('rueckfragen.ai.dismiss')}</button
+					>
+				</div>
+			</div>
 		{/if}
 
 		{#if q.kind === 'unknown-sender'}

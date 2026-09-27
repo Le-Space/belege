@@ -253,6 +253,28 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	const questions = page.getByTestId('question');
 	await expect(questions).toHaveCount(4);
 	await page.screenshot({ path: test.info().outputPath('rueckfragen.png'), fullPage: true });
+	// ✦ KI-Vorschläge for every open question about a missing receipt: asked after a
+	// confirmation, kept as suggestions, nothing linked; set aside by "Verwerfen".
+	llm.answers.respond = (/** @type {any} */ body) =>
+		String(body.messages[0].content).startsWith('You match a bank booking')
+			? { best: 1, confidence: 'low', reason: 'Nur ein Versuch' }
+			: undefined;
+	const requestsBefore = llm.requests.length;
+	await expect(page.getByTestId('ai-all-open')).toContainText('KI-Vorschläge für alle offenen');
+	await page.getByTestId('ai-all-open').click();
+	await expect(page.getByTestId('ai-all-confirm')).toContainText('nur Vorschläge');
+	await page.getByTestId('ai-all-start').click();
+	const suggestions = page.getByTestId('ai-suggestion');
+	await expect(suggestions.first()).toBeVisible();
+	await expect(page.getByTestId('ai-all-progress')).toHaveCount(0);
+	const asked = await suggestions.count();
+	expect(llm.requests.length - requestsBefore).toBeGreaterThanOrEqual(asked);
+	await expect(questions).toHaveCount(4);
+	await expect(page.getByTestId('ai-all-open')).toHaveCount(0);
+	for (let i = 0; i < asked; i++)
+		await suggestions.first().getByTestId('ai-suggestion-dismiss').click();
+	await expect(suggestions).toHaveCount(0);
+	delete llm.answers.respond;
 	const unsure = page.locator('[data-testid="question"][data-kind="unsure-match"]');
 	await expect(unsure).toHaveCount(1);
 	await expect(unsure.getByTestId('question-receipt')).toHaveText(NAMES.strom);
@@ -397,7 +419,8 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 		'Diesen Beleg gibt es schon in deinen Büchern. Er ist dieser Zahlung zugeordnet.'
 	);
 	await expect(detail.getByTestId('tx-private-receipt-here')).toBeVisible();
-	expect(llm.requests.length).toBe(6);
+	// 6, plus the two suggestions the run on the Rückfragen page asked for.
+	expect(llm.requests.length).toBe(8);
 	await page.screenshot({ path: test.info().outputPath('zahlung-detail.png') });
 	// On a phone the panel fills the screen, without sideways scrolling.
 	await page.setViewportSize({ width: 375, height: 812 });

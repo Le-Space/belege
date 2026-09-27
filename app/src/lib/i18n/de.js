@@ -537,6 +537,25 @@ export default {
 		]
 	},
 	rueckfragen: {
+		ai: {
+			button: 'KI-Vorschläge für alle offenen Rückfragen ({count})',
+			what: 'Für {count} Zahlungen ohne Beleg fragt die Bridge dein Sprachmodell, welcher Beleg passt – je Zahlung eine Anfrage mit der geschwärzten Buchung und den bis zu 25 nächstgelegenen Belegen.',
+			tokens: 'Nach deinen letzten KI-Vorschlägen etwa {tokens} Tokens.',
+			tokensUnknown: 'Wie viele Tokens das braucht, zeigt der Verlauf nach dem ersten Lauf.',
+			only: 'Es sind nur Vorschläge: Zugeordnet wird nichts, bis du einen übernimmst.',
+			start: 'Vorschläge holen',
+			no: 'Abbrechen',
+			progress: 'KI-Vorschläge … {done}/{count}',
+			cancel: 'Abbrechen',
+			cancelling: 'Hält nach dieser Rückfrage an …',
+			failed:
+				'Bei {count} Rückfragen hat die KI nicht geantwortet – ein neuer Lauf fragt sie noch einmal.',
+			pick: 'KI-Vorschlag ({confidence}): {reason}',
+			nonePick: 'KI-Vorschlag: Keiner der Belege passt.',
+			take: 'Übernehmen',
+			dismiss: 'Verwerfen',
+			takeSure: 'Alle sicheren Vorschläge übernehmen ({count})'
+		},
 		title: 'Rückfragen',
 		intro:
 			'Wo der Abgleich nicht sicher ist, fragt er dich. Deine Antwort gilt: Ein späterer Abgleich überschreibt sie nicht.',
