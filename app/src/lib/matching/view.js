@@ -555,3 +555,40 @@ export function transferCandidates(tx, transactions, { query = '', days = 31, li
 		.slice(0, limit)
 		.map((x) => x.o);
 }
+
+/**
+ * The check "Umbuchung mit Beleg" (Home): payments that count as an own
+ * transfer now – by a newer rule, a link by hand – but still have a receipt
+ * linked from before. The matching never undoes a link, so a person looks:
+ * unlink it, or say it is right. An Eigenbeleg made for the payment is left
+ * out: it was written for it on purpose.
+ *
+ * @param {{ transactions: Record<string, any>[], receipts: Record<string, any>[], matches: Record<string, any>[], classifications: Record<string, any>, kept?: string[] }} books
+ * @returns {{ tx: Record<string, any>, receipt: Record<string, any>, matchId: string | null }[]}
+ */
+export function transfersWithReceipt({
+	transactions,
+	receipts,
+	matches,
+	classifications,
+	kept = []
+}) {
+	const keep = new Set(kept);
+	const receiptById = new Map(receipts.filter((r) => !r.deleted).map((r) => [String(r.id), r]));
+	/** @type {{ tx: Record<string, any>, receipt: Record<string, any>, matchId: string | null }[]} */
+	const found = [];
+	for (const tx of transactions) {
+		if (tx.deleted || classifications[tx.id]?.kind !== 'own-transfer') continue;
+		/** @type {Map<string, string | null>} receipt id → match id */
+		const linked = new Map();
+		for (const m of matchesOfTx(tx.id, matches)) linked.set(String(m.receiptId), String(m.id));
+		if (tx.receiptId && !linked.has(String(tx.receiptId))) linked.set(String(tx.receiptId), null);
+		for (const [receiptId, matchId] of linked) {
+			const receipt = receiptById.get(receiptId);
+			if (!receipt || receipt.source === 'eigenbeleg') continue;
+			if (keep.has(`${tx.id}|${receiptId}`)) continue;
+			found.push({ tx, receipt, matchId });
+		}
+	}
+	return found.sort((a, b) => String(b.tx.bookedOn).localeCompare(String(a.tx.bookedOn)));
+}

@@ -382,6 +382,14 @@ export default {
 		hidden: '{count} weitere in anderen Jahren'
 	},
 	home: {
+		transferReceipts: {
+			title: 'Umbuchung mit Beleg: {count} zu prüfen',
+			what: 'Diese Zahlungen gelten jetzt als eigene Umbuchung und brauchen keinen Beleg, haben aber noch einen zugeordnet – oft aus der Zeit, bevor die Umbuchung erkannt wurde. Löse die Zuordnung, wenn der Beleg nicht dazugehört; sonst bestätige ihn.',
+			receipt: 'Zugeordnet: {vendor}',
+			open: 'Zahlung öffnen',
+			unlink: 'Zuordnung lösen',
+			keep: 'Beleg ist richtig'
+		},
 		resume: {
 			extract:
 				'{count} Belege wurden nicht fertig ausgelesen, als die Seite neu geladen oder gesperrt wurde. Weitermachen?',
@@ -1067,6 +1075,7 @@ export default {
 			'bank-fee-forget': 'Bankgebühr vergessen',
 			'not-transfer': 'Als „keine Umbuchung“ markiert',
 			'own-transfer-link': 'Als Gegenbuchung verknüpft (eigene Umbuchung)',
+			'transfer-receipt-kept': 'Beleg einer Umbuchung bestätigt',
 			'company-name': 'Firmennamen übernommen',
 			'receipt-duplicate': 'Beleg als Duplikat aussortiert',
 			'receipt-set-aside': 'Beleg aussortiert',

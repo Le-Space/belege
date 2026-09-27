@@ -16,7 +16,12 @@
 	import { onMount } from 'svelte';
 	import { getSetting } from '$lib/store/settings.js';
 	import { DEFAULT_PRICES, aiUsage, cleanPrices, periods } from '$lib/stats/usage.js';
-	import { isTxCovered, questionProgress } from '$lib/matching/view.js';
+	import { isTxCovered, questionProgress, transfersWithReceipt } from '$lib/matching/view.js';
+	import { cleanMatchingSettings } from '$lib/matching/classify.js';
+	import { keepTransferReceipt, unlinkMatch } from '$lib/matching/actions.js';
+	import { formatDate, formatTxAmount } from '$lib/bank/format.js';
+	import { addressBook, payeeName } from '$lib/bank/payee.js';
+	import { receiptVendor } from '$lib/receipts/view.js';
 	import { booksByYear, shownYear } from '$lib/year/year.svelte.js';
 
 	const hour = new Date().getHours();
@@ -117,6 +122,34 @@
 			transactions: p.transactions ?? 0
 		});
 	}
+
+	// "Umbuchung mit Beleg": own transfers that still have a receipt from before
+	// (matching/view.js transfersWithReceipt). Shown, never undone by itself.
+	let book = $derived(addressBook(app));
+	let transferReceipts = $derived.by(() => {
+		const index = booksByYear();
+		const year = shownYear();
+		return transfersWithReceipt({
+			transactions: app.transactions,
+			receipts: app.receipts,
+			matches: app.matches,
+			classifications: app.classifications,
+			kept: cleanMatchingSettings(app.matchingSettings).keptTransferReceipts
+		}).filter((x) => index.txYear(x.tx) === year);
+	});
+	let checkBusy = $state(false);
+	/** @param {() => Promise<unknown>} fn */
+	async function check(fn) {
+		const store = currentStore();
+		if (!store || checkBusy) return;
+		checkBusy = true;
+		try {
+			await fn();
+			await runMatchingNow();
+		} finally {
+			checkBusy = false;
+		}
+	}
 </script>
 
 <h1 class="text-2xl font-bold text-heading">{greeting}!</h1>
@@ -152,6 +185,75 @@
 {/each}
 {#if resumeNote}
 	<p class="mt-2 text-sm text-danger" role="alert">{resumeNote}</p>
+{/if}
+
+{#if transferReceipts.length}
+	<section
+		class="mt-4 {card}"
+		aria-labelledby="transfer-receipts-h"
+		data-testid="transfer-receipts"
+	>
+		<h2 id="transfer-receipts-h" class="text-sm font-semibold text-heading">
+			{t('home.transferReceipts.title', { count: transferReceipts.length })}
+		</h2>
+		<p class="mt-1 text-sm text-text">{t('home.transferReceipts.what')}</p>
+		<ul class="mt-2 divide-y divide-border text-sm">
+			{#each transferReceipts as item (`${item.tx.id}|${item.receipt.id}`)}
+				<li
+					class="flex flex-wrap items-center justify-between gap-2 py-2"
+					data-testid="transfer-receipt"
+				>
+					<span class="min-w-0">
+						<span class="font-medium text-heading">{payeeName(item.tx, book).name}</span>
+						<span class="text-faint">
+							· {formatDate(item.tx.bookedOn)} · {formatTxAmount(item.tx)}</span
+						>
+						<span class="block text-faint"
+							>{t('home.transferReceipts.receipt', {
+								vendor: receiptVendor(/** @type {any} */ (item.receipt))
+							})}</span
+						>
+					</span>
+					<span class="flex flex-wrap gap-2">
+						<a
+							class="rounded-md border border-border px-3 py-1 text-sm text-text no-underline hover:bg-surface-2"
+							href={`${resolve('/zahlungen')}?tx=${encodeURIComponent(item.tx.id)}`}
+							data-testid="transfer-receipt-open">{t('home.transferReceipts.open')}</a
+						>
+						{#if item.matchId}
+							<button
+								type="button"
+								class="rounded-md border border-border px-3 py-1 text-sm text-text hover:bg-surface-2"
+								disabled={checkBusy}
+								onclick={() =>
+									check(() =>
+										unlinkMatch(
+											/** @type {any} */ (currentStore()),
+											/** @type {string} */ (item.matchId)
+										)
+									)}
+								data-testid="transfer-receipt-unlink">{t('home.transferReceipts.unlink')}</button
+							>
+						{/if}
+						<button
+							type="button"
+							class="rounded-md border border-border px-3 py-1 text-sm text-text hover:bg-surface-2"
+							disabled={checkBusy}
+							onclick={() =>
+								check(() =>
+									keepTransferReceipt(
+										/** @type {any} */ (currentStore()),
+										String(item.tx.id),
+										String(item.receipt.id)
+									)
+								)}
+							data-testid="transfer-receipt-keep">{t('home.transferReceipts.keep')}</button
+						>
+					</span>
+				</li>
+			{/each}
+		</ul>
+	</section>
 {/if}
 
 <section
