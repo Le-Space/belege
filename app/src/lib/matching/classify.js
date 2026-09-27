@@ -95,6 +95,7 @@ export function isOwnName(name, company) {
  * @property {string[]} feeKeys bookings a person called a bank fee (`feeKey`)
  * @property {string[]} notTransfers pairs of booking ids a person said are no transfer (`transferPairKey`)
  * @property {string[]} ownTransfers pairs a person linked as the two sides of an own transfer (`transferPairKey`)
+ * @property {string[]} keptTransferReceipts `<transaction id>|<receipt id>`: an own transfer whose receipt a person said is right
  */
 
 /** A receipt often arrives days after the debit: no question before then. */
@@ -110,7 +111,8 @@ export function defaultMatchingSettings() {
 		graceDays: DEFAULT_GRACE_DAYS,
 		feeKeys: [],
 		notTransfers: [],
-		ownTransfers: []
+		ownTransfers: [],
+		keptTransferReceipts: []
 	};
 }
 
@@ -159,7 +161,9 @@ export function cleanMatchingSettings(value) {
 		notTransfers: [...new Set(strings(value?.notTransfers))].slice(-200),
 		// Two bookings a person linked as one own transfer (issue #98): kept
 		// through every run, whatever the rules find.
-		ownTransfers: [...new Set(strings(value?.ownTransfers))].slice(-500)
+		ownTransfers: [...new Set(strings(value?.ownTransfers))].slice(-500),
+		// An own transfer that keeps its receipt on purpose (Home, "Beleg ist richtig").
+		keptTransferReceipts: [...new Set(strings(value?.keptTransferReceipts))].slice(-500)
 	};
 }
 

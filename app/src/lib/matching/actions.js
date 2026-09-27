@@ -248,6 +248,25 @@ export async function linkTransfer(store, transactionId, counterBookingId) {
 }
 
 /**
+ * "Beleg ist richtig" (Home, "Umbuchung mit Beleg"): this own transfer keeps
+ * its receipt; the check no longer shows it.
+ *
+ * @param {MatchingStore} store
+ * @param {string} transactionId
+ * @param {string} receiptId
+ */
+export async function keepTransferReceipt(store, transactionId, receiptId) {
+	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+	const key = `${transactionId}|${receiptId}`;
+	if (current.keptTransferReceipts.includes(key)) return;
+	await setSetting(store.settings, 'matching', {
+		...current,
+		keptTransferReceipts: [...current.keptTransferReceipts, key]
+	});
+	await decided(store, 'transfer-receipt-kept', { transactionId, receiptId });
+}
+
+/**
  * "Vergessen" for a learned bank fee: its bookings need a receipt again.
  *
  * @param {MatchingStore} store

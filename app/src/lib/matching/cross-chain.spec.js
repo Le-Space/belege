@@ -299,3 +299,60 @@ describe('linking and unlinking by hand', () => {
 		expect(events.map((/** @type {any} */ e) => e.action)).toContain('own-transfer-link');
 	});
 });
+
+describe('the check "Umbuchung mit Beleg"', () => {
+	const transactions = [
+		{ id: 't-bridge', bookedOn: '2026-07-19', amountCents: 233000 },
+		{ id: 't-eigen', bookedOn: '2026-04-15', amountCents: 591 },
+		{ id: 't-shop', bookedOn: '2026-07-20', amountCents: -1999 },
+		{ id: 't-kept', bookedOn: '2026-07-21', amountCents: -500 }
+	];
+	const receipts = [
+		{ id: 'r-wrong', vendor: 'Zufall GmbH' },
+		{ id: 'r-eigen', source: 'eigenbeleg' },
+		{ id: 'r-shop', vendor: 'Laden' },
+		{ id: 'r-kept', vendor: 'Richtig' }
+	];
+	const matches = [
+		{ id: 'm1', transactionId: 't-bridge', receiptId: 'r-wrong', state: 'auto' },
+		{ id: 'm2', transactionId: 't-eigen', receiptId: 'r-eigen', state: 'confirmed' },
+		{ id: 'm3', transactionId: 't-shop', receiptId: 'r-shop', state: 'auto' },
+		{ id: 'm4', transactionId: 't-kept', receiptId: 'r-kept', state: 'confirmed' },
+		{ id: 'm5', transactionId: 't-bridge', receiptId: 'r-shop', state: 'rejected' }
+	];
+	const own = { kind: 'own-transfer', via: 'bridge' };
+	const classifications = { 't-bridge': own, 't-eigen': own, 't-kept': own };
+
+	it('an own transfer with a receipt from before; not an Eigenbeleg, not a kept one', async () => {
+		const { transfersWithReceipt } = await import('./view.js');
+		const found = transfersWithReceipt({
+			transactions,
+			receipts,
+			matches,
+			classifications,
+			kept: ['t-kept|r-kept']
+		});
+		expect(found.map((x) => [x.tx.id, x.receipt.id, x.matchId])).toEqual([
+			['t-bridge', 'r-wrong', 'm1']
+		]);
+	});
+
+	it('"Beleg ist richtig" is kept once and logged', async () => {
+		const { keepTransferReceipt } = await import('./actions.js');
+		const { getSetting } = await import('../store/settings.js');
+		const { memoryCollection } = await import('../bank/test-support.js');
+		/** @type {any} */
+		const store = {};
+		for (const name of /** @type {const} */ (['settings', 'events']))
+			store[name] = memoryCollection(name).collection;
+		await keepTransferReceipt(store, 't-bridge', 'r-wrong');
+		await keepTransferReceipt(store, 't-bridge', 'r-wrong');
+		expect((await getSetting(store.settings, 'matching')).keptTransferReceipts).toEqual([
+			't-bridge|r-wrong'
+		]);
+		const events = await store.events.list();
+		expect(
+			events.filter((/** @type {any} */ e) => e.action === 'transfer-receipt-kept')
+		).toHaveLength(1);
+	});
+});
