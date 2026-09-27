@@ -63,6 +63,13 @@ export function nextSelfNumber(receipts, year) {
  * @typedef {{ accounts?: Record<string, any>[], partners?: Record<string, any>[], transactions?: Record<string, any>[] }} Books
  */
 
+/** `30000.5` → `30.000,5`, as a German reads a quantity. @param {string} amount */
+const deDecimal = (amount) => {
+	const [int, frac] = String(amount).split('.');
+	const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+	return frac ? `${grouped},${frac}` : grouped;
+};
+
 /**
  * An own wallet's transaction in full, for the Eigenbeleg; null for a bank booking.
  *
@@ -105,7 +112,7 @@ export function chainDetails(tx, { accounts = [], partners = [], transactions = 
 		const gave = (tx.swap?.gave ?? []).includes(side);
 		movements.push({
 			what: gave ? 'Tausch – gegeben (nicht gebucht)' : 'Tausch – erhalten (nicht gebucht)',
-			quantity: `${side.amount.replace('.', ',')} ${side.asset}`,
+			quantity: `${deDecimal(side.amount)} ${side.asset}`,
 			euro: '',
 			booked: false
 		});

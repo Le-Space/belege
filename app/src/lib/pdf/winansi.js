@@ -17,6 +17,9 @@ export function winAnsi(text) {
 		...String(text ?? '')
 			.replace(/[\u00a0\u202f]/g, ' ')
 			.replace(/\u2212/g, '-')
+			// Arrows are not in the code page: a swap's "→" stays readable.
+			.replace(/\u2192/g, '->')
+			.replace(/\u2190/g, '<-')
 	]
 		.map((c) => {
 			const code = c.codePointAt(0) ?? 0;

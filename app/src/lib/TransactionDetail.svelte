@@ -54,6 +54,7 @@
 	import { quantityText, valuationText } from './assets/valuation.js';
 	import { safeExplorerUrl, walletChain } from './wallets/chains.js';
 	import { formatQuantity } from './assets/quantity.js';
+	import { renderSVG } from 'uqr';
 	import { addressBook, payeeName, shortAddress, walletParties } from './bank/payee.js';
 	import { eventCalls } from './stats/usage.js';
 	import { relatedIndex } from './matching/related.js';
@@ -121,6 +122,8 @@
 	let showDetails = $state(false);
 	/** "Kein fremder Beleg …": no receipt needed, bank fee, Eigenbeleg. */
 	let altOpen = $state(false);
+	// The transaction in the block explorer as a QR code, to open it on a phone.
+	let explorerQrOpen = $state(false);
 	// The payment's name and, for a crypto booking, who sent and who received (bank/payee.js).
 	let book = $derived(addressBook(app));
 	let payee = $derived(tx ? payeeName(tx, book) : null);
@@ -1148,6 +1151,13 @@
 						rel="noopener noreferrer"
 						class="underline"
 						data-testid="tx-explorer">{t('zahlungen.detail.explorer')}</a
+					>
+					<button
+						type="button"
+						class="underline"
+						aria-expanded={explorerQrOpen}
+						onclick={() => (explorerQrOpen = !explorerQrOpen)}
+						data-testid="tx-explorer-qr-toggle">{t('zahlungen.detail.explorerQr')}</button
 					>{/if}{#if parties && tx.txRef}&nbsp;·
 					<CopyButton
 						text={tx.txRef}
@@ -1156,6 +1166,15 @@
 						valueClass="font-mono text-xs text-heading">Tx {shortAddress(tx.txRef)}</CopyButton
 					>{/if}
 			</p>
+			{#if explorerQrOpen && safeExplorerUrl(tx.explorerUrl)}
+				<div
+					class="mt-2 inline-block rounded-md bg-white p-2 [&_svg]:block [&_svg]:size-40"
+					data-testid="tx-explorer-qr"
+				>
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -- uqr's own SVG of a checked https explorer link -->
+					{@html renderSVG(/** @type {string} */ (safeExplorerUrl(tx.explorerUrl)), { border: 1 })}
+				</div>
+			{/if}
 			{#if tx.purpose}
 				<p class="mt-1 line-clamp-2 font-mono text-xs break-words text-text" title={tx.purpose}>
 					{displayPurpose(tx.purpose)}

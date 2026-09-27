@@ -1422,6 +1422,7 @@ export default {
 			chainTxRef: 'Transaktions-Hash',
 			address: 'Gegenadresse',
 			explorer: 'Im Block-Explorer ansehen',
+			explorerQr: 'QR-Code',
 			valueDate: 'Wertstellung',
 			amount: 'Betrag',
 			account: 'Konto',
