@@ -276,6 +276,23 @@ export default {
 				'Der API-Schlüssel liegt im macOS-Schlüsselbund der Bridge, nie im Browser. Das Protokoll der Bridge nennt nur Zahlen, nie Text. Im Verlauf der App stehen Modell, Dauer und Tokens jedes Aufrufs.'
 			]
 		},
+		integrations: {
+			title: 'Womit Belege arbeitet',
+			simple:
+				'Banken, Börsen und Blockchains, deren Buchungen Belege liest, und die Dienste, die es dafür fragt – nur wenn du sie einrichtest oder benutzt. Die Logos sind in die App eingebaut; dieser Dialog lädt nichts von fremden Servern.',
+			groups: {
+				banks: 'Banken und Kontoauszüge',
+				exchanges: 'Börsen',
+				chains: 'Blockchains (eigene Wallets)',
+				data: 'Daten- und Kursquellen',
+				explorers: 'Block-Explorer (nur als Link)',
+				ai: 'KI-Modelle (du wählst eins)',
+				portals: 'Kundenportale',
+				apps: 'Verbundene Apps'
+			},
+			marks:
+				'Marken und Logos gehören ihren Inhabern; sie zeigen nur, womit Belege zusammenarbeitet. Logos: Simple Icons (CC0).'
+		},
 		services: {
 			title: 'Externe Dienste',
 			simple: ['Nur wenn du sie benutzt, und nur mit dem, was hier steht.'],
