@@ -19,6 +19,7 @@
 	import { graceWait, localDay } from '$lib/matching/grace.js';
 	import { isBookingConfirmed } from '$lib/booking/suggest.js';
 	import { isWalletSource } from '$lib/wallets/chains.js';
+	import { relatedIndex } from '$lib/matching/related.js';
 	import { tradeArrow, tradeSides, tradeSideWhat } from '$lib/exchanges/trades.js';
 
 	/** @typedef {{ id: string, bookedOn: string, counterparty?: string, purpose?: string, amountCents?: number, currency?: string, accountId?: string, source?: string, receiptId?: string | null, noReceipt?: any, booking?: any, importChange?: any }} Tx */
@@ -34,6 +35,8 @@
 	let accountsById = $derived(new Map(app.accounts.map((a) => [a.id, a])));
 	// Each exchange trade leg's other leg: "Tausch → 128 USDC".
 	let sides = $derived(tradeSides(transactions));
+	// Bookings that belong together (matching/related.js): a mark on the row.
+	let relatedById = $derived(relatedIndex(transactions, app.classifications));
 
 	/** Account and search, but not the receipt filter: its buttons count both ways. */
 	let searched = $derived(
@@ -330,6 +333,29 @@
 											>
 										{/if}
 									</span>
+									{#if relatedById.get(tx.id)?.length}
+										{@const n = relatedById.get(tx.id)?.length ?? 0}
+										<span
+											class="shrink-0 text-cyan-800 dark:text-cyan"
+											title={t('zahlungen.relatedMark', { count: n })}
+											data-testid="related-mark"
+											><svg
+												width="16"
+												height="16"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												role="img"
+												aria-label={t('zahlungen.relatedMark', { count: n })}
+												><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1 1"></path><path
+													d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1-1"
+												></path></svg
+											></span
+										>
+									{/if}
 									{#if badge(tx)}
 										<span
 											class="shrink-0 rounded border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-text"
