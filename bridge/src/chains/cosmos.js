@@ -5,10 +5,10 @@
 // Where the data comes from:
 //   - CometBFT RPC `tx_search` (JSON-RPC over POST), twice: once for
 //     `transfer.sender='<address>'` and once for `transfer.recipient='…'`,
-//     100 a page, oldest first, until `total_count`; merged by hash. Every
-//     change of a balance through the bank module is a `transfer` event, the
-//     fee included, so the two queries see every movement a transaction
-//     made – also a failed one, whose fee is still paid.
+//     100 a page, oldest first, until `total_count`; merged by hash. A send,
+//     a fee, a reward are `transfer` events; a delegation is not (see below),
+//     but it pays its fee with one, so the first query finds it too. A failed
+//     transaction still paid its fee.
 //   - `header?height=` for the time of each block (cached per height).
 //   - `status` for the oldest block the node still has: a pruned node does
 //     not know older transactions, and the sync says so instead of
@@ -28,6 +28,11 @@
 //     transaction give several entries. A transfer to itself is none.
 //     Events of cosmos-sdk < 0.47 that pack several transfers into one
 //     event, and base64-encoded attributes (CometBFT 0.34), are read too.
+//   - a delegation: the bank keeper's DelegateCoins spends from the address
+//     and credits the bonded pool with `coin_spent` and `coin_received` but
+//     no `transfer` (issue #135). Such a pair that no transfer follows is a
+//     movement too. Chains older than cosmos-sdk 0.44 have no `coin_spent`;
+//     there the `delegate` event says it, its amount maybe without a denom.
 //   - the other side named when it is a module: rewards come from
 //     `distribution`, a delegation goes to `bonded_tokens_pool`; an IBC
 //     transfer names its receiver on the other chain.
@@ -167,6 +172,65 @@ export function transfersOf(events) {
 }
 
 /**
+ * Movements the bank keeper made without a `transfer` event – a delegation
+ * (DelegateCoins) – in the same shape as `transfersOf`: a `coin_spent`
+ * followed by a `coin_received` of the same amount, and then no `transfer`
+ * (a send, a fee, a reward are followed by theirs). Without any `coin_spent`
+ * in the transaction (cosmos-sdk < 0.44) the `delegate` events instead, the
+ * delegator named in the event or as the staking message's only sender.
+ *
+ * @param {ReturnType<typeof readEvents>} events
+ * @param {{ nativeDenom: string, bonded: string }} chain
+ */
+export function untransferredOf(events, { nativeDenom, bonded }) {
+	/** @type {ReturnType<typeof transfersOf>} */
+	const out = [];
+	const value = (/** @type {typeof events[number] | undefined} */ e, /** @type {string} */ key) =>
+		e?.attributes.find((a) => a.key === key)?.value;
+	if (events.some((e) => e.type === 'coin_spent')) {
+		events.forEach((spent, index) => {
+			const received = events[index + 1];
+			if (spent.type !== 'coin_spent' || received?.type !== 'coin_received') return;
+			if (events[index + 2]?.type === 'transfer') return;
+			const amount = value(spent, 'amount') ?? '';
+			if (!amount || value(received, 'amount') !== amount) return;
+			out.push({
+				sender: value(spent, 'spender') ?? '',
+				recipient: value(received, 'receiver') ?? '',
+				amount,
+				msgIndex: value(spent, 'msg_index') ?? null,
+				event: index,
+				part: 0
+			});
+		});
+		return out;
+	}
+	const stakingSenders = [
+		...new Set(
+			events
+				.filter((e) => e.type === 'message' && value(e, 'module') === 'staking')
+				.flatMap((e) => e.attributes.filter((a) => a.key === 'sender').map((a) => a.value))
+		)
+	];
+	events.forEach((e, index) => {
+		if (e.type !== 'delegate') return;
+		const delegator =
+			value(e, 'delegator') ?? (stakingSenders.length === 1 ? stakingSenders[0] : '');
+		const raw = value(e, 'amount') ?? '';
+		if (!delegator || !raw) return;
+		out.push({
+			sender: delegator,
+			recipient: bonded,
+			amount: /^\d+$/.test(raw) ? `${raw}${nativeDenom}` : raw,
+			msgIndex: value(e, 'msg_index') ?? null,
+			event: index,
+			part: 0
+		});
+	});
+	return out;
+}
+
+/**
  * One transaction from tx_search → the entries of `address`.
  *
  * @param {any} raw an item of `result.txs`
@@ -269,7 +333,10 @@ export function normalizeCosmosTx(raw, { address, chain, time }) {
 	const ibcReceiver =
 		events.find((e) => e.type === 'ibc_transfer')?.attributes.find((a) => a.key === 'receiver')
 			?.value ?? '';
-	for (const t of transfers) {
+	for (const t of [
+		...transfers,
+		...untransferredOf(events, { nativeDenom: chain.nativeDenom, bonded: pools.bonded })
+	]) {
 		const out = t.sender === address;
 		const into = t.recipient === address;
 		if (out === into) continue; // not ours, or to itself
