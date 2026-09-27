@@ -3,6 +3,10 @@
 export const DEFAULT_BRIDGE_URL = import.meta.env?.VITE_BRIDGE_URL || 'http://127.0.0.1:8765';
 
 export class BridgeError extends Error {
+	/**
+	 * @typedef {{ direction?: 'in' | 'out', amount?: string, quantity?: string, asset?: string, day?: string, account?: string, counterparty?: string, purpose?: string }} TransferAssistBooking
+	 */
+
 	/** @param {string} message @param {number} status */
 	constructor(message, status) {
 		super(message);
@@ -321,6 +325,16 @@ export function createBridgeClient({
 		 * @returns {Promise<{ pick: { id: string, confidence: 'high' | 'medium' | 'low', reason: string } | null, llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
 		 */
 		matchAssist: (body) => call('/match/assist', { method: 'POST', body: JSON.stringify(body) }),
+		/**
+		 * "✦ KI-Vorschlag" under "Als Gegenbuchung verknüpfen …": the LLM picks
+		 * the other side of an own transfer among up to 8 bookings; the bridge
+		 * redacts and cuts addresses and hashes.
+		 *
+		 * @param {{ booking: TransferAssistBooking, candidates: (TransferAssistBooking & { id: string })[] }} body
+		 * @returns {Promise<{ pick: { id: string, confidence: 'high' | 'medium' | 'low', reason: string } | null, llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
+		 */
+		transferAssist: (body) =>
+			call('/transfer/assist', { method: 'POST', body: JSON.stringify(body) }),
 		/**
 		 * @param {{ text: string, hints?: Record<string, string>, source?: { mailId: string }, confirmedByUser?: boolean }} body
 		 * @returns {Promise<{ extraction: any, model: string, usage: any, ms?: number, attempts: any[], fallback?: { used: boolean, reason: string | null }, redactions?: any, sentText?: string }>}

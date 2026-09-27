@@ -10,6 +10,7 @@
 //   GET  /mail/search?text=&amount=&from=a.example,b.example&term=…&around=YYYY-MM-DD&days=   token
 //   POST /mail/assist  { counterparty, purpose, amount, around, days, knownDomains }   token → LLM terms, hits, pick
 //   POST /match/assist { booking, candidates }                  token → the LLM's pick among receipts
+//   POST /transfer/assist { booking, candidates }               token → the LLM's pick of an own transfer's other side
 //   GET  /llm/status                                              token → provider, models, key present?
 //   POST /extract      { text, hints, source, confirmedByUser }   token
 //   GET  /rates?asset=BTC&date=YYYY-MM-DD[&prefer=kraken]         token → EUR per unit, source (rates.js)
@@ -74,6 +75,7 @@ const MAX_EXTRACT_BODY = 256 * 1024;
  * @param {ReturnType<typeof import('./llm/assist.js').createMailAssist> | null} [options.assist]
  *   "Mit KI weitersuchen": null without mail or LLM
  * @param {ReturnType<typeof import('./llm/match-assist.js').createMatchAssist> | null} [options.matchAssist]
+ * @param {ReturnType<typeof import('./llm/transfer-assist.js').createTransferAssist> | null} [options.transferAssist]
  *   "✦ KI-Vorschlag" under "Beleg zuordnen": null without an LLM
  * @param {import('./portals/manager.js').PortalManager | null} [options.portals] the portal connector
  * @param {ReturnType<typeof import('./rates.js').createRateService> | null} [options.rates] exchange rates
@@ -90,6 +92,7 @@ export function createBridgeServer({
 	llmKeyPresent = async () => false,
 	assist = null,
 	matchAssist = null,
+	transferAssist = null,
 	portals = null,
 	rates = null,
 	kraken = null,
@@ -367,6 +370,36 @@ export function createBridgeServer({
 			const result = await matchAssist.pick({ booking: b, candidates: list });
 			log(
 				`receipt pick: ${list.length} candidate(s), ${result.pick ? `pick ${result.pick.confidence}` : 'no pick'}`
+			);
+			return send(res, 200, result);
+		}
+
+		if (path === '/transfer/assist' && req.method === 'POST') {
+			const body = /** @type {any} */ (await readJson(req, MAX_EXTRACT_BODY));
+			const b = body?.booking;
+			const list = body?.candidates;
+			/** @param {unknown} v @param {number} max */
+			const str = (v, max) => typeof v === 'string' && v.length <= max;
+			/** @param {any} x */
+			const okFields = (x) =>
+				x &&
+				typeof x === 'object' &&
+				(x.direction === undefined || x.direction === 'in' || x.direction === 'out') &&
+				['amount', 'quantity', 'asset', 'day', 'account', 'counterparty', 'purpose'].every(
+					(k) => x[k] === undefined || x[k] === null || str(x[k], k === 'purpose' ? 500 : 200)
+				);
+			const okList =
+				Array.isArray(list) &&
+				list.length >= 1 &&
+				list.length <= 8 &&
+				list.every((c) => okFields(c) && str(c.id, 64));
+			if (!okFields(b) || !okList) {
+				return send(res, 400, { error: 'booking and 1–8 candidates are required' });
+			}
+			if (!llm || !transferAssist) throw notSetUp('LLM');
+			const result = await transferAssist.pick({ booking: b, candidates: list });
+			log(
+				`transfer pick: ${list.length} candidate(s), ${result.pick ? `pick ${result.pick.confidence}` : 'no pick'}`
 			);
 			return send(res, 200, result);
 		}

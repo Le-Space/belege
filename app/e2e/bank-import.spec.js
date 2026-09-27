@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 
 import { defaultConfig, saveConfig } from '@belege/bridge';
 import { FAKE_PASSWORD, sampleData, startFakeHibiscus } from '@belege/bridge/testing';
+import { FAKE_LLM_KEY, startFakeLlm } from '@belege/bridge/testing/llm';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { everythingStoredAsText } from './storage-scan.js';
 import { acceptConsent } from './consent.js';
@@ -65,8 +66,11 @@ function fakeData() {
 /** @type {string} */ let dir;
 let bridgeOut = '';
 
+/** @type {Awaited<ReturnType<typeof startFakeLlm>>} */ let llm;
+
 test.beforeAll(async () => {
 	hibiscus = await startFakeHibiscus({ data: fakeData() });
+	llm = await startFakeLlm();
 	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-bridge-'));
 	const configPath = join(dir, 'bridge.json');
 	await saveConfig(
@@ -79,12 +83,17 @@ test.beforeAll(async () => {
 				port: hibiscus.port,
 				certSha256: hibiscus.fingerprint,
 				ibanSuffixes: ['4711']
-			}
+			},
+			llm: { ...defaultConfig().llm, baseUrl: llm.url, configured: true }
 		},
 		configPath
 	);
 	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
-		env: { ...process.env, BELEGE_BRIDGE_TEST_PASSWORD: FAKE_PASSWORD },
+		env: {
+			...process.env,
+			BELEGE_BRIDGE_TEST_PASSWORD: FAKE_PASSWORD,
+			BELEGE_BRIDGE_TEST_LLM_KEY: FAKE_LLM_KEY
+		},
 		stdio: ['ignore', 'pipe', 'pipe']
 	});
 	bridge.stdout?.on('data', (d) => (bridgeOut += d));
@@ -95,6 +104,7 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
 	bridge?.kill('SIGTERM');
 	await hibiscus?.close();
+	await llm?.close();
 	if (dir) await rm(dir, { recursive: true, force: true });
 });
 
@@ -230,7 +240,22 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	const choices = detail.getByTestId('tx-link-transfer-choice');
 	await expect(choices).toHaveCount(1);
 	await expect(choices).toContainText(names.credit);
-	await choices.getByTestId('tx-link-transfer-pick').click();
+	// ✦ KI-Vorschlag: only a suggestion, redacted, no IBAN; linked on the click.
+	llm.answers.respond = (/** @type {any} */ body) =>
+		String(body.messages[0].content).startsWith('You help a German company')
+			? { best: 1, confidence: 'medium', reason: 'Gleiche Zeit, eigenes Konto' }
+			: undefined;
+	await detail.getByTestId('tx-link-transfer-ai').click();
+	const aiResult = detail.getByTestId('tx-link-transfer-ai-result');
+	await expect(aiResult).toContainText(
+		'KI-Vorschlag (wahrscheinlich): Gleiche Zeit, eigenes Konto'
+	);
+	await expect(aiResult).toContainText(names.credit);
+	await expect(detail.getByTestId('tx-why-rule')).toHaveCount(0);
+	const asked = llm.requests.at(-1)?.body.messages[1].content ?? '';
+	expect(asked).toContain('Ausgang');
+	expect(asked).not.toContain('DE00000000000000004711');
+	await detail.getByTestId('tx-link-transfer-ai-take').click();
 	await expect(detail.getByTestId('tx-why-rule-line')).toContainText('von dir verknüpft');
 	await expect(detail.getByTestId('tx-related-chip')).toContainText(/1\.439,76\sEUR/);
 	await expect(detail.getByTestId('tx-related-chip')).toContainText('von dir verknüpft');

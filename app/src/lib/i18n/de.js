@@ -262,7 +262,8 @@ export default {
 			uses: [
 				'Belege auslesen: Anbieter, Betrag, Datum, Rechnungs- und Kundennummer aus dem Text eines Belegs – und ob es überhaupt ein Beleg ist (Anmelde-Mails und Newsletter nicht). Bei „Auslesen“, „Alle neuen auslesen“, „Beleg hochladen“, „Als Beleg übernehmen“ und „Rechnungen holen“.',
 				'„Mit KI weitersuchen“ im privaten Postfach: Suchwörter und Absender vorschlagen, dann unter den Treffern den Beleg wählen – nach Betreff, Absender-Domain und Dateinamen, nie nach dem Text der E-Mails.',
-				'„KI-Vorschlag“ unter „Beleg zuordnen“: unter bis zu 25 deiner Belege den passenden zu einer Buchung nennen – nach Anbieter, Betrag, Datum, Rechnungsnummer und Kurzbeschreibung. Zuordnen tust du.'
+				'„KI-Vorschlag“ unter „Beleg zuordnen“: unter bis zu 25 deiner Belege den passenden zu einer Buchung nennen – nach Anbieter, Betrag, Datum, Rechnungsnummer und Kurzbeschreibung. Zuordnen tust du.',
+				'„KI-Vorschlag“ unter „Als Gegenbuchung verknüpfen …“: unter bis zu 8 Buchungen auf deinen anderen Konten die andere Seite einer eigenen Umbuchung nennen – nach Richtung, Betrag, Menge, Tag, Kontoart, Gegenpartei und Zweck, ohne Adressen, IBANs und Hashes. Verknüpfen tust du.'
 			],
 			withoutHeading: 'Ohne KI, nach festen Regeln',
 			without:
@@ -596,7 +597,12 @@ export default {
 		month: 'Dieser Monat',
 		cost: 'Kosten (ca.)',
 		tokens: 'Tokens',
-		kind: { extract: 'Auslesen', 'match-assist': 'KI-Vorschlag', 'mail-assist': 'Postfach-Suche' },
+		kind: {
+			extract: 'Auslesen',
+			'match-assist': 'KI-Vorschlag',
+			'transfer-assist': 'KI-Gegenbuchung',
+			'mail-assist': 'Postfach-Suche'
+		},
 		perReceipt: 'Pro ausgelesenem Beleg in diesem Monat etwa {tokens} Tokens.',
 		perReceiptNone: 'In diesem Monat wurde noch kein Beleg ausgelesen.',
 		pricesFrom: 'Preise vom {date} in {currency}, zur Haupt- und Nebenzeit des Anbieters.',
@@ -1011,6 +1017,7 @@ export default {
 			extractFailed: 'Auslesen fehlgeschlagen',
 			'mail-assist': 'Mit KI im Postfach gesucht',
 			'match-assist': 'KI-Vorschlag für eine Zuordnung',
+			'transfer-assist': 'KI-Vorschlag für eine Gegenbuchung',
 			matching: 'Abgleich',
 			decision: 'Entscheidung',
 			export: 'DATEV-Export'
@@ -1035,6 +1042,7 @@ export default {
 				'{model} · {terms} Suchwörter · {domains} Absender · {mails} Treffer · {seconds} s · {tokens} Tokens',
 			mailAssistPick: ' · Vorschlag: {confidence}',
 			matchAssist: '{model} · {candidates} Belege geprüft · {seconds} s · {tokens} Tokens',
+			transferAssist: '{model} · {candidates} Buchungen geprüft · {seconds} s · {tokens} Tokens',
 			export: 'DATEV-Export {month}: {bookings} Buchungen, {receipts} Belege',
 			matching:
 				'{sure} zugeordnet · {created} neue Rückfragen · {resolved} erledigt · {classified} ohne Beleg-Pflicht · {waiting} warten noch',
@@ -1340,6 +1348,13 @@ export default {
 				'Diese Zahlung und eine auf einem anderen deiner Konten oder Wallets sind die zwei Seiten einer eigenen Umbuchung (Konto 1360): keine braucht einen Beleg. Bleibt bei jedem Abgleich.',
 			linkTransferSearch: 'Gegenbuchung suchen: Name, Zweck, Betrag …',
 			linkTransferPick: 'Verknüpfen',
+			linkTransferAi: 'KI-Vorschlag',
+			linkTransferAiTitle:
+				'Fragt dein Sprachmodell, welche dieser Buchungen die andere Seite ist: je Buchung Richtung, Betrag, Menge, Tag, Kontoart, Gegenpartei und Zweck – geschwärzt, ohne Adressen, IBANs und Hashes. Nur ein Vorschlag: Verknüpft wird erst mit deinem Klick.',
+			linkTransferAiPick: 'KI-Vorschlag ({confidence}): {reason}',
+			linkTransferAiNone: 'KI-Vorschlag: Keine dieser Buchungen ist die andere Seite.',
+			linkTransferAiTake: 'Übernehmen',
+			linkTransferAiDismiss: 'Verwerfen',
 			linkTransferNone:
 				'Keine Buchung in die andere Richtung auf einem anderen Konto innerhalb eines Monats.',
 			bankFeeTitle:

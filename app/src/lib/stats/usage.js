@@ -3,7 +3,8 @@
 // records and `navigator.storage.estimate()`, nothing leaves the browser.
 //
 // Every AI call is an event with its tokens: `extract` (Auslesen),
-// `match-assist` (KI-Vorschlag), `mail-assist` (Postfach-Suche). Newer events
+// `match-assist` (KI-Vorschlag), `transfer-assist` (KI-Vorschlag für eine
+// Gegenbuchung), `mail-assist` (Postfach-Suche). Newer events
 // carry each call (`calls`: model, prompt, cache hits, completion); older
 // ones only a total and the last model, and are counted as an estimate:
 // the prompt as not cached, the rest as output, at that model's price.
@@ -46,7 +47,12 @@ export const DEFAULT_PRICES = Object.freeze({
 });
 
 /** Event kinds that are AI calls, and what the person calls them. */
-export const AI_KINDS = /** @type {const} */ (['extract', 'match-assist', 'mail-assist']);
+export const AI_KINDS = /** @type {const} */ ([
+	'extract',
+	'match-assist',
+	'transfer-assist',
+	'mail-assist'
+]);
 
 /**
  * Whether a moment is DeepSeek's peak time: 01–04 or 06–10 UTC, Monday to Friday.

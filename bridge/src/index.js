@@ -11,6 +11,7 @@ import { createExtractor } from './llm/extract.js';
 import { createMailAssist } from './llm/assist.js';
 import { createRateService } from './rates.js';
 import { createMatchAssist } from './llm/match-assist.js';
+import { createTransferAssist } from './llm/transfer-assist.js';
 import { createKrakenClient, parseKrakenCredentials } from './kraken.js';
 import { createWalletService } from './chains/index.js';
 import { buildRecipes, createPortalManager, keychainAccount } from './portals/index.js';
@@ -144,6 +145,9 @@ export async function startBridge({
 	const matchAssist = llm
 		? createMatchAssist({ llm, redaction: { terms: config.llm.redactTerms, ownDomains } })
 		: null;
+	const transferAssist = llm
+		? createTransferAssist({ llm, redaction: { terms: config.llm.redactTerms, ownDomains } })
+		: null;
 	const assist =
 		llm && mail
 			? createMailAssist({ llm, mail, redaction: { terms: config.llm.redactTerms, ownDomains } })
@@ -205,6 +209,7 @@ export async function startBridge({
 		llm,
 		assist,
 		matchAssist,
+		transferAssist,
 		// Reads the keychain entry to see that there is one; the value stays here.
 		llmKeyPresent: async () => {
 			try {
