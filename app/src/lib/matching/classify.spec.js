@@ -197,7 +197,10 @@ describe('classifyTransaction', () => {
 				counterparty: 'Versand Test GmbH',
 				purpose: 'Erstattung Bestellung 4711'
 			});
-			expect(classifyTransaction(refund, await context([payment, refund]))).toBeNull();
+			// No own transfer – it is the vendor's refund (refunds.js, #119).
+			const c = classifyTransaction(refund, await context([payment, refund]));
+			expect(c?.kind).not.toBe('own-transfer');
+			expect(c).toMatchObject({ kind: 'refund', role: 'refund', counterBookingId: 'T-GLS-PAY' });
 		});
 
 		it('too far apart, the same account, or marked "keine Umbuchung": not paired', async () => {
@@ -337,6 +340,8 @@ describe('cleanMatchingSettings', () => {
 			feeKeys: [],
 			notTransfers: [],
 			ownTransfers: [],
+			refundPairs: [],
+			notRefunds: [],
 			keptTransferReceipts: []
 		});
 		expect(cleanMatchingSettings(null)).toEqual({
@@ -347,6 +352,8 @@ describe('cleanMatchingSettings', () => {
 			feeKeys: [],
 			notTransfers: [],
 			ownTransfers: [],
+			refundPairs: [],
+			notRefunds: [],
 			keptTransferReceipts: []
 		});
 	});

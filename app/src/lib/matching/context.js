@@ -7,6 +7,7 @@
 // digits count only together with the counter-booking on that account.
 
 import { ibanKey } from '../bank/fingerprint.js';
+import { refundIndex } from './refunds.js';
 import { cleanMatchingSettings } from './classify.js';
 import { compactIban, dayNumber } from './normalize.js';
 import { learnedVendors } from './partners.js';
@@ -244,6 +245,7 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 			return [...found.values()];
 		},
 		notTransfers: new Set(clean.notTransfers),
+		refundOf: refundIndex(transactions, clean).refundOf,
 		linkedTransfer(tx) {
 			const other = linkedTo.get(String(tx.id));
 			return other ? (liveById.get(other) ?? null) : null;

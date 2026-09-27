@@ -7,6 +7,7 @@
 import { test, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -301,6 +302,48 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	await check.getByTestId('transfer-receipt-unlink').click();
 	await expect(check).toHaveCount(0);
 	await page.getByRole('link', { name: 'Zahlungen' }).click();
+
+	// A card charge and its refund (issue #119): a second card account with the
+	// same charge as the Revolut one, so the refund has two charges to choose
+	// from and no automatic pair is guessed; linked by hand as a refund.
+	const card = readFileSync(REVOLUT, 'utf8')
+		.replaceAll('LT000000000000000001', 'LT000000000000000002')
+		.replaceAll('Revolut Testkonto', 'Karte Testkonto')
+		.replaceAll('rev-', 'card-')
+		.replaceAll('REV-', 'CARD-')
+		.replace('<Amt Ccy="EUR">1500.00</Amt>', '<Amt Ccy="EUR">19.99</Amt>')
+		.replace('<Amt Ccy="EUR">1500.00</Amt>', '<Amt Ccy="EUR">19.99</Amt>')
+		.replaceAll('2026-09-10', '2026-09-25')
+		.replace('Umbuchung Eigenkonto Test', 'Rückerstattung Wolkenspeicher Testdienst Ltd')
+		.replace('DE00000000000000004711', 'DE00000000000000008888');
+	await page.getByRole('link', { name: 'Integrationen' }).click();
+	await page.getByTestId('camt-file').setInputFiles({
+		name: 'karte.xml',
+		mimeType: 'application/xml',
+		buffer: Buffer.from(card, 'utf8')
+	});
+	await expect(page.getByTestId('camt-result')).toContainText('Karte Testkonto ···0002: Neu: 2');
+	await page.getByRole('link', { name: 'Zahlungen' }).click();
+	await page.getByTestId('account-filter').selectOption('');
+	await page.getByTestId('filter-all').click();
+	await page.locator('[data-testid="transaction-month"][data-month="2026-09"]').click();
+	await page
+		.getByTestId('transaction')
+		.filter({ hasText: 'Rückerstattung Wolkenspeicher' })
+		.click();
+	await expect(detail.getByTestId('tx-why-rule')).toHaveCount(0);
+	await detail.getByTestId('tx-alt-toggle').click();
+	await detail.getByTestId('tx-link-refund').click();
+	await detail
+		.getByTestId('tx-link-transfer-choice')
+		.filter({ hasText: 'Karte Testkonto' })
+		.filter({ hasText: /-19,99\sEUR/ })
+		.getByTestId('tx-link-transfer-pick')
+		.click();
+	await expect(detail.getByTestId('tx-why-rule-line')).toContainText('Erstattung zur Belastung');
+	await expect(detail.getByTestId('tx-why-rule-line')).toContainText('von dir verknüpft');
+	await expect(detail.getByTestId('tx-related-chip')).toContainText('Erstattung');
+	await detail.getByTestId('tx-detail-close').click();
 
 	// At rest: the bookings are there (the scan finds data) but no counterparty,
 	// no purpose and no token is readable; the token is not in localStorage at all.

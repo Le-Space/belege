@@ -6,7 +6,8 @@
 //
 // Found by
 //   - the classification: an own transfer's counter-booking (classify.js,
-//     by counter-booking, reference or hash, or over a bridge);
+//     by counter-booking, reference or hash, or over a bridge), and a
+//     charge's refund (refunds.js);
 //   - a shared reference (context.js txRefsOf): the exchange's refid shared
 //     by a trade's legs and their fees, a transaction hash shared by a wallet
 //     booking and its fee, and by an exchange deposit or withdrawal
@@ -18,7 +19,7 @@ import { txRefsOf } from './context.js';
 const HASH = /^(0x)?[0-9a-f]{40,}$/i;
 
 /**
- * @typedef {'transfer' | 'trade' | 'fee' | 'fee-of'} RelationKind
+ * @typedef {'transfer' | 'trade' | 'fee' | 'fee-of' | 'refund'} RelationKind
  *   `fee`: the other booking is this one's fee; `fee-of`: this one is the other's fee
  * @typedef {'counter-booking' | 'reference' | 'own-address' | 'bridge' | 'manual' | 'hash' | 'refid'} RelationVia
  * @typedef {{ kind: RelationKind, via: RelationVia, other: Record<string, any> }} Relation
@@ -65,8 +66,10 @@ export function relatedIndex(transactions, classifications = {}) {
 						? c.via
 						: 'counter-booking'
 			);
-			add(t, { kind: 'transfer', via, other });
-			add(other, { kind: 'transfer', via, other: t });
+			// A charge and its refund (refunds.js) are no transfer.
+			const kind = c?.kind === 'refund' ? 'refund' : 'transfer';
+			add(t, { kind, via, other });
+			add(other, { kind, via, other: t });
 		}
 
 		for (const ref of txRefsOf(t)) {

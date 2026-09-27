@@ -515,10 +515,14 @@ export function questionProgress(questions) {
  *
  * @param {Record<string, any>} tx
  * @param {Record<string, any>[]} transactions
- * @param {{ query?: string, days?: number, limit?: number }} [options]
+ * @param {{ query?: string, days?: number, limit?: number, anyAccount?: boolean }} [options] `anyAccount`: the same account too (a refund, issue #119)
  * @returns {Record<string, any>[]}
  */
-export function transferCandidates(tx, transactions, { query = '', days = 31, limit = 8 } = {}) {
+export function transferCandidates(
+	tx,
+	transactions,
+	{ query = '', days = 31, limit = 8, anyAccount = false } = {}
+) {
 	const day = dayNumber(tx.bookedOn);
 	const way = txDirection(tx);
 	if (day === null || !way) return [];
@@ -537,7 +541,8 @@ export function transferCandidates(tx, transactions, { query = '', days = 31, li
 	};
 	return transactions
 		.filter((o) => {
-			if (o.deleted || o.id === tx.id || o.accountId === tx.accountId) return false;
+			if (o.deleted || o.id === tx.id || (!anyAccount && o.accountId === tx.accountId))
+				return false;
 			if (o.movement === 'fee' || txDirection(o) !== -way) return false;
 			const d = dayNumber(o.bookedOn);
 			if (d === null || Math.abs(d - day) > days) return false;
