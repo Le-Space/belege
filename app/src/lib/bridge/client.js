@@ -76,6 +76,8 @@ export class BridgeError extends Error {
  * @property {string} memo
  * @property {boolean} success
  * @property {string} explorerUrl
+ * @property {string} [contract] EVM: a token not in the chain's list, by its contract (#115)
+ * @property {boolean} [listed] false for such a token
  */
 
 /**
@@ -272,12 +274,13 @@ export function createBridgeClient({
 		 *
 		 * @param {string} asset a symbol from assets/registry.js, e.g. `BTC`
 		 * @param {string} date YYYY-MM-DD
-		 * @param {{ prefer?: 'kraken' }} [options] a Kraken booking: Kraken's own EUR price first
+		 * @param {{ prefer?: 'kraken', contract?: string, chain?: string }} [options] a Kraken
+		 *   booking: Kraken's own EUR price first; a token not in the list: by its contract (#115)
 		 * @returns {Promise<import('../assets/valuation.js').Rate>}
 		 */
-		rate: (asset, date, { prefer } = {}) =>
+		rate: (asset, date, { prefer, contract, chain } = {}) =>
 			call(
-				`/rates?asset=${encodeURIComponent(asset)}&date=${encodeURIComponent(date)}${prefer ? `&prefer=${prefer}` : ''}`
+				`/rates?asset=${encodeURIComponent(asset)}&date=${encodeURIComponent(date)}${prefer ? `&prefer=${prefer}` : ''}${contract && chain ? `&contract=${encodeURIComponent(contract)}&chain=${encodeURIComponent(chain)}` : ''}`
 			),
 		/**
 		 * Kraken's non-zero balances (bridge/src/kraken.js).

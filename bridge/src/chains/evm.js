@@ -47,6 +47,20 @@ import { createJsonFetcher, WalletError } from './http.js';
 import { unitsToDecimal } from './cosmos.js';
 import { alchemyBaseUrl, createAlchemyReader } from './alchemy.js';
 
+/** Symbols an unlisted token may never be booked under: the big ones a fake would copy. */
+const LOOKALIKE_GUARD = [
+	'ETH',
+	'WETH',
+	'USDC',
+	'USDT',
+	'DAI',
+	'WBTC',
+	'BTC',
+	'POL',
+	'MATIC',
+	'EURC'
+];
+
 const PAGE = 1000;
 
 /**
@@ -233,10 +247,44 @@ export function normalizeEvm({ normal, internal, tokens }, { address, chain }) {
 		);
 	}
 
+	// Tokens not in the list (issue #115): booked in an account of their own
+	// once the wallet has sent them itself – an airdrop it never touched is
+	// not booked. Never under a symbol that is a listed asset's or another
+	// token's already (a contract can call itself anything): those stay out.
+	const reserved = new Set([
+		native.symbol,
+		...Object.values(chain.tokens).map((t) => t.symbol),
+		...LOOKALIKE_GUARD
+	]);
+	/** @type {Map<string, { symbol: string, decimals: number }>} contract → how it is booked */
+	const used = new Map();
+	/** @type {Set<string>} */
+	const takenSymbols = new Set();
+	for (const raw of tokens) {
+		const contract = String(raw.contractAddress ?? '').toLowerCase();
+		if (Object.hasOwn(chain.tokens, contract) || used.has(contract)) continue;
+		if (String(raw.from ?? '').toLowerCase() !== address) continue;
+		const symbol = String(raw.tokenSymbol ?? '').toUpperCase();
+		const decimals = Number(raw.tokenDecimal);
+		if (
+			!/^[A-Z0-9]{2,10}$/.test(symbol) ||
+			reserved.has(symbol) ||
+			takenSymbols.has(symbol) ||
+			!Number.isInteger(decimals) ||
+			decimals < 0 ||
+			decimals > 36
+		) {
+			continue;
+		}
+		used.set(contract, { symbol, decimals });
+		takenSymbols.add(symbol);
+	}
+
 	for (const raw of tokens) {
 		const hash = hashOf(raw);
 		const contract = String(raw.contractAddress ?? '').toLowerCase();
-		const token = Object.hasOwn(chain.tokens, contract) ? chain.tokens[contract] : null;
+		const listedToken = Object.hasOwn(chain.tokens, contract) ? chain.tokens[contract] : null;
+		const token = listedToken ?? used.get(contract) ?? null;
 		if (!token) {
 			unknownTokens.add(contract);
 			// Not booked, but a swap names it: symbol and decimals as the token
@@ -291,7 +339,9 @@ export function normalizeEvm({ normal, internal, tokens }, { address, chain }) {
 				decimals: token.decimals,
 				counterparty: out ? to : from,
 				counterpartyLabel: known(out ? to : from),
-				success: true
+				success: true,
+				// Not in the list: priced by its contract, marked as the token's own claim.
+				...(listedToken ? {} : { contract, listed: false })
 			}
 		);
 	}
@@ -598,7 +648,7 @@ export function markSwaps(entries, unlisted, viaOf) {
 		(e.amount.startsWith('-') ? x.gave : x.got).push({
 			asset: e.asset,
 			amount: e.amount.replace(/^-/, ''),
-			listed: true
+			listed: e.listed !== false
 		});
 		x.legs.push(e);
 	}

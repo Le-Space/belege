@@ -241,6 +241,24 @@ describe('Eigenbeleg for a wallet transaction in full (#126)', () => {
 		expect(draft.description).toContain('Tausch: 30.000 XYZ (nicht gelistet) → 0,143 ETH');
 	});
 
+	it('a token leg the books hold is not listed again as "nicht gebucht"', () => {
+		const tokenLeg = {
+			...gas,
+			id: 'xyz',
+			movement: 'trade',
+			amountCents: -300,
+			asset: 'XYZ',
+			quantity: '-30000000000000000000000',
+			decimals: 18
+		};
+		const c = chainDetails(got, { accounts, transactions: [got, gas, tokenLeg] });
+		expect(c?.movements.map((m) => m.what)).toEqual([
+			'Tausch – erhalten',
+			'Gas (Netzwerkgebühr)',
+			'Tausch – gegeben'
+		]);
+	});
+
 	it('the PDF prints the hash and the addresses whole', async () => {
 		const { eigenbelegPdf } = await import('./eigenbeleg-pdf.js');
 		const { eigenbelegDocument } = await import('./eigenbeleg.js');

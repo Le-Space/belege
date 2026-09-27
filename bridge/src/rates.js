@@ -98,6 +98,18 @@ const startOfDay = (day) => Math.floor(Date.parse(`${day}T00:00:00Z`) / 1000);
  * @param {() => Date} [options.now]
  * @param {number} [options.cacheSize]
  */
+/**
+ * CoinGecko's platform ids of the EVM chains a wallet can be on, for a token's
+ * rate by its contract (issue #115: a token not in the list).
+ */
+export const COINGECKO_PLATFORMS = Object.freeze({
+	ethereum: 'ethereum',
+	base: 'base',
+	arbitrum: 'arbitrum-one',
+	optimism: 'optimistic-ethereum',
+	polygon: 'polygon-pos'
+});
+
 export function createRateService({
 	fetch: f = fetch,
 	coingeckoKey = async () => null,
@@ -106,6 +118,8 @@ export function createRateService({
 } = {}) {
 	/** @type {Map<string, Rate>} */
 	const cache = new Map();
+	/** @type {Map<string, string | null>} `<platform>:<contract>` → CoinGecko coin id */
+	const ids = new Map();
 
 	/**
 	 * @param {string} url
@@ -137,6 +151,25 @@ export function createRateService({
 			source: 'coingecko',
 			at: `${day}T00:00:00Z`
 		};
+	}
+
+	/**
+	 * A token's CoinGecko id by its contract; null when CoinGecko does not know it.
+	 *
+	 * @param {string} platform
+	 * @param {string} contract 0x + 40 hex, lower case
+	 */
+	async function idOfContract(platform, contract) {
+		const k = `${platform}:${contract}`;
+		if (ids.has(k)) return ids.get(k) ?? null;
+		const key = await coingeckoKey().catch(() => null);
+		const body = await getJson(
+			`https://api.coingecko.com/api/v3/coins/${encodeURIComponent(platform)}/contract/${contract}`,
+			key ? { 'x-cg-demo-api-key': key } : {}
+		);
+		const id = typeof body?.id === 'string' && /^[a-z0-9-]{1,100}$/.test(body.id) ? body.id : null;
+		ids.set(k, id);
+		return id;
 	}
 
 	/** @param {string} pair @param {string} day */
@@ -192,23 +225,41 @@ export function createRateService({
 	 *
 	 * @param {string} asset a symbol from RATE_SOURCES; with prefer 'kraken', any symbol
 	 * @param {string} date YYYY-MM-DD, not in the future
-	 * @param {{ prefer?: 'kraken' | null }} [options]
+	 * @param {{ prefer?: 'kraken' | null, contract?: string | null, chain?: string | null }} [options]
+	 *   `contract` and `chain`: a token not in the list, by its contract only – its
+	 *   symbol is its own claim and says nothing (issue #115)
 	 * @returns {Promise<Rate>}
 	 */
-	async function rate(asset, date, { prefer = null } = {}) {
+	async function rate(asset, date, { prefer = null, contract = null, chain = null } = {}) {
+		const platform =
+			contract && chain && Object.hasOwn(COINGECKO_PLATFORMS, chain)
+				? COINGECKO_PLATFORMS[/** @type {keyof typeof COINGECKO_PLATFORMS} */ (chain)]
+				: null;
+		if (contract && (!platform || !/^0x[0-9a-f]{40}$/.test(contract))) {
+			throw new RateError('a token rate needs a contract and an EVM chain', 400);
+		}
 		const listed = Object.hasOwn(RATE_SOURCES, asset) ? RATE_SOURCES[asset] : null;
+		const byContract =
+			contract && platform
+				? await (async () => {
+						const id = await idOfContract(platform, contract);
+						return id ? { coingecko: id } : null;
+					})()
+				: undefined;
 		const sources =
-			prefer === 'kraken' && /^[A-Z0-9]{2,10}$/.test(asset)
-				? { ...listed, kraken: listed?.ecb ? undefined : (listed?.kraken ?? `${asset}EUR`) }
-				: listed;
-		if (!sources) throw new RateError(`no rate source for ${asset}`, 400);
+			byContract !== undefined
+				? byContract
+				: prefer === 'kraken' && /^[A-Z0-9]{2,10}$/.test(asset)
+					? { ...listed, kraken: listed?.ecb ? undefined : (listed?.kraken ?? `${asset}EUR`) }
+					: listed;
+		if (!sources) throw new RateError(`no rate source for ${asset}`, contract ? 502 : 400);
 		if (!DAY.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) {
 			throw new RateError('date must be YYYY-MM-DD', 400);
 		}
 		if (date > now().toISOString().slice(0, 10)) {
 			throw new RateError('date lies in the future', 400);
 		}
-		const key = `${asset}@${date}@${prefer ?? ''}`;
+		const key = `${contract ?? asset}@${date}@${prefer ?? ''}`;
 		const cached = cache.get(key);
 		if (cached) return cached;
 

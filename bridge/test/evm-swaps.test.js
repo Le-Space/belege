@@ -63,7 +63,12 @@ test('a token given and ETH got back: the ETH leg is a swap naming both sides an
 		address: ME,
 		chain: CHAINS.ethereum
 	});
-	assert.deepEqual(unknownTokens, [XYZ]);
+	// XYZ is not in the list, but the wallet sent it: booked, by its contract (#115).
+	assert.deepEqual(unknownTokens, []);
+	const gaveLeg = entries.find((e) => e.type === 'sent');
+	assert.equal(gaveLeg?.asset, 'XYZ');
+	assert.equal(gaveLeg?.contract, XYZ);
+	assert.equal(gaveLeg?.listed, false);
 	const got = entries.find((e) => e.type === 'received');
 	assert.ok(got);
 	assert.equal(got.kind, 'swap');
@@ -77,11 +82,8 @@ test('a token given and ETH got back: the ETH leg is a swap naming both sides an
 	});
 	// The gas stays its own fee entry, and names the swap it paid for.
 	assert.equal(entries.find((e) => e.type === 'fee')?.swap, got.swap);
-	// The gas stays a fee; the unlisted token is not booked.
-	assert.deepEqual(
-		entries.map((e) => e.kind),
-		['fee', 'swap']
-	);
+	// The gas stays a fee; both legs are swaps.
+	assert.deepEqual(entries.map((e) => e.kind).sort(), ['fee', 'swap', 'swap']);
 });
 
 test('two listed assets swapped: both legs are swaps', () => {
@@ -177,4 +179,51 @@ test('a symbol the token claims is cut to letters and digits', () => {
 	const { entries } = normalizeEvm(lists, { address: ME, chain: CHAINS.ethereum });
 	const asset = entries.find((e) => e.kind === 'swap')?.swap?.gave[0].asset ?? '';
 	assert.match(asset, /^[\p{L}\p{N}._-]{1,12}$/u);
+});
+
+test('an unlisted token only received (an airdrop) is not booked; a lookalike symbol never', () => {
+	const drop = normalizeEvm(
+		{
+			normal: [],
+			internal: [],
+			tokens: [
+				{
+					...base,
+					hash: hash('56'),
+					from: `0x${'99'.repeat(20)}`,
+					to: ME,
+					value: '5',
+					contractAddress: XYZ,
+					tokenSymbol: 'XYZ',
+					tokenDecimal: '18',
+					logIndex: '0'
+				}
+			]
+		},
+		{ address: ME, chain: CHAINS.ethereum }
+	);
+	assert.deepEqual(drop.entries, []);
+	assert.deepEqual(drop.unknownTokens, [XYZ]);
+	const fakeUsdc = `0x${'fa'.repeat(20)}`;
+	const fake = normalizeEvm(
+		{
+			normal: [],
+			internal: [],
+			tokens: [
+				{
+					...base,
+					hash: hash('78'),
+					from: ME,
+					to: `0x${'99'.repeat(20)}`,
+					value: '5',
+					contractAddress: fakeUsdc,
+					tokenSymbol: 'USDC',
+					tokenDecimal: '6',
+					logIndex: '0'
+				}
+			]
+		},
+		{ address: ME, chain: CHAINS.ethereum }
+	);
+	assert.deepEqual(fake.entries, []);
 });
