@@ -237,6 +237,11 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await expect(page.getByTestId('coverage-percent')).toHaveText('50 %');
 	await tab('Zahlungen').click();
 	await page.getByTestId('filter-all').click();
+	// A booking without a counterparty is named from its purpose, never "—".
+	await expect(
+		page.getByTestId('payee').filter({ hasText: 'Abschluss per Quartalsende' })
+	).toHaveCount(1);
+	await expect(page.getByTestId('payee').filter({ hasText: /^—$/ })).toHaveCount(0);
 	const waitingRow = page.getByTestId('transaction').filter({ hasText: NAMES.mobil });
 	await expect(waitingRow.getByTestId('waiting-badge')).toHaveText(/^wartet noch \(\d Tage\)$/);
 	await waitingRow.click();

@@ -5,6 +5,7 @@
 	// shared folder and from customer portals (Integrationen → Kundenportale);
 	// every file is sealed before it is stored.
 	import { onMount, tick } from 'svelte';
+	import { addressBook, payeeName } from '$lib/bank/payee.js';
 	import { booksByYear, shownYear } from '$lib/year/year.svelte.js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -1158,10 +1159,8 @@
 							>
 								<p class="text-xs font-semibold text-success">{t('belege.linkedTo')}</p>
 								<p class="text-heading" data-testid="receipt-linked-tx">
-									{selectedTx.counterparty || '—'} · {formatDate(selectedTx.bookedOn)} · {formatMoney(
-										selectedTx.amountCents ?? 0,
-										selectedTx.currency
-									)}
+									{payeeName(selectedTx, addressBook(app)).name} · {formatDate(selectedTx.bookedOn)}
+									· {formatMoney(selectedTx.amountCents ?? 0, selectedTx.currency)}
 								</p>
 								<a
 									class="text-sm text-text underline"

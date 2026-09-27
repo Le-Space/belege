@@ -2,9 +2,10 @@
 	// Rückfragen: what the matching engine was not sure about. Every answer is
 	// a record the next run respects (matching/actions.js, engine.js).
 	import { resolve } from '$app/paths';
+	import { addressBook, payeeName } from '$lib/bank/payee.js';
 	import { app, currentStore, runMatchingNow } from '$lib/session.svelte.js';
 	import { answerQuestion } from '$lib/matching/actions.js';
-	import { formatDate, formatMoney } from '$lib/bank/format.js';
+	import { displayPurpose, formatDate, formatMoney } from '$lib/bank/format.js';
 	import { receiptDate, receiptVendor } from '$lib/receipts/view.js';
 	import { t } from '$lib/i18n/index.js';
 	import { onMount } from 'svelte';
@@ -35,6 +36,8 @@
 	);
 	let txById = $derived(new Map(app.transactions.map((x) => [x.id, x])));
 	let receiptById = $derived(new Map(app.receipts.map((r) => [r.id, r])));
+	// A payment's name, never a bare dash (bank/payee.js).
+	let book = $derived(addressBook(app));
 
 	/** @type {{ matchAssist: (body: any) => Promise<any> } | null} */
 	let client = $state(null);
@@ -255,8 +258,13 @@
 			<p class="text-sm text-faint">{receiptLine(r)}</p>
 		{:else if x}
 			<p class="mt-1 font-medium text-heading" data-testid="question-transaction">
-				{x.counterparty || '—'}
+				{payeeName(x, book).name}
 			</p>
+			{#if x.purpose}
+				<p class="truncate text-sm text-faint" title={x.purpose} data-testid="question-purpose">
+					{displayPurpose(x.purpose)}
+				</p>
+			{/if}
 			<p class="text-sm text-faint">{txLine(x)}</p>
 		{/if}
 
@@ -338,7 +346,7 @@
 					<li class="flex flex-wrap items-center gap-3 py-2" data-testid="candidate">
 						<span class="min-w-0 flex-1">
 							<span class="block truncate text-sm font-medium text-heading"
-								>{ct ? ct.counterparty || '—' : cr ? receiptVendor(cr) : '—'}</span
+								>{ct ? payeeName(ct, book).name : cr ? receiptVendor(cr) : '—'}</span
 							>
 							<span class="block text-xs text-faint"
 								>{ct ? txLine(ct) : receiptLine(cr)} · {t('matching.score', { score: c.score })} ({reasonText(
@@ -434,7 +442,7 @@
 				{@const r = q.receiptId ? receiptById.get(q.receiptId) : undefined}
 				{@const x = q.transactionId ? txById.get(q.transactionId) : undefined}
 				<li class="px-4 py-2 text-text">
-					{heading(q)}: {r ? receiptVendor(r) : (x?.counterparty ?? '—')} –
+					{heading(q)}: {r ? receiptVendor(r) : x ? payeeName(x, book).name : '—'} –
 					<span class="text-faint">{t(`rueckfragen.answer.${q.answer?.choice ?? 'auto'}`)}</span>
 				</li>
 			{/each}

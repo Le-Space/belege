@@ -1,5 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
+	import { addressBook, payeeName, walletParties } from '$lib/bank/payee.js';
 	import { booksByYear, shownYear } from '$lib/year/year.svelte.js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -35,6 +36,8 @@
 
 	let transactions = $derived(/** @type {Tx[]} */ (/** @type {unknown} */ (app.transactions)));
 	let accountsById = $derived(new Map(app.accounts.map((a) => [a.id, a])));
+	// Names for payments and the two sides of crypto bookings (bank/payee.js).
+	let book = $derived(addressBook(app));
 	// Each exchange trade leg's other leg: "Tausch → 128 USDC".
 	let sides = $derived(tradeSides(transactions));
 	// Bookings that belong together (matching/related.js): a mark on the row.
@@ -281,19 +284,32 @@
 					>
 						{#each day.items as tx (tx.id)}
 							{@const cover = coverageBadge(tx, app.classifications)}
+							{@const payee = payeeName(tx, book)}
+							{@const parties = walletParties(tx, accountsById.get(tx.accountId ?? ''), book)}
 							<li>
 								<button
 									type="button"
 									class="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface-2/60"
 									onclick={() => (openId = tx.id)}
-									aria-label={`${t('zahlungen.open')}: ${tx.counterparty || '—'}`}
+									aria-label={`${t('zahlungen.open')}: ${payee.name}`}
 									data-testid="transaction"
 									data-covered={cover ? 'true' : 'false'}
 								>
 									<span class="min-w-0 flex-1">
-										<span class="block truncate font-medium text-heading"
-											>{tx.counterparty || '—'}</span
+										<span
+											class="block truncate font-medium {payee.from === 'unknown'
+												? 'text-faint italic'
+												: 'text-heading'}"
+											data-testid="payee">{payee.name}</span
 										>
+										{#if parties && !parties.fee}
+											<span class="block truncate text-sm text-text" data-testid="parties"
+												>{t('zahlungen.parties', {
+													from: parties.from.label,
+													to: parties.to.label
+												})}</span
+											>
+										{/if}
 										{#if tx.purpose || formatBookingTime(tx)}<span
 												class="block truncate text-sm text-faint"
 												title={tx.purpose}
