@@ -442,7 +442,26 @@ export default {
 		connected: 'verbunden',
 		direct: 'direkt',
 		viaRelay: 'über den Relay',
-		notConnected: 'nicht verbunden'
+		notConnected: 'nicht verbunden',
+		unnamed: 'Gerät ohne Namen',
+		showQr: 'Als QR-Code zeigen',
+		hideQr: 'QR-Code ausblenden',
+		qrLabel: 'QR-Code mit der Kennung dieses Geräts',
+		qrHint: 'Auf dem anderen Gerät unter „Gerät hinzufügen“ mit „QR-Code scannen“ erfassen.',
+		scan: 'QR-Code scannen',
+		scanStop: 'Scannen abbrechen',
+		scanHint:
+			'Den QR-Code des anderen Geräts vor die Kamera halten. Das Bild bleibt auf diesem Gerät.',
+		scanFailed:
+			'Die Kamera ließ sich nicht öffnen ({reason}). Die Kennung lässt sich auch einfügen.',
+		scanWrong: 'Dieser QR-Code ist keine Gerätekennung.',
+		remove: 'Entfernen',
+		removeConfirm: 'Wirklich entfernen',
+		removeCancel: 'Abbrechen',
+		removeWhat:
+			'Die Geräte synchronisieren nicht mehr mit ihm, und es schaltet seine Synchronisation ab, sobald es davon erfährt. Wer den Passkey hat, kann die Bücher trotzdem öffnen – bei einem verlorenen Gerät den Passkey im Schlüsselbund löschen.',
+		removed:
+			'Dieses Gerät wurde auf einem anderen Gerät entfernt; die Synchronisation ist hier ausgeschaltet. Wieder einschalten im Hinweis „Datenschutz & Technik“ – dann gilt das neuere Einschalten.'
 	},
 	vendorAccount: {
 		open: 'Lieferantenkonto ansehen',

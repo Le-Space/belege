@@ -25,7 +25,9 @@ export const app = $state({
 		/** @type {import('./sync/device-sync.js').SyncState | null} */
 		state: null,
 		/** @type {string | null} */
-		error: null
+		error: null,
+		/** Another device removed this one; its sync is switched off. */
+		removed: false
 	},
 	/** @type {StoredRecord[]} */
 	transactions: [],
@@ -380,14 +382,22 @@ async function startDeviceSyncIfOn() {
 	app.sync.online = Boolean(session?.online);
 	if (!session?.online || deviceSync) return;
 	try {
-		const { startDeviceSync } = await import('./sync/device-sync.js');
+		const { startDeviceSync, deviceSyncSince, setDeviceSync } = await import(
+			'./sync/device-sync.js'
+		);
 		deviceSync = await startDeviceSync({
 			libp2p: session.libp2p,
 			store: session.store,
 			relays: session.relays,
 			label: deviceLabel(),
+			since: deviceSyncSince(),
 			onState: (state) => {
 				app.sync.state = state;
+			},
+			onRemoved: () => {
+				setDeviceSync(false);
+				app.sync.removed = true;
+				app.sync.state = null;
 			}
 		});
 	} catch (error) {
@@ -431,6 +441,12 @@ function deviceLabel() {
 export async function addSyncDevice(peerId) {
 	if (!deviceSync) throw new Error('Die Synchronisation ist auf diesem Gerät nicht an.');
 	await deviceSync.addDevice(peerId.trim());
+}
+
+/** "Entfernen" in Integrationen → Eigene Geräte. @param {string} peerId */
+export async function removeSyncDevice(peerId) {
+	if (!deviceSync) throw new Error('Die Synchronisation ist auf diesem Gerät nicht an.');
+	await deviceSync.removeDevice(peerId);
 }
 
 /** @param {any} credential */

@@ -41,7 +41,12 @@ pnpm test:e2e     # Playwright, Chromium with a virtual passkey (PRF)
   PRF answer and a per-device salt (`belege.device-salt`). Every device of one passkey opens the
   same sealed databases, so OrbitDB replicates them; the relay sees ciphertext only. Devices
   write themselves into the settings (`device:<peer id>`) and dial the ones they know every 30 s;
-  the first one is added by typing its id under Integrationen → Eigene Geräte. Once a device is
+  the first one is added under Integrationen → Eigene Geräte, by scanning the other's QR code
+  (`belege-device:<id>`, read with the browser's `BarcodeDetector`; the image stays on the device) or
+  by pasting its id. "Entfernen" soft-deletes the device's record: every device hangs up on it and
+  its connection gater refuses it, and the removed device switches its own sync off once it learns
+  (switched on there again later, the newer switch wins). It ends syncing, not access: whoever holds
+  the passkey can open the books. Once a device is
   connected directly, every database's sync restarts once, because OrbitDB 4.0.0 exchanges heads
   only once and not over a relayed connection. Nothing is redacted between own devices.
   `e2e/device-sync.spec.js` runs two browsers of one passkey through the test relay; since a
