@@ -536,6 +536,60 @@ export default {
 			'Gespeichert sind Punkte und Gründe im versiegelten Datensatz der Zuordnung (matches), so wie der Abgleich sie damals vergeben hat.'
 		]
 	},
+	statistik: {
+		title: 'Speicher und KI',
+		back: 'Zurück',
+		intro:
+			'Was deine Bücher in diesem Browser belegen und was die KI verbraucht hat. Nichts davon verlässt den Browser.',
+		storage: 'Speicher in diesem Browser',
+		ofQuota: 'von {quota} verfügbar',
+		files: 'Belegdateien (verschlüsselt)',
+		fileCount: '{count} Dateien',
+		database: 'Bücher (Datenbank) und Übriges',
+		storageUnknown: 'Dieser Browser nennt den belegten Speicher nicht.',
+		persisted: 'Der Browser hält die Daten dauerhaft.',
+		notPersisted: 'Der Browser darf die Daten bei Platzmangel löschen.',
+		persist: 'Dauerhaft speichern beantragen',
+		persistYes: 'Gewährt: Der Browser löscht die Bücher nicht mehr von sich aus.',
+		persistNo:
+			'Nicht gewährt. Manche Browser gewähren es erst, wenn die Seite als App installiert oder oft genutzt wird.',
+		records: 'Einträge',
+		collection: {
+			transactions: 'Zahlungen',
+			receipts: 'Belege',
+			matches: 'Zuordnungen',
+			questions: 'Rückfragen',
+			events: 'Verlauf',
+			partners: 'Partner',
+			accounts: 'Konten'
+		},
+		ai: 'KI-Verbrauch',
+		today: 'Heute',
+		week: 'Letzte 7 Tage',
+		month: 'Dieser Monat',
+		cost: 'Kosten (ca.)',
+		tokens: 'Tokens',
+		kind: { extract: 'Auslesen', 'match-assist': 'KI-Vorschlag', 'mail-assist': 'Postfach-Suche' },
+		perReceipt: 'Pro ausgelesenem Beleg in diesem Monat etwa {tokens} Tokens.',
+		perReceiptNone: 'In diesem Monat wurde noch kein Beleg ausgelesen.',
+		pricesFrom: 'Preise vom {date} in {currency}, zur Haupt- und Nebenzeit des Anbieters.',
+		estimated: ' Ältere Einträge ohne Einzelaufrufe sind geschätzt.',
+		unpriced: ' Ohne Preis und nicht mitgezählt: {models}.',
+		holidays:
+			' Chinesische Feiertage (Nebenzeit) kennt die App nicht; dort ist die Schätzung zu hoch.',
+		editPrices: 'Preise ändern',
+		toVerlauf: 'Im Verlauf ansehen',
+		pricesHint:
+			'Je 1 Million Tokens in {currency}, zur Hauptzeit; die Nebenzeit rechnet die App daraus.',
+		priceInput: 'Eingabe',
+		priceCached: 'Eingabe aus Cache',
+		priceOutput: 'Ausgabe',
+		savePrices: 'Preise speichern',
+		resetPrices: 'Auf die Preise des Anbieters zurücksetzen',
+		home: 'Speicher und KI',
+		homeLine: '{storage} belegt · KI diesen Monat {cost}',
+		homeOpen: 'Details'
+	},
 	rueckfragen: {
 		ai: {
 			button: 'KI-Vorschläge für alle offenen Rückfragen ({count})',

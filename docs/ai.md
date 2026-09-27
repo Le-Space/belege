@@ -29,6 +29,8 @@ Before every call the bridge redacts (`bridge/src/llm/redact.js`): the names on 
 
 An AI result is never the last word: extracted values show on the receipt with the model, and a KI suggestion is taken only on your click.
 
+**What it used and cost.** _Speicher und KI_ (Home, `/statistik`) sums the tokens of every AI call in the Verlauf – today, the last 7 days, this month, by purpose, and per receipt read – and prices them from a table kept in the settings (`aiPrices`, editable there): by default DeepSeek's published prices read on 27 September 2026, per million tokens, input apart from input served from the provider's cache and from output, and off peak (outside 01–04 and 06–10 UTC on weekdays) at half. Chinese public holidays are off peak too and not known here, so the figure is an estimate. Each call's model and tokens are kept on its event (`calls`); older events hold only a total and are counted as estimated. The same page shows how much this browser stores (receipt files, the rest) and can ask it to keep the data persistently.
+
 ## Regulation
 
 The EU AI Act asks for transparency mainly for AI that interacts with people or generates content, and for high-risk uses. Reading receipts for your own bookkeeping is not, as far as we can tell, one of those. We disclose it anyway, and the GDPR needs you to know where data goes. This is no legal advice.

@@ -89,8 +89,13 @@ export async function startFakeLlm({ behaviour = {}, key = FAKE_LLM_KEY } = {}) 
 			const custom = answers.respond?.(body);
 			const data = custom ?? readInvoice(user);
 			if (mode === 'invalid') data.gross = (data.gross ?? 0) + 5;
+			const prompt = Math.ceil(user.length / 4);
+			// As DeepSeek answers: the part of the prompt its cache served, and the rest.
+			const cached = Math.min(64, prompt);
 			const usage = {
-				prompt_tokens: Math.ceil(user.length / 4),
+				prompt_tokens: prompt,
+				prompt_cache_hit_tokens: cached,
+				prompt_cache_miss_tokens: prompt - cached,
 				completion_tokens: 321,
 				completion_tokens_details: { reasoning_tokens: 200 }
 			};

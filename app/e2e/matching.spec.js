@@ -244,6 +244,15 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await page.getByTestId('matching-save').click();
 	await expect(page.getByTestId('matching-saved')).toBeVisible();
 	await tab('Home').click();
+	// Speicher und KI: the card on Home, the details on its page.
+	await expect(page.getByTestId('home-stats-line')).toContainText('MB belegt');
+	await page.getByTestId('home-stats').click();
+	await expect(page.getByTestId('stats-storage-used')).toContainText('MB');
+	await expect(page.getByTestId('stats-files')).toContainText('Dateien');
+	await expect(page.getByTestId('stats-tokens-week')).not.toHaveText('0');
+	await expect(page.getByTestId('stats-cost-month')).toContainText('$');
+	await expect(page.getByTestId('stats-per-receipt')).toContainText('Tokens');
+	await tab('Home').click();
 	await expect(page.getByTestId('agent-open')).toHaveText('4 offene Rückfragen');
 	await expect(page.getByTestId('agent-progress')).toHaveText('0 von 4 erledigt');
 	await expect(page.getByTestId('coverage-percent')).toHaveText('50 %');

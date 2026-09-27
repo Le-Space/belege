@@ -15,6 +15,7 @@ import { formatMoney } from '../bank/format.js';
 import { cleanMatchingSettings } from './classify.js';
 import { learnedVendors } from './partners.js';
 import { assistCandidates, receiptChoices } from './view.js';
+import { eventCalls } from '../stats/usage.js';
 
 export const aiRun = $state({
 	/** @type {{ done: number, count: number } | null} */
@@ -130,6 +131,7 @@ export async function suggestAll(ctx, ids, { now = clock } = {}) {
 							candidates: candidates.length,
 							pick: suggestion.confidence,
 							model: suggestion.model,
+							calls: eventCalls(r.llm?.calls),
 							ms: (r.llm?.calls ?? []).reduce(
 								(/** @type {number} */ n, /** @type {any} */ c) => n + (c.ms ?? 0),
 								0

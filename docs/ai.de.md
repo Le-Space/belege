@@ -29,6 +29,8 @@ Vor jedem Aufruf schwärzt die Bridge (`bridge/src/llm/redact.js`): die Namen au
 
 Ein KI-Ergebnis ist nie das letzte Wort: Ausgelesene Werte stehen mit dem Modell am Beleg, ein KI-Vorschlag wird erst auf deinen Klick übernommen.
 
+**Was sie verbraucht und gekostet hat.** _Speicher und KI_ (Startseite, `/statistik`) zählt die Tokens jedes KI-Aufrufs im Verlauf – heute, in den letzten 7 Tagen, in diesem Monat, nach Zweck und je ausgelesenem Beleg – und bepreist sie aus einer Tabelle in den Einstellungen (`aiPrices`, dort änderbar): voreingestellt die veröffentlichten DeepSeek-Preise vom 27. September 2026, je Million Tokens, Eingabe getrennt von Eingabe aus dem Cache des Anbieters und von der Ausgabe, und in der Nebenzeit (außerhalb 01–04 und 06–10 Uhr UTC an Werktagen) zum halben Preis. Chinesische Feiertage sind ebenfalls Nebenzeit und hier nicht bekannt; die Zahl ist eine Schätzung. Modell und Tokens jedes Aufrufs stehen am Ereignis (`calls`); ältere Ereignisse haben nur eine Summe und zählen als geschätzt. Dieselbe Seite zeigt, wie viel dieser Browser speichert (Belegdateien, der Rest), und kann dauerhafte Speicherung beantragen.
+
 ## Rechtliches
 
 Die EU-KI-Verordnung verlangt Transparenz vor allem bei KI, die mit Menschen interagiert oder Inhalte erzeugt, und bei Hochrisiko-Anwendungen. Das Auslesen von Belegen für die eigene Buchhaltung gehört nach unserer Einschätzung nicht dazu. Wir legen es trotzdem offen; nach der DSGVO musst du ohnehin wissen, wohin Daten gehen. Keine Rechtsberatung.

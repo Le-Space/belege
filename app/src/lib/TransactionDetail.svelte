@@ -51,6 +51,7 @@
 	import { isBookingConfirmed } from './booking/suggest.js';
 	import { quantityText, valuationText } from './assets/valuation.js';
 	import { safeExplorerUrl, walletChain } from './wallets/chains.js';
+	import { eventCalls } from './stats/usage.js';
 	import { relatedIndex } from './matching/related.js';
 	import { scamContext, scamSigns } from './receipts/scam.js';
 	import { receiptDate, receiptVendor } from './receipts/view.js';
@@ -539,6 +540,7 @@
 				candidates: candidates.length,
 				pick: r.pick?.confidence ?? null,
 				model: r.llm.calls.at(-1)?.model ?? null,
+				calls: eventCalls(r.llm.calls),
 				ms: r.llm.calls.reduce((n, c) => n + (c.ms ?? 0), 0),
 				tokensTotal: r.llm.calls.reduce(
 					(n, c) => n + (c.usage?.prompt ?? 0) + (c.usage?.completion ?? 0),
@@ -691,6 +693,7 @@
 				mails: r.messages.length,
 				pick: r.pick?.confidence ?? null,
 				model: r.llm.calls.at(-1)?.model ?? null,
+				calls: eventCalls(r.llm.calls),
 				ms: r.llm.calls.reduce((n, c) => n + (c.ms ?? 0), 0),
 				tokensTotal: r.llm.calls.reduce(
 					(n, c) => n + (c.usage?.prompt ?? 0) + (c.usage?.completion ?? 0),

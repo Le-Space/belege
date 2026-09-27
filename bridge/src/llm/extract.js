@@ -199,7 +199,9 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 		const usage = {
 			prompt: Number(u.prompt_tokens ?? 0) || 0,
 			completion: Number(u.completion_tokens ?? 0) || 0,
-			reasoning: Number(u.completion_tokens_details?.reasoning_tokens ?? 0) || 0
+			reasoning: Number(u.completion_tokens_details?.reasoning_tokens ?? 0) || 0,
+			// Input served from the provider's cache (DeepSeek: prompt_cache_hit_tokens): cheaper.
+			cached: Number(u.prompt_cache_hit_tokens ?? 0) || 0
 		};
 		if (choice?.finish_reason !== 'stop') {
 			return {
