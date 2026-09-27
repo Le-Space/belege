@@ -168,15 +168,20 @@ export const shortHash = (hash) =>
  * The bookings for a wallet's entries, by asset.
  *
  * @param {Entry[]} entries oldest first
- * @param {(asset: string, date: string) => Promise<import('../assets/valuation.js').Rate>} getRate
+ * @param {(asset: string, date: string, contract?: string) => Promise<import('../assets/valuation.js').Rate>} getRate
+ *   `contract`: a token not in the list, priced by its contract (#115)
  * @returns {Promise<{ byAsset: Map<string, Incoming[]>, unpriced: { id: string, date: string, asset: string, reason: string }[] }>}
  */
 export async function walletTransactions(entries, getRate) {
 	/** @type {Map<string, Promise<import('../assets/valuation.js').Rate>>} */
 	const rates = new Map();
-	const rateOf = (/** @type {string} */ asset, /** @type {string} */ date) => {
-		const key = `${asset}@${date}`;
-		if (!rates.has(key)) rates.set(key, getRate(asset, date));
+	const rateOf = (
+		/** @type {string} */ asset,
+		/** @type {string} */ date,
+		/** @type {string | undefined} */ contract
+	) => {
+		const key = `${contract ?? asset}@${date}`;
+		if (!rates.has(key)) rates.set(key, getRate(asset, date, contract));
 		return /** @type {Promise<import('../assets/valuation.js').Rate>} */ (rates.get(key));
 	};
 
@@ -192,7 +197,7 @@ export async function walletTransactions(entries, getRate) {
 				asset: e.asset,
 				units,
 				decimals: e.decimals,
-				rate: await rateOf(e.asset, e.date)
+				rate: await rateOf(e.asset, e.date, e.contract)
 			});
 			const { label, movement } = describeWalletEntry(e);
 			const other = e.counterpartyLabel || e.counterparty;
@@ -412,16 +417,23 @@ export async function syncWallet({ client, store, wallet, now = new Date() }) {
 		address: wallet.address,
 		endpoints: wallet.endpoints ?? {}
 	});
-	const { byAsset, unpriced } = await walletTransactions(result.entries, (asset, date) =>
-		client.rate(asset, date)
+	const { byAsset, unpriced } = await walletTransactions(result.entries, (asset, date, contract) =>
+		client.rate(asset, date, contract ? { contract, chain: chain.id } : {})
 	);
 
 	// An account for every asset that moved or is held; a listed token never
 	// touched (a balance of 0) gets none.
-	/** @type {Map<string, { decimals: number, balance: string }>} */
+	/** @type {Map<string, { decimals: number, balance: string | null, contract?: string }>} */
 	const wanted = new Map();
 	for (const e of result.entries) {
-		if (!wanted.has(e.asset)) wanted.set(e.asset, { decimals: e.decimals, balance: '0' });
+		// A token not in the list (#115): its balance is not read, so none is claimed.
+		if (!wanted.has(e.asset)) {
+			wanted.set(e.asset, {
+				decimals: e.decimals,
+				balance: e.contract ? null : '0',
+				...(e.contract ? { contract: e.contract } : {})
+			});
+		}
 	}
 	for (const b of result.balances) {
 		if (wanted.has(b.asset) || !/^0(\.0*)?$/.test(b.amount)) {
@@ -462,7 +474,8 @@ export async function syncWallet({ client, store, wallet, now = new Date() }) {
 			addressUrl: safeExplorerUrl(result.addressUrl) ?? '',
 			lastSyncedOn: today,
 			balance: info.balance,
-			balanceOn: today
+			balanceOn: info.balance === null ? null : today,
+			...(info.contract ? { tokenContract: info.contract } : {})
 		});
 		totals.new += counts.new;
 		totals.updated += counts.updated;

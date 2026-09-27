@@ -76,6 +76,8 @@ const COIN = /^(\d+)([a-zA-Z][a-zA-Z0-9/:._-]{1,127})$/;
  * @property {string} memo
  * @property {boolean} success false for the fee of a failed transaction
  * @property {string} explorerUrl
+ * @property {string} [contract] EVM: a token not in the chain's list, by its contract (issue #115)
+ * @property {boolean} [listed] false for such a token: its symbol is its own claim
  */
 
 /**

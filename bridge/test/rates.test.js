@@ -248,3 +248,36 @@ describe('GET /rates', () => {
 		}
 	});
 });
+
+test('a token not in the list: its rate by its contract, whatever it calls itself', async () => {
+	const contract = `0x${'5e'.repeat(20)}`;
+	/** @type {string[]} */
+	const asked = [];
+	const service = createRateService({
+		now: () => new Date('2026-09-27T12:00:00Z'),
+		fetch: /** @type {any} */ (
+			async (/** @type {string} */ url) => {
+				asked.push(url);
+				if (url.includes(`/coins/ethereum/contract/${contract}`)) {
+					return { ok: true, json: async () => ({ id: 'xyz-token' }) };
+				}
+				if (url.includes('/coins/xyz-token/history')) {
+					return {
+						ok: true,
+						json: async () => ({ market_data: { current_price: { eur: 0.0042, usd: 0.0046 } } })
+					};
+				}
+				return { ok: false, json: async () => ({}) };
+			}
+		)
+	});
+	const r = await service.rate('USDC', '2026-07-19', { contract, chain: 'ethereum' });
+	assert.equal(r.rate, '0.0042');
+	assert.equal(r.source, 'coingecko');
+	// The symbol said USDC; only the contract was asked, never the listed coin.
+	assert.equal(
+		asked.some((u) => u.includes('usd-coin')),
+		false
+	);
+	await assert.rejects(service.rate('XYZ', '2026-07-19', { contract, chain: 'nyx' }), /EVM chain/);
+});

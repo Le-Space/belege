@@ -107,8 +107,10 @@ export function chainDetails(tx, { accounts = [], partners = [], transactions = 
 		euro: formatMoney(Number(t.amountCents ?? 0), t.currency ?? 'EUR'),
 		booked: true
 	}));
+	// A swap's side the books do not hold as a leg (a token never booked).
+	const bookedAssets = new Set(legs.map((t) => String(t.asset ?? '')));
 	for (const side of [...(tx.swap?.gave ?? []), ...(tx.swap?.got ?? [])]) {
-		if (side.listed) continue;
+		if (side.listed || bookedAssets.has(side.asset)) continue;
 		const gave = (tx.swap?.gave ?? []).includes(side);
 		movements.push({
 			what: gave ? 'Tausch – gegeben (nicht gebucht)' : 'Tausch – erhalten (nicht gebucht)',

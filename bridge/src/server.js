@@ -17,7 +17,7 @@
 //   POST /transfer/assist { booking, candidates }               token → the LLM's pick of an own transfer's other side
 //   GET  /llm/status                                              token → provider, models, key present?
 //   POST /extract      { text, hints, source, confirmedByUser }   token
-//   GET  /rates?asset=BTC&date=YYYY-MM-DD[&prefer=kraken]         token → EUR per unit, source (rates.js)
+//   GET  /rates?asset=BTC&date=YYYY-MM-DD[&prefer=kraken][&contract=0x…&chain=ethereum]  token → EUR per unit, source (rates.js)
 //   GET  /kraken/balances                                         token → non-zero balances (kraken.js)
 //   GET  /kraken/ledgers?since=YYYY-MM-DD                         token → the ledger, oldest first
 //   GET  /chains                                                  token → chains, endpoints, explorers, alchemy: bool (chains/)
@@ -508,7 +508,13 @@ export function createBridgeServer({
 			if (prefer !== null && prefer !== 'kraken') {
 				return send(res, 400, { error: 'prefer must be kraken' });
 			}
-			return send(res, 200, await rates.rate(asset, date, { prefer }));
+			// A token not in the list: by its contract on its chain (issue #115).
+			const contract = url.searchParams.get('contract')?.toLowerCase() ?? null;
+			const chain = url.searchParams.get('chain');
+			if (contract !== null && !/^0x[0-9a-f]{40}$/.test(contract)) {
+				return send(res, 400, { error: 'contract must be 0x + 40 hex' });
+			}
+			return send(res, 200, await rates.rate(asset, date, { prefer, contract, chain }));
 		}
 
 		if (path.startsWith('/kraken/') && req.method === 'GET') {

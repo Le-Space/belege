@@ -276,9 +276,14 @@ export async function startBridge({
  */
 function fixedRateService(rates) {
 	return {
-		/** @param {string} asset @param {string} date */
-		async rate(asset, date) {
-			const rate = Object.hasOwn(rates, asset) ? rates[asset] : null;
+		/**
+		 * A token not in the list by its contract only, never by the symbol it claims.
+		 *
+		 * @param {string} asset @param {string} date @param {{ contract?: string | null }} [options]
+		 */
+		async rate(asset, date, { contract = null } = {}) {
+			const key = contract ?? asset;
+			const rate = Object.hasOwn(rates, key) ? rates[key] : null;
 			if (!rate) {
 				throw Object.assign(new Error(`no rate source for ${asset}`), { status: 400 });
 			}

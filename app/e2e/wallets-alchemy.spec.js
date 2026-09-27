@@ -29,6 +29,7 @@ import {
 // MetaMask router's spender, 0.143 ETH back from it as an internal transfer.
 const METAMASK_ROUTER = '0x881d40237659c251811cec9c364ef91dc08d300c';
 const METAMASK_SPENDER = '0x74de5d4fcbf63e00296fd95d33236b9794016631';
+const XYZ_CONTRACT = fakeEvmAddress('a token not in the list');
 const swapTx = fakeTx({
 	seed: 'a-swap',
 	block: 700,
@@ -38,7 +39,7 @@ const swapTx = fakeTx({
 	logs: [
 		{
 			logIndex: 2,
-			contract: fakeEvmAddress('a token not in the list'),
+			contract: XYZ_CONTRACT,
 			from: EVM.wallet,
 			to: METAMASK_SPENDER,
 			value: 30000n * 10n ** 18n,
@@ -76,7 +77,12 @@ test.beforeAll(async () => {
 			...process.env,
 			BELEGE_BRIDGE_TEST_ALCHEMY_KEY: FAKE_ALCHEMY_KEY,
 			BELEGE_BRIDGE_TEST_ALCHEMY_URL: alchemy.url,
-			BELEGE_BRIDGE_TEST_FIXED_RATES: JSON.stringify({ ETH: '2000', USDC: '0.9' })
+			BELEGE_BRIDGE_TEST_FIXED_RATES: JSON.stringify({
+				ETH: '2000',
+				USDC: '0.9',
+				// The token not in the list, by its contract (#115).
+				[XYZ_CONTRACT.toLowerCase()]: '0.0001'
+			})
 		},
 		stdio: ['ignore', 'pipe', 'pipe']
 	});
@@ -142,7 +148,9 @@ test('with an Alchemy key the card says so, and an Ethereum wallet is read there
 	const first = await wallet.getByTestId('wallet-result').textContent();
 	const count = Number(/Neu: (\d+)/.exec(String(first))?.[1]);
 	const accounts = wallet.getByTestId('wallet-account');
-	await expect(accounts).toHaveCount(2);
+	// ETH, USDC, and XYZ: not in the list, but the wallet sent it in a swap (#115).
+	await expect(accounts).toHaveCount(3);
+	await expect(accounts.nth(2)).toContainText('XYZ');
 	await expect(accounts.nth(0)).toContainText(`Wallet ETH (Ethereum) ···${tail(EVM.wallet)}`);
 	await expect(accounts.nth(0)).toContainText('0,31 ETH');
 	await expect(accounts.nth(1)).toContainText('450 USDC');
@@ -178,8 +186,15 @@ test('with an Alchemy key the card says so, and an Ethereum wallet is read there
 		'Tausch: 30.000 XYZ (nicht gelistet) → 0,143 ETH über MetaMask Swap (Router) · Gas 0,00018 ETH';
 	const swapRow = page
 		.getByTestId('transaction')
-		.filter({ hasText: swapText, hasNotText: 'Netzwerkgebühr' });
+		.filter({ hasText: swapText, hasNotText: 'Netzwerkgebühr' })
+		.filter({ hasText: /286,00\sEUR/ });
 	await expect(swapRow).toHaveCount(1);
+	// The token's side is booked too, in its own account, as the other leg.
+	const tokenRow = page
+		.getByTestId('transaction')
+		.filter({ hasText: swapText, hasNotText: 'Netzwerkgebühr' })
+		.filter({ hasText: /-3,00\sEUR/ });
+	await expect(tokenRow.getByTestId('coverage-badge')).toHaveText('Tausch');
 	// Its gas: a fee of its own that names the swap.
 	await expect(
 		page.getByTestId('transaction').filter({ hasText: `Netzwerkgebühr für ${swapText}` })
