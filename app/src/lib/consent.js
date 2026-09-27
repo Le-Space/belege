@@ -22,7 +22,8 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 6: Bitcoin: every derived address is asked of an Esplora API from one IP.
 // 7: own EVM wallets may be read through Alchemy, with the person's own key.
 // 8: the invoicing app over UCEP: a relay sees the IP, once paired.
-export const CONSENT_VERSION = '8';
+// 9: own devices may sync the books over a relay, once switched on.
+export const CONSENT_VERSION = '9';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

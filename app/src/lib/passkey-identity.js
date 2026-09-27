@@ -133,6 +133,14 @@ export async function restorePasskeyCredential({ onTouch } = {}) {
  * @throws {PrfUnavailableError}
  */
 export async function readPrfOutput(credential) {
+	// E2E builds only: two browser contexts stand for two devices of one
+	// synced passkey. A virtual authenticator does not carry a credential's PRF
+	// secret to another context, so the specs set the same answer in both.
+	// Written inline so every other build drops it.
+	if (import.meta.env.VITE_E2E === 'true') {
+		const fixed = /** @type {any} */ (globalThis).__belegeTestPrf;
+		if (Array.isArray(fixed) && fixed.length === 32) return new Uint8Array(fixed);
+	}
 	// The input is passed explicitly: left to itself, `extractPrfSeedFromCredential`
 	// falls back to a *random* input, which would derive a new key every time
 	// and lock the books. A refused prompt throws and stays a refusal; only an

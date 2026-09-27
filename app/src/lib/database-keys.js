@@ -141,3 +141,20 @@ export async function derivePeerKeySeed(prfOutput, info = PEER_KEY_INFO) {
 	assertPrfOutput(prfOutput);
 	return hkdf(prfOutput, info, KEY_BYTES);
 }
+
+/**
+ * The seed of this device's peer key for syncing the books between a person's
+ * own devices (issue #123). Every device of the same passkey has the same PRF
+ * answer, so the device's own random salt (sync/device-sync.js, kept in this
+ * browser) makes the id its own: two devices never share a peer id. The salt
+ * alone is worth nothing without the passkey. Never written anywhere.
+ *
+ * @param {Uint8Array} prfOutput
+ * @param {string} salt this device's, hex
+ * @returns {Promise<Uint8Array>} 32 bytes
+ */
+export async function deriveDevicePeerSeed(prfOutput, salt) {
+	assertPrfOutput(prfOutput);
+	if (!/^[0-9a-f]{32}$/.test(salt)) throw new Error('A device salt is 16 bytes, hex.');
+	return hkdf(prfOutput, `belege/device-peer/v1:${salt}`, KEY_BYTES);
+}

@@ -11,6 +11,10 @@
 // (session-identities.js) and the libp2p peer key is ephemeral (network.js):
 // no private key is kept in IndexedDB or localStorage.
 
+import { createLibp2p } from 'libp2p';
+import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
+import { deviceSalt, deviceSyncOn, syncLibp2pConfig } from './sync/device-sync.js';
+import { relayAddrs } from './ucep/net.js';
 import { createHeliaLight } from 'helia';
 import { withBitswap } from '@helia/bitswap';
 import { withLibp2p } from '@helia/libp2p';
@@ -25,7 +29,12 @@ import {
 import * as dagCbor from '@ipld/dag-cbor';
 
 import { createEphemeralPeerKey, createOfflineLibp2p } from './network.js';
-import { deriveBlobKey, deriveDatabaseKey, derivePeerKeySeed } from './database-keys.js';
+import {
+	deriveBlobKey,
+	deriveDatabaseKey,
+	deriveDevicePeerSeed,
+	derivePeerKeySeed
+} from './database-keys.js';
 import { readPrfOutput } from './passkey-identity.js';
 import { createSessionIdentities, forgetLegacyKeystore } from './session-identities.js';
 import { openStore } from './store/repository.js';
@@ -49,6 +58,9 @@ export const STORAGE_PATHS = Object.freeze({
  * @property {string} identityHash the identity document's hash
  * @property {string} peerId this session's libp2p peer id
  * @property {Uint8Array} ucepSeed the seed of the UCEP node's peer key, derived from the passkey
+ * @property {boolean} online device sync is on: the node talks to the relay (#123)
+ * @property {string[]} relays
+ * @property {any} libp2p the node under Helia and OrbitDB
  * @property {() => Promise<void>} stop
  * @property {{ signingKey: Uint8Array, databaseKey: Uint8Array, blobKey: Uint8Array, peerKey: Uint8Array }} [secretsForE2E]
  *   only in E2E builds
@@ -81,8 +93,16 @@ export async function startSession(credential) {
 
 	const blockstore = new LevelBlockstore(STORAGE_PATHS.blockstore);
 	const datastore = new LevelDatastore(STORAGE_PATHS.datastore);
-	const peerKey = await createEphemeralPeerKey();
-	const libp2p = await createOfflineLibp2p(peerKey);
+	// Device sync (#123), when switched on for this device: online over the
+	// relay, on a peer key of this device's own. Else offline, as always.
+	const online = deviceSyncOn();
+	const relays = relayAddrs();
+	const peerKey = online
+		? await generateKeyPairFromSeed('Ed25519', await deriveDevicePeerSeed(prfOutput, deviceSalt()))
+		: await createEphemeralPeerKey();
+	const libp2p = online
+		? await createLibp2p(syncLibp2pConfig({ privateKey: peerKey, relays }))
+		: await createOfflineLibp2p(peerKey);
 	const helia = await withBitswap(
 		withLibp2p(createHeliaLight({ codecs: [dagCbor], blockstore, datastore }), libp2p)
 	).start();
@@ -120,7 +140,7 @@ export async function startSession(credential) {
 			directory: STORAGE_PATHS.orbitdb
 		});
 		const store = await openStore({ orbitdb, encryptionKey, prfOutput });
-		const blobs = await createBlobStore({ blockstore: helia.blockstore, key: blobKey });
+		const blobs = await createBlobStore({ blockstore: helia.blockstore, key: blobKey, online });
 
 		return {
 			did: identity.id,
@@ -129,6 +149,9 @@ export async function startSession(credential) {
 			store,
 			blobs,
 			ucepSeed,
+			online,
+			relays,
+			libp2p,
 			// Only in E2E builds, so the test can look for these bytes on disk.
 			// Written inline so every other build drops it, not just skips it.
 			...(import.meta.env.VITE_E2E === 'true'
