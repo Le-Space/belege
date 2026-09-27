@@ -251,6 +251,80 @@ describe('a Cosmos transaction', () => {
 		assert.equal(new Set(entries.map((e) => e.id)).size, entries.length);
 	});
 
+	test('a delegation moves coins without a transfer event, and is booked (issue #135)', () => {
+		const { entries } = normalize(
+			cosmosTx({
+				seed: 'd1',
+				height: 2000,
+				coinEvents: true,
+				fee: { payer: NYX.wallet, amount: '6000unym' },
+				// the rewards the delegation withdraws on the way, then the delegation
+				transfers: [{ sender: NYX.distribution, recipient: NYX.wallet, amount: '2unym' }],
+				delegations: [{ delegator: NYX.wallet, amount: '3000000unym' }]
+			})
+		);
+		assert.deepEqual(
+			entries.map((e) => [e.type, e.kind, e.amount, e.counterpartyLabel]),
+			[
+				['fee', 'fee', '-0.006', ''],
+				['received', 'reward', '0.000002', 'Staking-Belohnungen (distribution)'],
+				['sent', 'stake', '-3', 'Staking (gebunden)']
+			]
+		);
+		assert.equal(new Set(entries.map((e) => e.id)).size, entries.length);
+	});
+
+	test('a send is counted once, though the bank keeper reports it three times', () => {
+		const { entries } = normalize(
+			cosmosTx({
+				seed: 'd2',
+				height: 2000,
+				coinEvents: true,
+				fee: { payer: NYX.wallet, amount: '5000unym' },
+				transfers: [{ sender: NYX.wallet, recipient: NYX.friend, amount: '7unym' }]
+			})
+		);
+		assert.deepEqual(
+			entries.map((e) => [e.type, e.amount]),
+			[
+				['fee', '-0.005'],
+				['sent', '-0.000007']
+			]
+		);
+	});
+
+	test('a delegation by someone else in the same transaction is not ours', () => {
+		const { entries } = normalize(
+			cosmosTx({
+				seed: 'd3',
+				height: 2000,
+				coinEvents: true,
+				fee: { payer: NYX.friend, amount: '5000unym' },
+				delegations: [{ delegator: NYX.friend, amount: '9unym' }]
+			})
+		);
+		assert.deepEqual(entries, []);
+	});
+
+	test('an old chain without coin_spent: the delegate event, its amount without a denom', () => {
+		const { entries } = normalize(
+			cosmosTx({
+				seed: 'd4',
+				height: 2000,
+				legacyEvents: true,
+				fee: { payer: NYX.wallet, amount: '5000unym' },
+				delegations: [{ delegator: NYX.wallet, amount: '1500000unym' }]
+			})
+		);
+		assert.deepEqual(
+			entries.map((e) => [e.type, e.kind, e.amount]),
+			[
+				['fee', 'fee', '-0.005'],
+				['sent', 'stake', '-1.5']
+			]
+		);
+	});
+
 	test('an IBC transfer out names the receiver on the other chain', () => {
 		const escrow = bech32Encode('n', new Uint8Array(20).fill(7));
 		const { entries } = normalize(

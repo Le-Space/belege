@@ -14,6 +14,7 @@
 //   POST /share { scope, redacted, minutes, data }                 token → { id, expiresAt } (issue #124)
 //   GET  /share                                                    token → the active shares, without their data
 //   DELETE /share/<id>                                             token → revoked
+//   POST /vendor/assist { vendor, from, until, opening, closing, rows, findings }  token → a few notes on what does not add up
 //   POST /transfer/assist { booking, candidates }               token → the LLM's pick of an own transfer's other side
 //   GET  /llm/status                                              token → provider, models, key present?
 //   POST /extract      { text, hints, source, confirmedByUser }   token
@@ -81,6 +82,7 @@ const MAX_EXTRACT_BODY = 256 * 1024;
  *   "Mit KI weitersuchen": null without mail or LLM
  * @param {ReturnType<typeof import('./llm/match-assist.js').createMatchAssist> | null} [options.matchAssist]
  * @param {ReturnType<typeof import('./llm/transfer-assist.js').createTransferAssist> | null} [options.transferAssist]
+ * @param {ReturnType<typeof import('./llm/vendor-assist.js').createVendorAssist> | null} [options.vendorAssist]
  * @param {ReturnType<typeof createShares>} [options.shares] read shares for an assistant, in memory
  *   "✦ KI-Vorschlag" under "Beleg zuordnen": null without an LLM
  * @param {import('./portals/manager.js').PortalManager | null} [options.portals] the portal connector
@@ -99,6 +101,7 @@ export function createBridgeServer({
 	assist = null,
 	matchAssist = null,
 	transferAssist = null,
+	vendorAssist = null,
 	shares = createShares(),
 	portals = null,
 	rates = null,
@@ -429,6 +432,36 @@ export function createBridgeServer({
 			log(
 				`receipt pick: ${list.length} candidate(s), ${result.pick ? `pick ${result.pick.confidence}` : 'no pick'}`
 			);
+			return send(res, 200, result);
+		}
+
+		if (path === '/vendor/assist' && req.method === 'POST') {
+			const body = /** @type {any} */ (await readJson(req, MAX_EXTRACT_BODY));
+			/** @param {unknown} v @param {number} max */
+			const str = (v, max) => typeof v === 'string' && v.length <= max;
+			const ok =
+				body &&
+				str(body.vendor, 200) &&
+				str(body.from, 10) &&
+				str(body.until, 10) &&
+				(body.opening === null || str(body.opening, 20)) &&
+				str(body.closing, 20) &&
+				Array.isArray(body.rows) &&
+				body.rows.length >= 1 &&
+				body.rows.length <= 120 &&
+				body.rows.every(
+					(/** @type {any} */ r) =>
+						r &&
+						str(r.date, 10) &&
+						(r.kind === 'payment' || r.kind === 'receipt') &&
+						str(r.balance, 20)
+				) &&
+				Array.isArray(body.findings) &&
+				body.findings.every((/** @type {unknown} */ f) => str(f, 300));
+			if (!ok) return send(res, 400, { error: 'a vendor timeline with 1–120 rows is required' });
+			if (!llm || !vendorAssist) throw notSetUp('LLM');
+			const result = await vendorAssist.explain(body);
+			log(`vendor notes: ${body.rows.length} row(s), ${result.notes.length} note(s)`);
 			return send(res, 200, result);
 		}
 

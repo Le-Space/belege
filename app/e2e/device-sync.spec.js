@@ -1,8 +1,13 @@
 // Two devices of one passkey keep the same books (issue #123): two browser
 // contexts stand for a Mac and a phone. The passkey is copied from one
-// virtual authenticator to the other, as a synced passkey is; its PRF secret
-// is not carried by the virtual authenticator, so both get the same PRF
-// answer through the E2E-only hook (passkey-identity.js). Both switch device
+// virtual authenticator to the other, as a synced passkey is. Its PRF secret
+// does not come along: Chromium's virtual authenticator keeps the hmac-secret
+// keys (random at creation) only in its own registration, the DevTools
+// `WebAuthn.Credential` has no field for them, and `addCredential` injects a
+// credential without them, so a copied credential (even one removed and added
+// back to the same authenticator) answers with no PRF result. Both devices
+// therefore get the same PRF answer through the E2E-only hook
+// (passkey-identity.js). Both switch device
 // sync on, meet through the local test relay (e2e/relay.js) once one has typed
 // the other's id, and then a booking written on either shows on the other.
 import { test, expect } from '@playwright/test';

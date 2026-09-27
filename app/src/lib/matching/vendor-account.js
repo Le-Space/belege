@@ -52,11 +52,13 @@ export const isVendorReceipt = (name, r) =>
  * @property {number} topUpCents money to the vendor (negative: back from it)
  * @property {number} usageCents what a receipt bills
  * @property {number} balanceCents after this row
+ * @property {{ from: string, to: string } | null} [period] what a statement bills, as read from it
+ * @property {{ description: string, cents: number }[]} [items] its positions, as read
  */
 
 /**
  * @typedef {object} Finding
- * @property {'negative' | 'gap' | 'no-statements' | 'january' | 'unknown-opening'} kind
+ * @property {'negative' | 'gap' | 'no-statements' | 'january' | 'previous-year' | 'unknown-opening'} kind
  * @property {string} [date]
  * @property {string} [month] YYYY-MM, for a gap
  * @property {number} [cents]
@@ -94,13 +96,29 @@ export function vendorTimeline({ transactions, receipts, name, from, until, open
 		const day = receiptDay(r);
 		const cents = receiptCents(r);
 		if (!isVendorReceipt(name, r) || !inRange(day) || cents === null || cents <= 0) continue;
+		const sp = r.extraction?.service_period;
+		const period =
+			sp && /^\d{4}-\d{2}-\d{2}$/.test(sp.from) && /^\d{4}-\d{2}-\d{2}$/.test(sp.to)
+				? { from: String(sp.from), to: String(sp.to) }
+				: null;
+		const items = Array.isArray(r.extraction?.line_items)
+			? r.extraction.line_items
+					.filter((/** @type {any} */ i) => i && typeof i.amount === 'number')
+					.slice(0, 20)
+					.map((/** @type {any} */ i) => ({
+						description: String(i.description ?? '').slice(0, 120),
+						cents: Math.round(i.amount * 100)
+					}))
+			: [];
 		raw.push({
 			date: /** @type {string} */ (day),
 			kind: 'receipt',
 			id: String(r.id),
 			label: receiptVendorName(r),
 			topUpCents: 0,
-			usageCents: cents
+			usageCents: cents,
+			period,
+			items
 		});
 	}
 	// Same day: the top-up first, so a statement of that day draws on it.
@@ -126,18 +144,31 @@ export function vendorTimeline({ transactions, receipts, name, from, until, open
 		findings.unshift({ kind: 'unknown-opening', date: rows[0].date });
 	}
 	if (topUps.length && !statements.length) findings.push({ kind: 'no-statements' });
-	// A month between the first and the last statement without one.
-	if (statements.length >= 2) {
-		const months = new Set(statements.map((r) => r.date.slice(0, 7)));
-		const first = statements[0].date.slice(0, 7);
-		const last = statements[statements.length - 1].date.slice(0, 7);
-		for (let m = nextMonth(first); m < last; m = nextMonth(m)) {
-			if (!months.has(m)) findings.push({ kind: 'gap', month: m });
+	// A month without a statement, between the first and the last. Where the
+	// statements say what they bill (their period), the months billed count –
+	// a statement of 15 June for May covers May – else the months they are dated in.
+	const withPeriods = statements.filter((r) => r.period);
+	const billed = new Set();
+	if (withPeriods.length >= Math.ceil(statements.length / 2)) {
+		for (const r of withPeriods) {
+			const p = /** @type {{ from: string, to: string }} */ (r.period);
+			for (let m = p.from.slice(0, 7); m <= p.to.slice(0, 7); m = nextMonth(m)) billed.add(m);
+		}
+	} else {
+		for (const r of statements) billed.add(r.date.slice(0, 7));
+	}
+	if (billed.size >= 2) {
+		const months = [...billed].sort();
+		for (let m = nextMonth(months[0]); m < months[months.length - 1]; m = nextMonth(m)) {
+			if (!billed.has(m)) findings.push({ kind: 'gap', month: m });
 		}
 	}
-	// Early January: a statement may bill December of the year before.
+	// January: a statement for last year's period bills the year before; one
+	// early in January without a period may.
 	for (const r of statements) {
-		if (r.date.slice(5, 7) === '01' && Number(r.date.slice(8, 10)) <= 20) {
+		if (r.period && r.period.to.slice(0, 4) < r.date.slice(0, 4)) {
+			findings.push({ kind: 'previous-year', date: r.date, cents: r.usageCents });
+		} else if (!r.period && r.date.slice(5, 7) === '01' && Number(r.date.slice(8, 10)) <= 20) {
 			findings.push({ kind: 'january', date: r.date, cents: r.usageCents });
 		}
 	}
@@ -187,8 +218,10 @@ export function looksPrepaid({ transactions, receipts, name }) {
 	).length;
 	if (paired / pays.length >= 0.5) return false;
 	const round = pays.filter((t) => Number(t.amountCents) % 500 === 0).length / pays.length >= 0.5;
-	const says = recs.some((r) =>
-		NO_REQUEST.test(`${r.excerpt ?? ''} ${r.extraction?.summary ?? ''} ${r.text ?? ''}`)
+	const says = recs.some(
+		(r) =>
+			r.extraction?.no_payment_request === true ||
+			NO_REQUEST.test(`${r.excerpt ?? ''} ${r.extraction?.summary ?? ''} ${r.text ?? ''}`)
 	);
 	return round || says;
 }

@@ -148,6 +148,7 @@
 		'extract',
 		'match-assist',
 		'transfer-assist',
+		'vendor-assist',
 		'mail-assist'
 	]);
 </script>

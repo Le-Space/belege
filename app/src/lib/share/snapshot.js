@@ -30,7 +30,8 @@ const PHONE = /(?:\+|\b00)\d[\d\s/()-]{6,}\d|\b0\d{2,5}[\s/-]?\d{3,}[\s-]?\d{0,6
 const EVM = /\b0x[0-9a-fA-F]{8,}\b/g;
 const BECH32 = /\b[a-z]{1,20}1[02-9ac-hj-np-z]{20,}\b/g;
 const HEX = /\b[0-9A-Fa-f]{32,}\b/g;
-const LONG_NUMBER = /\b[A-Z]{0,4}\d[\dA-Z-]{7,}\b/g;
+// A date (YYYY-MM-DD) is no number to hide.
+const LONG_NUMBER = /\b(?!\d{4}-\d{2}-\d{2}\b)[A-Z]{0,4}\d[\dA-Z-]{7,}\b/g;
 
 /**
  * A text with the identifying parts taken out.

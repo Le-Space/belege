@@ -48,6 +48,8 @@ export const NYX = {
  * @param {string} [t.ibcReceiver] an IBC transfer's receiver on the other chain
  * @param {boolean} [t.legacyEvents] cosmos-sdk < 0.47 with CometBFT 0.34: one transfer
  *   event holding every triple, base64 keys and values, no fee event
+ * @param {boolean} [t.coinEvents] also the bank keeper's coin_spent / coin_received before each transfer, as real chains emit them
+ * @param {{ delegator: string, amount: string, validator?: string }[]} [t.delegations] MsgDelegate, one message each, after the transfers
  * @param {string} [t.prefix] the chain's bech32 prefix, for its fee collector
  */
 export function cosmosTx({
@@ -59,6 +61,8 @@ export function cosmosTx({
 	transfers = [],
 	ibcReceiver,
 	legacyEvents = false,
+	coinEvents = false,
+	delegations = [],
 	prefix = 'n'
 }) {
 	/** @type {{ type: string, attributes: { key: string, value: string, index?: boolean }[] }[]} */
@@ -100,6 +104,25 @@ export function cosmosTx({
 					type: 'message',
 					attributes: [attr('sender', t.sender), attr('msg_index', String(i))]
 				});
+				// The bank keeper's own events, before the transfer they belong to.
+				if (coinEvents) {
+					events.push({
+						type: 'coin_spent',
+						attributes: [
+							attr('spender', t.sender),
+							attr('amount', t.amount),
+							attr('msg_index', String(i))
+						]
+					});
+					events.push({
+						type: 'coin_received',
+						attributes: [
+							attr('receiver', t.recipient),
+							attr('amount', t.amount),
+							attr('msg_index', String(i))
+						]
+					});
+				}
 				events.push({
 					type: 'transfer',
 					attributes: [
@@ -111,6 +134,46 @@ export function cosmosTx({
 				});
 			});
 		}
+		// A delegation: the bank keeper's DelegateCoins spends and credits the
+		// bonded pool without a transfer event (cosmos-sdk ≥ 0.44). Before that,
+		// only the `delegate` event, its amount without a denom.
+		delegations.forEach((d, n) => {
+			const i = String(transfers.length + n);
+			const denom = d.amount.replace(/^\d+/, '');
+			if (!legacyEvents) {
+				events.push({
+					type: 'coin_spent',
+					attributes: [attr('spender', d.delegator), attr('amount', d.amount), attr('msg_index', i)]
+				});
+				events.push({
+					type: 'coin_received',
+					attributes: [
+						attr('receiver', moduleAddress(prefix, 'bonded_tokens_pool')),
+						attr('amount', d.amount),
+						attr('msg_index', i)
+					]
+				});
+			}
+			events.push({
+				type: 'delegate',
+				attributes: [
+					attr('validator', d.validator ?? `${prefix}valoper1example`),
+					...(legacyEvents ? [] : [attr('delegator', d.delegator)]),
+					attr('amount', legacyEvents ? d.amount.slice(0, -denom.length || undefined) : d.amount),
+					...(legacyEvents ? [] : [attr('msg_index', i)])
+				]
+			});
+			if (legacyEvents) {
+				events.push({
+					type: 'message',
+					attributes: [
+						attr('action', 'delegate'),
+						attr('module', 'staking'),
+						attr('sender', d.delegator)
+					]
+				});
+			}
+		});
 		if (ibcReceiver) {
 			events.push({ type: 'ibc_transfer', attributes: [attr('receiver', ibcReceiver)] });
 		}
@@ -122,7 +185,10 @@ export function cosmosTx({
 		index: 0,
 		tx: encodeTx({
 			memo,
-			messageTypes: transfers.map(() => '/cosmos.bank.v1beta1.MsgSend'),
+			messageTypes: [
+				...transfers.map(() => '/cosmos.bank.v1beta1.MsgSend'),
+				...delegations.map(() => '/cosmos.staking.v1beta1.MsgDelegate')
+			],
 			fee: fee
 				? [{ denom: fee.amount.replace(/^\d+/, ''), amount: fee.amount.match(/^\d+/)?.[0] ?? '0' }]
 				: []
