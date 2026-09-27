@@ -14,6 +14,8 @@
 		periods,
 		tokensPerReceipt
 	} from '$lib/stats/usage.js';
+	import { DEFAULT_WORKERS, MAX_WORKERS, MIN_WORKERS } from '$lib/jobs/queue.js';
+	import { loadWorkers, saveWorkers } from '$lib/jobs/workers.js';
 
 	/** @type {{ usage: number, quota: number } | null} */
 	let storage = $state(null);
@@ -26,6 +28,11 @@
 	let pricesOpen = $state(false);
 	/** @type {string | null} */
 	let note = $state(null);
+	let workers = $state(DEFAULT_WORKERS);
+	const WORKER_CHOICES = Array.from(
+		{ length: MAX_WORKERS - MIN_WORKERS + 1 },
+		(_, i) => MIN_WORKERS + i
+	);
 
 	async function measure() {
 		try {
@@ -40,8 +47,17 @@
 	onMount(async () => {
 		await measure();
 		const store = currentStore();
-		if (store) prices = cleanPrices(await getSetting(store.settings, 'aiPrices'));
+		if (store) {
+			prices = cleanPrices(await getSetting(store.settings, 'aiPrices'));
+			workers = await loadWorkers(store.settings);
+		}
 	});
+
+	/** How many AI requests a run sends at once; the next run takes it. */
+	async function changeWorkers() {
+		const store = currentStore();
+		if (store) await saveWorkers(store.settings, workers);
+	}
 
 	async function persist() {
 		persisted = await navigator.storage.persist().catch(() => false);
@@ -244,6 +260,22 @@
 		{#if unpriced.length}{t('statistik.unpriced', { models: unpriced.join(', ') })}{/if}
 		{t('statistik.holidays')}
 	</p>
+	<div class="mt-3 text-sm text-text">
+		<label class="flex flex-wrap items-center gap-2"
+			>{t('statistik.workers')}
+			<select
+				class="rounded border border-border bg-surface px-2 py-1 text-sm text-heading"
+				bind:value={workers}
+				onchange={changeWorkers}
+				data-testid="stats-workers"
+			>
+				{#each WORKER_CHOICES as n (n)}
+					<option value={n}>{n}</option>
+				{/each}
+			</select></label
+		>
+		<p class="mt-1 text-xs text-faint">{t('statistik.workersHint')}</p>
+	</div>
 	<div class="mt-2 flex flex-wrap gap-3 text-sm">
 		<button type="button" class={button} onclick={openPrices} data-testid="stats-prices-open"
 			>{t('statistik.editPrices')}</button

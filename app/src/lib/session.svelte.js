@@ -282,6 +282,44 @@ async function pairedClient() {
 }
 
 /**
+ * "Weitermachen" (Home): an AI run the page left behind (a reload, the books
+ * locked) takes up the ids it had not done yet (jobs/pending.js). Only on a
+ * click; nothing starts by itself after an unlock.
+ *
+ * @param {'extract' | 'suggest'} kind
+ * @param {string[]} ids
+ * @returns {Promise<boolean>} false without a paired bridge, or while a run goes
+ */
+export async function resumeJob(kind, ids) {
+	if (!session) return false;
+	const client = await pairedClient();
+	if (!client) return false;
+	if (kind === 'extract') {
+		const { extractAll } = await import('./receipts/extract-queue.svelte.js');
+		const ctx = { client, store: currentStore, blobs: currentBlobs, refresh };
+		if (!(await extractAll(ctx, ids))) return false;
+		await runMatchingNow();
+		return true;
+	}
+	const { suggestAll } = await import('./matching/ai-suggest.svelte.js');
+	const ctx = { client, store: () => /** @type {any} */ (currentStore()), refresh };
+	const started = await suggestAll(ctx, ids);
+	await refresh();
+	return started;
+}
+
+/**
+ * "Verwerfen" (Home): what a run left is forgotten.
+ *
+ * @param {'extract' | 'suggest'} kind
+ */
+export async function dropPendingJob(kind) {
+	if (!session) return;
+	const { savePending } = await import('./jobs/pending.js');
+	await savePending(session.store.settings, kind, []);
+}
+
+/**
  * The shared folder, checked again (receipts/folder-watch.js): new files are
  * imported, read when a bridge is paired, and matched.
  *

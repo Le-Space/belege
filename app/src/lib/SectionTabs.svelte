@@ -12,6 +12,7 @@
 	import { t } from './i18n/index.js';
 	import SectionIcon from './SectionIcon.svelte';
 	import { extractRun } from './receipts/extract-queue.svelte.js';
+	import { aiRun } from './matching/ai-suggest.svelte.js';
 
 	const TABS = /** @type {const} */ ([
 		{ href: '/', icon: 'home', label: 'nav.home' },
@@ -51,6 +52,16 @@
 							})}
 							data-testid="tab-extract-progress"
 							>{extractRun.progress.done}/{extractRun.progress.count}</span
+						>
+					{/if}
+					{#if tab.icon === 'home' && aiRun.progress}
+						<span
+							class="rounded bg-surface-2 px-1 font-mono text-[10px] text-text tabular-nums sm:text-xs"
+							title={t('rueckfragen.ai.progress', {
+								done: aiRun.progress.done,
+								count: aiRun.progress.count
+							})}
+							data-testid="tab-suggest-progress">{aiRun.progress.done}/{aiRun.progress.count}</span
 						>
 					{/if}
 				</a>

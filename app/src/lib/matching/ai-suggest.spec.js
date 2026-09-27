@@ -148,7 +148,8 @@ describe('KI-Vorschläge for all open questions', () => {
 					return slow.matchAssist(body);
 				}
 			},
-			store: () => store
+			store: () => store,
+			workers: 1
 		};
 		await suggestAll(ctx, [q1.id, q2.id]);
 		expect(slow.asked).toHaveLength(1);

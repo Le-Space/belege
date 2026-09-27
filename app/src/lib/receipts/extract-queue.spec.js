@@ -122,7 +122,12 @@ describe('the app-wide queue', () => {
 	it('reads each receipt once; a second run and a single read of one being read are refused', async () => {
 		const { receipts, blobs, records } = await books(3);
 		const slow = slowClient();
-		const ctx = { client: slow.client, store: () => ({ receipts }), blobs: () => blobs };
+		const ctx = {
+			client: slow.client,
+			store: () => ({ receipts }),
+			blobs: () => blobs,
+			workers: 1
+		};
 		const run = extractAll(
 			ctx,
 			records.map((r) => r.id)
@@ -154,7 +159,12 @@ describe('the app-wide queue', () => {
 	it('"Abbrechen" finishes the receipt being read and sends no other', async () => {
 		const { receipts, blobs, records } = await books(3);
 		const slow = slowClient();
-		const ctx = { client: slow.client, store: () => ({ receipts }), blobs: () => blobs };
+		const ctx = {
+			client: slow.client,
+			store: () => ({ receipts }),
+			blobs: () => blobs,
+			workers: 1
+		};
 		const run = extractAll(
 			ctx,
 			records.map((r) => r.id)
@@ -173,7 +183,7 @@ describe('the app-wide queue', () => {
 		const slow = slowClient();
 		/** @type {{ receipts: any } | null} */
 		let open = { receipts };
-		const ctx = { client: slow.client, store: () => open, blobs: () => blobs };
+		const ctx = { client: slow.client, store: () => open, blobs: () => blobs, workers: 1 };
 		const run = extractAll(
 			ctx,
 			records.map((r) => r.id)
