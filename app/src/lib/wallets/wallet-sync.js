@@ -127,12 +127,37 @@ export function describeWalletEntry(e) {
 			movement: /** @type {const} */ ('stake')
 		};
 	}
+	if (e.kind === 'swap') return { label: 'Tausch', movement: /** @type {const} */ ('trade') };
 	if (e.kind === 'ibc')
 		return { label: 'IBC-Transfer', movement: /** @type {const} */ ('transfer') };
 	return {
 		label: e.type === 'sent' ? 'Gesendet' : 'Empfangen',
 		movement: /** @type {const} */ ('transfer')
 	};
+}
+
+/** `1234.5` → `1.234,5`: a decimal from the bridge as a German reads it. @param {string} amount */
+const deDecimal = (amount) => {
+	const [int, frac] = String(amount).split('.');
+	const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+	return frac ? `${grouped},${frac}` : grouped;
+};
+
+/**
+ * "Tausch: 30.000 XYZ → 0,143 ETH über MetaMask Swap (Router)": the purpose of
+ * a swap's leg. A token not in the chain's list says so – its symbol is its
+ * own claim.
+ *
+ * @param {import('../bridge/client.js').SwapSides} swap
+ */
+export function swapText(swap) {
+	const side = (/** @type {{ asset: string, amount: string, listed: boolean }[]} */ list) =>
+		list
+			.map((x) => `${deDecimal(x.amount)} ${x.asset}${x.listed ? '' : ' (nicht gelistet)'}`)
+			.join(' + ');
+	const via = swap.via ? ` über ${swap.via}` : '';
+	const gas = swap.fee ? ` · Gas ${deDecimal(swap.fee.amount)} ${swap.fee.asset}` : '';
+	return `Tausch: ${side(swap.gave)} → ${side(swap.got)}${via}${gas}`;
 }
 
 /** `AB12…9F3C`: a hash short enough for a purpose. @param {string} hash */
@@ -171,7 +196,12 @@ export async function walletTransactions(entries, getRate) {
 			});
 			const { label, movement } = describeWalletEntry(e);
 			const other = e.counterpartyLabel || e.counterparty;
-			const purpose = [label, e.memo ? `Memo: ${e.memo}` : '', `Tx ${shortHash(e.hash)}`]
+			const purpose = [
+				// A swap's gas names the swap it paid for.
+				e.swap ? (e.type === 'fee' ? `${label} für ${swapText(e.swap)}` : swapText(e.swap)) : label,
+				e.memo ? `Memo: ${e.memo}` : '',
+				`Tx ${shortHash(e.hash)}`
+			]
 				.filter(Boolean)
 				.join(' · ');
 			/** @type {Incoming} */
@@ -189,6 +219,7 @@ export async function walletTransactions(entries, getRate) {
 				movement,
 				txRef: e.hash,
 				explorerUrl: safeExplorerUrl(e.explorerUrl) ?? '',
+				...(e.swap ? { swap: e.swap } : {}),
 				crypto: {
 					asset: value.asset,
 					quantity: value.quantity,

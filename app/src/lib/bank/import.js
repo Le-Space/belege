@@ -46,6 +46,8 @@ const FIELDS = /** @type {const} */ ([
 	// an own wallet's booking: the other side's address, the transaction in the explorer
 	'counterpartyAddress',
 	'explorerUrl',
+	// a swap on a wallet: what went each way (wallets/wallet-sync.js)
+	'swap',
 	// a crypto movement (assets/valuation.js)
 	'asset',
 	'quantity',
@@ -74,6 +76,7 @@ const FIELDS = /** @type {const} */ ([
  * @property {string} [exchangeType] as the exchange names the entry, e.g. `transfer/spottostaking`
  * @property {string} [counterpartyAddress] an own wallet's booking: the other side's address on the chain
  * @property {string} [explorerUrl] an own wallet's booking: the transaction in the block explorer (https)
+ * @property {import('../bridge/client.js').SwapSides} [swap] a wallet's swap: what went each way
  * @property {CryptoFields} [crypto] for a crypto asset: what moved and how `amountCents`
  *   (EUR) was valued; see assets/valuation.js
  */
@@ -218,6 +221,7 @@ export async function importTransactions({
 			...(tx.exchangeType ? { exchangeType: tx.exchangeType } : {}),
 			...(tx.counterpartyAddress ? { counterpartyAddress: tx.counterpartyAddress } : {}),
 			...(tx.explorerUrl ? { explorerUrl: tx.explorerUrl } : {}),
+			...(tx.swap ? { swap: tx.swap } : {}),
 			...(tx.crypto
 				? {
 						asset: tx.crypto.asset,

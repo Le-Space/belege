@@ -466,6 +466,7 @@ export default {
 			'crypto-reward': 'Ertrag der Börse',
 			'crypto-stake': 'Staking',
 			refund: 'Erstattung',
+			'crypto-swap': 'Tausch',
 			'crypto-dust': 'Staub',
 			'rule-ignore': 'Ignoriert',
 			'rule-private': 'Privat'
@@ -477,6 +478,7 @@ export default {
 			'crypto-reward': 'Staking- oder Earn-Ertrag – der Kontoauszug der Börse ist der Beleg',
 			'crypto-stake': 'Delegiert ins Staking – kein Beleg nötig, nicht auf 1360',
 			refund: 'Belastung und Erstattung – kein Beleg nötig',
+			'crypto-swap': 'Tausch über eine DEX – die Transaktion im Block-Explorer ist der Beleg',
 			'crypto-dust': 'Staub unter einem Cent – kein Beleg nötig',
 			'rule-ignore': 'Ignoriert nach eigener Anweisung: {reason}',
 			'rule-private': 'Privat nach eigener Anweisung: {reason}',
@@ -558,6 +560,7 @@ export default {
 				'Erstattung zur Belastung auf {account} vom {date} ({how}). Die Erstattung braucht keinen eigenen Beleg; bei einer Teilerstattung braucht die Belastung weiter ihren.',
 			refundAuto: 'gleiche Gegenpartei, „Erstattung“ im Text',
 			refundManual: 'von dir verknüpft',
+			swap: 'Tausch über eine dezentrale Börse (DEX): Die Wallet hat ein Asset gegeben und ein anderes bekommen, in einer Transaktion. Die Transaktion im Block-Explorer ist der Beleg. Steuerlich eine Veräußerung und eine Anschaffung zum Tageswert – das klärt ihr mit dem Steuerberater.',
 			staking:
 				'Staking: Die Tokens sind delegiert und bleiben deine. Kein Beleg nötig. Nicht auf 1360 – ihre Rückkehr nach dem Unbonding ist keine Transaktion, eine Umbuchung ginge nie auf; das Konto klärt ihr mit dem Steuerberater.',
 			dust: 'Staub: weniger als ein Cent wert, empfangen, ohne dass du etwas getan hast. Kein Beleg nötig. Oft ein Test oder Werbung – oder der Anfang einer Adressvergiftung: Verwende die Absenderadresse nie als Empfänger.',

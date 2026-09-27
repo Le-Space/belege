@@ -23,6 +23,7 @@ const STANDS_IN = /** @type {Record<string, string>} */ ({
 	'crypto-reward': 'Ertrag',
 	'crypto-stake': 'Staking',
 	refund: 'Erstattung',
+	'crypto-swap': 'Tausch',
 	'crypto-dust': 'Staub',
 	loan: 'Darlehen',
 	'rule-ignore': 'ignoriert',

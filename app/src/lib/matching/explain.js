@@ -231,6 +231,8 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 		}
 		case 'crypto-stake':
 			return t('explain.rule.staking');
+		case 'crypto-swap':
+			return t('explain.rule.swap');
 		case 'crypto-dust':
 			return c.lookalike
 				? t('explain.rule.dustLookalike', { known: c.lookalike })

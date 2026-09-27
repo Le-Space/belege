@@ -66,7 +66,8 @@ const COIN = /^(\d+)([a-zA-Z][a-zA-Z0-9/:._-]{1,127})$/;
  * @property {string} time ISO 8601
  * @property {string} date YYYY-MM-DD (UTC)
  * @property {'sent' | 'received' | 'fee'} type
- * @property {'transfer' | 'reward' | 'stake' | 'ibc' | 'fee'} kind
+ * @property {'transfer' | 'reward' | 'stake' | 'ibc' | 'fee' | 'swap'} kind
+ * @property {{ gave: { asset: string, amount: string, listed: boolean }[], got: { asset: string, amount: string, listed: boolean }[], via: string, fee?: { asset: string, amount: string } }} [swap] EVM: what the wallet gave and got in a swap, and its gas (evm.js markSwaps)
  * @property {string} asset symbol
  * @property {string} amount signed decimal: negative when it left the wallet
  * @property {number} decimals
