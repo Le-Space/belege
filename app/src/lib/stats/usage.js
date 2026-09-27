@@ -51,6 +51,7 @@ export const AI_KINDS = /** @type {const} */ ([
 	'extract',
 	'match-assist',
 	'transfer-assist',
+	'vendor-assist',
 	'mail-assist'
 ]);
 

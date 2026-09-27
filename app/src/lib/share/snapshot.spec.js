@@ -16,6 +16,9 @@ describe('redactText', () => {
 		expect(text).toContain('0xabab…abab');
 		expect(text).not.toMatch(/0012345678|1234567|DE00 1234/);
 		expect(text).toContain('Rechnung 2026-07');
+		expect(redactText('Zeitraum 2026-05-01 bis 2026-05-31')).toBe(
+			'Zeitraum 2026-05-01 bis 2026-05-31'
+		);
 	});
 });
 

@@ -138,3 +138,58 @@ describe('kept as a prepaid account', () => {
 		).toEqual([{ name: 'Funkmobil', openings: { 2026: 1200 } }]);
 	});
 });
+
+describe('periods and positions read from the statements (#121, part 2)', () => {
+	/** @param {string} id @param {string} day @param {number} gross @param {string} from @param {string} to */
+	const billed = (id, day, gross, from, to) => ({
+		...stmt(id, day, gross),
+		extraction: {
+			vendor: NAME,
+			gross,
+			service_period: { from, to },
+			line_items: [{ description: 'Eingehende Anrufe im Ausland', amount: gross }]
+		}
+	});
+
+	it('months billed count, not the day a statement is dated; positions come along', () => {
+		// Dated 15 June for May, 15 July for June, 15 September for August: July is missing.
+		const tl = vendorTimeline({
+			transactions: [pay('p1', '2026-05-02', -1500)],
+			receipts: [
+				billed('m', '2026-06-15', 1.98, '2026-05-01', '2026-05-31'),
+				billed('j', '2026-07-15', 2.17, '2026-06-01', '2026-06-30'),
+				billed('a', '2026-09-15', 1.25, '2026-08-01', '2026-08-31')
+			],
+			name: NAME,
+			from: '2026-01-01',
+			until: '2026-12-31',
+			openingCents: 0
+		});
+		expect(tl.findings).toEqual([{ kind: 'gap', month: '2026-07' }]);
+		const first = tl.rows.find((r) => r.id === 'm');
+		expect(first?.period).toEqual({ from: '2026-05-01', to: '2026-05-31' });
+		expect(first?.items).toEqual([{ description: 'Eingehende Anrufe im Ausland', cents: 198 }]);
+	});
+
+	it('a January statement for December bills the year before – said for sure', () => {
+		const tl = vendorTimeline({
+			transactions: [pay('p0', '2026-01-02', -1500)],
+			receipts: [billed('d', '2026-01-15', 3.1, '2025-12-01', '2025-12-31')],
+			name: NAME,
+			from: '2026-01-01',
+			until: '2026-12-31',
+			openingCents: 0
+		});
+		expect(tl.findings).toEqual([{ kind: 'previous-year', date: '2026-01-15', cents: 310 }]);
+	});
+
+	it('a statement that asks for no payment makes the vendor look prepaid', () => {
+		const quiet = receipts.map((r) => ({
+			...r,
+			excerpt: '',
+			extraction: { ...r.extraction, no_payment_request: true }
+		}));
+		const odd = [pay('x1', '2026-02-03', -1234), pay('x2', '2026-05-04', -987)];
+		expect(looksPrepaid({ transactions: odd, receipts: quiet, name: NAME })).toBe(true);
+	});
+});

@@ -348,6 +348,14 @@ export function createBridgeClient({
 		transferAssist: (body) =>
 			call('/transfer/assist', { method: 'POST', body: JSON.stringify(body) }),
 		/**
+		 * "✦ Ungereimtheiten erklären" on a vendor account (#121): a few notes on
+		 * what does not add up; the bridge redacts.
+		 *
+		 * @param {{ vendor: string, from: string, until: string, opening: string | null, closing: string, rows: any[], findings: string[] }} body
+		 * @returns {Promise<{ notes: string[], llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
+		 */
+		vendorAssist: (body) => call('/vendor/assist', { method: 'POST', body: JSON.stringify(body) }),
+		/**
 		 * A read share for an assistant (issue #124): the snapshot goes to the
 		 * bridge, which keeps it in memory and serves it by its id until it expires.
 		 *
