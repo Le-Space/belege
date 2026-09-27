@@ -20,7 +20,7 @@
 	let reason = $state('');
 
 	function start() {
-		const draft = eigenbelegDraft(tx);
+		const draft = eigenbelegDraft(tx, app);
 		counterparty = draft.counterparty;
 		description = draft.description;
 		reason = draft.reason;
@@ -45,7 +45,8 @@
 				account,
 				input: { counterparty, description, reason },
 				issuer: app.matchingSettings?.companyNames?.[0] ?? '',
-				createdBy: app.did ?? ''
+				createdBy: app.did ?? '',
+				books: app
 			});
 			done = t('zahlungen.detail.eigenbeleg.done', { number });
 			open = false;

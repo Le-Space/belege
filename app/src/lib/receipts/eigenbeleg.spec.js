@@ -5,7 +5,7 @@ import { extractText, getDocumentProxy } from 'unpdf';
 
 import { memoryCollection } from '../bank/test-support.js';
 import { createBlobStore } from './blob-store.js';
-import { createEigenbeleg, eigenbelegDraft, nextSelfNumber } from './eigenbeleg.js';
+import { chainDetails, createEigenbeleg, eigenbelegDraft, nextSelfNumber } from './eigenbeleg.js';
 
 /** @type {any} */
 let store;
@@ -86,9 +86,10 @@ describe('Eigenbeleg', () => {
 
 	it('starts a crypto payment with a reason; any other with none', async () => {
 		const { tx } = await leasePayment();
+		// A wallet booking says in words what moved, and to whom (#126).
 		expect(eigenbelegDraft(tx)).toMatchObject({
 			counterparty: 'Stromwerk Test AG',
-			description: 'Lease-Zahlung',
+			description: 'Gesendet: 4,2 AKT an Stromwerk Test AG',
 			reason: expect.stringContaining('Blockchain')
 		});
 		expect(eigenbelegDraft({ counterparty: 'Konto B', purpose: 'Barauslage' }).reason).toBe('');
@@ -143,7 +144,7 @@ describe('Eigenbeleg', () => {
 			'Konto Wallet AKT',
 			'Menge -4,2 AKT',
 			'Kurs 2,938095 EUR je AKT · CoinGecko, 01.09.2026',
-			'Referenz ABC123',
+			'Transaktion ABC123',
 			'Was wurde bezahlt Rechenzeit für einen Monat (Lease)',
 			'Warum kein Fremdbeleg Die Zahlung erfolgte auf der Blockchain',
 			'Erstellt 26.09.2026 von did:key:z6MkTest',
@@ -168,5 +169,98 @@ describe('Eigenbeleg', () => {
 			/schon den Eigenbeleg EB-2026-001/
 		);
 		expect(await store.receipts.list()).toHaveLength(1);
+	});
+});
+
+describe('Eigenbeleg for a wallet transaction in full (#126)', () => {
+	const HASH = `0x${'05e61a'.repeat(10)}cc2d`;
+	const ME = `0x${'a1'.repeat(20)}`;
+	const ROUTER = `0x${'74'.repeat(20)}`;
+	const accounts = [
+		{
+			id: 'acc-eth',
+			source: 'ethereum',
+			name: 'Ledger · ETH (Ethereum)',
+			walletAddress: ME,
+			asset: 'ETH'
+		}
+	];
+	const got = {
+		id: 'got',
+		accountId: 'acc-eth',
+		source: 'ethereum',
+		bookedOn: '2026-07-19',
+		bookedAt: '2026-07-19T08:35:00Z',
+		amountCents: 23331,
+		currency: 'EUR',
+		counterparty: 'MetaMask Swap (Spender)',
+		counterpartyAddress: ROUTER,
+		movement: 'trade',
+		txRef: HASH,
+		explorerUrl: `https://etherscan.io/tx/${HASH}`,
+		asset: 'ETH',
+		quantity: '143000000000000000',
+		decimals: 18,
+		swap: {
+			gave: [{ asset: 'XYZ', amount: '30000', listed: false }],
+			got: [{ asset: 'ETH', amount: '0.143', listed: true }],
+			via: 'MetaMask Swap (Router)',
+			fee: { asset: 'ETH', amount: '0.00018' }
+		}
+	};
+	const gas = {
+		id: 'gas',
+		accountId: 'acc-eth',
+		source: 'ethereum',
+		bookedOn: '2026-07-19',
+		amountCents: -61,
+		currency: 'EUR',
+		movement: 'fee',
+		txRef: HASH,
+		asset: 'ETH',
+		quantity: '-180000000000000',
+		decimals: 18
+	};
+
+	it('the whole hash, both parties with full addresses, every movement with the gas', () => {
+		const c = chainDetails(got, { accounts, transactions: [got, gas] });
+		expect(c).toMatchObject({
+			chain: 'Ethereum',
+			hash: HASH,
+			from: { label: 'MetaMask Swap (Spender)', address: ROUTER, own: false },
+			to: { label: 'Ledger · ETH (Ethereum)', address: ME, own: true }
+		});
+		expect(c?.movements.map((m) => m.what)).toEqual([
+			'Tausch – erhalten',
+			'Gas (Netzwerkgebühr)',
+			'Tausch – gegeben (nicht gebucht)'
+		]);
+		expect(c?.movements[1].quantity).toBe('-0,00018 ETH');
+		const draft = eigenbelegDraft(got, { accounts, transactions: [got, gas] });
+		expect(draft.counterparty).toBe(`MetaMask Swap (Spender) · ${ROUTER}`);
+		expect(draft.description).toContain('Tausch: 30.000 XYZ (nicht gelistet) → 0,143 ETH');
+	});
+
+	it('the PDF prints the hash and the addresses whole', async () => {
+		const { eigenbelegPdf } = await import('./eigenbeleg-pdf.js');
+		const { eigenbelegDocument } = await import('./eigenbeleg.js');
+		const doc = eigenbelegDocument({
+			tx: got,
+			account: accounts[0],
+			input: {
+				counterparty: 'MetaMask Swap',
+				description: 'Tausch',
+				reason: 'Tausch über eine DEX, keine Rechnung.'
+			},
+			number: 'EB-2026-002',
+			issuer: '',
+			createdBy: '',
+			now: new Date('2026-09-27T10:00:00Z'),
+			books: { accounts, transactions: [got, gas] }
+		});
+		const text = (await pdfText(await eigenbelegPdf(doc))).replace(/\s/g, '');
+		for (const whole of [HASH, ROUTER, ME, 'Gas(Netzwerkgebühr):-0,00018ETH']) {
+			expect(text, whole).toContain(whole);
+		}
 	});
 });

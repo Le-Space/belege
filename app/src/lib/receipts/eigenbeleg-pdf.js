@@ -30,6 +30,8 @@ export async function eigenbelegPdf(doc) {
 	pdf.setModificationDate(created);
 	const regular = await pdf.embedFont(StandardFonts.Helvetica);
 	const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+	// Hashes and addresses in a fixed width, broken anywhere but never cut (#126).
+	const mono = await pdf.embedFont(StandardFonts.Courier);
 	const page = pdf.addPage(A4);
 	const width = A4[0] - 2 * MARGIN;
 	let y = A4[1] - MARGIN;
@@ -53,6 +55,13 @@ export async function eigenbelegPdf(doc) {
 				else {
 					if (line) lines.push(line);
 					line = word;
+					// A word longer than the line (a hash, an address): broken, not cut.
+					while (font.widthOfTextAtSize(line, size) > max) {
+						let n = line.length - 1;
+						while (n > 1 && font.widthOfTextAtSize(line.slice(0, n), size) > max) n--;
+						lines.push(line.slice(0, n));
+						line = line.slice(n);
+					}
 				}
 			}
 			lines.push(line);
@@ -60,17 +69,14 @@ export async function eigenbelegPdf(doc) {
 		return lines;
 	}
 
-	/** @param {string} label @param {string} value @param {boolean} [strong] */
-	function field(label, value, strong = false) {
-		const lines = wrap(value || '—', strong ? bold : regular, 10, width - LABEL);
+	/** @param {string} label @param {string} value @param {boolean | 'mono'} [style] */
+	function field(label, value, style = false) {
+		const font = style === 'mono' ? mono : style ? bold : regular;
+		const size = style === 'mono' ? 9 : 10;
+		const lines = wrap(value || '—', font, size, width - LABEL);
 		page.drawText(winAnsi(label), { x: MARGIN, y, size: 9, font: regular, color: GREY });
 		lines.forEach((line, i) => {
-			page.drawText(line, {
-				x: MARGIN + LABEL,
-				y: y - i * 13,
-				size: 10,
-				font: strong ? bold : regular
-			});
+			page.drawText(line, { x: MARGIN + LABEL, y: y - i * 13, size, font });
 		});
 		y -= lines.length * 13 + 7;
 	}
@@ -124,7 +130,25 @@ export async function eigenbelegPdf(doc) {
 			`${formatRate(c.rate)} EUR je ${c.asset} · ${source}${c.at ? `, ${formatDate(c.at.slice(0, 10))}` : ''}`
 		);
 	}
-	if (doc.txRef) field('Referenz', doc.txRef);
+	if (doc.chain) {
+		const c = doc.chain;
+		rule();
+		field('Chain', c.chain);
+		field('Transaktion', c.hash, 'mono');
+		if (c.at) field('Zeitpunkt', `${c.at.slice(0, 16).replace('T', ' ')} UTC`);
+		/** @param {{ label: string, address: string, own: boolean }} p */
+		const party = (p) =>
+			`${p.label || '—'}${p.own ? ' (eigene Wallet)' : ''}${p.address && p.address !== p.label ? `\n${p.address}` : ''}`;
+		field('Von', party(c.from));
+		field('An', party(c.to));
+		field(
+			'Bewegungen',
+			c.movements
+				.map((m) => `${m.what}: ${m.quantity || '—'}${m.euro ? ` · ${m.euro}` : ''}`)
+				.join('\n')
+		);
+		if (c.explorerUrl) field('Block-Explorer', c.explorerUrl, 'mono');
+	} else if (doc.txRef) field('Referenz', doc.txRef, 'mono');
 	rule();
 	field('Was wurde bezahlt', doc.description);
 	field('Warum kein Fremdbeleg', doc.reason);
