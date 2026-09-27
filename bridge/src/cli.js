@@ -73,6 +73,8 @@ let alchemyKeychain;
 /** @type {((network: string) => string) | undefined} */
 let alchemyBaseUrl;
 /** @type {Record<string, string> | null} */
+/** @type {string | undefined} tests: a fake Aleph API on 127.0.0.1 */
+let alephApi;
 let fixedRates = null;
 /** @type {((id: string) => import('./keychain.js').Keychain) | undefined} */
 let portalKeychain;
@@ -110,6 +112,14 @@ if (testMode) {
 		console.error('BELEGE_BRIDGE_TEST_ALCHEMY_KEY needs BELEGE_BRIDGE_TEST_ALCHEMY_URL (a fake).');
 		process.exit(1);
 	}
+	const fakeAleph = process.env.BELEGE_BRIDGE_TEST_ALEPH_URL;
+	if (fakeAleph) {
+		if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(fakeAleph)) {
+			console.error('BELEGE_BRIDGE_TEST_ALEPH_URL must be http://127.0.0.1:<port>.');
+			process.exit(1);
+		}
+		alephApi = fakeAleph;
+	}
 	if (process.env.BELEGE_BRIDGE_TEST_FIXED_RATES) {
 		fixedRates = JSON.parse(process.env.BELEGE_BRIDGE_TEST_FIXED_RATES);
 	}
@@ -126,6 +136,7 @@ try {
 		bitcoinKeychain,
 		alchemyKeychain,
 		alchemyBaseUrl,
+		alephApi,
 		fixedRates,
 		walletLoopback: testMode,
 		portalKeychain,

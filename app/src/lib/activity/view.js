@@ -209,7 +209,7 @@ export function describeEvent(e, { receipts = [], transactions = [] } = {}) {
 			const title =
 				e.action === 'answer'
 					? t('verlauf.decision.answer', { choice: t(`rueckfragen.answer.${e.choice}`) })
-					: t(`verlauf.decision.${e.action}`);
+					: t(`verlauf.decision.${e.action}`, { number: e.number ?? '', month: e.month ?? '' });
 			const parts = [
 				receipt ? vendor : null,
 				tx ? `${tx.counterparty || '—'} · ${formatDate(tx.bookedOn)}` : null,

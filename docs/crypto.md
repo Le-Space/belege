@@ -175,6 +175,17 @@ A Bitcoin wallet is read by its account's **extended public key**, not by one ad
 - **Checked by trying**: Nym's RPC answers `tx_search` for `transfer.sender` and `transfer.recipient` in well under a second (an earlier project found sender queries hanging; not reproduced). It is **pruned** (its oldest block is from 2025); Nodes Guru's RPC goes back to the first block. Akash (checked 2026-09-27): every public node is pruned. PublicNode's keeps the most (from 2026-05-25); Polkachu's and Ecostake's keep only a few weeks, and Polkachu's `/status` says 0 all the same. Blockscout refuses page × offset above 10 000. Blockscout's `tokentx` gives no log index, so a token transfer's id is built from contract, sender, receiver and value (stable, but not a log index).
 - **Not checked**: Base's chain id through its API (rate-limited at the time; 8453 is the well-known id); that the explorers' pages render (they are single-page apps and answer 200 for anything); Akash's history depth on Polkachu's node.
 
+## Aleph Cloud credits (issue #113)
+
+Aleph issues no invoice: hosting and storage are paid in credits. Under Integrationen → Aleph Cloud, the own EVM wallets (when "Eigene Ethereum-Adressen bei Aleph prüfen" is on) and any Aleph account typed in are asked at Aleph's public API, read only (`POST /aleph/accounts`, `bridge/src/aleph.js`). For an account and a month, "Verbrauchsnachweis erstellen" makes an Eigenbeleg (`app/src/lib/aleph/`):
+
+- **Balances:** opening and closing balance are the balance now, less the net of `credit_history/summary` since the month began or ended. Opening + in − out = closing is checked and printed.
+- **Lines:** top-ups (purchases with their price and transaction, transfers in), transfers out, and consumption per UTC day. Storage is one line, since Aleph bills all stores together with their number and size; each instance or program gets its own line, named from its message.
+- **Euro value:** the per-credit USD price of the last purchase up to that day (without one, Aleph's list price of 1 USD per 1,000,000 credits), times the ECB rate of the day. The tax adviser has to confirm this valuation.
+- **Stored:** as a receipt in the EB range, source `eigenbeleg`, `sourceRef aleph:<address>:<month>`, not linked to a booking. The numbers stay on the receipt (`selfReceipt.aleph`) for a later invoice through the invoice app.
+
+A month in which nothing moved makes none. Checked on 2026-09-27 against two own accounts for two months: the balances agreed to the credit.
+
 ## In the export
 
 The Buchungstext of a crypto booking ends with what moved, e.g. `Konto B -0,015 BTC`. The name is shortened when the 60 characters DATEV allows are not enough; the quantity never is. The amount (Umsatz) is in EUR, like every other line.

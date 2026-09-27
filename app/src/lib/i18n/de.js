@@ -345,7 +345,7 @@ export default {
 				name: 'Blockchain-Abfrage (Nym/Cosmos, Ethereum/EVM, Bitcoin)',
 				text: 'Nur für eigene Wallets, die du unter Integrationen einträgst, und nur wenn du „Synchronisieren“ drückst: Die Bridge fragt einen öffentlichen Knoten nach den Überweisungen und dem Bestand der Adresse.',
 				leaves:
-					'Die Adresse der Wallet und die IP-Adresse dieses Macs – an den Betreiber des Knotens: voreingestellt Nym (rpc.nymtech.net) für Nyx, PublicNode für Akash (für die ältere Geschichte zusätzlich den Akash-Indexer console-api.akash.network, betrieben vom Akash-Team), Blockscout für Ethereum, Base, Arbitrum, Optimism und Polygon – oder Alchemy, wenn du einen Alchemy-API-Schlüssel eingerichtet hast –, oder den Knoten, den du selbst einträgst. Er kann daraus ablesen, dass diese Adresse zu dir gehört; Alchemy ordnet die Abfragen zudem deinem Alchemy-Konto zu. Bei Bitcoin fragt die Bridge mempool.space (oder deinen eigenen Esplora-Server) nach jeder Adresse, die sie aus deinem Kontoschlüssel ableitet, kurz nacheinander von derselben IP: Der Betreiber kann daraus schließen, dass alle diese Adressen zusammengehören.',
+					'Die Adresse der Wallet und die IP-Adresse dieses Macs – an den Betreiber des Knotens: voreingestellt Nym (rpc.nymtech.net) für Nyx, PublicNode für Akash (für die ältere Geschichte zusätzlich den Akash-Indexer console-api.akash.network, betrieben vom Akash-Team), Blockscout für Ethereum, Base, Arbitrum, Optimism und Polygon – oder Alchemy, wenn du einen Alchemy-API-Schlüssel eingerichtet hast –, oder den Knoten, den du selbst einträgst. Er kann daraus ablesen, dass diese Adresse zu dir gehört; Alchemy ordnet die Abfragen zudem deinem Alchemy-Konto zu. Bei Bitcoin fragt die Bridge mempool.space (oder deinen eigenen Esplora-Server) nach jeder Adresse, die sie aus deinem Kontoschlüssel ableitet, kurz nacheinander von derselben IP: Der Betreiber kann daraus schließen, dass alle diese Adressen zusammengehören. Für Aleph Cloud, nur wenn du unter Integrationen „Eigene Ethereum-Adressen bei Aleph prüfen“ einschaltest oder ein Aleph-Konto einträgst: jede dieser Adressen an Aleph (api2.aleph.im), nur gelesen – Aleph kann daraus schließen, dass sie zusammengehören.',
 				technical:
 					'Gefragt wird per HTTPS: bei Cosmos-Chains die CometBFT-RPC (tx_search nach transfer.sender und transfer.recipient, header, status) und die REST-API (Bestand), bei EVM-Chains die Etherscan-kompatible API von Blockscout (txlist, txlistinternal, tokentx, balance) oder, mit Schlüssel, Alchemy (alchemy_getAssetTransfers, Quittungen, Nonce, Bestand; interne Transaktionen auf Arbitrum und Optimism weiter bei Blockscout). Der Alchemy-Schlüssel liegt im macOS-Schlüsselbund der Bridge (pnpm setup:alchemy) und steht nur in der Adresse der Anfragen an Alchemy – nie im Browser, nie im Protokoll. Die App schickt die Adresse im Rumpf einer Anfrage an die Bridge, nie in einer URL (an Blockscout geht sie, wie dessen API es verlangt, in der Abfrage-URL); das Protokoll der Bridge nennt nur Zahlen. Kein Schlüssel, keine Signatur: die Adresse ist öffentlich, die Liste deiner Wallets liegt verschlüsselt in deinen Büchern, nicht in der Bridge. Gebucht werden nur Assets aus der Liste der Chain (NYM, NYX, AKT, ETH, POL, USDC mit geprüftem Vertrag); andere Token werden gezählt und ausgelassen. Bei Bitcoin liegt der Kontoschlüssel (xpub, ypub oder zpub) nur im macOS-Schlüsselbund der Bridge; die Bridge leitet daraus die Adressen ab (bis 20 unbenutzte in Folge) und fragt deren bestätigte Transaktionen ab (Esplora-API: address, address/txs/chain). Die App kennt nur einen Fingerabdruck des Schlüssels. Links zum Block-Explorer öffnen erst, wenn du sie anklickst.'
 			},
@@ -422,6 +422,27 @@ export default {
 		reads: '{count}× gelesen',
 		revoke: 'Widerrufen',
 		refresh: 'Abrufe aktualisieren'
+	},
+	aleph: {
+		title: 'Aleph Cloud (Hosting-Credits)',
+		what: 'Aleph stellt keine Rechnung aus: Hosting und Speicher werden mit Credits bezahlt. Hier entsteht pro Aleph-Konto und Monat ein Verbrauchsnachweis als Eigenbeleg – Anfangs- und Endbestand, Aufladungen, Verbrauch je Tag (Speicher gesammelt, jede Instanz einzeln) mit Euro-Wert. Nur gelesen: nichts wird signiert oder bewegt.',
+		needsBridge: 'Braucht die gekoppelte Bridge.',
+		scanLabel: 'Eigene Ethereum-Adressen bei Aleph prüfen',
+		scanPrivacy:
+			'Die Adressen unter „Eigene Wallets“ (Ethereum und andere EVM-Chains) werden bei Aleph nach Credits gefragt. Aleph kann daraus schließen, dass sie zusammengehören.',
+		extraLabel: 'Weiteres Aleph-Konto (0x…)',
+		extraAdd: 'Hinzufügen',
+		badAddress: 'Das ist keine Aleph-Kontoadresse (0x und 40 Hex-Zeichen).',
+		scan: 'Bei Aleph prüfen',
+		scanning: 'Prüfe …',
+		scanned: '{asked} Adressen geprüft, {found} davon mit Aleph-Credits.',
+		none: 'Noch kein Aleph-Konto gefunden. Prüfung einschalten oder ein Konto eintragen, dann „Bei Aleph prüfen“.',
+		credits: '{credits} Credits (Stand {date})',
+		month: 'Monat',
+		make: 'Verbrauchsnachweis erstellen',
+		making: 'Erstelle …',
+		exists: 'Nachweis {number} liegt unter Belege.',
+		made: 'Eigenbeleg {number} für {month} erstellt ({eur}); er liegt unter Belege.'
 	},
 	devices: {
 		title: 'Eigene Geräte',
@@ -1252,6 +1273,7 @@ export default {
 			'mail-trash': 'Mail in den Papierkorb verschoben',
 			'upload-link': 'Beleg hochgeladen und dieser Zahlung zugeordnet',
 			eigenbeleg: 'Eigenbeleg erstellt und zugeordnet',
+			'aleph-statement': 'Aleph-Verbrauchsnachweis {number} für {month} erstellt',
 			booking: 'Konto übernommen',
 			bookings: 'Automatische Konten übernommen',
 			answer: 'Rückfrage beantwortet: {choice}'

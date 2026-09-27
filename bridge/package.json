@@ -21,7 +21,8 @@
 		"./testing/portal": "./test/support/fake-portal.js",
 		"./testing/kraken": "./test/support/fake-kraken.js",
 		"./testing/chains": "./test/support/fake-chains.js",
-		"./testing/alchemy": "./test/support/fake-alchemy.js"
+		"./testing/alchemy": "./test/support/fake-alchemy.js",
+		"./testing/aleph": "./test/support/fake-aleph.js"
 	},
 	"scripts": {
 		"start": "node src/cli.js",

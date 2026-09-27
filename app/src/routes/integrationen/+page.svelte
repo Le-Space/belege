@@ -12,6 +12,7 @@
 	import DevicesCard from '$lib/sync/DevicesCard.svelte';
 	import ShareCard from '$lib/share/ShareCard.svelte';
 	import WalletsCard from '$lib/wallets/WalletsCard.svelte';
+	import AlephCard from '$lib/aleph/AlephCard.svelte';
 	import InvoiceAppCard from '$lib/ucep/InvoiceAppCard.svelte';
 	import { isWalletSource } from '$lib/wallets/chains.js';
 	import { app, currentStore, refreshNow, runMatchingNow } from '$lib/session.svelte.js';
@@ -534,6 +535,8 @@
 <KrakenCard url={bridgeUrl} {token} configured={krakenConfigured} />
 
 <WalletsCard url={bridgeUrl} {token} />
+
+<AlephCard url={bridgeUrl} {token} />
 
 <DevicesCard />
 
