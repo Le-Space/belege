@@ -444,6 +444,14 @@ export default {
 		exists: 'Nachweis {number} liegt unter Belege.',
 		made: 'Eigenbeleg {number} für {month} erstellt ({eur}); er liegt unter Belege.'
 	},
+	pwa: {
+		update: 'Eine neue Version von Belege ist da. Neu laden – danach mit dem Passkey entsperren.',
+		reload: 'Neu laden',
+		installWhat:
+			'Belege lässt sich als App installieren: eigenes Fenster und Symbol, startet auch offline. Die Bücher bleiben auf diesem Gerät.',
+		install: 'Als App installieren',
+		later: 'Nicht jetzt'
+	},
 	devices: {
 		title: 'Eigene Geräte',
 		what: 'Dieselben Bücher auf deinem Telefon oder einem zweiten Rechner: Beide Geräte brauchen denselben Passkey (über den Schlüsselbund synchronisiert) und die eingeschaltete Synchronisation.',
