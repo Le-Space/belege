@@ -23,7 +23,8 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 7: own EVM wallets may be read through Alchemy, with the person's own key.
 // 8: the invoicing app over UCEP: a relay sees the IP, once paired.
 // 9: own devices may sync the books over a relay, once switched on.
-export const CONSENT_VERSION = '9';
+// 10: an Akash wallet's older history is read from the Akash Console indexer.
+export const CONSENT_VERSION = '10';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

@@ -88,7 +88,9 @@ export class BridgeError extends Error {
  * @property {{ asset: string, amount: string, decimals: number }[]} balances
  * @property {number} transactions
  * @property {number} unknownAssets denoms or tokens that are not booked
- * @property {{ earliestHeight: number, earliestTime: string | null, pruned: boolean }} history
+ * @property {{ earliestHeight: number, earliestTime: string | null, pruned: boolean, completedBy?: 'indexer', unknownAmounts?: number, indexerFrom?: string | null, indexerError?: string }} history
+ *   `completedBy`: a pruned node's older part came from the chain's indexer (Akash, issue #105);
+ *   `unknownAmounts`: older transactions whose amount only events carry, not booked
  * @property {string} addressUrl
  * @property {'alchemy' | 'blockscout'} [source] EVM: where it was read
  */

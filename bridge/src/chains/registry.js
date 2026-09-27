@@ -43,7 +43,8 @@
  * @property {string} bech32Prefix
  * @property {string} nativeDenom
  * @property {Record<string, ChainAsset>} denoms base denom → asset
- * @property {{ rpc: string, rest: string }} endpoints the defaults
+ * @property {{ rpc: string, rest: string, indexer?: string }} endpoints the defaults; `indexer`: the
+ *   Akash Console indexer, read for what the pruned node no longer knows (akash-console.js)
  * @property {{ rpc: string[], rest: string[] }} alternatives also public, e.g. an archive node
  * @property {Explorer} explorer
  */
@@ -161,9 +162,12 @@ export const CHAINS = Object.freeze({
 		// Akash runs no public RPC of its own, and the public ones are pruned:
 		// checked 2026-09-27, PublicNode's keeps the longest history (from
 		// 2026-05-25), Polkachu's and Ecostake's only a few weeks (issue #105).
+		// The history before the node's window comes from the Akash Console
+		// indexer (akash-console.js, issue #105).
 		endpoints: {
 			rpc: 'https://akash-rpc.publicnode.com',
-			rest: 'https://akash-rest.publicnode.com'
+			rest: 'https://akash-rest.publicnode.com',
+			indexer: 'https://console-api.akash.network'
 		},
 		alternatives: {
 			rpc: ['https://akash-rpc.polkachu.com', 'https://rpc-akash.ecostake.com'],

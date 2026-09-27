@@ -770,6 +770,37 @@ describe('changing the source of an EVM wallet books nothing twice', () => {
 		]);
 	});
 
+	it('an Akash movement read by the node and later by the indexer keeps its id (issue #105)', () => {
+		const h = 'AB'.repeat(32);
+		const cosmos = (
+			/** @type {string} */ sourceId,
+			/** @type {string} */ quantity,
+			other = 'akash1escrow'
+		) =>
+			/** @type {any} */ ({
+				sourceId,
+				txRef: h,
+				counterpartyAddress: other,
+				crypto: { asset: 'AKT', quantity, decimals: 6 }
+			});
+		const stored = [
+			{
+				sourceId: `${h}:m0:e7.0:AKT`,
+				txRef: h,
+				quantity: '-2',
+				counterpartyAddress: 'akash1escrow'
+			},
+			{ sourceId: `${h}:m1:e9.0:AKT`, txRef: h, quantity: '0.5', counterpartyAddress: 'akash1pool' }
+		];
+		const out = reconcileSourceIds(stored, [
+			// the indexer names the other side differently: the kind and quantity decide
+			cosmos(`${h}:c0.0:AKT`, '-2', 'osmo1receiver'),
+			// a quantity nothing stored has: new
+			cosmos(`${h}:c1.0:AKT`, '-3')
+		]);
+		expect(out.map((t) => t.sourceId)).toEqual([`${h}:m0:e7.0:AKT`, `${h}:c1.0:AKT`]);
+	});
+
 	/** @type {Awaited<ReturnType<typeof startFakeAlchemy>>} */ let alchemy;
 	/** @type {Awaited<ReturnType<typeof startFakeBlockscout>>} */ let scout;
 	beforeAll(async () => {
