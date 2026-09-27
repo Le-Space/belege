@@ -9,6 +9,7 @@
 	import { describeMoment } from '$lib/moment.js';
 	import PortalsCard from '$lib/portals/PortalsCard.svelte';
 	import KrakenCard from '$lib/exchanges/KrakenCard.svelte';
+	import ShareCard from '$lib/share/ShareCard.svelte';
 	import WalletsCard from '$lib/wallets/WalletsCard.svelte';
 	import InvoiceAppCard from '$lib/ucep/InvoiceAppCard.svelte';
 	import { isWalletSource } from '$lib/wallets/chains.js';
@@ -532,6 +533,8 @@
 <KrakenCard url={bridgeUrl} {token} configured={krakenConfigured} />
 
 <WalletsCard url={bridgeUrl} {token} />
+
+<ShareCard url={bridgeUrl} {token} />
 
 <InvoiceAppCard />
 

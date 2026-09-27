@@ -442,6 +442,38 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	]);
 	await page.getByRole('link', { name: 'Zahlungen' }).click();
 
+	// Einblick für einen Assistenten (issue #124): a redacted share of this
+	// year's payments and receipts, read by a plain HTTP request, refused to a
+	// web page, gone when revoked.
+	await page.getByRole('link', { name: 'Integrationen' }).click();
+	const shareCard = page.getByTestId('share-card');
+	await expect(shareCard.getByTestId('share-redacted')).toBeChecked();
+	await shareCard.getByTestId('share-create').click();
+	const shareCommand = await shareCard.getByTestId('share-command-value').textContent();
+	const shareUrl = /curl -s (\S+)/.exec(String(shareCommand))?.[1] ?? '';
+	expect(shareUrl).toMatch(
+		new RegExp(`^http://127\\.0\\.0\\.1:${BRIDGE_PORT}/share/[A-Za-z0-9_-]{22}$`)
+	);
+	const shared = await page.request.get(shareUrl);
+	expect(shared.status()).toBe(200);
+	const snapshot = await shared.json();
+	expect(snapshot.redacted).toBe(true);
+	expect(snapshot.transactions.some((/** @type {any} */ t) => t.payee === names.debit)).toBe(true);
+	expect(JSON.stringify(snapshot)).not.toMatch(/DE0{16}9999|@/);
+	await expect(shareCard.getByTestId('share-item')).toContainText('Zahlungen, Belege');
+	const fromPage = await page.evaluate(async (u) => {
+		try {
+			return (await fetch(u)).status;
+		} catch {
+			return 'blocked';
+		}
+	}, shareUrl);
+	expect(fromPage).not.toBe(200);
+	await shareCard.getByTestId('share-revoke').click();
+	await expect(shareCard.getByTestId('share-item')).toHaveCount(0);
+	expect((await page.request.get(shareUrl)).status()).toBe(404);
+	await page.getByRole('link', { name: 'Zahlungen', exact: true }).click();
+
 	// At rest: the bookings are there (the scan finds data) but no counterparty,
 	// no purpose and no token is readable; the token is not in localStorage at all.
 	const { inventory, text } = await everythingStoredAsText(page);

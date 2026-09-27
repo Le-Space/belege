@@ -8,6 +8,10 @@
  * @typedef {{ direction?: 'in' | 'out', amount?: string, quantity?: string, asset?: string, day?: string, account?: string, counterparty?: string, purpose?: string }} TransferAssistBooking
  */
 
+/**
+ * @typedef {{ id: string, scope: string, redacted: boolean, createdAt: string, expiresAt: string, reads: number }} ShareInfo
+ */
+
 export const DEFAULT_BRIDGE_URL = import.meta.env?.VITE_BRIDGE_URL || 'http://127.0.0.1:8765';
 
 export class BridgeError extends Error {
@@ -340,6 +344,18 @@ export function createBridgeClient({
 		 */
 		transferAssist: (body) =>
 			call('/transfer/assist', { method: 'POST', body: JSON.stringify(body) }),
+		/**
+		 * A read share for an assistant (issue #124): the snapshot goes to the
+		 * bridge, which keeps it in memory and serves it by its id until it expires.
+		 *
+		 * @param {{ scope: string, redacted: boolean, minutes: number, data: unknown }} body
+		 * @returns {Promise<ShareInfo>}
+		 */
+		createShare: (body) => call('/share', { method: 'POST', body: JSON.stringify(body) }),
+		/** @returns {Promise<{ shares: ShareInfo[] }>} */
+		listShares: () => call('/share'),
+		/** @param {string} id @returns {Promise<{ ok: boolean }>} */
+		revokeShare: (id) => call(`/share/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 		/**
 		 * @param {{ text: string, hints?: Record<string, string>, source?: { mailId: string }, confirmedByUser?: boolean }} body
 		 * @returns {Promise<{ extraction: any, model: string, usage: any, ms?: number, attempts: any[], fallback?: { used: boolean, reason: string | null }, redactions?: any, sentText?: string }>}

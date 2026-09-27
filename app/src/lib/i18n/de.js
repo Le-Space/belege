@@ -375,6 +375,31 @@ export default {
 		restore: 'Mit vorhandenem Passkey wiederherstellen',
 		busy: 'Bitte den Passkey bestätigen …'
 	},
+	share: {
+		title: 'Einblick für einen Assistenten',
+		what: 'Ein Assistent auf diesem Rechner (z. B. Claude Code) kann sich Zahlungen, Belege und Rückfragen eines Jahres ansehen, statt mit Bildschirmfotos zu arbeiten. Du wählst, was er sieht und wie lange; die Bridge hält die Freigabe nur im Arbeitsspeicher und zählt jeden Abruf.',
+		note: 'Was ein Assistent liest, geht als Gesprächsinhalt an seinen Anbieter.',
+		needsBridge: 'Dafür muss die Bridge gekoppelt sein.',
+		collections: 'Was freigegeben wird',
+		scope: {
+			transactions: 'Zahlungen',
+			receipts: 'Belege',
+			questions: 'Rückfragen',
+			redacted: 'geschwärzt'
+		},
+		redacted:
+			'Geschwärzt (IBANs bis auf die letzten vier, keine E-Mail-Adressen, Rufnummern, Kunden- und Vertragsnummern, Dateinamen oder Absender)',
+		unredactedWarning:
+			'Ungeschwärzt: IBANs, Dateinamen, Absender und alle Nummern gehen so hinaus, wie sie gespeichert sind.',
+		duration: 'Gültig für',
+		create: 'Freigabe für {year} erstellen',
+		command: 'Der Assistent liest die Freigabe mit diesem Befehl:',
+		copyCommand: 'Befehl kopieren',
+		until: 'bis {time}',
+		reads: '{count}× gelesen',
+		revoke: 'Widerrufen',
+		refresh: 'Abrufe aktualisieren'
+	},
 	vendorAccount: {
 		open: 'Lieferantenkonto ansehen',
 		title: 'Lieferantenkonto: {name}',
@@ -1131,6 +1156,8 @@ export default {
 			'own-transfer-link': 'Als Gegenbuchung verknüpft (eigene Umbuchung)',
 			'refund-link': 'Als Erstattung verknüpft',
 			'prepaid-on': 'Als Guthabenkonto geführt',
+			'share-created': 'Freigabe für einen Assistenten erstellt',
+			'share-revoked': 'Freigabe für einen Assistenten widerrufen',
 			'prepaid-off': 'Nicht mehr als Guthabenkonto geführt',
 			'not-refund': 'Als „keine Erstattung“ markiert',
 			'transfer-receipt-kept': 'Beleg einer Umbuchung bestätigt',
