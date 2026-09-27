@@ -384,11 +384,17 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 		buffer: Buffer.from(prepaidCamt, 'utf8')
 	});
 	await expect(page.getByTestId('camt-result')).toContainText('Prepaid Testkonto ···0003: Neu: 2');
-	const statement = (/** @type {string} */ day, /** @type {string} */ gross) =>
+	const statement = (
+		/** @type {string} */ day,
+		/** @type {string} */ gross,
+		/** @type {string} */ month
+	) =>
 		makePdf([
 			'Anbieter: Funkmobil Prepaid GmbH',
 			`Rechnungsnummer: FM-${day}`,
 			`Rechnungsdatum: ${day}`,
+			`Zeitraum: 2026-${month}-01 bis 2026-${month}-${month === '09' ? '30' : '31'}`,
+			`Position: Eingehende Anrufe im Ausland ${gross} EUR`,
 			`Brutto: ${gross} EUR`,
 			'Diese Rechnung stellt keine Zahlungsaufforderung dar.'
 		]);
@@ -397,12 +403,12 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 		{
 			name: 'funkmobil-09-15.pdf',
 			mimeType: 'application/pdf',
-			buffer: statement('2026-09-15', '1,98')
+			buffer: statement('2026-09-15', '1,98', '08')
 		},
 		{
 			name: 'funkmobil-09-25.pdf',
 			mimeType: 'application/pdf',
-			buffer: statement('2026-09-25', '2,17')
+			buffer: statement('2026-09-25', '2,17', '09')
 		}
 	]);
 	await expect(page.getByTestId('import-result')).toContainText('Neu: 2');
@@ -428,6 +434,28 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	await expect(page.getByTestId('vendor-account-row')).toHaveCount(4);
 	await expect(page.getByTestId('vendor-account-closing')).toHaveText(/25,85\sEUR/);
 	await expect(page.getByTestId('vendor-account-suggest')).toBeVisible();
+	// What the statements bill, and their positions (#121, part 2).
+	await expect(
+		page.getByTestId('vendor-account-period').filter({ hasText: '01.08.2026' })
+	).toHaveCount(1);
+	await page.getByTestId('vendor-account-items').first().locator('summary').click();
+	await expect(page.getByTestId('vendor-account-items').first()).toContainText(
+		'Eingehende Anrufe im Ausland'
+	);
+	// ✦ Ungereimtheiten erklären: notes only; the timeline as a PDF.
+	llm.answers.respond = (/** @type {any} */ body) =>
+		String(body.messages[0].content).startsWith(
+			"You help a German company's bookkeeping check one vendor"
+		)
+			? { notes: ['August und September sind abgerechnet; es bleiben 25,85 EUR Guthaben.'] }
+			: undefined;
+	await page.getByTestId('vendor-account-explain').click();
+	await expect(page.getByTestId('vendor-account-notes')).toContainText('25,85 EUR Guthaben');
+	const download = page.waitForEvent('download');
+	await page.getByTestId('vendor-account-pdf').click();
+	expect((await download).suggestedFilename()).toBe(
+		'Lieferantenkonto-Funkmobil-Prepaid-GmbH-2026.pdf'
+	);
 	await page.getByTestId('vendor-account-prepaid-on').click();
 	await expect(page.getByTestId('vendor-account-prepaid')).toBeVisible();
 	await page.getByRole('link', { name: 'Zahlungen', exact: true }).click();

@@ -153,6 +153,17 @@ export function describeEvent(e, { receipts = [], transactions = [] } = {}) {
 							})
 						: '')
 			};
+		case 'vendor-assist':
+			return {
+				...base,
+				title: t('verlauf.kind.vendor-assist'),
+				text: t('verlauf.text.vendorAssist', {
+					model: e.model ?? '?',
+					rows: e.rows ?? 0,
+					seconds: typeof e.ms === 'number' ? seconds(e.ms) : '?',
+					tokens: integer(e.tokensTotal ?? 0)
+				})
+			};
 		case 'transfer-assist':
 			return {
 				...base,

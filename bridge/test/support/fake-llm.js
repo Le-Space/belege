@@ -38,7 +38,10 @@ export function readInvoice(text) {
 		customer_number: null,
 		invoice_date: get(/Rechnungsdatum:\s*(\d{4}-\d{2}-\d{2})/) ?? null,
 		due_or_debit_date: null,
-		service_period: null,
+		service_period: (() => {
+			const m = /Zeitraum:\s*(\d{4}-\d{2}-\d{2})\s*bis\s*(\d{4}-\d{2}-\d{2})/.exec(text);
+			return m ? { from: m[1], to: m[2] } : null;
+		})(),
 		currency: 'EUR',
 		net,
 		vat: vat === null ? [] : [{ rate: 19, amount: vat }],
@@ -47,7 +50,13 @@ export function readInvoice(text) {
 		iban_last4: get(/\[IBAN …(\w{4})\]/) ?? null,
 		reverse_charge: false,
 		travel: null,
-		summary: 'Testleistung'
+		summary: 'Testleistung',
+		// "Position: <text> <amount> EUR", one per line.
+		line_items: [...text.matchAll(/Position:\s*(.+?)\s+(-?[\d.,]+)\s*EUR/g)].map((m) => ({
+			description: m[1],
+			amount: /** @type {number} */ (num(m[2]))
+		})),
+		no_payment_request: /keine Zahlungsaufforderung/i.test(text)
 	};
 }
 

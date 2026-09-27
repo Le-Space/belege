@@ -39,7 +39,9 @@ Answer with one JSON object and nothing else, using exactly these keys (null whe
   "iban_last4": string | null,      // from a redacted IBAN like [IBAN …1234]
   "reverse_charge": boolean,        // no German VAT because the vendor is abroad (§13b UStG)
   "travel": { "from": string, "to": string, "departure": "YYYY-MM-DDTHH:MM" | null } | null,
-  "summary": string                 // what was bought, max 12 words, German
+  "summary": string,                // what was bought, max 12 words, German
+  "line_items": [ { "description": string, "amount": number } ] | null,  // the billed positions as printed, at most 20
+  "no_payment_request": boolean     // the document says it asks for no payment (prepaid statement, already paid)
 }
 Amounts are numbers with a dot as decimal separator. Never guess a value that is not in the text.
 Use "none" when the text is no bookkeeping document at all (a sign-in link, a newsletter, a
@@ -115,6 +117,20 @@ export function checkExtraction(data) {
 	if (data.service_period) {
 		if (!isDay(data.service_period.from) || !isDay(data.service_period.to)) {
 			problems.push('service_period is not two dates');
+		}
+	}
+	if (data.line_items !== null && data.line_items !== undefined) {
+		if (!Array.isArray(data.line_items)) problems.push('line_items is not a list');
+		else if (
+			data.line_items.some(
+				(/** @type {any} */ i) =>
+					!i ||
+					typeof i.description !== 'string' ||
+					typeof i.amount !== 'number' ||
+					!Number.isFinite(i.amount)
+			)
+		) {
+			problems.push('a line item is not a description with an amount');
 		}
 	}
 	const vat = Array.isArray(data.vat) ? data.vat : [];

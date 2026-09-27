@@ -263,7 +263,8 @@ export default {
 				'Belege auslesen: Anbieter, Betrag, Datum, Rechnungs- und Kundennummer aus dem Text eines Belegs – und ob es überhaupt ein Beleg ist (Anmelde-Mails und Newsletter nicht). Bei „Auslesen“, „Alle neuen auslesen“, „Beleg hochladen“, „Als Beleg übernehmen“ und „Rechnungen holen“.',
 				'„Mit KI weitersuchen“ im privaten Postfach: Suchwörter und Absender vorschlagen, dann unter den Treffern den Beleg wählen – nach Betreff, Absender-Domain und Dateinamen, nie nach dem Text der E-Mails.',
 				'„KI-Vorschlag“ unter „Beleg zuordnen“: unter bis zu 25 deiner Belege den passenden zu einer Buchung nennen – nach Anbieter, Betrag, Datum, Rechnungsnummer und Kurzbeschreibung. Zuordnen tust du.',
-				'„KI-Vorschlag“ unter „Als Gegenbuchung verknüpfen …“: unter bis zu 8 Buchungen auf deinen anderen Konten die andere Seite einer eigenen Umbuchung nennen – nach Richtung, Betrag, Menge, Tag, Kontoart, Gegenpartei und Zweck, ohne Adressen, IBANs und Hashes. Verknüpfen tust du.'
+				'„KI-Vorschlag“ unter „Als Gegenbuchung verknüpfen …“: unter bis zu 8 Buchungen auf deinen anderen Konten die andere Seite einer eigenen Umbuchung nennen – nach Richtung, Betrag, Menge, Tag, Kontoart, Gegenpartei und Zweck, ohne Adressen, IBANs und Hashes. Verknüpfen tust du.',
+				'„Ungereimtheiten erklären“ im Lieferantenkonto: in wenigen Sätzen sagen, was bei einem Lieferanten nicht aufgeht – nach Daten, Beträgen, Zeiträumen und Positionen, ohne Rufnummern, Kunden- und Rechnungsnummern. Gebucht wird nichts.'
 			],
 			withoutHeading: 'Ohne KI, nach festen Regeln',
 			without:
@@ -438,8 +439,18 @@ export default {
 			january:
 				'Der Beleg vom {date} ({amount}) kann noch das Vorjahr abrechnen – bitte prüfen, bevor er diesem Jahr zugerechnet wird.',
 			'unknown-opening':
-				'Der erste Vorgang ist ein Beleg ({date}): Ohne Anfangsbestand ist der Saldo davor unbekannt.'
+				'Der erste Vorgang ist ein Beleg ({date}): Ohne Anfangsbestand ist der Saldo davor unbekannt.',
+			'previous-year':
+				'Der Beleg vom {date} ({amount}) rechnet einen Zeitraum des Vorjahres ab – er gehört zum Verbrauch des Vorjahres.'
 		},
+		period: 'Zeitraum',
+		items: 'Positionen',
+		explain: 'Ungereimtheiten erklären',
+		explainTitle:
+			'Schickt die Zeitleiste an dein Sprachmodell: Daten, Beträge, Zeiträume, Positionen und die Befunde – geschwärzt, ohne Rufnummern, Kunden- und Rechnungsnummern. Nur Hinweise, gebucht wird nichts.',
+		explainNeedsBridge: 'Dafür muss die Bridge mit einem Sprachmodell gekoppelt sein.',
+		notes: 'Hinweise der KI',
+		pdf: 'Als PDF herunterladen',
 		isPrepaid:
 			'Als Guthabenkonto geführt: Aufladungen brauchen keinen eigenen Beleg, die Verbrauchsnachweise gelten als zugeordnet.',
 		openingLabel: 'Anfangsbestand am 1.1.{year} (EUR, z. B. aus dem Kundenkonto)',
@@ -704,6 +715,7 @@ export default {
 			extract: 'Auslesen',
 			'match-assist': 'KI-Vorschlag',
 			'transfer-assist': 'KI-Gegenbuchung',
+			'vendor-assist': 'KI-Lieferantenkonto',
 			'mail-assist': 'Postfach-Suche'
 		},
 		perReceipt: 'Pro ausgelesenem Beleg in diesem Monat etwa {tokens} Tokens.',
@@ -1122,6 +1134,7 @@ export default {
 			'mail-assist': 'Mit KI im Postfach gesucht',
 			'match-assist': 'KI-Vorschlag für eine Zuordnung',
 			'transfer-assist': 'KI-Vorschlag für eine Gegenbuchung',
+			'vendor-assist': 'KI-Erklärung eines Lieferantenkontos',
 			matching: 'Abgleich',
 			decision: 'Entscheidung',
 			export: 'DATEV-Export'
@@ -1147,6 +1160,7 @@ export default {
 			mailAssistPick: ' · Vorschlag: {confidence}',
 			matchAssist: '{model} · {candidates} Belege geprüft · {seconds} s · {tokens} Tokens',
 			transferAssist: '{model} · {candidates} Buchungen geprüft · {seconds} s · {tokens} Tokens',
+			vendorAssist: '{model} · {rows} Zeilen geprüft · {seconds} s · {tokens} Tokens',
 			export: 'DATEV-Export {month}: {bookings} Buchungen, {receipts} Belege',
 			matching:
 				'{sure} zugeordnet · {created} neue Rückfragen · {resolved} erledigt · {classified} ohne Beleg-Pflicht · {waiting} warten noch',
