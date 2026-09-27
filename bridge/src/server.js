@@ -10,6 +10,10 @@
 //   GET  /mail/search?text=&amount=&from=a.example,b.example&term=…&around=YYYY-MM-DD&days=   token
 //   POST /mail/assist  { counterparty, purpose, amount, around, days, knownDomains }   token → LLM terms, hits, pick
 //   POST /match/assist { booking, candidates }                  token → the LLM's pick among receipts
+//   GET  /share/<id>                                               the snapshot of a read share (no token: the id is the capability; no Origin)
+//   POST /share { scope, redacted, minutes, data }                 token → { id, expiresAt } (issue #124)
+//   GET  /share                                                    token → the active shares, without their data
+//   DELETE /share/<id>                                             token → revoked
 //   POST /transfer/assist { booking, candidates }               token → the LLM's pick of an own transfer's other side
 //   GET  /llm/status                                              token → provider, models, key present?
 //   POST /extract      { text, hints, source, confirmedByUser }   token
@@ -32,6 +36,7 @@
 // `konto.find`, before anything else looks at them, and their transactions
 // are never asked for.
 
+import { MAX_SHARE_BYTES, createShares } from './shares.js';
 import http from 'node:http';
 
 import { HibiscusUnreachableError, PinMismatchError } from './hibiscus.js';
@@ -76,6 +81,7 @@ const MAX_EXTRACT_BODY = 256 * 1024;
  *   "Mit KI weitersuchen": null without mail or LLM
  * @param {ReturnType<typeof import('./llm/match-assist.js').createMatchAssist> | null} [options.matchAssist]
  * @param {ReturnType<typeof import('./llm/transfer-assist.js').createTransferAssist> | null} [options.transferAssist]
+ * @param {ReturnType<typeof createShares>} [options.shares] read shares for an assistant, in memory
  *   "✦ KI-Vorschlag" under "Beleg zuordnen": null without an LLM
  * @param {import('./portals/manager.js').PortalManager | null} [options.portals] the portal connector
  * @param {ReturnType<typeof import('./rates.js').createRateService> | null} [options.rates] exchange rates
@@ -93,6 +99,7 @@ export function createBridgeServer({
 	assist = null,
 	matchAssist = null,
 	transferAssist = null,
+	shares = createShares(),
 	portals = null,
 	rates = null,
 	kraken = null,
@@ -228,8 +235,59 @@ export function createBridgeServer({
 			return send(res, 200, { token });
 		}
 
+		// A read share (issue #124): the id is the capability, so no token; but
+		// never for a web page – a request with an Origin is refused, and no
+		// CORS header is ever sent for it.
+		const shareId = /^\/share\/([A-Za-z0-9_-]{22})$/.exec(path)?.[1];
+		if (shareId && req.method === 'GET' && !req.headers.authorization) {
+			if (req.headers.origin !== undefined) {
+				return send(res, 403, { error: 'a share is not for a web page' });
+			}
+			const body = shares.read(shareId);
+			if (body === null) return send(res, 404, { error: 'no such share, or it expired' });
+			log('a share was read');
+			res.writeHead(200, {
+				'Content-Type': 'application/json; charset=utf-8',
+				'Content-Length': Buffer.byteLength(body),
+				'Cache-Control': 'no-store',
+				'X-Content-Type-Options': 'nosniff'
+			});
+			return res.end(body);
+		}
+
 		if (!pairing.verify(bearer(req))) {
 			return send(res, 401, { error: 'unauthorized' });
+		}
+
+		if (path === '/share' && req.method === 'POST') {
+			const body = /** @type {any} */ (await readJson(req, MAX_SHARE_BYTES + 4096));
+			const minutes = Number(body?.minutes);
+			if (
+				typeof body?.scope !== 'string' ||
+				typeof body?.redacted !== 'boolean' ||
+				!Number.isFinite(minutes) ||
+				body?.data === undefined
+			) {
+				return send(res, 400, { error: 'scope, redacted, minutes and data are required' });
+			}
+			const share = shares.create({
+				scope: body.scope,
+				redacted: body.redacted,
+				minutes,
+				data: body.data
+			});
+			log(
+				`a share was created (${share.redacted ? 'redacted' : 'not redacted'}, until ${share.expiresAt})`
+			);
+			return send(res, 200, share);
+		}
+		if (path === '/share' && req.method === 'GET') {
+			return send(res, 200, { shares: shares.list() });
+		}
+		if (shareId && req.method === 'DELETE') {
+			const ok = shares.revoke(shareId);
+			log(ok ? 'a share was revoked' : 'revoke: no such share');
+			return send(res, ok ? 200 : 404, { ok });
 		}
 
 		if (path === '/unpair' && req.method === 'POST') {
