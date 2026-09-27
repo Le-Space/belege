@@ -1200,6 +1200,17 @@ export default {
 			'Die ZIP-Datei entsteht mit fflate im Browser; die Belege werden dafür aus dem versiegelten Speicher geöffnet. Die vergebenen Belegnummern bleiben am Beleg (exportNumber), ein zweiter Export vergibt dieselben.'
 		]
 	},
+	// CopyButton.svelte (issue #114): addresses, hashes and IBANs.
+	copy: {
+		copied: 'Kopiert',
+		selected: 'Markiert – mit Strg+C bzw. ⌘C kopieren',
+		failed: 'Kopieren nicht möglich',
+		clickToCopy: 'Klicken zum Kopieren',
+		address: 'Adresse kopieren',
+		hash: 'Tx-Hash kopieren',
+		iban: 'IBAN kopieren',
+		ref: 'Referenz kopieren'
+	},
 	monthPicker: { month: '{label}: Monat', year: '{label}: Jahr' },
 	zahlungen: {
 		title: 'Zahlungen',

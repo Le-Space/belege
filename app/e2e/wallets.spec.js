@@ -233,6 +233,31 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 	await expect(detail.getByTestId('tx-party-from')).toContainText(`Von Wallet NYM ···${tail(A)}`);
 	await expect(detail.getByTestId('tx-party-from')).toContainText('(eigene)');
 	await expect(detail.getByTestId('tx-party-to')).toContainText(`An Wallet NYM ···${tail(B)}`);
+	// The full address of both sides, and one click puts it on the clipboard:
+	// the button, or the address itself; "Kopiert" says so (issue #114).
+	await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], {
+		origin: APP_ORIGIN
+	});
+	const readClipboard = () => page.evaluate(() => navigator.clipboard.readText());
+	const fromAddress = detail.getByTestId('tx-party-from-address');
+	const toAddress = detail.getByTestId('tx-party-to-address');
+	await expect(fromAddress.getByTestId('tx-party-from-address-value')).toHaveText(A);
+	await expect(toAddress.getByTestId('tx-party-to-address-value')).toHaveText(B);
+	await page.evaluate(() => navigator.clipboard.writeText(''));
+	await fromAddress.getByTestId('tx-party-from-address-button').click();
+	await expect.poll(readClipboard).toBe(A);
+	await expect(fromAddress.getByTestId('tx-party-from-address-status')).toHaveText('Kopiert');
+	await toAddress.getByTestId('tx-party-to-address-value').click();
+	await expect.poll(readClipboard).toBe(B);
+	await expect(toAddress.getByTestId('tx-party-to-address-status')).toHaveText('Kopiert');
+	// The confirmation goes again after a moment.
+	await expect(fromAddress.getByTestId('tx-party-from-address-status')).toHaveText('', {
+		timeout: 5_000
+	});
+	// The transaction hash, from the meta line.
+	await detail.getByTestId('tx-hash-button').click();
+	await expect.poll(readClipboard).toBe(fakeHash('e2e-own'));
+	await expect(detail.getByTestId('tx-hash-status')).toHaveText('Kopiert');
 	await expect(sent.getByTestId('parties')).toHaveText(
 		`Von Wallet NYM ···${tail(A)} → An Wallet NYM ···${tail(B)}`
 	);

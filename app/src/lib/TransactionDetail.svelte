@@ -13,6 +13,7 @@
 	import ReceiptPreview from './ReceiptPreview.svelte';
 	import BookingBlock from './BookingBlock.svelte';
 	import TechnicalNote from './TechnicalNote.svelte';
+	import CopyButton from './CopyButton.svelte';
 	import AiMark from './AiMark.svelte';
 	import { recordEvent } from './activity/events.js';
 	import NewPortal from './portals/NewPortal.svelte';
@@ -1064,23 +1065,30 @@
 						{payee?.name}
 					</h2>
 					{#if parties}
-						<p class="mt-1 text-sm text-text" data-testid="tx-parties">
+						<!-- The full address under each name (issue #114): the list keeps the short
+						     form, here it is copied into an explorer or a wallet. -->
+						<div class="mt-1 flex flex-col gap-1 text-sm text-text" data-testid="tx-parties">
 							{#each [{ side: 'from', p: parties.from }, { side: 'to', p: parties.to }] as { side, p } (side)}
-								<span class="mr-3 inline-block" data-testid={`tx-party-${side}`}
-									><span class="text-faint">{t(`zahlungen.detail.party.${side}`)}</span>
+								<div data-testid={`tx-party-${side}`}>
+									<span class="text-faint">{t(`zahlungen.detail.party.${side}`)}</span>
 									<span class="font-medium text-heading">{p.label}</span>
 									{#if p.own}<span class="text-xs text-faint"
 											>({t('zahlungen.detail.party.own')})</span
 										>{:else if p.address && p.label.includes('…')}<span class="text-xs text-faint"
 											>({t('zahlungen.detail.party.foreign')})</span
 										>{/if}
-									{#if p.address && !p.label.includes('…')}<span
-											class="font-mono text-xs text-faint select-all"
-											title={p.address}>{shortAddress(p.address)}</span
-										>{/if}</span
-								>
+									{#if p.address}
+										<CopyButton
+											text={p.address}
+											label={t('copy.address')}
+											testid={`tx-party-${side}-address`}
+											class="block"
+											valueClass="font-mono text-xs break-all text-faint">{p.address}</CopyButton
+										>
+									{/if}
+								</div>
 							{/each}
-						</p>
+						</div>
 					{/if}
 				</div>
 				<div class="flex shrink-0 items-start gap-3">
@@ -1114,6 +1122,12 @@
 						rel="noopener noreferrer"
 						class="underline"
 						data-testid="tx-explorer">{t('zahlungen.detail.explorer')}</a
+					>{/if}{#if parties && tx.txRef}&nbsp;·
+					<CopyButton
+						text={tx.txRef}
+						label={t('copy.hash')}
+						testid="tx-hash"
+						valueClass="font-mono text-xs text-heading">Tx {shortAddress(tx.txRef)}</CopyButton
 					>{/if}
 			</p>
 			{#if tx.purpose}
@@ -1215,7 +1229,11 @@
 					{#if tx.txRef}
 						<dt class="text-faint">{t('zahlungen.detail.txRef')}</dt>
 						<dd class="font-mono text-xs break-all text-heading" data-testid="tx-detail-ref">
-							{tx.txRef}
+							<CopyButton
+								text={tx.txRef}
+								label={t(parties ? 'copy.hash' : 'copy.ref')}
+								testid="tx-detail-ref-copy">{tx.txRef}</CopyButton
+							>
 						</dd>
 					{/if}
 					{#if tx.chainTxRef}
@@ -1225,12 +1243,22 @@
 					{#if tx.counterpartyAddress}
 						<dt class="text-faint">{t('zahlungen.detail.address')}</dt>
 						<dd class="font-mono text-xs break-all text-heading" data-testid="tx-detail-address">
-							{tx.counterpartyAddress}
+							<CopyButton
+								text={tx.counterpartyAddress}
+								label={t('copy.address')}
+								testid="tx-detail-address-copy">{tx.counterpartyAddress}</CopyButton
+							>
 						</dd>
 					{/if}
 					{#if tx.counterpartyIban}
 						<dt class="text-faint">{t('zahlungen.detail.iban')}</dt>
-						<dd class="font-mono text-xs break-all text-heading">{tx.counterpartyIban}</dd>
+						<dd class="font-mono text-xs break-all text-heading" data-testid="tx-detail-iban">
+							<CopyButton
+								text={tx.counterpartyIban}
+								label={t('copy.iban')}
+								testid="tx-detail-iban-copy">{tx.counterpartyIban}</CopyButton
+							>
+						</dd>
 					{/if}
 				</dl>
 				{#if tx.purpose}
