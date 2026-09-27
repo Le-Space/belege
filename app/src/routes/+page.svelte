@@ -2,7 +2,17 @@
 	import { resolve } from '$app/paths';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
 	import { list, t } from '$lib/i18n/index.js';
-	import { app, currentStore, runMatchingNow } from '$lib/session.svelte.js';
+	import {
+		app,
+		currentStore,
+		dropPendingJob,
+		resumeJob,
+		runMatchingNow
+	} from '$lib/session.svelte.js';
+	import { loadPending } from '$lib/jobs/pending.js';
+	import { extractable } from '$lib/receipts/extract.js';
+	import { extractRun } from '$lib/receipts/extract-queue.svelte.js';
+	import { aiEligible, aiRun } from '$lib/matching/ai-suggest.svelte.js';
 	import { onMount } from 'svelte';
 	import { getSetting } from '$lib/store/settings.js';
 	import { DEFAULT_PRICES, aiUsage, cleanPrices, periods } from '$lib/stats/usage.js';
@@ -28,6 +38,42 @@
 		const store = currentStore();
 		if (store) homePrices = cleanPrices(await getSetting(store.settings, 'aiPrices'));
 	});
+
+	// An AI run the page left behind (a reload, the books locked): ask, do not start.
+	/** @type {{ extract: string[], suggest: string[] }} */
+	let pending = $state({ extract: [], suggest: [] });
+	/** @type {string | null} */
+	let resumeNote = $state(null);
+	async function readPending() {
+		const store = currentStore();
+		if (store) pending = await loadPending(store.settings);
+	}
+	$effect(() => {
+		// Again whenever no run goes: one that ended has cleared its ids.
+		if (!extractRun.progress && !aiRun.progress) readPending();
+	});
+	let leftToRead = $derived.by(() => {
+		const waiting = new Set(extractable(app.receipts).map((r) => r.id));
+		return extractRun.progress ? [] : pending.extract.filter((id) => waiting.has(id));
+	});
+	let leftToSuggest = $derived.by(() => {
+		const open = new Set(aiEligible(app.questions).map((q) => q.id));
+		return aiRun.progress ? [] : pending.suggest.filter((id) => open.has(id));
+	});
+	/**
+	 * @param {'extract' | 'suggest'} kind
+	 * @param {string[]} ids
+	 */
+	async function resume(kind, ids) {
+		resumeNote = null;
+		if (!(await resumeJob(kind, ids))) resumeNote = t('home.resume.noBridge');
+	}
+	const RESUME_KINDS = /** @type {const} */ (['extract', 'suggest']);
+	/** @param {'extract' | 'suggest'} kind */
+	async function drop(kind) {
+		await dropPendingJob(kind);
+		await readPending();
+	}
 
 	// The numbers of the year shown (year/year.js).
 	let shown = $derived.by(() => {
@@ -75,6 +121,38 @@
 
 <h1 class="text-2xl font-bold text-heading">{greeting}!</h1>
 <p class="mt-1 text-sm text-faint">{t('home.intro')}</p>
+
+{#each RESUME_KINDS as kind (kind)}
+	{@const ids = kind === 'extract' ? leftToRead : leftToSuggest}
+	{#if ids.length}
+		<section
+			class="mt-4 flex flex-wrap items-center justify-between gap-3 {card}"
+			role="status"
+			data-testid={`resume-${kind}`}
+		>
+			<p class="min-w-0 flex-1 text-sm text-heading">
+				{t(`home.resume.${kind}`, { count: ids.length })}
+			</p>
+			<div class="flex gap-2">
+				<button
+					type="button"
+					class="rounded-md bg-cyan-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-cyan-900 dark:bg-cyan dark:text-bg"
+					onclick={() => resume(kind, ids)}
+					data-testid={`resume-${kind}-go`}>{t('home.resume.go')}</button
+				>
+				<button
+					type="button"
+					class="rounded-md border border-border px-3 py-1.5 text-sm text-text hover:bg-surface-2 hover:text-heading"
+					onclick={() => drop(kind)}
+					data-testid={`resume-${kind}-drop`}>{t('home.resume.drop')}</button
+				>
+			</div>
+		</section>
+	{/if}
+{/each}
+{#if resumeNote}
+	<p class="mt-2 text-sm text-danger" role="alert">{resumeNote}</p>
+{/if}
 
 <section
 	class="mt-6 overflow-hidden rounded-lg border border-cyan-800/40 bg-surface shadow-sm dark:border-cyan/40"

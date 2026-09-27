@@ -381,6 +381,15 @@ export default {
 		hidden: '{count} weitere in anderen Jahren'
 	},
 	home: {
+		resume: {
+			extract:
+				'{count} Belege wurden nicht fertig ausgelesen, als die Seite neu geladen oder gesperrt wurde. Weitermachen?',
+			suggest:
+				'Für {count} Rückfragen fehlen noch KI-Vorschläge, weil der Lauf unterbrochen wurde. Weitermachen?',
+			go: 'Weitermachen',
+			drop: 'Verwerfen',
+			noBridge: 'Ohne gekoppelte Bridge geht das nicht – unter Integrationen koppeln.'
+		},
 		morning: 'Guten Morgen',
 		day: 'Guten Tag',
 		evening: 'Guten Abend',
@@ -591,6 +600,9 @@ export default {
 			' Chinesische Feiertage (Nebenzeit) kennt die App nicht; dort ist die Schätzung zu hoch.',
 		editPrices: 'Preise ändern',
 		toVerlauf: 'Im Verlauf ansehen',
+		workers: 'Gleichzeitige KI-Anfragen je Lauf',
+		workersHint:
+			'Gilt für „Alle neuen auslesen“ und „KI-Vorschläge für alle offenen Rückfragen“. Begrenzt der Anbieter die Anfragen, wartet der Lauf und macht dann weiter. Bei häufigen Wartepausen weniger wählen.',
 		pricesHint:
 			'Je 1 Million Tokens in {currency}, zur Hauptzeit; die Nebenzeit rechnet die App daraus.',
 		priceInput: 'Eingabe',

@@ -85,6 +85,7 @@ export async function startFakeLlm({ behaviour = {}, key = FAKE_LLM_KEY } = {}) 
 			const mode = behaviour[body.model] ?? 'ok';
 			if (mode === 'http500') return send(500, { error: { message: 'down' } });
 			if (mode === 'http401') return send(401, { error: { message: 'bad key' } });
+			if (mode === 'http429') return send(429, { error: { message: 'rate limit reached' } });
 			const user = body.messages?.find((/** @type {any} */ m) => m.role === 'user')?.content ?? '';
 			const custom = answers.respond?.(body);
 			const data = custom ?? readInvoice(user);

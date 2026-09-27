@@ -258,6 +258,9 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await expect(page.getByTestId('stats-tokens-week')).not.toHaveText('0');
 	await expect(page.getByTestId('stats-cost-month')).toContainText('$');
 	await expect(page.getByTestId('stats-per-receipt')).toContainText('Tokens');
+	// One AI request at a time, from now on (kept sealed; checked after the reload).
+	await expect(page.getByTestId('stats-workers')).toHaveValue('2');
+	await page.getByTestId('stats-workers').selectOption('1');
 	await tab('Home').click();
 	await expect(page.getByTestId('agent-open')).toHaveText('4 offene Rückfragen');
 	await expect(page.getByTestId('agent-progress')).toHaveText('0 von 4 erledigt');
@@ -278,7 +281,29 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await expect(page.getByTestId('ai-all-open')).toContainText('KI-Vorschläge für alle offenen');
 	await page.getByTestId('ai-all-open').click();
 	await expect(page.getByTestId('ai-all-confirm')).toContainText('nur Vorschläge');
+	// A slow model: the run shows on the Home tab. A reload in the middle of a
+	// request leaves what is not done for "Weitermachen" on Home, which starts
+	// nothing by itself.
+	llm.setDelay(5000);
+	const inFlight = page.waitForRequest((r) => r.url().endsWith('/match/assist'));
 	await page.getByTestId('ai-all-start').click();
+	await expect(page.getByTestId('tab-suggest-progress')).toHaveText(/^[01]\/2$/);
+	await inFlight;
+	await page.reload();
+	llm.setDelay(0);
+	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+	await tab('Home').click();
+	const resume = page.getByTestId('resume-suggest');
+	await expect(resume).toContainText(/Für [12] Rückfragen fehlen noch KI-Vorschläge/);
+	await expect(page.getByTestId('resume-extract')).toHaveCount(0);
+	await page.getByTestId('resume-suggest-go').click();
+	await expect(resume).toHaveCount(0);
+	await expect(page.getByTestId('tab-suggest-progress')).toHaveCount(0);
+	await page.getByTestId('home-stats').click();
+	await expect(page.getByTestId('stats-workers')).toHaveValue('1');
+	await tab('Home').click();
+	await page.getByTestId('agent-answer').click();
 	const suggestions = page.getByTestId('ai-suggestion');
 	await expect(suggestions.first()).toBeVisible();
 	await expect(page.getByTestId('ai-all-progress')).toHaveCount(0);
