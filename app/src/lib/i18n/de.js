@@ -1125,6 +1125,25 @@ export default {
 				' Die Kontierung wurde deshalb zurückgenommen – bitte unter „Konto“ neu übernehmen.',
 			changedReceipt: ' Prüfe auch, ob der zugeordnete Beleg noch passt.',
 			changedOk: 'Geprüft',
+			find: {
+				title: 'Beleg finden',
+				label: 'Belege durchsuchen',
+				placeholder: 'Anbieter, Betrag, Rechnungsnummer, Absender …',
+				sources: 'Quelle',
+				tab: {
+					passend: 'Passend',
+					alle: 'Alle Belege',
+					postfach: 'Privates Postfach',
+					portal: 'Portal'
+				},
+				other: 'Anderen Beleg suchen',
+				sameAmount: 'Betrag gleich',
+				otherCurrency: 'andere Währung',
+				days: '{days} Tage',
+				noMatch: 'Nichts gefunden – Suchtext ändern oder eine andere Quelle wählen.',
+				noSuggestion:
+					'Kein Beleg erreicht genug Punkte. Unter „Alle Belege“ stehen alle offenen, im Postfach und beim Anbieter lässt sich weitersuchen.'
+			},
 			poisonTitle: 'Achtung: mögliche Adressvergiftung',
 			poisonText:
 				'Die Absenderadresse {address} beginnt und endet wie {known}, mit der du zu tun hattest, ist aber eine andere. So eine Adresse wird mit einem winzigen Betrag in deine Historie gelegt, damit du sie beim nächsten Senden versehentlich kopierst. Nie an diese Adresse senden; die Empfängeradresse immer vollständig vergleichen.',

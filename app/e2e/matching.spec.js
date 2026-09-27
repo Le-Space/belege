@@ -313,7 +313,17 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await expect(detail.getByTestId('tx-detail-missing')).toBeVisible();
 	await expect(page.getByTestId('filter-without-receipt')).toHaveText('Nur ohne Beleg (2)');
 	await expect(monthButton.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '67');
-	await detail.getByTestId('tx-assign').click();
+	// Without a receipt, "Beleg finden" is open: the search filters the list at once.
+	await expect(detail.getByTestId('tx-find')).toBeVisible();
+	await expect(detail.getByTestId('tx-assign')).toHaveCount(0);
+	const choicesBefore = await detail.getByTestId('tx-choice').count();
+	expect(choicesBefore).toBeGreaterThan(0);
+	await detail.getByTestId('tx-find-query').fill('gibt-es-nicht-4711');
+	await expect(detail.getByTestId('tx-choice')).toHaveCount(0);
+	await expect(detail.getByTestId('tx-find-none')).toContainText('Nichts gefunden');
+	await detail.getByTestId('tx-find-query').fill('');
+	await expect(detail.getByTestId('tx-choice')).toHaveCount(choicesBefore);
+	await expect(detail.getByTestId('tx-choice-diff').first()).toContainText('Tage');
 	// ✦ KI-Vorschlag: the model picks among the receipts by their read fields.
 	llm.answers.respond = (/** @type {any} */ body) => {
 		if (!String(body.messages[0].content).startsWith('You match a bank booking')) return undefined;
@@ -358,8 +368,13 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await expect(detail.getByTestId('tx-detail-missing')).toBeVisible();
 	// Its open question, with what came close (nothing did).
 	await expect(detail.getByTestId('tx-why-question')).toBeVisible();
+	// The private mailbox is a source of "Beleg finden"; its search takes the search text.
+	await detail.getByTestId('tx-find-tab-postfach').click();
 	await expect(detail.getByTestId('tx-private-hint')).toContainText('„Mobilfunk“ und 39,99 €');
 	await expect(detail.getByTestId('tx-private-hint')).toContainText('nur die Treffer');
+	await detail.getByTestId('tx-find-query').fill('Mobilfunk Rechnung');
+	await expect(detail.getByTestId('tx-private-hint')).toContainText('„Mobilfunk Rechnung“');
+	await detail.getByTestId('tx-find-query').fill('Mobilfunk');
 	await detail.getByTestId('tx-private-search').click();
 	const hits = detail.getByTestId('tx-private-hit');
 	await expect(hits).toHaveCount(1);
