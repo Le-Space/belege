@@ -46,13 +46,25 @@ test('a payment without a receipt gets an Eigenbeleg, linked and in the Verlauf'
 	await expect(row).toHaveCount(1);
 	await row.click();
 	await expect(page.getByTestId('tx-detail-quantity')).toContainText('-4,2');
+	// The header: two tasks as chips; the rest of the facts behind "Details".
+	await expect(page.getByTestId('tx-status-receipt')).toHaveAttribute('data-state', 'missing');
+	await expect(page.getByTestId('tx-status-konto')).toHaveAttribute('data-state', 'missing');
+	await expect(page.getByTestId('tx-details')).toBeHidden();
+	await page.getByTestId('tx-details-toggle').click();
+	await expect(page.getByTestId('tx-details')).toBeVisible();
+	await expect(page.getByTestId('tx-detail-purpose')).toContainText('Lease-Zahlung');
+	// Options for a payment without a counterparty's receipt: closed until asked for.
+	await expect(page.getByTestId('tx-alt')).toHaveCount(0);
 
+	// The Eigenbeleg is one of the "Kein fremder Beleg …" options.
+	await page.getByTestId('tx-alt-toggle').click();
 	await page.getByTestId('tx-eigenbeleg-open').click();
 	await expect(page.getByTestId('tx-eigenbeleg-reason')).toHaveValue(/Blockchain/);
 	await page.getByTestId('tx-eigenbeleg-description').fill('Rechenzeit für einen Monat (Lease)');
 	await page.getByTestId('tx-eigenbeleg-create').click();
 
 	await expect(page.getByTestId('tx-linked-vendor')).toContainText('Eigenbeleg');
+	await expect(page.getByTestId('tx-status-receipt')).toHaveAttribute('data-state', 'done');
 	await expect(page.getByTestId('tx-eigenbeleg')).toHaveCount(0);
 	await page.getByTestId('tx-detail-close').click();
 

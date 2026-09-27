@@ -1126,6 +1126,16 @@ export default {
 				' Die Kontierung wurde deshalb zurückgenommen – bitte unter „Konto“ neu übernehmen.',
 			changedReceipt: ' Prüfe auch, ob der zugeordnete Beleg noch passt.',
 			changedOk: 'Geprüft',
+			details: 'Details',
+			detailsHide: 'Details ausblenden',
+			status: {
+				receipt: { missing: 'Beleg fehlt', done: 'Beleg ✓', 'none-needed': 'Kein Beleg nötig' },
+				konto: { missing: 'Konto fehlt', done: 'Konto ✓' }
+			},
+			alt: { toggle: 'Kein fremder Beleg …' },
+			next: 'Nächster Schritt',
+			nextKonto: 'Konto übernehmen',
+			othersMissing: '{count} ohne Beleg',
 			related: {
 				title: 'Gehört zusammen mit',
 				receipt: 'Beleg',

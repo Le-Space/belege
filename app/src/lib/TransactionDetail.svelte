@@ -40,6 +40,7 @@
 	import { getSetting } from './store/settings.js';
 	import {
 		accountLabel,
+		displayPurpose,
 		formatBookingTime,
 		formatDate,
 		formatMoney,
@@ -98,6 +99,23 @@
 	const receiptById = (id) => app.receipts.find((r) => r.id === id) ?? null;
 	let account = $derived(tx ? (app.accounts.find((a) => a.id === tx.accountId) ?? null) : null);
 	let classification = $derived(tx ? (app.classifications[tx.id] ?? null) : null);
+	// The payment's two tasks, as chips in the header: a receipt (or none needed), an account.
+	let receiptState = $derived(
+		!tx
+			? 'missing'
+			: matchesOfTx(tx.id, app.matches).length
+				? 'done'
+				: classification || tx.noReceipt
+					? 'none-needed'
+					: 'missing'
+	);
+	let showDetails = $state(false);
+	/** "Kein fremder Beleg …": no receipt needed, bank fee, Eigenbeleg. */
+	let altOpen = $state(false);
+	let othersOpen = $state(false);
+	/** @param {string} id */
+	const scrollToPart = (id) =>
+		document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	// A wallet's incoming transfer with a memo, not yet explained: usually one's own
 	// withdrawal from an exchange, with the memo typed there.
 	let memoIn = $derived(
@@ -142,6 +160,7 @@
 	);
 	let suggestions = $derived(choices.filter((c) => c.suggested));
 	let others = $derived(tx ? otherPayments(tx, app.transactions) : []);
+	let othersWithout = $derived(others.filter((o) => !isTxCovered(o, app.classifications)).length);
 	let ruleLine = $derived(
 		tx
 			? classificationLine(classification, { accounts: app.accounts, noReceipt: tx.noReceipt })
@@ -265,6 +284,9 @@
 	$effect(() => {
 		void txId;
 		assigning = false;
+		showDetails = false;
+		altOpen = false;
+		othersOpen = false;
 		findQuery = '';
 		findTab = null;
 		askingReason = false;
@@ -941,18 +963,88 @@
 						{tx.counterparty || '—'}
 					</h2>
 				</div>
-				<button type="button" class={button} onclick={onclose} data-testid="tx-detail-close"
-					>{t('zahlungen.detail.close')}</button
+				<div class="flex shrink-0 items-start gap-3">
+					<p
+						class="font-mono text-2xl font-semibold whitespace-nowrap tabular-nums {(tx.amountCents ??
+							0) < 0
+							? 'text-red-700 dark:text-red-400'
+							: 'text-emerald-700 dark:text-emerald-400'}"
+						data-testid="tx-detail-amount"
+					>
+						{formatTxAmount(tx)}
+					</p>
+					<button type="button" class={button} onclick={onclose} data-testid="tx-detail-close"
+						>{t('zahlungen.detail.close')}</button
+					>
+				</div>
+			</div>
+			<p class="mt-1 text-sm text-faint" data-testid="tx-detail-meta">
+				<span class="text-heading" data-testid="tx-detail-date"
+					>{formatDate(tx.bookedOn)}{#if formatBookingTime(tx)}, {t('zahlungen.time', {
+							time: formatBookingTime(tx)
+						})}{/if}</span
+				>{#if account}&nbsp;· {accountLabel(account)}{/if}{#if quantityText(tx)}&nbsp;·
+					<span class="font-mono text-heading tabular-nums" data-testid="tx-detail-quantity"
+						>{quantityText(tx)}</span
+					>{/if}{#if tx.bookingType}&nbsp;· {tx.bookingType}{/if}{#if safeExplorerUrl(tx.explorerUrl)}&nbsp;·
+					<a
+						href={safeExplorerUrl(tx.explorerUrl)}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="underline"
+						data-testid="tx-explorer">{t('zahlungen.detail.explorer')}</a
+					>{/if}
+			</p>
+			{#if tx.purpose}
+				<p class="mt-1 line-clamp-2 font-mono text-xs break-words text-text" title={tx.purpose}>
+					{displayPurpose(tx.purpose)}
+				</p>
+			{/if}
+			{#if tradeOther}
+				<p class="mt-1 text-sm text-heading" data-testid="tx-detail-trade">
+					{t('zahlungen.trade', { arrow: tradeArrow(tx), what: tradeSideWhat(tradeOther) })}
+					<button
+						type="button"
+						class="ml-2 text-sm underline"
+						onclick={() => tradeOther && onopen(String(tradeOther.id))}
+						data-testid="tx-trade-open">{t('zahlungen.tradeOpen')}</button
+					>
+				</p>
+			{/if}
+			<div class="mt-3 flex flex-wrap items-center gap-2" data-testid="tx-status">
+				<button
+					type="button"
+					class="min-h-9 rounded-full border px-3 py-1 text-sm font-semibold {receiptState ===
+					'missing'
+						? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200'
+						: 'border-success/30 bg-success/10 text-success'}"
+					onclick={() => scrollToPart('tx-receipt-part')}
+					data-testid="tx-status-receipt"
+					data-state={receiptState}>{t(`zahlungen.detail.status.receipt.${receiptState}`)}</button
+				>
+				<button
+					type="button"
+					class="min-h-9 rounded-full border px-3 py-1 text-sm font-semibold {isBookingConfirmed(tx)
+						? 'border-success/30 bg-success/10 text-success'
+						: 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200'}"
+					onclick={() => scrollToPart('tx-konto-part')}
+					data-testid="tx-status-konto"
+					data-state={isBookingConfirmed(tx) ? 'done' : 'missing'}
+					>{isBookingConfirmed(tx)
+						? t('zahlungen.detail.status.konto.done')
+						: t('zahlungen.detail.status.konto.missing')}</button
+				>
+				<span class="flex-1"></span>
+				<button
+					type="button"
+					class="text-sm text-cyan-800 underline dark:text-cyan"
+					onclick={() => (showDetails = !showDetails)}
+					aria-expanded={showDetails}
+					aria-controls="tx-details"
+					data-testid="tx-details-toggle"
+					>{showDetails ? t('zahlungen.detail.detailsHide') : t('zahlungen.detail.details')}</button
 				>
 			</div>
-			<p
-				class="mt-2 font-mono text-2xl font-semibold tabular-nums {(tx.amountCents ?? 0) < 0
-					? 'text-red-700 dark:text-red-400'
-					: 'text-emerald-700 dark:text-emerald-400'}"
-				data-testid="tx-detail-amount"
-			>
-				{formatTxAmount(tx)}
-			</p>
 			{#if tx.importChange}
 				<div
 					class="mt-2 rounded-md border border-l-4 border-red-300 border-l-red-700 bg-red-50 px-3 py-2 text-sm dark:border-red-900 dark:border-l-red-400 dark:bg-red-950/40"
@@ -983,72 +1075,55 @@
 				</div>
 			{/if}
 
-			<dl class="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
-				<dt class="text-faint">{t('zahlungen.detail.date')}</dt>
-				<dd class="text-heading" data-testid="tx-detail-date">
-					{formatDate(tx.bookedOn)}{#if formatBookingTime(tx)}, {t('zahlungen.time', {
-							time: formatBookingTime(tx)
-						})}{/if}
-				</dd>
-				{#if tradeOther}
-					<dt class="text-faint">{t('zahlungen.tradeTitle')}</dt>
-					<dd class="text-heading" data-testid="tx-detail-trade">
-						{t('zahlungen.trade', { arrow: tradeArrow(tx), what: tradeSideWhat(tradeOther) })}
-						<button
-							type="button"
-							class="ml-2 text-sm underline"
-							onclick={() => tradeOther && onopen(String(tradeOther.id))}
-							data-testid="tx-trade-open">{t('zahlungen.tradeOpen')}</button
-						>
-					</dd>
-				{/if}
-				{#if tx.valueDate && tx.valueDate !== tx.bookedOn}
-					<dt class="text-faint">{t('zahlungen.detail.valueDate')}</dt>
-					<dd class="text-heading">{formatDate(tx.valueDate)}</dd>
-				{/if}
-				{#if account}
-					<dt class="text-faint">{t('zahlungen.detail.account')}</dt>
-					<dd class="text-heading">{accountLabel(account)}</dd>
-				{/if}
-				{#if quantityText(tx)}
-					<dt class="text-faint">{t('zahlungen.detail.quantity')}</dt>
-					<dd class="font-mono text-heading tabular-nums" data-testid="tx-detail-quantity">
-						{quantityText(tx)}
-					</dd>
-					{#if valuationText(tx)}
-						<dt class="text-faint">{t('zahlungen.detail.valuation')}</dt>
-						<dd class="text-heading" data-testid="tx-detail-valuation">{valuationText(tx)}</dd>
+			<div id="tx-details" hidden={!showDetails} data-testid="tx-details">
+				<dl class="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
+					{#if tx.valueDate && tx.valueDate !== tx.bookedOn}
+						<dt class="text-faint">{t('zahlungen.detail.valueDate')}</dt>
+						<dd class="text-heading">{formatDate(tx.valueDate)}</dd>
 					{/if}
+					{#if quantityText(tx)}
+						{#if valuationText(tx)}
+							<dt class="text-faint">{t('zahlungen.detail.valuation')}</dt>
+							<dd class="text-heading" data-testid="tx-detail-valuation">{valuationText(tx)}</dd>
+						{/if}
+					{/if}
+					{#if tx.exchangeType}
+						<dt class="text-faint">{t('zahlungen.detail.exchangeType')}</dt>
+						<dd class="font-mono text-xs text-heading">{tx.exchangeType}</dd>
+					{/if}
+					{#if tx.txRef}
+						<dt class="text-faint">{t('zahlungen.detail.txRef')}</dt>
+						<dd class="font-mono text-xs break-all text-heading" data-testid="tx-detail-ref">
+							{tx.txRef}
+						</dd>
+					{/if}
+					{#if tx.chainTxRef}
+						<dt class="text-faint">{t('zahlungen.detail.chainTxRef')}</dt>
+						<dd class="font-mono text-xs break-all text-heading">{tx.chainTxRef}</dd>
+					{/if}
+					{#if tx.counterpartyAddress}
+						<dt class="text-faint">{t('zahlungen.detail.address')}</dt>
+						<dd class="font-mono text-xs break-all text-heading" data-testid="tx-detail-address">
+							{tx.counterpartyAddress}
+						</dd>
+					{/if}
+					{#if tx.counterpartyIban}
+						<dt class="text-faint">{t('zahlungen.detail.iban')}</dt>
+						<dd class="font-mono text-xs break-all text-heading">{tx.counterpartyIban}</dd>
+					{/if}
+				</dl>
+				{#if tx.purpose}
+					<h3 class="mt-3 text-xs font-semibold tracking-wide text-faint uppercase">
+						{t('zahlungen.detail.purpose')}
+					</h3>
+					<p
+						class="mt-1 rounded border border-border bg-surface-2 px-2 py-1.5 font-mono text-xs break-words whitespace-pre-wrap text-text"
+						data-testid="tx-detail-purpose"
+					>
+						{tx.purpose}
+					</p>
 				{/if}
-				{#if tx.exchangeType}
-					<dt class="text-faint">{t('zahlungen.detail.exchangeType')}</dt>
-					<dd class="font-mono text-xs text-heading">{tx.exchangeType}</dd>
-				{/if}
-				{#if tx.txRef}
-					<dt class="text-faint">{t('zahlungen.detail.txRef')}</dt>
-					<dd class="font-mono text-xs break-all text-heading" data-testid="tx-detail-ref">
-						{tx.txRef}
-					</dd>
-				{/if}
-				{#if tx.chainTxRef}
-					<dt class="text-faint">{t('zahlungen.detail.chainTxRef')}</dt>
-					<dd class="font-mono text-xs break-all text-heading">{tx.chainTxRef}</dd>
-				{/if}
-				{#if tx.bookingType}
-					<dt class="text-faint">{t('zahlungen.detail.bookingType')}</dt>
-					<dd class="text-heading">{tx.bookingType}</dd>
-				{/if}
-				{#if tx.counterpartyAddress}
-					<dt class="text-faint">{t('zahlungen.detail.address')}</dt>
-					<dd class="font-mono text-xs break-all text-heading" data-testid="tx-detail-address">
-						{tx.counterpartyAddress}
-					</dd>
-				{/if}
-				{#if tx.counterpartyIban}
-					<dt class="text-faint">{t('zahlungen.detail.iban')}</dt>
-					<dd class="font-mono text-xs break-all text-heading">{tx.counterpartyIban}</dd>
-				{/if}
-			</dl>
+			</div>
 			{#if related.length || linked.length}
 				<div class="mt-3" data-testid="tx-related">
 					<h3 class="text-xs font-semibold tracking-wide text-faint uppercase">
@@ -1102,28 +1177,6 @@
 					</div>
 				</div>
 			{/if}
-			{#if tx.purpose}
-				<h3 class="mt-3 text-xs font-semibold tracking-wide text-faint uppercase">
-					{t('zahlungen.detail.purpose')}
-				</h3>
-				<p
-					class="mt-1 rounded border border-border bg-surface-2 px-2 py-1.5 font-mono text-xs break-words whitespace-pre-wrap text-text"
-					data-testid="tx-detail-purpose"
-				>
-					{tx.purpose}
-				</p>
-			{/if}
-			{#if safeExplorerUrl(tx.explorerUrl)}
-				<p class="mt-2 text-sm">
-					<a
-						href={safeExplorerUrl(tx.explorerUrl)}
-						target="_blank"
-						rel="noopener noreferrer"
-						class="underline"
-						data-testid="tx-explorer">{t('zahlungen.detail.explorer')}</a
-					>
-				</p>
-			{/if}
 			{#if portal}
 				<p class="mt-2 flex flex-wrap items-center gap-2 text-sm" data-testid="tx-portal">
 					<a
@@ -1144,7 +1197,10 @@
 				</p>
 			{/if}
 
-			<section class="mt-4 rounded-lg border border-border bg-surface px-4 py-3 shadow-sm">
+			<section
+				id="tx-receipt-part"
+				class="mt-4 scroll-mt-4 rounded-lg border border-border bg-surface px-4 py-3 shadow-sm"
+			>
 				<h3 class="text-sm font-semibold text-heading">{t('zahlungen.detail.receipts')}</h3>
 				{#if memoIn}
 					<p
@@ -1336,75 +1392,49 @@
 								: t('zahlungen.detail.find.open')}</button
 						>
 					{/if}
-					{#if !tx.noReceipt}
+					{#if !tx.noReceipt || !tx.receiptId}
 						<button
 							type="button"
 							class={button}
-							onclick={() => (askingReason = !askingReason)}
-							disabled={busy}
-							aria-expanded={askingReason}
-							data-testid="tx-no-receipt">{t('zahlungen.detail.noReceiptNeeded')}</button
-						>
-					{/if}
-					{#if !tx.noReceipt && !classification && (tx.amountCents ?? 0) < 0}
-						<button
-							type="button"
-							class={button}
-							onclick={bankFee}
-							disabled={busy}
-							title={t('zahlungen.detail.bankFeeTitle')}
-							data-testid="tx-bank-fee">{t('zahlungen.detail.bankFee')}</button
+							onclick={() => (altOpen = !altOpen)}
+							aria-expanded={altOpen}
+							aria-controls="tx-alt"
+							data-testid="tx-alt-toggle">{t('zahlungen.detail.alt.toggle')}</button
 						>
 					{/if}
 				</div>
-
-				<div class="mt-3 border-t border-border pt-3" data-testid="tx-upload">
-					<label
-						class="{button} inline-flex cursor-pointer items-center gap-1.5"
-						title={t('ai.upload')}
-						data-testid="tx-upload-label"
+				{#if altOpen}
+					<div
+						id="tx-alt"
+						class="mt-2 rounded-md border border-border bg-surface-2 px-3 py-2"
+						data-testid="tx-alt"
 					>
-						<AiMark />
-						{uploading ? t('zahlungen.detail.uploading') : t('zahlungen.detail.upload')}
-						<input
-							type="file"
-							class="sr-only"
-							accept=".pdf,application/pdf,image/png,image/jpeg,image/gif,image/webp"
-							disabled={uploading || busy}
-							onchange={onUploadHere}
-							data-testid="tx-upload-input"
-						/>
-					</label>
-					{#if hasFolder}
-						<button
-							type="button"
-							class="ml-2 {button}"
-							onclick={checkFolder}
-							disabled={folderChecking}
-							title={t('zahlungen.detail.folderHint')}
-							data-testid="tx-folder-check"
-							>{folderChecking
-								? t('zahlungen.detail.folderChecking')
-								: t('zahlungen.detail.folderCheck')}</button
-						>
-					{/if}
-					<p class="mt-1 text-xs text-faint">{t('zahlungen.detail.uploadHint')}</p>
-					{#if uploadResult}
-						<p class="mt-2 text-sm text-heading" role="status" data-testid="tx-upload-result">
-							{uploadResult.text}
-						</p>
-						{#each uploadResult.warnings as w (w)}
-							<p class="mt-1 text-sm text-danger" data-testid="tx-upload-warning">⚠ {w}</p>
-						{/each}
-					{/if}
-					{#if folderNote}
-						<p class="mt-2 text-sm text-heading" role="status" data-testid="tx-folder-result">
-							{folderNote}
-						</p>
-					{/if}
-				</div>
-				{#if !tx.receiptId}
-					<EigenbelegForm {tx} {account} />
+						<div class="flex flex-wrap gap-2">
+							{#if !tx.noReceipt}
+								<button
+									type="button"
+									class={button}
+									onclick={() => (askingReason = !askingReason)}
+									disabled={busy}
+									aria-expanded={askingReason}
+									data-testid="tx-no-receipt">{t('zahlungen.detail.noReceiptNeeded')}</button
+								>
+							{/if}
+							{#if !tx.noReceipt && !classification && (tx.amountCents ?? 0) < 0}
+								<button
+									type="button"
+									class={button}
+									onclick={bankFee}
+									disabled={busy}
+									title={t('zahlungen.detail.bankFeeTitle')}
+									data-testid="tx-bank-fee">{t('zahlungen.detail.bankFee')}</button
+								>
+							{/if}
+						</div>
+						{#if !tx.receiptId}
+							<EigenbelegForm {tx} {account} />
+						{/if}
+					</div>
 				{/if}
 
 				{#if askingReason}
@@ -1878,55 +1908,138 @@
 						{/if}
 					</div>
 				{/if}
+				<div class="mt-3 border-t border-border pt-3" data-testid="tx-upload">
+					<label
+						class="{button} inline-flex cursor-pointer items-center gap-1.5"
+						title={t('ai.upload')}
+						data-testid="tx-upload-label"
+					>
+						<AiMark />
+						{uploading ? t('zahlungen.detail.uploading') : t('zahlungen.detail.upload')}
+						<input
+							type="file"
+							class="sr-only"
+							accept=".pdf,application/pdf,image/png,image/jpeg,image/gif,image/webp"
+							disabled={uploading || busy}
+							onchange={onUploadHere}
+							data-testid="tx-upload-input"
+						/>
+					</label>
+					{#if hasFolder}
+						<button
+							type="button"
+							class="ml-2 {button}"
+							onclick={checkFolder}
+							disabled={folderChecking}
+							title={t('zahlungen.detail.folderHint')}
+							data-testid="tx-folder-check"
+							>{folderChecking
+								? t('zahlungen.detail.folderChecking')
+								: t('zahlungen.detail.folderCheck')}</button
+						>
+					{/if}
+					<p class="mt-1 text-xs text-faint">{t('zahlungen.detail.uploadHint')}</p>
+					{#if uploadResult}
+						<p class="mt-2 text-sm text-heading" role="status" data-testid="tx-upload-result">
+							{uploadResult.text}
+						</p>
+						{#each uploadResult.warnings as w (w)}
+							<p class="mt-1 text-sm text-danger" data-testid="tx-upload-warning">⚠ {w}</p>
+						{/each}
+					{/if}
+					{#if folderNote}
+						<p class="mt-2 text-sm text-heading" role="status" data-testid="tx-folder-result">
+							{folderNote}
+						</p>
+					{/if}
+				</div>
 			</section>
 
-			<BookingBlock {tx} />
+			<div id="tx-konto-part" class="scroll-mt-4"><BookingBlock {tx} /></div>
 
 			{#if error}
 				<p class="mt-3 text-sm text-danger" role="alert" data-testid="tx-detail-error">{error}</p>
 			{/if}
 
-			<section class="mt-4">
-				<h3 class="text-sm font-semibold text-heading">
-					{t(
-						(tx.amountCents ?? 0) > 0 ? 'zahlungen.detail.othersIn' : 'zahlungen.detail.othersOut',
-						{
-							name: tx.counterparty || '—'
-						}
-					)}
-				</h3>
-				{#if others.length === 0}
-					<p class="mt-1 text-sm text-faint">{t('zahlungen.detail.othersNone')}</p>
-				{:else}
-					<ul
-						class="mt-1 divide-y divide-border rounded-lg border border-border bg-surface shadow-sm"
-					>
-						{#each others as o (o.id)}
-							<li>
-								<button
-									type="button"
-									class="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-surface-2"
-									onclick={() => onopen(o.id)}
-									data-testid="tx-other"
-								>
-									<span class="flex-1 text-text">{formatDate(o.bookedOn)}</span>
-									<span
-										class="rounded border px-1.5 py-0.5 text-xs {isTxCovered(o, app.classifications)
-											? 'border-success/30 bg-success/10 text-success'
-											: 'border-border bg-surface-2 text-faint'}"
-										>{coverageBadge(o, app.classifications)
-											? t(`matching.badge.${coverageBadge(o, app.classifications)}`)
-											: t('zahlungen.detail.withoutReceipt')}</span
+			<section class="mt-4" data-testid="tx-others">
+				<button
+					type="button"
+					class="flex w-full items-center justify-between gap-2 text-left"
+					onclick={() => (othersOpen = !othersOpen)}
+					aria-expanded={othersOpen}
+					data-testid="tx-others-toggle"
+				>
+					<h3 class="text-sm font-semibold text-heading">
+						{t(
+							(tx.amountCents ?? 0) > 0
+								? 'zahlungen.detail.othersIn'
+								: 'zahlungen.detail.othersOut',
+							{
+								name: tx.counterparty || '—'
+							}
+						)} ({others.length})
+					</h3>
+					{#if othersWithout}
+						<span class="text-sm text-amber-800 dark:text-amber-200"
+							>{t('zahlungen.detail.othersMissing', { count: othersWithout })}</span
+						>
+					{/if}
+				</button>
+				{#if othersOpen}
+					{#if others.length === 0}
+						<p class="mt-1 text-sm text-faint">{t('zahlungen.detail.othersNone')}</p>
+					{:else}
+						<ul
+							class="mt-1 divide-y divide-border rounded-lg border border-border bg-surface shadow-sm"
+						>
+							{#each others as o (o.id)}
+								<li>
+									<button
+										type="button"
+										class="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-surface-2"
+										onclick={() => onopen(o.id)}
+										data-testid="tx-other"
 									>
-									<span class="font-mono text-heading tabular-nums"
-										>{formatMoney(o.amountCents ?? 0, o.currency)}</span
-									>
-								</button>
-							</li>
-						{/each}
-					</ul>
+										<span class="flex-1 text-text">{formatDate(o.bookedOn)}</span>
+										<span
+											class="rounded border px-1.5 py-0.5 text-xs {isTxCovered(
+												o,
+												app.classifications
+											)
+												? 'border-success/30 bg-success/10 text-success'
+												: 'border-border bg-surface-2 text-faint'}"
+											>{coverageBadge(o, app.classifications)
+												? t(`matching.badge.${coverageBadge(o, app.classifications)}`)
+												: t('zahlungen.detail.withoutReceipt')}</span
+										>
+										<span class="font-mono text-heading tabular-nums"
+											>{formatMoney(o.amountCents ?? 0, o.currency)}</span
+										>
+									</button>
+								</li>
+							{/each}
+						</ul>
+					{/if}
 				{/if}
 			</section>
+			{#if receiptState === 'missing' || !isBookingConfirmed(tx)}
+				<div
+					class="sticky bottom-0 -mx-4 mt-4 flex items-center gap-3 border-t border-border bg-surface px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:hidden"
+					data-testid="tx-next"
+				>
+					<span class="flex-1 text-xs text-faint">{t('zahlungen.detail.next')}</span>
+					<button
+						type="button"
+						class={primary}
+						onclick={() =>
+							scrollToPart(receiptState === 'missing' ? 'tx-receipt-part' : 'tx-konto-part')}
+						data-testid="tx-next-button"
+						>{receiptState === 'missing'
+							? t('zahlungen.detail.find.title')
+							: t('zahlungen.detail.nextKonto')}</button
+					>
+				</div>
+			{/if}
 		{/if}
 	</div>
 </div>

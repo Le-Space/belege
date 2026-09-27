@@ -120,8 +120,16 @@
 	data-testid="tx-booking"
 	data-confirmed={confirmed ? 'true' : 'false'}
 >
-	<h3 class="text-sm font-semibold text-heading">{t('booking.title')}</h3>
-	<p class="mt-1 text-xs text-faint">{t('booking.intro')}</p>
+	<h3 class="flex items-center gap-1.5 text-sm font-semibold text-heading">
+		{t('booking.title')}
+		<span
+			class="inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-border text-xs font-normal text-faint"
+			title={t('booking.intro')}
+			role="img"
+			aria-label={t('booking.intro')}
+			data-testid="tx-booking-info">i</span
+		>
+	</h3>
 
 	{#if confirmed}
 		<p class="mt-2 text-sm text-success" data-testid="tx-booking-confirmed">
