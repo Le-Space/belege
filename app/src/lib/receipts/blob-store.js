@@ -52,10 +52,18 @@ function concat(parts) {
 }
 
 /**
- * @param {{ blockstore: BlockstoreLike, key: Uint8Array }} params
+ * @param {{ blockstore: BlockstoreLike, key: Uint8Array, online?: boolean }} params
  */
-export async function createBlobStore({ blockstore, key }) {
+export async function createBlobStore({ blockstore, key, online = false }) {
 	const seal = await sealer(key);
+	// Offline, a block is here or nowhere. With device sync on (#123), a block
+	// this device lacks – a receipt added on another – is asked of the
+	// connected devices, for a while.
+	/** @param {CID} cid */
+	const block = (cid) =>
+		collect(
+			blockstore.get(cid, online ? { signal: AbortSignal.timeout(30_000) } : { offline: true })
+		);
 
 	return {
 		/**
@@ -86,17 +94,13 @@ export async function createBlobStore({ blockstore, key }) {
 			const rootCid = CID.parse(cid);
 			if (rootCid.code !== dagCbor.code) throw new Error('Not a receipt file.');
 			/** @type {any} */
-			const root = dagCbor.decode(await collect(blockstore.get(rootCid, { offline: true })));
+			const root = dagCbor.decode(await block(rootCid));
 			if (root?.v !== VERSION || !Array.isArray(root.chunks))
 				throw new Error('Not a receipt file.');
 			/** @type {Uint8Array[]} */
 			const parts = [];
 			for (const chunk of root.chunks) {
-				parts.push(
-					await collect(
-						blockstore.get(CID.asCID(chunk) ?? CID.parse(String(chunk)), { offline: true })
-					)
-				);
+				parts.push(await block(CID.asCID(chunk) ?? CID.parse(String(chunk))));
 			}
 			const sealed = concat(parts);
 			if (sealed.length !== root.size) throw new Error('A receipt file is incomplete.');

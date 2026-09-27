@@ -33,8 +33,20 @@ pnpm test:e2e     # Playwright, Chromium with a virtual passkey (PRF)
   `receipts`, `partners`, `accounts`, `settings`, `matches`, `questions`, `events`, indexed by a ULID `id`; every record has `createdAt`, `updatedAt`,
   `deleted` (soft delete) and `author` (DID); money in integer cents. `sealed-documents.js` exists
   because `@orbitdb/core` 4.0.0 drops the `encryption` option for documents databases.
-- **P2P prepared, not used.** libp2p runs with gossipsub for OrbitDB but no transports, no
-  bootstrap and no discovery (`src/lib/network.js`); device sync comes later.
+- **Offline unless device sync is on.** By default libp2p runs with gossipsub for OrbitDB but
+  no transports, no bootstrap and no discovery (`src/lib/network.js`).
+- **Own devices** (`src/lib/sync/`, issue #123): a switch on the consent screen, off by default
+  and per device. When on, the next unlock starts an online node: WebSocket to the Le-Space
+  relay, a reservation there, WebRTC for the direct connection. Its peer key is derived from the
+  PRF answer and a per-device salt (`belege.device-salt`). Every device of one passkey opens the
+  same sealed databases, so OrbitDB replicates them; the relay sees ciphertext only. Devices
+  write themselves into the settings (`device:<peer id>`) and dial the ones they know every 30 s;
+  the first one is added by typing its id under Integrationen → Eigene Geräte. Once a device is
+  connected directly, every database's sync restarts once, because OrbitDB 4.0.0 exchanges heads
+  only once and not over a relayed connection. Nothing is redacted between own devices.
+  `e2e/device-sync.spec.js` runs two browsers of one passkey through the test relay; since a
+  virtual authenticator does not carry the PRF secret across contexts, E2E builds read a fixed
+  PRF answer from `globalThis.__belegeTestPrf`.
 
 Several files are ported from [Le-Space/simple-todo](https://github.com/Le-Space/simple-todo)
 `apps/invoice01`; each says so in its header, with what changed.

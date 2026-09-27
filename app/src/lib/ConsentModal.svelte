@@ -17,6 +17,7 @@
 	// sections, a planned option and per-service detail. The look is the
 	// element's, mapped onto the same tokens escrow01 maps it onto.
 	import { t, list } from './i18n/index.js';
+	import { deviceSyncOn, setDeviceSync } from './sync/device-sync.js';
 	import IntegrationLogo from './consent/IntegrationLogo.svelte';
 	import { INTEGRATION_GROUPS } from './consent/integrations.js';
 	import { consent } from './consent.js';
@@ -48,6 +49,9 @@
 	function onClose() {
 		if ($open && dialog && !dialog.open) dialog.showModal();
 	}
+
+	// Device sync is this device's choice, kept in this browser (sync/device-sync.js).
+	let syncOn = $state(deviceSyncOn());
 
 	/**
 	 * @typedef {{ id: string, status: 'active' | 'whenPaired' | 'whenSetUp' | 'notYet', planned?: boolean }} Service
@@ -141,7 +145,7 @@
 			<!-- Network -->
 			<section class="border-l-4 border-l-infra pl-3" data-testid="consent-network">
 				<h3 class="flex flex-wrap items-center gap-2 text-base font-semibold">
-					{t('consent.network.title')}
+					{syncOn ? t('consent.network.titleDevices') : t('consent.network.title')}
 				</h3>
 				{#each list('consent.network.simple') as line (line)}
 					<p class="mt-1.5 text-sm leading-relaxed">{line}</p>
@@ -152,7 +156,43 @@
 					switched on here, explicitly. A disabled row rather than none, so
 					the place is visible and nobody wonders whether it is on.
 				-->
-				<ul class="mt-3 rounded-md border border-border" aria-label={t('consent.network.options')}>
+				<ul
+					class="mt-3 divide-y divide-border rounded-md border border-border"
+					aria-label={t('consent.network.options')}
+				>
+					<!-- Own devices (#123): off until switched on here, for this device. -->
+					<li data-testid="consent-devices" data-state={syncOn ? 'on' : 'off'}>
+						<label class="flex cursor-pointer items-start gap-3 px-3 py-2.5">
+							<input
+								type="checkbox"
+								role="switch"
+								checked={syncOn}
+								onchange={(e) => {
+									syncOn = e.currentTarget.checked;
+									setDeviceSync(syncOn);
+								}}
+								aria-describedby="consent-devices-text"
+								class="peer sr-only"
+								data-testid="consent-devices-switch"
+							/>
+							<span
+								class="mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full border p-0.5 peer-focus-visible:ring-2 peer-focus-visible:ring-cyan-500 {syncOn
+									? 'justify-end border-cyan-800 bg-cyan-800 dark:border-cyan dark:bg-cyan'
+									: 'border-border bg-surface-2'}"
+								aria-hidden="true"
+							>
+								<span
+									class="h-3.5 w-3.5 rounded-full {syncOn ? 'bg-white dark:bg-bg' : 'bg-faint/60'}"
+								></span>
+							</span>
+							<span class="min-w-0 flex-1">
+								<span class="text-sm font-medium text-heading">{t('consent.network.devices')}</span>
+								<span id="consent-devices-text" class="mt-0.5 block text-sm"
+									>{t('consent.network.devicesText')}</span
+								>
+							</span>
+						</label>
+					</li>
 					<li data-testid="consent-collaboration" data-state="planned">
 						<label class="flex cursor-not-allowed items-start gap-3 px-3 py-2.5">
 							<!-- A real switch, off and disabled: the place where it will be turned on. -->

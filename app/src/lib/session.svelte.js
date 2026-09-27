@@ -19,6 +19,14 @@ export const app = $state({
 	error: null,
 	/** @type {string | null} */
 	did: null,
+	/** Device sync (#123): off, or this device's id and the devices it knows. */
+	sync: {
+		online: false,
+		/** @type {import('./sync/device-sync.js').SyncState | null} */
+		state: null,
+		/** @type {string | null} */
+		error: null
+	},
 	/** @type {StoredRecord[]} */
 	transactions: [],
 	/** @type {StoredRecord[]} */
@@ -364,6 +372,67 @@ export async function checkFolderNow({ prompt = false } = {}) {
 /** @type {(() => void) | null} */
 let stopFolderWatch = null;
 
+/** @type {Awaited<ReturnType<typeof import('./sync/device-sync.js').startDeviceSync>> | null} */
+let deviceSync = null;
+
+/** Device sync (#123): only when this device switched it on, so the node is online. */
+async function startDeviceSyncIfOn() {
+	app.sync.online = Boolean(session?.online);
+	if (!session?.online || deviceSync) return;
+	try {
+		const { startDeviceSync } = await import('./sync/device-sync.js');
+		deviceSync = await startDeviceSync({
+			libp2p: session.libp2p,
+			store: session.store,
+			relays: session.relays,
+			label: deviceLabel(),
+			onState: (state) => {
+				app.sync.state = state;
+			}
+		});
+	} catch (error) {
+		app.sync.error = error instanceof Error ? error.message : String(error);
+	}
+}
+
+/** How this device calls itself in the list: the browser and system, as it says. */
+function deviceLabel() {
+	try {
+		const ua = navigator.userAgent;
+		const system = /iPhone|iPad/.test(ua)
+			? 'iPhone/iPad'
+			: /Android/.test(ua)
+				? 'Android'
+				: /Mac OS X/.test(ua)
+					? 'Mac'
+					: /Windows/.test(ua)
+						? 'Windows'
+						: 'Linux';
+		const browser = /Edg\//.test(ua)
+			? 'Edge'
+			: /Firefox\//.test(ua)
+				? 'Firefox'
+				: /Chrome\//.test(ua)
+					? 'Chrome'
+					: /Safari\//.test(ua)
+						? 'Safari'
+						: 'Browser';
+		return `${browser} auf ${system}`;
+	} catch {
+		return 'Browser';
+	}
+}
+
+/**
+ * "Gerät hinzufügen": the other device's id, as it shows it.
+ *
+ * @param {string} peerId
+ */
+export async function addSyncDevice(peerId) {
+	if (!deviceSync) throw new Error('Die Synchronisation ist auf diesem Gerät nicht an.');
+	await deviceSync.addDevice(peerId.trim());
+}
+
 /** @param {any} credential */
 async function unlockWith(credential) {
 	// Loaded lazily: Helia, libp2p and OrbitDB are most of the bundle, and the
@@ -387,6 +456,7 @@ async function unlockWith(credential) {
 	installE2EHooks();
 	// Not awaited: the books are open, whatever the relay does.
 	startUcepIfPaired();
+	startDeviceSyncIfOn();
 	const { folderSupported } = await import('./receipts/folder.js');
 	if (folderSupported() && !stopFolderWatch) {
 		const { watchFolder } = await import('./receipts/folder-watch.js');

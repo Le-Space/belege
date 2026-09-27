@@ -6,23 +6,18 @@
 // so this node has no transports, dials nobody, listens nowhere and has no
 // peer discovery. Everything stays in this browser.
 //
-// TODO(p2p): syncing between a person's own devices comes later. Then
-// `P2P_ENABLED` becomes a setting and the config comes from
-// Le-Space/simple-todo `packages/net/src/libp2p-config.js` (`createLibp2pConfig`):
-// WebSockets + WebRTC transports, circuit-relay-v2, the relay bootstrap list,
-// pubsub peer discovery, autoNAT and dcutr. Keep gossipsub's
-// `runOnLimitedConnection: true` from there — OrbitDB sync over a relayed
-// connection depends on it. The data is sealed before it reaches the log, so a
-// relay or a peer only ever sees ciphertext.
+// Syncing a person's own devices (issue #123) does not go through here: when
+// it is switched on, node.js builds an online node from sync/device-sync.js
+// instead (relay, WebRTC, a peer key derived from the passkey). This file is
+// the node for everyone who has not switched it on.
 //
 // The peer key: generated here, per session, and handed to libp2p together
 // with no datastore, so libp2p and Helia's keychain have nowhere to write it.
-// A reload is a new peer id, which costs nothing while nobody dials us. When
-// P2P comes, do not switch to `createHelia`'s defaults, which load or create
-// the self key in the Helia datastore (`belege/helia-data`, IndexedDB): keep
-// it ephemeral, or, if a stable peer id is wanted, derive it from the passkey's
-// PRF answer with HKDF under its own `info` string, as the database key and
-// the signing key are. Never persist it.
+// A reload is a new peer id, which costs nothing while nobody dials us. Do not
+// switch to `createHelia`'s defaults, which load or create the self key in the
+// Helia datastore (`belege/helia-data`, IndexedDB); the device-sync node
+// derives its stable key from the passkey's PRF answer instead
+// (database-keys.js deriveDevicePeerSeed). Never persist a peer key.
 
 import { createLibp2p } from 'libp2p';
 import { noise } from '@chainsafe/libp2p-noise';
@@ -31,7 +26,7 @@ import { identify } from '@libp2p/identify';
 import { gossipsub } from '@libp2p/gossipsub';
 import { generateKeyPair } from '@libp2p/crypto/keys';
 
-/** Off until device sync exists; see the TODO above. */
+/** This offline node never goes online; device sync is sync/device-sync.js. */
 export const P2P_ENABLED = false;
 
 /** @typedef {NonNullable<import('libp2p').Libp2pOptions['privateKey']>} PeerKey */
@@ -77,7 +72,7 @@ export function createOfflineLibp2pConfig(privateKey) {
  */
 export async function createOfflineLibp2p(privateKey) {
 	if (P2P_ENABLED) {
-		throw new Error('P2P is not implemented yet; see the TODO in network.js.');
+		throw new Error('The offline node does not go online; see sync/device-sync.js.');
 	}
 	return createLibp2p(createOfflineLibp2pConfig(privateKey ?? (await createEphemeralPeerKey())));
 }

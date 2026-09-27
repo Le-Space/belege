@@ -82,6 +82,10 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	await expect(ucep.getByTestId('consent-service-status')).toHaveText('aktiv, wenn gekoppelt');
 	await expect(ucep).toContainText('Betreiber des Relays');
 
+	// Own devices: off until switched on here, per device.
+	await expect(dialog.getByTestId('consent-devices')).toHaveAttribute('data-state', 'off');
+	await expect(dialog.getByTestId('consent-devices-switch')).not.toBeChecked();
+
 	const before = await page.evaluate(() => Object.keys(localStorage).sort());
 	await acceptConsent(page);
 	// A flag, and nothing else.
@@ -90,7 +94,7 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	);
 	expect(Object.keys(after).filter((key) => !before.includes(key))).toEqual(['belege.consent']);
 	// CONSENT_VERSION in src/lib/consent.js.
-	expect(after['belege.consent']).toBe('8');
+	expect(after['belege.consent']).toBe('9');
 	await expect(page.getByTestId('passkey-onboarding')).toBeVisible();
 
 	await page.reload();

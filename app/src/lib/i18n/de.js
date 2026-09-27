@@ -242,13 +242,18 @@ export default {
 			simple: [
 				'Le Space Belege verbindet sich mit niemandem. Kein Peer-to-Peer, kein Relay, kein Server: Deine Bücher verlassen diesen Browser nicht.'
 			],
+			titleDevices: 'Netzwerk: nur eigene Geräte',
 			options: 'Einstellungen',
+			devices: 'Eigene Geräte synchronisieren',
+			devicesText:
+				'Deine Bücher und Belege auch auf deinem Telefon oder einem zweiten Rechner mit demselben Passkey. Die Geräte verbinden sich über einen Le-Space-Relay und, wo möglich, direkt; alles ist verschlüsselt, bevor es das Gerät verlässt – der Relay sieht nur, dass zwei Geräte miteinander reden, und ihre IP-Adressen, nie Inhalte. Gilt für dieses Gerät, ab dem nächsten Entsperren.',
 			collaboration: 'Zusammenarbeit',
 			collaborationText:
 				'Gemeinsame Bücher mit Kolleginnen, Kollegen oder der Steuerberatung, Chat und später Video. Das kommt später und wird dann hier ausdrücklich eingeschaltet – nicht vorher und nicht von selbst.',
 			technical: [
 				'Im Browser läuft ein libp2p-Knoten, weil OrbitDB einen braucht – ohne Transporte, ohne Bootstrap-Liste und ohne Peer-Discovery. Er kann niemanden anwählen und hört auf keiner Adresse. Nur wenn du Belege mit deiner Rechnungs-App koppelst, kommt ein zweiter, eigener Knoten dazu, der sich mit einem Relay verbindet (siehe „Rechnungs-App“ unten); an deine Bücher kommt er nicht.',
 				'Sein Peer-Schlüssel (Ed25519) entsteht in jeder Sitzung neu und wird nirgends gespeichert.',
+				'Mit „Eigene Geräte synchronisieren“ bekommt dieser Knoten die Transporte des Rechnungs-App-Knotens: WebSocket zum Relay, eine Reservierung dort, WebRTC für die direkte Verbindung, dazu gossipsub für OrbitDB. Sein Peer-Schlüssel kommt dann aus dem Passkey und einem Zufallswert dieses Browsers, damit jedes Gerät seine eigene, gleichbleibende Kennung hat. Die Geräte kennen einander über versiegelte Einträge in den Einstellungen (`device:<Kennung>`).',
 				'Die Seite lädt keine Schriften, Skripte oder Bilder von Dritten.'
 			]
 		},
@@ -416,6 +421,27 @@ export default {
 		reads: '{count}× gelesen',
 		revoke: 'Widerrufen',
 		refresh: 'Abrufe aktualisieren'
+	},
+	devices: {
+		title: 'Eigene Geräte',
+		what: 'Dieselben Bücher auf deinem Telefon oder einem zweiten Rechner: Beide Geräte brauchen denselben Passkey (über den Schlüsselbund synchronisiert) und die eingeschaltete Synchronisation.',
+		off: 'Auf diesem Gerät ist die Synchronisation aus. Einschalten im Hinweis „Datenschutz & Technik“ unter „Eigene Geräte synchronisieren“; sie gilt ab dem nächsten Entsperren.',
+		openConsent: 'Hinweis öffnen',
+		pending: 'Eingeschaltet – gilt ab dem nächsten Entsperren (Seite neu laden).',
+		self: 'Kennung dieses Geräts',
+		selfHint: 'Auf dem anderen Gerät unter „Gerät hinzufügen“ eintragen.',
+		reachable: 'über den Relay erreichbar',
+		notReachable: 'wartet auf den Relay …',
+		copy: 'Kennung kopieren',
+		add: 'Gerät hinzufügen',
+		addLabel: 'Kennung des anderen Geräts',
+		addButton: 'Verbinden',
+		list: 'Bekannte Geräte',
+		none: 'Noch kein anderes Gerät.',
+		connected: 'verbunden',
+		direct: 'direkt',
+		viaRelay: 'über den Relay',
+		notConnected: 'nicht verbunden'
 	},
 	vendorAccount: {
 		open: 'Lieferantenkonto ansehen',
