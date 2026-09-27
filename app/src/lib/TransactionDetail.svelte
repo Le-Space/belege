@@ -62,6 +62,7 @@
 		addCompanyName,
 		confirmMatch,
 		markBankFee,
+		linkTransfer,
 		rejectTransfer,
 		setNoReceipt,
 		unlinkMatch
@@ -80,7 +81,8 @@
 		assistCandidates,
 		matchOfReceipt,
 		ownNameCandidate,
-		receiptChoices
+		receiptChoices,
+		transferCandidates
 	} from './matching/view.js';
 	import {
 		candidateLine,
@@ -114,6 +116,9 @@
 	let showDetails = $state(false);
 	/** "Kein fremder Beleg …": no receipt needed, bank fee, Eigenbeleg. */
 	let altOpen = $state(false);
+	// "Als Gegenbuchung verknüpfen …" (issue #98): the other side of an own transfer, by hand.
+	let linkOpen = $state(false);
+	let linkQuery = $state('');
 	let othersOpen = $state(false);
 	/** @param {string} id */
 	const scrollToPart = (id) =>
@@ -587,6 +592,20 @@
 				txId,
 				classification.counterBookingId
 			);
+			await runMatchingNow();
+		});
+
+	let linkChoices = $derived(
+		linkOpen && tx ? transferCandidates(tx, app.transactions, { query: linkQuery }) : []
+	);
+
+	/** @param {string} otherId */
+	const linkOther = (otherId) =>
+		act(async () => {
+			await linkTransfer(/** @type {any} */ (currentStore()), txId, otherId);
+			linkOpen = false;
+			linkQuery = '';
+			altOpen = false;
 			await runMatchingNow();
 		});
 
@@ -1244,7 +1263,7 @@
 					>
 						<p class="text-xs font-semibold text-heading">{t('explain.whyNone')}</p>
 						<p class="mt-0.5 text-sm text-text" data-testid="tx-why-rule-line">{ruleLine}</p>
-						{#if classification?.via === 'counter-booking' && classification.counterBookingId && !tx.noReceipt}
+						{#if classification?.kind === 'own-transfer' && classification.counterBookingId && !tx.noReceipt}
 							<div class="mt-1.5 flex flex-wrap gap-3 text-sm">
 								<button
 									type="button"
@@ -1258,7 +1277,10 @@
 									class="text-faint underline hover:text-heading"
 									onclick={notTransfer}
 									disabled={busy}
-									data-testid="tx-not-transfer">{t('zahlungen.detail.notTransfer')}</button
+									data-testid="tx-not-transfer"
+									>{classification.via === 'manual'
+										? t('zahlungen.detail.unlinkTransfer')
+										: t('zahlungen.detail.notTransfer')}</button
 								>
 							</div>
 						{/if}
@@ -1436,7 +1458,67 @@
 								>
 							{/if}
 						</div>
-						{#if !tx.receiptId}
+						{#if !tx.receiptId && classification?.via !== 'manual'}
+							<div class="mt-2">
+								<button
+									type="button"
+									class={button}
+									onclick={() => (linkOpen = !linkOpen)}
+									aria-expanded={linkOpen}
+									disabled={busy}
+									title={t('zahlungen.detail.linkTransferTitle')}
+									data-testid="tx-link-transfer">{t('zahlungen.detail.linkTransfer')}</button
+								>
+							</div>
+							{#if linkOpen}
+								<div class="mt-2" data-testid="tx-link-transfer-panel">
+									<label class="sr-only" for="tx-link-q"
+										>{t('zahlungen.detail.linkTransferSearch')}</label
+									>
+									<input
+										id="tx-link-q"
+										type="search"
+										class="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-heading"
+										bind:value={linkQuery}
+										placeholder={t('zahlungen.detail.linkTransferSearch')}
+										autocomplete="off"
+										data-testid="tx-link-transfer-query"
+									/>
+									{#if linkChoices.length}
+										<ul class="mt-2 divide-y divide-border text-sm">
+											{#each linkChoices as other (other.id)}
+												<li
+													class="flex flex-wrap items-center justify-between gap-2 py-1.5"
+													data-testid="tx-link-transfer-choice"
+												>
+													<span class="min-w-0">
+														<span class="text-heading"
+															>{other.counterparty || other.bookingType || '—'}</span
+														>
+														<span class="text-faint">
+															· {relatedAccount(other)} · {formatTxAmount(other)} · {formatDate(
+																other.bookedOn
+															)}</span
+														>
+													</span>
+													<button
+														type="button"
+														class={button}
+														onclick={() => linkOther(String(other.id))}
+														disabled={busy}
+														data-testid="tx-link-transfer-pick"
+														>{t('zahlungen.detail.linkTransferPick')}</button
+													>
+												</li>
+											{/each}
+										</ul>
+									{:else}
+										<p class="mt-2 text-sm text-faint" data-testid="tx-link-transfer-none">
+											{t('zahlungen.detail.linkTransferNone')}
+										</p>
+									{/if}
+								</div>
+							{/if}
 							<EigenbelegForm {tx} {account} />
 						{/if}
 					</div>

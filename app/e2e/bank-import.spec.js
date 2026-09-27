@@ -221,6 +221,26 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 		page.getByTestId('transaction').filter({ hasText: names.revolutDebit })
 	).toContainText('CAMT ···0001');
 
+	// "Als Gegenbuchung verknüpfen …": the other side by hand, on another
+	// account and the other way; neither needs a receipt, each names the other.
+	await page.getByTestId('transaction').filter({ hasText: names.revolutDebit }).click();
+	const detail = page.getByTestId('tx-detail');
+	await detail.getByTestId('tx-alt-toggle').click();
+	await detail.getByTestId('tx-link-transfer').click();
+	const choices = detail.getByTestId('tx-link-transfer-choice');
+	await expect(choices).toHaveCount(1);
+	await expect(choices).toContainText(names.credit);
+	await choices.getByTestId('tx-link-transfer-pick').click();
+	await expect(detail.getByTestId('tx-why-rule-line')).toContainText('von dir verknüpft');
+	await expect(detail.getByTestId('tx-related-chip')).toContainText(/1\.439,76\sEUR/);
+	await expect(detail.getByTestId('tx-related-chip')).toContainText('von dir verknüpft');
+	// "Verknüpfung lösen": a receipt is needed again.
+	await expect(detail.getByTestId('tx-not-transfer')).toHaveText('Verknüpfung lösen – Beleg nötig');
+	await detail.getByTestId('tx-not-transfer').click();
+	await expect(detail.getByTestId('tx-why-rule')).toHaveCount(0);
+	await expect(detail.getByTestId('tx-related-chip')).toHaveCount(0);
+	await detail.getByTestId('tx-detail-close').click();
+
 	// At rest: the bookings are there (the scan finds data) but no counterparty,
 	// no purpose and no token is readable; the token is not in localStorage at all.
 	const { inventory, text } = await everythingStoredAsText(page);

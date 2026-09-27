@@ -200,6 +200,17 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 		});
 	};
 
+	// Pairs a person linked by hand: each booking to its other side, while both live.
+	const liveById = new Map(transactions.filter((t) => !t.deleted).map((t) => [String(t.id), t]));
+	/** @type {Map<string, string>} */
+	const linkedTo = new Map();
+	for (const key of clean.ownTransfers) {
+		const [a, b] = key.split('|');
+		if (!a || !b || a === b || !liveById.has(a) || !liveById.has(b)) continue;
+		linkedTo.set(a, b);
+		linkedTo.set(b, a);
+	}
+
 	return {
 		/**
 		 * The other side of a bridge transfer on another own wallet: each side
@@ -233,6 +244,10 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 			return [...found.values()];
 		},
 		notTransfers: new Set(clean.notTransfers),
+		linkedTransfer(tx) {
+			const other = linkedTo.get(String(tx.id));
+			return other ? (liveById.get(other) ?? null) : null;
+		},
 		counterBookings(tx) {
 			const day = dayNumber(tx.bookedOn);
 			if (day === null || !tx.amountCents) return [];

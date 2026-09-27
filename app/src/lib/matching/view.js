@@ -10,6 +10,7 @@ import { isOwnName } from './classify.js';
 import { MIRROR_DAYS, normalizeTxRef } from './context.js';
 import { findDuplicates } from '../receipts/duplicates.js';
 import { assetOf } from '../assets/registry.js';
+import { txDirection } from '../bank/format.js';
 import { walletChain } from '../wallets/chains.js';
 
 /** @typedef {import('./classify.js').Classification} Classification */
@@ -504,4 +505,53 @@ export function questionProgress(questions) {
 	const live = questions.filter((q) => !q.deleted);
 	const open = live.filter((q) => q.state === 'open').length;
 	return { open, done: live.length - open, total: live.length };
+}
+
+/**
+ * "Als Gegenbuchung verknüpfen …": the bookings that could be this one's other
+ * side (issue #98) – on another account, the other way, within a month; the
+ * closest first, by quantity for the same crypto asset, else by euro amount,
+ * then by date. A search narrows them by counterparty, purpose, type or amount.
+ *
+ * @param {Record<string, any>} tx
+ * @param {Record<string, any>[]} transactions
+ * @param {{ query?: string, days?: number, limit?: number }} [options]
+ * @returns {Record<string, any>[]}
+ */
+export function transferCandidates(tx, transactions, { query = '', days = 31, limit = 8 } = {}) {
+	const day = dayNumber(tx.bookedOn);
+	const way = txDirection(tx);
+	if (day === null || !way) return [];
+	const q = query.trim().toLowerCase();
+	/** @param {Record<string, any>} o */
+	const gap = (o) => {
+		if (tx.asset && o.asset === tx.asset && /^-?\d+$/.test(String(tx.quantity ?? ''))) {
+			const a = BigInt(tx.quantity) < 0n ? -BigInt(tx.quantity) : BigInt(tx.quantity);
+			const raw = /^-?\d+$/.test(String(o.quantity ?? '')) ? BigInt(o.quantity) : 0n;
+			const b = raw < 0n ? -raw : raw;
+			return a ? Number(((a > b ? a - b : b - a) * 10000n) / a) / 10000 : 1;
+		}
+		const a = Math.abs(Number(tx.amountCents ?? 0));
+		const b = Math.abs(Number(o.amountCents ?? 0));
+		return a ? Math.abs(a - b) / a : 1;
+	};
+	return transactions
+		.filter((o) => {
+			if (o.deleted || o.id === tx.id || o.accountId === tx.accountId) return false;
+			if (o.movement === 'fee' || txDirection(o) !== -way) return false;
+			const d = dayNumber(o.bookedOn);
+			if (d === null || Math.abs(d - day) > days) return false;
+			if (!q) return true;
+			return [o.counterparty, o.purpose, o.bookingType, String(Math.abs(o.amountCents ?? 0) / 100)]
+				.map((v) => String(v ?? '').toLowerCase())
+				.some((v) => v.includes(q.replace(',', '.')) || v.includes(q));
+		})
+		.map((o) => ({
+			o,
+			g: gap(o),
+			d: Math.abs(/** @type {number} */ (dayNumber(o.bookedOn)) - day)
+		}))
+		.sort((x, y) => x.g - y.g || x.d - y.d)
+		.slice(0, limit)
+		.map((x) => x.o);
 }

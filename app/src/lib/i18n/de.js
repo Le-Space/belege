@@ -537,6 +537,8 @@ export default {
 				'Eigene Übertragung: Die Gegenadresse {address} ist deine Wallet {account}. Kein Beleg nötig (Konto 1360).',
 			ownIbc:
 				'Eigene Übertragung per IBC: Der Empfänger {address} auf der anderen Chain ist deine Wallet {account}. Kein Beleg nötig (Konto 1360).',
+			ownManual:
+				'Eigene Umbuchung, von dir verknüpft: Die Gegenbuchung steht auf {account} am {date}. Kein Beleg nötig (Konto 1360).',
 			ownBridge:
 				'Eigene Übertragung über eine Bridge: Die Gegenbuchung steht auf {account} am {date} – dieselbe Kryptowährung, dieselbe Menge abzüglich der Bridge-Gebühr (höchstens 3 %), innerhalb von 8 Tagen. Kein Beleg nötig (Konto 1360).',
 			staking:
@@ -1056,6 +1058,7 @@ export default {
 			'bank-fee': 'Als Bankgebühr eingeordnet',
 			'bank-fee-forget': 'Bankgebühr vergessen',
 			'not-transfer': 'Als „keine Umbuchung“ markiert',
+			'own-transfer-link': 'Als Gegenbuchung verknüpft (eigene Umbuchung)',
 			'company-name': 'Firmennamen übernommen',
 			'receipt-duplicate': 'Beleg als Duplikat aussortiert',
 			'receipt-set-aside': 'Beleg aussortiert',
@@ -1251,6 +1254,7 @@ export default {
 					reference: 'gleiche Referenz',
 					'own-address': 'eigene Adresse',
 					bridge: 'über Bridge',
+					manual: 'von dir verknüpft',
 					hash: 'gleicher Tx-Hash',
 					refid: 'gleiche Börsen-Referenz'
 				}
@@ -1330,6 +1334,14 @@ export default {
 			ownNameYes: 'Ja, als Firmennamen übernehmen',
 			ownNameNo: 'Nein, ein Anbieter',
 			notTransfer: 'Keine Umbuchung – Beleg nötig',
+			unlinkTransfer: 'Verknüpfung lösen – Beleg nötig',
+			linkTransfer: 'Als Gegenbuchung verknüpfen …',
+			linkTransferTitle:
+				'Diese Zahlung und eine auf einem anderen deiner Konten oder Wallets sind die zwei Seiten einer eigenen Umbuchung (Konto 1360): keine braucht einen Beleg. Bleibt bei jedem Abgleich.',
+			linkTransferSearch: 'Gegenbuchung suchen: Name, Zweck, Betrag …',
+			linkTransferPick: 'Verknüpfen',
+			linkTransferNone:
+				'Keine Buchung in die andere Richtung auf einem anderen Konto innerhalb eines Monats.',
 			bankFeeTitle:
 				'Diese Buchung ist ein Entgelt der Bank; der Kontoauszug ist der Beleg. Der Abgleich merkt sich den Verwendungszweck (ohne Zahlen) auf diesem Konto und ordnet die nächste gleiche Buchung selbst ein. Unter Eigene Anweisungen lässt es sich vergessen.',
 			othersOut: 'Weitere Zahlungen an {name}',
