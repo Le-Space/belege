@@ -6,7 +6,9 @@
 // says what was paid, to whom, when and how much, and why there is no
 // receipt from the other side; who wrote it and when is printed on it, with a
 // line to sign. For a crypto payment it also carries quantity, rate with its
-// source, and the transaction reference.
+// source, and – for an own wallet's booking – the transaction in full: the
+// whole hash, sender and receiver with their full addresses, and every
+// movement of the transaction the books know, the gas included (#126).
 //
 // It becomes an ordinary receipt: stored sealed like an upload (source
 // `eigenbeleg`), linked to its booking as the person's decision, numbered by
@@ -16,7 +18,11 @@
 // adviser's call (docs/export.md).
 
 import { recordEvent } from '../activity/events.js';
-import { accountLabel, displayPurpose } from '../bank/format.js';
+import { accountLabel, displayPurpose, formatMoney } from '../bank/format.js';
+import { addressBook, walletParties } from '../bank/payee.js';
+import { formatQuantity } from '../assets/quantity.js';
+import { walletChain } from '../wallets/chains.js';
+import { swapText } from '../wallets/wallet-sync.js';
 import { hasQuantity } from '../assets/valuation.js';
 import { confirmMatch } from '../matching/actions.js';
 import { importFile } from './import.js';
@@ -41,15 +47,111 @@ export function nextSelfNumber(receipts, year) {
 }
 
 /**
- * What the form starts with. A crypto payment gets a reason to start from;
- * for any other payment the person writes it.
+ * @typedef {object} ChainDetails an own wallet's transaction, in full (issue #126)
+ * @property {string} chain the chain's name
+ * @property {string} hash the whole transaction hash, never shortened
+ * @property {string} explorerUrl
+ * @property {string} at ISO 8601, when the block was made ('' when not known)
+ * @property {{ label: string, address: string, own: boolean }} from
+ * @property {{ label: string, address: string, own: boolean }} to
+ * @property {{ what: string, quantity: string, euro: string, booked: boolean }[]} movements
+ *   every movement of the transaction the books know: its legs, the gas, and a
+ *   swap's side that is not booked (a token not in the chain's list)
+ */
+
+/**
+ * @typedef {{ accounts?: Record<string, any>[], partners?: Record<string, any>[], transactions?: Record<string, any>[] }} Books
+ */
+
+/**
+ * An own wallet's transaction in full, for the Eigenbeleg; null for a bank booking.
  *
  * @param {Record<string, any>} tx
+ * @param {Books} [books]
+ * @returns {ChainDetails | null}
  */
-export function eigenbelegDraft(tx) {
+export function chainDetails(tx, { accounts = [], partners = [], transactions = [] } = {}) {
+	const chain = walletChain(tx.source);
+	if (!chain || !tx.txRef) return null;
+	const book = addressBook({ accounts, partners });
+	const account = accounts.find((a) => a.id === tx.accountId);
+	const parties = walletParties(tx, account, book);
+	const legs = transactions.filter(
+		(t) => !t.deleted && t.source === tx.source && t.txRef === tx.txRef
+	);
+	if (!legs.some((t) => t.id === tx.id)) legs.unshift(tx);
+	/** @param {Record<string, any>} t */
+	const what = (t) =>
+		t.movement === 'fee'
+			? 'Gas (Netzwerkgebühr)'
+			: t.movement === 'trade'
+				? Number(t.amountCents) < 0 || String(t.quantity).startsWith('-')
+					? 'Tausch – gegeben'
+					: 'Tausch – erhalten'
+				: Number(t.amountCents) < 0 || String(t.quantity).startsWith('-')
+					? 'Gesendet'
+					: 'Empfangen';
+	const movements = legs.map((t) => ({
+		what: what(t),
+		quantity:
+			typeof t.quantity === 'string' && Number.isInteger(t.decimals)
+				? `${formatQuantity(t.quantity, t.decimals)} ${t.asset ?? ''}`.trim()
+				: '',
+		euro: formatMoney(Number(t.amountCents ?? 0), t.currency ?? 'EUR'),
+		booked: true
+	}));
+	for (const side of [...(tx.swap?.gave ?? []), ...(tx.swap?.got ?? [])]) {
+		if (side.listed) continue;
+		const gave = (tx.swap?.gave ?? []).includes(side);
+		movements.push({
+			what: gave ? 'Tausch – gegeben (nicht gebucht)' : 'Tausch – erhalten (nicht gebucht)',
+			quantity: `${side.amount.replace('.', ',')} ${side.asset}`,
+			euro: '',
+			booked: false
+		});
+	}
 	return {
-		counterparty: String(tx.counterparty ?? '').trim(),
-		description: displayPurpose(tx.purpose),
+		chain: chain.name,
+		hash: String(tx.txRef),
+		explorerUrl: String(tx.explorerUrl ?? ''),
+		at: typeof tx.bookedAt === 'string' ? tx.bookedAt : '',
+		from: parties?.from ?? { label: '', address: '', own: false },
+		to: parties?.to ?? { label: '', address: '', own: false },
+		movements
+	};
+}
+
+/**
+ * What the form starts with. A crypto payment gets a reason to start from and
+ * says in words what moved and between whom (issue #126); for any other
+ * payment the person writes it.
+ *
+ * @param {Record<string, any>} tx
+ * @param {Books} [books]
+ */
+export function eigenbelegDraft(tx, books = {}) {
+	const c = chainDetails(tx, books);
+	const other = c
+		? Number(tx.amountCents) < 0 || String(tx.quantity).startsWith('-')
+			? c.to
+			: c.from
+		: null;
+	const quantity =
+		typeof tx.quantity === 'string' && Number.isInteger(tx.decimals)
+			? `${formatQuantity(tx.quantity.replace(/^-/, ''), tx.decimals)} ${tx.asset ?? ''}`.trim()
+			: '';
+	const out = Number(tx.amountCents) < 0 || String(tx.quantity).startsWith('-');
+	return {
+		counterparty: other
+			? [other.label, other.address && other.address !== other.label ? other.address : '']
+					.filter(Boolean)
+					.join(' · ')
+			: String(tx.counterparty ?? '').trim(),
+		description: c
+			? tx.swap
+				? swapText(tx.swap)
+				: `${out ? 'Gesendet' : 'Empfangen'}: ${quantity} ${out ? 'an' : 'von'} ${other?.label || '—'}`
+			: displayPurpose(tx.purpose),
 		reason: hasQuantity(tx)
 			? 'Die Zahlung erfolgte auf der Blockchain; der Empfänger stellt dafür keine Rechnung aus.'
 			: ''
@@ -69,6 +171,7 @@ export function eigenbelegDraft(tx) {
  * @property {string} reason why there is no receipt from the other side
  * @property {string} txRef '' when none
  * @property {{ asset: string, quantity: string, decimals: number, rate: string, source: string, at: string } | null} crypto
+ * @property {ChainDetails | null} [chain] an own wallet's transaction in full
  * @property {string} createdAt ISO 8601
  * @property {string} createdBy who wrote it (a name, or the identity's DID)
  */
@@ -84,9 +187,10 @@ export function eigenbelegDraft(tx) {
  * @param {string} params.issuer
  * @param {string} params.createdBy
  * @param {Date} params.now
+ * @param {Books} [params.books] for a wallet booking: its transaction in full
  * @returns {EigenbelegDocument}
  */
-export function eigenbelegDocument({ tx, account, input, number, issuer, createdBy, now }) {
+export function eigenbelegDocument({ tx, account, input, number, issuer, createdBy, now, books }) {
 	const v = tx.valuation;
 	return {
 		number,
@@ -110,6 +214,7 @@ export function eigenbelegDocument({ tx, account, input, number, issuer, created
 						at: String(v.at ?? '')
 					}
 				: null,
+		chain: chainDetails(tx, books),
 		createdAt: now.toISOString(),
 		createdBy
 	};
@@ -127,6 +232,7 @@ export function eigenbelegDocument({ tx, account, input, number, issuer, created
  * @param {string} [params.issuer] our company's name
  * @param {string} [params.createdBy]
  * @param {() => Date} [params.now]
+ * @param {Books} [params.books] accounts, partners and bookings, for a wallet booking in full
  * @returns {Promise<{ receipt: StoredRecord, number: string }>}
  */
 export async function createEigenbeleg({
@@ -137,7 +243,8 @@ export async function createEigenbeleg({
 	input,
 	issuer = '',
 	createdBy = '',
-	now = () => new Date()
+	now = () => new Date(),
+	books = {}
 }) {
 	if (!input.description.trim())
 		throw new Error('Was wurde bezahlt? Das gehört auf den Eigenbeleg.');
@@ -148,7 +255,16 @@ export async function createEigenbeleg({
 
 	const created = now();
 	const number = nextSelfNumber(all, String(tx.bookedOn).slice(0, 4));
-	const doc = eigenbelegDocument({ tx, account, input, number, issuer, createdBy, now: created });
+	const doc = eigenbelegDocument({
+		tx,
+		account,
+		input,
+		number,
+		issuer,
+		createdBy,
+		now: created,
+		books
+	});
 	const { eigenbelegPdf } = await import('./eigenbeleg-pdf.js');
 	const bytes = await eigenbelegPdf(doc);
 
