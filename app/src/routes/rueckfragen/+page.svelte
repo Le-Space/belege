@@ -4,7 +4,8 @@
 	import { resolve } from '$app/paths';
 	import { addressBook, payeeName } from '$lib/bank/payee.js';
 	import { app, currentStore, runMatchingNow } from '$lib/session.svelte.js';
-	import { answerQuestion } from '$lib/matching/actions.js';
+	import { answerQuestion, linkTransfer } from '$lib/matching/actions.js';
+	import { loadTransferFirst, saveTransferFirst } from '$lib/jobs/workers.js';
 	import { displayPurpose, formatDate, formatMoney } from '$lib/bank/format.js';
 	import { receiptDate, receiptVendor } from '$lib/receipts/view.js';
 	import { t } from '$lib/i18n/index.js';
@@ -18,7 +19,8 @@
 		aiRun,
 		cancelSuggestAll,
 		dismissSuggestion,
-		suggestAll
+		suggestAll,
+		transferAsks
 	} from '$lib/matching/ai-suggest.svelte.js';
 	import { booksByYear, shownYear } from '$lib/year/year.svelte.js';
 
@@ -39,10 +41,13 @@
 	// A payment's name, never a bare dash (bank/payee.js).
 	let book = $derived(addressBook(app));
 
-	/** @type {{ matchAssist: (body: any) => Promise<any> } | null} */
+	/** @type {{ matchAssist: (body: any) => Promise<any>, transferAssist: (body: any) => Promise<any> } | null} */
 	let client = $state(null);
+	/** "Zuerst prüfen, ob es eine eigene Umbuchung ist" (issue #109), kept in the settings. */
+	let transferFirst = $state(false);
 	onMount(async () => {
 		const store = currentStore();
+		if (store) transferFirst = await loadTransferFirst(store.settings);
 		const saved = store ? await getSetting(store.settings, 'bridge') : null;
 		if (!saved?.token) return;
 		const { createBridgeClient } = await import('$lib/bridge/client.js');
@@ -51,7 +56,31 @@
 
 	// "✦ KI-Vorschläge für alle offenen Rückfragen" (matching/ai-suggest.svelte.js).
 	let eligible = $derived(aiEligible(questions));
-	let estimate = $derived(aiEstimate(app.events, eligible.length));
+	let extraAsks = $derived(transferFirst ? transferAsks(eligible, app.transactions) : 0);
+	let estimate = $derived(aiEstimate(app.events, eligible.length + extraAsks));
+
+	/** @param {boolean} on */
+	async function setTransferFirst(on) {
+		transferFirst = on;
+		const store = currentStore();
+		if (store) await saveTransferFirst(store.settings, on);
+	}
+
+	/** "Als Gegenbuchung verknüpfen" from a suggestion. @param {Record<string, any>} q */
+	async function takeTransfer(q) {
+		const store = currentStore();
+		if (!store) return;
+		busy = q.id;
+		error = null;
+		try {
+			await linkTransfer(/** @type {any} */ (store), q.transactionId, q.aiSuggestion.transactionId);
+			await runMatchingNow();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			busy = null;
+		}
+	}
 	let aiAsk = $state(false);
 	/** Suggestions a person may take all at once: the model was sure, and not dismissed. */
 	let sureOnes = $derived(
@@ -70,7 +99,12 @@
 		aiAsk = false;
 		const c = client;
 		await suggestAll(
-			{ client: c, store: () => /** @type {any} */ (currentStore()), refresh: refreshNow },
+			{
+				client: c,
+				store: () => /** @type {any} */ (currentStore()),
+				refresh: refreshNow,
+				transferFirst
+			},
 			eligible.map((q) => q.id)
 		);
 		await refreshNow();
@@ -227,6 +261,23 @@
 						? t('rueckfragen.ai.tokens', { tokens: estimate.tokens.toLocaleString('de-DE') })
 						: t('rueckfragen.ai.tokensUnknown')}
 				</p>
+				<label class="mt-2 flex items-start gap-2">
+					<input
+						type="checkbox"
+						class="mt-0.5"
+						checked={transferFirst}
+						onchange={(e) => setTransferFirst(e.currentTarget.checked)}
+						data-testid="ai-all-transfer-first"
+					/>
+					<span>
+						{t('rueckfragen.ai.transferFirst')}
+						{#if transferFirst}
+							<span class="block text-xs text-faint" data-testid="ai-all-transfer-what"
+								>{t('rueckfragen.ai.transferFirstWhat', { count: extraAsks })}</span
+							>
+						{/if}
+					</span>
+				</label>
 				<p class="mt-1 text-xs text-faint">{t('rueckfragen.ai.only')}</p>
 				<div class="mt-2 flex gap-3">
 					<button type="button" class={primary} onclick={startAi} data-testid="ai-all-start"
@@ -268,7 +319,44 @@
 			<p class="text-sm text-faint">{txLine(x)}</p>
 		{/if}
 
-		{#if q.aiSuggestion && !q.aiSuggestion.dismissed}
+		{#if q.aiSuggestion?.kind === 'transfer' && !q.aiSuggestion.dismissed}
+			{@const other = txById.get(q.aiSuggestion.transactionId)}
+			<div
+				class="mt-3 rounded-md border border-cyan-500 px-3 py-2 text-sm"
+				data-testid="ai-suggestion"
+				data-kind="transfer"
+				data-confidence={q.aiSuggestion.confidence ?? 'none'}
+			>
+				<p class="flex items-center gap-1 text-xs font-medium text-cyan-800 dark:text-cyan-200">
+					<AiMark />{t('rueckfragen.ai.transferPick', {
+						confidence: t(`zahlungen.detail.aiConfidence.${q.aiSuggestion.confidence}`),
+						reason: q.aiSuggestion.reason || '—'
+					})}
+				</p>
+				{#if other}
+					<p class="mt-1 font-medium text-heading">{payeeName(other, book).name}</p>
+					<p class="text-xs text-faint">{txLine(other)}</p>
+				{/if}
+				<div class="mt-2 flex flex-wrap gap-2">
+					{#if other}
+						<button
+							type="button"
+							class={primary}
+							disabled={busy !== null}
+							onclick={() => takeTransfer(q)}
+							data-testid="ai-suggestion-take-transfer">{t('rueckfragen.ai.transferTake')}</button
+						>
+					{/if}
+					<button
+						type="button"
+						class={button}
+						disabled={busy !== null}
+						onclick={() => dismiss(q.id)}
+						data-testid="ai-suggestion-dismiss">{t('rueckfragen.ai.dismiss')}</button
+					>
+				</div>
+			</div>
+		{:else if q.aiSuggestion && !q.aiSuggestion.dismissed}
 			{@const pick = q.aiSuggestion.receiptId
 				? receiptById.get(q.aiSuggestion.receiptId)
 				: undefined}

@@ -804,7 +804,12 @@ export default {
 			nonePick: 'KI-Vorschlag: Keiner der Belege passt.',
 			take: 'Übernehmen',
 			dismiss: 'Verwerfen',
-			takeSure: 'Alle sicheren Vorschläge übernehmen ({count})'
+			takeSure: 'Alle sicheren Vorschläge übernehmen ({count})',
+			transferFirst: 'Zuerst prüfen, ob es eine eigene Umbuchung ist',
+			transferFirstWhat:
+				'Bei {count} dieser Zahlungen gibt es auf einem anderen eigenen Konto eine Gegenbuchung mit ähnlichem Betrag: Für sie fragt die Bridge vorher, ob eine davon die andere Seite ist – je eine Anfrage mehr. Findet das Modell eine, wird kein Beleg gesucht.',
+			transferPick: 'KI-Vorschlag ({confidence}): eigene Umbuchung – {reason}',
+			transferTake: 'Als Gegenbuchung verknüpfen'
 		},
 		title: 'Rückfragen',
 		intro:
