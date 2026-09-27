@@ -7,6 +7,7 @@
 // browser. A mail without a file sends its text excerpt. Images have no text
 // layer and no OCR yet: they are marked, not sent.
 
+import { eventCalls } from '../stats/usage.js';
 import { recordEvent, tokenCount } from '../activity/events.js';
 import { needsConfirmation } from './import.js';
 
@@ -198,6 +199,12 @@ export async function extractReceipt({
 		ms: info.ms,
 		tokens: info.usage,
 		tokensTotal: info.tokensTotal,
+		// Each attempt with its model and tokens: the cost (stats/usage.js).
+		calls: eventCalls(
+			Array.isArray(result.attempts) && result.attempts.some((/** @type {any} */ a) => a?.usage)
+				? result.attempts
+				: [{ model: result.model, usage: result.usage }]
+		),
 		redactions: info.redactions
 	});
 	return updated;

@@ -151,7 +151,8 @@ describe('/extract', () => {
 		assert.deepEqual(res.json.usage, {
 			prompt: res.json.usage.prompt,
 			completion: 321,
-			reasoning: 200
+			reasoning: 200,
+			cached: Math.min(64, res.json.usage.prompt)
 		});
 		assert.equal(res.json.attempts.length, 1);
 		assert.equal(res.json.attempts[0].ms >= 0, true);

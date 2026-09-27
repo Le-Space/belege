@@ -2,13 +2,31 @@
 	import { resolve } from '$app/paths';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
 	import { list, t } from '$lib/i18n/index.js';
-	import { app, runMatchingNow } from '$lib/session.svelte.js';
+	import { app, currentStore, runMatchingNow } from '$lib/session.svelte.js';
+	import { onMount } from 'svelte';
+	import { getSetting } from '$lib/store/settings.js';
+	import { DEFAULT_PRICES, aiUsage, cleanPrices, periods } from '$lib/stats/usage.js';
 	import { isTxCovered, questionProgress } from '$lib/matching/view.js';
 
 	const hour = new Date().getHours();
 	const greeting = t(hour < 11 ? 'home.morning' : hour < 18 ? 'home.day' : 'home.evening');
 
 	const card = 'rounded-lg border border-border bg-surface px-5 py-4 shadow-sm';
+
+	// Speicher und KI (stats/usage.js): two numbers here, the rest on /statistik.
+	/** @type {number | null} */
+	let storageUsed = $state(null);
+	/** @type {import('$lib/stats/usage.js').PriceTable} */
+	let homePrices = $state(DEFAULT_PRICES);
+	onMount(async () => {
+		try {
+			storageUsed = (await navigator.storage.estimate()).usage ?? null;
+		} catch {
+			storageUsed = null;
+		}
+		const store = currentStore();
+		if (store) homePrices = cleanPrices(await getSetting(store.settings, 'aiPrices'));
+	});
 
 	let progress = $derived(questionProgress(app.questions));
 	let covered = $derived(app.transactions.filter((tx) => isTxCovered(tx, app.classifications)));
@@ -159,6 +177,27 @@
 		</dd>
 	</div>
 </dl>
+
+<a
+	href={resolve('/statistik')}
+	class="mt-4 flex flex-wrap items-center justify-between gap-2 {card} no-underline hover:border-cyan-800"
+	data-testid="home-stats"
+>
+	<span class="text-sm font-medium text-faint">{t('statistik.home')}</span>
+	<span class="text-sm text-heading tabular-nums" data-testid="home-stats-line"
+		>{t('statistik.homeLine', {
+			storage:
+				storageUsed === null
+					? '—'
+					: `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 }).format(storageUsed / 1e6)} MB`,
+			cost: new Intl.NumberFormat('de-DE', {
+				style: 'currency',
+				currency: homePrices.currency,
+				maximumFractionDigits: 2
+			}).format(aiUsage(app.events, periods(new Date()).month, homePrices).cost)
+		})}</span
+	>
+</a>
 
 {#if app.did}
 	<section class="mt-6 {card}" data-testid="home-identity">
