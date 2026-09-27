@@ -11,8 +11,10 @@ import {
 	aiRun,
 	cancelSuggestAll,
 	dismissSuggestion,
-	suggestAll
+	suggestAll,
+	transferAsks
 } from './ai-suggest.svelte.js';
+import { saveTransferFirst } from '../jobs/workers.js';
 
 /** @type {any} */
 let store;
@@ -163,5 +165,107 @@ describe('KI-Vorschläge for all open questions', () => {
 		const q = await store.questions.get(q1.id);
 		expect(q.aiSuggestion.dismissed).toBe(true);
 		expect(q.state).toBe('open');
+	});
+});
+
+describe('"own transfer?" before the receipt (issue #109)', () => {
+	/** The bridge's transfer suggestion: picks the first candidate, or none. @param {{ none?: boolean }} [opts] */
+	function transferBridge({ none = false } = {}) {
+		const receipts = bridge();
+		/** @type {any[]} */
+		const transfers = [];
+		return {
+			receipts,
+			transfers,
+			matchAssist: receipts.matchAssist,
+			transferAssist: async (/** @type {any} */ body) => {
+				transfers.push(body);
+				return {
+					pick: none
+						? null
+						: {
+								id: body.candidates[0].id,
+								confidence: 'medium',
+								reason: 'Betrag abzüglich Gebühr'
+							},
+					llm: {
+						calls: [{ model: 'fake', ms: 5, usage: { prompt: 500, completion: 50 } }],
+						sent: []
+					}
+				};
+			}
+		};
+	}
+
+	/** An exchange payout that came in on the bank account, 2 % less for fees. */
+	async function withPayout() {
+		const seeded = await seed();
+		const payout = await add(
+			'transactions',
+			tx({
+				accountId: 'ACC-KRAKEN',
+				source: 'kraken',
+				bookedOn: '2026-08-19',
+				amountCents: 1960,
+				counterparty: 'Kraken'
+			})
+		);
+		return { ...seeded, payout };
+	}
+
+	it('with a close other side, the transfer is suggested and no receipt is asked for', async () => {
+		const { q1, q2, payout } = await withPayout();
+		const b = transferBridge();
+		// Only the Wolkenfabrik booking (19.99) has an other side within 15 %.
+		expect(
+			transferAsks(aiEligible(await store.questions.list()), await store.transactions.list())
+		).toBe(1);
+		await suggestAll({ client: b, store: () => store, transferFirst: true }, [q1.id, q2.id]);
+		expect(b.transfers).toHaveLength(1);
+		// Sent redacted, as the single suggestion sends it.
+		expect(b.transfers[0].booking).toMatchObject({
+			direction: 'out',
+			amount: '-19,99',
+			account: 'Bankkonto'
+		});
+		expect(b.transfers[0].candidates).toEqual([
+			expect.objectContaining({ id: payout.id, direction: 'in', account: 'Börse Kraken' })
+		]);
+		expect((await store.questions.get(q1.id)).aiSuggestion).toMatchObject({
+			kind: 'transfer',
+			transactionId: payout.id,
+			receiptId: null,
+			confidence: 'medium'
+		});
+		// q1 was not asked for a receipt; q2 (nothing close) was.
+		expect(b.receipts.asked).toHaveLength(1);
+		expect((await store.questions.get(q2.id)).aiSuggestion.kind).toBeUndefined();
+		const events = await store.events.list();
+		expect(
+			events.filter((/** @type {any} */ e) => e.kind === 'transfer-assist' && e.batch)
+		).toHaveLength(1);
+		// Nothing linked by the model.
+		expect(await store.matches.list()).toEqual([]);
+	});
+
+	it('no other side named: the receipt question follows as before', async () => {
+		const { q1 } = await withPayout();
+		const b = transferBridge({ none: true });
+		await suggestAll({ client: b, store: () => store, transferFirst: true }, [q1.id]);
+		expect(b.transfers).toHaveLength(1);
+		expect(b.receipts.asked).toHaveLength(1);
+		expect((await store.questions.get(q1.id)).aiSuggestion).toMatchObject({ confidence: 'high' });
+	});
+
+	it('off by default: the setting decides, and no transfer request is sent', async () => {
+		const { q1 } = await withPayout();
+		const b = transferBridge();
+		await suggestAll({ client: b, store: () => store }, [q1.id]);
+		expect(b.transfers).toHaveLength(0);
+		await saveTransferFirst(store.settings, true);
+		const q = await store.questions.get(q1.id);
+		await store.questions.put({ ...q, aiSuggestion: null });
+		await suggestAll({ client: b, store: () => store }, [q1.id]);
+		expect(b.transfers).toHaveLength(1);
 	});
 });

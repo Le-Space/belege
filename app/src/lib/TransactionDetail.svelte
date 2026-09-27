@@ -14,6 +14,7 @@
 	import BookingBlock from './BookingBlock.svelte';
 	import TechnicalNote from './TechnicalNote.svelte';
 	import CopyButton from './CopyButton.svelte';
+	import { transferFields } from './matching/transfer-fields.js';
 	import AiMark from './AiMark.svelte';
 	import { recordEvent } from './activity/events.js';
 	import NewPortal from './portals/NewPortal.svelte';
@@ -53,7 +54,6 @@
 	import { isBookingConfirmed } from './booking/suggest.js';
 	import { quantityText, valuationText } from './assets/valuation.js';
 	import { safeExplorerUrl, walletChain } from './wallets/chains.js';
-	import { formatQuantity } from './assets/quantity.js';
 	import { renderSVG } from 'uqr';
 	import { addressBook, payeeName, shortAddress, walletParties } from './bank/payee.js';
 	import { eventCalls } from './stats/usage.js';
@@ -628,34 +628,6 @@
 				})
 			: []
 	);
-
-	/**
-	 * A booking as the transfer suggestion sends it: no address, no IBAN, no hash
-	 * (the bridge cuts them again and redacts).
-	 *
-	 * @param {Record<string, any>} b
-	 */
-	function transferFields(b) {
-		const chain = walletChain(b.source);
-		const q = typeof b.quantity === 'string' && /^-?\d+$/.test(b.quantity) ? b.quantity : null;
-		return {
-			direction: /** @type {'in' | 'out'} */ (
-				(b.amountCents ?? 0) > 0 || (q && !q.startsWith('-')) ? 'in' : 'out'
-			),
-			amount: formatMoney(b.amountCents ?? 0, b.currency).replace(/\s*EUR$/, ''),
-			...(q && b.asset && Number.isInteger(b.decimals)
-				? { quantity: formatQuantity(q, b.decimals), asset: String(b.asset) }
-				: {}),
-			day: String(b.bookedOn ?? ''),
-			account: chain
-				? `Wallet ${chain.name}`
-				: b.source === 'kraken'
-					? 'Börse Kraken'
-					: 'Bankkonto',
-			counterparty: String(b.counterparty ?? '').slice(0, 200),
-			purpose: String(b.purpose ?? '').slice(0, 500)
-		};
-	}
 
 	async function suggestTransferByAi() {
 		if (!client || !tx || !linkChoices.length) return;
