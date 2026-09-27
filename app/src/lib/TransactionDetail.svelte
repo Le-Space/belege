@@ -44,7 +44,8 @@
 		formatBookingTime,
 		formatDate,
 		formatMoney,
-		formatTxAmount
+		formatTxAmount,
+		txDirection
 	} from './bank/format.js';
 	import { tradeArrow, tradeSides, tradeSideWhat } from './exchanges/trades.js';
 	import { acknowledgeImportChange } from './booking/actions.js';
@@ -968,8 +969,9 @@
 				</div>
 				<div class="flex shrink-0 items-start gap-3">
 					<p
-						class="font-mono text-2xl font-semibold whitespace-nowrap tabular-nums {(tx.amountCents ??
-							0) < 0
+						class="font-mono text-2xl font-semibold whitespace-nowrap tabular-nums {txDirection(
+							tx
+						) < 0
 							? 'text-red-700 dark:text-red-400'
 							: 'text-emerald-700 dark:text-emerald-400'}"
 						data-testid="tx-detail-amount"

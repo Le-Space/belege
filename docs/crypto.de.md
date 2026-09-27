@@ -100,6 +100,20 @@ Tokens, die von einer Börse auf eine eigene Wallet gehen, gehören weiter der F
 
 **Was der Knoten sieht**: die Adresse und die IP-Adresse des Macs, nur bei _Synchronisieren_ (Einwilligung, _Blockchain-Abfrage_); Alchemy ordnet die Abfragen zudem dem Alchemy-Konto zu, dessen Schlüssel es ist. Das Protokoll der Bridge nennt Zahlen, nie eine Adresse oder einen Betrag.
 
+**Über Chains hinweg** (Issue #98): Jede Seite hat eine eigene Transaktion mit eigenem Hash, der gemeinsame Hash paart sie also nicht.
+
+- Ein **IBC-Transfer** nennt seinen Empfänger auf der anderen Chain. Der Empfänger wird unter den eigenen Wallets dieser Chain gesucht, erkannt am bech32-Präfix der Adresse. Ist er deiner, ist der Transfer eine eigene Umbuchung (1360). Die Tokens kommen dort meist als `ibc/…`-Gutschein an, der nicht gebucht wird.
+- Eine **Bridge** zwischen eigenen EVM-Wallets wird nur gepaart, wenn alles davon zutrifft:
+  - der Eingang ist eine interne Transaktion (vom Bridge-Vertrag);
+  - der Ausgang liegt auf einer anderen Chain und betrifft dieselbe Kryptowährung;
+  - der Eingang kommt 0 bis 8 Tage nach dem Ausgang (eine L2 → L1-Auszahlung dauert 7);
+  - die empfangene Menge ist höchstens die gesendete und mindestens 97 % davon;
+  - jede Seite hat nur die andere.
+
+  Sonst bleibt es eine Rückfrage. _Keine Umbuchung_ hält ein Paar auseinander. Das Paar erscheint unter _Gehört zusammen mit_ als _Umbuchung · über Bridge_.
+
+Eine Netzwerkgebühr teilt den Hash ihrer Buchung und erscheint als _Gebühr dazu_. Das erklärt die Gebühr, nicht, woher die Coins der Buchung kamen oder wohin sie gingen.
+
 ### Alchemy
 
 Mit einem Alchemy-API-Schlüssel (`pnpm setup:alchemy`: verdeckte Eingabe, `eth_chainId` auf jedem Netz als Prüfung, macOS-Schlüsselbund, Dienst `belege-bridge`, Konto `alchemy`; Enter behält ihn, `-` löscht ihn) liest die Bridge EVM-Wallets bei `https://<netz>.g.alchemy.com/v2/<schlüssel>` – `eth-mainnet`, `base-mainnet`, `arb-mainnet`, `opt-mainnet`, `polygon-mainnet` – statt bei Blockscout. Der Schlüssel wird bei jedem Abruf aus dem Schlüsselbund gelesen (kein Neustart), steht nur in der Adresse der Anfragen an Alchemy und nie in einer Protokollzeile, einer Fehlermeldung, einer Antwort oder der App; `GET /chains` sagt `alchemy: true` oder `false`. Eine Wallet mit eigenem `api`-Endpunkt wird dort gelesen, nie über Alchemy. _Integrationen → Eigene Wallets_ sagt, welche Quelle gilt, und ohne Schlüssel, wie man einen einrichtet.

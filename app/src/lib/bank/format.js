@@ -57,6 +57,20 @@ export function formatTxAmount(tx) {
 	return formatMoney(cents, tx.currency);
 }
 
+/**
+ * Which way a booking goes: -1, 0 or 1. A crypto amount below a cent is 0
+ * euro cents, so its quantity says it (a network fee is out, not in).
+ *
+ * @param {Record<string, any>} tx
+ */
+export function txDirection(tx) {
+	const cents = Number(tx.amountCents ?? 0);
+	if (cents) return Math.sign(cents);
+	const q =
+		typeof tx.quantity === 'string' && /^-?\d+$/.test(tx.quantity) ? BigInt(tx.quantity) : 0n;
+	return q > 0n ? 1 : q < 0n ? -1 : 0;
+}
+
 const BERLIN_TIME = new Intl.DateTimeFormat('de-DE', {
 	hour: '2-digit',
 	minute: '2-digit',

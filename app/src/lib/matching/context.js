@@ -15,6 +15,10 @@ import { LOOKALIKE_CHARS, addressBody, isDust, looksAlike } from './dust.js';
 
 /** A transfer between our accounts lands within this many days on the other side. */
 export const MIRROR_DAYS = 4;
+/** A bridge delivers within this many days of the sending (an L2 → L1 withdrawal takes 7). */
+export const BRIDGE_DAYS = 8;
+/** What a bridge may keep as its fee: the received quantity is at least 97 % of the sent. */
+export const BRIDGE_KEEPS_PERCENT = 3;
 
 /**
  * A reference as compared: case does not matter, a leading `0x` neither
@@ -152,7 +156,63 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 		for (const ref of txRefsOf(tx)) byRef.set(ref, [...(byRef.get(ref) ?? []), tx]);
 	}
 
+	// Bridges (issue #98): coins sent from one own wallet arrive on another
+	// chain as an internal transfer from the bridge contract – another hash,
+	// another sender, a euro value that differs. Paired by what is the same:
+	// the asset, the quantity less the bridge's fee, and a few days.
+	const walletMoves = transactions.filter(
+		(t) =>
+			!t.deleted &&
+			walletChain(t.source) &&
+			t.movement === 'transfer' &&
+			t.asset &&
+			typeof t.quantity === 'string' &&
+			/^-?\d+$/.test(t.quantity) &&
+			t.quantity !== '0' &&
+			t.quantity !== '-0'
+	);
+	const walletMoveIds = new Set(walletMoves.map((t) => String(t.id)));
+	/** @param {Record<string, any>} t */
+	const isInternal = (t) => String(t.sourceId ?? '').includes(':internal:');
+	/** @param {Record<string, any>} t @returns {Record<string, any>[]} */
+	const bridgeSides = (t) => {
+		if (!walletMoveIds.has(String(t.id))) return [];
+		const q = BigInt(t.quantity);
+		const incoming = q > 0n;
+		if (incoming && !isInternal(t)) return [];
+		const day = dayNumber(t.bookedOn);
+		if (day === null) return [];
+		return walletMoves.filter((o) => {
+			if (o.source === t.source || o.asset !== t.asset || o.accountId === t.accountId) return false;
+			const oq = BigInt(o.quantity);
+			if (incoming ? oq >= 0n : oq <= 0n || !isInternal(o)) return false;
+			const sent = incoming ? -oq : -q;
+			const received = incoming ? q : oq;
+			const d = dayNumber(o.bookedOn);
+			if (d === null) return false;
+			const late = incoming ? day - d : d - day;
+			return (
+				late >= 0 &&
+				late <= BRIDGE_DAYS &&
+				received <= sent &&
+				received * 100n >= sent * BigInt(100 - BRIDGE_KEEPS_PERCENT)
+			);
+		});
+	};
+
 	return {
+		/**
+		 * The other side of a bridge transfer on another own wallet: each side
+		 * has only the other, or none is taken.
+		 *
+		 * @param {Record<string, any>} tx
+		 */
+		bridgeCounterparts(tx) {
+			return bridgeSides(tx).filter((o) => {
+				const back = bridgeSides(o);
+				return back.length === 1 && back[0].id === tx.id;
+			});
+		},
 		companyNames: clean.companyNames,
 		sameReference(tx) {
 			if (tx.movement === 'fee' || !tx.amountCents) return [];

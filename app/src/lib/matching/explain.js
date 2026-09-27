@@ -173,6 +173,20 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 					sign: c.sign ?? ''
 				});
 			}
+			if (c.via === 'bridge') {
+				const other = accounts.find((a) => a.id === c.counterAccountId);
+				return t('explain.rule.ownBridge', {
+					account: other ? accountLabel(other) : t('explain.rule.otherAccount'),
+					date: c.counterDay ? formatDate(c.counterDay) : '?'
+				});
+			}
+			if (c.via === 'own-address' && c.chain) {
+				const other = accounts.find((a) => a.id === c.counterAccountId);
+				return t('explain.rule.ownIbc', {
+					address: shortAddress(c.address ?? ''),
+					account: other ? accountLabel(other) : t('explain.rule.otherAccount')
+				});
+			}
 			if (c.via === 'own-address') {
 				const other = accounts.find((a) => a.id === c.counterAccountId);
 				return t('explain.rule.ownAddress', {

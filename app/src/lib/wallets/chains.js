@@ -109,6 +109,20 @@ export function looksLikeAddress(chain, address) {
 	return new RegExp(`^${prefix}1[02-9ac-hj-np-z]{38,58}$`).test(a);
 }
 
+/**
+ * The Cosmos chain an address belongs to, by its bech32 prefix: an IBC
+ * transfer names its receiver on the other chain. Null when none in the list.
+ *
+ * @param {string} address
+ * @returns {WalletChain | null}
+ */
+export function cosmosChainOf(address) {
+	return (
+		Object.values(WALLET_CHAINS).find((c) => c.kind === 'cosmos' && looksLikeAddress(c, address)) ??
+		null
+	);
+}
+
 /** The last six characters, for names: `···trw6d0y`. @param {string} address */
 export const addressTail = (address) => String(address ?? '').slice(-6);
 
