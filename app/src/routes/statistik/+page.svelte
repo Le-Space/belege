@@ -144,7 +144,12 @@
 		'partners',
 		'accounts'
 	]);
-	const KINDS = /** @type {const} */ (['extract', 'match-assist', 'mail-assist']);
+	const KINDS = /** @type {const} */ ([
+		'extract',
+		'match-assist',
+		'transfer-assist',
+		'mail-assist'
+	]);
 </script>
 
 <div class="flex flex-wrap items-center justify-between gap-3">

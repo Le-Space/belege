@@ -153,6 +153,23 @@ export function describeEvent(e, { receipts = [], transactions = [] } = {}) {
 							})
 						: '')
 			};
+		case 'transfer-assist':
+			return {
+				...base,
+				title: t('verlauf.kind.transfer-assist'),
+				text:
+					t('verlauf.text.transferAssist', {
+						model: e.model ?? '?',
+						candidates: e.candidates ?? 0,
+						seconds: typeof e.ms === 'number' ? seconds(e.ms) : '?',
+						tokens: integer(e.tokensTotal ?? 0)
+					}) +
+					(e.pick
+						? t('verlauf.text.mailAssistPick', {
+								confidence: t(`zahlungen.detail.aiConfidence.${e.pick}`)
+							})
+						: '')
+			};
 		case 'matching': {
 			const pairs = Array.isArray(e.pairs) ? e.pairs : [];
 			const named = pairs.flatMap((/** @type {Rec} */ p) => {

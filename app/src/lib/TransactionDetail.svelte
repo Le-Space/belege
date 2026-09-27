@@ -52,6 +52,7 @@
 	import { isBookingConfirmed } from './booking/suggest.js';
 	import { quantityText, valuationText } from './assets/valuation.js';
 	import { safeExplorerUrl, walletChain } from './wallets/chains.js';
+	import { formatQuantity } from './assets/quantity.js';
 	import { eventCalls } from './stats/usage.js';
 	import { relatedIndex } from './matching/related.js';
 	import { scamContext, scamSigns } from './receipts/scam.js';
@@ -119,6 +120,9 @@
 	// "Als Gegenbuchung verknüpfen …" (issue #98): the other side of an own transfer, by hand.
 	let linkOpen = $state(false);
 	let linkQuery = $state('');
+	/** @type {{ pick: { id: string, confidence: string, reason: string } | null } | null} */
+	let linkAi = $state(null);
+	let linkAsking = $state(false);
 	let othersOpen = $state(false);
 	/** @param {string} id */
 	const scrollToPart = (id) =>
@@ -599,12 +603,73 @@
 		linkOpen && tx ? transferCandidates(tx, app.transactions, { query: linkQuery }) : []
 	);
 
+	/**
+	 * A booking as the transfer suggestion sends it: no address, no IBAN, no hash
+	 * (the bridge cuts them again and redacts).
+	 *
+	 * @param {Record<string, any>} b
+	 */
+	function transferFields(b) {
+		const chain = walletChain(b.source);
+		const q = typeof b.quantity === 'string' && /^-?\d+$/.test(b.quantity) ? b.quantity : null;
+		return {
+			direction: /** @type {'in' | 'out'} */ (
+				(b.amountCents ?? 0) > 0 || (q && !q.startsWith('-')) ? 'in' : 'out'
+			),
+			amount: formatMoney(b.amountCents ?? 0, b.currency).replace(/\s*EUR$/, ''),
+			...(q && b.asset && Number.isInteger(b.decimals)
+				? { quantity: formatQuantity(q, b.decimals), asset: String(b.asset) }
+				: {}),
+			day: String(b.bookedOn ?? ''),
+			account: chain
+				? `Wallet ${chain.name}`
+				: b.source === 'kraken'
+					? 'Börse Kraken'
+					: 'Bankkonto',
+			counterparty: String(b.counterparty ?? '').slice(0, 200),
+			purpose: String(b.purpose ?? '').slice(0, 500)
+		};
+	}
+
+	async function suggestTransferByAi() {
+		if (!client || !tx || !linkChoices.length) return;
+		linkAsking = true;
+		error = null;
+		linkAi = null;
+		try {
+			const candidates = linkChoices.map((o) => ({ id: String(o.id), ...transferFields(o) }));
+			const r = await client.transferAssist({ booking: transferFields(tx), candidates });
+			linkAi = { pick: r.pick };
+			await recordEvent(currentStore()?.events, 'transfer-assist', {
+				transactionId: tx.id,
+				candidates: candidates.length,
+				pick: r.pick?.confidence ?? null,
+				model: r.llm.calls.at(-1)?.model ?? null,
+				calls: eventCalls(r.llm.calls),
+				ms: r.llm.calls.reduce((n, c) => n + (c.ms ?? 0), 0),
+				tokensTotal: r.llm.calls.reduce(
+					(n, c) => n + (c.usage?.prompt ?? 0) + (c.usage?.completion ?? 0),
+					0
+				)
+			});
+		} catch (e) {
+			error = message(e);
+		} finally {
+			linkAsking = false;
+		}
+	}
+	let linkAiRow = $derived.by(() => {
+		const id = /** @type {any} */ (linkAi)?.pick?.id;
+		return id ? (linkChoices.find((o) => String(o.id) === id) ?? null) : null;
+	});
+
 	/** @param {string} otherId */
 	const linkOther = (otherId) =>
 		act(async () => {
 			await linkTransfer(/** @type {any} */ (currentStore()), txId, otherId);
 			linkOpen = false;
 			linkQuery = '';
+			linkAi = null;
 			altOpen = false;
 			await runMatchingNow();
 		});
@@ -1484,6 +1549,61 @@
 										autocomplete="off"
 										data-testid="tx-link-transfer-query"
 									/>
+									{#if client && linkChoices.length}
+										<button
+											type="button"
+											class="mt-2 {button}"
+											onclick={suggestTransferByAi}
+											disabled={busy || linkAsking}
+											title={t('zahlungen.detail.linkTransferAiTitle')}
+											data-testid="tx-link-transfer-ai"
+											><AiMark />{t('zahlungen.detail.linkTransferAi')}</button
+										>
+									{/if}
+									{#if linkAi}
+										<div
+											class="mt-2 rounded-md border border-cyan-800/40 bg-surface px-3 py-2 text-sm dark:border-cyan/40"
+											role="status"
+											data-testid="tx-link-transfer-ai-result"
+										>
+											{#if linkAi.pick && linkAiRow}
+												<p class="text-heading">
+													<AiMark />{t('zahlungen.detail.linkTransferAiPick', {
+														confidence: t(
+															`zahlungen.detail.aiConfidence.${linkAi.pick.confidence}`
+														),
+														reason: linkAi.pick.reason || '—'
+													})}
+												</p>
+												<p class="mt-1 text-faint">
+													{linkAiRow.counterparty || linkAiRow.bookingType || '—'} · {relatedAccount(
+														linkAiRow
+													)} · {formatTxAmount(linkAiRow)} · {formatDate(linkAiRow.bookedOn)}
+												</p>
+												<div class="mt-2 flex gap-2">
+													<button
+														type="button"
+														class={primary}
+														onclick={() => linkAiRow && linkOther(String(linkAiRow.id))}
+														disabled={busy}
+														data-testid="tx-link-transfer-ai-take"
+														>{t('zahlungen.detail.linkTransferAiTake')}</button
+													>
+													<button
+														type="button"
+														class={button}
+														onclick={() => (linkAi = null)}
+														data-testid="tx-link-transfer-ai-dismiss"
+														>{t('zahlungen.detail.linkTransferAiDismiss')}</button
+													>
+												</div>
+											{:else}
+												<p class="text-text">
+													<AiMark />{t('zahlungen.detail.linkTransferAiNone')}
+												</p>
+											{/if}
+										</div>
+									{/if}
 									{#if linkChoices.length}
 										<ul class="mt-2 divide-y divide-border text-sm">
 											{#each linkChoices as other (other.id)}
