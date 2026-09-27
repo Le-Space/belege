@@ -8,6 +8,7 @@
 	// portal ("Beim Anbieter holen": a portal whose name fits
 	// the counterparty, else "Neues Portal aufzeichnen" for it). A fetched
 	// invoice that fits this booking is offered for it, as the person's decision.
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import ReceiptPreview from './ReceiptPreview.svelte';
 	import BookingBlock from './BookingBlock.svelte';
@@ -48,8 +49,8 @@
 	import { acknowledgeImportChange } from './booking/actions.js';
 	import { isBookingConfirmed } from './booking/suggest.js';
 	import { quantityText, valuationText } from './assets/valuation.js';
-	import { txRefsOf } from './matching/context.js';
 	import { safeExplorerUrl, walletChain } from './wallets/chains.js';
+	import { relatedIndex } from './matching/related.js';
 	import { scamContext, scamSigns } from './receipts/scam.js';
 	import { receiptDate, receiptVendor } from './receipts/view.js';
 	import { importMailMessages, needsConfirmation } from './receipts/import.js';
@@ -96,17 +97,6 @@
 	/** @param {string} id */
 	const receiptById = (id) => app.receipts.find((r) => r.id === id) ?? null;
 	let account = $derived(tx ? (app.accounts.find((a) => a.id === tx.accountId) ?? null) : null);
-	// The other bookings of one trade or transfer: same reference or hash (#52).
-	let related = $derived.by(() => {
-		if (!tx) return [];
-		const refs = new Set(txRefsOf(tx));
-		if (!refs.size) return [];
-		return app.transactions
-			.filter((o) => o.id !== tx.id && !o.deleted && txRefsOf(o).some((r) => refs.has(r)))
-			.sort((a, b) =>
-				a.bookedOn === b.bookedOn ? (a.id < b.id ? -1 : 1) : a.bookedOn < b.bookedOn ? -1 : 1
-			);
-	});
 	let classification = $derived(tx ? (app.classifications[tx.id] ?? null) : null);
 	// A wallet's incoming transfer with a memo, not yet explained: usually one's own
 	// withdrawal from an exchange, with the memo typed there.
@@ -121,6 +111,17 @@
 			: null
 	);
 	// An exchange trade's other leg, when this booking is one.
+	// Bookings that belong with this one (matching/related.js), and its receipts: one click away.
+	let related = $derived(
+		tx ? (relatedIndex(app.transactions, app.classifications).get(tx.id) ?? []) : []
+	);
+	/** @param {string} id */
+	const receiptHref = (id) => `${resolve('/belege')}?receipt=${encodeURIComponent(id)}`;
+	/** @param {Record<string, any>} other */
+	const relatedAccount = (other) => {
+		const a = app.accounts.find((x) => x.id === other.accountId);
+		return a ? accountLabel(a) : other.counterparty || '—';
+	};
 	let tradeOther = $derived(
 		tx && tx.movement === 'trade' ? (tradeSides(app.transactions).get(tx.id) ?? null) : null
 	);
@@ -1048,6 +1049,59 @@
 					<dd class="font-mono text-xs break-all text-heading">{tx.counterpartyIban}</dd>
 				{/if}
 			</dl>
+			{#if related.length || linked.length}
+				<div class="mt-3" data-testid="tx-related">
+					<h3 class="text-xs font-semibold tracking-wide text-faint uppercase">
+						{t('zahlungen.detail.related.title')}
+					</h3>
+					<div class="mt-1.5 flex flex-wrap gap-2">
+						{#each related as rel (rel.other.id)}
+							<button
+								type="button"
+								class="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-cyan-800/30 bg-cyan-50 px-3 py-1 text-left text-sm text-cyan-900 hover:border-cyan-800 dark:border-cyan/30 dark:bg-cyan-950/40 dark:text-cyan-100"
+								onclick={() => onopen(String(rel.other.id))}
+								data-testid="tx-related-chip"
+								data-kind={rel.kind}
+							>
+								<svg
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
+									><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1 1"></path><path
+										d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1-1"
+									></path></svg
+								>
+								<span
+									><strong class="font-semibold"
+										>{t(`zahlungen.detail.related.kind.${rel.kind}`)}</strong
+									>
+									· {relatedAccount(rel.other)} · {formatTxAmount(rel.other)} · {formatDate(
+										String(rel.other.bookedOn)
+									)} ·&#32;<span class="text-faint"
+										>{t(`zahlungen.detail.related.via.${rel.via}`)}</span
+									></span
+								>
+							</button>
+						{/each}
+						{#each linked as l (l.receipt.id)}
+							<a
+								href={receiptHref(String(l.receipt.id))}
+								class="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-3 py-1 text-sm text-heading no-underline hover:border-success"
+								data-testid="tx-related-receipt"
+								><strong class="font-semibold">{t('zahlungen.detail.related.receipt')}</strong> · {receiptVendor(
+									l.receipt
+								)} · {receiptAmount(l.receipt)}</a
+							>
+						{/each}
+					</div>
+				</div>
+			{/if}
 			{#if tx.purpose}
 				<h3 class="mt-3 text-xs font-semibold tracking-wide text-faint uppercase">
 					{t('zahlungen.detail.purpose')}
@@ -1269,14 +1323,17 @@
 				{/each}
 
 				<div class="mt-3 flex flex-wrap gap-2">
-					{#if linked.length}
+					{#if linked.length || classification || tx.noReceipt}
 						<button
 							type="button"
 							class={button}
 							onclick={() => (assigning = !assigning)}
 							disabled={busy}
 							aria-expanded={assigning}
-							data-testid="tx-assign">{t('zahlungen.detail.find.other')}</button
+							data-testid="tx-assign"
+							>{linked.length
+								? t('zahlungen.detail.find.other')
+								: t('zahlungen.detail.find.open')}</button
 						>
 					{/if}
 					{#if !tx.noReceipt}
@@ -1378,7 +1435,7 @@
 						{importNote}
 					</p>
 				{/if}
-				{#if !linked.length || assigning}
+				{#if (!linked.length && !classification && !tx.noReceipt) || assigning}
 					<div class="mt-3 border-t border-border pt-3" data-testid="tx-find">
 						<h4 class="text-sm font-semibold text-heading">{t('zahlungen.detail.find.title')}</h4>
 						<label class="sr-only" for="tx-find-q">{t('zahlungen.detail.find.label')}</label>
@@ -1827,38 +1884,6 @@
 
 			{#if error}
 				<p class="mt-3 text-sm text-danger" role="alert" data-testid="tx-detail-error">{error}</p>
-			{/if}
-
-			{#if related.length}
-				<section class="mt-4" data-testid="tx-related">
-					<h3 class="text-sm font-semibold text-heading">{t('zahlungen.detail.related')}</h3>
-					<ul
-						class="mt-1 divide-y divide-border rounded-lg border border-border bg-surface shadow-sm"
-					>
-						{#each related as o (o.id)}
-							{@const acc = app.accounts.find((a) => a.id === o.accountId)}
-							<li>
-								<button
-									type="button"
-									class="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-surface-2"
-									onclick={() => onopen(o.id)}
-									data-testid="tx-related-item"
-								>
-									<span class="text-text">{formatDate(o.bookedOn)}</span>
-									<span class="min-w-0 flex-1 truncate text-text"
-										>{acc ? accountLabel(acc) : '—'} · {o.bookingType || o.purpose || ''}</span
-									>
-									{#if quantityText(o)}
-										<span class="font-mono text-xs text-faint tabular-nums">{quantityText(o)}</span>
-									{/if}
-									<span class="font-mono text-heading tabular-nums"
-										>{formatMoney(o.amountCents ?? 0, o.currency)}</span
-									>
-								</button>
-							</li>
-						{/each}
-					</ul>
-				</section>
 			{/if}
 
 			<section class="mt-4">

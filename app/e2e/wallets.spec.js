@@ -202,6 +202,16 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 	await expect(detail.getByTestId('tx-why-rule-line')).toContainText(
 		`Eigene Umbuchung: Die Gegenbuchung steht auf Wallet NYM ···${tail(B)}`
 	);
+	// Belongs together: the other side and the fee, one click each; the row is marked.
+	await expect(sent.getByTestId('related-mark')).toBeVisible();
+	const chips = detail.getByTestId('tx-related-chip');
+	await expect(chips.filter({ hasText: 'Umbuchung' })).toContainText(`Wallet NYM ···${tail(B)}`);
+	await expect(chips.filter({ hasText: 'Gebühr dazu' })).toHaveCount(1);
+	await chips.filter({ hasText: 'Umbuchung' }).click();
+	await expect(detail.getByTestId('tx-detail-address')).toHaveText(A);
+	await expect(
+		detail.getByTestId('tx-related-chip').filter({ hasText: 'Umbuchung' })
+	).toContainText(`Wallet NYM ···${tail(A)}`);
 	await detail.getByTestId('tx-detail-close').click();
 
 	// The network fee needs no receipt; the exchange's deposit still asks for one.

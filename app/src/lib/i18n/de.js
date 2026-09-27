@@ -1103,6 +1103,7 @@ export default {
 		withoutReceipt: 'Nur ohne Beleg ({count})',
 		withoutAccount: 'Ohne Konto ({count})',
 		changedFilter: 'Beim Abruf geändert ({count})',
+		relatedMark: 'Gehört mit {count} anderen Buchung(en) zusammen',
 		changedBadge: 'beim Abruf geändert',
 		noAccountBadge: 'ohne Konto',
 		all: 'Alle ({count})',
@@ -1125,6 +1126,23 @@ export default {
 				' Die Kontierung wurde deshalb zurückgenommen – bitte unter „Konto“ neu übernehmen.',
 			changedReceipt: ' Prüfe auch, ob der zugeordnete Beleg noch passt.',
 			changedOk: 'Geprüft',
+			related: {
+				title: 'Gehört zusammen mit',
+				receipt: 'Beleg',
+				kind: {
+					transfer: 'Umbuchung',
+					trade: 'Tausch',
+					fee: 'Gebühr dazu',
+					'fee-of': 'Gebühr zu'
+				},
+				via: {
+					'counter-booking': 'Gegenbuchung',
+					reference: 'gleiche Referenz',
+					'own-address': 'eigene Adresse',
+					hash: 'gleicher Tx-Hash',
+					refid: 'gleiche Börsen-Referenz'
+				}
+			},
 			find: {
 				title: 'Beleg finden',
 				label: 'Belege durchsuchen',
@@ -1137,6 +1155,7 @@ export default {
 					portal: 'Portal'
 				},
 				other: 'Anderen Beleg suchen',
+				open: 'Doch einen Beleg suchen',
 				sameAmount: 'Betrag gleich',
 				otherCurrency: 'andere Währung',
 				days: '{days} Tage',
@@ -1170,7 +1189,6 @@ export default {
 			exchangeType: 'Art bei der Börse',
 			txRef: 'Referenz',
 			chainTxRef: 'Transaktions-Hash',
-			related: 'Gehört zusammen mit (gleiche Referenz)',
 			address: 'Gegenadresse',
 			explorer: 'Im Block-Explorer ansehen',
 			valueDate: 'Wertstellung',
