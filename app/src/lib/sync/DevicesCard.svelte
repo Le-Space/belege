@@ -1,14 +1,43 @@
 <script>
 	// Integrationen → Eigene Geräte (#123): this device's id to type on the
-	// other one, "Gerät hinzufügen", and the devices the books know with their
-	// connection. Device sync itself is switched on in the consent screen.
-	import { app, addSyncDevice } from '$lib/session.svelte.js';
+	// other one or to show as a QR code, "Gerät hinzufügen" by id or by
+	// scanning, and the devices the books know with their connection and
+	// "Entfernen". Device sync itself is switched on in the consent screen.
+	import { renderSVG } from 'uqr';
+	import { app, addSyncDevice, removeSyncDevice } from '$lib/session.svelte.js';
 	import { consent } from '$lib/consent.js';
 	import { t } from '$lib/i18n/index.js';
 	import CopyButton from '$lib/CopyButton.svelte';
-	import { deviceSyncOn } from './device-sync.js';
+	import QrScan from './QrScan.svelte';
+	import { deviceCode, deviceSyncOn, parseDeviceCode } from './device-sync.js';
 
 	let other = $state('');
+	let showQr = $state(false);
+	/** @type {string | null} the device whose removal waits for a second click */
+	let confirming = $state(null);
+
+	/** @param {string} text */
+	async function scanned(text) {
+		const id = parseDeviceCode(text);
+		if (!id) {
+			error = t('devices.scanWrong');
+			return;
+		}
+		other = id;
+		await add();
+	}
+
+	/** @param {string} peerId */
+	async function remove(peerId) {
+		error = null;
+		try {
+			await removeSyncDevice(peerId);
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			confirming = null;
+		}
+	}
 	let busy = $state(false);
 	/** @type {string | null} */
 	let error = $state(null);
@@ -18,7 +47,7 @@
 		busy = true;
 		error = null;
 		try {
-			await addSyncDevice(other);
+			await addSyncDevice(parseDeviceCode(other) ?? other);
 			other = '';
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
@@ -35,7 +64,11 @@
 <section class={card} aria-labelledby="devices-h" data-testid="devices-card">
 	<h2 id="devices-h" class="text-lg font-semibold text-heading">{t('devices.title')}</h2>
 	<p class="mt-1 text-sm text-text">{t('devices.what')}</p>
-	{#if !app.sync.online}
+	{#if app.sync.removed}
+		<p class="mt-2 text-sm text-danger" role="alert" data-testid="devices-removed">
+			{t('devices.removed')}
+		</p>
+	{:else if !app.sync.online}
 		<p class="mt-2 text-sm text-faint" data-testid="devices-off">
 			{flagOn ? t('devices.pending') : t('devices.off')}
 		</p>
@@ -66,6 +99,28 @@
 						? t('devices.reachable')
 						: t('devices.notReachable')}
 				</p>
+				<button
+					type="button"
+					class="mt-2 block {button}"
+					aria-expanded={showQr}
+					onclick={() => (showQr = !showQr)}
+					data-testid="devices-qr-toggle"
+					>{showQr ? t('devices.hideQr') : t('devices.showQr')}</button
+				>
+				{#if showQr}
+					<!-- A white plaque in both themes: a camera reads it, not the theme. -->
+					<div
+						class="mt-2 w-fit rounded-md bg-white p-2 [&_svg]:size-48"
+						role="img"
+						aria-label={t('devices.qrLabel')}
+						data-testid="devices-qr"
+						data-code={deviceCode(state.self)}
+					>
+						<!-- eslint-disable-next-line svelte/no-at-html-tags -- uqr's own SVG of a checked peer id -->
+						{@html renderSVG(deviceCode(state.self), { border: 2 })}
+					</div>
+					<p class="mt-1 text-xs text-faint">{t('devices.qrHint')}</p>
+				{/if}
 			{/if}
 		</div>
 		<form
@@ -91,6 +146,7 @@
 				disabled={busy || !other.trim()}
 				data-testid="devices-add">{t('devices.addButton')}</button
 			>
+			<QrScan onscan={scanned} class={button} />
 		</form>
 		{#if error || app.sync.error}
 			<p class="mt-2 text-sm text-danger" role="alert">{error ?? app.sync.error}</p>
@@ -103,14 +159,42 @@
 						class="flex flex-wrap items-center justify-between gap-2 py-1.5"
 						data-testid="devices-item"
 					>
-						<span class="font-mono text-xs break-all text-text">{d.peerId}</span>
-						<span
-							class="text-xs {d.connected ? 'text-success' : 'text-faint'}"
-							data-testid="devices-item-state"
-							>{d.connected
-								? `${t('devices.connected')} · ${d.direct ? t('devices.direct') : t('devices.viaRelay')}`
-								: t('devices.notConnected')}</span
-						>
+						<span class="min-w-0">
+							<span class="block text-heading">{d.label || t('devices.unnamed')}</span>
+							<span class="block font-mono text-xs break-all text-faint">{d.peerId}</span>
+						</span>
+						<span class="flex items-center gap-2">
+							<span
+								class="text-xs {d.connected ? 'text-success' : 'text-faint'}"
+								data-testid="devices-item-state"
+								>{d.connected
+									? `${t('devices.connected')} · ${d.direct ? t('devices.direct') : t('devices.viaRelay')}`
+									: t('devices.notConnected')}</span
+							>
+							{#if confirming === d.peerId}
+								<button
+									type="button"
+									class="rounded-md border border-danger px-2 py-1 text-xs text-danger hover:bg-surface-2"
+									onclick={() => remove(d.peerId)}
+									data-testid="devices-remove-confirm">{t('devices.removeConfirm')}</button
+								>
+								<button
+									type="button"
+									class="rounded-md border border-border px-2 py-1 text-xs text-text hover:bg-surface-2"
+									onclick={() => (confirming = null)}>{t('devices.removeCancel')}</button
+								>
+							{:else}
+								<button
+									type="button"
+									class="rounded-md border border-border px-2 py-1 text-xs text-text hover:bg-surface-2"
+									onclick={() => (confirming = d.peerId)}
+									data-testid="devices-remove">{t('devices.remove')}</button
+								>
+							{/if}
+						</span>
+						{#if confirming === d.peerId}
+							<p class="w-full text-xs text-faint">{t('devices.removeWhat')}</p>
+						{/if}
 					</li>
 				{/each}
 			</ul>

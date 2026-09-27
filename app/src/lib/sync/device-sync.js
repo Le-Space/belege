@@ -13,7 +13,15 @@
 // sealed settings (`device:<peer id>`), the settings replicate, and every
 // device dials the ones it knows through the relay – now, and again while
 // they are not connected. The first time, one device's id is typed or
-// scanned on the other (Integrationen → Eigene Geräte).
+// scanned on the other (Integrationen → Eigene Geräte; `belege-device:<id>`
+// as a QR code).
+//
+// Removing a device soft-deletes its record. The deletion replicates; every
+// device hangs up on it and refuses it from then on (the connection gater
+// reads `blocked`), and the removed device, once it learns, switches its
+// own sync off. Switched on there again later, the newer switch wins and it
+// writes itself back. Removing ends the syncing, not the access: whoever
+// holds the passkey can open the books.
 //
 // OrbitDB 4.0.0 exchanges heads once per peer, when gossipsub says it
 // subscribed, and never again; over a relayed (limited) connection that dial
@@ -46,23 +54,59 @@ function storage() {
 	}
 }
 
-/** Whether this device syncs (the consent screen's switch). */
-export function deviceSyncOn() {
+/** @returns {string | null} */
+function flag() {
 	try {
-		return storage()?.getItem(SYNC_FLAG_KEY) === 'on';
+		return storage()?.getItem(SYNC_FLAG_KEY) ?? null;
 	} catch {
-		return false;
+		return null;
 	}
 }
 
-/** @param {boolean} on */
-export function setDeviceSync(on) {
+const ISO = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/;
+
+/** Whether this device syncs (the consent screen's switch). */
+export function deviceSyncOn() {
+	const v = flag();
+	return v === 'on' || (v !== null && ISO.test(v));
+}
+
+/**
+ * When the switch was turned on (ISO), '' when not known (an earlier build
+ * stored `on`): a removal that is newer switches this device off.
+ */
+export function deviceSyncSince() {
+	const v = flag();
+	return v !== null && ISO.test(v) ? v : '';
+}
+
+/** @param {boolean} on @param {() => Date} [now] */
+export function setDeviceSync(on, now = () => new Date()) {
 	try {
-		if (on) storage()?.setItem(SYNC_FLAG_KEY, 'on');
+		if (on) storage()?.setItem(SYNC_FLAG_KEY, now().toISOString());
 		else storage()?.removeItem(SYNC_FLAG_KEY);
 	} catch {
 		// Blocked: stays off.
 	}
+}
+
+/** Peers removed from the books: refused by the node's connection gater. */
+export const blocked = new Set();
+
+const QR_PREFIX = 'belege-device:';
+
+/** What a device shows as its QR code. @param {string} peerId */
+export const deviceCode = (peerId) => `${QR_PREFIX}${peerId}`;
+
+/**
+ * A scanned or pasted code → the peer id in it, or null.
+ *
+ * @param {unknown} text
+ */
+export function parseDeviceCode(text) {
+	const raw = String(text ?? '').trim();
+	const id = raw.startsWith(QR_PREFIX) ? raw.slice(QR_PREFIX.length) : raw;
+	return isPeerId(id) ? id : null;
 }
 
 /**
@@ -98,7 +142,12 @@ export function syncLibp2pConfig({ privateKey, relays }) {
 		connectionEncrypters: [noise()],
 		streamMuxers: [yamux()],
 		connectionManager: { inboundConnectionThreshold: 100 },
-		...(relays.some(isLocal) ? { connectionGater: { denyDialMultiaddr: () => false } } : {}),
+		connectionGater: {
+			...(relays.some(isLocal) ? { denyDialMultiaddr: () => false } : {}),
+			// A device removed from the books is neither dialled nor let in.
+			denyDialPeer: (/** @type {any} */ peerId) => blocked.has(String(peerId)),
+			denyInboundEncryptedConnection: (/** @type {any} */ peerId) => blocked.has(String(peerId))
+		},
 		services: {
 			identify: identify(),
 			identifyPush: identifyPush(),
@@ -116,25 +165,50 @@ export function syncLibp2pConfig({ privateKey, relays }) {
 export const isPeerId = (id) => /^12D3KooW[1-9A-HJ-NP-Za-km-z]{44}$/.test(String(id ?? ''));
 
 /**
- * @typedef {{ peerId: string, label: string, addedAt: string }} Device
+ * @typedef {{ peerId: string, label: string, addedAt: string, removed: boolean, changedAt: string }} Device
  */
 
 /**
- * The devices the books know, from the settings records.
+ * Every device the books have a record of – its latest record, since two
+ * devices may add the same one at once: removed when that one is deleted.
+ * Pass the deleted records too (`list({ includeDeleted: true })`).
  *
  * @param {Record<string, any>[]} settingsRecords
  * @returns {Device[]}
  */
-export function knownDevices(settingsRecords) {
-	return settingsRecords
-		.filter((r) => !r.deleted && String(r.key ?? '').startsWith(DEVICE_PREFIX))
+export function deviceRecords(settingsRecords) {
+	/** @type {Map<string, Record<string, any>>} */
+	const latest = new Map();
+	/** The newest name a device was given: the device names itself, another may not know it. */
+	/** @type {Map<string, { label: string, at: string }>} */
+	const names = new Map();
+	for (const r of settingsRecords) {
+		const key = String(r.key ?? '');
+		if (!key.startsWith(DEVICE_PREFIX)) continue;
+		const at = String(r.updatedAt ?? '');
+		const kept = latest.get(key);
+		if (!kept || at > String(kept.updatedAt ?? '')) latest.set(key, r);
+		const label = String(r.value?.label ?? '');
+		if (label && at >= (names.get(key)?.at ?? '')) names.set(key, { label, at });
+	}
+	return [...latest.values()]
 		.map((r) => ({
 			peerId: String(r.key).slice(DEVICE_PREFIX.length),
-			label: String(r.value?.label ?? ''),
-			addedAt: String(r.value?.addedAt ?? '')
+			label: names.get(String(r.key))?.label ?? '',
+			addedAt: String(r.value?.addedAt ?? ''),
+			removed: Boolean(r.deleted),
+			changedAt: String(r.updatedAt ?? '')
 		}))
 		.filter((d) => isPeerId(d.peerId));
 }
+
+/**
+ * The devices the books know and have not removed.
+ *
+ * @param {Record<string, any>[]} settingsRecords
+ */
+export const knownDevices = (settingsRecords) =>
+	deviceRecords(settingsRecords).filter((d) => !d.removed);
 
 /**
  * Keep the devices connected and the books in step, on an online node.
@@ -144,7 +218,9 @@ export function knownDevices(settingsRecords) {
  * @param {{ settings: import('../store/repository.js').Collection, resync: () => Promise<void> }} p.store
  * @param {string[]} p.relays
  * @param {string} p.label this device, as the person may call it
+ * @param {string} [p.since] when sync was switched on here (deviceSyncSince)
  * @param {(state: SyncState) => void} [p.onState]
+ * @param {() => void} [p.onRemoved] another device removed this one
  * @param {() => string} [p.now]
  */
 export async function startDeviceSync({
@@ -152,7 +228,9 @@ export async function startDeviceSync({
 	store,
 	relays,
 	label,
+	since = '',
 	onState = () => {},
+	onRemoved = () => {},
 	now = () => new Date().toISOString()
 }) {
 	const self = libp2p.peerId.toString();
@@ -164,11 +242,51 @@ export async function startDeviceSync({
 	/** @type {ReturnType<typeof setTimeout> | undefined} */
 	let resyncTimer;
 
-	// This device, in the books (once; the record replicates to the others).
-	const own = await store.settings.list({ where: (r) => r.key === `${DEVICE_PREFIX}${self}` });
-	if (!own.length) {
-		await store.settings.put({ key: `${DEVICE_PREFIX}${self}`, value: { label, addedAt: now() } });
+	const all = () => store.settings.list({ includeDeleted: true });
+	/** @type {Map<string, Device>} */
+	let records = new Map();
+	/** Removed by another device after sync was switched on here. */
+	const removedHere = (/** @type {Device | undefined} */ d) =>
+		Boolean(d?.removed && d.changedAt > since);
+
+	/**
+	 * A device's record, new or back from removed: the latest record of an
+	 * earlier removal is taken up again rather than a second one written.
+	 *
+	 * @param {string} peerId
+	 * @param {string} name
+	 */
+	async function writeDevice(peerId, name) {
+		const key = `${DEVICE_PREFIX}${peerId}`;
+		const latest = (await all())
+			.filter((r) => r.key === key)
+			.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))[0];
+		if (latest && !latest.deleted) return;
+		await store.settings.put({
+			...(latest ? { id: latest.id } : {}),
+			key,
+			value: { label: name || latest?.value?.label || '', addedAt: now() },
+			deleted: false
+		});
 	}
+
+	// This device, in the books (once; the record replicates to the others).
+	// Removed before it was switched on again here: back in.
+	const mine = deviceRecords(await all()).find((d) => d.peerId === self);
+	if (removedHere(mine)) {
+		onRemoved();
+		return {
+			self,
+			removed: true,
+			async addDevice() {
+				throw new Error('Dieses Gerät wurde entfernt.');
+			},
+			async removeDevice() {},
+			refresh() {},
+			async stop() {}
+		};
+	}
+	if (!mine || mine.removed) await writeDevice(self, label);
 
 	const connected = (/** @type {string} */ peerId) =>
 		libp2p.getConnections().some((/** @type {any} */ c) => c.remotePeer.toString() === peerId);
@@ -178,8 +296,39 @@ export async function startDeviceSync({
 			.some((/** @type {any} */ c) => c.remotePeer.toString() === peerId && !c.limited);
 
 	async function refreshKnown() {
-		for (const d of knownDevices(await store.settings.list()))
-			if (d.peerId !== self) known.add(d.peerId);
+		records = new Map(deviceRecords(await all()).map((d) => [d.peerId, d]));
+		if (removedHere(records.get(self))) {
+			await leave();
+			return;
+		}
+		known.clear();
+		for (const d of records.values()) {
+			if (d.peerId === self) continue;
+			if (d.removed) {
+				if (!blocked.has(d.peerId)) {
+					blocked.add(d.peerId);
+					await hangUp(d.peerId);
+				}
+			} else {
+				blocked.delete(d.peerId);
+				known.add(d.peerId);
+			}
+		}
+	}
+
+	/** @param {string} peerId */
+	async function hangUp(peerId) {
+		for (const c of libp2p.getConnections())
+			if (c.remotePeer.toString() === peerId) await c.close().catch(() => {});
+	}
+
+	/** Another device removed this one: stop and hang up. */
+	async function leave() {
+		if (stopped) return;
+		await stopAll();
+		for (const peerId of known) await hangUp(peerId);
+		known.clear();
+		onRemoved();
 	}
 
 	function report() {
@@ -190,6 +339,7 @@ export async function startDeviceSync({
 				.some((/** @type {any} */ a) => a.toString().includes('/p2p-circuit')),
 			devices: [...known].map((peerId) => ({
 				peerId,
+				label: records.get(peerId)?.label ?? '',
 				connected: connected(peerId),
 				direct: direct(peerId)
 			}))
@@ -242,6 +392,12 @@ export async function startDeviceSync({
 		round().catch(() => {});
 	});
 	const timer = setInterval(() => round().catch(() => {}), REDIAL_MS);
+	async function stopAll() {
+		stopped = true;
+		clearInterval(timer);
+		clearTimeout(resyncTimer);
+		unsubscribe();
+	}
 	await round();
 
 	return {
@@ -254,24 +410,33 @@ export async function startDeviceSync({
 		 */
 		async addDevice(peerId, otherLabel = '') {
 			if (!isPeerId(peerId) || peerId === self) throw new Error('Das ist keine Gerätekennung.');
-			const key = `${DEVICE_PREFIX}${peerId}`;
-			const kept = await store.settings.list({ where: (r) => r.key === key });
-			if (!kept.length)
-				await store.settings.put({ key, value: { label: otherLabel, addedAt: now() } });
+			await writeDevice(peerId, otherLabel);
+			blocked.delete(peerId);
 			known.add(peerId);
 			await dial(peerId);
 			report();
 		},
+		/**
+		 * "Entfernen": every record of the device deleted; the deletion
+		 * replicates, and every device lets go of it.
+		 *
+		 * @param {string} peerId
+		 */
+		async removeDevice(peerId) {
+			if (peerId === self) throw new Error('Ein Gerät wird von einem anderen aus entfernt.');
+			const key = `${DEVICE_PREFIX}${peerId}`;
+			for (const r of await store.settings.list({ where: (x) => x.key === key }))
+				await store.settings.softDelete(r.id);
+			known.delete(peerId);
+			blocked.add(peerId);
+			await hangUp(peerId);
+			report();
+		},
 		refresh: report,
-		async stop() {
-			stopped = true;
-			clearInterval(timer);
-			clearTimeout(resyncTimer);
-			unsubscribe();
-		}
+		stop: stopAll
 	};
 }
 
 /**
- * @typedef {{ self: string, reachable: boolean, devices: { peerId: string, connected: boolean, direct: boolean }[] }} SyncState
+ * @typedef {{ self: string, reachable: boolean, devices: { peerId: string, label: string, connected: boolean, direct: boolean }[] }} SyncState
  */

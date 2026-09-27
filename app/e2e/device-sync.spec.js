@@ -8,8 +8,9 @@
 // back to the same authenticator) answers with no PRF result. Both devices
 // therefore get the same PRF answer through the E2E-only hook
 // (passkey-identity.js). Both switch device
-// sync on, meet through the local test relay (e2e/relay.js) once one has typed
-// the other's id, and then a booking written on either shows on the other.
+// sync on, meet through the local test relay (e2e/relay.js) once one has
+// scanned the other's QR code, and then a booking written on either shows on
+// the other. Last, one removes the other.
 import { test, expect } from '@playwright/test';
 
 import { acceptConsent } from './consent.js';
@@ -34,6 +35,21 @@ async function device(browser) {
 	await context.addInitScript((prf) => {
 		/** @type {any} */ (globalThis).__belegeTestPrf = prf;
 		localStorage.setItem('belege.device-sync', 'on');
+		// A camera and a QR detector for "QR-Code scannen": the camera shows a
+		// blank canvas, the detector reads whatever the test put in __scanValue.
+		/** @type {any} */ (globalThis).BarcodeDetector = class {
+			async detect() {
+				const value = /** @type {any} */ (globalThis).__scanValue;
+				return value ? [{ rawValue: value }] : [];
+			}
+		};
+		navigator.mediaDevices.getUserMedia = async () => {
+			const canvas = document.createElement('canvas');
+			canvas.width = 64;
+			canvas.height = 64;
+			canvas.getContext('2d')?.fillRect(0, 0, 64, 64);
+			return canvas.captureStream(5);
+		};
 	}, PRF);
 	const page = await context.newPage();
 	const cdp = await context.newCDPSession(page);
@@ -104,13 +120,21 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 			}
 		);
 		const macId = String(await mac.page.getByTestId('devices-self-value').textContent()).trim();
+		// The Mac shows its id as a QR code; the phone scans it.
+		await mac.page.getByTestId('devices-qr-toggle').click();
+		await expect(mac.page.getByTestId('devices-qr').locator('svg')).toBeVisible();
+		const code = String(await mac.page.getByTestId('devices-qr').getAttribute('data-code'));
+		expect(code).toBe(`belege-device:${macId}`);
 		await tab(phone.page, 'Integrationen');
 		await expect(phone.page.getByTestId('devices-reachable')).toContainText(
 			'über den Relay erreichbar',
 			{ timeout: 30_000 }
 		);
-		await phone.page.getByTestId('devices-add-input').fill(macId);
-		await phone.page.getByTestId('devices-add').click();
+		await phone.page.getByTestId('devices-scan').click();
+		await expect(phone.page.getByTestId('devices-scan-view')).toBeVisible();
+		await phone.page.evaluate((c) => {
+			/** @type {any} */ (globalThis).__scanValue = c;
+		}, code);
 		await expect(
 			phone.page
 				.getByTestId('devices-item')
@@ -134,6 +158,16 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 		// … and one more on the Mac, now that both are connected, on the phone.
 		await mac.page.getByTestId('add-test-transaction').click();
 		await expect(phone.page.getByTestId('transaction')).toHaveCount(3, { timeout: 90_000 });
+
+		// The Mac removes the phone: the Mac lets go of it, and the phone, once
+		// the removal has reached it, switches its sync off.
+		await tab(mac.page, 'Integrationen');
+		await mac.page.getByTestId('devices-remove').click();
+		await mac.page.getByTestId('devices-remove-confirm').click();
+		await expect(mac.page.getByTestId('devices-item')).toHaveCount(0);
+		await tab(phone.page, 'Integrationen');
+		await expect(phone.page.getByTestId('devices-removed')).toBeVisible({ timeout: 60_000 });
+		expect(await phone.page.evaluate(() => localStorage.getItem('belege.device-sync'))).toBeNull();
 	} finally {
 		await mac.context.close();
 		await phone.context.close();
