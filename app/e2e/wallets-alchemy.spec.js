@@ -17,8 +17,39 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { defaultConfig, saveConfig } from '@belege/bridge';
-import { EVM } from '@belege/bridge/testing/chains';
-import { FAKE_ALCHEMY_KEY, startFakeAlchemy } from '@belege/bridge/testing/alchemy';
+import { EVM, fakeEvmAddress } from '@belege/bridge/testing/chains';
+import {
+	FAKE_ALCHEMY_KEY,
+	evmChain,
+	fakeTx,
+	startFakeAlchemy
+} from '@belege/bridge/testing/alchemy';
+
+// A DEX swap (issue #115): 30 000 of a token not in the list given to the
+// MetaMask router's spender, 0.143 ETH back from it as an internal transfer.
+const METAMASK_ROUTER = '0x881d40237659c251811cec9c364ef91dc08d300c';
+const METAMASK_SPENDER = '0x74de5d4fcbf63e00296fd95d33236b9794016631';
+const swapTx = fakeTx({
+	seed: 'a-swap',
+	block: 700,
+	from: EVM.wallet,
+	to: METAMASK_ROUTER,
+	gasUsed: 180000n,
+	logs: [
+		{
+			logIndex: 2,
+			contract: fakeEvmAddress('a token not in the list'),
+			from: EVM.wallet,
+			to: METAMASK_SPENDER,
+			value: 30000n * 10n ** 18n,
+			symbol: 'XYZ',
+			decimals: 18
+		}
+	],
+	internal: [
+		{ trace: '1', index: '2', from: METAMASK_SPENDER, to: EVM.wallet, value: 143000000000000000n }
+	]
+});
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 
@@ -33,7 +64,7 @@ const tail = (/** @type {string} */ a) => a.slice(-6);
 let bridgeOut = '';
 
 test.beforeAll(async () => {
-	alchemy = await startFakeAlchemy();
+	alchemy = await startFakeAlchemy({ txs: [...evmChain(), swapTx] });
 	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-alchemy-'));
 	const configPath = join(dir, 'bridge.json');
 	await saveConfig(
@@ -138,6 +169,27 @@ test('with an Alchemy key the card says so, and an Ethereum wallet is read there
 	await expect(wallet.getByTestId('wallet-booking')).toContainText('Kostenstelle P100');
 	await expect(accounts.nth(0)).toContainText('Projekt Nord · ETH (Ethereum)');
 	await expect(accounts.nth(1)).toContainText('Projekt Nord · USDC (Ethereum)');
+
+	// The swap: the ETH that came back is a Tausch naming both sides and the
+	// router; no receipt is asked for.
+	await page.getByRole('link', { name: 'Zahlungen' }).click();
+	await page.getByTestId('filter-all').click();
+	const swapText =
+		'Tausch: 30.000 XYZ (nicht gelistet) → 0,143 ETH über MetaMask Swap (Router) · Gas 0,00018 ETH';
+	const swapRow = page
+		.getByTestId('transaction')
+		.filter({ hasText: swapText, hasNotText: 'Netzwerkgebühr' });
+	await expect(swapRow).toHaveCount(1);
+	// Its gas: a fee of its own that names the swap.
+	await expect(
+		page.getByTestId('transaction').filter({ hasText: `Netzwerkgebühr für ${swapText}` })
+	).toHaveCount(1);
+	await expect(swapRow.getByTestId('coverage-badge')).toHaveText('Tausch');
+	await expect(swapRow.getByTestId('payee')).toHaveText('MetaMask Swap (Spender)');
+	await swapRow.click();
+	await expect(page.getByTestId('tx-detail-classification')).toContainText('Block-Explorer');
+	await page.getByTestId('tx-detail-close').click();
+	await page.getByRole('link', { name: 'Integrationen' }).click();
 
 	// The key went to the fake Alchemy, in the path of its requests, and nowhere else.
 	expect(alchemy.paths.length).toBeGreaterThan(0);

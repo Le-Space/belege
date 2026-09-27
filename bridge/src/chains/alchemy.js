@@ -487,6 +487,11 @@ export function createAlchemyReader({
 					...base,
 					hash,
 					contractAddress: lowerAddress(t.rawContract?.address),
+					// As the token says: only to name it in a swap (evm.js), never to book it.
+					tokenSymbol: String(t.asset ?? ''),
+					tokenDecimal: /^0x[0-9a-f]+$/i.test(String(t.rawContract?.decimal ?? ''))
+						? String(parseInt(String(t.rawContract?.decimal), 16))
+						: '',
 					// for the order only: the id is built without it, as from Blockscout
 					position: logIndex ?? ''
 				});

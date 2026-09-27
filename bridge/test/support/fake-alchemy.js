@@ -14,7 +14,7 @@ import http from 'node:http';
 import { EVM, fakeEvmAddress, fakeHash } from './fake-chains.js';
 
 /** @typedef {{ trace: string, index: string, from: string, to: string, value: bigint }} FakeInternal */
-/** @typedef {{ logIndex: number, contract: string, from: string, to: string, value: bigint }} FakeLog */
+/** @typedef {{ logIndex: number, contract: string, from: string, to: string, value: bigint, symbol?: string, decimals?: number }} FakeLog */
 /**
  * @typedef {object} FakeTx
  * @property {string} hash
@@ -427,11 +427,15 @@ export async function startFakeAlchemy({
 					uniqueId: `${t.hash}:log:${l.logIndex}`,
 					from: l.from,
 					to: l.to,
-					value: Number(l.value) / 1e6,
+					value: Number(l.value) / 10 ** (l.decimals ?? 6),
 					// What the token says about itself: the spam token, too, calls itself USDC.
-					asset: 'USDC',
+					asset: l.symbol ?? 'USDC',
 					category: 'erc20',
-					rawContract: { value: hex(l.value), address: l.contract, decimal: '0x6' }
+					rawContract: {
+						value: hex(l.value),
+						address: l.contract,
+						decimal: `0x${(l.decimals ?? 6).toString(16)}`
+					}
 				});
 			}
 		}

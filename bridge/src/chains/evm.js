@@ -23,7 +23,16 @@
 //   - value out or in: an entry sent or received; to itself: none.
 //   - ERC-20: only the contracts listed for the chain, with the symbol and
 //     decimals from the list, never from the token (anyone can deploy a
-//     contract called "USDC"). Others are counted and left out.
+//     contract called "USDC"). Others are counted and left out as bookings,
+//     but a swap names them (below).
+//   - a swap (issue #115): in one transaction the wallet gives one asset and
+//     gets another – a token to a router and ETH back as an internal
+//     transfer, say. Its booked legs become kind `swap` and carry what went
+//     each way (`swap.gave`, `swap.got`: symbol, amount, and whether the
+//     token is a listed one – an unlisted symbol is the token's own claim)
+//     and the router it went through, and the gas it cost (the gas entry
+//     stays a fee of its own and names the swap). Known routers and WETH are named
+//     (registry.js KNOWN_EVM_CONTRACTS).
 //
 // The log gets counts, never an address.
 //
@@ -33,7 +42,7 @@
 
 import { keccak_256 } from '@noble/hashes/sha3.js';
 
-import { addressUrl, txUrl } from './registry.js';
+import { KNOWN_EVM_CONTRACTS, addressUrl, txUrl } from './registry.js';
 import { createJsonFetcher, WalletError } from './http.js';
 import { unitsToDecimal } from './cosmos.js';
 import { alchemyBaseUrl, createAlchemyReader } from './alchemy.js';
@@ -102,6 +111,13 @@ export function normalizeEvm({ normal, internal, tokens }, { address, chain }) {
 	const native = chain.native;
 	/** @type {Map<string, number>} token transfers without a log index, counted per same transfer */
 	const repeats = new Map();
+	/** @type {Map<string, string>} hash → the contract the wallet called */
+	const calledOf = new Map();
+	/** @type {{ hash: string, asset: string, amount: string, listed: false }[]} own moves of unlisted tokens */
+	const unlisted = [];
+	/** @param {string} address @param {string} [fallback] */
+	const known = (address, fallback = '') =>
+		Object.hasOwn(KNOWN_EVM_CONTRACTS, address) ? KNOWN_EVM_CONTRACTS[address] : fallback;
 
 	/**
 	 * Ids stay what they are whatever else the lists hold (an internal
@@ -148,6 +164,7 @@ export function normalizeEvm({ normal, internal, tokens }, { address, chain }) {
 		// Alchemy, a receipt from before Byzantium: no status, so no value; the gas was paid.
 		const unknown = raw.statusUnknown === true;
 		const order = `${pad(raw.blockNumber)}:${pad(raw.transactionIndex)}`;
+		if (from === address && !failed && to) calledOf.set(hash, to);
 		if (from === address) {
 			const gasUsed = bigintOf(raw.gasUsed);
 			const gasPrice = bigintOf(raw.gasPrice);
@@ -178,7 +195,7 @@ export function normalizeEvm({ normal, internal, tokens }, { address, chain }) {
 			amount: unitsToDecimal(out ? -value : value, native.decimals),
 			decimals: native.decimals,
 			counterparty: out ? to : from,
-			counterpartyLabel: '',
+			counterpartyLabel: known(out ? to : from),
 			success: true
 		});
 	}
@@ -210,7 +227,7 @@ export function normalizeEvm({ normal, internal, tokens }, { address, chain }) {
 				amount: unitsToDecimal(out ? -value : value, native.decimals),
 				decimals: native.decimals,
 				counterparty: out ? to : from,
-				counterpartyLabel: 'Vertrag (interne Transaktion)',
+				counterpartyLabel: known(out ? to : from, 'Vertrag (interne Transaktion)'),
 				success: true
 			}
 		);
@@ -222,6 +239,29 @@ export function normalizeEvm({ normal, internal, tokens }, { address, chain }) {
 		const token = Object.hasOwn(chain.tokens, contract) ? chain.tokens[contract] : null;
 		if (!token) {
 			unknownTokens.add(contract);
+			// Not booked, but a swap names it: symbol and decimals as the token
+			// says (unverified), only for a transfer from or to this wallet.
+			const from = String(raw.from ?? '').toLowerCase();
+			const to = String(raw.to ?? '').toLowerCase();
+			const value = bigintOf(raw.value) ?? 0n;
+			const decimals = Number(raw.tokenDecimal);
+			const symbol = String(raw.tokenSymbol ?? '')
+				.replace(/[^\p{L}\p{N}._-]/gu, '')
+				.slice(0, 12);
+			if (
+				value !== 0n &&
+				(from === address) !== (to === address) &&
+				Number.isInteger(decimals) &&
+				decimals >= 0 &&
+				decimals <= 36
+			) {
+				unlisted.push({
+					hash,
+					asset: symbol || '?',
+					amount: unitsToDecimal(from === address ? -value : value, decimals),
+					listed: false
+				});
+			}
 			continue;
 		}
 		const from = String(raw.from ?? '').toLowerCase();
@@ -250,11 +290,16 @@ export function normalizeEvm({ normal, internal, tokens }, { address, chain }) {
 				amount: unitsToDecimal(out ? -value : value, token.decimals),
 				decimals: token.decimals,
 				counterparty: out ? to : from,
-				counterpartyLabel: '',
+				counterpartyLabel: known(out ? to : from),
 				success: true
 			}
 		);
 	}
+
+	markSwaps(entries, unlisted, (hash) => {
+		const called = calledOf.get(hash) ?? '';
+		return called ? known(called) : '';
+	});
 
 	entries.sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0));
 	const result = entries.map(({ order: _order, ...e }) => e);
@@ -524,4 +569,64 @@ export function createEvmClient({
 			};
 		}
 	};
+}
+
+/**
+ * Swaps (issue #115): per transaction, what the wallet gave and what it got,
+ * leaving the gas out. Two sides of different assets make a swap; its booked
+ * legs become kind `swap` and carry both sides and the router's name.
+ * Changes the entries in place.
+ *
+ * @param {(import('./cosmos.js').WalletEntry & { order: string })[]} entries
+ * @param {{ hash: string, asset: string, amount: string, listed: false }[]} unlisted
+ * @param {(hash: string) => string} viaOf
+ */
+export function markSwaps(entries, unlisted, viaOf) {
+	/** @type {Map<string, { gave: any[], got: any[], legs: any[] }>} */
+	const byHash = new Map();
+	const of = (/** @type {string} */ hash) => {
+		let x = byHash.get(hash);
+		if (!x) byHash.set(hash, (x = { gave: [], got: [], legs: [] }));
+		return x;
+	};
+	/** @type {Map<string, any>} hash → its gas entry */
+	const feeOf = new Map();
+	for (const e of entries) {
+		if (e.type === 'fee') feeOf.set(e.hash, e);
+		if (e.type === 'fee' || e.kind !== 'transfer') continue;
+		const x = of(e.hash);
+		(e.amount.startsWith('-') ? x.gave : x.got).push({
+			asset: e.asset,
+			amount: e.amount.replace(/^-/, ''),
+			listed: true
+		});
+		x.legs.push(e);
+	}
+	for (const u of unlisted) {
+		const x = of(u.hash);
+		(u.amount.startsWith('-') ? x.gave : x.got).push({
+			asset: u.asset,
+			amount: u.amount.replace(/^-/, ''),
+			listed: false
+		});
+	}
+	for (const [hash, x] of byHash) {
+		if (!x.legs.length || !x.gave.length || !x.got.length) continue;
+		const gaveAssets = new Set(x.gave.map((g) => g.asset));
+		if (x.got.every((g) => gaveAssets.has(g.asset))) continue;
+		// The gas belongs to the swap too: named in it, and its own entry says
+		// which swap it paid for (it stays a fee of its own).
+		const gas = feeOf.get(hash);
+		const swap = {
+			gave: x.gave,
+			got: x.got,
+			via: viaOf(hash),
+			...(gas ? { fee: { asset: gas.asset, amount: gas.amount.replace(/^-/, '') } } : {})
+		};
+		for (const e of x.legs) {
+			e.kind = 'swap';
+			e.swap = swap;
+		}
+		if (gas) gas.swap = swap;
+	}
 }

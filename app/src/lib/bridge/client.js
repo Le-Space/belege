@@ -1,12 +1,16 @@
 // The app's side of the bridge on 127.0.0.1 (see bridge/README.md).
 
+/**
+ * @typedef {{ gave: { asset: string, amount: string, listed: boolean }[], got: { asset: string, amount: string, listed: boolean }[], via: string, fee?: { asset: string, amount: string } }} SwapSides
+ */
+
+/**
+ * @typedef {{ direction?: 'in' | 'out', amount?: string, quantity?: string, asset?: string, day?: string, account?: string, counterparty?: string, purpose?: string }} TransferAssistBooking
+ */
+
 export const DEFAULT_BRIDGE_URL = import.meta.env?.VITE_BRIDGE_URL || 'http://127.0.0.1:8765';
 
 export class BridgeError extends Error {
-	/**
-	 * @typedef {{ direction?: 'in' | 'out', amount?: string, quantity?: string, asset?: string, day?: string, account?: string, counterparty?: string, purpose?: string }} TransferAssistBooking
-	 */
-
 	/** @param {string} message @param {number} status */
 	constructor(message, status) {
 		super(message);
@@ -58,7 +62,8 @@ export class BridgeError extends Error {
  * @property {string} time ISO 8601
  * @property {string} date YYYY-MM-DD (UTC)
  * @property {'sent' | 'received' | 'fee'} type
- * @property {'transfer' | 'reward' | 'stake' | 'ibc' | 'fee'} kind
+ * @property {'transfer' | 'reward' | 'stake' | 'ibc' | 'fee' | 'swap'} kind
+ * @property {SwapSides} [swap] EVM: what the wallet gave and got in a swap (issue #115)
  * @property {string} asset symbol
  * @property {string} amount signed decimal
  * @property {number} decimals
