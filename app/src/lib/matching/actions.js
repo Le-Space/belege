@@ -10,6 +10,7 @@ import { recordEvent } from '../activity/events.js';
 import { getSetting, setSetting } from '../store/settings.js';
 import { cleanMatchingSettings, feeKey, transferPairKey } from './classify.js';
 import { isActive, syncLinks } from './engine.js';
+import { refundPairKey } from './refunds.js';
 import { learnFromLink } from './partners.js';
 
 /** @typedef {import('./engine.js').MatchingStore} MatchingStore */
@@ -264,6 +265,47 @@ export async function keepTransferReceipt(store, transactionId, receiptId) {
 		keptTransferReceipts: [...current.keptTransferReceipts, key]
 	});
 	await decided(store, 'transfer-receipt-kept', { transactionId, receiptId });
+}
+
+/**
+ * "Als Erstattung verknüpfen": a charge and its refund (refunds.js). A link
+ * replaces a "Keine Erstattung" of the pair and an earlier link of either.
+ *
+ * @param {MatchingStore} store
+ * @param {string} transactionId
+ * @param {string} otherId
+ */
+export async function linkRefund(store, transactionId, otherId) {
+	if (transactionId === otherId) return;
+	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+	const key = refundPairKey(transactionId, otherId);
+	const mine = (/** @type {string} */ k) =>
+		k.split('|').some((id) => id === transactionId || id === otherId);
+	await setSetting(store.settings, 'matching', {
+		...current,
+		notRefunds: current.notRefunds.filter((k) => k !== key),
+		refundPairs: [...current.refundPairs.filter((k) => !mine(k)), key]
+	});
+	await decided(store, 'refund-link', { transactionId, counterBookingId: otherId });
+}
+
+/**
+ * "Keine Erstattung" / "Verknüpfung lösen": the two are not a charge and its
+ * refund; both need a receipt again.
+ *
+ * @param {MatchingStore} store
+ * @param {string} transactionId
+ * @param {string} otherId
+ */
+export async function rejectRefund(store, transactionId, otherId) {
+	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+	const key = refundPairKey(transactionId, otherId);
+	await setSetting(store.settings, 'matching', {
+		...current,
+		refundPairs: current.refundPairs.filter((k) => k !== key),
+		notRefunds: [...current.notRefunds.filter((k) => k !== key), key]
+	});
+	await decided(store, 'not-refund', { transactionId, counterBookingId: otherId });
 }
 
 /**

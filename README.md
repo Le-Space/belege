@@ -20,6 +20,18 @@ pnpm lint && pnpm check && pnpm test:unit && pnpm test:bridge && pnpm test:e2e
 
 The switch above every page (_Jahr_) shows one fiscal year: its payments, its questions, and the receipts paid in it. A receipt paid in the year counts there even if it is dated earlier (an invoice from December paid in January, marked _Beleg aus 2025_). An unpaid receipt counts in its own year, and also in a year whose payment is offered for it. The matching itself looks across years. Without a choice, the switch shows the newest year with a payment. The fiscal year starts in the month set under DATEV (`app/src/lib/year/year.js`).
 
+## Refunds
+
+A charge and its refund pair when all of this holds:
+
+- the same counterparty, which the refund names;
+- a refund word (_Rückerstattung, Gutschrift, Storno, Refund_, …);
+- within 120 days;
+- on any account, the same card included;
+- each side has only the other.
+
+A full refund needs no receipt on either side; after a partial one the charge still needs its receipt. _Als Erstattung verknüpfen …_ in the payment links a pair by hand, _Keine Erstattung_ keeps one apart (`app/src/lib/matching/refunds.js`).
+
 ## AI
 
 Belege uses a language model in four places, each only on a click of a button marked **✦**: reading a receipt's text (vendor, amounts, dates, numbers), _Mit KI weitersuchen_ in the private mailbox (search words, then a pick from the hits' subjects, sender domains and file names), _KI-Vorschlag_ under _Beleg zuordnen_ (a pick among receipts by their read fields; the person links), and _KI-Vorschlag_ under _Als Gegenbuchung verknüpfen_ (which booking on another account is the other side of an own transfer; the person links). Matching, questions, transfers, fees, learning and the portals run on fixed rules. **Le Space runs no AI:** each installation sets up its own model in the bridge, a public one such as DeepSeek or a local one such as Ollama, and everything sent is redacted first. Details: [docs/ai.md](docs/ai.md) ([Deutsch](docs/ai.de.md)).

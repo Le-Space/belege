@@ -95,6 +95,8 @@ export function isOwnName(name, company) {
  * @property {string[]} feeKeys bookings a person called a bank fee (`feeKey`)
  * @property {string[]} notTransfers pairs of booking ids a person said are no transfer (`transferPairKey`)
  * @property {string[]} ownTransfers pairs a person linked as the two sides of an own transfer (`transferPairKey`)
+ * @property {string[]} refundPairs `refundPairKey`: a charge and its refund a person linked (refunds.js)
+ * @property {string[]} notRefunds pairs a person said are no refund
  * @property {string[]} keptTransferReceipts `<transaction id>|<receipt id>`: an own transfer whose receipt a person said is right
  */
 
@@ -112,6 +114,8 @@ export function defaultMatchingSettings() {
 		feeKeys: [],
 		notTransfers: [],
 		ownTransfers: [],
+		refundPairs: [],
+		notRefunds: [],
 		keptTransferReceipts: []
 	};
 }
@@ -162,6 +166,9 @@ export function cleanMatchingSettings(value) {
 		// Two bookings a person linked as one own transfer (issue #98): kept
 		// through every run, whatever the rules find.
 		ownTransfers: [...new Set(strings(value?.ownTransfers))].slice(-500),
+		// A charge and its refund, linked by hand, and pairs kept apart (refunds.js).
+		refundPairs: [...new Set(strings(value?.refundPairs))].slice(-500),
+		notRefunds: [...new Set(strings(value?.notRefunds))].slice(-500),
 		// An own transfer that keeps its receipt on purpose (Home, "Beleg ist richtig").
 		keptTransferReceipts: [...new Set(strings(value?.keptTransferReceipts))].slice(-500)
 	};
@@ -201,6 +208,7 @@ export function feeKey(tx) {
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [counterBookings] bookings on our other accounts with the opposite amount within a few days
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [sameReference] bookings on our other accounts with the same reference or transaction hash, the other way (context.js)
  * @property {Set<string>} [notTransfers] pairs a person said are no transfer (transferPairKey)
+ * @property {(tx: Record<string, any>) => { other: Record<string, any>, role: 'charge' | 'refund', full: boolean, manual: boolean } | null} [refundOf] a charge's refund or a refund's charge (refunds.js)
  * @property {(tx: Record<string, any>) => Record<string, any> | null} [linkedTransfer] the booking a person linked as this one's other side (context.js)
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [bridgeCounterparts] the other side of a bridge transfer on another own wallet (context.js)
  * @property {Map<string, Map<string, string>>} [ownAddresses] `<chain>:<address>` (normalised) of our own wallets → their accounts by asset ('' = the first)
@@ -209,7 +217,7 @@ export function feeKey(tx) {
 
 /**
  * @typedef {object} Classification
- * @property {'rule-ignore' | 'rule-private' | 'bank-fee' | 'own-transfer' | 'loan' | 'crypto-reward' | 'crypto-stake' | 'crypto-dust'} kind
+ * @property {'rule-ignore' | 'rule-private' | 'bank-fee' | 'own-transfer' | 'loan' | 'crypto-reward' | 'crypto-stake' | 'crypto-dust' | 'refund'} kind
  *   `crypto-dust`: an incoming wallet transfer worth less than a cent
  *   `crypto-stake`: tokens delegated to staking (or back); no receipt, and not
  *   on 1360: the return at the end of an unbonding is no transaction, so a
@@ -221,6 +229,7 @@ export function feeKey(tx) {
  * @property {string} [ruleContains] the rule's text
  * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'bridge' | 'manual' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee'} [via] how an own transfer or a bank fee was recognised
  * @property {string} [address] our own wallet's address, for via 'own-address'
+ * @property {'charge' | 'refund'} [role] for a refund pair: which side this is
  * @property {string} [chain] the other wallet's chain: an IBC receiver's (via 'own-address'), a bridge's other side (via 'bridge')
  * @property {string} [lookalike] for dust: the known address its sender's looks like
  * @property {string} [counterBookingId] the other side of a transfer, for via 'counter-booking'
@@ -325,6 +334,19 @@ export function classifyTransaction(tx, ctx) {
 			counterBookingId: String(linked.id),
 			counterAccountId: String(linked.accountId ?? ''),
 			counterDay: String(linked.bookedOn ?? '')
+		};
+	}
+	// A charge and its refund (refunds.js): a full refund covers both; a
+	// partial one covers the refund, and the charge still needs its receipt.
+	const refund = ctx.refundOf?.(tx);
+	if (refund && (refund.full || refund.role === 'refund')) {
+		return {
+			kind: 'refund',
+			role: refund.role,
+			via: refund.manual ? 'manual' : 'counter-booking',
+			counterBookingId: String(refund.other.id),
+			counterAccountId: String(refund.other.accountId ?? ''),
+			counterDay: String(refund.other.bookedOn ?? '')
 		};
 	}
 	const wallet = walletChain(tx.source);

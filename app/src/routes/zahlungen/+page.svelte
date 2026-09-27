@@ -114,6 +114,7 @@
 		loan: 'border-border bg-surface-2 text-text',
 		'crypto-reward': 'border-border bg-surface-2 text-text',
 		'crypto-stake': 'border-border bg-surface-2 text-text',
+		refund: 'border-border bg-surface-2 text-text',
 		'crypto-dust': 'border-border bg-surface-2 text-faint',
 		'rule-ignore': 'border-border bg-surface-2 text-faint',
 		'rule-private': 'border-border bg-surface-2 text-faint'

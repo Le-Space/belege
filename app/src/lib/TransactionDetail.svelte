@@ -65,7 +65,9 @@
 		addCompanyName,
 		confirmMatch,
 		markBankFee,
+		linkRefund,
 		linkTransfer,
+		rejectRefund,
 		rejectTransfer,
 		setNoReceipt,
 		unlinkMatch
@@ -133,6 +135,8 @@
 	);
 	// "Als Gegenbuchung verknüpfen …" (issue #98): the other side of an own transfer, by hand.
 	let linkOpen = $state(false);
+	// What the other side is: an own transfer, or a charge's refund (issue #119).
+	let linkMode = $state(/** @type {'transfer' | 'refund'} */ ('transfer'));
 	let linkQuery = $state('');
 	/** @type {{ pick: { id: string, confidence: string, reason: string } | null } | null} */
 	let linkAi = $state(null);
@@ -605,7 +609,7 @@
 	const notTransfer = () =>
 		act(async () => {
 			if (!classification?.counterBookingId) return;
-			await rejectTransfer(
+			await (classification.kind === 'refund' ? rejectRefund : rejectTransfer)(
 				/** @type {any} */ (currentStore()),
 				txId,
 				classification.counterBookingId
@@ -614,7 +618,12 @@
 		});
 
 	let linkChoices = $derived(
-		linkOpen && tx ? transferCandidates(tx, app.transactions, { query: linkQuery }) : []
+		linkOpen && tx
+			? transferCandidates(tx, app.transactions, {
+					query: linkQuery,
+					...(linkMode === 'refund' ? { days: 120, anyAccount: true } : {})
+				})
+			: []
 	);
 
 	/**
@@ -680,7 +689,11 @@
 	/** @param {string} otherId */
 	const linkOther = (otherId) =>
 		act(async () => {
-			await linkTransfer(/** @type {any} */ (currentStore()), txId, otherId);
+			await (linkMode === 'refund' ? linkRefund : linkTransfer)(
+				/** @type {any} */ (currentStore()),
+				txId,
+				otherId
+			);
 			linkOpen = false;
 			linkQuery = '';
 			linkAi = null;
@@ -1388,7 +1401,7 @@
 					>
 						<p class="text-xs font-semibold text-heading">{t('explain.whyNone')}</p>
 						<p class="mt-0.5 text-sm text-text" data-testid="tx-why-rule-line">{ruleLine}</p>
-						{#if classification?.kind === 'own-transfer' && classification.counterBookingId && !tx.noReceipt}
+						{#if (classification?.kind === 'own-transfer' || classification?.kind === 'refund') && classification.counterBookingId && !tx.noReceipt}
 							<div class="mt-1.5 flex flex-wrap gap-3 text-sm">
 								<button
 									type="button"
@@ -1405,7 +1418,9 @@
 									data-testid="tx-not-transfer"
 									>{classification.via === 'manual'
 										? t('zahlungen.detail.unlinkTransfer')
-										: t('zahlungen.detail.notTransfer')}</button
+										: classification.kind === 'refund'
+											? t('zahlungen.detail.notRefund')
+											: t('zahlungen.detail.notTransfer')}</button
 								>
 							</div>
 						{/if}
@@ -1584,15 +1599,32 @@
 							{/if}
 						</div>
 						{#if !tx.receiptId && classification?.via !== 'manual'}
-							<div class="mt-2">
+							<div class="mt-2 flex flex-wrap gap-2">
 								<button
 									type="button"
 									class={button}
-									onclick={() => (linkOpen = !linkOpen)}
-									aria-expanded={linkOpen}
+									onclick={() => {
+										linkOpen = !(linkOpen && linkMode === 'transfer');
+										linkMode = 'transfer';
+										linkAi = null;
+									}}
+									aria-expanded={linkOpen && linkMode === 'transfer'}
 									disabled={busy}
 									title={t('zahlungen.detail.linkTransferTitle')}
 									data-testid="tx-link-transfer">{t('zahlungen.detail.linkTransfer')}</button
+								>
+								<button
+									type="button"
+									class={button}
+									onclick={() => {
+										linkOpen = !(linkOpen && linkMode === 'refund');
+										linkMode = 'refund';
+										linkAi = null;
+									}}
+									aria-expanded={linkOpen && linkMode === 'refund'}
+									disabled={busy}
+									title={t('zahlungen.detail.linkRefundTitle')}
+									data-testid="tx-link-refund">{t('zahlungen.detail.linkRefund')}</button
 								>
 							</div>
 							{#if linkOpen}
@@ -1609,7 +1641,7 @@
 										autocomplete="off"
 										data-testid="tx-link-transfer-query"
 									/>
-									{#if client && linkChoices.length}
+									{#if client && linkChoices.length && linkMode === 'transfer'}
 										<button
 											type="button"
 											class="mt-2 {button}"
@@ -1692,7 +1724,9 @@
 										</ul>
 									{:else}
 										<p class="mt-2 text-sm text-faint" data-testid="tx-link-transfer-none">
-											{t('zahlungen.detail.linkTransferNone')}
+											{linkMode === 'refund'
+												? t('zahlungen.detail.linkRefundNone')
+												: t('zahlungen.detail.linkTransferNone')}
 										</p>
 									{/if}
 								</div>

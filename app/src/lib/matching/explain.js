@@ -221,6 +221,14 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 			return t('explain.rule.bankFee', { type: c.bookingType ?? '' });
 		case 'loan':
 			return t('explain.rule.loan');
+		case 'refund': {
+			const other = accounts.find((a) => a.id === c.counterAccountId);
+			return t(c.role === 'charge' ? 'explain.rule.refunded' : 'explain.rule.refundOf', {
+				date: c.counterDay ? formatDate(c.counterDay) : '?',
+				account: other ? accountLabel(other) : t('explain.rule.otherAccount'),
+				how: c.via === 'manual' ? t('explain.rule.refundManual') : t('explain.rule.refundAuto')
+			});
+		}
 		case 'crypto-stake':
 			return t('explain.rule.staking');
 		case 'crypto-dust':

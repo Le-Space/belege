@@ -465,6 +465,7 @@ export default {
 			loan: 'Darlehen',
 			'crypto-reward': 'Ertrag der Börse',
 			'crypto-stake': 'Staking',
+			refund: 'Erstattung',
 			'crypto-dust': 'Staub',
 			'rule-ignore': 'Ignoriert',
 			'rule-private': 'Privat'
@@ -475,6 +476,7 @@ export default {
 			loan: 'Darlehen – der Vertrag ist der Beleg',
 			'crypto-reward': 'Staking- oder Earn-Ertrag – der Kontoauszug der Börse ist der Beleg',
 			'crypto-stake': 'Delegiert ins Staking – kein Beleg nötig, nicht auf 1360',
+			refund: 'Belastung und Erstattung – kein Beleg nötig',
 			'crypto-dust': 'Staub unter einem Cent – kein Beleg nötig',
 			'rule-ignore': 'Ignoriert nach eigener Anweisung: {reason}',
 			'rule-private': 'Privat nach eigener Anweisung: {reason}',
@@ -550,6 +552,12 @@ export default {
 				'Eigene Umbuchung, von dir verknüpft: Die Gegenbuchung steht auf {account} am {date}. Kein Beleg nötig (Konto 1360).',
 			ownBridge:
 				'Eigene Übertragung über eine Bridge: Die Gegenbuchung steht auf {account} am {date} – dieselbe Kryptowährung, dieselbe Menge abzüglich der Bridge-Gebühr (höchstens 3 %), innerhalb von 8 Tagen. Kein Beleg nötig (Konto 1360).',
+			refunded:
+				'Voll erstattet: Die Erstattung steht auf {account} am {date} ({how}). Belastung und Erstattung heben sich auf – kein Beleg nötig.',
+			refundOf:
+				'Erstattung zur Belastung auf {account} vom {date} ({how}). Die Erstattung braucht keinen eigenen Beleg; bei einer Teilerstattung braucht die Belastung weiter ihren.',
+			refundAuto: 'gleiche Gegenpartei, „Erstattung“ im Text',
+			refundManual: 'von dir verknüpft',
 			staking:
 				'Staking: Die Tokens sind delegiert und bleiben deine. Kein Beleg nötig. Nicht auf 1360 – ihre Rückkehr nach dem Unbonding ist keine Transaktion, eine Umbuchung ginge nie auf; das Konto klärt ihr mit dem Steuerberater.',
 			dust: 'Staub: weniger als ein Cent wert, empfangen, ohne dass du etwas getan hast. Kein Beleg nötig. Oft ein Test oder Werbung – oder der Anfang einer Adressvergiftung: Verwende die Absenderadresse nie als Empfänger.',
@@ -1075,6 +1083,8 @@ export default {
 			'bank-fee-forget': 'Bankgebühr vergessen',
 			'not-transfer': 'Als „keine Umbuchung“ markiert',
 			'own-transfer-link': 'Als Gegenbuchung verknüpft (eigene Umbuchung)',
+			'refund-link': 'Als Erstattung verknüpft',
+			'not-refund': 'Als „keine Erstattung“ markiert',
 			'transfer-receipt-kept': 'Beleg einer Umbuchung bestätigt',
 			'company-name': 'Firmennamen übernommen',
 			'receipt-duplicate': 'Beleg als Duplikat aussortiert',
@@ -1276,6 +1286,7 @@ export default {
 					transfer: 'Umbuchung',
 					trade: 'Tausch',
 					fee: 'Gebühr dazu',
+					refund: 'Erstattung',
 					'fee-of': 'Gebühr zu'
 				},
 				via: {
@@ -1364,6 +1375,11 @@ export default {
 			ownNameNo: 'Nein, ein Anbieter',
 			notTransfer: 'Keine Umbuchung – Beleg nötig',
 			unlinkTransfer: 'Verknüpfung lösen – Beleg nötig',
+			notRefund: 'Keine Erstattung – Beleg nötig',
+			linkRefund: 'Als Erstattung verknüpfen …',
+			linkRefundTitle:
+				'Diese Zahlung und eine in die andere Richtung – auf demselben oder einem anderen Konto – sind eine Belastung und ihre Erstattung. Voll erstattet braucht keine einen Beleg; bei einer Teilerstattung braucht die Belastung weiter ihren. Bleibt bei jedem Abgleich.',
+			linkRefundNone: 'Keine Buchung in die andere Richtung innerhalb von 120 Tagen.',
 			party: { from: 'Von', to: 'An', own: 'eigene', foreign: 'fremde Adresse' },
 			linkTransfer: 'Als Gegenbuchung verknüpfen …',
 			linkTransferTitle:
