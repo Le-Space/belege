@@ -35,6 +35,13 @@ pnpm test:e2e     # Playwright, Chromium with a virtual passkey (PRF)
   because `@orbitdb/core` 4.0.0 drops the `encryption` option for documents databases.
 - **Offline unless device sync is on.** By default libp2p runs with gossipsub for OrbitDB but
   no transports, no bootstrap and no discovery (`src/lib/network.js`).
+- **Installable (PWA, issue #141).** `static/manifest.webmanifest`, icons from `static/favicon.svg`
+  (`node scripts/pwa-icons.mjs`, needs Inkscape), and a service worker (`src/service-worker.js`,
+  rules in `src/lib/pwa/cache-rules.js`) that caches the app shell of one version and nothing with
+  data: the bridge, relays and every API go to the network. It is registered by
+  `src/lib/pwa/pwa.svelte.js` (not by SvelteKit, not in the dev server): a new version waits for
+  "Neu laden", since switching under an open session would lock the books. Offline, the page still
+  loads and the books unlock from this browser.
 - **Own devices** (`src/lib/sync/`, issue #123): a switch on the consent screen, off by default
   and per device. When on, the next unlock starts an online node: WebSocket to the Le-Space
   relay, a reservation there, WebRTC for the direct connection. Its peer key is derived from the

@@ -10,6 +10,7 @@
 	import LocalOnlyBadge from '$lib/LocalOnlyBadge.svelte';
 	import PageQr from '$lib/PageQr.svelte';
 	import PasskeyOnboarding from '$lib/PasskeyOnboarding.svelte';
+	import PwaBar from '$lib/pwa/PwaBar.svelte';
 	import SectionTabs from '$lib/SectionTabs.svelte';
 	import YearSwitch from '$lib/year/YearSwitch.svelte';
 	import TechnicalToggle from '$lib/TechnicalToggle.svelte';
@@ -81,6 +82,8 @@
 			<TechnicalToggle />
 		</div>
 	</header>
+
+	<PwaBar />
 
 	{#if !ready}
 		<main>
