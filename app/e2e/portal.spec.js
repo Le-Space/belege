@@ -212,6 +212,9 @@ test('Vodafone invoices from the portal become receipts and match the booking', 
 	await page.getByRole('button', { name: /^Alle \(/ }).click();
 	await page.getByTestId('transaction').filter({ hasText: PORTAL_VENDOR }).click();
 	const detail = page.getByTestId('tx-detail');
+	// It has its receipt: "Anderen Beleg suchen" opens "Beleg finden", the portal is a source there.
+	await detail.getByTestId('tx-assign').click();
+	await detail.getByTestId('tx-find-tab-portal').click();
 	await expect(detail.getByTestId('tx-vendor-portal')).toContainText('Vodafone MeinKabel');
 	await detail.getByTestId('tx-vendor-fetch').click();
 	await expect(detail.getByTestId('tx-vendor-result')).toHaveText(
