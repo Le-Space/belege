@@ -335,7 +335,8 @@ describe('cleanMatchingSettings', () => {
 			],
 			graceDays: 7,
 			feeKeys: [],
-			notTransfers: []
+			notTransfers: [],
+			ownTransfers: []
 		});
 		expect(cleanMatchingSettings(null)).toEqual({
 			companyNames: [],
@@ -343,7 +344,8 @@ describe('cleanMatchingSettings', () => {
 			rules: [],
 			graceDays: 7,
 			feeKeys: [],
-			notTransfers: []
+			notTransfers: [],
+			ownTransfers: []
 		});
 	});
 

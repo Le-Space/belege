@@ -211,11 +211,40 @@ export async function addCompanyName(store, name) {
  */
 export async function rejectTransfer(store, transactionId, counterBookingId) {
 	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+	const key = transferPairKey(transactionId, counterBookingId);
 	await setSetting(store.settings, 'matching', {
 		...current,
-		notTransfers: [...current.notTransfers, transferPairKey(transactionId, counterBookingId)]
+		notTransfers: [...current.notTransfers, key],
+		// A pair linked by hand is unlinked too.
+		ownTransfers: current.ownTransfers.filter((k) => k !== key)
 	});
 	await decided(store, 'not-transfer', { transactionId, counterBookingId });
+}
+
+/**
+ * "Als Gegenbuchung verknüpfen": the two bookings are the two sides of one own
+ * transfer (1360), whatever the rules find – across chains, a bridge the
+ * rules miss, an account not synced. Neither needs a receipt; each shows the
+ * other under "Gehört zusammen mit". A link replaces a "Keine Umbuchung" of
+ * the same pair.
+ *
+ * @param {MatchingStore} store
+ * @param {string} transactionId
+ * @param {string} counterBookingId
+ */
+export async function linkTransfer(store, transactionId, counterBookingId) {
+	if (transactionId === counterBookingId) return;
+	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+	const key = transferPairKey(transactionId, counterBookingId);
+	// A booking has one other side: an earlier link of either goes.
+	const mine = (/** @type {string} */ k) =>
+		k.split('|').some((id) => id === transactionId || id === counterBookingId);
+	await setSetting(store.settings, 'matching', {
+		...current,
+		notTransfers: current.notTransfers.filter((k) => k !== key),
+		ownTransfers: [...current.ownTransfers.filter((k) => !mine(k)), key]
+	});
+	await decided(store, 'own-transfer-link', { transactionId, counterBookingId });
 }
 
 /**

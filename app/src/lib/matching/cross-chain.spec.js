@@ -171,3 +171,131 @@ describe('which way a booking goes', () => {
 		expect(txDirection({ amountCents: 0 })).toBe(0);
 	});
 });
+
+describe('two bookings linked by hand as one own transfer', () => {
+	const accounts = [
+		{
+			id: 'acc-l2',
+			source: 'optimism',
+			name: 'Wallet ETH (Optimism)',
+			walletAddress: evm('aa'),
+			asset: 'ETH'
+		},
+		{ id: 'acc-bank', source: 'hibiscus', name: 'Girokonto' }
+	];
+	const out = move({
+		id: 'x-out',
+		accountId: 'acc-l2',
+		source: 'optimism',
+		bookedOn: '2026-08-01',
+		asset: 'ETH',
+		quantity: `-${ETH(100)}`,
+		amountCents: -24000
+	});
+	const into = {
+		id: 'x-in',
+		accountId: 'acc-bank',
+		source: 'hibiscus',
+		bookedOn: '2026-08-04',
+		currency: 'EUR',
+		amountCents: 23500,
+		counterparty: 'Offramp Ltd',
+		deleted: false
+	};
+
+	it('holds whatever the rules find, and shows as related', async () => {
+		const ctx = await buildMatchingContext({
+			accounts,
+			transactions: [out, into],
+			settings: /** @type {any} */ ({ ownTransfers: ['x-in|x-out'] })
+		});
+		const c = classifyTransaction(into, ctx);
+		expect(c).toMatchObject({
+			kind: 'own-transfer',
+			via: 'manual',
+			counterBookingId: 'x-out',
+			counterAccountId: 'acc-l2'
+		});
+		expect(classifyTransaction(out, ctx)).toMatchObject({
+			via: 'manual',
+			counterBookingId: 'x-in'
+		});
+		expect(classificationLine(c, { accounts })).toContain('von dir verknüpft');
+		const rel = relatedIndex([out, into], /** @type {any} */ ({ 'x-in': c }));
+		expect(rel.get('x-out')).toMatchObject([{ kind: 'transfer', via: 'manual' }]);
+	});
+
+	it('a link to a deleted booking is no link', async () => {
+		const ctx = await buildMatchingContext({
+			accounts,
+			transactions: [out, { ...into, deleted: true }],
+			settings: /** @type {any} */ ({ ownTransfers: ['x-in|x-out'] })
+		});
+		expect(classifyTransaction(out, ctx)).toBeNull();
+	});
+});
+
+describe('the other side to link: candidates', () => {
+	const base = { currency: 'EUR', deleted: false };
+	const me = { ...base, id: 'me', accountId: 'a', bookedOn: '2026-08-10', amountCents: -10000 };
+	const others = [
+		{ ...base, id: 'far', accountId: 'b', bookedOn: '2026-10-01', amountCents: 10000 },
+		{ ...base, id: 'same-account', accountId: 'a', bookedOn: '2026-08-10', amountCents: 10000 },
+		{ ...base, id: 'same-way', accountId: 'b', bookedOn: '2026-08-10', amountCents: -10000 },
+		{ ...base, id: 'close', accountId: 'b', bookedOn: '2026-08-12', amountCents: 9950 },
+		{
+			...base,
+			id: 'exact',
+			accountId: 'c',
+			bookedOn: '2026-08-14',
+			amountCents: 10000,
+			counterparty: 'Revolut'
+		},
+		{
+			...base,
+			id: 'fee',
+			accountId: 'b',
+			bookedOn: '2026-08-10',
+			amountCents: 10000,
+			movement: 'fee'
+		}
+	];
+
+	it('the other way, on another account, within a month, closest amount first', async () => {
+		const { transferCandidates } = await import('./view.js');
+		expect(transferCandidates(me, [me, ...others]).map((o) => o.id)).toEqual(['exact', 'close']);
+		expect(transferCandidates(me, others, { query: 'revo' }).map((o) => o.id)).toEqual(['exact']);
+		expect(transferCandidates(me, others, { query: '99.5' }).map((o) => o.id)).toEqual(['close']);
+	});
+});
+
+describe('linking and unlinking by hand', () => {
+	/** @returns {Promise<any>} */
+	async function books() {
+		const { memoryCollection } = await import('../bank/test-support.js');
+		/** @type {any} */
+		const store = {};
+		for (const name of /** @type {const} */ (['settings', 'events']))
+			store[name] = memoryCollection(name).collection;
+		return store;
+	}
+
+	it('a link replaces "Keine Umbuchung" of the pair and an earlier link of either side', async () => {
+		const { linkTransfer, rejectTransfer } = await import('./actions.js');
+		const { getSetting } = await import('../store/settings.js');
+		const store = await books();
+		await rejectTransfer(store, 'a', 'b');
+		await linkTransfer(store, 'c', 'a');
+		await linkTransfer(store, 'b', 'a');
+		const m = await getSetting(store.settings, 'matching');
+		expect(m.ownTransfers).toEqual(['a|b']);
+		expect(m.notTransfers).toEqual([]);
+		// "Verknüpfung lösen": unlinked, and kept apart from then on.
+		await rejectTransfer(store, 'b', 'a');
+		const after = await getSetting(store.settings, 'matching');
+		expect(after.ownTransfers).toEqual([]);
+		expect(after.notTransfers).toEqual(['a|b']);
+		const events = await store.events.list();
+		expect(events.map((/** @type {any} */ e) => e.action)).toContain('own-transfer-link');
+	});
+});

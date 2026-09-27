@@ -20,7 +20,7 @@ const HASH = /^(0x)?[0-9a-f]{40,}$/i;
 /**
  * @typedef {'transfer' | 'trade' | 'fee' | 'fee-of'} RelationKind
  *   `fee`: the other booking is this one's fee; `fee-of`: this one is the other's fee
- * @typedef {'counter-booking' | 'reference' | 'own-address' | 'bridge' | 'hash' | 'refid'} RelationVia
+ * @typedef {'counter-booking' | 'reference' | 'own-address' | 'bridge' | 'manual' | 'hash' | 'refid'} RelationVia
  * @typedef {{ kind: RelationKind, via: RelationVia, other: Record<string, any> }} Relation
  */
 
@@ -61,7 +61,7 @@ export function relatedIndex(transactions, classifications = {}) {
 					? shared && HASH.test(shared)
 						? 'hash'
 						: 'reference'
-					: c?.via === 'own-address' || c?.via === 'bridge'
+					: c?.via === 'own-address' || c?.via === 'bridge' || c?.via === 'manual'
 						? c.via
 						: 'counter-booking'
 			);

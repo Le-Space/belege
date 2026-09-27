@@ -94,6 +94,7 @@ export function isOwnName(name, company) {
  * @property {number} graceDays a booking without a receipt is asked about only once it is older than this (0: at once)
  * @property {string[]} feeKeys bookings a person called a bank fee (`feeKey`)
  * @property {string[]} notTransfers pairs of booking ids a person said are no transfer (`transferPairKey`)
+ * @property {string[]} ownTransfers pairs a person linked as the two sides of an own transfer (`transferPairKey`)
  */
 
 /** A receipt often arrives days after the debit: no question before then. */
@@ -108,7 +109,8 @@ export function defaultMatchingSettings() {
 		rules: [],
 		graceDays: DEFAULT_GRACE_DAYS,
 		feeKeys: [],
-		notTransfers: []
+		notTransfers: [],
+		ownTransfers: []
 	};
 }
 
@@ -154,7 +156,10 @@ export function cleanMatchingSettings(value) {
 		// Bookings a person called a bank fee (feeKey below): the next like it is one too.
 		feeKeys: [...new Set(strings(value?.feeKeys))].slice(-200),
 		// Counter-bookings a person said were no transfer (transferPairKey).
-		notTransfers: [...new Set(strings(value?.notTransfers))].slice(-200)
+		notTransfers: [...new Set(strings(value?.notTransfers))].slice(-200),
+		// Two bookings a person linked as one own transfer (issue #98): kept
+		// through every run, whatever the rules find.
+		ownTransfers: [...new Set(strings(value?.ownTransfers))].slice(-500)
 	};
 }
 
@@ -192,6 +197,7 @@ export function feeKey(tx) {
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [counterBookings] bookings on our other accounts with the opposite amount within a few days
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [sameReference] bookings on our other accounts with the same reference or transaction hash, the other way (context.js)
  * @property {Set<string>} [notTransfers] pairs a person said are no transfer (transferPairKey)
+ * @property {(tx: Record<string, any>) => Record<string, any> | null} [linkedTransfer] the booking a person linked as this one's other side (context.js)
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [bridgeCounterparts] the other side of a bridge transfer on another own wallet (context.js)
  * @property {Map<string, Map<string, string>>} [ownAddresses] `<chain>:<address>` (normalised) of our own wallets → their accounts by asset ('' = the first)
  * @property {(tx: Record<string, any>) => string | null} [lookalikeOf] a known address the booking's other side looks like, but is not
@@ -209,7 +215,7 @@ export function feeKey(tx) {
  * @property {string} [ruleId]
  * @property {'counterparty' | 'purpose' | 'any'} [ruleField] what the rule looked at
  * @property {string} [ruleContains] the rule's text
- * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'bridge' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee'} [via] how an own transfer or a bank fee was recognised
+ * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'bridge' | 'manual' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee'} [via] how an own transfer or a bank fee was recognised
  * @property {string} [address] our own wallet's address, for via 'own-address'
  * @property {string} [chain] the other wallet's chain: an IBC receiver's (via 'own-address'), a bridge's other side (via 'bridge')
  * @property {string} [lookalike] for dust: the known address its sender's looks like
@@ -304,6 +310,18 @@ export function classifyTransaction(tx, ctx) {
 				ruleContains: rule.contains
 			};
 		}
+	}
+	// Linked by hand as the two sides of an own transfer: that holds.
+	const linked = ctx.linkedTransfer?.(tx);
+	if (linked) {
+		return {
+			kind: 'own-transfer',
+			account: '1360',
+			via: 'manual',
+			counterBookingId: String(linked.id),
+			counterAccountId: String(linked.accountId ?? ''),
+			counterDay: String(linked.bookedOn ?? '')
+		};
 	}
 	const wallet = walletChain(tx.source);
 	if (tx.movement === 'fee') {

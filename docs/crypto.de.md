@@ -112,6 +112,8 @@ Tokens, die von einer Börse auf eine eigene Wallet gehen, gehören weiter der F
 
   Sonst bleibt es eine Rückfrage. _Keine Umbuchung_ hält ein Paar auseinander. Das Paar erscheint unter _Gehört zusammen mit_ als _Umbuchung · über Bridge_.
 
+**Von Hand**, für alles, was die Regeln nicht finden (eine andere Bridge, ein nicht synchronisiertes Konto, die Auszahlung einer Börse aufs Bankkonto): _Kein fremder Beleg … → Als Gegenbuchung verknüpfen …_ in der Zahlung listet Buchungen auf anderen Konten, in die andere Richtung, innerhalb eines Monats, den nächsten Betrag zuerst, mit Suche. Das Paar liegt versiegelt in den Abgleich-Einstellungen (`ownTransfers`) und gilt bei jedem Lauf: eigene Umbuchung (1360), _Umbuchung · von dir verknüpft_ auf beiden Seiten. _Verknüpfung lösen_ macht es rückgängig und hält das Paar künftig auseinander.
+
 Eine Netzwerkgebühr teilt den Hash ihrer Buchung und erscheint als _Gebühr dazu_. Das erklärt die Gebühr, nicht, woher die Coins der Buchung kamen oder wohin sie gingen.
 
 ### Alchemy

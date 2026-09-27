@@ -112,6 +112,8 @@ Tokens withdrawn from an exchange to a wallet of our own stay the company's. _In
 
   Otherwise it stays a question. _Keine Umbuchung_ keeps a pair apart. The pair shows under _Gehört zusammen mit_ as _Umbuchung · über Bridge_.
 
+**By hand**, for everything the rules miss (another bridge, an account not synced, an exchange's payout to the bank): _Kein fremder Beleg … → Als Gegenbuchung verknüpfen …_ in the payment lists bookings on other accounts, the other way, within a month, the closest amount first, with a search. The pair is kept sealed in the matching settings (`ownTransfers`) and holds through every run: an own transfer (1360), _Umbuchung · von dir verknüpft_ on both sides. _Verknüpfung lösen_ undoes it and keeps the pair apart.
+
 A network fee shares the hash of its booking and shows as _Gebühr dazu_. That explains the fee, not where the booking's coins came from or went.
 
 ### Alchemy

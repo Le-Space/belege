@@ -173,6 +173,13 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 					sign: c.sign ?? ''
 				});
 			}
+			if (c.via === 'manual') {
+				const other = accounts.find((a) => a.id === c.counterAccountId);
+				return t('explain.rule.ownManual', {
+					account: other ? accountLabel(other) : t('explain.rule.otherAccount'),
+					date: c.counterDay ? formatDate(c.counterDay) : '?'
+				});
+			}
 			if (c.via === 'bridge') {
 				const other = accounts.find((a) => a.id === c.counterAccountId);
 				return t('explain.rule.ownBridge', {
