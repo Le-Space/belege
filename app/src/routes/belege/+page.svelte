@@ -5,6 +5,7 @@
 	// shared folder and from customer portals (Integrationen → Kundenportale);
 	// every file is sealed before it is stored.
 	import { onMount, tick } from 'svelte';
+	import { booksByYear, shownYear } from '$lib/year/year.svelte.js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
@@ -123,7 +124,12 @@
 				}
 			: null;
 
-	let receipts = $derived(/** @type {Receipt[]} */ (app.receipts));
+	// The year shown (year/year.js): a receipt paid in it, or of it and unpaid.
+	let yearIndex = $derived(booksByYear());
+	let year = $derived(shownYear());
+	let receipts = $derived(
+		/** @type {Receipt[]} */ (app.receipts.filter((r) => yearIndex.receiptYears(r).has(year)))
+	);
 	let counts = $derived(sourceCounts(receipts));
 	/** @param {string} id */
 	const matchOf = (id) => matchOfReceipt(id, app.matches);
@@ -885,6 +891,16 @@
 											<span class="block text-xs text-faint tabular-nums" data-testid="receipt-date"
 												>{dateText(r)}</span
 											>
+											{#if yearIndex.otherYear(r, year) !== null}
+												<span
+													class="block text-xs text-faint"
+													title={t('year.fromYearTitle', {
+														year: yearIndex.otherYear(r, year) ?? ''
+													})}
+													data-testid="receipt-from-year"
+													>{t('year.fromYear', { year: yearIndex.otherYear(r, year) ?? '' })}</span
+												>
+											{/if}
 										</span>
 									</button>
 								</li>

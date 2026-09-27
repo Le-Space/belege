@@ -19,9 +19,20 @@
 		dismissSuggestion,
 		suggestAll
 	} from '$lib/matching/ai-suggest.svelte.js';
+	import { booksByYear, shownYear } from '$lib/year/year.svelte.js';
 
-	let open = $derived(app.questions.filter((q) => q.state === 'open'));
-	let answered = $derived(app.questions.filter((q) => q.state === 'answered'));
+	// Only the questions of the year shown (year/year.js); the bulk buttons
+	// count and act on those alone.
+	let questions = $derived.by(() => {
+		const index = booksByYear();
+		const year = shownYear();
+		return app.questions.filter((q) => index.questionYears(q).has(year));
+	});
+	let open = $derived(questions.filter((q) => q.state === 'open'));
+	let answered = $derived(questions.filter((q) => q.state === 'answered'));
+	let openElsewhere = $derived(
+		app.questions.filter((q) => q.state === 'open').length - open.length
+	);
 	let txById = $derived(new Map(app.transactions.map((x) => [x.id, x])));
 	let receiptById = $derived(new Map(app.receipts.map((r) => [r.id, r])));
 
@@ -36,7 +47,7 @@
 	});
 
 	// "✦ KI-Vorschläge für alle offenen Rückfragen" (matching/ai-suggest.svelte.js).
-	let eligible = $derived(aiEligible(app.questions));
+	let eligible = $derived(aiEligible(questions));
 	let estimate = $derived(aiEstimate(app.events, eligible.length));
 	let aiAsk = $state(false);
 	/** Suggestions a person may take all at once: the model was sure, and not dismissed. */
@@ -155,6 +166,11 @@
 	<a class="text-sm text-text underline" href={resolve('/')}>{t('rueckfragen.back')}</a>
 </div>
 <p class="mt-1 text-sm text-faint">{t('rueckfragen.intro')}</p>
+{#if openElsewhere > 0}
+	<p class="mt-1 text-sm text-faint" data-testid="questions-elsewhere">
+		{t('year.hidden', { count: openElsewhere })}
+	</p>
+{/if}
 
 {#if error}
 	<p class="mt-3 text-sm text-danger" role="alert">{error}</p>

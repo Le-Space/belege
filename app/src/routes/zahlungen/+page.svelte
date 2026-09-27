@@ -1,5 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
+	import { booksByYear, shownYear } from '$lib/year/year.svelte.js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import TransactionDetail from '$lib/TransactionDetail.svelte';
@@ -38,12 +39,21 @@
 	// Bookings that belong together (matching/related.js): a mark on the row.
 	let relatedById = $derived(relatedIndex(transactions, app.classifications));
 
-	/** Account and search, but not the receipt filter: its buttons count both ways. */
-	let searched = $derived(
-		transactions.filter(
-			(tx) => (!accountId || tx.accountId === accountId) && matchesSearch(tx, query)
-		)
-	);
+	/**
+	 * The year shown (year/year.js), account and search, but not the receipt
+	 * filter: its buttons count both ways. Relations and trade sides look at
+	 * every year: the other side of a transfer may lie in the one before.
+	 */
+	let searched = $derived.by(() => {
+		const index = booksByYear();
+		const year = shownYear();
+		return transactions.filter(
+			(tx) =>
+				index.txYear(tx) === year &&
+				(!accountId || tx.accountId === accountId) &&
+				matchesSearch(tx, query)
+		);
+	});
 	/** @param {Tx} tx */
 	const covered = (tx) => isTxCovered(tx, app.classifications);
 	let withoutReceipt = $derived(searched.filter((tx) => !covered(tx)));

@@ -17,6 +17,7 @@
 	import { getSetting } from '$lib/store/settings.js';
 	import { DEFAULT_PRICES, aiUsage, cleanPrices, periods } from '$lib/stats/usage.js';
 	import { isTxCovered, questionProgress } from '$lib/matching/view.js';
+	import { booksByYear, shownYear } from '$lib/year/year.svelte.js';
 
 	const hour = new Date().getHours();
 	const greeting = t(hour < 11 ? 'home.morning' : hour < 18 ? 'home.day' : 'home.evening');
@@ -74,10 +75,20 @@
 		await readPending();
 	}
 
-	let progress = $derived(questionProgress(app.questions));
-	let covered = $derived(app.transactions.filter((tx) => isTxCovered(tx, app.classifications)));
+	// The numbers of the year shown (year/year.js).
+	let shown = $derived.by(() => {
+		const index = booksByYear();
+		const year = shownYear();
+		return {
+			transactions: app.transactions.filter((tx) => index.txYear(tx) === year),
+			receipts: app.receipts.filter((r) => index.receiptYears(r).has(year)),
+			questions: app.questions.filter((q) => index.questionYears(q).has(year))
+		};
+	});
+	let progress = $derived(questionProgress(shown.questions));
+	let covered = $derived(shown.transactions.filter((tx) => isTxCovered(tx, app.classifications)));
 	let percent = $derived(
-		app.transactions.length ? Math.round((covered.length / app.transactions.length) * 100) : 0
+		shown.transactions.length ? Math.round((covered.length / shown.transactions.length) * 100) : 0
 	);
 
 	/** @type {string | null} */
@@ -223,7 +234,7 @@
 			class="mt-1 text-3xl font-semibold text-heading tabular-nums"
 			data-testid="count-transactions"
 		>
-			{app.transactions.length}
+			{shown.transactions.length}
 		</dd>
 	</div>
 	<div class={card}>
@@ -237,7 +248,7 @@
 		<dd class="text-xs text-faint">
 			{t('home.coverageText', {
 				covered: covered.length,
-				count: app.transactions.length,
+				count: shown.transactions.length,
 				percent
 			})}
 		</dd>
@@ -245,7 +256,7 @@
 	<div class={card}>
 		<dt class="text-sm font-medium text-faint">{t('home.receipts')}</dt>
 		<dd class="mt-1 text-3xl font-semibold text-heading tabular-nums" data-testid="count-receipts">
-			{app.receipts.length}
+			{shown.receipts.length}
 		</dd>
 	</div>
 	<div class={card}>

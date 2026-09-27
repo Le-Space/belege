@@ -41,6 +41,8 @@ const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
 const BASE = new Date(Date.now() - 2 * 864e5);
 const booked = BASE.toISOString().slice(0, 10);
 const month = booked.slice(0, 7);
+// A booking of the year before, for the year switch: hidden until it is chosen.
+const lastYearBooked = `${Number(booked.slice(0, 4)) - 1}-11-20`;
 
 const COMPANY = 'le space UG';
 const NAMES = {
@@ -48,18 +50,19 @@ const NAMES = {
 	strom: RECEIPTS.stromwerk.vendor,
 	mobil: RECEIPTS.mobilfunk.vendor,
 	coffee: 'Kaffeerösterei Nordlicht GmbH',
-	own: 'LE SPACE UG (HAFTUNGSBESCHRAENKT)'
+	own: 'LE SPACE UG (HAFTUNGSBESCHRAENKT)',
+	old: 'Verband der Musterbetriebe e.V.'
 };
 const NO_RECEIPT_REASON = 'Bewirtung Kundentermin, Beleg verloren';
 
 function bankData() {
 	const data = sampleData();
-	/** @param {number} id @param {string} betrag @param {string} name @param {string} zweck @param {string} [art] */
-	const u = (id, betrag, name, zweck, art = 'Basislastschrift') => ({
+	/** @param {number} id @param {string} betrag @param {string} name @param {string} zweck @param {string} [art] @param {string} [datum] */
+	const u = (id, betrag, name, zweck, art = 'Basislastschrift', datum = booked) => ({
 		id,
 		konto_id: 1,
-		datum: booked,
-		valuta: booked,
+		datum,
+		valuta: datum,
 		betrag,
 		empfaenger_name: name,
 		empfaenger_konto: '',
@@ -74,7 +77,8 @@ function bankData() {
 		u(303, '-39,99', NAMES.mobil, `SVWZ+Rechnung ${RECEIPTS.mobilfunk.invoice}`),
 		u(304, '-22,42', NAMES.coffee, 'SVWZ+Kartenzahlung'),
 		u(305, '-500,00', NAMES.own, 'SVWZ+Umbuchung Revolut', 'Überweisungsauftrag'),
-		u(306, '-9,90', '', 'Abschluss per Quartalsende', 'Abschluss')
+		u(306, '-9,90', '', 'Abschluss per Quartalsende', 'Abschluss'),
+		u(307, '-77,70', NAMES.old, 'SVWZ+Jahresbeitrag', 'Basislastschrift', lastYearBooked)
 	];
 	return data;
 }
@@ -179,9 +183,11 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await expect(page.getByTestId('rule')).toHaveCount(1);
 	await page.getByTestId('matching-save').click();
 	await expect(page.getByTestId('matching-saved')).toBeVisible();
+	// From the start of last year: one booking lies in the year before.
+	await page.getByTestId('sync-from').fill(`${lastYearBooked.slice(0, 4)}-01-01`);
 	await page.getByRole('button', { name: 'Jetzt synchronisieren' }).click();
 	await expect(page.getByTestId('sync-result')).toHaveText(
-		'Neu: 6 · Aktualisiert: 0 · Übersprungen: 0'
+		'Neu: 7 · Aktualisiert: 0 · Übersprungen: 0'
 	);
 
 	// Receipts: fetch the accounting mails, read them all.
@@ -509,10 +515,34 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await expect(page.getByTestId('coverage-percent')).toHaveText('100 %');
 	await page.screenshot({ path: test.info().outputPath('home.png'), fullPage: true });
 	await page.getByTestId('match-run').click();
+	// The run speaks for all years: the question about last year's booking counts.
 	await expect(page.getByTestId('match-result')).toHaveText(
-		'0 zugeordnet · 1 Rückfrage · 3 ohne Beleg-Pflicht'
+		'0 zugeordnet · 2 Rückfragen · 3 ohne Beleg-Pflicht'
 	);
 	await expect(page.getByTestId('agent-progress')).toHaveText('3 von 4 erledigt');
+
+	// The year switch: the pages show one year. Last year's booking and its
+	// question show only when that year is chosen.
+	const thisYear = booked.slice(0, 4);
+	const priorYear = String(Number(thisYear) - 1);
+	await expect(page.getByTestId('year-switch')).toHaveValue(thisYear);
+	await expect(page.getByTestId('count-transactions')).toHaveText('6');
+	await page.getByTestId('year-switch').selectOption(priorYear);
+	await expect(page.getByTestId('count-transactions')).toHaveText('1');
+	await expect(page.getByTestId('agent-open')).toHaveText('1 offene Rückfrage');
+	await page.getByTestId('agent-answer').click();
+	await expect(questions).toHaveCount(1);
+	await expect(questions).toContainText(NAMES.old);
+	await expect(page.getByTestId('questions-elsewhere')).toHaveText('1 weitere in anderen Jahren');
+	await tab('Zahlungen').click();
+	await expect(page.getByTestId('transaction')).toHaveCount(1);
+	await page.getByTestId('year-switch').selectOption(thisYear);
+	await tab('Home').click();
+	await page.getByTestId('agent-answer').click();
+	await expect(questions).toHaveCount(1);
+	await expect(questions).not.toContainText(NAMES.old);
+	await expect(page.getByTestId('questions-elsewhere')).toHaveText('1 weitere in anderen Jahren');
+	await tab('Home').click();
 
 	// Verlauf: the reads, the runs, the decisions, each with its links.
 	await page.getByTestId('home-verlauf').click();
@@ -546,10 +576,13 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await tab('Home').click();
 	await expect(page.getByTestId('agent-card')).toBeVisible();
 
-	// After a reload, the decisions are still there.
+	// After a reload, the decisions are still there, and so is the year chosen.
+	await page.getByTestId('year-switch').selectOption(priorYear);
 	await page.reload();
 	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
+	await expect(page.getByTestId('year-switch')).toHaveValue(priorYear);
+	await page.getByTestId('year-switch').selectOption(thisYear);
 	await expect(page.getByTestId('coverage-percent')).toHaveText('100 %');
 	await expect(page.getByTestId('agent-progress')).toHaveText('3 von 4 erledigt');
 
