@@ -17,6 +17,8 @@
 	// sections, a planned option and per-service detail. The look is the
 	// element's, mapped onto the same tokens escrow01 maps it onto.
 	import { t, list } from './i18n/index.js';
+	import IntegrationLogo from './consent/IntegrationLogo.svelte';
+	import { INTEGRATION_GROUPS } from './consent/integrations.js';
 	import { consent } from './consent.js';
 	import TechnicalToggle from './TechnicalToggle.svelte';
 	import TechnicalNote from './TechnicalNote.svelte';
@@ -259,6 +261,34 @@
 						</li>
 					{/each}
 				</ul>
+			</section>
+
+			<!-- What Belege works with: banks, exchanges, chains, data sources, explorers. -->
+			<section class="border-l-4 border-l-cyan pl-3" data-testid="consent-integrations">
+				<h3 class="text-base font-semibold">{t('consent.integrations.title')}</h3>
+				<p class="mt-1.5 text-sm leading-relaxed">{t('consent.integrations.simple')}</p>
+				<div class="mt-2 grid gap-3 sm:grid-cols-2">
+					{#each INTEGRATION_GROUPS as group (group.id)}
+						<div data-testid="consent-integration-group" data-group={group.id}>
+							<h4 class="text-xs font-semibold tracking-wide text-faint uppercase">
+								{t(`consent.integrations.groups.${group.id}`)}
+							</h4>
+							<ul class="mt-1 space-y-1">
+								{#each group.items as item (item.id)}
+									<li
+										class="flex items-center gap-2 text-sm"
+										data-testid="consent-integration"
+										data-integration={item.id}
+									>
+										<IntegrationLogo logo={item.logo} initials={item.initials} />
+										<span>{item.name}</span>
+									</li>
+								{/each}
+							</ul>
+						</div>
+					{/each}
+				</div>
+				<p class="mt-2 text-xs text-faint">{t('consent.integrations.marks')}</p>
 			</section>
 		</div>
 

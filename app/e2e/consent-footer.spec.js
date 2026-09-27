@@ -6,9 +6,25 @@ import { test, expect } from '@playwright/test';
 import { acceptConsent } from './consent.js';
 
 test('the consent screen opens on a first visit, and not after "Verstanden"', async ({ page }) => {
+	/** @type {string[]} */
+	const elsewhere = [];
+	page.on('request', (r) => {
+		if (!/^(localhost|127\.0\.0\.1)$/.test(new URL(r.url()).hostname)) elsewhere.push(r.url());
+	});
 	await page.goto('/');
 	const dialog = page.getByTestId('consent-modal');
 	await expect(dialog).toBeVisible();
+	// What Belege works with, with logos drawn in the page: no third party is asked.
+	const integrations = dialog.getByTestId('consent-integrations');
+	await expect(integrations.getByTestId('consent-integration-group')).toHaveCount(8);
+	await expect(
+		integrations.locator('[data-integration="bitcoin"]').getByTestId('integration-logo')
+	).toBeVisible();
+	await expect(
+		integrations.locator('[data-integration="kraken"]').getByTestId('integration-initials')
+	).toHaveText('Kr');
+	await expect(integrations).toContainText('Etherscan');
+	expect(elsewhere).toEqual([]);
 	await expect(dialog.getByRole('heading', { name: 'Bevor du anfängst' })).toBeVisible();
 
 	// A decision, not something to dismiss: no close control, and Escape does
