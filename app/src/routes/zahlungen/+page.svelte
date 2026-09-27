@@ -361,6 +361,12 @@
 													? t('matching.waitingOne')
 													: t('matching.waiting', { days: days ?? 0 })}</span
 											>
+										{:else}
+											<!-- The one state that asks for action gets a sign of its own, in every filter (#117). -->
+											<span
+												class="mt-1 inline-block rounded border border-coral-700/40 px-1.5 py-0.5 text-xs text-coral-800 dark:border-coral/40 dark:text-coral"
+												data-testid="no-receipt-badge">{t('zahlungen.noReceiptBadge')}</span
+											>
 										{/if}
 									</span>
 									{#if relatedById.get(tx.id)?.length}

@@ -358,6 +358,10 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	);
 	await expect(row(NAMES.coffee).getByTestId('coverage-badge')).toHaveText('Kein Beleg nötig');
 	await expect(row(NAMES.mobil).getByTestId('coverage-badge')).toHaveCount(0);
+	// Under "Alle" too, the one without a receipt says so (#117); the others do not.
+	await expect(row(NAMES.mobil).getByTestId('no-receipt-badge')).toHaveText('ohne Beleg');
+	await expect(row(NAMES.wolke).getByTestId('no-receipt-badge')).toHaveCount(0);
+	await expect(row(NAMES.own).getByTestId('no-receipt-badge')).toHaveCount(0);
 	// The TAN method is not part of the purpose shown.
 	await expect(row(NAMES.wolke).getByTestId('purpose')).toHaveText(
 		`Rechnung ${RECEIPTS.wolkenfabrik.invoice}`
