@@ -302,6 +302,39 @@ describe('runMatching', () => {
 		expect(t.id).toBeTruthy();
 	});
 
+	it('a crypto payment is linked only to a receipt that names its hash, address or quantity', async () => {
+		const HASH = 'ef'.repeat(32);
+		const pay = await add(
+			'transactions',
+			tx({
+				source: 'ethereum',
+				movement: 'transfer',
+				bookedOn: '2026-08-20',
+				amountCents: -11900,
+				counterparty: 'Wolkenfabrik Hosting GmbH',
+				purpose: 'Rechnung WF-2026-090',
+				asset: 'USDC',
+				quantity: '-137000000',
+				decimals: 6,
+				txRef: `0x${HASH}`
+			})
+		);
+		const fields = {
+			vendor: 'Wolkenfabrik Hosting GmbH',
+			gross: 119,
+			invoice_date: '2026-08-18',
+			invoice_number: 'WF-2026-090'
+		};
+		// Amount, number, vendor and date fit – but nothing names the payment.
+		const plain = await add('receipts', receipt(fields));
+		await runMatching({ store });
+		expect((await active()).some((m) => m.transactionId === pay.id)).toBe(false);
+		// The same invoice naming the transaction hash: linked.
+		await store.receipts.put({ ...plain, extractionSent: `Paid with USDC, tx 0x${HASH}` });
+		await runMatching({ store });
+		expect((await active()).find((m) => m.transactionId === pay.id)?.receiptId).toBe(plain.id);
+	});
+
 	it('is idempotent: a second run writes nothing', async () => {
 		await seedMonth();
 		await runMatching({ store });

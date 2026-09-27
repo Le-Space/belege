@@ -428,7 +428,10 @@ export default {
 			'far-date': 'Datum weit weg',
 			'wrong-direction': 'Richtung falsch',
 			manual: 'von Hand',
-			eigenbeleg: 'Eigenbeleg'
+			eigenbeleg: 'Eigenbeleg',
+			'crypto-hash': 'Tx-Hash im Beleg',
+			'crypto-address': 'Adresse im Beleg',
+			'crypto-amount': 'Menge im Beleg'
 		},
 		badge: {
 			receipt: 'Beleg',
@@ -476,7 +479,10 @@ export default {
 			iban: 'IBAN des Anbieters ist das Gegenkonto',
 			date: 'Datum passt',
 			'far-date': 'Datum liegt weit weg',
-			'wrong-direction': 'Richtung passt nicht (Eingang statt Ausgang oder umgekehrt)'
+			'wrong-direction': 'Richtung passt nicht (Eingang statt Ausgang oder umgekehrt)',
+			'crypto-hash': 'der Transaktions-Hash steht im Beleg',
+			'crypto-address': 'die Gegenadresse steht im Beleg',
+			'crypto-amount': 'die Menge mit Asset steht im Beleg'
 		},
 		how: {
 			auto: 'automatisch zugeordnet',

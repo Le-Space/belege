@@ -25,6 +25,8 @@ import { classifyTransaction, DEFAULT_GRACE_DAYS } from './classify.js';
 import { buildMatchingContext } from './context.js';
 import { graceWait, localDay } from './grace.js';
 import { assign, receiptFacts, txFacts } from './score.js';
+import { cryptoEvidence } from './view.js';
+import { walletChain } from '../wallets/chains.js';
 
 /** @typedef {import('../store/repository.js').Collection} Collection */
 /** @typedef {import('../store/repository.js').StoredRecord} StoredRecord */
@@ -200,7 +202,14 @@ export async function runMatching({
 	const result = assign({
 		receipts: /** @type {import('./score.js').ReceiptFacts[]} */ (receiptFactsList),
 		transactions: openTx.map((t) => txFacts(t, ctx)),
-		excluded: (r, t) => rejected.has(pairKey(r, t))
+		excluded: (r, t) => {
+			if (rejected.has(pairKey(r, t))) return true;
+			// A crypto payment pairs only with a receipt that names its hash,
+			// address or quantity (view.js cryptoEvidence): a close euro amount is no sign.
+			const tx = txById.get(t);
+			const receipt = receiptById.get(r);
+			return Boolean(tx && receipt && walletChain(tx.source) && !cryptoEvidence(tx, receipt));
+		}
 	});
 
 	onProgress({ step: 'write' });
