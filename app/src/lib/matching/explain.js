@@ -70,6 +70,9 @@ export function reasonPhrase(code, { tx = null, receipt = null } = {}) {
 		case 'date':
 		case 'far-date':
 		case 'wrong-direction':
+		case 'crypto-hash':
+		case 'crypto-address':
+		case 'crypto-amount':
 			return t(`explain.reason.${code}`);
 		default:
 			return code;

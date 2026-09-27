@@ -7,7 +7,8 @@ import { receiptFacts, scorePair, txFacts } from './score.js';
 import { STOP_WORDS, dayNumber, vendorWords } from './normalize.js';
 import { partnerOfTx } from './partners.js';
 import { isOwnName } from './classify.js';
-import { MIRROR_DAYS } from './context.js';
+import { MIRROR_DAYS, normalizeTxRef } from './context.js';
+import { findDuplicates } from '../receipts/duplicates.js';
 import { assetOf } from '../assets/registry.js';
 import { walletChain } from '../wallets/chains.js';
 
@@ -62,6 +63,53 @@ export function matchOfReceipt(receiptId, matches) {
 }
 
 /**
+ * What ties a receipt to a crypto payment, if anything: the transaction hash,
+ * the other address, or the quantity together with the asset's symbol,
+ * somewhere in its subject, mail text, read text, file name or number.
+ * Without one of them, a receipt is no candidate for a wallet booking –
+ * however close its euro amount (#95).
+ *
+ * @param {Rec} tx
+ * @param {Rec} r
+ * @returns {'hash' | 'address' | 'amount' | null}
+ */
+export function cryptoEvidence(tx, r) {
+	const hay = [
+		r.subject,
+		r.excerpt,
+		r.extractionSent,
+		r.fileName,
+		r.invoiceNumber,
+		r.extraction?.summary
+	]
+		.filter(Boolean)
+		.join(' ')
+		.toLowerCase();
+	if (!hay) return null;
+	const hash = normalizeTxRef(tx.txRef);
+	if (hash.length >= 16 && hay.includes(hash)) return 'hash';
+	const address = String(tx.counterpartyAddress ?? '')
+		.trim()
+		.toLowerCase()
+		.replace(/^0x/, '');
+	if (address.length >= 16 && hay.includes(address)) return 'address';
+	const asset = String(tx.asset ?? '').toLowerCase();
+	if (asset && typeof tx.quantity === 'string' && hay.includes(asset)) {
+		const spellings = quantitySpellings(
+			tx.quantity,
+			Number(tx.decimals ?? assetOf(tx.asset)?.decimals)
+		)
+			// "5" or "0,00" says nothing: at least three digits.
+			.filter((q) => q.replace(/\D/g, '').replace(/^0+/, '').length >= 3);
+		for (const q of spellings) {
+			const at = new RegExp(`(^|[^\\d.,])${q.replace(/[.]/g, '\\.')}(?![\\d])`);
+			if (at.test(hay)) return 'amount';
+		}
+	}
+	return null;
+}
+
+/**
  * Receipts for "Beleg zuordnen": every read receipt not linked elsewhere,
  * best score against this booking first; the ones that fit (≥ 40) are the
  * suggestions.
@@ -78,20 +126,35 @@ export function receiptChoices(tx, receipts, matches, ctx = {}) {
 		matches.filter((m) => isActive(m) && m.transactionId !== tx.id).map((m) => m.receiptId)
 	);
 	const linkedHere = new Set(matchesOfTx(tx.id, matches).map((m) => m.receiptId));
+	// A copy of an invoice whose original is linked already is no candidate.
+	const copies = findDuplicates(receipts, (id) =>
+		matches.find((m) => isActive(m) && m.receiptId === id)
+	);
 	const t = txFacts(tx, ctx);
+	const crypto = Boolean(walletChain(tx.source));
 	return receipts
 		.filter(
 			(r) =>
 				!r.deleted &&
 				!linkedElsewhere.has(r.id) &&
 				!linkedHere.has(r.id) &&
+				!copies.has(r.id) &&
 				r.status !== 'rückfrage' &&
 				r.status !== 'ignoriert'
 		)
 		.map((r) => {
 			const facts = receiptFacts(r, ctx);
 			const s = facts ? scorePair(facts, t) : { score: 0, reasons: [] };
-			return { receipt: r, ...s, suggested: s.score >= 40 };
+			// A crypto payment: only a receipt that names its hash, address or quantity.
+			const evidence = crypto ? cryptoEvidence(tx, r) : null;
+			const reasons = evidence ? [...s.reasons, `crypto-${evidence}`] : s.reasons;
+			return {
+				receipt: r,
+				score: s.score,
+				reasons,
+				evidence,
+				suggested: crypto ? Boolean(evidence) : s.score >= 40
+			};
 		})
 		.sort((a, b) => b.score - a.score || (a.receipt.id < b.receipt.id ? 1 : -1));
 }
@@ -102,7 +165,7 @@ export function receiptChoices(tx, receipts, matches, ctx = {}) {
  * fields only (vendor, amount, currency, date, invoice number, summary).
  *
  * @param {Rec} tx
- * @param {{ receipt: Rec }[]} choices from receiptChoices
+ * @param {{ receipt: Rec, reasons?: string[], evidence?: string | null }[]} choices from receiptChoices
  * @param {number} [max]
  * @returns {{ id: string, vendor?: string, amount?: string, currency?: string, date?: string, number?: string, summary?: string }[]}
  */
@@ -112,31 +175,37 @@ export function assistCandidates(tx, choices, max = 25) {
 	/** @param {Rec} r */
 	const dateOf = (r) =>
 		r.documentDate ?? r.extraction?.invoice_date ?? String(r.receivedAt ?? '').slice(0, 10);
-	return choices
-		.map((c) => c.receipt)
-		.filter((r) => r.extraction)
-		.map((r) => ({
-			r,
-			amountGap:
-				typeof r.amountCents === 'number' ? Math.abs(Math.abs(r.amountCents) - cents) : Infinity,
-			dayGap: Math.abs((dayNumber(dateOf(r)) ?? day + 9999) - day)
-		}))
-		.sort((a, b) => a.amountGap - b.amountGap || a.dayGap - b.dayGap)
-		.slice(0, max)
-		.map(({ r }) => {
-			/** @type {{ id: string } & Record<string, string>} */
-			const out = { id: String(r.id) };
-			const vendor = r.vendor ?? r.extraction?.vendor;
-			if (vendor) out.vendor = String(vendor).slice(0, 120);
-			if (typeof r.amountCents === 'number')
-				out.amount = (r.amountCents / 100).toFixed(2).replace('.', ',');
-			if (r.currency) out.currency = String(r.currency).slice(0, 3);
-			if (dateOf(r)) out.date = String(dateOf(r)).slice(0, 10);
-			const number = r.invoiceNumber ?? r.extraction?.invoice_number;
-			if (number) out.number = String(number).slice(0, 60);
-			if (r.extraction?.summary) out.summary = String(r.extraction.summary).slice(0, 120);
-			return out;
-		});
+	const crypto = Boolean(walletChain(tx.source));
+	return (
+		choices
+			// Never the other direction (an expense for money received), and for a
+			// crypto payment only receipts that name its hash, address or quantity.
+			.filter((c) => !(c.reasons ?? []).includes('wrong-direction') && (!crypto || c.evidence))
+			.map((c) => c.receipt)
+			.filter((r) => r.extraction)
+			.map((r) => ({
+				r,
+				amountGap:
+					typeof r.amountCents === 'number' ? Math.abs(Math.abs(r.amountCents) - cents) : Infinity,
+				dayGap: Math.abs((dayNumber(dateOf(r)) ?? day + 9999) - day)
+			}))
+			.sort((a, b) => a.amountGap - b.amountGap || a.dayGap - b.dayGap)
+			.slice(0, max)
+			.map(({ r }) => {
+				/** @type {{ id: string } & Record<string, string>} */
+				const out = { id: String(r.id) };
+				const vendor = r.vendor ?? r.extraction?.vendor;
+				if (vendor) out.vendor = String(vendor).slice(0, 120);
+				if (typeof r.amountCents === 'number')
+					out.amount = (r.amountCents / 100).toFixed(2).replace('.', ',');
+				if (r.currency) out.currency = String(r.currency).slice(0, 3);
+				if (dateOf(r)) out.date = String(dateOf(r)).slice(0, 10);
+				const number = r.invoiceNumber ?? r.extraction?.invoice_number;
+				if (number) out.number = String(number).slice(0, 60);
+				if (r.extraction?.summary) out.summary = String(r.extraction.summary).slice(0, 120);
+				return out;
+			})
+	);
 }
 
 /**

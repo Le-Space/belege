@@ -8,6 +8,7 @@ import {
 	matchOfReceipt,
 	matchesOfTx,
 	otherPayments,
+	cryptoEvidence,
 	cryptoSearchTerms,
 	memoOf,
 	privateSearchQuery,
@@ -367,5 +368,72 @@ describe('assistCandidates', () => {
 			summary: 'Test'
 		});
 		expect(JSON.stringify(out)).not.toContain('geheimer Mailtext');
+	});
+});
+
+describe('crypto payments: only receipts that name the payment', () => {
+	const HASH = 'cd'.repeat(32);
+	const ADDR = '0x00000000000000000000000000000000000000ab';
+	const payIn = tx({
+		id: 'W-IN',
+		source: 'ethereum',
+		movement: 'transfer',
+		bookedOn: '2026-04-15',
+		amountCents: -591,
+		asset: 'USDC',
+		quantity: '-6400000',
+		decimals: 6,
+		txRef: `0x${HASH}`,
+		counterparty: ADDR,
+		counterpartyAddress: ADDR
+	});
+	/** @param {Record<string, any>} over */
+	const rec = (over) =>
+		receipt({ vendor: 'Beispiel Cloud', gross: 5.91, invoice_date: '2026-04-14' }, over);
+
+	it('the hash, the address, or the quantity with its asset; nothing else', () => {
+		expect(cryptoEvidence(payIn, rec({ extractionSent: `Paid: tx 0x${HASH.toUpperCase()}` }))).toBe(
+			'hash'
+		);
+		expect(cryptoEvidence(payIn, rec({ excerpt: `from ${ADDR}` }))).toBe('address');
+		expect(cryptoEvidence(payIn, rec({ subject: 'Received 6.40 USDC' }))).toBe('amount');
+		expect(cryptoEvidence(payIn, rec({ subject: 'Received 6.40 EUR' }))).toBeNull();
+		expect(cryptoEvidence(payIn, rec({ subject: 'Invoice 5,91 EUR' }))).toBeNull();
+	});
+
+	it('a close euro amount alone: listed, not suggested, not sent to the AI', () => {
+		const plain = rec({ id: 'R-PLAIN' });
+		const named = rec({ id: 'R-HASH', extractionSent: `tx ${HASH}` });
+		const choices = receiptChoices(payIn, [plain, named], []);
+		expect(choices.map((c) => [c.receipt.id, c.suggested])).toEqual(
+			expect.arrayContaining([
+				['R-PLAIN', false],
+				['R-HASH', true]
+			])
+		);
+		expect(choices.find((c) => c.receipt.id === 'R-HASH')?.reasons).toContain('crypto-hash');
+		expect(assistCandidates(payIn, choices).map((c) => c.id)).toEqual(['R-HASH']);
+	});
+
+	it('the AI never gets the other direction; a copy of a linked invoice is no choice', () => {
+		const bank = tx({ id: 'B1', bookedOn: '2026-04-15', amountCents: 591, counterparty: 'Kunde' });
+		const expense = receipt(
+			{ vendor: 'Beispiel Cloud', gross: 5.91, invoice_date: '2026-04-14' },
+			{ id: 'R-EXP' }
+		);
+		const choices = receiptChoices(bank, [expense], []);
+		expect(choices[0].reasons).toContain('wrong-direction');
+		expect(assistCandidates(bank, choices)).toEqual([]);
+
+		const original = receipt(
+			{ vendor: 'Beispiel Cloud', gross: 5, invoice_number: 'BC-0001' },
+			{ id: 'R-ORIG' }
+		);
+		const copy = receipt(
+			{ vendor: 'Beispiel Cloud', gross: 5, invoice_number: 'BC-0001' },
+			{ id: 'R-COPY' }
+		);
+		const matches = [{ id: 'M1', receiptId: 'R-ORIG', transactionId: 'OTHER', state: 'confirmed' }];
+		expect(receiptChoices(bank, [original, copy], matches).map((c) => c.receipt.id)).toEqual([]);
 	});
 });
