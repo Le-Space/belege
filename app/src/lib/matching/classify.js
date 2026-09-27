@@ -26,7 +26,7 @@
 
 import { counterpartyKey } from './partners.js';
 import { compactIban, normalizeRef } from './normalize.js';
-import { normalizeAddress, walletChain } from '../wallets/chains.js';
+import { cosmosChainOf, normalizeAddress, walletChain } from '../wallets/chains.js';
 import { isDust } from './dust.js';
 
 /** Legal forms dropped before two company names are compared. */
@@ -192,6 +192,7 @@ export function feeKey(tx) {
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [counterBookings] bookings on our other accounts with the opposite amount within a few days
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [sameReference] bookings on our other accounts with the same reference or transaction hash, the other way (context.js)
  * @property {Set<string>} [notTransfers] pairs a person said are no transfer (transferPairKey)
+ * @property {(tx: Record<string, any>) => Record<string, any>[]} [bridgeCounterparts] the other side of a bridge transfer on another own wallet (context.js)
  * @property {Map<string, Map<string, string>>} [ownAddresses] `<chain>:<address>` (normalised) of our own wallets → their accounts by asset ('' = the first)
  * @property {(tx: Record<string, any>) => string | null} [lookalikeOf] a known address the booking's other side looks like, but is not
  */
@@ -208,8 +209,9 @@ export function feeKey(tx) {
  * @property {string} [ruleId]
  * @property {'counterparty' | 'purpose' | 'any'} [ruleField] what the rule looked at
  * @property {string} [ruleContains] the rule's text
- * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee'} [via] how an own transfer or a bank fee was recognised
+ * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'bridge' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee'} [via] how an own transfer or a bank fee was recognised
  * @property {string} [address] our own wallet's address, for via 'own-address'
+ * @property {string} [chain] the other wallet's chain: an IBC receiver's (via 'own-address'), a bridge's other side (via 'bridge')
  * @property {string} [lookalike] for dust: the known address its sender's looks like
  * @property {string} [counterBookingId] the other side of a transfer, for via 'counter-booking'
  * @property {string} [counterAccountId]
@@ -360,7 +362,20 @@ export function classifyTransaction(tx, ctx) {
 	// By chain and address: an EVM address is the same on every EVM chain, and
 	// being ours on Base says nothing about Ethereum.
 	// The other side's account of the same asset: USDC goes to the USDC account.
-	const own = address ? ctx.ownAddresses?.get(`${tx.source}:${address}`) : undefined;
+	// An IBC transfer names its receiver on the other chain: looked up there,
+	// by the address's bech32 prefix (issue #98).
+	const ibc =
+		wallet?.kind === 'cosmos' && tx.counterpartyAddress
+			? cosmosChainOf(String(tx.counterpartyAddress))
+			: null;
+	const lookupChain = ibc && ibc.id !== tx.source ? ibc : null;
+	const own = address
+		? ctx.ownAddresses?.get(
+				lookupChain
+					? `${lookupChain.id}:${normalizeAddress(lookupChain, String(tx.counterpartyAddress))}`
+					: `${tx.source}:${address}`
+			)
+		: undefined;
 	const ownAccount = own ? (own.get(String(tx.asset ?? '')) ?? own.get('')) : undefined;
 	if (ownAccount && ownAccount !== tx.accountId) {
 		return {
@@ -368,7 +383,23 @@ export function classifyTransaction(tx, ctx) {
 			account: '1360',
 			via: 'own-address',
 			address,
-			counterAccountId: ownAccount
+			counterAccountId: ownAccount,
+			...(lookupChain ? { chain: lookupChain.id } : {})
+		};
+	}
+	// Over a bridge to or from another own wallet: the same asset, the
+	// quantity less the bridge's fee, within days (context.js bridgeCounterparts).
+	const bridged = (ctx.bridgeCounterparts?.(tx) ?? []).filter(unpaired);
+	if (bridged.length === 1) {
+		const [o] = bridged;
+		return {
+			kind: 'own-transfer',
+			account: '1360',
+			via: 'bridge',
+			counterBookingId: String(o.id),
+			counterAccountId: String(o.accountId ?? ''),
+			counterDay: String(o.bookedOn ?? ''),
+			chain: String(o.source ?? '')
 		};
 	}
 	if (isDust(tx)) {

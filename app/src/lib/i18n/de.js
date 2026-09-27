@@ -529,6 +529,10 @@ export default {
 			networkFee: 'Netzwerkgebühr der Blockchain: die Transaktion im Block-Explorer ist der Beleg',
 			ownAddress:
 				'Eigene Übertragung: Die Gegenadresse {address} ist deine Wallet {account}. Kein Beleg nötig (Konto 1360).',
+			ownIbc:
+				'Eigene Übertragung per IBC: Der Empfänger {address} auf der anderen Chain ist deine Wallet {account}. Kein Beleg nötig (Konto 1360).',
+			ownBridge:
+				'Eigene Übertragung über eine Bridge: Die Gegenbuchung steht auf {account} am {date} – dieselbe Kryptowährung, dieselbe Menge abzüglich der Bridge-Gebühr (höchstens 3 %), innerhalb von 8 Tagen. Kein Beleg nötig (Konto 1360).',
 			staking:
 				'Staking: Die Tokens sind delegiert und bleiben deine. Kein Beleg nötig. Nicht auf 1360 – ihre Rückkehr nach dem Unbonding ist keine Transaktion, eine Umbuchung ginge nie auf; das Konto klärt ihr mit dem Steuerberater.',
 			dust: 'Staub: weniger als ein Cent wert, empfangen, ohne dass du etwas getan hast. Kein Beleg nötig. Oft ein Test oder Werbung – oder der Anfang einer Adressvergiftung: Verwende die Absenderadresse nie als Empfänger.',
@@ -1240,6 +1244,7 @@ export default {
 					'counter-booking': 'Gegenbuchung',
 					reference: 'gleiche Referenz',
 					'own-address': 'eigene Adresse',
+					bridge: 'über Bridge',
 					hash: 'gleicher Tx-Hash',
 					refid: 'gleiche Börsen-Referenz'
 				}

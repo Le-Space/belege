@@ -6,7 +6,7 @@
 //
 // Found by
 //   - the classification: an own transfer's counter-booking (classify.js,
-//     by counter-booking, reference or hash);
+//     by counter-booking, reference or hash, or over a bridge);
 //   - a shared reference (context.js txRefsOf): the exchange's refid shared
 //     by a trade's legs and their fees, a transaction hash shared by a wallet
 //     booking and its fee, and by an exchange deposit or withdrawal
@@ -20,7 +20,7 @@ const HASH = /^(0x)?[0-9a-f]{40,}$/i;
 /**
  * @typedef {'transfer' | 'trade' | 'fee' | 'fee-of'} RelationKind
  *   `fee`: the other booking is this one's fee; `fee-of`: this one is the other's fee
- * @typedef {'counter-booking' | 'reference' | 'own-address' | 'hash' | 'refid'} RelationVia
+ * @typedef {'counter-booking' | 'reference' | 'own-address' | 'bridge' | 'hash' | 'refid'} RelationVia
  * @typedef {{ kind: RelationKind, via: RelationVia, other: Record<string, any> }} Relation
  */
 
@@ -61,8 +61,8 @@ export function relatedIndex(transactions, classifications = {}) {
 					? shared && HASH.test(shared)
 						? 'hash'
 						: 'reference'
-					: c?.via === 'own-address'
-						? 'own-address'
+					: c?.via === 'own-address' || c?.via === 'bridge'
+						? c.via
 						: 'counter-booking'
 			);
 			add(t, { kind: 'transfer', via, other });

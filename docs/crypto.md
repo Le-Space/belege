@@ -100,6 +100,20 @@ Tokens withdrawn from an exchange to a wallet of our own stay the company's. _In
 
 **What the node sees**: the address and the Mac's IP address, only on _Synchronisieren_ (consent screen, _Blockchain-Abfrage_); Alchemy also ties the queries to the Alchemy account whose key it is. The bridge's log has counts, never an address or an amount.
 
+**Across chains** (issue #98): each side has its own transaction and hash, so the shared hash does not pair them.
+
+- An **IBC transfer** names its receiver on the other chain. The receiver is looked up among the own wallets of that chain, found by the address's bech32 prefix. An own receiver makes the transfer an own transfer (1360). The tokens usually arrive there as an `ibc/…` voucher, which is not booked.
+- A **bridge** between own EVM wallets is paired only when all of this holds:
+  - the arrival is an internal transfer (from the bridge contract);
+  - the sending is on another chain and of the same asset;
+  - the arrival comes 0 to 8 days after the sending (an L2 → L1 withdrawal takes 7);
+  - the received quantity is at most the sent one and at least 97 % of it;
+  - each side has only the other.
+
+  Otherwise it stays a question. _Keine Umbuchung_ keeps a pair apart. The pair shows under _Gehört zusammen mit_ as _Umbuchung · über Bridge_.
+
+A network fee shares the hash of its booking and shows as _Gebühr dazu_. That explains the fee, not where the booking's coins came from or went.
+
 ### Alchemy
 
 With an Alchemy API key (`pnpm setup:alchemy`: hidden prompt, `eth_chainId` on every network as a check, macOS keychain, service `belege-bridge`, account `alchemy`; Enter keeps it, `-` deletes it) the bridge reads EVM wallets from `https://<network>.g.alchemy.com/v2/<key>` – `eth-mainnet`, `base-mainnet`, `arb-mainnet`, `opt-mainnet`, `polygon-mainnet` – instead of Blockscout. The key is read from the keychain on every sync (no restart), goes only into the URL of the requests to Alchemy and never into a log line, an error, an answer or the app; `GET /chains` says `alchemy: true` or `false`. A wallet with an `api` endpoint of its own is read there, never through Alchemy. _Integrationen → Eigene Wallets_ says which source is used, and without a key how to set one up.

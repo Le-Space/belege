@@ -10,6 +10,7 @@
 		displayPurpose,
 		formatBookingTime,
 		formatTxAmount,
+		txDirection,
 		groupByDay,
 		matchesSearch,
 		monthSummaries
@@ -363,10 +364,9 @@
 										>
 									{/if}
 									<span
-										class="shrink-0 font-mono whitespace-nowrap tabular-nums {(tx.amountCents ??
-											0) < 0
+										class="shrink-0 font-mono whitespace-nowrap tabular-nums {txDirection(tx) < 0
 											? 'text-red-700 dark:text-red-400'
-											: (tx.amountCents ?? 0) > 0
+											: txDirection(tx) > 0
 												? 'text-emerald-700 dark:text-emerald-400'
 												: 'text-heading'}"
 										data-testid="amount"
