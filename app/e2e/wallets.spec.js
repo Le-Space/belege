@@ -266,6 +266,9 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 		'href',
 		`https://nym.explorers.guru/transaction/${fakeHash('e2e-own')}`
 	);
+	// The same link as a QR code, to open it on a phone.
+	await detail.getByTestId('tx-explorer-qr-toggle').click();
+	await expect(detail.getByTestId('tx-explorer-qr').locator('svg')).toBeVisible();
 	await expect(detail.getByTestId('tx-why-rule-line')).toContainText(
 		`Eigene Umbuchung: Die Gegenbuchung steht auf Wallet NYM ···${tail(B)}`
 	);

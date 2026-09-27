@@ -190,6 +190,6 @@ describe('statement PDF', () => {
 
 	it('keeps text Helvetica can draw, replaces the rest', () => {
 		expect(winAnsi('Grüße € – Straße\u00a0·')).toBe('Grüße € – Straße ·');
-		expect(winAnsi('\u22121 → 日本')).toBe('-1 ? ??');
+		expect(winAnsi('\u22121 → 日本')).toBe('-1 -> ??');
 	});
 });

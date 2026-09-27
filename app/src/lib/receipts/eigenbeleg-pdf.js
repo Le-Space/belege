@@ -3,6 +3,7 @@
 // Loaded on first use.
 
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { encode } from 'uqr';
 
 import { formatDate } from '../bank/format.js';
 import { formatQuantity } from '../assets/quantity.js';
@@ -47,7 +48,8 @@ export async function eigenbelegPdf(doc) {
 	function wrap(text, font, size, max) {
 		/** @type {string[]} */
 		const lines = [];
-		for (const paragraph of winAnsi(text).split(/\r?\n/)) {
+		// Split first: winAnsi turns a line break into "?".
+		for (const paragraph of String(text).split(/\r?\n/).map(winAnsi)) {
 			let line = '';
 			for (const word of paragraph.split(/\s+/).filter(Boolean)) {
 				const next = line ? `${line} ${word}` : word;
@@ -147,7 +149,34 @@ export async function eigenbelegPdf(doc) {
 				.map((m) => `${m.what}: ${m.quantity || '—'}${m.euro ? ` · ${m.euro}` : ''}`)
 				.join('\n')
 		);
-		if (c.explorerUrl) field('Block-Explorer', c.explorerUrl, 'mono');
+		if (c.explorerUrl) {
+			field('Block-Explorer', c.explorerUrl, 'mono');
+			// The same link as a QR code, to check the transaction from paper.
+			const qr = encode(c.explorerUrl, { border: 0 });
+			const side = 84;
+			const cell = side / qr.size;
+			const top = y + 4;
+			qr.data.forEach((row, r) =>
+				row.forEach((dark, col) => {
+					if (!dark) return;
+					page.drawRectangle({
+						x: MARGIN + LABEL + col * cell,
+						y: top - (r + 1) * cell,
+						width: cell,
+						height: cell,
+						color: rgb(0, 0, 0)
+					});
+				})
+			);
+			page.drawText(winAnsi('Transaktion im Block-Explorer'), {
+				x: MARGIN + LABEL + side + 10,
+				y: top - side / 2,
+				size: 8,
+				font: regular,
+				color: GREY
+			});
+			y -= side + 12;
+		}
 	} else if (doc.txRef) field('Referenz', doc.txRef, 'mono');
 	rule();
 	field('Was wurde bezahlt', doc.description);

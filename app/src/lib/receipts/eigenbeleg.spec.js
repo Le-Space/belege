@@ -259,7 +259,13 @@ describe('Eigenbeleg for a wallet transaction in full (#126)', () => {
 			books: { accounts, transactions: [got, gas] }
 		});
 		const text = (await pdfText(await eigenbelegPdf(doc))).replace(/\s/g, '');
-		for (const whole of [HASH, ROUTER, ME, 'Gas(Netzwerkgebühr):-0,00018ETH']) {
+		for (const whole of [
+			HASH,
+			ROUTER,
+			ME,
+			'Gas(Netzwerkgebühr):-0,00018ETH',
+			'TransaktionimBlock-Explorer'
+		]) {
 			expect(text, whole).toContain(whole);
 		}
 	});
