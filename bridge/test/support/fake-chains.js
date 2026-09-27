@@ -1,6 +1,6 @@
 // Fake chain nodes on 127.0.0.1 for tests: a Cosmos node (CometBFT JSON-RPC
-// `status`, `tx_search`, `header`, and the REST balance) and a Blockscout
-// (the Etherscan-compatible `/api`). Every address, hash and amount here is
+// `status`, `tx_search`, `header`, and the REST balance), a Blockscout
+// (the Etherscan-compatible `/api`) and the Akash Console indexer. Every address, hash and amount here is
 // made up: addresses are derived from test phrases, hashes from counters.
 import http from 'node:http';
 import { createHash } from 'node:crypto';
@@ -412,6 +412,120 @@ export async function startFakeCosmos({
 }
 
 /** The addresses and contracts the EVM samples use. */
+/**
+ * One transaction as the Akash Console indexer's `/v1/transactions/<hash>`
+ * hands it out, and its row in an address's list.
+ *
+ * @param {object} t
+ * @param {string} t.seed makes the hash
+ * @param {number} t.height
+ * @param {string[]} t.signers the first pays the fee
+ * @param {number} [t.fee] uakt
+ * @param {boolean} [t.success]
+ * @param {{ type: string, data: Record<string, unknown> }[]} [t.messages] type without its package, e.g. `MsgSend`
+ */
+export function consoleTx({ seed, height, signers, fee = 0, success = true, messages = [] }) {
+	const packages = /** @type {Record<string, string>} */ ({
+		MsgSend: '/cosmos.bank.v1beta1.',
+		MsgMultiSend: '/cosmos.bank.v1beta1.',
+		MsgDelegate: '/cosmos.staking.v1beta1.',
+		MsgWithdrawDelegatorReward: '/cosmos.distribution.v1beta1.',
+		MsgTransfer: '/ibc.applications.transfer.v1.',
+		MsgRecvPacket: '/ibc.core.channel.v1.',
+		MsgCreateDeployment: '/akash.deployment.v1beta3.',
+		MsgAccountDeposit: '/akash.escrow.v1.'
+	});
+	return {
+		height,
+		datetime: blockTime(height),
+		hash: fakeHash(seed),
+		isSuccess: success,
+		multisigThreshold: null,
+		signers,
+		error: success ? null : 'out of gas',
+		gasUsed: 90000,
+		gasWanted: 100000,
+		fee,
+		memo: '',
+		messages: messages.map((m, i) => ({
+			id: `msg-${seed}-${i}`,
+			type: `${packages[m.type] ?? '/x.'}${m.type}`,
+			data: m.data,
+			relatedDeploymentId: null
+		}))
+	};
+}
+
+/**
+ * The Akash Console indexer: an address's transactions, newest first, and
+ * one transaction by hash. Every address named in a transaction's data or
+ * signers finds it.
+ *
+ * @param {object} [options]
+ * @param {ReturnType<typeof consoleTx>[]} [options.txs]
+ * @param {boolean} [options.broken] every request answers 500
+ */
+export async function startFakeAkashConsole({ txs = [], broken = false } = {}) {
+	/** @type {string[]} */
+	const calls = [];
+	const server = http.createServer((req, res) => {
+		const reply = (/** @type {number} */ status, /** @type {unknown} */ body) => {
+			res.writeHead(status, { 'Content-Type': 'application/json' });
+			res.end(JSON.stringify(body));
+		};
+		const path = String(req.url ?? '');
+		calls.push(path.replace(/akash1[02-9ac-hj-np-z]+/g, '<address>'));
+		if (broken) return reply(500, { error: 'down' });
+		const list = /^\/v1\/addresses\/([^/]+)\/transactions\/(\d+)\/(\d+)$/.exec(path);
+		if (list) {
+			const address = decodeURIComponent(list[1]);
+			const mine = txs
+				.filter((t) => JSON.stringify([t.signers, t.messages]).includes(address))
+				.sort((a, b) => b.height - a.height);
+			const skip = Number(list[2]);
+			return reply(200, {
+				count: mine.length,
+				results: mine.slice(skip, skip + Number(list[3])).map((t) => ({
+					height: t.height,
+					datetime: t.datetime,
+					hash: t.hash,
+					isSuccess: t.isSuccess,
+					error: t.error,
+					gasUsed: t.gasUsed,
+					gasWanted: t.gasWanted,
+					fee: t.fee,
+					memo: t.memo,
+					isSigner: t.signers.includes(address),
+					messages: t.messages.map((m) => ({
+						id: m.id,
+						type: m.type,
+						amount: 0,
+						isReceiver: false
+					}))
+				}))
+			});
+		}
+		const one = /^\/v1\/transactions\/([0-9A-Fa-f]{64})$/.exec(path);
+		if (one) {
+			const tx = txs.find((t) => t.hash === one[1].toUpperCase());
+			return tx ? reply(200, tx) : reply(404, { error: 'not found' });
+		}
+		return reply(404, { error: 'not found' });
+	});
+	await new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(undefined)));
+	const { port } = /** @type {import('node:net').AddressInfo} */ (server.address());
+	const url = `http://127.0.0.1:${port}`;
+	return {
+		url,
+		calls,
+		close: () =>
+			new Promise((resolve) => {
+				server.close(() => resolve(undefined));
+				server.closeAllConnections?.();
+			})
+	};
+}
+
 export const EVM = {
 	wallet: fakeEvmAddress('evm wallet'),
 	exchange: fakeEvmAddress('exchange deposit address'),

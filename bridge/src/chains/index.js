@@ -12,6 +12,7 @@
 
 import { chainOf, publicChains } from './registry.js';
 import { createCosmosClient } from './cosmos.js';
+import { createAkashConsoleClient } from './akash-console.js';
 import { createEvmClient } from './evm.js';
 import { createBitcoinClient } from './bitcoin.js';
 import { checkEndpoint, WalletError } from './http.js';
@@ -51,6 +52,7 @@ export function createWalletService({
 	alchemyBaseUrl
 } = {}) {
 	const cosmos = createCosmosClient({ fetch: f, timeoutMs, sleep });
+	const indexer = createAkashConsoleClient({ fetch: f, sleep });
 	const evm = createEvmClient({
 		fetch: f,
 		timeoutMs,
@@ -104,7 +106,7 @@ export function createWalletService({
 				endpoints[name] = checked;
 				ownEndpoint = true;
 			}
-			const result =
+			let result =
 				chain.kind === 'bitcoin'
 					? await bitcoin.history({
 							chain,
@@ -123,6 +125,39 @@ export function createWalletService({
 								endpoints: /** @type {{ api: string }} */ (endpoints),
 								ownEndpoint
 							});
+			// A pruned node: what it no longer knows, from the chain's indexer. If
+			// that fails, the sync keeps what the node gave and says the history
+			// is short, as without an indexer.
+			if (chain.kind === 'cosmos' && endpoints.indexer && 'history' in result) {
+				const history = /** @type {any} */ (result.history);
+				if (history.pruned) {
+					try {
+						const older = await indexer.history({
+							chain,
+							address,
+							indexer: endpoints.indexer,
+							beforeHeight: history.earliestHeight
+						});
+						result = {
+							...result,
+							entries: [...older.entries, ...result.entries],
+							transactions: result.transactions + older.transactions,
+							unknownAssets: result.unknownAssets + older.unknownAssets,
+							history: {
+								...history,
+								completedBy: 'indexer',
+								unknownAmounts: older.unknownAmounts,
+								indexerFrom: older.earliestTime
+							}
+						};
+					} catch (/** @type {any} */ error) {
+						result = {
+							...result,
+							history: { ...history, indexerError: String(error?.code ?? 'WALLET_INDEXER') }
+						};
+					}
+				}
+			}
 			return { chain: chain.id, endpoints, ...result };
 		}
 	};

@@ -246,15 +246,24 @@ export async function walletTransactions(entries, getRate) {
 }
 
 /**
- * What kind of movement an EVM id names, after its hash: the gas, the value,
- * a token transfer or an internal one; null for anything else (Cosmos ids).
+ * What kind of movement an id names, after its hash; null for anything else.
+ * EVM: the gas, the value, a token transfer or an internal one. Cosmos: the
+ * fee, or a movement – read from the node's events
+ * (`m<message>:e<event>.<part>:<asset>`) or from the Akash indexer's
+ * messages (`c<message>.<part>:<asset>`).
  *
  * @param {string} id
  * @param {string} hash
  */
 function idFamily(id, hash) {
-	if (!/^0x[0-9a-f]{64}$/.test(hash) || !id.startsWith(`${hash}:`)) return null;
+	if (!id.startsWith(`${hash}:`)) return null;
 	const rest = id.slice(hash.length + 1);
+	if (/^[0-9A-F]{64}$/.test(hash)) {
+		if (rest === 'fee' || rest.startsWith('fee:')) return 'fee';
+		if (/^(?:m[^:]*:e\d+\.\d+|c\d+\.\d+):/.test(rest)) return 'cosmos-move';
+		return null;
+	}
+	if (!/^0x[0-9a-f]{64}$/.test(hash)) return null;
 	if (rest === 'fee' || rest === 'value') return rest;
 	if (rest.startsWith('internal:')) return 'internal';
 	if (rest.startsWith('erc20:') || rest.startsWith('log:')) return 'token';
@@ -267,7 +276,8 @@ function idFamily(id, hash) {
  * internal one, which Blockscout numbers by its place among all calls
  * (`<hash>:internal:<index>`) and Alchemy by its trace address
  * (`<hash>:internal:trace:<address>`); a custom endpoint may number token
- * transfers by log index. An incoming entry whose id is not stored takes
+ * transfers by log index. An Akash transaction read from the node and,
+ * once the node's window has moved on, from the indexer gets two ids too. An incoming entry whose id is not stored takes
  * the id of a stored booking of the same transaction, kind, quantity and
  * other address that no incoming entry names – each stored one once – so a
  * change of source books nothing twice (docs/crypto.md, "Own wallets").
@@ -295,7 +305,11 @@ export function reconcileSourceIds(stored, incoming) {
 				r.txRef === tx.txRef &&
 				idFamily(String(r.sourceId), String(tx.txRef)) === family &&
 				r.quantity === tx.crypto?.quantity &&
-				(r.counterpartyAddress ?? '') === (tx.counterpartyAddress ?? '')
+				// The node names the module an IBC or escrow movement went
+				// through, the indexer the message's other side: for Cosmos the
+				// transaction, kind and quantity decide.
+				(family === 'cosmos-move' ||
+					(r.counterpartyAddress ?? '') === (tx.counterpartyAddress ?? ''))
 		);
 		if (!match) return tx;
 		taken.add(match);

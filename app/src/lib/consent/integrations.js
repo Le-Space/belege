@@ -100,6 +100,11 @@ export const INTEGRATION_GROUPS = [
 				name: 'Nym, Nodes Guru, PublicNode, Polkachu (Cosmos-Knoten)',
 				initials: 'Rp'
 			},
+			{
+				id: 'akash-indexer',
+				name: 'Akash Console (Indexer, ältere Akash-Geschichte)',
+				initials: 'Ai'
+			},
 			{ id: 'coingecko', name: 'CoinGecko (Kurse)', initials: 'Cg' },
 			{ id: 'kraken-rates', name: 'Kraken (Kurse)', initials: 'Kr' },
 			{ id: 'ecb', name: 'Europäische Zentralbank (USD-Kurs)', initials: 'EZ' }

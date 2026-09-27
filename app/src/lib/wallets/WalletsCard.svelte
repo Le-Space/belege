@@ -498,13 +498,34 @@
 									{t('integrationen.wallets.unknownAssets', { count: result.unknownAssets })}
 								</p>
 							{/if}
-							{#if result.history.pruned}
+							{#if result.history.pruned && result.history.completedBy === 'indexer'}
+								<p class="mt-1 text-xs text-faint" data-testid="wallet-indexed">
+									{t('integrationen.wallets.indexed', {
+										date: result.history.earliestTime
+											? formatDate(result.history.earliestTime.slice(0, 10))
+											: '?'
+									})}
+								</p>
+								{#if result.history.unknownAmounts}
+									<p
+										class="mt-1 text-sm text-danger"
+										role="alert"
+										data-testid="wallet-unknown-amounts"
+									>
+										{t('integrationen.wallets.unknownAmounts', {
+											count: result.history.unknownAmounts
+										})}
+									</p>
+								{/if}
+							{:else if result.history.pruned}
 								<p class="mt-1 text-sm text-danger" role="alert" data-testid="wallet-pruned">
 									{t('integrationen.wallets.pruned', {
 										date: result.history.earliestTime
 											? formatDate(result.history.earliestTime.slice(0, 10))
 											: '?'
-									})}
+									})}{result.history.indexerError
+										? ` ${t('integrationen.wallets.indexerFailed')}`
+										: ''}
 								</p>
 							{/if}
 						{/if}
