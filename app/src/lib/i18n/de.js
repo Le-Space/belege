@@ -374,6 +374,12 @@ export default {
 		restore: 'Mit vorhandenem Passkey wiederherstellen',
 		busy: 'Bitte den Passkey bestätigen …'
 	},
+	year: {
+		label: 'Jahr',
+		fromYear: 'Beleg aus {year}',
+		fromYearTitle: 'Der Beleg ist von {year}; die Zahlung fällt in dieses Jahr.',
+		hidden: '{count} weitere in anderen Jahren'
+	},
 	home: {
 		morning: 'Guten Morgen',
 		day: 'Guten Tag',

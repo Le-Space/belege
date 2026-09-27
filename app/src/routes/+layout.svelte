@@ -11,6 +11,7 @@
 	import PageQr from '$lib/PageQr.svelte';
 	import PasskeyOnboarding from '$lib/PasskeyOnboarding.svelte';
 	import SectionTabs from '$lib/SectionTabs.svelte';
+	import YearSwitch from '$lib/year/YearSwitch.svelte';
 	import TechnicalToggle from '$lib/TechnicalToggle.svelte';
 	import ThemeToggle from '$lib/ThemeToggle.svelte';
 	import { t } from '$lib/i18n/index.js';
@@ -88,6 +89,7 @@
 	{:else}
 		<SectionTabs />
 		<main>
+			<YearSwitch />
 			{@render children()}
 		</main>
 	{/if}
