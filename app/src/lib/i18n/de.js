@@ -1217,6 +1217,7 @@ export default {
 		changedFilter: 'Beim Abruf geändert ({count})',
 		relatedMark: 'Gehört mit {count} anderen Buchung(en) zusammen',
 		changedBadge: 'beim Abruf geändert',
+		parties: 'Von {from} → An {to}',
 		noAccountBadge: 'ohne Konto',
 		all: 'Alle ({count})',
 		months: 'Monate',
@@ -1343,6 +1344,7 @@ export default {
 			ownNameNo: 'Nein, ein Anbieter',
 			notTransfer: 'Keine Umbuchung – Beleg nötig',
 			unlinkTransfer: 'Verknüpfung lösen – Beleg nötig',
+			party: { from: 'Von', to: 'An', own: 'eigene', foreign: 'fremde Adresse' },
 			linkTransfer: 'Als Gegenbuchung verknüpfen …',
 			linkTransferTitle:
 				'Diese Zahlung und eine auf einem anderen deiner Konten oder Wallets sind die zwei Seiten einer eigenen Umbuchung (Konto 1360): keine braucht einen Beleg. Bleibt bei jedem Abgleich.',

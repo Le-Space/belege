@@ -182,6 +182,15 @@ Each own wallet can have a **name** (a project, a purpose), a **ledger account**
 
 The detail of a payment shows **Menge** (`-0,015 BTC`) and **Kurs** (`60.000,00 EUR je BTC · CoinGecko, 01.09.2026 00:00 UTC`).
 
+**Who sent, who received.** A crypto booking always names both sides, `Von … → An …`, in the list and in the detail. Each side is named by the first of these that applies:
+
+- an own wallet, by its name, marked _eigene_;
+- a partner known by the address;
+- a module the reader names (staking, IBC, fee collector);
+- else the short address, marked _fremde Adresse_, with the full address on hover.
+
+An IBC receiver is looked up on its own chain. A network fee goes from the own wallet to _Netzwerk (Gebühr)_. The list's title is the other side's name, never a full hex address (`bank/payee.js`).
+
 **Finding the mail of a crypto payment.** _Im privaten Postfach suchen_ on an own wallet's booking searches by what a vendor's confirmation names: the transaction hash, the other address and the quantity (exact and to two decimals, with a point and a comma), ± 3 days; as text the vendor learned for that address, else the memo's first word. Not the euro amount: that is our own valuation. A receipt linked to a wallet payment teaches its address (`addr:<chain or evm>:<address>` among the partner's aliases), so the next payment to the same address scores the vendor and searches its mail domains. An incoming transfer with a memo and nothing else explaining it says that it is usually one's own withdrawal from an exchange, with the memo typed there.
 
 **Which receipts a crypto payment gets.** For an own wallet's booking, a receipt or mail is a candidate – in the suggestions, the KI-Vorschlag and the automatic matching – only when its subject, mail text, read text, file name or number names the payment: the transaction hash, the other address, or the quantity together with the asset's symbol (at least three significant digits; `cryptoEvidence` in `matching/view.js`). A close euro amount is no sign: crypto is valued at the day's rate. Any receipt can still be linked by hand under _Alle Belege_. A link in a mail is shortened to its host before the text goes to the model (`[LINK host]`), so a hash only in an explorer link is found in the mail's own text, not in a PDF.

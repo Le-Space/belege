@@ -182,6 +182,15 @@ Jede eigene Wallet kann eine **Bezeichnung** (Projekt, Zweck), ein **Konto** und
 
 Die Detailansicht einer Zahlung zeigt **Menge** (`-0,015 BTC`) und **Kurs** (`60.000,00 EUR je BTC · CoinGecko, 01.09.2026 00:00 UTC`).
 
+**Wer sendet, wer empfängt.** Eine Krypto-Buchung nennt immer beide Seiten, `Von … → An …`, in der Liste und im Detail. Jede Seite heißt nach dem ersten Punkt, der zutrifft:
+
+- eine eigene Wallet, mit ihrem Namen und markiert als _eigene_;
+- ein Partner, der unter dieser Adresse bekannt ist;
+- ein Modul, das der Abruf nennt (Staking, IBC, Gebührensammler);
+- sonst die Kurzadresse, markiert als _fremde Adresse_, die volle Adresse beim Darüberfahren.
+
+Ein IBC-Empfänger wird auf seiner eigenen Chain gesucht. Eine Netzwerkgebühr geht von der eigenen Wallet an _Netzwerk (Gebühr)_. Die Überschrift in der Liste ist der Name der Gegenseite, nie eine volle Hex-Adresse (`bank/payee.js`).
+
 **Die Mail zu einer Krypto-Zahlung finden.** _Im privaten Postfach suchen_ sucht bei einer Buchung einer eigenen Wallet nach dem, was die Bestätigung eines Anbieters nennt: Transaktions-Hash, Gegenadresse und Menge (genau und auf zwei Stellen, mit Punkt und Komma), ± 3 Tage; als Text der für diese Adresse gelernte Anbieter, sonst das erste Wort des Memos. Nicht der Euro-Betrag: der ist unsere eigene Bewertung. Ein Beleg, der einer Wallet-Zahlung zugeordnet wird, lehrt deren Adresse (`addr:<Chain oder evm>:<Adresse>` unter den Aliasen des Partners); die nächste Zahlung an dieselbe Adresse bekommt so die Anbieter-Punkte und die Suche seine Mail-Domains. Ein Eingang mit Memo, den sonst nichts erklärt, sagt, dass er meist die eigene Auszahlung von einer Börse ist, mit dort eingetragenem Memo.
 
 **Welche Belege eine Krypto-Zahlung bekommt.** Für eine Buchung einer eigenen Wallet kommt ein Beleg oder eine Mail – bei den Vorschlägen, beim KI-Vorschlag und beim automatischen Abgleich – nur in Frage, wenn Betreff, Mailtext, ausgelesener Text, Dateiname oder Nummer die Zahlung nennen: den Transaktions-Hash, die Gegenadresse oder die Menge zusammen mit dem Asset-Kürzel (mindestens drei signifikante Ziffern; `cryptoEvidence` in `matching/view.js`). Ein naher Euro-Betrag ist kein Zeichen: Krypto wird zum Tageskurs bewertet. Von Hand lässt sich jeder Beleg unter _Alle Belege_ zuordnen. Ein Link in einer Mail wird vor dem Versand an das Modell auf seinen Host gekürzt (`[LINK host]`); ein Hash, der nur in einem Explorer-Link steht, wird darum im Mailtext gefunden, nicht in einer PDF.

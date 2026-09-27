@@ -228,6 +228,14 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 	await expect(detail.getByTestId('tx-detail-quantity')).toHaveText('-100 NYM');
 	await expect(detail.getByTestId('tx-detail-amount')).toHaveText(/-5,00\sEUR/);
 	await expect(detail.getByTestId('tx-detail-address')).toHaveText(B);
+	// Who sent and who received: both own wallets, by name, the way it went.
+	await expect(detail.getByTestId('tx-detail-counterparty')).toHaveText(`Wallet NYM ···${tail(B)}`);
+	await expect(detail.getByTestId('tx-party-from')).toContainText(`Von Wallet NYM ···${tail(A)}`);
+	await expect(detail.getByTestId('tx-party-from')).toContainText('(eigene)');
+	await expect(detail.getByTestId('tx-party-to')).toContainText(`An Wallet NYM ···${tail(B)}`);
+	await expect(sent.getByTestId('parties')).toHaveText(
+		`Von Wallet NYM ···${tail(A)} → An Wallet NYM ···${tail(B)}`
+	);
 	await expect(detail.getByTestId('tx-detail-purpose')).toContainText('Memo: E2E Umbuchung');
 	await expect(detail.getByTestId('tx-explorer')).toHaveAttribute(
 		'href',

@@ -53,6 +53,7 @@
 	import { quantityText, valuationText } from './assets/valuation.js';
 	import { safeExplorerUrl, walletChain } from './wallets/chains.js';
 	import { formatQuantity } from './assets/quantity.js';
+	import { addressBook, payeeName, shortAddress, walletParties } from './bank/payee.js';
 	import { eventCalls } from './stats/usage.js';
 	import { relatedIndex } from './matching/related.js';
 	import { scamContext, scamSigns } from './receipts/scam.js';
@@ -117,6 +118,18 @@
 	let showDetails = $state(false);
 	/** "Kein fremder Beleg …": no receipt needed, bank fee, Eigenbeleg. */
 	let altOpen = $state(false);
+	// The payment's name and, for a crypto booking, who sent and who received (bank/payee.js).
+	let book = $derived(addressBook(app));
+	let payee = $derived(tx ? payeeName(tx, book) : null);
+	let parties = $derived(
+		tx
+			? walletParties(
+					tx,
+					app.accounts.find((a) => a.id === tx?.accountId),
+					book
+				)
+			: null
+	);
 	// "Als Gegenbuchung verknüpfen …" (issue #98): the other side of an own transfer, by hand.
 	let linkOpen = $state(false);
 	let linkQuery = $state('');
@@ -149,7 +162,7 @@
 	/** @param {Record<string, any>} other */
 	const relatedAccount = (other) => {
 		const a = app.accounts.find((x) => x.id === other.accountId);
-		return a ? accountLabel(a) : other.counterparty || '—';
+		return a ? accountLabel(a) : payeeName(other, book).name;
 	};
 	let tradeOther = $derived(
 		tx && tx.movement === 'trade' ? (tradeSides(app.transactions).get(tx.id) ?? null) : null
@@ -1048,8 +1061,27 @@
 						class="text-xl font-bold break-words text-heading"
 						data-testid="tx-detail-counterparty"
 					>
-						{tx.counterparty || '—'}
+						{payee?.name}
 					</h2>
+					{#if parties}
+						<p class="mt-1 text-sm text-text" data-testid="tx-parties">
+							{#each [{ side: 'from', p: parties.from }, { side: 'to', p: parties.to }] as { side, p } (side)}
+								<span class="mr-3 inline-block" data-testid={`tx-party-${side}`}
+									><span class="text-faint">{t(`zahlungen.detail.party.${side}`)}</span>
+									<span class="font-medium text-heading">{p.label}</span>
+									{#if p.own}<span class="text-xs text-faint"
+											>({t('zahlungen.detail.party.own')})</span
+										>{:else if p.address && p.label.includes('…')}<span class="text-xs text-faint"
+											>({t('zahlungen.detail.party.foreign')})</span
+										>{/if}
+									{#if p.address && !p.label.includes('…')}<span
+											class="font-mono text-xs text-faint select-all"
+											title={p.address}>{shortAddress(p.address)}</span
+										>{/if}</span
+								>
+							{/each}
+						</p>
+					{/if}
 				</div>
 				<div class="flex shrink-0 items-start gap-3">
 					<p
@@ -1576,9 +1608,9 @@
 													})}
 												</p>
 												<p class="mt-1 text-faint">
-													{linkAiRow.counterparty || linkAiRow.bookingType || '—'} · {relatedAccount(
+													{payeeName(linkAiRow, book).name} · {relatedAccount(linkAiRow)} · {formatTxAmount(
 														linkAiRow
-													)} · {formatTxAmount(linkAiRow)} · {formatDate(linkAiRow.bookedOn)}
+													)} · {formatDate(linkAiRow.bookedOn)}
 												</p>
 												<div class="mt-2 flex gap-2">
 													<button
@@ -1612,9 +1644,7 @@
 													data-testid="tx-link-transfer-choice"
 												>
 													<span class="min-w-0">
-														<span class="text-heading"
-															>{other.counterparty || other.bookingType || '—'}</span
-														>
+														<span class="text-heading">{payeeName(other, book).name}</span>
 														<span class="text-faint">
 															· {relatedAccount(other)} · {formatTxAmount(other)} · {formatDate(
 																other.bookedOn
