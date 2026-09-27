@@ -175,6 +175,17 @@ Eine Bitcoin-Wallet liest Belege über den **erweiterten öffentlichen Schlüsse
 - **Durch Ausprobieren geprüft**: Nyms RPC beantwortet `tx_search` nach `transfer.sender` und `transfer.recipient` in deutlich unter einer Sekunde (ein früheres Projekt fand hängende Absender-Abfragen; nicht nachvollziehbar). Er ist **gekürzt** (sein ältester Block ist von 2025); der RPC von Nodes Guru reicht bis zum ersten Block. Akash (geprüft am 27.09.2026): Jeder öffentliche Knoten ist gekürzt. Der von PublicNode behält am meisten (ab 25.05.2026), die von Polkachu und Ecostake nur wenige Wochen, und Polkachus `/status` meldet trotzdem 0. Blockscout verweigert Seite × Größe über 10 000. Sein `tokentx` nennt keinen Log-Index; die Kennung einer Token-Überweisung besteht darum aus Vertrag, Absender, Empfänger und Betrag (stabil, aber kein Log-Index).
 - **Nicht geprüft**: die Chain-ID von Base über ihre API (damals ratenbegrenzt; 8453 ist die bekannte); dass die Explorer-Seiten wirklich etwas anzeigen (Single-Page-Apps, die auf alles mit 200 antworten); wie weit Polkachus Akash-Knoten zurückreicht.
 
+## Aleph-Cloud-Credits (Issue #113)
+
+Aleph stellt keine Rechnungen aus: Hosting und Speicher werden mit Credits bezahlt. Unter Integrationen → Aleph Cloud fragt die Bridge die öffentliche Aleph-API, nur lesend (`POST /aleph/accounts`, `bridge/src/aleph.js`). Gefragt werden die eigenen EVM-Wallets (wenn „Eigene Ethereum-Adressen bei Aleph prüfen“ an ist) und jedes eingetragene Aleph-Konto. Für ein Konto und einen Monat erstellt „Verbrauchsnachweis erstellen“ einen Eigenbeleg (`app/src/lib/aleph/`):
+
+- **Bestände:** Anfangs- und Endbestand sind der heutige Bestand abzüglich der Netto-Summe aus `credit_history/summary` seit Monatsbeginn bzw. seit Monatsende. Anfang + Zugänge − Abgänge = Ende wird geprüft und gedruckt.
+- **Zeilen:** Aufladungen (Käufe mit Preis und Transaktion, Überträge herein), Überträge hinaus und der Verbrauch je UTC-Tag. Speicher ist eine Zeile, weil Aleph alle Stores zusammen mit Anzahl und Größe abrechnet; jede Instanz und jedes Programm bekommt eine eigene Zeile, benannt aus ihrer Nachricht.
+- **Euro-Wert:** der USD-Preis je Credit des letzten Kaufs bis zu diesem Tag (ohne Kauf Alephs Listenpreis, 1 USD je 1.000.000 Credits), mal EZB-Kurs des Tages. Der Steuerberater muss diese Bewertung bestätigen.
+- **Ablage:** als Beleg im EB-Nummernkreis, Quelle `eigenbeleg`, `sourceRef aleph:<Adresse>:<Monat>`, keiner Buchung zugeordnet. Die Zahlen bleiben am Beleg (`selfReceipt.aleph`), für eine spätere Rechnung über die Rechnungs-App.
+
+Ein Monat ohne Bewegung ergibt keinen Nachweis. Geprüft am 27.09.2026 gegen zwei eigene Konten für zwei Monate: Die Bestände gingen auf den Credit genau auf.
+
 ## Im Export
 
 Der Buchungstext einer Krypto-Buchung endet mit der Menge, z. B. `Konto B -0,015 BTC`. Reichen die 60 Zeichen von DATEV nicht, wird der Name gekürzt, nie die Menge. Der Umsatz steht wie bei jeder anderen Zeile in Euro.

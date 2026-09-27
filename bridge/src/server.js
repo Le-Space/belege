@@ -24,6 +24,8 @@
 //   GET  /chains                                                  token → chains, endpoints, explorers, alchemy: bool (chains/)
 //   GET  /bitcoin/key                                             token → the zpub's fingerprint, never the zpub
 //   POST /<chain>/wallet { address, endpoints? }                  token → an own wallet's transfers and balance
+//   POST /aleph/accounts { addresses, api? }                      token → which are Aleph accounts: credits, entries (aleph.js)
+//   GET  /aleph/statement?address=0x…&month=YYYY-MM[&api=]        token → a month's credits: balances, top-ups, usage per day
 //   /portals…          customer portals (portals/routes.js)            token
 //
 // Guards, in this order, on every request:
@@ -44,6 +46,8 @@ import { HibiscusUnreachableError, PinMismatchError } from './hibiscus.js';
 import { ibanAllowed, normalizeAccount, normalizeTransaction } from './normalize.js';
 import { decodeMailId, isIsoDay, isPartNumber } from './mail/mime.js';
 import { handlePortalRequest } from './portals/routes.js';
+import { ALEPH_API } from './aleph.js';
+import { checkEndpoint } from './chains/http.js';
 
 export const LOOPBACK = '127.0.0.1';
 
@@ -89,6 +93,9 @@ const MAX_EXTRACT_BODY = 256 * 1024;
  * @param {ReturnType<typeof import('./rates.js').createRateService> | null} [options.rates] exchange rates
  * @param {ReturnType<typeof import('./kraken.js').createKrakenClient> | null} [options.kraken] null when Kraken is not set up
  * @param {ReturnType<typeof import('./chains/index.js').createWalletService> | null} [options.wallets] own wallets on public chains
+ * @param {ReturnType<typeof import('./aleph.js').createAlephClient> | null} [options.aleph] Aleph Cloud credits, read only
+ * @param {boolean} [options.alephLoopback] tests: an Aleph API on 127.0.0.1
+ * @param {string} [options.alephApi] the Aleph API asked when the request names none
  * @param {(message: string) => void} [options.log] never gets a secret, bank data, mail or receipt text
  */
 export function createBridgeServer({
@@ -107,6 +114,9 @@ export function createBridgeServer({
 	rates = null,
 	kraken = null,
 	wallets = null,
+	aleph = null,
+	alephLoopback = false,
+	alephApi = ALEPH_API,
 	log = () => {}
 }) {
 	const allowedOrigins = new Set(config.appOrigins.map((o) => o.replace(/\/$/, '')));
@@ -530,6 +540,41 @@ export function createBridgeServer({
 				`assisted search: ${result.terms.length} term(s), ${result.domains.length} domain(s), ${result.messages.length} mail(s), ${result.pick ? `pick ${result.pick.confidence}` : 'no pick'}`
 			);
 			return send(res, 200, result);
+		}
+
+		if (path.startsWith('/aleph/')) {
+			if (!aleph) return send(res, 503, { error: 'Aleph is not available' });
+			/** The API asked: Aleph's, or one of the person's (https), checked. @param {unknown} given */
+			const apiOf = (given) => {
+				if (given === undefined || given === null || given === '') return alephApi;
+				return checkEndpoint(given, { allowLoopback: alephLoopback });
+			};
+			if (path === '/aleph/accounts' && req.method === 'POST') {
+				const body = await readJson(req);
+				const api = apiOf(body?.api);
+				const addresses = Array.isArray(body?.addresses) ? body.addresses.map(String) : null;
+				if (!api) return send(res, 400, { error: 'api must be an https:// URL' });
+				if (!addresses) return send(res, 400, { error: 'addresses is required' });
+				const accounts = await aleph.accounts({ addresses, api });
+				log(
+					`aleph: ${addresses.length} address(es) asked, ${accounts.filter((a) => a.credits > 0 || a.entries > 0).length} account(s)`
+				);
+				return send(res, 200, { accounts });
+			}
+			if (path === '/aleph/statement' && req.method === 'GET') {
+				const api = apiOf(url.searchParams.get('api'));
+				if (!api) return send(res, 400, { error: 'api must be an https:// URL' });
+				const statement = await aleph.statement({
+					address: url.searchParams.get('address') ?? '',
+					month: url.searchParams.get('month') ?? '',
+					api
+				});
+				log(
+					`aleph: statement, ${statement.entries} entr(ies), ${statement.usage.length} line(s), ${statement.difference === 0 ? 'balanced' : 'difference'}`
+				);
+				return send(res, 200, statement);
+			}
+			return send(res, 404, { error: 'not found' });
 		}
 
 		if (path === '/rates' && req.method === 'GET') {

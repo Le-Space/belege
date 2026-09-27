@@ -15,6 +15,7 @@ import { createTransferAssist } from './llm/transfer-assist.js';
 import { createVendorAssist } from './llm/vendor-assist.js';
 import { createKrakenClient, parseKrakenCredentials } from './kraken.js';
 import { createWalletService } from './chains/index.js';
+import { createAlephClient } from './aleph.js';
 import { buildRecipes, createPortalManager, keychainAccount } from './portals/index.js';
 import { macosPasswordDialog } from './portals/credentials.js';
 import { dirname, join } from 'node:path';
@@ -58,6 +59,7 @@ export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
  * @param {import('./keychain.js').Keychain} [options.krakenKeychain] the Kraken API key, JSON { key, secret }
  * @param {import('./keychain.js').Keychain} [options.alchemyKeychain] an optional Alchemy API key (own EVM wallets)
  * @param {(network: string) => string} [options.alchemyBaseUrl] tests: a fake Alchemy on 127.0.0.1
+ * @param {string} [options.alephApi] tests: a fake Aleph API on 127.0.0.1, the default for /aleph
  * @param {number} [options.krakenPageDelayMs] pause between Kraken ledger pages (tests: 0)
  * @param {typeof fetch} [options.rateFetch] fetch for the exchange-rate sources (tests hand in a fake)
  * @param {Record<string, string> | null} [options.fixedRates] tests only: EUR per unit by asset,
@@ -85,6 +87,7 @@ export async function startBridge({
 	krakenKeychain = macosKeychain({ account: 'kraken' }),
 	alchemyKeychain = macosKeychain({ account: 'alchemy' }),
 	alchemyBaseUrl,
+	alephApi,
 	krakenPageDelayMs,
 	rateFetch = fetch,
 	fixedRates = null,
@@ -205,6 +208,14 @@ export async function startBridge({
 		log
 	});
 
+	const rates = fixedRates
+		? /** @type {ReturnType<typeof createRateService>} */ (
+				/** @type {unknown} */ (fixedRateService(fixedRates))
+			)
+		: createRateService({
+				fetch: rateFetch,
+				coingeckoKey: () => coingeckoKeychain.read().catch(() => null)
+			});
 	const bridge = createBridgeServer({
 		config,
 		pairing,
@@ -231,14 +242,11 @@ export async function startBridge({
 					getCredentials: async () => parseKrakenCredentials(await krakenKeychain.read())
 				})
 			: null,
-		rates: fixedRates
-			? /** @type {ReturnType<typeof createRateService>} */ (
-					/** @type {unknown} */ (fixedRateService(fixedRates))
-				)
-			: createRateService({
-					fetch: rateFetch,
-					coingeckoKey: () => coingeckoKeychain.read().catch(() => null)
-				}),
+		rates,
+		// Aleph Cloud credits, read only (issue #113); valued with the same rates.
+		aleph: createAlephClient({ fetch: walletFetch, rates }),
+		alephLoopback: walletLoopback,
+		...(alephApi ? { alephApi } : {}),
 		wallets: createWalletService({
 			fetch: walletFetch,
 			allowLoopback: walletLoopback,

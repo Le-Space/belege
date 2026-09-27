@@ -112,6 +112,24 @@ export class BridgeError extends Error {
  */
 
 /**
+ * @typedef {object} AlephStatement bridge/src/aleph.js `statement`
+ * @property {string} address
+ * @property {string} month YYYY-MM
+ * @property {string} from ISO, UTC
+ * @property {string} until ISO, UTC
+ * @property {number} opening credits
+ * @property {number} closing credits
+ * @property {{ time: string, credits: number, bonus: number, how: 'purchase' | 'transfer', price: string | null, token: string | null, chain: string | null, txHash: string | null, from: string }[]} topUps
+ * @property {{ time: string, credits: number, to: string }[]} transfersOut
+ * @property {{ date: string, kind: string, resource: string | null, credits: number, entries: number, resources: number, sizeMib: number | null, usdPerCredit: string, priceSource: 'purchase' | 'list', eurPerUsd: string | null, eurCents: number | null }[]} usage
+ * @property {Record<string, { type: string, name: string }>} resources
+ * @property {{ topUps: number, transfersOut: number, usage: number, eurCents: number | null }} totals
+ * @property {number} difference opening + in − out − closing; 0 when the history is complete
+ * @property {string | null} rateSource
+ * @property {number} entries
+ */
+
+/**
  * @param {{ url?: string, token?: string | null, fetch?: typeof fetch }} [options]
  */
 export function createBridgeClient({
@@ -322,6 +340,34 @@ export function createBridgeClient({
 		 */
 		walletHistory: (chain, body) =>
 			call(`/${encodeURIComponent(chain)}/wallet`, { method: 'POST', body: JSON.stringify(body) }),
+		/**
+		 * Which of these 0x addresses are Aleph accounts: their credits now and
+		 * how many credit entries they ever had (issue #113). Read only.
+		 *
+		 * @param {string[]} addresses
+		 * @param {string} [api] an own Aleph API; Aleph's by default
+		 * @returns {Promise<{ address: string, credits: number, entries: number }[]>}
+		 */
+		alephAccounts: async (addresses, api) =>
+			(
+				await call('/aleph/accounts', {
+					method: 'POST',
+					body: JSON.stringify({ addresses, ...(api ? { api } : {}) })
+				})
+			).accounts,
+		/**
+		 * One Aleph account's credits in one month: balances, top-ups, consumption
+		 * per day and resource, valued in EUR (bridge/src/aleph.js).
+		 *
+		 * @param {string} address
+		 * @param {string} month YYYY-MM
+		 * @param {string} [api]
+		 * @returns {Promise<AlephStatement>}
+		 */
+		alephStatement: (address, month, api) =>
+			call(
+				`/aleph/statement?address=${encodeURIComponent(address)}&month=${encodeURIComponent(month)}${api ? `&api=${encodeURIComponent(api)}` : ''}`
+			),
 		/**
 		 * "Mit KI weitersuchen": the LLM suggests search words and sender domains
 		 * from the booking (redacted by the bridge), the bridge searches, and the

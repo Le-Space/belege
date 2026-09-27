@@ -105,6 +105,7 @@ export const INTEGRATION_GROUPS = [
 				name: 'Akash Console (Indexer, ältere Akash-Geschichte)',
 				initials: 'Ai'
 			},
+			{ id: 'aleph', name: 'Aleph Cloud (Credits eigener Konten, nur gelesen)', initials: 'Al' },
 			{ id: 'coingecko', name: 'CoinGecko (Kurse)', initials: 'Cg' },
 			{ id: 'kraken-rates', name: 'Kraken (Kurse)', initials: 'Kr' },
 			{ id: 'ecb', name: 'Europäische Zentralbank (USD-Kurs)', initials: 'EZ' }
