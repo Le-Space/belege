@@ -465,6 +465,7 @@ export default {
 			loan: 'Darlehen',
 			'crypto-reward': 'Ertrag der Börse',
 			'crypto-stake': 'Staking',
+			'crypto-swap': 'Tausch',
 			'crypto-dust': 'Staub',
 			'rule-ignore': 'Ignoriert',
 			'rule-private': 'Privat'
@@ -475,6 +476,7 @@ export default {
 			loan: 'Darlehen – der Vertrag ist der Beleg',
 			'crypto-reward': 'Staking- oder Earn-Ertrag – der Kontoauszug der Börse ist der Beleg',
 			'crypto-stake': 'Delegiert ins Staking – kein Beleg nötig, nicht auf 1360',
+			'crypto-swap': 'Tausch über eine DEX – die Transaktion im Block-Explorer ist der Beleg',
 			'crypto-dust': 'Staub unter einem Cent – kein Beleg nötig',
 			'rule-ignore': 'Ignoriert nach eigener Anweisung: {reason}',
 			'rule-private': 'Privat nach eigener Anweisung: {reason}',
@@ -550,6 +552,7 @@ export default {
 				'Eigene Umbuchung, von dir verknüpft: Die Gegenbuchung steht auf {account} am {date}. Kein Beleg nötig (Konto 1360).',
 			ownBridge:
 				'Eigene Übertragung über eine Bridge: Die Gegenbuchung steht auf {account} am {date} – dieselbe Kryptowährung, dieselbe Menge abzüglich der Bridge-Gebühr (höchstens 3 %), innerhalb von 8 Tagen. Kein Beleg nötig (Konto 1360).',
+			swap: 'Tausch über eine dezentrale Börse (DEX): Die Wallet hat ein Asset gegeben und ein anderes bekommen, in einer Transaktion. Die Transaktion im Block-Explorer ist der Beleg. Steuerlich eine Veräußerung und eine Anschaffung zum Tageswert – das klärt ihr mit dem Steuerberater.',
 			staking:
 				'Staking: Die Tokens sind delegiert und bleiben deine. Kein Beleg nötig. Nicht auf 1360 – ihre Rückkehr nach dem Unbonding ist keine Transaktion, eine Umbuchung ginge nie auf; das Konto klärt ihr mit dem Steuerberater.',
 			dust: 'Staub: weniger als ein Cent wert, empfangen, ohne dass du etwas getan hast. Kein Beleg nötig. Oft ein Test oder Werbung – oder der Anfang einer Adressvergiftung: Verwende die Absenderadresse nie als Empfänger.',

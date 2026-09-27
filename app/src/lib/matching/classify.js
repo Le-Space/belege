@@ -209,7 +209,7 @@ export function feeKey(tx) {
 
 /**
  * @typedef {object} Classification
- * @property {'rule-ignore' | 'rule-private' | 'bank-fee' | 'own-transfer' | 'loan' | 'crypto-reward' | 'crypto-stake' | 'crypto-dust'} kind
+ * @property {'rule-ignore' | 'rule-private' | 'bank-fee' | 'own-transfer' | 'loan' | 'crypto-reward' | 'crypto-stake' | 'crypto-dust' | 'crypto-swap'} kind
  *   `crypto-dust`: an incoming wallet transfer worth less than a cent
  *   `crypto-stake`: tokens delegated to staking (or back); no receipt, and not
  *   on 1360: the return at the end of an unbonding is no transaction, so a
@@ -360,6 +360,10 @@ export function classifyTransaction(tx, ctx) {
 	// one such booking, or none is taken: two 200,00 in one week are a question.
 	const unpaired = (/** @type {Record<string, any>} */ o) =>
 		!ctx.notTransfers?.has(transferPairKey(String(tx.id), String(o.id)));
+	// A swap on a DEX (issue #115): one asset given, another got, in one
+	// transaction. The transaction in the block explorer is the receipt; the
+	// legs, where both are booked, relate as Tausch by their hash.
+	if (wallet && tx.movement === 'trade') return { kind: 'crypto-swap' };
 	// The other side by reference, whatever the euro amounts: the other leg of a
 	// trade (same refid), or the wallet that received a withdrawal (same hash).
 	const sameRef = (ctx.sameReference?.(tx) ?? []).filter(unpaired);
