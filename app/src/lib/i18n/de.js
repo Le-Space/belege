@@ -1341,6 +1341,7 @@ export default {
 		changedBadge: 'beim Abruf geändert',
 		parties: 'Von {from} → An {to}',
 		noAccountBadge: 'ohne Konto',
+		noReceiptBadge: 'ohne Beleg',
 		all: 'Alle ({count})',
 		months: 'Monate',
 		coverage: 'Belegabdeckung {month}',
