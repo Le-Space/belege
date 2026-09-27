@@ -133,6 +133,8 @@ test('the invoicing app makes the Eigenbeleg, Belege links it', async ({ page })
 		});
 		await tab('Zahlungen').click();
 		await page.getByTestId('transaction').filter({ hasText: 'Stromwerk Test AG' }).click();
+		// The Eigenbeleg is one of the "Kein fremder Beleg …" options.
+		await page.getByTestId('tx-alt-toggle').click();
 		await page.getByTestId('tx-eigenbeleg-open').click();
 		await page.getByTestId('tx-eigenbeleg-description').fill('Rechenzeit für einen Monat (Lease)');
 		await page.getByTestId('tx-eigenbeleg-remote').click();
