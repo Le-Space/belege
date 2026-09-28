@@ -14,6 +14,7 @@
 import { createLibp2p } from 'libp2p';
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { deviceSalt, deviceSyncOn, syncLibp2pConfig } from './sync/device-sync.js';
+import { createDeviceGate } from './sync/device-gate.js';
 import { relayAddrs } from './ucep/net.js';
 import { createHeliaLight } from 'helia';
 import { withBitswap } from '@helia/bitswap';
@@ -32,6 +33,7 @@ import { createEphemeralPeerKey, createOfflineLibp2p } from './network.js';
 import {
 	deriveBlobKey,
 	deriveDatabaseKey,
+	deriveDeviceAuthKey,
 	deriveDevicePeerSeed,
 	derivePeerKeySeed
 } from './database-keys.js';
@@ -61,6 +63,7 @@ export const STORAGE_PATHS = Object.freeze({
  * @property {boolean} online device sync is on: the node talks to the relay (#123)
  * @property {string[]} relays
  * @property {any} libp2p the node under Helia and OrbitDB
+ * @property {ReturnType<typeof createDeviceGate> | null} deviceGate which peers proved the passkey (online only)
  * @property {() => Promise<void>} stop
  * @property {{ signingKey: Uint8Array, databaseKey: Uint8Array, blobKey: Uint8Array, peerKey: Uint8Array }} [secretsForE2E]
  *   only in E2E builds
@@ -101,8 +104,12 @@ export async function startSession(credential) {
 	const peerKey = online
 		? await generateKeyPairFromSeed('Ed25519', await deriveDevicePeerSeed(prfOutput, deviceSalt()))
 		: await createEphemeralPeerKey();
-	const libp2p = online
-		? await createLibp2p(syncLibp2pConfig({ privateKey: peerKey, relays }))
+	// Only a device that proves it holds the passkey gets the books (device-gate.js).
+	const deviceGate = online
+		? createDeviceGate({ authKey: await deriveDeviceAuthKey(prfOutput) })
+		: null;
+	const libp2p = deviceGate
+		? await createLibp2p(syncLibp2pConfig({ privateKey: peerKey, relays, gate: deviceGate }))
 		: await createOfflineLibp2p(peerKey);
 	const helia = await withBitswap(
 		withLibp2p(createHeliaLight({ codecs: [dagCbor], blockstore, datastore }), libp2p)
@@ -153,6 +160,7 @@ export async function startSession(credential) {
 			online,
 			relays,
 			libp2p,
+			deviceGate,
 			// Only in E2E builds, so the test can look for these bytes on disk.
 			// Written inline so every other build drops it, not just skips it.
 			...(import.meta.env.VITE_E2E === 'true'

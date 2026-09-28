@@ -7,7 +7,9 @@
 // direct connection the relay helps to set up. Every device of the same
 // passkey opens the same databases (their names come from the PRF answer),
 // and OrbitDB replicates them over gossipsub; everything is sealed before it
-// is written, so the relay and the network see ciphertext only.
+// is written, so the relay and the network see ciphertext only. And only
+// a device that proved it holds the passkey gets them at all (device-gate.js):
+// not the relay, not a peer whose id someone typed in by mistake.
 //
 // Devices find each other by peer id: each device writes itself into the
 // sealed settings (`device:<peer id>`), the settings replicate, and every
@@ -132,10 +134,10 @@ export function deviceSalt() {
 /**
  * The online node's config: the UCEP transports plus gossipsub for OrbitDB.
  *
- * @param {{ privateKey: any, relays: string[] }} params
+ * @param {{ privateKey: any, relays: string[], gate: { service: (components: any) => any } }} params
  * @returns {import('libp2p').Libp2pOptions<any>}
  */
-export function syncLibp2pConfig({ privateKey, relays }) {
+export function syncLibp2pConfig({ privateKey, relays, gate }) {
 	return {
 		privateKey,
 		addresses: { listen: [...relays.map((relay) => `${relay}/p2p-circuit`), '/webrtc'] },
@@ -152,6 +154,8 @@ export function syncLibp2pConfig({ privateKey, relays }) {
 			denyInboundEncryptedConnection: (/** @type {any} */ peerId) => blocked.has(String(peerId))
 		},
 		services: {
+			// First: it wraps the registrar before anything registers there.
+			deviceGate: gate.service,
 			identify: identify(),
 			identifyPush: identifyPush(),
 			pubsub: gossipsub({
@@ -224,6 +228,8 @@ export const knownDevices = (settingsRecords) =>
  * @param {string} [p.since] when sync was switched on here (deviceSyncSince)
  * @param {(state: SyncState) => void} [p.onState]
  * @param {() => void} [p.onRemoved] another device removed this one
+ * @param {{ isProved: (peerId: string) => boolean, forget: (peerId: string) => void, proveTo?: (peerId: string) => Promise<void>, onProved?: (listener: (peerId: string) => void) => () => void }} [p.gate]
+ *   which peers proved the passkey (device-gate.js); one that has not is not connected
  * @param {() => string} [p.now]
  */
 export async function startDeviceSync({
@@ -234,6 +240,7 @@ export async function startDeviceSync({
 	since = '',
 	onState = () => {},
 	onRemoved = () => {},
+	gate = { isProved: () => true, forget: () => {} },
 	now = () => new Date().toISOString()
 }) {
 	const self = libp2p.peerId.toString();
@@ -291,8 +298,9 @@ export async function startDeviceSync({
 	}
 	if (!mine || mine.removed) await writeDevice(self, label);
 
-	const connected = (/** @type {string} */ peerId) =>
+	const open = (/** @type {string} */ peerId) =>
 		libp2p.getConnections().some((/** @type {any} */ c) => c.remotePeer.toString() === peerId);
+	const connected = (/** @type {string} */ peerId) => open(peerId) && gate.isProved(peerId);
 	const direct = (/** @type {string} */ peerId) =>
 		libp2p
 			.getConnections()
@@ -310,6 +318,7 @@ export async function startDeviceSync({
 			if (d.removed) {
 				if (!blocked.has(d.peerId)) {
 					blocked.add(d.peerId);
+					gate.forget(d.peerId);
 					await hangUp(d.peerId);
 				}
 			} else {
@@ -351,7 +360,9 @@ export async function startDeviceSync({
 
 	/** @param {string} peerId */
 	async function dial(peerId) {
-		if (stopped || connected(peerId)) return;
+		if (stopped) return;
+		// Connected, but not proved yet (the first exchange failed): again.
+		if (open(peerId)) return void (await gate.proveTo?.(peerId));
 		const { multiaddr } = await import('@multiformats/multiaddr');
 		for (const relay of relays) {
 			try {
@@ -390,6 +401,7 @@ export async function startDeviceSync({
 		report();
 	});
 	libp2p.addEventListener('self:peer:update', report);
+	const unproved = gate.onProved?.(report) ?? (() => {});
 
 	const unsubscribe = store.settings.onChange(() => {
 		round().catch(() => {});
@@ -400,6 +412,7 @@ export async function startDeviceSync({
 		clearInterval(timer);
 		clearTimeout(resyncTimer);
 		unsubscribe();
+		unproved();
 	}
 	await round();
 
@@ -432,6 +445,7 @@ export async function startDeviceSync({
 				await store.settings.softDelete(r.id);
 			known.delete(peerId);
 			blocked.add(peerId);
+			gate.forget(peerId);
 			await hangUp(peerId);
 			report();
 		},
