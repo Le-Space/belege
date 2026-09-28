@@ -30,7 +30,8 @@
 >
 	<ul class="mx-auto grid max-w-5xl grid-cols-5 sm:flex sm:gap-1">
 		{#each TABS as tab (tab.href)}
-			{@const active = page.url.pathname === tab.href}
+			{@const active =
+				tab.href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(tab.href)}
 			<li class="min-w-0">
 				<a
 					href={resolve(tab.href)}

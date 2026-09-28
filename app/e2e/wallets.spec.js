@@ -24,6 +24,7 @@ import {
 } from '@belege/bridge/testing/chains';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
+import { openIntegration } from './integrations.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -134,6 +135,7 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 	await page.getByRole('button', { name: 'Koppeln' }).click();
 	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
 
+	await openIntegration(page, 'wallets');
 	const card = page.getByTestId('wallets-card');
 	await expect(card).toBeVisible();
 	// No Alchemy key in this bridge: EVM wallets come from Blockscout, and

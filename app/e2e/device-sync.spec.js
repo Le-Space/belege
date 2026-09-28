@@ -14,6 +14,7 @@
 import { test, expect } from '@playwright/test';
 
 import { acceptConsent } from './consent.js';
+import { openIntegration } from './integrations.js';
 
 const AUTHENTICATOR = {
 	protocol: 'ctap2',
@@ -112,7 +113,7 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 		await expect(phone.page.getByTestId('own-did')).toHaveAttribute('data-did', String(did));
 
 		// Both online; the Mac's id typed on the phone.
-		await tab(mac.page, 'Integrationen');
+		await openIntegration(mac.page, 'geraete');
 		await expect(mac.page.getByTestId('devices-reachable')).toContainText(
 			'über den Relay erreichbar',
 			{
@@ -125,7 +126,7 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 		await expect(mac.page.getByTestId('devices-qr').locator('svg')).toBeVisible();
 		const code = String(await mac.page.getByTestId('devices-qr').getAttribute('data-code'));
 		expect(code).toBe(`belege-device:${macId}`);
-		await tab(phone.page, 'Integrationen');
+		await openIntegration(phone.page, 'geraete');
 		await expect(phone.page.getByTestId('devices-reachable')).toContainText(
 			'über den Relay erreichbar',
 			{ timeout: 30_000 }
@@ -161,11 +162,11 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 
 		// The Mac removes the phone: the Mac lets go of it, and the phone, once
 		// the removal has reached it, switches its sync off.
-		await tab(mac.page, 'Integrationen');
+		await openIntegration(mac.page, 'geraete');
 		await mac.page.getByTestId('devices-remove').click();
 		await mac.page.getByTestId('devices-remove-confirm').click();
 		await expect(mac.page.getByTestId('devices-item')).toHaveCount(0);
-		await tab(phone.page, 'Integrationen');
+		await openIntegration(phone.page, 'geraete');
 		await expect(phone.page.getByTestId('devices-removed')).toBeVisible({ timeout: 60_000 });
 		expect(await phone.page.evaluate(() => localStorage.getItem('belege.device-sync'))).toBeNull();
 	} finally {

@@ -53,6 +53,7 @@ const swapTx = fakeTx({
 });
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
+import { openIntegration } from './integrations.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -118,6 +119,7 @@ test('with an Alchemy key the card says so, and an Ethereum wallet is read there
 	await page.getByRole('button', { name: 'Koppeln' }).click();
 	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
 
+	await openIntegration(page, 'wallets');
 	const card = page.getByTestId('wallets-card');
 	const source = card.getByTestId('wallets-source');
 	await expect(source).toHaveAttribute('data-source', 'alchemy');
