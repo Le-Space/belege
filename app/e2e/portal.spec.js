@@ -246,6 +246,7 @@ test('Vodafone invoices from the portal become receipts and match the booking', 
 	// server on this machine); its row shows the recording, the review lists
 	// nothing, discarded it is gone again, with its profile.
 	const fresh = page.getByTestId('portals-new');
+	await page.getByTestId('new-portal-open').click();
 	await fresh.getByTestId('new-portal-name').fill('Beispiel Cloud');
 	await fresh.getByTestId('new-portal-url').fill(`${portal.url}/`);
 	await fresh.getByTestId('new-portal-start').click();

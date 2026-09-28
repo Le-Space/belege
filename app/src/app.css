@@ -32,6 +32,7 @@
 	--infra: #7c5cff;
 	--danger: #b91c1c;
 	--success: #047857;
+	--warning: #92400e; /* a hint, not an error: amber 800 */
 }
 
 .dark {
@@ -50,6 +51,7 @@
 	--infra: #a78bfa;
 	--danger: #f87171;
 	--success: #34d399;
+	--warning: #fbbf24;
 }
 
 @theme inline {
@@ -68,6 +70,7 @@
 	--color-infra: var(--infra);
 	--color-danger: var(--danger);
 	--color-success: var(--success);
+	--color-warning: var(--warning);
 
 	/* Accent scales (theme-static brand hues), for buttons, focus rings, chips. */
 	--color-cyan-50: #ecf8fe;
@@ -130,5 +133,23 @@
 	input::placeholder,
 	textarea::placeholder {
 		color: var(--faint);
+	}
+}
+
+/* An integration's own page (issue #152): every control at least 44 px high,
+   and the card's title not twice under the page's. */
+@layer components {
+	.integration-page
+		:is(button, select, input:not([type='checkbox'], [type='radio'], [type='file'])) {
+		min-height: 2.75rem;
+	}
+	.integration-page.hide-card-title > section:first-of-type > h2:first-of-type,
+	.integration-page.hide-card-title > section:first-of-type > div:first-child > h2:first-of-type {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		white-space: nowrap;
 	}
 }

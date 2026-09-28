@@ -1731,7 +1731,9 @@ export default {
 				deviceRemoved:
 					'dieses Gerät wurde auf einem anderen entfernt; die Synchronisation ist aus.',
 				deviceError: 'die Synchronisation meldet einen Fehler.',
-				neverSynced: '{name} ist eingerichtet, aber noch nie abgerufen.'
+				neverSynced: '{name} ist eingerichtet, aber noch nie abgerufen.',
+				krakenRefused: 'der letzte Abruf wurde abgelehnt. Meist hilft ein neuer API-Schlüssel.',
+				walletHints: 'der letzte Abruf hat Hinweise hinterlassen (Wallets mit Hinweis: {count}).'
 			},
 			group: { basis: 'Grundlage', sources: 'Konten & Quellen', together: 'Zusammenarbeit' },
 			groupHint: {
@@ -1847,6 +1849,8 @@ export default {
 				'Holt alle Umsätze ab diesem Tag, soweit Hibiscus sie von der Bank abgerufen hat. Schon vorhandene werden nicht doppelt angelegt.'
 		},
 		camt: {
+			choose: 'Kontoauszug wählen …',
+			reading: 'Lese Kontoauszug …',
 			title: 'Kontoauszug importieren (CAMT.053)',
 			intro:
 				'Für Banken ohne Hibiscus-Anbindung (etwa Revolut): die CAMT.053-Datei des Kontoauszugs. Sie wird nur hier im Browser gelesen.',
@@ -1977,6 +1981,8 @@ export default {
 		},
 		kraken: {
 			title: 'Kraken (Börse)',
+			keyProblem:
+				'Kraken lehnt die Abfrage ab. Meist hilft ein neuer API-Schlüssel, der nur „Query Funds“ und „Query Ledger Entries“ darf – im Terminal: pnpm setup:kraken.',
 			notSetUp:
 				'Noch nicht eingerichtet. Lege bei Kraken einen API-Key an, der nur „Query Funds“ und „Query Ledger Entries“ darf, und führe im Terminal aus:',
 			intro:

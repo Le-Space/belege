@@ -34,6 +34,7 @@
  * @property {number} wallets own wallets kept
  * @property {number} aleph Aleph accounts found
  * @property {boolean} invoiceApp paired
+ * @property {import('./alerts.js').Alerts} [alerts] what the last runs left
  * @property {(source: string) => boolean} isWalletSource
  */
 
@@ -117,8 +118,8 @@ export function integrationsOverview(f) {
 			id: 'kraken',
 			group: 'sources',
 			initials: 'Kr',
-			kind: viaBridge(f.bridge.health.kraken),
-			state: f.bridge.health.kraken && paired ? 'setUp' : 'notSetUp',
+			kind: f.alerts?.kraken ? 'err' : viaBridge(f.bridge.health.kraken),
+			state: f.alerts?.kraken ? 'error' : f.bridge.health.kraken && paired ? 'setUp' : 'notSetUp',
 			line: 'kraken',
 			when: krakenWhen
 		},
@@ -126,7 +127,11 @@ export function integrationsOverview(f) {
 			id: 'wallets',
 			group: 'sources',
 			initials: 'Wa',
-			kind: f.wallets ? 'ok' : 'off',
+			kind: Object.values(f.alerts?.wallets ?? {}).some((n) => n > 0)
+				? 'warn'
+				: f.wallets
+					? 'ok'
+					: 'off',
 			state: f.wallets ? 'connected' : 'none',
 			params: { count: f.wallets },
 			line: f.wallets ? 'wallets' : 'walletsNone',
@@ -183,6 +188,15 @@ export function integrationsOverview(f) {
 
 	/** @type {Need[]} */
 	const needs = [];
+	if (f.alerts?.kraken) needs.push({ id: 'kraken', kind: 'err', text: 'krakenRefused' });
+	const walletHints = Object.values(f.alerts?.wallets ?? {}).filter((n) => n > 0).length;
+	if (walletHints)
+		needs.push({
+			id: 'wallets',
+			kind: 'warn',
+			text: 'walletHints',
+			params: { count: walletHints }
+		});
 	if (paired && f.bridge.state === 'offline')
 		needs.push({ id: 'bridge', kind: 'err', text: 'bridgeOffline' });
 	if (f.devices.removed) needs.push({ id: 'geraete', kind: 'warn', text: 'deviceRemoved' });

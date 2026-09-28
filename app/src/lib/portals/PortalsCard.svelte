@@ -17,6 +17,7 @@
 	// "Zugangsdaten löschen" removes both.
 	// Fetched invoices become receipts (source 'portal'), are read by the LLM
 	// when the bridge has one, and go through the matching like every receipt.
+	import { btn } from '$lib/ui/styles.js';
 	import TechnicalNote from '../TechnicalNote.svelte';
 	import AiMark from '../AiMark.svelte';
 	import MonthPicker from '../MonthPicker.svelte';
@@ -29,6 +30,8 @@
 	import { fetchPortal, importInvoices } from './actions.js';
 
 	/** @type {{ url: string, token: string | null }} */
+	/** "Neues Portal aufzeichnen": the form only when asked for (issue #152). */
+	let showNew = $state(false);
 	let { url, token } = $props();
 
 	/** @type {import('./client.js').PortalInfo[]} */
@@ -496,11 +499,20 @@
 		</ul>
 		{#if portals.some((p) => p.recordable)}
 			<div class="mt-2 border-t border-border pt-3" data-testid="portals-new">
-				<h3 class="text-sm font-semibold text-heading">{t('portals.new.title')}</h3>
-				<p class="mt-1 text-sm text-text">{t('portals.new.intro')}</p>
-				<div class="mt-2">
-					<NewPortal {url} {token} onstarted={() => load(client)} />
-				</div>
+				{#if showNew}
+					<h3 class="text-sm font-semibold text-heading">{t('portals.new.title')}</h3>
+					<p class="mt-1 text-sm text-text">{t('portals.new.intro')}</p>
+					<div class="mt-2">
+						<NewPortal {url} {token} onstarted={() => load(client)} />
+					</div>
+				{:else}
+					<button
+						type="button"
+						class={btn.secondary}
+						onclick={() => (showNew = true)}
+						data-testid="new-portal-open">+ {t('portals.new.title')} …</button
+					>
+				{/if}
 			</div>
 		{/if}
 		<TechnicalNote class="mt-2" lines={list('portals.technical')} />

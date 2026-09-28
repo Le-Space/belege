@@ -55,28 +55,30 @@
 	<h1 class="mt-2 text-2xl font-bold text-heading" data-testid="integration-title">
 		{t(`integrationen.overview.name.${id}`)}
 	</h1>
-	{#if id === 'bridge'}
-		<section class="mt-4 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm">
-			<BridgePanel />
-		</section>
-	{:else if id === 'bank'}
-		<BankPanel />
-	{:else if id === 'ki'}
-		<KiPanel />
-	{/if}
-	{#if id === 'kraken'}
-		<KrakenCard url={bridge.url} token={bridge.token} configured={bridge.health.kraken} />
-	{:else if id === 'wallets'}
-		<WalletsCard url={bridge.url} token={bridge.token} />
-	{:else if id === 'aleph'}
-		<AlephCard url={bridge.url} token={bridge.token} />
-	{:else if id === 'geraete'}
-		<DevicesCard />
-	{:else if id === 'assistent'}
-		<ShareCard url={bridge.url} token={bridge.token} />
-	{:else if id === 'rechnungs-app'}
-		<InvoiceAppCard />
-	{:else if id === 'portale'}
-		<PortalsCard url={bridge.url} token={bridge.token} />
-	{/if}
+	<div class="integration-page" class:hide-card-title={id !== 'bank'}>
+		{#if id === 'bridge'}
+			<section class="mt-4 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm">
+				<BridgePanel />
+			</section>
+		{:else if id === 'bank'}
+			<BankPanel />
+		{:else if id === 'ki'}
+			<KiPanel />
+		{/if}
+		{#if id === 'kraken'}
+			<KrakenCard url={bridge.url} token={bridge.token} configured={bridge.health.kraken} />
+		{:else if id === 'wallets'}
+			<WalletsCard url={bridge.url} token={bridge.token} />
+		{:else if id === 'aleph'}
+			<AlephCard url={bridge.url} token={bridge.token} />
+		{:else if id === 'geraete'}
+			<DevicesCard />
+		{:else if id === 'assistent'}
+			<ShareCard url={bridge.url} token={bridge.token} />
+		{:else if id === 'rechnungs-app'}
+			<InvoiceAppCard />
+		{:else if id === 'portale'}
+			<PortalsCard url={bridge.url} token={bridge.token} />
+		{/if}
+	</div>
 {/if}

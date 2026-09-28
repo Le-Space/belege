@@ -94,4 +94,21 @@ describe('the Integrationen overview', () => {
 		expect(row(v, 'geraete')).toMatchObject({ kind: 'warn', state: 'removed' });
 		expect(v.needs.map((n) => n.text)).toContain('deviceRemoved');
 	});
+
+	it('what the last runs left: a refused Kraken key, wallets with hints', () => {
+		const v = integrationsOverview(
+			facts({
+				alerts: { kraken: { raw: 'EAPI:Invalid nonce' }, wallets: { w1: 2, w2: 0 } },
+				wallets: 2
+			})
+		);
+		expect(row(v, 'kraken')).toMatchObject({ kind: 'err', state: 'error' });
+		expect(row(v, 'wallets')).toMatchObject({ kind: 'warn' });
+		expect(v.needs).toEqual(
+			expect.arrayContaining([
+				{ id: 'kraken', kind: 'err', text: 'krakenRefused' },
+				{ id: 'wallets', kind: 'warn', text: 'walletHints', params: { count: 1 } }
+			])
+		);
+	});
 });

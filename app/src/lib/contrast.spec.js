@@ -34,7 +34,7 @@ function contrast(a, b) {
 	return (hi + 0.05) / (lo + 0.05);
 }
 
-const TEXT = ['heading', 'text', 'faint', 'link', 'danger', 'success'];
+const TEXT = ['heading', 'text', 'faint', 'link', 'danger', 'success', 'warning'];
 const GROUNDS = ['bg', 'surface', 'surface-2'];
 
 describe.each([
