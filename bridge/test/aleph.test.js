@@ -4,6 +4,7 @@ import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createAlephClient, monthWindow, summarise } from '../src/aleph.js';
+import { toChecksumAddress } from '../src/chains/evm.js';
 import { createBridgeServer } from '../src/server.js';
 import { createPairing } from '../src/pairing.js';
 import { defaultConfig } from '../src/config.js';
@@ -214,17 +215,28 @@ describe('a statement from the Aleph API', () => {
 
 	test('the scan of own addresses: an account with credits, one Aleph never saw', async () => {
 		const nobody = fakeAlephAddress('never used');
+		// The app keeps EVM addresses in lower case; Aleph knows them checksummed only.
 		const found = await createAlephClient({ sleep: noSleep }).accounts({
-			addresses: [account, nobody, account.toUpperCase().replace('0X', '0x')],
+			addresses: [account.toLowerCase(), nobody, account.toUpperCase().replace('0X', '0x')],
 			api: api.url
 		});
 		assert.deepEqual(
 			found.map((a) => [a.address, a.credits > 0, a.entries]),
 			[
-				[account, true, 8],
-				[nobody, false, 0]
+				[toChecksumAddress(account), true, 8],
+				[toChecksumAddress(nobody), false, 0]
 			]
 		);
+	});
+
+	test('a statement asked in lower case finds the account', async () => {
+		const s = await createAlephClient({ sleep: noSleep, now: september }).statement({
+			address: account.toLowerCase(),
+			month: '2026-08',
+			api: api.url
+		});
+		assert.equal(s.address, toChecksumAddress(account));
+		assert.equal(s.entries, 6);
 	});
 });
 
