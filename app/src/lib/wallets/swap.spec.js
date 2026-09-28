@@ -146,3 +146,93 @@ describe('a token not in the list (#115, part 2)', () => {
 		expect(byAsset.get('XYZ')?.[0].amountCents).toBe(-300);
 	});
 });
+
+describe('a swap leg without a rate (#163)', () => {
+	const hash = `0x${'cd'.repeat(32)}`;
+	/** @param {Record<string, any>} over */
+	const leg = (over) => ({
+		hash,
+		date: '2026-07-19',
+		time: '2026-07-19T08:35:00Z',
+		kind: 'swap',
+		decimals: 18,
+		counterparty: '',
+		counterpartyLabel: '',
+		memo: '',
+		success: true,
+		explorerUrl: '',
+		...over
+	});
+	const gave = leg({
+		id: `${hash}:log:1`,
+		type: 'sent',
+		asset: 'XYZ',
+		amount: '-30000',
+		contract: `0x${'5e'.repeat(20)}`,
+		listed: false
+	});
+	const got = leg({ id: `${hash}:internal:1`, type: 'received', asset: 'ETH', amount: '0.143' });
+	const gas = leg({ id: `${hash}:fee`, type: 'fee', kind: 'fee', asset: 'ETH', amount: '-0.0002' });
+	/** ETH has a rate, XYZ has none. @param {string} asset @param {string} date */
+	const rates = async (asset, date) => {
+		if (asset !== 'ETH') throw new Error(`no rate source for ${asset}`);
+		return {
+			asset,
+			date,
+			currency: /** @type {const} */ ('EUR'),
+			rate: '2000',
+			usdRate: null,
+			source: /** @type {const} */ ('coingecko'),
+			at: `${date}T00:00:00Z`
+		};
+	};
+
+	it('is worth what came back for it: the price of the trade', async () => {
+		const { walletTransactions } = await import('./wallet-sync.js');
+		const { byAsset, unpriced } = await walletTransactions(
+			/** @type {any[]} */ ([gave, got, gas]),
+			rates
+		);
+		expect(unpriced).toEqual([]);
+		const xyz = byAsset.get('XYZ')?.[0];
+		// 0.143 ETH × 2000 EUR = 286 EUR for 30,000 XYZ.
+		expect(xyz?.amountCents).toBe(-28600);
+		expect(xyz?.crypto?.valuation).toMatchObject({
+			source: 'trade',
+			rate: '0.009533333333',
+			at: '2026-07-19T08:35:00Z'
+		});
+		// The gas is not part of the price.
+		expect(byAsset.get('ETH')?.map((t) => t.amountCents)).toEqual([28600, -40]);
+	});
+
+	it('not when the other side has no rate either, or is missing', async () => {
+		const { walletTransactions } = await import('./wallet-sync.js');
+		const none = await walletTransactions(/** @type {any[]} */ ([gave, got]), async (a) => {
+			throw new Error(`no rate source for ${a}`);
+		});
+		expect(none.unpriced.map((u) => u.asset)).toEqual(['XYZ', 'ETH']);
+		const alone = await walletTransactions(/** @type {any[]} */ ([gave]), rates);
+		expect(alone.unpriced.map((u) => u.asset)).toEqual(['XYZ']);
+	});
+
+	it('two tokens given for ETH, one priced: the other gets the rest', async () => {
+		const { walletTransactions } = await import('./wallet-sync.js');
+		const usdc = leg({
+			id: `${hash}:log:2`,
+			type: 'sent',
+			asset: 'USDC',
+			amount: '-100',
+			decimals: 6
+		});
+		const { byAsset } = await walletTransactions(
+			/** @type {any[]} */ ([gave, usdc, got]),
+			async (asset, date) => {
+				if (asset === 'USDC') return { ...(await rates('ETH', date)), asset, rate: '0.9' };
+				return rates(asset, date);
+			}
+		);
+		// 286 EUR back, 90 EUR of it for the USDC: 196 EUR for the XYZ.
+		expect(byAsset.get('XYZ')?.[0].amountCents).toBe(-19600);
+	});
+});

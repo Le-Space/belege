@@ -26,7 +26,7 @@
 import { recordEvent } from '../activity/events.js';
 import { importTransactions, upsertAccount } from '../bank/import.js';
 import { toUnits } from '../assets/quantity.js';
-import { valuedFields } from '../assets/valuation.js';
+import { tradeRate, valuedFields } from '../assets/valuation.js';
 import { getSetting, setSetting } from '../store/settings.js';
 import { normalizeAddress, safeExplorerUrl, walletAccountName, walletChain } from './chains.js';
 import { isAccountNumber } from '../booking/skr03.js';
@@ -189,16 +189,53 @@ export async function walletTransactions(entries, getRate) {
 	const byAsset = new Map();
 	/** @type {{ id: string, date: string, asset: string, reason: string }[]} */
 	const unpriced = [];
+
+	// First every entry at its day's rate; then a swap leg without one from its
+	// other side (issue #163): what was given is worth what was got.
+	/** @type {Map<Entry, { units: string, value?: ReturnType<typeof valuedFields>, error?: unknown }>} */
+	const priced = new Map();
 	for (const e of entries) {
+		let units;
 		try {
-			const units = toUnits(e.amount, e.decimals);
-			if (BigInt(units) === 0n) continue;
-			const value = valuedFields({
-				asset: e.asset,
+			units = toUnits(e.amount, e.decimals);
+		} catch (error) {
+			priced.set(e, { units: '0', error });
+			continue;
+		}
+		if (BigInt(units) === 0n) continue;
+		try {
+			priced.set(e, {
 				units,
-				decimals: e.decimals,
-				rate: await rateOf(e.asset, e.date, e.contract)
+				value: valuedFields({
+					asset: e.asset,
+					units,
+					decimals: e.decimals,
+					rate: await rateOf(e.asset, e.date, e.contract)
+				})
 			});
+		} catch (error) {
+			priced.set(e, { units, error });
+		}
+	}
+	for (const [e, p] of priced) {
+		if (p.value || e.kind !== 'swap' || e.type === 'fee') continue;
+		const rate = swapRate(e, p.units, priced);
+		if (rate) {
+			try {
+				priced.set(e, {
+					units: p.units,
+					value: valuedFields({ asset: e.asset, units: p.units, decimals: e.decimals, rate })
+				});
+			} catch {
+				// stays unpriced, with the first reason
+			}
+		}
+	}
+
+	for (const [e, p] of priced) {
+		try {
+			if (!p.value) throw p.error;
+			const value = p.value;
 			const { label, movement } = describeWalletEntry(e);
 			const other = e.counterpartyLabel || e.counterparty;
 			const purpose = [
@@ -243,6 +280,39 @@ export async function walletTransactions(entries, getRate) {
 		}
 	}
 	return { byAsset, unpriced };
+}
+
+/**
+ * A swap leg's rate from the swap's other side (issue #163): the euro value
+ * of what came back (or went out) for it, less the other priced legs on its
+ * own side, per unit. Only when every other leg of the swap has a price and
+ * something is left for this one; the source is the trade itself.
+ *
+ * @param {Entry} e
+ * @param {string} units
+ * @param {Map<Entry, { units: string, value?: { amountCents: number } }>} priced
+ * @returns {import('../assets/valuation.js').Rate | null}
+ */
+export function swapRate(e, units, priced) {
+	const legs = [...priced.entries()].filter(
+		([x]) => x !== e && x.hash === e.hash && x.kind === 'swap' && x.type !== 'fee'
+	);
+	const partners = legs.filter(([x]) => x.type !== e.type);
+	const sameSide = legs.filter(([x]) => x.type === e.type);
+	if (!partners.length || [...partners, ...sameSide].some(([, p]) => !p.value)) return null;
+	const cents = (/** @type {typeof legs} */ list) =>
+		list.reduce((sum, [, p]) => sum + Math.abs(p.value?.amountCents ?? 0), 0);
+	const left = cents(partners) - cents(sameSide);
+	if (left <= 0) return null;
+	return {
+		asset: e.asset,
+		date: e.date,
+		currency: 'EUR',
+		rate: tradeRate(left, units, e.decimals),
+		usdRate: null,
+		source: 'trade',
+		at: e.time || `${e.date}T00:00:00Z`
+	};
 }
 
 /**
