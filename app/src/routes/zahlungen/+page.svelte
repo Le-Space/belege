@@ -119,7 +119,9 @@
 		'crypto-swap': 'border-border bg-surface-2 text-text',
 		'crypto-dust': 'border-border bg-surface-2 text-faint',
 		'rule-ignore': 'border-border bg-surface-2 text-faint',
-		'rule-private': 'border-border bg-surface-2 text-faint'
+		'rule-private': 'border-border bg-surface-2 text-faint',
+		'private-mistake': 'border-warning/40 bg-surface-2 text-warning',
+		'private-repayment': 'border-border bg-surface-2 text-text'
 	};
 
 	/** @param {Tx} tx */

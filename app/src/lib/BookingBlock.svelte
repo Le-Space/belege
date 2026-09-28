@@ -8,7 +8,7 @@
 	import { app, currentStore, refreshNow } from './session.svelte.js';
 	import { confirmBooking } from './booking/actions.js';
 	import { suggestBooking } from './booking/suggest.js';
-	import { cleanDatevSettings } from './booking/settings.js';
+	import { cleanDatevSettings, privateAccounts } from './booking/settings.js';
 	import {
 		accountLabel,
 		catalogueAccount,
@@ -23,6 +23,7 @@
 	let { tx } = $props();
 
 	let keys = $derived(cleanDatevSettings(app.datevSettings).taxKeys);
+	let privateAccountsNow = $derived(privateAccounts(cleanDatevSettings(app.datevSettings)));
 	let receipts = $derived(
 		matchesOfTx(tx.id, app.matches).flatMap((m) => {
 			const r = app.receipts.find((x) => x.id === m.receiptId);
@@ -34,7 +35,8 @@
 			classification: app.classifications[tx.id] ?? null,
 			receipts,
 			partners: app.partners ?? [],
-			keys
+			keys,
+			privateAccounts: privateAccountsNow
 		})
 	);
 	let income = $derived((tx.amountCents ?? 0) > 0);

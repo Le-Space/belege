@@ -561,6 +561,10 @@ export default {
 	},
 	home: {
 		integrationNeeds: 'Integrationen brauchen dich',
+		privateOpen: {
+			title: 'Privat bezahlt, noch nicht ausgeglichen: {count} ({amount})',
+			what: 'Private Zahlungen vom Geschäftskonto. Zahl sie vom Privatkonto zurück und verknüpfe die Rückzahlung an der Zahlung.'
+		},
 		transferReceipts: {
 			title: 'Umbuchung mit Beleg: {count} zu prüfen',
 			what: 'Diese Zahlungen gelten jetzt als eigene Umbuchung und brauchen keinen Beleg, haben aber noch einen zugeordnet – oft aus der Zeit, bevor die Umbuchung erkannt wurde. Löse die Zuordnung, wenn der Beleg nicht dazugehört; sonst bestätige ihn.',
@@ -639,6 +643,8 @@ export default {
 		badge: {
 			receipt: 'Beleg',
 			'no-receipt': 'Kein Beleg nötig',
+			'private-mistake': 'Privat (Irrläufer)',
+			'private-repayment': 'Rückzahlung privat',
 			'own-transfer': 'Eigene Umbuchung',
 			'bank-fee': 'Kontoauszug',
 			loan: 'Darlehen',
@@ -982,6 +988,16 @@ export default {
 			ledgerHint:
 				'Das Sachkonto, unter dem dieses Bankkonto in deiner Buchhaltung geführt wird. Vorschlag nach SKR 03: {suggestion} – nur ein Platzhalter, trag die Nummer aus MonkeyOffice ein.',
 			noAccounts: 'Noch keine Bankkonten in den Büchern.',
+			legalForm: 'Rechtsform',
+			legalFormUnset: 'noch nicht angegeben',
+			legalForms: {
+				sole: 'Einzelunternehmen',
+				partnership: 'Personengesellschaft (GbR, OHG, KG)',
+				corporation: 'Kapitalgesellschaft (UG, GmbH)'
+			},
+			shareholderAccount: 'Verrechnungskonto Gesellschafter',
+			legalFormHint:
+				'Bestimmt, wie eine private Zahlung vom Geschäftskonto gebucht wird („Privat (Irrläufer)“): beim Einzelunternehmen und bei Personengesellschaften als Privatentnahme (1800), eine Rückzahlung als Privateinlage (1890); bei UG und GmbH gibt es keine Privatentnahmen – die Gesellschaft hat für dich bezahlt, eine Forderung auf dem Verrechnungskonto Gesellschafter, die du zurückzahlst. Die Kontonummer legt ihr mit dem Steuerberater fest.',
 			consultant: 'Beraternummer',
 			client: 'Mandantennummer',
 			numbersHint:
@@ -1339,6 +1355,7 @@ export default {
 		source: {
 			transfer: 'Umbuchung',
 			fee: 'Bankgebühr',
+			private: 'Privat (Irrläufer), nach der Rechtsform',
 			learned: 'gelernt',
 			learnedFrom: 'gelernt von {vendor}',
 			confirmed: 'übernommen',
@@ -1593,6 +1610,29 @@ export default {
 			unlinkTransfer: 'Verknüpfung lösen – Beleg nötig',
 			notRefund: 'Keine Erstattung – Beleg nötig',
 			linkRefund: 'Als Erstattung verknüpfen …',
+			private: {
+				mark: 'Privat (Irrläufer) …',
+				markTitle:
+					'Eine private Zahlung, versehentlich vom Geschäftskonto bezahlt: keine Betriebsausgabe, kein Betriebsausgabenbeleg. Eine kurze Aktennotiz hält den Irrtum fest; bei UG und GmbH gleichst du sie durch eine Rückzahlung vom Privatkonto aus.',
+				noteLabel: 'Aktennotiz',
+				hint: 'Nur diese eine Zahlung – andere derselben Gegenpartei bleiben, wie sie sind. Eine private Rechnung kannst du als Nachweis des Irrtums anhängen; sie zählt nicht als Betriebsausgabe.',
+				save: 'Als privat festhalten',
+				title: 'Privat (Irrläufer) – keine Betriebsausgabe',
+				open: 'Noch nicht ausgeglichen: {amount} offen.',
+				settled: 'Ausgeglichen.',
+				repaidBy: 'Rückzahlung am {date}: {amount}',
+				repays: 'Zahlt die private Zahlung vom {date} zurück: {amount}',
+				repaymentTitle: 'Rückzahlung einer privaten Zahlung – keine Betriebseinnahme',
+				repay: 'Rückzahlung verknüpfen …',
+				repayPick: 'Verknüpfen',
+				repayNone: 'Keine Gutschrift in den 180 Tagen um diese Zahlung.',
+				unlink: 'lösen',
+				undo: 'Doch geschäftlich',
+				noLegalForm:
+					'Die Rechtsform ist noch nicht angegeben (Einstellungen → Buchhaltung). Bis dahin behandelt Belege die Zahlung wie bei UG/GmbH: auszugleichen durch eine Rückzahlung.',
+				noClearing:
+					'Für UG/GmbH fehlt noch das Verrechnungskonto Gesellschafter (Einstellungen → Buchhaltung); legt die Nummer mit dem Steuerberater fest.'
+			},
 			linkRefundTitle:
 				'Diese Zahlung und eine in die andere Richtung – auf demselben oder einem anderen Konto – sind eine Belastung und ihre Erstattung. Voll erstattet braucht keine einen Beleg; bei einer Teilerstattung braucht die Belastung weiter ihren. Bleibt bei jedem Abgleich.',
 			linkRefundNone: 'Keine Buchung in die andere Richtung innerhalb von 120 Tagen.',

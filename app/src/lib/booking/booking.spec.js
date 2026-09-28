@@ -159,6 +159,8 @@ describe('catalogue and settings', () => {
 				taxKeys: { input19: '90', reverseCharge: '', output7: 'x' }
 			})
 		).toEqual({
+			legalForm: '',
+			shareholderAccount: '',
 			consultantNumber: '12345',
 			clientNumber: '7',
 			fiscalYearStartMonth: 7,
