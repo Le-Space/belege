@@ -347,6 +347,20 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	await expect(detail.getByTestId('tx-why-rule-line')).toContainText('von dir verknüpft');
 	await expect(detail.getByTestId('tx-related-chip')).toContainText('Erstattung');
 	await detail.getByTestId('tx-detail-close').click();
+	// Saving "Eigene Anweisungen" keeps what was linked by hand.
+	await page.getByTestId('settings-link').click();
+	await page.getByTestId('matching-save').click();
+	await expect(page.getByTestId('matching-saved')).toBeVisible();
+	await page.getByRole('link', { name: 'Zahlungen' }).click();
+	await page.getByTestId('account-filter').selectOption('');
+	await page.getByTestId('filter-all').click();
+	await page.locator('[data-testid="transaction-month"][data-month="2026-09"]').click();
+	await page
+		.getByTestId('transaction')
+		.filter({ hasText: 'Rückerstattung Wolkenspeicher' })
+		.click();
+	await expect(detail.getByTestId('tx-why-rule-line')).toContainText('von dir verknüpft');
+	await detail.getByTestId('tx-detail-close').click();
 
 	// Lieferantenkonto (issue #121): a prepaid tariff – two round top-ups from
 	// a third account, two small statements that pair with neither.
