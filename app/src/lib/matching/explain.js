@@ -233,8 +233,29 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 			return t('explain.rule.prepaidTopup', { vendor: c.vendor ?? '' });
 		case 'crypto-stake':
 			return t('explain.rule.staking');
-		case 'crypto-swap':
-			return t('explain.rule.swap');
+		case 'crypto-swap': {
+			const other = accounts.find((a) => a.id === c.counterAccountId);
+			const account = other ? accountLabel(other) : t('explain.rule.otherAccount');
+			const date = c.counterDay ? formatDate(c.counterDay) : '?';
+			if (c.via === 'manual') return t('explain.rule.swapManual', { account, date });
+			if (c.via !== 'cross-chain') return t('explain.rule.swap');
+			if (c.targetMissing) {
+				return t('explain.rule.swapCrossMissing', { address: shortAddress(c.receiver ?? '') });
+			}
+			if (c.counterBookingId) {
+				return t(
+					c.role === 'arrival' ? 'explain.rule.swapCrossArrival' : 'explain.rule.swapCross',
+					{
+						account,
+						date
+					}
+				);
+			}
+			return t(c.candidates ? 'explain.rule.swapCrossMany' : 'explain.rule.swapCrossNone', {
+				address: shortAddress(c.receiver ?? ''),
+				count: c.candidates ?? 0
+			});
+		}
 		case 'crypto-dust':
 			return c.lookalike
 				? t('explain.rule.dustLookalike', { known: c.lookalike })

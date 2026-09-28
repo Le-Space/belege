@@ -68,6 +68,8 @@
 		markBankFee,
 		linkRefund,
 		linkTransfer,
+		linkSwap,
+		unlinkSwap,
 		rejectRefund,
 		rejectTransfer,
 		setNoReceipt,
@@ -140,7 +142,7 @@
 	// "Als Gegenbuchung verknüpfen …" (issue #98): the other side of an own transfer, by hand.
 	let linkOpen = $state(false);
 	// What the other side is: an own transfer, or a charge's refund (issue #119).
-	let linkMode = $state(/** @type {'transfer' | 'refund'} */ ('transfer'));
+	let linkMode = $state(/** @type {'transfer' | 'refund' | 'swap'} */ ('transfer'));
 	let linkQuery = $state('');
 	/** @type {{ pick: { id: string, confidence: string, reason: string } | null } | null} */
 	let linkAi = $state(null);
@@ -624,11 +626,13 @@
 	const notTransfer = () =>
 		act(async () => {
 			if (!classification?.counterBookingId) return;
-			await (classification.kind === 'refund' ? rejectRefund : rejectTransfer)(
-				/** @type {any} */ (currentStore()),
-				txId,
-				classification.counterBookingId
-			);
+			await (
+				classification.kind === 'refund'
+					? rejectRefund
+					: classification.kind === 'crypto-swap'
+						? unlinkSwap
+						: rejectTransfer
+			)(/** @type {any} */ (currentStore()), txId, classification.counterBookingId);
 			await runMatchingNow();
 		});
 
@@ -676,7 +680,7 @@
 	/** @param {string} otherId */
 	const linkOther = (otherId) =>
 		act(async () => {
-			await (linkMode === 'refund' ? linkRefund : linkTransfer)(
+			await (linkMode === 'refund' ? linkRefund : linkMode === 'swap' ? linkSwap : linkTransfer)(
 				/** @type {any} */ (currentStore()),
 				txId,
 				otherId
@@ -1417,7 +1421,7 @@
 					>
 						<p class="text-xs font-semibold text-heading">{t('explain.whyNone')}</p>
 						<p class="mt-0.5 text-sm text-text" data-testid="tx-why-rule-line">{ruleLine}</p>
-						{#if (classification?.kind === 'own-transfer' || classification?.kind === 'refund') && classification.counterBookingId && !tx.noReceipt}
+						{#if (classification?.kind === 'own-transfer' || classification?.kind === 'refund' || classification?.kind === 'crypto-swap') && classification.counterBookingId && !tx.noReceipt}
 							<div class="mt-1.5 flex flex-wrap gap-3 text-sm">
 								<button
 									type="button"
@@ -1426,18 +1430,18 @@
 										classification?.counterBookingId && onopen(classification.counterBookingId)}
 									data-testid="tx-counter-open">{t('zahlungen.detail.counterOpen')}</button
 								>
-								<button
-									type="button"
-									class="text-faint underline hover:text-heading"
-									onclick={notTransfer}
-									disabled={busy}
-									data-testid="tx-not-transfer"
-									>{classification.via === 'manual'
-										? t('zahlungen.detail.unlinkTransfer')
-										: classification.kind === 'refund'
-											? t('zahlungen.detail.notRefund')
-											: t('zahlungen.detail.notTransfer')}</button
-								>
+								{#if classification.kind !== 'crypto-swap' || classification.via === 'manual'}<button
+										type="button"
+										class="text-faint underline hover:text-heading"
+										onclick={notTransfer}
+										disabled={busy}
+										data-testid="tx-not-transfer"
+										>{classification.via === 'manual'
+											? t('zahlungen.detail.unlinkTransfer')
+											: classification.kind === 'refund'
+												? t('zahlungen.detail.notRefund')
+												: t('zahlungen.detail.notTransfer')}</button
+									>{/if}
 							</div>
 						{/if}
 					</div>
@@ -1642,6 +1646,21 @@
 									title={t('zahlungen.detail.linkRefundTitle')}
 									data-testid="tx-link-refund">{t('zahlungen.detail.linkRefund')}</button
 								>
+								{#if tx.quantity}
+									<button
+										type="button"
+										class={button}
+										onclick={() => {
+											linkOpen = !(linkOpen && linkMode === 'swap');
+											linkMode = 'swap';
+											linkAi = null;
+										}}
+										aria-expanded={linkOpen && linkMode === 'swap'}
+										disabled={busy}
+										title={t('zahlungen.detail.linkSwapTitle')}
+										data-testid="tx-link-swap">{t('zahlungen.detail.linkSwap')}</button
+									>
+								{/if}
 							</div>
 							{#if linkOpen}
 								<div class="mt-2" data-testid="tx-link-transfer-panel">
@@ -1742,7 +1761,9 @@
 										<p class="mt-2 text-sm text-faint" data-testid="tx-link-transfer-none">
 											{linkMode === 'refund'
 												? t('zahlungen.detail.linkRefundNone')
-												: t('zahlungen.detail.linkTransferNone')}
+												: linkMode === 'swap'
+													? t('zahlungen.detail.linkSwapNone')
+													: t('zahlungen.detail.linkTransferNone')}
 										</p>
 									{/if}
 								</div>

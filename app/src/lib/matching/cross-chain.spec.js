@@ -8,6 +8,8 @@ import { classifyTransaction } from './classify.js';
 import { classificationLine } from './explain.js';
 import { relatedIndex } from './related.js';
 import { txDirection } from '../bank/format.js';
+import { crossSwapOf } from '../wallets/cross-swap.js';
+import { skipMemo } from '../wallets/cross-swap.fixtures.js';
 
 const CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
 /** A bech32-looking address (the app checks the shape, not the checksum). @param {string} prefix @param {number} seed */
@@ -354,5 +356,126 @@ describe('the check "Umbuchung mit Beleg"', () => {
 		expect(
 			events.filter((/** @type {any} */ e) => e.action === 'transfer-receipt-kept')
 		).toHaveLength(1);
+	});
+});
+
+describe('a swap across chains (#170): NYM on Nyx → AKT on Akash through Osmosis', () => {
+	const nyxAddr = bech('n', 2);
+	const akashAddr = bech('akash', 2);
+	const accounts = [
+		{ id: 'acc-nyx', source: 'nyx', name: 'Wallet NYM', walletAddress: nyxAddr, asset: 'NYM' },
+		{ id: 'acc-akt', source: 'akash', name: 'Wallet AKT', walletAddress: akashAddr, asset: 'AKT' }
+	];
+	const send = move({
+		id: 'swap-out',
+		accountId: 'acc-nyx',
+		source: 'nyx',
+		bookedOn: '2026-04-11',
+		bookedAt: '2026-04-11T15:22:31Z',
+		asset: 'NYM',
+		quantity: '-200000000',
+		decimals: 6,
+		amountCents: -600,
+		counterpartyAddress: bech('osmo', 5),
+		bookingType: 'IBC-Transfer',
+		crossSwap: crossSwapOf(skipMemo())
+	});
+	const arrival = move({
+		id: 'swap-in',
+		accountId: 'acc-akt',
+		source: 'akash',
+		bookedOn: '2026-04-11',
+		bookedAt: '2026-04-11T15:27:02Z',
+		asset: 'AKT',
+		quantity: '15200000',
+		decimals: 6,
+		amountCents: 595,
+		counterpartyAddress: bech('akash', 9)
+	});
+	/** @param {Record<string, any>[]} transactions @param {Record<string, any>[]} [accs] @param {any} [settings] */
+	const ctx = (transactions, accs = accounts, settings = null) =>
+		buildMatchingContext({ accounts: accs, transactions, settings });
+
+	it('both sides are a swap, paired: no receipt, related as Tausch', async () => {
+		const c = await ctx([send, arrival]);
+		const out = classifyTransaction(send, c);
+		const into = classifyTransaction(arrival, c);
+		expect(out).toMatchObject({
+			kind: 'crypto-swap',
+			via: 'cross-chain',
+			role: 'send',
+			counterBookingId: 'swap-in',
+			chain: 'akash'
+		});
+		expect(into).toMatchObject({
+			kind: 'crypto-swap',
+			via: 'cross-chain',
+			role: 'arrival',
+			counterBookingId: 'swap-out'
+		});
+		expect(classificationLine(/** @type {any} */ (out), { accounts })).toContain('Wallet AKT');
+		const rel = relatedIndex(
+			[send, arrival],
+			/** @type {any} */ ({ 'swap-out': out, 'swap-in': into })
+		);
+		expect(rel.get('swap-out')).toMatchObject([
+			{ kind: 'trade', via: 'cross-chain', other: { id: 'swap-in' } }
+		]);
+	});
+
+	it('below the least amount, too late, or before: not paired, and the line says so', async () => {
+		for (const changed of [
+			{ quantity: '14999999' },
+			{ bookedAt: '2026-04-11T16:00:00Z' },
+			{ bookedAt: '2026-04-11T15:00:00Z' }
+		]) {
+			const other = { ...arrival, ...changed };
+			const c = await ctx([send, other]);
+			const out = classifyTransaction(send, c);
+			expect(out, JSON.stringify(changed)).toMatchObject({ kind: 'crypto-swap', candidates: 0 });
+			expect(out?.counterBookingId).toBeUndefined();
+			expect(classificationLine(/** @type {any} */ (out), { accounts })).toContain(
+				'noch nicht gebucht'
+			);
+			expect(classifyTransaction(other, c)?.kind).not.toBe('crypto-swap');
+		}
+	});
+
+	it('two arrivals that fit: a question for the person, not a guess', async () => {
+		const twin = { ...arrival, id: 'swap-in-2', bookedAt: '2026-04-11T15:29:00Z' };
+		const c = await ctx([send, arrival, twin]);
+		const out = classifyTransaction(send, c);
+		expect(out).toMatchObject({ kind: 'crypto-swap', candidates: 2 });
+		expect(out?.counterBookingId).toBeUndefined();
+		expect(classificationLine(/** @type {any} */ (out), { accounts })).toContain('2 Ankünfte');
+	});
+
+	it('the receiver not in the books: the same key says ours, and the line says to add it', async () => {
+		const c = await ctx([send], [accounts[0]]);
+		const out = classifyTransaction(send, c);
+		expect(out).toMatchObject({ kind: 'crypto-swap', targetMissing: true });
+		expect(classificationLine(/** @type {any} */ (out), { accounts })).toContain(
+			'nicht als eigene Wallet angelegt'
+		);
+	});
+
+	it("someone else's receiver: a payment, as before", async () => {
+		const other = { ...send, crossSwap: crossSwapOf(skipMemo({ receiver: bech('akash', 9) })) };
+		const c = await ctx([other], [accounts[0]]);
+		expect(classifyTransaction(other, c)).toBeNull();
+	});
+
+	it('linked by hand as a swap: that holds', async () => {
+		const plain = { ...send, crossSwap: undefined };
+		const settings = { ownSwaps: ['swap-in|swap-out'] };
+		const c = await ctx([plain, arrival], accounts, settings);
+		expect(classifyTransaction(plain, c)).toMatchObject({
+			kind: 'crypto-swap',
+			via: 'manual',
+			counterBookingId: 'swap-in'
+		});
+		expect(
+			classificationLine(/** @type {any} */ (classifyTransaction(arrival, c)), { accounts })
+		).toContain('Von dir als Tausch verknüpft');
 	});
 });
