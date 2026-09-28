@@ -25,7 +25,8 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 9: own devices may sync the books over a relay, once switched on.
 // 10: an Akash wallet's older history is read from the Akash Console indexer.
 // 11: own Ethereum addresses may be asked at Aleph for credits (issue #113).
-export const CONSENT_VERSION = '11';
+// 12: a desktop may serve its bridge to own devices over UCEP (issue #142).
+export const CONSENT_VERSION = '12';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

@@ -246,7 +246,7 @@ export default {
 			options: 'Einstellungen',
 			devices: 'Eigene Geräte synchronisieren',
 			devicesText:
-				'Deine Bücher und Belege auch auf deinem Telefon oder einem zweiten Rechner mit demselben Passkey. Die Geräte verbinden sich über einen Le-Space-Relay und, wo möglich, direkt; alles ist verschlüsselt, bevor es das Gerät verlässt – der Relay sieht nur, dass zwei Geräte miteinander reden, und ihre IP-Adressen, nie Inhalte. Gilt für dieses Gerät, ab dem nächsten Entsperren.',
+				'Deine Bücher und Belege auch auf deinem Telefon oder einem zweiten Rechner mit demselben Passkey. Die Geräte verbinden sich über einen Le-Space-Relay und, wo möglich, direkt; alles ist verschlüsselt, bevor es das Gerät verlässt – der Relay sieht nur, dass zwei Geräte miteinander reden, und ihre IP-Adressen, nie Inhalte. Gilt für dieses Gerät, ab dem nächsten Entsperren. Auf einem Rechner mit Bridge kannst du sie zusätzlich für deine eigenen Geräte freigeben (Integrationen → Eigene Geräte): Dann nutzt das Telefon Bank, Postfach, KI und Wallets über diesen Rechner – nur die freigegebenen Abfragen, verschlüsselt, der Zugang der Bridge bleibt auf dem Rechner.',
 			collaboration: 'Zusammenarbeit',
 			collaborationText:
 				'Gemeinsame Bücher mit Kolleginnen, Kollegen oder der Steuerberatung, Chat und später Video. Das kommt später und wird dann hier ausdrücklich eingeschaltet – nicht vorher und nicht von selbst.',
@@ -471,6 +471,11 @@ export default {
 		connected: 'verbunden',
 		direct: 'direkt',
 		viaRelay: 'über den Relay',
+		bridgeShare: 'Bridge dieses Rechners für eigene Geräte freigeben',
+		bridgeShareText:
+			'Nur auf dem Rechner, auf dem die Bridge läuft und gekoppelt ist: Deine anderen Geräte (dasselbe Buch, in der Liste unten) nutzen Bank, Postfach, KI, Kurse und Wallets über ihn. Nur lesende und fragende Abfragen, keine Einrichtung, nichts wird gelöscht; der Zugang zur Bridge bleibt hier. Gilt ab dem nächsten Entsperren, solange dieser Tab offen und entsperrt ist.',
+		bridgeServed: 'Die Bridge dieses Rechners steht deinen Geräten zur Verfügung.',
+		bridgePending: 'Freigegeben – gilt ab dem nächsten Entsperren (Seite neu laden).',
 		notConnected: 'nicht verbunden',
 		unnamed: 'Gerät ohne Namen',
 		showQr: 'Als QR-Code zeigen',
