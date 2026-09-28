@@ -27,6 +27,7 @@ import { recordEvent } from '../activity/events.js';
 import { importTransactions, upsertAccount } from '../bank/import.js';
 import { toUnits } from '../assets/quantity.js';
 import { tradeRate, valuedFields } from '../assets/valuation.js';
+import { crossSwapOf } from './cross-swap.js';
 import { getSetting, setSetting } from '../store/settings.js';
 import { normalizeAddress, safeExplorerUrl, walletAccountName, walletChain } from './chains.js';
 import { isAccountNumber } from '../booking/skr03.js';
@@ -272,6 +273,11 @@ export async function walletTransactions(entries, getRate) {
 				txRef: e.hash,
 				explorerUrl: safeExplorerUrl(e.explorerUrl) ?? '',
 				...(e.swap ? { swap: e.swap } : {}),
+				// A swap to another chain, planned in the IBC memo (issue #170).
+				...(() => {
+					const cross = e.kind === 'ibc' && e.type === 'sent' ? crossSwapOf(e.memo) : null;
+					return cross ? { crossSwap: cross } : {};
+				})(),
 				crypto: {
 					asset: value.asset,
 					quantity: value.quantity,

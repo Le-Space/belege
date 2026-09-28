@@ -243,9 +243,50 @@ export async function linkTransfer(store, transactionId, counterBookingId) {
 	await setSetting(store.settings, 'matching', {
 		...current,
 		notTransfers: current.notTransfers.filter((k) => k !== key),
-		ownTransfers: [...current.ownTransfers.filter((k) => !mine(k)), key]
+		ownTransfers: [...current.ownTransfers.filter((k) => !mine(k)), key],
+		ownSwaps: current.ownSwaps.filter((k) => !mine(k))
 	});
 	await decided(store, 'own-transfer-link', { transactionId, counterBookingId });
+}
+
+/**
+ * "Als Tausch verknüpfen" (issue #170): the two sides of a swap a rule does
+ * not see, e.g. across chains without a memo or over an exchange. A booking
+ * has one other side: an earlier transfer or swap link of either goes.
+ *
+ * @param {MatchingStore} store
+ * @param {string} transactionId
+ * @param {string} otherId
+ */
+export async function linkSwap(store, transactionId, otherId) {
+	if (transactionId === otherId) return;
+	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+	const key = transferPairKey(transactionId, otherId);
+	const mine = (/** @type {string} */ k) =>
+		k.split('|').some((id) => id === transactionId || id === otherId);
+	await setSetting(store.settings, 'matching', {
+		...current,
+		ownTransfers: current.ownTransfers.filter((k) => !mine(k)),
+		ownSwaps: [...current.ownSwaps.filter((k) => !mine(k)), key]
+	});
+	await decided(store, 'swap-link', { transactionId, counterBookingId: otherId });
+}
+
+/**
+ * "Verknüpfung lösen" of a swap linked by hand.
+ *
+ * @param {MatchingStore} store
+ * @param {string} transactionId
+ * @param {string} otherId
+ */
+export async function unlinkSwap(store, transactionId, otherId) {
+	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+	const key = transferPairKey(transactionId, otherId);
+	await setSetting(store.settings, 'matching', {
+		...current,
+		ownSwaps: current.ownSwaps.filter((k) => k !== key)
+	});
+	await decided(store, 'swap-unlink', { transactionId, counterBookingId: otherId });
 }
 
 /**
