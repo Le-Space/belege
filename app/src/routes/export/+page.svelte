@@ -231,7 +231,7 @@
 				fiscal: MONTH_NAME.format(new Date(Date.UTC(2026, settings.fiscalYearStartMonth - 1, 1))),
 				length: settings.accountLength
 			})} ·
-			<a class="underline" href={resolve('/integrationen')}>{t('export.settingsLink')}</a>
+			<a class="underline" href={resolve('/einstellungen')}>{t('export.settingsLink')}</a>
 		</p>
 	</section>
 

@@ -246,7 +246,7 @@
 	<h2 id="anw-h" class="text-lg font-semibold">{t('anweisungen.title')}</h2>
 	<p class="mt-1 text-sm text-text">{t('anweisungen.intro')}</p>
 	<form class="mt-3 flex flex-col gap-4" onsubmit={save}>
-		<label class="flex flex-col text-sm">
+		<label class="flex scroll-mt-4 flex-col text-sm" id="firma">
 			<span class="font-medium text-heading">{t('anweisungen.companyNames')}</span>
 			<textarea
 				class="{input} min-h-16 font-sans"
@@ -286,7 +286,7 @@
 			<span class="mt-1 text-xs text-faint">{t('anweisungen.graceHint')}</span>
 		</label>
 
-		<fieldset class="text-sm">
+		<fieldset class="scroll-mt-4 text-sm" id="abgleich">
 			<legend class="font-medium text-heading">{t('anweisungen.rules')}</legend>
 			<ul class="mt-1 divide-y divide-border" data-testid="rules">
 				{#each rules as r (r.id)}
@@ -342,7 +342,7 @@
 			</div>
 		</fieldset>
 
-		<fieldset class="text-sm">
+		<fieldset class="scroll-mt-4 text-sm" id="gelerntes">
 			<legend class="font-medium text-heading">{t('anweisungen.learnedFees')}</legend>
 			<p class="mt-1 text-xs text-faint">{t('anweisungen.learnedFeesHint')}</p>
 			<ul class="mt-1 divide-y divide-border" data-testid="learned-fees">
@@ -401,7 +401,7 @@
 			</ul>
 		</fieldset>
 
-		<fieldset class="text-sm" data-testid="books-settings">
+		<fieldset class="scroll-mt-4 text-sm" id="buchhaltung" data-testid="books-settings">
 			<legend class="font-medium text-heading">{t('anweisungen.books.title')}</legend>
 			<p class="mt-1 text-xs text-faint">{t('anweisungen.books.hint')}</p>
 			<ul class="mt-2 flex flex-col gap-2">
@@ -494,7 +494,7 @@
 			<p class="mt-1 text-xs text-faint">{t('anweisungen.books.taxKeysHint')}</p>
 		</fieldset>
 
-		<fieldset class="text-sm" data-testid="chart">
+		<fieldset class="scroll-mt-4 text-sm" id="kontenplan" data-testid="chart">
 			<legend class="flex items-center gap-1.5 font-medium text-heading">
 				{t('anweisungen.chart.title')}
 				<span

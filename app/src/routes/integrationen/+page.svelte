@@ -2,7 +2,6 @@
 	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { resolve } from '$app/paths';
-	import MatchingSettings from '$lib/MatchingSettings.svelte';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
 	import { extractionTotals } from '$lib/activity/events.js';
 	import { integer } from '$lib/receipts/how.js';
@@ -545,5 +544,3 @@
 <InvoiceAppCard />
 
 <PortalsCard url={bridgeUrl} {token} />
-
-<MatchingSettings />

@@ -9,6 +9,8 @@
 	import BelegeMark from '$lib/BelegeMark.svelte';
 	import LocalOnlyBadge from '$lib/LocalOnlyBadge.svelte';
 	import PageQr from '$lib/PageQr.svelte';
+	import SettingsLink from '$lib/SettingsLink.svelte';
+	import { page } from '$app/state';
 	import PasskeyOnboarding from '$lib/PasskeyOnboarding.svelte';
 	import PwaBar from '$lib/pwa/PwaBar.svelte';
 	import SectionTabs from '$lib/SectionTabs.svelte';
@@ -77,6 +79,7 @@
 			{/if}
 		</div>
 		<div class="col-start-2 row-start-1 flex items-center gap-1 sm:col-start-3 sm:gap-2">
+			{#if ready}<SettingsLink />{/if}
 			<PageQr />
 			<ThemeToggle />
 			<TechnicalToggle />
@@ -92,7 +95,9 @@
 	{:else}
 		<SectionTabs />
 		<main>
-			<YearSwitch />
+			{#if !['/integrationen', '/einstellungen'].some((p) => page.url.pathname.startsWith(p))}
+				<YearSwitch />
+			{/if}
 			{@render children()}
 		</main>
 	{/if}
