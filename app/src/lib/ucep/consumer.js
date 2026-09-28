@@ -3,10 +3,12 @@
 // for a self-issued receipt (Eigenbeleg) for a booking without a receipt, and
 // takes the PDF back as the booking's receipt (receipts/eigenbeleg.js).
 //
-// What Belege keeps of the pairing — the grant, the catalogue and the
-// provider's addresses — is in the sealed settings collection: the consumer's
-// peer store lives in memory, and after a reload Belege dials the app again
-// through the relay address it was paired over.
+// What Belege keeps of the pairing — the grant and the provider's addresses —
+// is in the sealed settings collection. The catalogue of what peers serve
+// lives in memory: any peer that reaches Belege's node can announce
+// extensions, and the settings are append-only and replicate to every own
+// device. After a reload Belege dials the app again through the relay address
+// it was paired over (`reach`), which learns the catalogue anew.
 
 import { createConsumer, parseInvitation } from '@le-space/ucep';
 import { assetOf } from '../assets/registry.js';
@@ -31,11 +33,25 @@ export function createBelegeConsumer({ libp2p, settings, label }) {
 	return createConsumer({
 		libp2p,
 		label,
-		store: {
-			grants: collectionKeyValue(settings, 'ucep/grant/'),
-			catalogue: collectionKeyValue(settings, 'ucep/catalogue/')
-		}
+		store: { grants: collectionKeyValue(settings, 'ucep/grant/') }
 	});
+}
+
+/** Where earlier builds kept the catalogue in the settings. */
+export const OLD_CATALOGUE_PREFIX = 'ucep/catalogue/';
+
+/**
+ * The catalogue records earlier builds wrote into the settings: removed once.
+ *
+ * @param {Collection} settings
+ * @returns {Promise<number>} how many
+ */
+export async function forgetStoredCatalogue(settings) {
+	const old = await settings.list({
+		where: (r) => typeof r.key === 'string' && r.key.startsWith(OLD_CATALOGUE_PREFIX)
+	});
+	for (const r of old) await settings.softDelete(r.id);
+	return old.length;
 }
 
 /**

@@ -246,14 +246,14 @@ export default {
 			options: 'Einstellungen',
 			devices: 'Eigene Geräte synchronisieren',
 			devicesText:
-				'Deine Bücher und Belege auch auf deinem Telefon oder einem zweiten Rechner mit demselben Passkey. Die Geräte verbinden sich über ein Le-Space-Relay (gefunden über Aleph, siehe „Le-Space-Relays“) und, wo möglich, direkt; alles ist verschlüsselt, bevor es das Gerät verlässt – der Relay sieht nur, dass zwei Geräte miteinander reden, und ihre IP-Adressen, nie Inhalte. Gilt für dieses Gerät, ab dem nächsten Entsperren. Auf einem Rechner mit Bridge kannst du sie zusätzlich für deine eigenen Geräte freigeben (Integrationen → Eigene Geräte): Dann nutzt das Telefon Bank, Postfach, KI und Wallets über diesen Rechner – nur die freigegebenen Abfragen, verschlüsselt, der Zugang der Bridge bleibt auf dem Rechner.',
+				'Deine Bücher und Belege auch auf deinem Telefon oder einem zweiten Rechner mit demselben Passkey. Die Geräte verbinden sich über ein Le-Space-Relay (gefunden über Aleph, siehe „Le-Space-Relays“) und, wo möglich, direkt; alles ist verschlüsselt, bevor es das Gerät verlässt. Ein Gerät bekommt die Bücher erst, wenn es beweist, dass es denselben Passkey hat; der Relay und andere Peers bekommen nichts davon, auch nicht verschlüsselt. Der Relay sieht, dass zwei Geräte miteinander reden, ihre IP-Adressen und die Kennungen (Hash-Werte) der Datenbanken, nie Inhalte. Gilt für dieses Gerät, ab dem nächsten Entsperren. Auf einem Rechner mit Bridge kannst du sie zusätzlich für deine eigenen Geräte freigeben (Integrationen → Eigene Geräte): Dann nutzt das Telefon Bank, Postfach, KI und Wallets über diesen Rechner – nur die freigegebenen Abfragen, verschlüsselt, der Zugang der Bridge bleibt auf dem Rechner.',
 			collaboration: 'Zusammenarbeit',
 			collaborationText:
 				'Gemeinsame Bücher mit Kolleginnen, Kollegen oder der Steuerberatung, Chat und später Video. Das kommt später und wird dann hier ausdrücklich eingeschaltet – nicht vorher und nicht von selbst.',
 			technical: [
 				'Im Browser läuft ein libp2p-Knoten, weil OrbitDB einen braucht – ohne Transporte, ohne Bootstrap-Liste und ohne Peer-Discovery. Er kann niemanden anwählen und hört auf keiner Adresse. Nur wenn du Belege mit deiner Rechnungs-App koppelst, kommt ein zweiter, eigener Knoten dazu, der sich mit einem Relay verbindet (siehe „Rechnungs-App“ unten); an deine Bücher kommt er nicht.',
 				'Sein Peer-Schlüssel (Ed25519) entsteht in jeder Sitzung neu und wird nirgends gespeichert.',
-				'Mit „Eigene Geräte synchronisieren“ bekommt dieser Knoten die Transporte des Rechnungs-App-Knotens: WebSocket zum Relay, eine Reservierung dort, WebRTC für die direkte Verbindung, dazu gossipsub für OrbitDB. Sein Peer-Schlüssel kommt dann aus dem Passkey und einem Zufallswert dieses Browsers, damit jedes Gerät seine eigene, gleichbleibende Kennung hat. Die Geräte kennen einander über versiegelte Einträge in den Einstellungen (`device:<Kennung>`).',
+				'Mit „Eigene Geräte synchronisieren“ bekommt dieser Knoten die Transporte des Rechnungs-App-Knotens: WebSocket zum Relay, eine Reservierung dort, WebRTC für die direkte Verbindung, dazu gossipsub für OrbitDB. Sein Peer-Schlüssel kommt dann aus dem Passkey und einem Zufallswert dieses Browsers, damit jedes Gerät seine eigene, gleichbleibende Kennung hat. Die Geräte kennen einander über versiegelte Einträge in den Einstellungen (`device:<Kennung>`). Bevor ein Gerät etwas bekommt, beweist es den Passkey: ein HMAC über beide Kennungen mit einem Schlüssel, der aus dem Passkey abgeleitet und nie übertragen wird. Bis dahin beantwortet der Knoten nur identify und den Relay – kein gossipsub, keine OrbitDB-Heads, kein Bitswap, keine Bridge.',
 				'Die Seite lädt keine Schriften, Skripte oder Bilder von Dritten.'
 			]
 		},
@@ -353,7 +353,7 @@ export default {
 				name: 'Rechnungs-App (UCEP über ein Relay)',
 				text: 'Nur wenn du Belege unter Integrationen mit deiner Rechnungs-App koppelst: Belege verbindet sich über ein Relay mit ihr, um für eine Zahlung ohne Beleg einen Eigenbeleg erstellen zu lassen.',
 				leaves:
-					'Die IP-Adresse dieses Geräts und die Peer-ID von Belege – an den Betreiber des Relays (eines der Le-Space-Relays, siehe unten). Für einen Eigenbeleg die Angaben dieser einen Zahlung (Datum, Betrag, Beschreibung, Grund, bei Krypto Menge, Kurs und Hash) – an deine Rechnungs-App, sonst niemanden; deine übrigen Bücher nie.',
+					'Die IP-Adresse dieses Geräts und die Peer-ID von Belege – an den Betreiber des Relays (eines der Le-Space-Relays, siehe unten). Für einen Eigenbeleg die Angaben dieser einen Zahlung (Datum, Betrag, Beschreibung, Grund, die Gegenpartei, wie du sie einträgst, die interne Kennung der Zahlung in Belege, bei Krypto Chain, Menge, Kurs mit Quelle und Zeitpunkt und den Hash der Transaktion) – an deine Rechnungs-App, sonst niemanden; deine übrigen Bücher nie.',
 				technical:
 					'libp2p mit WebSocket zum Relay (Circuit Relay v2) und WebRTC für die direkte Verbindung; Noise verschlüsselt jede Verbindung Ende zu Ende, das Relay sieht nur Chiffretext. Die Peer-ID kommt aus einem Schlüssel, der aus deinem Passkey abgeleitet und nie gespeichert wird. Die Kopplung (UCEP, Le-Space/ucep-spec) gibt Belege nur die Rechte „Eigenbelege erstellen“ und „eigene Dokumente lesen“. Ohne Kopplung baut Belege keine Verbindung auf.'
 			},
@@ -1806,7 +1806,7 @@ export default {
 				'Koppel Belege mit deiner Rechnungs-App (Le Space Rechnungen). Dann kann sie für eine Zahlung ohne Beleg einen Eigenbeleg erstellen – mit ihrem Nummernkreis und deinem Firmenkopf –, und Belege ordnet ihn der Zahlung zu. Die Verbindung läuft über ein Relay und ist Ende zu Ende verschlüsselt; es gehen nur die Angaben dieser einen Zahlung hinüber.',
 			start: 'Verbindung aufbauen',
 			offHint:
-				'Erst wenn du hier klickst, geht Belege ins Netz: Es fragt api.aleph.im nach den Le-Space-Relays und verbindet sich mit einem; danach nur, solange eine Rechnungs-App gekoppelt ist. Was dabei wer sieht, steht im Datenschutz-Dialog unter „Le-Space-Relays“.',
+				'Erst wenn du hier klickst, geht Belege ins Netz: Es fragt api.aleph.im nach den Le-Space-Relays und verbindet sich mit einem; danach nur, solange eine Rechnungs-App gekoppelt ist; nach dem Entkoppeln geht Belege wieder vom Netz. Was dabei wer sieht, steht im Datenschutz-Dialog unter „Le-Space-Relays“.',
 			starting: 'Verbindung wird aufgebaut …',
 			failed: 'Die Verbindung konnte nicht aufgebaut werden:',
 			invitation: 'Einladungslink aus der Rechnungs-App (Verbindungen → Einladung)',

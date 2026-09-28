@@ -2,7 +2,14 @@
 	// Integrationen → Rechnungs-App: pair Belege with the invoicing app over
 	// UCEP (ucep/consumer.js), by an invitation it shows or by a code both
 	// screens show, so it can make Eigenbelege for bookings without a receipt.
-	import { app, currentStore, currentUcep, refreshUcep, startUcep } from '$lib/session.svelte.js';
+	import {
+		app,
+		currentStore,
+		currentUcep,
+		refreshUcep,
+		startUcep,
+		stopUcep
+	} from '$lib/session.svelte.js';
 	import { t } from '$lib/i18n/index.js';
 	import { pairByCode, pairByInvitation, unpair } from './consumer.js';
 
@@ -63,6 +70,8 @@
 				consumer: ucep.consumer,
 				settings: /** @type {any} */ (currentStore()).settings
 			});
+			// Unpaired: offline again, until the person connects anew.
+			await stopUcep();
 		});
 
 	const button =
