@@ -20,6 +20,8 @@
 // Nothing about the person's bookings leaves the bridge: a request names an
 // asset and a day, nothing else.
 
+import { multiplyRates } from './dex-rate.js';
+
 /**
  * @typedef {object} AssetSources
  * @property {string} [coingecko] CoinGecko coin id
@@ -97,6 +99,8 @@ const startOfDay = (day) => Math.floor(Date.parse(`${day}T00:00:00Z`) / 1000);
  * @param {() => Promise<string | null>} [options.coingeckoKey] a CoinGecko demo key, if one is in the keychain
  * @param {() => Date} [options.now]
  * @param {number} [options.cacheSize]
+ * @param {ReturnType<typeof import('./dex-rate.js').createDexRates> | null} [options.dex]
+ *   a token's pool rate at a block, when CoinGecko has none (issue #163)
  */
 /**
  * CoinGecko's platform ids of the EVM chains a wallet can be on, for a token's
@@ -114,7 +118,8 @@ export function createRateService({
 	fetch: f = fetch,
 	coingeckoKey = async () => null,
 	now = () => new Date(),
-	cacheSize = 500
+	cacheSize = 500,
+	dex = null
 } = {}) {
 	/** @type {Map<string, Rate>} */
 	const cache = new Map();
@@ -188,6 +193,27 @@ export function createRateService({
 		return { rate: open, usdRate: null, source: 'kraken', at: `${day}T00:00:00Z` };
 	}
 
+	/**
+	 * A token's rate from its deepest WETH pool at the booking's block, times
+	 * ETH's rate of the day (dex-rate.js, issue #163).
+	 *
+	 * @param {{ contract: string, chain: string, block: number, decimals: number }} p
+	 * @param {string} day
+	 */
+	async function fromPool(p, day) {
+		const price = await dex?.poolPrice(p).catch(() => null);
+		if (!price) return null;
+		const eth = await rate('ETH', day).catch(() => null);
+		if (!eth) return null;
+		return {
+			rate: multiplyRates(price.ethPerToken, eth.rate),
+			usdRate: null,
+			source: /** @type {const} */ ('dex'),
+			at: price.at || `${day}T00:00:00Z`,
+			ref: `uniswap-v${price.version}:${price.pool}@${price.block}`
+		};
+	}
+
 	/** EUR per USD from the ECB reference rate of the day or the last one before it. @param {string} day */
 	async function fromEcb(day) {
 		const start = new Date(Date.parse(`${day}T00:00:00Z`) - 7 * 86400_000)
@@ -217,7 +243,8 @@ export function createRateService({
 	}
 
 	/**
-	 * @typedef {{ asset: string, date: string, currency: 'EUR', rate: string, usdRate: string | null, source: 'coingecko' | 'kraken' | 'ecb', at: string }} Rate
+	 * @typedef {{ asset: string, date: string, currency: 'EUR', rate: string, usdRate: string | null, source: 'coingecko' | 'kraken' | 'ecb' | 'dex', at: string, ref?: string }} Rate
+	 *   `ref` for `dex`: `uniswap-v2:<pool>@<block>`
 	 */
 
 	/**
@@ -225,12 +252,17 @@ export function createRateService({
 	 *
 	 * @param {string} asset a symbol from RATE_SOURCES; with prefer 'kraken', any symbol
 	 * @param {string} date YYYY-MM-DD, not in the future
-	 * @param {{ prefer?: 'kraken' | null, contract?: string | null, chain?: string | null }} [options]
+	 * @param {{ prefer?: 'kraken' | null, contract?: string | null, chain?: string | null, block?: number | null, decimals?: number | null }} [options]
 	 *   `contract` and `chain`: a token not in the list, by its contract only – its
-	 *   symbol is its own claim and says nothing (issue #115)
+	 *   symbol is its own claim and says nothing (issue #115); with `block` and
+	 *   `decimals`, the DEX pool at that block when CoinGecko has no rate (#163)
 	 * @returns {Promise<Rate>}
 	 */
-	async function rate(asset, date, { prefer = null, contract = null, chain = null } = {}) {
+	async function rate(
+		asset,
+		date,
+		{ prefer = null, contract = null, chain = null, block = null, decimals = null } = {}
+	) {
 		const platform =
 			contract && chain && Object.hasOwn(COINGECKO_PLATFORMS, chain)
 				? COINGECKO_PLATFORMS[/** @type {keyof typeof COINGECKO_PLATFORMS} */ (chain)]
@@ -252,25 +284,30 @@ export function createRateService({
 				: prefer === 'kraken' && /^[A-Z0-9]{2,10}$/.test(asset)
 					? { ...listed, kraken: listed?.ecb ? undefined : (listed?.kraken ?? `${asset}EUR`) }
 					: listed;
-		if (!sources) throw new RateError(`no rate source for ${asset}`, contract ? 502 : 400);
+		const pool =
+			contract && chain && block && decimals !== null && dex
+				? { contract, chain, block, decimals }
+				: null;
+		if (!sources && !pool) throw new RateError(`no rate source for ${asset}`, contract ? 502 : 400);
 		if (!DAY.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) {
 			throw new RateError('date must be YYYY-MM-DD', 400);
 		}
 		if (date > now().toISOString().slice(0, 10)) {
 			throw new RateError('date lies in the future', 400);
 		}
-		const key = `${contract ?? asset}@${date}@${prefer ?? ''}`;
+		const key = `${contract ?? asset}@${date}@${prefer ?? ''}@${pool ? block : ''}`;
 		const cached = cache.get(key);
 		if (cached) return cached;
 
 		const coingecko = async () =>
-			sources.coingecko ? fromCoinGecko(sources.coingecko, date) : null;
-		const kraken = async () => (sources.kraken ? fromKraken(sources.kraken, date) : null);
+			sources?.coingecko ? fromCoinGecko(sources.coingecko, date) : null;
+		const kraken = async () => (sources?.kraken ? fromKraken(sources.kraken, date) : null);
 		const found =
-			(sources.ecb ? await fromEcb(date) : null) ??
+			(sources?.ecb ? await fromEcb(date) : null) ??
 			(prefer === 'kraken'
 				? ((await kraken()) ?? (await coingecko()))
-				: ((await coingecko()) ?? (await kraken())));
+				: ((await coingecko()) ?? (await kraken()))) ??
+			(pool ? await fromPool(pool, date) : null);
 		if (!found) throw new RateError(`no rate found for ${asset} on ${date}`, 502);
 
 		/** @type {Rate} */

@@ -308,13 +308,14 @@ export function createBridgeClient({
 		 *
 		 * @param {string} asset a symbol from assets/registry.js, e.g. `BTC`
 		 * @param {string} date YYYY-MM-DD
-		 * @param {{ prefer?: 'kraken', contract?: string, chain?: string }} [options] a Kraken
-		 *   booking: Kraken's own EUR price first; a token not in the list: by its contract (#115)
+		 * @param {{ prefer?: 'kraken', contract?: string, chain?: string, block?: number, decimals?: number }} [options] a Kraken
+		 *   booking: Kraken's own EUR price first; a token not in the list: by its contract (#115),
+		 *   and with the booking's block and its decimals by its DEX pool there (#163)
 		 * @returns {Promise<import('../assets/valuation.js').Rate>}
 		 */
-		rate: (asset, date, { prefer, contract, chain } = {}) =>
+		rate: (asset, date, { prefer, contract, chain, block, decimals } = {}) =>
 			call(
-				`/rates?asset=${encodeURIComponent(asset)}&date=${encodeURIComponent(date)}${prefer ? `&prefer=${prefer}` : ''}${contract && chain ? `&contract=${encodeURIComponent(contract)}&chain=${encodeURIComponent(chain)}` : ''}`
+				`/rates?asset=${encodeURIComponent(asset)}&date=${encodeURIComponent(date)}${prefer ? `&prefer=${prefer}` : ''}${contract && chain ? `&contract=${encodeURIComponent(contract)}&chain=${encodeURIComponent(chain)}` : ''}${contract && chain && Number.isSafeInteger(block) && Number.isInteger(decimals) ? `&block=${block}&decimals=${decimals}` : ''}`
 			),
 		/**
 		 * Kraken's non-zero balances (bridge/src/kraken.js).

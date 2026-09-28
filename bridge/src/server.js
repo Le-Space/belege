@@ -18,7 +18,7 @@
 //   POST /transfer/assist { booking, candidates }               token → the LLM's pick of an own transfer's other side
 //   GET  /llm/status                                              token → provider, models, key present?
 //   POST /extract      { text, hints, source, confirmedByUser }   token
-//   GET  /rates?asset=BTC&date=YYYY-MM-DD[&prefer=kraken][&contract=0x…&chain=ethereum]  token → EUR per unit, source (rates.js)
+//   GET  /rates?asset=BTC&date=YYYY-MM-DD[&prefer=kraken][&contract=0x…&chain=ethereum[&block=N&decimals=D]]  token → EUR per unit, source (rates.js; the DEX pool at the block: dex-rate.js)
 //   GET  /kraken/balances                                         token → non-zero balances (kraken.js)
 //   GET  /kraken/ledgers?since=YYYY-MM-DD                         token → the ledger, oldest first
 //   GET  /chains                                                  token → chains, endpoints, explorers, alchemy: bool (chains/)
@@ -592,7 +592,26 @@ export function createBridgeServer({
 			if (contract !== null && !/^0x[0-9a-f]{40}$/.test(contract)) {
 				return send(res, 400, { error: 'contract must be 0x + 40 hex' });
 			}
-			return send(res, 200, await rates.rate(asset, date, { prefer, contract, chain }));
+			// With the booking's block and the token's decimals: its DEX pool, when CoinGecko has no rate (#163).
+			const blockText = url.searchParams.get('block');
+			const decimalsText = url.searchParams.get('decimals');
+			if (blockText !== null && !/^[1-9]\d{0,11}$/.test(blockText)) {
+				return send(res, 400, { error: 'block must be a positive integer' });
+			}
+			if (decimalsText !== null && !/^\d{1,2}$/.test(decimalsText)) {
+				return send(res, 400, { error: 'decimals must be 0 to 99' });
+			}
+			return send(
+				res,
+				200,
+				await rates.rate(asset, date, {
+					prefer,
+					contract,
+					chain,
+					block: blockText === null ? null : Number(blockText),
+					decimals: decimalsText === null ? null : Number(decimalsText)
+				})
+			);
 		}
 
 		if (path.startsWith('/kraken/') && req.method === 'GET') {

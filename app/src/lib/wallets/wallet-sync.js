@@ -168,8 +168,9 @@ export const shortHash = (hash) =>
  * The bookings for a wallet's entries, by asset.
  *
  * @param {Entry[]} entries oldest first
- * @param {(asset: string, date: string, contract?: string) => Promise<import('../assets/valuation.js').Rate>} getRate
- *   `contract`: a token not in the list, priced by its contract (#115)
+ * @param {(asset: string, date: string, contract?: string, at?: { block: number, decimals: number }) => Promise<import('../assets/valuation.js').Rate>} getRate
+ *   `contract`: a token not in the list, priced by its contract (#115); `at`: its
+ *   block and decimals, for its DEX pool when CoinGecko has no rate (#163)
  * @returns {Promise<{ byAsset: Map<string, Incoming[]>, unpriced: { id: string, date: string, asset: string, reason: string }[] }>}
  */
 export async function walletTransactions(entries, getRate) {
@@ -178,10 +179,12 @@ export async function walletTransactions(entries, getRate) {
 	const rateOf = (
 		/** @type {string} */ asset,
 		/** @type {string} */ date,
-		/** @type {string | undefined} */ contract
+		/** @type {string | undefined} */ contract,
+		/** @type {{ block: number, decimals: number } | undefined} */ at
 	) => {
-		const key = `${contract ?? asset}@${date}`;
-		if (!rates.has(key)) rates.set(key, getRate(asset, date, contract));
+		// A token by its contract may be priced by its pool, which moves from block to block.
+		const key = `${contract ?? asset}@${date}${contract && at ? `@${at.block}` : ''}`;
+		if (!rates.has(key)) rates.set(key, getRate(asset, date, contract, at));
 		return /** @type {Promise<import('../assets/valuation.js').Rate>} */ (rates.get(key));
 	};
 
@@ -210,7 +213,14 @@ export async function walletTransactions(entries, getRate) {
 					asset: e.asset,
 					units,
 					decimals: e.decimals,
-					rate: await rateOf(e.asset, e.date, e.contract)
+					rate: await rateOf(
+						e.asset,
+						e.date,
+						e.contract,
+						e.contract && Number.isSafeInteger(e.height) && e.height > 0
+							? { block: e.height, decimals: e.decimals }
+							: undefined
+					)
 				})
 			});
 		} catch (error) {
@@ -501,8 +511,10 @@ export async function syncWallet({ client, store, wallet, now = new Date() }) {
 		address: wallet.address,
 		endpoints: wallet.endpoints ?? {}
 	});
-	const { byAsset, unpriced } = await walletTransactions(result.entries, (asset, date, contract) =>
-		client.rate(asset, date, contract ? { contract, chain: chain.id } : {})
+	const { byAsset, unpriced } = await walletTransactions(
+		result.entries,
+		(asset, date, contract, at) =>
+			client.rate(asset, date, contract ? { contract, chain: chain.id, ...(at ?? {}) } : {})
 	);
 
 	// An account for every asset that moved or is held; a listed token never

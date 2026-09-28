@@ -32,7 +32,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     paired invoicing app is sent for an Eigenbeleg, listed.
 // 15: Belege reads the paired invoicing app's issued invoices and tells it
 //     which were paid, when and how much (issue #8).
-export const CONSENT_VERSION = '15';
+// 16: a token CoinGecko does not price may be priced by its Uniswap pool at
+//     the booking's block, asked of Alchemy (issue #163).
+export const CONSENT_VERSION = '16';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 
