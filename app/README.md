@@ -56,6 +56,14 @@ pnpm test:e2e     # Playwright, Chromium with a virtual passkey (PRF)
   the passkey can open the books. Once a device is
   connected directly, every database's sync restarts once, because OrbitDB 4.0.0 exchanges heads
   only once and not over a relayed connection. Nothing is redacted between own devices.
+- **The desktop's bridge for own devices** (`src/lib/sync/remote-bridge.js`, issue #142): with
+  "Bridge dieses Rechners für eigene Geräte freigeben" (a flag in that browser, from the next unlock),
+  the device-sync node offers the UCEP extension `belege-bridge`. Its one command `request` forwards a
+  fixed list of reading and asking routes to the own bridge with the desktop's token – no pairing,
+  setup, shares, portals or deleting – and only for devices in the book's device list. On another
+  device the bridge client tries 127.0.0.1 first and then a connected own device that serves the
+  extension (`bridgeFetch`); the token never leaves the desktop. UCEP's limits hold (64 KiB request,
+  1 MiB answer direct, 64 KiB relayed, 60 s).
   `e2e/device-sync.spec.js` runs two browsers of one passkey through the test relay; since a
   virtual authenticator does not carry the PRF secret across contexts, E2E builds read a fixed
   PRF answer from `globalThis.__belegeTestPrf`.

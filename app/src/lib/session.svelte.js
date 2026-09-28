@@ -27,7 +27,9 @@ export const app = $state({
 		/** @type {string | null} */
 		error: null,
 		/** Another device removed this one; its sync is switched off. */
-		removed: false
+		removed: false,
+		/** This desktop serves its bridge to own devices (#142). */
+		bridgeServed: false
 	},
 	/** @type {StoredRecord[]} */
 	transactions: [],
@@ -400,9 +402,51 @@ async function startDeviceSyncIfOn() {
 				app.sync.state = null;
 			}
 		});
+		await startBridgeForDevices();
 	} catch (error) {
 		app.sync.error = error instanceof Error ? error.message : String(error);
 	}
+}
+
+/**
+ * The bridge between own devices (issue #142): this device may use a desktop's
+ * bridge when its own cannot be reached, and a desktop that switched "Bridge
+ * für eigene Geräte freigeben" on serves its own to the devices the books know.
+ */
+async function startBridgeForDevices() {
+	if (!session?.online) return;
+	const { startBridgeConsumer, startBridgeProvider, bridgeFetch, bridgeShareOn } = await import(
+		'./sync/remote-bridge.js'
+	);
+	const { knownDevices } = await import('./sync/device-sync.js');
+	const { setBridgeTransport } = await import('./bridge/client.js');
+	const libp2p = session.libp2p;
+	const settings = session.store.settings;
+	const { remoteFetch } = await startBridgeConsumer({
+		libp2p,
+		label: deviceLabel(),
+		devices: () => (app.sync.state?.devices ?? []).filter((d) => d.connected).map((d) => d.peerId)
+	});
+	setBridgeTransport(bridgeFetch({ remote: () => remoteFetch }));
+	app.sync.bridgeServed = false;
+	if (!bridgeShareOn()) return;
+	/** @type {{ url: string, token: string } | null} */
+	let own = null;
+	const readOwn = async () => {
+		const saved = /** @type {any} */ (await getSetting(settings, 'bridge'));
+		own = saved?.url && saved?.token ? { url: saved.url, token: saved.token } : null;
+	};
+	await readOwn();
+	settings.onChange(() => {
+		readOwn().catch(() => {});
+	});
+	await startBridgeProvider({
+		libp2p,
+		bridge: () => own,
+		isOwnDevice: async (peerId) =>
+			knownDevices(await settings.list()).some((d) => d.peerId === peerId)
+	});
+	app.sync.bridgeServed = true;
 }
 
 /** How this device calls itself in the list: the browser and system, as it says. */

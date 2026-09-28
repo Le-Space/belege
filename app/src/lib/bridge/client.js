@@ -130,12 +130,26 @@ export class BridgeError extends Error {
  */
 
 /**
+ * How the bridge is reached when a caller names no fetch: plain fetch, or –
+ * with device sync – the bridge on this machine first and an own desktop's
+ * over UCEP otherwise (sync/remote-bridge.js, issue #142).
+ *
+ * @type {typeof fetch | null}
+ */
+let transport = null;
+
+/** @param {typeof fetch | null} fetchLike */
+export function setBridgeTransport(fetchLike) {
+	transport = fetchLike;
+}
+
+/**
  * @param {{ url?: string, token?: string | null, fetch?: typeof fetch }} [options]
  */
 export function createBridgeClient({
 	url = DEFAULT_BRIDGE_URL,
 	token = null,
-	fetch: f = fetch
+	fetch: f = (input, init) => (transport ?? fetch)(input, init)
 } = {}) {
 	const base = url.replace(/\/+$/, '');
 

@@ -10,9 +10,11 @@
 	import CopyButton from '$lib/CopyButton.svelte';
 	import QrScan from './QrScan.svelte';
 	import { deviceCode, deviceSyncOn, parseDeviceCode } from './device-sync.js';
+	import { bridgeShareOn, setBridgeShare } from './remote-bridge.js';
 
 	let other = $state('');
 	let showQr = $state(false);
+	let shareOn = $state(bridgeShareOn());
 	/** @type {string | null} the device whose removal waits for a second click */
 	let confirming = $state(null);
 
@@ -151,6 +153,29 @@
 		{#if error || app.sync.error}
 			<p class="mt-2 text-sm text-danger" role="alert">{error ?? app.sync.error}</p>
 		{/if}
+		<label class="mt-4 flex items-start gap-2 text-sm">
+			<input
+				type="checkbox"
+				class="mt-0.5"
+				checked={shareOn}
+				onchange={(e) => {
+					shareOn = e.currentTarget.checked;
+					setBridgeShare(shareOn);
+				}}
+				data-testid="devices-bridge-share"
+			/>
+			<span>
+				<span class="text-heading">{t('devices.bridgeShare')}</span>
+				<span class="block text-xs text-faint">{t('devices.bridgeShareText')}</span>
+				{#if app.sync.bridgeServed}
+					<span class="block text-xs text-success" data-testid="devices-bridge-served"
+						>{t('devices.bridgeServed')}</span
+					>
+				{:else if shareOn}
+					<span class="block text-xs text-faint">{t('devices.bridgePending')}</span>
+				{/if}
+			</span>
+		</label>
 		<h3 class="mt-4 text-sm font-semibold text-heading">{t('devices.list')}</h3>
 		{#if state?.devices.length}
 			<ul class="mt-1 divide-y divide-border text-sm" data-testid="devices-list">
