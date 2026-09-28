@@ -144,6 +144,22 @@ describe('/match/assist', () => {
 		}
 	});
 
+	test('none fits: no pick, and the model’s reason comes back (#167)', async () => {
+		llm.answers.respond = (body) =>
+			body.messages[0].content === RECEIPT_PICK_SYSTEM
+				? { best: null, confidence: 'high', reason: 'Kein Beleg nennt diesen Anbieter' }
+				: undefined;
+		try {
+			const res = await post({ booking, candidates });
+			assert.equal(res.status, 200);
+			assert.equal(res.json.pick, null);
+			assert.equal(res.json.reason, 'Kein Beleg nennt diesen Anbieter');
+			assert.equal(res.json.llm.calls.length, 1);
+		} finally {
+			delete llm.answers.respond;
+		}
+	});
+
 	test('bad bodies are refused before anything is asked; a token is needed', async () => {
 		const before = llm.requests.length;
 		for (const body of [

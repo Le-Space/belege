@@ -17,6 +17,7 @@ import {
 	rankHits,
 	ownNameCandidate,
 	assistCandidates,
+	assistEmptyReason,
 	hitScore,
 	likelyHit,
 	receiptChoices,
@@ -413,6 +414,9 @@ describe('crypto payments: only receipts that name the payment', () => {
 		);
 		expect(choices.find((c) => c.receipt.id === 'R-HASH')?.reasons).toContain('crypto-hash');
 		expect(assistCandidates(payIn, choices).map((c) => c.id)).toEqual(['R-HASH']);
+		expect(assistEmptyReason(payIn, choices)).toBeNull();
+		// Without the one that names it: nothing to ask, and the page says why (#167).
+		expect(assistEmptyReason(payIn, receiptChoices(payIn, [plain], []))).toBe('crypto');
 	});
 
 	it('the AI never gets the other direction; a copy of a linked invoice is no choice', () => {
@@ -424,6 +428,7 @@ describe('crypto payments: only receipts that name the payment', () => {
 		const choices = receiptChoices(bank, [expense], []);
 		expect(choices[0].reasons).toContain('wrong-direction');
 		expect(assistCandidates(bank, choices)).toEqual([]);
+		expect(assistEmptyReason(bank, choices)).toBe('none');
 
 		const original = receipt(
 			{ vendor: 'Beispiel Cloud', gross: 5, invoice_number: 'BC-0001' },

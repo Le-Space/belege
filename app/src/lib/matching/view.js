@@ -210,6 +210,21 @@ export function assistCandidates(tx, choices, max = 25) {
 }
 
 /**
+ * Why "✦ KI-Vorschlag" has nothing to send (issue #167), so the page says so
+ * instead of pretending the model found nothing: a crypto payment takes only
+ * receipts naming its hash, address or quantity; otherwise there is no read
+ * receipt in its direction. Null when there are candidates.
+ *
+ * @param {Rec} tx
+ * @param {{ receipt: Rec, reasons?: string[], evidence?: string | null }[]} choices from receiptChoices
+ * @returns {'crypto' | 'none' | null}
+ */
+export function assistEmptyReason(tx, choices) {
+	if (assistCandidates(tx, choices).length) return null;
+	return walletChain(tx.source) ? 'crypto' : 'none';
+}
+
+/**
  * A name worth asking "Ist das deine Firma?": a booking on another of our
  * accounts has the opposite amount within a few days and names the same
  * counterparty. That is a transfer between our accounts – or a vendor who

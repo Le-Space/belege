@@ -88,6 +88,8 @@ export function createMatchAssist({ llm, redaction }) {
 								confidence: answer.data.confidence,
 								reason: String(answer.data.reason).slice(0, 200)
 							},
+				// Also when none fits, the model says why (issue #167).
+				reason: String(answer.data.reason).slice(0, 200),
 				llm: {
 					calls: [{ model: answer.model, ms: answer.ms, usage: answer.usage }],
 					sent: [content.text]
