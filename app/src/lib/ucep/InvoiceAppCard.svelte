@@ -47,7 +47,8 @@
 			await pairByInvitation({
 				consumer: ucep.consumer,
 				settings: /** @type {any} */ (currentStore()).settings,
-				uri: invitation
+				uri: invitation,
+				onCode: (/** @type {string} */ shown) => (code = shown)
 			});
 			invitation = '';
 		});
@@ -196,15 +197,16 @@
 				onclick={withCode}
 				data-testid="invoice-app-pair-code">{t('integrationen.invoiceApp.pairByCode')}</button
 			>
-			{#if code}
-				<p class="text-sm" role="status">
-					{t('integrationen.invoiceApp.showCode')}
-					<strong class="ml-1 font-mono text-2xl tracking-widest" data-testid="invoice-app-code"
-						>{code}</strong
-					>
-				</p>
-			{/if}
 		</div>
+		<!-- Both ways may end in a code: by code always, by invitation when the app asks its human. -->
+		{#if code}
+			<p class="mt-3 text-sm" role="status">
+				{t('integrationen.invoiceApp.showCode')}
+				<strong class="ml-1 font-mono text-2xl tracking-widest" data-testid="invoice-app-code"
+					>{code}</strong
+				>
+			</p>
+		{/if}
 	{/if}
 	{#if busy && !code}<p class="mt-2 text-sm text-faint" role="status">
 			{t('integrationen.invoiceApp.busy')}

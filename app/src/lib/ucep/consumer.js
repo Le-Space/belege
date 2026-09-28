@@ -126,16 +126,24 @@ export async function pairedApp(settings) {
 
 /**
  * Pair with an invitation the invoicing app showed (link or QR code text).
+ * When that app has its human confirm invitations too, `onCode` gets the six
+ * digits to compare, as with pairing by code.
  *
- * @param {{ consumer: any, settings: Collection, uri: string, now?: () => Date }} params
+ * @param {{ consumer: any, settings: Collection, uri: string, onCode?: (code: string) => void, now?: () => Date }} params
  * @returns {Promise<PairedApp>}
  */
-export async function pairByInvitation({ consumer, settings, uri, now = () => new Date() }) {
+export async function pairByInvitation({
+	consumer,
+	settings,
+	uri,
+	onCode = () => {},
+	now = () => new Date()
+}) {
 	const invitation = parseInvitation(uri.trim());
 	if (invitation.extensionId !== INVOICE_EXTENSION) {
 		throw new Error('Diese Einladung ist nicht von einer Rechnungs-App.');
 	}
-	await consumer.pairWithInvitation(uri.trim());
+	await consumer.pairWithInvitation(uri.trim(), { onCode });
 	const app = {
 		peerId: invitation.providerPeerId,
 		addrs: invitation.addrs,
