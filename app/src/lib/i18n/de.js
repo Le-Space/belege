@@ -899,8 +899,20 @@ export default {
 		portal:
 			'Mit KI: Die geholten Rechnungen liest die Bridge mit deinem Sprachmodell aus (nur der Text, geschwärzt). Anmelden und Holen kommen ohne KI aus.'
 	},
+	settings: {
+		title: 'Einstellungen',
+		intro: 'Was der Abgleich und der Export über dich und deine Buchhaltung wissen müssen.',
+		nav: {
+			company: 'Firma & eigene Konten',
+			matching: 'Abgleich & Regeln',
+			learned: 'Gelerntes',
+			books: 'Buchhaltung (DATEV)',
+			chart: 'Kontenplan',
+			privacy: 'Datenschutz & Technik'
+		}
+	},
 	anweisungen: {
-		title: 'Eigene Anweisungen',
+		title: 'Firma, Abgleich und Buchhaltung',
 		intro:
 			'Was der Abgleich über dich wissen muss: dein Firmenname, deine eigenen Konten und Zahlungen, die keinen Beleg brauchen.',
 		companyNames: 'Firmenname(n)',
@@ -1366,7 +1378,7 @@ export default {
 		technical: [
 			'Übernommen wird auf der Zahlung selbst: booking = { account, taxKey, confirmedAt }, versiegelt wie jeder Datensatz.',
 			'Vorschläge in dieser Reihenfolge: eigene Umbuchung → 1360, Bankgebühr → 4970 (beide ohne Schlüssel), sonst das Konto, das du diesem Anbieter zuletzt gegeben hast (partners: account, taxKey – über den Anbieter des Belegs oder die Gegenpartei auf dem Kontoauszug).',
-			'Der BU-Schlüssel kommt aus dem ausgelesenen Beleg: USt 19 % → 9 (Einnahme 3), 7 % → 8 (Einnahme 2), reverse_charge → 94; die Schlüssel lassen sich unter Eigene Anweisungen ändern. Nichts davon fragt ein Sprachmodell.'
+			'Der BU-Schlüssel kommt aus dem ausgelesenen Beleg: USt 19 % → 9 (Einnahme 3), 7 % → 8 (Einnahme 2), reverse_charge → 94; die Schlüssel lassen sich unter Einstellungen → Buchhaltung ändern. Nichts davon fragt ein Sprachmodell.'
 		]
 	},
 	export: {
@@ -1379,7 +1391,7 @@ export default {
 			'{bookings} Buchungen · {lines} im Buchungsstapel · {receipts} Belege und {statements} Kontoauszüge im ZIP',
 		settings:
 			'Beraternummer {consultant} · Mandantennummer {client} · Wirtschaftsjahr ab {fiscal} · Sachkontenlänge {length}',
-		settingsLink: 'ändern unter Integrationen → Eigene Anweisungen',
+		settingsLink: 'ändern unter Einstellungen',
 		checks: 'Vor dem Export',
 		check: {
 			unassignedOk: 'Jede Buchung hat ein übernommenes Konto.',
@@ -1388,7 +1400,7 @@ export default {
 			autoConfirmHint:
 				'Übernimmt 1360 für eigene Umbuchungen und 4970 für Bankgebühren – dieselben Vorschläge wie in der Zahlung, mit einem Klick für alle.',
 			ledgerOk: 'Jedes Bankkonto hat sein Sachkonto.',
-			noLedger: 'Sachkonto fehlt für {list} – unter Integrationen → Eigene Anweisungen eintragen.',
+			noLedger: 'Sachkonto fehlt für {list} – unter Einstellungen → Buchhaltung eintragen.',
 			noBankAccount: '{count} Buchungen gehören zu keinem Bankkonto der Bücher.',
 			missingReceiptOk: 'Jede Buchung hat einen Beleg oder einen Grund, warum keiner nötig ist.',
 			missingReceipt:
@@ -1597,7 +1609,7 @@ export default {
 			linkTransferNone:
 				'Keine Buchung in die andere Richtung auf einem anderen Konto innerhalb eines Monats.',
 			bankFeeTitle:
-				'Diese Buchung ist ein Entgelt der Bank; der Kontoauszug ist der Beleg. Der Abgleich merkt sich den Verwendungszweck (ohne Zahlen) auf diesem Konto und ordnet die nächste gleiche Buchung selbst ein. Unter Eigene Anweisungen lässt es sich vergessen.',
+				'Diese Buchung ist ein Entgelt der Bank; der Kontoauszug ist der Beleg. Der Abgleich merkt sich den Verwendungszweck (ohne Zahlen) auf diesem Konto und ordnet die nächste gleiche Buchung selbst ein. Unter Einstellungen → Gelerntes lässt es sich vergessen.',
 			othersOut: 'Weitere Zahlungen an {name}',
 			othersIn: 'Weitere Zahlungen von {name}',
 			othersNone: 'Keine weiteren Zahlungen mit dieser Gegenpartei.',

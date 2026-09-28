@@ -29,7 +29,7 @@ test('a chart of accounts is read, previewed, taken, suggested and removed', asy
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
-	await tab(page, 'Integrationen').click();
+	await page.getByTestId('settings-link').click();
 	const chart = page.getByTestId('chart');
 	await expect(chart).toContainText('Kontenplan');
 	await chart.getByTestId('chart-how').locator('summary').click();
@@ -73,7 +73,7 @@ test('a chart of accounts is read, previewed, taken, suggested and removed', asy
 
 	// Removed: back to the SKR 03 list.
 	await page.getByTestId('tx-detail-close').click();
-	await tab(page, 'Integrationen').click();
+	await page.getByTestId('settings-link').click();
 	await page.getByTestId('chart-drop').click();
 	await expect(page.getByTestId('chart-current')).toHaveCount(0);
 });

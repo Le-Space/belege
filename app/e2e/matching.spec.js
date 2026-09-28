@@ -2,7 +2,7 @@
 // mailbox plus a receipt billed to the personal address), a fake LLM, the
 // real bridge in test mode, and the app.
 //
-// Eigene Anweisungen (company name) → sync six bookings → fetch and read the
+// Einstellungen (company name) → sync six bookings → fetch and read the
 // accounting mails → the sure pair is matched, the own transfer and the bank
 // fee need no receipt, the unsure one is a question; the bookings without a
 // receipt are two days old and wait (grace period 7 days) → grace 0: they
@@ -176,6 +176,7 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await page.getByTestId('pairing-code').fill(pairingCode());
 	await page.getByRole('button', { name: 'Koppeln' }).click();
 	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
+	await page.getByTestId('settings-link').click();
 	await page.getByTestId('company-names').fill(COMPANY);
 	await page.getByTestId('rule-contains').fill('Finanzamt');
 	await page.getByTestId('rule-reason').fill('Bescheid liegt vor');
@@ -184,6 +185,7 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await page.getByTestId('matching-save').click();
 	await expect(page.getByTestId('matching-saved')).toBeVisible();
 	// From the start of last year: one booking lies in the year before.
+	await tab('Integrationen').click();
 	await page.getByTestId('sync-from').fill(`${lastYearBooked.slice(0, 4)}-01-01`);
 	await page.getByRole('button', { name: 'Jetzt synchronisieren' }).click();
 	await expect(page.getByTestId('sync-result')).toHaveText(
@@ -248,8 +250,8 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await expect(page.getByTestId('tx-waiting')).toContainText('wartet noch');
 	await page.getByTestId('tx-detail-close').click();
 
-	// Eigene Anweisungen: ask at once.
-	await tab('Integrationen').click();
+	// Einstellungen: ask at once.
+	await page.getByTestId('settings-link').click();
 	await expect(page.getByTestId('grace-days')).toHaveValue('7');
 	await page.getByTestId('grace-days').fill('0');
 	await page.getByTestId('matching-save').click();

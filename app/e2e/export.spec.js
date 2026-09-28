@@ -2,7 +2,7 @@
 // bridge in test mode (for reading an uploaded receipt), the app.
 //
 // Two bank accounts (Konto A ···0011, Konto B ···0022) and their ledger accounts
-// under Eigene Anweisungen → a month with an expense, an income, a transfer
+// under Einstellungen → a month with an expense, an income, a transfer
 // between the two accounts and a bank fee → the export is blocked until
 // every booking has a confirmed account → the automatic ones in one click,
 // the expense (receipt uploaded, BU key 9 from its VAT) and the income by
@@ -164,7 +164,8 @@ test('assign accounts, export a month as DATEV Buchungsstapel with its receipts'
 		{ kabel: KABEL, customer: CUSTOMER }
 	);
 
-	// Eigene Anweisungen: the ledger accounts, suggested 1200 and 1210 as placeholders only.
+	// Einstellungen: the ledger accounts, suggested 1200 and 1210 as placeholders only.
+	await page.getByTestId('settings-link').click();
 	const ledger = (/** @type {string} */ last4) =>
 		page.locator(`[data-testid="ledger-account"][data-account="${last4}"]`);
 	await expect(ledger('0011')).toHaveAttribute('placeholder', '1200');
@@ -187,7 +188,7 @@ test('assign accounts, export a month as DATEV Buchungsstapel with its receipts'
 	await expect(check('ledger')).toContainText('Konto A Test ···0011');
 	await expect(page.getByTestId('export-download')).toBeDisabled();
 
-	await tab('Integrationen').click();
+	await page.getByTestId('settings-link').click();
 	await ledger('0011').fill('1200');
 	await ledger('0022').fill('1210');
 	await page.getByTestId('matching-save').click();
