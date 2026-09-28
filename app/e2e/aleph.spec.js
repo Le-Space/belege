@@ -16,6 +16,7 @@ import { defaultConfig, saveConfig } from '@belege/bridge';
 import { fakeAlephAddress, fakeItemHash, startFakeAleph } from '@belege/bridge/testing/aleph';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
+import { openIntegration } from './integrations.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -110,6 +111,7 @@ test('an Aleph account is found, and last month becomes an Eigenbeleg', async ({
 	await page.getByRole('button', { name: 'Koppeln' }).click();
 	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
 
+	await openIntegration(page, 'aleph');
 	const card = page.getByTestId('aleph-card');
 	await expect(card.getByTestId('aleph-scan')).toBeDisabled();
 	await card.getByTestId('aleph-extra-input').fill(ACCOUNT);

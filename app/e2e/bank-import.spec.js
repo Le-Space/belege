@@ -19,6 +19,7 @@ import { makePdf } from '@belege/bridge/testing/pdf';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { everythingStoredAsText } from './storage-scan.js';
 import { acceptConsent } from './consent.js';
+import { openIntegration } from './integrations.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -138,6 +139,7 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
 
 	// Only the allowed account shows, masked; the private one never reaches the page.
+	await openIntegration(page, 'bank');
 	const accounts = page.getByTestId('hibiscus-account');
 	await expect(accounts).toHaveCount(1);
 	await expect(accounts.first()).toContainText('DE00 **** 4711');
@@ -199,6 +201,7 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	await expect(page.getByTestId('own-did')).toBeVisible();
 	await page.getByRole('link', { name: 'Integrationen' }).click();
 	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
+	await openIntegration(page, 'bank');
 	await expect(page.getByTestId('hibiscus-account')).toHaveCount(1);
 	// It asks from a week before the last sync: the two recent bookings come
 	// again and are known; the older one is outside that window.
@@ -316,7 +319,7 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 		.replaceAll('2026-09-10', '2026-09-25')
 		.replace('Umbuchung Eigenkonto Test', 'Rückerstattung Wolkenspeicher Testdienst Ltd')
 		.replace('DE00000000000000004711', 'DE00000000000000008888');
-	await page.getByRole('link', { name: 'Integrationen' }).click();
+	await openIntegration(page, 'bank');
 	await page.getByTestId('camt-file').setInputFiles({
 		name: 'karte.xml',
 		mimeType: 'application/xml',
@@ -377,7 +380,7 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
     </Stmt>
   </BkToCstmrStmt>
 </Document>`;
-	await page.getByRole('link', { name: 'Integrationen' }).click();
+	await openIntegration(page, 'bank');
 	await page.getByTestId('camt-file').setInputFiles({
 		name: 'prepaid.xml',
 		mimeType: 'application/xml',
@@ -473,7 +476,7 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	// Einblick für einen Assistenten (issue #124): a redacted share of this
 	// year's payments and receipts, read by a plain HTTP request, refused to a
 	// web page, gone when revoked.
-	await page.getByRole('link', { name: 'Integrationen' }).click();
+	await openIntegration(page, 'assistent');
 	const shareCard = page.getByTestId('share-card');
 	await expect(shareCard.getByTestId('share-redacted')).toBeChecked();
 	await shareCard.getByTestId('share-create').click();

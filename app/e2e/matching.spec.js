@@ -32,6 +32,7 @@ import { FAKE_LLM_KEY, startFakeLlm } from '@belege/bridge/testing/llm';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { everythingStoredAsText } from './storage-scan.js';
 import { acceptConsent } from './consent.js';
+import { openIntegration } from './integrations.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -185,7 +186,7 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await page.getByTestId('matching-save').click();
 	await expect(page.getByTestId('matching-saved')).toBeVisible();
 	// From the start of last year: one booking lies in the year before.
-	await tab('Integrationen').click();
+	await openIntegration(page, 'bank');
 	await page.getByTestId('sync-from').fill(`${lastYearBooked.slice(0, 4)}-01-01`);
 	await page.getByRole('button', { name: 'Jetzt synchronisieren' }).click();
 	await expect(page.getByTestId('sync-result')).toHaveText(

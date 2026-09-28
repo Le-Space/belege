@@ -28,6 +28,7 @@ import { makePdf } from '@belege/bridge/testing/pdf';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { everythingStoredAsText } from './storage-scan.js';
 import { acceptConsent } from './consent.js';
+import { openIntegration } from './integrations.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -143,6 +144,7 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
 
 	// The KI card: what the bridge reads receipts with; the key only as "there".
+	await openIntegration(page, 'ki');
 	const ki = page.getByTestId('ki-card');
 	await expect(ki.getByTestId('ki-simple')).toContainText('Die KI liest nur Belege aus');
 	await expect(ki.getByTestId('ki-simple')).toContainText('macht die App selbst');
@@ -264,7 +266,7 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	}
 
 	// The KI card counts it; the Verlauf has the fetch and the read.
-	await tab('Integrationen').click();
+	await openIntegration(page, 'ki');
 	await expect(page.getByTestId('ki-totals')).toHaveText(/^1 Aufrufe · [\d.]+ Tokens$/);
 	await expect(page.getByTestId('ki-last')).toContainText('deepseek-flash');
 	await page.getByTestId('footer-verlauf').click();

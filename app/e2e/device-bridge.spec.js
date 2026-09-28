@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { defaultConfig, saveConfig } from '@belege/bridge';
 import { FAKE_LLM_KEY, startFakeLlm } from '@belege/bridge/testing/llm';
 import { acceptConsent } from './consent.js';
+import { openIntegration } from './integrations.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -118,6 +119,7 @@ test('the phone reaches the bridge through the desktop', async ({ browser }) => 
 		await mac.page.getByTestId('pairing-code').fill(code);
 		await mac.page.getByRole('button', { name: 'Koppeln' }).click();
 		await expect(mac.page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
+		await openIntegration(mac.page, 'geraete');
 		await expect(mac.page.getByTestId('devices-bridge-served')).toBeVisible({ timeout: 30_000 });
 
 		// The phone: the same passkey (see device-sync.spec.js for why it is copied so).
@@ -154,7 +156,7 @@ test('the phone reaches the bridge through the desktop', async ({ browser }) => 
 			{ timeout: 30_000 }
 		);
 		const macId = String(await mac.page.getByTestId('devices-self-value').textContent()).trim();
-		await tab(phone.page, 'Integrationen');
+		await openIntegration(phone.page, 'geraete');
 		await expect(phone.page.getByTestId('devices-reachable')).toContainText(
 			'über den Relay erreichbar',
 			{ timeout: 30_000 }
@@ -185,7 +187,7 @@ test('the phone reaches the bridge through the desktop', async ({ browser }) => 
 		expect(phone.blocked).toContain('/health');
 		// The model the bridge uses, asked through the Mac (GET /llm/status, with the Mac's token).
 		await tab(phone.page, 'Home');
-		await tab(phone.page, 'Integrationen');
+		await openIntegration(phone.page, 'ki');
 		await expect(phone.page.getByTestId('ki-status')).toBeVisible({ timeout: 60_000 });
 		expect(bridgeOut).not.toMatch(/unauthori[sz]ed/i);
 	} finally {

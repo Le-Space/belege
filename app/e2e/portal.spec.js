@@ -29,6 +29,7 @@ import {
 } from '@belege/bridge/testing/portal';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
+import { openIntegration } from './integrations.js';
 
 /**
  * A month in the app's month picker (MonthPicker.svelte): its month and year lists.
@@ -157,12 +158,14 @@ test('Vodafone invoices from the portal become receipts and match the booking', 
 	await page.getByTestId('pairing-code').fill(pairingCode());
 	await page.getByRole('button', { name: 'Koppeln' }).click();
 	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
+	await openIntegration(page, 'bank');
 	await page.getByRole('button', { name: 'Jetzt synchronisieren' }).click();
 	await expect(page.getByTestId('sync-result')).toHaveText(
 		'Neu: 1 · Aktualisiert: 0 · Übersprungen: 0'
 	);
 
 	// Kundenportale: never logged in, then logged in by the bridge.
+	await openIntegration(page, 'portale');
 	const vodafone = page.locator('[data-testid="portal"][data-portal="vodafone"]');
 	await expect(vodafone).toContainText('Vodafone MeinKabel');
 	await expect(vodafone.getByTestId('portal-state')).toHaveAttribute('data-state', 'never');
@@ -200,7 +203,7 @@ test('Vodafone invoices from the portal become receipts and match the booking', 
 
 	// Again: nothing new, nothing downloaded twice.
 	const downloads = portal.state.downloads;
-	await tab('Integrationen').click();
+	await openIntegration(page, 'portale');
 	await pickMonth(vodafone.getByTestId('portal-since'), oldestMonth);
 	await vodafone.getByTestId('portal-fetch').click();
 	await expect(vodafone.getByTestId('portal-result')).toContainText('neu: 0 · schon vorhanden: 3');
@@ -222,7 +225,7 @@ test('Vodafone invoices from the portal become receipts and match the booking', 
 	);
 	await expect(detail.getByTestId('tx-vendor-fit')).toHaveCount(0);
 	await detail.getByTestId('tx-detail-close').click();
-	await tab('Integrationen').click();
+	await openIntegration(page, 'portale');
 
 	// Portal aufzeichnen: the window opens (headless here, nobody clicks), the
 	// review says nothing was downloaded, so it cannot be saved; discarded.

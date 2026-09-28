@@ -1719,6 +1719,78 @@ export default {
 		}
 	},
 	integrationen: {
+		overview: {
+			intro: 'Was mit Belege verbunden ist – und was dich gerade braucht.',
+			countOk: 'verbunden',
+			countNeeds: 'brauchen dich',
+			countOff: 'nicht eingerichtet',
+			needsTitle: 'Braucht dich',
+			needKind: { err: 'Fehler', warn: 'Hinweis' },
+			need: {
+				bridgeOffline: 'die Bridge antwortet nicht. Läuft sie auf diesem Mac?',
+				deviceRemoved:
+					'dieses Gerät wurde auf einem anderen entfernt; die Synchronisation ist aus.',
+				deviceError: 'die Synchronisation meldet einen Fehler.',
+				neverSynced: '{name} ist eingerichtet, aber noch nie abgerufen.'
+			},
+			group: { basis: 'Grundlage', sources: 'Konten & Quellen', together: 'Zusammenarbeit' },
+			groupHint: {
+				basis: 'läuft auf diesem Rechner',
+				sources: 'woher Zahlungen und Belege kommen',
+				together: 'andere Apps und Menschen'
+			},
+			name: {
+				bridge: 'Bridge',
+				ki: 'KI – Beleg-Auslesen',
+				geraete: 'Eigene Geräte',
+				bank: 'Bank (Hibiscus, Kontoauszug)',
+				kraken: 'Kraken (Börse)',
+				wallets: 'Eigene Wallets',
+				aleph: 'Aleph Cloud',
+				mail: 'Postfach',
+				portale: 'Kundenportale',
+				'rechnungs-app': 'Rechnungs-App',
+				assistent: 'Einblick für einen Assistenten'
+			},
+			state: {
+				connected: 'verbunden',
+				unpaired: 'nicht gekoppelt',
+				error: 'Fehler',
+				checking: 'wird geprüft',
+				setUp: 'eingerichtet',
+				notSetUp: 'nicht eingerichtet',
+				on: 'an',
+				off: 'aus',
+				pending: 'ab dem nächsten Entsperren',
+				removed: 'entfernt',
+				none: 'keine',
+				onDemand: 'bei Bedarf',
+				paired: 'gekoppelt',
+				notPaired: 'nicht gekoppelt'
+			},
+			line: {
+				bridge: 'Auf diesem Mac; holt Umsätze, liest Belege, fragt Knoten',
+				ki: 'Liest Anbieter, Betrag, Datum und Nummer aus Belegen',
+				devicesOn: 'Dieselben Bücher auf deinen Geräten · {count} verbunden',
+				devicesOff: 'Dieselben Bücher auf Telefon oder zweitem Rechner',
+				bankAccounts: '{count} Konten in den Büchern',
+				bankNone: 'Umsätze aus Hibiscus oder einer CAMT-Datei',
+				kraken: 'Ledger, Bestände und Trades der Börse, nur lesend',
+				wallets: '{count} Wallets, nur lesend über die Adresse',
+				walletsNone: 'Krypto-Adressen als Konten, nur lesend',
+				aleph: '{count} Konten mit Credits',
+				alephNone: 'Hosting-Credits eigener Ethereum-Adressen',
+				mail: 'Belege aus der Buchhaltungs-Adresse – unter Belege',
+				portals: 'Rechnungen direkt aus Kundenkonten holen',
+				invoiceApp: 'Eigenbelege mit deinem Nummernkreis und Firmenkopf',
+				assistant: 'Ein Jahr lesen lassen, geschwärzt, mit Ablauf'
+			},
+			when: 'zuletzt {when}',
+			path: 'Pfad',
+			back: 'Alle Integrationen',
+			unknown: 'Diese Integration gibt es nicht.',
+			settingsMoved: 'Firmenname, eigene IBANs, Regeln, DATEV und Kontenplan stehen unter'
+		},
 		invoiceApp: {
 			title: 'Rechnungs-App',
 			intro:

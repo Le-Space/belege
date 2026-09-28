@@ -10,6 +10,7 @@ import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { relayAddr, startProviderNode } from './relay.js';
+import { openIntegration } from './integrations.js';
 
 /** A small real PDF, as the app would make one. */
 async function eigenbelegPdf(/** @type {string} */ number) {
@@ -100,7 +101,7 @@ test('the invoicing app makes the Eigenbeleg, Belege links it', async ({ page })
 		await expect(page.getByTestId('own-did')).toBeVisible();
 
 		// Pair with the invitation the app showed.
-		await tab('Integrationen').click();
+		await openIntegration(page, 'rechnungs-app');
 		const card = page.getByTestId('invoice-app-card');
 		// Nothing connects to the relay before the person asks for it.
 		await card.getByTestId('invoice-app-start').click();
@@ -158,7 +159,7 @@ test('the invoicing app makes the Eigenbeleg, Belege links it', async ({ page })
 
 		// Unpaired: the app forgets the grant.
 		await page.getByTestId('tx-detail-close').click();
-		await tab('Integrationen').click();
+		await openIntegration(page, 'rechnungs-app');
 		await card.getByTestId('invoice-app-unpair').click();
 		await expect(card.getByTestId('invoice-app-invitation')).toBeVisible();
 		expect(await provider.grants()).toEqual([]);
