@@ -8,9 +8,12 @@
 // No block ever holds plaintext: the root carries only the version, the
 // sealed size and the chunk CIDs.
 //
-// Chunks keep every block under what bitswap moves, for the day device sync
-// is switched on. Reading only ever looks locally (`offline: true`): the
-// libp2p node has no transports, and a missing block must fail, not wait.
+// Chunks keep every block under what bitswap moves between devices. Without
+// device sync the libp2p node has no transports: a read looks locally only
+// (`offline: true`), and a missing block fails at once rather than wait. With
+// device sync on (sync/device-sync.js, issue #123) the node is online: a block
+// this device lacks is fetched from the own devices over bitswap, for at most
+// 30 s (`online`). Either way the blocks hold ciphertext only.
 
 import * as dagCbor from '@ipld/dag-cbor';
 import * as raw from 'multiformats/codecs/raw';
