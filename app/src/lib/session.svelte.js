@@ -85,6 +85,20 @@ async function startUcepIfPaired() {
 	if (await pairedApp(session.store.settings)) await startUcep();
 }
 
+/**
+ * Take UCEP offline again: after unpairing, Belege has no reason to keep a
+ * connection to the relay (the consent screen promises as much).
+ */
+export async function stopUcep() {
+	const running = ucep;
+	ucep = null;
+	app.ucep.status = 'off';
+	app.ucep.peerId = null;
+	if (!running) return;
+	await running.consumer.stop?.().catch(() => {});
+	await running.node.stop().catch(() => {});
+}
+
 /** Read the paired app again, after pairing or unpairing. */
 export async function refreshUcep() {
 	if (!session) return;
@@ -104,7 +118,7 @@ export async function startUcep() {
 	app.ucep.error = null;
 	try {
 		const { startUcepNode, relayAddrs } = await import('./ucep/net.js');
-		const { createBelegeConsumer } = await import('./ucep/consumer.js');
+		const { createBelegeConsumer, forgetStoredCatalogue } = await import('./ucep/consumer.js');
 		// The Le-Space relays as Aleph knows them now (ucep/net.js); the ones
 		// device sync already found, when it is on.
 		const relays = session.relays?.length ? session.relays : await relayAddrs();
@@ -115,6 +129,7 @@ export async function startUcep() {
 			label: 'Belege'
 		});
 		await consumer.start();
+		await forgetStoredCatalogue(session.store.settings).catch(() => 0);
 		ucep = { node, consumer, relays };
 		app.ucep.peerId = node.peerId.toString();
 		await refreshUcep();

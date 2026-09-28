@@ -28,7 +28,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 12: a desktop may serve its bridge to own devices over UCEP (issue #142).
 // 13: the relays are looked up on Aleph, and only the Le-Space wallets count;
 //     what a relay, Aleph and the STUN servers see, said in one place.
-export const CONSENT_VERSION = '13';
+// 14: own devices prove the passkey before they get the books; everything a
+//     paired invoicing app is sent for an Eigenbeleg, listed.
+export const CONSENT_VERSION = '14';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

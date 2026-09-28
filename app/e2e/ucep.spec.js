@@ -157,12 +157,25 @@ test('the invoicing app makes the Eigenbeleg, Belege links it', async ({ page })
 		});
 		expect(direct).toContain(true);
 
-		// Unpaired: the app forgets the grant.
+		// Unpaired: the app forgets the grant, and Belege goes offline again.
 		await page.getByTestId('tx-detail-close').click();
 		await openIntegration(page, 'rechnungs-app');
+		// Belege's node: whatever the app is connected to other than the relay.
+		const belege = node
+			.getConnections()
+			.map((/** @type {any} */ c) => c.remotePeer.toString())
+			.filter((/** @type {string} */ p) => !String(relay).includes(p));
+		expect(belege.length).toBeGreaterThan(0);
 		await card.getByTestId('invoice-app-unpair').click();
-		await expect(card.getByTestId('invoice-app-invitation')).toBeVisible();
+		await expect(card.getByTestId('invoice-app-start')).toBeVisible();
 		expect(await provider.grants()).toEqual([]);
+		await expect
+			.poll(() =>
+				node
+					.getConnections()
+					.some((/** @type {any} */ c) => belege.includes(c.remotePeer.toString()))
+			)
+			.toBe(false);
 	} finally {
 		await provider.stop().catch(() => {});
 		await node.stop().catch(() => {});

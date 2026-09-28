@@ -16,7 +16,9 @@ import {
 	pairByInvitation,
 	pairedApp,
 	requestEigenbeleg,
-	unpair
+	unpair,
+	OLD_CATALOGUE_PREFIX,
+	forgetStoredCatalogue
 } from './consumer.js';
 
 /** A settings collection in memory, the way store/repository.js keeps one. */
@@ -199,6 +201,37 @@ describe('Belege and the invoicing app', () => {
 			)
 		).toBe(true);
 		expect((await provider.grants())[0]).toMatchObject({ label: 'Belege, Laptop' });
+		// What the app serves is known, and kept in memory only.
+		expect(
+			(await consumer.catalogue()).some((/** @type {any} */ e) => e.extensionId === 'invoice')
+		).toBe(true);
+		expect(
+			(await settings.list()).some((/** @type {any} */ r) =>
+				String(r.key).startsWith(OLD_CATALOGUE_PREFIX)
+			)
+		).toBe(false);
+	});
+
+	it('writes nothing into the settings when a stranger announces extensions', async () => {
+		const strangerNode = await node('stranger');
+		try {
+			const stranger = createProvider({
+				libp2p: strangerNode,
+				manifest: { id: 'x0', name: 'Fremd (Test)', version: '0.1.0' },
+				commands: { help: { handler: () => ({}) } }
+			});
+			await stranger.start();
+			const before = (await settings.list()).length;
+			await strangerNode.dial(belegeNode.getMultiaddrs());
+			await expect
+				.poll(async () =>
+					(await consumer.catalogue()).some((/** @type {any} */ e) => e.extensionId === 'x0')
+				)
+				.toBe(true);
+			expect((await settings.list()).length).toBe(before);
+		} finally {
+			await strangerNode.stop();
+		}
 	});
 
 	it('refuses an invitation of another extension', async () => {
@@ -257,5 +290,25 @@ describe('Belege and the invoicing app', () => {
 		expect(
 			(await settings.list()).find((/** @type {any} */ r) => r.key === PROVIDER_SETTING)?.value
 		).toBeNull();
+	});
+});
+
+describe('forgetStoredCatalogue', () => {
+	it('removes the catalogue records earlier builds kept, and nothing else', async () => {
+		const settings = memorySettings();
+		await settings.put({
+			key: `${OLD_CATALOGUE_PREFIX}12D3KooWexample|/uc/extension/x0/0.1.0`,
+			value: {}
+		});
+		await settings.put({
+			key: `${OLD_CATALOGUE_PREFIX}12D3KooWexample|/uc/extension/x1/0.1.0`,
+			value: {}
+		});
+		await settings.put({ key: 'ucep/grant/made-up', value: {} });
+		expect(await forgetStoredCatalogue(settings)).toBe(2);
+		expect((await settings.list()).map((/** @type {any} */ r) => r.key)).toEqual([
+			'ucep/grant/made-up'
+		]);
+		expect(await forgetStoredCatalogue(settings)).toBe(0);
 	});
 });
