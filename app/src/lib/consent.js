@@ -26,7 +26,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 10: an Akash wallet's older history is read from the Akash Console indexer.
 // 11: own Ethereum addresses may be asked at Aleph for credits (issue #113).
 // 12: a desktop may serve its bridge to own devices over UCEP (issue #142).
-export const CONSENT_VERSION = '12';
+// 13: the relays are looked up on Aleph, and only the Le-Space wallets count;
+//     what a relay, Aleph and the STUN servers see, said in one place.
+export const CONSENT_VERSION = '13';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

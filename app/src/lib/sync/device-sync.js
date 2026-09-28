@@ -29,6 +29,7 @@
 // database's sync is restarted once (bounded, debounced) – the exchange then
 // runs over the direct connection.
 
+import { FaultTolerance } from '@libp2p/interface';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { identify, identifyPush } from '@libp2p/identify';
@@ -139,6 +140,8 @@ export function syncLibp2pConfig({ privateKey, relays }) {
 		privateKey,
 		addresses: { listen: [...relays.map((relay) => `${relay}/p2p-circuit`), '/webrtc'] },
 		transports: [webSockets(), webRTC(), circuitRelayTransport()],
+		// A relay that is down must not keep the books from opening on the others.
+		transportManager: { faultTolerance: FaultTolerance.NO_FATAL },
 		connectionEncrypters: [noise()],
 		streamMuxers: [yamux()],
 		connectionManager: { inboundConnectionThreshold: 100 },

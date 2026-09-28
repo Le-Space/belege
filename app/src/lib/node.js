@@ -96,7 +96,8 @@ export async function startSession(credential) {
 	// Device sync (#123), when switched on for this device: online over the
 	// relay, on a peer key of this device's own. Else offline, as always.
 	const online = deviceSyncOn();
-	const relays = relayAddrs();
+	// Aleph is asked for the Le-Space relays only when this device goes online.
+	const relays = online ? await relayAddrs() : [];
 	const peerKey = online
 		? await generateKeyPairFromSeed('Ed25519', await deriveDevicePeerSeed(prfOutput, deviceSalt()))
 		: await createEphemeralPeerKey();

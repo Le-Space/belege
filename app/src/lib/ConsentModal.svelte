@@ -64,7 +64,8 @@
 		{ id: 'deepseek', status: 'whenSetUp' },
 		{ id: 'portals', status: 'whenSetUp' },
 		{ id: 'blockchain', status: 'whenSetUp' },
-		{ id: 'ucep', status: 'whenPaired' }
+		{ id: 'ucep', status: 'whenPaired' },
+		{ id: 'relays', status: 'whenSetUp' }
 	];
 
 	const chip = {
