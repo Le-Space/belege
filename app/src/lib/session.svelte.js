@@ -105,7 +105,9 @@ export async function startUcep() {
 	try {
 		const { startUcepNode, relayAddrs } = await import('./ucep/net.js');
 		const { createBelegeConsumer } = await import('./ucep/consumer.js');
-		const relays = relayAddrs();
+		// The Le-Space relays as Aleph knows them now (ucep/net.js); the ones
+		// device sync already found, when it is on.
+		const relays = session.relays?.length ? session.relays : await relayAddrs();
 		const node = await startUcepNode({ seed: session.ucepSeed, relays });
 		const consumer = createBelegeConsumer({
 			libp2p: node,
