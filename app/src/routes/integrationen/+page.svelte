@@ -5,65 +5,16 @@
 	// and shows its pairing right here, because everything else waits for it.
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
-	import { app, currentStore } from '$lib/session.svelte.js';
-	import { getSetting } from '$lib/store/settings.js';
-	import { loadWallets } from '$lib/wallets/wallet-sync.js';
-	import { loadAleph } from '$lib/aleph/aleph.js';
-	import { loadAlerts } from '$lib/integrations/alerts.js';
-	import { isWalletSource } from '$lib/wallets/chains.js';
 	import { describeMoment } from '$lib/moment.js';
 	import { t } from '$lib/i18n/index.js';
 	import BridgePanel from '$lib/integrations/BridgePanel.svelte';
-	import { bridge, loadBridge } from '$lib/integrations/bridge-state.svelte.js';
+	import NeedsCard from '$lib/integrations/NeedsCard.svelte';
+	import { integrationFacts, loadIntegrationFacts } from '$lib/integrations/facts.svelte.js';
 	import { integrationsOverview } from '$lib/integrations/overview.js';
 
-	let wallets = $state(0);
-	let aleph = $state(0);
-	let invoiceApp = $state(false);
-	let deviceFlag = $state(false);
-	/** @type {import('$lib/integrations/alerts.js').Alerts} */
-	let alerts = $state({ kraken: null, wallets: {} });
+	onMount(() => loadIntegrationFacts({ recheck: true }));
 
-	onMount(async () => {
-		const store = currentStore();
-		if (!store) return;
-		try {
-			deviceFlag = localStorage.getItem('belege.device-sync') !== null;
-		} catch {
-			deviceFlag = false;
-		}
-		const [w, a, inv, al] = await Promise.all([
-			loadWallets(store.settings),
-			loadAleph(store.settings),
-			getSetting(store.settings, 'ucepInvoiceApp'),
-			loadAlerts(store.settings)
-		]);
-		alerts = al;
-		wallets = w.length;
-		aleph = a.accounts.length;
-		invoiceApp = Boolean(inv);
-		await loadBridge();
-	});
-
-	let view = $derived(
-		integrationsOverview({
-			bridge: { token: bridge.token, state: bridge.state, health: bridge.health },
-			devices: {
-				flag: deviceFlag,
-				online: app.sync.online,
-				removed: app.sync.removed,
-				error: app.sync.error,
-				connected: (app.sync.state?.devices ?? []).filter((d) => d.connected).length
-			},
-			accounts: app.accounts,
-			events: app.events,
-			wallets,
-			aleph,
-			invoiceApp,
-			alerts,
-			isWalletSource
-		})
-	);
+	let view = $derived(integrationsOverview(integrationFacts()));
 
 	const GROUPS = /** @type {const} */ (['basis', 'sources', 'together']);
 	const CHIP = {
@@ -105,35 +56,7 @@
 </div>
 
 {#if view.needs.length}
-	<section
-		class="mt-4 rounded-lg border border-amber-300 bg-surface px-4 py-3 sm:px-5 dark:border-amber-700"
-		aria-labelledby="needs-h"
-		data-testid="integrations-needs"
-	>
-		<h2 id="needs-h" class="text-base font-semibold text-heading">
-			{t('integrationen.overview.needsTitle')}
-		</h2>
-		<ul class="mt-1 divide-y divide-border">
-			{#each view.needs as n (n.id + n.text)}
-				<li>
-					<a
-						href={resolve(/** @type {any} */ (`/integrationen/${n.id}`))}
-						class="flex min-h-14 items-center gap-3 py-2 text-heading"
-						data-testid="integrations-need"
-					>
-						<span class="rounded-full px-2 py-0.5 text-xs font-semibold {CHIP[n.kind]}"
-							>{t(`integrationen.overview.needKind.${n.kind}`)}</span
-						>
-						<span class="min-w-0 flex-1 text-sm"
-							><span class="font-medium">{nameOf(n.id)}</span> –
-							{t(`integrationen.overview.need.${n.text}`, n.params ?? {})}</span
-						>
-						<span aria-hidden="true" class="text-faint">›</span>
-					</a>
-				</li>
-			{/each}
-		</ul>
-	</section>
+	<NeedsCard needs={view.needs} title={t('integrationen.overview.needsTitle')} />
 {/if}
 
 {#each GROUPS as g (g)}
@@ -142,7 +65,11 @@
 			<h2 id="grp-{g}" class="text-xs font-semibold tracking-wide text-faint uppercase">
 				{t(`integrationen.overview.group.${g}`)}
 			</h2>
-			<span class="text-xs text-faint">{t(`integrationen.overview.groupHint.${g}`)}</span>
+			<span class="text-xs text-faint"
+				>{t(
+					`integrationen.overview.groupHint.${g === 'basis' && view.viaDevice ? 'basisViaDevice' : g}`
+				)}</span
+			>
 		</div>
 		<ul class="mt-2 divide-y divide-border rounded-lg border border-border bg-surface">
 			{#each view.rows.filter((r) => r.group === g) as r (r.id + r.initials)}

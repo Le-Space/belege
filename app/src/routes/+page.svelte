@@ -23,6 +23,9 @@
 	import { addressBook, payeeName } from '$lib/bank/payee.js';
 	import { receiptVendor } from '$lib/receipts/view.js';
 	import { booksByYear, shownYear } from '$lib/year/year.svelte.js';
+	import NeedsCard from '$lib/integrations/NeedsCard.svelte';
+	import { integrationFacts, loadIntegrationFacts } from '$lib/integrations/facts.svelte.js';
+	import { integrationsOverview } from '$lib/integrations/overview.js';
 
 	const hour = new Date().getHours();
 	const greeting = t(hour < 11 ? 'home.morning' : hour < 18 ? 'home.day' : 'home.evening');
@@ -43,6 +46,10 @@
 		const store = currentStore();
 		if (store) homePrices = cleanPrices(await getSetting(store.settings, 'aiPrices'));
 	});
+
+	// What an integration needs from the person (#152), here too: the day starts on Home.
+	onMount(() => loadIntegrationFacts());
+	let integrationNeeds = $derived(integrationsOverview(integrationFacts()).needs);
 
 	// An AI run the page left behind (a reload, the books locked): ask, do not start.
 	/** @type {{ extract: string[], suggest: string[] }} */
@@ -185,6 +192,15 @@
 {/each}
 {#if resumeNote}
 	<p class="mt-2 text-sm text-danger" role="alert">{resumeNote}</p>
+{/if}
+
+{#if integrationNeeds.length}
+	<NeedsCard
+		needs={integrationNeeds}
+		title={t('home.integrationNeeds')}
+		testid="home-integration-needs"
+		more
+	/>
 {/if}
 
 {#if transferReceipts.length}

@@ -95,6 +95,29 @@ describe('the Integrationen overview', () => {
 		expect(v.needs.map((n) => n.text)).toContain('deviceRemoved');
 	});
 
+	it('a phone using the Mac’s bridge: working, no pairing to fix; both unreachable says so', () => {
+		const phone = integrationsOverview(
+			facts({
+				bridge: { ...facts().bridge, via: 'device' },
+				devices: { ...facts().devices, online: true }
+			})
+		);
+		expect(phone.viaDevice).toBe(true);
+		expect(row(phone, 'bridge')).toMatchObject({
+			kind: 'ok',
+			state: 'viaDevice',
+			line: 'bridgeViaDevice'
+		});
+		const lost = integrationsOverview(
+			facts({
+				bridge: { ...facts().bridge, state: 'offline', via: 'device' },
+				devices: { ...facts().devices, online: true }
+			})
+		);
+		expect(lost.viaDevice).toBe(false);
+		expect(lost.needs[0]).toMatchObject({ id: 'bridge', text: 'bridgeOfflineDevices' });
+	});
+
 	it('what the last runs left: a refused Kraken key, wallets with hints', () => {
 		const v = integrationsOverview(
 			facts({

@@ -142,4 +142,22 @@ describe('the phone’s fetch', () => {
 		});
 		await expect(alone('http://127.0.0.1:8765/health')).rejects.toThrow('Failed to fetch');
 	});
+
+	it('says which way each call went', async () => {
+		/** @type {string[]} */
+		const routes = [];
+		let localUp = true;
+		const f = bridgeFetch({
+			local: async () => {
+				if (!localUp) throw new TypeError('Failed to fetch');
+				return json({});
+			},
+			remote: () => async () => json({}),
+			onRoute: (r) => routes.push(r)
+		});
+		await f('http://127.0.0.1:8765/health');
+		localUp = false;
+		await f('http://127.0.0.1:8765/health');
+		expect(routes).toEqual(['local', 'device']);
+	});
 });

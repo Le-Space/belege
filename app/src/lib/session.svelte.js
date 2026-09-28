@@ -29,7 +29,12 @@ export const app = $state({
 		/** Another device removed this one; its sync is switched off. */
 		removed: false,
 		/** This desktop serves its bridge to own devices (#142). */
-		bridgeServed: false
+		bridgeServed: false,
+		/**
+		 * How the bridge answered last: here, or through an own device's (#142).
+		 * @type {'local' | 'device'}
+		 */
+		bridgeRoute: 'local'
 	},
 	/** @type {StoredRecord[]} */
 	transactions: [],
@@ -431,7 +436,9 @@ async function startBridgeForDevices() {
 		// `connected` only once the device proved the passkey (device-gate.js).
 		devices: () => (app.sync.state?.devices ?? []).filter((d) => d.connected).map((d) => d.peerId)
 	});
-	setBridgeTransport(bridgeFetch({ remote: () => remoteFetch }));
+	setBridgeTransport(
+		bridgeFetch({ remote: () => remoteFetch, onRoute: (r) => (app.sync.bridgeRoute = r) })
+	);
 	app.sync.bridgeServed = false;
 	if (!bridgeShareOn()) return;
 	/** @type {{ url: string, token: string } | null} */

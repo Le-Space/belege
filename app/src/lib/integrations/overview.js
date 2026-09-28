@@ -27,7 +27,7 @@
 
 /**
  * @typedef {object} Facts
- * @property {{ token: string | null, state: string, health: { hibiscus: boolean, kraken: boolean, mail: boolean, llm: boolean } }} bridge
+ * @property {{ token: string | null, state: string, via?: 'local' | 'device', health: { hibiscus: boolean, kraken: boolean, mail: boolean, llm: boolean } }} bridge
  * @property {{ flag: boolean, online: boolean, removed: boolean, error: string | null, connected: number }} devices
  * @property {Record<string, any>[]} accounts the books' accounts
  * @property {Record<string, any>[]} events newest first
@@ -44,11 +44,13 @@ const lastSync = (events, test) =>
 
 /**
  * @param {Facts} f
- * @returns {{ rows: Row[], needs: Need[], counts: { ok: number, needs: number, off: number } }}
+ * @returns {{ viaDevice: boolean, rows: Row[], needs: Need[], counts: { ok: number, needs: number, off: number } }}
  */
 export function integrationsOverview(f) {
 	const paired = Boolean(f.bridge.token);
 	const online = f.bridge.state === 'online';
+	// A phone using the Mac's bridge (#142): working, not a pairing to fix here.
+	const viaDevice = online && f.bridge.via === 'device';
 	/** Needs the bridge and something set up on it. @param {boolean} setUp */
 	const viaBridge = (setUp) => (!paired ? 'off' : !online ? 'off' : setUp ? 'ok' : 'off');
 	const hibiscus = f.accounts.filter((a) => a.source === 'hibiscus' && !a.deleted);
@@ -63,15 +65,25 @@ export function integrationsOverview(f) {
 			id: 'bridge',
 			group: 'basis',
 			initials: 'Br',
-			kind: !paired ? 'warn' : online ? 'ok' : f.bridge.state === 'offline' ? 'err' : 'off',
-			state: !paired
-				? 'unpaired'
-				: online
-					? 'connected'
-					: f.bridge.state === 'offline'
-						? 'error'
-						: 'checking',
-			line: 'bridge',
+			kind: viaDevice
+				? 'ok'
+				: !paired
+					? 'warn'
+					: online
+						? 'ok'
+						: f.bridge.state === 'offline'
+							? 'err'
+							: 'off',
+			state: viaDevice
+				? 'viaDevice'
+				: !paired
+					? 'unpaired'
+					: online
+						? 'connected'
+						: f.bridge.state === 'offline'
+							? 'error'
+							: 'checking',
+			line: viaDevice ? 'bridgeViaDevice' : 'bridge',
 			when: null
 		},
 		{
@@ -198,7 +210,11 @@ export function integrationsOverview(f) {
 			params: { count: walletHints }
 		});
 	if (paired && f.bridge.state === 'offline')
-		needs.push({ id: 'bridge', kind: 'err', text: 'bridgeOffline' });
+		needs.push({
+			id: 'bridge',
+			kind: 'err',
+			text: f.devices.online ? 'bridgeOfflineDevices' : 'bridgeOffline'
+		});
 	if (f.devices.removed) needs.push({ id: 'geraete', kind: 'warn', text: 'deviceRemoved' });
 	else if (f.devices.error) needs.push({ id: 'geraete', kind: 'warn', text: 'deviceError' });
 	if (paired && online && f.bridge.health.hibiscus && !bankWhen)
@@ -207,6 +223,7 @@ export function integrationsOverview(f) {
 		needs.push({ id: 'kraken', kind: 'warn', text: 'neverSynced', params: { name: 'Kraken' } });
 
 	return {
+		viaDevice,
 		rows,
 		needs,
 		counts: {
