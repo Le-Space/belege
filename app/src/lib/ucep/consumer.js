@@ -17,7 +17,13 @@ import { getSetting, setSetting } from '../store/settings.js';
 import { collectionKeyValue } from './store.js';
 
 export const INVOICE_EXTENSION = 'invoice';
-export const SCOPES = Object.freeze(['invoice:eigenbeleg:create', 'invoice:document:read']);
+export const SCOPES = Object.freeze([
+	'invoice:eigenbeleg:create',
+	'invoice:document:read',
+	// invoice 0.2.0 (issue #8): the issued invoices, and which of them were paid
+	'invoice:issued:read',
+	'invoice:payment:record'
+]);
 /** The settings key of the paired invoicing app: `{ peerId, addrs, pairedAt }`. */
 export const PROVIDER_SETTING = 'ucepInvoiceApp';
 

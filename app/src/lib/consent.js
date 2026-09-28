@@ -30,7 +30,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     what a relay, Aleph and the STUN servers see, said in one place.
 // 14: own devices prove the passkey before they get the books; everything a
 //     paired invoicing app is sent for an Eigenbeleg, listed.
-export const CONSENT_VERSION = '14';
+// 15: Belege reads the paired invoicing app's issued invoices and tells it
+//     which were paid, when and how much (issue #8).
+export const CONSENT_VERSION = '15';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

@@ -181,3 +181,140 @@ test('the invoicing app makes the Eigenbeleg, Belege links it', async ({ page })
 		await node.stop().catch(() => {});
 	}
 });
+
+test('issued invoices come in, the matching links the payment, the app learns it is paid', async ({
+	page
+}) => {
+	const relay = await relayAddr();
+	const node = await startProviderNode(relay);
+	const bytes = await eigenbelegPdf('RE-2026-0004');
+	/** A made-up issued invoice, as the app keeps it. */
+	const inv = {
+		documentId: 'doc-4',
+		number: 'RE-2026-0004',
+		state: 'issued',
+		issuedOn: '2026-09-01',
+		dueOn: '2026-09-15',
+		customer: { name: 'Beispiel Kunde GmbH' },
+		total: { value: '119.00', currency: 'EUR' },
+		paid: { value: '0.00', currency: 'EUR' },
+		/** @type {any[]} */
+		payments: []
+	};
+	/** @type {any[]} */
+	const recorded = [];
+	const provider = createProvider({
+		libp2p: node,
+		manifest: {
+			id: 'invoice',
+			name: 'Rechnungen',
+			version: '0.2.0',
+			scopes: [
+				{ name: 'invoice:eigenbeleg:create', description: 'Eigenbelege' },
+				{ name: 'invoice:document:read', description: 'Lesen' },
+				{ name: 'invoice:issued:read', description: 'Rechnungen lesen' },
+				{ name: 'invoice:payment:record', description: 'Zahlungen melden' }
+			]
+		},
+		commands: {
+			'list-issued': {
+				scope: 'invoice:issued:read',
+				handler: async () => ({ invoices: [structuredClone(inv)], next: null })
+			},
+			'get-pdf': {
+				scope: 'invoice:issued:read',
+				handler: async ({ argsJson, limited }) => {
+					if (argsJson?.documentId !== inv.documentId) throw new Error('documentId');
+					return {
+						mime: 'application/pdf',
+						size: bytes.length,
+						sha256: await sha256(bytes),
+						...(limited ? {} : { base64: Buffer.from(bytes).toString('base64') })
+					};
+				}
+			},
+			'record-payment': {
+				scope: 'invoice:payment:record',
+				idempotent: true,
+				handler: async ({ argsJson }) => {
+					recorded.push(argsJson);
+					if (argsJson.documentId !== inv.documentId) throw new Error('documentId');
+					if (argsJson.amount?.currency !== 'EUR') throw new Error('currency');
+					inv.payments = [
+						...inv.payments.filter((p) => p.reference.id !== argsJson.reference.id),
+						{ paidOn: argsJson.paidOn, amount: argsJson.amount, reference: argsJson.reference }
+					];
+					return { documentId: inv.documentId, state: 'paid' };
+				}
+			}
+		}
+	});
+	try {
+		await provider.start();
+		const { uri } = await provider.createInvitation({
+			scopes: ['invoice:issued:read', 'invoice:payment:record']
+		});
+		await addVirtualAuthenticator(page);
+		await page.goto('/');
+		await acceptConsent(page);
+		await page.getByTestId('passkey-label').fill('E2E');
+		await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+		await expect(page.getByTestId('own-did')).toBeVisible();
+
+		// The customer paid: a made-up incoming payment naming the invoice.
+		await page.evaluate(async () => {
+			await /** @type {any} */ (window).__belegeE2E.addTransaction({
+				bookedOn: '2026-09-12',
+				counterparty: 'Beispiel Kunde GmbH',
+				purpose: 'Rechnung RE-2026-0004',
+				amountCents: 11900,
+				currency: 'EUR'
+			});
+		});
+
+		await openIntegration(page, 'rechnungs-app');
+		const card = page.getByTestId('invoice-app-card');
+		await card.getByTestId('invoice-app-start').click();
+		await card.getByTestId('invoice-app-invitation').fill(uri);
+		await card.getByTestId('invoice-app-pair').click();
+		await expect(card.getByTestId('invoice-app-paired')).toBeVisible();
+
+		// The PDF comes only once the connection is direct: again until it did.
+		await expect
+			.poll(
+				async () => {
+					await card.getByTestId('invoice-app-sync').click();
+					await expect(card.getByTestId('invoice-app-sync-result')).toBeVisible({
+						timeout: 30_000
+					});
+					return recorded.length;
+				},
+				{ timeout: 90_000, intervals: [3_000] }
+			)
+			.toBeGreaterThan(0);
+		await expect(card.getByTestId('invoice-app-sync-result')).toContainText('1 bezahlt');
+
+		// The app learns the day and the amount, keyed by the booking – nothing of the bank.
+		expect(recorded[0]).toMatchObject({
+			documentId: 'doc-4',
+			paidOn: '2026-09-12',
+			amount: { value: '119', currency: 'EUR' },
+			reference: { system: 'belege' }
+		});
+		expect(JSON.stringify(recorded)).not.toMatch(/Beispiel Kunde|RE-2026-0004|IBAN|purpose/i);
+
+		// The invoice is the payment's receipt now.
+		await page
+			.getByRole('navigation', { name: 'Hauptnavigation' })
+			.getByRole('link', { name: 'Zahlungen' })
+			.click();
+		// No longer among those without a receipt.
+		await expect(page.getByTestId('transaction')).toHaveCount(0);
+		await page.getByTestId('filter-all').click();
+		await page.getByTestId('transaction').filter({ hasText: 'Beispiel Kunde GmbH' }).click();
+		await expect(page.getByRole('dialog')).toContainText('RE-2026-0004.pdf');
+	} finally {
+		await provider.stop().catch(() => {});
+		await node.stop().catch(() => {});
+	}
+});

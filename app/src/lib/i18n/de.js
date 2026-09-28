@@ -351,11 +351,11 @@ export default {
 			},
 			ucep: {
 				name: 'Rechnungs-App (UCEP über ein Relay)',
-				text: 'Nur wenn du Belege unter Integrationen mit deiner Rechnungs-App koppelst: Belege verbindet sich über ein Relay mit ihr, um für eine Zahlung ohne Beleg einen Eigenbeleg erstellen zu lassen.',
+				text: 'Nur wenn du Belege unter Integrationen mit deiner Rechnungs-App koppelst: Belege verbindet sich über ein Relay mit ihr, um für eine Zahlung ohne Beleg einen Eigenbeleg erstellen zu lassen, und – auf deinen Klick „Rechnungen abgleichen“ – um deine ausgestellten Rechnungen zu holen und ihr zu sagen, welche bezahlt sind.',
 				leaves:
-					'Die IP-Adresse dieses Geräts und die Peer-ID von Belege – an den Betreiber des Relays (eines der Le-Space-Relays, siehe unten). Für einen Eigenbeleg die Angaben dieser einen Zahlung (Datum, Betrag, Beschreibung, Grund, die Gegenpartei, wie du sie einträgst, die interne Kennung der Zahlung in Belege, bei Krypto Chain, Menge, Kurs mit Quelle und Zeitpunkt und den Hash der Transaktion) – an deine Rechnungs-App, sonst niemanden; deine übrigen Bücher nie.',
+					'Die IP-Adresse dieses Geräts und die Peer-ID von Belege – an den Betreiber des Relays (eines der Le-Space-Relays, siehe unten). Für einen Eigenbeleg die Angaben dieser einen Zahlung (Datum, Betrag, Beschreibung, Grund, die Gegenpartei, wie du sie einträgst, die interne Kennung der Zahlung in Belege, bei Krypto Chain, Menge, Kurs mit Quelle und Zeitpunkt und den Hash der Transaktion). Für eine bezahlte Rechnung nur: an welchem Tag, welcher Betrag und die interne Kennung der Zahlung – nie Konto, IBAN oder Verwendungszweck. Beides an deine Rechnungs-App, sonst niemanden; deine übrigen Bücher nie.',
 				technical:
-					'libp2p mit WebSocket zum Relay (Circuit Relay v2) und WebRTC für die direkte Verbindung; Noise verschlüsselt jede Verbindung Ende zu Ende, das Relay sieht nur Chiffretext. Die Peer-ID kommt aus einem Schlüssel, der aus deinem Passkey abgeleitet und nie gespeichert wird. Die Kopplung (UCEP, Le-Space/ucep-spec) gibt Belege nur die Rechte „Eigenbelege erstellen“ und „eigene Dokumente lesen“. Ohne Kopplung baut Belege keine Verbindung auf.'
+					'libp2p mit WebSocket zum Relay (Circuit Relay v2) und WebRTC für die direkte Verbindung; Noise verschlüsselt jede Verbindung Ende zu Ende, das Relay sieht nur Chiffretext. Die Peer-ID kommt aus einem Schlüssel, der aus deinem Passkey abgeleitet und nie gespeichert wird. Die Kopplung (UCEP, Le-Space/ucep-spec) gibt Belege nur die Rechte „Eigenbelege erstellen“, „eigene Dokumente lesen“, „ausgestellte Rechnungen lesen“ und „Zahlungen melden“. Ohne Kopplung baut Belege keine Verbindung auf.'
 			},
 			relays: {
 				name: 'Le-Space-Relays (gefunden über Aleph)',
@@ -1166,7 +1166,9 @@ export default {
 			mail: 'E-Mail',
 			upload: 'Hochgeladen',
 			folder: 'Ordner',
-			portal: 'Kundenportal'
+			portal: 'Kundenportal',
+			eigenbeleg: 'Eigenbeleg',
+			'invoice-app': 'Rechnungs-App (eigene Rechnung)'
 		},
 		recordPortal: 'Portal für {host} aufzeichnen',
 		recordPortalHint:
@@ -1805,6 +1807,15 @@ export default {
 			intro:
 				'Koppel Belege mit deiner Rechnungs-App (Le Space Rechnungen). Dann kann sie für eine Zahlung ohne Beleg einen Eigenbeleg erstellen – mit ihrem Nummernkreis und deinem Firmenkopf –, und Belege ordnet ihn der Zahlung zu. Die Verbindung läuft über ein Relay und ist Ende zu Ende verschlüsselt; es gehen nur die Angaben dieser einen Zahlung hinüber.',
 			start: 'Verbindung aufbauen',
+			issued: {
+				intro:
+					'Deine ausgestellten Rechnungen kommen als eigene Rechnungen in die Belege, der Abgleich ordnet sie den Zahlungseingängen zu, und die Rechnungs-App erfährt, was bezahlt ist – nur Tag und Betrag, nie Konto oder Verwendungszweck.',
+				sync: 'Rechnungen abgleichen',
+				result:
+					'{invoices} Rechnungen in der App, {added} neu übernommen, {paid} bezahlt; {reported} Zahlungsmeldungen an die App.',
+				pdfLater:
+					'{count} Rechnungen kamen noch nicht: ihr PDF geht nur über eine direkte Verbindung. Beim nächsten Abgleich noch einmal.'
+			},
 			offHint:
 				'Erst wenn du hier klickst, geht Belege ins Netz: Es fragt api.aleph.im nach den Le-Space-Relays und verbindet sich mit einem; danach nur, solange eine Rechnungs-App gekoppelt ist; nach dem Entkoppeln geht Belege wieder vom Netz. Was dabei wer sieht, steht im Datenschutz-Dialog unter „Le-Space-Relays“.',
 			starting: 'Verbindung wird aufgebaut …',

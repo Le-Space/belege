@@ -4,8 +4,10 @@
 	// screens show, so it can make Eigenbelege for bookings without a receipt.
 	import {
 		app,
+		currentBlobs,
 		currentStore,
 		currentUcep,
+		runMatchingNow,
 		refreshUcep,
 		startUcep,
 		stopUcep
@@ -74,6 +76,26 @@
 			await stopUcep();
 		});
 
+	/** @type {import('./issued.js').IssuedSyncResult | null} */
+	let synced = $state(null);
+	/** "Rechnungen abgleichen" (issue #8): issued invoices in, payments out. */
+	const syncInvoices = () =>
+		run(async () => {
+			const ucep = /** @type {any} */ (currentUcep());
+			const store = currentStore();
+			const blobs = currentBlobs();
+			if (!store || !blobs || !app.ucep.app) return;
+			synced = null;
+			const { syncIssuedInvoices } = await import('./issued.js');
+			synced = await syncIssuedInvoices({
+				consumer: ucep.consumer,
+				app: app.ucep.app,
+				store,
+				blobs,
+				match: () => runMatchingNow('manual')
+			});
+		});
+
 	const button =
 		'rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-heading hover:bg-surface-2 disabled:opacity-50';
 	const field = 'w-full rounded-md border border-border bg-surface px-2 py-1.5 text-sm';
@@ -106,6 +128,31 @@
 			})}
 		</p>
 		<p class="font-mono text-xs break-all text-faint">{app.ucep.app.peerId}</p>
+		<div class="mt-4 border-t border-border pt-3">
+			<p class="text-sm text-text">{t('integrationen.invoiceApp.issued.intro')}</p>
+			<button
+				type="button"
+				class="mt-2 {button}"
+				disabled={busy}
+				onclick={syncInvoices}
+				data-testid="invoice-app-sync">{t('integrationen.invoiceApp.issued.sync')}</button
+			>
+			{#if synced}
+				<p class="mt-2 text-sm text-heading" role="status" data-testid="invoice-app-sync-result">
+					{t('integrationen.invoiceApp.issued.result', {
+						invoices: synced.invoices,
+						added: synced.added,
+						paid: synced.paid,
+						reported: synced.reported + synced.removed
+					})}
+				</p>
+				{#if synced.pdfLater}
+					<p class="mt-1 text-sm text-warning" data-testid="invoice-app-sync-later">
+						{t('integrationen.invoiceApp.issued.pdfLater', { count: synced.pdfLater })}
+					</p>
+				{/if}
+			{/if}
+		</div>
 		<button
 			type="button"
 			class="mt-2 {button}"
