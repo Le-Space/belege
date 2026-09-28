@@ -234,6 +234,44 @@ describe('Belege and the invoicing app', () => {
 		}
 	});
 
+	it('shows the code when the app has its human confirm an invitation', async () => {
+		const confirmingNode = await node('confirming');
+		try {
+			const confirming = createProvider({
+				libp2p: confirmingNode,
+				manifest: {
+					id: 'invoice',
+					name: 'Rechnungen (Test, bestätigt)',
+					version: '0.1.0',
+					scopes: [{ name: 'invoice:document:read', description: 'Dokumente lesen' }]
+				},
+				commands: { help: { handler: () => ({}) } },
+				confirmInvitations: true
+			});
+			await confirming.start();
+			/** @type {any} */ let pending = null;
+			confirming.events.addEventListener(
+				'pairing:pending',
+				(e) => (pending = /** @type {CustomEvent} */ (e).detail)
+			);
+			const { uri } = await confirming.createInvitation({ scopes: ['invoice:document:read'] });
+			/** @type {any} */ let shown = null;
+			const own = memorySettings();
+			const pairing = pairByInvitation({
+				consumer: createBelegeConsumer({ libp2p: belegeNode, settings: own, label: 'Belege' }),
+				settings: own,
+				uri,
+				onCode: (code) => (shown = code)
+			});
+			await expect.poll(() => pending !== null && shown !== null).toBe(true);
+			expect(shown).toBe(pending.sas);
+			await confirming.approve(pending.id, { code: shown });
+			expect((await pairing).peerId).toBe(confirmingNode.peerId.toString());
+		} finally {
+			await confirmingNode.stop();
+		}
+	});
+
 	it('refuses an invitation of another extension', async () => {
 		const other = encodeInvitation({
 			providerPeerId: appNode.peerId.toString(),
