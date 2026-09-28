@@ -398,6 +398,7 @@ async function startDeviceSyncIfOn() {
 			onState: (state) => {
 				app.sync.state = state;
 			},
+			gate: session.deviceGate ?? undefined,
 			onRemoved: () => {
 				setDeviceSync(false);
 				app.sync.removed = true;
@@ -427,6 +428,7 @@ async function startBridgeForDevices() {
 	const { remoteFetch } = await startBridgeConsumer({
 		libp2p,
 		label: deviceLabel(),
+		// `connected` only once the device proved the passkey (device-gate.js).
 		devices: () => (app.sync.state?.devices ?? []).filter((d) => d.connected).map((d) => d.peerId)
 	});
 	setBridgeTransport(bridgeFetch({ remote: () => remoteFetch }));
@@ -445,7 +447,10 @@ async function startBridgeForDevices() {
 	await startBridgeProvider({
 		libp2p,
 		bridge: () => own,
+		// A device the books know and that proved the passkey on this connection:
+		// an id typed in by mistake is known, and still gets nothing.
 		isOwnDevice: async (peerId) =>
+			Boolean(session?.deviceGate?.isProved(peerId)) &&
 			knownDevices(await settings.list()).some((d) => d.peerId === peerId)
 	});
 	app.sync.bridgeServed = true;

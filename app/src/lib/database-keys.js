@@ -41,6 +41,12 @@ export const BLOB_KEY_INFO = 'belege/blob-key/v1';
  */
 export const PEER_KEY_INFO = 'belege/peer-key/v1';
 
+/**
+ * The key a device proves with that it holds the passkey (sync/device-gate.js).
+ * Bumping it only means devices of different builds do not accept each other.
+ */
+export const DEVICE_AUTH_INFO = 'belege/device-auth/v1';
+
 const KEY_BYTES = 32;
 const NAME_BYTES = 16;
 
@@ -157,4 +163,16 @@ export async function deriveDevicePeerSeed(prfOutput, salt) {
 	assertPrfOutput(prfOutput);
 	if (!/^[0-9a-f]{32}$/.test(salt)) throw new Error('A device salt is 16 bytes, hex.');
 	return hkdf(prfOutput, `belege/device-peer/v1:${salt}`, KEY_BYTES);
+}
+
+/**
+ * The key own devices prove to each other with that they hold the passkey
+ * (sync/device-gate.js): the same on every device of it, never sent.
+ *
+ * @param {Uint8Array} prfOutput
+ * @returns {Promise<Uint8Array>} 32 bytes
+ */
+export async function deriveDeviceAuthKey(prfOutput) {
+	assertPrfOutput(prfOutput);
+	return hkdf(prfOutput, DEVICE_AUTH_INFO, KEY_BYTES);
 }

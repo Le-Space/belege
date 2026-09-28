@@ -68,9 +68,10 @@ describe('isPeerId', () => {
 });
 
 describe('syncLibp2pConfig', () => {
+	const gate = { service: () => ({}) };
 	it('listens on the relays and for WebRTC, and keeps gossipsub on limited connections', () => {
 		const relay = '/dns4/relay.example/tcp/443/wss/p2p/12D3KooWExample';
-		const config = syncLibp2pConfig({ privateKey: {}, relays: [relay] });
+		const config = syncLibp2pConfig({ privateKey: {}, relays: [relay], gate });
 		expect(config.addresses?.listen).toEqual([`${relay}/p2p-circuit`, '/webrtc']);
 		expect(config.transports).toHaveLength(3);
 		// No local relay: the gater does not open loopback addresses …
@@ -87,13 +88,20 @@ describe('syncLibp2pConfig', () => {
 			)
 		).toBe(false);
 		blocked.clear();
-		expect(Object.keys(config.services ?? {})).toEqual(['identify', 'identifyPush', 'pubsub']);
+		// The device gate first, so it wraps the registrar before the others register.
+		expect(Object.keys(config.services ?? {})).toEqual([
+			'deviceGate',
+			'identify',
+			'identifyPush',
+			'pubsub'
+		]);
 	});
 
 	it('lets a local test relay be dialled', () => {
 		const config = syncLibp2pConfig({
 			privateKey: {},
-			relays: ['/ip4/127.0.0.1/tcp/4413/ws/p2p/12D3KooWExample']
+			relays: ['/ip4/127.0.0.1/tcp/4413/ws/p2p/12D3KooWExample'],
+			gate
 		});
 		expect(config.connectionGater?.denyDialMultiaddr?.(/** @type {any} */ ({}))).toBe(false);
 	});
