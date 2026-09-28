@@ -101,6 +101,16 @@
 		thresholdsText
 	} from './matching/explain.js';
 	import { cleanMatchingSettings } from './matching/classify.js';
+	import {
+		linkRepayment,
+		markPrivate,
+		privateKind,
+		privateNote,
+		privateSettlement,
+		unlinkRepayment,
+		unmarkPrivate
+	} from './matching/private.js';
+	import { cleanDatevSettings, privateAccounts } from './booking/settings.js';
 	import { graceWait, localDay } from './matching/grace.js';
 	import { list, t } from './i18n/index.js';
 
@@ -118,13 +128,55 @@
 			? 'missing'
 			: matchesOfTx(tx.id, app.matches).length
 				? 'done'
-				: classification || tx.noReceipt
+				: classification || tx.noReceipt || privateKind(tx)
 					? 'none-needed'
 					: 'missing'
 	);
 	let showDetails = $state(false);
 	/** "Kein fremder Beleg …": no receipt needed, bank fee, Eigenbeleg. */
 	let altOpen = $state(false);
+
+	// "Privat (Irrläufer)" (issue #172): one private payment from the business account.
+	let privateAsking = $state(false);
+	let privateText = $state('');
+	let repayOpen = $state(false);
+	let privateRules = $derived(privateAccounts(cleanDatevSettings(app.datevSettings)));
+	let legalForm = $derived(cleanDatevSettings(app.datevSettings).legalForm);
+	let settlement = $derived(tx && privateKind(tx) ? privateSettlement(tx, app.transactions) : null);
+	let repayChoices = $derived(
+		repayOpen && tx?.privateMistake
+			? transferCandidates(tx, app.transactions, { days: 180, anyAccount: true }).filter(
+					(o) => !privateKind(o) || o.privateRepaymentOf
+				)
+			: []
+	);
+	const startPrivate = () => {
+		privateAsking = !privateAsking;
+		if (privateAsking && tx) privateText = privateNote(tx);
+	};
+	const savePrivate = () =>
+		act(async () => {
+			await markPrivate(/** @type {any} */ (currentStore()), txId, privateText);
+			privateAsking = false;
+			altOpen = false;
+			await runMatchingNow();
+		});
+	const notPrivate = () =>
+		act(async () => {
+			await unmarkPrivate(/** @type {any} */ (currentStore()), txId);
+			await runMatchingNow();
+		});
+	/** @param {string} otherId */
+	const repayWith = (otherId) =>
+		act(async () => {
+			await linkRepayment(/** @type {any} */ (currentStore()), txId, otherId);
+			repayOpen = false;
+		});
+	/** @param {string} paymentId @param {string} repaymentId */
+	const repayUndo = (paymentId, repaymentId) =>
+		act(async () => {
+			await unlinkRepayment(/** @type {any} */ (currentStore()), paymentId, repaymentId);
+		});
 	// The transaction in the block explorer as a QR code, to open it on a phone.
 	let explorerQrOpen = $state(false);
 	// The payment's name and, for a crypto booking, who sent and who received (bank/payee.js).
@@ -1511,6 +1563,113 @@
 						>{t('zahlungen.detail.needsReceipt')}</button
 					>
 				{/if}
+				{#if tx.privateMistake}
+					<div class="mt-1 text-sm" data-testid="tx-private">
+						<p class="font-medium text-warning">{t('zahlungen.detail.private.title')}</p>
+						<p class="mt-1 whitespace-pre-wrap text-text" data-testid="tx-private-note">
+							{tx.privateMistake.note}
+						</p>
+						{#if !legalForm}
+							<p class="mt-1 text-xs text-faint">{t('zahlungen.detail.private.noLegalForm')}</p>
+						{:else if privateRules.settle && !privateRules.payment}
+							<p class="mt-1 text-xs text-faint">{t('zahlungen.detail.private.noClearing')}</p>
+						{/if}
+						{#if privateRules.settle && settlement}
+							<p
+								class="mt-1 {settlement.openCents ? 'text-warning' : 'text-success'}"
+								data-testid="tx-private-state"
+							>
+								{settlement.openCents
+									? t('zahlungen.detail.private.open', {
+											amount: formatMoney(settlement.openCents, tx.currency ?? 'EUR')
+										})
+									: t('zahlungen.detail.private.settled')}
+							</p>
+						{/if}
+						{#each settlement?.repayments ?? [] as r (r.id)}
+							<p class="mt-1 flex flex-wrap items-center gap-2 text-xs text-text">
+								<button type="button" class="underline" onclick={() => onopen(String(r.id))}
+									>{t('zahlungen.detail.private.repaidBy', {
+										date: formatDate(String(r.bookedOn)),
+										amount: formatMoney(r.amountCents ?? 0, r.currency ?? 'EUR')
+									})}</button
+								>
+								<button
+									type="button"
+									class="text-faint underline"
+									onclick={() => repayUndo(txId, String(r.id))}
+									disabled={busy}>{t('zahlungen.detail.private.unlink')}</button
+								>
+							</p>
+						{/each}
+						<div class="mt-2 flex flex-wrap gap-2">
+							<button
+								type="button"
+								class={button}
+								onclick={() => (repayOpen = !repayOpen)}
+								aria-expanded={repayOpen}
+								disabled={busy}
+								data-testid="tx-private-repay">{t('zahlungen.detail.private.repay')}</button
+							>
+							<button
+								type="button"
+								class={button}
+								onclick={notPrivate}
+								disabled={busy}
+								data-testid="tx-private-undo">{t('zahlungen.detail.private.undo')}</button
+							>
+						</div>
+						{#if repayOpen}
+							<ul class="mt-2 divide-y divide-border rounded-md border border-border">
+								{#each repayChoices as o (o.id)}
+									<li class="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+										<span class="min-w-0 text-sm text-text"
+											>{formatDate(String(o.bookedOn))} · {o.counterparty || '—'} · {String(
+												o.purpose ?? ''
+											).slice(0, 80)}</span
+										>
+										<span class="font-mono text-sm text-heading tabular-nums"
+											>{formatMoney(o.amountCents ?? 0, o.currency ?? 'EUR')}</span
+										>
+										<button
+											type="button"
+											class={button}
+											onclick={() => repayWith(String(o.id))}
+											disabled={busy}
+											data-testid="tx-private-repay-pick"
+											>{t('zahlungen.detail.private.repayPick')}</button
+										>
+									</li>
+								{:else}
+									<li class="px-3 py-2 text-sm text-faint" data-testid="tx-private-repay-none">
+										{t('zahlungen.detail.private.repayNone')}
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</div>
+				{/if}
+				{#if tx.privateRepaymentOf?.length}
+					<div class="mt-1 text-sm" data-testid="tx-private-repayment">
+						<p class="font-medium text-heading">{t('zahlungen.detail.private.repaymentTitle')}</p>
+						{#each settlement?.payments ?? [] as p (p.id)}
+							<p class="mt-1 flex flex-wrap items-center gap-2 text-xs text-text">
+								<button type="button" class="underline" onclick={() => onopen(String(p.id))}
+									>{t('zahlungen.detail.private.repays', {
+										date: formatDate(String(p.bookedOn)),
+										amount: formatMoney(p.amountCents ?? 0, p.currency ?? 'EUR')
+									})}</button
+								>
+								<button
+									type="button"
+									class="text-faint underline"
+									onclick={() => repayUndo(String(p.id), txId)}
+									disabled={busy}>{t('zahlungen.detail.private.unlink')}</button
+								>
+							</p>
+						{/each}
+					</div>
+				{/if}
 				{#each linked as l (l.match.id)}
 					{@const r = l.receipt}
 					<div class="mt-2 border-t border-border pt-2" data-testid="tx-linked-receipt">
@@ -1607,6 +1766,17 @@
 									data-testid="tx-no-receipt">{t('zahlungen.detail.noReceiptNeeded')}</button
 								>
 							{/if}
+							{#if !privateKind(tx) && (tx.amountCents ?? 0) < 0}
+								<button
+									type="button"
+									class={button}
+									onclick={startPrivate}
+									aria-expanded={privateAsking}
+									disabled={busy}
+									title={t('zahlungen.detail.private.markTitle')}
+									data-testid="tx-private-mark">{t('zahlungen.detail.private.mark')}</button
+								>
+							{/if}
 							{#if !tx.noReceipt && !classification && (tx.amountCents ?? 0) < 0}
 								<button
 									type="button"
@@ -1618,6 +1788,33 @@
 								>
 							{/if}
 						</div>
+						{#if privateAsking}
+							<form
+								class="mt-2 flex flex-col gap-2"
+								onsubmit={(e) => {
+									e.preventDefault();
+									savePrivate();
+								}}
+								data-testid="tx-private-form"
+							>
+								<label class="text-sm text-text" for="tx-private-text"
+									>{t('zahlungen.detail.private.noteLabel')}</label
+								>
+								<textarea
+									id="tx-private-text"
+									class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-heading"
+									rows="3"
+									bind:value={privateText}
+									data-testid="tx-private-text"
+								></textarea>
+								<p class="text-xs text-faint">{t('zahlungen.detail.private.hint')}</p>
+								<div>
+									<button type="submit" class={button} disabled={busy} data-testid="tx-private-save"
+										>{t('zahlungen.detail.private.save')}</button
+									>
+								</div>
+							</form>
+						{/if}
 						{#if !tx.receiptId && classification?.via !== 'manual'}
 							<div class="mt-2 flex flex-wrap gap-2">
 								<button

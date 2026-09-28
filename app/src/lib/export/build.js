@@ -6,6 +6,7 @@
 //   DATEV/EXTF_Buchungsstapel_<YYYY-MM>.csv
 //   Belege/<receipt number>_<vendor>.pdf
 //   Kontoauszuege/<statement number>_<account>.pdf   one per account (statement.js)
+//   Aktennotizen/<date>_<counterparty>_<id>.txt       a private payment's note (#172)
 //   Uebersicht_<YYYY-MM>.csv
 
 import { zipSync, strToU8 } from 'fflate';
@@ -100,6 +101,13 @@ export async function buildMonthZip({ plan, settings, accounts, classifications,
 	}
 	for (const s of plan.statements) {
 		files[statementPath(s)] = await statementPdf(s, { created });
+	}
+	// A private payment from the business account has no receipt: its note is its document.
+	for (const l of plan.lines) {
+		const note = l.tx?.privateMistake?.note;
+		if (!note) continue;
+		const name = `${l.tx.bookedOn}_${fileSlug(String(l.tx.counterparty || 'privat'))}_${String(l.tx.id).slice(-6)}`;
+		files[`Aktennotizen/${name}.txt`] = strToU8(`Privat (Irrläufer)\n\n${note}\n`);
 	}
 	files[`Uebersicht_${plan.month}.csv`] = strToU8(overviewCsv(plan, { accounts, classifications }));
 	const zip = zipSync(files, { level: 6, mtime: created });

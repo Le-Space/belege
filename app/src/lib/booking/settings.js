@@ -25,6 +25,8 @@ import { isAccountNumber } from './skr03.js';
  * @property {number} fiscalYearStartMonth 1–12; the fiscal year starts on the 1st of it
  * @property {number} accountLength Sachkontenlänge, 4–8
  * @property {TaxKeys} taxKeys
+ * @property {LegalForm} legalForm how private payments are booked (issue #172); '' not said yet
+ * @property {string} shareholderAccount a UG/GmbH's shareholder clearing account, '' until set
  */
 
 /**
@@ -42,9 +44,38 @@ export const DEFAULT_TAX_KEYS = Object.freeze({
 	reverseCharge: '94'
 });
 
+/**
+ * The legal form, for how a private payment from the business account is
+ * booked (issue #172): a sole proprietor or partnership withdraws privately
+ * (1800) and deposits (1890); a UG or GmbH has no private withdrawals – it
+ * paid for its shareholder, a claim on the shareholder clearing account.
+ *
+ * @typedef {'' | 'sole' | 'partnership' | 'corporation'} LegalForm
+ */
+export const LEGAL_FORMS = /** @type {const} */ (['sole', 'partnership', 'corporation']);
+
+/**
+ * The accounts a private payment and its repayment go on, and whether it
+ * must be settled; null accounts where the person has to name one.
+ *
+ * @param {DatevSettings} settings cleaned
+ * @returns {{ payment: string | null, repayment: string | null, settle: boolean }}
+ */
+export function privateAccounts(settings) {
+	if (settings.legalForm === 'sole' || settings.legalForm === 'partnership') {
+		return { payment: '1800', repayment: '1890', settle: false };
+	}
+	// A UG/GmbH, or not said yet: the claim is settled by the repayment.
+	const clearing =
+		settings.legalForm === 'corporation' ? settings.shareholderAccount || null : null;
+	return { payment: clearing, repayment: clearing, settle: true };
+}
+
 /** @returns {DatevSettings} */
 export function defaultDatevSettings() {
 	return {
+		legalForm: /** @type {LegalForm} */ (''),
+		shareholderAccount: '',
 		// A number MonkeyOffice accepts for a company of its own; check what it expects.
 		consultantNumber: '1001',
 		clientNumber: '1',
@@ -82,6 +113,10 @@ export function cleanDatevSettings(value) {
 	const d = defaultDatevSettings();
 	const keys = value?.taxKeys ?? {};
 	return {
+		legalForm: LEGAL_FORMS.includes(value?.legalForm) ? value.legalForm : '',
+		shareholderAccount: /^\d{4,8}$/.test(String(value?.shareholderAccount ?? '').trim())
+			? String(value.shareholderAccount).trim()
+			: '',
 		consultantNumber: String(int(value?.consultantNumber, 1001, 9999999, 1001)),
 		clientNumber: String(int(value?.clientNumber, 1, 99999, 1)),
 		fiscalYearStartMonth: int(value?.fiscalYearStartMonth, 1, 12, d.fiscalYearStartMonth),

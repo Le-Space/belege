@@ -2,6 +2,7 @@
 // zuordnen", the query for the private-mailbox search and how its hits rank.
 // Pure, so it is tested without a database or a browser.
 
+import { privateKind } from './private-kind.js';
 import { isActive } from './engine.js';
 import { receiptFacts, scorePair, txFacts } from './score.js';
 import { STOP_WORDS, dayNumber, vendorWords } from './normalize.js';
@@ -24,7 +25,12 @@ import { walletChain } from '../wallets/chains.js';
  * @param {Record<string, Classification>} classifications
  */
 export function isTxCovered(tx, classifications) {
-	return Boolean(tx.receiptId) || Boolean(tx.noReceipt) || Boolean(classifications[tx.id]);
+	return (
+		Boolean(tx.receiptId) ||
+		Boolean(tx.noReceipt) ||
+		Boolean(privateKind(tx)) ||
+		Boolean(classifications[tx.id])
+	);
 }
 
 /**
@@ -38,7 +44,7 @@ export function isTxCovered(tx, classifications) {
 export function coverageBadge(tx, classifications) {
 	if (tx.receiptId) return 'receipt';
 	if (tx.noReceipt) return 'no-receipt';
-	return classifications[tx.id]?.kind ?? null;
+	return privateKind(tx) ?? classifications[tx.id]?.kind ?? null;
 }
 
 /**

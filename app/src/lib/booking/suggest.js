@@ -6,6 +6,7 @@
 //   1. what the person confirmed (`tx.booking`)
 //   2. an own transfer (classify.js): 1360 Geldtransit, no BU key
 //   3. a bank fee: 4970 Nebenkosten des Geldverkehrs, no BU key
+//   (before both: a private payment or its repayment, by the legal form, #172)
 //   4. learned: the account the person gave this vendor last time
 //      (partners.js `account`), found by the receipt's vendor or the
 //      counterparty on the statement
@@ -17,9 +18,10 @@ import { findPartner, partnerOfTx } from '../matching/partners.js';
 import { FEE_ACCOUNT, TRANSFER_ACCOUNT, isAccountNumber } from './skr03.js';
 import { DEFAULT_TAX_KEYS } from './settings.js';
 import { taxKeyFor } from './tax-keys.js';
+import { privateKind } from '../matching/private-kind.js';
 
 /** @typedef {Record<string, any>} Rec */
-/** @typedef {'confirmed' | 'transfer' | 'fee' | 'learned' | null} SuggestionSource */
+/** @typedef {'confirmed' | 'transfer' | 'fee' | 'learned' | 'private' | null} SuggestionSource */
 
 /**
  * @typedef {object} Suggestion
@@ -63,11 +65,19 @@ export function learnedPartner(partners, receipt, tx) {
  * @param {Rec[]} [context.receipts] the booking's linked receipts, first one first
  * @param {Rec[]} [context.partners]
  * @param {import('./settings.js').TaxKeys} [context.keys]
+ * @param {{ payment: string | null, repayment: string | null }} [context.privateAccounts]
+ *   where a private payment and its repayment go, by the legal form (#172)
  * @returns {Suggestion}
  */
 export function suggestBooking(
 	tx,
-	{ classification = null, receipts = [], partners = [], keys = DEFAULT_TAX_KEYS }
+	{
+		classification = null,
+		receipts = [],
+		partners = [],
+		keys = DEFAULT_TAX_KEYS,
+		privateAccounts = { payment: null, repayment: null }
+	}
 ) {
 	if (isBookingConfirmed(tx)) {
 		return {
@@ -75,6 +85,18 @@ export function suggestBooking(
 			taxKey: String(tx.booking.taxKey ?? ''),
 			source: 'confirmed',
 			taxVia: 'confirmed',
+			vendor: null
+		};
+	}
+	// A private payment from the business account, or its repayment (#172): by the
+	// legal form; null for a UG/GmbH until its shareholder clearing account is set.
+	const priv = privateKind(tx);
+	if (priv) {
+		return {
+			account: priv === 'private-mistake' ? privateAccounts.payment : privateAccounts.repayment,
+			taxKey: '',
+			source: 'private',
+			taxVia: 'none',
 			vendor: null
 		};
 	}

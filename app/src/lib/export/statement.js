@@ -29,6 +29,8 @@ const STANDS_IN = /** @type {Record<string, string>} */ ({
 	loan: 'Darlehen',
 	'rule-ignore': 'ignoriert',
 	'rule-private': 'privat',
+	'private-mistake': 'Privat (Irrläufer)',
+	'private-repayment': 'Rückzahlung privat',
 	'no-receipt': 'ohne Beleg'
 });
 

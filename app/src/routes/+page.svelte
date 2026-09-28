@@ -19,10 +19,12 @@
 	import { isTxCovered, questionProgress, transfersWithReceipt } from '$lib/matching/view.js';
 	import { cleanMatchingSettings } from '$lib/matching/classify.js';
 	import { keepTransferReceipt, unlinkMatch } from '$lib/matching/actions.js';
-	import { formatDate, formatTxAmount } from '$lib/bank/format.js';
+	import { formatDate, formatMoney, formatTxAmount } from '$lib/bank/format.js';
 	import { addressBook, payeeName } from '$lib/bank/payee.js';
 	import { receiptVendor } from '$lib/receipts/view.js';
 	import { booksByYear, shownYear } from '$lib/year/year.svelte.js';
+	import { openPrivatePayments } from '$lib/matching/private.js';
+	import { cleanDatevSettings, privateAccounts } from '$lib/booking/settings.js';
 	import NeedsCard from '$lib/integrations/NeedsCard.svelte';
 	import { integrationFacts, loadIntegrationFacts } from '$lib/integrations/facts.svelte.js';
 	import { integrationsOverview } from '$lib/integrations/overview.js';
@@ -46,6 +48,14 @@
 		const store = currentStore();
 		if (store) homePrices = cleanPrices(await getSetting(store.settings, 'aiPrices'));
 	});
+
+	// Private payments from the business account not paid back yet (#172): a UG/GmbH's
+	// claim on its shareholder, open until the repayment is linked.
+	let privateOpen = $derived(
+		privateAccounts(cleanDatevSettings(app.datevSettings)).settle
+			? openPrivatePayments(app.transactions)
+			: []
+	);
 
 	// What an integration needs from the person (#152), here too: the day starts on Home.
 	onMount(() => loadIntegrationFacts());
@@ -192,6 +202,35 @@
 {/each}
 {#if resumeNote}
 	<p class="mt-2 text-sm text-danger" role="alert">{resumeNote}</p>
+{/if}
+
+{#if privateOpen.length}
+	<section class="mt-4 {card}" aria-labelledby="private-open-h" data-testid="home-private-open">
+		<h2 id="private-open-h" class="text-sm font-semibold text-heading">
+			{t('home.privateOpen.title', {
+				count: privateOpen.length,
+				amount: formatMoney(
+					privateOpen.reduce((n, p) => n + p.openCents, 0),
+					'EUR'
+				)
+			})}
+		</h2>
+		<p class="mt-1 text-sm text-text">{t('home.privateOpen.what')}</p>
+		<ul class="mt-2 divide-y divide-border text-sm">
+			{#each privateOpen.slice(0, 5) as p (p.tx.id)}
+				<li>
+					<a
+						class="flex min-h-11 items-center justify-between gap-2 py-1 text-heading hover:underline"
+						href={`${resolve('/zahlungen')}?tx=${encodeURIComponent(p.tx.id)}`}
+						data-testid="home-private-open-item"
+						><span class="min-w-0 truncate"
+							>{formatDate(p.tx.bookedOn)} · {p.tx.counterparty || '—'}</span
+						><span class="font-mono tabular-nums">{formatMoney(p.openCents, 'EUR')}</span></a
+					>
+				</li>
+			{/each}
+		</ul>
+	</section>
 {/if}
 
 {#if integrationNeeds.length}

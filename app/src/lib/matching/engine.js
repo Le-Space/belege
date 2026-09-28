@@ -17,6 +17,7 @@
 // and it keeps `transactions.receiptId` and `receipts.status` in step with
 // the active matches.
 
+import { privateKind } from './private-kind.js';
 import { scamContext, scamSigns } from '../receipts/scam.js';
 import { recordEvent } from '../activity/events.js';
 import { needsConfirmation } from '../receipts/import.js';
@@ -84,7 +85,12 @@ export function matchable(r) {
  * @param {import('./classify.js').Classification | null | undefined} classification
  */
 export function isCovered(tx, classification) {
-	return Boolean(tx.receiptId) || Boolean(tx.noReceipt) || Boolean(classification);
+	return (
+		Boolean(tx.receiptId) ||
+		Boolean(tx.noReceipt) ||
+		Boolean(privateKind(tx)) ||
+		Boolean(classification)
+	);
 }
 
 /** Same JSON, same value (for "did anything change"). */
@@ -189,7 +195,7 @@ export async function runMatching({
 
 	let classified = 0;
 	const openTx = txs.filter((t) => {
-		if (t.noReceipt || classifyTransaction(t, ctx)) {
+		if (t.noReceipt || privateKind(t) || classifyTransaction(t, ctx)) {
 			if (!t.receiptId) classified++;
 			return false;
 		}
