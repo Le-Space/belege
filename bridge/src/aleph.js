@@ -32,10 +32,15 @@
 // moved in from another account), then converted at that day's ECB
 // reference rate (rates.js).
 //
+// Aleph keys accounts by their EIP-55 checksummed address: asked in lower
+// case, it answers a balance of 0 and no history. Every address is
+// checksummed before it is asked about.
+//
 // Times are UTC; the month is the UTC month. The log gets counts, never an
 // address.
 
 import { createJsonFetcher, WalletError } from './chains/http.js';
+import { toChecksumAddress } from './chains/evm.js';
 
 export const ALEPH_API = 'https://api2.aleph.im';
 /** Aleph's list price, USD per credit. */
@@ -206,10 +211,10 @@ export function createAlephClient({
 			/** @type {{ address: string, credits: number, entries: number }[]} */
 			const out = [];
 			for (const lower of unique) {
-				const address = addresses.find((a) => a.toLowerCase() === lower) ?? lower;
-				if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
+				if (!/^0x[0-9a-f]{40}$/.test(lower)) {
 					throw new WalletError('not an Aleph account address (0x + 40 hex)', 'ALEPH_ADDRESS', 400);
 				}
+				const address = toChecksumAddress(lower);
 				const base = `${api}/api/v0/addresses/${address}`;
 				const balance = await getJson(`${base}/balance`).catch((/** @type {any} */ e) => {
 					// An address Aleph has never seen: 404, nothing there.
@@ -232,10 +237,11 @@ export function createAlephClient({
 		 * @param {string} p.month YYYY-MM
 		 * @param {string} [p.api] checked by the caller
 		 */
-		async statement({ address, month, api = ALEPH_API }) {
-			if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
+		async statement({ address: given, month, api = ALEPH_API }) {
+			if (!/^0x[0-9a-fA-F]{40}$/.test(given)) {
 				throw new WalletError('not an Aleph account address (0x + 40 hex)', 'ALEPH_ADDRESS', 400);
 			}
+			const address = toChecksumAddress(given);
 			const { start, end, next } = monthWindow(month);
 			const nowSeconds = Math.floor(now().getTime() / 1000);
 			if (start > nowSeconds) throw new WalletError('that month has not begun', 'ALEPH_MONTH', 400);

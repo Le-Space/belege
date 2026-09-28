@@ -4,6 +4,8 @@
 import http from 'node:http';
 import { createHash } from 'node:crypto';
 
+import { toChecksumAddress } from '../../src/chains/evm.js';
+
 /** A made-up 0x address from a phrase. @param {string} phrase */
 export const fakeAlephAddress = (phrase) =>
 	`0x${createHash('sha256').update(`aleph ${phrase}`).digest('hex').slice(0, 40)}`;
@@ -26,10 +28,15 @@ export const fakeItemHash = (phrase) => createHash('sha256').update(`item ${phra
 
 /**
  * @param {object} options
- * @param {Record<string, { balance: number, rows: FakeRow[] }>} options.accounts by address
+ * @param {Record<string, { balance: number, rows: FakeRow[] }>} options.accounts by address, in any
+ *   case; answered only when asked in the EIP-55 checksummed form, as Aleph does (a lower-case
+ *   address gets a balance of 0 and no history)
  * @param {Record<string, { type: string, name: string }>} [options.messages] by item hash
  */
-export async function startFakeAleph({ accounts, messages = {} }) {
+export async function startFakeAleph({ accounts: given, messages = {} }) {
+	const accounts = Object.fromEntries(
+		Object.entries(given).map(([address, account]) => [toChecksumAddress(address), account])
+	);
 	/** @type {string[]} */
 	const calls = [];
 	const server = http.createServer((req, res) => {
