@@ -750,6 +750,17 @@ export default {
 			refundAuto: 'gleiche Gegenpartei, „Erstattung“ im Text',
 			refundManual: 'von dir verknüpft',
 			swap: 'Tausch über eine dezentrale Börse (DEX): Die Wallet hat ein Asset gegeben und ein anderes bekommen, in einer Transaktion. Die Transaktion im Block-Explorer ist der Beleg. Steuerlich eine Veräußerung und eine Anschaffung zum Tageswert – das klärt ihr mit dem Steuerberater.',
+			swapCross:
+				'Tausch über eine andere Chain (Skip Go, Osmosis): Das Ergebnis kam am {date} auf {account} an. Beide Transaktionen im Block-Explorer sind der Beleg. Steuerlich eine Veräußerung und eine Anschaffung zum Tageswert – das klärt ihr mit dem Steuerberater.',
+			swapCrossArrival:
+				'Ankunft eines Tauschs über eine andere Chain (Skip Go, Osmosis): gesendet am {date} von {account}. Beide Transaktionen im Block-Explorer sind der Beleg.',
+			swapCrossMissing:
+				'Tausch über eine andere Chain (Skip Go, Osmosis) an {address} – dieselbe Adresse wie diese Wallet, aber nicht als eigene Wallet angelegt. Leg sie unter Integrationen → Eigene Wallets an, dann findet Belege die Ankunft.',
+			swapCrossNone:
+				'Tausch über eine andere Chain (Skip Go, Osmosis) an deine Wallet {address} – die Ankunft ist dort noch nicht gebucht. Synchronisiere die Wallet, oder verknüpfe sie von Hand als Tausch.',
+			swapCrossMany:
+				'Tausch über eine andere Chain (Skip Go, Osmosis) an deine Wallet {address} – {count} Ankünfte passen. Verknüpfe die richtige von Hand als Tausch.',
+			swapManual: 'Von dir als Tausch verknüpft mit {account} am {date}.',
 			staking:
 				'Staking: Die Tokens sind delegiert und bleiben deine. Kein Beleg nötig. Nicht auf 1360 – ihre Rückkehr nach dem Unbonding ist keine Transaktion, eine Umbuchung ginge nie auf; das Konto klärt ihr mit dem Steuerberater.',
 			dust: 'Staub: weniger als ein Cent wert, empfangen, ohne dass du etwas getan hast. Kein Beleg nötig. Oft ein Test oder Werbung – oder der Anfang einer Adressvergiftung: Verwende die Absenderadresse nie als Empfänger.',
@@ -1308,6 +1319,8 @@ export default {
 			'bank-fee-forget': 'Bankgebühr vergessen',
 			'not-transfer': 'Als „keine Umbuchung“ markiert',
 			'own-transfer-link': 'Als Gegenbuchung verknüpft (eigene Umbuchung)',
+			'swap-link': 'Als Tausch verknüpft',
+			'swap-unlink': 'Tausch-Verknüpfung gelöst',
 			'refund-link': 'Als Erstattung verknüpft',
 			'prepaid-on': 'Als Guthabenkonto geführt',
 			'share-created': 'Freigabe für einen Assistenten erstellt',
@@ -1526,6 +1539,7 @@ export default {
 					reference: 'gleiche Referenz',
 					'own-address': 'eigene Adresse',
 					bridge: 'über Bridge',
+					'cross-chain': 'über eine andere Chain',
 					manual: 'von dir verknüpft',
 					hash: 'gleicher Tx-Hash',
 					refid: 'gleiche Börsen-Referenz'
@@ -1610,6 +1624,11 @@ export default {
 			unlinkTransfer: 'Verknüpfung lösen – Beleg nötig',
 			notRefund: 'Keine Erstattung – Beleg nötig',
 			linkRefund: 'Als Erstattung verknüpfen …',
+			linkSwap: 'Als Tausch verknüpfen …',
+			linkSwapTitle:
+				'Die andere Seite eines Tauschs, den keine Regel erkennt – etwa über eine andere Chain oder eine Börse. Beide Seiten brauchen dann keinen Beleg; steuerlich eine Veräußerung und eine Anschaffung.',
+			linkSwapNone:
+				'Keine Buchung in die andere Richtung auf einem anderen Konto innerhalb von 31 Tagen.',
 			private: {
 				mark: 'Privat (Irrläufer) …',
 				markTitle:

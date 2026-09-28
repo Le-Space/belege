@@ -292,3 +292,44 @@ describe('a token priced by its pool (#163, step 3)', () => {
 		expect(shown).toContain('DEX-Pool (Uniswap V2, Pool 0xa2a2…a2a2, Block 1000)');
 	});
 });
+
+describe('a sent IBC transfer whose memo plans a swap (#170)', () => {
+	it('keeps the plan on the booking; any other memo keeps none', async () => {
+		const { walletTransactions } = await import('./wallet-sync.js');
+		const { skipMemo, bech } = await import('./cross-swap.fixtures.js');
+		const base = {
+			hash: 'AB'.repeat(32),
+			height: 1,
+			date: '2026-04-11',
+			time: '2026-04-11T15:22:31Z',
+			type: 'sent',
+			kind: 'ibc',
+			asset: 'NYM',
+			amount: '-200',
+			decimals: 6,
+			counterparty: bech('osmo', 5),
+			counterpartyLabel: 'IBC-Transfer',
+			success: true,
+			explorerUrl: ''
+		};
+		const entries = /** @type {any[]} */ ([
+			{ ...base, id: 'a', memo: skipMemo() },
+			{ ...base, id: 'b', hash: 'CD'.repeat(32), memo: 'Miete' }
+		]);
+		const { byAsset } = await walletTransactions(entries, async (asset, date) => ({
+			asset,
+			date,
+			currency: 'EUR',
+			rate: '0.03',
+			usdRate: null,
+			source: 'coingecko',
+			at: `${date}T00:00:00Z`
+		}));
+		const [withPlan, without] = byAsset.get('NYM') ?? [];
+		expect(withPlan?.crossSwap).toMatchObject({
+			receiver: bech('akash', 2),
+			minAmount: '15000000'
+		});
+		expect(without?.crossSwap).toBeUndefined();
+	});
+});

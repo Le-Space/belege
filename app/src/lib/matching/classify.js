@@ -96,6 +96,7 @@ export function isOwnName(name, company) {
  * @property {string[]} feeKeys bookings a person called a bank fee (`feeKey`)
  * @property {string[]} notTransfers pairs of booking ids a person said are no transfer (`transferPairKey`)
  * @property {string[]} ownTransfers pairs a person linked as the two sides of an own transfer (`transferPairKey`)
+ * @property {string[]} ownSwaps pairs a person linked as the two sides of a swap (`transferPairKey`, issue #170)
  * @property {string[]} refundPairs `refundPairKey`: a charge and its refund a person linked (refunds.js)
  * @property {string[]} notRefunds pairs a person said are no refund
  * @property {{ name: string, openings: Record<string, number> }[]} prepaidVendors vendors a person keeps as a prepaid account, with opening balances per year (vendor-account.js)
@@ -116,6 +117,7 @@ export function defaultMatchingSettings() {
 		feeKeys: [],
 		notTransfers: [],
 		ownTransfers: [],
+		ownSwaps: [],
 		refundPairs: [],
 		notRefunds: [],
 		prepaidVendors: [],
@@ -169,6 +171,7 @@ export function cleanMatchingSettings(value) {
 		// Two bookings a person linked as one own transfer (issue #98): kept
 		// through every run, whatever the rules find.
 		ownTransfers: [...new Set(strings(value?.ownTransfers))].slice(-500),
+		ownSwaps: [...new Set(strings(value?.ownSwaps))].slice(-500),
 		// A charge and its refund, linked by hand, and pairs kept apart (refunds.js).
 		refundPairs: [...new Set(strings(value?.refundPairs))].slice(-500),
 		notRefunds: [...new Set(strings(value?.notRefunds))].slice(-500),
@@ -217,6 +220,8 @@ export function feeKey(tx) {
  * @property {(tx: Record<string, any>) => string | null} [prepaidVendorOf] the confirmed prepaid vendor a payment tops up (vendor-account.js)
  * @property {(tx: Record<string, any>) => Record<string, any> | null} [linkedTransfer] the booking a person linked as this one's other side (context.js)
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [bridgeCounterparts] the other side of a bridge transfer on another own wallet (context.js)
+ * @property {(tx: Record<string, any>) => Record<string, any> | null} [linkedSwap] the booking a person linked as this one's other side of a swap (context.js)
+ * @property {(tx: Record<string, any>) => import('./context.js').CrossSwapSide | null} [crossSwapOf] a swap across chains this booking is a side of (context.js, issue #170)
  * @property {Map<string, Map<string, string>>} [ownAddresses] `<chain>:<address>` (normalised) of our own wallets → their accounts by asset ('' = the first)
  * @property {(tx: Record<string, any>) => string | null} [lookalikeOf] a known address the booking's other side looks like, but is not
  */
@@ -233,12 +238,15 @@ export function feeKey(tx) {
  * @property {string} [ruleId]
  * @property {'counterparty' | 'purpose' | 'any'} [ruleField] what the rule looked at
  * @property {string} [ruleContains] the rule's text
- * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'bridge' | 'manual' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee'} [via] how an own transfer or a bank fee was recognised
+ * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'bridge' | 'cross-chain' | 'manual' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee'} [via] how an own transfer or a bank fee was recognised
  * @property {string} [address] our own wallet's address, for via 'own-address'
  * @property {string} [vendor] the prepaid vendor, for kind 'prepaid-topup'
- * @property {'charge' | 'refund'} [role] for a refund pair: which side this is
+ * @property {'charge' | 'refund' | 'send' | 'arrival'} [role] which side this is: of a refund pair, or of a swap across chains
  * @property {string} [chain] the other wallet's chain: an IBC receiver's (via 'own-address'), a bridge's other side (via 'bridge')
  * @property {string} [lookalike] for dust: the known address its sender's looks like
+ * @property {string} [receiver] for a swap across chains: where its result goes
+ * @property {boolean} [targetMissing] for a swap across chains: the receiver is ours, but not in the books
+ * @property {number} [candidates] for a swap across chains: how many arrivals fit
  * @property {string} [counterBookingId] the other side of a transfer, for via 'counter-booking'
  * @property {string} [counterAccountId]
  * @property {string} [counterDay] YYYY-MM-DD
@@ -341,6 +349,38 @@ export function classifyTransaction(tx, ctx) {
 			counterBookingId: String(linked.id),
 			counterAccountId: String(linked.accountId ?? ''),
 			counterDay: String(linked.bookedOn ?? '')
+		};
+	}
+	// Linked by hand as the two sides of a swap (issue #170).
+	const swappedWith = ctx.linkedSwap?.(tx);
+	if (swappedWith) {
+		return {
+			kind: 'crypto-swap',
+			via: 'manual',
+			counterBookingId: String(swappedWith.id),
+			counterAccountId: String(swappedWith.accountId ?? ''),
+			counterDay: String(swappedWith.bookedOn ?? '')
+		};
+	}
+	// A swap across chains planned in an IBC memo, its result to an own wallet
+	// (issue #170): a swap, not a payment; paired with its arrival where one fits.
+	const cross = ctx.crossSwapOf?.(tx);
+	if (cross) {
+		return {
+			kind: 'crypto-swap',
+			via: 'cross-chain',
+			role: cross.role,
+			chain: cross.chain,
+			receiver: cross.receiver,
+			candidates: cross.candidates,
+			...(cross.targetMissing ? { targetMissing: true } : {}),
+			...(cross.other
+				? {
+						counterBookingId: String(cross.other.id),
+						counterAccountId: String(cross.other.accountId ?? ''),
+						counterDay: String(cross.other.bookedOn ?? '')
+					}
+				: {})
 		};
 	}
 	// A charge and its refund (refunds.js): a full refund covers both; a

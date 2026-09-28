@@ -12,7 +12,8 @@ import { isVendorPayment, isVendorReceipt } from './vendor-account.js';
 import { cleanMatchingSettings } from './classify.js';
 import { compactIban, dayNumber } from './normalize.js';
 import { learnedVendors } from './partners.js';
-import { normalizeAddress, walletChain } from '../wallets/chains.js';
+import { cosmosChainOf, normalizeAddress, walletChain } from '../wallets/chains.js';
+import { sameKey } from '../wallets/cross-swap.js';
 import { LOOKALIKE_CHARS, addressBody, isDust, looksAlike } from './dust.js';
 
 /** A transfer between our accounts lands within this many days on the other side. */
@@ -52,6 +53,27 @@ export function txRefsOf(tx) {
  * @param {import('../wallets/chains.js').WalletChain} chain
  */
 const addressFamily = (chain) => (chain.kind === 'evm' ? 'evm' : chain.id);
+
+/** How long a swap across chains may take to arrive (issue #170). */
+export const CROSS_SWAP_MINUTES = 30;
+
+/**
+ * @typedef {object} CrossSwapSide one side of a swap across chains
+ * @property {'send' | 'arrival'} role
+ * @property {string} chain the other side's chain
+ * @property {string} receiver the swap's receiver on the target chain
+ * @property {boolean} targetMissing the receiver is ours (same key) but not in the books
+ * @property {number} candidates arrivals that fit (a send); 1 for an arrival
+ * @property {Record<string, any>} [other] the other side, when exactly one fits
+ */
+
+/** A booking's moment in ms: its time, else the start of its day. @param {Record<string, any>} t */
+function timeOf(t) {
+	const at = Date.parse(String(t.bookedAt ?? ''));
+	if (Number.isFinite(at)) return at;
+	const day = Date.parse(`${t.bookedOn ?? ''}T00:00:00Z`);
+	return Number.isFinite(day) ? day : null;
+}
 
 /**
  * @param {object} params
@@ -202,6 +224,82 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 		});
 	};
 
+	// Swaps across chains (issue #170): an IBC transfer whose memo sends the
+	// swap's result to an own wallet, and the arrival there – the only incoming
+	// booking on that wallet within CROSS_SWAP_MINUTES, of at least the least
+	// amount the swap had to give.
+	const accountById = new Map(accounts.map((a) => [String(a.id), a]));
+	/** @type {Map<string, CrossSwapSide>} */
+	const crossSides = new Map();
+	/** @type {Map<string, string[]>} arrival id → the sends that would take it */
+	const claims = new Map();
+	for (const t of transactions) {
+		const plan = t.crossSwap;
+		if (t.deleted || !plan || typeof plan.receiver !== 'string') continue;
+		const target = cosmosChainOf(plan.receiver);
+		const key = target ? `${target.id}:${normalizeAddress(target, plan.receiver)}` : '';
+		const targetAccounts = new Set(ownAddresses.get(key)?.values() ?? []);
+		const from = accountById.get(String(t.accountId));
+		const ownKey = Boolean(
+			from?.walletAddress && sameKey(String(from.walletAddress), plan.receiver)
+		);
+		if (!targetAccounts.size) {
+			// Not in the books; the same key as the sending wallet says it is ours all the same.
+			if (ownKey) {
+				crossSides.set(String(t.id), {
+					role: 'send',
+					chain: target?.id ?? '',
+					receiver: plan.receiver,
+					targetMissing: true,
+					candidates: 0
+				});
+			}
+			continue;
+		}
+		const sentAt = timeOf(t);
+		const least = /^\d+$/.test(String(plan.minAmount)) ? BigInt(plan.minAmount) : 0n;
+		const arrivals = transactions.filter((o) => {
+			if (o.deleted || o.id === t.id || !targetAccounts.has(String(o.accountId))) return false;
+			if (Number(o.amountCents ?? 0) <= 0 || o.movement === 'fee' || o.movement === 'reward') {
+				return false;
+			}
+			const q = /^-?\d+$/.test(String(o.quantity ?? '')) ? BigInt(o.quantity) : 0n;
+			if (q < least || (least > 0n && q > least * 2n)) return false;
+			const at = timeOf(o);
+			if (sentAt === null || at === null) return false;
+			return at >= sentAt && at - sentAt <= CROSS_SWAP_MINUTES * 60_000;
+		});
+		crossSides.set(String(t.id), {
+			role: 'send',
+			chain: target?.id ?? '',
+			receiver: plan.receiver,
+			targetMissing: false,
+			candidates: arrivals.length,
+			...(arrivals.length === 1 ? { other: arrivals[0] } : {})
+		});
+		for (const o of arrivals)
+			claims.set(String(o.id), [...(claims.get(String(o.id)) ?? []), String(t.id)]);
+	}
+	// An arrival two swaps would take belongs to neither.
+	for (const [id, side] of [...crossSides]) {
+		if (side.role !== 'send' || !side.other) continue;
+		if ((claims.get(String(side.other.id)) ?? []).length > 1) {
+			crossSides.set(id, { ...side, other: undefined, candidates: 2 });
+			continue;
+		}
+		const send = transactions.find((t) => String(t.id) === id);
+		if (send) {
+			crossSides.set(String(side.other.id), {
+				role: 'arrival',
+				chain: String(send.source ?? ''),
+				receiver: side.receiver,
+				targetMissing: false,
+				candidates: 1,
+				other: send
+			});
+		}
+	}
+
 	// Pairs a person linked by hand: each booking to its other side, while both live.
 	const liveById = new Map(transactions.filter((t) => !t.deleted).map((t) => [String(t.id), t]));
 	/** @type {Map<string, string>} */
@@ -211,6 +309,15 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 		if (!a || !b || a === b || !liveById.has(a) || !liveById.has(b)) continue;
 		linkedTo.set(a, b);
 		linkedTo.set(b, a);
+	}
+	// Swaps a person linked by hand ("Als Tausch verknüpfen", issue #170).
+	/** @type {Map<string, string>} */
+	const swappedWith = new Map();
+	for (const key of clean.ownSwaps) {
+		const [a, b] = key.split('|');
+		if (!a || !b || a === b || !liveById.has(a) || !liveById.has(b)) continue;
+		swappedWith.set(a, b);
+		swappedWith.set(b, a);
 	}
 
 	return {
@@ -256,6 +363,13 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 		linkedTransfer(tx) {
 			const other = linkedTo.get(String(tx.id));
 			return other ? (liveById.get(other) ?? null) : null;
+		},
+		linkedSwap(tx) {
+			const other = swappedWith.get(String(tx.id));
+			return other ? (liveById.get(other) ?? null) : null;
+		},
+		crossSwapOf(tx) {
+			return crossSides.get(String(tx.id)) ?? null;
 		},
 		counterBookings(tx) {
 			const day = dayNumber(tx.bookedOn);
