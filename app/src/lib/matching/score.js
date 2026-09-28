@@ -69,6 +69,7 @@ export const SHOWN = 40;
  * @property {'expense' | 'income'} direction what the bank should show
  * @property {boolean} reminder a payment reminder: never takes a booking itself
  * @property {boolean} ours the invoice is our own (vendor = our company)
+ * @property {string} customer who our own invoice is to, when known ('' otherwise)
  */
 
 /**
@@ -103,12 +104,14 @@ export function receiptFacts(r, ctx = {}) {
 				: null;
 	if (cents === null || cents === 0) return null;
 	const invoiceDate = r.documentDate ?? x.invoice_date ?? null;
-	const due = x.due_or_debit_date ?? null;
+	const due = r.dueOn ?? x.due_or_debit_date ?? null;
 	const received = typeof r.receivedAt === 'string' ? r.receivedAt.slice(0, 10) : null;
 	const start = dayNumber(invoiceDate) ?? dayNumber(received);
 	const end = dayNumber(due) ?? start;
 	const vendor = String(r.vendor ?? x.vendor ?? '');
-	const ours = (ctx.companyNames ?? []).some((name) => isOwnName(vendor, name));
+	// An issued invoice from the paired invoicing app is ours by where it came from (issue #8).
+	const ours =
+		r.ownInvoice === true || (ctx.companyNames ?? []).some((name) => isOwnName(vendor, name));
 	const creditNote = cents < 0 || x.document_type === 'credit_note';
 	const documentType = String(x.document_type ?? 'other');
 	return {
@@ -130,7 +133,8 @@ export function receiptFacts(r, ctx = {}) {
 		// Our own invoice is paid to us; a vendor's credit note is refunded to us.
 		direction: ours !== creditNote ? 'income' : 'expense',
 		reminder: documentType === 'payment_reminder',
-		ours
+		ours,
+		customer: ours ? String(r.customer ?? '') : ''
 	};
 }
 
@@ -194,7 +198,9 @@ export function scorePair(r, t) {
 			!r.vendorIban && r.ibanLast4.length === 4 && t.counterpartyIban.endsWith(r.ibanLast4);
 		if (full || last4) add('iban', 'iban');
 	}
-	// Our own invoice names us as vendor, and the payer is the customer: no name to compare.
+	// Our own invoice names us as vendor, and the payer is the customer: the
+	// customer's name is compared where the invoicing app gave it (issue #8).
+	if (r.ours && r.customer && sameVendor(r.customer, t.counterparty)) add('vendor', 'vendor');
 	if (!r.ours && r.vendor) {
 		if (sameVendor(r.vendor, t.counterparty)) add('vendor', 'vendor');
 		// A person linked this counterparty to this vendor before.
