@@ -204,13 +204,13 @@
 			datev = cleanDatevSettings($state.snapshot(datev));
 			await setSetting(store.settings, 'datev', datev);
 			const value = cleanMatchingSettings({
+				// Not edited here – links made by hand, learned fees, prepaid vendors,
+				// "Beleg ist richtig" and whatever comes later – kept as they are.
+				...cleanMatchingSettings(app.matchingSettings),
 				companyNames: lines(companyText),
 				ownIbans: lines(ibanText),
 				rules: $state.snapshot(rules),
-				graceDays: String(graceDays),
-				// Not edited here: kept as they are.
-				feeKeys: cleanMatchingSettings(app.matchingSettings).feeKeys,
-				notTransfers: cleanMatchingSettings(app.matchingSettings).notTransfers
+				graceDays: String(graceDays)
 			});
 			graceDays = value.graceDays;
 			await setSetting(store.settings, 'matching', value);
