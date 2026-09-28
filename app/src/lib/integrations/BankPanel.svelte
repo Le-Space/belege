@@ -2,6 +2,7 @@
 	// Bank (issue #152): the accounts Hibiscus offers through the bridge and
 	// their sync, the CAMT.053 file import for banks without Hibiscus, and the
 	// accounts the books keep. Moved from the Integrationen page.
+	import { btn } from '$lib/ui/styles.js';
 	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { app, currentStore, refreshNow, runMatchingNow } from '$lib/session.svelte.js';
@@ -224,15 +225,15 @@
 >
 	<h2 id="camt-h" class="text-lg font-semibold">{t('integrationen.camt.title')}</h2>
 	<p class="mt-1 text-sm text-text">{t('integrationen.camt.intro')}</p>
-	<label class="mt-3 inline-block max-w-full text-sm text-text">
-		<span class="sr-only">{t('integrationen.camt.title')}</span>
+	<label class="mt-3 inline-flex cursor-pointer items-center {btn.secondary}">
+		{camtBusy ? t('integrationen.camt.reading') : t('integrationen.camt.choose')}
 		<input
 			type="file"
 			accept=".xml,application/xml,text/xml"
 			multiple
 			disabled={camtBusy}
 			onchange={importCamt}
-			class="max-w-full file:mr-3 file:rounded-md file:border file:border-border file:bg-surface-2 file:px-3 file:py-1.5 file:text-sm file:text-heading"
+			class="sr-only"
 			data-testid="camt-file"
 		/>
 	</label>

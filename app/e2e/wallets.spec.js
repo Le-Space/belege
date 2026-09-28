@@ -164,6 +164,9 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 
 	/** @param {string} address @param {string} [url] */
 	async function addAndSync(address, url = node.url) {
+		// Once a wallet exists, the form opens on request.
+		const open = card.getByTestId('wallet-add-open');
+		if (await open.isVisible()) await open.click();
 		await card.getByTestId('wallet-chain').selectOption('nyx');
 		await card.getByTestId('wallet-address-input').fill(address);
 		await card.getByTestId('wallet-endpoint-rpc').fill(url);

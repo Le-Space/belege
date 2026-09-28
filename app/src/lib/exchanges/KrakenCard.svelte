@@ -1,6 +1,7 @@
 <script>
 	// Integrationen → Kraken: the accounts on the exchange, one per asset and
 	// wallet, and "Kraken synchronisieren" (kraken-sync.js).
+	import { krakenKeyProblem, updateAlerts } from '$lib/integrations/alerts.js';
 	import { createBridgeClient } from '$lib/bridge/client.js';
 	import { formatDate } from '$lib/bank/format.js';
 	import { formatQuantity, toUnits } from '$lib/assets/quantity.js';
@@ -51,9 +52,12 @@
 		result = null;
 		try {
 			result = await syncKraken({ client, store, from: from || undefined });
+			await updateAlerts(store.settings, (a) => ({ ...a, kraken: null }));
 			await refreshNow();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
+			const raw = error;
+			await updateAlerts(store.settings, (a) => ({ ...a, kraken: { raw } })).catch(() => {});
 		} finally {
 			syncing = false;
 		}
@@ -132,12 +136,12 @@
 				{t('integrationen.counts', result.totals)}
 			</p>
 			{#if result.transferRefs === 'refused'}
-				<p class="mt-2 text-sm text-danger" role="alert" data-testid="kraken-no-hashes">
+				<p class="mt-2 text-sm text-warning" role="status" data-testid="kraken-no-hashes">
 					{t('integrationen.kraken.noHashes')}
 				</p>
 			{/if}
 			{#if result.unpriced.length}
-				<div class="mt-2 text-sm text-danger" role="alert" data-testid="kraken-unpriced">
+				<div class="mt-2 text-sm text-warning" role="status" data-testid="kraken-unpriced">
 					{t('integrationen.kraken.unpriced', { count: result.unpriced.length })}
 					<ul class="mt-1 list-disc pl-5 text-xs">
 						{#each result.unpriced.slice(0, 5) as u (u.refid)}
@@ -148,7 +152,14 @@
 			{/if}
 		{/if}
 		{#if error}
-			<p class="mt-3 text-sm text-danger" role="alert" data-testid="kraken-error">{error}</p>
+			<div class="mt-3 text-sm text-danger" role="alert" data-testid="kraken-error">
+				{#if krakenKeyProblem(error)}
+					<p>{t('integrationen.kraken.keyProblem')}</p>
+					<p class="mt-1 font-mono text-xs text-faint">{error}</p>
+				{:else}
+					<p>{error}</p>
+				{/if}
+			</div>
 		{/if}
 	</section>
 {/if}

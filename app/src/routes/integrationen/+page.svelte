@@ -9,6 +9,7 @@
 	import { getSetting } from '$lib/store/settings.js';
 	import { loadWallets } from '$lib/wallets/wallet-sync.js';
 	import { loadAleph } from '$lib/aleph/aleph.js';
+	import { loadAlerts } from '$lib/integrations/alerts.js';
 	import { isWalletSource } from '$lib/wallets/chains.js';
 	import { describeMoment } from '$lib/moment.js';
 	import { t } from '$lib/i18n/index.js';
@@ -20,6 +21,8 @@
 	let aleph = $state(0);
 	let invoiceApp = $state(false);
 	let deviceFlag = $state(false);
+	/** @type {import('$lib/integrations/alerts.js').Alerts} */
+	let alerts = $state({ kraken: null, wallets: {} });
 
 	onMount(async () => {
 		const store = currentStore();
@@ -29,11 +32,13 @@
 		} catch {
 			deviceFlag = false;
 		}
-		const [w, a, inv] = await Promise.all([
+		const [w, a, inv, al] = await Promise.all([
 			loadWallets(store.settings),
 			loadAleph(store.settings),
-			getSetting(store.settings, 'ucepInvoiceApp')
+			getSetting(store.settings, 'ucepInvoiceApp'),
+			loadAlerts(store.settings)
 		]);
+		alerts = al;
 		wallets = w.length;
 		aleph = a.accounts.length;
 		invoiceApp = Boolean(inv);
@@ -55,6 +60,7 @@
 			wallets,
 			aleph,
 			invoiceApp,
+			alerts,
 			isWalletSource
 		})
 	);
