@@ -236,3 +236,59 @@ describe('a swap leg without a rate (#163)', () => {
 		expect(byAsset.get('XYZ')?.[0].amountCents).toBe(-19600);
 	});
 });
+
+describe('a token priced by its pool (#163, step 3)', () => {
+	it('asks with the block and decimals, and shows pool and block', async () => {
+		const { walletTransactions } = await import('./wallet-sync.js');
+		const { valuationText } = await import('../assets/valuation.js');
+		const pool = `0x${'a2'.repeat(20)}`;
+		/** @type {any[]} */
+		const asked = [];
+		const entries = /** @type {any[]} */ ([
+			{
+				id: 'h:erc20:1',
+				hash: `0x${'ef'.repeat(32)}`,
+				height: 1000,
+				date: '2026-05-02',
+				time: '2026-05-02T10:41:47Z',
+				type: 'sent',
+				kind: 'transfer',
+				asset: 'XYZ',
+				amount: '-1000000',
+				decimals: 18,
+				counterparty: `0x${'0'.repeat(40)}`,
+				counterpartyLabel: '',
+				memo: '',
+				success: true,
+				explorerUrl: '',
+				contract: `0x${'5e'.repeat(20)}`,
+				listed: false
+			}
+		]);
+		const { byAsset } = await walletTransactions(entries, async (asset, date, contract, at) => {
+			asked.push({ asset, contract, at });
+			return {
+				asset,
+				date,
+				currency: 'EUR',
+				rate: '0.000000697',
+				usdRate: null,
+				source: 'dex',
+				at: '2026-05-02T10:41:47Z',
+				ref: `uniswap-v2:${pool}@1000`
+			};
+		});
+		expect(asked).toEqual([
+			{ asset: 'XYZ', contract: `0x${'5e'.repeat(20)}`, at: { block: 1000, decimals: 18 } }
+		]);
+		const tx = byAsset.get('XYZ')?.[0];
+		expect(tx?.amountCents).toBe(-70);
+		const shown = valuationText({
+			asset: 'XYZ',
+			quantity: tx?.crypto?.quantity,
+			decimals: 18,
+			valuation: tx?.crypto?.valuation
+		});
+		expect(shown).toContain('DEX-Pool (Uniswap V2, Pool 0xa2a2…a2a2, Block 1000)');
+	});
+});

@@ -10,6 +10,7 @@ import { domainOf } from './mail/auth-results.js';
 import { createExtractor } from './llm/extract.js';
 import { createMailAssist } from './llm/assist.js';
 import { createRateService } from './rates.js';
+import { createDexRates } from './dex-rate.js';
 import { createMatchAssist } from './llm/match-assist.js';
 import { createTransferAssist } from './llm/transfer-assist.js';
 import { createVendorAssist } from './llm/vendor-assist.js';
@@ -214,7 +215,13 @@ export async function startBridge({
 			)
 		: createRateService({
 				fetch: rateFetch,
-				coingeckoKey: () => coingeckoKeychain.read().catch(() => null)
+				coingeckoKey: () => coingeckoKeychain.read().catch(() => null),
+				// A token CoinGecko does not price: its pool at the block, through the Alchemy key (#163).
+				dex: createDexRates({
+					fetch: walletFetch,
+					alchemyKey: () => alchemyKeychain.read().catch(() => null),
+					...(alchemyBaseUrl ? { alchemyBaseUrl } : {})
+				})
 			});
 	const bridge = createBridgeServer({
 		config,

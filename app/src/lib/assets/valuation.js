@@ -21,9 +21,11 @@ import { formatQuantity, valueCents } from './quantity.js';
  * @property {'EUR'} currency
  * @property {string} rate EUR per whole unit, a decimal string
  * @property {string | null} usdRate USD per whole unit, when the source has it
- * @property {'coingecko' | 'kraken' | 'ecb' | 'trade' | 'manual'} source
- *   `trade`: the price of the trade itself (what was paid for the asset)
+ * @property {'coingecko' | 'kraken' | 'ecb' | 'trade' | 'dex' | 'manual'} source
+ *   `trade`: the price of the trade itself (what was paid for the asset);
+ *   `dex`: a DEX pool's price at the booking's block (#163)
  * @property {string} at the moment the rate is for, ISO 8601
+ * @property {string} [ref] `dex`: `uniswap-v2:<pool>@<block>`
  */
 
 /**
@@ -32,6 +34,7 @@ import { formatQuantity, valueCents } from './quantity.js';
  * @property {'EUR'} currency
  * @property {Rate['source']} source
  * @property {string} at
+ * @property {string} [ref] `dex`: the pool and block, `uniswap-v2:<pool>@<block>`
  */
 
 /** How a source is named to people. */
@@ -40,6 +43,7 @@ export const SOURCE_NAMES = Object.freeze({
 	kraken: 'Kraken',
 	ecb: 'EZB-Referenzkurs',
 	trade: 'Preis des Handels',
+	dex: 'DEX-Pool',
 	manual: 'von Hand eingetragen'
 });
 
@@ -49,7 +53,7 @@ export const SOURCE_NAMES = Object.freeze({
  * more digits (Kraken: 10 for BTC) passes its own, and may then also name an
  * asset Belege does not list.
  *
- * @param {{ asset: string, units: string, rate: Pick<Rate, 'rate' | 'source' | 'at'>, decimals?: number }} params
+ * @param {{ asset: string, units: string, rate: Pick<Rate, 'rate' | 'source' | 'at' | 'ref'>, decimals?: number }} params
  */
 export function valuedFields({ asset, units, rate, decimals }) {
 	const known = assetOf(asset);
@@ -64,7 +68,13 @@ export function valuedFields({ asset, units, rate, decimals }) {
 		quantity: String(units),
 		decimals: /** @type {number} */ (digits),
 		/** @type {Valuation} */
-		valuation: { rate: rate.rate, currency: 'EUR', source: rate.source, at: rate.at }
+		valuation: {
+			rate: rate.rate,
+			currency: 'EUR',
+			source: rate.source,
+			at: rate.at,
+			...(rate.ref ? { ref: rate.ref } : {})
+		}
 	};
 }
 
@@ -126,6 +136,16 @@ export function formatRate(rate) {
 }
 
 /**
+ * ` (Uniswap V2, Pool 0x1234…abcd, Block 123)` from a `dex` rate's ref, or ''.
+ *
+ * @param {unknown} ref
+ */
+function poolText(ref) {
+	const m = /^uniswap-v([23]):(0x[0-9a-f]{40})@(\d+)$/.exec(String(ref ?? ''));
+	return m ? ` (Uniswap V${m[1]}, Pool ${m[2].slice(0, 6)}…${m[2].slice(-4)}, Block ${m[3]})` : '';
+}
+
+/**
  * `60.123,40 EUR je BTC · CoinGecko, 01.09.2026 00:00 UTC`, or ''.
  *
  * @param {Record<string, any>} tx
@@ -136,5 +156,5 @@ export function valuationText(tx) {
 	const source = /** @type {Record<string, string>} */ (SOURCE_NAMES)[v.source] ?? v.source;
 	const at = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(v.at ?? ''));
 	const when = at ? `${at[3]}.${at[2]}.${at[1]} ${at[4]}:${at[5]} UTC` : '';
-	return `${formatRate(v.rate)} EUR je ${tx.asset} · ${source}${when ? `, ${when}` : ''}`;
+	return `${formatRate(v.rate)} EUR je ${tx.asset} · ${source}${poolText(v.ref)}${when ? `, ${when}` : ''}`;
 }
