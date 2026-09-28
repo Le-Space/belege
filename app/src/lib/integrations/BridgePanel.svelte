@@ -3,7 +3,13 @@
 	// by code, "Kopplung lösen" (issue #152: on the overview as its first row,
 	// and on its own page).
 	import { t } from '$lib/i18n/index.js';
-	import { bridge, checkBridge, pairBridge, unpairBridge } from './bridge-state.svelte.js';
+	import {
+		bridge,
+		bridgeViaDevice,
+		checkBridge,
+		pairBridge,
+		unpairBridge
+	} from './bridge-state.svelte.js';
 
 	/** @type {{ intro?: boolean }} */
 	let { intro = true } = $props();
@@ -32,7 +38,12 @@
 					{t('integrationen.bridge.checking')}
 				{:else if bridge.state === 'online'}
 					<span class="font-medium text-success">{t('integrationen.bridge.online')}</span>
-					· {bridge.token ? t('integrationen.bridge.paired') : t('integrationen.bridge.unpaired')}
+					·
+					{bridgeViaDevice()
+						? t('integrationen.bridge.viaDevice')
+						: bridge.token
+							? t('integrationen.bridge.paired')
+							: t('integrationen.bridge.unpaired')}
 					{#if !bridge.health.hibiscus}· {t('integrationen.bridge.noHibiscus')}{/if}
 				{:else if bridge.state === 'offline'}
 					<span class="font-medium text-danger">{t('integrationen.bridge.offline')}</span>
@@ -46,7 +57,11 @@
 		>
 	</div>
 
-	{#if !bridge.token}
+	{#if bridgeViaDevice()}
+		<p class="mt-3 text-sm text-text" data-testid="bridge-via-device">
+			{t('integrationen.bridge.viaDeviceHint')}
+		</p>
+	{:else if !bridge.token}
 		<form class="mt-4 flex flex-wrap items-end gap-3" onsubmit={pair}>
 			<label class="flex flex-col text-sm">
 				<span class="text-faint">{t('integrationen.bridge.url')}</span>

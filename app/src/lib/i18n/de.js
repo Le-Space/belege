@@ -560,6 +560,7 @@ export default {
 		hidden: '{count} weitere in anderen Jahren'
 	},
 	home: {
+		integrationNeeds: 'Integrationen brauchen dich',
 		transferReceipts: {
 			title: 'Umbuchung mit Beleg: {count} zu prüfen',
 			what: 'Diese Zahlungen gelten jetzt als eigene Umbuchung und brauchen keinen Beleg, haben aber noch einen zugeordnet – oft aus der Zeit, bevor die Umbuchung erkannt wurde. Löse die Zuordnung, wenn der Beleg nicht dazugehört; sonst bestätige ihn.',
@@ -1728,6 +1729,8 @@ export default {
 			needKind: { err: 'Fehler', warn: 'Hinweis' },
 			need: {
 				bridgeOffline: 'die Bridge antwortet nicht. Läuft sie auf diesem Mac?',
+				bridgeOfflineDevices:
+					'die Bridge antwortet nicht – weder hier noch über ein eigenes Gerät. Ist dein Mac mit der Bridge an und verbunden?',
 				deviceRemoved:
 					'dieses Gerät wurde auf einem anderen entfernt; die Synchronisation ist aus.',
 				deviceError: 'die Synchronisation meldet einen Fehler.',
@@ -1738,6 +1741,7 @@ export default {
 			group: { basis: 'Grundlage', sources: 'Konten & Quellen', together: 'Zusammenarbeit' },
 			groupHint: {
 				basis: 'läuft auf diesem Rechner',
+				basisViaDevice: 'läuft über deinen Mac',
 				sources: 'woher Zahlungen und Belege kommen',
 				together: 'andere Apps und Menschen'
 			},
@@ -1768,10 +1772,13 @@ export default {
 				none: 'keine',
 				onDemand: 'bei Bedarf',
 				paired: 'gekoppelt',
-				notPaired: 'nicht gekoppelt'
+				notPaired: 'nicht gekoppelt',
+				viaDevice: 'über deinen Mac'
 			},
 			line: {
 				bridge: 'Auf diesem Mac; holt Umsätze, liest Belege, fragt Knoten',
+				bridgeViaDevice:
+					'Läuft auf deinem Mac; dieses Gerät nutzt sie über die Gerätesynchronisation',
 				ki: 'Liest Anbieter, Betrag, Datum und Nummer aus Belegen',
 				devicesOn: 'Dieselben Bücher auf deinen Geräten · {count} verbunden',
 				devicesOff: 'Dieselben Bücher auf Telefon oder zweitem Rechner',
@@ -1822,6 +1829,9 @@ export default {
 			online: 'Bridge erreichbar',
 			paired: 'dieses Gerät ist gekoppelt',
 			unpaired: 'nicht gekoppelt',
+			viaDevice: 'über deinen Mac (eigenes Gerät)',
+			viaDeviceHint:
+				'Dieses Gerät nutzt die Bridge deines Macs. Koppeln, Einrichten und Entkoppeln geschehen dort; hier gehen nur lesende Abfragen und das Auslesen hinüber.',
 			noHibiscus: 'Hibiscus ist noch nicht eingerichtet',
 			offline: 'Bridge nicht erreichbar',
 			unknown: 'Status unbekannt',

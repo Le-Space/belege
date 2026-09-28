@@ -3,7 +3,7 @@
 // and what is set up on it. Shared by the overview and every integration's
 // own page, so pairing on one shows on the others.
 import { createBridgeClient, DEFAULT_BRIDGE_URL } from '$lib/bridge/client.js';
-import { currentStore } from '$lib/session.svelte.js';
+import { app, currentStore } from '$lib/session.svelte.js';
 import { getSetting, setSetting } from '$lib/store/settings.js';
 import { t } from '$lib/i18n/index.js';
 
@@ -33,6 +33,12 @@ export const bridge = $state({
 	/** the saved pairing has been read */
 	loaded: false
 });
+
+/**
+ * The bridge answers, but through an own device's (a phone using the Mac's,
+ * #142): pairing, setup and unpairing belong to that device.
+ */
+export const bridgeViaDevice = () => bridge.state === 'online' && app.sync.bridgeRoute === 'device';
 
 /** A client with this device's token. */
 export const bridgeClient = () => createBridgeClient({ url: bridge.url, token: bridge.token });
@@ -98,6 +104,8 @@ export async function pairBridge(code) {
 export async function unpairBridge() {
 	const store = currentStore();
 	if (!store) return;
+	// The pairing is in the books, which own devices share: dropping it here would unpair the Mac.
+	if (bridgeViaDevice()) return;
 	bridge.error = null;
 	try {
 		await bridgeClient().unpair();

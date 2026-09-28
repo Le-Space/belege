@@ -3,7 +3,7 @@
 // test mode with a fake LLM. The "Mac" is paired with the bridge and serves
 // it to own devices; the "phone" may not reach 127.0.0.1 (the requests are
 // aborted, as a phone cannot), so its bridge client goes through the Mac:
-// the status says paired and the model the bridge uses shows. The phone's
+// the status says it runs through the Mac, and the model the bridge uses shows. The phone's
 // own token is never sent; the Mac's stays on the Mac.
 import { test, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
@@ -183,8 +183,16 @@ test('the phone reaches the bridge through the desktop', async ({ browser }) => 
 				},
 				{ timeout: 90_000, intervals: [2_000] }
 			)
-			.toContain('dieses Gerät ist gekoppelt');
+			.toContain('über deinen Mac');
 		expect(phone.blocked).toContain('/health');
+		// Pairing belongs to the Mac: the phone offers no "Kopplung lösen", which would unpair it too.
+		await expect(phone.page.getByTestId('bridge-via-device')).toBeVisible();
+		await expect(phone.page.getByTestId('unpair')).toHaveCount(0);
+		await expect(
+			phone.page
+				.getByTestId('integration-row')
+				.filter({ has: phone.page.getByTestId('integration-bridge') })
+		).toHaveAttribute('data-kind', 'ok');
 		// The model the bridge uses, asked through the Mac (GET /llm/status, with the Mac's token).
 		await tab(phone.page, 'Home');
 		await openIntegration(phone.page, 'ki');

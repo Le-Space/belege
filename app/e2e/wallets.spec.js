@@ -218,6 +218,13 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 		/^Gebucht 0\sNYM, Bestand 40\sNYM: Es fehlen Transaktionen/
 	);
 
+	// The hint is on Home too (#152), and leads back to the wallets.
+	await page.getByTestId('tab-home').click();
+	const needs = page.getByTestId('home-integration-needs');
+	await expect(needs).toContainText('Eigene Wallets');
+	await needs.getByTestId('integrations-need').filter({ hasText: 'Eigene Wallets' }).click();
+	await expect(page).toHaveURL(/\/integrationen\/wallets$/);
+
 	// Zahlungen: every booking links to its transaction.
 	await page.getByRole('link', { name: 'Zahlungen' }).click();
 	await page.getByTestId('filter-all').click();

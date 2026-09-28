@@ -243,21 +243,28 @@ export async function startBridgeConsumer({ libp2p, devices, label = 'Belege' })
  * The bridge on this machine first; when it cannot be reached (a phone: no
  * bridge, or a page that may not call 127.0.0.1), an own device's.
  *
- * @param {{ local?: typeof fetch, remote: () => ((input: any, init?: RequestInit) => Promise<Response>) | null }} p
+ * `onRoute` hears which way a call went: 'local', or 'device' through an own
+ * device's bridge.
+ *
+ * @param {{ local?: typeof fetch, remote: () => ((input: any, init?: RequestInit) => Promise<Response>) | null, onRoute?: (route: 'local' | 'device') => void }} p
  * @returns {typeof fetch}
  */
-export function bridgeFetch({ local = fetch, remote }) {
+export function bridgeFetch({ local = fetch, remote, onRoute = () => {} }) {
 	return /** @type {typeof fetch} */ (
 		async (input, init) => {
 			try {
-				return await local(input, init);
+				const res = await local(input, init);
+				onRoute('local');
+				return res;
 			} catch (error) {
 				const through = remote();
 				if (!through) throw error;
 				// The own device's bridge answers with the desktop's token; this one's stays here.
 				const headers = { .../** @type {Record<string, string>} */ (init?.headers ?? {}) };
 				delete headers.Authorization;
-				return through(input, { ...init, headers });
+				const res = await through(input, { ...init, headers });
+				onRoute('device');
+				return res;
 			}
 		}
 	);
