@@ -85,6 +85,7 @@
 		rankHits,
 		likelyHit,
 		assistCandidates,
+		assistEmptyReason,
 		matchOfReceipt,
 		ownNameCandidate,
 		receiptChoices,
@@ -247,8 +248,13 @@
 	let searching = $state(false);
 	// "✦ KI-Vorschlag" under "Beleg zuordnen" (bridge POST /match/assist).
 	let aiPicking = $state(false);
-	/** @type {{ pick: { id: string, confidence: string, reason: string } | null, sent: string[] } | null} */
+	/**
+	 * What the model answered, and what it was given (issue #167).
+	 * @type {{ pick: { id: string, confidence: string, reason: string } | null, reason: string, model: string, seconds: number, sent: string[], checked: { id: string, vendor?: string, amount?: string, currency?: string, date?: string, number?: string }[] } | null}
+	 */
 	let aiChoice = $state(null);
+	let aiCandidates = $derived(tx ? assistCandidates(tx, choices) : []);
+	let aiEmpty = $derived(tx ? assistEmptyReason(tx, choices) : null);
 	let aiChoiceRow = $derived.by(() => {
 		const id = /** @type {string | undefined} */ (
 			aiChoice ? /** @type {any} */ (aiChoice).pick?.id : undefined
@@ -551,11 +557,9 @@
 		error = null;
 		aiChoice = null;
 		try {
-			const candidates = assistCandidates(tx, choices);
-			if (!candidates.length) {
-				aiChoice = { pick: null, sent: [] };
-				return;
-			}
+			const candidates = aiCandidates;
+			// Nothing to send: the page already says why; the model is not asked (#167).
+			if (!candidates.length) return;
 			const r = await client.matchAssist({
 				booking: {
 					counterparty: String(tx.counterparty ?? '').slice(0, 200),
@@ -565,7 +569,15 @@
 				},
 				candidates
 			});
-			aiChoice = { pick: r.pick, sent: r.llm.sent };
+			const calls = r.llm.calls ?? [];
+			aiChoice = {
+				pick: r.pick,
+				reason: r.reason ?? r.pick?.reason ?? '',
+				model: calls.at(-1)?.model ?? '',
+				seconds: Math.max(1, Math.round(calls.reduce((n, c) => n + (c.ms ?? 0), 0) / 1000)),
+				sent: r.llm.sent ?? [],
+				checked: candidates
+			};
 			await recordEvent(currentStore()?.events, 'match-assist', {
 				transactionId: tx.id,
 				candidates: candidates.length,
@@ -1809,17 +1821,48 @@
 											type="button"
 											class="inline-flex items-center gap-1.5 {button}"
 											onclick={suggestByAi}
-											disabled={aiPicking || busy}
+											disabled={aiPicking || busy || Boolean(aiEmpty)}
 											title={t('zahlungen.detail.aiChoiceTitle')}
 											data-testid="tx-ai-choice-ask"
 											><AiMark />{aiPicking
 												? t('zahlungen.detail.aiChoiceBusy')
 												: t('zahlungen.detail.aiChoice')}</button
 										>
-										{#if aiChoice && !aiChoice.pick}
-											<p class="mt-1 text-sm text-faint" data-testid="tx-ai-choice-none">
-												{t('zahlungen.detail.aiChoiceNone')}
+										{#if aiEmpty}
+											<p class="mt-1 text-sm text-faint" data-testid="tx-ai-choice-empty">
+												{t(`zahlungen.detail.aiChoiceEmpty.${aiEmpty}`)}
 											</p>
+										{:else if aiChoice && !aiChoice.pick}
+											<p class="mt-1 text-sm text-text" data-testid="tx-ai-choice-none">
+												{t('zahlungen.detail.aiChoiceNone', {
+													model: aiChoice.model || t('zahlungen.detail.aiChoiceModel'),
+													count: aiChoice.checked.length,
+													seconds: aiChoice.seconds
+												})}{aiChoice.reason ? `: ${aiChoice.reason}` : '.'}
+											</p>
+										{/if}
+										{#if aiChoice && !aiEmpty}
+											<details class="mt-1 text-sm" data-testid="tx-ai-choice-checked">
+												<summary class="cursor-pointer text-faint underline"
+													>{t('zahlungen.detail.aiChoiceChecked', {
+														count: aiChoice.checked.length
+													})}</summary
+												>
+												<ul class="mt-1 space-y-0.5 text-xs text-text">
+													{#each aiChoice.checked as c (c.id)}
+														<li data-testid="tx-ai-choice-checked-item">
+															{[
+																c.vendor,
+																c.amount ? `${c.amount} ${c.currency ?? ''}`.trim() : '',
+																c.date,
+																c.number
+															]
+																.filter(Boolean)
+																.join(' · ')}
+														</li>
+													{/each}
+												</ul>
+											</details>
 										{/if}
 										{#if aiChoiceRow && aiChoice?.pick}
 											<div

@@ -397,7 +397,7 @@ export function createBridgeClient({
 		 * from their read fields; the bridge redacts.
 		 *
 		 * @param {{ booking: { counterparty?: string, purpose?: string, amount?: string, day?: string }, candidates: { id: string, vendor?: string, amount?: string, currency?: string, date?: string, number?: string, summary?: string }[] }} body
-		 * @returns {Promise<{ pick: { id: string, confidence: 'high' | 'medium' | 'low', reason: string } | null, llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
+		 * @returns {Promise<{ pick: { id: string, confidence: 'high' | 'medium' | 'low', reason: string } | null, reason?: string, llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
 		 */
 		matchAssist: (body) => call('/match/assist', { method: 'POST', body: JSON.stringify(body) }),
 		/**

@@ -1637,7 +1637,14 @@ export default {
 			aiChoiceBusy: 'KI prüft …',
 			aiChoiceTitle:
 				'Die Bridge schickt dein eingestelltes Sprachmodell die Buchung (Gegenpartei, Verwendungszweck, Betrag, Tag) und bis zu 25 passende Belege mit Anbieter, Betrag, Datum, Rechnungsnummer und Kurzbeschreibung – geschwärzt. Es nennt den passenden Beleg; zuordnen tust du.',
-			aiChoiceNone: 'Das Sprachmodell hält keinen der Belege für passend.',
+			aiChoiceNone: '{model} hat {count} Belege geprüft ({seconds} s) und hält keinen für passend',
+			aiChoiceModel: 'Das Sprachmodell',
+			aiChoiceChecked: 'Welche {count} Belege wurden geprüft?',
+			aiChoiceEmpty: {
+				crypto:
+					'Für eine Krypto-Zahlung kommen nur Belege in Frage, die ihren Hash, ihre Adresse oder ihre Menge nennen – keiner tut das. Das Sprachmodell wird deshalb nicht gefragt.',
+				none: 'Kein ausgelesener Beleg in dieser Richtung – das Sprachmodell hätte nichts zu prüfen und wird nicht gefragt.'
+			},
 			aiSearch: 'Mit KI weitersuchen',
 			aiSearching: 'KI sucht …',
 			aiSearchTitle:

@@ -398,6 +398,20 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await detail.getByTestId('tx-find-query').fill('');
 	await expect(detail.getByTestId('tx-choice')).toHaveCount(choicesBefore);
 	await expect(detail.getByTestId('tx-choice-diff').first()).toContainText('Tage');
+	// ✦ KI-Vorschlag, when none fits: the model, how many it checked, and why (#167).
+	llm.answers.respond = (/** @type {any} */ body) =>
+		String(body.messages[0].content).startsWith('You match a bank booking')
+			? { best: null, confidence: 'medium', reason: 'Keiner nennt diesen Betrag' }
+			: undefined;
+	await detail.getByTestId('tx-ai-choice-ask').click();
+	const none = detail.getByTestId('tx-ai-choice-none');
+	await expect(none).toContainText(
+		/hat \d+ Belege geprüft \(\d+ s\) und hält keinen für passend: Keiner nennt diesen Betrag/
+	);
+	const checked = detail.getByTestId('tx-ai-choice-checked');
+	await checked.locator('summary').click();
+	await expect(checked.getByTestId('tx-ai-choice-checked-item').first()).toBeVisible();
+	await expect(checked).toContainText(NAMES.wolke);
 	// ✦ KI-Vorschlag: the model picks among the receipts by their read fields.
 	llm.answers.respond = (/** @type {any} */ body) => {
 		if (!String(body.messages[0].content).startsWith('You match a bank booking')) return undefined;
@@ -471,8 +485,8 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 		'Diesen Beleg gibt es schon in deinen Büchern. Er ist dieser Zahlung zugeordnet.'
 	);
 	await expect(detail.getByTestId('tx-private-receipt-here')).toBeVisible();
-	// 6, plus the two suggestions the run on the Rückfragen page asked for.
-	expect(llm.requests.length).toBe(8);
+	// 7 (with the KI-Vorschlag that found none), plus the two suggestions the run on the Rückfragen page asked for.
+	expect(llm.requests.length).toBe(9);
 	await page.screenshot({ path: test.info().outputPath('zahlung-detail.png') });
 	// On a phone the panel fills the screen, without sideways scrolling.
 	await page.setViewportSize({ width: 375, height: 812 });
