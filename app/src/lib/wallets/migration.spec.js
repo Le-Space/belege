@@ -204,7 +204,8 @@ describe('a rate by hand, and a later sync', () => {
 		});
 		const [stored] = await store.transactions.list();
 		expect(stored.rateMissing).toEqual({ reason: 'no rate found for NEW' });
-		await expect(setManualRate(store, stored.id, 'abc')).rejects.toThrow('positive Zahl');
+		await expect(setManualRate(store, stored.id, 'abc')).rejects.toThrow('Zahl ab 0');
+		await expect(setManualRate(store, stored.id, '-1')).rejects.toThrow('Zahl ab 0');
 		await setManualRate(store, stored.id, '1,5');
 		const manual = await store.transactions.get(stored.id);
 		expect(manual).toMatchObject({
@@ -238,6 +239,27 @@ describe('a rate by hand, and a later sync', () => {
 		expect(await store.transactions.get(stored.id)).toMatchObject({
 			amountCents: 21000,
 			valuation: { source: 'manual' }
+		});
+	});
+});
+
+describe('a worthless token', () => {
+	it('takes a rate of 0 by hand: the amount is 0, and the rate is no longer missing', async () => {
+		const store = {
+			transactions: memoryCollection(/** @type {any} */ ('transactions')).collection,
+			events: memoryCollection(/** @type {any} */ ('events')).collection
+		};
+		const tx = await store.transactions.put({
+			amountCents: 0,
+			quantity: '-30000000000000000000000',
+			decimals: 18,
+			rateMissing: { reason: 'no rate found for OLD' }
+		});
+		await setManualRate(store, tx.id, '0');
+		expect(await store.transactions.get(tx.id)).toMatchObject({
+			amountCents: 0,
+			rateMissing: null,
+			valuation: { rate: '0', source: 'manual' }
 		});
 	});
 });
