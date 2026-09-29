@@ -150,3 +150,32 @@ describe('CAMT.053, the bank transaction code', () => {
 		});
 	});
 });
+
+describe('CAMT, the sender of a credit (#176)', () => {
+	/** @param {string} acct the DbtrAcct/Id content */
+	const credit = (acct) => `<?xml version="1.0"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.08"><BkToCstmrStmt><Stmt>
+  <Id>CREDIT-TEST</Id>
+  <Acct><Id><IBAN>DE00000000000000000002</IBAN></Id><Ccy>EUR</Ccy></Acct>
+  <Ntry>
+    <Amt Ccy="EUR">100.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><Sts><Cd>BOOK</Cd></Sts>
+    <BookgDt><Dt>2026-03-14</Dt></BookgDt>
+    <NtryDtls><TxDtls><Refs><AcctSvcrRef>in-1</AcctSvcrRef></Refs>
+      <RltdPties><Dbtr><Pty><Nm>Beispiel UG</Nm></Pty></Dbtr><DbtrAcct><Id>${acct}</Id></DbtrAcct></RltdPties>
+      <RmtInf><Ustrd>Abo Werkzeug</Ustrd></RmtInf></TxDtls></NtryDtls>
+  </Ntry>
+</Stmt></BkToCstmrStmt></Document>`;
+
+	it('its IBAN, or one given under Othr; anything else under Othr is none', () => {
+		expect(
+			parse(credit('<IBAN>DE00 0000 0000 0000 0000 01</IBAN>'))[0].transactions[0].counterpartyIban
+		).toBe('DE00000000000000000001');
+		expect(
+			parse(credit('<Othr><Id>DE00000000000000000001</Id></Othr>'))[0].transactions[0]
+				.counterpartyIban
+		).toBe('DE00000000000000000001');
+		expect(
+			parse(credit('<Othr><Id>12345678</Id></Othr>'))[0].transactions[0].counterpartyIban
+		).toBe('');
+	});
+});

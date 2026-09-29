@@ -14,6 +14,7 @@ import { compactIban, dayNumber } from './normalize.js';
 import { learnedVendors } from './partners.js';
 import { cosmosChainOf, normalizeAddress, walletChain } from '../wallets/chains.js';
 import { sameKey } from '../wallets/cross-swap.js';
+import { mutualTwin } from './twins.js';
 import { LOOKALIKE_CHARS, addressBody, isDust, looksAlike } from './dust.js';
 
 /** A transfer between our accounts lands within this many days on the other side. */
@@ -153,6 +154,74 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 		if (a.source !== 'hibiscus' || !/^[A-Z0-9]{4}$/i.test(String(a.ibanLast4 ?? ''))) continue;
 		const key = String(a.ibanLast4).toUpperCase();
 		ownLast4.set(key, [...(ownLast4.get(key) ?? []), a.id]);
+	}
+
+	// Own transfers by IBAN (issue #176): which of our accounts an IBAN names –
+	// a CAMT account by its key, a Hibiscus account by its last four – and on
+	// it the booking that is the other side: the same amount the other way
+	// within days, a pair only when each side picks the other (twins.js).
+	/** @type {Map<string, string[]>} IBAN → our accounts it names */
+	const accountsOfIban = new Map();
+	for (const iban of ownIbans) {
+		const key = await ibanKey(iban);
+		const ids = accounts
+			.filter(
+				(a) =>
+					!a.deleted &&
+					((a.source === 'camt' && a.sourceAccountId === key) ||
+						(a.source === 'hibiscus' && String(a.ibanLast4 ?? '').toUpperCase() === iban.slice(-4)))
+			)
+			.map((a) => String(a.id));
+		if (ids.length) accountsOfIban.set(iban, ids);
+	}
+	/** @param {Record<string, any>} t */
+	const targetsOf = (t) =>
+		(accountsOfIban.get(compactIban(t.counterpartyIban)) ?? []).filter(
+			(id) => id !== String(t.accountId)
+		);
+	const liveTx = transactions.filter((t) => !t.deleted && t.amountCents);
+	/** @param {Record<string, any>} a @param {Record<string, any>} b */
+	const near = (a, b) => {
+		const x = dayNumber(a.bookedOn);
+		const y = dayNumber(b.bookedOn);
+		return x !== null && y !== null && Math.abs(x - y) <= MIRROR_DAYS;
+	};
+	/** @param {Record<string, any>} t the booking that names the IBAN */
+	const ibanForward = (t) => {
+		const targets = targetsOf(t);
+		return liveTx.filter(
+			(o) =>
+				targets.includes(String(o.accountId)) &&
+				o.amountCents === -t.amountCents &&
+				(o.currency ?? 'EUR') === (t.currency ?? 'EUR') &&
+				near(t, o)
+		);
+	};
+	/** @param {Record<string, any>} o a booking on the named account */
+	const ibanBackward = (o) =>
+		liveTx.filter(
+			(t) =>
+				targetsOf(t).includes(String(o.accountId)) &&
+				t.amountCents === -o.amountCents &&
+				(t.currency ?? 'EUR') === (o.currency ?? 'EUR') &&
+				near(t, o)
+		);
+	/** @type {Map<string, Record<string, any>>} */
+	const ibanPairs = new Map();
+	/** @type {Set<string>} */
+	const ibanMissing = new Set();
+	for (const t of liveTx) {
+		if (!targetsOf(t).length) continue;
+		const forward = ibanForward(t);
+		if (!forward.length) {
+			ibanMissing.add(String(t.id));
+			continue;
+		}
+		const o = mutualTwin(t, forward, ibanBackward);
+		if (o) {
+			ibanPairs.set(String(t.id), o);
+			ibanPairs.set(String(o.id), t);
+		}
 	}
 
 	/** @type {Map<string, Record<string, any>[]>} */
@@ -359,6 +428,12 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 		},
 		prepaidReceipt(r) {
 			return clean.prepaidVendors.some((v) => isVendorReceipt(v.name, r));
+		},
+		ibanCounterpart(tx) {
+			return ibanPairs.get(String(tx.id)) ?? null;
+		},
+		ibanCounterpartMissing(tx) {
+			return ibanMissing.has(String(tx.id));
 		},
 		linkedTransfer(tx) {
 			const other = linkedTo.get(String(tx.id));

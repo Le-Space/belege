@@ -691,10 +691,29 @@
 		});
 
 	let ownName = $derived(
-		tx && !classification && !tx.noReceipt
+		tx &&
+			!tx.noReceipt &&
+			// Also for an own transfer found another way, while no company name is set (#176).
+			(!classification ||
+				(classification.kind === 'own-transfer' &&
+					!(app.matchingSettings?.companyNames ?? []).length))
 			? ownNameCandidate(tx, app.transactions, app.matchingSettings?.companyNames ?? [])
 			: null
 	);
+	// Twins (#176): several bookings of exactly this amount the other way on own
+	// accounts within days, and no rule could tell which is the other side.
+	let twins = $derived.by(() => {
+		if (!tx || classification || tx.noReceipt || privateKind(tx) || !tx.amountCents) return [];
+		const day = Date.parse(`${tx.bookedOn}T00:00:00Z`);
+		return app.transactions.filter(
+			(o) =>
+				!o.deleted &&
+				o.accountId !== tx.accountId &&
+				o.amountCents === -tx.amountCents &&
+				(o.currency ?? 'EUR') === (tx.currency ?? 'EUR') &&
+				Math.abs(Date.parse(`${o.bookedOn}T00:00:00Z`) - day) <= 4 * 86_400_000
+		);
+	});
 	let ownNameDismissed = $state(false);
 	const acceptOwnName = () =>
 		act(async () => {
@@ -1554,6 +1573,25 @@
 								data-testid="tx-own-name-no">{t('zahlungen.detail.ownNameNo')}</button
 							>
 						</div>
+					</div>
+				{/if}
+				{#if twins.length > 1}
+					<div
+						class="mt-2 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
+						data-testid="tx-twins"
+					>
+						<p class="text-text">{t('zahlungen.detail.twins', { count: twins.length })}</p>
+						<button
+							type="button"
+							class="mt-1.5 {button}"
+							onclick={() => {
+								altOpen = true;
+								linkOpen = true;
+								linkMode = 'transfer';
+								linkAi = null;
+							}}
+							data-testid="tx-twins-link">{t('zahlungen.detail.linkTransfer')}</button
+						>
 					</div>
 				{/if}
 				{#if waitDays !== null}

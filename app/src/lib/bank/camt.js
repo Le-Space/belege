@@ -110,6 +110,24 @@ function partyName(/** @type {Element | null} */ party) {
 	return text(party, 'Nm') || text(party, 'Pty', 'Nm');
 }
 
+/** An IBAN's shape, after spaces are gone. */
+const IBAN_SHAPE = /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/;
+
+/**
+ * The other side's IBAN: `Acct/Id/IBAN`, or – some banks put it there –
+ * `Acct/Id/Othr/Id` when that has an IBAN's shape (issue #176).
+ *
+ * @param {Element | null} parties
+ * @param {string} side `Dbtr` or `Cdtr`
+ */
+function counterpartyIbanOf(parties, side) {
+	const clean = (/** @type {string} */ s) => s.replace(/\s/g, '').toUpperCase();
+	const iban = clean(text(parties, `${side}Acct`, 'Id', 'IBAN'));
+	if (iban) return iban;
+	const other = clean(text(parties, `${side}Acct`, 'Id', 'Othr', 'Id'));
+	return IBAN_SHAPE.test(other) ? other : '';
+}
+
 /**
  * @param {string} xml
  * @param {{ DOMParser?: typeof DOMParser }} [options] tests pass one (Node has none)
@@ -187,9 +205,7 @@ export function parseCamt053(xml, { DOMParser: Parser = globalThis.DOMParser } =
 					amountCents: sign * camtAmountCents(amtEl.textContent ?? ''),
 					currency: amtEl.getAttribute('Ccy') || currency,
 					counterpartyName: partyName(child(parties, side)),
-					counterpartyIban: text(parties, `${side}Acct`, 'Id', 'IBAN')
-						.replace(/\s/g, '')
-						.toUpperCase(),
+					counterpartyIban: counterpartyIbanOf(parties, side),
 					purpose:
 						purpose || text(tx, 'RmtInf', 'Strd', 'CdtrRefInf', 'Ref') || text(tx, 'AddtlTxInf'),
 					endToEndId: endToEndId === 'NOTPROVIDED' ? '' : endToEndId,
