@@ -717,6 +717,9 @@ export default {
 			noReason: 'ohne Grund',
 			ownCompany: 'Eigene Umbuchung: Die Gegenpartei ist deine Firma „{company}“',
 			ownIban: 'Eigene Umbuchung: Das Gegenkonto ist dein Konto {account}',
+			ownIbanFound: '– die Gegenbuchung dort vom {date} ist verknüpft.',
+			ownIbanMissing:
+				'– dort ist keine Gegenbuchung mit diesem Betrag in den Tagen darum. Ist der Kontoauszug dieses Kontos vollständig importiert?',
 			ownCounter:
 				'Eigene Umbuchung: Die Gegenbuchung steht auf {account} am {date} – gleicher Betrag in die andere Richtung, und „{sign}“ sagt Umbuchung. Kein Beleg nötig (Konto 1360).',
 			otherAccount: 'deinem anderen Konto',
@@ -1658,6 +1661,8 @@ export default {
 			linkRefundNone: 'Keine Buchung in die andere Richtung innerhalb von 120 Tagen.',
 			party: { from: 'Von', to: 'An', own: 'eigene', foreign: 'fremde Adresse' },
 			linkTransfer: 'Als Gegenbuchung verknüpfen …',
+			twins:
+				'{count} Buchungen mit genau diesem Betrag in der Gegenrichtung auf deinen anderen Konten, in den Tagen darum – und kein Verwendungszweck sagt, welche die Gegenbuchung ist. Verknüpfe die richtige von Hand.',
 			linkTransferTitle:
 				'Diese Zahlung und eine auf einem anderen deiner Konten oder Wallets sind die zwei Seiten einer eigenen Umbuchung (Konto 1360): keine braucht einen Beleg. Bleibt bei jedem Abgleich.',
 			linkTransferSearch: 'Gegenbuchung suchen: Name, Zweck, Betrag …',

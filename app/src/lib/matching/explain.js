@@ -208,9 +208,15 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 				(a) => String(a.ibanLast4 ?? '').toUpperCase() === String(c.ibanLast4 ?? '').toUpperCase()
 			);
 			const account = own ? `${accountLabel(own)}` : `···${c.ibanLast4 ?? ''}`;
-			return t(c.via === 'mirrored' ? 'explain.rule.ownMirrored' : 'explain.rule.ownIban', {
-				account
+			const other = c.counterBookingId ? accounts.find((a) => a.id === c.counterAccountId) : null;
+			const line = t(c.via === 'mirrored' ? 'explain.rule.ownMirrored' : 'explain.rule.ownIban', {
+				account: other ? accountLabel(other) : account
 			});
+			// Issue #176: where the other side is, or that it is missing on an account in the books.
+			if (c.counterBookingId) {
+				return `${line} ${t('explain.rule.ownIbanFound', { date: c.counterDay ? formatDate(c.counterDay) : '?' })}`;
+			}
+			return c.counterMissing ? `${line} ${t('explain.rule.ownIbanMissing')}` : line;
 		}
 		case 'bank-fee':
 			if (c.via === 'exchange-fee') return t('explain.rule.exchangeFee');

@@ -24,6 +24,7 @@
 // with, it is likely address poisoning, and the classification names that one.
 // (docs/phase-0.md, "Matching"; docs/crypto.md, "Own wallets").
 
+import { mutualTwin } from './twins.js';
 import { cleanPrepaidVendors } from './vendor-account.js';
 import { counterpartyKey } from './partners.js';
 import { compactIban, normalizeRef } from './normalize.js';
@@ -220,6 +221,8 @@ export function feeKey(tx) {
  * @property {(tx: Record<string, any>) => string | null} [prepaidVendorOf] the confirmed prepaid vendor a payment tops up (vendor-account.js)
  * @property {(tx: Record<string, any>) => Record<string, any> | null} [linkedTransfer] the booking a person linked as this one's other side (context.js)
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [bridgeCounterparts] the other side of a bridge transfer on another own wallet (context.js)
+ * @property {(tx: Record<string, any>) => Record<string, any> | null} [ibanCounterpart] the other side of an own transfer by IBAN, on the account that IBAN names (context.js, #176)
+ * @property {(tx: Record<string, any>) => boolean} [ibanCounterpartMissing] that account is in the books, and no booking there fits
  * @property {(tx: Record<string, any>) => Record<string, any> | null} [linkedSwap] the booking a person linked as this one's other side of a swap (context.js)
  * @property {(tx: Record<string, any>) => import('./context.js').CrossSwapSide | null} [crossSwapOf] a swap across chains this booking is a side of (context.js, issue #170)
  * @property {Map<string, Map<string, string>>} [ownAddresses] `<chain>:<address>` (normalised) of our own wallets → their accounts by asset ('' = the first)
@@ -252,6 +255,7 @@ export function feeKey(tx) {
  * @property {string} [counterDay] YYYY-MM-DD
  * @property {string} [sign] what besides the amount says transfer: a word from the purpose, or our company name
  * @property {string} [ibanLast4] the counterparty account's last four, for an own transfer by IBAN
+ * @property {boolean} [counterMissing] an own transfer by IBAN whose account is in the books, but no booking there fits
  * @property {string} [company] our company name the counterparty matched
  * @property {string} [bookingType] for a bank fee
  * @property {string} [bankCode] for a bank fee by its ISO 20022 code
@@ -307,6 +311,29 @@ function pairSign(tx, other, ctx) {
 		return 'eigenes Konto';
 	}
 	return null;
+}
+
+/**
+ * The bookings that could be this one's other side as an own transfer: the
+ * same amount the other way on another account within days, not refused by
+ * the person, and with a word or name that says transfer.
+ *
+ * @param {Record<string, any>} tx
+ * @param {ClassifyContext} ctx
+ * @returns {{ o: Record<string, any>, sign: string }[]}
+ */
+function signedCounterBookings(tx, ctx) {
+	return (ctx.counterBookings?.(tx) ?? [])
+		.filter((o) => !ctx.notTransfers?.has(transferPairKey(String(tx.id), String(o.id))))
+		.map((o) => ({
+			o,
+			sign:
+				transferSign(tx, ctx.companyNames) ??
+				transferSign(o, ctx.companyNames) ??
+				pairSign(tx, o, ctx)
+		}))
+		.filter((x) => Boolean(x.sign))
+		.map((x) => /** @type {{ o: Record<string, any>, sign: string }} */ (x));
 }
 
 /**
@@ -420,7 +447,37 @@ export function classifyTransaction(tx, ctx) {
 	if (word) return { kind: 'bank-fee', via: 'fee-words', feeWord: word };
 	const iban = compactIban(tx.counterpartyIban);
 	if (iban && ctx.ownIbans.has(iban)) {
-		return { kind: 'own-transfer', account: '1360', via: 'iban', ibanLast4: iban.slice(-4) };
+		// Its other side on that account, where the books have it (issue #176).
+		const other = ctx.ibanCounterpart?.(tx);
+		return {
+			kind: 'own-transfer',
+			account: '1360',
+			via: 'iban',
+			ibanLast4: iban.slice(-4),
+			...(other
+				? {
+						counterBookingId: String(other.id),
+						counterAccountId: String(other.accountId ?? ''),
+						counterDay: String(other.bookedOn ?? '')
+					}
+				: ctx.ibanCounterpartMissing?.(tx)
+					? { counterMissing: true }
+					: {})
+		};
+	}
+	// The other side of an own transfer that names this account's IBAN – the
+	// receiving bank often gives no IBAN of the sender (issue #176).
+	const byIban = ctx.ibanCounterpart?.(tx);
+	if (byIban && !ctx.notTransfers?.has(transferPairKey(String(tx.id), String(byIban.id)))) {
+		return {
+			kind: 'own-transfer',
+			account: '1360',
+			via: 'counter-booking',
+			counterBookingId: String(byIban.id),
+			counterAccountId: String(byIban.accountId ?? ''),
+			counterDay: String(byIban.bookedOn ?? ''),
+			sign: 'IBAN dieses Kontos auf der Gegenseite'
+		};
 	}
 	// Four digits alone match a vendor's IBAN one time in 10 000: only with the
 	// counter-booking on that account.
@@ -505,18 +562,23 @@ export function classifyTransaction(tx, ctx) {
 		const lookalike = ctx.lookalikeOf?.(tx);
 		return { kind: 'crypto-dust', ...(lookalike ? { lookalike } : {}) };
 	}
-	const counter = (ctx.counterBookings?.(tx) ?? []).filter(unpaired);
-	const signed = counter
-		.map((o) => ({
-			o,
-			sign:
-				transferSign(tx, ctx.companyNames) ??
-				transferSign(o, ctx.companyNames) ??
-				pairSign(tx, o, ctx)
-		}))
-		.filter((x) => x.sign);
-	if (signed.length === 1) {
-		const { o, sign } = signed[0];
+	const signed = signedCounterBookings(tx, ctx);
+	// Twins (issue #176): two of the same amount each way – told apart by
+	// purpose, then date, when both sides pick each other.
+	const twin =
+		signed.length > 1
+			? mutualTwin(
+					tx,
+					signed.map((x) => x.o),
+					(o) => signedCounterBookings(o, ctx).map((x) => x.o)
+				)
+			: null;
+	if (signed.length === 1 || twin) {
+		const { o, sign } = twin
+			? /** @type {{ o: Record<string, any>, sign: string }} */ (
+					signed.find((x) => x.o.id === twin.id)
+				)
+			: signed[0];
 		return {
 			kind: 'own-transfer',
 			account: '1360',
