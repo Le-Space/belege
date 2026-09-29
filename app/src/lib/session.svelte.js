@@ -68,7 +68,15 @@ export const app = $state({
 		paused: Boolean(networkPause()),
 		reloadNeeded: false,
 		/** this session's node went online at unlock: device sync can go on and off at once */
-		syncCapable: false
+		syncCapable: false,
+		/**
+		 * Where own devices meet (sync/network-mode.js, #148): as this session's
+		 * node was built, and as the books say now – a change applies at the next unlock.
+		 * @type {import('./sync/network-mode.js').NetworkMode}
+		 */
+		mode: 'public',
+		/** @type {import('./sync/network-mode.js').NetworkMode} */
+		modeWanted: 'public'
 	},
 	/** Belege as a UCEP consumer (ucep/): the invoicing app it is paired with. */
 	ucep: {
@@ -187,6 +195,113 @@ export async function setDevicesNetwork(on) {
 	} else {
 		app.network.reloadNeeded = true;
 	}
+}
+
+/**
+ * The books' mode, when they name one: a newer choice from another device
+ * becomes this browser's too, and applies at the next unlock.
+ */
+async function applyStoredMode() {
+	if (!session) return;
+	const { NETWORK_MODE_SETTING, modeOfSetting, setNetworkModeMirror } = await import(
+		'./sync/network-mode.js'
+	);
+	// Two devices may choose at once: the newest choice counts.
+	const [newest] = (
+		await session.store.settings.list({ where: (r) => r.key === NETWORK_MODE_SETTING })
+	).sort((a, b) => String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')));
+	const stored = modeOfSetting(newest?.value);
+	if (!stored) return;
+	setNetworkModeMirror(stored);
+	app.network.modeWanted = stored;
+}
+
+/**
+ * "Wo sich Geräte treffen" in the header menu: kept in the books, so every
+ * device learns it, and in this browser; the node follows at the next unlock.
+ *
+ * @param {import('./sync/network-mode.js').NetworkMode} mode
+ */
+export async function setNetworkMode(mode) {
+	const { NETWORK_MODE_SETTING, isNetworkMode, setNetworkModeMirror } = await import(
+		'./sync/network-mode.js'
+	);
+	if (!isNetworkMode(mode)) throw new Error(`Unbekannter Modus: ${mode}`);
+	setNetworkModeMirror(mode);
+	app.network.modeWanted = mode;
+	if (session) {
+		const { setSetting } = await import('./store/settings.js');
+		await setSetting(session.store.settings, NETWORK_MODE_SETTING, { mode });
+	}
+}
+
+// "Ohne Relay, per QR" (sync/qr-link.js, #148). The device that shows the
+// invite reads the answer back and is connected; the one that answered learns
+// of the connection from the session. Either way the other device is added to
+// the books only once it proved the passkey on that connection (device-gate.js).
+
+/** How long a device connected by QR has to prove the passkey. */
+const QR_PROOF_MS = 30_000;
+
+/** @param {string} peerId */
+async function addWhenProved(peerId) {
+	const gate = session?.deviceGate;
+	if (!gate) throw new Error('Die Synchronisation ist auf diesem Gerät nicht an.');
+	const until = Date.now() + QR_PROOF_MS;
+	// The first proof may run before the other side's muxer is ready: again, until it holds.
+	while (!gate.isProved(peerId)) {
+		if (Date.now() > until) {
+			const { qrSession } = await import('./sync/qr-link.js');
+			qrSession()?.forget(peerId);
+			throw new Error(
+				'Das andere Gerät hat den Passkey nicht bewiesen – es gehört nicht zu diesen Büchern.'
+			);
+		}
+		await gate.proveTo(peerId);
+		if (!gate.isProved(peerId)) await new Promise((r) => setTimeout(r, 1000));
+	}
+	await addSyncDevice(peerId);
+}
+
+/** Watch the QR session for the connections this device answered. */
+async function watchQrConnections() {
+	if (!session?.online || session.mode !== 'qr') return;
+	const { qrSession } = await import('./sync/qr-link.js');
+	qrSession()?.addEventListener('connect', (/** @type {any} */ e) => {
+		if (e.detail?.direction !== 'inbound') return;
+		app.sync.error = null;
+		addWhenProved(String(e.detail.peerId)).catch((error) => {
+			app.sync.error = error instanceof Error ? error.message : String(error);
+		});
+	});
+}
+
+/** "Einladung zeigen": a signed invite for the other device to scan. */
+export async function qrInvite() {
+	const { qrSession } = await import('./sync/qr-link.js');
+	const qr = qrSession();
+	if (!qr) throw new Error('Ohne Relay verbinden geht erst nach dem Entsperren in diesem Modus.');
+	return qr.createOffer();
+}
+
+/**
+ * A scanned code: an invite is answered (its answer returned, to show), an
+ * answer to this device's invite connects, and the other device is added once
+ * it proved the passkey.
+ *
+ * @param {string} text
+ * @returns {Promise<{ answer: string } | { connected: string }>}
+ */
+export async function qrScanned(text) {
+	const { qrSession, payloadKind } = await import('./sync/qr-link.js');
+	const qr = qrSession();
+	if (!qr) throw new Error('Ohne Relay verbinden geht erst nach dem Entsperren in diesem Modus.');
+	const kind = await payloadKind(text);
+	if (kind === 'offer') return { answer: await qr.acceptOffer(text.trim()) };
+	if (kind !== 'answer') throw new Error('Das ist kein Code zum Verbinden ohne Relay.');
+	const { peerId } = await qr.acceptAnswer(text.trim());
+	await addWhenProved(peerId);
+	return { connected: peerId };
 }
 
 /** Read the paired app again, after pairing or unpairing. */
@@ -615,6 +730,8 @@ async function unlockWith(credential) {
 	session = await startSession(credential);
 	app.network.syncCapable = Boolean(session.online);
 	app.network.reloadNeeded = false;
+	app.network.mode = session.mode;
+	app.network.modeWanted = session.mode;
 	app.did = session.did;
 	for (const name of /** @type {const} */ ([
 		'transactions',
@@ -628,11 +745,15 @@ async function unlockWith(credential) {
 	])) {
 		session.store[name].onChange(scheduleRefresh);
 	}
+	session.store.settings.onChange(() => {
+		applyStoredMode().catch(() => {});
+	});
+	await applyStoredMode();
 	await refresh();
 	installE2EHooks();
 	// Not awaited: the books are open, whatever the relay does.
 	startUcepIfPaired();
-	startDeviceSyncIfOn();
+	startDeviceSyncIfOn().then(watchQrConnections);
 	const { folderSupported } = await import('./receipts/folder.js');
 	if (folderSupported() && !stopFolderWatch) {
 		const { watchFolder } = await import('./receipts/folder-watch.js');

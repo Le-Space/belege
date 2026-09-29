@@ -109,6 +109,21 @@ describe('syncLibp2pConfig', () => {
 		]);
 	});
 
+	it('without a relay ("per QR"): no listen address, and only the QR transport', () => {
+		const config = syncLibp2pConfig({ privateKey: {}, relays: [], gate, mode: 'qr' });
+		expect(config.addresses?.listen).toEqual([]);
+		expect(config.transports).toHaveLength(1);
+		const transport = /** @type {any} */ (config.transports ?? [])[0]({
+			upgrader: {},
+			peerId: {},
+			privateKey: {},
+			logger: { forComponent: () => Object.assign(() => {}, { error() {}, trace() {} }) }
+		});
+		expect(String(transport[Symbol.toStringTag])).toMatch(/qr/i);
+		// The gate and the services as on the relay path.
+		expect(Object.keys(config.services ?? {})[0]).toBe('deviceGate');
+	});
+
 	it('lets a local test relay be dialled', () => {
 		const config = syncLibp2pConfig({
 			privateKey: {},

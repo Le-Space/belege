@@ -6,19 +6,22 @@
 	// `pauseNetwork`); on is at once where this session's node went online at
 	// unlock, else from the next unlock. Switching device sync on for the first
 	// time goes through the consent screen, which says what the relay sees.
-	// Where devices meet (public relays, own network, both) comes with #148.
+	// Where devices meet (sync/network-mode.js, #148): the public relays or,
+	// without any relay, by QR; own network and both come later.
 	import { resolve } from '$app/paths';
 	import {
 		app,
 		pauseNetwork,
 		resumeNetwork,
 		setDevicesNetwork,
+		setNetworkMode,
 		startUcep,
 		stopUcep
 	} from './session.svelte.js';
 	import { consent } from './consent.js';
 	import { t } from './i18n/index.js';
 	import { networkStatus } from './network-status.js';
+	import { NETWORK_MODES } from './sync/network-mode.js';
 
 	let status = $derived(networkStatus(app));
 	let label = $derived(
@@ -223,18 +226,40 @@
 				{/if}
 				<fieldset class="mt-3 border-t border-border pt-2" data-testid="network-mode">
 					<legend class="text-xs font-medium text-faint">{t('header.network.mode')}</legend>
-					<label class="mt-1 flex items-center gap-2 text-sm text-heading">
-						<input type="radio" name="network-mode" checked disabled />{t(
-							'header.network.modes.public'
-						)}
-					</label>
-					<label class="flex items-center gap-2 text-sm text-faint">
+					{#each NETWORK_MODES as mode (mode)}
+						<label class="mt-1 flex items-start gap-2 text-sm text-heading">
+							<input
+								type="radio"
+								name="network-mode"
+								class="mt-1"
+								value={mode}
+								checked={app.network.modeWanted === mode}
+								disabled={busy}
+								onchange={() => run(() => setNetworkMode(mode))}
+								data-testid="network-mode-{mode}"
+							/>
+							<span>
+								<span class="block">{t(`header.network.modes.${mode}`)}</span>
+								<span class="block text-xs text-faint">{t(`header.network.modeHints.${mode}`)}</span
+								>
+							</span>
+						</label>
+					{/each}
+					<label class="mt-1 flex items-center gap-2 text-sm text-faint">
 						<input type="radio" name="network-mode" disabled />{t('header.network.modes.local')}
 					</label>
 					<label class="flex items-center gap-2 text-sm text-faint">
 						<input type="radio" name="network-mode" disabled />{t('header.network.modes.both')}
 					</label>
 					<p class="mt-1 text-xs text-faint">{t('header.network.modesLater')}</p>
+					{#if app.network.modeWanted !== app.network.mode}
+						<p class="mt-1 text-xs text-warning" role="status" data-testid="network-mode-pending">
+							{t('header.network.modePending')}
+							<button type="button" class="underline" onclick={() => location.reload()}
+								>{t('header.network.reload')}</button
+							>
+						</p>
+					{/if}
 				</fieldset>
 			{/if}
 			<button

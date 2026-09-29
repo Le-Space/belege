@@ -3,8 +3,17 @@
 	// other one or to show as a QR code, "Gerät hinzufügen" by id or by
 	// scanning, and the devices the books know with their connection and
 	// "Entfernen". Device sync itself is switched on in the consent screen.
+	// In the mode "Ohne Relay, per QR" (#148) there is no id to type: one
+	// device shows an invite, the other scans it and shows its answer, the
+	// first scans that back (sync/qr-link.js).
 	import { renderSVG } from 'uqr';
-	import { app, addSyncDevice, removeSyncDevice } from '$lib/session.svelte.js';
+	import {
+		app,
+		addSyncDevice,
+		qrInvite,
+		qrScanned,
+		removeSyncDevice
+	} from '$lib/session.svelte.js';
 	import { consent } from '$lib/consent.js';
 	import { t } from '$lib/i18n/index.js';
 	import CopyButton from '$lib/CopyButton.svelte';
@@ -58,10 +67,103 @@
 		}
 	}
 
+	// "Ohne Relay, per QR": what is on screen, and the code in it.
+	/** @type {'idle' | 'invite' | 'answer' | 'connected'} */
+	let qrPhase = $state('idle');
+	let qrCode = $state('');
+	let pasted = $state('');
+
+	async function invite() {
+		busy = true;
+		error = null;
+		try {
+			qrCode = await qrInvite();
+			qrPhase = 'invite';
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			busy = false;
+		}
+	}
+
+	/** An invite or an answer, scanned or pasted. @param {string} text */
+	async function useCode(text) {
+		busy = true;
+		error = null;
+		try {
+			const done = await qrScanned(text);
+			if ('answer' in done) {
+				qrCode = done.answer;
+				qrPhase = 'answer';
+			} else {
+				qrCode = '';
+				qrPhase = 'connected';
+			}
+			pasted = '';
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			busy = false;
+		}
+	}
+
 	const card = 'mt-6 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm';
 	const button =
 		'rounded-md border border-border px-3 py-1.5 text-sm text-text hover:bg-surface-2 hover:text-heading disabled:opacity-50';
 </script>
+
+{#snippet deviceList(/** @type {import('./device-sync.js').SyncState | null} */ state)}
+	<h3 class="mt-4 text-sm font-semibold text-heading">{t('devices.list')}</h3>
+	{#if state?.devices.length}
+		<ul class="mt-1 divide-y divide-border text-sm" data-testid="devices-list">
+			{#each state.devices as d (d.peerId)}
+				<li
+					class="flex flex-wrap items-center justify-between gap-2 py-1.5"
+					data-testid="devices-item"
+				>
+					<span class="min-w-0">
+						<span class="block text-heading">{d.label || t('devices.unnamed')}</span>
+						<span class="block font-mono text-xs break-all text-faint">{d.peerId}</span>
+					</span>
+					<span class="flex items-center gap-2">
+						<span
+							class="text-xs {d.connected ? 'text-success' : 'text-faint'}"
+							data-testid="devices-item-state"
+							>{d.connected
+								? `${t('devices.connected')} · ${d.direct ? t('devices.direct') : t('devices.viaRelay')}`
+								: t('devices.notConnected')}</span
+						>
+						{#if confirming === d.peerId}
+							<button
+								type="button"
+								class="rounded-md border border-danger px-2 py-1 text-xs text-danger hover:bg-surface-2"
+								onclick={() => remove(d.peerId)}
+								data-testid="devices-remove-confirm">{t('devices.removeConfirm')}</button
+							>
+							<button
+								type="button"
+								class="rounded-md border border-border px-2 py-1 text-xs text-text hover:bg-surface-2"
+								onclick={() => (confirming = null)}>{t('devices.removeCancel')}</button
+							>
+						{:else}
+							<button
+								type="button"
+								class="rounded-md border border-border px-2 py-1 text-xs text-text hover:bg-surface-2"
+								onclick={() => (confirming = d.peerId)}
+								data-testid="devices-remove">{t('devices.remove')}</button
+							>
+						{/if}
+					</span>
+					{#if confirming === d.peerId}
+						<p class="w-full text-xs text-faint">{t('devices.removeWhat')}</p>
+					{/if}
+				</li>
+			{/each}
+		</ul>
+	{:else}
+		<p class="mt-1 text-sm text-faint">{t('devices.none')}</p>
+	{/if}
+{/snippet}
 
 <section class={card} aria-labelledby="devices-h" data-testid="devices-card">
 	<h2 id="devices-h" class="text-lg font-semibold text-heading">{t('devices.title')}</h2>
@@ -85,6 +187,74 @@
 				data-testid="devices-open-consent">{t('devices.openConsent')}</button
 			>
 		{/if}
+	{:else if app.network.mode === 'qr'}
+		<div class="mt-3 text-sm" data-testid="devices-qr-mode">
+			<p class="text-text">{t('devices.qrMode.what')}</p>
+			<div class="mt-2 flex flex-wrap items-center gap-2">
+				<button
+					type="button"
+					class={button}
+					disabled={busy}
+					onclick={invite}
+					data-testid="devices-qr-invite">{t('devices.qrMode.invite')}</button
+				>
+				<QrScan onscan={useCode} class={button} />
+			</div>
+			{#if (qrPhase === 'invite' || qrPhase === 'answer') && qrCode}
+				<!-- A white plaque in both themes: a camera reads it, not the theme. -->
+				<div
+					class="mt-3 w-fit rounded-md bg-white p-2 [&_svg]:size-64"
+					role="img"
+					aria-label={t(`devices.qrMode.${qrPhase}Label`)}
+					data-testid="devices-qr-code"
+					data-phase={qrPhase}
+					data-code={qrCode}
+				>
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -- uqr's own SVG of a signed code -->
+					{@html renderSVG(qrCode, { border: 2 })}
+				</div>
+				<p class="mt-1 text-xs text-faint">{t(`devices.qrMode.${qrPhase}Hint`)}</p>
+				<CopyButton
+					text={qrCode}
+					label={t('devices.qrMode.copy')}
+					testid="devices-qr-copy"
+					valueClass="hidden">{qrCode}</CopyButton
+				>
+			{:else if qrPhase === 'connected'}
+				<p class="mt-2 text-sm text-success" role="status" data-testid="devices-qr-connected">
+					{t('devices.qrMode.connected')}
+				</p>
+			{/if}
+			<form
+				class="mt-3 flex flex-wrap items-end gap-2"
+				onsubmit={(e) => {
+					e.preventDefault();
+					useCode(pasted);
+				}}
+			>
+				<label class="flex min-w-64 flex-1 flex-col text-sm text-faint"
+					>{t('devices.qrMode.pasteLabel')}
+					<input
+						class="mt-1 rounded-md border border-border bg-surface px-2 py-1.5 font-mono text-xs text-heading"
+						bind:value={pasted}
+						autocomplete="off"
+						spellcheck="false"
+						data-testid="devices-qr-paste"
+					/></label
+				>
+				<button
+					type="submit"
+					class={button}
+					disabled={busy || !pasted.trim()}
+					data-testid="devices-qr-use">{t('devices.qrMode.use')}</button
+				>
+			</form>
+			<p class="mt-2 text-xs text-faint">{t('devices.qrMode.limits')}</p>
+			{#if error || app.sync.error}
+				<p class="mt-2 text-sm text-danger" role="alert">{error ?? app.sync.error}</p>
+			{/if}
+		</div>
+		{@render deviceList(app.sync.state)}
 	{:else}
 		{@const state = app.sync.state}
 		<div class="mt-3 text-sm">
@@ -176,55 +346,6 @@
 				{/if}
 			</span>
 		</label>
-		<h3 class="mt-4 text-sm font-semibold text-heading">{t('devices.list')}</h3>
-		{#if state?.devices.length}
-			<ul class="mt-1 divide-y divide-border text-sm" data-testid="devices-list">
-				{#each state.devices as d (d.peerId)}
-					<li
-						class="flex flex-wrap items-center justify-between gap-2 py-1.5"
-						data-testid="devices-item"
-					>
-						<span class="min-w-0">
-							<span class="block text-heading">{d.label || t('devices.unnamed')}</span>
-							<span class="block font-mono text-xs break-all text-faint">{d.peerId}</span>
-						</span>
-						<span class="flex items-center gap-2">
-							<span
-								class="text-xs {d.connected ? 'text-success' : 'text-faint'}"
-								data-testid="devices-item-state"
-								>{d.connected
-									? `${t('devices.connected')} · ${d.direct ? t('devices.direct') : t('devices.viaRelay')}`
-									: t('devices.notConnected')}</span
-							>
-							{#if confirming === d.peerId}
-								<button
-									type="button"
-									class="rounded-md border border-danger px-2 py-1 text-xs text-danger hover:bg-surface-2"
-									onclick={() => remove(d.peerId)}
-									data-testid="devices-remove-confirm">{t('devices.removeConfirm')}</button
-								>
-								<button
-									type="button"
-									class="rounded-md border border-border px-2 py-1 text-xs text-text hover:bg-surface-2"
-									onclick={() => (confirming = null)}>{t('devices.removeCancel')}</button
-								>
-							{:else}
-								<button
-									type="button"
-									class="rounded-md border border-border px-2 py-1 text-xs text-text hover:bg-surface-2"
-									onclick={() => (confirming = d.peerId)}
-									data-testid="devices-remove">{t('devices.remove')}</button
-								>
-							{/if}
-						</span>
-						{#if confirming === d.peerId}
-							<p class="w-full text-xs text-faint">{t('devices.removeWhat')}</p>
-						{/if}
-					</li>
-				{/each}
-			</ul>
-		{:else}
-			<p class="mt-1 text-sm text-faint">{t('devices.none')}</p>
-		{/if}
+		{@render deviceList(state)}
 	{/if}
 </section>
