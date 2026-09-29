@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 // CAMT.053 (bank-to-customer statement) in the browser, with DOMParser.
 //
 // For banks Hibiscus cannot fetch (Revolut). Reads versions .001.02 to
@@ -137,11 +138,11 @@ export function parseCamt053(xml, { DOMParser: Parser = globalThis.DOMParser } =
 	const doc = new Parser().parseFromString(xml, 'application/xml');
 	const root = doc.documentElement;
 	if (!root || root.localName === 'parsererror' || doc.getElementsByTagName('parsererror').length) {
-		throw new Error('Die Datei ist kein gültiges XML.');
+		throw new Error(t('messages.camt.notXml'));
 	}
 	const container = child(root, 'BkToCstmrStmt');
 	if (root.localName !== 'Document' || !container) {
-		throw new Error('Die Datei ist kein CAMT.053-Kontoauszug (BkToCstmrStmt fehlt).');
+		throw new Error(t('messages.camt.notCamt'));
 	}
 
 	return children(container, 'Stmt').map((stmt) => {
@@ -153,7 +154,7 @@ export function parseCamt053(xml, { DOMParser: Parser = globalThis.DOMParser } =
 			currency,
 			name: text(acct, 'Nm') || text(acct, 'Svcr', 'FinInstnId', 'Nm')
 		};
-		if (!iban) throw new Error('Der Kontoauszug nennt keine IBAN (Acct/Id/IBAN).');
+		if (!iban) throw new Error(t('messages.camt.noIban'));
 
 		/** @type {CamtTransaction[]} */
 		const transactions = [];

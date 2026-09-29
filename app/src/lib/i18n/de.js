@@ -80,6 +80,105 @@ export default {
 		},
 		localFirst: 'Le Space: der Local-First-Stack hinter dieser App'
 	},
+	assets: {
+		// How a rate's source is named in the app (assets/valuation.js).
+		sources: {
+			coingecko: 'CoinGecko',
+			kraken: 'Kraken',
+			ecb: 'EZB-Referenzkurs',
+			trade: 'Preis des Handels',
+			dex: 'DEX-Pool',
+			migration: 'Wert der verbrannten alten Token',
+			manual: 'von Hand eingetragen'
+		},
+		valuationLine: '{rate} EUR je {asset} · {source}{when}'
+	},
+	// Messages the code throws or shows, moved here from the modules (#192).
+	messages: {
+		sync: {
+			off: 'Die Synchronisation ist auf diesem Gerät nicht an.',
+			notProved:
+				'Das andere Gerät hat den Passkey nicht bewiesen – es gehört nicht zu diesen Büchern.',
+			noQrSession: 'Ohne Relay verbinden geht erst nach dem Entsperren in diesem Modus.',
+			notQrCode: 'Das ist kein Code zum Verbinden ohne Relay.',
+			unknownMode: 'Unbekannter Modus: {mode}',
+			bothNeedsLocal:
+				'In „Beides“ kommt ein neues Gerät per QR-Code oder über den Relay deiner Bridge dazu – hier ist keiner eingerichtet.',
+			deviceLabel: '{browser} auf {system}',
+			removed: 'Dieses Gerät wurde entfernt.',
+			notDeviceId: 'Das ist keine Gerätekennung.',
+			removeFromOther: 'Ein Gerät wird von einem anderen aus entfernt.'
+		},
+		passkey: {
+			createFailed: 'Der Passkey konnte nicht angelegt werden.',
+			notFound: 'Auf diesem Gerät wurde kein Passkey für Belege gefunden.',
+			notStored: 'In diesem Browser ist kein Passkey gespeichert.',
+			noPrf:
+				'Dieser Passkey liefert kein PRF-Geheimnis. Belege verschlüsselt alle Daten mit einem Schlüssel aus diesem Geheimnis und öffnet ohne ihn keine Daten. Bitte einen Passkey in einem Browser und Passwort-Manager mit PRF-Unterstützung verwenden (z. B. aktuelles Chrome, Safari oder Firefox mit iCloud-Schlüsselbund, Google Passwortmanager oder 1Password).'
+		},
+		receipts: {
+			senderUnconfirmed: 'Der Absender ist nicht bestätigt: erst prüfen und freigeben.'
+		},
+		booking: {
+			accountDigits: 'Ein Konto hat 4 bis 8 Ziffern.',
+			taxKeyDigits: 'Ein BU-Schlüssel hat bis zu 4 Ziffern.',
+			rateFormat: 'Der Kurs ist eine Zahl ab 0, z. B. 0,0042 – oder 0 für einen wertlosen Token.',
+			rateNoQuantity: 'Diese Buchung hat keine Menge, zu der ein Kurs gehört.'
+		},
+		camt: {
+			notXml: 'Die Datei ist kein gültiges XML.',
+			notCamt: 'Die Datei ist kein CAMT.053-Kontoauszug (BkToCstmrStmt fehlt).',
+			noIban: 'Der Kontoauszug nennt keine IBAN (Acct/Id/IBAN).'
+		},
+		bridge: {
+			unreachable:
+				'Die Bridge ist nicht erreichbar (läuft sie, und ist diese Adresse in appOrigins erlaubt?).',
+			unknownDevice: 'Die Bridge kennt dieses Gerät nicht (neu koppeln).',
+			originNotAllowed: 'Diese App-Adresse ist in der Bridge nicht erlaubt.',
+			wrongCode: 'Falscher Kopplungscode.',
+			noCode: 'Kein Kopplungscode aktiv: Bridge mit --pair neu starten.',
+			mailNotSetUp: 'Das Postfach ist auf der Bridge nicht eingerichtet (pnpm setup:mail).',
+			llmNotSetUp: 'Das Auslesen ist auf der Bridge nicht eingerichtet (pnpm setup:llm).',
+			senderUnverified: 'Der Absender ist nicht bestätigt (DKIM/SPF): erst freigeben.',
+			noModel: 'Kein Modell lieferte eine brauchbare Antwort ({reasons}).'
+		},
+		ucep: {
+			unreachable: 'Die Rechnungs-App ist gerade nicht erreichbar. Ist sie offen und entsperrt?',
+			oldVersion:
+				'Diese Version der Rechnungs-App kennt das Abgleichen noch nicht. Bitte die Rechnungs-App aktualisieren.',
+			scopeMissing:
+				'Die Kopplung erlaubt das noch nicht: Bitte die Rechnungs-App neu koppeln (Entkoppeln, dann wieder verbinden), damit Belege ausgestellte Rechnungen lesen und Zahlungen melden darf.',
+			invoicePdfMismatch:
+				'Das PDF der Rechnung {number} stimmt nicht mit dem überein, was die App angibt.',
+			notInvoiceApp: 'Diese Einladung ist nicht von einer Rechnungs-App.',
+			peerUnreachable: 'Die Rechnungs-App ist unter dieser Peer-ID gerade nicht erreichbar.',
+			eigenbelegPdfLater:
+				'Der Eigenbeleg {number} ist erstellt, aber sein PDF kommt nur über eine direkte Verbindung – die gerade nicht zustande kam. Bitte später noch einmal.',
+			eigenbelegPdfMismatch:
+				'Das PDF des Eigenbelegs stimmt nicht mit dem überein, was die App erstellt hat.'
+		},
+		eigenbeleg: {
+			needWhat: 'Was wurde bezahlt? Das gehört auf den Eigenbeleg.',
+			needWhy: 'Warum gibt es keinen Beleg der Gegenseite? Ein Satz genügt.',
+			exists: 'Für diese Zahlung gibt es schon den Eigenbeleg {number}.',
+			saveFailed: 'Der Eigenbeleg konnte nicht gespeichert werden.'
+		},
+		aleph: {
+			exists: 'Für diesen Monat gibt es schon den Verbrauchsnachweis {number}.',
+			nothing: 'In diesem Monat hat das Konto keine Credits bewegt: kein Nachweis nötig.',
+			saveFailed: 'Der Verbrauchsnachweis konnte nicht gespeichert werden.'
+		},
+		wallets: {
+			costCentre: 'Kostenstelle: bis zu 36 Buchstaben und Ziffern, ohne Leerzeichen – {value}'
+		},
+		export: {
+			notReady: 'Dieser Monat ist noch nicht bereit für den Export.'
+		},
+		classify: {
+			ownAccount: 'eigenes Konto',
+			ibanOnOtherSide: 'IBAN dieses Kontos auf der Gegenseite'
+		}
+	},
 	language: {
 		label: 'Sprache',
 		de: 'Deutsch',
@@ -269,6 +368,19 @@ export default {
 		earlyBody:
 			'Le Space Belege ist in Entwicklung. Bewahre Kontoauszüge und Belege weiterhin auch anderswo auf.',
 		technicalHeading: 'Unter der Haube',
+		// The names of what Belege works with, where they carry words (consent/integrations.js).
+		integrationNames: {
+			hibiscus: 'Hibiscus (Banken per FinTS/HBCI)',
+			camt: 'CAMT.053-Kontoauszüge, z. B. Revolut Business',
+			alchemy: 'Alchemy (EVM, mit eigenem Schlüssel)',
+			blockscout: 'Blockscout (EVM, ohne Schlüssel)',
+			'cosmos-nodes': 'Nym, Nodes Guru, PublicNode, Polkachu (Cosmos-Knoten)',
+			'akash-indexer': 'Akash Console (Indexer, ältere Akash-Geschichte)',
+			aleph: 'Aleph Cloud (Credits eigener Konten, nur gelesen)',
+			coingecko: 'CoinGecko (Kurse)',
+			'kraken-rates': 'Kraken (Kurse)',
+			ecb: 'Europäische Zentralbank (USD-Kurs)'
+		},
 		// What Belege can do, by category (docs/features.de.md says the same in more words).
 		features: {
 			title: 'Was Le Space Belege kann',

@@ -17,6 +17,7 @@ import { encodeWindows1252 } from './cp1252.js';
 import { buchungsstapel } from './datev.js';
 import { overviewCsv } from './overview.js';
 import { statementPdf } from './statement-pdf.js';
+import { t } from '../i18n/index.js';
 
 /** @typedef {Record<string, any>} Rec */
 
@@ -83,7 +84,7 @@ export function statementPath(statement) {
  * @returns {Promise<{ zip: Uint8Array, fileName: string, paths: string[], csv: string }>}
  */
 export async function buildMonthZip({ plan, settings, accounts, classifications, blobs, created }) {
-	if (plan.blocked) throw new Error('Dieser Monat ist noch nicht bereit für den Export.');
+	if (plan.blocked) throw new Error(t('messages.export.notReady'));
 	const csv = buchungsstapel({
 		settings,
 		month: plan.month,

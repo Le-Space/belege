@@ -10,6 +10,7 @@ import { learnAccount } from '../matching/partners.js';
 import { matchesOfTx } from '../matching/view.js';
 import { getSetting } from '../store/settings.js';
 import { isAccountNumber } from './skr03.js';
+import { t } from '../i18n/index.js';
 
 /** @typedef {import('../matching/engine.js').MatchingStore} MatchingStore */
 
@@ -27,8 +28,8 @@ export async function confirmBooking(
 ) {
 	const number = String(account ?? '').trim();
 	const key = String(taxKey ?? '').trim();
-	if (!isAccountNumber(number)) throw new Error('Ein Konto hat 4 bis 8 Ziffern.');
-	if (!/^\d{0,4}$/.test(key)) throw new Error('Ein BU-Schlüssel hat bis zu 4 Ziffern.');
+	if (!isAccountNumber(number)) throw new Error(t('messages.booking.accountDigits'));
+	if (!/^\d{0,4}$/.test(key)) throw new Error(t('messages.booking.taxKeyDigits'));
 	const tx = await store.transactions.get(transactionId);
 	if (!tx) throw new Error(`No transaction ${transactionId}`);
 	const record = await store.transactions.put({
@@ -119,12 +120,10 @@ export async function setManualRate(store, transactionId, rate, now = () => new 
 		.replace(',', '.');
 	// 0 is a rate too: a token nobody trades any more is worth nothing.
 	if (!/^\d+(\.\d{1,18})?$/.test(clean)) {
-		throw new Error(
-			'Der Kurs ist eine Zahl ab 0, z. B. 0,0042 – oder 0 für einen wertlosen Token.'
-		);
+		throw new Error(t('messages.booking.rateFormat'));
 	}
 	if (!/^-?\d+$/.test(String(tx.quantity ?? '')) || !Number.isInteger(tx.decimals)) {
-		throw new Error('Diese Buchung hat keine Menge, zu der ein Kurs gehört.');
+		throw new Error(t('messages.booking.rateNoQuantity'));
 	}
 	const amountCents = valueCents(String(tx.quantity), tx.decimals, clean);
 	await store.transactions.put({

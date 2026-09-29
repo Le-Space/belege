@@ -14,6 +14,7 @@ import { isActive } from '../matching/engine.js';
 import { setAsideReceipt } from '../matching/actions.js';
 import { importFile } from '../receipts/import.js';
 import { INVOICE_EXTENSION, decimalFromUnits, reach } from './consumer.js';
+import { t } from '../i18n/index.js';
 
 /** The receipts' `source` for an issued invoice, and its `sourceRef` prefix. */
 export const ISSUED_SOURCE = 'invoice-app';
@@ -198,18 +199,14 @@ async function sha256Hex(bytes) {
  */
 export async function syncIssuedInvoices({ consumer, app, store, blobs, match }) {
 	if (!(await reach(consumer, app.addrs))) {
-		throw new Error('Die Rechnungs-App ist gerade nicht erreichbar. Ist sie offen und entsperrt?');
+		throw new Error(t('messages.ucep.unreachable'));
 	}
 	const invoices = await listIssued(consumer, app.peerId).catch((/** @type {any} */ e) => {
 		if (e?.code === 'UNKNOWN_COMMAND') {
-			throw new Error(
-				'Diese Version der Rechnungs-App kennt das Abgleichen noch nicht. Bitte die Rechnungs-App aktualisieren.'
-			);
+			throw new Error(t('messages.ucep.oldVersion'));
 		}
 		if (e?.code === 'SCOPE_MISSING' || e?.code === 'PAIRING_REQUIRED') {
-			throw new Error(
-				'Die Kopplung erlaubt das noch nicht: Bitte die Rechnungs-App neu koppeln (Entkoppeln, dann wieder verbinden), damit Belege ausgestellte Rechnungen lesen und Zahlungen melden darf.'
-			);
+			throw new Error(t('messages.ucep.scopeMissing'));
 		}
 		throw e;
 	});
@@ -248,9 +245,7 @@ export async function syncIssuedInvoices({ consumer, app, store, blobs, match })
 		}
 		const bytes = fromBase64(pdf.base64);
 		if ((await sha256Hex(bytes)) !== pdf.sha256) {
-			throw new Error(
-				`Das PDF der Rechnung ${inv.number} stimmt nicht mit dem überein, was die App angibt.`
-			);
+			throw new Error(t('messages.ucep.invoicePdfMismatch', { number: inv.number }));
 		}
 		const { record } = await importFile({
 			receipts: store.receipts,

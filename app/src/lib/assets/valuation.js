@@ -11,6 +11,7 @@
 //   valuation  { rate, currency: 'EUR', source, at }: EUR per whole unit,
 //              from which source, for which moment (bridge/src/rates.js)
 
+import { t } from '../i18n/index.js';
 import { assetOf } from './registry.js';
 import { formatQuantity, valueCents } from './quantity.js';
 
@@ -38,7 +39,7 @@ import { formatQuantity, valueCents } from './quantity.js';
  * @property {string} [ref] `dex`: the pool and block, `uniswap-v2:<pool>@<block>` (V4: the pool id)
  */
 
-/** How a source is named to people. */
+/** How a source is named in German documents (the Eigenbeleg); the app's own words are in the catalogue. */
 export const SOURCE_NAMES = Object.freeze({
 	coingecko: 'CoinGecko',
 	kraken: 'Kraken',
@@ -158,8 +159,15 @@ function poolText(ref) {
 export function valuationText(tx) {
 	const v = tx?.valuation;
 	if (!hasQuantity(tx) || !v?.rate) return '';
-	const source = /** @type {Record<string, string>} */ (SOURCE_NAMES)[v.source] ?? v.source;
+	const source = Object.hasOwn(SOURCE_NAMES, v.source)
+		? t(`assets.sources.${v.source}`)
+		: String(v.source ?? '');
 	const at = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(v.at ?? ''));
 	const when = at ? `${at[3]}.${at[2]}.${at[1]} ${at[4]}:${at[5]} UTC` : '';
-	return `${formatRate(v.rate)} EUR je ${tx.asset} · ${source}${poolText(v.ref)}${when ? `, ${when}` : ''}`;
+	return t('assets.valuationLine', {
+		rate: formatRate(v.rate),
+		asset: String(tx.asset ?? ''),
+		source: `${source}${poolText(v.ref)}`,
+		when: when ? `, ${when}` : ''
+	});
 }

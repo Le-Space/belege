@@ -16,7 +16,7 @@
 	// flat list; this app makes no connection at all and its statement has
 	// sections, a planned option and per-service detail. The look is the
 	// element's, mapped onto the same tokens escrow01 maps it onto.
-	import { t, list } from './i18n/index.js';
+	import { has, t, list } from './i18n/index.js';
 	import { deviceSyncOn, setDeviceSync } from './sync/device-sync.js';
 	import IntegrationLogo from './consent/IntegrationLogo.svelte';
 	import { INTEGRATION_GROUPS } from './consent/integrations.js';
@@ -349,7 +349,11 @@
 										data-integration={item.id}
 									>
 										<IntegrationLogo logo={item.logo} initials={item.initials} />
-										<span>{item.name}</span>
+										<span
+											>{has(`consent.integrationNames.${item.id}`)
+												? t(`consent.integrationNames.${item.id}`)
+												: item.name}</span
+										>
 									</li>
 								{/each}
 							</ul>

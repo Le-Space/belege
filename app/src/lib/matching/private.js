@@ -14,6 +14,7 @@
 
 import { recordEvent } from '../activity/events.js';
 import { formatDate, formatMoney } from '../bank/format.js';
+import { DOCUMENT_LOCALE } from '../i18n/index.js';
 import { isActive, syncLinks } from './engine.js';
 
 /** @typedef {Record<string, any>} Rec */
@@ -30,10 +31,15 @@ export { privateKind } from './private-kind.js';
  * @param {Rec} tx
  */
 export function privateNote(tx) {
-	const amount = formatMoney(Math.abs(Number(tx.amountCents ?? 0)), tx.currency ?? 'EUR');
+	// A note for the books: German, like the Eigenbeleg (i18n DOCUMENT_LOCALE).
+	const amount = formatMoney(
+		Math.abs(Number(tx.amountCents ?? 0)),
+		tx.currency ?? 'EUR',
+		DOCUMENT_LOCALE
+	);
 	const what = [tx.counterparty, tx.purpose].map((s) => String(s ?? '').trim()).filter(Boolean);
 	return [
-		`Private Zahlung, irrtümlich vom Geschäftskonto bezahlt: ${amount} am ${formatDate(String(tx.bookedOn ?? ''))}${what.length ? ` (${what.join(' – ').slice(0, 200)})` : ''}.`,
+		`Private Zahlung, irrtümlich vom Geschäftskonto bezahlt: ${amount} am ${formatDate(String(tx.bookedOn ?? ''), DOCUMENT_LOCALE)}${what.length ? ` (${what.join(' – ').slice(0, 200)})` : ''}.`,
 		'Kein Betriebsausgabenbeleg. Ausgleich durch Rückzahlung vom Privatkonto.'
 	].join(' ');
 }

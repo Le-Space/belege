@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 // The app's side of the bridge on 127.0.0.1 (see bridge/README.md).
 
 /**
@@ -171,39 +172,33 @@ export function createBridgeClient({
 				credentials: 'omit'
 			});
 		} catch {
-			throw new BridgeError(
-				'Die Bridge ist nicht erreichbar (läuft sie, und ist diese Adresse in appOrigins erlaubt?).',
-				0
-			);
+			throw new BridgeError(t('messages.bridge.unreachable'), 0);
 		}
 		if (binary && res.ok) return new Uint8Array(await res.arrayBuffer());
 		const body = await res.json().catch(() => ({}));
 		if (!res.ok) {
 			const messages = /** @type {Record<number, string>} */ ({
-				401: 'Die Bridge kennt dieses Gerät nicht (neu koppeln).',
+				401: t('messages.bridge.unknownDevice'),
 				403:
 					body?.error === 'origin not allowed'
-						? 'Diese App-Adresse ist in der Bridge nicht erlaubt.'
-						: 'Falscher Kopplungscode.',
-				410: 'Kein Kopplungscode aktiv: Bridge mit --pair neu starten.',
+						? t('messages.bridge.originNotAllowed')
+						: t('messages.bridge.wrongCode'),
+				410: t('messages.bridge.noCode'),
 				503:
 					body?.code === 'MAIL_NOT_SET_UP'
-						? 'Das Postfach ist auf der Bridge nicht eingerichtet (pnpm setup:mail).'
+						? t('messages.bridge.mailNotSetUp')
 						: body?.code === 'LLM_NOT_SET_UP'
-							? 'Das Auslesen ist auf der Bridge nicht eingerichtet (pnpm setup:llm).'
+							? t('messages.bridge.llmNotSetUp')
 							: body?.error
 			});
 			if (res.status === 403 && body?.code === 'SENDER_UNVERIFIED') {
-				throw new BridgeError('Der Absender ist nicht bestätigt (DKIM/SPF): erst freigeben.', 403);
+				throw new BridgeError(t('messages.bridge.senderUnverified'), 403);
 			}
 			if (res.status === 502 && body?.code === 'EXTRACT_FAILED') {
 				const reasons = (body.attempts ?? []).map(
 					(/** @type {any} */ a) => `${a.model}: ${a.reason}`
 				);
-				throw new BridgeError(
-					`Kein Modell lieferte eine brauchbare Antwort (${reasons.join('; ')}).`,
-					502
-				);
+				throw new BridgeError(t('messages.bridge.noModel', { reasons: reasons.join('; ') }), 502);
 			}
 			throw new BridgeError(
 				messages[res.status] ?? body?.error ?? `Bridge: HTTP ${res.status}`,
