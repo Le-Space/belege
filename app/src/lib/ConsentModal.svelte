@@ -26,6 +26,17 @@
 	import AiMark from './AiMark.svelte';
 	import { technicalView } from './technical-view.js';
 
+	const FEATURE_GROUPS = [
+		'privacy',
+		'payments',
+		'receipts',
+		'matching',
+		'ai',
+		'crypto',
+		'export',
+		'devices'
+	];
+
 	/** @type {HTMLDialogElement | undefined} */
 	let dialog = $state();
 	const { open, accepted } = consent;
@@ -109,6 +120,22 @@
 				<span class="font-medium text-heading">{t('consent.earlyHeading')}</span>
 				{t('consent.earlyBody')}
 			</p>
+
+			<!-- What Belege can do: folded, so the consent stays about the data. -->
+			<details class="rounded-md border border-border p-3 text-sm" data-testid="consent-features">
+				<summary class="cursor-pointer font-medium text-heading">
+					{t('consent.features.title')}
+				</summary>
+				{#each FEATURE_GROUPS as group (group)}
+					<h4 class="mt-3 font-semibold text-heading">{t(`consent.features.${group}.name`)}</h4>
+					<ul class="mt-1 list-disc space-y-0.5 pl-5">
+						{#each list(`consent.features.${group}.items`) as item (item)}
+							<li>{item}</li>
+						{/each}
+					</ul>
+				{/each}
+				<p class="mt-3 text-xs text-faint">{t('consent.features.more')}</p>
+			</details>
 
 			<!-- Identity -->
 			<section class="border-l-4 border-l-identity pl-3" data-testid="consent-identity">

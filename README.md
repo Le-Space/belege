@@ -16,6 +16,19 @@ pnpm setup:portal vodafone   # optional: Vodafone MeinKabel invoices, see bridge
 pnpm lint && pnpm check && pnpm test:unit && pnpm test:bridge && pnpm test:e2e
 ```
 
+## Features
+
+- **Privacy:** passkey instead of a password, everything sealed with keys from it, the books only in the browser; the network paused or switched part by part from the header.
+- **Payments:** Hibiscus through the bridge, CAMT.053 statements, one fiscal year at a time, private payments settled.
+- **Receipts:** accounting mailbox, uploads, a folder, customer portals (recorded once); DKIM/SPF and scam checks; Eigenbelege.
+- **Matching:** a score, own transfers (across accounts, chains and bridges), bank fees, refunds, vendor accounts, learning from your links.
+- **AI, only on a click (✦):** your own model in the bridge, redacted; five places, usage and cost in view.
+- **Crypto:** Kraken, Cosmos, EVM and Bitcoin wallets; euros at the day's rate with its source (CoinGecko, Kraken, ECB, Uniswap V2–V4 pools, trade, migration, by hand); swaps and migrations.
+- **Export:** SKR 03 and BU keys, a monthly DATEV EXTF ZIP for MonkeyOffice with the receipts.
+- **Devices:** the same books on phone and computer after a passkey proof, over public relays or by QR without any relay; the computer's bridge for the phone; the invoicing app over UCEP.
+
+All of it, with links: [docs/features.md](docs/features.md) ([Deutsch](docs/features.de.md)).
+
 ## One year at a time
 
 The switch above every page (_Jahr_) shows one fiscal year: its payments, its questions, and the receipts paid in it. A receipt paid in the year counts there even if it is dated earlier (an invoice from December paid in January, marked _Beleg aus 2025_). An unpaid receipt counts in its own year, and also in a year whose payment is offered for it. The matching itself looks across years. Without a choice, the switch shows the newest year with a payment. The fiscal year starts in the month set under DATEV (`app/src/lib/year/year.js`).
