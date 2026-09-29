@@ -261,6 +261,75 @@ export default {
 		earlyBody:
 			'Le Space Belege ist in Entwicklung. Bewahre Kontoauszüge und Belege weiterhin auch anderswo auf.',
 		technicalHeading: 'Unter der Haube',
+		// What Belege can do, by category (docs/features.de.md says the same in more words).
+		features: {
+			title: 'Was Le Space Belege kann',
+			more: 'Alle Funktionen, ausführlicher: docs/features.de.md im Quellcode.',
+			privacy: {
+				name: 'Datenschutz & Speicherung',
+				items: [
+					'Passkey statt Passwort; jeder Eintrag und jede Belegdatei ist mit einem Schlüssel aus dem Passkey versiegelt.',
+					'Alles bleibt in diesem Browser – Le Space betreibt keinen Server für deine Bücher.',
+					'Das Netzwerk lässt sich oben jederzeit pausieren, eigene Geräte und Rechnungs-App einzeln an- und ausschalten.'
+				]
+			},
+			payments: {
+				name: 'Zahlungen',
+				items: [
+					'Bankumsätze aus Hibiscus (über die Bridge) und Kontoauszüge als CAMT.053, etwa von Revolut oder GLS.',
+					'Ein Geschäftsjahr nach dem anderen; zusammengehörige Buchungen sind einen Klick entfernt.',
+					'Private Zahlungen vom Geschäftskonto markieren, dokumentieren und verrechnen.'
+				]
+			},
+			receipts: {
+				name: 'Belege',
+				items: [
+					'Aus dem Buchhaltungs-Postfach, per Upload, aus einem Ordner und aus Kundenportalen (Vodafone, eigene per Aufzeichnung).',
+					'Absender ohne DKIM/SPF warten auf deine Freigabe; Anzeichen für Betrug werden genannt.',
+					'Kopien einer Rechnung werden erkannt; für eine Zahlung ohne Beleg gibt es einen Eigenbeleg.'
+				]
+			},
+			matching: {
+				name: 'Abgleich',
+				items: [
+					'Punkte aus Betrag, Rechnungs- und Kundennummer, IBAN, Lieferant und Datum: sichere Paare werden verknüpft, der Rest wird eine Frage.',
+					'Umbuchungen zwischen eigenen Konten (auch über Chains und Bridges), Bankgebühren und Erstattungen brauchen keinen Beleg.',
+					'Lieferantenkonten für Guthaben- und Sammelabrechnungen; Belege lernt aus deinen Verknüpfungen.'
+				]
+			},
+			ai: {
+				name: 'KI – nur auf Klick (✦)',
+				items: [
+					'Belege auslesen, im privaten Postfach weitersuchen, einen Beleg oder eine Gegenbuchung vorschlagen, Ungereimtheiten erklären.',
+					'Mit deinem eigenen Modell in der Bridge, nach Schwärzung; Le Space betreibt keine KI.',
+					'Verbrauch an Tokens und Kosten im Blick.'
+				]
+			},
+			crypto: {
+				name: 'Krypto',
+				items: [
+					'Kraken und eigene Wallets auf Cosmos-Chains (Nym, Akash), EVM-Chains (Ethereum, Base, …) und Bitcoin.',
+					'Jede Buchung in Euro mit Menge und Tageskurs samt Quelle: CoinGecko, Kraken, EZB, DEX-Pool (Uniswap), Handelspreis, Migration oder von Hand.',
+					'Swaps – auch über Chains –, Token-Migrationen und Staub; Aleph-Guthaben als Monatsauszug.'
+				]
+			},
+			export: {
+				name: 'Buchhaltung & Export',
+				items: [
+					'Jede Buchung mit SKR-03-Konto und BU-Schlüssel; dein Kontenrahmen lässt sich einlesen.',
+					'Monatlich ein ZIP: DATEV-Buchungsstapel (EXTF) für MonkeyOffice, die Belege als PDF und ein Auszug je Konto.'
+				]
+			},
+			devices: {
+				name: 'Geräte & Zusammenarbeit',
+				items: [
+					'Dieselben Bücher auf Telefon und Rechner; ein Gerät bekommt sie erst, wenn es den Passkey beweist.',
+					'Geräte treffen sich über öffentliche Relays oder ganz ohne Relay per QR-Code.',
+					'Das Telefon nutzt die Bridge des Rechners; Belege lässt sich als App installieren.',
+					'Rechnungs-App (UCEP): Eigenbelege erstellen lassen und bezahlte Rechnungen melden; eine Lese-Freigabe für eine Assistenz.'
+				]
+			}
+		},
 		identity: {
 			title: 'Identität: dein Passkey',
 			simple: [
