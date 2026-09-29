@@ -194,19 +194,34 @@ export function createRateService({
 	}
 
 	/**
-	 * A token's rate from its deepest WETH pool at the booking's block, times
-	 * ETH's rate of the day (dex-rate.js, issue #163).
+	 * A token's rate from its deepest pool against ETH or USDC at the booking's
+	 * block, times that quote's rate of the day (dex-rate.js, issue #163).
 	 *
 	 * @param {{ contract: string, chain: string, block: number, decimals: number }} p
 	 * @param {string} day
 	 */
 	async function fromPool(p, day) {
-		const price = await dex?.poolPrice(p).catch(() => null);
+		/** @type {Map<string, Promise<string | null>>} */
+		const quotes = new Map();
+		/** @param {'ETH' | 'USDC'} q */
+		const quoteEur = (q) => {
+			if (!quotes.has(q)) {
+				quotes.set(
+					q,
+					rate(q, day).then(
+						(r) => r.rate,
+						() => null
+					)
+				);
+			}
+			return /** @type {Promise<string | null>} */ (quotes.get(q));
+		};
+		const price = await dex?.poolPrice({ ...p, quoteEur }).catch(() => null);
 		if (!price) return null;
-		const eth = await rate('ETH', day).catch(() => null);
-		if (!eth) return null;
+		const eur = await quoteEur(price.quote);
+		if (!eur) return null;
 		return {
-			rate: multiplyRates(price.ethPerToken, eth.rate),
+			rate: multiplyRates(price.price, eur),
 			usdRate: null,
 			source: /** @type {const} */ ('dex'),
 			at: price.at || `${day}T00:00:00Z`,
@@ -244,7 +259,7 @@ export function createRateService({
 
 	/**
 	 * @typedef {{ asset: string, date: string, currency: 'EUR', rate: string, usdRate: string | null, source: 'coingecko' | 'kraken' | 'ecb' | 'dex', at: string, ref?: string }} Rate
-	 *   `ref` for `dex`: `uniswap-v2:<pool>@<block>`
+	 *   `ref` for `dex`: `uniswap-v2:<pool>@<block>`, V4 with its pool id
 	 */
 
 	/**

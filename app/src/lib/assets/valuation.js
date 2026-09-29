@@ -26,7 +26,7 @@ import { formatQuantity, valueCents } from './quantity.js';
  *   `dex`: a DEX pool's price at the booking's block (#163);
  *   `migration`: a replacement token, worth the holding burned for it (#162)
  * @property {string} at the moment the rate is for, ISO 8601
- * @property {string} [ref] `dex`: `uniswap-v2:<pool>@<block>`
+ * @property {string} [ref] `dex`: `uniswap-v2:<pool>@<block>` (V4: the pool id)
  */
 
 /**
@@ -35,7 +35,7 @@ import { formatQuantity, valueCents } from './quantity.js';
  * @property {'EUR'} currency
  * @property {Rate['source']} source
  * @property {string} at
- * @property {string} [ref] `dex`: the pool and block, `uniswap-v2:<pool>@<block>`
+ * @property {string} [ref] `dex`: the pool and block, `uniswap-v2:<pool>@<block>` (V4: the pool id)
  */
 
 /** How a source is named to people. */
@@ -143,7 +143,8 @@ export function formatRate(rate) {
  * @param {unknown} ref
  */
 function poolText(ref) {
-	const m = /^uniswap-v([23]):(0x[0-9a-f]{40})@(\d+)$/.exec(String(ref ?? ''));
+	// V2/V3 name a pool contract; V4 a pool id in its one PoolManager.
+	const m = /^uniswap-v([234]):(0x[0-9a-f]{40}|0x[0-9a-f]{64})@(\d+)$/.exec(String(ref ?? ''));
 	if (m) return ` (Uniswap V${m[1]}, Pool ${m[2].slice(0, 6)}…${m[2].slice(-4)}, Block ${m[3]})`;
 	const burn = /^0x[0-9a-f]{64}$/.exec(String(ref ?? ''));
 	return burn ? ` (Burn Tx ${burn[0].slice(0, 8)}…${burn[0].slice(-4)})` : '';

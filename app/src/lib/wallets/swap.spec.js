@@ -290,6 +290,14 @@ describe('a token priced by its pool (#163, step 3)', () => {
 			valuation: tx?.crypto?.valuation
 		});
 		expect(shown).toContain('DEX-Pool (Uniswap V2, Pool 0xa2a2…a2a2, Block 1000)');
+		// A V4 pool is named by its id in the PoolManager.
+		const v4 = valuationText({
+			asset: 'XYZ',
+			quantity: tx?.crypto?.quantity,
+			decimals: 18,
+			valuation: { ...tx?.crypto?.valuation, ref: `uniswap-v4:0x${'b4'.repeat(32)}@1000` }
+		});
+		expect(v4).toContain('DEX-Pool (Uniswap V4, Pool 0xb4b4…b4b4, Block 1000)');
 	});
 });
 
