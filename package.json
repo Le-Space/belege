@@ -29,7 +29,8 @@
     "spike:llm-key": "node spikes/llm/check-key.mjs",
     "spike:llm-samples": "node spikes/llm/fetch-samples.mjs",
     "spike:llm-extract": "node spikes/llm/extract.mjs",
-    "spike:match": "node spikes/matching/match.mjs"
+    "spike:match": "node spikes/matching/match.mjs",
+    "spike:lan-relay": "pnpm -C spikes/lan-relay install && pnpm -C spikes/lan-relay spike"
   },
   "devDependencies": {
     "fast-xml-parser": "^5.2.5",

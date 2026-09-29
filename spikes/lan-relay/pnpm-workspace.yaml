@@ -1,0 +1,6 @@
+# Its own install, outside the belege workspace (a spike, not shipped).
+nodeLinker: isolated
+onlyBuiltDependencies:
+  - esbuild
+  - node-datachannel
+  - classic-level
