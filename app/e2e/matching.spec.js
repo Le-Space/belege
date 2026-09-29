@@ -319,9 +319,12 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	expect(llm.requests.length - requestsBefore).toBeGreaterThanOrEqual(asked);
 	await expect(questions).toHaveCount(4);
 	await expect(page.getByTestId('ai-all-open')).toHaveCount(0);
-	for (let i = 0; i < asked; i++)
+	// One at a time: a second click right after the first can land on the one
+	// still leaving the list, and is lost.
+	for (let left = asked; left > 0; left--) {
 		await suggestions.first().getByTestId('ai-suggestion-dismiss').click();
-	await expect(suggestions).toHaveCount(0);
+		await expect(suggestions).toHaveCount(left - 1);
+	}
 	delete llm.answers.respond;
 	const unsure = page.locator('[data-testid="question"][data-kind="unsure-match"]');
 	await expect(unsure).toHaveCount(1);
