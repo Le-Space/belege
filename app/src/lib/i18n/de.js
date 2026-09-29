@@ -1693,7 +1693,7 @@ export default {
 				label: 'EUR je {asset}',
 				save: 'Kurs eintragen',
 				edit: 'Kurs von Hand ändern',
-				hint: 'Wird als „von Hand eingetragen“ gekennzeichnet und bei späteren Abrufen nicht überschrieben. Woher der Kurs stammt (z. B. ein DEX-Pool oder ein Handel), gehört als Notiz zum Beleg.'
+				hint: 'Wird als „von Hand eingetragen“ gekennzeichnet und bei späteren Abrufen nicht überschrieben. 0 für einen Token, den niemand mehr handelt. Woher der Kurs stammt (z. B. ein DEX-Pool oder ein Handel), gehört als Notiz zum Beleg.'
 			},
 			migration: {
 				found:

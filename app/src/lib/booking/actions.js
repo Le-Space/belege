@@ -117,8 +117,11 @@ export async function setManualRate(store, transactionId, rate, now = () => new 
 	const clean = String(rate ?? '')
 		.trim()
 		.replace(',', '.');
-	if (!/^\d+(\.\d{1,18})?$/.test(clean) || Number(clean) <= 0) {
-		throw new Error('Der Kurs ist eine positive Zahl, z. B. 0,0042.');
+	// 0 is a rate too: a token nobody trades any more is worth nothing.
+	if (!/^\d+(\.\d{1,18})?$/.test(clean)) {
+		throw new Error(
+			'Der Kurs ist eine Zahl ab 0, z. B. 0,0042 – oder 0 für einen wertlosen Token.'
+		);
 	}
 	if (!/^-?\d+$/.test(String(tx.quantity ?? '')) || !Number.isInteger(tx.decimals)) {
 		throw new Error('Diese Buchung hat keine Menge, zu der ein Kurs gehört.');
