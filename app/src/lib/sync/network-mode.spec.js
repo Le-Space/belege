@@ -33,7 +33,7 @@ describe('where own devices meet (#148)', () => {
 		setNetworkModeMirror('qr');
 		expect(networkMode()).toBe('qr');
 		// Something this build does not know counts as public.
-		kept.set(NETWORK_MODE_KEY, 'both');
+		kept.set(NETWORK_MODE_KEY, 'mesh');
 		expect(networkMode()).toBe('public');
 	});
 
@@ -41,7 +41,8 @@ describe('where own devices meet (#148)', () => {
 		expect(modeOfSetting({ mode: 'qr' })).toBe('qr');
 		expect(modeOfSetting({ mode: 'public' })).toBe('public');
 		expect(modeOfSetting({ mode: 'lan' })).toBe('lan');
-		expect(modeOfSetting({ mode: 'both' })).toBeNull();
+		expect(modeOfSetting({ mode: 'both' })).toBe('both');
+		expect(modeOfSetting({ mode: 'mesh' })).toBeNull();
 		expect(modeOfSetting(null)).toBeNull();
 		expect(isNetworkMode('qr')).toBe(true);
 		expect(isNetworkMode('off')).toBe(false);
@@ -76,6 +77,11 @@ describe('where own devices meet (#148)', () => {
 		expect(asked).toBe(0);
 		expect(await relaysFor('public', publicRelays)).toEqual(['/dns4/relay.example/tcp/443/wss']);
 		expect(asked).toBe(1);
+		// "Beides": the own network's relay first, then the public ones.
+		expect(await relaysFor('both', publicRelays)).toEqual([
+			RELAY,
+			'/dns4/relay.example/tcp/443/wss'
+		]);
 		// Something else is not kept.
 		setLanRelayMirror('/ip4/8.8.8.8/udp/1/webrtc-direct');
 		expect(lanRelayAddr()).toBeNull();

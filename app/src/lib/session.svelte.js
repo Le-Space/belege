@@ -300,12 +300,13 @@ async function addWhenProved(peerId) {
 		await gate.proveTo(peerId);
 		if (!gate.isProved(peerId)) await new Promise((r) => setTimeout(r, 1000));
 	}
-	await addSyncDevice(peerId);
+	if (!deviceSync) throw new Error('Die Synchronisation ist auf diesem Gerät nicht an.');
+	await deviceSync.addDevice(peerId);
 }
 
 /** Watch the QR session for the connections this device answered. */
 async function watchQrConnections() {
-	if (!session?.online || session.mode !== 'qr') return;
+	if (!session?.online || (session.mode !== 'qr' && session.mode !== 'both')) return;
 	const { qrSession } = await import('./sync/qr-link.js');
 	qrSession()?.addEventListener('connect', (/** @type {any} */ e) => {
 		if (e.detail?.direction !== 'inbound') return;
@@ -333,13 +334,26 @@ export async function qrInvite() {
  * @returns {Promise<{ answer: string } | { connected: string }>}
  */
 export async function qrScanned(text) {
-	const { qrSession, payloadKind } = await import('./sync/qr-link.js');
+	const { qrSession, payloadKind, payloadPeer, qrPeers } = await import('./sync/qr-link.js');
 	const qr = qrSession();
 	if (!qr) throw new Error('Ohne Relay verbinden geht erst nach dem Entsperren in diesem Modus.');
 	const kind = await payloadKind(text);
-	if (kind === 'offer') return { answer: await qr.acceptOffer(text.trim()) };
-	if (kind !== 'answer') throw new Error('Das ist kein Code zum Verbinden ohne Relay.');
-	const { peerId } = await qr.acceptAnswer(text.trim());
+	if (kind !== 'offer' && kind !== 'answer') {
+		throw new Error('Das ist kein Code zum Verbinden ohne Relay.');
+	}
+	// Met in the room: a path in the own network ("Beides", sync/first-contact.js).
+	// Noted before the connection opens; dropped when the signature fails.
+	const peer = await payloadPeer(text);
+	if (peer) qrPeers.add(peer);
+	/** @type {string} */
+	let peerId;
+	try {
+		if (kind === 'offer') return { answer: await qr.acceptOffer(text.trim()) };
+		({ peerId } = await qr.acceptAnswer(text.trim()));
+	} catch (error) {
+		if (peer) qrPeers.delete(peer);
+		throw error;
+	}
 	await addWhenProved(peerId);
 	return { connected: peerId };
 }
@@ -753,7 +767,22 @@ function deviceLabel() {
  */
 export async function addSyncDevice(peerId) {
 	if (!deviceSync) throw new Error('Die Synchronisation ist auf diesem Gerät nicht an.');
-	await deviceSync.addDevice(peerId.trim());
+	const id = peerId.trim();
+	if (session?.mode !== 'both') return deviceSync.addDevice(id);
+	// "Beides": a new device only over the own network – through the bridge's
+	// relay here, and into the books once it proved the passkey on that path.
+	const { lanRelayAddr } = await import('./sync/network-mode.js');
+	const relay = session.relays.find((r) => r === lanRelayAddr());
+	if (!relay) {
+		throw new Error(
+			'In „Beides“ kommt ein neues Gerät per QR-Code oder über den Relay deiner Bridge dazu – hier ist keiner eingerichtet.'
+		);
+	}
+	const { multiaddr } = await import('@multiformats/multiaddr');
+	await session.libp2p.dial(multiaddr(`${relay}/p2p-circuit/p2p/${id}`), {
+		signal: AbortSignal.timeout(15_000)
+	});
+	await addWhenProved(id);
 }
 
 /** "Entfernen" in Integrationen → Eigene Geräte. @param {string} peerId */

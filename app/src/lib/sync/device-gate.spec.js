@@ -157,4 +157,31 @@ describe('device gate', () => {
 		await gateA.proveTo(stranger.peerId.toString());
 		expect(gateA.isProved(stranger.peerId.toString())).toBe(false);
 	});
+
+	it('may refuse a right proof by the path it came over, on both sides', async () => {
+		const key = await deriveDeviceAuthKey(new Uint8Array(32).fill(7));
+		/** @type {Set<string>} */
+		const allowed = new Set();
+		const strict = createDeviceGate({
+			authKey: key,
+			waitMs: 800,
+			admit: (peer) => allowed.has(peer)
+		});
+		const c = await node('gate-c', strict);
+		try {
+			// b holds the passkey, but c does not admit it (a new device over a public relay, say).
+			await b.dial(multiaddr('/memory/gate-c'));
+			await wait(1000);
+			expect(strict.isProved(b.peerId.toString())).toBe(false);
+			expect(gateB.isProved(c.peerId.toString())).toBe(false);
+			await expect(askBooks(b, c)).rejects.toThrow();
+			// Admitted now (its record is in the books): the next proof counts.
+			allowed.add(b.peerId.toString());
+			await strict.proveTo(b.peerId.toString());
+			await until(() => strict.isProved(b.peerId.toString()));
+			expect(await askBooks(b, c)).toContain('Wolkenfabrik');
+		} finally {
+			await c.stop();
+		}
+	});
 });

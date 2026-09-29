@@ -133,6 +133,17 @@ describe('syncLibp2pConfig', () => {
 		expect(config.connectionGater?.denyDialMultiaddr?.(/** @type {any} */ ({}))).toBe(false);
 	});
 
+	it('"Beides": codes, the bridge’s relay and the public ones at once', () => {
+		const config = syncLibp2pConfig({
+			privateKey: {},
+			relays: ['/dns4/relay.example/tcp/443/wss/p2p/12D3KooWExample'],
+			gate,
+			mode: 'both'
+		});
+		expect(config.transports).toHaveLength(5);
+		expect(config.connectionGater?.denyDialMultiaddr?.(/** @type {any} */ ({}))).toBe(false);
+	});
+
 	it('lets a local test relay be dialled', () => {
 		const config = syncLibp2pConfig({
 			privateKey: {},

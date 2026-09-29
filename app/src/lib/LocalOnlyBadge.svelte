@@ -7,7 +7,8 @@
 	// unlock, else from the next unlock. Switching device sync on for the first
 	// time goes through the consent screen, which says what the relay sees.
 	// Where devices meet (sync/network-mode.js, #148): the public relays, the
-	// relay in the own bridge, or, without any relay, by QR; both comes later.
+	// relay in the own bridge, without any relay by QR, or all of them, with a
+	// new device let in over the own network only.
 	import { resolve } from '$app/paths';
 	import {
 		app,
@@ -248,10 +249,6 @@
 							</span>
 						</label>
 					{/each}
-					<label class="flex items-center gap-2 text-sm text-faint">
-						<input type="radio" name="network-mode" disabled />{t('header.network.modes.both')}
-					</label>
-					<p class="mt-1 text-xs text-faint">{t('header.network.modesLater')}</p>
 					{#if app.network.modeWanted !== app.network.mode}
 						<p class="mt-1 text-xs text-warning" role="status" data-testid="network-mode-pending">
 							{t('header.network.modePending')}

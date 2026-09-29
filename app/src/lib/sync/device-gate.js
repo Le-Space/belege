@@ -74,9 +74,13 @@ export async function checkDeviceProof(authKey, proof, prover, verifier) {
  * The gate: a libp2p service, listed first so that it wraps the registrar
  * before any other service or OrbitDB registers there.
  *
- * @param {{ authKey: Uint8Array, waitMs?: number }} p
+ * `admit` may refuse a peer even with a right proof, by the connection it
+ * came over: in the mode "Beides" a device the books do not know yet is let
+ * in only over a path in the own network (first-contact.js).
+ *
+ * @param {{ authKey: Uint8Array, waitMs?: number, admit?: (peer: string, connection: any) => boolean }} p
  */
-export function createDeviceGate({ authKey, waitMs = PROOF_WAIT_MS }) {
+export function createDeviceGate({ authKey, waitMs = PROOF_WAIT_MS, admit = () => true }) {
 	/** Peers that proved the passkey on this run. */
 	const proved = new Set();
 	/** @type {Map<string, Set<() => void>>} */
@@ -188,7 +192,9 @@ export function createDeviceGate({ authKey, waitMs = PROOF_WAIT_MS }) {
 		const lp = lpStream(stream, { maxDataLength: PROOF_BYTES });
 		await lp.write(await deviceProof(authKey, self, peer), { signal });
 		const back = (await lp.read({ signal })).subarray();
-		if (await checkDeviceProof(authKey, back, peer, self)) markProved(peer);
+		if ((await checkDeviceProof(authKey, back, peer, self)) && admit(peer, connection)) {
+			markProved(peer);
+		}
 		await stream.close().catch(() => {});
 	}
 
@@ -201,6 +207,10 @@ export function createDeviceGate({ authKey, waitMs = PROOF_WAIT_MS }) {
 			const proof = (await lp.read({ signal })).subarray();
 			if (!(await checkDeviceProof(authKey, proof, peer, self))) {
 				stream.abort(new Error('not an own device'));
+				return;
+			}
+			if (!admit(peer, connection)) {
+				stream.abort(new Error('a new device comes in over the own network or by QR'));
 				return;
 			}
 			markProved(peer);

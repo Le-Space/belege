@@ -27,6 +27,13 @@ export const QR_RTC_CONFIGURATION = Object.freeze({ iceServers: [] });
 /** @type {QRSession | null} */
 let session = null;
 
+/**
+ * The peers this session met by a code exchange: a path in the own network
+ * (first-contact.js). Noted before the connection opens, since the device
+ * gate asks at once; the signature is checked right after.
+ */
+export const qrPeers = new Set();
+
 /** The transport, for the node's config: it dials over the connection a code exchange built. */
 export function qrTransport() {
 	// Its bundled types name a listener libp2p's no longer matches; it never
@@ -53,6 +60,22 @@ export function qrSession() {
 export function closeQrSession() {
 	session?.close();
 	session = null;
+	qrPeers.clear();
+}
+
+/**
+ * The peer id a code names (not yet checked: the session checks its
+ * signature before any connection), or null.
+ *
+ * @param {string} text
+ */
+export async function payloadPeer(text) {
+	try {
+		const { peerId } = /** @type {any} */ (await parsePayload(String(text ?? '').trim()));
+		return typeof peerId === 'string' ? peerId : (peerId?.toString?.() ?? null);
+	} catch {
+		return null;
+	}
 }
 
 /**
