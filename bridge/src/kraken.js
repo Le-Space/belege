@@ -11,6 +11,11 @@
 // share a rate counter; ledger pages are fetched one after the other with a
 // pause, and a "Rate limit exceeded" waits and retries.
 //
+// Private calls go out one at a time. Kraken wants every call of a key to
+// arrive with a higher nonce than the one before; two sent at once (the app
+// asks for balances and the ledger together) can overtake each other, and the
+// later-arriving lower nonce is refused with `EAPI:Invalid nonce`.
+//
 // A deposit or withdrawal also gets its transfer reference: the txid Kraken
 // reports in DepositStatus / WithdrawStatus under the same refid – the
 // on-chain transaction hash for crypto, the bank's reference for euros. That
@@ -159,6 +164,9 @@ export function createKrakenClient({
 }) {
 	const base = baseUrl.replace(/\/+$/, '');
 	let lastNonce = 0n;
+	/** The private calls, one after the other (see above). */
+	/** @type {Promise<unknown>} */
+	let queue = Promise.resolve();
 	/** @type {Record<string, KrakenAssetInfo> | null} */
 	let assetCache = null;
 
@@ -200,7 +208,17 @@ export function createKrakenClient({
 	 * @param {string} method e.g. Balance
 	 * @param {Record<string, string>} [params]
 	 */
-	async function privateCall(method, params = {}) {
+	function privateCall(method, params = {}) {
+		const run = queue.then(() => privateCallNow(method, params));
+		queue = run.catch(() => {});
+		return run;
+	}
+
+	/**
+	 * @param {string} method
+	 * @param {Record<string, string>} params
+	 */
+	async function privateCallNow(method, params) {
 		const { key, secret } = await getCredentials();
 		const path = `/0/private/${method}`;
 		for (let attempt = 0; ; attempt++) {
