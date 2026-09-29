@@ -8,7 +8,7 @@
 	import { loadTransferFirst, saveTransferFirst } from '$lib/jobs/workers.js';
 	import { displayPurpose, formatDate, formatMoney } from '$lib/bank/format.js';
 	import { receiptDate, receiptVendor } from '$lib/receipts/view.js';
-	import { t } from '$lib/i18n/index.js';
+	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { onMount } from 'svelte';
 	import AiMark from '$lib/AiMark.svelte';
 	import { getSetting } from '$lib/store/settings.js';
@@ -258,7 +258,7 @@
 				<p>
 					{t('rueckfragen.ai.what', { count: estimate.requests })}
 					{estimate.tokens
-						? t('rueckfragen.ai.tokens', { tokens: estimate.tokens.toLocaleString('de-DE') })
+						? t('rueckfragen.ai.tokens', { tokens: estimate.tokens.toLocaleString(intlLocale()) })
 						: t('rueckfragen.ai.tokensUnknown')}
 				</p>
 				<label class="mt-2 flex items-start gap-2">

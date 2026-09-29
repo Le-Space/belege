@@ -2,19 +2,18 @@
 // 812 Tokens · 7 Stellen geschwärzt", the second attempt and why, the
 // redactions by kind. From `extractionInfo` on the record (extract.js). Pure.
 
-import { t } from '../i18n/index.js';
-
-const DECIMAL = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 });
-const INTEGER = new Intl.NumberFormat('de-DE');
+import { intlLocale, t } from '../i18n/index.js';
 
 /** `1400` → `1,4`; `850` → `0,9` */
 export function seconds(/** @type {number} */ ms) {
-	return DECIMAL.format(Math.max(0, ms) / 1000);
+	return new Intl.NumberFormat(intlLocale(), { maximumFractionDigits: 1 }).format(
+		Math.max(0, ms) / 1000
+	);
 }
 
 /** `12345` → `12.345` */
 export function integer(/** @type {number} */ n) {
-	return INTEGER.format(n);
+	return new Intl.NumberFormat(intlLocale()).format(n);
 }
 
 /**

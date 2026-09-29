@@ -5,7 +5,7 @@
 	import { resolve } from '$app/paths';
 	import { app, currentStore, refreshNow } from '$lib/session.svelte.js';
 	import { getSetting, setSetting } from '$lib/store/settings.js';
-	import { t } from '$lib/i18n/index.js';
+	import { intlLocale, t } from '$lib/i18n/index.js';
 	import {
 		DEFAULT_PRICES,
 		aiUsage,
@@ -87,12 +87,12 @@
 
 	/** @param {number} bytes */
 	const mb = (bytes) =>
-		`${new Intl.NumberFormat('de-DE', { maximumFractionDigits: bytes < 1e7 ? 1 : 0 }).format(bytes / 1e6)} MB`;
+		`${new Intl.NumberFormat(intlLocale(), { maximumFractionDigits: bytes < 1e7 ? 1 : 0 }).format(bytes / 1e6)} MB`;
 	/** @param {number} n */
-	const int = (n) => new Intl.NumberFormat('de-DE').format(n);
+	const int = (n) => new Intl.NumberFormat(intlLocale()).format(n);
 	/** @param {number} cost */
 	const money = (cost) =>
-		new Intl.NumberFormat('de-DE', {
+		new Intl.NumberFormat(intlLocale(), {
 			style: 'currency',
 			currency: prices.currency,
 			maximumFractionDigits: cost < 1 ? 4 : 2

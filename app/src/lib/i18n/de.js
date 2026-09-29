@@ -80,6 +80,11 @@ export default {
 		},
 		localFirst: 'Le Space: der Local-First-Stack hinter dieser App'
 	},
+	language: {
+		label: 'Sprache',
+		de: 'Deutsch',
+		en: 'English'
+	},
 	theme: {
 		toLight: 'Zum hellen Modus wechseln',
 		toDark: 'Zum dunklen Modus wechseln',

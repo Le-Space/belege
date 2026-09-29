@@ -5,7 +5,7 @@
 	import { createBridgeClient } from '$lib/bridge/client.js';
 	import { app, currentStore } from '$lib/session.svelte.js';
 	import { recordEvent } from '$lib/activity/events.js';
-	import { t } from '$lib/i18n/index.js';
+	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { shownYear } from '$lib/year/year.svelte.js';
 	import CopyButton from '$lib/CopyButton.svelte';
 	import { COLLECTIONS, buildSnapshot, scopeText } from './snapshot.js';
@@ -95,7 +95,7 @@
 
 	/** @param {string} iso */
 	const time = (iso) =>
-		new Intl.DateTimeFormat('de-DE', { dateStyle: 'short', timeStyle: 'short' }).format(
+		new Intl.DateTimeFormat(intlLocale(), { dateStyle: 'short', timeStyle: 'short' }).format(
 			new Date(iso)
 		);
 	const card = 'mt-6 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm';

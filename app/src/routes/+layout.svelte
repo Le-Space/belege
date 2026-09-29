@@ -9,6 +9,7 @@
 	import BelegeMark from '$lib/BelegeMark.svelte';
 	import LocalOnlyBadge from '$lib/LocalOnlyBadge.svelte';
 	import PageQr from '$lib/PageQr.svelte';
+	import LanguageSwitch from '$lib/LanguageSwitch.svelte';
 	import SettingsLink from '$lib/SettingsLink.svelte';
 	import { page } from '$app/state';
 	import PasskeyOnboarding from '$lib/PasskeyOnboarding.svelte';
@@ -17,8 +18,11 @@
 	import YearSwitch from '$lib/year/YearSwitch.svelte';
 	import TechnicalToggle from '$lib/TechnicalToggle.svelte';
 	import ThemeToggle from '$lib/ThemeToggle.svelte';
-	import { t } from '$lib/i18n/index.js';
+	import { startLocale, t } from '$lib/i18n/index.js';
 	import { app } from '$lib/session.svelte.js';
+
+	// The language before the first word is drawn (i18n/, #192).
+	startLocale();
 
 	let { children } = $props();
 
@@ -81,6 +85,7 @@
 		<div class="col-start-2 row-start-1 flex items-center gap-1 sm:col-start-3 sm:gap-2">
 			{#if ready}<SettingsLink />{/if}
 			<PageQr />
+			<LanguageSwitch />
 			<ThemeToggle />
 			<TechnicalToggle />
 		</div>

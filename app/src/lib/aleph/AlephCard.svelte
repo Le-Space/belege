@@ -5,7 +5,7 @@
 	// bridge asks Aleph's public API; nothing is signed or moved.
 	import { createBridgeClient } from '$lib/bridge/client.js';
 	import { app, currentBlobs, currentStore, refreshNow } from '$lib/session.svelte.js';
-	import { t } from '$lib/i18n/index.js';
+	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { formatDate } from '$lib/bank/format.js';
 	import { amount } from '$lib/export/datev.js';
 	import { loadWallets } from '$lib/wallets/wallet-sync.js';
@@ -135,7 +135,7 @@
 	const card = 'mt-6 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm';
 	const button =
 		'rounded-md border border-border px-3 py-1.5 text-sm text-text hover:bg-surface-2 hover:text-heading disabled:opacity-50';
-	const credits = (/** @type {number} */ n) => Math.round(n).toLocaleString('de-DE');
+	const credits = (/** @type {number} */ n) => Math.round(n).toLocaleString(intlLocale());
 </script>
 
 <section class={card} aria-labelledby="aleph-h" data-testid="aleph-card">

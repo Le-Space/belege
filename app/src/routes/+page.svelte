@@ -1,7 +1,7 @@
 <script>
 	import { resolve } from '$app/paths';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
-	import { list, t } from '$lib/i18n/index.js';
+	import { intlLocale, list, t } from '$lib/i18n/index.js';
 	import {
 		app,
 		currentStore,
@@ -435,8 +435,8 @@
 			storage:
 				storageUsed === null
 					? '—'
-					: `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 }).format(storageUsed / 1e6)} MB`,
-			cost: new Intl.NumberFormat('de-DE', {
+					: `${new Intl.NumberFormat(intlLocale(), { maximumFractionDigits: 1 }).format(storageUsed / 1e6)} MB`,
+			cost: new Intl.NumberFormat(intlLocale(), {
 				style: 'currency',
 				currency: homePrices.currency,
 				maximumFractionDigits: 2

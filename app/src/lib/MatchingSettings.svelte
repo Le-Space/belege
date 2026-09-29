@@ -1,4 +1,5 @@
 <script>
+	import { intlLocale } from '$lib/i18n/index.js';
 	import { accountLabel } from './bank/format.js';
 	// "Eigene Anweisungen": company names, own IBANs, rules. Stored sealed in
 	// `settings` under `matching` (matching/classify.js), read by every
@@ -46,7 +47,7 @@
 	/** @type {string | null} */
 	let invalid = $state(null);
 	const MONTHS = Array.from({ length: 12 }, (_, i) =>
-		new Intl.DateTimeFormat('de-DE', { month: 'long', timeZone: 'UTC' }).format(
+		new Intl.DateTimeFormat(intlLocale(), { month: 'long', timeZone: 'UTC' }).format(
 			new Date(Date.UTC(2026, i, 1))
 		)
 	);
