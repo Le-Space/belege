@@ -1,12 +1,24 @@
 # Changelog
 
 All notable changes to Le Space Belege. The format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions will follow
-[Semantic Versioning](https://semver.org/) once there is a release.
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
+[Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **A lint guard against German outside the catalogue** (`belege/no-german`, in `pnpm lint`), and an English smoke run over every page (#202).
+
 ## [0.4.0] – 2026-09-29
+
+### Added
+
+- **The language switch in the consent screen too.** On a first visit the consent screen covers the header; its DE|EN switch now sits beside "Technisch" (#199).
+
+### Changed
+
+- **A compact README:** what Belege is today, the live app, every setup command, and a docs index. Details moved to `docs/matching.md` and `docs/phase-0.md`. Values from real receipts in the phase-0 notes were replaced by made-up ones (#201).
 
 ## [0.3.0] – 2026-09-29
 
