@@ -24,15 +24,22 @@ const PRF = Array.from({ length: 32 }, (_, i) => (i * 37 + 11) % 256);
  * and QR detector the test feeds.
  *
  * @param {import('@playwright/test').Browser} browser
- * @param {{ mode?: 'public' | 'qr' }} [options] where devices meet (#148), as this browser keeps it
+ * @param {{ mode?: 'public' | 'qr' | 'lan', lanRelay?: string }} [options] where devices meet
+ *   (#148), as this browser keeps it, and the own bridge's relay it knows
  */
-export async function device(browser, { mode = 'public' } = {}) {
+export async function device(browser, { mode = 'public', lanRelay = '' } = {}) {
 	const context = await browser.newContext();
 	await context.addInitScript(
-		({ prf, mode }) => {
+		({ prf, mode, lanRelay }) => {
 			/** @type {any} */ (globalThis).__belegeTestPrf = prf;
 			localStorage.setItem('belege.device-sync', 'on');
-			localStorage.setItem('belege.network-mode', mode);
+			// Only the first time: a mode chosen in the menu must survive a reload.
+			if (!localStorage.getItem('belege.network-mode')) {
+				localStorage.setItem('belege.network-mode', mode);
+			}
+			if (lanRelay && !localStorage.getItem('belege.lan-relay')) {
+				localStorage.setItem('belege.lan-relay', lanRelay);
+			}
 			// A camera and a QR detector for "QR-Code scannen": the camera shows a
 			// blank canvas, the detector reads whatever the test put in __scanValue.
 			/** @type {any} */ (globalThis).BarcodeDetector = class {
@@ -49,7 +56,7 @@ export async function device(browser, { mode = 'public' } = {}) {
 				return canvas.captureStream(5);
 			};
 		},
-		{ prf: PRF, mode }
+		{ prf: PRF, mode, lanRelay }
 	);
 	const page = await context.newPage();
 	const cdp = await context.newCDPSession(page);

@@ -65,14 +65,18 @@ export default {
 			modes: {
 				public: 'Öffentlich (Le-Space-Relays)',
 				qr: 'Ohne Relay, per QR',
+				lan: 'Nur im eigenen Netz (Relay in deiner Bridge)',
 				local: 'Nur im eigenen Netz',
 				both: 'Beides: zuerst im eigenen Netz freigeben, dann überall'
 			},
 			modeHints: {
 				public: 'Überall; der Relay sieht IP-Adressen und Zeitpunkte, nie den Inhalt.',
-				qr: 'Kein Relay, kein Server: beide Geräte im selben Netz, und nach jedem Neuladen einmal Codes tauschen.'
+				qr: 'Kein Relay, kein Server: beide Geräte im selben Netz, und nach jedem Neuladen einmal Codes tauschen.',
+				lan: 'Geräte treffen sich am Relay deiner Bridge, nur im selben Netz; kein öffentlicher Relay, kein STUN.'
 			},
-			modesLater: 'Die beiden anderen Wege kommen mit einem Relay in deiner Bridge (#148).',
+			modesLater: '„Beides“ kommt später (#148).',
+			lanUnavailable:
+				'Erst auf dem Rechner mit der Bridge `pnpm setup:relay` ausführen, die Bridge neu starten und hier koppeln.',
 			modePending: 'Gilt für alle Geräte dieser Bücher, hier ab dem nächsten Entsperren.'
 		},
 		localFirst: 'Le Space: der Local-First-Stack hinter dieser App'
@@ -297,7 +301,7 @@ export default {
 			options: 'Einstellungen',
 			devices: 'Eigene Geräte synchronisieren',
 			devicesText:
-				'Deine Bücher und Belege auch auf deinem Telefon oder einem zweiten Rechner mit demselben Passkey. Die Geräte verbinden sich über ein Le-Space-Relay (gefunden über Aleph, siehe „Le-Space-Relays“) und, wo möglich, direkt; alles ist verschlüsselt, bevor es das Gerät verlässt. Oder, im Netzwerk-Menü oben unter „Wo sich Geräte treffen“, ohne Relay per QR: Zwei Geräte im selben Netz scannen gegenseitig einen Code und verbinden sich direkt – dann fragt Belege weder Aleph noch ein Relay noch einen STUN-Server, und der Code zeigt nur die Kennung des Geräts und seine Adressen im lokalen Netz. Ein Gerät bekommt die Bücher erst, wenn es beweist, dass es denselben Passkey hat; der Relay und andere Peers bekommen nichts davon, auch nicht verschlüsselt. Der Relay sieht, dass zwei Geräte miteinander reden, ihre IP-Adressen und die Kennungen (Hash-Werte) der Datenbanken, nie Inhalte. Gilt für dieses Gerät, ab dem nächsten Entsperren. Auf einem Rechner mit Bridge kannst du sie zusätzlich für deine eigenen Geräte freigeben (Integrationen → Eigene Geräte): Dann nutzt das Telefon Bank, Postfach, KI und Wallets über diesen Rechner – nur die freigegebenen Abfragen, verschlüsselt, der Zugang der Bridge bleibt auf dem Rechner.',
+				'Deine Bücher und Belege auch auf deinem Telefon oder einem zweiten Rechner mit demselben Passkey. Die Geräte verbinden sich über ein Le-Space-Relay (gefunden über Aleph, siehe „Le-Space-Relays“) und, wo möglich, direkt; alles ist verschlüsselt, bevor es das Gerät verlässt. Oder, im Netzwerk-Menü oben unter „Wo sich Geräte treffen“, ohne Relay per QR: Zwei Geräte im selben Netz scannen gegenseitig einen Code und verbinden sich direkt – dann fragt Belege weder Aleph noch ein Relay noch einen STUN-Server, und der Code zeigt nur die Kennung des Geräts und seine Adressen im lokalen Netz. Oder „Nur im eigenen Netz“: Die Geräte treffen sich am Relay deiner eigenen Bridge (auf dem Rechner mit `pnpm setup:relay` eingerichtet) – dann fragt Belege weder Aleph noch einen öffentlichen Relay noch einen STUN-Server, und dein Rechner sieht nur die Adressen im lokalen Netz und wann die Geräte verbunden sind. Ein Gerät bekommt die Bücher erst, wenn es beweist, dass es denselben Passkey hat; der Relay und andere Peers bekommen nichts davon, auch nicht verschlüsselt. Der Relay sieht, dass zwei Geräte miteinander reden, ihre IP-Adressen und die Kennungen (Hash-Werte) der Datenbanken, nie Inhalte. Gilt für dieses Gerät, ab dem nächsten Entsperren. Auf einem Rechner mit Bridge kannst du sie zusätzlich für deine eigenen Geräte freigeben (Integrationen → Eigene Geräte): Dann nutzt das Telefon Bank, Postfach, KI und Wallets über diesen Rechner – nur die freigegebenen Abfragen, verschlüsselt, der Zugang der Bridge bleibt auf dem Rechner.',
 			collaboration: 'Zusammenarbeit',
 			collaborationText:
 				'Gemeinsame Bücher mit Kolleginnen, Kollegen oder der Steuerberatung, Chat und später Video. Das kommt später und wird dann hier ausdrücklich eingeschaltet – nicht vorher und nicht von selbst.',
@@ -306,6 +310,7 @@ export default {
 				'Sein Peer-Schlüssel (Ed25519) entsteht in jeder Sitzung neu und wird nirgends gespeichert.',
 				'Mit „Eigene Geräte synchronisieren“ bekommt dieser Knoten die Transporte des Rechnungs-App-Knotens: WebSocket zum Relay, eine Reservierung dort, WebRTC für die direkte Verbindung, dazu gossipsub für OrbitDB. Sein Peer-Schlüssel kommt dann aus dem Passkey und einem Zufallswert dieses Browsers, damit jedes Gerät seine eigene, gleichbleibende Kennung hat. Die Geräte kennen einander über versiegelte Einträge in den Einstellungen (`device:<Kennung>`). Bevor ein Gerät etwas bekommt, beweist es den Passkey: ein HMAC über beide Kennungen mit einem Schlüssel, der aus dem Passkey abgeleitet und nie übertragen wird. Bis dahin beantwortet der Knoten nur identify und den Relay – kein gossipsub, keine OrbitDB-Heads, kein Bitswap, keine Bridge.',
 				'Im Modus „Ohne Relay, per QR“ hat der Knoten nur den Transport von @le-space/libp2p-webrtc-qr: kein WebSocket, keine Relay-Adresse, keine Abfrage bei Aleph. Einladung und Antwort sind je eine WebRTC-SDP mit nur lokalen Kandidaten (kein STUN), signiert mit dem Peer-Schlüssel des Geräts und gegen die Peer-ID darin geprüft; weil die SDP den DTLS-Fingerabdruck enthält, bindet die Signatur die Verbindung an beide Kennungen, wie sonst Noise. Ein Code gilt zehn Minuten. Der Passkey-Beweis läuft auf dieser Verbindung wie auf jeder anderen. Der Modus liegt versiegelt in den Einstellungen (`network-mode`) und als Kopie in diesem Browser.',
+				'Im Modus „Nur im eigenen Netz“ wählt der Knoten den Relay der Bridge per WebRTC-Direct an (`/ip4/<Adresse im lokalen Netz>/udp/<Port>/webrtc-direct/certhash/…`): Der Browser prüft das Zertifikat des Relays über dessen Hash in der Adresse, ohne Zertifizierungsstelle und ohne Installation. Die Bridge lauscht nur auf der einen gewählten Adresse, nie auf allen, und nutzt ein eigenes, zehn Jahre gültiges P-256-Zertifikat, damit die Adresse gleich bleibt. Die Adresse steht versiegelt in den Einstellungen (`lan-relay`); die App holt sie mit der Kopplung von der Bridge. Die Verbindungen zwischen den Geräten nutzen nur lokale Kandidaten (kein STUN), und Noise verschlüsselt sie Ende zu Ende wie beim öffentlichen Relay.',
 				'Die Seite lädt keine Schriften, Skripte oder Bilder von Dritten.'
 			]
 		},

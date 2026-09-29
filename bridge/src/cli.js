@@ -144,6 +144,8 @@ try {
 		// Test mode: a new portal may start on a fake portal on this machine.
 		portalLoopback: testMode,
 		portalHeadless: testMode ? 'always' : 'auto',
+		// Test mode: the LAN relay may listen on 127.0.0.1.
+		lanRelayLoopback: testMode,
 		port,
 		forcePairingCode: args.includes('--pair')
 	});

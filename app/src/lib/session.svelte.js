@@ -76,7 +76,9 @@ export const app = $state({
 		 */
 		mode: 'public',
 		/** @type {import('./sync/network-mode.js').NetworkMode} */
-		modeWanted: 'public'
+		modeWanted: 'public',
+		/** @type {string | null} the relay in the own bridge, as the books know it (#148) */
+		lanRelay: null
 	},
 	/** Belege as a UCEP consumer (ucep/): the invoicing app it is paired with. */
 	ucep: {
@@ -211,9 +213,47 @@ async function applyStoredMode() {
 		await session.store.settings.list({ where: (r) => r.key === NETWORK_MODE_SETTING })
 	).sort((a, b) => String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')));
 	const stored = modeOfSetting(newest?.value);
-	if (!stored) return;
-	setNetworkModeMirror(stored);
-	app.network.modeWanted = stored;
+	if (stored) {
+		setNetworkModeMirror(stored);
+		app.network.modeWanted = stored;
+	}
+	await applyStoredLanRelay();
+}
+
+/** The own bridge's relay as the books know it, copied into this browser for the next unlock. */
+async function applyStoredLanRelay() {
+	if (!session) return;
+	const { LAN_RELAY_SETTING, isLanRelayAddr, lanRelayAddr, setLanRelayMirror } = await import(
+		'./sync/network-mode.js'
+	);
+	const addr = /** @type {any} */ (await getSetting(session.store.settings, LAN_RELAY_SETTING))
+		?.addr;
+	if (isLanRelayAddr(addr)) setLanRelayMirror(addr);
+	app.network.lanRelay = lanRelayAddr();
+	// Not awaited: the books open whatever the bridge answers.
+	learnLanRelay().catch(() => {});
+}
+
+/** The bridge token the relay's address was last asked with: once per pairing, not per change. */
+let lanRelayAskedWith = '';
+
+/**
+ * Ask the paired bridge for its relay in the own network (bridge/src/lan-relay.js)
+ * and keep a new address in the books, so every device learns it.
+ */
+async function learnLanRelay() {
+	if (!session) return;
+	const saved = /** @type {any} */ (await getSetting(session.store.settings, 'bridge'));
+	if (!saved?.token || saved.token === lanRelayAskedWith) return;
+	lanRelayAskedWith = saved.token;
+	const client = await pairedClient();
+	const relay = await client?.lanRelay().catch(() => null);
+	const { LAN_RELAY_SETTING, isLanRelayAddr } = await import('./sync/network-mode.js');
+	if (!relay?.running || !isLanRelayAddr(relay.addr) || relay.addr === app.network.lanRelay) {
+		return;
+	}
+	const { setSetting } = await import('./store/settings.js');
+	await setSetting(session.store.settings, LAN_RELAY_SETTING, { addr: relay.addr });
 }
 
 /**
@@ -732,6 +772,7 @@ async function unlockWith(credential) {
 	app.network.reloadNeeded = false;
 	app.network.mode = session.mode;
 	app.network.modeWanted = session.mode;
+	lanRelayAskedWith = '';
 	app.did = session.did;
 	for (const name of /** @type {const} */ ([
 		'transactions',

@@ -74,6 +74,7 @@ export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
  * @param {boolean} [options.portalLoopback] a new portal may start on http://127.0.0.1 (tests only)
  * @param {import('./portals/credentials.js').AskPassword} [options.portalPasswordDialog]
  *   asks for a portal's password on this Mac ("Zugangsdaten speichern"); tests hand in a fake
+ * @param {boolean} [options.lanRelayLoopback] the LAN relay may listen on 127.0.0.1 (tests only)
  * @param {boolean} [options.forcePairingCode] issue a code even when already paired
  * @param {number} [options.port] overrides the config
  * @param {(line: string) => void} [options.print] the console; gets the pairing code
@@ -100,6 +101,7 @@ export async function startBridge({
 	portalHeadless = 'auto',
 	portalLoopback = false,
 	portalPasswordDialog = macosPasswordDialog(),
+	lanRelayLoopback = false,
 	forcePairingCode = false,
 	port,
 	print = (line) => console.log(line),
@@ -223,8 +225,32 @@ export async function startBridge({
 					...(alchemyBaseUrl ? { alchemyBaseUrl } : {})
 				})
 			});
+	// The relay for own devices in the own network (#148), when set up; the
+	// bridge runs on without it when it cannot start.
+	/** @type {Awaited<ReturnType<typeof import('./lan-relay.js').startLanRelay>> | null} */
+	let lanRelay = null;
+	if (config.lanRelay.host) {
+		try {
+			const { startLanRelay } = await import('./lan-relay.js');
+			lanRelay = await startLanRelay({
+				host: config.lanRelay.host,
+				port: config.lanRelay.port,
+				dir: join(dirname(configPath), 'lan-relay'),
+				allowLoopback: lanRelayLoopback,
+				log
+			});
+		} catch (/** @type {any} */ error) {
+			log(`${error.message} – run \`pnpm setup:relay\` again, or switch it off there.`);
+		}
+	}
+
 	const bridge = createBridgeServer({
 		config,
+		lanRelay: lanRelay
+			? { addr: lanRelay.addr, stats: lanRelay.stats }
+			: config.lanRelay.host
+				? { addr: null, stats: () => ({ reservations: 0, connections: 0 }) }
+				: null,
 		pairing,
 		hibiscus: client ? () => client : null,
 		mail,
@@ -268,6 +294,9 @@ export async function startBridge({
 	const address = await bridge.listen({ port: port ?? config.bridge.port });
 	print(`belege bridge listening on http://${address.host}:${address.port}`);
 	print(`Allowed app origins: ${config.appOrigins.join(', ') || '(none)'}`);
+	if (lanRelay) {
+		print(`LAN relay for own devices on ${config.lanRelay.host}, UDP ${config.lanRelay.port}`);
+	}
 
 	if (forcePairingCode || !pairing.isPaired()) {
 		const code = pairing.issueCode();
@@ -281,8 +310,10 @@ export async function startBridge({
 		config,
 		pairing,
 		portals,
-		close() {
+		lanRelay,
+		async close() {
 			portals.close();
+			await lanRelay?.stop().catch(() => {});
 			return bridge.close();
 		}
 	};

@@ -23,6 +23,7 @@
 //   GET  /kraken/ledgers?since=YYYY-MM-DD                         token → the ledger, oldest first
 //   GET  /chains                                                  token → chains, endpoints, explorers, alchemy: bool (chains/)
 //   GET  /bitcoin/key                                             token → the zpub's fingerprint, never the zpub
+//   GET  /lan-relay                                               token → the relay for own devices in the own network: its address (lan-relay.js)
 //   POST /<chain>/wallet { address, endpoints? }                  token → an own wallet's transfers and balance
 //   POST /aleph/accounts { addresses, api? }                      token → which are Aleph accounts: credits, entries (aleph.js)
 //   GET  /aleph/statement?address=0x…&month=YYYY-MM[&api=]        token → a month's credits: balances, top-ups, usage per day
@@ -96,6 +97,8 @@ const MAX_EXTRACT_BODY = 256 * 1024;
  * @param {ReturnType<typeof import('./aleph.js').createAlephClient> | null} [options.aleph] Aleph Cloud credits, read only
  * @param {boolean} [options.alephLoopback] tests: an Aleph API on 127.0.0.1
  * @param {string} [options.alephApi] the Aleph API asked when the request names none
+ * @param {{ addr: string | null, stats: () => { reservations: number, connections: number } } | null} [options.lanRelay]
+ *   the relay for own devices (lan-relay.js): null when not set up, `addr` null when it did not start
  * @param {(message: string) => void} [options.log] never gets a secret, bank data, mail or receipt text
  */
 export function createBridgeServer({
@@ -117,6 +120,7 @@ export function createBridgeServer({
 	aleph = null,
 	alephLoopback = false,
 	alephApi = ALEPH_API,
+	lanRelay = null,
 	log = () => {}
 }) {
 	const allowedOrigins = new Set(config.appOrigins.map((o) => o.replace(/\/$/, '')));
@@ -237,7 +241,8 @@ export function createBridgeServer({
 				llm: { configured: Boolean(llm), models: llm ? llm.models : [] },
 				portals: { available: Boolean(portals) },
 				kraken: { configured: Boolean(kraken) },
-				wallets: { available: Boolean(wallets) }
+				wallets: { available: Boolean(wallets) },
+				lanRelay: { configured: Boolean(lanRelay), running: Boolean(lanRelay?.addr) }
 			});
 		}
 
@@ -642,6 +647,15 @@ export function createBridgeServer({
 			if (!wallets) return send(res, 503, { error: 'wallets are not available' });
 			// Whether an Alchemy key is set up (EVM wallets are then read there); never the key.
 			return send(res, 200, { chains: wallets.chains(), alchemy: await wallets.alchemy() });
+		}
+		if (path === '/lan-relay' && req.method === 'GET') {
+			// The address the books keep, so own devices find it; counts, never who.
+			return send(res, 200, {
+				configured: Boolean(lanRelay),
+				running: Boolean(lanRelay?.addr),
+				addr: lanRelay?.addr ?? null,
+				...(lanRelay?.addr ? lanRelay.stats() : {})
+			});
 		}
 		if (path === '/bitcoin/key' && req.method === 'GET') {
 			if (!wallets) return send(res, 503, { error: 'wallets are not available' });

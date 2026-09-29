@@ -11,6 +11,8 @@ import { chmod, mkdir, readFile, rename, stat, writeFile } from 'node:fs/promise
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import { DEFAULT_LAN_RELAY_PORT } from './lan-relay-port.js';
+
 export const DEFAULT_PORT = 8765;
 
 export function defaultConfigPath() {
@@ -27,6 +29,13 @@ export function defaultConfigPath() {
  * @property {LlmConfig} llm
  * @property {Record<string, import('./portals/index.js').PortalConfig>} portals customer portals, by id
  * @property {KrakenConfig} kraken
+ * @property {LanRelayConfig} lanRelay
+ */
+
+/**
+ * @typedef {object} LanRelayConfig the relay for own devices in the own network (lan-relay.js)
+ * @property {string | null} host an IPv4 address of this Mac in the private network; null: off
+ * @property {number} port UDP
  */
 
 /**
@@ -89,7 +98,8 @@ export function defaultConfig() {
 		mail: defaultMailConfig(),
 		llm: defaultLlmConfig(),
 		portals: {},
-		kraken: { configured: false, baseUrl: 'https://api.kraken.com' }
+		kraken: { configured: false, baseUrl: 'https://api.kraken.com' },
+		lanRelay: { host: null, port: DEFAULT_LAN_RELAY_PORT }
 	};
 }
 
@@ -141,6 +151,18 @@ export function withDefaults(raw) {
 		kraken: {
 			configured: raw?.kraken?.configured === true,
 			baseUrl: krakenBaseUrl(raw?.kraken?.baseUrl) ?? d.kraken.baseUrl
+		},
+		lanRelay: {
+			host:
+				typeof raw?.lanRelay?.host === 'string' && /^\d{1,3}(\.\d{1,3}){3}$/.test(raw.lanRelay.host)
+					? raw.lanRelay.host
+					: null,
+			port:
+				Number.isInteger(raw?.lanRelay?.port) &&
+				raw.lanRelay.port >= 1024 &&
+				raw.lanRelay.port <= 65535
+					? raw.lanRelay.port
+					: d.lanRelay.port
 		}
 	};
 }

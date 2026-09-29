@@ -16,7 +16,7 @@ import { createLibp2p } from 'libp2p';
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { deviceSalt, deviceSyncOn, syncLibp2pConfig } from './sync/device-sync.js';
 import { createDeviceGate } from './sync/device-gate.js';
-import { networkMode } from './sync/network-mode.js';
+import { networkMode, relaysFor } from './sync/network-mode.js';
 import { attachQrSession, closeQrSession } from './sync/qr-link.js';
 import { relayAddrs } from './ucep/net.js';
 import { createHeliaLight } from 'helia';
@@ -106,9 +106,9 @@ export async function startSession(credential) {
 	const online = deviceSyncOn() && !networkPause();
 	// Where devices meet (#148), as this browser keeps it: the books are not open yet.
 	const mode = networkMode();
-	// Aleph is asked for the Le-Space relays only when this device goes online,
-	// and not at all without a relay ("Ohne Relay, per QR").
-	const relays = online && mode === 'public' ? await relayAddrs() : [];
+	// Aleph is asked for the Le-Space relays only when this device goes online
+	// in the public mode; the own network's relay is the bridge's (network-mode.js).
+	const relays = online ? await relaysFor(mode, () => relayAddrs()) : [];
 	const peerKey = online
 		? await generateKeyPairFromSeed('Ed25519', await deriveDevicePeerSeed(prfOutput, deviceSalt()))
 		: await createEphemeralPeerKey();
