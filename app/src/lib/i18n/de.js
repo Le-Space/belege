@@ -1337,6 +1337,7 @@ export default {
 			'scam-cleared': 'Scam-Verdacht als unbegründet markiert',
 			'mail-trash': 'Mail in den Papierkorb verschoben',
 			'upload-link': 'Beleg hochgeladen und dieser Zahlung zugeordnet',
+			'receipt-moved': 'Beleg von einer anderen Zahlung hierher umgehängt',
 			eigenbeleg: 'Eigenbeleg erstellt und zugeordnet',
 			'aleph-statement': 'Aleph-Verbrauchsnachweis {number} für {month} erstellt',
 			booking: 'Konto übernommen',
@@ -1769,6 +1770,13 @@ export default {
 			uploaded: 'Zugeordnet: {vendor}',
 			uploadedPoints: ' – {line}',
 			uploadedDuplicate: ' (diesen Beleg gab es schon)',
+			uploadElsewhere:
+				'Diese Datei ist schon der Beleg „{vendor}“ einer anderen Zahlung: {booking}. Hier ist nichts zugeordnet und dort nichts geändert.',
+			uploadElsewhereUnknown: 'einer Zahlung, die hier noch nicht angekommen ist',
+			uploadElsewhereOpen: 'Andere Zahlung öffnen',
+			uploadMove: 'Hierher umhängen – dort fehlt er dann',
+			uploadMoved:
+				'Umgehängt: Der Beleg gehört jetzt zu dieser Zahlung; die andere braucht wieder einen.',
 			uploadUnsupported: 'Das ist kein PDF und kein Bild.',
 			uploadTooLarge: 'Die Datei ist größer als 15 MB.',
 			uploadReadFailed: 'Auslesen fehlgeschlagen: {error}',

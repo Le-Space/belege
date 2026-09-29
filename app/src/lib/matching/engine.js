@@ -157,15 +157,23 @@ export async function runMatching({
 	onProgress = () => {}
 }) {
 	onProgress({ step: 'read' });
-	const [txs, receipts, matches, questions, accounts, settings, partners] = await Promise.all([
-		store.transactions.list(),
-		store.receipts.list(),
-		store.matches.list(),
-		store.questions.list(),
-		store.accounts.list(),
-		getSetting(store.settings, 'matching'),
-		store.partners ? store.partners.list() : []
-	]);
+	const [allTxs, allReceipts, matches, questions, accounts, settings, partners] = await Promise.all(
+		[
+			store.transactions.list({ includeDeleted: true }),
+			store.receipts.list({ includeDeleted: true }),
+			store.matches.list(),
+			store.questions.list(),
+			store.accounts.list(),
+			getSetting(store.settings, 'matching'),
+			store.partners ? store.partners.list() : []
+		]
+	);
+	const txs = allTxs.filter((t) => !t.deleted);
+	const receipts = allReceipts.filter((r) => !r.deleted);
+	// What is known to be gone – as opposed to not here yet: with device sync a
+	// match can arrive before its receipt or booking (issue: links that vanish).
+	const deletedTx = new Set(allTxs.filter((t) => t.deleted).map((t) => t.id));
+	const deletedReceipt = new Set(allReceipts.filter((r) => r.deleted).map((r) => r.id));
 	const ctx = await buildMatchingContext({ accounts, transactions: txs, settings, partners });
 	const today = localDay(now);
 	const graceDays = ctx.graceDays ?? DEFAULT_GRACE_DAYS;
@@ -174,10 +182,13 @@ export async function runMatching({
 	const txById = new Map(txs.map((t) => [t.id, t]));
 	const receiptById = new Map(receipts.map((r) => [r.id, r]));
 
-	// Matches whose receipt or booking is gone go too.
+	// Matches whose receipt or booking was deleted go too. One whose receipt or
+	// booking is merely not here yet (another device's, still syncing) stays as
+	// it is: deleting it here would delete it on every device.
 	const live = [];
 	for (const m of matches) {
-		if (!txById.has(m.transactionId) || !receiptById.has(m.receiptId)) {
+		const gone = deletedTx.has(m.transactionId) || deletedReceipt.has(m.receiptId);
+		if (gone) {
 			if (isActive(m)) {
 				await store.matches.softDelete(m.id);
 				writes++;

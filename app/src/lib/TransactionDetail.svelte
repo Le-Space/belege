@@ -35,7 +35,7 @@
 	} from './session.svelte.js';
 	import { portalLink } from './matching/portal.js';
 	import { learnedVendors } from './matching/partners.js';
-	import { attachUpload } from './receipts/attach.js';
+	import { attachUpload, moveReceipt } from './receipts/attach.js';
 	import EigenbelegForm from './receipts/EigenbelegForm.svelte';
 	import { folderSupported, savedFolder } from './receipts/folder.js';
 	import { createBridgeClient } from './bridge/client.js';
@@ -337,8 +337,22 @@
 
 	let portal = $derived(tx ? portalLink(tx, app.partners) : null);
 	let uploading = $state(false);
-	/** @type {{ text: string, warnings: string[] } | null} */
+	/** @type {{ text: string, warnings: string[], move?: { receiptId: string, fromId: string } } | null} */
 	let uploadResult = $state(null);
+	/** "Hierher umhängen": the receipt was another booking's; moved on the person's word. */
+	const moveHere = () =>
+		act(async () => {
+			const move = uploadResult?.move;
+			if (!move || !tx) return;
+			await moveReceipt({
+				store: /** @type {any} */ (currentStore()),
+				receiptId: move.receiptId,
+				tx,
+				fromTransactionId: move.fromId,
+				ctx: { companyNames: app.matchingSettings?.companyNames ?? [] }
+			});
+			uploadResult = { text: t('zahlungen.detail.uploadMoved'), warnings: [] };
+		});
 	let dropping = $state(false);
 	let hasFolder = $state(false);
 	let folderChecking = $state(false);
@@ -489,6 +503,20 @@
 				file: { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) },
 				ctx: { companyNames: app.matchingSettings?.companyNames ?? [] }
 			});
+			if (r.outcome === 'linked-elsewhere' && r.receipt) {
+				const other = r.elsewhere;
+				uploadResult = {
+					text: t('zahlungen.detail.uploadElsewhere', {
+						vendor: receiptVendor(r.receipt),
+						booking: other
+							? `${other.counterparty || '—'}, ${formatDate(String(other.bookedOn))}, ${formatMoney(other.amountCents ?? 0, other.currency ?? 'EUR')}`
+							: t('zahlungen.detail.uploadElsewhereUnknown')
+					}),
+					warnings: [],
+					...(other ? { move: { receiptId: String(r.receipt.id), fromId: String(other.id) } } : {})
+				};
+				return;
+			}
 			if (r.outcome !== 'linked' || !r.receipt) {
 				uploadResult = {
 					text: t(
@@ -2510,6 +2538,25 @@
 						{#each uploadResult.warnings as w (w)}
 							<p class="mt-1 text-sm text-danger" data-testid="tx-upload-warning">⚠ {w}</p>
 						{/each}
+						{#if uploadResult.move}
+							{@const move = uploadResult.move}
+							<div class="mt-2 flex flex-wrap gap-2">
+								<button
+									type="button"
+									class={button}
+									onclick={() => onopen(move.fromId)}
+									data-testid="tx-upload-elsewhere-open"
+									>{t('zahlungen.detail.uploadElsewhereOpen')}</button
+								>
+								<button
+									type="button"
+									class={button}
+									onclick={moveHere}
+									disabled={busy}
+									data-testid="tx-upload-move">{t('zahlungen.detail.uploadMove')}</button
+								>
+							</div>
+						{/if}
 					{/if}
 					{#if folderNote}
 						<p class="mt-2 text-sm text-heading" role="status" data-testid="tx-folder-result">

@@ -335,6 +335,33 @@ describe('runMatching', () => {
 		expect((await active()).find((m) => m.transactionId === pay.id)?.receiptId).toBe(plain.id);
 	});
 
+	it('a link whose receipt is not here yet (another device, still syncing) stays; a deleted one goes', async () => {
+		const t = await add('transactions', tx({ bookedOn: '2026-09-02', amountCents: -3999 }));
+		const later = await store.matches.put({
+			transactionId: t.id,
+			receiptId: 'not-synced-yet',
+			score: null,
+			reasons: ['manual'],
+			state: 'confirmed'
+		});
+		const r = await add('receipts', receipt({ vendor: 'Beispiel GmbH', gross: 1 }));
+		const gone = await store.matches.put({
+			transactionId: t.id,
+			receiptId: r.id,
+			score: null,
+			reasons: ['manual'],
+			state: 'confirmed'
+		});
+		await store.receipts.softDelete(r.id);
+		await runMatching({ store });
+		const byId = new Map(
+			(await store.matches.list({ includeDeleted: true })).map((m) => [m.id, m])
+		);
+		expect(byId.get(later.id)?.deleted ?? false).toBe(false);
+		expect(byId.get(later.id)?.state).toBe('confirmed');
+		expect(byId.get(gone.id)?.deleted).toBe(true);
+	});
+
 	it('is idempotent: a second run writes nothing', async () => {
 		await seedMonth();
 		await runMatching({ store });

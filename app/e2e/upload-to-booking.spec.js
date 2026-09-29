@@ -182,6 +182,21 @@ test('upload a receipt onto one booking: portal link, points, contradictions, Ve
 	await detail.getByTestId('tx-detail-close').click();
 	await expect(page.getByTestId('filter-without-receipt')).toHaveText('Nur ohne Beleg (0)');
 
+	// The Kabel invoice once more, onto the other booking: it is Kabel's receipt,
+	// so nothing moves until the person says so – then Kabel needs one again.
+	await page.getByTestId('filter-all').click();
+	await row(LADEN.vendor).click();
+	await detail
+		.getByTestId('tx-upload-input')
+		.setInputFiles({ name: 'Rechnung-Kabel.pdf', mimeType: 'application/pdf', buffer: kabelPdf });
+	await expect(detail.getByTestId('tx-upload-result')).toContainText('schon der Beleg');
+	await expect(detail.getByTestId('tx-upload-result')).toContainText(KABEL.vendor);
+	await expect(page.getByTestId('filter-without-receipt')).toHaveText('Nur ohne Beleg (0)');
+	await detail.getByTestId('tx-upload-move').click();
+	await expect(detail.getByTestId('tx-upload-result')).toContainText('Umgehängt');
+	await detail.getByTestId('tx-detail-close').click();
+	await expect(page.getByTestId('filter-without-receipt')).toHaveText('Nur ohne Beleg (1)');
+
 	// Both are receipts like any upload.
 	await tab('Belege').click();
 	await expect(page.getByTestId('receipt')).toHaveCount(2);

@@ -5,9 +5,15 @@
 // low, because the person said so. The points and reasons are kept, and
 // contradictions are named: another amount, an invoice number the purpose
 // does not carry.
+//
+// A file that is already the receipt of another booking is not moved here
+// silently (one receipt, one booking: the other would lose it). The upload
+// says whose it is (`linked-elsewhere`); `moveReceipt` moves it on the
+// person's word, and the log says from where to where.
 
 import { recordEvent } from '../activity/events.js';
 import { confirmMatch } from '../matching/actions.js';
+import { isActive } from '../matching/engine.js';
 import { normalizeRef } from '../matching/normalize.js';
 import { MIN_REF, receiptFacts, scorePair, txFacts } from '../matching/score.js';
 import { sha256Hex } from './blob-store.js';
@@ -52,7 +58,7 @@ export function contradictions(receipt, tx) {
  * @param {{ name: string, bytes: Uint8Array }} params.file
  * @param {{ companyNames?: string[] }} [params.ctx]
  * @param {(bytes: Uint8Array) => Promise<{ text: string }>} [params.pdfText]
- * @returns {Promise<{ outcome: 'linked' | 'unsupported' | 'too-large', receipt: StoredRecord | null, duplicate: boolean, score: number | null, reasons: string[], warnings: ('amount' | 'invoice-number' | 'unread')[], extractError: string | null }>}
+ * @returns {Promise<{ outcome: 'linked' | 'linked-elsewhere' | 'unsupported' | 'too-large', receipt: StoredRecord | null, duplicate: boolean, score: number | null, reasons: string[], warnings: ('amount' | 'invoice-number' | 'unread')[], extractError: string | null, elsewhere?: StoredRecord | null }>}
  */
 export async function attachUpload({ store, blobs, client, tx, file, ctx = {}, pdfText }) {
 	const imported = await importFile({
@@ -81,6 +87,25 @@ export async function attachUpload({ store, blobs, client, tx, file, ctx = {}, p
 			warnings: [],
 			extractError: null
 		};
+	}
+
+	// Already another booking's receipt: say so, move nothing.
+	if (duplicate) {
+		const other = (await store.matches.list({ where: (m) => m.receiptId === receipt?.id })).find(
+			(m) => isActive(m) && m.transactionId !== tx.id
+		);
+		if (other) {
+			return {
+				outcome: 'linked-elsewhere',
+				receipt,
+				duplicate,
+				score: null,
+				reasons: [],
+				warnings: [],
+				extractError: null,
+				elsewhere: (await store.transactions.get(other.transactionId)) ?? null
+			};
+		}
 	}
 
 	/** @type {string | null} */
@@ -120,4 +145,35 @@ export async function attachUpload({ store, blobs, client, tx, file, ctx = {}, p
 		warnings
 	});
 	return { outcome: 'linked', receipt, duplicate, score, reasons, warnings, extractError };
+}
+
+/**
+ * "Hierher umhängen": the person moves a receipt from another booking to this
+ * one. The other booking needs a receipt again; the log says so.
+ *
+ * @param {object} params
+ * @param {import('../matching/engine.js').MatchingStore} params.store
+ * @param {string} params.receiptId
+ * @param {Record<string, any>} params.tx this booking
+ * @param {string} params.fromTransactionId the booking it was the receipt of
+ * @param {{ companyNames?: string[] }} [params.ctx]
+ */
+export async function moveReceipt({ store, receiptId, tx, fromTransactionId, ctx = {} }) {
+	const receipt = await store.receipts.get(receiptId);
+	if (!receipt) throw new Error(`No receipt ${receiptId}`);
+	const facts = receipt.extraction ? receiptFacts(receipt, ctx) : null;
+	const { score, reasons } = facts ? scorePair(facts, txFacts(tx)) : { score: null, reasons: [] };
+	const match = await confirmMatch(
+		store,
+		{ receiptId, transactionId: tx.id, score, reasons: [...reasons, 'manual'] },
+		{ log: false }
+	);
+	await recordEvent(store.events, 'decision', {
+		action: 'receipt-moved',
+		receiptId,
+		transactionId: tx.id,
+		fromTransactionId,
+		matchId: match.id
+	});
+	return match;
 }
