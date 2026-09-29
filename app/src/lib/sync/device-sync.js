@@ -40,6 +40,7 @@ import { webSockets } from '@libp2p/websockets';
 import { webRTC } from '@libp2p/webrtc';
 import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
 import { isLocal } from '../ucep/net.js';
+import { qrTransport } from './qr-link.js';
 
 export const SYNC_FLAG_KEY = 'belege.device-sync';
 export const DEVICE_SALT_KEY = 'belege.device-salt';
@@ -144,16 +145,22 @@ export function setSyncGateClosed(closed) {
 }
 
 /**
- * The online node's config: the UCEP transports plus gossipsub for OrbitDB.
+ * The online node's config: the UCEP transports plus gossipsub for OrbitDB –
+ * or, in the mode "Ohne Relay, per QR" (network-mode.js), only the transport
+ * that carries a connection two scanned codes built (qr-link.js): no
+ * WebSocket, no relay, nothing it could dial on its own.
  *
- * @param {{ privateKey: any, relays: string[], gate: { service: (components: any) => any } }} params
+ * @param {{ privateKey: any, relays: string[], gate: { service: (components: any) => any }, mode?: import('./network-mode.js').NetworkMode }} params
  * @returns {import('libp2p').Libp2pOptions<any>}
  */
-export function syncLibp2pConfig({ privateKey, relays, gate }) {
+export function syncLibp2pConfig({ privateKey, relays, gate, mode = 'public' }) {
+	const qr = mode === 'qr';
 	return {
 		privateKey,
-		addresses: { listen: [...relays.map((relay) => `${relay}/p2p-circuit`), '/webrtc'] },
-		transports: [webSockets(), webRTC(), circuitRelayTransport()],
+		addresses: {
+			listen: qr ? [] : [...relays.map((relay) => `${relay}/p2p-circuit`), '/webrtc']
+		},
+		transports: qr ? [qrTransport()] : [webSockets(), webRTC(), circuitRelayTransport()],
 		// A relay that is down must not keep the books from opening on the others.
 		transportManager: { faultTolerance: FaultTolerance.NO_FATAL },
 		connectionEncrypters: [noise()],

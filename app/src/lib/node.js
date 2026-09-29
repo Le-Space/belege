@@ -16,6 +16,8 @@ import { createLibp2p } from 'libp2p';
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { deviceSalt, deviceSyncOn, syncLibp2pConfig } from './sync/device-sync.js';
 import { createDeviceGate } from './sync/device-gate.js';
+import { networkMode } from './sync/network-mode.js';
+import { attachQrSession, closeQrSession } from './sync/qr-link.js';
 import { relayAddrs } from './ucep/net.js';
 import { createHeliaLight } from 'helia';
 import { withBitswap } from '@helia/bitswap';
@@ -63,6 +65,7 @@ export const STORAGE_PATHS = Object.freeze({
  * @property {Uint8Array} ucepSeed the seed of the UCEP node's peer key, derived from the passkey
  * @property {boolean} online device sync is on: the node talks to the relay (#123)
  * @property {string[]} relays
+ * @property {import('./sync/network-mode.js').NetworkMode} mode where devices meet, as the node was built (#148)
  * @property {any} libp2p the node under Helia and OrbitDB
  * @property {ReturnType<typeof createDeviceGate> | null} deviceGate which peers proved the passkey (online only)
  * @property {() => Promise<void>} stop
@@ -101,8 +104,11 @@ export async function startSession(credential) {
 	// relay, on a peer key of this device's own. Else offline, as always.
 	// … and not while the network is paused in the header (network-pause.js).
 	const online = deviceSyncOn() && !networkPause();
-	// Aleph is asked for the Le-Space relays only when this device goes online.
-	const relays = online ? await relayAddrs() : [];
+	// Where devices meet (#148), as this browser keeps it: the books are not open yet.
+	const mode = networkMode();
+	// Aleph is asked for the Le-Space relays only when this device goes online,
+	// and not at all without a relay ("Ohne Relay, per QR").
+	const relays = online && mode === 'public' ? await relayAddrs() : [];
 	const peerKey = online
 		? await generateKeyPairFromSeed('Ed25519', await deriveDevicePeerSeed(prfOutput, deviceSalt()))
 		: await createEphemeralPeerKey();
@@ -111,8 +117,10 @@ export async function startSession(credential) {
 		? createDeviceGate({ authKey: await deriveDeviceAuthKey(prfOutput) })
 		: null;
 	const libp2p = deviceGate
-		? await createLibp2p(syncLibp2pConfig({ privateKey: peerKey, relays, gate: deviceGate }))
+		? await createLibp2p(syncLibp2pConfig({ privateKey: peerKey, relays, gate: deviceGate, mode }))
 		: await createOfflineLibp2p(peerKey);
+	// The code exchange builds its connections on this node (qr-link.js).
+	if (deviceGate && mode === 'qr') attachQrSession(libp2p);
 	const helia = await withBitswap(
 		withLibp2p(createHeliaLight({ codecs: [dagCbor], blockstore, datastore }), libp2p)
 	).start();
@@ -161,6 +169,7 @@ export async function startSession(credential) {
 			ucepSeed,
 			online,
 			relays,
+			mode,
 			libp2p,
 			deviceGate,
 			// Only in E2E builds, so the test can look for these bytes on disk.
@@ -176,6 +185,7 @@ export async function startSession(credential) {
 					}
 				: {}),
 			async stop() {
+				closeQrSession();
 				await store.close();
 				await orbitdb.stop();
 				await helia.stop();

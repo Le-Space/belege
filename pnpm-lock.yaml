@@ -38,6 +38,9 @@ importers:
       '@ipld/dag-cbor':
         specifier: 10.0.1
         version: 10.0.1
+      '@le-space/libp2p-webrtc-qr':
+        specifier: 0.14.0
+        version: 0.14.0(@multiformats/multiaddr@13.0.3)(libp2p@3.3.7)
       '@le-space/orbitdb-identity-provider-webauthn-did':
         specifier: 0.8.0
         version: 0.8.0(@orbitdb/core@4.0.0)
@@ -93,8 +96,8 @@ importers:
         specifier: 7.1.0
         version: 7.1.0(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))
       libp2p:
-        specifier: 3.3.6
-        version: 3.3.6
+        specifier: 3.3.7
+        version: 3.3.7
       multiformats:
         specifier: 14.0.5
         version: 14.0.5
@@ -684,6 +687,16 @@ packages:
 
   '@le-space/iso-webauthn-varsig@0.3.0':
     resolution: {integrity: sha512-qU3ptOP8ew2ZVr506N8joGsDXQNGjRq7VYBkmNdQKuFmbpDtjYyaSH2qyy0x3M8heghVzbB6SxhQM7o3U06w6Q==}
+
+  '@le-space/libp2p-webrtc-qr@0.14.0':
+    resolution: {integrity: sha512-PQTLdyg053o02EQcfmG4GwFyBUlHTEUQQqRl3pyQ6uSsG+BNIs+Aws+FdOQlfj9R172icE8Kd7/DIjRXqCCSGQ==}
+    peerDependencies:
+      '@multiformats/multiaddr': ^13.0.3
+      ggwave: ^0.4.0
+      libp2p: ^3.3.7
+    peerDependenciesMeta:
+      ggwave:
+        optional: true
 
   '@le-space/orbitdb-identity-provider-webauthn-did@0.8.0':
     resolution: {integrity: sha512-vNZaiClqv5OEj9pTXupgaHcV9YgNzfjuWV3HdjBNIomK0DgouEFZjhPDMO0vec+knn8RQMZ1oIZyMKETTIDEZg==}
@@ -2682,8 +2695,8 @@ packages:
   libp2p@3.3.11:
     resolution: {integrity: sha512-+J3Dw1RnGdcpQaPN1HD+Z6xVS3qY0vnsqE2Tu//pfoiJxabaZVkc2FBNnNQ1Sj+Th2qoloeJ11jvxuNXSa1gtA==}
 
-  libp2p@3.3.6:
-    resolution: {integrity: sha512-iMC6d7Mg+q0x9gwUmw6BGBc/QccOBkx1T6l0xZF4CmVonBe5ndPD5Xryn+EbThxx+37enfTmEZ3XMZAiVbcg4g==}
+  libp2p@3.3.7:
+    resolution: {integrity: sha512-hPAwPFMtFLT6cgwVv9ossAWTckMlym0vkfj1iTTzmTPQMMBEwrKDLzyaElavFxA4GHUrBKflSiXR6PrZshy8Eg==}
 
   libqp@2.1.1:
     resolution: {integrity: sha512-0Wd+GPz1O134cP62YU2GTOPNA7Qgl09XwCqM5zpBv87ERCXdfDtyKXvV7c9U22yWJh44QZqBocFnXN11K96qow==}
@@ -4639,7 +4652,7 @@ snapshots:
       '@multiformats/multiaddr': 13.0.3
       it-foreach: 2.1.7
       it-map: 3.1.6
-      libp2p: 3.3.6
+      libp2p: 3.3.7
       multiformats: 14.0.5
       uint8arrays: 6.1.1
     transitivePeerDependencies:
@@ -4829,6 +4842,25 @@ snapshots:
   '@le-space/iso-webauthn-varsig@0.3.0':
     dependencies:
       iso-base: '@le-space/iso-base@4.3.0'
+
+  '@le-space/libp2p-webrtc-qr@0.14.0(@multiformats/multiaddr@13.0.3)(libp2p@3.3.7)':
+    dependencies:
+      '@libp2p/interface': 3.3.0
+      '@libp2p/peer-id': 6.0.15
+      '@libp2p/utils': 7.4.1
+      '@multiformats/multiaddr': 13.0.3
+      it-length-prefixed: 11.0.1
+      it-pushable: 3.2.4
+      libp2p: 3.3.7
+      multiformats: 14.0.5
+      p-defer: 4.0.1
+      p-event: 7.1.1
+      p-timeout: 7.0.2
+      protons-runtime: 7.1.2
+      race-signal: 2.0.2
+      uint8-varint: 3.0.0
+      uint8arraylist: 3.0.2
+      uint8arrays: 6.1.1
 
   '@le-space/orbitdb-identity-provider-webauthn-did@0.8.0(@orbitdb/core@4.0.0)':
     dependencies:
@@ -7465,7 +7497,7 @@ snapshots:
       race-signal: 2.0.2
       uint8arrays: 6.1.1
 
-  libp2p@3.3.6:
+  libp2p@3.3.7:
     dependencies:
       '@chainsafe/is-ip': 2.1.0
       '@chainsafe/netmask': 2.0.0

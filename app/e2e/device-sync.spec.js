@@ -15,51 +15,7 @@ import { test, expect } from '@playwright/test';
 
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
-
-const AUTHENTICATOR = {
-	protocol: 'ctap2',
-	ctap2Version: 'ctap2_1',
-	transport: 'internal',
-	hasResidentKey: true,
-	hasUserVerification: true,
-	isUserVerified: true,
-	hasLargeBlob: true,
-	hasPrf: true,
-	automaticPresenceSimulation: true
-};
-// Made up: the answer one synced passkey gives on both devices.
-const PRF = Array.from({ length: 32 }, (_, i) => (i * 37 + 11) % 256);
-
-/** @param {import('@playwright/test').Browser} browser */
-async function device(browser) {
-	const context = await browser.newContext();
-	await context.addInitScript((prf) => {
-		/** @type {any} */ (globalThis).__belegeTestPrf = prf;
-		localStorage.setItem('belege.device-sync', 'on');
-		// A camera and a QR detector for "QR-Code scannen": the camera shows a
-		// blank canvas, the detector reads whatever the test put in __scanValue.
-		/** @type {any} */ (globalThis).BarcodeDetector = class {
-			async detect() {
-				const value = /** @type {any} */ (globalThis).__scanValue;
-				return value ? [{ rawValue: value }] : [];
-			}
-		};
-		navigator.mediaDevices.getUserMedia = async () => {
-			const canvas = document.createElement('canvas');
-			canvas.width = 64;
-			canvas.height = 64;
-			canvas.getContext('2d')?.fillRect(0, 0, 64, 64);
-			return canvas.captureStream(5);
-		};
-	}, PRF);
-	const page = await context.newPage();
-	const cdp = await context.newCDPSession(page);
-	await cdp.send('WebAuthn.enable');
-	const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
-		options: AUTHENTICATOR
-	});
-	return { context, page, cdp, authenticatorId };
-}
+import { device, samePasskey } from './devices.js';
 
 /** @param {import('@playwright/test').Page} page @param {string} name */
 const tab = (page, name) => page.getByRole('link', { name, exact: true }).click();
@@ -82,35 +38,7 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 		await expect(mac.page.getByTestId('transaction')).toHaveCount(1);
 
 		// The same passkey on the phone, as a synced passkey is.
-		const { credentials } = await mac.cdp.send('WebAuthn.getCredentials', {
-			authenticatorId: mac.authenticatorId
-		});
-		await phone.cdp.send('WebAuthn.addCredential', {
-			authenticatorId: phone.authenticatorId,
-			credential: credentials[0]
-		});
-		// A phone that has unlocked with it before: its stored credential (public
-		// parts only) is there. Restoring from scratch asks the provider for the
-		// PRF itself, which the copied virtual credential cannot answer.
-		const stored = await mac.page.evaluate(() => {
-			/** @type {Record<string, string>} */
-			const kept = {};
-			for (let i = 0; i < localStorage.length; i++) {
-				const k = String(localStorage.key(i));
-				if (k === 'belege.webauthnCredential' || k.startsWith('webauthn-identity-proof:')) {
-					kept[k] = String(localStorage.getItem(k));
-				}
-			}
-			return kept;
-		});
-		await phone.page.goto('/robots.txt');
-		await phone.page.evaluate((kept) => {
-			for (const [k, v] of Object.entries(kept)) localStorage.setItem(k, v);
-		}, stored);
-		await phone.page.goto('/');
-		await acceptConsent(phone.page);
-		await phone.page.getByTestId('passkey-unlock').click();
-		await expect(phone.page.getByTestId('own-did')).toHaveAttribute('data-did', String(did));
+		await samePasskey(mac, phone, String(did));
 
 		// Both online; the Mac's id typed on the phone.
 		await openIntegration(mac.page, 'geraete');
