@@ -127,10 +127,13 @@ export async function eigenbelegPdf(doc) {
 	if (doc.crypto) {
 		const c = doc.crypto;
 		const source = /** @type {Record<string, string>} */ (SOURCE_NAMES)[c.source] ?? c.source;
-		field('Menge', `${formatQuantity(c.quantity, c.decimals)} ${c.asset}`);
+		field(
+			'Menge',
+			`${formatQuantity(c.quantity, c.decimals, '', { locale: DOCUMENT_LOCALE })} ${c.asset}`
+		);
 		field(
 			'Kurs',
-			`${formatRate(c.rate)} EUR je ${c.asset} · ${source}${c.at ? `, ${formatDate(c.at.slice(0, 10), DOCUMENT_LOCALE)}` : ''}`
+			`${formatRate(c.rate, DOCUMENT_LOCALE)} EUR je ${c.asset} · ${source}${c.at ? `, ${formatDate(c.at.slice(0, 10), DOCUMENT_LOCALE)}` : ''}`
 		);
 	}
 	if (doc.chain) {

@@ -17,6 +17,8 @@ import {
 	tDocument
 } from './index.js';
 import { formatDate, formatMoney } from '../bank/format.js';
+import { formatQuantity } from '../assets/quantity.js';
+import { formatRate, quantityText } from '../assets/valuation.js';
 
 /** @param {any} catalogue @param {string} key */
 const at = (catalogue, key) => key.split('.').reduce((n, k) => n?.[k], catalogue);
@@ -26,7 +28,7 @@ const placeholders = (text) => [...String(text).matchAll(/\{(\w+)\}/g)].map((m) 
 describe('the catalogues (#192)', () => {
 	afterEach(() => setLocale('de'));
 
-	it('English has only keys German has, of the same kind and with the same placeholders', () => {
+	it('English has every key German has, of the same kind and with the same placeholders', () => {
 		const german = new Set(keysOf(/** @type {any} */ (de)));
 		for (const key of keysOf(/** @type {any} */ (en))) {
 			expect(german.has(key), key).toBe(true);
@@ -35,8 +37,13 @@ describe('the catalogues (#192)', () => {
 			expect(Array.isArray(b), key).toBe(Array.isArray(a));
 			if (typeof a === 'string') expect(placeholders(b), key).toEqual(placeholders(a));
 		}
-		// Not complete yet: the switch stays hidden until this is 0.
-		expect(missingInEnglish().length).toBeGreaterThan(0);
+		// Complete: the switch is offered.
+		expect(missingInEnglish()).toEqual([]);
+	});
+
+	it('English is English: no German quotation marks left in it', () => {
+		const german = keysOf(/** @type {any} */ (en)).filter((key) => /„/.test(String(at(en, key))));
+		expect(german).toEqual([]);
 	});
 
 	it('switches at once; a key English lacks shows in German, never blank', () => {
@@ -44,7 +51,15 @@ describe('the catalogues (#192)', () => {
 		expect(t('language.label')).toBe('Sprache');
 		setLocale('en');
 		expect(t('language.label')).toBe('Language');
-		expect(t('settings.title')).toBe(at(de, 'settings.title'));
+		expect(t('settings.title')).toBe(at(en, 'settings.title'));
+		// A key English lacks (taken out for the test) shows in German.
+		const title = at(en, 'settings.title');
+		delete (/** @type {any} */ (en).settings.title);
+		try {
+			expect(t('settings.title')).toBe(at(de, 'settings.title'));
+		} finally {
+			/** @type {any} */ (en).settings.title = title;
+		}
 		expect(t('no.such.key')).toBe('no.such.key');
 		// Documents for German bookkeeping stay German.
 		expect(tDocument('language.label')).toBe('Sprache');
@@ -67,6 +82,21 @@ describe('the catalogues (#192)', () => {
 		expect(formatDate('2026-08-31')).toBe('31/08/2026');
 		expect(formatMoney(143976, 'EUR', DOCUMENT_LOCALE)).toBe('1.439,76 EUR');
 		expect(formatDate('2026-08-31', DOCUMENT_LOCALE)).toBe('31.08.2026');
+	});
+
+	it('crypto quantities and rates follow the language, every digit kept; documents stay German', () => {
+		const nb = (/** @type {string} */ s) => s.replace(/\u00a0/g, ' ');
+		const tx = { amountCents: 100, quantity: '-123456789012345678901', decimals: 18, asset: 'ETH' };
+		expect(nb(formatQuantity('123456700000', 8, 'BTC'))).toBe('1.234,567 BTC');
+		expect(formatRate('60123.4')).toBe('60.123,40');
+		setLocale('en');
+		expect(nb(formatQuantity('123456700000', 8, 'BTC'))).toBe('1,234.567 BTC');
+		expect(nb(formatQuantity('1200', 2, 'EUR', { minFraction: 2 }))).toBe('12.00 EUR');
+		expect(formatRate('60123.4')).toBe('60,123.40');
+		expect(nb(quantityText(tx))).toBe('-123.456789012345678901 ETH');
+		expect(nb(quantityText(tx, DOCUMENT_LOCALE))).toBe('-123,456789012345678901 ETH');
+		expect(formatRate('60123.4', DOCUMENT_LOCALE)).toBe('60.123,40');
+		expect(formatQuantity('123456700000', 8, '', { locale: DOCUMENT_LOCALE })).toBe('1.234,567');
 	});
 
 	it('every key the code names is in the German catalogue', () => {

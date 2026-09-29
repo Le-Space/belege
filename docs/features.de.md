@@ -77,3 +77,7 @@ Was Le Space Belege heute kann, nach Kategorien. Dieselbe Liste steht kürzer au
 - **Das Telefon nutzt die Bridge des Rechners.** Belege lässt sich als App installieren (PWA), und die App-Hülle funktioniert offline.
 - **Rechnungs-App (UCEP):** Sie erstellt Eigenbelege für Belege und erfährt, welche ihrer Rechnungen bezahlt sind.
 - **Eine Lese-Freigabe** der Bücher für eine Assistenz, zeitlich begrenzt.
+
+## Sprache
+
+- **Deutsch und Englisch** ([#192](https://github.com/Le-Space/belege/issues/192)), oben umschaltbar, sofort und offline; beim ersten Besuch gilt die Sprache des Browsers. Beträge, Datumsangaben und Krypto-Mengen folgen der Sprache. Dokumente für die deutsche Buchhaltung bleiben deutsch: der Eigenbeleg, die Kontoauszüge und der DATEV-Export.

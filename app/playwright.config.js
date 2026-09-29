@@ -37,6 +37,8 @@ export default defineConfig({
 	},
 	use: {
 		baseURL: `http://localhost:${port}`,
+		// The suite reads German; with English complete, an English browser would start in English (#192).
+		locale: 'de-DE',
 		screenshot: 'only-on-failure',
 		video: 'retain-on-failure',
 		trace: 'on-first-retry'

@@ -136,7 +136,8 @@ export async function statementPdf(statement, { created }) {
 	}
 
 	/** @param {string | null} units */
-	const qty = (units) => (units === null ? '' : formatQuantity(units, decimals));
+	const qty = (units) =>
+		units === null ? '' : formatQuantity(units, decimals, '', { locale: DOCUMENT_LOCALE });
 
 	// Head of the first page.
 	page.drawText('Kontoauszug', { x: MARGIN, y: y - 14, size: 16, font: bold });
@@ -171,9 +172,12 @@ export async function statementPdf(statement, { created }) {
 		row({
 			date: formatDate(l.date, DOCUMENT_LOCALE),
 			text: l.text,
-			quantity: l.quantity === null ? '' : formatQuantity(l.quantity, l.decimals ?? decimals),
+			quantity:
+				l.quantity === null
+					? ''
+					: formatQuantity(l.quantity, l.decimals ?? decimals, '', { locale: DOCUMENT_LOCALE }),
 			rate: l.valuation?.rate
-				? `${formatRate(String(l.valuation.rate))} ${SOURCE_MARK[l.valuation.source] ?? ''}`.trim()
+				? `${formatRate(String(l.valuation.rate), DOCUMENT_LOCALE)} ${SOURCE_MARK[l.valuation.source] ?? ''}`.trim()
 				: '',
 			amount: euros(l.amountCents),
 			receipt: l.receipt
