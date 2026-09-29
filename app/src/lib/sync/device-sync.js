@@ -37,7 +37,7 @@ import { yamux } from '@chainsafe/libp2p-yamux';
 import { identify, identifyPush } from '@libp2p/identify';
 import { gossipsub } from '@libp2p/gossipsub';
 import { webSockets } from '@libp2p/websockets';
-import { webRTC } from '@libp2p/webrtc';
+import { webRTC, webRTCDirect } from '@libp2p/webrtc';
 import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
 import { isLocal } from '../ucep/net.js';
 import { qrTransport } from './qr-link.js';
@@ -94,6 +94,9 @@ export function setDeviceSync(on, now = () => new Date()) {
 	}
 }
 
+/** No STUN server: host candidates only (the own network's mode). */
+const noStun = () => ({ iceServers: [] });
+
 /** Peers removed from the books: refused by the node's connection gater. */
 export const blocked = new Set();
 
@@ -145,8 +148,9 @@ export function setSyncGateClosed(closed) {
 }
 
 /**
- * The online node's config: the UCEP transports plus gossipsub for OrbitDB –
- * or, in the mode "Ohne Relay, per QR" (network-mode.js), only the transport
+ * The online node's config: the UCEP transports plus gossipsub for OrbitDB;
+ * in the own network's mode WebRTC-Direct to the bridge's relay instead of a
+ * WebSocket – or, in the mode "Ohne Relay, per QR" (network-mode.js), only the transport
  * that carries a connection two scanned codes built (qr-link.js): no
  * WebSocket, no relay, nothing it could dial on its own.
  *
@@ -155,19 +159,32 @@ export function setSyncGateClosed(closed) {
  */
 export function syncLibp2pConfig({ privateKey, relays, gate, mode = 'public' }) {
 	const qr = mode === 'qr';
+	const lan = mode === 'lan';
 	return {
 		privateKey,
 		addresses: {
 			listen: qr ? [] : [...relays.map((relay) => `${relay}/p2p-circuit`), '/webrtc']
 		},
-		transports: qr ? [qrTransport()] : [webSockets(), webRTC(), circuitRelayTransport()],
+		transports: qr
+			? [qrTransport()]
+			: lan
+				? // The bridge's relay by WebRTC-Direct, then WebRTC between the devices;
+					// host candidates only, so no STUN server is asked.
+					[
+						webRTCDirect({ rtcConfiguration: noStun() }),
+						webRTC({ rtcConfiguration: noStun() }),
+						circuitRelayTransport()
+					]
+				: [webSockets(), webRTC(), circuitRelayTransport()],
 		// A relay that is down must not keep the books from opening on the others.
 		transportManager: { faultTolerance: FaultTolerance.NO_FATAL },
 		connectionEncrypters: [noise()],
 		streamMuxers: [yamux()],
 		connectionManager: { inboundConnectionThreshold: 100 },
 		connectionGater: {
-			...(relays.some(isLocal) ? { denyDialMultiaddr: () => gateClosed } : {}),
+			// A relay in the own network (or the test relay) has a private address,
+			// which libp2p refuses to dial by default.
+			...(lan || relays.some(isLocal) ? { denyDialMultiaddr: () => gateClosed } : {}),
 			// A device removed from the books is neither dialled nor let in; with
 			// the network switched off in the header, nobody is.
 			denyDialPeer: (/** @type {any} */ peerId) => gateClosed || blocked.has(String(peerId)),

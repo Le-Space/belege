@@ -349,6 +349,13 @@ export function createBridgeClient({
 		 */
 		bitcoinKey: () => call('/bitcoin/key'),
 		/**
+		 * The relay for own devices in the own network, when the bridge runs one
+		 * (bridge/src/lan-relay.js): its WebRTC-Direct address.
+		 *
+		 * @returns {Promise<{ configured: boolean, running: boolean, addr: string | null }>}
+		 */
+		lanRelay: () => call('/lan-relay'),
+		/**
 		 * An own wallet's whole history and balance, read by the bridge from a
 		 * public node (in the body, so the address is in no URL).
 		 *

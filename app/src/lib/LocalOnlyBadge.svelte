@@ -6,8 +6,8 @@
 	// `pauseNetwork`); on is at once where this session's node went online at
 	// unlock, else from the next unlock. Switching device sync on for the first
 	// time goes through the consent screen, which says what the relay sees.
-	// Where devices meet (sync/network-mode.js, #148): the public relays or,
-	// without any relay, by QR; own network and both come later.
+	// Where devices meet (sync/network-mode.js, #148): the public relays, the
+	// relay in the own bridge, or, without any relay, by QR; both comes later.
 	import { resolve } from '$app/paths';
 	import {
 		app,
@@ -234,20 +234,20 @@
 								class="mt-1"
 								value={mode}
 								checked={app.network.modeWanted === mode}
-								disabled={busy}
+								disabled={busy || (mode === 'lan' && !app.network.lanRelay)}
 								onchange={() => run(() => setNetworkMode(mode))}
 								data-testid="network-mode-{mode}"
 							/>
 							<span>
 								<span class="block">{t(`header.network.modes.${mode}`)}</span>
-								<span class="block text-xs text-faint">{t(`header.network.modeHints.${mode}`)}</span
+								<span class="block text-xs text-faint"
+									>{mode === 'lan' && !app.network.lanRelay
+										? t('header.network.lanUnavailable')
+										: t(`header.network.modeHints.${mode}`)}</span
 								>
 							</span>
 						</label>
 					{/each}
-					<label class="mt-1 flex items-center gap-2 text-sm text-faint">
-						<input type="radio" name="network-mode" disabled />{t('header.network.modes.local')}
-					</label>
 					<label class="flex items-center gap-2 text-sm text-faint">
 						<input type="radio" name="network-mode" disabled />{t('header.network.modes.both')}
 					</label>

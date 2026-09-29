@@ -124,6 +124,15 @@ describe('syncLibp2pConfig', () => {
 		expect(Object.keys(config.services ?? {})[0]).toBe('deviceGate');
 	});
 
+	it('in the own network: WebRTC-Direct to the bridge, and its private address may be dialled', () => {
+		const relay =
+			'/ip4/192.168.10.23/udp/4990/webrtc-direct/certhash/uEiD3OphLir77I26uAdKgLdpMSBwo8PcLVg8IzkNU9XUteQ/p2p/12D3KooWNmFsNbztWUBmnaGf1xXyxABwMY1KiE41szzspFevFxqG';
+		const config = syncLibp2pConfig({ privateKey: {}, relays: [relay], gate, mode: 'lan' });
+		expect(config.addresses?.listen).toEqual([`${relay}/p2p-circuit`, '/webrtc']);
+		expect(config.transports).toHaveLength(3);
+		expect(config.connectionGater?.denyDialMultiaddr?.(/** @type {any} */ ({}))).toBe(false);
+	});
+
 	it('lets a local test relay be dialled', () => {
 		const config = syncLibp2pConfig({
 			privateKey: {},
