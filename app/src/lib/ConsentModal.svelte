@@ -22,6 +22,7 @@
 	import { INTEGRATION_GROUPS } from './consent/integrations.js';
 	import { consent } from './consent.js';
 	import TechnicalToggle from './TechnicalToggle.svelte';
+	import LanguageSwitch from './LanguageSwitch.svelte';
 	import TechnicalNote from './TechnicalNote.svelte';
 	import AiMark from './AiMark.svelte';
 	import { technicalView } from './technical-view.js';
@@ -98,6 +99,7 @@
 	<div class="flex items-start justify-between gap-4">
 		<h2 id="consent-title" class="text-lg font-semibold text-heading">{t('consent.title')}</h2>
 		<div class="flex shrink-0 items-center gap-2">
+			<LanguageSwitch testid="consent-language" />
 			<TechnicalToggle testid="consent-technical" />
 			{#if $accepted}
 				<button
