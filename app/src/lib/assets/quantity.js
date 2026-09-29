@@ -8,6 +8,8 @@
 // Rates are decimal strings too (`"60123.45"`); valueCents multiplies both as
 // integers and rounds once, half away from zero, to whole cents.
 
+import { intlLocale } from '../i18n/index.js';
+
 const DECIMAL = /^[+-]?\d+(?:\.\d+)?$/;
 const UNITS = /^-?\d+$/;
 
@@ -46,23 +48,61 @@ export function fromUnits(units, decimals) {
 	return `${negative ? '-' : ''}${int}${frac ? `.${frac}` : ''}`;
 }
 
+/** @type {Map<string, { group: string, decimal: string }>} */
+const separatorCache = new Map();
+
 /**
- * German, for people: `0,015 BTC`, `-1.234,5 NYM`, `12,00 EUR`. Shows every
- * significant digit (a crypto amount is never rounded for display) and at
- * least `minFraction` of them.
+ * The locale's group and decimal separators (`.` and `,` in German, `,` and
+ * `.` in English), from Intl – the digits themselves never pass through a
+ * double.
+ *
+ * @param {string} locale
+ */
+export function separators(locale) {
+	let s = separatorCache.get(locale);
+	if (!s) {
+		const parts = new Intl.NumberFormat(locale).formatToParts(12345.6);
+		s = {
+			group: parts.find((p) => p.type === 'group')?.value ?? '',
+			decimal: parts.find((p) => p.type === 'decimal')?.value ?? '.'
+		};
+		separatorCache.set(locale, s);
+	}
+	return s;
+}
+
+/**
+ * Grouped digits: `1234567` → `1.234.567` (German), `1,234,567` (English).
+ *
+ * @param {string} int
+ * @param {string} locale
+ */
+export function groupDigits(int, locale) {
+	return int.replace(/\B(?=(\d{3})+(?!\d))/g, separators(locale).group);
+}
+
+/**
+ * For people, in the app's language: `0,015 BTC`, `-1.234,5 NYM`, `12,00 EUR`
+ * (German), `0.015 BTC` (English). Shows every significant digit (a crypto
+ * amount is never rounded for display) and at least `minFraction` of them.
+ * Documents pass DOCUMENT_LOCALE.
  *
  * @param {string} units
  * @param {number} decimals
  * @param {string} [symbol]
- * @param {{ minFraction?: number }} [options]
+ * @param {{ minFraction?: number, locale?: string }} [options]
  */
-export function formatQuantity(units, decimals, symbol = '', { minFraction = 0 } = {}) {
+export function formatQuantity(
+	units,
+	decimals,
+	symbol = '',
+	{ minFraction = 0, locale = intlLocale() } = {}
+) {
 	const plain = fromUnits(units, decimals);
 	const negative = plain.startsWith('-');
 	const [int, frac = ''] = plain.replace(/^-/, '').split('.');
-	const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 	const fraction = frac.padEnd(Math.min(minFraction, decimals), '0');
-	const number = `${negative ? '-' : ''}${grouped}${fraction ? `,${fraction}` : ''}`;
+	const number = `${negative ? '-' : ''}${groupDigits(int, locale)}${fraction ? `${separators(locale).decimal}${fraction}` : ''}`;
 	return symbol ? `${number}\u00a0${symbol}` : number;
 }
 

@@ -11,9 +11,10 @@
 //   valuation  { rate, currency: 'EUR', source, at }: EUR per whole unit,
 //              from which source, for which moment (bridge/src/rates.js)
 
-import { t } from '../i18n/index.js';
+import { intlLocale, t } from '../i18n/index.js';
+import { formatDate } from '../bank/format.js';
 import { assetOf } from './registry.js';
-import { formatQuantity, valueCents } from './quantity.js';
+import { formatQuantity, groupDigits, separators, valueCents } from './quantity.js';
 
 /**
  * @typedef {object} Rate what the bridge answers for GET /rates
@@ -123,19 +124,25 @@ export function hasQuantity(tx) {
  * `0,015 BTC`, or '' for a transaction without a crypto quantity.
  *
  * @param {Record<string, any>} tx
+ * @param {string} [locale] DOCUMENT_LOCALE for documents
  */
-export function quantityText(tx) {
+export function quantityText(tx, locale = intlLocale()) {
 	if (!hasQuantity(tx)) return '';
 	const decimals = Number.isInteger(tx.decimals) ? tx.decimals : assetOf(tx.asset)?.decimals;
 	if (!Number.isInteger(decimals)) return '';
-	return formatQuantity(tx.quantity, /** @type {number} */ (decimals), tx.asset);
+	return formatQuantity(tx.quantity, /** @type {number} */ (decimals), tx.asset, { locale });
 }
 
-/** `60123.4` → `60.123,40` (at least two decimals, every further significant one). @param {string} rate */
-export function formatRate(rate) {
+/**
+ * `60123.4` → `60.123,40` (German), `60,123.40` (English): at least two
+ * decimals, every further significant one.
+ *
+ * @param {string} rate
+ * @param {string} [locale] DOCUMENT_LOCALE for documents
+ */
+export function formatRate(rate, locale = intlLocale()) {
 	const [int, frac = ''] = String(rate).split('.');
-	const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-	return `${grouped},${frac.replace(/0+$/, '').padEnd(2, '0')}`;
+	return `${groupDigits(int, locale)}${separators(locale).decimal}${frac.replace(/0+$/, '').padEnd(2, '0')}`;
 }
 
 /**
@@ -163,7 +170,7 @@ export function valuationText(tx) {
 		? t(`assets.sources.${v.source}`)
 		: String(v.source ?? '');
 	const at = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(v.at ?? ''));
-	const when = at ? `${at[3]}.${at[2]}.${at[1]} ${at[4]}:${at[5]} UTC` : '';
+	const when = at ? `${formatDate(`${at[1]}-${at[2]}-${at[3]}`)} ${at[4]}:${at[5]} UTC` : '';
 	return t('assets.valuationLine', {
 		rate: formatRate(v.rate),
 		asset: String(tx.asset ?? ''),

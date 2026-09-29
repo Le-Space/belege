@@ -34,6 +34,7 @@ import { needsConfirmation } from '../receipts/import.js';
 import { receiptDate, receiptVendor } from '../receipts/view.js';
 import { TRANSFER_ACCOUNT } from '../booking/skr03.js';
 import { quantityText } from '../assets/valuation.js';
+import { DOCUMENT_LOCALE } from '../i18n/index.js';
 import { monthStatements } from './statement.js';
 
 /** @typedef {Record<string, any>} Rec */
@@ -178,7 +179,7 @@ export function bookingText(tx, receipt) {
 		vendor && vendor !== '—'
 			? vendor
 			: String(tx.counterparty ?? '').trim() || String(tx.purpose ?? '').trim();
-	const quantity = quantityText(tx).replace(/\u00a0/g, ' ');
+	const quantity = quantityText(tx, DOCUMENT_LOCALE).replace(/\u00a0/g, ' ');
 	if (!quantity) return base;
 	const room = 60 - quantity.length - 1;
 	return base ? `${base.slice(0, Math.max(room, 0)).trim()} ${quantity}` : quantity;

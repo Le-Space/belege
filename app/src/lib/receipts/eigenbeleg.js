@@ -103,7 +103,7 @@ export function chainDetails(tx, { accounts = [], partners = [], transactions = 
 		what: what(t),
 		quantity:
 			typeof t.quantity === 'string' && Number.isInteger(t.decimals)
-				? `${formatQuantity(t.quantity, t.decimals)} ${t.asset ?? ''}`.trim()
+				? `${formatQuantity(t.quantity, t.decimals, '', { locale: DOCUMENT_LOCALE })} ${t.asset ?? ''}`.trim()
 				: '',
 		euro: formatMoney(Number(t.amountCents ?? 0), t.currency ?? 'EUR', DOCUMENT_LOCALE),
 		booked: true
@@ -148,7 +148,7 @@ export function eigenbelegDraft(tx, books = {}) {
 		: null;
 	const quantity =
 		typeof tx.quantity === 'string' && Number.isInteger(tx.decimals)
-			? `${formatQuantity(tx.quantity.replace(/^-/, ''), tx.decimals)} ${tx.asset ?? ''}`.trim()
+			? `${formatQuantity(tx.quantity.replace(/^-/, ''), tx.decimals, '', { locale: DOCUMENT_LOCALE })} ${tx.asset ?? ''}`.trim()
 			: '';
 	const out = Number(tx.amountCents) < 0 || String(tx.quantity).startsWith('-');
 	return {

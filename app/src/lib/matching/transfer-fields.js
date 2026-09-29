@@ -5,6 +5,7 @@
 // asks "own transfer?" before it looks for a receipt.
 
 import { formatMoney } from '../bank/format.js';
+import { DOCUMENT_LOCALE } from '../i18n/index.js';
 import { formatQuantity } from '../assets/quantity.js';
 import { walletChain } from '../wallets/chains.js';
 import { transferCandidates } from './view.js';
@@ -22,9 +23,12 @@ export function transferFields(b) {
 		direction: /** @type {'in' | 'out'} */ (
 			(b.amountCents ?? 0) > 0 || (q && !q.startsWith('-')) ? 'in' : 'out'
 		),
-		amount: formatMoney(b.amountCents ?? 0, b.currency).replace(/\s*EUR$/, ''),
+		amount: formatMoney(b.amountCents ?? 0, b.currency, DOCUMENT_LOCALE).replace(/\s*EUR$/, ''),
 		...(q && b.asset && Number.isInteger(b.decimals)
-			? { quantity: formatQuantity(q, b.decimals), asset: String(b.asset) }
+			? {
+					quantity: formatQuantity(q, b.decimals, '', { locale: DOCUMENT_LOCALE }),
+					asset: String(b.asset)
+				}
 			: {}),
 		day: String(b.bookedOn ?? ''),
 		account: chain ? `Wallet ${chain.name}` : b.source === 'kraken' ? 'Börse Kraken' : 'Bankkonto',

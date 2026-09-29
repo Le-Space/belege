@@ -77,3 +77,7 @@ What Le Space Belege does today, by category. The app shows the same list, short
 - **A phone uses the computer's bridge.** Belege installs as an app (PWA), and the app shell works offline.
 - **Invoicing app (UCEP):** it makes Eigenbelege for Belege and learns which of its invoices were paid.
 - **A read share** of the books for an assistant, for a limited time.
+
+## Language
+
+- **German and English** ([#192](https://github.com/Le-Space/belege/issues/192)), switched in the header at once and offline; the first visit follows the browser's language. Amounts, dates and crypto quantities follow the language. Documents for German bookkeeping stay German: the Eigenbeleg, the statements and the DATEV export.
