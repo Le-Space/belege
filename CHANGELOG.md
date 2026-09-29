@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] – 2026-09-29
+
 ### Added
 
 - **Own EVM wallets through Alchemy.** `pnpm setup:alchemy` stores an optional Alchemy API key in the macOS keychain (hidden prompt, checked with `eth_chainId` on each network; Enter keeps it, `-` deletes it). With it the bridge reads Ethereum, Base, Arbitrum, Optimism and Polygon wallets from Alchemy instead of Blockscout, whose keyless API answers only a few requests per half hour: `alchemy_getAssetTransfers` from and to the address, the gas from the receipts, failed transactions and approvals found through the nonce, balances through `eth_getBalance` and `alchemy_getTokenBalances`. The key goes only into the URL of the requests to Alchemy; `GET /chains` reports `alchemy: true/false`. Value, gas and token ids are the same as from Blockscout, and the app pairs internal transfers (which the two number differently), so switching the source books nothing twice. On Arbitrum and Optimism, where Alchemy has no internal transfers, those still come from Blockscout. Errors `WALLET_ALCHEMY_AUTH`, `WALLET_ALCHEMY_DENIED`, `WALLET_ALCHEMY_RATE_LIMIT`. _Eigene Wallets_ says which source is used and, without a key, how to set one up; the consent screen's _Blockchain-Abfrage_ names Alchemy (version 6). See [docs/crypto.md](docs/crypto.md#alchemy).
