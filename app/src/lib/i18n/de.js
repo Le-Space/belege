@@ -42,7 +42,32 @@ export default {
 					failed: '• Rechnungs-App: Fehler – {error}'
 				}
 			},
-			more: 'Klick: was dabei wer sieht.'
+			more: 'Was dabei wer sieht …',
+			menu: 'Netzwerk',
+			paused: 'Netzwerk pausiert',
+			pausedTitle:
+				'Netzwerk pausiert: keine Verbindung, auch nicht beim nächsten Entsperren – bis du fortsetzt.',
+			pausedShort: 'pausiert',
+			pause: 'Alles pausieren',
+			resume: 'Fortsetzen',
+			locked: 'Nach dem Entsperren kannst du hier Verbindungen ein- und ausschalten.',
+			devices: 'Eigene Geräte',
+			app: 'Rechnungs-App',
+			off: 'aus',
+			switchOff: 'Aus',
+			switchOn: 'Ein',
+			switchOnFirst: 'Einschalten …',
+			setUp: 'Einrichten …',
+			reloadNeeded:
+				'Geräte gehen beim nächsten Entsperren online – der Knoten war beim Entsperren offline.',
+			reload: 'Jetzt neu laden und entsperren',
+			mode: 'Wo sich Geräte treffen',
+			modes: {
+				public: 'Öffentlich (Le-Space-Relays)',
+				local: 'Nur im eigenen Netz',
+				both: 'Beides: zuerst im eigenen Netz freigeben, dann überall'
+			},
+			modesLater: 'Die beiden anderen Wege kommen mit einem Relay in deiner Bridge (#148).'
 		},
 		localFirst: 'Le Space: der Local-First-Stack hinter dieser App'
 	},

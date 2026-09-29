@@ -11,6 +11,7 @@
 // (session-identities.js) and the libp2p peer key is ephemeral (network.js):
 // no private key is kept in IndexedDB or localStorage.
 
+import { networkPause } from './network-pause.js';
 import { createLibp2p } from 'libp2p';
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { deviceSalt, deviceSyncOn, syncLibp2pConfig } from './sync/device-sync.js';
@@ -98,7 +99,8 @@ export async function startSession(credential) {
 	const datastore = new LevelDatastore(STORAGE_PATHS.datastore);
 	// Device sync (#123), when switched on for this device: online over the
 	// relay, on a peer key of this device's own. Else offline, as always.
-	const online = deviceSyncOn();
+	// … and not while the network is paused in the header (network-pause.js).
+	const online = deviceSyncOn() && !networkPause();
 	// Aleph is asked for the Le-Space relays only when this device goes online.
 	const relays = online ? await relayAddrs() : [];
 	const peerKey = online

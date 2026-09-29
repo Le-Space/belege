@@ -1,4 +1,5 @@
 // App-wide state: who is signed in, and the records the pages show.
+import { networkPause } from './network-pause.js';
 import {
 	createPasskeyCredential,
 	loadStoredPasskeyCredential,
@@ -62,6 +63,13 @@ export const app = $state({
 	matching: false,
 	/** @type {import('./matching/engine.js').MatchingProgress | null} where the running "Abgleich" is */
 	matchingProgress: null,
+	/** The header's network menu (network-pause.js): paused, or a reload needed to go online. */
+	network: {
+		paused: Boolean(networkPause()),
+		reloadNeeded: false,
+		/** this session's node went online at unlock: device sync can go on and off at once */
+		syncCapable: false
+	},
 	/** Belege as a UCEP consumer (ucep/): the invoicing app it is paired with. */
 	ucep: {
 		/** @type {'off' | 'starting' | 'running' | 'failed'} */
@@ -86,6 +94,7 @@ export function currentUcep() {
 /** Only when a paired app exists; see `startUcep`. */
 async function startUcepIfPaired() {
 	if (!session) return;
+	if (networkPause()) return;
 	const { pairedApp } = await import('./ucep/consumer.js');
 	if (await pairedApp(session.store.settings)) await startUcep();
 }
@@ -102,6 +111,82 @@ export async function stopUcep() {
 	if (!running) return;
 	await running.consumer.stop?.().catch(() => {});
 	await running.node.stop().catch(() => {});
+}
+
+// The header's network menu (issue: switch the network off from the badge).
+// Device sync runs on the books' own libp2p node, which cannot stop without
+// closing the books: its connection gater is shut instead
+// (sync/device-sync.js `setSyncGateClosed`) and every connection hung up.
+// The invoicing app has a node of its own, stopped and started as it is.
+
+/** Shut or open the sync node's gate: shut while paused or device sync is off. */
+async function applySyncGate() {
+	const { deviceSyncOn, setSyncGateClosed } = await import('./sync/device-sync.js');
+	const closed = Boolean(networkPause()) || !deviceSyncOn();
+	setSyncGateClosed(closed);
+	return closed;
+}
+
+function hangUpSync() {
+	for (const c of session?.libp2p?.getConnections?.() ?? []) {
+		c.close().catch(() => {});
+	}
+}
+
+async function redialRelays() {
+	if (!session?.libp2p || !session.relays?.length) return;
+	const { multiaddr } = await import('@multiformats/multiaddr');
+	for (const relay of session.relays) {
+		session.libp2p.dial(multiaddr(relay)).catch(() => {});
+	}
+}
+
+/** "Alles pausieren": nothing online, now and at the next unlock, until resumed. */
+export async function pauseNetwork() {
+	const { setNetworkPause } = await import('./network-pause.js');
+	setNetworkPause({ ucep: app.ucep.status === 'running' || app.ucep.status === 'starting' });
+	app.network.paused = true;
+	await applySyncGate();
+	hangUpSync();
+	await stopUcep();
+}
+
+/** "Fortsetzen": what was on goes online again – at once where the node can. */
+export async function resumeNetwork() {
+	const { setNetworkPause } = await import('./network-pause.js');
+	const pause = networkPause();
+	setNetworkPause(null);
+	app.network.paused = false;
+	const closed = await applySyncGate();
+	const { deviceSyncOn } = await import('./sync/device-sync.js');
+	if (!closed && session?.online) await redialRelays();
+	// Paused at unlock: the node has no transports; going online takes a new unlock.
+	app.network.reloadNeeded = deviceSyncOn() && !session?.online;
+	if (pause?.ucep) await startUcep();
+}
+
+/**
+ * "Eigene Geräte" on or off in the menu. Off: now, and at the next unlock.
+ * On: at once when this session's node went online at unlock, else from the
+ * next unlock.
+ *
+ * @param {boolean} on
+ */
+export async function setDevicesNetwork(on) {
+	const { setDeviceSync } = await import('./sync/device-sync.js');
+	setDeviceSync(on);
+	const closed = await applySyncGate();
+	if (!on) {
+		hangUpSync();
+		app.sync.online = false;
+		return;
+	}
+	if (!closed && session?.online) {
+		app.sync.online = true;
+		await redialRelays();
+	} else {
+		app.network.reloadNeeded = true;
+	}
 }
 
 /** Read the paired app again, after pairing or unpairing. */
@@ -528,6 +613,8 @@ async function unlockWith(credential) {
 	// onboarding screen needs none of them.
 	const { startSession } = await import('./node.js');
 	session = await startSession(credential);
+	app.network.syncCapable = Boolean(session.online);
+	app.network.reloadNeeded = false;
 	app.did = session.did;
 	for (const name of /** @type {const} */ ([
 		'transactions',

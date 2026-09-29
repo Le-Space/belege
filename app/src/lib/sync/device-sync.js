@@ -132,6 +132,18 @@ export function deviceSalt() {
 }
 
 /**
+ * The network switch of the header menu (network-pause.js): while it is off,
+ * the sync node dials nobody and lets nobody in – the books stay open, the
+ * network is shut. Module state, like `blocked`: the gater reads it on every
+ * connection.
+ */
+let gateClosed = false;
+/** @param {boolean} closed */
+export function setSyncGateClosed(closed) {
+	gateClosed = closed;
+}
+
+/**
  * The online node's config: the UCEP transports plus gossipsub for OrbitDB.
  *
  * @param {{ privateKey: any, relays: string[], gate: { service: (components: any) => any } }} params
@@ -148,10 +160,14 @@ export function syncLibp2pConfig({ privateKey, relays, gate }) {
 		streamMuxers: [yamux()],
 		connectionManager: { inboundConnectionThreshold: 100 },
 		connectionGater: {
-			...(relays.some(isLocal) ? { denyDialMultiaddr: () => false } : {}),
-			// A device removed from the books is neither dialled nor let in.
-			denyDialPeer: (/** @type {any} */ peerId) => blocked.has(String(peerId)),
-			denyInboundEncryptedConnection: (/** @type {any} */ peerId) => blocked.has(String(peerId))
+			...(relays.some(isLocal) ? { denyDialMultiaddr: () => gateClosed } : {}),
+			// A device removed from the books is neither dialled nor let in; with
+			// the network switched off in the header, nobody is.
+			denyDialPeer: (/** @type {any} */ peerId) => gateClosed || blocked.has(String(peerId)),
+			denyInboundConnection: () => gateClosed,
+			denyOutboundConnection: () => gateClosed,
+			denyInboundEncryptedConnection: (/** @type {any} */ peerId) =>
+				gateClosed || blocked.has(String(peerId))
 		},
 		services: {
 			// First: it wraps the registrar before anything registers there.

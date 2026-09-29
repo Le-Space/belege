@@ -8,6 +8,16 @@ const off = {
 };
 
 describe('what the header says about the network', () => {
+	it('paused in the header menu: paused, whatever runs', () => {
+		expect(
+			networkStatus({
+				...off,
+				network: { paused: true },
+				sync: { online: true, error: null, state: null }
+			})
+		).toEqual({ state: 'paused', parts: [] });
+	});
+
 	it('nothing on: off', () => {
 		expect(networkStatus(off)).toEqual({ state: 'off', parts: [] });
 	});

@@ -122,7 +122,10 @@ test('the consent screen can be opened again, from the footer and the header', a
 	// Nothing switched on: the network is off, and the header says so.
 	await expect(page.getByTestId('local-only')).toHaveAttribute('data-state', 'off');
 	await expect(page.getByTestId('local-only')).toHaveText('Nur dieses Gerät');
+	// The badge opens the network menu; its link opens the consent screen.
 	await page.getByTestId('local-only').click();
+	await expect(page.getByTestId('network-menu')).toBeVisible();
+	await page.getByTestId('network-consent').click();
 	await expect(dialog).toBeVisible();
 	// Accepted already, so Escape may close it now.
 	await page.keyboard.press('Escape');
