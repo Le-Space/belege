@@ -10,6 +10,8 @@
 // from the account itself, so a booking on it carries no BU key (see
 // tax-keys.js). Also to be checked with the tax adviser.
 
+/* eslint-disable belege/no-german -- SKR 03 account names are German by nature (#192) */
+
 /**
  * @typedef {object} CatalogueAccount
  * @property {string} number

@@ -3,6 +3,8 @@
 // arrow, a name in another script) is replaced before it reaches pdf-lib,
 // which would otherwise refuse the whole page.
 
+/* eslint-disable belege/no-german -- a code page table, not text */
+
 /** Characters of Windows-1252 above 0x7F that are not Latin-1. */
 const CP1252_EXTRA = new Set('€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ');
 

@@ -128,6 +128,7 @@ export function describeWalletEntry(e) {
 	}
 	if (e.type === 'fee') {
 		return {
+			// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
 			label: e.success ? 'Netzwerkgebühr' : 'Netzwerkgebühr (fehlgeschlagene Transaktion)',
 			movement: /** @type {const} */ ('fee')
 		};
@@ -136,6 +137,7 @@ export function describeWalletEntry(e) {
 		return { label: 'Staking-Ertrag', movement: /** @type {const} */ ('reward') };
 	if (e.kind === 'stake') {
 		return {
+			// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
 			label: e.type === 'sent' ? 'Delegation (Staking)' : 'Rückfluss aus Staking',
 			movement: /** @type {const} */ ('stake')
 		};
@@ -166,6 +168,7 @@ const deDecimal = (amount) => {
 export function swapText(swap) {
 	const side = (/** @type {{ asset: string, amount: string, listed: boolean }[]} */ list) =>
 		list
+			// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
 			.map((x) => `${deDecimal(x.amount)} ${x.asset}${x.listed ? '' : ' (nicht gelistet)'}`)
 			.join(' + ');
 	const via = swap.via ? ` über ${swap.via}` : '';
@@ -202,6 +205,7 @@ function unpricedFields(e, units, error) {
 		decimals: /** @type {number} */ (decimals),
 		valuation: /** @type {any} */ (null),
 		rateMissing: {
+			// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
 			reason: String(/** @type {any} */ (error)?.message ?? error ?? 'kein Kurs').slice(0, 200)
 		}
 	};
@@ -355,6 +359,7 @@ export async function walletTransactions(entries, getRate) {
 				valueDate: e.date,
 				amountCents: value.amountCents,
 				currency: 'EUR',
+				// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
 				counterpartyName: e.type === 'fee' ? 'Netzwerkgebühr' : other,
 				counterpartyAddress: e.counterparty,
 				purpose,

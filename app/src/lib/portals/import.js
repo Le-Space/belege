@@ -72,6 +72,7 @@ export async function importPortalInvoices({
 				portal,
 				portalName: name,
 				from: name,
+				// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
 				subject: [name, inv.invoiceNumber ? `Rechnung ${inv.invoiceNumber}` : 'Rechnung']
 					.filter(Boolean)
 					.join(' · '),

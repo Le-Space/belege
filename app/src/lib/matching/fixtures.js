@@ -2,6 +2,8 @@
 // (docs/phase-0.md, "Matching") with made-up vendors, numbers and IBANs
 // (check digits 00). Nothing here comes from real data.
 
+/* eslint-disable belege/no-german -- made-up test data */
+
 let n = 0;
 const id = (/** @type {string} */ prefix) => `${prefix}${String(++n).padStart(4, '0')}`;
 

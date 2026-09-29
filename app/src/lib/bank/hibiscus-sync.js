@@ -34,6 +34,7 @@ export async function syncHibiscus({ client, store, accounts, now = new Date(), 
 			source: 'hibiscus',
 			sourceAccountId: bridgeAccount.id,
 			ibanLast4: bridgeAccount.ibanLast4,
+			// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
 			name: bridgeAccount.name || `Konto ···${bridgeAccount.ibanLast4}`,
 			currency: bridgeAccount.currency || 'EUR'
 		});

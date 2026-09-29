@@ -91,7 +91,8 @@ export function chainDetails(tx, { accounts = [], partners = [], transactions = 
 	/** @param {Record<string, any>} t */
 	const what = (t) =>
 		t.movement === 'fee'
-			? 'Gas (Netzwerkgebühr)'
+			? // eslint-disable-next-line belege/no-german -- text of the Eigenbeleg, a German document (#192)
+				'Gas (Netzwerkgebühr)'
 			: t.movement === 'trade'
 				? Number(t.amountCents) < 0 || String(t.quantity).startsWith('-')
 					? 'Tausch – gegeben'
@@ -114,6 +115,7 @@ export function chainDetails(tx, { accounts = [], partners = [], transactions = 
 		if (side.listed || bookedAssets.has(side.asset)) continue;
 		const gave = (tx.swap?.gave ?? []).includes(side);
 		movements.push({
+			// eslint-disable-next-line belege/no-german -- text of the Eigenbeleg, a German document (#192)
 			what: gave ? 'Tausch – gegeben (nicht gebucht)' : 'Tausch – erhalten (nicht gebucht)',
 			quantity: `${deDecimal(side.amount)} ${side.asset}`,
 			euro: '',
@@ -163,7 +165,8 @@ export function eigenbelegDraft(tx, books = {}) {
 				: `${out ? 'Gesendet' : 'Empfangen'}: ${quantity} ${out ? 'an' : 'von'} ${other?.label || '—'}`
 			: displayPurpose(tx.purpose),
 		reason: hasQuantity(tx)
-			? 'Die Zahlung erfolgte auf der Blockchain; der Empfänger stellt dafür keine Rechnung aus.'
+			? // eslint-disable-next-line belege/no-german -- text of the Eigenbeleg, a German document (#192)
+				'Die Zahlung erfolgte auf der Blockchain; der Empfänger stellt dafür keine Rechnung aus.'
 			: ''
 	};
 }

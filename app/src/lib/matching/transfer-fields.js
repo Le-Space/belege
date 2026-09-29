@@ -31,6 +31,7 @@ export function transferFields(b) {
 				}
 			: {}),
 		day: String(b.bookedOn ?? ''),
+		// eslint-disable-next-line belege/no-german -- sent to the language model with its German prompt (#192)
 		account: chain ? `Wallet ${chain.name}` : b.source === 'kraken' ? 'Börse Kraken' : 'Bankkonto',
 		counterparty: String(b.counterparty ?? '').slice(0, 200),
 		purpose: String(b.purpose ?? '').slice(0, 500)

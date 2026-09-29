@@ -133,6 +133,7 @@ function otherParty(tx, book) {
  */
 export function payeeName(tx, book = { own: new Map(), known: new Map() }) {
 	if (tx.movement === 'fee' && walletChain(tx.source))
+		// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
 		return { name: 'Netzwerkgebühr', from: 'type' };
 	const other = otherParty(tx, book);
 	if (other?.label) return { name: other.label, from: 'wallet' };
@@ -168,6 +169,7 @@ export function walletParties(tx, account, book) {
 		own: true
 	};
 	if (tx.movement === 'fee') {
+		// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
 		return { from: mine, to: { address: '', label: 'Netzwerk (Gebühr)', own: false }, fee: true };
 	}
 	const other = otherParty(tx, book) ?? { address: '', label: '', own: false };

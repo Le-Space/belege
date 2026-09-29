@@ -7,6 +7,7 @@ import svelte from 'eslint-plugin-svelte';
 import globals from 'globals';
 import { fileURLToPath } from 'node:url';
 import svelteConfig from './svelte.config.js';
+import belege from './eslint/no-german.js';
 
 const gitignorePath = fileURLToPath(new URL('./.gitignore', import.meta.url));
 
@@ -27,5 +28,12 @@ export default [
 		languageOptions: {
 			parserOptions: { svelteConfig }
 		}
+	},
+	{
+		// Text people read comes from the catalogue, in German and English (#192).
+		files: ['src/**/*.js', 'src/**/*.svelte'],
+		ignores: ['src/lib/i18n/**', '**/*.spec.js'],
+		plugins: { belege },
+		rules: { 'belege/no-german': 'error' }
 	}
 ];

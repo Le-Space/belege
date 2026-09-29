@@ -10,6 +10,8 @@
 //
 // Pure: from the records the export already has. statement-pdf.js draws it.
 
+/* eslint-disable belege/no-german -- the monthly export for German bookkeeping stays German (#192) */
+
 import { accountLabel, displayPurpose } from '../bank/format.js';
 import { ledgerOf } from '../booking/settings.js';
 import { toUnits, valueCents } from '../assets/quantity.js';

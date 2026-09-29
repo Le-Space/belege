@@ -2447,7 +2447,9 @@
 											<p class="mt-2 text-xs text-faint" data-testid="tx-private-ai-summary">
 												<AiMark />
 												{t('zahlungen.detail.aiSummary', {
-													terms: assist.terms.map((x) => `„${x}“`).join(', ') || '—',
+													terms:
+														assist.terms.map((x) => t('language.quoted', { text: x })).join(', ') ||
+														'—',
 													domains: assist.domains.join(', ') || '—',
 													count: assist.messages.length
 												})}

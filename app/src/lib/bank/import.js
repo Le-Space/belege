@@ -358,6 +358,7 @@ export async function camtAccountInput(account) {
 		source: /** @type {const} */ ('camt'),
 		sourceAccountId: await ibanKey(account.iban),
 		ibanLast4: last4,
+		// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
 		name: account.name || `Konto ···${last4}`,
 		currency: account.currency || 'EUR'
 	};

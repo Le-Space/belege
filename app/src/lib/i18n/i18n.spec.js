@@ -18,6 +18,7 @@ import {
 } from './index.js';
 import { formatDate, formatMoney } from '../bank/format.js';
 import { formatQuantity } from '../assets/quantity.js';
+import { looksGerman } from '../../../eslint/no-german.js';
 import { formatRate, quantityText } from '../assets/valuation.js';
 
 /** @param {any} catalogue @param {string} key */
@@ -117,5 +118,12 @@ describe('the catalogues (#192)', () => {
 			}
 		}
 		expect(missing).toEqual([]);
+	});
+
+	it('the lint guard sees German text, not the name or a kind', () => {
+		for (const text of ['Kein Beleg nötig', 'Buchung ohne Betrag', '„{x}“', 'Fehler beim Laden'])
+			expect(looksGerman(text), text).toBe(true);
+		for (const text of ['Le Space Belege', 'Belege', 'rückfrage', 'No receipt needed', '“{x}”'])
+			expect(looksGerman(text), text).toBe(false);
 	});
 });

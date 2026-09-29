@@ -89,6 +89,7 @@ export function describeEntry(e) {
 
 /** `Kraken: transfer`, `Kraken: transfer/airdrop` – as Kraken writes it. @param {Entry} e */
 function raw(e) {
+	// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
 	return `Kraken: ${e.type || 'Buchung'}${e.subtype ? `/${e.subtype}` : ''}`;
 }
 
@@ -226,7 +227,9 @@ export async function krakenTransactions(entries, getRate) {
 							...base,
 							sourceId: `${leg.id}:fee`,
 							amountCents: fee.amountCents,
+							// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
 							purpose: `Gebühr ${label} · Ref. ${refid}`,
+							// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
 							bookingType: 'Gebühr',
 							movement: 'fee',
 							...('quantity' in fee ? { crypto: cryptoOf(fee) } : {})

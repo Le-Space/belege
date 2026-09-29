@@ -351,7 +351,9 @@
 				{#each learnedFees as f (f.key)}
 					<li class="flex items-center gap-3 py-1.5" data-testid="learned-fee">
 						<span class="flex-1 text-text"
-							><span class="font-medium text-heading">{f.account}</span> · „{f.words}“</span
+							><span class="font-medium text-heading">{f.account}</span> · {t('language.quoted', {
+								text: f.words
+							})}</span
 						>
 						<button
 							type="button"
@@ -375,7 +377,7 @@
 						<span class="flex-1 text-text">
 							<span class="font-medium text-heading">{p.name}</span>
 							← {(p.aliases ?? [])
-								.map((/** @type {string} */ a) => `„${aliasLabel(a)}“`)
+								.map((/** @type {string} */ a) => t('language.quoted', { text: aliasLabel(a) }))
 								.join(', ')}
 							{#if p.account}
 								<span class="text-faint" data-testid="learned-account"

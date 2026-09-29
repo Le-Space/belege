@@ -2,6 +2,8 @@
 // summary, what does not add up, and every row with period and positions.
 // Drawn in the browser with pdf-lib's Helvetica; loaded on first use.
 
+/* eslint-disable belege/no-german -- a PDF for German bookkeeping stays German (#192) */
+
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 import { formatDate, formatMoney } from '../bank/format.js';
