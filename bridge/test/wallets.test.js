@@ -344,6 +344,24 @@ describe('a Cosmos transaction', () => {
 		);
 	});
 
+	test('an IBC transfer keeps its own memo – a swap plan lives there, not in the transaction memo (#170)', () => {
+		const escrow = bech32Encode('n', new Uint8Array(20).fill(7));
+		const plan = '{"wasm":{"contract":"osmo1exampleexampleexampleexampleexample0","msg":{}}}';
+		const { entries } = normalize(
+			cosmosTx({
+				seed: 'u7',
+				height: 2000,
+				fee: { payer: NYX.wallet, amount: '1unym' },
+				transfers: [{ sender: NYX.wallet, recipient: escrow, amount: '8unym' }],
+				ibcReceiver: 'osmo1exampleexampleexampleexampleexample0',
+				ibcMemo: plan
+			})
+		);
+		const sent = entries.find((e) => e.type === 'sent');
+		assert.equal(sent?.ibcMemo, plan);
+		assert.equal(sent?.memo, '');
+	});
+
 	test('the old event format: base64, triples in one event, fee from the bytes', () => {
 		const { entries } = normalize(
 			cosmosTx({

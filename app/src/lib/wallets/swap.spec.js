@@ -313,7 +313,8 @@ describe('a sent IBC transfer whose memo plans a swap (#170)', () => {
 			explorerUrl: ''
 		};
 		const entries = /** @type {any[]} */ ([
-			{ ...base, id: 'a', memo: skipMemo() },
+			// As the chain has it: the plan in the IBC message's memo, the transaction's own empty.
+			{ ...base, id: 'a', memo: '', ibcMemo: skipMemo() },
 			{ ...base, id: 'b', hash: 'CD'.repeat(32), memo: 'Miete' }
 		]);
 		const { byAsset } = await walletTransactions(entries, async (asset, date) => ({

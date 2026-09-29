@@ -80,6 +80,7 @@ const COIN = /^(\d+)([a-zA-Z][a-zA-Z0-9/:._-]{1,127})$/;
  * @property {string} counterpartyLabel a module's name, or ''
  * @property {string} memo
  * @property {boolean} success false for the fee of a failed transaction
+ * @property {string} [ibcMemo] Cosmos: an IBC transfer's own memo (MsgTransfer.memo), e.g. a swap's plan (#170)
  * @property {boolean} [byOther] EVM: sent out in a transaction this address did not send (#162)
  * @property {string} [txFrom] EVM: who sent that transaction, where known
  * @property {string} explorerUrl
@@ -332,9 +333,11 @@ export function normalizeCosmosTx(raw, { address, chain, time }) {
 	}
 	if (code !== 0) return { entries, unknownDenoms };
 
-	const ibcReceiver =
-		events.find((e) => e.type === 'ibc_transfer')?.attributes.find((a) => a.key === 'receiver')
-			?.value ?? '';
+	const ibcEvent = events.find((e) => e.type === 'ibc_transfer');
+	const ibcReceiver = ibcEvent?.attributes.find((a) => a.key === 'receiver')?.value ?? '';
+	// The IBC message's own memo (MsgTransfer.memo, in the event too) – where a
+	// wallet's swap puts its plan; the transaction's memo stays empty (#170).
+	const ibcMemo = ibcEvent?.attributes.find((a) => a.key === 'memo')?.value ?? '';
 	for (const t of [
 		...transfers,
 		...untransferredOf(events, { nativeDenom: chain.nativeDenom, bonded: pools.bonded })
@@ -365,6 +368,7 @@ export function normalizeCosmosTx(raw, { address, chain, time }) {
 				decimals: asset.decimals,
 				counterparty: kind === 'ibc' ? ibcReceiver : other,
 				counterpartyLabel: kind === 'ibc' ? 'IBC-Transfer' : label,
+				...(kind === 'ibc' && ibcMemo ? { ibcMemo: ibcMemo.slice(0, 20_000) } : {}),
 				success: true
 			});
 		}

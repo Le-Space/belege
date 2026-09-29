@@ -46,6 +46,7 @@ export const NYX = {
  * @param {{ payer: string, amount: string } | null} [t.fee] e.g. { payer, amount: '5000unym' }
  * @param {{ sender: string, recipient: string, amount: string }[]} [t.transfers] one per message
  * @param {string} [t.ibcReceiver] an IBC transfer's receiver on the other chain
+ * @param {string} [t.ibcMemo] the IBC message's own memo, as ibc-go puts it into the event
  * @param {boolean} [t.legacyEvents] cosmos-sdk < 0.47 with CometBFT 0.34: one transfer
  *   event holding every triple, base64 keys and values, no fee event
  * @param {boolean} [t.coinEvents] also the bank keeper's coin_spent / coin_received before each transfer, as real chains emit them
@@ -60,6 +61,7 @@ export function cosmosTx({
 	fee = null,
 	transfers = [],
 	ibcReceiver,
+	ibcMemo,
 	legacyEvents = false,
 	coinEvents = false,
 	delegations = [],
@@ -175,7 +177,10 @@ export function cosmosTx({
 			}
 		});
 		if (ibcReceiver) {
-			events.push({ type: 'ibc_transfer', attributes: [attr('receiver', ibcReceiver)] });
+			events.push({
+				type: 'ibc_transfer',
+				attributes: [attr('receiver', ibcReceiver), ...(ibcMemo ? [attr('memo', ibcMemo)] : [])]
+			});
 		}
 	}
 	const b64 = (/** @type {string} */ s) => Buffer.from(s).toString('base64');

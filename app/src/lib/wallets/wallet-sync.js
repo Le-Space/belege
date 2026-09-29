@@ -368,7 +368,11 @@ export async function walletTransactions(entries, getRate) {
 				...(value.rateMissing ? { rateMissing: value.rateMissing } : {}),
 				// A swap to another chain, planned in the IBC memo (issue #170).
 				...(() => {
-					const cross = e.kind === 'ibc' && e.type === 'sent' ? crossSwapOf(e.memo) : null;
+					// The plan is in the IBC message's memo; the transaction's own is usually empty.
+					const cross =
+						e.kind === 'ibc' && e.type === 'sent'
+							? (crossSwapOf(e.ibcMemo) ?? crossSwapOf(e.memo))
+							: null;
 					return cross ? { crossSwap: cross } : {};
 				})(),
 				crypto: {
