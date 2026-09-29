@@ -32,6 +32,7 @@ import { crossSwapOf } from './cross-swap.js';
 import { getSetting, setSetting } from '../store/settings.js';
 import { normalizeAddress, safeExplorerUrl, walletAccountName, walletChain } from './chains.js';
 import { isAccountNumber } from '../booking/skr03.js';
+import { t } from '../i18n/index.js';
 
 /**
  * @typedef {object} Wallet an entry of the settings key `wallets`
@@ -69,9 +70,7 @@ export function cleanWalletMeta(input) {
 		throw new Error(`Keine Kontonummer: ${ledgerAccount}`);
 	}
 	if (costCentre && !COST_CENTRE.test(costCentre)) {
-		throw new Error(
-			`Kostenstelle: bis zu 36 Buchstaben und Ziffern, ohne Leerzeichen – ${costCentre}`
-		);
+		throw new Error(t('messages.wallets.costCentre', { value: costCentre }));
 	}
 	return { name, ledgerAccount, costCentre };
 }

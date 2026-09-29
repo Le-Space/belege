@@ -9,6 +9,7 @@ import { getSetting } from './store/settings.js';
 import { classifyTransaction } from './matching/classify.js';
 import { buildMatchingContext } from './matching/context.js';
 import { cleanChart } from './booking/chart.js';
+import { t } from './i18n/index.js';
 
 /** @typedef {import('./node.js').Session} Session */
 /** @typedef {import('./store/repository.js').StoredRecord} StoredRecord */
@@ -266,7 +267,7 @@ export async function setNetworkMode(mode) {
 	const { NETWORK_MODE_SETTING, isNetworkMode, setNetworkModeMirror } = await import(
 		'./sync/network-mode.js'
 	);
-	if (!isNetworkMode(mode)) throw new Error(`Unbekannter Modus: ${mode}`);
+	if (!isNetworkMode(mode)) throw new Error(t('messages.sync.unknownMode', { mode }));
 	setNetworkModeMirror(mode);
 	app.network.modeWanted = mode;
 	if (session) {
@@ -286,21 +287,19 @@ const QR_PROOF_MS = 30_000;
 /** @param {string} peerId */
 async function addWhenProved(peerId) {
 	const gate = session?.deviceGate;
-	if (!gate) throw new Error('Die Synchronisation ist auf diesem Gerät nicht an.');
+	if (!gate) throw new Error(t('messages.sync.off'));
 	const until = Date.now() + QR_PROOF_MS;
 	// The first proof may run before the other side's muxer is ready: again, until it holds.
 	while (!gate.isProved(peerId)) {
 		if (Date.now() > until) {
 			const { qrSession } = await import('./sync/qr-link.js');
 			qrSession()?.forget(peerId);
-			throw new Error(
-				'Das andere Gerät hat den Passkey nicht bewiesen – es gehört nicht zu diesen Büchern.'
-			);
+			throw new Error(t('messages.sync.notProved'));
 		}
 		await gate.proveTo(peerId);
 		if (!gate.isProved(peerId)) await new Promise((r) => setTimeout(r, 1000));
 	}
-	if (!deviceSync) throw new Error('Die Synchronisation ist auf diesem Gerät nicht an.');
+	if (!deviceSync) throw new Error(t('messages.sync.off'));
 	await deviceSync.addDevice(peerId);
 }
 
@@ -321,7 +320,7 @@ async function watchQrConnections() {
 export async function qrInvite() {
 	const { qrSession } = await import('./sync/qr-link.js');
 	const qr = qrSession();
-	if (!qr) throw new Error('Ohne Relay verbinden geht erst nach dem Entsperren in diesem Modus.');
+	if (!qr) throw new Error(t('messages.sync.noQrSession'));
 	return qr.createOffer();
 }
 
@@ -336,10 +335,10 @@ export async function qrInvite() {
 export async function qrScanned(text) {
 	const { qrSession, payloadKind, payloadPeer, qrPeers } = await import('./sync/qr-link.js');
 	const qr = qrSession();
-	if (!qr) throw new Error('Ohne Relay verbinden geht erst nach dem Entsperren in diesem Modus.');
+	if (!qr) throw new Error(t('messages.sync.noQrSession'));
 	const kind = await payloadKind(text);
 	if (kind !== 'offer' && kind !== 'answer') {
-		throw new Error('Das ist kein Code zum Verbinden ohne Relay.');
+		throw new Error(t('messages.sync.notQrCode'));
 	}
 	// Met in the room: a path in the own network ("Beides", sync/first-contact.js).
 	// Noted before the connection opens; dropped when the signature fails.
@@ -754,7 +753,7 @@ function deviceLabel() {
 					: /Safari\//.test(ua)
 						? 'Safari'
 						: 'Browser';
-		return `${browser} auf ${system}`;
+		return t('messages.sync.deviceLabel', { browser, system });
 	} catch {
 		return 'Browser';
 	}
@@ -766,7 +765,7 @@ function deviceLabel() {
  * @param {string} peerId
  */
 export async function addSyncDevice(peerId) {
-	if (!deviceSync) throw new Error('Die Synchronisation ist auf diesem Gerät nicht an.');
+	if (!deviceSync) throw new Error(t('messages.sync.off'));
 	const id = peerId.trim();
 	if (session?.mode !== 'both') return deviceSync.addDevice(id);
 	// "Beides": a new device only over the own network – through the bridge's
@@ -774,9 +773,7 @@ export async function addSyncDevice(peerId) {
 	const { lanRelayAddr } = await import('./sync/network-mode.js');
 	const relay = session.relays.find((r) => r === lanRelayAddr());
 	if (!relay) {
-		throw new Error(
-			'In „Beides“ kommt ein neues Gerät per QR-Code oder über den Relay deiner Bridge dazu – hier ist keiner eingerichtet.'
-		);
+		throw new Error(t('messages.sync.bothNeedsLocal'));
 	}
 	const { multiaddr } = await import('@multiformats/multiaddr');
 	await session.libp2p.dial(multiaddr(`${relay}/p2p-circuit/p2p/${id}`), {
@@ -787,7 +784,7 @@ export async function addSyncDevice(peerId) {
 
 /** "Entfernen" in Integrationen → Eigene Geräte. @param {string} peerId */
 export async function removeSyncDevice(peerId) {
-	if (!deviceSync) throw new Error('Die Synchronisation ist auf diesem Gerät nicht an.');
+	if (!deviceSync) throw new Error(t('messages.sync.off'));
 	await deviceSync.removeDevice(peerId);
 }
 
@@ -855,22 +852,16 @@ export function createPasskey(label) {
 	const name = label.trim() || 'Le Space Belege';
 	return run(
 		() => createPasskeyCredential({ userId: `belege-${crypto.randomUUID()}`, displayName: name }),
-		'Der Passkey konnte nicht angelegt werden.'
+		t('messages.passkey.createFailed')
 	);
 }
 
 export function restorePasskey() {
-	return run(
-		() => restorePasskeyCredential(),
-		'Auf diesem Gerät wurde kein Passkey für Belege gefunden.'
-	);
+	return run(() => restorePasskeyCredential(), t('messages.passkey.notFound'));
 }
 
 export function unlockStoredPasskey() {
-	return run(
-		async () => loadStoredPasskeyCredential(),
-		'In diesem Browser ist kein Passkey gespeichert.'
-	);
+	return run(async () => loadStoredPasskeyCredential(), t('messages.passkey.notStored'));
 }
 
 /**

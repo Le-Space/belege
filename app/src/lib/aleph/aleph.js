@@ -23,6 +23,7 @@ import { getSetting, setSetting } from '../store/settings.js';
 import { walletChain } from '../wallets/chains.js';
 import { nextSelfNumber } from '../receipts/eigenbeleg.js';
 import { importFile } from '../receipts/import.js';
+import { t } from '../i18n/index.js';
 
 /** @typedef {import('../bridge/client.js').AlephStatement} AlephStatement */
 
@@ -166,13 +167,11 @@ export async function createAlephStatement({
 	const all = await store.receipts.list({ includeDeleted: true });
 	const existing = findStatement(all, address, month);
 	if (existing) {
-		throw new Error(
-			`Für diesen Monat gibt es schon den Verbrauchsnachweis ${existing.selfNumber}.`
-		);
+		throw new Error(t('messages.aleph.exists', { number: existing.selfNumber }));
 	}
 	const statement = await client.alephStatement(address, month);
 	if (!statement.usage.length && !statement.topUps.length && !statement.transfersOut.length) {
-		throw new Error('In diesem Monat hat das Konto keine Credits bewegt: kein Nachweis nötig.');
+		throw new Error(t('messages.aleph.nothing'));
 	}
 	const created = now();
 	const number = nextSelfNumber(all, month.slice(0, 4));
@@ -224,7 +223,7 @@ export async function createAlephStatement({
 			}
 		}
 	});
-	if (!record) throw new Error('Der Verbrauchsnachweis konnte nicht gespeichert werden.');
+	if (!record) throw new Error(t('messages.aleph.saveFailed'));
 	await recordEvent(store.events, 'decision', {
 		action: 'aleph-statement',
 		receiptId: record.id,

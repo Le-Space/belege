@@ -25,18 +25,14 @@ import {
 	extractPrfSeedFromCredential,
 	prfInputForRelyingParty
 } from '@le-space/orbitdb-identity-provider-webauthn-did';
+import { t } from './i18n/index.js';
 
 const CREDENTIAL_STORAGE_KEY = 'belege.webauthnCredential';
 
 /** Thrown when the passkey cannot give a PRF output; the message is for people. */
 export class PrfUnavailableError extends Error {
 	constructor() {
-		super(
-			'Dieser Passkey liefert kein PRF-Geheimnis. Belege verschlüsselt alle Daten mit einem ' +
-				'Schlüssel aus diesem Geheimnis und öffnet ohne ihn keine Daten. Bitte einen Passkey ' +
-				'in einem Browser und Passwort-Manager mit PRF-Unterstützung verwenden (z. B. aktuelles ' +
-				'Chrome, Safari oder Firefox mit iCloud-Schlüsselbund, Google Passwortmanager oder 1Password).'
-		);
+		super(t('messages.passkey.noPrf'));
 		this.name = 'PrfUnavailableError';
 	}
 }

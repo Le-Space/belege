@@ -1,3 +1,5 @@
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import de from './de.js';
@@ -8,6 +10,7 @@ import {
 	initialLocale,
 	intlLocale,
 	keysOf,
+	has,
 	missingInEnglish,
 	setLocale,
 	t,
@@ -64,5 +67,25 @@ describe('the catalogues (#192)', () => {
 		expect(formatDate('2026-08-31')).toBe('31/08/2026');
 		expect(formatMoney(143976, 'EUR', DOCUMENT_LOCALE)).toBe('1.439,76 EUR');
 		expect(formatDate('2026-08-31', DOCUMENT_LOCALE)).toBe('31.08.2026');
+	});
+
+	it('every key the code names is in the German catalogue', () => {
+		const root = new URL('../../', import.meta.url).pathname;
+		/** @param {string} dir @returns {string[]} */
+		const files = (dir) =>
+			readdirSync(dir).flatMap((name) => {
+				const path = join(dir, name);
+				if (statSync(path).isDirectory()) return files(path);
+				return /\.(js|svelte)$/.test(name) && !name.includes('.spec.') ? [path] : [];
+			});
+		/** @type {string[]} */
+		const missing = [];
+		for (const file of files(root)) {
+			const text = readFileSync(file, 'utf8');
+			for (const m of text.matchAll(/\b(?:t|tDocument|list)\(\s*'([a-zA-Z][\w.-]*\.[\w.-]+)'/g)) {
+				if (!has(m[1])) missing.push(`${file.slice(root.length)}: ${m[1]}`);
+			}
+		}
+		expect(missing).toEqual([]);
 	});
 });

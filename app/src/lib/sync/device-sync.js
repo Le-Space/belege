@@ -41,6 +41,7 @@ import { webRTC, webRTCDirect } from '@libp2p/webrtc';
 import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
 import { isLocal } from '../ucep/net.js';
 import { qrTransport } from './qr-link.js';
+import { t } from '../i18n/index.js';
 
 export const SYNC_FLAG_KEY = 'belege.device-sync';
 export const DEVICE_SALT_KEY = 'belege.device-salt';
@@ -342,7 +343,7 @@ export async function startDeviceSync({
 			self,
 			removed: true,
 			async addDevice() {
-				throw new Error('Dieses Gerät wurde entfernt.');
+				throw new Error(t('messages.sync.removed'));
 			},
 			async removeDevice() {},
 			refresh() {},
@@ -480,7 +481,7 @@ export async function startDeviceSync({
 		 * @param {string} [otherLabel]
 		 */
 		async addDevice(peerId, otherLabel = '') {
-			if (!isPeerId(peerId) || peerId === self) throw new Error('Das ist keine Gerätekennung.');
+			if (!isPeerId(peerId) || peerId === self) throw new Error(t('messages.sync.notDeviceId'));
 			await writeDevice(peerId, otherLabel);
 			blocked.delete(peerId);
 			known.add(peerId);
@@ -495,7 +496,7 @@ export async function startDeviceSync({
 		 * @param {string} peerId
 		 */
 		async removeDevice(peerId) {
-			if (peerId === self) throw new Error('Ein Gerät wird von einem anderen aus entfernt.');
+			if (peerId === self) throw new Error(t('messages.sync.removeFromOther'));
 			const key = `${DEVICE_PREFIX}${peerId}`;
 			for (const r of await store.settings.list({ where: (x) => x.key === key }))
 				await store.settings.softDelete(r.id);

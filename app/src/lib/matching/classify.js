@@ -30,6 +30,7 @@ import { counterpartyKey } from './partners.js';
 import { compactIban, normalizeRef } from './normalize.js';
 import { cosmosChainOf, normalizeAddress, walletChain } from '../wallets/chains.js';
 import { isDust } from './dust.js';
+import { t } from '../i18n/index.js';
 
 /** Legal forms dropped before two company names are compared. */
 const LEGAL_FORMS = new Set([
@@ -312,9 +313,9 @@ function transferSign(tx, companyNames) {
  */
 function pairSign(tx, other, ctx) {
 	const iban = compactIban(other.counterpartyIban);
-	if (iban && ctx.ownIbans.has(iban)) return 'eigenes Konto';
+	if (iban && ctx.ownIbans.has(iban)) return t('messages.classify.ownAccount');
 	if (iban && (ctx.ownLast4.get(iban.slice(-4)) ?? []).includes(String(tx.accountId))) {
-		return 'eigenes Konto';
+		return t('messages.classify.ownAccount');
 	}
 	return null;
 }
@@ -501,7 +502,7 @@ export function classifyTransaction(tx, ctx) {
 			counterBookingId: String(byIban.id),
 			counterAccountId: String(byIban.accountId ?? ''),
 			counterDay: String(byIban.bookedOn ?? ''),
-			sign: 'IBAN dieses Kontos auf der Gegenseite'
+			sign: t('messages.classify.ibanOnOtherSide')
 		};
 	}
 	// Four digits alone match a vendor's IBAN one time in 10 000: only with the

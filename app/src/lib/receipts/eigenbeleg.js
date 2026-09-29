@@ -19,7 +19,7 @@
 
 import { recordEvent } from '../activity/events.js';
 import { accountLabel, displayPurpose, formatMoney } from '../bank/format.js';
-import { DOCUMENT_LOCALE } from '../i18n/index.js';
+import { DOCUMENT_LOCALE, t } from '../i18n/index.js';
 import { addressBook, walletParties } from '../bank/payee.js';
 import { formatQuantity } from '../assets/quantity.js';
 import { walletChain } from '../wallets/chains.js';
@@ -256,10 +256,9 @@ export async function createEigenbeleg({
 	now = () => new Date(),
 	books = {}
 }) {
-	if (!input.description.trim())
-		throw new Error('Was wurde bezahlt? Das gehört auf den Eigenbeleg.');
+	if (!input.description.trim()) throw new Error(t('messages.eigenbeleg.needWhat'));
 	if (input.reason.trim().length < 10) {
-		throw new Error('Warum gibt es keinen Beleg der Gegenseite? Ein Satz genügt.');
+		throw new Error(t('messages.eigenbeleg.needWhy'));
 	}
 	const all = await existingEigenbeleg(store, tx);
 
@@ -348,7 +347,7 @@ async function existingEigenbeleg(store, tx) {
 		(r) => !r.deleted && r.source === 'eigenbeleg' && r.sourceRef === `eigenbeleg:${tx.id}`
 	);
 	if (existing) {
-		throw new Error(`Für diese Zahlung gibt es schon den Eigenbeleg ${existing.selfNumber}.`);
+		throw new Error(t('messages.eigenbeleg.exists', { number: existing.selfNumber }));
 	}
 	return all;
 }
@@ -382,7 +381,7 @@ async function storeEigenbeleg({ store, blobs, tx, bytes, number, selfReceipt })
 			selfReceipt
 		}
 	});
-	if (!record) throw new Error('Der Eigenbeleg konnte nicht gespeichert werden.');
+	if (!record) throw new Error(t('messages.eigenbeleg.saveFailed'));
 
 	await confirmMatch(
 		store,

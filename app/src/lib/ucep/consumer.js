@@ -15,6 +15,7 @@ import { assetOf } from '../assets/registry.js';
 import { hasQuantity } from '../assets/valuation.js';
 import { getSetting, setSetting } from '../store/settings.js';
 import { collectionKeyValue } from './store.js';
+import { t } from '../i18n/index.js';
 
 export const INVOICE_EXTENSION = 'invoice';
 export const SCOPES = Object.freeze([
@@ -141,7 +142,7 @@ export async function pairByInvitation({
 }) {
 	const invitation = parseInvitation(uri.trim());
 	if (invitation.extensionId !== INVOICE_EXTENSION) {
-		throw new Error('Diese Einladung ist nicht von einer Rechnungs-App.');
+		throw new Error(t('messages.ucep.notInvoiceApp'));
 	}
 	await consumer.pairWithInvitation(uri.trim(), { onCode });
 	const app = {
@@ -171,7 +172,7 @@ export async function pairByCode({
 	const id = peerId.trim();
 	const addrs = relays.map((relay) => `${relay}/p2p-circuit/p2p/${id}`);
 	if (!(await reach(consumer, addrs))) {
-		throw new Error('Die Rechnungs-App ist unter dieser Peer-ID gerade nicht erreichbar.');
+		throw new Error(t('messages.ucep.peerUnreachable'));
 	}
 	await consumer.pairInBand(id, INVOICE_EXTENSION, { scopes: [...SCOPES], onCode });
 	const app = { peerId: id, addrs, pairedAt: now().toISOString() };
@@ -233,7 +234,7 @@ async function sha256Hex(bytes) {
  */
 export async function requestEigenbeleg({ consumer, app, tx, input }) {
 	if (!(await reach(consumer, app.addrs))) {
-		throw new Error('Die Rechnungs-App ist gerade nicht erreichbar. Ist sie offen und entsperrt?');
+		throw new Error(t('messages.ucep.unreachable'));
 	}
 	const created = await consumer.call(
 		app.peerId,
@@ -246,16 +247,12 @@ export async function requestEigenbeleg({ consumer, app, tx, input }) {
 		documentId: created.documentId
 	});
 	if (!pdf?.base64) {
-		throw new Error(
-			`Der Eigenbeleg ${created.number} ist erstellt, aber sein PDF kommt nur über eine direkte Verbindung – die gerade nicht zustande kam. Bitte später noch einmal.`
-		);
+		throw new Error(t('messages.ucep.eigenbelegPdfLater', { number: created.number }));
 	}
 	const bytes = fromBase64(pdf.base64);
 	const sha256 = await sha256Hex(bytes);
 	if (sha256 !== created.file?.sha256) {
-		throw new Error(
-			'Das PDF des Eigenbelegs stimmt nicht mit dem überein, was die App erstellt hat.'
-		);
+		throw new Error(t('messages.ucep.eigenbelegPdfMismatch'));
 	}
 	return { number: created.number, documentId: created.documentId, bytes, sha256 };
 }

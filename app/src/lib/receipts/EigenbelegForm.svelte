@@ -66,8 +66,8 @@
 		if (!store || !blobs || !ucep || !app.ucep.app) return;
 		if (!description.trim() || reason.trim().length < 10) {
 			error = !description.trim()
-				? 'Was wurde bezahlt? Das gehört auf den Eigenbeleg.'
-				: 'Warum gibt es keinen Beleg der Gegenseite? Ein Satz genügt.';
+				? t('messages.eigenbeleg.needWhat')
+				: t('messages.eigenbeleg.needWhy');
 			return;
 		}
 		busy = true;

@@ -10,13 +10,14 @@
 import { eventCalls } from '../stats/usage.js';
 import { recordEvent, tokenCount } from '../activity/events.js';
 import { needsConfirmation } from './import.js';
+import { t } from '../i18n/index.js';
 
 /** Fewer characters than this: a scan without a text layer. */
 const MIN_TEXT = 20;
 
 export class NeedsConfirmationError extends Error {
 	constructor() {
-		super('Der Absender ist nicht bestätigt: erst prüfen und freigeben.');
+		super(t('messages.receipts.senderUnconfirmed'));
 		this.name = 'NeedsConfirmationError';
 	}
 }
