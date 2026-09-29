@@ -12,6 +12,7 @@ import {
 	isPeerId,
 	knownDevices,
 	parseDeviceCode,
+	setSyncGateClosed,
 	startDeviceSync,
 	syncLibp2pConfig
 } from './device-sync.js';
@@ -88,6 +89,17 @@ describe('syncLibp2pConfig', () => {
 			)
 		).toBe(false);
 		blocked.clear();
+		// The header's network switch: while shut, nobody is dialled or let in.
+		setSyncGateClosed(true);
+		const any = /** @type {any} */ ('12D3KooWother');
+		expect(config.connectionGater?.denyDialPeer?.(any)).toBe(true);
+		expect(config.connectionGater?.denyInboundConnection?.(/** @type {any} */ ({}))).toBe(true);
+		expect(config.connectionGater?.denyOutboundConnection?.(any, /** @type {any} */ ({}))).toBe(
+			true
+		);
+		setSyncGateClosed(false);
+		expect(config.connectionGater?.denyDialPeer?.(any)).toBe(false);
+		expect(config.connectionGater?.denyInboundConnection?.(/** @type {any} */ ({}))).toBe(false);
 		// The device gate first, so it wraps the registrar before the others register.
 		expect(Object.keys(config.services ?? {})).toEqual([
 			'deviceGate',

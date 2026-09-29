@@ -147,6 +147,27 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 		await expect(badge).toHaveAttribute('data-state', 'connected', { timeout: 30_000 });
 		await expect(badge).toContainText('Im Netz: eigene Geräte');
 		await expect(badge).toHaveAttribute('title', /Eigene Geräte: 1 verbunden/);
+		// "Alles pausieren" in the badge's menu: at once, and the Mac is no longer connected …
+		await badge.click();
+		await phone.page.getByTestId('network-pause').click();
+		await expect(badge).toHaveAttribute('data-state', 'paused');
+		await expect(badge).toHaveText('Netzwerk pausiert');
+		await expect(
+			phone.page
+				.getByTestId('devices-item')
+				.filter({ hasText: macId })
+				.getByTestId('devices-item-state')
+		).toHaveText('nicht verbunden', { timeout: 30_000 });
+		// … and "Fortsetzen" connects it again, in this session.
+		await badge.click();
+		await phone.page.getByTestId('network-resume').click();
+		await expect(badge).toHaveAttribute('data-state', 'connected', { timeout: 60_000 });
+		await expect(
+			phone.page
+				.getByTestId('devices-item')
+				.filter({ hasText: macId })
+				.getByTestId('devices-item-state')
+		).toHaveText(/^verbunden/, { timeout: 60_000 });
 		// The phone's own record replicated to the Mac, which now knows it too.
 		await expect(mac.page.getByTestId('devices-item')).toHaveCount(1, { timeout: 60_000 });
 

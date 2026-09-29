@@ -17,15 +17,16 @@
 
 /**
  * @typedef {object} NetworkStatus
- * @property {'off' | 'connecting' | 'online' | 'connected' | 'failed'} state the most telling of the parts
+ * @property {'off' | 'paused' | 'connecting' | 'online' | 'connected' | 'failed'} state the most telling of the parts; paused: switched off in the header menu
  * @property {NetworkPart[]} parts
  */
 
 /**
- * @param {{ sync: { online: boolean, error: string | null, removed?: boolean, state: { reachable?: boolean, devices?: { connected: boolean }[] } | null }, ucep: { status: 'off' | 'starting' | 'running' | 'failed', error?: string | null, app?: unknown } }} app
+ * @param {{ network?: { paused: boolean }, sync: { online: boolean, error: string | null, removed?: boolean, state: { reachable?: boolean, devices?: { connected: boolean }[] } | null }, ucep: { status: 'off' | 'starting' | 'running' | 'failed', error?: string | null, app?: unknown } }} app
  * @returns {NetworkStatus}
  */
 export function networkStatus(app) {
+	if (app.network?.paused) return { state: 'paused', parts: [] };
 	/** @type {NetworkPart[]} */
 	const parts = [];
 	if (app.sync.online || app.sync.error) {
