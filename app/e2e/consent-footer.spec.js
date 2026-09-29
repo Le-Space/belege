@@ -119,6 +119,9 @@ test('the consent screen can be opened again, from the footer and the header', a
 	await dialog.getByTestId('consent-close').click();
 	await expect(dialog).toBeHidden();
 
+	// Nothing switched on: the network is off, and the header says so.
+	await expect(page.getByTestId('local-only')).toHaveAttribute('data-state', 'off');
+	await expect(page.getByTestId('local-only')).toHaveText('Nur dieses Gerät');
 	await page.getByTestId('local-only').click();
 	await expect(dialog).toBeVisible();
 	// Accepted already, so Escape may close it now.

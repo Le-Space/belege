@@ -24,6 +24,26 @@ export default {
 		did: 'Deine DID (der öffentliche Schlüssel deines Passkeys)',
 		localOnly: 'Nur dieses Gerät',
 		localOnlyTitle: 'Netzwerk aus: kein Peer-to-Peer, kein Relay, kein Server. Mehr dazu …',
+		network: {
+			both: 'Im Netz: Geräte + Rechnungs-App',
+			only: { devices: 'Im Netz: eigene Geräte', 'invoice-app': 'Im Netz: Rechnungs-App' },
+			title: 'Netzwerk an – über ein Le-Space-Relay (TLS-WebSocket), Ende zu Ende verschlüsselt:',
+			part: {
+				devices: {
+					connecting: '• Eigene Geräte: verbindet …',
+					online: '• Eigene Geräte: im Netz, kein Gerät verbunden',
+					connected: '• Eigene Geräte: {count} verbunden',
+					failed: '• Eigene Geräte: Fehler – {error}'
+				},
+				'invoice-app': {
+					connecting: '• Rechnungs-App: verbindet …',
+					online: '• Rechnungs-App: im Netz, nicht gekoppelt',
+					connected: '• Rechnungs-App: gekoppelt',
+					failed: '• Rechnungs-App: Fehler – {error}'
+				}
+			},
+			more: 'Klick: was dabei wer sieht.'
+		},
 		localFirst: 'Le Space: der Local-First-Stack hinter dieser App'
 	},
 	theme: {

@@ -142,6 +142,11 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 				.filter({ hasText: macId })
 				.getByTestId('devices-item-state')
 		).toContainText('verbunden', { timeout: 60_000 });
+		// The header says the network is on, and that an own device is connected.
+		const badge = phone.page.getByTestId('local-only');
+		await expect(badge).toHaveAttribute('data-state', 'connected', { timeout: 30_000 });
+		await expect(badge).toContainText('Im Netz: eigene Geräte');
+		await expect(badge).toHaveAttribute('title', /Eigene Geräte: 1 verbunden/);
 		// The phone's own record replicated to the Mac, which now knows it too.
 		await expect(mac.page.getByTestId('devices-item')).toHaveCount(1, { timeout: 60_000 });
 
