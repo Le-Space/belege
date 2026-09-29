@@ -19,6 +19,7 @@
 
 import { recordEvent } from '../activity/events.js';
 import { accountLabel, displayPurpose, formatMoney } from '../bank/format.js';
+import { DOCUMENT_LOCALE } from '../i18n/index.js';
 import { addressBook, walletParties } from '../bank/payee.js';
 import { formatQuantity } from '../assets/quantity.js';
 import { walletChain } from '../wallets/chains.js';
@@ -104,7 +105,7 @@ export function chainDetails(tx, { accounts = [], partners = [], transactions = 
 			typeof t.quantity === 'string' && Number.isInteger(t.decimals)
 				? `${formatQuantity(t.quantity, t.decimals)} ${t.asset ?? ''}`.trim()
 				: '',
-		euro: formatMoney(Number(t.amountCents ?? 0), t.currency ?? 'EUR'),
+		euro: formatMoney(Number(t.amountCents ?? 0), t.currency ?? 'EUR', DOCUMENT_LOCALE),
 		booked: true
 	}));
 	// A swap's side the books do not hold as a leg (a token never booked).

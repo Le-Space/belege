@@ -1,42 +1,48 @@
-// German formatting, grouping and search for the Zahlungen view. Pure, so it
-// is tested without a database or a browser.
+// Formatting in the app's language (i18n/, German unless switched), grouping
+// and search for the Zahlungen view. Pure but for the language, so it is
+// tested without a database or a browser.
 
-const DAY = new Intl.DateTimeFormat('de-DE', {
-	weekday: 'long',
-	day: 'numeric',
-	month: 'numeric',
-	year: 'numeric',
-	timeZone: 'UTC'
-});
-const MONTH = new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-const SHORT_DATE = new Intl.DateTimeFormat('de-DE', {
-	day: '2-digit',
-	month: '2-digit',
-	year: 'numeric',
-	timeZone: 'UTC'
-});
+import { intlLocale } from '../i18n/index.js';
 
-/** @type {Map<string, Intl.NumberFormat>} */
-const moneyFormats = new Map();
+/** @type {Map<string, Intl.DateTimeFormat | Intl.NumberFormat>} */
+const formats = new Map();
+/**
+ * A formatter, made once per locale and options.
+ *
+ * @template {'date' | 'number'} K
+ * @param {K} kind
+ * @param {string} locale
+ * @param {Intl.DateTimeFormatOptions & Intl.NumberFormatOptions} options
+ * @returns {K extends 'date' ? Intl.DateTimeFormat : Intl.NumberFormat}
+ */
+function formatter(kind, locale, options) {
+	const id = `${kind}|${locale}|${JSON.stringify(options)}`;
+	let f = formats.get(id);
+	if (!f) {
+		f =
+			kind === 'date'
+				? new Intl.DateTimeFormat(locale, options)
+				: new Intl.NumberFormat(locale, options);
+		formats.set(id, f);
+	}
+	return /** @type {any} */ (f);
+}
 
 /**
- * `-22,42 EUR`, `1.439,76 EUR` (the space is a no-break space).
+ * `-22,42 EUR`, `1.439,76 EUR` (the space is a no-break space); in English
+ * `-EUR 22.42`. Documents pass DOCUMENT_LOCALE.
  *
  * @param {number} cents
  * @param {string} [currency]
+ * @param {string} [locale]
  */
-export function formatMoney(cents, currency = 'EUR') {
+export function formatMoney(cents, currency = 'EUR', locale = intlLocale()) {
 	const code = /^[A-Z]{3}$/.test(currency) ? currency : 'EUR';
-	let format = moneyFormats.get(code);
-	if (!format) {
-		format = new Intl.NumberFormat('de-DE', {
-			style: 'currency',
-			currency: code,
-			currencyDisplay: 'code'
-		});
-		moneyFormats.set(code, format);
-	}
-	return format.format(cents / 100);
+	return formatter('number', locale, {
+		style: 'currency',
+		currency: code,
+		currencyDisplay: 'code'
+	}).format(cents / 100);
 }
 
 /**
@@ -71,17 +77,7 @@ export function txDirection(tx) {
 	return q > 0n ? 1 : q < 0n ? -1 : 0;
 }
 
-const BERLIN_TIME = new Intl.DateTimeFormat('de-DE', {
-	hour: '2-digit',
-	minute: '2-digit',
-	timeZone: 'Europe/Berlin'
-});
 const BERLIN_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin' });
-const BERLIN_SHORT_DAY = new Intl.DateTimeFormat('de-DE', {
-	day: '2-digit',
-	month: '2-digit',
-	timeZone: 'Europe/Berlin'
-});
 
 /**
  * A booking's time in German time: `14:32`, or `31.08. 01:15` when that is
@@ -93,8 +89,19 @@ const BERLIN_SHORT_DAY = new Intl.DateTimeFormat('de-DE', {
 export function formatBookingTime(tx) {
 	const ms = typeof tx?.bookedAt === 'string' ? Date.parse(tx.bookedAt) : NaN;
 	if (!Number.isFinite(ms)) return '';
-	const time = BERLIN_TIME.format(ms);
-	return BERLIN_DAY.format(ms) === tx.bookedOn ? time : `${BERLIN_SHORT_DAY.format(ms)} ${time}`;
+	const locale = intlLocale();
+	const time = formatter('date', locale, {
+		hour: '2-digit',
+		minute: '2-digit',
+		timeZone: 'Europe/Berlin'
+	}).format(ms);
+	if (BERLIN_DAY.format(ms) === tx.bookedOn) return time;
+	const day = formatter('date', locale, {
+		day: '2-digit',
+		month: '2-digit',
+		timeZone: 'Europe/Berlin'
+	}).format(ms);
+	return `${day} ${time}`;
 }
 
 /**
@@ -109,19 +116,39 @@ export function accountLabel(account) {
 
 /** `2026-09-22` → `Dienstag, 22.9.2026` */
 export function formatDayHeading(/** @type {string} */ isoDate) {
-	return DAY.format(new Date(`${isoDate}T00:00:00Z`));
+	return formatter('date', intlLocale(), {
+		weekday: 'long',
+		day: 'numeric',
+		month: 'numeric',
+		year: 'numeric',
+		timeZone: 'UTC'
+	}).format(new Date(`${isoDate}T00:00:00Z`));
 }
 
 /** `2026-09` → `September 2026` */
 export function formatMonth(/** @type {string} */ month) {
 	return /^\d{4}-\d{2}$/.test(month)
-		? MONTH.format(new Date(`${month}-01T00:00:00Z`))
+		? formatter('date', intlLocale(), {
+				month: 'long',
+				year: 'numeric',
+				timeZone: 'UTC'
+			}).format(new Date(`${month}-01T00:00:00Z`))
 		: 'Ohne Datum';
 }
 
-/** `2026-09-22` → `22.09.2026` */
-export function formatDate(/** @type {string} */ isoDate) {
-	return SHORT_DATE.format(new Date(`${isoDate}T00:00:00Z`));
+/**
+ * `31.08.2026`; in English `31/08/2026`. Documents pass DOCUMENT_LOCALE.
+ *
+ * @param {string} isoDate
+ * @param {string} [locale]
+ */
+export function formatDate(isoDate, locale = intlLocale()) {
+	return formatter('date', locale, {
+		day: '2-digit',
+		month: '2-digit',
+		year: 'numeric',
+		timeZone: 'UTC'
+	}).format(new Date(`${isoDate}T00:00:00Z`));
 }
 
 /** @param {{ receiptId?: string | null }} tx */

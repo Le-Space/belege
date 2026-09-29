@@ -6,6 +6,7 @@ import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { encode } from 'uqr';
 
 import { formatDate } from '../bank/format.js';
+import { DOCUMENT_LOCALE } from '../i18n/index.js';
 import { formatQuantity } from '../assets/quantity.js';
 import { formatRate, SOURCE_NAMES } from '../assets/valuation.js';
 import { amount } from '../export/datev.js';
@@ -118,7 +119,7 @@ export async function eigenbelegPdf(doc) {
 	rule();
 
 	const sign = doc.amountCents < 0 ? '-' : '';
-	field('Datum der Zahlung', formatDate(doc.date));
+	field('Datum der Zahlung', formatDate(doc.date, DOCUMENT_LOCALE));
 	field('Betrag', `${sign}${amount(doc.amountCents)} EUR`, true);
 	field(doc.amountCents < 0 ? 'Empfänger' : 'Zahlende Seite', doc.counterparty);
 	field('Konto', doc.account);
@@ -129,7 +130,7 @@ export async function eigenbelegPdf(doc) {
 		field('Menge', `${formatQuantity(c.quantity, c.decimals)} ${c.asset}`);
 		field(
 			'Kurs',
-			`${formatRate(c.rate)} EUR je ${c.asset} · ${source}${c.at ? `, ${formatDate(c.at.slice(0, 10))}` : ''}`
+			`${formatRate(c.rate)} EUR je ${c.asset} · ${source}${c.at ? `, ${formatDate(c.at.slice(0, 10), DOCUMENT_LOCALE)}` : ''}`
 		);
 	}
 	if (doc.chain) {
@@ -184,7 +185,7 @@ export async function eigenbelegPdf(doc) {
 	rule();
 	field(
 		'Erstellt',
-		`${formatDate(doc.createdAt.slice(0, 10))}${doc.createdBy ? ` von ${doc.createdBy}` : ''}`
+		`${formatDate(doc.createdAt.slice(0, 10), DOCUMENT_LOCALE)}${doc.createdBy ? ` von ${doc.createdBy}` : ''}`
 	);
 
 	y -= 36;

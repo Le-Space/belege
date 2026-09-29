@@ -12,7 +12,7 @@
 		startUcep,
 		stopUcep
 	} from '$lib/session.svelte.js';
-	import { t } from '$lib/i18n/index.js';
+	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { pairByCode, pairByInvitation, unpair } from './consumer.js';
 
 	let invitation = $state('');
@@ -125,7 +125,7 @@
 	{:else if app.ucep.app}
 		<p class="mt-3 text-sm" data-testid="invoice-app-paired">
 			{t('integrationen.invoiceApp.paired', {
-				since: new Date(app.ucep.app.pairedAt).toLocaleString('de-DE')
+				since: new Date(app.ucep.app.pairedAt).toLocaleString(intlLocale())
 			})}
 		</p>
 		<p class="font-mono text-xs break-all text-faint">{app.ucep.app.peerId}</p>

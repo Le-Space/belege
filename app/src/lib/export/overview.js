@@ -5,7 +5,7 @@
 // in the Buchungsstapel and why. Pure.
 
 import { accountLabel, formatDate } from '../bank/format.js';
-import { t } from '../i18n/index.js';
+import { DOCUMENT_LOCALE, tDocument as t } from '../i18n/index.js';
 import { coverageBadge } from '../matching/view.js';
 import { foundByAi, matchOrigin } from '../receipts/origin.js';
 import { amount } from './datev.js';
@@ -72,14 +72,16 @@ export function overviewCsv(plan, { accounts, classifications }) {
 		const files = l.receipts.map((r) => plan.numbers.get(r.id) ?? '').filter(Boolean);
 		const notes = [
 			l.transferWith
-				? t('export.overview.transferLine', { date: formatDate(l.transferWith.bookedOn) })
+				? t('export.overview.transferLine', {
+						date: formatDate(l.transferWith.bookedOn, DOCUMENT_LOCALE)
+					})
 				: '',
 			...l.receipts
 				.filter((r) => !plan.receipts.some((z) => z.id === r.id))
 				.map((r) => t('export.overview.noFile', { number: plan.numbers.get(r.id) ?? '' }))
 		].filter(Boolean);
 		rows.push([
-			formatDate(l.tx.bookedOn),
+			formatDate(l.tx.bookedOn, DOCUMENT_LOCALE),
 			signed(l.line.amountCents),
 			l.line.text,
 			bank(l.tx),
@@ -94,7 +96,7 @@ export function overviewCsv(plan, { accounts, classifications }) {
 	}
 	for (const { tx, other } of plan.transferSides) {
 		rows.push([
-			formatDate(tx.bookedOn),
+			formatDate(tx.bookedOn, DOCUMENT_LOCALE),
 			signed(Number(tx.amountCents ?? 0)),
 			String(tx.counterparty ?? ''),
 			bank(tx),
@@ -104,7 +106,10 @@ export function overviewCsv(plan, { accounts, classifications }) {
 			'',
 			'',
 			originText(null, null, tx, classifications),
-			t('export.overview.transferSide', { date: formatDate(other.bookedOn), bank: bank(other) })
+			t('export.overview.transferSide', {
+				date: formatDate(other.bookedOn, DOCUMENT_LOCALE),
+				bank: bank(other)
+			})
 		]);
 	}
 	return BOM + [OVERVIEW_COLUMNS, ...rows].map((r) => r.map(cell).join(';')).join('\r\n') + '\r\n';

@@ -8,6 +8,7 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 import { formatDate } from '../bank/format.js';
+import { DOCUMENT_LOCALE } from '../i18n/index.js';
 import { amount } from '../export/datev.js';
 import { winAnsi } from '../pdf/winansi.js';
 
@@ -268,7 +269,7 @@ export async function statementPdf(doc) {
 			{ title: 'EUR', width: 64, right: true }
 		],
 		s.usage.map((u) => [
-			formatDate(u.date),
+			formatDate(u.date, DOCUMENT_LOCALE),
 			u.kind === 'storage'
 				? `${KIND.storage}${u.resources ? `: ${u.resources} Stores` : ''}${u.sizeMib !== null ? `, ${u.sizeMib.toFixed(1).replace('.', ',')} MiB` : ''}`
 				: `${KIND[u.kind] ?? u.kind}${u.resource ? ` ${nameOf(u.resource)}` : ''}`,
@@ -304,7 +305,7 @@ export async function statementPdf(doc) {
 	rule();
 	field(
 		'Erstellt',
-		`${formatDate(doc.createdAt.slice(0, 10))}${doc.createdBy ? ` von ${doc.createdBy}` : ''}`
+		`${formatDate(doc.createdAt.slice(0, 10), DOCUMENT_LOCALE)}${doc.createdBy ? ` von ${doc.createdBy}` : ''}`
 	);
 	room(60);
 	y -= 36;

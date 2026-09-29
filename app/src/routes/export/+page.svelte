@@ -13,14 +13,18 @@
 	import { suggestBooking } from '$lib/booking/suggest.js';
 	import { accountLabel, formatDate, formatMoney } from '$lib/bank/format.js';
 	import { receiptVendor } from '$lib/receipts/view.js';
-	import { list, t } from '$lib/i18n/index.js';
+	import { intlLocale, list, t } from '$lib/i18n/index.js';
 
-	const MONTH = new Intl.DateTimeFormat('de-DE', {
-		month: 'long',
-		year: 'numeric',
-		timeZone: 'UTC'
-	});
-	const MONTH_NAME = new Intl.DateTimeFormat('de-DE', { month: 'long', timeZone: 'UTC' });
+	const monthFormat = $derived(
+		new Intl.DateTimeFormat(intlLocale(), {
+			month: 'long',
+			year: 'numeric',
+			timeZone: 'UTC'
+		})
+	);
+	const monthName = $derived(
+		new Intl.DateTimeFormat(intlLocale(), { month: 'long', timeZone: 'UTC' })
+	);
 
 	let months = $derived(
 		[
@@ -212,7 +216,7 @@
 				data-testid="export-month-select"
 			>
 				{#each months as m (m)}
-					<option value={m}>{MONTH.format(new Date(`${m}-01T00:00:00Z`))}</option>
+					<option value={m}>{monthFormat.format(new Date(`${m}-01T00:00:00Z`))}</option>
 				{/each}
 			</select>
 		</label>
@@ -228,7 +232,7 @@
 			{t('export.settings', {
 				consultant: settings.consultantNumber,
 				client: settings.clientNumber,
-				fiscal: MONTH_NAME.format(new Date(Date.UTC(2026, settings.fiscalYearStartMonth - 1, 1))),
+				fiscal: monthName.format(new Date(Date.UTC(2026, settings.fiscalYearStartMonth - 1, 1))),
 				length: settings.accountLength
 			})} ·
 			<a class="underline" href={resolve('/einstellungen')}>{t('export.settingsLink')}</a>

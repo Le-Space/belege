@@ -5,6 +5,7 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 import { formatDate, formatMoney } from '../bank/format.js';
+import { DOCUMENT_LOCALE } from '../i18n/index.js';
 import { winAnsi } from '../pdf/winansi.js';
 
 const A4 = /** @type {[number, number]} */ ([595.28, 841.89]);
@@ -40,7 +41,7 @@ export async function vendorAccountPdf({
 	const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
 	let page = pdf.addPage(A4);
 	let y = A4[1] - MARGIN;
-	const money = (/** @type {number} */ c) => formatMoney(c, 'EUR');
+	const money = (/** @type {number} */ c) => formatMoney(c, 'EUR', DOCUMENT_LOCALE);
 
 	/** @param {number} needed */
 	const room = (needed) => {
@@ -67,7 +68,7 @@ export async function vendorAccountPdf({
 	draw(name, MARGIN, { size: 12, font: bold });
 	y -= 16;
 	draw(
-		`${formatDate(from)} bis ${formatDate(until)}${prepaid ? ' · als Guthabenkonto geführt' : ''} · erstellt ${formatDate(createdAt.slice(0, 10))}`,
+		`${formatDate(from, DOCUMENT_LOCALE)} bis ${formatDate(until, DOCUMENT_LOCALE)}${prepaid ? ' · als Guthabenkonto geführt' : ''} · erstellt ${formatDate(createdAt.slice(0, 10), DOCUMENT_LOCALE)}`,
 		MARGIN,
 		{ color: GREY }
 	);
@@ -115,9 +116,13 @@ export async function vendorAccountPdf({
 	for (const r of timeline.rows) {
 		room(13 + (r.items?.length ?? 0) * 11);
 		if (y > A4[1] - MARGIN - 1) header();
-		draw(formatDate(r.date), cols.date);
+		draw(formatDate(r.date, DOCUMENT_LOCALE), cols.date);
 		draw(r.kind === 'payment' ? 'Zahlung' : 'Beleg', cols.what);
-		if (r.period) draw(`${formatDate(r.period.from)} – ${formatDate(r.period.to)}`, cols.period);
+		if (r.period)
+			draw(
+				`${formatDate(r.period.from, DOCUMENT_LOCALE)} – ${formatDate(r.period.to, DOCUMENT_LOCALE)}`,
+				cols.period
+			);
 		if (r.topUpCents) draw(money(r.topUpCents), cols.topUp, { right: true });
 		if (r.usageCents) draw(money(r.usageCents), cols.usage, { right: true });
 		draw(money(r.balanceCents), cols.balance, {

@@ -5,6 +5,7 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 import { formatDate } from '../bank/format.js';
+import { DOCUMENT_LOCALE } from '../i18n/index.js';
 import { formatQuantity } from '../assets/quantity.js';
 import { formatRate } from '../assets/valuation.js';
 import { amount } from './datev.js';
@@ -145,7 +146,7 @@ export async function statementPdf(statement, { created }) {
 	const head = [
 		statement.label,
 		statement.ledger ? `Sachkonto ${statement.ledger}` : '',
-		`Zeitraum ${formatDate(`${yy}-${mm}-01`)} – ${formatDate(lastDay(statement.month))}`,
+		`Zeitraum ${formatDate(`${yy}-${mm}-01`, DOCUMENT_LOCALE)} – ${formatDate(lastDay(statement.month), DOCUMENT_LOCALE)}`,
 		`Auszug-Nr. ${statement.number}`
 	].filter(Boolean);
 	for (const line of head) {
@@ -168,7 +169,7 @@ export async function statementPdf(statement, { created }) {
 	}
 	for (const l of statement.lines) {
 		row({
-			date: formatDate(l.date),
+			date: formatDate(l.date, DOCUMENT_LOCALE),
 			text: l.text,
 			quantity: l.quantity === null ? '' : formatQuantity(l.quantity, l.decimals ?? decimals),
 			rate: l.valuation?.rate
@@ -220,7 +221,7 @@ export async function statementPdf(statement, { created }) {
 		page = p;
 		y = MARGIN - 6;
 		const words = winAnsi(
-			`${note} Erstellt am ${formatDate(created.toISOString().slice(0, 10))}.`
+			`${note} Erstellt am ${formatDate(created.toISOString().slice(0, 10), DOCUMENT_LOCALE)}.`
 		).split(' ');
 		/** @type {string[]} */
 		const lines = [''];

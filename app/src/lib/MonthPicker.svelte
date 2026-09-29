@@ -1,4 +1,5 @@
 <script>
+	import { intlLocale } from '$lib/i18n/index.js';
 	// A month as `YYYY-MM`: a month and a year to pick, each from a list.
 	// Instead of the browser's own month field, whose year is hard to change
 	// (a segment to click and arrow through, tiny arrows in the calendar).
@@ -7,10 +8,12 @@
 	/** @type {{ value: string, label: string, testid: string, years?: number }} */
 	let { value = $bindable(''), label, testid, years = 10 } = $props();
 
-	const MONTH_NAME = new Intl.DateTimeFormat('de-DE', { month: 'long', timeZone: 'UTC' });
+	const monthName = $derived(
+		new Intl.DateTimeFormat(intlLocale(), { month: 'long', timeZone: 'UTC' })
+	);
 	const MONTHS = Array.from({ length: 12 }, (_, i) => ({
 		value: String(i + 1).padStart(2, '0'),
-		name: MONTH_NAME.format(new Date(Date.UTC(2020, i, 1)))
+		name: monthName.format(new Date(Date.UTC(2020, i, 1)))
 	}));
 
 	let year = $derived(/^\d{4}-\d{2}$/.test(value) ? value.slice(0, 4) : '');

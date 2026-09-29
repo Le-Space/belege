@@ -3,6 +3,7 @@
 // database or a browser.
 
 import { formatMonth } from '../bank/format.js';
+import { intlLocale } from '../i18n/index.js';
 
 /**
  * @typedef {object} ReceiptLike
@@ -113,7 +114,7 @@ export function matchesReceiptSearch(r, query) {
 		cents !== null ? (cents / 100).toFixed(2) : null,
 		cents !== null ? (cents / 100).toFixed(2).replace('.', ',') : null,
 		cents !== null
-			? new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2 }).format(cents / 100)
+			? new Intl.NumberFormat(intlLocale(), { minimumFractionDigits: 2 }).format(cents / 100)
 			: null
 	]
 		.filter(Boolean)
