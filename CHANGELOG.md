@@ -10,6 +10,65 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **English (#192).** The whole interface in German and English, switched in the header at once and offline; the first visit follows the browser's language. Amounts, dates and crypto quantities follow the language; the Eigenbeleg, the statements and the DATEV export stay German (#193, #196, #197).
+- **Own devices (#133, #138, #156).** The same books on phone and computer, kept in step peer to peer; a device is added by QR code, removed with one click, and gets the books only after it proves the passkey. A phone uses the desktop's bridge (#144).
+- **Where devices meet (#148).** Chosen per book: public Le-Space relays, without any relay by exchanging two QR codes (#186), at a relay in the own bridge in the own network only (`pnpm setup:relay`, WebRTC-Direct with the relay's own ten-year certificate, #187, #188), or all of them, with a new device let in only by QR or the own relay (#191).
+- **The network under your hand.** The header badge says when Belege is online (#179) and switches everything, or own devices and the invoicing app one by one, off and on (#181).
+- **Invoicing app over UCEP.** Eigenbelege made by the invoicing app (#86); it learns which of its invoices were paid (#159); its catalogue in memory, offline after unpairing (#158).
+- **A read share for an assistant** – scoped, redacted, expiring, logged (#125).
+- **Installable app (PWA)** with the app shell offline (#143).
+- **Wallets.**
+  - A name, ledger account and cost centre per wallet (#71).
+  - Dust needs no receipt, and a lookalike sender is named (#66).
+  - Tokens not in the list are booked, each in its own account (#130).
+  - Delegations are booked (#136), and an Akash wallet's older history comes from the Akash indexer (#137).
+  - Pruned Cosmos nodes are detected and the balance checked (#106).
+- **Swaps and transfers.**
+  - DEX swaps are recognised, with both sides, the router and the gas (#118).
+  - A swap across chains is paired with its arrival (#171).
+  - Own transfers across chains via IBC and bridges are recognised (#104).
+  - Token migrations are recognised (#182).
+- **Rates.**
+  - A swap leg without a rate is priced by its other side (#164).
+  - A token CoinGecko does not price is priced by its DEX pool at the block: Uniswap V2, V3 and V4, against WETH or USDC (#166, #185).
+  - A booking without a rate is kept, and a rate can be set by hand, 0 included (#182, #184).
+- **Aleph credits** as a monthly statement per account, as an Eigenbeleg (#139).
+- **Matching.**
+  - Refunds are paired with their charge (#120).
+  - Two bookings can be linked by hand as one own transfer (#107), with an AI suggestion for the other side (#110).
+  - The AI queue asks "own transfer?" before it looks for a receipt (#140).
+  - Twin own transfers are paired (#177).
+  - A crypto payment gets only receipts that name it (#96).
+  - "KI-Vorschlag" says what it checked (#168).
+- **Private payments** from the business account are marked, documented and settled (#173).
+- **Vendor accounts** for prepaid and collective billing: a timeline with a balance, billing periods, positions, AI notes and a PDF (#122, #132).
+- **Eigenbeleg for crypto** with the full hash, both addresses and every movement including gas (#127), and the transaction as a QR code (#128).
+- **Receipts.**
+  - Mail receipts are read right after the fetch, and signs of a scam are flagged (#85).
+  - A crypto payment's mail is found by hash, address and quantity (#72).
+  - A mail can be moved to the Trash, by hand and after a confirmation (#87).
+  - One "Beleg finden" panel searches receipts, the private mailbox and portals (#89).
+- **AI.**
+  - One queue for AI runs: a few at a time, aware of rate limits, and resumable (#99).
+  - AI suggestions for all open questions at once, as suggestions only, never links (#92).
+  - Storage and AI usage (tokens and cost per day, week, month and receipt) on the stats page (#94).
+- **Payments.**
+  - Booking time, the other side of a trade (#68), and a name for every payment, with sender and receiver for crypto (#111).
+  - Bookings that belong together are one click apart (#90).
+  - Full addresses and the hash can be copied (#116).
+  - Payments without a receipt are marked in every filter (#129).
+  - A compact header (#91).
+- **One fiscal year at a time**, with a year switch (#102); month and year are picked from lists, and "Ganzes Vorjahr" is offered for the mail fetch (#80).
+- **Integrationen and Einstellungen.**
+  - An overview and a page per integration, in one card pattern (#154, #155).
+  - "Braucht dich" on Home (#157).
+  - An Einstellungen page behind a gear (#153).
+- **Consent screen.**
+  - What Belege works with, with logos (#131).
+  - What the Le-Space relays see (#147).
+  - A feature list by category, also in the README and `docs/features.md` (#189).
+- **Performance:** a benchmark of the books with a baseline (#81); one refresh after a burst and an id index (#82).
+
 - **Own EVM wallets through Alchemy.** `pnpm setup:alchemy` stores an optional Alchemy API key in the macOS keychain (hidden prompt, checked with `eth_chainId` on each network; Enter keeps it, `-` deletes it). With it the bridge reads Ethereum, Base, Arbitrum, Optimism and Polygon wallets from Alchemy instead of Blockscout, whose keyless API answers only a few requests per half hour: `alchemy_getAssetTransfers` from and to the address, the gas from the receipts, failed transactions and approvals found through the nonce, balances through `eth_getBalance` and `alchemy_getTokenBalances`. The key goes only into the URL of the requests to Alchemy; `GET /chains` reports `alchemy: true/false`. Value, gas and token ids are the same as from Blockscout, and the app pairs internal transfers (which the two number differently), so switching the source books nothing twice. On Arbitrum and Optimism, where Alchemy has no internal transfers, those still come from Blockscout. Errors `WALLET_ALCHEMY_AUTH`, `WALLET_ALCHEMY_DENIED`, `WALLET_ALCHEMY_RATE_LIMIT`. _Eigene Wallets_ says which source is used and, without a key, how to set one up; the consent screen's _Blockchain-Abfrage_ names Alchemy (version 6). See [docs/crypto.md](docs/crypto.md#alchemy).
 
 - **The release in the footer, and releases that count up.** The footer shows `v0.2.1` (a build of the release tag) or `v0.2.1+3` (three commits after it), linked to the GitHub release. `release.yml` without a version counts up from the last tag (`bump`: patch, minor or major).
@@ -24,6 +83,13 @@ All notable changes to Le Space Belege. The format follows
 - **Monthly DATEV export.** _Export_: pick a month, see what is missing (bookings without a confirmed account and bank accounts without a ledger account block the export; bookings without a receipt, receipts linked to nothing and unconfirmed senders warn), confirm the automatic accounts of transfers and fees in one click, download `DATEV_<YYYY-MM>.zip`, made in the browser with fflate: `DATEV/EXTF_Buchungsstapel_<YYYY-MM>.csv` (EXTF 700, category 21, format version 13, Windows-1252, CRLF; Konto = the bank's ledger account, S for money in, H for money out), `Belege/<YYYY-MM-NNN>_<vendor>.pdf` (the linked receipts, opened from the sealed blob store) and `Uebersicht_<YYYY-MM>.csv` (UTF-8). An own transfer between two of our accounts is exported once, from the lower ledger account against the other. Receipt numbers are kept on the receipt (`exportNumber`), so a re-export gives the same ones. The Verlauf records _DATEV-Export 2026-09: 4 Buchungen, 1 Belege_. [docs/export.md](docs/export.md) ([Deutsch](docs/export.de.md)) says how to import it into MonkeyOffice and what to check with the tax adviser; not yet tried with MonkeyOffice itself.
 
 ### Fixed
+
+- Kraken: private calls go out one at a time, so the nonces arrive in order; balances and ledgers fetched together no longer fail with _Invalid nonce_ (#190).
+- A linked receipt no longer vanishes, neither through sync nor through a second upload (#175). Saving "Eigene Anweisungen" keeps what was linked by hand (#174).
+- "Alle neuen auslesen" runs once, app-wide, and never overwrites newer changes (#75). A booking that changes on re-import loses its confirmation and is marked (#76).
+- Twin own transfers compare the readable purpose, not the raw one (#178).
+- Wallets stay within Alchemy's compute units per second (#64). A swap's plan is read from the IBC message's memo (#183).
+- Aleph is asked with the checksummed address (#150). The Le-Space relays are found on Aleph (#147).
 
 - Nym/Cosmos wallets: the sync failed on real nodes with _the node refused tx_search: … cannot unmarshal string into Go value of type bool_. `tx_search` sent `prove` as the string `"false"`; CometBFT's JSON-RPC takes integers as strings but a bool only as a JSON bool. The fake node in the tests is now as strict.
 
