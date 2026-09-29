@@ -2,19 +2,9 @@
 
 [![Sponsor](https://img.shields.io/github/sponsors/Le-Space?label=Sponsor&logo=githubsponsors&color=EA4AAA)](https://github.com/sponsors/Le-Space)
 
-Local-first bookkeeping helper: matches bank transactions (via [Hibiscus](https://github.com/willuhn/hibiscus)) with receipts from e-mail, folders and Telegram, and exports a monthly DATEV package. Runs in the browser; a small bridge on `127.0.0.1` does what a browser cannot (IMAP, Hibiscus XML-RPC, Telegram).
+Local-first bookkeeping for a small business: matches bank and crypto transactions with receipts from the accounting mailbox, uploads, a folder and customer portals, and exports a monthly DATEV package. The books live encrypted in the browser, under a passkey. A small bridge on `127.0.0.1` does what a browser cannot: Hibiscus, IMAP, the language model, customer portals, exchanges and wallets.
 
-## Status: phase 1, step 4
-
-The app lives in [`app/`](app/README.md): passkey identity, every record encrypted with a key from the passkey, stored locally in the browser (OrbitDB + Helia on IndexedDB). Step 2 added bank transactions: the [bridge](bridge/README.md) on `127.0.0.1` reads the allowed accounts from Hibiscus, the app lists them under Zahlungen; CAMT.053 statements (Revolut) import in the browser. Step 3 adds receipts: the bridge reads the mails to the accounting address over IMAP (read-only, except moving one mail to the Trash when you confirm it), the app takes uploads and a shared folder too, seals every file before it is stored, and "Auslesen" sends the PDF's text – redacted by the bridge – to an LLM (DeepSeek) for vendor, amount, date and invoice number. Mails whose sender fails DKIM/SPF wait for a confirmation. Step 4 matches receipts to transactions: a score from amount, invoice and customer number, IBAN, vendor and date; sure pairs are linked, the rest become questions on Home; own transfers, bank fees, loans and your own rules need no receipt; a missing receipt can be searched for in the private mailbox from the booking (only the hits are read). Invoices from a customer portal (Vodafone MeinKabel first) come through a browser the bridge starts on this Mac ([Kundenportale](bridge/README.md#kundenportale)). See [CHANGELOG.md](CHANGELOG.md). Gaps: no OCR for images yet, HTML-only invoices and other portals (see [app/README.md](app/README.md#gaps)).
-
-```bash
-pnpm install
-pnpm dev
-pnpm setup:hibiscus && pnpm setup:mail && pnpm setup:llm && pnpm bridge   # see bridge/README.md
-pnpm setup:portal vodafone   # optional: Vodafone MeinKabel invoices, see bridge/README.md#kundenportale
-pnpm lint && pnpm check && pnpm test:unit && pnpm test:bridge && pnpm test:e2e
-```
+**Use it:** [belege.le-space.de](https://belege.le-space.de/) – the latest [release](https://github.com/Le-Space/belege/releases/latest). Still early: keep your statements and receipts somewhere else as well. What changed: [CHANGELOG.md](CHANGELOG.md).
 
 ## Features
 
@@ -30,64 +20,49 @@ pnpm lint && pnpm check && pnpm test:unit && pnpm test:bridge && pnpm test:e2e
 
 All of it, with links: [docs/features.md](docs/features.md) ([Deutsch](docs/features.de.md)).
 
-## One year at a time
+## Getting started
 
-The switch above every page (_Jahr_) shows one fiscal year: its payments, its questions, and the receipts paid in it. A receipt paid in the year counts there even if it is dated earlier (an invoice from December paid in January, marked _Beleg aus 2025_). An unpaid receipt counts in its own year, and also in a year whose payment is offered for it. The matching itself looks across years. Without a choice, the switch shows the newest year with a payment. The fiscal year starts in the month set under DATEV (`app/src/lib/year/year.js`).
-
-## Refunds
-
-A charge and its refund pair when all of this holds:
-
-- the same counterparty, which the refund names;
-- a refund word (_Rückerstattung, Gutschrift, Storno, Refund_, …);
-- within 120 days;
-- on any account, the same card included;
-- each side has only the other.
-
-A full refund needs no receipt on either side; after a partial one the charge still needs its receipt. _Als Erstattung verknüpfen …_ in the payment links a pair by hand, _Keine Erstattung_ keeps one apart (`app/src/lib/matching/refunds.js`).
-
-## Vendor accounts
-
-Some vendors never pair one payment with one receipt: a prepaid tariff books top-ups, and its monthly "invoices" are statements of what the credit was used for. _Lieferantenkonto ansehen_ (in a payment or a receipt) puts the vendor's payments and receipts on one timeline with a running balance: opening balance + top-ups − consumption. It names what does not add up:
-
-- a negative balance;
-- a month without a statement;
-- top-ups without any statement;
-- a January statement that may bill the year before.
-
-_Als Guthabenkonto führen_ makes the statements document the top-ups: no question per top-up, and the statements count as covered. The opening balance per year can be entered (`app/src/lib/matching/vendor-account.js`).
-
-## AI
-
-Belege uses a language model in five places, each only on a click of a button marked **✦**: reading a receipt's text (vendor, amounts, dates, numbers), _Mit KI weitersuchen_ in the private mailbox (search words, then a pick from the hits' subjects, sender domains and file names), _KI-Vorschlag_ under _Beleg zuordnen_ (a pick among receipts by their read fields; the person links), _KI-Vorschlag_ under _Als Gegenbuchung verknüpfen_ (which booking on another account is the other side of an own transfer; the person links), and _Ungereimtheiten erklären_ in a vendor account (a few notes on what does not add up; nothing is booked). Matching, questions, transfers, fees, learning and the portals run on fixed rules. **Le Space runs no AI:** each installation sets up its own model in the bridge, a public one such as DeepSeek or a local one such as Ollama, and everything sent is redacted first. Details: [docs/ai.md](docs/ai.md) ([Deutsch](docs/ai.de.md)).
-
-## Accounts and DATEV export
-
-Every booking gets an SKR 03 account and a BU key: suggested (own transfer, bank fee, learned per vendor, VAT from the receipt), confirmed by you. Once a month, _Export_ makes a ZIP in the browser: a DATEV Buchungsstapel (EXTF) for MonkeyOffice and the receipts as PDFs. How to import it and what to check with the tax adviser: [docs/export.md](docs/export.md) ([Deutsch](docs/export.de.md)).
-
-## Crypto assets
-
-Exchanges and wallets are on their way as accounts: one account per asset, every crypto booking in euros with the exact quantity, the rate of its day and the rate's source kept next to it. The foundation (quantities, rates through the bridge, the Buchungstext) is described in [docs/crypto.md](docs/crypto.md) ([Deutsch](docs/crypto.de.md)); Kraken is the first connector.
-
-## Phase 0 (feasibility spikes)
-
-| Spike                | Question                                                                        | State                                                                                                                                           |
-| -------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `spikes/hibiscus`    | Can we read accounts and transactions from a local Hibiscus over XML-RPC?       | script ready, waiting for Hibiscus                                                                                                              |
-| Revolut → Hibiscus   | Does Revolut's CSV/CAMT export import into a Hibiscus offline account?          | open                                                                                                                                            |
-| `spikes/imap`        | Can the bridge list receipt mails, and what do their attachments look like?     | done: works with a Mailu auth token; 1 month ≈ 420 mails, ≈ 5 % with a PDF, many PDFs sent as `application/octet-stream`; see `docs/phase-0.md` |
-| LLM extraction       | How well does DeepSeek extract amount, date, invoice number from real receipts? | done: 12 real PDFs, both models right on vendor, gross, currency; flash with v4-pro as retry; see `docs/phase-0.md`                             |
-| DATEV → MonkeyOffice | Which EXTF fields and receipt links does MonkeyOffice import?                   | later                                                                                                                                           |
+The app runs at [belege.le-space.de](https://belege.le-space.de/) or locally. Without the bridge you can already import CAMT.053 statements. Everything else goes through the bridge, which runs on your own computer, from a checkout of this repository:
 
 ```bash
 pnpm install
-read -s HIBISCUS_PASSWORD && export HIBISCUS_PASSWORD
-pnpm spike:hibiscus
-
-cp .env.example .env   # fill in IMAP_*
-pnpm spike:imap -- --month 2026-08 --accounting              # the accounting alias only
-pnpm spike:imap -- --find Vodafone --amount 52,59 --around 2026-08-22   # one missing receipt
+pnpm bridge            # prints the pairing code; pair under Integrationen
 ```
+
+Each source is set up once, in the terminal; secrets go into the macOS keychain by hidden prompt ([bridge/README.md](bridge/README.md)):
+
+| Command                  | For                                                                     |
+| ------------------------ | ----------------------------------------------------------------------- |
+| `pnpm setup:hibiscus`    | bank accounts from Hibiscus                                             |
+| `pnpm setup:mail`        | the accounting mailbox (IMAP)                                           |
+| `pnpm setup:llm`         | your own language model for reading receipts ([docs/ai.md](docs/ai.md)) |
+| `pnpm setup:portal <id>` | optional: the login of a customer portal, e.g. `vodafone`               |
+| `pnpm setup:kraken`      | Kraken, read only                                                       |
+| `pnpm setup:alchemy`     | optional: EVM wallets through Alchemy                                   |
+| `pnpm setup:bitcoin`     | a Bitcoin wallet by its extended public key (xpub, ypub, zpub)          |
+| `pnpm setup:coingecko`   | optional: a CoinGecko key for rates                                     |
+| `pnpm setup:relay`       | optional: a relay for your own devices in your own network              |
+
+Own Cosmos and EVM wallets are added in the app (_Integrationen → Eigene Wallets_) and need no setup.
+
+## Development
+
+```bash
+pnpm dev               # the app on http://localhost:5173
+pnpm lint && pnpm check && pnpm test:unit && pnpm test:bridge && pnpm test:e2e
+```
+
+The app is in [`app/`](app/README.md), the bridge in [`bridge/`](bridge/README.md). A release deploys to belege.le-space.de ([docs/deploy.md](docs/deploy.md)).
+
+## Docs
+
+- [Features](docs/features.md) ([Deutsch](docs/features.de.md))
+- [Matching: fiscal years, refunds, vendor accounts](docs/matching.md) ([Deutsch](docs/matching.de.md))
+- [AI](docs/ai.md) ([Deutsch](docs/ai.de.md))
+- [Accounts and DATEV export](docs/export.md) ([Deutsch](docs/export.de.md))
+- [Crypto](docs/crypto.md) ([Deutsch](docs/crypto.de.md))
+- [Performance](docs/performance.md) ([Deutsch](docs/performance.de.md))
+- [Phase 0: the feasibility spikes](docs/phase-0.md)
 
 ## License
 
