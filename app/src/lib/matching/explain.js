@@ -262,6 +262,15 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 				count: c.candidates ?? 0
 			});
 		}
+		case 'token-burn':
+			return t('explain.rule.tokenBurn');
+		case 'token-migration': {
+			const other = accounts.find((a) => a.id === c.counterAccountId);
+			return t('explain.rule.tokenMigration', {
+				account: other ? accountLabel(other) : t('explain.rule.otherAccount'),
+				date: c.counterDay ? formatDate(c.counterDay) : '?'
+			});
+		}
 		case 'crypto-dust':
 			return c.lookalike
 				? t('explain.rule.dustLookalike', { known: c.lookalike })

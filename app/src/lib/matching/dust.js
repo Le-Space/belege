@@ -58,6 +58,8 @@ export function isDust(tx) {
 		walletChain(tx.source) !== null &&
 		tx.movement === 'transfer' &&
 		Number(tx.amountCents) === 0 &&
+		// No rate is not "worth less than a cent" (#162).
+		!tx.rateMissing &&
 		typeof tx.quantity === 'string' &&
 		/^\d+$/.test(tx.quantity) &&
 		BigInt(tx.quantity) > 0n

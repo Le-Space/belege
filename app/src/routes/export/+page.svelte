@@ -241,6 +241,14 @@
 	>
 		<h2 class="text-lg font-semibold text-heading">{t('export.checks')}</h2>
 		<ul class="mt-2 flex flex-col gap-3 text-sm">
+			{#if plan.checks.unpriced.length}
+				{@render item(
+					'unpriced',
+					'blocker',
+					t('export.check.unpriced', { count: plan.checks.unpriced.length }),
+					plan.checks.unpriced.map((tx) => ({ id: tx.id, text: txText(tx), href: txLink(tx.id) }))
+				)}
+			{/if}
 			{@render item(
 				'unassigned',
 				plan.checks.unassigned.length ? 'blocker' : 'ok',

@@ -80,6 +80,8 @@ const COIN = /^(\d+)([a-zA-Z][a-zA-Z0-9/:._-]{1,127})$/;
  * @property {string} counterpartyLabel a module's name, or ''
  * @property {string} memo
  * @property {boolean} success false for the fee of a failed transaction
+ * @property {boolean} [byOther] EVM: sent out in a transaction this address did not send (#162)
+ * @property {string} [txFrom] EVM: who sent that transaction, where known
  * @property {string} explorerUrl
  * @property {string} [contract] EVM: a token not in the chain's list, by its contract (issue #115)
  * @property {boolean} [listed] false for such a token: its symbol is its own claim

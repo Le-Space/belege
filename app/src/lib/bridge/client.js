@@ -78,6 +78,8 @@ export class BridgeError extends Error {
  * @property {string} explorerUrl
  * @property {string} [contract] EVM: a token not in the chain's list, by its contract (#115)
  * @property {boolean} [listed] false for such a token
+ * @property {boolean} [byOther] EVM: sent out in a transaction this address did not send – a token project's burn, say (#162)
+ * @property {string} [txFrom] who sent that transaction, where the bridge knows it
  */
 
 /**

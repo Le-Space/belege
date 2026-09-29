@@ -273,6 +273,47 @@ export async function linkSwap(store, transactionId, otherId) {
 }
 
 /**
+ * "Als Migration verknüpfen" (issue #162): a token burned by its project and
+ * the replacement it handed out. A booking has one other side.
+ *
+ * @param {MatchingStore} store
+ * @param {string} burnId
+ * @param {string} replacementId
+ */
+export async function linkMigration(store, burnId, replacementId) {
+	if (burnId === replacementId) return;
+	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+	const key = transferPairKey(burnId, replacementId);
+	const mine = (/** @type {string} */ k) =>
+		k.split('|').some((id) => id === burnId || id === replacementId);
+	await setSetting(store.settings, 'matching', {
+		...current,
+		migrations: [...current.migrations.filter((k) => !mine(k)), key]
+	});
+	await decided(store, 'migration-link', {
+		transactionId: burnId,
+		counterBookingId: replacementId
+	});
+}
+
+/**
+ * "Verknüpfung lösen" of a migration.
+ *
+ * @param {MatchingStore} store
+ * @param {string} transactionId
+ * @param {string} otherId
+ */
+export async function unlinkMigration(store, transactionId, otherId) {
+	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+	const key = transferPairKey(transactionId, otherId);
+	await setSetting(store.settings, 'matching', {
+		...current,
+		migrations: current.migrations.filter((k) => k !== key)
+	});
+	await decided(store, 'migration-unlink', { transactionId, counterBookingId: otherId });
+}
+
+/**
  * "Verknüpfung lösen" of a swap linked by hand.
  *
  * @param {MatchingStore} store

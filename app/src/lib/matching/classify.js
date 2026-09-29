@@ -98,6 +98,7 @@ export function isOwnName(name, company) {
  * @property {string[]} notTransfers pairs of booking ids a person said are no transfer (`transferPairKey`)
  * @property {string[]} ownTransfers pairs a person linked as the two sides of an own transfer (`transferPairKey`)
  * @property {string[]} ownSwaps pairs a person linked as the two sides of a swap (`transferPairKey`, issue #170)
+ * @property {string[]} migrations a token burned by its project and its replacement, linked by a person (`transferPairKey`, issue #162)
  * @property {string[]} refundPairs `refundPairKey`: a charge and its refund a person linked (refunds.js)
  * @property {string[]} notRefunds pairs a person said are no refund
  * @property {{ name: string, openings: Record<string, number> }[]} prepaidVendors vendors a person keeps as a prepaid account, with opening balances per year (vendor-account.js)
@@ -119,6 +120,7 @@ export function defaultMatchingSettings() {
 		notTransfers: [],
 		ownTransfers: [],
 		ownSwaps: [],
+		migrations: [],
 		refundPairs: [],
 		notRefunds: [],
 		prepaidVendors: [],
@@ -173,6 +175,7 @@ export function cleanMatchingSettings(value) {
 		// through every run, whatever the rules find.
 		ownTransfers: [...new Set(strings(value?.ownTransfers))].slice(-500),
 		ownSwaps: [...new Set(strings(value?.ownSwaps))].slice(-500),
+		migrations: [...new Set(strings(value?.migrations))].slice(-500),
 		// A charge and its refund, linked by hand, and pairs kept apart (refunds.js).
 		refundPairs: [...new Set(strings(value?.refundPairs))].slice(-500),
 		notRefunds: [...new Set(strings(value?.notRefunds))].slice(-500),
@@ -223,6 +226,7 @@ export function feeKey(tx) {
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [bridgeCounterparts] the other side of a bridge transfer on another own wallet (context.js)
  * @property {(tx: Record<string, any>) => Record<string, any> | null} [ibanCounterpart] the other side of an own transfer by IBAN, on the account that IBAN names (context.js, #176)
  * @property {(tx: Record<string, any>) => boolean} [ibanCounterpartMissing] that account is in the books, and no booking there fits
+ * @property {(tx: Record<string, any>) => Record<string, any> | null} [linkedMigration] a burned token's replacement, or the burn a replacement is for (#162)
  * @property {(tx: Record<string, any>) => Record<string, any> | null} [linkedSwap] the booking a person linked as this one's other side of a swap (context.js)
  * @property {(tx: Record<string, any>) => import('./context.js').CrossSwapSide | null} [crossSwapOf] a swap across chains this booking is a side of (context.js, issue #170)
  * @property {Map<string, Map<string, string>>} [ownAddresses] `<chain>:<address>` (normalised) of our own wallets → their accounts by asset ('' = the first)
@@ -231,7 +235,9 @@ export function feeKey(tx) {
 
 /**
  * @typedef {object} Classification
- * @property {'rule-ignore' | 'rule-private' | 'bank-fee' | 'own-transfer' | 'loan' | 'crypto-reward' | 'crypto-stake' | 'crypto-dust' | 'crypto-swap' | 'refund' | 'prepaid-topup'} kind
+ * @property {'rule-ignore' | 'rule-private' | 'bank-fee' | 'own-transfer' | 'loan' | 'crypto-reward' | 'crypto-stake' | 'crypto-dust' | 'crypto-swap' | 'token-burn' | 'token-migration' | 'refund' | 'prepaid-topup'} kind
+ *   `token-burn`: tokens burned in the token project's transaction, not the person's (#162);
+ *   `token-migration`: such a burn and its replacement, linked by a person
  *   `crypto-dust`: an incoming wallet transfer worth less than a cent
  *   `crypto-stake`: tokens delegated to staking (or back); no receipt, and not
  *   on 1360: the return at the end of an unbonding is no transaction, so a
@@ -336,6 +342,10 @@ function signedCounterBookings(tx, ctx) {
 		.map((x) => /** @type {{ o: Record<string, any>, sign: string }} */ (x));
 }
 
+/** The zero address and the usual "dead" one, where tokens are destroyed. @param {unknown} a */
+const isBurnTarget = (a) =>
+	[`0x${'0'.repeat(40)}`, `0x${'0'.repeat(36)}dead`].includes(String(a ?? '').toLowerCase());
+
 /**
  * Whether a transaction needs no receipt, and why; null when it needs one.
  *
@@ -377,6 +387,21 @@ export function classifyTransaction(tx, ctx) {
 			counterAccountId: String(linked.accountId ?? ''),
 			counterDay: String(linked.bookedOn ?? '')
 		};
+	}
+	// A token burned by its project and its replacement, linked by a person (#162).
+	const migrated = ctx.linkedMigration?.(tx);
+	if (migrated) {
+		return {
+			kind: 'token-migration',
+			via: 'manual',
+			counterBookingId: String(migrated.id),
+			counterAccountId: String(migrated.accountId ?? ''),
+			counterDay: String(migrated.bookedOn ?? '')
+		};
+	}
+	// Burned in the project's transaction, not the person's: no payment to anyone.
+	if (tx.movedByOther && Number(tx.amountCents ?? 0) <= 0 && isBurnTarget(tx.counterpartyAddress)) {
+		return { kind: 'token-burn' };
 	}
 	// Linked by hand as the two sides of a swap (issue #170).
 	const swappedWith = ctx.linkedSwap?.(tx);

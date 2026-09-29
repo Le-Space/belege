@@ -50,7 +50,7 @@
 		txDirection
 	} from './bank/format.js';
 	import { tradeArrow, tradeSides, tradeSideWhat } from './exchanges/trades.js';
-	import { acknowledgeImportChange } from './booking/actions.js';
+	import { acknowledgeImportChange, setManualRate } from './booking/actions.js';
 	import { isBookingConfirmed } from './booking/suggest.js';
 	import { quantityText, valuationText } from './assets/valuation.js';
 	import { safeExplorerUrl, walletChain } from './wallets/chains.js';
@@ -70,6 +70,8 @@
 		linkTransfer,
 		linkSwap,
 		unlinkSwap,
+		linkMigration,
+		unlinkMigration,
 		rejectRefund,
 		rejectTransfer,
 		setNoReceipt,
@@ -91,7 +93,8 @@
 		matchOfReceipt,
 		ownNameCandidate,
 		receiptChoices,
-		transferCandidates
+		transferCandidates,
+		migrationCandidates
 	} from './matching/view.js';
 	import {
 		candidateLine,
@@ -722,6 +725,27 @@
 			await runMatchingNow();
 		});
 
+	// Token migration (#162): the replacement a burned token may have, and a rate by hand.
+	let migrationChoices = $derived(
+		tx && classification?.kind === 'token-burn'
+			? migrationCandidates(tx, app.transactions, app.accounts)
+			: []
+	);
+	/** @param {string} otherId */
+	const migrateWith = (otherId) =>
+		act(async () => {
+			await linkMigration(/** @type {any} */ (currentStore()), txId, otherId);
+			await runMatchingNow();
+		});
+	let rateOpen = $state(false);
+	let rateText = $state('');
+	const saveRate = () =>
+		act(async () => {
+			await setManualRate(/** @type {any} */ (currentStore()), txId, rateText);
+			rateOpen = false;
+			rateText = '';
+		});
+
 	const notTransfer = () =>
 		act(async () => {
 			if (!classification?.counterBookingId) return;
@@ -730,7 +754,9 @@
 					? rejectRefund
 					: classification.kind === 'crypto-swap'
 						? unlinkSwap
-						: rejectTransfer
+						: classification.kind === 'token-migration'
+							? unlinkMigration
+							: rejectTransfer
 			)(/** @type {any} */ (currentStore()), txId, classification.counterBookingId);
 			await runMatchingNow();
 		});
@@ -1520,7 +1546,7 @@
 					>
 						<p class="text-xs font-semibold text-heading">{t('explain.whyNone')}</p>
 						<p class="mt-0.5 text-sm text-text" data-testid="tx-why-rule-line">{ruleLine}</p>
-						{#if (classification?.kind === 'own-transfer' || classification?.kind === 'refund' || classification?.kind === 'crypto-swap') && classification.counterBookingId && !tx.noReceipt}
+						{#if (classification?.kind === 'own-transfer' || classification?.kind === 'refund' || classification?.kind === 'crypto-swap' || classification?.kind === 'token-migration') && classification.counterBookingId && !tx.noReceipt}
 							<div class="mt-1.5 flex flex-wrap gap-3 text-sm">
 								<button
 									type="button"
@@ -1621,6 +1647,78 @@
 						{/if}
 					</div>
 				{/each}
+				{#if tx.rateMissing || (showDetails && tx.quantity)}
+					<div class="mt-2 text-sm" data-testid="tx-rate">
+						{#if tx.rateMissing}
+							<p class="text-warning" data-testid="tx-rate-missing">
+								{t('zahlungen.detail.rate.missing', { reason: tx.rateMissing.reason ?? '' })}
+							</p>
+						{/if}
+						{#if rateOpen || tx.rateMissing}
+							<form
+								class="mt-1 flex flex-wrap items-end gap-2"
+								onsubmit={(e) => {
+									e.preventDefault();
+									saveRate();
+								}}
+							>
+								<label class="flex flex-col text-xs text-faint"
+									>{t('zahlungen.detail.rate.label', { asset: tx.asset ?? '' })}
+									<input
+										class="mt-1 min-h-11 w-40 rounded-md border border-border bg-surface px-2 font-mono text-sm text-heading"
+										inputmode="decimal"
+										bind:value={rateText}
+										placeholder="0,0042"
+										data-testid="tx-rate-input"
+									/></label
+								>
+								<button
+									type="submit"
+									class={button}
+									disabled={busy || !rateText.trim()}
+									data-testid="tx-rate-save">{t('zahlungen.detail.rate.save')}</button
+								>
+							</form>
+							<p class="mt-1 text-xs text-faint">{t('zahlungen.detail.rate.hint')}</p>
+						{:else}
+							<button
+								type="button"
+								class="text-xs text-text underline"
+								onclick={() => (rateOpen = true)}
+								data-testid="tx-rate-edit">{t('zahlungen.detail.rate.edit')}</button
+							>
+						{/if}
+					</div>
+				{/if}
+				{#if classification?.kind === 'token-burn'}
+					<div class="mt-2 text-sm" data-testid="tx-migration">
+						{#if migrationChoices.length}
+							<p class="text-text">
+								{t('zahlungen.detail.migration.found', { count: migrationChoices.length })}
+							</p>
+							<ul class="mt-1 divide-y divide-border rounded-md border border-border">
+								{#each migrationChoices as o (o.id)}
+									<li class="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+										<span class="min-w-0 text-sm text-text"
+											>{formatDate(String(o.bookedOn))} · {quantityText(o)}</span
+										>
+										<button
+											type="button"
+											class={button}
+											onclick={() => migrateWith(String(o.id))}
+											disabled={busy}
+											data-testid="tx-migration-link">{t('zahlungen.detail.migration.link')}</button
+										>
+									</li>
+								{/each}
+							</ul>
+						{:else}
+							<p class="text-faint" data-testid="tx-migration-none">
+								{t('zahlungen.detail.migration.none')}
+							</p>
+						{/if}
+					</div>
+				{/if}
 				{#if tx.noReceipt}
 					<p class="mt-1 text-sm text-text" data-testid="tx-detail-no-receipt">
 						{t('matching.kind.no-receipt', { reason: tx.noReceipt.reason ?? '' })}

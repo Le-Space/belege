@@ -829,7 +829,15 @@ describe('changing the source of an EVM wallet books nothing twice', () => {
 			expect(first.totals.new).toBeGreaterThan(10);
 			const second = await syncWallet({ client: via(order[1]), store: s, wallet });
 			expect(second.source).toBe(order[1]);
-			expect(second.totals).toEqual({ new: 0, updated: 0, skipped: first.totals.new });
+			// Blockscout does not know who sent a transaction that moved a token out
+			// (a spender's transferFrom); Alchemy does, and adds it once (#162).
+			// The other way round, what is known stays.
+			const enriched = order[0] === 'blockscout' ? 1 : 0;
+			expect(second.totals).toEqual({
+				new: 0,
+				updated: enriched,
+				skipped: first.totals.new - enriched
+			});
 			const ids = (await s.transactions.list()).map((t) => t.sourceId);
 			expect(new Set(ids).size).toBe(ids.length);
 		});

@@ -379,6 +379,15 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 		linkedTo.set(a, b);
 		linkedTo.set(b, a);
 	}
+	// A burn and its replacement token, linked by a person (issue #162).
+	/** @type {Map<string, string>} */
+	const migratedWith = new Map();
+	for (const key of clean.migrations) {
+		const [a, b] = key.split('|');
+		if (!a || !b || a === b || !liveById.has(a) || !liveById.has(b)) continue;
+		migratedWith.set(a, b);
+		migratedWith.set(b, a);
+	}
 	// Swaps a person linked by hand ("Als Tausch verknüpfen", issue #170).
 	/** @type {Map<string, string>} */
 	const swappedWith = new Map();
@@ -437,6 +446,10 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 		},
 		linkedTransfer(tx) {
 			const other = linkedTo.get(String(tx.id));
+			return other ? (liveById.get(other) ?? null) : null;
+		},
+		linkedMigration(tx) {
+			const other = migratedWith.get(String(tx.id));
 			return other ? (liveById.get(other) ?? null) : null;
 		},
 		linkedSwap(tx) {

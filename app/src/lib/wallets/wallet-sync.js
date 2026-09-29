@@ -27,6 +27,7 @@ import { recordEvent } from '../activity/events.js';
 import { importTransactions, upsertAccount } from '../bank/import.js';
 import { toUnits } from '../assets/quantity.js';
 import { tradeRate, valuedFields } from '../assets/valuation.js';
+import { assetOf } from '../assets/registry.js';
 import { crossSwapOf } from './cross-swap.js';
 import { getSetting, setSetting } from '../store/settings.js';
 import { normalizeAddress, safeExplorerUrl, walletAccountName, walletChain } from './chains.js';
@@ -112,8 +113,20 @@ export function walletAccountFields(chain, account, wallet) {
  * @typedef {import('../bank/import.js').IncomingTransaction} Incoming
  */
 
+/** Where tokens go to be destroyed: the zero address and the usual "dead" one. */
+const BURN_ADDRESSES = new Set([`0x${'0'.repeat(40)}`, `0x${'0'.repeat(36)}dead`]);
+/** @param {unknown} address */
+export const isBurnAddress = (address) => BURN_ADDRESSES.has(String(address ?? '').toLowerCase());
+
 /** How an entry is named, and what it is for matching. @param {Entry} e */
 export function describeWalletEntry(e) {
+	// Moved out in someone else's transaction (#162): a project burning holdings, or a spender.
+	if (e.byOther && e.type === 'sent') {
+		return {
+			label: isBurnAddress(e.counterparty) ? 'Vom Projekt verbrannt' : 'Von Dritten bewegt',
+			movement: /** @type {const} */ ('transfer')
+		};
+	}
 	if (e.type === 'fee') {
 		return {
 			label: e.success ? 'Netzwerkgebühr' : 'Netzwerkgebühr (fehlgeschlagene Transaktion)',
@@ -164,6 +177,36 @@ export function swapText(swap) {
 /** `AB12…9F3C`: a hash short enough for a purpose. @param {string} hash */
 export const shortHash = (hash) =>
 	hash.length > 14 ? `${hash.slice(0, 8)}…${hash.slice(-4)}` : hash;
+
+/** How long after a burn its replacement may arrive (issue #162). */
+export const MIGRATION_DAYS = 180;
+
+/**
+ * An entry's fields without a rate (issue #162): its quantity as it is, no
+ * euro amount yet, and why. Throws for what cannot be kept at all (an amount
+ * that does not parse, an asset without a symbol).
+ *
+ * @param {Entry} e
+ * @param {string} units
+ * @param {unknown} error why there is no rate
+ */
+function unpricedFields(e, units, error) {
+	if (!/^-?\d+$/.test(units) || BigInt(units) === 0n) throw error;
+	const known = assetOf(e.asset);
+	const decimals = Number.isInteger(e.decimals) ? e.decimals : known?.decimals;
+	if (!Number.isInteger(decimals) || !/^[A-Z0-9]{2,10}$/i.test(e.asset)) throw error;
+	return {
+		amountCents: 0,
+		currency: 'EUR',
+		asset: known?.symbol ?? e.asset.toUpperCase(),
+		quantity: units,
+		decimals: /** @type {number} */ (decimals),
+		valuation: /** @type {any} */ (null),
+		rateMissing: {
+			reason: String(/** @type {any} */ (error)?.message ?? error ?? 'kein Kurs').slice(0, 200)
+		}
+	};
+}
 
 /**
  * The bookings for a wallet's entries, by asset.
@@ -243,10 +286,58 @@ export async function walletTransactions(entries, getRate) {
 		}
 	}
 
+	// A token handed out by the one who burned the old one (issue #162): worth
+	// what the burned holding was worth – its acquisition cost carries over.
+	/** @type {Set<Entry>} */
+	const burnsUsed = new Set();
+	for (const [e, p] of priced) {
+		if (p.value || e.type !== 'received' || e.kind === 'swap') continue;
+		const from = String(e.counterparty ?? '').toLowerCase();
+		const day = Date.parse(`${e.date}T00:00:00Z`);
+		const burn = [...priced.entries()]
+			.filter(
+				([b, q]) =>
+					q.value &&
+					!burnsUsed.has(b) &&
+					b.byOther &&
+					b.type === 'sent' &&
+					isBurnAddress(b.counterparty) &&
+					b.txFrom === from &&
+					b.asset !== e.asset &&
+					day - Date.parse(`${b.date}T00:00:00Z`) >= 0 &&
+					day - Date.parse(`${b.date}T00:00:00Z`) <= MIGRATION_DAYS * 86_400_000
+			)
+			.at(-1);
+		if (!burn) continue;
+		const cents = Math.abs(Number(burn[1].value?.amountCents ?? 0));
+		if (!cents) continue;
+		try {
+			priced.set(e, {
+				units: p.units,
+				value: valuedFields({
+					asset: e.asset,
+					units: p.units,
+					decimals: e.decimals,
+					rate: {
+						rate: tradeRate(cents, p.units, e.decimals),
+						source: 'migration',
+						at: e.time || `${e.date}T00:00:00Z`,
+						ref: burn[0].hash
+					}
+				})
+			});
+			burnsUsed.add(burn[0]);
+		} catch {
+			// stays unpriced
+		}
+	}
+
 	for (const [e, p] of priced) {
 		try {
-			if (!p.value) throw p.error;
-			const value = p.value;
+			// No rate anywhere (issue #162): kept all the same, its euro amount
+			// open ("Kurs fehlt"), the reason with it, for a rate by hand.
+			/** @type {ReturnType<typeof unpricedFields> | (ReturnType<typeof valuedFields> & { rateMissing?: undefined })} */
+			const value = p.value ?? unpricedFields(e, p.units, p.error);
 			const { label, movement } = describeWalletEntry(e);
 			const other = e.counterpartyLabel || e.counterparty;
 			const purpose = [
@@ -273,6 +364,8 @@ export async function walletTransactions(entries, getRate) {
 				txRef: e.hash,
 				explorerUrl: safeExplorerUrl(e.explorerUrl) ?? '',
 				...(e.swap ? { swap: e.swap } : {}),
+				...(e.byOther ? { movedByOther: { by: e.txFrom ?? '' } } : {}),
+				...(value.rateMissing ? { rateMissing: value.rateMissing } : {}),
 				// A swap to another chain, planned in the IBC memo (issue #170).
 				...(() => {
 					const cross = e.kind === 'ibc' && e.type === 'sent' ? crossSwapOf(e.memo) : null;
@@ -286,6 +379,9 @@ export async function walletTransactions(entries, getRate) {
 				}
 			};
 			byAsset.set(e.asset, [...(byAsset.get(e.asset) ?? []), tx]);
+			if (value.rateMissing) {
+				unpriced.push({ id: e.id, date: e.date, asset: e.asset, reason: value.rateMissing.reason });
+			}
 		} catch (/** @type {any} */ error) {
 			unpriced.push({
 				id: e.id,

@@ -227,3 +227,39 @@ test('an unlisted token only received (an airdrop) is not booked; a lookalike sy
 	);
 	assert.deepEqual(fake.entries, []);
 });
+
+test('a token that leaves in a transaction this wallet did not send: moved by someone else, and by whom (#162)', () => {
+	const PROJECT = `0x${'c3'.repeat(20)}`;
+	const ZERO = `0x${'0'.repeat(40)}`;
+	const burn = hash('cd');
+	const lists = {
+		normal: [],
+		internal: [],
+		tokens: [
+			{
+				...base,
+				hash: burn,
+				from: ME,
+				to: ZERO,
+				value: '1000000000000000000000000',
+				contractAddress: XYZ,
+				tokenSymbol: 'XYZ',
+				tokenDecimal: '18',
+				logIndex: '7'
+			}
+		],
+		senders: { [burn]: PROJECT }
+	};
+	const { entries } = normalizeEvm(lists, { address: ME, chain: CHAINS.ethereum });
+	assert.equal(entries.length, 1);
+	assert.equal(entries[0].type, 'sent');
+	assert.equal(entries[0].byOther, true);
+	assert.equal(entries[0].txFrom, PROJECT);
+	// Sent by the wallet itself: neither.
+	const own = swapLists();
+	const mine = normalizeEvm(own, { address: ME, chain: CHAINS.ethereum }).entries.find(
+		(e) => e.asset === 'XYZ'
+	);
+	assert.equal(mine?.byOther, undefined);
+	assert.equal(mine?.txFrom, undefined);
+});

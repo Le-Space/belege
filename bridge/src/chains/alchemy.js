@@ -372,11 +372,21 @@ export function createAlchemyReader({
 				{ method: 'eth_getTransactionReceipt', params: [hash] }
 			])
 		);
+		/**
+		 * Who sent a transaction that moved this address's tokens out, when that
+		 * was someone else (a token project burning holdings, issue #162).
+		 *
+		 * @type {Record<string, string>}
+		 */
+		const senders = {};
 		candidates.forEach((hash, i) => {
 			const tx = answers[2 * i];
 			const receipt = answers[2 * i + 1];
 			if (!tx || !receipt) {
 				throw new WalletError('Alchemy does not know a transaction it listed', 'WALLET_ALCHEMY');
+			}
+			if (lowerAddress(tx.from) !== address && /^0x[0-9a-f]{40}$/.test(lowerAddress(tx.from))) {
+				senders[hash] = lowerAddress(tx.from);
 			}
 			if (lowerAddress(tx.from) === address) {
 				sent.set(hash, { tx, receipt, time: /** @type {string} */ (timeOf.get(hash)) });
@@ -516,7 +526,7 @@ export function createAlchemyReader({
 				balances.set(contract, BigInt(b.tokenBalance));
 			}
 		}
-		return { normal, internal, tokens, balances, unknownStatus };
+		return { normal, internal, tokens, balances, unknownStatus, senders };
 	}
 
 	/**

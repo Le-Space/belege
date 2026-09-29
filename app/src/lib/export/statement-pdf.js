@@ -27,6 +27,7 @@ const SOURCE_MARK = /** @type {Record<string, string>} */ ({
 	ecb: 'EZB',
 	trade: 'H',
 	dex: 'DEX',
+	migration: 'MIG',
 	manual: 'M'
 });
 
@@ -212,7 +213,7 @@ export async function statementPdf(statement, { created }) {
 
 	// Footer on every page.
 	const note = crypto
-		? 'Erstellt von Belege aus den gespeicherten Buchungen. Beträge in EUR; jede Menge zum Kurs ihres Tages bewertet. Kursquelle: K = Kraken, CG = CoinGecko, EZB = EZB-Referenzkurs, H = Preis des Handels, DEX = Preis eines DEX-Pools (Uniswap) im Block der Buchung.'
+		? 'Erstellt von Belege aus den gespeicherten Buchungen. Beträge in EUR; jede Menge zum Kurs ihres Tages bewertet. Kursquelle: K = Kraken, CG = CoinGecko, EZB = EZB-Referenzkurs, H = Preis des Handels, DEX = Preis eines DEX-Pools (Uniswap) im Block der Buchung, MIG = Wert der dafür verbrannten alten Token.'
 		: 'Erstellt von Belege aus den gespeicherten Buchungen. Beträge in EUR. Ersetzt nicht den Kontoauszug der Bank.';
 	const pages = pdf.getPages();
 	pages.forEach((p, i) => {
