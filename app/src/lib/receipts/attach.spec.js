@@ -5,7 +5,7 @@ import { MemoryBlockstore } from 'blockstore-core/memory';
 import { memoryCollection } from '../bank/test-support.js';
 import { tx } from '../matching/fixtures.js';
 import { createBlobStore } from './blob-store.js';
-import { attachUpload, contradictions } from './attach.js';
+import { attachUpload, contradictions, moveReceipt } from './attach.js';
 import { checkFolder, watchFolder } from './folder-watch.js';
 
 const pdf = (/** @type {string} */ marker) =>
@@ -210,5 +210,78 @@ describe('checkFolder and watchFolder', () => {
 		await new Promise((r) => setTimeout(r, 30));
 		stop();
 		expect(runs).toBeGreaterThan(0);
+	});
+});
+
+describe("a file that is already another booking's receipt", () => {
+	it('moves nothing on its own; "Hierher umhängen" moves it, and the log says from where', async () => {
+		const first = await booking();
+		const second = await store.transactions.put({
+			...first,
+			id: undefined,
+			bookedOn: '2026-10-02'
+		});
+		const client = bridge({
+			vendor: 'Kabel Test GmbH',
+			gross: 39.99,
+			invoice_number: 'KT-2026-0901'
+		});
+		const file = { name: 'rechnung.pdf', bytes: pdf('A') };
+		const linked = await attachUpload({
+			store: /** @type {any} */ (store),
+			blobs,
+			client,
+			tx: first,
+			file,
+			pdfText
+		});
+		expect(linked.outcome).toBe('linked');
+
+		const again = await attachUpload({
+			store: /** @type {any} */ (store),
+			blobs,
+			client,
+			tx: second,
+			file,
+			pdfText
+		});
+		expect(again).toMatchObject({ outcome: 'linked-elsewhere', duplicate: true });
+		expect(again.elsewhere?.id).toBe(first.id);
+		// Nothing changed: the first booking keeps its receipt, the second has none.
+		expect((await store.transactions.get(first.id)).receiptId).toBe(linked.receipt?.id);
+		expect((await store.transactions.get(second.id)).receiptId ?? null).toBeNull();
+
+		await moveReceipt({
+			store: /** @type {any} */ (store),
+			receiptId: String(linked.receipt?.id),
+			tx: second,
+			fromTransactionId: first.id
+		});
+		expect((await store.transactions.get(second.id)).receiptId).toBe(linked.receipt?.id);
+		expect((await store.transactions.get(first.id)).receiptId ?? null).toBeNull();
+		const moved = (await store.events.list()).find(
+			(/** @type {any} */ e) => e.action === 'receipt-moved'
+		);
+		expect(moved).toMatchObject({ transactionId: second.id, fromTransactionId: first.id });
+	});
+
+	it('the same file on the same booking again: still linked there, no question', async () => {
+		const t = await booking();
+		const client = bridge({
+			vendor: 'Kabel Test GmbH',
+			gross: 39.99,
+			invoice_number: 'KT-2026-0901'
+		});
+		const file = { name: 'rechnung.pdf', bytes: pdf('A') };
+		await attachUpload({ store: /** @type {any} */ (store), blobs, client, tx: t, file, pdfText });
+		const again = await attachUpload({
+			store: /** @type {any} */ (store),
+			blobs,
+			client,
+			tx: t,
+			file,
+			pdfText
+		});
+		expect(again).toMatchObject({ outcome: 'linked', duplicate: true });
 	});
 });
