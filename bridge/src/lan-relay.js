@@ -22,6 +22,7 @@ import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 import { webcrypto, createHash } from 'node:crypto';
+import { createSocket } from 'node:dgram';
 
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
@@ -85,6 +86,28 @@ export function hostProblem(
 		return 'not an address of this Mac right now';
 	}
 	return null;
+}
+
+/**
+ * Whether the UDP port is free on that address. Asked before libp2p is: its
+ * WebRTC stack (node-datachannel) aborts the whole process when it cannot
+ * bind, instead of throwing.
+ *
+ * @param {string} host
+ * @param {number} port
+ * @returns {Promise<boolean>}
+ */
+export function udpPortFree(host, port) {
+	return new Promise((resolve) => {
+		const socket = createSocket('udp4');
+		socket.once('error', () => {
+			socket.close();
+			resolve(false);
+		});
+		socket.bind({ address: host, port, exclusive: true }, () => {
+			socket.close(() => resolve(true));
+		});
+	});
 }
 
 /** @param {string} dir */
@@ -183,6 +206,9 @@ export async function startLanRelay({
 	if (problem) throw new Error(`LAN relay: ${host} is ${problem}`);
 	if (!Number.isInteger(port) || port < 1024 || port > 65535) {
 		throw new Error('LAN relay: the port must be 1024–65535');
+	}
+	if (!(await udpPortFree(host, port))) {
+		throw new Error(`LAN relay: UDP ${port} on ${host} is in use`);
 	}
 	await mkdir(dir, { recursive: true, mode: 0o700 });
 	await chmod(dir, 0o700);

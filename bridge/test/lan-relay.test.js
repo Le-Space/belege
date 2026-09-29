@@ -7,6 +7,8 @@ import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { X509Certificate } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { createSocket } from 'node:dgram';
 
 import {
 	CERT_DAYS,
@@ -14,13 +16,16 @@ import {
 	isPrivateIPv4,
 	lanAddresses,
 	relayCertificate,
-	startLanRelay
+	startLanRelay,
+	udpPortFree
 } from '../src/lan-relay.js';
 import { defaultConfig, loadConfig, saveConfig, withDefaults } from '../src/config.js';
 import { runRelaySetup } from '../src/setup-relay.js';
 import { startBridge } from '../src/index.js';
 import { memoryKeychain } from '../src/keychain.js';
 import { request } from './support/http.js';
+
+const RELAY_MODULE = new URL('../src/lan-relay.js', import.meta.url).href;
 
 /** A Mac with Wi-Fi in a home network, loopback, and a VPN with a public address. */
 const INTERFACES = /** @type {any} */ ({
@@ -84,21 +89,54 @@ describe('the relay', () => {
 	});
 
 	test('listens with WebRTC-Direct on the one address; the same address after a restart', async () => {
+		// Each start in a process of its own, as the bridge restarts: node-datachannel
+		// keeps its UDP listener past `stop()` on Linux.
 		const state = join(dir, 'state');
-		const options = { host: '127.0.0.1', port: 4996, dir: state, allowLoopback: true };
-		const relay = await startLanRelay(options);
+		const start = () =>
+			new Promise((resolve, reject) => {
+				execFile(
+					process.execPath,
+					[
+						'--input-type=module',
+						'-e',
+						`import { startLanRelay } from ${JSON.stringify(RELAY_MODULE)};
+const r = await startLanRelay({ host: '127.0.0.1', port: 4996, dir: ${JSON.stringify(state)}, allowLoopback: true });
+console.log(JSON.stringify({ addr: r.addr, stats: r.stats() }));
+await r.stop();
+process.exit(0);`
+					],
+					{ timeout: 30_000 },
+					(error, stdout) => (error ? reject(error) : resolve(JSON.parse(stdout.trim())))
+				);
+			});
+		const first = /** @type {any} */ (await start());
 		assert.match(
-			relay.addr,
+			first.addr,
 			/^\/ip4\/127\.0\.0\.1\/udp\/4996\/webrtc-direct\/certhash\/uEi[\w-]+\/p2p\/12D3KooW\w+$/
 		);
-		await relay.stop();
-		const again = await startLanRelay(options);
-		assert.equal(again.addr, relay.addr);
-		assert.deepEqual(again.stats(), { reservations: 0, connections: 0 });
-		await again.stop();
+		const again = /** @type {any} */ (await start());
+		assert.equal(again.addr, first.addr);
+		assert.deepEqual(again.stats, { reservations: 0, connections: 0 });
 		assert.equal((await stat(state)).mode & 0o077, 0);
+	});
+
+	test('refuses what it must not listen on, and a port in use, before libp2p is asked', async () => {
+		const options = {
+			host: '127.0.0.1',
+			port: 4995,
+			dir: join(dir, 'refused'),
+			allowLoopback: true
+		};
 		await assert.rejects(startLanRelay({ ...options, host: '0.0.0.0' }), /private network/);
 		await assert.rejects(startLanRelay({ ...options, port: 80 }), /port/);
+		const busy = createSocket('udp4');
+		await new Promise((resolve) => busy.bind(4995, '127.0.0.1', () => resolve(undefined)));
+		try {
+			assert.equal(await udpPortFree('127.0.0.1', 4995), false);
+			await assert.rejects(startLanRelay(options), /UDP 4995 on 127\.0\.0\.1 is in use/);
+		} finally {
+			busy.close();
+		}
 	});
 });
 
