@@ -69,7 +69,11 @@ What Le Space Belege does today, by category. The app shows the same list, short
 ## Devices and working together
 
 - **The same books on phone and computer.** A device gets them only after it proves the passkey. Devices are added by QR code and removed with one click.
-- **Where devices meet:** at the public Le-Space relays, or without any relay by scanning two QR codes ([#148](https://github.com/Le-Space/belege/issues/148)).
+- **Where devices meet** ([#148](https://github.com/Le-Space/belege/issues/148)):
+  - at the public Le-Space relays;
+  - at a relay in your own bridge, in your own network only (`pnpm setup:relay`, WebRTC-Direct, no certificate to install);
+  - without any relay, by scanning two QR codes;
+  - or all of them, with a device the books do not know yet let in only by QR or through the own bridge's relay.
 - **A phone uses the computer's bridge.** Belege installs as an app (PWA), and the app shell works offline.
 - **Invoicing app (UCEP):** it makes Eigenbelege for Belege and learns which of its invoices were paid.
 - **A read share** of the books for an assistant, for a limited time.

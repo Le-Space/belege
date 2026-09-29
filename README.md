@@ -25,7 +25,7 @@ pnpm lint && pnpm check && pnpm test:unit && pnpm test:bridge && pnpm test:e2e
 - **AI, only on a click (✦):** your own model in the bridge, redacted; five places, usage and cost in view.
 - **Crypto:** Kraken, Cosmos, EVM and Bitcoin wallets; euros at the day's rate with its source (CoinGecko, Kraken, ECB, Uniswap V2–V4 pools, trade, migration, by hand); swaps and migrations.
 - **Export:** SKR 03 and BU keys, a monthly DATEV EXTF ZIP for MonkeyOffice with the receipts.
-- **Devices:** the same books on phone and computer after a passkey proof, over public relays or by QR without any relay; the computer's bridge for the phone; the invoicing app over UCEP.
+- **Devices:** the same books on phone and computer after a passkey proof, over public relays, a relay in your own bridge, or by QR without any relay (a new device only over the own network, if you like); the computer's bridge for the phone; the invoicing app over UCEP.
 
 All of it, with links: [docs/features.md](docs/features.md) ([Deutsch](docs/features.de.md)).
 

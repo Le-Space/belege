@@ -100,6 +100,9 @@ const noStun = () => ({ iceServers: [] });
 /** Peers removed from the books: refused by the node's connection gater. */
 export const blocked = new Set();
 
+/** The devices the books know (not removed), for the device gate's first-contact rule. */
+export const knownPeers = new Set();
+
 const QR_PREFIX = 'belege-device:';
 
 /** What a device shows as its QR code. @param {string} peerId */
@@ -160,6 +163,7 @@ export function setSyncGateClosed(closed) {
 export function syncLibp2pConfig({ privateKey, relays, gate, mode = 'public' }) {
 	const qr = mode === 'qr';
 	const lan = mode === 'lan';
+	const both = mode === 'both';
 	return {
 		privateKey,
 		addresses: {
@@ -167,15 +171,24 @@ export function syncLibp2pConfig({ privateKey, relays, gate, mode = 'public' }) 
 		},
 		transports: qr
 			? [qrTransport()]
-			: lan
-				? // The bridge's relay by WebRTC-Direct, then WebRTC between the devices;
-					// host candidates only, so no STUN server is asked.
+			: both
+				? // Everything: codes, the bridge's relay by WebRTC-Direct, the public relays.
 					[
+						qrTransport(),
+						webSockets(),
 						webRTCDirect({ rtcConfiguration: noStun() }),
-						webRTC({ rtcConfiguration: noStun() }),
+						webRTC(),
 						circuitRelayTransport()
 					]
-				: [webSockets(), webRTC(), circuitRelayTransport()],
+				: lan
+					? // The bridge's relay by WebRTC-Direct, then WebRTC between the devices;
+						// host candidates only, so no STUN server is asked.
+						[
+							webRTCDirect({ rtcConfiguration: noStun() }),
+							webRTC({ rtcConfiguration: noStun() }),
+							circuitRelayTransport()
+						]
+					: [webSockets(), webRTC(), circuitRelayTransport()],
 		// A relay that is down must not keep the books from opening on the others.
 		transportManager: { faultTolerance: FaultTolerance.NO_FATAL },
 		connectionEncrypters: [noise()],
@@ -184,7 +197,7 @@ export function syncLibp2pConfig({ privateKey, relays, gate, mode = 'public' }) 
 		connectionGater: {
 			// A relay in the own network (or the test relay) has a private address,
 			// which libp2p refuses to dial by default.
-			...(lan || relays.some(isLocal) ? { denyDialMultiaddr: () => gateClosed } : {}),
+			...(lan || both || relays.some(isLocal) ? { denyDialMultiaddr: () => gateClosed } : {}),
 			// A device removed from the books is neither dialled nor let in; with
 			// the network switched off in the header, nobody is.
 			denyDialPeer: (/** @type {any} */ peerId) => gateClosed || blocked.has(String(peerId)),
@@ -353,6 +366,7 @@ export async function startDeviceSync({
 			return;
 		}
 		known.clear();
+		knownPeers.clear();
 		for (const d of records.values()) {
 			if (d.peerId === self) continue;
 			if (d.removed) {
@@ -364,6 +378,7 @@ export async function startDeviceSync({
 			} else {
 				blocked.delete(d.peerId);
 				known.add(d.peerId);
+				knownPeers.add(d.peerId);
 			}
 		}
 	}
@@ -469,6 +484,7 @@ export async function startDeviceSync({
 			await writeDevice(peerId, otherLabel);
 			blocked.delete(peerId);
 			known.add(peerId);
+			knownPeers.add(peerId);
 			await dial(peerId);
 			report();
 		},
@@ -484,6 +500,7 @@ export async function startDeviceSync({
 			for (const r of await store.settings.list({ where: (x) => x.key === key }))
 				await store.settings.softDelete(r.id);
 			known.delete(peerId);
+			knownPeers.delete(peerId);
 			blocked.add(peerId);
 			gate.forget(peerId);
 			await hangUp(peerId);

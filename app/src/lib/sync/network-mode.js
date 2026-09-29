@@ -15,17 +15,19 @@
 // are open, so it reads the mirror. A newer setting from another device
 // updates the mirror and takes effect at the next unlock.
 //
-// "Beides" comes later (#148).
+//   both    all of the above: public relays, the own bridge's relay and QR;
+//           a device the books do not know yet only over the own network
+//           (first-contact.js), a known one over any path.
 
 export const NETWORK_MODE_KEY = 'belege.network-mode';
 export const NETWORK_MODE_SETTING = 'network-mode';
 export const LAN_RELAY_KEY = 'belege.lan-relay';
 export const LAN_RELAY_SETTING = 'lan-relay';
 
-/** @typedef {'public' | 'qr' | 'lan'} NetworkMode */
+/** @typedef {'public' | 'qr' | 'lan' | 'both'} NetworkMode */
 
 /** The modes that can be chosen now. */
-export const NETWORK_MODES = /** @type {const} */ (['public', 'qr', 'lan']);
+export const NETWORK_MODES = /** @type {const} */ (['public', 'qr', 'lan', 'both']);
 
 /** @param {unknown} v @returns {v is NetworkMode} */
 export const isNetworkMode = (v) => NETWORK_MODES.includes(/** @type {any} */ (v));
@@ -103,7 +105,7 @@ export function setLanRelayMirror(addr) {
 
 /**
  * The relays the node dials in a mode: the public ones (asked of Aleph only
- * then), the LAN relay alone, or none.
+ * then), the LAN relay alone, both, or none.
  *
  * @param {NetworkMode} mode
  * @param {() => Promise<string[]>} publicRelays
@@ -111,9 +113,9 @@ export function setLanRelayMirror(addr) {
  */
 export async function relaysFor(mode, publicRelays) {
 	if (mode === 'qr') return [];
-	if (mode === 'lan') {
-		const addr = lanRelayAddr();
-		return addr ? [addr] : [];
-	}
+	const addr = lanRelayAddr();
+	if (mode === 'lan') return addr ? [addr] : [];
+	// The own network's relay first: a device at home meets there.
+	if (mode === 'both') return [...(addr ? [addr] : []), ...(await publicRelays())];
 	return publicRelays();
 }

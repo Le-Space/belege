@@ -14,10 +14,11 @@
 import { networkPause } from './network-pause.js';
 import { createLibp2p } from 'libp2p';
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
-import { deviceSalt, deviceSyncOn, syncLibp2pConfig } from './sync/device-sync.js';
+import { deviceSalt, deviceSyncOn, knownPeers, syncLibp2pConfig } from './sync/device-sync.js';
+import { firstContactPolicy, relayPeerOf } from './sync/first-contact.js';
 import { createDeviceGate } from './sync/device-gate.js';
-import { networkMode, relaysFor } from './sync/network-mode.js';
-import { attachQrSession, closeQrSession } from './sync/qr-link.js';
+import { lanRelayAddr, networkMode, relaysFor } from './sync/network-mode.js';
+import { attachQrSession, closeQrSession, qrPeers } from './sync/qr-link.js';
 import { relayAddrs } from './ucep/net.js';
 import { createHeliaLight } from 'helia';
 import { withBitswap } from '@helia/bitswap';
@@ -113,14 +114,23 @@ export async function startSession(credential) {
 		? await generateKeyPairFromSeed('Ed25519', await deriveDevicePeerSeed(prfOutput, deviceSalt()))
 		: await createEphemeralPeerKey();
 	// Only a device that proves it holds the passkey gets the books (device-gate.js).
+	// In "Beides" a device the books do not know yet comes in over the own network only.
 	const deviceGate = online
-		? createDeviceGate({ authKey: await deriveDeviceAuthKey(prfOutput) })
+		? createDeviceGate({
+				authKey: await deriveDeviceAuthKey(prfOutput),
+				admit: firstContactPolicy({
+					mode,
+					knownPeers,
+					lanRelayPeer: relayPeerOf(lanRelayAddr()),
+					qrPeers
+				})
+			})
 		: null;
 	const libp2p = deviceGate
 		? await createLibp2p(syncLibp2pConfig({ privateKey: peerKey, relays, gate: deviceGate, mode }))
 		: await createOfflineLibp2p(peerKey);
 	// The code exchange builds its connections on this node (qr-link.js).
-	if (deviceGate && mode === 'qr') attachQrSession(libp2p);
+	if (deviceGate && (mode === 'qr' || mode === 'both')) attachQrSession(libp2p);
 	const helia = await withBitswap(
 		withLibp2p(createHeliaLight({ codecs: [dagCbor], blockstore, datastore }), libp2p)
 	).start();

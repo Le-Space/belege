@@ -69,7 +69,11 @@ Was Le Space Belege heute kann, nach Kategorien. Dieselbe Liste steht kürzer au
 ## Geräte und Zusammenarbeit
 
 - **Dieselben Bücher auf Telefon und Rechner.** Ein Gerät bekommt sie erst, wenn es den Passkey beweist. Geräte kommen per QR-Code dazu und gehen mit einem Klick wieder.
-- **Wo sich Geräte treffen:** an den öffentlichen Le-Space-Relays oder ganz ohne Relay, indem sie zwei QR-Codes tauschen ([#148](https://github.com/Le-Space/belege/issues/148)).
+- **Wo sich Geräte treffen** ([#148](https://github.com/Le-Space/belege/issues/148)):
+  - an den öffentlichen Le-Space-Relays;
+  - am Relay deiner eigenen Bridge, nur im eigenen Netz (`pnpm setup:relay`, WebRTC-Direct, kein Zertifikat zu installieren);
+  - ganz ohne Relay, indem sie zwei QR-Codes tauschen;
+  - oder über alle, wobei ein Gerät, das die Bücher noch nicht kennen, nur per QR oder über den Relay der eigenen Bridge hereinkommt.
 - **Das Telefon nutzt die Bridge des Rechners.** Belege lässt sich als App installieren (PWA), und die App-Hülle funktioniert offline.
 - **Rechnungs-App (UCEP):** Sie erstellt Eigenbelege für Belege und erfährt, welche ihrer Rechnungen bezahlt sind.
 - **Eine Lese-Freigabe** der Bücher für eine Assistenz, zeitlich begrenzt.
