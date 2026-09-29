@@ -39,7 +39,9 @@ export function privateNote(tx) {
 	);
 	const what = [tx.counterparty, tx.purpose].map((s) => String(s ?? '').trim()).filter(Boolean);
 	return [
+		// eslint-disable-next-line belege/no-german -- a bookkeeping note, German like the Eigenbeleg (#192)
 		`Private Zahlung, irrtümlich vom Geschäftskonto bezahlt: ${amount} am ${formatDate(String(tx.bookedOn ?? ''), DOCUMENT_LOCALE)}${what.length ? ` (${what.join(' – ').slice(0, 200)})` : ''}.`,
+		// eslint-disable-next-line belege/no-german -- a bookkeeping note, German like the Eigenbeleg (#192)
 		'Kein Betriebsausgabenbeleg. Ausgleich durch Rückzahlung vom Privatkonto.'
 	].join(' ');
 }

@@ -128,7 +128,8 @@ export default {
 		camt: {
 			notXml: 'Die Datei ist kein gültiges XML.',
 			notCamt: 'Die Datei ist kein CAMT.053-Kontoauszug (BkToCstmrStmt fehlt).',
-			noIban: 'Der Kontoauszug nennt keine IBAN (Acct/Id/IBAN).'
+			noIban: 'Der Kontoauszug nennt keine IBAN (Acct/Id/IBAN).',
+			noAmount: 'Buchung ohne Betrag am {date}'
 		},
 		bridge: {
 			unreachable:
@@ -182,7 +183,9 @@ export default {
 	language: {
 		label: 'Sprache',
 		de: 'Deutsch',
-		en: 'English'
+		en: 'English',
+		// A word or name quoted in running text.
+		quoted: '„{text}“'
 	},
 	theme: {
 		toLight: 'Zum hellen Modus wechseln',

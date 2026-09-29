@@ -120,7 +120,8 @@ export default {
 		camt: {
 			notXml: 'The file is not valid XML.',
 			notCamt: 'The file is not a CAMT.053 bank statement (BkToCstmrStmt missing).',
-			noIban: 'The bank statement names no IBAN (Acct/Id/IBAN).'
+			noIban: 'The bank statement names no IBAN (Acct/Id/IBAN).',
+			noAmount: 'A booking without an amount on {date}'
 		},
 		bridge: {
 			unreachable:
@@ -172,7 +173,8 @@ export default {
 	language: {
 		label: 'Language',
 		de: 'Deutsch',
-		en: 'English'
+		en: 'English',
+		quoted: '“{text}”'
 	},
 	theme: {
 		toLight: 'Switch to light mode',

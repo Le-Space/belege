@@ -188,7 +188,7 @@ export function parseCamt053(xml, { DOMParser: Parser = globalThis.DOMParser } =
 				// One TxDtls: the entry's amount. Several: each its own.
 				const amtEl =
 					txs.length > 1 ? (child(tx, 'Amt') ?? at(tx, 'AmtDtls', 'TxAmt', 'Amt')) : entryAmt;
-				if (!amtEl) throw new Error(`Buchung ohne Betrag am ${date}`);
+				if (!amtEl) throw new Error(t('messages.camt.noAmount', { date }));
 				const parties = child(tx, 'RltdPties');
 				const side = sign < 0 ? 'Cdtr' : 'Dbtr';
 				const endToEndId = text(tx, 'Refs', 'EndToEndId');

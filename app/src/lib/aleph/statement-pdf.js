@@ -5,6 +5,8 @@
 // Pages as long as the month needs; every text goes through winAnsi.
 // Loaded on first use.
 
+/* eslint-disable belege/no-german -- a PDF for German bookkeeping stays German (#192) */
+
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 import { formatDate } from '../bank/format.js';

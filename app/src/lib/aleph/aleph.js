@@ -126,6 +126,7 @@ export const findStatement = (receipts, address, month) =>
 	) ?? null;
 
 export const REASON =
+	// eslint-disable-next-line belege/no-german -- text of the Eigenbeleg, a German document (#192)
 	'Aleph Cloud stellt keine Rechnung aus: Hosting und Speicher werden mit Credits bezahlt, die vorher von einer eigenen Wallet gekauft oder von einem eigenen Konto übertragen wurden. Dieser Eigenbeleg weist aus, wofür die Credits des Kontos im Monat verbraucht wurden.';
 
 /**

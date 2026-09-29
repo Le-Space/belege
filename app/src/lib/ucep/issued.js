@@ -62,6 +62,7 @@ export function receiptFieldsOf(inv) {
 	return {
 		confirmedByUser: true,
 		ownInvoice: true,
+		// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
 		vendor: 'Eigene Rechnung',
 		customer: String(inv.customer?.name ?? ''),
 		invoiceNumber: String(inv.number),
@@ -85,6 +86,7 @@ export function extractionOf(inv) {
 	return {
 		// A Storno comes as an issued document with a negative total: our credit note.
 		document_type: cents < 0 ? 'credit_note' : 'invoice',
+		// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
 		vendor: 'Eigene Rechnung',
 		invoice_number: String(inv.number),
 		invoice_date: String(inv.issuedOn),

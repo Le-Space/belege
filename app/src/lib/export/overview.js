@@ -4,6 +4,8 @@
 // It says how each receipt was linked (receipts/origin.js) and what is not
 // in the Buchungsstapel and why. Pure.
 
+/* eslint-disable belege/no-german -- the monthly export for German bookkeeping stays German (#192) */
+
 import { accountLabel, formatDate } from '../bank/format.js';
 import { DOCUMENT_LOCALE, tDocument as t } from '../i18n/index.js';
 import { coverageBadge } from '../matching/view.js';

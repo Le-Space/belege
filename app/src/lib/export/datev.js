@@ -22,6 +22,8 @@
 // ("Basis-Umsatz", "WKZ Basis-Umsatz"; the gem writes "Basisumsatz"). DATEV
 // reads the fields by position, not by heading. See docs/export.md.
 
+/* eslint-disable belege/no-german -- the DATEV format is German (#192) */
+
 /** The column headings of format version 13, in order. */
 export const COLUMNS = Object.freeze([
 	'Umsatz (ohne Soll/Haben-Kz)',

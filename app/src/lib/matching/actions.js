@@ -155,7 +155,8 @@ export async function setNoReceipt(store, transactionId, reason, { log = true } 
 		noReceipt:
 			reason === null
 				? null
-				: { reason: reason.trim() || 'Kein Beleg nötig', at: new Date().toISOString() }
+				: // eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
+					{ reason: reason.trim() || 'Kein Beleg nötig', at: new Date().toISOString() }
 	});
 	await syncLinks(store);
 	if (log)
@@ -174,6 +175,7 @@ export async function markBankFee(store, transactionId) {
 	const tx = await store.transactions.get(transactionId);
 	if (!tx) throw new Error(`No transaction ${transactionId}`);
 	const key = feeKey(tx);
+	// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
 	if (!key) return setNoReceipt(store, transactionId, 'Bankgebühr');
 	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
 	await setSetting(store.settings, 'matching', {

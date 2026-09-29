@@ -9,6 +9,8 @@
 //   Aktennotizen/<date>_<counterparty>_<id>.txt       a private payment's note (#172)
 //   Uebersicht_<YYYY-MM>.csv
 
+/* eslint-disable belege/no-german -- the monthly export for German bookkeeping stays German (#192) */
+
 import { zipSync, strToU8 } from 'fflate';
 
 import { recordEvent } from '../activity/events.js';

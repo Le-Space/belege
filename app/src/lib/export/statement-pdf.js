@@ -2,6 +2,8 @@
 // pdf-lib and its built-in Helvetica. Loaded lazily by build.js.
 // Every text goes through winAnsi (pdf/winansi.js): Helvetica speaks Windows-1252 only.
 
+/* eslint-disable belege/no-german -- a PDF for German bookkeeping stays German (#192) */
+
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 import { formatDate } from '../bank/format.js';

@@ -55,7 +55,8 @@ export const LOGOS = {
 /**
  * @typedef {object} Integration
  * @property {string} id
- * @property {string} name
+ * @property {string} name the plain name; a description in both languages is
+ *   `consent.integrationNames.<id>` in the catalogue, where there is one
  * @property {string} [logo] a key of LOGOS
  * @property {string} [initials] the badge when there is no logo
  */
@@ -71,8 +72,8 @@ export const INTEGRATION_GROUPS = [
 	{
 		id: 'banks',
 		items: [
-			{ id: 'hibiscus', name: 'Hibiscus (Banken per FinTS/HBCI)', initials: 'Hi' },
-			{ id: 'camt', name: 'CAMT.053-Kontoauszüge, z. B. Revolut Business', logo: 'revolut' }
+			{ id: 'hibiscus', name: 'Hibiscus', initials: 'Hi' },
+			{ id: 'camt', name: 'CAMT.053', logo: 'revolut' }
 		]
 	},
 	{ id: 'exchanges', items: [{ id: 'kraken', name: 'Kraken', initials: 'Kr' }] },
@@ -92,23 +93,23 @@ export const INTEGRATION_GROUPS = [
 	{
 		id: 'data',
 		items: [
-			{ id: 'alchemy', name: 'Alchemy (EVM, mit eigenem Schlüssel)', logo: 'alchemy' },
-			{ id: 'blockscout', name: 'Blockscout (EVM, ohne Schlüssel)', initials: 'Bs' },
+			{ id: 'alchemy', name: 'Alchemy', logo: 'alchemy' },
+			{ id: 'blockscout', name: 'Blockscout', initials: 'Bs' },
 			{ id: 'mempool', name: 'mempool.space / Blockstream (Bitcoin)', initials: 'Mp' },
 			{
 				id: 'cosmos-nodes',
-				name: 'Nym, Nodes Guru, PublicNode, Polkachu (Cosmos-Knoten)',
+				name: 'Nym, Nodes Guru, PublicNode, Polkachu',
 				initials: 'Rp'
 			},
 			{
 				id: 'akash-indexer',
-				name: 'Akash Console (Indexer, ältere Akash-Geschichte)',
+				name: 'Akash Console',
 				initials: 'Ai'
 			},
-			{ id: 'aleph', name: 'Aleph Cloud (Credits eigener Konten, nur gelesen)', initials: 'Al' },
-			{ id: 'coingecko', name: 'CoinGecko (Kurse)', initials: 'Cg' },
-			{ id: 'kraken-rates', name: 'Kraken (Kurse)', initials: 'Kr' },
-			{ id: 'ecb', name: 'Europäische Zentralbank (USD-Kurs)', initials: 'EZ' }
+			{ id: 'aleph', name: 'Aleph Cloud', initials: 'Al' },
+			{ id: 'coingecko', name: 'CoinGecko', initials: 'Cg' },
+			{ id: 'kraken-rates', name: 'Kraken', initials: 'Kr' },
+			{ id: 'ecb', name: 'ECB', initials: 'EZ' }
 		]
 	},
 	{

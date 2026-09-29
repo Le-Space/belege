@@ -158,7 +158,7 @@ export async function startBridgeProvider({ libp2p, isOwnDevice, bridge, log = (
 		libp2p,
 		manifest: {
 			id: EXTENSION,
-			name: 'Belege-Bridge für eigene Geräte',
+			name: 'Belege bridge for own devices',
 			version: '0.1.0',
 			description: 'The bridge of this desktop, for devices of the same books.'
 		},
