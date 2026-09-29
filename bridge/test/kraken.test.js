@@ -143,6 +143,35 @@ describe('Kraken client', () => {
 		);
 	});
 
+	test('private calls go out one at a time, so their nonces arrive in order', async () => {
+		/** @type {bigint[]} */
+		const arrived = [];
+		let inFlight = 0;
+		let most = 0;
+		/** @type {typeof fetch} */
+		const slowKraken = async (input, init) => {
+			const url = String(input);
+			if (url.endsWith('/0/public/Assets')) return Response.json({ error: [], result: {} });
+			inFlight++;
+			most = Math.max(most, inFlight);
+			arrived.push(BigInt(String(new URLSearchParams(String(init?.body)).get('nonce'))));
+			// The first call is slow: without the queue the second would overtake it.
+			await new Promise((r) => setTimeout(r, arrived.length === 1 ? 60 : 5));
+			inFlight--;
+			const result = url.endsWith('/Balance') ? {} : { ledger: {}, count: 0 };
+			return Response.json({ error: [], result });
+		};
+		const c = createKrakenClient({
+			getCredentials: credentials,
+			baseUrl: 'https://kraken.example',
+			fetch: slowKraken,
+			sleep: async () => {}
+		});
+		await Promise.all([c.balances(), c.ledgers('2025-01-01'), c.balances()]);
+		assert.equal(most, 1);
+		for (let i = 1; i < arrived.length; i++) assert.ok(arrived[i] > arrived[i - 1], 'nonce order');
+	});
+
 	test('nonces grow even within one millisecond', async () => {
 		const fresh = await startFakeKraken();
 		try {
