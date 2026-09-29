@@ -62,7 +62,8 @@ export const RECEIPT_NUMBER = /^(\d{4}-\d{2})-(\d{3})$/;
  * @property {{ receiptId: string, number: string }[]} newNumbers numbers given in this export
  * @property {Rec[]} receipts the receipts that go into the ZIP (with a file, released)
  * @property {import('./statement.js').Statement[]} statements one per account with a booking in the month
- * @property {{ unassigned: Rec[], noLedger: Rec[], noBankAccount: Rec[], missingReceipt: Rec[], unlinkedReceipts: Rec[], unverified: Rec[] }} checks
+ * @property {{ unassigned: Rec[], noLedger: Rec[], noBankAccount: Rec[], missingReceipt: Rec[], unlinkedReceipts: Rec[], unverified: Rec[], unpriced: Rec[] }} checks
+ *   unpriced: crypto bookings whose rate is missing – no euro amount to export (#162)
  * @property {boolean} blocked
  */
 
@@ -285,6 +286,7 @@ export function planMonth({ month, transactions, accounts, receipts, matches, cl
 			.map((a) => /** @type {Rec} */ (a)),
 		noBankAccount: bookings.filter((t) => !accountOf(t)),
 		missingReceipt: bookings.filter((t) => !isTxCovered(/** @type {any} */ (t), classifications)),
+		unpriced: bookings.filter((t) => Boolean(t.rateMissing)),
 		unlinkedReceipts: monthReceipts.filter(
 			(r) => !activeLinked.has(r.id) && r.status !== 'ignoriert' && !needsConfirmation(r)
 		),
@@ -307,6 +309,7 @@ export function planMonth({ month, transactions, accounts, receipts, matches, cl
 			bookings.length === 0 ||
 			checks.unassigned.length > 0 ||
 			checks.noLedger.length > 0 ||
-			checks.noBankAccount.length > 0
+			checks.noBankAccount.length > 0 ||
+			checks.unpriced.length > 0
 	};
 }

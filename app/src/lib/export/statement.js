@@ -25,6 +25,8 @@ const STANDS_IN = /** @type {Record<string, string>} */ ({
 	refund: 'Erstattung',
 	'prepaid-topup': 'Guthabenkonto',
 	'crypto-swap': 'Tausch',
+	'token-burn': 'Burn (Projekt)',
+	'token-migration': 'Migration',
 	'crypto-dust': 'Staub',
 	loan: 'Darlehen',
 	'rule-ignore': 'ignoriert',

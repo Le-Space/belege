@@ -19,7 +19,7 @@ import { txRefsOf } from './context.js';
 const HASH = /^(0x)?[0-9a-f]{40,}$/i;
 
 /**
- * @typedef {'transfer' | 'trade' | 'fee' | 'fee-of' | 'refund'} RelationKind
+ * @typedef {'transfer' | 'trade' | 'migration' | 'fee' | 'fee-of' | 'refund'} RelationKind
  *   `fee`: the other booking is this one's fee; `fee-of`: this one is the other's fee
  * @typedef {'counter-booking' | 'reference' | 'own-address' | 'bridge' | 'cross-chain' | 'manual' | 'hash' | 'refid'} RelationVia
  * @typedef {{ kind: RelationKind, via: RelationVia, other: Record<string, any> }} Relation
@@ -71,7 +71,13 @@ export function relatedIndex(transactions, classifications = {}) {
 			);
 			// A charge and its refund (refunds.js) are no transfer; nor is a swap across chains (#170).
 			const kind =
-				c?.kind === 'refund' ? 'refund' : c?.kind === 'crypto-swap' ? 'trade' : 'transfer';
+				c?.kind === 'refund'
+					? 'refund'
+					: c?.kind === 'crypto-swap'
+						? 'trade'
+						: c?.kind === 'token-migration'
+							? 'migration'
+							: 'transfer';
 			add(t, { kind, via, other });
 			add(other, { kind, via, other: t });
 		}

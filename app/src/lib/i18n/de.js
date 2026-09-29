@@ -698,6 +698,8 @@ export default {
 			refund: 'Erstattung',
 			'prepaid-topup': 'Guthabenkonto',
 			'crypto-swap': 'Tausch',
+			'token-burn': 'Vom Projekt verbrannt',
+			'token-migration': 'Token-Migration',
 			'crypto-dust': 'Staub',
 			'rule-ignore': 'Ignoriert',
 			'rule-private': 'Privat'
@@ -711,6 +713,8 @@ export default {
 			refund: 'Belastung und Erstattung – kein Beleg nötig',
 			'prepaid-topup': 'Aufladung eines Guthabenkontos – belegt durch die Verbrauchsnachweise',
 			'crypto-swap': 'Tausch über eine DEX – die Transaktion im Block-Explorer ist der Beleg',
+			'token-burn': 'Vom Token-Projekt verbrannt – keine Zahlung, kein Beleg',
+			'token-migration': 'Token-Migration – beide Transaktionen im Block-Explorer sind der Beleg',
 			'crypto-dust': 'Staub unter einem Cent – kein Beleg nötig',
 			'rule-ignore': 'Ignoriert nach eigener Anweisung: {reason}',
 			'rule-private': 'Privat nach eigener Anweisung: {reason}',
@@ -809,6 +813,10 @@ export default {
 			swapCrossMany:
 				'Tausch über eine andere Chain (Skip Go, Osmosis) an deine Wallet {address} – {count} Ankünfte passen. Verknüpfe die richtige von Hand als Tausch.',
 			swapManual: 'Von dir als Tausch verknüpft mit {account} am {date}.',
+			tokenBurn:
+				'Vom Projekt verbrannt: Die Transaktion hat nicht diese Wallet gesendet, sondern das Token-Projekt (ein Rebase oder eine Migration) – keine Zahlung an jemanden, kein Beleg. Gab es dafür einen neuen Token, verknüpfe ihn als Migration.',
+			tokenMigration:
+				'Token-Migration: verknüpft mit {account} am {date}. Der neue Token übernimmt den Wert (die Anschaffungskosten) des verbrannten – keine Veräußerung. Die Beurteilung liegt beim Steuerberater.',
 			staking:
 				'Staking: Die Tokens sind delegiert und bleiben deine. Kein Beleg nötig. Nicht auf 1360 – ihre Rückkehr nach dem Unbonding ist keine Transaktion, eine Umbuchung ginge nie auf; das Konto klärt ihr mit dem Steuerberater.',
 			dust: 'Staub: weniger als ein Cent wert, empfangen, ohne dass du etwas getan hast. Kein Beleg nötig. Oft ein Test oder Werbung – oder der Anfang einer Adressvergiftung: Verwende die Absenderadresse nie als Empfänger.',
@@ -1368,6 +1376,9 @@ export default {
 			'not-transfer': 'Als „keine Umbuchung“ markiert',
 			'own-transfer-link': 'Als Gegenbuchung verknüpft (eigene Umbuchung)',
 			'swap-link': 'Als Tausch verknüpft',
+			'migration-link': 'Als Token-Migration verknüpft',
+			'migration-unlink': 'Token-Migration gelöst',
+			'manual-rate': 'Kurs von Hand eingetragen',
 			'swap-unlink': 'Tausch-Verknüpfung gelöst',
 			'refund-link': 'Als Erstattung verknüpft',
 			'prepaid-on': 'Als Guthabenkonto geführt',
@@ -1476,6 +1487,8 @@ export default {
 		settingsLink: 'ändern unter Einstellungen',
 		checks: 'Vor dem Export',
 		check: {
+			unpriced:
+				'{count} Krypto-Buchungen ohne Kurs – ohne Euro-Betrag geht nichts in den Export. Trag den Kurs an der Buchung ein.',
 			unassignedOk: 'Jede Buchung hat ein übernommenes Konto.',
 			unassigned: '{count} Buchungen ohne übernommenes Konto – so lange geht kein Export.',
 			autoConfirm: 'Konten aus Umbuchung und Bankgebühr übernehmen ({count})',
@@ -1579,6 +1592,7 @@ export default {
 				kind: {
 					transfer: 'Umbuchung',
 					trade: 'Tausch',
+					migration: 'Migration',
 					fee: 'Gebühr dazu',
 					refund: 'Erstattung',
 					'fee-of': 'Gebühr zu'
@@ -1673,6 +1687,20 @@ export default {
 			unlinkTransfer: 'Verknüpfung lösen – Beleg nötig',
 			notRefund: 'Keine Erstattung – Beleg nötig',
 			linkRefund: 'Als Erstattung verknüpfen …',
+			rate: {
+				missing:
+					'Kurs fehlt: {reason}. Die Menge ist gebucht, der Euro-Betrag noch nicht – trag den Kurs ein, oder Belege sucht ihn beim nächsten Abruf erneut.',
+				label: 'EUR je {asset}',
+				save: 'Kurs eintragen',
+				edit: 'Kurs von Hand ändern',
+				hint: 'Wird als „von Hand eingetragen“ gekennzeichnet und bei späteren Abrufen nicht überschrieben. Woher der Kurs stammt (z. B. ein DEX-Pool oder ein Handel), gehört als Notiz zum Beleg.'
+			},
+			migration: {
+				found:
+					'Ersatz-Token: {count} Eingänge von dem, der diesen Burn ausgelöst hat, innerhalb eines halben Jahres. Welcher ist der Ersatz?',
+				link: 'Als Migration verknüpfen',
+				none: 'Kein Eingang von dem, der den Burn ausgelöst hat, im halben Jahr danach. Kam der neue Token von woanders, bleibt der Burn ohne Gegenstück.'
+			},
 			linkSwap: 'Als Tausch verknüpfen …',
 			linkSwapTitle:
 				'Die andere Seite eines Tauschs, den keine Regel erkennt – etwa über eine andere Chain oder eine Börse. Beide Seiten brauchen dann keinen Beleg; steuerlich eine Veräußerung und eine Anschaffung.',
@@ -2111,7 +2139,7 @@ export default {
 			syncing: 'Synchronisiere …',
 			remove: 'Entfernen (Buchungen bleiben)',
 			unpriced:
-				'{count} Einträge ohne Kurs ({assets}) – sie fehlen noch und werden beim nächsten Abruf erneut versucht.',
+				'{count} Einträge ohne Kurs ({assets}) – gebucht mit Menge, der Euro-Betrag fehlt noch („Kurs fehlt“ an der Buchung). Trag ihn dort von Hand ein, sonst sucht Belege ihn beim nächsten Abruf erneut.',
 			unknownAssets:
 				'{count} weitere Token oder Denoms nicht gebucht (nicht in der Liste der Chain, z. B. IBC-Gutscheine oder unbekannte Verträge).',
 			pruned:
@@ -2143,7 +2171,7 @@ export default {
 				'Kraken hat die Ein- und Auszahlungslisten nicht herausgegeben: Die Buchungen haben keinen Transaktions-Hash und werden nicht mit deinen Wallets gepaart. Darf der API-Key „Query Funds“? Details stehen im Log der Bridge.',
 			syncHintFrom: 'Holt das Ledger ab dem gewählten Tag.',
 			unpriced:
-				'{count} Einträge ohne Kurs – sie fehlen noch und werden beim nächsten Abruf erneut versucht:'
+				'{count} Einträge ohne Kurs – gebucht, der Euro-Betrag fehlt noch („Kurs fehlt“ an der Buchung):'
 		},
 		counts: 'Neu: {new} · Aktualisiert: {updated} · Übersprungen: {skipped}'
 	}

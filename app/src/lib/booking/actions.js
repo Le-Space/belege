@@ -3,6 +3,7 @@
 // every record); a booking whose receipt names a vendor teaches that vendor
 // the account (partners.js `learnAccount`). One event in the Verlauf.
 
+import { valueCents } from '../assets/quantity.js';
 import { recordEvent } from '../activity/events.js';
 import { cleanMatchingSettings } from '../matching/classify.js';
 import { learnAccount } from '../matching/partners.js';
@@ -97,4 +98,41 @@ export async function acknowledgeImportChange(store, transactionId) {
 	const tx = await store.transactions.get(transactionId);
 	if (!tx?.importChange) return tx;
 	return store.transactions.put({ ...tx, importChange: null });
+}
+
+/**
+ * "Kurs von Hand" (issue #162): the euro rate of one unit, for a crypto
+ * booking whose rate no source knew (or a person corrects). The euro amount
+ * follows from the quantity; the rate says it came by hand, and a later sync
+ * leaves it as it is (bank/import.js).
+ *
+ * @param {{ transactions: import('../store/repository.js').Collection, events: import('../store/repository.js').Collection }} store
+ * @param {string} transactionId
+ * @param {string} rate EUR per whole unit, a decimal ("0,0042" or "0.0042")
+ * @param {() => Date} [now]
+ */
+export async function setManualRate(store, transactionId, rate, now = () => new Date()) {
+	const tx = await store.transactions.get(transactionId);
+	if (!tx) throw new Error(`No transaction ${transactionId}`);
+	const clean = String(rate ?? '')
+		.trim()
+		.replace(',', '.');
+	if (!/^\d+(\.\d{1,18})?$/.test(clean) || Number(clean) <= 0) {
+		throw new Error('Der Kurs ist eine positive Zahl, z. B. 0,0042.');
+	}
+	if (!/^-?\d+$/.test(String(tx.quantity ?? '')) || !Number.isInteger(tx.decimals)) {
+		throw new Error('Diese Buchung hat keine Menge, zu der ein Kurs gehört.');
+	}
+	const amountCents = valueCents(String(tx.quantity), tx.decimals, clean);
+	await store.transactions.put({
+		...tx,
+		amountCents,
+		valuation: { rate: clean, currency: 'EUR', source: 'manual', at: now().toISOString() },
+		rateMissing: null
+	});
+	await recordEvent(store.events, 'decision', {
+		action: 'manual-rate',
+		transactionId,
+		rate: clean
+	});
 }

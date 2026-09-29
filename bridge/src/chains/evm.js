@@ -112,12 +112,22 @@ function isoOf(seconds) {
  * @param {any[]} lists.normal
  * @param {any[]} lists.internal
  * @param {any[]} lists.tokens
+ * @param {Record<string, string>} [lists.senders] Alchemy: the sender of a transaction that moved
+ *   this address's tokens out, where it was not this address (#162)
  * @param {object} context
  * @param {string} context.address lower case
  * @param {import('./registry.js').EvmChain} context.chain
  * @returns {{ entries: import('./cosmos.js').WalletEntry[], unknownTokens: string[] }}
  */
-export function normalizeEvm({ normal, internal, tokens }, { address, chain }) {
+export function normalizeEvm({ normal, internal, tokens, senders = {} }, { address, chain }) {
+	// The transactions this address sent itself; a token that left in any other
+	// was moved by someone else – a burn by the token's project (issue #162).
+	/** @type {Set<string>} */
+	const ownSent = new Set(
+		normal
+			.filter((/** @type {any} */ r) => String(r.from ?? '').toLowerCase() === address)
+			.map((/** @type {any} */ r) => String(r.hash ?? '').toLowerCase())
+	);
 	/** @type {(import('./cosmos.js').WalletEntry & { order: string })[]} */
 	const entries = [];
 	/** @type {Set<string>} */
@@ -340,6 +350,10 @@ export function normalizeEvm({ normal, internal, tokens }, { address, chain }) {
 				counterparty: out ? to : from,
 				counterpartyLabel: known(out ? to : from),
 				success: true,
+				// Sent out in a transaction this address did not send: who did, where known.
+				...(out && !ownSent.has(hash)
+					? { byOther: true, ...(senders[hash] ? { txFrom: senders[hash] } : {}) }
+					: {}),
 				// Not in the list: priced by its contract, marked as the token's own claim.
 				...(listedToken ? {} : { contract, listed: false })
 			}

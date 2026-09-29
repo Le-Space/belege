@@ -135,7 +135,7 @@ describe('krakenTransactions', () => {
 		const out = byAccount.get('BTC')?.find((t) => t.sourceId === 'L-S-BTC');
 		const into = byAccount.get('ETH')?.find((t) => t.sourceId === 'L-S-ETH');
 		expect(out?.amountCents).toBe(-12000); // 0.002 BTC × 60 000
-		expect(out?.crypto?.valuation.source).toBe('kraken');
+		expect(out?.crypto?.valuation?.source).toBe('kraken');
 		expect(into?.amountCents).toBe(12000);
 		expect(into?.crypto?.valuation).toMatchObject({ source: 'trade', rate: '2400' });
 		// The ETH fee at the rate its entry was valued with: 0.0001 × 2 400 = 0,24

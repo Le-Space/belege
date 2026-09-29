@@ -50,6 +50,9 @@ const FIELDS = /** @type {const} */ ([
 	'swap',
 	// a swap to another chain, from an IBC transfer's memo (wallets/cross-swap.js)
 	'crossSwap',
+	// moved out in someone else's transaction, and a booking without a rate (#162)
+	'movedByOther',
+	'rateMissing',
 	// a crypto movement (assets/valuation.js)
 	'asset',
 	'quantity',
@@ -80,6 +83,8 @@ const FIELDS = /** @type {const} */ ([
  * @property {string} [explorerUrl] an own wallet's booking: the transaction in the block explorer (https)
  * @property {import('../bridge/client.js').SwapSides} [swap] a wallet's swap: what went each way
  * @property {import('../wallets/cross-swap.js').CrossSwap} [crossSwap] a swap to another chain (IBC memo)
+ * @property {{ by: string }} [movedByOther] moved out in someone else's transaction (#162)
+ * @property {{ reason: string } | null} [rateMissing] no rate found: kept with its quantity, amount open (#162)
  * @property {CryptoFields} [crypto] for a crypto asset: what moved and how `amountCents`
  *   (EUR) was valued; see assets/valuation.js
  */
@@ -89,7 +94,7 @@ const FIELDS = /** @type {const} */ ([
  * @property {string} asset symbol, assets/registry.js
  * @property {string} quantity signed integer of the smallest unit, as a string
  * @property {number} decimals
- * @property {import('../assets/valuation.js').Valuation} valuation
+ * @property {import('../assets/valuation.js').Valuation | null} valuation null while no rate is known (`rateMissing`, #162)
  */
 
 /**
@@ -226,6 +231,8 @@ export async function importTransactions({
 			...(tx.explorerUrl ? { explorerUrl: tx.explorerUrl } : {}),
 			...(tx.swap ? { swap: tx.swap } : {}),
 			...(tx.crossSwap ? { crossSwap: tx.crossSwap } : {}),
+			...(tx.movedByOther ? { movedByOther: tx.movedByOther } : {}),
+			...(tx.crypto ? { rateMissing: tx.rateMissing ?? null } : {}),
 			...(tx.crypto
 				? {
 						asset: tx.crypto.asset,
@@ -263,6 +270,15 @@ export async function importTransactions({
 		// A stored sourceId is kept when the incoming one is missing.
 		const next = {
 			...fields,
+			// Who moved a token out stays known once a source named it: Blockscout
+			// does not know it, Alchemy does (#162).
+			...(fields.movedByOther && !fields.movedByOther.by && match.movedByOther?.by
+				? { movedByOther: match.movedByOther }
+				: {}),
+			// A rate a person entered stays: the sync may know none, or another (#162).
+			...(match.valuation?.source === 'manual'
+				? { amountCents: match.amountCents, valuation: match.valuation, rateMissing: null }
+				: {}),
 			sourceId: fields.sourceId ?? match.sourceId ?? null,
 			// Matched by id: its repeat count is whatever it was. A shorter sync
 			// window can shift the count, and that is no change.

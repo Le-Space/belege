@@ -21,9 +21,10 @@ import { formatQuantity, valueCents } from './quantity.js';
  * @property {'EUR'} currency
  * @property {string} rate EUR per whole unit, a decimal string
  * @property {string | null} usdRate USD per whole unit, when the source has it
- * @property {'coingecko' | 'kraken' | 'ecb' | 'trade' | 'dex' | 'manual'} source
+ * @property {'coingecko' | 'kraken' | 'ecb' | 'trade' | 'dex' | 'migration' | 'manual'} source
  *   `trade`: the price of the trade itself (what was paid for the asset);
- *   `dex`: a DEX pool's price at the booking's block (#163)
+ *   `dex`: a DEX pool's price at the booking's block (#163);
+ *   `migration`: a replacement token, worth the holding burned for it (#162)
  * @property {string} at the moment the rate is for, ISO 8601
  * @property {string} [ref] `dex`: `uniswap-v2:<pool>@<block>`
  */
@@ -44,6 +45,7 @@ export const SOURCE_NAMES = Object.freeze({
 	ecb: 'EZB-Referenzkurs',
 	trade: 'Preis des Handels',
 	dex: 'DEX-Pool',
+	migration: 'Wert der verbrannten alten Token',
 	manual: 'von Hand eingetragen'
 });
 
@@ -142,7 +144,9 @@ export function formatRate(rate) {
  */
 function poolText(ref) {
 	const m = /^uniswap-v([23]):(0x[0-9a-f]{40})@(\d+)$/.exec(String(ref ?? ''));
-	return m ? ` (Uniswap V${m[1]}, Pool ${m[2].slice(0, 6)}…${m[2].slice(-4)}, Block ${m[3]})` : '';
+	if (m) return ` (Uniswap V${m[1]}, Pool ${m[2].slice(0, 6)}…${m[2].slice(-4)}, Block ${m[3]})`;
+	const burn = /^0x[0-9a-f]{64}$/.exec(String(ref ?? ''));
+	return burn ? ` (Burn Tx ${burn[0].slice(0, 8)}…${burn[0].slice(-4)})` : '';
 }
 
 /**

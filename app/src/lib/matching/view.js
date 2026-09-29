@@ -618,3 +618,49 @@ export function transfersWithReceipt({
 	}
 	return found.sort((a, b) => String(b.tx.bookedOn).localeCompare(String(a.tx.bookedOn)));
 }
+
+/** How long after a burn its replacement may arrive (wallets/wallet-sync.js). */
+const MIGRATION_DAYS = 180;
+
+/**
+ * The bookings that may be a burned token's replacement (issue #162): received
+ * on the same wallet from the one who sent the burn's transaction, a token of
+ * another kind, within half a year after. The person picks; nothing is linked
+ * by a guess.
+ *
+ * @param {Rec} burn
+ * @param {Rec[]} transactions
+ * @param {Rec[]} accounts
+ * @returns {Rec[]}
+ */
+export function migrationCandidates(burn, transactions, accounts) {
+	const by = String(burn.movedByOther?.by ?? '').toLowerCase();
+	const own = accounts.find((a) => a.id === burn.accountId);
+	if (!by || !own?.walletAddress) return [];
+	const wallet = new Set(
+		accounts
+			.filter(
+				(a) =>
+					!a.deleted &&
+					a.source === own.source &&
+					String(a.walletAddress ?? '').toLowerCase() === String(own.walletAddress).toLowerCase()
+			)
+			.map((a) => a.id)
+	);
+	const day = dayNumber(burn.bookedOn);
+	if (day === null) return [];
+	return transactions.filter((t) => {
+		const d = dayNumber(t.bookedOn);
+		return (
+			!t.deleted &&
+			t.id !== burn.id &&
+			wallet.has(t.accountId) &&
+			t.asset !== burn.asset &&
+			/^\d+$/.test(String(t.quantity ?? '')) &&
+			String(t.counterpartyAddress ?? '').toLowerCase() === by &&
+			d !== null &&
+			d >= day &&
+			d - day <= MIGRATION_DAYS
+		);
+	});
+}
