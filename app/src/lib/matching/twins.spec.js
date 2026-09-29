@@ -79,6 +79,19 @@ describe('two own transfers of the same amount, the IBAN on one side only', asyn
 		expect(classificationLine(/** @type {any} */ (c.a1), { accounts })).toContain('verknüpft');
 	});
 
+	it('a bank that appends its TAN method and "IBAN: … BIC: …" on one side: still the same purpose', async () => {
+		const gls = books.map((t) =>
+			t.accountId === 'acc-a'
+				? { ...t, purpose: `${t.purpose} SecureGo plus IBAN: ${IBAN_B} BIC: TESTDEFFXXX` }
+				: t
+		);
+		expect(purposeKey(gls[0].purpose)).toBe('ki abo werkzeug');
+		const ctx = await buildMatchingContext({ accounts, transactions: gls, settings: null });
+		expect(classifyTransaction(gls[0], ctx)).toMatchObject({ counterBookingId: 'b1' });
+		expect(classifyTransaction(gls[1], ctx)).toMatchObject({ counterBookingId: 'b2' });
+		expect(classifyTransaction(gls[2], ctx)).toMatchObject({ counterBookingId: 'a1' });
+	});
+
 	it('the same purpose on both: no guess – the debits stay transfers, the credits stay open', async () => {
 		const same = [out('a1', 'Abo'), out('a2', 'Abo'), into('b1', 'Abo'), into('b2', 'Abo')];
 		const ctx = await buildMatchingContext({ accounts, transactions: same, settings: null });

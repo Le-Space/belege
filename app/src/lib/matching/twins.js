@@ -5,11 +5,19 @@
 // sides, then the smaller date gap – and a pair counts only when each side
 // picks the other.
 
+import { displayPurpose } from '../bank/format.js';
+
 /** @typedef {Record<string, any>} Rec */
 
-/** A purpose for comparing: lower case, words only. @param {unknown} s */
+/**
+ * A purpose for comparing: its readable part (format.js – a bank like GLS
+ * appends the TAN method and "IBAN: … BIC: …" on one side only), lower case,
+ * words only.
+ *
+ * @param {unknown} s
+ */
 export const purposeKey = (s) =>
-	String(s ?? '')
+	displayPurpose(String(s ?? ''))
 		.toLowerCase()
 		.normalize('NFKD')
 		.replace(/[̀-ͯ]/g, '')
