@@ -8,8 +8,11 @@
 	import { app, createPasskey, restorePasskey, unlockStoredPasskey } from './session.svelte.js';
 	import { hasStoredPasskeyCredential } from './passkey-identity.js';
 	import { t } from './i18n/index.js';
+	import ResetDialog from './storage/ResetDialog.svelte';
 
 	const hasStoredPasskey = hasStoredPasskeyCredential();
+	// A way to start over without unlocking: the passkey or the store may be what is broken (#212).
+	let resetOpen = $state(false);
 	let label = $state('');
 	let busy = $derived(app.status === 'starting');
 
@@ -94,4 +97,14 @@
 			{app.error}
 		</p>
 	{/if}
+	{#if hasStoredPasskey}
+		<button
+			type="button"
+			class="mt-4 min-h-11 text-xs text-faint underline hover:text-heading"
+			onclick={() => (resetOpen = true)}
+			data-testid="reset-from-lock">{t('storage.reset.fromLock')}</button
+		>
+	{/if}
 </section>
+
+<ResetDialog bind:open={resetOpen} onclose={() => (resetOpen = false)} />

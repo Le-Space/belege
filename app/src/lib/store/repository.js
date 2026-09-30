@@ -44,6 +44,7 @@ export const COLLECTIONS = /** @type {const} */ ([
  * @property {(filter?: { includeDeleted?: boolean, where?: (record: StoredRecord) => boolean }) => Promise<StoredRecord[]>} list newest first
  * @property {(id: string) => Promise<StoredRecord>} softDelete
  * @property {(listener: (event: { collection: CollectionName }) => void) => () => void} onChange returns an unsubscribe
+ * @property {() => Promise<{ entries: number, bytes: number }>} stats what its log takes: every version written, and about how many bytes
  */
 
 /** @param {Record<string, any>} record */
@@ -121,7 +122,19 @@ export function createCollection(db, name, { author, now = () => new Date() }) {
 		return () => db.events.off('update', handler);
 	}
 
-	return { name, address: db.address?.toString?.() ?? '', put, get, list, softDelete, onChange };
+	/** @type {Collection['stats']} */
+	const stats = async () => (await db.stats?.()) ?? { entries: 0, bytes: 0 };
+
+	return {
+		name,
+		address: db.address?.toString?.() ?? '',
+		put,
+		get,
+		list,
+		softDelete,
+		onChange,
+		stats
+	};
 }
 
 /**

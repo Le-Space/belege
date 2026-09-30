@@ -5,6 +5,7 @@
 	// Integrationen, which is for what Belege is connected to.
 	import MatchingSettings from '$lib/MatchingSettings.svelte';
 	import SetupChecklist from '$lib/setup/SetupChecklist.svelte';
+	import StorageCard from '$lib/storage/StorageCard.svelte';
 	import { consent } from '$lib/consent.js';
 	import { t } from '$lib/i18n/index.js';
 
@@ -14,7 +15,8 @@
 		['abgleich', 'settings.nav.matching'],
 		['gelerntes', 'settings.nav.learned'],
 		['buchhaltung', 'settings.nav.books'],
-		['kontenplan', 'settings.nav.chart']
+		['kontenplan', 'settings.nav.chart'],
+		['speicher', 'settings.nav.storage']
 	]);
 	const link =
 		'flex min-h-11 items-center rounded-md px-3 text-sm text-text hover:bg-surface hover:text-heading';
@@ -43,5 +45,8 @@
 			<SetupChecklist place="settings" />
 		</div>
 		<MatchingSettings />
+		<div id="speicher" class="mt-4 scroll-mt-4">
+			<StorageCard />
+		</div>
 	</div>
 </div>
