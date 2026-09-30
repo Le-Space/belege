@@ -20,6 +20,7 @@
 // never written anywhere.
 
 import { createLibp2p } from 'libp2p';
+import { NODE_INFO } from '../sync/quiet-identify.js';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { identify, identifyPush } from '@libp2p/identify';
@@ -200,6 +201,8 @@ export function ucepLibp2pConfig({ privateKey, relays }) {
 			// opened one per call and were refused from the sixth.
 			inboundConnectionThreshold: 100
 		},
+		// Not the browser's user agent string (sync/quiet-identify.js).
+		nodeInfo: NODE_INFO,
 		// A browser does not dial private addresses by default; the specs'
 		// relay is on 127.0.0.1.
 		...(relays.some(isLocal) ? { connectionGater: { denyDialMultiaddr: () => false } } : {}),

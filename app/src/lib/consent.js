@@ -34,7 +34,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     which were paid, when and how much (issue #8).
 // 16: a token CoinGecko does not price may be priced by its Uniswap pool at
 //     the booking's block, asked of Alchemy (issue #163).
-export const CONSENT_VERSION = '16';
+// 17: what a relay sees, said in full: also the protocols the node speaks;
+//     no longer the databases' addresses nor the browser's user agent (#209).
+export const CONSENT_VERSION = '17';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

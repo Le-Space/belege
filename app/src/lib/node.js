@@ -110,6 +110,9 @@ export async function startSession(credential) {
 	// Aleph is asked for the Le-Space relays only when this device goes online
 	// in the public mode; the own network's relay is the bridge's (network-mode.js).
 	const relays = online ? await relaysFor(mode, () => relayAddrs()) : [];
+	const relayPeers = new Set(
+		[...relays, lanRelayAddr()].map((addr) => relayPeerOf(addr)).filter(Boolean)
+	);
 	const peerKey = online
 		? await generateKeyPairFromSeed('Ed25519', await deriveDevicePeerSeed(prfOutput, deviceSalt()))
 		: await createEphemeralPeerKey();
@@ -118,6 +121,8 @@ export async function startSession(credential) {
 	const deviceGate = online
 		? createDeviceGate({
 				authKey: await deriveDeviceAuthKey(prfOutput),
+				// The proof is offered to devices, never to a relay this node dials.
+				offer: (peer) => !relayPeers.has(peer),
 				admit: firstContactPolicy({
 					mode,
 					knownPeers,

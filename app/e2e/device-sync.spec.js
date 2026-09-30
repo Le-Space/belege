@@ -12,10 +12,12 @@
 // scanned the other's QR code, and then a booking written on either shows on
 // the other. Last, one removes the other.
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
 import { device, samePasskey } from './devices.js';
+import { RELAY_IDENTIFY_LOG } from './relay.js';
 
 /** @param {import('@playwright/test').Page} page @param {string} name */
 const tab = (page, name) => page.getByRole('link', { name, exact: true }).click();
@@ -109,6 +111,25 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 		await expect(phone.page.getByTestId('transaction')).toHaveCount(2);
 		await tab(mac.page, 'Zahlungen');
 		await expect(mac.page.getByTestId('transaction')).toHaveCount(2, { timeout: 90_000 });
+
+		// What the relay learned from identify while all that went through it (#209):
+		// it knows the Mac, but no database of the books – their addresses are in
+		// OrbitDB's protocol names, which identify must not announce.
+		const told = readFileSync(RELAY_IDENTIFY_LOG, 'utf8')
+			.split('\n')
+			.filter(Boolean)
+			.map((line) => JSON.parse(line))
+			.filter((entry) => entry.peer === macId);
+		expect(told.length).toBeGreaterThan(0);
+		const protocols = [...new Set(told.flatMap((entry) => entry.protocols))];
+		expect(protocols).toContain('/ipfs/id/1.0.0');
+		expect(protocols.filter((p) => p.startsWith('/orbitdb/'))).toEqual([]);
+		// Nor which app this is: the device proof is neither announced nor offered to a relay.
+		expect(protocols.filter((p) => p.startsWith('/belege/'))).toEqual([]);
+		expect(told.filter((entry) => entry.offered)).toEqual([]);
+		// Nor which browser on which system this is.
+		const agents = [...new Set(told.map((entry) => entry.agent).filter(Boolean))];
+		expect(agents).toEqual(['js-libp2p']);
 
 		// … and one more on the Mac, now that both are connected, on the phone.
 		await mac.page.getByTestId('add-test-transaction').click();
