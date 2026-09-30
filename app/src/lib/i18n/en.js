@@ -724,7 +724,7 @@ export default {
 				name: 'Language model – DeepSeek by default (extracting receipts, AI search)',
 				text: 'The model you set up in the bridge. Only for buttons with ✦ (see “AI” above).',
 				leaves:
-					'When extracting, the redacted text of a receipt; with “Keep searching with AI”, counterparty and payment reference as well as subject, sender domain and file names of the hits, redacted. With DeepSeek the servers are outside the EU; a local model does not leave this computer.',
+					'When extracting, the redacted text of a receipt; with “Keep searching with AI”, counterparty and payment reference as well as subject, sender domain and file names of the hits, redacted. With DeepSeek the servers are outside the EU; a local model does not leave this computer. Our advice for now: a local model, or wait with AI until fast models are available in a confidential environment (TEE) that can be checked.',
 				technical:
 					'The bridge sends only the text layer of a PDF (or the text of an email) with subject and sender, after redacting names from its list and your company names from Settings, names after a salutation or a label (“Herr”, “Contact:”), IBANs and card numbers except for the last four digits, email addresses (of others the domain remains), phone numbers, dates of birth, tax numbers, streets, postcodes and links (only the host remains) – never the file itself. This limits what goes out; it does not make the text anonymous: a name that is on no list and follows no label gets through, and so do the vendor, amounts, invoice numbers and what the receipt is about. For nothing to go out, set a model on this computer (such as Ollama). DeepSeek runs its servers in China. The API key is kept in the bridge’s macOS Keychain, never in the browser. The bridge extracts emails from senders that did not pass the DKIM/SPF check only after your approval.'
 			},
@@ -2335,7 +2335,7 @@ export default {
 			},
 			ki: {
 				what: 'A language model reads vendor, amount, date and number from receipts and helps in four more places – always only on a click (✦).',
-				how: 'You set up your own model in the bridge, such as DeepSeek or a local one with Ollama. Text is redacted before it is sent, as far as patterns and lists reach; with a local model nothing goes out. Le Space runs no AI.'
+				how: 'You set up your own model in the bridge, such as DeepSeek or a local one with Ollama. Text is redacted before it is sent, as far as patterns and lists reach; with a local model nothing goes out – which is what we advise for now. Le Space runs no AI.'
 			},
 			kraken: {
 				what: 'Belege reads your Kraken account read-only: ledger, balances and trades, one account per asset, in euros at the day’s rate.',

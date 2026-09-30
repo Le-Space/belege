@@ -745,7 +745,7 @@ export default {
 				name: 'Sprachmodell – voreingestellt DeepSeek (Belege auslesen, KI-Suche)',
 				text: 'Das Modell, das du in der Bridge einstellst. Nur bei Knöpfen mit ✦ (siehe „KI“ oben).',
 				leaves:
-					'Beim Auslesen der geschwärzte Text eines Belegs; bei „Mit KI weitersuchen“ Gegenpartei und Verwendungszweck sowie Betreff, Absender-Domain und Dateinamen der Treffer, geschwärzt. Bei DeepSeek stehen die Server außerhalb der EU; ein lokales Modell verlässt diesen Rechner nicht.',
+					'Beim Auslesen der geschwärzte Text eines Belegs; bei „Mit KI weitersuchen“ Gegenpartei und Verwendungszweck sowie Betreff, Absender-Domain und Dateinamen der Treffer, geschwärzt. Bei DeepSeek stehen die Server außerhalb der EU; ein lokales Modell verlässt diesen Rechner nicht. Unser Rat derzeit: ein lokales Modell, oder mit der KI warten, bis schnelle Modelle in einer prüfbar vertraulichen Umgebung (TEE) verfügbar sind.',
 				technical:
 					'Die Bridge schickt nur die Textebene eines PDFs (oder den Text einer E-Mail) mit Betreff und Absender, nachdem sie Namen aus ihrer Liste und deine Firmennamen aus den Einstellungen, Namen nach einer Anrede oder einem Etikett („Herr“, „Ansprechpartner:“), IBANs und Kartennummern bis auf die letzten vier Stellen, E-Mail-Adressen (von fremden bleibt die Domain), Telefonnummern, Geburtsdaten, Steuernummern, Straßen, Postleitzahlen und Links (nur der Host bleibt) geschwärzt hat – nie die Datei selbst. Das begrenzt, was hinausgeht, anonym macht es den Text nicht: Ein Name, der auf keiner Liste steht und hinter keinem Etikett, geht durch, ebenso Anbieter, Beträge, Rechnungsnummern und worum es im Beleg geht. Soll nichts hinausgehen, stell ein Modell auf diesem Rechner ein (etwa Ollama). DeepSeek betreibt seine Server in China. Der API-Schlüssel liegt im macOS-Schlüsselbund der Bridge, nie im Browser. E-Mails von Absendern ohne bestandene DKIM/SPF-Prüfung liest die Bridge erst nach deiner Freigabe aus.'
 			},
@@ -2369,7 +2369,7 @@ export default {
 			},
 			ki: {
 				what: 'Ein Sprachmodell liest Anbieter, Betrag, Datum und Nummer aus Belegen und hilft an vier weiteren Stellen – immer nur auf Klick (✦).',
-				how: 'Du richtest dein eigenes Modell in der Bridge ein, etwa DeepSeek oder ein lokales mit Ollama. Vor dem Senden wird geschwärzt, soweit Muster und Listen reichen; mit einem lokalen Modell geht nichts hinaus. Le Space betreibt keine KI.'
+				how: 'Du richtest dein eigenes Modell in der Bridge ein, etwa DeepSeek oder ein lokales mit Ollama. Vor dem Senden wird geschwärzt, soweit Muster und Listen reichen; mit einem lokalen Modell geht nichts hinaus – dazu raten wir derzeit. Le Space betreibt keine KI.'
 			},
 			kraken: {
 				what: 'Belege liest dein Kraken-Konto nur lesend: Ledger, Bestände und Trades, je Asset ein Konto, in Euro zum Tageskurs.',

@@ -71,7 +71,7 @@ export async function runLlmSetup({ io, keychain, configPath, env = {} }) {
 		"The company names from the app's Einstellungen are added by the app. IBANs, e-mail addresses, phone numbers, streets and postcodes are blacked out anyway."
 	);
 	io.print(
-		'A name that is on no list and follows no label gets through. For nothing to leave, set a model on this machine.'
+		'A name that is on no list and follows no label gets through. For nothing to leave, set a model on this machine – our advice for now, until fast models in a TEE with a checkable attestation are available.'
 	);
 	const termsAnswer = await io.ask(
 		`Terms${termsDefault ? ` [${termsDefault}]` : ''} ("-" for none): `

@@ -8,7 +8,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Changed
 
-- **What goes to the language model is blacked out further, and the app says what that is worth** (#226). New: names after a salutation or a label, phone numbers, dates of birth, tax ids and tax numbers, card numbers, e-mail addresses of others (the domain stays), four-digit postcodes, and the company names from Einstellungen (the app sends them with each call). The texts no longer promise more than that: redaction limits what leaves, it does not make a text anonymous; a local model sends nothing. The consent screen opens once more for it, and no longer names a bank.
+- **What goes to the language model is blacked out further, and the app says what that is worth** (#226). New: names after a salutation or a label, phone numbers, dates of birth, tax ids and tax numbers, card numbers, e-mail addresses of others (the domain stays), four-digit postcodes, and the company names from Einstellungen (the app sends them with each call). The texts no longer promise more than that: redaction limits what leaves, it does not make a text anonymous; a local model sends nothing, and that is what the docs and the consent screen advise for now, until fast models in a TEE with a checkable attestation are available. The consent screen opens once more for it, and no longer names a bank.
 
 ### Security
 
