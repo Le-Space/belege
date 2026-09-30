@@ -45,6 +45,9 @@ function plain(v) {
 	return out;
 }
 
+/** About what an entry takes beside its sealed payload: an estimate for the identity hash, the key, the clock, the links and the signature. */
+export const ENVELOPE_BYTES = 350;
+
 /**
  * A documents database that honours the `encryption` option.
  *
@@ -148,7 +151,23 @@ const SealedDocuments =
 
 		const all = async () => [...(await current()).values()].map(copy);
 
-		return { ...database, type, put, del, get, iterator, query, indexBy, all };
+		/**
+		 * What the log takes (issue #212): every entry ever written – an
+		 * append-only log keeps each version of a record – and the bytes of their
+		 * sealed payloads, plus about ENVELOPE_BYTES per entry for what wraps it
+		 * (identity, key, clock, links, signature). A walk over the whole log.
+		 */
+		const stats = async () => {
+			let entries = 0;
+			let bytes = 0;
+			for await (const entry of log.iterator()) {
+				entries++;
+				bytes += (entry._payload?.byteLength ?? 0) + ENVELOPE_BYTES;
+			}
+			return { entries, bytes };
+		};
+
+		return { ...database, type, put, del, get, iterator, query, indexBy, all, stats };
 	};
 
 SealedDocuments.type = type;

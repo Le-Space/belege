@@ -93,6 +93,74 @@ export default {
 		},
 		valuationLine: '{rate} EUR je {asset} · {source}{when}'
 	},
+	// Storage and factory reset (issue #212).
+	storage: {
+		title: 'Speicher & Zurücksetzen',
+		intro: 'Was die Bücher in diesem Browser belegen, und wo es liegt.',
+		where:
+			'Alles liegt im Speicher dieses Browsers für diese Seite (IndexedDB), versiegelt mit einem Schlüssel aus deinem Passkey. Nichts davon liegt bei Le Space.',
+		measuring: 'Messe …',
+		database: 'Datenbank',
+		records: 'Datensätze',
+		entries: 'Versionen',
+		size: 'Größe',
+		entriesHint:
+			'Eine Datenbank vergisst nichts: Jede Änderung ist eine neue Version. Die Größe ist geschätzt.',
+		databases: {
+			transactions: 'Zahlungen',
+			receipts: 'Belege (Daten)',
+			partners: 'Partner',
+			accounts: 'Konten',
+			settings: 'Einstellungen',
+			matches: 'Zuordnungen',
+			questions: 'Rückfragen',
+			events: 'Verlauf'
+		},
+		allDatabases: 'Alle Datenbanken',
+		files: 'Belegdateien ({count})',
+		other: 'Übriges (Indizes, App-Cache, Verwaltung)',
+		total: 'Vom Browser gemeldet',
+		quota: 'von {quota} verfügbar',
+		persisted: 'Der Browser hält diesen Speicher dauerhaft.',
+		notPersisted: 'Der Browser darf diesen Speicher räumen, wenn der Platz knapp wird.',
+		persist: 'Dauerhaft speichern',
+		elsewhere:
+			'Nicht hier: der Passkey (im Passwort-Manager), Kopien auf deinen anderen Geräten, und was die Bridge auf dem Rechner ablegt (~/.config/belege und der Schlüsselbund).',
+		technical: {
+			databases: 'IndexedDB: {names}',
+			caches: 'Cache Storage (App-Hülle): {names}',
+			local: 'localStorage ({count} Einträge, nichts Geheimes): {names}',
+			none: 'keine'
+		},
+		reset: {
+			title: 'Alles in diesem Browser löschen',
+			button: 'Alles in diesem Browser löschen …',
+			fromLock: 'Diesen Browser zurücksetzen …',
+			what: 'Löscht alle Datenbanken und Belegdateien, die Einstellungen dieser Seite, den App-Cache und den gemerkten Ordner – in diesem Browser, für diese Seite. Danach beginnt Belege wie beim ersten Besuch.',
+			staysTitle: 'Das bleibt:',
+			stays: [
+				'Dein Passkey. Eine Webseite kann ihn nicht löschen; er bleibt im Passwort-Manager und lässt sich dort entfernen.',
+				'Kopien auf deinen anderen Geräten. Mit Gerätesync können die Bücher von dort zurückkommen.',
+				'Die Bridge mit ihrer Kopplung und ihren Einstellungen, und die Kopplung der Rechnungs-App auf deren Seite.'
+			],
+			lost: 'Ohne anderes Gerät und ohne Export sind die Bücher danach endgültig weg. Niemand kann sie wiederherstellen.',
+			beforeTitle: 'Vorher, wenn du magst:',
+			before: {
+				export: 'Monate exportieren',
+				bridge: 'Bridge-Kopplung lösen',
+				invoiceApp: 'Rechnungs-App entkoppeln',
+				devices: 'Dieses Gerät bei den anderen entfernen'
+			},
+			word: 'LÖSCHEN',
+			typeLabel: 'Tippe {word}, um zu bestätigen',
+			confirm: 'Endgültig löschen',
+			cancel: 'Abbrechen',
+			running: 'Lösche alles in diesem Browser …',
+			blocked:
+				'Belege ist noch in einem anderen Tab oder Fenster offen. Schließe es; dann geht es hier weiter.',
+			retry: 'Erneut versuchen'
+		}
+	},
 	// Sample books (issue #200, step 3).
 	sample: {
 		title: 'Beispieldaten.',
@@ -1341,6 +1409,7 @@ export default {
 		title: 'Einstellungen',
 		intro: 'Was der Abgleich und der Export über dich und deine Buchhaltung wissen müssen.',
 		nav: {
+			storage: 'Speicher & Zurücksetzen',
 			setup: 'Einrichtung',
 			company: 'Firma & eigene Konten',
 			matching: 'Abgleich & Regeln',

@@ -87,6 +87,72 @@ export default {
 		},
 		valuationLine: '{rate} EUR per {asset} · {source}{when}'
 	},
+	storage: {
+		title: 'Storage & reset',
+		intro: 'What the books take in this browser, and where it is.',
+		where:
+			'Everything is in this browser’s storage for this site (IndexedDB), sealed with a key from your passkey. None of it is with Le Space.',
+		measuring: 'Measuring …',
+		database: 'Database',
+		records: 'Records',
+		entries: 'Versions',
+		size: 'Size',
+		entriesHint:
+			'A database forgets nothing: every change is a new version. The size is an estimate.',
+		databases: {
+			transactions: 'Payments',
+			receipts: 'Receipts (data)',
+			partners: 'Partners',
+			accounts: 'Accounts',
+			settings: 'Settings',
+			matches: 'Links',
+			questions: 'Questions',
+			events: 'History'
+		},
+		allDatabases: 'All databases',
+		files: 'Receipt files ({count})',
+		other: 'The rest (indexes, app cache, bookkeeping)',
+		total: 'Reported by the browser',
+		quota: 'of {quota} available',
+		persisted: 'The browser keeps this storage for good.',
+		notPersisted: 'The browser may clear this storage when space runs low.',
+		persist: 'Keep for good',
+		elsewhere:
+			'Not here: the passkey (in the password manager), copies on your other devices, and what the bridge keeps on the computer (~/.config/belege and the keychain).',
+		technical: {
+			databases: 'IndexedDB: {names}',
+			caches: 'Cache Storage (app shell): {names}',
+			local: 'localStorage ({count} entries, nothing secret): {names}',
+			none: 'none'
+		},
+		reset: {
+			title: 'Delete everything in this browser',
+			button: 'Delete everything in this browser …',
+			fromLock: 'Reset this browser …',
+			what: 'Deletes all databases and receipt files, this site’s settings, the app cache and the remembered folder – in this browser, for this site. Afterwards Belege starts as on a first visit.',
+			staysTitle: 'This stays:',
+			stays: [
+				'Your passkey. A web page cannot delete it; it stays in the password manager and can be removed there.',
+				'Copies on your other devices. With device sync the books can come back from there.',
+				'The bridge with its pairing and settings, and the invoice app’s pairing on its side.'
+			],
+			lost: 'Without another device and without an export, the books are gone for good afterwards. Nobody can recover them.',
+			beforeTitle: 'Before that, if you like:',
+			before: {
+				export: 'Export the months',
+				bridge: 'Unpair the bridge',
+				invoiceApp: 'Unpair the invoice app',
+				devices: 'Remove this device on the others'
+			},
+			word: 'DELETE',
+			typeLabel: 'Type {word} to confirm',
+			confirm: 'Delete for good',
+			cancel: 'Cancel',
+			running: 'Deleting everything in this browser …',
+			blocked: 'Belege is still open in another tab or window. Close it; then it goes on here.',
+			retry: 'Try again'
+		}
+	},
 	sample: {
 		title: 'Sample data.',
 		what: 'Everything here is made up, to try things out.',
@@ -1316,6 +1382,7 @@ export default {
 		title: 'Settings',
 		intro: 'What matching and the export need to know about you and your bookkeeping.',
 		nav: {
+			storage: 'Storage & reset',
 			setup: 'Setup',
 			company: 'Company & own accounts',
 			matching: 'Matching & rules',
