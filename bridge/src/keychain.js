@@ -1,4 +1,6 @@
-// The bridge's secrets, in the macOS keychain, one entry per account:
+// The bridge's secrets, in the operating system's own store: the macOS
+// keychain here, the Windows Credential Manager in windows-keychain.js
+// (`systemKeychain` picks). One entry per account:
 //
 //   service `belege-bridge`, account `hibiscus`  the Jameica master password
 //                            account `imap`      the mail password or auth token
@@ -19,6 +21,8 @@
 
 import { execFile, spawn } from 'node:child_process';
 
+import { windowsKeychain } from './windows-keychain.js';
+
 export const SERVICE = 'belege-bridge';
 export const ACCOUNT = 'hibiscus';
 
@@ -35,7 +39,7 @@ export const ACCOUNTS = /** @type {const} */ ({
 });
 
 /** @param {string} account */
-function describe(account) {
+export function describeAccount(account) {
 	return (
 		/** @type {Record<string, { what: string, setup: string }>} */ (ACCOUNTS)[account] ?? {
 			what: `${account} secret`,
@@ -70,11 +74,11 @@ export function macosKeychain({
 	platform = process.platform,
 	securityPath = '/usr/bin/security'
 } = {}) {
-	const { what, setup } = describe(account);
+	const { what, setup } = describeAccount(account);
 	function assertMac() {
 		if (platform !== 'darwin') {
 			throw new KeychainError(
-				`The bridge keeps the ${what} in the macOS keychain; this is ${platform}. There is no other store yet.`,
+				`The bridge keeps the ${what} in the macOS keychain or the Windows Credential Manager; this is ${platform}, which has no store yet.`,
 				'KEYCHAIN_UNSUPPORTED'
 			);
 		}
@@ -179,6 +183,21 @@ export function macosKeychain({
 }
 
 /**
+ * The secret store of this operating system: the Credential Manager on
+ * Windows (issue #205), the keychain on macOS. Anywhere else the keychain's
+ * `KEYCHAIN_UNSUPPORTED` says so at the first use.
+ *
+ * @param {{ service?: string, account?: string, platform?: string }} [options]
+ * @returns {Keychain}
+ */
+export function systemKeychain(options = {}) {
+	const platform = options.platform ?? process.platform;
+	return platform === 'win32'
+		? windowsKeychain({ ...options, platform })
+		: macosKeychain({ ...options, platform });
+}
+
+/**
  * For tests and `--test-mode`: a keychain in memory that counts its reads.
  *
  * @param {string | null} [initial]
@@ -192,7 +211,7 @@ export function memoryKeychain(initial = null, account = ACCOUNT) {
 			keychain.reads++;
 			if (!value)
 				throw new KeychainError(
-					`No ${describe(account).what} in the (test) keychain.`,
+					`No ${describeAccount(account).what} in the (test) keychain.`,
 					'KEYCHAIN_MISSING'
 				);
 			return value;

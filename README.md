@@ -33,7 +33,7 @@ pnpm install
 pnpm bridge            # prints the pairing code; pair under Integrationen
 ```
 
-Each source is set up once, in the terminal; secrets go into the macOS keychain by hidden prompt ([bridge/README.md](bridge/README.md)):
+Each source is set up once, in the terminal; secrets go into the macOS keychain, or on Windows the Credential Manager, by hidden prompt ([bridge/README.md](bridge/README.md)):
 
 | Command                  | For                                                                     |
 | ------------------------ | ----------------------------------------------------------------------- |

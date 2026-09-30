@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 
 import { defaultConfigPath, loadConfig, saveConfig } from './config.js';
 import { createHibiscusClient, normalizeFingerprint, peerFingerprint } from './hibiscus.js';
-import { macosKeychain } from './keychain.js';
+import { systemKeychain } from './keychain.js';
 import { ibanAllowed, maskIban } from './normalize.js';
 import { ask, askHidden, closePrompts } from './prompt.js';
 
@@ -181,7 +181,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
 	try {
 		const saved = await runSetup({
 			io: { ask, askHidden, print: (line) => console.log(line) },
-			keychain: macosKeychain(),
+			keychain: systemKeychain(),
 			configPath,
 			envPassword: process.env.HIBISCUS_PASSWORD || undefined
 		});

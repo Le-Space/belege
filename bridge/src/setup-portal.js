@@ -16,7 +16,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { defaultConfigPath, loadConfig, saveConfig } from './config.js';
-import { macosKeychain } from './keychain.js';
+import { systemKeychain } from './keychain.js';
 import { ask, askHidden, closePrompts } from './prompt.js';
 import { storeSecret } from './setup-secret.js';
 import { RECIPES, keychainAccount, readOverride } from './portals/index.js';
@@ -95,7 +95,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
 		const saved = await runPortalSetup({
 			portal,
 			io: { ask, askHidden, print: (line) => console.log(line) },
-			keychain: macosKeychain({ account: keychainAccount(portal) }),
+			keychain: systemKeychain({ account: keychainAccount(portal) }),
 			configPath: defaultConfigPath()
 		});
 		closePrompts();

@@ -16,7 +16,7 @@
 
 import { fileURLToPath } from 'node:url';
 
-import { macosKeychain } from './keychain.js';
+import { systemKeychain } from './keychain.js';
 import { deriveAddress, keyFingerprint, parseExtendedKey } from './chains/bitcoin.js';
 import { ask, askHidden, closePrompts } from './prompt.js';
 import { loadRepoEnv, yes } from './setup-secret.js';
@@ -74,7 +74,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
 	try {
 		const stored = await runBitcoinSetup({
 			io: { ask, askHidden, print: (line) => console.log(line) },
-			keychain: macosKeychain({ account: 'bitcoin' }),
+			keychain: systemKeychain({ account: 'bitcoin' }),
 			envValue: process.env.BITCOIN_XPUB
 		});
 		closePrompts();

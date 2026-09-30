@@ -18,7 +18,7 @@
 import { fileURLToPath } from 'node:url';
 
 import { defaultConfigPath, loadConfig, saveConfig } from './config.js';
-import { macosKeychain } from './keychain.js';
+import { systemKeychain } from './keychain.js';
 import { createKrakenClient, isKrakenSecret, KrakenError } from './kraken.js';
 import { ask, askHidden, closePrompts } from './prompt.js';
 import { loadRepoEnv, yes } from './setup-secret.js';
@@ -92,7 +92,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
 	try {
 		const saved = await runKrakenSetup({
 			io: { ask, askHidden, print: (line) => console.log(line) },
-			keychain: macosKeychain({ account: 'kraken' }),
+			keychain: systemKeychain({ account: 'kraken' }),
 			configPath: defaultConfigPath(),
 			env: { KRAKEN_API_KEY, KRAKEN_PRIVATE_KEY }
 		});

@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 
 import { CHAINS } from './chains/registry.js';
 import { alchemyBaseUrl, isAlchemyKey } from './chains/alchemy.js';
-import { macosKeychain } from './keychain.js';
+import { systemKeychain } from './keychain.js';
 import { ask, askHidden, closePrompts } from './prompt.js';
 import { yes } from './setup-secret.js';
 
@@ -142,7 +142,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
 	try {
 		await runAlchemySetup({
 			io: { ask, askHidden, print: (line) => console.log(line) },
-			keychain: macosKeychain({ account: 'alchemy' })
+			keychain: systemKeychain({ account: 'alchemy' })
 		});
 		closePrompts();
 		process.exit(0);

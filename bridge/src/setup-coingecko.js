@@ -10,7 +10,7 @@
 
 import { fileURLToPath } from 'node:url';
 
-import { macosKeychain } from './keychain.js';
+import { systemKeychain } from './keychain.js';
 import { ask, askHidden, closePrompts } from './prompt.js';
 import { loadRepoEnv, storeSecret } from './setup-secret.js';
 
@@ -38,7 +38,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
 	try {
 		const saved = await runCoinGeckoSetup({
 			io: { ask, askHidden, print: (line) => console.log(line) },
-			keychain: macosKeychain({ account: 'coingecko' }),
+			keychain: systemKeychain({ account: 'coingecko' }),
 			envValue: process.env.COINGECKO_API_KEY
 		});
 		closePrompts();
