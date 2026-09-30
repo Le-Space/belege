@@ -550,6 +550,7 @@ export default {
 			'cosmos-nodes': 'Nym, Nodes Guru, PublicNode, Polkachu (Cosmos-Knoten)',
 			'akash-indexer': 'Akash Console (Indexer, ältere Akash-Geschichte)',
 			aleph: 'Aleph Cloud (Credits eigener Konten, nur gelesen)',
+			libertai: 'LibertAI (Sprachmodelle auf Aleph Cloud, wenn eingerichtet)',
 			coingecko: 'CoinGecko (Kurse)',
 			'kraken-rates': 'Kraken (Kurse)',
 			ecb: 'Europäische Zentralbank (USD-Kurs)'
@@ -676,7 +677,7 @@ export default {
 		ai: {
 			title: 'KI: wo ein Sprachmodell hilft',
 			simple: [
-				'Le Space betreibt keine KI und bekommt nichts davon zu sehen. Die Bridge auf deinem Rechner fragt das Sprachmodell, das du selbst einstellst: ein öffentliches wie DeepSeek oder ein lokales auf deinem eigenen Rechner. Ist keins eingestellt, läuft nichts davon.',
+				'Le Space betreibt keine KI und bekommt nichts davon zu sehen. Die Bridge auf deinem Rechner fragt das Sprachmodell, das du selbst einstellst: ein öffentliches wie DeepSeek oder LibertAI, oder ein lokales auf deinem eigenen Rechner. Ist keins eingestellt, läuft nichts davon.',
 				'KI hilft nur dort, wo ein Knopf das Zeichen ✦ trägt, und nur, wenn du ihn drückst. Was dabei hinausgeht, steht beim Darüberfahren mit der Maus.'
 			],
 			usesHeading: 'Mit KI',
@@ -693,7 +694,7 @@ export default {
 			check:
 				'Was die KI liefert, prüfst du: Am Beleg stehen das Modell und der gesendete Text, ein KI-Vorschlag wird erst auf deinen Klick übernommen, und der Verlauf nennt jeden Aufruf.',
 			technical: [
-				'Das Sprachmodell stellst du in der Bridge ein (pnpm setup:llm): jede Schnittstelle im OpenAI-Format (/chat/completions) – per https, oder per http nur auf diesem Rechner (127.0.0.1, localhost), etwa Ollama oder LM Studio. Voreingestellt sind deepseek-flash, mit deepseek-v4-pro als zweitem Versuch.',
+				'Das Sprachmodell stellst du in der Bridge ein (pnpm setup:llm): jede Schnittstelle im OpenAI-Format (/chat/completions) – per https, oder per http nur auf diesem Rechner (127.0.0.1, localhost), etwa Ollama oder LM Studio. Voreingestellt sind deepseek-flash, mit deepseek-v4-pro als zweitem Versuch; bei LibertAI (https://api.libertai.io/v1) deepseek-v4-flash, mit deepseek-v4.1-flash.',
 				'Vor jedem Aufruf schwärzt die Bridge Namen aus deiner Liste, IBANs bis auf die letzten vier Stellen, eigene E-Mail-Adressen, Straßen, Postleitzahlen und Links (nur der Host bleibt). Die Antworten sind JSON und werden geprüft (Summen, Datumsformate, Kandidatennummern); was nicht passt, wird verworfen.',
 				'Der API-Schlüssel liegt im macOS-Schlüsselbund der Bridge, nie im Browser. Das Protokoll der Bridge nennt nur Zahlen, nie Text. Im Verlauf der App stehen Modell, Dauer und Tokens jedes Aufrufs.'
 			]
@@ -742,12 +743,12 @@ export default {
 					'Ein Kontoinformationsdienst (AIS) nach PSD2: Nach deiner Freigabe bei der Bank ruft er Konten und Umsätze ab und reicht sie weiter; sie passieren dabei seine Server. Bisher nur in einem Versuch (spikes/enablebanking), in der App nicht eingebaut.'
 			},
 			deepseek: {
-				name: 'Sprachmodell – voreingestellt DeepSeek (Belege auslesen, KI-Suche)',
+				name: 'Sprachmodell – voreingestellt DeepSeek, oder LibertAI (Belege auslesen, KI-Suche)',
 				text: 'Das Modell, das du in der Bridge einstellst. Nur bei Knöpfen mit ✦ (siehe „KI“ oben).',
 				leaves:
-					'Beim Auslesen der geschwärzte Text eines Belegs; bei „Mit KI weitersuchen“ Gegenpartei und Verwendungszweck sowie Betreff, Absender-Domain und Dateinamen der Treffer, geschwärzt. Bei DeepSeek stehen die Server außerhalb der EU; ein lokales Modell verlässt diesen Rechner nicht.',
+					'Beim Auslesen der geschwärzte Text eines Belegs; bei „Mit KI weitersuchen“ Gegenpartei und Verwendungszweck sowie Betreff, Absender-Domain und Dateinamen der Treffer, geschwärzt. Bei DeepSeek stehen die Server außerhalb der EU; bei LibertAI geht der Text an einen Rechenknoten im Aleph-Cloud-Netz; ein lokales Modell verlässt diesen Rechner nicht.',
 				technical:
-					'Die Bridge schickt nur die Textebene eines PDFs (oder den Text einer E-Mail) mit Betreff und Absender, nachdem sie Namen aus ihrer Liste, IBANs (bis auf die letzten vier Stellen), eigene E-Mail-Adressen, Straßen und Postleitzahlen geschwärzt hat – nie die Datei selbst. DeepSeek betreibt seine Server in China. Der API-Schlüssel liegt im macOS-Schlüsselbund der Bridge, nie im Browser. E-Mails von Absendern ohne bestandene DKIM/SPF-Prüfung liest die Bridge erst nach deiner Freigabe aus.'
+					'Die Bridge schickt nur die Textebene eines PDFs (oder den Text einer E-Mail) mit Betreff und Absender, nachdem sie Namen aus ihrer Liste, IBANs (bis auf die letzten vier Stellen), eigene E-Mail-Adressen, Straßen und Postleitzahlen geschwärzt hat – nie die Datei selbst. DeepSeek betreibt seine Server in China. Das Gateway von LibertAI (api.libertai.io) gibt die Anfrage an eine Inferenz-VM auf einem Rechenknoten von Aleph Cloud weiter; die DeepSeek-Modelle laufen dort nicht in einer TEE, der Betreiber des Knotens könnte den Text also grundsätzlich lesen (docs.libertai.io/concepts/trust-model). Der API-Schlüssel liegt im macOS-Schlüsselbund der Bridge, nie im Browser. E-Mails von Absendern ohne bestandene DKIM/SPF-Prüfung liest die Bridge erst nach deiner Freigabe aus.'
 			},
 			portals: {
 				name: 'Kundenportale (Vodafone)',
@@ -2369,7 +2370,7 @@ export default {
 			},
 			ki: {
 				what: 'Ein Sprachmodell liest Anbieter, Betrag, Datum und Nummer aus Belegen und hilft an vier weiteren Stellen – immer nur auf Klick (✦).',
-				how: 'Du richtest dein eigenes Modell in der Bridge ein, etwa DeepSeek oder ein lokales mit Ollama. Vor dem Senden wird geschwärzt; Le Space betreibt keine KI.'
+				how: 'Du richtest dein eigenes Modell in der Bridge ein, etwa DeepSeek, LibertAI oder ein lokales mit Ollama. Vor dem Senden wird geschwärzt; Le Space betreibt keine KI.'
 			},
 			kraken: {
 				what: 'Belege liest dein Kraken-Konto nur lesend: Ledger, Bestände und Trades, je Asset ein Konto, in Euro zum Tageskurs.',

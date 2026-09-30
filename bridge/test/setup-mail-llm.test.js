@@ -184,3 +184,37 @@ test('setup:llm: a key from the hidden prompt; "-" clears the terms; http is ref
 	assert.ok(refused.out.some((l) => l.includes('without https')));
 	await assert.rejects(stat(join(dir, 'llm-http.json')));
 });
+
+test('setup:llm: LibertAI by its URL brings its models and offers LIBERTAI_API_KEY, not the DeepSeek one', async () => {
+	const configPath = join(dir, 'llm-libertai.json');
+	const keychain = memoryKeychain(null, 'llm');
+	const env = {
+		DEEPSEEK_API_KEY: 'sk-deepseek',
+		DEEPSEEK_MODEL: 'deepseek-flash',
+		LIBERTAI_API_KEY: 'sk-libertai'
+	};
+	const first = scripted(['https://api.libertai.io/v1/', '', '', '-', '']);
+	assert.equal(await runLlmSetup({ io: first.io, keychain, configPath, env }), true);
+	assert.ok(first.out.includes('  LibertAI: https://api.libertai.io/v1'));
+	assert.ok(first.out.some((l) => l.startsWith('LIBERTAI_API_KEY found in .env')));
+	assert.equal(await keychain.read(), 'sk-libertai');
+	const { llm } = await loadConfig(configPath);
+	assert.deepEqual(
+		[llm.baseUrl, llm.model, llm.retryModel],
+		['https://api.libertai.io/v1', 'deepseek-v4-flash', 'deepseek-v4.1-flash']
+	);
+
+	// Enter keeps the provider and its models; back to DeepSeek brings DeepSeek's,
+	// with a word that the stored key was LibertAI's.
+	const again = scripted(['', '', '', '']);
+	assert.equal(await runLlmSetup({ io: again.io, keychain, configPath, env }), true);
+	assert.equal((await loadConfig(configPath)).llm.model, 'deepseek-v4-flash');
+	const back = scripted(['https://api.deepseek.com', '', '', ''], ['sk-deepseek-typed']);
+	assert.equal(await runLlmSetup({ io: back.io, keychain, configPath, env }), true);
+	assert.ok(
+		back.out.some((l) => l.startsWith('The key in the keychain is for https://api.libertai.io/v1'))
+	);
+	assert.equal(await keychain.read(), 'sk-deepseek-typed');
+	const switched = (await loadConfig(configPath)).llm;
+	assert.deepEqual([switched.model, switched.retryModel], ['deepseek-flash', 'deepseek-v4-pro']);
+});

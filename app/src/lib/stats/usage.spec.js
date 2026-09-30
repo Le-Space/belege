@@ -54,6 +54,20 @@ describe('calls and cost', () => {
 		expect(costOf({ ...call, model: 'other' }, '2026-09-28T12:00:00Z', DEFAULT_PRICES)).toBeNull();
 	});
 
+	it('LibertAI models: one price at every hour, cached input not cheaper', () => {
+		const call = {
+			model: 'deepseek-v4-flash',
+			prompt: 1_000_000,
+			cached: 500_000,
+			completion: 100_000
+		};
+		// 1M × 0.25 + 0.1M × 1.75 = 0.25 + 0.175, peak and off peak alike
+		expect(costOf(call, '2026-09-28T02:00:00Z', DEFAULT_PRICES)).toBeCloseTo(0.425, 6);
+		expect(costOf(call, '2026-09-28T12:00:00Z', DEFAULT_PRICES)).toBeCloseTo(0.425, 6);
+		const retry = { ...call, model: 'deepseek-v4.1-flash' };
+		expect(costOf(retry, '2026-09-28T12:00:00Z', DEFAULT_PRICES)).toBeCloseTo(0.425, 6);
+	});
+
 	it('sums by purpose since a moment; names models without a price', () => {
 		const events = [
 			{
@@ -131,5 +145,23 @@ describe('the price table', () => {
 		expect(t).toMatchObject({ currency: 'EUR', checkedOn: '2026-10-01', offPeakFactor: 1 });
 		expect(Object.keys(t.models)).toEqual(['x-model']);
 		expect(t.models['x-model']).toEqual({ input: 0.5, cached: 0.1, output: 1 });
+	});
+
+	it('keeps a model without off-peak prices so; ignores anything else there', () => {
+		const t = cleanPrices({
+			offPeakFactor: 0.5,
+			models: {
+				flat: { input: 1, cached: 1, output: 2, offPeak: false },
+				odd: { input: 1, cached: 1, output: 2, offPeak: 'no' }
+			}
+		});
+		expect(t.models.flat).toEqual({ input: 1, cached: 1, output: 2, offPeak: false });
+		expect(t.models.odd).toEqual({ input: 1, cached: 1, output: 2 });
+		expect(
+			costOf({ model: 'flat', prompt: 1e6, cached: 0, completion: 0 }, '2026-09-28T12:00:00Z', t)
+		).toBe(1);
+		expect(
+			costOf({ model: 'odd', prompt: 1e6, cached: 0, completion: 0 }, '2026-09-28T12:00:00Z', t)
+		).toBe(0.5);
 	});
 });

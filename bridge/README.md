@@ -35,6 +35,8 @@ addressed to the accounting alias, and sends only redacted text to the LLM.
    `https://api.deepseek.com`, https only), the model and the retry model (default `deepseek-flash`,
    `deepseek-v4-pro`), the terms to black out (your name, family names; `;`-separated) and the API
    key (hidden prompt, into the keychain). `DEEPSEEK_*` and `REDACT_TERMS` from `.env` are offered.
+   For LibertAI, enter `https://api.libertai.io/v1`: the models become `deepseek-v4-flash` and
+   `deepseek-v4.1-flash`, and `LIBERTAI_API_KEY` from `.env` is offered instead.
 8. **Alchemy** (optional, for own EVM wallets): `pnpm setup:alchemy` asks for an Alchemy API key
    in a hidden prompt (Enter keeps a stored one, `-` deletes it), checks it with `eth_chainId` on
    each network (Ethereum, Base, Arbitrum, OP Mainnet, Polygon – enable them for the app in the
@@ -366,7 +368,8 @@ a token). `POST /portals/new` (`src/portals/local.js`):
 - **What leaves this machine**:
   - to the mail server: the IMAP login (from the keychain) and read-only commands over TLS, plus a MOVE of one mail to the Trash when a person asks for it
     (`tls: none` is refused for anything but a server on this machine);
-  - to the LLM provider (DeepSeek: servers in China): per "Auslesen", the redacted text layer of
+  - to the LLM provider (DeepSeek: servers in China; LibertAI: an inference VM on an Aleph Cloud
+    compute node, not in a TEE for these models): per "Auslesen", the redacted text layer of
     one PDF (up to 30 000 characters) or a mail's text excerpt, with the redacted subject, sender
     address and file name, and the API key. Never the file itself, never a mail that was not
     asked for. Redaction is pattern-based: a name not in the terms list, or an address in an

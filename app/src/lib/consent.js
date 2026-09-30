@@ -38,7 +38,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     browser's user agent or – since the two lists of quiet-identify.js – the
 //     protocols the node speaks with own devices (#209). That later change told
 //     a relay less, so the version stayed.
-export const CONSENT_VERSION = '17';
+// 18: LibertAI (api.libertai.io) named as a language model next to DeepSeek,
+//     with what its compute nodes can see.
+export const CONSENT_VERSION = '18';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 
