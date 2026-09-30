@@ -1,0 +1,58 @@
+name: E2E tests
+
+# The app's browser specs (Playwright) against a build, with fakes only: a fake
+# Hibiscus, a fake IMAP server with a synthetic mailbox, a fake
+# OpenAI-compatible API and a fake customer portal. A workflow of its own, so
+# the README can show its state.
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  # ci.yml calls this for a release and a deploy.
+  workflow_call:
+
+concurrency:
+  # github.workflow is the caller's name when called, so a release's run stays
+  # apart from the push run; the prefix keeps the three test workflows apart.
+  group: e2e-${{ github.workflow }}-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: E2E tests
+    runs-on: ubuntu-latest
+    # Same Playwright version as app/package.json, so the browsers are there.
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.1-noble
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      # The Playwright image runs as root, and git refuses a checkout owned by
+      # someone else without a word: `git log` then prints nothing and the
+      # build stamp (commit and its time) is missing from the footer.
+      - name: Let git read the checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      # The version comes from packageManager in the root package.json.
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm run build
+      - name: Browser specs
+        run: pnpm run test:e2e
+      - name: Keep the evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: app/test-results/
+          retention-days: 7

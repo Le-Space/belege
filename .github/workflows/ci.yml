@@ -1,86 +1,21 @@
 name: CI
 
-# The app and the bridge. The phase-0 spikes under spikes/ talk to a local
-# Hibiscus, a mail server and an LLM API; they are not run here. The bridge
-# tests and the app's specs use fakes only: a fake Hibiscus, a fake IMAP
-# server (hoodiecrow) with a synthetic mailbox, a fake OpenAI-compatible API,
-# and a fake customer portal that the bridge's Chromium (Playwright) logs in to.
+# Every gate at once, for release.yml and deploy.yml: the app's unit tests and
+# browser specs and the bridge's tests. A push and a pull request run the three
+# workflows themselves (unit.yml, e2e.yml, bridge.yml), each with its badge in
+# the README; this one only gathers them for a caller.
 
 permissions:
   contents: read
 
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
-  # deploy.yml runs the same gates before it publishes anything.
   workflow_call:
 
-concurrency:
-  # github.workflow keeps a run called from deploy.yml apart from the push run.
-  group: ci-${{ github.workflow }}-${{ github.head_ref || github.sha }}
-  cancel-in-progress: true
-
 jobs:
+  unit:
+    uses: ./.github/workflows/unit.yml
+  e2e:
+    uses: ./.github/workflows/e2e.yml
   bridge:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '22.x'
-          cache: pnpm
-      - name: Install
-        run: pnpm install --frozen-lockfile --filter @belege/bridge...
-      # The portal tests drive a real headless Chromium against a fake portal.
-      - name: Install Chromium for the portal tests
-        run: pnpm --filter @belege/bridge exec playwright install --with-deps --only-shell chromium
-      - name: Format
-        run: pnpm --filter @belege/bridge lint
-      # release.yml's steps run only at a release: check their shell here.
-      - name: Workflow shell syntax
-        run: ruby scripts/check-workflow-shell.rb
-      - name: Tests
-        run: pnpm run test:bridge
-
-  app:
-    runs-on: ubuntu-latest
-    # Same Playwright version as app/package.json, so the browsers are there.
-    container:
-      image: mcr.microsoft.com/playwright:v1.61.1-noble
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v6
-      # The Playwright image runs as root, and git refuses a checkout owned by
-      # someone else without a word: `git log` then prints nothing and the
-      # build stamp (commit and its time) is missing from the footer.
-      - name: Let git read the checkout
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-      # The version comes from packageManager in the root package.json.
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '22.x'
-          cache: pnpm
-      - name: Install
-        run: pnpm install --frozen-lockfile
-      - name: Lint
-        run: pnpm --filter @belege/app lint
-      - name: Types
-        run: pnpm run check
-      - name: Unit tests
-        run: pnpm run test:unit
-      - name: Build
-        run: pnpm run build
-      - name: Browser specs
-        run: pnpm run test:e2e
-      - name: Keep the evidence
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: app/test-results/
-          retention-days: 7
+    uses: ./.github/workflows/bridge.yml
