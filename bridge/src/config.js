@@ -77,12 +77,52 @@ export function defaultMailConfig() {
 	};
 }
 
-/** @returns {LlmConfig} */
-export function defaultLlmConfig() {
-	return {
+/**
+ * Providers setup:llm knows by their base URL: choosing one fills in its
+ * models and offers its key from .env. Any other OpenAI-compatible URL works
+ * too, with the models typed in.
+ *
+ * @typedef {object} LlmProvider
+ * @property {string} id
+ * @property {string} name
+ * @property {string} baseUrl
+ * @property {string} model
+ * @property {string} retryModel
+ * @property {string} envKey the .env variable setup:llm offers as the API key
+ */
+
+/** @type {readonly LlmProvider[]} */
+export const LLM_PROVIDERS = Object.freeze([
+	{
+		id: 'deepseek',
+		name: 'DeepSeek',
 		baseUrl: 'https://api.deepseek.com',
 		model: 'deepseek-flash',
 		retryModel: 'deepseek-v4-pro',
+		envKey: 'DEEPSEEK_API_KEY'
+	},
+	{
+		id: 'libertai',
+		name: 'LibertAI',
+		baseUrl: 'https://api.libertai.io/v1',
+		model: 'deepseek-v4-flash',
+		retryModel: 'deepseek-v4.1-flash',
+		envKey: 'LIBERTAI_API_KEY'
+	}
+]);
+
+/** @param {string} baseUrl @returns {LlmProvider | undefined} */
+export function llmProviderOf(baseUrl) {
+	return LLM_PROVIDERS.find((p) => p.baseUrl === baseUrl.replace(/\/+$/, ''));
+}
+
+/** @returns {LlmConfig} */
+export function defaultLlmConfig() {
+	const deepseek = LLM_PROVIDERS[0];
+	return {
+		baseUrl: deepseek.baseUrl,
+		model: deepseek.model,
+		retryModel: deepseek.retryModel,
 		redactTerms: [],
 		configured: false
 	};

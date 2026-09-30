@@ -121,7 +121,9 @@
 					{
 						input: Number(String(p.input).replace(',', '.')),
 						cached: Number(String(p.cached).replace(',', '.')),
-						output: Number(String(p.output).replace(',', '.'))
+						output: Number(String(p.output).replace(',', '.')),
+						// A model without off-peak prices keeps that when edited.
+						...(prices.models[m]?.offPeak === false ? { offPeak: false } : {})
 					}
 				])
 			)

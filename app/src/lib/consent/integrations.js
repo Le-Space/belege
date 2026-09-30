@@ -129,6 +129,7 @@ export const INTEGRATION_GROUPS = [
 		id: 'ai',
 		items: [
 			{ id: 'deepseek', name: 'DeepSeek', logo: 'deepseek' },
+			{ id: 'libertai', name: 'LibertAI', initials: 'Li' },
 			{ id: 'ollama', name: 'Ollama (lokal)', logo: 'ollama' }
 		]
 	},

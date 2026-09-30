@@ -16,6 +16,7 @@
  * @property {number} input input not cached
  * @property {number} cached input cached
  * @property {number} output
+ * @property {boolean} [offPeak] false: the same price at every hour (no off-peak discount)
  */
 
 /**
@@ -33,6 +34,10 @@
  * Friday; off peak costs half. Chinese public holidays, which are off peak
  * too, are not known here: on those days the estimate is too high.
  *
+ * LibertAI's models (the `pricing` of https://api.libertai.io/v1/models, per
+ * token there), read on 30 September 2026: one price at every hour, and no
+ * cheaper cached input.
+ *
  * @type {PriceTable}
  */
 export const DEFAULT_PRICES = Object.freeze({
@@ -42,7 +47,9 @@ export const DEFAULT_PRICES = Object.freeze({
 	offPeakFactor: 0.5,
 	models: {
 		'deepseek-flash': { input: 0.3, cached: 0.006, output: 1.2 },
-		'deepseek-v4-pro': { input: 1.32, cached: 0.044, output: 3.96 }
+		'deepseek-v4-pro': { input: 1.32, cached: 0.044, output: 3.96 },
+		'deepseek-v4-flash': { input: 0.25, cached: 0.25, output: 1.75, offPeak: false },
+		'deepseek-v4.1-flash': { input: 0.25, cached: 0.25, output: 1.75, offPeak: false }
 	}
 });
 
@@ -113,7 +120,7 @@ export function callsOf(e) {
 export function costOf(call, at, prices) {
 	const p = prices.models[call.model];
 	if (!p) return null;
-	const factor = isPeak(at) ? 1 : prices.offPeakFactor;
+	const factor = isPeak(at) || p.offPeak === false ? 1 : prices.offPeakFactor;
 	const cost =
 		((call.prompt - call.cached) * p.input + call.cached * p.cached + call.completion * p.output) /
 		1e6;
@@ -234,7 +241,12 @@ export function cleanPrices(value) {
 		const q = /** @type {any} */ (p);
 		const nums = [q.input, q.cached, q.output].map(Number);
 		if (nums.every((x) => Number.isFinite(x) && x >= 0 && x < 1000)) {
-			models[name] = { input: nums[0], cached: nums[1], output: nums[2] };
+			models[name] = {
+				input: nums[0],
+				cached: nums[1],
+				output: nums[2],
+				...(q.offPeak === false ? { offPeak: false } : {})
+			};
 		}
 	}
 	const factor = Number(v.offPeakFactor);
