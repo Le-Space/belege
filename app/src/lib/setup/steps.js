@@ -17,6 +17,7 @@ import { ledgerOf } from '../booking/settings.js';
  * @property {Record<string, any>[]} events the Verlauf
  * @property {Record<string, any> | null} datev the stored DATEV values, null when never saved
  * @property {string[]} later steps put off
+ * @property {Start | null} [start] the way in chosen on the first run
  */
 
 /**
@@ -27,6 +28,24 @@ import { ledgerOf } from '../booking/settings.js';
  * @property {string} href where it is done
  * @property {'done' | 'open' | 'later'} state
  */
+
+/**
+ * The way in, chosen on the first run (and changeable later):
+ *   look    look around first – the list in its own order
+ *   file    start with a bank statement file (CAMT.053), which needs no
+ *           bridge: payments first, the bridge put off until it is wanted
+ *   bridge  the full path: the bridge first
+ *
+ * @typedef {'look' | 'file' | 'bridge'} Start
+ */
+export const STARTS = /** @type {const} */ (['look', 'file', 'bridge']);
+
+/** Which steps come first for a way in; the rest follow in the list's order. */
+const FIRST = {
+	look: [],
+	file: ['payments', 'receipts', 'books', 'export'],
+	bridge: ['bridge', 'payments', 'receipts']
+};
 
 /** In the order a person goes through them. */
 export const STEP_IDS = /** @type {const} */ ([
@@ -93,6 +112,7 @@ function doneOf(f) {
  */
 export function setupSteps(f) {
 	const done = doneOf(f);
+	const start = f.start ?? null;
 	const later = new Set(f.later);
 	/** @type {Step[]} */
 	const steps = STEP_IDS.map((id) => ({
@@ -105,7 +125,10 @@ export function setupSteps(f) {
 		steps,
 		done: required.filter((s) => s.state === 'done').length,
 		total: required.length,
-		next: steps.find((s) => s.state === 'open') ?? null,
+		next:
+			[...(start ? FIRST[start] : []), ...STEP_IDS]
+				.map((id) => steps.find((s) => s.id === id))
+				.find((s) => s?.state === 'open') ?? null,
 		// Nothing left to do now: every step is done or put off.
 		finished: steps.every((s) => s.state !== 'open')
 	};
@@ -115,11 +138,43 @@ export function setupSteps(f) {
  * The stored `setup` setting, cleaned.
  *
  * @param {any} value
- * @returns {{ later: string[] }}
+ * @returns {{ later: string[], start: Start | null }}
  */
 export function cleanSetup(value) {
 	const later = Array.isArray(value?.later) ? value.later : [];
 	return {
-		later: STEP_IDS.filter((id) => later.includes(id))
+		later: STEP_IDS.filter((id) => later.includes(id)),
+		start: STARTS.includes(value?.start) ? value.start : null
 	};
+}
+
+/**
+ * Whether to ask how to start: nothing chosen yet, and the books are new –
+ * no booking, no receipt, no paired bridge. Books already in use are never
+ * asked.
+ *
+ * @param {SetupFacts} f
+ */
+export function asksForStart(f) {
+	return (
+		!f.start &&
+		live(f.transactions).length === 0 &&
+		live(f.receipts).length === 0 &&
+		!f.bridge.paired &&
+		!f.bridge.viaDevice
+	);
+}
+
+/**
+ * What choosing a way in stores: with a bank statement file the bridge waits
+ * until it is asked for; with the bridge it is asked for now.
+ *
+ * @param {{ later: string[] }} setup
+ * @param {Start | null} start
+ * @returns {{ later: string[], start: Start | null }}
+ */
+export function withStart(setup, start) {
+	const rest = setup.later.filter((id) => id !== 'bridge');
+	const later = start === 'file' ? [...rest, 'bridge'] : start === 'bridge' ? rest : setup.later;
+	return cleanSetup({ later, start });
 }

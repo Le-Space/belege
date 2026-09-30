@@ -109,6 +109,24 @@ export default {
 		finished: 'Alles Nötige ist eingerichtet oder für später vorgemerkt.',
 		settingsHint:
 			'Die Einrichtung verschwindet von Home, sobald nichts mehr offen ist; hier bleibt sie.',
+		start: {
+			title: 'Wie willst du anfangen?',
+			intro:
+				'Die Wahl lässt sich ändern, solange die Bücher noch leer sind. Einrichten kannst du alles auch später.',
+			look: {
+				title: 'Erst umsehen',
+				text: 'Die App ansehen, ohne etwas einzurichten. Die Einrichtung wartet hier auf Home.'
+			},
+			file: {
+				title: 'Mit einer Kontoauszug-Datei',
+				text: 'Einen CAMT.053-Kontoauszug deiner Bank hochladen. Das geht ohne Bridge und ist der schnellste Weg zu echten Zahlungen.'
+			},
+			bridge: {
+				title: 'Vollständig, mit der Bridge',
+				text: 'Bank über Hibiscus, Postfach, KI, Börse und Wallets. Braucht einmal das Terminal, etwa 10 Minuten.'
+			},
+			change: 'Anders anfangen'
+		},
 		step: {
 			passkey: {
 				title: 'Passkey absichern',

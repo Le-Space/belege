@@ -6,11 +6,13 @@ import { getSetting, setSetting } from '$lib/store/settings.js';
 import { deviceSyncOn } from '$lib/sync/device-sync.js';
 import { bridge, bridgeViaDevice } from '$lib/integrations/bridge-state.svelte.js';
 import { integrationFacts } from '$lib/integrations/facts.svelte.js';
-import { cleanSetup, setupSteps } from './steps.js';
+import { asksForStart, cleanSetup, setupSteps, withStart } from './steps.js';
 
 export const setup = $state({
 	/** @type {string[]} */
 	later: [],
+	/** @type {import('./steps.js').Start | null} */
+	start: null,
 	loaded: false
 });
 
@@ -18,7 +20,9 @@ export const setup = $state({
 export async function loadSetup() {
 	const store = currentStore();
 	if (!store) return;
-	setup.later = cleanSetup(await getSetting(store.settings, 'setup')).later;
+	const kept = cleanSetup(await getSetting(store.settings, 'setup'));
+	setup.later = kept.later;
+	setup.start = kept.start;
 	setup.loaded = true;
 }
 
@@ -33,8 +37,24 @@ export async function setLater(id, later) {
 	if (!store) return;
 	const rest = setup.later.filter((s) => s !== id);
 	const next = later ? [...rest, id] : rest;
-	setup.later = cleanSetup({ later: next }).later;
-	await setSetting(store.settings, 'setup', { later: setup.later });
+	const kept = { later: cleanSetup({ later: next }).later, start: setup.start };
+	// Stored first, shown after: what the list says is what a reload finds.
+	await setSetting(store.settings, 'setup', kept);
+	setup.later = kept.later;
+}
+
+/**
+ * Choose how to start (or null: ask again).
+ *
+ * @param {import('./steps.js').Start | null} start
+ */
+export async function chooseStart(start) {
+	const store = currentStore();
+	if (!store) return;
+	const next = withStart(setup, start);
+	await setSetting(store.settings, 'setup', next);
+	setup.later = next.later;
+	setup.start = next.start;
 }
 
 /** @returns {import('./steps.js').SetupFacts} */
@@ -55,9 +75,17 @@ export function setupFacts() {
 		receipts: app.receipts,
 		events: app.events,
 		datev: app.datevSettings ?? null,
-		later: setup.later
+		later: setup.later,
+		start: setup.start
 	};
 }
 
 /** The checklist as it stands. */
 export const currentSetup = () => setupSteps(setupFacts());
+
+/** Whether Home asks how to start. */
+export const startAsked = () => setup.loaded && bridge.loaded && asksForStart(setupFacts());
+
+/** Whether the way in can still be chosen anew: the books are as new as on the first run. */
+export const startOpen = () =>
+	setup.loaded && bridge.loaded && asksForStart({ ...setupFacts(), start: null });

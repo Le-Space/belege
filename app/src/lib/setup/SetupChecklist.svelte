@@ -8,7 +8,16 @@
 	import { t } from '$lib/i18n/index.js';
 	import { loadIntegrationFacts } from '$lib/integrations/facts.svelte.js';
 	import BridgeGuide from './BridgeGuide.svelte';
-	import { currentSetup, loadSetup, setLater, setup } from './setup-state.svelte.js';
+	import StartChoice from './StartChoice.svelte';
+	import {
+		chooseStart,
+		currentSetup,
+		loadSetup,
+		setLater,
+		setup,
+		startAsked,
+		startOpen
+	} from './setup-state.svelte.js';
 
 	/** @type {{ place?: 'home' | 'settings' }} */
 	let { place = 'home' } = $props();
@@ -44,7 +53,9 @@
 		'inline-flex min-h-11 items-center rounded-md border border-border px-3 text-sm text-text hover:bg-surface-2 hover:text-heading';
 </script>
 
-{#if shown}
+{#if place === 'home' && startAsked()}
+	<StartChoice />
+{:else if shown}
 	<section
 		class="mt-4 rounded-lg border border-border bg-surface px-4 py-3 sm:px-5"
 		aria-labelledby="setup-{place}-h"
@@ -153,6 +164,14 @@
 					{/each}
 				</ul>
 			</details>
+		{/if}
+		{#if setup.start && startOpen()}
+			<button
+				type="button"
+				class="mt-2 min-h-11 text-sm text-text underline hover:text-heading"
+				onclick={() => chooseStart(null)}
+				data-testid="setup-start-change">{t('setup.start.change')}</button
+			>
 		{/if}
 	</section>
 {/if}
