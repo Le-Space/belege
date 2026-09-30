@@ -45,3 +45,19 @@ jobs:
         run: ruby scripts/check-workflow-shell.rb
       - name: Tests
         run: pnpm run test:bridge
+
+  # The Credential Manager store (issue #205) cannot be tried on a Mac or on
+  # Linux: a round trip through the real one, on Windows. The test needs no
+  # dependency, so nothing is installed.
+  windows-keychain:
+    name: Windows Credential Manager
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+      - name: Round trip through the real Credential Manager
+        run: node --test --test-reporter=spec bridge/test/windows-keychain.real.test.js
+

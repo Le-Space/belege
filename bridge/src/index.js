@@ -2,7 +2,7 @@
 
 import { loadConfig, saveConfig, defaultConfigPath } from './config.js';
 import { createHibiscusClient } from './hibiscus.js';
-import { macosKeychain } from './keychain.js';
+import { systemKeychain } from './keychain.js';
 import { createPairing } from './pairing.js';
 import { createBridgeServer } from './server.js';
 import { createMailClient } from './mail/imap.js';
@@ -29,7 +29,8 @@ export {
 	normalizeFingerprint,
 	PinMismatchError
 } from './hibiscus.js';
-export { macosKeychain, memoryKeychain, KeychainError } from './keychain.js';
+export { macosKeychain, systemKeychain, memoryKeychain, KeychainError } from './keychain.js';
+export { windowsKeychain } from './windows-keychain.js';
 export { loadConfig, saveConfig, defaultConfig, defaultConfigPath } from './config.js';
 export * from './normalize.js';
 export { createMailClient } from './mail/imap.js';
@@ -82,22 +83,22 @@ export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
  */
 export async function startBridge({
 	configPath = defaultConfigPath(),
-	keychain = macosKeychain(),
-	mailKeychain = macosKeychain({ account: 'imap' }),
-	llmKeychain = macosKeychain({ account: 'llm' }),
-	coingeckoKeychain = macosKeychain({ account: 'coingecko' }),
-	krakenKeychain = macosKeychain({ account: 'kraken' }),
-	alchemyKeychain = macosKeychain({ account: 'alchemy' }),
+	keychain = systemKeychain(),
+	mailKeychain = systemKeychain({ account: 'imap' }),
+	llmKeychain = systemKeychain({ account: 'llm' }),
+	coingeckoKeychain = systemKeychain({ account: 'coingecko' }),
+	krakenKeychain = systemKeychain({ account: 'kraken' }),
+	alchemyKeychain = systemKeychain({ account: 'alchemy' }),
 	alchemyBaseUrl,
 	alephApi,
 	krakenPageDelayMs,
 	rateFetch = fetch,
 	fixedRates = null,
 	walletFetch = fetch,
-	bitcoinKeychain = macosKeychain({ account: 'bitcoin' }),
+	bitcoinKeychain = systemKeychain({ account: 'bitcoin' }),
 	bitcoinPauseMs,
 	walletLoopback = false,
-	portalKeychain = (id) => macosKeychain({ account: keychainAccount(id) }),
+	portalKeychain = (id) => systemKeychain({ account: keychainAccount(id) }),
 	portalHeadless = 'auto',
 	portalLoopback = false,
 	portalPasswordDialog = macosPasswordDialog(),

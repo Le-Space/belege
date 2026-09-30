@@ -54,7 +54,21 @@ addressed to the accounting alias, and sends only redacted text to the LLM.
     that cannot do it itself (lost, wiped, or the bridge was off): stop the bridge, then
     `pnpm bridge -- --list-pairings`, `pnpm bridge -- --revoke <n>` or `pnpm bridge -- --revoke-all`.
 
+## On Windows
+
+The bridge runs on Windows 10 and 11 too (issue #205). Where this page says "keychain", Windows uses the **Credential Manager**: one generic credential per secret, named `belege-bridge:<account>` (`belege-bridge:hibiscus`, `belege-bridge:imap`, …). They show under _Control Panel → Credential Manager → Windows Credentials_ and can be removed there.
+
+- The bridge reaches the Credential Manager through Windows PowerShell, which Windows ships; there is nothing to install. A secret goes in and out on the process's stdin and stdout, never on a command line.
+- `bridge.json` and the other files are under `%USERPROFILE%\.config\belege\`. Windows has no file modes; the folder is protected by your user profile's access rights.
+- Jameica's settings folder is `%USERPROFILE%\.jameica\cfg\` rather than `~/Library/jameica/cfg/`. Check the listener with `netstat -ano | findstr :8080` instead of `lsof`.
+- Not there yet on Windows: the native password dialog for a portal ("Zugangsdaten speichern" in the app). Use `pnpm setup:portal <id>` in the terminal instead.
+- A Windows runner in CI does a real round trip through the Credential Manager on every change. The rest of the bridge is tested on Linux and macOS; reports from Windows are welcome.
+
+Linux has no secret store in the bridge yet.
+
 ## Where things are kept
+
+On Windows, read "Credential Manager, `belege-bridge:<account>`" for "macOS keychain, service `belege-bridge`, account `<account>`".
 
 | What                                                                                                                                                                                | Where                                                                                                                          |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |

@@ -18,7 +18,7 @@
 import { fileURLToPath } from 'node:url';
 
 import { defaultConfigPath, loadConfig, saveConfig } from './config.js';
-import { macosKeychain } from './keychain.js';
+import { systemKeychain } from './keychain.js';
 import { ask, askHidden, closePrompts } from './prompt.js';
 import { loadRepoEnv, storeSecret } from './setup-secret.js';
 
@@ -99,7 +99,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
 	try {
 		const saved = await runLlmSetup({
 			io: { ask, askHidden, print: (line) => console.log(line) },
-			keychain: macosKeychain({ account: 'llm' }),
+			keychain: systemKeychain({ account: 'llm' }),
 			configPath: defaultConfigPath(),
 			env: { DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, REDACT_TERMS }
 		});

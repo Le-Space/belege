@@ -15,7 +15,7 @@
 import { fileURLToPath } from 'node:url';
 
 import { DEFAULT_ACCOUNTING_ADDRESS, defaultConfigPath, loadConfig, saveConfig } from './config.js';
-import { macosKeychain } from './keychain.js';
+import { systemKeychain } from './keychain.js';
 import { createMailClient } from './mail/imap.js';
 import { ask, askHidden, closePrompts } from './prompt.js';
 import { loadRepoEnv, storeSecret, yes } from './setup-secret.js';
@@ -127,7 +127,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
 	try {
 		const saved = await runMailSetup({
 			io: { ask, askHidden, print: (line) => console.log(line) },
-			keychain: macosKeychain({ account: 'imap' }),
+			keychain: systemKeychain({ account: 'imap' }),
 			configPath: defaultConfigPath(),
 			env: { IMAP_HOST, IMAP_PORT, IMAP_USER, IMAP_PASSWORD, IMAP_ACCOUNTING_ADDRESS }
 		});
