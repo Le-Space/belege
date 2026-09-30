@@ -8,7 +8,29 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **A guided first run (#200).**
+  - Home asks how to start: look around with sample data, a bank statement file (no bridge needed), or the full path with the bridge (#211).
+  - A setup checklist on Home, and for good under Einstellungen. Its steps are done by what the books and the bridge say, never by a tick; a step can be put off and taken up again (#204).
+  - The bridge step shows the commands to copy, notices a started bridge by itself, and says why it does not answer: nothing there, this page not in `appOrigins`, an https page and a plain-http address elsewhere, or a bad address (#204).
+  - Sample books, made up and marked on every page, removed with one click. The export refuses a month where sample and real bookings stand side by side (#214).
+  - Help in context: every integration's page says what it is and how to set it up, with the command to copy and the docs in the app's language; empty pages name the next step; a bridge error offers a way out (#216).
+- **Income and expenses of the year on Home (#194):** bank and crypto apart, their total and the balance. Own transfers, swaps and trades count as neither; a refund is netted against its charge; private payments and loans stand on lines of their own. Every figure links to the bookings it sums (#207).
+- **Input VAT on Home (#195):** from the receipts at 19 % and 7 %, per month or quarter and for the year, by receipt date. Foreign VAT, §13b, other currencies and receipts without a VAT line are shown apart. Buchhaltung gets the period of the advance return and Kleinunternehmer (§19 UStG). Output VAT follows once the invoicing app sends the VAT per rate (#208).
+- **Statements from Wise (#218):** an account without an IBAN, entries without transaction details (the merchant of a card payment, a fee tied to its payment), the amount in the currency it was paid in, and a statement in dollars valued at the day's ECB rate (#219).
+- **Storage and factory reset (#212):** Einstellungen shows what each database and the receipt files take and where they are. "Alles in diesem Browser löschen" asks for a typed word and leaves nothing of the app in this browser; it is on the unlock screen too (#217).
+- **The bridge on Windows (#205):** its secrets go into the Windows Credential Manager, one credential per account (`belege-bridge:<account>`), reached through Windows PowerShell with nothing to install; a secret is never on a command line. Every setup command and the bridge pick the store by platform. A Windows runner in CI does a real round trip (#220).
+- **Test badges in the README:** unit, E2E and bridge tests are workflows of their own (#206).
 - **A lint guard against German outside the catalogue** (`belege/no-german`, in `pnpm lint`), and an English smoke run over every page (#202).
+
+### Changed
+
+- **Security rules for people and agents** in `AGENTS.md` ("Security: what must stay true"), and `SECURITY.md` with how to report a weakness privately. The audit plan is #209 (#210).
+- A booking the bank types `FEE` is a bank fee (#219).
+- On a phone the header's switches wrap instead of covering the name (#204).
+
+### Fixed
+
+- "Später" in the setup checklist is stored before it shows, so a reload right after keeps it (#211).
 
 ## [0.4.0] – 2026-09-29
 
