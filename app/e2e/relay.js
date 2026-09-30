@@ -42,6 +42,14 @@ export async function startRelay() {
 	relay.addEventListener('peer:identify', (e) =>
 		note(String(e.detail.peerId), e.detail.protocols, e.detail.agentVersion)
 	);
+	// A peer that offers the relay its device proof names the app by doing so.
+	await relay.handle('/belege/device-proof/1.0.0', (stream, connection) => {
+		appendFileSync(
+			RELAY_IDENTIFY_LOG,
+			`${JSON.stringify({ peer: String(connection.remotePeer), protocols: [], offered: true })}\n`
+		);
+		stream.abort(new Error('a relay is no device'));
+	});
 	// identify-push: a later change of the peer's protocols.
 	relay.addEventListener('peer:update', (e) =>
 		note(String(e.detail.peer.id), e.detail.peer.protocols)

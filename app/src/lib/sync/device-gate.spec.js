@@ -12,7 +12,13 @@ import { lpStream } from '@libp2p/utils';
 import { multiaddr } from '@multiformats/multiaddr';
 
 import { deriveDeviceAuthKey } from '../database-keys.js';
-import { checkDeviceProof, createDeviceGate, deviceProof, isOpenProtocol } from './device-gate.js';
+import {
+	PROOF_PROTOCOL,
+	checkDeviceProof,
+	createDeviceGate,
+	deviceProof,
+	isOpenProtocol
+} from './device-gate.js';
 
 const SECRET = '/test/books/1.0.0';
 const TOPIC = 'books';
@@ -182,6 +188,69 @@ describe('device gate', () => {
 			expect(await askBooks(b, c)).toContain('Wolkenfabrik');
 		} finally {
 			await c.stop();
+		}
+	});
+});
+
+describe('whom the proof is offered to', () => {
+	it('not to a relay the node dials: the relay never sees the protocol’s name', async () => {
+		const key = await deriveDeviceAuthKey(new Uint8Array(32).fill(9));
+		// A relay that would notice: it has a handler for the proof's protocol.
+		const relay = await createLibp2p({
+			addresses: { listen: ['/memory/offer-relay'] },
+			transports: [memory()],
+			connectionEncrypters: [noise()],
+			streamMuxers: [yamux()],
+			services: { identify: identify() }
+		});
+		let offered = 0;
+		await relay.handle(PROOF_PROTOCOL, (stream) => {
+			offered++;
+			stream.abort(new Error('no device'));
+		});
+		const relayId = relay.peerId.toString();
+		const gate = createDeviceGate({
+			authKey: key,
+			waitMs: 800,
+			offer: (peer) => peer !== relayId
+		});
+		const device = await node('offer-device', gate);
+		const other = await node('offer-other', createDeviceGate({ authKey: key, waitMs: 800 }));
+		try {
+			await device.dial(multiaddr('/memory/offer-relay'));
+			await device.dial(multiaddr('/memory/offer-other'));
+			// The other device is offered the proof and let in …
+			await until(() => gate.isProved(other.peerId.toString()));
+			// … the relay was not asked, then or later.
+			await wait(300);
+			expect(offered).toBe(0);
+			expect(gate.isProved(relayId)).toBe(false);
+		} finally {
+			await Promise.all([relay, device, other].map((n) => n.stop()));
+		}
+	});
+
+	it('the control: without the rule the relay is offered it', async () => {
+		const key = await deriveDeviceAuthKey(new Uint8Array(32).fill(9));
+		const relay = await createLibp2p({
+			addresses: { listen: ['/memory/offer-relay-2'] },
+			transports: [memory()],
+			connectionEncrypters: [noise()],
+			streamMuxers: [yamux()],
+			services: { identify: identify() }
+		});
+		let offered = 0;
+		await relay.handle(PROOF_PROTOCOL, (stream) => {
+			offered++;
+			stream.abort(new Error('no device'));
+		});
+		const device = await node('offer-device-2', createDeviceGate({ authKey: key, waitMs: 800 }));
+		try {
+			await device.dial(multiaddr('/memory/offer-relay-2'));
+			await until(() => offered > 0);
+			expect(offered).toBe(1);
+		} finally {
+			await Promise.all([relay, device].map((n) => n.stop()));
 		}
 	});
 });

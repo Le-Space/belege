@@ -13,7 +13,7 @@ import { lpStream } from '@libp2p/utils';
 import { multiaddr } from '@multiformats/multiaddr';
 
 import { deriveDeviceAuthKey } from '../database-keys.js';
-import { createDeviceGate } from './device-gate.js';
+import { PROOF_PROTOCOL, createDeviceGate } from './device-gate.js';
 import { isAnnounced, quietIdentify, quietIdentifyPush } from './quiet-identify.js';
 
 // Made-up addresses in the shape OrbitDB registers.
@@ -96,6 +96,8 @@ describe('what identify says about the books (#209)', () => {
 		);
 		const known = (await stranger.node.peerStore.get(books.peerId)).protocols;
 		expect(heads(known)).toEqual([]);
+		// Nor the device proof's name, which would say which app this is.
+		expect(known.filter((/** @type {string} */ p) => p.startsWith('/belege/'))).toEqual([]);
 		expect(stranger.told.flatMap(heads)).toEqual([]);
 		// The rest is announced as before: libp2p needs it to set up gossipsub.
 		expect(known).toEqual(expect.arrayContaining(['/ipfs/id/1.0.0', '/meshsub/1.2.0']));
@@ -128,8 +130,9 @@ describe('what identify says about the books (#209)', () => {
 		await expect(lpStream(s).read({ signal: AbortSignal.timeout(15_000) })).rejects.toThrow();
 	}, 30_000);
 
-	it('only the database protocols are private', () => {
+	it('only the database protocols and the app’s own are private', () => {
 		expect(isAnnounced(FIRST)).toBe(false);
+		expect(isAnnounced(PROOF_PROTOCOL)).toBe(false);
 		for (const p of ['/ipfs/id/1.0.0', '/meshsub/1.2.0', '/ipfs/bitswap/1.2.0']) {
 			expect(isAnnounced(p), p).toBe(true);
 		}

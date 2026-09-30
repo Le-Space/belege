@@ -124,6 +124,9 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 		const protocols = [...new Set(told.flatMap((entry) => entry.protocols))];
 		expect(protocols).toContain('/ipfs/id/1.0.0');
 		expect(protocols.filter((p) => p.startsWith('/orbitdb/'))).toEqual([]);
+		// Nor which app this is: the device proof is neither announced nor offered to a relay.
+		expect(protocols.filter((p) => p.startsWith('/belege/'))).toEqual([]);
+		expect(told.filter((entry) => entry.offered)).toEqual([]);
 		// Nor which browser on which system this is.
 		const agents = [...new Set(told.map((entry) => entry.agent).filter(Boolean))];
 		expect(agents).toEqual(['js-libp2p']);

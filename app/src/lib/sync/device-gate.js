@@ -14,6 +14,10 @@
 // any other connection. The one that dialled proves first; the other checks,
 // then proves back.
 //
+// The proof is offered to devices only: a relay the node dials is not asked,
+// so it does not learn the protocol's name, and identify does not announce it
+// (quiet-identify.js).
+//
 // Until a peer has proved it, every protocol except identify, the relay's and
 // the proof itself refuses it: its streams are aborted, and libp2p's topologies
 // (gossipsub, Bitswap) do not learn of it. A relay therefore never takes part
@@ -78,9 +82,18 @@ export async function checkDeviceProof(authKey, proof, prover, verifier) {
  * came over: in the mode "Beides" a device the books do not know yet is let
  * in only over a path in the own network (first-contact.js).
  *
- * @param {{ authKey: Uint8Array, waitMs?: number, admit?: (peer: string, connection: any) => boolean }} p
+ * `offer` says whom this node offers its proof to when it dialled: not a
+ * relay, which would learn the protocol's name – and with it the app – from
+ * the stream being opened.
+ *
+ * @param {{ authKey: Uint8Array, waitMs?: number, admit?: (peer: string, connection: any) => boolean, offer?: (peer: string) => boolean }} p
  */
-export function createDeviceGate({ authKey, waitMs = PROOF_WAIT_MS, admit = () => true }) {
+export function createDeviceGate({
+	authKey,
+	waitMs = PROOF_WAIT_MS,
+	admit = () => true,
+	offer = () => true
+}) {
 	/** Peers that proved the passkey on this run. */
 	const proved = new Set();
 	/** @type {Map<string, Set<() => void>>} */
@@ -239,7 +252,10 @@ export function createDeviceGate({ authKey, waitMs = PROOF_WAIT_MS, admit = () =
 			const connection = e.detail;
 			const peer = connection.remotePeer.toString();
 			if (connection.direction !== 'outbound' || proved.has(peer)) return;
-			// A relay or a stranger does not speak the protocol: nothing to do.
+			// Not to a relay: opening the stream names the protocol, and with it the
+			// app, to whoever is on the other end. A relay is no device of the books.
+			if (!offer(peer)) return;
+			// A stranger does not speak the protocol: nothing to do.
 			prove(connection).catch(() => {});
 		};
 		return {

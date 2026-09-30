@@ -25,8 +25,12 @@ import { identify, identifyPush } from '@libp2p/identify';
  */
 export const NODE_INFO = Object.freeze({ userAgent: 'js-libp2p' });
 
-/** Protocol names that are never announced: they carry a database's address. */
-const PRIVATE = ['/orbitdb/heads/'];
+/**
+ * Protocol names that are never announced: OrbitDB's carry a database's
+ * address, and the device proof's names the app. Both are dialled by who
+ * knows them; nobody needs to be told.
+ */
+const PRIVATE = ['/orbitdb/heads/', '/belege/'];
 
 /** Whether a protocol may be named in identify. @param {string} protocol */
 export const isAnnounced = (protocol) => !PRIVATE.some((p) => String(protocol).startsWith(p));
