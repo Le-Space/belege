@@ -18,6 +18,7 @@ All notable changes to Le Space Belege. The format follows
 - **Input VAT on Home (#195):** from the receipts at 19 % and 7 %, per month or quarter and for the year, by receipt date. Foreign VAT, §13b, other currencies and receipts without a VAT line are shown apart. Buchhaltung gets the period of the advance return and Kleinunternehmer (§19 UStG). Output VAT follows once the invoicing app sends the VAT per rate (#208).
 - **Statements from Wise (#218):** an account without an IBAN, entries without transaction details (the merchant of a card payment, a fee tied to its payment), the amount in the currency it was paid in, and a statement in dollars valued at the day's ECB rate (#219).
 - **Storage and factory reset (#212):** Einstellungen shows what each database and the receipt files take and where they are. "Alles in diesem Browser löschen" asks for a typed word and leaves nothing of the app in this browser; it is on the unlock screen too (#217).
+- **The bridge on Windows (#205):** its secrets go into the Windows Credential Manager, one credential per account (`belege-bridge:<account>`), reached through Windows PowerShell with nothing to install; a secret is never on a command line. Every setup command and the bridge pick the store by platform. A Windows runner in CI does a real round trip (#220).
 - **Test badges in the README:** unit, E2E and bridge tests are workflows of their own (#206).
 - **A lint guard against German outside the catalogue** (`belege/no-german`, in `pnpm lint`), and an English smoke run over every page (#202).
 
