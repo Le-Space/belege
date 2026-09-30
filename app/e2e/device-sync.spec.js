@@ -113,8 +113,9 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 		await expect(mac.page.getByTestId('transaction')).toHaveCount(2, { timeout: 90_000 });
 
 		// What the relay learned from identify while all that went through it (#209):
-		// it knows the Mac, but no database of the books – their addresses are in
-		// OrbitDB's protocol names, which identify must not announce.
+		// it knows the Mac, and that it speaks identify and the relay's protocols –
+		// not which databases there are, not which app this is, not even that it
+		// syncs anything. It was not offered the device proof either.
 		const told = readFileSync(RELAY_IDENTIFY_LOG, 'utf8')
 			.split('\n')
 			.filter(Boolean)
@@ -123,9 +124,9 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 		expect(told.length).toBeGreaterThan(0);
 		const protocols = [...new Set(told.flatMap((entry) => entry.protocols))];
 		expect(protocols).toContain('/ipfs/id/1.0.0');
-		expect(protocols.filter((p) => p.startsWith('/orbitdb/'))).toEqual([]);
-		// Nor which app this is: the device proof is neither announced nor offered to a relay.
-		expect(protocols.filter((p) => p.startsWith('/belege/'))).toEqual([]);
+		expect(
+			protocols.filter((p) => !p.startsWith('/ipfs/id/') && !p.startsWith('/libp2p/circuit/relay/'))
+		).toEqual([]);
 		expect(told.filter((entry) => entry.offered)).toEqual([]);
 		// Nor which browser on which system this is.
 		const agents = [...new Set(told.map((entry) => entry.agent).filter(Boolean))];
