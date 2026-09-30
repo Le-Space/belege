@@ -934,6 +934,28 @@ export default {
 		agentOpenOne: '1 open question',
 		agentOpenMany: '{count} open questions',
 		agentNone: 'No open questions – everything that can be linked is linked.',
+		vat: {
+			title: 'Input VAT {year}',
+			what: 'The VAT in your receipts at 19 % and 7 %, by receipt date. As the receipts were extracted – a help for the advance return, not the return itself.',
+			period: 'Period',
+			rate19: '19 %',
+			rate7: '7 %',
+			sum: 'Input VAT',
+			year: 'Year',
+			quarter: 'Q{n}',
+			unlinked: 'Of this, {amount} from receipts not linked to a payment yet (receipts: {count}).',
+			foreign: 'Foreign VAT: {amount} (receipts: {count}) – not German input VAT, not counted.',
+			reverse:
+				'§13b (reverse charge, a service from abroad): {amount} (receipts: {count}). You owe the VAT on it and deduct it as input VAT at once – zero in the end, but to be declared.',
+			noLines:
+				'Receipts without a VAT line: {count}. Nothing to deduct, or not extracted – worth a look.',
+			other: 'Receipts in another currency, not counted: {count}.',
+			undated: 'Receipts without a date, in no period: {count}.',
+			smallBusiness:
+				'As a small business (Kleinunternehmer, §19 UStG) you deduct no input VAT. Your receipts of this year contain {amount} of VAT.',
+			outputLater:
+				'The output VAT from your outgoing invoices and the VAT payable follow once the invoice app sends the VAT per rate.'
+		},
 		agentProgress: '{done} of {total} done',
 		agentAnswer: 'Answer questions',
 		coverage: 'Payments with receipt',
@@ -1347,6 +1369,11 @@ export default {
 			ledgerHint:
 				'The ledger account under which this bank account is kept in your bookkeeping. Suggestion per SKR 03: {suggestion} – only a placeholder, enter the number from MonkeyOffice.',
 			noAccounts: 'No bank accounts in the books yet.',
+			vatPeriod: 'Advance VAT return',
+			vatPeriods: { quarter: 'quarterly', month: 'monthly' },
+			smallBusiness: 'Small business (Kleinunternehmer, §19 UStG)',
+			vatHint:
+				'The input VAT card on Home follows this. As a small business you charge no VAT and deduct none.',
 			legalForm: 'Legal form',
 			legalFormUnset: 'not specified yet',
 			legalForms: {

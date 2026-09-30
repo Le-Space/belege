@@ -498,6 +498,24 @@
 				{/if}
 			</div>
 			<p class="mt-1 text-xs text-faint">{t('anweisungen.books.legalFormHint')}</p>
+			<div class="mt-3 flex flex-wrap items-end gap-3">
+				<label class="flex flex-col">
+					<span class="text-faint">{t('anweisungen.books.vatPeriod')}</span>
+					<select class={input} bind:value={datev.vatPeriod} data-testid="datev-vat-period">
+						<option value="quarter">{t('anweisungen.books.vatPeriods.quarter')}</option>
+						<option value="month">{t('anweisungen.books.vatPeriods.month')}</option>
+					</select>
+				</label>
+				<label class="flex min-h-11 items-center gap-2">
+					<input
+						type="checkbox"
+						bind:checked={datev.smallBusiness}
+						data-testid="datev-small-business"
+					/>
+					<span>{t('anweisungen.books.smallBusiness')}</span>
+				</label>
+			</div>
+			<p class="mt-1 text-xs text-faint">{t('anweisungen.books.vatHint')}</p>
 			<p class="mt-1 text-xs text-faint">{t('anweisungen.books.numbersHint')}</p>
 			<p class="mt-1 text-xs text-faint">{t('anweisungen.books.accountLengthHint')}</p>
 			<p class="mt-3 text-text">{t('anweisungen.books.taxKeys')}</p>
