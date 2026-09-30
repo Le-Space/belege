@@ -34,7 +34,7 @@
 import { FaultTolerance } from '@libp2p/interface';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
-import { NODE_INFO, quietIdentify, quietIdentifyPush } from './quiet-identify.js';
+import { NODE_INFO, gatedIdentify } from './quiet-identify.js';
 import { gossipsub } from '@libp2p/gossipsub';
 import { webSockets } from '@libp2p/websockets';
 import { webRTC, webRTCDirect } from '@libp2p/webrtc';
@@ -158,13 +158,19 @@ export function setSyncGateClosed(closed) {
  * that carries a connection two scanned codes built (qr-link.js): no
  * WebSocket, no relay, nothing it could dial on its own.
  *
- * @param {{ privateKey: any, relays: string[], gate: { service: (components: any) => any }, mode?: import('./network-mode.js').NetworkMode }} params
+ * @param {{ privateKey: any, relays: string[], gate: { service: (components: any) => any, isProved: (peerId: string) => boolean, onProved: (listener: (peerId: string) => void) => () => void }, mode?: import('./network-mode.js').NetworkMode }} params
  * @returns {import('libp2p').Libp2pOptions<any>}
  */
 export function syncLibp2pConfig({ privateKey, relays, gate, mode = 'public' }) {
 	const qr = mode === 'qr';
 	const lan = mode === 'lan';
 	const both = mode === 'both';
+	// A device that has just proved the passkey is asked again: only now is it
+	// told – and tells – more than the public list.
+	const whoAmI = gatedIdentify(gate);
+	gate.onProved((/** @type {string} */ peer) => {
+		whoAmI.learn(peer).catch(() => {});
+	});
 	return {
 		privateKey,
 		addresses: {
@@ -212,9 +218,9 @@ export function syncLibp2pConfig({ privateKey, relays, gate, mode = 'public' }) 
 		services: {
 			// First: it wraps the registrar before anything registers there.
 			deviceGate: gate.service,
-			// Quiet about the databases: their addresses are in OrbitDB's protocol names.
-			identify: quietIdentify(),
-			identifyPush: quietIdentifyPush(),
+			// Two lists (quiet-identify.js): a relay or a stranger is told identify
+			// and the relay protocols only; a device that proved the passkey the rest.
+			...whoAmI.services,
 			pubsub: gossipsub({
 				emitSelf: false,
 				allowPublishToZeroTopicPeers: true,

@@ -69,7 +69,7 @@ describe('isPeerId', () => {
 });
 
 describe('syncLibp2pConfig', () => {
-	const gate = { service: () => ({}) };
+	const gate = { service: () => ({}), isProved: () => false, onProved: () => () => {} };
 	it('listens on the relays and for WebRTC, and keeps gossipsub on limited connections', () => {
 		const relay = '/dns4/relay.example/tcp/443/wss/p2p/12D3KooWExample';
 		const config = syncLibp2pConfig({ privateKey: {}, relays: [relay], gate });
@@ -105,6 +105,7 @@ describe('syncLibp2pConfig', () => {
 			'deviceGate',
 			'identify',
 			'identifyPush',
+			'identifyPushDevices',
 			'pubsub'
 		]);
 	});

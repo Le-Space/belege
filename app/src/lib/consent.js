@@ -34,8 +34,10 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     which were paid, when and how much (issue #8).
 // 16: a token CoinGecko does not price may be priced by its Uniswap pool at
 //     the booking's block, asked of Alchemy (issue #163).
-// 17: what a relay sees, said in full: also the protocols the node speaks;
-//     no longer the databases' addresses nor the browser's user agent (#209).
+// 17: what a relay sees, said in full; no longer the databases' addresses, the
+//     browser's user agent or – since the two lists of quiet-identify.js – the
+//     protocols the node speaks with own devices (#209). That later change told
+//     a relay less, so the version stayed.
 export const CONSENT_VERSION = '17';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */

@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Security
 
+- **A relay no longer learns what a node speaks.** identify now has two lists: a peer that has not proved the passkey, every relay included, is told identify and the relay protocols only; gossipsub, Bitswap, WebRTC signalling and the extensions a desktop serves its own devices are named to a device after its proof. A later change is pushed to each with its own list (#209).
+
 - **identify no longer names the databases.** libp2p's identify tells any peer that asks – a relay too – which protocols a node speaks, and OrbitDB registers one per database, with the database's address in its name. The sync node now leaves those out of identify and identify-push; the databases are still reachable for a device that proved the passkey. It also calls itself `js-libp2p` instead of sending the browser's user agent string. The device proof's protocol, which names the app, is not announced either, and is no longer offered to a relay the node dials. The consent screen says what a relay does see, including the protocol list (consent version 17) (#209).
 
 ## [0.5.0] – 2026-09-30
