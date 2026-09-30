@@ -114,7 +114,9 @@ export async function buildMonthZip({ plan, settings, accounts, classifications,
 	}
 	files[`Uebersicht_${plan.month}.csv`] = strToU8(overviewCsv(plan, { accounts, classifications }));
 	const zip = zipSync(files, { level: 6, mtime: created });
-	return { zip, fileName: `DATEV_${plan.month}.zip`, paths: Object.keys(files), csv };
+	// A package of sample bookings says so in its name: it is no bookkeeping.
+	const prefix = plan.sample === 'all' ? 'BEISPIEL_' : '';
+	return { zip, fileName: `${prefix}DATEV_${plan.month}.zip`, paths: Object.keys(files), csv };
 }
 
 /**

@@ -65,6 +65,8 @@ export const RECEIPT_NUMBER = /^(\d{4}-\d{2})-(\d{3})$/;
  * @property {import('./statement.js').Statement[]} statements one per account with a booking in the month
  * @property {{ unassigned: Rec[], noLedger: Rec[], noBankAccount: Rec[], missingReceipt: Rec[], unlinkedReceipts: Rec[], unverified: Rec[], unpriced: Rec[] }} checks
  *   unpriced: crypto bookings whose rate is missing – no euro amount to export (#162)
+ * @property {'none' | 'all' | 'mixed'} sample sample bookings in the month (issue #200): none, only such, or
+ *   mixed with real ones – which is never exported
  * @property {boolean} blocked
  */
 
@@ -278,6 +280,9 @@ export function planMonth({ month, transactions, accounts, receipts, matches, cl
 		(r) => !r.deleted && String(receiptDate(/** @type {any} */ (r)) ?? '').slice(0, 7) === month
 	);
 	const activeLinked = new Set(matches.filter((m) => isActive(m)).map((m) => m.receiptId));
+	const samples = bookings.filter((t) => t.sample === true).length;
+	/** @type {'none' | 'all' | 'mixed'} */
+	const sample = samples === 0 ? 'none' : samples === bookings.length ? 'all' : 'mixed';
 	const usedBanks = [...new Set(bookings.map((t) => t.accountId).filter(Boolean))];
 	const checks = {
 		unassigned: bookings.filter((t) => !isBookingConfirmed(t)),
@@ -306,8 +311,10 @@ export function planMonth({ month, transactions, accounts, receipts, matches, cl
 		receipts: zipReceipts,
 		statements,
 		checks,
+		sample,
 		blocked:
 			bookings.length === 0 ||
+			sample === 'mixed' ||
 			checks.unassigned.length > 0 ||
 			checks.noLedger.length > 0 ||
 			checks.noBankAccount.length > 0 ||

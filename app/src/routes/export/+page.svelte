@@ -245,6 +245,14 @@
 	>
 		<h2 class="text-lg font-semibold text-heading">{t('export.checks')}</h2>
 		<ul class="mt-2 flex flex-col gap-3 text-sm">
+			{#if plan.sample !== 'none'}
+				{@render item(
+					'sample',
+					plan.sample === 'mixed' ? 'blocker' : 'warning',
+					plan.sample === 'mixed' ? t('export.check.sampleMixed') : t('export.check.sampleAll'),
+					[]
+				)}
+			{/if}
 			{#if plan.checks.unpriced.length}
 				{@render item(
 					'unpriced',

@@ -7,6 +7,7 @@ import { deviceSyncOn } from '$lib/sync/device-sync.js';
 import { bridge, bridgeViaDevice } from '$lib/integrations/bridge-state.svelte.js';
 import { integrationFacts } from '$lib/integrations/facts.svelte.js';
 import { asksForStart, cleanSetup, setupSteps, withStart } from './steps.js';
+import { isSample } from '$lib/sample/sample.js';
 
 export const setup = $state({
 	/** @type {string[]} */
@@ -70,9 +71,10 @@ export function setupFacts() {
 		devices: (app.sync.state?.devices ?? []).length,
 		deviceSync: deviceSyncOn(),
 		invoiceApp: f.invoiceApp,
-		accounts: app.accounts,
-		transactions: app.transactions,
-		receipts: app.receipts,
+		// Sample books are for looking around: they set nothing up.
+		accounts: app.accounts.filter((a) => !isSample(a)),
+		transactions: app.transactions.filter((t) => !isSample(t)),
+		receipts: app.receipts.filter((r) => !isSample(r)),
 		events: app.events,
 		datev: app.datevSettings ?? null,
 		later: setup.later,

@@ -330,6 +330,19 @@ describe('planMonth', () => {
 		expect(byId.get('T3')).toBe('');
 	});
 
+	it('sample bookings never mix with real ones in an export (#200)', () => {
+		const b = books();
+		expect(planMonth({ month: '2026-09', ...b }).sample).toBe('none');
+		const some = b.transactions.map((/** @type {any} */ t, /** @type {number} */ i) =>
+			i === 0 ? { ...t, sample: true } : t
+		);
+		const mixed = planMonth({ month: '2026-09', ...b, transactions: some });
+		expect([mixed.sample, mixed.blocked]).toEqual(['mixed', true]);
+		const all = b.transactions.map((/** @type {any} */ t) => ({ ...t, sample: true }));
+		const only = planMonth({ month: '2026-09', ...b, transactions: all });
+		expect([only.sample, only.blocked]).toEqual(['all', false]);
+	});
+
 	it('one line per booking; the transfer once, from the lower ledger, against the other bank', () => {
 		const b = books();
 		const plan = planMonth({ month: '2026-09', ...b });
