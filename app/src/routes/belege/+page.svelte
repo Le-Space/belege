@@ -5,6 +5,7 @@
 	// shared folder and from customer portals (Integrationen → Kundenportale);
 	// every file is sealed before it is stored.
 	import { onMount, tick } from 'svelte';
+	import WayOut from '$lib/help/WayOut.svelte';
 	import { cleanMatchingSettings } from '$lib/matching/classify.js';
 	import { isVendorReceipt } from '$lib/matching/vendor-account.js';
 	import { addressBook, payeeName } from '$lib/bank/payee.js';
@@ -705,6 +706,7 @@
 			{/if}
 			{#if fetchError}
 				<p class="mt-2 text-sm text-danger" role="alert" data-testid="mail-error">{fetchError}</p>
+				<WayOut message={fetchError} />
 			{/if}
 		{/if}
 	</section>
@@ -712,6 +714,9 @@
 	{#if receipts.length === 0}
 		<p class="mt-6 {card} px-5 py-4 text-text" data-testid="receipts-empty">
 			{t('belege.empty')}
+			<a class="underline" href={resolve('/integrationen/bridge')} data-testid="receipts-empty-link"
+				>{t('belege.emptyLink')}</a
+			>
 		</p>
 	{:else}
 		<div

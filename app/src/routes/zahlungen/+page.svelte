@@ -174,7 +174,7 @@
 		class="mt-6 rounded-lg border border-border bg-surface px-5 py-4 text-text shadow-sm"
 		data-testid="transactions-empty"
 	>
-		{t('zahlungen.emptyBefore')}<a class="underline" href={resolve('/integrationen')}
+		{t('zahlungen.emptyBefore')}<a class="underline" href={resolve('/integrationen/bank')}
 			>{t('zahlungen.emptyLink')}</a
 		>{t('zahlungen.emptyAfter')}
 	</p>

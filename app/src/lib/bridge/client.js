@@ -1,4 +1,5 @@
 import { t } from '../i18n/index.js';
+import { noteWayOut, wayOutKind } from '../help/way-out.js';
 // The app's side of the bridge on 127.0.0.1 (see bridge/README.md).
 
 /**
@@ -22,6 +23,19 @@ export class BridgeError extends Error {
 		this.name = 'BridgeError';
 		this.status = status;
 	}
+}
+
+/**
+ * A failed call, with its way out noted for the card that shows the message
+ * (help/way-out.js).
+ *
+ * @param {string} message
+ * @param {number} status
+ * @param {{ code?: string, error?: string } | null} body
+ */
+function failed(message, status, body) {
+	noteWayOut(message, wayOutKind(status, body));
+	return new BridgeError(message, status);
 }
 
 /**
@@ -172,7 +186,7 @@ export function createBridgeClient({
 				credentials: 'omit'
 			});
 		} catch {
-			throw new BridgeError(t('messages.bridge.unreachable'), 0);
+			throw failed(t('messages.bridge.unreachable'), 0, null);
 		}
 		if (binary && res.ok) return new Uint8Array(await res.arrayBuffer());
 		const body = await res.json().catch(() => ({}));
@@ -200,9 +214,10 @@ export function createBridgeClient({
 				);
 				throw new BridgeError(t('messages.bridge.noModel', { reasons: reasons.join('; ') }), 502);
 			}
-			throw new BridgeError(
+			throw failed(
 				messages[res.status] ?? body?.error ?? `Bridge: HTTP ${res.status}`,
-				res.status
+				res.status,
+				body
 			);
 		}
 		return body;

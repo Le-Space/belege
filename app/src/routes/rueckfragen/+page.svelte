@@ -517,7 +517,11 @@
 		{/if}
 	</section>
 {:else}
-	<p class="mt-4 {card} text-text" data-testid="questions-empty">{t('rueckfragen.empty')}</p>
+	<p class="mt-4 {card} text-text" data-testid="questions-empty">
+		{app.transactions.length === 0 && app.receipts.length === 0
+			? t('rueckfragen.emptyNew')
+			: t('rueckfragen.empty')}
+	</p>
 {/each}
 
 {#if answered.length}

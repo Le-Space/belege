@@ -2,6 +2,7 @@
 	// Integrationen → Kraken: the accounts on the exchange, one per asset and
 	// wallet, and "Kraken synchronisieren" (kraken-sync.js).
 	import { krakenKeyProblem, updateAlerts } from '$lib/integrations/alerts.js';
+	import WayOut from '$lib/help/WayOut.svelte';
 	import { createBridgeClient } from '$lib/bridge/client.js';
 	import { formatDate } from '$lib/bank/format.js';
 	import { formatQuantity, toUnits } from '$lib/assets/quantity.js';
@@ -160,6 +161,7 @@
 					<p>{error}</p>
 				{/if}
 			</div>
+			<WayOut message={error} />
 		{/if}
 	</section>
 {/if}

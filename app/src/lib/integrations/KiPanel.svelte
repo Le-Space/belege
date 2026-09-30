@@ -2,6 +2,7 @@
 	// KI – Beleg-Auslesen (issue #152): which model the bridge uses, whether
 	// its key is there, what was read so far. Moved from the Integrationen page.
 	import { resolve } from '$app/paths';
+	import WayOut from '$lib/help/WayOut.svelte';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
 	import { extractionTotals } from '$lib/activity/events.js';
 	import { integer } from '$lib/receipts/how.js';
@@ -46,6 +47,7 @@
 		<p class="mt-3 text-sm text-danger" role="alert" data-testid="ki-error">
 			{t('integrationen.ki.unreachable', { error: llmError })}
 		</p>
+		<WayOut message={llmError} />
 	{:else if llmStatus}
 		<dl
 			class="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm"

@@ -4,6 +4,7 @@
 	// Eigenbeleg of what the credits were used for (aleph.js). Read only: the
 	// bridge asks Aleph's public API; nothing is signed or moved.
 	import { createBridgeClient } from '$lib/bridge/client.js';
+	import WayOut from '$lib/help/WayOut.svelte';
 	import { app, currentBlobs, currentStore, refreshNow } from '$lib/session.svelte.js';
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { formatDate } from '$lib/bank/format.js';
@@ -193,6 +194,7 @@
 		{/if}
 		{#if error}
 			<p class="mt-2 text-sm text-danger" role="alert" data-testid="aleph-error">{error}</p>
+			<WayOut message={error} />
 		{/if}
 
 		{#if aleph.accounts.length}

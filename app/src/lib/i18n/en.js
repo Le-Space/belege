@@ -1269,6 +1269,8 @@ export default {
 			'Where matching is not sure, it asks you. Your answer stands: a later matching run does not overwrite it.',
 		back: 'Back to Home',
 		empty: 'No open questions.',
+		emptyNew:
+			'Nothing to ask yet: once payments and receipts are in, the cases Belege cannot link by itself show here.',
 		answered: 'Done ({count})',
 		kind: {
 			'unsure-match': 'Which payment belongs to this receipt?',
@@ -1433,7 +1435,9 @@ export default {
 	},
 	belege: {
 		title: 'Receipts',
-		empty: 'No receipts yet. Fetch emails, upload files or share a folder.',
+		empty:
+			'No receipts yet. Uploading files or sharing a folder works at once; the accounting mailbox needs the bridge.',
+		emptyLink: 'Set up the bridge',
 		upload: 'Upload receipts',
 		uploadHint: 'PDFs and images, drag and drop them here too.',
 		drop: 'Drop to upload',
@@ -1816,7 +1820,8 @@ export default {
 		title: 'Export',
 		intro:
 			'Once a month: the bookings as a DATEV booking batch for MonkeyOffice and the receipts as PDF, together in one ZIP file. It is created only here in the browser and downloaded to your device – nothing goes to a server.',
-		empty: 'No payments yet – connect the bank or import a bank statement first.',
+		empty: 'No payments yet – without them there is nothing to export.',
+		emptyLink: 'Upload a bank statement or connect the bank',
 		month: 'Month',
 		summary:
 			'{bookings} bookings · {lines} in the booking batch · {receipts} receipts and {statements} bank statements in the ZIP',
@@ -1867,6 +1872,25 @@ export default {
 			'The ZIP file is created with fflate in the browser; the receipts are opened from the sealed storage for this. The receipt numbers assigned stay on the receipt (exportNumber), a second export assigns the same ones.'
 		]
 	},
+	help: {
+		copyCommand: 'Copy command',
+		wayOut: {
+			unreachable: 'Start the bridge in the terminal:',
+			'unknown-device': 'The bridge no longer knows this pairing.',
+			origin:
+				'Add this page’s address to appOrigins in ~/.config/belege/bridge.json and restart the bridge.',
+			mail: 'Set up the mailbox once in the terminal, then restart the bridge:',
+			llm: 'Set up the language model once in the terminal, then restart the bridge:',
+			hibiscus: 'Set up Hibiscus once in the terminal, then restart the bridge:',
+			kraken: 'Set up Kraken once in the terminal, then restart the bridge:'
+		},
+		wayOutLink: {
+			unreachable: 'To the bridge',
+			'unknown-device': 'Pair again',
+			origin: 'To the bridge',
+			llm: 'To the AI setup'
+		}
+	},
 	copy: {
 		copied: 'Copied',
 		selected: 'Selected – copy with Ctrl+C or ⌘C',
@@ -1882,8 +1906,9 @@ export default {
 		title: 'Payments',
 		addTest: 'Create test booking',
 		emptyBefore: 'No payments yet – under ',
-		emptyLink: 'Integrations',
-		emptyAfter: ' connect the bank or import a bank statement.',
+		emptyLink: 'Bank',
+		emptyAfter:
+			' upload a bank statement (CAMT.053) – that works without the bridge – or connect the bank through Hibiscus.',
 		account: 'Account',
 		allAccounts: 'All accounts',
 		search: 'Search',
@@ -2226,6 +2251,51 @@ export default {
 		}
 	},
 	integrationen: {
+		help: {
+			title: 'What is this, and how do I set it up?',
+			command: 'In the terminal, in Belege’s folder:',
+			doc: 'More in the docs',
+			bridge: {
+				what: 'The bridge is a small program on your computer. It fetches what a browser may not: the bank through Hibiscus, the mailbox, the language model, customer portals, the exchange and wallets.',
+				how: 'Start it in the terminal and type the pairing code it shows in here. It listens to this computer only.'
+			},
+			bank: {
+				what: 'Payments come from Hibiscus (through the bridge) or from a bank statement file in CAMT.053 format.',
+				how: 'The file works at once, without the bridge: export it as CAMT.053 in your online banking and upload it here. For Hibiscus, run the setup once in the terminal and allow the accounts.'
+			},
+			ki: {
+				what: 'A language model reads vendor, amount, date and number from receipts and helps in four more places – always only on a click (✦).',
+				how: 'You set up your own model in the bridge, such as DeepSeek or a local one with Ollama. Text is redacted before it is sent; Le Space runs no AI.'
+			},
+			kraken: {
+				what: 'Belege reads your Kraken account read-only: ledger, balances and trades, one account per asset, in euros at the day’s rate.',
+				how: 'Create an API key at Kraken with only “Query Funds” and “Query Ledger Entries” and enter it during the setup in the terminal. It goes into the keychain.'
+			},
+			wallets: {
+				what: 'Your own crypto addresses as accounts, read-only by the address: transfers, fees and balance, never a key.',
+				how: 'Choose the chain, enter the address, sync. The bridge has to run for it; a setup in the terminal is needed only for Bitcoin (setup:bitcoin) or, optionally, Alchemy (setup:alchemy).'
+			},
+			aleph: {
+				what: 'Aleph Cloud issues no invoices. Belege creates a usage proof as an Eigenbeleg per account and month.',
+				how: 'Enter the Aleph account’s address, or have your own Ethereum addresses checked. It only reads; nothing is signed.'
+			},
+			geraete: {
+				what: 'The same books on phone and computer, synced directly between your devices. A device gets them only once it proves the passkey.',
+				how: 'Switch sync on, then add the second device by QR code. Optionally the devices meet only on your own network, at a relay in your bridge:'
+			},
+			portale: {
+				what: 'Some invoices exist only in a customer portal. The bridge fetches them with a browser of its own on this computer.',
+				how: 'Choose a portal or record your own once. You can keep the login in the keychain:'
+			},
+			'rechnungs-app': {
+				what: 'The Le Space invoice app creates Eigenbelege for Belege and learns which of its invoices are paid.',
+				how: 'Switch it on here and pair with the invoice app: by invitation or with a comparison code on both sides.'
+			},
+			assistent: {
+				what: 'A read share of the books for an assistant: one year, redacted, with an expiry.',
+				how: 'Choose year and duration, create the share and pass on the command shown. The bridge has to run for it; the share can be ended at any time.'
+			}
+		},
 		overview: {
 			intro: 'What is connected to Belege – and what needs you right now.',
 			countOk: 'connected',

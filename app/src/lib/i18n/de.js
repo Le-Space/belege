@@ -1294,6 +1294,8 @@ export default {
 			'Wo der Abgleich nicht sicher ist, fragt er dich. Deine Antwort gilt: Ein späterer Abgleich überschreibt sie nicht.',
 		back: 'Zurück zu Home',
 		empty: 'Keine offenen Rückfragen.',
+		emptyNew:
+			'Noch nichts zu fragen: Sobald Zahlungen und Belege da sind, stehen hier die Fälle, die Belege nicht selbst zuordnen kann.',
 		answered: 'Erledigt ({count})',
 		kind: {
 			'unsure-match': 'Welche Zahlung gehört zu diesem Beleg?',
@@ -1458,7 +1460,9 @@ export default {
 	},
 	belege: {
 		title: 'Belege',
-		empty: 'Noch keine Belege. E-Mails abrufen, Dateien hochladen oder einen Ordner freigeben.',
+		empty:
+			'Noch keine Belege. Dateien hochladen oder einen Ordner freigeben geht sofort; für das Buchhaltungs-Postfach brauchst du die Bridge.',
+		emptyLink: 'Bridge einrichten',
 		upload: 'Belege hochladen',
 		uploadHint: 'PDFs und Bilder, auch per Drag & Drop hierher.',
 		drop: 'Loslassen zum Hochladen',
@@ -1846,7 +1850,8 @@ export default {
 		title: 'Export',
 		intro:
 			'Einmal im Monat: die Buchungen als DATEV-Buchungsstapel für MonkeyOffice und die Belege als PDF, zusammen in einer ZIP-Datei. Sie entsteht nur hier im Browser und wird auf dein Gerät geladen – nichts geht an einen Server.',
-		empty: 'Noch keine Zahlungen – erst die Bank anbinden oder einen Kontoauszug importieren.',
+		empty: 'Noch keine Zahlungen – ohne sie gibt es nichts zu exportieren.',
+		emptyLink: 'Kontoauszug hochladen oder Bank anbinden',
 		month: 'Monat',
 		summary:
 			'{bookings} Buchungen · {lines} im Buchungsstapel · {receipts} Belege und {statements} Kontoauszüge im ZIP',
@@ -1898,6 +1903,26 @@ export default {
 		]
 	},
 	// CopyButton.svelte (issue #114): addresses, hashes and IBANs.
+	// Help in context (issue #200, step 4).
+	help: {
+		copyCommand: 'Befehl kopieren',
+		wayOut: {
+			unreachable: 'Starte die Bridge im Terminal:',
+			'unknown-device': 'Die Kopplung ist auf der Bridge nicht mehr bekannt.',
+			origin:
+				'Trag die Adresse dieser Seite in ~/.config/belege/bridge.json unter appOrigins ein und starte die Bridge neu.',
+			mail: 'Richte das Postfach einmal im Terminal ein, dann die Bridge neu starten:',
+			llm: 'Richte das Sprachmodell einmal im Terminal ein, dann die Bridge neu starten:',
+			hibiscus: 'Richte Hibiscus einmal im Terminal ein, dann die Bridge neu starten:',
+			kraken: 'Richte Kraken einmal im Terminal ein, dann die Bridge neu starten:'
+		},
+		wayOutLink: {
+			unreachable: 'Zur Bridge',
+			'unknown-device': 'Neu koppeln',
+			origin: 'Zur Bridge',
+			llm: 'Zur KI-Einrichtung'
+		}
+	},
 	copy: {
 		copied: 'Kopiert',
 		selected: 'Markiert – mit Strg+C bzw. ⌘C kopieren',
@@ -1913,8 +1938,9 @@ export default {
 		title: 'Zahlungen',
 		addTest: 'Testbuchung anlegen',
 		emptyBefore: 'Noch keine Zahlungen – unter ',
-		emptyLink: 'Integrationen',
-		emptyAfter: ' die Bank anbinden oder einen Kontoauszug importieren.',
+		emptyLink: 'Bank',
+		emptyAfter:
+			' einen Kontoauszug (CAMT.053) hochladen – das geht ohne Bridge – oder die Bank über Hibiscus anbinden.',
 		account: 'Konto',
 		allAccounts: 'Alle Konten',
 		search: 'Suchen',
@@ -2257,6 +2283,51 @@ export default {
 		}
 	},
 	integrationen: {
+		help: {
+			title: 'Was ist das, und wie richte ich es ein?',
+			command: 'Im Terminal, im Ordner von Belege:',
+			doc: 'Mehr dazu in der Doku',
+			bridge: {
+				what: 'Die Bridge ist ein kleines Programm auf deinem Rechner. Sie holt, was ein Browser nicht darf: die Bank über Hibiscus, das Postfach, das Sprachmodell, Kundenportale, Börse und Wallets.',
+				how: 'Starte sie im Terminal und tipp den Kopplungscode, den sie zeigt, hier ein. Sie hört nur auf diesen Rechner.'
+			},
+			bank: {
+				what: 'Zahlungen kommen aus Hibiscus (über die Bridge) oder aus einer Kontoauszug-Datei im Format CAMT.053.',
+				how: 'Die Datei geht sofort, ohne Bridge: im Online-Banking als CAMT.053 exportieren und hier hochladen. Für Hibiscus einmal das Setup im Terminal ausführen und die Konten freigeben.'
+			},
+			ki: {
+				what: 'Ein Sprachmodell liest Anbieter, Betrag, Datum und Nummer aus Belegen und hilft an vier weiteren Stellen – immer nur auf Klick (✦).',
+				how: 'Du richtest dein eigenes Modell in der Bridge ein, etwa DeepSeek oder ein lokales mit Ollama. Vor dem Senden wird geschwärzt; Le Space betreibt keine KI.'
+			},
+			kraken: {
+				what: 'Belege liest dein Kraken-Konto nur lesend: Ledger, Bestände und Trades, je Asset ein Konto, in Euro zum Tageskurs.',
+				how: 'Leg bei Kraken einen API-Key nur mit „Query Funds“ und „Query Ledger Entries“ an und gib ihn beim Setup im Terminal ein. Er landet im Schlüsselbund.'
+			},
+			wallets: {
+				what: 'Eigene Krypto-Adressen als Konten, nur lesend über die Adresse: Überweisungen, Gebühren und Bestand, nie ein Schlüssel.',
+				how: 'Chain wählen, Adresse eintragen, synchronisieren. Dafür muss die Bridge laufen; ein Setup im Terminal brauchst du nur für Bitcoin (setup:bitcoin) oder optional Alchemy (setup:alchemy).'
+			},
+			aleph: {
+				what: 'Aleph Cloud stellt keine Rechnungen aus. Belege erstellt je Konto und Monat einen Verbrauchsnachweis als Eigenbeleg.',
+				how: 'Trag die Adresse des Aleph-Kontos ein oder lass eigene Ethereum-Adressen prüfen. Es wird nur gelesen, nichts signiert.'
+			},
+			geraete: {
+				what: 'Dieselben Bücher auf Telefon und Rechner, direkt zwischen deinen Geräten synchronisiert. Ein Gerät bekommt sie erst, wenn es den Passkey beweist.',
+				how: 'Synchronisation einschalten, dann das zweite Gerät per QR-Code hinzufügen. Optional treffen sich die Geräte nur im eigenen Netz, über einen Relay in deiner Bridge:'
+			},
+			portale: {
+				what: 'Manche Rechnungen liegen nur im Kundenportal. Die Bridge holt sie mit einem eigenen Browser auf diesem Rechner.',
+				how: 'Portal wählen oder ein eigenes einmal aufzeichnen. Die Zugangsdaten kannst du im Schlüsselbund hinterlegen:'
+			},
+			'rechnungs-app': {
+				what: 'Die Rechnungs-App von Le Space erstellt Eigenbelege für Belege und erfährt, welche ihrer Rechnungen bezahlt sind.',
+				how: 'Hier einschalten und mit der Rechnungs-App koppeln: per Einladung oder mit einem Vergleichscode auf beiden Seiten.'
+			},
+			assistent: {
+				what: 'Eine Lese-Freigabe der Bücher für eine Assistenz: ein Jahr, geschwärzt, mit Ablaufzeit.',
+				how: 'Jahr und Dauer wählen, Freigabe erstellen und den gezeigten Befehl weitergeben. Dafür muss die Bridge laufen; die Freigabe lässt sich jederzeit beenden.'
+			}
+		},
 		overview: {
 			intro: 'Was mit Belege verbunden ist – und was dich gerade braucht.',
 			countOk: 'verbunden',
