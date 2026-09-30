@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Made up, in the shape of a Wise export (issue #218): camt.053.001.10, an
+     account without an IBAN, entries without NtryDtls. No real id, merchant
+     or amount. -->
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.10">
+  <BkToCstmrStmt>
+    <GrpHdr>
+      <MsgId>SAMPLE-MSG-1</MsgId>
+      <CreDtTm>2026-02-01T08:00:00.000000+00:00</CreDtTm>
+    </GrpHdr>
+    <Stmt>
+      <Id>SAMPLE-STMT-1</Id>
+      <CreDtTm>2026-02-01T08:00:00.000000+00:00</CreDtTm>
+      <FrToDt>
+        <FrDtTm>2026-01-01T00:00:00.000000+00:00</FrDtTm>
+        <ToDtTm>2026-01-31T23:59:59.999999+00:00</ToDtTm>
+      </FrToDt>
+      <Acct>
+        <Id>
+          <Othr>
+            <Id>10000042</Id>
+            <SchmeNm><Prtry>Wise balance id</Prtry></SchmeNm>
+            <Issr>Wise Example SA</Issr>
+          </Othr>
+        </Id>
+        <Ccy>EUR</Ccy>
+        <Ownr><Nm>Beispiel GmbH</Nm></Ownr>
+        <Svcr><FinInstnId><Nm>Wise Example SA</Nm></FinInstnId></Svcr>
+      </Acct>
+      <Bal>
+        <Tp><CdOrPrtry><Cd>OPBD</Cd></CdOrPrtry></Tp>
+        <Amt Ccy="EUR">0.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt><DtTm>2026-01-01T00:00:00.000000+00:00</DtTm></Dt>
+      </Bal>
+      <Ntry>
+        <Amt Ccy="EUR">200.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts><Cd>BOOK</Cd></Sts>
+        <BookgDt><DtTm>2026-01-05T09:15:00.000000+00:00</DtTm></BookgDt>
+        <BkTxCd><Prtry><Cd>TRANSFER-1000001</Cd></Prtry></BkTxCd>
+        <AddtlNtryInf>Topped up account</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="EUR">11.50</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts><Cd>BOOK</Cd></Sts>
+        <BookgDt><DtTm>2026-01-07T14:30:10.000000+00:00</DtTm></BookgDt>
+        <BkTxCd><Prtry><Cd>CARD-2000001</Cd></Prtry></BkTxCd>
+        <AmtDtls>
+          <TxAmt>
+            <Amt Ccy="EUR">11.50</Amt>
+            <CcyXchg>
+              <SrcCcy>EUR</SrcCcy>
+              <TrgtCcy>USD</TrgtCcy>
+              <UnitCcy>EUR</UnitCcy>
+              <XchgRate>1.07391</XchgRate>
+            </CcyXchg>
+          </TxAmt>
+        </AmtDtls>
+        <AddtlNtryInf>Card transaction of 12.35 USD issued by Example Cloud Shop</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="EUR">0.06</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts><Cd>BOOK</Cd></Sts>
+        <BookgDt><DtTm>2026-01-07T14:30:10.000000+00:00</DtTm></BookgDt>
+        <BkTxCd><Prtry><Cd>FEE-CARD-2000001</Cd></Prtry></BkTxCd>
+        <AddtlNtryInf>Wise Charges for: CARD-2000001</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="EUR">24.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts><Cd>BOOK</Cd></Sts>
+        <BookgDt><DtTm>2026-01-12T18:02:44.000000+00:00</DtTm></BookgDt>
+        <BkTxCd><Prtry><Cd>CARD-2000002</Cd></Prtry></BkTxCd>
+        <AddtlNtryInf>Card transaction of 24.00 EUR issued by Musterladen Berlin</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="EUR">0.35</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts><Cd>BOOK</Cd></Sts>
+        <BookgDt><DtTm>2026-01-31T06:00:00.000000+00:00</DtTm></BookgDt>
+        <BkTxCd><Prtry><Cd>0123456789abcdef0123456789abcdef</Cd></Prtry></BkTxCd>
+        <AddtlNtryInf>Cashback</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="EUR">5.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts><Cd>PDNG</Cd></Sts>
+        <BookgDt><DtTm>2026-01-31T20:00:00.000000+00:00</DtTm></BookgDt>
+        <BkTxCd><Prtry><Cd>CARD-2000003</Cd></Prtry></BkTxCd>
+        <AddtlNtryInf>Card transaction of 5.00 EUR issued by Noch Offen Test</AddtlNtryInf>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>

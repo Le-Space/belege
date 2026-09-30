@@ -2114,6 +2114,9 @@ export default {
 			date: 'Buchungstag',
 			quantity: 'Menge',
 			valuation: 'Kurs',
+			original: 'Bezahlt in',
+			originalAmount: '{amount} {currency}',
+			originalRate: ' · Kurs der Bank {rate}',
 			eigenbeleg: {
 				open: 'Eigenbeleg erstellen',
 				hint: 'Für eine Zahlung ohne Beleg der Gegenseite, z. B. Gebühren auf einer Blockchain. Er ist keine Rechnung; ob er anerkannt wird, klärt die Steuerberatung.',

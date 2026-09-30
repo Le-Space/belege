@@ -105,7 +105,12 @@
 		try {
 			for (const file of files) {
 				const statements = parseCamt053(await file.text());
-				for (const result of await importCamtStatements(store, statements)) {
+				// A statement in another currency is valued at the day's rate, which the bridge has.
+				const getRate = bridge.token
+					? (/** @type {string} */ asset, /** @type {string} */ date) =>
+							bridgeClient().rate(asset, date)
+					: null;
+				for (const result of await importCamtStatements(store, statements, { getRate })) {
 					camtResults.push({
 						label: `${accountLabel(result.account)}`,
 						counts: result.counts,

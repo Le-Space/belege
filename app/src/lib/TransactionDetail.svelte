@@ -1380,6 +1380,19 @@
 							<dd class="text-heading" data-testid="tx-detail-valuation">{valuationText(tx)}</dd>
 						{/if}
 					{/if}
+					{#if tx.original?.currency}
+						<dt class="text-faint">{t('zahlungen.detail.original')}</dt>
+						<dd class="text-heading" data-testid="tx-detail-original">
+							{tx.original.amount
+								? t('zahlungen.detail.originalAmount', {
+										amount: tx.original.amount,
+										currency: tx.original.currency
+									})
+								: tx.original.currency}{tx.original.rate
+								? t('zahlungen.detail.originalRate', { rate: tx.original.rate })
+								: ''}
+						</dd>
+					{/if}
 					{#if tx.exchangeType}
 						<dt class="text-faint">{t('zahlungen.detail.exchangeType')}</dt>
 						<dd class="font-mono text-xs text-heading">{tx.exchangeType}</dd>
