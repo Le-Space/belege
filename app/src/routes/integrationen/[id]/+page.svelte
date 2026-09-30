@@ -15,6 +15,9 @@
 	import InvoiceAppCard from '$lib/ucep/InvoiceAppCard.svelte';
 	import PortalsCard from '$lib/portals/PortalsCard.svelte';
 	import { bridge, loadBridge } from '$lib/integrations/bridge-state.svelte.js';
+	import IntegrationHelp from '$lib/help/IntegrationHelp.svelte';
+	import { integrationFacts, loadIntegrationFacts } from '$lib/integrations/facts.svelte.js';
+	import { integrationsOverview } from '$lib/integrations/overview.js';
 
 	const KNOWN = [
 		'bridge',
@@ -32,7 +35,11 @@
 
 	onMount(() => {
 		if (!bridge.loaded) loadBridge();
+		loadIntegrationFacts();
 	});
+	// The help is unfolded while the integration is not working yet.
+	let row = $derived(integrationsOverview(integrationFacts()).rows.find((r) => r.id === id));
+	let needsHelp = $derived(!row || row.kind !== 'ok');
 </script>
 
 <svelte:head
@@ -55,6 +62,7 @@
 	<h1 class="mt-2 text-2xl font-bold text-heading" data-testid="integration-title">
 		{t(`integrationen.overview.name.${id}`)}
 	</h1>
+	{#key id}<IntegrationHelp {id} open={needsHelp} />{/key}
 	<div class="integration-page" class:hide-card-title={id !== 'bank'}>
 		{#if id === 'bridge'}
 			<section class="mt-4 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm">

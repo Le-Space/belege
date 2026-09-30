@@ -3,6 +3,7 @@
 	// their sync, the CAMT.053 file import for banks without Hibiscus, and the
 	// accounts the books keep. Moved from the Integrationen page.
 	import { btn } from '$lib/ui/styles.js';
+	import WayOut from '$lib/help/WayOut.svelte';
 	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { app, currentStore, refreshNow, runMatchingNow } from '$lib/session.svelte.js';
@@ -215,6 +216,7 @@
 		{/if}
 		{#if syncError}
 			<p class="mt-3 text-sm text-danger" role="alert" data-testid="sync-error">{syncError}</p>
+			<WayOut message={syncError} />
 		{/if}
 	</section>
 {/if}

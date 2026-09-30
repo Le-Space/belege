@@ -201,6 +201,9 @@
 		data-testid="export-empty"
 	>
 		{t('export.empty')}
+		<a class="underline" href={resolve('/integrationen/bank')} data-testid="export-empty-link"
+			>{t('export.emptyLink')}</a
+		>
 	</p>
 {:else}
 	<section

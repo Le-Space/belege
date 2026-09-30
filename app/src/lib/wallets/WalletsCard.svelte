@@ -3,6 +3,7 @@
 	// only, never a key), see which node and explorer are used, synchronise
 	// it (wallet-sync.js), take it off the list again.
 	import { btn } from '$lib/ui/styles.js';
+	import WayOut from '$lib/help/WayOut.svelte';
 	import { updateAlerts } from '$lib/integrations/alerts.js';
 	import { createBridgeClient } from '$lib/bridge/client.js';
 	import { formatDate } from '$lib/bank/format.js';
@@ -548,6 +549,7 @@
 							<p class="mt-2 text-sm text-danger" role="alert" data-testid="wallet-error">
 								{errors[wallet.id]}
 							</p>
+							<WayOut message={errors[wallet.id]} />
 						{/if}
 					</li>
 				{/each}
@@ -677,6 +679,7 @@
 				>
 				{#if addError}
 					<p class="text-sm text-danger" role="alert" data-testid="wallet-add-error">{addError}</p>
+					<WayOut message={addError} />
 				{/if}
 			</form>
 		{/if}
