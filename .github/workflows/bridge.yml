@@ -1,0 +1,47 @@
+name: Bridge tests
+
+# The bridge's tests, with fakes only. The phase-0 spikes under spikes/ talk to
+# a local Hibiscus, a mail server and an LLM API; they are not run here. A
+# workflow of its own, so the README can show its state.
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  # ci.yml calls this for a release and a deploy.
+  workflow_call:
+
+concurrency:
+  # github.workflow is the caller's name when called, so a release's run stays
+  # apart from the push run; the prefix keeps the three test workflows apart.
+  group: bridge-${{ github.workflow }}-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  bridge:
+    name: Bridge tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile --filter @belege/bridge...
+      # The portal tests drive a real headless Chromium against a fake portal.
+      - name: Install Chromium for the portal tests
+        run: pnpm --filter @belege/bridge exec playwright install --with-deps --only-shell chromium
+      - name: Format
+        run: pnpm --filter @belege/bridge lint
+      # release.yml's steps run only at a release: check their shell here.
+      - name: Workflow shell syntax
+        run: ruby scripts/check-workflow-shell.rb
+      - name: Tests
+        run: pnpm run test:bridge

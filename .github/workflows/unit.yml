@@ -1,0 +1,44 @@
+name: Unit tests
+
+# The app's lint (formatting, ESLint with the German guard), types and unit
+# tests. A workflow of its own, so the README can show its state (the badge is
+# per workflow).
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  # ci.yml calls this for a release and a deploy.
+  workflow_call:
+
+concurrency:
+  # github.workflow is the caller's name when called, so a release's run stays
+  # apart from the push run; the prefix keeps the three test workflows apart.
+  group: unit-${{ github.workflow }}-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      # The version comes from packageManager in the root package.json.
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm --filter @belege/app lint
+      - name: Types
+        run: pnpm run check
+      - name: Unit tests
+        run: pnpm run test:unit

@@ -1,5 +1,9 @@
 # belege
 
+[![Unit tests](https://github.com/Le-Space/belege/actions/workflows/unit.yml/badge.svg?branch=main)](https://github.com/Le-Space/belege/actions/workflows/unit.yml?query=branch%3Amain)
+[![E2E tests](https://github.com/Le-Space/belege/actions/workflows/e2e.yml/badge.svg?branch=main)](https://github.com/Le-Space/belege/actions/workflows/e2e.yml?query=branch%3Amain)
+[![Bridge tests](https://github.com/Le-Space/belege/actions/workflows/bridge.yml/badge.svg?branch=main)](https://github.com/Le-Space/belege/actions/workflows/bridge.yml?query=branch%3Amain)
+[![Release](https://img.shields.io/github/v/release/Le-Space/belege?label=Release)](https://github.com/Le-Space/belege/releases/latest)
 [![Sponsor](https://img.shields.io/github/sponsors/Le-Space?label=Sponsor&logo=githubsponsors&color=EA4AAA)](https://github.com/sponsors/Le-Space)
 
 Local-first bookkeeping for a small business: matches bank and crypto transactions with receipts from the accounting mailbox, uploads, a folder and customer portals, and exports a monthly DATEV package. The books live encrypted in the browser, under a passkey. A small bridge on `127.0.0.1` does what a browser cannot: Hibiscus, IMAP, the language model, customer portals, exchanges and wallets.
@@ -51,6 +55,8 @@ Own Cosmos and EVM wallets are added in the app (_Integrationen → Eigene Walle
 pnpm dev               # the app on http://localhost:5173
 pnpm lint && pnpm check && pnpm test:unit && pnpm test:bridge && pnpm test:e2e
 ```
+
+Every push and pull request runs them as three workflows (unit, E2E, bridge), the badges above; a release runs all three again before anything is published.
 
 The app is in [`app/`](app/README.md), the bridge in [`bridge/`](bridge/README.md). A release deploys to belege.le-space.de ([docs/deploy.md](docs/deploy.md)).
 
