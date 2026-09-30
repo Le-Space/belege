@@ -161,6 +161,8 @@ describe('catalogue and settings', () => {
 		).toEqual({
 			legalForm: '',
 			shareholderAccount: '',
+			vatPeriod: 'quarter',
+			smallBusiness: false,
 			consultantNumber: '12345',
 			clientNumber: '7',
 			fiscalYearStartMonth: 7,

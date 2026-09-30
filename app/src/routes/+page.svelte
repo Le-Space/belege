@@ -24,6 +24,7 @@
 	import { receiptVendor } from '$lib/receipts/view.js';
 	import { booksByYear, shownYear, startMonth } from '$lib/year/year.svelte.js';
 	import { yearLabel } from '$lib/year/year.js';
+	import InputVatCard from '$lib/vat/InputVatCard.svelte';
 	import { openPrivatePayments } from '$lib/matching/private.js';
 	import { cleanDatevSettings, privateAccounts } from '$lib/booking/settings.js';
 	import NeedsCard from '$lib/integrations/NeedsCard.svelte';
@@ -111,6 +112,7 @@
 		};
 	});
 	let yearName = $derived(yearLabel(shownYear(), startMonth()));
+	let vatSettings = $derived(cleanDatevSettings(app.datevSettings));
 	let progress = $derived(questionProgress(shown.questions));
 	let covered = $derived(shown.transactions.filter((tx) => isTxCovered(tx, app.classifications)));
 	let percent = $derived(
@@ -458,6 +460,16 @@
 		year={yearName}
 	/>
 {/if}
+
+<InputVatCard
+	receipts={app.receipts}
+	matches={app.matches}
+	year={shownYear()}
+	{yearName}
+	startMonth={startMonth()}
+	period={vatSettings.vatPeriod}
+	smallBusiness={vatSettings.smallBusiness}
+/>
 
 {#if app.did}
 	<section class="mt-6 {card}" data-testid="home-identity">

@@ -955,6 +955,30 @@ export default {
 		agentOpenOne: '1 offene Rückfrage',
 		agentOpenMany: '{count} offene Rückfragen',
 		agentNone: 'Keine offenen Rückfragen – alles zugeordnet, was sich zuordnen lässt.',
+		vat: {
+			title: 'Vorsteuer {year}',
+			what: 'Die Mehrwertsteuer aus deinen Belegen zu 19 % und 7 %, nach Belegdatum. So, wie die Belege ausgelesen wurden – eine Hilfe für die Voranmeldung, nicht die Voranmeldung selbst.',
+			period: 'Zeitraum',
+			rate19: '19 %',
+			rate7: '7 %',
+			sum: 'Vorsteuer',
+			year: 'Jahr',
+			quarter: 'Q{n}',
+			unlinked:
+				'Davon {amount} aus Belegen, die noch mit keiner Zahlung verknüpft sind (Belege: {count}).',
+			foreign:
+				'Ausländische Mehrwertsteuer: {amount} (Belege: {count}) – keine deutsche Vorsteuer, nicht mitgezählt.',
+			reverse:
+				'§13b (Leistung aus dem Ausland): {amount} (Belege: {count}). Du schuldest die Umsatzsteuer darauf und ziehst sie zugleich als Vorsteuer ab – unterm Strich null, aber anzugeben.',
+			noLines:
+				'Belege ohne Steuerzeile: {count}. Nichts abzuziehen, oder nicht ausgelesen – ansehen lohnt sich.',
+			other: 'Belege in fremder Währung, nicht mitgezählt: {count}.',
+			undated: 'Belege ohne Datum, keinem Zeitraum zugeordnet: {count}.',
+			smallBusiness:
+				'Als Kleinunternehmer (§19 UStG) ziehst du keine Vorsteuer ab. In deinen Belegen dieses Jahres stecken {amount} Mehrwertsteuer.',
+			outputLater:
+				'Die Umsatzsteuer aus deinen Ausgangsrechnungen und die Zahllast folgen, sobald die Rechnungs-App die Steuer je Satz liefert.'
+		},
 		agentProgress: '{done} von {total} erledigt',
 		agentAnswer: 'Rückfragen beantworten',
 		coverage: 'Zahlungen mit Beleg',
@@ -1369,6 +1393,11 @@ export default {
 			ledgerHint:
 				'Das Sachkonto, unter dem dieses Bankkonto in deiner Buchhaltung geführt wird. Vorschlag nach SKR 03: {suggestion} – nur ein Platzhalter, trag die Nummer aus MonkeyOffice ein.',
 			noAccounts: 'Noch keine Bankkonten in den Büchern.',
+			vatPeriod: 'Umsatzsteuer-Voranmeldung',
+			vatPeriods: { quarter: 'vierteljährlich', month: 'monatlich' },
+			smallBusiness: 'Kleinunternehmer (§19 UStG)',
+			vatHint:
+				'Danach richtet sich die Vorsteuer-Karte auf Home. Als Kleinunternehmer weist du keine Umsatzsteuer aus und ziehst keine Vorsteuer ab.',
 			legalForm: 'Rechtsform',
 			legalFormUnset: 'noch nicht angegeben',
 			legalForms: {
