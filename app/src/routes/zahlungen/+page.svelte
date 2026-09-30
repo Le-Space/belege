@@ -22,6 +22,7 @@
 	import { graceWait, localDay } from '$lib/matching/grace.js';
 	import { isBookingConfirmed } from '$lib/booking/suggest.js';
 	import { isWalletSource } from '$lib/wallets/chains.js';
+	import { FLOW_KEYS, flowKey } from '$lib/dashboard/totals.js';
 	import { relatedIndex } from '$lib/matching/related.js';
 	import { tradeArrow, tradeSides, tradeSideWhat } from '$lib/exchanges/trades.js';
 
@@ -31,6 +32,8 @@
 	let query = $state('');
 	/** @type {'ohne' | 'alle' | 'konto' | 'geaendert'} */
 	let receiptFilter = $state('ohne');
+	/** @type {string | null} a sum of Home's income and expenses card, from `?fluss=` */
+	let flow = $state(null);
 	/** @type {string | null} */
 	let chosenMonth = $state(null);
 
@@ -55,6 +58,7 @@
 			(tx) =>
 				index.txYear(tx) === year &&
 				(!accountId || tx.accountId === accountId) &&
+				(!flow || flowKey(tx, app.classifications[String(tx.id)]) === flow) &&
 				matchesSearch(tx, query)
 		);
 	});
@@ -103,6 +107,12 @@
 	onMount(() => {
 		const id = page.url.searchParams.get('tx');
 		if (id) openId = id;
+		// From a sum on Home (dashboard/totals.js): only the bookings it counts, all of them.
+		const wanted = page.url.searchParams.get('fluss');
+		if (wanted && /** @type {readonly string[]} */ (FLOW_KEYS).includes(wanted)) {
+			flow = wanted;
+			receiptFilter = 'alle';
+		}
 	});
 
 	/** @type {Record<string, string>} */
@@ -182,6 +192,24 @@
 				<option value={account.id}>{accountLabel(account)}</option>
 			{/each}
 		</select>
+		{#if flow}
+			<span
+				class="inline-flex items-center gap-1 rounded-full border border-cyan-800/40 bg-surface px-3 py-1 text-sm text-heading dark:border-cyan/40"
+				data-testid="flow-filter"
+				data-flow={flow}
+			>
+				<span class="text-faint">{t('zahlungen.flow.label')}</span>
+				{t(`zahlungen.flow.${flow}`)}
+				<button
+					type="button"
+					class="ml-1 rounded-full px-1.5 text-faint hover:bg-surface-2 hover:text-heading"
+					aria-label={t('zahlungen.flow.clear')}
+					title={t('zahlungen.flow.clear')}
+					onclick={() => (flow = null)}
+					data-testid="flow-filter-clear">×</button
+				>
+			</span>
+		{/if}
 		<label class="sr-only" for="transaction-search">{t('zahlungen.search')}</label>
 		<input
 			id="transaction-search"

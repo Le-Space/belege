@@ -22,11 +22,13 @@
 	import { formatDate, formatMoney, formatTxAmount } from '$lib/bank/format.js';
 	import { addressBook, payeeName } from '$lib/bank/payee.js';
 	import { receiptVendor } from '$lib/receipts/view.js';
-	import { booksByYear, shownYear } from '$lib/year/year.svelte.js';
+	import { booksByYear, shownYear, startMonth } from '$lib/year/year.svelte.js';
+	import { yearLabel } from '$lib/year/year.js';
 	import { openPrivatePayments } from '$lib/matching/private.js';
 	import { cleanDatevSettings, privateAccounts } from '$lib/booking/settings.js';
 	import NeedsCard from '$lib/integrations/NeedsCard.svelte';
 	import SetupChecklist from '$lib/setup/SetupChecklist.svelte';
+	import TotalsCard from '$lib/dashboard/TotalsCard.svelte';
 	import { integrationFacts, loadIntegrationFacts } from '$lib/integrations/facts.svelte.js';
 	import { integrationsOverview } from '$lib/integrations/overview.js';
 
@@ -108,6 +110,7 @@
 			questions: app.questions.filter((q) => index.questionYears(q).has(year))
 		};
 	});
+	let yearName = $derived(yearLabel(shownYear(), startMonth()));
 	let progress = $derived(questionProgress(shown.questions));
 	let covered = $derived(shown.transactions.filter((tx) => isTxCovered(tx, app.classifications)));
 	let percent = $derived(
@@ -447,6 +450,14 @@
 		})}</span
 	>
 </a>
+
+{#if shown.transactions.length}
+	<TotalsCard
+		transactions={shown.transactions}
+		classifications={app.classifications}
+		year={yearName}
+	/>
+{/if}
 
 {#if app.did}
 	<section class="mt-6 {card}" data-testid="home-identity">
