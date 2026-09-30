@@ -38,7 +38,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     browser's user agent or – since the two lists of quiet-identify.js – the
 //     protocols the node speaks with own devices (#209). That later change told
 //     a relay less, so the version stayed.
-export const CONSENT_VERSION = '17';
+// 18: what is blacked out before text goes to the language model, and that it
+//     limits what leaves rather than making a text anonymous (#226).
+export const CONSENT_VERSION = '18';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

@@ -6,7 +6,7 @@ import {
 	restorePasskeyCredential
 } from './passkey-identity.js';
 import { getSetting } from './store/settings.js';
-import { classifyTransaction } from './matching/classify.js';
+import { classifyTransaction, cleanMatchingSettings } from './matching/classify.js';
 import { buildMatchingContext } from './matching/context.js';
 import { cleanChart } from './booking/chart.js';
 import { t } from './i18n/index.js';
@@ -564,7 +564,9 @@ async function pairedClient() {
 	if (!session) return null;
 	const saved = await getSetting(session.store.settings, 'bridge');
 	if (!saved?.token) return null;
-	const { createBridgeClient } = await import('./bridge/client.js');
+	const { createBridgeClient, setRedactTerms } = await import('./bridge/client.js');
+	// The company's names are blacked out in whatever goes to the language model (#226).
+	setRedactTerms(() => cleanMatchingSettings(app.matchingSettings).companyNames);
 	return createBridgeClient({ url: saved.url, token: saved.token });
 }
 

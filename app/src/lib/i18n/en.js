@@ -673,7 +673,7 @@ export default {
 				'You check what the AI delivers: the receipt shows the model and the text sent, an AI suggestion is only applied on your click, and the History lists every call.',
 			technical: [
 				'You set up the language model in the bridge (pnpm setup:llm): any interface in the OpenAI format (/chat/completions) – via https, or via http only on this computer (127.0.0.1, localhost), such as Ollama or LM Studio. The default is deepseek-flash, with deepseek-v4-pro as the second attempt.',
-				'Before every call the bridge redacts names from your list, IBANs except for the last four digits, your own email addresses, streets, postcodes and links (only the host remains). The responses are JSON and are checked (totals, date formats, candidate numbers); whatever doesn’t fit is discarded.',
+				'Before every call the bridge redacts names from its list and your company names from Settings, names after a salutation or a label (“Herr”, “Contact:”), IBANs and card numbers except for the last four digits, email addresses (of others the domain remains), phone numbers, dates of birth, tax numbers, streets, postcodes and links (only the host remains). This limits what goes out; it does not make the text anonymous: a name that is on no list and follows no label gets through, and so do the vendor, amounts, invoice numbers and what the receipt is about. For nothing to go out, set a model on this computer (such as Ollama). The responses are JSON and are checked (totals, date formats, candidate numbers); whatever doesn’t fit is discarded.',
 				'The API key is kept in the bridge’s macOS Keychain, never in the browser. The bridge’s log records only numbers, never text. The app’s History shows the model, duration and tokens of every call.'
 			]
 		},
@@ -702,7 +702,7 @@ export default {
 				name: 'Bridge on this computer (127.0.0.1)',
 				text: 'Fetches transactions from Hibiscus and receipts from your mailbox. The app only receives accounts you have approved on the bridge, and only emails to the bookkeeping address.',
 				leaves:
-					'The bridge queries your mailbox (IMAP) and sends redacted text to the language model for extraction (see below). Hibiscus establishes the connection to GLS Bank (FinTS).',
+					'The bridge queries your mailbox (IMAP) and sends redacted text to the language model for extraction (see below). Hibiscus establishes the connection to your bank (FinTS).',
 				technical:
 					'The bridge listens only on 127.0.0.1 (port 8765) and starts on no other address. Pairing uses a one-time code; the bearer token is stored encrypted in the app’s settings, and on the bridge only its hash. CORS allows only the registered app addresses; the Host header must be 127.0.0.1 or localhost. Jameica’s certificate is pinned; the Hibiscus password, IMAP token and API key are kept in the macOS Keychain. Accounts without an approved IBAN ending are not queried at all. The bridge opens mailboxes read-only.'
 			},
@@ -726,7 +726,7 @@ export default {
 				leaves:
 					'When extracting, the redacted text of a receipt; with “Keep searching with AI”, counterparty and payment reference as well as subject, sender domain and file names of the hits, redacted. With DeepSeek the servers are outside the EU; a local model does not leave this computer.',
 				technical:
-					'The bridge sends only the text layer of a PDF (or the text of an email) with subject and sender, after redacting names from its list, IBANs (except for the last four digits), your own email addresses, streets and postcodes – never the file itself. DeepSeek runs its servers in China. The API key is kept in the bridge’s macOS Keychain, never in the browser. The bridge extracts emails from senders that did not pass the DKIM/SPF check only after your approval.'
+					'The bridge sends only the text layer of a PDF (or the text of an email) with subject and sender, after redacting names from its list and your company names from Settings, names after a salutation or a label (“Herr”, “Contact:”), IBANs and card numbers except for the last four digits, email addresses (of others the domain remains), phone numbers, dates of birth, tax numbers, streets, postcodes and links (only the host remains) – never the file itself. This limits what goes out; it does not make the text anonymous: a name that is on no list and follows no label gets through, and so do the vendor, amounts, invoice numbers and what the receipt is about. For nothing to go out, set a model on this computer (such as Ollama). DeepSeek runs its servers in China. The API key is kept in the bridge’s macOS Keychain, never in the browser. The bridge extracts emails from senders that did not pass the DKIM/SPF check only after your approval.'
 			},
 			portals: {
 				name: 'Customer portals (Vodafone)',
@@ -1677,11 +1677,11 @@ export default {
 			fallback: 'second attempt with {model}, because {reason}',
 			sent: 'Sent to the AI (redacted)',
 			sentHint:
-				'Exactly this text went from the bridge to the language model. Redacted spots are in square brackets, such as [NAME] or [IBAN …1234].',
+				'Exactly this text went from the bridge to the language model. Redacted spots are in square brackets, such as [NAME] or [IBAN …1234]. Read it: whatever still stands here, the model has seen – a name without a label that is on no list stays.',
 			sentMissing:
 				'Extracted with an older bridge: which text was sent is not stored. “Extract again” catches up on it.',
 			redactions:
-				'Redacted: {terms} names, {iban} IBANs, {email} email addresses, {street} streets, {postcode} postcodes and towns, {link} links',
+				'Redacted: {terms} names, {iban} IBANs and cards, {email} email addresses, {phone} phone numbers, {id} dates of birth and tax numbers, {street} streets, {postcode} postcodes and towns, {link} links',
 			attempts: 'Attempts: {list}',
 			tokens: 'Tokens: {prompt} sent, {completion} returned, {reasoning} of them for reasoning',
 			notAi:
@@ -1698,7 +1698,7 @@ export default {
 		},
 		technical: [
 			'Every file is sealed in the browser with AES-GCM (key via HKDF from the passkey’s PRF response, info belege/blob-key/v1) and stored in 1 MiB blocks in Helia’s blockstore. The app spots duplicates by the SHA-256 of the content, which is only kept in the sealed record.',
-			'For reading, only the PDF’s text layer goes to the bridge. The bridge redacts names, IBANs, your own email addresses, streets and postcodes and then asks the language model; the file itself never leaves the browser.'
+			'For reading, only the PDF’s text layer goes to the bridge. The bridge redacts names from its list and after labels, IBANs, email addresses, phone numbers, streets and postcodes and then asks the language model; the file itself never leaves the browser. That does not make the text anonymous – what was sent is shown on the receipt afterwards.'
 		]
 	},
 	verlauf: {
@@ -2335,7 +2335,7 @@ export default {
 			},
 			ki: {
 				what: 'A language model reads vendor, amount, date and number from receipts and helps in four more places – always only on a click (✦).',
-				how: 'You set up your own model in the bridge, such as DeepSeek or a local one with Ollama. Text is redacted before it is sent; Le Space runs no AI.'
+				how: 'You set up your own model in the bridge, such as DeepSeek or a local one with Ollama. Text is redacted before it is sent, as far as patterns and lists reach; with a local model nothing goes out. Le Space runs no AI.'
 			},
 			kraken: {
 				what: 'Belege reads your Kraken account read-only: ledger, balances and trades, one account per asset, in euros at the day’s rate.',
@@ -2547,7 +2547,7 @@ export default {
 			totalsFallback: ' · {count}× second attempt',
 			verlauf: 'All calls in History',
 			technical: [
-				'The bridge sends the text layer of a PDF (or the text of an email) to the provider’s OpenAI-compatible chat API (/chat/completions, JSON mode, max_tokens 6000). Beforehand it redacts names from its list, IBANs except the last four digits, own email addresses, streets and postcodes. What was sent is shown on the receipt under “Sent to the AI”.',
+				'The bridge sends the text layer of a PDF (or the text of an email) to the provider’s OpenAI-compatible chat API (/chat/completions, JSON mode, max_tokens 6000). Beforehand it redacts names from its list and your company names from Settings, names after a salutation or a label (“Herr”, “Contact:”), IBANs and card numbers except for the last four digits, email addresses (of others the domain remains), phone numbers, dates of birth, tax numbers, streets, postcodes and links (only the host remains). This limits what goes out; it does not make the text anonymous: a name that is on no list and follows no label gets through, and so do the vendor, amounts, invoice numbers and what the receipt is about. For nothing to go out, set a model on this computer (such as Ollama). What was sent is shown on the receipt under “Sent to the AI”.',
 				'The answer is checked (gross present, ISO currency, valid dates, net + VAT = gross). If it fails or breaks off, the bridge asks the second model.',
 				'Why the key is not entered here: a key in the web page is readable by every script that ever runs on it. In the bridge it lives in the macOS keychain, and no bridge response contains it – GET /llm/status only says “present” or “missing”. Models and terms are also set with pnpm setup:llm.'
 			]

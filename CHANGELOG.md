@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **What goes to the language model is blacked out further, and the app says what that is worth** (#226). New: names after a salutation or a label, phone numbers, dates of birth, tax ids and tax numbers, card numbers, e-mail addresses of others (the domain stays), four-digit postcodes, and the company names from Einstellungen (the app sends them with each call). The texts no longer promise more than that: redaction limits what leaves, it does not make a text anonymous; a local model sends nothing. The consent screen opens once more for it, and no longer names a bank.
+
 ### Security
 
 - **A relay no longer learns what a node speaks.** identify now has two lists: a peer that has not proved the passkey, every relay included, is told identify and the relay protocols only; gossipsub, Bitswap, WebRTC signalling and the extensions a desktop serves its own devices are named to a device after its proof. A later change is pushed to each with its own list (#209).

@@ -60,7 +60,9 @@ export function extractionInfo(result) {
 					email: num(r.email),
 					street: num(r.street),
 					postcode: num(r.postcode),
-					link: num(r.link)
+					link: num(r.link),
+					phone: num(r.phone),
+					id: num(r.id)
 				}
 			: null;
 	const attempts = Array.isArray(result?.attempts) ? result.attempts : [];
@@ -93,7 +95,17 @@ export function extractionInfo(result) {
 		redactions: counts
 			? { ...counts, total: typeof r.total === 'number' ? r.total : sum(counts) }
 			: typeof r === 'number'
-				? { terms: 0, iban: 0, email: 0, street: 0, postcode: 0, link: 0, total: r }
+				? {
+						terms: 0,
+						iban: 0,
+						email: 0,
+						street: 0,
+						postcode: 0,
+						link: 0,
+						phone: 0,
+						id: 0,
+						total: r
+					}
 				: null
 	};
 }
