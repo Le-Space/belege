@@ -4,6 +4,9 @@
 // relay (orbitdb-relay) is in production — WebSocket in, circuit relay v2 —
 // with a key derived from a fixed seed, so the app can be built with its
 // address before it runs.
+import { appendFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createLibp2p } from 'libp2p';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
@@ -26,7 +29,27 @@ export async function relayAddr() {
 	return `/ip4/127.0.0.1/tcp/${RELAY_PORT}/ws/p2p/${peerId}`;
 }
 
+/** Where the relay writes down what identify told it about each peer (one JSON line each). */
+export const RELAY_IDENTIFY_LOG = join(tmpdir(), `belege-e2e-relay-identify-${RELAY_PORT}.jsonl`);
+
 export async function startRelay() {
+	// What a relay learns from identify, for the specs to look at (#209).
+	writeFileSync(RELAY_IDENTIFY_LOG, '');
+	const relay = await createRelay();
+	/** @param {string} peer @param {string[]} protocols @param {string} [agent] */
+	const note = (peer, protocols, agent) =>
+		appendFileSync(RELAY_IDENTIFY_LOG, `${JSON.stringify({ peer, protocols, agent })}\n`);
+	relay.addEventListener('peer:identify', (e) =>
+		note(String(e.detail.peerId), e.detail.protocols, e.detail.agentVersion)
+	);
+	// identify-push: a later change of the peer's protocols.
+	relay.addEventListener('peer:update', (e) =>
+		note(String(e.detail.peer.id), e.detail.peer.protocols)
+	);
+	return relay;
+}
+
+async function createRelay() {
 	return createLibp2p({
 		privateKey: await relayKey(),
 		addresses: { listen: [`/ip4/127.0.0.1/tcp/${RELAY_PORT}/ws`] },
@@ -35,6 +58,7 @@ export async function startRelay() {
 		streamMuxers: [yamux()],
 		services: {
 			identify: identify(),
+			identifyPush: identifyPush(),
 			relay: circuitRelayServer({ reservations: { maxReservations: 32 } })
 		}
 	});

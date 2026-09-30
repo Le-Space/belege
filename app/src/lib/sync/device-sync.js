@@ -34,7 +34,7 @@
 import { FaultTolerance } from '@libp2p/interface';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
-import { identify, identifyPush } from '@libp2p/identify';
+import { NODE_INFO, quietIdentify, quietIdentifyPush } from './quiet-identify.js';
 import { gossipsub } from '@libp2p/gossipsub';
 import { webSockets } from '@libp2p/websockets';
 import { webRTC, webRTCDirect } from '@libp2p/webrtc';
@@ -190,6 +190,8 @@ export function syncLibp2pConfig({ privateKey, relays, gate, mode = 'public' }) 
 							circuitRelayTransport()
 						]
 					: [webSockets(), webRTC(), circuitRelayTransport()],
+		// Not the browser's user agent string (quiet-identify.js).
+		nodeInfo: NODE_INFO,
 		// A relay that is down must not keep the books from opening on the others.
 		transportManager: { faultTolerance: FaultTolerance.NO_FATAL },
 		connectionEncrypters: [noise()],
@@ -210,8 +212,9 @@ export function syncLibp2pConfig({ privateKey, relays, gate, mode = 'public' }) 
 		services: {
 			// First: it wraps the registrar before anything registers there.
 			deviceGate: gate.service,
-			identify: identify(),
-			identifyPush: identifyPush(),
+			// Quiet about the databases: their addresses are in OrbitDB's protocol names.
+			identify: quietIdentify(),
+			identifyPush: quietIdentifyPush(),
 			pubsub: gossipsub({
 				emitSelf: false,
 				allowPublishToZeroTopicPeers: true,
