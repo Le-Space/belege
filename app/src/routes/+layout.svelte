@@ -10,6 +10,7 @@
 	import LocalOnlyBadge from '$lib/LocalOnlyBadge.svelte';
 	import PageQr from '$lib/PageQr.svelte';
 	import LanguageSwitch from '$lib/LanguageSwitch.svelte';
+	import SampleBanner from '$lib/sample/SampleBanner.svelte';
 	import SettingsLink from '$lib/SettingsLink.svelte';
 	import { page } from '$app/state';
 	import PasskeyOnboarding from '$lib/PasskeyOnboarding.svelte';
@@ -100,6 +101,7 @@
 			<PasskeyOnboarding />
 		</main>
 	{:else}
+		<SampleBanner />
 		<SectionTabs />
 		<main>
 			{#if !['/integrationen', '/einstellungen'].some((p) => page.url.pathname.startsWith(p))}

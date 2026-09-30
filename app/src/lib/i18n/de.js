@@ -93,6 +93,13 @@ export default {
 		},
 		valuationLine: '{rate} EUR je {asset} · {source}{when}'
 	},
+	// Sample books (issue #200, step 3).
+	sample: {
+		title: 'Beispieldaten.',
+		what: 'Alles hier ist erfunden, zum Ausprobieren.',
+		remove: 'Beispieldaten entfernen',
+		removing: 'Entferne …'
+	},
 	// The setup checklist on Home (issue #200).
 	setup: {
 		title: 'Einrichtung',
@@ -115,7 +122,7 @@ export default {
 				'Die Wahl lässt sich ändern, solange die Bücher noch leer sind. Einrichten kannst du alles auch später.',
 			look: {
 				title: 'Erst umsehen',
-				text: 'Die App ansehen, ohne etwas einzurichten. Die Einrichtung wartet hier auf Home.'
+				text: 'Die App mit erfundenen Beispieldaten ansehen: Zahlungen, Belege und Rückfragen zum Ausprobieren. Ein Klick entfernt sie wieder.'
 			},
 			file: {
 				title: 'Mit einer Kontoauszug-Datei',
@@ -1848,6 +1855,10 @@ export default {
 		settingsLink: 'ändern unter Einstellungen',
 		checks: 'Vor dem Export',
 		check: {
+			sampleMixed:
+				'In diesem Monat stehen Beispieldaten neben echten Buchungen – so geht kein Export. Entferne die Beispieldaten oben.',
+			sampleAll:
+				'Dieser Monat besteht aus Beispieldaten. Das Paket heißt BEISPIEL_… und ist keine Buchhaltung.',
 			unpriced:
 				'{count} Krypto-Buchungen ohne Kurs – ohne Euro-Betrag geht nichts in den Export. Trag den Kurs an der Buchung ein.',
 			unassignedOk: 'Jede Buchung hat ein übernommenes Konto.',

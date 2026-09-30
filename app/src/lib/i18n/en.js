@@ -87,6 +87,12 @@ export default {
 		},
 		valuationLine: '{rate} EUR per {asset} · {source}{when}'
 	},
+	sample: {
+		title: 'Sample data.',
+		what: 'Everything here is made up, to try things out.',
+		remove: 'Remove sample data',
+		removing: 'Removing …'
+	},
 	setup: {
 		title: 'Setup',
 		intro: 'Step by step to the first month in the export. Belege sees for itself what is done.',
@@ -106,7 +112,7 @@ export default {
 				'You can change the choice while the books are still empty. Everything can be set up later too.',
 			look: {
 				title: 'Look around first',
-				text: 'See the app without setting anything up. The setup waits here on Home.'
+				text: 'See the app with made-up sample data: payments, receipts and questions to try out. One click removes it again.'
 			},
 			file: {
 				title: 'With a bank statement file',
@@ -1819,6 +1825,10 @@ export default {
 		settingsLink: 'change under Settings',
 		checks: 'Before the export',
 		check: {
+			sampleMixed:
+				'This month has sample data beside real bookings – no export like this. Remove the sample data at the top.',
+			sampleAll:
+				'This month consists of sample data. The package is named BEISPIEL_… and is no bookkeeping.',
 			unpriced:
 				'{count} crypto bookings without a rate – without a euro amount nothing goes into the export. Enter the rate on the booking.',
 			unassignedOk: 'Every booking has a confirmed account.',

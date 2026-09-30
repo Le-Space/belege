@@ -8,12 +8,26 @@
 	import { t } from '$lib/i18n/index.js';
 	import { STARTS } from './steps.js';
 	import { chooseStart } from './setup-state.svelte.js';
+	import { app } from '$lib/session.svelte.js';
+	import { hasSample } from '$lib/sample/sample.js';
+	import { clearSampleData, loadSampleData } from '$lib/sample/actions.js';
+
+	/** @type {import('./steps.js').Start | null} the way being set up */
+	let busy = $state(null);
 
 	/** @param {import('./steps.js').Start} start */
 	async function choose(start) {
-		await chooseStart(start);
-		// The file import is on the bank's page; the other two go on here.
-		if (start === 'file') await goto(resolve('/integrationen/bank'));
+		busy = start;
+		try {
+			// Looking around comes with sample books; a real start leaves none behind.
+			if (start === 'look') await loadSampleData();
+			else if (hasSample(app)) await clearSampleData();
+			await chooseStart(start);
+			// The file import is on the bank's page; the other two go on here.
+			if (start === 'file') await goto(resolve('/integrationen/bank'));
+		} finally {
+			busy = null;
+		}
 	}
 </script>
 
@@ -28,7 +42,9 @@
 		{#each STARTS as start (start)}
 			<button
 				type="button"
-				class="flex min-h-11 flex-col rounded-lg border border-border bg-surface px-4 py-3 text-left hover:border-cyan-800 hover:bg-surface-2 dark:hover:border-cyan"
+				class="flex min-h-11 flex-col rounded-lg border border-border bg-surface px-4 py-3 text-left hover:border-cyan-800 hover:bg-surface-2 disabled:opacity-60 dark:hover:border-cyan"
+				disabled={busy !== null}
+				aria-busy={busy === start}
 				onclick={() => choose(start)}
 				data-testid="setup-start-{start}"
 			>
