@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { cleanSetup, setupSteps } from './steps.js';
+import { asksForStart, cleanSetup, setupSteps, withStart } from './steps.js';
 import { diagnoseBridge } from './diagnose.js';
 
 /** @param {Partial<import('./steps.js').SetupFacts>} over @returns {import('./steps.js').SetupFacts} */
@@ -97,9 +97,45 @@ describe('the setup checklist (#200)', () => {
 		expect(all.next).toBeNull();
 	});
 
-	it('a stored setup keeps only known steps', () => {
-		expect(cleanSetup({ later: ['bridge', 'nope', 'ai'] })).toEqual({ later: ['bridge', 'ai'] });
-		expect(cleanSetup(null)).toEqual({ later: [] });
+	it('a stored setup keeps only known steps and ways in', () => {
+		expect(cleanSetup({ later: ['bridge', 'nope', 'ai'], start: 'file' })).toEqual({
+			later: ['bridge', 'ai'],
+			start: 'file'
+		});
+		expect(cleanSetup({ start: 'nope' })).toEqual({ later: [], start: null });
+		expect(cleanSetup(null)).toEqual({ later: [], start: null });
+	});
+});
+
+describe('how to start (#200, step 2)', () => {
+	it('asks only while the books are new: no booking, no receipt, no paired bridge, nothing chosen', () => {
+		expect(asksForStart(facts())).toBe(true);
+		expect(asksForStart(facts({ start: 'look' }))).toBe(false);
+		expect(asksForStart(facts({ transactions: [{ id: 't' }] }))).toBe(false);
+		expect(asksForStart(facts({ receipts: [{ id: 'r' }] }))).toBe(false);
+		expect(asksForStart(facts({ transactions: [{ id: 't', deleted: true }] }))).toBe(true);
+		const paired = { paired: true, online: false, viaDevice: false, llm: false };
+		expect(asksForStart(facts({ bridge: paired }))).toBe(false);
+	});
+
+	it('the way in decides which step comes first', () => {
+		expect(setupSteps(facts({ start: 'look' })).next?.id).toBe('passkey');
+		expect(setupSteps(facts({ start: 'bridge' })).next?.id).toBe('bridge');
+		const file = setupSteps(facts(withStart({ later: [] }, 'file')));
+		expect(file.next?.id).toBe('payments');
+		expect(states(file).bridge).toBe('later');
+		// Payments in: receipts next, before the optional steps.
+		const further = setupSteps(
+			facts({ ...withStart({ later: [] }, 'file'), transactions: [{ id: 't', accountId: 'a' }] })
+		);
+		expect(further.next?.id).toBe('receipts');
+	});
+
+	it('choosing the bridge after all takes it up again; asking again keeps what was put off', () => {
+		const file = withStart({ later: ['ai'] }, 'file');
+		expect(file).toEqual({ later: ['bridge', 'ai'], start: 'file' });
+		expect(withStart(file, null)).toEqual({ later: ['bridge', 'ai'], start: null });
+		expect(withStart(file, 'bridge')).toEqual({ later: ['ai'], start: 'bridge' });
 	});
 });
 

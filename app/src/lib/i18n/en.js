@@ -100,6 +100,24 @@ export default {
 		laterTitle: 'For later ({count})',
 		finished: 'Everything needed is set up or put off for later.',
 		settingsHint: 'The setup leaves Home once nothing is open; here it stays.',
+		start: {
+			title: 'How do you want to start?',
+			intro:
+				'You can change the choice while the books are still empty. Everything can be set up later too.',
+			look: {
+				title: 'Look around first',
+				text: 'See the app without setting anything up. The setup waits here on Home.'
+			},
+			file: {
+				title: 'With a bank statement file',
+				text: 'Upload a CAMT.053 statement from your bank. It needs no bridge and is the fastest way to real payments.'
+			},
+			bridge: {
+				title: 'Fully, with the bridge',
+				text: 'The bank through Hibiscus, the mailbox, AI, the exchange and wallets. Needs the terminal once, about 10 minutes.'
+			},
+			change: 'Start another way'
+		},
 		step: {
 			passkey: {
 				title: 'Secure the passkey',
