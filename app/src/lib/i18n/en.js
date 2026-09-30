@@ -87,6 +87,80 @@ export default {
 		},
 		valuationLine: '{rate} EUR per {asset} · {source}{when}'
 	},
+	setup: {
+		title: 'Setup',
+		intro: 'Step by step to the first month in the export. Belege sees for itself what is done.',
+		progress: '{done} of {total} done',
+		now: 'Now',
+		later: 'Later',
+		resume: 'Take up again',
+		state: { done: 'done', open: 'open', later: 'later' },
+		optional: 'optional',
+		needs: { bridge: 'needs the bridge', terminal: 'in the terminal' },
+		laterTitle: 'For later ({count})',
+		finished: 'Everything needed is set up or put off for later.',
+		settingsHint: 'The setup leaves Home once nothing is open; here it stays.',
+		step: {
+			passkey: {
+				title: 'Secure the passkey',
+				why: 'Whoever loses the only passkey loses the books. A second device with the same books keeps them safe.',
+				time: 'about 5 minutes'
+			},
+			bridge: {
+				title: 'Set up the bridge',
+				why: 'The bridge runs on your computer and fetches what a browser cannot: the bank through Hibiscus, the mailbox, the AI, customer portals, the exchange and wallets.',
+				time: 'about 10 minutes'
+			},
+			payments: {
+				title: 'Get payments',
+				why: 'The bank through Hibiscus or as a CAMT.053 file – which works without the bridge too. Kraken and own wallets as well, if you have them.',
+				time: 'about 5 minutes'
+			},
+			receipts: {
+				title: 'Get receipts',
+				why: 'From the accounting mailbox, by upload, from a folder or from customer portals.',
+				time: 'about 5 minutes'
+			},
+			ai: {
+				title: 'AI for extraction',
+				why: 'Reads vendor, amount, date and number from receipts – with your own model in the bridge, redacted first. Without AI you enter these by hand.',
+				time: 'about 5 minutes'
+			},
+			books: {
+				title: 'Set up the bookkeeping',
+				why: 'Legal form, start of the financial year, advisor and client number, and the ledger account for each account with bookings. Needed only before the first export.',
+				time: 'about 5 minutes'
+			},
+			export: {
+				title: 'Export the first month',
+				why: 'Go through the questions, confirm the accounts, then download one month’s DATEV package.',
+				time: 'depends on the month'
+			},
+			more: {
+				title: 'More, when you need it',
+				why: 'Own devices, the invoice app or a read share for an assistant.',
+				time: 'as you choose'
+			}
+		},
+		bridge: {
+			commands: 'In the terminal, once:',
+			commandsAfter:
+				'The bridge then shows a pairing code. This page notices by itself when it runs.',
+			copy: 'Copy commands',
+			waiting: 'Waiting for the bridge at {url} …',
+			found: 'Bridge found – now pair it with the code from the terminal.',
+			diagnosis: {
+				origin:
+					'The bridge runs but does not let this page ({origin}) in. Add the address to appOrigins in ~/.config/belege/bridge.json and restart the bridge.',
+				mixed:
+					'An https page may ask a plain-http address only on this computer (127.0.0.1). Start the bridge on this computer, or open the app locally (pnpm dev).',
+				'bad-url': 'That is not an address. The usual one is http://127.0.0.1:8765.',
+				unreachable:
+					'Nothing answers at {url}. Is the bridge running (pnpm bridge)? Is the port right? If the browser blocks the request, the app opened locally helps (pnpm dev).'
+			},
+			more: 'The bridge in detail (Hibiscus, mailbox, keychain)'
+		}
+	},
 	messages: {
 		sync: {
 			off: 'Sync is not on on this device.',
@@ -1176,6 +1250,7 @@ export default {
 		title: 'Settings',
 		intro: 'What matching and the export need to know about you and your bookkeeping.',
 		nav: {
+			setup: 'Setup',
 			company: 'Company & own accounts',
 			matching: 'Matching & rules',
 			learned: 'Learned',

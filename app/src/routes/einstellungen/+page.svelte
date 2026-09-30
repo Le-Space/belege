@@ -4,10 +4,12 @@
 	// bookkeeping (DATEV) and the chart of accounts. Moved here from
 	// Integrationen, which is for what Belege is connected to.
 	import MatchingSettings from '$lib/MatchingSettings.svelte';
+	import SetupChecklist from '$lib/setup/SetupChecklist.svelte';
 	import { consent } from '$lib/consent.js';
 	import { t } from '$lib/i18n/index.js';
 
 	const sections = /** @type {const} */ ([
+		['einrichtung', 'settings.nav.setup'],
 		['firma', 'settings.nav.company'],
 		['abgleich', 'settings.nav.matching'],
 		['gelerntes', 'settings.nav.learned'],
@@ -37,6 +39,9 @@
 		>
 	</nav>
 	<div class="min-w-0 flex-1 [&>section]:mt-0">
+		<div id="einrichtung" class="mb-4 scroll-mt-4 [&>section]:mt-0">
+			<SetupChecklist place="settings" />
+		</div>
 		<MatchingSettings />
 	</div>
 </div>

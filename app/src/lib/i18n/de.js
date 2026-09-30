@@ -93,6 +93,83 @@ export default {
 		},
 		valuationLine: '{rate} EUR je {asset} · {source}{when}'
 	},
+	// The setup checklist on Home (issue #200).
+	setup: {
+		title: 'Einrichtung',
+		intro:
+			'Schritt für Schritt bis zum ersten Monat im Export. Was erledigt ist, erkennt Belege selbst.',
+		progress: '{done} von {total} erledigt',
+		now: 'Jetzt',
+		later: 'Später',
+		resume: 'Wieder aufnehmen',
+		state: { done: 'erledigt', open: 'offen', later: 'später' },
+		optional: 'optional',
+		needs: { bridge: 'braucht die Bridge', terminal: 'im Terminal' },
+		laterTitle: 'Für später ({count})',
+		finished: 'Alles Nötige ist eingerichtet oder für später vorgemerkt.',
+		settingsHint:
+			'Die Einrichtung verschwindet von Home, sobald nichts mehr offen ist; hier bleibt sie.',
+		step: {
+			passkey: {
+				title: 'Passkey absichern',
+				why: 'Wer den einzigen Passkey verliert, verliert die Bücher. Ein zweites Gerät mit denselben Büchern sichert sie.',
+				time: 'etwa 5 Minuten'
+			},
+			bridge: {
+				title: 'Bridge einrichten',
+				why: 'Die Bridge läuft auf deinem Rechner und holt, was ein Browser nicht kann: die Bank über Hibiscus, das Postfach, die KI, Kundenportale, Börse und Wallets.',
+				time: 'etwa 10 Minuten'
+			},
+			payments: {
+				title: 'Zahlungen holen',
+				why: 'Die Bank über Hibiscus oder als CAMT.053-Datei – die geht auch ohne Bridge. Dazu Kraken und eigene Wallets, wenn du sie hast.',
+				time: 'etwa 5 Minuten'
+			},
+			receipts: {
+				title: 'Belege holen',
+				why: 'Aus dem Buchhaltungs-Postfach, per Upload, aus einem Ordner oder von Kundenportalen.',
+				time: 'etwa 5 Minuten'
+			},
+			ai: {
+				title: 'KI zum Auslesen',
+				why: 'Liest Anbieter, Betrag, Datum und Nummer aus Belegen – mit deinem eigenen Modell in der Bridge, vorher geschwärzt. Ohne KI trägst du das von Hand ein.',
+				time: 'etwa 5 Minuten'
+			},
+			books: {
+				title: 'Buchhaltung einstellen',
+				why: 'Rechtsform, Beginn des Geschäftsjahres, Berater- und Mandantennummer und das Sachkonto je Konto mit Buchungen. Nötig erst vor dem ersten Export.',
+				time: 'etwa 5 Minuten'
+			},
+			export: {
+				title: 'Ersten Monat exportieren',
+				why: 'Rückfragen durchgehen, Konten bestätigen, dann das DATEV-Paket eines Monats herunterladen.',
+				time: 'je nach Monat'
+			},
+			more: {
+				title: 'Mehr, wenn du es brauchst',
+				why: 'Eigene Geräte, die Rechnungs-App oder eine Lese-Freigabe für eine Assistenz.',
+				time: 'je nach Wahl'
+			}
+		},
+		bridge: {
+			commands: 'Im Terminal, einmal:',
+			commandsAfter:
+				'Die Bridge zeigt dann einen Kopplungscode. Diese Seite merkt von selbst, wenn sie läuft.',
+			copy: 'Befehle kopieren',
+			waiting: 'Warte auf die Bridge unter {url} …',
+			found: 'Bridge gefunden – jetzt mit dem Code aus dem Terminal koppeln.',
+			diagnosis: {
+				origin:
+					'Die Bridge läuft, lässt aber diese Seite ({origin}) nicht herein. Trag die Adresse in ~/.config/belege/bridge.json unter appOrigins ein und starte die Bridge neu.',
+				mixed:
+					'Eine https-Seite darf eine http-Adresse nur auf diesem Rechner fragen (127.0.0.1). Starte die Bridge auf diesem Rechner oder öffne die App lokal (pnpm dev).',
+				'bad-url': 'Das ist keine Adresse. Üblich ist http://127.0.0.1:8765.',
+				unreachable:
+					'Unter {url} antwortet nichts. Läuft die Bridge (pnpm bridge)? Stimmt der Port? Blockiert der Browser die Anfrage, hilft die lokal geöffnete App (pnpm dev).'
+			},
+			more: 'Die Bridge im Detail (Hibiscus, Postfach, Schlüsselbund)'
+		}
+	},
 	// Messages the code throws or shows, moved here from the modules (#192).
 	messages: {
 		sync: {
@@ -1195,6 +1272,7 @@ export default {
 		title: 'Einstellungen',
 		intro: 'Was der Abgleich und der Export über dich und deine Buchhaltung wissen müssen.',
 		nav: {
+			setup: 'Einrichtung',
 			company: 'Firma & eigene Konten',
 			matching: 'Abgleich & Regeln',
 			learned: 'Gelerntes',

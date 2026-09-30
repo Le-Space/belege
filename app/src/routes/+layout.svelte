@@ -44,7 +44,7 @@
 		first row and the state takes the second; from `sm` on, one row.
 	-->
 	<header
-		class="mb-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 sm:mb-6 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
+		class="mb-4 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 sm:mb-6 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
 	>
 		<div class="col-start-1 row-start-1 flex min-w-0 items-center gap-3">
 			<a
@@ -82,7 +82,9 @@
 				>
 			{/if}
 		</div>
-		<div class="col-start-2 row-start-1 flex items-center gap-1 sm:col-start-3 sm:gap-2">
+		<div
+			class="col-start-2 row-start-1 flex flex-wrap items-center justify-end gap-1 sm:col-start-3 sm:flex-nowrap sm:gap-2"
+		>
 			{#if ready}<SettingsLink />{/if}
 			<PageQr />
 			<LanguageSwitch />

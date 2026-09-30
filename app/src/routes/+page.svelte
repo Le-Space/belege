@@ -26,6 +26,7 @@
 	import { openPrivatePayments } from '$lib/matching/private.js';
 	import { cleanDatevSettings, privateAccounts } from '$lib/booking/settings.js';
 	import NeedsCard from '$lib/integrations/NeedsCard.svelte';
+	import SetupChecklist from '$lib/setup/SetupChecklist.svelte';
 	import { integrationFacts, loadIntegrationFacts } from '$lib/integrations/facts.svelte.js';
 	import { integrationsOverview } from '$lib/integrations/overview.js';
 
@@ -171,6 +172,8 @@
 
 <h1 class="text-2xl font-bold text-heading">{greeting}!</h1>
 <p class="mt-1 text-sm text-faint">{t('home.intro')}</p>
+
+<SetupChecklist />
 
 {#each RESUME_KINDS as kind (kind)}
 	{@const ids = kind === 'extract' ? leftToRead : leftToSuggest}
