@@ -62,12 +62,18 @@ describe('classifyTransaction', () => {
 			amountCents: -1000,
 			counterparty: '',
 			purpose: 'Gebühr für Revolut Business • Gebühr für das Basic-Abo',
-			bookingType: 'FEE'
+			bookingType: 'TRANSFER'
 		});
 		expect(classifyTransaction(revolut, ctx())).toEqual({
 			kind: 'bank-fee',
 			via: 'fee-words',
 			feeWord: 'Gebühr'
+		});
+		// Where the bank itself types the entry as a fee (Revolut, Wise #218), that says it.
+		expect(classifyTransaction({ ...revolut, bookingType: 'FEE' }, ctx())).toEqual({
+			kind: 'bank-fee',
+			via: 'booking-type',
+			bookingType: 'FEE'
 		});
 		// The bank as counterparty counts as none.
 		expect(

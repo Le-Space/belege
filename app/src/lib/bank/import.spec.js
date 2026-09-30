@@ -419,3 +419,102 @@ describe('syncHibiscus', () => {
 		expect(await transactions.collection.list()).toHaveLength(1);
 	});
 });
+
+describe('a CAMT statement from Wise (#218)', () => {
+	const wise = (/** @type {(xml: string) => string} */ change = (x) => x) =>
+		parseCamt053(
+			change(readFileSync(new URL('./fixtures/camt053-wise.xml', import.meta.url), 'utf8')),
+			{ DOMParser: /** @type {any} */ (DOMParser) }
+		);
+	const store = () => ({
+		accounts: memoryCollection('accounts').collection,
+		transactions: memoryCollection('transactions').collection
+	});
+
+	it('an account without an IBAN: the id’s last four, never the id itself; a re-import adds nothing', async () => {
+		const s = store();
+		const [first] = await importCamtStatements(s, wise());
+		expect(first.counts).toEqual({ new: 5, updated: 0, skipped: 0 });
+		expect(first.account).toMatchObject({
+			source: 'camt',
+			ibanLast4: '0042',
+			name: 'Wise Example SA EUR',
+			currency: 'EUR'
+		});
+		expect(JSON.stringify(first.account)).not.toContain('10000042');
+		const [again] = await importCamtStatements(s, wise());
+		expect(again.counts).toEqual({ new: 0, updated: 0, skipped: 5 });
+		expect(again.account.id).toBe(first.account.id);
+	});
+
+	it('the fee and its payment share a reference; the original currency is kept', async () => {
+		const s = store();
+		await importCamtStatements(s, wise());
+		const all = await s.transactions.list();
+		const card = all.find((t) => t.sourceId === 'CARD-2000001');
+		const fee = all.find((t) => t.sourceId === 'FEE-CARD-2000001');
+		expect(card).toMatchObject({
+			counterparty: 'Example Cloud Shop',
+			txRef: 'CARD-2000001',
+			original: { amount: '12.35', currency: 'USD', rate: '1.07391' }
+		});
+		expect(fee).toMatchObject({ bookingType: 'FEE', txRef: 'CARD-2000001' });
+		expect(card?.movement).toBeUndefined();
+	});
+
+	it('a statement in dollars: an account of its own, each booking in euros at the day’s rate', async () => {
+		const s = store();
+		const usd = () =>
+			wise((xml) =>
+				xml.replaceAll('Ccy="EUR"', 'Ccy="USD"').replace('<Ccy>EUR</Ccy>', '<Ccy>USD</Ccy>')
+			);
+		/** @type {string[]} */
+		const asked = [];
+		const getRate = async (/** @type {string} */ asset, /** @type {string} */ date) => {
+			asked.push(`${asset} ${date}`);
+			return /** @type {any} */ ({ rate: '0.90', source: 'ecb', at: `${date}T00:00:00Z` });
+		};
+		const [eur] = await importCamtStatements(s, wise());
+		const [dollars] = await importCamtStatements(s, usd(), { getRate });
+		expect(dollars.account.id).not.toBe(eur.account.id);
+		expect(dollars.account).toMatchObject({
+			name: 'Wise Example SA USD',
+			asset: 'USD',
+			decimals: 2
+		});
+		const topUp = (await s.transactions.list()).find(
+			(t) => t.accountId === dollars.account.id && t.sourceId === 'TRANSFER-1000001'
+		);
+		// 200.00 USD at 0.90 EUR: 180 euros, the dollars kept as the quantity.
+		expect(topUp).toMatchObject({
+			amountCents: 180_00,
+			currency: 'EUR',
+			asset: 'USD',
+			quantity: '20000',
+			decimals: 2,
+			valuation: { rate: '0.90', source: 'ecb' },
+			rateMissing: null
+		});
+		// One question per day, not per booking.
+		expect(asked).toEqual(['USD 2026-01-05', 'USD 2026-01-07', 'USD 2026-01-12', 'USD 2026-01-31']);
+	});
+
+	it('without a rate the dollars are kept and the euros stay open; a later import fills them in', async () => {
+		const s = store();
+		const usd = () =>
+			wise((xml) =>
+				xml.replaceAll('Ccy="EUR"', 'Ccy="USD"').replace('<Ccy>EUR</Ccy>', '<Ccy>USD</Ccy>')
+			);
+		const [first] = await importCamtStatements(s, usd());
+		const open = (await s.transactions.list()).find((t) => t.sourceId === 'CARD-2000002');
+		expect(open).toMatchObject({ amountCents: 0, asset: 'USD', quantity: '-2400' });
+		expect(open?.rateMissing?.reason).toMatch(/USD/);
+		const getRate = async () =>
+			/** @type {any} */ ({ rate: '0.90', source: 'ecb', at: '2026-01-12T00:00:00Z' });
+		const [again] = await importCamtStatements(s, usd(), { getRate });
+		expect(again.account.id).toBe(first.account.id);
+		expect(again.counts.new).toBe(0);
+		const priced = (await s.transactions.list()).find((t) => t.sourceId === 'CARD-2000002');
+		expect(priced).toMatchObject({ amountCents: -21_60, rateMissing: null });
+	});
+});

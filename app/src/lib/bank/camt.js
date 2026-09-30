@@ -1,4 +1,5 @@
 import { t } from '../i18n/index.js';
+import { isWise, readWiseLine } from './wise.js';
 // CAMT.053 (bank-to-customer statement) in the browser, with DOMParser.
 //
 // For banks Hibiscus cannot fetch (Revolut). Reads versions .001.02 to
@@ -15,6 +16,13 @@ import { t } from '../i18n/index.js';
 //   Ntry/AddtlNtryInf, else BkTxCd/Prtry/Cd         → booking type
 //   Ntry/BkTxCd/Domn/{Cd, Fmly/Cd, Fmly/SubFmlyCd}  → bank code, e.g.
 //     ACMT/MDOP/CHRG (ISO 20022: a charge – a bank fee, see classify.js)
+//
+// An account without an IBAN (issue #218, Wise): Acct/Id/Othr/Id with its
+// issuer and scheme identifies it. An entry without any TxDtls takes its
+// purpose from AddtlNtryInf, its sourceId from BkTxCd/Prtry/Cd, and its
+// booking type from that code's kind (`CARD-123` → CARD); Wise's lines are
+// read for the merchant and the fee's payment (wise.js). AmtDtls/TxAmt with
+// CcyXchg is kept as the original amount, currency and rate.
 //
 // Only booked entries (Sts BOOK) are returned; pending ones are counted.
 // An entry with several TxDtls (a batch) becomes one transaction per TxDtls.
@@ -33,12 +41,15 @@ import { t } from '../i18n/index.js';
  * @property {string} endToEndId
  * @property {string} bookingType
  * @property {string} bankCode ISO 20022 domain/family/sub-family, '' when the bank sends none
+ * @property {string} [txRef] a reference shared with another entry (a fee and its payment)
+ * @property {{ amount: string, currency: string, rate?: string }} [original] the amount in the currency it was paid in
  */
 
 /**
  * @typedef {object} CamtStatement
  * @property {string} id
- * @property {{ iban: string, currency: string, name: string }} account
+ * @property {{ iban: string, otherId: string, issuer: string, scheme: string, currency: string, name: string }} account
+ *   `iban`, or – without one – `otherId` with who issued it and under which scheme
  * @property {CamtTransaction[]} transactions
  * @property {number} skipped entries that were not booked
  */
@@ -148,13 +159,21 @@ export function parseCamt053(xml, { DOMParser: Parser = globalThis.DOMParser } =
 	return children(container, 'Stmt').map((stmt) => {
 		const acct = child(stmt, 'Acct');
 		const iban = text(acct, 'Id', 'IBAN').replace(/\s/g, '').toUpperCase();
+		const otherId = iban ? '' : text(acct, 'Id', 'Othr', 'Id').replace(/\s/g, '');
 		const currency = text(acct, 'Ccy') || 'EUR';
+		const servicer = text(acct, 'Svcr', 'FinInstnId', 'Nm');
 		const account = {
 			iban,
+			otherId,
+			issuer: text(acct, 'Id', 'Othr', 'Issr'),
+			scheme:
+				text(acct, 'Id', 'Othr', 'SchmeNm', 'Prtry') || text(acct, 'Id', 'Othr', 'SchmeNm', 'Cd'),
 			currency,
-			name: text(acct, 'Nm') || text(acct, 'Svcr', 'FinInstnId', 'Nm')
+			// Without an IBAN one servicer may keep several accounts: name the currency too.
+			name: text(acct, 'Nm') || (iban ? servicer : [servicer, currency].filter(Boolean).join(' '))
 		};
-		if (!iban) throw new Error(t('messages.camt.noIban'));
+		if (!iban && !otherId) throw new Error(t('messages.camt.noIban'));
+		const wise = isWise(servicer);
 
 		/** @type {CamtTransaction[]} */
 		const transactions = [];
@@ -170,7 +189,13 @@ export function parseCamt053(xml, { DOMParser: Parser = globalThis.DOMParser } =
 			const date = dateOf(child(ntry, 'BookgDt'));
 			const bookedAt = timeOf(child(ntry, 'BookgDt'));
 			const valueDate = dateOf(child(ntry, 'ValDt')) || date;
-			const bookingType = text(ntry, 'AddtlNtryInf') || text(ntry, 'BkTxCd', 'Prtry', 'Cd');
+			const code = text(ntry, 'BkTxCd', 'Prtry', 'Cd');
+			const info = text(ntry, 'AddtlNtryInf');
+			const bare = children(ntry, 'NtryDtls').length === 0;
+			// `CARD-123`: the kind before the number; a bare id has none.
+			const kind = /^([A-Z][A-Z_]*)-/.exec(code)?.[1] ?? '';
+			const bookingType = bare ? kind || info || code : info || code;
+			const exchange = at(ntry, 'AmtDtls', 'TxAmt');
 			const bankCode = [
 				text(ntry, 'BkTxCd', 'Domn', 'Cd'),
 				text(ntry, 'BkTxCd', 'Domn', 'Fmly', 'Cd'),
@@ -181,6 +206,23 @@ export function parseCamt053(xml, { DOMParser: Parser = globalThis.DOMParser } =
 			const entryRef = text(ntry, 'AcctSvcrRef') || text(ntry, 'NtryRef');
 			const details = children(ntry, 'NtryDtls').flatMap((d) => children(d, 'TxDtls'));
 			const txs = details.length ? details : [null];
+
+			// An entry without details: its line of text is all there is to say.
+			const line = bare ? (wise ? readWiseLine({ purpose: info, code }) : {}) : null;
+			// The amount in the currency it was paid in: TxAmt where that is another
+			// currency than the entry's, else what the line says (Wise gives TxAmt in
+			// the account's currency and names the paid amount in its text).
+			const paid = child(exchange, 'Amt');
+			const entryCcy = entryAmt?.getAttribute('Ccy') || currency;
+			const rate = text(exchange, 'CcyXchg', 'XchgRate');
+			const foreign =
+				paid && (paid.getAttribute('Ccy') || entryCcy) !== entryCcy
+					? { amount: (paid.textContent ?? '').trim(), currency: paid.getAttribute('Ccy') ?? '' }
+					: (line?.original ?? null);
+			const original =
+				foreign && foreign.currency && foreign.currency !== entryCcy
+					? { ...foreign, ...(rate ? { rate } : {}) }
+					: null;
 
 			txs.forEach((tx, index) => {
 				const sign =
@@ -199,19 +241,26 @@ export function parseCamt053(xml, { DOMParser: Parser = globalThis.DOMParser } =
 					.join(' ');
 				transactions.push({
 					sourceId:
-						ref || (entryRef ? (txs.length > 1 ? `${entryRef}/${index + 1}` : entryRef) : null),
+						ref ||
+						(entryRef ? (txs.length > 1 ? `${entryRef}/${index + 1}` : entryRef) : null) ||
+						(bare && code ? code : null),
 					date,
 					...(bookedAt ? { bookedAt } : {}),
 					valueDate,
 					amountCents: sign * camtAmountCents(amtEl.textContent ?? ''),
 					currency: amtEl.getAttribute('Ccy') || currency,
-					counterpartyName: partyName(child(parties, side)),
+					counterpartyName: partyName(child(parties, side)) || line?.counterpartyName || '',
 					counterpartyIban: counterpartyIbanOf(parties, side),
 					purpose:
-						purpose || text(tx, 'RmtInf', 'Strd', 'CdtrRefInf', 'Ref') || text(tx, 'AddtlTxInf'),
+						purpose ||
+						text(tx, 'RmtInf', 'Strd', 'CdtrRefInf', 'Ref') ||
+						text(tx, 'AddtlTxInf') ||
+						(bare ? info : ''),
 					endToEndId: endToEndId === 'NOTPROVIDED' ? '' : endToEndId,
-					bookingType,
-					bankCode
+					bookingType: line?.bookingType ?? bookingType,
+					bankCode,
+					...(line?.txRef ? { txRef: line.txRef } : {}),
+					...(original ? { original } : {})
 				});
 			});
 		}

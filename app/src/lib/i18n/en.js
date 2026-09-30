@@ -2084,6 +2084,9 @@ export default {
 			date: 'Booking date',
 			quantity: 'Quantity',
 			valuation: 'Rate',
+			original: 'Paid in',
+			originalAmount: '{amount} {currency}',
+			originalRate: ' · the bank’s rate {rate}',
 			eigenbeleg: {
 				open: 'Create Eigenbeleg',
 				hint: 'For a payment without a receipt from the other side, e.g. fees on a blockchain. An Eigenbeleg (self-made receipt) is not an invoice; whether it is accepted is for your tax advisor to clarify.',

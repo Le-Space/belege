@@ -269,7 +269,8 @@ export function feeKey(tx) {
  * @property {string} [feeWord] for a bank fee by the words of its purpose
  */
 
-const BANK_FEE = /abschluss|entgelt|mehrwertsteuerbelast|kontof(?:u|ü)hrung/i;
+// `FEE`: the kind of a Wise entry's code (bank/camt.js, issue #218).
+const BANK_FEE = /abschluss|entgelt|mehrwertsteuerbelast|kontof(?:u|ü)hrung|^fee$/i;
 /** ISO 20022 families and sub-families that mean a charge (BkTxCd, CAMT). */
 const FEE_CODES = new Set(['CHRG', 'FEES', 'COMM']);
 /** A fee in the purpose, when no one but the bank is on the other side. */

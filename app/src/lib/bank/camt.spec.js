@@ -15,8 +15,9 @@ describe('CAMT.053, Revolut-style (camt.053.001.08)', () => {
 	it('reads the account from Acct', () => {
 		expect(rest).toHaveLength(0);
 		expect(statement.id).toBe('REV-STMT-TEST-0001');
-		expect(statement.account).toEqual({
+		expect(statement.account).toMatchObject({
 			iban: 'LT000000000000000001',
+			otherId: '',
 			currency: 'EUR',
 			name: 'Revolut Testkonto'
 		});
@@ -60,8 +61,9 @@ describe('CAMT.053, German bank style (camt.053.001.02, DK)', () => {
 	const [statement] = parse(fixture('camt053-german-bank.xml'));
 
 	it('falls back to the servicer name for the account', () => {
-		expect(statement.account).toEqual({
+		expect(statement.account).toMatchObject({
 			iban: 'DE00000000000000002222',
+			otherId: '',
 			currency: 'EUR',
 			name: 'Testbank eG'
 		});
@@ -177,5 +179,79 @@ describe('CAMT, the sender of a credit (#176)', () => {
 		expect(
 			parse(credit('<Othr><Id>12345678</Id></Othr>'))[0].transactions[0].counterpartyIban
 		).toBe('');
+	});
+});
+
+describe('CAMT.053 from Wise: no IBAN, no transaction details (#218)', () => {
+	const [statement] = parse(fixture('camt053-wise.xml'));
+	const byId = Object.fromEntries(statement.transactions.map((t) => [t.sourceId, t]));
+
+	it('takes the account by its other id, with issuer, scheme and currency', () => {
+		expect(statement.account).toEqual({
+			iban: '',
+			otherId: '10000042',
+			issuer: 'Wise Example SA',
+			scheme: 'Wise balance id',
+			currency: 'EUR',
+			name: 'Wise Example SA EUR'
+		});
+		expect(statement.transactions).toHaveLength(5);
+		expect(statement.skipped).toBe(1);
+	});
+
+	it('an entry without details: the code as its id, the line as its purpose, the kind as its type', () => {
+		expect(byId['TRANSFER-1000001']).toMatchObject({
+			date: '2026-01-05',
+			bookedAt: '2026-01-05T09:15:00.000000+00:00',
+			amountCents: 200_00,
+			purpose: 'Topped up account',
+			bookingType: 'TRANSFER',
+			counterpartyName: ''
+		});
+	});
+
+	it('a card payment names its merchant; one in another currency keeps that amount and the rate', () => {
+		expect(byId['CARD-2000001']).toMatchObject({
+			amountCents: -11_50,
+			currency: 'EUR',
+			counterpartyName: 'Example Cloud Shop',
+			bookingType: 'CARD',
+			txRef: 'CARD-2000001',
+			original: { amount: '12.35', currency: 'USD', rate: '1.07391' }
+		});
+		// Paid in the account's currency: nothing to keep beside the amount.
+		expect(byId['CARD-2000002'].counterpartyName).toBe('Musterladen Berlin');
+		expect(byId['CARD-2000002'].original).toBeUndefined();
+	});
+
+	it('a fee is a fee, tied to the payment it names; cashback comes from Wise', () => {
+		expect(byId['FEE-CARD-2000001']).toMatchObject({
+			amountCents: -6,
+			bookingType: 'FEE',
+			counterpartyName: 'Wise',
+			txRef: 'CARD-2000001'
+		});
+		expect(byId['0123456789abcdef0123456789abcdef']).toMatchObject({
+			amountCents: 35,
+			counterpartyName: 'Wise',
+			purpose: 'Cashback'
+		});
+	});
+
+	it('another bank’s entry without details stays plain: no merchant guessed', () => {
+		const other = fixture('camt053-wise.xml').replaceAll('Wise Example SA', 'Andere Bank AG');
+		const [s] = parse(other);
+		const card = s.transactions.find((t) => t.sourceId === 'CARD-2000001');
+		expect(card).toMatchObject({
+			counterpartyName: '',
+			purpose: 'Card transaction of 12.35 USD issued by Example Cloud Shop',
+			bookingType: 'CARD'
+		});
+		expect(card?.txRef).toBeUndefined();
+	});
+
+	it('still refuses a statement that names no account at all', () => {
+		const none = fixture('camt053-wise.xml').replace(/<Othr>[\s\S]*?<\/Othr>/, '');
+		expect(() => parse(none)).toThrow(/IBAN/);
 	});
 });

@@ -12,6 +12,7 @@
 // counts as known: deleting a booking and syncing again does not bring it back.
 
 import { recordEvent } from '../activity/events.js';
+import { valuedFields } from '../assets/valuation.js';
 import { fingerprint as computeFingerprint, ibanKey } from './fingerprint.js';
 
 /** An ISO 8601 time with its offset, as `bookedAt` keeps it. @param {unknown} v */
@@ -76,7 +77,10 @@ const FIELDS = /** @type {const} */ ([
  * @property {string} [bankCode] ISO 20022 domain/family/sub-family (CAMT only)
  * @property {string} [fingerprint] the bridge sends it; computed when missing
  * @property {'transfer' | 'trade' | 'fee' | 'reward' | 'stake'} [movement] on an exchange or a wallet
- * @property {string} [txRef] transaction hash or the exchange's reference, shared by the legs of a trade
+ * @property {string} [txRef] transaction hash or the exchange's reference, shared by the legs of a trade;
+ *   on a bank account: a fee and the payment it was charged for (issue #218)
+ * @property {{ amount: string, currency: string, rate?: string }} [original] a bank booking paid in another
+ *   currency: that amount, its currency and the bank's rate
  * @property {string} [chainTxRef] an exchange's deposit or withdrawal: the on-chain hash, to pair it with a wallet
  * @property {string} [exchangeType] as the exchange names the entry, e.g. `transfer/spottostaking`
  * @property {string} [counterpartyAddress] an own wallet's booking: the other side's address on the chain
@@ -225,6 +229,8 @@ export async function importTransactions({
 			bookingType: tx.bookingType ?? '',
 			bankCode: tx.bankCode ?? '',
 			...(tx.movement ? { movement: tx.movement, txRef: tx.txRef ?? '' } : {}),
+			...(!tx.movement && tx.txRef ? { txRef: tx.txRef } : {}),
+			...(tx.original ? { original: tx.original } : {}),
 			...(tx.chainTxRef ? { chainTxRef: tx.chainTxRef } : {}),
 			...(tx.exchangeType ? { exchangeType: tx.exchangeType } : {}),
 			...(tx.counterpartyAddress ? { counterpartyAddress: tx.counterpartyAddress } : {}),
@@ -347,21 +353,87 @@ export async function upsertAccount(accounts, input) {
 }
 
 /**
- * A CAMT statement's account: keyed by a hash of its IBAN, so the full IBAN
- * is not kept even inside the sealed store.
+ * A CAMT statement's account: keyed by a hash of its IBAN – or, where the
+ * bank names none (issue #218), of its other id with issuer and scheme – so
+ * the number is not kept in full even inside the sealed store.
  *
- * @param {{ iban: string, currency: string, name: string }} account
+ * @param {{ iban: string, otherId?: string, issuer?: string, scheme?: string, currency: string, name: string }} account
  */
 export async function camtAccountInput(account) {
-	const last4 = account.iban.slice(-4);
+	const number = account.iban || account.otherId || '';
+	const last4 = number.slice(-4);
+	const currency = account.currency || 'EUR';
 	return {
 		source: /** @type {const} */ ('camt'),
-		sourceAccountId: await ibanKey(account.iban),
+		sourceAccountId: await ibanKey(
+			account.iban ||
+				`other:${account.issuer ?? ''}:${account.scheme ?? ''}:${account.otherId}:${currency}`
+		),
 		ibanLast4: last4,
 		// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
 		name: account.name || `Konto ···${last4}`,
-		currency: account.currency || 'EUR'
+		currency,
+		// An account in another currency keeps each booking's amount in it, valued in euros.
+		...(currency !== 'EUR' ? { asset: currency, decimals: 2 } : {})
 	};
+}
+
+/**
+ * A statement's bookings in another currency than the euro (issue #218): each
+ * keeps its amount as a quantity of that currency and is valued at the day's
+ * rate (USD: the ECB reference rate, through the bridge). Without a rate – no
+ * bridge, or a currency it has none for – the booking is kept with its
+ * quantity and "Kurs fehlt", like a crypto booking (#162); a later import
+ * with a rate fills the euros in.
+ *
+ * @param {import('./camt.js').CamtTransaction[]} transactions
+ * @param {string} currency the account's
+ * @param {((asset: string, date: string) => Promise<import('../assets/valuation.js').Rate>) | null} getRate
+ * @returns {Promise<IncomingTransaction[]>}
+ */
+export async function valuedInEuros(transactions, currency, getRate) {
+	/** @type {Map<string, Promise<import('../assets/valuation.js').Rate>>} */
+	const rates = new Map();
+	/** @type {IncomingTransaction[]} */
+	const out = [];
+	for (const tx of transactions) {
+		const units = String(tx.amountCents);
+		try {
+			if (!getRate) throw new Error(`no rate for ${currency}`);
+			if (!rates.has(tx.date)) rates.set(tx.date, getRate(currency, tx.date));
+			const rate = await /** @type {Promise<import('../assets/valuation.js').Rate>} */ (
+				rates.get(tx.date)
+			);
+			const { amountCents, asset, quantity, decimals, valuation } = valuedFields({
+				asset: currency,
+				units,
+				decimals: 2,
+				rate
+			});
+			out.push({
+				...tx,
+				amountCents,
+				currency: 'EUR',
+				crypto: { asset, quantity, decimals, valuation }
+			});
+		} catch (error) {
+			out.push({
+				...tx,
+				amountCents: 0,
+				currency: 'EUR',
+				crypto: {
+					asset: currency,
+					quantity: units,
+					decimals: 2,
+					valuation: /** @type {any} */ (null)
+				},
+				rateMissing: {
+					reason: String(/** @type {any} */ (error)?.message ?? error).slice(0, 200)
+				}
+			});
+		}
+	}
+	return out;
 }
 
 /**
@@ -369,8 +441,10 @@ export async function camtAccountInput(account) {
  *
  * @param {{ accounts: import('../store/repository.js').Collection, transactions: import('../store/repository.js').Collection, events?: import('../store/repository.js').Collection }} store
  * @param {import('./camt.js').CamtStatement[]} statements
+ * @param {{ getRate?: ((asset: string, date: string) => Promise<import('../assets/valuation.js').Rate>) | null }} [options]
+ *   the day's rate for a statement in another currency (the bridge client's `rate`)
  */
-export async function importCamtStatements(store, statements) {
+export async function importCamtStatements(store, statements, { getRate = null } = {}) {
 	/** @type {{ account: import('../store/repository.js').StoredRecord, counts: ImportCounts, pending: number }[]} */
 	const results = [];
 	for (const statement of statements) {
@@ -384,7 +458,10 @@ export async function importCamtStatements(store, statements) {
 				source: 'camt',
 				fingerprintAccount: `camt:${input.sourceAccountId}`
 			},
-			incoming: statement.transactions
+			incoming:
+				input.currency === 'EUR'
+					? statement.transactions
+					: await valuedInEuros(statement.transactions, input.currency, getRate)
 		});
 		results.push({ account, counts, pending: statement.skipped });
 	}
