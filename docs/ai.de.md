@@ -6,6 +6,14 @@ _English: [ai.md](ai.md)_
 
 In der App trägt jeder Knopf, der das Modell fragt, das Zeichen **✦** (`app/src/lib/AiMark.svelte`); beim Darüberfahren steht, was hinausgeht. Die Einwilligungsseite nennt dasselbe, einfach und unter _Technisch_ im Detail.
 
+## Welches Modell, derzeit
+
+**Unser Rat heute: ein lokales Modell** (Ollama, LM Studio), oder mit der KI warten, bis ein schnelles Modell in einer vertraulichen Ausführungsumgebung (TEE) läuft, deren Attestierung sich prüfen lässt. Belege würde ein solches Modell nur bei Bedarf fragen, wie bisher auf einen ✦-Klick.
+
+- **Lokal:** Nichts verlässt deinen Rechner. Ein 8B-Modell liest einfache Belege; mehrere Steuersätze, Reverse Charge und lange Texte gehen öfter schief, die Prüfungen der Bridge fangen einen Teil davon ab.
+- **Gehostet, ohne TEE** (DeepSeek, voreingestellt): Der Anbieter kann lesen, was die Bridge schickt. Die Schwärzung begrenzt das; anonym macht sie einen Beleg nicht (siehe _Schwärzung_ unten).
+- **Gehostet, im TEE:** Lohnt erst, wenn sich bei jedem Aufruf prüfen lässt, dass er in einer attestierten Umgebung läuft. Solange die Bridge das nicht selbst prüft, ist es das Wort des Anbieters. Welche Anbieter das erfüllen, steht hier, sobald sie es kann.
+
 ## Mit KI
 
 | Wo                                                                                                                      | Ausgelöst durch                                                                                                                                                                                                                                                 | Was an das Modell geht                                                                                                                                                                                                                                               | Was zurückkommt                                                                                                                                                                        |
@@ -18,7 +26,13 @@ In der App trägt jeder Knopf, der das Modell fragt, das Zeichen **✦** (`app/s
 
 Beide Sammelläufe, _Alle neuen auslesen_ und _✦ KI-Vorschläge für alle offenen Rückfragen_, laufen in der App über eine gemeinsame Warteschlange (`jobs/queue.js`), nicht auf der Seite. Sie gehen weiter, wenn du eine andere Seite öffnest, und ein Tab zeigt, wie weit sie sind: _Belege_ beim Auslesen (`38/90`), _Home_ bei den Vorschlägen. Ein zweiter Start wartet, bis der Lauf fertig ist, und _Abbrechen_ hält ihn nach den laufenden Anfragen an. Ein Lauf schickt standardmäßig 2 Anfragen gleichzeitig; 1 bis 4 stellst du unter _Statistik → Gleichzeitige KI-Anfragen je Lauf_ ein. Begrenzt der Anbieter die Anfragen (die Bridge antwortet mit HTTP 429 `LLM_RATE_LIMIT`, wenn jedes Modell das tat), kommt der Eintrag zurück in die Warteschlange, und der Lauf pausiert, 2 s und dann doppelt so lange bis 30 s, statt ihn als fehlgeschlagen zu zählen. Nach sechs solchen Versuchen zählt er doch als fehlgeschlagen. Sperren der Bücher oder Neuladen der Seite hält einen Lauf an. Was er noch nicht erledigt hatte, bleibt versiegelt in den Einstellungen (`pendingJobs`), und nach dem nächsten Entsperren fragt _Home_ „Weitermachen?“. Von selbst startet nichts. Jedes Auslesen schreibt auf den Beleg, wie er in dem Moment ist: Was du zwischendurch geändert hast, bleibt, und ein zwischendurch gelöschter Beleg bleibt gelöscht (`receipts/extract-queue.svelte.js`, `matching/ai-suggest.svelte.js`).
 
-Vor jedem Aufruf schwärzt die Bridge (`bridge/src/llm/redact.js`): die Namen auf deiner Liste, IBANs bis auf die letzten vier Stellen, E-Mail-Adressen deiner eigenen Domains, Straßen, Postleitzahlen mit Ort und Links (nur der Host bleibt). Die Antworten sind JSON und werden geprüft (Netto + USt = Brutto, Daten sind Daten, ein Vorschlag ist einer der Kandidaten). Passt eine Antwort nicht, fragt die Bridge einmal das zweite Modell, sonst wird sie verworfen. Was gesendet wurde, bleibt am Beleg (_An die KI gesendet_) oder steht bei der Suche (_Was an das Sprachmodell ging_). Der Verlauf nennt Modell, Dauer und Tokens jedes Aufrufs; das Protokoll der Bridge nur Zahlen.
+### Schwärzung
+
+Vor jedem Aufruf schwärzt die Bridge (`bridge/src/llm/redact.js`): die Namen auf ihrer Liste (`pnpm setup:llm`) und die Firmennamen aus den Einstellungen der App (mit dem Aufruf geschickt, als `[FIRMA]`), Namen nach einer Anrede oder einem Etikett, IBANs und Kartennummern bis auf die letzten vier Stellen, E-Mail-Adressen (von fremden bleibt die Domain), Telefonnummern, Geburtsdaten, Steuer-IDs und Steuernummern, Straßen, Postleitzahlen mit Ort und Links (nur der Host bleibt).
+
+**Das begrenzt, was hinausgeht; anonym macht es einen Text nicht.** Ein Name, der auf keiner Liste steht und hinter keinem Etikett, geht durch. Anbieter, Beträge, Daten, Rechnungs- und Kundennummern und worum es im Beleg geht, bleiben mit Absicht: Auslesen und Zuordnen brauchen sie. `bridge/test/redact-scorecard.test.js` hält erfundene Dokumente fest, mit dem, was verborgen sein muss, was bleiben muss, und den bekannten Lücken; die Zahlen ändern sich nur mit Begründung. Soll nichts den Rechner verlassen, stell ein lokales Modell ein (Ollama, LM Studio).
+
+Die Antworten sind JSON und werden geprüft (Netto + USt = Brutto, Daten sind Daten, ein Vorschlag ist einer der Kandidaten). Passt eine Antwort nicht, fragt die Bridge einmal das zweite Modell, sonst wird sie verworfen. Was gesendet wurde, bleibt am Beleg (_An die KI gesendet_) oder steht bei der Suche (_Was an das Sprachmodell ging_). Der Verlauf nennt Modell, Dauer und Tokens jedes Aufrufs; das Protokoll der Bridge nur Zahlen.
 
 ## Ohne KI (feste Regeln)
 

@@ -694,7 +694,7 @@ export default {
 				'Was die KI liefert, prüfst du: Am Beleg stehen das Modell und der gesendete Text, ein KI-Vorschlag wird erst auf deinen Klick übernommen, und der Verlauf nennt jeden Aufruf.',
 			technical: [
 				'Das Sprachmodell stellst du in der Bridge ein (pnpm setup:llm): jede Schnittstelle im OpenAI-Format (/chat/completions) – per https, oder per http nur auf diesem Rechner (127.0.0.1, localhost), etwa Ollama oder LM Studio. Voreingestellt sind deepseek-flash, mit deepseek-v4-pro als zweitem Versuch.',
-				'Vor jedem Aufruf schwärzt die Bridge Namen aus deiner Liste, IBANs bis auf die letzten vier Stellen, eigene E-Mail-Adressen, Straßen, Postleitzahlen und Links (nur der Host bleibt). Die Antworten sind JSON und werden geprüft (Summen, Datumsformate, Kandidatennummern); was nicht passt, wird verworfen.',
+				'Vor jedem Aufruf schwärzt die Bridge Namen aus ihrer Liste und deine Firmennamen aus den Einstellungen, Namen nach einer Anrede oder einem Etikett („Herr“, „Ansprechpartner:“), IBANs und Kartennummern bis auf die letzten vier Stellen, E-Mail-Adressen (von fremden bleibt die Domain), Telefonnummern, Geburtsdaten, Steuernummern, Straßen, Postleitzahlen und Links (nur der Host bleibt). Das begrenzt, was hinausgeht, anonym macht es den Text nicht: Ein Name, der auf keiner Liste steht und hinter keinem Etikett, geht durch, ebenso Anbieter, Beträge, Rechnungsnummern und worum es im Beleg geht. Soll nichts hinausgehen, stell ein Modell auf diesem Rechner ein (etwa Ollama). Die Antworten sind JSON und werden geprüft (Summen, Datumsformate, Kandidatennummern); was nicht passt, wird verworfen.',
 				'Der API-Schlüssel liegt im macOS-Schlüsselbund der Bridge, nie im Browser. Das Protokoll der Bridge nennt nur Zahlen, nie Text. Im Verlauf der App stehen Modell, Dauer und Tokens jedes Aufrufs.'
 			]
 		},
@@ -723,7 +723,7 @@ export default {
 				name: 'Bridge auf diesem Rechner (127.0.0.1)',
 				text: 'Holt Umsätze aus Hibiscus und Belege aus deinem Postfach. Bei der App kommen nur Konten an, die du auf der Bridge freigegeben hast, und nur E-Mails an die Buchhaltungsadresse.',
 				leaves:
-					'Die Bridge fragt dein Postfach (IMAP) ab und schickt zum Auslesen geschwärzten Text an das Sprachmodell (siehe unten). Die Verbindung zur GLS Bank (FinTS) baut Hibiscus auf.',
+					'Die Bridge fragt dein Postfach (IMAP) ab und schickt zum Auslesen geschwärzten Text an das Sprachmodell (siehe unten). Die Verbindung zu deiner Bank (FinTS) baut Hibiscus auf.',
 				technical:
 					'Die Bridge hört nur auf 127.0.0.1 (Port 8765) und startet auf keiner anderen Adresse. Gekoppelt wird mit einem Einmalcode; das Bearer-Token liegt verschlüsselt in den Einstellungen der App, auf der Bridge nur sein Hash. CORS lässt nur die eingetragenen App-Adressen zu, der Host-Header muss 127.0.0.1 oder localhost sein. Das Zertifikat von Jameica ist gepinnt; Hibiscus-Passwort, IMAP-Token und API-Schlüssel liegen im macOS-Schlüsselbund. Konten ohne freigegebene IBAN-Endung werden gar nicht erst abgefragt. Postfächer öffnet die Bridge nur lesend.'
 			},
@@ -745,9 +745,9 @@ export default {
 				name: 'Sprachmodell – voreingestellt DeepSeek (Belege auslesen, KI-Suche)',
 				text: 'Das Modell, das du in der Bridge einstellst. Nur bei Knöpfen mit ✦ (siehe „KI“ oben).',
 				leaves:
-					'Beim Auslesen der geschwärzte Text eines Belegs; bei „Mit KI weitersuchen“ Gegenpartei und Verwendungszweck sowie Betreff, Absender-Domain und Dateinamen der Treffer, geschwärzt. Bei DeepSeek stehen die Server außerhalb der EU; ein lokales Modell verlässt diesen Rechner nicht.',
+					'Beim Auslesen der geschwärzte Text eines Belegs; bei „Mit KI weitersuchen“ Gegenpartei und Verwendungszweck sowie Betreff, Absender-Domain und Dateinamen der Treffer, geschwärzt. Bei DeepSeek stehen die Server außerhalb der EU; ein lokales Modell verlässt diesen Rechner nicht. Unser Rat derzeit: ein lokales Modell, oder mit der KI warten, bis schnelle Modelle in einer prüfbar vertraulichen Umgebung (TEE) verfügbar sind.',
 				technical:
-					'Die Bridge schickt nur die Textebene eines PDFs (oder den Text einer E-Mail) mit Betreff und Absender, nachdem sie Namen aus ihrer Liste, IBANs (bis auf die letzten vier Stellen), eigene E-Mail-Adressen, Straßen und Postleitzahlen geschwärzt hat – nie die Datei selbst. DeepSeek betreibt seine Server in China. Der API-Schlüssel liegt im macOS-Schlüsselbund der Bridge, nie im Browser. E-Mails von Absendern ohne bestandene DKIM/SPF-Prüfung liest die Bridge erst nach deiner Freigabe aus.'
+					'Die Bridge schickt nur die Textebene eines PDFs (oder den Text einer E-Mail) mit Betreff und Absender, nachdem sie Namen aus ihrer Liste und deine Firmennamen aus den Einstellungen, Namen nach einer Anrede oder einem Etikett („Herr“, „Ansprechpartner:“), IBANs und Kartennummern bis auf die letzten vier Stellen, E-Mail-Adressen (von fremden bleibt die Domain), Telefonnummern, Geburtsdaten, Steuernummern, Straßen, Postleitzahlen und Links (nur der Host bleibt) geschwärzt hat – nie die Datei selbst. Das begrenzt, was hinausgeht, anonym macht es den Text nicht: Ein Name, der auf keiner Liste steht und hinter keinem Etikett, geht durch, ebenso Anbieter, Beträge, Rechnungsnummern und worum es im Beleg geht. Soll nichts hinausgehen, stell ein Modell auf diesem Rechner ein (etwa Ollama). DeepSeek betreibt seine Server in China. Der API-Schlüssel liegt im macOS-Schlüsselbund der Bridge, nie im Browser. E-Mails von Absendern ohne bestandene DKIM/SPF-Prüfung liest die Bridge erst nach deiner Freigabe aus.'
 			},
 			portals: {
 				name: 'Kundenportale (Vodafone)',
@@ -1707,11 +1707,11 @@ export default {
 			fallback: 'zweiter Versuch mit {model}, weil {reason}',
 			sent: 'An die KI gesendet (geschwärzt)',
 			sentHint:
-				'Genau dieser Text ging von der Bridge an das Sprachmodell. Geschwärzte Stellen stehen in eckigen Klammern, etwa [NAME] oder [IBAN …1234].',
+				'Genau dieser Text ging von der Bridge an das Sprachmodell. Geschwärzte Stellen stehen in eckigen Klammern, etwa [NAME] oder [IBAN …1234]. Lies ihn: Was hier noch steht, hat das Modell gesehen – ein Name ohne Etikett, der auf keiner Liste steht, bleibt stehen.',
 			sentMissing:
 				'Mit einer älteren Bridge ausgelesen: Welcher Text gesendet wurde, ist nicht gespeichert. „Erneut auslesen“ holt es nach.',
 			redactions:
-				'Geschwärzt: {terms} Namen, {iban} IBANs, {email} E-Mail-Adressen, {street} Straßen, {postcode} PLZ und Ort, {link} Links',
+				'Geschwärzt: {terms} Namen, {iban} IBANs und Karten, {email} E-Mail-Adressen, {phone} Telefonnummern, {id} Geburtsdaten und Steuernummern, {street} Straßen, {postcode} PLZ und Ort, {link} Links',
 			attempts: 'Versuche: {list}',
 			tokens: 'Tokens: {prompt} hin, {completion} zurück, davon {reasoning} zum Nachdenken',
 			notAi:
@@ -1728,7 +1728,7 @@ export default {
 		},
 		technical: [
 			'Jede Datei wird im Browser mit AES-GCM versiegelt (Schlüssel per HKDF aus der PRF-Antwort des Passkeys, info belege/blob-key/v1) und in 1-MiB-Blöcken in Helias Blockstore abgelegt. Doppelte erkennt die App am SHA-256 des Inhalts, der nur im versiegelten Datensatz steht.',
-			'Zum Auslesen geht nur die Textebene des PDFs an die Bridge. Die Bridge schwärzt Namen, IBANs, eigene E-Mail-Adressen, Straßen und Postleitzahlen und fragt dann das Sprachmodell; die Datei selbst verlässt den Browser nicht.'
+			'Zum Auslesen geht nur die Textebene des PDFs an die Bridge. Die Bridge schwärzt Namen aus ihrer Liste und nach Etiketten, IBANs, E-Mail-Adressen, Telefonnummern, Straßen und Postleitzahlen und fragt dann das Sprachmodell; die Datei selbst verlässt den Browser nicht. Anonym ist der Text damit nicht – was gesendet wurde, steht danach am Beleg.'
 		]
 	},
 	verlauf: {
@@ -2369,7 +2369,7 @@ export default {
 			},
 			ki: {
 				what: 'Ein Sprachmodell liest Anbieter, Betrag, Datum und Nummer aus Belegen und hilft an vier weiteren Stellen – immer nur auf Klick (✦).',
-				how: 'Du richtest dein eigenes Modell in der Bridge ein, etwa DeepSeek oder ein lokales mit Ollama. Vor dem Senden wird geschwärzt; Le Space betreibt keine KI.'
+				how: 'Du richtest dein eigenes Modell in der Bridge ein, etwa DeepSeek oder ein lokales mit Ollama. Vor dem Senden wird geschwärzt, soweit Muster und Listen reichen; mit einem lokalen Modell geht nichts hinaus – dazu raten wir derzeit. Le Space betreibt keine KI.'
 			},
 			kraken: {
 				what: 'Belege liest dein Kraken-Konto nur lesend: Ledger, Bestände und Trades, je Asset ein Konto, in Euro zum Tageskurs.',
@@ -2583,7 +2583,7 @@ export default {
 			totalsFallback: ' · {count}× zweiter Versuch',
 			verlauf: 'Alle Aufrufe im Verlauf',
 			technical: [
-				'Die Bridge schickt die Textebene eines PDFs (oder den Text einer E-Mail) an die OpenAI-kompatible Chat-API des Anbieters (/chat/completions, JSON-Modus, max_tokens 6000). Vorher schwärzt sie Namen aus ihrer Liste, IBANs bis auf die letzten vier Stellen, eigene E-Mail-Adressen, Straßen und Postleitzahlen. Was gesendet wurde, steht beim Beleg unter „An die KI gesendet“.',
+				'Die Bridge schickt die Textebene eines PDFs (oder den Text einer E-Mail) an die OpenAI-kompatible Chat-API des Anbieters (/chat/completions, JSON-Modus, max_tokens 6000). Vorher schwärzt sie Namen aus ihrer Liste und deine Firmennamen aus den Einstellungen, Namen nach einer Anrede oder einem Etikett („Herr“, „Ansprechpartner:“), IBANs und Kartennummern bis auf die letzten vier Stellen, E-Mail-Adressen (von fremden bleibt die Domain), Telefonnummern, Geburtsdaten, Steuernummern, Straßen, Postleitzahlen und Links (nur der Host bleibt). Das begrenzt, was hinausgeht, anonym macht es den Text nicht: Ein Name, der auf keiner Liste steht und hinter keinem Etikett, geht durch, ebenso Anbieter, Beträge, Rechnungsnummern und worum es im Beleg geht. Soll nichts hinausgehen, stell ein Modell auf diesem Rechner ein (etwa Ollama). Was gesendet wurde, steht beim Beleg unter „An die KI gesendet“.',
 				'Die Antwort wird geprüft (Brutto da, Währung ISO, Daten gültig, Netto + USt = Brutto). Fällt sie durch oder bricht sie ab, fragt die Bridge das zweite Modell.',
 				'Warum der Key nicht hier eingetragen wird: Ein Schlüssel in der Webseite ist für jedes Skript lesbar, das je auf ihr läuft. In der Bridge liegt er im macOS-Schlüsselbund, und keine Antwort der Bridge enthält ihn – GET /llm/status sagt nur „da“ oder „fehlt“. Modelle und Begriffe stellt ebenfalls pnpm setup:llm ein.'
 			]

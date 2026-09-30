@@ -25,6 +25,44 @@ export class BridgeError extends Error {
 	}
 }
 
+/** @type {() => string[]} what the app adds to the bridge's redaction list on every LLM call */
+let redactTerms = () => [];
+
+/**
+ * Tell the client which terms to send with every call that reaches the
+ * language model: the company's names from Einstellungen (issue #226). The
+ * bridge blacks them out beside its own list.
+ *
+ * @param {() => string[]} terms
+ */
+export function setRedactTerms(terms) {
+	redactTerms = terms;
+}
+
+/** What the bridge puts where one of those terms stood (bridge/src/llm/redact.js). */
+const COMPANY_MARK = '[FIRMA]';
+
+/**
+ * The first company name back where the model repeats the bridge's mark: an
+ * invoice of our own names us as the vendor, and is recognised by that name.
+ *
+ * @template T
+ * @param {T} result
+ * @returns {T}
+ */
+function restoreCompany(result) {
+	const [name] = redactTerms();
+	const e = /** @type {any} */ (result)?.extraction;
+	if (!name || !e) return result;
+	for (const key of ['vendor', 'summary']) {
+		if (typeof e[key] === 'string') e[key] = e[key].split(COMPANY_MARK).join(name);
+	}
+	return result;
+}
+
+/** A body for an LLM route: the caller's, and the terms to black out. @param {any} body */
+const withTerms = (body) => JSON.stringify({ ...body, redactTerms: redactTerms().slice(0, 20) });
+
 /**
  * A failed call, with its way out noted for the card that shows the message
  * (help/way-out.js).
@@ -411,7 +449,7 @@ export function createBridgeClient({
 		 * @param {{ counterparty: string, purpose?: string, amount?: string | null, around?: string | null, days?: number, knownDomains?: string[] }} body
 		 * @returns {Promise<{ vendor: string | null, terms: string[], domains: string[], messages: any[], pick: { id: string, confidence: 'high' | 'medium' | 'low', reason: string } | null, llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
 		 */
-		mailAssist: (body) => call('/mail/assist', { method: 'POST', body: JSON.stringify(body) }),
+		mailAssist: (body) => call('/mail/assist', { method: 'POST', body: withTerms(body) }),
 		/**
 		 * "✦ KI-Vorschlag" under "Beleg zuordnen": the LLM picks among receipts,
 		 * from their read fields; the bridge redacts.
@@ -419,7 +457,7 @@ export function createBridgeClient({
 		 * @param {{ booking: { counterparty?: string, purpose?: string, amount?: string, day?: string }, candidates: { id: string, vendor?: string, amount?: string, currency?: string, date?: string, number?: string, summary?: string }[] }} body
 		 * @returns {Promise<{ pick: { id: string, confidence: 'high' | 'medium' | 'low', reason: string } | null, reason?: string, llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
 		 */
-		matchAssist: (body) => call('/match/assist', { method: 'POST', body: JSON.stringify(body) }),
+		matchAssist: (body) => call('/match/assist', { method: 'POST', body: withTerms(body) }),
 		/**
 		 * "✦ KI-Vorschlag" under "Als Gegenbuchung verknüpfen …": the LLM picks
 		 * the other side of an own transfer among up to 8 bookings; the bridge
@@ -428,8 +466,7 @@ export function createBridgeClient({
 		 * @param {{ booking: TransferAssistBooking, candidates: (TransferAssistBooking & { id: string })[] }} body
 		 * @returns {Promise<{ pick: { id: string, confidence: 'high' | 'medium' | 'low', reason: string } | null, llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
 		 */
-		transferAssist: (body) =>
-			call('/transfer/assist', { method: 'POST', body: JSON.stringify(body) }),
+		transferAssist: (body) => call('/transfer/assist', { method: 'POST', body: withTerms(body) }),
 		/**
 		 * "✦ Ungereimtheiten erklären" on a vendor account (#121): a few notes on
 		 * what does not add up; the bridge redacts.
@@ -437,7 +474,7 @@ export function createBridgeClient({
 		 * @param {{ vendor: string, from: string, until: string, opening: string | null, closing: string, rows: any[], findings: string[] }} body
 		 * @returns {Promise<{ notes: string[], llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
 		 */
-		vendorAssist: (body) => call('/vendor/assist', { method: 'POST', body: JSON.stringify(body) }),
+		vendorAssist: (body) => call('/vendor/assist', { method: 'POST', body: withTerms(body) }),
 		/**
 		 * A read share for an assistant (issue #124): the snapshot goes to the
 		 * bridge, which keeps it in memory and serves it by its id until it expires.
@@ -455,7 +492,7 @@ export function createBridgeClient({
 		 * @returns {Promise<{ extraction: any, model: string, usage: any, ms?: number, attempts: any[], fallback?: { used: boolean, reason: string | null }, redactions?: any, sentText?: string }>}
 		 */
 		async extract(body) {
-			return call('/extract', { method: 'POST', body: JSON.stringify(body) });
+			return restoreCompany(await call('/extract', { method: 'POST', body: withTerms(body) }));
 		}
 	};
 }

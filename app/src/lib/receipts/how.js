@@ -77,7 +77,9 @@ export function extractionHow(record) {
 					email: r.email ?? 0,
 					street: r.street ?? 0,
 					postcode: r.postcode ?? 0,
-					link: r.link ?? 0
+					link: r.link ?? 0,
+					phone: r.phone ?? 0,
+					id: r.id ?? 0
 				})
 			: null,
 		tokens: info.usage

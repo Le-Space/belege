@@ -9,6 +9,8 @@
 //   POST /mail/trash   { id }                                     token → the one mail moved to the Trash (a person's click)
 //   GET  /mail/search?text=&amount=&from=a.example,b.example&term=…&around=YYYY-MM-DD&days=   token
 //   POST /mail/assist  { counterparty, purpose, amount, around, days, knownDomains }   token → LLM terms, hits, pick
+//   Every LLM route also takes `redactTerms`: up to 20 more terms to black out for
+//   that call (the app sends the company's names from Einstellungen; llm/redact.js).
 //   POST /match/assist { booking, candidates }                  token → the LLM's pick among receipts
 //   GET  /share/<id>                                               the snapshot of a read share (no token: the id is the capability; no Origin)
 //   POST /share { scope, redacted, minutes, data }                 token → { id, expiresAt } (issue #124)
@@ -49,6 +51,7 @@ import { decodeMailId, isIsoDay, isPartNumber } from './mail/mime.js';
 import { handlePortalRequest } from './portals/routes.js';
 import { ALEPH_API } from './aleph.js';
 import { checkEndpoint } from './chains/http.js';
+import { withExtraTerms } from './llm/redact.js';
 
 export const LOOPBACK = '127.0.0.1';
 
@@ -443,7 +446,9 @@ export function createBridgeServer({
 				return send(res, 400, { error: 'booking and 1–25 candidates are required' });
 			}
 			if (!llm || !matchAssist) throw notSetUp('LLM');
-			const result = await matchAssist.pick({ booking: b, candidates: list });
+			const result = await withExtraTerms(body?.redactTerms, () =>
+				matchAssist.pick({ booking: b, candidates: list })
+			);
 			log(
 				`receipt pick: ${list.length} candidate(s), ${result.pick ? `pick ${result.pick.confidence}` : 'no pick'}`
 			);
@@ -475,7 +480,7 @@ export function createBridgeServer({
 				body.findings.every((/** @type {unknown} */ f) => str(f, 300));
 			if (!ok) return send(res, 400, { error: 'a vendor timeline with 1–120 rows is required' });
 			if (!llm || !vendorAssist) throw notSetUp('LLM');
-			const result = await vendorAssist.explain(body);
+			const result = await withExtraTerms(body?.redactTerms, () => vendorAssist.explain(body));
 			log(`vendor notes: ${body.rows.length} row(s), ${result.notes.length} note(s)`);
 			return send(res, 200, result);
 		}
@@ -503,7 +508,9 @@ export function createBridgeServer({
 				return send(res, 400, { error: 'booking and 1–8 candidates are required' });
 			}
 			if (!llm || !transferAssist) throw notSetUp('LLM');
-			const result = await transferAssist.pick({ booking: b, candidates: list });
+			const result = await withExtraTerms(body?.redactTerms, () =>
+				transferAssist.pick({ booking: b, candidates: list })
+			);
 			log(
 				`transfer pick: ${list.length} candidate(s), ${result.pick ? `pick ${result.pick.confidence}` : 'no pick'}`
 			);
@@ -533,14 +540,16 @@ export function createBridgeServer({
 				return send(res, 400, { error: 'knownDomains must be up to 3 mail domains' });
 			if (!mail) throw notSetUp('Mail');
 			if (!llm || !assist) throw notSetUp('LLM');
-			const result = await assist.search({
-				counterparty,
-				purpose,
-				amount,
-				around,
-				days,
-				knownDomains
-			});
+			const result = await withExtraTerms(body?.redactTerms, () =>
+				assist.search({
+					counterparty,
+					purpose,
+					amount,
+					around,
+					days,
+					knownDomains
+				})
+			);
 			log(
 				`assisted search: ${result.terms.length} term(s), ${result.domains.length} domain(s), ${result.messages.length} mail(s), ${result.pick ? `pick ${result.pick.confidence}` : 'no pick'}`
 			);
@@ -728,7 +737,9 @@ export function createBridgeServer({
 				}
 			}
 			if (!llm) throw notSetUp('LLM');
-			const result = await llm.extract({ text: body.text, hints });
+			const result = await withExtraTerms(body?.redactTerms, () =>
+				llm.extract({ text: body.text, hints })
+			);
 			log(
 				`extracted with ${result.model} (${result.attempts.length} attempt(s), ${result.ms} ms, ${result.redactions.total} redaction(s))`
 			);

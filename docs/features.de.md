@@ -47,7 +47,7 @@ Was Le Space Belege heute kann, nach Kategorien. Dieselbe Liste steht kürzer au
   3. _KI-Vorschlag_ für einen Beleg;
   4. _KI-Vorschlag_ für die Gegenbuchung einer Umbuchung;
   5. _Ungereimtheiten erklären_ in einem Lieferantenkonto.
-- **Dein eigenes Modell**, eingerichtet in der Bridge (DeepSeek, Ollama, …). Alles wird vor dem Senden geschwärzt. Le Space betreibt keine KI.
+- **Dein eigenes Modell**, eingerichtet in der Bridge (DeepSeek, Ollama, …). Vor dem Senden wird geschwärzt – das begrenzt, was hinausgeht, anonym macht es den Text nicht; ein lokales Modell schickt nichts hinaus. Le Space betreibt keine KI.
 - **Verbrauch im Blick:** Tokens und Kosten je Tag, Woche, Monat und Beleg. Siehe [ai.de.md](ai.de.md).
 
 ## Krypto
