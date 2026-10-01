@@ -35,17 +35,18 @@ pnpm bridge            # prints the pairing code; pair under Integrationen
 
 Each source is set up once, in the terminal; secrets go into the macOS keychain, or on Windows the Credential Manager, by hidden prompt ([bridge/README.md](bridge/README.md)):
 
-| Command                  | For                                                                     |
-| ------------------------ | ----------------------------------------------------------------------- |
-| `pnpm setup:hibiscus`    | bank accounts from Hibiscus                                             |
-| `pnpm setup:mail`        | the accounting mailbox (IMAP)                                           |
-| `pnpm setup:llm`         | your own language model for reading receipts ([docs/ai.md](docs/ai.md)) |
-| `pnpm setup:portal <id>` | optional: the login of a customer portal, e.g. `vodafone`               |
-| `pnpm setup:kraken`      | Kraken, read only                                                       |
-| `pnpm setup:alchemy`     | optional: EVM wallets through Alchemy                                   |
-| `pnpm setup:bitcoin`     | a Bitcoin wallet by its extended public key (xpub, ypub, zpub)          |
-| `pnpm setup:coingecko`   | optional: a CoinGecko key for rates                                     |
-| `pnpm setup:relay`       | optional: a relay for your own devices in your own network              |
+| Command                    | For                                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------------------- |
+| `pnpm setup:hibiscus`      | bank accounts from Hibiscus                                                                       |
+| `pnpm setup:enablebanking` | optional: banks through Enable Banking, your own application ([docs/banking.md](docs/banking.md)) |
+| `pnpm setup:mail`          | the accounting mailbox (IMAP)                                                                     |
+| `pnpm setup:llm`           | your own language model for reading receipts ([docs/ai.md](docs/ai.md))                           |
+| `pnpm setup:portal <id>`   | optional: the login of a customer portal, e.g. `vodafone`                                         |
+| `pnpm setup:kraken`        | Kraken, read only                                                                                 |
+| `pnpm setup:alchemy`       | optional: EVM wallets through Alchemy                                                             |
+| `pnpm setup:bitcoin`       | a Bitcoin wallet by its extended public key (xpub, ypub, zpub)                                    |
+| `pnpm setup:coingecko`     | optional: a CoinGecko key for rates                                                               |
+| `pnpm setup:relay`         | optional: a relay for your own devices in your own network                                        |
 
 Own Cosmos and EVM wallets are added in the app (_Integrationen → Eigene Wallets_) and need no setup.
 
@@ -65,6 +66,7 @@ The app is in [`app/`](app/README.md), the bridge in [`bridge/`](bridge/README.m
 - [Features](docs/features.md) ([Deutsch](docs/features.de.md))
 - [Matching: fiscal years, refunds, vendor accounts](docs/matching.md) ([Deutsch](docs/matching.de.md))
 - [AI](docs/ai.md) ([Deutsch](docs/ai.de.md))
+- [Bank accounts: statement files, Hibiscus, Enable Banking](docs/banking.md) ([Deutsch](docs/banking.de.md))
 - [Accounts and DATEV export](docs/export.md) ([Deutsch](docs/export.de.md))
 - [Crypto](docs/crypto.md) ([Deutsch](docs/crypto.de.md))
 - [Performance](docs/performance.md) ([Deutsch](docs/performance.de.md))

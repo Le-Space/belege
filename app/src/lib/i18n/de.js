@@ -577,7 +577,7 @@ export default {
 			payments: {
 				name: 'Zahlungen',
 				items: [
-					'Bankumsätze aus Hibiscus (über die Bridge) und Kontoauszüge als CAMT.053, etwa von Revolut oder GLS.',
+					'Bankumsätze aus Hibiscus und über Enable Banking (beides über die Bridge) und Kontoauszüge als CAMT.053, etwa von Revolut oder GLS.',
 					'Ein Geschäftsjahr nach dem anderen; zusammengehörige Buchungen sind einen Klick entfernt.',
 					'Private Zahlungen vom Geschäftskonto markieren, dokumentieren und verrechnen.'
 				]

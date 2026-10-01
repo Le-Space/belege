@@ -49,7 +49,7 @@ addressed to the accounting alias, and sends only redacted text to the LLM.
    certhash stay the same. Allow `node` incoming connections when macOS asks, and never forward
    the port in the router. The app takes the address from `GET /lan-relay` once paired; then
    "Nur im eigenen Netz" can be chosen in its network menu.
-10. **Enable Banking** (optional, being built, [#224](https://github.com/Le-Space/belege/issues/224)):
+10. **Enable Banking** (optional; the whole way in [docs/banking.md](../docs/banking.md)):
     register your own application in Enable Banking's Control Panel, with the redirect URL
     `https://belege.le-space.de/integrationen/bank/verbunden` (Enable Banking accepts no
     `localhost`). `pnpm setup:enablebanking` asks for the application id, the path of the private key

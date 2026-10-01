@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **Bank accounts documented in one place** (#224): [docs/banking.md](docs/banking.md) ([Deutsch](docs/banking.de.md)) – statement files, Hibiscus and Enable Banking side by side; for Enable Banking the own application, both kinds of key, setup, linking, releasing accounts, fetching, renewing, what is kept where, what leaves, and what to do when a message comes. The Bank page's help links it.
+
 - **Enable Banking, step 5: a consent that ends is said in time** (#224). "Braucht dich" names a bank whose consent ends within two weeks, and one that has ended; the Bank page offers "Erneuern" on it, and a renewal replaces the older consent at Enable Banking and in the bridge. The setup checklist's "Zahlungen holen" names the three ways in – statement file, Hibiscus, Enable Banking – with their commands.
 
 - **Enable Banking, step 4: what goes out, said where it happens** (#224). The Enable Banking block on Integrationen → Bank has "Was dabei hinausgeht" (to Enable Banking, to the bank, and what never), with the technical view under "Technisch": signed requests, the sealed key, the one-time code, the account allow-list. The consent screen lists Enable Banking among the banks; the help on the Bank page names it with its two commands.
