@@ -101,6 +101,9 @@ test('a fresh start: the checklist, "later", and the bridge step that guides', a
 	await expect(step('bridge')).toHaveAttribute('data-state', 'done');
 	await expect(card.getByTestId('setup-progress')).toHaveText('1 von 5 erledigt');
 	await expect(step('payments').getByTestId('setup-step-detail')).toBeVisible();
+	await expect(step('payments').getByTestId('setup-payment-ways')).toContainText(
+		'pnpm setup:enablebanking'
+	);
 
 	// What is put off stays put off after a reload, and is taken up again.
 	await step('payments').getByTestId('setup-later').click();

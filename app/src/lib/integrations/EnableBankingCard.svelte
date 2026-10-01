@@ -15,6 +15,8 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { app, currentStore, refreshNow, runMatchingNow } from '$lib/session.svelte.js';
 	import { syncEnableBanking } from '$lib/bank/enablebanking-sync.js';
+	import { CONSENT_WARN_DAYS, rememberConsents } from './alerts.js';
+	import { loadIntegrationFacts } from './facts.svelte.js';
 
 	/** @typedef {import('$lib/bridge/client.js').EnableBankingBank} Bank */
 	/** @typedef {import('$lib/bridge/client.js').EnableBankingLink} Link */
@@ -103,6 +105,12 @@
 	async function loadLinks() {
 		try {
 			links = await bridgeClient().enableBankingLinks();
+			// "Braucht dich" knows when a consent ends without asking the bridge (#224, step 5).
+			const store = currentStore();
+			if (store) {
+				await rememberConsents(store.settings, links);
+				await loadIntegrationFacts();
+			}
 			accounts = await bridgeClient().enableBankingAccounts();
 			chosen.clear();
 			for (const a of accounts) if (a.allowed) chosen.add(a.uid);
@@ -173,17 +181,20 @@
 		if (bank) psuType = bank.psuTypes.includes('business') ? 'business' : 'personal';
 	});
 
-	async function link() {
-		if (!bank) return;
+	/**
+	 * Go to the bank: the one chosen below, or a linked one to renew – the
+	 * bridge then replaces the older consent.
+	 *
+	 * @param {{ bank: string, country: string, psuType: 'business' | 'personal' } | null} [target]
+	 */
+	async function link(target = null) {
+		const to = target ?? (bank ? { bank: bank.name, country: bank.country, psuType } : null);
+		if (!to) return;
 		busy = true;
 		error = null;
 		try {
-			const started = await bridgeClient().enableBankingLink({
-				bank: bank.name,
-				country: bank.country,
-				psuType
-			});
-			rememberStart(sessionStorage, { state: started.state, bank: bank.name });
+			const started = await bridgeClient().enableBankingLink(to);
+			rememberStart(sessionStorage, { state: started.state, bank: to.bank });
 			location.assign(started.url);
 		} catch (e) {
 			error = message(e);
@@ -205,7 +216,7 @@
 
 	/** @param {Link} l */
 	const endsSoon = (l) =>
-		l.validUntil !== null && Date.parse(l.validUntil) - Date.now() < 14 * 86_400_000;
+		l.validUntil !== null && Date.parse(l.validUntil) - Date.now() < CONSENT_WARN_DAYS * 86_400_000;
 </script>
 
 <section
@@ -265,9 +276,18 @@
 									})}</span
 								>
 							{/if}
+							{#if endsSoon(l)}
+								<button
+									type="button"
+									class="ml-auto text-xs font-medium underline"
+									disabled={busy}
+									onclick={() => link({ bank: l.bank, country: l.country, psuType: l.psuType })}
+									data-testid="enablebanking-renew">{t('integrationen.enableBanking.renew')}</button
+								>
+							{/if}
 							<button
 								type="button"
-								class="ml-auto text-xs underline"
+								class="{endsSoon(l) ? '' : 'ml-auto'} text-xs underline"
 								onclick={() => unlink(l)}
 								data-testid="enablebanking-unlink">{t('integrationen.enableBanking.unlink')}</button
 							>
@@ -396,7 +416,7 @@
 			type="button"
 			class="mt-3 {btn.primary}"
 			disabled={!bank || busy}
-			onclick={link}
+			onclick={() => link()}
 			data-testid="enablebanking-start"
 			>{busy
 				? t('integrationen.enableBanking.going')

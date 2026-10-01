@@ -13,6 +13,8 @@
 	import { formatDate } from '$lib/bank/format.js';
 	import { parseReturn, takeReturn, takeStart } from '$lib/enablebanking/return.js';
 	import { bridge, bridgeClient, loadBridge } from '$lib/integrations/bridge-state.svelte.js';
+	import { rememberConsents } from '$lib/integrations/alerts.js';
+	import { currentStore } from '$lib/session.svelte.js';
 
 	/** @typedef {import('$lib/bridge/client.js').EnableBankingLink} Link */
 
@@ -54,6 +56,10 @@
 				code: /** @type {string} */ (answer.code),
 				state: answer.state ?? ''
 			});
+			// The consents' ends as they are now, before the page says so: a
+			// renewal clears "Braucht dich", a short consent shows there.
+			const store = currentStore();
+			if (store) await rememberConsents(store.settings, await bridgeClient().enableBankingLinks());
 			phase = 'linked';
 		} catch (e) {
 			phase = 'failed';

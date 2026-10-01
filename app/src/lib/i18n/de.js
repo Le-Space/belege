@@ -215,7 +215,12 @@ export default {
 			},
 			payments: {
 				title: 'Zahlungen holen',
-				why: 'Die Bank über Hibiscus oder als CAMT.053-Datei – die geht auch ohne Bridge. Dazu Kraken und eigene Wallets, wenn du sie hast.',
+				why: 'Die Bank über Hibiscus, über Enable Banking oder als CAMT.053-Datei – die geht auch ohne Bridge. Dazu Kraken und eigene Wallets, wenn du sie hast.',
+				ways: [
+					'Kontoauszug-Datei (CAMT.053): im Online-Banking exportieren und unter Integrationen → Bank hochladen. Sofort, ohne Bridge.',
+					'Hibiscus: Banken mit FinTS, über die Bridge; einmal einrichten mit',
+					'Enable Banking: Banken in Europa per PSD2, über die Bridge. Eine eigene Anwendung bei Enable Banking anlegen (Redirect-URL: diese App unter /integrationen/bank/verbunden), dann einrichten mit'
+				],
 				time: 'etwa 5 Minuten'
 			},
 			receipts: {
@@ -2419,6 +2424,10 @@ export default {
 				deviceRemoved:
 					'dieses Gerät wurde auf einem anderen entfernt; die Synchronisation ist aus.',
 				deviceError: 'die Synchronisation meldet einen Fehler.',
+				consentEnded:
+					'die Freigabe bei {bank} (Enable Banking) ist abgelaufen – neu freigeben, sonst kommen keine Umsätze mehr.',
+				consentEnding:
+					'die Freigabe bei {bank} (Enable Banking) endet am {date} – vorher erneuern.',
 				neverSynced: '{name} ist eingerichtet, aber noch nie abgerufen.',
 				krakenRefused: 'der letzte Abruf wurde abgelehnt. Meist hilft ein neuer API-Schlüssel.',
 				walletHints: 'der letzte Abruf hat Hinweise hinterlassen (Wallets mit Hinweis: {count}).'
@@ -2565,6 +2574,7 @@ export default {
 			kind: { business: 'Geschäftskonto', personal: 'Privatkonto' },
 			kindLabel: 'Kontoart',
 			validUntil: 'freigegeben bis {date}',
+			renew: 'Erneuern',
 			unlink: 'Trennen',
 			unlinkConfirm:
 				'Die Verbindung zu {bank} trennen? Enable Banking beendet die Freigabe; schon geholte Umsätze bleiben in den Büchern.',
