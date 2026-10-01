@@ -604,7 +604,7 @@
 							placeholder={localChain?.kind === 'evm'
 								? '0x…'
 								: localChain?.kind === 'filecoin'
-									? 'f1…'
+									? 'f1… · f410f… · 0x…'
 									: `${localChain?.bech32Prefix ?? ''}1…`}
 							data-testid="wallet-address-input"
 						/>

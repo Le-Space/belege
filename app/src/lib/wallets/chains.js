@@ -6,6 +6,8 @@
 // A wallet's accounts carry the chain's id as their `source` (`nyx`,
 // `ethereum`, …), one account per asset.
 
+import { isEthStyle, toFilecoinAddress } from './filecoin-address.js';
+
 /**
  * @typedef {object} WalletChain
  * @property {string} id
@@ -100,6 +102,7 @@ export const isWalletSource = (source) => walletChain(source) !== null;
  */
 export function normalizeAddress(chain, address) {
 	const a = String(address ?? '').trim();
+	if (chain.kind === 'filecoin') return toFilecoinAddress(a);
 	return chain.kind === 'evm' ? a.toLowerCase() : a;
 }
 
@@ -115,7 +118,7 @@ export function looksLikeAddress(chain, address) {
 	if (chain.kind === 'evm') return /^0x[0-9a-fA-F]{40}$/.test(a);
 	if (chain.kind === 'bitcoin') return /^btc-[0-9a-f]{8}$/.test(a);
 	if (chain.kind === 'filecoin') {
-		return /^f(0\d{1,20}|1[a-z2-7]{39}|3[a-z2-7]{84}|410f[a-z2-7]{39})$/.test(a);
+		return isEthStyle(a) || /^f(0\d{1,20}|1[a-z2-7]{39}|3[a-z2-7]{84}|410f[a-z2-7]{39})$/.test(a);
 	}
 	const prefix = chain.bech32Prefix ?? '';
 	return new RegExp(`^${prefix}1[02-9ac-hj-np-z]{38,58}$`).test(a);
