@@ -246,6 +246,11 @@ test('setup: a wrong id, a wrong file, a refused key or a plain-http redirect ch
 	const cases = [
 		{ answers: ['beispiel'], file: FAKE_EB_PRIVATE_KEY, says: /not an application id/ },
 		{ answers: [FAKE_EB_APP_ID, '/key.pem'], file: 'kein Schlüssel', says: /not a private key/ },
+		{
+			answers: [FAKE_EB_APP_ID, '/public.crt'],
+			file: '-----BEGIN CERTIFICATE-----\nMIIBbeispiel\n-----END CERTIFICATE-----\n',
+			says: /That is the public certificate/
+		},
 		{ answers: [FAKE_EB_APP_ID, '/key.pem', ''], file: other, says: /did not accept the key/ },
 		{
 			answers: [FAKE_EB_APP_ID, '/key.pem', 'http://belege.example/zurueck'],
@@ -301,4 +306,29 @@ test('/health says whether Enable Banking is set up', async () => {
 	} finally {
 		await bridge.close();
 	}
+});
+
+test('setup: a quoted or $HOME path is read; a missing file says where it looked', async () => {
+	const configPath = await fakeConfig('setup-paths');
+	const keyPath = join(dir, 'mit leerzeichen.pem');
+	await writeFile(keyPath, FAKE_EB_PRIVATE_KEY);
+	const quoted = scripted([FAKE_EB_APP_ID, `'${keyPath}'`, '']);
+	assert.equal(
+		await runEnableBankingSetup({
+			io: quoted.io,
+			keychain: memoryKeychain(null, 'enablebanking'),
+			configPath
+		}),
+		true
+	);
+	const missing = scripted([FAKE_EB_APP_ID, join(dir, 'gibt-es-nicht.pem')]);
+	assert.equal(
+		await runEnableBankingSetup({
+			io: missing.io,
+			keychain: memoryKeychain(null, 'enablebanking'),
+			configPath: await fakeConfig('setup-missing')
+		}),
+		false
+	);
+	assert.ok(missing.out.some((l) => /gibt-es-nicht\.pem: there is no file there/.test(l)));
 });

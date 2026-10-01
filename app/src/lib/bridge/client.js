@@ -263,7 +263,7 @@ export function createBridgeClient({
 
 	return {
 		url: base,
-		/** @returns {Promise<{ ok: boolean, paired: boolean, pairingOpen: boolean, hibiscus: { configured: boolean }, mail?: { configured: boolean, accountingAddress: string | null }, llm?: { configured: boolean, models: string[] }, kraken?: { configured: boolean }, wallets?: { available: boolean } }>} */
+		/** @returns {Promise<{ ok: boolean, paired: boolean, pairingOpen: boolean, hibiscus: { configured: boolean }, mail?: { configured: boolean, accountingAddress: string | null }, llm?: { configured: boolean, models: string[] }, kraken?: { configured: boolean }, enablebanking?: { configured: boolean }, wallets?: { available: boolean } }>} */
 		health: () => call('/health'),
 		/** @param {string} code @returns {Promise<string>} the token */
 		async pair(code) {
@@ -373,6 +373,41 @@ export function createBridgeClient({
 		 *
 		 * @returns {Promise<{ balances: KrakenBalance[] }>}
 		 */
+		/**
+		 * Enable Banking (issue #224): the banks of a country.
+		 *
+		 * @param {string} country two letters
+		 * @returns {Promise<EnableBankingBank[]>}
+		 */
+		async enableBankingBanks(country) {
+			return (await call(`/enablebanking/banks?country=${encodeURIComponent(country)}`)).banks;
+		},
+		/**
+		 * Start a link: the bridge answers with the bank's page and the state it keeps.
+		 *
+		 * @param {{ bank: string, country: string, psuType?: 'personal' | 'business' }} body
+		 * @returns {Promise<{ url: string, state: string, validUntil: string }>}
+		 */
+		enableBankingLink: (body) =>
+			call('/enablebanking/link', { method: 'POST', body: JSON.stringify(body) }),
+		/**
+		 * Finish a link with the bank's answer.
+		 *
+		 * @param {{ code: string, state: string }} body
+		 * @returns {Promise<EnableBankingLink>}
+		 */
+		async enableBankingFinish(body) {
+			return (await call('/enablebanking/finish', { method: 'POST', body: JSON.stringify(body) }))
+				.link;
+		},
+		/** @returns {Promise<EnableBankingLink[]>} */
+		async enableBankingLinks() {
+			return (await call('/enablebanking/links')).links;
+		},
+		/** @param {string} id */
+		async enableBankingUnlink(id) {
+			await call(`/enablebanking/links/${encodeURIComponent(id)}`, { method: 'DELETE' });
+		},
 		krakenBalances: () => call('/kraken/balances'),
 		/**
 		 * Kraken's ledger from the start of `since` (UTC), oldest first.
@@ -498,3 +533,23 @@ export function createBridgeClient({
 }
 
 /** @typedef {ReturnType<typeof createBridgeClient>} BridgeClient */
+
+/**
+ * @typedef {object} EnableBankingBank
+ * @property {string} name
+ * @property {string} country
+ * @property {('personal' | 'business')[]} psuTypes
+ * @property {number} maxConsentDays
+ * @property {boolean} beta
+ */
+
+/**
+ * @typedef {object} EnableBankingLink a linked bank, as the bridge tells it (no full IBAN)
+ * @property {string} id
+ * @property {string} bank
+ * @property {string} country
+ * @property {'personal' | 'business'} psuType
+ * @property {string | null} validUntil
+ * @property {string} linkedAt
+ * @property {{ uid: string, ibanLast4: string, name: string, currency: string }[]} accounts
+ */

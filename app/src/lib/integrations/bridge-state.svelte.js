@@ -13,6 +13,7 @@ import { t } from '$lib/i18n/index.js';
  * @property {boolean} kraken
  * @property {boolean} mail
  * @property {boolean} llm
+ * @property {boolean} enablebanking
  */
 
 /** The time a pairing is stored with: a timestamp, not reactive state. */
@@ -27,7 +28,7 @@ export const bridge = $state({
 	/** the bridge has paired some device (not necessarily this one) */
 	paired: false,
 	/** @type {BridgeHealth} */
-	health: { hibiscus: false, kraken: false, mail: false, llm: false },
+	health: { hibiscus: false, kraken: false, mail: false, llm: false, enablebanking: false },
 	/** @type {string | null} */
 	error: null,
 	/** the saved pairing has been read */
@@ -66,7 +67,8 @@ export async function checkBridge() {
 			hibiscus: health.hibiscus?.configured ?? false,
 			kraken: health.kraken?.configured ?? false,
 			mail: health.mail?.configured ?? false,
-			llm: health.llm?.configured ?? false
+			llm: health.llm?.configured ?? false,
+			enablebanking: health.enablebanking?.configured ?? false
 		};
 	} catch (error) {
 		bridge.state = 'offline';

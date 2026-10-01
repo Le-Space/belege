@@ -72,7 +72,7 @@
 	const SERVICES = [
 		{ id: 'bridge', status: 'whenPaired' },
 		{ id: 'camt', status: 'active' },
-		{ id: 'enableBanking', status: 'notYet', planned: true },
+		{ id: 'enableBanking', status: 'whenSetUp' },
 		{ id: 'deepseek', status: 'whenSetUp' },
 		{ id: 'portals', status: 'whenSetUp' },
 		{ id: 'blockchain', status: 'whenSetUp' },

@@ -5,8 +5,11 @@
 //
 // 1. In Enable Banking's Control Panel, register an application. Its redirect
 //    URL is the app's page `https://belege.le-space.de/integrationen/bank/verbunden`
-//    (or the same page on your own domain). The panel gives an application id
-//    and a private key file (.pem) to download.
+//    (or the same page on your own domain). The panel either makes the key in
+//    the browser and hands out a private key file (.pem) to download, or takes
+//    a certificate of your own (`openssl req -x509 -newkey rsa:4096 -nodes
+//    -keyout private.key -out public.crt …`): then the .crt goes to the panel
+//    and private.key is the file asked for here.
 // 2. This asks for the id, the path of the key file and the redirect URL
 //    (EB_APP_ID, EB_KEY_PATH and EB_REDIRECT_URL from the repo's .env are
 //    offered as defaults; none of them is secret).
@@ -71,11 +74,14 @@ export async function runEnableBankingSetup({
 	const pathDefault = env.EB_KEY_PATH?.trim() ?? '';
 	const keyPath = (
 		(await io.ask(
-			`Path of the private key file (.pem)${pathDefault ? ` [${pathDefault}]` : ''}: `
+			`Path of the private key file (.pem or .key, not the .crt)${pathDefault ? ` [${pathDefault}]` : ''}: `
 		)) || pathDefault
 	)
 		.trim()
-		.replace(/^~(?=$|\/)/, homedir());
+		// A file dragged into the terminal comes quoted, or with escaped spaces.
+		.replace(/^(['"])(.*)\1$/, '$2')
+		.replace(/\\ /g, ' ')
+		.replace(/^(~|\$HOME)(?=$|\/)/, homedir());
 	if (!keyPath) {
 		io.print('No key file given; nothing changed.');
 		return false;
@@ -83,8 +89,24 @@ export async function runEnableBankingSetup({
 	let privateKey;
 	try {
 		privateKey = await readKeyFile(keyPath);
-	} catch {
-		io.print('The key file cannot be read; nothing changed.');
+	} catch (/** @type {any} */ error) {
+		const why =
+			error?.code === 'ENOENT'
+				? 'there is no file there'
+				: error?.code === 'EACCES'
+					? 'it may not be read'
+					: error?.code === 'EISDIR'
+						? 'that is a folder'
+						: 'it cannot be read';
+		io.print(
+			`${keyPath}: ${why}. Give the path without quotes; ~ is your home folder, a relative path starts in bridge/. Nothing changed.`
+		);
+		return false;
+	}
+	if (/-----BEGIN CERTIFICATE-----/.test(privateKey)) {
+		io.print(
+			'That is the public certificate you gave Enable Banking. The bridge needs the private key it was made with (the file openssl wrote with -keyout, e.g. private.key or a .pem); nothing changed.'
+		);
 		return false;
 	}
 	try {
