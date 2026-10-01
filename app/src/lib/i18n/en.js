@@ -203,7 +203,12 @@ export default {
 			},
 			payments: {
 				title: 'Get payments',
-				why: 'The bank through Hibiscus or as a CAMT.053 file – which works without the bridge too. Kraken and own wallets as well, if you have them.',
+				why: 'The bank through Hibiscus, through Enable Banking or as a CAMT.053 file – which works without the bridge too. Kraken and own wallets as well, if you have them.',
+				ways: [
+					'Statement file (CAMT.053): export it in your online banking and upload it under Integrationen → Bank. At once, without the bridge.',
+					'Hibiscus: banks with FinTS, through the bridge; set up once with',
+					'Enable Banking: banks in Europe via PSD2, through the bridge. Create your own application at Enable Banking (redirect URL: this app at /integrationen/bank/verbunden), then set it up with'
+				],
 				time: 'about 5 minutes'
 			},
 			receipts: {
@@ -2384,6 +2389,9 @@ export default {
 					'the bridge is not responding – neither here nor via one of your own devices. Is your Mac with the bridge on and connected?',
 				deviceRemoved: 'this device was removed on another one; syncing is off.',
 				deviceError: 'syncing reports an error.',
+				consentEnded:
+					'the consent at {bank} (Enable Banking) has ended – consent again, or no more transactions come.',
+				consentEnding: 'the consent at {bank} (Enable Banking) ends on {date} – renew it before.',
 				neverSynced: '{name} is set up but has never been fetched.',
 				krakenRefused: 'the last fetch was refused. A new API key usually helps.',
 				walletHints: 'the last fetch left notes (wallets with a note: {count}).'
@@ -2529,6 +2537,7 @@ export default {
 			kind: { business: 'Business account', personal: 'Personal account' },
 			kindLabel: 'Kind of account',
 			validUntil: 'consent until {date}',
+			renew: 'Renew',
 			unlink: 'Unlink',
 			unlinkConfirm:
 				'Unlink {bank}? Enable Banking ends the consent; transactions already fetched stay in the books.',

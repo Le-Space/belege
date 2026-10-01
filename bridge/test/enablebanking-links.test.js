@@ -171,13 +171,14 @@ test('a bank or a kind of account it does not offer is refused before Enable Ban
 
 test('unlink: closed at Enable Banking and forgotten; already closed there is forgotten too', async () => {
 	const { links } = await setup();
-	const make = async () => {
-		const s = await links.start({ bank: 'Beispielbank', country: 'DE' });
+	// Two kinds of account: two consents that stand side by side.
+	const make = async (/** @type {'business' | 'personal'} */ psuType) => {
+		const s = await links.start({ bank: 'Beispielbank', country: 'DE', psuType });
 		const back = await atTheBank(s.url);
 		return links.finish({ code: back.get('code'), state: back.get('state') });
 	};
-	const a = await make();
-	const b = await make();
+	const a = await make('business');
+	const b = await make('personal');
 	await links.unlink(a.id);
 	assert.equal(eb.state.sessions.get(a.id)?.open, false);
 	assert.deepEqual(
@@ -452,4 +453,19 @@ test('setup --accounts lists the linked accounts and saves the suffixes', async 
 	const none = { ask: async () => '-', print: () => {} };
 	assert.equal(await runEnableBankingAccounts({ io: none, keychain, configPath }), true);
 	assert.deepEqual((await loadConfig(configPath)).enablebanking.ibanSuffixes, []);
+});
+
+test('a renewal replaces the older consent for the same bank and kind of account', async () => {
+	const { links, logged } = await setup();
+	const link = async (/** @type {any} */ params) => {
+		const s = await links.start(params);
+		const back = await atTheBank(s.url);
+		return links.finish({ code: back.get('code'), state: back.get('state') });
+	};
+	const first = await link({ bank: 'Beispielbank', country: 'DE' });
+	const personal = await link({ bank: 'Beispielbank', country: 'DE', psuType: 'personal' });
+	const renewed = await link({ bank: 'Beispielbank', country: 'DE' });
+	assert.deepEqual((await links.list()).map((l) => l.id).sort(), [personal.id, renewed.id].sort());
+	assert.equal(eb.state.sessions.get(first.id)?.open, false, 'ended at Enable Banking');
+	assert.ok(logged.includes('enablebanking: 1 older consent(s) replaced'));
 });

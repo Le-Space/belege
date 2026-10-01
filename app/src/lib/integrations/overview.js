@@ -2,6 +2,9 @@
 // state, a line and when it last ran; what needs the person; the counts on
 // top. Pure – the page gathers the facts, this decides what they mean.
 
+import { CONSENT_WARN_DAYS } from './alerts.js';
+import { formatDate } from '../bank/format.js';
+
 /** @typedef {'ok' | 'warn' | 'err' | 'off'} Kind */
 
 /**
@@ -35,6 +38,7 @@
  * @property {number} aleph Aleph accounts found
  * @property {boolean} invoiceApp paired
  * @property {import('./alerts.js').Alerts} [alerts] what the last runs left
+ * @property {Date} [now] tests: the moment the consents' ends are measured from
  * @property {(source: string) => boolean} isWalletSource
  */
 
@@ -203,6 +207,21 @@ export function integrationsOverview(f) {
 	/** @type {Need[]} */
 	const needs = [];
 	if (f.alerts?.kraken) needs.push({ id: 'kraken', kind: 'err', text: 'krakenRefused' });
+	// An Enable Banking consent that has ended, or ends within two weeks (#224).
+	const now = (f.now ?? new Date()).getTime();
+	for (const c of f.alerts?.enablebanking ?? []) {
+		const left = Date.parse(c.validUntil) - now;
+		if (left <= 0) {
+			needs.push({ id: 'bank', kind: 'err', text: 'consentEnded', params: { bank: c.bank } });
+		} else if (left < CONSENT_WARN_DAYS * 86_400_000) {
+			needs.push({
+				id: 'bank',
+				kind: 'warn',
+				text: 'consentEnding',
+				params: { bank: c.bank, date: formatDate(c.validUntil.slice(0, 10)) }
+			});
+		}
+	}
 	const walletHints = Object.values(f.alerts?.wallets ?? {}).filter((n) => n > 0).length;
 	if (walletHints)
 		needs.push({

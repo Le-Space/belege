@@ -151,7 +151,9 @@ export async function startFakeEnableBanking({
 		/** @type {Map<string, { open: boolean }>} */
 		sessions: new Map(),
 		deny,
-		transactionPages: 0
+		transactionPages: 0,
+		/** @type {number | null} a bank that grants fewer days than asked for */
+		sessionDays: /** @type {number | null} */ (null)
 	};
 
 	/** @param {string | undefined} header @returns {string | null} why it is refused */
@@ -277,7 +279,12 @@ export async function startFakeEnableBanking({
 				accounts: auth.bank === 'Beispielbank' ? FAKE_EB_ACCOUNTS : [],
 				aspsp: { name: auth.bank, country: 'DE' },
 				psu_type: 'business',
-				access: { valid_until: auth.validUntil }
+				access: {
+					valid_until:
+						state.sessionDays === null
+							? auth.validUntil
+							: new Date(now() + state.sessionDays * 86_400_000).toISOString()
+				}
 			});
 		}
 		const txAccount = /^\/accounts\/([A-Za-z0-9-]+)\/transactions$/.exec(path)?.[1];

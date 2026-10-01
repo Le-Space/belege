@@ -204,4 +204,32 @@ test('a bank that says no links nothing; a bank that says yes is linked, listed 
 	await listed.getByTestId('enablebanking-unlink').click();
 	await expect(listed).toHaveCount(0);
 	expect([...eb.state.sessions.values()].every((s) => !s.open)).toBe(true);
+
+	// Step 5: a bank that grants only a week. "Braucht dich" says so, and "Erneuern" replaces it.
+	eb.state.sessionDays = 7;
+	await throughTheBank(page, page.getByTestId('enablebanking-card'));
+	// The session is made after unlocking: reset only once the page says linked.
+	await expect(page.getByTestId('enablebanking-return')).toHaveAttribute('data-phase', 'linked');
+	eb.state.sessionDays = null;
+	await page.getByTestId('tab-integrationen').click();
+	await expect(
+		page
+			.getByText('die Freigabe bei Beispielbank (Enable Banking) endet am', { exact: false })
+			.first()
+	).toBeVisible();
+	await openIntegration(page, 'bank');
+	const short = page.getByTestId('enablebanking-card').getByTestId('enablebanking-link');
+	await expect(short).toHaveCount(1);
+	await expect(short.getByTestId('enablebanking-valid')).toHaveClass(/text-danger/);
+	await short.getByTestId('enablebanking-renew').click();
+	await page.waitForURL((u) => u.pathname === '/integrationen/bank/verbunden');
+	await page.getByTestId('passkey-unlock').click();
+	await expect(page.getByTestId('enablebanking-return')).toHaveAttribute('data-phase', 'linked');
+	await page.getByTestId('enablebanking-back').click();
+	const renewed = page.getByTestId('enablebanking-card').getByTestId('enablebanking-link');
+	await expect(renewed).toHaveCount(1);
+	await expect(renewed.getByTestId('enablebanking-renew')).toHaveCount(0);
+	expect(bridgeOut).toContain('enablebanking: 1 older consent(s) replaced');
+	await page.getByTestId('tab-integrationen').click();
+	await expect(page.getByText('(Enable Banking) endet am', { exact: false })).toHaveCount(0);
 });

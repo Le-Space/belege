@@ -16,7 +16,7 @@ const kept = $state({
 	invoiceApp: false,
 	deviceFlag: false,
 	/** @type {import('./alerts.js').Alerts} */
-	alerts: { kraken: null, wallets: {} }
+	alerts: { kraken: null, wallets: {}, enablebanking: [] }
 });
 
 /**

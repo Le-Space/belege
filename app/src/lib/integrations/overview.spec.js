@@ -121,7 +121,11 @@ describe('the Integrationen overview', () => {
 	it('what the last runs left: a refused Kraken key, wallets with hints', () => {
 		const v = integrationsOverview(
 			facts({
-				alerts: { kraken: { raw: 'EAPI:Invalid nonce' }, wallets: { w1: 2, w2: 0 } },
+				alerts: {
+					kraken: { raw: 'EAPI:Invalid nonce' },
+					wallets: { w1: 2, w2: 0 },
+					enablebanking: []
+				},
 				wallets: 2
 			})
 		);
@@ -133,5 +137,38 @@ describe('the Integrationen overview', () => {
 				{ id: 'wallets', kind: 'warn', text: 'walletHints', params: { count: 1 } }
 			])
 		);
+	});
+
+	it('an Enable Banking consent: nothing while far off, a hint two weeks before, an error once ended (#224)', () => {
+		const at = (/** @type {string} */ validUntil) =>
+			integrationsOverview(
+				facts({
+					now: new Date('2026-10-01T12:00:00Z'),
+					bridge: {
+						token: 'tok',
+						state: 'online',
+						health: { hibiscus: false, kraken: false, mail: true, llm: true }
+					},
+					alerts: {
+						kraken: null,
+						wallets: {},
+						enablebanking: [
+							{ bank: 'Beispielbank', country: 'DE', psuType: 'business', validUntil }
+						]
+					}
+				})
+			).needs.filter((n) => n.id === 'bank');
+		expect(at('2027-01-01T00:00:00Z')).toEqual([]);
+		expect(at('2026-10-10T00:00:00Z')).toEqual([
+			{
+				id: 'bank',
+				kind: 'warn',
+				text: 'consentEnding',
+				params: { bank: 'Beispielbank', date: '10.10.2026' }
+			}
+		]);
+		expect(at('2026-09-30T00:00:00Z')).toEqual([
+			{ id: 'bank', kind: 'err', text: 'consentEnded', params: { bank: 'Beispielbank' } }
+		]);
 	});
 });

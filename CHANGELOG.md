@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **Enable Banking, step 5: a consent that ends is said in time** (#224). "Braucht dich" names a bank whose consent ends within two weeks, and one that has ended; the Bank page offers "Erneuern" on it, and a renewal replaces the older consent at Enable Banking and in the bridge. The setup checklist's "Zahlungen holen" names the three ways in – statement file, Hibiscus, Enable Banking – with their commands.
+
 - **Enable Banking, step 4: what goes out, said where it happens** (#224). The Enable Banking block on Integrationen → Bank has "Was dabei hinausgeht" (to Enable Banking, to the bank, and what never), with the technical view under "Technisch": signed requests, the sealed key, the one-time code, the account allow-list. The consent screen lists Enable Banking among the banks; the help on the Bank page names it with its two commands.
 
 - **Enable Banking, step 3: fetch the transactions** (#224). Only accounts released in the bridge leave it (`pnpm setup:enablebanking -- --accounts`, by IBAN ending, as for Hibiscus). On Integrationen → Bank they are chosen and fetched with "Umsätze holen": 90 days the first time, then from a week before the last fetch, never on its own. An account a statement file brought (same IBAN) is continued from the day after its last booking, so nothing doubles. Booked transactions only; pending ones are counted. An account in another currency is valued at the day's rate.

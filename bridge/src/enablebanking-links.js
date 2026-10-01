@@ -8,7 +8,8 @@
 //                    one-time `code`; the app hands code and state here. The
 //                    state must be one this bridge made and not used yet, so a
 //                    code from someone else's link is refused. The code becomes
-//                    a session, kept in the sealed file
+//                    a session, kept in the sealed file; an older one for the
+//                    same bank and kind of account is replaced (a renewal)
 //   list()           the linked banks, with the day their consent ends
 //   unlink(id)       the session is closed at Enable Banking and forgotten here
 //   accounts()       every linked account, and whether it may leave the bridge
@@ -229,7 +230,22 @@ export function createEnableBankingLinks({
 					currency: typeof a.currency === 'string' ? a.currency.slice(0, 3) : ''
 				}))
 		};
-		await updateSessions((sessions) => ({ ...sessions, [s.session_id]: record }));
+		// A renewal: the older consent for the same bank and kind of account is
+		// replaced. Ended at Enable Banking where it still runs; forgotten here.
+		const older = (await list())
+			.filter(
+				(l) =>
+					l.bank === record.bank && l.country === record.country && l.psuType === record.psuType
+			)
+			.map((l) => l.id);
+		for (const id of older) {
+			await client.request('DELETE', `/sessions/${id}`).catch(() => undefined);
+		}
+		await updateSessions((sessions) => {
+			for (const id of older) delete sessions[id];
+			return { ...sessions, [s.session_id]: record };
+		});
+		if (older.length) log(`enablebanking: ${older.length} older consent(s) replaced`);
 		log(`enablebanking: a bank was linked, ${record.accounts.length} account(s)`);
 		return toLink(s.session_id, record);
 	}
