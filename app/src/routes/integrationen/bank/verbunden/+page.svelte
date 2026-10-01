@@ -114,7 +114,7 @@
 				</li>
 			{/each}
 		</ul>
-		<p class="mt-2 text-xs text-faint">{t('integrationen.enableBanking.fetchLater')}</p>
+		<p class="mt-2 text-xs text-faint">{t('integrationen.enableBanking.afterLink')}</p>
 	{:else if phase === 'refused'}
 		<p class="text-sm text-heading" role="alert" data-testid="enablebanking-refused">
 			{t('integrationen.enableBanking.returned.refused')}

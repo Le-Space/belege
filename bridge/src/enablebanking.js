@@ -153,7 +153,7 @@ export function createEnableBankingClient({
 	 * @returns {Promise<any>}
 	 */
 	async function request(method, path, body) {
-		if (!/^\/[A-Za-z0-9/_\-.?=&%:]*$/.test(path) || path.startsWith('//')) {
+		if (!/^\/[A-Za-z0-9/_\-.?=&%:+~]*$/.test(path) || path.startsWith('//')) {
 			throw new EnableBankingError('Not a path of the Enable Banking API.', 'EB_BAD_ANSWER', 500);
 		}
 		const url = new URL(path, origin);

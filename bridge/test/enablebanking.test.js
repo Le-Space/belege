@@ -202,7 +202,8 @@ test('setup: the key is checked, sealed beside the config, and never printed', a
 		configured: true,
 		appId: FAKE_EB_APP_ID,
 		baseUrl: eb.url,
-		redirectUrl: 'https://belege.le-space.de/integrationen/bank/verbunden'
+		redirectUrl: 'https://belege.le-space.de/integrationen/bank/verbunden',
+		ibanSuffixes: []
 	});
 	const raw = await readFile(configPath, 'utf8');
 	assert.doesNotMatch(raw, /PRIVATE KEY/);

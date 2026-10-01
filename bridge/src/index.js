@@ -308,6 +308,7 @@ export async function startBridge({
 					client: enablebankingClient,
 					secrets: enablebankingSecrets,
 					redirectUrl: config.enablebanking.redirectUrl,
+					allowedSuffixes: () => config.enablebanking.ibanSuffixes,
 					log
 				})
 			: null,

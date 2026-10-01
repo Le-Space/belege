@@ -90,7 +90,12 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 
 	const camtKeys = new Set(
 		accounts
-			.filter((a) => a.source === 'camt' && typeof a.sourceAccountId === 'string')
+			// Known by their IBAN key: a statement file's, and Enable Banking's (#224).
+			.filter(
+				(a) =>
+					(a.source === 'camt' || a.source === 'enablebanking') &&
+					typeof a.sourceAccountId === 'string'
+			)
 			.map((a) => a.sourceAccountId)
 	);
 	if (camtKeys.size) {
@@ -168,7 +173,7 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 			.filter(
 				(a) =>
 					!a.deleted &&
-					((a.source === 'camt' && a.sourceAccountId === key) ||
+					(((a.source === 'camt' || a.source === 'enablebanking') && a.sourceAccountId === key) ||
 						(a.source === 'hibiscus' && String(a.ibanLast4 ?? '').toUpperCase() === iban.slice(-4)))
 			)
 			.map((a) => String(a.id));

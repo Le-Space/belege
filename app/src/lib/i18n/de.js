@@ -738,9 +738,9 @@ export default {
 				name: 'Enable Banking (Banken ohne Hibiscus)',
 				text: 'Wenn eingerichtet: Die Bridge verbindet über deine eigene Enable-Banking-Anwendung Banken, die Hibiscus nicht abruft. Die Freigabe gibst du auf der Seite deiner Bank.',
 				leaves:
-					'An Enable Banking: welche Bank du verbindest, nach deiner Freigabe deine Konten (IBAN, Name, Währung) und, sobald das Abholen eingebaut ist, die Umsätze – sie laufen über seine Server. Dazu die IP-Adresse dieses Rechners. Dein Bank-Passwort sehen weder Belege noch die Bridge.',
+					'An Enable Banking: welche Bank du verbindest, nach deiner Freigabe deine Konten (IBAN, Name, Währung) und die Umsätze der Konten, die du in die Bücher holst – sie laufen über seine Server. Dazu die IP-Adresse dieses Rechners. Dein Bank-Passwort sehen weder Belege noch die Bridge.',
 				technical:
-					'Ein Kontoinformationsdienst (AIS) nach PSD2. Nur die Bridge spricht mit api.enablebanking.com; jede Anfrage ist mit dem Schlüssel deiner Anwendung signiert (RS256-JWT). Schlüssel und Sitzungen liegen versiegelt neben der Konfiguration der Bridge, nie im Browser und nicht in den Büchern; die App bekommt von einem Konto nur die letzten vier Stellen der IBAN. Der Browser geht nur zur Bank und zurück nach /integrationen/bank/verbunden. Der Einmal-Code der Bank steht dabei in der Adresse und geht so auch über das Gateway, das die Seite ausliefert; ohne den Schlüssel ist er wertlos, und die Seite nimmt ihn sofort aus der Adresse. Eine Freigabe gilt höchstens 180 Tage; „Trennen“ beendet sie bei Enable Banking.'
+					'Ein Kontoinformationsdienst (AIS) nach PSD2. Nur die Bridge spricht mit api.enablebanking.com; jede Anfrage ist mit dem Schlüssel deiner Anwendung signiert (RS256-JWT). Schlüssel und Sitzungen liegen versiegelt neben der Konfiguration der Bridge, nie im Browser und nicht in den Büchern; die App bekommt von einem Konto nur die letzten vier Stellen der IBAN. Der Browser geht nur zur Bank und zurück nach /integrationen/bank/verbunden. Der Einmal-Code der Bank steht dabei in der Adresse und geht so auch über das Gateway, das die Seite ausliefert; ohne den Schlüssel ist er wertlos, und die Seite nimmt ihn sofort aus der Adresse. Nur Konten, deren IBAN-Endung in der Bridge freigegeben ist (pnpm setup:enablebanking -- --accounts), verlassen die Bridge, und geholt wird nur auf deinen Klick. Eine Freigabe gilt höchstens 180 Tage; „Trennen“ beendet sie bei Enable Banking.'
 			},
 			deepseek: {
 				name: 'Sprachmodell – voreingestellt DeepSeek (Belege auslesen, KI-Suche)',
@@ -1848,6 +1848,7 @@ export default {
 		source: {
 			hibiscus: 'Hibiscus',
 			camt: 'CAMT-Import',
+			enablebanking: 'Enable Banking',
 			kraken: 'Kraken',
 			nyx: 'Wallet (Nym/Nyx)',
 			akash: 'Wallet (Akash)',
@@ -2564,7 +2565,22 @@ export default {
 			unlink: 'Trennen',
 			unlinkConfirm:
 				'Die Verbindung zu {bank} trennen? Enable Banking beendet die Freigabe; schon geholte Umsätze bleiben in den Büchern.',
-			fetchLater: 'Umsätze über Enable Banking holen kommt im nächsten Schritt.',
+			afterLink:
+				'Auf der Seite Bank legst du fest, welche Konten in die Bücher kommen, und holst ihre Umsätze.',
+			staysInBridge: 'Bleibt in der Bridge: nicht freigegeben.',
+			continuesCamt:
+				'Führt das Konto aus der Kontoauszug-Datei fort – ab dem Tag nach ihrer letzten Buchung.',
+			lastFetch: 'zuletzt geholt am {date}',
+			maybeHibiscus:
+				' Ein Hibiscus-Konto endet ebenso – holt Hibiscus es schon, entsteht es doppelt.',
+			fetch: 'Umsätze holen',
+			fetching: 'Hole Umsätze …',
+			fetchHint:
+				'Beim ersten Mal die letzten 90 Tage, danach ab einer Woche vor dem letzten Abruf. Banken erlauben nur wenige Abrufe am Tag – geholt wird nur auf diesen Klick.',
+			pending: ' {count} vorgemerkte Umsätze kommen, sobald die Bank sie bucht.',
+			incomplete: ' Nicht alle Seiten geholt – noch einmal holen.',
+			noneAllowed:
+				'Noch verlässt kein Konto die Bridge. Welche Konten in die Bücher dürfen, legst du im Terminal fest:',
 			country: 'Land',
 			bank: 'Bank',
 			bankPlaceholder: '{count} Banken – Namen tippen',
@@ -2633,6 +2649,7 @@ export default {
 		books: {
 			title: 'Konten in den Büchern',
 			camt: 'CAMT-Import',
+			enablebanking: 'Enable Banking',
 			hibiscus: 'Hibiscus',
 			kraken: 'Kraken',
 			wallet: 'Eigene Wallet'

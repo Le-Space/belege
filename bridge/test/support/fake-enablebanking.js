@@ -9,6 +9,8 @@
 // at /bank/consent – no JWT, a browser goes there – which sends the browser
 // back to the redirect URL with a one-time code (or `error=access_denied` when
 // the test says no), POST /sessions (each code once), DELETE /sessions/<id>.
+// Fetching (step 3): GET /accounts/<uid>/transactions from `date_from`, in
+// pages, while a session is open.
 // All banks, IBANs and names are made up.
 
 import http from 'node:http';
@@ -54,6 +56,61 @@ export const FAKE_EB_ACCOUNTS = [
 	}
 ];
 
+/** A day `n` days before today, as Enable Banking writes dates. @param {number} n */
+const daysAgo = (n) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+
+/**
+ * The Geschäftskonto's transactions (acc-0001), newest first as banks send
+ * them: an income, a direct debit, a fee without a counterparty, and one still
+ * pending. Dates relative to today, so a first fetch (90 days) finds them.
+ */
+export function sampleEnableBankingTransactions() {
+	return [
+		{
+			entry_reference: 'EB-REF-0004',
+			status: 'PDNG',
+			booking_date: daysAgo(1),
+			transaction_amount: { amount: '15.00', currency: 'EUR' },
+			credit_debit_indicator: 'DBIT',
+			creditor: { name: 'Bäckerei Beispiel' },
+			remittance_information: ['Vormerkung']
+		},
+		{
+			entry_reference: 'EB-REF-0003',
+			status: 'BOOK',
+			booking_date: daysAgo(3),
+			value_date: daysAgo(3),
+			transaction_amount: { amount: '4.90', currency: 'EUR' },
+			credit_debit_indicator: 'DBIT',
+			remittance_information: ['Kontoführung'],
+			bank_transaction_code: { description: 'Abschluss' }
+		},
+		{
+			entry_reference: 'EB-REF-0002',
+			status: 'BOOK',
+			booking_date: daysAgo(10),
+			value_date: daysAgo(10),
+			transaction_amount: { amount: '119.00', currency: 'EUR' },
+			credit_debit_indicator: 'DBIT',
+			creditor: { name: 'Wolkenfabrik Hosting GmbH' },
+			creditor_account: { iban: 'DE00000000000000002222' },
+			remittance_information: ['RE-1001', 'Kundennummer 4711'],
+			bank_transaction_code: { description: 'Basislastschrift' }
+		},
+		{
+			entry_reference: 'EB-REF-0001',
+			status: 'BOOK',
+			booking_date: daysAgo(20),
+			value_date: daysAgo(19),
+			transaction_amount: { amount: '2380.00', currency: 'EUR' },
+			credit_debit_indicator: 'CRDT',
+			debtor: { name: 'Kundin Beispiel AG' },
+			debtor_account: { iban: 'DE00000000000000001111' },
+			remittance_information: ['Rechnung 2026-001']
+		}
+	];
+}
+
 /**
  * @param {object} [options]
  * @param {string} [options.appId]
@@ -64,6 +121,8 @@ export const FAKE_EB_ACCOUNTS = [
  * @param {number} [options.rateLimit] requests allowed before 429; Infinity by default
  * @param {() => number} [options.now] ms
  * @param {boolean} [options.deny] the bank page answers `access_denied`
+ * @param {Record<string, any[]>} [options.transactions] by account uid; acc-0001 has the sample
+ * @param {number} [options.pageSize] transactions per page, paged with `continuation_key`
  * @param {string} [options.bankUrl] where the bank page is said to be; the fake's own by default.
  *   A browser test points it at the app's origin and routes it here: a cross-site
  *   navigation would lose Chrome's virtual authenticator.
@@ -77,6 +136,8 @@ export async function startFakeEnableBanking({
 	rateLimit = Infinity,
 	now = Date.now,
 	deny = false,
+	transactions = { 'acc-0001': sampleEnableBankingTransactions(), 'acc-0002': [] },
+	pageSize = 2,
 	bankUrl
 } = {}) {
 	const key = publicKey ? createPublicKey(publicKey) : pair.publicKey;
@@ -89,7 +150,8 @@ export async function startFakeEnableBanking({
 		codes: new Map(),
 		/** @type {Map<string, { open: boolean }>} */
 		sessions: new Map(),
-		deny
+		deny,
+		transactionPages: 0
 	};
 
 	/** @param {string | undefined} header @returns {string | null} why it is refused */
@@ -216,6 +278,22 @@ export async function startFakeEnableBanking({
 				aspsp: { name: auth.bank, country: 'DE' },
 				psu_type: 'business',
 				access: { valid_until: auth.validUntil }
+			});
+		}
+		const txAccount = /^\/accounts\/([A-Za-z0-9-]+)\/transactions$/.exec(path)?.[1];
+		if (req.method === 'GET' && txAccount) {
+			const open = [...state.sessions.values()].some((x) => x.open);
+			if (!open || !(txAccount in transactions)) {
+				return send(422, { code: 422, error: 'ACCOUNT_DOES_NOT_EXIST', message: 'no' });
+			}
+			const from = at.searchParams.get('date_from') ?? '';
+			const all = transactions[txAccount].filter((t) => (t.booking_date ?? '') >= from);
+			const start = Number(at.searchParams.get('continuation_key') ?? 0);
+			const next = start + pageSize;
+			state.transactionPages++;
+			return send(200, {
+				transactions: all.slice(start, next),
+				continuation_key: next < all.length ? String(next) : null
 			});
 		}
 		const session = /^\/sessions\/([0-9a-f-]{36})$/.exec(path)?.[1];

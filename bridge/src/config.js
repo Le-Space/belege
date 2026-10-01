@@ -51,6 +51,7 @@ export function defaultConfigPath() {
  * @property {string | null} appId the application id; not secret
  * @property {string} baseUrl https://api.enablebanking.com; tests point it at a fake on 127.0.0.1
  * @property {string} redirectUrl as registered for the application: the app's page
+ * @property {string[]} ibanSuffixes accounts whose IBAN ends so may leave the bridge (setup --accounts)
  */
 
 /**
@@ -112,7 +113,8 @@ export function defaultConfig() {
 			configured: false,
 			appId: null,
 			baseUrl: 'https://api.enablebanking.com',
-			redirectUrl: 'https://belege.le-space.de/integrationen/bank/verbunden'
+			redirectUrl: 'https://belege.le-space.de/integrationen/bank/verbunden',
+			ibanSuffixes: []
 		},
 		lanRelay: { host: null, port: DEFAULT_LAN_RELAY_PORT }
 	};
@@ -197,7 +199,10 @@ export function withDefaults(raw) {
 					: null,
 			// The same rule as Kraken's: https, or a fake on this machine.
 			baseUrl: krakenBaseUrl(raw?.enablebanking?.baseUrl) ?? d.enablebanking.baseUrl,
-			redirectUrl: redirectUrlOf(raw?.enablebanking?.redirectUrl) ?? d.enablebanking.redirectUrl
+			redirectUrl: redirectUrlOf(raw?.enablebanking?.redirectUrl) ?? d.enablebanking.redirectUrl,
+			ibanSuffixes: Array.isArray(raw?.enablebanking?.ibanSuffixes)
+				? raw.enablebanking.ibanSuffixes.map(String).filter((s) => /^[0-9A-Z]{4,34}$/.test(s))
+				: []
 		},
 		lanRelay: {
 			host:

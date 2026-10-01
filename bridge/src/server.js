@@ -26,6 +26,8 @@
 //   POST /enablebanking/finish { code, state }                   token → { link }: the bank's answer becomes a session
 //   GET  /enablebanking/links                                     token → { links }: linked banks, consent end, IBAN last four
 //   DELETE /enablebanking/links/<session id>                      token → closed at Enable Banking and forgotten
+//   GET  /enablebanking/accounts                                  token → linked accounts, which may leave, the allowed ones' IBAN key
+//   GET  /enablebanking/transactions?account=<uid>&since=YYYY-MM-DD token → an allowed account's booked transactions
 //   GET  /kraken/balances                                         token → non-zero balances (kraken.js)
 //   GET  /kraken/ledgers?since=YYYY-MM-DD                         token → the ledger, oldest first
 //   GET  /chains                                                  token → chains, endpoints, explorers, alchemy: bool (chains/)
@@ -682,6 +684,19 @@ export function createBridgeServer({
 			if (path === '/enablebanking/finish' && req.method === 'POST') {
 				const body = /** @type {any} */ (await readJson(req));
 				return send(res, 200, { link: await enablebankingLinks.finish(body ?? {}) });
+			}
+			if (path === '/enablebanking/accounts' && req.method === 'GET') {
+				return send(res, 200, { accounts: await enablebankingLinks.accounts() });
+			}
+			if (path === '/enablebanking/transactions' && req.method === 'GET') {
+				return send(
+					res,
+					200,
+					await enablebankingLinks.transactions(
+						url.searchParams.get('account') ?? '',
+						url.searchParams.get('since') ?? ''
+					)
+				);
 			}
 			if (path === '/enablebanking/links' && req.method === 'GET') {
 				return send(res, 200, { links: await enablebankingLinks.list() });

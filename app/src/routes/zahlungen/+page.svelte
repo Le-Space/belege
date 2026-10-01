@@ -141,7 +141,14 @@
 		const account = tx.accountId ? accountsById.get(tx.accountId) : null;
 		if (!account) return tx.source === 'camt' ? 'CAMT' : '';
 		if (account.source === 'kraken' || isWalletSource(account.source)) return account.name;
-		return `${account.source === 'camt' ? 'CAMT' : 'Hibiscus'} ···${account.ibanLast4}`;
+		// By the booking's own source: a statement file's account continued through Enable Banking has both.
+		const via =
+			tx.source === 'enablebanking'
+				? 'Enable Banking'
+				: account.source === 'camt'
+					? 'CAMT'
+					: 'Hibiscus';
+		return `${via} ···${account.ibanLast4}`;
 	}
 
 	// Only in development and in the E2E build.

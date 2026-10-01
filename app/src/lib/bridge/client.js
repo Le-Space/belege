@@ -400,6 +400,19 @@ export function createBridgeClient({
 			return (await call('/enablebanking/finish', { method: 'POST', body: JSON.stringify(body) }))
 				.link;
 		},
+		/** @returns {Promise<EnableBankingAccount[]>} every linked account, and whether it may leave the bridge */
+		async enableBankingAccounts() {
+			return (await call('/enablebanking/accounts')).accounts;
+		},
+		/**
+		 * An allowed account's booked transactions from a day on.
+		 *
+		 * @param {string} uid
+		 * @param {string} since YYYY-MM-DD
+		 * @returns {Promise<{ since: string, transactions: import('../bank/import.js').IncomingTransaction[], pending: number, complete: boolean }>}
+		 */
+		enableBankingTransactions: (uid, since) =>
+			call(`/enablebanking/transactions?${new URLSearchParams({ account: uid, since })}`),
 		/** @returns {Promise<EnableBankingLink[]>} */
 		async enableBankingLinks() {
 			return (await call('/enablebanking/links')).links;
@@ -541,6 +554,19 @@ export function createBridgeClient({
  * @property {('personal' | 'business')[]} psuTypes
  * @property {number} maxConsentDays
  * @property {boolean} beta
+ */
+
+/**
+ * @typedef {object} EnableBankingAccount a linked account, as the bridge tells it
+ * @property {string} uid
+ * @property {string} linkId
+ * @property {string} bank
+ * @property {string} ibanLast4
+ * @property {string} name
+ * @property {string} currency
+ * @property {string | null} validUntil
+ * @property {boolean} allowed whether it may leave the bridge (setup:enablebanking -- --accounts)
+ * @property {string | null} ibanKey only for an allowed one: the key the books know the account by
  */
 
 /**
