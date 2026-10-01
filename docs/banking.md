@@ -28,10 +28,13 @@ Hibiscus (in Jameica) fetches your German bank accounts via FinTS. The bridge re
 
 ### Your own application
 
-Belege has no server and keeps no key for you. So **every installation uses its own Enable Banking application**, and its private key stays in your bridge. This is the same pattern as for the language model and Kraken. Whether Enable Banking charges for reading your own accounts, and on what terms, is theirs to say; check their current terms.
+Belege has no server and keeps no key for you. So **every installation uses its own Enable Banking application**, and its private key stays in your bridge. This is the same pattern as for the language model and Kraken.
+
+**For your own accounts: production, restricted.** A _production_ application becomes active in **restricted mode** as soon as you link your own accounts in the Control Panel ("Link accounts"); it then shows as "Active" and "Restricted". In that mode it reaches exactly the accounts linked there, which is what Belege needs; the guides of [Firefly III](https://docs.firefly-iii.org/tutorials/data-importer/eb/) and [Actual Budget](https://actualbudget.org/docs/advanced/bank-sync/enable-banking) describe it as free. Lifting the restriction (other people's accounts) needs Enable Banking's activation and their terms. A _sandbox_ application only reaches test banks with made-up data; it is for trying the flow, not for your books.
 
 1. **Register an application** in Enable Banking's Control Panel.
-   - **Redirect URL:** `https://belege.le-space.de/integrationen/bank/verbunden`, or the same page on your own domain. Enable Banking accepts no `localhost` and no `127.0.0.1`.
+   - **Environment:** Production.
+   - **Redirect URL:** `https://belege.le-space.de/integrationen/bank/verbunden`, or the same page on your own domain. A production application accepts https only, so no `localhost` and no `127.0.0.1` (a sandbox one also takes http).
    - **The key:** either the panel makes it in the browser and you download a private key file (`.pem`), or you upload a certificate of your own:
 
      ```bash
@@ -40,7 +43,7 @@ Belege has no server and keeps no key for you. So **every installation uses its 
 
      In that case `public.crt` goes to the panel, and `private.key` is the file the bridge needs. Keep the key file safe: Enable Banking cannot hand it out again.
 
-   - **Activation:** Enable Banking has to activate a production application before it reaches real banks.
+   - **Link your accounts in the Control Panel** ("Link accounts"): choose the bank, sign in, consent. This activates the application in restricted mode, for these accounts. Do it **before** linking in Belege: without it, Enable Banking offers no accounts later.
 
 2. **Set up the bridge:**
 
@@ -117,6 +120,8 @@ The consent at the bank ends after at most 180 days.
 | "That is the public certificate you gave Enable Banking"                        | give the private key it was made with (`private.key`, the `-keyout` file), not the `.crt`                                                                                                 |
 | "…: there is no file there"                                                     | the path without quotes; `~` is your home folder; a relative path starts in `bridge/`                                                                                                     |
 | "Enable Banking did not accept the key"                                         | does the key belong to the certificate in the panel? Compare `openssl x509 -in public.crt -noout -pubkey \| openssl sha256` with `openssl pkey -in private.key -pubout \| openssl sha256` |
+| "not active yet", or the bank shows no accounts after linking                   | link your accounts in the Control Panel ("Link accounts"); the application is then active in restricted mode, for those accounts                                                          |
+| "SANDBOX" in the setup's answer                                                 | a sandbox application reaches test banks only; register a production one for your own accounts                                                                                            |
 | "… is not among the application's redirect URLs"                                | add the URL in the Control Panel, exactly as given                                                                                                                                        |
 | "no account leaves the bridge yet"                                              | `pnpm setup:enablebanking -- --accounts`, then restart the bridge                                                                                                                         |
 | "This answer … belongs to no link started here, or it is older than 30 minutes" | start the link again from the Bank page                                                                                                                                                   |

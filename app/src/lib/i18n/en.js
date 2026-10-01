@@ -2536,7 +2536,7 @@ export default {
 			needsBridge: 'Needs the paired bridge.',
 			needTitle: 'What you need:',
 			need1:
-				'An application of your own at Enable Banking (Control Panel): it gives you an application id and a private key file.',
+				'An application of your own at Enable Banking (Control Panel, environment “Production”): it gives you an application id and a private key file. Link your accounts there (“Link accounts”) – then it is active in restricted mode, for exactly those accounts.',
 			need2: 'Registered as the application’s redirect URL:',
 			need3: 'In the terminal, in Belege’s folder:',
 			kind: { business: 'Business account', personal: 'Personal account' },

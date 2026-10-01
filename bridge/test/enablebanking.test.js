@@ -333,3 +333,38 @@ test('setup: a quoted or $HOME path is read; a missing file says where it looked
 	);
 	assert.ok(missing.out.some((l) => /gibt-es-nicht\.pem: there is no file there/.test(l)));
 });
+
+test('setup: an application not active yet is told how to activate it; a sandbox one what it reaches', async () => {
+	const inactive = await startFakeEnableBanking({ active: false, environment: 'PRODUCTION' });
+	try {
+		const configPath = join(dir, 'setup-inactive', 'bridge.json');
+		const { saveConfig } = await import('../src/config.js');
+		await saveConfig(withDefaults({ enablebanking: { baseUrl: inactive.url } }), configPath);
+		const { io, out } = scripted([FAKE_EB_APP_ID, '/key.pem', '']);
+		assert.equal(
+			await runEnableBankingSetup({
+				io,
+				keychain: memoryKeychain(null, 'enablebanking'),
+				configPath,
+				readKeyFile: async () => FAKE_EB_PRIVATE_KEY
+			}),
+			true
+		);
+		assert.ok(out.some((l) => /PRODUCTION, not active yet/.test(l)));
+		assert.ok(
+			out.some((l) => /link them in the Control Panel \("Link accounts"\).*restricted mode/.test(l))
+		);
+		assert.ok(!out.some((l) => /sandbox application/.test(l)));
+	} finally {
+		await inactive.close();
+	}
+	const configPath = await fakeConfig('setup-sandbox-note');
+	const { io, out } = scripted([FAKE_EB_APP_ID, '/key.pem', '']);
+	await runEnableBankingSetup({
+		io,
+		keychain: memoryKeychain(null, 'enablebanking'),
+		configPath,
+		readKeyFile: async () => FAKE_EB_PRIVATE_KEY
+	});
+	assert.ok(out.some((l) => /A sandbox application reaches test banks only/.test(l)));
+});
