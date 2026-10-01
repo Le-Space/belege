@@ -1408,6 +1408,9 @@ export default {
 		companyNames: 'Company name(s)',
 		companyHint:
 			'One name per line, e.g. “le space UG”. Payments to this name count as an own transfer (account 1360), invoices from it as your outgoing invoices.',
+		ownNames: 'Own names (owners, shareholders)',
+		ownNamesHint:
+			'One name per line, e.g. “Erika Mustermann”. When one of them is the counterparty, “Find receipt” does not search the mailbox for it, but for a word from the payment reference.',
 		ownIbans: 'Own IBANs',
 		ownIbansHint:
 			'One IBAN per line. Payments to these accounts count as an own transfer. Matching already knows the accounts from the books: {list}.',
@@ -2218,6 +2221,8 @@ export default {
 			privateSearch: 'Search the private mailbox',
 			privateHint:
 				'The bridge searches the whole mailbox for “{text}” and {amount} between {from} and {to}. Only the hits are read.',
+			privateHintPurpose:
+				'The bridge searches the whole mailbox for “{text}” from the payment reference and {amount} between {from} and {to}. Only the hits are read.',
 			privateHintAmount:
 				'The bridge searches the whole mailbox for {amount} between {from} and {to}. Only the hits are read.',
 			privateHintCrypto:

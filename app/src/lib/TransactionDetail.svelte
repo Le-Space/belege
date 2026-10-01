@@ -835,7 +835,14 @@
 		const q = findQuery.replace(/\s+/g, ' ').trim();
 		return q.length >= 3 && q.length <= 100 && !/["\\\r\n]/.test(q) ? q : null;
 	});
-	let baseQuery = $derived(tx ? privateSearchQuery(tx, app.partners ?? []) : null);
+	let baseQuery = $derived.by(() => {
+		if (!tx) return null;
+		// Never search for ourselves: company names and own names (#231).
+		const s = cleanMatchingSettings(app.matchingSettings);
+		return privateSearchQuery(tx, app.partners ?? [], {
+			ownNames: [...s.companyNames, ...s.ownNames]
+		});
+	});
 	// What the private mailbox is asked: the search text, when given, instead of the telling word.
 	let query = $derived(baseQuery && freeText ? { ...baseQuery, text: freeText } : baseQuery);
 	/** @param {string} iso @param {number} days */
@@ -849,12 +856,19 @@
 					text: query.text ? t('zahlungen.detail.privateHintCryptoText', { text: query.text }) : ''
 				})
 			: query
-				? t(query.text ? 'zahlungen.detail.privateHint' : 'zahlungen.detail.privateHintAmount', {
-						text: query.text ?? '',
-						amount: `${query.amount} €`,
-						from: shift(query.around, -query.days),
-						to: shift(query.around, query.days)
-					})
+				? t(
+						!query.text
+							? 'zahlungen.detail.privateHintAmount'
+							: !freeText && query.textFrom === 'purpose'
+								? 'zahlungen.detail.privateHintPurpose'
+								: 'zahlungen.detail.privateHint',
+						{
+							text: query.text ?? '',
+							amount: `${query.amount} €`,
+							from: shift(query.around, -query.days),
+							to: shift(query.around, query.days)
+						}
+					)
 				: ''
 	);
 

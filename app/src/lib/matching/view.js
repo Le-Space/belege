@@ -11,7 +11,7 @@ import { isOwnName } from './classify.js';
 import { MIRROR_DAYS, normalizeTxRef } from './context.js';
 import { findDuplicates } from '../receipts/duplicates.js';
 import { assetOf } from '../assets/registry.js';
-import { txDirection } from '../bank/format.js';
+import { displayPurpose, txDirection } from '../bank/format.js';
 import { walletChain } from '../wallets/chains.js';
 
 /** @typedef {import('./classify.js').Classification} Classification */
@@ -300,6 +300,113 @@ function searchWord(/** @type {unknown} */ s) {
 	return null;
 }
 
+/**
+ * Payment services that stand as the counterparty while the merchant is in the
+ * purpose (#231): their name finds their own mails, not the merchant's receipt.
+ */
+const PAYMENT_SERVICE =
+	/\b(paypal|stripe|adyen|klarna|sumup|mollie|square|unzer|payone|computop|worldline|nexi|wirecard)\b/i;
+
+/** `PAYPAL *WOLKENFABRIK`, `SumUp *Laden`, `SQ *CAFE`: the merchant after the star. */
+const MERCHANT_AFTER_STAR =
+	/\b(?:paypal|pp|sumup|sq|square|stripe|zettle|izettle)\s*\*\s*([\p{L}\p{N}][\p{L}\p{N}&.-]*)/iu;
+
+/** What banks write around a card payment or a transfer: no search word (#231). */
+const PURPOSE_NOISE = new Set(
+	[
+		'kartenzahlung',
+		'karte',
+		'kartennr',
+		'girocard',
+		'maestro',
+		'visa',
+		'mastercard',
+		'debit',
+		'credit',
+		'card',
+		'payment',
+		'lastschrift',
+		'basislastschrift',
+		'sepa',
+		'ueberweisung',
+		'überweisung',
+		'gutschrift',
+		'zahlung',
+		'online',
+		'banking',
+		'onlinebanking',
+		'terminal',
+		'referenz',
+		'kundenreferenz',
+		'mandat',
+		'mandatsreferenz',
+		'eref',
+		'mref',
+		'cred',
+		'svwz',
+		'abwa',
+		'datum',
+		'uhr',
+		'iban',
+		'bic',
+		'notprovided',
+		'ref',
+		'apple',
+		'google',
+		'pay',
+		'contactless',
+		'kontaktlos',
+		'purchase',
+		'einkauf',
+		'transaction',
+		'transfer',
+		'europe'
+	].map((w) => w.normalize('NFKD').replace(/[\u0300-\u036f]/g, ''))
+);
+
+/** `Erika Mustermann` → `erika`, `mustermann`. @param {string[]} names */
+const nameWordsOf = (names) =>
+	new Set(
+		names.flatMap((n) =>
+			String(n)
+				.toLowerCase()
+				.normalize('NFKD')
+				.replace(/[\u0300-\u036f]/g, '')
+				.split(/[^\p{L}\p{N}]+/u)
+				.filter((w) => w.length >= 3)
+		)
+	);
+
+/**
+ * The purpose's telling word: the merchant behind a payment service's star,
+ * else the first word that is no bank boilerplate, no own name and not the
+ * payment service's.
+ *
+ * @param {unknown} purpose
+ * @param {Set<string>} skip lower-case words to pass over (own names, the service)
+ */
+function purposeWord(purpose, skip) {
+	const text = displayPurpose(String(purpose ?? ''));
+	const star = MERCHANT_AFTER_STAR.exec(text)?.[1];
+	if (star && star.length >= 3) return star;
+	for (const word of text.split(/[^\p{L}\p{N}]+/u)) {
+		const plain = word
+			.toLowerCase()
+			.normalize('NFKD')
+			.replace(/[\u0300-\u036f]/g, '');
+		if (
+			word.length >= 3 &&
+			!/\d/.test(word) &&
+			!STOP_WORDS.has(plain) &&
+			!PURPOSE_NOISE.has(plain) &&
+			!skip.has(plain)
+		) {
+			return word;
+		}
+	}
+	return null;
+}
+
 /** `-5259` → `52,59`; `-119000` → `1190,00` (the bridge tries every spelling). */
 export function searchAmount(/** @type {number} */ cents) {
 	const abs = Math.abs(Math.trunc(cents));
@@ -372,6 +479,11 @@ export function memoOf(tx) {
  *
  * With a learned partner (partners.js) its sender domains are searched too.
  *
+ * A counterparty that is ourselves – a company name or an own name from
+ * Einstellungen – or a payment service (PayPal, Stripe, …) gives no word: its
+ * mails are not the receipt. The purpose's telling word is taken instead
+ * (`textFrom: 'purpose'`), and without one the search runs by amount (#231).
+ *
  * An own wallet's booking is searched by what its mail carries instead
  * (cryptoSearchTerms): hash, address, quantity; the learned vendor of that
  * address, else the memo, as the text; ± 3 days. Not the euro amount: that
@@ -379,15 +491,17 @@ export function memoOf(tx) {
  *
  * @param {Record<string, any>} tx
  * @param {Record<string, any>[]} [partners]
- * @returns {{ text: string | null, amount: string | null, from: string[], terms: string[], around: string, days: number }}
+ * @param {{ ownNames?: string[] }} [own] company names and own names (Einstellungen)
+ * @returns {{ text: string | null, textFrom: 'counterparty' | 'purpose' | null, amount: string | null, from: string[], terms: string[], around: string, days: number }}
  */
-export function privateSearchQuery(tx, partners = []) {
+export function privateSearchQuery(tx, partners = [], { ownNames = [] } = {}) {
 	const partner = partnerOfTx(partners, tx);
 	const from = (partner?.senderDomains ?? []).slice(0, 3);
 	if (walletChain(tx.source)) {
 		const word = partner ? searchWord(partner.name) : searchWord(memoOf(tx));
 		return {
 			text: word ? word.slice(0, 100) : null,
+			textFrom: word ? (partner ? 'counterparty' : 'purpose') : null,
 			amount: null,
 			from,
 			terms: cryptoSearchTerms(tx),
@@ -395,9 +509,20 @@ export function privateSearchQuery(tx, partners = []) {
 			days: CRYPTO_SEARCH_DAYS
 		};
 	}
-	const text = searchWord(tx.counterparty) ?? searchWord(tx.purpose);
+	const counterparty = String(tx.counterparty ?? '');
+	const ours = ownNames.some((n) => isOwnName(counterparty, n));
+	const service = PAYMENT_SERVICE.exec(counterparty)?.[1];
+	const fromCounterparty = ours || service ? null : searchWord(counterparty);
+	const skip = nameWordsOf([...ownNames, ...(service ? [service] : [])]);
+	// `PAYPAL *WOLKENFABRIK` as the counterparty itself: the merchant after the star.
+	const starred = service ? MERCHANT_AFTER_STAR.exec(counterparty)?.[1] : undefined;
+	const text =
+		fromCounterparty ??
+		(starred && starred.length >= 3 ? starred : null) ??
+		purposeWord(tx.purpose, skip);
 	return {
 		text: text ? text.slice(0, 100) : null,
+		textFrom: !text ? null : fromCounterparty || text === starred ? 'counterparty' : 'purpose',
 		amount: searchAmount(Number(tx.amountCents ?? 0)),
 		from,
 		terms: [],

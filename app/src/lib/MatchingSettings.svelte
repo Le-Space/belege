@@ -28,6 +28,7 @@
 	import { list, t } from './i18n/index.js';
 
 	let companyText = $state('');
+	let ownNamesText = $state('');
 	let ibanText = $state('');
 	/** @type {import('./matching/classify.js').Rule[]} */
 	let rules = $state([]);
@@ -66,6 +67,7 @@
 	onMount(() => {
 		const current = cleanMatchingSettings(app.matchingSettings);
 		companyText = current.companyNames.join('\n');
+		ownNamesText = current.ownNames.join('\n');
 		ibanText = current.ownIbans.join('\n');
 		rules = current.rules;
 		graceDays = current.graceDays;
@@ -210,6 +212,7 @@
 				// "Beleg ist richtig" and whatever comes later – kept as they are.
 				...cleanMatchingSettings(app.matchingSettings),
 				companyNames: lines(companyText),
+				ownNames: lines(ownNamesText),
 				ownIbans: lines(ibanText),
 				rules: $state.snapshot(rules),
 				graceDays: String(graceDays)
@@ -257,6 +260,16 @@
 				data-testid="company-names"
 			></textarea>
 			<span class="mt-1 text-xs text-faint">{t('anweisungen.companyHint')}</span>
+		</label>
+		<label class="flex flex-col text-sm">
+			<span class="font-medium text-heading">{t('anweisungen.ownNames')}</span>
+			<textarea
+				class="{input} min-h-16 font-sans"
+				bind:value={ownNamesText}
+				placeholder="Erika Mustermann"
+				data-testid="own-names"
+			></textarea>
+			<span class="mt-1 text-xs text-faint">{t('anweisungen.ownNamesHint')}</span>
 		</label>
 		<label class="flex flex-col text-sm">
 			<span class="font-medium text-heading">{t('anweisungen.ownIbans')}</span>

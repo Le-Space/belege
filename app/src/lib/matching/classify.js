@@ -92,6 +92,7 @@ export function isOwnName(name, company) {
 /**
  * @typedef {object} MatchingSettings stored under the settings key `matching`
  * @property {string[]} companyNames
+ * @property {string[]} ownNames the people behind the company: owners, shareholders (#231); never searched for
  * @property {string[]} ownIbans full IBANs the person typed in
  * @property {Rule[]} rules
  * @property {number} graceDays a booking without a receipt is asked about only once it is older than this (0: at once)
@@ -114,6 +115,7 @@ export const MAX_GRACE_DAYS = 90;
 export function defaultMatchingSettings() {
 	return {
 		companyNames: [],
+		ownNames: [],
 		ownIbans: [],
 		rules: [],
 		graceDays: DEFAULT_GRACE_DAYS,
@@ -149,6 +151,7 @@ export function cleanMatchingSettings(value) {
 	const rules = Array.isArray(value?.rules) ? value.rules : [];
 	return {
 		companyNames: strings(value?.companyNames),
+		ownNames: strings(value?.ownNames),
 		ownIbans: strings(value?.ownIbans)
 			.map((s) => compactIban(s))
 			.filter(Boolean),
