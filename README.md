@@ -17,7 +17,7 @@ Local-first pre-accounting for a small business: matches bank and crypto transac
 - **Receipts:** accounting mailbox, uploads, a folder, customer portals (recorded once); DKIM/SPF and scam checks; Eigenbelege.
 - **Matching:** a score, own transfers (across accounts, chains and bridges), bank fees, refunds, vendor accounts, learning from your links.
 - **AI, only on a click (✦):** your own model in the bridge, redacted; five places, usage and cost in view.
-- **Crypto:** Kraken, Cosmos, EVM and Bitcoin wallets; euros at the day's rate with its source (CoinGecko, Kraken, ECB, Uniswap V2–V4 pools, trade, migration, by hand); swaps and migrations.
+- **Crypto:** Kraken, Cosmos, EVM, Bitcoin and Filecoin wallets; euros at the day's rate with its source (CoinGecko, Kraken, ECB, Uniswap V2–V4 pools, trade, migration, by hand); swaps and migrations.
 - **Export:** SKR 03 and BU keys, a monthly DATEV EXTF ZIP for MonkeyOffice with the receipts.
 - **Devices:** the same books on phone and computer after a passkey proof, over public relays, a relay in your own bridge, or by QR without any relay (a new device only over the own network, if you like); the computer's bridge for the phone; the invoicing app over UCEP.
 - **German and English:** switched in the header; documents for German bookkeeping stay German.

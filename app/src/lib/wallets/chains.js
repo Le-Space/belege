@@ -9,7 +9,7 @@
 /**
  * @typedef {object} WalletChain
  * @property {string} id
- * @property {'cosmos' | 'evm' | 'bitcoin'} kind
+ * @property {'cosmos' | 'evm' | 'bitcoin' | 'filecoin'} kind
  * @property {string} name
  * @property {string} shortName
  * @property {string} nativeSymbol
@@ -71,6 +71,15 @@ export const WALLET_CHAINS = Object.freeze({
 		name: 'Bitcoin',
 		shortName: 'Bitcoin',
 		nativeSymbol: 'BTC'
+	},
+	// Read by address through Filfox; a message CID is the hash, the same an
+	// exchange reports for a deposit (bridge/src/chains/filecoin.js).
+	filecoin: {
+		id: 'filecoin',
+		kind: 'filecoin',
+		name: 'Filecoin',
+		shortName: 'Filecoin',
+		nativeSymbol: 'FIL'
 	}
 });
 
@@ -105,6 +114,9 @@ export function looksLikeAddress(chain, address) {
 	const a = String(address ?? '').trim();
 	if (chain.kind === 'evm') return /^0x[0-9a-fA-F]{40}$/.test(a);
 	if (chain.kind === 'bitcoin') return /^btc-[0-9a-f]{8}$/.test(a);
+	if (chain.kind === 'filecoin') {
+		return /^f(0\d{1,20}|1[a-z2-7]{39}|3[a-z2-7]{84}|410f[a-z2-7]{39})$/.test(a);
+	}
 	const prefix = chain.bech32Prefix ?? '';
 	return new RegExp(`^${prefix}1[02-9ac-hj-np-z]{38,58}$`).test(a);
 }

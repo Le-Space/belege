@@ -11,6 +11,7 @@
 //            (chains/alchemy.js); the network names are below.
 //   bitcoin  an Esplora API (mempool.space), read by the addresses derived
 //            from a zpub kept in the bridge's keychain (bitcoin.js).
+//   filecoin Filfox's public API, by the address (filecoin.js).
 //
 // Only assets listed here are booked. A Cosmos denom or an ERC-20 contract
 // that is not listed is counted and left out: a token contract can name
@@ -85,7 +86,20 @@
  * @property {Explorer} explorer
  */
 
-/** @typedef {CosmosChain | EvmChain | BitcoinChain} Chain */
+/**
+ * @typedef {object} FilecoinChain
+ * @property {string} id
+ * @property {'filecoin'} kind
+ * @property {string} name
+ * @property {string} shortName
+ * @property {string} caip2
+ * @property {ChainAsset} native
+ * @property {{ api: string }} endpoints Filfox's API, …/api/v1
+ * @property {{ api: string[] }} alternatives
+ * @property {Explorer} explorer
+ */
+
+/** @typedef {CosmosChain | EvmChain | BitcoinChain | FilecoinChain} Chain */
 
 const USDC = { symbol: 'USDC', decimals: 6 };
 const ETH = { symbol: 'ETH', decimals: 18 };
@@ -262,6 +276,22 @@ export const CHAINS = Object.freeze({
 			name: 'mempool.space',
 			tx: 'https://mempool.space/tx/{tx}',
 			address: 'https://mempool.space/address/{address}'
+		}
+	},
+	// Read through Filfox, by address; a message CID is the hash (filecoin.js).
+	filecoin: {
+		id: 'filecoin',
+		kind: 'filecoin',
+		name: 'Filecoin',
+		shortName: 'Filecoin',
+		caip2: 'fil:f',
+		native: { symbol: 'FIL', decimals: 18 },
+		endpoints: { api: 'https://filfox.info/api/v1' },
+		alternatives: { api: [] },
+		explorer: {
+			name: 'Filfox',
+			tx: 'https://filfox.info/en/message/{tx}',
+			address: 'https://filfox.info/en/address/{address}'
 		}
 	}
 });

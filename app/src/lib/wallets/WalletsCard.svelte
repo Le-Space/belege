@@ -603,7 +603,9 @@
 							spellcheck="false"
 							placeholder={localChain?.kind === 'evm'
 								? '0x…'
-								: `${localChain?.bech32Prefix ?? ''}1…`}
+								: localChain?.kind === 'filecoin'
+									? 'f1…'
+									: `${localChain?.bech32Prefix ?? ''}1…`}
 							data-testid="wallet-address-input"
 						/>
 					</label>

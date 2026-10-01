@@ -15,12 +15,14 @@ import { createCosmosClient } from './cosmos.js';
 import { createAkashConsoleClient } from './akash-console.js';
 import { createEvmClient } from './evm.js';
 import { createBitcoinClient } from './bitcoin.js';
+import { createFilecoinClient } from './filecoin.js';
 import { checkEndpoint, WalletError } from './http.js';
 
 export { CHAINS, chainOf, publicChains } from './registry.js';
 export { WalletError, checkEndpoint } from './http.js';
 export { isCosmosAddress, bech32Encode, bech32Decode, moduleAddress } from './bech32.js';
 export { isEvmAddress, toChecksumAddress } from './evm.js';
+export { isFilecoinAddress, normalizeFilecoin } from './filecoin.js';
 export {
 	ADDRESS_TYPES,
 	deriveAddress,
@@ -59,6 +61,7 @@ export function createWalletService({
 		sleep,
 		alchemy: { key: alchemyKey, baseUrl: alchemyBaseUrl }
 	});
+	const filecoin = createFilecoinClient({ fetch: f, timeoutMs, sleep });
 	const bitcoin = createBitcoinClient({
 		fetch: f,
 		getZpub,
@@ -107,24 +110,30 @@ export function createWalletService({
 				ownEndpoint = true;
 			}
 			let result =
-				chain.kind === 'bitcoin'
-					? await bitcoin.history({
+				chain.kind === 'filecoin'
+					? await filecoin.history({
 							chain,
 							address,
 							endpoints: /** @type {{ api: string }} */ (endpoints)
 						})
-					: chain.kind === 'cosmos'
-						? await cosmos.history({
+					: chain.kind === 'bitcoin'
+						? await bitcoin.history({
 								chain,
 								address,
-								endpoints: /** @type {{ rpc: string, rest: string }} */ (endpoints)
+								endpoints: /** @type {{ api: string }} */ (endpoints)
 							})
-						: await evm.history({
-								chain,
-								address,
-								endpoints: /** @type {{ api: string }} */ (endpoints),
-								ownEndpoint
-							});
+						: chain.kind === 'cosmos'
+							? await cosmos.history({
+									chain,
+									address,
+									endpoints: /** @type {{ rpc: string, rest: string }} */ (endpoints)
+								})
+							: await evm.history({
+									chain,
+									address,
+									endpoints: /** @type {{ api: string }} */ (endpoints),
+									ownEndpoint
+								});
 			// A pruned node: what it no longer knows, from the chain's indexer. If
 			// that fails, the sync keeps what the node gave and says the history
 			// is short, as without an indexer.

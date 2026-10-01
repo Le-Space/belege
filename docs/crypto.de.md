@@ -162,6 +162,10 @@ Eine Bitcoin-Wallet liest Belege über den **erweiterten öffentlichen Schlüsse
 - `txRef` ist die txid. Eine Kraken-BTC-Ein- oder -Auszahlung trägt dieselbe txid als `chainTxRef`; beide werden als eigene Umbuchung gepaart.
 - Ein Konto, _Wallet BTC ···<Fingerabdruck>_, mit Bestand (bestätigt, aus der Esplora-API).
 
+### Filecoin
+
+Eine eigene Filecoin-Wallet wird mit ihrer Adresse angelegt: f1 (secp256k1), f3 (BLS) oder f410f (delegiert), jede vor der ersten Abfrage an ihrer blake2b-Prüfsumme geprüft, oder f0 (eine ID). Die Bridge liest sie über die öffentliche API von Filfox, ohne Schlüssel: `address/<a>` für den Bestand und `address/<a>/transfers` für jede Bewegung, 100 je Seite (`bridge/src/chains/filecoin.js`). Je Nachricht wird jedes Senden und jedes Empfangen eine Buchung mit der Adresse der Gegenseite; Miner-Gebühr und Burn-Gebühr zusammen eine Gebührenbuchung. Die Nachrichten-CID (`bafy2bzace…`) ist der Hash – derselbe, den Kraken für eine Einzahlung meldet: Eine Auszahlung aus der Wallet und die Einzahlung bei Kraken finden sich so als eigene Umbuchung, und das Detail der Einzahlung nennt Filecoin. Filfox sieht die Adresse und die IP-Adresse dieses Macs; eine Adresse mit mehr als 20 000 Bewegungen wird als zu groß abgelehnt.
+
 ### Woher die Voreinstellungen kommen (geprüft am 26.09.2026)
 
 | Chain     | Chain-ID     | Adresse                                         | Assets (Nachkommastellen)        | Voreingestellte Endpunkte                                                                                | Explorer (Tx / Adresse)                                      |
