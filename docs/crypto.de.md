@@ -66,6 +66,10 @@ Ein Eintrag ohne auffindbaren Kurs bleibt samt seinem Handel draußen. Er wird n
 
 **Hier nicht entschieden**: Gewinne und Verluste beim Verkauf (Anschaffungskosten nach FIFO oder Durchschnitt) und die Bewertung zum Jahresende. Jede Buchung behält Menge, Kurs und Quelle, damit sich das Verfahren des Steuerberaters darauf anwenden lässt.
 
+### Auf welcher Blockchain der Hash einer Einzahlung liegt (Issue #215)
+
+Eine Ein- oder Auszahlung behält Krakens On-Chain-Hash (`chainTxRef`) und, wo Kraken es nennt, das Netzwerk (`chainMethod`, etwa `Filecoin`, `Ether (Arbitrum One)`). Das Detail der Zahlung bestimmt daraus die Blockchain, lokal, in dieser Reihenfolge: eine Buchung einer eigenen Wallet mit demselben Hash; Krakens Netzwerkname, wo er zur Form des Hashes passt; die Form des Hashes mit dem Asset – eine CID `bafy2bzace…` ist Filecoin, `0x` + 64 Hex eine EVM-Chain, 64 Hex Bitcoin bei BTC (Nyx bei NYM, Akash bei AKT), Base58 mit 87–88 Zeichen Solana. Eine eindeutige Chain bekommt ihren Namen und einen Link zu ihrem Explorer (Filfox, mempool.space, Etherscan und Geschwister, Nodes Guru, Mintscan, Solscan); ein EVM-Hash ohne Netzwerkangabe nennt die EVM-Chains, auf denen er liegen kann, jede verlinkt. Kein Explorer wird gefragt: Ein Link öffnet erst auf deinen Klick (`app/src/lib/assets/hash-chain.js`).
+
 ## Eigene Wallets
 
 Tokens, die von einer Börse auf eine eigene Wallet gehen, gehören weiter der Firma. _Integrationen → Eigene Wallets_ nimmt eine solche Wallet mit **Chain und Adresse** auf: nur lesend, nie ein Schlüssel oder eine Seed-Phrase. Die Liste der Wallets liegt versiegelt in den Büchern (Einstellung `wallets`); die Bridge behält nichts davon.

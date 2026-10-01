@@ -93,6 +93,10 @@ describe('Kraken client', () => {
 		assert.equal(entries.find((e) => e.id === 'L-DEP-1')?.transferRef, 'BANKREF-0001');
 		assert.equal(entries.find((e) => e.id === 'L-WD-1')?.transferRef, 'BANKREF-0002');
 		assert.equal(entries.find((e) => e.id === 'L-TR1-BTC')?.transferRef, '');
+		// The network as Kraken names it (#215): `network` where given, else `method`.
+		assert.equal(entries.find((e) => e.id === 'L-DEP-1')?.transferMethod, 'SEPA (Instant)');
+		assert.equal(entries.find((e) => e.id === 'L-WD-1')?.transferMethod, 'SEPA');
+		assert.equal(entries.find((e) => e.id === 'L-TR1-BTC')?.transferMethod, '');
 		const earnIn = entries.find((e) => e.id === 'L-EARN-IN');
 		assert.equal(earnIn?.asset, 'BTC');
 		assert.equal(earnIn?.wallet, 'earn');

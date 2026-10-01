@@ -43,6 +43,8 @@ const FIELDS = /** @type {const} */ ([
 	'movement',
 	'txRef',
 	'chainTxRef',
+	// …and the network the exchange named for it (#215)
+	'chainMethod',
 	'exchangeType',
 	// an own wallet's booking: the other side's address, the transaction in the explorer
 	'counterpartyAddress',
@@ -82,6 +84,7 @@ const FIELDS = /** @type {const} */ ([
  * @property {{ amount: string, currency: string, rate?: string }} [original] a bank booking paid in another
  *   currency: that amount, its currency and the bank's rate
  * @property {string} [chainTxRef] an exchange's deposit or withdrawal: the on-chain hash, to pair it with a wallet
+ * @property {string} [chainMethod] the network the exchange named for that hash (#215)
  * @property {string} [exchangeType] as the exchange names the entry, e.g. `transfer/spottostaking`
  * @property {string} [counterpartyAddress] an own wallet's booking: the other side's address on the chain
  * @property {string} [explorerUrl] an own wallet's booking: the transaction in the block explorer (https)
@@ -232,6 +235,7 @@ export async function importTransactions({
 			...(!tx.movement && tx.txRef ? { txRef: tx.txRef } : {}),
 			...(tx.original ? { original: tx.original } : {}),
 			...(tx.chainTxRef ? { chainTxRef: tx.chainTxRef } : {}),
+			...(tx.chainMethod ? { chainMethod: tx.chainMethod } : {}),
 			...(tx.exchangeType ? { exchangeType: tx.exchangeType } : {}),
 			...(tx.counterpartyAddress ? { counterpartyAddress: tx.counterpartyAddress } : {}),
 			...(tx.explorerUrl ? { explorerUrl: tx.explorerUrl } : {}),

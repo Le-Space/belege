@@ -118,6 +118,7 @@ const isoTime = (seconds) => new Date(Math.round(Number(seconds) * 1000)).toISOS
  * @property {string} fee decimal, charged on top (the balance moves by amount − fee)
  * @property {number} decimals
  * @property {string} transferRef the txid of a deposit or withdrawal, '' when none
+ * @property {string} transferMethod how Kraken names its network (`Filecoin`, `Ether (Arbitrum One)`), '' when none
  */
 
 /**
@@ -141,7 +142,8 @@ export function normalizeLedgerEntry(id, raw, assets) {
 		amount: String(raw.amount ?? '0'),
 		fee: String(raw.fee ?? '0'),
 		decimals,
-		transferRef: ''
+		transferRef: '',
+		transferMethod: ''
 	};
 }
 
@@ -253,15 +255,15 @@ export function createKrakenClient({
 	}
 
 	/**
-	 * refid → txid of deposits and withdrawals since `start`, paged by cursor,
+	 * refid → txid and network name of deposits and withdrawals since `start`, paged by cursor,
 	 * and whether Kraken gave them: `refused` with its error (no values in it)
 	 * when a list was refused, e.g. for a key without Funds → Query.
 	 *
 	 * @param {string} start unix seconds
-	 * @returns {Promise<{ refs: Map<string, string>, status: 'ok' | 'refused', reason: string }>}
+	 * @returns {Promise<{ refs: Map<string, { txid: string, method: string }>, status: 'ok' | 'refused', reason: string }>}
 	 */
 	async function transferRefs(start) {
-		/** @type {Map<string, string>} */
+		/** @type {Map<string, { txid: string, method: string }>} */
 		const refs = new Map();
 		let status = /** @type {'ok' | 'refused'} */ ('ok');
 		let reason = '';
@@ -286,7 +288,13 @@ export function createKrakenClient({
 					? result
 					: (result?.deposits ?? result?.withdrawals ?? []);
 				for (const t of list) {
-					if (t?.refid && typeof t.txid === 'string' && t.txid) refs.set(String(t.refid), t.txid);
+					if (t?.refid && typeof t.txid === 'string' && t.txid) {
+						// The network, as Kraken names it: tells the chain of the hash (#215).
+						const raw = typeof t.network === 'string' && t.network ? t.network : t.method;
+						const method =
+							typeof raw === 'string' && /^[\w\s().,/+-]{1,60}$/.test(raw) ? raw.trim() : '';
+						refs.set(String(t.refid), { txid: t.txid, method });
+					}
 				}
 				cursor = Array.isArray(result) ? false : (result?.next_cursor ?? false);
 			}
@@ -338,8 +346,11 @@ export function createKrakenClient({
 			}
 			const { refs, status, reason } = await transferRefs(String(Number(start) - 7 * 86400));
 			for (const e of entries.values()) {
-				if (e.type === 'deposit' || e.type === 'withdrawal')
-					e.transferRef = refs.get(e.refid) ?? '';
+				if (e.type === 'deposit' || e.type === 'withdrawal') {
+					const ref = refs.get(e.refid);
+					e.transferRef = ref?.txid ?? '';
+					e.transferMethod = ref?.method ?? '';
+				}
 			}
 			const sorted = [...entries.values()].sort((a, b) =>
 				a.time === b.time ? (a.id < b.id ? -1 : 1) : a.time < b.time ? -1 : 1

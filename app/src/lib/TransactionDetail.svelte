@@ -54,6 +54,8 @@
 	import { isBookingConfirmed } from './booking/suggest.js';
 	import { quantityText, rateInputPlaceholder, valuationText } from './assets/valuation.js';
 	import { safeExplorerUrl, walletChain } from './wallets/chains.js';
+	import { chainOfHash, hashUrl } from './assets/hash-chain.js';
+	import { normalizeTxRef } from './matching/context.js';
 	import { renderSVG } from 'uqr';
 	import { addressBook, payeeName, shortAddress, walletParties } from './bank/payee.js';
 	import { eventCalls } from './stats/usage.js';
@@ -848,6 +850,21 @@
 	/** @param {string} iso @param {number} days */
 	const shift = (iso, days) =>
 		formatDate(new Date(Date.parse(`${iso}T00:00:00Z`) + days * 864e5).toISOString().slice(0, 10));
+	// An exchange's deposit or withdrawal: which chain its hash is on, and the
+	// explorer link (#215). An own wallet's booking of the same hash settles it.
+	let hashChain = $derived.by(() => {
+		if (!tx?.chainTxRef) return null;
+		const ref = normalizeTxRef(tx.chainTxRef);
+		const mirror = app.transactions.find(
+			(o) => !o.deleted && walletChain(o.source) && normalizeTxRef(o.txRef) === ref
+		);
+		return chainOfHash({
+			hash: tx.chainTxRef,
+			asset: tx.asset ?? '',
+			method: tx.chainMethod ?? '',
+			walletChain: mirror ? String(mirror.source) : null
+		});
+	});
 	let searchHint = $derived(
 		query && query.terms.length
 			? t('zahlungen.detail.privateHintCrypto', {
@@ -1423,7 +1440,42 @@
 					{/if}
 					{#if tx.chainTxRef}
 						<dt class="text-faint">{t('zahlungen.detail.chainTxRef')}</dt>
-						<dd class="font-mono text-xs break-all text-heading">{tx.chainTxRef}</dd>
+						<dd class="text-xs text-heading" data-testid="tx-detail-chain-ref">
+							<span class="font-mono break-all">
+								<CopyButton
+									text={tx.chainTxRef}
+									label={t('copy.hash')}
+									testid="tx-detail-chain-ref-copy">{tx.chainTxRef}</CopyButton
+								>
+							</span>
+							{#if hashChain?.chains.length === 1}
+								<span class="mt-1 block" data-testid="tx-detail-chain">
+									{hashChain.chains[0].name} ·
+									<a
+										href={hashUrl(hashChain.chains[0], tx.chainTxRef)}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="underline"
+										data-testid="tx-detail-chain-explorer"
+										>{t('zahlungen.detail.explorerAt', {
+											explorer: hashChain.chains[0].explorer
+										})}</a
+									>{#if tx.chainMethod}&nbsp;· {t('zahlungen.detail.chainMethod', {
+											method: tx.chainMethod
+										})}{/if}
+								</span>
+							{:else if hashChain && hashChain.chains.length > 1}
+								<span class="mt-1 block" data-testid="tx-detail-chain-unclear">
+									{t('zahlungen.detail.chainUnclear')}
+									{#each hashChain.chains as c, i (c.id)}{i ? ' · ' : ' '}<a
+											href={hashUrl(c, tx.chainTxRef)}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="underline">{c.name}</a
+										>{/each}
+								</span>
+							{/if}
+						</dd>
 					{/if}
 					{#if tx.counterpartyAddress}
 						<dt class="text-faint">{t('zahlungen.detail.address')}</dt>
