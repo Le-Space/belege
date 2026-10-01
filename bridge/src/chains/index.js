@@ -22,7 +22,7 @@ export { CHAINS, chainOf, publicChains } from './registry.js';
 export { WalletError, checkEndpoint } from './http.js';
 export { isCosmosAddress, bech32Encode, bech32Decode, moduleAddress } from './bech32.js';
 export { isEvmAddress, toChecksumAddress } from './evm.js';
-export { isFilecoinAddress, normalizeFilecoin } from './filecoin.js';
+export { isFilecoinAddress, normalizeFilecoin, toFilecoinAddress } from './filecoin.js';
 export {
 	ADDRESS_TYPES,
 	deriveAddress,

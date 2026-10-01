@@ -17,7 +17,8 @@
 //   - its `miner-fee` and `burn-fee` together one entry `fee` – what sending
 //     the message cost; only messages this address sent pay one.
 //
-// Addresses: f1 (secp256k1), f3 (BLS) and f410f (delegated, FEVM) are checked
+// Addresses: f1 (secp256k1), f3 (BLS) and f410f (delegated, FEVM; also
+// given as its `0x…` Ethereum form, converted here) are checked
 // by their blake2b checksum before anything is asked; f0 (an ID) has none and
 // is taken as it is. The log gets counts, never an address or a CID.
 
@@ -31,6 +32,22 @@ import { unitsToDecimal } from './cosmos.js';
 const PAGE = 100;
 /** A wallet with more movements than this is too large to read here. */
 const MAX_PAGES = 200;
+
+/**
+ * An Ethereum-style address in its Filecoin form: `0x…` (20 bytes) →
+ * `f410f…`, the delegated address of the same account (namespace 10, the
+ * Ethereum address manager), with its blake2b checksum. Anything else comes
+ * back as it was, trimmed.
+ *
+ * @param {unknown} address
+ */
+export function toFilecoinAddress(address) {
+	const a = String(address ?? '').trim();
+	if (!/^0x[0-9a-fA-F]{40}$/.test(a)) return a;
+	const payload = Uint8Array.from(Buffer.from(a.slice(2), 'hex'));
+	const sum = blake2b(new Uint8Array([4, 10, ...payload]), { dkLen: 4 });
+	return `f410f${base32nopad.encode(new Uint8Array([...payload, ...sum])).toLowerCase()}`;
+}
 
 /**
  * Whether a string is a Filecoin mainnet address with a valid checksum.
@@ -165,7 +182,8 @@ export function createFilecoinClient({ fetch: f, timeoutMs, sleep }) {
 		 * @param {{ chain: import('./registry.js').FilecoinChain, address: string, endpoints: { api: string } }} params
 		 */
 		async history({ chain, address, endpoints }) {
-			const a = String(address ?? '').trim();
+			// A `0x…` address is read as its f410f form (toFilecoinAddress).
+			const a = toFilecoinAddress(address);
 			if (!isFilecoinAddress(a)) {
 				throw new WalletError(
 					'not a Filecoin address (f1…, f3…, f410f… or f0…)',

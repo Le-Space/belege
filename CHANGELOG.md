@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **A Filecoin wallet can be typed as `0x…`.** An Ethereum-style address on Filecoin is the same account as its `f410f…` form; Belege converts it (blake2b checksum included) and keeps the f410f form, so the wallet is one whichever way it was typed and matches the addresses Filfox names.
+
 - **Filecoin wallets** – an own Filecoin address as an account. The bridge reads it from Filfox's public API (no key): every send and receipt, and a message's miner and burn fee as one fee booking, valued at the day's rate. f1, f3 and f410f addresses are checked by their checksum first. The message CID is the hash, so a withdrawal to Kraken pairs with Kraken's deposit as an own transfer by itself. The consent screen names Filfox for Filecoin and lists the chain.
 
 - **A deposit's hash names its blockchain and links the explorer** (#215). For a Kraken deposit or withdrawal the payment's detail tells the chain from an own wallet's booking of the same hash, from the network Kraken names (now passed on by the bridge), or from the hash's form with the asset – a Filecoin message CID (`bafy2bzace…`) is Filecoin. A clear chain shows its name and "Im Block-Explorer ansehen"; an EVM hash without a named network lists its candidate chains, each linked. Nothing is asked of any explorer until you click. The consent screen lists Filfox and Solscan among the explorers.

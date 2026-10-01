@@ -117,7 +117,10 @@ test('a Filecoin wallet is read, and its withdrawal pairs with the Kraken deposi
 	const open = card.getByTestId('wallet-add-open');
 	if (await open.isVisible()) await open.click();
 	await card.getByTestId('wallet-chain').selectOption('filecoin');
-	await expect(card.getByTestId('wallet-address-input')).toHaveAttribute('placeholder', 'f1…');
+	await expect(card.getByTestId('wallet-address-input')).toHaveAttribute(
+		'placeholder',
+		'f1… · f410f… · 0x…'
+	);
 	await card.getByTestId('wallet-address-input').fill('f1nichtgueltig');
 	await card.getByTestId('wallet-add-button').click();
 	await expect(card.getByTestId('wallet-add-error')).toBeVisible();

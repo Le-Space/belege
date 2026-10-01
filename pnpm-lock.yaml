@@ -74,9 +74,15 @@ importers:
       '@multiformats/multiaddr':
         specifier: 13.0.3
         version: 13.0.3
+      '@noble/hashes':
+        specifier: 2.4.0
+        version: 2.4.0
       '@orbitdb/core':
         specifier: 4.0.0
         version: 4.0.0
+      '@scure/base':
+        specifier: 2.4.0
+        version: 2.4.0
       blockstore-core:
         specifier: ^6.0.0
         version: 6.1.3

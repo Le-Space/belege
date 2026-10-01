@@ -7,7 +7,8 @@ import {
 	CHAINS,
 	createWalletService,
 	isFilecoinAddress,
-	normalizeFilecoin
+	normalizeFilecoin,
+	toFilecoinAddress
 } from '../src/chains/index.js';
 import { fakeFilecoinAddress, fakeMessageCid, startFakeFilfox } from './support/fake-filfox.js';
 
@@ -145,4 +146,29 @@ test('GET /chains names Filecoin with its explorer, and Filfox as its default AP
 		{ kind: fil?.kind, assets: fil?.assets, native: fil?.nativeSymbol, api: fil?.endpoints.api },
 		{ kind: 'filecoin', assets: ['FIL'], native: 'FIL', api: 'https://filfox.info/api/v1' }
 	);
+});
+
+test('a 0x address is read as its f410f form (pinned; the app pins the same value)', async () => {
+	const made = `0x${'ab'.repeat(20)}`;
+	const f410 = 'f410fvov2xk5lvov2xk5lvov2xk5lvov2xk5lc6wbxja';
+	assert.equal(toFilecoinAddress(made), f410);
+	assert.equal(
+		toFilecoinAddress(made.toUpperCase().replace('0X', '0x')),
+		f410,
+		'case does not matter'
+	);
+	assert.equal(isFilecoinAddress(f410), true);
+	assert.equal(toFilecoinAddress(` ${OURS} `), OURS, 'other addresses as they are');
+	const fevm = await startFakeFilfox({ addresses: { [f410]: { balance: '0', transfers: [] } } });
+	try {
+		const service = createWalletService({ allowLoopback: true, sleep: async () => {} });
+		const result = await service.sync({
+			chain: 'filecoin',
+			address: made,
+			endpoints: { api: fevm.url }
+		});
+		assert.equal(result.addressUrl, `https://filfox.info/en/address/${f410}`);
+	} finally {
+		await fevm.close();
+	}
 });
