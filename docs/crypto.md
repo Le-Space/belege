@@ -162,6 +162,10 @@ A Bitcoin wallet is read by its account's **extended public key**, not by one ad
 - `txRef` is the txid. A Kraken BTC deposit or withdrawal carries the same txid as `chainTxRef`, so the two pair as an own transfer.
 - One account, _Wallet BTC ···<fingerprint>_, with its balance (confirmed, from the Esplora API).
 
+### Filecoin
+
+An own Filecoin wallet is added by its address: f1 (secp256k1), f3 (BLS) or f410f (delegated), each checked by its blake2b checksum before anything is asked, or f0 (an ID). The bridge reads it from Filfox's public API, without a key: `address/<a>` for the balance and `address/<a>/transfers` for every movement, 100 a page (`bridge/src/chains/filecoin.js`). Per message, each send and each receipt becomes a booking with the other side's address; its miner fee and burn fee together one fee booking. The message CID (`bafy2bzace…`) is the hash – the same one Kraken reports for a deposit, so a withdrawal from the wallet and the deposit on Kraken pair as an own transfer, and the deposit's detail names Filecoin. Filfox sees the address and this Mac's IP address; an address with more than 20 000 movements is refused as too large.
+
 ### Where the defaults come from (checked 2026-09-26)
 
 | Chain     | Chain id     | Address                            | Assets (decimals)                | Default endpoints                                                                                        | Explorer (tx / address)                                      |

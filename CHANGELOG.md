@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **Filecoin wallets** – an own Filecoin address as an account. The bridge reads it from Filfox's public API (no key): every send and receipt, and a message's miner and burn fee as one fee booking, valued at the day's rate. f1, f3 and f410f addresses are checked by their checksum first. The message CID is the hash, so a withdrawal to Kraken pairs with Kraken's deposit as an own transfer by itself. The consent screen names Filfox for Filecoin and lists the chain.
+
 - **A deposit's hash names its blockchain and links the explorer** (#215). For a Kraken deposit or withdrawal the payment's detail tells the chain from an own wallet's booking of the same hash, from the network Kraken names (now passed on by the bridge), or from the hash's form with the asset – a Filecoin message CID (`bafy2bzace…`) is Filecoin. A clear chain shows its name and "Im Block-Explorer ansehen"; an EVM hash without a named network lists its candidate chains, each linked. Nothing is asked of any explorer until you click. The consent screen lists Filfox and Solscan among the explorers.
 
 - **Bank accounts documented in one place** (#224): [docs/banking.md](docs/banking.md) ([Deutsch](docs/banking.de.md)) – statement files, Hibiscus and Enable Banking side by side; for Enable Banking the own application, both kinds of key, setup, linking, releasing accounts, fetching, renewing, what is kept where, what leaves, and what to do when a message comes. The Bank page's help links it.

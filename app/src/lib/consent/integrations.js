@@ -82,6 +82,7 @@ export const INTEGRATION_GROUPS = [
 		id: 'chains',
 		items: [
 			{ id: 'bitcoin', name: 'Bitcoin', logo: 'bitcoin' },
+			{ id: 'filecoin', name: 'Filecoin', initials: 'Fi' },
 			{ id: 'ethereum', name: 'Ethereum', logo: 'ethereum' },
 			{ id: 'base', name: 'Base', initials: 'Ba' },
 			{ id: 'arbitrum', name: 'Arbitrum One', initials: 'Ar' },

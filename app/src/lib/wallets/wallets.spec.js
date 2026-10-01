@@ -587,6 +587,55 @@ describe('which wallet bookings need no receipt', () => {
 		});
 	});
 
+	it('a Filecoin withdrawal pairs with the Kraken deposit of the same message CID', async () => {
+		const cid = `bafy2bzace${'c'.repeat(52)}`;
+		const sent = booking({
+			id: 'f-out',
+			accountId: 'acc-fil',
+			source: 'filecoin',
+			asset: 'FIL',
+			decimals: 18,
+			amountCents: -2352,
+			quantity: '-20000000000000000000',
+			counterpartyAddress: 'f1' + 'k'.repeat(39),
+			txRef: cid
+		});
+		const deposit = {
+			id: 'k-dep',
+			accountId: 'acc-k',
+			source: 'kraken',
+			bookedOn: '2026-09-05',
+			amountCents: 2352,
+			currency: 'EUR',
+			movement: 'transfer',
+			asset: 'FIL',
+			quantity: '20000000000',
+			txRef: 'R-DEP',
+			chainTxRef: cid,
+			chainMethod: 'Filecoin'
+		};
+		const fil = [
+			...accounts,
+			{
+				id: 'acc-fil',
+				source: 'filecoin',
+				name: 'Wallet FIL ···wallet',
+				walletAddress: 'f1' + 'w'.repeat(39),
+				asset: 'FIL'
+			}
+		];
+		const ctx = await context([sent, deposit], fil);
+		expect(classifyTransaction(sent, ctx)).toMatchObject({
+			kind: 'own-transfer',
+			via: 'reference',
+			counterBookingId: 'k-dep'
+		});
+		expect(classifyTransaction(deposit, ctx)).toMatchObject({
+			via: 'reference',
+			counterBookingId: 'f-out'
+		});
+	});
+
 	it('an address that is ours on one EVM chain is not ours on another', async () => {
 		const addr = '0x' + 'ab'.repeat(20);
 		const evmAccounts = [

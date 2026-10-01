@@ -21,6 +21,7 @@
 		"./testing/portal": "./test/support/fake-portal.js",
 		"./testing/kraken": "./test/support/fake-kraken.js",
 		"./testing/enablebanking": "./test/support/fake-enablebanking.js",
+		"./testing/filfox": "./test/support/fake-filfox.js",
 		"./testing/chains": "./test/support/fake-chains.js",
 		"./testing/alchemy": "./test/support/fake-alchemy.js",
 		"./testing/aleph": "./test/support/fake-aleph.js"
