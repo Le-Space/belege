@@ -148,6 +148,13 @@
 	let privateRules = $derived(privateAccounts(cleanDatevSettings(app.datevSettings)));
 	let legalForm = $derived(cleanDatevSettings(app.datevSettings).legalForm);
 	let settlement = $derived(tx && privateKind(tx) ? privateSettlement(tx, app.transactions) : null);
+	// The other way round: private money that came in on the business account by
+	// mistake and is passed on to the private account. The same mechanics, its
+	// own words: `…In` for the incoming payment, `…Out` for its pass-on.
+	let privateIn = $derived(Boolean(tx?.privateMistake) && (tx?.amountCents ?? 0) > 0);
+	let passOn = $derived(Boolean(tx?.privateRepaymentOf?.length) && (tx?.amountCents ?? 0) < 0);
+	/** @param {string} key */
+	const pk = (key) => `zahlungen.detail.private.${key}${privateIn ? 'In' : ''}`;
 	let repayChoices = $derived(
 		repayOpen && tx?.privateMistake
 			? transferCandidates(tx, app.transactions, { days: 180, anyAccount: true }).filter(
@@ -1808,7 +1815,7 @@
 				{/if}
 				{#if tx.privateMistake}
 					<div class="mt-1 text-sm" data-testid="tx-private">
-						<p class="font-medium text-warning">{t('zahlungen.detail.private.title')}</p>
+						<p class="font-medium text-warning">{t(pk('title'))}</p>
 						<p class="mt-1 whitespace-pre-wrap text-text" data-testid="tx-private-note">
 							{tx.privateMistake.note}
 						</p>
@@ -1823,7 +1830,7 @@
 								data-testid="tx-private-state"
 							>
 								{settlement.openCents
-									? t('zahlungen.detail.private.open', {
+									? t(pk('open'), {
 											amount: formatMoney(settlement.openCents, tx.currency ?? 'EUR')
 										})
 									: t('zahlungen.detail.private.settled')}
@@ -1832,7 +1839,7 @@
 						{#each settlement?.repayments ?? [] as r (r.id)}
 							<p class="mt-1 flex flex-wrap items-center gap-2 text-xs text-text">
 								<button type="button" class="underline" onclick={() => onopen(String(r.id))}
-									>{t('zahlungen.detail.private.repaidBy', {
+									>{t(pk('repaidBy'), {
 										date: formatDate(String(r.bookedOn)),
 										amount: formatMoney(r.amountCents ?? 0, r.currency ?? 'EUR')
 									})}</button
@@ -1852,7 +1859,7 @@
 								onclick={() => (repayOpen = !repayOpen)}
 								aria-expanded={repayOpen}
 								disabled={busy}
-								data-testid="tx-private-repay">{t('zahlungen.detail.private.repay')}</button
+								data-testid="tx-private-repay">{t(pk('repay'))}</button
 							>
 							<button
 								type="button"
@@ -1885,7 +1892,7 @@
 									</li>
 								{:else}
 									<li class="px-3 py-2 text-sm text-faint" data-testid="tx-private-repay-none">
-										{t('zahlungen.detail.private.repayNone')}
+										{t(pk('repayNone'))}
 									</li>
 								{/each}
 							</ul>
@@ -1894,11 +1901,13 @@
 				{/if}
 				{#if tx.privateRepaymentOf?.length}
 					<div class="mt-1 text-sm" data-testid="tx-private-repayment">
-						<p class="font-medium text-heading">{t('zahlungen.detail.private.repaymentTitle')}</p>
+						<p class="font-medium text-heading">
+							{t(`zahlungen.detail.private.repaymentTitle${passOn ? 'Out' : ''}`)}
+						</p>
 						{#each settlement?.payments ?? [] as p (p.id)}
 							<p class="mt-1 flex flex-wrap items-center gap-2 text-xs text-text">
 								<button type="button" class="underline" onclick={() => onopen(String(p.id))}
-									>{t('zahlungen.detail.private.repays', {
+									>{t(`zahlungen.detail.private.repays${passOn ? 'Out' : ''}`, {
 										date: formatDate(String(p.bookedOn)),
 										amount: formatMoney(p.amountCents ?? 0, p.currency ?? 'EUR')
 									})}</button
@@ -2009,7 +2018,7 @@
 									data-testid="tx-no-receipt">{t('zahlungen.detail.noReceiptNeeded')}</button
 								>
 							{/if}
-							{#if !privateKind(tx) && (tx.amountCents ?? 0) < 0}
+							{#if !privateKind(tx) && (tx.amountCents ?? 0) !== 0}
 								<button
 									type="button"
 									class={button}
