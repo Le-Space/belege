@@ -168,3 +168,40 @@ describe('the accounts, by the legal form', () => {
 		).toMatchObject({ account: '4980', source: 'confirmed' });
 	});
 });
+
+describe('private money that came in on the business account by mistake', () => {
+	it('a note of its own; open until passed on; the accounts the other way round', async () => {
+		const income = await put({
+			bookedOn: '2026-09-19',
+			amountCents: 13888,
+			counterparty: 'Beispiel Zahlungsdienst',
+			purpose: 'Erstattung Ihr Einkauf bei Beispiel Shop'
+		});
+		expect(privateNote(income)).toContain('Private Einnahme, irrtümlich auf dem Geschäftskonto');
+		expect(privateNote(income)).toContain('Weiterleitung aufs Privatkonto');
+		await markPrivate(store, income.id, '');
+		let all = await store.transactions.list();
+		const marked = await store.transactions.get(income.id);
+		expect(coverageBadge(marked, {})).toBe('private-mistake');
+		expect(openPrivatePayments(all).map((p) => p.openCents)).toEqual([13888]);
+
+		const passOn = await put({
+			bookedOn: '2026-09-22',
+			amountCents: -13888,
+			counterparty: 'Erika Mustermann',
+			purpose: 'Irrläufer, zurück an privat'
+		});
+		await linkRepayment(store, income.id, passOn.id);
+		all = await store.transactions.list();
+		expect(privateSettlement(await store.transactions.get(income.id), all).openCents).toBe(0);
+		expect(openPrivatePayments(all)).toEqual([]);
+		expect(coverageBadge(await store.transactions.get(passOn.id), {})).toBe('private-repayment');
+
+		// In is a deposit, the pass-on out a withdrawal (sole proprietor); a UG's clearing account both.
+		const accounts = { payment: '1800', repayment: '1890' };
+		expect(suggestBooking(marked, { privateAccounts: accounts }).account).toBe('1890');
+		expect(
+			suggestBooking(await store.transactions.get(passOn.id), { privateAccounts: accounts }).account
+		).toBe('1800');
+	});
+});

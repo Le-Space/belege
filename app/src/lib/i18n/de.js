@@ -2239,7 +2239,7 @@ export default {
 			private: {
 				mark: 'Privat (Irrläufer) …',
 				markTitle:
-					'Eine private Zahlung, versehentlich vom Geschäftskonto bezahlt: keine Betriebsausgabe, kein Betriebsausgabenbeleg. Eine kurze Aktennotiz hält den Irrtum fest; bei UG und GmbH gleichst du sie durch eine Rückzahlung vom Privatkonto aus.',
+					'Eine private Zahlung, versehentlich vom Geschäftskonto bezahlt – oder privates Geld, versehentlich auf dem Geschäftskonto eingegangen: keine Betriebsausgabe bzw. -einnahme, kein Beleg. Eine kurze Aktennotiz hält den Irrtum fest; ausgeglichen wird er durch die Rückzahlung vom bzw. die Weiterleitung aufs Privatkonto.',
 				noteLabel: 'Aktennotiz',
 				hint: 'Nur diese eine Zahlung – andere derselben Gegenpartei bleiben, wie sie sind. Eine private Rechnung kannst du als Nachweis des Irrtums anhängen; sie zählt nicht als Betriebsausgabe.',
 				save: 'Als privat festhalten',
@@ -2252,6 +2252,13 @@ export default {
 				repay: 'Rückzahlung verknüpfen …',
 				repayPick: 'Verknüpfen',
 				repayNone: 'Keine Gutschrift in den 180 Tagen um diese Zahlung.',
+				titleIn: 'Privat (Irrläufer) – keine Betriebseinnahme',
+				openIn: 'Noch nicht weitergeleitet: {amount} offen.',
+				repaidByIn: 'Weitergeleitet am {date}: {amount}',
+				repayIn: 'Weiterleitung verknüpfen …',
+				repayNoneIn: 'Keine Überweisung in den 180 Tagen um diesen Eingang.',
+				repaymentTitleOut: 'Weiterleitung eines privaten Eingangs – keine Betriebsausgabe',
+				repaysOut: 'Leitet den privaten Eingang vom {date} weiter: {amount}',
 				unlink: 'lösen',
 				undo: 'Doch geschäftlich',
 				noLegalForm:

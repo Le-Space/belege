@@ -2209,7 +2209,7 @@ export default {
 			private: {
 				mark: 'Private (paid by mistake) …',
 				markTitle:
-					'A private payment, paid from the business account by mistake: no business expense, no business expense receipt. A short file note records the mistake; with a UG or GmbH you settle it with a repayment from the private account.',
+					'A private payment, paid from the business account by mistake – or private money that came in on the business account by mistake: no business expense or income, no receipt. A short file note records the mistake; it is settled by the repayment from, or the pass-on to, the private account.',
 				noteLabel: 'File note',
 				hint: 'Only this one payment – others to the same counterparty stay as they are. You can attach a private invoice as proof of the mistake; it does not count as a business expense.',
 				save: 'Record as private',
@@ -2222,6 +2222,13 @@ export default {
 				repay: 'Link repayment …',
 				repayPick: 'Link',
 				repayNone: 'No credit in the 180 days around this payment.',
+				titleIn: 'Private (by mistake) – no business income',
+				openIn: 'Not passed on yet: {amount} open.',
+				repaidByIn: 'Passed on on {date}: {amount}',
+				repayIn: 'Link the pass-on …',
+				repayNoneIn: 'No outgoing payment in the 180 days around this one.',
+				repaymentTitleOut: 'Pass-on of private money that came in – no business expense',
+				repaysOut: 'Passes on the private money from {date}: {amount}',
 				unlink: 'unlink',
 				undo: 'Business after all',
 				noLegalForm:

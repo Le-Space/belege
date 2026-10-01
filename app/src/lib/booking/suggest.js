@@ -93,7 +93,11 @@ export function suggestBooking(
 	const priv = privateKind(tx);
 	if (priv) {
 		return {
-			account: priv === 'private-mistake' ? privateAccounts.payment : privateAccounts.repayment,
+			// By the money's way, not the kind: out of the business is a withdrawal,
+			// in is a deposit – a private payment and its repayment, or private
+			// money that came in by mistake and its pass-on.
+			account:
+				Number(tx.amountCents ?? 0) < 0 ? privateAccounts.payment : privateAccounts.repayment,
 			taxKey: '',
 			source: 'private',
 			taxVia: 'none',
