@@ -24,6 +24,7 @@
 // with, it is likely address poisoning, and the classification names that one.
 // (docs/phase-0.md, "Matching"; docs/crypto.md, "Own wallets").
 
+import { payrollAccount, payrollKind } from './payroll.js';
 import { mutualTwin } from './twins.js';
 import { cleanPrepaidVendors } from './vendor-account.js';
 import { counterpartyKey } from './partners.js';
@@ -93,6 +94,7 @@ export function isOwnName(name, company) {
  * @typedef {object} MatchingSettings stored under the settings key `matching`
  * @property {string[]} companyNames
  * @property {string[]} ownNames the people behind the company: owners, shareholders (#231); never searched for
+ * @property {string[]} employees people the company pays wages to (#233): a payment to one is a wage
  * @property {string[]} ownIbans full IBANs the person typed in
  * @property {Rule[]} rules
  * @property {number} graceDays a booking without a receipt is asked about only once it is older than this (0: at once)
@@ -116,6 +118,7 @@ export function defaultMatchingSettings() {
 	return {
 		companyNames: [],
 		ownNames: [],
+		employees: [],
 		ownIbans: [],
 		rules: [],
 		graceDays: DEFAULT_GRACE_DAYS,
@@ -152,6 +155,7 @@ export function cleanMatchingSettings(value) {
 	return {
 		companyNames: strings(value?.companyNames),
 		ownNames: strings(value?.ownNames),
+		employees: strings(value?.employees),
 		ownIbans: strings(value?.ownIbans)
 			.map((s) => compactIban(s))
 			.filter(Boolean),
@@ -214,6 +218,7 @@ export function feeKey(tx) {
 /**
  * @typedef {object} ClassifyContext
  * @property {string[]} companyNames
+ * @property {string[]} [employees] names on the employees list (Einstellungen, #233)
  * @property {Set<string>} ownIbans compact IBANs: typed in, or resolved from the accounts
  * @property {Map<string, string[]>} ownLast4 last four digits → ids of our accounts whose full IBAN we do not keep (Hibiscus hands out only those)
  * @property {(tx: Record<string, any>, accountIds: string[]) => boolean} [mirrored] whether one of those accounts booked the same amount the other way within a few days
@@ -239,7 +244,7 @@ export function feeKey(tx) {
 
 /**
  * @typedef {object} Classification
- * @property {'rule-ignore' | 'rule-private' | 'bank-fee' | 'own-transfer' | 'loan' | 'crypto-reward' | 'crypto-stake' | 'crypto-dust' | 'crypto-swap' | 'token-burn' | 'token-migration' | 'refund' | 'prepaid-topup'} kind
+ * @property {'rule-ignore' | 'rule-private' | 'bank-fee' | 'own-transfer' | 'loan' | 'wage' | 'payroll-tax' | 'social-security' | 'tax-payment' | 'crypto-reward' | 'crypto-stake' | 'crypto-dust' | 'crypto-swap' | 'token-burn' | 'token-migration' | 'refund' | 'prepaid-topup'} kind
  *   `token-burn`: tokens burned in the token project's transaction, not the person's (#162);
  *   `token-migration`: such a burn and its replacement, linked by a person
  *   `crypto-dust`: an incoming wallet transfer worth less than a cent
@@ -251,9 +256,13 @@ export function feeKey(tx) {
  * @property {string} [ruleId]
  * @property {'counterparty' | 'purpose' | 'any'} [ruleField] what the rule looked at
  * @property {string} [ruleContains] the rule's text
- * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'bridge' | 'cross-chain' | 'manual' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee'} [via] how an own transfer or a bank fee was recognised
+ * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'bridge' | 'cross-chain' | 'manual' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee' | 'employee' | 'wage-words' | 'tax-office' | 'tax-number' | 'municipality' | 'insurer'} [via] how an own transfer or a bank fee was recognised
  * @property {string} [address] our own wallet's address, for via 'own-address'
  * @property {string} [vendor] the prepaid vendor, for kind 'prepaid-topup'
+ * @property {import('./payroll.js').TaxKind} [tax] which tax, for 'tax-payment' and 'payroll-tax' (#233)
+ * @property {string | null} [period] the period a wage, tax or contribution is for: `2025-12`, `2025-Q4`, `2024`
+ * @property {string} [employee] for a wage: the name on the employees list
+ * @property {string} [insurer] for contributions: who receives them
  * @property {'charge' | 'refund' | 'send' | 'arrival'} [role] which side this is: of a refund pair, or of a swap across chains
  * @property {string} [chain] the other wallet's chain: an IBC receiver's (via 'own-address'), a bridge's other side (via 'bridge')
  * @property {string} [lookalike] for dust: the known address its sender's looks like
@@ -621,6 +630,13 @@ export function classifyTransaction(tx, ctx) {
 	}
 	const company = ctx.companyNames.find((c) => isOwnName(counterparty, c));
 	if (company) return { kind: 'own-transfer', account: '1360', via: 'company', company };
+	// Wages, payroll taxes, contributions, tax payments (#233): the payroll's
+	// or the tax office's documents are their receipts (payroll.js).
+	const payroll = payrollKind(tx, { employees: ctx.employees ?? [] });
+	if (payroll) {
+		const account = payrollAccount(payroll, String(tx.bookedOn ?? ''));
+		return { ...payroll, ...(account ? { account } : {}) };
+	}
 	if (LOAN.test(purpose)) return { kind: 'loan' };
 	return null;
 }

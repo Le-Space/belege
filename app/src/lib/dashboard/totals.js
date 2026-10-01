@@ -8,6 +8,9 @@
 // undoes, rather than counting as the opposite. Private payments from the
 // business account and loans are no business income or expenses; they get a
 // line of their own. Fees are expenses, staking rewards income, as booked.
+// Taxes paid to the tax office (VAT, corporate and trade tax, #233) are no
+// operating expense either; they have a line of their own. Wages, wage tax
+// and contributions are expenses.
 // A crypto booking without a rate has no euro amount: counted, not summed.
 
 import { privateKind } from '../matching/private-kind.js';
@@ -15,7 +18,7 @@ import { isWalletSource } from '../wallets/chains.js';
 
 /** @typedef {Record<string, any>} Rec */
 /** @typedef {'bank' | 'crypto'} Place */
-/** @typedef {'income' | 'expenses' | 'private' | 'loan' | 'unpriced'} Bucket */
+/** @typedef {'income' | 'expenses' | 'private' | 'loan' | 'tax' | 'unpriced'} Bucket */
 
 /** Classifications that move money between one's own places, or nowhere. */
 const NEITHER = new Set([
@@ -56,6 +59,7 @@ export function flowOf(tx, classification) {
 	if (privateKind(tx) || kind === 'rule-private')
 		return { place, bucket: 'private', cents: amount };
 	if (kind === 'loan') return { place, bucket: 'loan', cents: amount };
+	if (kind === 'tax-payment') return { place, bucket: 'tax', cents: amount };
 	if (tx.rateMissing) return { place, bucket: 'unpriced', cents: 0 };
 	if (amount === 0) return null;
 	if (kind === 'refund' && classification?.role === 'refund') {
@@ -88,6 +92,7 @@ export const FLOW_KEYS = /** @type {const} */ ([
 	'crypto-expenses',
 	'private',
 	'loan',
+	'tax',
 	'unpriced'
 ]);
 
@@ -99,6 +104,7 @@ export const FLOW_KEYS = /** @type {const} */ ([
  * @property {number} balance income − expenses
  * @property {{ paid: number, repaid: number, count: number }} private paid privately from the business, and paid back
  * @property {{ received: number, paid: number, count: number }} loans
+ * @property {{ paid: number, refunded: number, count: number }} taxes paid to and refunded by the tax office
  * @property {number} unpriced crypto bookings without a rate, not summed
  * @property {number} counted bookings in the four sums
  */
@@ -117,6 +123,7 @@ export function yearTotals(transactions, classifications) {
 		balance: 0,
 		private: { paid: 0, repaid: 0, count: 0 },
 		loans: { received: 0, paid: 0, count: 0 },
+		taxes: { paid: 0, refunded: 0, count: 0 },
 		unpriced: 0,
 		counted: 0
 	};
@@ -128,6 +135,10 @@ export function yearTotals(transactions, classifications) {
 			t.private.count++;
 			if (flow.cents < 0) t.private.paid += -flow.cents;
 			else t.private.repaid += flow.cents;
+		} else if (flow.bucket === 'tax') {
+			t.taxes.count++;
+			if (flow.cents < 0) t.taxes.paid += -flow.cents;
+			else t.taxes.refunded += flow.cents;
 		} else if (flow.bucket === 'loan') {
 			t.loans.count++;
 			if (flow.cents > 0) t.loans.received += flow.cents;

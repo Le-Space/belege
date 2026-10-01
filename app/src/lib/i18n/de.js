@@ -1044,6 +1044,8 @@ export default {
 			privateLine: '{paid} bezahlt · {repaid} zurückgezahlt',
 			loans: 'Darlehen',
 			loansLine: '{received} erhalten · {paid} gezahlt',
+			taxes: 'Steuern ans Finanzamt',
+			taxesLine: '{paid} gezahlt · {refunded} erstattet',
 			unpricedOne: '1 Krypto-Buchung ohne Kurs ist nicht mitgezählt.',
 			unpricedMany: '{count} Krypto-Buchungen ohne Kurs sind nicht mitgezählt.',
 			show: 'ansehen',
@@ -1132,6 +1134,10 @@ export default {
 			'own-transfer': 'Eigene Umbuchung',
 			'bank-fee': 'Kontoauszug',
 			loan: 'Darlehen',
+			wage: 'Lohn',
+			'payroll-tax': 'Lohnsteuer',
+			'social-security': 'Sozialabgaben',
+			'tax-payment': 'Steuer',
 			'crypto-reward': 'Ertrag der Börse',
 			'crypto-stake': 'Staking',
 			refund: 'Erstattung',
@@ -1147,6 +1153,10 @@ export default {
 			'own-transfer': 'Eigene Umbuchung (1360) – kein Beleg nötig',
 			'bank-fee': 'Bankentgelt – der Kontoauszug ist der Beleg',
 			loan: 'Darlehen – der Vertrag ist der Beleg',
+			wage: 'Lohnzahlung – der Beleg ist die Lohnabrechnung aus der Lohnbuchhaltung',
+			'payroll-tax': 'Lohnsteuer an das Finanzamt – der Beleg ist die Lohnsteuer-Anmeldung',
+			'social-security': 'Sozialabgaben – der Beleg ist der Beitragsnachweis',
+			'tax-payment': 'Steuerzahlung – der Beleg ist die Anmeldung oder der Bescheid',
 			'crypto-reward': 'Staking- oder Earn-Ertrag – der Kontoauszug der Börse ist der Beleg',
 			'crypto-stake': 'Delegiert ins Staking – kein Beleg nötig, nicht auf 1360',
 			refund: 'Belastung und Erstattung – kein Beleg nötig',
@@ -1221,6 +1231,23 @@ export default {
 			bankFeeLearned:
 				'Bankentgelt: So hast du eine Buchung mit diesem Verwendungszweck schon einmal eingeordnet – der Kontoauszug ist der Beleg',
 			loan: 'Darlehen: „Darlehen“ im Verwendungszweck – der Vertrag ist der Beleg',
+			wageEmployee:
+				'Lohn an {employee} (auf deiner Mitarbeiterliste){period}: Der Beleg ist die Lohnabrechnung aus der Lohnbuchhaltung, nicht diese Zahlung.',
+			wageWords:
+				'„Lohn“, „Gehalt“ oder „Minijob“ im Verwendungszweck{period}: Der Beleg ist die Lohnabrechnung aus der Lohnbuchhaltung, nicht diese Zahlung.',
+			payrollTax:
+				'Lohnsteuer an das Finanzamt{period}: Der Beleg ist die Lohnsteuer-Anmeldung aus der Lohnbuchhaltung.',
+			social: 'Beiträge an {counterparty}{period}: Der Beleg ist der Beitragsnachweis.',
+			tax: '{tax} an {office}{period}: Der Beleg ist die Voranmeldung oder der Steuerbescheid.',
+			taxName: {
+				vat: 'Umsatzsteuer',
+				corporate: 'Körperschaftsteuer',
+				trade: 'Gewerbesteuer',
+				other: 'Steuer'
+			},
+			taxOffice: 'das Finanzamt',
+			taxNumber: 'das Finanzamt (Steuernummer im Verwendungszweck)',
+			period: ' für {period}',
 			exchangeFee:
 				'Gebühr der Börse: Kraken hat sie zu dieser Buchung berechnet – der Kontoauszug der Börse ist der Beleg',
 			networkFee: 'Netzwerkgebühr der Blockchain: die Transaktion im Block-Explorer ist der Beleg',
@@ -1438,6 +1465,9 @@ export default {
 		ownNames: 'Eigene Namen (Inhaber, Gesellschafter)',
 		ownNamesHint:
 			'Ein Name je Zeile, z. B. „Erika Mustermann“. Steht einer davon als Gegenpartei, sucht „Beleg finden“ im Postfach nicht nach ihm, sondern nach einem Wort aus dem Verwendungszweck.',
+		employees: 'Mitarbeiter (Lohn, Minijob)',
+		employeesHint:
+			'Ein Name je Zeile. Eine Zahlung an einen davon ist Lohn: Ihr Beleg ist die Lohnabrechnung aus der Lohnbuchhaltung, nicht ein Beleg im Postfach.',
 		ownIbans: 'Eigene IBANs',
 		ownIbansHint:
 			'Eine IBAN je Zeile. Zahlungen an diese Konten gelten als eigene Umbuchung. Konten aus den Büchern kennt der Abgleich schon: {list}.',
@@ -1880,6 +1910,7 @@ export default {
 			'Auf welches Konto diese Zahlung gebucht wird (Gegenkonto, SKR 03) und mit welchem BU-Schlüssel. Die App schlägt vor, du übernimmst – exportiert wird nur, was du übernommen hast.',
 		suggestion: 'Vorschlag',
 		source: {
+			payroll: 'nach der Art der Zahlung (Lohn, Lohnsteuer, Abgaben, Steuer)',
 			transfer: 'Umbuchung',
 			fee: 'Bankgebühr',
 			private: 'Privat (Irrläufer), nach der Rechtsform',
@@ -2036,6 +2067,7 @@ export default {
 			'crypto-expenses': 'Ausgaben · Krypto',
 			private: 'Privat vom Geschäftskonto',
 			loan: 'Darlehen',
+			tax: 'Steuern ans Finanzamt',
 			unpriced: 'Krypto ohne Kurs'
 		},
 		receiptFilter: 'Belegfilter',

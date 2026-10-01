@@ -21,7 +21,7 @@ import { taxKeyFor } from './tax-keys.js';
 import { privateKind } from '../matching/private-kind.js';
 
 /** @typedef {Record<string, any>} Rec */
-/** @typedef {'confirmed' | 'transfer' | 'fee' | 'learned' | 'private' | null} SuggestionSource */
+/** @typedef {'confirmed' | 'transfer' | 'fee' | 'payroll' | 'learned' | 'private' | null} SuggestionSource */
 
 /**
  * @typedef {object} Suggestion
@@ -105,6 +105,21 @@ export function suggestBooking(
 			account: TRANSFER_ACCOUNT,
 			taxKey: '',
 			source: 'transfer',
+			taxVia: 'none',
+			vendor: null
+		};
+	}
+	// Wages, wage tax, contributions, tax payments (#233): the account the
+	// payroll or the tax office books them against, where one is known.
+	if (
+		classification &&
+		['wage', 'payroll-tax', 'social-security', 'tax-payment'].includes(classification.kind) &&
+		classification.account
+	) {
+		return {
+			account: classification.account,
+			taxKey: '',
+			source: 'payroll',
 			taxVia: 'none',
 			vendor: null
 		};

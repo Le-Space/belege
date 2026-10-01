@@ -151,6 +151,16 @@ const FIELD_KEY = /** @type {Record<string, string>} */ ({
 	any: 'explain.field.any'
 });
 
+/** `2025-12` → ` für 12/2025`, `2025-Q4` → ` für Q4/2025`, `2024` → ` für 2024`; none → ''. @param {unknown} p */
+function periodText(p) {
+	const s = String(p ?? '');
+	if (!s) return '';
+	const month = /^(\d{4})-(\d{2})$/.exec(s);
+	const quarter = /^(\d{4})-Q([1-4])$/.exec(s);
+	const shown = month ? `${month[2]}/${month[1]}` : quarter ? `Q${quarter[2]}/${quarter[1]}` : s;
+	return t('explain.rule.period', { period: shown });
+}
+
 /**
  * Why a booking needs no receipt: the rule that applied, in words.
  *
@@ -227,6 +237,25 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 			return t('explain.rule.bankFee', { type: c.bookingType ?? '' });
 		case 'loan':
 			return t('explain.rule.loan');
+		// Wages, payroll taxes, contributions, tax payments (#233, payroll.js).
+		case 'wage':
+			return t(c.via === 'employee' ? 'explain.rule.wageEmployee' : 'explain.rule.wageWords', {
+				employee: c.employee ?? '',
+				period: periodText(c.period)
+			});
+		case 'payroll-tax':
+			return t('explain.rule.payrollTax', { period: periodText(c.period) });
+		case 'social-security':
+			return t('explain.rule.social', {
+				counterparty: c.insurer ?? '',
+				period: periodText(c.period)
+			});
+		case 'tax-payment':
+			return t('explain.rule.tax', {
+				tax: t(`explain.rule.taxName.${c.tax ?? 'other'}`),
+				office: t(c.via === 'tax-number' ? 'explain.rule.taxNumber' : 'explain.rule.taxOffice'),
+				period: periodText(c.period)
+			});
 		case 'refund': {
 			const other = accounts.find((a) => a.id === c.counterAccountId);
 			return t(c.role === 'charge' ? 'explain.rule.refunded' : 'explain.rule.refundOf', {
