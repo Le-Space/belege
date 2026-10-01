@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **A deposit's hash names its blockchain and links the explorer** (#215). For a Kraken deposit or withdrawal the payment's detail tells the chain from an own wallet's booking of the same hash, from the network Kraken names (now passed on by the bridge), or from the hash's form with the asset – a Filecoin message CID (`bafy2bzace…`) is Filecoin. A clear chain shows its name and "Im Block-Explorer ansehen"; an EVM hash without a named network lists its candidate chains, each linked. Nothing is asked of any explorer until you click. The consent screen lists Filfox and Solscan among the explorers.
+
 - **Bank accounts documented in one place** (#224): [docs/banking.md](docs/banking.md) ([Deutsch](docs/banking.de.md)) – statement files, Hibiscus and Enable Banking side by side; for Enable Banking the own application, both kinds of key, setup, linking, releasing accounts, fetching, renewing, what is kept where, what leaves, and what to do when a message comes. The Bank page's help links it.
 
 - **Enable Banking, step 5: a consent that ends is said in time** (#224). "Braucht dich" names a bank whose consent ends within two weeks, and one that has ended; the Bank page offers "Erneuern" on it, and a renewal replaces the older consent at Enable Banking and in the bridge. The setup checklist's "Zahlungen holen" names the three ways in – statement file, Hibiscus, Enable Banking – with their commands.

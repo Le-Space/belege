@@ -123,7 +123,9 @@ export const INTEGRATION_GROUPS = [
 			},
 			{ id: 'mintscan', name: 'Mintscan (Akash)', initials: 'Ms' },
 			{ id: 'nym-explorer', name: 'Nym Explorer (Nodes Guru)', initials: 'Ny' },
-			{ id: 'mempool-explorer', name: 'mempool.space (Bitcoin)', initials: 'Mp' }
+			{ id: 'mempool-explorer', name: 'mempool.space (Bitcoin)', initials: 'Mp' },
+			{ id: 'filfox', name: 'Filfox (Filecoin)', initials: 'Ff' },
+			{ id: 'solscan', name: 'Solscan (Solana)', initials: 'So' }
 		]
 	},
 	{

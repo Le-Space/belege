@@ -109,6 +109,7 @@ function failed(message, status, body) {
  * @property {string} fee decimal, charged on top
  * @property {number} decimals
  * @property {string} [transferRef] a deposit's or withdrawal's txid: the on-chain hash, or the bank's reference
+ * @property {string} [transferMethod] the network as Kraken names it (`Filecoin`, `Ether (Arbitrum One)`)
  */
 
 /**

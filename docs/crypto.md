@@ -66,6 +66,10 @@ An entry whose rate cannot be found is left out with the rest of its trade, list
 
 **Not decided here**: gains and losses when crypto is sold (acquisition cost by FIFO or average) and the year-end valuation. Every booking keeps quantity, rate and source, so the tax adviser's method can be applied to it.
 
+### Which chain a deposit's hash is on (issue #215)
+
+A deposit or withdrawal keeps Kraken's on-chain hash (`chainTxRef`) and, where Kraken names it, the network (`chainMethod`, e.g. `Filecoin`, `Ether (Arbitrum One)`). The payment's detail tells the chain from these, locally, in this order: an own wallet's booking with the same hash; Kraken's network name, where it fits the hash; the hash's form with the asset – a CID `bafy2bzace…` is Filecoin, `0x` + 64 hex an EVM chain, 64 hex Bitcoin for BTC (Nyx for NYM, Akash for AKT), base58 of 87–88 characters Solana. A clear chain gets its name and a link to its explorer (Filfox, mempool.space, Etherscan and its siblings, Nodes Guru, Mintscan, Solscan); an EVM hash with no network named lists the EVM chains it can be on, each linked. No explorer is asked: a link opens on your click (`app/src/lib/assets/hash-chain.js`).
+
 ## Own wallets
 
 Tokens withdrawn from an exchange to a wallet of our own stay the company's. _Integrationen → Eigene Wallets_ adds such a wallet by **chain and address**: read only, never a key or a seed phrase. The list of wallets is kept sealed in the books (settings key `wallets`); the bridge keeps nothing about them.

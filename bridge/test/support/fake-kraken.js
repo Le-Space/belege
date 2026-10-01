@@ -134,9 +134,24 @@ export async function startFakeKraken({
 	},
 	rateLimitedCalls = 0,
 	transfers = {
-		deposit: [{ refid: 'R-DEP-1', asset: 'ZEUR', txid: 'BANKREF-0001', status: 'Success' }],
+		deposit: [
+			{
+				refid: 'R-DEP-1',
+				asset: 'ZEUR',
+				method: 'SEPA (Instant)',
+				txid: 'BANKREF-0001',
+				status: 'Success'
+			}
+		],
 		withdrawals: [
-			{ refid: 'R-WD-1', asset: 'ZEUR', txid: 'BANKREF-0002', status: 'Success' },
+			{
+				refid: 'R-WD-1',
+				asset: 'ZEUR',
+				network: 'SEPA',
+				method: 'Bank',
+				txid: 'BANKREF-0002',
+				status: 'Success'
+			},
 			{ refid: 'R-OTHER', asset: 'XXBT', txid: '00'.repeat(32), status: 'Success' }
 		]
 	}

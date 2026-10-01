@@ -193,7 +193,10 @@ export async function krakenTransactions(entries, getRate) {
 					txRef: refid,
 					exchangeType: `${leg.type}${leg.subtype ? `/${leg.subtype}` : ''}`,
 					// The on-chain hash of a crypto deposit or withdrawal: pairs it with the wallet.
-					...(leg.transferRef && leg.asset !== 'EUR' ? { chainTxRef: leg.transferRef } : {})
+					...(leg.transferRef && leg.asset !== 'EUR' ? { chainTxRef: leg.transferRef } : {}),
+					...(leg.transferRef && leg.asset !== 'EUR' && leg.transferMethod
+						? { chainMethod: leg.transferMethod }
+						: {})
 				};
 				out.push([
 					accountKey(leg.asset, leg.wallet),
