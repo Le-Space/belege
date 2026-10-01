@@ -6,8 +6,6 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
-## [0.6.0] – 2026-10-01
-
 ### Added
 
 - **Bank accounts through Enable Banking** (#224), for banks Hibiscus does not reach (Revolut, Wise, most banks outside Germany), with your own Enable Banking application – a production one in restricted mode, active once your own accounts are linked in its Control Panel; no contract needed.
