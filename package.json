@@ -15,6 +15,7 @@
     "setup:llm": "pnpm --filter @belege/bridge setup:llm",
     "setup:portal": "pnpm --filter @belege/bridge setup:portal",
     "setup:kraken": "pnpm --filter @belege/bridge setup:kraken",
+    "setup:enablebanking": "pnpm --filter @belege/bridge setup:enablebanking",
     "setup:coingecko": "pnpm --filter @belege/bridge setup:coingecko",
     "setup:bitcoin": "pnpm --filter @belege/bridge setup:bitcoin",
     "setup:alchemy": "pnpm --filter @belege/bridge setup:alchemy",
