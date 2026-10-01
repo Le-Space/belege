@@ -212,6 +212,142 @@ describe('rate service', () => {
 	});
 });
 
+describe('Kraken: one daily series per pair', () => {
+	const day = (/** @type {string} */ d) => Date.parse(`${d}T00:00:00Z`) / 1000;
+	const iso = (/** @type {number} */ t) => new Date(t * 1000).toISOString().slice(0, 10);
+	// Kraken's last 720 daily candles up to today (NOW), made-up opens: 40000 + the day's index.
+	const today = day('2026-09-26');
+	const candles = Array.from({ length: 720 }, (_, i) => {
+		const t = today - (719 - i) * 86400;
+		return [t, `${40000 + i}.5`, '0', '0', '0', '0', '0', 0];
+	});
+	const openOf = (/** @type {string} */ d) => candles.find((c) => c[0] === day(d))?.[1];
+
+	/**
+	 * Kraken as it behaves: CoinGecko refuses days older than 365 (401), and
+	 * Kraken answers "too many requests" (in a 200) after `allowed` calls in a row.
+	 *
+	 * @param {{ allowed?: number, throttleFirst?: number }} [options]
+	 */
+	function throttlingKraken({ allowed = 1, throttleFirst = 0 } = {}) {
+		/** @type {string[]} */
+		const calls = [];
+		let kraken = 0;
+		/** @type {typeof fetch} */
+		const f = async (input) => {
+			const url = String(input);
+			calls.push(url);
+			if (url.startsWith('https://api.coingecko.com/')) {
+				return new Response(JSON.stringify({ error: { status: { error_code: 10012 } } }), {
+					status: 401
+				});
+			}
+			kraken++;
+			if (kraken <= throttleFirst || kraken > throttleFirst + allowed) {
+				return new Response(JSON.stringify({ error: ['EGeneral:Too many requests'] }), {
+					status: 200
+				});
+			}
+			const since = Number(new URL(url).searchParams.get('since') ?? 0);
+			return new Response(
+				JSON.stringify({
+					error: [],
+					result: { XXBTZEUR: candles.filter((c) => c[0] > since), last: today }
+				}),
+				{ status: 200 }
+			);
+		};
+		return { fetch: f, calls, krakenCalls: () => kraken };
+	}
+
+	test('CoinGecko refuses a day older than a year (401): Kraken answers', async () => {
+		const { fetch, calls } = throttlingKraken();
+		const rates = createRateService({ fetch, now: NOW, delay: async () => {} });
+		const rate = await rates.rate('BTC', '2025-08-25');
+		assert.equal(rate.source, 'kraken');
+		assert.equal(rate.rate, openOf('2025-08-25'));
+		assert.equal(rate.at, '2025-08-25T00:00:00Z');
+		assert.match(calls[0], /api\.coingecko\.com/);
+		assert.match(calls[1], /api\.kraken\.com\/0\/public\/OHLC\?pair=XBTEUR&interval=1440/);
+	});
+
+	test('many BTC days older than a year are priced from one Kraken call', async () => {
+		const { fetch, krakenCalls } = throttlingKraken({ allowed: 1 });
+		const rates = createRateService({ fetch, now: NOW, delay: async () => {} });
+		const days = Array.from({ length: 60 }, (_, i) => iso(day('2025-07-01') + i * 86400));
+		// As a wallet sync asks: one day after the other, and a few at once.
+		for (const d of days.slice(0, 40)) {
+			assert.equal((await rates.rate('BTC', d)).rate, openOf(d), d);
+		}
+		const together = await Promise.all(days.slice(40).map((d) => rates.rate('BTC', d)));
+		assert.deepEqual(
+			together.map((r) => r.rate),
+			days.slice(40).map(openOf)
+		);
+		assert.equal(krakenCalls(), 1);
+	});
+
+	test('days asked at once before the first answer share one Kraken call', async () => {
+		const { fetch, krakenCalls } = throttlingKraken({ allowed: 1 });
+		const rates = createRateService({ fetch, now: NOW, delay: async () => {} });
+		const days = ['2025-01-02', '2025-03-04', '2025-05-06', '2025-07-08'];
+		const found = await Promise.all(days.map((d) => rates.rate('BTC', d, { prefer: 'kraken' })));
+		assert.deepEqual(
+			found.map((r) => r.rate),
+			days.map(openOf)
+		);
+		assert.equal(krakenCalls(), 1);
+	});
+
+	test('"too many requests" is asked again after a wait, longer each time', async () => {
+		const { fetch, krakenCalls } = throttlingKraken({ throttleFirst: 2 });
+		/** @type {number[]} */
+		const waited = [];
+		const rates = createRateService({
+			fetch,
+			now: NOW,
+			delay: async (ms) => {
+				waited.push(ms);
+			}
+		});
+		assert.equal((await rates.rate('BTC', '2025-08-25')).rate, openOf('2025-08-25'));
+		assert.equal(krakenCalls(), 3);
+		assert.equal(waited.length, 2);
+		assert.ok(waited[1] > waited[0]);
+	});
+
+	test('Kraken throttles for good: no rate, and the next ask tries again', async () => {
+		const { fetch, krakenCalls } = throttlingKraken({ allowed: 0 });
+		const rates = createRateService({ fetch, now: NOW, delay: async () => {} });
+		await assert.rejects(
+			rates.rate('BTC', '2025-08-25'),
+			(e) => e instanceof RateError && e.status === 502
+		);
+		const tries = krakenCalls();
+		assert.ok(tries > 1 && tries < 10, `${tries} calls`);
+		await assert.rejects(rates.rate('BTC', '2025-08-26'));
+		assert.equal(krakenCalls(), 2 * tries);
+	});
+
+	test('a day before the series has no Kraken rate, without asking again', async () => {
+		const { fetch, krakenCalls } = throttlingKraken({ allowed: 1 });
+		const rates = createRateService({ fetch, now: NOW, delay: async () => {} });
+		await rates.rate('BTC', '2025-08-25');
+		await assert.rejects(rates.rate('BTC', '2024-01-01'), /no rate found/);
+		assert.equal(krakenCalls(), 1);
+	});
+
+	test("today is not kept: today's rate asks again, past days do not", async () => {
+		const { fetch, krakenCalls } = throttlingKraken({ allowed: 10 });
+		const rates = createRateService({ fetch, now: NOW, delay: async () => {} });
+		assert.equal((await rates.rate('BTC', '2026-09-26')).rate, openOf('2026-09-26'));
+		await rates.rate('BTC', '2026-09-26');
+		assert.equal(krakenCalls(), 2);
+		await rates.rate('BTC', '2026-09-25');
+		assert.equal(krakenCalls(), 2);
+	});
+});
+
 describe('GET /rates', () => {
 	test('needs the token, checks the asset, answers with the rate', async () => {
 		const token = 'paired-token-for-the-rates-test';

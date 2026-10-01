@@ -146,6 +146,20 @@ export function formatRate(rate, locale = intlLocale()) {
 }
 
 /**
+ * The placeholder of the "EUR per unit" field: the rate the booking has, as it
+ * is typed – the locale's decimal mark, no grouping (setManualRate reads no
+ * thousands separator) – or nothing when it has none. Never a fixed example: one
+ * number cannot be right for BTC and for a cent token at once.
+ *
+ * @param {string | null | undefined} rate
+ * @param {string} [locale]
+ */
+export function rateInputPlaceholder(rate, locale = intlLocale()) {
+	if (typeof rate !== 'string' || !/^\d+(\.\d+)?$/.test(rate)) return '';
+	return rate.replace('.', separators(locale).decimal);
+}
+
+/**
  * ` (Uniswap V2, Pool 0x1234…abcd, Block 123)` from a `dex` rate's ref, or ''.
  *
  * @param {unknown} ref
