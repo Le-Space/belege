@@ -73,7 +73,8 @@ export const INTEGRATION_GROUPS = [
 		id: 'banks',
 		items: [
 			{ id: 'hibiscus', name: 'Hibiscus', initials: 'Hi' },
-			{ id: 'camt', name: 'CAMT.053', logo: 'revolut' }
+			{ id: 'camt', name: 'CAMT.053', logo: 'revolut' },
+			{ id: 'enablebanking', name: 'Enable Banking', initials: 'EB' }
 		]
 	},
 	{ id: 'exchanges', items: [{ id: 'kraken', name: 'Kraken', initials: 'Kr' }] },

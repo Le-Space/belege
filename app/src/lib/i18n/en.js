@@ -525,6 +525,7 @@ export default {
 		integrationNames: {
 			hibiscus: 'Hibiscus (banks via FinTS/HBCI)',
 			camt: 'CAMT.053 bank statements, e.g. Revolut Business',
+			enablebanking: 'Enable Banking (banks in Europe via PSD2, with your own application)',
 			alchemy: 'Alchemy (EVM, with your own key)',
 			blockscout: 'Blockscout (EVM, no key)',
 			'cosmos-nodes': 'Nym, Nodes Guru, PublicNode, Polkachu (Cosmos nodes)',
@@ -2332,8 +2333,8 @@ export default {
 				how: 'Start it in the terminal and type the pairing code it shows in here. It listens to this computer only.'
 			},
 			bank: {
-				what: 'Payments come from Hibiscus (through the bridge) or from a bank statement file in CAMT.053 format.',
-				how: 'The file works at once, without the bridge: export it as CAMT.053 in your online banking and upload it here. For Hibiscus, run the setup once in the terminal and allow the accounts.'
+				what: 'Payments come from Hibiscus (through the bridge), through Enable Banking (banks in Europe, through the bridge) or from a bank statement file in CAMT.053 format.',
+				how: 'The file works at once, without the bridge: export it as CAMT.053 in your online banking and upload it here. For Hibiscus, run the setup once in the terminal and allow the accounts. For Enable Banking, create your own application there, run pnpm setup:enablebanking, link the bank below and release the accounts with pnpm setup:enablebanking -- --accounts.'
 			},
 			ki: {
 				what: 'A language model reads vendor, amount, date and number from receipts and helps in four more places – always only on a click (✦).',
@@ -2529,6 +2530,18 @@ export default {
 			unlink: 'Unlink',
 			unlinkConfirm:
 				'Unlink {bank}? Enable Banking ends the consent; transactions already fetched stay in the books.',
+			leavesTitle: 'What goes out',
+			leaves: [
+				'To Enable Banking: which bank you link, your accounts there (IBAN, name, currency) and the transactions of the accounts you release and fetch. They pass through its servers; also this computer’s IP address.',
+				'To your bank: your sign-in and the consent, on its own page. Neither Belege nor the bridge sees your bank password.',
+				'Not: receipts, bookings from other sources, anything from your books. The browser never talks to Enable Banking, only the bridge does.'
+			],
+			technical: [
+				'Only the bridge talks to api.enablebanking.com. Every request is signed with your application’s private key (RS256 JWT, valid ten minutes, kid = application id); no redirect is followed, time and answer size are limited.',
+				'The key and the sessions are encrypted (AES-256-GCM) in enablebanking.sealed beside bridge.json; the key to it is held by the macOS Keychain or the Windows Credential Manager.',
+				'The bank sends the browser back to /integrationen/bank/verbunden with a one-time code. The page takes it out of the address at once; the bridge accepts it only for a consent it started itself, once and within 30 minutes. Without the key it is worthless.',
+				'Accounts leave the bridge only with a released IBAN ending; the app gets only the last four characters of the IBAN and a hash. Fetching happens only on your click. A consent lasts 180 days at most; “Unlink” ends it at Enable Banking.'
+			],
 			afterLink:
 				'On the Bank page you choose which accounts go into the books, and fetch their transactions.',
 			staysInBridge: 'Stays in the bridge: not released.',

@@ -136,6 +136,11 @@ test('a bank that says no links nothing; a bank that says yes is linked, listed 
 }) => {
 	const card = await pairedOnTheBankPage(page);
 	await expect(card).toContainText('Über Enable Banking');
+	// What goes out, before anything is linked; the technical lines under "Technisch".
+	await card.getByTestId('enablebanking-leaves').locator('summary').click();
+	await expect(card.getByTestId('enablebanking-leaves')).toContainText(
+		'Dein Bank-Passwort sehen weder Belege noch die Bridge'
+	);
 
 	// No: the bank refuses, nothing is linked, and the page says so.
 	eb.state.deny = true;

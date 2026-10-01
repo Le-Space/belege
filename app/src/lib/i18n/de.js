@@ -545,6 +545,7 @@ export default {
 		integrationNames: {
 			hibiscus: 'Hibiscus (Banken per FinTS/HBCI)',
 			camt: 'CAMT.053-Kontoauszüge, z. B. Revolut Business',
+			enablebanking: 'Enable Banking (Banken in Europa per PSD2, mit eigener Anwendung)',
 			alchemy: 'Alchemy (EVM, mit eigenem Schlüssel)',
 			blockscout: 'Blockscout (EVM, ohne Schlüssel)',
 			'cosmos-nodes': 'Nym, Nodes Guru, PublicNode, Polkachu (Cosmos-Knoten)',
@@ -2366,8 +2367,8 @@ export default {
 				how: 'Starte sie im Terminal und tipp den Kopplungscode, den sie zeigt, hier ein. Sie hört nur auf diesen Rechner.'
 			},
 			bank: {
-				what: 'Zahlungen kommen aus Hibiscus (über die Bridge) oder aus einer Kontoauszug-Datei im Format CAMT.053.',
-				how: 'Die Datei geht sofort, ohne Bridge: im Online-Banking als CAMT.053 exportieren und hier hochladen. Für Hibiscus einmal das Setup im Terminal ausführen und die Konten freigeben.'
+				what: 'Zahlungen kommen aus Hibiscus (über die Bridge), über Enable Banking (Banken in Europa, über die Bridge) oder aus einer Kontoauszug-Datei im Format CAMT.053.',
+				how: 'Die Datei geht sofort, ohne Bridge: im Online-Banking als CAMT.053 exportieren und hier hochladen. Für Hibiscus einmal das Setup im Terminal ausführen und die Konten freigeben. Für Enable Banking eine eigene Anwendung dort anlegen, pnpm setup:enablebanking ausführen, die Bank hier unten verbinden und die Konten mit pnpm setup:enablebanking -- --accounts freigeben.'
 			},
 			ki: {
 				what: 'Ein Sprachmodell liest Anbieter, Betrag, Datum und Nummer aus Belegen und hilft an vier weiteren Stellen – immer nur auf Klick (✦).',
@@ -2565,6 +2566,18 @@ export default {
 			unlink: 'Trennen',
 			unlinkConfirm:
 				'Die Verbindung zu {bank} trennen? Enable Banking beendet die Freigabe; schon geholte Umsätze bleiben in den Büchern.',
+			leavesTitle: 'Was dabei hinausgeht',
+			leaves: [
+				'An Enable Banking: welche Bank du verbindest, deine Konten dort (IBAN, Name, Währung) und die Umsätze der Konten, die du freigibst und holst. Sie laufen über seine Server; dazu die IP-Adresse dieses Rechners.',
+				'An deine Bank: deine Anmeldung und die Freigabe, auf ihrer eigenen Seite. Dein Bank-Passwort sehen weder Belege noch die Bridge.',
+				'Nicht: Belege, Buchungen aus anderen Quellen, irgendetwas aus deinen Büchern. Der Browser spricht nie mit Enable Banking, nur die Bridge.'
+			],
+			technical: [
+				'Nur die Bridge spricht mit api.enablebanking.com. Jede Anfrage ist mit dem privaten Schlüssel deiner Anwendung signiert (RS256-JWT, zehn Minuten gültig, kid = Application-ID); umgeleitet wird nicht, Zeit und Antwortgröße sind begrenzt.',
+				'Schlüssel und Sitzungen liegen verschlüsselt (AES-256-GCM) in enablebanking.sealed neben bridge.json; den Schlüssel dazu hält der macOS-Schlüsselbund bzw. die Windows-Anmeldeinformationsverwaltung.',
+				'Die Bank schickt den Browser mit einem Einmal-Code zurück auf /integrationen/bank/verbunden. Die Seite nimmt ihn sofort aus der Adresse; die Bridge nimmt ihn nur für eine Freigabe an, die sie selbst begonnen hat, einmal und binnen 30 Minuten. Ohne den Schlüssel ist er wertlos.',
+				'Konten verlassen die Bridge nur mit freigegebener IBAN-Endung; die App bekommt von der IBAN nur die letzten vier Stellen und einen Hash. Geholt wird nur auf deinen Klick. Eine Freigabe gilt höchstens 180 Tage; „Trennen“ beendet sie bei Enable Banking.'
+			],
 			afterLink:
 				'Auf der Seite Bank legst du fest, welche Konten in die Bücher kommen, und holst ihre Umsätze.',
 			staysInBridge: 'Bleibt in der Bridge: nicht freigegeben.',

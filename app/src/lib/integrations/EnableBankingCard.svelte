@@ -7,8 +7,9 @@
 	// (bank/enablebanking-sync.js); the others stay in the bridge.
 	import { btn } from '$lib/ui/styles.js';
 	import WayOut from '$lib/help/WayOut.svelte';
+	import TechnicalNote from '$lib/TechnicalNote.svelte';
 	import { formatDate } from '$lib/bank/format.js';
-	import { intlLocale, t } from '$lib/i18n/index.js';
+	import { intlLocale, list, t } from '$lib/i18n/index.js';
 	import { rememberStart, RETURN_PATH } from '$lib/enablebanking/return.js';
 	import { bridge, bridgeClient } from './bridge-state.svelte.js';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -214,6 +215,17 @@
 >
 	<h2 id="eb-h" class="text-lg font-semibold">{t('integrationen.enableBanking.title')}</h2>
 	<p class="mt-1 text-sm text-text">{t('integrationen.enableBanking.intro')}</p>
+	<details class="mt-2 text-sm" data-testid="enablebanking-leaves">
+		<summary class="cursor-pointer text-text underline"
+			>{t('integrationen.enableBanking.leavesTitle')}</summary
+		>
+		<ul class="mt-1 list-disc space-y-1 pl-5 text-text">
+			{#each list('integrationen.enableBanking.leaves') as line, i (i)}
+				<li>{line}</li>
+			{/each}
+		</ul>
+		<TechnicalNote class="mt-2" lines={list('integrationen.enableBanking.technical')} />
+	</details>
 
 	{#if !ready}
 		<p class="mt-2 text-sm text-faint">{t('integrationen.enableBanking.needsBridge')}</p>
