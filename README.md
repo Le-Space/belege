@@ -6,7 +6,7 @@
 [![Release](https://img.shields.io/github/v/release/Le-Space/belege?label=Release)](https://github.com/Le-Space/belege/releases/latest)
 [![Sponsor](https://img.shields.io/github/sponsors/Le-Space?label=Sponsor&logo=githubsponsors&color=EA4AAA)](https://github.com/sponsors/Le-Space)
 
-Local-first bookkeeping for a small business: matches bank and crypto transactions with receipts from the accounting mailbox, uploads, a folder and customer portals, and exports a monthly DATEV package. The books live encrypted in the browser, under a passkey. A small bridge on `127.0.0.1` does what a browser cannot: Hibiscus, IMAP, the language model, customer portals, exchanges and wallets.
+Local-first pre-accounting for a small business: matches bank and crypto transactions with receipts from the accounting mailbox, uploads, a folder and customer portals, and exports a monthly DATEV package. The books live encrypted in the browser, under a passkey. A small bridge on `127.0.0.1` does what a browser cannot: Hibiscus, IMAP, the language model, customer portals, exchanges and wallets.
 
 **Use it:** [belege.le-space.de](https://belege.le-space.de/) – the latest [release](https://github.com/Le-Space/belege/releases/latest). Still early: keep your statements and receipts somewhere else as well. What changed: [CHANGELOG.md](CHANGELOG.md).
 
