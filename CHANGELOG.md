@@ -29,6 +29,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **Private money that came in on the business account can be matched** (#248). "Privat (Irrläufer)" now works the other way round too: a refund or payment meant for the private account that came in on the business one is marked, and its pass-on to the private account settles it ("Weiterleitung verknüpfen …"). The note and the hints say so, and the account follows the money's way – in a deposit, out a withdrawal (1890 / 1800 for a sole proprietor; a UG's clearing account both).
+
 - **Uploaded receipts are read and matched at once, and no longer hide in another year.** A receipt uploaded or read from the folder had no date until it was read, so it counted under the year of the upload: with last year chosen, "Alle neuen auslesen" did not count it. Such a receipt now shows in every year until it has a date. And uploads get the mail's switch – "Hochgeladene Belege gleich auslesen und zuordnen", on by default: new receipts are read by the model and matched right after the upload.
 
 - **"Beleg finden" no longer searches the mailbox for ourselves** (#231). A counterparty that is a company name or one of the new _own names_ in Einstellungen (owners, shareholders), or a payment service such as PayPal or Stripe, gives no search word; the merchant after a payment service's star (`PAYPAL *VENDOR`) or the first telling word of the purpose is searched instead, with bank boilerplate (Kartenzahlung, SEPA, VISA, …) and own names passed over. The hint says when the word came from the purpose; with no telling word the search runs by amount and date.
