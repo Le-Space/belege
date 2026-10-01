@@ -1589,6 +1589,7 @@ export default {
 		mailFrom: 'Von Monat',
 		mailTo: 'Bis Monat',
 		mailLastYear: 'Ganzes Vorjahr',
+		uploadReadAfter: 'Hochgeladene Belege gleich auslesen und zuordnen',
 		mailReadAfter: 'Neue Belege nach dem Abruf gleich auslesen',
 		trash: {
 			button: 'Mail in den Papierkorb verschieben',

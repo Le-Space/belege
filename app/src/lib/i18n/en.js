@@ -1562,6 +1562,7 @@ export default {
 		mailFrom: 'From month',
 		mailTo: 'To month',
 		mailLastYear: 'All of last year',
+		uploadReadAfter: 'Read and match uploaded receipts at once',
 		mailReadAfter: 'Read new receipts right after fetching',
 		trash: {
 			button: 'Move mail to the bin',

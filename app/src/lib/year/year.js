@@ -51,6 +51,17 @@ export const receiptDay = (r) =>
 	(typeof r.createdAt === 'string' ? r.createdAt.slice(0, 10) : null);
 
 /**
+ * A receipt with no day of its own yet: uploaded or from a folder, not read
+ * and no date typed. It belongs to no year, so the Belege page shows it in
+ * every year – else a receipt for last year, uploaded today, would hide
+ * under this year until it is read.
+ *
+ * @param {Rec} r
+ */
+export const isUndated = (r) =>
+	!r.deleted && !r.documentDate && !r.extraction?.invoice_date && typeof r.receivedAt !== 'string';
+
+/**
  * @param {{ transactions: Rec[], receipts: Rec[], matches: Rec[], questions: Rec[] }} books
  * @param {number} [startMonth]
  */

@@ -37,6 +37,7 @@
 	import { formatDate, formatMoney } from '$lib/bank/format.js';
 	import { fetchAccountingMail, importFiles, needsConfirmation } from '$lib/receipts/import.js';
 	import { extractable } from '$lib/receipts/extract.js';
+	import { isUndated } from '$lib/year/year.js';
 	import {
 		cancelExtractAll,
 		extractAll,
@@ -99,6 +100,8 @@
 	let fetching = $state(false);
 	/** Read new mail receipts right after a fetch (settings key `mailFetch`); on by default. */
 	let readAfterFetch = $state(true);
+	/** Uploads and the folder: read new receipts at once (switchable, like the mail's). */
+	let readAfterUpload = $state(true);
 	/** @type {string | null} */
 	let fetchResult = $state(null);
 	/** @type {string | null} */
@@ -132,7 +135,10 @@
 	let yearIndex = $derived(booksByYear());
 	let year = $derived(shownYear());
 	let receipts = $derived(
-		/** @type {Receipt[]} */ (app.receipts.filter((r) => yearIndex.receiptYears(r).has(year)))
+		/** @type {Receipt[]} */ (
+			// Not yet read and without a date: in every year (year.js isUndated).
+			app.receipts.filter((r) => yearIndex.receiptYears(r).has(year) || isUndated(r))
+		)
 	);
 	let counts = $derived(sourceCounts(receipts));
 	/** @param {string} id */
@@ -229,6 +235,7 @@
 		if (wanted) selectedId = wanted;
 		folderHandle = await savedFolder();
 		readAfterFetch = (await getSetting(store.settings, 'mailFetch'))?.readAfterFetch !== false;
+		readAfterUpload = (await getSetting(store.settings, 'uploadRead'))?.readAfter !== false;
 		const saved = await getSetting(store.settings, 'bridge');
 		if (!saved?.token) return;
 		const c = createBridgeClient({ url: saved.url, token: saved.token });
@@ -264,6 +271,13 @@
 
 	/** @param {unknown} error */
 	const message = (error) => (error instanceof Error ? error.message : String(error));
+
+	/** @param {boolean} on */
+	async function setReadAfterUpload(on) {
+		readAfterUpload = on;
+		const store = currentStore();
+		if (store) await setSetting(store.settings, 'uploadRead', { readAfter: on });
+	}
 
 	/** @param {boolean} on */
 	async function setReadAfterFetch(on) {
@@ -325,8 +339,16 @@
 		importing = true;
 		importError = null;
 		importResult = null;
+		/** @type {import('$lib/store/repository.js').StoredRecord[]} */
+		const created = [];
 		try {
-			const c = await importFiles({ receipts: store.receipts, blobs, files, source: kind });
+			const c = await importFiles({
+				receipts: store.receipts,
+				blobs,
+				files,
+				source: kind,
+				created
+			});
 			importResult = t('belege.importResult', {
 				new: c.new,
 				duplicate: c.duplicate,
@@ -338,6 +360,12 @@
 		} finally {
 			importing = false;
 		}
+		if (!created.length) return;
+		// Read the new ones right away (switchable), then match them – as after a mail fetch.
+		const ctx = queueContext();
+		const toRead = extractable(created).map((r) => r.id);
+		if (readAfterUpload && ctx && bridgeInfo?.llm && toRead.length) await extractAll(ctx, toRead);
+		await runMatchingNow();
 	}
 
 	/** @param {File[]} files */
@@ -644,6 +672,17 @@
 		</div>
 	</div>
 	<p class="mt-1 text-xs text-faint">{t('belege.uploadHint')}</p>
+	{#if client && bridgeInfo?.llm}
+		<label class="mt-1 flex items-center gap-2 text-sm text-text">
+			<input
+				type="checkbox"
+				checked={readAfterUpload}
+				onchange={(e) => setReadAfterUpload(e.currentTarget.checked)}
+				data-testid="upload-read-after"
+			/>
+			<span class="inline-flex items-center gap-1"><AiMark />{t('belege.uploadReadAfter')}</span>
+		</label>
+	{/if}
 	{#if importResult}
 		<p class="mt-2 text-sm text-heading" role="status" data-testid="import-result">
 			{importResult}
