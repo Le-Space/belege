@@ -132,6 +132,58 @@ describe('private mailbox search for a crypto payment', () => {
 });
 
 describe('private mailbox search', () => {
+	it('never searches for ourselves or a payment service: the purpose’s word instead (#231)', () => {
+		const own = { ownNames: ['Beispiel UG', 'Erika Mustermann'] };
+		const q = (/** @type {Record<string, any>} */ fields) =>
+			privateSearchQuery(tx({ bookedOn: '2026-08-22', amountCents: -17060, ...fields }), [], own);
+		// The owner as counterparty: a card payment the bank names the holder for.
+		expect(
+			q({
+				counterparty: 'ERIKA MUSTERMANN',
+				purpose: 'Kartenzahlung VISA Wolkenfabrik Berlin 4711'
+			})
+		).toMatchObject({ text: 'Wolkenfabrik', textFrom: 'purpose', amount: '170,60' });
+		// The company itself.
+		expect(q({ counterparty: 'Beispiel UG', purpose: 'Stromwerk Abschlag 09/2026' })).toMatchObject(
+			{
+				text: 'Stromwerk',
+				textFrom: 'purpose'
+			}
+		);
+		// A payment service: the merchant after its star, in the purpose or in the counterparty.
+		expect(
+			q({ counterparty: 'PayPal Europe S.a.r.l.', purpose: 'PAYPAL *WOLKENFABRIK 1234' })
+		).toMatchObject({
+			text: 'WOLKENFABRIK',
+			textFrom: 'purpose'
+		});
+		expect(q({ counterparty: 'PAYPAL *STROMWERK 4029', purpose: '' })).toMatchObject({
+			text: 'STROMWERK',
+			textFrom: 'counterparty'
+		});
+		// Own names in the purpose are passed over too.
+		expect(
+			q({
+				counterparty: 'Erika Mustermann',
+				purpose: 'Erika Mustermann Lastschrift SEPA Bürobedarf'
+			})
+		).toMatchObject({ text: 'Bürobedarf' });
+		// Nothing telling: the amount alone.
+		expect(
+			q({ counterparty: 'Erika Mustermann', purpose: 'SEPA Lastschrift 2026-08-22' })
+		).toMatchObject({
+			text: null,
+			textFrom: null,
+			amount: '170,60'
+		});
+		// Without own names known, the counterparty's word as before.
+		expect(
+			privateSearchQuery(
+				tx({ bookedOn: '2026-08-22', amountCents: -100, counterparty: 'Erika Mustermann' })
+			).text
+		).toBe('Erika');
+	});
+
 	it('asks for the counterparty’s telling word, the amount and ± 14 days', () => {
 		expect(
 			privateSearchQuery(
@@ -139,6 +191,7 @@ describe('private mailbox search', () => {
 			)
 		).toEqual({
 			text: 'Stromwerk',
+			textFrom: 'counterparty',
 			amount: '52,59',
 			from: [],
 			terms: [],

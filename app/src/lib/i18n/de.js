@@ -1435,6 +1435,9 @@ export default {
 		companyNames: 'Firmenname(n)',
 		companyHint:
 			'Ein Name je Zeile, z. B. „le space UG“. Zahlungen an diesen Namen gelten als eigene Umbuchung (Konto 1360), Rechnungen von ihm als deine Ausgangsrechnungen.',
+		ownNames: 'Eigene Namen (Inhaber, Gesellschafter)',
+		ownNamesHint:
+			'Ein Name je Zeile, z. B. „Erika Mustermann“. Steht einer davon als Gegenpartei, sucht „Beleg finden“ im Postfach nicht nach ihm, sondern nach einem Wort aus dem Verwendungszweck.',
 		ownIbans: 'Eigene IBANs',
 		ownIbansHint:
 			'Eine IBAN je Zeile. Zahlungen an diese Konten gelten als eigene Umbuchung. Konten aus den Büchern kennt der Abgleich schon: {list}.',
@@ -2250,6 +2253,8 @@ export default {
 			privateSearch: 'Im privaten Postfach suchen',
 			privateHint:
 				'Die Bridge sucht im ganzen Postfach nach „{text}“ und {amount} zwischen {from} und {to}. Gelesen werden nur die Treffer.',
+			privateHintPurpose:
+				'Die Bridge sucht im ganzen Postfach nach „{text}“ aus dem Verwendungszweck und {amount} zwischen {from} und {to}. Gelesen werden nur die Treffer.',
 			privateHintAmount:
 				'Die Bridge sucht im ganzen Postfach nach {amount} zwischen {from} und {to}. Gelesen werden nur die Treffer.',
 			privateHintCrypto:
