@@ -429,7 +429,9 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 		}
 	]);
 	await expect(page.getByTestId('import-result')).toContainText('Neu: 2');
-	await page.getByTestId('extract-all').click();
+	// Read and matched at once (the upload's own switch, on by default): no "Alle neuen auslesen" left.
+	await expect(page.getByTestId('upload-read-after')).toBeChecked();
+	await expect(page.getByTestId('extract-all')).toHaveCount(0);
 	const funkReceipts = page.getByTestId('receipt').filter({ hasText: 'Funkmobil' });
 	await expect(funkReceipts.getByTestId('receipt-status')).toHaveText([
 		'Nicht zugeordnet',

@@ -2,7 +2,14 @@
 // Made-up records only.
 import { describe, expect, it } from 'vitest';
 
-import { availableYears, defaultYear, fiscalYearOf, yearIndex, yearLabel } from './year.js';
+import {
+	availableYears,
+	defaultYear,
+	fiscalYearOf,
+	isUndated,
+	yearIndex,
+	yearLabel
+} from './year.js';
 
 /** @param {string} id @param {string} bookedOn @param {Record<string, any>} [extra] */
 const tx = (id, bookedOn, extra = {}) => ({ id, bookedOn, amountCents: 1000, ...extra });
@@ -93,5 +100,15 @@ describe('the year of a thing is the year of its payment', () => {
 		expect(availableYears({ transactions: [], receipts: [] }, '2026-05-01T00:00:00Z')).toEqual([
 			2026
 		]);
+	});
+});
+
+describe('a receipt with no day of its own yet', () => {
+	it('is undated until it is read, a date is typed, or it came by mail', () => {
+		expect(isUndated({ id: 'r1', createdAt: '2026-10-01T10:00:00Z', status: 'neu' })).toBe(true);
+		expect(isUndated({ id: 'r2', documentDate: '2025-03-14' })).toBe(false);
+		expect(isUndated({ id: 'r3', extraction: { invoice_date: '2025-03-14' } })).toBe(false);
+		expect(isUndated({ id: 'r4', receivedAt: '2025-03-15T08:00:00Z' })).toBe(false);
+		expect(isUndated({ id: 'r5', deleted: true })).toBe(false);
 	});
 });
