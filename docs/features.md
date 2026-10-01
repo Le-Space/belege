@@ -12,7 +12,7 @@ What Le Space Belege does today, by category. The app shows the same list, short
 
 ## Payments
 
-- **Bank transactions** from [Hibiscus](https://github.com/willuhn/hibiscus) through the bridge (allowed accounts only), and **CAMT.053 statements** (Revolut, GLS, …) imported in the browser.
+- **Bank transactions** from [Hibiscus](https://github.com/willuhn/hibiscus) through the bridge (allowed accounts only), **banks in Europe through Enable Banking** (your own application, through the bridge, released accounts only; [banking.md](banking.md)), and **CAMT.053 statements** (Revolut, GLS, …) imported in the browser.
 - **One fiscal year at a time**, with a year switch. Bookings that belong together (both sides of a transfer, a trade's legs, a fee) are one click apart.
 - **Private payments** from the business account are marked, documented and settled ([#172](https://github.com/Le-Space/belege/issues/172)).
 

@@ -13,7 +13,7 @@ const REPO = 'https://github.com/Le-Space/belege/blob/main/';
 /** @type {Record<string, IntegrationHelp>} */
 export const INTEGRATION_HELP = {
 	bridge: { command: 'pnpm bridge', doc: 'bridge/README.md' },
-	bank: { command: 'pnpm setup:hibiscus', doc: 'bridge/README.md#setup-macos' },
+	bank: { command: 'pnpm setup:hibiscus', doc: 'docs/banking{de}.md' },
 	ki: { command: 'pnpm setup:llm', doc: 'docs/ai{de}.md' },
 	kraken: { command: 'pnpm setup:kraken', doc: 'docs/crypto{de}.md' },
 	wallets: { doc: 'docs/crypto{de}.md#own-wallets' },

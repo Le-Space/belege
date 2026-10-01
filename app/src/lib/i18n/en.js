@@ -556,7 +556,7 @@ export default {
 			payments: {
 				name: 'Payments',
 				items: [
-					'Bank transactions from Hibiscus (via the bridge) and bank statements as CAMT.053, for example from Revolut or GLS.',
+					'Bank transactions from Hibiscus and through Enable Banking (both via the bridge) and bank statements as CAMT.053, for example from Revolut or GLS.',
 					'One financial year after another; related bookings are one click away.',
 					'Mark, document and settle private payments from the business account.'
 				]
