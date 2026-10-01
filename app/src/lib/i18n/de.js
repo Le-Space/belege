@@ -2573,7 +2573,7 @@ export default {
 			needsBridge: 'Braucht die gekoppelte Bridge.',
 			needTitle: 'Was du brauchst:',
 			need1:
-				'Eine eigene Anwendung bei Enable Banking (Control Panel): Sie gibt dir eine Application-ID und eine private Schlüsseldatei.',
+				'Eine eigene Anwendung bei Enable Banking (Control Panel, Umgebung „Production“): Sie gibt dir eine Application-ID und eine private Schlüsseldatei. Verbinde dort deine Konten („Link accounts“) – dann ist sie im eingeschränkten Modus aktiv, für genau diese Konten.',
 			need2: 'Als Redirect-URL der Anwendung eingetragen:',
 			need3: 'Im Terminal, im Ordner von Belege:',
 			kind: { business: 'Geschäftskonto', personal: 'Privatkonto' },

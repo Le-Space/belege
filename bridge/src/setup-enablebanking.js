@@ -5,7 +5,9 @@
 //
 // 1. In Enable Banking's Control Panel, register an application. Its redirect
 //    URL is the app's page `https://belege.le-space.de/integrationen/bank/verbunden`
-//    (or the same page on your own domain). The panel either makes the key in
+//    (or the same page on your own domain), environment Production. Link your
+//    own accounts there ("Link accounts"): that activates the application in
+//    restricted mode, for exactly those accounts. The panel either makes the key in
 //    the browser and hands out a private key file (.pem) to download, or takes
 //    a certificate of your own (`openssl req -x509 -newkey rsa:4096 -nodes
 //    -keyout private.key -out public.crt …`): then the .crt goes to the panel
@@ -144,9 +146,19 @@ export async function runEnableBankingSetup({
 	}
 	io.print(
 		`The key works: application "${application.name}", ${application.environment || 'environment not given'}, ${
-			application.active ? 'active' : 'not active yet (Enable Banking has to activate it first)'
+			application.active ? 'active' : 'not active yet'
 		}.`
 	);
+	if (!application.active) {
+		io.print(
+			'To activate it for your own accounts: link them in the Control Panel ("Link accounts"). The application is then active in restricted mode, for exactly those accounts.'
+		);
+	}
+	if (/sandbox/i.test(application.environment)) {
+		io.print(
+			'A sandbox application reaches test banks only. For your own accounts, register a production application.'
+		);
+	}
 	if (!application.redirectUrls.includes(redirectUrl)) {
 		io.print(
 			`Note: ${redirectUrl} is not among the application's redirect URLs (${

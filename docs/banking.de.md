@@ -28,10 +28,13 @@ Hibiscus (in Jameica) ruft deine deutschen Bankkonten per FinTS ab, und die Brid
 
 ### Deine eigene Anwendung
 
-Belege hat keinen Server und verwahrt keinen Schlüssel für dich. Deshalb **legt jede Installation ihre eigene Anwendung bei Enable Banking an**, und ihr privater Schlüssel bleibt in deiner Bridge – wie beim Sprachmodell und bei Kraken. Ob Enable Banking für das Lesen der eigenen Konten etwas berechnet und zu welchen Bedingungen, bestimmt der Anbieter; schau in seine aktuellen Bedingungen.
+Belege hat keinen Server und verwahrt keinen Schlüssel für dich. Deshalb **legt jede Installation ihre eigene Anwendung bei Enable Banking an**, und ihr privater Schlüssel bleibt in deiner Bridge – wie beim Sprachmodell und bei Kraken.
+
+**Für die eigenen Konten: Produktion, eingeschränkt.** Eine Anwendung für die _Produktion_ wird im **eingeschränkten Modus** aktiv, sobald du deine eigenen Konten im Control Panel verbindest („Link accounts“); sie steht dann auf „Active“ und „Restricted“. So erreicht sie genau die dort verbundenen Konten – das, was Belege braucht; die Anleitungen von [Firefly III](https://docs.firefly-iii.org/tutorials/data-importer/eb/) und [Actual Budget](https://actualbudget.org/docs/advanced/bank-sync/enable-banking) beschreiben diesen Modus als kostenlos. Die Einschränkung aufzuheben (Konten anderer Leute) braucht die Freischaltung durch Enable Banking und deren Bedingungen. Eine _Sandbox_-Anwendung erreicht nur Testbanken mit erfundenen Daten; sie ist zum Ausprobieren, nicht für deine Bücher.
 
 1. **Anwendung anlegen** im Control Panel von Enable Banking.
-   - **Redirect-URL:** `https://belege.le-space.de/integrationen/bank/verbunden`, oder dieselbe Seite auf deiner eigenen Domain. Enable Banking nimmt weder `localhost` noch `127.0.0.1`.
+   - **Umgebung:** Production.
+   - **Redirect-URL:** `https://belege.le-space.de/integrationen/bank/verbunden`, oder dieselbe Seite auf deiner eigenen Domain. Eine Produktiv-Anwendung nimmt nur https, also weder `localhost` noch `127.0.0.1` (eine Sandbox-Anwendung auch http).
    - **Der Schlüssel:** Entweder erzeugt ihn das Panel im Browser, und du lädst eine private Schlüsseldatei (`.pem`) herunter, oder du lädst ein eigenes Zertifikat hoch:
 
      ```bash
@@ -40,7 +43,7 @@ Belege hat keinen Server und verwahrt keinen Schlüssel für dich. Deshalb **leg
 
      Dann kommt `public.crt` ins Panel, und `private.key` ist die Datei, die die Bridge braucht. Bewahre die Schlüsseldatei sicher auf: Enable Banking kann sie nicht noch einmal herausgeben.
 
-   - **Freischaltung:** Eine Anwendung für den Echtbetrieb muss Enable Banking erst freischalten, bevor sie echte Banken erreicht.
+   - **Konten im Control Panel verbinden** („Link accounts“): Bank wählen, anmelden, freigeben. Das macht die Anwendung im eingeschränkten Modus aktiv, für genau diese Konten. Mach das **vor** dem Verbinden in Belege: Ohne diesen Schritt bietet Enable Banking später keine Konten an.
 
 2. **Bridge einrichten:**
 
@@ -117,6 +120,8 @@ Die Freigabe bei der Bank endet nach höchstens 180 Tagen.
 | „That is the public certificate you gave Enable Banking“                      | den privaten Schlüssel angeben, mit dem es erzeugt wurde (`private.key`, die `-keyout`-Datei), nicht die `.crt`                                                                       |
 | „…: there is no file there“                                                   | den Pfad ohne Anführungszeichen angeben; `~` ist dein Benutzerordner; ein relativer Pfad beginnt in `bridge/`                                                                         |
 | „Enable Banking did not accept the key“                                       | gehört der Schlüssel zum Zertifikat im Panel? `openssl x509 -in public.crt -noout -pubkey \| openssl sha256` mit `openssl pkey -in private.key -pubout \| openssl sha256` vergleichen |
+| „not active yet“, oder nach dem Verbinden zeigt die Bank keine Konten         | Konten im Control Panel verbinden („Link accounts“); dann ist die Anwendung eingeschränkt aktiv, für genau diese Konten                                                               |
+| „SANDBOX“ in der Antwort des Setups                                           | eine Sandbox-Anwendung erreicht nur Testbanken; für die eigenen Konten eine Produktiv-Anwendung anlegen                                                                               |
 | „… is not among the application's redirect URLs“                              | die URL im Control Panel eintragen, genau so wie angegeben                                                                                                                            |
 | „Noch verlässt kein Konto die Bridge“                                         | `pnpm setup:enablebanking -- --accounts`, dann die Bridge neu starten                                                                                                                 |
 | „Diese Antwort gehört nicht zu der Freigabe …“ oder „… older than 30 minutes“ | die Freigabe auf der Bank-Seite neu beginnen                                                                                                                                          |

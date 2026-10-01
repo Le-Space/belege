@@ -26,6 +26,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **Enable Banking for your own accounts: production, restricted** (#224). The docs, the Bank page and `pnpm setup:enablebanking` now say how an application becomes active without a contract: link your own accounts in Enable Banking's Control Panel ("Link accounts"); the application is then active in restricted mode, for exactly those accounts, and this must happen before linking in Belege. A sandbox application is named as test banks only.
+
 - **"Beleg finden" no longer searches the mailbox for ourselves** (#231). A counterparty that is a company name or one of the new _own names_ in Einstellungen (owners, shareholders), or a payment service such as PayPal or Stripe, gives no search word; the merchant after a payment service's star (`PAYPAL *VENDOR`) or the first telling word of the purpose is searched instead, with bank boilerplate (Kartenzahlung, SEPA, VISA, …) and own names passed over. The hint says when the word came from the purpose; with no telling word the search runs by amount and date.
 
 - **Crypto bookings older than a year get their rate again.** CoinGecko's free API answers for the last 365 days only, so older days fall to Kraken – and Kraken's public API refuses more than a handful of calls in a row ("EGeneral:Too many requests"), so a wallet with bookings on many days was left with "Kurs fehlt: no rate found for BTC on …". The bridge now asks Kraken once per asset for its last 720 daily candles, keeps the completed days and answers every later day from them; days asked at once share that one call, and a "too many requests" answer is asked again after a growing wait. The rate is still the open of the day's 00:00 UTC candle, labelled Kraken.

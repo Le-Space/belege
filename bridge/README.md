@@ -50,7 +50,8 @@ addressed to the accounting alias, and sends only redacted text to the LLM.
    the port in the router. The app takes the address from `GET /lan-relay` once paired; then
    "Nur im eigenen Netz" can be chosen in its network menu.
 10. **Enable Banking** (optional; the whole way in [docs/banking.md](../docs/banking.md)):
-    register your own application in Enable Banking's Control Panel, with the redirect URL
+    register your own application in Enable Banking's Control Panel (Production; link your own
+    accounts there with "Link accounts", which activates it in restricted mode), with the redirect URL
     `https://belege.le-space.de/integrationen/bank/verbunden` (Enable Banking accepts no
     `localhost`). `pnpm setup:enablebanking` asks for the application id, the path of the private key
     (the downloaded .pem, or the `-keyout` file of your own certificate – not the .crt) and the redirect URL (`EB_*` from `.env` are offered), checks the key with
