@@ -5,7 +5,12 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { memoryCollection } from '../bank/test-support.js';
 import { receipt, tx } from '../matching/fixtures.js';
 import { setSetting } from '../store/settings.js';
-import { acknowledgeImportChange, confirmBooking, confirmBookings } from './actions.js';
+import {
+	acknowledgeImportChange,
+	confirmBooking,
+	confirmBookings,
+	parseRateInput
+} from './actions.js';
 import {
 	accountsInOrder,
 	cleanDatevSettings,
@@ -307,5 +312,51 @@ describe('confirmBooking', () => {
 		const events = await store.events.list();
 		expect(events).toHaveLength(1);
 		expect(events[0]).toMatchObject({ action: 'bookings', count: 2 });
+	});
+});
+
+describe('parseRateInput: a typed rate, never off by a factor of 1000', () => {
+	it('reads decimals with either mark', () => {
+		expect(parseRateInput('0,0042')).toBe('0.0042');
+		expect(parseRateInput('0.0042')).toBe('0.0042');
+		expect(parseRateInput('1,5')).toBe('1.5');
+		expect(parseRateInput('0,123')).toBe('0.123');
+		expect(parseRateInput('58123,45')).toBe('58123.45');
+		expect(parseRateInput('2,3450')).toBe('2.3450');
+		expect(parseRateInput(' 58123 ')).toBe('58123');
+		expect(parseRateInput('0')).toBe('0');
+	});
+
+	it('reads thousands separators, German and English, as the app shows them', () => {
+		expect(parseRateInput('60.123,40')).toBe('60123.40');
+		expect(parseRateInput('60,123.40')).toBe('60123.40');
+		expect(parseRateInput('1.234.567')).toBe('1234567');
+		expect(parseRateInput('1,234,567')).toBe('1234567');
+		expect(parseRateInput('1.234.567,5')).toBe('1234567.5');
+		expect(parseRateInput('60 123,40')).toBe('60123.40');
+		expect(parseRateInput('60\u00a0123,40')).toBe('60123.40');
+	});
+
+	it('refuses one mark before exactly three digits: 58.123 is 58123 or 58.123', () => {
+		for (const text of ['58.123', '58,123', '1.500', '999,999']) {
+			expect(() => parseRateInput(text)).toThrow(text);
+		}
+	});
+
+	it('refuses what is not a rate', () => {
+		for (const text of [
+			'',
+			'abc',
+			'-1',
+			'1,2,3',
+			'12.34.5',
+			'1.234,5,6',
+			'1,23.4',
+			',5',
+			'5,',
+			'1e3'
+		]) {
+			expect(() => parseRateInput(text), text).toThrow('Zahl ab 0');
+		}
 	});
 });

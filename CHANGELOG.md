@@ -22,6 +22,7 @@ All notable changes to Le Space Belege. The format follows
 
 - **Crypto bookings older than a year get their rate again.** CoinGecko's free API answers for the last 365 days only, so older days fall to Kraken – and Kraken's public API refuses more than a handful of calls in a row ("EGeneral:Too many requests"), so a wallet with bookings on many days was left with "Kurs fehlt: no rate found for BTC on …". The bridge now asks Kraken once per asset for its last 720 daily candles, keeps the completed days and answers every later day from them; days asked at once share that one call, and a "too many requests" answer is asked again after a growing wait. The rate is still the open of the day's 00:00 UTC candle, labelled Kraken.
 - **The "EUR je …" field no longer suggests 0,0042 for every asset.** The fixed example fit a cent token, not BTC. The field now shows the booking's own rate as it is typed (no thousands separators), or nothing when there is none.
+- **A rate typed by hand is no longer read 1000× too small.** "58.123" in the "EUR je …" field was taken as 58.123 EUR, although in German it means 58 123. A rate is now read the same in either language: with both marks (`60.123,40`, `60,123.40`) the last is the decimal, a mark used twice separates thousands, and `0,0042` or `1,5` stay decimals. A single mark before exactly three digits (`58.123`, `1,500`) could be either and is refused with a note on how to write it.
 
 ### Security
 

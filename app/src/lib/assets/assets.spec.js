@@ -122,6 +122,7 @@ describe('valuation', () => {
 		expect(rateInputPlaceholder('60123.4', 'de-DE')).toBe('60123,4');
 		expect(rateInputPlaceholder('60123.4', 'en-GB')).toBe('60123.4');
 		expect(rateInputPlaceholder('0.000012', 'de-DE')).toBe('0,000012');
+		expect(rateInputPlaceholder('2.345', 'de-DE')).toBe('2,3450');
 		expect(rateInputPlaceholder(undefined, 'de-DE')).toBe('');
 		expect(rateInputPlaceholder('', 'de-DE')).toBe('');
 	});

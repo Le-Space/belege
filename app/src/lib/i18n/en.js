@@ -279,6 +279,8 @@ export default {
 			accountDigits: 'An account has 4 to 8 digits.',
 			taxKeyDigits: 'A BU key has up to 4 digits.',
 			rateFormat: 'The rate is a number from 0, e.g. 0.0042 – or 0 for a worthless token.',
+			rateAmbiguous:
+				'“{value}” can be read both ways: with a thousands separator or with three decimals – a factor of 1000 apart. Write the rate without a thousands separator (58123) or with one more decimal (2.3450).',
 			rateNoQuantity: 'This booking has no quantity that a rate belongs to.'
 		},
 		camt: {
