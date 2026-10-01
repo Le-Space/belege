@@ -270,11 +270,13 @@
 				<li class="py-1" data-testid="book-account">
 					{accountLabel(account)} · {account.source === 'camt'
 						? t('integrationen.books.camt')
-						: account.source === 'kraken'
-							? t('integrationen.books.kraken')
-							: isWalletSource(account.source)
-								? t('integrationen.books.wallet')
-								: t('integrationen.books.hibiscus')} · {account.asset ?? account.currency}
+						: account.source === 'enablebanking'
+							? t('integrationen.books.enablebanking')
+							: account.source === 'kraken'
+								? t('integrationen.books.kraken')
+								: isWalletSource(account.source)
+									? t('integrationen.books.wallet')
+									: t('integrationen.books.hibiscus')} · {account.asset ?? account.currency}
 				</li>
 			{/each}
 		</ul>

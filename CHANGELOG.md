@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **Enable Banking, step 3: fetch the transactions** (#224). Only accounts released in the bridge leave it (`pnpm setup:enablebanking -- --accounts`, by IBAN ending, as for Hibiscus). On Integrationen → Bank they are chosen and fetched with "Umsätze holen": 90 days the first time, then from a week before the last fetch, never on its own. An account a statement file brought (same IBAN) is continued from the day after its last booking, so nothing doubles. Booked transactions only; pending ones are counted. An account in another currency is valued at the day's rate.
+
 - **Enable Banking, step 2: link a bank** (#224). Integrationen → Bank has a block "Über Enable Banking": choose country and bank, consent on the bank's own page, and come back to `/integrationen/bank/verbunden`. The bank's one-time code leaves the address before the passkey is asked for; the bridge accepts it only for a link it started itself, once, within 30 minutes, and keeps the session sealed. Linked banks show with the day their consent ends and can be unlinked. Without a set-up bridge the block says what is needed. The consent screen names Enable Banking as a service that runs when set up (version 19). `pnpm setup:enablebanking` now recognises a certificate given instead of the key, takes a quoted or `$HOME` path, and says where it looked. Fetching transactions is step 3.
 
 ### Added

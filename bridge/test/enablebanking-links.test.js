@@ -6,14 +6,17 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { defaultConfig, saveConfig } from '../src/config.js';
+import { defaultConfig, loadConfig, saveConfig } from '../src/config.js';
 import { createEnableBankingClient, enableBankingSecrets } from '../src/enablebanking.js';
 import { createEnableBankingLinks } from '../src/enablebanking-links.js';
+import { ibanKey, normalizeEnableBankingTransaction } from '../src/enablebanking-normalize.js';
+import { runEnableBankingAccounts } from '../src/setup-enablebanking.js';
 import { memoryKeychain } from '../src/keychain.js';
 import { startBridge } from '../src/index.js';
 import {
 	FAKE_EB_APP_ID,
 	FAKE_EB_PRIVATE_KEY,
+	sampleEnableBankingTransactions,
 	startFakeEnableBanking
 } from './support/fake-enablebanking.js';
 import { request } from './support/http.js';
@@ -256,6 +259,21 @@ test('the routes: behind the token, 503 until set up, and a whole link through t
 				body: { code: back.get('code'), state: back.get('state') }
 			});
 			assert.equal(finished.status, 200);
+			// No suffix set up: the account is listed as staying, and nothing of it leaves.
+			const accounts = await request(port, '/enablebanking/accounts', { headers: auth });
+			assert.deepEqual(
+				accounts.json.accounts.map((/** @type {any} */ a) => [a.allowed, a.ibanKey]),
+				[
+					[false, null],
+					[false, null]
+				]
+			);
+			const refused = await request(
+				port,
+				'/enablebanking/transactions?account=acc-0001&since=2026-01-01',
+				{ headers: auth }
+			);
+			assert.equal(refused.status, 404);
 			const listed = await request(port, '/enablebanking/links', { headers: auth });
 			assert.deepEqual(listed.json.links, [finished.json.link]);
 			const again = await request(port, '/enablebanking/finish', {
@@ -275,4 +293,163 @@ test('the routes: behind the token, 503 until set up, and a whole link through t
 			);
 		}
 	);
+});
+
+// Step 3: accounts that may leave, and their transactions.
+
+test('a transaction in the app’s shape: sign from the indicator, the other side, the purpose lines', () => {
+	const [pending, fee, debit, credit] = sampleEnableBankingTransactions().map((t) =>
+		normalizeEnableBankingTransaction(t, { currency: 'EUR' })
+	);
+	assert.equal(pending, null, 'a pending entry is not imported');
+	assert.equal(fee?.amountCents, -490);
+	assert.equal(fee?.counterpartyName, '');
+	assert.equal(fee?.bookingType, 'Abschluss');
+	assert.deepEqual(
+		[
+			debit?.sourceId,
+			debit?.amountCents,
+			debit?.counterpartyName,
+			debit?.counterpartyIban,
+			debit?.purpose
+		],
+		[
+			'EB-REF-0002',
+			-11900,
+			'Wolkenfabrik Hosting GmbH',
+			'DE00000000000000002222',
+			'RE-1001 Kundennummer 4711'
+		]
+	);
+	assert.equal(credit?.amountCents, 238000);
+	assert.equal(credit?.counterpartyName, 'Kundin Beispiel AG');
+	assert.notEqual(credit?.valueDate, credit?.date);
+	const odd = normalizeEnableBankingTransaction(
+		{ transaction_id: 'T-9', transaction_amount: { amount: 'viel', currency: 'EUR' } },
+		{ currency: 'EUR' }
+	);
+	assert.equal(odd?.sourceId, 'T-9');
+	assert.ok(Number.isNaN(odd?.amountCents), 'an unreadable amount is left for the app to skip');
+});
+
+test('the IBAN key is the app’s (pinned on both sides)', () => {
+	assert.equal(
+		ibanKey('DE00 0000 0000 0000 0012 34'),
+		'iban-sha256:f132c600c5d086b136ebb1fafa4cb6787f25da72c95ce14a47144d1c04c4c1bb'
+	);
+});
+
+/** A linked Beispielbank, with these suffixes allowed. @param {string[]} suffixes */
+async function linkedWith(suffixes) {
+	const { links: plain, secrets } = await setup();
+	const started = await plain.start({ bank: 'Beispielbank', country: 'DE' });
+	const back = await atTheBank(started.url);
+	await plain.finish({ code: back.get('code'), state: back.get('state') });
+	/** @type {string[]} */ const logged = [];
+	const links = createEnableBankingLinks({
+		client: createEnableBankingClient({
+			appId: FAKE_EB_APP_ID,
+			baseUrl: eb.url,
+			getPrivateKey: async () => FAKE_EB_PRIVATE_KEY
+		}),
+		secrets,
+		redirectUrl: REDIRECT,
+		allowedSuffixes: () => suffixes,
+		log: (l) => logged.push(l)
+	});
+	return { links, logged };
+}
+
+test('only an allowed account leaves: its key goes along, the others say only that they stay', async () => {
+	const { links } = await linkedWith(['1234']);
+	const accounts = await links.accounts();
+	assert.deepEqual(
+		accounts.map((a) => [a.ibanLast4, a.allowed, a.ibanKey?.slice(0, 12) ?? null]),
+		[
+			['1234', true, 'iban-sha256:'],
+			['5678', false, null]
+		]
+	);
+	await assert.rejects(links.transactions('acc-0002', '2026-01-01'), (/** @type {any} */ e) => {
+		assert.equal(e.status, 404);
+		return true;
+	});
+	await assert.rejects(links.transactions('acc-9999', '2026-01-01'), /no such account/);
+	await assert.rejects(links.transactions('acc-0001', '1.1.2026'), /YYYY-MM-DD/);
+});
+
+test('the transactions of an allowed account, all pages, booked only, from the day asked', async () => {
+	const { links, logged } = await linkedWith(['1234']);
+	const before = eb.state.transactionPages;
+	const all = await links.transactions('acc-0001', '2000-01-01');
+	assert.equal(eb.state.transactionPages - before, 2, 'two pages of two');
+	assert.deepEqual(
+		all.transactions.map((t) => t.sourceId),
+		['EB-REF-0003', 'EB-REF-0002', 'EB-REF-0001']
+	);
+	assert.equal(all.pending, 1);
+	assert.equal(all.complete, true);
+	const recent = await links.transactions(
+		'acc-0001',
+		new Date(Date.now() - 5 * 86_400_000).toISOString().slice(0, 10)
+	);
+	assert.deepEqual(
+		recent.transactions.map((t) => t.sourceId),
+		['EB-REF-0003']
+	);
+	assert.ok(
+		logged.every((l) => !/Wolkenfabrik|Kundin|119|2380/.test(l)),
+		'counts only in the log'
+	);
+});
+
+test('setup --accounts lists the linked accounts and saves the suffixes', async () => {
+	const configPath = join(dir, `acc${n++}`, 'bridge.json');
+	await saveConfig(
+		{
+			...defaultConfig(),
+			enablebanking: {
+				configured: true,
+				appId: FAKE_EB_APP_ID,
+				baseUrl: eb.url,
+				redirectUrl: REDIRECT
+			}
+		},
+		configPath
+	);
+	const keychain = memoryKeychain(null, 'enablebanking');
+	await enableBankingSecrets({ configPath, keychain }).write({
+		privateKey: FAKE_EB_PRIVATE_KEY,
+		sessions: {
+			'00000000-0000-4000-8000-000000000001': {
+				bank: 'Beispielbank',
+				accounts: [
+					{
+						uid: 'acc-0001',
+						iban: 'DE00000000000000001234',
+						name: 'Geschäftskonto',
+						currency: 'EUR'
+					},
+					{ uid: 'acc-0002', iban: 'DE00000000000000005678', name: 'Tagesgeld', currency: 'EUR' }
+				]
+			}
+		}
+	});
+	/** @type {string[]} */ const out = [];
+	const answers = ['1234'];
+	const io = {
+		ask: async () => answers.shift() ?? '',
+		print: (/** @type {string} */ l) => out.push(l)
+	};
+	assert.equal(await runEnableBankingAccounts({ io, keychain, configPath }), true);
+	assert.deepEqual((await loadConfig(configPath)).enablebanking.ibanSuffixes, ['1234']);
+	assert.ok(out.some((l) => l.includes('[ ] Beispielbank · Geschäftskonto · ····1234 · EUR')));
+	assert.ok(out.some((l) => /1 of 2 account\(s\) may leave/.test(l)));
+	assert.ok(!out.join('\n').includes('DE00'), 'never the whole IBAN');
+
+	const bad = { ask: async () => '12', print: () => {} };
+	assert.equal(await runEnableBankingAccounts({ io: bad, keychain, configPath }), false);
+	const none = { ask: async () => '-', print: () => {} };
+	assert.equal(await runEnableBankingAccounts({ io: none, keychain, configPath }), true);
+	assert.deepEqual((await loadConfig(configPath)).enablebanking.ibanSuffixes, []);
 });

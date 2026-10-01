@@ -54,8 +54,10 @@ export function integrationsOverview(f) {
 	/** Needs the bridge and something set up on it. @param {boolean} setUp */
 	const viaBridge = (setUp) => (!paired ? 'off' : !online ? 'off' : setUp ? 'ok' : 'off');
 	const hibiscus = f.accounts.filter((a) => a.source === 'hibiscus' && !a.deleted);
-	const camt = f.accounts.filter((a) => a.source === 'camt' && !a.deleted);
-	const bankWhen = lastSync(f.events, (s) => s === 'hibiscus');
+	const camt = f.accounts.filter(
+		(a) => (a.source === 'camt' || a.source === 'enablebanking') && !a.deleted
+	);
+	const bankWhen = lastSync(f.events, (s) => s === 'hibiscus' || s === 'enablebanking');
 	const krakenWhen = lastSync(f.events, (s) => s === 'kraken');
 	const walletWhen = lastSync(f.events, f.isWalletSource);
 

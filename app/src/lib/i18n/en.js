@@ -717,9 +717,9 @@ export default {
 				name: 'Enable Banking (banks without Hibiscus)',
 				text: 'When set up: the bridge links banks Hibiscus does not reach, through your own Enable Banking application. You give the consent on your bank’s own page.',
 				leaves:
-					'To Enable Banking: which bank you link, after your consent your accounts (IBAN, name, currency) and, once fetching is built in, the transactions – they pass through its servers. Also this computer’s IP address. Neither Belege nor the bridge sees your bank password.',
+					'To Enable Banking: which bank you link, after your consent your accounts (IBAN, name, currency) and the transactions of the accounts you bring into the books – they pass through its servers. Also this computer’s IP address. Neither Belege nor the bridge sees your bank password.',
 				technical:
-					'An account information service (AIS) under PSD2. Only the bridge talks to api.enablebanking.com; every request is signed with your application’s key (RS256 JWT). The key and the sessions are sealed beside the bridge’s configuration, never in the browser and not in the books; the app gets only the last four characters of an account’s IBAN. The browser only goes to the bank and back to /integrationen/bank/verbunden. The bank’s one-time code is in that address and so also passes the gateway that serves the page; without the key it is worthless, and the page takes it out of the address at once. A consent lasts 180 days at most; “Unlink” ends it at Enable Banking.'
+					'An account information service (AIS) under PSD2. Only the bridge talks to api.enablebanking.com; every request is signed with your application’s key (RS256 JWT). The key and the sessions are sealed beside the bridge’s configuration, never in the browser and not in the books; the app gets only the last four characters of an account’s IBAN. The browser only goes to the bank and back to /integrationen/bank/verbunden. The bank’s one-time code is in that address and so also passes the gateway that serves the page; without the key it is worthless, and the page takes it out of the address at once. Only accounts whose IBAN ending is released in the bridge (pnpm setup:enablebanking -- --accounts) leave the bridge, and fetching happens only on your click. A consent lasts 180 days at most; “Unlink” ends it at Enable Banking.'
 			},
 			deepseek: {
 				name: 'Language model – DeepSeek by default (extracting receipts, AI search)',
@@ -1817,6 +1817,7 @@ export default {
 		source: {
 			hibiscus: 'Hibiscus',
 			camt: 'CAMT import',
+			enablebanking: 'Enable Banking',
 			kraken: 'Kraken',
 			nyx: 'Wallet (Nym/Nyx)',
 			akash: 'Wallet (Akash)',
@@ -2528,7 +2529,22 @@ export default {
 			unlink: 'Unlink',
 			unlinkConfirm:
 				'Unlink {bank}? Enable Banking ends the consent; transactions already fetched stay in the books.',
-			fetchLater: 'Fetching transactions through Enable Banking comes in the next step.',
+			afterLink:
+				'On the Bank page you choose which accounts go into the books, and fetch their transactions.',
+			staysInBridge: 'Stays in the bridge: not released.',
+			continuesCamt:
+				'Continues the account from the statement file – from the day after its last booking.',
+			lastFetch: 'last fetched on {date}',
+			maybeHibiscus:
+				' A Hibiscus account ends the same – if Hibiscus fetches it already, it comes twice.',
+			fetch: 'Fetch transactions',
+			fetching: 'Fetching transactions …',
+			fetchHint:
+				'The first time the last 90 days, then from a week before the last fetch. Banks allow only a few fetches a day – fetching happens only on this click.',
+			pending: ' {count} pending transactions come once the bank books them.',
+			incomplete: ' Not all pages fetched – fetch again.',
+			noneAllowed:
+				'No account leaves the bridge yet. Which accounts may go into the books, you decide in the terminal:',
 			country: 'Country',
 			bank: 'Bank',
 			bankPlaceholder: '{count} banks – type a name',
@@ -2596,6 +2612,7 @@ export default {
 		books: {
 			title: 'Accounts in the books',
 			camt: 'CAMT import',
+			enablebanking: 'Enable Banking',
 			hibiscus: 'Hibiscus',
 			kraken: 'Kraken',
 			wallet: 'Own wallet'

@@ -21,7 +21,12 @@
 //    (sealed-file.js). The key file you downloaded is not changed: keep it
 //    somewhere safe, Enable Banking cannot hand it out again.
 //
-// Only `enablebanking.{configured, appId, redirectUrl}` goes to
+// Then link a bank in the app, and say which of its accounts may leave the
+// bridge:
+//
+//   pnpm setup:enablebanking -- --accounts
+//
+// Only `enablebanking.{configured, appId, redirectUrl, ibanSuffixes}` goes to
 // ~/.config/belege/bridge.json (0600). The key is never printed.
 
 import { readFile } from 'node:fs/promises';
@@ -173,6 +178,69 @@ export async function runEnableBankingSetup({
 	return true;
 }
 
+/**
+ * `pnpm setup:enablebanking -- --accounts`: which linked accounts may leave
+ * the bridge. Lists them (bank, name, last four of the IBAN) and asks for the
+ * IBAN suffixes, as setup:hibiscus does; every other account stays here.
+ *
+ * @param {object} deps
+ * @param {{ ask: (q: string) => Promise<string>, print: (line: string) => void }} deps.io
+ * @param {import('./keychain.js').Keychain} deps.keychain the key to the sealed file
+ * @param {string} deps.configPath
+ * @returns {Promise<boolean>} true when the list was saved
+ */
+export async function runEnableBankingAccounts({ io, keychain, configPath }) {
+	const config = await loadConfig(configPath);
+	if (!config.enablebanking.configured) {
+		io.print('Enable Banking is not set up yet: run pnpm setup:enablebanking first.');
+		return false;
+	}
+	const sealed = /** @type {any} */ (await enableBankingSecrets({ configPath, keychain }).read());
+	const accounts = Object.values(sealed.sessions ?? {}).flatMap((/** @type {any} */ r) =>
+		(Array.isArray(r.accounts) ? r.accounts : []).map((/** @type {any} */ a) => ({
+			bank: String(r.bank ?? ''),
+			name: String(a.name ?? ''),
+			iban: String(a.iban ?? ''),
+			currency: String(a.currency ?? '')
+		}))
+	);
+	if (!accounts.length) {
+		io.print('No bank is linked yet: link one in the app under Integrationen → Bank first.');
+		return false;
+	}
+	const current = config.enablebanking.ibanSuffixes;
+	io.print('Linked accounts:');
+	for (const a of accounts) {
+		const allowed = current.some((x) => a.iban.endsWith(x));
+		io.print(
+			`  ${allowed ? '[x]' : '[ ]'} ${a.bank} · ${a.name || '–'} · ····${a.iban.slice(-4)} · ${a.currency}`
+		);
+	}
+	const answer = (
+		await io.ask(
+			`IBAN suffixes that may leave the bridge, comma-separated (e.g. the last 4 digits; "-" for none)${current.length ? ` [${current.join(',')}]` : ''}: `
+		)
+	).trim();
+	const suffixes =
+		answer === '-'
+			? []
+			: (answer || current.join(','))
+					.split(',')
+					.map((x) => x.replace(/\s/g, '').toUpperCase())
+					.filter(Boolean);
+	if (suffixes.some((x) => !/^[0-9A-Z]{4,34}$/.test(x))) {
+		io.print('A suffix is 4 or more letters or digits; nothing changed.');
+		return false;
+	}
+	config.enablebanking = { ...config.enablebanking, ibanSuffixes: suffixes };
+	await saveConfig(config, configPath);
+	const leaving = accounts.filter((a) => suffixes.some((x) => a.iban.endsWith(x)));
+	io.print(
+		`Saved: ${leaving.length} of ${accounts.length} account(s) may leave the bridge. Restart the bridge (pnpm bridge) to use it.`
+	);
+	return true;
+}
+
 /** @param {{ appId: string, privateKey: string, baseUrl: string }} params */
 async function testCall({ appId, privateKey, baseUrl }) {
 	const client = createEnableBankingClient({
@@ -187,12 +255,16 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
 	loadRepoEnv(new URL('../../.env', import.meta.url));
 	const { EB_APP_ID, EB_KEY_PATH, EB_REDIRECT_URL } = process.env;
 	try {
-		const saved = await runEnableBankingSetup({
-			io: { ask, print: (line) => console.log(line) },
-			keychain: systemKeychain({ account: 'enablebanking' }),
-			configPath: defaultConfigPath(),
-			env: { EB_APP_ID, EB_KEY_PATH, EB_REDIRECT_URL }
-		});
+		const io = { ask, print: (/** @type {string} */ line) => console.log(line) };
+		const keychain = systemKeychain({ account: 'enablebanking' });
+		const saved = process.argv.includes('--accounts')
+			? await runEnableBankingAccounts({ io, keychain, configPath: defaultConfigPath() })
+			: await runEnableBankingSetup({
+					io,
+					keychain,
+					configPath: defaultConfigPath(),
+					env: { EB_APP_ID, EB_KEY_PATH, EB_REDIRECT_URL }
+				});
 		closePrompts();
 		process.exit(saved ? 0 : 1);
 	} catch (/** @type {any} */ error) {

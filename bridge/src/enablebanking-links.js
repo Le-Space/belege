@@ -11,7 +11,14 @@
 //                    a session, kept in the sealed file
 //   list()           the linked banks, with the day their consent ends
 //   unlink(id)       the session is closed at Enable Banking and forgotten here
+//   accounts()       every linked account, and whether it may leave the bridge
+//   transactions(uid, since)
+//                    an allowed account's booked transactions from a day on
 //
+// Step 3: only accounts whose IBAN ends in one of `enablebanking.ibanSuffixes`
+// (pnpm setup:enablebanking -- --accounts) leave the bridge, like Hibiscus's.
+// An allowed account carries its IBAN key (enablebanking-normalize.js), so the
+// app can continue an account a statement file already brought.
 // What leaves for the app: the bank, the country, the consent's end and, per
 // account, the last four characters of its IBAN, its name and currency. The
 // full IBAN stays in the sealed file; which accounts may leave the bridge at
@@ -21,6 +28,8 @@
 import { randomUUID } from 'node:crypto';
 
 import { EnableBankingError } from './enablebanking.js';
+import { ibanKey, normalizeEnableBankingTransaction } from './enablebanking-normalize.js';
+import { ibanAllowed } from './normalize.js';
 
 /** How long a started link waits for its answer. */
 const PENDING_MS = 30 * 60_000;
@@ -74,6 +83,8 @@ export const isSessionId = (/** @type {unknown} */ id) =>
  * @param {ReturnType<typeof import('./enablebanking.js').createEnableBankingClient>} options.client
  * @param {ReturnType<typeof import('./enablebanking.js').enableBankingSecrets>} options.secrets
  * @param {string} options.redirectUrl as registered for the application
+ * @param {() => string[]} [options.allowedSuffixes] the IBAN suffixes that may leave the bridge
+ * @param {number} [options.maxPages] of transactions per fetch
  * @param {() => number} [options.now]
  * @param {(line: string) => void} [options.log]
  */
@@ -81,6 +92,8 @@ export function createEnableBankingLinks({
 	client,
 	secrets,
 	redirectUrl,
+	allowedSuffixes = () => [],
+	maxPages = 50,
 	now = Date.now,
 	log = () => {}
 }) {
@@ -245,8 +258,95 @@ export function createEnableBankingLinks({
 		log('enablebanking: a bank was unlinked');
 	}
 
-	return { banks, start, finish, list, unlink };
+	/**
+	 * Every linked account, with whether it may leave the bridge. The key only
+	 * for an allowed one.
+	 *
+	 * @returns {Promise<LinkedAccountView[]>}
+	 */
+	async function accounts() {
+		const value = /** @type {any} */ (await secrets.read());
+		const suffixes = allowedSuffixes();
+		/** @type {LinkedAccountView[]} */ const out = [];
+		for (const [linkId, r] of Object.entries(value.sessions ?? {})) {
+			for (const a of Array.isArray(r.accounts) ? r.accounts : []) {
+				const allowed = Boolean(a.iban) && ibanAllowed(a.iban, suffixes);
+				out.push({
+					uid: String(a.uid),
+					linkId,
+					bank: String(r.bank ?? ''),
+					ibanLast4: String(a.iban ?? '').slice(-4),
+					name: String(a.name ?? ''),
+					currency: String(a.currency ?? '') || 'EUR',
+					validUntil: typeof r.validUntil === 'string' ? r.validUntil : null,
+					allowed,
+					ibanKey: allowed ? ibanKey(a.iban) : null
+				});
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * @param {unknown} uid
+	 * @param {unknown} since YYYY-MM-DD
+	 */
+	async function transactions(uid, since) {
+		if (
+			typeof since !== 'string' ||
+			!/^\d{4}-\d{2}-\d{2}$/.test(since) ||
+			!Number.isFinite(Date.parse(since))
+		) {
+			throw refuse('since must be YYYY-MM-DD', 'EB_SINCE');
+		}
+		const account = (await accounts()).find((a) => a.uid === uid);
+		// Not linked and not allowed answer alike: nothing about the account leaves.
+		if (!account || !account.allowed || !/^[A-Za-z0-9-]{1,100}$/.test(account.uid)) {
+			throw refuse('no such account', 'EB_ACCOUNT', 404);
+		}
+		/** @type {import('./enablebanking-normalize.js').EnableBankingTransaction[]} */
+		const out = [];
+		let pending = 0;
+		let pages = 0;
+		/** @type {string | undefined} */ let key;
+		do {
+			const q = new URLSearchParams({
+				date_from: since,
+				...(key ? { continuation_key: key } : {})
+			});
+			const page = await client.request('GET', `/accounts/${account.uid}/transactions?${q}`);
+			for (const t of Array.isArray(page.transactions) ? page.transactions : []) {
+				const n = normalizeEnableBankingTransaction(t, account);
+				if (n) out.push(n);
+				else pending++;
+			}
+			key =
+				typeof page.continuation_key === 'string' && page.continuation_key
+					? page.continuation_key
+					: undefined;
+			pages++;
+		} while (key && pages < maxPages);
+		log(
+			`enablebanking: ${out.length} transaction(s) since ${since}, ${pending} pending, ${pages} page(s)`
+		);
+		return { since, transactions: out, pending, complete: !key };
+	}
+
+	return { banks, start, finish, list, unlink, accounts, transactions };
 }
+
+/**
+ * @typedef {object} LinkedAccountView
+ * @property {string} uid
+ * @property {string} linkId
+ * @property {string} bank
+ * @property {string} ibanLast4
+ * @property {string} name
+ * @property {string} currency
+ * @property {string | null} validUntil
+ * @property {boolean} allowed whether it may leave the bridge
+ * @property {string | null} ibanKey only when allowed
+ */
 
 /** @param {string} id @param {any} r @returns {Link} */
 function toLink(id, r) {

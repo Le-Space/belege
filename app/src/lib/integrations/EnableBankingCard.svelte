@@ -2,17 +2,22 @@
 	// Enable Banking (issue #224, step 2): link a bank through the own
 	// application the bridge holds, see the linked ones with the day their
 	// consent ends, and unlink. The bank's answer comes back to
-	// /integrationen/bank/verbunden (enablebanking/return.js). Fetching the
-	// transactions is step 3.
+	// /integrationen/bank/verbunden (enablebanking/return.js). Step 3: the
+	// accounts the bridge lets leave are fetched on a click
+	// (bank/enablebanking-sync.js); the others stay in the bridge.
 	import { btn } from '$lib/ui/styles.js';
 	import WayOut from '$lib/help/WayOut.svelte';
 	import { formatDate } from '$lib/bank/format.js';
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { rememberStart, RETURN_PATH } from '$lib/enablebanking/return.js';
 	import { bridge, bridgeClient } from './bridge-state.svelte.js';
+	import { SvelteSet } from 'svelte/reactivity';
+	import { app, currentStore, refreshNow, runMatchingNow } from '$lib/session.svelte.js';
+	import { syncEnableBanking } from '$lib/bank/enablebanking-sync.js';
 
 	/** @typedef {import('$lib/bridge/client.js').EnableBankingBank} Bank */
 	/** @typedef {import('$lib/bridge/client.js').EnableBankingLink} Link */
+	/** @typedef {import('$lib/bridge/client.js').EnableBankingAccount} Account */
 
 	/** The countries Enable Banking serves: the EEA. */
 	const COUNTRIES = [
@@ -84,11 +89,64 @@
 	/** @param {unknown} e */
 	const message = (e) => (e instanceof Error ? e.message : String(e));
 
+	/** @type {Account[]} */
+	let accounts = $state([]);
+	const chosen = new SvelteSet(/** @type {string[]} */ ([]));
+	/** Empty: automatic (90 days the first time, then from the last fetch). */
+	let fetchFrom = $state('');
+	let fetching = $state(false);
+	/** @type {{ new: number, updated: number, skipped: number, pending: number, incomplete: number } | null} */
+	let fetched = $state(null);
+	const today = new Date().toISOString().slice(0, 10);
+
 	async function loadLinks() {
 		try {
 			links = await bridgeClient().enableBankingLinks();
+			accounts = await bridgeClient().enableBankingAccounts();
+			chosen.clear();
+			for (const a of accounts) if (a.allowed) chosen.add(a.uid);
 		} catch (e) {
 			error = message(e);
+		}
+	}
+
+	/** The books' account an Enable Banking account goes into, if there is one. @param {Account} a */
+	const inBooks = (a) =>
+		a.ibanKey
+			? app.accounts.find(
+					(r) =>
+						!r.deleted &&
+						r.sourceAccountId === a.ibanKey &&
+						(r.source === 'enablebanking' || r.source === 'camt')
+				)
+			: undefined;
+	/** A Hibiscus account with the same last four: perhaps the same account, fetched twice. @param {Account} a */
+	const viaHibiscus = (a) =>
+		app.accounts.some(
+			(r) => !r.deleted && r.source === 'hibiscus' && String(r.ibanLast4 ?? '') === a.ibanLast4
+		);
+
+	async function fetchTransactions() {
+		const store = currentStore();
+		if (!store) return;
+		fetching = true;
+		error = null;
+		fetched = null;
+		try {
+			const result = await syncEnableBanking({
+				client: bridgeClient(),
+				store,
+				accounts: accounts.filter((a) => a.allowed && chosen.has(a.uid)),
+				from: fetchFrom || undefined,
+				getRate: (asset, date) => bridgeClient().rate(asset, date)
+			});
+			fetched = { ...result.totals, pending: result.pending, incomplete: result.incomplete };
+			await refreshNow();
+			await runMatchingNow();
+		} catch (e) {
+			error = message(e);
+		} finally {
+			fetching = false;
 		}
 	}
 
@@ -202,19 +260,82 @@
 								data-testid="enablebanking-unlink">{t('integrationen.enableBanking.unlink')}</button
 							>
 						</div>
-						<ul class="mt-1 font-mono text-xs text-faint">
-							{#each l.accounts as a (a.uid)}
-								<li data-testid="enablebanking-account">
-									{[a.name, a.ibanLast4 && `····${a.ibanLast4}`, a.currency]
-										.filter(Boolean)
-										.join(' · ')}
+						<ul class="mt-1 text-sm">
+							{#each accounts.filter((a) => a.linkId === l.id) as a (a.uid)}
+								{@const record = inBooks(a)}
+								<li class="py-1" data-testid="enablebanking-account" data-allowed={a.allowed}>
+									<label class="flex items-center gap-3">
+										<input
+											type="checkbox"
+											class="h-4 w-4 accent-cyan-800 dark:accent-cyan"
+											disabled={!a.allowed}
+											checked={a.allowed && chosen.has(a.uid)}
+											onchange={(e) =>
+												e.currentTarget.checked ? chosen.add(a.uid) : chosen.delete(a.uid)}
+										/>
+										<span
+											class="font-mono text-xs text-heading"
+											data-testid="enablebanking-account-label"
+											>{[a.name, a.ibanLast4 && `····${a.ibanLast4}`, a.currency]
+												.filter(Boolean)
+												.join(' · ')}</span
+										>
+									</label>
+									<p class="ml-7 text-xs text-faint" data-testid="enablebanking-account-note">
+										{#if !a.allowed}
+											{t('integrationen.enableBanking.staysInBridge')}
+										{:else if record?.source === 'camt'}
+											{t('integrationen.enableBanking.continuesCamt')}
+										{:else if record?.ebLastSyncedOn}
+											{t('integrationen.enableBanking.lastFetch', {
+												date: formatDate(record.ebLastSyncedOn)
+											})}
+										{/if}
+										{#if a.allowed && viaHibiscus(a)}
+											{t('integrationen.enableBanking.maybeHibiscus')}
+										{/if}
+									</p>
 								</li>
 							{/each}
 						</ul>
 					</li>
 				{/each}
 			</ul>
-			<p class="mt-2 text-xs text-faint">{t('integrationen.enableBanking.fetchLater')}</p>
+			{#if accounts.some((a) => a.allowed)}
+				<label class="mt-3 block text-sm text-text">
+					{t('integrationen.hibiscus.fromLabel')}
+					<input
+						type="date"
+						class="ml-2 rounded-md border border-border bg-surface px-2 py-1 text-sm text-heading"
+						max={today}
+						bind:value={fetchFrom}
+						data-testid="enablebanking-from"
+					/>
+				</label>
+				<button
+					type="button"
+					class="mt-3 {btn.primary}"
+					disabled={fetching || chosen.size === 0}
+					onclick={fetchTransactions}
+					data-testid="enablebanking-fetch"
+					>{fetching
+						? t('integrationen.enableBanking.fetching')
+						: t('integrationen.enableBanking.fetch')}</button
+				>
+				<p class="mt-1 text-xs text-faint">{t('integrationen.enableBanking.fetchHint')}</p>
+				{#if fetched}
+					<p class="mt-2 text-sm text-heading" role="status" data-testid="enablebanking-fetched">
+						{t('integrationen.counts', fetched)}{fetched.pending
+							? t('integrationen.enableBanking.pending', { count: fetched.pending })
+							: ''}{fetched.incomplete ? t('integrationen.enableBanking.incomplete') : ''}
+					</p>
+				{/if}
+			{:else}
+				<p class="mt-2 text-xs text-faint" data-testid="enablebanking-none-allowed">
+					{t('integrationen.enableBanking.noneAllowed')}
+					<code class="font-mono text-heading">pnpm setup:enablebanking -- --accounts</code>
+				</p>
+			{/if}
 		{/if}
 
 		<div class="mt-4 flex flex-wrap items-end gap-3">

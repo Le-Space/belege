@@ -53,7 +53,9 @@ test.beforeAll(async () => {
 				configured: true,
 				appId: FAKE_EB_APP_ID,
 				baseUrl: eb.url,
-				redirectUrl: RETURN
+				redirectUrl: RETURN,
+				// The Geschäftskonto may leave the bridge, the Tagesgeld stays.
+				ibanSuffixes: ['1234']
 			}
 		},
 		configPath
@@ -165,11 +167,33 @@ test('a bank that says no links nothing; a bank that says yes is linked, listed 
 	await page.getByTestId('enablebanking-back').click();
 	const listed = page.getByTestId('enablebanking-card').getByTestId('enablebanking-link');
 	await expect(listed).toHaveCount(1);
-	await expect(listed.getByTestId('enablebanking-account')).toHaveText([
+	await expect(listed.getByTestId('enablebanking-account-label')).toHaveText([
 		'Geschäftskonto · ····1234 · EUR',
 		'Tagesgeld · ····5678 · EUR'
 	]);
 	await expect(listed).not.toContainText('DE00');
+	const accounts = listed.getByTestId('enablebanking-account');
+	await expect(accounts.nth(1)).toHaveAttribute('data-allowed', 'false');
+	await expect(accounts.nth(1)).toContainText('Bleibt in der Bridge');
+	await expect(accounts.nth(1).getByRole('checkbox')).toBeDisabled();
+
+	// Step 3: fetch the allowed account – three booked, one pending.
+	const card2 = page.getByTestId('enablebanking-card');
+	await card2.getByTestId('enablebanking-fetch').click();
+	await expect(card2.getByTestId('enablebanking-fetched')).toContainText('Neu: 3');
+	await expect(card2.getByTestId('enablebanking-fetched')).toContainText('1 vorgemerkte');
+	await expect(accounts.first()).toContainText('zuletzt geholt am');
+	await expect(page.getByTestId('book-account').filter({ hasText: 'Enable Banking' })).toHaveCount(
+		1
+	);
+	// Fetched again: nothing twice.
+	await card2.getByTestId('enablebanking-fetch').click();
+	await expect(card2.getByTestId('enablebanking-fetched')).toContainText('Neu: 0');
+	await page.getByTestId('tab-zahlungen').click();
+	await expect(page.getByText('Wolkenfabrik Hosting GmbH').first()).toBeVisible();
+	await expect(page.getByText('Kundin Beispiel AG').first()).toBeVisible();
+	expect(bridgeOut).not.toContain('Wolkenfabrik');
+	await openIntegration(page, 'bank');
 
 	page.once('dialog', (d) => d.accept());
 	await listed.getByTestId('enablebanking-unlink').click();
