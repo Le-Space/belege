@@ -1,6 +1,6 @@
 # Working on this repository (for AI agents and people)
 
-This repository is **public**. Belege handles a company's bookkeeping, so the people who use it show real data while developing: screenshots of bookings, receipts, mails, bank statements.
+This repository is **public**. Belege handles a company's payments and receipts, so the people who use it show real data while developing: screenshots of bookings, receipts, mails, bank statements.
 
 ## Never put real data into the repository or onto GitHub
 

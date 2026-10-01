@@ -61,7 +61,7 @@ Was Le Space Belege heute kann, nach Kategorien. Dieselbe Liste steht kürzer au
 - **Erkannt werden:** DEX-Swaps, Swaps über Chains, Token-Migrationen und Staub; Absender mit ähnlich aussehender Adresse werden benannt.
 - **Aleph-Cloud-Guthaben** als Monatsauszug je Konto. Siehe [crypto.de.md](crypto.de.md).
 
-## Buchhaltung und Export
+## Vorbereitende Buchhaltung und Export
 
 - **Jede Buchung** bekommt ein SKR-03-Konto und einen BU-Schlüssel: vorgeschlagen, von dir bestätigt. Dein eigener Kontenrahmen lässt sich einlesen.
 - **Jeden Monat ein ZIP:** ein DATEV-Buchungsstapel (EXTF) für MonkeyOffice, die Belege als PDF und ein Auszug je Konto. Siehe [export.de.md](export.de.md).

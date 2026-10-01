@@ -1,6 +1,6 @@
 # Security
 
-Belege keeps a company's bookkeeping: encrypted in the browser under a passkey, synced between own devices, with a local bridge next to bank, mail and keys.
+Belege keeps a company's payment and receipt records: encrypted in the browser under a passkey, synced between own devices, with a local bridge next to bank, mail and keys.
 
 ## Reporting a weakness
 
