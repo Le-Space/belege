@@ -293,6 +293,8 @@ export default {
 			accountDigits: 'Ein Konto hat 4 bis 8 Ziffern.',
 			taxKeyDigits: 'Ein BU-Schlüssel hat bis zu 4 Ziffern.',
 			rateFormat: 'Der Kurs ist eine Zahl ab 0, z. B. 0,0042 – oder 0 für einen wertlosen Token.',
+			rateAmbiguous:
+				'„{value}“ kann beides sein: mit Tausenderpunkt oder mit drei Nachkommastellen – ein Unterschied um das Tausendfache. Schreib den Kurs ohne Tausendertrennzeichen (58123) oder mit einer Nachkommastelle mehr (2,3450).',
 			rateNoQuantity: 'Diese Buchung hat keine Menge, zu der ein Kurs gehört.'
 		},
 		camt: {

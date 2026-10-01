@@ -20,6 +20,12 @@ All notable changes to Le Space Belege. The format follows
 
 - **What goes to the language model is blacked out further, and the app says what that is worth** (#226). New: names after a salutation or a label, phone numbers, dates of birth, tax ids and tax numbers, card numbers, e-mail addresses of others (the domain stays), four-digit postcodes, and the company names from Einstellungen (the app sends them with each call). The texts no longer promise more than that: redaction limits what leaves, it does not make a text anonymous; a local model sends nothing, and that is what the docs and the consent screen advise for now, until fast models in a TEE with a checkable attestation are available. The consent screen opens once more for it, and no longer names a bank.
 
+### Fixed
+
+- **Crypto bookings older than a year get their rate again.** CoinGecko's free API answers for the last 365 days only, so older days fall to Kraken – and Kraken's public API refuses more than a handful of calls in a row ("EGeneral:Too many requests"), so a wallet with bookings on many days was left with "Kurs fehlt: no rate found for BTC on …". The bridge now asks Kraken once per asset for its last 720 daily candles, keeps the completed days and answers every later day from them; days asked at once share that one call, and a "too many requests" answer is asked again after a growing wait. The rate is still the open of the day's 00:00 UTC candle, labelled Kraken.
+- **The "EUR je …" field no longer suggests 0,0042 for every asset.** The fixed example fit a cent token, not BTC. The field now shows the booking's own rate as it is typed (no thousands separators), or nothing when there is none.
+- **A rate typed by hand is no longer read 1000× too small.** "58.123" in the "EUR je …" field was taken as 58.123 EUR, although in German it means 58 123. A rate is now read the same in either language: with both marks (`60.123,40`, `60,123.40`) the last is the decimal, a mark used twice separates thousands, and `0,0042` or `1,5` stay decimals. A single mark before exactly three digits (`58.123`, `1,500`) could be either and is refused with a note on how to write it.
+
 ### Security
 
 - **A relay no longer learns what a node speaks.** identify now has two lists: a peer that has not proved the passkey, every relay included, is told identify and the relay protocols only; gossipsub, Bitswap, WebRTC signalling and the extensions a desktop serves its own devices are named to a device after its proof. A later change is pushed to each with its own list (#209).

@@ -52,7 +52,7 @@
 	import { tradeArrow, tradeSides, tradeSideWhat } from './exchanges/trades.js';
 	import { acknowledgeImportChange, setManualRate } from './booking/actions.js';
 	import { isBookingConfirmed } from './booking/suggest.js';
-	import { quantityText, valuationText } from './assets/valuation.js';
+	import { quantityText, rateInputPlaceholder, valuationText } from './assets/valuation.js';
 	import { safeExplorerUrl, walletChain } from './wallets/chains.js';
 	import { renderSVG } from 'uqr';
 	import { addressBook, payeeName, shortAddress, walletParties } from './bank/payee.js';
@@ -1681,7 +1681,7 @@
 										class="mt-1 min-h-11 w-40 rounded-md border border-border bg-surface px-2 font-mono text-sm text-heading"
 										inputmode="decimal"
 										bind:value={rateText}
-										placeholder="0,0042"
+										placeholder={rateInputPlaceholder(tx.valuation?.rate)}
 										data-testid="tx-rate-input"
 									/></label
 								>

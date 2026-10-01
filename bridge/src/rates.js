@@ -7,6 +7,12 @@
 //   - a crypto asset: its price at 00:00 UTC of that day
 //       1. CoinGecko /coins/{id}/history (its daily snapshot at 00:00 UTC)
 //       2. failing that, Kraken's daily candle of that day, its open price
+//     CoinGecko's public and demo API answer for the last 365 days only. Kraken
+//     answers one call with its last 720 daily candles; the completed ones are
+//     kept per pair, so a wallet with bookings on many days costs one Kraken
+//     call per asset, not one per day – Kraken's public API refuses more than a
+//     handful in a row ("EGeneral:Too many requests"), and those days then had
+//     no rate at all.
 //     With `prefer: 'kraken'` (a booking on the Kraken exchange) the order
 //     turns: Kraken's own EUR price first, CoinGecko as the fallback; and
 //     Kraken can then price any asset it trades against EUR (`<SYMBOL>EUR`),
@@ -93,12 +99,16 @@ const ddmmyyyy = (/** @type {string} */ day) => day.split('-').reverse().join('-
 /** @param {string} day */
 const startOfDay = (day) => Math.floor(Date.parse(`${day}T00:00:00Z`) / 1000);
 
+/** Waits before Kraken is asked again after "too many requests", in ms. */
+const KRAKEN_RETRIES = Object.freeze([1000, 2000, 4000, 8000]);
+
 /**
  * @param {object} [options]
  * @param {typeof fetch} [options.fetch]
  * @param {() => Promise<string | null>} [options.coingeckoKey] a CoinGecko demo key, if one is in the keychain
  * @param {() => Date} [options.now]
  * @param {number} [options.cacheSize]
+ * @param {(ms: number) => Promise<void>} [options.delay] the wait before Kraken is asked again after it said "too many requests"
  * @param {ReturnType<typeof import('./dex-rate.js').createDexRates> | null} [options.dex]
  *   a token's pool rate at a block, when CoinGecko has none (issue #163)
  */
@@ -119,7 +129,8 @@ export function createRateService({
 	coingeckoKey = async () => null,
 	now = () => new Date(),
 	cacheSize = 500,
-	dex = null
+	dex = null,
+	delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 } = {}) {
 	/** @type {Map<string, Rate>} */
 	const cache = new Map();
@@ -177,18 +188,74 @@ export function createRateService({
 		return id;
 	}
 
+	/**
+	 * Per Kraken pair: the open of each completed day, by its 00:00 UTC in
+	 * seconds, and the start of the day the series was asked on. Days before
+	 * its first candle Kraken has no daily candle for; days from `until` on
+	 * need a newer series.
+	 *
+	 * @type {Map<string, { until: number, opens: Map<number, string> }>}
+	 */
+	const krakenSeries = new Map();
+	/** @type {Map<string, Promise<{ until: number, opens: Map<number, string> } | null>>} one call per pair at a time */
+	const krakenAsking = new Map();
+
+	/** Kraken's daily candles of a pair; on "too many requests" it is asked again, a few times, waiting longer each time. @param {string} pair */
+	async function krakenOhlc(pair) {
+		const url = `https://api.kraken.com/0/public/OHLC?pair=${encodeURIComponent(pair)}&interval=1440`;
+		for (let attempt = 0; ; attempt++) {
+			let res;
+			try {
+				res = await f(url, { headers: { accept: 'application/json' } });
+			} catch {
+				return null;
+			}
+			const body = res.ok ? await res.json().catch(() => null) : null;
+			const errors = Array.isArray(body?.error) ? body.error.map(String) : [];
+			const throttled =
+				res.status === 429 || errors.some((e) => /too many requests|rate limit/i.test(e));
+			if (throttled && attempt < KRAKEN_RETRIES.length) {
+				await delay(KRAKEN_RETRIES[attempt]);
+				continue;
+			}
+			if (!body || errors.length) return null;
+			const key = Object.keys(body.result ?? {}).find((k) => k !== 'last');
+			const candles = key ? body.result[key] : null;
+			return Array.isArray(candles) ? /** @type {unknown[][]} */ (candles) : null;
+		}
+	}
+
+	/** @param {string} pair */
+	function loadKraken(pair) {
+		let asking = krakenAsking.get(pair);
+		if (!asking) {
+			asking = (async () => {
+				const candles = await krakenOhlc(pair);
+				if (!candles) return null;
+				const until = startOfDay(now().toISOString().slice(0, 10));
+				/** @type {Map<number, string>} */
+				const opens = new Map();
+				for (const c of candles) {
+					const time = Array.isArray(c) ? Number(c[0]) : NaN;
+					const open = Array.isArray(c) ? toDecimal(c[1]) : null;
+					if (Number.isSafeInteger(time) && open) opens.set(time, open);
+				}
+				// Today's candle is kept out, as the day's answer is (see rate()).
+				const done = new Map([...opens].filter(([time]) => time < until));
+				if (done.size) krakenSeries.set(pair, { until, opens: done });
+				return { until, opens };
+			})().finally(() => krakenAsking.delete(pair));
+			krakenAsking.set(pair, asking);
+		}
+		return asking;
+	}
+
 	/** @param {string} pair @param {string} day */
 	async function fromKraken(pair, day) {
-		const since = startOfDay(day) - 1;
-		const body = await getJson(
-			`https://api.kraken.com/0/public/OHLC?pair=${encodeURIComponent(pair)}&interval=1440&since=${since}`
-		);
-		if (!body || (Array.isArray(body.error) && body.error.length)) return null;
-		const key = Object.keys(body.result ?? {}).find((k) => k !== 'last');
-		/** @type {unknown[][]} */
-		const candles = key ? body.result[key] : [];
-		const candle = candles.find((c) => Number(c[0]) === startOfDay(day));
-		const open = candle ? toDecimal(candle[1]) : null;
+		const time = startOfDay(day);
+		const kept = krakenSeries.get(pair);
+		const series = kept && time < kept.until ? kept : await loadKraken(pair);
+		const open = series?.opens.get(time);
 		if (!open) return null;
 		return { rate: open, usdRate: null, source: 'kraken', at: `${day}T00:00:00Z` };
 	}
