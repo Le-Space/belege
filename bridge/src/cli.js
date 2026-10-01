@@ -15,7 +15,8 @@
 // $BELEGE_BRIDGE_TEST_IMAP_PASSWORD, $BELEGE_BRIDGE_TEST_LLM_KEY,
 // $BELEGE_BRIDGE_TEST_PORTAL_PASSWORD, $BELEGE_BRIDGE_TEST_KRAKEN_KEY as the
 // keychain's JSON, $BELEGE_BRIDGE_TEST_COINGECKO_KEY,
-// $BELEGE_BRIDGE_TEST_ALCHEMY_KEY; the macOS keychain is never read), an
+// $BELEGE_BRIDGE_TEST_ALCHEMY_KEY, $BELEGE_BRIDGE_TEST_ENABLEBANKING_KEY as the
+// key to the sealed Enable Banking file; the macOS keychain is never read), an
 // Alchemy key is sent only to a fake Alchemy at $BELEGE_BRIDGE_TEST_ALCHEMY_URL
 // (http://127.0.0.1:<port>, asked as `<url>/<network>/v2/<key>`; a key
 // without it is refused), exchange rates come from
@@ -67,6 +68,7 @@ let keychain;
 let mailKeychain;
 let llmKeychain;
 let krakenKeychain;
+let enablebankingKeychain;
 let coingeckoKeychain;
 let bitcoinKeychain;
 let alchemyKeychain;
@@ -95,6 +97,10 @@ if (testMode) {
 	portalKeychain = () => portalPassword;
 	portalPasswordDialog = async () => process.env.BELEGE_BRIDGE_TEST_PORTAL_DIALOG ?? null;
 	krakenKeychain = memoryKeychain(process.env.BELEGE_BRIDGE_TEST_KRAKEN_KEY ?? null, 'kraken');
+	enablebankingKeychain = memoryKeychain(
+		process.env.BELEGE_BRIDGE_TEST_ENABLEBANKING_KEY ?? null,
+		'enablebanking'
+	);
 	coingeckoKeychain = memoryKeychain(
 		process.env.BELEGE_BRIDGE_TEST_COINGECKO_KEY ?? null,
 		'coingecko'
@@ -132,6 +138,7 @@ try {
 		mailKeychain,
 		llmKeychain,
 		krakenKeychain,
+		enablebankingKeychain,
 		coingeckoKeychain,
 		bitcoinKeychain,
 		alchemyKeychain,

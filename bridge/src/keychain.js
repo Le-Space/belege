@@ -7,6 +7,9 @@
 //                            account `llm`       the LLM provider's API key
 //                            account `alchemy`   an optional Alchemy API key (own EVM wallets)
 //                            account `portal:<id>` a customer portal's password (optional)
+//                            account `enablebanking` the key to the sealed Enable Banking file
+//                                                  (sealed-file.js: the application key is too
+//                                                  large for the Credential Manager)
 //
 // The password never goes through argv (where `ps` would show it): reading
 // uses `security find-generic-password -w`, which prints it on stdout;
@@ -35,6 +38,7 @@ export const ACCOUNTS = /** @type {const} */ ({
 	bitcoin: { what: 'Bitcoin zpub', setup: 'setup:bitcoin' },
 	coingecko: { what: 'CoinGecko API key', setup: 'setup:coingecko' },
 	alchemy: { what: 'Alchemy API key', setup: 'setup:alchemy' },
+	enablebanking: { what: 'Enable Banking key', setup: 'setup:enablebanking' },
 	'portal:vodafone': { what: 'Vodafone password', setup: 'setup:portal vodafone' }
 });
 

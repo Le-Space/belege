@@ -29,6 +29,7 @@ export function defaultConfigPath() {
  * @property {LlmConfig} llm
  * @property {Record<string, import('./portals/index.js').PortalConfig>} portals customer portals, by id
  * @property {KrakenConfig} kraken
+ * @property {EnableBankingConfig} enablebanking
  * @property {LanRelayConfig} lanRelay
  */
 
@@ -42,6 +43,14 @@ export function defaultConfigPath() {
  * @typedef {object} KrakenConfig
  * @property {boolean} configured set by setup:kraken once a key is in the keychain
  * @property {string} baseUrl https://api.kraken.com; tests point it at a fake on 127.0.0.1
+ */
+
+/**
+ * @typedef {object} EnableBankingConfig the own Enable Banking application (issue #224)
+ * @property {boolean} configured set by setup:enablebanking once the key is sealed
+ * @property {string | null} appId the application id; not secret
+ * @property {string} baseUrl https://api.enablebanking.com; tests point it at a fake on 127.0.0.1
+ * @property {string} redirectUrl as registered for the application: the app's page
  */
 
 /**
@@ -99,6 +108,12 @@ export function defaultConfig() {
 		llm: defaultLlmConfig(),
 		portals: {},
 		kraken: { configured: false, baseUrl: 'https://api.kraken.com' },
+		enablebanking: {
+			configured: false,
+			appId: null,
+			baseUrl: 'https://api.enablebanking.com',
+			redirectUrl: 'https://belege.le-space.de/integrationen/bank/verbunden'
+		},
 		lanRelay: { host: null, port: DEFAULT_LAN_RELAY_PORT }
 	};
 }
@@ -115,6 +130,27 @@ function krakenBaseUrl(value) {
 		const loopback = url.hostname === '127.0.0.1' || url.hostname === 'localhost';
 		return url.protocol === 'https:' || (url.protocol === 'http:' && loopback)
 			? value.replace(/\/+$/, '')
+			: null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * A redirect URL: https, or http on this machine (a local app, tests).
+ *
+ * @param {unknown} value
+ */
+export function redirectUrlOf(value) {
+	if (typeof value !== 'string') return null;
+	try {
+		const url = new URL(value.trim());
+		const loopback = url.hostname === '127.0.0.1' || url.hostname === 'localhost';
+		return (url.protocol === 'https:' || (url.protocol === 'http:' && loopback)) &&
+			!url.username &&
+			!url.password &&
+			!url.hash
+			? url.href
 			: null;
 	} catch {
 		return null;
@@ -151,6 +187,17 @@ export function withDefaults(raw) {
 		kraken: {
 			configured: raw?.kraken?.configured === true,
 			baseUrl: krakenBaseUrl(raw?.kraken?.baseUrl) ?? d.kraken.baseUrl
+		},
+		enablebanking: {
+			configured: raw?.enablebanking?.configured === true,
+			appId:
+				typeof raw?.enablebanking?.appId === 'string' &&
+				/^[0-9a-f-]{36}$/i.test(raw.enablebanking.appId)
+					? raw.enablebanking.appId
+					: null,
+			// The same rule as Kraken's: https, or a fake on this machine.
+			baseUrl: krakenBaseUrl(raw?.enablebanking?.baseUrl) ?? d.enablebanking.baseUrl,
+			redirectUrl: redirectUrlOf(raw?.enablebanking?.redirectUrl) ?? d.enablebanking.redirectUrl
 		},
 		lanRelay: {
 			host:

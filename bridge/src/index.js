@@ -15,6 +15,7 @@ import { createMatchAssist } from './llm/match-assist.js';
 import { createTransferAssist } from './llm/transfer-assist.js';
 import { createVendorAssist } from './llm/vendor-assist.js';
 import { createKrakenClient, parseKrakenCredentials } from './kraken.js';
+import { createEnableBankingClient, enableBankingSecrets } from './enablebanking.js';
 import { createWalletService } from './chains/index.js';
 import { createAlephClient } from './aleph.js';
 import { buildRecipes, createPortalManager, keychainAccount } from './portals/index.js';
@@ -38,6 +39,7 @@ export { createExtractor, checkExtraction } from './llm/extract.js';
 export { redact } from './llm/redact.js';
 export { createRateService, RATE_SOURCES, RateError } from './rates.js';
 export { createKrakenClient, KrakenError, parseAsset } from './kraken.js';
+export { createEnableBankingClient, EnableBankingError } from './enablebanking.js';
 export {
 	createWalletService,
 	CHAINS,
@@ -59,6 +61,7 @@ export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
  * @param {import('./keychain.js').Keychain} [options.llmKeychain] the LLM API key
  * @param {import('./keychain.js').Keychain} [options.coingeckoKeychain] an optional CoinGecko demo key
  * @param {import('./keychain.js').Keychain} [options.krakenKeychain] the Kraken API key, JSON { key, secret }
+ * @param {import('./keychain.js').Keychain} [options.enablebankingKeychain] the key to the sealed Enable Banking file
  * @param {import('./keychain.js').Keychain} [options.alchemyKeychain] an optional Alchemy API key (own EVM wallets)
  * @param {(network: string) => string} [options.alchemyBaseUrl] tests: a fake Alchemy on 127.0.0.1
  * @param {string} [options.alephApi] tests: a fake Aleph API on 127.0.0.1, the default for /aleph
@@ -88,6 +91,7 @@ export async function startBridge({
 	llmKeychain = systemKeychain({ account: 'llm' }),
 	coingeckoKeychain = systemKeychain({ account: 'coingecko' }),
 	krakenKeychain = systemKeychain({ account: 'kraken' }),
+	enablebankingKeychain = systemKeychain({ account: 'enablebanking' }),
 	alchemyKeychain = systemKeychain({ account: 'alchemy' }),
 	alchemyBaseUrl,
 	alephApi,
@@ -276,6 +280,17 @@ export async function startBridge({
 					getCredentials: async () => parseKrakenCredentials(await krakenKeychain.read())
 				})
 			: null,
+		enablebanking:
+			config.enablebanking.configured && config.enablebanking.appId
+				? createEnableBankingClient({
+						appId: config.enablebanking.appId,
+						baseUrl: config.enablebanking.baseUrl,
+						// Opened on every request, so a key set up again counts at once.
+						getPrivateKey: async () =>
+							(await enableBankingSecrets({ configPath, keychain: enablebankingKeychain }).read())
+								.privateKey
+					})
+				: null,
 		rates,
 		// Aleph Cloud credits, read only (issue #113); valued with the same rates.
 		aleph: createAlephClient({ fetch: walletFetch, rates }),

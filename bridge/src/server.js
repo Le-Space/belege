@@ -96,6 +96,8 @@ const MAX_EXTRACT_BODY = 256 * 1024;
  * @param {import('./portals/manager.js').PortalManager | null} [options.portals] the portal connector
  * @param {ReturnType<typeof import('./rates.js').createRateService> | null} [options.rates] exchange rates
  * @param {ReturnType<typeof import('./kraken.js').createKrakenClient> | null} [options.kraken] null when Kraken is not set up
+ * @param {ReturnType<typeof import('./enablebanking.js').createEnableBankingClient> | null} [options.enablebanking]
+ *   the own Enable Banking application: null when not set up (issue #224; routes follow)
  * @param {ReturnType<typeof import('./chains/index.js').createWalletService> | null} [options.wallets] own wallets on public chains
  * @param {ReturnType<typeof import('./aleph.js').createAlephClient> | null} [options.aleph] Aleph Cloud credits, read only
  * @param {boolean} [options.alephLoopback] tests: an Aleph API on 127.0.0.1
@@ -119,6 +121,7 @@ export function createBridgeServer({
 	portals = null,
 	rates = null,
 	kraken = null,
+	enablebanking = null,
 	wallets = null,
 	aleph = null,
 	alephLoopback = false,
@@ -244,6 +247,7 @@ export function createBridgeServer({
 				llm: { configured: Boolean(llm), models: llm ? llm.models : [] },
 				portals: { available: Boolean(portals) },
 				kraken: { configured: Boolean(kraken) },
+				enablebanking: { configured: Boolean(enablebanking) },
 				wallets: { available: Boolean(wallets) },
 				lanRelay: { configured: Boolean(lanRelay), running: Boolean(lanRelay?.addr) }
 			});
