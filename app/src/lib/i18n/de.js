@@ -735,11 +735,12 @@ export default {
 					'Gelesen mit DOMParser im Browser. Vom Konto bleiben die letzten vier Stellen der IBAN und ein Hash davon.'
 			},
 			enableBanking: {
-				name: 'Enable Banking',
-				text: 'Geplant für Banken ohne Hibiscus: ein Kontoinformationsdienst mit EU-Lizenz.',
-				leaves: 'Deine Umsätze würden über seine Server laufen.',
+				name: 'Enable Banking (Banken ohne Hibiscus)',
+				text: 'Wenn eingerichtet: Die Bridge verbindet über deine eigene Enable-Banking-Anwendung Banken, die Hibiscus nicht abruft. Die Freigabe gibst du auf der Seite deiner Bank.',
+				leaves:
+					'An Enable Banking: welche Bank du verbindest, nach deiner Freigabe deine Konten (IBAN, Name, Währung) und, sobald das Abholen eingebaut ist, die Umsätze – sie laufen über seine Server. Dazu die IP-Adresse dieses Rechners. Dein Bank-Passwort sehen weder Belege noch die Bridge.',
 				technical:
-					'Ein Kontoinformationsdienst (AIS) nach PSD2: Nach deiner Freigabe bei der Bank ruft er Konten und Umsätze ab und reicht sie weiter; sie passieren dabei seine Server. Bisher nur in einem Versuch (spikes/enablebanking), in der App nicht eingebaut.'
+					'Ein Kontoinformationsdienst (AIS) nach PSD2. Nur die Bridge spricht mit api.enablebanking.com; jede Anfrage ist mit dem Schlüssel deiner Anwendung signiert (RS256-JWT). Schlüssel und Sitzungen liegen versiegelt neben der Konfiguration der Bridge, nie im Browser und nicht in den Büchern; die App bekommt von einem Konto nur die letzten vier Stellen der IBAN. Der Browser geht nur zur Bank und zurück nach /integrationen/bank/verbunden. Der Einmal-Code der Bank steht dabei in der Adresse und geht so auch über das Gateway, das die Seite ausliefert; ohne den Schlüssel ist er wertlos, und die Seite nimmt ihn sofort aus der Adresse. Eine Freigabe gilt höchstens 180 Tage; „Trennen“ beendet sie bei Enable Banking.'
 			},
 			deepseek: {
 				name: 'Sprachmodell – voreingestellt DeepSeek (Belege auslesen, KI-Suche)',
@@ -2546,6 +2547,47 @@ export default {
 			fromLabel: 'Ab Datum (optional)',
 			syncHintFrom:
 				'Holt alle Umsätze ab diesem Tag, soweit Hibiscus sie von der Bank abgerufen hat. Schon vorhandene werden nicht doppelt angelegt.'
+		},
+		enableBanking: {
+			title: 'Über Enable Banking',
+			intro:
+				'Für Banken ohne Hibiscus: Enable Banking, ein Kontoinformationsdienst mit EU-Lizenz, liest nach deiner Freigabe bei der Bank Konten und Umsätze. Die Bridge spricht mit deiner eigenen Enable-Banking-Anwendung; dein Bank-Passwort gibst du nur auf der Seite der Bank ein.',
+			needsBridge: 'Braucht die gekoppelte Bridge.',
+			needTitle: 'Was du brauchst:',
+			need1:
+				'Eine eigene Anwendung bei Enable Banking (Control Panel): Sie gibt dir eine Application-ID und eine private Schlüsseldatei.',
+			need2: 'Als Redirect-URL der Anwendung eingetragen:',
+			need3: 'Im Terminal, im Ordner von Belege:',
+			kind: { business: 'Geschäftskonto', personal: 'Privatkonto' },
+			kindLabel: 'Kontoart',
+			validUntil: 'freigegeben bis {date}',
+			unlink: 'Trennen',
+			unlinkConfirm:
+				'Die Verbindung zu {bank} trennen? Enable Banking beendet die Freigabe; schon geholte Umsätze bleiben in den Büchern.',
+			fetchLater: 'Umsätze über Enable Banking holen kommt im nächsten Schritt.',
+			country: 'Land',
+			bank: 'Bank',
+			bankPlaceholder: '{count} Banken – Namen tippen',
+			start: 'Bei der Bank freigeben',
+			going: 'Weiter zur Bank …',
+			startHint:
+				'Du gehst zur Seite deiner Bank, meldest dich dort an und gibst Lesezugriff für {days} Tage frei. Danach kommst du hierher zurück und entsperrst Belege noch einmal.',
+			returned: {
+				title: 'Bank verbunden?',
+				working: 'Die Antwort der Bank geht an die Bridge …',
+				linked: '{bank} ist verbunden: {count} Konten.',
+				refused:
+					'Die Bank hat keine Freigabe erteilt – abgebrochen oder abgelehnt. Nichts ist verbunden.',
+				notOurs:
+					'Diese Antwort gehört nicht zu der Freigabe, die in diesem Tab begonnen wurde. Nichts ist verbunden; starte die Freigabe noch einmal.',
+				notPaired: 'Dieses Gerät ist nicht mit der Bridge gekoppelt.',
+				none: 'Hier ist keine Antwort einer Bank angekommen.',
+				pasteLabel:
+					'Wenn die Bank dich auf eine andere Adresse geschickt hat (etwa beim Entwickeln auf localhost): die ganze Adresse aus der Adresszeile hier einfügen.',
+				pasteUse: 'Antwort übernehmen',
+				pasteInvalid: 'Diese Adresse enthält keine Antwort einer Bank.',
+				back: 'Zur Seite Bank'
+			}
 		},
 		camt: {
 			choose: 'Kontoauszug wählen …',

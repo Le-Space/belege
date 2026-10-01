@@ -21,6 +21,11 @@
 //   GET  /llm/status                                              token → provider, models, key present?
 //   POST /extract      { text, hints, source, confirmedByUser }   token
 //   GET  /rates?asset=BTC&date=YYYY-MM-DD[&prefer=kraken][&contract=0x…&chain=ethereum[&block=N&decimals=D]]  token → EUR per unit, source (rates.js; the DEX pool at the block: dex-rate.js)
+//   GET  /enablebanking/banks?country=DE                          token → the banks Enable Banking offers (enablebanking-links.js)
+//   POST /enablebanking/link { bank, country, psuType? }         token → { url, state, validUntil }: the bank's page
+//   POST /enablebanking/finish { code, state }                   token → { link }: the bank's answer becomes a session
+//   GET  /enablebanking/links                                     token → { links }: linked banks, consent end, IBAN last four
+//   DELETE /enablebanking/links/<session id>                      token → closed at Enable Banking and forgotten
 //   GET  /kraken/balances                                         token → non-zero balances (kraken.js)
 //   GET  /kraken/ledgers?since=YYYY-MM-DD                         token → the ledger, oldest first
 //   GET  /chains                                                  token → chains, endpoints, explorers, alchemy: bool (chains/)
@@ -97,7 +102,9 @@ const MAX_EXTRACT_BODY = 256 * 1024;
  * @param {ReturnType<typeof import('./rates.js').createRateService> | null} [options.rates] exchange rates
  * @param {ReturnType<typeof import('./kraken.js').createKrakenClient> | null} [options.kraken] null when Kraken is not set up
  * @param {ReturnType<typeof import('./enablebanking.js').createEnableBankingClient> | null} [options.enablebanking]
- *   the own Enable Banking application: null when not set up (issue #224; routes follow)
+ *   the own Enable Banking application: null when not set up (issue #224)
+ * @param {ReturnType<typeof import('./enablebanking-links.js').createEnableBankingLinks> | null} [options.enablebankingLinks]
+ *   linking a bank through it: null when not set up
  * @param {ReturnType<typeof import('./chains/index.js').createWalletService> | null} [options.wallets] own wallets on public chains
  * @param {ReturnType<typeof import('./aleph.js').createAlephClient> | null} [options.aleph] Aleph Cloud credits, read only
  * @param {boolean} [options.alephLoopback] tests: an Aleph API on 127.0.0.1
@@ -122,6 +129,7 @@ export function createBridgeServer({
 	rates = null,
 	kraken = null,
 	enablebanking = null,
+	enablebankingLinks = null,
 	wallets = null,
 	aleph = null,
 	alephLoopback = false,
@@ -652,6 +660,36 @@ export function createBridgeServer({
 					);
 				}
 				return send(res, 200, { since, entries, transferRefs });
+			}
+		}
+
+		if (path.startsWith('/enablebanking/')) {
+			if (!enablebankingLinks) {
+				return send(res, 503, {
+					error: 'Enable Banking is not set up: run `pnpm setup:enablebanking`.',
+					code: 'EB_NOT_SET_UP'
+				});
+			}
+			if (path === '/enablebanking/banks' && req.method === 'GET') {
+				return send(res, 200, {
+					banks: await enablebankingLinks.banks(url.searchParams.get('country') ?? '')
+				});
+			}
+			if (path === '/enablebanking/link' && req.method === 'POST') {
+				const body = /** @type {any} */ (await readJson(req));
+				return send(res, 200, await enablebankingLinks.start(body ?? {}));
+			}
+			if (path === '/enablebanking/finish' && req.method === 'POST') {
+				const body = /** @type {any} */ (await readJson(req));
+				return send(res, 200, { link: await enablebankingLinks.finish(body ?? {}) });
+			}
+			if (path === '/enablebanking/links' && req.method === 'GET') {
+				return send(res, 200, { links: await enablebankingLinks.list() });
+			}
+			const linkId = /^\/enablebanking\/links\/([0-9a-fA-F-]{36})$/.exec(path)?.[1];
+			if (linkId && req.method === 'DELETE') {
+				await enablebankingLinks.unlink(linkId);
+				return send(res, 200, { ok: true });
 			}
 		}
 

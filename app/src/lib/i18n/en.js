@@ -714,11 +714,12 @@ export default {
 					'Read with DOMParser in the browser. Of the account, the last four digits of the IBAN and a hash of it are kept.'
 			},
 			enableBanking: {
-				name: 'Enable Banking',
-				text: 'Planned for banks without Hibiscus: an account information service with an EU licence.',
-				leaves: 'Your transactions would pass through its servers.',
+				name: 'Enable Banking (banks without Hibiscus)',
+				text: 'When set up: the bridge links banks Hibiscus does not reach, through your own Enable Banking application. You give the consent on your bank’s own page.',
+				leaves:
+					'To Enable Banking: which bank you link, after your consent your accounts (IBAN, name, currency) and, once fetching is built in, the transactions – they pass through its servers. Also this computer’s IP address. Neither Belege nor the bridge sees your bank password.',
 				technical:
-					'An account information service (AIS) under PSD2: after your authorisation at the bank, it retrieves accounts and transactions and passes them on; in doing so they pass through its servers. So far only in an experiment (spikes/enablebanking), not built into the app.'
+					'An account information service (AIS) under PSD2. Only the bridge talks to api.enablebanking.com; every request is signed with your application’s key (RS256 JWT). The key and the sessions are sealed beside the bridge’s configuration, never in the browser and not in the books; the app gets only the last four characters of an account’s IBAN. The browser only goes to the bank and back to /integrationen/bank/verbunden. The bank’s one-time code is in that address and so also passes the gateway that serves the page; without the key it is worthless, and the page takes it out of the address at once. A consent lasts 180 days at most; “Unlink” ends it at Enable Banking.'
 			},
 			deepseek: {
 				name: 'Language model – DeepSeek by default (extracting receipts, AI search)',
@@ -2510,6 +2511,46 @@ export default {
 			fromLabel: 'From date (optional)',
 			syncHintFrom:
 				'Fetches all transactions from this day, as far as Hibiscus has retrieved them from the bank. Existing ones are not created twice.'
+		},
+		enableBanking: {
+			title: 'Through Enable Banking',
+			intro:
+				'For banks without Hibiscus: Enable Banking, an account information service with an EU licence, reads accounts and transactions after you consent at your bank. The bridge talks to your own Enable Banking application; you enter your bank password only on the bank’s own page.',
+			needsBridge: 'Needs the paired bridge.',
+			needTitle: 'What you need:',
+			need1:
+				'An application of your own at Enable Banking (Control Panel): it gives you an application id and a private key file.',
+			need2: 'Registered as the application’s redirect URL:',
+			need3: 'In the terminal, in Belege’s folder:',
+			kind: { business: 'Business account', personal: 'Personal account' },
+			kindLabel: 'Kind of account',
+			validUntil: 'consent until {date}',
+			unlink: 'Unlink',
+			unlinkConfirm:
+				'Unlink {bank}? Enable Banking ends the consent; transactions already fetched stay in the books.',
+			fetchLater: 'Fetching transactions through Enable Banking comes in the next step.',
+			country: 'Country',
+			bank: 'Bank',
+			bankPlaceholder: '{count} banks – type a name',
+			start: 'Consent at the bank',
+			going: 'On to the bank …',
+			startHint:
+				'You go to your bank’s page, sign in there and allow read access for {days} days. Then you come back here and unlock Belege once more.',
+			returned: {
+				title: 'Bank linked?',
+				working: 'The bank’s answer goes to the bridge …',
+				linked: '{bank} is linked: {count} accounts.',
+				refused: 'The bank gave no consent – cancelled or refused. Nothing is linked.',
+				notOurs:
+					'This answer does not belong to the consent started in this tab. Nothing is linked; start the consent again.',
+				notPaired: 'This device is not paired with the bridge.',
+				none: 'No answer from a bank arrived here.',
+				pasteLabel:
+					'If the bank sent you to another address (when developing on localhost, say): paste the whole address from the address bar here.',
+				pasteUse: 'Use this answer',
+				pasteInvalid: 'This address holds no answer from a bank.',
+				back: 'To the Bank page'
+			}
 		},
 		camt: {
 			choose: 'Choose bank statement …',

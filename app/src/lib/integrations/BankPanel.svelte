@@ -14,6 +14,7 @@
 	import { isWalletSource } from '$lib/wallets/chains.js';
 	import { t } from '$lib/i18n/index.js';
 	import { bridge, bridgeClient } from './bridge-state.svelte.js';
+	import EnableBankingCard from './EnableBankingCard.svelte';
 
 	/** @typedef {import('$lib/bridge/client.js').BridgeAccount} BridgeAccount */
 	/** @typedef {{ new: number, updated: number, skipped: number }} Counts */
@@ -225,6 +226,8 @@
 		{/if}
 	</section>
 {/if}
+
+<EnableBankingCard />
 
 <section
 	class="mt-6 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm"

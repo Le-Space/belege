@@ -16,6 +16,7 @@ import { createTransferAssist } from './llm/transfer-assist.js';
 import { createVendorAssist } from './llm/vendor-assist.js';
 import { createKrakenClient, parseKrakenCredentials } from './kraken.js';
 import { createEnableBankingClient, enableBankingSecrets } from './enablebanking.js';
+import { createEnableBankingLinks } from './enablebanking-links.js';
 import { createWalletService } from './chains/index.js';
 import { createAlephClient } from './aleph.js';
 import { buildRecipes, createPortalManager, keychainAccount } from './portals/index.js';
@@ -39,7 +40,11 @@ export { createExtractor, checkExtraction } from './llm/extract.js';
 export { redact } from './llm/redact.js';
 export { createRateService, RATE_SOURCES, RateError } from './rates.js';
 export { createKrakenClient, KrakenError, parseAsset } from './kraken.js';
-export { createEnableBankingClient, EnableBankingError } from './enablebanking.js';
+export {
+	createEnableBankingClient,
+	EnableBankingError,
+	enableBankingSecrets
+} from './enablebanking.js';
 export {
 	createWalletService,
 	CHAINS,
@@ -249,6 +254,23 @@ export async function startBridge({
 		}
 	}
 
+	const enablebankingSecrets = enableBankingSecrets({
+		configPath,
+		keychain: enablebankingKeychain
+	});
+	const enablebankingClient =
+		config.enablebanking.configured && config.enablebanking.appId
+			? createEnableBankingClient({
+					appId: config.enablebanking.appId,
+					baseUrl: config.enablebanking.baseUrl,
+					// Opened on every request, so a key set up again counts at once.
+					getPrivateKey: async () =>
+						/** @type {import('./enablebanking.js').EnableBankingSecrets} */ (
+							await enablebankingSecrets.read()
+						).privateKey
+				})
+			: null;
+
 	const bridge = createBridgeServer({
 		config,
 		lanRelay: lanRelay
@@ -280,17 +302,15 @@ export async function startBridge({
 					getCredentials: async () => parseKrakenCredentials(await krakenKeychain.read())
 				})
 			: null,
-		enablebanking:
-			config.enablebanking.configured && config.enablebanking.appId
-				? createEnableBankingClient({
-						appId: config.enablebanking.appId,
-						baseUrl: config.enablebanking.baseUrl,
-						// Opened on every request, so a key set up again counts at once.
-						getPrivateKey: async () =>
-							(await enableBankingSecrets({ configPath, keychain: enablebankingKeychain }).read())
-								.privateKey
-					})
-				: null,
+		enablebanking: enablebankingClient,
+		enablebankingLinks: enablebankingClient
+			? createEnableBankingLinks({
+					client: enablebankingClient,
+					secrets: enablebankingSecrets,
+					redirectUrl: config.enablebanking.redirectUrl,
+					log
+				})
+			: null,
 		rates,
 		// Aleph Cloud credits, read only (issue #113); valued with the same rates.
 		aleph: createAlephClient({ fetch: walletFetch, rates }),

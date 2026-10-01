@@ -8,6 +8,10 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **Enable Banking, step 2: link a bank** (#224). Integrationen → Bank has a block "Über Enable Banking": choose country and bank, consent on the bank's own page, and come back to `/integrationen/bank/verbunden`. The bank's one-time code leaves the address before the passkey is asked for; the bridge accepts it only for a link it started itself, once, within 30 minutes, and keeps the session sealed. Linked banks show with the day their consent ends and can be unlinked. Without a set-up bridge the block says what is needed. The consent screen names Enable Banking as a service that runs when set up (version 19). `pnpm setup:enablebanking` now recognises a certificate given instead of the key, takes a quoted or `$HOME` path, and says where it looked. Fetching transactions is step 3.
+
+### Added
+
 - **Enable Banking, step 1: the bridge talks to your own application** (#224). `pnpm setup:enablebanking` checks the application id and its key file against Enable Banking, says whether the application is active and whether the redirect URL is registered, and seals the key beside the bridge's configuration (the key to it in the keychain or the Windows Credential Manager). Requests are signed with that key, go to one host only, follow no redirect and are limited in time and size. `/health` reports it. Linking a bank follows.
 
 ### Changed

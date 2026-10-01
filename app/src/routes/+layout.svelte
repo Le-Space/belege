@@ -23,6 +23,8 @@
 	import { app } from '$lib/session.svelte.js';
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
+	import { afterNavigate, replaceState } from '$app/navigation';
+	import { captureReturn } from '$lib/enablebanking/return.js';
 	import { resetPending, wipeBrowser } from '$lib/storage/reset.js';
 
 	// The language before the first word is drawn (i18n/, #192).
@@ -39,6 +41,16 @@
 	// the app is drawn or opened until this page has wiped the browser.
 	const resetting = resetPending();
 	let resetBlocked = $state(false);
+	// A bank's answer to an Enable Banking link leaves the address before the
+	// passkey is asked for (enablebanking/return.js, #224). After the first
+	// navigation, not in onMount: SvelteKit's replaceState needs the mounted root.
+	afterNavigate(() => {
+		captureReturn({
+			location,
+			replace: (path) => replaceState(path, page.state),
+			storage: sessionStorage
+		});
+	});
 	onMount(async () => {
 		if (!resetting) return;
 		const report = await wipeBrowser();
