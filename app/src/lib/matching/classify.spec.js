@@ -339,6 +339,7 @@ describe('cleanMatchingSettings', () => {
 		).toEqual({
 			companyNames: ['le space UG'],
 			ownNames: [],
+			employees: [],
 			ownIbans: ['DE00111122223333444455'],
 			rules: [
 				{ id: 'ok', field: 'counterparty', contains: 'Miete', action: 'private', reason: '' }
@@ -357,6 +358,7 @@ describe('cleanMatchingSettings', () => {
 		expect(cleanMatchingSettings(null)).toEqual({
 			companyNames: [],
 			ownNames: [],
+			employees: [],
 			ownIbans: [],
 			rules: [],
 			graceDays: 7,

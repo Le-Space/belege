@@ -29,6 +29,7 @@
 
 	let companyText = $state('');
 	let ownNamesText = $state('');
+	let employeesText = $state('');
 	let ibanText = $state('');
 	/** @type {import('./matching/classify.js').Rule[]} */
 	let rules = $state([]);
@@ -68,6 +69,7 @@
 		const current = cleanMatchingSettings(app.matchingSettings);
 		companyText = current.companyNames.join('\n');
 		ownNamesText = current.ownNames.join('\n');
+		employeesText = current.employees.join('\n');
 		ibanText = current.ownIbans.join('\n');
 		rules = current.rules;
 		graceDays = current.graceDays;
@@ -213,6 +215,7 @@
 				...cleanMatchingSettings(app.matchingSettings),
 				companyNames: lines(companyText),
 				ownNames: lines(ownNamesText),
+				employees: lines(employeesText),
 				ownIbans: lines(ibanText),
 				rules: $state.snapshot(rules),
 				graceDays: String(graceDays)
@@ -270,6 +273,16 @@
 				data-testid="own-names"
 			></textarea>
 			<span class="mt-1 text-xs text-faint">{t('anweisungen.ownNamesHint')}</span>
+		</label>
+		<label class="flex flex-col text-sm">
+			<span class="font-medium text-heading">{t('anweisungen.employees')}</span>
+			<textarea
+				class="{input} min-h-16 font-sans"
+				bind:value={employeesText}
+				placeholder="Max Beispiel"
+				data-testid="employees"
+			></textarea>
+			<span class="mt-1 text-xs text-faint">{t('anweisungen.employeesHint')}</span>
 		</label>
 		<label class="flex flex-col text-sm">
 			<span class="font-medium text-heading">{t('anweisungen.ownIbans')}</span>

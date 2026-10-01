@@ -25,9 +25,16 @@ import { chartKind } from './chart.js';
 /** @type {readonly CatalogueAccount[]} */
 export const SKR03_ACCOUNTS = Object.freeze([
 	{ number: '1360', name: 'Geldtransit', kind: 'neutral' },
+	{ number: '1740', name: 'Verbindlichkeiten aus Lohn und Gehalt', kind: 'neutral' },
+	{ number: '1741', name: 'Verbindlichkeiten aus Lohn- und Kirchensteuer', kind: 'neutral' },
+	{ number: '1742', name: 'Verbindlichkeiten im Rahmen der sozialen Sicherheit', kind: 'neutral' },
+	{ number: '1780', name: 'Umsatzsteuer-Vorauszahlungen', kind: 'neutral' },
+	{ number: '1790', name: 'Umsatzsteuer Vorjahr', kind: 'neutral' },
 	{ number: '1800', name: 'Privatentnahmen allgemein', kind: 'private' },
+	{ number: '2200', name: 'Körperschaftsteuer', kind: 'neutral' },
 	{ number: '1890', name: 'Privateinlagen', kind: 'private' },
 	{ number: '4210', name: 'Miete (unbewegliche Wirtschaftsgüter)', kind: 'expense' },
+	{ number: '4320', name: 'Gewerbesteuer', kind: 'expense' },
 	{ number: '4360', name: 'Versicherungen', kind: 'expense' },
 	{ number: '4600', name: 'Werbekosten', kind: 'expense' },
 	{ number: '4650', name: 'Bewirtungskosten', kind: 'expense' },

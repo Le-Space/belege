@@ -1021,6 +1021,8 @@ export default {
 			privateLine: '{paid} paid · {repaid} paid back',
 			loans: 'Loans',
 			loansLine: '{received} received · {paid} paid',
+			taxes: 'Taxes to the tax office',
+			taxesLine: '{paid} paid · {refunded} refunded',
 			unpricedOne: '1 crypto booking without a rate is not counted.',
 			unpricedMany: '{count} crypto bookings without a rate are not counted.',
 			show: 'show',
@@ -1106,6 +1108,10 @@ export default {
 			'own-transfer': 'Own transfer',
 			'bank-fee': 'Bank statement',
 			loan: 'Loan',
+			wage: 'Wage',
+			'payroll-tax': 'Wage tax',
+			'social-security': 'Social security',
+			'tax-payment': 'Tax',
 			'crypto-reward': 'Exchange earnings',
 			'crypto-stake': 'Staking',
 			refund: 'Refund',
@@ -1121,6 +1127,11 @@ export default {
 			'own-transfer': 'Own transfer (1360) – no receipt needed',
 			'bank-fee': 'Bank charge – the bank statement is the receipt',
 			loan: 'Loan – the contract is the receipt',
+			wage: 'Wage payment – the receipt is the payslip from the payroll',
+			'payroll-tax': 'Wage tax to the tax office – the receipt is the wage-tax return',
+			'social-security':
+				'Social security contributions – the receipt is the contribution statement',
+			'tax-payment': 'Tax payment – the receipt is the return or the assessment',
 			'crypto-reward': 'Staking or earn income – the exchange’s statement is the receipt',
 			'crypto-stake': 'Delegated to staking – no receipt needed, not on 1360',
 			refund: 'Charge and refund – no receipt needed',
@@ -1195,6 +1206,23 @@ export default {
 			bankFeeLearned:
 				'Bank charge: you have classified a booking with this payment reference this way before – the bank statement is the receipt',
 			loan: 'Loan: “Darlehen” (loan) in the payment reference – the contract is the receipt',
+			wageEmployee:
+				'Wage to {employee} (on your employees list){period}: the receipt is the payslip from the payroll, not this payment.',
+			wageWords:
+				'“Lohn”, “Gehalt” or “Minijob” in the payment reference{period}: the receipt is the payslip from the payroll, not this payment.',
+			payrollTax:
+				'Wage tax to the tax office{period}: the receipt is the wage-tax return from the payroll.',
+			social: 'Contributions to {counterparty}{period}: the receipt is the contribution statement.',
+			tax: '{tax} to {office}{period}: the receipt is the advance return or the tax assessment.',
+			taxName: {
+				vat: 'VAT',
+				corporate: 'Corporate tax',
+				trade: 'Trade tax',
+				other: 'Tax'
+			},
+			taxOffice: 'the tax office',
+			taxNumber: 'the tax office (tax number in the payment reference)',
+			period: ' for {period}',
 			exchangeFee:
 				'Exchange fee: Kraken charged it for this booking – the exchange’s statement is the receipt',
 			networkFee: 'Blockchain network fee: the transaction in the block explorer is the receipt',
@@ -1411,6 +1439,9 @@ export default {
 		ownNames: 'Own names (owners, shareholders)',
 		ownNamesHint:
 			'One name per line, e.g. “Erika Mustermann”. When one of them is the counterparty, “Find receipt” does not search the mailbox for it, but for a word from the payment reference.',
+		employees: 'Employees (wages, mini-jobs)',
+		employeesHint:
+			'One name per line. A payment to one of them is a wage: its receipt is the payslip from the payroll, not a receipt in the mailbox.',
 		ownIbans: 'Own IBANs',
 		ownIbansHint:
 			'One IBAN per line. Payments to these accounts count as an own transfer. Matching already knows the accounts from the books: {list}.',
@@ -1849,6 +1880,7 @@ export default {
 			'Which account this payment is booked to (contra account, SKR 03) and with which BU key. The app suggests, you confirm – only what you have confirmed gets exported.',
 		suggestion: 'Suggestion',
 		source: {
+			payroll: 'by the kind of payment (wage, wage tax, contributions, tax)',
 			transfer: 'Own transfer',
 			fee: 'Bank fee',
 			private: 'Private (paid by mistake), by legal form',
@@ -2002,6 +2034,7 @@ export default {
 			'crypto-expenses': 'Expenses · crypto',
 			private: 'Private from the business account',
 			loan: 'Loans',
+			tax: 'Taxes to the tax office',
 			unpriced: 'Crypto without a rate'
 		},
 		receiptFilter: 'Receipt filter',

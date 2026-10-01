@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **Wages, wage tax, contributions and tax payments are recognised** (#233). A payment to the tax office (by its name or a tax number in the purpose), to the Minijob-Zentrale or a health insurer, or a wage – to a person on the new employees list in Einstellungen, or with Lohn, Gehalt or Minijob in the purpose – no longer asks for a receipt: "Warum?" names the document that stands for it (payslip, wage-tax return, contribution statement, return or assessment) and the period. An SKR 03 account is suggested (1740, 1741, 1742, 1780/1790, 2200, 4320). On Home, taxes to the tax office have a line of their own.
+
 - **A Filecoin wallet can be typed as `0x…`.** An Ethereum-style address on Filecoin is the same account as its `f410f…` form; Belege converts it (blake2b checksum included) and keeps the f410f form, so the wallet is one whichever way it was typed and matches the addresses Filfox names.
 
 - **Filecoin wallets** – an own Filecoin address as an account. The bridge reads it from Filfox's public API (no key): every send and receipt, and a message's miner and burn fee as one fee booking, valued at the day's rate. f1, f3 and f410f addresses are checked by their checksum first. The message CID is the hash, so a withdrawal to Kraken pairs with Kraken's deposit as an own transfer by itself. The consent screen names Filfox for Filecoin and lists the chain.

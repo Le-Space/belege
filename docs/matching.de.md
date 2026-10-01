@@ -18,6 +18,16 @@ Eine Belastung und ihre Erstattung werden gepaart, wenn all das gilt:
 
 Eine volle Erstattung braucht auf keiner Seite einen Beleg; nach einer Teilerstattung braucht die Belastung weiter ihren. _Als Erstattung verknüpfen …_ in der Zahlung verknüpft ein Paar von Hand, _Keine Erstattung_ hält eines auseinander ([`app/src/lib/matching/refunds.js`](../app/src/lib/matching/refunds.js)).
 
+## Löhne, Lohnsteuer, Abgaben, Steuerzahlungen (Issue #233)
+
+Diese Zahlungen bekommen keinen eigenen Beleg: Für einen Lohn ist der Lohnlauf der Beleg (Lohnabrechnung, Lohnjournal), für die Lohnsteuer die Lohnsteuer-Anmeldung, für Sozialabgaben der Beitragsnachweis, für eine Steuerzahlung die Voranmeldung oder der Bescheid. Belege erkennt sie und fragt nach keinem Beleg; „Warum?“ an der Zahlung nennt das Dokument, das für sie steht (`app/src/lib/matching/payroll.js`):
+
+- **Steuerzahlungen:** Die Gegenpartei ist ein Finanzamt (Finanzamt, Finanzkasse, FK …) oder der Verwendungszweck trägt eine Steuernummer; die Steuer an ihrem Wort (LSt, USt, KSt, GewSt …); Gewerbesteuer an eine Stadt- oder Gemeindekasse. Der Zeitraum aus dem Verwendungszweck (`12/2025`, `IV/2025`, `2024/2025`).
+- **Abgaben:** die Minijob-Zentrale, die Knappschaft, eine Krankenkasse, eine Berufsgenossenschaft.
+- **Löhne:** eine ausgehende Zahlung an eine Person auf der Mitarbeiterliste (Einstellungen → Mitarbeiter) oder mit Lohn, Gehalt oder Minijob im Verwendungszweck.
+
+Vorgeschlagenes Konto (SKR 03, mit dem Steuerberater zu prüfen): 1740 Löhne, 1741 Lohnsteuer, 1742 Abgaben, 1780 Umsatzsteuer-Vorauszahlungen (1790 für ein früheres Jahr), 2200 Körperschaftsteuer, 4320 Gewerbesteuer. Auf Home stehen Steuern ans Finanzamt in einer eigenen Zeile; Löhne, Lohnsteuer und Abgaben sind Ausgaben.
+
 ## Lieferantenkonten
 
 Manche Anbieter passen nie eine Zahlung zu einem Beleg: Ein Prepaid-Tarif bucht Aufladungen, und seine monatlichen „Rechnungen“ sind Nachweise, wofür das Guthaben verbraucht wurde. _Lieferantenkonto ansehen_ (in einer Zahlung oder einem Beleg) legt Zahlungen und Belege des Anbieters auf eine Zeitleiste mit laufendem Saldo: Anfangsbestand + Aufladungen − Verbrauch. Es nennt, was nicht aufgeht:

@@ -18,6 +18,16 @@ A charge and its refund pair when all of this holds:
 
 A full refund needs no receipt on either side; after a partial one the charge still needs its receipt. _Als Erstattung verknüpfen …_ in the payment links a pair by hand, _Keine Erstattung_ keeps one apart ([`app/src/lib/matching/refunds.js`](../app/src/lib/matching/refunds.js)).
 
+## Wages, wage tax, contributions, tax payments (issue #233)
+
+These payments get no receipt of their own: the payroll run is the receipt for a wage (payslip, payroll journal), the wage-tax return for the wage tax, the contribution statement for social security, the advance return or the assessment for a tax payment. Belege recognises them and asks for no receipt; the payment's "Warum?" names the document that stands for it (`app/src/lib/matching/payroll.js`):
+
+- **Tax payments:** the counterparty is a tax office (Finanzamt, Finanzkasse, FK …) or the purpose carries a tax number; the tax by its word (LSt, USt, KSt, GewSt …); trade tax to a municipality's cash office. The period from the purpose (`12/2025`, `IV/2025`, `2024/2025`).
+- **Contributions:** the Minijob-Zentrale, the Knappschaft, a health insurer, a Berufsgenossenschaft.
+- **Wages:** an outgoing payment to a person on the employees list (Einstellungen → Mitarbeiter), or with Lohn, Gehalt or Minijob in the purpose.
+
+The account suggested (SKR 03, to be checked with the tax adviser): 1740 wages, 1741 wage tax, 1742 contributions, 1780 VAT advance payments (1790 for an earlier year), 2200 corporate tax, 4320 trade tax. On Home, taxes paid to the tax office have a line of their own; wages, wage tax and contributions are expenses.
+
 ## Vendor accounts
 
 Some vendors never pair one payment with one receipt: a prepaid tariff books top-ups, and its monthly "invoices" are statements of what the credit was used for. _Lieferantenkonto ansehen_ (in a payment or a receipt) puts the vendor's payments and receipts on one timeline with a running balance: opening balance + top-ups − consumption. It names what does not add up:

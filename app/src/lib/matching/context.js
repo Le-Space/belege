@@ -417,6 +417,7 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 			});
 		},
 		companyNames: clean.companyNames,
+		employees: clean.employees,
 		sameReference(tx) {
 			if (tx.movement === 'fee' || !tx.amountCents) return [];
 			/** @type {Map<string, Record<string, any>>} */
