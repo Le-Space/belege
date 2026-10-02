@@ -36,6 +36,12 @@ export const DB_NAME_INFO = 'belege/db-name/v1';
 export const BLOB_KEY_INFO = 'belege/blob-key/v1';
 
 /**
+ * The key a backup is sealed with (backup/archive.js, issue #77). Bumping it
+ * makes every backup made so far unreadable.
+ */
+export const BACKUP_KEY_INFO = 'belege/backup-key/v1';
+
+/**
  * Bumping this gives Belege another libp2p peer id: every app it is paired
  * with over UCEP (ucep/) would have to pair again.
  */
@@ -109,6 +115,18 @@ export async function deriveDatabaseKey(prfOutput, info = DB_KEY_INFO) {
 export async function deriveBlobKey(prfOutput) {
 	assertPrfOutput(prfOutput);
 	return hkdf(prfOutput, BLOB_KEY_INFO, KEY_BYTES);
+}
+
+/**
+ * The AES-GCM key a whole backup is sealed with, before it leaves for a
+ * storage service. A key of its own: a backup is not a record or a file.
+ *
+ * @param {Uint8Array} prfOutput the passkey's PRF result
+ * @returns {Promise<Uint8Array>} 32 bytes
+ */
+export async function deriveBackupKey(prfOutput) {
+	assertPrfOutput(prfOutput);
+	return hkdf(prfOutput, BACKUP_KEY_INFO, KEY_BYTES);
 }
 
 /**

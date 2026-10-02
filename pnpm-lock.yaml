@@ -44,6 +44,9 @@ importers:
       '@le-space/orbitdb-identity-provider-webauthn-did':
         specifier: 0.8.0
         version: 0.8.0(@orbitdb/core@4.0.0)
+      '@le-space/orbitdb-storage-bridge':
+        specifier: 0.16.1
+        version: 0.16.1(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)
       '@le-space/ucep':
         specifier: 0.2.0-draft.4
         version: 0.2.0-draft.4
@@ -205,8 +208,8 @@ importers:
         specifier: 8.0.1
         version: 8.0.1
       '@le-space/orbitdb-storage-bridge':
-        specifier: 0.15.0
-        version: 0.15.0(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)
+        specifier: 0.16.1
+        version: 0.16.1(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)
       '@libp2p/circuit-relay-v2':
         specifier: 4.2.9
         version: 4.2.9
@@ -786,8 +789,8 @@ packages:
     peerDependencies:
       '@orbitdb/core': ^4.0.0
 
-  '@le-space/orbitdb-storage-bridge@0.15.0':
-    resolution: {integrity: sha512-m7M0wjhcjw0hUhGHnLJe4EMzKeql4Mf6dKm9O1QJ0EJd7VEaLJdwJigOu5+OwPnkV1imn+jnz51CtteiETDpwQ==}
+  '@le-space/orbitdb-storage-bridge@0.16.1':
+    resolution: {integrity: sha512-ldTEa1fsNy1okUxnBZ7GXVK1aKGTpwbZi94+4iuUVQRtsQoAuPhKi3+bqogDiyJpGQUa/a9gbXXQb8y0m5SfRw==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
       lucide-svelte: '>=0.400.0 <1.0.0'
@@ -5092,7 +5095,7 @@ snapshots:
 
   '@helia/fallback-router@1.1.1':
     dependencies:
-      '@helia/interface': 7.1.1
+      '@helia/interface': 7.1.2
       '@multiformats/uri-to-multiaddr': 10.0.0
       multiformats: 14.0.5
       uint8arrays: 6.1.1
@@ -5253,8 +5256,8 @@ snapshots:
 
   '@helia/trustless-gateway-client@1.0.6':
     dependencies:
-      '@helia/interface': 7.1.1
-      '@helia/utils': 3.0.5
+      '@helia/interface': 7.1.2
+      '@helia/utils': 3.0.6
       '@libp2p/utils': 7.4.1
       '@multiformats/multiaddr': 13.0.3
       '@multiformats/multiaddr-matcher': 3.0.2
@@ -5541,7 +5544,7 @@ snapshots:
       iso-webauthn-varsig: '@le-space/iso-webauthn-varsig@0.3.0'
       multiformats: 14.0.5
 
-  '@le-space/orbitdb-storage-bridge@0.15.0(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)':
+  '@le-space/orbitdb-storage-bridge@0.16.1(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)':
     dependencies:
       '@chainsafe/libp2p-noise': 17.0.0
       '@chainsafe/libp2p-yamux': 8.0.1

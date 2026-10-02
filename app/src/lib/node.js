@@ -35,6 +35,7 @@ import * as dagCbor from '@ipld/dag-cbor';
 
 import { createEphemeralPeerKey, createOfflineLibp2p } from './network.js';
 import {
+	deriveBackupKey,
 	deriveBlobKey,
 	deriveDatabaseKey,
 	deriveDeviceAuthKey,
@@ -61,6 +62,8 @@ export const STORAGE_PATHS = Object.freeze({
  * @property {string} did
  * @property {Awaited<ReturnType<typeof openStore>>} store
  * @property {import('./receipts/blob-store.js').BlobStore} blobs receipt files, sealed with the blob key
+ * @property {(meta: { appVersion: string, onProgress?: (p: import('./backup/archive.js').BackupProgress) => void }) => Promise<Awaited<ReturnType<typeof import('./backup/archive.js').buildBackup>>>} makeBackup
+ *   everything this browser keeps, as one sealed backup (issue #77)
  * @property {string} identityHash the identity document's hash
  * @property {string} peerId this session's libp2p peer id
  * @property {Uint8Array} ucepSeed the seed of the UCEP node's peer key, derived from the passkey
@@ -93,6 +96,7 @@ export async function startSession(credential) {
 	const prfOutput = await readPrfOutput(credential);
 	const encryptionKey = await deriveDatabaseKey(prfOutput);
 	const blobKey = await deriveBlobKey(prfOutput);
+	const backupKey = await deriveBackupKey(prfOutput);
 	// The UCEP node's key (ucep/net.js): the same peer id on every unlock.
 	const ucepSeed = await derivePeerKeySeed(prfOutput);
 
@@ -181,6 +185,23 @@ export async function startSession(credential) {
 			peerId: libp2p.peerId.toString(),
 			store,
 			blobs,
+			/**
+			 * Everything this browser keeps, as one sealed backup (backup/archive.js,
+			 * loaded only when asked for).
+			 *
+			 * @param {{ appVersion: string, onProgress?: (p: import('./backup/archive.js').BackupProgress) => void }} meta
+			 */
+			async makeBackup({ appVersion, onProgress }) {
+				const { buildBackup } = await import('./backup/archive.js');
+				return buildBackup({
+					databases: store.databases(),
+					blockstore: helia.blockstore,
+					receipts: store.receipts,
+					key: backupKey,
+					appVersion,
+					onProgress
+				});
+			},
 			ucepSeed,
 			online,
 			relays,

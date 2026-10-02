@@ -77,6 +77,9 @@ let alchemyBaseUrl;
 /** @type {Record<string, string> | null} */
 /** @type {string | undefined} tests: a fake Aleph API on 127.0.0.1 */
 let alephApi;
+let alephBackupKeychain;
+/** @type {string | undefined} tests: the fake's IPFS host, where the app uploads a backup */
+let alephIngestUrl;
 let fixedRates = null;
 /** @type {((id: string) => import('./keychain.js').Keychain) | undefined} */
 let portalKeychain;
@@ -125,7 +128,12 @@ if (testMode) {
 			process.exit(1);
 		}
 		alephApi = fakeAleph;
+		alephIngestUrl = `${fakeAleph}/api/v0/add`;
 	}
+	alephBackupKeychain = memoryKeychain(
+		process.env.BELEGE_BRIDGE_TEST_ALEPH_BACKUP_KEY ?? null,
+		'aleph-backup'
+	);
 	if (process.env.BELEGE_BRIDGE_TEST_FIXED_RATES) {
 		fixedRates = JSON.parse(process.env.BELEGE_BRIDGE_TEST_FIXED_RATES);
 	}
@@ -144,6 +152,8 @@ try {
 		alchemyKeychain,
 		alchemyBaseUrl,
 		alephApi,
+		alephBackupKeychain,
+		alephIngestUrl,
 		fixedRates,
 		walletLoopback: testMode,
 		portalKeychain,

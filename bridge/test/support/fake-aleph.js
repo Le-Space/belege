@@ -103,7 +103,11 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 			const bytes = new Uint8Array(await file.arrayBuffer());
 			const hash = cidOf(bytes);
 			added.set(hash, bytes);
-			res.writeHead(200, { 'Content-Type': 'application/json' });
+			// As Aleph's host answers: any page may read it (the app uploads from the browser).
+			res.writeHead(200, {
+				'Content-Type': 'application/json',
+				'Access-Control-Allow-Origin': '*'
+			});
 			return res.end(
 				`${JSON.stringify({ Name: file.name, Hash: hash, Size: String(bytes.length) })}\n`
 			);

@@ -6,6 +6,7 @@ import { app, currentStore } from '$lib/session.svelte.js';
 import { getSetting } from '$lib/store/settings.js';
 import { loadWallets } from '$lib/wallets/wallet-sync.js';
 import { loadAleph } from '$lib/aleph/aleph.js';
+import { loadBackups } from '$lib/backup/history.js';
 import { isWalletSource } from '$lib/wallets/chains.js';
 import { loadAlerts } from './alerts.js';
 import { bridge, loadBridge } from './bridge-state.svelte.js';
@@ -14,6 +15,8 @@ const kept = $state({
 	wallets: 0,
 	aleph: 0,
 	invoiceApp: false,
+	/** @type {string | null} */
+	lastBackup: null,
 	deviceFlag: false,
 	/** @type {import('./alerts.js').Alerts} */
 	alerts: { kraken: null, wallets: {}, enablebanking: [] }
@@ -33,12 +36,14 @@ export async function loadIntegrationFacts({ recheck = false } = {}) {
 	} catch {
 		kept.deviceFlag = false;
 	}
-	const [w, a, inv, al] = await Promise.all([
+	const [w, a, inv, al, bk] = await Promise.all([
 		loadWallets(store.settings),
 		loadAleph(store.settings),
 		getSetting(store.settings, 'ucepInvoiceApp'),
-		loadAlerts(store.settings)
+		loadAlerts(store.settings),
+		loadBackups(store.settings)
 	]);
+	kept.lastBackup = bk[0]?.at ?? null;
 	kept.alerts = al;
 	kept.wallets = w.length;
 	kept.aleph = a.accounts.length;
@@ -66,6 +71,7 @@ export const integrationFacts = () => ({
 	wallets: kept.wallets,
 	aleph: kept.aleph,
 	invoiceApp: kept.invoiceApp,
+	lastBackup: kept.lastBackup,
 	alerts: kept.alerts,
 	isWalletSource
 });

@@ -264,7 +264,7 @@ export function createBridgeClient({
 
 	return {
 		url: base,
-		/** @returns {Promise<{ ok: boolean, paired: boolean, pairingOpen: boolean, hibiscus: { configured: boolean }, mail?: { configured: boolean, accountingAddress: string | null }, llm?: { configured: boolean, models: string[] }, kraken?: { configured: boolean }, enablebanking?: { configured: boolean }, wallets?: { available: boolean } }>} */
+		/** @returns {Promise<{ ok: boolean, paired: boolean, pairingOpen: boolean, hibiscus: { configured: boolean }, mail?: { configured: boolean, accountingAddress: string | null }, llm?: { configured: boolean, models: string[] }, kraken?: { configured: boolean }, enablebanking?: { configured: boolean }, backup?: { aleph: boolean }, wallets?: { available: boolean } }>} */
 		health: () => call('/health'),
 		/** @param {string} code @returns {Promise<string>} the token */
 		async pair(code) {
@@ -490,6 +490,23 @@ export function createBridgeClient({
 			call(
 				`/aleph/statement?address=${encodeURIComponent(address)}&month=${encodeURIComponent(month)}${api ? `&api=${encodeURIComponent(api)}` : ''}`
 			),
+		/**
+		 * The backup on Aleph (issue #77): whether `pnpm setup:aleph` has made the
+		 * bridge's backup key, the account that pays, its credits and where the
+		 * app uploads a backup itself.
+		 *
+		 * @returns {Promise<{ aleph: { configured: boolean, address?: string, credits?: number | null, ingestUrl?: string } }>}
+		 */
+		backupStatus: () => call('/backup/status'),
+		/**
+		 * Have Aleph keep a backup the app uploaded to its IPFS host: the bridge
+		 * signs the STORE message with its backup key.
+		 *
+		 * @param {string} cid
+		 * @returns {Promise<{ cid: string, address: string, itemHash: string, status: string }>}
+		 */
+		alephKeep: (cid) =>
+			call('/backup/aleph/pin', { method: 'POST', body: JSON.stringify({ cid }) }),
 		/**
 		 * "Mit KI weitersuchen": the LLM suggests search words and sender domains
 		 * from the booking (redacted by the bridge), the bridge searches, and the

@@ -36,7 +36,8 @@
 //   POST /<chain>/wallet { address, endpoints? }                  token → an own wallet's transfers and balance
 //   POST /aleph/accounts { addresses, api? }                      token → which are Aleph accounts: credits, entries (aleph.js)
 //   GET  /aleph/statement?address=0x…&month=YYYY-MM[&api=]        token → a month's credits: balances, top-ups, usage per day
-//   GET  /backup/status                                           token → { aleph: { configured, address, credits } } (aleph-backup.js)
+//   GET  /backup/status                                           token → { aleph: { configured, address, credits, ingestUrl } } (aleph-backup.js)
+//   POST /backup/aleph/pin { cid }                                token → { cid, address, itemHash, status }: what the app uploaded, kept
 //   POST /backup/aleph?name=<file name>  (the sealed bytes)       token → { cid, size, address, itemHash, status }: uploaded and kept
 //   /portals…          customer portals (portals/routes.js)            token
 //
@@ -639,16 +640,39 @@ export function createBridgeServer({
 						.then((list) => list[0]?.credits ?? 0)
 						.catch(() => null)
 				: null;
-			return send(res, 200, { aleph: { configured: true, address, credits } });
+			return send(res, 200, {
+				aleph: { configured: true, address, credits, ingestUrl: alephBackup.ingestUrl }
+			});
 		}
 
-		if (path === '/backup/aleph' && req.method === 'POST') {
-			if (!alephBackup) {
-				return send(res, 503, {
-					error: 'the Aleph backup is not set up: run `pnpm setup:aleph`',
-					code: 'ALEPH_BACKUP_NOT_SET_UP'
-				});
+		if (path.startsWith('/backup/aleph') && req.method === 'POST' && !alephBackup) {
+			return send(res, 503, {
+				error: 'the Aleph backup is not set up: run `pnpm setup:aleph`',
+				code: 'ALEPH_BACKUP_NOT_SET_UP'
+			});
+		}
+
+		if (path === '/backup/aleph/pin' && req.method === 'POST' && alephBackup) {
+			// The app uploaded the sealed backup to Aleph's IPFS host itself; the
+			// bridge only signs the STORE message that has Aleph keep it.
+			const body = /** @type {any} */ (await readJson(req));
+			let kept;
+			try {
+				kept = await alephBackup.pin(String(body?.cid ?? ''));
+			} catch (/** @type {any} */ error) {
+				if (error?.name === 'BackendError') {
+					throw Object.assign(new Error(error.message), {
+						status: 502,
+						code: `ALEPH_BACKUP_${error.code ?? 'FAILED'}`
+					});
+				}
+				throw error;
 			}
+			log(`backup: kept on Aleph, ${kept.status}`);
+			return send(res, 200, kept);
+		}
+
+		if (path === '/backup/aleph' && req.method === 'POST' && alephBackup) {
 			const name = url.searchParams.get('name') ?? 'belege-backup';
 			if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(name)) {
 				return send(res, 400, { error: 'name: letters, digits, dot, dash and underscore only' });

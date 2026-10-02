@@ -1,7 +1,10 @@
 // The backup's copy on Aleph Cloud (issue #77): the app hands over a sealed
 // file, the bridge puts it on Aleph's IPFS and asks Aleph to keep it.
 //
-// Two steps, both through @le-space/orbitdb-storage-bridge:
+// Two steps, both through @le-space/orbitdb-storage-bridge. The app does the
+// first itself, from the browser (no key needed), and asks the bridge only for
+// the second (`pin`); `put` does both here, for a browser that cannot reach
+// Aleph:
 //   1. `backends/aleph` uploads the bytes to Aleph's IPFS host, without a key
 //      (`POST https://ipfs.aleph.cloud/api/v0/add`); the answer is the file's
 //      CID. Uploaded is not kept: Aleph drops what nobody pays for.
@@ -48,6 +51,15 @@ export function isBackupKey(key) {
 	if (!/^(0x)?[0-9a-fA-F]{64}$/.test(k)) return false;
 	return secp256k1.utils.isValidSecretKey(bytesOf(k));
 }
+
+/**
+ * A CID as Aleph's IPFS host answers it (CIDv0, `Qm…`) or a CIDv1 in base32.
+ *
+ * @param {unknown} cid
+ */
+export const isAlephCid = (cid) =>
+	typeof cid === 'string' &&
+	(/^Qm[1-9A-HJ-NP-Za-km-z]{44}$/.test(cid) || /^b[a-z2-7]{50,100}$/.test(cid));
 
 /** A new backup key, as 64 hex digits. */
 export const newBackupKey = () => Buffer.from(secp256k1.utils.randomSecretKey()).toString('hex');
@@ -97,10 +109,39 @@ export function createAlephBackup({ getKey, ingestUrl = ALEPH_INGEST, apiHost, f
 		return k;
 	}
 
+	/** A STORE message for a CID, signed with the key. @param {string} k @param {string} cid */
+	function storeFor(k, cid) {
+		return createAlephPin({
+			sender: addressOf(k),
+			sign: async (_address, message) => personalSign(k, message),
+			apiHost,
+			channel: BACKUP_CHANNEL,
+			fetch: f
+		})(cid);
+	}
+
 	return {
+		/** Where the app uploads a backup itself: Aleph's IPFS host (tests: a fake). */
+		ingestUrl,
+
 		/** The account that pays for keeping the backups. */
 		async address() {
 			return addressOf(await key());
+		},
+
+		/**
+		 * Ask Aleph to keep what the app has already uploaded to its IPFS host.
+		 *
+		 * @param {string} cid the id Aleph's IPFS host answered
+		 * @returns {Promise<{ cid: string, address: string, itemHash: string, status: string }>}
+		 */
+		async pin(cid) {
+			if (!isAlephCid(cid)) {
+				throw Object.assign(new Error('not a CID'), { status: 400, code: 'ALEPH_BACKUP_CID' });
+			}
+			const k = await key();
+			const { itemHash, status } = await storeFor(k, cid);
+			return { cid, address: addressOf(k), itemHash, status };
 		},
 
 		/**
@@ -113,19 +154,12 @@ export function createAlephBackup({ getKey, ingestUrl = ALEPH_INGEST, apiHost, f
 		async put(bytes, { name }) {
 			const k = await key();
 			const sender = addressOf(k);
-			const pin = createAlephPin({
-				sender,
-				sign: async (_address, message) => personalSign(k, message),
-				apiHost,
-				channel: BACKUP_CHANNEL,
-				fetch: f
-			});
 			let kept = /** @type {{ itemHash: string, status: string } | null} */ (null);
 			const backend = createAlephBackend({
 				ingestUrl,
 				fetch: f,
 				pin: async (cid) => {
-					kept = await pin(cid);
+					kept = await storeFor(k, cid);
 					return kept;
 				}
 			});
