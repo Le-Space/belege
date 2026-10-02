@@ -1974,6 +1974,8 @@ export default {
 		settingsLink: 'ändern unter Einstellungen',
 		checks: 'Vor dem Export',
 		check: {
+			tests:
+				'Testbuchungen mitexportieren ({count}) – das Paket heißt dann TEST_…, zum Ausprobieren des Exports, nicht für die Buchhaltung.',
 			sampleMixed:
 				'In diesem Monat stehen Beispieldaten neben echten Buchungen – so geht kein Export. Entferne die Beispieldaten oben.',
 			sampleAll:

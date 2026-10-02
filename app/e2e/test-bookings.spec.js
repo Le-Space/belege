@@ -16,6 +16,8 @@ test('test bookings are said so, and removed with one click', async ({ page }) =
 	// One from the button, one as older builds wrote it (no mark), and a real one.
 	await page.getByRole('navigation').getByRole('link', { name: 'Zahlungen' }).click();
 	await page.getByTestId('add-test-transaction').click();
+	// Stored (it books onto the Testkonto first) before the page reloads below.
+	await expect(page.getByTestId('test-bookings-banner')).toContainText('1 Testbuchung(en)');
 	await page.evaluate(async () => {
 		const e2e = /** @type {any} */ (window).__belegeE2E;
 		await e2e.addTransaction({
@@ -40,6 +42,13 @@ test('test bookings are said so, and removed with one click', async ({ page }) =
 	const banner = page.getByTestId('test-bookings-banner');
 	await expect(banner).toContainText('2 Testbuchung(en) in den Büchern.');
 	await expect(page.getByTestId('transaction')).toHaveCount(3);
+
+	// The export leaves them out unless asked for.
+	await page.getByRole('navigation').getByRole('link', { name: 'Export' }).click();
+	await expect(page.getByTestId('export-tests')).toContainText('Testbuchungen mitexportieren (2)');
+	await expect(page.getByTestId('export-include-tests')).not.toBeChecked();
+	await page.getByRole('navigation').getByRole('link', { name: 'Zahlungen' }).click();
+	await page.getByTestId('filter-all').click();
 
 	await banner.getByTestId('test-bookings-remove').click();
 	await expect(banner).toHaveCount(0);

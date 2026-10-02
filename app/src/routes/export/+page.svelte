@@ -41,6 +41,8 @@
 	let month = $derived(chosen && months.includes(chosen) ? chosen : (months[0] ?? null));
 
 	let settings = $derived(cleanDatevSettings(app.datevSettings));
+	/** Test bookings into the package too (sample/test-bookings.js) – off unless asked for. */
+	let includeTests = $state(false);
 	let plan = $derived(
 		month
 			? planMonth({
@@ -49,7 +51,8 @@
 					accounts: app.accounts,
 					receipts: app.receipts,
 					matches: app.matches,
-					classifications: app.classifications
+					classifications: app.classifications,
+					includeTests
 				})
 			: null
 	);
@@ -248,6 +251,14 @@
 	>
 		<h2 class="text-lg font-semibold text-heading">{t('export.checks')}</h2>
 		<ul class="mt-2 flex flex-col gap-3 text-sm">
+			{#if plan.tests}
+				<li data-testid="export-tests">
+					<label class="flex items-center gap-2">
+						<input type="checkbox" bind:checked={includeTests} data-testid="export-include-tests" />
+						{t('export.check.tests', { count: plan.tests })}
+					</label>
+				</li>
+			{/if}
 			{#if plan.sample !== 'none'}
 				{@render item(
 					'sample',

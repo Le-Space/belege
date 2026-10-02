@@ -66,6 +66,8 @@ export const RECEIPT_NUMBER = /^(\d{4}-\d{2})-(\d{3})$/;
  * @property {import('./statement.js').Statement[]} statements one per account with a booking in the month
  * @property {{ unassigned: Rec[], noLedger: Rec[], noBankAccount: Rec[], missingReceipt: Rec[], unlinkedReceipts: Rec[], unverified: Rec[], unpriced: Rec[] }} checks
  *   unpriced: crypto bookings whose rate is missing – no euro amount to export (#162)
+ * @property {number} tests test bookings in the month, exported or not
+ * @property {boolean} testsIncluded whether they are in this package
  * @property {'none' | 'all' | 'mixed'} sample sample bookings in the month (issue #200): none, only such, or
  *   mixed with real ones – which is never exported
  * @property {boolean} blocked
@@ -196,14 +198,23 @@ export function bookingText(tx, receipt) {
  * @param {Rec[]} params.receipts
  * @param {Rec[]} params.matches
  * @param {Record<string, any>} params.classifications
+ * @param {boolean} [params.includeTests] take test bookings too (sample/test-bookings.js); off by default
  * @returns {MonthPlan}
  */
-export function planMonth({ month, transactions, accounts, receipts, matches, classifications }) {
+export function planMonth({
+	month,
+	transactions,
+	accounts,
+	receipts,
+	matches,
+	classifications,
+	includeTests = false
+}) {
 	const live = transactions.filter((t) => !t.deleted);
-	// A test booking (sample/test-bookings.js) is never exported.
-	const bookings = live
-		.filter((t) => String(t.bookedOn ?? '').slice(0, 7) === month && !isTestBooking(t))
-		.sort(byDate);
+	const ofMonth = live.filter((t) => String(t.bookedOn ?? '').slice(0, 7) === month);
+	// Test bookings (sample/test-bookings.js) only on request.
+	const tests = ofMonth.filter((t) => isTestBooking(t)).length;
+	const bookings = ofMonth.filter((t) => includeTests || !isTestBooking(t)).sort(byDate);
 	const accountOf = (/** @type {Rec} */ tx) => accounts.find((a) => a.id === tx.accountId) ?? null;
 	const receiptOf = (/** @type {string} */ id) =>
 		receipts.find((r) => r.id === id && !r.deleted) ?? null;
@@ -316,6 +327,8 @@ export function planMonth({ month, transactions, accounts, receipts, matches, cl
 		statements,
 		checks,
 		sample,
+		tests,
+		testsIncluded: includeTests && tests > 0,
 		blocked:
 			bookings.length === 0 ||
 			sample === 'mixed' ||

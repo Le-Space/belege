@@ -8,8 +8,13 @@
 // existed, are recognised by what the button wrote: Testpartner GmbH,
 // "Testbuchung", no account and no source.
 //
+// The button books onto a "Testkonto" (`testAccount: true`), so a test booking
+// has a bank account and can be exported when someone wants to try the
+// export – only on request, and the package then says TEST_ in its name
+// (export/plan.js `includeTests`, export/build.js).
+//
 // Removing is a soft delete, as everywhere in these books: out of every list,
-// kept in the append-only log. The export never takes one (export/plan.js).
+// kept in the append-only log; the Testkonto goes with them.
 
 import { isActive } from '../matching/engine.js';
 
@@ -29,13 +34,22 @@ export const isTestBooking = (t) =>
 			!t?.accountId &&
 			!t?.source));
 
+/** The account the button books onto: one, found again by its source. */
+export const TEST_ACCOUNT = /** @type {const} */ ({
+	source: 'test',
+	sourceAccountId: 'testkonto',
+	ibanLast4: '0000',
+	name: 'Testkonto',
+	currency: 'EUR'
+});
+
 /** @param {Rec[]} transactions */
 export const testBookings = (transactions) => transactions.filter(isTestBooking);
 
 /**
  * Take every test booking out, with the matches and questions that point at one.
  *
- * @param {{ transactions: any, matches: any, questions: any }} store
+ * @param {{ transactions: any, matches: any, questions: any, accounts?: any }} store
  * @returns {Promise<number>} how many bookings were removed
  */
 export async function removeTestBookings(store) {
@@ -52,6 +66,13 @@ export async function removeTestBookings(store) {
 	}
 	for (const q of await store.questions.list({ where: points })) {
 		await store.questions.softDelete(q.id);
+	}
+	if (store.accounts) {
+		for (const a of await store.accounts.list({
+			where: (/** @type {Rec} */ a) => a.testAccount === true
+		})) {
+			await store.accounts.softDelete(a.id);
+		}
 	}
 	return ids.size;
 }

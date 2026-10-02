@@ -1943,6 +1943,8 @@ export default {
 		settingsLink: 'change under Settings',
 		checks: 'Before the export',
 		check: {
+			tests:
+				'Export test bookings too ({count}) – the package is then called TEST_…, for trying the export, not for the books.',
 			sampleMixed:
 				'This month has sample data beside real bookings – no export like this. Remove the sample data at the top.',
 			sampleAll:

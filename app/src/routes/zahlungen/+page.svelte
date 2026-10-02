@@ -27,10 +27,12 @@
 	import { tradeArrow, tradeSides, tradeSideWhat } from '$lib/exchanges/trades.js';
 	import {
 		removeTestBookings,
+		TEST_ACCOUNT,
 		TEST_COUNTERPARTY,
 		TEST_PURPOSE,
 		testBookings
 	} from '$lib/sample/test-bookings.js';
+	import { upsertAccount } from '$lib/bank/import.js';
 
 	/** @typedef {{ id: string, bookedOn: string, counterparty?: string, purpose?: string, amountCents?: number, currency?: string, accountId?: string, source?: string, receiptId?: string | null, noReceipt?: any, booking?: any, importChange?: any }} Tx */
 
@@ -149,11 +151,13 @@
 		if (account.source === 'kraken' || isWalletSource(account.source)) return account.name;
 		// By the booking's own source: a statement file's account continued through Enable Banking has both.
 		const via =
-			tx.source === 'enablebanking'
-				? 'Enable Banking'
-				: account.source === 'camt'
-					? 'CAMT'
-					: 'Hibiscus';
+			account.source === 'test'
+				? 'Test'
+				: tx.source === 'enablebanking'
+					? 'Enable Banking'
+					: account.source === 'camt'
+						? 'CAMT'
+						: 'Hibiscus';
 		return `${via} ···${account.ibanLast4}`;
 	}
 
@@ -161,7 +165,14 @@
 	const showTestButton = import.meta.env.DEV || import.meta.env.VITE_E2E === 'true';
 
 	async function addTestTransaction() {
-		await currentStore()?.transactions.put({
+		const store = currentStore();
+		if (!store) return;
+		// On the Testkonto, so it can be exported on request (sample/test-bookings.js).
+		const account = await upsertAccount(store.accounts, { ...TEST_ACCOUNT });
+		if (!account.testAccount) await store.accounts.put({ ...account, testAccount: true });
+		await store.transactions.put({
+			accountId: account.id,
+			source: TEST_ACCOUNT.source,
 			bookedOn: new Date().toISOString().slice(0, 10),
 			counterparty: TEST_COUNTERPARTY,
 			purpose: TEST_PURPOSE,

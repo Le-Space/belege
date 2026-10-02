@@ -26,6 +26,7 @@ describe('test bookings', () => {
 
 	it('removed with what points at them; everything else stays', async () => {
 		const store = {
+			accounts: memoryCollection('accounts').collection,
 			transactions: memoryCollection('transactions').collection,
 			matches: memoryCollection('matches').collection,
 			questions: memoryCollection('questions').collection
@@ -50,9 +51,17 @@ describe('test bookings', () => {
 		await store.questions.put({ transactionId: b.id, kind: 'missing-receipt' });
 		expect(testBookings(await store.transactions.list())).toHaveLength(2);
 
+		const testAccount = await store.accounts.put({
+			name: 'Testkonto',
+			source: 'test',
+			testAccount: true
+		});
+		const realAccount = await store.accounts.put({ name: 'Girokonto', source: 'camt' });
 		expect(await removeTestBookings(store)).toBe(2);
 		expect((await store.transactions.list()).map((t) => t.id)).toEqual([real.id]);
 		expect(await store.matches.list()).toEqual([]);
 		expect(await store.questions.list()).toEqual([]);
+		expect((await store.accounts.list()).map((x) => x.id)).toEqual([realAccount.id]);
+		expect(testAccount.id).toBeTruthy();
 	});
 });
