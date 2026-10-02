@@ -36,6 +36,7 @@ import { TRANSFER_ACCOUNT } from '../booking/skr03.js';
 import { quantityText } from '../assets/valuation.js';
 import { DOCUMENT_LOCALE } from '../i18n/index.js';
 import { monthStatements } from './statement.js';
+import { isTestBooking } from '../sample/test-bookings.js';
 
 /** @typedef {Record<string, any>} Rec */
 /** @typedef {import('../matching/classify.js').Classification} Classification */
@@ -199,7 +200,10 @@ export function bookingText(tx, receipt) {
  */
 export function planMonth({ month, transactions, accounts, receipts, matches, classifications }) {
 	const live = transactions.filter((t) => !t.deleted);
-	const bookings = live.filter((t) => String(t.bookedOn ?? '').slice(0, 7) === month).sort(byDate);
+	// A test booking (sample/test-bookings.js) is never exported.
+	const bookings = live
+		.filter((t) => String(t.bookedOn ?? '').slice(0, 7) === month && !isTestBooking(t))
+		.sort(byDate);
 	const accountOf = (/** @type {Rec} */ tx) => accounts.find((a) => a.id === tx.accountId) ?? null;
 	const receiptOf = (/** @type {string} */ id) =>
 		receipts.find((r) => r.id === id && !r.deleted) ?? null;

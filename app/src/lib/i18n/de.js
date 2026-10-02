@@ -2050,6 +2050,12 @@ export default {
 	monthPicker: { month: '{label}: Monat', year: '{label}: Jahr' },
 	zahlungen: {
 		title: 'Zahlungen',
+		tests: {
+			title: '{count} Testbuchung(en) in den Büchern.',
+			what: 'Angelegt mit „Testbuchung anlegen“ (nur in der Entwicklungsversion) – keine echten Zahlungen. Sie blockieren den Export ihres Monats.',
+			remove: 'Testbuchungen entfernen',
+			removing: 'Entferne …'
+		},
 		addTest: 'Testbuchung anlegen',
 		emptyBefore: 'Noch keine Zahlungen – unter ',
 		emptyLink: 'Bank',

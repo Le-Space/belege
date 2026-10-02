@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Test bookings can be removed.** "Testbuchung anlegen" – a button of the development build – could put made-up payments (Testpartner GmbH, −19,99 €) into real books, with device sync even onto every own device; nothing could take them out, and with no bank account they blocked the export of their month. They are now marked, Zahlungen says so with "Testbuchungen entfernen", older ones are found by what the button wrote, and the export never takes one.
+
 ## [0.6.0] – 2026-10-01
 
 ### Added
