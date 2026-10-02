@@ -10,6 +10,8 @@
 //                            account `enablebanking` the key to the sealed Enable Banking file
 //                                                  (sealed-file.js: the application key is too
 //                                                  large for the Credential Manager)
+//                            account `aleph-backup` the bridge's own key for the backup on Aleph
+//                                                  (aleph-backup.js; made by setup:aleph)
 //
 // The password never goes through argv (where `ps` would show it): reading
 // uses `security find-generic-password -w`, which prints it on stdout;
@@ -39,6 +41,7 @@ export const ACCOUNTS = /** @type {const} */ ({
 	coingecko: { what: 'CoinGecko API key', setup: 'setup:coingecko' },
 	alchemy: { what: 'Alchemy API key', setup: 'setup:alchemy' },
 	enablebanking: { what: 'Enable Banking key', setup: 'setup:enablebanking' },
+	'aleph-backup': { what: 'Aleph backup key', setup: 'setup:aleph' },
 	'portal:vodafone': { what: 'Vodafone password', setup: 'setup:portal vodafone' }
 });
 

@@ -47,6 +47,7 @@ Each source is set up once, in the terminal; secrets go into the macOS keychain,
 | `pnpm setup:bitcoin`       | a Bitcoin wallet by its extended public key (xpub, ypub, zpub)                                    |
 | `pnpm setup:coingecko`     | optional: a CoinGecko key for rates                                                               |
 | `pnpm setup:relay`         | optional: a relay for your own devices in your own network                                        |
+| `pnpm setup:aleph`         | optional: the bridge's own key for the backup on Aleph Cloud                                      |
 
 Own Cosmos and EVM wallets are added in the app (_Integrationen → Eigene Wallets_) and need no setup.
 

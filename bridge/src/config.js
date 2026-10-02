@@ -30,6 +30,8 @@ export function defaultConfigPath() {
  * @property {Record<string, import('./portals/index.js').PortalConfig>} portals customer portals, by id
  * @property {KrakenConfig} kraken
  * @property {EnableBankingConfig} enablebanking
+ * @property {{ configured: boolean }} alephBackup set by setup:aleph once the backup key is in
+ *   the keychain (aleph-backup.js, issue #77)
  * @property {LanRelayConfig} lanRelay
  */
 
@@ -116,6 +118,7 @@ export function defaultConfig() {
 			redirectUrl: 'https://belege.le-space.de/integrationen/bank/verbunden',
 			ibanSuffixes: []
 		},
+		alephBackup: { configured: false },
 		lanRelay: { host: null, port: DEFAULT_LAN_RELAY_PORT }
 	};
 }
@@ -204,6 +207,7 @@ export function withDefaults(raw) {
 				? raw.enablebanking.ibanSuffixes.map(String).filter((s) => /^[0-9A-Z]{4,34}$/.test(s))
 				: []
 		},
+		alephBackup: { configured: raw?.alephBackup?.configured === true },
 		lanRelay: {
 			host:
 				typeof raw?.lanRelay?.host === 'string' && /^\d{1,3}(\.\d{1,3}){3}$/.test(raw.lanRelay.host)

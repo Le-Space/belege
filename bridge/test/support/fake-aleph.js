@@ -1,10 +1,48 @@
 // A fake Aleph API on 127.0.0.1 for tests: balance, credit history (with its
 // filters and pages), its summary, and messages. Every address, hash and
 // amount here is made up.
+//
+// For the backup (aleph-backup.js) it is also Aleph's IPFS host and takes
+// STORE messages, as strictly as the real ones were measured (2026-10-02):
+//   POST /api/v0/add       multipart `file` → one JSON line { Name, Hash, Size }
+//   POST /api/v0/messages  { message, sync }: a STORE whose item_hash is the
+//                          sha-256 of its content, whose content names a CID
+//                          that was added, and whose signature (personal_sign)
+//                          is the sender's → 200 `processed`. A wrong
+//                          signature → 202 `pending`, as Aleph answers before
+//                          it rejects the message; a malformed one → 422.
 import http from 'node:http';
 import { createHash } from 'node:crypto';
 
+import { secp256k1 } from '@noble/curves/secp256k1.js';
+import { keccak_256 } from '@noble/hashes/sha3.js';
+import { base58 } from '@scure/base';
+
 import { toChecksumAddress } from '../../src/chains/evm.js';
+
+/** A CIDv0-shaped id for bytes (sha-256 multihash, base58). @param {Uint8Array} bytes */
+const cidOf = (bytes) =>
+	base58.encode(new Uint8Array([0x12, 0x20, ...createHash('sha256').update(bytes).digest()]));
+
+/** The address that signed a personal_sign message, or null. @param {string} signature @param {string} message */
+function signerOf(signature, message) {
+	try {
+		const sig = Buffer.from(signature.replace(/^0x/, ''), 'hex');
+		if (sig.length !== 65) return null;
+		const body = new TextEncoder().encode(message);
+		const prefix = new TextEncoder().encode(`\x19Ethereum Signed Message:\n${body.length}`);
+		const digest = keccak_256(new Uint8Array([...prefix, ...body]));
+		const recovered = new Uint8Array([sig[64] - 27, ...sig.subarray(0, 64)]);
+		const pub = secp256k1.Point.fromBytes(
+			secp256k1.recoverPublicKey(recovered, digest, { prehash: false })
+		).toBytes(false);
+		return toChecksumAddress(
+			`0x${Buffer.from(keccak_256(pub.slice(1)).slice(-20)).toString('hex')}`
+		);
+	} catch {
+		return null;
+	}
+}
 
 /** A made-up 0x address from a phrase. @param {string} phrase */
 export const fakeAlephAddress = (phrase) =>
@@ -39,13 +77,78 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 	);
 	/** @type {string[]} */
 	const calls = [];
-	const server = http.createServer((req, res) => {
+	/** What was uploaded, by id. @type {Map<string, Uint8Array>} */
+	const added = new Map();
+	/** The STORE messages taken: their sender, CID, channel and status. */
+	const stores =
+		/** @type {{ sender: string, cid: string, channel: string, status: string }[]} */ ([]);
+	const server = http.createServer(async (req, res) => {
 		const url = new URL(String(req.url), 'http://x');
 		calls.push(url.pathname.replace(/0x[0-9a-fA-F]{40}/g, '<address>'));
 		const reply = (/** @type {number} */ status, /** @type {unknown} */ body) => {
 			res.writeHead(status, { 'Content-Type': 'application/json' });
 			res.end(JSON.stringify(body));
 		};
+		if (req.method === 'POST' && url.pathname === '/api/v0/add') {
+			const form = await new Request('http://x', {
+				method: 'POST',
+				headers: { 'content-type': String(req.headers['content-type'] ?? '') },
+				body: /** @type {any} */ (req),
+				duplex: 'half'
+			})
+				.formData()
+				.catch(() => null);
+			const file = form?.get('file');
+			if (!file || typeof file === 'string') return reply(400, { Message: 'no file' });
+			const bytes = new Uint8Array(await file.arrayBuffer());
+			const hash = cidOf(bytes);
+			added.set(hash, bytes);
+			res.writeHead(200, { 'Content-Type': 'application/json' });
+			return res.end(
+				`${JSON.stringify({ Name: file.name, Hash: hash, Size: String(bytes.length) })}\n`
+			);
+		}
+		if (req.method === 'POST' && url.pathname === '/api/v0/messages') {
+			/** @type {Buffer[]} */ const chunks = [];
+			for await (const c of req) chunks.push(c);
+			const m = /** @type {any} */ (
+				(() => {
+					try {
+						return JSON.parse(Buffer.concat(chunks).toString('utf8')).message;
+					} catch {
+						return null;
+					}
+				})()
+			);
+			let content;
+			try {
+				content = JSON.parse(m?.item_content);
+			} catch {
+				return reply(422, { error: 'item_content is not JSON' });
+			}
+			const hashOk =
+				m.item_hash === createHash('sha256').update(String(m.item_content)).digest('hex');
+			const shapeOk =
+				m.chain === 'ETH' &&
+				m.type === 'STORE' &&
+				m.item_type === 'inline' &&
+				typeof m.channel === 'string' &&
+				typeof m.time === 'number' &&
+				content?.item_type === 'ipfs' &&
+				content?.address === m.sender &&
+				added.has(content?.item_hash);
+			if (!hashOk || !shapeOk) return reply(422, { error: 'not a STORE message this fake takes' });
+			const signed = signerOf(
+				String(m.signature ?? ''),
+				[m.chain, m.sender, m.type, m.item_hash].join('\n')
+			);
+			const status = signed === toChecksumAddress(m.sender) ? 'processed' : 'pending';
+			stores.push({ sender: m.sender, cid: content.item_hash, channel: m.channel, status });
+			return reply(status === 'processed' ? 200 : 202, {
+				publication_status: { status: 'success', failed: [] },
+				message_status: status
+			});
+		}
 		const m =
 			/^\/api\/v0\/addresses\/(0x[0-9a-fA-F]{40})\/(balance|credit_history(?:\/summary)?)$/.exec(
 				url.pathname
@@ -138,6 +241,8 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 	return {
 		url: `http://127.0.0.1:${port}`,
 		calls,
+		added,
+		stores,
 		close: () =>
 			new Promise((resolve) => {
 				server.close(() => resolve(undefined));

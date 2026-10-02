@@ -4,11 +4,14 @@ import http from 'node:http';
 /**
  * @param {number} port
  * @param {string} path
- * @param {{ method?: string, headers?: Record<string, string>, body?: unknown }} [options]
+ * @param {{ method?: string, headers?: Record<string, string>, body?: unknown }} [options] a
+ *   Uint8Array body is sent as bytes
  * @returns {Promise<{ status: number, headers: import('node:http').IncomingHttpHeaders, json: any, text: string }>}
  */
 export function request(port, path, { method = 'GET', headers = {}, body } = {}) {
-	const payload = body === undefined ? undefined : JSON.stringify(body);
+	// Bytes go as they are (a backup's upload); anything else as JSON.
+	const raw = body instanceof Uint8Array;
+	const payload = body === undefined ? undefined : raw ? body : JSON.stringify(body);
 	return new Promise((resolve, reject) => {
 		const req = http.request(
 			{
@@ -20,7 +23,7 @@ export function request(port, path, { method = 'GET', headers = {}, body } = {})
 					host: `127.0.0.1:${port}`,
 					...(payload
 						? {
-								'content-type': 'application/json',
+								'content-type': raw ? 'application/octet-stream' : 'application/json',
 								'content-length': String(Buffer.byteLength(payload))
 							}
 						: {}),
