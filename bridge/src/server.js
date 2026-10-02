@@ -36,6 +36,8 @@
 //   POST /<chain>/wallet { address, endpoints? }                  token → an own wallet's transfers and balance
 //   POST /aleph/accounts { addresses, api? }                      token → which are Aleph accounts: credits, entries (aleph.js)
 //   GET  /aleph/statement?address=0x…&month=YYYY-MM[&api=]        token → a month's credits: balances, top-ups, usage per day
+//   GET  /backup/status                                           token → { aleph: { configured, address, credits } } (aleph-backup.js)
+//   POST /backup/aleph?name=<file name>  (the sealed bytes)       token → { cid, size, address, itemHash, status }: uploaded and kept
 //   /portals…          customer portals (portals/routes.js)            token
 //
 // Guards, in this order, on every request:
@@ -57,6 +59,7 @@ import { ibanAllowed, normalizeAccount, normalizeTransaction } from './normalize
 import { decodeMailId, isIsoDay, isPartNumber } from './mail/mime.js';
 import { handlePortalRequest } from './portals/routes.js';
 import { ALEPH_API } from './aleph.js';
+import { MAX_BACKUP_BYTES } from './aleph-backup.js';
 import { checkEndpoint } from './chains/http.js';
 import { withExtraTerms } from './llm/redact.js';
 
@@ -111,6 +114,8 @@ const MAX_EXTRACT_BODY = 256 * 1024;
  * @param {ReturnType<typeof import('./aleph.js').createAlephClient> | null} [options.aleph] Aleph Cloud credits, read only
  * @param {boolean} [options.alephLoopback] tests: an Aleph API on 127.0.0.1
  * @param {string} [options.alephApi] the Aleph API asked when the request names none
+ * @param {ReturnType<typeof import('./aleph-backup.js').createAlephBackup> | null} [options.alephBackup]
+ *   the backup's copy on Aleph, with the bridge's own key (issue #77)
  * @param {{ addr: string | null, stats: () => { reservations: number, connections: number } } | null} [options.lanRelay]
  *   the relay for own devices (lan-relay.js): null when not set up, `addr` null when it did not start
  * @param {(message: string) => void} [options.log] never gets a secret, bank data, mail or receipt text
@@ -136,6 +141,7 @@ export function createBridgeServer({
 	aleph = null,
 	alephLoopback = false,
 	alephApi = ALEPH_API,
+	alephBackup = null,
 	lanRelay = null,
 	log = () => {}
 }) {
@@ -224,6 +230,23 @@ export function createBridgeServer({
 		});
 	}
 
+	/** A body as bytes, up to `limit`. @param {http.IncomingMessage} req @param {number} limit */
+	function readBytes(req, limit) {
+		return new Promise((resolve, reject) => {
+			let size = 0;
+			/** @type {Buffer[]} */ const chunks = [];
+			req.on('data', (/** @type {Buffer} */ c) => {
+				size += c.length;
+				if (size > limit) {
+					reject(Object.assign(new Error('Body too large'), { status: 413 }));
+					req.destroy();
+				} else chunks.push(c);
+			});
+			req.on('end', () => resolve(Buffer.concat(chunks)));
+			req.on('error', reject);
+		});
+	}
+
 	/** Allowed accounts only; the rest never leaves this function. */
 	async function allowedAccounts() {
 		if (!hibiscus)
@@ -258,6 +281,7 @@ export function createBridgeServer({
 				portals: { available: Boolean(portals) },
 				kraken: { configured: Boolean(kraken) },
 				enablebanking: { configured: Boolean(enablebanking) },
+				backup: { aleph: Boolean(alephBackup) },
 				wallets: { available: Boolean(wallets) },
 				lanRelay: { configured: Boolean(lanRelay), running: Boolean(lanRelay?.addr) }
 			});
@@ -603,6 +627,49 @@ export function createBridgeServer({
 				return send(res, 200, statement);
 			}
 			return send(res, 404, { error: 'not found' });
+		}
+
+		if (path === '/backup/status' && req.method === 'GET') {
+			if (!alephBackup) return send(res, 200, { aleph: { configured: false } });
+			const address = await alephBackup.address();
+			// What the account can still pay with; unknown when Aleph does not answer.
+			const credits = aleph
+				? await aleph
+						.accounts({ addresses: [address], api: alephApi })
+						.then((list) => list[0]?.credits ?? 0)
+						.catch(() => null)
+				: null;
+			return send(res, 200, { aleph: { configured: true, address, credits } });
+		}
+
+		if (path === '/backup/aleph' && req.method === 'POST') {
+			if (!alephBackup) {
+				return send(res, 503, {
+					error: 'the Aleph backup is not set up: run `pnpm setup:aleph`',
+					code: 'ALEPH_BACKUP_NOT_SET_UP'
+				});
+			}
+			const name = url.searchParams.get('name') ?? 'belege-backup';
+			if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(name)) {
+				return send(res, 400, { error: 'name: letters, digits, dot, dash and underscore only' });
+			}
+			const bytes = await readBytes(req, MAX_BACKUP_BYTES);
+			if (bytes.length === 0) return send(res, 400, { error: 'the backup is empty' });
+			let kept;
+			try {
+				kept = await alephBackup.put(new Uint8Array(bytes), { name });
+			} catch (/** @type {any} */ error) {
+				// The storage bridge's BackendError: Aleph refused or did not answer.
+				if (error?.name === 'BackendError') {
+					throw Object.assign(new Error(error.message), {
+						status: 502,
+						code: `ALEPH_BACKUP_${error.code ?? 'FAILED'}`
+					});
+				}
+				throw error;
+			}
+			log(`backup: ${bytes.length} byte(s) to Aleph, ${kept.status}`);
+			return send(res, 200, kept);
 		}
 
 		if (path === '/rates' && req.method === 'GET') {

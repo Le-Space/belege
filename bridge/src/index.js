@@ -18,7 +18,8 @@ import { createKrakenClient, parseKrakenCredentials } from './kraken.js';
 import { createEnableBankingClient, enableBankingSecrets } from './enablebanking.js';
 import { createEnableBankingLinks } from './enablebanking-links.js';
 import { createWalletService } from './chains/index.js';
-import { createAlephClient } from './aleph.js';
+import { ALEPH_API, createAlephClient } from './aleph.js';
+import { createAlephBackup } from './aleph-backup.js';
 import { buildRecipes, createPortalManager, keychainAccount } from './portals/index.js';
 import { macosPasswordDialog } from './portals/credentials.js';
 import { dirname, join } from 'node:path';
@@ -70,6 +71,9 @@ export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
  * @param {import('./keychain.js').Keychain} [options.alchemyKeychain] an optional Alchemy API key (own EVM wallets)
  * @param {(network: string) => string} [options.alchemyBaseUrl] tests: a fake Alchemy on 127.0.0.1
  * @param {string} [options.alephApi] tests: a fake Aleph API on 127.0.0.1, the default for /aleph
+ * @param {import('./keychain.js').Keychain} [options.alephBackupKeychain] the backup key (setup:aleph)
+ * @param {string} [options.alephIngestUrl] tests: a fake of Aleph's IPFS host on 127.0.0.1
+ * @param {typeof fetch} [options.backupFetch] fetch for the backup's upload (tests hand in a fake)
  * @param {number} [options.krakenPageDelayMs] pause between Kraken ledger pages (tests: 0)
  * @param {typeof fetch} [options.rateFetch] fetch for the exchange-rate sources (tests hand in a fake)
  * @param {Record<string, string> | null} [options.fixedRates] tests only: EUR per unit by asset,
@@ -100,6 +104,9 @@ export async function startBridge({
 	alchemyKeychain = systemKeychain({ account: 'alchemy' }),
 	alchemyBaseUrl,
 	alephApi,
+	alephBackupKeychain = systemKeychain({ account: 'aleph-backup' }),
+	alephIngestUrl,
+	backupFetch = fetch,
 	krakenPageDelayMs,
 	rateFetch = fetch,
 	fixedRates = null,
@@ -317,6 +324,14 @@ export async function startBridge({
 		aleph: createAlephClient({ fetch: walletFetch, rates }),
 		alephLoopback: walletLoopback,
 		...(alephApi ? { alephApi } : {}),
+		alephBackup: config.alephBackup.configured
+			? createAlephBackup({
+					getKey: () => alephBackupKeychain.read(),
+					apiHost: alephApi ?? ALEPH_API,
+					...(alephIngestUrl ? { ingestUrl: alephIngestUrl } : {}),
+					fetch: backupFetch
+				})
+			: null,
 		wallets: createWalletService({
 			fetch: walletFetch,
 			allowLoopback: walletLoopback,
