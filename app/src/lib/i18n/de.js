@@ -1974,6 +1974,8 @@ export default {
 		settingsLink: 'ändern unter Einstellungen',
 		checks: 'Vor dem Export',
 		check: {
+			tests:
+				'Testbuchungen mitexportieren ({count}) – das Paket heißt dann TEST_…, zum Ausprobieren des Exports, nicht für die Buchhaltung.',
 			sampleMixed:
 				'In diesem Monat stehen Beispieldaten neben echten Buchungen – so geht kein Export. Entferne die Beispieldaten oben.',
 			sampleAll:
@@ -2050,6 +2052,12 @@ export default {
 	monthPicker: { month: '{label}: Monat', year: '{label}: Jahr' },
 	zahlungen: {
 		title: 'Zahlungen',
+		tests: {
+			title: '{count} Testbuchung(en) in den Büchern.',
+			what: 'Angelegt mit „Testbuchung anlegen“ (nur in der Entwicklungsversion) – keine echten Zahlungen. Sie blockieren den Export ihres Monats.',
+			remove: 'Testbuchungen entfernen',
+			removing: 'Entferne …'
+		},
 		addTest: 'Testbuchung anlegen',
 		emptyBefore: 'Noch keine Zahlungen – unter ',
 		emptyLink: 'Bank',

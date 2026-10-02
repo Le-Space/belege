@@ -5,7 +5,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import TransactionDetail from '$lib/TransactionDetail.svelte';
-	import { app, currentStore } from '$lib/session.svelte.js';
+	import { app, currentStore, refreshNow, runMatchingNow } from '$lib/session.svelte.js';
 	import { t } from '$lib/i18n/index.js';
 	import {
 		accountLabel,
@@ -25,6 +25,14 @@
 	import { FLOW_KEYS, flowKey } from '$lib/dashboard/totals.js';
 	import { relatedIndex } from '$lib/matching/related.js';
 	import { tradeArrow, tradeSides, tradeSideWhat } from '$lib/exchanges/trades.js';
+	import {
+		removeTestBookings,
+		TEST_ACCOUNT,
+		TEST_COUNTERPARTY,
+		TEST_PURPOSE,
+		testBookings
+	} from '$lib/sample/test-bookings.js';
+	import { upsertAccount } from '$lib/bank/import.js';
 
 	/** @typedef {{ id: string, bookedOn: string, counterparty?: string, purpose?: string, amountCents?: number, currency?: string, accountId?: string, source?: string, receiptId?: string | null, noReceipt?: any, booking?: any, importChange?: any }} Tx */
 
@@ -143,11 +151,13 @@
 		if (account.source === 'kraken' || isWalletSource(account.source)) return account.name;
 		// By the booking's own source: a statement file's account continued through Enable Banking has both.
 		const via =
-			tx.source === 'enablebanking'
-				? 'Enable Banking'
-				: account.source === 'camt'
-					? 'CAMT'
-					: 'Hibiscus';
+			account.source === 'test'
+				? 'Test'
+				: tx.source === 'enablebanking'
+					? 'Enable Banking'
+					: account.source === 'camt'
+						? 'CAMT'
+						: 'Hibiscus';
 		return `${via} ···${account.ibanLast4}`;
 	}
 
@@ -155,12 +165,37 @@
 	const showTestButton = import.meta.env.DEV || import.meta.env.VITE_E2E === 'true';
 
 	async function addTestTransaction() {
-		await currentStore()?.transactions.put({
+		const store = currentStore();
+		if (!store) return;
+		// On the Testkonto, so it can be exported on request (sample/test-bookings.js).
+		const account = await upsertAccount(store.accounts, { ...TEST_ACCOUNT });
+		if (!account.testAccount) await store.accounts.put({ ...account, testAccount: true });
+		await store.transactions.put({
+			accountId: account.id,
+			source: TEST_ACCOUNT.source,
 			bookedOn: new Date().toISOString().slice(0, 10),
-			counterparty: 'Testpartner GmbH',
-			purpose: 'Testbuchung',
-			amountCents: -1999
+			counterparty: TEST_COUNTERPARTY,
+			purpose: TEST_PURPOSE,
+			amountCents: -1999,
+			// Marked, so "Testbuchungen entfernen" finds it (sample/test-bookings.js).
+			testBooking: true
 		});
+	}
+
+	// Test bookings in the books – shown in every build, so real books get rid of them.
+	let tests = $derived(testBookings(app.transactions));
+	let removingTests = $state(false);
+	async function removeTests() {
+		const store = currentStore();
+		if (!store) return;
+		removingTests = true;
+		try {
+			await removeTestBookings(/** @type {any} */ (store));
+			await refreshNow();
+			await runMatchingNow();
+		} finally {
+			removingTests = false;
+		}
 	}
 </script>
 
@@ -175,6 +210,27 @@
 		>
 	{/if}
 </div>
+
+{#if tests.length}
+	<div
+		class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
+		role="status"
+		data-testid="test-bookings-banner"
+	>
+		<span
+			><span class="font-semibold">{t('zahlungen.tests.title', { count: tests.length })}</span>
+			{t('zahlungen.tests.what')}</span
+		>
+		<button
+			type="button"
+			class="min-h-11 rounded-md border border-amber-400 px-3 font-medium hover:bg-amber-100 disabled:opacity-50 dark:border-amber-600 dark:hover:bg-amber-900"
+			disabled={removingTests}
+			onclick={removeTests}
+			data-testid="test-bookings-remove"
+			>{removingTests ? t('zahlungen.tests.removing') : t('zahlungen.tests.remove')}</button
+		>
+	</div>
+{/if}
 
 {#if transactions.length === 0}
 	<p

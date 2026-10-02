@@ -1943,6 +1943,8 @@ export default {
 		settingsLink: 'change under Settings',
 		checks: 'Before the export',
 		check: {
+			tests:
+				'Export test bookings too ({count}) – the package is then called TEST_…, for trying the export, not for the books.',
 			sampleMixed:
 				'This month has sample data beside real bookings – no export like this. Remove the sample data at the top.',
 			sampleAll:
@@ -2017,6 +2019,12 @@ export default {
 	monthPicker: { month: '{label}: month', year: '{label}: year' },
 	zahlungen: {
 		title: 'Payments',
+		tests: {
+			title: '{count} test booking(s) in the books.',
+			what: 'Made with “Testbuchung anlegen” (development build only) – no real payments. They block the export of their month.',
+			remove: 'Remove test bookings',
+			removing: 'Removing …'
+		},
 		addTest: 'Create test booking',
 		emptyBefore: 'No payments yet – under ',
 		emptyLink: 'Bank',

@@ -36,11 +36,13 @@ const B = fakeCosmosAddress('second own wallet');
 const C = fakeCosmosAddress('wallet on a pruned node');
 const tail = (/** @type {string} */ a) => a.slice(-6);
 
-// Two days ago and yesterday, whenever this runs: inside every default view.
-// Fixed once, as a real block's time is: a second sync must see the same time.
-const STARTED = Date.now();
+// Today, a minute and two after midnight UTC, whenever this runs: one day, so
+// one month, inside every default view ("two days ago and yesterday" split
+// across months on the 1st and 2nd). Fixed once, as a real block's time is: a
+// second sync must see the same time.
+const MIDNIGHT = Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
 const time = (/** @type {number} */ height) =>
-	new Date(STARTED - (height === 1000 ? 2 : 1) * 864e5).toISOString();
+	new Date(MIDNIGHT + (height === 1000 ? 1 : 2) * 60_000).toISOString();
 
 function history() {
 	return [

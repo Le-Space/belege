@@ -343,6 +343,32 @@ describe('planMonth', () => {
 		expect([only.sample, only.blocked]).toEqual(['all', false]);
 	});
 
+	it('test bookings stay out unless asked for, and are counted either way', () => {
+		const b = books();
+		const test = {
+			id: 'T-TEST',
+			accountId: 'ACC-GLS',
+			source: 'test',
+			testBooking: true,
+			bookedOn: '2026-09-20',
+			amountCents: -1999,
+			counterparty: 'Testpartner GmbH',
+			purpose: 'Testbuchung'
+		};
+		const withTest = [...b.transactions, test];
+		const without = planMonth({ month: '2026-09', ...b, transactions: withTest });
+		expect(without.bookings.map((t) => t.id)).not.toContain('T-TEST');
+		expect([without.tests, without.testsIncluded]).toEqual([1, false]);
+		const included = planMonth({
+			month: '2026-09',
+			...b,
+			transactions: withTest,
+			includeTests: true
+		});
+		expect(included.bookings.map((t) => t.id)).toContain('T-TEST');
+		expect(included.testsIncluded).toBe(true);
+	});
+
 	it('one line per booking; the transfer once, from the lower ledger, against the other bank', () => {
 		const b = books();
 		const plan = planMonth({ month: '2026-09', ...b });
