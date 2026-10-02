@@ -42,7 +42,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     limits what leaves rather than making a text anonymous (#226).
 // 19: Enable Banking is no longer planned: once set up, the bridge links banks
 //     through the own application (#224, step 2).
-export const CONSENT_VERSION = '19';
+// 20: the backup on Aleph Cloud: the browser uploads the sealed file to Aleph's
+//     IPFS host itself, the bridge signs the order to keep it (#77).
+export const CONSENT_VERSION = '20';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

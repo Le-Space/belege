@@ -14,6 +14,7 @@ import { t } from '$lib/i18n/index.js';
  * @property {boolean} mail
  * @property {boolean} llm
  * @property {boolean} enablebanking
+ * @property {boolean} backup the backup key for Aleph is made (`pnpm setup:aleph`, #77)
  */
 
 /** The time a pairing is stored with: a timestamp, not reactive state. */
@@ -28,7 +29,14 @@ export const bridge = $state({
 	/** the bridge has paired some device (not necessarily this one) */
 	paired: false,
 	/** @type {BridgeHealth} */
-	health: { hibiscus: false, kraken: false, mail: false, llm: false, enablebanking: false },
+	health: {
+		hibiscus: false,
+		kraken: false,
+		mail: false,
+		llm: false,
+		enablebanking: false,
+		backup: false
+	},
 	/** @type {string | null} */
 	error: null,
 	/** the saved pairing has been read */
@@ -68,6 +76,7 @@ export async function checkBridge() {
 			kraken: health.kraken?.configured ?? false,
 			mail: health.mail?.configured ?? false,
 			llm: health.llm?.configured ?? false,
+			backup: health.backup?.aleph ?? false,
 			enablebanking: health.enablebanking?.configured ?? false
 		};
 	} catch (error) {

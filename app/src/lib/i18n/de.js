@@ -750,6 +750,14 @@ export default {
 				technical:
 					'Ein Kontoinformationsdienst (AIS) nach PSD2. Nur die Bridge spricht mit api.enablebanking.com; jede Anfrage ist mit dem Schlüssel deiner Anwendung signiert (RS256-JWT). Schlüssel und Sitzungen liegen versiegelt neben der Konfiguration der Bridge, nie im Browser und nicht in den Büchern; die App bekommt von einem Konto nur die letzten vier Stellen der IBAN. Der Browser geht nur zur Bank und zurück nach /integrationen/bank/verbunden. Der Einmal-Code der Bank steht dabei in der Adresse und geht so auch über das Gateway, das die Seite ausliefert; ohne den Schlüssel ist er wertlos, und die Seite nimmt ihn sofort aus der Adresse. Nur Konten, deren IBAN-Endung in der Bridge freigegeben ist (pnpm setup:enablebanking -- --accounts), verlassen die Bridge, und geholt wird nur auf deinen Klick. Eine Freigabe gilt höchstens 180 Tage; „Trennen“ beendet sie bei Enable Banking.'
 			},
+			backup: {
+				name: 'Backup bei Aleph Cloud',
+				text: 'Wenn eingerichtet und nur auf deinen Klick: alles, was Belege hält, versiegelt mit einem Schlüssel aus deinem Passkey, als eine Datei bei Aleph Cloud.',
+				leaves:
+					'An Alephs IPFS-Host, direkt aus diesem Browser: die versiegelte Datei (Aleph sieht ihre Größe und die IP-Adresse dieses Computers, nicht den Inhalt). Von der Bridge an Aleph: ein mit dem eigenen Backup-Schlüssel der Bridge unterschriebener Auftrag, der die Datei nennt.',
+				technical:
+					'Das CAR aller Datenbank-Blöcke (Einträge schon versiegelt, Manifeste, Access-Controller, Identitäten der Schreiber) und der versiegelten Blöcke jeder Belegdatei wird noch einmal mit AES-256-GCM versiegelt, unter einem Schlüssel aus dem PRF des Passkeys (HKDF, belege/backup-key/v1). Upload: POST https://ipfs.aleph.cloud/api/v0/add, ohne Schlüssel. Die Bridge unterschreibt eine STORE-Nachricht (personal_sign, Kanal BELEGE-BACKUP) mit einem secp256k1-Schlüssel, den sie selbst erzeugt hat (pnpm setup:aleph) und im Schlüsselbund hält; Aleph bewahrt die Datei auf, solange dieses Konto Credits hat.'
+			},
 			deepseek: {
 				name: 'Sprachmodell – voreingestellt DeepSeek (Belege auslesen, KI-Suche)',
 				text: 'Das Modell, das du in der Bridge einstellst. Nur bei Knöpfen mit ✦ (siehe „KI“ oben).',
@@ -855,6 +863,44 @@ export default {
 		reads: '{count}× gelesen',
 		revoke: 'Widerrufen',
 		refresh: 'Abrufe aktualisieren'
+	},
+	backup: {
+		title: 'Backup',
+		what: 'Alles, was Belege in diesem Browser hält – die Bücher und jede Belegdatei – als eine Datei, versiegelt mit einem Schlüssel aus deinem Passkey, aufbewahrt bei Aleph Cloud. Öffnen kannst nur du sie.',
+		needsBridge:
+			'Die Bridge muss gekoppelt sein: Sie unterschreibt den Auftrag, mit dem Aleph das Backup aufbewahrt.',
+		notSetUp: 'Die Bridge hat noch keinen Backup-Schlüssel. Im Terminal, im Ordner von Belege:',
+		account: 'Aleph-Konto',
+		copyAddress: 'Adresse kopieren',
+		credits: 'Credits',
+		creditsUnknown: 'unbekannt – Aleph hat nicht geantwortet',
+		noCredits:
+			'Das Konto hat keine Credits. Aleph bewahrt ein Backup nur auf, solange das Konto zahlen kann: lade Credits unter app.aleph.cloud auf oder schick ALEPH an die Adresse.',
+		leaves:
+			'Geht hinaus: die versiegelte Datei an Alephs IPFS-Host (er sieht die IP-Adresse dieses Computers und die Größe) und von der Bridge ein mit ihrem Backup-Schlüssel unterschriebener Auftrag, der die Datei nennt.',
+		now: 'Jetzt sichern',
+		step: {
+			packing: 'Wird gepackt und versiegelt …',
+			uploading: 'Wird zu Aleph hochgeladen …',
+			keeping: 'Aleph wird beauftragt …'
+		},
+		paused: 'Das Netz ist pausiert.',
+		made: 'Gesichert: {size}, {entries} Einträge, {files} Belegdateien – {kept}.',
+		kept: 'von Aleph aufbewahrt',
+		pending: 'Aleph hat noch nicht bestätigt',
+		cid: 'Zurück bekommst du es über:',
+		copyCid: 'CID kopieren',
+		missing:
+			'{count} Blöcke waren nicht in diesem Browser und fehlen im Backup. Mit Gerätesync: öffne die Bücher auf dem Gerät, das sie hat.',
+		progress: {
+			database: 'Datenbank {index} von {total}: {name}, {entries} Einträge …',
+			files: 'Belegdateien: {done} von {total} …',
+			sealing: '{size} werden versiegelt …'
+		},
+		contents: 'Was drin ist',
+		files: 'Belegdateien',
+		blocks: 'Blöcke insgesamt',
+		history: 'Bisherige Backups'
 	},
 	aleph: {
 		title: 'Aleph Cloud (Hosting-Credits)',
@@ -2453,6 +2499,10 @@ export default {
 				what: 'Dieselben Bücher auf Telefon und Rechner, direkt zwischen deinen Geräten synchronisiert. Ein Gerät bekommt sie erst, wenn es den Passkey beweist.',
 				how: 'Synchronisation einschalten, dann das zweite Gerät per QR-Code hinzufügen. Optional treffen sich die Geräte nur im eigenen Netz, über einen Relay in deiner Bridge:'
 			},
+			backup: {
+				what: 'Ein Backup der Bücher und jeder Belegdatei, versiegelt mit einem Schlüssel aus deinem Passkey, bei Aleph Cloud. Aleph bewahrt es auf, solange das Aleph-Konto der Bridge Credits hat.',
+				how: 'Lass die Bridge einmal ihren eigenen Backup-Schlüssel erzeugen, lade Credits auf die angezeigte Adresse und klick hier auf „Jetzt sichern“. Das Wiederherstellen kommt in einem nächsten Schritt.'
+			},
 			portale: {
 				what: 'Manche Rechnungen liegen nur im Kundenportal. Die Bridge holt sie mit einem eigenen Browser auf diesem Rechner.',
 				how: 'Portal wählen oder ein eigenes einmal aufzeichnen. Die Zugangsdaten kannst du im Schlüsselbund hinterlegen:'
@@ -2499,6 +2549,7 @@ export default {
 				bridge: 'Bridge',
 				ki: 'KI – Beleg-Auslesen',
 				geraete: 'Eigene Geräte',
+				backup: 'Backup',
 				bank: 'Bank (Hibiscus, Kontoauszug)',
 				kraken: 'Kraken (Börse)',
 				wallets: 'Eigene Wallets',
@@ -2509,6 +2560,7 @@ export default {
 				assistent: 'Einblick für einen Assistenten'
 			},
 			state: {
+				backedUp: 'gesichert',
 				connected: 'verbunden',
 				unpaired: 'nicht gekoppelt',
 				error: 'Fehler',
@@ -2526,6 +2578,8 @@ export default {
 				viaDevice: 'über deinen Mac'
 			},
 			line: {
+				backup: 'Bücher und Belegdateien, versiegelt, bei Aleph Cloud',
+				backupNone: 'Bücher und Belegdateien, versiegelt, bei Aleph Cloud',
 				bridge: 'Auf diesem Mac; holt Umsätze, liest Belege, fragt Knoten',
 				bridgeViaDevice:
 					'Läuft auf deinem Mac; dieses Gerät nutzt sie über die Gerätesynchronisation',

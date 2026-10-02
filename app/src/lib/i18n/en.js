@@ -729,6 +729,14 @@ export default {
 				technical:
 					'An account information service (AIS) under PSD2. Only the bridge talks to api.enablebanking.com; every request is signed with your application’s key (RS256 JWT). The key and the sessions are sealed beside the bridge’s configuration, never in the browser and not in the books; the app gets only the last four characters of an account’s IBAN. The browser only goes to the bank and back to /integrationen/bank/verbunden. The bank’s one-time code is in that address and so also passes the gateway that serves the page; without the key it is worthless, and the page takes it out of the address at once. Only accounts whose IBAN ending is released in the bridge (pnpm setup:enablebanking -- --accounts) leave the bridge, and fetching happens only on your click. A consent lasts 180 days at most; “Unlink” ends it at Enable Banking.'
 			},
+			backup: {
+				name: 'Backup on Aleph Cloud',
+				text: 'When set up and only on your click: everything Belege keeps, sealed with a key from your passkey, as one file on Aleph Cloud.',
+				leaves:
+					'To Aleph’s IPFS host, directly from this browser: the sealed file (Aleph sees its size and this computer’s IP address, not what is in it). From the bridge to Aleph: an order signed with the bridge’s own backup key, naming the file.',
+				technical:
+					'The CAR of every database block (entries already sealed, manifests, access controllers, writers’ identities) and every receipt file’s sealed blocks is sealed once more with AES-256-GCM under a key derived from the passkey’s PRF (HKDF, belege/backup-key/v1). Upload: POST https://ipfs.aleph.cloud/api/v0/add, no key. The bridge signs a STORE message (personal_sign, channel BELEGE-BACKUP) with a secp256k1 key it made itself (pnpm setup:aleph) and keeps in the keychain; Aleph keeps the file while that account has credits.'
+			},
 			deepseek: {
 				name: 'Language model – DeepSeek by default (extracting receipts, AI search)',
 				text: 'The model you set up in the bridge. Only for buttons with ✦ (see “AI” above).',
@@ -834,6 +842,43 @@ export default {
 		reads: 'read {count}×',
 		revoke: 'Revoke',
 		refresh: 'Refresh reads'
+	},
+	backup: {
+		title: 'Backup',
+		what: 'Everything Belege keeps in this browser – the books and every receipt file – as one file, sealed with a key from your passkey, kept on Aleph Cloud. Nobody but you can open it.',
+		needsBridge: 'The bridge has to be paired: it signs the order that has Aleph keep the backup.',
+		notSetUp: 'The bridge has no backup key yet. In the terminal, in Belege’s folder:',
+		account: 'Aleph account',
+		copyAddress: 'Copy address',
+		credits: 'Credits',
+		creditsUnknown: 'unknown – Aleph did not answer',
+		noCredits:
+			'The account has no credits. Aleph keeps a backup only while the account can pay: put credits on it at app.aleph.cloud, or send it ALEPH.',
+		leaves:
+			'Goes out: the sealed file to Aleph’s IPFS host (it sees this computer’s IP address and the size), and from the bridge an order signed with its backup key that names the file.',
+		now: 'Back up now',
+		step: {
+			packing: 'Packing and sealing …',
+			uploading: 'Uploading to Aleph …',
+			keeping: 'Having Aleph keep it …'
+		},
+		paused: 'The network is paused.',
+		made: 'Backed up: {size}, {entries} entries, {files} receipt files – {kept}.',
+		kept: 'kept by Aleph',
+		pending: 'Aleph has not confirmed yet',
+		cid: 'Get it back by:',
+		copyCid: 'Copy CID',
+		missing:
+			'{count} blocks were not in this browser and are missing from the backup. With device sync, open the books on the device that has them.',
+		progress: {
+			database: 'Database {index} of {total}: {name}, {entries} entries …',
+			files: 'Receipt files: {done} of {total} …',
+			sealing: 'Sealing {size} …'
+		},
+		contents: 'What is in it',
+		files: 'Receipt files',
+		blocks: 'Blocks, all told',
+		history: 'Backups so far'
 	},
 	aleph: {
 		title: 'Aleph Cloud (hosting credits)',
@@ -2420,6 +2465,10 @@ export default {
 				what: 'The same books on phone and computer, synced directly between your devices. A device gets them only once it proves the passkey.',
 				how: 'Switch sync on, then add the second device by QR code. Optionally the devices meet only on your own network, at a relay in your bridge:'
 			},
+			backup: {
+				what: 'A backup of the books and every receipt file, sealed with a key from your passkey, on Aleph Cloud. Aleph keeps it while the bridge’s Aleph account has credits.',
+				how: 'Have the bridge make its own backup key once, put credits on the address it shows, then click “Back up now” here. Restoring comes in a next step.'
+			},
 			portale: {
 				what: 'Some invoices exist only in a customer portal. The bridge fetches them with a browser of its own on this computer.',
 				how: 'Choose a portal or record your own once. You can keep the login in the keychain:'
@@ -2464,6 +2513,7 @@ export default {
 				bridge: 'Bridge',
 				ki: 'AI – reading receipts',
 				geraete: 'Own devices',
+				backup: 'Backup',
 				bank: 'Bank (Hibiscus, bank statement)',
 				kraken: 'Kraken (exchange)',
 				wallets: 'Own wallets',
@@ -2474,6 +2524,7 @@ export default {
 				assistent: 'Access for an assistant'
 			},
 			state: {
+				backedUp: 'backed up',
 				connected: 'connected',
 				unpaired: 'not paired',
 				error: 'error',
@@ -2491,6 +2542,8 @@ export default {
 				viaDevice: 'via your Mac'
 			},
 			line: {
+				backup: 'Books and receipt files, sealed, on Aleph Cloud',
+				backupNone: 'Books and receipt files, sealed, on Aleph Cloud',
 				bridge: 'On this Mac; fetches transactions, reads receipts, queries nodes',
 				bridgeViaDevice: 'Runs on your Mac; this device uses it via device sync',
 				ki: 'Reads vendor, amount, date and number from receipts',

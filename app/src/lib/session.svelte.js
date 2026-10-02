@@ -412,6 +412,16 @@ export function currentBlobs() {
 	return session?.blobs ?? null;
 }
 
+/**
+ * Everything this browser keeps, as one sealed backup (backup/archive.js, #77).
+ *
+ * @param {{ appVersion: string, onProgress?: (p: import('./backup/archive.js').BackupProgress) => void }} meta
+ */
+export async function makeBackup(meta) {
+	if (!session) throw new Error('The books are not open.');
+	return session.makeBackup(meta);
+}
+
 /** @type {Promise<void> | null} the refresh running now */
 let refreshing = null;
 /** Whether something asked for a refresh while one was running. */

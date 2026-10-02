@@ -30,12 +30,13 @@ import { formatDate } from '../bank/format.js';
 
 /**
  * @typedef {object} Facts
- * @property {{ token: string | null, state: string, via?: 'local' | 'device', health: { hibiscus: boolean, kraken: boolean, mail: boolean, llm: boolean } }} bridge
+ * @property {{ token: string | null, state: string, via?: 'local' | 'device', health: { hibiscus: boolean, kraken: boolean, mail: boolean, llm: boolean, backup?: boolean } }} bridge
  * @property {{ flag: boolean, online: boolean, removed: boolean, error: string | null, connected: number }} devices
  * @property {Record<string, any>[]} accounts the books' accounts
  * @property {Record<string, any>[]} events newest first
  * @property {number} wallets own wallets kept
  * @property {number} aleph Aleph accounts found
+ * @property {string | null} [lastBackup] ISO, the newest backup made (backup/history.js)
  * @property {boolean} invoiceApp paired
  * @property {import('./alerts.js').Alerts} [alerts] what the last runs left
  * @property {Date} [now] tests: the moment the consents' ends are measured from
@@ -116,6 +117,15 @@ export function integrationsOverview(f) {
 			params: { count: f.devices.connected },
 			line: f.devices.online ? 'devicesOn' : 'devicesOff',
 			when: null
+		},
+		{
+			id: 'backup',
+			group: 'basis',
+			initials: 'Bk',
+			kind: f.lastBackup ? 'ok' : 'off',
+			state: f.lastBackup ? 'backedUp' : f.bridge.health.backup && paired ? 'setUp' : 'notSetUp',
+			line: f.lastBackup ? 'backup' : 'backupNone',
+			when: f.lastBackup ?? null
 		},
 		{
 			id: 'bank',

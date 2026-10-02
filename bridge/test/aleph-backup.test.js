@@ -167,7 +167,12 @@ describe('/backup', () => {
 
 			const status = await request(port, '/backup/status', { headers: auth });
 			assert.deepEqual(status.json, {
-				aleph: { configured: true, address: addressOf(KEY), credits: 1_500_000 }
+				aleph: {
+					configured: true,
+					address: addressOf(KEY),
+					credits: 1_500_000,
+					ingestUrl: `${aleph.url}/api/v0/add`
+				}
 			});
 
 			const bytes = new Uint8Array(randomBytes(4096));
@@ -193,6 +198,57 @@ describe('/backup', () => {
 			assert.ok(logged.every((l) => !l.includes(res.json.cid) && !l.includes(addressOf(KEY))));
 		} finally {
 			await bridge.close();
+		}
+	});
+
+	test('the app uploads itself, the bridge only signs the STORE: kept, and nothing else uploaded', async () => {
+		const { bridge, port, auth, logged } = await bridgeWith({ configured: true });
+		try {
+			// What the browser does: Aleph's IPFS host, no key.
+			const bytes = new Uint8Array(randomBytes(2048));
+			const { id } = await createAlephBackend({ ingestUrl: `${aleph.url}/api/v0/add` }).putBlob(
+				bytes,
+				{ name: 'belege-2026-10-02.car' }
+			);
+			const added = aleph.added.size;
+			const res = await request(port, '/backup/aleph/pin', {
+				method: 'POST',
+				headers: auth,
+				body: { cid: id }
+			});
+			assert.equal(res.status, 200, res.text);
+			assert.equal(res.json.status, 'processed');
+			assert.equal(res.json.cid, id);
+			assert.equal(res.json.address, addressOf(KEY));
+			assert.equal(aleph.added.size, added, 'the bridge uploaded nothing');
+			assert.deepEqual(aleph.stores.at(-1), {
+				sender: addressOf(KEY),
+				cid: id,
+				channel: BACKUP_CHANNEL,
+				status: 'processed'
+			});
+			assert.ok(logged.every((l) => !l.includes(id)));
+
+			const bad = await request(port, '/backup/aleph/pin', {
+				method: 'POST',
+				headers: auth,
+				body: { cid: '../../etc' }
+			});
+			assert.equal(bad.status, 400);
+			assert.equal(bad.json.code, 'ALEPH_BACKUP_CID');
+		} finally {
+			await bridge.close();
+		}
+		const off = await bridgeWith({ configured: false });
+		try {
+			const res = await request(off.port, '/backup/aleph/pin', {
+				method: 'POST',
+				headers: off.auth,
+				body: { cid: 'Qm' + '1'.repeat(44) }
+			});
+			assert.equal(res.status, 503);
+		} finally {
+			await off.bridge.close();
 		}
 	});
 

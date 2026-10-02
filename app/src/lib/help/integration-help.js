@@ -19,6 +19,7 @@ export const INTEGRATION_HELP = {
 	wallets: { doc: 'docs/crypto{de}.md#own-wallets' },
 	aleph: { doc: 'docs/crypto{de}.md' },
 	geraete: { command: 'pnpm setup:relay', doc: 'docs/features{de}.md' },
+	backup: { command: 'pnpm setup:aleph', doc: 'docs/backup{de}.md' },
 	portale: { command: 'pnpm setup:portal vodafone', doc: 'bridge/README.md#kundenportale' },
 	'rechnungs-app': { doc: 'docs/features{de}.md' },
 	assistent: { doc: 'docs/features{de}.md' }
