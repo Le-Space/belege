@@ -124,8 +124,20 @@ describe('the chain table', () => {
 		for (const c of Object.values(CHAINS)) {
 			for (const url of Object.values(c.endpoints)) assert.match(url, /^https:\/\//);
 			assert.match(c.explorer.tx, /^https:\/\/.*\{tx\}/);
-			assert.match(c.explorer.address, /^https:\/\/.*\{address\}/);
+			// Monero's explorers have no page for an address: the chain hides them.
+			if (c.kind === 'monero') assert.equal(c.explorer.address, '');
+			else assert.match(c.explorer.address, /^https:\/\/.*\{address\}/);
 		}
+	});
+
+	test('Monero is listed, and refused for a sync by address: its export is imported in the app', async () => {
+		assert.equal(CHAINS.monero.native.symbol, 'XMR');
+		assert.equal(CHAINS.monero.native.decimals, 12);
+		const service = createWalletService({ fetch: async () => assert.fail('nothing is asked') });
+		await assert.rejects(
+			service.sync({ chain: 'monero', address: '4' + '1'.repeat(94) }),
+			(/** @type {any} */ e) => e.code === 'WALLET_IMPORT_ONLY' && e.status === 400
+		);
 	});
 
 	test('EVM tokens are keyed by lower-case contract and all USDC have 6 decimals', () => {

@@ -166,6 +166,25 @@ Eine Bitcoin-Wallet liest Belege über den **erweiterten öffentlichen Schlüsse
 
 Eine eigene Filecoin-Wallet wird mit ihrer Adresse angelegt: f1 (secp256k1), f3 (BLS) oder f410f (delegiert – auch in der Ethereum-Form `0x…` eingebbar; das ist dasselbe Konto und wird als f410f gespeichert), jede vor der ersten Abfrage an ihrer blake2b-Prüfsumme geprüft, oder f0 (eine ID). Die Bridge liest sie über die öffentliche API von Filfox, ohne Schlüssel: `address/<a>` für den Bestand und `address/<a>/transfers` für jede Bewegung, 100 je Seite (`bridge/src/chains/filecoin.js`). Je Nachricht wird jedes Senden und jedes Empfangen eine Buchung mit der Adresse der Gegenseite; Miner-Gebühr und Burn-Gebühr zusammen eine Gebührenbuchung. Die Nachrichten-CID (`bafy2bzace…`) ist der Hash – derselbe, den Kraken für eine Einzahlung meldet: Eine Auszahlung aus der Wallet und die Einzahlung bei Kraken finden sich so als eigene Umbuchung, und das Detail der Einzahlung nennt Filecoin. Filfox sieht die Adresse und die IP-Adresse dieses Macs; eine Adresse mit mehr als 20 000 Bewegungen wird als zu groß abgelehnt.
 
+### Monero
+
+Monero verbirgt Beträge, Absender und Empfänger auf seiner Kette; über eine Adresse lässt sich nichts lesen. Belege importiert stattdessen den Verlauf, den deine Wallet exportiert, und liest ihn nur im Browser. Weder ein View-Key noch die Datei verlassen den Rechner.
+
+1. _Integrationen → Wallets_: Wallet hinzufügen, Chain Monero, deine Hauptadresse (`4…`) oder eine Subadresse (`8…`). Die Adresse benennt nur das Konto.
+2. Den Verlauf aus der Wallet exportieren:
+   - **Monero GUI:** _Verlauf_ → _Exportieren_ (CSV);
+   - **CLI:** `export_transfers all output=monero.csv`.
+3. „Verlauf importieren (CSV)“ an der Wallet liest die Datei:
+   - nur bestätigte Umsätze (Eingang, Ausgang, ein geminter Block); Pool, ausstehende und fehlgeschlagene bleiben draußen;
+   - jeder Umsatz wird zum Tageskurs bewertet (CoinGecko, `monero`);
+   - die Gebühr eines Ausgangs wird eigens gebucht, wie bei jeder Wallet; die eines Eingangs hat der Absender bezahlt.
+
+   Dieselbe oder eine längere Datei noch einmal zu importieren, fügt nur Neues hinzu. Der Bestand des Kontos ist, was die Datei ergibt.
+
+Beide Formate sind aus dem Quellcode der Wallets übernommen (monero-gui `TransactionHistory::writeCSV`, monero `export_transfers`). Die Datumsspalte der GUI folgt der Sprache, deshalb zählt ihre Spalte `epoch`; die Zeitstempel der CLI sind UTC.
+
+**XMR aus Privatbesitz** (eine Einlage) ist ein Eingang wie jeder andere. Einen fremden Beleg braucht sie nicht: Markier sie mit „Kein fremder Beleg … / Kein Beleg nötig“ samt Grund und übernimm das Konto, das dein Steuerberater nennt (Einzelunternehmen: 1890 Privateinlagen; eine UG oder GmbH bucht gegen den Gesellschafter). Eine **Kundenzahlung** in XMR wird wie eine Bankzahlung mit unserer Rechnung abgeglichen, zum Euro-Wert des Tages.
+
 ### Woher die Voreinstellungen kommen (geprüft am 26.09.2026)
 
 | Chain     | Chain-ID     | Adresse                                         | Assets (Nachkommastellen)        | Voreingestellte Endpunkte                                                                                | Explorer (Tx / Adresse)                                      |

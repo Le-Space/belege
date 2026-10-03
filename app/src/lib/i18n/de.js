@@ -550,6 +550,8 @@ export default {
 		technicalHeading: 'Unter der Haube',
 		// The names of what Belege works with, where they carry words (consent/integrations.js).
 		integrationNames: {
+			monero: 'Monero (Export der Wallet, nur im Browser gelesen)',
+			'aleph-backup': 'Aleph Cloud (Backup über die OrbitDB Storage Bridge)',
 			hibiscus: 'Hibiscus (Banken per FinTS/HBCI)',
 			camt: 'CAMT.053-Kontoauszüge, z. B. Revolut Business',
 			enablebanking: 'Enable Banking (Banken in Europa per PSD2, mit eigener Anwendung)',
@@ -717,6 +719,7 @@ export default {
 				data: 'Daten- und Kursquellen',
 				explorers: 'Block-Explorer (nur als Link)',
 				ai: 'KI-Modelle (du wählst eins)',
+				backup: 'Backup (versiegelt, nur auf deinen Klick)',
 				portals: 'Kundenportale',
 				apps: 'Verbundene Apps'
 			},
@@ -2875,6 +2878,10 @@ export default {
 			wallet: 'Eigene Wallet'
 		},
 		wallets: {
+			import: 'Verlauf importieren (CSV)',
+			importing: 'Wird importiert …',
+			moneroHint:
+				'Monero zeigt Beträge und Absender nicht öffentlich: Belege liest nicht die Adresse, sondern den Verlauf, den deine Wallet exportiert (Monero GUI: Verlauf → Exportieren; CLI: export_transfers all). Die Datei wird nur hier im Browser gelesen. Die Adresse benennt das Konto.',
 			title: 'Eigene Wallets',
 			intro:
 				'Nur lesend, über die Adresse: Die Bridge fragt einen öffentlichen Knoten der Chain nach allen Überweisungen und Gebühren dieser Adresse und nach ihrem Bestand. Nie ein Schlüssel, nie eine Seed-Phrase. Jedes Asset bekommt ein eigenes Konto; bewertet wird zum Tageskurs (CoinGecko, Kraken als Rückfall).',

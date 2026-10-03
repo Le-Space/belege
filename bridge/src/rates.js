@@ -45,6 +45,7 @@ export const RATE_SOURCES = /** @type {Readonly<Record<string, AssetSources>>} *
 		NYM: { coingecko: 'nym', kraken: 'NYMEUR' },
 		AKT: { coingecko: 'akash-network', kraken: 'AKTEUR' },
 		FIL: { coingecko: 'filecoin', kraken: 'FILEUR' },
+		XMR: { coingecko: 'monero', kraken: 'XMREUR' },
 		POL: { coingecko: 'polygon-ecosystem-token', kraken: 'POLEUR' },
 		USD: { ecb: true }
 	})

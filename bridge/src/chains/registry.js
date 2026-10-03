@@ -99,7 +99,20 @@
  * @property {Explorer} explorer
  */
 
-/** @typedef {CosmosChain | EvmChain | BitcoinChain | FilecoinChain} Chain */
+/**
+ * @typedef {object} MoneroChain imported from the wallet's export in the app, never read here
+ * @property {string} id
+ * @property {'monero'} kind
+ * @property {string} name
+ * @property {string} shortName
+ * @property {string} caip2
+ * @property {{ symbol: string, decimals: number }} native
+ * @property {Record<string, string>} endpoints none
+ * @property {Record<string, string[]>} alternatives none
+ * @property {Explorer} explorer
+ */
+
+/** @typedef {CosmosChain | EvmChain | BitcoinChain | FilecoinChain | MoneroChain} Chain */
 
 const USDC = { symbol: 'USDC', decimals: 6 };
 const ETH = { symbol: 'ETH', decimals: 18 };
@@ -292,6 +305,24 @@ export const CHAINS = Object.freeze({
 			name: 'Filfox',
 			tx: 'https://filfox.info/en/message/{tx}',
 			address: 'https://filfox.info/en/address/{address}'
+		}
+	},
+	// Not read here: Monero hides amounts and parties on its chain. The app
+	// imports the wallet's own export (app/src/lib/wallets/monero-import.js);
+	// listed so both tables name the same chains, and for its explorer.
+	monero: {
+		id: 'monero',
+		kind: 'monero',
+		name: 'Monero',
+		shortName: 'Monero',
+		caip2: 'monero:418015bb9ae982a1975da7d79277c270',
+		native: { symbol: 'XMR', decimals: 12 },
+		endpoints: {},
+		alternatives: {},
+		explorer: {
+			name: 'xmrchain.net',
+			tx: 'https://xmrchain.net/tx/{tx}',
+			address: ''
 		}
 	}
 });

@@ -166,6 +166,25 @@ A Bitcoin wallet is read by its account's **extended public key**, not by one ad
 
 An own Filecoin wallet is added by its address: f1 (secp256k1), f3 (BLS) or f410f (delegated – also typed in its Ethereum form `0x…`, which is the same account and is kept as f410f), each checked by its blake2b checksum before anything is asked, or f0 (an ID). The bridge reads it from Filfox's public API, without a key: `address/<a>` for the balance and `address/<a>/transfers` for every movement, 100 a page (`bridge/src/chains/filecoin.js`). Per message, each send and each receipt becomes a booking with the other side's address; its miner fee and burn fee together one fee booking. The message CID (`bafy2bzace…`) is the hash – the same one Kraken reports for a deposit, so a withdrawal from the wallet and the deposit on Kraken pair as an own transfer, and the deposit's detail names Filecoin. Filfox sees the address and this Mac's IP address; an address with more than 20 000 movements is refused as too large.
 
+### Monero
+
+Monero hides amounts, senders and receivers on its chain, so nothing can be read by an address. Instead Belege imports the history your wallet exports, and reads it only in the browser. No view key and no file leaves the computer.
+
+1. _Integrationen → Wallets_: add a wallet, chain Monero, your primary address (`4…`) or a subaddress (`8…`). The address only names the account.
+2. Export the history from the wallet:
+   - **Monero GUI:** _History_ → _Export_ (CSV);
+   - **CLI:** `export_transfers all output=monero.csv`.
+3. "Verlauf importieren (CSV)" on the wallet reads the file:
+   - confirmed transfers only (in, out, a mined block); pool, pending and failed ones are left out;
+   - each transfer is valued at the day's rate (CoinGecko, `monero`);
+   - an outgoing transfer's fee is booked apart, as for every wallet; an incoming one's was paid by the sender.
+
+   Importing the same or a longer file again adds only what is new. The account's balance is what the file adds up to.
+
+Both formats were taken from the wallets' own source (monero-gui `TransactionHistory::writeCSV`, monero `export_transfers`). The GUI's date column follows the language, so its `epoch` column is used; the CLI's timestamps are UTC.
+
+**XMR from private holdings** (a contribution) is a received transfer like any other. It needs no third-party receipt: mark it "Kein fremder Beleg … / Kein Beleg nötig" with a reason, and take over the account your tax adviser names (sole proprietors: 1890 Privateinlagen; a UG or GmbH books it against the shareholder). A **customer's payment** in XMR is matched against our invoice like a bank payment, at the day's euro value.
+
 ### Where the defaults come from (checked 2026-09-26)
 
 | Chain     | Chain id     | Address                            | Assets (decimals)                | Default endpoints                                                                                        | Explorer (tx / address)                                      |

@@ -11,7 +11,7 @@ import { isEthStyle, toFilecoinAddress } from './filecoin-address.js';
 /**
  * @typedef {object} WalletChain
  * @property {string} id
- * @property {'cosmos' | 'evm' | 'bitcoin' | 'filecoin'} kind
+ * @property {'cosmos' | 'evm' | 'bitcoin' | 'filecoin' | 'monero'} kind
  * @property {string} name
  * @property {string} shortName
  * @property {string} nativeSymbol
@@ -82,8 +82,26 @@ export const WALLET_CHAINS = Object.freeze({
 		name: 'Filecoin',
 		shortName: 'Filecoin',
 		nativeSymbol: 'FIL'
+	},
+	// Not read by address: Monero hides amounts and parties on its chain. The
+	// wallet's own export is imported in the browser (monero-import.js); the
+	// address names the account.
+	monero: {
+		id: 'monero',
+		kind: 'monero',
+		name: 'Monero',
+		shortName: 'Monero',
+		nativeSymbol: 'XMR'
 	}
 });
+
+/**
+ * Whether a chain is imported from the wallet's own export rather than read by
+ * its address through the bridge.
+ *
+ * @param {WalletChain | null} chain
+ */
+export const importedChain = (chain) => chain?.kind === 'monero';
 
 /** @param {unknown} id @returns {WalletChain | null} */
 export function walletChain(id) {
@@ -120,6 +138,8 @@ export function looksLikeAddress(chain, address) {
 	if (chain.kind === 'filecoin') {
 		return isEthStyle(a) || /^f(0\d{1,20}|1[a-z2-7]{39}|3[a-z2-7]{84}|410f[a-z2-7]{39})$/.test(a);
 	}
+	// A primary address (4…) or a subaddress (8…), base58, 95 characters.
+	if (chain.kind === 'monero') return /^[48][1-9A-HJ-NP-Za-km-z]{94}$/.test(a);
 	const prefix = chain.bech32Prefix ?? '';
 	return new RegExp(`^${prefix}1[02-9ac-hj-np-z]{38,58}$`).test(a);
 }

@@ -13,7 +13,14 @@
 	import { list, t } from '$lib/i18n/index.js';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
 	import CopyButton from '$lib/CopyButton.svelte';
-	import { WALLET_CHAINS, looksLikeAddress, safeExplorerUrl, walletChain } from './chains.js';
+	import {
+		WALLET_CHAINS,
+		importedChain,
+		looksLikeAddress,
+		safeExplorerUrl,
+		walletChain
+	} from './chains.js';
+	import { importMoneroExport } from './monero-import.js';
 	import {
 		addWallet,
 		loadWallets,
@@ -249,6 +256,36 @@
 		if (done) await runMatchingNow();
 	}
 
+	/**
+	 * Monero: the wallet's exported history, read here (monero-import.js).
+	 *
+	 * @param {import('./wallet-sync.js').Wallet} wallet
+	 * @param {File | undefined} file
+	 */
+	async function importHistory(wallet, file) {
+		const store = currentStore();
+		if (!store || !file) return;
+		syncing = wallet.id;
+		errors = Object.fromEntries(Object.entries(errors).filter(([id]) => id !== wallet.id));
+		let done = false;
+		try {
+			const result = await importMoneroExport({ client, store, wallet, text: await file.text() });
+			results = { ...results, [wallet.id]: result };
+			await updateAlerts(store.settings, (a) => ({
+				...a,
+				wallets: { ...a.wallets, [wallet.id]: result.unpriced.length }
+			}));
+			wallets = await loadWallets(store.settings);
+			await refreshNow();
+			done = true;
+		} catch (e) {
+			errors = { ...errors, [wallet.id]: e instanceof Error ? e.message : String(e) };
+		} finally {
+			syncing = null;
+		}
+		if (done) await runMatchingNow();
+	}
+
 	/** @param {import('./wallet-sync.js').Wallet} wallet */
 	async function remove(wallet) {
 		const store = currentStore();
@@ -423,16 +460,41 @@
 							</ul>
 						{/if}
 						<div class="mt-2 flex flex-wrap gap-3">
-							<button
-								type="button"
-								class="rounded-md bg-coral-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50"
-								disabled={syncing !== null}
-								onclick={() => sync(wallet)}
-								data-testid="wallet-sync"
-								>{syncing === wallet.id
-									? t('integrationen.wallets.syncing')
-									: t('integrationen.wallets.sync')}</button
-							>
+							{#if importedChain(walletChain(wallet.chain))}
+								<!-- Monero: no sync by address; the wallet's own export, read here. -->
+								<label
+									class="cursor-pointer rounded-md bg-coral-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-coral-800 {syncing !==
+									null
+										? 'pointer-events-none opacity-50'
+										: ''}"
+									data-testid="wallet-import"
+									>{syncing === wallet.id
+										? t('integrationen.wallets.importing')
+										: t('integrationen.wallets.import')}<input
+										type="file"
+										accept=".csv,text/csv"
+										class="sr-only"
+										disabled={syncing !== null}
+										onchange={(e) => {
+											const input = /** @type {HTMLInputElement} */ (e.currentTarget);
+											void importHistory(wallet, input.files?.[0]);
+											input.value = '';
+										}}
+										data-testid="wallet-import-file"
+									/></label
+								>
+							{:else}
+								<button
+									type="button"
+									class="rounded-md bg-coral-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50"
+									disabled={syncing !== null}
+									onclick={() => sync(wallet)}
+									data-testid="wallet-sync"
+									>{syncing === wallet.id
+										? t('integrationen.wallets.syncing')
+										: t('integrationen.wallets.sync')}</button
+								>
+							{/if}
 							<button
 								type="button"
 								class="text-sm text-text underline hover:text-heading"
@@ -605,11 +667,17 @@
 								? '0x…'
 								: localChain?.kind === 'filecoin'
 									? 'f1… · f410f… · 0x…'
-									: `${localChain?.bech32Prefix ?? ''}1…`}
+									: localChain?.kind === 'monero'
+										? '4… · 8…'
+										: `${localChain?.bech32Prefix ?? ''}1…`}
 							data-testid="wallet-address-input"
 						/>
 					</label>
-					<p class="text-xs text-faint">{t('integrationen.wallets.addressHint')}</p>
+					<p class="text-xs text-faint">
+						{localChain?.kind === 'monero'
+							? t('integrationen.wallets.moneroHint')
+							: t('integrationen.wallets.addressHint')}
+					</p>
 				{/if}
 				{@render metaFields(
 					{
