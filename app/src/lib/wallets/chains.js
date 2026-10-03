@@ -154,6 +154,27 @@ export function walletAccountName(chain, asset, address) {
 	return `Wallet ${asset}${where} ···${addressTail(address)}`;
 }
 
+/**
+ * The explorer's page of an address, from the booking's link to its
+ * transaction: the same explorer, `/address/<address>` where the link has
+ * `/tx/<hash>` or `/message/<hash>` (Filfox). Null when the link has neither.
+ *
+ * @param {unknown} explorerUrl
+ * @param {unknown} hash
+ * @param {unknown} address
+ */
+export function addressExplorerUrl(explorerUrl, hash, address) {
+	const url = safeExplorerUrl(explorerUrl);
+	const h = String(hash ?? '');
+	const a = String(address ?? '').trim();
+	if (!url || !h || !a || !/^[A-Za-z0-9]+$/.test(a)) return null;
+	for (const kind of ['tx', 'message']) {
+		const at = url.indexOf(`/${kind}/${h}`);
+		if (at > 0) return `${url.slice(0, at)}/address/${a}`;
+	}
+	return null;
+}
+
 /** Only an https link is shown as a link. @param {unknown} url */
 export function safeExplorerUrl(url) {
 	if (typeof url !== 'string') return null;

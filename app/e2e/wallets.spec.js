@@ -241,22 +241,25 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 	await sent.click();
 	await expect(detail.getByTestId('tx-detail-quantity')).toHaveText('-100 NYM');
 	await expect(detail.getByTestId('tx-detail-amount')).toHaveText(/-5,00\sEUR/);
-	await expect(detail.getByTestId('tx-detail-address')).toHaveText(B);
+	// The other address once, in "An" – not again in Details (issue #254).
+	await expect(detail.getByTestId('tx-detail-address')).toHaveCount(0);
 	// Who sent and who received: both own wallets, by name, the way it went.
 	await expect(detail.getByTestId('tx-detail-counterparty')).toHaveText(`Wallet NYM ···${tail(B)}`);
-	await expect(detail.getByTestId('tx-party-from')).toContainText(`Von Wallet NYM ···${tail(A)}`);
-	await expect(detail.getByTestId('tx-party-from')).toContainText('(eigene)');
-	await expect(detail.getByTestId('tx-party-to')).toContainText(`An Wallet NYM ···${tail(B)}`);
-	// The full address of both sides, and one click puts it on the clipboard:
-	// the button, or the address itself; "Kopiert" says so (issue #114).
+	await expect(detail.getByTestId('tx-party-from')).toContainText(`Wallet NYM ···${tail(A)}`);
+	await expect(detail.getByTestId('tx-party-from-own')).toHaveText('eigene Wallet');
+	await expect(detail.getByTestId('tx-party-to')).toContainText(`Wallet NYM ···${tail(B)}`);
+	await expect(detail.getByTestId('tx-party-to-own')).toHaveText('eigene Wallet');
+	// Both sides' address, short on the page and in full on the clipboard: the
+	// button, or the address itself; "Kopiert" says so (issues #114, #254).
+	const short = (/** @type {string} */ a) => `${a.slice(0, 8)}…${a.slice(-6)}`;
 	await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], {
 		origin: APP_ORIGIN
 	});
 	const readClipboard = () => page.evaluate(() => navigator.clipboard.readText());
 	const fromAddress = detail.getByTestId('tx-party-from-address');
 	const toAddress = detail.getByTestId('tx-party-to-address');
-	await expect(fromAddress.getByTestId('tx-party-from-address-value')).toHaveText(A);
-	await expect(toAddress.getByTestId('tx-party-to-address-value')).toHaveText(B);
+	await expect(fromAddress.getByTestId('tx-party-from-address-value')).toHaveText(short(A));
+	await expect(toAddress.getByTestId('tx-party-to-address-value')).toHaveText(short(B));
 	await page.evaluate(() => navigator.clipboard.writeText(''));
 	await fromAddress.getByTestId('tx-party-from-address-button').click();
 	await expect.poll(readClipboard).toBe(A);
@@ -268,10 +271,13 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 	await expect(fromAddress.getByTestId('tx-party-from-address-status')).toHaveText('', {
 		timeout: 5_000
 	});
-	// The transaction hash, from the meta line.
-	await detail.getByTestId('tx-hash-button').click();
+	// The transaction hash, once, under Details.
+	if (!(await detail.getByTestId('tx-details').isVisible())) {
+		await detail.getByTestId('tx-details-toggle').click();
+	}
+	await detail.getByTestId('tx-detail-ref-copy-button').click();
 	await expect.poll(readClipboard).toBe(fakeHash('e2e-own'));
-	await expect(detail.getByTestId('tx-hash-status')).toHaveText('Kopiert');
+	await expect(detail.getByTestId('tx-detail-ref-copy-status')).toHaveText('Kopiert');
 	await expect(sent.getByTestId('parties')).toHaveText(
 		`Von Wallet NYM ···${tail(A)} → An Wallet NYM ···${tail(B)}`
 	);
@@ -292,7 +298,10 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 	await expect(chips.filter({ hasText: 'Umbuchung' })).toContainText(`Wallet NYM ···${tail(B)}`);
 	await expect(chips.filter({ hasText: 'Gebühr dazu' })).toHaveCount(1);
 	await chips.filter({ hasText: 'Umbuchung' }).click();
-	await expect(detail.getByTestId('tx-detail-address')).toHaveText(A);
+	// The other side: B received from A.
+	await expect(
+		detail.getByTestId('tx-party-from-address').getByTestId('tx-party-from-address-value')
+	).toHaveText(short(A));
 	await expect(
 		detail.getByTestId('tx-related-chip').filter({ hasText: 'Umbuchung' })
 	).toContainText(`Wallet NYM ···${tail(A)}`);

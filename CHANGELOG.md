@@ -14,6 +14,17 @@ All notable changes to Le Space Belege. The format follows
   - The backup is built with `@le-space/orbitdb-storage-bridge` 0.16.1 (`bundleDatabases`). A test puts it back into an empty node through the package's `restoreFromBlocks`, and the books, the receipt file and the writer come back. A restore page follows in its own step.
   - All of it in [docs/backup.md](docs/backup.md) ([Deutsch](docs/backup.de.md)). The consent screen names the backup and what leaves (consent version 20).
 
+### Changed
+
+- **A wallet payment's detail says whose address is whose, and where the money went** (#254).
+  - "Von" and "An" are built the same way. The own side is marked "eigene Wallet"; each address is shown once, short, with copy (in full) and a link to its page in the explorer.
+  - The heading names the other side, not a bare address: an own account the payment went to, a named address, or "An f410f…". Filecoin addresses are now recognised as addresses.
+  - Each fact appears once: the transaction hash only under Details ("Transaktion"); no repeated "Gesendet · Tx …" purpose, and no second "Gegenadresse" row. The rate is shown with at most six significant digits, the full one on hover. A Filecoin message counts as "gleicher Tx-Hash", not as an exchange's reference. "Konto fehlt" says on hover that the booking account (SKR 03) is missing.
+  - **"Wohin ging das Geld?"** for a wallet transfer nothing explains yet:
+    - a deposit (or withdrawal) of nearly the same quantity of the same asset on an own account that day is offered as the same transfer, linked with one click;
+    - how many other bookings have this address, with a jump to them;
+    - "Adresse benennen" gives the address a name, which every booking with it then carries.
+
 ### Fixed
 
 - **Test bookings can be removed.** "Testbuchung anlegen" – a button of the development build – could put made-up payments (Testpartner GmbH, −19,99 €) into real books, with device sync even onto every own device; nothing could take them out, and with no bank account they blocked the export of their month. They are now marked, Zahlungen says so with "Testbuchungen entfernen", older ones are found by what the button wrote. The button now books onto a "Testkonto", so test bookings can be exported on request ("Testbuchungen mitexportieren", off by default; the package is then called TEST\_…).

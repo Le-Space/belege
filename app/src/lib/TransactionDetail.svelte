@@ -34,7 +34,7 @@
 		runMatchingNow
 	} from './session.svelte.js';
 	import { portalLink } from './matching/portal.js';
-	import { learnedVendors } from './matching/partners.js';
+	import { learnedVendors, nameAddress } from './matching/partners.js';
 	import { attachUpload, moveReceipt } from './receipts/attach.js';
 	import EigenbelegForm from './receipts/EigenbelegForm.svelte';
 	import { folderSupported, savedFolder } from './receipts/folder.js';
@@ -53,11 +53,17 @@
 	import { acknowledgeImportChange, setManualRate } from './booking/actions.js';
 	import { isBookingConfirmed } from './booking/suggest.js';
 	import { quantityText, rateInputPlaceholder, valuationText } from './assets/valuation.js';
-	import { safeExplorerUrl, walletChain } from './wallets/chains.js';
+	import { addressExplorerUrl, safeExplorerUrl, walletChain } from './wallets/chains.js';
 	import { chainOfHash, hashUrl } from './assets/hash-chain.js';
 	import { normalizeTxRef } from './matching/context.js';
 	import { renderSVG } from 'uqr';
-	import { addressBook, payeeName, shortAddress, walletParties } from './bank/payee.js';
+	import {
+		addressBook,
+		payeeName,
+		shortAddress,
+		walletParties,
+		walletPurposeExtra
+	} from './bank/payee.js';
 	import { eventCalls } from './stats/usage.js';
 	import { relatedIndex } from './matching/related.js';
 	import { scamContext, scamSigns } from './receipts/scam.js';
@@ -203,6 +209,86 @@
 				)
 			: null
 	);
+	// An own transfer names the account it went to, not an address (issue #254).
+	let counterAccount = $derived.by(() => {
+		const otherId =
+			classification?.kind === 'own-transfer' ? classification.counterBookingId : null;
+		const other = otherId ? app.transactions.find((o) => o.id === otherId) : null;
+		return other ? (app.accounts.find((a) => a.id === other.accountId) ?? null) : null;
+	});
+	let heading = $derived.by(() => {
+		if (parties && counterAccount) return accountLabel(counterAccount);
+		// A bare address is no name: say which way it went.
+		const other = parties && tx ? (txDirection(tx) < 0 ? parties.to : parties.from) : null;
+		if (tx && other && !other.own && other.address && other.label === shortAddress(other.address)) {
+			return t(
+				txDirection(tx) < 0 ? 'zahlungen.detail.toAddress' : 'zahlungen.detail.fromAddress',
+				{
+					address: other.label
+				}
+			);
+		}
+		return payee?.name;
+	});
+	// "Wohin ging das Geld?" (issue #254): for a wallet transfer nothing explains yet.
+	let whereOpen = $derived(
+		Boolean(
+			tx &&
+				parties &&
+				!parties.fee &&
+				!classification &&
+				!tx.receiptId &&
+				!tx.noReceipt &&
+				tx.counterpartyAddress
+		)
+	);
+	// An own account that got (or sent) about the same quantity of the same asset that day.
+	let whereCandidate = $derived.by(() => {
+		if (!whereOpen || !tx || !/^-?\d+$/.test(String(tx.quantity ?? ''))) return null;
+		const abs = (/** @type {bigint} */ v) => (v < 0n ? -v : v);
+		const mine = abs(BigInt(tx.quantity));
+		return (
+			transferCandidates(tx, app.transactions, { days: 1, limit: 5 }).find((o) => {
+				if (o.asset !== tx?.asset || !/^-?\d+$/.test(String(o.quantity ?? ''))) return false;
+				const theirs = abs(BigInt(o.quantity));
+				// Within 3 %: an exchange may keep a fee of its own.
+				return mine > 0n && abs(mine - theirs) * 100n <= mine * 3n;
+			}) ?? null
+		);
+	});
+	// The other bookings with the same address, newest first.
+	let sameAddress = $derived(
+		whereOpen && tx
+			? app.transactions
+					.filter(
+						(o) =>
+							!o.deleted && o.id !== tx?.id && o.counterpartyAddress === tx?.counterpartyAddress
+					)
+					.sort((a, b) => String(b.bookedOn).localeCompare(String(a.bookedOn)))
+			: []
+	);
+	// The other side is a bare address: offer to name it.
+	let whereUnnamed = $derived.by(() => {
+		if (!whereOpen || !tx || !parties) return false;
+		const other = txDirection(tx) < 0 ? parties.to : parties.from;
+		return !other.own && Boolean(other.address) && other.label === shortAddress(other.address);
+	});
+	let addressName = $state('');
+	const saveAddressName = () =>
+		act(async () => {
+			const store = currentStore();
+			if (!store || !tx) return;
+			await nameAddress(store.partners, tx, addressName);
+			addressName = '';
+			await refreshNow();
+		});
+	/** @param {string} otherId */
+	const linkCandidate = (otherId) =>
+		act(async () => {
+			await linkTransfer(/** @type {any} */ (currentStore()), txId, otherId);
+			await runMatchingNow();
+		});
+
 	// "Als Gegenbuchung verknüpfen …" (issue #98): the other side of an own transfer, by hand.
 	let linkOpen = $state(false);
 	// What the other side is: an own transfer, or a charge's refund (issue #119).
@@ -1235,7 +1321,7 @@
 						class="text-xl font-bold break-words text-heading"
 						data-testid="tx-detail-counterparty"
 					>
-						{payee?.name}
+						{heading}
 					</h2>
 					{#if payee && payee.from !== 'unknown' && !parties}
 						<a
@@ -1247,28 +1333,49 @@
 					{#if parties}
 						<!-- The full address under each name (issue #114): the list keeps the short
 						     form, here it is copied into an explorer or a wallet. -->
-						<div class="mt-1 flex flex-col gap-1 text-sm text-text" data-testid="tx-parties">
+						<!-- Who sent and who received (issue #254): both sides the same way, ours
+						     marked, each address once and short – the full one on hover and copy. -->
+						<dl
+							class="mt-2 grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5 text-sm"
+							data-testid="tx-parties"
+						>
 							{#each [{ side: 'from', p: parties.from }, { side: 'to', p: parties.to }] as { side, p } (side)}
-								<div data-testid={`tx-party-${side}`}>
-									<span class="text-faint">{t(`zahlungen.detail.party.${side}`)}</span>
-									<span class="font-medium text-heading">{p.label}</span>
-									{#if p.own}<span class="text-xs text-faint"
-											>({t('zahlungen.detail.party.own')})</span
-										>{:else if p.address && p.label.includes('…')}<span class="text-xs text-faint"
-											>({t('zahlungen.detail.party.foreign')})</span
-										>{/if}
+								{@const pageUrl = addressExplorerUrl(tx.explorerUrl, tx.txRef, p.address)}
+								<dt class="text-faint">{t(`zahlungen.detail.party.${side}`)}</dt>
+								<dd class="min-w-0" data-testid={`tx-party-${side}`} data-own={p.own}>
+									{#if p.own}<span
+											class="mr-1 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-success"
+											data-testid={`tx-party-${side}-own`}
+											>{t('zahlungen.detail.party.ownChip')}</span
+										>{/if}<span class="font-medium text-heading"
+										>{p.address && p.label === shortAddress(p.address)
+											? t('zahlungen.detail.party.unknownAddress')
+											: p.label}</span
+									>
 									{#if p.address}
-										<CopyButton
-											text={p.address}
-											label={t('copy.address')}
-											testid={`tx-party-${side}-address`}
-											class="block"
-											valueClass="font-mono text-xs break-all text-faint">{p.address}</CopyButton
-										>
+										<span class="mt-0.5 flex flex-wrap items-center gap-x-2">
+											<span class="whitespace-nowrap" title={p.address}>
+												<CopyButton
+													text={p.address}
+													label={t('copy.address')}
+													testid={`tx-party-${side}-address`}
+													valueClass="font-mono text-xs text-faint"
+													>{shortAddress(p.address)}</CopyButton
+												>
+											</span>
+											{#if pageUrl}<a
+													href={pageUrl}
+													target="_blank"
+													rel="noopener noreferrer"
+													class="text-xs underline"
+													data-testid={`tx-party-${side}-explorer`}
+													>{t('zahlungen.detail.party.explorer')}</a
+												>{/if}
+										</span>
 									{/if}
-								</div>
+								</dd>
 							{/each}
-						</div>
+						</dl>
 					{/if}
 				</div>
 				<div class="flex shrink-0 items-start gap-3">
@@ -1309,12 +1416,6 @@
 						aria-expanded={explorerQrOpen}
 						onclick={() => (explorerQrOpen = !explorerQrOpen)}
 						data-testid="tx-explorer-qr-toggle">{t('zahlungen.detail.explorerQr')}</button
-					>{/if}{#if parties && tx.txRef}&nbsp;·
-					<CopyButton
-						text={tx.txRef}
-						label={t('copy.hash')}
-						testid="tx-hash"
-						valueClass="font-mono text-xs text-heading">Tx {shortAddress(tx.txRef)}</CopyButton
 					>{/if}
 			</p>
 			{#if explorerQrOpen && safeExplorerUrl(tx.explorerUrl)}
@@ -1326,9 +1427,13 @@
 					{@html renderSVG(/** @type {string} */ (safeExplorerUrl(tx.explorerUrl)), { border: 1 })}
 				</div>
 			{/if}
-			{#if tx.purpose}
-				<p class="mt-1 line-clamp-2 font-mono text-xs break-words text-text" title={tx.purpose}>
-					{displayPurpose(tx.purpose)}
+			{#if walletPurposeExtra(tx)}
+				<p
+					class="mt-1 line-clamp-2 font-mono text-xs break-words text-text"
+					title={tx.purpose}
+					data-testid="tx-detail-purpose-line"
+				>
+					{displayPurpose(walletPurposeExtra(tx))}
 				</p>
 			{/if}
 			{#if tradeOther}
@@ -1359,6 +1464,9 @@
 						? 'border-success/30 bg-success/10 text-success'
 						: 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200'}"
 					onclick={() => scrollToPart('tx-konto-part')}
+					title={isBookingConfirmed(tx)
+						? undefined
+						: t('zahlungen.detail.status.konto.missingHint')}
 					data-testid="tx-status-konto"
 					data-state={isBookingConfirmed(tx) ? 'done' : 'missing'}
 					>{isBookingConfirmed(tx)
@@ -1376,6 +1484,94 @@
 					>{showDetails ? t('zahlungen.detail.detailsHide') : t('zahlungen.detail.details')}</button
 				>
 			</div>
+			{#if whereOpen}
+				<section
+					class="mt-3 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
+					aria-labelledby="tx-where-h"
+					data-testid="tx-where"
+				>
+					<h3 id="tx-where-h" class="text-xs font-semibold tracking-wide text-faint uppercase">
+						{t(
+							txDirection(tx) < 0
+								? 'zahlungen.detail.where.titleOut'
+								: 'zahlungen.detail.where.titleIn'
+						)}
+					</h3>
+					{#if whereCandidate}
+						{@const acc = app.accounts.find((a) => a.id === whereCandidate?.accountId)}
+						<p class="mt-1 text-text" data-testid="tx-where-candidate">
+							{t('zahlungen.detail.where.candidate', {
+								account: acc ? accountLabel(acc) : '—',
+								date: formatDate(String(whereCandidate.bookedOn)),
+								quantity:
+									quantityText(whereCandidate) ||
+									formatMoney(whereCandidate.amountCents ?? 0, 'EUR')
+							})}
+						</p>
+						<div class="mt-1 flex flex-wrap gap-3">
+							<button
+								type="button"
+								class={button}
+								disabled={busy}
+								onclick={() => whereCandidate && linkCandidate(String(whereCandidate.id))}
+								data-testid="tx-where-link">{t('zahlungen.detail.where.link')}</button
+							>
+							<button
+								type="button"
+								class="text-sm underline"
+								onclick={() => whereCandidate && onopen(String(whereCandidate.id))}
+								data-testid="tx-where-candidate-open">{t('zahlungen.detail.where.open')}</button
+							>
+						</div>
+					{/if}
+					{#if sameAddress.length}
+						<p class="mt-2 text-text" data-testid="tx-where-same">
+							{sameAddress.length === 1
+								? t('zahlungen.detail.where.sameOne')
+								: t('zahlungen.detail.where.same', { count: sameAddress.length })}
+							<!-- They are listed below, under "Weitere Zahlungen an …": opened there. -->
+							<button
+								type="button"
+								class="ml-1 underline"
+								onclick={() => {
+									othersOpen = true;
+									scrollToPart('tx-others');
+								}}
+								data-testid="tx-where-same-show">{t('zahlungen.detail.where.show')}</button
+							>
+						</p>
+					{:else}
+						<p class="mt-2 text-faint" data-testid="tx-where-first">
+							{t('zahlungen.detail.where.first')}
+						</p>
+					{/if}
+					{#if whereUnnamed}
+						<form
+							class="mt-2 flex flex-wrap items-end gap-2"
+							onsubmit={(e) => {
+								e.preventDefault();
+								saveAddressName();
+							}}
+						>
+							<label class="flex min-w-48 flex-1 flex-col text-xs text-faint"
+								>{t('zahlungen.detail.where.nameLabel')}
+								<input
+									class="mt-1 rounded-md border border-border bg-surface px-2 py-1.5 text-sm text-heading"
+									bind:value={addressName}
+									placeholder={t('zahlungen.detail.where.namePlaceholder')}
+									data-testid="tx-where-name"
+								/>
+							</label>
+							<button
+								type="submit"
+								class={button}
+								disabled={busy || !addressName.trim()}
+								data-testid="tx-where-name-save">{t('zahlungen.detail.where.nameSave')}</button
+							>
+						</form>
+					{/if}
+				</section>
+			{/if}
 			{#if tx.importChange}
 				<div
 					class="mt-2 rounded-md border border-l-4 border-red-300 border-l-red-700 bg-red-50 px-3 py-2 text-sm dark:border-red-900 dark:border-l-red-400 dark:bg-red-950/40"
@@ -1415,7 +1611,9 @@
 					{#if quantityText(tx)}
 						{#if valuationText(tx)}
 							<dt class="text-faint">{t('zahlungen.detail.valuation')}</dt>
-							<dd class="text-heading" data-testid="tx-detail-valuation">{valuationText(tx)}</dd>
+							<dd class="text-heading" data-testid="tx-detail-valuation" title={valuationText(tx)}>
+								{valuationText(tx, { short: true })}
+							</dd>
 						{/if}
 					{/if}
 					{#if tx.original?.currency}
@@ -1436,7 +1634,9 @@
 						<dd class="font-mono text-xs text-heading">{tx.exchangeType}</dd>
 					{/if}
 					{#if tx.txRef}
-						<dt class="text-faint">{t('zahlungen.detail.txRef')}</dt>
+						<dt class="text-faint">
+							{t(parties ? 'zahlungen.detail.txHashLabel' : 'zahlungen.detail.txRef')}
+						</dt>
 						<dd class="font-mono text-xs break-all text-heading" data-testid="tx-detail-ref">
 							<CopyButton
 								text={tx.txRef}
@@ -1484,7 +1684,7 @@
 							{/if}
 						</dd>
 					{/if}
-					{#if tx.counterpartyAddress}
+					{#if tx.counterpartyAddress && !parties}
 						<dt class="text-faint">{t('zahlungen.detail.address')}</dt>
 						<dd class="font-mono text-xs break-all text-heading" data-testid="tx-detail-address">
 							<CopyButton
@@ -1505,7 +1705,7 @@
 						</dd>
 					{/if}
 				</dl>
-				{#if tx.purpose}
+				{#if parties ? walletPurposeExtra(tx) : tx.purpose}
 					<h3 class="mt-3 text-xs font-semibold tracking-wide text-faint uppercase">
 						{t('zahlungen.detail.purpose')}
 					</h3>
@@ -2798,7 +2998,7 @@
 				<p class="mt-3 text-sm text-danger" role="alert" data-testid="tx-detail-error">{error}</p>
 			{/if}
 
-			<section class="mt-4" data-testid="tx-others">
+			<section class="mt-4" id="tx-others" data-testid="tx-others">
 				<button
 					type="button"
 					class="flex w-full items-center justify-between gap-2 text-left"
@@ -2812,7 +3012,8 @@
 								? 'zahlungen.detail.othersIn'
 								: 'zahlungen.detail.othersOut',
 							{
-								name: tx.counterparty || '—'
+								// A wallet's counterparty is an address: its name, or its short form.
+								name: (parties ? payee?.name : tx.counterparty) || '—'
 							}
 						)} ({others.length})
 					</h3>
