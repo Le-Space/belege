@@ -1048,6 +1048,17 @@ export default {
 		hidden: '{count} weitere in anderen Jahren'
 	},
 	home: {
+		ownIban: {
+			title: 'Ist das ein eigenes Konto?',
+			what: 'Von diesen IBANs kommt Geld unter eurem Firmennamen – meist ein eigenes Konto, dessen Auszüge die IBAN nicht nennen (Wise zum Beispiel). Als eigene IBAN gespeichert, gilt jede Zahlung dorthin als eigene Umbuchung.',
+			sends: 'schickt unter „{name}“ ({count}×)',
+			explainsOne: 'Erklärt 1 Zahlung ohne Beleg an diese IBAN.',
+			explains: 'Erklärt {count} Zahlungen ohne Beleg an diese IBAN.',
+			explainsNone: 'Noch keine Zahlung ohne Beleg an diese IBAN.',
+			open: 'Zahlung ansehen',
+			yes: 'Ja, eigenes Konto',
+			no: 'Nein, nicht unseres'
+		},
 		integrationNeeds: 'Integrationen brauchen dich',
 		privateOpen: {
 			title: 'Privat bezahlt, noch nicht ausgeglichen: {count} ({amount})',
@@ -1918,6 +1929,8 @@ export default {
 			'not-refund': 'Als „keine Erstattung“ markiert',
 			'transfer-receipt-kept': 'Beleg einer Umbuchung bestätigt',
 			'company-name': 'Firmennamen übernommen',
+			'own-iban': 'IBAN als eigenes Konto übernommen',
+			'not-own-iban': 'IBAN als „nicht unseres“ markiert',
 			'receipt-duplicate': 'Beleg als Duplikat aussortiert',
 			'receipt-set-aside': 'Beleg aussortiert',
 			'receipt-restore': 'Beleg wieder aufgenommen',
@@ -2147,6 +2160,10 @@ export default {
 		tradeOpen: 'andere Seite öffnen',
 		time: '{time} Uhr',
 		detail: {
+			ownIban: {
+				question:
+					'Von {iban} kommt Geld unter „{name}“ – ist das ein eigenes Konto? Dann gilt jede Zahlung dorthin als eigene Umbuchung.'
+			},
 			toAddress: 'An {address}',
 			fromAddress: 'Von {address}',
 			txHashLabel: 'Transaktion',

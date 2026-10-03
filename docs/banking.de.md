@@ -18,6 +18,8 @@ Exportiere den Kontoauszug im Online-Banking als CAMT.053 (XML) und lade ihn unt
 
 Nennt der Auszug einer Bank keine IBAN, trag die IBAN des Kontos unter _Einstellungen → Eigene IBANs_ ein. Dann werden Umbuchungen zwischen deinen eigenen Konten erkannt.
 
+**Besonders Wise:** Seine Auszüge nennen die eigene IBAN des Kontos nie. Ohne sie verlangt eine Zahlung vom Bankkonto zu Wise einen Beleg; die Bank nennt den Empfänger oft „Wise Europe SA“. Der Rückweg wird erkannt, weil Wise ihn unter eurem Firmennamen schickt. Das nutzt Belege: Eine IBAN, die Geld unter eurem Firmennamen schickt, wird auf Home als „Ist das ein eigenes Konto?“ angeboten, zusammen mit den offenen Zahlungen, die sie erklären würde. „Ja, eigenes Konto“ speichert sie als eigene IBAN, und jede Zahlung dorthin ist von da an eine eigene Umbuchung (Konto 1360). „Nein, nicht unseres“ beendet das Angebot, etwa bei einem Kunden, dessen Name eurem nur ähnelt. Ohne den Klick wird nichts gespeichert.
+
 ## Hibiscus
 
 Hibiscus (in Jameica) ruft deine deutschen Bankkonten per FinTS ab, und die Bridge liest sie dort. Einmal einrichten mit `pnpm setup:hibiscus`; die Einzelheiten stehen in [bridge/README.md](../bridge/README.md#setup-macos).

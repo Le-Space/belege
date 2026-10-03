@@ -18,7 +18,13 @@
 	import { DEFAULT_PRICES, aiUsage, cleanPrices, periods } from '$lib/stats/usage.js';
 	import { isTxCovered, questionProgress, transfersWithReceipt } from '$lib/matching/view.js';
 	import { cleanMatchingSettings } from '$lib/matching/classify.js';
-	import { keepTransferReceipt, unlinkMatch } from '$lib/matching/actions.js';
+	import {
+		addOwnIban,
+		keepTransferReceipt,
+		rejectOwnIban,
+		unlinkMatch
+	} from '$lib/matching/actions.js';
+	import { groupIban, ownIbanSuggestions } from '$lib/matching/own-iban.js';
 	import { formatDate, formatMoney, formatTxAmount } from '$lib/bank/format.js';
 	import { addressBook, payeeName } from '$lib/bank/payee.js';
 	import { receiptVendor } from '$lib/receipts/view.js';
@@ -160,6 +166,16 @@
 			kept: cleanMatchingSettings(app.matchingSettings).keptTransferReceipts
 		}).filter((x) => index.txYear(x.tx) === year);
 	});
+	// "Ist das ein eigenes Konto?" (#256): an IBAN that sends under the company's name.
+	let ownIbanOffers = $derived.by(() => {
+		const settings = cleanMatchingSettings(app.matchingSettings);
+		return ownIbanSuggestions({
+			transactions: app.transactions,
+			classifications: app.classifications,
+			ownIbans: settings.ownIbans,
+			notOwnIbans: settings.notOwnIbans
+		});
+	});
 	let checkBusy = $state(false);
 	/** @param {() => Promise<unknown>} fn */
 	async function check(fn) {
@@ -248,6 +264,65 @@
 		testid="home-integration-needs"
 		more
 	/>
+{/if}
+
+{#if ownIbanOffers.length}
+	<section class="mt-4 {card}" aria-labelledby="own-iban-h" data-testid="own-iban-offers">
+		<h2 id="own-iban-h" class="text-sm font-semibold text-heading">{t('home.ownIban.title')}</h2>
+		<p class="mt-1 text-sm text-text">{t('home.ownIban.what')}</p>
+		<ul class="mt-2 divide-y divide-border text-sm">
+			{#each ownIbanOffers as offer (offer.iban)}
+				<li
+					class="flex flex-wrap items-center justify-between gap-2 py-2"
+					data-testid="own-iban-offer"
+				>
+					<span class="min-w-0">
+						<span class="font-mono text-heading" data-testid="own-iban-offer-iban"
+							>{groupIban(offer.iban)}</span
+						>
+						<span class="block text-faint"
+							>{t('home.ownIban.sends', {
+								name: offer.sender,
+								count: offer.incoming.length
+							})}</span
+						>
+						<span class="block text-heading" data-testid="own-iban-offer-explains"
+							>{offer.outgoing.length === 1
+								? t('home.ownIban.explainsOne')
+								: offer.outgoing.length
+									? t('home.ownIban.explains', { count: offer.outgoing.length })
+									: t('home.ownIban.explainsNone')}</span
+						>
+					</span>
+					<span class="flex flex-wrap gap-2">
+						{#if offer.outgoing.length}
+							<a
+								class="rounded-md border border-border px-3 py-1 text-sm text-text no-underline hover:bg-surface-2"
+								href={`${resolve('/zahlungen')}?tx=${encodeURIComponent(String(offer.outgoing[0].id))}`}
+								data-testid="own-iban-offer-open">{t('home.ownIban.open')}</a
+							>
+						{/if}
+						<button
+							type="button"
+							class="rounded-md border border-border px-3 py-1 text-sm text-text hover:bg-surface-2"
+							disabled={checkBusy}
+							onclick={() =>
+								check(() => addOwnIban(/** @type {any} */ (currentStore()), offer.iban))}
+							data-testid="own-iban-offer-yes">{t('home.ownIban.yes')}</button
+						>
+						<button
+							type="button"
+							class="rounded-md border border-border px-3 py-1 text-sm text-text hover:bg-surface-2"
+							disabled={checkBusy}
+							onclick={() =>
+								check(() => rejectOwnIban(/** @type {any} */ (currentStore()), offer.iban))}
+							data-testid="own-iban-offer-no">{t('home.ownIban.no')}</button
+						>
+					</span>
+				</li>
+			{/each}
+		</ul>
+	</section>
 {/if}
 
 {#if transferReceipts.length}

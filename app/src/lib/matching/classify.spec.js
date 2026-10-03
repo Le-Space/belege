@@ -341,6 +341,7 @@ describe('cleanMatchingSettings', () => {
 			ownNames: [],
 			employees: [],
 			ownIbans: ['DE00111122223333444455'],
+			notOwnIbans: [],
 			rules: [
 				{ id: 'ok', field: 'counterparty', contains: 'Miete', action: 'private', reason: '' }
 			],
@@ -360,6 +361,7 @@ describe('cleanMatchingSettings', () => {
 			ownNames: [],
 			employees: [],
 			ownIbans: [],
+			notOwnIbans: [],
 			rules: [],
 			graceDays: 7,
 			feeKeys: [],

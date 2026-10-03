@@ -25,6 +25,11 @@ All notable changes to Le Space Belege. The format follows
     - how many other bookings have this address, with a jump to them;
     - "Adresse benennen" gives the address a name, which every booking with it then carries.
 
+- **"Ist das ein eigenes Konto?"** (#256). An IBAN that sends money under the company's own name is very likely an own account, a Wise account for example, whose statements never name its IBAN. Payments back from it were own transfers already, by the name; payments to it asked for a receipt, because the bank names the payee "Wise Europe SA".
+  - Home and the payment's detail now offer such an IBAN, with how many open payments it would explain. "Ja, eigenes Konto" saves it under the own IBANs, and every payment to it becomes an own transfer (1360). "Nein, nicht unseres" stops the offer for good.
+  - Nothing is saved without the click: a customer whose name only looks like the company's is offered too, and refused there.
+  - [docs/banking.md](docs/banking.md) explains it under Wise.
+
 ### Fixed
 
 - **Test bookings can be removed.** "Testbuchung anlegen" – a button of the development build – could put made-up payments (Testpartner GmbH, −19,99 €) into real books, with device sync even onto every own device; nothing could take them out, and with no bank account they blocked the export of their month. They are now marked, Zahlungen says so with "Testbuchungen entfernen", older ones are found by what the button wrote. The button now books onto a "Testkonto", so test bookings can be exported on request ("Testbuchungen mitexportieren", off by default; the package is then called TEST\_…).

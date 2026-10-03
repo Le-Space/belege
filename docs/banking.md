@@ -18,6 +18,8 @@ Export the statement as CAMT.053 (XML) in your online banking and upload it unde
 
 If a bank's statement names no IBAN, enter the account's IBAN under _Einstellungen → eigene IBANs_. Transfers between your own accounts are then recognised.
 
+**Wise in particular:** its statements never name the account's own IBAN. Without it, a payment from your bank account to Wise asks for a receipt; the bank often calls the payee "Wise Europe SA". The way back is recognised, because Wise sends it under your company's name. Belege uses that: an IBAN that sends money under your company's name is offered on Home as "Ist das ein eigenes Konto?", together with the open payments it would explain. "Ja, eigenes Konto" saves it as an own IBAN, and every payment to it is an own transfer from then on (account 1360). "Nein, nicht unseres" stops the offer, for example for a customer whose name only looks like yours. Nothing is saved without the click.
+
 ## Hibiscus
 
 Hibiscus (in Jameica) fetches your German bank accounts via FinTS. The bridge reads them from it. Set it up once with `pnpm setup:hibiscus`; the details are in [bridge/README.md](../bridge/README.md#setup-macos).
