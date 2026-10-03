@@ -37,6 +37,7 @@
 //   POST /aleph/accounts { addresses, api? }                      token → which are Aleph accounts: credits, entries (aleph.js)
 //   GET  /aleph/statement?address=0x…&month=YYYY-MM[&api=]        token → a month's credits: balances, top-ups, usage per day
 //   GET  /backup/status                                           token → { aleph: { configured, address, credits, ingestUrl } } (aleph-backup.js)
+//   GET  /backup/aleph/list                                       token → { backups: [{ cid, at, itemHash }] }: what this account had Aleph keep
 //   POST /backup/aleph/pin { cid }                                token → { cid, address, itemHash, status }: what the app uploaded, kept
 //   POST /backup/aleph?name=<file name>  (the sealed bytes)       token → { cid, size, address, itemHash, status }: uploaded and kept
 //   /portals…          customer portals (portals/routes.js)            token
@@ -641,7 +642,13 @@ export function createBridgeServer({
 						.catch(() => null)
 				: null;
 			return send(res, 200, {
-				aleph: { configured: true, address, credits, ingestUrl: alephBackup.ingestUrl }
+				aleph: {
+					configured: true,
+					address,
+					credits,
+					ingestUrl: alephBackup.ingestUrl,
+					gateways: alephBackup.gateways
+				}
 			});
 		}
 
@@ -650,6 +657,18 @@ export function createBridgeServer({
 				error: 'the Aleph backup is not set up: run `pnpm setup:aleph`',
 				code: 'ALEPH_BACKUP_NOT_SET_UP'
 			});
+		}
+
+		if (path === '/backup/aleph/list' && req.method === 'GET') {
+			if (!alephBackup) {
+				return send(res, 503, {
+					error: 'the Aleph backup is not set up: run `pnpm setup:aleph`',
+					code: 'ALEPH_BACKUP_NOT_SET_UP'
+				});
+			}
+			const backups = await alephBackup.list();
+			log(`backup: ${backups.length} backup(s) listed`);
+			return send(res, 200, { backups });
 		}
 
 		if (path === '/backup/aleph/pin' && req.method === 'POST' && alephBackup) {

@@ -495,9 +495,15 @@ export function createBridgeClient({
 		 * bridge's backup key, the account that pays, its credits and where the
 		 * app uploads a backup itself.
 		 *
-		 * @returns {Promise<{ aleph: { configured: boolean, address?: string, credits?: number | null, ingestUrl?: string } }>}
+		 * @returns {Promise<{ aleph: { configured: boolean, address?: string, credits?: number | null, ingestUrl?: string, gateways?: string[] } }>}
 		 */
 		backupStatus: () => call('/backup/status'),
+		/**
+		 * The backups the bridge's Aleph account had kept, newest first.
+		 *
+		 * @returns {Promise<{ backups: { cid: string, at: string, itemHash: string }[] }>}
+		 */
+		backupList: () => call('/backup/aleph/list'),
 		/**
 		 * Have Aleph keep a backup the app uploaded to its IPFS host: the bridge
 		 * signs the STORE message with its backup key.

@@ -20,6 +20,10 @@
 // to fund, never the key. The signature is `personal_sign` (EIP-191) over
 // what aleph-pin hands in, as a browser wallet would sign it.
 //
+// To get a backup back, the app asks for the list of this account's STORE
+// messages on BELEGE-BACKUP (`list`, the public messages API, no key) and
+// fetches the file from Aleph's gateway itself (`gateways`).
+//
 // What leaves: the sealed bytes (the app seals them before they get here –
 // the bridge never sees a book in the clear) to Aleph's IPFS host, and the
 // signed message with the address and the CID to the Aleph API. The log gets
@@ -28,7 +32,10 @@
 import { keccak_256 } from '@noble/hashes/sha3.js';
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { createAlephBackend } from '@le-space/orbitdb-storage-bridge/backends/aleph';
-import { createAlephPin } from '@le-space/orbitdb-storage-bridge/backends/aleph-pin';
+import {
+	DEFAULT_ALEPH_API_HOST as DEFAULT_API,
+	createAlephPin
+} from '@le-space/orbitdb-storage-bridge/backends/aleph-pin';
 
 import { toChecksumAddress } from './chains/evm.js';
 
@@ -123,6 +130,43 @@ export function createAlephBackup({ getKey, ingestUrl = ALEPH_INGEST, apiHost, f
 	return {
 		/** Where the app uploads a backup itself: Aleph's IPFS host (tests: a fake). */
 		ingestUrl,
+		/** Where the app fetches one back: the gateway on the same host. */
+		gateways: [`${new URL(ingestUrl).origin}/ipfs`],
+
+		/**
+		 * The backups this account has had Aleph keep, newest first: the STORE
+		 * messages it sent on BELEGE-BACKUP, from Aleph's public messages API.
+		 *
+		 * @returns {Promise<{ cid: string, at: string, itemHash: string }[]>}
+		 */
+		async list() {
+			const sender = addressOf(await key());
+			const url = new URL(`${apiHost ?? DEFAULT_API}/api/v0/messages.json`);
+			url.searchParams.set('addresses', sender);
+			url.searchParams.set('msgTypes', 'STORE');
+			url.searchParams.set('channels', BACKUP_CHANNEL);
+			url.searchParams.set('pagination', '50');
+			url.searchParams.set('page', '1');
+			const response = await f(url.toString(), { signal: AbortSignal.timeout(20_000) });
+			if (!response.ok) {
+				throw Object.assign(new Error(`Aleph did not list the backups: ${response.status}`), {
+					status: 502,
+					code: 'ALEPH_BACKUP_LIST'
+				});
+			}
+			const body = /** @type {any} */ (await response.json().catch(() => ({})));
+			const messages = Array.isArray(body?.messages) ? body.messages : [];
+			return messages
+				.map((/** @type {any} */ m) => ({
+					cid: String(m?.content?.item_hash ?? ''),
+					at: new Date(Number(m?.content?.time ?? m?.time ?? 0) * 1000).toISOString(),
+					itemHash: String(m?.item_hash ?? ''),
+					owner: String(m?.content?.address ?? '')
+				}))
+				.filter((b) => isAlephCid(b.cid) && b.owner === sender)
+				.map(({ owner: _owner, ...b }) => b)
+				.sort((a, b) => (a.at < b.at ? 1 : -1));
+		},
 
 		/** The account that pays for keeping the backups. */
 		async address() {

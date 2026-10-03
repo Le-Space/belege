@@ -81,7 +81,7 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 	const added = new Map();
 	/** The STORE messages taken: their sender, CID, channel and status. */
 	const stores =
-		/** @type {{ sender: string, cid: string, channel: string, status: string }[]} */ ([]);
+		/** @type {{ sender: string, cid: string, channel: string, status: string, owner: string, time: number, itemHash: string }[]} */ ([]);
 	const server = http.createServer(async (req, res) => {
 		const url = new URL(String(req.url), 'http://x');
 		calls.push(url.pathname.replace(/0x[0-9a-fA-F]{40}/g, '<address>'));
@@ -89,6 +89,39 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 			res.writeHead(status, { 'Content-Type': 'application/json' });
 			res.end(JSON.stringify(body));
 		};
+		const ipfs = /^\/ipfs\/([A-Za-z0-9]+)$/.exec(url.pathname);
+		if (req.method === 'GET' && ipfs) {
+			// Aleph's gateway: the bytes as they were added, readable by any page.
+			const bytes = added.get(ipfs[1]);
+			if (!bytes) return reply(404, { error: 'not found' });
+			res.writeHead(200, {
+				'Content-Type': 'application/octet-stream',
+				'Access-Control-Allow-Origin': '*'
+			});
+			return res.end(Buffer.from(bytes));
+		}
+		if (req.method === 'GET' && url.pathname === '/api/v0/messages.json') {
+			// Only the filters the bridge sends; and only messages Aleph kept.
+			const senders = (url.searchParams.get('addresses') ?? '').split(',').filter(Boolean);
+			const channels = (url.searchParams.get('channels') ?? '').split(',').filter(Boolean);
+			if (url.searchParams.get('msgTypes') !== 'STORE') return reply(400, { error: 'msgTypes' });
+			return reply(200, {
+				messages: stores
+					.filter((s) => s.status === 'processed')
+					.filter((s) => !senders.length || senders.includes(s.sender))
+					.filter((s) => !channels.length || channels.includes(s.channel))
+					.map((s) => ({
+						type: 'STORE',
+						item_hash: s.itemHash,
+						sender: s.sender,
+						channel: s.channel,
+						content: { address: s.owner, item_type: 'ipfs', item_hash: s.cid, time: s.time }
+					})),
+				pagination_page: 1,
+				pagination_total: stores.length,
+				pagination_per_page: 50
+			});
+		}
 		if (req.method === 'POST' && url.pathname === '/api/v0/add') {
 			const form = await new Request('http://x', {
 				method: 'POST',
@@ -147,7 +180,15 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 				[m.chain, m.sender, m.type, m.item_hash].join('\n')
 			);
 			const status = signed === toChecksumAddress(m.sender) ? 'processed' : 'pending';
-			stores.push({ sender: m.sender, cid: content.item_hash, channel: m.channel, status });
+			stores.push({
+				sender: m.sender,
+				cid: content.item_hash,
+				channel: m.channel,
+				status,
+				owner: content.address,
+				time: content.time,
+				itemHash: m.item_hash
+			});
 			return reply(status === 'processed' ? 200 : 202, {
 				publication_status: { status: 'success', failed: [] },
 				message_status: status

@@ -44,7 +44,8 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     through the own application (#224, step 2).
 // 20: the backup on Aleph Cloud: the browser uploads the sealed file to Aleph's
 //     IPFS host itself, the bridge signs the order to keep it (#77).
-export const CONSENT_VERSION = '20';
+// 21: restoring fetches the sealed backup from Aleph's gateway (#77).
+export const CONSENT_VERSION = '21';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

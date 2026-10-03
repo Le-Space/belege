@@ -754,7 +754,7 @@ export default {
 				name: 'Backup bei Aleph Cloud',
 				text: 'Wenn eingerichtet und nur auf deinen Klick: alles, was Belege hält, versiegelt mit einem Schlüssel aus deinem Passkey, als eine Datei bei Aleph Cloud.',
 				leaves:
-					'An Alephs IPFS-Host, direkt aus diesem Browser: die versiegelte Datei (Aleph sieht ihre Größe und die IP-Adresse dieses Computers, nicht den Inhalt). Von der Bridge an Aleph: ein mit dem eigenen Backup-Schlüssel der Bridge unterschriebener Auftrag, der die Datei nennt.',
+					'An Alephs IPFS-Host, direkt aus diesem Browser: die versiegelte Datei (Aleph sieht ihre Größe und die IP-Adresse dieses Computers, nicht den Inhalt). Von der Bridge an Aleph: ein mit dem eigenen Backup-Schlüssel der Bridge unterschriebener Auftrag, der die Datei nennt. Zum Wiederherstellen holt der Browser die versiegelte Datei über ihre CID von Alephs Gateway.',
 				technical:
 					'Das CAR aller Datenbank-Blöcke (Einträge schon versiegelt, Manifeste, Access-Controller, Identitäten der Schreiber) und der versiegelten Blöcke jeder Belegdatei wird noch einmal mit AES-256-GCM versiegelt, unter einem Schlüssel aus dem PRF des Passkeys (HKDF, belege/backup-key/v1). Upload: POST https://ipfs.aleph.cloud/api/v0/add, ohne Schlüssel. Die Bridge unterschreibt eine STORE-Nachricht (personal_sign, Kanal BELEGE-BACKUP) mit einem secp256k1-Schlüssel, den sie selbst erzeugt hat (pnpm setup:aleph) und im Schlüsselbund hält; Aleph bewahrt die Datei auf, solange dieses Konto Credits hat.'
 			},
@@ -863,6 +863,27 @@ export default {
 		reads: '{count}× gelesen',
 		revoke: 'Widerrufen',
 		refresh: 'Abrufe aktualisieren'
+	},
+	restore: {
+		title: 'Wiederherstellen',
+		what: 'Ein Backup dieses Passkeys zurück in die Bücher hier. Was hier ist, bleibt; was das Backup enthält, kommt dazu – gelöscht wird nichts. Am Ende lädt die Seite neu, und der Passkey öffnet die Bücher wieder.',
+		leaves:
+			'Geht hinaus: die CID des Backups an Alephs Gateway (es sieht die IP-Adresse dieses Computers). Die Datei kommt versiegelt zurück und wird hier geöffnet.',
+		none: 'Noch kein Backup bekannt. Koppel die Bridge, dann zeigt sie die ihres Aleph-Kontos, oder gib eine CID ein.',
+		cidLabel: 'Oder die CID eines Backups',
+		pick: 'Wiederherstellen',
+		notACid: 'Das ist keine CID.',
+		confirm:
+			'Dieses Backup in diese Bücher wiederherstellen? Sie werden zusammengeführt; am Ende lädt die Seite neu.',
+		yes: 'Ja, wiederherstellen',
+		no: 'Abbrechen',
+		fetching: 'Backup wird von Aleph geholt …',
+		opening: 'Backup wird geöffnet …',
+		database: 'Datenbank {index} von {total}: {name} …',
+		done: 'Wiederhergestellt. Die Seite lädt neu – entsperre mit dem Passkey.',
+		wrongPasskey:
+			'Dieses Backup lässt sich mit diesem Passkey nicht öffnen: Es wurde mit einem anderen gemacht.',
+		notFetched: 'Alephs Gateway hat das Backup nicht zurückgegeben. Versuch es gleich noch einmal.'
 	},
 	backup: {
 		title: 'Backup',

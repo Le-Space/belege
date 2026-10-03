@@ -19,7 +19,7 @@ import SealedDocuments from '../store/sealed-documents.js';
 import { deriveBackupKey, deriveBlobKey, deriveDatabaseKey } from '../database-keys.js';
 import { openStore, COLLECTIONS } from '../store/repository.js';
 import { createBlobStore } from '../receipts/blob-store.js';
-import { MAGIC, buildBackup, openBackup } from './archive.js';
+import { MAGIC, WrongPasskeyError, buildBackup, openBackup, restoreBackup } from './archive.js';
 
 const MARKER = 'Backupmarker-Kieselweg-4e1b';
 const prfOutput = crypto.getRandomValues(new Uint8Array(32));
@@ -202,6 +202,115 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 				amountCents: 1
 			});
 			expect(await b.store.transactions.list()).toHaveLength(2);
+		} finally {
+			await b.stop();
+		}
+	}, 60_000);
+
+	/** A node whose books are on disk, as in the app, with the store's open options. */
+	async function diskNode() {
+		const helia = await withBitswap(
+			withLibp2p(createHeliaLight({ codecs: [dagCbor] }), await createOfflineLibp2p())
+		).start();
+		const identities = await Identities({ ipfs: helia, keystore });
+		const directory = await mkdtemp(join(tmpdir(), 'belege-backup-merge-'));
+		const orbitdb = await createOrbitDB({
+			ipfs: helia,
+			// @ts-expect-error `identities` is a documented option the bundled types omit
+			identities,
+			id: 'backup-spec',
+			directory
+		});
+		const encryptionKey = await deriveDatabaseKey(prfOutput);
+		const open = () => openStore({ orbitdb, encryptionKey, prfOutput });
+		return {
+			helia,
+			orbitdb,
+			open,
+			options: async () => ({
+				type: SealedDocuments.type,
+				Database: SealedDocuments({ indexBy: 'id' }),
+				encryption: await payloadEncryption(encryptionKey)
+			}),
+			async stop() {
+				await orbitdb.stop();
+				await helia.stop();
+				await rm(directory, { recursive: true, force: true });
+			}
+		};
+	}
+
+	/** @param {Awaited<ReturnType<typeof openStore>>} store */
+	const addressesOf = (store) =>
+		Object.fromEntries(
+			Object.entries(store.databases()).map(([name, db]) => [name, String(db.address)])
+		);
+
+	it('restoreBackup merges into books that are already there: nothing is lost', async () => {
+		const b = await diskNode();
+		try {
+			const before = await b.open();
+			await before.transactions.put({
+				bookedOn: '2026-10-01',
+				counterparty: 'Schon hier',
+				amountCents: 7
+			});
+			const addresses = addressesOf(before);
+			await before.close();
+
+			/** @type {any[]} */
+			const seen = [];
+			const result = await restoreBackup({
+				orbitdb: b.orbitdb,
+				sealed: backup.sealed,
+				key: backupKey,
+				addresses,
+				open: await b.options(),
+				onProgress: (p) => seen.push(p)
+			});
+			expect(result.databases.find((d) => d.collection === 'partners')?.joined).toBe(1);
+			expect(seen[0]).toEqual({ stage: 'opening' });
+			expect(seen.filter((p) => p.stage === 'database').map((p) => p.name)).toEqual([
+				...COLLECTIONS
+			]);
+
+			const after = await b.open();
+			const names = (await after.transactions.list()).map((t) => t.counterparty).sort();
+			expect(names).toEqual([MARKER, 'Schon hier'].sort());
+			await after.close();
+		} finally {
+			await b.stop();
+		}
+	}, 60_000);
+
+	it('restoreBackup refuses another passkey’s backup, and books it does not belong to', async () => {
+		const b = await diskNode();
+		try {
+			const store = await b.open();
+			const addresses = addressesOf(store);
+			await store.close();
+			const other = await deriveBackupKey(new Uint8Array(32).fill(3));
+			await expect(
+				restoreBackup({
+					orbitdb: b.orbitdb,
+					sealed: backup.sealed,
+					key: other,
+					addresses,
+					open: await b.options()
+				})
+			).rejects.toBeInstanceOf(WrongPasskeyError);
+			const elsewhere = Object.fromEntries(
+				Object.keys(addresses).map((k) => [k, `/orbitdb/zdpuElsewhere${k}`])
+			);
+			await expect(
+				restoreBackup({
+					orbitdb: b.orbitdb,
+					sealed: backup.sealed,
+					key: backupKey,
+					addresses: elsewhere,
+					open: await b.options()
+				})
+			).rejects.toThrow(/do not have/);
 		} finally {
 			await b.stop();
 		}
