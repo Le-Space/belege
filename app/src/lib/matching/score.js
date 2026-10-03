@@ -26,6 +26,7 @@
 import { compactIban, dayNumber, normalizeRef, sameVendor } from './normalize.js';
 import { txAlias } from './partners.js';
 import { isOwnName } from './classify.js';
+import { INSTALMENT_WORDS } from './instalments.js';
 
 export const POINTS = Object.freeze({
 	amount: 40,
@@ -37,7 +38,10 @@ export const POINTS = Object.freeze({
 	vendorLearned: 40,
 	date: 10,
 	farDate: -30,
-	wrongDirection: -40
+	wrongDirection: -40,
+	// A part of an invoice (issue #258): below what is open, and the invoice
+	// partly paid already or the purpose saying so (instalments.js).
+	instalment: 30
 });
 
 /** Best score for a pair to be taken without asking. */
@@ -70,6 +74,8 @@ export const SHOWN = 40;
  * @property {boolean} reminder a payment reminder: never takes a booking itself
  * @property {boolean} ours the invoice is our own (vendor = our company)
  * @property {string} customer who our own invoice is to, when known ('' otherwise)
+ * @property {number} openCents what is still open of it (absCents unless partly paid, issue #258)
+ * @property {boolean} partial it carries a payment already and is not paid in full
  */
 
 /**
@@ -92,9 +98,10 @@ export const SHOWN = 40;
  *
  * @param {Record<string, any>} r a receipts record (after extraction)
  * @param {{ companyNames?: string[] }} [ctx]
+ * @param {number} [paidCents] what its linked payments settle already (instalments.js)
  * @returns {ReceiptFacts | null} null when it has no amount to match
  */
-export function receiptFacts(r, ctx = {}) {
+export function receiptFacts(r, ctx = {}, paidCents = 0) {
 	const x = r.extraction ?? {};
 	const cents =
 		typeof r.amountCents === 'number'
@@ -134,7 +141,9 @@ export function receiptFacts(r, ctx = {}) {
 		direction: ours !== creditNote ? 'income' : 'expense',
 		reminder: documentType === 'payment_reminder',
 		ours,
-		customer: ours ? String(r.customer ?? '') : ''
+		customer: ours ? String(r.customer ?? '') : '',
+		openCents: Math.max(0, Math.abs(cents) - paidCents),
+		partial: paidCents > 0 && paidCents < Math.abs(cents)
 	};
 }
 
@@ -181,7 +190,17 @@ export function scorePair(r, t) {
 		reasons.push(reason);
 	};
 
-	if (Math.abs(t.amountCents) === r.absCents && t.currency === r.currency) add('amount', 'amount');
+	const cents = Math.abs(t.amountCents);
+	const open = r.openCents ?? r.absCents;
+	const sameCurrency = t.currency === r.currency;
+	// What is open is the amount to meet: the whole invoice, or – partly paid – its rest.
+	if (sameCurrency && cents === open) add('amount', r.partial ? 'remaining-amount' : 'amount');
+	else if (sameCurrency && cents > 0 && cents < open) {
+		// A part: the invoice is paid in part already, or the purpose names it and
+		// says "Teilzahlung" – the word alone is too common ("Abschlag", "Rate").
+		const named = r.invoiceNumber.length >= MIN_REF && t.text.includes(r.invoiceNumber);
+		if (r.partial || (named && INSTALMENT_WORDS.test(t.purpose))) add('instalment', 'instalment');
+	}
 	if (r.invoiceNumber.length >= MIN_REF && t.text.includes(r.invoiceNumber)) {
 		add('invoiceNumber', 'invoice-number');
 	}
@@ -210,7 +229,10 @@ export function scorePair(r, t) {
 	}
 	if (r.from !== null && r.to !== null && t.day !== null) {
 		if (t.day >= r.from && t.day <= r.to) add('date', 'date');
-		else if (Math.min(Math.abs(t.day - r.from), Math.abs(t.day - r.to)) > 60) {
+		// Instalments run long: a later one is no sign against the invoice.
+		else if (r.partial && t.day > r.to) {
+			/* no points either way */
+		} else if (Math.min(Math.abs(t.day - r.from), Math.abs(t.day - r.to)) > 60) {
 			add('farDate', 'far-date');
 		}
 	}

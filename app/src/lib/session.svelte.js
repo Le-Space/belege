@@ -914,6 +914,8 @@ function installE2EHooks() {
 		},
 		addTransaction: (/** @type {Record<string, any>} */ tx) => session?.store.transactions.put(tx),
 		transactions: () => session?.store.transactions.list(),
+		// A made-up receipt, as reading one would leave it (instalments spec, #258).
+		addReceipt: (/** @type {Record<string, any>} */ r) => session?.store.receipts.put(r),
 		// The matching over what a test put in (questions, own transfers).
 		runMatching: () => runMatchingNow(),
 		// A bank account as an import creates it (bank/import.js), for the export spec.

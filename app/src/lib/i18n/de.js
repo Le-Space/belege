@@ -1188,6 +1188,8 @@ export default {
 	},
 	matching: {
 		reason: {
+			instalment: 'Teilzahlung',
+			'remaining-amount': 'Restbetrag',
 			amount: 'Betrag',
 			'invoice-number': 'Rechnungsnummer',
 			'customer-number': 'Kundennummer',
@@ -1254,6 +1256,8 @@ export default {
 	},
 	explain: {
 		reason: {
+			instalment: 'eine Teilzahlung: weniger als noch offen',
+			'remaining-amount': 'Betrag gleich dem noch offenen Rest',
 			amount: 'Betrag gleich',
 			amountValue: 'Betrag gleich ({amount})',
 			invoice: 'Rechnungsnummer im Verwendungszweck',
@@ -1648,6 +1652,12 @@ export default {
 		ruleText: '{field} „{contains}“ → {action}'
 	},
 	belege: {
+		instalments: {
+			partial: 'teilweise bezahlt · {paid} von {total} ({count}×)',
+			paid: 'in {count} Raten bezahlt',
+			overpaid: 'überzahlt um {over} ({count}×)',
+			open: 'offen'
+		},
 		title: 'Belege',
 		empty:
 			'Noch keine Belege. Dateien hochladen oder einen Ordner freigeben geht sofort; für das Buchhaltungs-Postfach brauchst du die Bridge.',
@@ -2181,6 +2191,14 @@ export default {
 		tradeOpen: 'andere Seite öffnen',
 		time: '{time} Uhr',
 		detail: {
+			instalment: {
+				offer: 'teilweise bezahlt ({count}×) · {open} offen',
+				choose: 'Als weitere Teilzahlung zuordnen',
+				line: 'Teilzahlung {index} von {count} · {number}',
+				open: '{open} offen',
+				paid: 'bezahlt',
+				over: 'überzahlt um {over}'
+			},
 			ownIban: {
 				question:
 					'Von {iban} kommt Geld unter „{name}“ – ist das ein eigenes Konto? Dann gilt jede Zahlung dorthin als eigene Umbuchung.'

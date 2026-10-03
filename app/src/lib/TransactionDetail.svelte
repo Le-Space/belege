@@ -36,6 +36,7 @@
 	import { portalLink } from './matching/portal.js';
 	import { learnedVendors, nameAddress } from './matching/partners.js';
 	import { groupIban, ownIbanSuggestionFor, ownIbanSuggestions } from './matching/own-iban.js';
+	import { instalmentOf, settlement as invoiceSettlement } from './matching/instalments.js';
 	import { attachUpload, moveReceipt } from './receipts/attach.js';
 	import EigenbelegForm from './receipts/EigenbelegForm.svelte';
 	import { folderSupported, savedFolder } from './receipts/folder.js';
@@ -342,7 +343,9 @@
 		tx
 			? receiptChoices(tx, app.receipts, app.matches, {
 					companyNames: app.matchingSettings?.companyNames ?? [],
-					learnedVendors: learnedVendors(app.partners ?? [])
+					learnedVendors: learnedVendors(app.partners ?? []),
+					// An invoice paid in part elsewhere is offered as one more instalment (#258).
+					transactions: app.transactions
 				})
 			: []
 	);
@@ -741,15 +744,19 @@
 		}
 	}
 
-	/** @param {string} receiptId @param {number} score @param {string[]} reasons */
-	const assign = (receiptId, score, reasons) =>
+	/**
+	 * @param {string} receiptId @param {number} score @param {string[]} reasons
+	 * @param {boolean} [alongside] one more instalment: the receipt's other links stay (#258)
+	 */
+	const assign = (receiptId, score, reasons, alongside = false) =>
 		act(async () => {
 			const store = /** @type {any} */ (currentStore());
 			await confirmMatch(store, {
 				receiptId,
 				transactionId: txId,
 				score,
-				reasons: [...reasons, 'manual']
+				reasons: [...reasons, 'manual'],
+				alongside
 			});
 			assigning = false;
 			if (vendorFit?.receipt.id === receiptId) {
@@ -2187,6 +2194,8 @@
 				{/if}
 				{#each linked as l (l.match.id)}
 					{@const r = l.receipt}
+					{@const paidOf = invoiceSettlement(r, app.matches, app.transactions)}
+					{@const part = instalmentOf(paidOf, txId)}
 					<div class="mt-2 border-t border-border pt-2" data-testid="tx-linked-receipt">
 						<div class="flex flex-wrap items-baseline justify-between gap-2">
 							<span class="font-medium text-heading" data-testid="tx-linked-vendor"
@@ -2197,6 +2206,24 @@
 						<p class="text-xs text-faint">
 							{[receiptDay(r), r.invoiceNumber, r.fileName].filter(Boolean).join(' · ')}
 						</p>
+						{#if part}
+							<p class="mt-0.5 text-sm text-heading" data-testid="tx-instalment">
+								{t('zahlungen.detail.instalment.line', {
+									index: part.index,
+									count: part.count,
+									number: r.invoiceNumber || receiptVendor(r)
+								})} ·
+								{paidOf.state === 'partial'
+									? t('zahlungen.detail.instalment.open', {
+											open: formatMoney(paidOf.openCents, r.currency ?? 'EUR')
+										})
+									: paidOf.state === 'overpaid'
+										? t('zahlungen.detail.instalment.over', {
+												over: formatMoney(paidOf.overCents, r.currency ?? 'EUR')
+											})
+										: t('zahlungen.detail.instalment.paid')}
+							</p>
+						{/if}
 						<p class="mt-0.5 text-xs text-faint" data-testid="tx-linked-state">
 							{t(`matching.state.${l.match.state}`)}{l.match.score !== null &&
 							l.match.score !== undefined
@@ -2663,6 +2690,16 @@
 													.filter(Boolean)
 													.join(' · ')}</span
 											>
+											{#if c.alongside}
+												<span
+													class="block truncate text-xs text-heading"
+													data-testid="tx-choice-instalment"
+													>{t('zahlungen.detail.instalment.offer', {
+														open: formatMoney(c.alongside.openCents, c.receipt.currency ?? 'EUR'),
+														count: c.alongside.payments.length
+													})}</span
+												>
+											{/if}
 											<span class="block truncate text-xs text-text" data-testid="tx-choice-diff"
 												>{[
 													receiptDiff(c.receipt),
@@ -2683,9 +2720,12 @@
 										<button
 											type="button"
 											class={c.score >= 90 && !scam ? primary : button}
-											onclick={() => assign(c.receipt.id, c.score, c.reasons)}
+											onclick={() => assign(c.receipt.id, c.score, c.reasons, Boolean(c.alongside))}
 											disabled={busy}
-											data-testid="tx-choose">{t('zahlungen.detail.choose')}</button
+											data-testid="tx-choose"
+											>{c.alongside
+												? t('zahlungen.detail.instalment.choose')
+												: t('zahlungen.detail.choose')}</button
 										>
 									</div>
 								{:else}

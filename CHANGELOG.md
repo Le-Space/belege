@@ -20,6 +20,16 @@ All notable changes to Le Space Belege. The format follows
   - It merges and deletes nothing. A backup of another passkey, or of other books, is refused with a clear message, and a failed restore says why instead of reporting success.
   - The consent screen says the browser fetches from Aleph's gateway (consent version 21). All of it in [docs/backup.md](docs/backup.md).
 
+- **Invoices paid in instalments** (#258). One invoice can carry several payments until they add up to it; each instalment is covered by the same invoice, and what is open comes from the links.
+  - **Matching:**
+    - a partly paid invoice stays in play;
+    - a smaller payment scores as an instalment when the invoice is partly paid, or its purpose names the invoice's number and says "Teilzahlung", "Rate" and the like;
+    - the exact rest scores as the amount;
+    - a late date counts for nothing either way.
+  - **By hand:** "Als weitere Teilzahlung zuordnen" keeps the other links.
+  - **What you see:** the payment says "Teilzahlung 2 von 3 · … offen" or "bezahlt"; Belege says "teilweise bezahlt · 7.000 von 10.000" or "in 3 Raten bezahlt".
+  - **Export:** every instalment carries the invoice's number; the file goes into the package once. See [docs/matching.md](docs/matching.md).
+
 ### Changed
 
 - **A wallet payment's detail says whose address is whose, and where the money went** (#254).
