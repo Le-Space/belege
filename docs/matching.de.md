@@ -18,6 +18,23 @@ Eine Belastung und ihre Erstattung werden gepaart, wenn all das gilt:
 
 Eine volle Erstattung braucht auf keiner Seite einen Beleg; nach einer Teilerstattung braucht die Belastung weiter ihren. _Als Erstattung verknüpfen …_ in der Zahlung verknüpft ein Paar von Hand, _Keine Erstattung_ hält eines auseinander ([`app/src/lib/matching/refunds.js`](../app/src/lib/matching/refunds.js)).
 
+## Ratenzahlungen (Issue #258)
+
+Eine Rechnung kann in Teilen bezahlt werden: Ein Kunde zahlt unsere Rechnung über 10.000 € als 3.500 + 3.500 + 3.000, oder wir zahlen einen Lieferanten in Raten. Die Rechnung bleibt der Beleg für jeden Teil, und jede Zahlung wird mit ihr verknüpft.
+
+- **Was offen ist,** ergibt sich allein aus den Verknüpfungen: Gesamtbetrag minus Summe der verknüpften Zahlungen. Löst man eine Rate, ist genau dieser Teil wieder offen.
+- **Der Abgleich:**
+  - eine teilweise bezahlte Rechnung bleibt im Spiel;
+  - eine Zahlung unter dem offenen Betrag zählt als Rate (30 Punkte), wenn die Rechnung schon teilweise bezahlt ist oder der Verwendungszweck ihre Nummer nennt und es sagt („Teilzahlung“, „Rate“, „Anzahlung“, „Restzahlung“ …; das Wort allein ist zu häufig);
+  - eine Zahlung genau in Höhe des offenen Betrags zählt als Rest („Restbetrag“, die Punkte für den Betrag);
+  - ein spätes Datum spricht nicht gegen eine Rate;
+  - eine bezahlte Rechnung nimmt keine weitere Zahlung von selbst.
+- **Von Hand:** Unter „Beleg finden“ wird eine teilweise bezahlte Rechnung, die woanders verknüpft ist, wieder angeboten („teilweise bezahlt · … offen“), mit „Als weitere Teilzahlung zuordnen“; ihre anderen Verknüpfungen bleiben. Das normale Zuordnen verschiebt eine Rechnung weiterhin von einer anderen Zahlung.
+- **Was man sieht:**
+  - in der Zahlung „Teilzahlung 2 von 3 · 2025-017 · 3.000,00 € offen“, dann „bezahlt“ (oder „überzahlt um …“);
+  - in Belege „teilweise bezahlt · 7.000 von 10.000 (2×)“, dann „in 3 Raten bezahlt“.
+- **Export:** Jede Rate trägt die Nummer der Rechnung in Belegfeld 1, und ihre Datei kommt einmal ins Paket. Die gekoppelte Rechnungs-App erfährt jede Zahlung und erkennt „teilweise bezahlt“ selbst.
+
 ## Löhne, Lohnsteuer, Abgaben, Steuerzahlungen (Issue #233)
 
 Diese Zahlungen bekommen keinen eigenen Beleg: Für einen Lohn ist der Lohnlauf der Beleg (Lohnabrechnung, Lohnjournal), für die Lohnsteuer die Lohnsteuer-Anmeldung, für Sozialabgaben der Beitragsnachweis, für eine Steuerzahlung die Voranmeldung oder der Bescheid. Belege erkennt sie und fragt nach keinem Beleg; „Warum?“ an der Zahlung nennt das Dokument, das für sie steht (`app/src/lib/matching/payroll.js`):

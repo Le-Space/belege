@@ -24,6 +24,7 @@
 		runMatchingNow
 	} from '$lib/session.svelte.js';
 	import { matchOfReceipt } from '$lib/matching/view.js';
+	import { settlement } from '$lib/matching/instalments.js';
 	import { matchLine } from '$lib/matching/explain.js';
 	import {
 		ORIGIN_FILTERS,
@@ -143,6 +144,11 @@
 	let counts = $derived(sourceCounts(receipts));
 	/** @param {string} id */
 	const matchOf = (id) => matchOfReceipt(id, app.matches);
+	/** An invoice paid in instalments (#258): its state, when more than one payment or something open. @param {Record<string, any>} r */
+	const paidState = (r) => {
+		const s = settlement(r, app.matches, app.transactions);
+		return s.state === 'partial' || s.state === 'overpaid' || s.payments.length > 1 ? s : null;
+	};
 	let bySource = $derived(
 		receipts.filter(
 			(r) => (source === 'all' || receiptSourceKey(r) === source) && matchesReceiptSearch(r, query)
@@ -898,6 +904,23 @@
 													<span
 														class="rounded border border-red-300 bg-red-50 px-1.5 py-0.5 text-xs font-medium text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
 														data-testid="receipt-scam">{t('belege.scam.badge')}</span
+													>
+												{/if}
+												{#if paidState(r)}
+													{@const p = paidState(r)}
+													<span
+														class="rounded border px-1.5 py-0.5 text-xs font-medium {p?.state ===
+														'paid'
+															? 'border-success/30 bg-success/10 text-success'
+															: 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200'}"
+														data-testid="receipt-instalments"
+														data-state={p?.state}
+														>{t(`belege.instalments.${p?.state}`, {
+															count: p?.payments.length ?? 0,
+															paid: formatMoney(p?.paidCents ?? 0, r.currency ?? 'EUR'),
+															total: formatMoney(p?.totalCents ?? 0, r.currency ?? 'EUR'),
+															over: formatMoney(p?.overCents ?? 0, r.currency ?? 'EUR')
+														})}</span
 													>
 												{/if}
 												{#if matchOrigin(matchOf(r.id))}

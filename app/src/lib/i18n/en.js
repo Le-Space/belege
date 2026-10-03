@@ -1159,6 +1159,8 @@ export default {
 	},
 	matching: {
 		reason: {
+			instalment: 'instalment',
+			'remaining-amount': 'remaining amount',
 			amount: 'Amount',
 			'invoice-number': 'Invoice number',
 			'customer-number': 'Customer number',
@@ -1227,6 +1229,8 @@ export default {
 	},
 	explain: {
 		reason: {
+			instalment: 'an instalment: less than what is open',
+			'remaining-amount': 'amount equals what is still open',
 			amount: 'Amount matches',
 			amountValue: 'Amount matches ({amount})',
 			invoice: 'Invoice number in the payment reference',
@@ -1619,6 +1623,12 @@ export default {
 		ruleText: '{field} “{contains}” → {action}'
 	},
 	belege: {
+		instalments: {
+			partial: 'partly paid · {paid} of {total} ({count}×)',
+			paid: 'paid in {count} instalments',
+			overpaid: 'over-paid by {over} ({count}×)',
+			open: 'open'
+		},
 		title: 'Receipts',
 		empty:
 			'No receipts yet. Uploading files or sharing a folder works at once; the accounting mailbox needs the bridge.',
@@ -2145,6 +2155,14 @@ export default {
 		tradeOpen: 'open the other side',
 		time: '{time}',
 		detail: {
+			instalment: {
+				offer: 'partly paid ({count}×) · {open} open',
+				choose: 'Link as one more instalment',
+				line: 'Instalment {index} of {count} · {number}',
+				open: '{open} open',
+				paid: 'paid',
+				over: 'over-paid by {over}'
+			},
 			ownIban: {
 				question:
 					'Money comes from {iban} as “{name}” – is it an own account? Then every payment to it counts as an own transfer.'

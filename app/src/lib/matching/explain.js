@@ -67,6 +67,8 @@ export function reasonPhrase(code, { tx = null, receipt = null } = {}) {
 				? t('explain.reason.vendorInPurposeValue', { vendor })
 				: t('explain.reason.vendorInPurpose');
 		case 'iban':
+		case 'instalment':
+		case 'remaining-amount':
 		case 'date':
 		case 'far-date':
 		case 'wrong-direction':

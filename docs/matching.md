@@ -18,6 +18,23 @@ A charge and its refund pair when all of this holds:
 
 A full refund needs no receipt on either side; after a partial one the charge still needs its receipt. _Als Erstattung verknüpfen …_ in the payment links a pair by hand, _Keine Erstattung_ keeps one apart ([`app/src/lib/matching/refunds.js`](../app/src/lib/matching/refunds.js)).
 
+## Instalments (issue #258)
+
+An invoice can be paid in parts: a customer pays our 10.000 € invoice as 3.500 + 3.500 + 3.000, or we pay a supplier in rates. The invoice stays the receipt for every part, and each payment is linked to it.
+
+- **What is open** comes from the links alone: total minus what the linked payments add up to. Unlinking one instalment reopens exactly that part.
+- **The matching:**
+  - a partly paid invoice stays in play;
+  - a payment below what is open counts as an instalment (30 points) when the invoice is partly paid already, or when the purpose names the invoice's number and says so ("Teilzahlung", "Rate", "Anzahlung", "Restzahlung" …; the word alone is too common);
+  - a payment of exactly what is open counts as its rest ("Restbetrag", the amount's points);
+  - a late date is no sign against an instalment;
+  - a paid invoice takes no further payment by itself.
+- **By hand:** under "Beleg finden" a partly paid invoice linked elsewhere is offered again ("teilweise bezahlt · … offen") with "Als weitere Teilzahlung zuordnen"; its other links stay. Linking an invoice the usual way still moves it from another payment.
+- **What you see:**
+  - the payment's detail says "Teilzahlung 2 von 3 · 2025-017 · 3.000,00 € offen", then "bezahlt" (or "überzahlt um …");
+  - Belege shows "teilweise bezahlt · 7.000 von 10.000 (2×)", then "in 3 Raten bezahlt".
+- **Export:** every instalment carries the invoice's number in Belegfeld 1, and its file goes into the package once. The paired invoice app is told each payment and works out "teilweise bezahlt" itself.
+
 ## Wages, wage tax, contributions, tax payments (issue #233)
 
 These payments get no receipt of their own: the payroll run is the receipt for a wage (payslip, payroll journal), the wage-tax return for the wage tax, the contribution statement for social security, the advance return or the assessment for a tax payment. Belege recognises them and asks for no receipt; the payment's "Warum?" names the document that stands for it (`app/src/lib/matching/payroll.js`):

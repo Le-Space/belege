@@ -29,17 +29,21 @@ const decided = (store, action, fields) =>
  * Link a receipt to a transaction for good. The receipt's other active match
  * (an automatic one elsewhere) is rejected: one receipt, one booking.
  *
+ * With `alongside`, the receipt's other links stay: this booking is one more
+ * instalment of the same invoice (issue #258, instalments.js).
+ *
  * @param {MatchingStore} store
- * @param {{ receiptId: string, transactionId: string, score?: number | null, reasons?: string[] }} pair
+ * @param {{ receiptId: string, transactionId: string, score?: number | null, reasons?: string[], alongside?: boolean }} pair
  * @param {ActionOptions} [options]
  */
 export async function confirmMatch(
 	store,
-	{ receiptId, transactionId, score = null, reasons },
+	{ receiptId, transactionId, score = null, reasons, alongside = false },
 	{ log = true } = {}
 ) {
 	const matches = await store.matches.list();
 	for (const m of matches) {
+		if (alongside) break;
 		if (m.receiptId === receiptId && m.transactionId !== transactionId && isActive(m)) {
 			await store.matches.put({ ...m, state: 'rejected' });
 		}

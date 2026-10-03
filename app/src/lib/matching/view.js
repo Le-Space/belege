@@ -13,6 +13,7 @@ import { findDuplicates } from '../receipts/duplicates.js';
 import { assetOf } from '../assets/registry.js';
 import { displayPurpose, txDirection } from '../bank/format.js';
 import { walletChain } from '../wallets/chains.js';
+import { settlement } from './instalments.js';
 
 /** @typedef {import('./classify.js').Classification} Classification */
 /** @typedef {{ id: string } & Record<string, any>} Rec */
@@ -119,19 +120,31 @@ export function cryptoEvidence(tx, r) {
 /**
  * Receipts for "Beleg zuordnen": every read receipt not linked elsewhere,
  * best score against this booking first; the ones that fit (≥ 40) are the
- * suggestions.
+ * suggestions. An invoice linked elsewhere but paid only in part is offered
+ * too, scored against what is open, as one more instalment (`alongside`,
+ * issue #258) – given `ctx.transactions` to tell what it is paid.
  *
  * @template {Rec} R
  * @param {Rec} tx
  * @param {R[]} receipts
  * @param {Record<string, any>[]} matches
- * @param {{ companyNames?: string[], learnedVendors?: Map<string, string[]> }} [ctx]
- * @returns {{ receipt: R, score: number, reasons: string[], suggested: boolean }[]}
+ * @param {{ companyNames?: string[], learnedVendors?: Map<string, string[]>, transactions?: Rec[] }} [ctx]
+ * @returns {{ receipt: R, score: number, reasons: string[], suggested: boolean, alongside?: import('./instalments.js').Settlement }[]}
  */
 export function receiptChoices(tx, receipts, matches, ctx = {}) {
 	const linkedElsewhere = new Set(
 		matches.filter((m) => isActive(m) && m.transactionId !== tx.id).map((m) => m.receiptId)
 	);
+	/** @type {Map<string, import('./instalments.js').Settlement>} partly paid, linked elsewhere */
+	const partlyPaid = new Map();
+	if (ctx.transactions) {
+		const byId = new Map(ctx.transactions.map((t) => [t.id, t]));
+		for (const r of receipts) {
+			if (!linkedElsewhere.has(r.id)) continue;
+			const s = settlement(r, matches, byId);
+			if (s.state === 'partial') partlyPaid.set(r.id, s);
+		}
+	}
 	const linkedHere = new Set(matchesOfTx(tx.id, matches).map((m) => m.receiptId));
 	// A copy of an invoice whose original is linked already is no candidate.
 	const copies = findDuplicates(receipts, (id) =>
@@ -143,14 +156,15 @@ export function receiptChoices(tx, receipts, matches, ctx = {}) {
 		.filter(
 			(r) =>
 				!r.deleted &&
-				!linkedElsewhere.has(r.id) &&
+				(!linkedElsewhere.has(r.id) || partlyPaid.has(r.id)) &&
 				!linkedHere.has(r.id) &&
 				!copies.has(r.id) &&
 				r.status !== 'rückfrage' &&
 				r.status !== 'ignoriert'
 		)
 		.map((r) => {
-			const facts = receiptFacts(r, ctx);
+			const part = partlyPaid.get(r.id);
+			const facts = receiptFacts(r, ctx, part?.paidCents ?? 0);
 			const s = facts ? scorePair(facts, t) : { score: 0, reasons: [] };
 			// A crypto payment: only a receipt that names its hash, address or quantity.
 			const evidence = crypto ? cryptoEvidence(tx, r) : null;
@@ -160,7 +174,8 @@ export function receiptChoices(tx, receipts, matches, ctx = {}) {
 				score: s.score,
 				reasons,
 				evidence,
-				suggested: crypto ? Boolean(evidence) : s.score >= 40
+				suggested: crypto ? Boolean(evidence) : s.score >= 40,
+				...(part ? { alongside: part } : {})
 			};
 		})
 		.sort((a, b) => b.score - a.score || (a.receipt.id < b.receipt.id ? 1 : -1));
