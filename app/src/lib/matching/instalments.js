@@ -5,6 +5,12 @@
 // What is paid is derived from the active links, never stored: unlinking one
 // instalment reopens exactly its part. Payments the other way than the
 // receipt's direction (a refund) are not counted as paid.
+//
+// Amounts are compared in the receipt's currency only: a payment booked in
+// another (a USD invoice paid from a EUR account) counts by its original
+// amount where the bank gives one (`original`, Wise and CAMT). Where it does
+// not, nothing is reckoned – euros are never taken for dollars – and the
+// receipt counts as paid by its links, with nothing open.
 
 /** @typedef {Record<string, any>} Rec */
 
@@ -30,6 +36,33 @@ export function receiptTotal(r) {
 	return cents === null || cents === 0 ? null : Math.abs(cents);
 }
 
+/** A receipt's currency. @param {Rec} r */
+const currencyOf = (r) => String(r?.currency ?? r?.extraction?.currency ?? 'EUR').toUpperCase();
+
+/** `40.00` → 4000; null when it is no amount. @param {unknown} amount */
+function centsOf(amount) {
+	const m = /^-?\d+(?:\.\d{1,2})?$/.exec(String(amount ?? '').trim());
+	return m ? Math.round(Math.abs(Number(m[0])) * 100) : null;
+}
+
+/**
+ * What a payment paid in a currency: its own amount when it is booked in it,
+ * else the bank's original amount in it, else null (cannot be said).
+ *
+ * @param {Rec} t
+ * @param {string} currency
+ */
+export function paidIn(t, currency) {
+	if (String(t.currency ?? 'EUR').toUpperCase() === currency) {
+		return Math.abs(Number(t.amountCents ?? 0));
+	}
+	const original = t.original;
+	if (original && String(original.currency ?? '').toUpperCase() === currency) {
+		return centsOf(original.amount);
+	}
+	return null;
+}
+
 /**
  * @typedef {object} Settlement
  * @property {number | null} totalCents the receipt's amount; null when it has none
@@ -38,6 +71,7 @@ export function receiptTotal(r) {
  * @property {number} overCents what was paid beyond the total
  * @property {'open' | 'partial' | 'paid' | 'overpaid'} state
  * @property {Rec[]} payments the linked payments, oldest first
+ * @property {boolean} comparable every payment's amount is known in the receipt's currency
  */
 
 /**
@@ -58,18 +92,23 @@ export function settlement(receipt, matches, transactions) {
 		.sort((a, b) => String(a.bookedOn).localeCompare(String(b.bookedOn)) || (a.id < b.id ? -1 : 1));
 	// The way the money goes: the first payment's (the invoice's own direction).
 	const sign = Math.sign(Number(payments[0]?.amountCents ?? 0));
-	const paidCents = payments
+	const currency = currencyOf(receipt);
+	const amounts = payments
 		.filter((t) => Math.sign(Number(t.amountCents ?? 0)) === sign)
-		.reduce((n, t) => n + Math.abs(Number(t.amountCents ?? 0)), 0);
+		.map((t) => paidIn(t, currency));
+	const comparable = amounts.every((a) => a !== null);
+	const paidCents = amounts.reduce((/** @type {number} */ n, a) => n + (a ?? 0), 0);
 	const totalCents = receiptTotal(receipt);
-	if (totalCents === null) {
+	if (totalCents === null || !comparable) {
+		// Nothing to compare with, or not in the same currency: paid by its links, nothing open.
 		return {
 			totalCents,
 			paidCents,
 			openCents: 0,
 			overCents: 0,
 			state: payments.length ? 'paid' : 'open',
-			payments
+			payments,
+			comparable
 		};
 	}
 	const openCents = Math.max(0, totalCents - paidCents);
@@ -80,7 +119,8 @@ export function settlement(receipt, matches, transactions) {
 		openCents,
 		overCents,
 		state: !paidCents ? 'open' : overCents ? 'overpaid' : openCents ? 'partial' : 'paid',
-		payments
+		payments,
+		comparable
 	};
 }
 
