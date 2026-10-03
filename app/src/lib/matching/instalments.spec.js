@@ -72,6 +72,48 @@ describe('settlement', () => {
 	});
 });
 
+describe('another currency', () => {
+	// A USD invoice paid from a EUR account by card: −38,37 € for 40,00 USD.
+	const usd = { id: 'R2', amountCents: 4_000, currency: 'USD' };
+	const link = (/** @type {string} */ id) => ({
+		receiptId: 'R2',
+		transactionId: id,
+		state: 'confirmed'
+	});
+	const card = (/** @type {string} */ id, /** @type {any} */ original, cents = -3_837) => ({
+		id,
+		amountCents: cents,
+		currency: 'EUR',
+		bookedOn: '2025-01-20',
+		...(original ? { original } : {})
+	});
+
+	it('counts a payment by its original amount in the invoice’s currency: paid, no instalment', () => {
+		const s = settlement(usd, [link('a')], [card('a', { amount: '40.00', currency: 'USD' })]);
+		expect(s).toMatchObject({ state: 'paid', openCents: 0, paidCents: 4_000, comparable: true });
+		expect(instalmentOf(s, 'a')).toBeNull();
+	});
+
+	it('never takes euros for dollars: without an original amount, paid by its link, nothing open', () => {
+		const s = settlement(usd, [link('a')], [card('a', null)]);
+		expect(s).toMatchObject({ state: 'paid', openCents: 0, comparable: false });
+		expect(instalmentOf(s, 'a')).toBeNull();
+	});
+
+	it('instalments in another currency add up in the invoice’s', () => {
+		const one = card('a', { amount: '20.00', currency: 'USD' }, -1_900);
+		const two = {
+			...card('b', { amount: '20.00', currency: 'USD' }, -1_910),
+			bookedOn: '2025-02-20'
+		};
+		expect(settlement(usd, [link('a')], [one])).toMatchObject({
+			state: 'partial',
+			openCents: 2_000
+		});
+		expect(settlement(usd, [link('a'), link('b')], [one, two]).state).toBe('paid');
+	});
+});
+
 describe('scoring a part', () => {
 	it('a payment below the total scores as an instalment when the purpose says so, or the invoice is partly paid', () => {
 		const r = /** @type {any} */ (receiptFacts(invoice(), { companyNames: ['Musterfirma UG'] }));
