@@ -422,6 +422,18 @@ export async function makeBackup(meta) {
 	return session.makeBackup(meta);
 }
 
+/**
+ * Put a sealed backup back into these books (backup/archive.js, #77). The
+ * books are closed for it: reload the page afterwards.
+ *
+ * @param {Uint8Array} sealed
+ * @param {(p: import('./backup/archive.js').RestoreProgress) => void} [onProgress]
+ */
+export async function restoreBackup(sealed, onProgress) {
+	if (!session) throw new Error('The books are not open.');
+	return session.restoreBackup(sealed, onProgress);
+}
+
 /** @type {Promise<void> | null} the refresh running now */
 let refreshing = null;
 /** Whether something asked for a refresh while one was running. */
@@ -901,6 +913,7 @@ function installE2EHooks() {
 			};
 		},
 		addTransaction: (/** @type {Record<string, any>} */ tx) => session?.store.transactions.put(tx),
+		transactions: () => session?.store.transactions.list(),
 		// The matching over what a test put in (questions, own transfers).
 		runMatching: () => runMatchingNow(),
 		// A bank account as an import creates it (bank/import.js), for the export spec.

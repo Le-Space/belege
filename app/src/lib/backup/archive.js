@@ -219,3 +219,87 @@ export async function openBackup(sealed, backupKey) {
 	}
 	throw new Error('Not a belege backup.');
 }
+
+/** Thrown when the backup cannot be opened with this passkey's key. */
+export class WrongPasskeyError extends Error {
+	constructor() {
+		super('This backup cannot be opened with this passkey.');
+		this.name = 'WrongPasskeyError';
+	}
+}
+
+/**
+ * @typedef {{ stage: 'opening' }
+ *   | { stage: 'database', index: number, total: number, name: string, joined: number }} RestoreProgress
+ */
+
+/**
+ * Put a backup back into this browser's books.
+ *
+ * The databases go back through the storage bridge's `restoreFromBlocks`: every
+ * block into the blockstore (the receipt files' with them), each database
+ * reopened and its heads joined. Joining merges: books already here stay,
+ * and what the backup holds is added – nothing is deleted.
+ *
+ * The backup must be this passkey's: its key opens it (else
+ * `WrongPasskeyError`), and every database it names must be one of these books
+ * (same address). The open databases are closed by `restoreFromBlocks` and
+ * reopened behind the store's back, so the caller reloads the page afterwards.
+ *
+ * @param {object} params
+ * @param {any} params.orbitdb
+ * @param {Uint8Array} params.sealed
+ * @param {Uint8Array} params.key the backup key
+ * @param {Record<string, string>} params.addresses this session's database addresses, by collection
+ * @param {Record<string, any>} params.open what `orbitdb.open` needs for these books
+ * @param {(progress: RestoreProgress) => void} [params.onProgress]
+ * @returns {Promise<{ manifest: BackupManifest, databases: { collection: string, joined: number, entries: number | null }[] }>}
+ */
+export async function restoreBackup({ orbitdb, sealed, key, addresses, open, onProgress }) {
+	onProgress?.({ stage: 'opening' });
+	let opened;
+	try {
+		opened = await openBackup(sealed, key);
+	} catch (error) {
+		// AES-GCM refuses a wrong key as an OperationError; a foreign file is "Not a belege backup."
+		if (error instanceof Error && error.name === 'OperationError') throw new WrongPasskeyError();
+		throw error;
+	}
+	const { manifest, blocks } = opened;
+	const metadata = /** @type {any} */ (manifest.metadata);
+	const ours = new Set(Object.values(addresses).map(String));
+	for (const d of metadata.databases) {
+		if (!ours.has(String(d.address))) {
+			throw new Error('This backup holds databases these books do not have.');
+		}
+	}
+	const byAddress = Object.fromEntries(
+		Object.entries(addresses).map(([collection, address]) => [String(address), collection])
+	);
+	const { restoreFromBlocks } = await import('@le-space/orbitdb-storage-bridge/restore-cid');
+	// The package only warns when a head cannot be joined; here that is a failed restore.
+	/** @type {string[]} */
+	const warnings = [];
+	const restored = await restoreFromBlocks(orbitdb, blocks, metadata, {
+		open,
+		log: { info() {}, debug() {}, warn: (/** @type {string} */ m) => warnings.push(String(m)) },
+		onProgress: (p) =>
+			onProgress?.({
+				stage: 'database',
+				index: p.index,
+				total: p.total,
+				name: byAddress[p.address] ?? p.address,
+				joined: p.joined
+			})
+	});
+	const failed = warnings.find((w) => /could not join head/.test(w));
+	if (failed) throw new Error(`The backup could not be put back: ${failed.replace(/^\W+/, '')}`);
+	return {
+		manifest,
+		databases: restored.databases.map((d) => ({
+			collection: byAddress[d.address] ?? d.address,
+			joined: d.joined,
+			entries: d.entries
+		}))
+	};
+}

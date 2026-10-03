@@ -18,7 +18,8 @@
 // keystore here lives in memory only, is filled from that answer before the
 // provider looks, and is gone when the tab closes.
 
-import { Identities } from '@orbitdb/core';
+import { Identities, isIdentity } from '@orbitdb/core';
+import { OrbitDBWebAuthnIdentityProviderFunction } from '@le-space/orbitdb-identity-provider-webauthn-did';
 import { createSessionKeystore } from '@le-space/orbitdb-identity-provider-webauthn-did/keystore';
 
 /**
@@ -43,7 +44,44 @@ export async function createSessionIdentities(ipfs, { did, signingKey }) {
 	const keystore = /** @type {any} */ (await createSessionKeystore());
 	// Empty, being new: no earlier key to keep (seedRestoredSigningKey's concern).
 	await keystore.addKey(did, { privateKey: signingKey });
-	return Identities({ ipfs, keystore });
+	return withoutStaleIdentityCache(await Identities({ ipfs, keystore }));
+}
+
+/**
+ * OrbitDB 4.0.0 remembers a verified identity under its `signatures.id` and,
+ * when another identity with the same `signatures.id` comes along, compares
+ * the two and refuses the newcomer if they differ – without asking the
+ * provider (orbitdb/orbitdb#1258). A passkey's identity has the same
+ * `signatures.id` in every session (the signing key is derived from the PRF,
+ * the signature is deterministic) but a new WebAuthn proof each time. So once
+ * this session's identity is cached, every entry an earlier session signed –
+ * from a backup, or synced from an own device – is refused: "Key … is not
+ * allowed to write to the log".
+ *
+ * Where OrbitDB says no, a `webauthn` identity is checked again the way
+ * OrbitDB checks one it has not cached: its shape, the signature of its id
+ * under its public key, and the provider's binding of that key to the DID
+ * (the WebAuthn proof). Only the comparison with the cached document is left
+ * out. Any other identity type keeps OrbitDB's answer. Drop this once
+ * OrbitDB keys its cache by the identity's hash.
+ *
+ * @param {any} identities OrbitDB Identities
+ * @returns {any} the same object, its `verifyIdentity` wrapped
+ */
+export function withoutStaleIdentityCache(identities) {
+	// The provider's static `type` and `verifyIdentity`, which its bundled types leave out.
+	const provider = /** @type {any} */ (OrbitDBWebAuthnIdentityProviderFunction);
+	const cached = identities.verifyIdentity;
+	identities.verifyIdentity = async (/** @type {any} */ identity) => {
+		if (await cached(identity)) return true;
+		if (!isIdentity(identity) || identity.type !== provider.type) {
+			return false;
+		}
+		const { id, publicKey, signatures } = identity;
+		if (!(await identities.verify(signatures.id, publicKey, id))) return false;
+		return provider.verifyIdentity(identity);
+	};
+	return identities;
 }
 
 /**

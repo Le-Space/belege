@@ -11,8 +11,14 @@ All notable changes to Le Space Belege. The format follows
 - **Backup on Aleph Cloud** (#77). _Integrationen → Backup → "Jetzt sichern"_ packs everything Belege keeps in this browser into one file: all eight databases block by block, with their writers and heads, and every receipt file. The file is sealed with a key from the passkey, so Aleph sees one opaque file and its size.
   - The browser uploads it directly to Aleph's IPFS host. The bridge only signs the order that has Aleph keep it, with its own backup key from `pnpm setup:aleph`. The setup prints the address of the Aleph account that pays, never the key.
   - The page counts as it packs (database by database, then the receipt files, then sealing). Afterwards it shows what went in per database. The history keeps every backup with its CID and contents; the overview shows when the last one ran.
-  - The backup is built with `@le-space/orbitdb-storage-bridge` 0.16.1 (`bundleDatabases`). A test puts it back into an empty node through the package's `restoreFromBlocks`, and the books, the receipt file and the writer come back. A restore page follows in its own step.
+  - The backup is built with `@le-space/orbitdb-storage-bridge` 0.16.1 (`bundleDatabases`). A test puts it back into an empty node through the package's `restoreFromBlocks`, and the books, the receipt file and the writer come back.
   - All of it in [docs/backup.md](docs/backup.md) ([Deutsch](docs/backup.de.md)). The consent screen names the backup and what leaves (consent version 20).
+
+- **Restore a backup** (#77). _Integrationen → Backup → "Wiederherstellen"_ after unlocking with the same passkey.
+  - It lists the backups the bridge's Aleph account had kept (new `GET /backup/aleph/list`) and those made from this browser, or takes a typed CID.
+  - It fetches the sealed file from Aleph's gateway, opens it with the passkey's key, puts every database and receipt file back through the storage bridge's `restoreFromBlocks`, and reloads.
+  - It merges and deletes nothing. A backup of another passkey, or of other books, is refused with a clear message, and a failed restore says why instead of reporting success.
+  - The consent screen says the browser fetches from Aleph's gateway (consent version 21). All of it in [docs/backup.md](docs/backup.md).
 
 ### Changed
 
@@ -33,6 +39,7 @@ All notable changes to Le Space Belege. The format follows
 ### Fixed
 
 - **Test bookings can be removed.** "Testbuchung anlegen" – a button of the development build – could put made-up payments (Testpartner GmbH, −19,99 €) into real books, with device sync even onto every own device; nothing could take them out, and with no bank account they blocked the export of their month. They are now marked, Zahlungen says so with "Testbuchungen entfernen", older ones are found by what the button wrote. The button now books onto a "Testkonto", so test bookings can be exported on request ("Testbuchungen mitexportieren", off by default; the package is then called TEST\_…).
+- **Entries from an earlier session of the same passkey are accepted again.** OrbitDB 4.0.0 caches a verified identity by its id signature and refused every other identity with the same signature without asking the provider. A passkey's identity carries a new proof in each session, so a backup's entries, and possibly entries synced from an own device, were refused ("not allowed to write to the log"). Such an identity is now checked again the way OrbitDB checks one it has not cached; nothing it would refuse is accepted ([orbitdb/orbitdb#1258](https://github.com/orbitdb/orbitdb/issues/1258)).
 
 ## [0.6.0] – 2026-10-01
 

@@ -14,7 +14,18 @@ A backup holds everything Belege keeps in this browser: the eight databases of t
 
 _Integrationen → Backup → "Jetzt sichern"_. The browser packs and seals the backup, uploads it directly to Aleph's IPFS host and asks the bridge to have Aleph keep it. The bridge signs that order (a STORE message) with its backup key. The backup never passes through the bridge.
 
-The page shows the backup's CID; keep it somewhere. Restoring a backup into an empty browser comes in a next step.
+The page shows the backup's CID; keep it somewhere.
+
+## Restore
+
+_Integrationen → Backup → "Wiederherstellen"_, after unlocking with **the same passkey** (on a new device, "Passkey wiederherstellen"). The list shows:
+
+- the backups the bridge's Aleph account had kept (pair the bridge again: an empty browser has no pairing);
+- the backups made from this browser.
+
+A CID can also be typed. After a question, the browser fetches the sealed file from Aleph's gateway, opens it with the key from the passkey and puts every database and receipt file back. It **merges**: what is in the books here stays, what the backup holds is added, nothing is deleted. The page then reloads, and the passkey opens the books again.
+
+A backup made with another passkey cannot be opened ("mit einem anderen Passkey gemacht"), and one that holds other books is refused.
 
 ## What goes out
 
@@ -27,7 +38,8 @@ The page shows the backup's CID; keep it somewhere. Restoring a backup into an e
   - each database's log entries (already sealed with the database key), its manifest and access controller, and the identity of every writer;
   - each receipt file's root and 1 MiB chunks (already sealed with the blob key);
   - a dag-cbor manifest: the storage bridge's metadata (every database with its address, manifest and heads, from `bundleDatabases`), the receipt files, the app version and the date.
-- **Restoring:** the storage bridge's `restoreFromBlocks` puts the databases back from the opened backup. A test does that round trip into an empty node; the page for it comes in a next step.
+- **Restoring:** the storage bridge's `restoreFromBlocks` puts the databases back from the opened backup. A head it cannot join stops the restore with the reason, instead of reporting success.
+- **Earlier sessions' entries:** OrbitDB 4.0.0 caches a verified identity by `signatures.id` and refuses another identity with the same id that differs. A passkey's identity has the same `signatures.id` in every session but a new WebAuthn proof, so entries from an earlier session (in a backup, or synced from an own device) were refused. Belege checks such an identity again the way OrbitDB checks an uncached one (shape, id signature, the provider's passkey binding), without the comparison ([orbitdb/orbitdb#1258](https://github.com/orbitdb/orbitdb/issues/1258); `session-identities.js`).
 - **Format:** a CAR file written by `@le-space/orbitdb-storage-bridge`, sealed as a whole with AES-256-GCM. The key is derived from the passkey's PRF output with HKDF (`belege/backup-key/v1`). The file is `belegeB1 ‖ nonce ‖ ciphertext`.
 - **Upload:** the storage bridge's `aleph` backend, `POST https://ipfs.aleph.cloud/api/v0/add`, no key needed.
 - **Keeping it:** the bridge signs the STORE message with `personal_sign` on the channel `BELEGE-BACKUP` (`POST /backup/aleph/pin`, [bridge/README.md](../bridge/README.md)).

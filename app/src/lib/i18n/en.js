@@ -733,7 +733,7 @@ export default {
 				name: 'Backup on Aleph Cloud',
 				text: 'When set up and only on your click: everything Belege keeps, sealed with a key from your passkey, as one file on Aleph Cloud.',
 				leaves:
-					'To Aleph’s IPFS host, directly from this browser: the sealed file (Aleph sees its size and this computer’s IP address, not what is in it). From the bridge to Aleph: an order signed with the bridge’s own backup key, naming the file.',
+					'To Aleph’s IPFS host, directly from this browser: the sealed file (Aleph sees its size and this computer’s IP address, not what is in it). From the bridge to Aleph: an order signed with the bridge’s own backup key, naming the file. To restore, the browser fetches the sealed file from Aleph’s gateway by its CID.',
 				technical:
 					'The CAR of every database block (entries already sealed, manifests, access controllers, writers’ identities) and every receipt file’s sealed blocks is sealed once more with AES-256-GCM under a key derived from the passkey’s PRF (HKDF, belege/backup-key/v1). Upload: POST https://ipfs.aleph.cloud/api/v0/add, no key. The bridge signs a STORE message (personal_sign, channel BELEGE-BACKUP) with a secp256k1 key it made itself (pnpm setup:aleph) and keeps in the keychain; Aleph keeps the file while that account has credits.'
 			},
@@ -842,6 +842,25 @@ export default {
 		reads: 'read {count}×',
 		revoke: 'Revoke',
 		refresh: 'Refresh reads'
+	},
+	restore: {
+		title: 'Restore',
+		what: 'A backup made with this passkey, put back into the books here. What is here stays; what the backup holds is added – nothing is deleted. The page reloads at the end, and the passkey opens the books again.',
+		leaves:
+			'Goes out: the backup’s CID to Aleph’s gateway (it sees this computer’s IP address). The file comes back sealed and is opened here.',
+		none: 'No backup known yet. Pair the bridge to list those of its Aleph account, or enter a CID.',
+		cidLabel: 'Or a backup’s CID',
+		pick: 'Restore',
+		notACid: 'That is not a CID.',
+		confirm: 'Restore this backup into these books? They are merged; the page reloads at the end.',
+		yes: 'Yes, restore',
+		no: 'Cancel',
+		fetching: 'Fetching the backup from Aleph …',
+		opening: 'Opening the backup …',
+		database: 'Database {index} of {total}: {name} …',
+		done: 'Restored. The page reloads – unlock with the passkey.',
+		wrongPasskey: 'This backup cannot be opened with this passkey: it was made with another one.',
+		notFetched: 'Aleph’s gateway did not give the backup back. Try again in a moment.'
 	},
 	backup: {
 		title: 'Backup',

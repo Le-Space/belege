@@ -64,6 +64,8 @@ export const STORAGE_PATHS = Object.freeze({
  * @property {import('./receipts/blob-store.js').BlobStore} blobs receipt files, sealed with the blob key
  * @property {(meta: { appVersion: string, onProgress?: (p: import('./backup/archive.js').BackupProgress) => void }) => Promise<Awaited<ReturnType<typeof import('./backup/archive.js').buildBackup>>>} makeBackup
  *   everything this browser keeps, as one sealed backup (issue #77)
+ * @property {(sealed: Uint8Array, onProgress?: (p: import('./backup/archive.js').RestoreProgress) => void) => Promise<Awaited<ReturnType<typeof import('./backup/archive.js').restoreBackup>>>} restoreBackup
+ *   a sealed backup back into these books; reload the page afterwards
  * @property {string} identityHash the identity document's hash
  * @property {string} peerId this session's libp2p peer id
  * @property {Uint8Array} ucepSeed the seed of the UCEP node's peer key, derived from the passkey
@@ -199,6 +201,35 @@ export async function startSession(credential) {
 					receipts: store.receipts,
 					key: backupKey,
 					appVersion,
+					onProgress
+				});
+			},
+			/**
+			 * Put a sealed backup back into these books (backup/archive.js). The
+			 * databases are closed first and reopened by the restore: the page
+			 * reloads afterwards, and the books open with what came back.
+			 *
+			 * @param {Uint8Array} sealed
+			 * @param {(p: import('./backup/archive.js').RestoreProgress) => void} [onProgress]
+			 */
+			async restoreBackup(sealed, onProgress) {
+				const { restoreBackup } = await import('./backup/archive.js');
+				const { payloadEncryption } = await import('./entry-encryption.js');
+				const { default: SealedDocuments } = await import('./store/sealed-documents.js');
+				const addresses = Object.fromEntries(
+					Object.entries(store.databases()).map(([name, db]) => [name, String(db.address)])
+				);
+				await store.close();
+				return restoreBackup({
+					orbitdb,
+					sealed,
+					key: backupKey,
+					addresses,
+					open: {
+						type: SealedDocuments.type,
+						Database: SealedDocuments({ indexBy: 'id' }),
+						encryption: await payloadEncryption(encryptionKey)
+					},
 					onProgress
 				});
 			},

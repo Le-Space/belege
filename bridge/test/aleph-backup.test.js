@@ -171,7 +171,8 @@ describe('/backup', () => {
 					configured: true,
 					address: addressOf(KEY),
 					credits: 1_500_000,
-					ingestUrl: `${aleph.url}/api/v0/add`
+					ingestUrl: `${aleph.url}/api/v0/add`,
+					gateways: [`${aleph.url}/ipfs`]
 				}
 			});
 
@@ -187,7 +188,13 @@ describe('/backup', () => {
 			assert.equal(res.json.address, addressOf(KEY));
 			assert.match(res.json.itemHash, /^[0-9a-f]{64}$/);
 			assert.deepEqual(aleph.added.get(res.json.cid), bytes, 'the bytes arrived as they were');
-			const store = aleph.stores.at(-1);
+			const last = /** @type {any} */ (aleph.stores.at(-1));
+			const store = {
+				sender: last.sender,
+				cid: last.cid,
+				channel: last.channel,
+				status: last.status
+			};
 			assert.deepEqual(store, {
 				sender: addressOf(KEY),
 				cid: res.json.cid,
@@ -196,6 +203,55 @@ describe('/backup', () => {
 			});
 			assert.ok(logged.some((l) => /backup: 4096 byte\(s\) to Aleph, processed/.test(l)));
 			assert.ok(logged.every((l) => !l.includes(res.json.cid) && !l.includes(addressOf(KEY))));
+		} finally {
+			await bridge.close();
+		}
+	});
+
+	test('lists what this account had kept, newest first, and the app gets it back from the gateway', async () => {
+		const { bridge, port, auth } = await bridgeWith({ configured: true });
+		try {
+			/** @type {string[]} */ const cids = [];
+			for (const name of ['first.car', 'second.car']) {
+				const { id } = await createAlephBackend({ ingestUrl: `${aleph.url}/api/v0/add` }).putBlob(
+					new Uint8Array(randomBytes(512)),
+					{ name }
+				);
+				await request(port, '/backup/aleph/pin', {
+					method: 'POST',
+					headers: auth,
+					body: { cid: id }
+				});
+				cids.push(id);
+				await new Promise((r) => setTimeout(r, 1100)); // a STORE's time is in seconds
+			}
+			// Somebody else's STORE on the same channel is not ours to list.
+			const { id: foreign } = await createAlephBackend({
+				ingestUrl: `${aleph.url}/api/v0/add`
+			}).putBlob(new Uint8Array([9]), { name: 'x' });
+			await createAlephPin({
+				sender: addressOf(OTHER),
+				sign: async (_a, m) => personalSign(OTHER, m),
+				apiHost: aleph.url,
+				channel: BACKUP_CHANNEL
+			})(foreign);
+
+			const res = await request(port, '/backup/aleph/list', { headers: auth });
+			assert.equal(res.status, 200, res.text);
+			const listed = res.json.backups.map((/** @type {any} */ b) => b.cid);
+			assert.deepEqual(listed.slice(0, 2), [cids[1], cids[0]], 'newest first');
+			assert.equal(listed.includes(foreign), false);
+			assert.match(res.json.backups[0].at, /^\d{4}-\d{2}-\d{2}T/);
+
+			// The gateway the status names gives the bytes back as they went up.
+			const status = await request(port, '/backup/status', { headers: auth });
+			const got = await fetch(`${status.json.aleph.gateways[0]}/${cids[1]}`);
+			assert.equal(got.status, 200);
+			assert.deepEqual(
+				new Uint8Array(await got.arrayBuffer()),
+				aleph.added.get(cids[1]),
+				'the same bytes'
+			);
 		} finally {
 			await bridge.close();
 		}
@@ -221,12 +277,16 @@ describe('/backup', () => {
 			assert.equal(res.json.cid, id);
 			assert.equal(res.json.address, addressOf(KEY));
 			assert.equal(aleph.added.size, added, 'the bridge uploaded nothing');
-			assert.deepEqual(aleph.stores.at(-1), {
-				sender: addressOf(KEY),
-				cid: id,
-				channel: BACKUP_CHANNEL,
-				status: 'processed'
-			});
+			const last = /** @type {any} */ (aleph.stores.at(-1));
+			assert.deepEqual(
+				{ sender: last.sender, cid: last.cid, channel: last.channel, status: last.status },
+				{
+					sender: addressOf(KEY),
+					cid: id,
+					channel: BACKUP_CHANNEL,
+					status: 'processed'
+				}
+			);
 			assert.ok(logged.every((l) => !l.includes(id)));
 
 			const bad = await request(port, '/backup/aleph/pin', {
