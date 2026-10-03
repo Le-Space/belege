@@ -2147,6 +2147,23 @@ export default {
 		tradeOpen: 'andere Seite öffnen',
 		time: '{time} Uhr',
 		detail: {
+			toAddress: 'An {address}',
+			fromAddress: 'Von {address}',
+			txHashLabel: 'Transaktion',
+			where: {
+				titleOut: 'Wohin ging das Geld?',
+				titleIn: 'Woher kam das Geld?',
+				candidate: '{account} hat am {date} {quantity} verbucht – ist das dieselbe Übertragung?',
+				link: 'Ja, eigene Übertragung',
+				open: 'Ansehen',
+				sameOne: 'Eine weitere Buchung mit dieser Adresse.',
+				same: '{count} weitere Buchungen mit dieser Adresse.',
+				show: 'Anzeigen',
+				first: 'Diese Adresse kommt in keiner anderen Buchung vor.',
+				nameLabel: 'Adresse benennen',
+				namePlaceholder: 'z. B. Kraken-Einzahlung oder Lieferant',
+				nameSave: 'Benennen'
+			},
 			changedTitle: 'Beim Abruf am {date} geändert',
 			changedText: 'Die Quelle meldet diese Buchung jetzt anders: vorher {from}, jetzt {to}.',
 			changedFlipped: ' Aus einer Einnahme wurde eine Ausgabe oder umgekehrt.',
@@ -2158,7 +2175,11 @@ export default {
 			detailsHide: 'Details ausblenden',
 			status: {
 				receipt: { missing: 'Beleg fehlt', done: 'Beleg ✓', 'none-needed': 'Kein Beleg nötig' },
-				konto: { missing: 'Konto fehlt', done: 'Konto ✓' }
+				konto: {
+					missing: 'Konto fehlt',
+					done: 'Konto ✓',
+					missingHint: 'Noch kein Buchungskonto (SKR 03) übernommen – unten unter „Konto“.'
+				}
 			},
 			alt: { toggle: 'Kein fremder Beleg …' },
 			next: 'Nächster Schritt',
@@ -2323,7 +2344,15 @@ export default {
 			linkRefundTitle:
 				'Diese Zahlung und eine in die andere Richtung – auf demselben oder einem anderen Konto – sind eine Belastung und ihre Erstattung. Voll erstattet braucht keine einen Beleg; bei einer Teilerstattung braucht die Belastung weiter ihren. Bleibt bei jedem Abgleich.',
 			linkRefundNone: 'Keine Buchung in die andere Richtung innerhalb von 120 Tagen.',
-			party: { from: 'Von', to: 'An', own: 'eigene', foreign: 'fremde Adresse' },
+			party: {
+				from: 'Von',
+				to: 'An',
+				own: 'eigene',
+				foreign: 'fremde Adresse',
+				ownChip: 'eigene Wallet',
+				unknownAddress: 'unbekannte Adresse',
+				explorer: 'Explorer'
+			},
 			linkTransfer: 'Als Gegenbuchung verknüpfen …',
 			twins:
 				'{count} Buchungen mit genau diesem Betrag in der Gegenrichtung auf deinen anderen Konten, in den Tagen darum – und kein Verwendungszweck sagt, welche die Gegenbuchung ist. Verknüpfe die richtige von Hand.',

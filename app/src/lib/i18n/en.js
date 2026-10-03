@@ -2113,6 +2113,23 @@ export default {
 		tradeOpen: 'open the other side',
 		time: '{time}',
 		detail: {
+			toAddress: 'To {address}',
+			fromAddress: 'From {address}',
+			txHashLabel: 'Transaction',
+			where: {
+				titleOut: 'Where did the money go?',
+				titleIn: 'Where did the money come from?',
+				candidate: '{account} booked {quantity} on {date} – is that the same transfer?',
+				link: 'Yes, own transfer',
+				open: 'Look',
+				sameOne: 'One more booking with this address.',
+				same: '{count} more bookings with this address.',
+				show: 'Show',
+				first: 'This address is in no other booking.',
+				nameLabel: 'Name the address',
+				namePlaceholder: 'e.g. Kraken deposit or supplier',
+				nameSave: 'Name it'
+			},
 			changedTitle: 'Changed on fetch on {date}',
 			changedText: 'The source now reports this booking differently: before {from}, now {to}.',
 			changedFlipped: ' An income became an expense or the other way round.',
@@ -2128,7 +2145,11 @@ export default {
 					done: 'Receipt ✓',
 					'none-needed': 'No receipt needed'
 				},
-				konto: { missing: 'Account missing', done: 'Account ✓' }
+				konto: {
+					missing: 'Account missing',
+					done: 'Account ✓',
+					missingHint: 'No booking account (SKR 03) taken over yet – below under “Account”.'
+				}
 			},
 			alt: { toggle: 'No third-party receipt …' },
 			next: 'Next step',
@@ -2292,7 +2313,15 @@ export default {
 			linkRefundTitle:
 				'This payment and one in the other direction – on the same or another account – are a charge and its refund. Fully refunded, neither needs a receipt; with a partial refund the charge still needs its own. Kept on every matching run.',
 			linkRefundNone: 'No booking in the other direction within 120 days.',
-			party: { from: 'From', to: 'To', own: 'own', foreign: 'third-party address' },
+			party: {
+				from: 'From',
+				to: 'To',
+				own: 'own',
+				foreign: 'third-party address',
+				ownChip: 'own wallet',
+				unknownAddress: 'unknown address',
+				explorer: 'Explorer'
+			},
 			linkTransfer: 'Link as counter-booking …',
 			twins:
 				'{count} bookings with exactly this amount in the opposite direction on your other accounts, in the days around it – and no payment reference says which is the counter-booking. Link the right one by hand.',
