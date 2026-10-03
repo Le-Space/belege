@@ -12,6 +12,7 @@ import { cleanMatchingSettings, feeKey, transferPairKey } from './classify.js';
 import { isActive, syncLinks } from './engine.js';
 import { refundPairKey } from './refunds.js';
 import { learnFromLink } from './partners.js';
+import { compactIban } from './normalize.js';
 
 /** @typedef {import('./engine.js').MatchingStore} MatchingStore */
 /** @typedef {{ log?: boolean }} ActionOptions `log: false` when a caller logs the decision itself */
@@ -202,6 +203,42 @@ export async function addCompanyName(store, name) {
 		companyNames: [...current.companyNames, clean]
 	});
 	await decided(store, 'company-name', {});
+}
+
+/**
+ * "Ja, eigenes Konto" (issue #256): the IBAN joins the own IBANs (Eigene
+ * Anweisungen); every payment to or from it is an own transfer from now on.
+ *
+ * @param {MatchingStore} store
+ * @param {string} iban
+ */
+export async function addOwnIban(store, iban) {
+	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+	const clean = compactIban(iban);
+	if (!clean || current.ownIbans.includes(clean)) return;
+	await setSetting(store.settings, 'matching', {
+		...current,
+		ownIbans: [...current.ownIbans, clean],
+		notOwnIbans: current.notOwnIbans.filter((i) => i !== clean)
+	});
+	await decided(store, 'own-iban', {});
+}
+
+/**
+ * "Nein, nicht unseres" (issue #256): the IBAN is not offered as an own account again.
+ *
+ * @param {MatchingStore} store
+ * @param {string} iban
+ */
+export async function rejectOwnIban(store, iban) {
+	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+	const clean = compactIban(iban);
+	if (!clean || current.notOwnIbans.includes(clean)) return;
+	await setSetting(store.settings, 'matching', {
+		...current,
+		notOwnIbans: [...current.notOwnIbans, clean]
+	});
+	await decided(store, 'not-own-iban', {});
 }
 
 /**

@@ -96,6 +96,7 @@ export function isOwnName(name, company) {
  * @property {string[]} ownNames the people behind the company: owners, shareholders (#231); never searched for
  * @property {string[]} employees people the company pays wages to (#233): a payment to one is a wage
  * @property {string[]} ownIbans full IBANs the person typed in
+ * @property {string[]} notOwnIbans IBANs a person said are not an own account (own-iban.js, #256): not offered again
  * @property {Rule[]} rules
  * @property {number} graceDays a booking without a receipt is asked about only once it is older than this (0: at once)
  * @property {string[]} feeKeys bookings a person called a bank fee (`feeKey`)
@@ -120,6 +121,7 @@ export function defaultMatchingSettings() {
 		ownNames: [],
 		employees: [],
 		ownIbans: [],
+		notOwnIbans: [],
 		rules: [],
 		graceDays: DEFAULT_GRACE_DAYS,
 		feeKeys: [],
@@ -159,6 +161,13 @@ export function cleanMatchingSettings(value) {
 		ownIbans: strings(value?.ownIbans)
 			.map((s) => compactIban(s))
 			.filter(Boolean),
+		notOwnIbans: [
+			...new Set(
+				strings(value?.notOwnIbans)
+					.map((s) => compactIban(s))
+					.filter(Boolean)
+			)
+		].slice(-200),
 		rules: rules
 			.filter(
 				(/** @type {any} */ r) =>

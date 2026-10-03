@@ -35,6 +35,7 @@
 	} from './session.svelte.js';
 	import { portalLink } from './matching/portal.js';
 	import { learnedVendors, nameAddress } from './matching/partners.js';
+	import { groupIban, ownIbanSuggestionFor, ownIbanSuggestions } from './matching/own-iban.js';
 	import { attachUpload, moveReceipt } from './receipts/attach.js';
 	import EigenbelegForm from './receipts/EigenbelegForm.svelte';
 	import { folderSupported, savedFolder } from './receipts/folder.js';
@@ -72,6 +73,8 @@
 	import { extractReceipt } from './receipts/extract.js';
 	import {
 		addCompanyName,
+		addOwnIban,
+		rejectOwnIban,
 		confirmMatch,
 		markBankFee,
 		linkRefund,
@@ -346,6 +349,30 @@
 	let suggestions = $derived(choices.filter((c) => c.suggested));
 	let others = $derived(tx ? otherPayments(tx, app.transactions) : []);
 	let othersWithout = $derived(others.filter((o) => !isTxCovered(o, app.classifications)).length);
+	// "Ist das ein eigenes Konto?" (#256): this booking came from, or went to, an
+	// IBAN that sends under the company's name.
+	let ownIbanOffer = $derived.by(() => {
+		if (!tx?.counterpartyIban) return null;
+		const settings = cleanMatchingSettings(app.matchingSettings);
+		return ownIbanSuggestionFor(
+			ownIbanSuggestions({
+				transactions: app.transactions,
+				classifications: app.classifications,
+				ownIbans: settings.ownIbans,
+				notOwnIbans: settings.notOwnIbans
+			}),
+			tx
+		);
+	});
+	const answerOwnIban = (/** @type {boolean} */ yes) =>
+		act(async () => {
+			if (!ownIbanOffer) return;
+			await (yes ? addOwnIban : rejectOwnIban)(
+				/** @type {any} */ (currentStore()),
+				ownIbanOffer.iban
+			);
+			await runMatchingNow();
+		});
 	let ruleLine = $derived(
 		tx
 			? classificationLine(classification, { accounts: app.accounts, noReceipt: tx.noReceipt })
@@ -1855,6 +1882,42 @@
 									>{/if}
 							</div>
 						{/if}
+					</div>
+				{/if}
+				{#if ownIbanOffer}
+					<div
+						class="mt-2 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
+						data-testid="tx-own-iban"
+					>
+						<p class="text-text">
+							{t('zahlungen.detail.ownIban.question', {
+								iban: groupIban(ownIbanOffer.iban),
+								name: ownIbanOffer.sender
+							})}
+						</p>
+						{#if ownIbanOffer.outgoing.length}
+							<p class="mt-0.5 text-faint">
+								{ownIbanOffer.outgoing.length === 1
+									? t('home.ownIban.explainsOne')
+									: t('home.ownIban.explains', { count: ownIbanOffer.outgoing.length })}
+							</p>
+						{/if}
+						<div class="mt-1.5 flex flex-wrap gap-3">
+							<button
+								type="button"
+								class={button}
+								disabled={busy}
+								onclick={() => answerOwnIban(true)}
+								data-testid="tx-own-iban-yes">{t('home.ownIban.yes')}</button
+							>
+							<button
+								type="button"
+								class="text-sm text-faint underline hover:text-heading"
+								disabled={busy}
+								onclick={() => answerOwnIban(false)}
+								data-testid="tx-own-iban-no">{t('home.ownIban.no')}</button
+							>
+						</div>
 					</div>
 				{/if}
 				{#if ownName && !ownNameDismissed}

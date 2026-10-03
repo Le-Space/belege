@@ -1024,6 +1024,17 @@ export default {
 		hidden: '{count} more in other years'
 	},
 	home: {
+		ownIban: {
+			title: 'Is this an own account?',
+			what: 'Money comes from these IBANs under your company’s name – usually an own account whose statements do not name its IBAN (Wise, for example). Saved as an own IBAN, every payment to it counts as an own transfer.',
+			sends: 'sends as “{name}” ({count}×)',
+			explainsOne: 'Explains 1 payment without a receipt to this IBAN.',
+			explains: 'Explains {count} payments without a receipt to this IBAN.',
+			explainsNone: 'No payment without a receipt to this IBAN yet.',
+			open: 'See the payment',
+			yes: 'Yes, own account',
+			no: 'No, not ours'
+		},
 		integrationNeeds: 'Integrations need you',
 		privateOpen: {
 			title: 'Paid privately, not yet settled: {count} ({amount})',
@@ -1887,6 +1898,8 @@ export default {
 			'not-refund': 'Marked as “not a refund”',
 			'transfer-receipt-kept': 'Receipt of a transfer confirmed',
 			'company-name': 'Company name adopted',
+			'own-iban': 'IBAN adopted as an own account',
+			'not-own-iban': 'IBAN marked as not ours',
 			'receipt-duplicate': 'Receipt set aside as duplicate',
 			'receipt-set-aside': 'Receipt set aside',
 			'receipt-restore': 'Receipt taken back in',
@@ -2113,6 +2126,10 @@ export default {
 		tradeOpen: 'open the other side',
 		time: '{time}',
 		detail: {
+			ownIban: {
+				question:
+					'Money comes from {iban} as “{name}” – is it an own account? Then every payment to it counts as an own transfer.'
+			},
 			toAddress: 'To {address}',
 			fromAddress: 'From {address}',
 			txHashLabel: 'Transaction',
