@@ -91,7 +91,8 @@ export const ASSETS = Object.freeze({
 		chain: 'eip155:137',
 		caip19: null
 	},
-	FIL: { symbol: 'FIL', name: 'Filecoin', decimals: 18, kind: 'crypto', chain: null, caip19: null }
+	FIL: { symbol: 'FIL', name: 'Filecoin', decimals: 18, kind: 'crypto', chain: null, caip19: null },
+	XMR: { symbol: 'XMR', name: 'Monero', decimals: 12, kind: 'crypto', chain: null, caip19: null }
 });
 
 /**

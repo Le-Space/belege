@@ -30,6 +30,12 @@ All notable changes to Le Space Belege. The format follows
   - **What you see:** the payment says "Teilzahlung 2 von 3 · … offen" or "bezahlt"; Belege says "teilweise bezahlt · 7.000 von 10.000" or "in 3 Raten bezahlt".
   - **Export:** every instalment carries the invoice's number; the file goes into the package once. See [docs/matching.md](docs/matching.md).
 
+- **Monero** – an own wallet from its own export. Monero hides amounts and parties on its chain, so nothing is read by an address.
+  - "Verlauf importieren (CSV)" reads the history exported by the Monero GUI (History → Export) or the CLI (`export_transfers`), in the browser only.
+  - Confirmed transfers become bookings valued at the day's rate (CoinGecko); an outgoing fee is booked apart; a mined block is "Mining-Ertrag"; importing again adds only what is new.
+  - The consent screen lists Monero and xmrchain.net; [docs/crypto.md](docs/crypto.md) explains the export and how XMR from private holdings is booked.
+- **README and consent screen name every supported blockchain and the backup service** (Aleph Cloud through the OrbitDB Storage Bridge).
+
 ### Changed
 
 - **A wallet payment's detail says whose address is whose, and where the money went** (#254).

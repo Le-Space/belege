@@ -16,7 +16,12 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	await expect(dialog).toBeVisible();
 	// What Belege works with, with logos drawn in the page: no third party is asked.
 	const integrations = dialog.getByTestId('consent-integrations');
-	await expect(integrations.getByTestId('consent-integration-group')).toHaveCount(8);
+	await expect(integrations.getByTestId('consent-integration-group')).toHaveCount(9);
+	// Every chain, Monero too, and the backup service (#77) by name.
+	await expect(integrations.locator('[data-integration="monero"]')).toContainText('Monero');
+	await expect(integrations.locator('[data-integration="aleph-backup"]')).toContainText(
+		'OrbitDB Storage Bridge'
+	);
 	await expect(
 		integrations.locator('[data-integration="bitcoin"]').getByTestId('integration-logo')
 	).toBeVisible();

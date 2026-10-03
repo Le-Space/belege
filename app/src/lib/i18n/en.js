@@ -530,6 +530,8 @@ export default {
 			'Le Space Belege is in development. Keep storing your bank statements and receipts somewhere else as well.',
 		technicalHeading: 'Under the hood',
 		integrationNames: {
+			monero: 'Monero (the wallet’s export, read only in the browser)',
+			'aleph-backup': 'Aleph Cloud (backup through the OrbitDB Storage Bridge)',
 			hibiscus: 'Hibiscus (banks via FinTS/HBCI)',
 			camt: 'CAMT.053 bank statements, e.g. Revolut Business',
 			enablebanking: 'Enable Banking (banks in Europe via PSD2, with your own application)',
@@ -696,6 +698,7 @@ export default {
 				data: 'Data and rate sources',
 				explorers: 'Block explorers (link only)',
 				ai: 'AI models (you choose one)',
+				backup: 'Backup (sealed, only on your click)',
 				portals: 'Customer portals',
 				apps: 'Connected apps'
 			},
@@ -2835,6 +2838,10 @@ export default {
 			wallet: 'Own wallet'
 		},
 		wallets: {
+			import: 'Import history (CSV)',
+			importing: 'Importing …',
+			moneroHint:
+				'Monero does not show amounts and senders publicly: Belege does not read the address but the history your wallet exports (Monero GUI: History → Export; CLI: export_transfers all). The file is read only here in the browser. The address names the account.',
 			title: 'Own wallets',
 			intro:
 				'Read-only, via the address: the bridge asks a public node of the chain for all transfers and fees of this address and for its balance. Never a key, never a seed phrase. Each asset gets its own account; valued at the daily rate (CoinGecko, Kraken as fallback).',

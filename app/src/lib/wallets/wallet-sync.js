@@ -135,6 +135,9 @@ export function describeWalletEntry(e) {
 	}
 	if (e.kind === 'reward')
 		return { label: 'Staking-Ertrag', movement: /** @type {const} */ ('reward') };
+	// Stored in the books, like the labels above (see the follow-up on #192).
+	if (e.kind === 'mining')
+		return { label: 'Mining-Ertrag', movement: /** @type {const} */ ('reward') };
 	if (e.kind === 'stake') {
 		return {
 			// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
@@ -616,11 +619,30 @@ async function saveWallet(settings, wallet) {
 export async function syncWallet({ client, store, wallet, now = new Date() }) {
 	const chain = walletChain(wallet.chain);
 	if (!chain) throw new Error(`Unbekannte Chain: ${wallet.chain}`);
-	const today = now.toISOString().slice(0, 10);
 	const result = await client.walletHistory(chain.id, {
 		address: wallet.address,
 		endpoints: wallet.endpoints ?? {}
 	});
+	return bookWalletHistory({ client, store, wallet, result, now });
+}
+
+/**
+ * A wallet's history into the books, wherever it came from: the bridge
+ * (`syncWallet`) or the wallet's own export (Monero, monero-import.js). Every
+ * entry valued at its day's rate, one account per asset, the known ones
+ * skipped.
+ *
+ * @param {object} params
+ * @param {{ rate: (asset: string, date: string, options?: any) => Promise<any> }} params.client the bridge, for the rates
+ * @param {any} params.store
+ * @param {Wallet} params.wallet
+ * @param {Pick<import('../bridge/client.js').WalletHistory, 'entries' | 'balances'> & Partial<Omit<import('../bridge/client.js').WalletHistory, 'source'>> & { addressUrl?: string, source?: string }} params.result
+ * @param {Date} [params.now]
+ */
+export async function bookWalletHistory({ client, store, wallet, result, now = new Date() }) {
+	const chain = walletChain(wallet.chain);
+	if (!chain) throw new Error(`Unbekannte Chain: ${wallet.chain}`);
+	const today = now.toISOString().slice(0, 10);
 	const { byAsset, unpriced } = await walletTransactions(
 		result.entries,
 		(asset, date, contract, at) =>
@@ -664,7 +686,8 @@ export async function syncWallet({ client, store, wallet, now = new Date() }) {
 		});
 		const stored = await store.transactions.list({
 			includeDeleted: true,
-			where: (r) => r.accountId === record.id && r.source === chain.id
+			where: (/** @type {Record<string, any>} */ r) =>
+				r.accountId === record.id && r.source === chain.id
 		});
 		const counts = await importTransactions({
 			transactions: store.transactions,
@@ -706,8 +729,8 @@ export async function syncWallet({ client, store, wallet, now = new Date() }) {
 		totals,
 		perAccount,
 		unpriced,
-		unknownAssets: result.unknownAssets,
-		history: result.history,
-		endpoints: result.endpoints
+		unknownAssets: result.unknownAssets ?? 0,
+		history: result.history ?? { earliestHeight: 0, earliestTime: null, pruned: false },
+		endpoints: result.endpoints ?? {}
 	};
 }

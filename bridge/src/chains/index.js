@@ -85,6 +85,13 @@ export function createWalletService({
 		async sync(request) {
 			const chain = chainOf(String(request?.chain ?? ''));
 			if (!chain) throw new WalletError('unknown chain', 'WALLET_CHAIN', 400);
+			if (chain.kind === 'monero') {
+				throw new WalletError(
+					"Monero cannot be read by an address: import the wallet's export in the app",
+					'WALLET_IMPORT_ONLY',
+					400
+				);
+			}
 			const address = typeof request?.address === 'string' ? request.address.trim() : '';
 			const given = /** @type {Record<string, unknown>} */ (
 				request?.endpoints && typeof request.endpoints === 'object' ? request.endpoints : {}

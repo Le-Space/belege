@@ -120,7 +120,7 @@ function failed(message, status, body) {
  * @property {string} time ISO 8601
  * @property {string} date YYYY-MM-DD (UTC)
  * @property {'sent' | 'received' | 'fee'} type
- * @property {'transfer' | 'reward' | 'stake' | 'ibc' | 'fee' | 'swap'} kind
+ * @property {'transfer' | 'reward' | 'stake' | 'ibc' | 'fee' | 'swap' | 'mining'} kind `mining`: a mined block (Monero export)
  * @property {SwapSides} [swap] EVM: what the wallet gave and got in a swap (issue #115)
  * @property {string} asset symbol
  * @property {string} amount signed decimal

@@ -89,7 +89,8 @@ export const INTEGRATION_GROUPS = [
 			{ id: 'optimism', name: 'OP Mainnet (Optimism)', logo: 'optimism' },
 			{ id: 'polygon', name: 'Polygon PoS', logo: 'polygon' },
 			{ id: 'nyx', name: 'Nym (Nyx)', initials: 'Ny' },
-			{ id: 'akash', name: 'Akash', initials: 'Ak' }
+			{ id: 'akash', name: 'Akash', initials: 'Ak' },
+			{ id: 'monero', name: 'Monero', initials: 'XM' }
 		]
 	},
 	{
@@ -126,7 +127,18 @@ export const INTEGRATION_GROUPS = [
 			{ id: 'nym-explorer', name: 'Nym Explorer (Nodes Guru)', initials: 'Ny' },
 			{ id: 'mempool-explorer', name: 'mempool.space (Bitcoin)', initials: 'Mp' },
 			{ id: 'filfox', name: 'Filfox (Filecoin)', initials: 'Ff' },
-			{ id: 'solscan', name: 'Solscan (Solana)', initials: 'So' }
+			{ id: 'solscan', name: 'Solscan (Solana)', initials: 'So' },
+			{ id: 'xmrchain', name: 'xmrchain.net (Monero)', initials: 'Xc' }
+		]
+	},
+	{
+		id: 'backup',
+		items: [
+			{
+				id: 'aleph-backup',
+				name: 'Aleph Cloud (OrbitDB Storage Bridge)',
+				initials: 'Al'
+			}
 		]
 	},
 	{
