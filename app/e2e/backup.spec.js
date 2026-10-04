@@ -1,9 +1,12 @@
 // The backup on Aleph (issue #77), end to end: a fake Aleph on 127.0.0.1 (its
 // IPFS host and its API), the real bridge in test mode with a made-up backup
-// key, and the app. "Jetzt sichern" packs and seals the books in the browser,
-// uploads them from the browser to the fake's IPFS host, and the bridge signs
-// the STORE message: kept, listed, and nothing readable on the way. Every key,
-// address and amount is made up (@belege/bridge/testing/aleph).
+// key, and the app. "Jetzt sichern" packs and seals the books in the browser
+// and uploads them from the browser to the fake's IPFS host. The bridge signs
+// the STORE message until its account allows this browser's own key
+// (`pnpm setup:aleph -- --authorize`, run here as the command runs it); from
+// then on the browser signs, for the bridge's account. Kept, and nothing
+// readable on the way. Every key, address and amount is made up
+// (@belege/bridge/testing/aleph).
 import { test, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -12,8 +15,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
+import { defaultConfig, memoryKeychain, saveConfig } from '@belege/bridge';
 import { alephAccountOf, startFakeAleph } from '@belege/bridge/testing/aleph';
+import { runAlephGrants } from '../../bridge/src/setup-aleph.js';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
@@ -63,7 +67,7 @@ test.afterAll(async () => {
 	if (dir) await rm(dir, { recursive: true, force: true });
 });
 
-test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the bridge’s key', async ({
+test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the bridge’s key, then by the browser’s own', async ({
 	page
 }) => {
 	await addVirtualAuthenticator(page);
@@ -92,7 +96,19 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 
 	await openIntegration(page, 'backup');
 	const card = page.getByTestId('backup-card');
-	await expect(card.getByTestId('backup-address')).toContainText(/0x[0-9a-fA-F]{40}/);
+	// The account that pays is the bridge's; this browser has a key of its own,
+	// not allowed yet, so the bridge signs and the page shows the command.
+	await expect(card.getByTestId('backup-address')).toContainText(alephAccountOf(KEY));
+	await expect(card.getByTestId('backup-key-address')).toContainText(/0x[0-9a-fA-F]{40}/);
+	const browserKey = /** @type {string} */ (
+		await card.getByTestId('backup-key-address-value').textContent()
+	).trim();
+	await expect(card.getByTestId('backup-not-granted')).toContainText(
+		'bis dahin unterschreibt die Bridge'
+	);
+	await expect(card.getByTestId('backup-grant-command')).toContainText(
+		`pnpm setup:aleph -- --authorize ${browserKey} --channel BELEGE-BACKUP`
+	);
 	await expect(card.getByTestId('backup-no-credits')).toBeVisible();
 	// Without credits Aleph keeps nothing (a STORE is paid in credits since
 	// storage bridge 0.17.0), and the app says how many it takes.
@@ -137,6 +153,36 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 	expect(bridgeOut).toContain('backup: kept on Aleph, processed');
 	expect(bridgeOut).not.toContain(cid);
 	expect(bridgeOut).not.toContain(KEY);
+
+	// The account allows this browser's key, with the command the page showed.
+	/** @type {string[]} */ const printed = [];
+	expect(
+		await runAlephGrants({
+			io: { print: (line) => printed.push(line) },
+			keychain: memoryKeychain(KEY, 'aleph-backup'),
+			action: 'authorize',
+			address: browserKey,
+			channel: 'BELEGE-BACKUP',
+			apiHost: aleph.url,
+			settle: { timeout: 5_000, interval: 50 }
+		})
+	).toBe(true);
+	await card.getByTestId('backup-check').click();
+	await expect(card.getByTestId('backup-granted')).toBeVisible();
+
+	// From now on the browser signs, for the bridge's account; the bridge only watches.
+	await card.getByTestId('backup-now').click();
+	await expect(card.getByTestId('backup-row')).toHaveCount(2, { timeout: 30_000 });
+	await expect(card.getByTestId('backup-made')).toContainText('von Aleph aufbewahrt');
+	const own = aleph.stores.at(-1);
+	expect(own).toMatchObject({
+		sender: browserKey,
+		owner: alephAccountOf(KEY),
+		channel: 'BELEGE-BACKUP',
+		payment: 'credit',
+		status: 'processed'
+	});
+	expect(bridgeOut.match(/backup: kept on Aleph/g)).toHaveLength(1);
 
 	// The overview says so.
 	await page.getByTestId('integration-back').click();

@@ -760,9 +760,9 @@ export default {
 				name: 'Backup bei Aleph Cloud',
 				text: 'Wenn eingerichtet und nur auf deinen Klick: alles, was Belege hält, versiegelt mit einem Schlüssel aus deinem Passkey, als eine Datei bei Aleph Cloud.',
 				leaves:
-					'An Alephs IPFS-Host, direkt aus diesem Browser: die versiegelte Datei (Aleph sieht ihre Größe und die IP-Adresse dieses Computers, nicht den Inhalt). Von der Bridge an Aleph: ein mit dem eigenen Backup-Schlüssel der Bridge unterschriebener Auftrag, der die Datei nennt. Zum Wiederherstellen holt der Browser die versiegelte Datei über ihre CID von Alephs Gateway.',
+					'An Alephs IPFS-Host, direkt aus diesem Browser: die versiegelte Datei (Aleph sieht ihre Größe und die IP-Adresse dieses Computers, nicht den Inhalt). An die Aleph-API: ein unterschriebener Auftrag, der die Datei nennt – vom eigenen Schlüssel dieses Browsers, sobald das Konto der Bridge ihn freigegeben hat, bis dahin von der Bridge; dazu Abfragen der Freigabe, der Credits und der Backups dieses Kontos, mit seiner Adresse. Zum Wiederherstellen holt der Browser die versiegelte Datei über ihre CID von Alephs Gateway.',
 				technical:
-					'Das CAR aller Datenbank-Blöcke (Einträge schon versiegelt, Manifeste, Access-Controller, Identitäten der Schreiber) und der versiegelten Blöcke jeder Belegdatei wird noch einmal mit AES-256-GCM versiegelt, unter einem Schlüssel aus dem PRF des Passkeys (HKDF, belege/backup-key/v1). Upload: POST https://ipfs.aleph.cloud/api/v0/add, ohne Schlüssel. Die Bridge unterschreibt eine STORE-Nachricht (personal_sign, Kanal BELEGE-BACKUP) mit einem secp256k1-Schlüssel, den sie selbst erzeugt hat (pnpm setup:aleph) und im Schlüsselbund hält; Aleph bewahrt die Datei auf, solange dieses Konto Credits hat.'
+					'Das CAR aller Datenbank-Blöcke (Einträge schon versiegelt, Manifeste, Access-Controller, Identitäten der Schreiber) und der versiegelten Blöcke jeder Belegdatei wird noch einmal mit AES-256-GCM versiegelt, unter einem Schlüssel aus dem PRF des Passkeys (HKDF, belege/backup-key/v1). Upload: POST https://ipfs.aleph.cloud/api/v0/add, ohne Schlüssel. Die STORE-Nachricht (personal_sign, Kanal BELEGE-BACKUP, bezahlt mit Credits des Kontos der Bridge) unterschreibt ein secp256k1-Schlüssel, den dieser Browser selbst erzeugt und versiegelt in den Einstellungen hält – sobald das Konto ihn in seinem security-Aggregat freigegeben hat (pnpm setup:aleph -- --authorize); bis dahin der Schlüssel der Bridge (pnpm setup:aleph, im Schlüsselbund). Aleph bewahrt die Datei auf, solange das Konto Credits hat. Die Backups listet die Nachrichten-API von Aleph (api2.aleph.im) über owners=<Konto>.'
 			},
 			deepseek: {
 				name: 'Sprachmodell – voreingestellt DeepSeek (Belege auslesen, KI-Suche)',
@@ -872,10 +872,15 @@ export default {
 	},
 	restore: {
 		title: 'Wiederherstellen',
-		what: 'Ein Backup dieses Passkeys zurück in die Bücher hier. Was hier ist, bleibt; was das Backup enthält, kommt dazu – gelöscht wird nichts. Am Ende lädt die Seite neu, und der Passkey öffnet die Bücher wieder.',
+		what: 'Ein Backup zurück in die Bücher hier. Du brauchst denselben Passkey, mit dem es gemacht wurde, und die Adresse des Aleph-Kontos, das zahlt – oder die CID des Backups. Was hier ist, bleibt; was das Backup enthält, kommt dazu – gelöscht wird nichts. Am Ende lädt die Seite neu, und der Passkey öffnet die Bücher wieder.',
 		leaves:
-			'Geht hinaus: die CID des Backups an Alephs Gateway (es sieht die IP-Adresse dieses Computers). Die Datei kommt versiegelt zurück und wird hier geöffnet.',
-		none: 'Noch kein Backup bekannt. Koppel die Bridge, dann zeigt sie die ihres Aleph-Kontos, oder gib eine CID ein.',
+			'Geht hinaus: an die Aleph-API die Adresse des Kontos, um seine Backups zu listen, und an Alephs Gateway die CID des Backups (beide sehen die IP-Adresse dieses Computers). Die Datei kommt versiegelt zurück und wird hier geöffnet.',
+		none: 'Noch kein Backup bekannt. Trag die Adresse des Aleph-Kontos ein, das zahlt (die gekoppelte Bridge nennt sie), oder gib eine CID ein.',
+		ownerLabel: 'Adresse des Aleph-Kontos, das zahlt',
+		ownerList: 'Backups suchen',
+		ownerInvalid: 'Das ist keine Adresse: 0x und 40 Hex-Zeichen.',
+		unlisted:
+			'Aleph hat die Liste der Backups gerade nicht geliefert. Versuch es gleich noch einmal, oder gib eine CID ein.',
 		cidLabel: 'Oder die CID eines Backups',
 		pick: 'Wiederherstellen',
 		notACid: 'Das ist keine CID.',
@@ -888,23 +893,39 @@ export default {
 		database: 'Datenbank {index} von {total}: {name} …',
 		done: 'Wiederhergestellt. Die Seite lädt neu – entsperre mit dem Passkey.',
 		wrongPasskey:
-			'Dieses Backup lässt sich mit diesem Passkey nicht öffnen: Es wurde mit einem anderen gemacht.',
+			'Dieses Backup lässt sich mit diesem Passkey nicht öffnen: Es wurde mit einem anderen gemacht. Ein Backup öffnet nur der Passkey, mit dem es gemacht wurde.',
 		notFetched: 'Alephs Gateway hat das Backup nicht zurückgegeben. Versuch es gleich noch einmal.'
 	},
 	backup: {
 		title: 'Backup',
-		what: 'Alles, was Belege in diesem Browser hält – die Bücher und jede Belegdatei – als eine Datei, versiegelt mit einem Schlüssel aus deinem Passkey, aufbewahrt bei Aleph Cloud. Öffnen kannst nur du sie.',
-		needsBridge:
-			'Die Bridge muss gekoppelt sein: Sie unterschreibt den Auftrag, mit dem Aleph das Backup aufbewahrt.',
+		what: 'Alles, was Belege in diesem Browser hält – die Bücher und jede Belegdatei – als eine Datei, versiegelt mit einem Schlüssel aus deinem Passkey, aufbewahrt bei Aleph Cloud. Öffnen kannst nur du sie, mit demselben Passkey.',
 		notSetUp: 'Die Bridge hat noch keinen Backup-Schlüssel. Im Terminal, im Ordner von Belege:',
-		account: 'Aleph-Konto',
+		noOwner:
+			'Noch kein Aleph-Konto, das zahlt: Koppel die Bridge, nachdem du dort einmal pnpm setup:aleph ausgeführt hast, oder trag die Adresse des Kontos ein.',
+		ownerLabel: 'Adresse des Aleph-Kontos, das zahlt',
+		ownerSave: 'Übernehmen',
+		ownerHint:
+			'Die Adresse ist öffentlich, aber auf einem leeren Gerät der einzige Weg zu deinen Backups: Schreib sie auf. pnpm setup:aleph zeigt sie.',
+		ownerInvalid: 'Das ist keine Adresse: 0x und 40 Hex-Zeichen.',
+		account: 'Aleph-Konto, das zahlt',
+		ownKey: 'Schlüssel dieses Browsers',
+		granted:
+			'Freigegeben: Dieser Browser unterschreibt den Auftrag an Aleph selbst, die Bridge muss dafür nicht laufen.',
+		notGrantedBridge:
+			'Das Konto hat den Schlüssel dieses Browsers noch nicht freigegeben; bis dahin unterschreibt die Bridge. Einmal freigeben, im Terminal im Ordner von Belege:',
+		notGranted:
+			'Das Konto hat den Schlüssel dieses Browsers noch nicht freigegeben, und ohne gekoppelte Bridge unterschreibt niemand den Auftrag. Einmal freigeben, im Terminal im Ordner von Belege:',
+		grantUnknown:
+			'Ob das Konto den Schlüssel dieses Browsers freigegeben hat, war gerade nicht zu erfahren. Freigeben, im Terminal im Ordner von Belege:',
+		copyCommand: 'Befehl kopieren',
+		check: 'Erneut prüfen',
 		copyAddress: 'Adresse kopieren',
 		credits: 'Credits',
 		creditsUnknown: 'unbekannt – Aleph hat nicht geantwortet',
 		noCredits:
 			'Das Konto hat keine Credits. Aleph bewahrt ein Backup nur auf, solange das Konto zahlen kann: lade Credits unter app.aleph.cloud auf oder schick ALEPH an die Adresse.',
 		leaves:
-			'Geht hinaus: die versiegelte Datei an Alephs IPFS-Host (er sieht die IP-Adresse dieses Computers und die Größe) und von der Bridge ein mit ihrem Backup-Schlüssel unterschriebener Auftrag, der die Datei nennt.',
+			'Geht hinaus: die versiegelte Datei an Alephs IPFS-Host (er sieht die IP-Adresse dieses Computers und die Größe) und an die Aleph-API ein Auftrag, der die Datei nennt – unterschrieben vom Schlüssel dieses Browsers oder, ohne Freigabe, von der Bridge. Zum Anzeigen fragt die Seite Aleph nach Freigabe und Credits des Kontos.',
 		now: 'Jetzt sichern',
 		step: {
 			packing: 'Wird gepackt und versiegelt …',
@@ -2623,8 +2644,8 @@ export default {
 				how: 'Synchronisation einschalten, dann das zweite Gerät per QR-Code hinzufügen. Optional treffen sich die Geräte nur im eigenen Netz, über einen Relay in deiner Bridge:'
 			},
 			backup: {
-				what: 'Ein Backup der Bücher und jeder Belegdatei, versiegelt mit einem Schlüssel aus deinem Passkey, bei Aleph Cloud. Aleph bewahrt es auf, solange das Aleph-Konto der Bridge Credits hat.',
-				how: 'Lass die Bridge einmal ihren eigenen Backup-Schlüssel erzeugen, lade Credits auf die angezeigte Adresse und klick hier auf „Jetzt sichern“. Das Wiederherstellen kommt in einem nächsten Schritt.'
+				what: 'Ein Backup der Bücher und jeder Belegdatei, versiegelt mit einem Schlüssel aus deinem Passkey, bei Aleph Cloud, bezahlt vom Aleph-Konto der Bridge. Zurück bekommst du es auf jedem Gerät mit zwei Dingen: demselben Passkey und der Adresse dieses Kontos (oder der CID des Backups).',
+				how: 'Lass die Bridge einmal ihren Backup-Schlüssel erzeugen, lade Credits auf die angezeigte Adresse und klick hier auf „Jetzt sichern“; gibst du den Schlüssel dieses Browsers frei (Befehl unten), sichert er auch ohne laufende Bridge. Auf einem leeren Gerät: „Mit vorhandenem Passkey wiederherstellen“, hier die Adresse eintragen und das Backup wählen.'
 			},
 			portale: {
 				what: 'Manche Rechnungen liegen nur im Kundenportal. Die Bridge holt sie mit einem eigenen Browser auf diesem Rechner.',

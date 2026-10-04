@@ -26,6 +26,11 @@ All notable changes to Le Space Belege. The format follows
   - **`pnpm setup:aleph -- --authorize <address> --channel <CHANNEL>`** lets another key keep backups at the bridge account's expense: STORE only, on that channel only. `--grants` lists the keys, `--revoke` takes a grant back. This is how Le Space Invoice backs up from the browser without the bridge running.
   - **The list of backups** asks Aleph by the paying account (`owners=`), so what such a key kept is in it too.
 
+- **The browser keeps its own backups, and finds them without the bridge** (#77, Le-Space/invoice#28).
+  - **Its own key.** Belege makes a key of its own in this browser and keeps it sealed in the settings. Once the bridge's account allows it (`pnpm setup:aleph -- --authorize <address> --channel BELEGE-BACKUP`; the page shows the command), the browser signs the STORE itself, for the bridge's account and paid in its credits, and the bridge need not run. Until then the bridge signs, as before. Where two keys meet after a restore or a sync, the first one made for the books wins, so a grant holds.
+  - **Restore without the bridge.** "Wiederherstellen" lists the account's backups straight from Aleph (`owners=`), whoever sent them. The address comes from the settings or the paired bridge, or is typed. A browser that lost everything needs the same passkey and that address, or a backup's CID.
+  - **Said where it is needed.** Integrationen → Backup and [docs/backup.md](docs/backup.md) ([Deutsch](docs/backup.de.md)) say what a restore needs. The bridge's `GET /backup/status` names the Aleph API the browser uses. The consent screen says what the browser now sends to Aleph's API (consent version 22).
+
 - **Invoices paid in instalments** (#258). One invoice can carry several payments until they add up to it; each instalment is covered by the same invoice, and what is open comes from the links.
   - **Matching:**
     - a partly paid invoice stays in play;

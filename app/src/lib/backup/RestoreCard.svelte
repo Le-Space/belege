@@ -5,25 +5,30 @@
 	// stays, what the backup holds is added. The books are closed for it, so the
 	// page reloads at the end and the passkey opens them again.
 	//
-	// Which backups there are: the bridge lists what its Aleph account had kept
-	// (an empty browser has no history of its own), the history here adds those
-	// made from this browser, and a CID can be typed.
+	// Which backups there are: Aleph lists those kept for the paying account
+	// (keeper.js; an empty browser has no history of its own), whether the
+	// bridge or this browser's key sent the STORE; the history here adds those
+	// made from this browser, and a CID can be typed. The account's address
+	// comes from the settings, from the paired bridge, or is typed: it is public.
 	import { createBridgeClient } from '$lib/bridge/client.js';
 	import { app, currentStore, restoreBackup } from '$lib/session.svelte.js';
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { card } from '$lib/ui/styles.js';
-	import { ingestUrlOf, loadBackups } from './history.js';
+	import { loadBackups } from './history.js';
+	import { alephEndpoints, findBackups, isAddress, loadOwner, saveOwner } from './keeper.js';
 
 	let { url, token } = $props();
 	const client = $derived(createBridgeClient({ url, token }));
 
-	/** Aleph's own gateway; the bridge names another only in tests. */
-	const ALEPH_GATEWAY = 'https://ipfs.aleph.cloud/ipfs';
-
 	/** @type {{ cid: string, at: string }[]} */
 	let found = $state([]);
-	/** @type {string[]} */
-	let gateways = $state([ALEPH_GATEWAY]);
+	/** @type {import('./keeper.js').AlephEndpoints} */
+	let endpoints = $state(alephEndpoints());
+	/** @type {string | null} the account that pays, whose backups Aleph lists */
+	let owner = $state(null);
+	let ownerInput = $state('');
+	/** Whether Aleph's list could not be read just now. */
+	let unlisted = $state(false);
 	let typed = $state('');
 	/** @type {string | null} the backup asked for, waiting for the yes */
 	let chosen = $state(null);
@@ -53,27 +58,54 @@
 
 	/** @param {string | null} withToken */
 	async function load(withToken) {
+		const store = currentStore();
+		owner = store ? await loadOwner(store.settings) : null;
+		if (withToken) {
+			try {
+				const status = (await client.backupStatus()).aleph;
+				endpoints = alephEndpoints(status);
+				if (!owner && status.configured && isAddress(status.address)) {
+					owner = String(status.address);
+				}
+			} catch {
+				// No word from the bridge: Aleph's own hosts, and the address as kept or typed.
+			}
+		}
+		ownerInput = owner ?? '';
+		await list();
+	}
+
+	async function list() {
 		/** @type {Record<string, string>} CID → when, the history's first */
 		const byCid = {};
 		const store = currentStore();
 		if (store) for (const b of await loadBackups(store.settings)) byCid[b.cid] ??= b.at;
-		if (withToken) {
+		unlisted = false;
+		if (owner) {
 			try {
-				const status = (await client.backupStatus()).aleph;
-				const named = (status.gateways ?? []).map(ingestUrlOf).filter(Boolean);
-				if (named.length) gateways = /** @type {string[]} */ (named);
-				if (status.configured) {
-					for (const b of (await client.backupList()).backups) {
-						byCid[b.cid] ??= b.at;
-					}
+				for (const b of await findBackups({ owner, endpoints })) {
+					byCid[b.cid] ??= new Date(b.time * 1000).toISOString();
 				}
 			} catch {
-				// No list from the bridge: the history and a typed CID still work.
+				// No list from Aleph: the history and a typed CID still work.
+				unlisted = true;
 			}
 		}
 		found = Object.entries(byCid)
 			.map(([cid, at]) => ({ cid, at }))
 			.sort((a, b) => (a.at < b.at ? 1 : -1));
+	}
+
+	async function setOwner() {
+		error = null;
+		if (!isAddress(ownerInput)) {
+			error = t('restore.ownerInvalid');
+			return;
+		}
+		const store = currentStore();
+		owner = store ? await saveOwner(store.settings, ownerInput) : ownerInput.trim();
+		ownerInput = owner;
+		await list();
 	}
 
 	/** @param {string} cid */
@@ -97,7 +129,7 @@
 			const { createAlephBackend } = await import(
 				'@le-space/orbitdb-storage-bridge/backends/aleph'
 			);
-			const sealed = await createAlephBackend({ gateways }).getBlob(cid);
+			const sealed = await createAlephBackend({ gateways: endpoints.gateways }).getBlob(cid);
 			phase = 'restoring';
 			const done = await restoreBackup(sealed, (p) => (progress = p));
 			result = done.databases;
@@ -144,6 +176,35 @@
 	<h2 id="restore-h" class="text-lg font-semibold text-heading">{t('restore.title')}</h2>
 	<p class="mt-1 text-sm text-text">{t('restore.what')}</p>
 	<p class="mt-1 text-xs text-faint">{t('restore.leaves')}</p>
+
+	<form
+		class="mt-3 flex flex-wrap items-end gap-2"
+		onsubmit={(e) => {
+			e.preventDefault();
+			setOwner();
+		}}
+	>
+		<label class="flex min-w-64 flex-1 flex-col text-sm text-faint"
+			>{t('restore.ownerLabel')}
+			<input
+				class="mt-1 rounded-md border border-border bg-surface px-2 py-1.5 font-mono text-xs text-heading"
+				bind:value={ownerInput}
+				placeholder="0x…"
+				autocomplete="off"
+				spellcheck="false"
+				data-testid="restore-owner"
+			/>
+		</label>
+		<button
+			type="submit"
+			class={button}
+			disabled={busy || !ownerInput.trim() || ownerInput.trim() === owner}
+			data-testid="restore-owner-list">{t('restore.ownerList')}</button
+		>
+	</form>
+	{#if unlisted}
+		<p class="mt-2 text-sm text-faint" data-testid="restore-unlisted">{t('restore.unlisted')}</p>
+	{/if}
 
 	{#if found.length}
 		<ul class="mt-3 divide-y divide-border text-sm" data-testid="restore-list">

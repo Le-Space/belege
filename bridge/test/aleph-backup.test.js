@@ -256,7 +256,8 @@ describe('/backup', () => {
 					address: addressOf(KEY),
 					credits: 1_500_000,
 					ingestUrl: `${aleph.url}/api/v0/add`,
-					gateways: [`${aleph.url}/ipfs`]
+					gateways: [`${aleph.url}/ipfs`],
+					apiHost: aleph.url
 				}
 			});
 

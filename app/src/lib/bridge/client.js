@@ -506,18 +506,12 @@ export function createBridgeClient({
 			),
 		/**
 		 * The backup on Aleph (issue #77): whether `pnpm setup:aleph` has made the
-		 * bridge's backup key, the account that pays, its credits and where the
-		 * app uploads a backup itself.
+		 * bridge's backup key, the account that pays, its credits, where the app
+		 * uploads a backup itself, fetches it back, and signs and lists for itself.
 		 *
-		 * @returns {Promise<{ aleph: { configured: boolean, address?: string, credits?: number | null, ingestUrl?: string, gateways?: string[] } }>}
+		 * @returns {Promise<{ aleph: { configured: boolean, address?: string, credits?: number | null, ingestUrl?: string, gateways?: string[], apiHost?: string } }>}
 		 */
 		backupStatus: () => call('/backup/status'),
-		/**
-		 * The backups the bridge's Aleph account had kept, newest first.
-		 *
-		 * @returns {Promise<{ backups: { cid: string, at: string, itemHash: string }[] }>}
-		 */
-		backupList: () => call('/backup/aleph/list'),
 		/**
 		 * Have Aleph keep a backup the app uploaded to its IPFS host: the bridge
 		 * signs the STORE message with its backup key.

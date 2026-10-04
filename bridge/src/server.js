@@ -36,7 +36,7 @@
 //   POST /<chain>/wallet { address, endpoints? }                  token → an own wallet's transfers and balance
 //   POST /aleph/accounts { addresses, api? }                      token → which are Aleph accounts: credits, entries (aleph.js)
 //   GET  /aleph/statement?address=0x…&month=YYYY-MM[&api=]        token → a month's credits: balances, top-ups, usage per day
-//   GET  /backup/status                                           token → { aleph: { configured, address, credits, ingestUrl } } (aleph-backup.js)
+//   GET  /backup/status                                           token → { aleph: { configured, address, credits, ingestUrl, gateways, apiHost } } (aleph-backup.js)
 //   GET  /backup/aleph/list                                       token → { backups: [{ cid, at, itemHash }] }: what this account had Aleph keep
 //   POST /backup/aleph/pin { cid }                                token → { cid, address, itemHash, status }: what the app uploaded, kept
 //   POST /backup/aleph?name=<file name>  (the sealed bytes)       token → { cid, size, address, itemHash, status }: uploaded and kept
@@ -647,7 +647,9 @@ export function createBridgeServer({
 					address,
 					credits,
 					ingestUrl: alephBackup.ingestUrl,
-					gateways: alephBackup.gateways
+					gateways: alephBackup.gateways,
+					// Where the app signs and lists for itself (keeper.js); tests: a fake.
+					apiHost: alephBackup.apiHost
 				}
 			});
 		}
