@@ -8,6 +8,12 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **Whole entries sealed: OrbitDB's replication layer.** Every log entry was sealed in its payload; its writer, clock and links to earlier entries were readable by whoever got the block. Now each entry is sealed once more as a whole, with a key of its own from the passkey (`belege/replication-key/v1`), so a peer without it gets blocks it cannot decode and cannot walk or replicate the log. Own devices derive the same key and sync as before.
+  - The seal is deterministic (AES-256-GCM with a synthetic nonce, an HMAC of the entry): OrbitDB seals an entry again when it joins one and files it under the hash of the result, and the same entry has to seal the same way on every device. Not `@orbitdb/simple-encryption`, which reuses one nonce for many entries.
+  - The books move once, on the first unlock: into new databases whose names say nothing of what they hold. Every entry is sealed anew with its own clock and links, so the new logs order exactly as the old ones; a second device moving its own copy adds duplicates that change nothing, and a later move from an older state cannot undo an edit made after the move. The old databases stay untouched.
+  - A backup made before goes back into the old databases and moves in on the next unlock. New backups hold the sealed databases.
+  - All devices need this version: one that has not updated keeps syncing only the old databases, with devices that have not updated either.
+
 - **Backup on Aleph Cloud** (#77). _Integrationen → Backup → "Jetzt sichern"_ packs everything Belege keeps in this browser into one file: all eight databases block by block, with their writers and heads, and every receipt file. The file is sealed with a key from the passkey, so Aleph sees one opaque file and its size.
   - The browser uploads it directly to Aleph's IPFS host. The bridge only signs the order that has Aleph keep it, with its own backup key from `pnpm setup:aleph`. The setup prints the address of the Aleph account that pays, never the key.
   - The page counts as it packs (database by database, then the receipt files, then sealing). Afterwards it shows what went in per database. The history keeps every backup with its CID and contents; the overview shows when the last one ran.

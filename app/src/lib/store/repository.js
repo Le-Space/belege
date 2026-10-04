@@ -10,11 +10,15 @@
 // and keeps money in integer cents: any field whose name ends in `Cents`
 // must be a safe integer.
 //
-// The databases are opened with `payloadEncryption` and nothing else; there
-// is no code path that opens one in plaintext.
+// The databases are opened with both of OrbitDB's encryption layers: the
+// payload sealed (`data`) and the whole entry sealed again (`replication`,
+// entry-encryption.js `sealedEncryption`). There is no code path that opens
+// one in plaintext. The databases before the replication layer are opened
+// only to move them (store/migrate.js), without sync.
 
-import { payloadEncryption } from '../entry-encryption.js';
-import { deriveDatabaseName } from '../database-keys.js';
+import { payloadEncryption, sealedEncryption } from '../entry-encryption.js';
+import { deriveDatabaseName, deriveSealedDatabaseName } from '../database-keys.js';
+import { moveLog } from './migrate.js';
 import { ulid, isUlid } from './ids.js';
 import SealedDocuments from './sealed-documents.js';
 
@@ -138,34 +142,103 @@ export function createCollection(db, name, { author, now = () => new Date() }) {
 }
 
 /**
+ * How the databases before the replication layer are opened: payload sealed,
+ * entries not, and never synced. For moving them, and for restoring a backup
+ * made of them.
+ *
+ * @param {Uint8Array} encryptionKey
+ */
+export async function oldBooksOpenOptions(encryptionKey) {
+	return {
+		type: SealedDocuments.type,
+		Database: SealedDocuments({ indexBy: 'id' }),
+		encryption: await payloadEncryption(encryptionKey),
+		sync: false
+	};
+}
+
+/**
+ * The names of the databases before the replication layer, by collection.
+ *
+ * @param {Uint8Array} prfOutput
+ */
+export async function oldBooksNames(prfOutput) {
+	/** @type {Record<string, string>} */
+	const names = {};
+	for (const name of COLLECTIONS) names[name] = await deriveDatabaseName(prfOutput, name);
+	return names;
+}
+
+/**
  * Open every collection, sealed with one key.
+ *
+ * With `move`, the books before the replication layer are moved into the
+ * sealed databases first (store/migrate.js): entry by entry, with their
+ * clocks, adding only what is not there yet.
  *
  * @param {object} params
  * @param {any} params.orbitdb a started OrbitDB instance
  * @param {Uint8Array} params.encryptionKey 32 bytes from `deriveDatabaseKey`
- * @param {Uint8Array} params.prfOutput names the databases, see `deriveDatabaseName`
+ * @param {Uint8Array} params.replicationKey 32 bytes from `deriveReplicationKey`
+ * @param {Uint8Array} params.prfOutput names the databases, see `deriveSealedDatabaseName`
+ * @param {boolean} [params.move] move the books before the replication layer in
+ * @param {(progress: { collection: string, moved: number, total: number }) => void} [params.onMove]
  * @param {Record<string, any>} [params.openOptions] extra `orbitdb.open` options (tests pass memory storages)
- * @returns {Promise<{ transactions: Collection, receipts: Collection, partners: Collection, accounts: Collection, settings: Collection, matches: Collection, questions: Collection, events: Collection, databases: () => Record<string, any>, resync: () => Promise<void>, close: () => Promise<void> }>}
+ * @returns {Promise<{ transactions: Collection, receipts: Collection, partners: Collection, accounts: Collection, settings: Collection, matches: Collection, questions: Collection, events: Collection, moved: Record<string, { total: number, moved: number }>, databases: () => Record<string, any>, resync: () => Promise<void>, close: () => Promise<void> }>}
  */
-export async function openStore({ orbitdb, encryptionKey, prfOutput, openOptions = {} }) {
+export async function openStore({
+	orbitdb,
+	encryptionKey,
+	replicationKey,
+	prfOutput,
+	move = false,
+	onMove,
+	openOptions = {}
+}) {
 	if (!(encryptionKey instanceof Uint8Array) || encryptionKey.length !== 32) {
 		throw new Error('The store cannot be opened without its 32-byte encryption key.');
 	}
+	if (!(replicationKey instanceof Uint8Array) || replicationKey.length !== 32) {
+		throw new Error('The store cannot be opened without its 32-byte replication key.');
+	}
 	const author = orbitdb.identity.id;
-	const encryption = await payloadEncryption(encryptionKey);
+	const encryption = await sealedEncryption(encryptionKey, replicationKey);
+	/** @param {string} name */
+	const extra = async (name) =>
+		typeof openOptions === 'function' ? await openOptions(name) : openOptions;
 
 	/** @type {Record<string, any>} */
 	const dbs = {};
 	/** @type {Record<string, Collection>} */
 	const collections = {};
 	for (const name of COLLECTIONS) {
-		dbs[name] = await orbitdb.open(await deriveDatabaseName(prfOutput, name), {
+		dbs[name] = await orbitdb.open(await deriveSealedDatabaseName(prfOutput, name), {
 			type: SealedDocuments.type,
 			Database: SealedDocuments({ indexBy: 'id' }),
 			encryption,
-			...(typeof openOptions === 'function' ? await openOptions(name) : openOptions)
+			...(await extra(name))
 		});
 		collections[name] = createCollection(dbs[name], name, { author });
+	}
+
+	/** @type {Record<string, { total: number, moved: number }>} */
+	const moved = {};
+	if (move) {
+		const names = await oldBooksNames(prfOutput);
+		const options = await oldBooksOpenOptions(encryptionKey);
+		for (const name of COLLECTIONS) {
+			const from = await orbitdb.open(names[name], { ...options, ...(await extra(name)) });
+			try {
+				moved[name] = await moveLog({
+					from,
+					to: dbs[name],
+					identity: orbitdb.identity,
+					onProgress: (done, total) => onMove?.({ collection: name, moved: done, total })
+				});
+			} finally {
+				await from.close();
+			}
+		}
 	}
 
 	return {
@@ -177,6 +250,8 @@ export async function openStore({ orbitdb, encryptionKey, prfOutput, openOptions
 		matches: collections.matches,
 		questions: collections.questions,
 		events: collections.events,
+		/** What `move` moved, by collection: entries in the old log, and how many were new. */
+		moved,
 		/** The opened OrbitDB databases, by collection: what a backup reads (backup/archive.js). */
 		databases: () => ({ ...dbs }),
 		/**

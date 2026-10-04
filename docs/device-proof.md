@@ -57,7 +57,7 @@ Until a peer has proved it, the node answers it only with identify, the circuit 
 - Whoever holds the passkey is an own device. They could open the books anyway.
 - Removing a device ends its syncing, not its access: with the passkey it can open the books it has.
 - The proof shows the passkey, not which device: two devices of one passkey cannot be told apart by it; the records in the books name them.
-- OrbitDB's entries are sealed with the `data` layer (the payload). The whole-entry `replication` layer is not used yet; with it, a peer that slips past the gate would not even see an entry's identity, clock or links.
+- Behind the gate, OrbitDB's entries are sealed twice: the payload (`data`), and the whole entry (`replication`, its own key from the passkey). A peer that slipped past the gate would get blocks it cannot decode — not an entry's identity, clock or links — so it could not walk or replicate the log.
 
 ## Tests
 

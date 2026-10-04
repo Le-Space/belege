@@ -14,9 +14,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createOfflineLibp2p } from '../network.js';
-import { payloadEncryption } from '../entry-encryption.js';
+import { sealedEncryption } from '../entry-encryption.js';
 import SealedDocuments from '../store/sealed-documents.js';
-import { deriveBackupKey, deriveBlobKey, deriveDatabaseKey } from '../database-keys.js';
+import {
+	deriveBackupKey,
+	deriveBlobKey,
+	deriveDatabaseKey,
+	deriveReplicationKey
+} from '../database-keys.js';
 import { openStore, COLLECTIONS } from '../store/repository.js';
 import { createBlobStore } from '../receipts/blob-store.js';
 import { MAGIC, WrongPasskeyError, buildBackup, openBackup, restoreBackup } from './archive.js';
@@ -52,19 +57,21 @@ async function node(keystore, restore) {
 		...(directory ? { directory } : {})
 	});
 	const encryptionKey = await deriveDatabaseKey(prfOutput);
+	const replicationKey = await deriveReplicationKey(prfOutput);
 	if (restore) {
 		const { restoreFromBlocks } = await import('@le-space/orbitdb-storage-bridge/restore-cid');
 		await restoreFromBlocks(orbitdb, restore.blocks, restore.metadata, {
 			open: {
 				type: SealedDocuments.type,
 				Database: SealedDocuments({ indexBy: 'id' }),
-				encryption: await payloadEncryption(encryptionKey)
+				encryption: await sealedEncryption(encryptionKey, replicationKey)
 			}
 		});
 	}
 	const store = await openStore({
 		orbitdb,
 		encryptionKey,
+		replicationKey,
 		prfOutput,
 		...(restore ? {} : { openOptions: memory })
 	});
@@ -222,7 +229,8 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 			directory
 		});
 		const encryptionKey = await deriveDatabaseKey(prfOutput);
-		const open = () => openStore({ orbitdb, encryptionKey, prfOutput });
+		const replicationKey = await deriveReplicationKey(prfOutput);
+		const open = () => openStore({ orbitdb, encryptionKey, replicationKey, prfOutput });
 		return {
 			helia,
 			orbitdb,
@@ -230,7 +238,7 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 			options: async () => ({
 				type: SealedDocuments.type,
 				Database: SealedDocuments({ indexBy: 'id' }),
-				encryption: await payloadEncryption(encryptionKey)
+				encryption: await sealedEncryption(encryptionKey, replicationKey)
 			}),
 			async stop() {
 				await orbitdb.stop();
@@ -264,10 +272,10 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 				orbitdb: b.orbitdb,
 				sealed: backup.sealed,
 				key: backupKey,
-				addresses,
-				open: await b.options(),
+				targets: [{ name: 'sealed', addresses, open: await b.options() }],
 				onProgress: (p) => seen.push(p)
 			});
+			expect(result.target).toBe('sealed');
 			expect(result.databases.find((d) => d.collection === 'partners')?.joined).toBe(1);
 			expect(seen[0]).toEqual({ stage: 'opening' });
 			expect(seen.filter((p) => p.stage === 'database').map((p) => p.name)).toEqual([
@@ -295,8 +303,7 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 					orbitdb: b.orbitdb,
 					sealed: backup.sealed,
 					key: other,
-					addresses,
-					open: await b.options()
+					targets: [{ name: 'sealed', addresses, open: await b.options() }]
 				})
 			).rejects.toBeInstanceOf(WrongPasskeyError);
 			const elsewhere = Object.fromEntries(
@@ -307,8 +314,7 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 					orbitdb: b.orbitdb,
 					sealed: backup.sealed,
 					key: backupKey,
-					addresses: elsewhere,
-					open: await b.options()
+					targets: [{ name: 'sealed', addresses: elsewhere, open: await b.options() }]
 				})
 			).rejects.toThrow(/do not have/);
 		} finally {

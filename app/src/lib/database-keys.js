@@ -53,6 +53,20 @@ export const PEER_KEY_INFO = 'belege/peer-key/v1';
  */
 export const DEVICE_AUTH_INFO = 'belege/device-auth/v1';
 
+/**
+ * The key OrbitDB's `replication` layer seals whole entries with
+ * (entry-encryption.js `sealedEncryption`). Bumping it makes every sealed log
+ * unreadable.
+ */
+export const REPLICATION_KEY_INFO = 'belege/replication-key/v1';
+
+/**
+ * The names of the databases whose entries carry the replication seal. Not
+ * the collection's name: the OrbitDB manifest is not sealed, and a name there
+ * would say what a database holds.
+ */
+export const SEALED_DB_NAME_INFO = 'belege/db-name/v2';
+
 const KEY_BYTES = 32;
 const NAME_BYTES = 16;
 
@@ -130,7 +144,9 @@ export async function deriveBackupKey(prfOutput) {
 }
 
 /**
- * The OrbitDB name of one collection, e.g. `belege.transactions.9f3c…`.
+ * The OrbitDB name of one collection's database before the replication layer
+ * (`belege.transactions.9f3c…`): where `openStore` finds the books to move
+ * (store/migrate.js).
  *
  * The collection stays readable so a person inspecting IndexedDB can tell
  * the databases apart; the suffix is what nobody without the passkey can
@@ -193,4 +209,35 @@ export async function deriveDevicePeerSeed(prfOutput, salt) {
 export async function deriveDeviceAuthKey(prfOutput) {
 	assertPrfOutput(prfOutput);
 	return hkdf(prfOutput, DEVICE_AUTH_INFO, KEY_BYTES);
+}
+
+/**
+ * The key OrbitDB's `replication` layer seals each whole entry with: the same
+ * on every device of the passkey, so own devices replicate and nobody else
+ * can decode an entry. Never written anywhere.
+ *
+ * @param {Uint8Array} prfOutput
+ * @returns {Promise<Uint8Array>} 32 bytes
+ */
+export async function deriveReplicationKey(prfOutput) {
+	assertPrfOutput(prfOutput);
+	return hkdf(prfOutput, REPLICATION_KEY_INFO, KEY_BYTES);
+}
+
+/**
+ * The OrbitDB name of one collection's database with the replication seal:
+ * 32 hex characters and nothing else, so the manifest says nothing of what
+ * the database holds.
+ *
+ * @param {Uint8Array} prfOutput
+ * @param {string} collection
+ * @returns {Promise<string>}
+ */
+export async function deriveSealedDatabaseName(prfOutput, collection) {
+	assertPrfOutput(prfOutput);
+	if (!/^[a-z][a-z0-9-]*$/.test(collection)) {
+		throw new Error(`Not a collection name: ${collection}`);
+	}
+	const name = await hkdf(prfOutput, `${SEALED_DB_NAME_INFO}:${collection}`, NAME_BYTES);
+	return Array.from(name, (b) => b.toString(16).padStart(2, '0')).join('');
 }

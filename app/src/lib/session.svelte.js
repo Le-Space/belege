@@ -908,6 +908,7 @@ function installE2EHooks() {
 			return {
 				signingKey: hex(secrets.signingKey),
 				databaseKey: hex(secrets.databaseKey),
+				replicationKey: hex(secrets.replicationKey),
 				blobKey: hex(secrets.blobKey),
 				peerKey: hex(secrets.peerKey)
 			};
