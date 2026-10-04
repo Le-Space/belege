@@ -1701,6 +1701,31 @@ export default {
 		ruleText: '{field} „{contains}“ → {action}'
 	},
 	belege: {
+		outlay: {
+			open: 'Privat ausgelegt …',
+			hint: 'Bar oder mit einer privaten Karte bezahlt: als Auslage der Geschäftsführung buchen. Der Beleg ist dann gedeckt und wartet auf keine Bankzahlung mehr.',
+			howLabel: 'Bezahlt',
+			how: { cash: 'bar', card: 'mit privater Karte', other: 'anders' },
+			day: 'am',
+			amount: 'Betrag laut Beleg: {amount}',
+			rate: 'Kurs: EUR je 1 {currency}',
+			asking: 'Frage den EZB-Kurs ab …',
+			ecb: 'EZB-Referenzkurs vom {date}',
+			noEcb:
+				'Für {currency} gibt es keinen EZB-Kurs an diesem Tag. Trag den Kurs aus der Kartenabrechnung oder einem Wechselbeleg ein.',
+			rateNote: 'Woher der Kurs kommt',
+			rateNotePlaceholder: 'z. B. Kartenabrechnung vom …, Wechselbeleg',
+			note: 'Notiz (optional)',
+			needsRate: 'Für den Euro-Betrag fehlt der Kurs.',
+			euros: 'Wird gebucht mit {amount}',
+			book: 'Als Auslage buchen',
+			cancel: 'Abbrechen',
+			booked:
+				'Privat ausgelegt am {date} ({how}): {amount} auf dem Konto „Auslagen Geschäftsführung“.',
+			bookedRate: '{original} {currency} zu {rate} EUR ({source})',
+			rateSource: { ecb: 'EZB-Kurs', manual: 'Kurs von Hand' },
+			undo: 'Auslage rückgängig machen'
+		},
 		instalments: {
 			partial: 'teilweise bezahlt · {paid} von {total} ({count}×)',
 			paid: 'in {count} Raten bezahlt',
