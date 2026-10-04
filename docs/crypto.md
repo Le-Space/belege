@@ -44,6 +44,8 @@ The request names an asset and a day, nothing about the bookings. Past days are 
 
 **Sync**: _Integrationen → Kraken (Börse) → Kraken synchronisieren_. The bridge reads the ledger (`GET /kraken/ledgers`, paged by `ofs`, 50 entries a page, with a pause and retries on Kraken's rate limit) and the balances (`GET /kraken/balances`). The first sync starts on 1 January; later ones start a week before the last.
 
+**Under the hood**: the requests go through [ccxt](https://github.com/ccxt/ccxt) (MIT), which signs them and maps Kraken's error codes; the bridge uses its raw endpoints, so the entries are Kraken's own and are read as before. The nonce stays in microseconds, as the bridge has always sent it – Kraken keeps the highest nonce a key has sent and refuses a lower one. More exchanges through ccxt are planned (#265).
+
 **Accounts**: one per asset and wallet: _Kraken EUR_, _Kraken BTC_, _Kraken BTC (Earn)_ for staked or earning balances (Kraken's `.S`, `.M`, … assets). Each needs its ledger account in MonkeyOffice like a bank account (_Eigene Anweisungen_).
 
 **Bookings**: one per ledger entry, plus one for each fee Kraken charged on it (so the fee is visible and booked on 4970).

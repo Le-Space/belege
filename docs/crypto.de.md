@@ -44,6 +44,8 @@ Die Anfrage nennt nur ein Asset und einen Tag, nichts über die Buchungen. Verga
 
 **Synchronisieren**: _Integrationen → Kraken (Börse) → Kraken synchronisieren_. Die Bridge liest das Ledger (`GET /kraken/ledgers`, seitenweise über `ofs`, 50 Einträge je Seite, mit Pause und erneutem Versuch beim Rate-Limit) und die Bestände (`GET /kraken/balances`). Der erste Abruf beginnt am 1. Januar, jeder weitere eine Woche vor dem letzten.
 
+**Technik**: Die Anfragen laufen über [ccxt](https://github.com/ccxt/ccxt) (MIT), das sie signiert und Krakens Fehlercodes zuordnet; die Bridge nutzt dessen direkte Endpunkte, die Einträge sind also Krakens eigene und werden gelesen wie bisher. Die Nonce bleibt in Mikrosekunden, wie die Bridge sie immer gesendet hat – Kraken merkt sich die höchste Nonce eines Schlüssels und lehnt eine niedrigere ab. Weitere Börsen über ccxt sind geplant (#265).
+
 **Konten**: eines je Asset und Wallet: _Kraken EUR_, _Kraken BTC_, _Kraken BTC (Earn)_ für gestakte oder verzinste Bestände (die `.S`-, `.M`-, …-Assets von Kraken). Jedes braucht wie ein Bankkonto sein Sachkonto in MonkeyOffice (_Eigene Anweisungen_).
 
 **Buchungen**: eine je Ledger-Eintrag, dazu eine für jede Gebühr, die Kraken darauf berechnet hat. So ist die Gebühr sichtbar und wird auf 4970 gebucht.

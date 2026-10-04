@@ -9,3 +9,7 @@ onlyBuiltDependencies:
   - esbuild
   # libp2p's WebRTC in Node (the app's unit specs); the browser build does not use it.
   - node-datachannel
+# ccxt (the bridge's exchanges, #265) lists bufferutil as optional; it would
+# become ws's optional native peer across the workspace. Nothing needs it.
+ignoredOptionalDependencies:
+  - bufferutil
