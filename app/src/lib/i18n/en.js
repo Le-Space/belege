@@ -2083,6 +2083,9 @@ export default {
 		settings:
 			'Advisor number {consultant} · Client number {client} · Financial year from {fiscal} · Ledger account length {length}',
 		settingsLink: 'change under Settings',
+		withStatements: 'Include account statements (one PDF per account with bookings this month)',
+		withoutStatementsHint:
+			'Without statements, the receipt field stays empty for bookings without a receipt of their own – fees, own transfers, rewards: their receipt would be the statement.',
 		checks: 'Before the export',
 		check: {
 			tests:

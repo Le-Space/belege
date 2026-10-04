@@ -22,7 +22,9 @@
 //   - every account with a booking in the month gets a statement in the ZIP
 //     (statement.js); a booking without a receipt of its own – a fee, an own
 //     transfer, a reward – carries that statement's number (KA-YYYY-MM-<ledger>)
-//     in Belegfeld 1: the statement is its receipt
+//     in Belegfeld 1: the statement is its receipt. Without statements (the
+//     export page's choice) there is none in the ZIP, and Belegfeld 1 of such
+//     a booking stays empty rather than name a document that is not there
 
 import { isBookingConfirmed } from '../booking/suggest.js';
 import { ledgerOf } from '../booking/settings.js';
@@ -212,6 +214,7 @@ export function bookingText(tx, receipt) {
  * @param {Rec[]} params.matches
  * @param {Record<string, any>} params.classifications
  * @param {boolean} [params.includeTests] take test bookings too (sample/test-bookings.js); off by default
+ * @param {boolean} [params.withStatements] the accounts' monthly statements into the ZIP; on by default
  * @returns {MonthPlan}
  */
 export function planMonth({
@@ -221,7 +224,8 @@ export function planMonth({
 	receipts,
 	matches,
 	classifications,
-	includeTests = false
+	includeTests = false,
+	withStatements = true
 }) {
 	const live = transactions.filter((t) => !t.deleted);
 	const ofMonth = live.filter((t) => String(t.bookedOn ?? '').slice(0, 7) === month);
@@ -248,13 +252,15 @@ export function planMonth({
 		const n = first ? numbers.get(first.receipt.id) : undefined;
 		if (n) receiptNumbers.set(tx.id, n);
 	}
-	const statements = monthStatements({
-		month,
-		accounts,
-		transactions: live,
-		classifications,
-		receiptNumbers
-	});
+	const statements = withStatements
+		? monthStatements({
+				month,
+				accounts,
+				transactions: live,
+				classifications,
+				receiptNumbers
+			})
+		: [];
 	const statementOf = new Map(statements.map((s) => [s.account.id, s.number]));
 
 	/** @type {PlannedLine[]} */

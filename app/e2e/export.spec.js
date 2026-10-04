@@ -350,12 +350,25 @@ test('assign accounts, export a month as DATEV Buchungsstapel with its receipts'
 	).toHaveText(`DATEV-Export ${MONTH}: 4 Buchungen, 1 Belege`);
 	await tab('Export').click();
 	await page.getByTestId('export-month-select').selectOption(MONTH);
+	// This time without the statements: none in the ZIP, and the page says what that means.
+	await page.getByTestId('export-with-statements').uncheck();
+	await expect(page.getByTestId('export-without-statements-hint')).toContainText(
+		'Belegfeld bei Buchungen ohne eigenen Beleg leer'
+	);
+	await expect(page.getByTestId('export-summary')).toContainText('0 Kontoauszüge');
 	const [again] = await Promise.all([
 		page.waitForEvent('download'),
 		page.getByTestId('export-download').click()
 	]);
 	const second = unzipSync(new Uint8Array(await readFile(await again.path())));
 	expect(Object.keys(second)).toContain(`Belege/${MONTH}-001_Kabelnetz_Beispiel_GmbH.pdf`);
+	expect(Object.keys(second).filter((f) => f.startsWith('Kontoauszuege/'))).toEqual([]);
+	// The choice is kept in this browser.
+	await page.reload();
+	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+	await tab('Export').click();
+	await expect(page.getByTestId('export-with-statements')).not.toBeChecked();
 
 	const { text } = await everythingStoredAsText(page);
 	for (const secret of [

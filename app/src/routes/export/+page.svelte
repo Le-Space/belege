@@ -50,6 +50,27 @@
 	let settings = $derived(cleanDatevSettings(app.datevSettings));
 	/** Test bookings into the package too (sample/test-bookings.js) – off unless asked for. */
 	let includeTests = $state(false);
+	/**
+	 * The accounts' monthly statements into the package – on unless switched
+	 * off; this browser remembers the choice.
+	 */
+	const STATEMENTS_KEY = 'belege.export.statements';
+	let withStatements = $state(
+		(() => {
+			try {
+				return localStorage.getItem(STATEMENTS_KEY) !== 'off';
+			} catch {
+				return true;
+			}
+		})()
+	);
+	$effect(() => {
+		try {
+			localStorage.setItem(STATEMENTS_KEY, withStatements ? 'on' : 'off');
+		} catch {
+			// Not remembered: on again next time.
+		}
+	});
 	let plan = $derived(
 		month
 			? planMonth({
@@ -59,7 +80,8 @@
 					receipts: app.receipts,
 					matches: app.matches,
 					classifications: app.classifications,
-					includeTests
+					includeTests,
+					withStatements
 				})
 			: null
 	);
@@ -347,6 +369,22 @@
 				statements: plan.statements.length
 			})}
 		</p>
+		<label class="mt-2 flex items-start gap-2 text-sm text-text">
+			<input
+				type="checkbox"
+				class="mt-0.5"
+				bind:checked={withStatements}
+				data-testid="export-with-statements"
+			/>
+			<span>
+				{t('export.withStatements')}
+				{#if !withStatements}
+					<span class="block text-xs text-faint" data-testid="export-without-statements-hint"
+						>{t('export.withoutStatementsHint')}</span
+					>
+				{/if}
+			</span>
+		</label>
 		<p class="mt-1 text-xs text-faint" data-testid="export-settings">
 			{t('export.settings', {
 				consultant: settings.consultantNumber,
