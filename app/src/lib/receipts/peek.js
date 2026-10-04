@@ -11,7 +11,10 @@
 //   stay    the pointer arrived in the popover: it stays
 //   show    focus on a row (Tab), or the "Vorschau" button on a touch screen:
 //           open now
-//   close   Esc, a scroll, a click on the row's button: gone now
+//   scrolled  the list moved: an open preview no longer sits by its row and
+//           closes; one about to open still does – a pointer resting on a row
+//           after scrolling (or a row scrolled into view under it) gets it
+//   close   Esc, a click on the row's button: gone now
 
 import { needsConfirmation } from './import.js';
 
@@ -93,6 +96,12 @@ export function createPeek({ onchange, setTimer = setTimeout, clearTimer = clear
 		stay() {
 			if (closing !== null) clearTimer(closing);
 			closing = null;
+		},
+		scrolled() {
+			if (!open) return;
+			if (closing !== null) clearTimer(closing);
+			closing = null;
+			set(null);
 		},
 		close() {
 			cancel();

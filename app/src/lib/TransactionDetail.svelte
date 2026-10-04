@@ -1419,7 +1419,7 @@
 		aria-labelledby="tx-detail-title"
 		tabindex="-1"
 		onkeydown={onKey}
-		onscroll={() => peek.close()}
+		onscroll={() => peek.scrolled()}
 		ondragover={(e) => {
 			if (e.dataTransfer?.types?.includes('Files')) {
 				e.preventDefault();

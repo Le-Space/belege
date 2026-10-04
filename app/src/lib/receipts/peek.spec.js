@@ -49,6 +49,18 @@ describe('the receipt preview', () => {
 		expect(seen).toEqual(['a', null]);
 	});
 
+	it('a scroll closes an open preview, but not one about to open', () => {
+		const { peek, seen } = make();
+		peek.show(A, 'row-a');
+		peek.scrolled();
+		expect(peek.open).toBeNull();
+		// The pointer rests on a row while the list still scrolls: it opens all the same.
+		peek.hover(B, 'row-b');
+		peek.scrolled();
+		vi.advanceTimersByTime(OPEN_DELAY);
+		expect(seen).toEqual(['a', null, 'b']);
+	});
+
 	it('focus and the touch button open at once; the button again, or Esc, closes', () => {
 		const { peek } = make();
 		peek.toggle(A, 'row-a');
