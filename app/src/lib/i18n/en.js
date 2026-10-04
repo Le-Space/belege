@@ -2334,6 +2334,7 @@ export default {
 			choose: 'Link',
 			peek: {
 				label: 'Preview: {name}',
+				more: '+{count} more',
 				hint: 'Move the pointer over the page: the lens enlarges what is under it.',
 				open: 'Preview'
 			},

@@ -2,7 +2,7 @@
 // status, source; grouping by month; search. Pure, so it is tested without a
 // database or a browser.
 
-import { formatMonth } from '../bank/format.js';
+import { formatDate, formatMoney, formatMonth } from '../bank/format.js';
 import { intlLocale } from '../i18n/index.js';
 
 /**
@@ -45,6 +45,23 @@ function senderName(/** @type {string | null | undefined} */ from) {
 /** @param {ReceiptLike} r */
 export function receiptVendor(r) {
 	return r.vendor || senderName(r.from) || r.fileName || '—';
+}
+
+/**
+ * The line under a receipt's name where it is previewed (#273): amount, day,
+ * invoice number – what is known of them.
+ *
+ * @param {ReceiptLike & { invoiceNumber?: string | null }} r
+ */
+export function receiptLine(r) {
+	const day = receiptDate(r);
+	return [
+		typeof r.amountCents === 'number' ? formatMoney(r.amountCents, r.currency ?? 'EUR') : '',
+		day ? formatDate(day) : '',
+		r.invoiceNumber ?? ''
+	]
+		.filter(Boolean)
+		.join(' · ');
 }
 
 /**

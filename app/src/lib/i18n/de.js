@@ -2366,6 +2366,7 @@ export default {
 			choose: 'Zuordnen',
 			peek: {
 				label: 'Vorschau: {name}',
+				more: '+{count} weitere',
 				hint: 'Mit der Maus über die Seite: die Lupe vergrößert, was darunter steht.',
 				open: 'Vorschau'
 			},

@@ -109,3 +109,39 @@ export function createPeek({ onchange, setTimer = setTimeout, clearTimer = clear
 		}
 	};
 }
+
+/**
+ * The events of a row that previews `receipt`, to spread onto it: the pointer
+ * resting on it, focus (Tab; at once in a short list of choices, after the
+ * delay in a long list, so tabbing through it renders nothing), leaving it,
+ * and a press, which opens the row's own view instead.
+ *
+ * @param {ReturnType<typeof createPeek<HTMLElement>>} peek
+ * @param {Record<string, any>} receipt
+ * @param {{ focusAtOnce?: boolean }} [options]
+ */
+export function peekHandlers(peek, receipt, { focusAtOnce = false } = {}) {
+	return {
+		/** @param {PointerEvent} e */
+		onpointerenter: (e) => {
+			if (e.pointerType !== 'touch')
+				peek.hover(receipt, /** @type {HTMLElement} */ (e.currentTarget));
+		},
+		/** @param {PointerEvent} e */
+		onpointerleave: (e) => {
+			if (e.pointerType !== 'touch') peek.leave();
+		},
+		onpointerdown: () => peek.close(),
+		/** @param {FocusEvent} e */
+		onfocusin: (e) => {
+			const row = /** @type {HTMLElement} */ (e.currentTarget);
+			if (focusAtOnce) peek.show(receipt, row);
+			else peek.hover(receipt, row);
+		},
+		/** @param {FocusEvent} e */
+		onfocusout: (e) => {
+			const next = /** @type {Node | null} */ (e.relatedTarget);
+			if (!next || !(/** @type {HTMLElement} */ (e.currentTarget).contains(next))) peek.leave();
+		}
+	};
+}
