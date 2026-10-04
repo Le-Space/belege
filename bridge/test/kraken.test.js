@@ -176,6 +176,40 @@ describe('Kraken client', () => {
 		for (let i = 1; i < arrived.length; i++) assert.ok(arrived[i] > arrived[i - 1], 'nonce order');
 	});
 
+	test('nonces stay in microseconds, as this bridge has always sent them', async () => {
+		// Kraken keeps a key's highest nonce: ccxt's own (milliseconds) would be refused for good.
+		/** @type {string[]} */
+		const nonces = [];
+		/** @type {typeof fetch} */
+		const kraken = async (input, init) => {
+			if (String(input).endsWith('/0/public/Assets'))
+				return Response.json({ error: [], result: {} });
+			nonces.push(String(new URLSearchParams(String(init?.body)).get('nonce')));
+			return Response.json({ error: [], result: {} });
+		};
+		const c = createKrakenClient({
+			getCredentials: credentials,
+			baseUrl: 'https://kraken.example',
+			fetch: kraken,
+			now: () => 1_790_000_000_000
+		});
+		await c.balances();
+		await c.balances();
+		assert.deepEqual(nonces, ['1790000000000000', '1790000000000001']);
+	});
+
+	test("an error names Kraken's code, not the whole answer", async () => {
+		await assert.rejects(
+			client({
+				getCredentials: async () => ({ key: 'wrong', secret: FAKE_KRAKEN_SECRET })
+			}).balances(),
+			(e) =>
+				e instanceof KrakenError &&
+				/^Kraken refused the API key \(EAPI:Invalid key\)/.test(e.message) &&
+				!e.message.includes('{')
+		);
+	});
+
 	test('nonces grow even within one millisecond', async () => {
 		const fresh = await startFakeKraken();
 		try {

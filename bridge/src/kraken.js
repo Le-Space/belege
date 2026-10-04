@@ -23,12 +23,19 @@
 // may not read those lists (Funds → Query), entries have none, and the
 // ledger says so (`transferRefs: 'refused'`, with Kraken's error code).
 //
+// Transport, signature and Kraken's error codes come from ccxt (#265), through
+// its raw endpoints (`privatePostLedgers`, …): the answers are Kraken's own,
+// so ids, paging and everything below stay exactly as before. ccxt is loaded
+// on the first call – it is large, and most bridges never ask Kraken. Its
+// nonce keeps this module's unit, microseconds (ms × 1000): Kraken remembers
+// the highest nonce a key has sent, and ccxt's default (milliseconds) would be
+// lower than every nonce this bridge ever sent – `EAPI:Invalid nonce` for good.
+// ccxt's own throttle is off; the pauses here are the ones Kraken asks for.
+//
 // What leaves this module is normalised: Kraken's asset codes (`XXBT`,
 // `ZEUR`, `DOT.S`) become a symbol (`BTC`, `EUR`, `DOT`) and a wallet
 // (`spot`, or `earn` for staked and earning balances); amounts stay decimal
 // strings with the asset's decimals, as Kraken sends them.
-
-import { createHash, createHmac } from 'node:crypto';
 
 /** Kraken's names for assets that have a common symbol. */
 const ALIASES = /** @type {Record<string, string>} */ ({ XBT: 'BTC', XDG: 'DOGE', ETH2: 'ETH' });
@@ -165,44 +172,89 @@ export function createKrakenClient({
 	now = () => Date.now()
 }) {
 	const base = baseUrl.replace(/\/+$/, '');
-	let lastNonce = 0n;
 	/** The private calls, one after the other (see above). */
 	/** @type {Promise<unknown>} */
 	let queue = Promise.resolve();
 	/** @type {Record<string, KrakenAssetInfo> | null} */
 	let assetCache = null;
+	/** @type {{ key: string, exchange: any } | null} */
+	let current = null;
 
-	/** @param {any} body */
-	function check(body) {
-		const errors = Array.isArray(body?.error) ? body.error.map(String) : [];
-		if (!errors.length) return body.result;
-		const first = errors[0];
-		if (/Invalid key|Permission denied|Invalid signature/i.test(first)) {
-			throw new KrakenError(
-				`Kraken refused the API key (${first}); run pnpm setup:kraken`,
+	/**
+	 * ccxt's Kraken for these credentials, made once (again when the key changes).
+	 *
+	 * @param {{ key: string, secret: string } | null} credentials null for the public endpoints
+	 */
+	async function exchangeFor(credentials) {
+		const key = credentials?.key ?? '';
+		if (current && (current.key === key || !credentials)) return current.exchange;
+		const { default: ccxt } = await import('ccxt');
+		const exchange = new ccxt.kraken({
+			apiKey: credentials?.key,
+			secret: credentials?.secret,
+			enableRateLimit: false,
+			timeout: 30_000
+		});
+		exchange.urls.api = { ...exchange.urls.api, public: base, private: base };
+		// Microseconds, as this bridge has always sent them (see above).
+		exchange.nonce = () => now() * 1000;
+		if (f !== fetch) exchange.fetchImplementation = f;
+		current = { key, exchange };
+		return exchange;
+	}
+
+	/**
+	 * A ccxt error as this module's: Kraken's own error text, never more.
+	 *
+	 * @param {any} error
+	 * @param {any} ccxt the library, for its error classes
+	 */
+	function asKrakenError(error, ccxt) {
+		if (error instanceof KrakenError) return error;
+		const body = /^kraken (\{.*\})$/s.exec(String(error?.message ?? ''))?.[1];
+		/** @type {string} */
+		let first = '';
+		try {
+			first = String(JSON.parse(body ?? '{}')?.error?.[0] ?? '');
+		} catch {
+			first = '';
+		}
+		if (error instanceof ccxt.RateLimitExceeded || error instanceof ccxt.DDoSProtection) {
+			return new KrakenError(first || 'Rate limit exceeded', 'KRAKEN_RATE_LIMIT', 429);
+		}
+		if (error instanceof ccxt.AuthenticationError) {
+			return new KrakenError(
+				`Kraken refused the API key (${first || 'authentication'}); run pnpm setup:kraken`,
 				'KRAKEN_AUTH'
 			);
 		}
-		if (/Rate limit/i.test(first)) throw new KrakenError(first, 'KRAKEN_RATE_LIMIT', 429);
-		throw new KrakenError(`Kraken: ${first}`, 'KRAKEN_ERROR');
+		if (error instanceof ccxt.NetworkError && !first) {
+			return new KrakenError('Kraken is not reachable', 'KRAKEN_UNREACHABLE');
+		}
+		return new KrakenError(`Kraken: ${first || 'unexpected answer'}`, 'KRAKEN_ERROR');
 	}
 
-	/** @param {string} path @param {RequestInit} init */
-	async function send(path, init) {
-		let res;
+	/**
+	 * One call through ccxt; Kraken's `result`.
+	 *
+	 * @param {string} name ccxt's raw method, e.g. privatePostLedgers
+	 * @param {Record<string, string>} params
+	 * @param {{ key: string, secret: string } | null} credentials
+	 */
+	async function call(name, params, credentials) {
+		const exchange = await exchangeFor(credentials);
+		const { default: ccxt } = await import('ccxt');
 		try {
-			res = await f(`${base}${path}`, init);
-		} catch {
-			throw new KrakenError('Kraken is not reachable', 'KRAKEN_UNREACHABLE');
+			const body = await exchange[name](params);
+			return body?.result;
+		} catch (error) {
+			throw asKrakenError(error, ccxt);
 		}
-		const body = await res.json().catch(() => null);
-		if (!body) throw new KrakenError(`Kraken answered ${res.status} without JSON`, 'KRAKEN_ERROR');
-		return check(body);
 	}
 
 	/** @returns {Promise<Record<string, KrakenAssetInfo>>} */
 	async function assets() {
-		if (!assetCache) assetCache = await send('/0/public/Assets', { method: 'GET' });
+		if (!assetCache) assetCache = await call('publicGetAssets', {}, null);
 		return /** @type {Record<string, KrakenAssetInfo>} */ (assetCache);
 	}
 
@@ -221,29 +273,10 @@ export function createKrakenClient({
 	 * @param {Record<string, string>} params
 	 */
 	async function privateCallNow(method, params) {
-		const { key, secret } = await getCredentials();
-		const path = `/0/private/${method}`;
+		const credentials = await getCredentials();
 		for (let attempt = 0; ; attempt++) {
-			const stamp = BigInt(now()) * 1000n;
-			lastNonce = stamp > lastNonce ? stamp : lastNonce + 1n;
-			const nonce = lastNonce.toString();
-			const body = new URLSearchParams({ nonce, ...params }).toString();
-			const digest = createHash('sha256')
-				.update(nonce + body)
-				.digest();
-			const sign = createHmac('sha512', Buffer.from(secret, 'base64'))
-				.update(Buffer.concat([Buffer.from(path), digest]))
-				.digest('base64');
 			try {
-				return await send(path, {
-					method: 'POST',
-					headers: {
-						'API-Key': key,
-						'API-Sign': sign,
-						'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8'
-					},
-					body
-				});
+				return await call(`privatePost${method}`, params, credentials);
 			} catch (error) {
 				if (error instanceof KrakenError && error.code === 'KRAKEN_RATE_LIMIT' && attempt < 3) {
 					await sleep(5000 * (attempt + 1));
