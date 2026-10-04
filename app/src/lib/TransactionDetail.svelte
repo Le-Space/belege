@@ -12,7 +12,7 @@
 	import { onMount } from 'svelte';
 	import ReceiptPreview from './ReceiptPreview.svelte';
 	import ReceiptPeek from './ReceiptPeek.svelte';
-	import { canPeek, createPeek } from './receipts/peek.js';
+	import { canPeek, createPeek, peekHandlers } from './receipts/peek.js';
 	import BookingBlock from './BookingBlock.svelte';
 	import TechnicalNote from './TechnicalNote.svelte';
 	import CopyButton from './CopyButton.svelte';
@@ -1419,7 +1419,6 @@
 		aria-labelledby="tx-detail-title"
 		tabindex="-1"
 		onkeydown={onKey}
-		onscroll={() => peek.scrolled()}
 		ondragover={(e) => {
 			if (e.dataTransfer?.types?.includes('Files')) {
 				e.preventDefault();
@@ -1451,8 +1450,10 @@
 				]
 					.filter(Boolean)
 					.join(' · ')}
+				avoid={panel}
 				onenter={() => peek.stay()}
 				onleave={() => peek.leave()}
+				onscrolled={() => peek.scrolled()}
 			/>
 		{/if}
 		{#if !tx}
@@ -2795,17 +2796,7 @@
 									{@const scam = scamSigns(c.receipt, scamCtx).suspicious}
 									<div
 										class="mt-1 flex items-center gap-2 border-t border-border py-2"
-										onpointerenter={(e) => {
-											if (e.pointerType !== 'touch') peek.hover(c.receipt, rowOf(e));
-										}}
-										onpointerleave={(e) => {
-											if (e.pointerType !== 'touch') peek.leave();
-										}}
-										onfocusin={(e) => peek.show(c.receipt, rowOf(e))}
-										onfocusout={(e) => {
-											const next = /** @type {Node | null} */ (e.relatedTarget);
-											if (!next || !rowOf(e).contains(next)) peek.leave();
-										}}
+										{...peekHandlers(peek, c.receipt, { focusAtOnce: true })}
 										data-testid="tx-choice"
 										data-suggested={c.suggested ? 'true' : 'false'}
 									>

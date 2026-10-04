@@ -5,6 +5,9 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import TransactionDetail from '$lib/TransactionDetail.svelte';
+	import ReceiptPeek from '$lib/ReceiptPeek.svelte';
+	import { canPeek, createPeek, peekHandlers } from '$lib/receipts/peek.js';
+	import { receiptLine, receiptVendor } from '$lib/receipts/view.js';
 	import { app, currentStore, refreshNow, runMatchingNow } from '$lib/session.svelte.js';
 	import { t } from '$lib/i18n/index.js';
 	import {
@@ -17,7 +20,7 @@
 		matchesSearch,
 		monthSummaries
 	} from '$lib/bank/format.js';
-	import { coverageBadge, isTxCovered } from '$lib/matching/view.js';
+	import { coverageBadge, isTxCovered, matchesOfTx } from '$lib/matching/view.js';
 	import { cleanMatchingSettings } from '$lib/matching/classify.js';
 	import { graceWait, localDay } from '$lib/matching/grace.js';
 	import { isBookingConfirmed } from '$lib/booking/suggest.js';
@@ -197,6 +200,33 @@
 			removingTests = false;
 		}
 	}
+
+	// Hovering a payment shows the receipt linked to it, with its lens (#273):
+	// the first one that can be shown, and how many more there are.
+	let linkedByTx = $derived.by(() => {
+		const receipts = new Map(app.receipts.map((r) => [r.id, r]));
+		return new Map(
+			app.transactions.flatMap((tx) => {
+				const shown = matchesOfTx(tx.id, app.matches)
+					.map((m) => receipts.get(m.receiptId))
+					.filter((r) => r && canPeek(r));
+				return shown.length
+					? [
+							[
+								tx.id,
+								{ receipt: /** @type {Record<string, any>} */ (shown[0]), more: shown.length - 1 }
+							]
+						]
+					: [];
+			})
+		);
+	});
+	/** @type {{ receipt: Record<string, any>, anchor: HTMLElement } | null} */
+	let peeked = $state(null);
+	const peek = createPeek({
+		onchange: (v) =>
+			(peeked = /** @type {{ receipt: Record<string, any>, anchor: HTMLElement } | null} */ (v))
+	});
 </script>
 
 <div class="flex flex-wrap items-center justify-between gap-4">
@@ -389,6 +419,10 @@
 									type="button"
 									class="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface-2/60"
 									onclick={() => (openId = tx.id)}
+									{...linkedByTx.has(tx.id)
+										? peekHandlers(peek, /** @type {any} */ (linkedByTx.get(tx.id)).receipt)
+										: {}}
+									data-tx={tx.id}
 									aria-label={`${t('zahlungen.open')}: ${payee.name}`}
 									data-testid="transaction"
 									data-covered={cover ? 'true' : 'false'}
@@ -519,4 +553,23 @@
 
 {#if openId}
 	<TransactionDetail txId={openId} onclose={() => (openId = null)} onopen={(id) => (openId = id)} />
+{/if}
+
+{#if peeked}
+	{@const more = linkedByTx.get(peeked.anchor.dataset.tx ?? '')?.more ?? 0}
+	<ReceiptPeek
+		receipt={peeked.receipt}
+		anchor={peeked.anchor}
+		title={receiptVendor(/** @type {any} */ (peeked.receipt))}
+		detail={[
+			receiptLine(/** @type {any} */ (peeked.receipt)),
+			more ? t('zahlungen.detail.peek.more', { count: more }) : ''
+		]
+			.filter(Boolean)
+			.join(' · ')}
+		onenter={() => peek.stay()}
+		onleave={() => peek.leave()}
+		onscrolled={() => peek.scrolled()}
+		onclose={() => peek.close()}
+	/>
 {/if}

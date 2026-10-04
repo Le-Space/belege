@@ -16,6 +16,8 @@
 	import { scamContext, scamSigns } from '$lib/receipts/scam.js';
 	import MonthPicker from '$lib/MonthPicker.svelte';
 	import AiMark from '$lib/AiMark.svelte';
+	import ReceiptPeek from '$lib/ReceiptPeek.svelte';
+	import { createPeek, peekHandlers } from '$lib/receipts/peek.js';
 	import {
 		app,
 		currentBlobs,
@@ -61,6 +63,7 @@
 		mailWindow,
 		matchesReceiptSearch,
 		receiptDate,
+		receiptLine,
 		receiptVendor,
 		sourceCounts,
 		statusKey
@@ -615,6 +618,14 @@
 	const primary =
 		'rounded-md bg-coral-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50';
 	const card = 'rounded-lg border border-border bg-surface shadow-sm';
+
+	// The hover preview of a receipt in the list, with its lens (#273).
+	/** @type {{ receipt: Record<string, any>, anchor: HTMLElement } | null} */
+	let peeked = $state(null);
+	const peek = createPeek({
+		onchange: (v) =>
+			(peeked = /** @type {{ receipt: Record<string, any>, anchor: HTMLElement } | null} */ (v))
+	});
 </script>
 
 <div
@@ -881,6 +892,7 @@
 											: ''}"
 										aria-current={selectedId === r.id ? 'true' : undefined}
 										onclick={() => select(r.id)}
+										{...peekHandlers(peek, r)}
 										data-testid="receipt"
 										data-source={r.source}
 										data-status={r.status}
@@ -1335,3 +1347,16 @@
 		</div>
 	{/if}
 </div>
+
+{#if peeked}
+	<ReceiptPeek
+		receipt={peeked.receipt}
+		anchor={peeked.anchor}
+		title={receiptVendor(/** @type {any} */ (peeked.receipt))}
+		detail={receiptLine(/** @type {any} */ (peeked.receipt))}
+		onenter={() => peek.stay()}
+		onleave={() => peek.leave()}
+		onscrolled={() => peek.scrolled()}
+		onclose={() => peek.close()}
+	/>
+{/if}
