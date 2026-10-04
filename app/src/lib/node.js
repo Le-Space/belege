@@ -40,7 +40,8 @@ import {
 	deriveDatabaseKey,
 	deriveDeviceAuthKey,
 	deriveDevicePeerSeed,
-	derivePeerKeySeed
+	derivePeerKeySeed,
+	deriveReplicationKey
 } from './database-keys.js';
 import { readPrfOutput } from './passkey-identity.js';
 import { createSessionIdentities, forgetLegacyKeystore } from './session-identities.js';
@@ -51,6 +52,40 @@ import { createBlobStore } from './receipts/blob-store.js';
  * IndexedDB names. Everything belege keeps lives under `belege/`. There is no
  * keystore among them: see session-identities.js.
  */
+/**
+ * Set once the books before the replication layer have moved in this browser
+ * (store/migrate.js), per identity. A flag, nothing secret; a restored backup
+ * of the old books clears it, so they move in again.
+ */
+export const SEALED_BOOKS_FLAG = 'belege.sealed-books';
+
+/** @param {string} key */
+function flagSet(key) {
+	try {
+		return localStorage.getItem(key) === '1';
+	} catch {
+		return false;
+	}
+}
+
+/** @param {string} key */
+function setFlag(key) {
+	try {
+		localStorage.setItem(key, '1');
+	} catch {
+		// Not kept: the next unlock looks again and finds nothing new to move.
+	}
+}
+
+/** @param {string} key */
+function clearFlag(key) {
+	try {
+		localStorage.removeItem(key);
+	} catch {
+		// Nothing kept, nothing to clear.
+	}
+}
+
 export const STORAGE_PATHS = Object.freeze({
 	blockstore: 'belege/helia-blocks',
 	datastore: 'belege/helia-data',
@@ -75,7 +110,7 @@ export const STORAGE_PATHS = Object.freeze({
  * @property {any} libp2p the node under Helia and OrbitDB
  * @property {ReturnType<typeof createDeviceGate> | null} deviceGate which peers proved the passkey (online only)
  * @property {() => Promise<void>} stop
- * @property {{ signingKey: Uint8Array, databaseKey: Uint8Array, blobKey: Uint8Array, peerKey: Uint8Array }} [secretsForE2E]
+ * @property {{ signingKey: Uint8Array, databaseKey: Uint8Array, replicationKey: Uint8Array, blobKey: Uint8Array, peerKey: Uint8Array }} [secretsForE2E]
  *   only in E2E builds
  */
 
@@ -99,6 +134,8 @@ export async function startSession(credential) {
 	const encryptionKey = await deriveDatabaseKey(prfOutput);
 	const blobKey = await deriveBlobKey(prfOutput);
 	const backupKey = await deriveBackupKey(prfOutput);
+	// The whole entries sealed again (entry-encryption.js sealedEncryption).
+	const replicationKey = await deriveReplicationKey(prfOutput);
 	// The UCEP node's key (ucep/net.js): the same peer id on every unlock.
 	const ucepSeed = await derivePeerKeySeed(prfOutput);
 
@@ -178,7 +215,17 @@ export async function startSession(credential) {
 			identity,
 			directory: STORAGE_PATHS.orbitdb
 		});
-		const store = await openStore({ orbitdb, encryptionKey, prfOutput });
+		// The books before the replication layer move in once per browser
+		// (store/migrate.js); a restored backup of them moves in again.
+		const moveFlag = `${SEALED_BOOKS_FLAG}:${identity.id}`;
+		const store = await openStore({
+			orbitdb,
+			encryptionKey,
+			replicationKey,
+			prfOutput,
+			move: !flagSet(moveFlag)
+		});
+		setFlag(moveFlag);
 		const blobs = await createBlobStore({ blockstore: helia.blockstore, key: blobKey, online });
 
 		return {
@@ -214,24 +261,44 @@ export async function startSession(credential) {
 			 */
 			async restoreBackup(sealed, onProgress) {
 				const { restoreBackup } = await import('./backup/archive.js');
-				const { payloadEncryption } = await import('./entry-encryption.js');
+				const { sealedEncryption } = await import('./entry-encryption.js');
 				const { default: SealedDocuments } = await import('./store/sealed-documents.js');
+				const { oldBooksNames, oldBooksOpenOptions } = await import('./store/repository.js');
 				const addresses = Object.fromEntries(
 					Object.entries(store.databases()).map(([name, db]) => [name, String(db.address)])
 				);
+				// A backup made before the replication layer names the old databases:
+				// their addresses, from opening them (without sync) once.
+				const oldOptions = await oldBooksOpenOptions(encryptionKey);
+				/** @type {Record<string, string>} */
+				const oldAddresses = {};
+				for (const [name, dbName] of Object.entries(await oldBooksNames(prfOutput))) {
+					const db = await orbitdb.open(dbName, oldOptions);
+					oldAddresses[name] = String(db.address);
+					await db.close();
+				}
 				await store.close();
-				return restoreBackup({
+				const result = await restoreBackup({
 					orbitdb,
 					sealed,
 					key: backupKey,
-					addresses,
-					open: {
-						type: SealedDocuments.type,
-						Database: SealedDocuments({ indexBy: 'id' }),
-						encryption: await payloadEncryption(encryptionKey)
-					},
+					targets: [
+						{
+							name: 'sealed',
+							addresses,
+							open: {
+								type: SealedDocuments.type,
+								Database: SealedDocuments({ indexBy: 'id' }),
+								encryption: await sealedEncryption(encryptionKey, replicationKey)
+							}
+						},
+						{ name: 'old', addresses: oldAddresses, open: oldOptions }
+					],
 					onProgress
 				});
+				// Back into the old databases: they move in on the next unlock.
+				if (result.target === 'old') clearFlag(moveFlag);
+				return result;
 			},
 			ucepSeed,
 			online,
@@ -246,6 +313,7 @@ export async function startSession(credential) {
 						secretsForE2E: {
 							signingKey,
 							databaseKey: encryptionKey,
+							replicationKey,
 							blobKey,
 							peerKey: peerKey.raw
 						}

@@ -168,11 +168,13 @@ test('a passkey opens sealed books that survive a reload', async ({ page }) => {
 	// session or the two before it held, in any spelling, anywhere.
 	expect(inventory.map((db) => db.database)).not.toContain('level-js-belege/orbitdb/keystore');
 	expect(inventory.some((db) => /keystore/i.test(db.database))).toBe(false);
-	// The scan reads the log: every entry names its identity document by hash.
-	expect(text).toContain(first.identityHash);
+	// Every log entry is sealed whole (the replication layer): none names its
+	// identity document, its clock or the entries before it in the clear.
+	expect(text).not.toContain(first.identityHash);
 	const secrets = {
 		'signing key': first.secrets.signingKey,
 		'database key': first.secrets.databaseKey,
+		'replication key': first.secrets.replicationKey,
 		'blob key': first.secrets.blobKey,
 		'peer key (1st session)': first.secrets.peerKey,
 		'peer key (2nd session)': second.secrets.peerKey,

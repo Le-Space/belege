@@ -243,19 +243,23 @@ export class WrongPasskeyError extends Error {
  *
  * The backup must be this passkey's: its key opens it (else
  * `WrongPasskeyError`), and every database it names must be one of these books
- * (same address). The open databases are closed by `restoreFromBlocks` and
+ * (same address). The books have two sets of databases: the sealed ones, and
+ * those before the replication layer (store/migrate.js), which a backup made
+ * earlier holds. `targets` names both; the backup goes back into the set it
+ * was made of, with that set's `open` options, and the result says which
+ * (`target`). The open databases are closed by `restoreFromBlocks` and
  * reopened behind the store's back, so the caller reloads the page afterwards.
  *
  * @param {object} params
  * @param {any} params.orbitdb
  * @param {Uint8Array} params.sealed
  * @param {Uint8Array} params.key the backup key
- * @param {Record<string, string>} params.addresses this session's database addresses, by collection
- * @param {Record<string, any>} params.open what `orbitdb.open` needs for these books
+ * @param {{ name: string, addresses: Record<string, string>, open: Record<string, any> }[]} params.targets
+ *   each set of databases: its addresses by collection, and what `orbitdb.open` needs for it
  * @param {(progress: RestoreProgress) => void} [params.onProgress]
- * @returns {Promise<{ manifest: BackupManifest, databases: { collection: string, joined: number, entries: number | null }[] }>}
+ * @returns {Promise<{ manifest: BackupManifest, target: string, databases: { collection: string, joined: number, entries: number | null }[] }>}
  */
-export async function restoreBackup({ orbitdb, sealed, key, addresses, open, onProgress }) {
+export async function restoreBackup({ orbitdb, sealed, key, targets, onProgress }) {
 	onProgress?.({ stage: 'opening' });
 	let opened;
 	try {
@@ -267,12 +271,12 @@ export async function restoreBackup({ orbitdb, sealed, key, addresses, open, onP
 	}
 	const { manifest, blocks } = opened;
 	const metadata = /** @type {any} */ (manifest.metadata);
-	const ours = new Set(Object.values(addresses).map(String));
-	for (const d of metadata.databases) {
-		if (!ours.has(String(d.address))) {
-			throw new Error('This backup holds databases these books do not have.');
-		}
-	}
+	const target = targets.find((t) => {
+		const ours = new Set(Object.values(t.addresses).map(String));
+		return metadata.databases.every((/** @type {any} */ d) => ours.has(String(d.address)));
+	});
+	if (!target) throw new Error('This backup holds databases these books do not have.');
+	const { addresses, open } = target;
 	const byAddress = Object.fromEntries(
 		Object.entries(addresses).map(([collection, address]) => [String(address), collection])
 	);
@@ -296,6 +300,7 @@ export async function restoreBackup({ orbitdb, sealed, key, addresses, open, onP
 	if (failed) throw new Error(`The backup could not be put back: ${failed.replace(/^\W+/, '')}`);
 	return {
 		manifest,
+		target: target.name,
 		databases: restored.databases.map((d) => ({
 			collection: byAddress[d.address] ?? d.address,
 			joined: d.joined,

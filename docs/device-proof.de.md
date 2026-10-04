@@ -57,7 +57,7 @@ Bis ein Peer den Nachweis erbracht hat, antwortet ihm der Knoten nur mit identif
 - Wer den Passkey hat, ist ein eigenes Gerät. Er könnte die Bücher ohnehin öffnen.
 - Ein Gerät zu entfernen beendet seinen Abgleich, nicht seinen Zugang: Mit dem Passkey kann es die Bücher öffnen, die es hat.
 - Der Nachweis zeigt den Passkey, nicht welches Gerät: Zwei Geräte mit demselben Passkey unterscheidet er nicht; das tun die Einträge in den Büchern.
-- Die Einträge von OrbitDB sind mit der `data`-Schicht versiegelt (der Inhalt). Die `replication`-Schicht, die den ganzen Eintrag verschlüsselt, wird noch nicht genutzt; mit ihr sähe ein Peer, der am Tor vorbeikäme, nicht einmal Identität, Uhr und Verweise eines Eintrags.
+- Hinter dem Tor sind die Einträge von OrbitDB doppelt versiegelt: der Inhalt (`data`) und der ganze Eintrag (`replication`, mit eigenem Schlüssel aus dem Passkey). Ein Peer, der am Tor vorbeikäme, bekäme Blöcke, die er nicht dekodieren kann – weder Identität noch Uhr noch Verweise eines Eintrags –, und könnte das Log weder durchlaufen noch replizieren.
 
 ## Tests
 

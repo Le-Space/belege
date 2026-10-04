@@ -638,7 +638,7 @@ export default {
 			technical: [
 				'From the passkey’s PRF response, HKDF-SHA-256 derives the AES-GCM key that seals every database (info belege/db-key/v1), and the names of the databases (belege/db-name/v1:<collection>), so that no address can be guessed from the DID. None of this is stored.',
 				'No private key is kept on the device: the identity provider derives the OrbitDB signing key (secp256k1) from the same PRF response each time you unlock. It lives only in the memory of this session.',
-				'Stored are the OrbitDB document databases transactions, receipts, partners, accounts, settings, matches, questions and events, on Helia with LevelBlockstore and LevelDatastore in IndexedDB (belege/helia-blocks, belege/helia-data, belege/orbitdb). Every entry is encrypted with AES-GCM, receipt files with a separate key (belege/blob-key/v1).',
+				'Stored are the OrbitDB document databases transactions, receipts, partners, accounts, settings, matches, questions and events, on Helia with LevelBlockstore and LevelDatastore in IndexedDB (belege/helia-blocks, belege/helia-data, belege/orbitdb). Every entry is encrypted with AES-GCM and, as a whole, once more with a key of its own (belege/replication-key/v1): without it, neither an entry’s content nor its writer, time or links can be read, and the databases’ names do not say what they hold. Receipt files have a separate key (belege/blob-key/v1).',
 				'localStorage holds only public data: the passkey details (credential ID, public key, DID, PRF input), the passkey’s signature over the identity document and three flags of this page (notice read, light/dark, technical).'
 			]
 		},

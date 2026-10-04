@@ -13,7 +13,7 @@
 // cryptography itself stays in ./db-encryption.js where it can be proven on
 // its own.
 
-import { sealer } from './db-encryption.js';
+import { deterministicSealer, sealer } from './db-encryption.js';
 
 /**
  * OrbitDB's `encryption` option for one database.
@@ -34,6 +34,35 @@ export async function payloadEncryption(rawKey) {
 					throw new Error('Refusing an unencrypted entry: every belege entry is sealed.');
 				}
 				return seal.open(value);
+			}
+		}
+	};
+}
+
+/**
+ * OrbitDB's `encryption` option with both layers: the payload sealed as
+ * always (`data`, a random nonce each), and the whole entry sealed again
+ * (`replication`, deterministic: see db-encryption.js `deterministicSealer`)
+ * with a key of its own. A peer without that key gets blocks it cannot
+ * decode: not who wrote an entry, not when, not which entries it follows –
+ * so it cannot walk or replicate the log.
+ *
+ * @param {Uint8Array} dataKey 32 bytes, deriveDatabaseKey
+ * @param {Uint8Array} replicationKey 32 bytes, deriveReplicationKey
+ */
+export async function sealedEncryption(dataKey, replicationKey) {
+	const { data } = await payloadEncryption(dataKey);
+	const entries = await deterministicSealer(replicationKey);
+	return {
+		data,
+		replication: {
+			encrypt: (/** @type {Uint8Array} */ bytes) => entries.seal(bytes),
+			/** @param {any} value */
+			async decrypt(value) {
+				if (!(value instanceof Uint8Array)) {
+					throw new Error('Refusing an entry without its replication seal.');
+				}
+				return entries.open(value);
 			}
 		}
 	};
