@@ -287,7 +287,10 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	await expect(detail.getByTestId('tx-upload-result')).toContainText('Zugeordnet');
 	await detail.getByTestId('tx-detail-close').click();
 	await page.getByTestId('account-filter').selectOption('');
-	await page.locator('[data-testid="transaction-month"][data-month="2026-09"]').click();
+	// The Hibiscus credit is dated relative to today, the CAMT files are not: its own month.
+	await page
+		.locator(`[data-testid="transaction-month"][data-month="${recent.slice(0, 7)}"]`)
+		.click();
 	await page.getByTestId('transaction').filter({ hasText: names.credit }).click();
 	await detail.getByTestId('tx-alt-toggle').click();
 	await detail.getByTestId('tx-link-transfer').click();
