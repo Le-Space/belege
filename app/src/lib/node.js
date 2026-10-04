@@ -115,6 +115,14 @@ export const STORAGE_PATHS = Object.freeze({
  */
 
 /**
+ * Where an unlock is (startSession `onStatus`).
+ *
+ * @typedef {{ step: 'keys' | 'network' | 'identity' | 'blobs' }
+ *   | { step: 'open', collection: string }
+ *   | { step: 'move', collection: string, done: number, total: number }} UnlockStatus
+ */
+
+/**
  * Unlock the books with a passkey: PRF → key, then Helia, OrbitDB and the
  * sealed databases.
  *
@@ -123,11 +131,18 @@ export const STORAGE_PATHS = Object.freeze({
  * new passkey adds its `create` and that signature, a restore its two touches
  * and that signature, and an unlock nothing.
  *
+ * Each step is reported to `onStatus` as it starts – the unlock screen shows
+ * it, and the console times it: opening large books, or moving them into the
+ * sealed databases once (store/migrate.js), takes minutes, and without it an
+ * unlock that is working looks the same as one that hangs.
+ *
  * @param {any} credential from passkey-identity.js
+ * @param {{ onStatus?: (status: UnlockStatus) => void }} [options]
  * @returns {Promise<Session>}
  * @throws {import('./passkey-identity.js').PrfUnavailableError} before anything is opened
  */
-export async function startSession(credential) {
+export async function startSession(credential, { onStatus } = {}) {
+	onStatus?.({ step: 'keys' });
 	// First, and before anything is opened: without PRF there is no key, and
 	// without a key nothing is read or written. No plaintext fallback.
 	const prfOutput = await readPrfOutput(credential);
@@ -141,6 +156,8 @@ export async function startSession(credential) {
 
 	// A PR #1 build kept the signing key in IndexedDB. Gone before anything opens.
 	await forgetLegacyKeystore();
+
+	onStatus?.({ step: 'network' });
 
 	const blockstore = new LevelBlockstore(STORAGE_PATHS.blockstore);
 	const datastore = new LevelDatastore(STORAGE_PATHS.datastore);
@@ -198,6 +215,7 @@ export async function startSession(credential) {
 		//
 		// secp256k1, the provider's default, as before: the key, and with it the
 		// identity document and its cached passkey proof, stay what PR #1 made.
+		onStatus?.({ step: 'identity' });
 		const did = credential.did ?? (await WebAuthnDIDProvider.createDID(credential));
 		const signingKey =
 			credential.signingKey instanceof Uint8Array
@@ -223,9 +241,13 @@ export async function startSession(credential) {
 			encryptionKey,
 			replicationKey,
 			prfOutput,
-			move: !flagSet(moveFlag)
+			move: !flagSet(moveFlag),
+			onOpen: (collection) => onStatus?.({ step: 'open', collection }),
+			onMove: ({ collection, moved, total }) =>
+				onStatus?.({ step: 'move', collection, done: moved, total })
 		});
 		setFlag(moveFlag);
+		onStatus?.({ step: 'blobs' });
 		const blobs = await createBlobStore({ blockstore: helia.blockstore, key: blobKey, online });
 
 		return {

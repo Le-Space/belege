@@ -112,10 +112,29 @@ test('a passkey opens sealed books that survive a reload', async ({ page }) => {
 
 	// Reload (still on /zahlungen, served by the SPA fallback): the stored
 	// passkey unlocks the same identity and the same books.
+	/** @type {string[]} */
+	const steps = [];
+	page.on('console', (m) => {
+		if (m.text().startsWith('unlock: ')) steps.push(m.text());
+	});
 	await page.reload();
 	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();
 	await expect(didBadge).toHaveAttribute('data-did', /** @type {string} */ (did));
 	await expect(page.getByTestId('transaction').filter({ hasText: marker })).toBeVisible();
+	// Each step of the unlock timed in the console, nothing from the books.
+	await expect.poll(() => steps.some((l) => /^unlock: ready after \d+\.\d s$/.test(l))).toBe(true);
+	for (const step of [
+		'keys',
+		'network',
+		'identity',
+		'open transactions',
+		'open events',
+		'blobs',
+		'books'
+	]) {
+		expect(steps.some((l) => l.startsWith(`unlock: ${step} took `))).toBe(true);
+	}
+	expect(steps.join('\n')).not.toContain(marker);
 	await page.getByRole('link', { name: 'Home' }).click();
 	await expect(page.getByTestId('count-transactions')).toHaveText('1');
 
