@@ -2101,6 +2101,21 @@ export default {
 		done: 'Heruntergeladen: {file} – {bookings} Buchungen, {receipts} Belege, {statements} Kontoauszüge.',
 		blocked: 'Erst die rot markierten Punkte erledigen.',
 		failed: 'Der Export ist fehlgeschlagen: {error}',
+		crypto: {
+			title: 'Kryptobewegungen',
+			intro:
+				'Alle Buchungen deiner Wallets und Börsenkonten in einem offenen Format (crypto-ledger, MIT-Lizenz), das andere Programme lesen können – mit Menge, Euro-Wert, Kursquelle und Transaktions-Hash. Die Datei entsteht hier im Browser.',
+			year: 'Jahr',
+			allYears: 'alle Jahre',
+			json: 'Als JSON herunterladen',
+			csv: 'Als CSV herunterladen',
+			done: 'Heruntergeladen: {file} – {movements} Bewegungen auf {accounts} Konten.',
+			technical: [
+				'Format crypto-ledger Version 1, beschrieben als JSON Schema in schema/crypto-ledger.v1.schema.json (MIT): Konten als CAIP-10 (Wallet) oder ccxt-Börsen-ID, Chains als CAIP-2, Assets als CAIP-19, wo das eindeutig ist.',
+				'Je Buchung eine Bewegung: Menge als Dezimaltext mit Vorzeichen, Gebühren als eigene Bewegung, Euro-Wert mit Kurs, Quelle und Zeitpunkt wie gebucht; ohne Kurs steht dort null. Gelöschte Buchungen fehlen.',
+				'Die CSV hat dieselben Felder, eine Zeile je Bewegung, Komma als Trenner, Punkt als Dezimalzeichen, UTF-8, CRLF; Text, den eine Tabelle als Formel läse, beginnt mit einem Apostroph.'
+			]
+		},
 		overview: {
 			noReceipt: 'ohne Beleg',
 			noFile: 'Beleg {number} ohne Datei (E-Mail-Text)',

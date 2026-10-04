@@ -1,0 +1,36 @@
+{
+	"format": "crypto-ledger",
+	"version": 1,
+	"createdAt": "2025-06-30T12:00:00Z",
+	"generator": "example",
+	"currency": "EUR",
+	"accounts": [
+		{
+			"id": "fil:f:f1exampleaddressxxxxxxxxxxxxxxxxxxxxx",
+			"type": "wallet",
+			"name": "Storage provider",
+			"chain": "fil:f",
+			"address": "f1exampleaddressxxxxxxxxxxxxxxxxxxxxx"
+		}
+	],
+	"movements": [
+		{
+			"id": "bafy2bzaceexampleexampleexampleexampleexampleexampleexample:sent",
+			"account": "fil:f:f1exampleaddressxxxxxxxxxxxxxxxxxxxxx",
+			"time": "2025-02-20T11:00:00Z",
+			"date": "2025-02-20",
+			"kind": "transfer",
+			"asset": { "symbol": "FIL", "decimals": 18, "caip19": "fil:f/slip44:461" },
+			"amount": "-25",
+			"value": {
+				"amount": "-75.00",
+				"rate": "3",
+				"source": "coingecko",
+				"at": "2025-02-20T00:00:00Z"
+			},
+			"txHash": "bafy2bzaceexampleexampleexampleexampleexampleexampleexample",
+			"counterparty": { "address": "f1otheraddressxxxxxxxxxxxxxxxxxxxxxxxx" },
+			"explorerUrl": "https://filfox.info/en/message/bafy2bzaceexampleexampleexampleexampleexampleexampleexample"
+		}
+	]
+}

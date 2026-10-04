@@ -109,6 +109,14 @@ describe('the chain table', () => {
 			const native = b.kind === 'cosmos' ? b.denoms[b.nativeDenom].symbol : b.native.symbol;
 			expect(c.nativeSymbol).toBe(native);
 			if (b.kind === 'cosmos') expect(c.bech32Prefix).toBe(b.bech32Prefix);
+			expect(c.caip2).toBe(b.caip2);
+			const tokens = Object.fromEntries(
+				Object.entries(b.tokens ?? {}).map(([contract, a]) => [
+					/** @type {any} */ (a).symbol,
+					contract
+				])
+			);
+			expect(c.tokens ?? {}).toEqual(tokens);
 		}
 	});
 

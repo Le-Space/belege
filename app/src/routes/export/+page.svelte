@@ -14,6 +14,7 @@
 	import { accountLabel, formatDate, formatMoney } from '$lib/bank/format.js';
 	import { receiptVendor } from '$lib/receipts/view.js';
 	import { intlLocale, list, t } from '$lib/i18n/index.js';
+	import { releaseName } from '$lib/build-info.js';
 
 	const monthFormat = $derived(
 		new Intl.DateTimeFormat(intlLocale(), {
@@ -118,23 +119,83 @@
 				accounts: app.accounts,
 				classifications: app.classifications
 			});
-			// Only a download: a Blob and a click, nothing sent anywhere.
-			const url = URL.createObjectURL(
-				new Blob([/** @type {BlobPart} */ (zip)], { type: 'application/zip' })
-			);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = fileName;
-			document.body.append(a);
-			a.click();
-			a.remove();
-			setTimeout(() => URL.revokeObjectURL(url), 60_000);
+			save(new Blob([/** @type {BlobPart} */ (zip)], { type: 'application/zip' }), fileName);
 			done = t('export.done', { file: fileName, ...counts });
 			await refreshNow();
 		} catch (e) {
 			error = failed(e);
 		} finally {
 			busy = false;
+		}
+	}
+
+	/** Only a download: a Blob and a click, nothing sent anywhere. @param {Blob} blob @param {string} fileName */
+	function save(blob, fileName) {
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = fileName;
+		document.body.append(a);
+		a.click();
+		a.remove();
+		setTimeout(() => URL.revokeObjectURL(url), 60_000);
+	}
+
+	let cryptoAccountIds = $derived(
+		new Set(
+			app.accounts.filter((a) => a.kind === 'wallet' || a.kind === 'exchange').map((a) => a.id)
+		)
+	);
+	let cryptoYears = $derived(
+		[
+			...new Set(
+				app.transactions
+					.filter((tx) => !tx.deleted && cryptoAccountIds.has(tx.accountId))
+					.map((tx) => String(tx.bookedOn ?? '').slice(0, 4))
+					.filter((y) => /^\d{4}$/.test(y))
+			)
+		].sort((a, b) => (a < b ? 1 : -1))
+	);
+	/** '' for all years. */
+	let cryptoYear = $state('');
+	/** @type {string | null} */
+	let cryptoDone = $state(null);
+	/** @type {string | null} */
+	let cryptoError = $state(null);
+
+	/** @param {'json' | 'csv'} kind */
+	async function downloadCrypto(kind) {
+		const store = currentStore();
+		if (!store) return;
+		cryptoDone = null;
+		cryptoError = null;
+		try {
+			const [{ cryptoLedger, cryptoLedgerCsv }, { loadWallets }] = await Promise.all([
+				import('$lib/export/crypto-ledger.js'),
+				import('$lib/wallets/wallet-sync.js')
+			]);
+			const release = releaseName();
+			const ledger = cryptoLedger({
+				accounts: $state.snapshot(app.accounts),
+				transactions: $state.snapshot(app.transactions),
+				wallets: await loadWallets(store.settings),
+				year: cryptoYear || null,
+				...(release ? { generator: `Belege ${release}` } : {})
+			});
+			const fileName = `crypto-ledger-${cryptoYear || 'all'}-${ledger.createdAt.slice(0, 10)}.${kind}`;
+			save(
+				kind === 'json'
+					? new Blob([`${JSON.stringify(ledger, null, '\t')}\n`], { type: 'application/json' })
+					: new Blob([cryptoLedgerCsv(ledger)], { type: 'text/csv;charset=utf-8' }),
+				fileName
+			);
+			cryptoDone = t('export.crypto.done', {
+				file: fileName,
+				movements: ledger.movements.length,
+				accounts: ledger.accounts.length
+			});
+		} catch (e) {
+			cryptoError = failed(e);
 		}
 	}
 
@@ -361,5 +422,57 @@
 			<p class="mt-2 text-sm text-danger" role="alert" data-testid="export-error">{error}</p>
 		{/if}
 		<TechnicalNote class="mt-3" testid="export-technical" lines={list('export.technical')} />
+	</section>
+{/if}
+
+{#if cryptoYears.length}
+	<section
+		class="mt-4 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm"
+		data-testid="export-crypto"
+	>
+		<h2 class="text-lg font-semibold text-heading">{t('export.crypto.title')}</h2>
+		<p class="mt-1 text-sm text-text">{t('export.crypto.intro')}</p>
+		<div class="mt-3 flex flex-wrap items-center gap-3">
+			<label class="flex items-center gap-2 text-sm">
+				<span class="font-medium text-heading">{t('export.crypto.year')}</span>
+				<select
+					class="rounded-md border px-2 py-1.5 text-sm"
+					bind:value={cryptoYear}
+					data-testid="export-crypto-year"
+				>
+					<option value="">{t('export.crypto.allYears')}</option>
+					{#each cryptoYears as y (y)}
+						<option value={y}>{y}</option>
+					{/each}
+				</select>
+			</label>
+			<button
+				type="button"
+				class={button}
+				onclick={() => downloadCrypto('json')}
+				data-testid="export-crypto-json">{t('export.crypto.json')}</button
+			>
+			<button
+				type="button"
+				class={button}
+				onclick={() => downloadCrypto('csv')}
+				data-testid="export-crypto-csv">{t('export.crypto.csv')}</button
+			>
+		</div>
+		{#if cryptoDone}
+			<p class="mt-2 text-sm text-heading" role="status" data-testid="export-crypto-done">
+				{cryptoDone}
+			</p>
+		{/if}
+		{#if cryptoError}
+			<p class="mt-2 text-sm text-danger" role="alert" data-testid="export-crypto-error">
+				{cryptoError}
+			</p>
+		{/if}
+		<TechnicalNote
+			class="mt-3"
+			testid="export-crypto-technical"
+			lines={list('export.crypto.technical')}
+		/>
 	</section>
 {/if}

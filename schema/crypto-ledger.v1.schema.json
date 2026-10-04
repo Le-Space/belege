@@ -1,0 +1,253 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://raw.githubusercontent.com/Le-Space/belege/main/schema/crypto-ledger.v1.schema.json",
+	"title": "crypto-ledger v1",
+	"description": "Movements of crypto assets on own wallets and exchange accounts, each valued in a fiat currency. One file: the accounts, then every movement on them. MIT licensed (schema/LICENSE).",
+	"type": "object",
+	"required": ["format", "version", "createdAt", "currency", "accounts", "movements"],
+	"additionalProperties": false,
+	"properties": {
+		"format": {
+			"const": "crypto-ledger"
+		},
+		"version": {
+			"const": 1
+		},
+		"createdAt": {
+			"type": "string",
+			"format": "date-time"
+		},
+		"generator": {
+			"type": "string",
+			"description": "What wrote the file, with its version, e.g. `Belege 0.6.0`."
+		},
+		"currency": {
+			"$ref": "#/$defs/currency",
+			"description": "The currency every movement's `value` is in."
+		},
+		"accounts": {
+			"type": "array",
+			"items": {
+				"$ref": "#/$defs/account"
+			}
+		},
+		"movements": {
+			"type": "array",
+			"description": "Oldest first. Each movement's `account` names one of `accounts`.",
+			"items": {
+				"$ref": "#/$defs/movement"
+			}
+		}
+	},
+	"$defs": {
+		"currency": {
+			"type": "string",
+			"pattern": "^[A-Z]{3}$"
+		},
+		"decimal": {
+			"type": "string",
+			"description": "A decimal number as text, `-` for a negative one, `.` as the decimal point, never an exponent: amounts are never floats.",
+			"pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$"
+		},
+		"caip2": {
+			"type": "string",
+			"description": "A chain as CAIP-2: `eip155:1`, `cosmos:akashnet-2`, `bip122:000000000019d6689c085ae165831e93`.",
+			"pattern": "^[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}$"
+		},
+		"account": {
+			"type": "object",
+			"required": ["id", "type", "name"],
+			"additionalProperties": false,
+			"properties": {
+				"id": {
+					"type": "string",
+					"minLength": 1,
+					"description": "Unique in the file. A wallet: its CAIP-10 account id (`<caip2>:<address>`). An exchange account: the exchange's id, with a sub-account after a slash (`kraken`, `kraken/earn`)."
+				},
+				"type": {
+					"enum": ["wallet", "exchange"]
+				},
+				"name": {
+					"type": "string",
+					"description": "As the person calls it."
+				},
+				"chain": {
+					"$ref": "#/$defs/caip2"
+				},
+				"address": {
+					"type": "string",
+					"minLength": 1,
+					"description": "As the chain writes it (EVM: lower case). A wallet known by an extended public key (Bitcoin xpub/zpub) is named by a fingerprint of the key instead – never the key itself, which would reveal every address."
+				},
+				"exchange": {
+					"type": "string",
+					"pattern": "^[a-z0-9]+$",
+					"description": "The exchange, by its ccxt id where it has one (`kraken`, `binance`)."
+				}
+			},
+			"if": {
+				"properties": {
+					"type": {
+						"const": "wallet"
+					}
+				}
+			},
+			"then": {
+				"required": ["chain", "address"],
+				"properties": {
+					"chain": true,
+					"address": true,
+					"exchange": false
+				}
+			},
+			"else": {
+				"required": ["exchange"],
+				"properties": {
+					"exchange": true,
+					"chain": false,
+					"address": false
+				}
+			}
+		},
+		"asset": {
+			"type": "object",
+			"required": ["symbol", "decimals"],
+			"additionalProperties": false,
+			"properties": {
+				"symbol": {
+					"type": "string",
+					"pattern": "^[A-Z0-9.]{1,12}$"
+				},
+				"decimals": {
+					"type": "integer",
+					"minimum": 0,
+					"maximum": 36,
+					"description": "Decimals of the smallest unit the source counts in (ETH 18, BTC 8; an exchange may keep more or fewer)."
+				},
+				"caip19": {
+					"type": "string",
+					"description": "The asset as CAIP-19, where it is unambiguous: `eip155:1/slip44:60` (ETH), `eip155:8453/erc20:0x8335…` (a token by its contract). A symbol alone says nothing about which token it is; a token is only ever identified by its contract.",
+					"pattern": "^[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}/[-a-z0-9]{3,8}:[-.%a-zA-Z0-9]{1,128}$"
+				}
+			}
+		},
+		"value": {
+			"type": "object",
+			"description": "What the movement was worth on its day, in the file's `currency`.",
+			"required": ["amount", "rate", "source", "at"],
+			"additionalProperties": false,
+			"properties": {
+				"amount": {
+					"$ref": "#/$defs/decimal",
+					"description": "Signed like the movement, rounded to the currency's smallest unit (cents)."
+				},
+				"rate": {
+					"$ref": "#/$defs/decimal",
+					"description": "Per whole unit of the asset."
+				},
+				"source": {
+					"type": "string",
+					"minLength": 1,
+					"description": "Where the rate comes from: `coingecko`, `kraken`, `ecb`, `trade` (the price of the trade itself), `dex` (a pool's price at the block), `migration`, `manual`; `currency` for the file's own currency (rate 1) – or another source's own name."
+				},
+				"at": {
+					"type": "string",
+					"format": "date-time",
+					"description": "The moment the rate is for."
+				},
+				"ref": {
+					"type": "string",
+					"description": "What identifies the price further, e.g. a DEX pool and block: `uniswap-v2:<pool>@<block>`."
+				}
+			}
+		},
+		"movement": {
+			"type": "object",
+			"required": ["id", "account", "time", "date", "kind", "asset", "amount", "value"],
+			"additionalProperties": false,
+			"properties": {
+				"id": {
+					"type": "string",
+					"minLength": 1,
+					"description": "Stable: the same movement read again gets the same id, so an importer can skip what it knows. Unique per account. A fee is a movement of its own, by convention `<hash>:fee`."
+				},
+				"account": {
+					"type": "string",
+					"minLength": 1
+				},
+				"time": {
+					"type": "string",
+					"format": "date-time"
+				},
+				"date": {
+					"type": "string",
+					"format": "date",
+					"description": "The day it is booked on (UTC for chains)."
+				},
+				"kind": {
+					"enum": ["transfer", "trade", "swap", "fee", "reward", "stake", "mining"],
+					"description": "transfer: in or out, to or from anyone, an own wallet too. trade: one leg of an exchange's trade (the legs share `ref`). swap: one leg of a swap on a chain (the legs share `txHash`). fee: a network or exchange fee. reward: staking or earn income. stake: delegated or returned from staking. mining: a mined block."
+				},
+				"asset": {
+					"$ref": "#/$defs/asset"
+				},
+				"amount": {
+					"$ref": "#/$defs/decimal",
+					"description": "Signed: positive in, negative out; at most `asset.decimals` decimals."
+				},
+				"value": {
+					"oneOf": [
+						{
+							"$ref": "#/$defs/value"
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "null while no rate is known."
+				},
+				"txHash": {
+					"type": "string",
+					"minLength": 1,
+					"description": "The transaction on the chain, as the chain writes it. On an exchange: the hash of a deposit or withdrawal, where the exchange names it – this pairs it with the wallet's side."
+				},
+				"ref": {
+					"type": "string",
+					"minLength": 1,
+					"description": "An exchange's own reference (Kraken: `refid`), shared by the legs of a trade and by an entry and its fee."
+				},
+				"network": {
+					"type": "string",
+					"description": "An exchange's deposit or withdrawal: the network it names for `txHash`, in its words."
+				},
+				"counterparty": {
+					"type": "object",
+					"additionalProperties": false,
+					"properties": {
+						"address": {
+							"type": "string",
+							"minLength": 1
+						},
+						"name": {
+							"type": "string",
+							"minLength": 1
+						}
+					}
+				},
+				"memo": {
+					"type": "string",
+					"minLength": 1
+				},
+				"sourceType": {
+					"type": "string",
+					"minLength": 1,
+					"description": "How the source names the entry, as it does: `deposit`, `transfer/spottostaking`."
+				},
+				"explorerUrl": {
+					"type": "string",
+					"pattern": "^https://"
+				}
+			}
+		}
+	}
+}

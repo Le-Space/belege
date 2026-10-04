@@ -73,6 +73,15 @@ The PDF is stored like an uploaded receipt and linked to the payment as your dec
 
 An Eigenbeleg is not an invoice and gives no input-tax deduction.
 
+## Crypto movements in an open format
+
+Below the DATEV export, _Kryptobewegungen_ downloads every booking of your wallets and exchange accounts – all years or one – as **JSON** or **CSV** in the open [crypto-ledger format](../schema/README.md). The schema and its examples are MIT licensed, so other tools can read and write the same files.
+
+- One account per wallet (CAIP-10, chain as CAIP-2) or exchange account (`kraken`, `kraken/earn`); Belege's accounts per asset are joined under their address.
+- One movement per booking: the quantity as signed decimal text, the fee as a movement of its own, the euro value with rate, source and moment as booked – `null` where no rate is known yet. Deleted bookings are left out.
+- The transaction hash on wallet movements and on an exchange's deposits and withdrawals, so both sides of a transfer can be paired; an exchange's own reference as `ref`.
+- The file is made in the browser and downloaded; nothing is sent anywhere.
+
 ## To check with the tax adviser
 
 - Whether, and up to which amount, Eigenbelege are accepted for payments without a receipt (blockchain fees, lease payments).

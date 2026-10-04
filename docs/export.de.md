@@ -73,6 +73,15 @@ Das PDF wird wie ein hochgeladener Beleg gespeichert und der Zahlung als deine E
 
 Ein Eigenbeleg ist keine Rechnung und berechtigt nicht zum Vorsteuerabzug.
 
+## Kryptobewegungen in einem offenen Format
+
+Unter dem DATEV-Export lädt _Kryptobewegungen_ alle Buchungen deiner Wallets und Börsenkonten – alle Jahre oder eines – als **JSON** oder **CSV** im offenen [crypto-ledger-Format](../schema/README.md) herunter. Schema und Beispiele stehen unter MIT-Lizenz, damit andere Programme dieselben Dateien lesen und schreiben können.
+
+- Ein Konto je Wallet (CAIP-10, Chain als CAIP-2) oder Börsenkonto (`kraken`, `kraken/earn`); Belege führt ein Konto je Asset, die Datei fasst sie unter ihrer Adresse zusammen.
+- Eine Bewegung je Buchung: die Menge als Dezimaltext mit Vorzeichen, die Gebühr als eigene Bewegung, der Euro-Wert mit Kurs, Quelle und Zeitpunkt wie gebucht – `null`, wo noch kein Kurs bekannt ist. Gelöschte Buchungen fehlen.
+- Der Transaktions-Hash an Wallet-Bewegungen und an Ein- und Auszahlungen einer Börse, damit sich beide Seiten einer Übertragung zuordnen lassen; die eigene Referenz der Börse als `ref`.
+- Die Datei entsteht im Browser und wird heruntergeladen; nichts wird verschickt.
+
 ## Mit der Steuerberatung klären
 
 - Ob und bis zu welchem Betrag Eigenbelege für Zahlungen ohne Beleg anerkannt werden (Blockchain-Gebühren, Lease-Zahlungen).

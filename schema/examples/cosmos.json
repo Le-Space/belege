@@ -1,0 +1,53 @@
+{
+	"format": "crypto-ledger",
+	"version": 1,
+	"createdAt": "2025-06-30T12:00:00Z",
+	"generator": "example",
+	"currency": "EUR",
+	"accounts": [
+		{
+			"id": "cosmos:akashnet-2:akash1exampleaddressxxxxxxxxxxxxxxxxxxxxxx",
+			"type": "wallet",
+			"name": "Akash",
+			"chain": "cosmos:akashnet-2",
+			"address": "akash1exampleaddressxxxxxxxxxxxxxxxxxxxxxx"
+		}
+	],
+	"movements": [
+		{
+			"id": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC:m0:e3.0:AKT",
+			"account": "cosmos:akashnet-2:akash1exampleaddressxxxxxxxxxxxxxxxxxxxxxx",
+			"time": "2025-04-01T07:15:00Z",
+			"date": "2025-04-01",
+			"kind": "reward",
+			"asset": { "symbol": "AKT", "decimals": 6 },
+			"amount": "12.5",
+			"value": {
+				"amount": "17.50",
+				"rate": "1.4",
+				"source": "coingecko",
+				"at": "2025-04-01T00:00:00Z"
+			},
+			"txHash": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+			"counterparty": { "name": "distribution" },
+			"explorerUrl": "https://www.mintscan.io/akash/tx/CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+		},
+		{
+			"id": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC:fee",
+			"account": "cosmos:akashnet-2:akash1exampleaddressxxxxxxxxxxxxxxxxxxxxxx",
+			"time": "2025-04-01T07:15:00Z",
+			"date": "2025-04-01",
+			"kind": "fee",
+			"asset": { "symbol": "AKT", "decimals": 6 },
+			"amount": "-0.005",
+			"value": {
+				"amount": "-0.01",
+				"rate": "1.4",
+				"source": "coingecko",
+				"at": "2025-04-01T00:00:00Z"
+			},
+			"txHash": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+			"explorerUrl": "https://www.mintscan.io/akash/tx/CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+		}
+	]
+}
