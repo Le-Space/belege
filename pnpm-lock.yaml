@@ -77,6 +77,9 @@ importers:
       '@multiformats/multiaddr':
         specifier: 13.0.3
         version: 13.0.3
+      '@noble/curves':
+        specifier: 2.4.0
+        version: 2.4.0
       '@noble/hashes':
         specifier: 2.4.0
         version: 2.4.0

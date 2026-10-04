@@ -739,9 +739,9 @@ export default {
 				name: 'Backup on Aleph Cloud',
 				text: 'When set up and only on your click: everything Belege keeps, sealed with a key from your passkey, as one file on Aleph Cloud.',
 				leaves:
-					'To Aleph’s IPFS host, directly from this browser: the sealed file (Aleph sees its size and this computer’s IP address, not what is in it). From the bridge to Aleph: an order signed with the bridge’s own backup key, naming the file. To restore, the browser fetches the sealed file from Aleph’s gateway by its CID.',
+					'To Aleph’s IPFS host, directly from this browser: the sealed file (Aleph sees its size and this computer’s IP address, not what is in it). To the Aleph API: a signed order naming the file – by this browser’s own key once the bridge’s account has allowed it, by the bridge until then – and reads of that account’s grants, credits and backups, by its address. To restore, the browser fetches the sealed file from Aleph’s gateway by its CID.',
 				technical:
-					'The CAR of every database block (entries already sealed, manifests, access controllers, writers’ identities) and every receipt file’s sealed blocks is sealed once more with AES-256-GCM under a key derived from the passkey’s PRF (HKDF, belege/backup-key/v1). Upload: POST https://ipfs.aleph.cloud/api/v0/add, no key. The bridge signs a STORE message (personal_sign, channel BELEGE-BACKUP) with a secp256k1 key it made itself (pnpm setup:aleph) and keeps in the keychain; Aleph keeps the file while that account has credits.'
+					'The CAR of every database block (entries already sealed, manifests, access controllers, writers’ identities) and every receipt file’s sealed blocks is sealed once more with AES-256-GCM under a key derived from the passkey’s PRF (HKDF, belege/backup-key/v1). Upload: POST https://ipfs.aleph.cloud/api/v0/add, no key. The STORE message (personal_sign, channel BELEGE-BACKUP, paid in credits of the bridge’s account) is signed by a secp256k1 key this browser makes itself and keeps sealed in the settings – once the account has allowed it in its security aggregate (pnpm setup:aleph -- --authorize); until then by the bridge’s key (pnpm setup:aleph, in the keychain). Aleph keeps the file while the account has credits. The backups are listed by Aleph’s messages API (api2.aleph.im) with owners=<account>.'
 			},
 			deepseek: {
 				name: 'Language model – DeepSeek by default (extracting receipts, AI search)',
@@ -851,10 +851,15 @@ export default {
 	},
 	restore: {
 		title: 'Restore',
-		what: 'A backup made with this passkey, put back into the books here. What is here stays; what the backup holds is added – nothing is deleted. The page reloads at the end, and the passkey opens the books again.',
+		what: 'A backup, put back into the books here. You need the passkey it was made with, and the address of the Aleph account that pays – or the backup’s CID. What is here stays; what the backup holds is added – nothing is deleted. The page reloads at the end, and the passkey opens the books again.',
 		leaves:
-			'Goes out: the backup’s CID to Aleph’s gateway (it sees this computer’s IP address). The file comes back sealed and is opened here.',
-		none: 'No backup known yet. Pair the bridge to list those of its Aleph account, or enter a CID.',
+			'Goes out: the account’s address to the Aleph API, to list its backups, and the backup’s CID to Aleph’s gateway (both see this computer’s IP address). The file comes back sealed and is opened here.',
+		none: 'No backup known yet. Enter the address of the Aleph account that pays (the paired bridge names it), or a CID.',
+		ownerLabel: 'Address of the Aleph account that pays',
+		ownerList: 'Find backups',
+		ownerInvalid: 'That is not an address: 0x and 40 hex characters.',
+		unlisted:
+			'Aleph did not give the list of backups just now. Try again in a moment, or enter a CID.',
 		cidLabel: 'Or a backup’s CID',
 		pick: 'Restore',
 		notACid: 'That is not a CID.',
@@ -865,22 +870,40 @@ export default {
 		opening: 'Opening the backup …',
 		database: 'Database {index} of {total}: {name} …',
 		done: 'Restored. The page reloads – unlock with the passkey.',
-		wrongPasskey: 'This backup cannot be opened with this passkey: it was made with another one.',
+		wrongPasskey:
+			'This backup cannot be opened with this passkey: it was made with another one. A backup opens only with the passkey it was made with.',
 		notFetched: 'Aleph’s gateway did not give the backup back. Try again in a moment.'
 	},
 	backup: {
 		title: 'Backup',
-		what: 'Everything Belege keeps in this browser – the books and every receipt file – as one file, sealed with a key from your passkey, kept on Aleph Cloud. Nobody but you can open it.',
-		needsBridge: 'The bridge has to be paired: it signs the order that has Aleph keep the backup.',
+		what: 'Everything Belege keeps in this browser – the books and every receipt file – as one file, sealed with a key from your passkey, kept on Aleph Cloud. Nobody but you can open it, with the same passkey.',
 		notSetUp: 'The bridge has no backup key yet. In the terminal, in Belege’s folder:',
-		account: 'Aleph account',
+		noOwner:
+			'No Aleph account that pays yet: pair the bridge after running pnpm setup:aleph there once, or enter the account’s address.',
+		ownerLabel: 'Address of the Aleph account that pays',
+		ownerSave: 'Use it',
+		ownerHint:
+			'The address is public, but on an empty device it is the only way to your backups: write it down. pnpm setup:aleph shows it.',
+		ownerInvalid: 'That is not an address: 0x and 40 hex characters.',
+		account: 'Aleph account that pays',
+		ownKey: 'This browser’s key',
+		granted:
+			'Allowed: this browser signs the order to Aleph itself, the bridge need not run for it.',
+		notGrantedBridge:
+			'The account has not allowed this browser’s key yet; until then the bridge signs. Allow it once, in the terminal in Belege’s folder:',
+		notGranted:
+			'The account has not allowed this browser’s key yet, and without a paired bridge nobody signs the order. Allow it once, in the terminal in Belege’s folder:',
+		grantUnknown:
+			'Whether the account allows this browser’s key could not be learned just now. To allow it, in the terminal in Belege’s folder:',
+		copyCommand: 'Copy command',
+		check: 'Check again',
 		copyAddress: 'Copy address',
 		credits: 'Credits',
 		creditsUnknown: 'unknown – Aleph did not answer',
 		noCredits:
 			'The account has no credits. Aleph keeps a backup only while the account can pay: put credits on it at app.aleph.cloud, or send it ALEPH.',
 		leaves:
-			'Goes out: the sealed file to Aleph’s IPFS host (it sees this computer’s IP address and the size), and from the bridge an order signed with its backup key that names the file.',
+			'Goes out: the sealed file to Aleph’s IPFS host (it sees this computer’s IP address and the size), and to the Aleph API an order naming the file – signed by this browser’s key or, without the grant, by the bridge. To show this page, it asks Aleph for the account’s grants and credits.',
 		now: 'Back up now',
 		step: {
 			packing: 'Packing and sealing …',
@@ -2587,8 +2610,8 @@ export default {
 				how: 'Switch sync on, then add the second device by QR code. Optionally the devices meet only on your own network, at a relay in your bridge:'
 			},
 			backup: {
-				what: 'A backup of the books and every receipt file, sealed with a key from your passkey, on Aleph Cloud. Aleph keeps it while the bridge’s Aleph account has credits.',
-				how: 'Have the bridge make its own backup key once, put credits on the address it shows, then click “Back up now” here. Restoring comes in a next step.'
+				what: 'A backup of the books and every receipt file, sealed with a key from your passkey, on Aleph Cloud, paid by the bridge’s Aleph account. You get it back on any device with two things: the same passkey and that account’s address (or the backup’s CID).',
+				how: 'Have the bridge make its backup key once, put credits on the address it shows, then click “Back up now” here; once you allow this browser’s key (command below), it backs up without the bridge running. On an empty device: “Restore with existing passkey”, enter the address here and pick the backup.'
 			},
 			portale: {
 				what: 'Some invoices exist only in a customer portal. The bridge fetches them with a browser of its own on this computer.',

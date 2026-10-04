@@ -179,6 +179,8 @@ export function createAlephBackup({
 		ingestUrl,
 		/** Where the app fetches one back: the gateway on the same host. */
 		gateways: [`${new URL(ingestUrl).origin}/ipfs`],
+		/** The Aleph API, where the app sends its own STORE and lists the backups. */
+		apiHost: apiHost ?? DEFAULT_API,
 
 		/**
 		 * The backups kept for this account, newest first: the STORE messages on

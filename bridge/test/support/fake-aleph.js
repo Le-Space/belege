@@ -29,6 +29,10 @@
 //   GET  /api/v0/aggregates/<address>.json?keys=security   the authorizations
 //   GET  /api/v0/messages.json   STOREs by `addresses` (the sender) or
 //                          `owners` (the paying account), and `channels`
+//
+// Any page may ask, as Aleph's API answers browsers (checked 2026-10-04): a
+// preflight gets the asking origin back with POST and CONTENT-TYPE allowed,
+// and every answer names that origin.
 import http from 'node:http';
 import { createHash } from 'node:crypto';
 
@@ -125,11 +129,23 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 		);
 	const server = http.createServer(async (req, res) => {
 		const url = new URL(String(req.url), 'http://x');
-		calls.push(url.pathname.replace(/0x[0-9a-fA-F]{40}/g, '<address>'));
+		const origin = String(req.headers.origin ?? '*');
 		const reply = (/** @type {number} */ status, /** @type {unknown} */ body) => {
-			res.writeHead(status, { 'Content-Type': 'application/json' });
+			res.writeHead(status, {
+				'Content-Type': 'application/json',
+				'Access-Control-Allow-Origin': origin
+			});
 			res.end(JSON.stringify(body));
 		};
+		if (req.method === 'OPTIONS') {
+			res.writeHead(200, {
+				'Access-Control-Allow-Origin': origin,
+				'Access-Control-Allow-Methods': 'POST',
+				'Access-Control-Allow-Headers': 'CONTENT-TYPE'
+			});
+			return res.end();
+		}
+		calls.push(url.pathname.replace(/0x[0-9a-fA-F]{40}/g, '<address>'));
 		const ipfs = /^\/ipfs\/([A-Za-z0-9]+)$/.exec(url.pathname);
 		if (req.method === 'GET' && ipfs) {
 			// Aleph's gateway: the bytes as they were added, readable by any page.

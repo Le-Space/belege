@@ -3,10 +3,11 @@
 // API), the real bridge in test mode with a made-up backup key, and the app:
 // a payment goes into the books, "Jetzt sichern" backs them up, then this
 // browser forgets everything – books, settings, the pairing – and the same
-// passkey opens empty books. The bridge, paired again, lists the backup of its
-// Aleph account; "Wiederherstellen" fetches it from the gateway and puts it
-// back; after the reload the payment is there. Every key, address and amount
-// is made up (@belege/bridge/testing/aleph).
+// passkey opens empty books. With the bridge gone, the paying account's
+// address is all it takes: the browser asks Aleph for that account's backups,
+// "Wiederherstellen" fetches one from the gateway and puts it back, and after
+// the reload the payment is there. Every key, address and amount is made up
+// (@belege/bridge/testing/aleph).
 import { test, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -101,6 +102,8 @@ test.afterAll(async () => {
 });
 
 test('a browser that lost everything gets its books back from the backup', async ({ page }) => {
+	// Without a bridge to name it, Aleph is this fake (E2E builds only).
+	await page.addInitScript((url) => localStorage.setItem('belege.e2e.alephUrl', url), aleph.url);
 	await addVirtualAuthenticator(page);
 	await page.goto('/');
 	await acceptConsent(page);
@@ -133,13 +136,17 @@ test('a browser that lost everything gets its books back from the backup', async
 	await expect(page.getByTestId('own-did')).toHaveAttribute('data-did', String(did));
 	expect(await transactions(page)).toEqual([]);
 
-	// The pairing went with the books: pair again, and the bridge lists the backup.
+	// The pairing went with the books, and the bridge is not needed: the
+	// account's address finds the backup, straight from Aleph.
 	await stopBridge();
-	await startBridge();
-	await pair(page);
 	await openIntegration(page, 'backup');
 	const card = page.getByTestId('restore-card');
+	await expect(card.getByTestId('restore-none')).toBeVisible();
+	await card.getByTestId('restore-owner').fill(alephAccountOf(KEY).toLowerCase());
+	await card.getByTestId('restore-owner-list').click();
 	await expect(card.getByTestId('restore-row')).toHaveCount(1);
+	await expect(card.getByTestId('restore-owner')).toHaveValue(alephAccountOf(KEY));
+	expect(aleph.calls).toContain('/api/v0/messages.json');
 
 	// A typed CID that is none is refused before anything is fetched.
 	await card.getByTestId('restore-cid').fill('keine-cid');
@@ -159,5 +166,4 @@ test('a browser that lost everything gets its books back from the backup', async
 	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();
 	await expect(page.getByTestId('own-did')).toHaveAttribute('data-did', String(did));
 	await expect.poll(() => transactions(page)).toEqual([MARKER]);
-	expect(bridgeOut).toContain('backup: 1 backup(s) listed');
 });

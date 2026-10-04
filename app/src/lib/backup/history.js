@@ -3,8 +3,8 @@
 // they travel with the books to own devices, and into the next backup.
 //
 // A restore into an empty browser cannot read this list – it is in the books.
-// The CID is shown to copy, and the bridge's Aleph account lists its STORE
-// messages (channel BELEGE-BACKUP) for when it is lost.
+// The CID is shown to copy, and Aleph lists the STORE messages kept for the
+// paying account (channel BELEGE-BACKUP, keeper.js) for when it is lost.
 
 import { getSetting, setSetting } from '../store/settings.js';
 
@@ -21,6 +21,7 @@ export const KEEP = 50;
  * @property {string} status Aleph's: `processed` is kept, `pending` not yet
  * @property {string} [itemHash] the STORE message
  * @property {string} [address] the Aleph account that pays
+ * @property {string} [sender] who signed the STORE: this browser's key, or the bridge's
  * @property {number} entries log entries in it, all databases
  * @property {{ collection: string, entries: number }[]} [databases] per database
  * @property {number} files receipt files in it
