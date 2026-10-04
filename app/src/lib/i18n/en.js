@@ -2332,6 +2332,11 @@ export default {
 			suggestions: 'Suggestions',
 			allReceipts: 'All other receipts',
 			choose: 'Link',
+			peek: {
+				label: 'Preview: {name}',
+				hint: 'Move the pointer over the page: the lens enlarges what is under it.',
+				open: 'Preview'
+			},
 			noChoices: 'No receipts that can be linked.',
 			noReceiptNeeded: 'No receipt needed',
 			reason: 'Reason',
