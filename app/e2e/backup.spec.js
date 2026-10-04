@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { defaultConfig, saveConfig } from '@belege/bridge';
-import { startFakeAleph } from '@belege/bridge/testing/aleph';
+import { alephAccountOf, startFakeAleph } from '@belege/bridge/testing/aleph';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
@@ -94,10 +94,21 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 	const card = page.getByTestId('backup-card');
 	await expect(card.getByTestId('backup-address')).toContainText(/0x[0-9a-fA-F]{40}/);
 	await expect(card.getByTestId('backup-no-credits')).toBeVisible();
+	// Without credits Aleph keeps nothing (a STORE is paid in credits since
+	// storage bridge 0.17.0), and the app says how many it takes.
+	await card.getByTestId('backup-now').click();
+	await expect(card.getByTestId('backup-error')).toContainText(
+		/Aleph hat die Sicherung nicht behalten: Auf dem Konto der Bridge sind 0 Credits, für einen Tag braucht diese Sicherung \d+/,
+		{ timeout: 30_000 }
+	);
+	await expect(card.getByTestId('backup-row')).toHaveCount(0);
+	// Credits on the account, and the same button keeps it.
+	aleph.fund(alephAccountOf(KEY), 1_000_000);
 	await card.getByTestId('backup-now').click();
 	await expect(card.getByTestId('backup-made')).toContainText('von Aleph aufbewahrt', {
 		timeout: 30_000
 	});
+	await expect(card.getByTestId('backup-error')).toHaveCount(0);
 	await expect(card.getByTestId('backup-row')).toHaveCount(1);
 	// What went in, per database: the one payment, and no receipt file yet.
 	const made = card.getByTestId('backup-made');
@@ -113,8 +124,9 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 	).toHaveCount(8);
 
 	// The browser uploaded it (the bridge only signed), sealed: nothing readable.
-	expect(aleph.added.size).toBe(1);
-	const [[cid, bytes]] = [...aleph.added];
+	// Two uploads: the one Aleph did not keep, and the one it did.
+	expect(aleph.added.size).toBe(2);
+	const [cid, bytes] = /** @type {[string, Uint8Array]} */ ([...aleph.added].at(-1));
 	expect(Buffer.from(bytes.subarray(0, 8)).toString()).toBe('belegeB1');
 	expect(Buffer.from(bytes).toString('latin1')).not.toContain(MARKER);
 	await expect(card.getByTestId('backup-cid')).toContainText(cid);

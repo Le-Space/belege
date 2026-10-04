@@ -7,7 +7,7 @@ A backup holds everything Belege keeps in this browser: the eight databases of t
 ## Set up once
 
 1. In the terminal, in Belege's folder: `pnpm setup:aleph`. The bridge makes a backup key of its own and keeps it in the keychain. It prints the key's address, never the key itself. That address is the Aleph account that pays for keeping the backups. It is not your wallet.
-2. Put credits on that address (app.aleph.cloud → Credits), or send it ALEPH. Aleph keeps a backup only while the account can pay. No tokens move per backup: Aleph checks that the account can pay.
+2. Put credits on that address (app.aleph.cloud → Credits). A backup is paid in credits: Aleph keeps it only while the account has them, and refuses a new one when the account has less than a day of it (about 54 credits per MiB and day). The page then says how many credits it takes. Credits are drawn by the hour; no tokens move per backup, and ALEPH held on the account does not pay for it.
 3. Restart the bridge (`pnpm bridge`).
 
 ## Back up
@@ -27,10 +27,22 @@ A CID can also be typed. After a question, the browser fetches the sealed file f
 
 A backup made with another passkey cannot be opened ("mit einem anderen Passkey gemacht"), and one that holds other books is refused.
 
+## Let another key back up
+
+An application can back up from the browser without the bridge running: it holds a key of its own, and the bridge's account lets that key keep backups at its expense. Le Space Invoice does this (Le-Space/invoice#28): its settings show the key's address and the command.
+
+```sh
+pnpm setup:aleph -- --authorize <address> --channel INVOICE-BACKUP   # may keep backups on that channel
+pnpm setup:aleph -- --grants                                         # who may
+pnpm setup:aleph -- --revoke <address>                               # take it back
+```
+
+A grant is an entry in the account's `security` aggregate on Aleph, signed with the bridge's backup key: STORE only, on the named channel only. Aleph charges the bridge's account for what that key keeps, not the key (measured 2026-10-03). The list of backups asks Aleph by the paying account, so what such a key kept is in it too.
+
 ## What goes out
 
 - **To Aleph's IPFS host, from the browser:** the sealed file. Aleph sees its size and this computer's IP address, not what is in it.
-- **To the Aleph API, from the bridge:** the STORE message with the backup key's address and the file's CID.
+- **To the Aleph API, from the bridge:** the STORE message with the backup key's address and the file's CID; for `--authorize` and `--revoke`, the list of keys the account allows.
 
 ## Technical
 
@@ -42,5 +54,6 @@ A backup made with another passkey cannot be opened ("mit einem anderen Passkey 
 - **Earlier sessions' entries:** OrbitDB 4.0.0 caches a verified identity by `signatures.id` and refuses another identity with the same id that differs. A passkey's identity has the same `signatures.id` in every session but a new WebAuthn proof, so entries from an earlier session (in a backup, or synced from an own device) were refused. Belege checks such an identity again the way OrbitDB checks an uncached one (shape, id signature, the provider's passkey binding), without the comparison ([orbitdb/orbitdb#1258](https://github.com/orbitdb/orbitdb/issues/1258); `session-identities.js`).
 - **Format:** a CAR file written by `@le-space/orbitdb-storage-bridge`, sealed as a whole with AES-256-GCM. The key is derived from the passkey's PRF output with HKDF (`belege/backup-key/v1`). The file is `belegeB1 ‖ nonce ‖ ciphertext`.
 - **Upload:** the storage bridge's `aleph` backend, `POST https://ipfs.aleph.cloud/api/v0/add`, no key needed.
-- **Keeping it:** the bridge signs the STORE message with `personal_sign` on the channel `BELEGE-BACKUP` (`POST /backup/aleph/pin`, [bridge/README.md](../bridge/README.md)).
+- **Keeping it:** the bridge signs the STORE message with `personal_sign` on the channel `BELEGE-BACKUP` (`POST /backup/aleph/pin`, [bridge/README.md](../bridge/README.md)). It is paid in credits (`payment: { type: "credit" }`, storage bridge 0.17.0). Without that field Aleph would book it as `hold`, which only ALEPH held on the account covers. An answer of `pending` is followed until Aleph has decided. A refusal comes back as HTTP 402 `ALEPH_BACKUP_REJECTED`, with the credits there and the credits needed for a day.
+- **Listing:** `GET /backup/aleph/list` asks Aleph's messages API by `owners=` (the paying account), not `addresses=` (the sender), so STOREs another key sent for the account are found too.
 - **Missing blocks:** nothing is fetched from the network for a backup. A block this browser lacks is counted as missing, and the page says so.

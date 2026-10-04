@@ -301,6 +301,9 @@ export default {
 			originNotAllowed: 'This app address is not allowed in the bridge.',
 			wrongCode: 'Wrong pairing code.',
 			noCode: 'No pairing code active: restart the bridge with --pair.',
+			alephNotKept:
+				"Aleph did not keep the backup: the bridge's account has {credits} credits, and keeping this backup for a day needs {required}. Put credits on it (app.aleph.cloud → Credits) and back up again.",
+			alephRejected: 'Aleph did not keep the backup ({error}).',
 			mailNotSetUp: 'The mailbox is not set up on the bridge (pnpm setup:mail).',
 			llmNotSetUp: 'Reading receipts is not set up on the bridge (pnpm setup:llm).',
 			senderUnverified: 'The sender is not confirmed (DKIM/SPF): approve first.',

@@ -3,7 +3,8 @@
 // amount here is made up.
 //
 // For the backup (aleph-backup.js) it is also Aleph's IPFS host and takes
-// STORE messages, as strictly as the real ones were measured (2026-10-02):
+// STORE messages, as strictly as the real ones were measured (2026-10-02 and
+// 2026-10-03):
 //   POST /api/v0/add       multipart `file` → one JSON line { Name, Hash, Size }
 //   POST /api/v0/messages  { message, sync }: a STORE whose item_hash is the
 //                          sha-256 of its content, whose content names a CID
@@ -11,6 +12,23 @@
 //                          is the sender's → 200 `processed`. A wrong
 //                          signature → 202 `pending`, as Aleph answers before
 //                          it rejects the message; a malformed one → 422.
+//                          The content's `address` is the paying account: the
+//                          sender itself, or an owner whose `security`
+//                          aggregate lets the sender send STORE on that
+//                          channel (otherwise 202, then `rejected`). With
+//                          `payment: { type: 'credit' }` the owner needs
+//                          credit for a day of the file, about 54 credits per
+//                          MiB (otherwise 202, then `rejected` with error 6
+//                          and the amounts, as Aleph answered); without a
+//                          payment Aleph books `hold` and processes it.
+//                          An AGGREGATE on channel `security`, key
+//                          `security`, sent by the account itself, sets that
+//                          account's authorizations.
+//   GET  /api/v0/messages/<item hash>   a STORE's or AGGREGATE's status, with
+//                          `error_code` and `details` when rejected
+//   GET  /api/v0/aggregates/<address>.json?keys=security   the authorizations
+//   GET  /api/v0/messages.json   STOREs by `addresses` (the sender) or
+//                          `owners` (the paying account), and `channels`
 import http from 'node:http';
 import { createHash } from 'node:crypto';
 
@@ -19,6 +37,10 @@ import { keccak_256 } from '@noble/hashes/sha3.js';
 import { base58 } from '@scure/base';
 
 import { toChecksumAddress } from '../../src/chains/evm.js';
+import { addressOf } from '../../src/aleph-backup.js';
+
+/** The Aleph account a backup key pays from, for a spec that funds it. */
+export const alephAccountOf = addressOf;
 
 /** A CIDv0-shaped id for bytes (sha-256 multihash, base58). @param {Uint8Array} bytes */
 const cidOf = (bytes) =>
@@ -52,6 +74,12 @@ export const fakeAlephAddress = (phrase) =>
 export const fakeItemHash = (phrase) => createHash('sha256').update(`item ${phrase}`).digest('hex');
 
 /**
+ * Credits a day of keeping costs, per MiB: 107.804934183756585600 for 2 MiB,
+ * as Aleph asked on 2026-10-03.
+ */
+export const FAKE_CREDITS_PER_MIB_DAY = 107.8049341837565856 / 2;
+
+/**
  * @typedef {object} FakeRow
  * @property {string} at ISO
  * @property {number} amount credits; negative leaves
@@ -81,7 +109,20 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 	const added = new Map();
 	/** The STORE messages taken: their sender, CID, channel and status. */
 	const stores =
-		/** @type {{ sender: string, cid: string, channel: string, status: string, owner: string, time: number, itemHash: string }[]} */ ([]);
+		/** @type {{ sender: string, cid: string, channel: string, status: string, owner: string, time: number, itemHash: string, payment: string | null, errorCode?: number, details?: unknown }[]} */ ([]);
+	/** Each account's `security` authorizations, by checksummed address. @type {Map<string, any[]>} */
+	const authorizations = new Map();
+	/** The AGGREGATE messages taken, by item hash. @type {Map<string, { status: string }>} */
+	const aggregates = new Map();
+	/** Does `owner` let `sender` send a STORE on `channel`? @param {string} owner @param {string} sender @param {string} channel */
+	const allowed = (owner, sender, channel) =>
+		(authorizations.get(toChecksumAddress(owner)) ?? []).some(
+			(a) =>
+				String(a?.address).toLowerCase() === sender.toLowerCase() &&
+				(!a.types?.length || a.types.includes('STORE')) &&
+				(!a.channels?.length || a.channels.includes(channel)) &&
+				(!a.chain || a.chain === 'ETH')
+		);
 	const server = http.createServer(async (req, res) => {
 		const url = new URL(String(req.url), 'http://x');
 		calls.push(url.pathname.replace(/0x[0-9a-fA-F]{40}/g, '<address>'));
@@ -102,20 +143,29 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 		}
 		if (req.method === 'GET' && url.pathname === '/api/v0/messages.json') {
 			// Only the filters the bridge sends; and only messages Aleph kept.
+			// `addresses` matches the sender, `owners` the paying account (measured).
 			const senders = (url.searchParams.get('addresses') ?? '').split(',').filter(Boolean);
+			const owners = (url.searchParams.get('owners') ?? '').split(',').filter(Boolean);
 			const channels = (url.searchParams.get('channels') ?? '').split(',').filter(Boolean);
 			if (url.searchParams.get('msgTypes') !== 'STORE') return reply(400, { error: 'msgTypes' });
 			return reply(200, {
 				messages: stores
 					.filter((s) => s.status === 'processed')
 					.filter((s) => !senders.length || senders.includes(s.sender))
+					.filter((s) => !owners.length || owners.includes(s.owner))
 					.filter((s) => !channels.length || channels.includes(s.channel))
 					.map((s) => ({
 						type: 'STORE',
 						item_hash: s.itemHash,
 						sender: s.sender,
 						channel: s.channel,
-						content: { address: s.owner, item_type: 'ipfs', item_hash: s.cid, time: s.time }
+						content: {
+							address: s.owner,
+							item_type: 'ipfs',
+							item_hash: s.cid,
+							...(s.payment ? { payment: { type: s.payment } } : {}),
+							time: s.time
+						}
 					})),
 				pagination_page: 1,
 				pagination_total: stores.length,
@@ -165,34 +215,97 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 			}
 			const hashOk =
 				m.item_hash === createHash('sha256').update(String(m.item_content)).digest('hex');
+			const signed = signerOf(
+				String(m.signature ?? ''),
+				[m.chain, m.sender, m.type, m.item_hash].join('\n')
+			);
+			const signatureOk = signed === toChecksumAddress(String(m.sender));
+			const answer = (/** @type {string} */ status) =>
+				reply(status === 'processed' ? 200 : 202, {
+					publication_status: { status: 'success', failed: [] },
+					// Aleph answers before it has decided: anything but a processed message is pending here.
+					message_status: status === 'processed' ? 'processed' : 'pending'
+				});
+
+			if (m?.type === 'AGGREGATE') {
+				const shapeOk =
+					hashOk &&
+					m.chain === 'ETH' &&
+					m.item_type === 'inline' &&
+					m.channel === 'security' &&
+					content?.key === 'security' &&
+					content?.address === m.sender &&
+					Array.isArray(content?.content?.authorizations);
+				if (!shapeOk) return reply(422, { error: 'not an AGGREGATE this fake takes' });
+				const status = signatureOk ? 'processed' : 'rejected';
+				aggregates.set(m.item_hash, { status });
+				if (status === 'processed') {
+					authorizations.set(toChecksumAddress(m.sender), content.content.authorizations);
+				}
+				return answer(status);
+			}
+
 			const shapeOk =
+				hashOk &&
 				m.chain === 'ETH' &&
 				m.type === 'STORE' &&
 				m.item_type === 'inline' &&
 				typeof m.channel === 'string' &&
 				typeof m.time === 'number' &&
 				content?.item_type === 'ipfs' &&
-				content?.address === m.sender &&
-				added.has(content?.item_hash);
-			if (!hashOk || !shapeOk) return reply(422, { error: 'not a STORE message this fake takes' });
-			const signed = signerOf(
-				String(m.signature ?? ''),
-				[m.chain, m.sender, m.type, m.item_hash].join('\n')
-			);
-			const status = signed === toChecksumAddress(m.sender) ? 'processed' : 'pending';
+				typeof content?.address === 'string' &&
+				added.has(content?.item_hash) &&
+				(content.payment === undefined || ['credit', 'hold'].includes(content.payment?.type));
+			if (!shapeOk) return reply(422, { error: 'not a STORE message this fake takes' });
+			const payment = content.payment?.type ?? null;
+			/** @type {{ status: string, errorCode?: number, details?: unknown }} */
+			let verdict = { status: 'processed' };
+			if (!signatureOk) verdict = { status: 'pending' };
+			else if (content.address !== m.sender && !allowed(content.address, m.sender, m.channel)) {
+				verdict = { status: 'rejected', errorCode: 3, details: { errors: ['not authorized'] } };
+			} else if (payment === 'credit') {
+				// The paying account is the owner, never the sender (measured 2026-10-03).
+				const credits = accounts[toChecksumAddress(content.address)]?.balance ?? 0;
+				const mib = /** @type {Uint8Array} */ (added.get(content.item_hash)).length / 1048576;
+				const required = mib * FAKE_CREDITS_PER_MIB_DAY;
+				if (credits < required) {
+					verdict = {
+						status: 'rejected',
+						errorCode: 6,
+						details: {
+							errors: [
+								{
+									account_credits: String(credits),
+									min_runtime_days: 1,
+									required_credits: required.toFixed(18)
+								}
+							]
+						}
+					};
+				}
+			}
 			stores.push({
 				sender: m.sender,
 				cid: content.item_hash,
 				channel: m.channel,
-				status,
 				owner: content.address,
 				time: content.time,
-				itemHash: m.item_hash
+				itemHash: m.item_hash,
+				payment,
+				...verdict
 			});
-			return reply(status === 'processed' ? 200 : 202, {
-				publication_status: { status: 'success', failed: [] },
-				message_status: status
-			});
+			return answer(verdict.status);
+		}
+		if (
+			req.method === 'GET' &&
+			/^\/api\/v0\/aggregates\/0x[0-9a-fA-F]{40}\.json$/.test(url.pathname)
+		) {
+			const owner = url.pathname.slice('/api/v0/aggregates/'.length, -'.json'.length);
+			const list = authorizations.get(owner);
+			// Aleph keys accounts by their checksummed form, as for balances.
+			if (!list || owner !== toChecksumAddress(owner))
+				return reply(404, { error: 'No aggregate found' });
+			return reply(200, { address: owner, data: { security: { authorizations: list } } });
 		}
 		const m =
 			/^\/api\/v0\/addresses\/(0x[0-9a-fA-F]{40})\/(balance|credit_history(?:\/summary)?)$/.exec(
@@ -272,6 +385,17 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 			});
 		}
 		const msg = /^\/api\/v0\/messages\/([0-9a-f]{64})$/.exec(url.pathname);
+		const store = msg && stores.find((s) => s.itemHash === msg[1]);
+		if (store) {
+			return reply(200, {
+				status: store.status,
+				item_hash: store.itemHash,
+				...(store.errorCode !== undefined ? { error_code: store.errorCode } : {}),
+				...(store.details !== undefined ? { details: store.details } : {})
+			});
+		}
+		const aggregate = msg && aggregates.get(msg[1]);
+		if (aggregate) return reply(200, { status: aggregate.status, item_hash: msg[1] });
 		if (msg && messages[msg[1]]) {
 			const { type, name } = messages[msg[1]];
 			return reply(200, {
@@ -288,6 +412,11 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 		calls,
 		added,
 		stores,
+		/** Put credits on an account, as a transfer would. @param {string} address @param {number} credits */
+		fund(address, credits) {
+			const key = toChecksumAddress(address);
+			accounts[key] = { balance: credits, rows: accounts[key]?.rows ?? [] };
+		},
 		close: () =>
 			new Promise((resolve) => {
 				server.close(() => resolve(undefined));

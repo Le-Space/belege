@@ -315,6 +315,9 @@ export default {
 			originNotAllowed: 'Diese App-Adresse ist in der Bridge nicht erlaubt.',
 			wrongCode: 'Falscher Kopplungscode.',
 			noCode: 'Kein Kopplungscode aktiv: Bridge mit --pair neu starten.',
+			alephNotKept:
+				'Aleph hat die Sicherung nicht behalten: Auf dem Konto der Bridge sind {credits} Credits, für einen Tag braucht diese Sicherung {required}. Lade Credits auf (app.aleph.cloud → Credits) und sichere noch einmal.',
+			alephRejected: 'Aleph hat die Sicherung nicht behalten ({error}).',
 			mailNotSetUp: 'Das Postfach ist auf der Bridge nicht eingerichtet (pnpm setup:mail).',
 			llmNotSetUp: 'Das Auslesen ist auf der Bridge nicht eingerichtet (pnpm setup:llm).',
 			senderUnverified: 'Der Absender ist nicht bestätigt (DKIM/SPF): erst freigeben.',
