@@ -19,7 +19,7 @@ Local-first pre-accounting for a small business: matches bank and crypto transac
 - **AI, only on a click (✦):** your own model in the bridge, redacted; five places, usage and cost in view.
 - **Crypto:** Kraken, and own wallets on Nym (Nyx), Akash, Ethereum, Base, Arbitrum One, OP Mainnet, Polygon, Bitcoin and Filecoin (read by address through the bridge) and Monero (from the wallet's own export, read in the browser); euros at the day's rate with its source (CoinGecko, Kraken, ECB, Uniswap V2–V4 pools, trade, migration, by hand); swaps and migrations.
 - **Backup:** everything the browser keeps, sealed with a key from the passkey, on Aleph Cloud through [`@le-space/orbitdb-storage-bridge`](https://github.com/NiKrause/orbitdb-storage-bridge); restored into an empty browser with the same passkey ([docs/backup.md](docs/backup.md)).
-- **Export:** SKR 03 and BU keys, a monthly DATEV EXTF ZIP for MonkeyOffice with the receipts.
+- **Export:** SKR 03 and BU keys, a monthly DATEV EXTF ZIP for MonkeyOffice with the receipts; crypto movements as JSON or CSV in the open, MIT-licensed [crypto-ledger format](schema/README.md).
 - **Devices:** the same books on phone and computer after a passkey proof, over public relays, a relay in your own bridge, or by QR without any relay (a new device only over the own network, if you like); the computer's bridge for the phone; the invoicing app over UCEP.
 - **German and English:** switched in the header; documents for German bookkeeping stay German.
 

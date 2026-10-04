@@ -2067,6 +2067,21 @@ export default {
 		done: 'Downloaded: {file} – {bookings} bookings, {receipts} receipts, {statements} bank statements.',
 		blocked: 'Sort out the items marked in red first.',
 		failed: 'The export failed: {error}',
+		crypto: {
+			title: 'Crypto movements',
+			intro:
+				'Every booking of your wallets and exchange accounts in an open format (crypto-ledger, MIT licence) other programs can read – with quantity, euro value, rate source and transaction hash. The file is created here in the browser.',
+			year: 'Year',
+			allYears: 'all years',
+			json: 'Download as JSON',
+			csv: 'Download as CSV',
+			done: 'Downloaded: {file} – {movements} movements on {accounts} accounts.',
+			technical: [
+				'Format crypto-ledger version 1, described as a JSON Schema in schema/crypto-ledger.v1.schema.json (MIT): accounts as CAIP-10 (wallet) or a ccxt exchange id, chains as CAIP-2, assets as CAIP-19 where that is unambiguous.',
+				'One movement per booking: the quantity as signed decimal text, fees as movements of their own, the euro value with rate, source and moment as booked; without a rate it is null. Deleted bookings are left out.',
+				'The CSV has the same fields, one row per movement, comma as separator, point as decimal mark, UTF-8, CRLF; text a spreadsheet would read as a formula starts with an apostrophe.'
+			]
+		},
 		overview: {
 			noReceipt: 'no receipt',
 			noFile: 'Receipt {number} without a file (email text)',
