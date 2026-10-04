@@ -367,6 +367,157 @@
 			</div>
 		{/if}
 
+		<!-- Adding comes first: with many wallets, a form below the list is not found. -->
+		{#if wallets.length && !showAdd}
+			<button
+				type="button"
+				class="mt-4 {btn.secondary}"
+				onclick={() => (showAdd = true)}
+				data-testid="wallet-add-open">+ {t('integrationen.wallets.addTitle')}</button
+			>
+		{:else}
+			<form
+				class="mt-4 flex flex-col gap-2 text-sm {wallets.length
+					? 'border-b border-border pb-4'
+					: ''}"
+				onsubmit={add}
+				data-testid="wallet-add"
+			>
+				<h3 class="font-medium text-heading">{t('integrationen.wallets.addTitle')}</h3>
+				<label class="flex flex-wrap items-center gap-2">
+					{t('integrationen.wallets.chain')}
+					<select
+						class="rounded-md border border-border bg-surface px-2 py-1 text-heading"
+						bind:value={chainId}
+						onchange={() => (custom = {})}
+						data-testid="wallet-chain"
+					>
+						{#each Object.values(WALLET_CHAINS) as c (c.id)}
+							<option value={c.id}>{c.name}</option>
+						{/each}
+					</select>
+				</label>
+				{#if localChain?.kind === 'bitcoin'}
+					<div class="flex flex-col gap-1" data-testid="wallet-bitcoin-key">
+						<p class="text-xs text-faint">{t('integrationen.wallets.bitcoinHint')}</p>
+						<div class="flex flex-wrap items-center gap-2">
+							<button
+								type="button"
+								class="rounded-md border border-border px-3 py-1 text-sm text-text hover:bg-surface-2"
+								onclick={takeBitcoinKey}
+								data-testid="wallet-bitcoin-take">{t('integrationen.wallets.bitcoinTake')}</button
+							>
+							{#if address}<span class="font-mono text-heading">{address}</span>{/if}
+						</div>
+						{#if bitcoinNote}<p class="text-xs text-danger" role="alert">{bitcoinNote}</p>{/if}
+					</div>
+				{:else}
+					<label class="flex flex-col gap-1">
+						{t('integrationen.wallets.address')}
+						<input
+							class="rounded-md border border-border bg-surface px-2 py-1 font-mono text-heading"
+							bind:value={address}
+							autocomplete="off"
+							spellcheck="false"
+							placeholder={localChain?.kind === 'evm'
+								? '0x…'
+								: localChain?.kind === 'filecoin'
+									? 'f1… · f410f… · 0x…'
+									: localChain?.kind === 'monero'
+										? '4… · 8…'
+										: `${localChain?.bech32Prefix ?? ''}1…`}
+							data-testid="wallet-address-input"
+						/>
+					</label>
+					<p class="text-xs text-faint">
+						{localChain?.kind === 'monero'
+							? t('integrationen.wallets.moneroHint')
+							: t('integrationen.wallets.addressHint')}
+					</p>
+				{/if}
+				{@render metaFields(
+					{
+						get name() {
+							return newName;
+						},
+						set name(v) {
+							newName = v;
+						},
+						get ledger() {
+							return newLedger;
+						},
+						set ledger(v) {
+							newLedger = v;
+						},
+						get cost() {
+							return newCostCentre;
+						},
+						set cost(v) {
+							newCostCentre = v;
+						}
+					},
+					'wallet-new'
+				)}
+				{#if info}
+					<div
+						class="rounded-md border border-border bg-surface-2 px-3 py-2"
+						data-testid="wallet-uses"
+					>
+						<p class="text-xs font-semibold text-heading">{t('integrationen.wallets.uses')}</p>
+						{#each Object.entries(info.endpoints) as [name, fallback] (name)}
+							<label class="mt-1 flex flex-col gap-0.5 text-xs">
+								<span
+									>{alchemyField(name)
+										? t('integrationen.wallets.endpoint.apiOwn')
+										: `${endpointLabel(name)} (${t('integrationen.wallets.customHint')})`}</span
+								>
+								<input
+									class="rounded-md border border-border bg-surface px-2 py-1 font-mono text-heading"
+									value={custom[name] ?? ''}
+									oninput={(e) => (custom = { ...custom, [name]: e.currentTarget.value })}
+									placeholder={alchemyField(name) ? 'https://…' : fallback}
+									data-testid={`wallet-endpoint-${name}`}
+								/>
+							</label>
+							{#if info.alternatives?.[name]?.length}
+								<p class="text-xs text-faint">
+									{t('integrationen.wallets.alternatives', {
+										list: info.alternatives[name].join(', ')
+									})}
+								</p>
+							{/if}
+						{/each}
+						{#if alchemy && info.alchemySupported}
+							<p class="mt-1 text-xs" data-testid="wallet-uses-alchemy">
+								{t('integrationen.wallets.source.customReplaces')}
+							</p>
+						{/if}
+						<p class="mt-1 text-xs">
+							{t('integrationen.wallets.explorer', { name: info.explorer.name })}
+						</p>
+					</div>
+				{/if}
+				<button
+					type="submit"
+					class="self-start rounded-md border border-border px-4 py-1.5 font-medium text-heading hover:bg-surface-2 disabled:opacity-50"
+					disabled={adding || !address.trim()}
+					data-testid="wallet-add-button">{t('integrationen.wallets.add')}</button
+				>
+				{#if wallets.length}
+					<button
+						type="button"
+						class="self-start text-sm text-text underline hover:text-heading"
+						onclick={() => (showAdd = false)}
+						data-testid="wallet-add-cancel">{t('integrationen.wallets.addCancel')}</button
+					>
+				{/if}
+				{#if addError}
+					<p class="text-sm text-danger" role="alert" data-testid="wallet-add-error">{addError}</p>
+					<WayOut message={addError} />
+				{/if}
+			</form>
+		{/if}
+
 		{#if wallets.length}
 			<ul class="mt-3 divide-y divide-border" data-testid="wallets">
 				{#each wallets as wallet (wallet.id)}
@@ -616,142 +767,6 @@
 					</li>
 				{/each}
 			</ul>
-		{/if}
-
-		{#if wallets.length && !showAdd}
-			<button
-				type="button"
-				class="mt-4 {btn.secondary}"
-				onclick={() => (showAdd = true)}
-				data-testid="wallet-add-open">+ {t('integrationen.wallets.addTitle')}</button
-			>
-		{:else}
-			<form class="mt-4 flex flex-col gap-2 text-sm" onsubmit={add} data-testid="wallet-add">
-				<h3 class="font-medium text-heading">{t('integrationen.wallets.addTitle')}</h3>
-				<label class="flex flex-wrap items-center gap-2">
-					{t('integrationen.wallets.chain')}
-					<select
-						class="rounded-md border border-border bg-surface px-2 py-1 text-heading"
-						bind:value={chainId}
-						onchange={() => (custom = {})}
-						data-testid="wallet-chain"
-					>
-						{#each Object.values(WALLET_CHAINS) as c (c.id)}
-							<option value={c.id}>{c.name}</option>
-						{/each}
-					</select>
-				</label>
-				{#if localChain?.kind === 'bitcoin'}
-					<div class="flex flex-col gap-1" data-testid="wallet-bitcoin-key">
-						<p class="text-xs text-faint">{t('integrationen.wallets.bitcoinHint')}</p>
-						<div class="flex flex-wrap items-center gap-2">
-							<button
-								type="button"
-								class="rounded-md border border-border px-3 py-1 text-sm text-text hover:bg-surface-2"
-								onclick={takeBitcoinKey}
-								data-testid="wallet-bitcoin-take">{t('integrationen.wallets.bitcoinTake')}</button
-							>
-							{#if address}<span class="font-mono text-heading">{address}</span>{/if}
-						</div>
-						{#if bitcoinNote}<p class="text-xs text-danger" role="alert">{bitcoinNote}</p>{/if}
-					</div>
-				{:else}
-					<label class="flex flex-col gap-1">
-						{t('integrationen.wallets.address')}
-						<input
-							class="rounded-md border border-border bg-surface px-2 py-1 font-mono text-heading"
-							bind:value={address}
-							autocomplete="off"
-							spellcheck="false"
-							placeholder={localChain?.kind === 'evm'
-								? '0x…'
-								: localChain?.kind === 'filecoin'
-									? 'f1… · f410f… · 0x…'
-									: localChain?.kind === 'monero'
-										? '4… · 8…'
-										: `${localChain?.bech32Prefix ?? ''}1…`}
-							data-testid="wallet-address-input"
-						/>
-					</label>
-					<p class="text-xs text-faint">
-						{localChain?.kind === 'monero'
-							? t('integrationen.wallets.moneroHint')
-							: t('integrationen.wallets.addressHint')}
-					</p>
-				{/if}
-				{@render metaFields(
-					{
-						get name() {
-							return newName;
-						},
-						set name(v) {
-							newName = v;
-						},
-						get ledger() {
-							return newLedger;
-						},
-						set ledger(v) {
-							newLedger = v;
-						},
-						get cost() {
-							return newCostCentre;
-						},
-						set cost(v) {
-							newCostCentre = v;
-						}
-					},
-					'wallet-new'
-				)}
-				{#if info}
-					<div
-						class="rounded-md border border-border bg-surface-2 px-3 py-2"
-						data-testid="wallet-uses"
-					>
-						<p class="text-xs font-semibold text-heading">{t('integrationen.wallets.uses')}</p>
-						{#each Object.entries(info.endpoints) as [name, fallback] (name)}
-							<label class="mt-1 flex flex-col gap-0.5 text-xs">
-								<span
-									>{alchemyField(name)
-										? t('integrationen.wallets.endpoint.apiOwn')
-										: `${endpointLabel(name)} (${t('integrationen.wallets.customHint')})`}</span
-								>
-								<input
-									class="rounded-md border border-border bg-surface px-2 py-1 font-mono text-heading"
-									value={custom[name] ?? ''}
-									oninput={(e) => (custom = { ...custom, [name]: e.currentTarget.value })}
-									placeholder={alchemyField(name) ? 'https://…' : fallback}
-									data-testid={`wallet-endpoint-${name}`}
-								/>
-							</label>
-							{#if info.alternatives?.[name]?.length}
-								<p class="text-xs text-faint">
-									{t('integrationen.wallets.alternatives', {
-										list: info.alternatives[name].join(', ')
-									})}
-								</p>
-							{/if}
-						{/each}
-						{#if alchemy && info.alchemySupported}
-							<p class="mt-1 text-xs" data-testid="wallet-uses-alchemy">
-								{t('integrationen.wallets.source.customReplaces')}
-							</p>
-						{/if}
-						<p class="mt-1 text-xs">
-							{t('integrationen.wallets.explorer', { name: info.explorer.name })}
-						</p>
-					</div>
-				{/if}
-				<button
-					type="submit"
-					class="self-start rounded-md border border-border px-4 py-1.5 font-medium text-heading hover:bg-surface-2 disabled:opacity-50"
-					disabled={adding || !address.trim()}
-					data-testid="wallet-add-button">{t('integrationen.wallets.add')}</button
-				>
-				{#if addError}
-					<p class="text-sm text-danger" role="alert" data-testid="wallet-add-error">{addError}</p>
-					<WayOut message={addError} />
-				{/if}
-			</form>
 		{/if}
 	</section>
 {/if}

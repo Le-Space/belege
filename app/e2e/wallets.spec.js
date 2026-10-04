@@ -196,6 +196,18 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 	await expect(walletB.getByTestId('wallet-result')).toHaveText(
 		'Neu: 1 · Aktualisiert: 0 · Übersprungen: 0'
 	);
+
+	// Adding comes before the list: with many wallets it is still at hand.
+	expect(
+		await card.evaluate(
+			(c, [a, b]) => {
+				const x = c.querySelector(`[data-testid="${a}"]`);
+				const y = c.querySelector(`[data-testid="${b}"]`);
+				return Boolean(x && y && x.compareDocumentPosition(y) & Node.DOCUMENT_POSITION_FOLLOWING);
+			},
+			['wallet-add-open', 'wallets']
+		)
+	).toBe(true);
 	await expect(walletB.getByTestId('wallet-account')).toContainText('100 NYM');
 
 	// A second sync of A adds nothing.

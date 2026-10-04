@@ -258,6 +258,71 @@
 			</li>
 		</ol>
 	{:else}
+		<!-- Connecting a bank comes first: below the linked banks and their accounts it is not found. -->
+		<div
+			class="mt-4 {links.length ? 'border-b border-border pb-4' : ''}"
+			data-testid="enablebanking-connect"
+		>
+			<div class="flex flex-wrap items-end gap-3">
+				<label class="text-sm text-text">
+					<span class="block">{t('integrationen.enableBanking.country')}</span>
+					<select
+						class="mt-1 rounded-md border border-border bg-surface px-2 py-1 text-sm text-heading"
+						bind:value={country}
+						data-testid="enablebanking-country"
+					>
+						{#each countries as c (c.code)}
+							<option value={c.code}>{c.name}</option>
+						{/each}
+					</select>
+				</label>
+				<label class="min-w-48 flex-1 text-sm text-text">
+					<span class="block">{t('integrationen.enableBanking.bank')}</span>
+					<input
+						class="mt-1 w-full rounded-md border border-border bg-surface px-2 py-1 text-sm text-heading"
+						list="eb-banks"
+						bind:value={bankName}
+						placeholder={t('integrationen.enableBanking.bankPlaceholder', { count: banks.length })}
+						data-testid="enablebanking-bank"
+					/>
+					<datalist id="eb-banks">
+						{#each banks as b (b.name)}
+							<option value={b.name}></option>
+						{/each}
+					</datalist>
+				</label>
+				{#if bothKinds}
+					<label class="text-sm text-text">
+						<span class="block">{t('integrationen.enableBanking.kindLabel')}</span>
+						<select
+							class="mt-1 rounded-md border border-border bg-surface px-2 py-1 text-sm text-heading"
+							bind:value={psuType}
+							data-testid="enablebanking-kind"
+						>
+							<option value="business">{t('integrationen.enableBanking.kind.business')}</option>
+							<option value="personal">{t('integrationen.enableBanking.kind.personal')}</option>
+						</select>
+					</label>
+				{/if}
+			</div>
+			<button
+				type="button"
+				class="mt-3 {btn.primary}"
+				disabled={!bank || busy}
+				onclick={() => link()}
+				data-testid="enablebanking-start"
+				>{busy
+					? t('integrationen.enableBanking.going')
+					: t('integrationen.enableBanking.start')}</button
+			>
+			{#if bank}
+				<p class="mt-1 text-xs text-faint">
+					{t('integrationen.enableBanking.startHint', {
+						days: Math.min(bank.maxConsentDays, 180)
+					})}
+				</p>
+			{/if}
+		</div>
 		{#if links.length}
 			<ul class="mt-3 divide-y divide-border" data-testid="enablebanking-links">
 				{#each links as l (l.id)}
@@ -368,66 +433,6 @@
 					<code class="font-mono text-heading">pnpm setup:enablebanking -- --accounts</code>
 				</p>
 			{/if}
-		{/if}
-
-		<div class="mt-4 flex flex-wrap items-end gap-3">
-			<label class="text-sm text-text">
-				<span class="block">{t('integrationen.enableBanking.country')}</span>
-				<select
-					class="mt-1 rounded-md border border-border bg-surface px-2 py-1 text-sm text-heading"
-					bind:value={country}
-					data-testid="enablebanking-country"
-				>
-					{#each countries as c (c.code)}
-						<option value={c.code}>{c.name}</option>
-					{/each}
-				</select>
-			</label>
-			<label class="min-w-48 flex-1 text-sm text-text">
-				<span class="block">{t('integrationen.enableBanking.bank')}</span>
-				<input
-					class="mt-1 w-full rounded-md border border-border bg-surface px-2 py-1 text-sm text-heading"
-					list="eb-banks"
-					bind:value={bankName}
-					placeholder={t('integrationen.enableBanking.bankPlaceholder', { count: banks.length })}
-					data-testid="enablebanking-bank"
-				/>
-				<datalist id="eb-banks">
-					{#each banks as b (b.name)}
-						<option value={b.name}></option>
-					{/each}
-				</datalist>
-			</label>
-			{#if bothKinds}
-				<label class="text-sm text-text">
-					<span class="block">{t('integrationen.enableBanking.kindLabel')}</span>
-					<select
-						class="mt-1 rounded-md border border-border bg-surface px-2 py-1 text-sm text-heading"
-						bind:value={psuType}
-						data-testid="enablebanking-kind"
-					>
-						<option value="business">{t('integrationen.enableBanking.kind.business')}</option>
-						<option value="personal">{t('integrationen.enableBanking.kind.personal')}</option>
-					</select>
-				</label>
-			{/if}
-		</div>
-		<button
-			type="button"
-			class="mt-3 {btn.primary}"
-			disabled={!bank || busy}
-			onclick={() => link()}
-			data-testid="enablebanking-start"
-			>{busy
-				? t('integrationen.enableBanking.going')
-				: t('integrationen.enableBanking.start')}</button
-		>
-		{#if bank}
-			<p class="mt-1 text-xs text-faint">
-				{t('integrationen.enableBanking.startHint', {
-					days: Math.min(bank.maxConsentDays, 180)
-				})}
-			</p>
 		{/if}
 	{/if}
 

@@ -2886,6 +2886,7 @@ export default {
 					'With an Alchemy key the bridge reads via Alchemy; your own endpoint here replaces Alchemy for this wallet.'
 			},
 			addTitle: 'Add wallet',
+			addCancel: 'Cancel',
 			chain: 'Chain',
 			address: 'Address',
 			addressHint:

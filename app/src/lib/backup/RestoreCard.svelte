@@ -27,6 +27,16 @@
 	let typed = $state('');
 	/** @type {string | null} the backup asked for, waiting for the yes */
 	let chosen = $state(null);
+
+	/**
+	 * The confirmation comes into view when it appears: picked from a long list
+	 * of backups, it would otherwise open far below the click.
+	 *
+	 * @param {HTMLElement} node
+	 */
+	function reveal(node) {
+		node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+	}
 	let phase = $state(/** @type {'' | 'fetching' | 'restoring' | 'done'} */ (''));
 	let progress = $state(/** @type {import('./archive.js').RestoreProgress | null} */ (null));
 	/** @type {string | null} */
@@ -188,6 +198,7 @@
 	{#if chosen}
 		<div
 			class="mt-3 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
+			use:reveal
 			data-testid="restore-confirm"
 		>
 			<p class="text-text">{t('restore.confirm')}</p>

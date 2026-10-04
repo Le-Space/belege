@@ -2927,6 +2927,7 @@ export default {
 					'Mit Alchemy-Schlüssel liest die Bridge über Alchemy; ein eigener Endpunkt hier ersetzt Alchemy für diese Wallet.'
 			},
 			addTitle: 'Wallet hinzufügen',
+			addCancel: 'Abbrechen',
 			chain: 'Chain',
 			address: 'Adresse',
 			addressHint:
