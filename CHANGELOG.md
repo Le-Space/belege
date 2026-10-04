@@ -11,7 +11,7 @@ All notable changes to Le Space Belege. The format follows
 - **Backup on Aleph Cloud** (#77). _Integrationen → Backup → "Jetzt sichern"_ packs everything Belege keeps in this browser into one file: all eight databases block by block, with their writers and heads, and every receipt file. The file is sealed with a key from the passkey, so Aleph sees one opaque file and its size.
   - The browser uploads it directly to Aleph's IPFS host. The bridge only signs the order that has Aleph keep it, with its own backup key from `pnpm setup:aleph`. The setup prints the address of the Aleph account that pays, never the key.
   - The page counts as it packs (database by database, then the receipt files, then sealing). Afterwards it shows what went in per database. The history keeps every backup with its CID and contents; the overview shows when the last one ran.
-  - The backup is built with `@le-space/orbitdb-storage-bridge` 0.16.1 (`bundleDatabases`). A test puts it back into an empty node through the package's `restoreFromBlocks`, and the books, the receipt file and the writer come back.
+  - The backup is built with `@le-space/orbitdb-storage-bridge` 0.17.0 (`bundleDatabases`). A test puts it back into an empty node through the package's `restoreFromBlocks`, and the books, the receipt file and the writer come back.
   - All of it in [docs/backup.md](docs/backup.md) ([Deutsch](docs/backup.de.md)). The consent screen names the backup and what leaves (consent version 20).
 
 - **Restore a backup** (#77). _Integrationen → Backup → "Wiederherstellen"_ after unlocking with the same passkey.
@@ -19,6 +19,12 @@ All notable changes to Le Space Belege. The format follows
   - It fetches the sealed file from Aleph's gateway, opens it with the passkey's key, puts every database and receipt file back through the storage bridge's `restoreFromBlocks`, and reloads.
   - It merges and deletes nothing. A backup of another passkey, or of other books, is refused with a clear message, and a failed restore says why instead of reporting success.
   - The consent screen says the browser fetches from Aleph's gateway (consent version 21). All of it in [docs/backup.md](docs/backup.md).
+
+- **A backup is paid in credits, and another key may keep backups for the bridge's account** (#77, Le-Space/invoice#28). With `@le-space/orbitdb-storage-bridge` 0.17.0:
+  - **Credits.** The bridge's STORE message is paid in credits. Before, it was booked as `hold`, which only ALEPH held on the account covers. Aleph refuses a backup when the account has less than a day of it, about 54 credits per MiB and day (measured 2026-10-03). The backup page then says how many credits the account has and how many it takes.
+  - **A pending answer** from Aleph is followed until Aleph has decided, so "kept" means kept.
+  - **`pnpm setup:aleph -- --authorize <address> --channel <CHANNEL>`** lets another key keep backups at the bridge account's expense: STORE only, on that channel only. `--grants` lists the keys, `--revoke` takes a grant back. This is how Le Space Invoice backs up from the browser without the bridge running.
+  - **The list of backups** asks Aleph by the paying account (`owners=`), so what such a key kept is in it too.
 
 - **Invoices paid in instalments** (#258). One invoice can carry several payments until they add up to it; each instalment is covered by the same invoice, and what is open comes from the links.
   - **Matching:**

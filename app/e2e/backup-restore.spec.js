@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { defaultConfig, saveConfig } from '@belege/bridge';
-import { startFakeAleph } from '@belege/bridge/testing/aleph';
+import { alephAccountOf, startFakeAleph } from '@belege/bridge/testing/aleph';
 import { addVirtualAuthenticator, forgetThisDevice } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
@@ -76,7 +76,10 @@ const transactions = (page) =>
 	});
 
 test.beforeAll(async () => {
-	aleph = await startFakeAleph({ accounts: {} });
+	// The bridge's account pays for keeping the backup (credits, since storage bridge 0.17.0).
+	aleph = await startFakeAleph({
+		accounts: { [alephAccountOf(KEY)]: { balance: 1_000_000, rows: [] } }
+	});
 	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-restore-'));
 	configPath = join(dir, 'bridge.json');
 	await saveConfig(

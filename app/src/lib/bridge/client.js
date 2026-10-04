@@ -1,4 +1,4 @@
-import { t } from '../i18n/index.js';
+import { intlLocale, t } from '../i18n/index.js';
 import { noteWayOut, wayOutKind } from '../help/way-out.js';
 // The app's side of the bridge on 127.0.0.1 (see bridge/README.md).
 
@@ -244,6 +244,20 @@ export function createBridgeClient({
 							? t('messages.bridge.llmNotSetUp')
 							: body?.error
 			});
+			if (res.status === 402 && body?.code === 'ALEPH_BACKUP_REJECTED') {
+				// Aleph refused to keep a backup; with too little credit it says how much is needed.
+				const reason = body.reason;
+				throw failed(
+					reason && Number.isFinite(reason.credits) && Number.isFinite(reason.required)
+						? t('messages.bridge.alephNotKept', {
+								credits: reason.credits.toLocaleString(intlLocale()),
+								required: reason.required.toLocaleString(intlLocale())
+							})
+						: t('messages.bridge.alephRejected', { error: body?.error ?? '' }),
+					402,
+					body
+				);
+			}
 			if (res.status === 403 && body?.code === 'SENDER_UNVERIFIED') {
 				throw new BridgeError(t('messages.bridge.senderUnverified'), 403);
 			}

@@ -21,7 +21,7 @@ import {
 import { startBridge } from '../src/index.js';
 import { defaultConfig, loadConfig, saveConfig } from '../src/config.js';
 import { memoryKeychain } from '../src/keychain.js';
-import { runAlephSetup } from '../src/setup-aleph.js';
+import { runAlephGrants, runAlephSetup } from '../src/setup-aleph.js';
 import { startFakeAleph } from './support/fake-aleph.js';
 import { request } from './support/http.js';
 
@@ -29,6 +29,10 @@ const APP = 'http://localhost:5173';
 /** A made-up key, and another. */
 const KEY = createHash('sha256').update('belege backup test key').digest('hex');
 const OTHER = createHash('sha256').update('somebody else').digest('hex');
+/** A made-up key with no credits on its account. */
+const POOR = createHash('sha256').update('an account with no credits').digest('hex');
+/** A made-up key an application holds, which KEY's account may let keep backups. */
+const DELEGATE = createHash('sha256').update('an application in a browser').digest('hex');
 
 /** @type {string} */ let dir;
 /** @type {Awaited<ReturnType<typeof startFakeAleph>>} */ let aleph;
@@ -36,7 +40,10 @@ const OTHER = createHash('sha256').update('somebody else').digest('hex');
 before(async () => {
 	dir = await mkdtemp(join(tmpdir(), 'belege-aleph-backup-'));
 	aleph = await startFakeAleph({
-		accounts: { [addressOf(KEY)]: { balance: 1_500_000, rows: [] } }
+		accounts: {
+			[addressOf(KEY)]: { balance: 1_500_000, rows: [] },
+			[addressOf(OTHER)]: { balance: 1_500_000, rows: [] }
+		}
 	});
 });
 after(async () => {
@@ -126,6 +133,83 @@ describe('setup:aleph', () => {
 			makeKey: () => OTHER
 		});
 		assert.equal(await keychain.read(), OTHER);
+	});
+
+	test('--authorize lets another key keep backups on one channel; --grants lists, --revoke takes it back', async () => {
+		const keychain = memoryKeychain(KEY, 'aleph-backup');
+		const run = async (/** @type {any} */ options) => {
+			const printed = io();
+			const ok = await runAlephGrants({
+				io: printed.io,
+				keychain,
+				apiHost: aleph.url,
+				...options
+			});
+			// The bridge's key is never printed, whatever the command.
+			assert.ok(printed.out.every((l) => !l.includes(KEY)));
+			return { ok, out: printed.out.join('\n') };
+		};
+		const delegate = addressOf(DELEGATE);
+
+		assert.match((await run({ action: 'grants' })).out, /No other key may keep backups/);
+
+		const granted = await run({
+			action: 'authorize',
+			address: delegate.toLowerCase(),
+			channel: 'INVOICE-BACKUP'
+		});
+		assert.equal(granted.ok, true);
+		assert.match(granted.out, new RegExp(`${delegate} may now keep backups on INVOICE-BACKUP`));
+		assert.match(granted.out, new RegExp(`${delegate}  STORE  on INVOICE-BACKUP`));
+
+		// A second channel joins the first, it does not replace it.
+		await run({ action: 'authorize', address: delegate, channel: 'BELEGE-BACKUP' });
+		assert.match(
+			(await run({ action: 'grants' })).out,
+			new RegExp(`${delegate}  STORE  on INVOICE-BACKUP,BELEGE-BACKUP`)
+		);
+
+		const revoked = await run({ action: 'revoke', address: delegate });
+		assert.equal(revoked.ok, true);
+		assert.match(revoked.out, /may no longer keep backups/);
+		assert.match(revoked.out, /No other key may keep backups/);
+	});
+
+	test('--authorize refuses what is no address, no channel, or the account itself; and wants a key', async () => {
+		const keychain = memoryKeychain(KEY, 'aleph-backup');
+		const run = async (/** @type {any} */ options) => {
+			const printed = io();
+			const ok = await runAlephGrants({ io: printed.io, keychain, apiHost: aleph.url, ...options });
+			return { ok, out: printed.out.join('\n') };
+		};
+		const delegate = addressOf(DELEGATE);
+		assert.deepEqual(await run({ action: 'authorize', address: '0x123', channel: 'X' }), {
+			ok: false,
+			out: 'That is not an address: 0x and 40 hexadecimal characters, as the application shows it.'
+		});
+		assert.match(
+			(await run({ action: 'authorize', address: delegate })).out,
+			/--channel INVOICE-BACKUP/
+		);
+		assert.match(
+			(await run({ action: 'authorize', address: delegate, channel: 'lower case' })).out,
+			/--channel/
+		);
+		assert.match(
+			(await run({ action: 'authorize', address: addressOf(KEY), channel: 'X-BACKUP' })).out,
+			/needs no grant/
+		);
+		const none = io();
+		assert.equal(
+			await runAlephGrants({
+				io: none.io,
+				keychain: memoryKeychain(null, 'aleph-backup'),
+				action: 'grants',
+				apiHost: aleph.url
+			}),
+			false
+		);
+		assert.match(none.out.join('\n'), /pnpm setup:aleph/);
 	});
 });
 
@@ -252,6 +336,83 @@ describe('/backup', () => {
 				aleph.added.get(cids[1]),
 				'the same bytes'
 			);
+		} finally {
+			await bridge.close();
+		}
+	});
+
+	test('lists what a key this account allowed kept for it (by owners), not what an unallowed one tried', async () => {
+		const { bridge, port, auth } = await bridgeWith({ configured: true });
+		try {
+			await runAlephGrants({
+				io: { print: () => {} },
+				keychain: memoryKeychain(KEY, 'aleph-backup'),
+				action: 'authorize',
+				address: addressOf(DELEGATE),
+				channel: BACKUP_CHANNEL,
+				apiHost: aleph.url
+			});
+			const upload = async () =>
+				(
+					await createAlephBackend({ ingestUrl: `${aleph.url}/api/v0/add` }).putBlob(
+						new Uint8Array(randomBytes(256)),
+						{ name: 'from-the-browser.car' }
+					)
+				).id;
+			// What a browser does with the key it holds: sign the STORE itself, for this account.
+			const byDelegate = await upload();
+			const kept = await createAlephPin({
+				sender: addressOf(DELEGATE),
+				owner: addressOf(KEY),
+				sign: async (_a, m) => personalSign(DELEGATE, m),
+				apiHost: aleph.url,
+				channel: BACKUP_CHANNEL
+			})(byDelegate);
+			assert.equal(kept.status, 'processed', 'the account pays, the delegate holds no credits');
+
+			// The same for a key nobody allowed: Aleph does not keep it.
+			const byStranger = await upload();
+			const refused = await createAlephPin({
+				sender: addressOf(POOR),
+				owner: addressOf(KEY),
+				sign: async (_a, m) => personalSign(POOR, m),
+				apiHost: aleph.url,
+				channel: BACKUP_CHANNEL
+			})(byStranger);
+			assert.equal(refused.status, 'pending', 'Aleph answers pending, and then rejects it');
+
+			const listed = (
+				await request(port, '/backup/aleph/list', { headers: auth })
+			).json.backups.map((/** @type {any} */ b) => b.cid);
+			assert.equal(listed[0], byDelegate, 'newest first, though another key sent it');
+			assert.equal(listed.includes(byStranger), false);
+		} finally {
+			await bridge.close();
+		}
+	});
+
+	test('an account that cannot pay for a day: refused with how many credits it takes, nothing logged that names it', async () => {
+		const { bridge, port, auth, logged } = await bridgeWith({ configured: true, key: POOR });
+		try {
+			const { id } = await createAlephBackend({ ingestUrl: `${aleph.url}/api/v0/add` }).putBlob(
+				new Uint8Array(randomBytes(3 * 1024 * 1024)),
+				{ name: 'belege-2026-10-04.car' }
+			);
+			const res = await request(port, '/backup/aleph/pin', {
+				method: 'POST',
+				headers: auth,
+				body: { cid: id }
+			});
+			assert.equal(res.status, 402, res.text);
+			assert.equal(res.json.code, 'ALEPH_BACKUP_REJECTED');
+			// 3 MiB for a day, at the price Aleph asked on 2026-10-03: 161.7 credits.
+			assert.deepEqual(res.json.reason, { credits: 0, required: 162 });
+			assert.match(res.json.error, /has 0 credits, and keeping this backup for a day needs 162/);
+			assert.equal(aleph.stores.at(-1)?.status, 'rejected');
+			for (const secret of [id, addressOf(POOR)]) {
+				assert.ok(!res.json.error.includes(secret));
+				assert.ok(logged.every((l) => !l.includes(secret)));
+			}
 		} finally {
 			await bridge.close();
 		}

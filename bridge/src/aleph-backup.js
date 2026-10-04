@@ -9,9 +9,12 @@
 //      (`POST https://ipfs.aleph.cloud/api/v0/add`); the answer is the file's
 //      CID. Uploaded is not kept: Aleph drops what nobody pays for.
 //   2. `backends/aleph-pin` sends a STORE message naming that CID to the Aleph
-//      API (`POST /api/v0/messages`), signed with the bridge's own backup key.
-//      Aleph keeps the file for as long as that key's account has credits (or
-//      holds ALEPH); no tokens move, the account only has to be able to pay.
+//      API (`POST /api/v0/messages`), signed with the bridge's own backup key
+//      and paid in credits. Aleph keeps the file for as long as that key's
+//      account has credits, and refuses it when the account has less than a
+//      day of it (about 54 credits per MiB, measured 2026-10-03). An answer of
+//      `pending` is followed until Aleph has decided; a refusal is an error
+//      that says how many credits were there and how many are needed.
 //
 // The key is the bridge's own, made by `pnpm setup:aleph` and kept in the
 // keychain (account `aleph-backup`): a secp256k1 key whose Ethereum address is
@@ -20,9 +23,11 @@
 // to fund, never the key. The signature is `personal_sign` (EIP-191) over
 // what aleph-pin hands in, as a browser wallet would sign it.
 //
-// To get a backup back, the app asks for the list of this account's STORE
-// messages on BELEGE-BACKUP (`list`, the public messages API, no key) and
-// fetches the file from Aleph's gateway itself (`gateways`).
+// To get a backup back, the app asks for the list of the STORE messages kept
+// for this account on BELEGE-BACKUP (`list`, the public messages API by
+// `owners`, no key) and fetches the file from Aleph's gateway itself
+// (`gateways`). By `owners`, the list also holds what another key sent for
+// this account once it is allowed to (`pnpm setup:aleph -- --authorize`).
 //
 // What leaves: the sealed bytes (the app seals them before they get here –
 // the bridge never sees a book in the clear) to Aleph's IPFS host, and the
@@ -34,7 +39,9 @@ import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { createAlephBackend } from '@le-space/orbitdb-storage-bridge/backends/aleph';
 import {
 	DEFAULT_ALEPH_API_HOST as DEFAULT_API,
-	createAlephPin
+	createAlephPin,
+	listAlephStores,
+	waitForMessage
 } from '@le-space/orbitdb-storage-bridge/backends/aleph-pin';
 
 import { toChecksumAddress } from './chains/evm.js';
@@ -97,13 +104,53 @@ export function personalSign(key, message) {
 }
 
 /**
+ * What Aleph said about a STORE once it had decided: `processed` is kept;
+ * `rejected` throws, with what Aleph gave as the reason; still `pending` when
+ * the time is up is returned as that.
+ *
+ * The message names no address and no CID: the server logs it.
+ *
+ * @param {{ itemHash: string, status: string }} kept as `createAlephPin` answered
+ * @param {{ apiHost?: string, fetch: typeof fetch, timeout?: number, interval?: number }} options
+ * @returns {Promise<{ itemHash: string, status: string }>}
+ */
+export async function settleStore(kept, { apiHost, fetch: f, timeout = 30_000, interval = 2_000 }) {
+	const final =
+		kept.status === 'pending'
+			? await waitForMessage(kept.itemHash, { apiHost, fetch: f, timeout, interval })
+			: kept;
+	if (final.status !== 'rejected') return { itemHash: kept.itemHash, status: final.status };
+
+	const why = /** @type {any} */ (final).details?.errors?.[0];
+	const lack = why && typeof why === 'object' && why.required_credits !== undefined;
+	const have = lack ? Math.floor(Number(why.account_credits)) : null;
+	const need = lack ? Math.ceil(Number(why.required_credits)) : null;
+	const message = lack
+		? `Aleph did not keep the backup: the backup account has ${have} credits, and keeping this backup for a day needs ${need}. Put credits on it (app.aleph.cloud → Credits).`
+		: `Aleph did not keep the backup (error ${/** @type {any} */ (final).errorCode ?? 'unknown'}).`;
+	throw Object.assign(new Error(message), {
+		status: 402,
+		code: 'ALEPH_BACKUP_REJECTED',
+		...(lack ? { reason: { credits: have, required: need } } : {})
+	});
+}
+
+/**
  * @param {object} options
  * @param {() => Promise<string>} options.getKey the backup key, from the keychain
  * @param {string} [options.ingestUrl] Aleph's IPFS host; tests point it at a fake
  * @param {string} [options.apiHost] the Aleph API; tests point it at a fake
  * @param {typeof fetch} [options.fetch]
+ * @param {{ timeout?: number, interval?: number }} [options.settle] how long a
+ *   pending STORE is followed; tests shorten it
  */
-export function createAlephBackup({ getKey, ingestUrl = ALEPH_INGEST, apiHost, fetch: f = fetch }) {
+export function createAlephBackup({
+	getKey,
+	ingestUrl = ALEPH_INGEST,
+	apiHost,
+	fetch: f = fetch,
+	settle = {}
+}) {
 	/** @returns {Promise<string>} */
 	async function key() {
 		const k = String(await getKey()).trim();
@@ -134,38 +181,36 @@ export function createAlephBackup({ getKey, ingestUrl = ALEPH_INGEST, apiHost, f
 		gateways: [`${new URL(ingestUrl).origin}/ipfs`],
 
 		/**
-		 * The backups this account has had Aleph keep, newest first: the STORE
-		 * messages it sent on BELEGE-BACKUP, from Aleph's public messages API.
+		 * The backups kept for this account, newest first: the STORE messages on
+		 * BELEGE-BACKUP whose paying account it is, from Aleph's public messages
+		 * API. By `owners`, not `addresses`: those a key it has allowed sent for
+		 * it are among them (measured 2026-10-03).
 		 *
 		 * @returns {Promise<{ cid: string, at: string, itemHash: string }[]>}
 		 */
 		async list() {
-			const sender = addressOf(await key());
-			const url = new URL(`${apiHost ?? DEFAULT_API}/api/v0/messages.json`);
-			url.searchParams.set('addresses', sender);
-			url.searchParams.set('msgTypes', 'STORE');
-			url.searchParams.set('channels', BACKUP_CHANNEL);
-			url.searchParams.set('pagination', '50');
-			url.searchParams.set('page', '1');
-			const response = await f(url.toString(), { signal: AbortSignal.timeout(20_000) });
-			if (!response.ok) {
-				throw Object.assign(new Error(`Aleph did not list the backups: ${response.status}`), {
+			const owner = addressOf(await key());
+			let found;
+			try {
+				found = await listAlephStores({
+					owner,
+					channel: BACKUP_CHANNEL,
+					apiHost: apiHost ?? DEFAULT_API,
+					fetch: f
+				});
+			} catch (/** @type {any} */ error) {
+				throw Object.assign(new Error(`Aleph did not list the backups: ${error.message}`), {
 					status: 502,
 					code: 'ALEPH_BACKUP_LIST'
 				});
 			}
-			const body = /** @type {any} */ (await response.json().catch(() => ({})));
-			const messages = Array.isArray(body?.messages) ? body.messages : [];
-			return messages
-				.map((/** @type {any} */ m) => ({
-					cid: String(m?.content?.item_hash ?? ''),
-					at: new Date(Number(m?.content?.time ?? m?.time ?? 0) * 1000).toISOString(),
-					itemHash: String(m?.item_hash ?? ''),
-					owner: String(m?.content?.address ?? '')
-				}))
-				.filter((b) => isAlephCid(b.cid) && b.owner === sender)
-				.map(({ owner: _owner, ...b }) => b)
-				.sort((a, b) => (a.at < b.at ? 1 : -1));
+			return found.stores
+				.filter((s) => isAlephCid(s.cid))
+				.map((s) => ({
+					cid: s.cid,
+					at: new Date(s.time * 1000).toISOString(),
+					itemHash: s.itemHash
+				}));
 		},
 
 		/** The account that pays for keeping the backups. */
@@ -184,8 +229,13 @@ export function createAlephBackup({ getKey, ingestUrl = ALEPH_INGEST, apiHost, f
 				throw Object.assign(new Error('not a CID'), { status: 400, code: 'ALEPH_BACKUP_CID' });
 			}
 			const k = await key();
-			const { itemHash, status } = await storeFor(k, cid);
-			return { cid, address: addressOf(k), itemHash, status };
+			const address = addressOf(k);
+			const { itemHash, status } = await settleStore(await storeFor(k, cid), {
+				apiHost,
+				fetch: f,
+				...settle
+			});
+			return { cid, address, itemHash, status };
 		},
 
 		/**
@@ -212,7 +262,10 @@ export function createAlephBackup({ getKey, ingestUrl = ALEPH_INGEST, apiHost, f
 				contentType: 'application/octet-stream'
 			});
 			await backend.pinCid?.(handle.id, { name });
-			const { itemHash, status } = /** @type {{ itemHash: string, status: string }} */ (kept);
+			const { itemHash, status } = await settleStore(
+				/** @type {{ itemHash: string, status: string }} */ (kept),
+				{ apiHost, fetch: f, ...settle }
+			);
 			return { cid: handle.id, size: bytes.length, address: sender, itemHash, status };
 		}
 	};

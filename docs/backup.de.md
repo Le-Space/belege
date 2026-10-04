@@ -7,7 +7,7 @@ Ein Backup enthält alles, was Belege in diesem Browser hält: die acht Datenban
 ## Einmal einrichten
 
 1. Im Terminal, im Ordner von Belege: `pnpm setup:aleph`. Die Bridge erzeugt einen eigenen Backup-Schlüssel und hält ihn im Schlüsselbund. Sie zeigt dessen Adresse an, nie den Schlüssel selbst. Diese Adresse ist das Aleph-Konto, das das Aufbewahren der Backups bezahlt. Es ist nicht deine Wallet.
-2. Lade Credits auf diese Adresse (app.aleph.cloud → Credits) oder schick ALEPH an sie. Aleph bewahrt ein Backup nur auf, solange das Konto zahlen kann. Pro Backup werden keine Token bewegt: Aleph prüft nur, ob das Konto zahlen kann.
+2. Lade Credits auf diese Adresse (app.aleph.cloud → Credits). Ein Backup wird mit Credits bezahlt: Aleph bewahrt es nur auf, solange das Konto welche hat, und lehnt ein neues ab, wenn sie nicht für einen Tag reichen (etwa 54 Credits pro MiB und Tag). Die Seite sagt dann, wie viele es braucht. Abgebucht wird stündlich; pro Backup werden keine Token bewegt, und ALEPH auf dem Konto bezahlt es nicht.
 3. Starte die Bridge neu (`pnpm bridge`).
 
 ## Sichern
@@ -27,10 +27,22 @@ Eine CID lässt sich auch eintippen. Nach einer Rückfrage holt der Browser die 
 
 Ein Backup eines anderen Passkeys lässt sich nicht öffnen („mit einem anderen gemacht“), und eines mit fremden Büchern wird abgelehnt.
 
+## Einen anderen Schlüssel sichern lassen
+
+Eine Anwendung kann aus dem Browser sichern, ohne dass die Bridge läuft: Sie hat einen eigenen Schlüssel, und das Konto der Bridge erlaubt diesem Schlüssel, auf seine Kosten Backups aufbewahren zu lassen. Le Space Invoice macht das so (Le-Space/invoice#28): Ihre Einstellungen zeigen die Adresse des Schlüssels und den Befehl.
+
+```sh
+pnpm setup:aleph -- --authorize <Adresse> --channel INVOICE-BACKUP   # darf in diesem Kanal sichern
+pnpm setup:aleph -- --grants                                         # wer darf
+pnpm setup:aleph -- --revoke <Adresse>                               # zurücknehmen
+```
+
+Eine Freigabe ist ein Eintrag im `security`-Aggregat des Kontos bei Aleph, unterschrieben mit dem Backup-Schlüssel der Bridge: nur STORE, nur im genannten Kanal. Aleph berechnet dem Konto der Bridge, was dieser Schlüssel aufbewahren lässt, nicht dem Schlüssel (gemessen am 3.10.2026). Die Liste der Backups fragt Aleph nach dem zahlenden Konto; was so ein Schlüssel aufbewahren ließ, steht also mit darin.
+
 ## Was hinausgeht
 
 - **An Alephs IPFS-Host, aus dem Browser:** die versiegelte Datei. Aleph sieht ihre Größe und die IP-Adresse dieses Computers, nicht den Inhalt.
-- **An die Aleph-API, von der Bridge:** die STORE-Nachricht mit der Adresse des Backup-Schlüssels und der CID der Datei.
+- **An die Aleph-API, von der Bridge:** die STORE-Nachricht mit der Adresse des Backup-Schlüssels und der CID der Datei; bei `--authorize` und `--revoke` die Liste der Schlüssel, die das Konto erlaubt.
 
 ## Technisch
 
@@ -42,5 +54,6 @@ Ein Backup eines anderen Passkeys lässt sich nicht öffnen („mit einem andere
 - **Einträge früherer Sitzungen:** OrbitDB 4.0.0 merkt sich verifizierte Identitäten nach `signatures.id` und lehnt eine abweichende mit derselben ID ab. Eine Passkey-Identität hat in jeder Sitzung dieselbe `signatures.id`, aber eine neue WebAuthn-Zusicherung; Einträge einer früheren Sitzung (aus einem Backup oder per Sync von einem eigenen Gerät) wurden deshalb abgelehnt. Belege prüft so eine Identität noch einmal so, wie OrbitDB eine ungespeicherte prüft (Form, ID-Signatur, Passkey-Bindung im Provider), nur ohne den Vergleich ([orbitdb/orbitdb#1258](https://github.com/orbitdb/orbitdb/issues/1258); `session-identities.js`).
 - **Format:** eine CAR-Datei, geschrieben von `@le-space/orbitdb-storage-bridge`, als Ganzes versiegelt mit AES-256-GCM. Der Schlüssel wird mit HKDF aus dem PRF-Ergebnis des Passkeys abgeleitet (`belege/backup-key/v1`). Die Datei ist `belegeB1 ‖ Nonce ‖ Chiffretext`.
 - **Upload:** das `aleph`-Backend der Storage-Bridge, `POST https://ipfs.aleph.cloud/api/v0/add`, ohne Schlüssel.
-- **Aufbewahren:** Die Bridge unterschreibt die STORE-Nachricht mit `personal_sign` im Kanal `BELEGE-BACKUP` (`POST /backup/aleph/pin`, [bridge/README.md](../bridge/README.md)).
+- **Aufbewahren:** Die Bridge unterschreibt die STORE-Nachricht mit `personal_sign` im Kanal `BELEGE-BACKUP` (`POST /backup/aleph/pin`, [bridge/README.md](../bridge/README.md)). Sie wird mit Credits bezahlt (`payment: { type: "credit" }`, Storage-Bridge 0.17.0). Ohne dieses Feld bucht Aleph sie als `hold`, und das deckt nur ALEPH auf dem Konto. Eine Antwort `pending` verfolgt die Bridge, bis Aleph entschieden hat. Eine Ablehnung kommt als HTTP 402 `ALEPH_BACKUP_REJECTED` zurück, mit den vorhandenen und den für einen Tag nötigen Credits.
+- **Liste:** `GET /backup/aleph/list` fragt die Nachrichten-API von Aleph mit `owners=` (das zahlende Konto) statt `addresses=` (der Absender); STORE-Nachrichten, die ein anderer Schlüssel für das Konto geschickt hat, sind also dabei.
 - **Fehlende Blöcke:** Für ein Backup wird nichts aus dem Netz geholt. Ein Block, den dieser Browser nicht hat, zählt als fehlend, und die Seite sagt es.
