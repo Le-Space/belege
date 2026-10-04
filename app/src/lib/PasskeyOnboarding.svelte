@@ -7,7 +7,7 @@
 	// apps/escrow01 at f0d3df4: a card on the brand tokens, one coral action.
 	import { app, createPasskey, restorePasskey, unlockStoredPasskey } from './session.svelte.js';
 	import { hasStoredPasskeyCredential } from './passkey-identity.js';
-	import { t } from './i18n/index.js';
+	import { intlLocale, t } from './i18n/index.js';
 	import ResetDialog from './storage/ResetDialog.svelte';
 
 	const hasStoredPasskey = hasStoredPasskeyCredential();
@@ -15,6 +15,31 @@
 	let resetOpen = $state(false);
 	let label = $state('');
 	let busy = $derived(app.status === 'starting');
+
+	// The unlock's step while the books open (unlock-progress.js), and the time
+	// since it began, every second.
+	let clock = $state(Date.now());
+	$effect(() => {
+		if (!busy) return;
+		const id = setInterval(() => (clock = Date.now()), 1000);
+		return () => clearInterval(id);
+	});
+	let unlock = $derived(app.unlock);
+	/** @param {number} n */
+	const count = (n) => new Intl.NumberFormat(intlLocale()).format(n);
+	let stepText = $derived.by(() => {
+		if (!unlock) return t('onboarding.busy');
+		const collection =
+			'collection' in unlock ? t(`onboarding.progress.collection.${unlock.collection}`) : '';
+		if (unlock.step === 'move') {
+			return t('onboarding.progress.move', {
+				collection,
+				done: count(unlock.done),
+				total: count(unlock.total)
+			});
+		}
+		return t(`onboarding.progress.${unlock.step}`, { collection });
+	});
 
 	const primary =
 		'w-full rounded-md bg-coral-700 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50';
@@ -84,9 +109,39 @@
 	</div>
 
 	{#if busy}
-		<p class="mt-4 text-sm text-text" role="status" data-testid="passkey-busy">
-			{t('onboarding.busy')}
-		</p>
+		<div
+			class="mt-4 text-sm text-text"
+			role="status"
+			data-testid="passkey-busy"
+			data-step={unlock?.step}
+		>
+			<p data-testid="passkey-step">{stepText}</p>
+			{#if unlock?.step === 'move'}
+				<div
+					class="mt-2 h-1.5 overflow-hidden rounded-full bg-border"
+					role="progressbar"
+					aria-valuemin="0"
+					aria-valuemax={unlock.total}
+					aria-valuenow={unlock.done}
+					aria-label={stepText}
+				>
+					<div
+						class="h-full bg-cyan-800 dark:bg-cyan"
+						style:width="{unlock.total ? (100 * unlock.done) / unlock.total : 0}%"
+					></div>
+				</div>
+				<p class="mt-2 text-xs text-faint" data-testid="passkey-move-hint">
+					{t('onboarding.progress.moveHint')}
+				</p>
+			{/if}
+			{#if unlock}
+				<p class="mt-1 text-xs text-faint" data-testid="passkey-elapsed">
+					{t('onboarding.progress.elapsed', {
+						seconds: Math.max(0, Math.round((clock - unlock.since) / 1000))
+					})}
+				</p>
+			{/if}
+		</div>
 	{/if}
 	{#if app.status === 'error' && app.error}
 		<p

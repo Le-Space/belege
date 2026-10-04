@@ -822,7 +822,29 @@ export default {
 		create: 'Create passkey',
 		restoreHeading: 'Already have a passkey?',
 		restore: 'Restore with existing passkey',
-		busy: 'Please confirm the passkey …'
+		busy: 'Please confirm the passkey …',
+		progress: {
+			keys: 'Deriving the keys from the passkey …',
+			network: 'Starting storage and network …',
+			identity: 'Checking the identity …',
+			open: 'Opening {collection} …',
+			move: 'Moving {collection}: {done} of {total}',
+			moveHint:
+				'Once after an update: the books move into newly sealed databases. With many entries this can take a few minutes – please keep the tab open. Stopping does no harm; it goes on at the next unlock.',
+			blobs: 'Opening the receipt store …',
+			books: 'Loading the books …',
+			elapsed: 'for {seconds} s',
+			collection: {
+				transactions: 'payments',
+				receipts: 'receipts',
+				partners: 'partners',
+				accounts: 'accounts',
+				settings: 'settings',
+				matches: 'links',
+				questions: 'questions',
+				events: 'history'
+			}
+		}
 	},
 	share: {
 		title: 'Access for an assistant',
@@ -2086,7 +2108,10 @@ export default {
 			missingReceipt:
 				'{count} bookings without a receipt and without “No receipt needed” – the export works, but check them.',
 			unlinkedOk: 'No receipt from this month is left over.',
-			unlinked: '{count} receipts from this month are not linked to any payment.',
+			unlinked:
+				'{count} receipts from this month are not linked to any payment – they are not in this ZIP. Most were paid in another month (link them there) or from an account that is not in the books.',
+			copies:
+				'{count} receipts from this month are copies of receipts already linked and do not count as open – sort them out as duplicates under Belege.',
 			unverifiedOk: 'No receipt is waiting for the sender check.',
 			unverified: '{count} receipts with an unconfirmed sender – they are not included in the ZIP.',
 			more: '… and {count} more'
@@ -2123,6 +2148,7 @@ export default {
 		overview: {
 			noReceipt: 'no receipt',
 			noFile: 'Receipt {number} without a file (email text)',
+			mailPdf: 'Receipt {number}: a PDF made from the mail text (the mail had no attachment)',
 			transferLine: 'Own transfer, the counter-booking on {date} is included in this line',
 			transferSide: 'not in the booking batch: included in the counter-booking of {date} ({bank})'
 		},

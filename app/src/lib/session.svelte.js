@@ -19,6 +19,12 @@ export const app = $state({
 	status: 'locked',
 	/** @type {string | null} */
 	error: null,
+	/**
+	 * Where an unlock is, while `status` is 'starting' after the passkey answered
+	 * (unlock-progress.js): the step, a collection, a move's count, its start.
+	 * @type {(import('./unlock-progress.js').Status & { since: number }) | null}
+	 */
+	unlock: null,
 	/** @type {string | null} */
 	did: null,
 	/** Device sync (#123): off, or this device's id and the devices it knows. */
@@ -812,12 +818,15 @@ export async function removeSyncDevice(peerId) {
 	await deviceSync.removeDevice(peerId);
 }
 
-/** @param {any} credential */
-async function unlockWith(credential) {
+/**
+ * @param {any} credential
+ * @param {ReturnType<typeof import('./unlock-progress.js').createUnlockProgress>} [progress]
+ */
+async function unlockWith(credential, progress) {
 	// Loaded lazily: Helia, libp2p and OrbitDB are most of the bundle, and the
 	// onboarding screen needs none of them.
 	const { startSession } = await import('./node.js');
-	session = await startSession(credential);
+	session = await startSession(credential, { onStatus: (s) => progress?.status(s) });
 	app.network.syncCapable = Boolean(session.online);
 	app.network.reloadNeeded = false;
 	app.network.mode = session.mode;
@@ -840,6 +849,7 @@ async function unlockWith(credential) {
 		applyStoredMode().catch(() => {});
 	});
 	await applyStoredMode();
+	progress?.status({ step: 'books' });
 	await refresh();
 	installE2EHooks();
 	// Not awaited: the books are open, whatever the relay does.
@@ -859,12 +869,21 @@ async function unlockWith(credential) {
 async function run(getCredential, nothingFound) {
 	app.status = 'starting';
 	app.error = null;
+	/** @type {ReturnType<typeof import('./unlock-progress.js').createUnlockProgress> | null} */
+	let progress = null;
 	try {
 		const credential = await getCredential();
 		if (!credential) throw new Error(nothingFound);
-		await unlockWith(credential);
+		// After the passkey answered: from here on the books open, and that is shown.
+		const { createUnlockProgress } = await import('./unlock-progress.js');
+		progress = createUnlockProgress({ onChange: (s) => (app.unlock = s) });
+		await unlockWith(credential, progress);
+		progress.finish('ready');
+		app.unlock = null;
 		app.status = 'ready';
 	} catch (error) {
+		progress?.finish('failed');
+		app.unlock = null;
 		console.error('unlock failed:', error);
 		app.status = 'error';
 		app.error = error instanceof Error ? error.message : String(error);

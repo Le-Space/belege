@@ -14,6 +14,8 @@ DATEV_2026-09.zip
 └── Uebersicht_2026-09.csv                  UTF-8, zum Lesen: jede Buchung, ihr Konto, Belegnummer, wie der Beleg zugeordnet wurde
 ```
 
+Ein Beleg, der eine E-Mail ohne Anhang ist (eine Quittung im Text der Mail selbst), kommt als PDF hinein, erzeugt aus dem, was Belege von der Mail behalten hat: Absender, Tag, Betreff und Text. Dieser Text ist der Auszug vom Abruf, höchstens etwa 2.000 Zeichen; das PDF sagt, wenn er gekürzt ist, und die Übersicht nennt das PDF als aus der Mail erzeugt. Die Original-Mail (.eml) aufzubewahren ist geplant (#288).
+
 ## Vor dem Export
 
 1. **Sachkonten der Bankkonten** – _Integrationen → Eigene Anweisungen → Buchhaltung (MonkeyOffice / DATEV)_: für jedes Bankkonto die Nummer, unter der es in MonkeyOffice geführt wird. Das Feld zeigt 1200, 1210, … (SKR 03) nur als Platzhalter.

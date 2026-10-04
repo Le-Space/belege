@@ -843,7 +843,29 @@ export default {
 		create: 'Passkey anlegen',
 		restoreHeading: 'Schon einen Passkey?',
 		restore: 'Mit vorhandenem Passkey wiederherstellen',
-		busy: 'Bitte den Passkey bestätigen …'
+		busy: 'Bitte den Passkey bestätigen …',
+		progress: {
+			keys: 'Schlüssel aus dem Passkey ableiten …',
+			network: 'Speicher und Netz starten …',
+			identity: 'Identität prüfen …',
+			open: '{collection} öffnen …',
+			move: '{collection} umziehen: {done} von {total}',
+			moveHint:
+				'Einmalig nach einem Update: die Bücher ziehen in neu versiegelte Datenbanken um. Das kann bei vielen Einträgen einige Minuten dauern – bitte den Tab offen lassen. Abbrechen schadet nicht, es geht beim nächsten Entsperren weiter.',
+			blobs: 'Belegspeicher öffnen …',
+			books: 'Bücher laden …',
+			elapsed: 'seit {seconds} s',
+			collection: {
+				transactions: 'Zahlungen',
+				receipts: 'Belege',
+				partners: 'Partner',
+				accounts: 'Konten',
+				settings: 'Einstellungen',
+				matches: 'Zuordnungen',
+				questions: 'Rückfragen',
+				events: 'Verlauf'
+			}
+		}
 	},
 	share: {
 		title: 'Einblick für einen Assistenten',
@@ -2118,7 +2140,10 @@ export default {
 			missingReceipt:
 				'{count} Buchungen ohne Beleg und ohne „Kein Beleg nötig“ – der Export geht, prüfe sie aber.',
 			unlinkedOk: 'Kein Beleg dieses Monats ist übrig.',
-			unlinked: '{count} Belege dieses Monats sind keiner Zahlung zugeordnet.',
+			unlinked:
+				'{count} Belege dieses Monats sind keiner Zahlung zugeordnet – sie gehen nicht in dieses ZIP. Meist wurden sie in einem anderen Monat bezahlt (dort zuordnen) oder über ein Konto, das nicht in den Büchern ist.',
+			copies:
+				'{count} Belege dieses Monats sind Kopien bereits zugeordneter Belege und zählen nicht als offen – unter Belege als Duplikat aussortieren.',
 			unverifiedOk: 'Kein Beleg wartet auf die Absenderprüfung.',
 			unverified: '{count} Belege mit unbestätigtem Absender – sie kommen nicht ins ZIP.',
 			more: '… und {count} weitere'
@@ -2155,6 +2180,7 @@ export default {
 		overview: {
 			noReceipt: 'ohne Beleg',
 			noFile: 'Beleg {number} ohne Datei (E-Mail-Text)',
+			mailPdf: 'Beleg {number}: aus dem E-Mail-Text erzeugtes PDF (die E-Mail hatte keinen Anhang)',
 			transferLine: 'Umbuchung, Gegenbuchung am {date} ist in dieser Zeile enthalten',
 			transferSide: 'nicht im Buchungsstapel: enthalten in der Gegenbuchung vom {date} ({bank})'
 		},

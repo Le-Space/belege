@@ -327,7 +327,9 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 		'Bild – Auslesen folgt (noch keine Texterkennung).'
 	);
 
-	// Upload a PDF; the same bytes again are a duplicate.
+	// Upload a PDF; the same bytes again are a duplicate. Not read on upload:
+	// read at once, it could be dated before the check below and leave "Ohne Datum".
+	await page.getByTestId('upload-read-after').uncheck();
 	await page
 		.getByTestId('receipt-upload')
 		.setInputFiles({ name: UPLOAD.file, mimeType: 'application/pdf', buffer: uploadPdf });

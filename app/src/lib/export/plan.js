@@ -33,6 +33,7 @@ import { isTxCovered, matchesOfTx } from '../matching/view.js';
 import { dayNumber } from '../matching/normalize.js';
 import { MIRROR_DAYS } from '../matching/context.js';
 import { needsConfirmation } from '../receipts/import.js';
+import { findDuplicates } from '../receipts/duplicates.js';
 import { receiptDate, receiptVendor } from '../receipts/view.js';
 import { TRANSFER_ACCOUNT } from '../booking/skr03.js';
 import { quantityText } from '../assets/valuation.js';
@@ -66,14 +67,26 @@ export const RECEIPT_NUMBER = /^(\d{4}-\d{2})-(\d{3})$/;
  * @property {{ receiptId: string, number: string }[]} newNumbers numbers given in this export
  * @property {Rec[]} receipts the receipts that go into the ZIP (with a file, released)
  * @property {import('./statement.js').Statement[]} statements one per account with a booking in the month
- * @property {{ unassigned: Rec[], noLedger: Rec[], noBankAccount: Rec[], missingReceipt: Rec[], unlinkedReceipts: Rec[], unverified: Rec[], unpriced: Rec[] }} checks
- *   unpriced: crypto bookings whose rate is missing – no euro amount to export (#162)
+ * @property {{ unassigned: Rec[], noLedger: Rec[], noBankAccount: Rec[], missingReceipt: Rec[], unlinkedReceipts: Rec[], copies: Rec[], unverified: Rec[], unpriced: Rec[] }} checks
+ *   unpriced: crypto bookings whose rate is missing – no euro amount to export (#162);
+ *   unlinkedReceipts: the month's receipts linked to no payment – not in this ZIP;
+ *   copies: the month's receipts that copy one already linked (receipts/duplicates.js) – not counted
+ *   as unlinked, to be sorted out as duplicates
  * @property {number} tests test bookings in the month, exported or not
  * @property {boolean} testsIncluded whether they are in this package
  * @property {'none' | 'all' | 'mixed'} sample sample bookings in the month (issue #200): none, only such, or
  *   mixed with real ones – which is never exported
  * @property {boolean} blocked
  */
+
+/**
+ * A receipt that is a mail without an attachment: no file, the mail's text
+ * kept. It goes into the ZIP as a PDF made from that text (mail-pdf.js).
+ *
+ * @param {Rec} r
+ */
+export const isMailText = (r) =>
+	!r.fileCid && r.source === 'mail' && String(r.excerpt ?? '').trim().length > 0;
 
 /** @param {Rec} a @param {Rec} b */
 const byDate = (a, b) =>
@@ -301,6 +314,14 @@ export function planMonth({
 		(r) => !r.deleted && String(receiptDate(/** @type {any} */ (r)) ?? '').slice(0, 7) === month
 	);
 	const activeLinked = new Set(matches.filter((m) => isActive(m)).map((m) => m.receiptId));
+	// A copy of a receipt that is linked (the same invoice from the mail and an
+	// upload) is no receipt without a payment: its twin has one.
+	const duplicates = findDuplicates(receipts, (id) => (activeLinked.has(id) ? { id } : null));
+	/** @param {Rec} r */
+	const copiesLinked = (r) => {
+		const of = duplicates.get(r.id)?.of;
+		return Boolean(of && activeLinked.has(of));
+	};
 	const samples = bookings.filter((t) => t.sample === true).length;
 	/** @type {'none' | 'all' | 'mixed'} */
 	const sample = samples === 0 ? 'none' : samples === bookings.length ? 'all' : 'mixed';
@@ -315,12 +336,19 @@ export function planMonth({
 		missingReceipt: bookings.filter((t) => !isTxCovered(/** @type {any} */ (t), classifications)),
 		unpriced: bookings.filter((t) => Boolean(t.rateMissing)),
 		unlinkedReceipts: monthReceipts.filter(
-			(r) => !activeLinked.has(r.id) && r.status !== 'ignoriert' && !needsConfirmation(r)
+			(r) =>
+				!activeLinked.has(r.id) &&
+				r.status !== 'ignoriert' &&
+				!needsConfirmation(r) &&
+				!copiesLinked(r)
+		),
+		copies: monthReceipts.filter(
+			(r) => !activeLinked.has(r.id) && r.status !== 'ignoriert' && copiesLinked(r)
 		),
 		unverified: monthReceipts.filter((r) => needsConfirmation(r) && r.status !== 'ignoriert')
 	};
 	const zipReceipts = [...new Map(ordered.map((r) => [r.id, r])).values()].filter(
-		(r) => r.fileCid && !needsConfirmation(r)
+		(r) => (r.fileCid || isMailText(r)) && !needsConfirmation(r)
 	);
 	return {
 		month,
