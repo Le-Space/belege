@@ -2,7 +2,8 @@
 	// The hover preview of one receipt among a payment's choices (#273): a
 	// popover with page 1 and a lens over it (ReceiptPreview `magnifier`).
 	// Beside the detail panel where there is room for it, else below the row
-	// (above it near the bottom of the screen) – never over the row's button.
+	// or above it, whichever has the room (else the larger side, the popover
+	// scrolling) – never over the row and its button.
 	// When it opens and closes is receipts/peek.js.
 	import ReceiptPreview from './ReceiptPreview.svelte';
 	import { t } from './i18n/index.js';
@@ -25,7 +26,7 @@
 
 	/** @type {HTMLElement | undefined} */
 	let box = $state();
-	let place = $state({ left: 0, top: 0, width: WIDTH, side: 'beside' });
+	let place = $state({ left: 0, top: 0, width: WIDTH, maxHeight: 0, side: 'beside' });
 
 	function position() {
 		if (!anchor?.isConnected) return;
@@ -33,25 +34,32 @@
 		const panel = anchor.closest('[data-testid="tx-detail"]')?.getBoundingClientRect() ?? row;
 		const vw = window.innerWidth;
 		const vh = window.innerHeight;
-		const height = box?.offsetHeight ?? 0;
+		// What it needs, not what it was given last time.
+		const height = box?.scrollHeight ?? 0;
 		if (panel.left - GAP - EDGE >= WIDTH) {
-			const top = Math.min(
-				Math.max(EDGE, row.top + row.height / 2 - height / 2),
-				vh - height - EDGE
-			);
+			const maxHeight = vh - 2 * EDGE;
+			const shown = Math.min(height, maxHeight);
+			const top = Math.min(Math.max(EDGE, row.top + row.height / 2 - shown / 2), vh - shown - EDGE);
 			place = {
 				left: panel.left - GAP - WIDTH,
 				top: Math.max(EDGE, top),
 				width: WIDTH,
+				maxHeight,
 				side: 'beside'
 			};
 			return;
 		}
+		// Narrow: below the row, or above it – whichever has the room, else the
+		// larger, its height cut to it (it scrolls). Never over the row.
 		const width = Math.min(WIDTH, vw - 2 * EDGE);
 		const left = Math.min(Math.max(EDGE, row.left), vw - width - EDGE);
-		const below = row.bottom + 4;
-		const top = below + height <= vh - EDGE ? below : Math.max(EDGE, row.top - height - 4);
-		place = { left, top, width, side: top === below ? 'below' : 'above' };
+		const below = vh - EDGE - (row.bottom + 4);
+		const above = row.top - 4 - EDGE;
+		const side = height <= below || below >= above ? 'below' : 'above';
+		const maxHeight = Math.max(120, side === 'below' ? below : above);
+		const shown = Math.min(height, maxHeight);
+		const top = side === 'below' ? row.bottom + 4 : row.top - 4 - shown;
+		place = { left, top, width, maxHeight, side };
 	}
 
 	$effect(() => {
@@ -71,10 +79,11 @@
 
 <div
 	bind:this={box}
-	class="fixed z-20 max-h-[calc(100vh-16px)] overflow-y-auto rounded-lg border border-border bg-surface p-3 shadow-xl"
+	class="fixed z-20 overflow-y-auto rounded-lg border border-border bg-surface p-3 shadow-xl"
 	style:left="{place.left}px"
 	style:top="{place.top}px"
 	style:width="{place.width}px"
+	style:max-height={place.maxHeight ? `${place.maxHeight}px` : undefined}
 	role="dialog"
 	aria-label={t('zahlungen.detail.peek.label', { name: title })}
 	onpointerenter={onenter}
