@@ -172,6 +172,14 @@ test('a bank that says no links nothing; a bank that says yes is linked, listed 
 	await page.getByTestId('enablebanking-back').click();
 	const listed = page.getByTestId('enablebanking-card').getByTestId('enablebanking-link');
 	await expect(listed).toHaveCount(1);
+	// Connecting another bank comes before the linked ones.
+	expect(
+		await page.getByTestId('enablebanking-card').evaluate((c) => {
+			const x = c.querySelector('[data-testid="enablebanking-connect"]');
+			const y = c.querySelector('[data-testid="enablebanking-links"]');
+			return Boolean(x && y && x.compareDocumentPosition(y) & Node.DOCUMENT_POSITION_FOLLOWING);
+		})
+	).toBe(true);
 	await expect(listed.getByTestId('enablebanking-account-label')).toHaveText([
 		'Geschäftskonto · ····1234 · EUR',
 		'Tagesgeld · ····5678 · EUR'

@@ -271,6 +271,25 @@
 			<p class="mt-3 text-sm text-danger" role="alert">{errors._}</p>
 		{/if}
 
+		<!-- A new portal comes first: below a long list it is not found. -->
+		{#if portals.some((p) => p.recordable)}
+			<div class="mt-3 border-b border-border pb-3" data-testid="portals-new">
+				{#if showNew}
+					<h3 class="text-sm font-semibold text-heading">{t('portals.new.title')}</h3>
+					<p class="mt-1 text-sm text-text">{t('portals.new.intro')}</p>
+					<div class="mt-2">
+						<NewPortal {url} {token} onstarted={() => load(client)} />
+					</div>
+				{:else}
+					<button
+						type="button"
+						class={btn.secondary}
+						onclick={() => (showNew = true)}
+						data-testid="new-portal-open">+ {t('portals.new.title')} …</button
+					>
+				{/if}
+			</div>
+		{/if}
 		<ul class="mt-3 divide-y divide-border">
 			{#each portals as portal (portal.id)}
 				<li class="py-3" data-testid="portal" data-portal={portal.id}>
@@ -497,24 +516,6 @@
 				</li>
 			{/each}
 		</ul>
-		{#if portals.some((p) => p.recordable)}
-			<div class="mt-2 border-t border-border pt-3" data-testid="portals-new">
-				{#if showNew}
-					<h3 class="text-sm font-semibold text-heading">{t('portals.new.title')}</h3>
-					<p class="mt-1 text-sm text-text">{t('portals.new.intro')}</p>
-					<div class="mt-2">
-						<NewPortal {url} {token} onstarted={() => load(client)} />
-					</div>
-				{:else}
-					<button
-						type="button"
-						class={btn.secondary}
-						onclick={() => (showNew = true)}
-						data-testid="new-portal-open">+ {t('portals.new.title')} …</button
-					>
-				{/if}
-			</div>
-		{/if}
 		<TechnicalNote class="mt-2" lines={list('portals.technical')} />
 	</section>
 {/if}
