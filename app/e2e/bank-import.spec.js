@@ -39,10 +39,15 @@ const DAY = new Intl.DateTimeFormat('de-DE', {
 });
 const MONTH = new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
-// Inside the first sync's 90 days whenever this runs: two bookings on one day,
-// one 35 days earlier (so always in an earlier month).
-const recent = iso(new Date(Date.now() - 3 * 864e5));
-const earlier = iso(new Date(Date.now() - 38 * 864e5));
+// The page runs on a fixed day (issue #269): the CAMT files and statements
+// below are dated in September 2026, and the Hibiscus bookings must sit next
+// to them – a transfer is only offered within 31 days – while staying inside
+// the sync windows the app computes from its own clock (90 days for the first
+// sync, a week before the last one after that). Two bookings on one day, one
+// 35 days earlier, in August.
+const TODAY = new Date('2026-09-25T10:00:00Z');
+const recent = iso(new Date(TODAY.getTime() - 3 * 864e5));
+const earlier = iso(new Date(TODAY.getTime() - 38 * 864e5));
 
 const names = {
 	debit: 'Kaffeerösterei Nordlicht GmbH',
@@ -121,6 +126,8 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	page
 }) => {
 	await addVirtualAuthenticator(page);
+	// Its clock runs on from TODAY, so time still passes for timers and the store.
+	await page.clock.install({ time: TODAY });
 	await page.goto('/');
 	await acceptConsent(page);
 	await page.getByTestId('passkey-label').fill('E2E');
@@ -287,10 +294,7 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	await expect(detail.getByTestId('tx-upload-result')).toContainText('Zugeordnet');
 	await detail.getByTestId('tx-detail-close').click();
 	await page.getByTestId('account-filter').selectOption('');
-	// The Hibiscus credit is dated relative to today, the CAMT files are not: its own month.
-	await page
-		.locator(`[data-testid="transaction-month"][data-month="${recent.slice(0, 7)}"]`)
-		.click();
+	await page.locator('[data-testid="transaction-month"][data-month="2026-09"]').click();
 	await page.getByTestId('transaction').filter({ hasText: names.credit }).click();
 	await detail.getByTestId('tx-alt-toggle').click();
 	await detail.getByTestId('tx-link-transfer').click();
