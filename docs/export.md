@@ -82,6 +82,12 @@ Below the DATEV export, _Kryptobewegungen_ downloads every booking of your walle
 - The transaction hash on wallet movements and on an exchange's deposits and withdrawals, so both sides of a transfer can be paired; an exchange's own reference as `ref`.
 - The file is made in the browser and downloaded; nothing is sent anywhere.
 
+**Reading a file in.** _crypto-ledger-Datei einlesen_ takes such a file – from another tool, or from Belege on another device – and books its movements on the accounts a sync of the same wallet or Kraken account uses, so the two know each other's bookings by their ids.
+
+- Values come from the file as they are, with their rate and source; a movement without one is kept with its euro amount open ("Kurs fehlt").
+- The import only adds: a movement whose id the account already has – synced, imported before, or deleted by hand – is skipped and never rewritten. Reading the same file twice adds nothing.
+- A chain or exchange Belege does not read yet is named and left out. The file must be valued in EUR.
+
 ## To check with the tax adviser
 
 - Whether, and up to which amount, Eigenbelege are accepted for payments without a receipt (blockchain fees, lease payments).

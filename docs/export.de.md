@@ -82,6 +82,12 @@ Unter dem DATEV-Export lädt _Kryptobewegungen_ alle Buchungen deiner Wallets un
 - Der Transaktions-Hash an Wallet-Bewegungen und an Ein- und Auszahlungen einer Börse, damit sich beide Seiten einer Übertragung zuordnen lassen; die eigene Referenz der Börse als `ref`.
 - Die Datei entsteht im Browser und wird heruntergeladen; nichts wird verschickt.
 
+**Eine Datei einlesen.** _crypto-ledger-Datei einlesen_ nimmt eine solche Datei – aus einem anderen Programm oder von Belege auf einem anderen Gerät – und bucht ihre Bewegungen auf die Konten, die auch ein Sync derselben Wallet oder des Kraken-Kontos nutzt; beide erkennen die Buchungen des anderen an ihren IDs.
+
+- Werte kommen aus der Datei, wie sie sind, mit Kurs und Quelle; eine Bewegung ohne Kurs wird mit offenem Euro-Betrag übernommen („Kurs fehlt“).
+- Der Import ergänzt nur: Eine Bewegung, deren ID das Konto schon hat – synchronisiert, früher eingelesen oder von Hand gelöscht –, wird übersprungen und nie überschrieben. Dieselbe Datei zweimal einlesen fügt nichts hinzu.
+- Eine Chain oder Börse, die Belege noch nicht liest, wird genannt und ausgelassen. Die Datei muss in EUR bewertet sein.
+
 ## Mit der Steuerberatung klären
 
 - Ob und bis zu welchem Betrag Eigenbelege für Zahlungen ohne Beleg anerkannt werden (Blockchain-Gebühren, Lease-Zahlungen).
