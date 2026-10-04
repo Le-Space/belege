@@ -2177,6 +2177,7 @@ export default {
 		overview: {
 			noReceipt: 'ohne Beleg',
 			noFile: 'Beleg {number} ohne Datei (E-Mail-Text)',
+			mailPdf: 'Beleg {number}: aus dem E-Mail-Text erzeugtes PDF (die E-Mail hatte keinen Anhang)',
 			transferLine: 'Umbuchung, Gegenbuchung am {date} ist in dieser Zeile enthalten',
 			transferSide: 'nicht im Buchungsstapel: enthalten in der Gegenbuchung vom {date} ({bank})'
 		},

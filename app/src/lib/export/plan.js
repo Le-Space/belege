@@ -77,6 +77,15 @@ export const RECEIPT_NUMBER = /^(\d{4}-\d{2})-(\d{3})$/;
  * @property {boolean} blocked
  */
 
+/**
+ * A receipt that is a mail without an attachment: no file, the mail's text
+ * kept. It goes into the ZIP as a PDF made from that text (mail-pdf.js).
+ *
+ * @param {Rec} r
+ */
+export const isMailText = (r) =>
+	!r.fileCid && r.source === 'mail' && String(r.excerpt ?? '').trim().length > 0;
+
 /** @param {Rec} a @param {Rec} b */
 const byDate = (a, b) =>
 	a.bookedOn === b.bookedOn ? (a.id < b.id ? -1 : 1) : a.bookedOn < b.bookedOn ? -1 : 1;
@@ -333,7 +342,7 @@ export function planMonth({
 		unverified: monthReceipts.filter((r) => needsConfirmation(r) && r.status !== 'ignoriert')
 	};
 	const zipReceipts = [...new Map(ordered.map((r) => [r.id, r])).values()].filter(
-		(r) => r.fileCid && !needsConfirmation(r)
+		(r) => (r.fileCid || isMailText(r)) && !needsConfirmation(r)
 	);
 	return {
 		month,

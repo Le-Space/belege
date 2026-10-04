@@ -14,6 +14,8 @@ DATEV_2026-09.zip
 └── Uebersicht_2026-09.csv                  UTF-8, for people: every booking, its account, receipt number, how the receipt was linked
 ```
 
+A receipt that is a mail without an attachment (a shop's receipt written in the mail itself) goes in as a PDF made from what Belege kept of the mail: sender, day, subject and text. That text is the excerpt taken at the fetch, at most about 2,000 characters; the PDF says when it was cut, and the overview names the PDF as made from the mail. Keeping the original mail (.eml) is planned (#288).
+
 ## Before the export
 
 1. **Ledger accounts of the bank accounts** – _Integrationen → Eigene Anweisungen → Buchhaltung (MonkeyOffice / DATEV)_: for each bank account the number it has in MonkeyOffice ("Sachkonto"). The field shows 1200, 1210, … (SKR 03) as a placeholder only.

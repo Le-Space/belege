@@ -2145,6 +2145,7 @@ export default {
 		overview: {
 			noReceipt: 'no receipt',
 			noFile: 'Receipt {number} without a file (email text)',
+			mailPdf: 'Receipt {number}: a PDF made from the mail text (the mail had no attachment)',
 			transferLine: 'Own transfer, the counter-booking on {date} is included in this line',
 			transferSide: 'not in the booking batch: included in the counter-booking of {date} ({bank})'
 		},
