@@ -56,6 +56,7 @@
 		"@peculiar/x509": "2.1.0",
 		"@scure/base": "2.4.0",
 		"@scure/bip32": "2.4.0",
+		"ccxt": "4.5.85",
 		"fast-xml-parser": "5.11.1",
 		"imapflow": "2.0.6",
 		"libp2p": "3.3.7",
