@@ -1961,7 +1961,11 @@ export default {
 			base: 'Wallet (Base)',
 			arbitrum: 'Wallet (Arbitrum)',
 			optimism: 'Wallet (Optimism)',
-			polygon: 'Wallet (Polygon)'
+			polygon: 'Wallet (Polygon)',
+			bitcoin: 'Wallet (Bitcoin)',
+			filecoin: 'Wallet (Filecoin)',
+			monero: 'Wallet (Monero)',
+			'crypto-ledger': 'crypto-ledger import'
 		},
 		technical: [
 			'Every entry is a record in the sealed OrbitDB collection events (AES-GCM like all the others): kind, time, the IDs of receipt, payment, link or question, and numbers – model, duration, tokens, redactions per kind, hits. No token, no key, no receipt text.',
@@ -2070,11 +2074,19 @@ export default {
 		crypto: {
 			title: 'Crypto movements',
 			intro:
-				'Every booking of your wallets and exchange accounts in an open format (crypto-ledger, MIT licence) other programs can read – with quantity, euro value, rate source and transaction hash. The file is created here in the browser.',
+				'Every booking of your wallets and exchange accounts in an open format (crypto-ledger, MIT licence) other programs can read and write – with quantity, euro value, rate source and transaction hash. Downloading and reading in happen here in the browser.',
 			year: 'Year',
 			allYears: 'all years',
 			json: 'Download as JSON',
 			csv: 'Download as CSV',
+			import: 'Read in a crypto-ledger file (JSON)',
+			importing: 'Reading …',
+			imported:
+				'Read in: new {new} · updated {updated} · skipped {skipped} on {accounts} accounts.',
+			unpriced:
+				'{count} without a rate – the euro amount stays open until you enter it on the booking.',
+			left: 'Not read in, as Belege does not read it yet: {list}.',
+			leftItem: '{account} ({count} movements)',
 			done: 'Downloaded: {file} – {movements} movements on {accounts} accounts.',
 			technical: [
 				'Format crypto-ledger version 1, described as a JSON Schema in schema/crypto-ledger.v1.schema.json (MIT): accounts as CAIP-10 (wallet) or a ccxt exchange id, chains as CAIP-2, assets as CAIP-19 where that is unambiguous.',

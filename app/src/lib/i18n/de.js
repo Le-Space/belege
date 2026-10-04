@@ -1994,7 +1994,11 @@ export default {
 			base: 'Wallet (Base)',
 			arbitrum: 'Wallet (Arbitrum)',
 			optimism: 'Wallet (Optimism)',
-			polygon: 'Wallet (Polygon)'
+			polygon: 'Wallet (Polygon)',
+			bitcoin: 'Wallet (Bitcoin)',
+			filecoin: 'Wallet (Filecoin)',
+			monero: 'Wallet (Monero)',
+			'crypto-ledger': 'crypto-ledger-Import'
 		},
 		technical: [
 			'Jeder Eintrag ist ein Datensatz der versiegelten OrbitDB-Sammlung events (AES-GCM wie alle anderen): Art, Zeitpunkt, die IDs von Beleg, Zahlung, Zuordnung oder Rückfrage und Zahlen – Modell, Dauer, Tokens, Schwärzungen je Art, Treffer. Kein Token, kein Schlüssel, kein Belegtext.',
@@ -2104,11 +2108,19 @@ export default {
 		crypto: {
 			title: 'Kryptobewegungen',
 			intro:
-				'Alle Buchungen deiner Wallets und Börsenkonten in einem offenen Format (crypto-ledger, MIT-Lizenz), das andere Programme lesen können – mit Menge, Euro-Wert, Kursquelle und Transaktions-Hash. Die Datei entsteht hier im Browser.',
+				'Alle Buchungen deiner Wallets und Börsenkonten in einem offenen Format (crypto-ledger, MIT-Lizenz), das andere Programme lesen und schreiben können – mit Menge, Euro-Wert, Kursquelle und Transaktions-Hash. Herunterladen und Einlesen geschehen hier im Browser.',
 			year: 'Jahr',
 			allYears: 'alle Jahre',
 			json: 'Als JSON herunterladen',
 			csv: 'Als CSV herunterladen',
+			import: 'crypto-ledger-Datei einlesen (JSON)',
+			importing: 'Lese ein …',
+			imported:
+				'Eingelesen: Neu {new} · Aktualisiert {updated} · Übersprungen {skipped} auf {accounts} Konten.',
+			unpriced:
+				'{count} ohne Kurs – der Euro-Betrag bleibt offen, bis du ihn an der Buchung einträgst.',
+			left: 'Nicht eingelesen, weil Belege es noch nicht liest: {list}.',
+			leftItem: '{account} ({count} Bewegungen)',
 			done: 'Heruntergeladen: {file} – {movements} Bewegungen auf {accounts} Konten.',
 			technical: [
 				'Format crypto-ledger Version 1, beschrieben als JSON Schema in schema/crypto-ledger.v1.schema.json (MIT): Konten als CAIP-10 (Wallet) oder ccxt-Börsen-ID, Chains als CAIP-2, Assets als CAIP-19, wo das eindeutig ist.',

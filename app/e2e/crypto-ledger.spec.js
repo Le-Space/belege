@@ -2,9 +2,12 @@
 // made-up wallet and exchange bookings in the books, "Kryptobewegungen" on the
 // export page downloads them as JSON and as CSV, and the JSON passes the
 // schema in schema/ – the file the browser wrote, not one built in the test.
+// The way back: that file read in again adds nothing, an example file from
+// schema/examples adds its movements, and a second time nothing.
 // Every address, hash and amount is made up.
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { addVirtualAuthenticator } from './webauthn.js';
@@ -161,4 +164,29 @@ test('the crypto bookings download as a crypto-ledger file the schema accepts', 
 	const lines = (await readFile(/** @type {string} */ (await csv.path()), 'utf8')).split('\r\n');
 	expect(lines[0].startsWith('date,time,account,account_name,kind,asset')).toBe(true);
 	expect(lines.filter(Boolean)).toHaveLength(3);
+
+	// The file Belege wrote, read in again: everything known.
+	const input = section.getByTestId('export-crypto-import-file');
+	await input.setInputFiles(/** @type {string} */ (await json.path()));
+	await expect(section.getByTestId('export-crypto-imported').first()).toHaveText(
+		'Eingelesen: Neu 0 · Aktualisiert 0 · Übersprungen 3 auf 2 Konten.'
+	);
+	// Another tool's file (the schema's EVM example): the same wallet, and two of
+	// its three movements are the ones booked above – only the third is new.
+	const example = fileURLToPath(new URL('../../schema/examples/evm.json', import.meta.url));
+	await input.setInputFiles(example);
+	await expect(section.getByTestId('export-crypto-imported').first()).toHaveText(
+		'Eingelesen: Neu 1 · Aktualisiert 0 · Übersprungen 2 auf 2 Konten.'
+	);
+	await input.setInputFiles(example);
+	await expect(section.getByTestId('export-crypto-imported').first()).toHaveText(
+		'Eingelesen: Neu 0 · Aktualisiert 0 · Übersprungen 3 auf 2 Konten.'
+	);
+	await page.getByRole('navigation').getByRole('link', { name: 'Zahlungen' }).click();
+	await page.getByTestId('filter-all').click();
+	await page.getByTestId('year-switch').selectOption('2025');
+	await expect(page.getByTestId('filter-all')).toContainText('(3)');
+	await expect(page.getByTestId('transaction').filter({ hasText: 'Netzwerkgebühr' })).toHaveCount(
+		1
+	);
 });

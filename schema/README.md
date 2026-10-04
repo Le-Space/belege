@@ -11,32 +11,37 @@ This folder is **MIT licensed** ([LICENSE](LICENSE)), unlike the rest of Belege 
 
 ```json
 {
-	"format": "crypto-ledger",
-	"version": 1,
-	"createdAt": "2025-06-30T12:00:00Z",
-	"currency": "EUR",
-	"accounts": [
-		{
-			"id": "eip155:8453:0x1111…",
-			"type": "wallet",
-			"chain": "eip155:8453",
-			"address": "0x1111…",
-			"name": "Project wallet"
-		}
-	],
-	"movements": [
-		{
-			"id": "0xaaaa…:fee",
-			"account": "eip155:8453:0x1111…",
-			"time": "…",
-			"date": "2025-05-03",
-			"kind": "fee",
-			"asset": { "symbol": "ETH", "decimals": 18 },
-			"amount": "-0.000021",
-			"value": { "amount": "-0.03", "rate": "1600", "source": "coingecko", "at": "…" },
-			"txHash": "0xaaaa…"
-		}
-	]
+  "format": "crypto-ledger",
+  "version": 1,
+  "createdAt": "2025-06-30T12:00:00Z",
+  "currency": "EUR",
+  "accounts": [
+    {
+      "id": "eip155:8453:0x1111…",
+      "type": "wallet",
+      "chain": "eip155:8453",
+      "address": "0x1111…",
+      "name": "Project wallet"
+    }
+  ],
+  "movements": [
+    {
+      "id": "0xaaaa…:fee",
+      "account": "eip155:8453:0x1111…",
+      "time": "…",
+      "date": "2025-05-03",
+      "kind": "fee",
+      "asset": { "symbol": "ETH", "decimals": 18 },
+      "amount": "-0.000021",
+      "value": {
+        "amount": "-0.03",
+        "rate": "1600",
+        "source": "coingecko",
+        "at": "…"
+      },
+      "txHash": "0xaaaa…"
+    }
+  ]
 }
 ```
 
@@ -57,4 +62,4 @@ Any change to the fields is a new `version`, with its own schema file. The schem
 
 ## Who writes it
 
-[Belege](../README.md) exports its crypto bookings in this format (Export → "Kryptobewegungen").
+[Belege](../README.md) exports its crypto bookings in this format and reads such files in (Export → "Kryptobewegungen").

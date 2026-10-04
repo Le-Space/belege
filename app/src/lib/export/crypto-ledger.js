@@ -77,11 +77,14 @@ function caip19(account, symbol) {
 	return null;
 }
 
-/** @param {Rec} tx */
-function kindOf(tx) {
+/**
+ * @param {Rec} tx
+ * @param {Rec} into the file's account: on a wallet, a trade is a swap on the chain
+ */
+function kindOf(tx, into) {
 	switch (tx.movement) {
 		case 'trade':
-			return tx.swap ? 'swap' : 'trade';
+			return into.type === 'wallet' || tx.swap ? 'swap' : 'trade';
 		case 'fee':
 		case 'stake':
 			return tx.movement;
@@ -105,7 +108,7 @@ const memoOf = (purpose) => /(?:^| · )Memo: (.*) · Tx \S+$/.exec(purpose)?.[1]
  * @param {string} currency
  */
 function movement(tx, account, into, currency) {
-	const kind = kindOf(tx);
+	const kind = kindOf(tx, into);
 	const time = typeof tx.bookedAt === 'string' ? tx.bookedAt : `${tx.bookedOn}T00:00:00Z`;
 	/** @type {Rec} */
 	let asset;

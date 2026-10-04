@@ -6,7 +6,13 @@
 	// every bank account there is no export.
 	import { resolve } from '$app/paths';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
-	import { app, currentBlobs, currentStore, refreshNow } from '$lib/session.svelte.js';
+	import {
+		app,
+		currentBlobs,
+		currentStore,
+		refreshNow,
+		runMatchingNow
+	} from '$lib/session.svelte.js';
 	import { planMonth } from '$lib/export/plan.js';
 	import { cleanDatevSettings } from '$lib/booking/settings.js';
 	import { confirmBookings } from '$lib/booking/actions.js';
@@ -196,6 +202,50 @@
 			});
 		} catch (e) {
 			cryptoError = failed(e);
+		}
+	}
+
+	let importing = $state(false);
+	/** @type {string[]} */
+	let imported = $state([]);
+
+	/** A crypto-ledger file into the books. @param {File | undefined} file */
+	async function importCrypto(file) {
+		const store = currentStore();
+		if (!store || !file) return;
+		importing = true;
+		imported = [];
+		cryptoDone = null;
+		cryptoError = null;
+		try {
+			const { importCryptoLedger } = await import('$lib/export/crypto-ledger-import.js');
+			const r = await importCryptoLedger({ store, text: await file.text() });
+			imported = [
+				t('export.crypto.imported', {
+					new: r.new,
+					updated: r.updated,
+					skipped: r.skipped,
+					accounts: r.accounts.length
+				}),
+				...(r.unpriced ? [t('export.crypto.unpriced', { count: r.unpriced })] : []),
+				...(r.left.length
+					? [
+							t('export.crypto.left', {
+								list: r.left
+									.map((l) =>
+										t('export.crypto.leftItem', { account: l.account, count: l.movements })
+									)
+									.join(', ')
+							})
+						]
+					: [])
+			];
+			await refreshNow();
+			if (r.new || r.updated) await runMatchingNow();
+		} catch (e) {
+			cryptoError = failed(e);
+		} finally {
+			importing = false;
 		}
 	}
 
@@ -425,40 +475,67 @@
 	</section>
 {/if}
 
-{#if cryptoYears.length}
+{#if currentStore()}
 	<section
 		class="mt-4 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm"
 		data-testid="export-crypto"
 	>
 		<h2 class="text-lg font-semibold text-heading">{t('export.crypto.title')}</h2>
 		<p class="mt-1 text-sm text-text">{t('export.crypto.intro')}</p>
-		<div class="mt-3 flex flex-wrap items-center gap-3">
-			<label class="flex items-center gap-2 text-sm">
-				<span class="font-medium text-heading">{t('export.crypto.year')}</span>
-				<select
-					class="rounded-md border px-2 py-1.5 text-sm"
-					bind:value={cryptoYear}
-					data-testid="export-crypto-year"
+		{#if cryptoYears.length}
+			<div class="mt-3 flex flex-wrap items-center gap-3">
+				<label class="flex items-center gap-2 text-sm">
+					<span class="font-medium text-heading">{t('export.crypto.year')}</span>
+					<select
+						class="rounded-md border px-2 py-1.5 text-sm"
+						bind:value={cryptoYear}
+						data-testid="export-crypto-year"
+					>
+						<option value="">{t('export.crypto.allYears')}</option>
+						{#each cryptoYears as y (y)}
+							<option value={y}>{y}</option>
+						{/each}
+					</select>
+				</label>
+				<button
+					type="button"
+					class={button}
+					onclick={() => downloadCrypto('json')}
+					data-testid="export-crypto-json">{t('export.crypto.json')}</button
 				>
-					<option value="">{t('export.crypto.allYears')}</option>
-					{#each cryptoYears as y (y)}
-						<option value={y}>{y}</option>
-					{/each}
-				</select>
-			</label>
-			<button
-				type="button"
-				class={button}
-				onclick={() => downloadCrypto('json')}
-				data-testid="export-crypto-json">{t('export.crypto.json')}</button
-			>
-			<button
-				type="button"
-				class={button}
-				onclick={() => downloadCrypto('csv')}
-				data-testid="export-crypto-csv">{t('export.crypto.csv')}</button
+				<button
+					type="button"
+					class={button}
+					onclick={() => downloadCrypto('csv')}
+					data-testid="export-crypto-csv">{t('export.crypto.csv')}</button
+				>
+			</div>
+		{/if}
+		<div class="mt-3">
+			<label
+				class="inline-block cursor-pointer {button} {importing
+					? 'pointer-events-none opacity-50'
+					: ''}"
+				data-testid="export-crypto-import"
+				>{importing ? t('export.crypto.importing') : t('export.crypto.import')}<input
+					type="file"
+					accept=".json,application/json"
+					class="sr-only"
+					disabled={importing}
+					onchange={(e) => {
+						const input = /** @type {HTMLInputElement} */ (e.currentTarget);
+						void importCrypto(input.files?.[0]);
+						input.value = '';
+					}}
+					data-testid="export-crypto-import-file"
+				/></label
 			>
 		</div>
+		{#each imported as line, i (i)}
+			<p class="mt-2 text-sm text-heading" role="status" data-testid="export-crypto-imported">
+				{line}
+			</p>
+		{/each}
 		{#if cryptoDone}
 			<p class="mt-2 text-sm text-heading" role="status" data-testid="export-crypto-done">
 				{cryptoDone}
