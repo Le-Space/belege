@@ -71,6 +71,7 @@ The app is in [`app/`](app/README.md), the bridge in [`bridge/`](bridge/README.m
 - [Bank accounts: statement files, Hibiscus, Enable Banking](docs/banking.md) ([Deutsch](docs/banking.de.md))
 - [Accounts and DATEV export](docs/export.md) ([Deutsch](docs/export.de.md))
 - [Crypto](docs/crypto.md) ([Deutsch](docs/crypto.de.md))
+- [Device proof: only own devices get the books](docs/device-proof.md) ([Deutsch](docs/device-proof.de.md))
 - [Performance](docs/performance.md) ([Deutsch](docs/performance.de.md))
 - [Phase 0: the feasibility spikes](docs/phase-0.md)
 
