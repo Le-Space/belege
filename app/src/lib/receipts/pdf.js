@@ -52,14 +52,16 @@ export async function extractPdfText(bytes) {
  * @param {Uint8Array} bytes
  * @param {HTMLCanvasElement} canvas
  * @param {number} [width] CSS pixels
+ * @param {number} [oversample] pixels per device pixel: more than 1 keeps detail for a
+ *   magnifier (ReceiptPreview), the CSS size stays `width`
  * @returns {Promise<number>} the number of pages
  */
-export async function renderFirstPage(bytes, canvas, width = 360) {
+export async function renderFirstPage(bytes, canvas, width = 360, oversample = 1) {
 	const pdf = await open(bytes);
 	try {
 		const page = await pdf.getPage(1);
 		const unscaled = page.getViewport({ scale: 1 });
-		const ratio = window.devicePixelRatio || 1;
+		const ratio = (window.devicePixelRatio || 1) * Math.max(1, oversample);
 		const viewport = page.getViewport({ scale: (width / unscaled.width) * ratio });
 		canvas.width = Math.floor(viewport.width);
 		canvas.height = Math.floor(viewport.height);

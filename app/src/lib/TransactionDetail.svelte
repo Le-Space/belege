@@ -11,6 +11,8 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import ReceiptPreview from './ReceiptPreview.svelte';
+	import ReceiptPeek from './ReceiptPeek.svelte';
+	import { canPeek, createPeek } from './receipts/peek.js';
 	import BookingBlock from './BookingBlock.svelte';
 	import TechnicalNote from './TechnicalNote.svelte';
 	import CopyButton from './CopyButton.svelte';
@@ -1229,8 +1231,32 @@
 
 	/** @param {KeyboardEvent} e */
 	function onKey(e) {
-		if (e.key === 'Escape') onclose();
+		if (e.key !== 'Escape') return;
+		// Esc closes the receipt preview first, the detail after.
+		if (peeked) {
+			peek.close();
+			return;
+		}
+		onclose();
 	}
+
+	// The hover preview of a receipt among the choices (#273, receipts/peek.js).
+	/** @typedef {import('$lib/store/repository.js').StoredRecord} Receipt */
+	/** @type {{ receipt: Receipt, anchor: HTMLElement } | null} */
+	let peeked = $state(null);
+	const peek = createPeek({
+		onchange: (v) => (peeked = /** @type {{ receipt: Receipt, anchor: HTMLElement } | null} */ (v))
+	});
+	/** The row a choice's event came from. @param {Event} e */
+	const rowOf = (e) =>
+		/** @type {HTMLElement} */ (
+			/** @type {HTMLElement} */ (e.currentTarget).closest('[data-testid="tx-choice"]')
+		);
+	// A preview belongs to the payment it was opened on.
+	$effect(() => {
+		void txId;
+		peek.close();
+	});
 
 	/** @param {import('$lib/store/repository.js').StoredRecord} r */
 	const receiptAmount = (r) =>
@@ -1393,6 +1419,7 @@
 		aria-labelledby="tx-detail-title"
 		tabindex="-1"
 		onkeydown={onKey}
+		onscroll={() => peek.close()}
 		ondragover={(e) => {
 			if (e.dataTransfer?.types?.includes('Files')) {
 				e.preventDefault();
@@ -1411,6 +1438,22 @@
 			>
 				{t('zahlungen.detail.drop')}
 			</div>
+		{/if}
+		{#if peeked}
+			<ReceiptPeek
+				receipt={peeked.receipt}
+				anchor={peeked.anchor}
+				title={receiptVendor(peeked.receipt)}
+				detail={[
+					receiptAmount(peeked.receipt),
+					receiptDay(peeked.receipt),
+					peeked.receipt.invoiceNumber
+				]
+					.filter(Boolean)
+					.join(' · ')}
+				onenter={() => peek.stay()}
+				onleave={() => peek.leave()}
+			/>
 		{/if}
 		{#if !tx}
 			<p class="text-sm text-faint">{t('zahlungen.noneForSelection')}</p>
@@ -2752,6 +2795,17 @@
 									{@const scam = scamSigns(c.receipt, scamCtx).suspicious}
 									<div
 										class="mt-1 flex items-center gap-2 border-t border-border py-2"
+										onpointerenter={(e) => {
+											if (e.pointerType !== 'touch') peek.hover(c.receipt, rowOf(e));
+										}}
+										onpointerleave={(e) => {
+											if (e.pointerType !== 'touch') peek.leave();
+										}}
+										onfocusin={(e) => peek.show(c.receipt, rowOf(e))}
+										onfocusout={(e) => {
+											const next = /** @type {Node | null} */ (e.relatedTarget);
+											if (!next || !rowOf(e).contains(next)) peek.leave();
+										}}
 										data-testid="tx-choice"
 										data-suggested={c.suggested ? 'true' : 'false'}
 									>
@@ -2785,6 +2839,16 @@
 													.join(' · ')}</span
 											>
 										</span>
+										{#if canPeek(c.receipt)}
+											<!-- No hover on a touch screen: the preview on a tap. -->
+											<button
+												type="button"
+												class="hidden text-xs text-text underline pointer-coarse:inline"
+												aria-expanded={peeked?.receipt.id === c.receipt.id}
+												onclick={(e) => peek.toggle(c.receipt, rowOf(e))}
+												data-testid="tx-choice-peek">{t('zahlungen.detail.peek.open')}</button
+											>
+										{/if}
 										{#if scam}
 											<span
 												class="rounded border border-red-300 bg-red-50 px-1.5 py-0.5 text-xs font-medium text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
@@ -2794,7 +2858,10 @@
 										<button
 											type="button"
 											class={c.score >= 90 && !scam ? primary : button}
-											onclick={() => assign(c.receipt.id, c.score, c.reasons, Boolean(c.alongside))}
+											onclick={() => {
+												peek.close();
+												assign(c.receipt.id, c.score, c.reasons, Boolean(c.alongside));
+											}}
 											disabled={busy}
 											data-testid="tx-choose"
 											>{c.alongside

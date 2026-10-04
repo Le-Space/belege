@@ -916,6 +916,13 @@ function installE2EHooks() {
 		transactions: () => session?.store.transactions.list(),
 		// A made-up receipt, as reading one would leave it (instalments spec, #258).
 		addReceipt: (/** @type {Record<string, any>} */ r) => session?.store.receipts.put(r),
+		// …and one with its file in the sealed blob store (the receipt preview, #273).
+		addReceiptFile: async (/** @type {number[]} */ bytes, /** @type {Record<string, any>} */ r) => {
+			const blobs = currentBlobs();
+			if (!session || !blobs) return null;
+			const fileCid = await blobs.put(new Uint8Array(bytes));
+			return session.store.receipts.put({ ...r, fileCid });
+		},
 		// The matching over what a test put in (questions, own transfers).
 		runMatching: () => runMatchingNow(),
 		// A bank account as an import creates it (bank/import.js), for the export spec.

@@ -2364,6 +2364,11 @@ export default {
 			suggestions: 'Vorschläge',
 			allReceipts: 'Alle anderen Belege',
 			choose: 'Zuordnen',
+			peek: {
+				label: 'Vorschau: {name}',
+				hint: 'Mit der Maus über die Seite: die Lupe vergrößert, was darunter steht.',
+				open: 'Vorschau'
+			},
 			noChoices: 'Keine Belege, die sich zuordnen lassen.',
 			noReceiptNeeded: 'Kein Beleg nötig',
 			reason: 'Grund',
