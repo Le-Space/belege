@@ -7,10 +7,18 @@
 // receipt's direction (a refund) are not counted as paid.
 //
 // Amounts are compared in the receipt's currency only: a payment booked in
-// another (a USD invoice paid from a EUR account) counts by its original
-// amount where the bank gives one (`original`, Wise and CAMT). Where it does
-// not, nothing is reckoned – euros are never taken for dollars – and the
-// receipt counts as paid by its links, with nothing open.
+// another (a USD invoice paid from a EUR account, or in Monero, valued in
+// euros) counts by its original amount where the bank gives one (`original`,
+// Wise and CAMT), else by its euro amount at the ECB's rate of its day, kept
+// on the booking (`fx`, matching/fx.js). Where neither is known, nothing is
+// reckoned – euros are never taken for dollars – and the receipt counts as
+// paid by its links, with nothing open.
+//
+// A day's ECB rate is an estimate of what a payment was worth in the invoice's
+// currency: a bank card adds its own margin, a crypto payment its own rate. A
+// difference within FX_TOLERANCE of the total is no amount open or over-paid –
+// else every card payment of a USD invoice would read "überzahlt um 1,26 USD",
+// and an invoice a few cents short would be offered for the next payment.
 
 /** @typedef {Record<string, any>} Rec */
 
@@ -45,20 +53,35 @@ function centsOf(amount) {
 	return m ? Math.round(Math.abs(Number(m[0])) * 100) : null;
 }
 
+/** Within this share of the total, an amount reckoned at a day's rate is settled (see above). */
+export const FX_TOLERANCE = 0.05;
+
 /**
  * What a payment paid in a currency: its own amount when it is booked in it,
- * else the bank's original amount in it, else null (cannot be said).
+ * else the bank's original amount in it, else – with `estimate` – its euro
+ * amount at the day's rate kept for that currency (`fx[currency].rate`: EUR
+ * per unit), else null (cannot be said).
  *
  * @param {Rec} t
  * @param {string} currency
+ * @param {{ estimate?: boolean }} [options]
  */
-export function paidIn(t, currency) {
+export function paidIn(t, currency, { estimate = true } = {}) {
 	if (String(t.currency ?? 'EUR').toUpperCase() === currency) {
 		return Math.abs(Number(t.amountCents ?? 0));
 	}
 	const original = t.original;
 	if (original && String(original.currency ?? '').toUpperCase() === currency) {
 		return centsOf(original.amount);
+	}
+	const rate = Number(t.fx?.[currency]?.rate);
+	if (
+		estimate &&
+		String(t.currency ?? 'EUR').toUpperCase() === 'EUR' &&
+		Number.isFinite(rate) &&
+		rate > 0
+	) {
+		return Math.round(Math.abs(Number(t.amountCents ?? 0)) / rate);
 	}
 	return null;
 }
@@ -72,6 +95,8 @@ export function paidIn(t, currency) {
  * @property {'open' | 'partial' | 'paid' | 'overpaid'} state
  * @property {Rec[]} payments the linked payments, oldest first
  * @property {boolean} comparable every payment's amount is known in the receipt's currency
+ * @property {boolean} [estimated] some amount is reckoned at a day's rate (`fx`): a difference
+ *   within FX_TOLERANCE of the total counts as settled
  */
 
 /**
@@ -111,8 +136,13 @@ export function settlement(receipt, matches, transactions) {
 			comparable
 		};
 	}
-	const openCents = Math.max(0, totalCents - paidCents);
-	const overCents = Math.max(0, paidCents - totalCents);
+	// Some amount only reckoned at a day's rate: a small difference is the rate's.
+	const estimated = payments
+		.filter((t) => Math.sign(Number(t.amountCents ?? 0)) === sign)
+		.some((t) => paidIn(t, currency, { estimate: false }) === null);
+	const settled = estimated && Math.abs(totalCents - paidCents) <= totalCents * FX_TOLERANCE;
+	const openCents = settled ? 0 : Math.max(0, totalCents - paidCents);
+	const overCents = settled ? 0 : Math.max(0, paidCents - totalCents);
 	return {
 		totalCents,
 		paidCents,
@@ -120,7 +150,8 @@ export function settlement(receipt, matches, transactions) {
 		overCents,
 		state: !paidCents ? 'open' : overCents ? 'overpaid' : openCents ? 'partial' : 'paid',
 		payments,
-		comparable
+		comparable,
+		estimated
 	};
 }
 

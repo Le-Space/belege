@@ -547,6 +547,8 @@ export function runMatchingNow(trigger = 'auto') {
 			app.matching = false;
 			app.matchingProgress = null;
 			await refresh();
+			// Links the run made may be to an invoice in another currency.
+			fillExchangeRates();
 		}
 	});
 	matchingQueue = next;
@@ -585,6 +587,43 @@ function scheduleRefresh() {
 /** Read the lists again now (after an import, so its result shows at once). */
 export function refreshNow() {
 	return refresh();
+}
+
+/** @type {Promise<number>} */
+let fxQueue = Promise.resolve(0);
+
+/**
+ * The ECB rate of the day for payments linked to an invoice in another
+ * currency, where none is kept yet (matching/fx.js): so instalments in euros
+ * – a bank transfer, a Monero payment valued in euros – count in the
+ * invoice's currency. Through the bridge; without one, nothing happens.
+ * One run at a time; the books are read again when a rate came.
+ *
+ * @returns {Promise<number>} bookings that got a rate
+ */
+export function fillExchangeRates() {
+	const next = fxQueue
+		.then(async () => {
+			if (!session) return 0;
+			const { fxGaps, fillFx } = await import('./matching/fx.js');
+			const gaps = fxGaps({
+				receipts: app.receipts,
+				matches: app.matches,
+				transactions: app.transactions
+			});
+			if (!gaps.length) return 0;
+			const client = await pairedClient();
+			if (!client || !session) return 0;
+			const filled = await fillFx({ client, transactions: session.store.transactions, gaps });
+			if (filled) await refresh();
+			return filled;
+		})
+		.catch((error) => {
+			console.error('exchange rates:', error);
+			return 0;
+		});
+	fxQueue = next;
+	return next;
 }
 
 /** Bridge client from the sealed settings, or null when none is paired. */
@@ -852,6 +891,8 @@ async function unlockWith(credential, progress) {
 	progress?.status({ step: 'books' });
 	await refresh();
 	installE2EHooks();
+	// Not awaited: rates for instalments of invoices in another currency.
+	fillExchangeRates();
 	// Not awaited: the books are open, whatever the relay does.
 	startUcepIfPaired();
 	startDeviceSyncIfOn().then(watchQrConnections);
