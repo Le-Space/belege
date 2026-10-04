@@ -183,6 +183,8 @@ export async function oldBooksNames(prfOutput) {
  * @param {Uint8Array} params.prfOutput names the databases, see `deriveSealedDatabaseName`
  * @param {boolean} [params.move] move the books before the replication layer in
  * @param {(progress: { collection: string, moved: number, total: number }) => void} [params.onMove]
+ * @param {(name: string) => void} [params.onOpen] before each collection is opened (its index is
+ *   built from the log then – on large books what takes the time on every unlock)
  * @param {Record<string, any>} [params.openOptions] extra `orbitdb.open` options (tests pass memory storages)
  * @returns {Promise<{ transactions: Collection, receipts: Collection, partners: Collection, accounts: Collection, settings: Collection, matches: Collection, questions: Collection, events: Collection, moved: Record<string, { total: number, moved: number }>, databases: () => Record<string, any>, resync: () => Promise<void>, close: () => Promise<void> }>}
  */
@@ -192,6 +194,7 @@ export async function openStore({
 	replicationKey,
 	prfOutput,
 	move = false,
+	onOpen,
 	onMove,
 	openOptions = {}
 }) {
@@ -212,6 +215,7 @@ export async function openStore({
 	/** @type {Record<string, Collection>} */
 	const collections = {};
 	for (const name of COLLECTIONS) {
+		onOpen?.(name);
 		dbs[name] = await orbitdb.open(await deriveSealedDatabaseName(prfOutput, name), {
 			type: SealedDocuments.type,
 			Database: SealedDocuments({ indexBy: 'id' }),

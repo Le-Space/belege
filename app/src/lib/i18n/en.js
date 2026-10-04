@@ -822,7 +822,29 @@ export default {
 		create: 'Create passkey',
 		restoreHeading: 'Already have a passkey?',
 		restore: 'Restore with existing passkey',
-		busy: 'Please confirm the passkey …'
+		busy: 'Please confirm the passkey …',
+		progress: {
+			keys: 'Deriving the keys from the passkey …',
+			network: 'Starting storage and network …',
+			identity: 'Checking the identity …',
+			open: 'Opening {collection} …',
+			move: 'Moving {collection}: {done} of {total}',
+			moveHint:
+				'Once after an update: the books move into newly sealed databases. With many entries this can take a few minutes – please keep the tab open. Stopping does no harm; it goes on at the next unlock.',
+			blobs: 'Opening the receipt store …',
+			books: 'Loading the books …',
+			elapsed: 'for {seconds} s',
+			collection: {
+				transactions: 'payments',
+				receipts: 'receipts',
+				partners: 'partners',
+				accounts: 'accounts',
+				settings: 'settings',
+				matches: 'links',
+				questions: 'questions',
+				events: 'history'
+			}
+		}
 	},
 	share: {
 		title: 'Access for an assistant',

@@ -843,7 +843,29 @@ export default {
 		create: 'Passkey anlegen',
 		restoreHeading: 'Schon einen Passkey?',
 		restore: 'Mit vorhandenem Passkey wiederherstellen',
-		busy: 'Bitte den Passkey bestätigen …'
+		busy: 'Bitte den Passkey bestätigen …',
+		progress: {
+			keys: 'Schlüssel aus dem Passkey ableiten …',
+			network: 'Speicher und Netz starten …',
+			identity: 'Identität prüfen …',
+			open: '{collection} öffnen …',
+			move: '{collection} umziehen: {done} von {total}',
+			moveHint:
+				'Einmalig nach einem Update: die Bücher ziehen in neu versiegelte Datenbanken um. Das kann bei vielen Einträgen einige Minuten dauern – bitte den Tab offen lassen. Abbrechen schadet nicht, es geht beim nächsten Entsperren weiter.',
+			blobs: 'Belegspeicher öffnen …',
+			books: 'Bücher laden …',
+			elapsed: 'seit {seconds} s',
+			collection: {
+				transactions: 'Zahlungen',
+				receipts: 'Belege',
+				partners: 'Partner',
+				accounts: 'Konten',
+				settings: 'Einstellungen',
+				matches: 'Zuordnungen',
+				questions: 'Rückfragen',
+				events: 'Verlauf'
+			}
+		}
 	},
 	share: {
 		title: 'Einblick für einen Assistenten',
