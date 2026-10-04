@@ -508,6 +508,44 @@ describe('the ZIP', () => {
 		};
 	});
 
+	it('a mail without an attachment goes in as a PDF of its text', async () => {
+		const b = books();
+		// The second receipt of T1 is a mail without an attachment, its text kept.
+		const mail = {
+			...b.receipts[1],
+			fileCid: null,
+			fileName: null,
+			mime: 'text/plain',
+			source: 'mail',
+			authVerdict: 'pass',
+			from: 'Kabelnetz Beispiel GmbH <rechnung@kabelnetz.example>',
+			subject: 'Ihre Zahlungsbestätigung',
+			receivedAt: '2026-08-28T08:00:00Z',
+			excerpt: 'Vielen Dank, wir haben 39,99 EUR erhalten.'
+		};
+		const receipts = [b.receipts[0], mail, ...b.receipts.slice(2)];
+		for (const r of receipts) await store.receipts.put(r);
+		const blobs = { get: async () => new Uint8Array([37, 80, 68, 70, 1]) };
+		const plan = planMonth({ month: '2026-09', ...b, receipts: await store.receipts.list() });
+		expect(plan.receipts.map((r) => r.id)).toContain('R-KABEL-2');
+		const { zip, paths } = await runMonthExport({
+			store,
+			blobs,
+			plan,
+			settings: SETTINGS,
+			accounts: b.accounts,
+			classifications: b.classifications,
+			now: () => CREATED
+		});
+		expect(paths).toContain('Belege/2026-09-002_Kabelnetz_Beispiel_GmbH.pdf');
+		const unzipped = unzipSync(zip);
+		const pdf = unzipped['Belege/2026-09-002_Kabelnetz_Beispiel_GmbH.pdf'];
+		expect(new TextDecoder().decode(pdf.slice(0, 5))).toBe('%PDF-');
+		const overview = strFromU8(unzipped['Uebersicht_2026-09.csv']);
+		expect(overview).toContain('Beleg 2026-09-002: aus dem E-Mail-Text erzeugtes PDF');
+		expect(overview).not.toContain('ohne Datei');
+	});
+
 	it('holds the stack in Windows-1252, the receipts, the overview; numbers stay', async () => {
 		const b = books();
 		for (const r of b.receipts) await store.receipts.put(r);

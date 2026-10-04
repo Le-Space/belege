@@ -6,6 +6,7 @@
 
 /* eslint-disable belege/no-german -- the monthly export for German bookkeeping stays German (#192) */
 
+import { isMailText } from './plan.js';
 import { accountLabel, formatDate } from '../bank/format.js';
 import { DOCUMENT_LOCALE, tDocument as t } from '../i18n/index.js';
 import { coverageBadge } from '../matching/view.js';
@@ -80,7 +81,10 @@ export function overviewCsv(plan, { accounts, classifications }) {
 				: '',
 			...l.receipts
 				.filter((r) => !plan.receipts.some((z) => z.id === r.id))
-				.map((r) => t('export.overview.noFile', { number: plan.numbers.get(r.id) ?? '' }))
+				.map((r) => t('export.overview.noFile', { number: plan.numbers.get(r.id) ?? '' })),
+			...l.receipts
+				.filter((r) => isMailText(r) && plan.receipts.some((z) => z.id === r.id))
+				.map((r) => t('export.overview.mailPdf', { number: plan.numbers.get(r.id) ?? '' }))
 		].filter(Boolean);
 		rows.push([
 			formatDate(l.tx.bookedOn, DOCUMENT_LOCALE),

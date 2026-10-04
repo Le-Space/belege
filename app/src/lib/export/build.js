@@ -4,7 +4,7 @@
 // Loaded lazily by the export page, with fflate.
 //
 //   DATEV/EXTF_Buchungsstapel_<YYYY-MM>.csv
-//   Belege/<receipt number>_<vendor>.pdf
+//   Belege/<receipt number>_<vendor>.pdf            a mail without an attachment: a PDF of its text
 //   Kontoauszuege/<statement number>_<account>.pdf   one per account (statement.js)
 //   Aktennotizen/<date>_<counterparty>_<id>.txt       a private payment's note (#172)
 //   Uebersicht_<YYYY-MM>.csv
@@ -19,6 +19,8 @@ import { encodeWindows1252 } from './cp1252.js';
 import { buchungsstapel } from './datev.js';
 import { overviewCsv } from './overview.js';
 import { statementPdf } from './statement-pdf.js';
+import { mailReceiptPdf } from './mail-pdf.js';
+import { isMailText } from './plan.js';
 import { t } from '../i18n/index.js';
 
 /** @typedef {Record<string, any>} Rec */
@@ -100,7 +102,9 @@ export async function buildMonthZip({ plan, settings, accounts, classifications,
 	for (const r of plan.receipts) {
 		const number = plan.numbers.get(r.id);
 		if (!number) continue;
-		files[receiptPath(number, r)] = await blobs.get(String(r.fileCid));
+		files[receiptPath(number, r)] = isMailText(r)
+			? await mailReceiptPdf(r, { number, created })
+			: await blobs.get(String(r.fileCid));
 	}
 	for (const s of plan.statements) {
 		files[statementPath(s)] = await statementPdf(s, { created });
