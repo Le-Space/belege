@@ -413,6 +413,10 @@
 	);
 
 	let assigning = $state(false);
+	/** Whether a receipt is being looked for here: the search, the tabs and the choices show. */
+	let finding = $derived(
+		Boolean(tx) && ((!linked.length && !classification && !tx?.noReceipt) || assigning)
+	);
 	let askingReason = $state(false);
 	let reason = $state('');
 	/** @type {string | null} */
@@ -1306,6 +1310,72 @@
 	const primary =
 		'rounded-md bg-coral-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50';
 </script>
+
+{#snippet uploadControls()}
+	<!-- Upload a receipt and link it here: above the list of receipts while one is being
+	     chosen (#274) – below a long list it is not found –, else at the end of the part. -->
+	<label
+		class="{button} inline-flex cursor-pointer items-center gap-1.5"
+		title={t('ai.upload')}
+		data-testid="tx-upload-label"
+	>
+		<AiMark />
+		{uploading ? t('zahlungen.detail.uploading') : t('zahlungen.detail.upload')}
+		<input
+			type="file"
+			class="sr-only"
+			accept=".pdf,application/pdf,image/png,image/jpeg,image/gif,image/webp"
+			disabled={uploading || busy}
+			onchange={onUploadHere}
+			data-testid="tx-upload-input"
+		/>
+	</label>
+	{#if hasFolder}
+		<button
+			type="button"
+			class="ml-2 {button}"
+			onclick={checkFolder}
+			disabled={folderChecking}
+			title={t('zahlungen.detail.folderHint')}
+			data-testid="tx-folder-check"
+			>{folderChecking
+				? t('zahlungen.detail.folderChecking')
+				: t('zahlungen.detail.folderCheck')}</button
+		>
+	{/if}
+	<p class="mt-1 text-xs text-faint">{t('zahlungen.detail.uploadHint')}</p>
+	{#if uploadResult}
+		<p class="mt-2 text-sm text-heading" role="status" data-testid="tx-upload-result">
+			{uploadResult.text}
+		</p>
+		{#each uploadResult.warnings as w (w)}
+			<p class="mt-1 text-sm text-danger" data-testid="tx-upload-warning">⚠ {w}</p>
+		{/each}
+		{#if uploadResult.move}
+			{@const move = uploadResult.move}
+			<div class="mt-2 flex flex-wrap gap-2">
+				<button
+					type="button"
+					class={button}
+					onclick={() => onopen(move.fromId)}
+					data-testid="tx-upload-elsewhere-open">{t('zahlungen.detail.uploadElsewhereOpen')}</button
+				>
+				<button
+					type="button"
+					class={button}
+					onclick={moveHere}
+					disabled={busy}
+					data-testid="tx-upload-move">{t('zahlungen.detail.uploadMove')}</button
+				>
+			</div>
+		{/if}
+	{/if}
+	{#if folderNote}
+		<p class="mt-2 text-sm text-heading" role="status" data-testid="tx-folder-result">
+			{folderNote}
+		</p>
+	{/if}
+{/snippet}
 
 <!-- The backdrop closes on a click on itself only. The panel does not stop
      clicks from bubbling: SvelteKit's router hears link clicks on the document,
@@ -2540,7 +2610,7 @@
 						{importNote}
 					</p>
 				{/if}
-				{#if (!linked.length && !classification && !tx.noReceipt) || assigning}
+				{#if finding}
 					<div class="mt-3 border-t border-border pt-3" data-testid="tx-find">
 						<h4 class="text-sm font-semibold text-heading">{t('zahlungen.detail.find.title')}</h4>
 						<label class="sr-only" for="tx-find-q">{t('zahlungen.detail.find.label')}</label>
@@ -2571,6 +2641,10 @@
 										<span class="ml-1 font-mono text-xs opacity-80">{count}</span>{/if}</button
 								>
 							{/each}
+						</div>
+
+						<div class="mt-3" data-testid="tx-upload">
+							{@render uploadControls()}
 						</div>
 
 						{#if tab === 'passend' || tab === 'alle'}
@@ -3029,70 +3103,11 @@
 						{/if}
 					</div>
 				{/if}
-				<div class="mt-3 border-t border-border pt-3" data-testid="tx-upload">
-					<label
-						class="{button} inline-flex cursor-pointer items-center gap-1.5"
-						title={t('ai.upload')}
-						data-testid="tx-upload-label"
-					>
-						<AiMark />
-						{uploading ? t('zahlungen.detail.uploading') : t('zahlungen.detail.upload')}
-						<input
-							type="file"
-							class="sr-only"
-							accept=".pdf,application/pdf,image/png,image/jpeg,image/gif,image/webp"
-							disabled={uploading || busy}
-							onchange={onUploadHere}
-							data-testid="tx-upload-input"
-						/>
-					</label>
-					{#if hasFolder}
-						<button
-							type="button"
-							class="ml-2 {button}"
-							onclick={checkFolder}
-							disabled={folderChecking}
-							title={t('zahlungen.detail.folderHint')}
-							data-testid="tx-folder-check"
-							>{folderChecking
-								? t('zahlungen.detail.folderChecking')
-								: t('zahlungen.detail.folderCheck')}</button
-						>
-					{/if}
-					<p class="mt-1 text-xs text-faint">{t('zahlungen.detail.uploadHint')}</p>
-					{#if uploadResult}
-						<p class="mt-2 text-sm text-heading" role="status" data-testid="tx-upload-result">
-							{uploadResult.text}
-						</p>
-						{#each uploadResult.warnings as w (w)}
-							<p class="mt-1 text-sm text-danger" data-testid="tx-upload-warning">⚠ {w}</p>
-						{/each}
-						{#if uploadResult.move}
-							{@const move = uploadResult.move}
-							<div class="mt-2 flex flex-wrap gap-2">
-								<button
-									type="button"
-									class={button}
-									onclick={() => onopen(move.fromId)}
-									data-testid="tx-upload-elsewhere-open"
-									>{t('zahlungen.detail.uploadElsewhereOpen')}</button
-								>
-								<button
-									type="button"
-									class={button}
-									onclick={moveHere}
-									disabled={busy}
-									data-testid="tx-upload-move">{t('zahlungen.detail.uploadMove')}</button
-								>
-							</div>
-						{/if}
-					{/if}
-					{#if folderNote}
-						<p class="mt-2 text-sm text-heading" role="status" data-testid="tx-folder-result">
-							{folderNote}
-						</p>
-					{/if}
-				</div>
+				{#if !finding}
+					<div class="mt-3 border-t border-border pt-3" data-testid="tx-upload">
+						{@render uploadControls()}
+					</div>
+				{/if}
 			</section>
 
 			<div id="tx-konto-part" class="scroll-mt-4"><BookingBlock {tx} /></div>
