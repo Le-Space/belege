@@ -2105,7 +2105,10 @@ export default {
 			missingReceipt:
 				'{count} bookings without a receipt and without “No receipt needed” – the export works, but check them.',
 			unlinkedOk: 'No receipt from this month is left over.',
-			unlinked: '{count} receipts from this month are not linked to any payment.',
+			unlinked:
+				'{count} receipts from this month are not linked to any payment – they are not in this ZIP. Most were paid in another month (link them there) or from an account that is not in the books.',
+			copies:
+				'{count} receipts from this month are copies of receipts already linked and do not count as open – sort them out as duplicates under Belege.',
 			unverifiedOk: 'No receipt is waiting for the sender check.',
 			unverified: '{count} receipts with an unconfirmed sender – they are not included in the ZIP.',
 			more: '… and {count} more'

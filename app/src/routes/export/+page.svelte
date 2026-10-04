@@ -251,6 +251,8 @@
 
 	/** @param {string} id */
 	const txLink = (id) => `${resolve('/zahlungen')}?tx=${encodeURIComponent(id)}`;
+	/** @param {string} id */
+	const receiptLink = (id) => `${resolve('/belege')}?receipt=${encodeURIComponent(id)}`;
 	/** @param {Record<string, any>} tx */
 	const txText = (tx) =>
 		`${formatDate(tx.bookedOn)} · ${tx.counterparty || '—'} · ${formatMoney(tx.amountCents ?? 0, tx.currency)}`;
@@ -441,15 +443,35 @@
 				plan.checks.unlinkedReceipts.length
 					? t('export.check.unlinked', { count: plan.checks.unlinkedReceipts.length })
 					: t('export.check.unlinkedOk'),
-				plan.checks.unlinkedReceipts.map((r) => ({ id: r.id, text: receiptText(r), href: null }))
+				plan.checks.unlinkedReceipts.map((r) => ({
+					id: r.id,
+					text: receiptText(r),
+					href: receiptLink(r.id)
+				}))
 			)}
+			{#if plan.checks.copies.length}
+				{@render item(
+					'copies',
+					'warning',
+					t('export.check.copies', { count: plan.checks.copies.length }),
+					plan.checks.copies.map((r) => ({
+						id: r.id,
+						text: receiptText(r),
+						href: receiptLink(r.id)
+					}))
+				)}
+			{/if}
 			{@render item(
 				'unverified',
 				plan.checks.unverified.length ? 'warning' : 'ok',
 				plan.checks.unverified.length
 					? t('export.check.unverified', { count: plan.checks.unverified.length })
 					: t('export.check.unverifiedOk'),
-				plan.checks.unverified.map((r) => ({ id: r.id, text: receiptText(r), href: null }))
+				plan.checks.unverified.map((r) => ({
+					id: r.id,
+					text: receiptText(r),
+					href: receiptLink(r.id)
+				}))
 			)}
 		</ul>
 
