@@ -2093,6 +2093,9 @@ export default {
 		settings:
 			'Beraternummer {consultant} · Mandantennummer {client} · Wirtschaftsjahr ab {fiscal} · Sachkontenlänge {length}',
 		settingsLink: 'ändern unter Einstellungen',
+		withStatements: 'Kontoauszüge beilegen (je Konto mit Buchungen in diesem Monat ein PDF)',
+		withoutStatementsHint:
+			'Ohne Kontoauszüge bleibt das Belegfeld bei Buchungen ohne eigenen Beleg leer – Gebühren, Umbuchungen, Erträge: Ihr Beleg wäre sonst der Kontoauszug.',
 		checks: 'Vor dem Export',
 		check: {
 			tests:

@@ -463,6 +463,20 @@ describe('planMonth', () => {
 		expect(plan.lines.find((l) => l.tx.id === 'T3')?.line.contra).toBe('1360');
 	});
 
+	it('without statements: none in the ZIP, and a booking without a receipt names none', () => {
+		const b = books();
+		const plan = planMonth({ month: '2026-09', ...b, withStatements: false });
+		expect(plan.statements).toEqual([]);
+		// The fee (T5) would carry its statement's number; without one it carries nothing.
+		const fee = plan.lines.find((l) => l.tx.id === 'T5');
+		expect(fee?.line.receiptNumber).toBe('');
+		const withThem = planMonth({ month: '2026-09', ...b });
+		expect(withThem.statements.length).toBeGreaterThan(0);
+		expect(withThem.lines.find((l) => l.tx.id === 'T5')?.line.receiptNumber).toMatch(
+			/^KA-2026-09-/
+		);
+	});
+
 	it('the check list: a missing account or ledger blocks; the rest warns', () => {
 		const b = books();
 		const withOpen = [
