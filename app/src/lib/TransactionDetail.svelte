@@ -33,6 +33,7 @@
 		currentBlobs,
 		currentStore,
 		refreshNow,
+		fillExchangeRates,
 		runMatchingNow
 	} from './session.svelte.js';
 	import { portalLink } from './matching/portal.js';
@@ -764,6 +765,9 @@
 				reasons: [...reasons, 'manual'],
 				alongside
 			});
+			// An invoice in another currency: the day's rate, so what is open shows at once.
+			await refreshNow();
+			await fillExchangeRates();
 			assigning = false;
 			if (vendorFit?.receipt.id === receiptId) {
 				vendorFit = null;

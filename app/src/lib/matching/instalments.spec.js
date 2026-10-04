@@ -100,6 +100,66 @@ describe('another currency', () => {
 		expect(instalmentOf(s, 'a')).toBeNull();
 	});
 
+	it('a payment in euros counts at the day’s rate kept on it: Monero instalments of a USD invoice', () => {
+		// 1.900,00 USD, paid in three Monero payments valued in euros; EUR per USD of each day kept.
+		const invoice = { id: 'R2', amountCents: 190_000, currency: 'USD' };
+		const xmr = (
+			/** @type {string} */ id,
+			/** @type {number} */ cents,
+			/** @type {string} */ rate
+		) => ({
+			id,
+			source: 'monero',
+			amountCents: cents,
+			currency: 'EUR',
+			asset: 'XMR',
+			quantity: '2108000000000',
+			decimals: 12,
+			bookedOn: '2025-05-30',
+			fx: { USD: { rate, source: 'ecb', at: '2025-05-30T00:00:00Z' } }
+		});
+		const one = xmr('a', 55_800, '0.93'); // 600,00 USD
+		const two = xmr('b', 56_400, '0.94'); // 600,00 USD
+		const three = xmr('c', 65_100, '0.93'); // 700,00 USD
+		const links = ['a', 'b', 'c'].map((id) => ({ ...link(id), receiptId: 'R2' }));
+		expect(settlement(invoice, links.slice(0, 1), [one])).toMatchObject({
+			state: 'partial',
+			paidCents: 60_000,
+			openCents: 130_000,
+			comparable: true
+		});
+		expect(settlement(invoice, links.slice(0, 2), [one, two])).toMatchObject({
+			state: 'partial',
+			openCents: 70_000
+		});
+		const all = settlement(invoice, links, [one, two, three]);
+		expect(all).toMatchObject({ state: 'paid', openCents: 0 });
+		expect(instalmentOf(all, 'b')).toEqual({ index: 2, count: 3 });
+		// A rate for another currency is no help: still not comparable.
+		const chf = { ...one, fx: { CHF: one.fx.USD } };
+		expect(settlement(invoice, links.slice(0, 1), [chf]).comparable).toBe(false);
+	});
+
+	it('a single card payment reckoned at the ECB rate is paid, not over-paid by the bank’s margin', () => {
+		// −38,37 € for a 40,00 USD invoice; the ECB said 0,93 € per USD: 41,26 USD.
+		const card = {
+			id: 'k',
+			amountCents: -3_837,
+			currency: 'EUR',
+			bookedOn: '2025-01-20',
+			fx: { USD: { rate: '0.93', source: 'ecb', at: '2025-01-20T00:00:00Z' } }
+		};
+		const s = settlement(usd, [link('k')], [card]);
+		expect(s).toMatchObject({ state: 'paid', openCents: 0, overCents: 0, estimated: true });
+		expect(instalmentOf(s, 'k')).toBeNull();
+		// A real part is no rounding: a third is open as before.
+		const third = { ...card, amountCents: -1_240 };
+		expect(settlement(usd, [link('k')], [third])).toMatchObject({
+			state: 'partial',
+			estimated: true
+		});
+	});
+
 	it('instalments in another currency add up in the invoice’s', () => {
 		const one = card('a', { amount: '20.00', currency: 'USD' }, -1_900);
 		const two = {

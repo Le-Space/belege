@@ -23,6 +23,7 @@ A full refund needs no receipt on either side; after a partial one the charge st
 An invoice can be paid in parts: a customer pays our 10.000 € invoice as 3.500 + 3.500 + 3.000, or we pay a supplier in rates. The invoice stays the receipt for every part, and each payment is linked to it.
 
 - **What is open** comes from the links alone: total minus what the linked payments add up to. Unlinking one instalment reopens exactly that part.
+- **In another currency** (a USD invoice paid from euros – by bank, or in Monero valued in euros): a payment counts by the original amount where the bank names one, else by its euro amount at the ECB's reference rate of its day. Belege asks the bridge for that rate once a payment is linked to such an invoice and keeps it on the booking (`fx`), so "500,00 USD offen" is reckoned in the invoice's currency. Such a figure is an estimate (a card adds its margin, a crypto payment its own rate): a difference within 5 % of the total counts as paid, not as open or over-paid. Without a bridge, or without a rate, nothing is reckoned – euros are never taken for dollars – and the invoice counts as paid by its links.
 - **The matching:**
   - a partly paid invoice stays in play;
   - a payment below what is open counts as an instalment (30 points) when the invoice is partly paid already, or when the purpose names the invoice's number and says so ("Teilzahlung", "Rate", "Anzahlung", "Restzahlung" …; the word alone is too common);
