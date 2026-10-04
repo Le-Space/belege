@@ -39,10 +39,16 @@ const DAY = new Intl.DateTimeFormat('de-DE', {
 });
 const MONTH = new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
-// Inside the first sync's 90 days whenever this runs: two bookings on one day,
-// one 35 days earlier (so always in an earlier month).
-const recent = iso(new Date(Date.now() - 3 * 864e5));
-const earlier = iso(new Date(Date.now() - 38 * 864e5));
+// The app's today in this spec (page.clock). The CAMT statements and receipts
+// below are from September 2026, and a booking from Hibiscus is linked to one
+// of them (within the matching's 31 days) and looked for in that month. Dated
+// from the real today, the Hibiscus bookings left September on 2026-10-04.
+const TODAY = new Date('2026-10-01T10:00:00Z');
+
+// Inside the first sync's 90 days: two bookings on one day, one 35 days
+// earlier (so in an earlier month).
+const recent = iso(new Date(TODAY.getTime() - 3 * 864e5));
+const earlier = iso(new Date(TODAY.getTime() - 38 * 864e5));
 
 const names = {
 	debit: 'Kaffeerösterei Nordlicht GmbH',
@@ -121,6 +127,8 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	page
 }) => {
 	await addVirtualAuthenticator(page);
+	// The sync's windows, the months and the year shown count from TODAY.
+	await page.clock.install({ time: TODAY });
 	await page.goto('/');
 	await acceptConsent(page);
 	await page.getByTestId('passkey-label').fill('E2E');
