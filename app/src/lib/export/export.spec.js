@@ -463,6 +463,29 @@ describe('planMonth', () => {
 		expect(plan.lines.find((l) => l.tx.id === 'T3')?.line.contra).toBe('1360');
 	});
 
+	it('a copy of a linked receipt is no receipt without a payment', () => {
+		const b = books();
+		const kabel = { ...b.receipts[0], invoiceNumber: 'KN-2026-0815' };
+		// The same invoice once more, from the mail: its twin is linked to T1.
+		const copy = {
+			...kabel,
+			id: 'R-KABEL-COPY',
+			source: 'mail',
+			authVerdict: 'pass',
+			fileCid: 'cid-copy'
+		};
+		const receipts = [kabel, copy, ...b.receipts.slice(1)];
+		const plan = planMonth({ month: '2026-08', ...b, receipts });
+		expect(plan.checks.unlinkedReceipts.map((r) => r.id)).not.toContain('R-KABEL-COPY');
+		expect(plan.checks.copies.map((r) => r.id)).toEqual(['R-KABEL-COPY']);
+		// Unlinked, the twin is no help: both count as without a payment.
+		const loose = planMonth({ month: '2026-08', ...b, receipts, matches: [] });
+		expect(loose.checks.copies).toEqual([]);
+		expect(loose.checks.unlinkedReceipts.map((r) => r.id)).toEqual(
+			expect.arrayContaining(['R-KABEL', 'R-KABEL-COPY'])
+		);
+	});
+
 	it('the check list: a missing account or ledger blocks; the rest warns', () => {
 		const b = books();
 		const withOpen = [

@@ -2115,7 +2115,10 @@ export default {
 			missingReceipt:
 				'{count} Buchungen ohne Beleg und ohne „Kein Beleg nötig“ – der Export geht, prüfe sie aber.',
 			unlinkedOk: 'Kein Beleg dieses Monats ist übrig.',
-			unlinked: '{count} Belege dieses Monats sind keiner Zahlung zugeordnet.',
+			unlinked:
+				'{count} Belege dieses Monats sind keiner Zahlung zugeordnet – sie gehen nicht in dieses ZIP. Meist wurden sie in einem anderen Monat bezahlt (dort zuordnen) oder über ein Konto, das nicht in den Büchern ist.',
+			copies:
+				'{count} Belege dieses Monats sind Kopien bereits zugeordneter Belege und zählen nicht als offen – unter Belege als Duplikat aussortieren.',
 			unverifiedOk: 'Kein Beleg wartet auf die Absenderprüfung.',
 			unverified: '{count} Belege mit unbestätigtem Absender – sie kommen nicht ins ZIP.',
 			more: '… und {count} weitere'
