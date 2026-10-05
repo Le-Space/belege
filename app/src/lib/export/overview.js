@@ -74,6 +74,13 @@ export function overviewCsv(plan, { accounts, classifications }) {
 	for (const l of plan.lines) {
 		const files = l.receipts.map((r) => plan.numbers.get(r.id) ?? '').filter(Boolean);
 		const notes = [
+			l.collected?.length
+				? t('export.overview.collected', {
+						count: l.collected.length,
+						from: formatDate(String(l.collected.map((x) => x.bookedOn).sort()[0]), DOCUMENT_LOCALE),
+						until: formatDate(String(l.tx.bookedOn), DOCUMENT_LOCALE)
+					})
+				: '',
 			l.transferWith
 				? t('export.overview.transferLine', {
 						date: formatDate(l.transferWith.bookedOn, DOCUMENT_LOCALE)

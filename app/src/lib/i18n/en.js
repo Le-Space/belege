@@ -334,6 +334,12 @@ export default {
 			nothing: 'The account moved no credits this month: no proof needed.',
 			saveFailed: 'The usage proof could not be saved.'
 		},
+		akash: {
+			exists: 'This month already has Akash usage statement {number}.',
+			nothing:
+				'The wallet had no network fees, no top-up and no usage this month: no statement needed.',
+			saveFailed: 'The Akash usage statement could not be saved.'
+		},
 		wallets: {
 			costCentre: 'Cost centre: up to 36 letters and digits, no spaces – {value}'
 		},
@@ -951,6 +957,15 @@ export default {
 		files: 'Receipt files',
 		blocks: 'Blocks, all told',
 		history: 'Backups so far'
+	},
+	akash: {
+		title: 'Usage statement',
+		what: 'Akash issues no invoice. Per month, an Eigenbeleg lists the network fees, the top-up (AKT → ACT) and the deployments’ usage; it covers the month’s network fees.',
+		month: 'Month',
+		make: 'Create usage statement',
+		making: 'Creating …',
+		exists: 'Statement {number} is under Belege.',
+		made: 'Eigenbeleg {number} for {month} created: {fees} network fees linked, usage {act} ACT.'
 	},
 	aleph: {
 		title: 'Aleph Cloud (hosting credits)',
@@ -2140,6 +2155,8 @@ export default {
 			'Advisor number {consultant} · Client number {client} · Financial year from {fiscal} · Ledger account length {length}',
 		settingsLink: 'change under Settings',
 		withStatements: 'Include account statements (one PDF per account with bookings this month)',
+		collectFees:
+			'Network fees an Akash usage statement covers as one collective booking per wallet account (the statement lists each)',
 		withoutStatementsHint:
 			'Without statements, the receipt field stays empty for bookings without a receipt of their own – fees, own transfers, rewards: their receipt would be the statement.',
 		checks: 'Before the export',
@@ -2206,6 +2223,8 @@ export default {
 			noFile: 'Receipt {number} without a file (email text)',
 			mailPdf: 'Receipt {number}: a PDF made from the mail text (the mail had no attachment)',
 			transferLine: 'Own transfer, the counter-booking on {date} is included in this line',
+			collected:
+				'Collective booking: {count} network fees from {from} to {until}, each in the statement',
 			transferSide: 'not in the booking batch: included in the counter-booking of {date} ({bank})'
 		},
 		technical: [

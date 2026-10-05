@@ -350,6 +350,12 @@ export default {
 			nothing: 'In diesem Monat hat das Konto keine Credits bewegt: kein Nachweis nötig.',
 			saveFailed: 'Der Verbrauchsnachweis konnte nicht gespeichert werden.'
 		},
+		akash: {
+			exists: 'Für diesen Monat gibt es schon den Akash-Verbrauchsnachweis {number}.',
+			nothing:
+				'In diesem Monat hat die Wallet keine Netzwerkgebühren, keine Aufladung und keinen Verbrauch: kein Nachweis nötig.',
+			saveFailed: 'Der Akash-Verbrauchsnachweis konnte nicht gespeichert werden.'
+		},
 		wallets: {
 			costCentre: 'Kostenstelle: bis zu 36 Buchstaben und Ziffern, ohne Leerzeichen – {value}'
 		},
@@ -994,6 +1000,15 @@ export default {
 		making: 'Erstelle …',
 		exists: 'Nachweis {number} liegt unter Belege.',
 		made: 'Eigenbeleg {number} für {month} erstellt ({eur}); er liegt unter Belege.'
+	},
+	akash: {
+		title: 'Verbrauchsnachweis',
+		what: 'Akash stellt keine Rechnung aus. Pro Monat entsteht ein Eigenbeleg mit den Netzwerkgebühren, der Aufladung (AKT → ACT) und dem Verbrauch der Deployments; er deckt die Netzwerkgebühren des Monats.',
+		month: 'Monat',
+		make: 'Verbrauchsnachweis erstellen',
+		making: 'Erstelle …',
+		exists: 'Nachweis {number} liegt unter Belege.',
+		made: 'Eigenbeleg {number} für {month} erstellt: {fees} Netzwerkgebühren verknüpft, Verbrauch {act} ACT.'
 	},
 	pwa: {
 		update: 'Eine neue Version von Belege ist da. Neu laden – danach mit dem Passkey entsperren.',
@@ -2172,6 +2187,8 @@ export default {
 			'Beraternummer {consultant} · Mandantennummer {client} · Wirtschaftsjahr ab {fiscal} · Sachkontenlänge {length}',
 		settingsLink: 'ändern unter Einstellungen',
 		withStatements: 'Kontoauszüge beilegen (je Konto mit Buchungen in diesem Monat ein PDF)',
+		collectFees:
+			'Netzwerkgebühren, die ein Akash-Verbrauchsnachweis deckt, als eine Sammelbuchung je Wallet-Konto (die Einzelposten stehen im Nachweis)',
 		withoutStatementsHint:
 			'Ohne Kontoauszüge bleibt das Belegfeld bei Buchungen ohne eigenen Beleg leer – Gebühren, Umbuchungen, Erträge: Ihr Beleg wäre sonst der Kontoauszug.',
 		checks: 'Vor dem Export',
@@ -2238,6 +2255,8 @@ export default {
 			noFile: 'Beleg {number} ohne Datei (E-Mail-Text)',
 			mailPdf: 'Beleg {number}: aus dem E-Mail-Text erzeugtes PDF (die E-Mail hatte keinen Anhang)',
 			transferLine: 'Umbuchung, Gegenbuchung am {date} ist in dieser Zeile enthalten',
+			collected:
+				'Sammelbuchung: {count} Netzwerkgebühren vom {from} bis {until}, einzeln im Nachweis',
 			transferSide: 'nicht im Buchungsstapel: enthalten in der Gegenbuchung vom {date} ({bank})'
 		},
 		technical: [

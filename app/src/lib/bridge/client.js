@@ -138,6 +138,18 @@ function failed(message, status, body) {
  */
 
 /**
+ * @typedef {object} AkashDeployment one deployment and what it cost (bridge/src/chains/akash-deployments.js)
+ * @property {string} dseq
+ * @property {string} state active | closed
+ * @property {number} createdHeight
+ * @property {string | null} createdAt ISO
+ * @property {number} settledHeight
+ * @property {string | null} settledAt ISO, the last settlement
+ * @property {string} transferred ACT paid to the providers, decimal
+ * @property {string} funds ACT left in the escrow, decimal
+ */
+
+/**
  * @typedef {object} WalletHistory
  * @property {string} chain
  * @property {Record<string, string>} endpoints the ones asked
@@ -477,6 +489,15 @@ export function createBridgeClient({
 		 */
 		walletHistory: (chain, body) =>
 			call(`/${encodeURIComponent(chain)}/wallet`, { method: 'POST', body: JSON.stringify(body) }),
+		/**
+		 * An Akash wallet's deployments with what each cost (#305), for the
+		 * monthly usage statement (in the body, so the address is in no URL).
+		 *
+		 * @param {{ address: string, endpoints?: Record<string, string> }} body
+		 * @returns {Promise<{ deployments: AkashDeployment[] }>}
+		 */
+		akashDeployments: (body) =>
+			call('/akash/deployments', { method: 'POST', body: JSON.stringify(body) }),
 		/**
 		 * Which of these 0x addresses are Aleph accounts: their credits now and
 		 * how many credit entries they ever had (issue #113). Read only.

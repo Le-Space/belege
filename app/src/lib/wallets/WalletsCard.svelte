@@ -21,6 +21,7 @@
 		walletChain
 	} from './chains.js';
 	import { importMoneroExport } from './monero-import.js';
+	import AkashStatement from '$lib/akash/AkashStatement.svelte';
 	import {
 		addWallet,
 		loadWallets,
@@ -709,6 +710,9 @@
 									</p>
 								{/if}
 							</form>
+						{/if}
+						{#if wallet.chain === 'akash'}
+							<AkashStatement {wallet} {client} />
 						{/if}
 						{#if result}
 							<p class="mt-2 text-sm text-heading" role="status" data-testid="wallet-result">

@@ -55,6 +55,7 @@ export const RECEIPT_NUMBER = /^(\d{4}-\d{2})-(\d{3})$/;
  * @property {Rec | null} match the first receipt's active match
  * @property {Rec | null} transferWith the other side, for a transfer exported once
  * @property {import('./datev.js').BookingLine} line
+ * @property {Rec[]} [collected] a collective booking's bookings (#305): `tx` is the last of them
  */
 
 /**
@@ -206,6 +207,63 @@ export function bookingText(tx, receipt) {
 }
 
 /**
+ * Network fees one usage statement covers (an Akash month, akash/statement.js,
+ * #305) go into the Buchungsstapel as one collective booking per statement,
+ * account, contra account, BU key and cost centre: their sum, on the last
+ * fee's day, with the statement's receipt number. The statement lists each.
+ * One fee alone stays as it is.
+ *
+ * @param {PlannedLine[]} lines
+ * @param {string} month YYYY-MM
+ * @returns {PlannedLine[]}
+ */
+export function collectNetworkFees(lines, month) {
+	/** @type {Map<string, PlannedLine[]>} */
+	const groups = new Map();
+	/** @type {PlannedLine[]} */
+	const rest = [];
+	for (const l of lines) {
+		const statement = l.receipts.find((r) => r.selfReceipt?.kind === 'akash-statement');
+		if (l.tx.movement !== 'fee' || !statement || l.transferWith) {
+			rest.push(l);
+			continue;
+		}
+		const key = [
+			statement.id,
+			l.line.account,
+			l.line.contra,
+			l.line.taxKey,
+			l.line.costCentre ?? ''
+		].join('|');
+		groups.set(key, [...(groups.get(key) ?? []), l]);
+	}
+	/** @type {PlannedLine[]} */
+	const collected = [];
+	for (const group of groups.values()) {
+		if (group.length === 1) {
+			collected.push(group[0]);
+			continue;
+		}
+		const last = group.reduce((a, b) => (String(b.tx.bookedOn) > String(a.tx.bookedOn) ? b : a));
+		const [y, m] = month.split('-');
+		collected.push({
+			...last,
+			collected: group.map((l) => l.tx),
+			line: {
+				...last.line,
+				amountCents: group.reduce((n, l) => n + l.line.amountCents, 0),
+				date: String(last.tx.bookedOn),
+				// eslint-disable-next-line belege/no-german -- Buchungstext, a German document (#192)
+				text: `Netzwerkgebühren Akash ${m}/${y} (${group.length} Tx)`
+			}
+		});
+	}
+	return [...rest, ...collected].sort((a, b) =>
+		String(a.line.date).localeCompare(String(b.line.date))
+	);
+}
+
+/**
  * @param {object} params
  * @param {string} params.month YYYY-MM
  * @param {Rec[]} params.transactions
@@ -215,6 +273,7 @@ export function bookingText(tx, receipt) {
  * @param {Record<string, any>} params.classifications
  * @param {boolean} [params.includeTests] take test bookings too (sample/test-bookings.js); off by default
  * @param {boolean} [params.withStatements] the accounts' monthly statements into the ZIP; on by default
+ * @param {boolean} [params.collectFees] network fees a usage statement covers as one booking (#305); on by default
  * @returns {MonthPlan}
  */
 export function planMonth({
@@ -225,7 +284,8 @@ export function planMonth({
 	matches,
 	classifications,
 	includeTests = false,
-	withStatements = true
+	withStatements = true,
+	collectFees = true
 }) {
 	const live = transactions.filter((t) => !t.deleted);
 	const ofMonth = live.filter((t) => String(t.bookedOn ?? '').slice(0, 7) === month);
@@ -264,7 +324,7 @@ export function planMonth({
 	const statementOf = new Map(statements.map((s) => [s.account.id, s.number]));
 
 	/** @type {PlannedLine[]} */
-	const lines = [];
+	let lines = [];
 	/** @type {{ tx: Rec, other: Rec }[]} */
 	const transferSides = [];
 	for (const tx of bookings) {
@@ -309,6 +369,8 @@ export function planMonth({
 			}
 		});
 	}
+
+	if (collectFees) lines = collectNetworkFees(lines, month);
 
 	const monthReceipts = receipts.filter(
 		(r) => !r.deleted && String(receiptDate(/** @type {any} */ (r)) ?? '').slice(0, 7) === month
