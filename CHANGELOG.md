@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] – 2026-10-05
+
 ### Added
 
 - **Whole entries sealed: OrbitDB's replication layer.** Every log entry was sealed in its payload; its writer, clock and links to earlier entries were readable by whoever got the block. Now each entry is sealed once more as a whole, with a key of its own from the passkey (`belege/replication-key/v1`), so a peer without it gets blocks it cannot decode and cannot walk or replicate the log. Own devices derive the same key and sync as before.
