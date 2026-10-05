@@ -32,6 +32,7 @@
 	import { yearLabel } from '$lib/year/year.js';
 	import InputVatCard from '$lib/vat/InputVatCard.svelte';
 	import { openPrivatePayments } from '$lib/matching/private.js';
+	import { openOutlays } from '$lib/outlays/repayment.js';
 	import { cleanDatevSettings, privateAccounts } from '$lib/booking/settings.js';
 	import NeedsCard from '$lib/integrations/NeedsCard.svelte';
 	import SetupChecklist from '$lib/setup/SetupChecklist.svelte';
@@ -66,6 +67,9 @@
 			? openPrivatePayments(app.transactions)
 			: []
 	);
+
+	// Outlays laid out privately and not paid back yet (#293).
+	let outlaysOpen = $derived(openOutlays(/** @type {any[]} */ (app.transactions)));
 
 	// What an integration needs from the person (#152), here too: the day starts on Home.
 	onMount(() => loadIntegrationFacts());
@@ -250,6 +254,35 @@
 						><span class="min-w-0 truncate"
 							>{formatDate(p.tx.bookedOn)} · {p.tx.counterparty || '—'}</span
 						><span class="font-mono tabular-nums">{formatMoney(p.openCents, 'EUR')}</span></a
+					>
+				</li>
+			{/each}
+		</ul>
+	</section>
+{/if}
+
+{#if outlaysOpen.length}
+	<section class="mt-4 {card}" aria-labelledby="outlays-open-h" data-testid="home-outlays-open">
+		<h2 id="outlays-open-h" class="text-sm font-semibold text-heading">
+			{t('home.outlaysOpen.title', {
+				count: outlaysOpen.length,
+				amount: formatMoney(
+					outlaysOpen.reduce((n, o) => n + o.openCents, 0),
+					'EUR'
+				)
+			})}
+		</h2>
+		<p class="mt-1 text-sm text-text">{t('home.outlaysOpen.what')}</p>
+		<ul class="mt-2 divide-y divide-border text-sm">
+			{#each outlaysOpen.slice(0, 5) as o (o.tx.id)}
+				<li>
+					<a
+						class="flex min-h-11 items-center justify-between gap-2 py-1 text-heading hover:underline"
+						href={`${resolve('/zahlungen')}?tx=${encodeURIComponent(o.tx.id)}`}
+						data-testid="home-outlays-open-item"
+						><span class="min-w-0 truncate"
+							>{formatDate(o.tx.bookedOn)} · {o.tx.counterparty || '—'}</span
+						><span class="font-mono tabular-nums">{formatMoney(o.openCents, 'EUR')}</span></a
 					>
 				</li>
 			{/each}

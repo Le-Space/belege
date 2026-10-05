@@ -9,8 +9,8 @@
 // the DATEV export it goes against the account's ledger account – the
 // shareholder clearing account of a UG/GmbH, 1890 (Privateinlage) for a sole
 // proprietor or partnership (booking/settings.js privateAccounts) – with the
-// expense account confirmed like any booking's. Paying it back is a later
-// step of #293.
+// expense account confirmed like any booking's. Paying it back:
+// repayment.js.
 //
 // A receipt in another currency keeps its amount as `original` and is booked
 // in euros at a rate: the ECB's of the day where the bridge has one, else one
@@ -229,6 +229,15 @@ export async function undoOutlay(store, transactionId) {
 		if (m.transactionId === transactionId && !m.deleted && m.state !== 'rejected') {
 			await store.matches.put({ ...m, state: 'rejected' });
 		}
+	}
+	// Its payouts let go of it: what they paid stays with the other outlays.
+	for (const id of tx.outlay?.repaidBy ?? []) {
+		const payout = await store.transactions.get(id);
+		if (!payout) continue;
+		const left = (payout.outlayRepaymentOf ?? []).filter(
+			(/** @type {string} */ o) => o !== transactionId
+		);
+		await store.transactions.put({ ...payout, outlayRepaymentOf: left.length ? left : null });
 	}
 	await store.transactions.softDelete(transactionId);
 }
