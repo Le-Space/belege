@@ -494,7 +494,7 @@ export function createBridgeClient({
 		 * monthly usage statement (in the body, so the address is in no URL).
 		 *
 		 * @param {{ address: string, endpoints?: Record<string, string> }} body
-		 * @returns {Promise<{ deployments: AkashDeployment[] }>}
+		 * @returns {Promise<{ deployments: AkashDeployment[], actBalance: string }>}
 		 */
 		akashDeployments: (body) =>
 			call('/akash/deployments', { method: 'POST', body: JSON.stringify(body) }),

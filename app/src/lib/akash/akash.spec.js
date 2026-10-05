@@ -12,6 +12,7 @@ import { createBlobStore } from '../receipts/blob-store.js';
 import { collectNetworkFees } from '../export/plan.js';
 import { akashMonth, usageInMonth } from './usage.js';
 import { createAkashStatement, findAkashStatement } from './statement.js';
+import { actAccount } from './act-account.js';
 
 const ADDRESS = `akash1${'q'.repeat(38)}`;
 const h = (/** @type {string} */ c) => c.repeat(64);
@@ -327,5 +328,81 @@ describe('collectNetworkFees', () => {
 			'2026-07'
 		);
 		expect(out.map((l) => l.collected?.length ?? 1)).toEqual([2, 1]);
+	});
+});
+
+describe('actAccount', () => {
+	const accounts = [{ id: 'acc', source: 'akash', walletAddress: ADDRESS, asset: 'AKT' }];
+	/** @param {string} id @param {string} day @param {string} uakt @param {number} cents @param {string} [act] */
+	const mint = (id, day, uakt, cents, act = '') => ({
+		id,
+		accountId: 'acc',
+		source: 'akash',
+		movement: 'trade',
+		bookedOn: day,
+		amountCents: -cents,
+		quantity: `-${uakt}`,
+		decimals: 6,
+		swap: { via: 'Akash BME (AKT ↔ ACT)', got: [{ asset: 'ACT', amount: act, listed: false }] }
+	});
+
+	it('minted = held + escrow + used; older mints share what is left by AKT burnt; usage at cost', () => {
+		const a = actAccount({
+			address: ADDRESS,
+			accounts,
+			transactions: [
+				// 30 AKT for 6 ACT (from the node), and two older ones without an amount.
+				mint('m1', '2026-04-11', '30000000', 600, '6'),
+				mint('m2', '2026-04-11', '10000000', 200),
+				mint('m3', '2026-04-12', '30000000', 600)
+			],
+			deployments: [
+				deployment({
+					createdAt: '2026-04-20T00:00:00.000Z',
+					settledAt: '2026-04-30T00:00:00.000Z',
+					transferred: '4'
+				}),
+				deployment({
+					dseq: '2',
+					state: 'active',
+					createdAt: '2026-07-10T00:00:00.000Z',
+					settledAt: '2026-07-20T00:00:00.000Z',
+					transferred: '2',
+					funds: '1'
+				})
+			],
+			actBalance: '7',
+			untilMonth: '2026-07'
+		});
+		// 7 held + 1 in escrow + 6 used = 14 minted: 6 known, 8 shared 1:3.
+		expect([a.minted, a.used, a.held, a.escrow, a.derived]).toEqual(['14', '6', '7', '1', true]);
+		expect(a.topUps.map((t) => [t.id, t.act])).toEqual([
+			['m1', '6'],
+			['m2', '2'],
+			['m3', '6']
+		]);
+		// 14 € for 14 ACT: 1 € each, at cost.
+		expect([a.costCents, a.perActCents, a.usedCents, a.leftCents]).toEqual([1400, 100, 600, 800]);
+		expect(a.months.map((m) => [m.month, m.minted, m.used, m.balance])).toEqual([
+			['2026-04', '14', '4', '10'],
+			['2026-05', '0', '0', '10'],
+			['2026-06', '0', '0', '10'],
+			['2026-07', '0', '2', '8']
+		]);
+	});
+
+	it('every mint known: nothing derived', () => {
+		const a = actAccount({
+			address: ADDRESS,
+			accounts,
+			transactions: [mint('m1', '2026-07-01', '5000000', 100, '1')],
+			deployments: [],
+			actBalance: '1',
+			untilMonth: '2026-07'
+		});
+		expect(a.derived).toBe(false);
+		expect(a.months).toEqual([
+			{ month: '2026-07', minted: '1', used: '0', balance: '1', costCents: 100, usedCents: 0 }
+		]);
 	});
 });

@@ -93,3 +93,23 @@ test('a node without deployments in its answer is an error', async () => {
 		(/** @type {any} */ e) => e.code === 'WALLET_DATA'
 	);
 });
+
+test('the ACT held now, from the node’s balances; none is 0', async () => {
+	/** @param {any[]} balances */
+	const node = (balances) =>
+		/** @type {typeof fetch} */ (
+			async (input) => {
+				assert.match(String(input), /\/cosmos\/bank\/v1beta1\/balances\//);
+				return Response.json({ balances, pagination: { next_key: null } });
+			}
+		);
+	const client = (/** @type {any[]} */ b) => createAkashDeploymentsClient({ fetch: node(b) });
+	assert.equal(
+		await client([
+			{ denom: 'uakt', amount: '49110337' },
+			{ denom: 'uact', amount: '7503515' }
+		]).actBalance({ address: ADDRESS, rest: REST }),
+		'7.503515'
+	);
+	assert.equal(await client([]).actBalance({ address: ADDRESS, rest: REST }), '0');
+});

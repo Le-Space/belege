@@ -10,7 +10,10 @@
 //                             funds (left), settled_at (the last settlement;
 //                             for a closed one, its end)
 // Amounts are decimal coins in uact. The blocks' times come from the Akash
-// Console indexer (`/v1/blocks/<height>`), as the node is pruned.
+// Console indexer (`/v1/blocks/<height>`), as the node is pruned. With them,
+// the wallet's ACT held now (`/cosmos/bank/v1beta1/balances/<a>`, uact), for
+// the ACT account (step 3): what was minted is what is held, in escrow and
+// used up.
 //
 // What a deployment cost in a month is not kept per month on chain: the app
 // spreads its transferred amount evenly over its time from creation to the
@@ -75,6 +78,22 @@ export function createAkashDeploymentsClient({ fetch: f = fetch, timeoutMs, slee
 	}
 
 	return {
+		/**
+		 * The wallet's ACT held now, decimal.
+		 *
+		 * @param {{ address: string, rest: string }} p checked by the caller
+		 */
+		async actBalance({ address, rest }) {
+			const body = await getJson(
+				`${rest}/cosmos/bank/v1beta1/balances/${encodeURIComponent(address)}?pagination.limit=200`
+			);
+			if (!Array.isArray(body?.balances)) {
+				throw new WalletError('the node answered without balances', 'WALLET_DATA');
+			}
+			const uact = body.balances.find((/** @type {any} */ b) => b?.denom === 'uact');
+			return unitsToDecimal(decUnits(uact?.amount ?? '0'), 6);
+		},
+
 		/**
 		 * @param {{ address: string, rest: string, indexer: string }} p checked by the caller
 		 * @returns {Promise<AkashDeployment[]>}

@@ -91,6 +91,8 @@ Tokens withdrawn from an exchange to a wallet of our own stay the company's. _In
 
   The statement becomes a receipt linked to the month's network fees. In the DATEV export, those fees go in as one collective booking per wallet account (switchable on the export page). The valuation is to be confirmed with the tax adviser.
 
+- **ACT account (#305):** _ACT-Konto anzeigen_ on an Akash wallet's card shows Akash as a vendor account, month by month: ACT topped up (burn-mint), used by the deployments, and the balance. What adds up: minted = held now (the node's `uact` balance) + left in escrow + used. An older mint's ACT is no longer on chain; the ACT those mints gave together then follows from that identity and is shared by the AKT each burnt. In euros, at cost: a top-up costs what its AKT was booked at, each ACT the average of all top-ups. Usage and what is left are valued at that cost. Whether a top-up is a prepayment and the usage the expense is for the tax adviser.
+
 - **EVM**: first Blockscout's JSON-RPC proxy (`…/api/eth-rpc`, `eth_chainId`) must name the chain (else `WALLET_WRONG_CHAIN`, or `WALLET_CHAIN_UNVERIFIED` when it cannot say); then its Etherscan-compatible API, no key: `txlist`, `txlistinternal`, `tokentx`, `balance`, `tokenbalance`. Paged by start block past Blockscout's 10 000-entry window, with retries on its rate limit. Blockscout without a key answers only a few requests per half hour and IP address (about ten were seen; a sync needs at least six), then HTTP 429.
 - **EVM with Alchemy** (when `pnpm setup:alchemy` has stored a key, and the wallet names no `api` endpoint of its own): see [Alchemy](#alchemy) below.
 

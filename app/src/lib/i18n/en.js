@@ -965,7 +965,26 @@ export default {
 		make: 'Create usage statement',
 		making: 'Creating …',
 		exists: 'Statement {number} is under Belege.',
-		made: 'Eigenbeleg {number} for {month} created: {fees} network fees linked, usage {act} ACT.'
+		made: 'Eigenbeleg {number} for {month} created: {fees} network fees linked, usage {act} ACT.',
+		act: {
+			title: 'ACT account (credit for deployments)',
+			what: 'ACT is minted by burning AKT and pays the deployments. Here: what was topped up, used and is left, valued at cost.',
+			open: 'Show ACT account',
+			loading: 'Reading balance and deployments …',
+			month: 'Month',
+			minted: 'Topped up',
+			used: 'Used',
+			balance: 'Balance',
+			cost: 'Top-up cost',
+			usedCost: 'Usage at cost',
+			summary:
+				'Topped up {minted} ACT for {cost} ({perAct} per ACT) · used {used} ACT ({usedCost}) · left {held} ACT in the wallet and {escrow} ACT in escrow ({left}).',
+			derived:
+				'For older top-ups the ACT amount is no longer on chain; it is derived from balance, escrow and usage and shared by the AKT burnt.',
+			booking:
+				'Whether the top-up is booked as a prepayment and only the usage as an expense is for the tax adviser.',
+			none: 'No top-up and no deployment yet.'
+		}
 	},
 	aleph: {
 		title: 'Aleph Cloud (hosting credits)',
