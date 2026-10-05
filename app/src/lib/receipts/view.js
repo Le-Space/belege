@@ -20,6 +20,7 @@ import { intlLocale } from '../i18n/index.js';
  * @property {string | null} [mime]
  * @property {string} [status]
  * @property {any} [extraction]
+ * @property {{ reason?: string, note?: string } | null} [setAside]
  */
 
 /**
@@ -148,8 +149,12 @@ const STATUS_KEYS = /** @type {Record<string, string>} */ ({
 	ignoriert: 'ignored'
 });
 
-/** Status → the badge key under `belege.status`. Read but not matched yet: "Nicht zugeordnet". */
+/**
+ * Status → the badge key under `belege.status`. Read but not matched yet:
+ * "Nicht zugeordnet"; set aside as private: "Privat".
+ */
 export function statusKey(/** @type {ReceiptLike} */ r) {
+	if (r.status === 'ignoriert' && r.setAside?.reason === 'private') return 'private';
 	return STATUS_KEYS[r.status ?? 'neu'] ?? 'new';
 }
 

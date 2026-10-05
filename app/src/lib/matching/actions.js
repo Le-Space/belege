@@ -492,30 +492,46 @@ export async function forgetBankFee(store, key) {
 
 /**
  * "Aussortieren": the receipt is no receipt of ours – a copy of another
- * (`duplicateOf`) or not needed. Out of the matching; its links are undone.
- * "Wieder aufnehmen" (`restoreReceipt`) takes it back.
+ * (`duplicateOf`), not needed, or private and not business (`private`, e.g.
+ * one from the private mailbox), with the person's reason as `note`. Out of
+ * the matching, the questions and the export; its links are undone. "Wieder
+ * aufnehmen" (`restoreReceipt`) takes it back.
  *
  * @param {MatchingStore} store
  * @param {string} receiptId
- * @param {{ duplicateOf?: string | null }} [options]
+ * @param {{ duplicateOf?: string | null, private?: boolean, note?: string }} [options]
  */
-export async function setAsideReceipt(store, receiptId, { duplicateOf = null } = {}) {
+export async function setAsideReceipt(
+	store,
+	receiptId,
+	{ duplicateOf = null, private: privately = false, note = '' } = {}
+) {
 	const r = await store.receipts.get(receiptId);
 	if (!r) throw new Error(`No receipt ${receiptId}`);
 	for (const m of await store.matches.list({ where: (m) => m.receiptId === receiptId })) {
 		if (isActive(m)) await store.matches.put({ ...m, state: 'rejected' });
 	}
+	const reason = duplicateOf ? 'duplicate' : privately ? 'private' : 'not-needed';
 	await store.receipts.put({
 		...r,
 		status: 'ignoriert',
 		setAside: {
-			reason: duplicateOf ? 'duplicate' : 'not-needed',
+			reason,
 			of: duplicateOf,
+			...(note.trim() ? { note: note.trim() } : {}),
 			at: new Date().toISOString()
 		}
 	});
 	await syncLinks(store);
-	await decided(store, duplicateOf ? 'receipt-duplicate' : 'receipt-set-aside', { receiptId });
+	await decided(
+		store,
+		{
+			duplicate: 'receipt-duplicate',
+			private: 'receipt-private',
+			'not-needed': 'receipt-set-aside'
+		}[reason],
+		{ receiptId }
+	);
 }
 
 /**

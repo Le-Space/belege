@@ -1785,6 +1785,7 @@ export default {
 			question: 'Question',
 			assigned: 'Linked',
 			ignored: 'Ignored',
+			private: 'Private',
 			prepaid: 'Prepaid account'
 		},
 		unverified: 'Check sender',
@@ -1801,7 +1802,18 @@ export default {
 				'Stays out of matching and out of the export; any link is removed. Can be taken back in.',
 			duplicate: 'Set aside as duplicate.',
 			notNeeded: 'Set aside – not a receipt.',
-			restore: 'Take back in'
+			restore: 'Take back in',
+			private: {
+				action: 'Private, not business',
+				title:
+					'A private receipt, e.g. from the private mailbox: stays out of the books, the questions and the export. Can be taken back in.',
+				note: 'Reason (optional)',
+				placeholder: 'e.g. private trip, a gift',
+				confirm: 'Set aside as private',
+				cancel: 'Cancel',
+				done: 'Private, not business.',
+				doneWith: 'Private, not business: {note}'
+			}
 		},
 		origin: {
 			label: 'How linked',
@@ -2007,6 +2019,7 @@ export default {
 			'not-own-iban': 'IBAN marked as not ours',
 			'receipt-duplicate': 'Receipt set aside as duplicate',
 			'receipt-set-aside': 'Receipt set aside',
+			'receipt-private': 'Receipt set aside as private',
 			'receipt-restore': 'Receipt taken back in',
 			'needs-receipt': '“No receipt needed” withdrawn',
 			'confirm-sender': 'Sender released',

@@ -170,6 +170,21 @@
 		await runMatchingNow();
 	}
 
+	// "Privat, nicht geschäftlich": the receipt whose reason is being asked for.
+	let privateFor = $state(/** @type {string | null} */ (null));
+	let privateNote = $state('');
+
+	/** @param {string} id */
+	async function setAsidePrivate(id) {
+		const store = currentStore();
+		if (!store) return;
+		await setAsideReceipt(store, id, { private: true, note: privateNote });
+		privateFor = null;
+		privateNote = '';
+		await refreshNow();
+		await runMatchingNow();
+	}
+
 	/** @param {string} id */
 	async function restore(id) {
 		const store = currentStore();
@@ -564,6 +579,7 @@
 		question: 'border-danger/40 bg-danger/10 text-danger',
 		assigned: 'border-success/30 bg-success/10 text-success',
 		ignored: 'border-border bg-surface-2 text-faint',
+		private: 'border-border bg-surface-2 text-faint',
 		prepaid: 'border-success/30 bg-success/10 text-success'
 	};
 	// A confirmed prepaid vendor's statements are covered by its account
@@ -1300,11 +1316,15 @@
 						{/if}
 						{#if selected.status === 'ignoriert' && selected.setAside}
 							<p class="mt-3 text-sm text-faint" data-testid="receipt-set-aside-note">
-								{t(
-									selected.setAside.reason === 'duplicate'
-										? 'belege.setAside.duplicate'
-										: 'belege.setAside.notNeeded'
-								)}
+								{selected.setAside.reason === 'private'
+									? selected.setAside.note
+										? t('belege.setAside.private.doneWith', { note: selected.setAside.note })
+										: t('belege.setAside.private.done')
+									: t(
+											selected.setAside.reason === 'duplicate'
+												? 'belege.setAside.duplicate'
+												: 'belege.setAside.notNeeded'
+										)}
 								<button
 									type="button"
 									class="ml-1 underline"
@@ -1312,14 +1332,54 @@
 									data-testid="receipt-restore">{t('belege.setAside.restore')}</button
 								>
 							</p>
-						{:else if selected.status !== 'ignoriert' && !selectedDuplicate}
-							<button
-								type="button"
-								class="mt-3 text-sm text-faint underline hover:text-heading"
-								onclick={() => selected && setAside(selected.id)}
-								title={t('belege.setAside.title')}
-								data-testid="receipt-set-aside">{t('belege.setAside.action')}</button
+						{:else if selected.status !== 'ignoriert' && privateFor === selected.id}
+							<form
+								class="mt-3 flex flex-wrap items-end gap-2 text-sm"
+								onsubmit={(e) => {
+									e.preventDefault();
+									if (selected) setAsidePrivate(selected.id);
+								}}
+								data-testid="receipt-private-form"
 							>
+								<label class="flex min-w-48 flex-1 flex-col gap-1">
+									<span class="text-faint">{t('belege.setAside.private.note')}</span>
+									<input
+										class="rounded-md border border-border bg-surface px-2 py-1 text-heading"
+										bind:value={privateNote}
+										placeholder={t('belege.setAside.private.placeholder')}
+										data-testid="receipt-private-note"
+									/>
+								</label>
+								<button type="submit" class={primary} data-testid="receipt-private-confirm"
+									>{t('belege.setAside.private.confirm')}</button
+								>
+								<button
+									type="button"
+									class="text-faint underline hover:text-heading"
+									onclick={() => (privateFor = null)}>{t('belege.setAside.private.cancel')}</button
+								>
+							</form>
+						{:else if selected.status !== 'ignoriert' && !selectedDuplicate}
+							<div class="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+								<button
+									type="button"
+									class="text-sm text-faint underline hover:text-heading"
+									onclick={() => selected && setAside(selected.id)}
+									title={t('belege.setAside.title')}
+									data-testid="receipt-set-aside">{t('belege.setAside.action')}</button
+								>
+								<button
+									type="button"
+									class="text-sm text-faint underline hover:text-heading"
+									onclick={() => {
+										privateNote = '';
+										privateFor = selected?.id ?? null;
+									}}
+									title={t('belege.setAside.private.title')}
+									data-testid="receipt-set-aside-private"
+									>{t('belege.setAside.private.action')}</button
+								>
+							</div>
 						{/if}
 						{#if extractionNote(selected)}
 							<p class="mt-3 text-sm text-danger" role="status" data-testid="extract-note">
