@@ -52,6 +52,25 @@ All notable changes to Le Space Belege. The format follows
   - Confirmed transfers become bookings valued at the day's rate (CoinGecko); an outgoing fee is booked apart; a mined block is "Mining-Ertrag"; importing again adds only what is new.
   - The consent screen lists Monero and xmrchain.net; [docs/crypto.md](docs/crypto.md) explains the export and how XMR from private holdings is booked.
 - **README and consent screen name every supported blockchain and the backup service** (Aleph Cloud through the OrbitDB Storage Bridge).
+- **Private outlays** (#293). What the managing director paid privately for the business – cash abroad, a private card – is booked from its receipt.
+  - **"Privat ausgelegt …"** on a receipt books it on an account of its own, _Auslagen Geschäftsführung_, and links the receipt to it (#295). The account's ledger account comes from the legal form in Buchhaltung.
+  - **Another currency:** the amount stays as the original, booked in euros at the ECB rate of the day. For the ruble, which the ECB no longer publishes, the Bank of Russia's official rate is used, or a rate from a document entered by hand (#300).
+  - **Paying back:** "Erstattet Auslagen …" on a transfer links it to the open outlays it pays back. One transfer can clear several, several one; it needs no receipt and is booked against the private account of the legal form. Home lists what is still open (#298).
+  - **"Privat, nicht geschäftlich"** sets a receipt from the private mailbox aside with its reason: out of the matching, the questions and the export (#297).
+  - See [docs/outlays.md](docs/outlays.md).
+- **Akash, as it is paid now** (#305).
+  - **Burn-mint:** AKT burnt for ACT, the credit deployments are paid in, is booked as a swap that needs no receipt (#304).
+  - **A Kraken funding the indexer's listing leaves out** is found by the hash of the Kraken withdrawal (#304).
+  - **A monthly usage statement** on an Akash wallet's card, as an Eigenbeleg: the network fees with their hashes, the top-ups, and each deployment's usage from the node. It covers the month's fees, and the DATEV export books them as one collective line per wallet account (switchable) (#307).
+  - **The ACT account:** ACT topped up, used and left, month by month, at cost (#309).
+- **One rule for every network fee** (#306). "Für alle Netzwerkgebühren übernehmen" in a fee's account block puts all of a wallet's network fees on their account, future ones too, instead of confirming each.
+- **USDFC on Filecoin, and swaps through SushiSwap** (#301, #302). A Filecoin wallet's token transfers are read too; USDFC is booked by its contract, and FIL ⇄ USDFC is one swap through SushiSwap.
+- **Upload receipts from every page** (#308, #310). "Belege hochladen" in the tab row (a "+" above the tab bar on a phone) opens a drop zone; files dropped on any page are uploaded. The upload button on Belege is gone.
+- **Crypto movements in an open, MIT-licensed format** (crypto-ledger v1, #268): CAIP ids, exact amounts, the fee as its own movement, the euro value with its source. Export from Belege, and read such a file into the books (#275). See [schema/README.md](schema/README.md).
+- **A receipt previewed on hover, with a lens** (#273): when assigning a receipt, in the Belege and in the Zahlungen lists (#278, #282).
+- **Instalments of an invoice in another currency** (#292): a USD invoice paid in euros or in Monero, counted at the ECB rate of each payment's day, within 5 %.
+- **Unlocking says where it is** (#285): opening the books, moving them, each step timed in the console.
+- **Export: the account statements are optional** (#289), and a mail receipt without an attachment goes into the ZIP as a PDF (#291).
 
 ### Changed
 
@@ -68,12 +87,19 @@ All notable changes to Le Space Belege. The format follows
   - Home and the payment's detail now offer such an IBAN, with how many open payments it would explain. "Ja, eigenes Konto" saves it under the own IBANs, and every payment to it becomes an own transfer (1360). "Nein, nicht unseres" stops the offer for good.
   - Nothing is saved without the click: a customer whose name only looks like the company's is offered too, and refused there.
   - [docs/banking.md](docs/banking.md) explains it under Wise.
+- **Kraken through ccxt** (#265, #281): the bridge reads Kraken with the open-source ccxt library instead of its own client; the entries are the same as before.
+- **Every ECB reference currency** (#300): a rate for TRY, GBP, CHF and the others the ECB publishes, not only USD.
+- **Export: "Belege ohne Zahlung" says what it means** (#286): those receipts link to Belege, and a copy of a linked receipt is named apart.
+- **Adding comes first** (#276): on Integrationen the form to add an account or wallet stands above the list it adds to, and a payment's upload above its receipts (#277).
+- **Export keeps its month** (#314, #315): the chosen month is in the address (`?month=`) and kept for the session, so going to Zahlungen and back, or a reload, shows the same month.
 
 ### Fixed
 
 - **An invoice in another currency is no longer "partly paid".** A USD invoice paid from a EUR account showed "Teilzahlung 1 von 1 · 1,63 USD offen": euros were subtracted from dollars. Payments now count in the invoice's currency only, by their original amount where the bank gives one (Wise, CAMT); where it does not, the invoice counts as paid by its link, with nothing open (#258).
 - **Test bookings can be removed.** "Testbuchung anlegen" – a button of the development build – could put made-up payments (Testpartner GmbH, −19,99 €) into real books, with device sync even onto every own device; nothing could take them out, and with no bank account they blocked the export of their month. They are now marked, Zahlungen says so with "Testbuchungen entfernen", older ones are found by what the button wrote. The button now books onto a "Testkonto", so test bookings can be exported on request ("Testbuchungen mitexportieren", off by default; the package is then called TEST\_…).
 - **Entries from an earlier session of the same passkey are accepted again.** OrbitDB 4.0.0 caches a verified identity by its id signature and refused every other identity with the same signature without asking the provider. A passkey's identity carries a new proof in each session, so a backup's entries, and possibly entries synced from an own device, were refused ("not allowed to write to the log"). Such an identity is now checked again the way OrbitDB checks one it has not cached; nothing it would refuse is accepted ([orbitdb/orbitdb#1258](https://github.com/orbitdb/orbitdb/issues/1258)).
+- **Akash's older history is read again** (#303). The Akash Console indexer changed its listing (`hasMore` instead of `count`); a pruned node's wallet stayed without its older history and said "Indexer nicht erreichbar".
+- **A mail receipt's PDF keeps its lines** (#311). Every line break was printed as "?", so the mail came out as one block; long tracking links are now shortened to their host.
 
 ## [0.6.0] – 2026-10-01
 
