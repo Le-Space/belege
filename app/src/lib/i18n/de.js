@@ -1001,6 +1001,18 @@ export default {
 		exists: 'Nachweis {number} liegt unter Belege.',
 		made: 'Eigenbeleg {number} für {month} erstellt ({eur}); er liegt unter Belege.'
 	},
+	uploadPanel: {
+		open: 'Belege hochladen',
+		openShort: 'Hochladen',
+		title: 'Belege hochladen',
+		zone: 'Belege hochladen',
+		zoneHint: 'oder Dateien hierher ziehen – auf jeder Seite',
+		types: 'PDF, PNG, JPEG, GIF, WebP · mehrere auf einmal',
+		busy: 'Lade hoch …',
+		goto: 'Zu den Belegen',
+		close: 'Schließen',
+		drop: 'Zum Hochladen loslassen'
+	},
 	akash: {
 		title: 'Verbrauchsnachweis',
 		what: 'Akash stellt keine Rechnung aus. Pro Monat entsteht ein Eigenbeleg mit den Netzwerkgebühren, der Aufladung (AKT → ACT) und dem Verbrauch der Deployments; er deckt die Netzwerkgebühren des Monats.',
@@ -1778,9 +1790,6 @@ export default {
 		empty:
 			'Noch keine Belege. Dateien hochladen oder einen Ordner freigeben geht sofort; für das Buchhaltungs-Postfach brauchst du die Bridge.',
 		emptyLink: 'Bridge einrichten',
-		upload: 'Belege hochladen',
-		uploadHint: 'PDFs und Bilder, auch per Drag & Drop hierher.',
-		drop: 'Loslassen zum Hochladen',
 		folder: 'Ordner freigeben',
 		folderAgain: 'Ordner „{name}“ einlesen',
 		folderForget: 'Ordner vergessen',

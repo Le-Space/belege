@@ -958,6 +958,18 @@ export default {
 		blocks: 'Blocks, all told',
 		history: 'Backups so far'
 	},
+	uploadPanel: {
+		open: 'Upload receipts',
+		openShort: 'Upload',
+		title: 'Upload receipts',
+		zone: 'Upload receipts',
+		zoneHint: 'or drop files here – on any page',
+		types: 'PDF, PNG, JPEG, GIF, WebP · several at once',
+		busy: 'Uploading …',
+		goto: 'To the receipts',
+		close: 'Close',
+		drop: 'Drop to upload'
+	},
 	akash: {
 		title: 'Usage statement',
 		what: 'Akash issues no invoice. Per month, an Eigenbeleg lists the network fees, the top-up (AKT → ACT) and the deployments’ usage; it covers the month’s network fees.',
@@ -1751,9 +1763,6 @@ export default {
 		empty:
 			'No receipts yet. Uploading files or sharing a folder works at once; the accounting mailbox needs the bridge.',
 		emptyLink: 'Set up the bridge',
-		upload: 'Upload receipts',
-		uploadHint: 'PDFs and images, drag and drop them here too.',
-		drop: 'Drop to upload',
 		folder: 'Share folder',
 		folderAgain: 'Read folder “{name}”',
 		folderForget: 'Forget folder',
