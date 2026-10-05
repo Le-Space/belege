@@ -329,6 +329,7 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 
 	// Upload a PDF; the same bytes again are a duplicate. Not read on upload:
 	// read at once, it could be dated before the check below and leave "Ohne Datum".
+	await page.getByTestId('upload-open').click();
 	await page.getByTestId('upload-read-after').uncheck();
 	await page
 		.getByTestId('receipt-upload')
@@ -342,6 +343,7 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	await expect(page.getByTestId('import-result')).toHaveText(
 		'Neu: 0 · doppelt: 1 · nicht unterstützt: 0'
 	);
+	await page.getByTestId('upload-close').click();
 	await expect(receipts).toHaveCount(7);
 	const uploaded = receipts.filter({ hasText: UPLOAD.file });
 	await expect(uploaded).toHaveAttribute('data-source', 'upload');

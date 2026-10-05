@@ -12,6 +12,7 @@
 	import LanguageSwitch from '$lib/LanguageSwitch.svelte';
 	import SampleBanner from '$lib/sample/SampleBanner.svelte';
 	import SettingsLink from '$lib/SettingsLink.svelte';
+	import UploadPanel from '$lib/receipts/UploadPanel.svelte';
 	import { page } from '$app/state';
 	import PasskeyOnboarding from '$lib/PasskeyOnboarding.svelte';
 	import PwaBar from '$lib/pwa/PwaBar.svelte';
@@ -144,7 +145,13 @@
 			</main>
 		{:else}
 			<SampleBanner />
-			<SectionTabs />
+			<!-- Uploading from every page (#308): right in the tab row; on a phone a "+" above the tab bar. -->
+			<div class="relative">
+				<SectionTabs />
+				<div class="absolute top-0 right-0 sm:top-1.5">
+					<UploadPanel />
+				</div>
+			</div>
 			<main>
 				{#if !['/integrationen', '/einstellungen'].some((p) => page.url.pathname.startsWith(p))}
 					<YearSwitch />

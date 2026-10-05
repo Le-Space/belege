@@ -39,8 +39,9 @@
 	import { createBridgeClient } from '$lib/bridge/client.js';
 	import { getSetting, setSetting } from '$lib/store/settings.js';
 	import { formatDate, formatMoney } from '$lib/bank/format.js';
-	import { fetchAccountingMail, importFiles, needsConfirmation } from '$lib/receipts/import.js';
+	import { fetchAccountingMail, needsConfirmation } from '$lib/receipts/import.js';
 	import { extractable } from '$lib/receipts/extract.js';
+	import { loadUpload, upload, uploadFiles } from '$lib/receipts/upload.svelte.js';
 	import { isUndated } from '$lib/year/year.js';
 	import {
 		cancelExtractAll,
@@ -105,19 +106,16 @@
 	let fetching = $state(false);
 	/** Read new mail receipts right after a fetch (settings key `mailFetch`); on by default. */
 	let readAfterFetch = $state(true);
-	/** Uploads and the folder: read new receipts at once (switchable, like the mail's). */
-	let readAfterUpload = $state(true);
 	/** @type {string | null} */
 	let fetchResult = $state(null);
 	/** @type {string | null} */
 	let fetchError = $state(null);
 
-	let importing = $state(false);
-	/** @type {string | null} */
-	let importResult = $state(null);
+	// Uploads come from the panel in the app frame (receipts/upload.svelte.js, #308);
+	// the shared folder here goes through the same import.
+	let importing = $derived(upload.busy);
 	/** @type {string | null} */
 	let importError = $state(null);
-	let dragging = $state(false);
 
 	const canFolder = folderSupported();
 	/** @type {any} */
@@ -260,7 +258,7 @@
 		if (wanted) selectedId = wanted;
 		folderHandle = await savedFolder();
 		readAfterFetch = (await getSetting(store.settings, 'mailFetch'))?.readAfterFetch !== false;
-		readAfterUpload = (await getSetting(store.settings, 'uploadRead'))?.readAfter !== false;
+		await loadUpload();
 		const saved = await getSetting(store.settings, 'bridge');
 		if (!saved?.token) return;
 		const c = createBridgeClient({ url: saved.url, token: saved.token });
@@ -296,13 +294,6 @@
 
 	/** @param {unknown} error */
 	const message = (error) => (error instanceof Error ? error.message : String(error));
-
-	/** @param {boolean} on */
-	async function setReadAfterUpload(on) {
-		readAfterUpload = on;
-		const store = currentStore();
-		if (store) await setSetting(store.settings, 'uploadRead', { readAfter: on });
-	}
 
 	/** @param {boolean} on */
 	async function setReadAfterFetch(on) {
@@ -356,64 +347,6 @@
 		await runMatchingNow();
 	}
 
-	/** @param {{ name: string, path?: string, bytes: () => Promise<Uint8Array> }[]} files @param {'upload' | 'folder'} kind */
-	async function importSome(files, kind) {
-		const store = currentStore();
-		const blobs = currentBlobs();
-		if (!store || !blobs || files.length === 0) return;
-		importing = true;
-		importError = null;
-		importResult = null;
-		/** @type {import('$lib/store/repository.js').StoredRecord[]} */
-		const created = [];
-		try {
-			const c = await importFiles({
-				receipts: store.receipts,
-				blobs,
-				files,
-				source: kind,
-				created
-			});
-			importResult = t('belege.importResult', {
-				new: c.new,
-				duplicate: c.duplicate,
-				unsupported: c.unsupported
-			});
-			await refreshNow();
-		} catch (error) {
-			importError = message(error);
-		} finally {
-			importing = false;
-		}
-		if (!created.length) return;
-		// Read the new ones right away (switchable), then match them – as after a mail fetch.
-		const ctx = queueContext();
-		const toRead = extractable(created).map((r) => r.id);
-		if (readAfterUpload && ctx && bridgeInfo?.llm && toRead.length) await extractAll(ctx, toRead);
-		await runMatchingNow();
-	}
-
-	/** @param {File[]} files */
-	const fromFiles = (files) =>
-		files.map((f) => ({
-			name: f.name,
-			bytes: async () => new Uint8Array(await f.arrayBuffer())
-		}));
-
-	/** @param {Event} event */
-	async function onUpload(event) {
-		const input = /** @type {HTMLInputElement} */ (event.currentTarget);
-		await importSome(fromFiles([...(input.files ?? [])]), 'upload');
-		input.value = '';
-	}
-
-	/** @param {DragEvent} event */
-	async function onDrop(event) {
-		event.preventDefault();
-		dragging = false;
-		await importSome(fromFiles([...(event.dataTransfer?.files ?? [])]), 'upload');
-	}
-
 	async function chooseFolder() {
 		importError = null;
 		try {
@@ -432,7 +365,7 @@
 				importError = t('belege.folderDenied');
 				return;
 			}
-			await importSome(await listFolderFiles(folderHandle), 'folder');
+			await uploadFiles(await listFolderFiles(folderHandle), 'folder');
 		} catch (error) {
 			importError = message(error);
 		}
@@ -645,30 +578,7 @@
 	});
 </script>
 
-<div
-	class="relative"
-	role="region"
-	aria-label={t('belege.title')}
-	ondragover={(e) => {
-		if (e.dataTransfer?.types?.includes('Files')) {
-			e.preventDefault();
-			dragging = true;
-		}
-	}}
-	ondragleave={(e) => {
-		if (e.currentTarget === e.target) dragging = false;
-	}}
-	ondrop={onDrop}
-	data-testid="belege-page"
->
-	{#if dragging}
-		<div
-			class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-cyan-800 bg-surface/90 text-lg font-semibold text-heading dark:border-cyan"
-		>
-			{t('belege.drop')}
-		</div>
-	{/if}
-
+<div class="relative" role="region" aria-label={t('belege.title')} data-testid="belege-page">
 	<div class="flex flex-wrap items-center justify-between gap-3">
 		<h1 class="text-2xl font-bold text-heading">{t('belege.title')}</h1>
 		<div class="flex flex-wrap items-center gap-2">
@@ -691,39 +601,18 @@
 					>
 				{/if}
 			{/if}
-			<label class="{primary} cursor-pointer" data-testid="upload-label">
-				{t('belege.upload')}
-				<input
-					type="file"
-					class="sr-only"
-					multiple
-					accept=".pdf,application/pdf,image/png,image/jpeg,image/gif,image/webp"
-					disabled={importing}
-					onchange={onUpload}
-					data-testid="receipt-upload"
-				/>
-			</label>
 		</div>
 	</div>
-	<p class="mt-1 text-xs text-faint">{t('belege.uploadHint')}</p>
-	{#if client && bridgeInfo?.llm}
-		<label class="mt-1 flex items-center gap-2 text-sm text-text">
-			<input
-				type="checkbox"
-				checked={readAfterUpload}
-				onchange={(e) => setReadAfterUpload(e.currentTarget.checked)}
-				data-testid="upload-read-after"
-			/>
-			<span class="inline-flex items-center gap-1"><AiMark />{t('belege.uploadReadAfter')}</span>
-		</label>
-	{/if}
-	{#if importResult}
-		<p class="mt-2 text-sm text-heading" role="status" data-testid="import-result">
-			{importResult}
+	<!-- Uploads: the button in the header, or files dropped on any page (#308). -->
+	{#if upload.kind === 'folder' && upload.result}
+		<p class="mt-2 text-sm text-heading" role="status" data-testid="folder-result">
+			{upload.result}
 		</p>
 	{/if}
-	{#if importError}
-		<p class="mt-2 text-sm text-danger" role="alert" data-testid="import-error">{importError}</p>
+	{#if importError || (upload.kind === 'folder' && upload.error)}
+		<p class="mt-2 text-sm text-danger" role="alert" data-testid="folder-error">
+			{importError ?? upload.error}
+		</p>
 	{/if}
 
 	<section class="mt-4 {card} px-5 py-4" aria-labelledby="mail-h">

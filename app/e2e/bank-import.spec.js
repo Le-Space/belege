@@ -427,6 +427,7 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 			'Diese Rechnung stellt keine Zahlungsaufforderung dar.'
 		]);
 	await page.getByRole('link', { name: 'Belege' }).click();
+	await page.getByTestId('upload-open').click();
 	await page.getByTestId('receipt-upload').setInputFiles([
 		{
 			name: 'funkmobil-09-15.pdf',
@@ -442,6 +443,7 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	await expect(page.getByTestId('import-result')).toContainText('Neu: 2');
 	// Read and matched at once (the upload's own switch, on by default): no "Alle neuen auslesen" left.
 	await expect(page.getByTestId('upload-read-after')).toBeChecked();
+	await page.getByTestId('upload-close').click();
 	await expect(page.getByTestId('extract-all')).toHaveCount(0);
 	const funkReceipts = page.getByTestId('receipt').filter({ hasText: 'Funkmobil' });
 	await expect(funkReceipts.getByTestId('receipt-status')).toHaveText([
