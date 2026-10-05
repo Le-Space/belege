@@ -108,6 +108,7 @@ export function isOwnName(name, company) {
  * @property {string[]} notRefunds pairs a person said are no refund
  * @property {{ name: string, openings: Record<string, number> }[]} prepaidVendors vendors a person keeps as a prepaid account, with opening balances per year (vendor-account.js)
  * @property {string[]} keptTransferReceipts `<transaction id>|<receipt id>`: an own transfer whose receipt a person said is right
+ * @property {string} networkFeeAccount the account every wallet network fee takes (#305); '' = none
  */
 
 /** A receipt often arrives days after the debit: no question before then. */
@@ -132,7 +133,8 @@ export function defaultMatchingSettings() {
 		refundPairs: [],
 		notRefunds: [],
 		prepaidVendors: [],
-		keptTransferReceipts: []
+		keptTransferReceipts: [],
+		networkFeeAccount: ''
 	};
 }
 
@@ -198,7 +200,11 @@ export function cleanMatchingSettings(value) {
 		notRefunds: [...new Set(strings(value?.notRefunds))].slice(-500),
 		prepaidVendors: cleanPrepaidVendors(value?.prepaidVendors),
 		// An own transfer that keeps its receipt on purpose (Home, "Beleg ist richtig").
-		keptTransferReceipts: [...new Set(strings(value?.keptTransferReceipts))].slice(-500)
+		keptTransferReceipts: [...new Set(strings(value?.keptTransferReceipts))].slice(-500),
+		// The account every wallet network fee takes, confirmed once (#305); '' = none.
+		networkFeeAccount: /^\d{4,8}$/.test(String(value?.networkFeeAccount ?? '').trim())
+			? String(value.networkFeeAccount).trim()
+			: ''
 	};
 }
 

@@ -354,7 +354,8 @@ describe('cleanMatchingSettings', () => {
 			refundPairs: [],
 			notRefunds: [],
 			prepaidVendors: [],
-			keptTransferReceipts: []
+			keptTransferReceipts: [],
+			networkFeeAccount: ''
 		});
 		expect(cleanMatchingSettings(null)).toEqual({
 			companyNames: [],
@@ -372,7 +373,8 @@ describe('cleanMatchingSettings', () => {
 			refundPairs: [],
 			notRefunds: [],
 			prepaidVendors: [],
-			keptTransferReceipts: []
+			keptTransferReceipts: [],
+			networkFeeAccount: ''
 		});
 	});
 
