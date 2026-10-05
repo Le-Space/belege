@@ -17,6 +17,7 @@
 	import MonthPicker from '$lib/MonthPicker.svelte';
 	import AiMark from '$lib/AiMark.svelte';
 	import ReceiptPeek from '$lib/ReceiptPeek.svelte';
+	import OutlayCard from '$lib/outlays/OutlayCard.svelte';
 	import { createPeek, peekHandlers } from '$lib/receipts/peek.js';
 	import {
 		app,
@@ -1151,6 +1152,8 @@
 								<dd class="text-text" data-testid="field-verdict">{verdictText(selected)}</dd>
 							{/if}
 						</dl>
+
+						<OutlayCard receipt={selected} {client} />
 
 						{#if selected.source === 'mail' && selected.mailId && client}
 							<div class="mt-3 border-t border-border pt-3 text-sm" data-testid="mail-trash">

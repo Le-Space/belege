@@ -1674,6 +1674,31 @@ export default {
 		ruleText: '{field} “{contains}” → {action}'
 	},
 	belege: {
+		outlay: {
+			open: 'Paid privately …',
+			hint: 'Paid in cash or with a private card: book it as an outlay of the managing director. The receipt is then covered and waits for no bank payment.',
+			howLabel: 'Paid',
+			how: { cash: 'in cash', card: 'with a private card', other: 'otherwise' },
+			day: 'on',
+			amount: 'Amount on the receipt: {amount}',
+			rate: 'Rate: EUR per 1 {currency}',
+			asking: 'Asking for the ECB rate …',
+			ecb: 'ECB reference rate of {date}',
+			noEcb:
+				'There is no ECB rate for {currency} on this day. Enter the rate from the card statement or an exchange receipt.',
+			rateNote: 'Where the rate comes from',
+			rateNotePlaceholder: 'e.g. card statement of …, exchange receipt',
+			note: 'Note (optional)',
+			needsRate: 'The rate for the euro amount is missing.',
+			euros: 'Booked at {amount}',
+			book: 'Book as an outlay',
+			cancel: 'Cancel',
+			booked:
+				'Paid privately on {date} ({how}): {amount} on the account "Auslagen Geschäftsführung".',
+			bookedRate: '{original} {currency} at {rate} EUR ({source})',
+			rateSource: { ecb: 'ECB rate', manual: 'rate by hand' },
+			undo: 'Undo the outlay'
+		},
 		instalments: {
 			partial: 'partly paid · {paid} of {total} ({count}×)',
 			paid: 'paid in {count} instalments',
