@@ -1008,7 +1008,26 @@ export default {
 		make: 'Verbrauchsnachweis erstellen',
 		making: 'Erstelle …',
 		exists: 'Nachweis {number} liegt unter Belege.',
-		made: 'Eigenbeleg {number} für {month} erstellt: {fees} Netzwerkgebühren verknüpft, Verbrauch {act} ACT.'
+		made: 'Eigenbeleg {number} für {month} erstellt: {fees} Netzwerkgebühren verknüpft, Verbrauch {act} ACT.',
+		act: {
+			title: 'ACT-Konto (Guthaben für Deployments)',
+			what: 'ACT entsteht durch Verbrennen von AKT und bezahlt die Deployments. Hier: was aufgeladen, verbraucht und übrig ist, zu Anschaffungskosten bewertet.',
+			open: 'ACT-Konto anzeigen',
+			loading: 'Lese Bestand und Deployments …',
+			month: 'Monat',
+			minted: 'Aufgeladen',
+			used: 'Verbraucht',
+			balance: 'Saldo',
+			cost: 'Kosten Aufladung',
+			usedCost: 'Verbrauch zu Kosten',
+			summary:
+				'Aufgeladen {minted} ACT für {cost} ({perAct} je ACT) · verbraucht {used} ACT ({usedCost}) · übrig {held} ACT auf der Wallet und {escrow} ACT im Escrow ({left}).',
+			derived:
+				'Bei älteren Aufladungen steht die ACT-Menge nicht mehr auf der Chain; sie ist aus Bestand, Escrow und Verbrauch abgeleitet und nach verbrannten AKT verteilt.',
+			booking:
+				'Ob die Aufladung als Anzahlung und erst der Verbrauch als Aufwand gebucht wird, entscheidet die Steuerberatung.',
+			none: 'Noch keine Aufladung und kein Deployment.'
+		}
 	},
 	pwa: {
 		update: 'Eine neue Version von Belege ist da. Neu laden – danach mit dem Passkey entsperren.',

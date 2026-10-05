@@ -237,11 +237,14 @@ export function createWalletService({
 				throw new WalletError('not an Akash address', 'WALLET_ADDRESS', 400);
 			}
 			const { endpoints } = endpointsOf(chain, request);
-			return deployments.deployments({
-				address,
-				rest: endpoints.rest,
-				indexer: endpoints.indexer
-			});
+			return {
+				deployments: await deployments.deployments({
+					address,
+					rest: endpoints.rest,
+					indexer: endpoints.indexer
+				}),
+				actBalance: await deployments.actBalance({ address, rest: endpoints.rest })
+			};
 		}
 	};
 }

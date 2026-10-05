@@ -3,7 +3,8 @@
 // it paid its providers) and a fake indexer on 127.0.0.1, the real bridge in
 // test mode with fixed rates, and the app. Sync the wallet, make the month's
 // statement on its card – it covers both fees –, and the export books them as
-// one collective line. Every address, hash, dseq and amount is made up.
+// one collective line; the ACT account adds up. Every address, hash, dseq
+// and amount is made up.
 import { test, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -49,7 +50,12 @@ test.beforeAll(async () => {
 	node = await startFakeCosmos({
 		network: 'akashnet-2',
 		txs: [fee('e2e create', 1000), fee('e2e lease', 1060)],
-		balances: { [W]: [{ denom: 'uakt', amount: '1000000' }] },
+		balances: {
+			[W]: [
+				{ denom: 'uakt', amount: '1000000' },
+				{ denom: 'uact', amount: '1000000' }
+			]
+		},
 		deployments: [
 			akashDeployment({ owner: W, dseq: '4242', created: 1000, settled: 1060, uact: '2500000' }),
 			akashDeployment({ owner: PROVIDER, dseq: '9', created: 1000, settled: 1060, uact: '7' })
@@ -124,6 +130,14 @@ test('an Akash month: the statement covers its fees, the export books them as on
 		/Eigenbeleg EB-2026-\d{3} für 2026-09 erstellt: 2 Netzwerkgebühren verknüpft, Verbrauch 2,5 ACT\./
 	);
 	await expect(statement.getByTestId('akash-statement-exists')).toBeVisible();
+
+	// The ACT account: 1 ACT held, 2.5 used, so 3.5 minted.
+	await wallet.getByTestId('akash-act-open').click();
+	const summary = wallet.getByTestId('akash-act-summary');
+	await expect(summary).toContainText('Aufgeladen 3,5 ACT');
+	await expect(summary).toContainText('verbraucht 2,5 ACT');
+	await expect(summary).toContainText('übrig 1 ACT auf der Wallet und 0 ACT im Escrow');
+	await expect(wallet.getByTestId('akash-act-month').filter({ hasText: '2026-09' })).toBeVisible();
 	expect(bridgeOut).not.toContain(W);
 
 	// The export: the fees' accounts confirmed, then one collective line.
