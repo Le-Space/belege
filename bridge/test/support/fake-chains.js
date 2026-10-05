@@ -535,8 +535,10 @@ export function consoleTx({ seed, height, signers, fee = 0, success = true, mess
  * @param {object} [options]
  * @param {ReturnType<typeof consoleTx>[]} [options.txs]
  * @param {boolean} [options.broken] every request answers 500
+ * @param {boolean} [options.withCount] the listing as before October 2026: the total
+ *   `count` instead of `hasMore`
  */
-export async function startFakeAkashConsole({ txs = [], broken = false } = {}) {
+export async function startFakeAkashConsole({ txs = [], broken = false, withCount = false } = {}) {
 	/** @type {string[]} */
 	const calls = [];
 	const server = http.createServer((req, res) => {
@@ -554,9 +556,10 @@ export async function startFakeAkashConsole({ txs = [], broken = false } = {}) {
 				.filter((t) => JSON.stringify([t.signers, t.messages]).includes(address))
 				.sort((a, b) => b.height - a.height);
 			const skip = Number(list[2]);
+			const limit = Number(list[3]);
 			return reply(200, {
-				count: mine.length,
-				results: mine.slice(skip, skip + Number(list[3])).map((t) => ({
+				...(withCount ? { count: mine.length } : { hasMore: skip + limit < mine.length }),
+				results: mine.slice(skip, skip + limit).map((t) => ({
 					height: t.height,
 					datetime: t.datetime,
 					hash: t.hash,
