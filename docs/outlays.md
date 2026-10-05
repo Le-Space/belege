@@ -26,9 +26,18 @@ Belege → the receipt → _Privat ausgelegt …_:
   - Until that is set, the export asks for it as for any account.
 - **Each booking's expense account** is suggested and confirmed as usual.
 
+## Private, not business
+
+Receipts from the private mailbox sit next to purely private ones. **"Privat, nicht geschäftlich"** on a receipt sets it aside as private, with a reason if given (`private trip`):
+
+- it stays out of the matching, out of the questions and out of the export; a link it had is undone;
+- it is shown as _Privat_, with its reason, and the decision is in the log;
+- _Wieder aufnehmen_ takes it back in.
+
+A partly business receipt (a hotel with a private night) is booked as an outlay with the business share; the split itself belongs to travel expenses (#213).
+
 ## Not yet (issue #293)
 
-- Marking a receipt "privat, nicht geschäftlich".
 - Paying outlays back: a transfer matched against open outlays.
 - A rate source for currencies without an ECB rate other than by hand.
 - Employees as further persons.

@@ -83,6 +83,10 @@ describe('receipts view', () => {
 	it('status badges: read but not matched is "Nicht zugeordnet"', () => {
 		expect(statusKey(r({ status: 'neu' }))).toBe('new');
 		expect(statusKey(r({ status: 'ausgelesen' }))).toBe('unassigned');
+		expect(statusKey(r({ status: 'ignoriert', setAside: { reason: 'private' } }))).toBe('private');
+		expect(statusKey(r({ status: 'ignoriert', setAside: { reason: 'not-needed' } }))).toBe(
+			'ignored'
+		);
 		expect(statusKey(r({ status: 'rückfrage' }))).toBe('question');
 		expect(statusKey(r({ status: 'zugeordnet' }))).toBe('assigned');
 		expect(statusKey(r({ status: 'ignoriert' }))).toBe('ignored');

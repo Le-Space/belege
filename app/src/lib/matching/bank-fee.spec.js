@@ -153,4 +153,26 @@ describe('setAsideReceipt and restoreReceipt', () => {
 		await restoreReceipt(store, r.id);
 		expect(await store.receipts.get(r.id)).toMatchObject({ status: 'ausgelesen', setAside: null });
 	});
+	it('a private receipt is set aside as private, with its reason, and logged as such', async () => {
+		const r = await store.receipts.put({
+			status: 'ausgelesen',
+			extraction: { vendor: 'Hotel Beispiel' },
+			vendor: 'Hotel Beispiel'
+		});
+		await setAsideReceipt(store, r.id, { private: true, note: '  private trip  ' });
+		expect(await store.receipts.get(r.id)).toMatchObject({
+			status: 'ignoriert',
+			setAside: { reason: 'private', of: null, note: 'private trip' }
+		});
+		const events = await store.events.list();
+		expect(events.map((/** @type {any} */ e) => e.action)).toContain('receipt-private');
+	});
+
+	it('without a reason, none is kept', async () => {
+		const r = await store.receipts.put({ status: 'ausgelesen', extraction: { vendor: 'X' } });
+		await setAsideReceipt(store, r.id, { private: true });
+		const aside = await store.receipts.get(r.id);
+		expect(aside.setAside.reason).toBe('private');
+		expect('note' in aside.setAside).toBe(false);
+	});
 });

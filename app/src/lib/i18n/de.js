@@ -1815,6 +1815,7 @@ export default {
 			question: 'Rückfrage',
 			assigned: 'Zugeordnet',
 			ignored: 'Ignoriert',
+			private: 'Privat',
 			prepaid: 'Guthabenkonto'
 		},
 		unverified: 'Absender prüfen',
@@ -1831,7 +1832,18 @@ export default {
 				'Kommt nicht in den Abgleich und nicht in den Export; eine Zuordnung wird gelöst. Lässt sich wieder aufnehmen.',
 			duplicate: 'Als Duplikat aussortiert.',
 			notNeeded: 'Aussortiert – kein Beleg.',
-			restore: 'Wieder aufnehmen'
+			restore: 'Wieder aufnehmen',
+			private: {
+				action: 'Privat, nicht geschäftlich',
+				title:
+					'Ein privater Beleg, etwa aus dem privaten Postfach: kommt nicht in die Bücher, nicht in die Rückfragen und nicht in den Export. Lässt sich wieder aufnehmen.',
+				note: 'Grund (optional)',
+				placeholder: 'z. B. private Reise, Geschenk',
+				confirm: 'Als privat aussortieren',
+				cancel: 'Abbrechen',
+				done: 'Privat, nicht geschäftlich.',
+				doneWith: 'Privat, nicht geschäftlich: {note}'
+			}
 		},
 		origin: {
 			label: 'Wie zugeordnet',
@@ -2038,6 +2050,7 @@ export default {
 			'not-own-iban': 'IBAN als „nicht unseres“ markiert',
 			'receipt-duplicate': 'Beleg als Duplikat aussortiert',
 			'receipt-set-aside': 'Beleg aussortiert',
+			'receipt-private': 'Beleg als privat aussortiert',
 			'receipt-restore': 'Beleg wieder aufgenommen',
 			'needs-receipt': '„Kein Beleg nötig“ zurückgenommen',
 			'confirm-sender': 'Absender freigegeben',
