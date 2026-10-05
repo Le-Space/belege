@@ -86,6 +86,7 @@ export default {
 			coingecko: 'CoinGecko',
 			kraken: 'Kraken',
 			ecb: 'EZB-Referenzkurs',
+			cbr: 'Referenzkurs der Bank of Russia',
 			trade: 'Preis des Handels',
 			dex: 'DEX-Pool',
 			migration: 'Wert der verbrannten alten Token',
@@ -565,7 +566,8 @@ export default {
 			aleph: 'Aleph Cloud (Credits eigener Konten, nur gelesen)',
 			coingecko: 'CoinGecko (Kurse)',
 			'kraken-rates': 'Kraken (Kurse)',
-			ecb: 'Europäische Zentralbank (USD-Kurs)'
+			ecb: 'Europäische Zentralbank (Referenzkurse von Währungen)',
+			cbr: 'Bank of Russia (Rubelkurs, wo die EZB keinen hat)'
 		},
 		// What Belege can do, by category (docs/features.de.md says the same in more words).
 		features: {
@@ -1714,10 +1716,11 @@ export default {
 			day: 'am',
 			amount: 'Betrag laut Beleg: {amount}',
 			rate: 'Kurs: EUR je 1 {currency}',
-			asking: 'Frage den EZB-Kurs ab …',
+			asking: 'Frage den Referenzkurs ab …',
 			ecb: 'EZB-Referenzkurs vom {date}',
+			cbr: 'Referenzkurs der Bank of Russia vom {date} (die EZB veröffentlicht keinen Rubelkurs mehr). Ein Kurs aus Kartenabrechnung oder Wechselbeleg geht vor, wenn du einen hast.',
 			noEcb:
-				'Für {currency} gibt es keinen EZB-Kurs an diesem Tag. Trag den Kurs aus der Kartenabrechnung oder einem Wechselbeleg ein.',
+				'Für {currency} gibt es an diesem Tag keinen Referenzkurs. Trag den Kurs aus der Kartenabrechnung oder einem Wechselbeleg ein.',
 			rateNote: 'Woher der Kurs kommt',
 			rateNotePlaceholder: 'z. B. Kartenabrechnung vom …, Wechselbeleg',
 			note: 'Notiz (optional)',
@@ -1728,7 +1731,7 @@ export default {
 			booked:
 				'Privat ausgelegt am {date} ({how}): {amount} auf dem Konto „Auslagen Geschäftsführung“.',
 			bookedRate: '{original} {currency} zu {rate} EUR ({source})',
-			rateSource: { ecb: 'EZB-Kurs', manual: 'Kurs von Hand' },
+			rateSource: { ecb: 'EZB-Kurs', cbr: 'Kurs der Bank of Russia', manual: 'Kurs von Hand' },
 			undo: 'Auslage rückgängig machen'
 		},
 		instalments: {

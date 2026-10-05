@@ -76,7 +76,7 @@ export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
  * @param {typeof fetch} [options.backupFetch] fetch for the backup's upload (tests hand in a fake)
  * @param {number} [options.krakenPageDelayMs] pause between Kraken ledger pages (tests: 0)
  * @param {typeof fetch} [options.rateFetch] fetch for the exchange-rate sources (tests hand in a fake)
- * @param {Record<string, string> | null} [options.fixedRates] tests only: EUR per unit by asset,
+ * @param {Record<string, string | { rate: string, source?: string, at?: string }> | null} [options.fixedRates] tests only: EUR per unit by asset,
  *   answered for every day instead of asking CoinGecko, Kraken or the ECB (source `manual`)
  * @param {typeof fetch} [options.walletFetch] fetch for the chain nodes (tests hand in a fake)
  * @param {import('./keychain.js').Keychain} [options.bitcoinKeychain] the Bitcoin zpub (read only)
@@ -375,7 +375,9 @@ export async function startBridge({
  * The same answer for every day: for the E2E suite, which must not ask the
  * real rate sources.
  *
- * @param {Record<string, string>} rates EUR per unit, by symbol
+ * @param {Record<string, string | { rate: string, source?: string, at?: string }>} rates
+ *   EUR per unit, by symbol; with a source and its moment, to stand for a
+ *   reference rate (the ECB's, the Bank of Russia's)
  */
 function fixedRateService(rates) {
 	return {
@@ -386,18 +388,19 @@ function fixedRateService(rates) {
 		 */
 		async rate(asset, date, { contract = null } = {}) {
 			const key = contract ?? asset;
-			const rate = Object.hasOwn(rates, key) ? rates[key] : null;
-			if (!rate) {
+			const given = Object.hasOwn(rates, key) ? rates[key] : null;
+			if (!given) {
 				throw Object.assign(new Error(`no rate source for ${asset}`), { status: 400 });
 			}
+			const fixed = typeof given === 'string' ? { rate: given } : given;
 			return {
 				asset,
 				date,
 				currency: /** @type {const} */ ('EUR'),
-				rate,
+				rate: fixed.rate,
 				usdRate: null,
-				source: /** @type {const} */ ('manual'),
-				at: `${date}T00:00:00Z`
+				source: /** @type {any} */ (fixed.source ?? 'manual'),
+				at: fixed.at ?? `${date}T00:00:00Z`
 			};
 		}
 	};

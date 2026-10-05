@@ -57,7 +57,7 @@ MonkeyOffice importiert DATEV-Buchungsstapel über seinen DATEV-Import (die Men�
 
 Jedes Konto mit einer Buchung im Monat bekommt einen Auszug als PDF, egal ob Bankkonto, Börsenkonto oder Wallet (`app/src/lib/export/statement.js`, gezeichnet von `statement-pdf.js`). Er listet jede Buchung des Monats auf diesem Konto mit ihrer Belegnummer oder dem, was dafür steht (_Umbuchung_, _Gebühr_, _Ertrag_), und die Summen der Eingänge, der Ausgänge und des Monats.
 
-Ein Krypto-Konto zeigt zusätzlich Menge und Kurs jeder Buchung mit der Quelle des Kurses (K = Kraken, CG = CoinGecko, EZB = EZB-Referenzkurs, H = Preis des Handels). Anfangs- und Endbestand im Asset werden aus dem letzten Bestand zurückgerechnet, den die Börse gemeldet hat.
+Ein Krypto-Konto zeigt zusätzlich Menge und Kurs jeder Buchung mit der Quelle des Kurses (K = Kraken, CG = CoinGecko, EZB = EZB-Referenzkurs, CBR = Referenzkurs der Bank of Russia, H = Preis des Handels). Anfangs- und Endbestand im Asset werden aus dem letzten Bestand zurückgerechnet, den die Börse gemeldet hat.
 
 Bei einem Bankkonto zeigt der Auszug, was Belege gespeichert hat. Den Kontoauszug der Bank ersetzt er nicht.
 

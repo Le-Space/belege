@@ -37,7 +37,7 @@
 	let how = $state('cash');
 	let day = $state('');
 	let rate = $state('');
-	/** @type {'ecb' | 'manual'} */
+	/** @type {'ecb' | 'cbr' | 'manual'} */
 	let rateSource = $state('manual');
 	let rateAt = $state('');
 	let rateNote = $state('');
@@ -86,9 +86,10 @@
 		asking = true;
 		try {
 			const r = await client.rate(amount.currency, day);
-			if (r?.source === 'ecb' && Number(r.rate) > 0) {
+			// An official reference rate only: the ECB's, for RUB the Bank of Russia's.
+			if ((r?.source === 'ecb' || r?.source === 'cbr') && Number(r.rate) > 0) {
 				rate = String(r.rate);
-				rateSource = 'ecb';
+				rateSource = r.source;
 				rateAt = String(r.at ?? '');
 				noEcb = false;
 			} else noEcb = true;
@@ -116,7 +117,7 @@
 					? {
 							rate: rateValue,
 							source: rateSource,
-							...(rateSource === 'ecb' && rateAt ? { at: rateAt } : {}),
+							...(rateSource !== 'manual' && rateAt ? { at: rateAt } : {}),
 							...(rateSource === 'manual' && rateNote.trim() ? { note: rateNote.trim() } : {})
 						}
 					: null,
@@ -208,7 +209,7 @@
 						type="date"
 						class="ml-2 {field}"
 						bind:value={day}
-						onchange={() => foreign && rateSource === 'ecb' && askEcb()}
+						onchange={() => foreign && rateSource !== 'manual' && askEcb()}
 						data-testid="outlay-day"
 					/>
 				</label>
@@ -233,9 +234,11 @@
 					</label>
 					{#if asking}
 						<p class="text-xs text-faint">{t('belege.outlay.asking')}</p>
-					{:else if rateSource === 'ecb'}
+					{:else if rateSource !== 'manual'}
 						<p class="text-xs text-faint" data-testid="outlay-rate-ecb">
-							{t('belege.outlay.ecb', { date: formatDate(String(rateAt || day).slice(0, 10)) })}
+							{t(`belege.outlay.${rateSource}`, {
+								date: formatDate(String(rateAt || day).slice(0, 10))
+							})}
 						</p>
 					{:else}
 						{#if noEcb}
