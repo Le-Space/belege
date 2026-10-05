@@ -2064,6 +2064,16 @@ export default {
 		]
 	},
 	booking: {
+		feeRule: {
+			apply: 'Use for all network fees',
+			applyTitle:
+				'Every network fee of your wallets takes this account, future ones too – instead of confirming each. Can be lifted.',
+			byRule: 'By the rule for all network fees: {account}.',
+			active: 'Rule on: all network fees go to {account}.',
+			lift: 'Lift the rule',
+			applied: '{count} network fees confirmed.',
+			lifted: 'Rule lifted; {count} network fees are without an account again.'
+		},
 		title: 'Account',
 		intro:
 			'Which account this payment is booked to (contra account, SKR 03) and with which BU key. The app suggests, you confirm – only what you have confirmed gets exported.',

@@ -535,11 +535,15 @@ export function runMatchingNow(trigger = 'auto') {
 		app.matchingProgress = null;
 		try {
 			const { runMatching } = await import('./matching/engine.js');
-			return await runMatching({
+			const result = await runMatching({
 				store: session.store,
 				trigger,
 				onProgress: (p) => (app.matchingProgress = p)
 			});
+			// New network fees take the account the person set for all of them (#305).
+			const { applyFeeRule } = await import('./booking/fee-rule.js');
+			await applyFeeRule(/** @type {any} */ (session.store));
+			return result;
 		} catch (error) {
 			console.error('matching failed:', error);
 			return null;

@@ -7,6 +7,8 @@
 	import TechnicalNote from './TechnicalNote.svelte';
 	import { app, currentStore, refreshNow } from './session.svelte.js';
 	import { confirmBooking } from './booking/actions.js';
+	import { isNetworkFee, setFeeRule } from './booking/fee-rule.js';
+	import { cleanMatchingSettings } from './matching/classify.js';
 	import { suggestBooking } from './booking/suggest.js';
 	import { cleanDatevSettings, privateAccounts } from './booking/settings.js';
 	import {
@@ -87,6 +89,32 @@
 			)
 		})
 	);
+
+	// A network fee: its account for all of them at once (#305).
+	let networkFee = $derived(isNetworkFee(tx));
+	let feeRule = $derived(cleanMatchingSettings(app.matchingSettings).networkFeeAccount);
+	/** @type {string | null} */
+	let ruleNote = $state(null);
+
+	async function setRule(/** @type {boolean} */ on) {
+		const store = currentStore();
+		if (!store) return;
+		if (on && !isAccountNumber(number)) {
+			error = t('booking.invalidAccount');
+			return;
+		}
+		busy = true;
+		error = null;
+		try {
+			const count = await setFeeRule(/** @type {any} */ (store), on ? number : null);
+			ruleNote = t(on ? 'booking.feeRule.applied' : 'booking.feeRule.lifted', { count });
+			await refreshNow();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			busy = false;
+		}
+	}
 
 	async function confirm() {
 		const store = currentStore();
@@ -221,6 +249,36 @@
 	</form>
 	{#if !confirmed}
 		<p class="text-xs text-faint" data-testid="tx-booking-tax-via">{taxText}</p>
+	{/if}
+	{#if networkFee}
+		<div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" data-testid="tx-fee-rule">
+			{#if feeRule}
+				<span class="text-text"
+					>{tx.booking?.via === 'rule'
+						? t('booking.feeRule.byRule', { account: accountLabel(feeRule, chart) })
+						: t('booking.feeRule.active', { account: accountLabel(feeRule, chart) })}</span
+				>
+				<button
+					type="button"
+					class="text-faint underline hover:text-heading"
+					onclick={() => setRule(false)}
+					disabled={busy}
+					data-testid="tx-fee-rule-lift">{t('booking.feeRule.lift')}</button
+				>
+			{:else}
+				<button
+					type="button"
+					class="rounded-md border border-border px-2 py-1 text-text hover:bg-surface-2 disabled:opacity-50"
+					onclick={() => setRule(true)}
+					disabled={busy || !valid}
+					title={t('booking.feeRule.applyTitle')}
+					data-testid="tx-fee-rule-apply">{t('booking.feeRule.apply')}</button
+				>
+			{/if}
+			{#if ruleNote}<span class="text-success" role="status" data-testid="tx-fee-rule-note"
+					>{ruleNote}</span
+				>{/if}
+		</div>
 	{/if}
 	<p class="mt-1 text-xs text-faint" data-testid="tx-booking-catalogue">
 		{chart ? t('booking.chartNote', { count: chart.accounts.length }) : t('booking.catalogueNote')}

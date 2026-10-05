@@ -2095,6 +2095,16 @@ export default {
 		]
 	},
 	booking: {
+		feeRule: {
+			apply: 'Für alle Netzwerkgebühren übernehmen',
+			applyTitle:
+				'Jede Netzwerkgebühr deiner Wallets bekommt dieses Konto, auch die künftigen – statt jede einzeln zu übernehmen. Lässt sich aufheben.',
+			byRule: 'Per Regel für alle Netzwerkgebühren: {account}.',
+			active: 'Regel aktiv: Alle Netzwerkgebühren gehen auf {account}.',
+			lift: 'Regel aufheben',
+			applied: '{count} Netzwerkgebühren übernommen.',
+			lifted: 'Regel aufgehoben; {count} Netzwerkgebühren sind wieder ohne Konto.'
+		},
 		title: 'Konto',
 		intro:
 			'Auf welches Konto diese Zahlung gebucht wird (Gegenkonto, SKR 03) und mit welchem BU-Schlüssel. Die App schlägt vor, du übernimmst – exportiert wird nur, was du übernommen hast.',
