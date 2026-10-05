@@ -219,6 +219,8 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await tab('Export').click();
 	await expect(page.getByTestId('tab-extract-progress')).toBeVisible();
 	await tab('Belege').click();
+	// Belege shows one month at a time (#313): this spec looks at the whole year.
+	await page.locator('[data-testid="receipt-month-pick"][data-month="all"]').click();
 	await expect(page.getByTestId('extract-all')).toBeDisabled();
 	await expect(page.getByTestId('extract-all')).toContainText('Lese aus');
 	await expect(page.getByTestId('extract-all-cancel')).toBeVisible();
@@ -503,6 +505,7 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await expect(monthButton.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100');
 	// Only the hit came in: no other private mail is anywhere on the page.
 	await tab('Belege').click();
+	await page.locator('[data-testid="receipt-month-pick"][data-month="all"]').click();
 	await expect(receipts).toHaveCount(7);
 	// How each was linked (#31): automatic with points, by hand, open; no KI find here.
 	const filters = page.getByTestId('origin-filters');

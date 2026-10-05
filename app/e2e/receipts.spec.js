@@ -168,6 +168,8 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	await expect(page.getByTestId('mail-result')).toHaveText(
 		'6 E-Mails · neu: 6 · schon vorhanden: 0 · doppelt: 0'
 	);
+	// Belege shows one month at a time (#313): this spec looks at the whole year.
+	await page.locator('[data-testid="receipt-month-pick"][data-month="all"]').click();
 	const receipts = page.getByTestId('receipt');
 	await expect(receipts).toHaveCount(6);
 	await expect(
@@ -280,6 +282,8 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	await page.locator('[data-testid="verlauf-filter"][data-group="auslesen"]').click();
 	await events.getByTestId('verlauf-open-receipt').click();
 	await expect(detail.getByTestId('detail-vendor')).toHaveText(RECEIPTS.wolkenfabrik.vendor);
+	// A receipt opened by link shows its own month (#313); the rest of the spec looks at the year.
+	await page.locator('[data-testid="receipt-month-pick"][data-month="all"]').click();
 
 	// The phishing look-alike: a warning, no preview, no "Auslesen" – until confirmed.
 	const phish = receipts.filter({ has: page.getByTestId('receipt-unverified') }).filter({
@@ -364,6 +368,8 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
 	await tab('Belege').click();
+	// Belege shows one month at a time (#313): this spec looks at the whole year.
+	await page.locator('[data-testid="receipt-month-pick"][data-month="all"]').click();
 	await expect(receipts).toHaveCount(7);
 	await receipts.filter({ hasText: UPLOAD.file }).click();
 	await expect(detail.getByTestId('preview-pdf')).toHaveAttribute('data-rendered', 'true');

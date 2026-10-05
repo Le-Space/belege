@@ -2,24 +2,25 @@ import { describe, expect, it } from 'vitest';
 
 import { receipt, tx } from './fixtures.js';
 import {
+	activeMatchesByReceipt,
+	assistCandidates,
+	assistEmptyReason,
 	coverageBadge,
-	hitCriteria,
-	isTxCovered,
-	matchOfReceipt,
-	matchesOfTx,
-	otherPayments,
 	cryptoEvidence,
 	cryptoSearchTerms,
+	hitCriteria,
+	hitScore,
+	isTxCovered,
+	likelyHit,
+	matchOfReceipt,
+	matchesOfTx,
 	memoOf,
+	otherPayments,
+	ownNameCandidate,
 	privateSearchQuery,
 	quantitySpellings,
 	questionProgress,
 	rankHits,
-	ownNameCandidate,
-	assistCandidates,
-	assistEmptyReason,
-	hitScore,
-	likelyHit,
 	receiptChoices,
 	searchAmount
 } from './view.js';
@@ -493,5 +494,20 @@ describe('crypto payments: only receipts that name the payment', () => {
 		);
 		const matches = [{ id: 'M1', receiptId: 'R-ORIG', transactionId: 'OTHER', state: 'confirmed' }];
 		expect(receiptChoices(bank, [original, copy], matches).map((c) => c.receipt.id)).toEqual([]);
+	});
+});
+
+describe('activeMatchesByReceipt', () => {
+	it('each receipt’s active matches in their order, as matchOfReceipt finds the first', () => {
+		const matches = [
+			{ id: 'm1', receiptId: 'R1', transactionId: 'T1', state: 'rejected' },
+			{ id: 'm2', receiptId: 'R1', transactionId: 'T2', state: 'confirmed' },
+			{ id: 'm3', receiptId: 'R1', transactionId: 'T3', state: 'confirmed' },
+			{ id: 'm4', receiptId: 'R2', transactionId: 'T4', state: 'suggested', deleted: true }
+		];
+		const byReceipt = activeMatchesByReceipt(matches);
+		expect(byReceipt.get('R1')?.map((m) => m.id)).toEqual(['m2', 'm3']);
+		expect(byReceipt.has('R2')).toBe(false);
+		expect(byReceipt.get('R1')?.[0]).toBe(matchOfReceipt('R1', matches));
 	});
 });
