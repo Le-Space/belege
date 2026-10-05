@@ -5,6 +5,10 @@
 	// without a confirmed account for every booking and a ledger account for
 	// every bank account there is no export.
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { replaceState } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import { exportChoice, monthParam } from '$lib/export/month-choice.svelte.js';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
 	import {
 		app,
@@ -46,6 +50,23 @@
 	/** @type {string | null} */
 	let chosen = $state(null);
 	let month = $derived(chosen && months.includes(chosen) ? chosen : (months[0] ?? null));
+
+	// The month kept (#314): from the address first, else the one chosen last
+	// in this session; written back to both on every choice.
+	onMount(() => {
+		const wanted = monthParam(page.url.searchParams.get('month')) ?? exportChoice.month;
+		if (wanted) choose(wanted);
+	});
+
+	/** @param {string} m */
+	function choose(m) {
+		chosen = m;
+		exportChoice.month = m;
+		const url = new URL(page.url);
+		if (url.searchParams.get('month') === m) return;
+		url.searchParams.set('month', m);
+		replaceState(url, page.state);
+	}
 
 	let settings = $derived(cleanDatevSettings(app.datevSettings));
 	/** Test bookings into the package too (sample/test-bookings.js) – off unless asked for. */
@@ -385,7 +406,7 @@
 			<select
 				class="rounded-md border px-2 py-1.5 text-sm"
 				value={month}
-				onchange={(e) => (chosen = /** @type {HTMLSelectElement} */ (e.currentTarget).value)}
+				onchange={(e) => choose(/** @type {HTMLSelectElement} */ (e.currentTarget).value)}
 				data-testid="export-month-select"
 			>
 				{#each months as m (m)}
