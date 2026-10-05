@@ -27,6 +27,28 @@ const RULE = rgb(0.8, 0.8, 0.8);
 export const isCut = (text) => text.length >= 1999 && text.endsWith('…');
 
 /**
+ * The kept text made readable on paper: line breaks as they were (at most one
+ * empty line between paragraphs), a link shortened to its host – a shop's
+ * receipt mail is full of tracking links a page cannot follow anyway – and
+ * the image references of a mail's plain-text part (`[https://….png]`) left
+ * out.
+ *
+ * @param {string} text
+ */
+export function readableMailText(text) {
+	return String(text ?? '')
+		.replace(/\r\n?/g, '\n')
+		.replace(/\s*\[https?:\/\/[^\]\s]+\]/g, '')
+		.replace(/https?:\/\/([^\s/)\]>]+)[^\s)\]>]*/g, (url, host) =>
+			url.length > 40 ? `${host}/…` : url
+		)
+		.replace(/[ \t]+/g, ' ')
+		.replace(/ ?\n ?/g, '\n')
+		.replace(/\n{3,}/g, '\n\n')
+		.trim();
+}
+
+/**
  * Lines of at most `width` points: words kept whole where they fit, a word
  * longer than a line broken where it must.
  *
@@ -123,7 +145,11 @@ export async function mailReceiptPdf(receipt, { number, created }) {
 	y -= LEADING + 4;
 
 	const text = String(receipt.excerpt ?? '');
-	for (const line of wrap(winAnsi(text), measure, width)) write(line);
+	// Broken into lines first, then into the PDF's code page: winAnsi turns a
+	// line break into "?", and the whole mail became one block.
+	for (const line of wrap(readableMailText(text), (l) => measure(winAnsi(l)), width)) {
+		write(winAnsi(line));
+	}
 
 	y -= LEADING;
 	const notes = [
