@@ -170,6 +170,58 @@ describe('cryptoLedger', () => {
 	});
 });
 
+describe('a Filecoin wallet’s USDFC (#301)', () => {
+	it('is named by its FEVM contract, FIL by its SLIP-44 type', () => {
+		const wallet = `f410f${'a'.repeat(39)}`;
+		const cid = `bafy2bzacea${'c'.repeat(52)}`;
+		const acc = (/** @type {string} */ asset) => ({
+			id: `fil-${asset}`,
+			source: 'filecoin',
+			sourceAccountId: `${wallet}:${asset}`,
+			kind: 'wallet',
+			asset,
+			decimals: 18,
+			walletAddress: wallet
+		});
+		const leg = (
+			/** @type {string} */ asset,
+			/** @type {string} */ quantity,
+			/** @type {number} */ cents
+		) => ({
+			id: `t-${asset}`,
+			accountId: `fil-${asset}`,
+			sourceId: `${cid}:${asset}`,
+			bookedOn: '2025-05-10',
+			bookedAt: '2025-05-10T10:00:00Z',
+			amountCents: cents,
+			currency: 'EUR',
+			movement: 'trade',
+			txRef: cid,
+			asset,
+			quantity,
+			decimals: 18,
+			valuation: { rate: '0.9', currency: 'EUR', source: 'coingecko', at: '2025-05-10T00:00:00Z' },
+			rateMissing: null
+		});
+		const doc = cryptoLedger({
+			accounts: [acc('FIL'), acc('USDFC')],
+			transactions: [
+				leg('FIL', '-10000000000000000000', -2500),
+				leg('USDFC', '10000000000000000000', 2500)
+			],
+			wallets: [
+				{ id: `filecoin:${wallet}`, chain: 'filecoin', address: wallet, name: 'FIL wallet' }
+			],
+			generator: 'Belege test',
+			now
+		});
+		expect(errors(doc)).toEqual([]);
+		const ids = JSON.stringify(doc);
+		expect(ids).toContain('eip155:314/erc20:0x80b98d3aa09ffff255c3ba4a241111ff1262f045');
+		expect(ids).toContain('fil:f/slip44:461');
+	});
+});
+
 describe('cryptoLedgerCsv', () => {
 	it('one row per movement, quoted where needed, no formulas', () => {
 		const ledger = cryptoLedger({

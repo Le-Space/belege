@@ -72,6 +72,50 @@ describe('a swap leg', () => {
 		]);
 	});
 
+	it('on Filecoin: FIL for USDFC through SushiSwap needs no receipt either (#301)', async () => {
+		const cid = 'bafy2bzacea' + 'b'.repeat(52);
+		const wallet = `f410f${'a'.repeat(39)}`;
+		const accounts = [
+			{
+				id: 'acc-fil',
+				source: 'filecoin',
+				name: 'Wallet FIL',
+				walletAddress: wallet,
+				asset: 'FIL'
+			},
+			{
+				id: 'acc-usdfc',
+				source: 'filecoin',
+				name: 'Wallet USDFC',
+				walletAddress: wallet,
+				asset: 'USDFC'
+			}
+		];
+		const sushi = {
+			gave: [{ asset: 'FIL', amount: '10', listed: true }],
+			got: [{ asset: 'USDFC', amount: '10.4211', listed: true }],
+			via: 'SushiSwap'
+		};
+		expect(swapText(sushi)).toBe('Tausch: 10 FIL → 10,4211 USDFC über SushiSwap');
+		const base = {
+			source: 'filecoin',
+			bookedOn: '2026-10-05',
+			currency: 'EUR',
+			movement: 'trade',
+			txRef: cid,
+			deleted: false,
+			swap: sushi
+		};
+		const out = { ...base, id: 'fil-out', accountId: 'acc-fil', amountCents: -900 };
+		const into = { ...base, id: 'usdfc-in', accountId: 'acc-usdfc', amountCents: 900 };
+		const ctx = await buildMatchingContext({ accounts, transactions: [out, into], settings: null });
+		expect(classifyTransaction(out, ctx)).toEqual({ kind: 'crypto-swap' });
+		expect(classifyTransaction(into, ctx)).toEqual({ kind: 'crypto-swap' });
+		expect(relatedIndex([out, into], {}).get('fil-out')).toMatchObject([
+			{ kind: 'trade', via: 'hash', other: { id: 'usdfc-in' } }
+		]);
+	});
+
 	it('a bank or exchange trade is not a wallet swap', async () => {
 		const ctx = await buildMatchingContext({ accounts: [], transactions: [], settings: null });
 		const kraken = {

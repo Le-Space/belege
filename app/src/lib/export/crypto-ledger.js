@@ -71,6 +71,8 @@ function caip19(account, symbol) {
 	if (!chain) return null;
 	const contract = account.tokenContract || chain.tokens?.[symbol];
 	if (chain.kind === 'evm' && contract) return `${chain.caip2}/erc20:${contract}`;
+	if (chain.kind === 'filecoin' && contract && chain.evmCaip2)
+		return `${chain.evmCaip2}/erc20:${contract}`;
 	if (symbol === chain.nativeSymbol && chain.nativeSlip44 !== null) {
 		return `${chain.caip2}/slip44:${chain.nativeSlip44}`;
 	}

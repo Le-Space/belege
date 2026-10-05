@@ -1,5 +1,6 @@
 // Filfox's API on 127.0.0.1 for tests: an address's balance and its
-// transfers, newest first, 100 a page (Filfox refuses more), and 404 for an
+// transfers, newest first, 100 a page (Filfox refuses more), its token
+// transfers and a message's receiver, and 404 for an
 // address it does not know. Addresses and message CIDs are made up, with
 // valid Filecoin checksums.
 
@@ -7,6 +8,9 @@ import http from 'node:http';
 import { createHash } from 'node:crypto';
 import { base32nopad } from '@scure/base';
 import { blake2b } from '@noble/hashes/blake2.js';
+
+// A wallet or contract in its f410f form, as Filfox names FEVM addresses.
+export { toFilecoinAddress } from '../../src/chains/filecoin.js';
 
 /** A made-up f1 address with a valid checksum. @param {string} seed */
 export function fakeFilecoinAddress(seed) {
@@ -26,10 +30,11 @@ export function fakeMessageCid(seed) {
 
 /**
  * @param {object} options
- * @param {Record<string, { balance: string, transfers: any[] }>} options.addresses
+ * @param {Record<string, { balance: string, transfers: any[], tokenTransfers?: any[] }>} options.addresses
+ * @param {Record<string, { to: string }>} [options.messages] a message's receiver, by CID
  */
-export async function startFakeFilfox({ addresses }) {
-	const state = { requests: 0, pages: 0 };
+export async function startFakeFilfox({ addresses, messages = {} }) {
+	const state = { requests: 0, pages: 0, tokenPages: 0, messages: 0 };
 	const server = http.createServer((req, res) => {
 		state.requests++;
 		const url = new URL(req.url ?? '/', 'http://x');
@@ -38,10 +43,29 @@ export async function startFakeFilfox({ addresses }) {
 			res.writeHead(status, { 'content-type': 'application/json' });
 			res.end(JSON.stringify(body));
 		};
-		const m = /^\/api\/v1\/address\/([a-z0-9]+)(\/transfers)?$/.exec(url.pathname);
+		const msg = /^\/api\/v1\/message\/([a-z0-9]+)$/.exec(url.pathname);
+		if (msg) {
+			state.messages++;
+			return messages[msg[1]] ? send(200, { cid: msg[1], ...messages[msg[1]] }) : send(404, {});
+		}
+		const m = /^\/api\/v1\/address\/([a-z0-9]+)(\/transfers|\/token-transfers)?$/.exec(
+			url.pathname
+		);
 		const known = m ? addresses[m[1]] : undefined;
 		if (!m || !known) return send(404, { error: 'Not Found' });
-		if (!m[2]) return send(200, { address: m[1], balance: known.balance, actor: 'account' });
+		if (!m[2]) {
+			return send(200, {
+				address: m[1],
+				balance: known.balance,
+				actor: 'account',
+				tokenTransferCount: known.tokenTransfers?.length ?? 0
+			});
+		}
+		if (m[2] === '/token-transfers') {
+			state.tokenPages++;
+			const list = [...(known.tokenTransfers ?? [])].sort((a, b) => b.height - a.height);
+			return send(200, { totalCount: list.length, transfers: list.slice(0, 100) });
+		}
 		const size = Number(url.searchParams.get('pageSize') ?? 20);
 		if (size > 100) return send(400, { error: 'pageSize' });
 		const page = Number(url.searchParams.get('page') ?? 0);
