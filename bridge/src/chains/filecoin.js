@@ -21,6 +21,18 @@
 // given as its `0x…` Ethereum form, converted here) are checked
 // by their blake2b checksum before anything is asked; f0 (an ID) has none and
 // is taken as it is. The log gets counts, never an address or a CID.
+//
+// FEVM tokens (issue #301): where the address has token transfers,
+//
+//   GET /address/<a>/token-transfers?pageSize=100&page=<n>
+//
+// gives them, by message too. Only the tokens listed for the chain are
+// booked (registry.js `tokens`, by contract – a token's symbol is its own
+// claim); their balance is the sum of the whole history. A message in which
+// the wallet gives one asset and gets another is a swap, as on the EVM
+// chains (evm.js markSwaps): a FIL → USDFC swap on SushiSwap, say. Its router
+// is named from the message's receiver (`GET /message/<cid>`, asked for swaps
+// only) where it is a known contract (registry.js `contracts`).
 
 import { base32nopad } from '@scure/base';
 import { blake2b } from '@noble/hashes/blake2.js';
@@ -28,8 +40,17 @@ import { blake2b } from '@noble/hashes/blake2.js';
 import { txUrl, addressUrl } from './registry.js';
 import { createJsonFetcher, WalletError } from './http.js';
 import { unitsToDecimal } from './cosmos.js';
+import { markSwaps } from './evm.js';
 
 const PAGE = 100;
+
+/** `-1.5` → its smallest units, signed. @param {string} amount @param {number} decimals */
+function decimalToUnits(amount, decimals) {
+	const m = /^(-?)(\d+)(?:\.(\d+))?$/.exec(amount);
+	if (!m) return 0n;
+	const units = BigInt(m[2] + (m[3] ?? '').padEnd(decimals, '0').slice(0, decimals));
+	return m[1] ? -units : units;
+}
 /** A wallet with more movements than this is too large to read here. */
 const MAX_PAGES = 200;
 
@@ -169,6 +190,90 @@ export function normalizeFilecoin(transfers, chain) {
 }
 
 /**
+ * @typedef {object} FilfoxTokenTransfer
+ * @property {number} height
+ * @property {number} timestamp unix seconds
+ * @property {string} message the message CID
+ * @property {string} from
+ * @property {string} to
+ * @property {string} token the contract, as f410f…
+ * @property {string} value unsigned, in the token's smallest unit
+ * @property {string} [symbol] the token's own claim
+ * @property {number} [decimals] the token's own claim
+ */
+
+/**
+ * Filfox's token transfers of one address → wallet entries for the listed
+ * tokens, and the moves of other tokens (they only name a swap's side).
+ *
+ * @param {FilfoxTokenTransfer[]} transfers
+ * @param {import('./registry.js').FilecoinChain} chain
+ * @param {string} address the wallet, as f410f… (or f1/f3/f0)
+ * @returns {{ entries: import('./cosmos.js').WalletEntry[], unlisted: { hash: string, asset: string, amount: string, listed: false }[], unknownTokens: string[] }}
+ */
+export function normalizeFilecoinTokens(transfers, chain, address) {
+	/** @type {Map<string, import('./registry.js').ChainAsset>} f410f contract → asset */
+	const listed = new Map(
+		Object.entries(chain.tokens ?? {}).map(([contract, a]) => [toFilecoinAddress(contract), a])
+	);
+	/** @type {import('./cosmos.js').WalletEntry[]} */
+	const entries = [];
+	/** @type {{ hash: string, asset: string, amount: string, listed: false }[]} */
+	const unlisted = [];
+	/** @type {Set<string>} */
+	const unknown = new Set();
+	/** @type {Map<string, number>} */
+	const seen = new Map();
+	for (const t of transfers) {
+		const cid = t?.message;
+		if (typeof cid !== 'string' || !/^bafy2bzace[a-z2-7]+$/.test(cid)) continue;
+		const out = t.from === address;
+		const into = t.to === address;
+		if (out === into) continue;
+		let value;
+		try {
+			value = BigInt(t.value);
+		} catch {
+			continue;
+		}
+		if (value <= 0n) continue;
+		const asset = listed.get(String(t.token));
+		if (!asset) {
+			unknown.add(String(t.token));
+			unlisted.push({
+				hash: cid,
+				// Only a swap's side, never booked: the token's own claim, marked as such.
+				asset: String(t.symbol ?? '?').slice(0, 20),
+				amount: unitsToDecimal(out ? -value : value, Number(t.decimals ?? 18)),
+				listed: false
+			});
+			continue;
+		}
+		const n = seen.get(cid) ?? 0;
+		seen.set(cid, n + 1);
+		const time = new Date(Number(t.timestamp) * 1000).toISOString();
+		entries.push({
+			id: `${cid}:token:${n}`,
+			hash: cid,
+			height: Number(t.height),
+			time,
+			date: time.slice(0, 10),
+			type: out ? 'sent' : 'received',
+			kind: 'transfer',
+			asset: asset.symbol,
+			decimals: asset.decimals,
+			amount: unitsToDecimal(out ? -value : value, asset.decimals),
+			counterparty: String(out ? t.to : t.from),
+			counterpartyLabel: '',
+			memo: '',
+			success: true,
+			explorerUrl: txUrl(chain.explorer, cid)
+		});
+	}
+	return { entries, unlisted, unknownTokens: [...unknown] };
+}
+
+/**
  * @param {object} options
  * @param {typeof fetch} options.fetch
  * @param {number} [options.timeoutMs]
@@ -211,7 +316,45 @@ export function createFilecoinClient({ fetch: f, timeoutMs, sleep }) {
 				transfers.push(...list);
 				if (list.length < PAGE) break;
 			}
-			const entries = normalizeFilecoin(transfers, chain);
+			/** @type {FilfoxTokenTransfer[]} */
+			const tokenTransfers = [];
+			let tokenTotal = Number(info?.tokenTransferCount ?? 0) > 0 ? Infinity : 0;
+			for (let page = 0; page * PAGE < tokenTotal; page++) {
+				if (page >= MAX_PAGES) {
+					throw new WalletError(
+						`more than ${MAX_PAGES * PAGE} token movements on this address`,
+						'WALLET_TOO_LARGE',
+						413
+					);
+				}
+				const body = await get(
+					`${endpoints.api}/address/${encodeURIComponent(a)}/token-transfers?pageSize=${PAGE}&page=${page}`
+				);
+				const list = Array.isArray(body?.transfers) ? body.transfers : [];
+				tokenTotal = Number(body?.totalCount ?? 0);
+				tokenTransfers.push(...list);
+				if (list.length < PAGE) break;
+			}
+			const tokens = normalizeFilecoinTokens(tokenTransfers, chain, a);
+			const entries = [...normalizeFilecoin(transfers, chain), ...tokens.entries];
+			markSwaps(/** @type {any[]} */ (entries), tokens.unlisted, () => '');
+			// A swap's router: the receiver of its message, where it is a known contract.
+			/** @type {Map<string, string>} f410f → name */
+			const names = new Map(
+				Object.entries(chain.contracts ?? {}).map(([c, name]) => [toFilecoinAddress(c), name])
+			);
+			/** @type {Map<string, any>} */
+			const swaps = new Map();
+			for (const e of /** @type {any[]} */ (entries)) if (e.swap) swaps.set(e.hash, e.swap);
+			for (const [cid, swap] of swaps) {
+				const message = await get(`${endpoints.api}/message/${encodeURIComponent(cid)}`).catch(
+					() => null
+				);
+				swap.via = names.get(String(message?.to ?? '')) ?? '';
+			}
+			entries.sort((x, y) =>
+				x.height === y.height ? (x.id < y.id ? -1 : 1) : x.height - y.height
+			);
 			let balance = 0n;
 			try {
 				balance = BigInt(info?.balance ?? 0);
@@ -225,10 +368,23 @@ export function createFilecoinClient({ fetch: f, timeoutMs, sleep }) {
 						asset: chain.native.symbol,
 						amount: unitsToDecimal(balance, chain.native.decimals),
 						decimals: chain.native.decimals
-					}
+					},
+					// A listed token's balance: the sum of its whole history, read above.
+					...Object.values(chain.tokens ?? {})
+						.filter((t) => tokens.entries.some((e) => e.asset === t.symbol))
+						.map((t) => ({
+							asset: t.symbol,
+							amount: unitsToDecimal(
+								tokens.entries
+									.filter((e) => e.asset === t.symbol)
+									.reduce((sum, e) => sum + decimalToUnits(e.amount, t.decimals), 0n),
+								t.decimals
+							),
+							decimals: t.decimals
+						}))
 				],
 				transactions: new Set(entries.map((e) => e.hash)).size,
-				unknownAssets: 0,
+				unknownAssets: tokens.unknownTokens.length,
 				history: { earliestHeight: 0, earliestTime: null, pruned: false },
 				addressUrl: addressUrl(chain.explorer, a)
 			};

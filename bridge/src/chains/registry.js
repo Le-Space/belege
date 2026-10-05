@@ -11,7 +11,8 @@
 //            (chains/alchemy.js); the network names are below.
 //   bitcoin  an Esplora API (mempool.space), read by the addresses derived
 //            from a zpub kept in the bridge's keychain (bitcoin.js).
-//   filecoin Filfox's public API, by the address (filecoin.js).
+//   filecoin Filfox's public API, by the address (filecoin.js); FIL and the
+//            FEVM tokens listed for it.
 //
 // Only assets listed here are booked. A Cosmos denom or an ERC-20 contract
 // that is not listed is counted and left out: a token contract can name
@@ -94,6 +95,8 @@
  * @property {string} shortName
  * @property {string} caip2
  * @property {ChainAsset} native
+ * @property {Record<string, ChainAsset>} tokens FEVM ERC-20s booked here: lower-case `0x` contract → asset
+ * @property {Record<string, string>} contracts FEVM contracts a swap is named after: lower-case `0x` → name
  * @property {{ api: string }} endpoints Filfox's API, …/api/v1
  * @property {{ api: string[] }} alternatives
  * @property {Explorer} explorer
@@ -299,6 +302,17 @@ export const CHAINS = Object.freeze({
 		shortName: 'Filecoin',
 		caip2: 'fil:f',
 		native: { symbol: 'FIL', decimals: 18 },
+		// USDFC, Secured Finance's FIL-backed stablecoin (issue #301): checked
+		// 2026-10-05 against Secured Finance's contract list, CoinGecko's
+		// platform entry and the contract's own symbol() and decimals().
+		tokens: { '0x80b98d3aa09ffff255c3ba4a241111ff1262f045': { symbol: 'USDFC', decimals: 18 } },
+		// From Sushi's own config (sushi-labs/sushi, src/evm/config): the
+		// router its app sends swaps through, its V2 router, and the wrapped FIL.
+		contracts: {
+			'0xac4c6e212a361c968f1725b4d055b47e63f80b75': 'SushiSwap',
+			'0x46b3fdf7b5cde91ac049936bf0bdb12c5d22202e': 'SushiSwap V2 (Router)',
+			'0x60e1773636cf5e4a227d9ac24f20feca034ee25a': 'WFIL'
+		},
 		endpoints: { api: 'https://filfox.info/api/v1' },
 		alternatives: { api: [] },
 		explorer: {
@@ -354,7 +368,7 @@ export function publicChains() {
 					assets: Object.values(c.denoms).map((a) => a.symbol),
 					nativeSymbol: c.denoms[c.nativeDenom].symbol
 				}
-			: c.kind === 'evm'
+			: c.kind === 'evm' || c.kind === 'filecoin'
 				? {
 						assets: [c.native.symbol, ...Object.values(c.tokens).map((a) => a.symbol)],
 						nativeSymbol: c.native.symbol

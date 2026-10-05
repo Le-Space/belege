@@ -92,6 +92,15 @@ export const ASSETS = Object.freeze({
 		caip19: null
 	},
 	FIL: { symbol: 'FIL', name: 'Filecoin', decimals: 18, kind: 'crypto', chain: null, caip19: null },
+	// Secured Finance's FIL-backed stablecoin on the FEVM (#301).
+	USDFC: {
+		symbol: 'USDFC',
+		name: 'USD for Filecoin Community',
+		decimals: 18,
+		kind: 'crypto',
+		chain: 'eip155:314',
+		caip19: 'eip155:314/erc20:0x80b98d3aa09ffff255c3ba4a241111ff1262f045'
+	},
 	XMR: { symbol: 'XMR', name: 'Monero', decimals: 12, kind: 'crypto', chain: null, caip19: null }
 });
 

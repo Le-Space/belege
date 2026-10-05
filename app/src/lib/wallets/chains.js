@@ -18,8 +18,9 @@ import { isEthStyle, toFilecoinAddress } from './filecoin-address.js';
  * @property {string} caip2 the chain as CAIP-2, as the bridge's registry names it
  * @property {number | null} nativeSlip44 the native asset's SLIP-44 coin type, for its CAIP-19 id
  *   (`<caip2>/slip44:<n>`); null where no such id is established (Cosmos denoms, Monero)
- * @property {Readonly<Record<string, string>>} [tokens] evm only: symbol → lower-case contract
+ * @property {Readonly<Record<string, string>>} [tokens] evm and filecoin (FEVM): symbol → lower-case contract
  *   of the tokens the bridge books there (registry.js `tokens`)
+ * @property {string} [evmCaip2] filecoin only: the FEVM's CAIP-2, for its tokens' CAIP-19
  * @property {string} [bech32Prefix] cosmos only
  */
 
@@ -115,7 +116,10 @@ export const WALLET_CHAINS = Object.freeze({
 		shortName: 'Filecoin',
 		nativeSymbol: 'FIL',
 		caip2: 'fil:f',
-		nativeSlip44: 461
+		nativeSlip44: 461,
+		// FEVM tokens, by contract (#301); their CAIP-19 is on the FEVM's chain id.
+		tokens: { USDFC: '0x80b98d3aa09ffff255c3ba4a241111ff1262f045' },
+		evmCaip2: 'eip155:314'
 	},
 	// Not read by address: Monero hides amounts and parties on its chain. The
 	// wallet's own export is imported in the browser (monero-import.js); the

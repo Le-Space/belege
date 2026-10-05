@@ -62,6 +62,8 @@ export const RATE_SOURCES = /** @type {Readonly<Record<string, AssetSources>>} *
 		FIL: { coingecko: 'filecoin', kraken: 'FILEUR' },
 		XMR: { coingecko: 'monero', kraken: 'XMREUR' },
 		POL: { coingecko: 'polygon-ecosystem-token', kraken: 'POLEUR' },
+		// No EUR pair on Kraken; a swap's other side prices it where CoinGecko has no rate (#163).
+		USDFC: { coingecko: 'usdfc' },
 		...Object.fromEntries(ECB_CURRENCIES.map((c) => [c, { ecb: true }])),
 		RUB: { ecb: true, cbr: true }
 	})
