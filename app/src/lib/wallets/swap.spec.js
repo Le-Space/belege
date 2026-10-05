@@ -32,6 +32,14 @@ describe('a swap leg', () => {
 				via: ''
 			})
 		).toBe('Tausch: 1,5 ETH → 3.200 USDC');
+		// Akash burn-mint read from the indexer: the ACT minted has no amount there (#303).
+		expect(
+			swapText({
+				gave: [{ asset: 'AKT', amount: '27.5', listed: true }],
+				got: [{ asset: 'ACT', amount: '', listed: false }],
+				via: 'Akash BME (AKT ↔ ACT)'
+			})
+		).toBe('Tausch: 27,5 AKT → ACT (Menge unbekannt) über Akash BME (AKT ↔ ACT)');
 	});
 
 	it('needs no receipt, says why, and two booked legs relate as Tausch', async () => {

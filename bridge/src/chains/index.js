@@ -80,7 +80,9 @@ export function createWalletService({
 		has: (id) => Boolean(chainOf(id)),
 
 		/**
-		 * @param {{ chain?: unknown, address?: unknown, endpoints?: unknown }} request
+		 * @param {{ chain?: unknown, address?: unknown, endpoints?: unknown, hashes?: unknown }} request
+		 *   `hashes`: transactions another source names for this wallet (an exchange's
+		 *   withdrawal), read from the indexer where the address's own reading lacks them
 		 */
 		async sync(request) {
 			const chain = chainOf(String(request?.chain ?? ''));
@@ -172,6 +174,36 @@ export function createWalletService({
 							history: { ...history, indexerError: String(error?.code ?? 'WALLET_INDEXER') }
 						};
 					}
+				}
+			}
+			// Transactions another source names for this wallet (an exchange's
+			// withdrawal hash, #303): asked of the indexer where the address's
+			// own reading has none of them – its listing can leave one out.
+			const hashes = Array.isArray(request?.hashes)
+				? [
+						...new Set(
+							request.hashes
+								.map((/** @type {unknown} */ h) => String(h ?? '').toUpperCase())
+								.filter((/** @type {string} */ h) => /^[0-9A-F]{64}$/.test(h))
+						)
+					].slice(0, 100)
+				: [];
+			if (chain.kind === 'cosmos' && endpoints.indexer && hashes.length) {
+				const known = new Set(result.entries.map((e) => String(e.hash).toUpperCase()));
+				const missing = hashes.filter((h) => !known.has(h));
+				if (missing.length) {
+					const named = await indexer.byHashes({
+						chain,
+						address,
+						indexer: endpoints.indexer,
+						hashes: missing
+					});
+					result = {
+						...result,
+						entries: [...named.entries, ...result.entries].sort((a, b) => a.height - b.height),
+						transactions: result.transactions + named.found,
+						history: { .../** @type {any} */ (result.history ?? {}), byHash: named.found }
+					};
 				}
 			}
 			return { chain: chain.id, endpoints, ...result };

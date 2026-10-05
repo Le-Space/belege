@@ -34,6 +34,7 @@ import {
 import {
 	addWallet,
 	cleanWalletMeta,
+	exchangeWithdrawalHashes,
 	loadWallets,
 	reconcileSourceIds,
 	removeWallet,
@@ -755,6 +756,37 @@ describe('which wallet bookings need no receipt', () => {
 			kind: 'bank-fee',
 			via: 'exchange-fee'
 		});
+	});
+});
+
+describe('exchange withdrawals asked for by hash (#303)', () => {
+	const H = (/** @type {string} */ c) => c.repeat(64);
+	const kraken = (/** @type {Record<string, any>} */ t) => ({
+		source: 'kraken',
+		asset: 'AKT',
+		amountCents: -5000,
+		movement: 'transfer',
+		...t
+	});
+	it('Kraken withdrawals of the chain’s native asset that no wallet booking has yet', () => {
+		const akash = WALLET_CHAINS.akash;
+		const hashes = exchangeWithdrawalHashes(
+			[
+				kraken({ id: 'k1', chainTxRef: H('a') }),
+				kraken({ id: 'k2', chainTxRef: H('B') }),
+				// booked already on an Akash wallet
+				{ id: 'w', source: 'akash', txRef: H('B') },
+				// a deposit, another asset, no hash, deleted, not a Cosmos hash
+				kraken({ id: 'k3', chainTxRef: H('c'), amountCents: 5000 }),
+				kraken({ id: 'k4', chainTxRef: H('d'), asset: 'NYM' }),
+				kraken({ id: 'k5' }),
+				kraken({ id: 'k6', chainTxRef: H('e'), deleted: true }),
+				kraken({ id: 'k7', chainTxRef: `bafy2bzace${'f'.repeat(52)}` }),
+				kraken({ id: 'k8', chainTxRef: H('a') })
+			],
+			akash
+		);
+		expect(hashes).toEqual([H('A')]);
 	});
 });
 

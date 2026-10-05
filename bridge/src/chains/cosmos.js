@@ -57,8 +57,54 @@ const MODULES = /** @type {const} */ ({
 	bonded_tokens_pool: 'Staking (gebunden)',
 	not_bonded_tokens_pool: 'Staking (ungebunden)',
 	gov: 'Governance-Einlage',
-	mint: 'Neu geprägt (mint)'
+	mint: 'Neu geprägt (mint)',
+	// Akash: deployments' escrow, and burn-mint (BME) – AKT burnt for ACT, the
+	// compute credit deployments are paid in, and back.
+	escrow: 'Akash-Escrow (Deployment)',
+	bme: 'Akash BME (AKT ↔ ACT)'
 });
+
+/** How an unlisted denom is named in a swap's text: `uact` → `ACT`. @param {string} denom */
+export const denomLabel = (denom) =>
+	/^u[a-z]{2,10}$/.test(denom) ? denom.slice(1).toUpperCase() : denom.slice(0, 20);
+
+/**
+ * A swap with the BME module (Akash burn-mint): what the wallet gave and got
+ * in one transaction, one side a listed asset and the other usually ACT,
+ * which is not listed. The listed legs become kind `swap`, as on the EVM
+ * chains (evm.js markSwaps), and the fee names it. Changes the entries in place.
+ *
+ * @param {WalletEntry[]} entries one transaction's
+ * @param {{ asset: string, amount: string, listed: false }[]} unlisted its unlisted moves, signed
+ * @param {string} via
+ */
+export function markBmeSwap(entries, unlisted, via) {
+	const legs = entries.filter((e) => e.kind === 'transfer');
+	const side = (/** @type {boolean} */ out) => [
+		...legs
+			.filter((e) => e.amount.startsWith('-') === out)
+			.map((e) => ({ asset: e.asset, amount: e.amount.replace(/^-/, ''), listed: true })),
+		...unlisted
+			.filter((u) => u.amount.startsWith('-') === out)
+			.map((u) => ({ asset: u.asset, amount: u.amount.replace(/^-/, ''), listed: false }))
+	];
+	const gave = side(true);
+	const got = side(false);
+	if (!legs.length || !gave.length || !got.length) return;
+	if (got.every((g) => gave.some((x) => x.asset === g.asset))) return;
+	const gas = entries.find((e) => e.type === 'fee');
+	const swap = {
+		gave,
+		got,
+		via,
+		...(gas ? { fee: { asset: gas.asset, amount: gas.amount.replace(/^-/, '') } } : {})
+	};
+	for (const e of legs) {
+		e.kind = 'swap';
+		e.swap = swap;
+	}
+	if (gas) gas.swap = swap;
+}
 
 const PER_PAGE = 100;
 const COIN = /^(\d+)([a-zA-Z][a-zA-Z0-9/:._-]{1,127})$/;
@@ -268,6 +314,10 @@ export function normalizeCosmosTx(raw, { address, chain, time }) {
 	const entries = [];
 	/** @type {string[]} */
 	const unknownDenoms = [];
+	/** @type {{ asset: string, amount: string, listed: false }[]} moves of unlisted denoms (a BME swap's ACT) */
+	const unlisted = [];
+	const bme = moduleAddress(chain.bech32Prefix, 'bme');
+	let withBme = false;
 
 	const txEvent = (/** @type {string} */ key) =>
 		events
@@ -357,8 +407,16 @@ export function normalizeCosmosTx(raw, { address, chain, time }) {
 					: out && ibcReceiver && !label
 						? 'ibc'
 						: 'transfer';
+		if (other === bme) withBme = true;
 		for (const coin of coins) {
 			const asset = assetOf(coin);
+			if (!asset && coin.amount > 0n) {
+				unlisted.push({
+					asset: denomLabel(coin.denom),
+					amount: unitsToDecimal(out ? -coin.amount : coin.amount, 6),
+					listed: false
+				});
+			}
 			if (!asset || coin.amount === 0n) continue;
 			push(`${hash}:m${t.msgIndex ?? 'x'}:e${t.event}.${t.part}:${asset.symbol}`, {
 				type: out ? 'sent' : 'received',
@@ -373,6 +431,7 @@ export function normalizeCosmosTx(raw, { address, chain, time }) {
 			});
 		}
 	}
+	if (withBme) markBmeSwap(entries, unlisted, MODULES.bme);
 	return { entries, unknownDenoms };
 }
 

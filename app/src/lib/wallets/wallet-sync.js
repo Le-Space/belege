@@ -171,8 +171,13 @@ const deDecimal = (amount) => {
 export function swapText(swap) {
 	const side = (/** @type {{ asset: string, amount: string, listed: boolean }[]} */ list) =>
 		list
-			// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
-			.map((x) => `${deDecimal(x.amount)} ${x.asset}${x.listed ? '' : ' (nicht gelistet)'}`)
+			// No amount: the chain gave it in events only (ACT minted by Akash BME, #303).
+			.map((x) =>
+				x.amount
+					? // eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
+						`${deDecimal(x.amount)} ${x.asset}${x.listed ? '' : ' (nicht gelistet)'}`
+					: `${x.asset} (Menge unbekannt)`
+			)
 			.join(' + ');
 	const via = swap.via ? ` über ${swap.via}` : '';
 	const gas = swap.fee ? ` · Gas ${deDecimal(swap.fee.amount)} ${swap.fee.asset}` : '';
@@ -619,11 +624,48 @@ async function saveWallet(settings, wallet) {
 export async function syncWallet({ client, store, wallet, now = new Date() }) {
 	const chain = walletChain(wallet.chain);
 	if (!chain) throw new Error(`Unbekannte Chain: ${wallet.chain}`);
+	const hashes =
+		chain.kind === 'cosmos' ? exchangeWithdrawalHashes(await store.transactions.list(), chain) : [];
 	const result = await client.walletHistory(chain.id, {
 		address: wallet.address,
-		endpoints: wallet.endpoints ?? {}
+		endpoints: wallet.endpoints ?? {},
+		...(hashes.length ? { hashes } : {})
 	});
 	return bookWalletHistory({ client, store, wallet, result, now });
+}
+
+/**
+ * The on-chain hashes of exchange withdrawals in a chain's native asset that
+ * no wallet booking of that chain has yet (#303): the bridge asks the chain's
+ * indexer for them by hash, where the address's own listing leaves one out –
+ * the first funding of a wallet from Kraken, say. Which wallet received it,
+ * the indexer's answer says; a hash that is not this wallet's books nothing.
+ *
+ * @param {Record<string, any>[]} transactions
+ * @param {import('./chains.js').WalletChain} chain
+ * @returns {string[]}
+ */
+export function exchangeWithdrawalHashes(transactions, chain) {
+	const booked = new Set(
+		transactions
+			.filter((t) => !t.deleted && t.source === chain.id && t.txRef)
+			.map((t) => String(t.txRef).toUpperCase())
+	);
+	return [
+		...new Set(
+			transactions
+				.filter(
+					(t) =>
+						!t.deleted &&
+						t.source === 'kraken' &&
+						t.asset === chain.nativeSymbol &&
+						Number(t.amountCents ?? 0) < 0 &&
+						/^[0-9a-f]{64}$/i.test(String(t.chainTxRef ?? ''))
+				)
+				.map((t) => String(t.chainTxRef).toUpperCase())
+				.filter((h) => !booked.has(h))
+		)
+	].slice(0, 100);
 }
 
 /**

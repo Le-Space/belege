@@ -504,7 +504,9 @@ export function consoleTx({ seed, height, signers, fee = 0, success = true, mess
 		MsgTransfer: '/ibc.applications.transfer.v1.',
 		MsgRecvPacket: '/ibc.core.channel.v1.',
 		MsgCreateDeployment: '/akash.deployment.v1beta3.',
-		MsgAccountDeposit: '/akash.escrow.v1.'
+		MsgAccountDeposit: '/akash.escrow.v1.',
+		MsgMintACT: '/akash.bme.v1.',
+		MsgBurnACT: '/akash.bme.v1.'
 	});
 	return {
 		height,
@@ -537,8 +539,15 @@ export function consoleTx({ seed, height, signers, fee = 0, success = true, mess
  * @param {boolean} [options.broken] every request answers 500
  * @param {boolean} [options.withCount] the listing as before October 2026: the total
  *   `count` instead of `hasMore`
+ * @param {string[]} [options.unlisted] hashes found by hash only, not in any address's
+ *   listing (as the real indexer leaves some out)
  */
-export async function startFakeAkashConsole({ txs = [], broken = false, withCount = false } = {}) {
+export async function startFakeAkashConsole({
+	txs = [],
+	broken = false,
+	withCount = false,
+	unlisted = []
+} = {}) {
 	/** @type {string[]} */
 	const calls = [];
 	const server = http.createServer((req, res) => {
@@ -553,6 +562,7 @@ export async function startFakeAkashConsole({ txs = [], broken = false, withCoun
 		if (list) {
 			const address = decodeURIComponent(list[1]);
 			const mine = txs
+				.filter((t) => !unlisted.includes(t.hash))
 				.filter((t) => JSON.stringify([t.signers, t.messages]).includes(address))
 				.sort((a, b) => b.height - a.height);
 			const skip = Number(list[2]);
