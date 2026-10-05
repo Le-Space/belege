@@ -12,10 +12,15 @@ const COMPANY = 'Musterfirma UG';
 const WISE = 'BE00999900001111';
 const CUSTOMER = 'DE00123400005678';
 
+// The app's today in this spec (page.clock): the payments lie a few days
+// before it, all in its month – Zahlungen opens that month only, so in the
+// first days of a real month the earlier ones would be folded away.
+const TODAY = new Date('2026-10-20T10:00:00Z');
+
 /** @param {import('@playwright/test').Page} page */
 async function seed(page) {
 	const day = (/** @type {number} */ back) =>
-		new Date(Date.now() - back * 864e5).toISOString().slice(0, 10);
+		new Date(TODAY.getTime() - back * 864e5).toISOString().slice(0, 10);
 	await page.evaluate(
 		async ({ WISE, CUSTOMER, days }) => {
 			const e2e = /** @type {any} */ (window).__belegeE2E;
@@ -67,6 +72,7 @@ test('an IBAN that sends under our name is offered as own, and explains the paym
 	page
 }) => {
 	await addVirtualAuthenticator(page);
+	await page.clock.install({ time: TODAY });
 	await page.goto('/');
 	await acceptConsent(page);
 	await page.getByTestId('passkey-label').fill('E2E');
