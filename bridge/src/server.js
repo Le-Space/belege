@@ -34,6 +34,7 @@
 //   GET  /bitcoin/key                                             token → the zpub's fingerprint, never the zpub
 //   GET  /lan-relay                                               token → the relay for own devices in the own network: its address (lan-relay.js)
 //   POST /<chain>/wallet { address, endpoints? }                  token → an own wallet's transfers and balance
+//   POST /akash/deployments { address, endpoints? }               token → an Akash wallet's deployments and what each cost (#305)
 //   POST /aleph/accounts { addresses, api? }                      token → which are Aleph accounts: credits, entries (aleph.js)
 //   GET  /aleph/statement?address=0x…&month=YYYY-MM[&api=]        token → a month's credits: balances, top-ups, usage per day
 //   GET  /backup/status                                           token → { aleph: { configured, address, credits, ingestUrl, gateways, apiHost } } (aleph-backup.js)
@@ -839,6 +840,14 @@ export function createBridgeServer({
 			if (!wallets) return send(res, 503, { error: 'wallets are not available' });
 			const fingerprint = await wallets.bitcoinKey();
 			return send(res, 200, { configured: Boolean(fingerprint), fingerprint });
+		}
+		if (path === '/akash/deployments' && req.method === 'POST') {
+			if (!wallets) return send(res, 503, { error: 'wallets are not available' });
+			// A POST, so the address is in no URL and no access log.
+			const body = /** @type {any} */ (await readJson(req));
+			const list = await wallets.akashDeployments(body);
+			log(`akash: ${list.length} deployment(s)`);
+			return send(res, 200, { deployments: list });
 		}
 		const walletPath = /^\/([a-z0-9-]{2,30})\/wallet$/.exec(path);
 		if (walletPath && req.method === 'POST' && wallets?.has(walletPath[1])) {

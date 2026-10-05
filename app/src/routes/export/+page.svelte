@@ -55,6 +55,37 @@
 	 * off; this browser remembers the choice.
 	 */
 	const STATEMENTS_KEY = 'belege.export.statements';
+	/**
+	 * Network fees an Akash usage statement covers as one booking (#305) – on
+	 * unless switched off; this browser remembers the choice.
+	 */
+	const COLLECT_KEY = 'belege.export.collectFees';
+	let collectFees = $state(
+		(() => {
+			try {
+				return localStorage.getItem(COLLECT_KEY) !== 'off';
+			} catch {
+				return true;
+			}
+		})()
+	);
+	$effect(() => {
+		try {
+			localStorage.setItem(COLLECT_KEY, collectFees ? 'on' : 'off');
+		} catch {
+			// Not remembered: on again next time.
+		}
+	});
+	// Only a month with an Akash usage statement has fees to collect.
+	let hasFeeStatement = $derived(
+		Boolean(month) &&
+			app.receipts.some(
+				(r) =>
+					!r.deleted &&
+					r.selfReceipt?.kind === 'akash-statement' &&
+					String(r.documentDate ?? '').startsWith(String(month))
+			)
+	);
 	let withStatements = $state(
 		(() => {
 			try {
@@ -81,7 +112,8 @@
 					matches: app.matches,
 					classifications: app.classifications,
 					includeTests,
-					withStatements
+					withStatements,
+					collectFees
 				})
 			: null
 	);
@@ -385,6 +417,17 @@
 				{/if}
 			</span>
 		</label>
+		{#if hasFeeStatement}
+			<label class="mt-2 flex items-start gap-2 text-sm text-text">
+				<input
+					type="checkbox"
+					class="mt-0.5"
+					bind:checked={collectFees}
+					data-testid="export-collect-fees"
+				/>
+				<span>{t('export.collectFees')}</span>
+			</label>
+		{/if}
 		<p class="mt-1 text-xs text-faint" data-testid="export-settings">
 			{t('export.settings', {
 				consultant: settings.consultantNumber,

@@ -323,6 +323,7 @@ export function sampleNyxHistory({ filler = 110 } = {}) {
  * @param {boolean} [options.statusSaysZero] `status` claims 0 though older blocks are gone (a node restored from a snapshot)
  * @param {number} [options.failFirst] this many requests answer 503 first
  * @param {(height: number) => string} [options.time]
+ * @param {any[]} [options.deployments] Akash: deployments as the node lists them (akashDeployment)
  */
 export async function startFakeCosmos({
 	network = 'nyx',
@@ -337,7 +338,8 @@ export async function startFakeCosmos({
 	earliestHeight = 1,
 	statusSaysZero = false,
 	failFirst = 0,
-	time = blockTime
+	time = blockTime,
+	deployments = []
 } = {}) {
 	/** @type {{ method: string, params: any }[]} */
 	const calls = [];
@@ -362,6 +364,15 @@ export async function startFakeCosmos({
 				return reply(200, {
 					balances: balances[decodeURIComponent(bank[1])] ?? [],
 					pagination: { next_key: null, total: '0' }
+				});
+			}
+			// Akash: an owner's deployments with their escrow (#305).
+			if (req.method === 'GET' && url.pathname === '/akash/deployment/v1beta4/deployments/list') {
+				const owner = url.searchParams.get('filters.owner');
+				const mine = deployments.filter((/** @type {any} */ d) => d.deployment.id.owner === owner);
+				return reply(200, {
+					deployments: mine,
+					pagination: { next_key: null, total: String(mine.length) }
 				});
 			}
 			if (req.method !== 'POST') return reply(404, { code: 5, message: 'not found' });
@@ -530,6 +541,35 @@ export function consoleTx({ seed, height, signers, fee = 0, success = true, mess
 }
 
 /**
+ * One Akash deployment as the node lists it (#305): its escrow with what it
+ * paid its providers, in decimal uact.
+ *
+ * @param {{ owner: string, dseq: string, created: number, settled: number, uact: string, state?: string }} d
+ */
+export function akashDeployment({ owner, dseq, created, settled, uact, state = 'closed' }) {
+	return {
+		deployment: {
+			id: { owner, dseq },
+			state,
+			hash: '',
+			created_at: String(created),
+			reclamation: null
+		},
+		escrow_account: {
+			id: { scope: 'deployment', xid: `${owner}/${dseq}` },
+			state: {
+				owner,
+				state,
+				transferred: [{ denom: 'uact', amount: `${uact}.000000000000000000` }],
+				settled_at: String(settled),
+				funds: [{ denom: 'uact', amount: '0.000000000000000000' }],
+				deposits: []
+			}
+		}
+	};
+}
+
+/**
  * The Akash Console indexer: an address's transactions, newest first, and
  * one transaction by hash. Every address named in a transaction's data or
  * signers finds it.
@@ -589,6 +629,9 @@ export async function startFakeAkashConsole({
 				}))
 			});
 		}
+		const block = /^\/v1\/blocks\/(\d+)$/.exec(path);
+		if (block)
+			return reply(200, { height: Number(block[1]), datetime: blockTime(Number(block[1])) });
 		const one = /^\/v1\/transactions\/([0-9A-Fa-f]{64})$/.exec(path);
 		if (one) {
 			const tx = txs.find((t) => t.hash === one[1].toUpperCase());
