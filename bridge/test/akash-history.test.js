@@ -4,7 +4,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { normalizeConsoleTx } from '../src/chains/akash-console.js';
+import { createAkashConsoleClient, normalizeConsoleTx } from '../src/chains/akash-console.js';
 import { moduleAddress } from '../src/chains/bech32.js';
 import { CHAINS } from '../src/chains/registry.js';
 import { createWalletService } from '../src/chains/index.js';
@@ -346,6 +346,38 @@ describe('a wallet on a pruned Akash node', () => {
 		} finally {
 			await node.close();
 			await indexer.close();
+		}
+	});
+
+	test('the listing is read page by page, by hasMore as the indexer answers now, or by count as before', async () => {
+		// 150 newer than the node's window start, one older: two pages of 100.
+		const txs = [
+			send('old one', 500, '3000000'),
+			...Array.from({ length: 150 }, (_, i) => send(`newer ${i}`, 1100 + i))
+		];
+		for (const withCount of [false, true]) {
+			const indexer = await startFakeAkashConsole({ txs, withCount });
+			try {
+				const client = createAkashConsoleClient({ sleep: noSleep });
+				const older = await client.history({
+					chain: akash,
+					address: wallet,
+					indexer: indexer.url,
+					beforeHeight: 1000
+				});
+				assert.equal(older.transactions, 1, withCount ? 'count' : 'hasMore');
+				assert.deepEqual(
+					indexer.calls.filter(
+						(c) => c.includes('/transactions/') && c.startsWith('/v1/addresses/')
+					),
+					[
+						'/v1/addresses/<address>/transactions/0/100',
+						'/v1/addresses/<address>/transactions/100/100'
+					]
+				);
+			} finally {
+				await indexer.close();
+			}
 		}
 	});
 

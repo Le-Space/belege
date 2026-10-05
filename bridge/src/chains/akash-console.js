@@ -5,7 +5,8 @@
 // team, open source: akash-network/console) knows every transaction since
 // mainnet-2 (March 2021), without a key:
 //   - `/v1/addresses/<address>/transactions/<skip>/<limit>`: the address's
-//     transactions, newest first, with `count`;
+//     transactions, newest first, with `hasMore` (since October 2026; before,
+//     with `count` – both are read);
 //   - `/v1/transactions/<hash>`: one transaction with its decoded messages,
 //     its signers and its fee (in uakt).
 // It is used only for what the node no longer has: transactions below the
@@ -339,16 +340,18 @@ export function createAkashConsoleClient({
 			const base = `${indexer}/v1`;
 			/** @type {{ hash: string, height: number }[]} */
 			const older = [];
-			let count = Infinity;
-			for (let skip = 0; skip < count; skip += PER_PAGE) {
+			for (let skip = 0; ; skip += PER_PAGE) {
 				const page = await getJson(
 					`${base}/addresses/${encodeURIComponent(address)}/transactions/${skip}/${PER_PAGE}`
 				);
-				if (!Array.isArray(page?.results) || !Number.isSafeInteger(page?.count)) {
+				// More to read: `hasMore` (the indexer since October 2026), or
+				// the total `count` it gave before.
+				const counted = Number.isSafeInteger(page?.count);
+				if (!Array.isArray(page?.results) || (!counted && typeof page?.hasMore !== 'boolean')) {
 					throw new WalletError('the indexer answered without transactions', 'WALLET_INDEXER');
 				}
-				count = page.count;
-				if (count > maxTransactions) {
+				const known = counted ? page.count : skip + page.results.length;
+				if (known > maxTransactions) {
 					throw new WalletError(
 						`more than ${maxTransactions} transactions in the indexer; older history not read`,
 						'WALLET_TOO_MANY'
@@ -359,7 +362,8 @@ export function createAkashConsoleClient({
 					const height = Number(r?.height);
 					if (HASH.test(hash) && height < beforeHeight) older.push({ hash, height });
 				}
-				if (!page.results.length) break;
+				const more = counted ? skip + PER_PAGE < page.count : page.hasMore;
+				if (!page.results.length || !more) break;
 			}
 
 			/** @type {import('./cosmos.js').WalletEntry[]} */
