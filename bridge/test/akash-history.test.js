@@ -5,6 +5,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createAkashConsoleClient, normalizeConsoleTx } from '../src/chains/akash-console.js';
+import { normalizeCosmosTx } from '../src/chains/cosmos.js';
 import { moduleAddress } from '../src/chains/bech32.js';
 import { CHAINS } from '../src/chains/registry.js';
 import { createWalletService } from '../src/chains/index.js';
@@ -425,6 +426,134 @@ describe('a wallet on a pruned Akash node', () => {
 			);
 			assert.equal(result.history.pruned, false);
 			assert.deepEqual(indexer.calls, []);
+		} finally {
+			await node.close();
+			await indexer.close();
+		}
+	});
+});
+
+// Akash burn-mint (BME) and an exchange's withdrawal found by its hash (#303).
+// Every address, hash and amount is made up.
+describe('AKT for ACT, and a funding the listing leaves out', () => {
+	const bme = moduleAddress('akash', 'bme');
+	const kraken = fakeCosmosAddress('akash exchange hot wallet', 'akash');
+
+	test('the indexer: a mint is a swap of the AKT burnt, the ACT without an amount; a failed one only costs its fee', () => {
+		const mint = (/** @type {boolean} */ success) =>
+			consoleTx({
+				seed: `mint ${success}`,
+				height: 900,
+				signers: [wallet],
+				fee: 5000,
+				success,
+				messages: [
+					{
+						type: 'MsgMintACT',
+						data: {
+							owner: wallet,
+							to: wallet,
+							coins_to_burn: { denom: 'uakt', amount: '27500000' }
+						}
+					}
+				]
+			});
+		const ok = normalize(mint(true));
+		assert.deepEqual(rows(ok.entries), [
+			['fee', 'fee', 'fee', '-0.005'],
+			['c0.0:AKT', 'sent', 'swap', '-27.5']
+		]);
+		const swap = /** @type {any} */ (ok.entries[1]).swap;
+		assert.deepEqual(swap.gave, [{ asset: 'AKT', amount: '27.5', listed: true }]);
+		assert.deepEqual(swap.got, [{ asset: 'ACT', amount: '', listed: false }]);
+		assert.equal(swap.via, 'Akash BME (AKT ↔ ACT)');
+		assert.equal(/** @type {any} */ (ok.entries[0]).swap, swap);
+		assert.equal(ok.entries[1].counterparty, bme);
+		assert.deepEqual(rows(normalize(mint(false)).entries), [['fee', 'fee', 'fee', '-0.005']]);
+	});
+
+	test('the node: AKT to the BME module and ACT back in one transaction is a swap, ACT named', () => {
+		const at = { address: wallet, chain: akash, time: '2026-09-01T10:00:00.000Z' };
+		const tx = cosmosTx({
+			seed: 'node mint',
+			height: 1200,
+			prefix: 'akash',
+			fee: { payer: wallet, amount: '5000uakt' },
+			transfers: [
+				{ sender: wallet, recipient: bme, amount: '9000000uakt' },
+				{ sender: bme, recipient: wallet, amount: '4500000uact' }
+			]
+		});
+		const { entries } = normalizeCosmosTx(tx, at);
+		const leg = /** @type {any} */ (entries.find((e) => e.asset === 'AKT' && e.type === 'sent'));
+		assert.equal(leg.kind, 'swap');
+		assert.deepEqual(leg.swap.got, [{ asset: 'ACT', amount: '4.5', listed: false }]);
+		assert.equal(leg.swap.via, 'Akash BME (AKT ↔ ACT)');
+		assert.equal(leg.counterpartyLabel, 'Akash BME (AKT ↔ ACT)');
+		// An ordinary send stays a transfer.
+		const send = cosmosTx({
+			seed: 'node send',
+			height: 1201,
+			prefix: 'akash',
+			fee: { payer: wallet, amount: '5000uakt' },
+			transfers: [{ sender: wallet, recipient: other, amount: '1000000uakt' }]
+		});
+		assert.ok(normalizeCosmosTx(send, at).entries.every((e) => e.kind !== 'swap'));
+	});
+
+	test('a Kraken withdrawal’s hash: asked of the indexer when the listing leaves it out, for this wallet only', async () => {
+		const multi = (
+			/** @type {string} */ seed,
+			/** @type {string} */ to,
+			/** @type {string} */ amount
+		) =>
+			consoleTx({
+				seed,
+				height: 400,
+				signers: [kraken],
+				fee: 3000,
+				messages: [
+					{
+						type: 'MsgMultiSend',
+						data: {
+							inputs: [{ address: kraken, coins: [{ denom: 'uakt', amount }] }],
+							outputs: [{ address: to, coins: [{ denom: 'uakt', amount }] }]
+						}
+					}
+				]
+			});
+		const funding = multi('kraken funding', wallet, '46553389');
+		const elsewhere = multi('kraken to someone else', other, '1000000');
+		const node = await startFakeCosmos({
+			network: 'akashnet-2',
+			earliestHeight: 1000,
+			txs: [],
+			balances: { [wallet]: [{ denom: 'uakt', amount: '46553389' }] }
+		});
+		const indexer = await startFakeAkashConsole({
+			txs: [funding, elsewhere],
+			unlisted: [funding.hash]
+		});
+		try {
+			const service = createWalletService({ allowLoopback: true, sleep: noSleep });
+			const result = /** @type {any} */ (
+				await service.sync({
+					chain: 'akash',
+					address: wallet,
+					endpoints: { ...node.endpoints, indexer: indexer.url },
+					hashes: [funding.hash.toLowerCase(), elsewhere.hash, 'not a hash']
+				})
+			);
+			assert.deepEqual(
+				result.entries.map((/** @type {any} */ e) => [e.hash, e.type, e.amount]),
+				[[funding.hash, 'received', '46.553389']]
+			);
+			assert.equal(result.history.byHash, 1);
+			assert.equal(
+				indexer.calls.filter((c) => c.startsWith('/v1/transactions/')).length,
+				2,
+				'the funding and the other one, nothing else'
+			);
 		} finally {
 			await node.close();
 			await indexer.close();

@@ -471,7 +471,8 @@ export function createBridgeClient({
 		 * public node (in the body, so the address is in no URL).
 		 *
 		 * @param {string} chain e.g. `nyx`
-		 * @param {{ address: string, endpoints?: Record<string, string> }} body
+		 * @param {{ address: string, endpoints?: Record<string, string>, hashes?: string[] }} body
+		 *   `hashes`: exchange withdrawals the indexer is asked for by hash (Akash, #303)
 		 * @returns {Promise<WalletHistory>}
 		 */
 		walletHistory: (chain, body) =>
