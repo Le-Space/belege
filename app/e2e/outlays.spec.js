@@ -88,3 +88,93 @@ test('receipts paid privately become outlays, in euros and in rubles by a rate b
 	await detail.getByTestId('outlay-undo').click();
 	await expect(detail.getByTestId('outlay-open')).toBeVisible();
 });
+
+test('outlays paid back: open on Home, one transfer clears two, the payout needs no receipt', async ({
+	page
+}) => {
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('E2E');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+
+	await page.evaluate(async () => {
+		const e2e = /** @type {any} */ (window).__belegeE2E;
+		const common = { source: 'upload', status: 'ausgelesen', currency: 'EUR' };
+		await e2e.addReceipt({
+			...common,
+			fileName: 'bahn.pdf',
+			vendor: 'Bahn Beispiel AG',
+			amountCents: 8_990,
+			documentDate: '2025-03-04'
+		});
+		await e2e.addReceipt({
+			...common,
+			fileName: 'taxi.pdf',
+			vendor: 'Taxi Beispiel',
+			amountCents: 2_500,
+			documentDate: '2025-03-05'
+		});
+		const bank = await e2e.addAccount({
+			source: 'hibiscus',
+			sourceAccountId: '0042',
+			ibanLast4: '0042',
+			name: 'Geschäftskonto Test',
+			currency: 'EUR'
+		});
+		await e2e.addTransaction({
+			accountId: bank.id,
+			source: 'hibiscus',
+			currency: 'EUR',
+			bookedOn: '2025-03-20',
+			amountCents: -11_490,
+			counterparty: 'Erika Beispiel',
+			purpose: 'Erstattung Auslagen Maerz',
+			bookingType: 'Überweisung'
+		});
+	});
+
+	// Two receipts paid privately.
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
+	await page.getByTestId('year-switch').selectOption('2025');
+	const detail = page.getByTestId('receipt-detail');
+	for (const name of ['Bahn Beispiel AG', 'Taxi Beispiel']) {
+		await page.getByTestId('receipt').filter({ hasText: name }).click();
+		await detail.getByTestId('outlay-open').click();
+		await detail.getByTestId('outlay-book').click();
+		await expect(detail.getByTestId('outlay-booked')).toBeVisible();
+	}
+
+	// Home: both open.
+	await page.getByRole('link', { name: 'Home' }).click();
+	const openCard = page.getByTestId('home-outlays-open');
+	await expect(openCard).toContainText('Privat ausgelegt, noch nicht erstattet: 2 (114,90');
+	await expect(openCard.getByTestId('home-outlays-open-item')).toHaveCount(2);
+
+	// The transfer pays them back: both ticked, linked.
+	await page.getByRole('navigation').getByRole('link', { name: 'Zahlungen' }).click();
+	await page.getByTestId('year-switch').selectOption('2025');
+	await page.getByTestId('filter-all').click();
+	await page.getByTestId('transaction').filter({ hasText: 'Erika Beispiel' }).click();
+	const tx = page.getByTestId('tx-detail');
+	await tx.getByTestId('outlay-repay-open').click();
+	const items = tx.getByTestId('outlay-repay-item');
+	await expect(items).toHaveCount(2);
+	for (const item of await items.all()) await expect(item.locator('input')).toBeChecked();
+	await expect(tx.getByTestId('outlay-repay-sum')).toContainText('Ausgewählt 114,90');
+	await tx.getByTestId('outlay-repay-link').click();
+	await expect(tx.getByTestId('outlay-payout-item')).toHaveCount(2);
+	await expect(tx.getByTestId('outlay-payout-state')).toHaveText('Erstattet.');
+	await tx.getByTestId('tx-detail-close').click();
+	await expect(
+		page
+			.getByTestId('transaction')
+			.filter({ hasText: 'Erika Beispiel' })
+			.getByTestId('coverage-badge')
+	).toHaveText('Erstattung Auslagen');
+
+	// Home: nothing open any more.
+	await page.getByRole('link', { name: 'Home' }).click();
+	await expect(page.getByTestId('home-outlays-open')).toHaveCount(0);
+});

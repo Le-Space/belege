@@ -1134,6 +1134,10 @@ export default {
 			title: 'Privat bezahlt, noch nicht ausgeglichen: {count} ({amount})',
 			what: 'Private Zahlungen vom Geschäftskonto. Zahl sie vom Privatkonto zurück und verknüpfe die Rückzahlung an der Zahlung.'
 		},
+		outlaysOpen: {
+			title: 'Privat ausgelegt, noch nicht erstattet: {count} ({amount})',
+			what: 'Auslagen der Geschäftsführung. Überweise sie zurück und verknüpfe die Überweisung mit „Erstattet Auslagen …“ an der Zahlung.'
+		},
 		transferReceipts: {
 			title: 'Umbuchung mit Beleg: {count} zu prüfen',
 			what: 'Diese Zahlungen gelten jetzt als eigene Umbuchung und brauchen keinen Beleg, haben aber noch einen zugeordnet – oft aus der Zeit, bevor die Umbuchung erkannt wurde. Löse die Zuordnung, wenn der Beleg nicht dazugehört; sonst bestätige ihn.',
@@ -1260,6 +1264,7 @@ export default {
 			'no-receipt': 'Kein Beleg nötig',
 			'private-mistake': 'Privat (Irrläufer)',
 			'private-repayment': 'Rückzahlung privat',
+			'outlay-repayment': 'Erstattung Auslagen',
 			'own-transfer': 'Eigene Umbuchung',
 			'bank-fee': 'Kontoauszug',
 			loan: 'Darlehen',
@@ -2494,6 +2499,23 @@ export default {
 				'Die andere Seite eines Tauschs, den keine Regel erkennt – etwa über eine andere Chain oder eine Börse. Beide Seiten brauchen dann keinen Beleg; steuerlich eine Veräußerung und eine Anschaffung.',
 			linkSwapNone:
 				'Keine Buchung in die andere Richtung auf einem anderen Konto innerhalb von 31 Tagen.',
+			outlayRepay: {
+				offer: 'Erstattet Auslagen …',
+				offerTitle:
+					'Diese Überweisung zahlt privat ausgelegtes Geld zurück: Sie gleicht offene Auslagen aus und braucht keinen eigenen Beleg.',
+				sum: 'Ausgewählt {picked} · Überweisung {payout}',
+				ofOpen: 'offen',
+				link: 'Als Erstattung verknüpfen',
+				payoutTitle: 'Erstattet diese Auslagen:',
+				item: '{date} · {name} · {amount}',
+				repaidBy: 'Erstattet durch die Überweisung vom {date} ({amount})',
+				unlink: 'lösen',
+				open: 'Noch nicht erstattet.',
+				partly: 'Teilweise erstattet, offen {open}.',
+				settled: 'Erstattet.',
+				groupOpen: 'Zusammen noch offen: {amount}.',
+				over: 'Erstattet, {amount} mehr als ausgelegt.'
+			},
 			private: {
 				mark: 'Privat (Irrläufer) …',
 				markTitle:

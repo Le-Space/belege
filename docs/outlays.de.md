@@ -36,9 +36,18 @@ Belege aus dem privaten Postfach liegen neben rein privaten. **„Privat, nicht 
 
 Ein teils geschäftlicher Beleg (ein Hotel mit einer privaten Nacht) wird mit dem geschäftlichen Anteil als Auslage gebucht; die Aufteilung selbst gehört zu den Reisekosten (#213).
 
+## Zurückzahlen
+
+Die Firma überweist das Geld vom Geschäftskonto zurück. An dieser Überweisung listet **„Erstattet Auslagen …“** die offenen Auslagen:
+
+- angehakt sind die, deren Summe genau den Betrag der Überweisung ergibt, die ältesten bevorzugt; sonst die ältesten, bis die Überweisung aufgebraucht ist. Die Haken lassen sich ändern, dann _Als Erstattung verknüpfen_;
+- eine Überweisung kann mehrere Auslagen erstatten, mehrere Überweisungen eine Auslage. Es zählt die Summe über alles, was miteinander verknüpft ist; die ältesten Auslagen werden zuerst ausgeglichen;
+- die Überweisung braucht keinen eigenen Beleg (Kennzeichen _Erstattung Auslagen_): Die Belege der Auslagen belegen sie. Sie wird gegen das Privatkonto der Rechtsform gebucht, wie eine private Rückzahlung: bei einer UG/GmbH das Gesellschafter-Verrechnungskonto, bei Einzelunternehmen und Personengesellschaften 1800 (Privatentnahme), denn ihre Auslagen waren Einlagen;
+- jede Auslage zeigt, ob sie erstattet ist, teilweise oder noch nicht, und durch welche Überweisung; eine Verknüpfung lässt sich lösen (_lösen_);
+- **Home** listet die noch nicht erstatteten Auslagen mit dem offenen Betrag.
+
 ## Noch nicht (Issue #293)
 
-- Auslagen zurückzahlen: eine Überweisung, abgeglichen mit offenen Auslagen.
 - Eine Kursquelle für Währungen ohne EZB-Kurs außer von Hand.
 - Angestellte als weitere Personen.
 
