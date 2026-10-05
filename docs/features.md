@@ -54,7 +54,7 @@ What Le Space Belege does today, by category. The app shows the same list, short
 
 - **Sources:** Kraken, and own wallets on Cosmos chains (Nym, Akash, including Akash's older history), EVM chains (Ethereum, Base, Arbitrum, OP Mainnet, Polygon; Blockscout or Alchemy) Bitcoin (xpub/ypub/zpub) and Filecoin (by address, through Filfox).
 - **Every booking in euros**, with the exact quantity and the rate of its day with its source:
-  - CoinGecko, Kraken or the ECB;
+  - CoinGecko, Kraken or the ECB (for the ruble, the Bank of Russia);
   - a DEX pool at the booking's block (Uniswap V2, V3 and V4, against ETH or USDC);
   - the trade's other side, or the burned old tokens of a migration;
   - by hand.

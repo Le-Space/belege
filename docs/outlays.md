@@ -13,7 +13,8 @@ Belege → the receipt → _Privat ausgelegt …_:
 - **Amount:** the receipt's gross. An expense goes out of the account; a credit note comes in.
 - **Another currency:**
   - Belege asks the bridge for the ECB reference rate of the day and books the euro amount at it.
-  - Where the ECB has none (the ruble: no rate since 1 March 2022), the rate is entered by hand (EUR per unit), with where it comes from: the card statement, an exchange receipt.
+  - The ruble has no ECB rate since 1 March 2022. For RUB the bridge then offers the **Bank of Russia's official rate** valid on that day (set on the working day before; the form names its date). It sees the day asked for, nothing else.
+  - Where neither has one, or a document shows the rate actually paid (the card statement, an exchange receipt), the rate is entered by hand (EUR per unit), with where it comes from. A rate from a document comes first: it is closer to what was paid.
   - The original amount, the rate and its source stay on the booking.
 - **Undo:** _Auslage rückgängig machen_ deletes the booking and frees the receipt, for a payment that turns up after all. Booking it again makes a new booking.
 
@@ -39,7 +40,6 @@ A partly business receipt (a hotel with a private night) is booked as an outlay 
 ## Not yet (issue #293)
 
 - Paying outlays back: a transfer matched against open outlays.
-- A rate source for currencies without an ECB rate other than by hand.
 - Employees as further persons.
 
 The accounts and rates are to be confirmed with the tax adviser; this describes what Belege does, not tax advice.

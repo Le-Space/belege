@@ -17,8 +17,12 @@
 //     turns: Kraken's own EUR price first, CoinGecko as the fallback; and
 //     Kraken can then price any asset it trades against EUR (`<SYMBOL>EUR`),
 //     also one Belege does not list yet.
-//   - USD: the ECB reference rate of that day, or the last one before it
-//     (weekends, holidays), inverted: EUR per USD
+//   - a currency: the ECB reference rate of that day, or the last one before
+//     it (weekends, holidays), inverted: EUR per unit
+//   - RUB: the ECB publishes none since 2022-03-01; then the Bank of Russia's
+//     official rate valid on that day (RUB per EUR, set on the working day
+//     before), inverted
+
 // Every answer says which source it came from and for what moment, so a
 // booking can show where its euro amount came from.
 //
@@ -33,7 +37,18 @@ import { multiplyRates } from './dex-rate.js';
  * @property {string} [coingecko] CoinGecko coin id
  * @property {string} [kraken] Kraken OHLC pair against EUR
  * @property {boolean} [ecb] a currency with an ECB reference rate
+ * @property {boolean} [cbr] the Bank of Russia's official rate, where the ECB has none
  */
+
+/**
+ * The currencies with an ECB reference rate (BGN until the end of 2025, RUB
+ * until 2022-03-01; a day without one falls through to the next source).
+ */
+export const ECB_CURRENCIES = Object.freeze(
+	'USD JPY BGN CZK DKK GBP HUF PLN RON SEK CHF ISK NOK TRY AUD BRL CAD CNY HKD IDR ILS INR KRW MXN MYR NZD PHP SGD THB ZAR RUB'.split(
+		' '
+	)
+);
 
 /** The assets the bridge can price, by the symbol the app uses. */
 export const RATE_SOURCES = /** @type {Readonly<Record<string, AssetSources>>} */ (
@@ -47,7 +62,8 @@ export const RATE_SOURCES = /** @type {Readonly<Record<string, AssetSources>>} *
 		FIL: { coingecko: 'filecoin', kraken: 'FILEUR' },
 		XMR: { coingecko: 'monero', kraken: 'XMREUR' },
 		POL: { coingecko: 'polygon-ecosystem-token', kraken: 'POLEUR' },
-		USD: { ecb: true }
+		...Object.fromEntries(ECB_CURRENCIES.map((c) => [c, { ecb: true }])),
+		RUB: { ecb: true, cbr: true }
 	})
 );
 
@@ -297,13 +313,19 @@ export function createRateService({
 		};
 	}
 
-	/** EUR per USD from the ECB reference rate of the day or the last one before it. @param {string} day */
-	async function fromEcb(day) {
+	/**
+	 * EUR per unit of a currency from the ECB reference rate of the day or the
+	 * last one before it.
+	 *
+	 * @param {string} currency
+	 * @param {string} day
+	 */
+	async function fromEcb(currency, day) {
 		const start = new Date(Date.parse(`${day}T00:00:00Z`) - 7 * 86400_000)
 			.toISOString()
 			.slice(0, 10);
 		const body = await getJson(
-			`https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A?startPeriod=${start}&endPeriod=${day}&format=jsondata`
+			`https://data-api.ecb.europa.eu/service/data/EXR/D.${currency}.EUR.SP00.A?startPeriod=${start}&endPeriod=${day}&format=jsondata`
 		);
 		const series = body?.dataSets?.[0]?.series?.['0:0:0:0:0']?.observations;
 		const dates = body?.structure?.dimensions?.observation?.[0]?.values;
@@ -319,14 +341,56 @@ export function createRateService({
 		if (!last) return null;
 		return {
 			rate: invert(last.usdPerEur),
-			usdRate: '1',
+			usdRate: currency === 'USD' ? '1' : null,
 			source: 'ecb',
 			at: `${last.date}T00:00:00Z`
 		};
 	}
 
 	/**
-	 * @typedef {{ asset: string, date: string, currency: 'EUR', rate: string, usdRate: string | null, source: 'coingecko' | 'kraken' | 'ecb' | 'dex', at: string, ref?: string }} Rate
+	 * EUR per RUB from the Bank of Russia's official rates valid on the day:
+	 * `XML_daily.asp` answers with the last rates set for it (on the working
+	 * day before; none on weekends and holidays), RUB per `Nominal` EUR.
+	 *
+	 * @param {string} day
+	 */
+	async function fromCbr(day) {
+		let text;
+		try {
+			const res = await f(
+				`https://www.cbr.ru/scripts/XML_daily.asp?date_req=${ddmmyyyy(day).replaceAll('-', '/')}`,
+				{
+					headers: { accept: 'application/xml' }
+				}
+			);
+			if (!res.ok) return null;
+			// windows-1251; the dates, codes and numbers read here are ASCII.
+			text = new TextDecoder('latin1').decode(await res.arrayBuffer());
+		} catch {
+			return null;
+		}
+		const valid = /<ValCurs\b[^>]*\bDate="(\d{2})\.(\d{2})\.(\d{4})"/.exec(text);
+		const eur =
+			/<Valute\b[^>]*>(?:(?!<\/Valute>)[\s\S])*?<CharCode>EUR<\/CharCode>(?:(?!<\/Valute>)[\s\S])*?<\/Valute>/.exec(
+				text
+			)?.[0] ?? '';
+		const nominal = /<Nominal>(\d+)<\/Nominal>/.exec(eur)?.[1];
+		const value = /<Value>(\d+),(\d+)<\/Value>/.exec(eur);
+		if (!valid || !nominal || !value) return null;
+		const date = `${valid[3]}-${valid[2]}-${valid[1]}`;
+		if (date > day) return null;
+		// `value` RUB per `nominal` EUR: EUR per RUB = nominal / value.
+		const perRub = invert(`${value[1]}.${value[2]}`);
+		return {
+			rate: nominal === '1' ? perRub : multiplyRates(perRub, nominal),
+			usdRate: null,
+			source: 'cbr',
+			at: `${date}T00:00:00Z`
+		};
+	}
+
+	/**
+	 * @typedef {{ asset: string, date: string, currency: 'EUR', rate: string, usdRate: string | null, source: 'coingecko' | 'kraken' | 'ecb' | 'cbr' | 'dex', at: string, ref?: string }} Rate
 	 *   `ref` for `dex`: `uniswap-v2:<pool>@<block>`, V4 with its pool id
 	 */
 
@@ -386,7 +450,8 @@ export function createRateService({
 			sources?.coingecko ? fromCoinGecko(sources.coingecko, date) : null;
 		const kraken = async () => (sources?.kraken ? fromKraken(sources.kraken, date) : null);
 		const found =
-			(sources?.ecb ? await fromEcb(date) : null) ??
+			(sources?.ecb ? await fromEcb(asset, date) : null) ??
+			(sources?.cbr ? await fromCbr(date) : null) ??
 			(prefer === 'kraken'
 				? ((await kraken()) ?? (await coingecko()))
 				: ((await coingecko()) ?? (await kraken()))) ??

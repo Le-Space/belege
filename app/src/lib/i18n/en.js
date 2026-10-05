@@ -80,6 +80,7 @@ export default {
 			coingecko: 'CoinGecko',
 			kraken: 'Kraken',
 			ecb: 'ECB reference rate',
+			cbr: 'Bank of Russia reference rate',
 			trade: 'Price of the trade',
 			dex: 'DEX pool',
 			migration: 'Value of the burnt old tokens',
@@ -545,7 +546,8 @@ export default {
 			aleph: 'Aleph Cloud (credits of your own accounts, read only)',
 			coingecko: 'CoinGecko (rates)',
 			'kraken-rates': 'Kraken (rates)',
-			ecb: 'European Central Bank (USD rate)'
+			ecb: 'European Central Bank (currency reference rates)',
+			cbr: 'Bank of Russia (the ruble rate where the ECB has none)'
 		},
 		features: {
 			title: 'What Le Space Belege can do',
@@ -1682,10 +1684,11 @@ export default {
 			day: 'on',
 			amount: 'Amount on the receipt: {amount}',
 			rate: 'Rate: EUR per 1 {currency}',
-			asking: 'Asking for the ECB rate …',
+			asking: 'Asking for the reference rate …',
 			ecb: 'ECB reference rate of {date}',
+			cbr: 'Bank of Russia reference rate of {date} (the ECB no longer publishes a ruble rate). A rate from the card statement or an exchange receipt comes first if you have one.',
 			noEcb:
-				'There is no ECB rate for {currency} on this day. Enter the rate from the card statement or an exchange receipt.',
+				'There is no reference rate for {currency} on this day. Enter the rate from the card statement or an exchange receipt.',
 			rateNote: 'Where the rate comes from',
 			rateNotePlaceholder: 'e.g. card statement of …, exchange receipt',
 			note: 'Note (optional)',
@@ -1696,7 +1699,7 @@ export default {
 			booked:
 				'Paid privately on {date} ({how}): {amount} on the account "Auslagen Geschäftsführung".',
 			bookedRate: '{original} {currency} at {rate} EUR ({source})',
-			rateSource: { ecb: 'ECB rate', manual: 'rate by hand' },
+			rateSource: { ecb: 'ECB rate', cbr: 'Bank of Russia rate', manual: 'rate by hand' },
 			undo: 'Undo the outlay'
 		},
 		instalments: {

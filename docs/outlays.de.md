@@ -13,7 +13,8 @@ Belege → der Beleg → _Privat ausgelegt …_:
 - **Betrag:** der Bruttobetrag des Belegs. Eine Ausgabe geht vom Konto ab, eine Gutschrift kommt hinzu.
 - **Andere Währung:**
   - Belege fragt die Bridge nach dem EZB-Referenzkurs des Tages und bucht den Euro-Betrag damit.
-  - Wo die EZB keinen hat (der Rubel: kein Kurs seit dem 1. März 2022), wird der Kurs von Hand eingetragen (EUR je Einheit), mit seiner Herkunft: Kartenabrechnung, Wechselbeleg.
+  - Für den Rubel hat die EZB seit dem 1. März 2022 keinen Kurs. Für RUB bietet die Bridge dann den **amtlichen Kurs der Bank of Russia** an, der an diesem Tag gilt (festgesetzt am Werktag davor; das Formular nennt sein Datum). Sie sieht nur den abgefragten Tag.
+  - Wo keiner von beiden einen hat, oder wo ein Dokument den tatsächlich bezahlten Kurs zeigt (Kartenabrechnung, Wechselbeleg), wird der Kurs von Hand eingetragen (EUR je Einheit), mit seiner Herkunft. Ein Kurs aus einem Dokument geht vor: Er liegt näher an dem, was bezahlt wurde.
   - Originalbetrag, Kurs und Kursquelle bleiben an der Buchung.
 - **Rückgängig:** _Auslage rückgängig machen_ löscht die Buchung und gibt den Beleg frei, falls doch noch eine Zahlung auftaucht. Erneutes Buchen legt eine neue Buchung an.
 
@@ -39,7 +40,6 @@ Ein teils geschäftlicher Beleg (ein Hotel mit einer privaten Nacht) wird mit de
 ## Noch nicht (Issue #293)
 
 - Auslagen zurückzahlen: eine Überweisung, abgeglichen mit offenen Auslagen.
-- Eine Kursquelle für Währungen ohne EZB-Kurs außer von Hand.
 - Angestellte als weitere Personen.
 
 Konten und Kurse sind mit der Steuerberatung abzustimmen; das beschreibt, was Belege tut, keine Steuerberatung.

@@ -54,7 +54,7 @@ Was Le Space Belege heute kann, nach Kategorien. Dieselbe Liste steht kürzer au
 
 - **Quellen:** Kraken und eigene Wallets auf Cosmos-Chains (Nym, Akash, samt älterer Akash-Geschichte), EVM-Chains (Ethereum, Base, Arbitrum, OP Mainnet, Polygon; über Blockscout oder Alchemy) Bitcoin (xpub/ypub/zpub) und Filecoin (per Adresse, über Filfox).
 - **Jede Buchung in Euro**, mit genauer Menge und dem Tageskurs samt Quelle:
-  - CoinGecko, Kraken oder EZB;
+  - CoinGecko, Kraken oder EZB (für den Rubel die Bank of Russia);
   - ein DEX-Pool im Block der Buchung (Uniswap V2, V3 und V4, gegen ETH oder USDC);
   - die andere Seite eines Handels oder die verbrannten alten Token einer Migration;
   - von Hand.

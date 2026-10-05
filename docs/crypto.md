@@ -32,7 +32,7 @@ The bridge answers `GET /rates?asset=BTC&date=2026-09-01` (`bridge/src/rates.js`
 
    for a booking **on Kraken** (`prefer=kraken`) the order turns: Kraken's own EUR price first, CoinGecko as the fallback. Kraken then also prices assets Belege does not list yet, by their `<SYMBOL>EUR` pair;
 
-3. for **USD**: the **ECB reference rate** of the day, or the last one before it (weekends, holidays), inverted to EUR per USD.
+3. for **USD** and the other currencies the ECB publishes: the **ECB reference rate** of the day, or the last one before it (weekends, holidays), inverted to EUR per unit; for **RUB** after 1 March 2022, when the ECB stopped publishing it, the **Bank of Russia's** official rate valid on the day.
 
 The request names an asset and a day, nothing about the bookings. Past days are cached in memory. With a CoinGecko demo key in the keychain (account `coingecko`), it is sent as a header.
 

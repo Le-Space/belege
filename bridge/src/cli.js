@@ -20,7 +20,8 @@
 // Alchemy key is sent only to a fake Alchemy at $BELEGE_BRIDGE_TEST_ALCHEMY_URL
 // (http://127.0.0.1:<port>, asked as `<url>/<network>/v2/<key>`; a key
 // without it is refused), exchange rates come from
-// $BELEGE_BRIDGE_TEST_FIXED_RATES (JSON, EUR per unit by symbol) when it is
+// $BELEGE_BRIDGE_TEST_FIXED_RATES (JSON, EUR per unit by symbol, or
+// { rate, source, at }) when it is
 // set, a wallet may name a chain
 // node on http://127.0.0.1, portal browsers never open a window,
 // the portal password dialog never opens either (it answers

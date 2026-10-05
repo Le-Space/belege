@@ -57,7 +57,7 @@ MonkeyOffice imports DATEV Buchungsstapel through its DATEV import (menu names d
 
 Every account with a booking in the month gets a statement as a PDF: bank accounts, exchange accounts and wallets alike (`app/src/lib/export/statement.js`, drawn by `statement-pdf.js`). It lists every booking of the month on that account, with its receipt number or what stands in for one (_Umbuchung_, _Gebühr_, _Ertrag_), and the totals of money in, money out and the month.
 
-A crypto account also shows the quantity and the rate of every booking, with the rate's source (K = Kraken, CG = CoinGecko, EZB = ECB, H = the price of the trade). The start and end balance in the asset is worked back from the last balance the exchange reported.
+A crypto account also shows the quantity and the rate of every booking, with the rate's source (K = Kraken, CG = CoinGecko, EZB = ECB, CBR = Bank of Russia, H = the price of the trade). The start and end balance in the asset is worked back from the last balance the exchange reported.
 
 For a bank account, the statement lists what Belege holds; it does not replace the bank's own statement.
 

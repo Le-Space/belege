@@ -60,7 +60,7 @@ test('receipts paid privately become outlays, in euros and in rubles by a rate b
 	// In rubles: no ECB rate, a rate by hand and where it comes from.
 	await receipt('Coworking Beispiel').click();
 	await detail.getByTestId('outlay-open').click();
-	await expect(detail.getByTestId('outlay-no-ecb')).toContainText('keinen EZB-Kurs');
+	await expect(detail.getByTestId('outlay-no-ecb')).toContainText('keinen Referenzkurs');
 	await expect(detail.getByTestId('outlay-book')).toBeDisabled();
 	await detail.getByTestId('outlay-rate').fill('0,0105');
 	await detail.getByTestId('outlay-rate-note').fill('Wechselbeleg vom 01.03.');

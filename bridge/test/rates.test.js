@@ -27,6 +27,7 @@ function fakeFetch(answers) {
 		const prefix = Object.keys(answers).find((p) => url.startsWith(p));
 		const body = prefix === undefined ? 404 : answers[prefix];
 		if (typeof body === 'number') return new Response('{}', { status: body });
+		if (typeof body === 'string') return new Response(body, { status: 200 });
 		return new Response(JSON.stringify(body), { status: 200 });
 	};
 	return { fetch: f, calls };
@@ -121,6 +122,76 @@ describe('rate service', () => {
 		assert.equal(rate.rate, '0.8');
 		assert.equal(rate.source, 'ecb');
 		assert.equal(rate.at, '2026-08-28T00:00:00Z');
+	});
+
+	test('another ECB currency: TRY, inverted, without a USD rate', async () => {
+		const { fetch, calls } = fakeFetch({
+			'https://data-api.ecb.europa.eu/': {
+				dataSets: [{ series: { '0:0:0:0:0': { observations: { 0: [40] } } } }],
+				structure: { dimensions: { observation: [{ values: [{ id: '2026-08-31' }] }] } }
+			}
+		});
+		const rate = await createRateService({ fetch, now: NOW }).rate('TRY', '2026-08-31');
+		assert.equal(rate.rate, '0.025');
+		assert.equal(rate.source, 'ecb');
+		assert.equal(rate.usdRate, null);
+		assert.match(calls[0], /EXR\/D\.TRY\.EUR\.SP00\.A/);
+	});
+
+	// A made-up answer in the shape of the Bank of Russia's XML_daily.asp.
+	const cbrDaily = (
+		/** @type {string} */ date,
+		/** @type {string} */ nominal,
+		/** @type {string} */ value
+	) =>
+		`<?xml version="1.0" encoding="windows-1251"?><ValCurs Date="${date}" name="Foreign Currency Market">` +
+		'<Valute ID="R01235"><NumCode>840</NumCode><CharCode>USD</CharCode><Nominal>1</Nominal><Name>x</Name><Value>80,0000</Value><VunitRate>80</VunitRate></Valute>' +
+		`<Valute ID="R01239"><NumCode>978</NumCode><CharCode>EUR</CharCode><Nominal>${nominal}</Nominal><Name>x</Name><Value>${value}</Value><VunitRate>x</VunitRate></Valute>` +
+		'</ValCurs>';
+
+	test('RUB without an ECB rate: the Bank of Russia rate valid on the day, inverted', async () => {
+		const { fetch, calls } = fakeFetch({
+			'https://data-api.ecb.europa.eu/': { dataSets: [{ series: {} }], structure: {} },
+			'https://www.cbr.ru/scripts/XML_daily.asp': cbrDaily('29.08.2026', '1', '100,0000')
+		});
+		// 2026-08-31 is a Monday: the rate set on Saturday counts.
+		const rate = await createRateService({ fetch, now: NOW }).rate('RUB', '2026-08-31');
+		assert.equal(rate.rate, '0.01');
+		assert.equal(rate.source, 'cbr');
+		assert.equal(rate.at, '2026-08-29T00:00:00Z');
+		assert.equal(rate.usdRate, null);
+		assert.ok(calls.some((u) => u.endsWith('XML_daily.asp?date_req=31/08/2026')));
+	});
+
+	test('RUB: per nominal, and a rate set for a later day is not taken', async () => {
+		const per10 = fakeFetch({
+			'https://www.cbr.ru/scripts/XML_daily.asp': cbrDaily('29.08.2026', '10', '1000,0000')
+		});
+		const rate = await createRateService({ fetch: per10.fetch, now: NOW }).rate(
+			'RUB',
+			'2026-08-31'
+		);
+		assert.equal(Number(rate.rate), 0.01);
+		const later = fakeFetch({
+			'https://www.cbr.ru/scripts/XML_daily.asp': cbrDaily('01.09.2026', '1', '100,0000')
+		});
+		await assert.rejects(
+			createRateService({ fetch: later.fetch, now: NOW }).rate('RUB', '2026-08-31'),
+			RateError
+		);
+	});
+
+	test('RUB before March 2022: the ECB rate still', async () => {
+		const { fetch, calls } = fakeFetch({
+			'https://data-api.ecb.europa.eu/': {
+				dataSets: [{ series: { '0:0:0:0:0': { observations: { 0: [80] } } } }],
+				structure: { dimensions: { observation: [{ values: [{ id: '2021-06-01' }] }] } }
+			}
+		});
+		const rate = await createRateService({ fetch, now: NOW }).rate('RUB', '2021-06-01');
+		assert.equal(rate.rate, '0.0125');
+		assert.equal(rate.source, 'ecb');
+		assert.equal(calls.length, 1);
 	});
 
 	test('prefer kraken: Kraken first, CoinGecko only as the fallback', async () => {

@@ -112,7 +112,8 @@ export const INTEGRATION_GROUPS = [
 			{ id: 'aleph', name: 'Aleph Cloud', initials: 'Al' },
 			{ id: 'coingecko', name: 'CoinGecko', initials: 'Cg' },
 			{ id: 'kraken-rates', name: 'Kraken', initials: 'Kr' },
-			{ id: 'ecb', name: 'ECB', initials: 'EZ' }
+			{ id: 'ecb', name: 'ECB', initials: 'EZ' },
+			{ id: 'cbr', name: 'Bank of Russia', initials: 'BR' }
 		]
 	},
 	{
