@@ -35,6 +35,7 @@ const STANDS_IN = /** @type {Record<string, string>} */ ({
 	'rule-private': 'privat',
 	'private-mistake': 'Privat (Irrläufer)',
 	'private-repayment': 'Rückzahlung privat',
+	'outlay-repayment': 'Erstattung Auslagen',
 	'no-receipt': 'ohne Beleg'
 });
 

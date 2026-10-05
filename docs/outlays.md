@@ -36,9 +36,18 @@ Receipts from the private mailbox sit next to purely private ones. **"Privat, ni
 
 A partly business receipt (a hotel with a private night) is booked as an outlay with the business share; the split itself belongs to travel expenses (#213).
 
+## Paying it back
+
+The business transfers the money back from its bank account. On that transfer, **"Erstattet Auslagen …"** lists the open outlays:
+
+- the ones that add up to the transfer exactly are ticked, the oldest preferred; else the oldest until the transfer is used up. Change the ticks as needed, then _Als Erstattung verknüpfen_;
+- one transfer can pay several outlays back, and several transfers one outlay. What counts is the sum over everything linked together; the oldest outlays are cleared first;
+- the transfer needs no receipt of its own (badge _Erstattung Auslagen_): the outlays' receipts document it. It is booked against the private account of the legal form, like a private repayment: the shareholder clearing account of a UG/GmbH, 1800 (Privatentnahme) for a sole proprietor or partnership, whose outlays were deposits;
+- each outlay shows whether it is paid back, partly or not yet, and by which transfer; a link can be undone (_lösen_);
+- **Home** lists the outlays not paid back yet, with the amount still open.
+
 ## Not yet (issue #293)
 
-- Paying outlays back: a transfer matched against open outlays.
 - A rate source for currencies without an ECB rate other than by hand.
 - Employees as further persons.
 

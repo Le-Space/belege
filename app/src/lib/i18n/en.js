@@ -1110,6 +1110,10 @@ export default {
 			title: 'Paid privately, not yet settled: {count} ({amount})',
 			what: 'Private payments from the business account. Pay them back from the private account and link the repayment to the payment.'
 		},
+		outlaysOpen: {
+			title: 'Laid out privately, not yet paid back: {count} ({amount})',
+			what: 'The managing director’s outlays. Transfer them back and link the transfer with “Pays outlays back …” on the payment.'
+		},
 		transferReceipts: {
 			title: 'Transfer with receipt: {count} to check',
 			what: 'These payments now count as your own transfer and need no receipt, but still have one linked – often from before the transfer was recognised. Unlink it if the receipt doesn’t belong; otherwise confirm it.',
@@ -1233,6 +1237,7 @@ export default {
 			'no-receipt': 'No receipt needed',
 			'private-mistake': 'Private (misdirected)',
 			'private-repayment': 'Private repayment',
+			'outlay-repayment': 'Outlays repaid',
 			'own-transfer': 'Own transfer',
 			'bank-fee': 'Bank statement',
 			loan: 'Loan',
@@ -2463,6 +2468,23 @@ export default {
 			linkSwapTitle:
 				'The other side of a swap that no rule recognises – say via another chain or an exchange. Neither side then needs a receipt; for tax purposes a disposal and an acquisition.',
 			linkSwapNone: 'No booking in the other direction on another account within 31 days.',
+			outlayRepay: {
+				offer: 'Pays outlays back …',
+				offerTitle:
+					'This transfer pays back money laid out privately: it clears open outlays and needs no receipt of its own.',
+				sum: 'Picked {picked} · transfer {payout}',
+				ofOpen: 'open',
+				link: 'Link as repayment',
+				payoutTitle: 'Pays back these outlays:',
+				item: '{date} · {name} · {amount}',
+				repaidBy: 'Paid back by the transfer of {date} ({amount})',
+				unlink: 'unlink',
+				open: 'Not paid back yet.',
+				partly: 'Partly paid back, {open} open.',
+				settled: 'Paid back.',
+				groupOpen: 'Still open altogether: {amount}.',
+				over: 'Paid back, {amount} more than laid out.'
+			},
 			private: {
 				mark: 'Private (paid by mistake) …',
 				markTitle:
