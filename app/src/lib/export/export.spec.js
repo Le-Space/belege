@@ -2,6 +2,7 @@
 // the receipt numbers, a transfer booked once, the check list, and the ZIP.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { strFromU8, unzipSync } from 'fflate';
+import { extractText, getDocumentProxy } from 'unpdf';
 
 import { memoryCollection } from '../bank/test-support.js';
 import { defaultDatevSettings } from '../booking/settings.js';
@@ -615,6 +616,53 @@ describe('the ZIP', () => {
 		const overview = strFromU8(unzipped['Uebersicht_2026-09.csv']);
 		expect(overview).toContain('Beleg 2026-09-002: aus dem E-Mail-Text erzeugtes PDF');
 		expect(overview).not.toContain('ohne Datei');
+	});
+
+	it('a mail kept as received goes in as .eml beside its PDF, the PDF with its whole text (#288)', async () => {
+		const b = books();
+		const long = 'Position Beispiel 1,00 EUR. '.repeat(120);
+		const eml = new TextEncoder().encode(
+			`Subject: Ihre Zahlungsbestätigung\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${long}ENDE-DER-MAIL\r\n`
+		);
+		const mail = {
+			...b.receipts[1],
+			fileCid: null,
+			fileName: null,
+			mime: 'text/plain',
+			source: 'mail',
+			authVerdict: 'pass',
+			from: 'Kabelnetz Beispiel GmbH <rechnung@kabelnetz.example>',
+			subject: 'Ihre Zahlungsbestätigung',
+			receivedAt: '2026-08-28T08:00:00Z',
+			excerpt: `${long.slice(0, 1998)}…`,
+			emlCid: 'cid-eml'
+		};
+		const receipts = [b.receipts[0], mail, ...b.receipts.slice(2)];
+		for (const r of receipts) await store.receipts.put(r);
+		const blobs = {
+			get: async (/** @type {string} */ cid) =>
+				cid === 'cid-eml' ? eml : new Uint8Array([37, 80, 68, 70, 1])
+		};
+		const plan = planMonth({ month: '2026-09', ...b, receipts: await store.receipts.list() });
+		const { zip } = await runMonthExport({
+			store,
+			blobs,
+			plan,
+			settings: SETTINGS,
+			accounts: b.accounts,
+			classifications: b.classifications,
+			now: () => CREATED
+		});
+		const unzipped = unzipSync(zip);
+		expect(unzipped['Belege/2026-09-002_Kabelnetz_Beispiel_GmbH.eml']).toEqual(eml);
+		const { text } = await extractText(
+			await getDocumentProxy(unzipped['Belege/2026-09-002_Kabelnetz_Beispiel_GmbH.pdf']),
+			{ mergePages: true }
+		);
+		expect(text).toContain('ENDE-DER-MAIL');
+		expect(text).not.toContain('gekürzt');
+		const overview = strFromU8(unzipped['Uebersicht_2026-09.csv']);
+		expect(overview).toContain('als .eml daneben');
 	});
 
 	it('holds the stack in Windows-1252, the receipts, the overview; numbers stay', async () => {

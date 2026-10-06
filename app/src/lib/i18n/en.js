@@ -1930,6 +1930,13 @@ export default {
 		confirm: 'Sender checked – open and release',
 		preview: 'Preview',
 		previewFailed: 'The preview could not be created.',
+		mailOriginal: {
+			kept: 'The email is kept as it was received (.eml); it goes into the ZIP with the export.',
+			missing: 'Only an excerpt of this email is kept.',
+			fetch: 'Fetch the original',
+			gone: 'The email is no longer in the mailbox – only this excerpt is kept.',
+			unavailable: 'The bridge could not fetch the email just now. Try again later.'
+		},
 		extract: 'Extract',
 		extractAgain: 'Extract again',
 		extractBusy: 'Extracting …',
@@ -2290,6 +2297,8 @@ export default {
 			noReceipt: 'no receipt',
 			noFile: 'Receipt {number} without a file (email text)',
 			mailPdf: 'Receipt {number}: a PDF made from the mail text (the mail had no attachment)',
+			mailPdfEml:
+				'Receipt {number}: a PDF made from the mail (it had no attachment); the mail itself, as received, as .eml beside it',
 			transferLine: 'Own transfer, the counter-booking on {date} is included in this line',
 			collected:
 				'Collective booking: {count} network fees from {from} to {until}, each in the statement',

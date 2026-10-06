@@ -92,7 +92,11 @@ export function overviewCsv(plan, { accounts, classifications }) {
 				.map((r) => t('export.overview.noFile', { number: plan.numbers.get(r.id) ?? '' })),
 			...l.receipts
 				.filter((r) => isMailText(r) && plan.receipts.some((z) => z.id === r.id))
-				.map((r) => t('export.overview.mailPdf', { number: plan.numbers.get(r.id) ?? '' }))
+				.map((r) =>
+					t(r.emlCid ? 'export.overview.mailPdfEml' : 'export.overview.mailPdf', {
+						number: plan.numbers.get(r.id) ?? ''
+					})
+				)
 		].filter(Boolean);
 		rows.push([
 			formatDate(l.tx.bookedOn, DOCUMENT_LOCALE),

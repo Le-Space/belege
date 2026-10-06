@@ -1960,6 +1960,13 @@ export default {
 		confirm: 'Absender geprüft – öffnen und freigeben',
 		preview: 'Vorschau',
 		previewFailed: 'Die Vorschau ließ sich nicht erzeugen.',
+		mailOriginal: {
+			kept: 'Die E-Mail ist so gespeichert, wie sie ankam (.eml); sie geht mit dem Export ins ZIP.',
+			missing: 'Von dieser E-Mail ist nur ein Auszug gespeichert.',
+			fetch: 'Original holen',
+			gone: 'Die E-Mail ist nicht mehr im Postfach – nur dieser Auszug ist erhalten.',
+			unavailable: 'Die Bridge konnte die E-Mail gerade nicht holen. Später noch einmal versuchen.'
+		},
 		extract: 'Auslesen',
 		extractAgain: 'Erneut auslesen',
 		extractBusy: 'Lese aus …',
@@ -2322,6 +2329,8 @@ export default {
 			noReceipt: 'ohne Beleg',
 			noFile: 'Beleg {number} ohne Datei (E-Mail-Text)',
 			mailPdf: 'Beleg {number}: aus dem E-Mail-Text erzeugtes PDF (die E-Mail hatte keinen Anhang)',
+			mailPdfEml:
+				'Beleg {number}: aus der E-Mail erzeugtes PDF (sie hatte keinen Anhang); die E-Mail selbst, wie sie ankam, als .eml daneben',
 			transferLine: 'Umbuchung, Gegenbuchung am {date} ist in dieser Zeile enthalten',
 			collected:
 				'Sammelbuchung: {count} Netzwerkgebühren vom {from} bis {until}, einzeln im Nachweis',

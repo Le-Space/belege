@@ -325,6 +325,10 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	await expect(detail.getByTestId('preview-text')).toContainText(
 		`Summe: ${RECEIPTS.papierladen.gross} EUR`
 	);
+	// The mail kept as received (#288), its text read from it; the HTML's script never shown.
+	await expect(detail.getByTestId('preview-text')).toHaveAttribute('data-original', 'true');
+	await expect(detail.getByTestId('preview-text')).not.toContainText('alert');
+	await expect(detail.getByTestId('mail-original-kept')).toContainText('.eml');
 	await receipts.filter({ hasText: 'quittung.jpg' }).click();
 	await expect(detail.getByTestId('preview-image')).toBeVisible();
 	await expect(detail.getByTestId('extract-note')).toHaveText(

@@ -27,6 +27,8 @@ import { createBlobStore } from '../receipts/blob-store.js';
 import { MAGIC, WrongPasskeyError, buildBackup, openBackup, restoreBackup } from './archive.js';
 
 const MARKER = 'Backupmarker-Kieselweg-4e1b';
+/** A made-up mail as received. */
+const EML = new TextEncoder().encode('Subject: Quittung\r\n\r\nSumme: 23,80 EUR\r\n');
 const prfOutput = crypto.getRandomValues(new Uint8Array(32));
 const memory = async () => ({
 	headsStorage: await MemoryStorage(),
@@ -115,6 +117,8 @@ beforeAll(async () => {
 	file = new Uint8Array(1024 * 1024 + 5000).fill(0x41);
 	file.set(new TextEncoder().encode(`%PDF-1.4\n${MARKER}\n`), 0);
 	await a.store.receipts.put({ fileName: 'beleg.pdf', fileCid: await a.blobs.put(file) });
+	// A mail receipt without an attachment, kept as received (#288).
+	await a.store.receipts.put({ source: 'mail', fileCid: null, emlCid: await a.blobs.put(EML) });
 
 	backup = await buildBackup({
 		databases: a.store.databases(),
@@ -141,8 +145,8 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 		const partners = dbs.find((/** @type {any} */ d) => d.collection === 'partners');
 		expect(partners?.entryCount).toBe(2);
 		expect(partners?.heads).toHaveLength(1);
-		expect(manifest.files).toHaveLength(1);
-		expect(manifest.fileBlocks).toBe(3); // the root and two chunks
+		expect(manifest.files).toHaveLength(2);
+		expect(manifest.fileBlocks).toBe(5); // the PDF's root and two chunks, the mail's root and one
 		expect(manifest.missing).toBe(0);
 	});
 
@@ -160,7 +164,7 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 		const databases = seen.filter((p) => p.stage === 'database');
 		expect(databases.map((p) => p.name)).toEqual([...COLLECTIONS]);
 		expect(databases.find((p) => p.name === 'partners')?.entries).toBe(2);
-		expect(seen.filter((p) => p.stage === 'files').map((p) => p.done)).toEqual([0, 1]);
+		expect(seen.filter((p) => p.stage === 'files').map((p) => p.done)).toEqual([0, 1, 2]);
 		expect(seen.at(-1)).toMatchObject({ stage: 'sealing' });
 	});
 
@@ -201,8 +205,11 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 			expect(tx.counterparty).toBe(MARKER);
 			expect(tx.amountCents).toBe(-5259);
 			expect((await b.store.partners.list()).map((p) => p.name)).toEqual(['Wolkenfabrik AG']);
-			const [receipt] = await b.store.receipts.list();
+			const restored = await b.store.receipts.list();
+			const receipt = /** @type {any} */ (restored.find((r) => r.fileCid));
 			expect(await b.blobs.get(receipt.fileCid)).toEqual(file);
+			const mail = /** @type {any} */ (restored.find((r) => r.emlCid));
+			expect(await b.blobs.get(mail.emlCid)).toEqual(EML);
 			expect(tx.author).toBe(a.orbitdb.identity.id);
 			// And the books go on: a new entry under the same writer.
 			await b.store.transactions.put({

@@ -15,6 +15,7 @@ import { zipSync, strToU8 } from 'fflate';
 
 import { recordEvent } from '../activity/events.js';
 import { receiptVendor } from '../receipts/view.js';
+import { emlText } from '../receipts/eml.js';
 import { encodeWindows1252 } from './cp1252.js';
 import { buchungsstapel } from './datev.js';
 import { overviewCsv } from './overview.js';
@@ -102,9 +103,18 @@ export async function buildMonthZip({ plan, settings, accounts, classifications,
 	for (const r of plan.receipts) {
 		const number = plan.numbers.get(r.id);
 		if (!number) continue;
-		files[receiptPath(number, r)] = isMailText(r)
-			? await mailReceiptPdf(r, { number, created })
-			: await blobs.get(String(r.fileCid));
+		if (isMailText(r)) {
+			// The mail as received beside the PDF made from it (#288), its full text in the PDF.
+			const eml = r.emlCid ? await blobs.get(String(r.emlCid)) : null;
+			files[receiptPath(number, r)] = await mailReceiptPdf(r, {
+				number,
+				created,
+				text: eml ? emlText(eml) : null
+			});
+			if (eml) files[receiptPath(number, r).replace(/\.pdf$/, '.eml')] = eml;
+		} else {
+			files[receiptPath(number, r)] = await blobs.get(String(r.fileCid));
+		}
 	}
 	for (const s of plan.statements) {
 		files[statementPath(s)] = await statementPdf(s, { created });
