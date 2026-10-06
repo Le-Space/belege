@@ -219,6 +219,19 @@ export function transferPairKey(a, b) {
 }
 
 /**
+ * Whether a booking may be a bank fee learned from another (#320): nobody but
+ * the bank on the other side, and no invoice, customer or contract in its
+ * purpose. A vendor's monthly direct debit is neither, whatever its words.
+ *
+ * @param {Record<string, any>} tx
+ */
+export function looksLikeBankFee(tx) {
+	const counterparty = String(tx.counterparty ?? '');
+	const onlyBank = !counterparty.trim() || BANK_NAME.test(counterparty);
+	return onlyBank && !INVOICE_WORDS.test(String(tx.purpose ?? ''));
+}
+
+/**
  * What makes two bank fees "the same" for learning: the account and the
  * purpose's words, without digits (dates and numbers change every month).
  *
@@ -304,6 +317,14 @@ const FEE_CODES = new Set(['CHRG', 'FEES', 'COMM']);
 const FEE_WORDS =
 	/geb(?:ü|ue)hr|entgelt|kontof(?:ü|ue|u)hrung|\bfees?\b|\bcharges?\b|\bplan fee\b|\bsubscription fee\b/i;
 /** A counterparty that is a bank, not a vendor. */
+/**
+ * A purpose that names an invoice, a customer or a contract: a vendor's
+ * bill, never the bank's own fee (#320). `Rechnung 02/2025`, `RE-123`,
+ * `K-NR. 000000001`, `Kundennummer`, `Vertrag`, `Invoice`.
+ */
+const INVOICE_WORDS =
+	/\b(rechnung|rg\.|re-?nr|re-\d|invoice|kundennr|kunden-?nr|kundennummer|k-?nr|vertrag|vertragsnr|mandat)/i;
+
 const BANK_NAME =
 	/\bbank\b|gemeinschaftsbank|revolut|sparkasse|volksbank|raiffeisen|\bgls\b|\bn26\b|qonto|commerzbank|postbank/i;
 const LOAN = /darlehen/i;
@@ -494,9 +515,14 @@ export function classifyTransaction(tx, ctx) {
 	if (code && code.split('/').some((c) => FEE_CODES.has(c.toUpperCase()))) {
 		return { kind: 'bank-fee', via: 'bank-code', bankCode: code };
 	}
-	const key = feeKey(tx);
-	if (key && ctx.feeKeys?.has(key)) return { kind: 'bank-fee', via: 'learned' };
 	const onlyBank = !counterparty.trim() || BANK_NAME.test(counterparty);
+	// A learned fee only where the booking looks like one (#320): no vendor of
+	// its own, no invoice in its purpose. Its purpose words alone, dates and
+	// numbers dropped, made every month's invoice of one vendor a "fee".
+	const key = feeKey(tx);
+	if (key && ctx.feeKeys?.has(key) && looksLikeBankFee(tx)) {
+		return { kind: 'bank-fee', via: 'learned' };
+	}
 	const word = Number(tx.amountCents ?? 0) < 0 && onlyBank ? FEE_WORDS.exec(purpose)?.[0] : null;
 	if (word) return { kind: 'bank-fee', via: 'fee-words', feeWord: word };
 	const iban = compactIban(tx.counterpartyIban);
