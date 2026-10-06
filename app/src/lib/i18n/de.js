@@ -88,6 +88,8 @@ export default {
 			kraken: 'Kraken',
 			ecb: 'EZB-Referenzkurs',
 			cbr: 'Referenzkurs der Bank of Russia',
+			nbk: 'Referenzkurs der Nationalbank Kasachstans',
+			'cbr-cross': 'Kreuzkurs über RUB (Bank of Russia)',
 			trade: 'Preis des Handels',
 			dex: 'DEX-Pool',
 			migration: 'Wert der verbrannten alten Token',
@@ -574,7 +576,8 @@ export default {
 			coingecko: 'CoinGecko (Kurse)',
 			'kraken-rates': 'Kraken (Kurse)',
 			ecb: 'Europäische Zentralbank (Referenzkurse von Währungen)',
-			cbr: 'Bank of Russia (Rubelkurs, wo die EZB keinen hat)'
+			cbr: 'Bank of Russia (Rubelkurs, wo die EZB keinen hat; Kreuzkurse über den Rubel)',
+			nbk: 'Nationalbank Kasachstans (Tengekurs)'
 		},
 		// What Belege can do, by category (docs/features.de.md says the same in more words).
 		features: {
@@ -1775,6 +1778,9 @@ export default {
 			asking: 'Frage den Referenzkurs ab …',
 			ecb: 'EZB-Referenzkurs vom {date}',
 			cbr: 'Referenzkurs der Bank of Russia vom {date} (die EZB veröffentlicht keinen Rubelkurs mehr). Ein Kurs aus Kartenabrechnung oder Wechselbeleg geht vor, wenn du einen hast.',
+			nbk: 'Referenzkurs der Nationalbank Kasachstans vom {date} (die EZB veröffentlicht keinen Tengekurs). Ein Kurs aus Kartenabrechnung oder Wechselbeleg geht vor, wenn du einen hast.',
+			'cbr-cross':
+				'Kreuzkurs über den Rubel, aus den Kursen der Bank of Russia vom {date} – kein amtlicher Euro-Kurs. Ein Kurs aus Kartenabrechnung oder Wechselbeleg geht vor, wenn du einen hast.',
 			noEcb:
 				'Für {currency} gibt es an diesem Tag keinen Referenzkurs. Trag den Kurs aus der Kartenabrechnung oder einem Wechselbeleg ein.',
 			rateNote: 'Woher der Kurs kommt',
@@ -1788,7 +1794,13 @@ export default {
 				'Privat ausgelegt am {date} ({how}): {amount} auf dem Konto „Auslagen Geschäftsführung“.',
 			bookedRate: '{original} {currency} zu {rate} EUR ({source})',
 			bookedRatePerEuro: '{original} {currency} zu {rate} {currency} je 1 EUR ({source})',
-			rateSource: { ecb: 'EZB-Kurs', cbr: 'Kurs der Bank of Russia', manual: 'Kurs von Hand' },
+			rateSource: {
+				ecb: 'EZB-Kurs',
+				cbr: 'Kurs der Bank of Russia',
+				nbk: 'Kurs der Nationalbank Kasachstans',
+				'cbr-cross': 'Kreuzkurs über RUB, Bank of Russia',
+				manual: 'Kurs von Hand'
+			},
 			undo: 'Auslage rückgängig machen'
 		},
 		instalments: {

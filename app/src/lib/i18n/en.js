@@ -82,6 +82,8 @@ export default {
 			kraken: 'Kraken',
 			ecb: 'ECB reference rate',
 			cbr: 'Bank of Russia reference rate',
+			nbk: 'National Bank of Kazakhstan reference rate',
+			'cbr-cross': 'Cross rate through RUB (Bank of Russia)',
 			trade: 'Price of the trade',
 			dex: 'DEX pool',
 			migration: 'Value of the burnt old tokens',
@@ -554,7 +556,8 @@ export default {
 			coingecko: 'CoinGecko (rates)',
 			'kraken-rates': 'Kraken (rates)',
 			ecb: 'European Central Bank (currency reference rates)',
-			cbr: 'Bank of Russia (the ruble rate where the ECB has none)'
+			cbr: 'Bank of Russia (the ruble rate where the ECB has none; cross rates through the ruble)',
+			nbk: 'National Bank of Kazakhstan (the tenge rate)'
 		},
 		features: {
 			title: 'What Le Space Belege can do',
@@ -1748,6 +1751,9 @@ export default {
 			asking: 'Asking for the reference rate …',
 			ecb: 'ECB reference rate of {date}',
 			cbr: 'Bank of Russia reference rate of {date} (the ECB no longer publishes a ruble rate). A rate from the card statement or an exchange receipt comes first if you have one.',
+			nbk: 'National Bank of Kazakhstan reference rate of {date} (the ECB publishes no tenge rate). A rate from the card statement or an exchange receipt comes first if you have one.',
+			'cbr-cross':
+				'Cross rate through the ruble, from the Bank of Russia rates of {date} – not an official euro rate. A rate from the card statement or an exchange receipt comes first if you have one.',
 			noEcb:
 				'There is no reference rate for {currency} on this day. Enter the rate from the card statement or an exchange receipt.',
 			rateNote: 'Where the rate comes from',
@@ -1761,7 +1767,13 @@ export default {
 				'Paid privately on {date} ({how}): {amount} on the account "Auslagen Geschäftsführung".',
 			bookedRate: '{original} {currency} at {rate} EUR ({source})',
 			bookedRatePerEuro: '{original} {currency} at {rate} {currency} per 1 EUR ({source})',
-			rateSource: { ecb: 'ECB rate', cbr: 'Bank of Russia rate', manual: 'rate by hand' },
+			rateSource: {
+				ecb: 'ECB rate',
+				cbr: 'Bank of Russia rate',
+				nbk: 'National Bank of Kazakhstan rate',
+				'cbr-cross': 'cross rate through RUB, Bank of Russia',
+				manual: 'rate by hand'
+			},
 			undo: 'Undo the outlay'
 		},
 		instalments: {

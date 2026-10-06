@@ -1,6 +1,7 @@
 // Outlays in another currency with a reference rate from the bridge (#293,
 // step 5): a ruble receipt takes the Bank of Russia's rate – the ECB has
-// none since 2022 –, a lira receipt the ECB's. The bridge runs in test mode
+// none since 2022 –, a lira receipt the ECB's, a tenge receipt the National
+// Bank of Kazakhstan's, a sum receipt a cross rate through the ruble (#325). The bridge runs in test mode
 // with fixed rates that stand for those sources; every vendor, amount and
 // rate is made up.
 import { test, expect } from '@playwright/test';
@@ -20,7 +21,9 @@ const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
 // EUR per unit, with the source and the day the rate is valid from.
 const RATES = {
 	RUB: { rate: '0.0105', source: 'cbr', at: '2025-03-01T00:00:00Z' },
-	TRY: { rate: '0.026', source: 'ecb', at: '2025-03-04T00:00:00Z' }
+	TRY: { rate: '0.026', source: 'ecb', at: '2025-03-04T00:00:00Z' },
+	KZT: { rate: '0.0019', source: 'nbk', at: '2025-03-05T00:00:00Z' },
+	UZS: { rate: '0.00007', source: 'cbr-cross', at: '2025-03-05T00:00:00Z' }
 };
 
 /** @type {import('node:child_process').ChildProcess} */ let bridge;
@@ -48,7 +51,7 @@ test.afterAll(async () => {
 	if (dir) await rm(dir, { recursive: true, force: true });
 });
 
-test('a ruble outlay at the Bank of Russia rate, a lira outlay at the ECB rate', async ({
+test('outlays at the Bank of Russia, ECB and National Bank of Kazakhstan rates, and a cross rate', async ({
 	page
 }) => {
 	await addVirtualAuthenticator(page);
@@ -82,6 +85,22 @@ test('a ruble outlay at the Bank of Russia rate, a lira outlay at the ECB rate',
 			currency: 'TRY',
 			documentDate: '2025-03-04'
 		});
+		await e2e.addReceipt({
+			...common,
+			fileName: 'hotel.pdf',
+			vendor: 'Hotel Beispiel',
+			amountCents: 10_000_000,
+			currency: 'KZT',
+			documentDate: '2025-03-06'
+		});
+		await e2e.addReceipt({
+			...common,
+			fileName: 'taxi.pdf',
+			vendor: 'Taxi Beispiel',
+			amountCents: 100_000_000,
+			currency: 'UZS',
+			documentDate: '2025-03-06'
+		});
 	});
 
 	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
@@ -114,5 +133,29 @@ test('a ruble outlay at the Bank of Russia rate, a lira outlay at the ECB rate',
 	await detail.getByTestId('outlay-book').click();
 	await expect(detail.getByTestId('outlay-booked-rate')).toContainText(
 		'2500.00 TRY zu 38,4615 TRY je 1 EUR (EZB-Kurs)'
+	);
+
+	// Tenge: the National Bank of Kazakhstan's (#325).
+	await receipt('Hotel Beispiel').click();
+	await detail.getByTestId('outlay-open').click();
+	await expect(detail.getByTestId('outlay-rate-ecb')).toContainText(
+		'Referenzkurs der Nationalbank Kasachstans vom 05.03.2025'
+	);
+	await expect(detail.getByTestId('outlay-euros')).toContainText('190,00');
+	await detail.getByTestId('outlay-book').click();
+	await expect(detail.getByTestId('outlay-booked-rate')).toContainText(
+		'100000.00 KZT zu 526,3158 KZT je 1 EUR (Kurs der Nationalbank Kasachstans)'
+	);
+
+	// Sum: no official euro rate anywhere; a cross rate through the ruble, and it says so.
+	await receipt('Taxi Beispiel').click();
+	await detail.getByTestId('outlay-open').click();
+	await expect(detail.getByTestId('outlay-rate-ecb')).toContainText(
+		'Kreuzkurs über den Rubel, aus den Kursen der Bank of Russia vom 05.03.2025'
+	);
+	await expect(detail.getByTestId('outlay-euros')).toContainText('70,00');
+	await detail.getByTestId('outlay-book').click();
+	await expect(detail.getByTestId('outlay-booked-rate')).toContainText(
+		'(Kreuzkurs über RUB, Bank of Russia)'
 	);
 });

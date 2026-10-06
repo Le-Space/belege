@@ -42,7 +42,9 @@
 	/** What the field shows and the person types: EUR per unit, or units per euro (#312). */
 	let typed = $state('');
 	let perEuroMode = $state(false);
-	/** @type {'ecb' | 'cbr' | 'manual'} */
+	/** The sources the form offers a rate from (bridge/src/rates.js). */
+	const OFFERED = new Set(['ecb', 'cbr', 'nbk', 'cbr-cross']);
+	/** @type {'ecb' | 'cbr' | 'nbk' | 'cbr-cross' | 'manual'} */
 	let rateSource = $state('manual');
 	let rateAt = $state('');
 	let rateNote = $state('');
@@ -110,8 +112,9 @@
 		asking = true;
 		try {
 			const r = await client.rate(amount.currency, day);
-			// An official reference rate only: the ECB's, for RUB the Bank of Russia's.
-			if ((r?.source === 'ecb' || r?.source === 'cbr') && Number(r.rate) > 0) {
+			// A reference rate only: the ECB's, a central bank's where it has none,
+			// else a cross rate through the ruble, named as such (#325).
+			if (OFFERED.has(r?.source) && Number(r.rate) > 0) {
 				rate = String(r.rate);
 				perEuroMode = isWeak(amount.currency, rate);
 				typed = show(rate);

@@ -16,7 +16,9 @@
 // in euros at a rate: the ECB's of the day where the bridge has one, else one
 // entered by hand from a document (the card statement, an exchange receipt) –
 // the ECB publishes no ruble rate since 2022-03-01; for RUB the bridge then
-// offers the Bank of Russia's official rate (`cbr`). The rate's source stays
+// offers the Bank of Russia's official rate (`cbr`), for KZT the National
+// Bank of Kazakhstan's (`nbk`), and for a currency only the Bank of Russia
+// lists a cross rate through the ruble (`cbr-cross`, #325). The rate's source stays
 // on the booking (`outlay.rateSource`).
 
 /* eslint-disable belege/no-german -- stored in the books, see the follow-up on #192 */
@@ -115,7 +117,7 @@ export function outlayAmount(receipt) {
  * @param {'cash' | 'card' | 'other'} p.how
  * @param {string} [p.day] YYYY-MM-DD; the receipt's day by default
  * @param {string} [p.amount] decimal in the receipt's currency; the receipt's by default
- * @param {{ rate: string, source: 'ecb' | 'cbr' | 'manual', at?: string, note?: string } | null} [p.rate] EUR per unit; needed when not EUR
+ * @param {{ rate: string, source: 'ecb' | 'cbr' | 'nbk' | 'cbr-cross' | 'manual', at?: string, note?: string } | null} [p.rate] EUR per unit; needed when not EUR
  * @param {string} [p.note]
  * @returns {Promise<{ transaction: Rec, account: Rec }>}
  */

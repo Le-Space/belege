@@ -14,6 +14,7 @@ Belege → der Beleg → _Privat ausgelegt …_:
 - **Andere Währung:**
   - Belege fragt die Bridge nach dem EZB-Referenzkurs des Tages und bucht den Euro-Betrag damit.
   - Für den Rubel hat die EZB seit dem 1. März 2022 keinen Kurs. Für RUB bietet die Bridge dann den **amtlichen Kurs der Bank of Russia** an, der an diesem Tag gilt (festgesetzt am Werktag davor; das Formular nennt sein Datum). Sie sieht nur den abgefragten Tag.
+  - Für **KZT** bietet die Bridge den amtlichen Tageskurs der **Nationalbank Kasachstans** an. Für eine Währung ohne Euro-Kurs dieser Banken, die aber die Bank of Russia führt (UZS, GEL, AMD, …), einen **Kreuzkurs über den Rubel** aus derselben Tagesdatei der Bank of Russia; Formular und Buchung nennen ihn Kreuzkurs (#325).
   - Wo keiner von beiden einen hat, oder wo ein Dokument den tatsächlich bezahlten Kurs zeigt (Kartenabrechnung, Wechselbeleg), wird der Kurs von Hand eingetragen (EUR je Einheit), mit seiner Herkunft. Ein Kurs aus einem Dokument geht vor: Er liegt näher an dem, was bezahlt wurde.
   - Originalbetrag, Kurs und Kursquelle bleiben an der Buchung.
 - **Rückgängig:** _Auslage rückgängig machen_ löscht die Buchung und gibt den Beleg frei, falls doch noch eine Zahlung auftaucht. Erneutes Buchen legt eine neue Buchung an.

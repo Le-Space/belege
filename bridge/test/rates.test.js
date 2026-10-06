@@ -181,6 +181,83 @@ describe('rate service', () => {
 		);
 	});
 
+	// Made-up answers in the shape of the Bank of Russia's file with more currencies,
+	// and of the National Bank of Kazakhstan's get_rates.cfm.
+	const cbrWith = (/** @type {string} */ date, /** @type {string} */ lines) =>
+		`<?xml version="1.0" encoding="windows-1251"?><ValCurs Date="${date}" name="Foreign Currency Market">` +
+		'<Valute ID="R01239"><NumCode>978</NumCode><CharCode>EUR</CharCode><Nominal>1</Nominal><Name>x</Name><Value>100,0000</Value><VunitRate>100</VunitRate></Valute>' +
+		lines +
+		'</ValCurs>';
+	const valute = (
+		/** @type {string} */ code,
+		/** @type {string} */ nominal,
+		/** @type {string} */ value
+	) =>
+		`<Valute ID="R0"><NumCode>0</NumCode><CharCode>${code}</CharCode><Nominal>${nominal}</Nominal><Name>x</Name><Value>${value}</Value><VunitRate>x</VunitRate></Valute>`;
+	const nbkRates = (/** @type {string} */ date, /** @type {string} */ eur) =>
+		`<?xml version="1.0" encoding="utf-8"?><rates><title>x</title><date>${date}</date>` +
+		'<item><fullname>x</fullname><title>USD</title><description>400.00</description><quant>1</quant></item>' +
+		`<item><fullname>x</fullname><title>EUR</title><description>${eur}</description><quant>1</quant></item></rates>`;
+
+	test('KZT: the National Bank of Kazakhstan, inverted, with the day it is valid for (#325)', async () => {
+		const { fetch, calls } = fakeFetch({
+			'https://nationalbank.kz/rss/get_rates.cfm': nbkRates('31.08.2026', '500.00')
+		});
+		const rate = await createRateService({ fetch, now: NOW }).rate('KZT', '2026-08-31');
+		assert.equal(rate.rate, '0.002');
+		assert.equal(rate.source, 'nbk');
+		assert.equal(rate.at, '2026-08-31T00:00:00Z');
+		assert.ok(calls[0].endsWith('get_rates.cfm?fdate=31.08.2026'));
+		assert.equal(calls.length, 1);
+	});
+
+	test('KZT without an answer from Almaty: the cross rate through the ruble', async () => {
+		const { fetch } = fakeFetch({
+			'https://nationalbank.kz/rss/get_rates.cfm': 503,
+			// 100 KZT = 20 RUB, 1 EUR = 100 RUB → 1 KZT = 0.002 EUR.
+			'https://www.cbr.ru/scripts/XML_daily.asp': cbrWith(
+				'29.08.2026',
+				valute('KZT', '100', '20,0000')
+			)
+		});
+		const rate = await createRateService({ fetch, now: NOW }).rate('KZT', '2026-08-31');
+		assert.equal(rate.rate, '0.002');
+		assert.equal(rate.source, 'cbr-cross');
+		assert.equal(rate.at, '2026-08-29T00:00:00Z');
+	});
+
+	test('a currency only the Bank of Russia lists: a cross rate, one file for the day', async () => {
+		const { fetch, calls } = fakeFetch({
+			'https://www.cbr.ru/scripts/XML_daily.asp': cbrWith(
+				'29.08.2026',
+				valute('UZS', '10000', '80,0000') + valute('GEL', '1', '25,0000')
+			)
+		});
+		const service = createRateService({ fetch, now: NOW });
+		const uzs = await service.rate('UZS', '2026-08-31');
+		assert.equal(uzs.rate, '0.00008'); // 80 RUB per 10 000 UZS, 100 RUB per EUR
+		assert.equal(uzs.source, 'cbr-cross');
+		assert.equal((await service.rate('GEL', '2026-08-31')).rate, '0.25');
+		assert.equal(calls.length, 1);
+		// A currency neither lists: still no source; one the file leaves out: no rate.
+		await assert.rejects(service.rate('XYZ', '2026-08-31'), /no rate source for XYZ/);
+		await assert.rejects(service.rate('AMD', '2026-08-31'), /no rate found for AMD/);
+	});
+
+	test('a rates file for a later day is not taken, for the cross rate either', async () => {
+		const { fetch } = fakeFetch({
+			'https://nationalbank.kz/rss/get_rates.cfm': nbkRates('01.09.2026', '500.00'),
+			'https://www.cbr.ru/scripts/XML_daily.asp': cbrWith(
+				'01.09.2026',
+				valute('KZT', '100', '20,0000')
+			)
+		});
+		await assert.rejects(
+			createRateService({ fetch, now: NOW }).rate('KZT', '2026-08-31'),
+			RateError
+		);
+	});
+
 	test('RUB before March 2022: the ECB rate still', async () => {
 		const { fetch, calls } = fakeFetch({
 			'https://data-api.ecb.europa.eu/': {
