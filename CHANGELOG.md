@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Belege shows one month at a time, and opens in a fraction of the time** (#313, #317). The months stand beside the sources with their counts and what is open (a select on a phone), "Alle Monate" on request; a search spans every month, and a receipt opened by link shows its own month. The list had looked up every row's matches and payments anew: with a year of receipts it took seconds to open; it now takes about a tenth of a second.
+
 ## [0.7.0] – 2026-10-05
 
 ### Added
