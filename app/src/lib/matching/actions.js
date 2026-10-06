@@ -8,7 +8,7 @@
 
 import { recordEvent } from '../activity/events.js';
 import { getSetting, setSetting } from '../store/settings.js';
-import { cleanMatchingSettings, feeKey, transferPairKey } from './classify.js';
+import { cleanMatchingSettings, feeKey, looksLikeBankFee, transferPairKey } from './classify.js';
 import { isActive, syncLinks } from './engine.js';
 import { refundPairKey } from './refunds.js';
 import { learnFromLink } from './partners.js';
@@ -171,7 +171,9 @@ export async function setNoReceipt(store, transactionId, reason, { log = true } 
 /**
  * "Bankgebühr": this booking is a bank fee, and so is the next one on the same
  * account with the same purpose words (classify.js `feeKey`). A purpose
- * without words to learn from makes it "Kein Beleg nötig: Bankgebühr".
+ * without words to learn from, or a booking that does not look like the
+ * bank's own fee (`looksLikeBankFee`, #320), makes it this one's "Kein Beleg
+ * nötig: Bankgebühr" only.
  *
  * @param {MatchingStore} store
  * @param {string} transactionId
@@ -180,8 +182,10 @@ export async function markBankFee(store, transactionId) {
 	const tx = await store.transactions.get(transactionId);
 	if (!tx) throw new Error(`No transaction ${transactionId}`);
 	const key = feeKey(tx);
+	// Nothing to learn from, or a booking a learned fee would never cover – a
+	// vendor's debit, an invoice in its purpose (#320): this one only.
 	// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
-	if (!key) return setNoReceipt(store, transactionId, 'Bankgebühr');
+	if (!key || !looksLikeBankFee(tx)) return setNoReceipt(store, transactionId, 'Bankgebühr');
 	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
 	await setSetting(store.settings, 'matching', {
 		...current,

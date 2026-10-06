@@ -77,7 +77,7 @@ describe('markBankFee and forgetBankFee', () => {
 		expect(events.map((/** @type {any} */ e) => e.action)).toContain('bank-fee');
 
 		await forgetBankFee(store, 'ACC-GLS|porto');
-		expect((await getSetting(store.settings, 'matching')).feeKeys).toEqual([]);
+		expect((await getSetting(store.settings, 'matching')).feeKeys ?? []).toEqual([]);
 		expect(await classify(oct)).toBeNull();
 	});
 
@@ -129,6 +129,73 @@ describe('addCompanyName', () => {
 		expect(settings.companyNames).toEqual(['le space UG', 'NORDLICHT WERKSTATT GMBH']);
 		expect(settings.rules).toHaveLength(1);
 		expect((await classify(into))?.kind).toBe('own-transfer');
+	});
+});
+
+describe('a learned bank fee covers only what looks like one (#320)', () => {
+	const debit = (/** @type {string} */ month) =>
+		tx({
+			accountId: 'ACC-GLS',
+			amountCents: -5259,
+			counterparty: 'Kabel Beispiel GmbH',
+			bookingType: 'Basislastschrift',
+			purpose: `${month}/2025 K-NR. 000000001 Ihre Rechnung online bei www.beispiel.de/meinkabel`
+		});
+
+	it('a vendor’s monthly invoice debit called a fee is this one only, never a rule', async () => {
+		const feb = await addTx(debit('02'));
+		const mar = await addTx(debit('03'));
+		await markBankFee(store, feb.id);
+		expect((await getSetting(store.settings, 'matching')).feeKeys ?? []).toEqual([]);
+		expect((await store.transactions.get(feb.id)).noReceipt).toBeTruthy();
+		expect(await classify(mar)).toBeNull();
+	});
+
+	it('a key already learned from such a debit no longer covers the next month', async () => {
+		const feb = await addTx(debit('02'));
+		const mar = await addTx(debit('03'));
+		const { feeKey } = await import('./classify.js');
+		await setSetting(store.settings, 'matching', {
+			...(await getSetting(store.settings, 'matching')),
+			feeKeys: [feeKey(feb)]
+		});
+		expect(feeKey(feb)).toBe(feeKey(mar));
+		expect(await classify(mar)).toBeNull();
+	});
+
+	it('an invoice in the purpose keeps a fee from being learned, even with no counterparty', async () => {
+		const a = await addTx(
+			tx({
+				accountId: 'ACC-GLS',
+				amountCents: -1190,
+				counterparty: '',
+				purpose: 'Rechnung RE-2025-01 Hosting'
+			})
+		);
+		const b = await addTx(
+			tx({
+				accountId: 'ACC-GLS',
+				amountCents: -1190,
+				counterparty: '',
+				purpose: 'Rechnung RE-2025-02 Hosting'
+			})
+		);
+		await markBankFee(store, a.id);
+		expect(await classify(b)).toBeNull();
+	});
+
+	it('the bank’s own monthly fee still learns and covers the next month', async () => {
+		const own = (/** @type {string} */ m) =>
+			tx({
+				accountId: 'ACC-GLS',
+				amountCents: -890,
+				counterparty: 'GLS Gemeinschaftsbank',
+				purpose: `Kontoführung ${m}/2025 Paket Business`
+			});
+		const feb = await addTx(own('02'));
+		const mar = await addTx(own('03'));
+		await markBankFee(store, feb.id);
+		expect(await classify(mar)).toMatchObject({ kind: 'bank-fee' });
 	});
 });
 
