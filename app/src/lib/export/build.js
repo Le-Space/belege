@@ -163,7 +163,8 @@ export async function runMonthExport({
 		bookings: plan.lines.length,
 		receipts: plan.receipts.length,
 		statements: plan.statements.length,
-		skipped: plan.transferSides.length
+		skipped: plan.transferSides.length,
+		...(plan.checks.suspense.length ? { suspense: plan.checks.suspense.length } : {})
 	});
 	return built;
 }

@@ -29,6 +29,23 @@ Ein Beleg, der eine E-Mail ohne Anhang ist (eine Quittung im Text der Mail selbs
 
 Die Export-Seite zeigt, was fehlt. **Exportiert wird nur, wenn jede Buchung des Monats ein übernommenes Konto hat und jedes Bankkonto sein Sachkonto.** Gebühren und Umbuchungen sind keine Ausnahme: ihr Vorschlag ist automatisch, übernommen wird er trotzdem – ein Klick, _Konten aus Umbuchung und Bankgebühr übernehmen_, erledigt alle. (Die Alternative, eine Einstellung, die automatische Konten ohne Bestätigung nimmt, fiel weg: ein Schalter mehr, und eine falsche Einordnung käme ungesehen in die Bücher.) Eine Ausnahme, die du selbst bestätigst (#305): Die **Netzwerkgebühren** einer Wallet – die Chain selbst nennt sie Gebühr, etwa ein Cent für jede Transaktion, die sie abschickt – lassen sich einmal für alle auf ihr Konto legen, mit _Für alle Netzwerkgebühren übernehmen_ in der Kontozeile einer Gebühr. Jede noch nicht übernommene Netzwerkgebühr bekommt das Konto, ebenso jede, die eine spätere Synchronisierung bringt; _Regel aufheben_ nimmt es diesen wieder weg, eine von Hand übernommene Gebühr behält ihres. Bank- und Börsengebühren gehören nicht dazu. Buchungen ohne Beleg, Belege ohne Zahlung und noch nicht bestätigte Absender sind Hinweise: der Export geht, aber schau sie dir an.
 
+### Optional: ein Sammelkonto für Buchungen ohne Konto (#323)
+
+Vorkontieren bleibt der Normalfall. Ist eine Buchung am Monatsende noch unklar, kann der Export sie auf ein **Sammelkonto** legen, statt zu warten – üblich, wenn ein Stapel eingelesen wird, bevor jedes Gegenkonto feststeht:
+
+- **Einstellung:** _Eigene Anweisungen → Buchhaltung → Sammelkonto für Buchungen ohne Konto_, eine Kontonummer, standardmäßig leer. Belege schlägt keine vor: Welches Konto (bei SKR 03 meist eines der Durchlaufenden oder ungeklärten Posten), sagt der Steuerberater.
+- **Export-Seite:** _Buchungen ohne Konto auf das Sammelkonto … exportieren_, nur mit dieser Einstellung angeboten, standardmäßig aus, in diesem Browser gemerkt.
+- **Eingeschaltet:**
+  - eine Buchung ohne übernommenes Konto blockiert nicht mehr; die Prüfliste nennt als Hinweis, wie viele auf das Sammelkonto gehen;
+  - jede kommt gegen dieses Konto in den Stapel, **ohne BU-Schlüssel**, ihr Buchungstext beginnt mit `Ungeklärt:`; ihr Beleg kommt wie sonst ins ZIP;
+  - die Übersicht markiert sie mit _auf Sammelkonto, umbuchen_; der Verlauf zählt sie.
+- **Unverändert:**
+  - eine eigene Umbuchung, deren Gegenbuchung in den Büchern steht, geht wie immer gegen das Sachkonto der anderen Bank;
+  - ein Bankkonto ohne Sachkonto blockiert weiter;
+  - Buchungen ohne Beleg bleiben ein Hinweis.
+
+Das Sammelkonto trägt keine Vorsteuer und kein Aufwandskonto: Umsatzsteuer-Voranmeldung und Gewinn stimmen erst nach dem Umbuchen, und zum Jahresende muss es leer sein. Welches Konto und wer umbucht, legt ihr mit dem Steuerberater fest. Das ist keine Steuerberatung.
+
 ## Import in MonkeyOffice
 
 MonkeyOffice importiert DATEV-Buchungsstapel über seinen DATEV-Import (die Menünamen unterscheiden sich je nach Version; die Hilfe führt ihn unter „DATEV“). `DATEV/EXTF_Buchungsstapel_<Monat>.csv` importieren, die Buchungen in der Vorschau prüfen, dann die Belege aus `Belege/` über ihre Nummer anhängen (sie steht in _Belegfeld 1_ und vorn im Dateinamen). Der erste Import ist ein Test: in einer Kopie der Firma, oder jede Zeile vor dem Buchen prüfen.

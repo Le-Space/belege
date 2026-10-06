@@ -168,6 +168,7 @@ describe('catalogue and settings', () => {
 			shareholderAccount: '',
 			vatPeriod: 'quarter',
 			smallBusiness: false,
+			suspenseAccount: '',
 			consultantNumber: '12345',
 			clientNumber: '7',
 			fiscalYearStartMonth: 7,
@@ -178,6 +179,9 @@ describe('catalogue and settings', () => {
 			consultantNumber: '1001',
 			accountLength: 4
 		});
+		// The suspense account (#323): an account number, or nothing.
+		expect(cleanDatevSettings({ suspenseAccount: ' 1590 ' }).suspenseAccount).toBe('1590');
+		expect(cleanDatevSettings({ suspenseAccount: 'Ungeklärt' }).suspenseAccount).toBe('');
 	});
 	it('suggests 1200, 1210 for the bank accounts, oldest first', () => {
 		expect(suggestedLedgerAccount(0)).toBe('1200');
