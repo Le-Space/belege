@@ -100,7 +100,8 @@ describe('statement', () => {
 		// now 0.007; after the month −0.002 → end 0.009; the month +0.007 → start 0.002
 		expect(balancesOf(BTC, TXS, '2026-09')).toEqual({
 			opening: { cents: 0, units: '20000000', source: 'derived' },
-			closing: { cents: 0, units: '90000000', source: 'derived' }
+			closing: { cents: 0, units: '90000000', source: 'derived' },
+			check: null
 		});
 		// a balance from inside the month says nothing about its end
 		expect(balancesOf({ ...BTC, balanceOn: '2026-09-20' }, TXS, '2026-09')).toBeNull();
@@ -119,7 +120,8 @@ describe('statement', () => {
 			)
 		).toEqual({
 			opening: { cents: 10335, units: null, source: 'derived' },
-			closing: { cents: 9335, units: null, source: 'derived' }
+			closing: { cents: 9335, units: null, source: 'derived' },
+			check: null
 		});
 	});
 
@@ -134,13 +136,20 @@ describe('statement', () => {
 		};
 		expect(balancesOf(fromKraken, TXS, '2026-09')).toEqual({
 			opening: { cents: 0, units: '20000000', source: 'kraken' },
-			closing: { cents: 0, units: '90000000', source: 'kraken' }
+			closing: { cents: 0, units: '90000000', source: 'kraken' },
+			check: {
+				status: 'ok',
+				by: 'month',
+				booked: { cents: 0, units: '90000000' },
+				difference: { cents: 0, units: '0' }
+			}
 		});
 		// Read from the month's middle: the end from Kraken, the start worked back from it.
 		const endOnly = { ...gap, monthBalances: { '2026-09': { closing: '90000000' } } };
 		expect(balancesOf(endOnly, TXS, '2026-09')).toEqual({
 			opening: { cents: 0, units: '20000000', source: 'derived' },
-			closing: { cents: 0, units: '90000000', source: 'kraken' }
+			closing: { cents: 0, units: '90000000', source: 'kraken' },
+			check: null
 		});
 		// A euro account: in cents.
 		const eur = {
@@ -149,10 +158,77 @@ describe('statement', () => {
 			decimals: 4,
 			monthBalances: { '2026-09': { opening: '50000', closing: '983500' } }
 		};
-		expect(balancesOf(eur, [], '2026-09')).toEqual({
+		expect(
+			balancesOf(
+				eur,
+				[
+					{ bookedOn: '2026-09-01', amountCents: 10000 },
+					{ bookedOn: '2026-09-12', amountCents: -665 }
+				],
+				'2026-09'
+			)
+		).toEqual({
 			opening: { cents: 500, units: null, source: 'kraken' },
-			closing: { cents: 9835, units: null, source: 'kraken' }
+			closing: { cents: 9835, units: null, source: 'kraken' },
+			check: {
+				status: 'ok',
+				by: 'month',
+				booked: { cents: 9835, units: null },
+				difference: { cents: 0, units: null }
+			}
 		});
+	});
+
+	it('reconciles Kraken’s month: start + bookings must give the end (#287)', () => {
+		// A movement of the month never booked: 0.001 BTC missing.
+		const account = {
+			...BTC,
+			monthBalances: { '2026-09': { opening: '20000000', closing: '100000000' } }
+		};
+		expect(balancesOf(account, TXS, '2026-09')?.check).toEqual({
+			status: 'open',
+			by: 'month',
+			booked: { cents: 0, units: '90000000' },
+			difference: { cents: 0, units: '10000000' }
+		});
+		// Euros of four decimals rounded to cents: half a cent a booking is no gap.
+		const eur = {
+			id: 'E',
+			asset: 'EUR',
+			decimals: 4,
+			monthBalances: { '2026-09': { opening: '0', closing: '101050' } }
+		};
+		const two = [
+			{ bookedOn: '2026-09-01', amountCents: 500 },
+			{ bookedOn: '2026-09-02', amountCents: 510 }
+		];
+		expect(balancesOf(eur, two, '2026-09')?.check?.status).toBe('ok');
+		expect(balancesOf(eur, two.slice(0, 1), '2026-09')?.check?.status).toBe('open');
+	});
+
+	it('reconciles a wallet read in full: every booking from nothing gives the end (#287)', () => {
+		// Today 0.010, everything booked: end of September 0.012, the bookings to it too.
+		const wallet = {
+			...BTC,
+			source: 'bitcoin',
+			kind: 'wallet',
+			fullHistory: true,
+			balance: '0.0100000000'
+		};
+		expect(balancesOf(wallet, TXS, '2026-09')?.check).toEqual({
+			status: 'ok',
+			by: 'history',
+			booked: { cents: 0, units: '120000000' },
+			difference: { cents: 0, units: '0' }
+		});
+		// The August deposit was deleted (or never read): every month is off by it.
+		const withoutT0 = TXS.slice(1);
+		expect(balancesOf(wallet, withoutT0, '2026-09')?.check).toMatchObject({
+			status: 'open',
+			difference: { units: '50000000' }
+		});
+		// A pruned node's part of the history proves nothing: unchecked.
+		expect(balancesOf({ ...wallet, fullHistory: false }, withoutT0, '2026-09')?.check).toBeNull();
 	});
 
 	it('one statement per account with a booking in the month, by ledger account', () => {
@@ -200,6 +276,31 @@ describe('statement PDF', () => {
 		]) {
 			expect(text.replace(/\s+/g, ' ')).toContain(part);
 		}
+	});
+
+	it('says whether the bookings lead to the closing balance, and the gap where not (#287)', async () => {
+		const wallet = { ...BTC, kind: 'wallet', fullHistory: true, balance: '0.0100000000' };
+		const draw = async (/** @type {Record<string, any>[]} */ transactions) => {
+			const s = buildStatement({
+				month: '2026-09',
+				account: wallet,
+				index: 0,
+				transactions,
+				classifications: {},
+				receiptNumbers: new Map()
+			});
+			const bytes = await statementPdf(s, { created: new Date('2026-10-05T12:00:00Z') });
+			const { text } = await extractText(await getDocumentProxy(bytes), { mergePages: true });
+			return text.replace(/\s+/g, ' ');
+		};
+		const ok = await draw(TXS);
+		expect(ok).toContain('Endbestand (errechnet, abgestimmt) 0,012');
+		expect(ok).not.toContain('Nicht abgestimmt');
+		const open = await draw(TXS.slice(1));
+		expect(open).toContain('Endbestand (errechnet) 0,012');
+		expect(open).toContain('Nicht abgestimmt: Buchungen ergeben 0,007');
+		expect(open).toContain('Differenz 0,005');
+		expect(open).toContain('oder eine Buchung wurde gelöscht');
 	});
 
 	it('breaks long months onto more pages and repeats the head', async () => {

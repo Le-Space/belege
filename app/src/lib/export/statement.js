@@ -70,6 +70,17 @@ const STANDS_IN = /** @type {Record<string, string>} */ ({
  * @typedef {object} Balances
  * @property {Balance} opening
  * @property {Balance} closing
+ * @property {Reconciliation | null} check whether the bookings lead to the closing
+ *   balance; null where nothing independent can be compared
+ */
+
+/**
+ * @typedef {object} Reconciliation
+ * @property {'ok' | 'open'} status `open`: "nicht abgestimmt"
+ * @property {'month' | 'history'} by `month`: Kraken's start + the month's bookings;
+ *   `history`: every booking of a wallet read in full, from nothing
+ * @property {{ cents: number, units: string | null }} booked the closing balance the bookings give
+ * @property {{ cents: number, units: string | null }} difference closing − booked
  */
 
 /**
@@ -190,7 +201,75 @@ export function buildStatement({
  * @returns {Balances | null}
  */
 export function balancesOf(account, own, month) {
-	return fromSource(account, own, month) ?? derived(account, own, month);
+	const balances = fromSource(account, own, month) ?? derived(account, own, month);
+	return balances && { ...balances, check: reconcile(account, own, month, balances) };
+}
+
+/**
+ * Reconciled, not trusted in one direction (#287). Two comparisons are
+ * independent of the figure they check:
+ *
+ * - `month`: both of the month's balances are Kraken's. Start + the month's
+ *   bookings must give the end; a gap is a movement missing in this month.
+ * - `history`: a wallet whose whole history every sync reads (not a pruned
+ *   node's part of it). Its bookings, summed from nothing to the month's end,
+ *   must give the end worked back from today; a gap is a movement missing
+ *   somewhere, or a booking deleted.
+ *
+ * Anything else – a bank account, whose history does not start at nothing –
+ * stays "errechnet", unchecked.
+ *
+ * A euro account books cents of Kraken's four decimals: up to half a cent
+ * per booking may fall away in rounding, and is no gap.
+ *
+ * @param {Rec} account
+ * @param {Rec[]} own
+ * @param {string} month
+ * @param {{ opening: Balance, closing: Balance }} balances
+ * @returns {Reconciliation | null}
+ */
+export function reconcile(account, own, month, { opening, closing }) {
+	const crypto = closing.units !== null;
+	/** @type {Rec[]} */
+	let counted;
+	/** @type {'month' | 'history'} */
+	let by;
+	let start = { cents: 0, units: '0' };
+	if (opening.source === 'kraken' && closing.source === 'kraken') {
+		by = 'month';
+		counted = own.filter((tx) => String(tx.bookedOn ?? '').slice(0, 7) === month);
+		start = { cents: opening.cents, units: opening.units ?? '0' };
+	} else if (
+		closing.source === 'derived' &&
+		account.kind === 'wallet' &&
+		account.fullHistory === true
+	) {
+		by = 'history';
+		const end = lastDay(month);
+		counted = own.filter((tx) => String(tx.bookedOn ?? '') <= end);
+	} else {
+		return null;
+	}
+	if (crypto) {
+		const booked =
+			BigInt(start.units) +
+			counted.reduce((s, tx) => s + (hasQuantity(tx) ? BigInt(tx.quantity) : 0n), 0n);
+		const difference = BigInt(/** @type {string} */ (closing.units)) - booked;
+		return {
+			status: difference === 0n ? 'ok' : 'open',
+			by,
+			booked: { cents: 0, units: booked.toString() },
+			difference: { cents: 0, units: difference.toString() }
+		};
+	}
+	const booked = start.cents + counted.reduce((s, tx) => s + Number(tx.amountCents ?? 0), 0);
+	const difference = closing.cents - booked;
+	return {
+		status: Math.abs(difference) * 2 <= counted.length ? 'ok' : 'open',
+		by,
+		booked: { cents: booked, units: null },
+		difference: { cents: difference, units: null }
+	};
 }
 
 /**
@@ -200,7 +279,7 @@ export function balancesOf(account, own, month) {
  * @param {Rec} account
  * @param {Rec[]} own
  * @param {string} month
- * @returns {Balances | null}
+ * @returns {{ opening: Balance, closing: Balance } | null}
  */
 function fromSource(account, own, month) {
 	const known = account.monthBalances?.[month];
@@ -234,7 +313,7 @@ function fromSource(account, own, month) {
  * @param {Rec} account
  * @param {Rec[]} own
  * @param {string} month
- * @returns {Balances | null}
+ * @returns {{ opening: Balance, closing: Balance } | null}
  */
 function derived(account, own, month) {
 	const end = lastDay(month);

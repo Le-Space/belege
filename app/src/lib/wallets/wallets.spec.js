@@ -390,6 +390,8 @@ describe('syncWallet against the fake chains', () => {
 			[`Wallet NYX ···${NYX.wallet.slice(-6)}`, 'nyx', 'wallet', 'NYX', '2', '2026-09-26']
 		]);
 		expect(accounts.every((a) => a.walletAddress === NYX.wallet && a.ibanLast4 === '')).toBe(true);
+		// The whole history was read: the statement may reconcile against it (#287).
+		expect(accounts.every((a) => a.fullHistory === true)).toBe(true);
 		expect(accounts[0].addressUrl).toBe(`https://nym.explorers.guru/account/${NYX.wallet}`);
 		expect(first.totals).toEqual({ new: 125, updated: 0, skipped: 0 });
 		expect(first.unpriced).toEqual([]);

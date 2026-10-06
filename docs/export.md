@@ -59,6 +59,8 @@ Every account with a booking in the month gets a statement as a PDF: bank accoun
 
 A crypto account also shows the quantity and the rate of every booking, with the rate's source (K = Kraken, CG = CoinGecko, EZB = ECB, CBR = Bank of Russia, H = the price of the trade). The start and end balance in the asset come from Kraken's ledger where it has them – every entry carries the balance after it – and say so: _(laut Kraken)_. Anything else is worked back from the last balance the exchange or wallet reported and marked _(errechnet)_: it is only right if every movement since is booked (#287). Kraken's balances are kept from the next sync on; for earlier months, sync again from the month's first day.
 
+The closing balance is reconciled where something independent can be compared: for Kraken, the start plus the month's bookings must give Kraken's end; for a wallet whose whole history every sync reads, all its bookings from nothing must give the end worked back from today. Where they agree, the balance says _abgestimmt_. Where not, the statement prints _Nicht abgestimmt_ with what the bookings give and the difference, and Export names the account: a movement is missing (a fee the source does not report, say), or a booking was deleted. A bank account, whose history does not start at nothing, and a pruned node's partial history stay _errechnet_, unchecked.
+
 For a bank account, the statement lists what Belege holds; it does not replace the bank's own statement.
 
 ## Eigenbeleg
