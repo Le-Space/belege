@@ -36,6 +36,11 @@
 // `ZEUR`, `DOT.S`) become a symbol (`BTC`, `EUR`, `DOT`) and a wallet
 // (`spot`, or `earn` for staked and earning balances); amounts stay decimal
 // strings with the asset's decimals, as Kraken sends them.
+//
+// Every ledger entry also carries `balance`: the asset's balance on Kraken
+// after it (amount and fee). It is kept, with Kraken's own asset code, so the
+// monthly statement can take an account's balance at a month's end from
+// Kraken instead of working it back from today (#287).
 
 /** Kraken's names for assets that have a common symbol. */
 const ALIASES = /** @type {Record<string, string>} */ ({ XBT: 'BTC', XDG: 'DOGE', ETH2: 'ETH' });
@@ -126,6 +131,8 @@ const isoTime = (seconds) => new Date(Math.round(Number(seconds) * 1000)).toISOS
  * @property {number} decimals
  * @property {string} transferRef the txid of a deposit or withdrawal, '' when none
  * @property {string} transferMethod how Kraken names its network (`Filecoin`, `Ether (Arbitrum One)`), '' when none
+ * @property {string} balance the asset's balance after this entry, decimal; '' when Kraken gave none
+ * @property {string} code Kraken's asset code (`XXBT`, `DOT.S`): which balance `balance` is
  */
 
 /**
@@ -150,7 +157,9 @@ export function normalizeLedgerEntry(id, raw, assets) {
 		fee: String(raw.fee ?? '0'),
 		decimals,
 		transferRef: '',
-		transferMethod: ''
+		transferMethod: '',
+		balance: /^\d+(\.\d+)?$/.test(String(raw.balance ?? '')) ? String(raw.balance) : '',
+		code: String(raw.asset ?? '')
 	};
 }
 

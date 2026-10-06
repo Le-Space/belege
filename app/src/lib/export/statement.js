@@ -63,13 +63,21 @@ const STANDS_IN = /** @type {Record<string, string>} */ ({
  * @property {string} ledger '' when none is set
  * @property {StatementLine[]} lines by date
  * @property {{ inCents: number, outCents: number, netCents: number, quantity: string | null }} totals
- * @property {{ opening: Balance, closing: Balance } | null} balances only when the account knows its balance
+ * @property {Balances | null} balances only when the account knows its balance
+ */
+
+/**
+ * @typedef {object} Balances
+ * @property {Balance} opening
+ * @property {Balance} closing
  */
 
 /**
  * @typedef {object} Balance
  * @property {number} cents
  * @property {string | null} units crypto only
+ * @property {'kraken' | 'derived'} source `kraken`: Kraken's own balance after the
+ *   ledger entry before it; `derived`: worked back from the account's last balance
  */
 
 /** `2026-09` → `2026-09-30` @param {string} month */
@@ -161,10 +169,16 @@ export function buildStatement({
 }
 
 /**
- * The balance at the start and the end of the month, worked back from the
- * balance the account reported last (`balance`, `balanceOn`, as the Kraken
- * sync keeps them): the end of the month is today's balance minus what was
- * booked after it. Only when that balance is from after the month.
+ * The balance at the start and the end of the month.
+ *
+ * Where the source gives it, from the source (#287): Kraken's ledger carries
+ * the balance after every entry, and the sync keeps the month's start and end
+ * (`monthBalances`). Exact, whatever Belege booked or left out.
+ *
+ * Else worked back from the balance the account reported last (`balance`,
+ * `balanceOn`): the end of the month is today's balance minus what was
+ * booked after it. Only when that balance is from after the month, and only
+ * right when every movement since is booked – so it says it is derived.
  *
  * For a crypto account the quantity is exact; its euro value is what the
  * bookings were worth, so it is given for the quantity only. A euro account
@@ -173,9 +187,56 @@ export function buildStatement({
  * @param {Rec} account
  * @param {Rec[]} own the account's live transactions
  * @param {string} month
- * @returns {{ opening: Balance, closing: Balance } | null}
+ * @returns {Balances | null}
  */
 export function balancesOf(account, own, month) {
+	return fromSource(account, own, month) ?? derived(account, own, month);
+}
+
+/**
+ * The month's balances as Kraken gave them; the start, where the read did not
+ * cover the whole month, as the end minus the month's bookings.
+ *
+ * @param {Rec} account
+ * @param {Rec[]} own
+ * @param {string} month
+ * @returns {Balances | null}
+ */
+function fromSource(account, own, month) {
+	const known = account.monthBalances?.[month];
+	if (!known || !/^-?\d+$/.test(String(known.closing ?? '')) || !Number.isInteger(account.decimals))
+		return null;
+	const decimals = /** @type {number} */ (account.decimals);
+	const closing = BigInt(known.closing);
+	const during = own.filter((tx) => String(tx.bookedOn ?? '').slice(0, 7) === month);
+	const crypto = Boolean(account.asset && account.asset !== 'EUR');
+	const units = (/** @type {bigint} */ u) => (crypto ? u.toString() : null);
+	const cents = (/** @type {bigint} */ u) => (crypto ? 0 : valueCents(u.toString(), decimals, '1'));
+	/** @type {Balance} */
+	const end = { cents: cents(closing), units: units(closing), source: 'kraken' };
+	if (/^-?\d+$/.test(String(known.opening ?? ''))) {
+		const opening = BigInt(known.opening);
+		return {
+			opening: { cents: cents(opening), units: units(opening), source: 'kraken' },
+			closing: end
+		};
+	}
+	if (crypto) {
+		const opening =
+			closing - during.reduce((s, tx) => s + (hasQuantity(tx) ? BigInt(tx.quantity) : 0n), 0n);
+		return { opening: { cents: 0, units: opening.toString(), source: 'derived' }, closing: end };
+	}
+	const opening = end.cents - during.reduce((s, tx) => s + Number(tx.amountCents ?? 0), 0);
+	return { opening: { cents: opening, units: null, source: 'derived' }, closing: end };
+}
+
+/**
+ * @param {Rec} account
+ * @param {Rec[]} own
+ * @param {string} month
+ * @returns {Balances | null}
+ */
+function derived(account, own, month) {
 	const end = lastDay(month);
 	if (typeof account.balance !== 'string' || !Number.isInteger(account.decimals)) return null;
 	if (!account.balanceOn || String(account.balanceOn) < end) return null;
@@ -195,16 +256,16 @@ export function balancesOf(account, own, month) {
 		const closing = current - sum(after);
 		const opening = closing - sum(during);
 		return {
-			opening: { cents: 0, units: opening.toString() },
-			closing: { cents: 0, units: closing.toString() }
+			opening: { cents: 0, units: opening.toString(), source: 'derived' },
+			closing: { cents: 0, units: closing.toString(), source: 'derived' }
 		};
 	}
 	const sumCents = (/** @type {Rec[]} */ txs) =>
 		txs.reduce((s, tx) => s + Number(tx.amountCents ?? 0), 0);
 	const closing = valueCents(current.toString(), decimals, '1') - sumCents(after);
 	return {
-		opening: { cents: closing - sumCents(during), units: null },
-		closing: { cents: closing, units: null }
+		opening: { cents: closing - sumCents(during), units: null, source: 'derived' },
+		closing: { cents: closing, units: null, source: 'derived' }
 	};
 }
 

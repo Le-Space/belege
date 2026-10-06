@@ -97,6 +97,16 @@ describe('Kraken client', () => {
 		assert.equal(entries.find((e) => e.id === 'L-DEP-1')?.transferMethod, 'SEPA (Instant)');
 		assert.equal(entries.find((e) => e.id === 'L-WD-1')?.transferMethod, 'SEPA');
 		assert.equal(entries.find((e) => e.id === 'L-TR1-BTC')?.transferMethod, '');
+		// Kraken's balance after each entry, with its asset code (#287); '' when it gave none.
+		assert.deepEqual(
+			entries.filter((e) => e.asset === 'EUR').map((e) => [e.code, e.balance]),
+			[
+				['ZEUR', '1000.0000'],
+				['ZEUR', '398.4400'],
+				['ZEUR', '98.3500']
+			]
+		);
+		assert.equal(entries.find((e) => e.id === 'L-TR1-BTC')?.balance, '');
 		const earnIn = entries.find((e) => e.id === 'L-EARN-IN');
 		assert.equal(earnIn?.asset, 'BTC');
 		assert.equal(earnIn?.wallet, 'earn');
