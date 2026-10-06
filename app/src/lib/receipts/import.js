@@ -7,6 +7,15 @@
 // bring it back) is skipped. A mail part already imported is skipped before
 // its bytes are even fetched (by `sourceRef`).
 //
+// A receipt that is the mail itself (no PDF, no image) keeps the mail as it
+// was received (`.eml`, #288), sealed in the blockstore like a file, as
+// `emlCid` beside its excerpt: the excerpt serves search and matching, the
+// original is the receipt. Not `fileCid` – that is a PDF or an image every
+// reader, preview and extraction may open. A receipt imported before keeps
+// its excerpt and gets its original when its mail is fetched again, or by
+// "Original holen", while the mail is still in the mailbox (`emlGone` once it
+// is not).
+//
 // A mail whose sender did not pass DKIM/SPF (and that is not our own, from
 // Sent) comes in as `rückfrage`: shown with a warning, neither previewed nor
 // sent to the LLM until someone confirms it (docs/phase-0.md: look-alike
@@ -170,9 +179,58 @@ export async function importFile({
 }
 
 /**
- * @typedef {{ new: number, duplicate: number, skipped: number, unsupported: number, verdicts: number }} MailCounts
- * `verdicts`: receipts already here whose sender verdict was brought up to date
+ * @typedef {{ new: number, duplicate: number, skipped: number, unsupported: number, verdicts: number, originals?: number }} MailCounts
+ * `verdicts`: receipts already here whose sender verdict was brought up to date;
+ * `originals`: receipts already here that got their mail as received (#288)
  */
+
+/**
+ * A mail as it was received, sealed: the fields a text receipt keeps of it.
+ * Null when the bridge cannot hand it out now; `{ emlGone: true }` when the
+ * mail is no longer in the mailbox.
+ *
+ * @param {{ mailRaw?: (id: string) => Promise<Uint8Array> }} client
+ * @param {import('./blob-store.js').BlobStore} blobs
+ * @param {string} mailId
+ * @returns {Promise<Record<string, any> | null>}
+ */
+async function keptMail(client, blobs, mailId) {
+	if (!client.mailRaw || !mailId) return null;
+	let bytes;
+	try {
+		bytes = await client.mailRaw(mailId);
+	} catch (/** @type {any} */ error) {
+		return error?.status === 404 ? { emlGone: true } : null;
+	}
+	if (!bytes?.length) return null;
+	return {
+		emlCid: await blobs.put(bytes),
+		emlSize: bytes.length,
+		emlSha256: await sha256Hex(bytes),
+		emlGone: false
+	};
+}
+
+/**
+ * "Original holen": a text receipt imported before #288 gets its mail as
+ * received, while the mail is still in the mailbox.
+ *
+ * @param {object} params
+ * @param {import('../store/repository.js').Collection} params.receipts
+ * @param {import('./blob-store.js').BlobStore} params.blobs
+ * @param {{ mailRaw: (id: string) => Promise<Uint8Array> }} params.client
+ * @param {Record<string, any>} params.receipt
+ * @returns {Promise<'kept' | 'gone' | 'unavailable' | 'none'>} `none`: no mail receipt without an original
+ */
+export async function fetchMailOriginal({ receipts, blobs, client, receipt }) {
+	if (receipt.source !== 'mail' || receipt.fileCid || receipt.emlCid || !receipt.mailId) {
+		return 'none';
+	}
+	const kept = await keptMail(client, blobs, String(receipt.mailId));
+	if (!kept) return 'unavailable';
+	await receipts.put({ ...receipt, ...kept });
+	return kept.emlGone ? 'gone' : 'kept';
+}
 
 /**
  * The accounting mails the bridge listed: every PDF or image attachment one
@@ -182,7 +240,7 @@ export async function importFile({
  * @param {object} params
  * @param {import('../store/repository.js').Collection} params.receipts
  * @param {import('./blob-store.js').BlobStore} params.blobs
- * @param {{ mailAttachment: (id: string, part: string) => Promise<Uint8Array> }} params.client
+ * @param {{ mailAttachment: (id: string, part: string) => Promise<Uint8Array>, mailRaw?: (id: string) => Promise<Uint8Array> }} params.client
  * @param {any[]} params.messages from GET /mail/messages (or hits of /mail/search)
  * @param {import('../store/repository.js').StoredRecord[]} [params.created] the new records are pushed here
  * @param {import('../store/repository.js').Collection} [params.events] for "Absenderprüfung aktualisiert"
@@ -200,7 +258,7 @@ export async function importMailMessages({
 }) {
 	const seen = await known(receipts);
 	/** @type {MailCounts} */
-	const counts = { new: 0, duplicate: 0, skipped: 0, unsupported: 0, verdicts: 0 };
+	const counts = { new: 0, duplicate: 0, skipped: 0, unsupported: 0, verdicts: 0, originals: 0 };
 	/** @param {string} sourceRef @param {{ authVerdict: string, outgoing: boolean }} fields */
 	const again = async (sourceRef, fields) => {
 		counts.skipped++;
@@ -227,6 +285,16 @@ export async function importMailMessages({
 			const sourceRef = `${m.id}#text`;
 			if (seen.refs.has(sourceRef)) {
 				await again(sourceRef, fields);
+				// Imported before its original was kept: it comes now (#288).
+				const before = seen.byRef.get(sourceRef);
+				if (before && !before.emlCid && !before.emlGone) {
+					const current = (await receipts.get(before.id)) ?? before;
+					const kept = await keptMail(client, blobs, m.id);
+					if (kept?.emlCid) {
+						await receipts.put({ ...current, ...kept });
+						counts.originals = (counts.originals ?? 0) + 1;
+					}
+				}
 				continue;
 			}
 			if (!fields.excerpt.trim()) {
@@ -242,6 +310,8 @@ export async function importMailMessages({
 				mime: 'text/plain',
 				size: fields.excerpt.length,
 				sha256: null,
+				// The mail as received, the receipt itself (#288).
+				...((await keptMail(client, blobs, m.id)) ?? {}),
 				extraction: null,
 				extractionModel: null,
 				extractionError: null,

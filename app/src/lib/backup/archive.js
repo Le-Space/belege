@@ -8,8 +8,9 @@
 //     key), the manifest and access controller, every writer's identity, and
 //     the package's metadata naming every database with its heads;
 //   - every receipt file (receipts' `fileCid`, deleted ones too, for their log
-//     still names them): the dag-cbor root and its 1 MiB chunks, already
-//     sealed with the blob key. Mail receipts are receipt files like any other.
+//     still names them) and every mail kept as received (`emlCid`, #288): the
+//     dag-cbor root and its 1 MiB chunks, already sealed with the blob key.
+//     Mail receipts are receipt files like any other.
 //     The package knows nothing of these; they are walked here.
 // A dag-cbor block on top – the CAR's root – holds the package's metadata and
 // what Belege adds: the receipt files, the app's version, the date.
@@ -157,7 +158,7 @@ export async function buildBackup({
 	const files = [
 		...new Set(
 			(await receipts.list({ includeDeleted: true }))
-				.map((r) => r.fileCid)
+				.flatMap((r) => [r.fileCid, r.emlCid])
 				.filter((c) => typeof c === 'string' && c)
 		)
 	];

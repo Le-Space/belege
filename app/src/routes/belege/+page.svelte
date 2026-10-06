@@ -6,6 +6,7 @@
 	// every file is sealed before it is stored.
 	import { onMount, tick } from 'svelte';
 	import WayOut from '$lib/help/WayOut.svelte';
+	import MailText from '$lib/receipts/MailText.svelte';
 	import { cleanMatchingSettings } from '$lib/matching/classify.js';
 	import { isVendorReceipt } from '$lib/matching/vendor-account.js';
 	import { addressBook, payeeName } from '$lib/bank/payee.js';
@@ -1115,9 +1116,9 @@
 								data-testid="preview-image"
 							/>
 						{:else if !selected.fileCid && selected.excerpt}
-							<pre
-								class="mt-3 max-h-64 overflow-auto rounded border border-border bg-surface-2 p-2 font-sans text-xs whitespace-pre-wrap text-text"
-								data-testid="preview-text">{selected.excerpt}</pre>
+							<div class="mt-3">
+								<MailText receipt={selected} {client} class="max-h-64" />
+							</div>
 						{/if}
 						{#if previewError}
 							<p class="mt-2 text-sm text-danger">{t('belege.previewFailed')}</p>

@@ -3,10 +3,10 @@
 // pdf-lib and its built-in Helvetica. Without it the receipt had a number in
 // the booking batch and no document in the ZIP.
 //
-// It shows what Belege kept of the mail at the fetch: sender, the day it came,
-// subject and the text – at most about 2,000 characters, the bridge's excerpt
-// (bridge/src/mail/mime.js). When the text was cut, the PDF says so; the
-// original stays in the mailbox (keeping it is #288).
+// It shows sender, the day it came, subject and the text: the whole text of
+// the mail as received where Belege kept it (`.eml`, #288; the ZIP holds it
+// beside this PDF), else the excerpt taken at the fetch – at most about 2,000
+// characters (bridge/src/mail/mime.js) – and then says when that was cut.
 
 /* eslint-disable belege/no-german -- a PDF for German bookkeeping stays German (#192) */
 
@@ -85,10 +85,11 @@ export function wrap(text, measure, width) {
 
 /**
  * @param {Record<string, any>} receipt a mail receipt without a file (`excerpt`)
- * @param {{ number: string, created: Date }} options its receipt number in this export
+ * @param {{ number: string, created: Date, text?: string | null }} options its receipt number in
+ *   this export; `text`: the mail's text from the kept original, when there is one
  * @returns {Promise<Uint8Array>}
  */
-export async function mailReceiptPdf(receipt, { number, created }) {
+export async function mailReceiptPdf(receipt, { number, created, text: full = null }) {
 	const pdf = await PDFDocument.create();
 	pdf.setTitle(winAnsi(`E-Mail-Beleg ${number}`));
 	pdf.setCreator('Belege');
@@ -144,7 +145,8 @@ export async function mailReceiptPdf(receipt, { number, created }) {
 	});
 	y -= LEADING + 4;
 
-	const text = String(receipt.excerpt ?? '');
+	const original = Boolean(full && full.trim());
+	const text = original ? String(full) : String(receipt.excerpt ?? '');
 	// Broken into lines first, then into the PDF's code page: winAnsi turns a
 	// line break into "?", and the whole mail became one block.
 	for (const line of wrap(readableMailText(text), (l) => measure(winAnsi(l)), width)) {
@@ -152,14 +154,18 @@ export async function mailReceiptPdf(receipt, { number, created }) {
 	}
 
 	y -= LEADING;
-	const notes = [
-		'Aus dem Text der E-Mail erzeugt, den Belege beim Abruf aus dem Buchhaltungspostfach gespeichert hat; die E-Mail selbst liegt im Postfach.',
-		...(isCut(text)
-			? [
-					'Der gespeicherte Text ist gekürzt (höchstens etwa 2.000 Zeichen) – die vollständige E-Mail steht im Postfach.'
-				]
-			: [])
-	];
+	const notes = original
+		? [
+				'Aus dem Text der E-Mail erzeugt; die E-Mail selbst, wie sie ankam, liegt als .eml mit derselben Belegnummer daneben.'
+			]
+		: [
+				'Aus dem Text der E-Mail erzeugt, den Belege beim Abruf aus dem Buchhaltungspostfach gespeichert hat; die E-Mail selbst liegt im Postfach.',
+				...(isCut(text)
+					? [
+							'Der gespeicherte Text ist gekürzt (höchstens etwa 2.000 Zeichen) – die vollständige E-Mail steht im Postfach.'
+						]
+					: [])
+			];
 	for (const note of notes) {
 		for (const line of wrap(winAnsi(note), (s) => regular.widthOfTextAtSize(s, 8), width)) {
 			write(line, { size: 8, color: GREY });

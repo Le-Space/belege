@@ -14,7 +14,7 @@ DATEV_2026-09.zip
 └── Uebersicht_2026-09.csv                  UTF-8, zum Lesen: jede Buchung, ihr Konto, Belegnummer, wie der Beleg zugeordnet wurde
 ```
 
-Ein Beleg, der eine E-Mail ohne Anhang ist (eine Quittung im Text der Mail selbst), kommt als PDF hinein, erzeugt aus dem, was Belege von der Mail behalten hat: Absender, Tag, Betreff und Text. Dieser Text ist der Auszug vom Abruf, höchstens etwa 2.000 Zeichen; das PDF sagt, wenn er gekürzt ist, und die Übersicht nennt das PDF als aus der Mail erzeugt. Die Original-Mail (.eml) aufzubewahren ist geplant (#288).
+Ein Beleg, der eine E-Mail ohne Anhang ist (eine Quittung im Text der Mail selbst), wird so aufbewahrt, wie die Mail ankam, versiegelt wie jede Datei (#288): `Belege/<Nummer>_<Anbieter>.eml` kommt ins ZIP und daneben ein PDF daraus – Absender, Tag, Betreff und der ganze Text der Mail (der Textteil, sonst der HTML-Teil als Text; nie ihr HTML). Ein Beleg, der importiert wurde, bevor Belege das Original behielt, hat nur den Auszug vom Abruf, höchstens etwa 2.000 Zeichen; er bekommt sein Original, wenn seine Mail wieder abgerufen wird, oder mit _Original holen_ im Beleg, solange die Mail noch im Postfach liegt – der Beleg sagt, wenn sie es nicht mehr tut. Bis dahin entsteht das PDF aus dem Auszug und sagt, wenn er gekürzt ist; die Übersicht nennt das PDF als aus der Mail erzeugt. Die Bridge gibt eine ganze Mail nur heraus, wenn sie an die Buchhaltungsadresse ging.
 
 ## Vor dem Export
 

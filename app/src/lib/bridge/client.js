@@ -338,6 +338,18 @@ export function createBridgeClient({
 			return /** @type {Promise<Uint8Array>} */ (call(`/mail/attachment?${q}`, {}, true));
 		},
 		/**
+		 * One mail as it was received (RFC 822), to keep as the original of a
+		 * receipt that is the mail itself (#288). Only a mail to the accounting
+		 * address; 404 when it is no longer in the mailbox.
+		 *
+		 * @param {string} id the mail's id
+		 * @returns {Promise<Uint8Array>}
+		 */
+		async mailRaw(id) {
+			const q = new URLSearchParams({ id });
+			return /** @type {Promise<Uint8Array>} */ (call(`/mail/raw?${q}`, {}, true));
+		},
+		/**
 		 * Move one mail to the mailbox's Trash – the bridge's only write to the
 		 * mailbox, on a person's confirmed click. Not a delete.
 		 *

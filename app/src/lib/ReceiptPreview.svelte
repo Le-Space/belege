@@ -10,6 +10,7 @@
 	import { currentBlobs } from './session.svelte.js';
 	import { needsConfirmation } from './receipts/import.js';
 	import { t } from './i18n/index.js';
+	import MailText from './receipts/MailText.svelte';
 
 	/** @type {{ receipt: Record<string, any>, width?: number, magnifier?: boolean }} */
 	let { receipt, width = 260, magnifier = false } = $props();
@@ -178,10 +179,7 @@
 		{@render lensOver()}
 	</div>
 {:else if !receipt.fileCid && receipt.excerpt}
-	<pre
-		class="max-h-40 overflow-auto rounded border border-border bg-surface-2 p-2 font-sans text-xs whitespace-pre-wrap text-text"
-		data-testid="tx-receipt-preview"
-		data-rendered="true">{receipt.excerpt}</pre>
+	<MailText {receipt} class="max-h-40" testid="tx-receipt-preview" />
 {/if}
 {#if failed}
 	<p class="mt-1 text-xs text-danger">{t('belege.previewFailed')}</p>
