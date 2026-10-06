@@ -37,9 +37,22 @@ const SOURCE_MARK = /** @type {Record<string, string>} */ ({
 
 /** Where a balance comes from (#287): Kraken's ledger, or worked back from the bookings. */
 const BALANCE_SOURCE = /** @type {Record<string, string>} */ ({
-	kraken: '(laut Kraken)',
-	derived: '(errechnet)'
+	kraken: 'laut Kraken',
+	derived: 'errechnet'
 });
+
+/**
+ * `(laut Kraken, abgestimmt)`: where the balance comes from, and for the
+ * closing whether the bookings lead to it.
+ *
+ * @param {import('./statement.js').Balance} balance
+ * @param {import('./statement.js').Reconciliation | null} [check]
+ */
+function balanceNote(balance, check = null) {
+	const parts = [BALANCE_SOURCE[balance.source], check?.status === 'ok' ? 'abgestimmt' : ''];
+	const text = parts.filter(Boolean).join(', ');
+	return text ? ` (${text})` : '';
+}
 
 /** 1.234,56 with its sign. @param {number} cents */
 const euros = (cents) => `${cents < 0 ? '-' : ''}${amount(cents)}`;
@@ -169,7 +182,7 @@ export async function statementPdf(statement, { created }) {
 	if (statement.balances) {
 		row(
 			{
-				text: `Anfangsbestand ${BALANCE_SOURCE[statement.balances.opening.source] ?? ''}`.trim(),
+				text: `Anfangsbestand${balanceNote(statement.balances.opening)}`,
 				quantity: qty(statement.balances.opening.units),
 				amount:
 					statement.balances.opening.units === null ? euros(statement.balances.opening.cents) : ''
@@ -196,13 +209,35 @@ export async function statementPdf(statement, { created }) {
 	if (statement.balances) {
 		row(
 			{
-				text: `Endbestand ${BALANCE_SOURCE[statement.balances.closing.source] ?? ''}`.trim(),
+				text: `Endbestand${balanceNote(statement.balances.closing, statement.balances.check)}`,
 				quantity: qty(statement.balances.closing.units),
 				amount:
 					statement.balances.closing.units === null ? euros(statement.balances.closing.cents) : ''
 			},
 			bold
 		);
+		// Not reconciled (#287): what the bookings give, and the gap – no one number as the truth.
+		const check = statement.balances.check;
+		if (check?.status === 'open') {
+			const value = (/** @type {{ cents: number, units: string | null }} */ v) => ({
+				quantity: qty(v.units),
+				amount: v.units === null ? euros(v.cents) : ''
+			});
+			row(
+				{
+					text: 'Nicht abgestimmt: Buchungen ergeben',
+					...value(check.booked)
+				},
+				bold
+			);
+			row(
+				{
+					text: 'Differenz',
+					...value(check.difference)
+				},
+				bold
+			);
+		}
 	}
 
 	// Totals.
@@ -224,6 +259,28 @@ export async function statementPdf(statement, { created }) {
 		},
 		bold
 	);
+
+	// What "nicht abgestimmt" means here, below the totals.
+	const check = statement.balances?.check;
+	if (check?.status === 'open') {
+		const why =
+			check.by === 'month'
+				? 'Nicht abgestimmt: Anfangs- und Endbestand sind die von Kraken; Anfangsbestand und Buchungen des Monats ergeben einen anderen Endbestand. Im Monat fehlt eine Bewegung, oder eine Buchung wurde gelöscht.'
+				: 'Nicht abgestimmt: Der Endbestand ist aus dem heutigen Bestand zurückgerechnet; alle Buchungen seit Beginn ergeben einen anderen. Seitdem fehlt eine Bewegung, etwa eine Gebühr, die die Quelle nicht meldet, oder eine Buchung wurde gelöscht.';
+		/** @type {string[]} */
+		const wrapped = [''];
+		for (const w of winAnsi(why).split(' ')) {
+			const next = wrapped[wrapped.length - 1] ? `${wrapped[wrapped.length - 1]} ${w}` : w;
+			if (bold.widthOfTextAtSize(next, SIZE) > A4[0] - 2 * MARGIN) wrapped.push(w);
+			else wrapped[wrapped.length - 1] = next;
+		}
+		newPageIfNeeded(wrapped.length + 1);
+		y -= ROW;
+		for (const text of wrapped) {
+			page.drawText(text, { x: MARGIN, y, size: SIZE, font: bold });
+			y -= ROW;
+		}
+	}
 
 	// Footer on every page.
 	const note = crypto

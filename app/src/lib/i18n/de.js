@@ -2234,6 +2234,8 @@ export default {
 			'Netzwerkgebühren, die ein Akash-Verbrauchsnachweis deckt, als eine Sammelbuchung je Wallet-Konto (die Einzelposten stehen im Nachweis)',
 		withoutStatementsHint:
 			'Ohne Kontoauszüge bleibt das Belegfeld bei Buchungen ohne eigenen Beleg leer – Gebühren, Umbuchungen, Erträge: Ihr Beleg wäre sonst der Kontoauszug.',
+		unreconciled:
+			'Nicht abgestimmt: {accounts}. Der Endbestand passt nicht zu den Buchungen – es fehlt eine Bewegung, oder eine Buchung wurde gelöscht. Der Kontoauszug nennt die Differenz.',
 		checks: 'Vor dem Export',
 		check: {
 			tests:

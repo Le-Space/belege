@@ -59,6 +59,8 @@ Jedes Konto mit einer Buchung im Monat bekommt einen Auszug als PDF, egal ob Ban
 
 Ein Krypto-Konto zeigt zusätzlich Menge und Kurs jeder Buchung mit der Quelle des Kurses (K = Kraken, CG = CoinGecko, EZB = EZB-Referenzkurs, CBR = Referenzkurs der Bank of Russia, H = Preis des Handels). Anfangs- und Endbestand im Asset kommen, wo es geht, aus dem Kraken-Ledger – jeder Eintrag trägt den Bestand danach – und sagen das: _(laut Kraken)_. Alles andere wird aus dem letzten gemeldeten Bestand der Börse oder Wallet zurückgerechnet und als _(errechnet)_ markiert: Das stimmt nur, wenn jede Bewegung seitdem gebucht ist (#287). Die Kraken-Bestände werden ab der nächsten Synchronisierung festgehalten; für frühere Monate ab dem Monatsersten neu synchronisieren.
 
+Der Endbestand wird abgestimmt, wo sich etwas Unabhängiges vergleichen lässt: bei Kraken muss Anfangsbestand plus Buchungen des Monats Krakens Endbestand ergeben; bei einer Wallet, deren ganze Historie jede Synchronisierung liest, müssen alle Buchungen von null an den aus heute zurückgerechneten Endbestand ergeben. Stimmt es, heißt der Bestand _abgestimmt_. Sonst druckt der Auszug _Nicht abgestimmt_ mit dem, was die Buchungen ergeben, und der Differenz, und der Export nennt das Konto: Es fehlt eine Bewegung (etwa eine Gebühr, die die Quelle nicht meldet), oder eine Buchung wurde gelöscht. Ein Bankkonto, dessen Historie nicht bei null beginnt, und die Teilhistorie eines gekürzten Nodes bleiben _errechnet_, ungeprüft.
+
 Bei einem Bankkonto zeigt der Auszug, was Belege gespeichert hat. Den Kontoauszug der Bank ersetzt er nicht.
 
 ## Eigenbeleg

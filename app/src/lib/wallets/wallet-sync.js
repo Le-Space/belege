@@ -746,6 +746,9 @@ export async function bookWalletHistory({ client, store, wallet, result, now = n
 			lastSyncedOn: today,
 			balance: info.balance,
 			balanceOn: info.balance === null ? null : today,
+			// The whole history was read (not a pruned node's part of it): its
+			// bookings, summed from nothing, must give the balance (#287).
+			fullHistory: !(result.history?.pruned && result.history?.completedBy !== 'indexer'),
 			...(info.contract ? { tokenContract: info.contract } : {})
 		});
 		totals.new += counts.new;

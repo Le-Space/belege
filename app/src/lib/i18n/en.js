@@ -2202,6 +2202,8 @@ export default {
 			'Network fees an Akash usage statement covers as one collective booking per wallet account (the statement lists each)',
 		withoutStatementsHint:
 			'Without statements, the receipt field stays empty for bookings without a receipt of their own – fees, own transfers, rewards: their receipt would be the statement.',
+		unreconciled:
+			'Not reconciled: {accounts}. The closing balance does not match the bookings – a movement is missing, or a booking was deleted. The statement gives the difference.',
 		checks: 'Before the export',
 		check: {
 			tests:

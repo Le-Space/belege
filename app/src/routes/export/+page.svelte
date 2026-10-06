@@ -138,6 +138,10 @@
 				})
 			: null
 	);
+	// Statements whose bookings do not lead to their closing balance (#287).
+	let unreconciled = $derived(
+		(plan?.statements ?? []).filter((s) => s.balances?.check?.status === 'open').map((s) => s.label)
+	);
 	// Unconfirmed bookings whose suggestion is automatic (transfer, fee).
 	let automatic = $derived(
 		(plan?.checks.unassigned ?? []).flatMap((tx) => {
@@ -438,6 +442,11 @@
 				{/if}
 			</span>
 		</label>
+		{#if withStatements && unreconciled.length}
+			<p class="mt-2 text-sm text-warning" role="status" data-testid="export-unreconciled">
+				{t('export.unreconciled', { accounts: unreconciled.join(', ') })}
+			</p>
+		{/if}
 		{#if hasFeeStatement}
 			<label class="mt-2 flex items-start gap-2 text-sm text-text">
 				<input
