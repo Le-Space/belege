@@ -2348,6 +2348,12 @@ export default {
 		tradeOpen: 'open the other side',
 		time: '{time}',
 		detail: {
+			feeRule: {
+				forget: 'Forget this rule',
+				forgetTitle:
+					'Learned from an earlier booking with this purpose. Forgotten: this and every booking it covers ask for a receipt again.',
+				all: 'All learned bank fees'
+			},
 			instalment: {
 				offer: 'partly paid ({count}×) · {open} open',
 				choose: 'Link as one more instalment',
