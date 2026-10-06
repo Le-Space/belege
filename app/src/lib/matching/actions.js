@@ -495,6 +495,24 @@ export async function forgetBankFee(store, key) {
 }
 
 /**
+ * "Diese Regeln vergessen" on Home (#320): the learned bank fees that reached
+ * only bookings a fee never looks like (classify.js wrongFeeKeys).
+ *
+ * @param {MatchingStore} store
+ * @param {string[]} keys
+ */
+export async function forgetBankFees(store, keys) {
+	if (!keys.length) return;
+	const drop = new Set(keys);
+	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+	await setSetting(store.settings, 'matching', {
+		...current,
+		feeKeys: current.feeKeys.filter((k) => !drop.has(k))
+	});
+	await decided(store, 'bank-fee-forget', { count: keys.length });
+}
+
+/**
  * "Aussortieren": the receipt is no receipt of ours – a copy of another
  * (`duplicateOf`), not needed, or private and not business (`private`, e.g.
  * one from the private mailbox), with the person's reason as `note`. Out of

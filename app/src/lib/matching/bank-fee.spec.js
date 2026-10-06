@@ -199,6 +199,50 @@ describe('a learned bank fee covers only what looks like one (#320)', () => {
 	});
 });
 
+describe('wrongly learned bank fees, found and forgotten (#320)', () => {
+	it('finds the bookings a learned key reaches that do not look like a fee, and the keys to forget', async () => {
+		const { feeKey, wrongFeeKeys } = await import('./classify.js');
+		const { forgetBankFees } = await import('./actions.js');
+		const vendor = (/** @type {string} */ m) =>
+			tx({
+				id: `v${m}`,
+				accountId: 'ACC-GLS',
+				amountCents: -5259,
+				counterparty: 'Kabel Beispiel GmbH',
+				purpose: `${m}/2025 K-NR. 000000001 Ihre Rechnung online bei www.beispiel.de/meinkabel`
+			});
+		const porto = (/** @type {string} */ m) =>
+			tx({
+				id: `p${m}`,
+				accountId: 'ACC-GLS',
+				amountCents: -390,
+				counterparty: '',
+				purpose: `Porto ${m}/2025`
+			});
+		const all = [vendor('02'), vendor('03'), porto('02'), porto('03')];
+		const keys = [feeKey(all[0]), feeKey(all[2])];
+		const found = wrongFeeKeys(all, keys);
+		expect(found.bookings.map((t) => t.id)).toEqual(['v02', 'v03']);
+		expect(found.keys).toEqual([feeKey(all[0])]);
+		// A key that also reaches a real fee stays.
+		const mixed = wrongFeeKeys(
+			[...all, { ...vendor('04'), counterparty: '', purpose: 'Porto 04/2025' }],
+			keys
+		);
+		expect(mixed.keys).toEqual([feeKey(all[0])]);
+
+		await setSetting(store.settings, 'matching', {
+			...(await getSetting(store.settings, 'matching')),
+			feeKeys: keys
+		});
+		await forgetBankFees(store, found.keys);
+		expect((await getSetting(store.settings, 'matching')).feeKeys).toEqual([feeKey(all[2])]);
+		expect((await store.events.list()).map((/** @type {any} */ e) => e.action)).toContain(
+			'bank-fee-forget'
+		);
+	});
+});
+
 describe('setAsideReceipt and restoreReceipt', () => {
 	it('a copy is set aside: out of the matching, its link undone; restored it is read again', async () => {
 		const t = await addTx(tx({ amountCents: -11900, counterparty: 'Wolkenfabrik' }));

@@ -232,6 +232,36 @@ export function looksLikeBankFee(tx) {
 }
 
 /**
+ * Learned bank fees that went wrong (#320): keys learned before the check
+ * from a vendor's debit or an invoice, and the bookings they reach that do
+ * not look like a fee. Those bookings ask for a receipt again by themselves;
+ * a key that reaches nothing but such bookings is one to forget.
+ *
+ * @param {Record<string, any>[]} transactions
+ * @param {string[]} feeKeys
+ * @returns {{ bookings: Record<string, any>[], keys: string[] }}
+ */
+export function wrongFeeKeys(transactions, feeKeys) {
+	const learned = new Set(feeKeys);
+	/** @type {Map<string, { fee: number, other: Record<string, any>[] }>} */
+	const byKey = new Map();
+	for (const tx of transactions) {
+		if (tx.deleted) continue;
+		const key = feeKey(tx);
+		if (!key || !learned.has(key)) continue;
+		const entry = byKey.get(key) ?? { fee: 0, other: [] };
+		if (looksLikeBankFee(tx)) entry.fee++;
+		else entry.other.push(tx);
+		byKey.set(key, entry);
+	}
+	const bookings = [...byKey.values()].flatMap((e) => e.other);
+	const keys = [...byKey.entries()]
+		.filter(([, e]) => e.other.length > 0 && e.fee === 0)
+		.map(([k]) => k);
+	return { bookings, keys };
+}
+
+/**
  * What makes two bank fees "the same" for learning: the account and the
  * purpose's words, without digits (dates and numbers change every month).
  *
