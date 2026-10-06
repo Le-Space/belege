@@ -57,6 +57,7 @@ export default {
 			switchOff: 'Aus',
 			switchOn: 'Ein',
 			switchOnFirst: 'Einschalten …',
+			onAtNextUnlock: 'ein – ab dem nächsten Entsperren',
 			setUp: 'Einrichten …',
 			reloadNeeded:
 				'Geräte gehen beim nächsten Entsperren online – der Knoten war beim Entsperren offline.',

@@ -183,19 +183,22 @@ export async function resumeNetwork() {
 }
 
 /**
- * "Eigene Geräte" on or off in the menu. Off: now, and at the next unlock.
- * On: at once when this session's node went online at unlock, else from the
- * next unlock.
+ * "Eigene Geräte" on or off, in the menu and in the consent screen alike
+ * (#327). Off: now, and at the next unlock. On: at once when this session's
+ * node went online at unlock, else from the next unlock (`reloadNeeded`).
+ * Before an unlock only the choice is kept: the unlock applies it.
  *
  * @param {boolean} on
  */
 export async function setDevicesNetwork(on) {
 	const { setDeviceSync } = await import('./sync/device-sync.js');
 	setDeviceSync(on);
+	if (!session) return;
 	const closed = await applySyncGate();
 	if (!on) {
 		hangUpSync();
 		app.sync.online = false;
+		app.network.reloadNeeded = false;
 		return;
 	}
 	if (!closed && session?.online) {

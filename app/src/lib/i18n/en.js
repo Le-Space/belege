@@ -51,6 +51,7 @@ export default {
 			off: 'off',
 			switchOff: 'Off',
 			switchOn: 'On',
+			onAtNextUnlock: 'on – from the next unlock',
 			switchOnFirst: 'Switch on …',
 			setUp: 'Set up …',
 			reloadNeeded:
