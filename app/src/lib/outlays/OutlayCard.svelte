@@ -14,6 +14,7 @@
 	import { btn } from '$lib/ui/styles.js';
 	import { t } from '$lib/i18n/index.js';
 	import { HOW, bookOutlay, euroCents, isOutlay, outlayAmount, undoOutlay } from './outlays.js';
+	import { invertRate, isWeak, perEuro } from '$lib/assets/rate-display.js';
 
 	/** @type {{ receipt: Record<string, any>, client: { rate: (asset: string, date: string) => Promise<any> } | null }} */
 	let { receipt, client } = $props();
@@ -36,7 +37,11 @@
 	/** @type {'cash' | 'card' | 'other'} */
 	let how = $state('cash');
 	let day = $state('');
+	/** EUR per unit, at full precision: what is booked. */
 	let rate = $state('');
+	/** What the field shows and the person types: EUR per unit, or units per euro (#312). */
+	let typed = $state('');
+	let perEuroMode = $state(false);
 	/** @type {'ecb' | 'cbr' | 'manual'} */
 	let rateSource = $state('manual');
 	let rateAt = $state('');
@@ -56,7 +61,24 @@
 	});
 
 	let foreign = $derived(Boolean(amount && amount.currency !== 'EUR'));
-	let rateValue = $derived(rate.trim().replace(',', '.'));
+	let rateValue = $derived(rate);
+	/** A decimal as typed, either mark: `91,5655` → `91.5655`. @param {string} s */
+	const plain = (s) => s.trim().replace(',', '.');
+	/** Show the booked rate the way the field is set. @param {string} r */
+	const show = (r) => (perEuroMode ? (perEuro(r) ?? '') : r).replace('.', ',');
+
+	/** @param {string} value */
+	function typeRate(value) {
+		typed = value;
+		rateSource = 'manual';
+		const v = plain(value);
+		rate = perEuroMode ? (/^\d+(\.\d+)?$/.test(v) ? (invertRate(v) ?? '') : '') : v;
+	}
+
+	function turnRate() {
+		perEuroMode = !perEuroMode;
+		typed = rate ? show(rate) : '';
+	}
 	let euros = $derived.by(() => {
 		if (!amount) return null;
 		if (!foreign) return amount.amountCents;
@@ -72,6 +94,8 @@
 		error = null;
 		day = receiptDate(/** @type {any} */ (receipt)) ?? '';
 		rate = '';
+		typed = '';
+		perEuroMode = Boolean(amount && isWeak(amount.currency));
 		rateSource = 'manual';
 		rateAt = '';
 		noEcb = false;
@@ -89,6 +113,8 @@
 			// An official reference rate only: the ECB's, for RUB the Bank of Russia's.
 			if ((r?.source === 'ecb' || r?.source === 'cbr') && Number(r.rate) > 0) {
 				rate = String(r.rate);
+				perEuroMode = isWeak(amount.currency, rate);
+				typed = show(rate);
 				rateSource = r.source;
 				rateAt = String(r.at ?? '');
 				noEcb = false;
@@ -162,12 +188,19 @@
 		</p>
 		{#if booked.original}
 			<p class="text-xs text-faint" data-testid="outlay-booked-rate">
-				{t('belege.outlay.bookedRate', {
-					original: booked.original.amount.replace('-', ''),
-					currency: booked.original.currency,
-					rate: booked.original.rate,
-					source: t(`belege.outlay.rateSource.${booked.outlay?.rateSource ?? 'manual'}`)
-				})}{booked.outlay?.rateNote ? ` · ${booked.outlay.rateNote}` : ''}
+				{isWeak(booked.original.currency, booked.original.rate)
+					? t('belege.outlay.bookedRatePerEuro', {
+							original: booked.original.amount.replace('-', ''),
+							currency: booked.original.currency,
+							rate: (perEuro(booked.original.rate) ?? '').replace('.', ','),
+							source: t(`belege.outlay.rateSource.${booked.outlay?.rateSource ?? 'manual'}`)
+						})
+					: t('belege.outlay.bookedRate', {
+							original: booked.original.amount.replace('-', ''),
+							currency: booked.original.currency,
+							rate: booked.original.rate,
+							source: t(`belege.outlay.rateSource.${booked.outlay?.rateSource ?? 'manual'}`)
+						})}{booked.outlay?.rateNote ? ` · ${booked.outlay.rateNote}` : ''}
 			</p>
 		{/if}
 		<button
@@ -222,16 +255,38 @@
 				{/if}
 				{#if foreign && amount}
 					<label class="text-text"
-						>{t('belege.outlay.rate', { currency: amount.currency })}
+						>{perEuroMode
+							? t('belege.outlay.ratePerEuro', { currency: amount.currency })
+							: t('belege.outlay.rate', { currency: amount.currency })}
 						<input
-							class="ml-2 w-28 {field}"
+							class="ml-2 w-32 {field}"
 							inputmode="decimal"
-							bind:value={rate}
-							oninput={() => (rateSource = 'manual')}
-							placeholder="0,0105"
+							value={typed}
+							oninput={(e) => typeRate(e.currentTarget.value)}
+							placeholder={perEuroMode ? '91,57' : '0,0105'}
 							data-testid="outlay-rate"
 						/>
 					</label>
+					<p class="text-xs text-faint" data-testid="outlay-rate-other">
+						{#if rate}{perEuroMode
+								? t('belege.outlay.rateOther', {
+										value: rate.replace('.', ','),
+										unit: `EUR je 1 ${amount.currency}`
+									})
+								: t('belege.outlay.rateOther', {
+										value: (perEuro(rate) ?? '').replace('.', ','),
+										unit: `${amount.currency} je 1 EUR`
+									})}{/if}
+						<button
+							type="button"
+							class="ml-1 underline"
+							onclick={turnRate}
+							data-testid="outlay-rate-turn"
+							>{perEuroMode
+								? t('belege.outlay.rateTurnToUnit', { currency: amount.currency })
+								: t('belege.outlay.rateTurnToEuro', { currency: amount.currency })}</button
+						>
+					</p>
 					{#if asking}
 						<p class="text-xs text-faint">{t('belege.outlay.asking')}</p>
 					{:else if rateSource !== 'manual'}
