@@ -17,7 +17,8 @@
 	// sections, a planned option and per-service detail. The look is the
 	// element's, mapped onto the same tokens escrow01 maps it onto.
 	import { has, t, list } from './i18n/index.js';
-	import { deviceSyncOn, setDeviceSync } from './sync/device-sync.js';
+	import { deviceSyncOn } from './sync/device-sync.js';
+	import { setDevicesNetwork } from './session.svelte.js';
 	import IntegrationLogo from './consent/IntegrationLogo.svelte';
 	import { INTEGRATION_GROUPS } from './consent/integrations.js';
 	import { consent } from './consent.js';
@@ -40,11 +41,18 @@
 
 	/** @type {HTMLDialogElement | undefined} */
 	let dialog = $state();
+
+	// Device sync is this device's choice, kept in this browser (sync/device-sync.js).
+	let syncOn = $state(deviceSyncOn());
 	const { open, accepted } = consent;
 
 	$effect(() => {
 		if (!dialog) return;
-		if ($open && !dialog.open) dialog.showModal();
+		if ($open && !dialog.open) {
+			// The menu may have switched own devices since it was last open (#327).
+			syncOn = deviceSyncOn();
+			dialog.showModal();
+		}
 		if (!$open && dialog.open) dialog.close();
 	});
 
@@ -61,9 +69,6 @@
 	function onClose() {
 		if ($open && dialog && !dialog.open) dialog.showModal();
 	}
-
-	// Device sync is this device's choice, kept in this browser (sync/device-sync.js).
-	let syncOn = $state(deviceSyncOn());
 
 	/**
 	 * @typedef {{ id: string, status: 'active' | 'whenPaired' | 'whenSetUp' | 'notYet', planned?: boolean }} Service
@@ -200,7 +205,8 @@
 								checked={syncOn}
 								onchange={(e) => {
 									syncOn = e.currentTarget.checked;
-									setDeviceSync(syncOn);
+									// The menu's own path: online at once, or the reload hint (#327).
+									setDevicesNetwork(syncOn);
 								}}
 								aria-describedby="consent-devices-text"
 								class="peer sr-only"

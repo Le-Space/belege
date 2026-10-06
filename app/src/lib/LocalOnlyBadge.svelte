@@ -153,11 +153,24 @@
 					<div class={row} data-testid="network-devices">
 						<span class="min-w-0">
 							<span class="block text-heading">{t('header.network.devices')}</span>
-							<span class="block text-xs text-faint">{stateLine(devicesPart)}</span>
+							<span class="block text-xs text-faint" data-testid="network-devices-state"
+								>{app.network.reloadNeeded && !app.sync.online && !app.network.paused
+									? t('header.network.onAtNextUnlock')
+									: stateLine(devicesPart)}</span
+							>
 						</span>
 						{#if app.network.paused}
 							<span class="text-xs text-faint">{t('header.network.pausedShort')}</span>
 						{:else if app.sync.online}
+							<button
+								type="button"
+								class={small}
+								disabled={busy}
+								onclick={() => run(() => setDevicesNetwork(false))}
+								data-testid="network-devices-off">{t('header.network.switchOff')}</button
+							>
+						{:else if app.network.reloadNeeded}
+							<!-- On, waiting for the next unlock (#327): it can still be switched off. -->
 							<button
 								type="button"
 								class={small}
