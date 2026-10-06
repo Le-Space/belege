@@ -18,12 +18,18 @@ const book = (page, tx) =>
 		await e2e.runMatching();
 	}, tx);
 
+// The app's today in this spec (page.clock): the two later instalments lie in
+// its month, which Zahlungen opens; counted from the real today, early in a
+// month the one five days back fell into it and the other did not.
+const TODAY = new Date('2026-10-25T10:00:00Z');
+
 test('each instalment is covered by the same invoice, and the invoice says what is open', async ({
 	page
 }) => {
 	const day = (/** @type {number} */ back) =>
-		new Date(Date.now() - back * 864e5).toISOString().slice(0, 10);
+		new Date(TODAY.getTime() - back * 864e5).toISOString().slice(0, 10);
 	await addVirtualAuthenticator(page);
+	await page.clock.install({ time: TODAY });
 	await page.goto('/');
 	await acceptConsent(page);
 	await page.getByTestId('passkey-label').fill('E2E');
