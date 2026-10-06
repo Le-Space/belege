@@ -2044,7 +2044,8 @@ export default {
 			'vendor-assist': 'AI explanation of a vendor account',
 			matching: 'Matching',
 			decision: 'Decision',
-			export: 'DATEV export'
+			export: 'DATEV export',
+			'books-moved': 'Books taken over'
 		},
 		text: {
 			bookingChanged: 'before {from}, now {to}{flipped}{unconfirmed}{receipt}',
@@ -2068,6 +2069,7 @@ export default {
 			transferAssist: '{model} · {candidates} bookings checked · {seconds} s · {tokens} tokens',
 			vendorAssist: '{model} · {rows} rows checked · {seconds} s · {tokens} tokens',
 			export: 'DATEV export {month}: {bookings} bookings, {receipts} receipts',
+			booksMoved: 'Taken over from other books, packed on {date}: {records} records, {files} files',
 			exportSuspense:
 				'DATEV export {month}: {bookings} bookings, {suspense} of them on the suspense account, {receipts} receipts',
 			matching:

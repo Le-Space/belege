@@ -228,6 +228,16 @@ export function describeEvent(e, { receipts = [], transactions = [] } = {}) {
 					receipts: e.receipts ?? 0
 				})
 			};
+		case 'books-moved':
+			return {
+				...base,
+				title: t('verlauf.kind.books-moved'),
+				text: t('verlauf.text.booksMoved', {
+					date: formatDate(String(e.packedAt ?? '').slice(0, 10)),
+					records: e.records ?? 0,
+					files: e.files ?? 0
+				})
+			};
 		default:
 			return { ...base, title: String(e.kind), text: '' };
 	}

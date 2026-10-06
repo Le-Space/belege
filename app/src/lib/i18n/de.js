@@ -2074,7 +2074,8 @@ export default {
 			'vendor-assist': 'KI-Erklärung eines Lieferantenkontos',
 			matching: 'Abgleich',
 			decision: 'Entscheidung',
-			export: 'DATEV-Export'
+			export: 'DATEV-Export',
+			'books-moved': 'Bücher übernommen'
 		},
 		text: {
 			bookingChanged: 'vorher {from}, jetzt {to}{flipped}{unconfirmed}{receipt}',
@@ -2099,6 +2100,8 @@ export default {
 			transferAssist: '{model} · {candidates} Buchungen geprüft · {seconds} s · {tokens} Tokens',
 			vendorAssist: '{model} · {rows} Zeilen geprüft · {seconds} s · {tokens} Tokens',
 			export: 'DATEV-Export {month}: {bookings} Buchungen, {receipts} Belege',
+			booksMoved:
+				'Übernommen aus anderen Büchern, gepackt am {date}: {records} Einträge, {files} Dateien',
 			exportSuspense:
 				'DATEV-Export {month}: {bookings} Buchungen, davon {suspense} auf dem Sammelkonto, {receipts} Belege',
 			matching:
