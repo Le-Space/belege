@@ -6,6 +6,16 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A mail receipt kept as it came** (#288, #339). A receipt that is the mail itself – a shop's receipt without a PDF – now keeps the mail as it was received (`.eml`), sealed like any file, beside the excerpt used for search and matching.
+  - **Export:** the `.eml` goes into the ZIP beside the PDF, and the PDF shows the mail's whole text instead of at most 2,000 characters.
+  - **Preview:** the whole text, read from the original – always as text, never its HTML.
+  - **Receipts from before** get their original when the mail is fetched again, or with "Original holen", as long as it is still in the mailbox; the receipt says when it no longer is.
+  - The bridge hands out a whole mail only when it was sent to the accounting address. Backups include the kept mails.
+- **Bookings without an account onto a suspense account, optionally** (#323, #338). Full pre-assignment stays the default. With a suspense account named in the bookkeeping settings, the export page offers to put bookings that are still unclear onto it instead of waiting: without a BU key, the booking text starting with "Ungeklärt:", marked in the overview to be re-booked. A bank account without its ledger account still blocks. See [docs/export.md](docs/export.md).
+- **Rates for the tenge and other currencies the ECB does not publish** (#325, #337). For KZT the National Bank of Kazakhstan's official rate; for UZS, GEL, AMD, KGS, AED and the others the Bank of Russia rates, a cross rate through the ruble – named as such on the outlay, the booking and the statement (CBR-X), not an official euro rate.
+
 ### Changed
 
 - **A ruble rate as people say it** (#312, #329). A private outlay in a weak currency shows and takes its rate as units per euro – 95,2381 RUB je 1 EUR instead of 0,0105 EUR –, with the other direction beside it and a button to type it that way. The full rate is still what is booked; the euro amounts do not change.
@@ -13,6 +23,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **Own devices switched on in the consent screen** (#327, #336). Switched on there while the node had stayed offline at unlock, the network menu still said "aus" and offered "Einschalten …" again. It now says "ein – ab dem nächsten Entsperren", offers the reload, and can be switched off again; the consent screen also shows the switch as the menu last left it.
 - **A monthly statement's balances, taken from the source and checked** (#287, #332, #333). A crypto account's opening and closing balance had been worked back from today's: any movement not booked since shifted every earlier month, silently.
   - **Kraken:** the balances come from Kraken's own ledger, which carries the balance after every entry; "(laut Kraken)". They are kept from the next sync; for earlier months, sync again from the month's first day.
   - **Checked:** Kraken's start plus the month's bookings must give its end; a wallet read in full must add up from nothing. Agreed, the balance says "abgestimmt"; not, the statement prints "Nicht abgestimmt" with what the bookings give and the difference, and Export names the account.
