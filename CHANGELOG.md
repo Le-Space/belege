@@ -8,7 +8,12 @@ All notable changes to Le Space Belege. The format follows
 
 ### Changed
 
+- **A ruble rate as people say it** (#312, #329). A private outlay in a weak currency shows and takes its rate as units per euro – 95,2381 RUB je 1 EUR instead of 0,0105 EUR –, with the other direction beside it and a button to type it that way. The full rate is still what is booked; the euro amounts do not change.
 - **Belege shows one month at a time, and opens in a fraction of the time** (#313, #317). The months stand beside the sources with their counts and what is open (a select on a phone), "Alle Monate" on request; a search spans every month, and a receipt opened by link shows its own month. The list had looked up every row's matches and payments anew: with a year of receipts it took seconds to open; it now takes about a tenth of a second.
+
+### Fixed
+
+- **A learned bank fee covers only what looks like one** (#320, #322, #324, #326). "Bankgebühr ohne Beleg" had been learned from a booking and then covered payments with an invoice, such as a phone bill. It now applies only to bookings that look like a fee; a learned rule can be forgotten where it applies ("Diese Regel vergessen"), and Home lists the payments it covered wrongly.
 
 ## [0.7.0] – 2026-10-05
 
