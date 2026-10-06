@@ -2382,6 +2382,12 @@ export default {
 		tradeOpen: 'andere Seite öffnen',
 		time: '{time} Uhr',
 		detail: {
+			feeRule: {
+				forget: 'Diese Regel vergessen',
+				forgetTitle:
+					'Gelernt aus einer früheren Buchung mit diesem Verwendungszweck. Vergessen: Diese und alle Buchungen, die sie abdeckt, fragen wieder nach einem Beleg.',
+				all: 'Alle gelernten Bankgebühren'
+			},
 			instalment: {
 				offer: 'teilweise bezahlt ({count}×) · {open} offen',
 				choose: 'Als weitere Teilzahlung zuordnen',

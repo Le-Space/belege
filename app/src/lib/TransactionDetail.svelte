@@ -91,7 +91,8 @@
 		rejectRefund,
 		rejectTransfer,
 		setNoReceipt,
-		unlinkMatch
+		unlinkMatch,
+		forgetBankFee
 	} from './matching/actions.js';
 	import {
 		coverageBadge,
@@ -119,7 +120,7 @@
 		pointsBreakdown,
 		thresholdsText
 	} from './matching/explain.js';
-	import { cleanMatchingSettings } from './matching/classify.js';
+	import { cleanMatchingSettings, feeKey } from './matching/classify.js';
 	import {
 		linkRepayment,
 		markPrivate,
@@ -378,6 +379,13 @@
 				/** @type {any} */ (currentStore()),
 				ownIbanOffer.iban
 			);
+			await runMatchingNow();
+		});
+	// "Diese Regel vergessen" (#320): the learned bank fee that covers this booking.
+	const forgetFeeRule = () =>
+		act(async () => {
+			const key = feeKey(/** @type {any} */ (tx));
+			if (key) await forgetBankFee(/** @type {any} */ (currentStore()), key);
 			await runMatchingNow();
 		});
 	let ruleLine = $derived(
@@ -1985,6 +1993,22 @@
 					>
 						<p class="text-xs font-semibold text-heading">{t('explain.whyNone')}</p>
 						<p class="mt-0.5 text-sm text-text" data-testid="tx-why-rule-line">{ruleLine}</p>
+						{#if classification?.kind === 'bank-fee' && classification.via === 'learned'}
+							<!-- A rule learned from another booking (#320): seen, and dropped, where it applies. -->
+							<div class="mt-1.5 flex flex-wrap items-center gap-3 text-sm">
+								<button
+									type="button"
+									class="underline"
+									onclick={forgetFeeRule}
+									disabled={busy}
+									title={t('zahlungen.detail.feeRule.forgetTitle')}
+									data-testid="tx-fee-rule-forget">{t('zahlungen.detail.feeRule.forget')}</button
+								>
+								<a class="text-faint underline" href={resolve('/einstellungen')}
+									>{t('zahlungen.detail.feeRule.all')}</a
+								>
+							</div>
+						{/if}
 						{#if (classification?.kind === 'own-transfer' || classification?.kind === 'refund' || classification?.kind === 'crypto-swap' || classification?.kind === 'token-migration') && classification.counterBookingId && !tx.noReceipt}
 							<div class="mt-1.5 flex flex-wrap gap-3 text-sm">
 								<button
