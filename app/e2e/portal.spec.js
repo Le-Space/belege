@@ -187,6 +187,8 @@ test('Vodafone invoices from the portal become receipts and match the booking', 
 
 	// Belege: a source of its own, the paid one matched by its invoice number.
 	await tab('Belege').click();
+	// Belege shows one month at a time (#313): this spec looks at the whole year.
+	await page.locator('[data-testid="receipt-month-pick"][data-month="all"]').click();
 	const source = page.locator('[data-testid="receipt-source"][data-source="portal:vodafone"]');
 	await expect(source).toContainText('Vodafone MeinKabel');
 	await expect(source.getByTestId('source-count')).toHaveText('3');

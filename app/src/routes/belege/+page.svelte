@@ -26,7 +26,8 @@
 		refreshNow,
 		runMatchingNow
 	} from '$lib/session.svelte.js';
-	import { matchOfReceipt } from '$lib/matching/view.js';
+	import { activeMatchesByReceipt, matchOfReceipt } from '$lib/matching/view.js';
+	import { belegeChoice } from '$lib/receipts/month-choice.svelte.js';
 	import { settlement } from '$lib/matching/instalments.js';
 	import { matchLine } from '$lib/matching/explain.js';
 	import {
@@ -144,11 +145,16 @@
 		)
 	);
 	let counts = $derived(sourceCounts(receipts));
-	/** @param {string} id */
-	const matchOf = (id) => matchOfReceipt(id, app.matches);
+	// Looked up for every row: built once per change of the books, not per row
+	// – with hundreds of receipts, matches and payments a scan per row made the
+	// list take seconds (#313).
+	let activeByReceipt = $derived(activeMatchesByReceipt(app.matches));
+	let txById = $derived(new Map(app.transactions.map((tx) => [tx.id, tx])));
+	/** The receipt's first active match, as matchOfReceipt finds it. @param {string} id */
+	const matchOf = (id) => activeByReceipt.get(id)?.[0] ?? null;
 	/** An invoice paid in instalments (#258): its state, when more than one payment or something open. @param {Record<string, any>} r */
 	const paidState = (r) => {
-		const s = settlement(r, app.matches, app.transactions);
+		const s = settlement(r, activeByReceipt.get(r.id) ?? [], txById);
 		return s.state === 'partial' || s.state === 'overpaid' || s.payments.length > 1 ? s : null;
 	};
 	let bySource = $derived(
@@ -208,10 +214,47 @@
 	function originTitle(r) {
 		const m = matchOf(r.id);
 		if (!m) return '';
-		const tx = app.transactions.find((x) => x.id === m.transactionId) ?? null;
+		const tx = txById.get(m.transactionId) ?? null;
 		return matchLine(m, { tx, receipt: r });
 	}
 	let groups = $derived(groupReceiptsByMonth(filtered));
+
+	// One month at a time, as on Zahlungen (#313); a search shows the hits of
+	// every month. The month: the one chosen, else the one of the receipt
+	// opened by link (?receipt=), else the newest.
+	let chosenMonth = $derived(belegeChoice.month);
+	let searching = $derived(query.trim().length > 0);
+	let month = $derived.by(() => {
+		if (chosenMonth === 'all') return 'all';
+		if (chosenMonth && groups.some((g) => g.month === chosenMonth)) return chosenMonth;
+		const ofSelected = selectedId
+			? groups.find((g) => g.items.some((r) => r.id === selectedId))?.month
+			: null;
+		return ofSelected ?? groups[0]?.month ?? null;
+	});
+	let monthList = $derived(
+		groups.map((g) => ({
+			month: g.month,
+			label: g.label,
+			count: g.items.length,
+			open: originCounts(g.items, matchOf).open
+		}))
+	);
+	let shownGroups = $derived(
+		searching || month === 'all' ? groups : groups.filter((g) => g.month === month)
+	);
+	/** A month with hundreds of mails: the first rows, the rest on request. */
+	const PAGE = 100;
+	let limit = $state(PAGE);
+	$effect(() => {
+		void month;
+		void searching;
+		limit = PAGE;
+	});
+	/** @param {string} m */
+	function chooseMonth(m) {
+		belegeChoice.month = m;
+	}
 	let selected = $derived(receipts.find((r) => r.id === selectedId) ?? null);
 	let selectedDuplicate = $derived(selected ? (duplicates.get(selected.id) ?? null) : null);
 	let duplicateKeeper = $derived(
@@ -255,7 +298,11 @@
 		if (!store) return;
 		// From the Verlauf: open this receipt.
 		const wanted = page.url.searchParams.get('receipt');
-		if (wanted) selectedId = wanted;
+		if (wanted) {
+			selectedId = wanted;
+			// Its own month, not the one chosen before (#313).
+			belegeChoice.month = null;
+		}
 		folderHandle = await savedFolder();
 		readAfterFetch = (await getSetting(store.settings, 'mailFetch'))?.readAfterFetch !== false;
 		await loadUpload();
@@ -286,6 +333,9 @@
 	/** On a phone the detail sits under the list: bring it into view. */
 	async function select(/** @type {string} */ id) {
 		selectedId = id;
+		// Picked from a search's hits: its month is the one to come back to.
+		if (searching)
+			belegeChoice.month = groups.find((g) => g.items.some((r) => r.id === id))?.month ?? null;
 		if (!window.matchMedia('(min-width: 1024px)').matches) {
 			await tick();
 			detailPanel?.scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -707,6 +757,54 @@
 						</li>
 					{/each}
 				</ul>
+				{#if monthList.length && !searching}
+					<!-- One month at a time (#313): a list on wide screens, a select on narrow ones. -->
+					<h2
+						class="mt-4 hidden px-3 text-xs font-semibold tracking-wide text-faint uppercase lg:block"
+					>
+						{t('belege.months')}
+					</h2>
+					<ul class="mt-1 hidden flex-col gap-1 lg:flex">
+						{#each [{ month: 'all', label: t('belege.allMonths'), count: filtered.length, open: 0 }, ...monthList] as m (m.month)}
+							<li>
+								<button
+									type="button"
+									class="w-full rounded-md border px-3 py-1.5 text-left text-sm {m.month === month
+										? 'border-cyan-800 bg-surface shadow-sm dark:border-cyan'
+										: 'border-transparent hover:bg-surface/60'}"
+									aria-current={m.month === month ? 'true' : undefined}
+									onclick={() => chooseMonth(m.month)}
+									data-testid="receipt-month-pick"
+									data-month={m.month}
+								>
+									<span class="flex items-baseline justify-between gap-2">
+										<span class="min-w-0 truncate font-medium text-heading">{m.label}</span>
+										<span class="text-faint tabular-nums">{m.count}</span>
+									</span>
+									{#if m.open}
+										<span class="block text-xs text-faint"
+											>{t('belege.monthOpen', { count: m.open })}</span
+										>
+									{/if}
+								</button>
+							</li>
+						{/each}
+					</ul>
+					<label class="mt-2 flex items-center gap-2 text-sm lg:hidden">
+						<span class="text-faint">{t('belege.months')}</span>
+						<select
+							class="rounded-md border px-2 py-1 text-sm"
+							value={month}
+							onchange={(e) => chooseMonth(e.currentTarget.value)}
+							data-testid="receipt-month-select"
+						>
+							<option value="all">{t('belege.allMonths')} ({filtered.length})</option>
+							{#each monthList as m (m.month)}
+								<option value={m.month}>{m.label} ({m.count})</option>
+							{/each}
+						</select>
+					</label>
+				{/if}
 				<TechnicalNote class="mt-3 hidden lg:block" lines={list('belege.technical')} />
 			</nav>
 
@@ -780,7 +878,12 @@
 					{/each}
 				</div>
 
-				{#each groups as group (group.month)}
+				{#if searching}
+					<p class="mt-3 text-xs text-faint" data-testid="receipt-search-all">
+						{t('belege.searchAll', { count: filtered.length })}
+					</p>
+				{/if}
+				{#each shownGroups as group (group.month)}
 					{@const monthCounts = originCounts(group.items, matchOf)}
 					<div class="mt-4" data-testid="receipt-month" data-month={group.month}>
 						<h2 class="text-xs font-semibold tracking-wide text-faint uppercase">{group.label}</h2>
@@ -788,7 +891,9 @@
 							{t('belege.origin.month', monthCounts)}
 						</p>
 						<ul class="mt-1.5 divide-y divide-border {card}">
-							{#each group.items as r (r.id)}
+							{#each searching ? group.items : group.items.slice(0, limit) as r (r.id)}
+								{@const match = matchOf(r.id)}
+								{@const paid = paidState(r)}
 								<li>
 									<button
 										type="button"
@@ -824,8 +929,8 @@
 														data-testid="receipt-scam">{t('belege.scam.badge')}</span
 													>
 												{/if}
-												{#if paidState(r)}
-													{@const p = paidState(r)}
+												{#if paid}
+													{@const p = paid}
 													<span
 														class="rounded border px-1.5 py-0.5 text-xs font-medium {p?.state ===
 														'paid'
@@ -841,8 +946,8 @@
 														})}</span
 													>
 												{/if}
-												{#if matchOrigin(matchOf(r.id))}
-													{@const o = matchOrigin(matchOf(r.id))}
+												{#if matchOrigin(match)}
+													{@const o = matchOrigin(match)}
 													<span
 														class="rounded border px-1.5 py-0.5 text-xs font-medium {originClass[
 															o?.kind ?? 'auto'
@@ -905,6 +1010,15 @@
 								</li>
 							{/each}
 						</ul>
+						{#if !searching && group.items.length > limit}
+							<button
+								type="button"
+								class="mt-2 text-sm text-text underline hover:text-heading"
+								onclick={() => (limit += PAGE)}
+								data-testid="receipt-more"
+								>{t('belege.more', { count: Math.min(PAGE, group.items.length - limit) })}</button
+							>
+						{/if}
 					</div>
 				{:else}
 					<p class="mt-4 {card} px-5 py-4 text-text">{t('belege.noMatches')}</p>

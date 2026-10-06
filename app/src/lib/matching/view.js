@@ -71,6 +71,26 @@ export function matchOfReceipt(receiptId, matches) {
 }
 
 /**
+ * Every receipt's active matches, in the order of `matches`: built once for a
+ * list that looks up many receipts (Belege, #313), where a scan per row
+ * grows with receipts × matches.
+ *
+ * @param {Record<string, any>[]} matches
+ * @returns {Map<string, Record<string, any>[]>}
+ */
+export function activeMatchesByReceipt(matches) {
+	/** @type {Map<string, Record<string, any>[]>} */
+	const byReceipt = new Map();
+	for (const m of matches) {
+		if (!isActive(m)) continue;
+		const list = byReceipt.get(m.receiptId) ?? [];
+		list.push(m);
+		byReceipt.set(m.receiptId, list);
+	}
+	return byReceipt;
+}
+
+/**
  * What ties a receipt to a crypto payment, if anything: the transaction hash,
  * the other address, or the quantity together with the asset's symbol,
  * somewhere in its subject, mail text, read text, file name or number.
