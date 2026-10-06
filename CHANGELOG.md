@@ -13,6 +13,10 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **A monthly statement's balances, taken from the source and checked** (#287, #332, #333). A crypto account's opening and closing balance had been worked back from today's: any movement not booked since shifted every earlier month, silently.
+  - **Kraken:** the balances come from Kraken's own ledger, which carries the balance after every entry; "(laut Kraken)". They are kept from the next sync; for earlier months, sync again from the month's first day.
+  - **Checked:** Kraken's start plus the month's bookings must give its end; a wallet read in full must add up from nothing. Agreed, the balance says "abgestimmt"; not, the statement prints "Nicht abgestimmt" with what the bookings give and the difference, and Export names the account.
+  - Everything else says "(errechnet)".
 - **A learned bank fee covers only what looks like one** (#320, #322, #324, #326). "Bankgebühr ohne Beleg" had been learned from a booking and then covered payments with an invoice, such as a phone bill. It now applies only to bookings that look like a fee; a learned rule can be forgotten where it applies ("Diese Regel vergessen"), and Home lists the payments it covered wrongly.
 
 ## [0.7.0] – 2026-10-05
