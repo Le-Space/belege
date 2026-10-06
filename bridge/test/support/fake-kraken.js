@@ -32,7 +32,8 @@ export function sampleLedger() {
 			subtype: '',
 			asset: 'ZEUR',
 			amount: '1000.0000',
-			fee: '0.0000'
+			fee: '0.0000',
+			balance: '1000.0000'
 		},
 		'L-TR1-EUR': {
 			refid: 'R-TR1',
@@ -41,7 +42,8 @@ export function sampleLedger() {
 			subtype: '',
 			asset: 'ZEUR',
 			amount: '-600.0000',
-			fee: '1.5600'
+			fee: '1.5600',
+			balance: '398.4400'
 		},
 		'L-TR1-BTC': {
 			refid: 'R-TR1',
@@ -95,7 +97,8 @@ export function sampleLedger() {
 			subtype: '',
 			asset: 'ZEUR',
 			amount: '-300.0000',
-			fee: '0.0900'
+			fee: '0.0900',
+			balance: '98.3500'
 		}
 	};
 	// Daily staking rewards, enough for more than one page.

@@ -35,6 +35,12 @@ const SOURCE_MARK = /** @type {Record<string, string>} */ ({
 	manual: 'M'
 });
 
+/** Where a balance comes from (#287): Kraken's ledger, or worked back from the bookings. */
+const BALANCE_SOURCE = /** @type {Record<string, string>} */ ({
+	kraken: '(laut Kraken)',
+	derived: '(errechnet)'
+});
+
 /** 1.234,56 with its sign. @param {number} cents */
 const euros = (cents) => `${cents < 0 ? '-' : ''}${amount(cents)}`;
 
@@ -163,7 +169,7 @@ export async function statementPdf(statement, { created }) {
 	if (statement.balances) {
 		row(
 			{
-				text: 'Anfangsbestand',
+				text: `Anfangsbestand ${BALANCE_SOURCE[statement.balances.opening.source] ?? ''}`.trim(),
 				quantity: qty(statement.balances.opening.units),
 				amount:
 					statement.balances.opening.units === null ? euros(statement.balances.opening.cents) : ''
@@ -190,7 +196,7 @@ export async function statementPdf(statement, { created }) {
 	if (statement.balances) {
 		row(
 			{
-				text: 'Endbestand',
+				text: `Endbestand ${BALANCE_SOURCE[statement.balances.closing.source] ?? ''}`.trim(),
 				quantity: qty(statement.balances.closing.units),
 				amount:
 					statement.balances.closing.units === null ? euros(statement.balances.closing.cents) : ''

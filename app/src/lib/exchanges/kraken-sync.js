@@ -253,6 +253,71 @@ export async function krakenTransactions(entries, getRate) {
 	return { byAccount, unpriced };
 }
 
+/**
+ * @typedef {{ opening?: string, closing: string }} MonthBalance units of the account's asset
+ */
+
+/**
+ * An account's balance at the start and the end of each month, as Kraken
+ * gives it (#287): every ledger entry carries the asset's balance after it.
+ * The end of a month is the balance after its last entry; the start is the
+ * balance before its first one – only when the ledger was read from the
+ * month's first day, else an entry before `since` may be missing.
+ *
+ * Left out for an account whose entries lack a balance, or come from two of
+ * Kraken's asset codes (`ETH2` and `ETH2.S` are both ETH in Earn): which
+ * balance would it be?
+ *
+ * @param {Entry[]} entries oldest first
+ * @param {string} since YYYY-MM-DD, the day the ledger was read from
+ * @returns {Map<string, Record<string, MonthBalance>>} account key → month → balance
+ */
+export function monthBalances(entries, since) {
+	/** @type {Map<string, Entry[]>} */
+	const byAccount = new Map();
+	for (const e of entries) {
+		const key = accountKey(e.asset, e.wallet);
+		byAccount.set(key, [...(byAccount.get(key) ?? []), e]);
+	}
+	/** @type {Map<string, Record<string, MonthBalance>>} */
+	const result = new Map();
+	for (const [key, list] of byAccount) {
+		if (list.some((e) => !e.balance) || new Set(list.map((e) => e.code ?? '')).size !== 1) continue;
+		/** @type {Record<string, MonthBalance>} */
+		const months = {};
+		for (const e of list) {
+			const month = e.date.slice(0, 7);
+			const after = BigInt(unitsOf(e, /** @type {string} */ (e.balance)));
+			if (!months[month]) {
+				const before = after - BigInt(unitsOf(e, e.amount)) + BigInt(unitsOf(e, e.fee));
+				months[month] =
+					since <= `${month}-01` ? { opening: before.toString(), closing: '' } : { closing: '' };
+			}
+			months[month].closing = after.toString();
+		}
+		result.set(key, months);
+	}
+	return result;
+}
+
+/**
+ * What was known merged with what was read now: a month's end from the newer
+ * read, its start from the newer read only where that read covered the whole month.
+ *
+ * @param {Record<string, MonthBalance> | undefined} known
+ * @param {Record<string, MonthBalance> | undefined} read
+ */
+export function mergeMonthBalances(known, read) {
+	/** @type {Record<string, MonthBalance>} */
+	const merged = { ...(known ?? {}) };
+	for (const [month, b] of Object.entries(read ?? {})) {
+		const opening = b.opening ?? merged[month]?.opening;
+		merged[month] =
+			opening === undefined ? { closing: b.closing } : { opening, closing: b.closing };
+	}
+	return merged;
+}
+
 /** @param {Record<string, any>} v */
 function cryptoOf(v) {
 	return { asset: v.asset, quantity: v.quantity, decimals: v.decimals, valuation: v.valuation };
@@ -292,6 +357,7 @@ export async function syncKraken({ client, store, now = new Date(), from }) {
 	const { byAccount, unpriced } = await krakenTransactions(entries, (asset, date) =>
 		client.rate(asset, date, { prefer: 'kraken' })
 	);
+	const fromLedger = monthBalances(entries, since);
 
 	/** @type {Map<string, { asset: string, wallet: 'spot' | 'earn', decimals: number, balance: string | null }>} */
 	const wanted = new Map();
@@ -331,7 +397,9 @@ export async function syncKraken({ client, store, now = new Date(), from }) {
 			importEnabled: true,
 			lastSyncedOn: resumeOn,
 			balance: info.balance,
-			balanceOn: today
+			balanceOn: today,
+			// Kraken's own balance at each month's end, for the monthly statement (#287).
+			monthBalances: mergeMonthBalances(record.monthBalances, fromLedger.get(key))
 		});
 		totals.new += counts.new;
 		totals.updated += counts.updated;

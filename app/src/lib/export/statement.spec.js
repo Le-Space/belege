@@ -99,8 +99,8 @@ describe('statement', () => {
 	it('works the balance back from the last known one, exactly in the asset', () => {
 		// now 0.007; after the month −0.002 → end 0.009; the month +0.007 → start 0.002
 		expect(balancesOf(BTC, TXS, '2026-09')).toEqual({
-			opening: { cents: 0, units: '20000000' },
-			closing: { cents: 0, units: '90000000' }
+			opening: { cents: 0, units: '20000000', source: 'derived' },
+			closing: { cents: 0, units: '90000000', source: 'derived' }
 		});
 		// a balance from inside the month says nothing about its end
 		expect(balancesOf({ ...BTC, balanceOn: '2026-09-20' }, TXS, '2026-09')).toBeNull();
@@ -117,7 +117,42 @@ describe('statement', () => {
 				],
 				'2026-09'
 			)
-		).toEqual({ opening: { cents: 10335, units: null }, closing: { cents: 9335, units: null } });
+		).toEqual({
+			opening: { cents: 10335, units: null, source: 'derived' },
+			closing: { cents: 9335, units: null, source: 'derived' }
+		});
+	});
+
+	it('takes the month’s balances from Kraken where it has them, gaps or not (#287)', () => {
+		// A movement after the month was never booked: worked back, the month shifts by it.
+		const gap = { ...BTC, balance: '0.0080000000' };
+		expect(balancesOf(gap, TXS, '2026-09')?.closing.units).toBe('100000000');
+		// Kraken's balance at the month's end does not care.
+		const fromKraken = {
+			...gap,
+			monthBalances: { '2026-09': { opening: '20000000', closing: '90000000' } }
+		};
+		expect(balancesOf(fromKraken, TXS, '2026-09')).toEqual({
+			opening: { cents: 0, units: '20000000', source: 'kraken' },
+			closing: { cents: 0, units: '90000000', source: 'kraken' }
+		});
+		// Read from the month's middle: the end from Kraken, the start worked back from it.
+		const endOnly = { ...gap, monthBalances: { '2026-09': { closing: '90000000' } } };
+		expect(balancesOf(endOnly, TXS, '2026-09')).toEqual({
+			opening: { cents: 0, units: '20000000', source: 'derived' },
+			closing: { cents: 0, units: '90000000', source: 'kraken' }
+		});
+		// A euro account: in cents.
+		const eur = {
+			id: 'E',
+			asset: 'EUR',
+			decimals: 4,
+			monthBalances: { '2026-09': { opening: '50000', closing: '983500' } }
+		};
+		expect(balancesOf(eur, [], '2026-09')).toEqual({
+			opening: { cents: 500, units: null, source: 'kraken' },
+			closing: { cents: 9835, units: null, source: 'kraken' }
+		});
 	});
 
 	it('one statement per account with a booking in the month, by ledger account', () => {
@@ -156,10 +191,10 @@ describe('statement PDF', () => {
 			'Kraken BTC',
 			'Sachkonto 1340',
 			'Menge BTC',
-			'Anfangsbestand 0,002',
+			'Anfangsbestand (errechnet) 0,002',
 			'02.09.2026 Kraken · Handel · Ref. R-1 0,01 60.000,00 H 600,00 —',
 			'-0,002 60.000,00 K -120,00',
-			'Endbestand 0,009',
+			'Endbestand (errechnet) 0,009',
 			'Summe des Monats 0,007 420,00',
 			'K = Kraken, CG = CoinGecko'
 		]) {
