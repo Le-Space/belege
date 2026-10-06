@@ -171,7 +171,9 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 		expect(text).not.toContain(MARKER);
 		expect(text).not.toContain('Wolkenfabrik');
 		expect(text).not.toContain('belege-backup');
-		expect(text).not.toContain('%PDF');
+		// The whole PDF header, not just '%PDF': four given bytes turn up by
+		// chance about once in 4,000 runs of a megabyte of ciphertext.
+		expect(text).not.toContain('%PDF-1.4\n');
 	});
 
 	it('opens only with the backup key, every block checked against its CID', async () => {
