@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.8.0] – 2026-10-06
+
 ### Added
 
 - **A mail receipt kept as it came** (#288, #339). A receipt that is the mail itself – a shop's receipt without a PDF – now keeps the mail as it was received (`.eml`), sealed like any file, beside the excerpt used for search and matching.
