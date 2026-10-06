@@ -113,7 +113,8 @@ export const INTEGRATION_GROUPS = [
 			{ id: 'coingecko', name: 'CoinGecko', initials: 'Cg' },
 			{ id: 'kraken-rates', name: 'Kraken', initials: 'Kr' },
 			{ id: 'ecb', name: 'ECB', initials: 'EZ' },
-			{ id: 'cbr', name: 'Bank of Russia', initials: 'BR' }
+			{ id: 'cbr', name: 'Bank of Russia', initials: 'BR' },
+			{ id: 'nbk', name: 'National Bank of Kazakhstan', initials: 'NK' }
 		]
 	},
 	{

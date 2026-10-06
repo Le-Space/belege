@@ -32,7 +32,7 @@ Die Bridge beantwortet `GET /rates?asset=BTC&date=2026-09-01` (`bridge/src/rates
 
    für eine Buchung **bei Kraken** (`prefer=kraken`) ist es umgekehrt: zuerst der EUR-Kurs von Kraken, CoinGecko als Rückfall. Kraken bepreist dann auch Assets, die Belege noch nicht kennt, über ihr `<KÜRZEL>EUR`-Paar;
 
-3. für **USD** und die anderen Währungen, die die EZB veröffentlicht: der **EZB-Referenzkurs** des Tages oder der letzte davor (Wochenende, Feiertag), umgerechnet in Euro je Einheit; für **RUB** nach dem 1. März 2022, seit die EZB ihn nicht mehr veröffentlicht, der amtliche Kurs der **Bank of Russia**, der an dem Tag gilt.
+3. für **USD** und die anderen Währungen, die die EZB veröffentlicht: der **EZB-Referenzkurs** des Tages oder der letzte davor (Wochenende, Feiertag), umgerechnet in Euro je Einheit; für **RUB** nach dem 1. März 2022, seit die EZB ihn nicht mehr veröffentlicht, der amtliche Kurs der **Bank of Russia**, der an dem Tag gilt; für **KZT** der amtliche Tageskurs der **Nationalbank Kasachstans**; für eine Währung, für die weder die EZB noch diese einen Euro-Kurs veröffentlichen, die aber die Bank of Russia führt (UZS, GEL, AMD, KGS, AED, …), ein **Kreuzkurs über den Rubel** aus der Tagesdatei der Bank of Russia – als solcher markiert (`cbr-cross`, CBR-X), kein amtlicher Euro-Kurs (#325).
 
 Die Anfrage nennt nur ein Asset und einen Tag, nichts über die Buchungen. Vergangene Tage werden im Speicher gehalten. Liegt ein CoinGecko-Demo-Schlüssel im Schlüsselbund (Konto `coingecko`), geht er als Header mit.
 

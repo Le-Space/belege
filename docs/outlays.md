@@ -14,6 +14,7 @@ Belege → the receipt → _Privat ausgelegt …_:
 - **Another currency:**
   - Belege asks the bridge for the ECB reference rate of the day and books the euro amount at it.
   - The ruble has no ECB rate since 1 March 2022. For RUB the bridge then offers the **Bank of Russia's official rate** valid on that day (set on the working day before; the form names its date). It sees the day asked for, nothing else.
+  - For **KZT** the bridge offers the **National Bank of Kazakhstan's** official rate of the day. For a currency neither publishes against the euro but the Bank of Russia rates (UZS, GEL, AMD, …), a **cross rate through the ruble** from the same day's Bank of Russia file; the form and the booking call it a cross rate (#325).
   - Where neither has one, or a document shows the rate actually paid (the card statement, an exchange receipt), the rate is entered by hand (EUR per unit), with where it comes from. A rate from a document comes first: it is closer to what was paid.
   - The original amount, the rate and its source stay on the booking.
 - **Undo:** _Auslage rückgängig machen_ deletes the booking and frees the receipt, for a payment that turns up after all. Booking it again makes a new booking.

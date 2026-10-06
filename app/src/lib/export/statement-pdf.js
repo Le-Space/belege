@@ -29,6 +29,8 @@ const SOURCE_MARK = /** @type {Record<string, string>} */ ({
 	coingecko: 'CG',
 	ecb: 'EZB',
 	cbr: 'CBR',
+	nbk: 'NBK',
+	'cbr-cross': 'CBR-X',
 	trade: 'H',
 	dex: 'DEX',
 	migration: 'MIG',
@@ -284,7 +286,7 @@ export async function statementPdf(statement, { created }) {
 
 	// Footer on every page.
 	const note = crypto
-		? 'Erstellt von Belege aus den gespeicherten Buchungen. Beträge in EUR; jede Menge zum Kurs ihres Tages bewertet. Kursquelle: K = Kraken, CG = CoinGecko, EZB = EZB-Referenzkurs, CBR = Referenzkurs der Bank of Russia, H = Preis des Handels, DEX = Preis eines DEX-Pools (Uniswap) im Block der Buchung, MIG = Wert der dafür verbrannten alten Token.'
+		? 'Erstellt von Belege aus den gespeicherten Buchungen. Beträge in EUR; jede Menge zum Kurs ihres Tages bewertet. Kursquelle: K = Kraken, CG = CoinGecko, EZB = EZB-Referenzkurs, CBR = Referenzkurs der Bank of Russia, NBK = Referenzkurs der Nationalbank Kasachstans, CBR-X = Kreuzkurs über RUB aus den Kursen der Bank of Russia, H = Preis des Handels, DEX = Preis eines DEX-Pools (Uniswap) im Block der Buchung, MIG = Wert der dafür verbrannten alten Token.'
 		: 'Erstellt von Belege aus den gespeicherten Buchungen. Beträge in EUR. Ersetzt nicht den Kontoauszug der Bank.';
 	const pages = pdf.getPages();
 	pages.forEach((p, i) => {

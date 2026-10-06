@@ -22,6 +22,12 @@
 //   - RUB: the ECB publishes none since 2022-03-01; then the Bank of Russia's
 //     official rate valid on that day (RUB per EUR, set on the working day
 //     before), inverted
+//   - KZT: the National Bank of Kazakhstan's official rate of the day (KZT per
+//     EUR), inverted (#325)
+//   - a currency neither publishes against the euro, but the Bank of Russia
+//     lists (UZS, GEL, AMD, …): a cross rate through the ruble from the same
+//     day's file, EUR per unit = (RUB per unit) / (RUB per EUR); marked
+//     `cbr-cross`, so nobody takes it for an official EUR rate
 
 // Every answer says which source it came from and for what moment, so a
 // booking can show where its euro amount came from.
@@ -38,6 +44,8 @@ import { multiplyRates } from './dex-rate.js';
  * @property {string} [kraken] Kraken OHLC pair against EUR
  * @property {boolean} [ecb] a currency with an ECB reference rate
  * @property {boolean} [cbr] the Bank of Russia's official rate, where the ECB has none
+ * @property {boolean} [nbk] the National Bank of Kazakhstan's official rate against EUR
+ * @property {boolean} [cbrCross] a cross rate through the ruble, from the Bank of Russia's daily rates
  */
 
 /**
@@ -48,6 +56,14 @@ export const ECB_CURRENCIES = Object.freeze(
 	'USD JPY BGN CZK DKK GBP HUF PLN RON SEK CHF ISK NOK TRY AUD BRL CAD CNY HKD IDR ILS INR KRW MXN MYR NZD PHP SGD THB ZAR RUB'.split(
 		' '
 	)
+);
+
+/**
+ * The currencies the Bank of Russia rates daily and the ECB does not: priced
+ * as a cross rate through the ruble (#325). Its SDR line (XDR) is no currency.
+ */
+export const CBR_CROSS_CURRENCIES = Object.freeze(
+	'AED AMD AZN BYN EGP GEL KGS KZT MDL QAR RSD TJS TMT UAH UZS VND'.split(' ')
 );
 
 /** The assets the bridge can price, by the symbol the app uses. */
@@ -65,7 +81,10 @@ export const RATE_SOURCES = /** @type {Readonly<Record<string, AssetSources>>} *
 		// No EUR pair on Kraken; a swap's other side prices it where CoinGecko has no rate (#163).
 		USDFC: { coingecko: 'usdfc' },
 		...Object.fromEntries(ECB_CURRENCIES.map((c) => [c, { ecb: true }])),
-		RUB: { ecb: true, cbr: true }
+		RUB: { ecb: true, cbr: true },
+		...Object.fromEntries(CBR_CROSS_CURRENCIES.map((c) => [c, { cbrCross: true }])),
+		// The country's central bank first; the cross rate when it has no answer.
+		KZT: { nbk: true, cbrCross: true }
 	})
 );
 
@@ -350,49 +369,151 @@ export function createRateService({
 	}
 
 	/**
-	 * EUR per RUB from the Bank of Russia's official rates valid on the day:
-	 * `XML_daily.asp` answers with the last rates set for it (on the working
-	 * day before; none on weekends and holidays), RUB per `Nominal` EUR.
+	 * The text of an official rates file, or null when it cannot be had.
 	 *
-	 * @param {string} day
+	 * @param {string} url
+	 * @param {string} encoding
 	 */
-	async function fromCbr(day) {
-		let text;
+	async function getText(url, encoding) {
 		try {
-			const res = await f(
-				`https://www.cbr.ru/scripts/XML_daily.asp?date_req=${ddmmyyyy(day).replaceAll('-', '/')}`,
-				{
-					headers: { accept: 'application/xml' }
-				}
-			);
+			const res = await f(url, { headers: { accept: 'application/xml' } });
 			if (!res.ok) return null;
-			// windows-1251; the dates, codes and numbers read here are ASCII.
-			text = new TextDecoder('latin1').decode(await res.arrayBuffer());
+			return new TextDecoder(encoding).decode(await res.arrayBuffer());
 		} catch {
 			return null;
 		}
-		const valid = /<ValCurs\b[^>]*\bDate="(\d{2})\.(\d{2})\.(\d{4})"/.exec(text);
-		const eur =
-			/<Valute\b[^>]*>(?:(?!<\/Valute>)[\s\S])*?<CharCode>EUR<\/CharCode>(?:(?!<\/Valute>)[\s\S])*?<\/Valute>/.exec(
+	}
+
+	/**
+	 * @typedef {object} CbrDay
+	 * @property {string} date YYYY-MM-DD the rates are valid for
+	 * @property {Map<string, { nominal: string, value: string }>} valutes RUB per `nominal` units, by code
+	 */
+
+	/** @type {Map<string, Promise<CbrDay | null>>} one file per day, for RUB and every cross rate */
+	const cbrDays = new Map();
+
+	/**
+	 * The Bank of Russia's official rates valid on the day: `XML_daily.asp`
+	 * answers with the last rates set for it (on the working day before; none
+	 * on weekends and holidays), RUB per `Nominal` units of each currency.
+	 * Null when the file is not to be had, or is for a later day.
+	 *
+	 * @param {string} day
+	 * @returns {Promise<CbrDay | null>}
+	 */
+	function cbrDay(day) {
+		const known = cbrDays.get(day);
+		if (known) return known;
+		const loading = (async () => {
+			// windows-1251; the dates, codes and numbers read here are ASCII.
+			const text = await getText(
+				`https://www.cbr.ru/scripts/XML_daily.asp?date_req=${ddmmyyyy(day).replaceAll('-', '/')}`,
+				'latin1'
+			);
+			if (!text) return null;
+			const valid = /<ValCurs\b[^>]*\bDate="(\d{2})\.(\d{2})\.(\d{4})"/.exec(text);
+			if (!valid) return null;
+			const date = `${valid[3]}-${valid[2]}-${valid[1]}`;
+			if (date > day) return null;
+			/** @type {Map<string, { nominal: string, value: string }>} */
+			const valutes = new Map();
+			for (const [entry] of text.matchAll(/<Valute\b[^>]*>[\s\S]*?<\/Valute>/g)) {
+				const code = /<CharCode>([A-Z]{3})<\/CharCode>/.exec(entry)?.[1];
+				const nominal = /<Nominal>([1-9]\d*)<\/Nominal>/.exec(entry)?.[1];
+				const value = /<Value>(\d+),(\d+)<\/Value>/.exec(entry);
+				if (code && nominal && value && /[1-9]/.test(value[1] + value[2])) {
+					valutes.set(code, { nominal, value: `${value[1]}.${value[2]}` });
+				}
+			}
+			return { date, valutes };
+		})();
+		cbrDays.set(day, loading);
+		// A failed answer is asked again next time; only the last days are kept.
+		loading.then((d) => {
+			if (!d) cbrDays.delete(day);
+		});
+		if (cbrDays.size > 60) cbrDays.delete(/** @type {string} */ (cbrDays.keys().next().value));
+		return loading;
+	}
+
+	/**
+	 * EUR per RUB on the day: the Bank of Russia's RUB per `nominal` EUR, inverted.
+	 *
+	 * @param {CbrDay} d
+	 */
+	function eurPerRub(d) {
+		const eur = d.valutes.get('EUR');
+		if (!eur) return null;
+		const perRub = invert(eur.value);
+		return eur.nominal === '1' ? perRub : multiplyRates(perRub, eur.nominal);
+	}
+
+	/** EUR per RUB from the Bank of Russia's official rates valid on the day. @param {string} day */
+	async function fromCbr(day) {
+		const d = await cbrDay(day);
+		const rate = d && eurPerRub(d);
+		if (!d || !rate) return null;
+		return { rate, usdRate: null, source: 'cbr', at: `${d.date}T00:00:00Z` };
+	}
+
+	/**
+	 * A cross rate through the ruble, from one day's file: EUR per unit =
+	 * (RUB per unit) × (EUR per RUB). Not an official EUR rate, and named so.
+	 *
+	 * @param {string} currency
+	 * @param {string} day
+	 */
+	async function fromCbrCross(currency, day) {
+		const d = await cbrDay(day);
+		const line = d?.valutes.get(currency);
+		const perRub = d && eurPerRub(d);
+		if (!d || !line || !perRub) return null;
+		const perNominal = multiplyRates(line.value, perRub);
+		return {
+			rate: line.nominal === '1' ? perNominal : multiplyRates(perNominal, invert(line.nominal)),
+			usdRate: null,
+			source: 'cbr-cross',
+			at: `${d.date}T00:00:00Z`
+		};
+	}
+
+	/**
+	 * EUR per KZT from the National Bank of Kazakhstan's official rates of the
+	 * day (`get_rates.cfm`, KZT per `quant` units of each currency; it answers
+	 * for weekends too, with the last rate set).
+	 *
+	 * @param {string} day
+	 */
+	async function fromNbk(day) {
+		const [y, m, d] = day.split('-');
+		const text = await getText(
+			`https://nationalbank.kz/rss/get_rates.cfm?fdate=${d}.${m}.${y}`,
+			'utf-8'
+		);
+		if (!text) return null;
+		const valid = /<date>(\d{2})\.(\d{2})\.(\d{4})<\/date>/.exec(text);
+		const item =
+			/<item>(?:(?!<\/item>)[\s\S])*?<title>EUR<\/title>(?:(?!<\/item>)[\s\S])*?<\/item>/.exec(
 				text
 			)?.[0] ?? '';
-		const nominal = /<Nominal>(\d+)<\/Nominal>/.exec(eur)?.[1];
-		const value = /<Value>(\d+),(\d+)<\/Value>/.exec(eur);
-		if (!valid || !nominal || !value) return null;
+		const value = /<description>(\d+(?:\.\d+)?)<\/description>/.exec(item)?.[1];
+		const quant = /<quant>([1-9]\d*)<\/quant>/.exec(item)?.[1];
+		if (!valid || !value || !quant || !/[1-9]/.test(value)) return null;
 		const date = `${valid[3]}-${valid[2]}-${valid[1]}`;
 		if (date > day) return null;
-		// `value` RUB per `nominal` EUR: EUR per RUB = nominal / value.
-		const perRub = invert(`${value[1]}.${value[2]}`);
+		// `value` KZT per `quant` EUR: EUR per KZT = quant / value.
+		const perKzt = invert(value);
 		return {
-			rate: nominal === '1' ? perRub : multiplyRates(perRub, nominal),
+			rate: quant === '1' ? perKzt : multiplyRates(perKzt, quant),
 			usdRate: null,
-			source: 'cbr',
+			source: 'nbk',
 			at: `${date}T00:00:00Z`
 		};
 	}
 
 	/**
-	 * @typedef {{ asset: string, date: string, currency: 'EUR', rate: string, usdRate: string | null, source: 'coingecko' | 'kraken' | 'ecb' | 'cbr' | 'dex', at: string, ref?: string }} Rate
+	 * @typedef {{ asset: string, date: string, currency: 'EUR', rate: string, usdRate: string | null, source: 'coingecko' | 'kraken' | 'ecb' | 'cbr' | 'nbk' | 'cbr-cross' | 'dex', at: string, ref?: string }} Rate
 	 *   `ref` for `dex`: `uniswap-v2:<pool>@<block>`, V4 with its pool id
 	 */
 
@@ -431,7 +552,13 @@ export function createRateService({
 			byContract !== undefined
 				? byContract
 				: prefer === 'kraken' && /^[A-Z0-9]{2,10}$/.test(asset)
-					? { ...listed, kraken: listed?.ecb ? undefined : (listed?.kraken ?? `${asset}EUR`) }
+					? {
+							...listed,
+							kraken:
+								listed?.ecb || listed?.cbrCross || listed?.nbk
+									? undefined
+									: (listed?.kraken ?? `${asset}EUR`)
+						}
 					: listed;
 		const pool =
 			contract && chain && block && decimals !== null && dex
@@ -454,6 +581,8 @@ export function createRateService({
 		const found =
 			(sources?.ecb ? await fromEcb(asset, date) : null) ??
 			(sources?.cbr ? await fromCbr(date) : null) ??
+			(sources?.nbk ? await fromNbk(date) : null) ??
+			(sources?.cbrCross ? await fromCbrCross(asset, date) : null) ??
 			(prefer === 'kraken'
 				? ((await kraken()) ?? (await coingecko()))
 				: ((await coingecko()) ?? (await kraken()))) ??

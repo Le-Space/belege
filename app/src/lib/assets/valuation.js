@@ -23,7 +23,7 @@ import { formatQuantity, groupDigits, separators, valueCents } from './quantity.
  * @property {'EUR'} currency
  * @property {string} rate EUR per whole unit, a decimal string
  * @property {string | null} usdRate USD per whole unit, when the source has it
- * @property {'coingecko' | 'kraken' | 'ecb' | 'cbr' | 'trade' | 'dex' | 'migration' | 'manual'} source
+ * @property {'coingecko' | 'kraken' | 'ecb' | 'cbr' | 'nbk' | 'cbr-cross' | 'trade' | 'dex' | 'migration' | 'manual'} source
  *   `trade`: the price of the trade itself (what was paid for the asset);
  *   `dex`: a DEX pool's price at the booking's block (#163);
  *   `migration`: a replacement token, worth the holding burned for it (#162)
@@ -46,6 +46,9 @@ export const SOURCE_NAMES = Object.freeze({
 	kraken: 'Kraken',
 	ecb: 'EZB-Referenzkurs',
 	cbr: 'Referenzkurs der Bank of Russia',
+	nbk: 'Referenzkurs der Nationalbank Kasachstans',
+	// eslint-disable-next-line belege/no-german -- German documents stay German (#192)
+	'cbr-cross': 'Kreuzkurs über RUB (Bank of Russia)',
 	trade: 'Preis des Handels',
 	dex: 'DEX-Pool',
 	migration: 'Wert der verbrannten alten Token',
