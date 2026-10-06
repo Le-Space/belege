@@ -1735,6 +1735,10 @@ export default {
 			day: 'on',
 			amount: 'Amount on the receipt: {amount}',
 			rate: 'Rate: EUR per 1 {currency}',
+			ratePerEuro: 'Rate: {currency} per 1 EUR',
+			rateOther: '= {value} {unit}',
+			rateTurnToUnit: 'enter as EUR per 1 {currency}',
+			rateTurnToEuro: 'enter as {currency} per 1 EUR',
 			asking: 'Asking for the reference rate …',
 			ecb: 'ECB reference rate of {date}',
 			cbr: 'Bank of Russia reference rate of {date} (the ECB no longer publishes a ruble rate). A rate from the card statement or an exchange receipt comes first if you have one.',
@@ -1750,6 +1754,7 @@ export default {
 			booked:
 				'Paid privately on {date} ({how}): {amount} on the account "Auslagen Geschäftsführung".',
 			bookedRate: '{original} {currency} at {rate} EUR ({source})',
+			bookedRatePerEuro: '{original} {currency} at {rate} {currency} per 1 EUR ({source})',
 			rateSource: { ecb: 'ECB rate', cbr: 'Bank of Russia rate', manual: 'rate by hand' },
 			undo: 'Undo the outlay'
 		},

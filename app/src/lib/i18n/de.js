@@ -1762,6 +1762,10 @@ export default {
 			day: 'am',
 			amount: 'Betrag laut Beleg: {amount}',
 			rate: 'Kurs: EUR je 1 {currency}',
+			ratePerEuro: 'Kurs: {currency} je 1 EUR',
+			rateOther: '= {value} {unit}',
+			rateTurnToUnit: 'in EUR je 1 {currency} eingeben',
+			rateTurnToEuro: 'in {currency} je 1 EUR eingeben',
 			asking: 'Frage den Referenzkurs ab …',
 			ecb: 'EZB-Referenzkurs vom {date}',
 			cbr: 'Referenzkurs der Bank of Russia vom {date} (die EZB veröffentlicht keinen Rubelkurs mehr). Ein Kurs aus Kartenabrechnung oder Wechselbeleg geht vor, wenn du einen hast.',
@@ -1777,6 +1781,7 @@ export default {
 			booked:
 				'Privat ausgelegt am {date} ({how}): {amount} auf dem Konto „Auslagen Geschäftsführung“.',
 			bookedRate: '{original} {currency} zu {rate} EUR ({source})',
+			bookedRatePerEuro: '{original} {currency} zu {rate} {currency} je 1 EUR ({source})',
 			rateSource: { ecb: 'EZB-Kurs', cbr: 'Kurs der Bank of Russia', manual: 'Kurs von Hand' },
 			undo: 'Auslage rückgängig machen'
 		},

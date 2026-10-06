@@ -96,11 +96,12 @@ test('a ruble outlay at the Bank of Russia rate, a lira outlay at the ECB rate',
 	await expect(detail.getByTestId('outlay-rate-ecb')).toContainText(
 		'Referenzkurs der Bank of Russia vom 01.03.2025'
 	);
-	await expect(detail.getByTestId('outlay-rate')).toHaveValue('0.0105');
+	// Shown as rubles per euro (#312); booked at the bank's full rate.
+	await expect(detail.getByTestId('outlay-rate')).toHaveValue('95,2381');
 	await expect(detail.getByTestId('outlay-euros')).toContainText('178,40');
 	await detail.getByTestId('outlay-book').click();
 	await expect(detail.getByTestId('outlay-booked-rate')).toContainText(
-		'16990.00 RUB zu 0.0105 EUR (Kurs der Bank of Russia)'
+		'16990.00 RUB zu 95,2381 RUB je 1 EUR (Kurs der Bank of Russia)'
 	);
 
 	// Lira: the ECB's.
@@ -112,6 +113,6 @@ test('a ruble outlay at the Bank of Russia rate, a lira outlay at the ECB rate',
 	await expect(detail.getByTestId('outlay-euros')).toContainText('65,00');
 	await detail.getByTestId('outlay-book').click();
 	await expect(detail.getByTestId('outlay-booked-rate')).toContainText(
-		'2500.00 TRY zu 0.026 EUR (EZB-Kurs)'
+		'2500.00 TRY zu 38,4615 TRY je 1 EUR (EZB-Kurs)'
 	);
 });

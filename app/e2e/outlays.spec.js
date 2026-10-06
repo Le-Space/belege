@@ -62,12 +62,20 @@ test('receipts paid privately become outlays, in euros and in rubles by a rate b
 	await detail.getByTestId('outlay-open').click();
 	await expect(detail.getByTestId('outlay-no-ecb')).toContainText('keinen Referenzkurs');
 	await expect(detail.getByTestId('outlay-book')).toBeDisabled();
-	await detail.getByTestId('outlay-rate').fill('0,0105');
+	// The ruble as people say it: rubles per euro (#312), the other way beside it.
+	await expect(detail.getByText('Kurs: RUB je 1 EUR')).toBeVisible();
+	await detail.getByTestId('outlay-rate').fill('100');
+	await expect(detail.getByTestId('outlay-rate-other')).toContainText('= 0,01 EUR je 1 RUB');
 	await detail.getByTestId('outlay-rate-note').fill('Wechselbeleg vom 01.03.');
-	await expect(detail.getByTestId('outlay-euros')).toContainText('178,40');
+	await expect(detail.getByTestId('outlay-euros')).toContainText('169,90');
+	// Turned round, the same rate as EUR per ruble.
+	await detail.getByTestId('outlay-rate-turn').click();
+	await expect(detail.getByTestId('outlay-rate')).toHaveValue('0,01');
+	await detail.getByTestId('outlay-rate-turn').click();
+	await expect(detail.getByTestId('outlay-rate')).toHaveValue('100');
 	await detail.getByTestId('outlay-book').click();
 	await expect(detail.getByTestId('outlay-booked-rate')).toContainText(
-		'16990.00 RUB zu 0.0105 EUR (Kurs von Hand) · Wechselbeleg vom 01.03.'
+		'16990.00 RUB zu 100 RUB je 1 EUR (Kurs von Hand) · Wechselbeleg vom 01.03.'
 	);
 
 	// Zahlungen: the outlay account with both bookings, each covered by its receipt.
@@ -80,7 +88,7 @@ test('receipts paid privately become outlays, in euros and in rubles by a rate b
 	for (const row of await rows.all()) {
 		await expect(row.getByTestId('coverage-badge')).toHaveText('Beleg');
 	}
-	await expect(rows.filter({ hasText: 'Coworking Beispiel' })).toContainText('-178,40');
+	await expect(rows.filter({ hasText: 'Coworking Beispiel' })).toContainText('-169,90');
 
 	// Undone: the receipt is offered again.
 	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
