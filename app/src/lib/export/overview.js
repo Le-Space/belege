@@ -81,6 +81,7 @@ export function overviewCsv(plan, { accounts, classifications }) {
 						until: formatDate(String(l.tx.bookedOn), DOCUMENT_LOCALE)
 					})
 				: '',
+			l.suspense ? t('export.overview.suspense') : '',
 			l.transferWith
 				? t('export.overview.transferLine', {
 						date: formatDate(l.transferWith.bookedOn, DOCUMENT_LOCALE)

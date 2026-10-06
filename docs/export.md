@@ -29,6 +29,23 @@ A receipt that is a mail without an attachment (a shop's receipt written in the 
 
 The export page lists what is missing. **It exports only when every booking of the month has a confirmed account and every bank account its ledger account.** Fees and transfers are no exception: their suggestion is automatic, but it is confirmed – one click, _Konten aus Umbuchung und Bankgebühr übernehmen_, does all of them. (The alternative, a setting that takes automatic accounts unconfirmed, was left out: one more switch, and a wrong classification would reach the books unseen.) One exception, confirmed by the person (#305): a wallet's **network fees** – the chain itself names them a fee, a cent or so for every transaction it sends – can be put on their account once for all, with _Für alle Netzwerkgebühren übernehmen_ in a fee's account block. Every network fee not confirmed yet takes the account, and so does each one a later sync brings; _Regel aufheben_ takes it off those again, while a fee confirmed by hand keeps its own. Bank and exchange fees are not covered. Bookings without a receipt, receipts linked to nothing and senders not yet confirmed are warnings: the export goes, but have a look.
 
+### Optional: a suspense account for bookings without an account (#323)
+
+Pre-assignment stays the default. Where a booking is still unclear at the month's end, the export can put it on a **suspense account** instead of waiting, as is common when a batch is imported without every contra account settled:
+
+- **Setting:** _Eigene Anweisungen → Buchhaltung → Sammelkonto für Buchungen ohne Konto_, an account number, empty by default. Belege suggests none: which account (in SKR 03 usually one of the transit or unclear items) is for the tax adviser to say.
+- **Export page:** _Buchungen ohne Konto auf das Sammelkonto … exportieren_, offered only with that setting, off by default, remembered in this browser.
+- **On:**
+  - a booking without a confirmed account no longer blocks; the check list warns how many go onto the suspense account;
+  - each goes into the batch against that account, **without a BU key**, its Buchungstext starting with `Ungeklärt:`; its receipt goes into the ZIP as usual;
+  - the overview marks it _auf Sammelkonto, umbuchen_; the Verlauf counts them.
+- **Unchanged:**
+  - an own transfer whose other side is in the books goes against that bank's ledger account, as always;
+  - a bank account without its ledger account still blocks;
+  - bookings without a receipt stay a warning.
+
+The suspense account carries no input VAT and no expense account: the VAT return and the profit are right only once it is re-booked, and it must be empty by the year-end. Which account, and who re-books, is to be agreed with the tax adviser. This is no tax advice.
+
 ## Import into MonkeyOffice
 
 MonkeyOffice imports DATEV Buchungsstapel through its DATEV import (menu names differ between versions; its help has it under "DATEV"). Import `DATEV/EXTF_Buchungsstapel_<month>.csv`, check the bookings in the import preview, then attach the receipts from `Belege/` by their number (the number is in _Belegfeld 1_ and at the start of the file name). The first import is a test: do it in a copy of the company, or check every line before you post.

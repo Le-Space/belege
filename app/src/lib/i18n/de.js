@@ -1737,6 +1737,9 @@ export default {
 				corporation: 'Kapitalgesellschaft (UG, GmbH)'
 			},
 			shareholderAccount: 'Verrechnungskonto Gesellschafter',
+			suspenseAccount: 'Sammelkonto für Buchungen ohne Konto',
+			suspenseHint:
+				'Optional. Wenn hier ein Konto steht, kann der Export Buchungen ohne übernommenes Konto darauf buchen, statt zu warten. Belege schlägt keine Nummer vor: Welches Konto (bei SKR 03 meist eines der Durchlaufenden oder ungeklärten Posten) und wer umbucht, legt ihr mit dem Steuerberater fest.',
 			legalFormHint:
 				'Bestimmt, wie eine private Zahlung vom Geschäftskonto gebucht wird („Privat (Irrläufer)“): beim Einzelunternehmen und bei Personengesellschaften als Privatentnahme (1800), eine Rückzahlung als Privateinlage (1890); bei UG und GmbH gibt es keine Privatentnahmen – die Gesellschaft hat für dich bezahlt, eine Forderung auf dem Verrechnungskonto Gesellschafter, die du zurückzahlst. Die Kontonummer legt ihr mit dem Steuerberater fest.',
 			consultant: 'Beraternummer',
@@ -2089,6 +2092,8 @@ export default {
 			transferAssist: '{model} · {candidates} Buchungen geprüft · {seconds} s · {tokens} Tokens',
 			vendorAssist: '{model} · {rows} Zeilen geprüft · {seconds} s · {tokens} Tokens',
 			export: 'DATEV-Export {month}: {bookings} Buchungen, {receipts} Belege',
+			exportSuspense:
+				'DATEV-Export {month}: {bookings} Buchungen, davon {suspense} auf dem Sammelkonto, {receipts} Belege',
 			matching:
 				'{sure} zugeordnet · {created} neue Rückfragen · {resolved} erledigt · {classified} ohne Beleg-Pflicht · {waiting} warten noch',
 			today: 'heute',
@@ -2247,6 +2252,9 @@ export default {
 			'Netzwerkgebühren, die ein Akash-Verbrauchsnachweis deckt, als eine Sammelbuchung je Wallet-Konto (die Einzelposten stehen im Nachweis)',
 		withoutStatementsHint:
 			'Ohne Kontoauszüge bleibt das Belegfeld bei Buchungen ohne eigenen Beleg leer – Gebühren, Umbuchungen, Erträge: Ihr Beleg wäre sonst der Kontoauszug.',
+		withSuspense: 'Buchungen ohne Konto auf das Sammelkonto {account} exportieren',
+		withSuspenseHint:
+			'Das Sammelkonto trägt keine Vorsteuer und kein Aufwandskonto: Umsatzsteuer-Voranmeldung und Gewinn stimmen erst nach dem Umbuchen, und zum Jahresende muss es leer sein. Welches Konto und wer umbucht, legt ihr mit dem Steuerberater fest.',
 		unreconciled:
 			'Nicht abgestimmt: {accounts}. Der Endbestand passt nicht zu den Buchungen – es fehlt eine Bewegung, oder eine Buchung wurde gelöscht. Der Kontoauszug nennt die Differenz.',
 		checks: 'Vor dem Export',
@@ -2261,6 +2269,8 @@ export default {
 				'{count} Krypto-Buchungen ohne Kurs – ohne Euro-Betrag geht nichts in den Export. Trag den Kurs an der Buchung ein.',
 			unassignedOk: 'Jede Buchung hat ein übernommenes Konto.',
 			unassigned: '{count} Buchungen ohne übernommenes Konto – so lange geht kein Export.',
+			suspense:
+				'{count} Buchungen gehen auf das Sammelkonto {account} – sie müssen in der Buchhaltung umgebucht werden.',
 			autoConfirm: 'Konten aus Umbuchung und Bankgebühr übernehmen ({count})',
 			autoConfirmHint:
 				'Übernimmt 1360 für eigene Umbuchungen und 4970 für Bankgebühren – dieselben Vorschläge wie in der Zahlung, mit einem Klick für alle.',
@@ -2315,7 +2325,8 @@ export default {
 			transferLine: 'Umbuchung, Gegenbuchung am {date} ist in dieser Zeile enthalten',
 			collected:
 				'Sammelbuchung: {count} Netzwerkgebühren vom {from} bis {until}, einzeln im Nachweis',
-			transferSide: 'nicht im Buchungsstapel: enthalten in der Gegenbuchung vom {date} ({bank})'
+			transferSide: 'nicht im Buchungsstapel: enthalten in der Gegenbuchung vom {date} ({bank})',
+			suspense: 'auf Sammelkonto, umbuchen'
 		},
 		technical: [
 			'Buchungsstapel im DATEV-Format EXTF, Version 700, Kategorie 21, Formatversion 13: Kopfzeile mit 31 Feldern, Spaltenüberschriften, eine Zeile je Buchung mit 125 Feldern; Trennzeichen „;“, Zeilenende CRLF, Zeichensatz Windows-1252 (ANSI).',

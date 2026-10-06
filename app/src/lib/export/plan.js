@@ -25,6 +25,12 @@
 //     in Belegfeld 1: the statement is its receipt. Without statements (the
 //     export page's choice) there is none in the ZIP, and Belegfeld 1 of such
 //     a booking stays empty rather than name a document that is not there
+//   - optionally (#323), a booking without a confirmed account goes onto a
+//     suspense account named in the settings instead of blocking the export:
+//     no BU key, its Buchungstext starting with "Ungeklärt:", to be re-booked
+//     in the bookkeeping. An own transfer whose other side is in the books
+//     still goes against that bank's ledger account; nothing is unclear there.
+//     A bank account without its ledger account still blocks
 
 import { isBookingConfirmed } from '../booking/suggest.js';
 import { ledgerOf } from '../booking/settings.js';
@@ -56,6 +62,7 @@ export const RECEIPT_NUMBER = /^(\d{4}-\d{2})-(\d{3})$/;
  * @property {Rec | null} transferWith the other side, for a transfer exported once
  * @property {import('./datev.js').BookingLine} line
  * @property {Rec[]} [collected] a collective booking's bookings (#305): `tx` is the last of them
+ * @property {boolean} [suspense] on the suspense account: no confirmed account (#323)
  */
 
 /**
@@ -68,11 +75,12 @@ export const RECEIPT_NUMBER = /^(\d{4}-\d{2})-(\d{3})$/;
  * @property {{ receiptId: string, number: string }[]} newNumbers numbers given in this export
  * @property {Rec[]} receipts the receipts that go into the ZIP (with a file, released)
  * @property {import('./statement.js').Statement[]} statements one per account with a booking in the month
- * @property {{ unassigned: Rec[], noLedger: Rec[], noBankAccount: Rec[], missingReceipt: Rec[], unlinkedReceipts: Rec[], copies: Rec[], unverified: Rec[], unpriced: Rec[] }} checks
+ * @property {{ unassigned: Rec[], noLedger: Rec[], noBankAccount: Rec[], missingReceipt: Rec[], unlinkedReceipts: Rec[], copies: Rec[], unverified: Rec[], unpriced: Rec[], suspense: Rec[] }} checks
  *   unpriced: crypto bookings whose rate is missing – no euro amount to export (#162);
  *   unlinkedReceipts: the month's receipts linked to no payment – not in this ZIP;
  *   copies: the month's receipts that copy one already linked (receipts/duplicates.js) – not counted
- *   as unlinked, to be sorted out as duplicates
+ *   as unlinked, to be sorted out as duplicates;
+ *   suspense: bookings that go onto the suspense account (#323) – no blocker, to be re-booked
  * @property {number} tests test bookings in the month, exported or not
  * @property {boolean} testsIncluded whether they are in this package
  * @property {'none' | 'all' | 'mixed'} sample sample bookings in the month (issue #200): none, only such, or
@@ -224,7 +232,7 @@ export function collectNetworkFees(lines, month) {
 	const rest = [];
 	for (const l of lines) {
 		const statement = l.receipts.find((r) => r.selfReceipt?.kind === 'akash-statement');
-		if (l.tx.movement !== 'fee' || !statement || l.transferWith) {
+		if (l.tx.movement !== 'fee' || !statement || l.transferWith || l.suspense) {
 			rest.push(l);
 			continue;
 		}
@@ -274,6 +282,8 @@ export function collectNetworkFees(lines, month) {
  * @param {boolean} [params.includeTests] take test bookings too (sample/test-bookings.js); off by default
  * @param {boolean} [params.withStatements] the accounts' monthly statements into the ZIP; on by default
  * @param {boolean} [params.collectFees] network fees a usage statement covers as one booking (#305); on by default
+ * @param {string} [params.suspenseAccount] bookings without a confirmed account onto this account
+ *   instead of blocking (#323); '' (the default) keeps them blocking
  * @returns {MonthPlan}
  */
 export function planMonth({
@@ -285,8 +295,10 @@ export function planMonth({
 	classifications,
 	includeTests = false,
 	withStatements = true,
-	collectFees = true
+	collectFees = true,
+	suspenseAccount = ''
 }) {
+	const suspense = /^\d{4,8}$/.test(suspenseAccount) ? suspenseAccount : '';
 	const live = transactions.filter((t) => !t.deleted);
 	const ofMonth = live.filter((t) => String(t.bookedOn ?? '').slice(0, 7) === month);
 	// Test bookings (sample/test-bookings.js) only on request.
@@ -328,7 +340,8 @@ export function planMonth({
 	/** @type {{ tx: Rec, other: Rec }[]} */
 	const transferSides = [];
 	for (const tx of bookings) {
-		if (!isBookingConfirmed(tx)) continue;
+		const confirmed = isBookingConfirmed(tx);
+		if (!confirmed && !suspense) continue;
 		const bank = accountOf(tx);
 		const ledger = ledgerOf(bank);
 		if (!ledger) continue;
@@ -347,23 +360,33 @@ export function planMonth({
 			}
 		}
 		const transferLine = Boolean(other && otherLedger && otherLedger !== ledger);
+		// No account and no transfer to pair it with: onto the suspense account (#323).
+		const unclear = !confirmed && !transferLine;
 		lines.push({
 			tx,
 			bank,
 			receipts: linked.map((x) => x.receipt),
 			match: first?.match ?? null,
 			transferWith: transferLine ? other : null,
+			...(unclear ? { suspense: true } : {}),
 			line: {
 				amountCents: Number(tx.amountCents ?? 0),
 				currency: String(tx.currency ?? 'EUR'),
 				account: ledger,
-				contra: transferLine ? /** @type {string} */ (otherLedger) : String(tx.booking.account),
-				taxKey: transferLine ? '' : String(tx.booking.taxKey ?? ''),
+				contra: transferLine
+					? /** @type {string} */ (otherLedger)
+					: unclear
+						? suspense
+						: String(tx.booking.account),
+				taxKey: transferLine || unclear ? '' : String(tx.booking.taxKey ?? ''),
 				date: String(tx.bookedOn),
 				receiptNumber: first
 					? (numbers.get(first.receipt.id) ?? '')
 					: (statementOf.get(String(tx.accountId)) ?? ''),
-				text: bookingText(tx, first?.receipt ?? null),
+				text: unclear
+					? // eslint-disable-next-line belege/no-german -- Buchungstext, a German document (#192)
+						`Ungeklärt: ${bookingText(tx, first?.receipt ?? null)}`.slice(0, 60)
+					: bookingText(tx, first?.receipt ?? null),
 				// The bank's (a wallet's) cost centre; none on a transfer between two accounts.
 				costCentre: transferLine ? '' : String(bank?.costCentre ?? '')
 			}
@@ -407,7 +430,8 @@ export function planMonth({
 		copies: monthReceipts.filter(
 			(r) => !activeLinked.has(r.id) && r.status !== 'ignoriert' && copiesLinked(r)
 		),
-		unverified: monthReceipts.filter((r) => needsConfirmation(r) && r.status !== 'ignoriert')
+		unverified: monthReceipts.filter((r) => needsConfirmation(r) && r.status !== 'ignoriert'),
+		suspense: lines.filter((l) => l.suspense).map((l) => l.tx)
 	};
 	const zipReceipts = [...new Map(ordered.map((r) => [r.id, r])).values()].filter(
 		(r) => (r.fileCid || isMailText(r)) && !needsConfirmation(r)
@@ -428,7 +452,7 @@ export function planMonth({
 		blocked:
 			bookings.length === 0 ||
 			sample === 'mixed' ||
-			checks.unassigned.length > 0 ||
+			(checks.unassigned.length > 0 && !suspense) ||
 			checks.noLedger.length > 0 ||
 			checks.noBankAccount.length > 0 ||
 			checks.unpriced.length > 0

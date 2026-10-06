@@ -526,6 +526,40 @@ describe('planMonth', () => {
 		expect(warningsOnly.checks.missingReceipt.length).toBeGreaterThan(0);
 		expect(planMonth({ month: '2026-07', ...b }).blocked).toBe(true);
 	});
+
+	it('a booking without an account onto the suspense account, when asked (#323)', () => {
+		const b = books();
+		const open = tx({ id: 'T7', bookedOn: '2026-09-22', amountCents: -2200, counterparty: 'Café' });
+		// Both sides of the transfer not confirmed either: still a transfer, nothing unclear.
+		const transactions = [
+			...b.transactions.map((/** @type {any} */ t) =>
+				t.id === 'T3' || t.id === 'T4' ? { ...t, booking: undefined } : t
+			),
+			open
+		];
+		const plan = planMonth({ month: '2026-09', ...b, transactions, suspenseAccount: '1590' });
+		expect(plan.blocked).toBe(false);
+		expect(plan.checks.unassigned.map((t) => t.id)).toEqual(['T3', 'T4', 'T7']);
+		expect(plan.checks.suspense.map((t) => t.id)).toEqual(['T7']);
+		const line = plan.lines.find((l) => l.tx.id === 'T7');
+		expect(line?.suspense).toBe(true);
+		expect(line?.line).toMatchObject({ contra: '1590', taxKey: '', text: 'Ungeklärt: Café' });
+		const transfer = plan.lines.find((l) => l.tx.id === 'T3');
+		expect(transfer?.suspense).toBeUndefined();
+		expect(transfer?.line.contra).toBe('1210');
+		expect(plan.transferSides.map((x) => x.tx.id)).toEqual(['T4']);
+
+		// Off: they block, as before; a bank account without its ledger account blocks either way.
+		expect(planMonth({ month: '2026-09', ...b, transactions }).blocked).toBe(true);
+		const noLedger = planMonth({
+			month: '2026-09',
+			...b,
+			transactions,
+			suspenseAccount: '1590',
+			accounts: [ACCOUNTS[0], { ...ACCOUNTS[1], ledgerAccount: null }]
+		});
+		expect(noLedger.blocked).toBe(true);
+	});
 });
 
 describe('the ZIP', () => {

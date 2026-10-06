@@ -221,9 +221,10 @@ export function describeEvent(e, { receipts = [], transactions = [] } = {}) {
 			return {
 				...base,
 				title: t('verlauf.kind.export'),
-				text: t('verlauf.text.export', {
+				text: t(e.suspense ? 'verlauf.text.exportSuspense' : 'verlauf.text.export', {
 					month: String(e.month ?? '?'),
 					bookings: e.bookings ?? 0,
+					suspense: e.suspense ?? 0,
 					receipts: e.receipts ?? 0
 				})
 			};

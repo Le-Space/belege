@@ -76,6 +76,7 @@
 	 * off; this browser remembers the choice.
 	 */
 	const STATEMENTS_KEY = 'belege.export.statements';
+	const SUSPENSE_KEY = 'belege.export.suspense';
 	/**
 	 * Network fees an Akash usage statement covers as one booking (#305) – on
 	 * unless switched off; this browser remembers the choice.
@@ -123,6 +124,24 @@
 			// Not remembered: on again next time.
 		}
 	});
+	// Bookings without an account onto the suspense account (#323): only with one set, off by default.
+	let withSuspense = $state(
+		(() => {
+			try {
+				return localStorage.getItem(SUSPENSE_KEY) === 'on';
+			} catch {
+				return false;
+			}
+		})()
+	);
+	$effect(() => {
+		try {
+			localStorage.setItem(SUSPENSE_KEY, withSuspense ? 'on' : 'off');
+		} catch {
+			// Not remembered: off again next time.
+		}
+	});
+	let suspenseAccount = $derived(withSuspense ? settings.suspenseAccount : '');
 	let plan = $derived(
 		month
 			? planMonth({
@@ -134,7 +153,8 @@
 					classifications: app.classifications,
 					includeTests,
 					withStatements,
-					collectFees
+					collectFees,
+					suspenseAccount
 				})
 			: null
 	);
@@ -442,6 +462,24 @@
 				{/if}
 			</span>
 		</label>
+		{#if settings.suspenseAccount}
+			<label class="mt-2 flex items-start gap-2 text-sm text-text">
+				<input
+					type="checkbox"
+					class="mt-0.5"
+					bind:checked={withSuspense}
+					data-testid="export-with-suspense"
+				/>
+				<span>
+					{t('export.withSuspense', { account: settings.suspenseAccount })}
+					{#if withSuspense}
+						<span class="block text-xs text-faint" data-testid="export-suspense-hint"
+							>{t('export.withSuspenseHint')}</span
+						>
+					{/if}
+				</span>
+			</label>
+		{/if}
 		{#if withStatements && unreconciled.length}
 			<p class="mt-2 text-sm text-warning" role="status" data-testid="export-unreconciled">
 				{t('export.unreconciled', { accounts: unreconciled.join(', ') })}
@@ -499,14 +537,29 @@
 					plan.checks.unpriced.map((tx) => ({ id: tx.id, text: txText(tx), href: txLink(tx.id) }))
 				)}
 			{/if}
-			{@render item(
-				'unassigned',
-				plan.checks.unassigned.length ? 'blocker' : 'ok',
-				plan.checks.unassigned.length
-					? t('export.check.unassigned', { count: plan.checks.unassigned.length })
-					: t('export.check.unassignedOk'),
-				plan.checks.unassigned.map((tx) => ({ id: tx.id, text: txText(tx), href: txLink(tx.id) }))
-			)}
+			{#if suspenseAccount && plan.checks.unassigned.length}
+				<!-- On the suspense account (#323): no blocker, but to be re-booked. -->
+				{@render item(
+					'unassigned',
+					plan.checks.suspense.length ? 'warning' : 'ok',
+					plan.checks.suspense.length
+						? t('export.check.suspense', {
+								count: plan.checks.suspense.length,
+								account: suspenseAccount
+							})
+						: t('export.check.unassignedOk'),
+					plan.checks.suspense.map((tx) => ({ id: tx.id, text: txText(tx), href: txLink(tx.id) }))
+				)}
+			{:else}
+				{@render item(
+					'unassigned',
+					plan.checks.unassigned.length ? 'blocker' : 'ok',
+					plan.checks.unassigned.length
+						? t('export.check.unassigned', { count: plan.checks.unassigned.length })
+						: t('export.check.unassignedOk'),
+					plan.checks.unassigned.map((tx) => ({ id: tx.id, text: txText(tx), href: txLink(tx.id) }))
+				)}
+			{/if}
 			{#if automatic.length}
 				<li class="ml-5">
 					<button

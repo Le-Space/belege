@@ -29,6 +29,8 @@ import { isAccountNumber } from './skr03.js';
  * @property {string} shareholderAccount a UG/GmbH's shareholder clearing account, '' until set
  * @property {'month' | 'quarter'} vatPeriod how the VAT figures are grouped (issue #195)
  * @property {boolean} smallBusiness Kleinunternehmer (§19 UStG): no VAT charged, none deducted
+ * @property {string} suspenseAccount where bookings without a confirmed account may go in the
+ *   export (#323), '' until set; Belege suggests none – it is the tax adviser's to name
  */
 
 /**
@@ -80,6 +82,7 @@ export function defaultDatevSettings() {
 		shareholderAccount: '',
 		vatPeriod: /** @type {'month' | 'quarter'} */ ('quarter'),
 		smallBusiness: false,
+		suspenseAccount: '',
 		// A number MonkeyOffice accepts for a company of its own; check what it expects.
 		consultantNumber: '1001',
 		clientNumber: '1',
@@ -123,6 +126,9 @@ export function cleanDatevSettings(value) {
 			: '',
 		vatPeriod: value?.vatPeriod === 'month' ? 'month' : 'quarter',
 		smallBusiness: value?.smallBusiness === true,
+		suspenseAccount: /^\d{4,8}$/.test(String(value?.suspenseAccount ?? '').trim())
+			? String(value.suspenseAccount).trim()
+			: '',
 		consultantNumber: String(int(value?.consultantNumber, 1001, 9999999, 1001)),
 		clientNumber: String(int(value?.clientNumber, 1, 99999, 1)),
 		fiscalYearStartMonth: int(value?.fiscalYearStartMonth, 1, 12, d.fiscalYearStartMonth),

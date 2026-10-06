@@ -524,6 +524,16 @@
 				{/if}
 			</div>
 			<p class="mt-1 text-xs text-faint">{t('anweisungen.books.legalFormHint')}</p>
+			<label class="mt-3 flex flex-col">
+				<span class="text-faint">{t('anweisungen.books.suspenseAccount')}</span>
+				<input
+					class="{input} w-28 font-mono"
+					inputmode="numeric"
+					bind:value={datev.suspenseAccount}
+					data-testid="datev-suspense-account"
+				/>
+			</label>
+			<p class="mt-1 text-xs text-faint">{t('anweisungen.books.suspenseHint')}</p>
 			<div class="mt-3 flex flex-wrap items-end gap-3">
 				<label class="flex flex-col">
 					<span class="text-faint">{t('anweisungen.books.vatPeriod')}</span>

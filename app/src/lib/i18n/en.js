@@ -1710,6 +1710,9 @@ export default {
 				corporation: 'Corporation (UG, GmbH)'
 			},
 			shareholderAccount: 'Shareholder clearing account',
+			suspenseAccount: 'Suspense account for bookings without an account',
+			suspenseHint:
+				'Optional. With an account here, the export can book bookings without a confirmed account onto it instead of waiting. Belege suggests no number: which account (in SKR 03 usually one of the transit or unclear items) and who re-books is for you and your tax advisor to agree.',
 			legalFormHint:
 				'Determines how a private payment from the business account is booked (“Private (misdirected)”): for sole proprietorships and partnerships as a private withdrawal (1800), a repayment as a private contribution (1890); UG and GmbH have no private withdrawals – the company paid for you, a claim on the shareholder clearing account that you pay back. Set the account number with your tax advisor.',
 			consultant: 'Advisor number',
@@ -2058,6 +2061,8 @@ export default {
 			transferAssist: '{model} · {candidates} bookings checked · {seconds} s · {tokens} tokens',
 			vendorAssist: '{model} · {rows} rows checked · {seconds} s · {tokens} tokens',
 			export: 'DATEV export {month}: {bookings} bookings, {receipts} receipts',
+			exportSuspense:
+				'DATEV export {month}: {bookings} bookings, {suspense} of them on the suspense account, {receipts} receipts',
 			matching:
 				'{sure} linked · {created} new questions · {resolved} resolved · {classified} need no receipt · {waiting} still waiting',
 			today: 'today',
@@ -2215,6 +2220,9 @@ export default {
 			'Network fees an Akash usage statement covers as one collective booking per wallet account (the statement lists each)',
 		withoutStatementsHint:
 			'Without statements, the receipt field stays empty for bookings without a receipt of their own – fees, own transfers, rewards: their receipt would be the statement.',
+		withSuspense: 'Export bookings without an account onto the suspense account {account}',
+		withSuspenseHint:
+			'The suspense account carries no input VAT and no expense account: the VAT return and the profit are right only once it is re-booked, and it must be empty by the year-end. Which account, and who re-books, is for you and your tax advisor to agree.',
 		unreconciled:
 			'Not reconciled: {accounts}. The closing balance does not match the bookings – a movement is missing, or a booking was deleted. The statement gives the difference.',
 		checks: 'Before the export',
@@ -2229,6 +2237,8 @@ export default {
 				'{count} crypto bookings without a rate – without a euro amount nothing goes into the export. Enter the rate on the booking.',
 			unassignedOk: 'Every booking has a confirmed account.',
 			unassigned: '{count} bookings without a confirmed account – no export until they have one.',
+			suspense:
+				'{count} bookings go onto the suspense account {account} – they must be re-booked in the bookkeeping.',
 			autoConfirm: 'Confirm accounts for own transfers and bank fees ({count})',
 			autoConfirmHint:
 				'Confirms 1360 for own transfers and 4970 for bank fees – the same suggestions as in the payment, with one click for all.',
@@ -2283,7 +2293,8 @@ export default {
 			transferLine: 'Own transfer, the counter-booking on {date} is included in this line',
 			collected:
 				'Collective booking: {count} network fees from {from} to {until}, each in the statement',
-			transferSide: 'not in the booking batch: included in the counter-booking of {date} ({bank})'
+			transferSide: 'not in the booking batch: included in the counter-booking of {date} ({bank})',
+			suspense: 'on the suspense account, to be re-booked'
 		},
 		technical: [
 			'Booking batch in DATEV format EXTF, version 700, category 21, format version 13: header line with 31 fields, column headings, one line per booking with 125 fields; separator “;”, line ending CRLF, character set Windows-1252 (ANSI).',
