@@ -14,7 +14,7 @@
 /** @typedef {import('../store/repository.js').Collection} Collection */
 /** @typedef {import('../store/repository.js').StoredRecord} StoredRecord */
 
-/** @typedef {'bank-sync' | 'booking-changed' | 'mail-fetch' | 'file-import' | 'sender-verdict' | 'extract' | 'mail-assist' | 'match-assist' | 'transfer-assist' | 'vendor-assist' | 'matching' | 'decision' | 'export'} EventKind */
+/** @typedef {'bank-sync' | 'booking-changed' | 'mail-fetch' | 'file-import' | 'sender-verdict' | 'extract' | 'mail-assist' | 'match-assist' | 'transfer-assist' | 'vendor-assist' | 'matching' | 'decision' | 'export' | 'books-moved'} EventKind */
 /** @typedef {'auslesen' | 'abgleich' | 'abruf' | 'entscheidungen'} EventGroup */
 
 /** @type {Record<EventKind, EventGroup>} */
@@ -33,7 +33,9 @@ export const GROUP_OF = {
 	matching: 'abgleich',
 	decision: 'entscheidungen',
 	// The DATEV export is the person's act too.
-	export: 'entscheidungen'
+	export: 'entscheidungen',
+	// These books were taken over from other books (#328): the person's act.
+	'books-moved': 'entscheidungen'
 };
 
 /** The filters on the Verlauf page, in this order. */

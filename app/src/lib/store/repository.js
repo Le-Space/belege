@@ -47,6 +47,8 @@ export const COLLECTIONS = /** @type {const} */ ([
  * @property {(id: string) => Promise<StoredRecord | null>} get
  * @property {(filter?: { includeDeleted?: boolean, where?: (record: StoredRecord) => boolean }) => Promise<StoredRecord[]>} list newest first
  * @property {(id: string) => Promise<StoredRecord>} softDelete
+ * @property {(record: StoredRecord) => Promise<StoredRecord>} restore a record from other books, as it
+ *   was there – id, createdAt, updatedAt and deleted kept; written by this identity (#328)
  * @property {(listener: (event: { collection: CollectionName }) => void) => () => void} onChange returns an unsubscribe
  * @property {() => Promise<{ entries: number, bytes: number }>} stats what its log takes: every version written, and about how many bytes
  */
@@ -119,6 +121,24 @@ export function createCollection(db, name, { author, now = () => new Date() }) {
 		return put({ ...existing, deleted: true });
 	}
 
+	/** @type {Collection['restore']} */
+	async function restore(input) {
+		if (!input || !isUlid(String(input.id ?? '')))
+			throw new Error('A record to restore needs its id.');
+		assertCents(input);
+		const at = now().toISOString();
+		/** @type {StoredRecord} */
+		const record = {
+			...input,
+			createdAt: typeof input.createdAt === 'string' ? input.createdAt : at,
+			updatedAt: typeof input.updatedAt === 'string' ? input.updatedAt : at,
+			deleted: input.deleted === true,
+			author
+		};
+		await db.put(record);
+		return record;
+	}
+
 	/** @type {Collection['onChange']} */
 	function onChange(listener) {
 		const handler = () => listener({ collection: name });
@@ -136,6 +156,7 @@ export function createCollection(db, name, { author, now = () => new Date() }) {
 		get,
 		list,
 		softDelete,
+		restore,
 		onChange,
 		stats
 	};
