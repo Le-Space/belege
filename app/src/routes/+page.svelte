@@ -6,6 +6,7 @@
 		app,
 		currentStore,
 		dropPendingJob,
+		refreshNow,
 		resumeJob,
 		runMatchingNow
 	} from '$lib/session.svelte.js';
@@ -17,7 +18,8 @@
 	import { getSetting } from '$lib/store/settings.js';
 	import { DEFAULT_PRICES, aiUsage, cleanPrices, periods } from '$lib/stats/usage.js';
 	import { isTxCovered, questionProgress, transfersWithReceipt } from '$lib/matching/view.js';
-	import { cleanMatchingSettings } from '$lib/matching/classify.js';
+	import { cleanMatchingSettings, wrongFeeKeys } from '$lib/matching/classify.js';
+	import { forgetBankFees } from '$lib/matching/actions.js';
 	import {
 		addOwnIban,
 		keepTransferReceipt,
@@ -67,6 +69,28 @@
 			? openPrivatePayments(app.transactions)
 			: []
 	);
+
+	// Learned bank fees that had caught a vendor's invoice debits (#320): those
+	// bookings ask for their receipt again; the rules behind them can go.
+	let wrongFees = $derived(
+		wrongFeeKeys(
+			/** @type {any[]} */ (app.transactions),
+			cleanMatchingSettings(app.matchingSettings).feeKeys
+		)
+	);
+	let forgetting = $state(false);
+	async function forgetWrongFees() {
+		const store = currentStore();
+		if (!store) return;
+		forgetting = true;
+		try {
+			await forgetBankFees(/** @type {any} */ (store), wrongFees.keys);
+			await refreshNow();
+			await runMatchingNow();
+		} finally {
+			forgetting = false;
+		}
+	}
 
 	// Outlays laid out privately and not paid back yet (#293).
 	let outlaysOpen = $derived(openOutlays(/** @type {any[]} */ (app.transactions)));
@@ -230,6 +254,41 @@
 {/each}
 {#if resumeNote}
 	<p class="mt-2 text-sm text-danger" role="alert">{resumeNote}</p>
+{/if}
+
+{#if wrongFees.bookings.length}
+	<section class="mt-4 {card}" aria-labelledby="wrong-fees-h" data-testid="home-wrong-fees">
+		<h2 id="wrong-fees-h" class="text-sm font-semibold text-heading">
+			{t('home.wrongFees.title', { count: wrongFees.bookings.length })}
+		</h2>
+		<p class="mt-1 text-sm text-text">{t('home.wrongFees.what')}</p>
+		<ul class="mt-2 divide-y divide-border text-sm">
+			{#each wrongFees.bookings.slice(0, 5) as tx (tx.id)}
+				<li>
+					<a
+						class="flex min-h-11 items-center justify-between gap-2 py-1 text-heading hover:underline"
+						href={`${resolve('/zahlungen')}?tx=${encodeURIComponent(tx.id)}`}
+						data-testid="home-wrong-fee"
+						><span class="min-w-0 truncate"
+							>{formatDate(tx.bookedOn)} · {tx.counterparty || tx.purpose || '—'}</span
+						><span class="font-mono tabular-nums"
+							>{formatMoney(tx.amountCents ?? 0, tx.currency ?? 'EUR')}</span
+						></a
+					>
+				</li>
+			{/each}
+		</ul>
+		{#if wrongFees.keys.length}
+			<button
+				type="button"
+				class="mt-2 rounded-md border border-border px-3 py-1.5 text-sm text-text hover:bg-surface-2 disabled:opacity-50"
+				onclick={forgetWrongFees}
+				disabled={forgetting}
+				data-testid="home-wrong-fees-forget"
+				>{t('home.wrongFees.forget', { count: wrongFees.keys.length })}</button
+			>
+		{/if}
+	</section>
 {/if}
 
 {#if privateOpen.length}

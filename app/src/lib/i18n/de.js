@@ -1178,6 +1178,11 @@ export default {
 			no: 'Nein, nicht unseres'
 		},
 		integrationNeeds: 'Integrationen brauchen dich',
+		wrongFees: {
+			title: '{count} Zahlungen waren fälschlich als Bankgebühr eingeordnet',
+			what: 'Eine gelernte Bankgebühr hatte sie abgedeckt, obwohl sie Rechnungen eines Anbieters sind. Sie suchen jetzt wieder ihren Beleg; die Regel dahinter kann weg.',
+			forget: 'Diese Regeln vergessen ({count})'
+		},
 		privateOpen: {
 			title: 'Privat bezahlt, noch nicht ausgeglichen: {count} ({amount})',
 			what: 'Private Zahlungen vom Geschäftskonto. Zahl sie vom Privatkonto zurück und verknüpfe die Rückzahlung an der Zahlung.'

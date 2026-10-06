@@ -1154,6 +1154,11 @@ export default {
 			no: 'No, not ours'
 		},
 		integrationNeeds: 'Integrations need you',
+		wrongFees: {
+			title: '{count} payments were wrongly taken for a bank fee',
+			what: 'A learned bank fee had covered them, though they are a vendor’s invoices. They look for their receipt again; the rule behind them can go.',
+			forget: 'Forget these rules ({count})'
+		},
 		privateOpen: {
 			title: 'Paid privately, not yet settled: {count} ({amount})',
 			what: 'Private payments from the business account. Pay them back from the private account and link the repayment to the payment.'
