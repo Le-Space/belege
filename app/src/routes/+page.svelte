@@ -633,6 +633,8 @@
 	matches={app.matches}
 	transactions={app.transactions}
 	basis={vatSettings.vatBasis}
+	companyNames={cleanMatchingSettings(app.matchingSettings).companyNames}
+	ownVatId={vatSettings.ownVatId}
 	year={shownYear()}
 	{yearName}
 	startMonth={startMonth()}

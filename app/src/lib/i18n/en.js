@@ -1776,6 +1776,7 @@ export default {
 			noAccounts: 'No bank accounts in the books yet.',
 			vatPeriod: 'Advance VAT return',
 			vatPeriods: { quarter: 'quarterly', month: 'monthly' },
+			ownVatId: 'Own VAT ID',
 			vatBasis: 'Output VAT by',
 			vatBases: {
 				ist: 'payments received (Ist)',
@@ -2024,6 +2025,13 @@ export default {
 			vat: 'VAT {rate} %',
 			gross: 'Total',
 			note: 'Read from the XML without AI. The XML is the original and goes into the export as it is.'
+		},
+		own: {
+			label: 'Direction',
+			yes: 'Own invoice – its VAT is output VAT',
+			no: 'Received receipt',
+			ours: 'Treat as an own invoice',
+			notOurs: 'Not an own invoice after all'
 		},
 		previewFailed: 'The preview could not be created.',
 		mailOriginal: {

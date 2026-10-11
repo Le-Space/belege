@@ -545,6 +545,16 @@
 					</select>
 				</label>
 				<label class="flex flex-col">
+					<span class="text-faint">{t('anweisungen.books.ownVatId')}</span>
+					<input
+						class="{input} w-40 font-mono"
+						autocomplete="off"
+						bind:value={datev.ownVatId}
+						placeholder="DE…"
+						data-testid="datev-own-vat-id"
+					/>
+				</label>
+				<label class="flex flex-col">
 					<span class="text-faint">{t('anweisungen.books.vatBasis')}</span>
 					<select class={input} bind:value={datev.vatBasis} data-testid="datev-vat-basis">
 						{#each VAT_BASES as basis (basis)}

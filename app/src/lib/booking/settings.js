@@ -28,6 +28,7 @@ import { isAccountNumber } from './skr03.js';
  * @property {LegalForm} legalForm how private payments are booked (issue #172); '' not said yet
  * @property {string} shareholderAccount a UG/GmbH's shareholder clearing account, '' until set
  * @property {'month' | 'quarter'} vatPeriod how the VAT figures are grouped (issue #195)
+ * @property {string} ownVatId our own USt-IdNr (DE…), '' until set: tells our own invoices among the receipts (#354)
  * @property {'ist' | 'soll'} vatBasis when output VAT counts: when paid (Ist, the default) or on the invoice date (Soll)
  * @property {boolean} smallBusiness Kleinunternehmer (§19 UStG): no VAT charged, none deducted
  * @property {string} suspenseAccount where bookings without a confirmed account may go in the
@@ -83,6 +84,7 @@ export function defaultDatevSettings() {
 		shareholderAccount: '',
 		vatPeriod: /** @type {'month' | 'quarter'} */ ('quarter'),
 		vatBasis: /** @type {'ist' | 'soll'} */ ('ist'),
+		ownVatId: '',
 		smallBusiness: false,
 		suspenseAccount: '',
 		// The usual numbers for a company doing its own books; check what the bookkeeping expects.
@@ -128,6 +130,13 @@ export function cleanDatevSettings(value) {
 			: '',
 		vatPeriod: value?.vatPeriod === 'month' ? 'month' : 'quarter',
 		vatBasis: value?.vatBasis === 'soll' ? 'soll' : 'ist',
+		ownVatId: (() => {
+			const id = String(value?.ownVatId ?? '')
+				.replace(/[\s.-]+/g, '')
+				.toUpperCase();
+			// Two letters for the country, then at least one digit: a word is no VAT ID.
+			return /^[A-Z]{2}(?=[A-Z0-9]*\d)[A-Z0-9]{2,13}$/.test(id) ? id : '';
+		})(),
 		smallBusiness: value?.smallBusiness === true,
 		suspenseAccount: /^\d{4,8}$/.test(String(value?.suspenseAccount ?? '').trim())
 			? String(value.suspenseAccount).trim()

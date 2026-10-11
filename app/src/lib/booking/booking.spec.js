@@ -168,6 +168,7 @@ describe('catalogue and settings', () => {
 			shareholderAccount: '',
 			vatPeriod: 'quarter',
 			vatBasis: 'ist',
+			ownVatId: '',
 			smallBusiness: false,
 			suspenseAccount: '',
 			consultantNumber: '12345',
@@ -183,6 +184,9 @@ describe('catalogue and settings', () => {
 		// The suspense account (#323): an account number, or nothing.
 		expect(cleanDatevSettings({ suspenseAccount: ' 1590 ' }).suspenseAccount).toBe('1590');
 		expect(cleanDatevSettings({ suspenseAccount: 'Ungeklärt' }).suspenseAccount).toBe('');
+		// Our own VAT ID (#354): spaces and case do not matter; anything else is none.
+		expect(cleanDatevSettings({ ownVatId: 'de 123 456 789' }).ownVatId).toBe('DE123456789');
+		expect(cleanDatevSettings({ ownVatId: 'keine' }).ownVatId).toBe('');
 	});
 	it('suggests 1200, 1210 for the bank accounts, oldest first', () => {
 		expect(suggestedLedgerAccount(0)).toBe('1200');
