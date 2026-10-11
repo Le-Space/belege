@@ -74,7 +74,9 @@ A backup restores only with the passkey that made it, and a passkey belongs to i
 
 The file holds every record of every collection (deleted ones too) and every receipt file and kept mail. It is sealed for that one key: an ephemeral X25519 key of the old books, ECDH, HKDF-SHA-256, AES-256-GCM. Only the date, the version, the counts and what was left out are readable. Left out, as they belong to the old passkey or device: the bridge pairing, the backup key, account and list, the invoicing app's pairing, the network mode, the relay in your own network, waiting jobs and the list of own devices. Pair and set these up again in the new books.
 
-Records keep their ids, links and times; receipt files are sealed anew with the new books' key. Books that are not empty take nothing over, and a file that does not open or does not add up writes nothing. The old books stay as they are; delete them there under _Einstellungen → Speicher_. A move by passphrase, for when both books are not open at once, follows.
+Records keep their ids, links and times; receipt files are sealed anew with the new books' key. Books that are not empty take nothing over, and a file that does not open or does not add up writes nothing. The old books stay as they are; delete them there under _Einstellungen → Speicher_. The old books stay untouched either way.
+
+**When both books are not open at once:** in the old books, under _In andere Bücher umziehen …_, open _Mit einer Passphrase umziehen …_ and _Umzugsdatei mit Passphrase erstellen_. Belege makes a passphrase – 20 characters in groups of five, 100 random bits – and shows it once: write it down. The file is sealed with it (scrypt, then AES-256-GCM). In the new books, _Bücher übernehmen …_, choose the file; it asks for the passphrase (case, spaces and dashes do not matter, nor O/0 or I/L/1). Whoever has both the file and the passphrase can read the books: keep them apart. A passphrase cannot be chosen, so it cannot be a weak one.
 
 ## What leaves
 

@@ -941,6 +941,12 @@ export default {
 			'Open “Take books over …” in the new, empty books and paste or scan the one-time key here:',
 		keyInvalid: 'That is no one-time key for a move.',
 		fingerprintCheck: 'Do the new books show the same fingerprint?',
+		passphraseWay: 'The new books are not open right now? Move with a passphrase …',
+		passphraseWayHint:
+			'Belege makes a passphrase and shows it once. Write it down: without it the file opens nowhere. Whoever has the file and the passphrase can read the books – keep them apart.',
+		packPassphrase: 'Create the move file with a passphrase',
+		passphraseWrite: 'The passphrase for this file – write it down now, it is not shown again:',
+		passphraseAsk: 'This file is sealed with a passphrase. Passphrase:',
 		pack: 'Create the move file',
 		packed: 'Move file saved.',
 		untouched: 'These books stay as they are.',

@@ -9,6 +9,10 @@
 	// file is read, its header shown, and only then taken over. Every step is a
 	// click; nothing happens on load. The key lives in this page's memory only:
 	// reloaded, a new one is needed.
+	//
+	// When both books are not open at once (step 3): the source seals with a
+	// passphrase Belege generates and shows once, to write down; the target
+	// asks for it when the chosen file says it is sealed that way.
 	import { onMount } from 'svelte';
 	import { renderSVG } from 'uqr';
 	import { currentBlobs, currentStore, refreshNow } from '$lib/session.svelte.js';
@@ -20,6 +24,7 @@
 	import {
 		MoveError,
 		createMoveKey,
+		generatePassphrase,
 		isEmptyBooks,
 		keyFingerprint,
 		openMoveFile,
@@ -45,6 +50,8 @@
 	let target = $derived(parseMoveKey(keyText));
 	/** @type {import('./book-move.js').MoveHeader | null} */
 	let packed = $state(null);
+	/** @type {string | null} the passphrase a file was sealed with, shown once */
+	let passphrase = $state(null);
 
 	// The target.
 	/** @type {ReturnType<typeof createMoveKey> | null} */
@@ -53,6 +60,7 @@
 	let chosen = $state(null);
 	/** @type {{ records: number, files: number } | null} */
 	let done = $state(null);
+	let typedPassphrase = $state('');
 
 	onMount(async () => {
 		const store = /** @type {any} */ (currentStore());
@@ -67,19 +75,23 @@
 				: String(/** @type {any} */ (e)?.message ?? e);
 	}
 
-	async function pack() {
+	/** @param {'key' | 'passphrase'} how */
+	async function pack(how) {
 		const store = /** @type {any} */ (currentStore());
 		const blobs = currentBlobs();
-		if (!store || !blobs || !target) return;
+		if (!store || !blobs || (how === 'key' && !target)) return;
 		busy = true;
 		error = null;
+		passphrase = null;
 		try {
+			const phrase = how === 'passphrase' ? generatePassphrase() : null;
 			const { file, header } = await packBooks({
 				store,
 				blobs,
-				seal: { to: target },
+				seal: phrase ? { passphrase: phrase } : { to: /** @type {Uint8Array} */ (target) },
 				appVersion: releaseName() || 'dev'
 			});
+			passphrase = phrase;
 			const href = URL.createObjectURL(
 				new Blob([/** @type {BlobPart} */ (file)], { type: 'application/octet-stream' })
 			);
@@ -128,15 +140,18 @@
 	async function takeOver() {
 		const store = /** @type {any} */ (currentStore());
 		const blobs = currentBlobs();
-		if (!store || !blobs || !chosen || !ownKey) return;
+		if (!store || !blobs || !chosen) return;
+		const key = chosen.header.seal.kind === 'passphrase' ? { passphrase: typedPassphrase } : ownKey;
+		if (!key) return;
 		busy = true;
 		error = null;
 		try {
-			const opened = await openMoveFile(chosen.file, ownKey);
+			const opened = await openMoveFile(chosen.file, key);
 			done = await takeOverBooks({ store, blobs, opened });
 			// Used: the key is gone, and so are the decrypted books.
 			ownKey = null;
 			chosen = null;
+			typedPassphrase = '';
 			empty = false;
 			await refreshNow();
 		} catch (e) {
@@ -212,10 +227,23 @@
 								{t('move.leftOutNote', { list: leftOutText(chosen.header) })}
 							</p>
 						{/if}
+						{#if chosen.header.seal.kind === 'passphrase'}
+							<label class="mt-2 flex flex-col gap-1">
+								<span>{t('move.passphraseAsk')}</span>
+								<input
+									class="w-full max-w-xs rounded-md border border-border bg-surface px-2 py-1 font-mono"
+									autocomplete="off"
+									spellcheck="false"
+									bind:value={typedPassphrase}
+									data-testid="move-passphrase-input"
+								/>
+							</label>
+						{/if}
 						<button
 							type="button"
 							class="{button} mt-2"
-							disabled={busy}
+							disabled={busy ||
+								(chosen.header.seal.kind === 'passphrase' && !typedPassphrase.trim())}
 							onclick={takeOver}
 							data-testid="move-take-over">{busy ? t('move.busy') : t('move.takeOver')}</button
 						>
@@ -260,9 +288,35 @@
 						type="button"
 						class={button}
 						disabled={busy}
-						onclick={pack}
+						onclick={() => pack('key')}
 						data-testid="move-pack">{busy ? t('move.busy') : t('move.pack')}</button
 					>
+				{/if}
+				<details class="mt-2" data-testid="move-passphrase-way">
+					<summary class="cursor-pointer text-faint">{t('move.passphraseWay')}</summary>
+					<p class="mt-1">{t('move.passphraseWayHint')}</p>
+					<button
+						type="button"
+						class="{button} mt-2"
+						disabled={busy}
+						onclick={() => pack('passphrase')}
+						data-testid="move-pack-passphrase">{t('move.packPassphrase')}</button
+					>
+				</details>
+				{#if passphrase}
+					<div
+						class="mt-2 rounded-md border border-warning p-3"
+						role="status"
+						data-testid="move-passphrase-shown"
+					>
+						<p>{t('move.passphraseWrite')}</p>
+						<p
+							class="mt-1 font-mono text-lg tracking-wider text-heading select-all"
+							data-testid="move-passphrase"
+						>
+							{passphrase}
+						</p>
+					</div>
 				{/if}
 				{#if packed}
 					<p class="mt-2 text-heading" role="status" data-testid="move-packed">
