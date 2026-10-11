@@ -204,6 +204,10 @@ test('a bank that says no links nothing; a bank that says yes is linked, listed 
 	await expect(card2.getByTestId('enablebanking-fetched')).toContainText('Neu: 0');
 	await page.getByTestId('tab-zahlungen').click();
 	await expect(page.getByText('Wolkenfabrik Hosting GmbH').first()).toBeVisible();
+	// Zahlungen shows one month; the fake bank dates the customer's payment 20
+	// days back, which lies in the month before for the first days of a month.
+	const paid = new Date(Date.now() - 20 * 86_400_000).toISOString().slice(0, 7);
+	await page.locator(`[data-testid="transaction-month"][data-month="${paid}"]`).click();
 	await expect(page.getByText('Kundin Beispiel AG').first()).toBeVisible();
 	expect(bridgeOut).not.toContain('Wolkenfabrik');
 	await openIntegration(page, 'bank');
