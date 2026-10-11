@@ -32,6 +32,9 @@ export const REFERENCE_SYSTEM = 'belege';
  * @property {string} [dueOn]
  * @property {{ name: string }} customer
  * @property {Money} total
+ * @property {Money} [net] the total without VAT (proposed for the invoice extension, #195)
+ * @property {{ rate: string, amount: Money }[]} [vat] the VAT per rate (percent as a decimal
+ *   string); absent: the app did not say; empty: no VAT charged (#195)
  * @property {Money} [paid]
  * @property {Payment[]} [payments]
  */
@@ -93,8 +96,27 @@ export function extractionOf(inv) {
 		due_or_debit_date: inv.dueOn ? String(inv.dueOn) : null,
 		gross: cents / 100,
 		currency: String(inv.total?.currency ?? 'EUR'),
-		from: 'invoice-app'
+		from: 'invoice-app',
+		// The VAT per rate, where the app says it (#195); absent stays absent – "not said", not zero.
+		...vatOf(inv)
 	};
+}
+
+/**
+ * An issued invoice's net and VAT per rate, as the extraction keeps them.
+ *
+ * @param {IssuedInvoice} inv
+ * @returns {{ net?: number, vat?: { rate: number, amount: number }[] }}
+ */
+export function vatOf(inv) {
+	if (!Array.isArray(inv.vat)) return {};
+	const vat = inv.vat.flatMap((v) => {
+		const rate = Number(String(v?.rate ?? '').trim());
+		const amount = centsOf(v?.amount?.value);
+		return Number.isFinite(rate) && amount !== null ? [{ rate, amount: amount / 100 }] : [];
+	});
+	const net = centsOf(inv.net?.value);
+	return { vat, ...(net === null ? {} : { net: net / 100 }) };
 }
 
 /**

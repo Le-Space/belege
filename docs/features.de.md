@@ -65,6 +65,7 @@ Was Le Space Belege heute kann, nach Kategorien. Dieselbe Liste steht kürzer au
 ## Vorbereitende Buchhaltung und Export
 
 - **Jede Buchung** bekommt ein SKR-03-Konto und einen BU-Schlüssel: vorgeschlagen, von dir bestätigt. Dein eigener Kontenrahmen lässt sich einlesen.
+- **Umsatzsteuer auf Home** ([#195](https://github.com/Le-Space/belege/issues/195)): je Monat oder Quartal und fürs Jahr die Vorsteuer aus den Belegen (19 % und 7 %, nach Belegdatum), die Umsatzsteuer aus den Rechnungen der Rechnungs-App – wenn das Geld kommt (Ist, voreingestellt) oder am Rechnungsdatum (Soll), wie unter Buchhaltung eingestellt – und die Zahllast oder Erstattung. Ausländische Steuer, §13b, noch nicht bezahlte Rechnungen und Rechnungen, deren Steuer die App nicht geliefert hat, stehen gesondert. Als Kleinunternehmer (§19 UStG) erscheint stattdessen der Umsatz gegen die Grenzen. Eine Hilfe für die Voranmeldung, nicht die Voranmeldung selbst.
 - **Jeden Monat ein ZIP:** ein DATEV-Buchungsstapel (EXTF) für deine Buchhaltung, die Belege als PDF und ein Auszug je Konto. Siehe [export.de.md](export.de.md).
 
 ## Geräte und Zusammenarbeit

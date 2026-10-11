@@ -167,6 +167,7 @@ describe('catalogue and settings', () => {
 			legalForm: '',
 			shareholderAccount: '',
 			vatPeriod: 'quarter',
+			vatBasis: 'ist',
 			smallBusiness: false,
 			suspenseAccount: '',
 			consultantNumber: '12345',
