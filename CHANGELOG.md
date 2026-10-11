@@ -6,6 +6,14 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Move books to another passkey** (#328, #341, #342, #346). A passkey belongs to its address, and the books' DID and keys come from it: books on `localhost` and on belege.le-space.de, or under an old and a new passkey, were separate books with no way from one to the other. Integrationen → Backup → _Bücher umziehen_ now takes every payment, receipt with its file, link and setting into the **empty** books of another passkey; ids, links and times are kept, files are sealed anew.
+  - **By a one-time key** (the default): the new books show a key as a QR code and as text with a fingerprint; the old books seal the move file to it (X25519, HKDF, AES-256-GCM). Only those books open it.
+  - **By a passphrase**, when both books are not open at once: Belege makes it (100 bits, groups of five), shows it once to write down, and asks for it in the new books.
+  - Left out, as they belong to the old passkey or device: the bridge pairing, the backup key and list, the invoicing app's pairing, the network mode, own devices. The old books stay as they are. See [docs/backup.md](docs/backup.md).
+- **Link previews** (#343, #345). A link to the app shows a card on X/Twitter, LinkedIn, Telegram and others: title, description and a preview image, in German at `/` and in English at `/en/`, which also opens the app in English. Search engines stay out.
+
 ## [0.8.0] – 2026-10-06
 
 ### Added
