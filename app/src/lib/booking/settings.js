@@ -3,7 +3,7 @@
 // and client number, start of the fiscal year, length of the ledger
 // accounts) and the BU keys the tax-key suggestion uses (tax-keys.js).
 //
-// The ledger account of each bank account ("Sachkonto in MonkeyOffice") lives
+// The ledger account of each bank account ("Sachkonto" in the bookkeeping) lives
 // on its `accounts` record as `ledgerAccount`, so a new bank account starts
 // without one. Pure.
 
@@ -83,7 +83,7 @@ export function defaultDatevSettings() {
 		vatPeriod: /** @type {'month' | 'quarter'} */ ('quarter'),
 		smallBusiness: false,
 		suspenseAccount: '',
-		// A number MonkeyOffice accepts for a company of its own; check what it expects.
+		// The usual numbers for a company doing its own books; check what the bookkeeping expects.
 		consultantNumber: '1001',
 		clientNumber: '1',
 		fiscalYearStartMonth: 1,

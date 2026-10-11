@@ -6,7 +6,7 @@ Belege führt Konten bei Börsen (Kraken) und eigene Wallets auf Blockchains (Co
 
 ## Ein Konto je Asset
 
-Ein Krypto-Konto hält genau ein Asset: _Kraken BTC_, _Kraken EUR_ und _Wallet NYM_ sind drei Konten, jedes mit eigenem Sachkonto in MonkeyOffice. Welche Assets Belege kennt, steht in `app/src/lib/assets/registry.js`: Kürzel, Name, Nachkommastellen und, wo sie sicher ist, die kettenübergreifende CAIP-19-Kennung.
+Ein Krypto-Konto hält genau ein Asset: _Kraken BTC_, _Kraken EUR_ und _Wallet NYM_ sind drei Konten, jedes mit eigenem Sachkonto in der Buchhaltung. Welche Assets Belege kennt, steht in `app/src/lib/assets/registry.js`: Kürzel, Name, Nachkommastellen und, wo sie sicher ist, die kettenübergreifende CAIP-19-Kennung.
 
 ## Eine Krypto-Bewegung wird in Euro gebucht und behält, was bewegt wurde
 
@@ -46,7 +46,7 @@ Die Anfrage nennt nur ein Asset und einen Tag, nichts über die Buchungen. Verga
 
 **Technik**: Die Anfragen laufen über [ccxt](https://github.com/ccxt/ccxt) (MIT), das sie signiert und Krakens Fehlercodes zuordnet; die Bridge nutzt dessen direkte Endpunkte, die Einträge sind also Krakens eigene und werden gelesen wie bisher. Die Nonce bleibt in Mikrosekunden, wie die Bridge sie immer gesendet hat – Kraken merkt sich die höchste Nonce eines Schlüssels und lehnt eine niedrigere ab. Weitere Börsen über ccxt sind geplant (#265).
 
-**Konten**: eines je Asset und Wallet: _Kraken EUR_, _Kraken BTC_, _Kraken BTC (Earn)_ für gestakte oder verzinste Bestände (die `.S`-, `.M`-, …-Assets von Kraken). Jedes braucht wie ein Bankkonto sein Sachkonto in MonkeyOffice (_Eigene Anweisungen_).
+**Konten**: eines je Asset und Wallet: _Kraken EUR_, _Kraken BTC_, _Kraken BTC (Earn)_ für gestakte oder verzinste Bestände (die `.S`-, `.M`-, …-Assets von Kraken). Jedes braucht wie ein Bankkonto sein Sachkonto in der Buchhaltung (_Eigene Anweisungen_).
 
 **Buchungen**: eine je Ledger-Eintrag, dazu eine für jede Gebühr, die Kraken darauf berechnet hat. So ist die Gebühr sichtbar und wird auf 4970 gebucht.
 

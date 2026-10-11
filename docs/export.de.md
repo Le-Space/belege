@@ -2,7 +2,7 @@
 
 _English: [export.md](export.md)_
 
-Einmal im Monat macht Belege eine ZIP-Datei für die Buchhaltung: die Buchungen des Monats als **DATEV-Buchungsstapel** (EXTF-CSV) zum Import in **MonkeyOffice** und die Belege als Dateien. Die ZIP-Datei entsteht im Browser und wird heruntergeladen; nichts geht an einen Server, nichts an das Sprachmodell.
+Einmal im Monat macht Belege eine ZIP-Datei für die Buchhaltung: die Buchungen des Monats als **DATEV-Buchungsstapel** (EXTF-CSV) zum Import in deine **Buchhaltung** und die Belege als Dateien. Die ZIP-Datei entsteht im Browser und wird heruntergeladen; nichts geht an einen Server, nichts an das Sprachmodell.
 
 ```
 DATEV_2026-09.zip
@@ -18,8 +18,8 @@ Ein Beleg, der eine E-Mail ohne Anhang ist (eine Quittung im Text der Mail selbs
 
 ## Vor dem Export
 
-1. **Sachkonten der Bankkonten** – _Integrationen → Eigene Anweisungen → Buchhaltung (MonkeyOffice / DATEV)_: für jedes Bankkonto die Nummer, unter der es in MonkeyOffice geführt wird. Das Feld zeigt 1200, 1210, … (SKR 03) nur als Platzhalter.
-2. **Kopfwerte** – ebenda: Beraternummer und Mandantennummer (voreingestellt 1001 und 1, das nimmt MonkeyOffice für die eigene Buchhaltung meist an – prüfe, was dein MonkeyOffice erwartet), der Monat, in dem das Wirtschaftsjahr beginnt (Januar), die Sachkontenlänge (4).
+1. **Sachkonten der Bankkonten** – _Integrationen → Eigene Anweisungen → Buchhaltung (DATEV-Export)_: für jedes Bankkonto die Nummer, unter der es in deiner Buchhaltung geführt wird. Das Feld zeigt 1200, 1210, … (SKR 03) nur als Platzhalter.
+2. **Kopfwerte** – ebenda: Beraternummer und Mandantennummer (voreingestellt 1001 und 1, üblich für die eigene Buchhaltung – prüfe, was deine Buchhaltung erwartet), der Monat, in dem das Wirtschaftsjahr beginnt (Januar), die Sachkontenlänge (4).
 3. **Ein Konto für jede Buchung** – in jeder Zahlung unter _Konto_. Die App schlägt vor, du übernimmst mit _Übernehmen_:
    - eigene Umbuchung → **1360** Geldtransit, Bankgebühr → **4970** Nebenkosten des Geldverkehrs, beide ohne BU-Schlüssel;
    - _gelernt_: das Konto, das du diesem Anbieter zuletzt gegeben hast (über den Anbieter des Belegs oder die Gegenpartei auf dem Kontoauszug);
@@ -46,9 +46,9 @@ Vorkontieren bleibt der Normalfall. Ist eine Buchung am Monatsende noch unklar, 
 
 Das Sammelkonto trägt keine Vorsteuer und kein Aufwandskonto: Umsatzsteuer-Voranmeldung und Gewinn stimmen erst nach dem Umbuchen, und zum Jahresende muss es leer sein. Welches Konto und wer umbucht, legt ihr mit dem Steuerberater fest. Das ist keine Steuerberatung.
 
-## Import in MonkeyOffice
+## Import in deine Buchhaltung
 
-MonkeyOffice importiert DATEV-Buchungsstapel über seinen DATEV-Import (die Menünamen unterscheiden sich je nach Version; die Hilfe führt ihn unter „DATEV“). `DATEV/EXTF_Buchungsstapel_<Monat>.csv` importieren, die Buchungen in der Vorschau prüfen, dann die Belege aus `Belege/` über ihre Nummer anhängen (sie steht in _Belegfeld 1_ und vorn im Dateinamen). Der erste Import ist ein Test: in einer Kopie der Firma, oder jede Zeile vor dem Buchen prüfen.
+Buchhaltungsprogramme und DATEV importieren einen Buchungsstapel über ihren DATEV-Import (die Menüs heißen je nach Programm anders; die Hilfe führt ihn unter „DATEV“). `DATEV/EXTF_Buchungsstapel_<Monat>.csv` importieren, die Buchungen in der Vorschau prüfen, dann die Belege aus `Belege/` über ihre Nummer anhängen (sie steht in _Belegfeld 1_ und vorn im Dateinamen). Der erste Import ist ein Test: in einer Kopie der Firma, oder jede Zeile vor dem Buchen prüfen.
 
 ## Das Format
 
@@ -66,9 +66,9 @@ MonkeyOffice importiert DATEV-Buchungsstapel über seinen DATEV-Import (die Men�
 ### Was an einer Quelle geprüft ist und was nicht
 
 - **Feldliste, Reihenfolge und Regeln** folgen dem quelloffenen Ruby-Gem [ledermann/datev](https://github.com/ledermann/datev) (Kopf, Buchungsfelder, seine Beispieldatei `EXTF_Buchungsstapel.csv` für Formatversion 13), das der DATEV-Entwicklerdokumentation folgt. Die DATEV-Seiten selbst ließen sich hier nicht lesen. Zwei Überschriften folgen dem Auftrag für diesen Export (`Basis-Umsatz`, `WKZ Basis-Umsatz`; das Gem schreibt `Basisumsatz`); DATEV liest nach Position.
-- Kopffelder 8–10 und 18 (Herkunft, Exportiert von, Importiert von, Diktatkürzel) bleiben leer, 27 (SKR) auch. Will MonkeyOffice sie haben, ist `headerLine` in `datev.js` die eine Stelle.
+- Kopffelder 8–10 und 18 (Herkunft, Exportiert von, Importiert von, Diktatkürzel) bleiben leer, 27 (SKR) auch. Will deine Buchhaltung sie haben, ist `headerLine` in `datev.js` die eine Stelle.
 - **SKR-03-Namen** im Katalog sind mit den öffentlichen Kontoseiten von buchungssatz.de verglichen, nicht mit dem DATEV-Kontenrahmen. **BU-Schlüssel** 9/8/3/2 und 94 für §13b sind die üblich dokumentierten SKR-03-Schlüssel (DATEV-Community, Hilfeseiten von Buchhaltungssoftware); nicht bei DATEV selbst geprüft.
-- **Mit MonkeyOffice noch nicht getestet.** Der erste echte Import ist der Test.
+- **Noch mit keinem echten Import ausprobiert.** Der erste echte Import ist der Test.
 
 ## Monatsauszüge
 
@@ -114,15 +114,14 @@ Unter dem DATEV-Export lädt _Kryptobewegungen_ alle Buchungen deiner Wallets un
 - Ob und bis zu welchem Betrag Eigenbelege für Zahlungen ohne Beleg anerkannt werden (Blockchain-Gebühren, Lease-Zahlungen).
 - Die **Konten**: der Katalog ist ein Ausgangspunkt (z. B. 4964 heißt „Aufwendungen für die zeitlich befristete Überlassung von Rechten (Lizenzen, Konzessionen)“ – passt das für Software-Abos?).
 - Die **BU-Schlüssel**, vor allem **§13b**: 94 ist der übliche Schlüssel für eine Leistung aus dem Ausland zu 19 %; es gibt andere (etwa für Waren aus der EU). Welche Automatikkonten dein Kontenrahmen hat (8400 und 8300 gelten als solche: kein Schlüssel).
-- **Beraternummer, Mandantennummer**, Sachkontenlänge und Wirtschaftsjahr, wie MonkeyOffice sie führt.
+- **Beraternummer, Mandantennummer**, Sachkontenlänge und Wirtschaftsjahr, wie deine Buchhaltung sie führt.
 - Ob der Buchungstag als _Belegdatum_ für dich richtig ist oder das Datum des Belegs.
 
 ## Dein eigener Kontenplan
 
 Unter _Integrationen → Eigene Anweisungen → Kontenplan_ liest die App den Kontenplan deines Buchhaltungsprogramms ein; danach schlägt „Konto“ deine Konten mit deinen Bezeichnungen vor statt der eingebauten SKR-03-Liste und markiert Nummern, die es in deinem Plan nicht gibt.
 
-- **MonKey Office:** Seitenleiste → _Import & Export → Export DATEV → Kontenbeschriftungen_ (auf Wunsch nur ein Bereich _von Konto … bis Konto_) → die CSV-Datei einlesen.
-- **Andere Programme mit DATEV-Schnittstelle:** der Export _Kontenbeschriftungen_ (eine Datei, die mit `EXTF` beginnt, Datenkategorie 20).
+- **Ein Programm mit DATEV-Schnittstelle:** sein Export der _Kontenbeschriftungen_ (eine Datei, die mit `EXTF` beginnt, Datenkategorie 20; auf Wunsch nur ein Kontenbereich) → die CSV-Datei einlesen. Die Menüs heißen je nach Programm anders.
 - **Sonst:** jede CSV- oder Textdatei mit einer Spalte Kontonummern (4–8 Ziffern) und einer Spalte Bezeichnungen, getrennt durch Semikolon, Komma oder Tab. UTF-8 und Windows-1252 werden beide gelesen.
 
 Der Kontenplan bleibt verschlüsselt in deinen Büchern im Browser, wie jeder Datensatz. _Entfernen_ führt zurück zur SKR-03-Liste.

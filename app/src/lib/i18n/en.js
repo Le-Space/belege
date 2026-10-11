@@ -614,7 +614,7 @@ export default {
 				name: 'Bookkeeping & export',
 				items: [
 					'Every booking with an SKR 03 account and BU key; your chart of accounts can be imported.',
-					'One ZIP per month: DATEV booking batch (EXTF) for MonkeyOffice, the receipts as PDF and a statement per account.'
+					'One ZIP per month: DATEV booking batch (EXTF) for your bookkeeping, the receipts as PDF and a statement per account.'
 				]
 			},
 			devices: {
@@ -1734,10 +1734,10 @@ export default {
 			title: 'Chart of accounts',
 			hint: 'Import your bookkeeping’s chart of accounts: then “Account” on each payment suggests your accounts with your names instead of the general SKR 03 list.',
 			infoTitle:
-				'A file from your bookkeeping: DATEV “Kontenbeschriftungen” (account labels, e.g. MonKey Office: Import & Export → Export DATEV → Kontenbeschriftungen) or a CSV with account number and name. It stays encrypted in your books in this browser.',
+				'A file from your bookkeeping: DATEV “Kontenbeschriftungen” (account labels, in the bookkeeping usually under “Export DATEV”) or a CSV with account number and name. It stays encrypted in your books in this browser.',
 			howTitle: 'How do I get the file?',
 			how: [
-				'MonKey Office: sidebar → Import & Export → Export DATEV → “Kontenbeschriftungen” (optionally just an account range “von Konto … bis Konto”) → import the CSV file here.',
+				'In your bookkeeping, open the DATEV export of the “Kontenbeschriftungen” (optionally just a range of accounts), save the CSV file and import it here. The menus are named differently from program to program.',
 				'Other programs with a DATEV interface: choose the export “Kontenbeschriftungen” or “Kontenplan (DATEV-Format)” – the file starts with “EXTF”.',
 				'Otherwise a CSV or text file with one column for the account number (4–8 digits) and one for the name, separated by semicolon, comma or tab, will do – such as the chart of accounts export from Lexware, sevDesk or Excel.',
 				'Your program is not listed or the file is not recognised? Write to us which program you use – we will add it on request.'
@@ -1755,11 +1755,11 @@ export default {
 			tooLarge: 'The file is larger than 5 MB – is it really the chart of accounts?'
 		},
 		books: {
-			title: 'Bookkeeping (MonkeyOffice / DATEV)',
-			hint: 'What the DATEV export needs to know about your bookkeeping. Check the values in MonkeyOffice – it shows what it expects on import.',
-			ledger: 'Ledger account in MonkeyOffice',
+			title: 'Bookkeeping (DATEV export)',
+			hint: 'What the DATEV export needs to know about your bookkeeping. Check the values in your bookkeeping – it shows what it expects on import.',
+			ledger: 'Ledger account in your bookkeeping',
 			ledgerHint:
-				'The ledger account under which this bank account is kept in your bookkeeping. Suggestion per SKR 03: {suggestion} – only a placeholder, enter the number from MonkeyOffice.',
+				'The ledger account under which this bank account is kept in your bookkeeping. Suggestion per SKR 03: {suggestion} – only a placeholder, enter the number from your bookkeeping.',
 			noAccounts: 'No bank accounts in the books yet.',
 			vatPeriod: 'Advance VAT return',
 			vatPeriods: { quarter: 'quarterly', month: 'monthly' },
@@ -1782,7 +1782,7 @@ export default {
 			consultant: 'Advisor number',
 			client: 'Client number',
 			numbersHint:
-				'For your own bookkeeping without a tax advisor, MonkeyOffice usually takes 1001 and 1. Check in MonkeyOffice what it expects on DATEV import.',
+				'For your own bookkeeping without a tax advisor, 1001 and 1 are usual. Check in your bookkeeping what it expects on DATEV import.',
 			fiscalStart: 'Financial year starts in',
 			accountLength: 'Ledger account length',
 			accountLengthHint: 'Digits of your ledger accounts, usually 4 for SKR 03.',
@@ -2279,7 +2279,7 @@ export default {
 	export: {
 		title: 'Export',
 		intro:
-			'Once a month: the bookings as a DATEV booking batch for MonkeyOffice and the receipts as PDF, together in one ZIP file. It is created only here in the browser and downloaded to your device – nothing goes to a server.',
+			'Once a month: the bookings as a DATEV booking batch for your bookkeeping and the receipts as PDF, together in one ZIP file. It is created only here in the browser and downloaded to your device – nothing goes to a server.',
 		empty: 'No payments yet – without them there is nothing to export.',
 		emptyLink: 'Upload a bank statement or connect the bank',
 		month: 'Month',

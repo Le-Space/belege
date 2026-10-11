@@ -6,7 +6,7 @@ Belege keeps accounts on exchanges (Kraken) and own wallets on blockchains (Cosm
 
 ## One account per asset
 
-A crypto account holds exactly one asset: _Kraken BTC_, _Kraken EUR_ and _Wallet NYM_ are three accounts, each with its own ledger account in MonkeyOffice. The assets Belege knows are listed in `app/src/lib/assets/registry.js`: symbol, name, decimals and, where it is certain, the chain-agnostic CAIP-19 id.
+A crypto account holds exactly one asset: _Kraken BTC_, _Kraken EUR_ and _Wallet NYM_ are three accounts, each with its own ledger account in the bookkeeping. The assets Belege knows are listed in `app/src/lib/assets/registry.js`: symbol, name, decimals and, where it is certain, the chain-agnostic CAIP-19 id.
 
 ## A crypto transaction is booked in euros and keeps what moved
 
@@ -46,7 +46,7 @@ The request names an asset and a day, nothing about the bookings. Past days are 
 
 **Under the hood**: the requests go through [ccxt](https://github.com/ccxt/ccxt) (MIT), which signs them and maps Kraken's error codes; the bridge uses its raw endpoints, so the entries are Kraken's own and are read as before. The nonce stays in microseconds, as the bridge has always sent it – Kraken keeps the highest nonce a key has sent and refuses a lower one. More exchanges through ccxt are planned (#265).
 
-**Accounts**: one per asset and wallet: _Kraken EUR_, _Kraken BTC_, _Kraken BTC (Earn)_ for staked or earning balances (Kraken's `.S`, `.M`, … assets). Each needs its ledger account in MonkeyOffice like a bank account (_Eigene Anweisungen_).
+**Accounts**: one per asset and wallet: _Kraken EUR_, _Kraken BTC_, _Kraken BTC (Earn)_ for staked or earning balances (Kraken's `.S`, `.M`, … assets). Each needs its ledger account in the bookkeeping like a bank account (_Eigene Anweisungen_).
 
 **Bookings**: one per ledger entry, plus one for each fee Kraken charged on it (so the fee is visible and booked on 4970).
 

@@ -635,7 +635,7 @@ export default {
 				name: 'Buchhaltung & Export',
 				items: [
 					'Jede Buchung mit SKR-03-Konto und BU-Schlüssel; dein Kontenrahmen lässt sich einlesen.',
-					'Monatlich ein ZIP: DATEV-Buchungsstapel (EXTF) für MonkeyOffice, die Belege als PDF und ein Auszug je Konto.'
+					'Monatlich ein ZIP: DATEV-Buchungsstapel (EXTF) für deine Buchhaltung, die Belege als PDF und ein Auszug je Konto.'
 				]
 			},
 			devices: {
@@ -1763,10 +1763,10 @@ export default {
 			title: 'Kontenplan',
 			hint: 'Lies den Kontenplan deiner Buchhaltung ein: Dann schlägt „Konto“ an jeder Zahlung deine Konten mit deinen Bezeichnungen vor statt der allgemeinen SKR-03-Liste.',
 			infoTitle:
-				'Eine Datei aus deiner Buchhaltung: DATEV-„Kontenbeschriftungen“ (z. B. MonKey Office: Import & Export → Export DATEV → Kontenbeschriftungen) oder eine CSV mit Kontonummer und Bezeichnung. Sie bleibt verschlüsselt in deinen Büchern in diesem Browser.',
+				'Eine Datei aus deiner Buchhaltung: DATEV-„Kontenbeschriftungen“ (in der Buchhaltung meist unter „Export DATEV“) oder eine CSV mit Kontonummer und Bezeichnung. Sie bleibt verschlüsselt in deinen Büchern in diesem Browser.',
 			howTitle: 'Wie komme ich an die Datei?',
 			how: [
-				'MonKey Office: Seitenleiste → Import & Export → Export DATEV → „Kontenbeschriftungen“ (auf Wunsch nur ein Kontenbereich „von Konto … bis Konto“) → die CSV-Datei hier einlesen.',
+				'In deiner Buchhaltung den DATEV-Export der „Kontenbeschriftungen“ aufrufen (auf Wunsch nur ein Kontenbereich), die CSV-Datei speichern und hier einlesen. Die Menüs heißen je nach Programm anders.',
 				'Andere Programme mit DATEV-Schnittstelle: den Export „Kontenbeschriftungen“ bzw. „Kontenplan (DATEV-Format)“ wählen – die Datei beginnt mit „EXTF“.',
 				'Sonst reicht eine CSV oder Textdatei mit einer Spalte Kontonummer (4–8 Ziffern) und einer Spalte Bezeichnung, getrennt durch Semikolon, Komma oder Tab – etwa der Kontenplan-Export aus Lexware, sevDesk oder Excel.',
 				'Dein Programm ist nicht dabei oder die Datei wird nicht erkannt? Schreib uns, welches Programm du nutzt – wir nehmen es auf Anfrage auf.'
@@ -1784,11 +1784,11 @@ export default {
 			tooLarge: 'Die Datei ist größer als 5 MB – ist es wirklich der Kontenplan?'
 		},
 		books: {
-			title: 'Buchhaltung (MonkeyOffice / DATEV)',
-			hint: 'Was der DATEV-Export über deine Buchhaltung wissen muss. Prüfe die Werte in MonkeyOffice – dort steht, was es beim Import erwartet.',
-			ledger: 'Sachkonto in MonkeyOffice',
+			title: 'Buchhaltung (DATEV-Export)',
+			hint: 'Was der DATEV-Export über deine Buchhaltung wissen muss. Prüfe die Werte in deiner Buchhaltung – dort steht, was sie beim Import erwartet.',
+			ledger: 'Sachkonto in deiner Buchhaltung',
 			ledgerHint:
-				'Das Sachkonto, unter dem dieses Bankkonto in deiner Buchhaltung geführt wird. Vorschlag nach SKR 03: {suggestion} – nur ein Platzhalter, trag die Nummer aus MonkeyOffice ein.',
+				'Das Sachkonto, unter dem dieses Bankkonto in deiner Buchhaltung geführt wird. Vorschlag nach SKR 03: {suggestion} – nur ein Platzhalter, trag die Nummer aus deiner Buchhaltung ein.',
 			noAccounts: 'Noch keine Bankkonten in den Büchern.',
 			vatPeriod: 'Umsatzsteuer-Voranmeldung',
 			vatPeriods: { quarter: 'vierteljährlich', month: 'monatlich' },
@@ -1811,7 +1811,7 @@ export default {
 			consultant: 'Beraternummer',
 			client: 'Mandantennummer',
 			numbersHint:
-				'Für die eigene Buchhaltung ohne Steuerberatung nimmt MonkeyOffice meist 1001 und 1. Prüfe in MonkeyOffice, was es beim DATEV-Import erwartet.',
+				'Für die eigene Buchhaltung ohne Steuerberatung sind 1001 und 1 üblich. Prüfe in deiner Buchhaltung, was sie beim DATEV-Import erwartet.',
 			fiscalStart: 'Wirtschaftsjahr beginnt im',
 			accountLength: 'Sachkontenlänge',
 			accountLengthHint: 'Stellen deiner Sachkonten, bei SKR 03 meist 4.',
@@ -2314,7 +2314,7 @@ export default {
 	export: {
 		title: 'Export',
 		intro:
-			'Einmal im Monat: die Buchungen als DATEV-Buchungsstapel für MonkeyOffice und die Belege als PDF, zusammen in einer ZIP-Datei. Sie entsteht nur hier im Browser und wird auf dein Gerät geladen – nichts geht an einen Server.',
+			'Einmal im Monat: die Buchungen als DATEV-Buchungsstapel für deine Buchhaltung und die Belege als PDF, zusammen in einer ZIP-Datei. Sie entsteht nur hier im Browser und wird auf dein Gerät geladen – nichts geht an einen Server.',
 		empty: 'Noch keine Zahlungen – ohne sie gibt es nichts zu exportieren.',
 		emptyLink: 'Kontoauszug hochladen oder Bank anbinden',
 		month: 'Monat',
