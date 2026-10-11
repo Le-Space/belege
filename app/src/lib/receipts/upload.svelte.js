@@ -16,7 +16,8 @@ import { extractAll } from './extract-queue.svelte.js';
 import { importFiles } from './import.js';
 
 /** What a browser hands over: PDFs and the images a receipt may be. */
-export const ACCEPT = '.pdf,application/pdf,image/png,image/jpeg,image/gif,image/webp';
+export const ACCEPT =
+	'.pdf,application/pdf,image/png,image/jpeg,image/gif,image/webp,.xml,application/xml,text/xml';
 
 export const upload = $state({
 	busy: false,

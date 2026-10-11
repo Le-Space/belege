@@ -11,6 +11,7 @@
 	import { needsConfirmation } from './receipts/import.js';
 	import { t } from './i18n/index.js';
 	import MailText from './receipts/MailText.svelte';
+	import EInvoiceView from './receipts/EInvoiceView.svelte';
 
 	/** @type {{ receipt: Record<string, any>, width?: number, magnifier?: boolean }} */
 	let { receipt, width = 260, magnifier = false } = $props();
@@ -178,6 +179,8 @@
 		/>
 		{@render lensOver()}
 	</div>
+{:else if receipt.fileCid && receipt.mime === 'application/xml' && !needsConfirmation(receipt)}
+	<EInvoiceView {receipt} class="max-h-40" testid="tx-receipt-preview" />
 {:else if !receipt.fileCid && receipt.excerpt}
 	<MailText {receipt} class="max-h-40" testid="tx-receipt-preview" />
 {/if}

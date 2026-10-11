@@ -23,6 +23,7 @@
 
 import { recordEvent } from '../activity/events.js';
 import { sha256Hex } from './blob-store.js';
+import { eInvoiceFields, sniffEInvoice } from './einvoice.js';
 
 /** @typedef {'mail' | 'upload' | 'folder' | 'portal' | 'eigenbeleg' | 'invoice-app'} ReceiptSource portal: portals/import.js; eigenbeleg: eigenbeleg.js; invoice-app: ucep/issued.js */
 /** @typedef {'neu' | 'ausgelesen' | 'rückfrage' | 'zugeordnet' | 'ignoriert'} ReceiptStatus */
@@ -33,7 +34,7 @@ export const MAX_FILE_BYTES = 15 * 1024 * 1024;
  * What the bytes are, whatever the name or the declared type say.
  *
  * @param {Uint8Array} bytes
- * @returns {{ kind: 'pdf' | 'image' | 'other', mime: string | null }}
+ * @returns {{ kind: 'pdf' | 'image' | 'einvoice' | 'other', mime: string | null }}
  */
 export function sniff(bytes) {
 	const b = bytes ?? new Uint8Array();
@@ -49,6 +50,8 @@ export function sniff(bytes) {
 	if (starts([0x52, 0x49, 0x46, 0x46]) && starts([0x57, 0x45, 0x42, 0x50], 8)) {
 		return { kind: 'image', mime: 'image/webp' };
 	}
+	// An e-invoice (XRechnung, #160): the XML is the original. Any other XML is not taken.
+	if (sniffEInvoice(b)) return { kind: 'einvoice', mime: 'application/xml' };
 	return { kind: 'other', mime: null };
 }
 
@@ -152,6 +155,8 @@ export async function importFile({
 		return { record: null, outcome: 'duplicate' };
 	}
 	const fileCid = await blobs.put(bytes);
+	// An e-invoice is read at once, from its XML, without a model (#160).
+	const read = kind === 'einvoice' ? eInvoiceFields(bytes) : null;
 	const record = await receipts.put({
 		source,
 		sourceRef,
@@ -171,7 +176,8 @@ export async function importFile({
 		extraction: null,
 		extractionModel: null,
 		extractionError: null,
-		status: needsConfirmation({ source, ...fields }) ? 'rückfrage' : 'neu'
+		...(read ?? {}),
+		status: needsConfirmation({ source, ...fields }) ? 'rückfrage' : read ? 'ausgelesen' : 'neu'
 	});
 	index.sha.add(sha256);
 	index.refs.add(sourceRef);
@@ -279,7 +285,7 @@ export async function importMailMessages({
 			...(foundBy ? { foundBy } : {})
 		};
 		const files = (m.attachments ?? []).filter(
-			(/** @type {any} */ a) => a.kind === 'pdf' || a.kind === 'image'
+			(/** @type {any} */ a) => a.kind === 'pdf' || a.kind === 'image' || a.kind === 'einvoice'
 		);
 		if (files.length === 0) {
 			const sourceRef = `${m.id}#text`;

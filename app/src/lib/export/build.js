@@ -31,7 +31,9 @@ const EXTENSION = /** @type {Record<string, string>} */ ({
 	'image/png': 'png',
 	'image/jpeg': 'jpg',
 	'image/gif': 'gif',
-	'image/webp': 'webp'
+	'image/webp': 'webp',
+	// An e-invoice's original (#160).
+	'application/xml': 'xml'
 });
 
 /**
