@@ -4,14 +4,17 @@ import { SHELL, cacheDecision, shellFiles } from './cache-rules.js';
 
 const origin = 'http://localhost:4173';
 const assets = new Set(
-	shellFiles(['/_app/immutable/entry/app.js', '/_app/immutable/x.js.map'], ['/favicon.svg'])
+	shellFiles(
+		['/_app/immutable/entry/app.js', '/_app/immutable/x.js.map'],
+		['/favicon.svg', '/social/belege-de.png', '/en/index.html', '/robots.txt']
+	)
 );
 /** @param {string} href @param {{ method?: string, mode?: string }} [r] */
 const decide = (href, { method = 'GET', mode = 'cors' } = {}) =>
 	cacheDecision(new URL(href, origin), { origin, assets, method, mode });
 
 describe('what the service worker caches', () => {
-	it('the shell: built and static files, the page; no source maps', () => {
+	it('the shell: built and static files, the page; no source maps, nothing only previews read', () => {
 		expect([...assets]).toEqual(['/_app/immutable/entry/app.js', '/favicon.svg', SHELL]);
 		expect(decide('/_app/immutable/entry/app.js')).toBe('asset');
 		expect(decide('/favicon.svg')).toBe('asset');

@@ -24,13 +24,18 @@ export function cacheDecision(url, { origin, assets, method, mode }) {
 	return 'network';
 }
 
+/** What only link previews read (issue #343): never part of the offline shell. */
+const PREVIEW_ONLY = /^\/(social|en)\/|^\/robots\.txt$/;
+
 /**
- * The files one version caches: the build and static files (source maps
- * left out) and the shell.
+ * The files one version caches: the build and static files (source maps and
+ * what only link previews read left out) and the shell.
  *
  * @param {string[]} build
  * @param {string[]} files
  */
 export const shellFiles = (build, files) => [
-	...new Set([...build, ...files].filter((f) => !f.endsWith('.map')).concat(SHELL))
+	...new Set(
+		[...build, ...files].filter((f) => !f.endsWith('.map') && !PREVIEW_ONLY.test(f)).concat(SHELL)
+	)
 ];

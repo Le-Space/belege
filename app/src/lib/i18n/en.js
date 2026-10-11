@@ -908,6 +908,20 @@ export default {
 			'This backup cannot be opened with this passkey: it was made with another one. A backup opens only with the passkey it was made with.',
 		notFetched: 'Aleph’s gateway did not give the backup back. Try again in a moment.'
 	},
+	social: {
+		title: 'Le Space Belege – payments and receipts, local in your browser',
+		description:
+			'Bank transactions and receipts matched automatically – encrypted in your own browser, no cloud account. With DATEV export, crypto wallets and receipts from your mailbox.',
+		imageAlt:
+			'Le Space Belege: payments and their receipts, matched and encrypted in your own browser',
+		tagline: 'Payments and receipts, matched – on your device only.',
+		points: [
+			'Encrypted in your browser, no cloud account',
+			'DATEV export with every receipt',
+			'Bank, crypto wallets and mailbox'
+		],
+		badge: 'Receipt'
+	},
 	backup: {
 		title: 'Backup',
 		what: 'Everything Belege keeps in this browser – the books and every receipt file – as one file, sealed with a key from your passkey, kept on Aleph Cloud. Nobody but you can open it, with the same passkey.',
