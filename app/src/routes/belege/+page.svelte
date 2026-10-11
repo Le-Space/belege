@@ -7,6 +7,7 @@
 	import { onMount, tick } from 'svelte';
 	import WayOut from '$lib/help/WayOut.svelte';
 	import MailText from '$lib/receipts/MailText.svelte';
+	import EInvoiceView from '$lib/receipts/EInvoiceView.svelte';
 	import { cleanMatchingSettings } from '$lib/matching/classify.js';
 	import { isVendorReceipt } from '$lib/matching/vendor-account.js';
 	import { addressBook, payeeName } from '$lib/bank/payee.js';
@@ -1108,6 +1109,8 @@
 									></canvas>
 								{/key}
 							</div>
+						{:else if selected.fileCid && selected.mime === 'application/xml'}
+							<div class="mt-3"><EInvoiceView receipt={selected} class="max-h-96" /></div>
 						{:else if selected.fileCid && imageUrl}
 							<img
 								src={imageUrl}

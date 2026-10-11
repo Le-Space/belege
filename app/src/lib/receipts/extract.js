@@ -10,6 +10,7 @@
 import { eventCalls } from '../stats/usage.js';
 import { recordEvent, tokenCount } from '../activity/events.js';
 import { needsConfirmation } from './import.js';
+import { eInvoiceFields } from './einvoice.js';
 import { t } from '../i18n/index.js';
 
 /** Fewer characters than this: a scan without a text layer. */
@@ -147,6 +148,19 @@ export async function extractReceipt({
 		const latest = (await receipts.get(record.id)) ?? record;
 		if (latest.deleted) return latest;
 		return receipts.put({ ...latest, ...fields(latest) });
+	}
+
+	// An e-invoice is read from its XML, here, without the bridge or a model (#160).
+	if (record.mime === 'application/xml' && record.fileCid) {
+		const read = eInvoiceFields(await blobs.get(record.fileCid), { now });
+		return writeOnLatest((latest) =>
+			read
+				? {
+						...read,
+						status: latest.status === 'zugeordnet' ? 'zugeordnet' : 'ausgelesen'
+					}
+				: { extractionError: 'no-einvoice' }
+		);
 	}
 
 	if (record.mime?.startsWith('image/')) {

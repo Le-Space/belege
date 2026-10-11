@@ -2025,6 +2025,19 @@ export default {
 		warningAfter: 'Die Datei wird erst angezeigt und ausgelesen, wenn du sie freigibst.',
 		confirm: 'Absender geprüft – öffnen und freigeben',
 		preview: 'Vorschau',
+		einvoice: {
+			title: 'E-Rechnung ({syntax}) – Ansicht des XML-Originals',
+			notEn16931:
+				'Dieses Profil (MINIMUM oder BASIC WL) ist keine E-Rechnung nach EN 16931; es reicht als Beleg nur zusammen mit einer lesbaren Rechnung.',
+			seller: 'Verkäufer',
+			number: 'Rechnungsnummer',
+			issued: 'Rechnungsdatum',
+			due: 'Fällig',
+			net: 'Netto',
+			vat: 'USt {rate} %',
+			gross: 'Gesamt',
+			note: 'Ohne KI aus dem XML gelesen. Das XML ist das Original und geht so in den Export.'
+		},
 		previewFailed: 'Die Vorschau ließ sich nicht erzeugen.',
 		mailOriginal: {
 			kept: 'Die E-Mail ist so gespeichert, wie sie ankam (.eml); sie geht mit dem Export ins ZIP.',

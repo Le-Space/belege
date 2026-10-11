@@ -256,6 +256,49 @@ describe('receipt import', () => {
 		expect((await receipts.get(old.id))?.emlCid).toBeTruthy();
 	});
 
+	it('an e-invoice upload: the XML kept as the original and read at once, without a model (#160)', async () => {
+		const { DOMParser } = await import('@xmldom/xmldom');
+		const { UBL_INVOICE } = await import('./einvoice.fixtures.js');
+		const before = /** @type {any} */ (globalThis).DOMParser;
+		/** @type {any} */ (globalThis).DOMParser = DOMParser;
+		try {
+			const { receipts, blobs } = await setup();
+			const xml = new TextEncoder().encode(UBL_INVOICE);
+			const { outcome, record } = await importFile({
+				receipts,
+				blobs,
+				bytes: xml,
+				fileName: 'rechnung.xml',
+				source: 'upload',
+				sourceRef: 'upload:rechnung.xml'
+			});
+			expect(outcome).toBe('new');
+			expect(record).toMatchObject({
+				mime: 'application/xml',
+				status: 'ausgelesen',
+				vendor: 'Wolkenbau Beispiel GmbH',
+				amountCents: 11900,
+				documentDate: '2026-09-14',
+				invoiceNumber: 'WB-2026-0815',
+				extractionModel: 'e-invoice (UBL)',
+				eInvoice: { syntax: 'ubl', en16931: true }
+			});
+			expect(await blobs.get(String(record?.fileCid))).toEqual(xml);
+			// Any other XML is still refused.
+			const other = await importFile({
+				receipts,
+				blobs,
+				bytes: new TextEncoder().encode('<?xml version="1.0"?><Liste><Eintrag/></Liste>'),
+				fileName: 'liste.xml',
+				source: 'upload',
+				sourceRef: 'upload:liste.xml'
+			});
+			expect(other.outcome).toBe('unsupported');
+		} finally {
+			/** @type {any} */ (globalThis).DOMParser = before;
+		}
+	});
+
 	it('mail: the same PDF in two mails is one receipt', async () => {
 		const { receipts, blobs } = await setup();
 		const client = { mailAttachment: async () => pdf('same') };

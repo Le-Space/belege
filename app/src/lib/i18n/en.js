@@ -1993,6 +1993,19 @@ export default {
 		warningAfter: 'The file is only shown and read once you release it.',
 		confirm: 'Sender checked – open and release',
 		preview: 'Preview',
+		einvoice: {
+			title: 'E-invoice ({syntax}) – a view of the XML original',
+			notEn16931:
+				'This profile (MINIMUM or BASIC WL) is no e-invoice under EN 16931; it serves as a receipt only together with a readable invoice.',
+			seller: 'Seller',
+			number: 'Invoice number',
+			issued: 'Invoice date',
+			due: 'Due',
+			net: 'Net',
+			vat: 'VAT {rate} %',
+			gross: 'Total',
+			note: 'Read from the XML without AI. The XML is the original and goes into the export as it is.'
+		},
 		previewFailed: 'The preview could not be created.',
 		mailOriginal: {
 			kept: 'The email is kept as it was received (.eml); it goes into the ZIP with the export.',

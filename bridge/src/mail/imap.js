@@ -385,7 +385,7 @@ export function createMailClient({
 		},
 
 		/**
-		 * One attachment's bytes: PDFs and images only, up to the cap.
+		 * One attachment's bytes: PDFs, images and e-invoice XML (#160) only, up to the cap.
 		 *
 		 * @param {string} id
 		 * @param {string} part
@@ -426,7 +426,7 @@ export function createMailClient({
 				const bytes = Buffer.concat(chunks);
 				const found = sniff(bytes);
 				if (found.kind === 'other' || !found.mime) {
-					throw new MailError('only PDFs and images are handed out', 415, 'MAIL_TYPE');
+					throw new MailError('only PDFs, images and e-invoices are handed out', 415, 'MAIL_TYPE');
 				}
 				return { bytes, mime: found.mime, name: info.name };
 			});

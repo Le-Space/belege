@@ -25,6 +25,7 @@ What Le Space Belege does today, by category. The app shows the same list, short
 - **Checked.**
   - Mails that fail DKIM/SPF wait for a confirmation, and signs of a scam are named.
   - Copies of one invoice are marked, and any receipt can be set aside.
+- **E-invoices (XRechnung)** ([#160](https://github.com/Le-Space/belege/issues/160)): an XML invoice in UBL or CII, uploaded or from the mailbox, is kept as the original and read at once without AI – seller, number, dates, VAT, lines, total. It is shown as a plain view of its fields and goes into the export as the XML it came as. Factur-X MINIMUM and BASIC WL are read but named as no EN 16931 e-invoice.
 - **Eigenbeleg:** a self-made receipt for a payment without one. For crypto it carries the hash, both addresses and the gas, with the transaction as a QR code.
 
 ## Matching
