@@ -930,6 +930,20 @@ export default {
 			'Dieses Backup lässt sich mit diesem Passkey nicht öffnen: Es wurde mit einem anderen gemacht. Ein Backup öffnet nur der Passkey, mit dem es gemacht wurde.',
 		notFetched: 'Alephs Gateway hat das Backup nicht zurückgegeben. Versuch es gleich noch einmal.'
 	},
+	social: {
+		title: 'Le Space Belege – Zahlungen und Belege, lokal im Browser',
+		description:
+			'Kontoumsätze und Belege automatisch zusammengeführt – verschlüsselt im eigenen Browser, ohne Cloud-Konto. Mit DATEV-Export, Krypto-Wallets und Belegen aus dem Postfach.',
+		imageAlt:
+			'Le Space Belege: Zahlungen und ihre Belege, zusammengeführt und verschlüsselt im eigenen Browser',
+		tagline: 'Zahlungen und Belege, zusammengeführt – nur auf deinem Gerät.',
+		points: [
+			'Verschlüsselt im Browser, ohne Cloud-Konto',
+			'DATEV-Export mit allen Belegen',
+			'Bank, Krypto-Wallets und Postfach'
+		],
+		badge: 'Beleg'
+	},
 	move: {
 		title: 'Bücher umziehen',
 		intro:
