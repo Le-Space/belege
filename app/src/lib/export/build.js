@@ -116,6 +116,12 @@ export async function buildMonthZip({ plan, settings, accounts, classifications,
 			if (eml) files[receiptPath(number, r).replace(/\.pdf$/, '.eml')] = eml;
 		} else {
 			files[receiptPath(number, r)] = await blobs.get(String(r.fileCid));
+			// A ZUGFeRD / Factur-X invoice: its XML, the e-invoice's original, beside the PDF (#160).
+			if (r.xmlCid) {
+				files[receiptPath(number, r).replace(/\.[a-z]+$/, '.xml')] = await blobs.get(
+					String(r.xmlCid)
+				);
+			}
 		}
 	}
 	for (const s of plan.statements) {

@@ -158,7 +158,7 @@ export async function buildBackup({
 	const files = [
 		...new Set(
 			(await receipts.list({ includeDeleted: true }))
-				.flatMap((r) => [r.fileCid, r.emlCid])
+				.flatMap((r) => [r.fileCid, r.emlCid, r.xmlCid])
 				.filter((c) => typeof c === 'string' && c)
 		)
 	];

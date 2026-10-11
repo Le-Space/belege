@@ -10,7 +10,7 @@
 import { eventCalls } from '../stats/usage.js';
 import { recordEvent, tokenCount } from '../activity/events.js';
 import { needsConfirmation } from './import.js';
-import { eInvoiceFields } from './einvoice.js';
+import { eInvoiceFields, pdfEInvoice } from './einvoice.js';
 import { t } from '../i18n/index.js';
 
 /** Fewer characters than this: a scan without a text layer. */
@@ -169,8 +169,19 @@ export async function extractReceipt({
 
 	let text = '';
 	if (record.fileCid && record.mime === 'application/pdf') {
+		const pdf = await blobs.get(record.fileCid);
+		// A ZUGFeRD / Factur-X PDF: its embedded XML, read without a model (#160).
+		const embedded = await pdfEInvoice(pdf, { now });
+		if (embedded) {
+			const xmlCid = record.xmlCid ?? (await blobs.put(embedded.xml));
+			return writeOnLatest((latest) => ({
+				...embedded.fields,
+				xmlCid,
+				status: latest.status === 'zugeordnet' ? 'zugeordnet' : 'ausgelesen'
+			}));
+		}
 		const read = pdfText ?? (await import('./pdf.js')).extractPdfText;
-		text = (await read(await blobs.get(record.fileCid))).text;
+		text = (await read(pdf)).text;
 		if (text.replace(/\s+/g, '').length < MIN_TEXT) {
 			return writeOnLatest(() => ({ extractionError: 'no-text' }));
 		}

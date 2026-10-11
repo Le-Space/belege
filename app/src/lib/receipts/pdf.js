@@ -75,3 +75,58 @@ export async function renderFirstPage(bytes, canvas, width = 360, oversample = 1
 		await close(pdf);
 	}
 }
+
+/**
+ * The files embedded in a PDF (its attachments: the catalog's
+ * `/Names /EmbeddedFiles` tree): a ZUGFeRD / Factur-X invoice carries its
+ * XML so (issue #160). Read with pdf-lib, which only parses the structure –
+ * nothing is rendered or run.
+ *
+ * @param {Uint8Array} bytes
+ * @returns {Promise<{ name: string, bytes: Uint8Array }[]>}
+ */
+export async function pdfAttachments(bytes) {
+	const {
+		PDFDocument,
+		PDFName,
+		PDFDict,
+		PDFArray,
+		PDFString,
+		PDFHexString,
+		PDFRawStream,
+		decodePDFRawStream
+	} = await import('pdf-lib');
+	const doc = await PDFDocument.load(new Uint8Array(bytes), {
+		ignoreEncryption: true,
+		updateMetadata: false,
+		throwOnInvalidObject: false
+	});
+	/** @type {{ name: string, bytes: Uint8Array }[]} */
+	const out = [];
+	/** @param {any} v */
+	const str = (v) => (v instanceof PDFString || v instanceof PDFHexString ? v.decodeText() : '');
+	/** @param {any} spec a file specification */
+	function take(spec) {
+		if (!(spec instanceof PDFDict)) return;
+		const ef = spec.lookup(PDFName.of('EF'));
+		const stream = ef instanceof PDFDict ? ef.lookup(PDFName.of('F')) : null;
+		if (!(stream instanceof PDFRawStream)) return;
+		const name = str(spec.lookup(PDFName.of('UF'))) || str(spec.lookup(PDFName.of('F')));
+		out.push({ name, bytes: decodePDFRawStream(stream).decode() });
+	}
+	/** @param {any} node a name tree node @param {number} depth */
+	function walk(node, depth) {
+		if (!(node instanceof PDFDict) || depth > 20) return;
+		const names = node.lookup(PDFName.of('Names'));
+		if (names instanceof PDFArray) {
+			for (let i = 1; i < names.size(); i += 2) take(names.lookup(i));
+		}
+		const kids = node.lookup(PDFName.of('Kids'));
+		if (kids instanceof PDFArray) {
+			for (let i = 0; i < kids.size(); i++) walk(kids.lookup(i), depth + 1);
+		}
+	}
+	const tree = doc.catalog.lookup(PDFName.of('Names'));
+	if (tree instanceof PDFDict) walk(tree.lookup(PDFName.of('EmbeddedFiles')), 0);
+	return out;
+}

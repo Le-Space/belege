@@ -23,7 +23,7 @@
 
 import { recordEvent } from '../activity/events.js';
 import { sha256Hex } from './blob-store.js';
-import { eInvoiceFields, sniffEInvoice } from './einvoice.js';
+import { eInvoiceFields, pdfEInvoice, sniffEInvoice } from './einvoice.js';
 
 /** @typedef {'mail' | 'upload' | 'folder' | 'portal' | 'eigenbeleg' | 'invoice-app'} ReceiptSource portal: portals/import.js; eigenbeleg: eigenbeleg.js; invoice-app: ucep/issued.js */
 /** @typedef {'neu' | 'ausgelesen' | 'rückfrage' | 'zugeordnet' | 'ignoriert'} ReceiptStatus */
@@ -155,8 +155,13 @@ export async function importFile({
 		return { record: null, outcome: 'duplicate' };
 	}
 	const fileCid = await blobs.put(bytes);
-	// An e-invoice is read at once, from its XML, without a model (#160).
-	const read = kind === 'einvoice' ? eInvoiceFields(bytes) : null;
+	// An e-invoice is read at once, from its XML, without a model (#160): an
+	// XRechnung itself, or the XML a ZUGFeRD / Factur-X PDF carries – kept beside
+	// the PDF as `xmlCid`. A PDF from a sender not confirmed is not opened.
+	const embedded =
+		kind === 'pdf' && !needsConfirmation({ source, ...fields }) ? await pdfEInvoice(bytes) : null;
+	const read = kind === 'einvoice' ? eInvoiceFields(bytes) : (embedded?.fields ?? null);
+	const xmlCid = embedded ? await blobs.put(embedded.xml) : null;
 	const record = await receipts.put({
 		source,
 		sourceRef,
@@ -177,6 +182,7 @@ export async function importFile({
 		extractionModel: null,
 		extractionError: null,
 		...(read ?? {}),
+		...(xmlCid ? { xmlCid } : {}),
 		status: needsConfirmation({ source, ...fields }) ? 'rückfrage' : read ? 'ausgelesen' : 'neu'
 	});
 	index.sha.add(sha256);

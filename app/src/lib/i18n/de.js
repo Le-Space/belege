@@ -2029,6 +2029,7 @@ export default {
 			title: 'E-Rechnung ({syntax}) – Ansicht des XML-Originals',
 			notEn16931:
 				'Dieses Profil (MINIMUM oder BASIC WL) ist keine E-Rechnung nach EN 16931; es reicht als Beleg nur zusammen mit einer lesbaren Rechnung.',
+			embedded: 'E-Rechnung (ZUGFeRD/Factur-X) – Felder aus dem eingebetteten XML, ohne KI gelesen',
 			seller: 'Verkäufer',
 			number: 'Rechnungsnummer',
 			issued: 'Rechnungsdatum',
@@ -2411,6 +2412,7 @@ export default {
 			noReceipt: 'ohne Beleg',
 			noFile: 'Beleg {number} ohne Datei (E-Mail-Text)',
 			mailPdf: 'Beleg {number}: aus dem E-Mail-Text erzeugtes PDF (die E-Mail hatte keinen Anhang)',
+			zugferd: 'Beleg {number}: E-Rechnung (ZUGFeRD/Factur-X) – das eingebettete XML liegt daneben',
 			mailPdfEml:
 				'Beleg {number}: aus der E-Mail erzeugtes PDF (sie hatte keinen Anhang); die E-Mail selbst, wie sie ankam, als .eml daneben',
 			transferLine: 'Umbuchung, Gegenbuchung am {date} ist in dieser Zeile enthalten',

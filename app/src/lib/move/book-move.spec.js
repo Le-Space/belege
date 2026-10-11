@@ -21,6 +21,7 @@ import {
 /** Fast scrypt for tests; the real one takes about a second. */
 const FAST = { N: 2 ** 4, r: 8, p: 1 };
 const MARKER = 'Umzugsmarker-Birkenweg-9c2d';
+const XML = new TextEncoder().encode('<rsm:CrossIndustryInvoice/>');
 
 async function books() {
 	/** @type {Record<string, any>} */
@@ -51,7 +52,9 @@ async function source() {
 	const receipt = await a.store.receipts.put({
 		source: 'upload',
 		fileName: 'beleg.pdf',
-		fileCid: await a.blobs.put(pdf)
+		fileCid: await a.blobs.put(pdf),
+		// A ZUGFeRD invoice's embedded XML, kept beside the PDF (#160).
+		xmlCid: await a.blobs.put(XML)
 	});
 	const mail = await a.store.receipts.put({
 		source: 'mail',
@@ -93,14 +96,14 @@ describe('the move file (#328)', () => {
 			receipts: 3,
 			matches: 1,
 			settings: 1,
-			files: 2
+			files: 3
 		});
 		expect(header.leftOut).toEqual(['backup/aleph-key', 'bridge', 'device:…']);
 		expect(header.seal).toMatchObject({ kind: 'x25519', to: keyFingerprint(key.publicKey) });
 
 		const opened = await openMoveFile(file, key);
 		const done = await takeOverBooks({ store: b.store, blobs: b.blobs, opened });
-		expect(done).toEqual({ records: 7, files: 2 });
+		expect(done).toEqual({ records: 7, files: 3 });
 
 		const [tx] = await b.store.transactions.list();
 		expect(tx).toMatchObject({ id: a.tx.id, createdAt: a.tx.createdAt, counterparty: MARKER });
@@ -109,6 +112,7 @@ describe('the move file (#328)', () => {
 		const receipt = /** @type {any} */ (await b.store.receipts.get(a.receipt.id));
 		expect(receipt.fileCid).not.toBe(a.receipt.fileCid);
 		expect(await b.blobs.get(receipt.fileCid)).toEqual(a.pdf);
+		expect(await b.blobs.get(receipt.xmlCid)).toEqual(XML);
 		const mail = /** @type {any} */ (await b.store.receipts.get(a.mail.id));
 		expect(await b.blobs.get(mail.emlCid)).toEqual(a.eml);
 		expect((await b.store.receipts.get(a.gone.id))?.deleted).toBe(true);
@@ -116,7 +120,7 @@ describe('the move file (#328)', () => {
 		const keys = (await b.store.settings.list()).map((/** @type {any} */ r) => r.key);
 		expect(keys).toEqual(['datev']);
 		const [event] = await b.store.events.list();
-		expect(event).toMatchObject({ kind: 'books-moved', records: 7, files: 2 });
+		expect(event).toMatchObject({ kind: 'books-moved', records: 7, files: 3 });
 		// The old books are untouched.
 		expect((await a.store.settings.list()).length).toBe(4);
 	});
