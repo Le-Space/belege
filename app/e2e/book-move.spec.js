@@ -146,3 +146,68 @@ test('books on one passkey move into the empty books of another', async ({ brows
 	await a.context.close();
 	await b.context.close();
 });
+
+test('moved by a passphrase, when both books are not open at once', async ({ browser }) => {
+	test.setTimeout(120_000);
+	const a = await books(browser);
+	await a.page.evaluate(async (marker) => {
+		const e2e = /** @type {any} */ (window).__belegeE2E;
+		const bank = await e2e.addAccount({
+			source: 'hibiscus',
+			sourceAccountId: '0042',
+			ibanLast4: '0042',
+			name: 'Geschäftskonto Test',
+			currency: 'EUR'
+		});
+		await e2e.addTransaction({
+			accountId: bank.id,
+			source: 'hibiscus',
+			currency: 'EUR',
+			bookedOn: '2026-09-20',
+			amountCents: -1200,
+			counterparty: marker,
+			purpose: 'Abo September',
+			bookingType: 'Lastschrift'
+		});
+	}, MARKER);
+
+	// A: the file sealed with a passphrase Belege makes and shows once.
+	await backupPage(a.page);
+	await a.page.getByTestId('move-send').click();
+	await a.page.getByTestId('move-passphrase-way').locator('summary').click();
+	const [download] = await Promise.all([
+		a.page.waitForEvent('download'),
+		a.page.getByTestId('move-pack-passphrase').click()
+	]);
+	const passphrase = await a.page.getByTestId('move-passphrase').innerText();
+	expect(passphrase).toMatch(/^[0-9A-HJKMNP-TV-Z]{5}(-[0-9A-HJKMNP-TV-Z]{5}){3}$/);
+	const file = await readFile(/** @type {string} */ (await download.path()));
+	await a.context.close();
+
+	// B, later and empty: the file, then the passphrase – typed loosely.
+	const b = await books(browser);
+	await backupPage(b.page);
+	await b.page.getByTestId('move-receive').click();
+	await b.page.getByTestId('move-file').setInputFiles({
+		name: download.suggestedFilename(),
+		mimeType: 'application/octet-stream',
+		buffer: file
+	});
+	await expect(b.page.getByTestId('move-file-summary')).toContainText('1 Zahlungen');
+	await expect(b.page.getByTestId('move-take-over')).toBeDisabled();
+	await b.page.getByTestId('move-passphrase-input').fill('AAAAA-AAAAA-AAAAA-AAAAA');
+	await b.page.getByTestId('move-take-over').click();
+	await expect(b.page.getByTestId('move-error')).toContainText('anderen Schlüssel');
+	await b.page
+		.getByTestId('move-passphrase-input')
+		.fill(passphrase.toLowerCase().replace(/-/g, ' '));
+	await b.page.getByTestId('move-take-over').click();
+	await expect(b.page.getByTestId('move-done')).toContainText('Übernommen');
+	const moved = await b.page.evaluate(async () =>
+		(await /** @type {any} */ (window).__belegeE2E.transactions()).map(
+			(/** @type {any} */ t) => t.counterparty
+		)
+	);
+	expect(moved).toEqual([MARKER]);
+	await b.context.close();
+});

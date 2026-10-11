@@ -977,6 +977,13 @@ export default {
 			'In den neuen, leeren Büchern „Bücher übernehmen …“ öffnen und den Einmal-Schlüssel hier einfügen oder scannen:',
 		keyInvalid: 'Das ist kein Einmal-Schlüssel für einen Umzug.',
 		fingerprintCheck: 'Steht in den neuen Büchern derselbe Fingerabdruck?',
+		passphraseWay: 'Die neuen Bücher sind nicht gerade offen? Mit einer Passphrase umziehen …',
+		passphraseWayHint:
+			'Belege erzeugt eine Passphrase und zeigt sie einmal. Schreib sie auf: Ohne sie öffnet sich die Datei nirgends. Wer Datei und Passphrase hat, kann die Bücher lesen – bewahre beides getrennt auf.',
+		packPassphrase: 'Umzugsdatei mit Passphrase erstellen',
+		passphraseWrite:
+			'Die Passphrase für diese Datei – jetzt aufschreiben, sie wird nicht noch einmal gezeigt:',
+		passphraseAsk: 'Diese Datei ist mit einer Passphrase versiegelt. Passphrase:',
 		pack: 'Umzugsdatei erstellen',
 		packed: 'Umzugsdatei gespeichert.',
 		untouched: 'Diese Bücher bleiben, wie sie sind.',
