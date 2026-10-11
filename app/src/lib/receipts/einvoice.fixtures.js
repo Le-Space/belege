@@ -1,8 +1,6 @@
 // Made-up e-invoices for tests (#160): no real vendor, buyer, IBAN or
 // amount. Minimal, but shaped as XRechnung 3.0 and Factur-X write them.
 
-/* eslint-disable belege/no-german -- made-up invoice texts, as German vendors write them */
-
 export const UBL_INVOICE = `<?xml version="1.0" encoding="UTF-8"?>
 <ubl:Invoice xmlns:ubl="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
 	xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
