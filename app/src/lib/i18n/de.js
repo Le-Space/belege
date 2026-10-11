@@ -930,6 +930,51 @@ export default {
 			'Dieses Backup lässt sich mit diesem Passkey nicht öffnen: Es wurde mit einem anderen gemacht. Ein Backup öffnet nur der Passkey, mit dem es gemacht wurde.',
 		notFetched: 'Alephs Gateway hat das Backup nicht zurückgegeben. Versuch es gleich noch einmal.'
 	},
+	move: {
+		title: 'Bücher umziehen',
+		intro:
+			'Ein Passkey gehört zu seiner Adresse: Bücher auf localhost und auf belege.le-space.de, oder unter einem alten und einem neuen Passkey, sind getrennte Bücher. Ein Umzug bringt alle Zahlungen, Belege mit ihren Dateien, Zuordnungen und Einstellungen in die leeren Bücher eines anderen Passkeys. Die Datei dafür ist versiegelt und öffnet sich nur dort.',
+		receive: 'Bücher übernehmen …',
+		receiveStep1:
+			'Diesen Einmal-Schlüssel in den alten Büchern unter „In andere Bücher umziehen …“ einfügen oder scannen. Er gilt nur, solange diese Seite offen ist.',
+		receiveStep2: 'Die Umzugsdatei aus den alten Büchern wählen:',
+		keyText: 'Einmal-Schlüssel',
+		fingerprint: 'Fingerabdruck:',
+		takeOver: 'Übernehmen',
+		busy: 'Arbeite …',
+		summary: 'Gepackt am {date}: {transactions} Zahlungen, {receipts} Belege, {files} Dateien.',
+		leftOutNote: 'Nicht dabei, weil sie zum alten Passkey oder Gerät gehören: {list}.',
+		leftOut: {
+			bridge: 'Kopplung der Bridge',
+			'backup/owner': 'Backup-Konto',
+			'backup/aleph-key': 'Backup-Schlüssel',
+			backups: 'Liste der Backups',
+			ucepInvoiceApp: 'Kopplung der Rechnungs-App',
+			'network-mode': 'Netzwerkmodus',
+			'lan-relay': 'Relay im eigenen Netz',
+			pendingJobs: 'wartende Aufgaben',
+			devices: 'eigene Geräte'
+		},
+		done: 'Übernommen: {records} Einträge, {files} Dateien.',
+		doneNext:
+			'Jetzt hier die Bridge neu koppeln und das Backup neu einrichten; eigene Geräte mit diesem Passkey verbinden sich wie gewohnt. Die alten Bücher sind unverändert – löschen lassen sie sich dort unter Einstellungen → Speicher.',
+		send: 'In andere Bücher umziehen …',
+		sendStep1:
+			'In den neuen, leeren Büchern „Bücher übernehmen …“ öffnen und den Einmal-Schlüssel hier einfügen oder scannen:',
+		keyInvalid: 'Das ist kein Einmal-Schlüssel für einen Umzug.',
+		fingerprintCheck: 'Steht in den neuen Büchern derselbe Fingerabdruck?',
+		pack: 'Umzugsdatei erstellen',
+		packed: 'Umzugsdatei gespeichert.',
+		untouched: 'Diese Bücher bleiben, wie sie sind.',
+		errors: {
+			format: 'Das ist keine Umzugsdatei von Belege, oder sie ist beschädigt.',
+			key: 'Diese Datei ist für einen anderen Schlüssel versiegelt, oder sie wurde verändert.',
+			'not-empty': 'Diese Bücher sind nicht leer. Übernommen wird nur in leere Bücher.',
+			'missing-file':
+				'Eine Belegdatei fehlt auf diesem Gerät. Erst synchronisieren lassen, dann umziehen.',
+			check: 'Die Umzugsdatei geht nicht auf. Nichts wurde übernommen.'
+		}
+	},
 	backup: {
 		title: 'Backup',
 		what: 'Alles, was Belege in diesem Browser hält – die Bücher und jede Belegdatei – als eine Datei, versiegelt mit einem Schlüssel aus deinem Passkey, aufbewahrt bei Aleph Cloud. Öffnen kannst nur du sie, mit demselben Passkey.',
