@@ -64,7 +64,7 @@ What Le Space Belege does today, by category. The app shows the same list, short
 ## Pre-accounting and export
 
 - **Every booking** gets an SKR 03 account and a BU key: suggested, confirmed by you. Your own chart of accounts can be read in.
-- **Every month a ZIP:** a DATEV Buchungsstapel (EXTF) for MonkeyOffice, the receipts as PDFs, and a statement per account. See [export.md](export.md).
+- **Every month a ZIP:** a DATEV Buchungsstapel (EXTF) for your bookkeeping, the receipts as PDFs, and a statement per account. See [export.md](export.md).
 
 ## Devices and working together
 

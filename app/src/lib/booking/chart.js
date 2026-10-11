@@ -5,8 +5,8 @@
 // Two shapes are read:
 //   - DATEV "Kontenbeschriftungen" (EXTF, data category 20): line 1 the EXTF
 //     header, line 2 the column headings (Konto;Kontenbeschriftung;…), then
-//     one account per line. MonKey Office writes it under Import & Export →
-//     Export DATEV → Kontenbeschriftungen; most programs have the same.
+//     one account per line. Bookkeeping programs write it from their DATEV
+//     export ("Kontenbeschriftungen"); the menus differ from program to program.
 //   - any CSV with an account number column (4–8 digits) and a name column,
 //     separated by ; , or tab, with or without a heading line.
 // The bytes are UTF-8 when they decode as such, else Windows-1252 (what DATEV

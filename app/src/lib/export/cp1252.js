@@ -1,5 +1,5 @@
-// Windows-1252 ("ANSI"), the encoding DATEV's and MonkeyOffice's CSV import
-// expects. Browsers only decode it (TextEncoder writes UTF-8 alone), so the
+// Windows-1252 ("ANSI"), the encoding DATEV-format CSV imports
+// expect. Browsers only decode it (TextEncoder writes UTF-8 alone), so the
 // bytes are made here. A character outside Windows-1252 is first decomposed
 // (é stays é, but "ő" becomes "o"); what is still outside becomes "?".
 

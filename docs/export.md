@@ -2,7 +2,7 @@
 
 _Deutsch: [export.de.md](export.de.md)_
 
-Once a month, Belege makes one ZIP for the bookkeeping: the month's bookings as a **DATEV Buchungsstapel** (EXTF CSV) for import into **MonkeyOffice**, and the receipts as files. The ZIP is made in the browser and downloaded; nothing goes to a server, and nothing goes to the language model.
+Once a month, Belege makes one ZIP for the bookkeeping: the month's bookings as a **DATEV Buchungsstapel** (EXTF CSV) for import into your **bookkeeping**, and the receipts as files. The ZIP is made in the browser and downloaded; nothing goes to a server, and nothing goes to the language model.
 
 ```
 DATEV_2026-09.zip
@@ -18,8 +18,8 @@ A receipt that is a mail without an attachment (a shop's receipt written in the 
 
 ## Before the export
 
-1. **Ledger accounts of the bank accounts** – _Integrationen → Eigene Anweisungen → Buchhaltung (MonkeyOffice / DATEV)_: for each bank account the number it has in MonkeyOffice ("Sachkonto"). The field shows 1200, 1210, … (SKR 03) as a placeholder only.
-2. **Header values** – same place: Beraternummer and Mandantennummer (defaults 1001 and 1, which MonkeyOffice usually takes for a company doing its own books – check what your MonkeyOffice expects), the month the fiscal year starts (January), the Sachkontenlänge (4).
+1. **Ledger accounts of the bank accounts** – _Integrationen → Eigene Anweisungen → Buchhaltung (DATEV-Export)_: for each bank account the number it has in your bookkeeping ("Sachkonto"). The field shows 1200, 1210, … (SKR 03) as a placeholder only.
+2. **Header values** – same place: Beraternummer and Mandantennummer (defaults 1001 and 1, usual for a company doing its own books – check what your bookkeeping expects), the month the fiscal year starts (January), the Sachkontenlänge (4).
 3. **An account for every booking** – in each booking under _Konto_. The app suggests, you confirm with _Übernehmen_:
    - own transfer → **1360** Geldtransit, bank fee → **4970** Nebenkosten des Geldverkehrs, both without a BU key;
    - _gelernt_: the account you gave this vendor last time (found by the receipt's vendor or the counterparty on the statement);
@@ -46,9 +46,9 @@ Pre-assignment stays the default. Where a booking is still unclear at the month'
 
 The suspense account carries no input VAT and no expense account: the VAT return and the profit are right only once it is re-booked, and it must be empty by the year-end. Which account, and who re-books, is to be agreed with the tax adviser. This is no tax advice.
 
-## Import into MonkeyOffice
+## Import into your bookkeeping
 
-MonkeyOffice imports DATEV Buchungsstapel through its DATEV import (menu names differ between versions; its help has it under "DATEV"). Import `DATEV/EXTF_Buchungsstapel_<month>.csv`, check the bookings in the import preview, then attach the receipts from `Belege/` by their number (the number is in _Belegfeld 1_ and at the start of the file name). The first import is a test: do it in a copy of the company, or check every line before you post.
+Bookkeeping programs and DATEV import a Buchungsstapel through their DATEV import (the menus are named differently from program to program; their help has it under "DATEV"). Import `DATEV/EXTF_Buchungsstapel_<month>.csv`, check the bookings in the import preview, then attach the receipts from `Belege/` by their number (the number is in _Belegfeld 1_ and at the start of the file name). The first import is a test: do it in a copy of the company, or check every line before you post.
 
 ## The format
 
@@ -66,9 +66,9 @@ MonkeyOffice imports DATEV Buchungsstapel through its DATEV import (menu names d
 ### What was checked against a source, and what not
 
 - **Field list, order and rules** follow the open-source Ruby gem [ledermann/datev](https://github.com/ledermann/datev) (header, booking fields, its example `EXTF_Buchungsstapel.csv` for format version 13), which follows DATEV's developer documentation. DATEV's own pages could not be read here. Two headings follow the task that asked for this export (`Basis-Umsatz`, `WKZ Basis-Umsatz`; the gem writes `Basisumsatz`); DATEV reads by position.
-- Header fields 8–10 and 18 (Herkunft, Exportiert von, Importiert von, Diktatkürzel) are left empty; 27 (SKR) too. If MonkeyOffice wants them, `headerLine` in `datev.js` is the one place.
+- Header fields 8–10 and 18 (Herkunft, Exportiert von, Importiert von, Diktatkürzel) are left empty; 27 (SKR) too. If your bookkeeping wants them, `headerLine` in `datev.js` is the one place.
 - **SKR 03 names** in the catalogue were compared with the public account pages of buchungssatz.de, not with DATEV's chart. **BU keys** 9/8/3/2 and 94 for §13b are the commonly documented SKR 03 keys (DATEV community, tax-software help pages); not checked with DATEV itself.
-- **Not tested with MonkeyOffice yet.** The first real import is the test.
+- **Not yet tried with a real import.** The first real import is the test.
 
 ## Monthly statements
 
@@ -114,15 +114,14 @@ Below the DATEV export, _Kryptobewegungen_ downloads every booking of your walle
 - Whether, and up to which amount, Eigenbelege are accepted for payments without a receipt (blockchain fees, lease payments).
 - The **accounts**: the catalogue is a starting point (e.g. 4964 is "Aufwendungen für die zeitlich befristete Überlassung von Rechten (Lizenzen, Konzessionen)" – right for software subscriptions?).
 - The **BU keys**, above all **§13b**: 94 is the usual key for a service from abroad at 19 %; others (e.g. for goods from the EU) exist. Which Automatikkonten your chart has (8400 and 8300 are treated as such: no key).
-- **Beraternummer, Mandantennummer**, Sachkontenlänge and fiscal year, as MonkeyOffice has them.
+- **Beraternummer, Mandantennummer**, Sachkontenlänge and fiscal year, as your bookkeeping has them.
 - Whether the booking date as _Belegdatum_ is right for you, or the receipt's date.
 
 ## Your own chart of accounts
 
 Under _Integrationen → Eigene Anweisungen → Kontenplan_ the app reads the chart of accounts of your bookkeeping program; from then on "Konto" suggests your accounts with your names instead of the built-in SKR 03 list, and marks a number that is not in your chart.
 
-- **MonKey Office:** sidebar → _Import & Export → Export DATEV → Kontenbeschriftungen_ (optionally only a range _von Konto … bis Konto_) → read the CSV file in.
-- **Other programs with a DATEV interface:** the export _Kontenbeschriftungen_ (a file that starts with `EXTF`, data category 20).
+- **A program with a DATEV interface:** its export of the _Kontenbeschriftungen_ (a file that starts with `EXTF`, data category 20; optionally only a range of accounts) → read the CSV file in. The menus are named differently from program to program.
 - **Otherwise:** any CSV or text file with a column of account numbers (4–8 digits) and a column of names, separated by semicolon, comma or tab. UTF-8 and Windows-1252 are both read.
 
 The chart is kept sealed in your books in the browser, like every record. _Entfernen_ goes back to the SKR 03 list.

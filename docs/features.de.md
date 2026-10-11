@@ -64,7 +64,7 @@ Was Le Space Belege heute kann, nach Kategorien. Dieselbe Liste steht kürzer au
 ## Vorbereitende Buchhaltung und Export
 
 - **Jede Buchung** bekommt ein SKR-03-Konto und einen BU-Schlüssel: vorgeschlagen, von dir bestätigt. Dein eigener Kontenrahmen lässt sich einlesen.
-- **Jeden Monat ein ZIP:** ein DATEV-Buchungsstapel (EXTF) für MonkeyOffice, die Belege als PDF und ein Auszug je Konto. Siehe [export.de.md](export.de.md).
+- **Jeden Monat ein ZIP:** ein DATEV-Buchungsstapel (EXTF) für deine Buchhaltung, die Belege als PDF und ein Auszug je Konto. Siehe [export.de.md](export.de.md).
 
 ## Geräte und Zusammenarbeit
 

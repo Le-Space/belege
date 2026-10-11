@@ -33,7 +33,7 @@ test('a chart of accounts is read, previewed, taken, suggested and removed', asy
 	const chart = page.getByTestId('chart');
 	await expect(chart).toContainText('Kontenplan');
 	await chart.getByTestId('chart-how').locator('summary').click();
-	await expect(chart.getByTestId('chart-how')).toContainText('MonKey Office');
+	await expect(chart.getByTestId('chart-how')).toContainText('Kontenbeschriftungen');
 	await expect(chart.getByTestId('chart-how')).toContainText('auf Anfrage');
 
 	await chart.getByTestId('chart-file').setInputFiles({

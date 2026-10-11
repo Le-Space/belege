@@ -1,5 +1,5 @@
 // The DATEV "Buchungsstapel" (EXTF CSV, format 700, category 21, format
-// version 13) that MonkeyOffice and DATEV import. Everything about the
+// version 13) that DATEV and bookkeeping programs import. Everything about the
 // format is in this one module, so an adjustment is one place. Pure.
 //
 // Sources: the field list and order follow the open-source Ruby gem
