@@ -8,11 +8,23 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **E-invoices: XRechnung and ZUGFeRD / Factur-X** (#160, #350, #352). Since 1 January 2025 every business in Germany must be able to receive B2B e-invoices, and for an e-invoice the XML is the original to keep. Belege had refused an XML file as unsupported.
+  - **XRechnung** (UBL or CII), uploaded or from the mailbox: kept as the XML it came as, read at once without AI – seller, number, dates, VAT per rate, lines, total; credit notes negative, reverse charge recognised – and shown as a plain view of its fields.
+  - **ZUGFeRD / Factur-X**: the PDF is read from the XML it carries, which is kept beside it; a PDF from a sender not confirmed is opened only after the confirmation. MINIMUM and BASIC WL are named as no EN 16931 e-invoice.
+  - The export puts the XML into the ZIP (beside the PDF for ZUGFeRD); backups and book moves carry it.
 - **Move books to another passkey** (#328, #341, #342, #346). A passkey belongs to its address, and the books' DID and keys come from it: books on `localhost` and on belege.le-space.de, or under an old and a new passkey, were separate books with no way from one to the other. Integrationen → Backup → _Bücher umziehen_ now takes every payment, receipt with its file, link and setting into the **empty** books of another passkey; ids, links and times are kept, files are sealed anew.
   - **By a one-time key** (the default): the new books show a key as a QR code and as text with a fingerprint; the old books seal the move file to it (X25519, HKDF, AES-256-GCM). Only those books open it.
   - **By a passphrase**, when both books are not open at once: Belege makes it (100 bits, groups of five), shows it once to write down, and asks for it in the new books.
   - Left out, as they belong to the old passkey or device: the bridge pairing, the backup key and list, the invoicing app's pairing, the network mode, own devices. The old books stay as they are. See [docs/backup.md](docs/backup.md).
 - **Link previews** (#343, #345). A link to the app shows a card on X/Twitter, LinkedIn, Telegram and others: title, description and a preview image, in German at `/` and in English at `/en/`, which also opens the app in English. Search engines stay out.
+
+### Changed
+
+- **The DATEV format, not one program** (#334, #348). The app and its docs named one bookkeeping program as the export's target; they now name the format (DATEV) and "deine Buchhaltung", since many programs read it.
+
+### Fixed
+
+- **The outlay form stays open** (#351). It closed while a rate was being typed when its receipt was refreshed in the background, after the matching say; the rate was gone.
 
 ## [0.8.0] – 2026-10-06
 
