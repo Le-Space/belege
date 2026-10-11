@@ -1997,6 +1997,7 @@ export default {
 			title: 'E-invoice ({syntax}) – a view of the XML original',
 			notEn16931:
 				'This profile (MINIMUM or BASIC WL) is no e-invoice under EN 16931; it serves as a receipt only together with a readable invoice.',
+			embedded: 'E-invoice (ZUGFeRD/Factur-X) – fields from the embedded XML, read without AI',
 			seller: 'Seller',
 			number: 'Invoice number',
 			issued: 'Invoice date',
@@ -2376,6 +2377,7 @@ export default {
 			noReceipt: 'no receipt',
 			noFile: 'Receipt {number} without a file (email text)',
 			mailPdf: 'Receipt {number}: a PDF made from the mail text (the mail had no attachment)',
+			zugferd: 'Receipt {number}: e-invoice (ZUGFeRD/Factur-X) – its embedded XML lies beside it',
 			mailPdfEml:
 				'Receipt {number}: a PDF made from the mail (it had no attachment); the mail itself, as received, as .eml beside it',
 			transferLine: 'Own transfer, the counter-booking on {date} is included in this line',

@@ -25,7 +25,7 @@ Was Le Space Belege heute kann, nach Kategorien. Dieselbe Liste steht kürzer au
 - **Geprüft.**
   - Mails ohne gültiges DKIM/SPF warten auf eine Freigabe, und Anzeichen für Betrug werden genannt.
   - Kopien einer Rechnung werden markiert, und jeder Beleg lässt sich beiseitelegen.
-- **E-Rechnungen (XRechnung)** ([#160](https://github.com/Le-Space/belege/issues/160)): eine XML-Rechnung in UBL oder CII, hochgeladen oder aus dem Postfach, wird als Original aufbewahrt und sofort ohne KI gelesen – Verkäufer, Nummer, Daten, USt, Positionen, Summe. Sie erscheint als schlichte Ansicht ihrer Felder und geht so in den Export, wie sie kam: als XML. Factur-X MINIMUM und BASIC WL werden gelesen, aber als keine E-Rechnung nach EN 16931 benannt.
+- **E-Rechnungen (XRechnung)** ([#160](https://github.com/Le-Space/belege/issues/160)): eine XML-Rechnung in UBL oder CII, hochgeladen oder aus dem Postfach, wird als Original aufbewahrt und sofort ohne KI gelesen – Verkäufer, Nummer, Daten, USt, Positionen, Summe. Sie erscheint als schlichte Ansicht ihrer Felder und geht so in den Export, wie sie kam: als XML. Ein **ZUGFeRD/Factur-X**-PDF wird aus dem eingebetteten XML gelesen; das XML wird neben dem PDF aufbewahrt und mit exportiert. Ein PDF von einem nicht bestätigten Absender wird erst nach der Bestätigung geöffnet. Factur-X MINIMUM und BASIC WL werden gelesen, aber als keine E-Rechnung nach EN 16931 benannt.
 - **Eigenbeleg:** ein selbst erstellter Beleg für eine Zahlung ohne Beleg. Bei Krypto mit Hash, beiden Adressen und Gas, und mit der Transaktion als QR-Code.
 
 ## Abgleich

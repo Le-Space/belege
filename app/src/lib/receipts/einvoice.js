@@ -331,3 +331,39 @@ export function eInvoiceFields(
 		eInvoice: { syntax: read.syntax, profile: read.profile, en16931: read.eInvoice }
 	};
 }
+
+/** The names ZUGFeRD / Factur-X / XRechnung give the XML inside a PDF. */
+const EMBEDDED_NAME = /^(factur-x|zugferd-invoice|zugferd|xrechnung)\.xml$/i;
+
+/**
+ * The e-invoice inside a PDF (ZUGFeRD / Factur-X): its embedded XML, read.
+ * Null for a plain PDF, or one whose attachments cannot be read.
+ *
+ * @param {Uint8Array} pdf
+ * @param {{ attachments?: (bytes: Uint8Array) => Promise<{ name: string, bytes: Uint8Array }[]>, DOMParser?: typeof DOMParser, now?: () => Date }} [options]
+ * @returns {Promise<{ xml: Uint8Array, fields: Record<string, any> } | null>}
+ */
+export async function pdfEInvoice(pdf, { attachments, DOMParser: Parser, now } = {}) {
+	try {
+		const list = attachments
+			? await attachments(pdf)
+			: await (await import('./pdf.js')).pdfAttachments(pdf);
+		const found = list.find((a) => EMBEDDED_NAME.test(a.name) && sniffEInvoice(a.bytes));
+		if (!found) return null;
+		const fields = eInvoiceFields(found.bytes, {
+			...(Parser ? { DOMParser: Parser } : {}),
+			...(now ? { now } : {})
+		});
+		if (!fields) return null;
+		return {
+			xml: found.bytes,
+			fields: {
+				...fields,
+				extractionModel: `${fields.extractionModel.replace(/\)$/, '')}, ZUGFeRD)`,
+				eInvoice: { ...fields.eInvoice, embedded: true, name: found.name }
+			}
+		};
+	} catch {
+		return null;
+	}
+}

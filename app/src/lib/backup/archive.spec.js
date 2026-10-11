@@ -29,6 +29,8 @@ import { MAGIC, WrongPasskeyError, buildBackup, openBackup, restoreBackup } from
 const MARKER = 'Backupmarker-Kieselweg-4e1b';
 /** A made-up mail as received. */
 const EML = new TextEncoder().encode('Subject: Quittung\r\n\r\nSumme: 23,80 EUR\r\n');
+/** A made-up e-invoice XML. */
+const XML = new TextEncoder().encode('<rsm:CrossIndustryInvoice/>');
 const prfOutput = crypto.getRandomValues(new Uint8Array(32));
 const memory = async () => ({
 	headsStorage: await MemoryStorage(),
@@ -119,6 +121,8 @@ beforeAll(async () => {
 	await a.store.receipts.put({ fileName: 'beleg.pdf', fileCid: await a.blobs.put(file) });
 	// A mail receipt without an attachment, kept as received (#288).
 	await a.store.receipts.put({ source: 'mail', fileCid: null, emlCid: await a.blobs.put(EML) });
+	// A ZUGFeRD invoice's embedded XML, kept beside its PDF (#160).
+	await a.store.receipts.put({ source: 'upload', fileCid: null, xmlCid: await a.blobs.put(XML) });
 
 	backup = await buildBackup({
 		databases: a.store.databases(),
@@ -145,8 +149,8 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 		const partners = dbs.find((/** @type {any} */ d) => d.collection === 'partners');
 		expect(partners?.entryCount).toBe(2);
 		expect(partners?.heads).toHaveLength(1);
-		expect(manifest.files).toHaveLength(2);
-		expect(manifest.fileBlocks).toBe(5); // the PDF's root and two chunks, the mail's root and one
+		expect(manifest.files).toHaveLength(3);
+		expect(manifest.fileBlocks).toBe(7); // the PDF's root and two chunks, the mail's and the XML's root and one each
 		expect(manifest.missing).toBe(0);
 	});
 
@@ -164,7 +168,7 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 		const databases = seen.filter((p) => p.stage === 'database');
 		expect(databases.map((p) => p.name)).toEqual([...COLLECTIONS]);
 		expect(databases.find((p) => p.name === 'partners')?.entries).toBe(2);
-		expect(seen.filter((p) => p.stage === 'files').map((p) => p.done)).toEqual([0, 1, 2]);
+		expect(seen.filter((p) => p.stage === 'files').map((p) => p.done)).toEqual([0, 1, 2, 3]);
 		expect(seen.at(-1)).toMatchObject({ stage: 'sealing' });
 	});
 
@@ -210,6 +214,8 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 			expect(await b.blobs.get(receipt.fileCid)).toEqual(file);
 			const mail = /** @type {any} */ (restored.find((r) => r.emlCid));
 			expect(await b.blobs.get(mail.emlCid)).toEqual(EML);
+			const xml = /** @type {any} */ (restored.find((r) => r.xmlCid));
+			expect(await b.blobs.get(xml.xmlCid)).toEqual(XML);
 			expect(tx.author).toBe(a.orbitdb.identity.id);
 			// And the books go on: a new entry under the same writer.
 			await b.store.transactions.put({

@@ -299,6 +299,54 @@ describe('receipt import', () => {
 		}
 	});
 
+	it('a ZUGFeRD PDF: read from its embedded XML, kept beside it – unless the sender is unconfirmed (#160)', async () => {
+		const { DOMParser } = await import('@xmldom/xmldom');
+		const { PDFDocument } = await import('pdf-lib');
+		const { CII_XRECHNUNG } = await import('./einvoice.fixtures.js');
+		const before = /** @type {any} */ (globalThis).DOMParser;
+		/** @type {any} */ (globalThis).DOMParser = DOMParser;
+		try {
+			const doc = await PDFDocument.create();
+			doc.addPage().drawText('Rechnung');
+			await doc.attach(new TextEncoder().encode(CII_XRECHNUNG), 'factur-x.xml', {
+				mimeType: 'text/xml'
+			});
+			const bytes = await doc.save();
+			const { receipts, blobs } = await setup();
+			const { record } = await importFile({
+				receipts,
+				blobs,
+				bytes,
+				fileName: 'rechnung.pdf',
+				source: 'upload',
+				sourceRef: 'upload:rechnung.pdf'
+			});
+			expect(record).toMatchObject({
+				mime: 'application/pdf',
+				status: 'ausgelesen',
+				amountCents: 4890,
+				extractionModel: 'e-invoice (CII, ZUGFeRD)'
+			});
+			expect(new TextDecoder().decode(await blobs.get(String(record?.xmlCid)))).toBe(CII_XRECHNUNG);
+
+			// From a mail whose sender failed DKIM/SPF: not opened until confirmed.
+			const other = await setup();
+			const held = await importFile({
+				receipts: other.receipts,
+				blobs: other.blobs,
+				bytes,
+				fileName: 'rechnung.pdf',
+				source: 'mail',
+				sourceRef: 'bWFpbC05#2',
+				fields: { authVerdict: 'fail' }
+			});
+			expect(held.record).toMatchObject({ status: 'rückfrage', extraction: null });
+			expect(held.record?.xmlCid).toBeUndefined();
+		} finally {
+			/** @type {any} */ (globalThis).DOMParser = before;
+		}
+	});
+
 	it('mail: the same PDF in two mails is one receipt', async () => {
 		const { receipts, blobs } = await setup();
 		const client = { mailAttachment: async () => pdf('same') };

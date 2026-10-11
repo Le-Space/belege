@@ -199,7 +199,7 @@ async function collect(store, blobs) {
 	const cids = [
 		...new Set(
 			records.receipts
-				.flatMap((r) => [r.fileCid, r.emlCid])
+				.flatMap((r) => [r.fileCid, r.emlCid, r.xmlCid])
 				.filter((c) => typeof c === 'string' && c)
 		)
 	];
@@ -436,7 +436,7 @@ function check(header, body) {
 	}
 	if (body.files.size !== header.counts.files) fail('files');
 	for (const r of body.records.receipts) {
-		for (const cid of [r.fileCid, r.emlCid]) {
+		for (const cid of [r.fileCid, r.emlCid, r.xmlCid]) {
 			if (typeof cid === 'string' && cid && !body.files.has(cid)) fail('a receipt file');
 		}
 	}
@@ -488,7 +488,8 @@ export async function takeOverBooks({ store, blobs, opened }) {
 					? {
 							...r,
 							...(r.fileCid ? { fileCid: cids.get(r.fileCid) } : {}),
-							...(r.emlCid ? { emlCid: cids.get(r.emlCid) } : {})
+							...(r.emlCid ? { emlCid: cids.get(r.emlCid) } : {}),
+							...(r.xmlCid ? { xmlCid: cids.get(r.xmlCid) } : {})
 						}
 					: r;
 			await store[name].restore(/** @type {any} */ (moved));

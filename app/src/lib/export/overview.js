@@ -91,6 +91,9 @@ export function overviewCsv(plan, { accounts, classifications }) {
 				.filter((r) => !plan.receipts.some((z) => z.id === r.id))
 				.map((r) => t('export.overview.noFile', { number: plan.numbers.get(r.id) ?? '' })),
 			...l.receipts
+				.filter((r) => r.xmlCid && plan.receipts.some((z) => z.id === r.id))
+				.map((r) => t('export.overview.zugferd', { number: plan.numbers.get(r.id) ?? '' })),
+			...l.receipts
 				.filter((r) => isMailText(r) && plan.receipts.some((z) => z.id === r.id))
 				.map((r) =>
 					t(r.emlCid ? 'export.overview.mailPdfEml' : 'export.overview.mailPdf', {

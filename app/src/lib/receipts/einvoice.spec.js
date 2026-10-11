@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { DOMParser } from '@xmldom/xmldom';
 
-import { readEInvoice, sniffEInvoice } from './einvoice.js';
+import { PDFDocument } from 'pdf-lib';
+
+import { pdfEInvoice, readEInvoice, sniffEInvoice } from './einvoice.js';
 import { CII_BASIC_WL, CII_XRECHNUNG, UBL_CREDIT_NOTE, UBL_INVOICE } from './einvoice.fixtures.js';
 
 const read = (/** @type {string} */ xml) =>
@@ -104,5 +106,36 @@ describe('e-invoices (#160)', () => {
 	it('refuses what is no e-invoice', () => {
 		expect(() => read('<Document/>')).toThrow('not an e-invoice');
 		expect(() => read('kein xml')).toThrow();
+	});
+
+	/** A made-up PDF, with `xml` embedded under `name` when given. @param {string} [xml] @param {string} [name] */
+	async function pdf(xml, name = 'factur-x.xml') {
+		const doc = await PDFDocument.create();
+		doc.addPage().drawText('Rechnung PW-2026-0042');
+		if (xml) await doc.attach(new TextEncoder().encode(xml), name, { mimeType: 'text/xml' });
+		return doc.save();
+	}
+	const options = { DOMParser: /** @type {any} */ (DOMParser) };
+
+	it('ZUGFeRD / Factur-X: the XML inside the PDF, read without a model', async () => {
+		const found = await pdfEInvoice(await pdf(CII_XRECHNUNG), options);
+		expect(new TextDecoder().decode(found?.xml)).toBe(CII_XRECHNUNG);
+		expect(found?.fields).toMatchObject({
+			vendor: 'Papierwerk Beispiel GmbH',
+			amountCents: 4890,
+			invoiceNumber: 'PW-2026-0042',
+			extractionModel: 'e-invoice (CII, ZUGFeRD)',
+			eInvoice: { syntax: 'cii', en16931: true, embedded: true, name: 'factur-x.xml' }
+		});
+		expect(
+			(await pdfEInvoice(await pdf(CII_BASIC_WL, 'zugferd-invoice.xml'), options))?.fields.eInvoice
+		).toMatchObject({ en16931: false });
+	});
+
+	it('a plain PDF, another attachment or no PDF at all: none', async () => {
+		expect(await pdfEInvoice(await pdf(), options)).toBeNull();
+		expect(await pdfEInvoice(await pdf(CII_XRECHNUNG, 'notizen.xml'), options)).toBeNull();
+		expect(await pdfEInvoice(await pdf('<Liste/>'), options)).toBeNull();
+		expect(await pdfEInvoice(new TextEncoder().encode('kein PDF'), options)).toBeNull();
 	});
 });

@@ -1126,6 +1126,13 @@
 						{#if previewError}
 							<p class="mt-2 text-sm text-danger">{t('belege.previewFailed')}</p>
 						{/if}
+						{#if selected.xmlCid && selected.eInvoice}
+							<!-- A ZUGFeRD / Factur-X PDF: its fields come from the embedded XML (#160). -->
+							<details class="mt-2 text-sm" data-testid="einvoice-embedded">
+								<summary class="cursor-pointer text-text">{t('belege.einvoice.embedded')}</summary>
+								<EInvoiceView receipt={selected} class="mt-2" />
+							</details>
+						{/if}
 
 						<dl class="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
 							{#if selected.extraction}
