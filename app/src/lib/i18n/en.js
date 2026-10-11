@@ -1287,8 +1287,21 @@ export default {
 		agentOpenMany: '{count} open questions',
 		agentNone: 'No open questions – everything that can be linked is linked.',
 		vat: {
-			title: 'Input VAT {year}',
-			what: 'The VAT in your receipts at 19 % and 7 %, by receipt date. As the receipts were extracted – a help for the advance return, not the return itself.',
+			title: 'VAT {year}',
+			what: 'Input VAT from your receipts at 19 % and 7 %, by receipt date; output VAT from the invoice app’s invoices, {basis}; the VAT payable is the difference (negative: a refund). As receipts and invoices say it – a help for the advance return, not the return itself.',
+			basisIst: 'when the money comes in (Ist)',
+			basisSoll: 'by invoice date (Soll)',
+			output: 'Output',
+			due: 'Payable',
+			outputOpen:
+				'Output VAT on invoices not paid yet: {amount} (invoices: {count}) – under Ist due only when the money comes in.',
+			outputMissing:
+				'Invoices whose VAT the invoice app did not send: {count} ({amount} gross) – not in the output VAT until the app sends the VAT per rate.',
+			outputNone: 'Invoices without VAT: {count} ({amount}).',
+			turnover:
+				'Turnover {year} from your invoices: {amount}. Limit in the current year: {limit}; in the previous year at most {previous}.',
+			turnoverOver:
+				'Turnover {year} from your invoices: {amount} – over the limit of {limit}. From the turnover that exceeds it, the small-business scheme no longer applies; talk to your tax advisor.',
 			period: 'Period',
 			rate19: '19 %',
 			rate7: '7 %',
@@ -1306,7 +1319,7 @@ export default {
 			smallBusiness:
 				'As a small business (Kleinunternehmer, §19 UStG) you deduct no input VAT. Your receipts of this year contain {amount} of VAT.',
 			outputLater:
-				'The output VAT from your outgoing invoices and the VAT payable follow once the invoice app sends the VAT per rate.'
+				'No invoices from the invoice app yet: output VAT and the VAT payable appear once it is paired and sends invoices with the VAT per rate.'
 		},
 		agentProgress: '{done} of {total} done',
 		agentAnswer: 'Answer questions',
@@ -1763,9 +1776,14 @@ export default {
 			noAccounts: 'No bank accounts in the books yet.',
 			vatPeriod: 'Advance VAT return',
 			vatPeriods: { quarter: 'quarterly', month: 'monthly' },
+			vatBasis: 'Output VAT by',
+			vatBases: {
+				ist: 'payments received (Ist)',
+				soll: 'invoices issued (Soll)'
+			},
 			smallBusiness: 'Small business (Kleinunternehmer, §19 UStG)',
 			vatHint:
-				'The input VAT card on Home follows this. As a small business you charge no VAT and deduct none.',
+				'The VAT card on Home follows this. Under Ist an invoice’s output VAT counts when the money comes in, under Soll on the invoice date – whichever your tax office granted. As a small business you charge no VAT and deduct none.',
 			legalForm: 'Legal form',
 			legalFormUnset: 'not specified yet',
 			legalForms: {

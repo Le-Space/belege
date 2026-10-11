@@ -631,6 +631,8 @@
 <InputVatCard
 	receipts={app.receipts}
 	matches={app.matches}
+	transactions={app.transactions}
+	basis={vatSettings.vatBasis}
 	year={shownYear()}
 	{yearName}
 	startMonth={startMonth()}

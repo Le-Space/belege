@@ -1,0 +1,204 @@
+// Output VAT (Umsatzsteuer) of a fiscal year, from our own invoices (issue
+// #195), and what it leaves to pay against the input VAT (input-vat.js).
+// Pure; all amounts in cents.
+//
+// Our own invoices come from the invoicing app over UCEP (ucep/issued.js).
+// Their VAT per rate is the app's to say (decided 29.09.: no reading of our
+// own PDFs); an invoice it sent without one is counted as "VAT missing",
+// never as zero.
+//
+// When it counts, by the setting under Buchhaltung:
+//   ist   (default) when the money comes in: each payment linked to the
+//         invoice carries its share of the invoice's VAT to the payment's
+//         month; what is not paid yet is not due yet, and is shown apart
+//   soll  on the invoice date, paid or not
+//
+// A small business (§19 UStG) charges no VAT: then the year's turnover is
+// set against the limits (SMALL_BUSINESS_LIMITS), as the card shows it.
+//
+// A help for the advance return, as the invoices say it – not the return.
+
+import { isActive } from '../matching/engine.js';
+import { fiscalYearOf } from '../year/year.js';
+import { periodsOf, vatDay } from './input-vat.js';
+
+/** @typedef {Record<string, any>} Rec */
+/** @typedef {'ist' | 'soll'} VatBasis */
+
+/**
+ * The limits of §19 UStG in euros, by the year they apply from: the
+ * previous year's turnover, and the current year's.
+ */
+export const SMALL_BUSINESS_LIMITS = Object.freeze([
+	{ from: 2020, previousYear: 22_000, currentYear: 50_000 },
+	{ from: 2025, previousYear: 25_000, currentYear: 100_000 }
+]);
+
+/** @param {number} year */
+export const smallBusinessLimits = (year) =>
+	[...SMALL_BUSINESS_LIMITS].reverse().find((l) => year >= l.from) ?? SMALL_BUSINESS_LIMITS[0];
+
+/** @param {unknown} amount in euros */
+const cents = (amount) =>
+	typeof amount === 'number' && Number.isFinite(amount) ? Math.round(amount * 100) : 0;
+
+/** One of our own invoices that counts: not deleted, not set aside. @param {Rec} r */
+const ownInvoice = (r) => !r.deleted && r.ownInvoice === true && r.status !== 'ignoriert';
+
+/**
+ * What one own invoice says about its VAT.
+ *
+ * @param {Rec} r
+ * @returns {{ kind: 'vat', byRate: Record<number, number>, gross: number } | { kind: 'none' | 'missing', gross: number }}
+ *   none: it says it charges no VAT (an empty list); missing: it says nothing
+ */
+export function invoiceVat(r) {
+	const e = r.extraction ?? {};
+	const gross = Number.isSafeInteger(r.amountCents) ? r.amountCents : cents(e.gross);
+	if (!Array.isArray(e.vat)) return { kind: 'missing', gross };
+	/** @type {Record<number, number>} */
+	const byRate = {};
+	for (const v of e.vat) {
+		if (!v || typeof v.rate !== 'number' || cents(v.amount) === 0) continue;
+		const rate = Math.round(v.rate * 100) / 100;
+		byRate[rate] = (byRate[rate] ?? 0) + cents(v.amount);
+	}
+	return Object.keys(byRate).length ? { kind: 'vat', byRate, gross } : { kind: 'none', gross };
+}
+
+/**
+ * @typedef {object} OutputSum
+ * @property {number} r19
+ * @property {number} r7
+ * @property {number} other VAT at other rates (shown, summed into total)
+ * @property {number} total
+ * @property {number} invoices how many invoices are in it (with a share)
+ */
+
+/**
+ * @param {object} p
+ * @param {Rec[]} p.receipts
+ * @param {Rec[]} p.matches
+ * @param {Rec[]} p.transactions
+ * @param {number} p.year the fiscal year
+ * @param {number} [p.startMonth]
+ * @param {'month' | 'quarter'} [p.period]
+ * @param {VatBasis} [p.basis]
+ * @returns {{
+ *   periods: ({ key: string, months: string[] } & OutputSum)[],
+ *   year: OutputSum,
+ *   turnover: number,
+ *   missing: { cents: number, invoices: number },
+ *   none: { cents: number, invoices: number },
+ *   open: { cents: number, invoices: number },
+ *   invoices: number
+ * }}
+ */
+export function outputVat({
+	receipts,
+	matches,
+	transactions,
+	year,
+	startMonth = 1,
+	period = 'quarter',
+	basis = 'ist'
+}) {
+	const empty = () => ({ r19: 0, r7: 0, other: 0, total: 0, invoices: 0 });
+	const periods = periodsOf(year, startMonth, period).map((p) => ({ ...p, ...empty() }));
+	const byMonth = new Map(periods.flatMap((p) => p.months.map((m) => [m, p])));
+	const out = {
+		periods,
+		year: empty(),
+		turnover: 0,
+		missing: { cents: 0, invoices: 0 },
+		none: { cents: 0, invoices: 0 },
+		open: { cents: 0, invoices: 0 },
+		invoices: 0
+	};
+	const txById = new Map(transactions.filter((t) => !t.deleted).map((t) => [String(t.id), t]));
+	/** @type {Map<string, Rec[]>} receipt id → its linked payments */
+	const paidBy = new Map();
+	for (const m of matches) {
+		if (!isActive(m)) continue;
+		const tx = txById.get(String(m.transactionId));
+		if (!tx) continue;
+		const list = paidBy.get(String(m.receiptId)) ?? [];
+		list.push(tx);
+		paidBy.set(String(m.receiptId), list);
+	}
+	const inYear = (/** @type {string} */ day) => fiscalYearOf(day, startMonth) === year;
+
+	/**
+	 * A share of an invoice's VAT on one day.
+	 *
+	 * @param {string} day YYYY-MM-DD
+	 * @param {Record<number, number>} byRate
+	 * @param {number} share 0–1
+	 * @param {Set<object>} counted the sums this invoice already counts in
+	 */
+	function add(day, byRate, share, counted) {
+		for (const sum of [byMonth.get(day.slice(0, 7)), out.year]) {
+			if (!sum) continue;
+			for (const [rate, amount] of Object.entries(byRate)) {
+				const part = Math.round(amount * share);
+				if (rate === '19') sum.r19 += part;
+				else if (rate === '7') sum.r7 += part;
+				else sum.other += part;
+				sum.total += part;
+			}
+			if (!counted.has(sum)) {
+				counted.add(sum);
+				sum.invoices++;
+			}
+		}
+	}
+
+	for (const r of receipts) {
+		if (!ownInvoice(r)) continue;
+		const vat = invoiceVat(r);
+		const issued = vatDay(r);
+		const payments = (paidBy.get(String(r.id)) ?? [])
+			.filter((tx) => Number(tx.amountCents) > 0)
+			.sort((a, b) => String(a.bookedOn).localeCompare(String(b.bookedOn)));
+		// The day(s) it counts on: the invoice date (Soll), or each payment with its share (Ist).
+		/** @type {{ day: string, share: number }[]} */
+		let when = [];
+		if (basis === 'soll') {
+			if (issued) when = [{ day: issued, share: 1 }];
+		} else if (vat.gross !== 0) {
+			let left = Math.abs(vat.gross);
+			for (const tx of payments) {
+				if (left <= 0) break;
+				const paid = Math.min(Number(tx.amountCents), left);
+				left -= paid;
+				when.push({ day: String(tx.bookedOn), share: paid / Math.abs(vat.gross) });
+			}
+		}
+		const here = when.filter((w) => inYear(w.day));
+		const countsHere = here.length > 0 || (basis === 'ist' && issued && inYear(issued));
+		if (!countsHere) continue;
+		out.invoices++;
+		const share = here.reduce((s, w) => s + w.share, 0);
+		out.turnover += Math.round(vat.gross * share);
+		if (vat.kind !== 'vat') {
+			if (vat.kind === 'missing') {
+				out.missing.cents += vat.gross;
+				out.missing.invoices++;
+			} else {
+				out.none.cents += Math.round(vat.gross * share);
+				out.none.invoices++;
+			}
+			continue;
+		}
+		const counted = new Set();
+		for (const w of here) add(w.day, vat.byRate, w.share, counted);
+		if (basis === 'ist' && share < 1) {
+			const total = Object.values(vat.byRate).reduce((s, n) => s + n, 0);
+			out.open.cents += Math.round(total * (1 - share));
+			out.open.invoices++;
+		}
+	}
+	// Turnover is net of VAT: the VAT counted is taken off again.
+	out.turnover -= out.year.total;
+	return out;
+}

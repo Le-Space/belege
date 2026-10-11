@@ -1314,8 +1314,21 @@ export default {
 		agentOpenMany: '{count} offene Rückfragen',
 		agentNone: 'Keine offenen Rückfragen – alles zugeordnet, was sich zuordnen lässt.',
 		vat: {
-			title: 'Vorsteuer {year}',
-			what: 'Die Mehrwertsteuer aus deinen Belegen zu 19 % und 7 %, nach Belegdatum. So, wie die Belege ausgelesen wurden – eine Hilfe für die Voranmeldung, nicht die Voranmeldung selbst.',
+			title: 'Umsatzsteuer {year}',
+			what: 'Vorsteuer aus deinen Belegen zu 19 % und 7 %, nach Belegdatum; Umsatzsteuer aus den Rechnungen der Rechnungs-App, {basis}; die Zahllast ist die Differenz (negativ: Erstattung). So, wie Belege und Rechnungen es sagen – eine Hilfe für die Voranmeldung, nicht die Voranmeldung selbst.',
+			basisIst: 'wenn das Geld kommt (Ist)',
+			basisSoll: 'nach Rechnungsdatum (Soll)',
+			output: 'USt',
+			due: 'Zahllast',
+			outputOpen:
+				'Umsatzsteuer aus noch nicht bezahlten Rechnungen: {amount} (Rechnungen: {count}) – bei Ist erst fällig, wenn das Geld kommt.',
+			outputMissing:
+				'Rechnungen ohne Steuerangabe der Rechnungs-App: {count} ({amount} brutto) – nicht in der Umsatzsteuer, bis die App die Steuer je Satz liefert.',
+			outputNone: 'Rechnungen ohne Umsatzsteuer: {count} ({amount}).',
+			turnover:
+				'Umsatz {year} aus deinen Rechnungen: {amount}. Grenze im laufenden Jahr: {limit}; im Vorjahr höchstens {previous}.',
+			turnoverOver:
+				'Umsatz {year} aus deinen Rechnungen: {amount} – über der Grenze von {limit}. Ab dem Umsatz, der sie überschreitet, gilt die Kleinunternehmerregelung nicht mehr; sprich mit deiner Steuerberatung.',
 			period: 'Zeitraum',
 			rate19: '19 %',
 			rate7: '7 %',
@@ -1335,7 +1348,7 @@ export default {
 			smallBusiness:
 				'Als Kleinunternehmer (§19 UStG) ziehst du keine Vorsteuer ab. In deinen Belegen dieses Jahres stecken {amount} Mehrwertsteuer.',
 			outputLater:
-				'Die Umsatzsteuer aus deinen Ausgangsrechnungen und die Zahllast folgen, sobald die Rechnungs-App die Steuer je Satz liefert.'
+				'Noch keine Rechnungen aus der Rechnungs-App: Umsatzsteuer und Zahllast erscheinen, sobald sie gekoppelt ist und Rechnungen mit Steuer je Satz liefert.'
 		},
 		agentProgress: '{done} von {total} erledigt',
 		agentAnswer: 'Rückfragen beantworten',
@@ -1792,9 +1805,14 @@ export default {
 			noAccounts: 'Noch keine Bankkonten in den Büchern.',
 			vatPeriod: 'Umsatzsteuer-Voranmeldung',
 			vatPeriods: { quarter: 'vierteljährlich', month: 'monatlich' },
+			vatBasis: 'Umsatzsteuer nach',
+			vatBases: {
+				ist: 'vereinnahmten Entgelten (Ist)',
+				soll: 'vereinbarten Entgelten (Soll)'
+			},
 			smallBusiness: 'Kleinunternehmer (§19 UStG)',
 			vatHint:
-				'Danach richtet sich die Vorsteuer-Karte auf Home. Als Kleinunternehmer weist du keine Umsatzsteuer aus und ziehst keine Vorsteuer ab.',
+				'Danach richtet sich die Umsatzsteuer-Karte auf Home. Bei Ist zählt die Umsatzsteuer einer Rechnung, wenn das Geld kommt, bei Soll am Rechnungsdatum – was dein Finanzamt dir genehmigt hat. Als Kleinunternehmer weist du keine Umsatzsteuer aus und ziehst keine Vorsteuer ab.',
 			legalForm: 'Rechtsform',
 			legalFormUnset: 'noch nicht angegeben',
 			legalForms: {

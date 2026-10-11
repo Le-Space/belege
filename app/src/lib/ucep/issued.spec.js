@@ -7,6 +7,7 @@ import { unlinkMatch } from '../matching/actions.js';
 import { receiptFacts } from '../matching/score.js';
 import {
 	centsOf,
+	extractionOf,
 	paymentPlan,
 	receiptFieldsOf,
 	sourceRefOf,
@@ -185,6 +186,28 @@ describe('amounts and receipts of issued invoices', () => {
 			direction: 'income',
 			customer: 'Beispiel Kunde GmbH'
 		});
+	});
+});
+
+describe('the VAT of an issued invoice (#195)', () => {
+	const inv = /** @type {any} */ ({
+		documentId: 'd1',
+		number: 'RE-2026-007',
+		state: 'issued',
+		issuedOn: '2026-09-01',
+		customer: { name: 'Kundin Beispiel UG' },
+		total: { value: '1190.00', currency: 'EUR' }
+	});
+	it('per rate where the app says it, none charged as an empty list, unsaid as absent', () => {
+		expect(
+			extractionOf({
+				...inv,
+				net: { value: '1000.00', currency: 'EUR' },
+				vat: [{ rate: '19', amount: { value: '190.00', currency: 'EUR' } }]
+			})
+		).toMatchObject({ net: 1000, vat: [{ rate: 19, amount: 190 }], gross: 1190 });
+		expect(extractionOf({ ...inv, vat: [] }).vat).toEqual([]);
+		expect('vat' in extractionOf(inv)).toBe(false);
 	});
 });
 

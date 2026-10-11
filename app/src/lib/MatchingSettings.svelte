@@ -45,6 +45,8 @@
 
 	/** @type {Record<string, string>} bank account id → its ledger account, as typed */
 	let ledgers = $state({});
+	/** When output VAT counts (#195), as cleanDatevSettings keeps it. */
+	const VAT_BASES = /** @type {const} */ (['ist', 'soll']);
 	let datev = $state(cleanDatevSettings(null));
 	/** @type {string | null} */
 	let invalid = $state(null);
@@ -540,6 +542,14 @@
 					<select class={input} bind:value={datev.vatPeriod} data-testid="datev-vat-period">
 						<option value="quarter">{t('anweisungen.books.vatPeriods.quarter')}</option>
 						<option value="month">{t('anweisungen.books.vatPeriods.month')}</option>
+					</select>
+				</label>
+				<label class="flex flex-col">
+					<span class="text-faint">{t('anweisungen.books.vatBasis')}</span>
+					<select class={input} bind:value={datev.vatBasis} data-testid="datev-vat-basis">
+						{#each VAT_BASES as basis (basis)}
+							<option value={basis}>{t(`anweisungen.books.vatBases.${basis}`)}</option>
+						{/each}
 					</select>
 				</label>
 				<label class="flex min-h-11 items-center gap-2">
