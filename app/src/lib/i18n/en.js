@@ -908,6 +908,50 @@ export default {
 			'This backup cannot be opened with this passkey: it was made with another one. A backup opens only with the passkey it was made with.',
 		notFetched: 'Aleph’s gateway did not give the backup back. Try again in a moment.'
 	},
+	move: {
+		title: 'Move books',
+		intro:
+			'A passkey belongs to its address: books on localhost and on belege.le-space.de, or under an old and a new passkey, are separate books. A move takes every payment, every receipt with its file, the links and the settings into the empty books of another passkey. The file for it is sealed and opens only there.',
+		receive: 'Take books over …',
+		receiveStep1:
+			'Paste or scan this one-time key in the old books under “Move to other books …”. It is valid only while this page stays open.',
+		receiveStep2: 'Choose the move file from the old books:',
+		keyText: 'One-time key',
+		fingerprint: 'Fingerprint:',
+		takeOver: 'Take over',
+		busy: 'Working …',
+		summary: 'Packed on {date}: {transactions} payments, {receipts} receipts, {files} files.',
+		leftOutNote: 'Not included, as they belong to the old passkey or device: {list}.',
+		leftOut: {
+			bridge: 'the bridge pairing',
+			'backup/owner': 'the backup account',
+			'backup/aleph-key': 'the backup key',
+			backups: 'the list of backups',
+			ucepInvoiceApp: 'the invoicing app pairing',
+			'network-mode': 'the network mode',
+			'lan-relay': 'the relay in your own network',
+			pendingJobs: 'waiting jobs',
+			devices: 'own devices'
+		},
+		done: 'Taken over: {records} records, {files} files.',
+		doneNext:
+			'Now pair the bridge here again and set up the backup again; own devices with this passkey connect as usual. The old books are unchanged – they can be deleted there under Settings → Storage.',
+		send: 'Move to other books …',
+		sendStep1:
+			'Open “Take books over …” in the new, empty books and paste or scan the one-time key here:',
+		keyInvalid: 'That is no one-time key for a move.',
+		fingerprintCheck: 'Do the new books show the same fingerprint?',
+		pack: 'Create the move file',
+		packed: 'Move file saved.',
+		untouched: 'These books stay as they are.',
+		errors: {
+			format: 'This is no Belege move file, or it is damaged.',
+			key: 'This file is sealed for another key, or it was changed.',
+			'not-empty': 'These books are not empty. Books are taken over only into empty ones.',
+			'missing-file': 'A receipt file is missing on this device. Let it sync first, then move.',
+			check: 'The move file does not add up. Nothing was taken over.'
+		}
+	},
 	backup: {
 		title: 'Backup',
 		what: 'Everything Belege keeps in this browser – the books and every receipt file – as one file, sealed with a key from your passkey, kept on Aleph Cloud. Nobody but you can open it, with the same passkey.',

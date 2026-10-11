@@ -64,6 +64,18 @@ pnpm setup:aleph -- --revoke <Adresse>                               # zurückne
 
 Eine Freigabe ist ein Eintrag im `security`-Aggregat des Kontos bei Aleph, unterschrieben mit dem Backup-Schlüssel der Bridge: nur STORE, nur im genannten Kanal. Aleph berechnet dem Konto der Bridge, was dieser Schlüssel aufbewahren lässt, nicht dem Schlüssel (gemessen am 3.10.2026). Die Liste der Backups fragt Aleph nach dem zahlenden Konto; was so ein Schlüssel aufbewahren ließ, steht also mit darin.
 
+## Bücher auf einen anderen Passkey umziehen
+
+Ein Backup lässt sich nur mit dem Passkey wiederherstellen, der es gemacht hat, und ein Passkey gehört zu seiner Adresse: Bücher auf `localhost` und auf belege.le-space.de, oder unter einem alten und einem neuen Passkey, sind getrennte Bücher mit getrennten DIDs. _Bücher umziehen_ auf dieser Seite bringt Bücher aus den einen in die **leeren** Bücher eines anderen (#328):
+
+1. In den neuen Büchern: _Bücher übernehmen …_. Sie zeigen einen Einmal-Schlüssel als QR-Code und als Text (`belege-move:…`), mit Fingerabdruck. Der Schlüssel gilt nur, solange diese Seite offen ist.
+2. In den alten Büchern: _In andere Bücher umziehen …_, den Schlüssel einfügen oder scannen, prüfen, dass der Fingerabdruck derselbe ist, _Umzugsdatei erstellen_. Eine Datei `Belege-Umzug_<Datum>.belege` wird gespeichert.
+3. In den neuen Büchern: die Datei wählen. Ihre Anzahlen werden gezeigt; _Übernehmen_ übernimmt sie.
+
+Die Datei enthält jeden Eintrag jedes Bereichs (auch gelöschte) und jede Belegdatei und aufbewahrte Mail. Sie ist für genau diesen Schlüssel versiegelt: ein Einmal-X25519-Schlüssel der alten Bücher, ECDH, HKDF-SHA-256, AES-256-GCM. Lesbar sind nur Datum, Version, Anzahlen und was weggelassen wurde. Weggelassen, weil es zum alten Passkey oder Gerät gehört: die Kopplung der Bridge, Backup-Schlüssel, -Konto und -Liste, die Kopplung der Rechnungs-App, der Netzwerkmodus, das Relay im eigenen Netz, wartende Aufgaben und die Liste der eigenen Geräte. Diese in den neuen Büchern neu koppeln und einrichten.
+
+Einträge behalten ihre IDs, Verknüpfungen und Zeiten; Belegdateien werden mit dem Schlüssel der neuen Bücher neu versiegelt. Bücher, die nicht leer sind, übernehmen nichts, und eine Datei, die sich nicht öffnet oder nicht aufgeht, schreibt nichts. Die alten Bücher bleiben, wie sie sind; löschen lassen sie sich dort unter _Einstellungen → Speicher_. Ein Umzug per Passphrase, wenn beide Bücher nicht zugleich offen sind, folgt.
+
 ## Was hinausgeht
 
 - **An Alephs IPFS-Host, aus dem Browser:** die versiegelte Datei. Aleph sieht ihre Größe und die IP-Adresse dieses Computers, nicht den Inhalt.
