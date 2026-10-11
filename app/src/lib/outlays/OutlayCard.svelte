@@ -55,9 +55,12 @@
 	/** @type {string | null} */
 	let error = $state(null);
 
-	// A new receipt: the form closed and empty.
+	// A new receipt: the form closed and empty. By its id only: the same receipt
+	// written again in the background (a refresh after the matching, say) is a
+	// new object, and must not close the form while a rate is being typed.
+	let receiptId = $derived(String(receipt.id));
 	$effect(() => {
-		void receipt.id;
+		void receiptId;
 		open = false;
 		error = null;
 	});
