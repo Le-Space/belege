@@ -8,6 +8,12 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **VAT on Home: output VAT, the payable, and the international cases** (#195, #355; #354, #356, #357, #358, #359). The card showed the input VAT only.
+  - **Output VAT** of our own invoices, when the money comes in (Ist, the default) or on the invoice date (Soll) – a setting under Buchhaltung – and the **VAT payable** or refund per month or quarter. Invoices whose VAT the invoicing app did not send are named, never counted as zero; the app sending it is Le-Space/invoice#42.
+  - **Own invoices among the receipts** – uploaded or from the mailbox – are recognised by the company names or the own VAT ID (a new setting) and counted as output VAT; before, their VAT was counted as input VAT. Each receipt says so and can be set otherwise.
+  - **The international cases**, read from the invoices (the parties' countries, the customer's VAT ID, a category per VAT line; from the XML for e-invoices): intra-EU supplies with the lines for the EC Sales List (ZM), third-country turnover, §13b in Germany, exempt turnover and intra-EU acquisitions. What cannot be told without guessing is named with a link to the receipt.
+  - A small business (§19 UStG) sees its turnover against the limits.
+  - A help for the advance return, not the return itself.
 - **E-invoices: XRechnung and ZUGFeRD / Factur-X** (#160, #350, #352). Since 1 January 2025 every business in Germany must be able to receive B2B e-invoices, and for an e-invoice the XML is the original to keep. Belege had refused an XML file as unsupported.
   - **XRechnung** (UBL or CII), uploaded or from the mailbox: kept as the XML it came as, read at once without AI – seller, number, dates, VAT per rate, lines, total; credit notes negative, reverse charge recognised – and shown as a plain view of its fields.
   - **ZUGFeRD / Factur-X**: the PDF is read from the XML it carries, which is kept beside it; a PDF from a sender not confirmed is opened only after the confirmation. MINIMUM and BASIC WL are named as no EN 16931 e-invoice.
