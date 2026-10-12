@@ -192,24 +192,83 @@ export function paidByGuess(receipt, { transactions, matches }) {
 	return tx && !isOutlay(tx) ? 'company' : 'private';
 }
 
+/** A receipt's currency, as read: EUR where it says none. @param {Rec} r */
+export const receiptCurrency = (r) =>
+	String(r.currency ?? r.extraction?.currency ?? 'EUR').toUpperCase();
+
+/**
+ * @typedef {object} EuroValue
+ * @property {number | null} cents the receipt's gross in euros; null: not known
+ * @property {'eur' | 'outlay' | 'payment' | 'rate' | null} via
+ *   eur: the receipt is in euros; outlay: booked as a private outlay in euros (#293);
+ *   payment: a linked payment in euros; rate: a rate kept with the receipt's trip link
+ * @property {string} currency the receipt's own
+ * @property {number | null} originalCents its gross in its own currency
+ * @property {string | null} rate EUR per unit, for `rate`
+ */
+
+/**
+ * What a receipt on a trip is in euros (#213): never its amount in another
+ * currency taken as euros.
+ *
+ * @param {Rec} r
+ * @param {{ transactions?: Rec[], matches?: Rec[] }} [books]
+ * @returns {EuroValue}
+ */
+export function euroOf(r, { transactions = [], matches = [] } = {}) {
+	const currency = receiptCurrency(r);
+	const originalCents = Number.isSafeInteger(r.amountCents) ? Math.abs(r.amountCents) : null;
+	const base = { currency, originalCents, rate: null };
+	if (currency === 'EUR') return { ...base, cents: originalCents, via: 'eur' };
+	const outlay = transactions.find(
+		(t) => !t.deleted && isOutlay(t) && t.outlay?.receiptId === r.id
+	);
+	if (outlay && Number.isSafeInteger(outlay.amountCents))
+		return { ...base, cents: Math.abs(outlay.amountCents), via: 'outlay' };
+	const match = matchOfReceipt(r.id, matches);
+	const paid = match ? transactions.find((t) => t.id === match.transactionId && !t.deleted) : null;
+	if (
+		paid &&
+		!isOutlay(paid) &&
+		paid.source !== 'travel' &&
+		String(paid.currency ?? 'EUR').toUpperCase() === 'EUR' &&
+		Number.isSafeInteger(paid.amountCents)
+	)
+		return { ...base, cents: Math.abs(paid.amountCents), via: 'payment' };
+	const kept = r.travel?.euro;
+	if (kept && Number.isSafeInteger(kept.cents))
+		return { ...base, cents: kept.cents, via: 'rate', rate: String(kept.rate ?? '') };
+	return { ...base, cents: null, via: null };
+}
+
 /** @param {unknown} amount in euros */
 const cents = (amount) =>
 	typeof amount === 'number' && Number.isFinite(amount) ? Math.round(amount * 100) : 0;
 
 /**
  * A hospitality bill's figures, from its amount and the VAT it was read with.
+ * A bill in another currency counts in euros (euroOf; nothing while no rate
+ * is known), and its VAT is no German input VAT: part of the cost.
  *
  * @param {Rec} receipt with `hospitality`
+ * @param {{ transactions?: Rec[], matches?: Rec[] }} [books]
  */
-export function hospitalityOf(receipt) {
+export function hospitalityOf(receipt, books = {}) {
 	const e = receipt.extraction ?? {};
-	const grossCents = Number.isSafeInteger(receipt.amountCents)
-		? receipt.amountCents
-		: cents(e.gross);
-	const vatCents = (Array.isArray(e.vat) ? e.vat : []).reduce(
-		(/** @type {number} */ s, /** @type {any} */ v) => s + cents(v?.amount),
-		0
-	);
+	const euro = euroOf(receipt, books);
+	const grossCents =
+		euro.currency === 'EUR'
+			? Number.isSafeInteger(receipt.amountCents)
+				? receipt.amountCents
+				: cents(e.gross)
+			: (euro.cents ?? 0);
+	const vatCents =
+		euro.currency === 'EUR'
+			? (Array.isArray(e.vat) ? e.vat : []).reduce(
+					(/** @type {number} */ s, /** @type {any} */ v) => s + cents(v?.amount),
+					0
+				)
+			: 0;
 	const h = receipt.hospitality ?? {};
 	return hospitality({
 		date: receiptDate(/** @type {any} */ (receipt)) ?? new Date().toISOString().slice(0, 10),

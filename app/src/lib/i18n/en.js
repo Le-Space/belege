@@ -1877,6 +1877,20 @@ export default {
 			newTrip: 'New trip with this receipt',
 			unassign: 'Take it off the trip',
 			cancel: 'Cancel',
+			euro: {
+				outlay: 'In euros: {amount} ({original}), as booked as an outlay.',
+				payment: 'In euros: {amount} ({original}), as paid.',
+				byRate: 'In euros: {amount} ({original} at {rate} {currency} per EUR).',
+				change: 'Change the rate',
+				missing:
+					'Receipt of {original}: without a rate no euro amount – the statement waits for it.',
+				rate: 'Rate: 1 EUR = … {currency}',
+				ask: 'Fetch the rate',
+				keep: 'Take the rate',
+				preview: '= {amount} ({source})',
+				noRate:
+					'The bridge knows no rate for this day: please type one, e.g. from the card statement.'
+			},
 			hospitality: {
 				looksLike: 'Read as a restaurant bill: record it as hospitality if it was a business meal.',
 				open: 'Record as hospitality …',
@@ -2579,8 +2593,10 @@ export default {
 				receiptWithoutAmount: 'Receipt paid privately without an amount: {what}',
 				nothing: 'Nothing to settle this month.',
 				noRateAbroad: 'Day abroad without a rate, settled without an amount: {what}',
+				foreignWithoutRate:
+					'Receipt in another currency without a rate – add it on the receipt: {what}',
 				familyCar: 'A family member’s car, to be clarified with the tax adviser: {what}',
-				foreignCurrency: 'Receipt in another currency, taken as entered: {what}'
+				foreignCurrency: 'Receipt in another currency, converted into euros: {what}'
 			}
 		},
 		trips: 'Trips',
@@ -2690,6 +2706,9 @@ export default {
 		paidPrivately: 'Receipts paid privately',
 		paidByCompany: 'Receipts paid by the company',
 		toPayBack: 'To pay back',
+		noRate: 'rate missing',
+		ratesMissing:
+			'Receipts in another currency without a rate: {count} – not counted. Add a rate on the receipt.',
 		sumHint:
 			'Allowances, mileage and privately paid receipts. The company-paid ones are listed for completeness.',
 		delete: 'Delete this trip',

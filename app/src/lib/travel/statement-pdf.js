@@ -49,7 +49,8 @@ const REFUSED = /** @type {Record<string, string>} */ ({
 const WARNING = /** @type {Record<string, string>} */ ({
 	noRateAbroad: 'Auslandstag ohne Satz: ohne Betrag abgerechnet.',
 	familyCar: 'Fahrzeug eines Familienangehörigen: mit der Steuerberatung zu klären.',
-	foreignCurrency: 'Beleg in fremder Währung: Betrag wie erfasst.'
+	foreignCurrency: 'Beleg in fremder Währung: in Euro umgerechnet, Originalbetrag in Klammern.',
+	foreignWithoutRate: 'Beleg in fremder Währung ohne Kurs: ohne Euro-Betrag, nicht erstattet.'
 });
 
 /**
@@ -153,7 +154,14 @@ export async function travelStatementPdf(doc) {
 					`${l.kind ? `${RECEIPT_KIND[l.kind] ?? l.kind}: ` : ''}${l.vendor}`,
 					l.vat.map((v) => `${v.rate} %`).join(', '),
 					l.outlay ? 'Auslage' : l.paidBy === 'private' ? 'privat' : 'Firma',
-					l.grossCents === null ? '—' : `${amount(l.grossCents)} ${l.currency}`
+					[
+						l.grossCents === null ? '—' : `${amount(l.grossCents)} EUR`,
+						l.currency !== 'EUR' && l.originalCents !== null
+							? `(${amount(l.originalCents)} ${l.currency})`
+							: ''
+					]
+						.filter(Boolean)
+						.join(' ')
 				])
 			);
 		}

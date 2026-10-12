@@ -1245,7 +1245,7 @@
 						</dl>
 
 						<OutlayCard receipt={selected} {client} />
-						<TravelCard receipt={selected} />
+						<TravelCard receipt={selected} {client} />
 
 						{#if selected.source === 'mail' && selected.mailId && client}
 							<div class="mt-3 border-t border-border pt-3 text-sm" data-testid="mail-trash">

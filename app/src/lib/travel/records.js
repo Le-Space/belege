@@ -12,6 +12,7 @@
 // what it cannot compute (allowance.js, mileage.js).
 
 import { privateAccounts } from '../booking/settings.js';
+import { euroCents } from '../outlays/outlays.js';
 import { mealAllowance, threeMonthCuts } from './allowance.js';
 import { mileage } from './mileage.js';
 
@@ -183,7 +184,10 @@ export async function assignReceipt(store, { receiptId, tripId, paidBy }) {
 	if (!trip || trip.deleted || trip.kind !== 'trip') throw new Error(`No trip with id ${tripId}`);
 	const receipt = await store.receipts.get(receiptId);
 	if (!receipt || receipt.deleted) throw new Error(`No receipt with id ${receiptId}`);
-	return store.receipts.put({ ...receipt, travel: { tripId, paidBy } });
+	// A rate kept for this trip stays when who paid changes.
+	const euro =
+		receipt.travel?.tripId === tripId && receipt.travel?.euro ? { euro: receipt.travel.euro } : {};
+	return store.receipts.put({ ...receipt, travel: { tripId, paidBy, ...euro } });
 }
 
 /**
@@ -219,6 +223,41 @@ export async function setHospitality(store, receiptId, details) {
 			occasion: text(details.occasion),
 			tipCents: tip,
 			tipTo: text(details.tipTo)
+		}
+	});
+}
+
+/**
+ * The euros of a receipt on a trip in another currency, by a rate: EUR per
+ * unit (outlays.js `euroCents`), from the bridge (ECB, Bank of Russia …) or
+ * typed from a document. Kept with the receipt's trip link; `null` takes it
+ * off again.
+ *
+ * @param {{ receipts: Collection }} store
+ * @param {string} receiptId
+ * @param {{ rate: string, source: string, at?: string } | null} rate
+ */
+export async function setTravelEuro(store, receiptId, rate) {
+	const receipt = await store.receipts.get(receiptId);
+	if (!receipt || receipt.deleted) throw new Error(`No receipt with id ${receiptId}`);
+	if (!receipt.travel?.tripId) throw new Error('The receipt is on no trip.');
+	if (rate === null) {
+		const rest = { ...receipt.travel };
+		delete rest.euro;
+		return store.receipts.put({ ...receipt, travel: rest });
+	}
+	if (!Number.isSafeInteger(receipt.amountCents)) throw new Error('The receipt has no amount.');
+	const cents = euroCents(Math.abs(receipt.amountCents), rate.rate);
+	return store.receipts.put({
+		...receipt,
+		travel: {
+			...receipt.travel,
+			euro: {
+				cents,
+				rate: String(rate.rate),
+				source: String(rate.source),
+				...(rate.at ? { at: String(rate.at) } : {})
+			}
 		}
 	});
 }

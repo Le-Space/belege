@@ -1906,6 +1906,20 @@ export default {
 			newTrip: 'Neue Reise mit diesem Beleg',
 			unassign: 'Von der Reise nehmen',
 			cancel: 'Abbrechen',
+			euro: {
+				outlay: 'In Euro: {amount} ({original}), wie als Auslage gebucht.',
+				payment: 'In Euro: {amount} ({original}), wie bezahlt.',
+				byRate: 'In Euro: {amount} ({original} zu {rate} {currency} je 1 EUR).',
+				change: 'Kurs ändern',
+				missing:
+					'Beleg über {original}: ohne Kurs kein Euro-Betrag – die Abrechnung wartet darauf.',
+				rate: 'Kurs: 1 EUR = … {currency}',
+				ask: 'Kurs holen',
+				keep: 'Kurs übernehmen',
+				preview: '= {amount} ({source})',
+				noRate:
+					'Für diesen Tag kennt die Bridge keinen Kurs: bitte von Hand eintragen, etwa vom Kontoauszug der Karte.'
+			},
 			hospitality: {
 				looksLike:
 					'Als Restaurantrechnung gelesen: als Bewirtung erfassen, wenn es ein Geschäftsessen war.',
@@ -2617,8 +2631,9 @@ export default {
 				receiptWithoutAmount: 'Privat bezahlter Beleg ohne Betrag: {what}',
 				nothing: 'In diesem Monat gibt es nichts abzurechnen.',
 				noRateAbroad: 'Auslandstag ohne Satz, ohne Betrag abgerechnet: {what}',
+				foreignWithoutRate: 'Beleg in fremder Währung ohne Kurs – am Beleg eintragen: {what}',
 				familyCar: 'Fahrzeug eines Familienangehörigen, mit Steuerberatung klären: {what}',
-				foreignCurrency: 'Beleg in fremder Währung, Betrag wie erfasst: {what}'
+				foreignCurrency: 'Beleg in fremder Währung, in Euro umgerechnet: {what}'
 			}
 		},
 		trips: 'Reisen',
@@ -2728,6 +2743,9 @@ export default {
 		paidPrivately: 'Privat bezahlte Belege',
 		paidByCompany: 'Von der Firma bezahlte Belege',
 		toPayBack: 'Zu erstatten',
+		noRate: 'Kurs fehlt',
+		ratesMissing:
+			'Belege in fremder Währung ohne Kurs: {count} – nicht mitgezählt. Am Beleg einen Kurs eintragen.',
 		sumHint:
 			'Pauschalen, Kilometer und privat bezahlte Belege. Die von der Firma bezahlten stehen der Vollständigkeit halber dabei.',
 		delete: 'Diese Reise löschen',

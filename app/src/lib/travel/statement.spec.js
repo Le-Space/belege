@@ -153,15 +153,47 @@ describe('the travel statement (#213, step 5)', () => {
 		});
 		expect(abroad.ready).toBe(true);
 		expect(abroad.checks.filter((c) => c.code === 'noRateAbroad')).toHaveLength(2);
-		const rubles = statementOf({
-			...base,
-			receipts: RECEIPTS.map((r) => (r.id === 'R1' ? { ...r, currency: 'RUB' } : r))
+		// A ticket in rubles (made up): never its amount taken as euros (#213).
+		const inRubles = (/** @type {Record<string, any>} */ travel) =>
+			RECEIPTS.map((r) =>
+				r.id === 'R1'
+					? {
+							...r,
+							currency: 'RUB',
+							amountCents: 1_499_000,
+							extraction: { ...r.extraction, vat: [{ rate: 20, amount: 2498.33 }] },
+							travel: { ...r.travel, ...travel }
+						}
+					: r
+			);
+		const noRate = statementOf({ ...base, receipts: inRubles({}) });
+		expect(noRate.checks).toContainEqual({
+			level: 'error',
+			code: 'foreignWithoutRate',
+			receiptId: 'R1'
 		});
-		expect(rubles.checks).toContainEqual({
+		expect(noRate.ready).toBe(false);
+		expect(noRate.trips[0].receipts.find((l) => l.receiptId === 'R1')?.grossCents).toBeNull();
+		// With a rate kept on the receipt: 14.990 RUB at 0.0105 EUR is 157,40 EUR, the Russian VAT no input VAT.
+		const byRate = statementOf({
+			...base,
+			receipts: inRubles({ euro: { cents: 15740, rate: '0.0105', source: 'cbr' } })
+		});
+		expect(byRate.ready).toBe(true);
+		expect(byRate.checks).toContainEqual({
 			level: 'warning',
 			code: 'foreignCurrency',
 			receiptId: 'R1'
 		});
+		expect(byRate.trips[0].receipts.find((l) => l.receiptId === 'R1')).toMatchObject({
+			grossCents: 15740,
+			currency: 'RUB',
+			originalCents: 1_499_000,
+			rate: '0.0105',
+			vat: []
+		});
+		expect(byRate.totals.privateCents).toBe(15740 + 11900);
+		expect(byRate.totals.vatByRate).toEqual({ 7: 733, 19: 1900 });
 		expect(statementOf({ ...base, month: '2026-06' }).checks).toEqual([
 			{ level: 'error', code: 'nothing' }
 		]);

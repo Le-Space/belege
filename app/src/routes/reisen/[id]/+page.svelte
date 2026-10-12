@@ -20,7 +20,7 @@
 		tripDates,
 		tripFigures
 	} from '$lib/travel/records.js';
-	import { allTrips, breakfastProposals, receiptsOfTrip } from '$lib/travel/view.js';
+	import { allTrips, breakfastProposals, euroOf, receiptsOfTrip } from '$lib/travel/view.js';
 	import { appointmentsOn } from '$lib/travel/appointments.js';
 	import ReceiptPeek from '$lib/ReceiptPeek.svelte';
 	import PeekLink from '$lib/receipts/PeekLink.svelte';
@@ -57,13 +57,17 @@
 			: null
 	);
 	let receipts = $derived(receiptsOfTrip(app.receipts, id));
+	// In euros (euroOf): a receipt in another currency by its payment, its outlay or a rate.
+	let euros = $derived(new Map(receipts.map((r) => [r.id, euroOf(r, app)])));
 	let paid = $derived({
+		// Booked as outlays (#293): paid back through the outlay account, not here.
 		private: receipts
-			.filter((r) => r.travel?.paidBy === 'private')
-			.reduce((s, r) => s + Math.abs(Number(r.amountCents) || 0), 0),
+			.filter((r) => r.travel?.paidBy === 'private' && euros.get(r.id)?.via !== 'outlay')
+			.reduce((s, r) => s + (euros.get(r.id)?.cents ?? 0), 0),
 		company: receipts
 			.filter((r) => r.travel?.paidBy === 'company')
-			.reduce((s, r) => s + Math.abs(Number(r.amountCents) || 0), 0)
+			.reduce((s, r) => s + (euros.get(r.id)?.cents ?? 0), 0),
+		withoutRate: receipts.filter((r) => euros.get(r.id)?.cents === null).length
 	});
 
 	/** The trip's dates, for the meals provided; three months at most. */
@@ -558,6 +562,7 @@
 		{#if receipts.length}
 			<ul class="mt-2 divide-y divide-border text-sm">
 				{#each receipts as r (r.id)}
+					{@const e = euros.get(r.id)}
 					<li>
 						<PeekLink
 							receipt={r}
@@ -570,8 +575,12 @@
 								>{formatDate(receiptDate(/** @type {any} */ (r)) ?? '')} · {receiptVendor(
 									/** @type {any} */ (r)
 								)} · {t(`belege.travel.paid.${r.travel.paidBy}`)}</span
-							><span class="font-mono tabular-nums"
-								>{formatMoney(Math.abs(Number(r.amountCents) || 0), 'EUR')}</span
+							><span class="font-mono tabular-nums" data-testid="reise-receipt-amount"
+								>{#if e && e.currency !== 'EUR'}<span class="text-xs text-faint"
+										>{`${formatMoney(e.originalCents ?? 0, e.currency)} → `}</span
+									>{/if}{e?.cents === null || e?.cents === undefined
+									? t('reise.noRate')
+									: formatMoney(e.cents, 'EUR')}</span
 							></PeekLink
 						>
 					</li>
@@ -610,6 +619,11 @@
 			</dd>
 		</dl>
 		<p class="mt-2 text-xs text-faint">{t('reise.sumHint')}</p>
+		{#if paid.withoutRate}
+			<p class="mt-1 text-xs text-danger" data-testid="reise-sum-norate">
+				{t('reise.ratesMissing', { count: paid.withoutRate })}
+			</p>
+		{/if}
 	</section>
 
 	<button

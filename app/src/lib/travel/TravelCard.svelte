@@ -9,6 +9,7 @@
 	import { guessTravel } from './words.js';
 	import { cleanDatevSettings } from '$lib/booking/settings.js';
 	import { formatDate, formatMoney } from '$lib/bank/format.js';
+	import { receiptDate } from '$lib/receipts/view.js';
 	import { btn } from '$lib/ui/styles.js';
 	import { t } from '$lib/i18n/index.js';
 	import {
@@ -16,6 +17,7 @@
 		assignReceipt,
 		ownerTraveller,
 		saveTrip,
+		setTravelEuro,
 		setHospitality,
 		unassignReceipt
 	} from './records.js';
@@ -27,13 +29,15 @@
 		travelHint,
 		travelKind,
 		tripFromReceipt,
+		euroOf,
 		paidByGuess,
 		suggestTrips,
 		tripDays
 	} from './view.js';
+	import { invertRate, perEuro } from '$lib/assets/rate-display.js';
 
-	/** @type {{ receipt: Record<string, any> }} */
-	let { receipt } = $props();
+	/** @type {{ receipt: Record<string, any>, client?: { rate: (asset: string, date: string) => Promise<any> } | null }} */
+	let { receipt, client = null } = $props();
 
 	const field = 'mt-1 rounded-md border border-border bg-surface px-2 py-1 text-sm text-heading';
 
@@ -160,7 +164,56 @@
 	const dropHospitality = () =>
 		run(() => setHospitality(/** @type {any} */ (currentStore()), receipt.id, null));
 
-	let split = $derived(receipt.hospitality ? hospitalityOf(receipt) : null);
+	let split = $derived(receipt.hospitality ? hospitalityOf(receipt, app) : null);
+
+	// A receipt in another currency (#213): its euros, never its amount taken as euros.
+	let euro = $derived(euroOf(receipt, app));
+	let perEuroTyped = $state('');
+	let rateSource = $state('manual');
+	let rateAt = $state('');
+	let asking = $state(false);
+	let editRate = $state(false);
+	const OFFERED = new Set(['ecb', 'cbr', 'nbk', 'cbr-cross']);
+	/** `91,57` → EUR per unit, or null. */
+	let typedRate = $derived.by(() => {
+		const v = perEuroTyped.trim().replace(',', '.');
+		return /^\d+(\.\d+)?$/.test(v) && Number(v) > 0 ? invertRate(v) : null;
+	});
+	let preview = $derived(
+		typedRate && euro.originalCents !== null
+			? Math.round(euro.originalCents * Number(typedRate))
+			: null
+	);
+
+	async function askRate() {
+		const day = receiptDate(/** @type {any} */ (receipt));
+		if (!client || !day) return;
+		asking = true;
+		error = null;
+		try {
+			const r = await client.rate(euro.currency, day);
+			if (OFFERED.has(r?.source) && Number(r.rate) > 0) {
+				perEuroTyped = (perEuro(String(r.rate)) ?? '').replace('.', ',');
+				rateSource = r.source;
+				rateAt = String(r.at ?? '');
+			} else error = t('belege.travel.euro.noRate');
+		} catch {
+			error = t('belege.travel.euro.noRate');
+		} finally {
+			asking = false;
+		}
+	}
+
+	const keepRate = () =>
+		run(async () => {
+			if (!typedRate) return;
+			await setTravelEuro(/** @type {any} */ (currentStore()), receipt.id, {
+				rate: typedRate,
+				source: rateSource,
+				...(rateSource !== 'manual' && rateAt ? { at: rateAt } : {})
+			});
+			editRate = false;
+		});
 	let hint = $derived(travelHint(receipt));
 	let guess = $derived(guessedTravel(receipt));
 
@@ -255,6 +308,79 @@
 					{/each}
 				</select>
 			</label>
+			{#if euro.currency !== 'EUR'}
+				<div class="mt-2" data-testid="travel-euro" data-via={euro.via ?? 'none'}>
+					{#if euro.via === 'outlay' || euro.via === 'payment'}
+						<p class="text-text">
+							{t(`belege.travel.euro.${euro.via}`, {
+								amount: formatMoney(euro.cents ?? 0, 'EUR'),
+								original: formatMoney(euro.originalCents ?? 0, euro.currency)
+							})}
+						</p>
+					{:else if euro.via === 'rate' && !editRate}
+						<p class="text-text" data-testid="travel-euro-value">
+							{t('belege.travel.euro.byRate', {
+								amount: formatMoney(euro.cents ?? 0, 'EUR'),
+								original: formatMoney(euro.originalCents ?? 0, euro.currency),
+								rate: (perEuro(String(euro.rate)) ?? '').replace('.', ','),
+								currency: euro.currency
+							})}
+						</p>
+						<button
+							type="button"
+							class={btn.link}
+							onclick={() => {
+								editRate = true;
+								perEuroTyped = (perEuro(String(euro.rate)) ?? '').replace('.', ',');
+							}}>{t('belege.travel.euro.change')}</button
+						>
+					{:else}
+						{#if !euro.via}
+							<p class="text-danger" data-testid="travel-euro-missing">
+								{t('belege.travel.euro.missing', {
+									original: formatMoney(euro.originalCents ?? 0, euro.currency)
+								})}
+							</p>
+						{/if}
+						<div class="mt-1 flex flex-wrap items-end gap-2">
+							<label class="text-text"
+								>{t('belege.travel.euro.rate', { currency: euro.currency })}
+								<input
+									class="ml-2 w-28 {field}"
+									inputmode="decimal"
+									bind:value={perEuroTyped}
+									oninput={() => (rateSource = 'manual')}
+									data-testid="travel-euro-rate"
+								/>
+							</label>
+							{#if client}
+								<button
+									type="button"
+									class={btn.link}
+									onclick={askRate}
+									disabled={asking}
+									data-testid="travel-euro-ask">{t('belege.travel.euro.ask')}</button
+								>
+							{/if}
+							<button
+								type="button"
+								class={btn.secondary}
+								onclick={keepRate}
+								disabled={busy || !typedRate}
+								data-testid="travel-euro-keep">{t('belege.travel.euro.keep')}</button
+							>
+						</div>
+						{#if preview !== null}
+							<p class="text-xs text-faint" data-testid="travel-euro-preview">
+								{t('belege.travel.euro.preview', {
+									amount: formatMoney(preview, 'EUR'),
+									source: t(`belege.outlay.rateSource.${rateSource}`)
+								})}
+							</p>
+						{/if}
+					{/if}
+				</div>
+			{/if}
 			<button
 				type="button"
 				class={btn.link}
