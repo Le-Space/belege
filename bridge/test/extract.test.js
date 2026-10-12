@@ -365,6 +365,112 @@ describe('/extract', () => {
 			assert.equal(text.includes(s), false, s);
 		}
 	});
+	test('a receipt in another language: the prompt says any language, the traveller goes, the stations and travel fields come back (#366)', async () => {
+		script({});
+		const before = llm.requests.length;
+		// A made-up Russian ticket, and the model's answer to it.
+		const text = `Электронный билет № 7012345678901 · Железные дороги Пример
+Пассажир: Иванова Мария Петровна
+Паспорт: 45 12 345678
+Москва Казанская 21:30 → Казань Пассажирская 07:45
+Стоимость 4 512,30 руб., в т.ч. НДС 20 % 752,05 руб.`;
+		llm.answers.respond = () => ({
+			document_type: 'ticket',
+			vendor: 'Железные дороги Пример',
+			invoice_number: '7012345678901',
+			invoice_date: '2026-03-02',
+			currency: 'RUB',
+			net: 3760.25,
+			vat: [{ rate: 20, amount: 752.05, category: 'standard' }],
+			gross: 4512.3,
+			vendor_country: 'RU',
+			reverse_charge: false,
+			travel: {
+				kind: 'train',
+				from: 'Москва Казанская',
+				to: 'Казань Пассажирская',
+				departure: '2026-03-04T21:30',
+				arrival: '2026-03-05T07:45'
+			},
+			summary: 'Bahnfahrt Moskau–Kasan',
+			line_items: null,
+			no_payment_request: false
+		});
+		try {
+			const res = await post({ text });
+			assert.equal(res.status, 200, res.text);
+			const sent = llm.requests.slice(before)[0].body.messages;
+			const system = sent.find((/** @type {any} */ m) => m.role === 'system').content;
+			assert.match(system, /receipts in any language/);
+			assert.match(system, /RUB/);
+			const user = sent.find((/** @type {any} */ m) => m.role === 'user').content;
+			assert.ok(
+				!user.includes('Иванова') && !user.includes('45 12 345678'),
+				'the traveller stays home'
+			);
+			assert.ok(user.includes('Казань Пассажирская'), 'the stations go');
+			const e = res.json.extraction;
+			assert.equal(e.currency, 'RUB');
+			assert.equal(e.gross, 4512.3);
+			assert.deepEqual(
+				[e.travel.kind, e.travel.from, e.travel.to, e.travel.departure, e.travel.arrival],
+				['train', 'Москва Казанская', 'Казань Пассажирская', '2026-03-04T21:30', '2026-03-05T07:45']
+			);
+			// Fields the answer left out come back as null, not missing.
+			assert.equal(e.travel.breakfast_included, null);
+		} finally {
+			delete llm.answers.respond;
+		}
+	});
+
+	test('an Arabic hotel invoice: the guest goes, the hotel fields come back (#366)', async () => {
+		script({});
+		const before = llm.requests.length;
+		const text = `فندق المثال · فاتورة رقم 2026-118
+الضيف: محمد أحمد
+جواز السفر: P1234567
+الوصول 10/03/2026 · المغادرة 12/03/2026 · ليلتان مع الإفطار
+المجموع 950,00 درهم`;
+		llm.answers.respond = () => ({
+			document_type: 'invoice',
+			vendor: 'فندق المثال',
+			invoice_number: '2026-118',
+			invoice_date: '2026-03-12',
+			currency: 'AED',
+			net: null,
+			vat: [],
+			gross: 950,
+			reverse_charge: false,
+			travel: {
+				kind: 'hotel',
+				place: 'دبي',
+				check_in: '2026-03-10',
+				check_out: '2026-03-12',
+				nights: 2,
+				breakfast_included: true
+			},
+			summary: 'Hotel, zwei Nächte mit Frühstück',
+			line_items: null,
+			no_payment_request: false
+		});
+		try {
+			const res = await post({ text });
+			assert.equal(res.status, 200, res.text);
+			const user = llm.requests
+				.slice(before)[0]
+				.body.messages.find((/** @type {any} */ m) => m.role === 'user').content;
+			assert.ok(!user.includes('محمد أحمد') && !user.includes('P1234567'), 'the guest stays home');
+			assert.ok(user.includes('فندق المثال'), 'the hotel goes');
+			const t = res.json.extraction.travel;
+			assert.deepEqual(
+				[t.kind, t.check_in, t.check_out, t.nights, t.breakfast_included],
+				['hotel', '2026-03-10', '2026-03-12', 2, true]
+			);
+			assert.equal(res.json.extraction.vendor, 'فندق المثال');
+		} finally {
+			delete llm.answers.respond;
+		}
+	});
 });
 
 test('/llm/status without an LLM: not configured, no key, the host of the configured URL only', async () => {

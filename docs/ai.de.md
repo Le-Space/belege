@@ -10,7 +10,7 @@ In der App trägt jeder Knopf, der das Modell fragt, das Zeichen **✦** (`app/s
 
 **Unser Rat heute: ein lokales Modell** (Ollama, LM Studio), oder mit der KI warten, bis ein schnelles Modell in einer vertraulichen Ausführungsumgebung (TEE) läuft, deren Attestierung sich prüfen lässt. Belege würde ein solches Modell nur bei Bedarf fragen, wie bisher auf einen ✦-Klick.
 
-- **Lokal:** Nichts verlässt deinen Rechner. Ein 8B-Modell liest einfache Belege; mehrere Steuersätze, Reverse Charge und lange Texte gehen öfter schief, die Prüfungen der Bridge fangen einen Teil davon ab.
+- **Lokal:** Nichts verlässt deinen Rechner. Ein 8B-Modell liest einfache Belege; mehrere Steuersätze, Reverse Charge, lange Texte und Belege in anderen Sprachen und Schriften (Russisch, Arabisch …) gehen öfter schief, die Prüfungen der Bridge fangen einen Teil davon ab. Die Anweisung verlangt Belege in jeder Sprache (#366); wie gut eine Sprache gelesen wird, liegt am Modell.
 - **Gehostet, ohne TEE** (DeepSeek, voreingestellt): Der Anbieter kann lesen, was die Bridge schickt. Die Schwärzung begrenzt das; anonym macht sie einen Beleg nicht (siehe _Schwärzung_ unten).
 - **Gehostet, im TEE:** Lohnt erst, wenn sich bei jedem Aufruf prüfen lässt, dass er in einer attestierten Umgebung läuft. Solange die Bridge das nicht selbst prüft, ist es das Wort des Anbieters. Welche Anbieter das erfüllen, steht hier, sobald sie es kann.
 
