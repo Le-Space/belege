@@ -153,7 +153,7 @@
 				</div>
 			</div>
 			<main>
-				{#if !['/integrationen', '/einstellungen'].some((p) => page.url.pathname.startsWith(p))}
+				{#if !['/integrationen', '/einstellungen', '/reisen'].some( (p) => page.url.pathname.startsWith(p) )}
 					<YearSwitch />
 				{/if}
 				{@render children()}

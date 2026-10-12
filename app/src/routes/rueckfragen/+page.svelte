@@ -11,6 +11,7 @@
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { onMount } from 'svelte';
 	import AiMark from '$lib/AiMark.svelte';
+	import { travelQuestions } from '$lib/travel/view.js';
 	import { getSetting } from '$lib/store/settings.js';
 	import { refreshNow } from '$lib/session.svelte.js';
 	import {
@@ -38,6 +39,8 @@
 	);
 	let txById = $derived(new Map(app.transactions.map((x) => [x.id, x])));
 	let receiptById = $derived(new Map(app.receipts.map((r) => [r.id, r])));
+	// Travel asks on its own page (#213), worked out from the books, not stored.
+	let travelOpen = $derived(travelQuestions({ travel: app.travel, receipts: app.receipts }).length);
 	// A payment's name, never a bare dash (bank/payee.js).
 	let book = $derived(addressBook(app));
 
@@ -206,6 +209,14 @@
 {#if openElsewhere > 0}
 	<p class="mt-1 text-sm text-faint" data-testid="questions-elsewhere">
 		{t('year.hidden', { count: openElsewhere })}
+	</p>
+{/if}
+
+{#if travelOpen > 0}
+	<p class="mt-1 text-sm text-text" data-testid="questions-travel">
+		<a class="underline" href={resolve('/reisen')}
+			>{t('reisen.questionsElsewhere', { count: travelOpen })}</a
+		>
 	</p>
 {/if}
 

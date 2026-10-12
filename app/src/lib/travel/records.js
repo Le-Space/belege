@@ -243,8 +243,8 @@ export function tripsOf(records, { month, travellerId }) {
 		.sort((a, b) => String(a.start).localeCompare(String(b.start)));
 }
 
-/** Each date a trip spans. @param {Rec} trip */
-function tripDates(trip) {
+/** Each date a trip spans; none without valid times. @param {Rec} trip */
+export function tripDates(trip) {
 	if (!TIME.test(trip.start) || !TIME.test(trip.end) || trip.end <= trip.start) return [];
 	const out = [];
 	const last = new Date(`${trip.end.slice(0, 10)}T00:00Z`);

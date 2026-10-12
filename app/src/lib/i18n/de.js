@@ -1874,6 +1874,36 @@ export default {
 		ruleText: '{field} „{contains}“ → {action}'
 	},
 	belege: {
+		travel: {
+			open: 'Zu einer Reise …',
+			looksLikeTicket: 'Als Ticket gelesen: gehört wohl zu einer Reise.',
+			assigned: 'Teil der Reise',
+			trip: 'Reise',
+			suggested: 'An diesem Datum',
+			otherTrips: 'Andere Reisen',
+			paidBy: 'Bezahlt',
+			paid: { private: 'privat', company: 'von der Firma' },
+			assign: 'Zuordnen',
+			newTrip: 'Neue Reise mit diesem Beleg',
+			unassign: 'Von der Reise nehmen',
+			cancel: 'Abbrechen',
+			hospitality: {
+				open: 'Als Bewirtung erfassen …',
+				title: 'Bewirtung',
+				what: 'Was das Finanzamt für ein Geschäftsessen verlangt. Teilnehmer je eine Zeile, dich selbst eingeschlossen.',
+				place: 'Ort',
+				participants: 'Teilnehmer',
+				occasion: 'Anlass',
+				tip: 'Trinkgeld (€)',
+				tipTo: 'Empfänger des Trinkgelds',
+				badTip: 'Das Trinkgeld ist kein Betrag in Euro.',
+				save: 'Speichern',
+				edit: 'Ändern',
+				remove: 'Keine Bewirtung',
+				split: 'Abziehbar {deductible}, nicht abziehbar {rest}, Vorsteuer {vat}.',
+				missing: 'Es fehlt noch: {what}.'
+			}
+		},
 		outlay: {
 			open: 'Privat ausgelegt …',
 			hint: 'Bar oder mit einer privaten Karte bezahlt: als Auslage der Geschäftsführung buchen. Der Beleg ist dann gedeckt und wartet auf keine Bankzahlung mehr.',
@@ -2509,6 +2539,129 @@ export default {
 		ref: 'Referenz kopieren'
 	},
 	monthPicker: { month: '{label}: Monat', year: '{label}: Jahr' },
+	reisen: {
+		title: 'Reisen',
+		untitled: 'Reise ohne Ziel',
+		what: 'Reisen mit ihren Belegen, Verpflegungspauschalen und Kilometern, dazu Bewirtungen – pro Monat.',
+		adviser:
+			'Die Sätze sind die gesetzlichen deutschen. Lass sie vor der ersten echten Abrechnung von deiner Steuerberatung bestätigen.',
+		month: 'Monat',
+		new: 'Neue Reise',
+		questions: {
+			title: 'Offene Punkte bei Reisen: {count}',
+			receiptWithoutTrip: 'Ticket ohne Reise: {what}',
+			hospitalityIncomplete: 'Bewirtung ohne {missing}: {what}',
+			tripWithoutTimes: 'Reise ohne Zeiten, keine Pauschale berechenbar: {what}',
+			tripIncomplete: 'Reise mit Lücken: {what}'
+		},
+		trips: 'Reisen',
+		receipts: 'Belege: {count}',
+		none: 'In diesem Monat beginnt keine Reise.',
+		untimed: 'Reisen ohne Zeiten',
+		hospitality: 'Bewirtungen in diesem Monat',
+		deductible: 'abziehbar {amount}',
+		totals: 'Dieser Monat',
+		allowances: 'Verpflegungspauschalen',
+		mileage: 'Kilometer',
+		hospitalityDeductible: 'Bewirtung, abziehbarer Teil',
+		homeLine: 'Diesen Monat: {trips} Reisen · offene Punkte: {open}',
+		questionsElsewhere: 'Auch bei den Reisen gibt es offene Punkte: {count}'
+	},
+	reise: {
+		title: 'Reise',
+		back: '← Alle Reisen',
+		missing: 'Diese Reise gibt es nicht (mehr).',
+		head: 'Reise',
+		destination: 'Ziel',
+		reason: 'Geschäftlicher Anlass',
+		start: 'Abfahrt',
+		end: 'Rückkehr',
+		place: 'Tätigkeitsstätte',
+		placeHint: 'Kunde oder Baustelle: für die Dreimonatsregel.',
+		overnight: 'Übernachtung',
+		overnightAuto: 'Wenn über mehrere Tage',
+		overnightYes: 'Ja',
+		overnightNo: 'Nein, Rückkehr nach Mitternacht',
+		note: 'Notiz',
+		abroad: 'Ausland',
+		abroadHint:
+			'Jeder Grenzübertritt mit Uhrzeit und Ländercode (AT, FR …). Auslandssätze sind noch nicht in Belege: solche Tage bleiben ohne Betrag.',
+		stopAt: 'Ab',
+		stopCountry: 'Land',
+		remove: 'Entfernen',
+		addStop: 'Grenzübertritt hinzufügen',
+		meals: 'Gestellte Mahlzeiten',
+		mealsHint:
+			'Ein Frühstück in der Hotelrechnung oder ein von anderen bezahltes Essen kürzt die Pauschale des Tages.',
+		day: 'Tag',
+		meal: { breakfast: 'Frühstück', lunch: 'Mittagessen', dinner: 'Abendessen' },
+		mileage: 'Kilometer',
+		mileageHint: 'Die Strecke ist der Beleg: Datum, von, nach, Anlass und km.',
+		line: 'Fahrt',
+		lineDate: 'Datum',
+		lineFrom: 'Von',
+		lineTo: 'Nach',
+		lineReason: 'Anlass',
+		lineKm: 'km (einfach)',
+		lineVehicle: 'Wessen Fahrzeug',
+		vehicle: {
+			own: 'Mein eigenes',
+			family: 'Eines Familienangehörigen',
+			rental: 'Mietwagen',
+			company: 'Firmenwagen'
+		},
+		lineType: 'Art',
+		vehicleType: { car: 'PKW', motorcycle: 'Motorrad oder Moped', bicycle: 'Fahrrad' },
+		lineRoundTrip: 'Hin und zurück',
+		lineOwner: 'Halter',
+		lineOwnerPlaceholder: 'z. B. Ehepartner, Elternteil',
+		lineCostBearer: 'Wer trägt die laufenden Kosten',
+		refused: {
+			rental: 'Keine Kilometer beim Mietwagen: Miete und Tanken sind Belege.',
+			company: 'Keine Kilometer beim Firmenwagen: Die Firma trägt seine Kosten schon.',
+			noFlatRate: 'Keine Pauschale für dieses Fahrzeug: die tatsächlichen Kosten, mit Belegen.',
+			noKm: 'Noch keine km.'
+		},
+		lineResult: '{km} km × {rate} = {amount}',
+		familyCarFlag:
+			'Fremdes Fahrzeug – mit Steuerberatung klären, ob die Pauschale erstattet werden darf.',
+		addLine: 'Fahrt hinzufügen',
+		save: 'Speichern',
+		saved: 'Gespeichert.',
+		problems: {
+			noTraveller: 'Kein Reisender.',
+			noDestination: 'Noch kein Ziel.',
+			noReason: 'Noch kein geschäftlicher Anlass.',
+			noTimes: 'Noch keine Zeiten: keine Pauschale berechenbar.',
+			endBeforeStart: 'Rückkehr vor der Abfahrt.',
+			mileage: {
+				noKm: 'Eine Fahrt ohne km.',
+				noDate: 'Eine Fahrt ohne Datum.',
+				noReason: 'Eine Fahrt ohne Anlass.'
+			}
+		},
+		allowance: 'Verpflegungspauschale',
+		dayKind: { full: 'ganzer Tag', partial: 'An-/Abreise oder > 8 Std.', none: 'keine' },
+		dayReason: {
+			under8h: 'höchstens 8 Stunden',
+			countedOnOtherDay: 'am anderen Tag gezählt',
+			noRate: 'noch kein Satz für dieses Land',
+			threeMonthRule: 'Dreimonatsregel'
+		},
+		cut: 'gestellte Mahlzeiten −{amount}',
+		noRateAbroad:
+			'Auslandstage haben noch keinen Betrag: Die Ländersätze sind nicht in Belege. Trag sie mit der Steuerberatung ein.',
+		receipts: 'Belege dieser Reise',
+		noReceipts: 'Noch kein Beleg. Am Beleg ordnet „Zu einer Reise …“ ihn zu.',
+		sum: 'Was die Reise ergibt',
+		paidPrivately: 'Privat bezahlte Belege',
+		paidByCompany: 'Von der Firma bezahlte Belege',
+		toPayBack: 'Zu erstatten',
+		sumHint:
+			'Pauschalen, Kilometer und privat bezahlte Belege. Die von der Firma bezahlten stehen der Vollständigkeit halber dabei.',
+		delete: 'Diese Reise löschen',
+		deleteConfirm: 'Diese Reise löschen? Ihre Belege bleiben und sind ihr nicht mehr zugeordnet.'
+	},
 	zahlungen: {
 		title: 'Zahlungen',
 		tests: {

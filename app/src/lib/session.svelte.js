@@ -58,6 +58,8 @@ export const app = $state({
 	questions: [],
 	/** @type {StoredRecord[]} the Verlauf, newest first */
 	events: [],
+	/** @type {StoredRecord[]} travellers, trips and statements (travel/records.js, #213) */
+	travel: [],
 	/** @type {Record<string, import('./matching/classify.js').Classification>} bookings that need no receipt, by id */
 	classifications: {},
 	/** @type {any} the stored "Eigene Anweisungen" (settings key `matching`) */
@@ -481,6 +483,7 @@ async function readAll() {
 		matches,
 		questions,
 		events,
+		travel,
 		matchingSettings,
 		datevSettings,
 		chart
@@ -492,6 +495,7 @@ async function readAll() {
 		session.store.matches.list(),
 		session.store.questions.list(),
 		session.store.events.list(),
+		session.store.travel.list(),
 		getSetting(session.store.settings, 'matching'),
 		getSetting(session.store.settings, 'datev'),
 		getSetting(session.store.settings, 'chart')
@@ -515,6 +519,7 @@ async function readAll() {
 	app.matches = matches;
 	app.questions = questions;
 	app.events = events;
+	app.travel = travel;
 	app.classifications = classifications;
 	app.matchingSettings = matchingSettings;
 	app.datevSettings = datevSettings;

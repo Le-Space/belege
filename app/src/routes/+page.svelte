@@ -41,11 +41,22 @@
 	import TotalsCard from '$lib/dashboard/TotalsCard.svelte';
 	import { integrationFacts, loadIntegrationFacts } from '$lib/integrations/facts.svelte.js';
 	import { integrationsOverview } from '$lib/integrations/overview.js';
+	import { travelQuestions } from '$lib/travel/view.js';
+	import { tripMonth } from '$lib/travel/records.js';
 
 	const hour = new Date().getHours();
 	const greeting = t(hour < 11 ? 'home.morning' : hour < 18 ? 'home.day' : 'home.evening');
 
 	const card = 'rounded-lg border border-border bg-surface px-5 py-4 shadow-sm';
+
+	// Reisen (#213): this month's trips and what travel still asks.
+	let tripsThisMonth = $derived(
+		app.travel.filter(
+			(r) =>
+				r.kind === 'trip' && !r.deleted && tripMonth(r) === new Date().toISOString().slice(0, 7)
+		).length
+	);
+	let travelOpen = $derived(travelQuestions({ travel: app.travel, receipts: app.receipts }).length);
 
 	// Speicher und KI (stats/usage.js): two numbers here, the rest on /statistik.
 	/** @type {number | null} */
@@ -598,6 +609,17 @@
 		</dd>
 	</div>
 </dl>
+
+<a
+	href={resolve('/reisen')}
+	class="mt-4 flex flex-wrap items-center justify-between gap-2 {card} no-underline hover:border-cyan-800"
+	data-testid="home-reisen"
+>
+	<span class="text-sm font-medium text-faint">{t('reisen.title')}</span>
+	<span class="text-sm text-heading tabular-nums" data-testid="home-reisen-line"
+		>{t('reisen.homeLine', { trips: tripsThisMonth, open: travelOpen })}</span
+	>
+</a>
 
 <a
 	href={resolve('/statistik')}
