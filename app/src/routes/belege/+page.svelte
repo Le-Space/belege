@@ -22,6 +22,7 @@
 	import AiMark from '$lib/AiMark.svelte';
 	import ReceiptPeek from '$lib/ReceiptPeek.svelte';
 	import OutlayCard from '$lib/outlays/OutlayCard.svelte';
+	import TravelCard from '$lib/travel/TravelCard.svelte';
 	import { createPeek, peekHandlers } from '$lib/receipts/peek.js';
 	import {
 		app,
@@ -661,6 +662,11 @@
 	<div class="flex flex-wrap items-center justify-between gap-3">
 		<h1 class="text-2xl font-bold text-heading">{t('belege.title')}</h1>
 		<div class="flex flex-wrap items-center gap-2">
+			<a
+				href={resolve('/reisen')}
+				class="text-sm text-text underline hover:text-heading"
+				data-testid="belege-reisen">{t('reisen.title')}</a
+			>
 			{#if canFolder}
 				{#if folderHandle}
 					<button type="button" class={button} onclick={readFolder} disabled={importing}
@@ -1229,6 +1235,7 @@
 						</dl>
 
 						<OutlayCard receipt={selected} {client} />
+						<TravelCard receipt={selected} />
 
 						{#if selected.source === 'mail' && selected.mailId && client}
 							<div class="mt-3 border-t border-border pt-3 text-sm" data-testid="mail-trash">

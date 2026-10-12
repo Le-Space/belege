@@ -1845,6 +1845,36 @@ export default {
 		ruleText: '{field} “{contains}” → {action}'
 	},
 	belege: {
+		travel: {
+			open: 'To a trip …',
+			looksLikeTicket: 'Read as a ticket: it probably belongs to a trip.',
+			assigned: 'Part of the trip',
+			trip: 'Trip',
+			suggested: 'At this date',
+			otherTrips: 'Other trips',
+			paidBy: 'Paid',
+			paid: { private: 'privately', company: 'by the company' },
+			assign: 'Assign',
+			newTrip: 'New trip with this receipt',
+			unassign: 'Take it off the trip',
+			cancel: 'Cancel',
+			hospitality: {
+				open: 'Record as hospitality …',
+				title: 'Hospitality',
+				what: 'What the tax office asks for a business meal. Participants one per line, yourself included.',
+				place: 'place',
+				participants: 'participants',
+				occasion: 'occasion',
+				tip: 'Tip (€)',
+				tipTo: 'tip recipient',
+				badTip: 'The tip is not an amount in euros.',
+				save: 'Save',
+				edit: 'Change',
+				remove: 'Not hospitality',
+				split: 'Deductible {deductible}, not deductible {rest}, input VAT {vat}.',
+				missing: 'Still missing: {what}.'
+			}
+		},
 		outlay: {
 			open: 'Paid privately …',
 			hint: 'Paid in cash or with a private card: book it as an outlay of the managing director. The receipt is then covered and waits for no bank payment.',
@@ -2472,6 +2502,129 @@ export default {
 		ref: 'Copy reference'
 	},
 	monthPicker: { month: '{label}: month', year: '{label}: year' },
+	reisen: {
+		title: 'Travel',
+		untitled: 'Trip without a destination',
+		what: 'Trips with their receipts, meal allowances and mileage, and hospitality bills – per month.',
+		adviser:
+			'The rates are the German statutory ones. Have them confirmed by your tax adviser before the first real statement.',
+		month: 'Month',
+		new: 'New trip',
+		questions: {
+			title: 'Open points in travel: {count}',
+			receiptWithoutTrip: 'Ticket without a trip: {what}',
+			hospitalityIncomplete: 'Hospitality without {missing}: {what}',
+			tripWithoutTimes: 'Trip without times, no allowance can be computed: {what}',
+			tripIncomplete: 'Trip with gaps: {what}'
+		},
+		trips: 'Trips',
+		receipts: 'receipts: {count}',
+		none: 'No trip starts in this month.',
+		untimed: 'Trips without times',
+		hospitality: 'Hospitality this month',
+		deductible: 'deductible {amount}',
+		totals: 'This month',
+		allowances: 'Meal allowances',
+		mileage: 'Mileage',
+		hospitalityDeductible: 'Hospitality, deductible part',
+		homeLine: 'This month: {trips} trips · open points: {open}',
+		questionsElsewhere: 'Travel has open points too: {count}'
+	},
+	reise: {
+		title: 'Trip',
+		back: '← All trips',
+		missing: 'This trip does not exist (any more).',
+		head: 'Trip',
+		destination: 'Destination',
+		reason: 'Business reason',
+		start: 'Left',
+		end: 'Back',
+		place: 'Place of activity',
+		placeHint: 'A customer or a site: for the three-month rule.',
+		overnight: 'Night away',
+		overnightAuto: 'If it spans days',
+		overnightYes: 'Yes',
+		overnightNo: 'No, back across midnight',
+		note: 'Note',
+		abroad: 'Abroad',
+		abroadHint:
+			'Each border crossed, with the time and the country code (AT, FR …). Rates abroad are not in Belege yet: such days stay without an amount.',
+		stopAt: 'From',
+		stopCountry: 'Country',
+		remove: 'Remove',
+		addStop: 'Add a border crossing',
+		meals: 'Meals provided',
+		mealsHint:
+			'A breakfast in the hotel invoice or a meal paid by someone else cuts the day’s allowance.',
+		day: 'Day',
+		meal: { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner' },
+		mileage: 'Mileage',
+		mileageHint: 'The route is the record: date, from, to, reason and km.',
+		line: 'Mileage line',
+		lineDate: 'Date',
+		lineFrom: 'From',
+		lineTo: 'To',
+		lineReason: 'Reason',
+		lineKm: 'km (one way)',
+		lineVehicle: 'Whose vehicle',
+		vehicle: {
+			own: 'My own',
+			family: 'A family member’s',
+			rental: 'Rental',
+			company: 'Company car'
+		},
+		lineType: 'Type',
+		vehicleType: { car: 'Car', motorcycle: 'Motorcycle or moped', bicycle: 'Bicycle' },
+		lineRoundTrip: 'There and back',
+		lineOwner: 'Owner',
+		lineOwnerPlaceholder: 'e.g. spouse, parent',
+		lineCostBearer: 'Who bears its running costs',
+		refused: {
+			rental: 'No mileage for a rental: the rental and the fuel are receipts.',
+			company: 'No mileage for a company car: the company already bears its costs.',
+			noFlatRate: 'No flat rate for this vehicle: its actual costs, with receipts.',
+			noKm: 'No km yet.'
+		},
+		lineResult: '{km} km × {rate} = {amount}',
+		familyCarFlag:
+			'Someone else’s vehicle – to be clarified with the tax adviser whether the flat rate may be paid back.',
+		addLine: 'Add a mileage line',
+		save: 'Save',
+		saved: 'Saved.',
+		problems: {
+			noTraveller: 'No traveller.',
+			noDestination: 'No destination yet.',
+			noReason: 'No business reason yet.',
+			noTimes: 'No times yet: no allowance can be computed.',
+			endBeforeStart: 'Back before it left.',
+			mileage: {
+				noKm: 'A mileage line without km.',
+				noDate: 'A mileage line without a date.',
+				noReason: 'A mileage line without a reason.'
+			}
+		},
+		allowance: 'Meal allowance',
+		dayKind: { full: 'full day', partial: 'arrival, departure or > 8 h', none: 'none' },
+		dayReason: {
+			under8h: '8 hours or less',
+			countedOnOtherDay: 'counted on the other day',
+			noRate: 'no rate for this country yet',
+			threeMonthRule: 'three-month rule'
+		},
+		cut: 'meals provided −{amount}',
+		noRateAbroad:
+			'Days abroad have no amount yet: the rates per country are not in Belege. Enter them with the tax adviser.',
+		receipts: 'Receipts of this trip',
+		noReceipts: 'No receipt yet. On a receipt, “To a trip …” assigns it.',
+		sum: 'What the trip comes to',
+		paidPrivately: 'Receipts paid privately',
+		paidByCompany: 'Receipts paid by the company',
+		toPayBack: 'To pay back',
+		sumHint:
+			'Allowances, mileage and privately paid receipts. The company-paid ones are listed for completeness.',
+		delete: 'Delete this trip',
+		deleteConfirm: 'Delete this trip? Its receipts stay and are no longer assigned to it.'
+	},
 	zahlungen: {
 		title: 'Payments',
 		tests: {
