@@ -1,7 +1,8 @@
 <script>
 	// "Reisen" (issue #213, step 3): a month's trips with what they come to,
 	// the hospitality bills of the month, and what travel still asks. Reached
-	// from Belege and from Home.
+	// from Belege and from Home. Above them, the trips the receipts propose
+	// (step 4b, travel/proposals.js), each a click away from a trip.
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -13,11 +14,13 @@
 	import { btn, card } from '$lib/ui/styles.js';
 	import { t } from '$lib/i18n/index.js';
 	import { ownerTraveller, saveTrip, tripFigures, tripMonth } from '$lib/travel/records.js';
+	import { openTravelQuestions, tripProposals } from '$lib/travel/proposals.js';
+	import { acceptProposal, dismissProposal } from '$lib/travel/proposal-actions.js';
 	import {
 		allTrips,
 		hospitalityOf,
 		receiptsOfTrip,
-		travelQuestions,
+		travelKind,
 		tripDays
 	} from '$lib/travel/view.js';
 
@@ -53,7 +56,53 @@
 			)
 			.map((r) => ({ r, split: hospitalityOf(r) }))
 	);
-	let questions = $derived(travelQuestions({ travel: app.travel, receipts: app.receipts }));
+	let questions = $derived(openTravelQuestions({ travel: app.travel, receipts: app.receipts }));
+	let proposals = $derived(tripProposals({ travel: app.travel, receipts: app.receipts }));
+	let proposalsHere = $derived(proposals.filter((p) => p.start.slice(0, 7) === month));
+	let proposalsElsewhere = $derived(proposals.length - proposalsHere.length);
+
+	/** @param {import('$lib/travel/proposals.js').Proposal} proposal */
+	async function accept(proposal) {
+		const store = currentStore();
+		if (!store) return;
+		busy = true;
+		error = null;
+		try {
+			const tripId = await acceptProposal({
+				store,
+				proposal,
+				settings: cleanDatevSettings(app.datevSettings),
+				books: app
+			});
+			await refreshNow();
+			await goto(resolve('/reisen/[id]', { id: tripId }));
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			busy = false;
+		}
+	}
+
+	/** @param {import('$lib/travel/proposals.js').Proposal} proposal */
+	async function dismiss(proposal) {
+		const store = currentStore();
+		if (!store) return;
+		busy = true;
+		try {
+			await dismissProposal(store, proposal.key);
+			await refreshNow();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			busy = false;
+		}
+	}
+
+	/** `2026-04-08T07:12` → `08.04.2026 07:12`; a day's 08:00 / 18:00 as the day only. @param {string} v */
+	const when = (v) =>
+		/T(08:00|18:00|23:59)$/.test(v)
+			? formatDate(v.slice(0, 10))
+			: `${formatDate(v.slice(0, 10))} ${v.slice(11)}`;
 	let tripById = $derived(new Map(trips.map((x) => [x.id, x])));
 	let receiptById = $derived(new Map(app.receipts.map((r) => [r.id, r])));
 
@@ -140,6 +189,78 @@
 	>
 </div>
 {#if error}<p class="mt-2 text-sm text-danger" role="alert">{error}</p>{/if}
+
+{#if proposalsHere.length}
+	<section class={card} aria-labelledby="reisen-proposals-h" data-testid="reisen-proposals">
+		<h2 id="reisen-proposals-h" class="text-sm font-semibold text-heading">
+			{t('reisen.proposals.title', { count: proposalsHere.length })}
+		</h2>
+		<p class="mt-1 text-xs text-faint">{t('reisen.proposals.what')}</p>
+		<ul class="mt-2 divide-y divide-border text-sm">
+			{#each proposalsHere as p (p.key)}
+				{@const trip = p.tripId ? tripById.get(p.tripId) : null}
+				<li class="py-2" data-testid="reisen-proposal">
+					<p class="font-medium text-heading" data-testid="reisen-proposal-title">
+						{trip
+							? t('reisen.proposals.addTo', { trip: tripLine(trip) })
+							: t('reisen.proposals.new', {
+									destination: p.destination || t('reisen.untitled'),
+									from: when(p.start),
+									to: when(p.end)
+								})}
+					</p>
+					<ul class="mt-1 text-xs text-text">
+						{#each p.receiptIds as id (id)}
+							{@const r = receiptById.get(id)}
+							{#if r}
+								<li>
+									<a
+										class="underline"
+										href={`${resolve('/belege')}?receipt=${encodeURIComponent(id)}`}
+										>{t(`belege.travel.kind.${travelKind(r) ?? 'ticket'}`)} · {receiptVendor(
+											/** @type {any} */ (r)
+										)} · {formatDate(receiptDate(/** @type {any} */ (r)) ?? '')}</a
+									>
+								</li>
+							{/if}
+						{/each}
+					</ul>
+					<div class="mt-2 flex flex-wrap gap-2">
+						<button
+							type="button"
+							class={btn.primary}
+							onclick={() => accept(p)}
+							disabled={busy}
+							data-testid="reisen-proposal-accept"
+							>{trip ? t('reisen.proposals.add') : t('reisen.proposals.make')}</button
+						>
+						<button
+							type="button"
+							class={btn.link}
+							onclick={() => dismiss(p)}
+							disabled={busy}
+							data-testid="reisen-proposal-dismiss">{t('reisen.proposals.dismiss')}</button
+						>
+					</div>
+				</li>
+			{/each}
+		</ul>
+	</section>
+{/if}
+{#if proposalsElsewhere > 0}
+	<p class="mt-2 text-xs text-faint" data-testid="reisen-proposals-elsewhere">
+		{t('reisen.proposals.elsewhere', { count: proposalsElsewhere })}
+		<button
+			type="button"
+			class="ml-1 {btn.link}"
+			onclick={() => {
+				const next = proposals.find((p) => p.start.slice(0, 7) !== month);
+				if (next) month = next.start.slice(0, 7);
+			}}
+			data-testid="reisen-proposals-go">{t('reisen.proposals.show')}</button
+		>
+	</p>
+{/if}
 
 {#if questions.length}
 	<section class={card} aria-labelledby="reisen-questions-h" data-testid="reisen-questions">

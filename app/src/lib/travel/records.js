@@ -18,7 +18,8 @@ import { mileage } from './mileage.js';
 /** @typedef {Record<string, any>} Rec */
 /** @typedef {import('../store/repository.js').Collection} Collection */
 
-export const KINDS = /** @type {const} */ (['traveller', 'trip', 'statement']);
+/** `dismissed`: a trip proposal said no to (proposals.js, step 4b). */
+export const KINDS = /** @type {const} */ (['traveller', 'trip', 'statement', 'dismissed']);
 export const ROLES = /** @type {const} */ (['owner']);
 export const PAID_BY = /** @type {const} */ (['private', 'company']);
 export const VEHICLES = /** @type {const} */ (['own', 'family', 'rental', 'company']);

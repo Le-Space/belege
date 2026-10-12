@@ -53,7 +53,7 @@ test('a trip with its allowance, mileage, a ticket paid privately, and a hospita
 	await toMarch();
 	await expect(page.getByTestId('reisen-adviser')).toBeVisible();
 	await expect(
-		page.getByTestId('reisen-question').filter({ hasText: 'Ticket ohne Reise' })
+		page.getByTestId('reisen-question').filter({ hasText: 'Reisebeleg ohne Reise' })
 	).toContainText('Bahn Beispiel AG');
 	await expect(page.getByTestId('reisen-none')).toBeVisible();
 
@@ -286,4 +286,108 @@ test('without AI: a PDF’s words and a mail’s subject hint at travel, read on
 	// Words give a hint, not a question.
 	await page.getByTestId('belege-reisen').click();
 	await expect(page.getByTestId('reisen-questions')).toHaveCount(0);
+});
+
+test('trips proposed by the receipts: one made with a click, one dismissed for good (#213, step 4b)', async ({
+	page
+}) => {
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('E2E');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+
+	await page.evaluate(async () => {
+		const e2e = /** @type {any} */ (window).__belegeE2E;
+		/** @param {string} vendor @param {string} day @param {number} cents @param {Record<string, any>} travel */
+		const add = (vendor, day, cents, travel) =>
+			e2e.addReceipt({
+				source: 'upload',
+				status: 'ausgelesen',
+				currency: 'EUR',
+				fileName: `${vendor}.pdf`,
+				vendor,
+				amountCents: cents,
+				documentDate: day,
+				extraction: { document_type: 'invoice', gross: cents / 100, vat: [], travel }
+			});
+		// Bought in March, travelled in April: the day of travel counts.
+		await add('Bahn Hin Beispiel', '2025-03-20', 4990, {
+			kind: 'train',
+			from: 'A-Stadt Hbf',
+			to: 'Musterstadt Hbf',
+			departure: '2025-04-08T07:12',
+			arrival: '2025-04-08T10:48'
+		});
+		await add('Hotel Beispiel', '2025-04-09', 11200, {
+			kind: 'hotel',
+			place: 'Musterstadt',
+			check_in: '2025-04-08',
+			check_out: '2025-04-09',
+			nights: 1,
+			breakfast_included: true
+		});
+		await add('Bahn Zurück Beispiel', '2025-04-01', 4990, {
+			kind: 'train',
+			from: 'Musterstadt Hbf',
+			to: 'A-Stadt Hbf',
+			departure: '2025-04-09T17:10',
+			arrival: '2025-04-09T20:41'
+		});
+		await add('Gasthaus Beispiel', '2025-04-08', 3800, { kind: 'restaurant' });
+		// Another week: a day trip, to be dismissed.
+		await add('Bus Beispiel', '2025-04-22', 1900, {
+			kind: 'bus',
+			from: 'A-Stadt',
+			to: 'B-Dorf',
+			departure: '2025-04-22T08:00',
+			arrival: '2025-04-22T09:30'
+		});
+		// May: shown as a proposal in another month.
+		await add('Flug Beispiel', '2025-05-02', 21000, {
+			kind: 'flight',
+			from: 'A-Stadt',
+			to: 'C-Hafen',
+			departure: '2025-05-12T06:00',
+			arrival: '2025-05-12T08:00'
+		});
+	});
+
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
+	await page.getByTestId('belege-reisen').click();
+	const picker = page.getByTestId('reisen-month');
+	await picker.getByLabel('Monat: Jahr').selectOption('2025');
+	await picker.getByLabel('Monat: Monat').selectOption('04');
+
+	const proposals = page.getByTestId('reisen-proposal');
+	await expect(proposals).toHaveCount(2);
+	await expect(page.getByTestId('reisen-proposals-elsewhere')).toContainText('1');
+	const trip = proposals.filter({ hasText: 'Musterstadt' });
+	await expect(trip.getByTestId('reisen-proposal-title')).toHaveText(
+		'Reise nach Musterstadt, 08.04.2025 07:12 – 09.04.2025 20:41'
+	);
+	await expect(trip.getByRole('link')).toHaveCount(4);
+
+	// The day trip is no trip: dismissed, and not offered again.
+	await proposals.filter({ hasText: 'B-Dorf' }).getByTestId('reisen-proposal-dismiss').click();
+	await expect(proposals).toHaveCount(1);
+
+	// The other one becomes a trip, its receipts assigned, the breakfast proposed.
+	await trip.getByTestId('reisen-proposal-accept').click();
+	await expect(page.getByTestId('reise-destination')).toHaveValue('Musterstadt');
+	await expect(page.getByTestId('reise-start')).toHaveValue('2025-04-08T07:12');
+	await expect(page.getByTestId('reise-end')).toHaveValue('2025-04-09T20:41');
+	await expect(page.getByTestId('reise-receipt')).toHaveCount(4);
+	await expect(page.getByTestId('reise-breakfast-proposal')).toContainText('09.04.2025');
+
+	// Back on Reisen: April proposes nothing more, May still its flight.
+	await page.getByRole('link', { name: '← Alle Reisen' }).click();
+	await picker.getByLabel('Monat: Jahr').selectOption('2025');
+	await picker.getByLabel('Monat: Monat').selectOption('04');
+	await expect(page.getByTestId('reisen-proposals')).toHaveCount(0);
+	await expect(page.getByTestId('reisen-trip')).toHaveCount(1);
+	await page.getByTestId('reisen-proposals-go').click();
+	await expect(proposals).toHaveCount(1);
+	await expect(proposals).toContainText('C-Hafen');
 });
