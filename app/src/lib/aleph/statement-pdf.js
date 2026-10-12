@@ -2,7 +2,7 @@
 // Eigenbeleg in the look of receipts/eigenbeleg-pdf.js, with the balances,
 // the top-ups, the consumption per day and resource, the resources with
 // their full hashes, how the euro value was reached, and a line to sign.
-// Pages as long as the month needs; every text goes through winAnsi.
+// Pages as long as the month needs; text in any script (pdf/fonts.js).
 // Loaded on first use.
 
 /* eslint-disable belege/no-german -- a PDF for German bookkeeping stays German (#192) */

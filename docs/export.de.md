@@ -55,7 +55,7 @@ Buchhaltungsprogramme und DATEV importieren einen Buchungsstapel über ihren DAT
 ## Das Format
 
 - EXTF, Version 700, Kategorie 21 „Buchungsstapel“, Formatversion 13. Zeile 1: 31 Kopffelder; Zeile 2: die 125 Spaltenüberschriften; dann eine Zeile je Buchung mit 125 Feldern (nur die ersten 14 gefüllt).
-- `;` zwischen den Feldern, CRLF nach jeder Zeile, Text in doppelten Anführungszeichen, innere verdoppelt, leere Felder ganz leer. Windows-1252 (ANSI); ein Zeichen, das es dort nicht gibt, verliert seinen Akzent oder wird `?`.
+- `;` zwischen den Feldern, CRLF nach jeder Zeile, Text in doppelten Anführungszeichen, innere verdoppelt, leere Felder ganz leer. Windows-1252 (ANSI); ein Zeichen, das es dort nicht gibt, verliert seinen Akzent, Kyrillisch und Griechisch werden in lateinischen Buchstaben geschrieben (`Москва` → `Moskva`), und was dann noch fehlt (Arabisch, Chinesisch), wird `?`. Die PDFs im ZIP (aus einer E-Mail gemachte Belege, Kontoauszüge, Eigenbelege) tragen Text in jeder Schrift, die ihre Schriftarten haben – Latein, Kyrillisch, Griechisch, Arabisch –, mit DejaVu Sans und Noto Sans Arabic als eingebettete Teilmengen (`app/src/lib/pdf/fonts.js`).
 - Betrag positiv, Dezimalkomma, keine Tausenderpunkte. **S/H bezieht sich auf _Konto_**, das Sachkonto der Bank: Geld herein ist S, Geld hinaus ist H. _Gegenkonto_ ist das übernommene Konto.
 - _Belegdatum_ `TTMM` = Buchungstag (das Jahr nimmt DATEV aus dem Wirtschaftsjahr, und jede Zeile liegt im Zeitraum des Stapels). _Belegfeld 1_ = Belegnummer `JJJJ-MM-NNN` (höchstens 36 Zeichen). _Buchungstext_ = Anbieter des Belegs, sonst Gegenpartei, sonst Verwendungszweck (höchstens 60).
 - Eine Buchung mit mehreren Belegen: die Nummer des ersten in _Belegfeld 1_, alle in der ZIP-Datei.

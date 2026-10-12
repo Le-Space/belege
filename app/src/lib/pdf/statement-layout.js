@@ -1,12 +1,12 @@
 // The layout of a statement Eigenbeleg (Aleph's, Akash's): an A4 page in the
 // look of receipts/eigenbeleg-pdf.js – a head with the number, labelled
 // fields, rules, headings, tables whose header repeats on a new page, and a
-// line to sign. Pages as long as the content needs; every text goes through
-// winAnsi.
+// line to sign. Pages as long as the content needs; text in any script the
+// fonts have (fonts.js).
 
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, rgb } from 'pdf-lib';
 
-import { winAnsi } from './winansi.js';
+import { pdfFonts, pdfText } from './fonts.js';
 
 const A4 = /** @type {[number, number]} */ ([595.28, 841.89]);
 const MARGIN = 48;
@@ -24,14 +24,12 @@ const RULE = rgb(0.75, 0.75, 0.75);
  */
 export async function statementLayout({ title, created, continuation }) {
 	const pdf = await PDFDocument.create();
-	pdf.setTitle(winAnsi(title));
+	pdf.setTitle(pdfText(title));
 	pdf.setCreator('Belege');
 	pdf.setProducer('Belege');
 	pdf.setCreationDate(created);
 	pdf.setModificationDate(created);
-	const regular = await pdf.embedFont(StandardFonts.Helvetica);
-	const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-	const mono = await pdf.embedFont(StandardFonts.Courier);
+	const { regular, bold, mono } = await pdfFonts(pdf);
 	const width = A4[0] - 2 * MARGIN;
 	let page = pdf.addPage(A4);
 	let y = A4[1] - MARGIN;
@@ -41,30 +39,30 @@ export async function statementLayout({ title, created, continuation }) {
 		if (y - need >= MARGIN + 20) return;
 		page = pdf.addPage(A4);
 		y = A4[1] - MARGIN;
-		page.drawText(winAnsi(continuation), { x: MARGIN, y, size: 8, font: regular, color: GREY });
+		regular.draw(page, continuation, { x: MARGIN, y, size: 8, color: GREY });
 		y -= 20;
 	}
 
 	/**
 	 * @param {string} text
-	 * @param {import('pdf-lib').PDFFont} font
+	 * @param {import('./fonts.js').Face} font
 	 * @param {number} size
 	 * @param {number} max
 	 */
 	function wrap(text, font, size, max) {
 		/** @type {string[]} */
 		const lines = [];
-		for (const paragraph of String(text).split(/\r?\n/).map(winAnsi)) {
+		for (const paragraph of String(text).split(/\r?\n/).map(pdfText)) {
 			let line = '';
 			for (const word of paragraph.split(/\s+/).filter(Boolean)) {
 				const next = line ? `${line} ${word}` : word;
-				if (font.widthOfTextAtSize(next, size) <= max) line = next;
+				if (font.width(next, size) <= max) line = next;
 				else {
 					if (line) lines.push(line);
 					line = word;
-					while (font.widthOfTextAtSize(line, size) > max) {
+					while (font.width(line, size) > max) {
 						let n = line.length - 1;
-						while (n > 1 && font.widthOfTextAtSize(line.slice(0, n), size) > max) n--;
+						while (n > 1 && font.width(line.slice(0, n), size) > max) n--;
 						lines.push(line.slice(0, n));
 						line = line.slice(n);
 					}
@@ -81,10 +79,8 @@ export async function statementLayout({ title, created, continuation }) {
 		const size = style === 'mono' ? 9 : 10;
 		const lines = wrap(value || '—', font, size, width - LABEL);
 		room(lines.length * 13 + 7);
-		page.drawText(winAnsi(label), { x: MARGIN, y, size: 9, font: regular, color: GREY });
-		lines.forEach((line, i) =>
-			page.drawText(line, { x: MARGIN + LABEL, y: y - i * 13, size, font })
-		);
+		regular.draw(page, label, { x: MARGIN, y, size: 9, color: GREY });
+		lines.forEach((line, i) => font.draw(page, line, { x: MARGIN + LABEL, y: y - i * 13, size }));
 		y -= lines.length * 13 + 7;
 	}
 
@@ -103,7 +99,7 @@ export async function statementLayout({ title, created, continuation }) {
 	/** @param {string} title */
 	function heading(title) {
 		room(40);
-		page.drawText(winAnsi(title), { x: MARGIN, y, size: 11, font: bold });
+		bold.draw(page, title, { x: MARGIN, y, size: 11 });
 		y -= 16;
 	}
 
@@ -117,10 +113,9 @@ export async function statementLayout({ title, created, continuation }) {
 		const header = () => {
 			let x = MARGIN;
 			for (const c of columns) {
-				const t = winAnsi(c.title);
-				const w = bold.widthOfTextAtSize(t, 8);
+				const w = bold.width(c.title, 8);
 				// Right-aligned as its cells, off the next column.
-				page.drawText(t, { x: c.right ? x + c.width - 6 - w : x, y, size: 8, font: bold });
+				bold.draw(page, c.title, { x: c.right ? x + c.width - 6 - w : x, y, size: 8 });
 				x += c.width;
 			}
 			y -= 12;
@@ -141,13 +136,8 @@ export async function statementLayout({ title, created, continuation }) {
 				const c = columns[i];
 				const font = c.mono ? mono : regular;
 				lines.forEach((line, n) => {
-					const w = font.widthOfTextAtSize(line, 8);
-					page.drawText(line, {
-						x: c.right ? x + c.width - 6 - w : x,
-						y: y - n * 10,
-						size: 8,
-						font
-					});
+					const w = font.width(line, 8);
+					font.draw(page, line, { x: c.right ? x + c.width - 6 - w : x, y: y - n * 10, size: 8 });
 				});
 				x += c.width;
 			});
@@ -165,20 +155,14 @@ export async function statementLayout({ title, created, continuation }) {
 	 * @param {string} [title]
 	 */
 	function head(number, issuer, subtitle, title = 'Eigenbeleg') {
-		page.drawText(winAnsi(title), { x: MARGIN, y: y - 18, size: 22, font: bold });
-		const no = winAnsi(number);
-		page.drawText(no, {
-			x: A4[0] - MARGIN - bold.widthOfTextAtSize(no, 12),
-			y: y - 14,
-			size: 12,
-			font: bold
-		});
+		bold.draw(page, title, { x: MARGIN, y: y - 18, size: 22 });
+		bold.draw(page, number, { x: A4[0] - MARGIN - bold.width(number, 12), y: y - 14, size: 12 });
 		y -= 36;
 		if (issuer) {
-			page.drawText(winAnsi(issuer), { x: MARGIN, y, size: 11, font: regular });
+			regular.draw(page, issuer, { x: MARGIN, y, size: 11 });
 			y -= 16;
 		}
-		page.drawText(winAnsi(subtitle), { x: MARGIN, y, size: 9, font: regular, color: GREY });
+		regular.draw(page, subtitle, { x: MARGIN, y, size: 9, color: GREY });
 		y -= 22;
 		rule();
 	}
@@ -191,13 +175,7 @@ export async function statementLayout({ title, created, continuation }) {
 			end: { x: MARGIN + LABEL + 220, y },
 			thickness: 0.5
 		});
-		page.drawText(winAnsi('Unterschrift'), {
-			x: MARGIN + LABEL,
-			y: y - 11,
-			size: 8,
-			font: regular,
-			color: GREY
-		});
+		regular.draw(page, 'Unterschrift', { x: MARGIN + LABEL, y: y - 11, size: 8, color: GREY });
 	}
 
 	return { width, head, field, rule, heading, table, signature, save: () => pdf.save() };

@@ -55,7 +55,7 @@ Bookkeeping programs and DATEV import a Buchungsstapel through their DATEV impor
 ## The format
 
 - EXTF, version 700, category 21 "Buchungsstapel", format version 13. Line 1: 31 header fields; line 2: the 125 column headings; then one line per booking with 125 fields (only the first 14 are filled).
-- `;` between fields, CRLF after each line, text in double quotes with inner quotes doubled, empty fields completely empty. Windows-1252 (ANSI); a character it lacks loses its accent or becomes `?`.
+- `;` between fields, CRLF after each line, text in double quotes with inner quotes doubled, empty fields completely empty. Windows-1252 (ANSI); a character it lacks loses its accent, Cyrillic and Greek are written in Latin letters (`Москва` → `Moskva`), and what is still missing (Arabic, Chinese) becomes `?`. The PDFs in the ZIP (receipts made from a mail, statements, Eigenbelege) carry text in any script their fonts have – Latin, Cyrillic, Greek, Arabic – with DejaVu Sans and Noto Sans Arabic embedded as subsets (`app/src/lib/pdf/fonts.js`).
 - Amount positive, decimal comma, no thousands separator. **S/H refers to _Konto_**, the bank's ledger account: money in is S, money out is H. _Gegenkonto_ is the confirmed account.
 - _Belegdatum_ `DDMM` = the booking date (DATEV takes the year from the fiscal year, and every line lies in the stack's period). _Belegfeld 1_ = the receipt number `YYYY-MM-NNN` (at most 36 characters). _Buchungstext_ = the receipt's vendor, else the counterparty, else the purpose (at most 60).
 - A booking with several receipts: the first receipt's number in _Belegfeld 1_, all of them in the ZIP.
