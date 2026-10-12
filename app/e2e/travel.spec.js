@@ -629,3 +629,122 @@ test('a ticket in rubles counts in euros by its rate, never its rubles as euros'
 	await expect(page.getByTestId('reise-sum-private')).toHaveText('157,41 EUR');
 	await expect(page.getByTestId('reise-sum-norate')).toHaveCount(0);
 });
+
+test('the statement paid out in two transfers, each linked to it (#213, step 7)', async ({
+	page
+}) => {
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('E2E');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+
+	await page.evaluate(async () => {
+		const e2e = /** @type {any} */ (window).__belegeE2E;
+		/** @param {string} vendor @param {Record<string, any>} travel */
+		const add = (vendor, travel) =>
+			e2e.addReceipt({
+				source: 'upload',
+				status: 'ausgelesen',
+				currency: 'EUR',
+				fileName: `${vendor}.pdf`,
+				vendor,
+				amountCents: 4990,
+				documentDate: '2025-06-01',
+				extraction: {
+					document_type: 'ticket',
+					gross: 49.9,
+					vat: [{ rate: 7, amount: 3.26 }],
+					travel
+				}
+			});
+		await add('Bahn Hin Beispiel', {
+			kind: 'train',
+			from: 'A-Stadt',
+			to: 'Musterstadt',
+			departure: '2025-06-10T07:00',
+			arrival: '2025-06-10T09:30'
+		});
+		await add('Bahn Zurück Beispiel', {
+			kind: 'train',
+			from: 'Musterstadt',
+			to: 'A-Stadt',
+			departure: '2025-06-10T17:00',
+			arrival: '2025-06-10T19:30'
+		});
+		const bank = await e2e.addAccount({
+			source: 'hibiscus',
+			sourceAccountId: '0042',
+			ibanLast4: '0042',
+			name: 'Geschäftskonto Test',
+			currency: 'EUR'
+		});
+		for (const [day, cents, purpose] of [
+			['2025-07-03', -10_000, 'Reisekosten RK-2025-001 Teil 1'],
+			['2025-07-10', -1_380, 'Reisekosten RK-2025-001 Rest']
+		]) {
+			await e2e.addTransaction({
+				accountId: bank.id,
+				source: 'hibiscus',
+				currency: 'EUR',
+				bookedOn: day,
+				amountCents: cents,
+				counterparty: 'Erika Beispiel',
+				purpose,
+				bookingType: 'Überweisung'
+			});
+		}
+	});
+
+	// The statement: a trip from the proposal, its reason, the name, made.
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
+	await page.getByTestId('belege-reisen').click();
+	const picker = page.getByTestId('reisen-month');
+	const june = async () => {
+		await picker.getByLabel('Monat: Jahr').selectOption('2025');
+		await picker.getByLabel('Monat: Monat').selectOption('06');
+	};
+	await june();
+	await page.getByTestId('reisen-proposal-accept').click();
+	await page.getByTestId('reise-reason').fill('Workshop Kundin Beispiel UG');
+	await page.getByTestId('reise-save').click();
+	await expect(page.getByTestId('reise-saved')).toBeVisible();
+	await page.getByRole('link', { name: '← Alle Reisen' }).click();
+	await june();
+	await page.getByTestId('reisen-statement-name').fill('Inhaberin Beispiel');
+	await page.getByTestId('reisen-statement-make').click();
+	await expect(page.getByTestId('reisen-statement-closed')).toContainText('RK-2025-001');
+	await expect(page.getByTestId('reisen-statement-payout')).toContainText(
+		'Noch nicht ausgezahlt: 113,80 EUR'
+	);
+
+	// The first transfer: the statement it names is ticked; linked, part paid.
+	await page.getByRole('navigation').getByRole('link', { name: 'Zahlungen' }).click();
+	await page.getByTestId('year-switch').selectOption('2025');
+	await page.locator('[data-testid="transaction-month"][data-month="2025-07"]').click();
+	await page.getByTestId('filter-all').click();
+	const tx = page.getByTestId('tx-detail');
+	/** @param {string} purpose */
+	const payOut = async (purpose) => {
+		await page.getByTestId('transaction').filter({ hasText: purpose }).click();
+		await tx.getByTestId('travel-payout-open').click();
+		const choice = tx.getByTestId('travel-payout-choice');
+		await expect(choice).toHaveCount(1);
+		await expect(choice.locator('input')).toBeChecked();
+		await tx.getByTestId('travel-payout-link').click();
+		await expect(tx.getByTestId('travel-payout-item')).toContainText('RK-2025-001');
+	};
+	await payOut('Teil 1');
+	await expect(tx.getByTestId('travel-payout-state')).toHaveText('Noch offen: 13,80 EUR');
+	await tx.getByTestId('tx-detail-close').click();
+	await payOut('Rest');
+	await expect(tx.getByTestId('travel-payout-state')).toHaveText('Ausgezahlt.');
+	await tx.getByTestId('tx-detail-close').click();
+
+	// Reisen: paid out.
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
+	await page.getByTestId('belege-reisen').click();
+	await june();
+	await expect(page.getByTestId('reisen-statement-payout')).toHaveText('Ausgezahlt.');
+});

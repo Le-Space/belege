@@ -2551,6 +2551,7 @@ export default {
 			receiptWithoutTrip: 'Travel receipt without a trip: {what}',
 			hospitalityIncomplete: 'Hospitality without {missing}: {what}',
 			tripWithoutTimes: 'Trip without times, no allowance can be computed: {what}',
+			statementNotPaidOut: 'Statement {number} is not paid out: {amount} open',
 			tripIncomplete: 'Trip with gaps: {what}'
 		},
 		proposals: {
@@ -2586,6 +2587,11 @@ export default {
 			replaced: '{number}, made on {date} – replaced',
 			booked: '{count} bookings on {account}.',
 			toConfirm: 'Confirm their accounts: {count} open',
+			paidOut: 'Paid out.',
+			partlyPaid: 'Paid out {paid}, open {open}.',
+			overPaid: 'More paid out than settled: {amount}.',
+			notPaid:
+				'Not paid out yet: {amount}. Link the transfer on the payment (“Pays out travel costs …”).',
 			closedHint: 'The PDF is a receipt now and waits for its payout.',
 			correct: 'Make a correction',
 			check: {
@@ -2959,6 +2965,19 @@ export default {
 			linkSwapTitle:
 				'The other side of a swap that no rule recognises – say via another chain or an exchange. Neither side then needs a receipt; for tax purposes a disposal and an acquisition.',
 			linkSwapNone: 'No booking in the other direction on another account within 31 days.',
+			travelPayout: {
+				title: 'Pays out travel costs',
+				item: '{number} · travel costs {month} · {amount}',
+				share: 'of it {amount}',
+				unlink: 'Not for this statement',
+				open: 'Still open: {amount}',
+				over: 'More paid out than settled: {amount}',
+				settled: 'Paid out.',
+				offer: 'Pays out travel costs …',
+				openOf: 'open {amount}',
+				sum: 'Chosen {picked} · payout {payout}',
+				link: 'Link'
+			},
 			outlayRepay: {
 				offer: 'Pays outlays back …',
 				offerTitle:
