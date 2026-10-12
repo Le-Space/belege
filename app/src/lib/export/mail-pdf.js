@@ -10,11 +10,11 @@
 
 /* eslint-disable belege/no-german -- a PDF for German bookkeeping stays German (#192) */
 
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, rgb } from 'pdf-lib';
 
 import { formatDate } from '../bank/format.js';
 import { DOCUMENT_LOCALE } from '../i18n/index.js';
-import { winAnsi } from '../pdf/winansi.js';
+import { pdfFonts, pdfText } from '../pdf/fonts.js';
 
 const A4 = /** @type {[number, number]} */ ([595.28, 841.89]);
 const MARGIN = 56;
@@ -91,13 +91,12 @@ export function wrap(text, measure, width) {
  */
 export async function mailReceiptPdf(receipt, { number, created, text: full = null }) {
 	const pdf = await PDFDocument.create();
-	pdf.setTitle(winAnsi(`E-Mail-Beleg ${number}`));
+	pdf.setTitle(pdfText(`E-Mail-Beleg ${number}`));
 	pdf.setCreator('Belege');
 	pdf.setProducer('Belege');
 	pdf.setCreationDate(created);
 	pdf.setModificationDate(created);
-	const regular = await pdf.embedFont(StandardFonts.Helvetica);
-	const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+	const { regular, bold } = await pdfFonts(pdf);
 	const width = A4[0] - 2 * MARGIN;
 
 	let page = pdf.addPage(A4);
@@ -108,18 +107,12 @@ export async function mailReceiptPdf(receipt, { number, created, text: full = nu
 			page = pdf.addPage(A4);
 			y = A4[1] - MARGIN;
 		}
-		page.drawText(text, {
-			x: MARGIN,
-			y,
-			size: o.size ?? SIZE,
-			font: o.font ?? regular,
-			color: o.color
-		});
+		(o.font ?? regular).draw(page, text, { x: MARGIN, y, size: o.size ?? SIZE, color: o.color });
 		y -= LEADING;
 	};
-	const measure = (/** @type {string} */ s) => regular.widthOfTextAtSize(s, SIZE);
+	const measure = (/** @type {string} */ s) => regular.width(s, SIZE);
 
-	write(winAnsi(`E-Mail-Beleg ${number}`), { font: bold, size: 14 });
+	write(pdfText(`E-Mail-Beleg ${number}`), { font: bold, size: 14 });
 	y -= 6;
 	const received = String(receipt.receivedAt ?? '').slice(0, 10);
 	for (const [label, value] of [
@@ -128,10 +121,10 @@ export async function mailReceiptPdf(receipt, { number, created, text: full = nu
 		['Empfangen', /^\d{4}-\d{2}-\d{2}$/.test(received) ? formatDate(received, DOCUMENT_LOCALE) : '']
 	]) {
 		if (!value) continue;
-		const lines = wrap(winAnsi(String(value)), measure, width - 70);
-		page.drawText(`${label}:`, { x: MARGIN, y, size: SIZE, font: bold });
+		const lines = wrap(pdfText(String(value)), measure, width - 70);
+		bold.draw(page, `${label}:`, { x: MARGIN, y, size: SIZE });
 		for (const [i, l] of lines.entries()) {
-			page.drawText(l, { x: MARGIN + 70, y, size: SIZE, font: regular });
+			regular.draw(page, l, { x: MARGIN + 70, y, size: SIZE });
 			if (i < lines.length - 1) y -= LEADING;
 		}
 		y -= LEADING;
@@ -147,10 +140,10 @@ export async function mailReceiptPdf(receipt, { number, created, text: full = nu
 
 	const original = Boolean(full && full.trim());
 	const text = original ? String(full) : String(receipt.excerpt ?? '');
-	// Broken into lines first, then into the PDF's code page: winAnsi turns a
-	// line break into "?", and the whole mail became one block.
-	for (const line of wrap(readableMailText(text), (l) => measure(winAnsi(l)), width)) {
-		write(winAnsi(line));
+	// Broken into lines first: pdfText turns a line break into a space, and the
+	// whole mail would become one block.
+	for (const line of wrap(readableMailText(text), (l) => measure(pdfText(l)), width)) {
+		write(pdfText(line));
 	}
 
 	y -= LEADING;
@@ -167,7 +160,7 @@ export async function mailReceiptPdf(receipt, { number, created, text: full = nu
 					: [])
 			];
 	for (const note of notes) {
-		for (const line of wrap(winAnsi(note), (s) => regular.widthOfTextAtSize(s, 8), width)) {
+		for (const line of wrap(pdfText(note), (s) => regular.width(s, 8), width)) {
 			write(line, { size: 8, color: GREY });
 		}
 	}

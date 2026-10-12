@@ -4,11 +4,11 @@
 
 /* eslint-disable belege/no-german -- a PDF for German bookkeeping stays German (#192) */
 
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, rgb } from 'pdf-lib';
 
 import { formatDate, formatMoney } from '../bank/format.js';
 import { DOCUMENT_LOCALE } from '../i18n/index.js';
-import { winAnsi } from '../pdf/winansi.js';
+import { pdfFonts, pdfText } from '../pdf/fonts.js';
 
 const A4 = /** @type {[number, number]} */ ([595.28, 841.89]);
 const MARGIN = 48;
@@ -36,11 +36,10 @@ export async function vendorAccountPdf({
 	createdAt
 }) {
 	const pdf = await PDFDocument.create();
-	pdf.setTitle(winAnsi(`Lieferantenkonto ${name}`));
+	pdf.setTitle(pdfText(`Lieferantenkonto ${name}`));
 	pdf.setCreator('Belege');
 	pdf.setProducer('Belege');
-	const regular = await pdf.embedFont(StandardFonts.Helvetica);
-	const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+	const { regular, bold } = await pdfFonts(pdf);
 	let page = pdf.addPage(A4);
 	let y = A4[1] - MARGIN;
 	const money = (/** @type {number} */ c) => formatMoney(c, 'EUR', DOCUMENT_LOCALE);
@@ -54,15 +53,15 @@ export async function vendorAccountPdf({
 	/**
 	 * @param {string} text
 	 * @param {number} x
-	 * @param {{ size?: number, font?: import('pdf-lib').PDFFont, color?: ReturnType<typeof rgb>, right?: boolean }} [o]
+	 * @param {{ size?: number, font?: import('../pdf/fonts.js').Face, color?: ReturnType<typeof rgb>, right?: boolean }} [o]
 	 */
 	const draw = (
 		text,
 		x,
 		{ size = 9, font = regular, color = rgb(0, 0, 0), right = false } = {}
 	) => {
-		const t = winAnsi(text);
-		page.drawText(t, { x: right ? x - font.widthOfTextAtSize(t, size) : x, y, size, font, color });
+		const t = pdfText(text);
+		font.draw(page, t, { x: right ? x - font.width(t, size) : x, y, size, color });
 	};
 
 	draw('Lieferantenkonto', MARGIN, { size: 18, font: bold });

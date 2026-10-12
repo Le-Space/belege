@@ -1,10 +1,10 @@
 // Draws a monthly statement (statement.js) as an A4 PDF, in the browser, with
-// pdf-lib and its built-in Helvetica. Loaded lazily by build.js.
-// Every text goes through winAnsi (pdf/winansi.js): Helvetica speaks Windows-1252 only.
+// pdf-lib. Loaded lazily by build.js. Text in any script the fonts have
+// (pdf/fonts.js): a Russian counterparty, a Turkish purpose.
 
 /* eslint-disable belege/no-german -- a PDF for German bookkeeping stays German (#192) */
 
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, rgb } from 'pdf-lib';
 
 import { formatDate } from '../bank/format.js';
 import { DOCUMENT_LOCALE } from '../i18n/index.js';
@@ -12,9 +12,7 @@ import { formatQuantity } from '../assets/quantity.js';
 import { formatRate } from '../assets/valuation.js';
 import { amount } from './datev.js';
 import { lastDay } from './statement.js';
-import { winAnsi } from '../pdf/winansi.js';
-
-export { winAnsi };
+import { pdfFonts, pdfText } from '../pdf/fonts.js';
 
 const A4 = /** @type {[number, number]} */ ([595.28, 841.89]);
 const MARGIN = 42;
@@ -66,13 +64,12 @@ const euros = (cents) => `${cents < 0 ? '-' : ''}${amount(cents)}`;
  */
 export async function statementPdf(statement, { created }) {
 	const pdf = await PDFDocument.create();
-	pdf.setTitle(winAnsi(`Kontoauszug ${statement.number}`));
+	pdf.setTitle(pdfText(`Kontoauszug ${statement.number}`));
 	pdf.setCreator('Belege');
 	pdf.setProducer('Belege');
 	pdf.setCreationDate(created);
 	pdf.setModificationDate(created);
-	const regular = await pdf.embedFont(StandardFonts.Helvetica);
-	const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+	const { regular, bold } = await pdfFonts(pdf);
 
 	const crypto =
 		statement.lines.some((l) => l.quantity !== null) || Boolean(statement.balances?.closing.units);
@@ -109,17 +106,17 @@ export async function statementPdf(statement, { created }) {
 	 * @param {number} x
 	 * @param {number} width
 	 * @param {'left' | 'right'} align
-	 * @param {import('pdf-lib').PDFFont} [font]
+	 * @param {import('../pdf/fonts.js').Face} [font]
 	 * @param {number} [size]
 	 */
 	function cell(text, x, width, align, font = regular, size = SIZE) {
-		let s = winAnsi(text);
-		if (font.widthOfTextAtSize(s, size) > width - 4) {
-			while (s && font.widthOfTextAtSize(`${s}…`, size) > width - 4) s = s.slice(0, -1);
+		let s = pdfText(text);
+		if (font.width(s, size) > width - 4) {
+			while (s && font.width(`${s}…`, size) > width - 4) s = s.slice(0, -1);
 			s = `${s.trimEnd()}…`;
 		}
-		const w = font.widthOfTextAtSize(s, size);
-		page.drawText(s, { x: align === 'right' ? x + width - 4 - w : x, y, size, font });
+		const w = font.width(s, size);
+		font.draw(page, s, { x: align === 'right' ? x + width - 4 - w : x, y, size });
 	}
 
 	function tableHeader() {
@@ -147,7 +144,7 @@ export async function statementPdf(statement, { created }) {
 		tableHeader();
 	}
 
-	/** @param {Record<string, string>} values @param {import('pdf-lib').PDFFont} [font] */
+	/** @param {Record<string, string>} values @param {import('../pdf/fonts.js').Face} [font] */
 	function row(values, font = regular) {
 		newPageIfNeeded();
 		let x = MARGIN;
@@ -164,7 +161,7 @@ export async function statementPdf(statement, { created }) {
 		units === null ? '' : formatQuantity(units, decimals, '', { locale: DOCUMENT_LOCALE });
 
 	// Head of the first page.
-	page.drawText('Kontoauszug', { x: MARGIN, y: y - 14, size: 16, font: bold });
+	bold.draw(page, 'Kontoauszug', { x: MARGIN, y: y - 14, size: 16 });
 	cell('Belege', A4[0] - MARGIN - 150, 150, 'right', bold, 10);
 	y -= 30;
 	const [yy, mm] = statement.month.split('-');
@@ -271,15 +268,15 @@ export async function statementPdf(statement, { created }) {
 				: 'Nicht abgestimmt: Der Endbestand ist aus dem heutigen Bestand zurückgerechnet; alle Buchungen seit Beginn ergeben einen anderen. Seitdem fehlt eine Bewegung, etwa eine Gebühr, die die Quelle nicht meldet, oder eine Buchung wurde gelöscht.';
 		/** @type {string[]} */
 		const wrapped = [''];
-		for (const w of winAnsi(why).split(' ')) {
+		for (const w of pdfText(why).split(' ')) {
 			const next = wrapped[wrapped.length - 1] ? `${wrapped[wrapped.length - 1]} ${w}` : w;
-			if (bold.widthOfTextAtSize(next, SIZE) > A4[0] - 2 * MARGIN) wrapped.push(w);
+			if (bold.width(next, SIZE) > A4[0] - 2 * MARGIN) wrapped.push(w);
 			else wrapped[wrapped.length - 1] = next;
 		}
 		newPageIfNeeded(wrapped.length + 1);
 		y -= ROW;
 		for (const text of wrapped) {
-			page.drawText(text, { x: MARGIN, y, size: SIZE, font: bold });
+			bold.draw(page, text, { x: MARGIN, y, size: SIZE });
 			y -= ROW;
 		}
 	}
@@ -292,25 +289,24 @@ export async function statementPdf(statement, { created }) {
 	pages.forEach((p, i) => {
 		page = p;
 		y = MARGIN - 6;
-		const words = winAnsi(
+		const words = pdfText(
 			`${note} Erstellt am ${formatDate(created.toISOString().slice(0, 10), DOCUMENT_LOCALE)}.`
 		).split(' ');
 		/** @type {string[]} */
 		const lines = [''];
 		for (const w of words) {
 			const next = lines[lines.length - 1] ? `${lines[lines.length - 1]} ${w}` : w;
-			if (regular.widthOfTextAtSize(next, 7) > A4[0] - 2 * MARGIN - 70) lines.push(w);
+			if (regular.width(next, 7) > A4[0] - 2 * MARGIN - 70) lines.push(w);
 			else lines[lines.length - 1] = next;
 		}
 		lines.forEach((text, j) => {
-			p.drawText(text, { x: MARGIN, y: y - j * 9, size: 7, font: regular, color: GREY });
+			regular.draw(p, text, { x: MARGIN, y: y - j * 9, size: 7, color: GREY });
 		});
 		const label = `Seite ${i + 1} von ${pages.length}`;
-		p.drawText(label, {
-			x: A4[0] - MARGIN - regular.widthOfTextAtSize(label, 7),
+		regular.draw(p, label, {
+			x: A4[0] - MARGIN - regular.width(label, 7),
 			y,
 			size: 7,
-			font: regular,
 			color: GREY
 		});
 	});

@@ -197,7 +197,16 @@ describe('Windows-1252', () => {
 		expect([...encodeWindows1252('–')]).toEqual([0x96]);
 	});
 	it('characters outside it: without accent, or "?"', () => {
-		expect(new TextDecoder('windows-1252').decode(encodeWindows1252('Łódź ő 😀'))).toBe('?ódz o ?');
+		expect(new TextDecoder('windows-1252').decode(encodeWindows1252('Łódź ő 😀'))).toBe('Lódz o ?');
+		// Cyrillic and Greek in Latin letters, capitals kept; Arabic stays "?" (#366).
+		const decoded = (/** @type {string} */ s) =>
+			new TextDecoder('windows-1252').decode(encodeWindows1252(s));
+		expect(decoded('Москва Казанская · Київ · ЖД билет')).toBe(
+			'Moskva Kazanskaya · Kiyiv · ZhD bilet'
+		);
+		expect(decoded('Αθήνα · Θεσσαλονίκη')).toBe('Athina · Thessaloniki');
+		expect(decoded('İstanbul Yılmaz')).toBe('Istanbul Yilmaz');
+		expect(decoded('فندق')).toBe('????');
 		// A decomposed ä is one byte, too.
 		expect([...encodeWindows1252('ä')]).toEqual([0xe4]);
 	});

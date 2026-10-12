@@ -8,7 +8,9 @@ import {
 	monthStatements,
 	statementNumber
 } from './statement.js';
-import { statementPdf, winAnsi } from './statement-pdf.js';
+import { statementPdf } from './statement-pdf.js';
+import { PDFDocument } from 'pdf-lib';
+import { pdfFonts, pdfText } from '../pdf/fonts.js';
 
 /** A made-up exchange account holding one crypto asset. */
 const BTC = {
@@ -324,8 +326,18 @@ describe('statement PDF', () => {
 		expect(text.at(-1)).toContain(`Seite ${pdf.numPages} von ${pdf.numPages}`);
 	});
 
-	it('keeps text Helvetica can draw, replaces the rest', () => {
-		expect(winAnsi('Grüße € – Straße\u00a0·')).toBe('Grüße € – Straße ·');
-		expect(winAnsi('\u22121 → 日本')).toBe('-1 -> ??');
+	it('draws text in other scripts, not as "?" (pdf/fonts.js)', async () => {
+		const pdf = await PDFDocument.create();
+		const { regular } = await pdfFonts(pdf);
+		regular.draw(pdf.addPage(), 'Перевод · Ödeme · Grüße € – Straße\u00a0·', {
+			x: 10,
+			y: 10,
+			size: 9
+		});
+		const { text } = await extractText(await getDocumentProxy(await pdf.save()), {
+			mergePages: true
+		});
+		expect(text).toContain('Перевод · Ödeme · Grüße € – Straße');
+		expect(pdfText('\u22121 日本')).toBe('-1 日本');
 	});
 });
