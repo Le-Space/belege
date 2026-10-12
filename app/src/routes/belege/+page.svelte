@@ -13,7 +13,8 @@
 	import { ownInvoiceTest } from '$lib/vat/own-invoice.js';
 	import { isVendorReceipt } from '$lib/matching/vendor-account.js';
 	import { addressBook, payeeName } from '$lib/bank/payee.js';
-	import { booksByYear, shownYear } from '$lib/year/year.svelte.js';
+	import { booksByYear, chooseYear, shownYear, startMonth } from '$lib/year/year.svelte.js';
+	import { fiscalYearOf, receiptDay } from '$lib/year/year.js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
@@ -305,8 +306,14 @@
 		const wanted = page.url.searchParams.get('receipt');
 		if (wanted) {
 			selectedId = wanted;
-			// Its own month, not the one chosen before (#313).
+			// Its own month, not the one chosen before (#313) – and its own year.
 			belegeChoice.month = null;
+			const r = app.receipts.find((x) => x.id === wanted);
+			const day = r ? receiptDay(r) : null;
+			if (day) {
+				const y = fiscalYearOf(day, startMonth());
+				if (y !== null && y !== shownYear()) chooseYear(y);
+			}
 		}
 		folderHandle = await savedFolder();
 		readAfterFetch = (await getSetting(store.settings, 'mailFetch'))?.readAfterFetch !== false;

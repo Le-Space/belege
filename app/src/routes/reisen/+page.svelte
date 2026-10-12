@@ -7,7 +7,9 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import MonthPicker from '$lib/MonthPicker.svelte';
-	import { app, currentStore, refreshNow } from '$lib/session.svelte.js';
+	import { app, currentBlobs, currentStore, refreshNow } from '$lib/session.svelte.js';
+	import { statementOf } from '$lib/travel/statement.js';
+	import { closedStatements, createTravelStatement } from '$lib/travel/statement-actions.js';
 	import { cleanDatevSettings } from '$lib/booking/settings.js';
 	import { formatDate, formatMoney } from '$lib/bank/format.js';
 	import { receiptDate, receiptVendor } from '$lib/receipts/view.js';
@@ -166,6 +168,80 @@
 		mileage: shown.reduce((s, x) => s + x.figures.mileageCents, 0),
 		hospitality: hospitality.reduce((s, x) => s + x.split.deductibleCents, 0)
 	});
+
+	// The month's statement (step 5): for the owner, the one traveller for now.
+	let owner = $derived(
+		app.travel.find((r) => r.kind === 'traveller' && r.role === 'owner' && !r.deleted) ?? null
+	);
+	let closed = $derived(owner ? closedStatements(app.travel, owner.id, month) : []);
+	let preview = $derived(
+		owner
+			? statementOf({
+					travellerId: owner.id,
+					month,
+					travel: app.travel,
+					receipts: app.receipts,
+					transactions: app.transactions,
+					matches: app.matches
+				})
+			: null
+	);
+	let showPreview = $derived(Boolean(preview && !preview.checks.some((c) => c.code === 'nothing')));
+	let correcting = $state(false);
+	let travellerName = $state('');
+	let nameTouched = $state(false);
+	$effect(() => {
+		if (!nameTouched) travellerName = String(owner?.name ?? '');
+	});
+
+	async function makeStatement() {
+		const store = currentStore();
+		const blobs = currentBlobs();
+		if (!store || !blobs || !owner) return;
+		busy = true;
+		error = null;
+		try {
+			const name = travellerName.trim();
+			const traveller =
+				name !== owner.name ? await store.travel.put({ ...$state.snapshot(owner), name }) : owner;
+			await createTravelStatement({
+				store,
+				blobs,
+				traveller,
+				month,
+				issuer: app.matchingSettings?.companyNames?.[0] ?? '',
+				createdBy: app.did ?? '',
+				corrects: correcting ? (closed[0]?.id ?? null) : null
+			});
+			correcting = false;
+			await refreshNow();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			busy = false;
+		}
+	}
+
+	/** @param {import('$lib/travel/statement.js').Check} c */
+	function checkText(c) {
+		const trip = c.tripId ? tripById.get(c.tripId) : null;
+		const r = c.receiptId ? receiptById.get(c.receiptId) : null;
+		const what = trip
+			? tripLine(trip)
+			: r
+				? receiptVendor(/** @type {any} */ (r))
+				: c.date
+					? formatDate(c.date)
+					: '';
+		return t(`reisen.statement.check.${c.code}`, { what });
+	}
+	/** @param {import('$lib/travel/statement.js').Check} c */
+	const checkHref = (c) =>
+		c.tripId
+			? resolve('/reisen/[id]', { id: c.tripId })
+			: c.receiptId
+				? `${resolve('/belege')}?receipt=${encodeURIComponent(c.receiptId)}`
+				: null;
 
 	let busy = $state(false);
 	/** @type {string | null} */
@@ -444,6 +520,123 @@
 				</li>
 			{/each}
 		</ul>
+	</section>
+{/if}
+
+{#if closed.length && !correcting}
+	<section class={card} aria-labelledby="reisen-statement-h" data-testid="reisen-statement-made">
+		<h2 id="reisen-statement-h" class="text-sm font-semibold text-heading">
+			{t('reisen.statement.title', { month })}
+		</h2>
+		<ul class="mt-2 text-sm">
+			{#each closed as c, i (c.id)}
+				<li
+					class="flex flex-wrap items-center justify-between gap-2 py-1"
+					data-testid="reisen-statement-closed"
+				>
+					<a
+						class="underline"
+						href={`${resolve('/belege')}?receipt=${encodeURIComponent(c.receiptId)}`}
+						>{t(i === 0 ? 'reisen.statement.made' : 'reisen.statement.replaced', {
+							number: c.number,
+							date: formatDate(String(c.closedAt).slice(0, 10))
+						})}</a
+					>
+					<span class="font-mono tabular-nums">{formatMoney(c.toPayBackCents, 'EUR')}</span>
+				</li>
+			{/each}
+		</ul>
+		<p class="mt-1 text-xs text-faint">{t('reisen.statement.closedHint')}</p>
+		<button
+			type="button"
+			class="mt-2 {btn.link}"
+			onclick={() => (correcting = true)}
+			data-testid="reisen-statement-correct">{t('reisen.statement.correct')}</button
+		>
+	</section>
+{:else if showPreview && preview}
+	<section class={card} aria-labelledby="reisen-statement-h" data-testid="reisen-statement">
+		<h2 id="reisen-statement-h" class="text-sm font-semibold text-heading">
+			{correcting
+				? t('reisen.statement.correctionTitle', { number: closed[0]?.number ?? '' })
+				: t('reisen.statement.title', { month })}
+		</h2>
+		<p class="mt-1 text-xs text-faint">{t('reisen.statement.what')}</p>
+		<label class="mt-3 flex flex-col text-sm text-text"
+			>{t('reisen.statement.traveller')}
+			<input
+				class="mt-1 rounded-md border border-border bg-surface px-2 py-1 text-sm text-heading"
+				bind:value={travellerName}
+				oninput={() => (nameTouched = true)}
+				data-testid="reisen-statement-name"
+			/>
+		</label>
+		<dl class="mt-3 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm">
+			<dt class="text-text">{t('reisen.allowances')}</dt>
+			<dd class="text-right font-mono tabular-nums">
+				{formatMoney(preview.totals.allowanceCents, 'EUR')}
+			</dd>
+			<dt class="text-text">{t('reisen.mileage')}</dt>
+			<dd class="text-right font-mono tabular-nums">
+				{formatMoney(preview.totals.mileageCents, 'EUR')}
+			</dd>
+			<dt class="text-text">{t('reisen.statement.private')}</dt>
+			<dd class="text-right font-mono tabular-nums">
+				{formatMoney(preview.totals.privateCents, 'EUR')}
+			</dd>
+			{#if preview.totals.outlayCents}
+				<dt class="text-text">{t('reisen.statement.outlay')}</dt>
+				<dd class="text-right font-mono text-faint tabular-nums">
+					{formatMoney(preview.totals.outlayCents, 'EUR')}
+				</dd>
+			{/if}
+			<dt class="text-text">{t('reisen.statement.company')}</dt>
+			<dd class="text-right font-mono text-faint tabular-nums">
+				{formatMoney(preview.totals.companyCents, 'EUR')}
+			</dd>
+			<dt class="font-medium text-heading">{t('reise.toPayBack')}</dt>
+			<dd
+				class="text-right font-mono font-medium tabular-nums"
+				data-testid="reisen-statement-amount"
+			>
+				{formatMoney(preview.totals.toPayBackCents, 'EUR')}
+			</dd>
+		</dl>
+		{#if preview.checks.length}
+			<ul class="mt-3 space-y-1 text-sm" data-testid="reisen-statement-checks">
+				{#each preview.checks as c, i (i)}
+					{@const href = checkHref(c)}
+					<li
+						class={c.level === 'error' ? 'text-danger' : 'text-faint'}
+						data-testid="reisen-statement-check"
+						data-level={c.level}
+						data-code={c.code}
+					>
+						{#if href}<a class="underline" {href}>{checkText(c)}</a>{:else}{checkText(c)}{/if}
+					</li>
+				{/each}
+			</ul>
+		{/if}
+		{#if !travellerName.trim()}
+			<p class="mt-2 text-xs text-danger" data-testid="reisen-statement-noname">
+				{t('reisen.statement.noName')}
+			</p>
+		{/if}
+		<div class="mt-3 flex flex-wrap gap-2">
+			<button
+				type="button"
+				class={btn.primary}
+				onclick={makeStatement}
+				disabled={busy || !preview.ready || !travellerName.trim()}
+				data-testid="reisen-statement-make">{t('reisen.statement.make')}</button
+			>
+			{#if correcting}
+				<button type="button" class={btn.link} onclick={() => (correcting = false)}
+					>{t('belege.travel.cancel')}</button
+				>
+			{/if}
+		</div>
+		<p class="mt-2 text-xs text-faint">{t('reisen.statement.makeHint')}</p>
 	</section>
 {/if}
 
