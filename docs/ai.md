@@ -28,7 +28,7 @@ Both bulk runs, _Alle neuen auslesen_ and _✦ KI-Vorschläge für alle offenen 
 
 ### Redaction
 
-Before every call the bridge redacts (`bridge/src/llm/redact.js`): the names on its list (`pnpm setup:llm`) and the company names from the app's Einstellungen (sent with the call, as `[FIRMA]`), names after a salutation or a label, IBANs and card numbers except the last four characters, e-mail addresses (of others the domain stays), phone numbers, dates of birth, tax ids and tax numbers, streets, postcodes with towns, and links (only the host stays).
+Before every call the bridge redacts (`bridge/src/llm/redact.js`): the names on its list (`pnpm setup:llm`) and the company names from the app's Einstellungen (sent with the call, as `[FIRMA]`), names after a salutation or a label (also in Russian, Ukrainian, Polish, Czech, Turkish, Arabic, Spanish, Italian and French, names in any script, an airline's `SURNAME/GIVEN`), passport and ID numbers after their label, IBANs and card numbers except the last four characters, e-mail addresses (of others the domain stays), phone numbers, dates of birth, tax ids and tax numbers, streets, postcodes with towns, and links (only the host stays).
 
 **This limits what leaves; it does not make a text anonymous.** A name that is on no list and follows no label gets through. The vendor, amounts, dates, invoice and customer numbers and what a receipt is about stay on purpose: reading and matching need them. `bridge/test/redact-scorecard.test.js` keeps made-up documents with what must be hidden, what must stay and the gaps that are known; the count of each moves only with a reason. For nothing to leave the machine, set a local model (Ollama, LM Studio).
 
