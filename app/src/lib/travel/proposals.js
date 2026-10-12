@@ -19,6 +19,7 @@
 
 import { receiptDate } from '../receipts/view.js';
 import { allTrips, travelQuestions } from './view.js';
+import { appointmentsOn } from './appointments.js';
 
 /** @typedef {Record<string, any>} Rec */
 
@@ -116,6 +117,7 @@ export function pieceOf(r) {
  * @property {string} start YYYY-MM-DDTHH:MM, a printed time or the first day's 08:00
  * @property {string} end a printed time or the last day's 18:00
  * @property {string | null} tripId an existing trip these days fall into: added to it, not a new one
+ * @property {string} reason the title of an appointment on these days (appointments.js), else ''
  */
 
 /** Whether `b` starts where `a` ended: the journey goes on. @param {Piece} a @param {Piece} b */
@@ -212,7 +214,8 @@ export function tripProposals({ receipts, travel }) {
 			destination: destinationOf(g.pieces),
 			start,
 			end: end > start ? end : `${g.toDay}T23:59`,
-			tripId: existing?.id ?? null
+			tripId: existing?.id ?? null,
+			reason: appointmentsOn(travel, g.fromDay, g.toDay)[0]?.summary ?? ''
 		});
 	}
 	return out;

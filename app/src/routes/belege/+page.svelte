@@ -371,7 +371,8 @@
 			const {
 				mails,
 				counts: c,
-				createdIds
+				createdIds,
+				appointments
 			} = await fetchAccountingMail({
 				store,
 				blobs,
@@ -385,7 +386,9 @@
 					new: c.new,
 					known: c.skipped,
 					duplicate: c.duplicate
-				}) + (c.verdicts ? t('belege.mailVerdicts', { count: c.verdicts }) : '');
+				}) +
+				(c.verdicts ? t('belege.mailVerdicts', { count: c.verdicts }) : '') +
+				(appointments ? t('belege.mailAppointments', { count: appointments }) : '');
 			await refreshNow();
 			toRead = createdIds;
 		} catch (error) {

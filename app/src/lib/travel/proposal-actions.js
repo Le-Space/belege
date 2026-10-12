@@ -22,6 +22,7 @@ export async function acceptProposal({ store, proposal, settings, books }) {
 		const { trip } = await saveTrip(store, {
 			travellerId: traveller.id,
 			destination: proposal.destination,
+			reason: proposal.reason ?? '',
 			start: proposal.start,
 			end: proposal.end
 		});

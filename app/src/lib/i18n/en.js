@@ -1995,6 +1995,7 @@ export default {
 			'The mailbox is not set up on the bridge: pnpm setup:mail, then restart the bridge.',
 		llmNotSetUp: 'Extraction is not set up on the bridge: pnpm setup:llm, then restart the bridge.',
 		mailResult: '{mails} emails · new: {new} · already there: {known} · duplicate: {duplicate}',
+		mailAppointments: ' · appointments from invitations: {count}',
 		mailVerdicts: ' · sender check updated: {count}',
 		importResult: 'New: {new} · duplicate: {duplicate} · not supported: {unsupported}',
 		sources: 'Sources',
@@ -2548,6 +2549,12 @@ export default {
 			elsewhere: 'More proposals in other months: {count}.',
 			show: 'Show'
 		},
+		appointments: {
+			title: 'Appointments from invitations: {count}',
+			what: 'Invitations with a calendar entry to the accounting address, somewhere to go and on no trip yet. Only title, place and times are kept.',
+			make: 'Make it a trip',
+			dismiss: 'Not a trip'
+		},
 		trips: 'Trips',
 		receipts: 'receipts: {count}',
 		none: 'No trip starts in this month.',
@@ -2585,6 +2592,8 @@ export default {
 		remove: 'Remove',
 		addStop: 'Add a border crossing',
 		meals: 'Meals provided',
+		appointments: 'Appointments on these days, from invitations',
+		appointmentTake: 'Take it as the reason',
 		breakfastProposal: 'The hotel invoice includes breakfast on: {days}.',
 		breakfastTake: 'Mark it',
 		mealsHint:

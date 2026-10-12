@@ -21,6 +21,7 @@
 		tripFigures
 	} from '$lib/travel/records.js';
 	import { allTrips, breakfastProposals, receiptsOfTrip } from '$lib/travel/view.js';
+	import { appointmentsOn } from '$lib/travel/appointments.js';
 
 	const MEALS = /** @type {const} */ (['breakfast', 'lunch', 'dinner']);
 	const field = 'mt-1 rounded-md border border-border bg-surface px-2 py-1 text-sm text-heading';
@@ -64,6 +65,19 @@
 
 	/** The trip's dates, for the meals provided; three months at most. */
 	let dates = $derived(draft ? tripDates(draft).slice(0, 92) : []);
+
+	/** Appointments from invitations on the trip's days (step 4c): its occasion, a click away. */
+	let appointments = $derived.by(() => {
+		const d = /** @type {Record<string, any> | null} */ (draft);
+		if (!d?.start || !d?.end || d.end <= d.start) return [];
+		return appointmentsOn(app.travel, d.start.slice(0, 10), d.end.slice(0, 10));
+	});
+	/** @param {Record<string, any>} a */
+	function takeReason(a) {
+		if (!draft) return;
+		draft.reason = String(a.summary ?? '');
+		touch();
+	}
 
 	/** Breakfasts a hotel invoice of the trip includes, not marked yet. */
 	let breakfasts = $derived(draft ? breakfastProposals(draft, receipts) : []);
@@ -247,6 +261,27 @@
 					</select>
 				</label>
 			</div>
+			{#if appointments.length}
+				<div class="mt-3 text-sm" data-testid="reise-appointments">
+					<p class="text-xs text-faint">{t('reise.appointments')}</p>
+					<ul>
+						{#each appointments as a (a.id)}
+							<li class="flex flex-wrap items-center gap-2" data-testid="reise-appointment">
+								<span class="text-heading">{a.summary || '—'}</span>
+								<span class="text-xs text-faint">{a.location}</span>
+								{#if a.summary && draft.reason !== a.summary}
+									<button
+										type="button"
+										class={btn.link}
+										onclick={() => takeReason(a)}
+										data-testid="reise-appointment-take">{t('reise.appointmentTake')}</button
+									>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				</div>
+			{/if}
 			<label class="mt-3 flex flex-col text-sm text-text"
 				>{t('reise.note')}
 				<textarea class={field} rows="2" bind:value={draft.note} data-testid="reise-note"

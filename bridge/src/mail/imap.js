@@ -25,10 +25,12 @@
 import { ImapFlow } from 'imapflow';
 
 import { authVerdict, headerValues } from './auth-results.js';
+import { MAX_EVENTS, parseIcs } from './ics.js';
 import {
 	amountVariants,
 	aroundWindow,
 	attachmentParts,
+	calendarParts,
 	decodeMailId,
 	encodeMailId,
 	excerpt,
@@ -44,6 +46,8 @@ export const MAX_RAW_BYTES = 10 * 1024 * 1024;
 const MAX_LISTED = 500;
 const SNIFF_BYTES = 1024;
 const TEXT_BYTES = 16 * 1024;
+/** A calendar part is read up to this many bytes; a much larger one is skipped. */
+const CALENDAR_BYTES = 64 * 1024;
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1']);
 
 const SKIP_LISTING = new Set(['\\Trash', '\\Junk', '\\Drafts']);
@@ -87,6 +91,7 @@ export class MailError extends Error {
  * @property {import('./auth-results.js').AuthResult} auth
  * @property {boolean} outgoing from the Sent folder
  * @property {MailAttachment[]} attachments
+ * @property {import('./ics.js').Appointment[]} calendar an invitation's appointments, title, place and times only
  * @property {string} excerpt up to about 2 KB of the text, HTML stripped
  * @property {'to' | 'received' | null} [addressedBy] how it reached the accounting address
  * @property {string[]} [matched] search only: which criteria matched
@@ -249,6 +254,21 @@ export function createMailClient({
 			});
 		}
 
+		// An invitation's appointments (#213): title, place and times only (ics.js).
+		/** @type {import('./ics.js').Appointment[]} */
+		const calendar = [];
+		for (const c of calendarParts(msg.bodyStructure).slice(0, 2)) {
+			if (c.size > CALENDAR_BYTES * 2) continue;
+			try {
+				const raw = (await firstBytes(client, msg.uid, c.part, CALENDAR_BYTES)).toString('utf8');
+				for (const a of parseIcs(raw)) {
+					if (calendar.length < MAX_EVENTS) calendar.push(a);
+				}
+			} catch {
+				// A calendar part the server cannot hand out: no appointment.
+			}
+		}
+
 		let text = '';
 		const tp = textPart(msg.bodyStructure);
 		if (tp) {
@@ -273,6 +293,7 @@ export function createMailClient({
 			auth,
 			outgoing: folder.sent,
 			attachments,
+			calendar,
 			excerpt: text,
 			addressedBy: addressedBy(msg.envelope, headers),
 			bulk: /^(list-unsubscribe|list-id):|^precedence:\s*(bulk|list|junk)/im.test(headers)
