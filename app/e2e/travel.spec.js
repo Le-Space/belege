@@ -539,3 +539,72 @@ test('receipts named on the travel pages are previewed on hover', async ({ page 
 	await expect(peek).toBeVisible();
 	await expect(peek.getByTestId('tx-receipt-preview')).toHaveAttribute('data-rendered', 'true');
 });
+
+test('a ticket in rubles counts in euros by its rate, never its rubles as euros', async ({
+	page
+}) => {
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('E2E');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+
+	// A made-up conference ticket, read as an event in rubles.
+	await page.evaluate(async () => {
+		const e2e = /** @type {any} */ (window).__belegeE2E;
+		await e2e.addReceipt({
+			source: 'upload',
+			status: 'ausgelesen',
+			fileName: 'konferenz.pdf',
+			vendor: 'Konferenz Beispiel',
+			amountCents: 1_499_000,
+			currency: 'RUB',
+			documentDate: '2025-04-23',
+			extraction: {
+				document_type: 'ticket',
+				gross: 14990,
+				currency: 'RUB',
+				vat: [],
+				travel: { kind: 'event' }
+			}
+		});
+	});
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
+	await page.getByTestId('year-switch').selectOption('2025');
+	const detail = page.getByTestId('receipt-detail');
+	await page.getByTestId('receipt').filter({ hasText: 'Konferenz Beispiel' }).click();
+	await detail.getByTestId('travel-open').click();
+	await detail.getByTestId('travel-new-trip').click();
+	await page.getByTestId('reise-destination').fill('Moskau');
+	await page.getByTestId('reise-reason').fill('Konferenz Beispiel');
+	await page.getByTestId('reise-save').click();
+	await expect(page.getByTestId('reise-saved')).toBeVisible();
+
+	// No rate yet: no euros, and nothing of the rubles paid back.
+	await expect(page.getByTestId('reise-receipt-amount')).toHaveText('14.990,00 RUB → Kurs fehlt');
+	await expect(page.getByTestId('reise-sum-private')).toHaveText('0,00 EUR');
+	await expect(page.getByTestId('reise-sum-norate')).toBeVisible();
+	await page.getByRole('link', { name: '← Alle Reisen' }).click();
+	const picker = page.getByTestId('reisen-month');
+	await picker.getByLabel('Monat: Jahr').selectOption('2025');
+	await picker.getByLabel('Monat: Monat').selectOption('04');
+	await expect(
+		page.getByTestId('reisen-statement').locator('[data-code="foreignWithoutRate"]')
+	).toBeVisible();
+	await expect(page.getByTestId('reisen-statement-make')).toBeDisabled();
+
+	// The rate on the receipt, as people say it: 1 EUR = 95,23 RUB.
+	await page.getByTestId('reisen-statement').locator('[data-code="foreignWithoutRate"] a').click();
+	await expect(detail.getByTestId('travel-euro-missing')).toBeVisible();
+	await detail.getByTestId('travel-euro-rate').fill('95,23');
+	await expect(detail.getByTestId('travel-euro-preview')).toContainText('157,41 EUR');
+	await detail.getByTestId('travel-euro-keep').click();
+	await expect(detail.getByTestId('travel-euro-value')).toContainText(
+		'In Euro: 157,41 EUR (14.990,00 RUB zu 95,23 RUB je 1 EUR).'
+	);
+	await detail.getByTestId('travel-trip-link').click();
+	await expect(page.getByTestId('reise-receipt-amount')).toHaveText('14.990,00 RUB → 157,41 EUR');
+	await expect(page.getByTestId('reise-sum-private')).toHaveText('157,41 EUR');
+	await expect(page.getByTestId('reise-sum-norate')).toHaveCount(0);
+});

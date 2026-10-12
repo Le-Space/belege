@@ -251,3 +251,45 @@ describe('what a receipt was read as (#213, step 4)', async () => {
 		expect(breakfastProposals({ ...t, end: '' }, [hotel])).toEqual([]);
 	});
 });
+
+describe('a receipt on a trip in euros (#213)', async () => {
+	const { euroOf } = await import('./view.js');
+	// A made-up conference ticket in rubles.
+	const ticket = {
+		id: 'Q',
+		currency: 'RUB',
+		amountCents: 1_499_000,
+		travel: { tripId: 'T', paidBy: 'private' }
+	};
+
+	it('in euros as it is; else by its outlay, its payment, or a rate kept; never its rubles as euros', () => {
+		expect(euroOf({ id: 'E', amountCents: 8990 })).toMatchObject({
+			cents: 8990,
+			via: 'eur',
+			currency: 'EUR'
+		});
+		expect(euroOf(ticket)).toEqual({
+			cents: null,
+			via: null,
+			currency: 'RUB',
+			originalCents: 1_499_000,
+			rate: null
+		});
+		const outlay = { id: 'O', source: 'outlay', outlay: { receiptId: 'Q' }, amountCents: -15740 };
+		expect(euroOf(ticket, { transactions: [outlay] })).toMatchObject({
+			cents: 15740,
+			via: 'outlay'
+		});
+		const card = { id: 'P', source: 'hibiscus', currency: 'EUR', amountCents: -15912 };
+		const matches = [{ receiptId: 'Q', transactionId: 'P', state: 'confirmed' }];
+		expect(euroOf(ticket, { transactions: [card], matches })).toMatchObject({
+			cents: 15912,
+			via: 'payment'
+		});
+		const kept = {
+			...ticket,
+			travel: { ...ticket.travel, euro: { cents: 15740, rate: '0.0105', source: 'cbr' } }
+		};
+		expect(euroOf(kept)).toMatchObject({ cents: 15740, via: 'rate', rate: '0.0105' });
+	});
+});

@@ -20,7 +20,7 @@
 import { formatDate } from '../bank/format.js';
 import { receiptDate, receiptVendor } from '../receipts/view.js';
 import { cleanTrip, tripFigures, tripsOf } from './records.js';
-import { hospitalityOf, paidByGuess, receiptsOfTrip, travelKind } from './view.js';
+import { euroOf, hospitalityOf, paidByGuess, receiptsOfTrip, travelKind } from './view.js';
 
 /** @typedef {Record<string, any>} Rec */
 
@@ -30,8 +30,10 @@ import { hospitalityOf, paidByGuess, receiptsOfTrip, travelKind } from './view.j
  * @property {string} date
  * @property {string} vendor
  * @property {string | null} kind
- * @property {number | null} grossCents
- * @property {string} currency
+ * @property {number | null} grossCents in euros (view.js euroOf); null: not known
+ * @property {string} currency the receipt's own
+ * @property {number | null} originalCents its gross in its own currency
+ * @property {string | null} rate EUR per unit, where a rate made the euros
  * @property {{ rate: number, cents: number }[]} vat
  * @property {'private' | 'company'} paidBy
  * @property {boolean} outlay booked as a private outlay (#293): paid back through the outlay account, not here
@@ -54,19 +56,27 @@ const cents = (amount) =>
  * @param {Rec} r
  * @param {'private' | 'company'} paidBy
  * @param {Set<string>} outlays the receipts booked as private outlays
+ * @param {{ transactions: Rec[], matches: Rec[] }} books for its euros
  * @returns {ReceiptLine}
  */
-function receiptLine(r, paidBy, outlays) {
-	const vat = (Array.isArray(r.extraction?.vat) ? r.extraction.vat : [])
-		.filter((/** @type {any} */ v) => typeof v?.rate === 'number' && cents(v.amount) !== 0)
-		.map((/** @type {any} */ v) => ({ rate: v.rate, cents: cents(v.amount) }));
+function receiptLine(r, paidBy, outlays, books) {
+	const euro = euroOf(r, books);
+	// VAT of another country is no German input VAT: it stays in the cost.
+	const vat =
+		euro.currency === 'EUR'
+			? (Array.isArray(r.extraction?.vat) ? r.extraction.vat : [])
+					.filter((/** @type {any} */ v) => typeof v?.rate === 'number' && cents(v.amount) !== 0)
+					.map((/** @type {any} */ v) => ({ rate: v.rate, cents: cents(v.amount) }))
+			: [];
 	return {
 		receiptId: String(r.id),
 		date: receiptDate(/** @type {any} */ (r)) ?? '',
 		vendor: receiptVendor(/** @type {any} */ (r)),
 		kind: travelKind(r),
-		grossCents: Number.isSafeInteger(r.amountCents) ? Math.abs(r.amountCents) : null,
-		currency: String(r.currency ?? r.extraction?.currency ?? 'EUR').toUpperCase(),
+		grossCents: euro.cents,
+		currency: euro.currency,
+		originalCents: euro.originalCents,
+		rate: euro.rate,
 		vat,
 		paidBy,
 		outlay: outlays.has(String(r.id))
@@ -131,7 +141,12 @@ export function statementOf({
 				checks.push({ level: 'warning', code: 'familyCar', tripId: trip.id });
 		}
 		const lines = receiptsOfTrip(receipts, trip.id)
-			.map((r) => receiptLine(r, r.travel?.paidBy === 'company' ? 'company' : 'private', outlays))
+			.map((r) =>
+				receiptLine(r, r.travel?.paidBy === 'company' ? 'company' : 'private', outlays, {
+					transactions,
+					matches
+				})
+			)
 			.sort((a, b) => a.date.localeCompare(b.date) || a.vendor.localeCompare(b.vendor));
 		return { trip, figures, receipts: lines };
 	});
@@ -148,14 +163,17 @@ export function statementOf({
 				(receiptDate(/** @type {any} */ (r)) ?? '').startsWith(month)
 		)
 		.map((r) => ({
-			line: receiptLine(r, paidByGuess(r, { transactions, matches }), outlays),
-			split: hospitalityOf(r)
+			line: receiptLine(r, paidByGuess(r, { transactions, matches }), outlays, {
+				transactions,
+				matches
+			}),
+			split: hospitalityOf(r, { transactions, matches })
 		}));
 	// …and the hospitality bills on the trips.
 	const tripHospitality = trips.flatMap((x) =>
 		receiptsOfTrip(receipts, x.trip.id)
 			.filter((r) => r.hospitality)
-			.map((r) => ({ receiptId: String(r.id), split: hospitalityOf(r) }))
+			.map((r) => ({ receiptId: String(r.id), split: hospitalityOf(r, { transactions, matches }) }))
 	);
 	for (const h of [
 		...hospitality.map((x) => ({ receiptId: x.line.receiptId, split: x.split })),
@@ -169,9 +187,17 @@ export function statementOf({
 
 	const allLines = [...trips.flatMap((x) => x.receipts), ...hospitality.map((x) => x.line)];
 	for (const l of allLines) {
-		if (l.paidBy === 'private' && l.grossCents === null)
+		const foreign = l.currency !== 'EUR';
+		// In another currency without its euros: never its amount taken as euros.
+		if (foreign && l.originalCents !== null && l.grossCents === null)
+			checks.push({
+				level: l.paidBy === 'private' && !l.outlay ? 'error' : 'warning',
+				code: 'foreignWithoutRate',
+				receiptId: l.receiptId
+			});
+		else if (l.paidBy === 'private' && l.grossCents === null)
 			checks.push({ level: 'error', code: 'receiptWithoutAmount', receiptId: l.receiptId });
-		if (l.currency !== 'EUR')
+		else if (foreign)
 			checks.push({ level: 'warning', code: 'foreignCurrency', receiptId: l.receiptId });
 	}
 	if (!trips.length && !hospitality.length) checks.push({ level: 'error', code: 'nothing' });

@@ -221,3 +221,32 @@ describe('statements (#213)', () => {
 		expect(nextStatementNumber(await s.travel.list(), 2027)).toBe('RK-2027-001');
 	});
 });
+
+describe('a rate for a receipt in another currency (#213)', async () => {
+	const { setTravelEuro } = await import('./records.js');
+	it('kept with the trip link, in euros; kept when who paid changes; taken off again', async () => {
+		const s = store();
+		const { trip } = await saveTrip(s, TRIP);
+		const r = await s.receipts.put({
+			status: 'ausgelesen',
+			currency: 'RUB',
+			amountCents: 1_499_000
+		});
+		await expect(setTravelEuro(s, r.id, { rate: '0.0105', source: 'cbr' })).rejects.toThrow(
+			/no trip/
+		);
+		await assignReceipt(s, { receiptId: r.id, tripId: trip.id, paidBy: 'private' });
+		const kept = await setTravelEuro(s, r.id, { rate: '0.0105', source: 'cbr', at: '2025-03-14' });
+		expect(kept.travel).toEqual({
+			tripId: trip.id,
+			paidBy: 'private',
+			euro: { cents: 15740, rate: '0.0105', source: 'cbr', at: '2025-03-14' }
+		});
+		const moved = await assignReceipt(s, { receiptId: r.id, tripId: trip.id, paidBy: 'company' });
+		expect(moved.travel.euro.cents).toBe(15740);
+		expect((await setTravelEuro(s, r.id, null)).travel).toEqual({
+			tripId: trip.id,
+			paidBy: 'company'
+		});
+	});
+});

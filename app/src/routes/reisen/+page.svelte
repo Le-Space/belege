@@ -65,7 +65,7 @@
 					r.hospitality &&
 					(receiptDate(/** @type {any} */ (r)) ?? '').startsWith(month)
 			)
-			.map((r) => ({ r, split: hospitalityOf(r) }))
+			.map((r) => ({ r, split: hospitalityOf(r, app) }))
 	);
 	let questions = $derived(openTravelQuestions({ travel: app.travel, receipts: app.receipts }));
 	let proposals = $derived(tripProposals({ travel: app.travel, receipts: app.receipts }));
