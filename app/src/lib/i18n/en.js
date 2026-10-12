@@ -1318,6 +1318,28 @@ export default {
 			undated: 'Receipts without a date, in no period: {count}.',
 			smallBusiness:
 				'As a small business (Kleinunternehmer, §19 UStG) you deduct no input VAT. Your receipts of this year contain {amount} of VAT.',
+			special: {
+				title: 'International and special cases',
+				intraEu:
+					'Intra-EU supplies and services: {amount} net (invoices: {count}) – no German VAT, to be reported in the EC Sales List (ZM).',
+				thirdCountry:
+					'Third country (export, not taxable in Germany): {amount} net (invoices: {count}).',
+				reverseChargeDe:
+					'§13b in Germany – the customer owes the VAT: {amount} net (invoices: {count}).',
+				exempt: 'Exempt in Germany: {amount} net (invoices: {count}).',
+				intraEuAcquisition:
+					'Intra-EU acquisitions: {amount} net (receipts: {count}) – you owe the acquisition VAT and deduct it as input VAT at once.',
+				zm: 'For the EC Sales List (ZM)',
+				vatId: 'Customer’s VAT ID',
+				net: 'Net',
+				unclear: 'Not sure how to classify: {count} – please have a look:',
+				reasons: {
+					noCustomerVatId: 'EU invoice without the customer’s VAT ID',
+					noCountry: 'no VAT, country unknown',
+					noCategory: 'no VAT, reason not given'
+				},
+				note: 'As the invoices say it. Which cases are reported how is for you and your tax advisor to settle.'
+			},
 			outputLater:
 				'No invoices from the invoice app yet: output VAT and the VAT payable appear once it is paired and sends invoices with the VAT per rate.'
 		},

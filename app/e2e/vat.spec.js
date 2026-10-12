@@ -215,3 +215,61 @@ test('an own invoice among the receipts: never input VAT, its VAT is output VAT 
 	await page.getByRole('link', { name: 'Home', exact: true }).click();
 	await expect(card.getByTestId('vat-year-total')).toContainText('209,00');
 });
+
+test('international and special cases on the VAT card: ZM lines, third country, unclear with a link (#354)', async ({
+	page
+}) => {
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('E2E Sonderfälle');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+	/** @param {string} day @param {Record<string, any>} x @param {string} vendor */
+	const ours = (day, x, vendor = 'Muster Beispiel UG') => ({
+		...receipt(day, { vendor, ...x }),
+		vendor,
+		ownInvoice: true,
+		status: 'ausgelesen'
+	});
+	await page.evaluate(
+		(receipts) => /** @type {any} */ (window).__belegeE2E.bench.putMany('receipts', receipts),
+		[
+			ours('02-10', {
+				net: 500,
+				gross: 500,
+				vat: [{ rate: 0, amount: 0, category: 'intra_eu' }],
+				customer_vat_id: 'ATU00000000',
+				customer_country: 'AT'
+			}),
+			ours('03-05', { net: 300, gross: 300, vat: [], customer_country: 'CH' }),
+			// Intra-EU by its line, but without the customer's VAT ID: unclear.
+			ours('03-20', {
+				net: 200,
+				gross: 200,
+				vat: [{ rate: 0, amount: 0, category: 'intra_eu' }],
+				customer_country: 'FR'
+			}),
+			receipt('04-02', {
+				vendor: 'Werkzeug Beispiel B.V.',
+				net: 900,
+				gross: 900,
+				vat: [{ rate: 0, amount: 0, category: 'intra_eu' }],
+				vendor_country: 'NL'
+			})
+		]
+	);
+	await page.reload();
+	await page.getByTestId('passkey-unlock').click();
+	const special = page.getByTestId('home-vat').getByTestId('vat-special');
+	await expect(special.getByTestId('vat-kind-intraEu')).toContainText('500,00');
+	await expect(special.getByTestId('vat-kind-thirdCountry')).toContainText('300,00');
+	await expect(special.getByTestId('vat-kind-intraEuAcquisition')).toContainText('900,00');
+	await expect(special.getByTestId('vat-zm-line')).toHaveCount(1);
+	await expect(special.getByTestId('vat-zm-line')).toContainText('ATU00000000');
+	await expect(special.getByTestId('vat-zm-line')).toContainText('Q1');
+	await expect(special.getByTestId('vat-unclear')).toContainText('1');
+	await special.getByTestId('vat-unclear-link').click();
+	await expect(page).toHaveURL(/\/belege\?receipt=/);
+	await expect(page.getByTestId('field-own')).toHaveAttribute('data-own', 'true');
+});
