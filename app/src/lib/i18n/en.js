@@ -686,7 +686,7 @@ export default {
 			],
 			usesHeading: 'With AI',
 			uses: [
-				'Extract receipts: vendor, amount, date, invoice and customer number from the text of a receipt – and whether it is a receipt at all (sign-in emails and newsletters are not). With “Extract”, “Extract all new”, “Upload receipt”, “Use as receipt” and “Fetch invoices”.',
+				'Extract receipts: vendor, amount, date, invoice and customer number from the text of a receipt, for travel costs also their kind, route, times, hotel nights and whether breakfast is included – and whether it is a receipt at all (sign-in emails and newsletters are not). With “Extract”, “Extract all new”, “Upload receipt”, “Use as receipt” and “Fetch invoices”.',
 				'“Keep searching with AI” in the private mailbox: suggest search terms and senders, then choose the receipt among the hits – by subject, sender domain and file names, never by the text of the emails.',
 				'“AI suggestion” under “Link receipt”: name the matching one of up to 25 of your receipts for a booking – by vendor, amount, date, invoice number and short description. You do the linking.',
 				'“AI suggestion” under “Link as counter-booking …”: name, among up to 8 bookings on your other accounts, the other side of a transfer between your own accounts – by direction, amount, quantity, day, account type, counterparty and purpose, without addresses, IBANs and hashes. You do the linking.',
@@ -1847,7 +1847,25 @@ export default {
 	belege: {
 		travel: {
 			open: 'To a trip …',
-			looksLikeTicket: 'Read as a ticket: it probably belongs to a trip.',
+			looksLikeTrip: 'Read as {kind}: it probably belongs to a trip.',
+			looksLikeEvent: 'Read as {kind}: it may belong to a trip.',
+			kind: {
+				train: 'train ticket',
+				bus: 'bus ticket',
+				flight: 'flight',
+				public_transport: 'public transport ticket',
+				taxi: 'taxi',
+				rental_car: 'rental car',
+				fuel: 'fuel',
+				parking: 'parking',
+				hotel: 'hotel invoice',
+				restaurant: 'restaurant bill',
+				event: 'event ticket',
+				ticket: 'ticket'
+			},
+			readBack: 'back {when}',
+			readNights: 'nights: {count}',
+			readBreakfast: 'breakfast included',
 			assigned: 'Part of the trip',
 			trip: 'Trip',
 			suggested: 'At this date',
@@ -1859,6 +1877,7 @@ export default {
 			unassign: 'Take it off the trip',
 			cancel: 'Cancel',
 			hospitality: {
+				looksLike: 'Read as a restaurant bill: record it as hospitality if it was a business meal.',
 				open: 'Record as hospitality …',
 				title: 'Hospitality',
 				what: 'What the tax office asks for a business meal. Participants one per line, yourself included.',
@@ -2554,6 +2573,8 @@ export default {
 		remove: 'Remove',
 		addStop: 'Add a border crossing',
 		meals: 'Meals provided',
+		breakfastProposal: 'The hotel invoice includes breakfast on: {days}.',
+		breakfastTake: 'Mark it',
 		mealsHint:
 			'A breakfast in the hotel invoice or a meal paid by someone else cuts the day’s allowance.',
 		day: 'Day',

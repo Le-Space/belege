@@ -20,7 +20,7 @@
 		tripDates,
 		tripFigures
 	} from '$lib/travel/records.js';
-	import { allTrips, receiptsOfTrip } from '$lib/travel/view.js';
+	import { allTrips, breakfastProposals, receiptsOfTrip } from '$lib/travel/view.js';
 
 	const MEALS = /** @type {const} */ (['breakfast', 'lunch', 'dinner']);
 	const field = 'mt-1 rounded-md border border-border bg-surface px-2 py-1 text-sm text-heading';
@@ -64,6 +64,12 @@
 
 	/** The trip's dates, for the meals provided; three months at most. */
 	let dates = $derived(draft ? tripDates(draft).slice(0, 92) : []);
+
+	/** Breakfasts a hotel invoice of the trip includes, not marked yet. */
+	let breakfasts = $derived(draft ? breakfastProposals(draft, receipts) : []);
+	function takeBreakfasts() {
+		for (const date of breakfasts) setMeal(date, 'breakfast', true);
+	}
 
 	/** @param {string} date @param {'breakfast' | 'lunch' | 'dinner'} meal @param {boolean} on */
 	function setMeal(date, meal, on) {
@@ -283,6 +289,19 @@
 			<section class={card} aria-labelledby="reise-meals-h" data-testid="reise-meals">
 				<h2 id="reise-meals-h" class="text-sm font-semibold text-heading">{t('reise.meals')}</h2>
 				<p class="mt-1 text-xs text-faint">{t('reise.mealsHint')}</p>
+				{#if breakfasts.length}
+					<p class="mt-2 text-sm text-heading" data-testid="reise-breakfast-proposal">
+						{t('reise.breakfastProposal', {
+							days: breakfasts.map((d) => formatDate(d)).join(', ')
+						})}
+						<button
+							type="button"
+							class="ml-1 {btn.link}"
+							onclick={takeBreakfasts}
+							data-testid="reise-breakfast-take">{t('reise.breakfastTake')}</button
+						>
+					</p>
+				{/if}
 				<div class="mt-2 overflow-x-auto">
 					<table class="text-sm">
 						<thead>

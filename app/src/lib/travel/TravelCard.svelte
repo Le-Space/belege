@@ -8,7 +8,6 @@
 	import { app, currentStore, refreshNow } from '$lib/session.svelte.js';
 	import { cleanDatevSettings } from '$lib/booking/settings.js';
 	import { formatDate, formatMoney } from '$lib/bank/format.js';
-	import { receiptDate } from '$lib/receipts/view.js';
 	import { btn } from '$lib/ui/styles.js';
 	import { t } from '$lib/i18n/index.js';
 	import {
@@ -23,7 +22,9 @@
 		allTrips,
 		euroCents,
 		hospitalityOf,
-		isTravelReceipt,
+		travelHint,
+		travelKind,
+		tripFromReceipt,
 		paidByGuess,
 		suggestTrips,
 		tripDays
@@ -99,15 +100,14 @@
 			open = false;
 		});
 
-	/** A new trip from this receipt: its day as the start, the rest to fill in on the trip's page. */
+	/** A new trip from this receipt: its times and destination as read, the rest to fill in on the trip's page. */
 	const newTrip = () =>
 		run(async () => {
 			const store = /** @type {any} */ (currentStore());
 			const traveller = await ownerTraveller(store, cleanDatevSettings(app.datevSettings));
-			const day = receiptDate(/** @type {any} */ (receipt));
 			const { trip: made } = await saveTrip(store, {
 				travellerId: traveller.id,
-				...(day ? { start: `${day}T08:00`, end: `${day}T18:00` } : {})
+				...tripFromReceipt(receipt)
 			});
 			await assignReceipt(store, { receiptId: receipt.id, tripId: made.id, paidBy });
 			await goto(`${resolve('/reisen/[id]', { id: made.id })}`);
@@ -159,11 +159,45 @@
 		run(() => setHospitality(/** @type {any} */ (currentStore()), receipt.id, null));
 
 	let split = $derived(receipt.hospitality ? hospitalityOf(receipt) : null);
+	let hint = $derived(travelHint(receipt));
+	let kind = $derived(travelKind(receipt));
+
+	/** `2026-03-04T07:12` → `04.03.2026 07:12`. @param {string | null | undefined} v */
+	const when = (v) => (v ? `${formatDate(v.slice(0, 10))} ${v.slice(11, 16)}` : '');
+	/** What was read about the journey or the stay, in one line. */
+	let readLine = $derived.by(() => {
+		const r = receipt.extraction?.travel;
+		if (!r || !kind || kind === 'ticket') return '';
+		const route = r.from || r.to ? `${r.from ?? '…'} → ${r.to ?? '…'}` : '';
+		const out = [r.departure, r.arrival].filter(Boolean).map(when).join(' – ');
+		const back = [r.return_departure, r.return_arrival].filter(Boolean).map(when).join(' – ');
+		const stay =
+			r.check_in && r.check_out
+				? `${formatDate(r.check_in)} – ${formatDate(r.check_out)}`
+				: r.check_in
+					? formatDate(r.check_in)
+					: '';
+		return [
+			t(`belege.travel.kind.${kind}`),
+			route,
+			out,
+			back ? t('belege.travel.readBack', { when: back }) : '',
+			r.place && !route ? r.place : '',
+			stay,
+			r.nights ? t('belege.travel.readNights', { count: r.nights }) : '',
+			r.breakfast_included === true ? t('belege.travel.readBreakfast') : ''
+		]
+			.filter(Boolean)
+			.join(' · ');
+	});
 	let offered = $derived(!receipt.deleted && receipt.status !== 'ignoriert');
 </script>
 
 {#if offered}
 	<div class="mt-3 border-t border-border pt-3 text-sm" data-testid="travel">
+		{#if readLine}
+			<p class="mb-2 text-xs text-faint" data-testid="travel-read">{readLine}</p>
+		{/if}
 		{#if trip}
 			<p class="text-heading" data-testid="travel-assigned">
 				{t('belege.travel.assigned')}
@@ -198,9 +232,11 @@
 			<button type="button" class={btn.secondary} onclick={start} data-testid="travel-open"
 				>{t('belege.travel.open')}</button
 			>
-			{#if isTravelReceipt(receipt)}
+			{#if hint === 'trip' || hint === 'event'}
 				<p class="mt-1 text-xs text-faint" data-testid="travel-looks-like">
-					{t('belege.travel.looksLikeTicket')}
+					{t(hint === 'event' ? 'belege.travel.looksLikeEvent' : 'belege.travel.looksLikeTrip', {
+						kind: t(`belege.travel.kind.${kind}`)
+					})}
 				</p>
 			{/if}
 		{:else}
@@ -354,10 +390,15 @@
 			{:else}
 				<button
 					type="button"
-					class={btn.link}
+					class={hint === 'hospitality' ? btn.secondary : btn.link}
 					onclick={startHospitality}
 					data-testid="hospitality-open">{t('belege.travel.hospitality.open')}</button
 				>
+				{#if hint === 'hospitality'}
+					<p class="mt-1 text-xs text-faint" data-testid="hospitality-looks-like">
+						{t('belege.travel.hospitality.looksLike')}
+					</p>
+				{/if}
 			{/if}
 		</div>
 		{#if error}<p class="text-danger" role="alert">{error}</p>{/if}

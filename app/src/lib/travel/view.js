@@ -30,8 +30,95 @@ export const allTrips = (travel) =>
 export const receiptsOfTrip = (receipts, tripId) =>
 	receipts.filter((r) => counts(r) && r.travel?.tripId === tripId);
 
-/** A receipt the extraction read as a ticket: travel, most likely. @param {Rec} r */
-export const isTravelReceipt = (r) => r.extraction?.document_type === 'ticket';
+/**
+ * What kind of travel cost a receipt was read as (the extraction's `travel`,
+ * #213 step 4): a train, a hotel, a restaurant …; `ticket` where only the
+ * document type says so (a reading before the travel fields); else null.
+ *
+ * @param {Rec} r
+ * @returns {string | null}
+ */
+export function travelKind(r) {
+	const kind = r.extraction?.travel?.kind;
+	if (typeof kind === 'string' && kind) return kind;
+	return r.extraction?.document_type === 'ticket' ? 'ticket' : null;
+}
+
+/** Costs that are travel without doubt: without a trip, they are asked about. */
+const ASKED = new Set(['train', 'bus', 'flight', 'hotel', 'rental_car', 'ticket']);
+
+/**
+ * What a receipt's kind suggests: a trip (a fare, a hotel, fuel …), a
+ * hospitality meal (a restaurant), or an event (a ticket to one); null for
+ * anything else.
+ *
+ * @param {Rec} r
+ * @returns {'trip' | 'hospitality' | 'event' | null}
+ */
+export function travelHint(r) {
+	const kind = travelKind(r);
+	if (!kind) return null;
+	if (kind === 'restaurant') return 'hospitality';
+	if (kind === 'event') return 'event';
+	return 'trip';
+}
+
+/** A receipt that is travel without doubt, asked about without a trip. @param {Rec} r */
+export const isTravelReceipt = (r) => ASKED.has(travelKind(r) ?? '');
+
+/** @param {string} day @param {string} time */
+const at = (day, time) => `${day}T${time}`;
+
+/**
+ * A new trip's head from a receipt, as far as it was read: a ticket's
+ * departure and arrival (the way back where it is a return ticket), a
+ * hotel's nights, the destination or the town. The rest is the receipt's
+ * day, from 8 to 18, to be put right on the trip's page; with only the way
+ * there known, no end.
+ *
+ * @param {Rec} r
+ * @returns {{ destination: string, start: string, end: string } | { destination: string }}
+ */
+export function tripFromReceipt(r) {
+	const t = r.extraction?.travel ?? {};
+	const destination = String(t.to ?? t.place ?? '').trim();
+	const start = t.departure ?? (t.check_in ? at(t.check_in, '08:00') : null);
+	const end =
+		t.return_arrival ??
+		t.return_departure ??
+		(t.check_out ? at(t.check_out, '18:00') : null) ??
+		t.arrival ??
+		null;
+	if (start && end && end > start) return { destination, start, end };
+	const day = receiptDate(/** @type {any} */ (r));
+	// Only the way there is known: the way back is asked for on the trip's page.
+	if (start) return { destination, start, end: '' };
+	return day ? { destination, start: at(day, '08:00'), end: at(day, '18:00') } : { destination };
+}
+
+/**
+ * The mornings a hotel invoice of the trip says breakfast was included, and
+ * the trip does not have it yet: the day after each night, within the trip.
+ *
+ * @param {Rec} trip
+ * @param {Rec[]} receipts the trip's
+ * @returns {string[]} dates, earliest first
+ */
+export function breakfastProposals(trip, receipts) {
+	if (!trip.start || !trip.end) return [];
+	const from = trip.start.slice(0, 10);
+	const to = trip.end.slice(0, 10);
+	const out = new Set();
+	for (const r of receipts) {
+		const t = r.extraction?.travel;
+		if (t?.kind !== 'hotel' || t.breakfast_included !== true || !t.check_in || !t.check_out)
+			continue;
+		for (let day = shift(t.check_in, 1); day <= t.check_out; day = shift(day, 1)) {
+			if (day >= from && day <= to && trip.meals?.[day]?.breakfast !== true) out.add(day);
+		}
+	}
+	return [...out].sort();
+}
 
 /** @param {string} day @param {number} days */
 const shift = (day, days) => {

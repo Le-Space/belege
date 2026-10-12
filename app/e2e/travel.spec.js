@@ -125,3 +125,107 @@ test('a trip with its allowance, mileage, a ticket paid privately, and a hospita
 	await expect(page.getByTestId('reisen-total-hospitality')).toHaveText('70,00 EUR');
 	await expect(page.getByTestId('reisen-questions')).toHaveCount(0);
 });
+
+test('a trip from what a ticket and a hotel invoice were read as, the breakfast proposed', async ({
+	page
+}) => {
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('E2E');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+
+	await page.evaluate(async () => {
+		const e2e = /** @type {any} */ (window).__belegeE2E;
+		const common = { source: 'upload', status: 'ausgelesen', currency: 'EUR' };
+		await e2e.addReceipt({
+			...common,
+			fileName: 'ticket.pdf',
+			vendor: 'Bahn Beispiel AG',
+			amountCents: 12_980,
+			documentDate: '2025-04-01',
+			extraction: {
+				document_type: 'ticket',
+				gross: 129.8,
+				vat: [{ rate: 7, amount: 8.49 }],
+				travel: {
+					kind: 'train',
+					from: 'Beispielstadt Hbf',
+					to: 'Musterstadt Hbf',
+					departure: '2025-04-08T07:12',
+					arrival: '2025-04-08T10:48',
+					return_departure: '2025-04-09T17:10',
+					return_arrival: '2025-04-09T20:41'
+				}
+			}
+		});
+		await e2e.addReceipt({
+			...common,
+			fileName: 'hotel.pdf',
+			vendor: 'Hotel Beispiel',
+			amountCents: 11_200,
+			documentDate: '2025-04-09',
+			extraction: {
+				document_type: 'invoice',
+				gross: 112,
+				vat: [{ rate: 7, amount: 7.33 }],
+				travel: {
+					kind: 'hotel',
+					place: 'Musterstadt',
+					check_in: '2025-04-08',
+					check_out: '2025-04-09',
+					nights: 1,
+					breakfast_included: true
+				}
+			}
+		});
+		await e2e.addReceipt({
+			...common,
+			fileName: 'essen.pdf',
+			vendor: 'Gasthaus Beispiel',
+			amountCents: 6_400,
+			documentDate: '2025-04-08',
+			extraction: { document_type: 'receipt', gross: 64, vat: [], travel: { kind: 'restaurant' } }
+		});
+	});
+
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
+	await page.getByTestId('year-switch').selectOption('2025');
+	const receipt = (/** @type {string} */ name) =>
+		page.getByTestId('receipt').filter({ hasText: name });
+	const detail = page.getByTestId('receipt-detail');
+
+	// A restaurant bill is offered as hospitality, not asked about as travel.
+	await receipt('Gasthaus Beispiel').click();
+	await expect(detail.getByTestId('hospitality-looks-like')).toBeVisible();
+	await expect(detail.getByTestId('travel-looks-like')).toHaveCount(0);
+
+	// The ticket as read, and a new trip from it with its times and destination.
+	await receipt('Bahn Beispiel AG').click();
+	await expect(detail.getByTestId('travel-read')).toContainText(
+		'Bahnticket · Beispielstadt Hbf → Musterstadt Hbf · 08.04.2025 07:12 – 08.04.2025 10:48'
+	);
+	await expect(detail.getByTestId('travel-looks-like')).toContainText('Als Bahnticket gelesen');
+	await detail.getByTestId('travel-open').click();
+	await detail.getByTestId('travel-new-trip').click();
+	await expect(page.getByTestId('reise-destination')).toHaveValue('Musterstadt Hbf');
+	await expect(page.getByTestId('reise-start')).toHaveValue('2025-04-08T07:12');
+	await expect(page.getByTestId('reise-end')).toHaveValue('2025-04-09T20:41');
+	await expect(page.getByTestId('reise-sum-allowance')).toHaveText('28,00 EUR');
+
+	// The hotel invoice to the trip: its breakfast is proposed, and taken.
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
+	await receipt('Hotel Beispiel').click();
+	await expect(detail.getByTestId('travel-read')).toContainText('Frühstück inklusive');
+	await detail.getByTestId('travel-open').click();
+	await detail.getByTestId('travel-assign').click();
+	await detail.getByTestId('travel-trip-link').click();
+	await expect(page.getByTestId('reise-breakfast-proposal')).toContainText('09.04.2025');
+	await page.getByTestId('reise-breakfast-take').click();
+	await expect(page.getByTestId('reise-meal-2025-04-09-breakfast')).toBeChecked();
+	await page.getByTestId('reise-save').click();
+	await expect(page.getByTestId('reise-saved')).toBeVisible();
+	await expect(page.getByTestId('reise-breakfast-proposal')).toHaveCount(0);
+	await expect(page.getByTestId('reise-sum-allowance')).toHaveText('22,40 EUR');
+});

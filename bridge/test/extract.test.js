@@ -8,7 +8,7 @@ import { createBridgeServer } from '../src/server.js';
 import { createPairing } from '../src/pairing.js';
 import { defaultConfig } from '../src/config.js';
 import { createMailClient } from '../src/mail/imap.js';
-import { checkExtraction, createExtractor } from '../src/llm/extract.js';
+import { checkExtraction, createExtractor, normalizeTravelFields } from '../src/llm/extract.js';
 import {
 	FAKE_IMAP_PASSWORD,
 	RECEIPTS,
@@ -451,4 +451,64 @@ test('tax fields made exact: countries, VAT IDs, a category per VAT line (#354)'
 	const word = { document_type: 'none', customer_vat_id: 'keine' };
 	checkExtraction(word);
 	assert.equal(word.customer_vat_id, null);
+});
+
+test('travel fields made exact: a kind, times, days, nights; what does not fit is null (#213)', () => {
+	const ticket = {
+		document_type: 'ticket',
+		vendor: 'Bahn Beispiel AG',
+		currency: 'EUR',
+		gross: 89.9,
+		vat: [],
+		travel: {
+			kind: 'train',
+			from: ' Beispielstadt Hbf ',
+			to: 'Musterstadt Hbf',
+			departure: '2026-03-04T07:12',
+			arrival: '2026-03-04T10:48',
+			return_departure: '2026-03-05T17:10',
+			return_arrival: '2026-03-05T25:00',
+			extra: 'dropped'
+		}
+	};
+	assert.deepEqual(checkExtraction(ticket), []);
+	assert.deepEqual(ticket.travel, {
+		kind: 'train',
+		from: 'Beispielstadt Hbf',
+		to: 'Musterstadt Hbf',
+		departure: '2026-03-04T07:12',
+		arrival: '2026-03-04T10:48',
+		return_departure: '2026-03-05T17:10',
+		return_arrival: null,
+		place: null,
+		check_in: null,
+		check_out: null,
+		nights: null,
+		breakfast_included: null
+	});
+
+	const hotel = normalizeTravelFields({
+		travel: {
+			kind: 'Hotel',
+			place: 'Musterstadt',
+			check_in: '2026-03-04',
+			check_out: '2026-02-30',
+			nights: 1.5,
+			breakfast_included: 'yes'
+		}
+	}).travel;
+	assert.equal(hotel.kind, null, 'a kind is one of the list, as written');
+	assert.equal(hotel.check_in, '2026-03-04');
+	assert.equal(hotel.check_out, null, 'no 30 February');
+	assert.equal(hotel.nights, null);
+	assert.equal(hotel.breakfast_included, null);
+
+	// An answer in the older shape keeps its route and departure.
+	const old = normalizeTravelFields({
+		travel: { from: 'A-Stadt', to: 'B-Dorf', departure: '2025-11-02T06:30' }
+	}).travel;
+	assert.equal(old.kind, null);
+	assert.equal(old.departure, '2025-11-02T06:30');
+	assert.equal(normalizeTravelFields({ travel: 'Bahn' }).travel, null);
+	assert.equal(normalizeTravelFields({}).travel, null);
 });

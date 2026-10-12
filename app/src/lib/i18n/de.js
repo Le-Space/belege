@@ -707,7 +707,7 @@ export default {
 			],
 			usesHeading: 'Mit KI',
 			uses: [
-				'Belege auslesen: Anbieter, Betrag, Datum, Rechnungs- und Kundennummer aus dem Text eines Belegs – und ob es überhaupt ein Beleg ist (Anmelde-Mails und Newsletter nicht). Bei „Auslesen“, „Alle neuen auslesen“, „Beleg hochladen“, „Als Beleg übernehmen“ und „Rechnungen holen“.',
+				'Belege auslesen: Anbieter, Betrag, Datum, Rechnungs- und Kundennummer aus dem Text eines Belegs, bei Reisekosten auch Art, Strecke, Zeiten, Hotelnächte und ob das Frühstück inklusive ist – und ob es überhaupt ein Beleg ist (Anmelde-Mails und Newsletter nicht). Bei „Auslesen“, „Alle neuen auslesen“, „Beleg hochladen“, „Als Beleg übernehmen“ und „Rechnungen holen“.',
 				'„Mit KI weitersuchen“ im privaten Postfach: Suchwörter und Absender vorschlagen, dann unter den Treffern den Beleg wählen – nach Betreff, Absender-Domain und Dateinamen, nie nach dem Text der E-Mails.',
 				'„KI-Vorschlag“ unter „Beleg zuordnen“: unter bis zu 25 deiner Belege den passenden zu einer Buchung nennen – nach Anbieter, Betrag, Datum, Rechnungsnummer und Kurzbeschreibung. Zuordnen tust du.',
 				'„KI-Vorschlag“ unter „Als Gegenbuchung verknüpfen …“: unter bis zu 8 Buchungen auf deinen anderen Konten die andere Seite einer eigenen Umbuchung nennen – nach Richtung, Betrag, Menge, Tag, Kontoart, Gegenpartei und Zweck, ohne Adressen, IBANs und Hashes. Verknüpfen tust du.',
@@ -1876,7 +1876,25 @@ export default {
 	belege: {
 		travel: {
 			open: 'Zu einer Reise …',
-			looksLikeTicket: 'Als Ticket gelesen: gehört wohl zu einer Reise.',
+			looksLikeTrip: 'Als {kind} gelesen: gehört wohl zu einer Reise.',
+			looksLikeEvent: 'Als {kind} gelesen: gehört vielleicht zu einer Reise.',
+			kind: {
+				train: 'Bahnticket',
+				bus: 'Busticket',
+				flight: 'Flug',
+				public_transport: 'ÖPNV-Ticket',
+				taxi: 'Taxi',
+				rental_car: 'Mietwagen',
+				fuel: 'Tankbeleg',
+				parking: 'Parken',
+				hotel: 'Hotelrechnung',
+				restaurant: 'Restaurantrechnung',
+				event: 'Eventticket',
+				ticket: 'Ticket'
+			},
+			readBack: 'zurück {when}',
+			readNights: 'Nächte: {count}',
+			readBreakfast: 'Frühstück inklusive',
 			assigned: 'Teil der Reise',
 			trip: 'Reise',
 			suggested: 'An diesem Datum',
@@ -1888,6 +1906,8 @@ export default {
 			unassign: 'Von der Reise nehmen',
 			cancel: 'Abbrechen',
 			hospitality: {
+				looksLike:
+					'Als Restaurantrechnung gelesen: als Bewirtung erfassen, wenn es ein Geschäftsessen war.',
 				open: 'Als Bewirtung erfassen …',
 				title: 'Bewirtung',
 				what: 'Was das Finanzamt für ein Geschäftsessen verlangt. Teilnehmer je eine Zeile, dich selbst eingeschlossen.',
@@ -2591,6 +2611,8 @@ export default {
 		remove: 'Entfernen',
 		addStop: 'Grenzübertritt hinzufügen',
 		meals: 'Gestellte Mahlzeiten',
+		breakfastProposal: 'Die Hotelrechnung enthält Frühstück am: {days}.',
+		breakfastTake: 'Übernehmen',
 		mealsHint:
 			'Ein Frühstück in der Hotelrechnung oder ein von anderen bezahltes Essen kürzt die Pauschale des Tages.',
 		day: 'Tag',
