@@ -15,6 +15,8 @@ import { setAsideReceipt } from '../matching/actions.js';
 import { importFile } from '../receipts/import.js';
 import { INVOICE_EXTENSION, decimalFromUnits, reach } from './consumer.js';
 import { t } from '../i18n/index.js';
+import { categoryOf } from '../receipts/einvoice.js';
+import { vatIdCountry } from '../vat/vat-kind.js';
 
 /** The receipts' `source` for an issued invoice, and its `sourceRef` prefix. */
 export const ISSUED_SOURCE = 'invoice-app';
@@ -30,11 +32,12 @@ export const REFERENCE_SYSTEM = 'belege';
  * @property {'issued' | 'cancelled'} state
  * @property {string} issuedOn
  * @property {string} [dueOn]
- * @property {{ name: string }} customer
+ * @property {{ name: string, vatId?: string }} customer the VAT ID since invoice 0.3.0
  * @property {Money} total
  * @property {Money} [net] the total without VAT (proposed for the invoice extension, #195)
- * @property {{ rate: string, amount: Money }[]} [vat] the VAT per rate (percent as a decimal
- *   string); absent: the app did not say; empty: no VAT charged (#195)
+ * @property {{ rate: string, category?: string, amount: Money }[]} [vat] the VAT per rate (percent as a
+ *   decimal string) and its UNTDID 5305 category (invoice 0.3.0); absent: the app did not say;
+ *   empty: no VAT charged (#195)
  * @property {Money} [paid]
  * @property {Payment[]} [payments]
  */
@@ -106,17 +109,27 @@ export function extractionOf(inv) {
  * An issued invoice's net and VAT per rate, as the extraction keeps them.
  *
  * @param {IssuedInvoice} inv
- * @returns {{ net?: number, vat?: { rate: number, amount: number }[] }}
+ * @returns {{ net?: number, vat?: { rate: number, amount: number, category?: string }[], customer_vat_id?: string, customer_country?: string | null }}
  */
 export function vatOf(inv) {
-	if (!Array.isArray(inv.vat)) return {};
+	// The customer's VAT ID (invoice 0.3.0): with its country, what tells an intra-EU supply (#354).
+	const vatId = String(inv.customer?.vatId ?? '')
+		.replace(/[\s.-]+/g, '')
+		.toUpperCase();
+	const customer = /^[A-Z]{2}(?=[A-Z0-9]*\d)[A-Z0-9]{2,13}$/.test(vatId)
+		? { customer_vat_id: vatId, customer_country: vatIdCountry(vatId) }
+		: {};
+	if (!Array.isArray(inv.vat)) return customer;
 	const vat = inv.vat.flatMap((v) => {
 		const rate = Number(String(v?.rate ?? '').trim());
 		const amount = centsOf(v?.amount?.value);
-		return Number.isFinite(rate) && amount !== null ? [{ rate, amount: amount / 100 }] : [];
+		if (!Number.isFinite(rate) || amount === null) return [];
+		// The category says why a line is at 0 % (reverse charge, a small business, …).
+		const category = v?.category ? categoryOf(String(v.category), rate) : null;
+		return [{ rate, amount: amount / 100, ...(category ? { category } : {}) }];
 	});
 	const net = centsOf(inv.net?.value);
-	return { vat, ...(net === null ? {} : { net: net / 100 }) };
+	return { ...customer, vat, ...(net === null ? {} : { net: net / 100 }) };
 }
 
 /**
