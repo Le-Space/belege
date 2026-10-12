@@ -2,7 +2,7 @@
 
 _English: [backup.md](backup.md)_
 
-Ein Backup enthält alles, was Belege in diesem Browser hält: die acht Datenbanken der Bücher und jede Belegdatei, auch die per Mail gekommenen. Es ist eine Datei, versiegelt mit einem Schlüssel aus deinem Passkey. Aleph Cloud bewahrt sie auf. Öffnen kann sie nur derselbe Passkey, auch Aleph nicht.
+Ein Backup enthält alles, was Belege in diesem Browser hält: die Datenbanken der Bücher und jede Belegdatei, auch die per Mail gekommenen. Es ist eine Datei, versiegelt mit einem Schlüssel aus deinem Passkey. Aleph Cloud bewahrt sie auf. Öffnen kann sie nur derselbe Passkey, auch Aleph nicht.
 
 ## Was du zum Wiederherstellen brauchst
 

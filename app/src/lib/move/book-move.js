@@ -64,7 +64,8 @@ export const MUST_BE_EMPTY = Object.freeze([
 	'accounts',
 	'matches',
 	'partners',
-	'questions'
+	'questions',
+	'travel'
 ]);
 
 export class MoveError extends Error {

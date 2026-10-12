@@ -18,7 +18,7 @@ import { createOfflineLibp2p } from '../network.js';
 import { deriveBackupKey, deriveDatabaseKey, deriveReplicationKey } from '../database-keys.js';
 import { sealedEncryption } from '../entry-encryption.js';
 import {
-	COLLECTIONS,
+	OLD_COLLECTIONS,
 	createCollection,
 	oldBooksNames,
 	oldBooksOpenOptions,
@@ -58,7 +58,7 @@ async function node(keystore) {
 			const options = await oldBooksOpenOptions(keys.encryptionKey);
 			/** @type {Record<string, any>} */
 			const dbs = {};
-			for (const name of COLLECTIONS) dbs[name] = await orbitdb.open(names[name], options);
+			for (const name of OLD_COLLECTIONS) dbs[name] = await orbitdb.open(names[name], options);
 			return dbs;
 		},
 		/** @param {boolean} move */

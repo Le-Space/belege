@@ -2,7 +2,7 @@
 
 _Deutsch: [backup.de.md](backup.de.md)_
 
-A backup holds everything Belege keeps in this browser: the eight databases of the books and every receipt file, including those that came by mail. It is one file, sealed with a key from your passkey. Aleph Cloud keeps it. Only the same passkey can open it, not even Aleph.
+A backup holds everything Belege keeps in this browser: the databases of the books and every receipt file, including those that came by mail. It is one file, sealed with a key from your passkey. Aleph Cloud keeps it. Only the same passkey can open it, not even Aleph.
 
 ## What you need to restore
 
