@@ -139,12 +139,12 @@ afterAll(async () => {
 });
 
 describe('backup archive (real OrbitDB + Helia)', () => {
-	it('lists all eight databases, their heads and the receipt file, and misses nothing', () => {
+	it('lists every database, their heads and the receipt file, and misses nothing', () => {
 		const { manifest } = backup;
 		expect(manifest.kind).toBe('belege-backup');
 		expect(manifest.createdAt).toBe('2026-10-02T08:00:00.000Z');
 		const dbs = manifest.metadata.databases;
-		expect(manifest.metadata.databaseCount).toBe(8);
+		expect(manifest.metadata.databaseCount).toBe(COLLECTIONS.length);
 		expect(dbs.map((/** @type {any} */ d) => d.collection).sort()).toEqual([...COLLECTIONS].sort());
 		const partners = dbs.find((/** @type {any} */ d) => d.collection === 'partners');
 		expect(partners?.entryCount).toBe(2);

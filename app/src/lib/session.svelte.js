@@ -887,7 +887,8 @@ async function unlockWith(credential, progress) {
 		'matches',
 		'questions',
 		'events',
-		'settings'
+		'settings',
+		'travel'
 	])) {
 		session.store[name].onChange(scheduleRefresh);
 	}

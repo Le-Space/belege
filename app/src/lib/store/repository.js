@@ -30,6 +30,22 @@ export const COLLECTIONS = /** @type {const} */ ([
 	'settings',
 	'matches',
 	'questions',
+	'events',
+	'travel'
+]);
+
+/**
+ * The collections there were before the replication layer: only these have
+ * old databases to move or to restore from (`travel` came later, #213).
+ */
+export const OLD_COLLECTIONS = /** @type {const} */ ([
+	'transactions',
+	'receipts',
+	'partners',
+	'accounts',
+	'settings',
+	'matches',
+	'questions',
 	'events'
 ]);
 
@@ -186,7 +202,7 @@ export async function oldBooksOpenOptions(encryptionKey) {
 export async function oldBooksNames(prfOutput) {
 	/** @type {Record<string, string>} */
 	const names = {};
-	for (const name of COLLECTIONS) names[name] = await deriveDatabaseName(prfOutput, name);
+	for (const name of OLD_COLLECTIONS) names[name] = await deriveDatabaseName(prfOutput, name);
 	return names;
 }
 
@@ -207,7 +223,7 @@ export async function oldBooksNames(prfOutput) {
  * @param {(name: string) => void} [params.onOpen] before each collection is opened (its index is
  *   built from the log then – on large books what takes the time on every unlock)
  * @param {Record<string, any>} [params.openOptions] extra `orbitdb.open` options (tests pass memory storages)
- * @returns {Promise<{ transactions: Collection, receipts: Collection, partners: Collection, accounts: Collection, settings: Collection, matches: Collection, questions: Collection, events: Collection, moved: Record<string, { total: number, moved: number }>, databases: () => Record<string, any>, resync: () => Promise<void>, close: () => Promise<void> }>}
+ * @returns {Promise<{ transactions: Collection, receipts: Collection, partners: Collection, accounts: Collection, settings: Collection, matches: Collection, questions: Collection, events: Collection, travel: Collection, moved: Record<string, { total: number, moved: number }>, databases: () => Record<string, any>, resync: () => Promise<void>, close: () => Promise<void> }>}
  */
 export async function openStore({
 	orbitdb,
@@ -251,7 +267,7 @@ export async function openStore({
 	if (move) {
 		const names = await oldBooksNames(prfOutput);
 		const options = await oldBooksOpenOptions(encryptionKey);
-		for (const name of COLLECTIONS) {
+		for (const name of OLD_COLLECTIONS) {
 			const from = await orbitdb.open(names[name], { ...options, ...(await extra(name)) });
 			try {
 				moved[name] = await moveLog({
@@ -275,6 +291,7 @@ export async function openStore({
 		matches: collections.matches,
 		questions: collections.questions,
 		events: collections.events,
+		travel: collections.travel,
 		/** What `move` moved, by collection: entries in the old log, and how many were new. */
 		moved,
 		/** The opened OrbitDB databases, by collection: what a backup reads (backup/archive.js). */

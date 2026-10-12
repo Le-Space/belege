@@ -131,13 +131,13 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 	await expect(
 		made.locator('[data-testid="backup-contents-row"][data-collection="transactions"] td')
 	).toHaveText('1');
-	await expect(made.getByTestId('backup-contents-row')).toHaveCount(8);
+	await expect(made.getByTestId('backup-contents-row')).toHaveCount(9);
 	await expect(made.getByTestId('backup-contents-files')).toHaveText('0');
 	// The history keeps it, folded.
 	await card.getByTestId('backup-row-details').locator('summary').click();
 	await expect(
 		card.getByTestId('backup-row-details').getByTestId('backup-contents-row')
-	).toHaveCount(8);
+	).toHaveCount(9);
 
 	// The browser uploaded it (the bridge only signed), sealed: nothing readable.
 	// Two uploads: the one Aleph did not keep, and the one it did.

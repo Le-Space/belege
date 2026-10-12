@@ -64,6 +64,13 @@ async function source() {
 	const gone = await a.store.receipts.put({ source: 'upload', fileCid: null, fileName: 'alt.pdf' });
 	await a.store.receipts.softDelete(gone.id);
 	await a.store.matches.put({ transactionId: tx.id, receiptId: receipt.id, state: 'confirmed' });
+	// A trip, and the receipt assigned to it (#213).
+	const trip = await a.store.travel.put({
+		kind: 'trip',
+		destination: MARKER,
+		start: '2026-09-01T07:00'
+	});
+	await a.store.receipts.put({ ...receipt, travel: { tripId: trip.id, paidBy: 'private' } });
 	for (const [key, value] of [
 		['datev', { consultantNumber: '1001' }],
 		['bridge', { url: 'http://127.0.0.1:4300', token: 'geheim-token' }],
@@ -96,6 +103,7 @@ describe('the move file (#328)', () => {
 			receipts: 3,
 			matches: 1,
 			settings: 1,
+			travel: 1,
 			files: 3
 		});
 		expect(header.leftOut).toEqual(['backup/aleph-key', 'bridge', 'device:…']);
@@ -103,7 +111,7 @@ describe('the move file (#328)', () => {
 
 		const opened = await openMoveFile(file, key);
 		const done = await takeOverBooks({ store: b.store, blobs: b.blobs, opened });
-		expect(done).toEqual({ records: 7, files: 3 });
+		expect(done).toEqual({ records: 8, files: 3 });
 
 		const [tx] = await b.store.transactions.list();
 		expect(tx).toMatchObject({ id: a.tx.id, createdAt: a.tx.createdAt, counterparty: MARKER });
@@ -120,7 +128,10 @@ describe('the move file (#328)', () => {
 		const keys = (await b.store.settings.list()).map((/** @type {any} */ r) => r.key);
 		expect(keys).toEqual(['datev']);
 		const [event] = await b.store.events.list();
-		expect(event).toMatchObject({ kind: 'books-moved', records: 7, files: 3 });
+		expect(event).toMatchObject({ kind: 'books-moved', records: 8, files: 3 });
+		const [trip] = await b.store.travel.list();
+		expect(trip).toMatchObject({ kind: 'trip', destination: MARKER });
+		expect(receipt.travel).toEqual({ tripId: trip.id, paidBy: 'private' });
 		// The old books are untouched.
 		expect((await a.store.settings.list()).length).toBe(4);
 	});
