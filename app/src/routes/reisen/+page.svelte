@@ -7,6 +7,9 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import MonthPicker from '$lib/MonthPicker.svelte';
+	import ReceiptPeek from '$lib/ReceiptPeek.svelte';
+	import PeekLink from '$lib/receipts/PeekLink.svelte';
+	import { createPeek } from '$lib/receipts/peek.js';
 	import { app, currentBlobs, currentStore, refreshNow } from '$lib/session.svelte.js';
 	import { statementOf } from '$lib/travel/statement.js';
 	import { closedStatements, createTravelStatement } from '$lib/travel/statement-actions.js';
@@ -243,6 +246,16 @@
 				? `${resolve('/belege')}?receipt=${encodeURIComponent(c.receiptId)}`
 				: null;
 
+	// The hover preview of a receipt named on this page (#273, receipts/peek.js).
+	/** @type {{ receipt: Record<string, any>, anchor: HTMLElement } | null} */
+	let peeked = $state(null);
+	const peek = createPeek({
+		onchange: (v) =>
+			(peeked = /** @type {{ receipt: Record<string, any>, anchor: HTMLElement } | null} */ (v))
+	});
+	/** @param {string} id */
+	const receiptHref = (id) => `${resolve('/belege')}?receipt=${encodeURIComponent(id)}`;
+
 	let busy = $state(false);
 	/** @type {string | null} */
 	let error = $state(null);
@@ -305,6 +318,26 @@
 
 <svelte:head><title>{t('reisen.title')} · Belege</title></svelte:head>
 
+{#if peeked}
+	<ReceiptPeek
+		receipt={peeked.receipt}
+		anchor={peeked.anchor}
+		title={receiptVendor(/** @type {any} */ (peeked.receipt))}
+		detail={[
+			peeked.receipt.amountCents != null
+				? formatMoney(Math.abs(peeked.receipt.amountCents), peeked.receipt.currency ?? 'EUR')
+				: '',
+			((d) => (d ? formatDate(d) : ''))(receiptDate(/** @type {any} */ (peeked.receipt)))
+		]
+			.filter(Boolean)
+			.join(' · ')}
+		onenter={() => peek.stay()}
+		onleave={() => peek.leave()}
+		onscrolled={() => peek.scrolled()}
+		onclose={() => peek.close()}
+	/>
+{/if}
+
 <h1 class="text-2xl font-bold text-heading">{t('reisen.title')}</h1>
 <p class="mt-1 text-sm text-text">{t('reisen.what')}</p>
 <p class="mt-1 text-xs text-faint" data-testid="reisen-adviser">{t('reisen.adviser')}</p>
@@ -345,12 +378,16 @@
 							{@const r = receiptById.get(id)}
 							{#if r}
 								<li>
-									<a
+									<PeekLink
+										receipt={r}
+										href={receiptHref(id)}
+										{peek}
+										open={peeked?.receipt.id === id}
 										class="underline"
-										href={`${resolve('/belege')}?receipt=${encodeURIComponent(id)}`}
+										testid="reisen-proposal-receipt"
 										>{t(`belege.travel.kind.${travelKind(r) ?? 'ticket'}`)} · {receiptVendor(
 											/** @type {any} */ (r)
-										)} · {formatDate(receiptDate(/** @type {any} */ (r)) ?? '')}</a
+										)} · {formatDate(receiptDate(/** @type {any} */ (r)) ?? '')}</PeekLink
 									>
 								</li>
 							{/if}
@@ -441,11 +478,14 @@
 		<ul class="mt-2 divide-y divide-border text-sm">
 			{#each questions as q, i (i)}
 				<li>
-					<a
-						class="flex min-h-11 items-center py-1 text-heading hover:underline"
+					<PeekLink
+						receipt={'receiptId' in q ? receiptById.get(q.receiptId) : null}
 						href={questionHref(q)}
-						data-testid="reisen-question"
-						data-kind={q.kind}>{questionText(q)}</a
+						{peek}
+						open={'receiptId' in q && peeked?.receipt.id === q.receiptId}
+						class="flex min-h-11 items-center py-1 text-heading hover:underline"
+						testid="reisen-question"
+						kind={q.kind}>{questionText(q)}</PeekLink
 					>
 				</li>
 			{/each}
@@ -504,10 +544,13 @@
 		<ul class="mt-2 divide-y divide-border text-sm">
 			{#each hospitality as x (x.r.id)}
 				<li>
-					<a
-						class="flex min-h-11 flex-wrap items-center justify-between gap-2 py-1 text-heading hover:underline"
-						href={`${resolve('/belege')}?receipt=${encodeURIComponent(x.r.id)}`}
-						data-testid="reisen-hospitality-item"
+					<PeekLink
+						receipt={x.r}
+						href={receiptHref(x.r.id)}
+						{peek}
+						open={peeked?.receipt.id === x.r.id}
+						class="flex min-h-11 w-full flex-wrap items-center justify-between gap-2 py-1 text-heading hover:underline"
+						testid="reisen-hospitality-item"
 						><span class="min-w-0 truncate"
 							>{formatDate(receiptDate(/** @type {any} */ (x.r)) ?? '')} · {x.r.hospitality.place ||
 								receiptVendor(/** @type {any} */ (x.r))}</span
@@ -515,7 +558,7 @@
 							>{t('reisen.deductible', {
 								amount: formatMoney(x.split.deductibleCents, 'EUR')
 							})}</span
-						></a
+						></PeekLink
 					>
 				</li>
 			{/each}
@@ -534,13 +577,16 @@
 					class="flex flex-wrap items-center justify-between gap-2 py-1"
 					data-testid="reisen-statement-closed"
 				>
-					<a
+					<PeekLink
+						receipt={receiptById.get(c.receiptId)}
+						href={receiptHref(c.receiptId)}
+						{peek}
+						open={peeked?.receipt.id === c.receiptId}
 						class="underline"
-						href={`${resolve('/belege')}?receipt=${encodeURIComponent(c.receiptId)}`}
 						>{t(i === 0 ? 'reisen.statement.made' : 'reisen.statement.replaced', {
 							number: c.number,
 							date: formatDate(String(c.closedAt).slice(0, 10))
-						})}</a
+						})}</PeekLink
 					>
 					<span class="font-mono tabular-nums">{formatMoney(c.toPayBackCents, 'EUR')}</span>
 				</li>
@@ -612,7 +658,15 @@
 						data-level={c.level}
 						data-code={c.code}
 					>
-						{#if href}<a class="underline" {href}>{checkText(c)}</a>{:else}{checkText(c)}{/if}
+						{#if href && c.receiptId}<PeekLink
+								receipt={receiptById.get(c.receiptId)}
+								{href}
+								{peek}
+								open={peeked?.receipt.id === c.receiptId}
+								class="underline">{checkText(c)}</PeekLink
+							>{:else if href}<a class="underline" {href}>{checkText(c)}</a>{:else}{checkText(
+								c
+							)}{/if}
 					</li>
 				{/each}
 			</ul>

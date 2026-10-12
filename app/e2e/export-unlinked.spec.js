@@ -6,6 +6,7 @@
 import { test, expect } from '@playwright/test';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
+import { makePdf } from '@belege/bridge/testing/pdf';
 
 test('receipts without a payment link to Belege; a copy of a linked one is named apart', async ({
 	page
@@ -17,7 +18,8 @@ test('receipts without a payment link to Belege; a copy of a linked one is named
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
-	await page.evaluate(async () => {
+	const pdf = [...makePdf(['Wolkendienst Beispiel Ltd', 'Rechnung WD-77', 'Summe 19,90 EUR'])];
+	await page.evaluate(async (pdf) => {
 		const e2e = /** @type {any} */ (window).__belegeE2E;
 		const bank = await e2e.addAccount({
 			source: 'hibiscus',
@@ -52,9 +54,11 @@ test('receipts without a payment link to Belege; a copy of a linked one is named
 			authVerdict: 'pass',
 			fileName: 'telefon-mail.pdf'
 		});
-		await e2e.addReceipt({
+		// With its file: previewed in the check list.
+		await e2e.addReceiptFile(pdf, {
 			status: 'ausgelesen',
 			source: 'upload',
+			mime: 'application/pdf',
 			vendor: 'Wolkendienst Beispiel Ltd',
 			invoiceNumber: 'WD-77',
 			amountCents: 1990,
@@ -63,7 +67,7 @@ test('receipts without a payment link to Belege; a copy of a linked one is named
 			fileName: 'wolke.pdf'
 		});
 		await e2e.runMatching();
-	});
+	}, pdf);
 
 	// Link the upload to the payment by hand.
 	await page.getByRole('navigation').getByRole('link', { name: 'Zahlungen' }).click();
@@ -96,6 +100,20 @@ test('receipts without a payment link to Belege; a copy of a linked one is named
 		'1 Belege dieses Monats sind Kopien bereits zugeordneter Belege'
 	);
 	await expect(check('copies')).toContainText('Telefonanbieter Beispiel GmbH');
+
+	// Hovered, the listed receipt shows its first page, with the lens.
+	const peek = page.getByTestId('receipt-peek');
+	await check('unlinked').getByTestId('export-check-receipt').hover();
+	await expect(peek).toBeVisible();
+	await expect(peek).toContainText('Wolkendienst Beispiel Ltd');
+	const page1 = peek.getByTestId('tx-receipt-preview');
+	await expect(page1).toHaveAttribute('data-rendered', 'true');
+	const at = await page1.boundingBox();
+	if (!at) throw new Error('no page');
+	await page.mouse.move(at.x + at.width * 0.3, at.y + at.height * 0.1);
+	await expect(peek.getByTestId('receipt-lens')).toBeVisible();
+	await page.mouse.move(5, 5);
+	await expect(peek).toHaveCount(0);
 
 	// The listed receipt opens under Belege.
 	await check('unlinked').getByTestId('export-check-open').click();

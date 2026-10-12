@@ -10,6 +10,10 @@
 	import { onMount } from 'svelte';
 	import { exportChoice, monthParam } from '$lib/export/month-choice.svelte.js';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
+	import ReceiptPeek from '$lib/ReceiptPeek.svelte';
+	import PeekLink from '$lib/receipts/PeekLink.svelte';
+	import { createPeek } from '$lib/receipts/peek.js';
+	import { receiptDate } from '$lib/receipts/view.js';
 	import {
 		app,
 		currentBlobs,
@@ -352,6 +356,14 @@
 	const txLink = (id) => `${resolve('/zahlungen')}?tx=${encodeURIComponent(id)}`;
 	/** @param {string} id */
 	const receiptLink = (id) => `${resolve('/belege')}?receipt=${encodeURIComponent(id)}`;
+
+	// The hover preview of a receipt in the check list (#273, receipts/peek.js).
+	/** @type {{ receipt: Record<string, any>, anchor: HTMLElement } | null} */
+	let peeked = $state(null);
+	const peek = createPeek({
+		onchange: (v) =>
+			(peeked = /** @type {{ receipt: Record<string, any>, anchor: HTMLElement } | null} */ (v))
+	});
 	/** @param {Record<string, any>} tx */
 	const txText = (tx) =>
 		`${formatDate(tx.bookedOn)} · ${tx.counterparty || '—'} · ${formatMoney(tx.amountCents ?? 0, tx.currency)}`;
@@ -373,7 +385,7 @@
 	/** @type {string} */ kind,
 	/** @type {'ok' | 'blocker' | 'warning'} */ state,
 	/** @type {string} */ text,
-	/** @type {{ id: string, text: string, href: string | null }[]} */ entries
+	/** @type {{ id: string, text: string, href: string | null, receipt?: Record<string, any> }[]} */ entries
 )}
 	<li data-testid="export-check" data-check={kind} data-state={state}>
 		<p
@@ -391,11 +403,26 @@
 			<ul class="mt-1 ml-5 flex flex-col gap-0.5 text-xs text-text">
 				{#each entries.slice(0, SHOWN) as e (e.id)}
 					<li>
-						{e.text}
-						{#if e.href}
-							· <a class="underline" href={e.href} data-testid="export-check-open"
-								>{t('export.open')}</a
+						{#if e.receipt && e.href}
+							<PeekLink
+								receipt={e.receipt}
+								href={e.href}
+								{peek}
+								open={peeked?.receipt.id === e.id}
+								class="underline"
+								testid="export-check-open"
 							>
+								{#snippet before()}<span data-testid="export-check-receipt">{e.text} ·</span
+									>{/snippet}
+								{t('export.open')}
+							</PeekLink>
+						{:else}
+							{e.text}
+							{#if e.href}
+								· <a class="underline" href={e.href} data-testid="export-check-open"
+									>{t('export.open')}</a
+								>
+							{/if}
 						{/if}
 					</li>
 				{/each}
@@ -406,6 +433,26 @@
 		{/if}
 	</li>
 {/snippet}
+
+{#if peeked}
+	<ReceiptPeek
+		receipt={peeked.receipt}
+		anchor={peeked.anchor}
+		title={receiptVendor(/** @type {any} */ (peeked.receipt))}
+		detail={[
+			peeked.receipt.amountCents != null
+				? formatMoney(Math.abs(peeked.receipt.amountCents), peeked.receipt.currency ?? 'EUR')
+				: '',
+			((d) => (d ? formatDate(d) : ''))(receiptDate(/** @type {any} */ (peeked.receipt)))
+		]
+			.filter(Boolean)
+			.join(' · ')}
+		onenter={() => peek.stay()}
+		onleave={() => peek.leave()}
+		onscrolled={() => peek.scrolled()}
+		onclose={() => peek.close()}
+	/>
+{/if}
 
 <h1 class="text-2xl font-bold text-heading">{t('export.title')}</h1>
 <p class="mt-2 text-text">{t('export.intro')}</p>
@@ -610,7 +657,8 @@
 				plan.checks.unlinkedReceipts.map((r) => ({
 					id: r.id,
 					text: receiptText(r),
-					href: receiptLink(r.id)
+					href: receiptLink(r.id),
+					receipt: r
 				}))
 			)}
 			{#if plan.checks.copies.length}
@@ -621,7 +669,8 @@
 					plan.checks.copies.map((r) => ({
 						id: r.id,
 						text: receiptText(r),
-						href: receiptLink(r.id)
+						href: receiptLink(r.id),
+						receipt: r
 					}))
 				)}
 			{/if}
@@ -634,7 +683,8 @@
 				plan.checks.unverified.map((r) => ({
 					id: r.id,
 					text: receiptText(r),
-					href: receiptLink(r.id)
+					href: receiptLink(r.id),
+					receipt: r
 				}))
 			)}
 		</ul>
