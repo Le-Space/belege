@@ -475,6 +475,27 @@ test('the month’s statement: checks first, then a numbered PDF kept as a recei
 	await expect(made).toContainText('RK-2025-001');
 	await expect(made).toContainText('113,80 EUR');
 
+	// Booked on the traveller's account (step 6): two tickets and the allowance, to be confirmed.
+	await expect(page.getByTestId('reisen-statement-booked')).toContainText(
+		'3 Buchungen auf Reisekosten Inhaberin Beispiel.'
+	);
+	await expect(page.getByTestId('reisen-statement-booked')).toContainText(
+		'Konten übernehmen: 3 offen'
+	);
+	await page.getByTestId('reisen-statement-booked').getByRole('link').click();
+	await page.getByTestId('export-month-select').selectOption('2025-06');
+	await page.getByTestId('export-auto-confirm').click();
+	const check = (/** @type {string} */ kind) =>
+		page.locator(`[data-testid="export-check"][data-check="${kind}"]`);
+	await expect(check('unassigned')).toHaveAttribute('data-state', 'ok');
+	// No legal form said yet: the clearing account is not known, and the export says so.
+	await expect(check('ledger')).toHaveAttribute('data-state', 'blocker');
+	await expect(check('ledger')).toContainText('Reisekosten Inhaberin Beispiel');
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
+	await page.getByTestId('belege-reisen').click();
+	await june();
+	await expect(page.getByTestId('reisen-statement-booked')).not.toContainText('offen');
+
 	// The PDF is a receipt now.
 	await made.getByRole('link').click();
 	await expect(page.getByTestId('receipt-detail')).toContainText(

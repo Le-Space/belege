@@ -7,6 +7,9 @@
 //   2. an own transfer (classify.js): 1360 Geldtransit, no BU key
 //   3. a bank fee: 4970 Nebenkosten des Geldverkehrs, no BU key
 //   (before both: a private payment or its repayment, by the legal form, #172)
+//   3b. travel (#213): a line of a travel statement carries its account; a
+//      receipt on a trip, or a hospitality bill, goes on the travel account
+//      of its category, by the legal form (travel/accounts.js)
 //   4. learned: the account the person gave this vendor last time
 //      (partners.js `account`), found by the receipt's vendor or the
 //      counterparty on the statement
@@ -19,9 +22,11 @@ import { FEE_ACCOUNT, TRANSFER_ACCOUNT, isAccountNumber } from './skr03.js';
 import { DEFAULT_TAX_KEYS } from './settings.js';
 import { taxKeyFor } from './tax-keys.js';
 import { privateKind } from '../matching/private-kind.js';
+import { receiptCategory, travelAccount } from '../travel/accounts.js';
+import { travelKind } from '../travel/view.js';
 
 /** @typedef {Record<string, any>} Rec */
-/** @typedef {'confirmed' | 'transfer' | 'fee' | 'payroll' | 'learned' | 'private' | null} SuggestionSource */
+/** @typedef {'confirmed' | 'transfer' | 'fee' | 'payroll' | 'learned' | 'private' | 'travel' | null} SuggestionSource */
 
 /**
  * @typedef {object} Suggestion
@@ -29,6 +34,7 @@ import { privateKind } from '../matching/private-kind.js';
  * @property {string} taxKey '' for none
  * @property {SuggestionSource} source where the account comes from; null: none known
  * @property {import('./tax-keys.js').TaxVia | 'learned' | 'confirmed' | 'none'} taxVia where the key comes from
+ * @property {string | null} [category] a travel cost's category (travel/accounts.js)
  * @property {string | null} vendor the learned vendor's name
  */
 
@@ -67,6 +73,7 @@ export function learnedPartner(partners, receipt, tx) {
  * @param {import('./settings.js').TaxKeys} [context.keys]
  * @param {{ payment: string | null, repayment: string | null }} [context.privateAccounts]
  *   where a private payment and its repayment go, by the legal form (#172)
+ * @param {import('../travel/accounts.js').TravelSet | null} [context.travelSet] the travel accounts' set, by the legal form (#213)
  * @returns {Suggestion}
  */
 export function suggestBooking(
@@ -76,7 +83,8 @@ export function suggestBooking(
 		receipts = [],
 		partners = [],
 		keys = DEFAULT_TAX_KEYS,
-		privateAccounts = { payment: null, repayment: null }
+		privateAccounts = { payment: null, repayment: null },
+		travelSet = null
 	}
 ) {
 	if (isBookingConfirmed(tx)) {
@@ -131,8 +139,33 @@ export function suggestBooking(
 	if (classification?.kind === 'bank-fee') {
 		return { account: FEE_ACCOUNT, taxKey: '', source: 'fee', taxVia: 'none', vendor: null };
 	}
+	// A line of a travel statement (#213): its account and key were set with it.
+	if (tx.travelLine?.account) {
+		return {
+			account: String(tx.travelLine.account),
+			taxKey: String(tx.travelLine.taxKey ?? ''),
+			source: 'travel',
+			taxVia: tx.travelLine.taxVia ?? 'none',
+			vendor: null,
+			category: tx.travelLine.category ?? null
+		};
+	}
 	const income = Number(tx.amountCents ?? 0) > 0;
 	const receipt = receipts[0] ?? null;
+	// A receipt on a trip, or a hospitality bill, paid from a business account (#213).
+	if (travelSet && receipt && !income && (receipt.travel?.tripId || receipt.hospitality)) {
+		const category = receiptCategory(receipt, travelKind(receipt));
+		const account = travelAccount(travelSet, category).number;
+		const key = taxKeyFor(receipt, { income, keys, account });
+		return {
+			account,
+			taxKey: key.taxKey,
+			source: 'travel',
+			taxVia: key.via,
+			vendor: null,
+			category
+		};
+	}
 	const partner = learnedPartner(partners, receipt, tx);
 	const account = partner ? String(partner.account) : null;
 	const fromReceipt = taxKeyFor(receipt, { income, keys, account });

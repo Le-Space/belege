@@ -337,7 +337,7 @@ export async function importTransactions({
  * Find or create the account record for a source's account.
  *
  * @param {import('../store/repository.js').Collection} accounts
- * @param {{ source: string, sourceAccountId: string, ibanLast4: string, name: string, currency: string, kind?: 'exchange' | 'wallet' | 'outlay', asset?: string, decimals?: number }} input
+ * @param {{ source: string, sourceAccountId: string, ibanLast4: string, name: string, currency: string, kind?: 'exchange' | 'wallet' | 'outlay' | 'travel', asset?: string, decimals?: number }} input
  *   `kind`, `asset`, `decimals`: an account on an exchange or a wallet, holding one asset;
  *   `outlay`: what a person paid privately (outlays/outlays.js)
  */

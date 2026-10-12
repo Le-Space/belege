@@ -189,7 +189,8 @@ export function paidByGuess(receipt, { transactions, matches }) {
 	const match = matchOfReceipt(receipt.id, matches);
 	if (!match) return 'private';
 	const tx = transactions.find((t) => t.id === match.transactionId);
-	return tx && !isOutlay(tx) ? 'company' : 'private';
+	// An outlay (#293) or a travel statement's own booking (#213): paid privately.
+	return tx && !isOutlay(tx) && tx.source !== 'travel' ? 'company' : 'private';
 }
 
 /** A receipt's currency, as read: EUR where it says none. @param {Rec} r */

@@ -2360,6 +2360,7 @@ export default {
 			transfer: 'Own transfer',
 			fee: 'Bank fee',
 			private: 'Private (paid by mistake), by legal form',
+			travel: 'travel costs, by kind and legal form – check with the tax adviser',
 			learned: 'learned',
 			learnedFrom: 'learned from {vendor}',
 			confirmed: 'confirmed',
@@ -2440,9 +2441,9 @@ export default {
 			unassigned: '{count} bookings without a confirmed account – no export until they have one.',
 			suspense:
 				'{count} bookings go onto the suspense account {account} – they must be re-booked in the bookkeeping.',
-			autoConfirm: 'Confirm accounts for own transfers and bank fees ({count})',
+			autoConfirm: 'Confirm accounts for own transfers, bank fees and travel statements ({count})',
 			autoConfirmHint:
-				'Confirms 1360 for own transfers and 4970 for bank fees – the same suggestions as in the payment, with one click for all.',
+				'Confirms 1360 for own transfers, 4970 for bank fees and a travel statement’s accounts (by kind and legal form, check with the tax adviser) – the same suggestions as in the payment, with one click for all.',
 			ledgerOk: 'Every bank account has its ledger account.',
 			noLedger: 'Ledger account missing for {list} – enter it under Settings → Bookkeeping.',
 			noBankAccount: '{count} bookings belong to no bank account in the books.',
@@ -2583,6 +2584,8 @@ export default {
 				'Once made, a statement is not changed: a correction is a new one that refers to it.',
 			made: '{number}, made on {date}',
 			replaced: '{number}, made on {date} – replaced',
+			booked: '{count} bookings on {account}.',
+			toConfirm: 'Confirm their accounts: {count} open',
 			closedHint: 'The PDF is a receipt now and waits for its payout.',
 			correct: 'Make a correction',
 			check: {

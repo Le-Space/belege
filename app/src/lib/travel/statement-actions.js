@@ -8,6 +8,7 @@
 import { importFile } from '../receipts/import.js';
 import { recordEvent } from '../activity/events.js';
 import { nextStatementNumber } from './records.js';
+import { bookStatement } from './booking.js';
 import { lastDayOf, snapshotOf, statementOf } from './statement.js';
 
 /** @typedef {Record<string, any>} Rec */
@@ -42,8 +43,9 @@ export const closedStatements = (travel, travellerId, month) =>
 
 /**
  * @param {object} p
- * @param {{ travel: import('../store/repository.js').Collection, receipts: import('../store/repository.js').Collection, events?: import('../store/repository.js').Collection, transactions?: import('../store/repository.js').Collection, matches?: import('../store/repository.js').Collection }} p.store
+ * @param {any} p.store travel, receipts, events, transactions, matches, accounts
  * @param {{ put: (bytes: Uint8Array) => Promise<string>, get?: (cid: string) => Promise<Uint8Array> }} p.blobs
+ * @param {import('../booking/settings.js').DatevSettings} [p.settings] cleaned; with them the statement is booked (#213, step 6)
  * @param {Rec} p.traveller
  * @param {string} p.month YYYY-MM
  * @param {string} [p.issuer]
@@ -55,12 +57,14 @@ export async function createTravelStatement({
 	store,
 	blobs,
 	traveller,
+	settings,
 	month,
 	issuer = '',
 	createdBy = '',
 	corrects = null,
 	now = () => new Date()
 }) {
+	/** @type {Rec[]} */
 	const travel = await store.travel.list({ includeDeleted: true });
 	const before = closedStatements(travel, traveller.id, month);
 	if (before.length && !corrects)
@@ -71,7 +75,7 @@ export async function createTravelStatement({
 	const statement = statementOf({
 		travellerId: traveller.id,
 		month,
-		travel: travel.filter((r) => !r.deleted),
+		travel: travel.filter((/** @type {Rec} */ r) => !r.deleted),
 		receipts: await store.receipts.list(),
 		transactions: (await store.transactions?.list()) ?? [],
 		matches: (await store.matches?.list()) ?? []
@@ -128,11 +132,15 @@ export async function createTravelStatement({
 		toPayBackCents: statement.totals.toPayBackCents,
 		snapshot: snapshotOf(statement)
 	});
+	// Booked on the traveller's account (step 6): what it owes them, by account.
+	const booking = settings
+		? await bookStatement({ store, settings, traveller, closed, statement })
+		: null;
 	await recordEvent(store.events, 'decision', {
 		action: 'travel-statement',
 		receiptId: record.id,
 		number,
 		month
 	});
-	return { statement: closed, receipt: record, number };
+	return { statement: closed, receipt: record, number, booking };
 }

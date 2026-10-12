@@ -190,6 +190,23 @@
 			: null
 	);
 	let showPreview = $derived(Boolean(preview && !preview.checks.some((c) => c.code === 'nothing')));
+	// What the newest closed statement booked (step 6), and how much is still to be confirmed.
+	let bookedNow = $derived.by(() => {
+		const id = closed[0]?.id;
+		const lines = id
+			? app.transactions.filter(
+					(tx) => tx.source === 'travel' && !tx.deleted && tx.travelLine?.statementId === id
+				)
+			: [];
+		const account = lines.length ? app.accounts.find((a) => a.id === lines[0].accountId) : null;
+		return {
+			count: lines.length,
+			open: lines.filter((tx) => !tx.booking?.confirmedAt).length,
+			account: account
+				? `${account.name}${account.ledgerAccount ? ` (${account.ledgerAccount})` : ''}`
+				: ''
+		};
+	});
 	let correcting = $state(false);
 	let travellerName = $state('');
 	let nameTouched = $state(false);
@@ -211,6 +228,7 @@
 				store,
 				blobs,
 				traveller,
+				settings: cleanDatevSettings(app.datevSettings),
 				month,
 				issuer: app.matchingSettings?.companyNames?.[0] ?? '',
 				createdBy: app.did ?? '',
@@ -592,6 +610,16 @@
 				</li>
 			{/each}
 		</ul>
+		{#if bookedNow.count}
+			<p class="mt-2 text-sm text-text" data-testid="reisen-statement-booked">
+				{t('reisen.statement.booked', { count: bookedNow.count, account: bookedNow.account })}
+				{#if bookedNow.open}
+					<a class="underline" href={resolve('/export')}
+						>{t('reisen.statement.toConfirm', { count: bookedNow.open })}</a
+					>
+				{/if}
+			</p>
+		{/if}
 		<p class="mt-1 text-xs text-faint">{t('reisen.statement.closedHint')}</p>
 		<button
 			type="button"

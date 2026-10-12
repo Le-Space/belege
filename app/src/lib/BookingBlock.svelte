@@ -9,6 +9,7 @@
 	import { confirmBooking } from './booking/actions.js';
 	import { isNetworkFee, setFeeRule } from './booking/fee-rule.js';
 	import { cleanMatchingSettings } from './matching/classify.js';
+	import { travelSet } from '$lib/travel/accounts.js';
 	import { suggestBooking } from './booking/suggest.js';
 	import { cleanDatevSettings, privateAccounts } from './booking/settings.js';
 	import {
@@ -38,7 +39,8 @@
 			receipts,
 			partners: app.partners ?? [],
 			keys,
-			privateAccounts: privateAccountsNow
+			privateAccounts: privateAccountsNow,
+			travelSet: travelSet(cleanDatevSettings(app.datevSettings))
 		})
 	);
 	let income = $derived((tx.amountCents ?? 0) > 0);
