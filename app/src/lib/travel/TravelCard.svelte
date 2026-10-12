@@ -5,7 +5,8 @@
 	// assigned by itself: a ticket only says that it looks like travel.
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { app, currentStore, refreshNow } from '$lib/session.svelte.js';
+	import { app, currentBlobs, currentStore, refreshNow } from '$lib/session.svelte.js';
+	import { guessTravel } from './words.js';
 	import { cleanDatevSettings } from '$lib/booking/settings.js';
 	import { formatDate, formatMoney } from '$lib/bank/format.js';
 	import { btn } from '$lib/ui/styles.js';
@@ -21,6 +22,7 @@
 	import {
 		allTrips,
 		euroCents,
+		guessedTravel,
 		hospitalityOf,
 		travelHint,
 		travelKind,
@@ -160,6 +162,38 @@
 
 	let split = $derived(receipt.hospitality ? hospitalityOf(receipt) : null);
 	let hint = $derived(travelHint(receipt));
+	let guess = $derived(guessedTravel(receipt));
+
+	// A PDF not read by a model: its text layer, read here on this device once,
+	// for the words of a travel cost (words.js, #366). Nothing is sent; what is
+	// kept is the kind and the words found.
+	$effect(() => {
+		const r = receipt;
+		if (r.extraction || r.travelGuess !== undefined || r.mime !== 'application/pdf' || !r.fileCid)
+			return;
+		void lookLocally(String(r.id), String(r.fileCid));
+	});
+
+	/** @param {string} id @param {string} fileCid */
+	async function lookLocally(id, fileCid) {
+		const blobs = currentBlobs();
+		const store = currentStore();
+		if (!blobs || !store) return;
+		try {
+			const { extractPdfText } = await import('$lib/receipts/pdf.js');
+			const found = guessTravel((await extractPdfText(await blobs.get(fileCid))).text);
+			const latest = await store.receipts.get(id);
+			if (!latest || latest.deleted || latest.extraction || latest.travelGuess !== undefined)
+				return;
+			await store.receipts.put({
+				...latest,
+				travelGuess: found ? { kind: found.kind, words: found.words } : { kind: null, words: [] }
+			});
+			await refreshNow();
+		} catch {
+			// A PDF that cannot be read here: no hint, as before.
+		}
+	}
 	let kind = $derived(travelKind(receipt));
 
 	/** `2026-03-04T07:12` → `04.03.2026 07:12`. @param {string | null | undefined} v */
@@ -232,7 +266,14 @@
 			<button type="button" class={btn.secondary} onclick={start} data-testid="travel-open"
 				>{t('belege.travel.open')}</button
 			>
-			{#if hint === 'trip' || hint === 'event'}
+			{#if guess && (hint === 'trip' || hint === 'event')}
+				<p class="mt-1 text-xs text-faint" data-testid="travel-looks-like" data-by="words">
+					{t('belege.travel.guessed', {
+						kind: t(`belege.travel.kind.${kind}`),
+						words: guess.words.slice(0, 3).join(', ')
+					})}
+				</p>
+			{:else if hint === 'trip' || hint === 'event'}
 				<p class="mt-1 text-xs text-faint" data-testid="travel-looks-like">
 					{t(hint === 'event' ? 'belege.travel.looksLikeEvent' : 'belege.travel.looksLikeTrip', {
 						kind: t(`belege.travel.kind.${kind}`)

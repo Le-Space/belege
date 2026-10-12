@@ -14,6 +14,7 @@ import { isOutlay } from '../outlays/outlays.js';
 import { receiptDate } from '../receipts/view.js';
 import { hospitality } from './hospitality.js';
 import { cleanTrip } from './records.js';
+import { guessTravel, receiptWords } from './words.js';
 
 /** @typedef {Record<string, any>} Rec */
 
@@ -38,11 +39,34 @@ export const receiptsOfTrip = (receipts, tripId) =>
  * @param {Rec} r
  * @returns {string | null}
  */
-export function travelKind(r) {
+export function readTravelKind(r) {
 	const kind = r.extraction?.travel?.kind;
 	if (typeof kind === 'string' && kind) return kind;
 	return r.extraction?.document_type === 'ticket' ? 'ticket' : null;
 }
+
+/**
+ * What the words of a receipt that was not read as travel suggest (#366,
+ * words.js): from its PDF's text where this device looked once
+ * (`travelGuess`), else from its file name, subject, sender and excerpt.
+ *
+ * @param {Rec} r
+ * @returns {{ kind: string, words: string[] } | null}
+ */
+export function guessedTravel(r) {
+	if (readTravelKind(r)) return null;
+	if (r.travelGuess?.kind) return r.travelGuess;
+	return guessTravel(receiptWords(r));
+}
+
+/**
+ * The kind of travel cost a receipt is, as read, or else as its words
+ * suggest; null for anything else.
+ *
+ * @param {Rec} r
+ * @returns {string | null}
+ */
+export const travelKind = (r) => readTravelKind(r) ?? guessedTravel(r)?.kind ?? null;
 
 /** Costs that are travel without doubt: without a trip, they are asked about. */
 const ASKED = new Set(['train', 'bus', 'flight', 'hotel', 'rental_car', 'ticket']);
@@ -63,8 +87,13 @@ export function travelHint(r) {
 	return 'trip';
 }
 
-/** A receipt that is travel without doubt, asked about without a trip. @param {Rec} r */
-export const isTravelReceipt = (r) => ASKED.has(travelKind(r) ?? '');
+/**
+ * A receipt read as travel without doubt, asked about without a trip. Words
+ * alone (words.js) give a hint, never a question.
+ *
+ * @param {Rec} r
+ */
+export const isTravelReceipt = (r) => ASKED.has(readTravelKind(r) ?? '');
 
 /** @param {string} day @param {string} time */
 const at = (day, time) => `${day}T${time}`;

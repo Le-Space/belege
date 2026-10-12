@@ -1877,6 +1877,7 @@ export default {
 		travel: {
 			open: 'Zu einer Reise …',
 			looksLikeTrip: 'Als {kind} gelesen: gehört wohl zu einer Reise.',
+			guessed: 'Art nach Stichworten: {kind} („{words}“) – gehört vielleicht zu einer Reise.',
 			looksLikeEvent: 'Als {kind} gelesen: gehört vielleicht zu einer Reise.',
 			kind: {
 				train: 'Bahnticket',
