@@ -9,6 +9,8 @@
 	import MailText from '$lib/receipts/MailText.svelte';
 	import EInvoiceView from '$lib/receipts/EInvoiceView.svelte';
 	import { cleanMatchingSettings } from '$lib/matching/classify.js';
+	import { cleanDatevSettings } from '$lib/booking/settings.js';
+	import { ownInvoiceTest } from '$lib/vat/own-invoice.js';
 	import { isVendorReceipt } from '$lib/matching/vendor-account.js';
 	import { addressBook, payeeName } from '$lib/bank/payee.js';
 	import { booksByYear, shownYear } from '$lib/year/year.svelte.js';
@@ -475,6 +477,31 @@
 		const store = currentStore();
 		if (!store) return;
 		await clearScamAction(store, record.id);
+		await refreshNow();
+		await runMatchingNow();
+	}
+
+	/** Our own invoices among the receipts (#354), by name, VAT ID or the person's word. */
+	let isOwn = $derived(
+		ownInvoiceTest({
+			companyNames: cleanMatchingSettings(app.matchingSettings).companyNames,
+			ownVatId: cleanDatevSettings(app.datevSettings).ownVatId
+		})
+	);
+
+	/**
+	 * "Als eigene Rechnung führen" / "Doch kein eigener Beleg": the person's word
+	 * decides over the name and the VAT ID.
+	 *
+	 * @param {Receipt} record
+	 * @param {boolean} ours
+	 */
+	async function setOwn(record, ours) {
+		const store = currentStore();
+		if (!store) return;
+		const latest = await store.receipts.get(record.id);
+		if (!latest) return;
+		await store.receipts.put({ ...latest, ownInvoice: ours });
 		await refreshNow();
 		await runMatchingNow();
 	}
@@ -1157,6 +1184,24 @@
 								<dt class="text-faint">{t('belege.fields.model')}</dt>
 								<dd class="font-mono text-xs text-text" data-testid="field-model">
 									{selected.extractionModel}
+								</dd>
+								<!-- Ours or received (#354): an own invoice's VAT is output VAT, never input VAT. -->
+								<dt class="text-faint">{t('belege.own.label')}</dt>
+								<dd
+									class="text-text"
+									data-testid="field-own"
+									data-own={isOwn(selected) ? 'true' : 'false'}
+								>
+									{isOwn(selected) ? t('belege.own.yes') : t('belege.own.no')}
+									{#if selected.source !== 'invoice-app'}
+										<button
+											type="button"
+											class="ml-1 text-xs underline"
+											onclick={() => selected && setOwn(selected, !isOwn(selected))}
+											data-testid="own-invoice-toggle"
+											>{isOwn(selected) ? t('belege.own.notOurs') : t('belege.own.ours')}</button
+										>
+									{/if}
 								</dd>
 							{/if}
 							<dt class="text-faint">{t('belege.fields.source')}</dt>

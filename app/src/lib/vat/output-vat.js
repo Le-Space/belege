@@ -42,8 +42,13 @@ export const smallBusinessLimits = (year) =>
 const cents = (amount) =>
 	typeof amount === 'number' && Number.isFinite(amount) ? Math.round(amount * 100) : 0;
 
-/** One of our own invoices that counts: not deleted, not set aside. @param {Rec} r */
-const ownInvoice = (r) => !r.deleted && r.ownInvoice === true && r.status !== 'ignoriert';
+/** An invoice number to compare: `RE-2026/007` and `re2026007` are one. @param {unknown} n */
+const numberKey = (n) =>
+	String(n ?? '')
+		.replace(/[^0-9a-z]/gi, '')
+		.toLowerCase();
+/** @param {Rec} r */
+const numberOf = (r) => numberKey(r.invoiceNumber ?? r.extraction?.invoice_number);
 
 /**
  * What one own invoice says about its VAT.
@@ -84,6 +89,7 @@ export function invoiceVat(r) {
  * @param {number} [p.startMonth]
  * @param {'month' | 'quarter'} [p.period]
  * @param {VatBasis} [p.basis]
+ * @param {(r: Rec) => boolean} [p.isOwn] which receipts are our own invoices (own-invoice.js, #354)
  * @returns {{
  *   periods: ({ key: string, months: string[] } & OutputSum)[],
  *   year: OutputSum,
@@ -101,8 +107,20 @@ export function outputVat({
 	year,
 	startMonth = 1,
 	period = 'quarter',
-	basis = 'ist'
+	basis = 'ist',
+	isOwn = (r) => r.ownInvoice === true
 }) {
+	// Our own invoices that count: not deleted, not set aside, not waiting for a yes.
+	const own = receipts.filter(
+		(r) => !r.deleted && r.status !== 'ignoriert' && r.status !== 'rückfrage' && isOwn(r)
+	);
+	// One the invoicing app sent and that was read from a PDF too counts once: the app's.
+	const fromApp = new Set(
+		own.filter((r) => r.source === 'invoice-app' && numberOf(r)).map(numberOf)
+	);
+	const ownInvoices = own.filter(
+		(r) => r.source === 'invoice-app' || !numberOf(r) || !fromApp.has(numberOf(r))
+	);
 	const empty = () => ({ r19: 0, r7: 0, other: 0, total: 0, invoices: 0 });
 	const periods = periodsOf(year, startMonth, period).map((p) => ({ ...p, ...empty() }));
 	const byMonth = new Map(periods.flatMap((p) => p.months.map((m) => [m, p])));
@@ -153,8 +171,7 @@ export function outputVat({
 		}
 	}
 
-	for (const r of receipts) {
-		if (!ownInvoice(r)) continue;
+	for (const r of ownInvoices) {
 		const vat = invoiceVat(r);
 		const issued = vatDay(r);
 		const payments = (paidBy.get(String(r.id)) ?? [])

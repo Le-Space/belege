@@ -1805,6 +1805,7 @@ export default {
 			noAccounts: 'Noch keine Bankkonten in den Büchern.',
 			vatPeriod: 'Umsatzsteuer-Voranmeldung',
 			vatPeriods: { quarter: 'vierteljährlich', month: 'monatlich' },
+			ownVatId: 'Eigene USt-IdNr',
 			vatBasis: 'Umsatzsteuer nach',
 			vatBases: {
 				ist: 'vereinnahmten Entgelten (Ist)',
@@ -2056,6 +2057,13 @@ export default {
 			vat: 'USt {rate} %',
 			gross: 'Gesamt',
 			note: 'Ohne KI aus dem XML gelesen. Das XML ist das Original und geht so in den Export.'
+		},
+		own: {
+			label: 'Richtung',
+			yes: 'Eigene Rechnung – ihre Steuer ist Umsatzsteuer',
+			no: 'Eingangsbeleg',
+			ours: 'Als eigene Rechnung führen',
+			notOurs: 'Doch kein eigener Beleg'
 		},
 		previewFailed: 'Die Vorschau ließ sich nicht erzeugen.',
 		mailOriginal: {

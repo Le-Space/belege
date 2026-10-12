@@ -155,3 +155,63 @@ test('output VAT from own invoices: Ist waits for the money, Soll counts the inv
 	await expect(card.getByTestId('vat-turnover')).toContainText('100.000,00');
 	await expect(card.getByTestId('vat-period-due')).toHaveCount(0);
 });
+
+test('an own invoice among the receipts: never input VAT, its VAT is output VAT (#354)', async ({
+	page
+}) => {
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('E2E Eigene Rechnung');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+	await page.evaluate(
+		(receipts) => /** @type {any} */ (window).__belegeE2E.bench.putMany('receipts', receipts),
+		[
+			receipt('01-15', {
+				vendor: 'Büromiete Muster GmbH',
+				gross: 119,
+				vat: [{ rate: 19, amount: 19 }]
+			}),
+			// Read like any receipt, from a PDF: our own invoice, by our name.
+			{
+				...receipt('02-20', {
+					vendor: 'Muster Beispiel UG',
+					invoice_number: 'RE-2026-9',
+					gross: 1190,
+					vat: [{ rate: 19, amount: 190 }]
+				}),
+				vendor: 'Muster Beispiel UG',
+				invoiceNumber: 'RE-2026-9',
+				amountCents: 119000,
+				status: 'ausgelesen'
+			}
+		]
+	);
+	await page.reload();
+	await page.getByTestId('passkey-unlock').click();
+	const card = page.getByTestId('home-vat');
+	// Not yet told the company's name: the own invoice looks like a received one.
+	await expect(card.getByTestId('vat-year-total')).toContainText('209,00');
+
+	await page.getByTestId('settings-link').click();
+	await page.getByTestId('company-names').fill('Muster Beispiel UG');
+	await page.getByTestId('datev-vat-basis').selectOption('soll');
+	await page.getByTestId('matching-save').click();
+	await expect(page.getByTestId('matching-saved')).toBeVisible();
+	await page.getByRole('link', { name: 'Home', exact: true }).click();
+	await expect(card.getByTestId('vat-year-total')).toContainText('19,00');
+	await expect(card.getByTestId('vat-year-output')).toContainText('190,00');
+	await expect(card.getByTestId('vat-year-due')).toContainText('171,00');
+
+	// In Belege it says so, and the person may say otherwise.
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
+	const all = page.locator('[data-month="all"]');
+	if (await all.count()) await all.first().click();
+	await page.getByTestId('receipt').filter({ hasText: 'Muster Beispiel UG' }).click();
+	await expect(page.getByTestId('field-own')).toHaveAttribute('data-own', 'true');
+	await page.getByTestId('own-invoice-toggle').click();
+	await expect(page.getByTestId('field-own')).toHaveAttribute('data-own', 'false');
+	await page.getByRole('link', { name: 'Home', exact: true }).click();
+	await expect(card.getByTestId('vat-year-total')).toContainText('209,00');
+});

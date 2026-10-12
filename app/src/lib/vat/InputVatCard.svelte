@@ -10,6 +10,7 @@
 	import { t } from '$lib/i18n/index.js';
 	import { inputVat } from './input-vat.js';
 	import { outputVat, smallBusinessLimits } from './output-vat.js';
+	import { ownInvoiceTest } from './own-invoice.js';
 
 	/**
 	 * @type {{
@@ -17,6 +18,8 @@
 	 *   matches: Record<string, any>[],
 	 *   transactions: Record<string, any>[],
 	 *   basis: 'ist' | 'soll',
+	 *   companyNames?: string[],
+	 *   ownVatId?: string,
 	 *   year: number,
 	 *   yearName: string,
 	 *   startMonth: number,
@@ -29,6 +32,8 @@
 		matches,
 		transactions,
 		basis,
+		companyNames = [],
+		ownVatId = '',
 		year,
 		yearName,
 		startMonth,
@@ -36,9 +41,11 @@
 		smallBusiness
 	} = $props();
 
-	let vat = $derived(inputVat({ receipts, matches, year, startMonth, period }));
+	/** Our own invoices among the receipts (#354): never input VAT, their VAT is output VAT. */
+	let isOwn = $derived(ownInvoiceTest({ companyNames, ownVatId }));
+	let vat = $derived(inputVat({ receipts, matches, year, startMonth, period, isOwn }));
 	let out = $derived(
-		outputVat({ receipts, matches, transactions, year, startMonth, period, basis })
+		outputVat({ receipts, matches, transactions, year, startMonth, period, basis, isOwn })
 	);
 	/** Output and payable columns only once there are own invoices. */
 	let withOutput = $derived(out.invoices > 0);
