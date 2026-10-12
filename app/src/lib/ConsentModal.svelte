@@ -36,6 +36,7 @@
 		'ai',
 		'crypto',
 		'export',
+		'travel',
 		'devices'
 	];
 

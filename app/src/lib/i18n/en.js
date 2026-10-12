@@ -618,6 +618,14 @@ export default {
 					'One ZIP per month: DATEV booking batch (EXTF) for your bookkeeping, the receipts as PDF and a statement per account.'
 				]
 			},
+			travel: {
+				name: 'Travel expenses',
+				items: [
+					'Trips with their receipts, meal allowances by times and countries, mileage (a family member’s car too) and hospitality.',
+					'Recognised from tickets, hotel invoices and calendar invitations, proposed by dates and route – made only on your click.',
+					'A monthly travel statement as a numbered PDF, booked on SKR 03 accounts, its payout linked to it.'
+				]
+			},
 			devices: {
 				name: 'Devices & collaboration',
 				items: [
@@ -729,7 +737,7 @@ export default {
 				name: 'Bridge on this computer (127.0.0.1)',
 				text: 'Fetches transactions from Hibiscus and receipts from your mailbox. The app only receives accounts you have approved on the bridge, and only emails to the bookkeeping address.',
 				leaves:
-					'The bridge queries your mailbox (IMAP) and sends redacted text to the language model for extraction (see below). Hibiscus establishes the connection to your bank (FinTS).',
+					'The bridge queries your mailbox (IMAP) and sends redacted text to the language model for extraction (see below). From a calendar invitation (.ics) it takes only title, place and times – no attendees, no organiser, no links. Hibiscus establishes the connection to your bank (FinTS).',
 				technical:
 					'The bridge listens only on 127.0.0.1 (port 8765) and starts on no other address. Pairing uses a one-time code; the bearer token is stored encrypted in the app’s settings, and on the bridge only its hash. CORS allows only the registered app addresses; the Host header must be 127.0.0.1 or localhost. Jameica’s certificate is pinned; the Hibiscus password, IMAP token and API key are kept in the macOS Keychain. Accounts without an approved IBAN ending are not queried at all. The bridge opens mailboxes read-only.'
 			},

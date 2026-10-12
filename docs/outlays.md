@@ -36,7 +36,7 @@ Receipts from the private mailbox sit next to purely private ones. **"Privat, ni
 - it is shown as _Privat_, with its reason, and the decision is in the log;
 - _Wieder aufnehmen_ takes it back in.
 
-A partly business receipt (a hotel with a private night) is booked as an outlay with the business share; the split itself belongs to travel expenses (#213).
+A partly business receipt (a hotel with a private night) is booked as an outlay with the business share; the split itself belongs to travel expenses ([travel.md](travel.md)). An outlay on a trip is listed in the travel statement but paid back here, never twice.
 
 ## Paying it back
 
