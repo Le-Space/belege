@@ -20,6 +20,7 @@
 import { receiptDate } from '../receipts/view.js';
 import { allTrips, travelQuestions } from './view.js';
 import { appointmentsOn } from './appointments.js';
+import { statementSettlements } from './payout.js';
 
 /** @typedef {Record<string, any>} Rec */
 
@@ -256,22 +257,45 @@ function destinationOf(pieces) {
 	return [...count.values()].sort((a, b) => b.n - a.n)[0]?.name ?? '';
 }
 
+/** Days after a statement is made before its payout is asked about. */
+export const PAYOUT_DAYS = 14;
+
 /**
  * What travel still asks (view.js `travelQuestions`), less the receipts a
  * proposal already covers – its click answers them – and those of a
- * proposal dismissed as no trip.
+ * proposal dismissed as no trip; and a statement not paid out PAYOUT_DAYS
+ * after it was made (step 7).
  *
- * @param {{ receipts: Rec[], travel: Rec[] }} books
+ * @param {{ receipts: Rec[], travel: Rec[], matches?: Rec[], transactions?: Rec[] }} books
+ * @param {Date} [now]
  * @returns {import('./view.js').TravelQuestion[]}
  */
-export function openTravelQuestions(books) {
+export function openTravelQuestions(books, now = new Date()) {
 	const covered = new Set([
 		...tripProposals(books).flatMap((p) => p.receiptIds),
 		...books.travel
 			.filter((r) => r.kind === 'dismissed' && !r.deleted)
 			.flatMap((r) => String(r.key).split('|'))
 	]);
-	return travelQuestions(books).filter(
-		(q) => q.kind !== 'receiptWithoutTrip' || !covered.has(q.receiptId)
-	);
+	const due = new Date(now.getTime() - PAYOUT_DAYS * 864e5).toISOString();
+	/** @type {import('./view.js').TravelQuestion[]} */
+	const unpaid = statementSettlements({
+		travel: books.travel,
+		matches: books.matches ?? [],
+		transactions: books.transactions ?? []
+	})
+		.filter((s) => s.openCents > 0 && String(s.head.closedAt) <= due)
+		.map((s) => ({
+			kind: 'statementNotPaidOut',
+			statementId: String(s.head.id),
+			number: String(s.head.number),
+			month: String(s.head.month),
+			openCents: s.openCents
+		}));
+	return [
+		...travelQuestions(books).filter(
+			(q) => q.kind !== 'receiptWithoutTrip' || !covered.has(q.receiptId)
+		),
+		...unpaid
+	];
 }

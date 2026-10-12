@@ -40,9 +40,7 @@
 	let txById = $derived(new Map(app.transactions.map((x) => [x.id, x])));
 	let receiptById = $derived(new Map(app.receipts.map((r) => [r.id, r])));
 	// Travel asks on its own page (#213), worked out from the books, not stored.
-	let travelOpen = $derived(
-		openTravelQuestions({ travel: app.travel, receipts: app.receipts }).length
-	);
+	let travelOpen = $derived(openTravelQuestions(app).length);
 	// A payment's name, never a bare dash (bank/payee.js).
 	let book = $derived(addressBook(app));
 

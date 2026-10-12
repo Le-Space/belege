@@ -56,9 +56,7 @@
 				r.kind === 'trip' && !r.deleted && tripMonth(r) === new Date().toISOString().slice(0, 7)
 		).length
 	);
-	let travelOpen = $derived(
-		openTravelQuestions({ travel: app.travel, receipts: app.receipts }).length
-	);
+	let travelOpen = $derived(openTravelQuestions(app).length);
 	let travelProposals = $derived(
 		tripProposals({ travel: app.travel, receipts: app.receipts }).length
 	);

@@ -13,6 +13,7 @@
 	import { app, currentBlobs, currentStore, refreshNow } from '$lib/session.svelte.js';
 	import { statementOf } from '$lib/travel/statement.js';
 	import { closedStatements, createTravelStatement } from '$lib/travel/statement-actions.js';
+	import { statementSettlements } from '$lib/travel/payout.js';
 	import { cleanDatevSettings } from '$lib/booking/settings.js';
 	import { formatDate, formatMoney } from '$lib/bank/format.js';
 	import { receiptDate, receiptVendor } from '$lib/receipts/view.js';
@@ -67,7 +68,7 @@
 			)
 			.map((r) => ({ r, split: hospitalityOf(r, app) }))
 	);
-	let questions = $derived(openTravelQuestions({ travel: app.travel, receipts: app.receipts }));
+	let questions = $derived(openTravelQuestions(app));
 	let proposals = $derived(tripProposals({ travel: app.travel, receipts: app.receipts }));
 	let proposalsHere = $derived(proposals.filter((p) => p.start.slice(0, 7) === month));
 	let proposalsElsewhere = $derived(proposals.length - proposalsHere.length);
@@ -190,6 +191,16 @@
 			: null
 	);
 	let showPreview = $derived(Boolean(preview && !preview.checks.some((c) => c.code === 'nothing')));
+	// How far the newest closed statement is paid out (step 7).
+	let payoutNow = $derived(
+		closed[0]
+			? (statementSettlements({
+					travel: app.travel,
+					matches: app.matches,
+					transactions: app.transactions
+				}).find((s) => s.head.id === closed[0].id) ?? null)
+			: null
+	);
 	// What the newest closed statement booked (step 6), and how much is still to be confirmed.
 	let bookedNow = $derived.by(() => {
 		const id = closed[0]?.id;
@@ -303,6 +314,11 @@
 
 	/** @param {import('$lib/travel/view.js').TravelQuestion} q */
 	function questionText(q) {
+		if (q.kind === 'statementNotPaidOut')
+			return t('reisen.questions.statementNotPaidOut', {
+				number: q.number,
+				amount: formatMoney(q.openCents, 'EUR')
+			});
 		if (q.kind === 'receiptWithoutTrip' || q.kind === 'hospitalityIncomplete') {
 			const r = receiptById.get(q.receiptId);
 			const what = r
@@ -331,7 +347,9 @@
 	const questionHref = (q) =>
 		'receiptId' in q
 			? `${resolve('/belege')}?receipt=${encodeURIComponent(q.receiptId)}`
-			: resolve('/reisen/[id]', { id: q.tripId });
+			: q.kind === 'statementNotPaidOut'
+				? `${resolve('/reisen')}?month=${q.month}`
+				: resolve('/reisen/[id]', { id: q.tripId });
 </script>
 
 <svelte:head><title>{t('reisen.title')} · Belege</title></svelte:head>
@@ -618,6 +636,27 @@
 						>{t('reisen.statement.toConfirm', { count: bookedNow.open })}</a
 					>
 				{/if}
+			</p>
+		{/if}
+		{#if payoutNow}
+			<p
+				class="mt-2 text-sm {payoutNow.openCents === 0 ? 'text-success' : 'text-warning'}"
+				data-testid="reisen-statement-payout"
+			>
+				{payoutNow.openCents === 0
+					? t('reisen.statement.paidOut')
+					: payoutNow.paidCents
+						? payoutNow.openCents > 0
+							? t('reisen.statement.partlyPaid', {
+									paid: formatMoney(payoutNow.paidCents, 'EUR'),
+									open: formatMoney(payoutNow.openCents, 'EUR')
+								})
+							: t('reisen.statement.overPaid', {
+									amount: formatMoney(-payoutNow.openCents, 'EUR')
+								})
+						: t('reisen.statement.notPaid', {
+								amount: formatMoney(payoutNow.openCents, 'EUR')
+							})}
 			</p>
 		{/if}
 		<p class="mt-1 text-xs text-faint">{t('reisen.statement.closedHint')}</p>

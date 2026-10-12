@@ -2590,6 +2590,7 @@ export default {
 			receiptWithoutTrip: 'Reisebeleg ohne Reise: {what}',
 			hospitalityIncomplete: 'Bewirtung ohne {missing}: {what}',
 			tripWithoutTimes: 'Reise ohne Zeiten, keine Pauschale berechenbar: {what}',
+			statementNotPaidOut: 'Abrechnung {number} ist nicht ausgezahlt: {amount} offen',
 			tripIncomplete: 'Reise mit Lücken: {what}'
 		},
 		proposals: {
@@ -2625,6 +2626,11 @@ export default {
 			replaced: '{number}, erstellt am {date} – ersetzt',
 			booked: '{count} Buchungen auf {account}.',
 			toConfirm: 'Konten übernehmen: {count} offen',
+			paidOut: 'Ausgezahlt.',
+			partlyPaid: 'Ausgezahlt {paid}, offen {open}.',
+			overPaid: 'Mehr ausgezahlt als abgerechnet: {amount}.',
+			notPaid:
+				'Noch nicht ausgezahlt: {amount}. Die Überweisung ordnest du in der Zahlung zu („Zahlt Reisekosten aus …“).',
 			closedHint: 'Das PDF ist jetzt ein Beleg und wartet auf seine Auszahlung.',
 			correct: 'Korrektur erstellen',
 			check: {
@@ -2994,6 +3000,19 @@ export default {
 				'Die andere Seite eines Tauschs, den keine Regel erkennt – etwa über eine andere Chain oder eine Börse. Beide Seiten brauchen dann keinen Beleg; steuerlich eine Veräußerung und eine Anschaffung.',
 			linkSwapNone:
 				'Keine Buchung in die andere Richtung auf einem anderen Konto innerhalb von 31 Tagen.',
+			travelPayout: {
+				title: 'Zahlt Reisekosten aus',
+				item: '{number} · Reisekosten {month} · {amount}',
+				share: 'davon {amount}',
+				unlink: 'Nicht für diese Abrechnung',
+				open: 'Noch offen: {amount}',
+				over: 'Mehr ausgezahlt als abgerechnet: {amount}',
+				settled: 'Ausgezahlt.',
+				offer: 'Zahlt Reisekosten aus …',
+				openOf: 'offen {amount}',
+				sum: 'Gewählt {picked} · Auszahlung {payout}',
+				link: 'Zuordnen'
+			},
 			outlayRepay: {
 				offer: 'Erstattet Auslagen …',
 				offerTitle:

@@ -287,7 +287,8 @@ export function hospitalityOf(receipt, books = {}) {
  * @typedef {{ kind: 'receiptWithoutTrip', receiptId: string }
  *   | { kind: 'tripWithoutTimes', tripId: string }
  *   | { kind: 'tripIncomplete', tripId: string, problems: string[] }
- *   | { kind: 'hospitalityIncomplete', receiptId: string, missing: string[] }} TravelQuestion
+ *   | { kind: 'hospitalityIncomplete', receiptId: string, missing: string[] }
+ *   | { kind: 'statementNotPaidOut', statementId: string, number: string, month: string, openCents: number }} TravelQuestion
  */
 
 /**

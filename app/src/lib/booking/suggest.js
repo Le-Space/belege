@@ -7,9 +7,10 @@
 //   2. an own transfer (classify.js): 1360 Geldtransit, no BU key
 //   3. a bank fee: 4970 Nebenkosten des Geldverkehrs, no BU key
 //   (before both: a private payment or its repayment, by the legal form, #172)
-//   3b. travel (#213): a line of a travel statement carries its account; a
-//      receipt on a trip, or a hospitality bill, goes on the travel account
-//      of its category, by the legal form (travel/accounts.js)
+//   3b. travel (#213): a line of a travel statement carries its account; its
+//      payout goes on the clearing account, as a private repayment; a receipt
+//      on a trip, or a hospitality bill, goes on the travel account of its
+//      category, by the legal form (travel/accounts.js)
 //   4. learned: the account the person gave this vendor last time
 //      (partners.js `account`), found by the receipt's vendor or the
 //      counterparty on the statement
@@ -24,6 +25,7 @@ import { taxKeyFor } from './tax-keys.js';
 import { privateKind } from '../matching/private-kind.js';
 import { receiptCategory, travelAccount } from '../travel/accounts.js';
 import { travelKind } from '../travel/view.js';
+import { isStatementReceipt } from '../travel/payout.js';
 
 /** @typedef {Record<string, any>} Rec */
 /** @typedef {'confirmed' | 'transfer' | 'fee' | 'payroll' | 'learned' | 'private' | 'travel' | null} SuggestionSource */
@@ -152,6 +154,18 @@ export function suggestBooking(
 	}
 	const income = Number(tx.amountCents ?? 0) > 0;
 	const receipt = receipts[0] ?? null;
+	// The payout of a travel statement (#213, step 7): against the clearing account,
+	// by the money's way, as a private repayment.
+	if (receipt && isStatementReceipt(receipt) && !income) {
+		return {
+			account: privateAccounts.payment,
+			taxKey: '',
+			source: 'travel',
+			taxVia: 'none',
+			vendor: null,
+			category: 'payout'
+		};
+	}
 	// A receipt on a trip, or a hospitality bill, paid from a business account (#213).
 	if (travelSet && receipt && !income && (receipt.travel?.tripId || receipt.hospitality)) {
 		const category = receiptCategory(receipt, travelKind(receipt));
