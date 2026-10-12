@@ -20,7 +20,8 @@ export const MAX_TOKENS = 6000;
 export const MAX_TEXT = 30_000;
 const TIMEOUT_MS = 180_000;
 
-export const SYSTEM = `You extract bookkeeping data from German or English receipts for a German company (UG).
+export const SYSTEM = `You extract bookkeeping data from receipts in any language (German, English, Russian, Ukrainian,
+Polish, Czech, Turkish, Arabic, Spanish, Italian, French or any other) for a German company (UG).
 Answer with one JSON object and nothing else, using exactly these keys (null when not present):
 {
   "document_type": "invoice" | "receipt" | "direct_debit_notice" | "payment_reminder" | "credit_card_statement" | "ticket" | "other" | "none",
@@ -59,7 +60,11 @@ Answer with one JSON object and nothing else, using exactly these keys (null whe
   "line_items": [ { "description": string, "amount": number } ] | null,  // the billed positions as printed, at most 20
   "no_payment_request": boolean     // the document says it asks for no payment (prepaid statement, already paid)
 }
-Amounts are numbers with a dot as decimal separator. Never guess a value that is not in the text.
+Amounts are numbers with a dot as decimal separator, whatever the receipt writes ("4 512,30" → 4512.30).
+Dates and times in ISO form, whatever the receipt writes: a European "12/03/2026" is 12 March, "14MAR26" is
+2026-03-14. The currency as its ISO code ("руб.", "₽" → RUB; "TL", "₺" → TRY; "zł" → PLN; "Kč" → CZK;
+"грн", "₴" → UAH; "درهم" → AED). Names of vendors, places and stations as printed, in their own script.
+The summary is German, whatever the receipt's language. Never guess a value that is not in the text.
 A VAT line's category follows what the invoice prints: "Steuerschuldnerschaft des Leistungsempfängers" or
 "Reverse charge" → reverse_charge; "innergemeinschaftliche Lieferung/Leistung", "intra-Community supply",
 "steuerfreie innergemeinschaftliche Lieferung" → intra_eu; "Ausfuhrlieferung", "export" → export; "nicht im

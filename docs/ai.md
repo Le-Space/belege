@@ -10,7 +10,7 @@ In the app, every button that calls the model carries the **✦** mark (`app/src
 
 **Our advice today: a local model** (Ollama, LM Studio), or wait with AI until a fast model runs in a confidential computing environment (TEE) whose attestation can be checked. Belege would ask such a model only when needed, on a ✦ click as now.
 
-- **Local:** nothing leaves your computer. An 8B model reads simple receipts; several VAT rates, reverse charge and long texts go wrong more often, and the bridge's checks catch part of that.
+- **Local:** nothing leaves your computer. An 8B model reads simple receipts; several VAT rates, reverse charge, long texts and receipts in other languages and scripts (Russian, Arabic …) go wrong more often, and the bridge's checks catch part of that. The prompt asks for receipts in any language (#366); how well a language is read is the model's matter.
 - **Hosted, no TEE** (DeepSeek, the default): the provider can read what the bridge sends. Redaction limits that; it does not make a receipt anonymous (see _Redaction_ below).
 - **Hosted, in a TEE:** only worth it once each call can be checked to run in an attested environment. Until the bridge can check that itself, it is the provider's word. Belege will say here which providers qualify once it can.
 
