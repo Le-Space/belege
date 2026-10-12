@@ -6,6 +6,7 @@
 import { test, expect } from '@playwright/test';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
+import { makePdf } from '@belege/bridge/testing/pdf';
 
 test('a trip with its allowance, mileage, a ticket paid privately, and a hospitality bill', async ({
 	page
@@ -228,4 +229,61 @@ test('a trip from what a ticket and a hotel invoice were read as, the breakfast 
 	await expect(page.getByTestId('reise-saved')).toBeVisible();
 	await expect(page.getByTestId('reise-breakfast-proposal')).toHaveCount(0);
 	await expect(page.getByTestId('reise-sum-allowance')).toHaveText('22,40 EUR');
+});
+
+test('without AI: a PDF’s words and a mail’s subject hint at travel, read on this device (#366)', async ({
+	page
+}) => {
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('E2E');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+
+	const pdf = [
+		...makePdf([
+			'Bahn Beispiel AG',
+			'Ihre Fahrkarte',
+			'Beispielstadt Hbf - Musterstadt Hbf',
+			'89,90 EUR'
+		])
+	];
+	await page.evaluate(async (pdf) => {
+		const e2e = /** @type {any} */ (window).__belegeE2E;
+		// Not read: no extraction, as without a model.
+		await e2e.addReceiptFile(pdf, {
+			source: 'upload',
+			status: 'neu',
+			fileName: 'scan-0815.pdf',
+			mime: 'application/pdf',
+			documentDate: '2025-05-06'
+		});
+		await e2e.addReceipt({
+			source: 'mail',
+			status: 'neu',
+			fileName: null,
+			subject: 'Ваш электронный билет на поезд',
+			from: 'noreply@example.test',
+			receivedAt: '2025-05-07T08:00:00Z'
+		});
+	}, pdf);
+
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
+	await page.getByTestId('year-switch').selectOption('2025');
+	const detail = page.getByTestId('receipt-detail');
+
+	// The PDF: its text read here, the word found and kept.
+	await page.getByTestId('receipt').filter({ hasText: 'scan-0815.pdf' }).click();
+	const pdfHint = detail.getByTestId('travel-looks-like');
+	await expect(pdfHint).toHaveAttribute('data-by', 'words');
+	await expect(pdfHint).toContainText('Art nach Stichworten: Bahnticket („fahrkarte“)');
+
+	// The mail: its Russian subject is enough.
+	await page.getByTestId('receipt').filter({ hasText: 'noreply@example.test' }).click();
+	await expect(detail.getByTestId('travel-looks-like')).toContainText('Bahnticket');
+
+	// Words give a hint, not a question.
+	await page.getByTestId('belege-reisen').click();
+	await expect(page.getByTestId('reisen-questions')).toHaveCount(0);
 });

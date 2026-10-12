@@ -1848,6 +1848,7 @@ export default {
 		travel: {
 			open: 'To a trip …',
 			looksLikeTrip: 'Read as {kind}: it probably belongs to a trip.',
+			guessed: 'Kind by its words: {kind} (“{words}”) – it may belong to a trip.',
 			looksLikeEvent: 'Read as {kind}: it may belong to a trip.',
 			kind: {
 				train: 'train ticket',
