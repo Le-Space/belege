@@ -3,7 +3,7 @@ import { DOMParser } from '@xmldom/xmldom';
 
 import { PDFDocument } from 'pdf-lib';
 
-import { pdfEInvoice, readEInvoice, sniffEInvoice } from './einvoice.js';
+import { categoryOf, pdfEInvoice, readEInvoice, sniffEInvoice } from './einvoice.js';
 import { CII_BASIC_WL, CII_XRECHNUNG, UBL_CREDIT_NOTE, UBL_INVOICE } from './einvoice.fixtures.js';
 
 const read = (/** @type {string} */ xml) =>
@@ -36,6 +36,9 @@ describe('e-invoices (#160)', () => {
 			document_type: 'invoice',
 			vendor: 'Wolkenbau Beispiel GmbH',
 			vendor_vat_id: 'DE000000000',
+			vendor_country: null,
+			customer_vat_id: null,
+			customer_country: null,
 			invoice_number: 'WB-2026-0815',
 			customer_number: 'K-4711',
 			invoice_date: '2026-09-14',
@@ -43,7 +46,7 @@ describe('e-invoices (#160)', () => {
 			service_period: { from: '2026-09-01', to: '2026-09-30' },
 			currency: 'EUR',
 			net: 100,
-			vat: [{ rate: 19, amount: 19 }],
+			vat: [{ rate: 19, amount: 19, category: 'standard' }],
 			gross: 119,
 			payment: 'bank_transfer',
 			iban_last4: '1234',
@@ -137,5 +140,31 @@ describe('e-invoices (#160)', () => {
 		expect(await pdfEInvoice(await pdf(CII_XRECHNUNG, 'notizen.xml'), options)).toBeNull();
 		expect(await pdfEInvoice(await pdf('<Liste/>'), options)).toBeNull();
 		expect(await pdfEInvoice(new TextEncoder().encode('kein PDF'), options)).toBeNull();
+	});
+
+	it('an intra-EU invoice: countries, the customer’s VAT ID, the 0 % line kept with its category (#354)', () => {
+		const intra = UBL_INVOICE.replace(
+			'<cac:PartyName><cbc:Name>Wolkenbau</cbc:Name></cac:PartyName>',
+			'<cac:PartyName><cbc:Name>Wolkenbau</cbc:Name></cac:PartyName><cac:PostalAddress><cac:Country><cbc:IdentificationCode>DE</cbc:IdentificationCode></cac:Country></cac:PostalAddress>'
+		)
+			.replace(
+				'<cac:PartyIdentification><cbc:ID>K-4711</cbc:ID></cac:PartyIdentification>',
+				'<cac:PartyIdentification><cbc:ID>K-4711</cbc:ID></cac:PartyIdentification><cac:PostalAddress><cac:Country><cbc:IdentificationCode>AT</cbc:IdentificationCode></cac:Country></cac:PostalAddress><cac:PartyTaxScheme><cbc:CompanyID>ATU00000000</cbc:CompanyID><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme>'
+			)
+			.replace(
+				'<cbc:TaxAmount currencyID="EUR">19.00</cbc:TaxAmount>\n\t\t\t<cac:TaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>19</cbc:Percent>',
+				'<cbc:TaxAmount currencyID="EUR">0.00</cbc:TaxAmount>\n\t\t\t<cac:TaxCategory><cbc:ID>K</cbc:ID><cbc:Percent>0</cbc:Percent>'
+			);
+		const x = read(intra).extraction;
+		expect(x).toMatchObject({
+			vendor_country: 'DE',
+			customer_country: 'AT',
+			customer_vat_id: 'ATU00000000'
+		});
+		expect(x.vat).toEqual([{ rate: 0, amount: 0, category: 'intra_eu' }]);
+		expect(categoryOf('AE', 0)).toBe('reverse_charge');
+		expect(categoryOf('S', 7)).toBe('reduced');
+		expect(categoryOf('G', 0)).toBe('export');
+		expect(categoryOf('XX', 0)).toBeNull();
 	});
 });

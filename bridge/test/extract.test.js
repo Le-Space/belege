@@ -8,7 +8,7 @@ import { createBridgeServer } from '../src/server.js';
 import { createPairing } from '../src/pairing.js';
 import { defaultConfig } from '../src/config.js';
 import { createMailClient } from '../src/mail/imap.js';
-import { createExtractor } from '../src/llm/extract.js';
+import { checkExtraction, createExtractor } from '../src/llm/extract.js';
 import {
 	FAKE_IMAP_PASSWORD,
 	RECEIPTS,
@@ -421,4 +421,34 @@ test('the extractor refuses a base URL without https (except on this machine)', 
 			getKey: async () => 'k'
 		})
 	);
+});
+
+test('tax fields made exact: countries, VAT IDs, a category per VAT line (#354)', () => {
+	const data = {
+		document_type: 'invoice',
+		vendor: 'Alpen Beispiel GmbH',
+		vendor_vat_id: 'atu 000 000 00',
+		vendor_country: 'at',
+		customer_vat_id: 'de 999 999 999',
+		customer_country: 'Germany',
+		currency: 'EUR',
+		net: 100,
+		vat: [
+			{ rate: 0, amount: 0, category: 'intra_eu' },
+			{ rate: 0, amount: 0, category: 'vielleicht' }
+		],
+		gross: 100
+	};
+	assert.deepEqual(checkExtraction(data), []);
+	assert.equal(data.vendor_vat_id, 'ATU00000000');
+	assert.equal(data.vendor_country, 'AT');
+	assert.equal(data.customer_vat_id, 'DE999999999');
+	assert.equal(data.customer_country, null, 'a country name is no ISO code');
+	assert.deepEqual(
+		data.vat.map((v) => v.category),
+		['intra_eu', null]
+	);
+	const word = { document_type: 'none', customer_vat_id: 'keine' };
+	checkExtraction(word);
+	assert.equal(word.customer_vat_id, null);
 });
