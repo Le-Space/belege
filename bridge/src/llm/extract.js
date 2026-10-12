@@ -26,6 +26,9 @@ Answer with one JSON object and nothing else, using exactly these keys (null whe
   "document_type": "invoice" | "receipt" | "direct_debit_notice" | "payment_reminder" | "credit_card_statement" | "ticket" | "other" | "none",
   "vendor": string,                 // the company that issued the document
   "vendor_vat_id": string | null,
+  "vendor_country": string | null,  // ISO 3166 alpha-2 of the vendor's address, e.g. "DE", "AT", "US"
+  "customer_vat_id": string | null, // the VAT ID of the customer (the recipient), if printed
+  "customer_country": string | null,// ISO 3166 alpha-2 of the customer's address
   "invoice_number": string | null,
   "customer_number": string | null,
   "invoice_date": "YYYY-MM-DD" | null,
@@ -33,7 +36,7 @@ Answer with one JSON object and nothing else, using exactly these keys (null whe
   "service_period": { "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" } | null,
   "currency": "EUR" | ...,
   "net": number | null,
-  "vat": [ { "rate": number, "amount": number } ],
+  "vat": [ { "rate": number, "amount": number, "category": "standard" | "reduced" | "zero" | "exempt" | "reverse_charge" | "intra_eu" | "export" | "not_taxable" | null } ],
   "gross": number,                  // the amount that is or was paid; negative for credit notes
   "payment": "direct_debit" | "card" | "paypal" | "bank_transfer" | "paid" | "open" | null,
   "iban_last4": string | null,      // from a redacted IBAN like [IBAN …1234]
@@ -44,6 +47,12 @@ Answer with one JSON object and nothing else, using exactly these keys (null whe
   "no_payment_request": boolean     // the document says it asks for no payment (prepaid statement, already paid)
 }
 Amounts are numbers with a dot as decimal separator. Never guess a value that is not in the text.
+A VAT line's category follows what the invoice prints: "Steuerschuldnerschaft des Leistungsempfängers" or
+"Reverse charge" → reverse_charge; "innergemeinschaftliche Lieferung/Leistung", "intra-Community supply",
+"steuerfreie innergemeinschaftliche Lieferung" → intra_eu; "Ausfuhrlieferung", "export" → export; "nicht im
+Inland steuerbar", "not subject to German VAT" → not_taxable; "steuerfrei nach § 4" → exempt; 0 % without
+such a reason → zero; the normal rate → standard; a reduced rate → reduced. Such an invoice often has a VAT
+line with amount 0: keep it, with its category.
 Use "none" when the text is no bookkeeping document at all (a sign-in link, a newsletter, a
 shipping or account notice without an amount to pay); then gross and currency are null and the
 summary says what it is.`;
@@ -93,7 +102,56 @@ const isDay = (v) => {
 const toCents = (v) => Math.round(Number(v) * 100);
 
 /**
+/** The VAT categories a line can carry (#354), as the system prompt names them. */
+export const VAT_CATEGORIES = Object.freeze([
+	'standard',
+	'reduced',
+	'zero',
+	'exempt',
+	'reverse_charge',
+	'intra_eu',
+	'export',
+	'not_taxable'
+]);
+
+/**
+ * The tax fields of an answer made exact, in place (#354): countries as
+ * ISO 3166 alpha-2 or null, VAT IDs compact and upper case or null, a VAT
+ * line's category one of VAT_CATEGORIES or null. A model that writes "Germany"
+ * or an unknown category loses that one field, not the whole reading.
+ *
+ * @param {any} data
+ */
+export function normalizeTaxFields(data) {
+	const country = (/** @type {unknown} */ v) => {
+		const s = String(v ?? '')
+			.trim()
+			.toUpperCase();
+		return /^[A-Z]{2}$/.test(s) ? s : null;
+	};
+	const vatId = (/** @type {unknown} */ v) => {
+		const s = String(v ?? '')
+			.replace(/[\s.-]+/g, '')
+			.toUpperCase();
+		return /^[A-Z]{2}(?=[A-Z0-9]*\d)[A-Z0-9]{2,13}$/.test(s) ? s : null;
+	};
+	data.vendor_country = country(data.vendor_country);
+	data.customer_country = country(data.customer_country);
+	if (data.vendor_vat_id !== undefined) data.vendor_vat_id = vatId(data.vendor_vat_id);
+	data.customer_vat_id = vatId(data.customer_vat_id);
+	if (Array.isArray(data.vat)) {
+		for (const v of data.vat) {
+			if (v && typeof v === 'object') {
+				v.category = VAT_CATEGORIES.includes(v.category) ? v.category : null;
+			}
+		}
+	}
+	return data;
+}
+
+/**
  * Whether an answer can be used. Returns the reasons it cannot; empty = fine.
+ * Its tax fields are made exact on the way (normalizeTaxFields).
  *
  * @param {any} data
  * @returns {string[]}
@@ -102,6 +160,7 @@ export function checkExtraction(data) {
 	/** @type {string[]} */
 	const problems = [];
 	if (!data || typeof data !== 'object' || Array.isArray(data)) return ['not an object'];
+	normalizeTaxFields(data);
 	// "none": no receipt at all, nothing to add up.
 	const none = data.document_type === 'none';
 	if (!none && (typeof data.gross !== 'number' || !Number.isFinite(data.gross)))

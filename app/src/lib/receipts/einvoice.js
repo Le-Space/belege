@@ -142,6 +142,18 @@ function readUbl(root) {
 			vendor:
 				text(seller, 'PartyLegalEntity', 'RegistrationName') || text(seller, 'PartyName', 'Name'),
 			vatId,
+			vendorCountry: text(seller, 'PostalAddress', 'Country', 'IdentificationCode'),
+			customerVatId: kids(at(root, 'AccountingCustomerParty', 'Party'), 'PartyTaxScheme')
+				.filter((s) => text(s, 'TaxScheme', 'ID').toUpperCase() === 'VAT')
+				.map((s) => text(s, 'CompanyID'))[0],
+			customerCountry: text(
+				root,
+				'AccountingCustomerParty',
+				'Party',
+				'PostalAddress',
+				'Country',
+				'IdentificationCode'
+			),
 			number: text(root, 'ID'),
 			customer: text(root, 'AccountingCustomerParty', 'Party', 'PartyIdentification', 'ID'),
 			issued: day(text(root, 'IssueDate')),
@@ -204,6 +216,21 @@ function readCii(root) {
 			sign,
 			vendor: text(seller, 'Name'),
 			vatId,
+			vendorCountry: text(seller, 'PostalTradeAddress', 'CountryID'),
+			customerVatId: kids(
+				at(trade, 'ApplicableHeaderTradeAgreement', 'BuyerTradeParty'),
+				'SpecifiedTaxRegistration'
+			)
+				.map((r) => at(r, 'ID'))
+				.filter((id) => id?.getAttribute('schemeID') === 'VA')
+				.map((id) => String(id?.textContent ?? '').trim())[0],
+			customerCountry: text(
+				trade,
+				'ApplicableHeaderTradeAgreement',
+				'BuyerTradeParty',
+				'PostalTradeAddress',
+				'CountryID'
+			),
 			number: text(document, 'ID'),
 			customer: text(trade, 'ApplicableHeaderTradeAgreement', 'BuyerTradeParty', 'ID'),
 			issued: day(text(document, 'IssueDateTime', 'DateTimeString')),
@@ -237,10 +264,55 @@ function readCii(root) {
 }
 
 /**
+ * A VAT line's category from its UNTDID 5305 code, as the LLM extraction names
+ * it (#354): S standard or reduced by its rate, Z zero, E exempt, AE reverse
+ * charge, K intra-EU, G export, O not subject to VAT.
+ *
+ * @param {string} code
+ * @param {number} rate
+ */
+export function categoryOf(code, rate) {
+	switch (code.toUpperCase()) {
+		case 'S':
+			return rate > 0 && rate < 19 ? 'reduced' : 'standard';
+		case 'AA':
+			return 'reduced';
+		case 'Z':
+			return 'zero';
+		case 'E':
+			return 'exempt';
+		case 'AE':
+			return 'reverse_charge';
+		case 'K':
+			return 'intra_eu';
+		case 'G':
+			return 'export';
+		case 'O':
+			return 'not_taxable';
+		default:
+			return null;
+	}
+}
+
+/** ISO 3166 alpha-2, or null. @param {string} c */
+const countryCode = (c) =>
+	/^[A-Z]{2}$/.test(c.trim().toUpperCase()) ? c.trim().toUpperCase() : null;
+/** A VAT ID, compact, or null. @param {string | undefined} id */
+const vatIdOf = (id) => {
+	const s = String(id ?? '')
+		.replace(/[\s.-]+/g, '')
+		.toUpperCase();
+	return /^[A-Z]{2}(?=[A-Z0-9]*\d)[A-Z0-9]{2,13}$/.test(s) ? s : null;
+};
+
+/**
  * @param {object} f
  * @param {number} f.sign -1 for a credit note
  * @param {string} f.vendor
  * @param {string | undefined} f.vatId
+ * @param {string} f.vendorCountry
+ * @param {string | undefined} f.customerVatId
+ * @param {string} f.customerCountry
  * @param {string} f.number
  * @param {string} f.customer
  * @param {string | null} f.issued
@@ -263,7 +335,10 @@ function extraction(f) {
 	return {
 		document_type: 'invoice',
 		vendor: f.vendor || null,
-		vendor_vat_id: f.vatId || null,
+		vendor_vat_id: vatIdOf(f.vatId),
+		vendor_country: countryCode(f.vendorCountry),
+		customer_vat_id: vatIdOf(f.customerVatId),
+		customer_country: countryCode(f.customerCountry),
 		invoice_number: f.number || null,
 		customer_number: f.customer || null,
 		invoice_date: f.issued,
@@ -271,9 +346,14 @@ function extraction(f) {
 		service_period: f.from && f.to ? { from: f.from, to: f.to } : null,
 		currency: /^[A-Z]{3}$/.test(f.currency) ? f.currency : 'EUR',
 		net: signed(f.net),
+		// A line at 0 % stays when its category says why (intra-EU, reverse charge, export …).
 		vat: f.vat
-			.filter((v) => v.amount !== 0 || v.rate !== 0)
-			.map((v) => ({ rate: v.rate, amount: /** @type {number} */ (signed(v.amount)) })),
+			.filter((v) => v.amount !== 0 || v.rate !== 0 || categoryOf(v.category, v.rate) !== null)
+			.map((v) => ({
+				rate: v.rate,
+				amount: /** @type {number} */ (signed(v.amount)),
+				category: categoryOf(v.category, v.rate)
+			})),
 		gross: signed(f.gross),
 		payment: paymentOf(f.paymentCode, f.payable),
 		iban_last4: /^[A-Z]{2}\d{2}[A-Z0-9]{4,}$/.test(f.iban) ? f.iban.slice(-4) : null,
