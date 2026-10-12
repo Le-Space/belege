@@ -2555,6 +2555,34 @@ export default {
 			make: 'Make it a trip',
 			dismiss: 'Not a trip'
 		},
+		statement: {
+			title: 'Statement {month}',
+			correctionTitle: 'Correction of {number}',
+			what: 'One statement per month: the trips with their receipts, allowances and mileage, and the hospitality bills. It becomes a numbered PDF, kept as a receipt for the payout.',
+			traveller: 'Traveller (on the PDF)',
+			private: 'Receipts paid privately',
+			outlay: 'Booked as outlays (paid back there)',
+			company: 'Receipts paid by the company (not paid back)',
+			noName: 'The PDF needs the traveller’s name.',
+			make: 'Make the statement',
+			makeHint:
+				'Once made, a statement is not changed: a correction is a new one that refers to it.',
+			made: '{number}, made on {date}',
+			replaced: '{number}, made on {date} – replaced',
+			closedHint: 'The PDF is a receipt now and waits for its payout.',
+			correct: 'Make a correction',
+			check: {
+				tripWithoutTimes: 'Trip without times: {what}',
+				tripWithoutDestination: 'Trip without a destination: {what}',
+				tripWithoutReason: 'Trip without a business reason: {what}',
+				hospitalityIncomplete: 'Hospitality bill with gaps: {what}',
+				receiptWithoutAmount: 'Receipt paid privately without an amount: {what}',
+				nothing: 'Nothing to settle this month.',
+				noRateAbroad: 'Day abroad without a rate, settled without an amount: {what}',
+				familyCar: 'A family member’s car, to be clarified with the tax adviser: {what}',
+				foreignCurrency: 'Receipt in another currency, taken as entered: {what}'
+			}
+		},
 		trips: 'Trips',
 		receipts: 'receipts: {count}',
 		none: 'No trip starts in this month.',

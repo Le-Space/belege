@@ -391,3 +391,103 @@ test('trips proposed by the receipts: one made with a click, one dismissed for g
 	await expect(proposals).toHaveCount(1);
 	await expect(proposals).toContainText('C-Hafen');
 });
+
+test('the month’s statement: checks first, then a numbered PDF kept as a receipt, and a correction (#213, step 5)', async ({
+	page
+}) => {
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('E2E');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+
+	await page.evaluate(async () => {
+		const e2e = /** @type {any} */ (window).__belegeE2E;
+		/** @param {string} vendor @param {Record<string, any>} travel */
+		const add = (vendor, travel) =>
+			e2e.addReceipt({
+				source: 'upload',
+				status: 'ausgelesen',
+				currency: 'EUR',
+				fileName: `${vendor}.pdf`,
+				vendor,
+				amountCents: 4990,
+				documentDate: '2025-06-01',
+				extraction: {
+					document_type: 'ticket',
+					gross: 49.9,
+					vat: [{ rate: 7, amount: 3.26 }],
+					travel
+				}
+			});
+		await add('Bahn Hin Beispiel', {
+			kind: 'train',
+			from: 'A-Stadt',
+			to: 'Musterstadt',
+			departure: '2025-06-10T07:00',
+			arrival: '2025-06-10T09:30'
+		});
+		await add('Bahn Zurück Beispiel', {
+			kind: 'train',
+			from: 'Musterstadt',
+			to: 'A-Stadt',
+			departure: '2025-06-10T17:00',
+			arrival: '2025-06-10T19:30'
+		});
+	});
+
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
+	await page.getByTestId('belege-reisen').click();
+	const picker = page.getByTestId('reisen-month');
+	const june = async () => {
+		await picker.getByLabel('Monat: Jahr').selectOption('2025');
+		await picker.getByLabel('Monat: Monat').selectOption('06');
+	};
+	await june();
+	await page.getByTestId('reisen-proposal-accept').click();
+	await expect(page.getByTestId('reise-destination')).toHaveValue('Musterstadt');
+
+	// The trip has no reason yet: the statement is refused, and says why.
+	await page.getByRole('link', { name: '← Alle Reisen' }).click();
+	await june();
+	const statement = page.getByTestId('reisen-statement');
+	await expect(statement.locator('[data-code="tripWithoutReason"]')).toContainText(
+		'Reise ohne geschäftlichen Anlass'
+	);
+	await expect(statement.getByTestId('reisen-statement-make')).toBeDisabled();
+
+	// The gap closed on the trip's page.
+	await statement.locator('[data-code="tripWithoutReason"] a').click();
+	await page.getByTestId('reise-reason').fill('Workshop Kundin Beispiel UG');
+	await page.getByTestId('reise-save').click();
+	await expect(page.getByTestId('reise-saved')).toBeVisible();
+	await page.getByRole('link', { name: '← Alle Reisen' }).click();
+	await june();
+
+	// 14 EUR for a day of 12.5 hours, and two tickets paid privately.
+	await expect(statement.getByTestId('reisen-statement-amount')).toHaveText('113,80 EUR');
+	await expect(statement.getByTestId('reisen-statement-noname')).toBeVisible();
+	await statement.getByTestId('reisen-statement-name').fill('Inhaberin Beispiel');
+	await statement.getByTestId('reisen-statement-make').click();
+	const made = page.getByTestId('reisen-statement-closed');
+	await expect(made).toHaveCount(1);
+	await expect(made).toContainText('RK-2025-001');
+	await expect(made).toContainText('113,80 EUR');
+
+	// The PDF is a receipt now.
+	await made.getByRole('link').click();
+	await expect(page.getByTestId('receipt-detail')).toContainText(
+		'Reisekostenabrechnung Inhaberin Beispiel'
+	);
+
+	// A correction: a new number, the first one kept and marked replaced.
+	await page.getByTestId('belege-reisen').click();
+	await june();
+	await page.getByTestId('reisen-statement-correct').click();
+	await expect(statement).toContainText('Korrektur von RK-2025-001');
+	await statement.getByTestId('reisen-statement-make').click();
+	await expect(made).toHaveCount(2);
+	await expect(made.first()).toContainText('RK-2025-002');
+	await expect(made.nth(1)).toContainText('ersetzt');
+});

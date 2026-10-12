@@ -2593,6 +2593,34 @@ export default {
 			make: 'Reise dazu anlegen',
 			dismiss: 'Keine Reise'
 		},
+		statement: {
+			title: 'Abrechnung {month}',
+			correctionTitle: 'Korrektur von {number}',
+			what: 'Eine Abrechnung pro Monat: die Reisen mit ihren Belegen, Pauschalen und Kilometern, dazu die Bewirtungen. Sie wird ein nummeriertes PDF und als Beleg für die Auszahlung abgelegt.',
+			traveller: 'Reisende(r) (auf dem PDF)',
+			private: 'Privat bezahlte Belege',
+			outlay: 'Als Auslage gebucht (dort erstattet)',
+			company: 'Von der Firma bezahlte Belege (nicht erstattet)',
+			noName: 'Das PDF braucht den Namen der/des Reisenden.',
+			make: 'Abrechnung erstellen',
+			makeHint:
+				'Eine erstellte Abrechnung wird nicht mehr geändert: Eine Korrektur ist eine neue, die auf sie verweist.',
+			made: '{number}, erstellt am {date}',
+			replaced: '{number}, erstellt am {date} – ersetzt',
+			closedHint: 'Das PDF ist jetzt ein Beleg und wartet auf seine Auszahlung.',
+			correct: 'Korrektur erstellen',
+			check: {
+				tripWithoutTimes: 'Reise ohne Zeiten: {what}',
+				tripWithoutDestination: 'Reise ohne Ziel: {what}',
+				tripWithoutReason: 'Reise ohne geschäftlichen Anlass: {what}',
+				hospitalityIncomplete: 'Bewirtung mit Lücken: {what}',
+				receiptWithoutAmount: 'Privat bezahlter Beleg ohne Betrag: {what}',
+				nothing: 'In diesem Monat gibt es nichts abzurechnen.',
+				noRateAbroad: 'Auslandstag ohne Satz, ohne Betrag abgerechnet: {what}',
+				familyCar: 'Fahrzeug eines Familienangehörigen, mit Steuerberatung klären: {what}',
+				foreignCurrency: 'Beleg in fremder Währung, Betrag wie erfasst: {what}'
+			}
+		},
 		trips: 'Reisen',
 		receipts: 'Belege: {count}',
 		none: 'In diesem Monat beginnt keine Reise.',

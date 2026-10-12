@@ -156,9 +156,16 @@ export async function statementLayout({ title, created, continuation }) {
 		y -= 8;
 	}
 
-	/** "Eigenbeleg", the number on the right, the issuer, a grey line. @param {string} number @param {string} issuer @param {string} subtitle */
-	function head(number, issuer, subtitle) {
-		page.drawText('Eigenbeleg', { x: MARGIN, y: y - 18, size: 22, font: bold });
+	/**
+	 * "Eigenbeleg" (or another title), the number on the right, the issuer, a grey line.
+	 *
+	 * @param {string} number
+	 * @param {string} issuer
+	 * @param {string} subtitle
+	 * @param {string} [title]
+	 */
+	function head(number, issuer, subtitle, title = 'Eigenbeleg') {
+		page.drawText(winAnsi(title), { x: MARGIN, y: y - 18, size: 22, font: bold });
 		const no = winAnsi(number);
 		page.drawText(no, {
 			x: A4[0] - MARGIN - bold.widthOfTextAtSize(no, 12),
