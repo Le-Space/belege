@@ -2395,6 +2395,7 @@ export default {
 			transfer: 'Umbuchung',
 			fee: 'Bankgebühr',
 			private: 'Privat (Irrläufer), nach der Rechtsform',
+			travel: 'Reisekosten, nach Art und Rechtsform – mit der Steuerberatung prüfen',
 			learned: 'gelernt',
 			learnedFrom: 'gelernt von {vendor}',
 			confirmed: 'übernommen',
@@ -2476,9 +2477,10 @@ export default {
 			unassigned: '{count} Buchungen ohne übernommenes Konto – so lange geht kein Export.',
 			suspense:
 				'{count} Buchungen gehen auf das Sammelkonto {account} – sie müssen in der Buchhaltung umgebucht werden.',
-			autoConfirm: 'Konten aus Umbuchung und Bankgebühr übernehmen ({count})',
+			autoConfirm:
+				'Konten aus Umbuchung, Bankgebühr und Reisekostenabrechnung übernehmen ({count})',
 			autoConfirmHint:
-				'Übernimmt 1360 für eigene Umbuchungen und 4970 für Bankgebühren – dieselben Vorschläge wie in der Zahlung, mit einem Klick für alle.',
+				'Übernimmt 1360 für eigene Umbuchungen, 4970 für Bankgebühren und die Konten einer Reisekostenabrechnung (nach Art und Rechtsform, mit der Steuerberatung prüfen) – dieselben Vorschläge wie in der Zahlung, mit einem Klick für alle.',
 			ledgerOk: 'Jedes Bankkonto hat sein Sachkonto.',
 			noLedger: 'Sachkonto fehlt für {list} – unter Einstellungen → Buchhaltung eintragen.',
 			noBankAccount: '{count} Buchungen gehören zu keinem Bankkonto der Bücher.',
@@ -2621,6 +2623,8 @@ export default {
 				'Eine erstellte Abrechnung wird nicht mehr geändert: Eine Korrektur ist eine neue, die auf sie verweist.',
 			made: '{number}, erstellt am {date}',
 			replaced: '{number}, erstellt am {date} – ersetzt',
+			booked: '{count} Buchungen auf {account}.',
+			toConfirm: 'Konten übernehmen: {count} offen',
 			closedHint: 'Das PDF ist jetzt ein Beleg und wartet auf seine Auszahlung.',
 			correct: 'Korrektur erstellen',
 			check: {

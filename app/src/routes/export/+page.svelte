@@ -170,7 +170,8 @@
 	let automatic = $derived(
 		(plan?.checks.unassigned ?? []).flatMap((tx) => {
 			const s = suggestBooking(tx, { classification: app.classifications[tx.id] ?? null });
-			return s.account && (s.source === 'transfer' || s.source === 'fee')
+			// A travel statement's lines carry their account (#213): taken over as these.
+			return s.account && (s.source === 'transfer' || s.source === 'fee' || s.source === 'travel')
 				? [{ transactionId: tx.id, account: s.account, taxKey: s.taxKey }]
 				: [];
 		})

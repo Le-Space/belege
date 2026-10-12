@@ -198,7 +198,7 @@ test('assign accounts, export a month as DATEV Buchungsstapel with its receipts'
 	await tab('Export').click();
 	await expect(check('ledger')).toHaveAttribute('data-state', 'ok');
 	await expect(page.getByTestId('export-auto-confirm')).toHaveText(
-		'Konten aus Umbuchung und Bankgebühr übernehmen (3)'
+		'Konten aus Umbuchung, Bankgebühr und Reisekostenabrechnung übernehmen (3)'
 	);
 	await page.getByTestId('export-auto-confirm').click();
 	await expect(check('unassigned').getByTestId('export-check-text')).toContainText(
