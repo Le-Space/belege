@@ -11,6 +11,8 @@
 	import { inputVat } from './input-vat.js';
 	import { outputVat, smallBusinessLimits } from './output-vat.js';
 	import { ownInvoiceTest } from './own-invoice.js';
+	import { vatKinds } from './vat-kind.js';
+	import { resolve } from '$app/paths';
 
 	/**
 	 * @type {{
@@ -47,6 +49,15 @@
 	let out = $derived(
 		outputVat({ receipts, matches, transactions, year, startMonth, period, basis, isOwn })
 	);
+	/** The international and special cases of the year (#354): what is not in the table. */
+	let kinds = $derived(vatKinds({ receipts, isOwn, year, startMonth, period }));
+	let special = $derived(
+		['intraEu', 'thirdCountry', 'reverseChargeDe', 'exempt'].some((k) => kinds.output[k]) ||
+			Boolean(kinds.input.intraEuAcquisition) ||
+			kinds.unclear.length > 0
+	);
+	const receiptHref = (/** @type {string} */ id) =>
+		`${resolve('/belege')}?receipt=${encodeURIComponent(id)}`;
 	/** Output and payable columns only once there are own invoices. */
 	let withOutput = $derived(out.invoices > 0);
 	let limits = $derived(smallBusinessLimits(year));
@@ -213,6 +224,72 @@
 					<li class="text-faint">{t('home.vat.outputLater')}</li>
 				{/if}
 			</ul>
+			{#if special}
+				<!-- International and special cases (#354): not in the table, each with its receipts. -->
+				<div class="mt-4 border-t border-border pt-3" data-testid="vat-special">
+					<h3 class="text-sm font-medium text-heading">{t('home.vat.special.title')}</h3>
+					<ul class="mt-2 space-y-1 text-xs text-text">
+						{#each ['intraEu', 'thirdCountry', 'reverseChargeDe', 'exempt'] as kind (kind)}
+							{#if kinds.output[kind]}
+								<li data-testid="vat-kind-{kind}">
+									{t(`home.vat.special.${kind}`, {
+										amount: money(kinds.output[kind].netCents),
+										count: kinds.output[kind].receipts.length
+									})}
+								</li>
+							{/if}
+						{/each}
+						{#if kinds.input.intraEuAcquisition}
+							<li data-testid="vat-kind-intraEuAcquisition">
+								{t('home.vat.special.intraEuAcquisition', {
+									amount: money(kinds.input.intraEuAcquisition.netCents),
+									count: kinds.input.intraEuAcquisition.receipts.length
+								})}
+							</li>
+						{/if}
+					</ul>
+					{#if kinds.zm.length}
+						<p class="mt-3 text-xs font-medium text-heading">{t('home.vat.special.zm')}</p>
+						<table class="mt-1 w-full text-xs" data-testid="vat-zm">
+							<thead>
+								<tr class="text-faint">
+									<th scope="col" class="py-0.5 text-left font-medium">{t('home.vat.period')}</th>
+									<th scope="col" class="py-0.5 text-left font-medium"
+										>{t('home.vat.special.vatId')}</th
+									>
+									<th scope="col" class="py-0.5 text-right font-medium"
+										>{t('home.vat.special.net')}</th
+									>
+								</tr>
+							</thead>
+							<tbody>
+								{#each kinds.zm as z (`${z.period}|${z.vatId}`)}
+									<tr data-testid="vat-zm-line">
+										<td class="py-0.5">{label({ key: z.period })}</td>
+										<td class="py-0.5 font-mono">{z.vatId}</td>
+										<td class="py-0.5 text-right font-mono tabular-nums">{money(z.netCents)}</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					{/if}
+					{#if kinds.unclear.length}
+						<p class="mt-3 text-xs text-warning" data-testid="vat-unclear">
+							{t('home.vat.special.unclear', { count: kinds.unclear.length })}
+						</p>
+						<ul class="mt-1 space-y-0.5 text-xs">
+							{#each kinds.unclear.slice(0, 8) as u (u.id)}
+								<li>
+									<a class="underline" href={receiptHref(u.id)} data-testid="vat-unclear-link"
+										>{t(`home.vat.special.reasons.${u.reason ?? 'noCategory'}`)}</a
+									>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+					<p class="mt-2 text-xs text-faint">{t('home.vat.special.note')}</p>
+				</div>
+			{/if}
 		{/if}
 	</section>
 {/if}

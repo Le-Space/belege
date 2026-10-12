@@ -1347,6 +1347,28 @@ export default {
 			undated: 'Belege ohne Datum, keinem Zeitraum zugeordnet: {count}.',
 			smallBusiness:
 				'Als Kleinunternehmer (§19 UStG) ziehst du keine Vorsteuer ab. In deinen Belegen dieses Jahres stecken {amount} Mehrwertsteuer.',
+			special: {
+				title: 'Internationales und Sonderfälle',
+				intraEu:
+					'Innergemeinschaftliche Lieferungen und Leistungen: {amount} netto (Rechnungen: {count}) – keine deutsche Umsatzsteuer, in der Zusammenfassenden Meldung anzugeben.',
+				thirdCountry:
+					'Drittland (Ausfuhr, nicht im Inland steuerbar): {amount} netto (Rechnungen: {count}).',
+				reverseChargeDe:
+					'§13b im Inland – die Kundin oder der Kunde schuldet die Steuer: {amount} netto (Rechnungen: {count}).',
+				exempt: 'Steuerfrei im Inland: {amount} netto (Rechnungen: {count}).',
+				intraEuAcquisition:
+					'Innergemeinschaftlicher Erwerb: {amount} netto (Belege: {count}) – die Erwerbsteuer schuldest du und ziehst sie zugleich als Vorsteuer ab.',
+				zm: 'Für die Zusammenfassende Meldung',
+				vatId: 'USt-IdNr der Kundin/des Kunden',
+				net: 'Netto',
+				unclear: 'Nicht sicher einzuordnen: {count} – bitte ansehen:',
+				reasons: {
+					noCustomerVatId: 'EU-Rechnung ohne USt-IdNr der Kundin/des Kunden',
+					noCountry: 'ohne Umsatzsteuer, Land unbekannt',
+					noCategory: 'ohne Umsatzsteuer, Grund nicht genannt'
+				},
+				note: 'So, wie die Rechnungen es sagen. Welche Fälle wie zu melden sind, klärst du mit deiner Steuerberatung.'
+			},
 			outputLater:
 				'Noch keine Rechnungen aus der Rechnungs-App: Umsatzsteuer und Zahllast erscheinen, sobald sie gekoppelt ist und Rechnungen mit Steuer je Satz liefert.'
 		},
