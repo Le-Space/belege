@@ -41,7 +41,7 @@
 	import TotalsCard from '$lib/dashboard/TotalsCard.svelte';
 	import { integrationFacts, loadIntegrationFacts } from '$lib/integrations/facts.svelte.js';
 	import { integrationsOverview } from '$lib/integrations/overview.js';
-	import { travelQuestions } from '$lib/travel/view.js';
+	import { openTravelQuestions, tripProposals } from '$lib/travel/proposals.js';
 	import { tripMonth } from '$lib/travel/records.js';
 
 	const hour = new Date().getHours();
@@ -56,7 +56,12 @@
 				r.kind === 'trip' && !r.deleted && tripMonth(r) === new Date().toISOString().slice(0, 7)
 		).length
 	);
-	let travelOpen = $derived(travelQuestions({ travel: app.travel, receipts: app.receipts }).length);
+	let travelOpen = $derived(
+		openTravelQuestions({ travel: app.travel, receipts: app.receipts }).length
+	);
+	let travelProposals = $derived(
+		tripProposals({ travel: app.travel, receipts: app.receipts }).length
+	);
 
 	// Speicher und KI (stats/usage.js): two numbers here, the rest on /statistik.
 	/** @type {number | null} */
@@ -617,7 +622,11 @@
 >
 	<span class="text-sm font-medium text-faint">{t('reisen.title')}</span>
 	<span class="text-sm text-heading tabular-nums" data-testid="home-reisen-line"
-		>{t('reisen.homeLine', { trips: tripsThisMonth, open: travelOpen })}</span
+		>{t('reisen.homeLine', {
+			trips: tripsThisMonth,
+			open: travelOpen,
+			proposals: travelProposals
+		})}</span
 	>
 </a>
 

@@ -2570,10 +2570,21 @@ export default {
 		new: 'Neue Reise',
 		questions: {
 			title: 'Offene Punkte bei Reisen: {count}',
-			receiptWithoutTrip: 'Ticket ohne Reise: {what}',
+			receiptWithoutTrip: 'Reisebeleg ohne Reise: {what}',
 			hospitalityIncomplete: 'Bewirtung ohne {missing}: {what}',
 			tripWithoutTimes: 'Reise ohne Zeiten, keine Pauschale berechenbar: {what}',
 			tripIncomplete: 'Reise mit Lücken: {what}'
+		},
+		proposals: {
+			title: 'Von den Belegen vorgeschlagen: {count}',
+			what: 'Tickets, Hotelrechnungen und die Belege ihrer Tage, nach Datum und Strecke gebündelt – nach Regeln, nicht per KI. Angelegt wird nichts ohne deinen Klick.',
+			new: 'Reise nach {destination}, {from} – {to}',
+			addTo: 'Zur Reise {trip}',
+			make: 'Als Reise anlegen',
+			add: 'Zur Reise hinzufügen',
+			dismiss: 'Keine Reise',
+			elsewhere: 'Weitere Vorschläge in anderen Monaten: {count}.',
+			show: 'Zeigen'
 		},
 		trips: 'Reisen',
 		receipts: 'Belege: {count}',
@@ -2585,7 +2596,7 @@ export default {
 		allowances: 'Verpflegungspauschalen',
 		mileage: 'Kilometer',
 		hospitalityDeductible: 'Bewirtung, abziehbarer Teil',
-		homeLine: 'Diesen Monat: {trips} Reisen · offene Punkte: {open}',
+		homeLine: 'Diesen Monat: {trips} Reisen · offene Punkte: {open} · Vorschläge: {proposals}',
 		questionsElsewhere: 'Auch bei den Reisen gibt es offene Punkte: {count}'
 	},
 	reise: {

@@ -11,7 +11,7 @@
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { onMount } from 'svelte';
 	import AiMark from '$lib/AiMark.svelte';
-	import { travelQuestions } from '$lib/travel/view.js';
+	import { openTravelQuestions } from '$lib/travel/proposals.js';
 	import { getSetting } from '$lib/store/settings.js';
 	import { refreshNow } from '$lib/session.svelte.js';
 	import {
@@ -40,7 +40,9 @@
 	let txById = $derived(new Map(app.transactions.map((x) => [x.id, x])));
 	let receiptById = $derived(new Map(app.receipts.map((r) => [r.id, r])));
 	// Travel asks on its own page (#213), worked out from the books, not stored.
-	let travelOpen = $derived(travelQuestions({ travel: app.travel, receipts: app.receipts }).length);
+	let travelOpen = $derived(
+		openTravelQuestions({ travel: app.travel, receipts: app.receipts }).length
+	);
 	// A payment's name, never a bare dash (bank/payee.js).
 	let book = $derived(addressBook(app));
 

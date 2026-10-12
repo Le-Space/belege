@@ -2532,10 +2532,21 @@ export default {
 		new: 'New trip',
 		questions: {
 			title: 'Open points in travel: {count}',
-			receiptWithoutTrip: 'Ticket without a trip: {what}',
+			receiptWithoutTrip: 'Travel receipt without a trip: {what}',
 			hospitalityIncomplete: 'Hospitality without {missing}: {what}',
 			tripWithoutTimes: 'Trip without times, no allowance can be computed: {what}',
 			tripIncomplete: 'Trip with gaps: {what}'
+		},
+		proposals: {
+			title: 'Proposed by the receipts: {count}',
+			what: 'Tickets, hotel invoices and the receipts of their days, grouped by date and route – by rules, not by AI. Nothing is created without your click.',
+			new: 'Trip to {destination}, {from} – {to}',
+			addTo: 'To the trip {trip}',
+			make: 'Make it a trip',
+			add: 'Add to the trip',
+			dismiss: 'Not a trip',
+			elsewhere: 'More proposals in other months: {count}.',
+			show: 'Show'
 		},
 		trips: 'Trips',
 		receipts: 'receipts: {count}',
@@ -2547,7 +2558,7 @@ export default {
 		allowances: 'Meal allowances',
 		mileage: 'Mileage',
 		hospitalityDeductible: 'Hospitality, deductible part',
-		homeLine: 'This month: {trips} trips · open points: {open}',
+		homeLine: 'This month: {trips} trips · open points: {open} · proposals: {proposals}',
 		questionsElsewhere: 'Travel has open points too: {count}'
 	},
 	reise: {
