@@ -17,6 +17,12 @@
 	import { openTravelQuestions, tripProposals } from '$lib/travel/proposals.js';
 	import { acceptProposal, dismissProposal } from '$lib/travel/proposal-actions.js';
 	import {
+		allAppointments,
+		appointmentDays,
+		isOnSite,
+		tripFromAppointment
+	} from '$lib/travel/appointments.js';
+	import {
 		allTrips,
 		hospitalityOf,
 		receiptsOfTrip,
@@ -60,6 +66,55 @@
 	let proposals = $derived(tripProposals({ travel: app.travel, receipts: app.receipts }));
 	let proposalsHere = $derived(proposals.filter((p) => p.start.slice(0, 7) === month));
 	let proposalsElsewhere = $derived(proposals.length - proposalsHere.length);
+
+	// Appointments somewhere else this month that no trip or proposal takes in yet (step 4c).
+	let dismissedKeys = $derived(
+		new Set(
+			app.travel.filter((r) => r.kind === 'dismissed' && !r.deleted).map((r) => String(r.key))
+		)
+	);
+	let appointments = $derived(
+		allAppointments(app.travel).filter((a) => {
+			if (!isOnSite(a) || String(a.start).slice(0, 7) !== month) return false;
+			if (dismissedKeys.has(`appointment:${a.id}`)) return false;
+			const { fromDay, toDay } = appointmentDays(a);
+			const overlaps = (/** @type {string} */ from, /** @type {string} */ to) =>
+				from.slice(0, 10) <= toDay && fromDay <= to.slice(0, 10);
+			return (
+				!trips.some((x) => x.start && x.end && overlaps(x.start, x.end)) &&
+				!proposals.some((p) => overlaps(p.start, p.end))
+			);
+		})
+	);
+
+	/** @param {Record<string, any>} a */
+	async function tripForAppointment(a) {
+		const store = currentStore();
+		if (!store) return;
+		busy = true;
+		error = null;
+		try {
+			const traveller = await ownerTraveller(store, cleanDatevSettings(app.datevSettings));
+			const { trip } = await saveTrip(store, {
+				travellerId: traveller.id,
+				...tripFromAppointment(a)
+			});
+			await refreshNow();
+			await goto(resolve('/reisen/[id]', { id: trip.id }));
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			busy = false;
+		}
+	}
+
+	/** @param {Record<string, any>} a */
+	async function noTrip(a) {
+		const store = currentStore();
+		if (!store) return;
+		await dismissProposal(store, `appointment:${a.id}`);
+		await refreshNow();
+	}
 
 	/** @param {import('$lib/travel/proposals.js').Proposal} proposal */
 	async function accept(proposal) {
@@ -260,6 +315,46 @@
 			data-testid="reisen-proposals-go">{t('reisen.proposals.show')}</button
 		>
 	</p>
+{/if}
+
+{#if appointments.length}
+	<section class={card} aria-labelledby="reisen-appointments-h" data-testid="reisen-appointments">
+		<h2 id="reisen-appointments-h" class="text-sm font-semibold text-heading">
+			{t('reisen.appointments.title', { count: appointments.length })}
+		</h2>
+		<p class="mt-1 text-xs text-faint">{t('reisen.appointments.what')}</p>
+		<ul class="mt-2 divide-y divide-border text-sm">
+			{#each appointments as a (a.id)}
+				<li class="py-2" data-testid="reisen-appointment">
+					<p class="font-medium text-heading">{a.summary || '—'}</p>
+					<p class="text-xs text-text">
+						{a.location} · {a.allDay
+							? [appointmentDays(a).fromDay, appointmentDays(a).toDay]
+									.filter((d, i, all) => i === 0 || d !== all[0])
+									.map((d) => formatDate(d))
+									.join(' – ')
+							: `${when(a.start)} – ${when(a.end)}`}
+					</p>
+					<div class="mt-2 flex flex-wrap gap-2">
+						<button
+							type="button"
+							class={btn.secondary}
+							onclick={() => tripForAppointment(a)}
+							disabled={busy}
+							data-testid="reisen-appointment-trip">{t('reisen.appointments.make')}</button
+						>
+						<button
+							type="button"
+							class={btn.link}
+							onclick={() => noTrip(a)}
+							disabled={busy}
+							data-testid="reisen-appointment-dismiss">{t('reisen.appointments.dismiss')}</button
+						>
+					</div>
+				</li>
+			{/each}
+		</ul>
+	</section>
 {/if}
 
 {#if questions.length}

@@ -2028,6 +2028,7 @@ export default {
 		llmNotSetUp:
 			'Das Auslesen ist auf der Bridge nicht eingerichtet: pnpm setup:llm, dann die Bridge neu starten.',
 		mailResult: '{mails} E-Mails · neu: {new} · schon vorhanden: {known} · doppelt: {duplicate}',
+		mailAppointments: ' · Termine aus Einladungen: {count}',
 		mailVerdicts: ' · Absenderprüfung aktualisiert: {count}',
 		importResult: 'Neu: {new} · doppelt: {duplicate} · nicht unterstützt: {unsupported}',
 		sources: 'Quellen',
@@ -2586,6 +2587,12 @@ export default {
 			elsewhere: 'Weitere Vorschläge in anderen Monaten: {count}.',
 			show: 'Zeigen'
 		},
+		appointments: {
+			title: 'Termine aus Einladungen: {count}',
+			what: 'Einladungen mit Kalendereintrag an die Buchhaltungsadresse, mit einem Ort und noch auf keiner Reise. Behalten werden nur Titel, Ort und Zeiten.',
+			make: 'Reise dazu anlegen',
+			dismiss: 'Keine Reise'
+		},
 		trips: 'Reisen',
 		receipts: 'Belege: {count}',
 		none: 'In diesem Monat beginnt keine Reise.',
@@ -2623,6 +2630,8 @@ export default {
 		remove: 'Entfernen',
 		addStop: 'Grenzübertritt hinzufügen',
 		meals: 'Gestellte Mahlzeiten',
+		appointments: 'Termine an diesen Tagen, aus Einladungen',
+		appointmentTake: 'Als Anlass übernehmen',
 		breakfastProposal: 'Die Hotelrechnung enthält Frühstück am: {days}.',
 		breakfastTake: 'Übernehmen',
 		mealsHint:

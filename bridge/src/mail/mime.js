@@ -53,6 +53,30 @@ export function attachmentParts(node, out = []) {
 }
 
 /**
+ * Every calendar part of a body structure (`text/calendar`, `application/ics`,
+ * a `.ics` file): an invitation's appointment (#213), inline or attached.
+ *
+ * @param {any} node imapflow's `bodyStructure`
+ * @param {{ part: string, size: number }[]} [out]
+ * @returns {{ part: string, size: number }[]}
+ */
+export function calendarParts(node, out = []) {
+	if (!node) return out;
+	const type = String(node.type ?? '').toLowerCase();
+	const name = String(
+		node.dispositionParameters?.filename ?? node.parameters?.name ?? ''
+	).toLowerCase();
+	if (
+		!type.startsWith('multipart/') &&
+		(type === 'text/calendar' || type === 'application/ics' || name.endsWith('.ics'))
+	) {
+		out.push({ part: String(node.part ?? '1'), size: Number(node.size ?? 0) });
+	}
+	for (const child of node.childNodes ?? []) calendarParts(child, out);
+	return out;
+}
+
+/**
  * The part to take the text excerpt from: the first text/plain that is not
  * an attachment, else the first text/html.
  *

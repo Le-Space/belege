@@ -21,6 +21,7 @@
 // sent to the LLM until someone confirms it (docs/phase-0.md: look-alike
 // phishing, PDFs as a malware vector).
 
+import { importAppointments } from '../travel/appointments.js';
 import { recordEvent } from '../activity/events.js';
 import { sha256Hex } from './blob-store.js';
 import { eInvoiceFields, pdfEInvoice, sniffEInvoice } from './einvoice.js';
@@ -366,15 +367,19 @@ export async function importMailMessages({
  * into the store, and one event with the counts.
  *
  * @param {object} params
- * @param {{ receipts: import('../store/repository.js').Collection, events?: import('../store/repository.js').Collection }} params.store
+ * @param {{ receipts: import('../store/repository.js').Collection, events?: import('../store/repository.js').Collection, travel?: import('../store/repository.js').Collection }} params.store
  * @param {import('./blob-store.js').BlobStore} params.blobs
  * @param {{ mailMessages: (since: string, until: string | null) => Promise<{ messages: any[] }>, mailAttachment: (id: string, part: string) => Promise<Uint8Array> }} params.client
  * @param {string} params.since YYYY-MM-DD
  * @param {string | null} params.until YYYY-MM-DD, exclusive, or open
- * @returns {Promise<{ mails: number, counts: MailCounts, createdIds: string[] }>} `createdIds`: the new receipts, to read them
+ * @returns {Promise<{ mails: number, counts: MailCounts, createdIds: string[], appointments: number }>} `createdIds`: the new receipts, to read them; `appointments`: new ones from invitations
  */
 export async function fetchAccountingMail({ store, blobs, client, since, until }) {
 	const { messages } = await client.mailMessages(since, until);
+	// An invitation's appointments (#213, step 4c), beside the receipts.
+	const appointments = store.travel
+		? await importAppointments(store.travel, messages)
+		: { new: 0, cancelled: 0 };
 	/** @type {import('../store/repository.js').StoredRecord[]} */
 	const created = [];
 	const counts = await importMailMessages({
@@ -391,7 +396,12 @@ export async function fetchAccountingMail({ store, blobs, client, since, until }
 		mails: messages.length,
 		...counts
 	});
-	return { mails: messages.length, counts, createdIds: created.map((r) => r.id) };
+	return {
+		mails: messages.length,
+		counts,
+		createdIds: created.map((r) => r.id),
+		appointments: appointments.new
+	};
 }
 
 /**

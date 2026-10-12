@@ -19,6 +19,28 @@ export const ACCOUNTING = 'buchhaltung@le-space.de';
 export const PERSONAL = 'person@le-space.de';
 
 /** A made-up crypto payment, confirmed by mail (`cryptoPayment: true`). */
+/** The made-up invitation of `sampleMailbox({ invitation: true })`. */
+export const INVITATION = {
+	organizer: 'veranstalterin@events.example',
+	attendee: 'Erika Beispielgast',
+	ics: [
+		'BEGIN:VCALENDAR',
+		'VERSION:2.0',
+		'METHOD:REQUEST',
+		'BEGIN:VEVENT',
+		'UID:fachtagung-2026@events.example',
+		'SUMMARY:Fachtagung Beispiel 2026',
+		'LOCATION:Kongresshaus Musterstadt\\, Saal 2',
+		'DTSTART;TZID=Europe/Berlin:20261105T093000',
+		'DTEND;TZID=Europe/Berlin:20261105T171500',
+		'ORGANIZER;CN=Veranstalterin:mailto:veranstalterin@events.example',
+		'ATTENDEE;CN=Erika Beispielgast:mailto:erika@beispiel-gmbh.example',
+		'DESCRIPTION:Ihr Zugang: https://events.example/t/geheimtoken',
+		'END:VEVENT',
+		'END:VCALENDAR'
+	].join('\r\n')
+};
+
 export const CRYPTO_PAYMENT = Object.freeze({
 	hash: 'C0FFEE00'.repeat(8),
 	address: 'n1testvendoraddress0000000000000000000qqqq',
@@ -193,12 +215,17 @@ const authResults = (domain, result = 'pass') =>
  * tokens (CRYPTO_PAYMENT): it names the hash and the quantity, not the vendor
  * as the wallet sees it and no euro amount.
  *
- * @param {{ base?: Date, privateReceipt?: boolean, cryptoPayment?: boolean }} [options]
+ * `invitation: true` adds an invitation to the accounting address with a
+ * calendar attachment (INVITATION): a made-up conference, its organiser and
+ * attendees, which must not come out of the bridge (#213, step 4c).
+ *
+ * @param {{ base?: Date, privateReceipt?: boolean, cryptoPayment?: boolean, invitation?: boolean }} [options]
  */
 export function sampleMailbox({
 	base = new Date(Date.now() - 3 * 864e5),
 	privateReceipt = false,
-	cryptoPayment = false
+	cryptoPayment = false,
+	invitation = false
 } = {}) {
 	const day = (/** @type {number} */ offset) => new Date(base.getTime() - offset * 864e5);
 	const w = RECEIPTS.wolkenfabrik;
@@ -379,6 +406,29 @@ export function sampleMailbox({
 					subject: 'Your subscription is active',
 					date: day(2),
 					text: `Thanks! We received ${CRYPTO_PAYMENT.quantity} TOKEN.\nTransaction: ${CRYPTO_PAYMENT.hash}`
+				})
+			)
+		);
+	}
+
+	if (invitation) {
+		inbox.push(
+			msg(
+				day(1),
+				mime({
+					headers: [authResults('events.example'), received(ACCOUNTING, day(1))],
+					from: '"Beispiel Events" <tickets@events.example>',
+					to: ACCOUNTING,
+					subject: 'Einladung: Fachtagung Beispiel',
+					date: day(1),
+					text: 'Wir freuen uns auf Sie.',
+					attachments: [
+						{
+							name: 'einladung.ics',
+							type: 'text/calendar; method=REQUEST; charset=utf-8',
+							bytes: Buffer.from(INVITATION.ics, 'utf8')
+						}
+					]
 				})
 			)
 		);
