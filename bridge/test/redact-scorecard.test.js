@@ -126,6 +126,106 @@ Anlass: Vertragsverhandlung Projekt Polaris`,
 		stays: ['Gasthaus Zur Linde', '37,30', 'Tagesgericht'],
 		// The guest's company and the occasion are free text.
 		knownGaps: ['Nordlicht AG', 'Projekt Polaris']
+	},
+	// Other languages (#366): the traveller's name, document and birth date go,
+	// the stations, amounts and ticket numbers stay.
+	'a Russian train ticket': {
+		text: `Электронный билет № 7012345678901 · Железные дороги Пример
+Пассажир: Иванова Мария Петровна
+Паспорт: 45 12 345678 · Дата рождения: 01.02.1990
+Москва Казанская 21:30 → Казань Пассажирская 07:45, поезд 002Й, вагон 5, место 17
+Стоимость 4 512,30 руб., в т.ч. НДС 20 % 752,05 руб.
+Телефон: +7 916 123-45-67`,
+		hidden: ['Иванова', 'Мария', '45 12 345678', '01.02.1990', '123-45-67'],
+		stays: ['Москва Казанская', 'Казань Пассажирская', '4 512,30', '752,05', '7012345678901'],
+		knownGaps: []
+	},
+	'a Ukrainian bus ticket': {
+		text: `Квиток № 0012345 · Автобуси Приклад
+Пасажир: Коваленко Олена
+Київ-Пасажирський 07:00 → Львів 12:30
+Ціна 650,00 грн`,
+		hidden: ['Коваленко', 'Олена'],
+		stays: ['Київ-Пасажирський', 'Львів', '650,00', '0012345'],
+		knownGaps: []
+	},
+	'a Turkish bus ticket': {
+		text: `Otobüs Bileti · Örnek Turizm · PNR KX93TQ
+Yolcu: Ayşe Yılmaz · Pasaport No: U12345678
+Sayın Ayşe Yılmaz, iyi yolculuklar.
+İstanbul Esenler 23:00 → Ankara AŞTİ 05:30, Koltuk 14
+Tutar 850,00 TL (KDV dahil)
+Cep: +90 532 123 45 67`,
+		hidden: ['Ayşe', 'Yılmaz', 'U12345678', '123 45 67'],
+		stays: ['İstanbul Esenler', 'Ankara AŞTİ', '850,00', 'KX93TQ'],
+		knownGaps: []
+	},
+	'a Spanish boarding pass': {
+		text: `Tarjeta de embarque / Boarding pass · Aerolínea Ejemplo
+PASAJERO: GARCIA LOPEZ/JUAN MR
+Vuelo XY1234 Madrid (MAD) → Berlín (BER) 12/03/2026 09:40
+Localizador: QW7ERT · Billete 0751234567890
+DNI 12345678Z
+Total 189,40 EUR`,
+		hidden: ['GARCIA', 'JUAN', '12345678Z'],
+		stays: ['Madrid (MAD)', 'Berlín (BER)', 'QW7ERT', '0751234567890', '189,40', '12/03/2026'],
+		knownGaps: []
+	},
+	'an Italian train ticket': {
+		text: `Biglietto Treni Esempio · Codice PNR ABC123
+Passeggero: Mario Rossi
+Gentile Mario Rossi, buon viaggio.
+Roma Termini 08:00 → Milano Centrale 11:10
+Data di nascita: 03/04/1975
+Importo 79,90 € IVA 10 % inclusa
+Cellulare: 333 123 4567`,
+		hidden: ['Mario', 'Rossi', '03/04/1975', '123 4567'],
+		stays: ['Roma Termini', 'Milano Centrale', '79,90', 'ABC123'],
+		knownGaps: []
+	},
+	'a Polish train ticket': {
+		text: `Bilet · Koleje Przykład · Nr biletu 1234567
+Pasażer: Anna Nowak
+Kraków Główny 06:15 → Warszawa Centralna 08:40
+Cena 149,00 zł (w tym VAT 8 %)`,
+		hidden: ['Anna', 'Nowak'],
+		stays: ['Kraków Główny', 'Warszawa Centralna', '149,00', '1234567'],
+		knownGaps: []
+	},
+	'a French hotel invoice': {
+		text: `Hôtel Exemple · Facture F-2026-0042
+Client : Mme Claire Dupont
+Voyageur : Claire Dupont
+Arrivée 10/03/2026 · Départ 12/03/2026 · 2 nuits, petit-déjeuner inclus
+Total 236,00 EUR dont TVA 10 % 21,45 EUR
+Tél. : +33 1 23 45 67 89`,
+		hidden: ['Claire', 'Dupont', '45 67 89'],
+		stays: ['Hôtel Exemple', 'F-2026-0042', '236,00', '21,45', 'petit-déjeuner inclus'],
+		knownGaps: []
+	},
+	'an Arabic hotel invoice': {
+		text: `فندق المثال · فاتورة رقم 2026-118
+الضيف: محمد أحمد
+جواز السفر: P1234567
+الوصول 10/03/2026 · المغادرة 12/03/2026 · ليلتان
+المجموع 950,00 درهم شامل الضريبة 5 %
+هاتف: +971 4 123 4567
+شكرا لإقامتكم يا محمد`,
+		hidden: ['أحمد', 'P1234567', '123 4567'],
+		stays: ['فندق المثال', '2026-118', '950,00'],
+		// A name in running text, without a label before it.
+		knownGaps: ['يا محمد']
+	},
+	'an English airline e-ticket': {
+		text: `E-TICKET RECEIPT · Example Air
+PASSENGER NAME: BEISPIEL/LENA MS
+TICKET NUMBER: 1234567890123 · BOOKING REF: ZX8K4P
+XA 211 HAMBURG (HAM) - ISTANBUL (IST) 14MAR26 06:55
+PASSPORT: C01X00T47 · DOB: 1985-05-14
+FARE EUR 210.00 TAXES EUR 64.20 TOTAL EUR 274.20`,
+		hidden: ['BEISPIEL', 'LENA', 'C01X00T47', '1985-05-14'],
+		stays: ['HAMBURG (HAM)', 'ISTANBUL (IST)', '1234567890123', 'ZX8K4P', '274.20'],
+		knownGaps: []
 	}
 };
 
@@ -147,8 +247,9 @@ test('the scorecard’s count: how much of what a reader would call personal is 
 		hidden += doc.hidden.length;
 		gaps += doc.knownGaps.length;
 	}
-	// 38 of 47 marked places; the nine that get through are named above.
-	assert.deepEqual([hidden, gaps], [38, 9]);
+	// 68 of 78 marked places, nine documents in other languages among them (#366);
+	// the ten that get through are named above.
+	assert.deepEqual([hidden, gaps], [68, 10]);
 });
 
 test('the app’s company names are blacked out for the call they come with, and only for it', async () => {
@@ -177,7 +278,12 @@ test('labels without a name, and words that only look like one, are left alone',
 		'Kontakt: support@vendor.example',
 		'Rechnung 2026 März, Abrechnung 2025 Dezember',
 		'Betrag 1.234,56 EUR, Rechnungsnummer 0171-2026',
-		'Tel. siehe Website'
+		'Tel. siehe Website',
+		// Short salutations that are words too, a ticket that is no ID, an invoice that is no document (#366).
+		'Pan Pacific Hotel, Bay Area, Don Quijote',
+		'Fahrausweis Nr. 123456789',
+		'Documento: F0011234567',
+		'Казань Пассажирская 07:45'
 	];
 	for (const line of kept) {
 		const out = redact(line, options).text;
