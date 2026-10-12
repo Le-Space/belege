@@ -5,6 +5,7 @@ import { createBlobStore } from '../receipts/blob-store.js';
 import { runMatching } from '../matching/engine.js';
 import { unlinkMatch } from '../matching/actions.js';
 import { receiptFacts } from '../matching/score.js';
+import { vatCase } from '../vat/vat-kind.js';
 import {
 	centsOf,
 	extractionOf,
@@ -208,6 +209,40 @@ describe('the VAT of an issued invoice (#195)', () => {
 		).toMatchObject({ net: 1000, vat: [{ rate: 19, amount: 190 }], gross: 1190 });
 		expect(extractionOf({ ...inv, vat: [] }).vat).toEqual([]);
 		expect('vat' in extractionOf(inv)).toBe(false);
+	});
+
+	it('invoice 0.3.0: the category of each line and the customer’s VAT ID, for the VAT cases (#354)', () => {
+		const rc = extractionOf({
+			...inv,
+			customer: { name: 'Kunde Beispiel GmbH', vatId: 'atu 000 000 00' },
+			total: { value: '1000.00', currency: 'EUR' },
+			net: { value: '1000.00', currency: 'EUR' },
+			vat: [{ rate: '0', category: 'AE', amount: { value: '0.00', currency: 'EUR' } }]
+		});
+		expect(rc).toMatchObject({
+			customer_vat_id: 'ATU00000000',
+			customer_country: 'AT',
+			vat: [{ rate: 0, amount: 0, category: 'reverse_charge' }]
+		});
+		// Sorted as a §13b service to a business in another EU country: for the ZM.
+		expect(
+			vatCase({ id: 'R', ownInvoice: true, amountCents: 100000, extraction: rc }, true)
+		).toMatchObject({
+			kind: 'intraEu',
+			vatId: 'ATU00000000',
+			netCents: 100000
+		});
+		// A small business: E, at 0 – no VAT, and why.
+		expect(
+			extractionOf({
+				...inv,
+				vat: [{ rate: '0', category: 'E', amount: { value: '0.00', currency: 'EUR' } }]
+			}).vat
+		).toEqual([{ rate: 0, amount: 0, category: 'exempt' }]);
+		// A VAT ID that is none is not taken.
+		expect(
+			'customer_vat_id' in extractionOf({ ...inv, customer: { name: 'X', vatId: 'keine' } })
+		).toBe(false);
 	});
 });
 
