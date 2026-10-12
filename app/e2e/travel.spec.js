@@ -491,3 +491,51 @@ test('the month’s statement: checks first, then a numbered PDF kept as a recei
 	await expect(made.first()).toContainText('RK-2025-002');
 	await expect(made.nth(1)).toContainText('ersetzt');
 });
+
+test('receipts named on the travel pages are previewed on hover', async ({ page }) => {
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('E2E');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+
+	const pdf = [...makePdf(['Bahn Beispiel AG', 'Fahrkarte', 'Musterstadt Hbf', '49,90 EUR'])];
+	await page.evaluate(async (pdf) => {
+		const e2e = /** @type {any} */ (window).__belegeE2E;
+		await e2e.addReceiptFile(pdf, {
+			source: 'upload',
+			status: 'ausgelesen',
+			mime: 'application/pdf',
+			fileName: 'bahn.pdf',
+			vendor: 'Bahn Beispiel AG',
+			amountCents: 4990,
+			currency: 'EUR',
+			documentDate: '2025-07-01',
+			// A ticket read without its journey's times: asked about, proposing nothing.
+			extraction: { document_type: 'ticket', gross: 49.9, vat: [] }
+		});
+	}, pdf);
+
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
+	await page.getByTestId('belege-reisen').click();
+	const question = page.getByTestId('reisen-question').filter({ hasText: 'Bahn Beispiel AG' });
+	const peek = page.getByTestId('receipt-peek');
+	await question.hover();
+	await expect(peek).toBeVisible();
+	await expect(peek).toContainText('Bahn Beispiel AG');
+	await expect(peek.getByTestId('tx-receipt-preview')).toHaveAttribute('data-rendered', 'true');
+	await page.mouse.move(5, 5);
+	await expect(peek).toHaveCount(0);
+
+	// The same on a trip's page, for its receipts.
+	await question.click();
+	const detail = page.getByTestId('receipt-detail');
+	await detail.getByTestId('travel-open').click();
+	await detail.getByTestId('travel-new-trip').click();
+	const receipt = page.getByTestId('reise-receipt');
+	await expect(receipt).toHaveCount(1);
+	await receipt.hover();
+	await expect(peek).toBeVisible();
+	await expect(peek.getByTestId('tx-receipt-preview')).toHaveAttribute('data-rendered', 'true');
+});
