@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.9.0] – 2026-10-13
+
 ### Added
 
 - **VAT on Home: output VAT, the payable, and the international cases** (#195, #355; #354, #356, #357, #358, #359, #361). The card showed the input VAT only.
