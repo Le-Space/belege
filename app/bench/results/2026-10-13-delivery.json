@@ -1,0 +1,37 @@
+{
+	"date": "2026-10-13",
+	"cid": "bafybeidv34tzeorzepxe3vqnslegxty6w6t3gdmsnulcxhx3fy3p5wut6y",
+	"runs": 3,
+	"targets": {
+		"domain": {
+			"url": "https://belege.le-space.de/",
+			"assets": 11,
+			"pageBytes": 4700,
+			"assetBytes": 103532,
+			"totalKB": 106,
+			"pageTtfbMsMedian": 45,
+			"totalMsMedian": 116,
+			"totalMsAll": [
+				858,
+				109,
+				116
+			],
+			"failed": []
+		},
+		"gatewayByCid": {
+			"url": "https://ipfs.aleph.sh/ipfs/bafybeidv34tzeorzepxe3vqnslegxty6w6t3gdmsnulcxhx3fy3p5wut6y/",
+			"assets": 11,
+			"pageBytes": 4700,
+			"assetBytes": 103532,
+			"totalKB": 106,
+			"pageTtfbMsMedian": 51,
+			"totalMsMedian": 139,
+			"totalMsAll": [
+				374,
+				138,
+				139
+			],
+			"failed": []
+		}
+	}
+}

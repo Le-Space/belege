@@ -67,7 +67,15 @@ async function createRelay() {
 		services: {
 			identify: identify(),
 			identifyPush: identifyPush(),
-			relay: circuitRelayServer({ reservations: { maxReservations: 32 } })
+			relay: circuitRelayServer({
+				reservations: {
+					maxReservations: 32,
+					// The library caps a circuit at 2 minutes and 128 KiB; the Le Space
+					// relays run at 20 minutes and 10 GiB. The resilience benchmark
+					// measures both, the specs keep the library's defaults.
+					...(process.env.E2E_RELAY_UNLIMITED ? { applyDefaultLimit: false } : {})
+				}
+			})
 		}
 	});
 }
