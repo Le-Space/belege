@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **A release opens by CID from a path-style IPFS gateway** (`https://ipfs.aleph.sh/ipfs/<cid>/`), not only from a subdomain gateway: the start page is prerendered, so its asset paths are relative and it finds its base under any path; the manifest and the service worker follow. The SPA fallback a deeper route reloads into is now `200.html`; the domain's catch-all serves it. See [deploy.md](docs/deploy.md).
+
 ## [0.9.1] – 2026-10-13
 
 ### Changed
