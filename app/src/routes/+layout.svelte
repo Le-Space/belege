@@ -91,13 +91,13 @@
 		>
 			<div class="col-start-1 row-start-1 flex min-w-0 items-center gap-3">
 				<a
-					href="https://local-first.le-space.de"
+					href="https://le-space.de/belege/"
 					target="_blank"
 					rel="noopener noreferrer"
 					class="shrink-0 rounded-md focus-visible:ring-2 focus-visible:ring-cyan focus-visible:outline-none"
 					aria-label={t('header.localFirst')}
 					title={t('header.localFirst')}
-					data-testid="local-first-link"
+					data-testid="product-page-link"
 				>
 					<BelegeMark size={44} />
 				</a>

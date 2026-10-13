@@ -34,6 +34,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Changed
 
+- **The logo leads to the product page** (le-space.de/belege/), not to the local-first stack site: someone who clicks the mark wants to know what this app is, and that page says so – and names the set-up offer.
 - **The DATEV format, not one program** (#334, #348). The app and its docs named one bookkeeping program as the export's target; they now name the format (DATEV) and "deine Buchhaltung", since many programs read it.
 
 ### Fixed
