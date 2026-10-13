@@ -48,10 +48,38 @@ const REFUSED = /** @type {Record<string, string>} */ ({
 });
 const WARNING = /** @type {Record<string, string>} */ ({
 	noRateAbroad: 'Auslandstag ohne Satz: ohne Betrag abgerechnet.',
+	rateNotListed:
+		'Land nicht in der Übersicht des BMF: Satz für Luxemburg angesetzt, mit der Steuerberatung zu klären.',
+	rateTerritory:
+		'Übersee- oder Außengebiet: Satz des Mutterlands angesetzt, mit der Steuerberatung zu klären.',
 	familyCar: 'Fahrzeug eines Familienangehörigen: mit der Steuerberatung zu klären.',
 	foreignCurrency: 'Beleg in fremder Währung: in Euro umgerechnet, Originalbetrag in Klammern.',
 	foreignWithoutRate: 'Beleg in fremder Währung ohne Kurs: ohne Euro-Betrag, nicht erstattet.'
 });
+
+/**
+ * Whose row a rate abroad is: `RU Moskau`, `LU (Land nicht erfasst)`.
+ *
+ * @param {{ country?: string, city?: string | null, via?: string | null }} r
+ */
+const rateLabel = (r) =>
+	[
+		r.country,
+		r.city,
+		r.via === 'notListed' ? '(Land nicht erfasst)' : r.via === 'territory' ? '(Mutterland)' : ''
+	]
+		.filter(Boolean)
+		.join(' ');
+
+/**
+ * A day's rate, where it is not simply its country's: a city's, or another country's.
+ *
+ * @param {{ country: string, rate: { country?: string, city?: string | null, via?: string | null } | null }} d
+ */
+const rateOf = (d) =>
+	d.rate && (d.rate.city || (d.rate.country && d.rate.country !== d.country))
+		? `Satz ${rateLabel(d.rate)}`
+		: '';
 
 /**
  * @param {object} doc
@@ -103,7 +131,11 @@ export async function travelStatementPdf(doc) {
 					formatDate(d.date, 'de-DE'),
 					KIND[d.kind] ?? d.kind,
 					d.country,
-					[d.reason ? REASON[d.reason] : '', d.cutCents ? `Mahlzeiten −${euro(d.cutCents)}` : '']
+					[
+						d.reason ? REASON[d.reason] : '',
+						rateOf(d),
+						d.cutCents ? `Mahlzeiten −${euro(d.cutCents)}` : ''
+					]
 						.filter(Boolean)
 						.join(', '),
 					d.cents === null ? '—' : euro(d.cents)
@@ -218,7 +250,7 @@ export async function travelStatementPdf(doc) {
 	for (const r of s.rates) {
 		if (r.kind === 'meal')
 			field(
-				`Verpflegung ${r.country}`,
+				`Verpflegung ${rateLabel(r)}`,
 				`${euro(r.full)} / ${euro(r.partial)} ab ${formatDate(r.from, 'de-DE')} · ${r.source}`
 			);
 		else if (r.kind === 'mileage')

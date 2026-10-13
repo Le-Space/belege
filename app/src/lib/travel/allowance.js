@@ -9,8 +9,10 @@
 //   with a night away          the days of departure and arrival the partial
 //                              rate, each day between the full one
 // The country of a day is the one reached last before midnight; if that is
-// Germany, the last one abroad reached that day (the day home). A country
-// without a rate in the table leaves its day without an amount, named.
+// Germany, the last one abroad reached that day (the day home). A border
+// crossing may name a city with rates of its own (rates-abroad.js): the day
+// then takes the city's. A day before the first letter in the table has no
+// rate abroad, and is left without an amount, named.
 //
 // A meal provided cuts the day by a share of the country's full-day rate,
 // down to nothing at most. The three-month rule cuts a day to nothing: which
@@ -25,10 +27,12 @@ import { MEAL_CUTS, THREE_MONTH_RULE, mealRate, rateOn } from './rates.js';
  * @property {'full' | 'partial' | 'none'} kind
  * @property {number} minutes away on that day (for a trip across midnight without a night: both days')
  * @property {string} country
+ * @property {string | null} [city] the city of the day's place, where the crossing names one
  * @property {number | null} cents null: no rate for the country
  * @property {number} cutCents what the meals provided took off
  * @property {'under8h' | 'countedOnOtherDay' | 'noRate' | 'threeMonthRule' | null} reason
- * @property {{ from: string, full: number, partial: number, source: string } | null} rate the rate used
+ * @property {{ from: string, full: number, partial: number, source: string, country?: string, city?: string | null, via?: string | null } | null} rate
+ *   the rate used; abroad, whose row it is (rates-abroad.js `abroadRate`)
  */
 
 /** Minutes since 1970 of a wall-clock time, as if it were UTC. @param {string} t */
@@ -54,7 +58,7 @@ function datesBetween(from, to) {
  * @param {string} trip.start leaving home or the office
  * @param {string} trip.end back
  * @param {string} [trip.country] where it starts, Germany by default
- * @param {{ at: string, country: string }[]} [trip.stops] each time a border is crossed: from then on, that country
+ * @param {{ at: string, country: string, city?: string | null }[]} [trip.stops] each time a border is crossed: from then on, that country (and city)
  * @param {boolean} [trip.overnight] whether there was a night away; by default when it spans dates
  * @param {Record<string, Meals>} [trip.meals] meals provided, by date
  * @param {Iterable<string>} [trip.cut] dates cut by the three-month rule
@@ -74,36 +78,37 @@ export function mealAllowance({
 	const to = minutesOf(end);
 	if (to <= from) throw new Error('a trip ends after it starts');
 	const borders = stops
-		.map((s) => ({ at: minutesOf(s.at), country: s.country }))
+		.map((s) => ({ at: minutesOf(s.at), country: s.country, city: s.city ?? null }))
 		.sort((a, b) => a.at - b.at);
 	const dates = datesBetween(dateOf(from), dateOf(to));
 	const night = overnight ?? dates.length > 1;
 	if (!night && dates.length > 2) throw new Error('more than one midnight needs a night away');
 	const cutDates = new Set(cut);
 
-	/** The country at a moment. @param {number} at */
-	const countryAt = (at) => {
-		let c = country;
-		for (const b of borders) if (b.at <= at) c = b.country;
+	/** The country, and city, at a moment. @param {number} at */
+	const placeAt = (at) => {
+		/** @type {{ country: string, city: string | null }} */
+		let c = { country, city: null };
+		for (const b of borders) if (b.at <= at) c = b;
 		return c;
 	};
 
 	const spans = dates.map((date) => {
 		const dayStart = Math.max(from, midnightOf(date));
 		const dayEnd = Math.min(to, midnightOf(date) + 24 * 60);
-		let last = countryAt(dayEnd - 1 / 60);
-		if (last === 'DE') {
+		let last = placeAt(dayEnd - 1 / 60);
+		if (last.country === 'DE') {
 			// Back home that day: the rate of the last country abroad reached on it.
 			const abroad = [
-				countryAt(dayStart),
-				...borders.filter((b) => b.at > dayStart && b.at < dayEnd).map((b) => b.country)
-			].filter((c) => c !== 'DE');
+				placeAt(dayStart),
+				...borders.filter((b) => b.at > dayStart && b.at < dayEnd)
+			].filter((c) => c.country !== 'DE');
 			if (abroad.length) last = abroad[abroad.length - 1];
 		}
-		return { date, minutes: dayEnd - dayStart, country: last };
+		return { date, minutes: dayEnd - dayStart, country: last.country, city: last.city ?? null };
 	});
 
-	/** @type {{ date: string, minutes: number, country: string, kind: 'full' | 'partial' | 'none', reason: AllowanceDay['reason'] }[]} */
+	/** @type {{ date: string, minutes: number, country: string, city: string | null, kind: 'full' | 'partial' | 'none', reason: AllowanceDay['reason'] }[]} */
 	let kinds;
 	if (!night) {
 		const total = spans.reduce((s, d) => s + d.minutes, 0);
@@ -130,12 +135,19 @@ export function mealAllowance({
 			kind: d.kind,
 			minutes: d.minutes,
 			country: d.country,
+			...(d.city ? { city: d.city } : {}),
 			cutCents: 0
 		};
 		if (d.kind === 'none') return { ...base, cents: 0, reason: d.reason, rate: null };
-		const rate = mealRate(d.country, d.date);
+		const rate = mealRate(d.country, d.date, d.city);
 		if (!rate) return { ...base, cents: null, reason: 'noRate', rate: null };
-		const used = { from: rate.from, full: rate.full, partial: rate.partial, source: rate.source };
+		const used = {
+			from: rate.from,
+			full: rate.full,
+			partial: rate.partial,
+			source: rate.source,
+			...('via' in rate ? { country: rate.country, city: rate.city, via: rate.via } : {})
+		};
 		if (cutDates.has(d.date)) return { ...base, cents: 0, reason: 'threeMonthRule', rate: used };
 		const amount = d.kind === 'full' ? rate.full : rate.partial;
 		const shares = rateOn(MEAL_CUTS, d.date);

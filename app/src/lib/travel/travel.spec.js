@@ -24,7 +24,9 @@ describe('the rates table (#213)', () => {
 		expect(mealRate('DE', '2019-12-31')).toMatchObject({ full: 2400, partial: 1200 });
 		expect(mealRate('DE', '2026-05-04')).toMatchObject({ full: 2800, partial: 1400 });
 		expect(mealRate('DE', '2013-06-01')).toBeNull();
-		expect(mealRate('AT', '2026-05-04')).toBeNull();
+		// Abroad from the BMF letter in force (#379); none before the first one in the table.
+		expect(mealRate('AT', '2026-05-04')).toMatchObject({ full: 5000, partial: 3300 });
+		expect(mealRate('AT', '2024-05-04')).toBeNull();
 		expect(rateOn(MEAL_RATES, '2026-05-04', (r) => r.country === 'DE')?.from).toBe('2020-01-01');
 	});
 });
@@ -103,6 +105,7 @@ describe('meal allowance (#213)', () => {
 	});
 
 	it('abroad: the country reached last before midnight; home again, the last one abroad; no rate made up', () => {
+		// Austria in 2026 (BMF letter of 5 Dec 2025): 50 € a full day, 33 € the days there and back.
 		const vienna = mealAllowance({
 			start: '2026-05-04T06:00',
 			end: '2026-05-05T18:00',
@@ -112,10 +115,18 @@ describe('meal allowance (#213)', () => {
 			]
 		});
 		expect(vienna.days.map((d) => [d.country, d.cents, d.reason])).toEqual([
-			['AT', null, 'noRate'],
-			['AT', null, 'noRate']
+			['AT', 3300, null],
+			['AT', 3300, null]
 		]);
-		expect(vienna).toMatchObject({ cents: 0, missing: ['2026-05-04', '2026-05-05'] });
+		expect(vienna.days[0].rate?.source).toMatch(/5\. Dezember 2025/);
+		// Before the first letter in the table: no rate, nothing made up.
+		const earlier = mealAllowance({
+			start: '2024-05-04T06:00',
+			end: '2024-05-05T18:00',
+			stops: [{ at: '2024-05-04T10:00', country: 'AT' }]
+		});
+		expect(earlier).toMatchObject({ cents: 0, missing: ['2024-05-04', '2024-05-05'] });
+		expect(earlier.days[0].reason).toBe('noRate');
 
 		// Over the border and back on the first day, then two days at home.
 		const back = mealAllowance({
@@ -127,11 +138,10 @@ describe('meal allowance (#213)', () => {
 			]
 		});
 		expect(back.days.map((d) => [d.country, d.cents])).toEqual([
-			['NL', null],
+			['NL', 3900],
 			['DE', 2800],
 			['DE', 1400]
 		]);
-		expect(back.missing).toEqual(['2026-05-04']);
 
 		// Two countries on one day: the one reached last counts.
 		const two = mealAllowance({
@@ -143,6 +153,30 @@ describe('meal allowance (#213)', () => {
 			]
 		});
 		expect(two.days.map((d) => d.country)).toEqual(['FR', 'FR']);
+	});
+
+	it('abroad: a city with rates of its own, also on the day home; a meal cut by its full day (#379)', () => {
+		// A made-up trip to Moscow, 2026: Moskau 30 € / 20 €, the rest of Russia 28 € / 19 €.
+		const moscow = mealAllowance({
+			start: '2026-05-04T05:00',
+			end: '2026-05-07T22:00',
+			stops: [
+				{ at: '2026-05-04T12:00', country: 'RU', city: 'Moskau' },
+				{ at: '2026-05-06T09:00', country: 'RU' },
+				{ at: '2026-05-07T18:00', country: 'DE' }
+			],
+			meals: { '2026-05-05': { breakfast: true } }
+		});
+		expect(moscow.days.map((d) => [d.date, d.city ?? null, d.cents, d.cutCents])).toEqual([
+			['2026-05-04', 'Moskau', 2000, 0],
+			// A full day in Moscow, breakfast provided: 20 % of its 30 €.
+			['2026-05-05', 'Moskau', 2400, 600],
+			['2026-05-06', null, 2800, 0],
+			// Home that day: the rest of Russia, reached last abroad.
+			['2026-05-07', null, 1900, 0]
+		]);
+		expect(moscow.days[0].rate).toMatchObject({ country: 'RU', city: 'Moskau', via: null });
+		expect(moscow.cents).toBe(2000 + 2400 + 2800 + 1900);
 	});
 
 	it('the three-month rule: cut from three months on at one place, until four weeks away', () => {
