@@ -121,6 +121,8 @@ jobs:
 
   deploy:
     needs: tag
+    permissions:
+      contents: write # deploy.yml notes the CID on the release
     uses: ./.github/workflows/deploy.yml
     with:
       link_domain: true

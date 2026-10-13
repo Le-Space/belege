@@ -105,6 +105,8 @@ jobs:
     # A release moves the domain; a manual run only when asked.
     if: github.event_name == 'release' || inputs.link_domain
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # the CID goes onto the release
     steps:
       - name: Install isolated Aleph deploy tooling
         run: npm install --prefix /tmp/le-space-deployer @le-space/node@0.9.9
@@ -122,3 +124,15 @@ jobs:
         run: |
           echo "**Live:** https://${SITE_DOMAIN}" >> "$GITHUB_STEP_SUMMARY"
           echo "CID: ${{ needs.publish.outputs.cid }}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Note the CID on the release
+        # The run's summary dies with the run; the release is the record that
+        # stays. A hand run has no release to write to.
+        if: github.event_name == 'release' || inputs.ref != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.ref }}
+          CID: ${{ needs.publish.outputs.cid }}
+        run: |
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json body -q .body > notes.md
+          printf '\n\n**On IPFS:** `%s`\n\nhttps://%s · https://ipfs.aleph.sh/ipfs/%s · https://belege-le--space-de.ipns.inbrowser.link/\n' "$CID" "$SITE_DOMAIN" "$CID" >> notes.md
+          gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --notes-file notes.md
