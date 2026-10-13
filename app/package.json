@@ -14,7 +14,8 @@
 		"lint": "prettier --check . && eslint .",
 		"test:unit": "vitest --run",
 		"test:e2e": "playwright test",
-		"bench:books": "playwright test -c bench/playwright.bench.config.js"
+		"bench:books": "playwright test -c bench/playwright.bench.config.js",
+		"bench:resilience": "playwright test -c bench/playwright.resilience.config.js"
 	},
 	"devDependencies": {
 		"@belege/bridge": "workspace:*",

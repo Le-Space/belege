@@ -1,0 +1,18 @@
+{
+	"date": "2026-10-13",
+	"machine": {
+		"cpus": "Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz",
+		"cores": 16,
+		"memGB": 32
+	},
+	"scenario": "partition",
+	"size": 50,
+	"each": 20,
+	"pairMs": 319,
+	"initialSyncMs": 882,
+	"macWhileApart": 70,
+	"phoneWhileApart": 70,
+	"reconnectMs": 23524,
+	"convergeMs": 383,
+	"lostWrites": 0
+}

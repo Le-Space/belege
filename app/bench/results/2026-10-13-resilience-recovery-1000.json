@@ -1,0 +1,17 @@
+{
+	"date": "2026-10-13",
+	"machine": {
+		"cpus": "Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz",
+		"cores": 16,
+		"memGB": 32
+	},
+	"scenario": "recovery",
+	"size": 1000,
+	"writeMs": 7748,
+	"storageMB": 10.5,
+	"backupMs": 712,
+	"restoreMs": 125786,
+	"unlockMs": 12996,
+	"recoveredMs": 11,
+	"lost": 0
+}

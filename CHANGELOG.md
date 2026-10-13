@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Resilience, measured** (`pnpm --filter @belege/app bench:resilience`, [docs/resilience-report.md](docs/resilience-report.md)). Two devices of one passkey replicating over the test relay and with no relay (QR), a partition with writes on both sides, a browser that lost everything restoring from the archive, and the app's first visit from the domain and from an IPFS gateway by CID (`bench/delivery.mjs`) — at 50, 500 and 2 000 bookings, raw numbers in `app/bench/results/`. Found and named: a burst over a relay with the library's default circuit limit stalls (orbitdb-relay#59), the 23 s reconnect after a pause, and a restore that grows superlinearly (orbitdb-storage-bridge#152). The test relay lifts its circuit limit with `E2E_RELAY_UNLIMITED=1`.
+
 ## [0.9.1] – 2026-10-13
 
 ### Changed

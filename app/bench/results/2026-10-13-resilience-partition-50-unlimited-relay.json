@@ -1,0 +1,19 @@
+{
+	"date": "2026-10-13",
+	"label": "unlimited-relay",
+	"machine": {
+		"cpus": "Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz",
+		"cores": 16,
+		"memGB": 32
+	},
+	"scenario": "partition",
+	"size": 50,
+	"each": 20,
+	"pairMs": 314,
+	"initialSyncMs": 879,
+	"macWhileApart": 70,
+	"phoneWhileApart": 70,
+	"reconnectMs": 23983,
+	"convergeMs": 74,
+	"lostWrites": 0
+}
