@@ -74,7 +74,7 @@ export default {
 				'First run `pnpm setup:relay` on the computer with the bridge, restart the bridge and pair here.',
 			modePending: 'Applies to all devices of these books, here from the next unlock.'
 		},
-		localFirst: 'Le Space: the local-first stack behind this app'
+		localFirst: 'Le Space Belege: the product page for this app'
 	},
 	assets: {
 		sources: {

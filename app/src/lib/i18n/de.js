@@ -79,7 +79,7 @@ export default {
 				'Erst auf dem Rechner mit der Bridge `pnpm setup:relay` ausführen, die Bridge neu starten und hier koppeln.',
 			modePending: 'Gilt für alle Geräte dieser Bücher, hier ab dem nächsten Entsperren.'
 		},
-		localFirst: 'Le Space: der Local-First-Stack hinter dieser App'
+		localFirst: 'Le Space Belege: die Produktseite zu dieser App'
 	},
 	assets: {
 		// How a rate's source is named in the app (assets/valuation.js).
