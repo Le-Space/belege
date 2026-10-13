@@ -30,6 +30,8 @@ All notable changes to Le Space Belege. The format follows
   - **By a one-time key** (the default): the new books show a key as a QR code and as text with a fingerprint; the old books seal the move file to it (X25519, HKDF, AES-256-GCM). Only those books open it.
   - **By a passphrase**, when both books are not open at once: Belege makes it (100 bits, groups of five), shows it once to write down, and asks for it in the new books.
   - Left out, as they belong to the old passkey or device: the bridge pairing, the backup key and list, the invoicing app's pairing, the network mode, own devices. The old books stay as they are. See [docs/backup.md](docs/backup.md).
+- **Receipts in any language** (#366, #368). The extraction asked for German or English receipts; it now reads receipts in any language and writes what they print in other forms the same way – amounts with a dot (`4 512,30`), European and airline dates (`12/03/2026`, `14MAR26`), currencies as ISO codes (руб., TL, zł, Kč, грн, درهم) – with places and stations in their own script. How well a model reads a language is the model's matter; a small local model reads less.
+- **Receipt previews where receipts are named** (#374). The open points, proposals, hospitality bills, statement checks and a trip's receipts on Reisen, and the receipts in the export's "Vor dem Export" list, show the receipt's first page with the lens on hover, as Belege and Zahlungen do; a "Vorschau" button on a touch screen.
 - **Link previews** (#343, #345). A link to the app shows a card on X/Twitter, LinkedIn, Telegram and others: title, description and a preview image, in German at `/` and in English at `/en/`, which also opens the app in English. Search engines stay out.
 
 ### Changed
@@ -38,6 +40,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **Travellers' names and documents in other languages are blacked out** (#366, #367). Before a receipt's text goes to the model, the bridge blacked out names only after German and English salutations and labels, in Latin script: a traveller's name on a Russian, Turkish, Spanish, Italian or Arabic ticket went out as it was. It now finds names in any script after salutations and passenger, traveller and guest labels in eleven languages, an airline's `SURNAME/GIVEN`, passport and ID numbers, and dates of birth and phone numbers after labels in these languages. Redaction still limits what leaves; it does not make a text anonymous.
+- **Text in any script in the PDFs and the DATEV export, not "?"** (#373). The PDFs Belege draws – a mail made a receipt, the account statements, the Eigenbelege, the vendor account, the Aleph, Akash and travel statements – turned every letter outside Windows-1252 into "?": a Russian station or a Turkish vendor came out as question marks in the ZIP. They now embed DejaVu Sans and Noto Sans Arabic (only the letters used): Latin, Cyrillic, Greek and Arabic, right to left. The Buchungsstapel stays Windows-1252, as DATEV wants; Cyrillic and Greek are now written in Latin letters there (`Москва` → `Moskva`), Arabic and Chinese stay "?".
 - **The outlay form stays open** (#351). It closed while a rate was being typed when its receipt was refreshed in the background, after the matching say; the rate was gone.
 
 ## [0.8.0] – 2026-10-06
