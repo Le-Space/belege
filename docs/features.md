@@ -68,6 +68,12 @@ What Le Space Belege does today, by category. The app shows the same list, short
 - **VAT on Home** ([#195](https://github.com/Le-Space/belege/issues/195)): per month or quarter and for the year, the input VAT from the receipts (19 % and 7 %, by receipt date), the output VAT from the invoices of the invoicing app – when the money comes in (Ist, the default) or on the invoice date (Soll), as set under Buchhaltung – and the VAT payable or refund. An own invoice among the receipts – uploaded or from the mailbox – is recognised by the company names, the model's `[FIRMA]` mark or the own VAT ID under Buchhaltung ([#354](https://github.com/Le-Space/belege/issues/354)): its VAT counts as output VAT, never as input VAT; the receipt says so and can be set otherwise. **International and special cases** are told apart and shown with their receipts: intra-EU supplies with the lines for the EC Sales List (ZM) per period and customer VAT ID, third-country turnover, §13b in Germany, exempt turnover and intra-EU acquisitions; what cannot be told without guessing (an EU invoice without the customer's VAT ID, say) is named with a link. Foreign VAT, §13b, invoices not paid yet and invoices whose VAT the app did not send are named apart. A small business (§19 UStG) sees its turnover against the limits instead. A help for the advance return, not the return itself.
 - **Every month a ZIP:** a DATEV Buchungsstapel (EXTF) for your bookkeeping, the receipts as PDFs, and a statement per account. See [export.md](export.md).
 
+## Travel expenses
+
+- **Trips** ([#213](https://github.com/Le-Space/belege/issues/213)) with their receipts, the statutory meal allowances by times and countries (meals provided, the three-month rule), mileage – a family member's car flagged for the tax adviser – and hospitality bills with their split. A receipt in another currency counts in euros, by its payment, its outlay or a rate.
+- **Recognised, never assigned by itself:** a travel cost's kind, route and times from the reading; without AI, from its words in eleven languages; trips proposed by dates and route; appointments from calendar invitations (title, place and times only).
+- **A monthly statement** as a numbered German PDF, booked on SKR 03 travel accounts by the legal form against the traveller's clearing account, its payout linked to it. See [travel.md](travel.md).
+
 ## Devices and working together
 
 - **The same books on phone and computer.** A device gets them only after it proves the passkey. Devices are added by QR code and removed with one click.

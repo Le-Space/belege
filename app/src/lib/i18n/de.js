@@ -639,6 +639,14 @@ export default {
 					'Monatlich ein ZIP: DATEV-Buchungsstapel (EXTF) für deine Buchhaltung, die Belege als PDF und ein Auszug je Konto.'
 				]
 			},
+			travel: {
+				name: 'Reisekosten',
+				items: [
+					'Reisen mit Belegen, Verpflegungspauschalen nach Zeiten und Ländern, Kilometern (auch im Auto von Familienangehörigen) und Bewirtungen.',
+					'Erkannt aus Tickets, Hotelrechnungen und Kalendereinladungen, vorgeschlagen nach Datum und Strecke – angelegt nur auf deinen Klick.',
+					'Monatliche Reisekostenabrechnung als nummeriertes PDF, gebucht auf SKR-03-Konten, die Auszahlung ihr zugeordnet.'
+				]
+			},
 			devices: {
 				name: 'Geräte & Zusammenarbeit',
 				items: [
@@ -750,7 +758,7 @@ export default {
 				name: 'Bridge auf diesem Rechner (127.0.0.1)',
 				text: 'Holt Umsätze aus Hibiscus und Belege aus deinem Postfach. Bei der App kommen nur Konten an, die du auf der Bridge freigegeben hast, und nur E-Mails an die Buchhaltungsadresse.',
 				leaves:
-					'Die Bridge fragt dein Postfach (IMAP) ab und schickt zum Auslesen geschwärzten Text an das Sprachmodell (siehe unten). Die Verbindung zu deiner Bank (FinTS) baut Hibiscus auf.',
+					'Die Bridge fragt dein Postfach (IMAP) ab und schickt zum Auslesen geschwärzten Text an das Sprachmodell (siehe unten). Aus einer Kalendereinladung (.ics) übernimmt sie nur Titel, Ort und Zeiten – keine Teilnehmer, keinen Veranstalter, keine Links. Die Verbindung zu deiner Bank (FinTS) baut Hibiscus auf.',
 				technical:
 					'Die Bridge hört nur auf 127.0.0.1 (Port 8765) und startet auf keiner anderen Adresse. Gekoppelt wird mit einem Einmalcode; das Bearer-Token liegt verschlüsselt in den Einstellungen der App, auf der Bridge nur sein Hash. CORS lässt nur die eingetragenen App-Adressen zu, der Host-Header muss 127.0.0.1 oder localhost sein. Das Zertifikat von Jameica ist gepinnt; Hibiscus-Passwort, IMAP-Token und API-Schlüssel liegen im macOS-Schlüsselbund. Konten ohne freigegebene IBAN-Endung werden gar nicht erst abgefragt. Postfächer öffnet die Bridge nur lesend.'
 			},

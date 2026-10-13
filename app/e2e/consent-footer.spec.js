@@ -32,7 +32,7 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	expect(elsewhere).toEqual([]);
 	// What Belege can do, folded until asked for.
 	const features = dialog.getByTestId('consent-features');
-	await expect(features.locator('h4')).toHaveCount(8);
+	await expect(features.locator('h4')).toHaveCount(9);
 	await expect(features.locator('h4').first()).toBeHidden();
 	await features.locator('summary').click();
 	await expect(features.getByRole('heading', { name: 'Krypto' })).toBeVisible();

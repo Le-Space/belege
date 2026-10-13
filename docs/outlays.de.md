@@ -36,7 +36,7 @@ Belege aus dem privaten Postfach liegen neben rein privaten. **„Privat, nicht 
 - er erscheint als _Privat_ mit seinem Grund, und die Entscheidung steht im Protokoll;
 - _Wieder aufnehmen_ holt ihn zurück.
 
-Ein teils geschäftlicher Beleg (ein Hotel mit einer privaten Nacht) wird mit dem geschäftlichen Anteil als Auslage gebucht; die Aufteilung selbst gehört zu den Reisekosten (#213).
+Ein teils geschäftlicher Beleg (ein Hotel mit einer privaten Nacht) wird mit dem geschäftlichen Anteil als Auslage gebucht; die Aufteilung selbst gehört zu den Reisekosten ([travel.de.md](travel.de.md)). Eine Auslage auf einer Reise steht in der Reisekostenabrechnung, erstattet wird sie aber hier, nie doppelt.
 
 ## Zurückzahlen
 
