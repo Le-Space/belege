@@ -11,11 +11,7 @@
 			"totalKB": 106,
 			"pageTtfbMsMedian": 45,
 			"totalMsMedian": 116,
-			"totalMsAll": [
-				858,
-				109,
-				116
-			],
+			"totalMsAll": [858, 109, 116],
 			"failed": []
 		},
 		"gatewayByCid": {
@@ -26,11 +22,7 @@
 			"totalKB": 106,
 			"pageTtfbMsMedian": 51,
 			"totalMsMedian": 139,
-			"totalMsAll": [
-				374,
-				138,
-				139
-			],
+			"totalMsAll": [374, 138, 139],
 			"failed": []
 		}
 	}
