@@ -2610,6 +2610,10 @@ export default {
 				receiptWithoutAmount: 'Receipt paid privately without an amount: {what}',
 				nothing: 'Nothing to settle this month.',
 				noRateAbroad: 'Day abroad without a rate, settled without an amount: {what}',
+				rateNotListed:
+					'Country not in the BMF table, Luxembourg’s rate applied – to be clarified with the tax adviser: {what}',
+				rateTerritory:
+					'Overseas or outlying territory, the mother country’s rate applied – to be clarified with the tax adviser: {what}',
 				foreignWithoutRate:
 					'Receipt in another currency without a rate – add it on the receipt: {what}',
 				familyCar: 'A family member’s car, to be clarified with the tax adviser: {what}',
@@ -2647,9 +2651,12 @@ export default {
 		note: 'Note',
 		abroad: 'Abroad',
 		abroadHint:
-			'Each border crossed, with the time and the country code (AT, FR …). Rates abroad are not in Belege yet: such days stay without an amount.',
+			'Each border crossed, with the time and the country code (AT, FR …). The rates come from the year’s BMF letter (from 2025 on); where a city has rates of its own, pick it.',
 		stopAt: 'From',
 		stopCountry: 'Country',
+		stopCity: 'Place',
+		stopCityRest: 'rest of the country',
+		stopUnknownCountry: 'unknown country code',
 		remove: 'Remove',
 		addStop: 'Add a border crossing',
 		meals: 'Meals provided',
@@ -2711,12 +2718,12 @@ export default {
 		dayReason: {
 			under8h: '8 hours or less',
 			countedOnOtherDay: 'counted on the other day',
-			noRate: 'no rate for this country yet',
+			noRate: 'no rate for this day',
 			threeMonthRule: 'three-month rule'
 		},
 		cut: 'meals provided −{amount}',
 		noRateAbroad:
-			'Days abroad have no amount yet: the rates per country are not in Belege. Enter them with the tax adviser.',
+			'Days abroad without an amount: Belege has no BMF letter for these days (rates from 2025 on).',
 		receipts: 'Receipts of this trip',
 		noReceipts: 'No receipt yet. On a receipt, “To a trip …” assigns it.',
 		sum: 'What the trip comes to',

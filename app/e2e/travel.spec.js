@@ -748,3 +748,51 @@ test('the statement paid out in two transfers, each linked to it (#213, step 7)'
 	await june();
 	await expect(page.getByTestId('reisen-statement-payout')).toHaveText('Ausgezahlt.');
 });
+
+test('a trip abroad: the country named, a city with rates of its own picked, its allowance (#379)', async ({
+	page
+}) => {
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('E2E');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
+	await page.getByTestId('belege-reisen').click();
+	await page.getByTestId('reisen-new').click();
+	await expect(page.getByTestId('reise-form')).toBeVisible();
+	// A made-up trip: out on Monday, to Moscow at noon, home on Tuesday evening.
+	await page.getByTestId('reise-destination').fill('Moskau');
+	await page.getByTestId('reise-reason').fill('Konferenz Beispiel');
+	await page.getByTestId('reise-start').fill('2026-05-04T05:00');
+	await page.getByTestId('reise-end').fill('2026-05-05T22:00');
+
+	await page.getByTestId('reise-add-stop').click();
+	const out = page.getByTestId('reise-stop').nth(0);
+	await out.locator('input[type="datetime-local"]').fill('2026-05-04T12:00');
+	await out.getByTestId('reise-stop-country').fill('QQ');
+	await expect(out.getByTestId('reise-stop-country-name')).toHaveText('unbekannter Ländercode');
+	await out.getByTestId('reise-stop-country').fill('ru');
+	await expect(out.getByTestId('reise-stop-country-name')).toHaveText('Russland');
+	await out.getByTestId('reise-stop-city').selectOption('Moskau');
+
+	await page.getByTestId('reise-add-stop').click();
+	const back = page.getByTestId('reise-stop').nth(1);
+	await back.locator('input[type="datetime-local"]').fill('2026-05-05T18:00');
+	await back.getByTestId('reise-stop-country').fill('DE');
+	await expect(back.getByTestId('reise-stop-city')).toHaveCount(0);
+
+	await page.getByTestId('reise-save').click();
+	await expect(page.getByTestId('reise-saved')).toBeVisible();
+	// Moscow 2026: 20 EUR the day there, 20 EUR the day home (the last place abroad).
+	await expect(page.getByTestId('reise-allowance-day')).toHaveCount(2);
+	await expect(page.getByTestId('reise-sum-allowance')).toHaveText('40,00 EUR');
+	await expect(page.getByTestId('reise-allowance-missing')).toHaveCount(0);
+
+	// The rest of Russia: 19 EUR a day.
+	await out.getByTestId('reise-stop-city').selectOption({ label: 'übriges Land' });
+	await page.getByTestId('reise-save').click();
+	await expect(page.getByTestId('reise-sum-allowance')).toHaveText('38,00 EUR');
+});

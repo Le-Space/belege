@@ -4,7 +4,7 @@ _English: [travel.md](travel.md)_
 
 Reise- und Bewirtungsbelege passen nicht zu „eine Zahlung, ein Beleg“. Eine Reise hat viele Belege, oft privat bezahlt; Verpflegungspauschalen und Kilometer haben gar keinen Beleg; eine Bewirtung braucht Angaben, bevor sie zählt; und was die Firma erstattet, ist eine Überweisung für einen ganzen Monat. **Reisen** sammelt die Reisen eines Monats, rechnet aus, was sie ergeben, erstellt die Reisekostenabrechnung und bucht sie ([#213](https://github.com/Le-Space/belege/issues/213)).
 
-Vorerst reist eine Person: Inhaber bzw. Gesellschafter-Geschäftsführer. Auslandsreisen werden erfasst, aber Ländersätze hat Belege noch nicht: solche Tage bekommen keinen Betrag und werden genannt. Die Pauschalen sind die gesetzlichen.
+Vorerst reist eine Person: Inhaber bzw. Gesellschafter-Geschäftsführer. Die Pauschalen sind die gesetzlichen, im Ausland die des jährlichen BMF-Schreibens.
 
 ## Reisen
 
@@ -13,7 +13,11 @@ Vorerst reist eine Person: Inhaber bzw. Gesellschafter-Geschäftsführer. Auslan
 Die Seite einer Reise enthält:
 
 - **Kopf:** Ziel, geschäftlicher Anlass, Abfahrt und Rückkehr (Datum und Uhrzeit), die Tätigkeitsstätte (ein Kunde, eine Baustelle: für die Dreimonatsregel), ob übernachtet wurde.
-- **Ausland:** jeder Grenzübertritt mit Uhrzeit und Ländercode. Ein Auslandstag bekommt den Satz des Landes, das vor Mitternacht zuletzt erreicht wurde; der Rückreisetag den des letzten Auslandsorts. Ländersätze sind noch nicht in Belege: so ein Tag bleibt ohne Betrag.
+- **Ausland:** jeder Grenzübertritt mit Uhrzeit und Ländercode; daneben steht der Name des Landes, damit ein Tippfehler auffällt. Ein Auslandstag bekommt den Satz des Landes, das vor Mitternacht zuletzt erreicht wurde; der Rückreisetag den des letzten Auslandsorts. Hat ein Land Städte mit eigenen Sätzen (Moskau, Paris, New York City …), wählt der Grenzübertritt eine davon; jeder andere Ort ist das übrige Land.
+  - **Sätze:** die Ländertabelle des BMF-Schreibens für das Jahr (ab 2025), genau wie gedruckt, mit dem Schreiben als Quelle. Gestellte Mahlzeiten kürzen einen Tag um den Satz für einen vollen Tag in seinem Land.
+  - **Länder, die das Schreiben nicht nennt:** Mikronesien bekommt die Sätze der Philippinen, die Staaten im Amtsbezirk von Trinidad und Tobago dessen Sätze (so steht es im Schreiben); ein Übersee- oder Außengebiet die des Mutterlands (Guadeloupe → Frankreich, Hongkong gehört zu China); jedes andere Land die von Luxemburg. Die letzten beiden sind Hinweise für die Steuerberatung.
+  - Ein Tag vor 2025 hat in Belege kein Schreiben: Er bleibt ohne Betrag und wird genannt.
+  - Die Übernachtungspauschalen im Ausland gelten nur für die Erstattung durch einen Arbeitgeber, nicht für den Inhaber: Sie stehen in der Tabelle, werden aber noch nicht verwendet.
 - **Gestellte Mahlzeiten:** pro Tag. Ein Frühstück in der Hotelrechnung wird aus der Rechnung vorgeschlagen („Übernehmen“).
 - **Kilometer:** Datum, von, nach, Anlass, km, hin und zurück. Die Strecke ist der Beleg.
   - Eigener PKW 0,30 €/km, Motorrad oder Moped 0,20 €/km; ein Fahrrad hat keine Pauschale.
@@ -53,7 +57,7 @@ Nichts wird von selbst zugeordnet oder angelegt; alles hier schlägt vor, ein Kl
 
 Eine Abrechnung pro Reisender und Monat, auf Reisen:
 
-- **Vorher:** die Summen – Pauschalen, Kilometer, privat bezahlte Belege, als Auslage gebuchte (dort erstattet), von der Firma bezahlte (aufgeführt, nicht erstattet) – und **Prüfungen**: eine Reise ohne Zeiten, Ziel oder Anlass, eine Bewirtung mit Lücken, ein privater Beleg ohne Betrag oder ohne Kurs sperren sie; ein Auslandstag ohne Satz, das Auto eines Familienangehörigen oder eine andere Währung sind Hinweise, die mit aufs PDF kommen.
+- **Vorher:** die Summen – Pauschalen, Kilometer, privat bezahlte Belege, als Auslage gebuchte (dort erstattet), von der Firma bezahlte (aufgeführt, nicht erstattet) – und **Prüfungen**: eine Reise ohne Zeiten, Ziel oder Anlass, eine Bewirtung mit Lücken, ein privater Beleg ohne Betrag oder ohne Kurs sperren sie; ein Auslandstag ohne Satz oder mit dem eines anderen Landes, das Auto eines Familienangehörigen oder eine andere Währung sind Hinweise, die mit aufs PDF kommen.
 - **„Abrechnung erstellen“** nummeriert sie (`RK-2026-001`), zeichnet ein deutsches A4-PDF im Stil der Eigenbelege – Reisen mit Zeiten, Pauschale pro Tag, Kilometer, Belege, Bewirtungen, Summen, Vorsteuer nach Satz, die angewandten Sätze mit Rechtsquelle, die Hinweise, eine Unterschriftslinie – und legt es als Beleg für die Auszahlung ab.
 - Eine erstellte Abrechnung behält alles, was sie gedruckt hat, auch die Sätze, und wird **nicht geändert**. Eine Korrektur ist eine neue Abrechnung mit neuer Nummer, die auf sie verweist; die alte bleibt, als ersetzt markiert.
 
@@ -94,7 +98,7 @@ Auf Reisen, gezählt auf Home und unter Rückfragen:
 
 ## Noch nicht
 
-- Ländersätze für Auslandsreisen, und Angestellte als Reisende.
+- Angestellte als Reisende (und mit ihnen die Übernachtungspauschalen im Ausland).
 - Vorschüsse vor einer Reise, und die Abrechnung einer Firmenkreditkarte Zeile für Zeile.
 
 Sätze, Konten und die Behandlung des Autos von Familienangehörigen sind mit der Steuerberatung abzustimmen; das beschreibt, was Belege tut, keine Steuerberatung.

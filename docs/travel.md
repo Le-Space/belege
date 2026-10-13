@@ -4,7 +4,7 @@ _Deutsch: [travel.de.md](travel.de.md)_
 
 Travel and hospitality receipts do not fit "one payment, one receipt". A trip has many receipts, often paid privately; meal allowances and mileage have no receipt at all; a hospitality bill needs details before it counts; and what the company pays back is one transfer for a whole month. **Reisen** gathers a month's trips, works out what they come to, makes the statement (Reisekostenabrechnung) and books it ([#213](https://github.com/Le-Space/belege/issues/213)).
 
-For now one traveller travels: the owner or managing shareholder. Trips abroad are recorded, but Belege has no rates per country yet: such days get no amount and are named. The allowances are the statutory ones.
+For now one traveller travels: the owner or managing shareholder. The allowances are the statutory ones, abroad those of the Federal Ministry of Finance's yearly letter.
 
 ## Trips
 
@@ -13,7 +13,11 @@ For now one traveller travels: the owner or managing shareholder. Trips abroad a
 A trip's page holds:
 
 - **Head:** destination, business reason, departure and return (date and time), the place of activity (a customer, a site: for the three-month rule), whether there was a night away.
-- **Abroad:** each border crossed, with the time and the country code. A day abroad gets the rate of the country reached last before midnight; the day home, the last country abroad. Rates per country are not in Belege yet: such a day stays without an amount.
+- **Abroad:** each border crossed, with the time and the country code; the country's name shows next to it, to catch a typo. A day abroad gets the rate of the country reached last before midnight; the day home, the last country abroad. Where a country has cities with rates of their own (Moskau, Paris, New York City …), the crossing picks one; anywhere else is the rest of the country.
+  - **Rates:** the per-country table of the BMF letter for the year (from 2025 on), exactly as printed, with the letter as its source. Meals provided cut a day by the full-day rate of its country.
+  - **Countries the letter does not list:** Micronesia gets the Philippines', the states of Trinidad and Tobago's district its rates (as the letter says); an overseas territory its mother country's (Guadeloupe → France, Hong Kong is China's); any other Luxembourg's. The last two are warnings, for the tax adviser.
+  - A day before 2025 has no letter in Belege: it stays without an amount, named.
+  - The overnight rates abroad apply to an employer's refund only, not to the owner: they are in the table, not used yet.
 - **Meals provided:** per day. A breakfast in a hotel invoice is proposed from the invoice ("Übernehmen").
 - **Mileage:** date, from, to, reason, km, there and back. The route is the record.
   - Own car 0,30 €/km, motorcycle or moped 0,20 €/km; a bicycle has no flat rate.
@@ -53,7 +57,7 @@ Nothing is assigned or created by itself; everything below proposes, a click dec
 
 One statement per traveller and month, on Reisen:
 
-- **Before:** the totals – allowances, mileage, receipts paid privately, those booked as outlays (paid back there), those paid by the company (listed, not paid back) – and **checks**: a trip without times, destination or reason, a hospitality bill with gaps, a private receipt without an amount or without a rate block it; a day abroad without a rate, a family member's car or another currency are warnings printed on it.
+- **Before:** the totals – allowances, mileage, receipts paid privately, those booked as outlays (paid back there), those paid by the company (listed, not paid back) – and **checks**: a trip without times, destination or reason, a hospitality bill with gaps, a private receipt without an amount or without a rate block it; a day abroad without a rate or with another country's, a family member's car or another currency are warnings printed on it.
 - **"Abrechnung erstellen"** numbers it (`RK-2026-001`), draws a German A4 PDF in the look of the Eigenbelege – trips with times, allowance per day, mileage, receipts, hospitality, totals, input VAT by rate, the rates used with their sources, the warnings, a line to sign – and keeps it as a receipt for the payout.
 - A made statement keeps everything it printed, the rates included, and is **not changed**. A correction is a new statement with a new number that refers to it; the old one stays, marked replaced.
 
@@ -94,7 +98,7 @@ On Reisen, and counted on Home and Rückfragen:
 
 ## Not yet
 
-- Rates per country for trips abroad, and employees as travellers.
+- Employees as travellers (and with them the overnight rates abroad).
 - Advance payments before a trip, and a company credit card's statement taken line by line.
 
 The rates, accounts and the treatment of a family member's car are to be confirmed with the tax adviser; this describes what Belege does, not tax advice.
