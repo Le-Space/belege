@@ -392,6 +392,13 @@ describe('syncWallet against the fake chains', () => {
 		expect(accounts.every((a) => a.walletAddress === NYX.wallet && a.ibanLast4 === '')).toBe(true);
 		// The whole history was read: the statement may reconcile against it (#287).
 		expect(accounts.every((a) => a.fullHistory === true)).toBe(true);
+		// The months' balances from the history only where it sums to today's
+		// balance (#287, step 3): NYX's does; NYM's comes to 138.7… against the
+		// node's 137 – something the history lacks – and gives none.
+		expect(accounts.map((a) => a.monthBalances?.['2026-09'] ?? null)).toEqual([
+			null,
+			{ opening: '0', closing: '2000000', source: 'history' }
+		]);
 		expect(accounts[0].addressUrl).toBe(`https://nym.explorers.guru/account/${NYX.wallet}`);
 		expect(first.totals).toEqual({ new: 125, updated: 0, skipped: 0 });
 		expect(first.unpriced).toEqual([]);
@@ -437,6 +444,17 @@ describe('syncWallet against the fake chains', () => {
 			[`Wallet USDC (Ethereum) ···${EVM.wallet.slice(-6)}`, '450']
 		]);
 		expect(result.totals.new).toBe(8);
+		// ETH's months from Blockscout's own balance history (#287, step 3); USDC's has none there.
+		expect(accounts[0].monthBalances?.['2026-02']).toEqual({
+			opening: '0',
+			closing: '500000000000000000',
+			source: 'explorer'
+		});
+		expect(accounts[0].monthBalances?.['2026-03']).toEqual({
+			opening: '500000000000000000',
+			closing: '310000000000000000',
+			source: 'explorer'
+		});
 		const txs = await s.transactions.list();
 		const usdcOut = txs.find((t) => t.asset === 'USDC' && t.amountCents < 0);
 		expect(usdcOut).toMatchObject({

@@ -208,6 +208,62 @@ describe('statement', () => {
 		expect(balancesOf(eur, two.slice(0, 1), '2026-09')?.check?.status).toBe('open');
 	});
 
+	it('reconciles a wallet’s month from its explorer or its own history, and says which (#287)', async () => {
+		// The explorer's balances: September's start and end, and a September movement never booked.
+		const wallet = {
+			...BTC,
+			source: 'ethereum',
+			kind: 'wallet',
+			fullHistory: true,
+			monthBalances: {
+				'2026-09': { opening: '50000000', closing: '110000000', source: 'explorer' }
+			}
+		};
+		const balances = balancesOf(wallet, TXS, '2026-09');
+		expect(balances?.opening.source).toBe('explorer');
+		expect(balances?.closing.source).toBe('explorer');
+		expect(balances?.check).toEqual({
+			status: 'open',
+			by: 'month',
+			booked: { cents: 0, units: '120000000' },
+			difference: { cents: 0, units: '-10000000' }
+		});
+		const fromHistory = {
+			...wallet,
+			monthBalances: {
+				'2026-09': { opening: '50000000', closing: '120000000', source: 'history' }
+			}
+		};
+		expect(balancesOf(fromHistory, TXS, '2026-09')?.check).toMatchObject({
+			status: 'ok',
+			by: 'month'
+		});
+		const draw = async (/** @type {Record<string, any>} */ account) => {
+			const s = buildStatement({
+				month: '2026-09',
+				account,
+				index: 0,
+				transactions: TXS,
+				classifications: {},
+				receiptNumbers: new Map()
+			});
+			const bytes = await statementPdf(s, { created: new Date('2026-10-05T12:00:00Z') });
+			const { text } = await extractText(await getDocumentProxy(bytes), { mergePages: true });
+			return text.replace(/\s+/g, ' ');
+		};
+		const byHistory = await draw(fromHistory);
+		expect(byHistory).toContain('Anfangsbestand (laut Wallet) 0,005');
+		expect(byHistory).toContain('Endbestand (laut Wallet, abgestimmt) 0,012');
+		// Whole, not cut short in the column.
+		const byExplorer = await draw({
+			...wallet,
+			monthBalances: {
+				'2026-09': { opening: '50000000', closing: '120000000', source: 'explorer' }
+			}
+		});
+		expect(byExplorer).toContain('Endbestand (laut Explorer, abgestimmt) 0,012');
+	});
+
 	it('reconciles a wallet read in full: every booking from nothing gives the end (#287)', () => {
 		// Today 0.010, everything booked: end of September 0.012, the bookings to it too.
 		const wallet = {

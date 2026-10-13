@@ -87,8 +87,11 @@ const STANDS_IN = /** @type {Record<string, string>} */ ({
  * @typedef {object} Balance
  * @property {number} cents
  * @property {string | null} units crypto only
- * @property {'kraken' | 'derived'} source `kraken`: Kraken's own balance after the
- *   ledger entry before it; `derived`: worked back from the account's last balance
+ * @property {'kraken' | 'explorer' | 'history' | 'derived'} source `kraken`: Kraken's own
+ *   balance after the ledger entry before it; `explorer`: a wallet explorer's running
+ *   balance; `history`: a wallet's own history summed, where it adds up to the balance
+ *   the source reports (wallets/month-balances.js); `derived`: worked back from the
+ *   account's last balance
  */
 
 /** `2026-09` → `2026-09-30` @param {string} month */
@@ -183,7 +186,8 @@ export function buildStatement({
  * The balance at the start and the end of the month.
  *
  * Where the source gives it, from the source (#287): Kraken's ledger carries
- * the balance after every entry, and the sync keeps the month's start and end
+ * the balance after every entry, a wallet's explorer or its own history the
+ * balance after every change, and the sync keeps the month's start and end
  * (`monthBalances`). Exact, whatever Belege booked or left out.
  *
  * Else worked back from the balance the account reported last (`balance`,
@@ -209,8 +213,9 @@ export function balancesOf(account, own, month) {
  * Reconciled, not trusted in one direction (#287). Two comparisons are
  * independent of the figure they check:
  *
- * - `month`: both of the month's balances are Kraken's. Start + the month's
- *   bookings must give the end; a gap is a movement missing in this month.
+ * - `month`: both of the month's balances are the source's (Kraken, a
+ *   wallet's explorer or history). Start + the month's bookings must give the
+ *   end; a gap is a movement missing in this month.
  * - `history`: a wallet whose whole history every sync reads (not a pruned
  *   node's part of it). Its bookings, summed from nothing to the month's end,
  *   must give the end worked back from today; a gap is a movement missing
@@ -235,7 +240,7 @@ export function reconcile(account, own, month, { opening, closing }) {
 	/** @type {'month' | 'history'} */
 	let by;
 	let start = { cents: 0, units: '0' };
-	if (opening.source === 'kraken' && closing.source === 'kraken') {
+	if (opening.source !== 'derived' && closing.source !== 'derived') {
 		by = 'month';
 		counted = own.filter((tx) => String(tx.bookedOn ?? '').slice(0, 7) === month);
 		start = { cents: opening.cents, units: opening.units ?? '0' };
@@ -273,8 +278,9 @@ export function reconcile(account, own, month, { opening, closing }) {
 }
 
 /**
- * The month's balances as Kraken gave them; the start, where the read did not
- * cover the whole month, as the end minus the month's bookings.
+ * The month's balances as the source gave them (Kraken where none is named);
+ * the start, where the read did not cover the whole month, as the end minus
+ * the month's bookings.
  *
  * @param {Rec} account
  * @param {Rec[]} own
@@ -291,12 +297,14 @@ function fromSource(account, own, month) {
 	const crypto = Boolean(account.asset && account.asset !== 'EUR');
 	const units = (/** @type {bigint} */ u) => (crypto ? u.toString() : null);
 	const cents = (/** @type {bigint} */ u) => (crypto ? 0 : valueCents(u.toString(), decimals, '1'));
+	/** @type {Balance['source']} */
+	const source = ['explorer', 'history'].includes(known.source) ? known.source : 'kraken';
 	/** @type {Balance} */
-	const end = { cents: cents(closing), units: units(closing), source: 'kraken' };
+	const end = { cents: cents(closing), units: units(closing), source };
 	if (/^-?\d+$/.test(String(known.opening ?? ''))) {
 		const opening = BigInt(known.opening);
 		return {
-			opening: { cents: cents(opening), units: units(opening), source: 'kraken' },
+			opening: { cents: cents(opening), units: units(opening), source },
 			closing: end
 		};
 	}

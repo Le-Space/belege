@@ -29,6 +29,7 @@ import { toUnits } from '../assets/quantity.js';
 import { tradeRate, valuedFields } from '../assets/valuation.js';
 import { assetOf } from '../assets/registry.js';
 import { crossSwapOf } from './cross-swap.js';
+import { explorerMonthBalances, historyMonthBalances } from './month-balances.js';
 import { getSetting, setSetting } from '../store/settings.js';
 import { normalizeAddress, safeExplorerUrl, walletAccountName, walletChain } from './chains.js';
 import { isAccountNumber } from '../booking/skr03.js';
@@ -711,6 +712,11 @@ export async function bookWalletHistory({ client, store, wallet, result, now = n
 		}
 	}
 
+	// The whole history was read (not a pruned node's part of it): its
+	// bookings, summed from nothing, must give the balance (#287).
+	const fullHistory = !(result.history?.pruned && result.history?.completedBy !== 'indexer');
+	const thisMonth = today.slice(0, 7);
+
 	const totals = { new: 0, updated: 0, skipped: 0 };
 	/** @type {{ accountId: string, name: string, asset: string, counts: typeof totals }[]} */
 	const perAccount = [];
@@ -746,9 +752,16 @@ export async function bookWalletHistory({ client, store, wallet, result, now = n
 			lastSyncedOn: today,
 			balance: info.balance,
 			balanceOn: info.balance === null ? null : today,
-			// The whole history was read (not a pruned node's part of it): its
-			// bookings, summed from nothing, must give the balance (#287).
-			fullHistory: !(result.history?.pruned && result.history?.completedBy !== 'indexer'),
+			fullHistory,
+			// The month's opening and closing as the source has them (#287, step
+			// 3; month-balances.js): the explorer's running balance first, else
+			// the source's own history where it adds up to today's balance.
+			// Worked out again on every sync; none where neither is known.
+			monthBalances:
+				explorerMonthBalances(result.balanceHistory, asset, thisMonth) ??
+				(fullHistory
+					? historyMonthBalances(result.entries, asset, info.decimals, info.balance, thisMonth)
+					: null),
 			...(info.contract ? { tokenContract: info.contract } : {})
 		});
 		totals.new += counts.new;

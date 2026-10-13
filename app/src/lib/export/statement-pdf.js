@@ -35,9 +35,12 @@ const SOURCE_MARK = /** @type {Record<string, string>} */ ({
 	manual: 'M'
 });
 
-/** Where a balance comes from (#287): Kraken's ledger, or worked back from the bookings. */
+/** Where a balance comes from (#287): the source's own, or worked back from the bookings. */
 const BALANCE_SOURCE = /** @type {Record<string, string>} */ ({
 	kraken: 'laut Kraken',
+	// Short: the text column of a crypto statement ends after about 38 characters.
+	explorer: 'laut Explorer',
+	history: 'laut Wallet',
 	derived: 'errechnet'
 });
 
@@ -264,7 +267,7 @@ export async function statementPdf(statement, { created }) {
 	if (check?.status === 'open') {
 		const why =
 			check.by === 'month'
-				? 'Nicht abgestimmt: Anfangs- und Endbestand sind die von Kraken; Anfangsbestand und Buchungen des Monats ergeben einen anderen Endbestand. Im Monat fehlt eine Bewegung, oder eine Buchung wurde gelöscht.'
+				? 'Nicht abgestimmt: Anfangs- und Endbestand sind die der Quelle; Anfangsbestand und Buchungen des Monats ergeben einen anderen Endbestand. Im Monat fehlt eine Bewegung, oder eine Buchung wurde gelöscht.'
 				: 'Nicht abgestimmt: Der Endbestand ist aus dem heutigen Bestand zurückgerechnet; alle Buchungen seit Beginn ergeben einen anderen. Seitdem fehlt eine Bewegung, etwa eine Gebühr, die die Quelle nicht meldet, oder eine Buchung wurde gelöscht.';
 		/** @type {string[]} */
 		const wrapped = [''];

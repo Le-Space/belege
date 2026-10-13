@@ -784,13 +784,29 @@ export function sampleEvmHistory({ fillerTokens = 0 } = {}) {
  * @param {number} [options.rateLimitedCalls] this many answer Blockscout's "rate limit" first
  * @param {number} [options.maxOffset] page × offset beyond this is refused, as Blockscout does
  * @param {string | null} [options.chainId] what `…/api/eth-rpc` answers to eth_chainId; null: 404
+ * @param {{ block_number: number, block_timestamp: string, value: string }[] | null} [options.coinBalanceHistory]
+ *   `…/api/v2/addresses/<a>/coin-balance-history`, newest first; null: 404
  */
 export async function startFakeBlockscout({
 	history = sampleEvmHistory(),
 	balances = { native: '310000000000000000', [EVM.usdc]: '450000000' },
 	rateLimitedCalls = 0,
 	maxOffset = 10_000,
-	chainId = '0x1'
+	chainId = '0x1',
+	// The native coin's balance after each change (#287), newest first as Blockscout gives it;
+	// null: the v2 endpoint is not there.
+	coinBalanceHistory = [
+		{
+			block_number: 19_500_000,
+			block_timestamp: '2026-03-20T09:00:00.000000Z',
+			value: '310000000000000000'
+		},
+		{
+			block_number: 19_400_000,
+			block_timestamp: '2026-02-10T12:00:00.000000Z',
+			value: '500000000000000000'
+		}
+	]
 } = {}) {
 	/** @type {Record<string, string>[]} */
 	const calls = [];
@@ -811,12 +827,31 @@ export async function startFakeBlockscout({
 			});
 			return;
 		}
-		const p = Object.fromEntries(url.searchParams);
-		calls.push(p);
 		const reply = (/** @type {unknown} */ body) => {
 			res.writeHead(200, { 'Content-Type': 'application/json' });
 			res.end(JSON.stringify(body));
 		};
+		const v2 = /^\/api\/v2\/addresses\/(0x[0-9a-f]{40})\/coin-balance-history$/.exec(url.pathname);
+		if (v2) {
+			calls.push({
+				v2: 'coin-balance-history',
+				address: v2[1],
+				...Object.fromEntries(url.searchParams)
+			});
+			if (coinBalanceHistory === null) {
+				res.writeHead(404, { 'Content-Type': 'application/json' });
+				return res.end(JSON.stringify({ message: 'Not found' }));
+			}
+			// One item a page, to prove the paging.
+			const from = Number(url.searchParams.get('n') ?? 0);
+			const item = coinBalanceHistory[from];
+			return reply({
+				items: item ? [item] : [],
+				next_page_params: from + 1 < coinBalanceHistory.length ? { n: from + 1 } : null
+			});
+		}
+		const p = Object.fromEntries(url.searchParams);
+		calls.push(p);
 		if (url.pathname !== '/api')
 			return reply({ status: '0', message: 'Unknown path', result: null });
 		if (limited > 0) {
