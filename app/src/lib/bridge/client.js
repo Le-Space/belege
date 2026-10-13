@@ -164,6 +164,8 @@ function failed(message, status, body) {
  *   `unknownAmounts`: older transactions whose amount only events carry, not booked
  * @property {string} addressUrl
  * @property {'alchemy' | 'blockscout'} [source] EVM: where it was read
+ * @property {{ asset: string, decimals: number, points: { time: string, value: string }[] }[]} [balanceHistory]
+ *   the explorer's balance after each change, in smallest units, oldest first (Blockscout: the native coin; #287)
  */
 
 /**

@@ -703,12 +703,39 @@ describe('the EVM client against a fake Blockscout', () => {
 				result.addressUrl,
 				`https://etherscan.io/address/${toChecksumAddress(EVM.wallet)}`
 			);
-			// The address travels lower case, in the query of a GET to Blockscout only.
+			// The native coin's balance after each change, oldest first, read page by page (#287).
+			assert.deepEqual(result.balanceHistory, [
+				{
+					asset: 'ETH',
+					decimals: 18,
+					points: [
+						{ time: '2026-02-10T12:00:00.000Z', value: '500000000000000000' },
+						{ time: '2026-03-20T09:00:00.000Z', value: '310000000000000000' }
+					]
+				}
+			]);
+			assert.equal(scout.calls.filter((c) => c.v2).length, 2);
+			// The address travels lower case, in a GET to Blockscout only (query, or the v2 path).
 			assert.ok(scout.calls.filter((c) => !c.rpc).every((c) => c.address === EVM.wallet));
 			assert.deepEqual(
 				scout.calls.filter((c) => c.rpc).map((c) => c.rpc),
 				['eth_chainId']
 			);
+		} finally {
+			await scout.close();
+		}
+	});
+
+	test('no balance history where the API has none: not an error (#287)', async () => {
+		const scout = await startFakeBlockscout({ coinBalanceHistory: null });
+		try {
+			const result = await createEvmClient({ sleep: noSleep }).history({
+				chain: ethereum,
+				address: toChecksumAddress(EVM.wallet),
+				endpoints: scout.endpoints
+			});
+			assert.equal(result.balanceHistory, undefined);
+			assert.ok(result.entries.length > 0);
 		} finally {
 			await scout.close();
 		}
