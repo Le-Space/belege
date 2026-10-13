@@ -426,7 +426,7 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 			`Brutto: ${gross} EUR`,
 			'Diese Rechnung stellt keine Zahlungsaufforderung dar.'
 		]);
-	await page.getByRole('link', { name: 'Belege' }).click();
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
 	await page.getByTestId('upload-open').click();
 	await page.getByTestId('receipt-upload').setInputFiles([
 		{
@@ -495,7 +495,7 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	await page.getByTestId('filter-all').click();
 	await page.locator('[data-testid="transaction-month"][data-month="2026-09"]').click();
 	await expect(topUps.getByTestId('coverage-badge')).toHaveText(['Guthabenkonto', 'Guthabenkonto']);
-	await page.getByRole('link', { name: 'Belege' }).click();
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
 	await expect(funkReceipts.getByTestId('receipt-status')).toHaveText([
 		'Guthabenkonto',
 		'Guthabenkonto'
