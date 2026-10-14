@@ -15,6 +15,7 @@
 	import { t } from '$lib/i18n/index.js';
 	import { bridge, bridgeClient } from './bridge-state.svelte.js';
 	import EnableBankingCard from './EnableBankingCard.svelte';
+	import CardsCard from './CardsCard.svelte';
 
 	/** @typedef {import('$lib/bridge/client.js').BridgeAccount} BridgeAccount */
 	/** @typedef {{ new: number, updated: number, skipped: number }} Counts */
@@ -259,6 +260,8 @@
 	{/if}
 </section>
 
+<CardsCard />
+
 {#if app.accounts.length}
 	<section
 		class="mt-6 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm"
@@ -268,15 +271,17 @@
 		<ul class="mt-2 text-sm text-text" data-testid="book-accounts">
 			{#each app.accounts as account (account.id)}
 				<li class="py-1" data-testid="book-account">
-					{accountLabel(account)} · {account.source === 'camt'
-						? t('integrationen.books.camt')
-						: account.source === 'enablebanking'
-							? t('integrationen.books.enablebanking')
-							: account.source === 'kraken'
-								? t('integrationen.books.kraken')
-								: isWalletSource(account.source)
-									? t('integrationen.books.wallet')
-									: t('integrationen.books.hibiscus')} · {account.asset ?? account.currency}
+					{accountLabel(account)} · {account.source === 'card'
+						? t('integrationen.books.card')
+						: account.source === 'camt'
+							? t('integrationen.books.camt')
+							: account.source === 'enablebanking'
+								? t('integrationen.books.enablebanking')
+								: account.source === 'kraken'
+									? t('integrationen.books.kraken')
+									: isWalletSource(account.source)
+										? t('integrationen.books.wallet')
+										: t('integrationen.books.hibiscus')} · {account.asset ?? account.currency}
 				</li>
 			{/each}
 		</ul>
