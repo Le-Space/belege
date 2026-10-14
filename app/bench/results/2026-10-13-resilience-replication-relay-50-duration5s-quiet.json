@@ -43,9 +43,7 @@
 								"limits": null,
 								"direction": "outbound",
 								"status": "open",
-								"streams": [
-									"/libp2p/circuit/relay/0.2.0/stop"
-								]
+								"streams": ["/libp2p/circuit/relay/0.2.0/stop"]
 							},
 							{
 								"peer": "12D3KooWME2hufZMZGsPaGm6m4LG1weRwbb36B5WS3xJqXzyJG8m",
@@ -54,10 +52,7 @@
 								"limits": {},
 								"direction": "inbound",
 								"status": "open",
-								"streams": [
-									"/meshsub/1.2.0",
-									"/meshsub/1.2.0"
-								]
+								"streams": ["/meshsub/1.2.0", "/meshsub/1.2.0"]
 							},
 							{
 								"peer": "12D3KooWME2hufZMZGsPaGm6m4LG1weRwbb36B5WS3xJqXzyJG8m",
@@ -78,9 +73,7 @@
 								"streams": []
 							}
 						],
-						"pubsubPeers": [
-							"12D3KooWME2hufZMZGsPaGm6m4LG1weRwbb36B5WS3xJqXzyJG8m"
-						]
+						"pubsubPeers": ["12D3KooWME2hufZMZGsPaGm6m4LG1weRwbb36B5WS3xJqXzyJG8m"]
 					},
 					"phone": {
 						"connections": [
@@ -91,9 +84,7 @@
 								"limits": null,
 								"direction": "outbound",
 								"status": "open",
-								"streams": [
-									"/libp2p/circuit/relay/0.2.0/hop"
-								]
+								"streams": ["/libp2p/circuit/relay/0.2.0/hop"]
 							},
 							{
 								"peer": "12D3KooWL6eL8uqAAxBm5ANLsayuVPbhKZXFdpWDZWW4T2dkVock",
@@ -102,10 +93,7 @@
 								"limits": {},
 								"direction": "outbound",
 								"status": "open",
-								"streams": [
-									"/meshsub/1.2.0",
-									"/meshsub/1.2.0"
-								]
+								"streams": ["/meshsub/1.2.0", "/meshsub/1.2.0"]
 							},
 							{
 								"peer": "12D3KooWL6eL8uqAAxBm5ANLsayuVPbhKZXFdpWDZWW4T2dkVock",
@@ -126,9 +114,7 @@
 								"streams": []
 							}
 						],
-						"pubsubPeers": [
-							"12D3KooWL6eL8uqAAxBm5ANLsayuVPbhKZXFdpWDZWW4T2dkVock"
-						]
+						"pubsubPeers": ["12D3KooWL6eL8uqAAxBm5ANLsayuVPbhKZXFdpWDZWW4T2dkVock"]
 					}
 				},
 				{
@@ -163,9 +149,7 @@
 								"streams": []
 							}
 						],
-						"pubsubPeers": [
-							"12D3KooWME2hufZMZGsPaGm6m4LG1weRwbb36B5WS3xJqXzyJG8m"
-						]
+						"pubsubPeers": ["12D3KooWME2hufZMZGsPaGm6m4LG1weRwbb36B5WS3xJqXzyJG8m"]
 					},
 					"phone": {
 						"connections": [
@@ -197,9 +181,7 @@
 								"streams": []
 							}
 						],
-						"pubsubPeers": [
-							"12D3KooWL6eL8uqAAxBm5ANLsayuVPbhKZXFdpWDZWW4T2dkVock"
-						]
+						"pubsubPeers": ["12D3KooWL6eL8uqAAxBm5ANLsayuVPbhKZXFdpWDZWW4T2dkVock"]
 					}
 				}
 			],

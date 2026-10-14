@@ -43,9 +43,7 @@
 								"limits": null,
 								"direction": "outbound",
 								"status": "open",
-								"streams": [
-									"/libp2p/circuit/relay/0.2.0/stop"
-								]
+								"streams": ["/libp2p/circuit/relay/0.2.0/stop"]
 							},
 							{
 								"peer": "12D3KooWFQ89FoMBQmHvNjR8qr7xK726dsFmrimbNsbv55RHzmvn",
@@ -54,10 +52,7 @@
 								"limits": {},
 								"direction": "inbound",
 								"status": "open",
-								"streams": [
-									"/meshsub/1.2.0",
-									"/meshsub/1.2.0"
-								]
+								"streams": ["/meshsub/1.2.0", "/meshsub/1.2.0"]
 							},
 							{
 								"peer": "12D3KooWFQ89FoMBQmHvNjR8qr7xK726dsFmrimbNsbv55RHzmvn",
@@ -69,9 +64,7 @@
 								"streams": []
 							}
 						],
-						"pubsubPeers": [
-							"12D3KooWFQ89FoMBQmHvNjR8qr7xK726dsFmrimbNsbv55RHzmvn"
-						]
+						"pubsubPeers": ["12D3KooWFQ89FoMBQmHvNjR8qr7xK726dsFmrimbNsbv55RHzmvn"]
 					},
 					"phone": {
 						"connections": [
@@ -82,9 +75,7 @@
 								"limits": null,
 								"direction": "outbound",
 								"status": "open",
-								"streams": [
-									"/libp2p/circuit/relay/0.2.0/hop"
-								]
+								"streams": ["/libp2p/circuit/relay/0.2.0/hop"]
 							},
 							{
 								"peer": "12D3KooWDx6N1Sce9EkgH2gQSEKTW4R1wacQkTBgeYAk78wMQhhk",
@@ -93,10 +84,7 @@
 								"limits": {},
 								"direction": "outbound",
 								"status": "open",
-								"streams": [
-									"/meshsub/1.2.0",
-									"/meshsub/1.2.0"
-								]
+								"streams": ["/meshsub/1.2.0", "/meshsub/1.2.0"]
 							},
 							{
 								"peer": "12D3KooWDx6N1Sce9EkgH2gQSEKTW4R1wacQkTBgeYAk78wMQhhk",
@@ -117,9 +105,7 @@
 								"streams": []
 							}
 						],
-						"pubsubPeers": [
-							"12D3KooWDx6N1Sce9EkgH2gQSEKTW4R1wacQkTBgeYAk78wMQhhk"
-						]
+						"pubsubPeers": ["12D3KooWDx6N1Sce9EkgH2gQSEKTW4R1wacQkTBgeYAk78wMQhhk"]
 					}
 				},
 				{
@@ -145,9 +131,7 @@
 								"streams": []
 							}
 						],
-						"pubsubPeers": [
-							"12D3KooWFQ89FoMBQmHvNjR8qr7xK726dsFmrimbNsbv55RHzmvn"
-						]
+						"pubsubPeers": ["12D3KooWFQ89FoMBQmHvNjR8qr7xK726dsFmrimbNsbv55RHzmvn"]
 					},
 					"phone": {
 						"connections": [
@@ -179,9 +163,7 @@
 								"streams": []
 							}
 						],
-						"pubsubPeers": [
-							"12D3KooWDx6N1Sce9EkgH2gQSEKTW4R1wacQkTBgeYAk78wMQhhk"
-						]
+						"pubsubPeers": ["12D3KooWDx6N1Sce9EkgH2gQSEKTW4R1wacQkTBgeYAk78wMQhhk"]
 					}
 				},
 				{
@@ -204,15 +186,10 @@
 								"limits": null,
 								"direction": "inbound",
 								"status": "open",
-								"streams": [
-									"/meshsub/1.2.0",
-									"/meshsub/1.2.0"
-								]
+								"streams": ["/meshsub/1.2.0", "/meshsub/1.2.0"]
 							}
 						],
-						"pubsubPeers": [
-							"12D3KooWFQ89FoMBQmHvNjR8qr7xK726dsFmrimbNsbv55RHzmvn"
-						]
+						"pubsubPeers": ["12D3KooWFQ89FoMBQmHvNjR8qr7xK726dsFmrimbNsbv55RHzmvn"]
 					},
 					"phone": {
 						"connections": [
@@ -241,15 +218,10 @@
 								"limits": null,
 								"direction": "outbound",
 								"status": "open",
-								"streams": [
-									"/meshsub/1.2.0",
-									"/meshsub/1.2.0"
-								]
+								"streams": ["/meshsub/1.2.0", "/meshsub/1.2.0"]
 							}
 						],
-						"pubsubPeers": [
-							"12D3KooWDx6N1Sce9EkgH2gQSEKTW4R1wacQkTBgeYAk78wMQhhk"
-						]
+						"pubsubPeers": ["12D3KooWDx6N1Sce9EkgH2gQSEKTW4R1wacQkTBgeYAk78wMQhhk"]
 					}
 				},
 				{
@@ -272,15 +244,10 @@
 								"limits": null,
 								"direction": "inbound",
 								"status": "open",
-								"streams": [
-									"/meshsub/1.2.0",
-									"/meshsub/1.2.0"
-								]
+								"streams": ["/meshsub/1.2.0", "/meshsub/1.2.0"]
 							}
 						],
-						"pubsubPeers": [
-							"12D3KooWFQ89FoMBQmHvNjR8qr7xK726dsFmrimbNsbv55RHzmvn"
-						]
+						"pubsubPeers": ["12D3KooWFQ89FoMBQmHvNjR8qr7xK726dsFmrimbNsbv55RHzmvn"]
 					},
 					"phone": {
 						"connections": [
@@ -300,9 +267,7 @@
 								"limits": null,
 								"direction": "inbound",
 								"status": "open",
-								"streams": [
-									""
-								]
+								"streams": [""]
 							},
 							{
 								"peer": "12D3KooWDx6N1Sce9EkgH2gQSEKTW4R1wacQkTBgeYAk78wMQhhk",
@@ -311,15 +276,10 @@
 								"limits": null,
 								"direction": "outbound",
 								"status": "open",
-								"streams": [
-									"/meshsub/1.2.0",
-									"/meshsub/1.2.0"
-								]
+								"streams": ["/meshsub/1.2.0", "/meshsub/1.2.0"]
 							}
 						],
-						"pubsubPeers": [
-							"12D3KooWDx6N1Sce9EkgH2gQSEKTW4R1wacQkTBgeYAk78wMQhhk"
-						]
+						"pubsubPeers": ["12D3KooWDx6N1Sce9EkgH2gQSEKTW4R1wacQkTBgeYAk78wMQhhk"]
 					}
 				}
 			],

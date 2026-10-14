@@ -42,9 +42,7 @@
 							"limits": null,
 							"direction": "outbound",
 							"status": "open",
-							"streams": [
-								"/libp2p/circuit/relay/0.2.0/stop"
-							]
+							"streams": ["/libp2p/circuit/relay/0.2.0/stop"]
 						},
 						{
 							"peer": "12D3KooWQcjKsZZEoaNBdJauQa6HEzdLhfb2BdR4vu7vGK7yc93g",
@@ -53,10 +51,7 @@
 							"limits": {},
 							"direction": "inbound",
 							"status": "open",
-							"streams": [
-								"/meshsub/1.2.0",
-								"/meshsub/1.2.0"
-							]
+							"streams": ["/meshsub/1.2.0", "/meshsub/1.2.0"]
 						},
 						{
 							"peer": "12D3KooWQcjKsZZEoaNBdJauQa6HEzdLhfb2BdR4vu7vGK7yc93g",
@@ -85,9 +80,7 @@
 							"limits": null,
 							"direction": "outbound",
 							"status": "open",
-							"streams": [
-								"/libp2p/circuit/relay/0.2.0/hop"
-							]
+							"streams": ["/libp2p/circuit/relay/0.2.0/hop"]
 						},
 						{
 							"peer": "12D3KooWDTcbUcuCwBr7NQwJX9q8tJvgfMXAAnN28653Djdsgceb",
@@ -96,10 +89,7 @@
 							"limits": {},
 							"direction": "outbound",
 							"status": "open",
-							"streams": [
-								"/meshsub/1.2.0",
-								"/meshsub/1.2.0"
-							]
+							"streams": ["/meshsub/1.2.0", "/meshsub/1.2.0"]
 						},
 						{
 							"peer": "12D3KooWDTcbUcuCwBr7NQwJX9q8tJvgfMXAAnN28653Djdsgceb",
@@ -221,9 +211,7 @@
 							"limits": null,
 							"direction": "outbound",
 							"status": "open",
-							"streams": [
-								""
-							]
+							"streams": [""]
 						},
 						{
 							"peer": "12D3KooWDTcbUcuCwBr7NQwJX9q8tJvgfMXAAnN28653Djdsgceb",

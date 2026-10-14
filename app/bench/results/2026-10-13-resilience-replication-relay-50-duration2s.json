@@ -35,9 +35,7 @@
 								"limits": null,
 								"direction": "outbound",
 								"status": "open",
-								"streams": [
-									"/libp2p/circuit/relay/0.2.0/stop"
-								]
+								"streams": ["/libp2p/circuit/relay/0.2.0/stop"]
 							},
 							{
 								"peer": "12D3KooWFMgakKTR61ETZkdk1rKsggxCBGt2nKqPS7t6wHhW3j8A",
@@ -46,11 +44,7 @@
 								"limits": {},
 								"direction": "inbound",
 								"status": "open",
-								"streams": [
-									"/meshsub/1.2.0",
-									"/meshsub/1.2.0",
-									"/webrtc-signaling/0.0.1"
-								]
+								"streams": ["/meshsub/1.2.0", "/meshsub/1.2.0", "/webrtc-signaling/0.0.1"]
 							},
 							{
 								"peer": "12D3KooWFMgakKTR61ETZkdk1rKsggxCBGt2nKqPS7t6wHhW3j8A",
@@ -62,9 +56,7 @@
 								"streams": []
 							}
 						],
-						"pubsubPeers": [
-							"12D3KooWFMgakKTR61ETZkdk1rKsggxCBGt2nKqPS7t6wHhW3j8A"
-						]
+						"pubsubPeers": ["12D3KooWFMgakKTR61ETZkdk1rKsggxCBGt2nKqPS7t6wHhW3j8A"]
 					},
 					"phone": {
 						"connections": [
@@ -75,9 +67,7 @@
 								"limits": null,
 								"direction": "outbound",
 								"status": "open",
-								"streams": [
-									"/libp2p/circuit/relay/0.2.0/hop"
-								]
+								"streams": ["/libp2p/circuit/relay/0.2.0/hop"]
 							},
 							{
 								"peer": "12D3KooWAx6pwTPE6c7KgSuuNitGZ6QEaVPLNUQ5WbLj8D6eBv8K",
@@ -86,11 +76,7 @@
 								"limits": {},
 								"direction": "outbound",
 								"status": "open",
-								"streams": [
-									"/meshsub/1.2.0",
-									"/meshsub/1.2.0",
-									"/webrtc-signaling/0.0.1"
-								]
+								"streams": ["/meshsub/1.2.0", "/meshsub/1.2.0", "/webrtc-signaling/0.0.1"]
 							},
 							{
 								"peer": "12D3KooWAx6pwTPE6c7KgSuuNitGZ6QEaVPLNUQ5WbLj8D6eBv8K",
@@ -99,9 +85,7 @@
 								"limits": null,
 								"direction": "inbound",
 								"status": "open",
-								"streams": [
-									""
-								]
+								"streams": [""]
 							},
 							{
 								"peer": "12D3KooWAx6pwTPE6c7KgSuuNitGZ6QEaVPLNUQ5WbLj8D6eBv8K",
@@ -113,9 +97,7 @@
 								"streams": []
 							}
 						],
-						"pubsubPeers": [
-							"12D3KooWAx6pwTPE6c7KgSuuNitGZ6QEaVPLNUQ5WbLj8D6eBv8K"
-						]
+						"pubsubPeers": ["12D3KooWAx6pwTPE6c7KgSuuNitGZ6QEaVPLNUQ5WbLj8D6eBv8K"]
 					}
 				},
 				{
@@ -138,15 +120,10 @@
 								"limits": null,
 								"direction": "inbound",
 								"status": "open",
-								"streams": [
-									"/meshsub/1.2.0",
-									"/meshsub/1.2.0"
-								]
+								"streams": ["/meshsub/1.2.0", "/meshsub/1.2.0"]
 							}
 						],
-						"pubsubPeers": [
-							"12D3KooWFMgakKTR61ETZkdk1rKsggxCBGt2nKqPS7t6wHhW3j8A"
-						]
+						"pubsubPeers": ["12D3KooWFMgakKTR61ETZkdk1rKsggxCBGt2nKqPS7t6wHhW3j8A"]
 					},
 					"phone": {
 						"connections": [
@@ -166,10 +143,7 @@
 								"limits": null,
 								"direction": "inbound",
 								"status": "open",
-								"streams": [
-									"",
-									""
-								]
+								"streams": ["", ""]
 							},
 							{
 								"peer": "12D3KooWAx6pwTPE6c7KgSuuNitGZ6QEaVPLNUQ5WbLj8D6eBv8K",
@@ -178,15 +152,10 @@
 								"limits": null,
 								"direction": "outbound",
 								"status": "open",
-								"streams": [
-									"/meshsub/1.2.0",
-									"/meshsub/1.2.0"
-								]
+								"streams": ["/meshsub/1.2.0", "/meshsub/1.2.0"]
 							}
 						],
-						"pubsubPeers": [
-							"12D3KooWAx6pwTPE6c7KgSuuNitGZ6QEaVPLNUQ5WbLj8D6eBv8K"
-						]
+						"pubsubPeers": ["12D3KooWAx6pwTPE6c7KgSuuNitGZ6QEaVPLNUQ5WbLj8D6eBv8K"]
 					}
 				}
 			],

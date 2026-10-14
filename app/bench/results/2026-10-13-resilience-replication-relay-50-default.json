@@ -41,9 +41,7 @@
 							"limited": false,
 							"direction": "outbound",
 							"status": "open",
-							"streams": [
-								"/libp2p/circuit/relay/0.2.0/stop"
-							]
+							"streams": ["/libp2p/circuit/relay/0.2.0/stop"]
 						},
 						{
 							"peer": "12D3KooWR56P8yiZzqwmAXo2zVunGrWB38RoYU9dV22GyzbamyhU",
@@ -51,10 +49,7 @@
 							"limited": false,
 							"direction": "inbound",
 							"status": "open",
-							"streams": [
-								"/meshsub/1.2.0",
-								"/meshsub/1.2.0"
-							]
+							"streams": ["/meshsub/1.2.0", "/meshsub/1.2.0"]
 						},
 						{
 							"peer": "12D3KooWR56P8yiZzqwmAXo2zVunGrWB38RoYU9dV22GyzbamyhU",
@@ -72,9 +67,7 @@
 							"limited": false,
 							"direction": "outbound",
 							"status": "open",
-							"streams": [
-								"/libp2p/circuit/relay/0.2.0/hop"
-							]
+							"streams": ["/libp2p/circuit/relay/0.2.0/hop"]
 						},
 						{
 							"peer": "12D3KooWL1B79z45TJXShwnWuq8FmHi164ED1RRva3YsNSH19VEU",
@@ -82,10 +75,7 @@
 							"limited": false,
 							"direction": "outbound",
 							"status": "open",
-							"streams": [
-								"/meshsub/1.2.0",
-								"/meshsub/1.2.0"
-							]
+							"streams": ["/meshsub/1.2.0", "/meshsub/1.2.0"]
 						},
 						{
 							"peer": "12D3KooWL1B79z45TJXShwnWuq8FmHi164ED1RRva3YsNSH19VEU",
@@ -114,9 +104,7 @@
 							"limited": false,
 							"direction": "outbound",
 							"status": "open",
-							"streams": [
-								""
-							]
+							"streams": [""]
 						},
 						{
 							"peer": "12D3KooWR56P8yiZzqwmAXo2zVunGrWB38RoYU9dV22GyzbamyhU",
@@ -124,9 +112,7 @@
 							"limited": false,
 							"direction": "inbound",
 							"status": "open",
-							"streams": [
-								""
-							]
+							"streams": [""]
 						}
 					],
 					"phone": [
@@ -152,9 +138,7 @@
 							"limited": false,
 							"direction": "outbound",
 							"status": "open",
-							"streams": [
-								""
-							]
+							"streams": [""]
 						}
 					]
 				},
@@ -175,10 +159,7 @@
 							"limited": false,
 							"direction": "inbound",
 							"status": "open",
-							"streams": [
-								"/meshsub/1.2.0",
-								"/meshsub/1.2.0"
-							]
+							"streams": ["/meshsub/1.2.0", "/meshsub/1.2.0"]
 						}
 					],
 					"phone": [
@@ -204,10 +185,7 @@
 							"limited": false,
 							"direction": "outbound",
 							"status": "open",
-							"streams": [
-								"/meshsub/1.2.0",
-								"/meshsub/1.2.0"
-							]
+							"streams": ["/meshsub/1.2.0", "/meshsub/1.2.0"]
 						}
 					]
 				}
