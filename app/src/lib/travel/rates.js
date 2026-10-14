@@ -66,6 +66,15 @@ export const HOSPITALITY = Object.freeze([
 	{ from: '2004-01-01', deductible: 0.7, source: '§ 4 Abs. 5 Satz 1 Nr. 2 EStG' }
 ]);
 
+/**
+ * The flat rate an employer may pay an employee for a night in Germany
+ * without the hotel's invoice (#380). Abroad: the BMF letter's
+ * (rates-abroad.js). Days before the entry get none.
+ */
+export const LODGING_RATES = Object.freeze([
+	{ country: 'DE', from: '2014-01-01', cents: 2000, source: 'R 9.7 Abs. 3 LStR' }
+]);
+
 /** Up to this gross (cents), an invoice needs less to count for input VAT. */
 export const SMALL_AMOUNT_INVOICE = Object.freeze([
 	{ from: '2017-01-01', grossCents: 25000, source: '§ 33 UStDV' }
@@ -104,3 +113,27 @@ export const mealRate = (country, day, city = null) =>
 	country === 'DE'
 		? rateOn(MEAL_RATES, day, (r) => r.country === country)
 		: abroadRate(country, day, city);
+
+/**
+ * The overnight flat rate in a country on a day (an employee's, #380):
+ * Germany's from the guidelines, any other's from the BMF letter in force.
+ *
+ * @param {string} country ISO 3166 alpha-2
+ * @param {string} day YYYY-MM-DD
+ * @param {string | null} [city]
+ * @returns {{ from: string, cents: number, source: string, country?: string, city?: string | null, via?: string | null } | null}
+ */
+export function lodgingRate(country, day, city = null) {
+	if (country === 'DE') return rateOn(LODGING_RATES, day, (r) => r.country === country);
+	const abroad = abroadRate(country, day, city);
+	return abroad
+		? {
+				from: abroad.from,
+				cents: abroad.lodging,
+				source: abroad.source,
+				country: abroad.country,
+				city: abroad.city,
+				via: abroad.via
+			}
+		: null;
+}

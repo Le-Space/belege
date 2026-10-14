@@ -48,6 +48,9 @@ const REFUSED = /** @type {Record<string, string>} */ ({
 });
 const WARNING = /** @type {Record<string, string>} */ ({
 	noRateAbroad: 'Auslandstag ohne Satz: ohne Betrag abgerechnet.',
+	lodgingNoRate: 'Nacht ohne Satz: ohne Übernachtungspauschale abgerechnet.',
+	lodgingWithHotel:
+		'Übernachtungspauschale und Hotelbeleg an derselben Reise: keine Nacht doppelt erstatten.',
 	rateNotListed:
 		'Land nicht in der Übersicht des BMF: Satz für Luxemburg angesetzt, mit der Steuerberatung zu klären.',
 	rateTerritory:
@@ -202,9 +205,20 @@ export async function travelStatementPdf(doc) {
 				])
 			);
 		}
+		const nights = x.figures.lodging?.nights ?? [];
+		if (nights.length)
+			field(
+				'Übernachtung ohne Beleg',
+				nights
+					.map(
+						(n) =>
+							`${formatDate(n.date, 'de-DE')} ${[n.country, n.city].filter(Boolean).join(' ')} ${n.cents === null ? '—' : euro(n.cents)}`
+					)
+					.join(' · ')
+			);
 		field(
 			'Pauschalen',
-			`Verpflegung ${euro(x.figures.allowanceCents)} · Kilometer ${euro(x.figures.mileageCents)}`
+			`Verpflegung ${euro(x.figures.allowanceCents)} · Kilometer ${euro(x.figures.mileageCents)}${nights.length ? ` · Übernachtung ${euro(x.figures.lodgingCents)}` : ''}`
 		);
 		rule();
 	});
@@ -233,6 +247,7 @@ export async function travelStatementPdf(doc) {
 	heading('Summen');
 	field('Verpflegungspauschalen', euro(s.totals.allowanceCents));
 	field('Kilometer', euro(s.totals.mileageCents));
+	if (s.totals.lodgingCents) field('Übernachtungspauschalen', euro(s.totals.lodgingCents));
 	field('Belege privat bezahlt', euro(s.totals.privateCents));
 	if (s.totals.outlayCents)
 		field(
@@ -257,6 +272,11 @@ export async function travelStatementPdf(doc) {
 			field(
 				`Verpflegung ${rateLabel(r)}`,
 				`${euro(r.full)} / ${euro(r.partial)} ab ${formatDate(r.from, 'de-DE')} · ${r.source}`
+			);
+		else if (r.kind === 'lodging')
+			field(
+				`Übernachtung ${rateLabel(r)}`,
+				`${euro(r.cents)} je Nacht ab ${formatDate(r.from, 'de-DE')} · ${r.source}`
 			);
 		else if (r.kind === 'mileage')
 			field(

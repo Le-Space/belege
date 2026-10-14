@@ -23,13 +23,14 @@ A trip's page holds:
   - **Rates:** the per-country table of the BMF letter for the year (from 2025 on), exactly as printed, with the letter as its source. Meals provided cut a day by the full-day rate of its country.
   - **Countries the letter does not list:** Micronesia gets the Philippines', the states of Trinidad and Tobago's district its rates (as the letter says); an overseas territory its mother country's (Guadeloupe → France, Hong Kong is China's); any other Luxembourg's. The last two are warnings, for the tax adviser.
   - A day before 2025 has no letter in Belege: it stays without an amount, named.
-  - The overnight rates abroad apply to an employer's refund only, not to the owner: they are in the table, not used yet.
+  - The overnight rates abroad apply to an employer's refund only, not to the owner: see the nights below.
+- **Nights without a hotel invoice** (employees only, #380): each night is ticked on its own, with the flat rate it gets – 20 € in Germany (R 9.7 Abs. 3 LStR), abroad the BMF letter's overnight rate of the place at midnight (a city's where the crossing names one). Never ticked by itself, never for the owner. Booked with the month's statement on the accommodation account (4666), without VAT; a hotel receipt on the same trip is a warning, so no night is paid twice.
 - **Meals provided:** per day. A breakfast in a hotel invoice is proposed from the invoice ("Übernehmen").
 - **Mileage:** date, from, to, reason, km, there and back. The route is the record.
   - Own car 0,30 €/km, motorcycle or moped 0,20 €/km; a bicycle has no flat rate.
   - **A family member's car:** the flat rate, flagged _Fremdes Fahrzeug – mit Steuerberatung klären_, with its owner and who bears its running costs.
   - A company car or a rental gets no mileage (fuel and rental are receipts).
-- **Receipts** of the trip with who paid them, the allowance per day, and **what the trip comes to**: allowances + mileage + receipts paid privately.
+- **Receipts** of the trip with who paid them, the allowance per day, and **what the trip comes to**: allowances + mileage + overnight flat rates + receipts paid privately.
 
 What a trip lacks (times, a reason, km) is named, and the trip is saved all the same.
 
@@ -74,7 +75,7 @@ The statement is booked on the traveller's account **"Reisekosten <name>"**, an 
 |                                                  | UG/GmbH (the managing shareholder is employed) | Sole proprietor, partnership |
 | ------------------------------------------------ | ---------------------------------------------- | ---------------------------- |
 | Fares, fuel, parking, taxi                       | 4663                                           | 4673                         |
-| Accommodation                                    | 4666                                           | 4676                         |
+| Accommodation (an employee's flat rates too)     | 4666                                           | 4676                         |
 | Meal allowances (month's total, no VAT)          | 4664                                           | 4674                         |
 | Mileage (month's total, no VAT)                  | 4668                                           | 4673                         |
 | Other on a trip                                  | 4660                                           | 4670                         |
@@ -104,7 +105,6 @@ On Reisen, and counted on Home and Rückfragen:
 
 ## Not yet
 
-- The overnight flat rates without a hotel invoice, for employees (next step of #380).
 - Pay above the statutory allowances: Belege pays back exactly those and receipts at their amount, so it names nothing as wage-tax relevant; the tax adviser confirms.
 - Advance payments before a trip, and a company credit card's statement taken line by line.
 

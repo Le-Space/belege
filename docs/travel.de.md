@@ -23,13 +23,14 @@ Die Seite einer Reise enthält:
   - **Sätze:** die Ländertabelle des BMF-Schreibens für das Jahr (ab 2025), genau wie gedruckt, mit dem Schreiben als Quelle. Gestellte Mahlzeiten kürzen einen Tag um den Satz für einen vollen Tag in seinem Land.
   - **Länder, die das Schreiben nicht nennt:** Mikronesien bekommt die Sätze der Philippinen, die Staaten im Amtsbezirk von Trinidad und Tobago dessen Sätze (so steht es im Schreiben); ein Übersee- oder Außengebiet die des Mutterlands (Guadeloupe → Frankreich, Hongkong gehört zu China); jedes andere Land die von Luxemburg. Die letzten beiden sind Hinweise für die Steuerberatung.
   - Ein Tag vor 2025 hat in Belege kein Schreiben: Er bleibt ohne Betrag und wird genannt.
-  - Die Übernachtungspauschalen im Ausland gelten nur für die Erstattung durch einen Arbeitgeber, nicht für den Inhaber: Sie stehen in der Tabelle, werden aber noch nicht verwendet.
+  - Die Übernachtungspauschalen im Ausland gelten nur für die Erstattung durch einen Arbeitgeber, nicht für den Inhaber: siehe die Nächte unten.
+- **Nächte ohne Hotelrechnung** (nur Angestellte, #380): Jede Nacht wird einzeln angekreuzt, mit der Pauschale, die sie bekommt – 20 € im Inland (R 9.7 Abs. 3 LStR), im Ausland der Übernachtungssatz des BMF-Schreibens für den Ort um Mitternacht (der einer Stadt, wenn der Grenzübertritt sie nennt). Nie von selbst, nie für den Inhaber. Gebucht mit der Monatsabrechnung auf das Übernachtungskonto (4666), ohne Vorsteuer; ein Hotelbeleg an derselben Reise gibt einen Hinweis, damit keine Nacht doppelt erstattet wird.
 - **Gestellte Mahlzeiten:** pro Tag. Ein Frühstück in der Hotelrechnung wird aus der Rechnung vorgeschlagen („Übernehmen“).
 - **Kilometer:** Datum, von, nach, Anlass, km, hin und zurück. Die Strecke ist der Beleg.
   - Eigener PKW 0,30 €/km, Motorrad oder Moped 0,20 €/km; ein Fahrrad hat keine Pauschale.
   - **Auto eines Familienangehörigen:** die Pauschale, markiert mit _Fremdes Fahrzeug – mit Steuerberatung klären_, mit Halter und wer die laufenden Kosten trägt.
   - Firmenwagen und Mietwagen bekommen keine Kilometer (Tanken und Miete sind Belege).
-- **Belege** der Reise mit wer bezahlt hat, die Pauschale pro Tag und **was die Reise ergibt**: Pauschalen + Kilometer + privat bezahlte Belege.
+- **Belege** der Reise mit wer bezahlt hat, die Pauschale pro Tag und **was die Reise ergibt**: Pauschalen + Kilometer + Übernachtungspauschalen + privat bezahlte Belege.
 
 Was einer Reise fehlt (Zeiten, ein Anlass, km), wird genannt; gespeichert wird sie trotzdem.
 
@@ -74,7 +75,7 @@ Die Abrechnung wird auf dem Konto des Reisenden gebucht, **„Reisekosten <Name>
 |                                                | UG/GmbH (der Gesellschafter-Geschäftsführer ist angestellt) | Einzelunternehmen, Personengesellschaft |
 | ---------------------------------------------- | ----------------------------------------------------------- | --------------------------------------- |
 | Fahrt, Tanken, Parken, Taxi                    | 4663                                                        | 4673                                    |
-| Übernachtung                                   | 4666                                                        | 4676                                    |
+| Übernachtung (auch Pauschalen Angestellter)    | 4666                                                        | 4676                                    |
 | Verpflegungspauschalen (Monatssumme, ohne USt) | 4664                                                        | 4674                                    |
 | Kilometer (Monatssumme, ohne USt)              | 4668                                                        | 4673                                    |
 | Sonstiges auf einer Reise                      | 4660                                                        | 4670                                    |
@@ -104,7 +105,6 @@ Auf Reisen, gezählt auf Home und unter Rückfragen:
 
 ## Noch nicht
 
-- Die Übernachtungspauschalen ohne Hotelrechnung für Angestellte (nächster Schritt von #380).
 - Erstattungen über den gesetzlichen Pauschalen: Belege erstattet genau diese und Belege in ihrer Höhe, nennt also nichts als lohnsteuerpflichtig; das bestätigt die Steuerberatung.
 - Vorschüsse vor einer Reise, und die Abrechnung einer Firmenkreditkarte Zeile für Zeile.
 

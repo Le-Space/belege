@@ -23,6 +23,7 @@
 		tripFigures
 	} from '$lib/travel/records.js';
 	import { allTrips, breakfastProposals, euroOf, receiptsOfTrip } from '$lib/travel/view.js';
+	import { lodgingFlat, nightsOf } from '$lib/travel/lodging.js';
 	import { appointmentsOn } from '$lib/travel/appointments.js';
 	import ReceiptPeek from '$lib/ReceiptPeek.svelte';
 	import PeekLink from '$lib/receipts/PeekLink.svelte';
@@ -50,14 +51,39 @@
 	const touch = () => (dirty = true);
 
 	let problems = $derived(draft ? cleanTrip(draft).problems : []);
+	// Whose trip: an employee's may have nights without an invoice (#380).
+	let traveller = $derived(
+		app.travel.find((r) => r.kind === 'traveller' && r.id === draft?.travellerId) ?? null
+	);
 	let figures = $derived(
 		draft
 			? tripFigures(
 					cleanTrip(draft).trip,
-					allTrips(app.travel).filter((x) => x.travellerId === draft?.travellerId)
+					allTrips(app.travel).filter((x) => x.travellerId === draft?.travellerId),
+					{ traveller }
 				)
 			: null
 	);
+	// Each night of the trip with the rate it would get, to tick those without an invoice.
+	let nights = $derived.by(() => {
+		const trip = draft ? cleanTrip(draft).trip : null;
+		if (traveller?.role !== 'employee' || !trip?.start || !trip?.end || trip.end <= trip.start)
+			return [];
+		return lodgingFlat({
+			start: trip.start,
+			end: trip.end,
+			country: trip.country,
+			stops: trip.stops,
+			nights: nightsOf(trip.start, trip.end)
+		}).nights.slice(0, 92);
+	});
+	/** @param {string} date @param {boolean} on */
+	function setNight(date, on) {
+		if (!draft) return;
+		const rest = (draft.nights ?? []).filter((/** @type {string} */ d) => d !== date);
+		draft.nights = (on ? [...rest, date] : rest).sort();
+		touch();
+	}
 	let receipts = $derived(receiptsOfTrip(app.receipts, id));
 	// In euros (euroOf): a receipt in another currency by its payment, its outlay or a rate.
 	let euros = $derived(new Map(receipts.map((r) => [r.id, euroOf(r, app)])));
@@ -469,6 +495,37 @@
 			</section>
 		{/if}
 
+		{#if nights.length}
+			<section class={card} aria-labelledby="reise-nights-h" data-testid="reise-nights">
+				<h2 id="reise-nights-h" class="text-sm font-semibold text-heading">
+					{t('reise.nights')}
+				</h2>
+				<p class="mt-1 text-xs text-faint">{t('reise.nightsHint')}</p>
+				<ul class="mt-2 text-sm">
+					{#each nights as n (n.date)}
+						<li class="flex min-h-11 items-center gap-3">
+							<label class="flex flex-1 items-center gap-2 text-text">
+								<input
+									type="checkbox"
+									class="size-5"
+									checked={(draft.nights ?? []).includes(n.date)}
+									onchange={(e) => setNight(n.date, e.currentTarget.checked)}
+									data-testid={`reise-night-${n.date}`}
+								/>
+								{t('reise.night', { date: formatDate(n.date) })}
+								<span class="text-xs text-faint"
+									>{[n.country, n.city].filter(Boolean).join(' ')}</span
+								>
+							</label>
+							<span class="font-mono tabular-nums"
+								>{n.cents === null ? t('reise.noRate') : formatMoney(n.cents, 'EUR')}</span
+							>
+						</li>
+					{/each}
+				</ul>
+			</section>
+		{/if}
+
 		<section class={card} aria-labelledby="reise-mileage-h" data-testid="reise-mileage">
 			<h2 id="reise-mileage-h" class="text-sm font-semibold text-heading">{t('reise.mileage')}</h2>
 			<p class="mt-1 text-xs text-faint">{t('reise.mileageHint')}</p>
@@ -665,6 +722,12 @@
 			<dd class="text-right font-mono tabular-nums" data-testid="reise-sum-mileage">
 				{formatMoney(figures?.mileageCents ?? 0, 'EUR')}
 			</dd>
+			{#if figures?.lodgingCents}
+				<dt class="text-text">{t('reise.lodging')}</dt>
+				<dd class="text-right font-mono tabular-nums" data-testid="reise-sum-lodging">
+					{formatMoney(figures.lodgingCents, 'EUR')}
+				</dd>
+			{/if}
 			<dt class="text-text">{t('reise.paidPrivately')}</dt>
 			<dd class="text-right font-mono tabular-nums" data-testid="reise-sum-private">
 				{formatMoney(paid.private, 'EUR')}
@@ -676,7 +739,10 @@
 			<dt class="font-medium text-heading">{t('reise.toPayBack')}</dt>
 			<dd class="text-right font-mono font-medium tabular-nums" data-testid="reise-sum-back">
 				{formatMoney(
-					(figures?.allowanceCents ?? 0) + (figures?.mileageCents ?? 0) + paid.private,
+					(figures?.allowanceCents ?? 0) +
+						(figures?.mileageCents ?? 0) +
+						(figures?.lodgingCents ?? 0) +
+						paid.private,
 					'EUR'
 				)}
 			</dd>

@@ -128,7 +128,7 @@ export function statementOf({
 			checks.push({ level: 'error', code: 'tripWithoutDestination', tripId: trip.id });
 		if (problems.includes('noReason'))
 			checks.push({ level: 'error', code: 'tripWithoutReason', tripId: trip.id });
-		const figures = tripFigures(trip, ownTrips);
+		const figures = tripFigures(trip, ownTrips, { traveller });
 		for (const day of figures.allowance?.days ?? []) {
 			if (day.rate)
 				rates.set(
@@ -149,6 +149,21 @@ export function statementOf({
 					date: day.date
 				});
 		}
+		// An employee's nights without an invoice (#380).
+		for (const night of figures.lodging?.nights ?? []) {
+			if (night.rate)
+				rates.set(
+					`lodging:${night.rate.country ?? night.country}:${night.rate.city ?? ''}:${night.rate.from}`,
+					{ kind: 'lodging', country: night.country, ...night.rate }
+				);
+			else
+				checks.push({ level: 'warning', code: 'lodgingNoRate', tripId: trip.id, date: night.date });
+		}
+		if (
+			figures.lodging?.nights.length &&
+			receiptsOfTrip(receipts, trip.id).some((r) => travelKind(r) === 'hotel')
+		)
+			checks.push({ level: 'warning', code: 'lodgingWithHotel', tripId: trip.id });
 		for (const line of figures.mileage) {
 			if (line.rate)
 				rates.set(`km:${line.rate.from}:${line.rate.perKm}`, { kind: 'mileage', ...line.rate });
@@ -231,6 +246,7 @@ export function statementOf({
 	);
 	const allowanceCents = sum(trips.map((x) => x.figures.allowanceCents));
 	const mileageCents = sum(trips.map((x) => x.figures.mileageCents));
+	const lodgingCents = sum(trips.map((x) => x.figures.lodgingCents));
 	/** @type {Record<string, number>} input VAT by rate, from the receipts that carry it */
 	const vatByRate = {};
 	for (const l of allLines)
@@ -248,13 +264,14 @@ export function statementOf({
 		totals: {
 			allowanceCents,
 			mileageCents,
+			lodgingCents,
 			privateCents,
 			outlayCents,
 			companyCents,
 			vatByRate,
 			hospitalityDeductibleCents: sum(splits.map((s) => s.deductibleCents)),
 			hospitalityNonDeductibleCents: sum(splits.map((s) => s.nonDeductibleCents)),
-			toPayBackCents: allowanceCents + mileageCents + privateCents
+			toPayBackCents: allowanceCents + mileageCents + lodgingCents + privateCents
 		}
 	};
 }
@@ -277,6 +294,13 @@ export function snapshotOf(s) {
 			end: x.trip.end,
 			allowanceCents: x.figures.allowanceCents,
 			mileageCents: x.figures.mileageCents,
+			lodgingCents: x.figures.lodgingCents,
+			nights: (x.figures.lodging?.nights ?? []).map((n) => ({
+				date: n.date,
+				country: n.country,
+				city: n.city,
+				cents: n.cents
+			})),
 			days: (x.figures.allowance?.days ?? []).map((d) => ({
 				date: d.date,
 				kind: d.kind,

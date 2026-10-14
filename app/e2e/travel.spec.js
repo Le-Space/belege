@@ -836,15 +836,20 @@ test('an employee travels: added under Einstellungen, a trip and a statement of 
 	await page.getByTestId('reise-reason').fill('Montage Kundin Beispiel UG');
 	await page.getByTestId('reise-start').fill('2026-05-04T07:00');
 	await page.getByTestId('reise-end').fill('2026-05-05T19:30');
+	// One night, without a hotel invoice: the flat rate of 20 EUR (step 2).
+	await expect(page.getByTestId('reise-nights')).toContainText('20,00 EUR');
+	await page.getByTestId('reise-night-2026-05-04').check();
+	await expect(page.getByTestId('reise-sum-lodging')).toHaveText('20,00 EUR');
 	await page.getByTestId('reise-save').click();
 	await expect(page.getByTestId('reise-saved')).toBeVisible();
 
-	// Her statement: 14 EUR and 14 EUR, her name, booked on "Reisekosten Anna Beispiel".
+	// Her statement: 14 EUR and 14 EUR and the night, her name, booked on "Reisekosten Anna Beispiel".
 	await page.getByRole('link', { name: '← Alle Reisen' }).click();
 	await pick();
 	await expect(page.getByTestId('reisen-trip')).toHaveCount(1);
 	const statement = page.getByTestId('reisen-statement');
-	await expect(statement.getByTestId('reisen-statement-amount')).toHaveText('28,00 EUR');
+	await expect(statement.getByTestId('reisen-statement-lodging')).toHaveText('20,00 EUR');
+	await expect(statement.getByTestId('reisen-statement-amount')).toHaveText('48,00 EUR');
 	await expect(statement.getByTestId('reisen-statement-name')).toHaveValue('Anna Beispiel');
 	await statement.getByTestId('reisen-statement-make').click();
 	await expect(page.getByTestId('reisen-statement-closed')).toContainText('RK-2026-001');
