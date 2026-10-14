@@ -46,6 +46,10 @@ These payments get no receipt of their own: the payroll run is the receipt for a
 
 The account suggested (SKR 03, to be checked with the tax adviser): 1740 wages, 1741 wage tax, 1742 contributions, 1780 VAT advance payments (1790 for an earlier year), 2200 corporate tax, 4320 trade tax. On Home, taxes paid to the tax office have a line of their own; wages, wage tax and contributions are expenses.
 
+**The document itself, linked:** on a receipt, **"Lohn- oder Steuerunterlage …"** keeps it as a payroll run (payslips, payroll journal), a wage-tax return, a contribution statement or a tax assessment or advance return, for a period (`12/2025`, `2025-Q4`, `2024`). Kind and period are proposed from its file name and text; the payments of that kind and period are ticked – by the period in their purpose, else, for a month, the month they were booked in – and one click links the document to all of them (`app/src/lib/matching/payroll-docs.js`). Nothing is linked by itself; "Keine Lohn- oder Steuerunterlage" lets it go.
+
+**In the export,** such a payment's Buchungstext says what it is and for when: `Lohn 12/2025 Max Beispiel`, `LSt 12/2025 Finanzamt …`, `USt 2024 Finanzkasse …`, `SV-Beiträge 2025 Q4 AOK …`.
+
 ## Vendor accounts
 
 Some vendors never pair one payment with one receipt: a prepaid tariff books top-ups, and its monthly "invoices" are statements of what the credit was used for. _Lieferantenkonto ansehen_ (in a payment or a receipt) puts the vendor's payments and receipts on one timeline with a running balance: opening balance + top-ups − consumption. It names what does not add up:

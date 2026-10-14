@@ -1884,6 +1884,23 @@ export default {
 		ruleText: '{field} “{contains}” → {action}'
 	},
 	belege: {
+		payrollDoc: {
+			offer: 'Payroll or tax document …',
+			hint: 'A payroll run, a payroll journal, a wage-tax return, a contribution statement or a tax assessment is the receipt for several payments: pick its kind and period, the matching payments are ticked.',
+			kindLabel: 'Kind',
+			kind: {
+				payroll: 'Payslips / payroll journal',
+				'wage-tax-return': 'Wage-tax return',
+				contributions: 'Contribution statement',
+				'tax-assessment': 'Tax assessment / advance return'
+			},
+			period: 'Period',
+			none: 'No recognised payment of this kind for {period}. Linking keeps the document as such anyway.',
+			link: 'Link',
+			is: '{kind} {period}, the receipt for these payments:',
+			undo: 'Not a payroll or tax document',
+			badPeriod: 'Give the period as 12/2025, 2025-Q4 or 2025.'
+		},
 		travel: {
 			open: 'To a trip …',
 			looksLikeTrip: 'Read as {kind}: it probably belongs to a trip.',

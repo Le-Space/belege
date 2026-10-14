@@ -46,6 +46,10 @@ Diese Zahlungen bekommen keinen eigenen Beleg: Für einen Lohn ist der Lohnlauf 
 
 Vorgeschlagenes Konto (SKR 03, mit dem Steuerberater zu prüfen): 1740 Löhne, 1741 Lohnsteuer, 1742 Abgaben, 1780 Umsatzsteuer-Vorauszahlungen (1790 für ein früheres Jahr), 2200 Körperschaftsteuer, 4320 Gewerbesteuer. Auf Home stehen Steuern ans Finanzamt in einer eigenen Zeile; Löhne, Lohnsteuer und Abgaben sind Ausgaben.
 
+**Die Unterlage selbst, verknüpft:** An einem Beleg hält **„Lohn- oder Steuerunterlage …“** ihn als Lohnabrechnung (Lohnzettel, Lohnjournal), Lohnsteuer-Anmeldung, Beitragsnachweis oder Steuerbescheid bzw. Voranmeldung für einen Zeitraum fest (`12/2025`, `2025-Q4`, `2024`). Art und Zeitraum werden aus Dateiname und Text vorgeschlagen; die Zahlungen dieser Art und dieses Zeitraums sind angehakt – nach dem Zeitraum im Verwendungszweck, sonst bei einem Monat nach dem Buchungsmonat –, und ein Klick verknüpft die Unterlage mit allen (`app/src/lib/matching/payroll-docs.js`). Nichts wird von selbst verknüpft; „Keine Lohn- oder Steuerunterlage“ löst sie wieder.
+
+**Im Export** sagt der Buchungstext einer solchen Zahlung, was sie ist und wofür: `Lohn 12/2025 Max Beispiel`, `LSt 12/2025 Finanzamt …`, `USt 2024 Finanzkasse …`, `SV-Beiträge 2025 Q4 AOK …`.
+
 ## Lieferantenkonten
 
 Manche Anbieter passen nie eine Zahlung zu einem Beleg: Ein Prepaid-Tarif bucht Aufladungen, und seine monatlichen „Rechnungen“ sind Nachweise, wofür das Guthaben verbraucht wurde. _Lieferantenkonto ansehen_ (in einer Zahlung oder einem Beleg) legt Zahlungen und Belege des Anbieters auf eine Zeitleiste mit laufendem Saldo: Anfangsbestand + Aufladungen − Verbrauch. Es nennt, was nicht aufgeht:
