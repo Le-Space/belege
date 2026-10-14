@@ -7,3 +7,6 @@ pnpm-lock.yaml
 /test-results/
 /playwright-report/
 /static/
+
+# Measurements, as the benches write them (JSON.stringify): data, not code
+/bench/results/
