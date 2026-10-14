@@ -29,9 +29,14 @@ const PRF = Array.from({ length: 32 }, (_, i) => (i * 37 + 11) % 256);
  */
 export async function device(browser, { mode = 'public', lanRelay = '' } = {}) {
 	const context = await browser.newContext();
+	// BENCH_LIBP2P_DEBUG=libp2p:connection-monitor* switches libp2p's own
+	// logging on in the page (its logger reads `localStorage.debug`); the
+	// resilience benchmark keeps what the console then says (bench/).
+	const debug = process.env.BENCH_LIBP2P_DEBUG ?? '';
 	await context.addInitScript(
-		({ prf, mode, lanRelay }) => {
+		({ prf, mode, lanRelay, debug }) => {
 			/** @type {any} */ (globalThis).__belegeTestPrf = prf;
+			if (debug) localStorage.setItem('debug', debug);
 			localStorage.setItem('belege.device-sync', 'on');
 			// Only the first time: a mode chosen in the menu must survive a reload.
 			if (!localStorage.getItem('belege.network-mode')) {
@@ -56,7 +61,7 @@ export async function device(browser, { mode = 'public', lanRelay = '' } = {}) {
 				return canvas.captureStream(5);
 			};
 		},
-		{ prf: PRF, mode, lanRelay }
+		{ prf: PRF, mode, lanRelay, debug }
 	);
 	const page = await context.newPage();
 	const cdp = await context.newCDPSession(page);

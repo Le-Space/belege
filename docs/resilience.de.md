@@ -38,6 +38,23 @@ Beide Geräte erreichen sich über einen Circuit-Relay (was die öffentlichen Le
 
 Der Relay fügt auf einer Maschine also nichts Messbares an Latenz hinzu; was zählt, ist seine Circuit-Grenze. Ein Relay mit den Standardgrenzen der Bibliothek schneidet einen Bankimport in der Mitte ab und lässt die Geräte bis zur nächsten Wiederverbindung getrennt — deshalb heben die Le-Space-Relays die Grenzen an. Auch ihre 20 Minuten sind eine Grenze, und deshalb bleibt #393 das, was auf dem Client zu beheben ist.
 
+### Über einen echten Relay: der Le-Space-Relay auf Aleph (14.10.2026)
+
+`BENCH_RELAY_ADDR` richtete das Relay-Szenario auf den an jenem Morgen ausgerollten Le-Space-Relay (orbitdb-relay 0.10.10 auf einer Aleph-VM, 20 Minuten und 10 GiB je Circuit), beide Geräte weiterhin auf einem Laptop, 50 Buchungen und 21 Minuten Ruhe zwischen den Rundreisen und dem Schub — lang genug, dass der Circuit abläuft, während die direkte Verbindung brachliegt: der Produktionsfall von #393. Drei Läufe (`app/bench/results/2026-10-14-resilience-replication-relay-50-aleph-quiet21m*.json`); im dritten gingen libp2ps eigene Logs beider Seiten ins Ergebnis (`BENCH_LIBP2P_DEBUG`), das Journal des Relays lag daneben.
+
+| Lauf | Koppeln | Nachzügler hat alle 50 | Mac → Telefon / Telefon → Mac, Median | Schub von 100    | Verbindung zum Relay verloren nach | neu gewählt?                      |
+| ---- | ------- | ---------------------- | ------------------------------------- | ---------------- | ---------------------------------- | --------------------------------- |
+| 1    | 0,3 s   | 2,4 s                  | 171 / 169 ms                          | 100/100 in 2,6 s | 28 s und 40 s nach Beginn der Ruhe | einmal, bei 268 s wieder verloren |
+| 2    | 0,3 s   | 2,5 s                  | 172 / 169 ms                          | 100/100 in 1,4 s | 8 min 19 s und 8 min 32 s          | nein — 12 min ohne Relay          |
+| 3    | 0,3 s   | 2,4 s                  | 170 / 169 ms                          | 100/100 in 1,5 s | 20 s und 68 s                      | nein — 20 min ohne Relay          |
+
+Was das sagt:
+
+- **Über das Internet kostet der Relay eine Rundreise.** Einzelne Buchungen brauchten 0,17 s statt 0,07 s: direkt nach dem Koppeln läuft Gossipsub noch über den Circuit des Relays (#393), jede Buchung ging also Laptop → Aleph → Laptop. Der Schub Minuten später lief über die direkte WebRTC-Verbindung und kam jedes Mal vollständig an.
+- **Der Circuit erreichte seine 20 Minuten nie.** In jedem Lauf verloren beide Geräte früh ihre WebSocket zum Relay und damit den Circuit. Wer aufgelegt hat, aus beiden Logs gelesen: libp2ps Verbindungsmonitor auf der einen oder anderen Seite — alle 10 s ein Ping, und ein Ping ohne Antwort nach 5 s bricht die Verbindung ab. Der Relay war die ganze Zeit gesund (Event-Loop-Lag höchstens 0,14 s, CPU 1,5 %); sein Ping-Handler sah die 32 Bytes der Browser nach 26 ms bis 2,4 s eintreffen. Der Uplink des Laptops verlor in jener Stunde Pakete in Schüben (3 %, 55 %, 0 % in drei Stichproben; das lokale Gateway verlustfrei). Nicht der Relay, nicht sein Proxy: eine verlustreiche Leitung und eine Fünf-Sekunden-Regel.
+- **Ein Gerät, das den Relay verliert, wählt ihn nie wieder an** (#403). `@libp2p/circuit-relay-v2` verwirft Reservierung und Keep-alive-Markierung des Relays, libp2ps Reconnect-Queue findet danach nichts mehr zum Neuwählen, und die App hat keinen Ersatz. Bis zum Neuladen ist das Gerät für jedes nicht schon verbundene Gerät unsichtbar; die beiden hier synchronisierten weiter über WebRTC, deshalb kam der Schub trotzdem durch. In Lauf 3 zog Gossipsub binnen 4 s nach dem Verlust des Circuits auf WebRTC um, der Stall aus #393 trat hier also nicht auf — die geplante Messung, der Circuit-Ablauf nach 20 Minuten unter einer ruhenden direkten Verbindung, steht weiter aus und braucht eine verlustfreie Leitung oder ein Gerät, das neu wählt.
+- **Jede verlorene Verbindung meldet genau 60 s später ein zweites Schließen**, ohne Öffnen dazwischen. `@libp2p/websockets` versucht den Reset mit dem reservierten Close-Code 1006, Browser wie Node lehnen ihn ab, und der Socket bleibt eine Minute liegen (Fix upstream offen: libp2p/js-libp2p#3625). Das erste Schließen zählt.
+
 ## Netztrennung: Schreibzugriffe auf beiden Seiten, danach zusammengeführt
 
 Bücher mit 50 Buchungen auf beiden Geräten über den Relay; das Telefon pausiert sein Netz („Alles pausieren" im Menü des Abzeichens — der Connection Gater schließt, jede Verbindung wird aufgelegt); beide Seiten schreiben 20 Buchungen; das Telefon setzt fort.
@@ -78,7 +95,7 @@ Dieselben 108 232 Bytes von beiden: Die Domain liefert genau den CID, den die Re
 ## Was das zeigt und was nicht
 
 - Gemessen: Latenz und Durchsatz der Replikation zwischen zwei Browsern auf einer Maschine, mit und ohne Relay; das Verhalten über eine Netztrennung; Sicherungs- und Wiederherstellungszeiten nach Größe; was die App wiegt und wie schnell sie aus zwei Quellen kommt. Jeder Lauf ist mit den Befehlen oben reproduzierbar; die JSON-Dateien halten die Rohzahlen.
-- Nicht gemessen: echte Netze (NAT-Traversal, Mobilfunk), mehr als zwei Geräte, Belegdateien (die Bücher hier halten nur Buchungen — ein Jahr PDFs bringt Megabytes ins Archiv), ein echtes Aleph (das Fake antwortet aus dem Speicher) und andere Browser als Chromium.
+- Nicht gemessen: echte Netze jenseits eines Relays über das Internet (oben, beide Geräte auf einer Maschine — NAT-Traversal zwischen zwei Netzen, Mobilfunk), mehr als zwei Geräte, Belegdateien (die Bücher hier halten nur Buchungen — ein Jahr PDFs bringt Megabytes ins Archiv), ein echtes Aleph (das Fake antwortet aus dem Speicher) und andere Browser als Chromium.
 - Ehrliche Schwachstellen, alle gemessen statt vermutet: der abbrechende Schub über einen Relay mit Standardgrenzen; die 23 s Wiederverbindung nach einer Pause; die überlineare Wiederherstellung.
 
 ## Früher: wie die Bücher sich beim Wachsen verhalten
