@@ -13,7 +13,8 @@
 // The checks:
 //   errors    a trip without times or destination or reason, a hospitality
 //             bill without what the law asks for, a privately paid receipt
-//             without an amount, nothing to settle – no statement then
+//             without an amount, an employee without a clearing account
+//             (#380), nothing to settle – no statement then
 //   warnings  a day abroad without a rate, or with another country's (one
 //             the BMF letter does not list: Luxembourg's; a territory: its
 //             mother country's), a family member's car, a receipt in another
@@ -107,6 +108,8 @@ export function statementOf({
 	const ownTrips = travel.filter(
 		(r) => r.kind === 'trip' && !r.deleted && r.travellerId === travellerId
 	);
+	const traveller = travel.find((r) => r.kind === 'traveller' && r.id === travellerId) ?? null;
+	const employee = traveller?.role === 'employee';
 	// Receipts booked as private outlays (#293) are paid back through the outlay account.
 	const outlays = new Set(
 		transactions
@@ -163,11 +166,13 @@ export function statementOf({
 		return { trip, figures, receipts: lines };
 	});
 
-	// Hospitality bills of the month that belong to no trip (decided: in the month's statement).
+	// Hospitality bills of the month that belong to no trip (decided: in the
+	// month's statement) – the owner's, never an employee's as well (#380).
 	const tripIds = new Set(ownTrips.map((x) => x.id));
 	const hospitality = receipts
 		.filter(
 			(r) =>
+				!employee &&
 				!r.deleted &&
 				r.status !== 'ignoriert' &&
 				r.hospitality &&
@@ -212,6 +217,8 @@ export function statementOf({
 		else if (foreign)
 			checks.push({ level: 'warning', code: 'foreignCurrency', receiptId: l.receiptId });
 	}
+	if (employee && !String(traveller?.clearingAccount ?? '').trim())
+		checks.push({ level: 'error', code: 'travellerWithoutAccount' });
 	if (!trips.length && !hospitality.length) checks.push({ level: 'error', code: 'nothing' });
 
 	const sum = (/** @type {number[]} */ xs) => xs.reduce((s, n) => s + n, 0);

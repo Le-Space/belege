@@ -4,7 +4,13 @@ _English: [travel.md](travel.md)_
 
 Reise- und Bewirtungsbelege passen nicht zu „eine Zahlung, ein Beleg“. Eine Reise hat viele Belege, oft privat bezahlt; Verpflegungspauschalen und Kilometer haben gar keinen Beleg; eine Bewirtung braucht Angaben, bevor sie zählt; und was die Firma erstattet, ist eine Überweisung für einen ganzen Monat. **Reisen** sammelt die Reisen eines Monats, rechnet aus, was sie ergeben, erstellt die Reisekostenabrechnung und bucht sie ([#213](https://github.com/Le-Space/belege/issues/213)).
 
-Vorerst reist eine Person: Inhaber bzw. Gesellschafter-Geschäftsführer. Die Pauschalen sind die gesetzlichen, im Ausland die des jährlichen BMF-Schreibens.
+Wer reist, steht unter **Einstellungen → Reisende** ([#380](https://github.com/Le-Space/belege/issues/380)):
+
+- **Der Inhaber** bzw. Gesellschafter-Geschäftsführer: angelegt mit der ersten Reise oder mit der ersten angestellten Person.
+- **Angestellte:** jede mit ihrem eigenen **Gegenkonto**, auf das ihre Abrechnungen gebucht werden. Es wird mit der Steuerberatung festgelegt, etwa ein Personenkonto. Ohne Gegenkonto lässt sich für sie keine Abrechnung erstellen.
+- **Die letzten vier Ziffern der IBAN** jeder Person erkennen die Überweisung der Erstattung.
+
+Bei mehr als einer Person sagen die Reisen-Seite, die Reise und am Beleg „Zu einer Reise …“, wessen Reise es ist. Die Pauschalen sind die gesetzlichen, im Ausland die des jährlichen BMF-Schreibens.
 
 ## Reisen
 
@@ -63,7 +69,7 @@ Eine Abrechnung pro Reisender und Monat, auf Reisen:
 
 ## Buchhaltung
 
-Die Abrechnung wird auf dem Konto des Reisenden gebucht, **„Reisekosten <Name>“**, einem Konto ohne Import, dessen Sachkonto das Verrechnungskonto der Rechtsform ist (Buchhaltung): das Gesellschafter-Verrechnungskonto einer UG/GmbH, 1890 für Einzelunternehmen und Personengesellschaften. Jede Zeile ein Abgang am Monatsletzten, in Euro:
+Die Abrechnung wird auf dem Konto des Reisenden gebucht, **„Reisekosten <Name>“**, einem Konto ohne Import. Sein Sachkonto ist das Gegenkonto der Person: bei Angestellten ihr eigenes, beim Inhaber, wenn keins eingetragen ist, das der Rechtsform (Buchhaltung): das Gesellschafter-Verrechnungskonto einer UG/GmbH, 1890 für Einzelunternehmen und Personengesellschaften. Die Abrechnung einer angestellten Person nutzt die Arbeitnehmer-Konten (466x), gleich welche Rechtsform. Bewirtungen ohne Reise stehen nur in der Abrechnung des Inhabers. Jede Zeile ein Abgang am Monatsletzten, in Euro:
 
 |                                                | UG/GmbH (der Gesellschafter-Geschäftsführer ist angestellt) | Einzelunternehmen, Personengesellschaft |
 | ---------------------------------------------- | ----------------------------------------------------------- | --------------------------------------- |
@@ -81,7 +87,7 @@ Die Abrechnung wird auf dem Konto des Reisenden gebucht, **„Reisekosten <Name>
 
 ## Die Auszahlung
 
-Die Überweisung an den Reisenden wird mit dem PDF der Abrechnung verknüpft, wie jede Zahlung mit ihrem Beleg. An der Überweisung bietet **„Zahlt Reisekosten aus …“** die offenen Abrechnungen an, angehakt die, deren Nummer (`RK-…`) der Verwendungszweck nennt, sonst die, deren Beträge aufgehen.
+Die Überweisung an den Reisenden wird mit dem PDF der Abrechnung verknüpft, wie jede Zahlung mit ihrem Beleg. An der Überweisung bietet **„Zahlt Reisekosten aus …“** die offenen Abrechnungen an, angehakt die, deren Nummer (`RK-…`) der Verwendungszweck nennt, sonst die, deren Beträge aufgehen – nur die der Person, auf deren IBAN-Endziffern das Empfängerkonto endet, wo es das tut.
 
 - Mehrere Überweisungen zahlen eine Abrechnung in Teilen; eine Überweisung kann mehrere zahlen, die ältesten zuerst; zu viel wird so genannt. Eine Korrektur übernimmt, was auf die ersetzte Abrechnung gezahlt wurde.
 - Die Auszahlung wird gegen das Verrechnungskonto gebucht, nach dem Weg des Geldes, wie eine private Rückzahlung.
@@ -98,7 +104,8 @@ Auf Reisen, gezählt auf Home und unter Rückfragen:
 
 ## Noch nicht
 
-- Angestellte als Reisende (und mit ihnen die Übernachtungspauschalen im Ausland).
+- Die Übernachtungspauschalen ohne Hotelrechnung für Angestellte (nächster Schritt von #380).
+- Erstattungen über den gesetzlichen Pauschalen: Belege erstattet genau diese und Belege in ihrer Höhe, nennt also nichts als lohnsteuerpflichtig; das bestätigt die Steuerberatung.
 - Vorschüsse vor einer Reise, und die Abrechnung einer Firmenkreditkarte Zeile für Zeile.
 
 Sätze, Konten und die Behandlung des Autos von Familienangehörigen sind mit der Steuerberatung abzustimmen; das beschreibt, was Belege tut, keine Steuerberatung.

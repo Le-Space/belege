@@ -4,7 +4,13 @@ _Deutsch: [travel.de.md](travel.de.md)_
 
 Travel and hospitality receipts do not fit "one payment, one receipt". A trip has many receipts, often paid privately; meal allowances and mileage have no receipt at all; a hospitality bill needs details before it counts; and what the company pays back is one transfer for a whole month. **Reisen** gathers a month's trips, works out what they come to, makes the statement (Reisekostenabrechnung) and books it ([#213](https://github.com/Le-Space/belege/issues/213)).
 
-For now one traveller travels: the owner or managing shareholder. The allowances are the statutory ones, abroad those of the Federal Ministry of Finance's yearly letter.
+Who travels is listed under **Einstellungen → Reisende** ([#380](https://github.com/Le-Space/belege/issues/380)):
+
+- **The owner** or managing shareholder: made with the first trip, or with the first employee added.
+- **Employees:** each with their own **clearing account**, the account their statements are booked on. It is to be named with the tax adviser, a personal account say. Without it, no statement of theirs can be made.
+- **The last four digits of each person's IBAN** recognise the transfer that pays them back.
+
+With more than one person, Reisen, a trip and a receipt's "Zu einer Reise …" say whose a trip is. The allowances are the statutory ones, abroad those of the Federal Ministry of Finance's yearly letter.
 
 ## Trips
 
@@ -63,7 +69,7 @@ One statement per traveller and month, on Reisen:
 
 ## Bookkeeping
 
-The statement is booked on the traveller's account **"Reisekosten <name>"**, an account without an import whose ledger account is the clearing account of the legal form (Buchhaltung): the shareholder clearing account of a UG/GmbH, 1890 for a sole proprietor or partnership. Each line an outflow on the month's last day, in euros:
+The statement is booked on the traveller's account **"Reisekosten <name>"**, an account without an import. Its ledger account is the traveller's clearing account: an employee's own, the owner's from the legal form where none is set (Buchhaltung): the shareholder clearing account of a UG/GmbH, 1890 for a sole proprietor or partnership. An employee's statement uses the employee accounts (466x) whatever the legal form. The hospitality bills of no trip are in the owner's statement only. Each line an outflow on the month's last day, in euros:
 
 |                                                  | UG/GmbH (the managing shareholder is employed) | Sole proprietor, partnership |
 | ------------------------------------------------ | ---------------------------------------------- | ---------------------------- |
@@ -81,7 +87,7 @@ The statement is booked on the traveller's account **"Reisekosten <name>"**, an 
 
 ## The payout
 
-The bank transfer to the traveller is linked to the statement's PDF, as any payment to its receipt. On the transfer, **"Zahlt Reisekosten aus …"** offers the open statements, the one its purpose names (`RK-…`) ticked, else those whose amounts add up to it.
+The bank transfer to the traveller is linked to the statement's PDF, as any payment to its receipt. On the transfer, **"Zahlt Reisekosten aus …"** offers the open statements, the one its purpose names (`RK-…`) ticked, else those whose amounts add up to it – only the traveller's whose IBAN digits the receiving account ends in, where it does.
 
 - Several transfers pay one statement in parts; one transfer can pay several, the oldest first; too much is said as such. A correction takes over what was paid on the statement it replaces.
 - The payout is booked against the clearing account, by the money's way, as a private repayment.
@@ -98,7 +104,8 @@ On Reisen, and counted on Home and Rückfragen:
 
 ## Not yet
 
-- Employees as travellers (and with them the overnight rates abroad).
+- The overnight flat rates without a hotel invoice, for employees (next step of #380).
+- Pay above the statutory allowances: Belege pays back exactly those and receipts at their amount, so it names nothing as wage-tax relevant; the tax adviser confirms.
 - Advance payments before a trip, and a company credit card's statement taken line by line.
 
 The rates, accounts and the treatment of a family member's car are to be confirmed with the tax adviser; this describes what Belege does, not tax advice.

@@ -18,6 +18,7 @@
 		cleanTrip,
 		deleteTrip,
 		saveTrip,
+		travellersOf,
 		tripDates,
 		tripFigures
 	} from '$lib/travel/records.js';
@@ -136,6 +137,9 @@
 				.toUpperCase(),
 			String(stop.at || draft?.start || '').slice(0, 10)
 		);
+
+	// Whose trip: with more than one traveller, it can change hands (#380).
+	let travellers = $derived(travellersOf(app.travel));
 
 	/** @param {number} i */
 	function removeStop(i) {
@@ -273,6 +277,16 @@
 		<section class={card} aria-labelledby="reise-head-h">
 			<h2 id="reise-head-h" class="text-sm font-semibold text-heading">{t('reise.head')}</h2>
 			<div class="mt-2 grid gap-3 sm:grid-cols-2">
+				{#if travellers.length > 1}
+					<label class="flex flex-col text-sm text-text"
+						>{t('reisen.who')}
+						<select class={field} bind:value={draft.travellerId} data-testid="reise-traveller">
+							{#each travellers as p (p.id)}
+								<option value={p.id}>{p.name || t(`travellers.role.${p.role}`)}</option>
+							{/each}
+						</select>
+					</label>
+				{/if}
 				<label class="flex flex-col text-sm text-text"
 					>{t('reise.destination')}
 					<input class={field} bind:value={draft.destination} data-testid="reise-destination" />

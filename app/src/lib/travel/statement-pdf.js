@@ -106,7 +106,12 @@ export async function travelStatementPdf(doc) {
 		`Monat ${doc.month} · erstellt am ${formatDate(doc.createdAt.slice(0, 10), 'de-DE')}`,
 		'Reisekostenabrechnung'
 	);
-	const role = doc.role === 'owner' ? 'Inhaber/Geschäftsführung' : doc.role;
+	const role =
+		doc.role === 'owner'
+			? 'Inhaber/Geschäftsführung'
+			: doc.role === 'employee'
+				? 'Arbeitnehmer/in'
+				: doc.role;
 	field('Reisende(r)', `${doc.traveller || '—'}${role ? ` (${role})` : ''}`, true);
 	if (doc.corrects) field('Ersetzt', `Abrechnung ${doc.corrects}`);
 	field('Zu erstatten', euro(s.totals.toPayBackCents), true);

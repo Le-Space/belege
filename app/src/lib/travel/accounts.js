@@ -6,7 +6,8 @@
 //   owner     a sole proprietor or partner travels as the business itself:
 //             travel costs of the owner (4670 …)
 //
-// The set follows the legal form in Buchhaltung (booking/settings.js). The
+// An employee travels on the employee set, whatever the legal form (#380);
+// the owner's set follows the legal form in Buchhaltung (booking/settings.js). The
 // numbers are the usual SKR 03 ones, checked against public SKR 03 tables,
 // not DATEV's own chart: suggestions, to be confirmed with the tax adviser,
 // as every account in the catalogue (booking/skr03.js). Pure.
@@ -41,14 +42,32 @@ export const TRAVEL_ACCOUNTS = Object.freeze({
 });
 
 /**
- * The set by the legal form: a UG/GmbH's managing shareholder is employed
- * by it; anyone else travels as the owner. Not said yet: the owner's.
+ * The set of a traveller: an employee's is the employee set; the owner's
+ * follows the legal form – a UG/GmbH's managing shareholder is employed by
+ * it, anyone else travels as the owner. Not said yet: the owner's.
  *
  * @param {{ legalForm?: string }} settings cleaned
+ * @param {{ role?: string } | null} [traveller] none: the owner
  * @returns {TravelSet}
  */
-export const travelSet = (settings) =>
-	settings?.legalForm === 'corporation' ? 'employee' : 'owner';
+export const travelSet = (settings, traveller = null) =>
+	traveller?.role === 'employee' || settings?.legalForm === 'corporation' ? 'employee' : 'owner';
+
+/**
+ * The set for a receipt: that of the traveller whose trip it is on; the
+ * owner's for one on no trip (a hospitality bill of the month).
+ *
+ * @param {{ legalForm?: string }} settings cleaned
+ * @param {Record<string, any>[]} travel the travel records
+ * @returns {(receipt: Record<string, any>) => TravelSet}
+ */
+export function travelSetOf(settings, travel) {
+	const byId = new Map(travel.map((r) => [String(r.id), r]));
+	return (receipt) => {
+		const trip = byId.get(String(receipt?.travel?.tripId ?? ''));
+		return travelSet(settings, trip ? (byId.get(String(trip.travellerId)) ?? null) : null);
+	};
+}
 
 const FARES = new Set([
 	'train',

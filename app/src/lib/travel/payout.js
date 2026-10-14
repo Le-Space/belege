@@ -145,17 +145,26 @@ export function mayPayOut(tx, matches, classification) {
 
 /**
  * The open statements a payout most likely pays: those whose number the
- * purpose names; else those whose open amounts add up to it exactly, the
- * oldest preferred; else the oldest until it is used up.
+ * purpose names; else, where the receiving IBAN ends in a traveller's digits
+ * (#380), only that traveller's; of those, the ones whose open amounts add
+ * up to it exactly, the oldest preferred; else the oldest until it is used up.
  *
  * @param {Rec} tx
- * @param {Settlement[]} open oldest first, open > 0
+ * @param {Settlement[]} all oldest first, open > 0
+ * @param {Rec[]} [travellers] with their IBAN's last four digits
  * @returns {string[]} the heads' ids
  */
-export function suggestStatements(tx, open) {
+export function suggestStatements(tx, all, travellers = []) {
 	const text = `${tx.purpose ?? ''} ${tx.counterpartyName ?? tx.counterparty ?? ''}`;
-	const named = open.filter((s) => s.head.number && text.includes(String(s.head.number)));
+	const named = all.filter((s) => s.head.number && text.includes(String(s.head.number)));
 	if (named.length) return named.map((s) => String(s.head.id));
+	const iban = String(tx.counterpartyIban ?? '').replace(/\s+/g, '');
+	const whose = new Set(
+		travellers
+			.filter((p) => /^\d{4}$/.test(String(p.ibanLast4 ?? '')) && iban.endsWith(p.ibanLast4))
+			.map((p) => String(p.id))
+	);
+	const open = whose.size ? all.filter((s) => whose.has(String(s.head.travellerId))) : all;
 	const cents = Math.abs(Number(tx.amountCents ?? 0));
 	const pool = open.slice(0, 24);
 	/** @type {Map<number, number[]>} */

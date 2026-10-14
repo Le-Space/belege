@@ -1,7 +1,8 @@
 // The bookings of a travel statement (issue #213, step 6). A closed
 // statement is booked on the traveller's account – "Reisekosten <name>", an
-// account without an import whose ledger account is the clearing account
-// the legal form names (booking/settings.js privateAccounts): the
+// account without an import whose ledger account is the traveller's clearing
+// account: an employee's own (#380, required), the owner's from the legal
+// form where none is set (booking/settings.js privateAccounts) – the
 // shareholder clearing account of a UG/GmbH, 1890 Privateinlage for a sole
 // proprietor or partnership. Each line an outflow of that account, against
 // the expense account of its category (travel/accounts.js):
@@ -38,8 +39,10 @@ export const TRAVEL_SOURCE = 'travel';
 export const isTravelBooking = (tx) => tx?.source === TRAVEL_SOURCE;
 
 /**
- * The traveller's account, made once; its ledger account from the settings
- * where the legal form names one and it has none yet.
+ * The traveller's account, made once. Its ledger account: the traveller's
+ * clearing account where it has one (an employee always), kept in step with
+ * it; else, for the owner, the one the legal form names, where the account
+ * has none yet.
  *
  * @param {{ accounts: import('../store/repository.js').Collection }} store
  * @param {import('../booking/settings.js').DatevSettings} settings cleaned
@@ -55,6 +58,14 @@ export async function travellerAccount(store, settings, traveller) {
 		currency: 'EUR',
 		kind: 'travel'
 	});
+	const own = String(traveller.clearingAccount ?? '').trim();
+	if (own) {
+		return record.ledgerAccount === own
+			? record
+			: store.accounts.put({ ...record, ledgerAccount: own });
+	}
+	if (traveller.role === 'employee')
+		throw new Error('An employee’s statement needs their clearing account.');
 	const ledger = privateAccounts(settings).repayment;
 	if (!record.ledgerAccount && ledger)
 		return store.accounts.put({ ...record, ledgerAccount: ledger });
@@ -183,7 +194,7 @@ export async function bookStatement({ store, settings, traveller, closed, statem
 		(await store.receipts.list()).map((/** @type {Rec} */ r) => [String(r.id), r])
 	);
 	const lines = statementLines(statement, {
-		set: travelSet(settings),
+		set: travelSet(settings, traveller),
 		receipts,
 		keys: settings.taxKeys
 	});
