@@ -25,6 +25,7 @@
 	import { cleanDatevSettings } from '$lib/booking/settings.js';
 	import { confirmBookings } from '$lib/booking/actions.js';
 	import { suggestBooking } from '$lib/booking/suggest.js';
+	import { clearingAccountOf } from '$lib/travel/accounts.js';
 	import { accountLabel, formatDate, formatMoney } from '$lib/bank/format.js';
 	import { receiptVendor } from '$lib/receipts/view.js';
 	import { intlLocale, list, t } from '$lib/i18n/index.js';
@@ -169,7 +170,11 @@
 	// Unconfirmed bookings whose suggestion is automatic (transfer, fee).
 	let automatic = $derived(
 		(plan?.checks.unassigned ?? []).flatMap((tx) => {
-			const s = suggestBooking(tx, { classification: app.classifications[tx.id] ?? null });
+			const s = suggestBooking(tx, {
+				classification: app.classifications[tx.id] ?? null,
+				// An advance to a traveller (#381) goes against their clearing account.
+				travelClearing: clearingAccountOf(cleanDatevSettings(app.datevSettings), app.travel)
+			});
 			// A travel statement's lines carry their account (#213): taken over as these.
 			return s.account && (s.source === 'transfer' || s.source === 'fee' || s.source === 'travel')
 				? [{ transactionId: tx.id, account: s.account, taxKey: s.taxKey }]

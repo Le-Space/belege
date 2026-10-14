@@ -2654,6 +2654,9 @@ export default {
 			what: 'Eine Abrechnung pro Monat: die Reisen mit ihren Belegen, Pauschalen und Kilometern, dazu die Bewirtungen. Sie wird ein nummeriertes PDF und als Beleg für die Auszahlung abgelegt.',
 			traveller: 'Reisende(r) (auf dem PDF)',
 			private: 'Privat bezahlte Belege',
+			advance: 'Bereits als Vorschuss gezahlt',
+			toPayOut: 'Noch auszuzahlen',
+			owedBack: 'Von der Person zurückzuzahlen',
 			outlay: 'Als Auslage gebucht (dort erstattet)',
 			company: 'Von der Firma bezahlte Belege (nicht erstattet)',
 			noName: 'Das PDF braucht den Namen der/des Reisenden.',
@@ -2679,6 +2682,8 @@ export default {
 				receiptWithoutAmount: 'Privat bezahlter Beleg ohne Betrag: {what}',
 				nothing: 'In diesem Monat gibt es nichts abzurechnen.',
 				noRateAbroad: 'Auslandstag ohne Satz, ohne Betrag abgerechnet: {what}',
+				advanceExceeds:
+					'Der Vorschuss ist höher als die Kosten: Der Rest ist von der Person zurückzuzahlen.',
 				lodgingNoRate: 'Nacht ohne Satz, ohne Übernachtungspauschale: {what}',
 				lodgingWithHotel:
 					'Übernachtungspauschale und Hotelbeleg an derselben Reise – keine Nacht doppelt: {what}',
@@ -3055,6 +3060,17 @@ export default {
 				'Die andere Seite eines Tauschs, den keine Regel erkennt – etwa über eine andere Chain oder eine Börse. Beide Seiten brauchen dann keinen Beleg; steuerlich eine Veräußerung und eine Anschaffung.',
 			linkSwapNone:
 				'Keine Buchung in die andere Richtung auf einem anderen Konto innerhalb von 31 Tagen.',
+			travelAdvance: {
+				offer: 'Vorschuss für Reisekosten …',
+				hint: 'Geld vor einer Reise: Es braucht keinen eigenen Beleg – die Reisekostenabrechnung belegt es und zahlt später nur den Rest aus.',
+				trip: 'Für die Reise',
+				noTrip: 'keine bestimmte Reise',
+				mark: 'Als Vorschuss markieren',
+				title: 'Vorschuss für Reisekosten: {name}',
+				taken: 'Verrechnet mit {number}: {amount}',
+				open: 'Noch nicht abgerechnet: {amount}',
+				undo: 'Kein Vorschuss'
+			},
 			travelPayout: {
 				title: 'Zahlt Reisekosten aus',
 				item: '{number} · Reisekosten {month} · {amount}',

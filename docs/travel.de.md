@@ -91,8 +91,17 @@ Die Abrechnung wird auf dem Konto des Reisenden gebucht, **„Reisekosten <Name>
 Die Überweisung an den Reisenden wird mit dem PDF der Abrechnung verknüpft, wie jede Zahlung mit ihrem Beleg. An der Überweisung bietet **„Zahlt Reisekosten aus …“** die offenen Abrechnungen an, angehakt die, deren Nummer (`RK-…`) der Verwendungszweck nennt, sonst die, deren Beträge aufgehen – nur die der Person, auf deren IBAN-Endziffern das Empfängerkonto endet, wo es das tut.
 
 - Mehrere Überweisungen zahlen eine Abrechnung in Teilen; eine Überweisung kann mehrere zahlen, die ältesten zuerst; zu viel wird so genannt. Eine Korrektur übernimmt, was auf die ersetzte Abrechnung gezahlt wurde.
-- Die Auszahlung wird gegen das Verrechnungskonto gebucht, nach dem Weg des Geldes, wie eine private Rückzahlung.
+- Die Auszahlung wird gegen das Gegenkonto der Person gebucht: bei Angestellten ihr eigenes; beim Inhaber das eingetragene, sonst nach dem Weg des Geldes, wie eine private Rückzahlung.
 - Reisen sagt, ob die Abrechnung ausgezahlt ist, teilweise oder zu viel.
+
+## Vorschüsse
+
+Geld, das eine Person vor einer Reise bekommt ([#381](https://github.com/Le-Space/belege/issues/381)). An der Zahlung markiert **„Vorschuss für Reisekosten …“** es, für eine Person (über die IBAN-Endziffern, wo sie passen) und, wenn bekannt, für eine Reise.
+
+- Es braucht keinen eigenen Beleg: Die Abrechnung belegt es. Gebucht wird es gegen das Gegenkonto der Person, wie die Auszahlung.
+- **Verrechnet mit den Abrechnungen:** Ein Vorschuss für eine Reise geht ganz auf die Abrechnung, die diese Reise enthält; einer ohne Reise auf die Abrechnungen der Person, die älteste zuerst, so weit deren Kosten reichen. Was noch keine Abrechnung nimmt, steht an der Zahlung als noch nicht abgerechnet.
+- **Die Abrechnung** zeigt „Bereits als Vorschuss gezahlt“ und was noch auszuzahlen ist; das PDF listet die Vorschüsse. Ist der Vorschuss höher als die Kosten, bleibt eine Forderung an die Person, und die Abrechnung sagt das. Eine Korrektur übernimmt die Vorschüsse der Abrechnung, die sie ersetzt.
+- „Kein Vorschuss“ nimmt die Markierung zurück; die Zahlung wartet dann wieder auf einen Beleg.
 
 ## Offene Punkte
 
@@ -106,6 +115,6 @@ Auf Reisen, gezählt auf Home und unter Rückfragen:
 ## Noch nicht
 
 - Erstattungen über den gesetzlichen Pauschalen: Belege erstattet genau diese und Belege in ihrer Höhe, nennt also nichts als lohnsteuerpflichtig; das bestätigt die Steuerberatung.
-- Vorschüsse vor einer Reise, und die Abrechnung einer Firmenkreditkarte Zeile für Zeile.
+- Die Abrechnung einer Firmenkreditkarte Zeile für Zeile.
 
 Sätze, Konten und die Behandlung des Autos von Familienangehörigen sind mit der Steuerberatung abzustimmen; das beschreibt, was Belege tut, keine Steuerberatung.

@@ -91,8 +91,17 @@ The statement is booked on the traveller's account **"Reisekosten <name>"**, an 
 The bank transfer to the traveller is linked to the statement's PDF, as any payment to its receipt. On the transfer, **"Zahlt Reisekosten aus …"** offers the open statements, the one its purpose names (`RK-…`) ticked, else those whose amounts add up to it – only the traveller's whose IBAN digits the receiving account ends in, where it does.
 
 - Several transfers pay one statement in parts; one transfer can pay several, the oldest first; too much is said as such. A correction takes over what was paid on the statement it replaces.
-- The payout is booked against the clearing account, by the money's way, as a private repayment.
+- The payout is booked against the traveller's clearing account: an employee's own; the owner's own where set, else by the money's way, as a private repayment.
 - Reisen says whether the statement is paid out, in part or too much.
+
+## Advances
+
+Money paid to a traveller before a trip ([#381](https://github.com/Le-Space/belege/issues/381)). On the payment, **"Vorschuss für Reisekosten …"** marks it, for a person (by the IBAN digits where they match) and, if it is known, for a trip.
+
+- It needs no receipt of its own: the statement documents it. It is booked against the traveller's clearing account, as the payout is.
+- **Settled with the statements:** an advance for a trip goes on the statement that has the trip, all of it; one for no trip goes on the traveller's statements, the oldest first, as far as their costs go. What no statement takes yet is shown on the payment as not accounted for.
+- **The statement** shows "Bereits als Vorschuss gezahlt" and what is left to pay out; the PDF lists the advances. More advance than costs leaves a claim on the traveller, said on the statement. A correction takes over the advances of the statement it replaces.
+- "Kein Vorschuss" takes the mark back; the payment waits for a receipt again.
 
 ## Open points
 
@@ -106,6 +115,6 @@ On Reisen, and counted on Home and Rückfragen:
 ## Not yet
 
 - Pay above the statutory allowances: Belege pays back exactly those and receipts at their amount, so it names nothing as wage-tax relevant; the tax adviser confirms.
-- Advance payments before a trip, and a company credit card's statement taken line by line.
+- A company credit card's statement taken line by line.
 
 The rates, accounts and the treatment of a family member's car are to be confirmed with the tax adviser; this describes what Belege does, not tax advice.
