@@ -196,7 +196,7 @@ Monero verbirgt Beträge, Absender und Empfänger auf seiner Kette; über eine A
    - jeder Umsatz wird zum Tageskurs bewertet (CoinGecko, `monero`);
    - die Gebühr eines Ausgangs wird eigens gebucht, wie bei jeder Wallet; die eines Eingangs hat der Absender bezahlt.
 
-   Dieselbe oder eine längere Datei noch einmal zu importieren, fügt nur Neues hinzu. Der Bestand des Kontos ist, was die Datei ergibt.
+   Dieselbe oder eine längere Datei noch einmal zu importieren, fügt nur Neues hinzu. Der Bestand des Kontos und seine Bestände an Anfang und Ende jedes Monats: beim CLI-Export der laufende Kontostand der Wallet selbst – eine Zahl, die die Wallet errechnet hat, gegen die der Kontoauszug abstimmt (#287); der GUI-Export hat keinen, dort ist es, was die Datei ergibt.
 
 Beide Formate sind aus dem Quellcode der Wallets übernommen (monero-gui `TransactionHistory::writeCSV`, monero `export_transfers`). Die Datumsspalte der GUI folgt der Sprache, deshalb zählt ihre Spalte `epoch`; die Zeitstempel der CLI sind UTC.
 

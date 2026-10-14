@@ -19,7 +19,13 @@
 //               transfer in rows of their own, without a block.
 //
 // Only confirmed transfers count: in, out, and a mined block (CLI `block`);
-// pool, pending and failed ones are left out. Every transfer becomes the
+// pool, pending and failed ones are left out.
+//
+// The CLI's `running balance` is the wallet's own balance after each transfer
+// (#287): the months' balances come from it, and its last value is the
+// balance – figures the wallet worked out, not the sum of what was read here,
+// so the statement reconciles against something independent. The GUI export
+// has none: there the balance is the sum of the transfers. Every transfer becomes the
 // entries the bridge's chains hand back (`WalletEntry`): received / sent, and
 // for an outgoing one its fee as an entry of its own (`<hash>:fee`) – so it is
 // valued, booked and paired like any wallet's (wallet-sync.js).
@@ -82,6 +88,7 @@ export function fromPiconero(units) {
  * @property {bigint} fee piconero; counted for an outgoing one only
  * @property {string} destination the first destination of an outgoing one, else ''
  * @property {string} note the wallet's note and label, as kept there
+ * @property {bigint | null} running CLI: the wallet's balance after it; GUI: null
  */
 
 const GUI = 'blockheight,epoch,date,direction,amount,atomicamount,fee,txid';
@@ -127,11 +134,12 @@ export function parseMoneroExport(text) {
 				amount: BigInt(atomic),
 				fee: toPiconero(fee) ?? 0n,
 				destination: '',
-				note: [description, label].filter(Boolean).join(' · ')
+				note: [description, label].filter(Boolean).join(' · '),
+				running: null
 			});
 			continue;
 		}
-		const [block, direction, , timestamp, amount, , hash, , fee, destination, , , note] = f;
+		const [block, direction, , timestamp, amount, running, hash, , fee, destination, , , note] = f;
 		// A further destination of the transfer above: kept with it as the first only.
 		if (!block) continue;
 		const at = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})$/.exec(timestamp);
@@ -147,7 +155,8 @@ export function parseMoneroExport(text) {
 			amount: toPiconero(amount) ?? 0n,
 			fee: toPiconero(fee) ?? 0n,
 			destination: destination && destination !== '-' ? destination : '',
-			note: note ?? ''
+			note: note ?? '',
+			running: toPiconero(running)
 		});
 	}
 	return { format, transfers, skipped };
@@ -229,13 +238,33 @@ export async function importMoneroExport({ client, store, wallet, text, now = ne
 	const { bookWalletHistory } = await import('./wallet-sync.js');
 	const { format, transfers, skipped } = parseMoneroExport(text);
 	const { entries, balance } = moneroEntries(transfers);
+	// The wallet's own running balance, where every transfer carries one (CLI).
+	const own = transfers.length > 0 && transfers.every((t) => t.running !== null);
+	const points = own
+		? [...transfers]
+				.sort((a, b) => a.height - b.height)
+				.map((t) => ({ time: t.time, value: String(t.running) }))
+		: [];
 	const booked = await bookWalletHistory({
 		client,
 		store,
 		wallet,
 		result: {
 			entries,
-			balances: [{ asset: 'XMR', amount: balance, decimals: DECIMALS }],
+			balances: [
+				{
+					asset: 'XMR',
+					amount: own ? fromPiconero(BigInt(points[points.length - 1].value)) : balance,
+					decimals: DECIMALS
+				}
+			],
+			...(own
+				? {
+						balanceHistory: [
+							{ asset: 'XMR', decimals: DECIMALS, points, source: /** @type {const} */ ('history') }
+						]
+					}
+				: {}),
 			source: `monero-${format}`,
 			// The whole history the wallet knows: nothing pruned, nothing unread.
 			unknownAssets: 0,

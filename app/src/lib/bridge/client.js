@@ -164,8 +164,9 @@ function failed(message, status, body) {
  *   `unknownAmounts`: older transactions whose amount only events carry, not booked
  * @property {string} addressUrl
  * @property {'alchemy' | 'blockscout'} [source] EVM: where it was read
- * @property {{ asset: string, decimals: number, points: { time: string, value: string }[] }[]} [balanceHistory]
- *   the explorer's balance after each change, in smallest units, oldest first (Blockscout: the native coin; #287)
+ * @property {{ asset: string, decimals: number, points: { time: string, value: string }[], source?: 'explorer' | 'history' }[]} [balanceHistory]
+ *   the source's balance after each change, in smallest units, oldest first (#287): Blockscout's of the
+ *   native coin (`explorer`, the default), or a wallet's own running balance (`history`, the Monero CLI export)
  */
 
 /**

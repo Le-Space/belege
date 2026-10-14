@@ -196,7 +196,7 @@ Monero hides amounts, senders and receivers on its chain, so nothing can be read
    - each transfer is valued at the day's rate (CoinGecko, `monero`);
    - an outgoing transfer's fee is booked apart, as for every wallet; an incoming one's was paid by the sender.
 
-   Importing the same or a longer file again adds only what is new. The account's balance is what the file adds up to.
+   Importing the same or a longer file again adds only what is new. The account's balance and its balances at each month's start and end: from the CLI export, the wallet's own running balance – a figure the wallet worked out, so the monthly statement reconciles against it (#287); the GUI export has none, so there they are what the file adds up to.
 
 Both formats were taken from the wallets' own source (monero-gui `TransactionHistory::writeCSV`, monero `export_transfers`). The GUI's date column follows the language, so its `epoch` column is used; the CLI's timestamps are UTC.
 
