@@ -1726,8 +1726,36 @@ export default {
 			learned: 'Learned',
 			books: 'Bookkeeping (DATEV)',
 			chart: 'Chart of accounts',
+			travellers: 'Travellers',
 			privacy: 'Privacy & technical'
 		}
+	},
+	travellers: {
+		title: 'Travellers',
+		intro:
+			'Who travels for the company: the owner or managing shareholder, and employees. Each person gets their own monthly statement.',
+		none: 'No one yet. The owner is added with the first trip.',
+		unnamed: 'unnamed',
+		role: { owner: 'Owner/managing director', employee: 'Employee' },
+		roleLabel: 'Role',
+		name: 'Name',
+		account: 'Clearing account',
+		accountHint:
+			'Required: the statement is booked on this account (a personal account, say). Without it nothing is booked.',
+		accountHintOwner: 'Empty: the clearing account of the legal form, from “Bookkeeping”.',
+		accountShown: 'Account {account}',
+		iban: 'IBAN, last 4 digits',
+		ibanHint: 'Recognises the transfer that pays it back.',
+		noAccount: 'Clearing account missing',
+		edit: 'Edit',
+		remove: 'Remove',
+		add: 'Add a person',
+		save: 'Save',
+		cancel: 'Cancel',
+		inUse: 'This person has trips or statements, and stays.',
+		ownerExists: 'There is an owner already.',
+		adviser:
+			'Which clearing account is right for employees is for the tax adviser. Belege pays back the statutory allowances only; nothing above them.'
 	},
 	anweisungen: {
 		title: 'Company, matching and bookkeeping',
@@ -1883,6 +1911,7 @@ export default {
 			paid: { private: 'privately', company: 'by the company' },
 			assign: 'Assign',
 			newTrip: 'New trip with this receipt',
+			newFor: 'New trip for',
 			unassign: 'Take it off the trip',
 			cancel: 'Cancel',
 			euro: {
@@ -2553,6 +2582,7 @@ export default {
 		adviser:
 			'The rates are the German statutory ones. Have them confirmed by your tax adviser before the first real statement.',
 		month: 'Month',
+		who: 'Person',
 		new: 'New trip',
 		questions: {
 			title: 'Open points in travel: {count}',
@@ -2610,6 +2640,8 @@ export default {
 				receiptWithoutAmount: 'Receipt paid privately without an amount: {what}',
 				nothing: 'Nothing to settle this month.',
 				noRateAbroad: 'Day abroad without a rate, settled without an amount: {what}',
+				travellerWithoutAccount:
+					'This person’s clearing account is missing – enter it under Settings → Travellers.',
 				rateNotListed:
 					'Country not in the BMF table, Luxembourg’s rate applied – to be clarified with the tax adviser: {what}',
 				rateTerritory:

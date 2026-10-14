@@ -19,6 +19,7 @@
 		suggestStatements,
 		unlinkPayout
 	} from './payout.js';
+	import { travellersOf } from './records.js';
 
 	/** @type {{ tx: Record<string, any> }} */
 	let { tx } = $props();
@@ -75,22 +76,29 @@
 
 	function choose() {
 		choosing = !choosing;
-		if (choosing) picked = suggestStatements(tx, open);
+		if (choosing) picked = suggestStatements(tx, open, travellersOf(app.travel));
 	}
 
-	/** @param {() => Promise<void>} fn */
+	/**
+	 * The link is written and shown before matching runs again: matching only
+	 * refreshes the suggestions, and may wait behind another run – the buttons
+	 * are free again meanwhile.
+	 *
+	 * @param {() => Promise<void>} fn
+	 */
 	async function act(fn) {
 		busy = true;
 		error = null;
 		try {
 			await fn();
 			await refreshNow();
-			await runMatchingNow();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
+			return;
 		} finally {
 			busy = false;
 		}
+		runMatchingNow().catch((e) => (error = e instanceof Error ? e.message : String(e)));
 	}
 
 	const link = () =>

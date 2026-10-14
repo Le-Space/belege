@@ -17,6 +17,7 @@
 		assignReceipt,
 		ownerTraveller,
 		saveTrip,
+		travellersOf,
 		setTravelEuro,
 		setHospitality,
 		unassignReceipt
@@ -71,7 +72,18 @@
 
 	/** @param {Record<string, any>} x */
 	const tripLine = (x) =>
-		[x.destination || t('reisen.untitled'), tripDays(x, formatDate)].filter(Boolean).join(' · ');
+		[
+			x.destination || t('reisen.untitled'),
+			tripDays(x, formatDate),
+			// Whose, where more than one person travels (#380).
+			travellers.length > 1 ? travellers.find((p) => p.id === x.travellerId)?.name : ''
+		]
+			.filter(Boolean)
+			.join(' · ');
+
+	let travellers = $derived(travellersOf(app.travel));
+	/** Who a new trip from this receipt is for: the owner unless picked. */
+	let newFor = $state('');
 
 	function start() {
 		open = true;
@@ -110,7 +122,9 @@
 	const newTrip = () =>
 		run(async () => {
 			const store = /** @type {any} */ (currentStore());
-			const traveller = await ownerTraveller(store, cleanDatevSettings(app.datevSettings));
+			const traveller =
+				travellers.find((p) => p.id === newFor) ??
+				(await ownerTraveller(store, cleanDatevSettings(app.datevSettings)));
 			const { trip: made } = await saveTrip(store, {
 				travellerId: traveller.id,
 				...tripFromReceipt(receipt)
@@ -444,6 +458,18 @@
 						{/each}
 					</select>
 				</label>
+				{#if travellers.length > 1}
+					<label class="text-text"
+						>{t('belege.travel.newFor')}
+						<select class="ml-2 {field}" bind:value={newFor} data-testid="travel-new-for">
+							{#each travellers as p (p.id)}
+								<option value={p.role === 'owner' ? '' : p.id}
+									>{p.name || t(`travellers.role.${p.role}`)}</option
+								>
+							{/each}
+						</select>
+					</label>
+				{/if}
 				<div class="flex flex-wrap gap-2">
 					{#if trips.length}
 						<button

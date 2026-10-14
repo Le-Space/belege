@@ -1755,8 +1755,36 @@ export default {
 			learned: 'Gelerntes',
 			books: 'Buchhaltung (DATEV)',
 			chart: 'Kontenplan',
+			travellers: 'Reisende',
 			privacy: 'Datenschutz & Technik'
 		}
+	},
+	travellers: {
+		title: 'Reisende',
+		intro:
+			'Wer für die Firma reist: Inhaber bzw. Gesellschafter-Geschäftsführer und Angestellte. Jede Person bekommt ihre eigene Monatsabrechnung.',
+		none: 'Noch niemand. Der Inhaber wird mit der ersten Reise angelegt.',
+		unnamed: 'ohne Namen',
+		role: { owner: 'Inhaber/Geschäftsführung', employee: 'Angestellte/r' },
+		roleLabel: 'Rolle',
+		name: 'Name',
+		account: 'Gegenkonto',
+		accountHint:
+			'Pflicht: Auf dieses Konto wird die Abrechnung gebucht (z. B. ein Personenkonto). Ohne Konto wird nichts gebucht.',
+		accountHintOwner: 'Leer: das Verrechnungskonto der Rechtsform aus „Buchhaltung“.',
+		accountShown: 'Konto {account}',
+		iban: 'IBAN, letzte 4 Ziffern',
+		ibanHint: 'Erkennt die Überweisung der Erstattung.',
+		noAccount: 'Gegenkonto fehlt',
+		edit: 'Bearbeiten',
+		remove: 'Entfernen',
+		add: 'Person hinzufügen',
+		save: 'Speichern',
+		cancel: 'Abbrechen',
+		inUse: 'Diese Person hat Reisen oder Abrechnungen und bleibt deshalb.',
+		ownerExists: 'Es gibt schon einen Inhaber.',
+		adviser:
+			'Welches Gegenkonto für Angestellte richtig ist, klärst du mit der Steuerberatung. Belege erstattet nur die gesetzlichen Pauschalen; nichts darüber wird gezahlt.'
 	},
 	anweisungen: {
 		title: 'Firma, Abgleich und Buchhaltung',
@@ -1912,6 +1940,7 @@ export default {
 			paid: { private: 'privat', company: 'von der Firma' },
 			assign: 'Zuordnen',
 			newTrip: 'Neue Reise mit diesem Beleg',
+			newFor: 'Neue Reise für',
 			unassign: 'Von der Reise nehmen',
 			cancel: 'Abbrechen',
 			euro: {
@@ -2592,6 +2621,7 @@ export default {
 		adviser:
 			'Die Sätze sind die gesetzlichen deutschen. Lass sie vor der ersten echten Abrechnung von deiner Steuerberatung bestätigen.',
 		month: 'Monat',
+		who: 'Person',
 		new: 'Neue Reise',
 		questions: {
 			title: 'Offene Punkte bei Reisen: {count}',
@@ -2649,6 +2679,8 @@ export default {
 				receiptWithoutAmount: 'Privat bezahlter Beleg ohne Betrag: {what}',
 				nothing: 'In diesem Monat gibt es nichts abzurechnen.',
 				noRateAbroad: 'Auslandstag ohne Satz, ohne Betrag abgerechnet: {what}',
+				travellerWithoutAccount:
+					'Für diese Person fehlt das Gegenkonto – unter Einstellungen → Reisende eintragen.',
 				rateNotListed:
 					'Land nicht in der Übersicht des BMF, Satz für Luxemburg angesetzt – mit Steuerberatung klären: {what}',
 				rateTerritory:

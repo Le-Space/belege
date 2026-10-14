@@ -13,12 +13,13 @@ import { paidByGuess } from './view.js';
  * @param {import('./proposals.js').Proposal} p.proposal
  * @param {import('../booking/settings.js').DatevSettings} p.settings cleaned
  * @param {{ transactions: Rec[], matches: Rec[] }} p.books for who paid
+ * @param {string} [p.travellerId] whose trip it becomes (#380); the owner by default
  * @returns {Promise<string>} the trip's id
  */
-export async function acceptProposal({ store, proposal, settings, books }) {
+export async function acceptProposal({ store, proposal, settings, books, travellerId }) {
 	let tripId = proposal.tripId;
 	if (!tripId) {
-		const traveller = await ownerTraveller(store, settings);
+		const traveller = travellerId ? { id: travellerId } : await ownerTraveller(store, settings);
 		const { trip } = await saveTrip(store, {
 			travellerId: traveller.id,
 			destination: proposal.destination,

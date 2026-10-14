@@ -19,7 +19,13 @@
 	import { receiptDate, receiptVendor } from '$lib/receipts/view.js';
 	import { btn, card } from '$lib/ui/styles.js';
 	import { t } from '$lib/i18n/index.js';
-	import { ownerTraveller, saveTrip, tripFigures, tripMonth } from '$lib/travel/records.js';
+	import {
+		ownerTraveller,
+		saveTrip,
+		travellersOf,
+		tripFigures,
+		tripMonth
+	} from '$lib/travel/records.js';
 	import { openTravelQuestions, tripProposals } from '$lib/travel/proposals.js';
 	import { acceptProposal, dismissProposal } from '$lib/travel/proposal-actions.js';
 	import {
@@ -43,9 +49,20 @@
 			: thisMonth
 	);
 
+	// Whose month (#380): the owner by default; with employees, any of them.
+	let travellers = $derived(travellersOf(app.travel));
+	let whoId = $state('');
+	let who = $derived(
+		travellers.find((p) => p.id === whoId) ?? travellers.find((p) => p.role === 'owner') ?? null
+	);
+	/** The traveller a new trip is for: the one shown, else the owner, made once. */
+	const travellerNow = async (/** @type {any} */ store) =>
+		who ?? (await ownerTraveller(store, cleanDatevSettings(app.datevSettings)));
+
 	let trips = $derived(allTrips(app.travel));
+	let theirs = $derived(trips.filter((x) => !who || x.travellerId === who.id));
 	let shown = $derived(
-		trips
+		theirs
 			.filter((x) => tripMonth(x) === month)
 			.map((trip) => ({
 				trip,
@@ -56,11 +73,13 @@
 				receipts: receiptsOfTrip(app.receipts, trip.id).length
 			}))
 	);
-	let untimed = $derived(trips.filter((x) => !tripMonth(x)));
+	let untimed = $derived(theirs.filter((x) => !tripMonth(x)));
+	// Hospitality bills of no trip are the owner's (statement.js).
 	let hospitality = $derived(
 		app.receipts
 			.filter(
 				(r) =>
+					who?.role !== 'employee' &&
 					!r.deleted &&
 					r.status !== 'ignoriert' &&
 					r.hospitality &&
@@ -100,7 +119,7 @@
 		busy = true;
 		error = null;
 		try {
-			const traveller = await ownerTraveller(store, cleanDatevSettings(app.datevSettings));
+			const traveller = await travellerNow(store);
 			const { trip } = await saveTrip(store, {
 				travellerId: traveller.id,
 				...tripFromAppointment(a)
@@ -133,7 +152,8 @@
 				store,
 				proposal,
 				settings: cleanDatevSettings(app.datevSettings),
-				books: app
+				books: app,
+				travellerId: who?.id
 			});
 			await refreshNow();
 			await goto(resolve('/reisen/[id]', { id: tripId }));
@@ -173,10 +193,8 @@
 		hospitality: hospitality.reduce((s, x) => s + x.split.deductibleCents, 0)
 	});
 
-	// The month's statement (step 5): for the owner, the one traveller for now.
-	let owner = $derived(
-		app.travel.find((r) => r.kind === 'traveller' && r.role === 'owner' && !r.deleted) ?? null
-	);
+	// The month's statement (step 5), of the traveller shown.
+	let owner = $derived(who);
 	let closed = $derived(owner ? closedStatements(app.travel, owner.id, month) : []);
 	let preview = $derived(
 		owner
@@ -295,7 +313,7 @@
 		busy = true;
 		error = null;
 		try {
-			const traveller = await ownerTraveller(store, cleanDatevSettings(app.datevSettings));
+			const traveller = await travellerNow(store);
 			const { trip } = await saveTrip(store, { travellerId: traveller.id });
 			await refreshNow();
 			await goto(resolve('/reisen/[id]', { id: trip.id }));
@@ -379,7 +397,28 @@
 <p class="mt-1 text-xs text-faint" data-testid="reisen-adviser">{t('reisen.adviser')}</p>
 
 <div class="mt-4 flex flex-wrap items-end justify-between gap-3">
-	<MonthPicker bind:value={month} label={t('reisen.month')} testid="reisen-month" />
+	<div class="flex flex-wrap items-end gap-3">
+		<MonthPicker bind:value={month} label={t('reisen.month')} testid="reisen-month" />
+		{#if travellers.length > 1}
+			<label class="flex flex-col text-sm text-text"
+				>{t('reisen.who')}
+				<select
+					class="mt-1 min-h-11 rounded-md border border-border bg-surface px-2 text-sm text-heading"
+					value={who?.id ?? ''}
+					onchange={(e) => {
+						whoId = e.currentTarget.value;
+						nameTouched = false;
+						correcting = false;
+					}}
+					data-testid="reisen-who"
+				>
+					{#each travellers as p (p.id)}
+						<option value={p.id}>{p.name || t(`travellers.role.${p.role}`)}</option>
+					{/each}
+				</select>
+			</label>
+		{/if}
+	</div>
 	<button
 		type="button"
 		class={btn.primary}

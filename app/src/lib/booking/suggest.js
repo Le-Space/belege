@@ -75,7 +75,8 @@ export function learnedPartner(partners, receipt, tx) {
  * @param {import('./settings.js').TaxKeys} [context.keys]
  * @param {{ payment: string | null, repayment: string | null }} [context.privateAccounts]
  *   where a private payment and its repayment go, by the legal form (#172)
- * @param {import('../travel/accounts.js').TravelSet | null} [context.travelSet] the travel accounts' set, by the legal form (#213)
+ * @param {import('../travel/accounts.js').TravelSet | ((receipt: Record<string, any>) => import('../travel/accounts.js').TravelSet) | null} [context.travelSet]
+ *   the travel accounts' set (#213): one, or per receipt, by its trip's traveller (#380)
  * @returns {Suggestion}
  */
 export function suggestBooking(
@@ -169,7 +170,8 @@ export function suggestBooking(
 	// A receipt on a trip, or a hospitality bill, paid from a business account (#213).
 	if (travelSet && receipt && !income && (receipt.travel?.tripId || receipt.hospitality)) {
 		const category = receiptCategory(receipt, travelKind(receipt));
-		const account = travelAccount(travelSet, category).number;
+		const set = typeof travelSet === 'function' ? travelSet(receipt) : travelSet;
+		const account = travelAccount(set, category).number;
 		const key = taxKeyFor(receipt, { income, keys, account });
 		return {
 			account,

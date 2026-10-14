@@ -796,3 +796,64 @@ test('a trip abroad: the country named, a city with rates of its own picked, its
 	await page.getByTestId('reise-save').click();
 	await expect(page.getByTestId('reise-sum-allowance')).toHaveText('38,00 EUR');
 });
+
+test('an employee travels: added under Einstellungen, a trip and a statement of their own, booked on their account (#380)', async ({
+	page
+}) => {
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('E2E');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+
+	// A made-up employee, with the clearing account the adviser named.
+	await page.getByTestId('settings-link').click();
+	const card = page.getByTestId('travellers-card');
+	await card.getByTestId('traveller-add').click();
+	await card.getByTestId('traveller-name').fill('Anna Beispiel');
+	await card.getByTestId('traveller-account').fill('70001');
+	await card.getByTestId('traveller-iban').fill('2222');
+	await card.getByTestId('traveller-save').click();
+	// The owner is listed with her, first.
+	await expect(card.getByTestId('traveller')).toHaveCount(2);
+	await expect(card.getByTestId('traveller').nth(1)).toContainText('Anna Beispiel');
+	await expect(card.getByTestId('traveller').nth(1)).toContainText('Konto 70001 · ···2222');
+
+	// Her trip, from Reisen with her picked.
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
+	await page.getByTestId('belege-reisen').click();
+	const pick = async () => {
+		await page.getByTestId('reisen-who').selectOption({ label: 'Anna Beispiel' });
+		const picker = page.getByTestId('reisen-month');
+		await picker.getByLabel('Monat: Jahr').selectOption('2026');
+		await picker.getByLabel('Monat: Monat').selectOption('05');
+	};
+	await pick();
+	await page.getByTestId('reisen-new').click();
+	await expect(page.getByTestId('reise-traveller')).toHaveValue(/.+/);
+	await page.getByTestId('reise-destination').fill('Musterstadt');
+	await page.getByTestId('reise-reason').fill('Montage Kundin Beispiel UG');
+	await page.getByTestId('reise-start').fill('2026-05-04T07:00');
+	await page.getByTestId('reise-end').fill('2026-05-05T19:30');
+	await page.getByTestId('reise-save').click();
+	await expect(page.getByTestId('reise-saved')).toBeVisible();
+
+	// Her statement: 14 EUR and 14 EUR, her name, booked on "Reisekosten Anna Beispiel".
+	await page.getByRole('link', { name: '← Alle Reisen' }).click();
+	await pick();
+	await expect(page.getByTestId('reisen-trip')).toHaveCount(1);
+	const statement = page.getByTestId('reisen-statement');
+	await expect(statement.getByTestId('reisen-statement-amount')).toHaveText('28,00 EUR');
+	await expect(statement.getByTestId('reisen-statement-name')).toHaveValue('Anna Beispiel');
+	await statement.getByTestId('reisen-statement-make').click();
+	await expect(page.getByTestId('reisen-statement-closed')).toContainText('RK-2026-001');
+	await expect(page.getByTestId('reisen-statement-booked')).toContainText(
+		'Reisekosten Anna Beispiel'
+	);
+
+	// The owner's month has neither her trip nor her statement.
+	await page.getByTestId('reisen-who').selectOption({ index: 0 });
+	await expect(page.getByTestId('reisen-trip')).toHaveCount(0);
+	await expect(page.getByTestId('reisen-statement-closed')).toHaveCount(0);
+});

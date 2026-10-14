@@ -4,14 +4,17 @@
 // who paid it (`receipt.travel`), and a restaurant bill carries its
 // hospitality details (`receipt.hospitality`), with or without a trip.
 //
-// For now one traveller: the owner or managing shareholder (decided 12.10.).
-// Employees can follow as more traveller records.
+// Travellers (#380): the owner or managing shareholder, made once, and
+// employees, each with their own clearing account – the account their
+// statements are booked on (decided 14.10.: one per person, nothing booked
+// without it) – and the last digits of their IBAN, to recognise the payout.
 //
 // What a trip lacks (times, a reason, km) is named, not refused: a trip is
 // written down as it is known and completed later; the calculation leaves out
 // what it cannot compute (allowance.js, mileage.js).
 
 import { privateAccounts } from '../booking/settings.js';
+import { isAccountNumber } from '../booking/skr03.js';
 import { euroCents } from '../outlays/outlays.js';
 import { mealAllowance, threeMonthCuts } from './allowance.js';
 import { mileage } from './mileage.js';
@@ -21,7 +24,7 @@ import { mileage } from './mileage.js';
 
 /** `dismissed`: a trip proposal said no to (proposals.js, step 4b). */
 export const KINDS = /** @type {const} */ (['traveller', 'trip', 'statement', 'dismissed']);
-export const ROLES = /** @type {const} */ (['owner']);
+export const ROLES = /** @type {const} */ (['owner', 'employee']);
 export const PAID_BY = /** @type {const} */ (['private', 'company']);
 export const VEHICLES = /** @type {const} */ (['own', 'family', 'rental', 'company']);
 export const VEHICLE_TYPES = /** @type {const} */ (['car', 'motorcycle', 'bicycle']);
@@ -58,6 +61,85 @@ export async function ownerTraveller(store, settings, name = '') {
 		clearingAccount: clearing,
 		ibanLast4: ''
 	});
+}
+
+/**
+ * A traveller as it is kept, and what it still lacks: an employee needs a
+ * clearing account before a statement of theirs can be made.
+ *
+ * @param {Rec} input
+ * @returns {{ traveller: Rec, problems: string[] }}
+ */
+export function cleanTraveller(input) {
+	const clearing = text(input?.clearingAccount).replace(/\s+/g, '');
+	if (clearing && !isAccountNumber(clearing)) throw new Error(`Not an account number: ${clearing}`);
+	const iban = text(input?.ibanLast4).replace(/\s+/g, '');
+	const traveller = {
+		...(input?.id ? { id: input.id } : {}),
+		kind: 'traveller',
+		role: input?.role === 'owner' ? 'owner' : 'employee',
+		name: text(input?.name).slice(0, 80),
+		clearingAccount: clearing,
+		ibanLast4: /^\d{4}$/.test(iban) ? iban : ''
+	};
+	/** @type {string[]} */
+	const problems = [];
+	if (!traveller.name) problems.push('noName');
+	if (traveller.role === 'employee' && !traveller.clearingAccount)
+		problems.push('noClearingAccount');
+	return { traveller, problems };
+}
+
+/**
+ * The travellers, the owner first, then by name.
+ *
+ * @param {Rec[]} travel
+ * @returns {Rec[]}
+ */
+export const travellersOf = (travel) =>
+	travel
+		.filter((r) => r.kind === 'traveller' && !r.deleted)
+		.sort(
+			(a, b) =>
+				Number(b.role === 'owner') - Number(a.role === 'owner') ||
+				String(a.name ?? '').localeCompare(String(b.name ?? ''))
+		);
+
+/**
+ * Add or change a traveller. There is one owner: another is refused.
+ *
+ * @param {{ travel: Collection }} store
+ * @param {Rec} input
+ */
+export async function saveTraveller(store, input) {
+	const { traveller, problems } = cleanTraveller(input);
+	if (input?.id) {
+		const before = await store.travel.get(input.id);
+		if (!before || before.kind !== 'traveller') throw new Error(`No traveller with id ${input.id}`);
+	}
+	if (traveller.role === 'owner') {
+		const owners = await store.travel.list({
+			where: (r) => r.kind === 'traveller' && r.role === 'owner' && r.id !== input?.id
+		});
+		if (owners.length)
+			throw Object.assign(new Error('There is an owner already.'), { code: 'owner' });
+	}
+	return { traveller: await store.travel.put(traveller), problems };
+}
+
+/**
+ * Remove a traveller who has no trip and no statement; one who has keeps
+ * them, and is refused.
+ *
+ * @param {{ travel: Collection }} store
+ * @param {string} id
+ */
+export async function removeTraveller(store, id) {
+	const used = await store.travel.list({
+		where: (r) => (r.kind === 'trip' || r.kind === 'statement') && r.travellerId === id
+	});
+	if (used.length) throw Object.assign(new Error('The traveller has trips.'), { code: 'inUse' });
+	return store.travel.softDelete(id);
 }
 
 /**
