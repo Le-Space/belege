@@ -144,3 +144,35 @@ export function payrollAccount(c, bookedOn) {
 	if (c.tax === 'trade') return '4320';
 	return null;
 }
+
+/**
+ * The Buchungstext of a payment recognised here: what it is, its
+ * period and who received it – "Lohn 12/2025 Max Beispiel", "LSt 12/2025
+ * Finanzamt", "USt 2024 Finanzkasse Musterstadt".
+ *
+ * @param {Record<string, any> | null | undefined} c its classification
+ * @param {Record<string, any>} tx
+ * @returns {string | null} null: not one of these
+ */
+export function payrollText(c, tx) {
+	// eslint-disable-next-line belege/no-german -- the Buchungstext, a German document (#192)
+	const contributions = 'SV-Beiträge';
+	if (!c) return null;
+	const what =
+		c.kind === 'wage'
+			? 'Lohn'
+			: c.kind === 'payroll-tax'
+				? 'LSt'
+				: c.kind === 'social-security'
+					? contributions
+					: c.kind === 'tax-payment'
+						? ({ vat: 'USt', corporate: 'KSt', trade: 'GewSt', 'wage-tax': 'LSt' }[
+								/** @type {string} */ (c.tax)
+							] ?? 'Steuer')
+						: null;
+	if (!what) return null;
+	const period = /^(\d{4})-(\d{2})$/.exec(c.period ?? '');
+	const when = period ? `${period[2]}/${period[1]}` : String(c.period ?? '').replace('-', ' ');
+	const who = String(c.employee || tx.counterparty || '').trim();
+	return [what, when, who].filter(Boolean).join(' ').slice(0, 60);
+}

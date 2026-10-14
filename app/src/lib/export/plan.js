@@ -40,6 +40,7 @@ import { dayNumber } from '../matching/normalize.js';
 import { MIRROR_DAYS } from '../matching/context.js';
 import { needsConfirmation } from '../receipts/import.js';
 import { findDuplicates } from '../receipts/duplicates.js';
+import { payrollText } from '../matching/payroll.js';
 import { receiptDate, receiptVendor } from '../receipts/view.js';
 import { TRANSFER_ACCOUNT } from '../booking/skr03.js';
 import { quantityText } from '../assets/valuation.js';
@@ -198,11 +199,16 @@ export function numberReceipts(month, ordered, allReceipts) {
  * What the Buchungstext says: the receipt's vendor, else the counterparty,
  * else the purpose. A crypto movement adds what moved (`… 0,015 BTC`), in
  * front of the 60-character cut, so the quantity is never the part cut off.
+ * A wage, a payroll tax, contributions or a tax payment (#233) say what they
+ * are and for when instead: "Lohn 12/2025 Max Beispiel".
  *
  * @param {Rec} tx
  * @param {Rec | null} receipt
+ * @param {Rec | null} [classification]
  */
-export function bookingText(tx, receipt) {
+export function bookingText(tx, receipt, classification = null) {
+	const payroll = payrollText(classification, tx);
+	if (payroll) return payroll;
 	const vendor = receipt ? receiptVendor(/** @type {any} */ (receipt)) : '';
 	const base =
 		vendor && vendor !== '—'
@@ -385,8 +391,11 @@ export function planMonth({
 					: (statementOf.get(String(tx.accountId)) ?? ''),
 				text: unclear
 					? // eslint-disable-next-line belege/no-german -- Buchungstext, a German document (#192)
-						`Ungeklärt: ${bookingText(tx, first?.receipt ?? null)}`.slice(0, 60)
-					: bookingText(tx, first?.receipt ?? null),
+						`Ungeklärt: ${bookingText(tx, first?.receipt ?? null, classifications[tx.id] ?? null)}`.slice(
+							0,
+							60
+						)
+					: bookingText(tx, first?.receipt ?? null, classifications[tx.id] ?? null),
 				// The bank's (a wallet's) cost centre; none on a transfer between two accounts.
 				costCentre: transferLine ? '' : String(bank?.costCentre ?? '')
 			}

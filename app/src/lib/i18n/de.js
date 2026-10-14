@@ -1913,6 +1913,23 @@ export default {
 		ruleText: '{field} „{contains}“ → {action}'
 	},
 	belege: {
+		payrollDoc: {
+			offer: 'Lohn- oder Steuerunterlage …',
+			hint: 'Eine Lohnabrechnung, ein Lohnjournal, eine Lohnsteuer-Anmeldung, ein Beitragsnachweis oder ein Steuerbescheid ist der Beleg für mehrere Zahlungen: Wähl Art und Zeitraum, die passenden Zahlungen sind angehakt.',
+			kindLabel: 'Art',
+			kind: {
+				payroll: 'Lohnabrechnung / Lohnjournal',
+				'wage-tax-return': 'Lohnsteuer-Anmeldung',
+				contributions: 'Beitragsnachweis',
+				'tax-assessment': 'Steuerbescheid / Voranmeldung'
+			},
+			period: 'Zeitraum',
+			none: 'Keine erkannte Zahlung dieser Art für {period}. Verknüpfen hält die Unterlage trotzdem fest.',
+			link: 'Verknüpfen',
+			is: '{kind} {period}, Beleg für diese Zahlungen:',
+			undo: 'Keine Lohn- oder Steuerunterlage',
+			badPeriod: 'Den Zeitraum als 12/2025, 2025-Q4 oder 2025 angeben.'
+		},
 		travel: {
 			open: 'Zu einer Reise …',
 			looksLikeTrip: 'Als {kind} gelesen: gehört wohl zu einer Reise.',
