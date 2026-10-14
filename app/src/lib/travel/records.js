@@ -98,7 +98,12 @@ export function cleanTrip(input) {
 	const end = TIME.test(input?.end) ? input.end : '';
 	const stops = (Array.isArray(input?.stops) ? input.stops : [])
 		.filter((/** @type {any} */ s) => TIME.test(s?.at) && COUNTRY.test(s?.country))
-		.map((/** @type {any} */ s) => ({ at: s.at, country: s.country }))
+		// A city with rates of its own (rates-abroad.js), as the letter names it.
+		.map((/** @type {any} */ s) => ({
+			at: s.at,
+			country: s.country,
+			...(typeof s.city === 'string' && s.city.trim() ? { city: s.city.trim().slice(0, 60) } : {})
+		}))
 		.sort((/** @type {any} */ a, /** @type {any} */ b) => a.at.localeCompare(b.at));
 	/** @type {Record<string, { breakfast: boolean, lunch: boolean, dinner: boolean }>} */
 	const meals = {};

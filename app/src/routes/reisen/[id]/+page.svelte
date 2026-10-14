@@ -10,7 +10,8 @@
 	import { formatDate, formatMoney } from '$lib/bank/format.js';
 	import { receiptDate, receiptVendor } from '$lib/receipts/view.js';
 	import { btn, card } from '$lib/ui/styles.js';
-	import { t } from '$lib/i18n/index.js';
+	import { currentLocale, t } from '$lib/i18n/index.js';
+	import { abroadCities } from '$lib/travel/rates-abroad.js';
 	import {
 		VEHICLES,
 		VEHICLE_TYPES,
@@ -106,6 +107,36 @@
 		draft.stops = [...(draft.stops ?? []), { at: draft.start || '', country: '' }];
 		touch();
 	}
+	/**
+	 * A country code's name, to see a typo; null for one no one knows.
+	 *
+	 * @param {string} code
+	 */
+	function countryName(code) {
+		const c = String(code ?? '')
+			.trim()
+			.toUpperCase();
+		if (!/^[A-Z]{2}$/.test(c)) return null;
+		try {
+			const name = new Intl.DisplayNames([currentLocale()], { type: 'region' }).of(c);
+			return name && name !== c ? name : null;
+		} catch {
+			return null;
+		}
+	}
+	/**
+	 * The cities with rates of their own where a crossing leads (rates-abroad.js).
+	 *
+	 * @param {{ at?: string, country?: string }} stop
+	 */
+	const citiesOf = (stop) =>
+		abroadCities(
+			String(stop.country ?? '')
+				.trim()
+				.toUpperCase(),
+			String(stop.at || draft?.start || '').slice(0, 10)
+		);
+
 	/** @param {number} i */
 	function removeStop(i) {
 		if (!draft) return;
@@ -342,6 +373,24 @@
 							data-testid="reise-stop-country"
 						/>
 					</label>
+					{#if stop.country}
+						{@const name = countryName(stop.country)}
+						<span
+							class="pb-2 text-xs {name ? 'text-faint' : 'text-danger'}"
+							data-testid="reise-stop-country-name">{name ?? t('reise.stopUnknownCountry')}</span
+						>
+					{/if}
+					{#if citiesOf(stop).length}
+						<label class="flex flex-col text-sm text-text"
+							>{t('reise.stopCity')}
+							<select class={field} bind:value={stop.city} data-testid="reise-stop-city">
+								<option value={undefined}>{t('reise.stopCityRest')}</option>
+								{#each citiesOf(stop) as city (city)}
+									<option value={city}>{city}</option>
+								{/each}
+							</select>
+						</label>
+					{/if}
 					<button type="button" class={btn.link} onclick={() => removeStop(i)}
 						>{t('reise.remove')}</button
 					>

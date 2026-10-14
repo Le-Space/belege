@@ -1,0 +1,33 @@
+{
+	"date": "2026-10-13",
+	"machine": {
+		"cpus": "Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz",
+		"cores": 16,
+		"memGB": 32
+	},
+	"scenario": "replication-qr",
+	"size": 50,
+	"writeMs": 742,
+	"pairMs": 1385,
+	"initialSyncMs": 1393,
+	"macToPhone": {
+		"n": 10,
+		"min": 76,
+		"median": 94,
+		"p95": 268,
+		"max": 268
+	},
+	"phoneToMac": {
+		"n": 10,
+		"min": 71,
+		"median": 73,
+		"p95": 99,
+		"max": 99
+	},
+	"burst": {
+		"size": 100,
+		"writeMs": 930,
+		"syncMs": 1476
+	},
+	"outsideRequests": 0
+}

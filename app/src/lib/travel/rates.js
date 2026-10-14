@@ -3,11 +3,13 @@
 // can keep the ones it used and stay reproducible after they change.
 //
 // The defaults are the German statutory ones for the owner or managing
-// shareholder travelling in Germany (decided 12.10.: Germany first, the
-// statutory allowances exactly, no lower company rate). Rates abroad are not
-// in the table yet: a day abroad finds no rate and says so, nothing is made
-// up. All of it is to be confirmed with the tax adviser before the first real
-// statement.
+// shareholder (decided 12.10.: the statutory allowances exactly, no lower
+// company rate). Rates abroad are the BMF letters' (rates-abroad.js, #379);
+// before the first letter there, a day abroad finds no rate and says so,
+// nothing is made up. All of it is to be confirmed with the tax adviser
+// before the first real statement.
+
+import { abroadRate } from './rates-abroad.js';
 
 /**
  * @typedef {object} MealRate
@@ -88,5 +90,17 @@ export function rateOn(table, day, match = () => true) {
 	return found;
 }
 
-/** @param {string} country @param {string} day */
-export const mealRate = (country, day) => rateOn(MEAL_RATES, day, (r) => r.country === country);
+/**
+ * The meal allowance's rates in a country on a day: Germany's from the law,
+ * any other's from the BMF letter in force (with the city's own, where it has
+ * them).
+ *
+ * @param {string} country ISO 3166 alpha-2
+ * @param {string} day YYYY-MM-DD
+ * @param {string | null} [city]
+ * @returns {MealRate | import('./rates-abroad.js').AbroadRate | null}
+ */
+export const mealRate = (country, day, city = null) =>
+	country === 'DE'
+		? rateOn(MEAL_RATES, day, (r) => r.country === country)
+		: abroadRate(country, day, city);

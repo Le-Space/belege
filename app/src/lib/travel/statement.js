@@ -14,8 +14,10 @@
 //   errors    a trip without times or destination or reason, a hospitality
 //             bill without what the law asks for, a privately paid receipt
 //             without an amount, nothing to settle – no statement then
-//   warnings  a day abroad without a rate, a family member's car, a receipt
-//             in another currency – the statement can be made, and says so
+//   warnings  a day abroad without a rate, or with another country's (one
+//             the BMF letter does not list: Luxembourg's; a territory: its
+//             mother country's), a family member's car, a receipt in another
+//             currency – the statement can be made, and says so
 
 import { formatDate } from '../bank/format.js';
 import { receiptDate, receiptVendor } from '../receipts/view.js';
@@ -126,13 +128,23 @@ export function statementOf({
 		const figures = tripFigures(trip, ownTrips);
 		for (const day of figures.allowance?.days ?? []) {
 			if (day.rate)
-				rates.set(`meal:${day.country}:${day.rate.from}`, {
-					kind: 'meal',
-					country: day.country,
-					...day.rate
-				});
+				rates.set(
+					`meal:${day.rate.country ?? day.country}:${day.rate.city ?? ''}:${day.rate.from}`,
+					{
+						kind: 'meal',
+						country: day.country,
+						...day.rate
+					}
+				);
 			if (day.reason === 'noRate')
 				checks.push({ level: 'warning', code: 'noRateAbroad', tripId: trip.id, date: day.date });
+			if (day.rate?.via === 'notListed' || day.rate?.via === 'territory')
+				checks.push({
+					level: 'warning',
+					code: day.rate.via === 'notListed' ? 'rateNotListed' : 'rateTerritory',
+					tripId: trip.id,
+					date: day.date
+				});
 		}
 		for (const line of figures.mileage) {
 			if (line.rate)

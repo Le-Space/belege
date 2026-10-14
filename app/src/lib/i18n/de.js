@@ -2649,6 +2649,10 @@ export default {
 				receiptWithoutAmount: 'Privat bezahlter Beleg ohne Betrag: {what}',
 				nothing: 'In diesem Monat gibt es nichts abzurechnen.',
 				noRateAbroad: 'Auslandstag ohne Satz, ohne Betrag abgerechnet: {what}',
+				rateNotListed:
+					'Land nicht in der Übersicht des BMF, Satz für Luxemburg angesetzt – mit Steuerberatung klären: {what}',
+				rateTerritory:
+					'Übersee- oder Außengebiet, Satz des Mutterlands angesetzt – mit Steuerberatung klären: {what}',
 				foreignWithoutRate: 'Beleg in fremder Währung ohne Kurs – am Beleg eintragen: {what}',
 				familyCar: 'Fahrzeug eines Familienangehörigen, mit Steuerberatung klären: {what}',
 				foreignCurrency: 'Beleg in fremder Währung, in Euro umgerechnet: {what}'
@@ -2685,9 +2689,12 @@ export default {
 		note: 'Notiz',
 		abroad: 'Ausland',
 		abroadHint:
-			'Jeder Grenzübertritt mit Uhrzeit und Ländercode (AT, FR …). Auslandssätze sind noch nicht in Belege: solche Tage bleiben ohne Betrag.',
+			'Jeder Grenzübertritt mit Uhrzeit und Ländercode (AT, FR …). Die Sätze kommen aus dem BMF-Schreiben des Jahres (ab 2025); hat eine Stadt eigene Sätze, wähle sie aus.',
 		stopAt: 'Ab',
 		stopCountry: 'Land',
+		stopCity: 'Ort',
+		stopCityRest: 'übriges Land',
+		stopUnknownCountry: 'unbekannter Ländercode',
 		remove: 'Entfernen',
 		addStop: 'Grenzübertritt hinzufügen',
 		meals: 'Gestellte Mahlzeiten',
@@ -2749,12 +2756,12 @@ export default {
 		dayReason: {
 			under8h: 'höchstens 8 Stunden',
 			countedOnOtherDay: 'am anderen Tag gezählt',
-			noRate: 'noch kein Satz für dieses Land',
+			noRate: 'kein Satz für diesen Tag',
 			threeMonthRule: 'Dreimonatsregel'
 		},
 		cut: 'gestellte Mahlzeiten −{amount}',
 		noRateAbroad:
-			'Auslandstage haben noch keinen Betrag: Die Ländersätze sind nicht in Belege. Trag sie mit der Steuerberatung ein.',
+			'Auslandstage ohne Betrag: Für diese Tage gibt es in Belege kein BMF-Schreiben (Sätze ab 2025).',
 		receipts: 'Belege dieser Reise',
 		noReceipts: 'Noch kein Beleg. Am Beleg ordnet „Zu einer Reise …“ ihn zu.',
 		sum: 'Was die Reise ergibt',

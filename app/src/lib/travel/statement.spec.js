@@ -96,6 +96,39 @@ const base = {
 	transactions: TRANSACTIONS
 };
 
+describe('the travel statement abroad (#379)', () => {
+	it('prints the city’s rate and another country’s with why, and warns where the adviser must look', async () => {
+		const { travelStatementPdf } = await import('./statement-pdf.js');
+		const draw = async (/** @type {Record<string, any>[]} */ stops) => {
+			const statement = statementOf({
+				travellerId: 'P',
+				month: '2026-05',
+				travel: [{ ...TRIP, meals: {}, mileage: [], stops }],
+				receipts: []
+			});
+			const bytes = await travelStatementPdf({
+				number: 'RK-2026-009',
+				issuer: 'Beispiel GmbH',
+				traveller: 'Inhaberin Beispiel',
+				role: 'owner',
+				month: '2026-05',
+				createdAt: '2026-06-02T10:00:00.000Z',
+				corrects: null,
+				statement
+			});
+			const { text } = await extractText(await getDocumentProxy(bytes), { mergePages: true });
+			return text.replace(/\s+/g, ' ');
+		};
+		const moscow = await draw([{ at: '2026-05-04T12:00', country: 'RU', city: 'Moskau' }]);
+		expect(moscow).toContain('Satz RU Moskau');
+		expect(moscow).toContain('Verpflegung RU Moskau');
+		expect(moscow).toContain('BMF-Schreiben vom 5. Dezember 2025');
+		const unlisted = await draw([{ at: '2026-05-04T12:00', country: 'AF' }]);
+		expect(unlisted).toContain('Verpflegung LU (Land nicht erfasst)');
+		expect(unlisted).toContain('Satz für Luxemburg angesetzt');
+	});
+});
+
 describe('the travel statement (#213, step 5)', () => {
 	it('adds up: allowance, mileage, receipts by who paid, input VAT, hospitality, to pay back', () => {
 		const s = statementOf(base);
@@ -152,7 +185,40 @@ describe('the travel statement (#213, step 5)', () => {
 			travel: [{ ...TRIP, stops: [{ at: '2026-05-04T12:00', country: 'AT' }] }]
 		});
 		expect(abroad.ready).toBe(true);
-		expect(abroad.checks.filter((c) => c.code === 'noRateAbroad')).toHaveLength(2);
+		expect(
+			abroad.checks.filter((c) => c.code.startsWith('rate') || c.code === 'noRateAbroad')
+		).toEqual([]);
+		expect(abroad.rates.find((r) => r.kind === 'meal' && r.country === 'AT')).toMatchObject({
+			full: 5000,
+			source: expect.stringMatching(/BMF-Schreiben/)
+		});
+		// A country the BMF letter does not list (#379): Luxembourg's rate, named for the adviser.
+		const unlisted = statementOf({
+			...base,
+			travel: [{ ...TRIP, stops: [{ at: '2026-05-04T12:00', country: 'AF' }] }]
+		});
+		expect(unlisted.ready).toBe(true);
+		expect(unlisted.checks.filter((c) => c.code === 'rateNotListed')).toEqual([
+			{ level: 'warning', code: 'rateNotListed', tripId: 'T1', date: '2026-05-04' },
+			{ level: 'warning', code: 'rateNotListed', tripId: 'T1', date: '2026-05-05' }
+		]);
+		// Before the first letter in the table: no rate at all.
+		const early = statementOf({
+			...base,
+			month: '2024-05',
+			travel: [
+				{
+					...TRIP,
+					start: '2024-05-04T07:00',
+					end: '2024-05-05T19:30',
+					meals: {},
+					mileage: [],
+					stops: [{ at: '2024-05-04T12:00', country: 'AT' }]
+				}
+			],
+			receipts: []
+		});
+		expect(early.checks.filter((c) => c.code === 'noRateAbroad')).toHaveLength(2);
 		// A ticket in rubles (made up): never its amount taken as euros (#213).
 		const inRubles = (/** @type {Record<string, any>} */ travel) =>
 			RECEIPTS.map((r) =>
