@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.10.0] – 2026-10-14
+
 ### Added
 
 - **Company credit cards** (#382; #405, #407). Each card is an account of its own, under _Integrationen → Bank_, with a name and the card number's last four digits. See [banking.md](docs/banking.md).
