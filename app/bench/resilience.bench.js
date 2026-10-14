@@ -195,6 +195,20 @@ const net = {
 async function watchNetwork(pages) {
 	await Promise.all(Object.values(pages).map(net.watch));
 	const t0 = Date.now();
+	// What libp2p itself says in each page, when BENCH_LIBP2P_DEBUG switched its
+	// logging on (e2e/devices.js): who hung up, and why.
+	/** @type {Record<string, Array<{ t: number, text: string }>>} */
+	const consoles = {};
+	const wanted = /libp2p:|GoAway|aborting|closing connection/;
+	for (const [name, page] of Object.entries(pages)) {
+		consoles[name] = [];
+		page.on('console', (msg) => {
+			const text = msg.text();
+			if (wanted.test(text) && consoles[name].length < 5000) {
+				consoles[name].push({ t: Date.now() - t0, text: text.slice(0, 400) });
+			}
+		});
+	}
 	/** @type {Array<Record<string, unknown>>} */
 	const samples = [];
 	let last = '';
@@ -235,7 +249,7 @@ async function watchNetwork(pages) {
 					])
 				)
 			);
-			return { samples, events };
+			return { samples, events, console: consoles };
 		}
 	};
 }

@@ -38,6 +38,23 @@ Both devices reach each other through a circuit relay (what the public Le Space 
 
 So the relay adds nothing measurable to latency on one machine; what matters is its circuit limit. A relay that caps circuits at the library's default will cut a bank import in half and leave the devices apart until the next reconnect — which is why the Le Space relays raise the limits. Their 20 minutes are a limit too, which is why #393 remains the thing to fix on the client.
 
+### Over a real relay: the Le Space relay on Aleph (2026-10-14)
+
+`BENCH_RELAY_ADDR` pointed the relay scenario at the Le Space relay deployed that morning (orbitdb-relay 0.10.10 on an Aleph VM, 20 minutes and 10 GiB per circuit), both devices still on one laptop, 50 bookings, and 21 minutes of quiet between the round trips and the burst — long enough for the circuit to expire while the direct connection idles, which is #393's production case. Three runs (`app/bench/results/2026-10-14-resilience-replication-relay-50-aleph-quiet21m*.json`); in the third, libp2p's own logs from both pages went into the result (`BENCH_LIBP2P_DEBUG`), with the relay's journal alongside.
+
+| run | pair  | late joiner gets all 50 | Mac → phone / phone → Mac, median | burst of 100     | connection to the relay lost after | dialled again?            |
+| --- | ----- | ----------------------- | --------------------------------- | ---------------- | ---------------------------------- | ------------------------- |
+| 1   | 0.3 s | 2.4 s                   | 171 / 169 ms                      | 100/100 in 2.6 s | 28 s and 40 s into the quiet       | once, lost again at 268 s |
+| 2   | 0.3 s | 2.5 s                   | 172 / 169 ms                      | 100/100 in 1.4 s | 8 min 19 s and 8 min 32 s          | no — 12 min without relay |
+| 3   | 0.3 s | 2.4 s                   | 170 / 169 ms                      | 100/100 in 1.5 s | 20 s and 68 s                      | no — 20 min without relay |
+
+What it says:
+
+- **Across the internet the relay costs one round trip.** Single bookings took 0.17 s instead of 0.07 s: right after pairing gossipsub still rides the circuit through the relay (#393), so each booking went laptop → Aleph → laptop. The burst, minutes later, went over the direct WebRTC connection and arrived in full every time.
+- **The circuit never reached its 20 minutes.** In every run both devices lost their WebSocket to the relay early, and the circuit with it. Who hung up, read from both logs: libp2p's connection monitor on either side — a ping every 10 s, and a ping unanswered for 5 s aborts the connection. The relay stayed healthy throughout (event-loop lag at most 0.14 s, CPU 1.5 %); its ping handler saw the browsers' 32 bytes arrive after 26 ms to 2.4 s. The laptop's uplink lost packets in bursts that hour (3 %, 55 %, 0 % in three samples; the local gateway loss-free). Not the relay, not its proxy: a lossy line and a 5-second rule.
+- **A device that loses the relay never dials it again** (#403). `@libp2p/circuit-relay-v2` drops the reservation and the relay's keep-alive tag, libp2p's reconnect queue then finds nothing to redial, and the app has no fallback. Until the page reloads the device is invisible to any device not already connected to it; the two here kept syncing over WebRTC, which is why the burst still passed. In run 3 gossipsub moved to WebRTC within 4 s of losing the circuit, so the #393 stall did not occur here — the planned measurement, the circuit expiring at 20 minutes under an idle direct connection, is still open and needs a loss-free line or a device that redials.
+- **Every lost connection reports a second close exactly 60 s later**, without an open in between. `@libp2p/websockets` tries to reset the socket with the reserved close code 1006, browser and Node both refuse, and the socket lingers a minute (upstream fix open: libp2p/js-libp2p#3625). Read the first close.
+
 ## Partition: writes on both sides, merged after
 
 Books of 50 on both devices over the relay; the phone pauses its network ("Alles pausieren" in the badge's menu — the connection gater closes, every connection is hung up); both sides write 20 bookings; the phone resumes.
@@ -78,7 +95,7 @@ The same 108 232 bytes from both: the domain serves exactly the CID the release 
 ## What this does and does not show
 
 - Measured: replication latency and throughput between two browsers on one machine, with and without a relay; the behaviour across a partition; backup and restore times by size; what the app weighs and how fast it arrives from two sources. Every run is reproducible with the commands above; the JSON files hold the raw numbers.
-- Not measured: real networks (NAT traversal success, mobile links), more than two devices, receipt files (the books here hold bookings only — a year of PDFs adds megabytes to the archive), a real Aleph (the fake answers from memory), and browsers other than Chromium.
+- Not measured: real networks beyond one relay across the internet (above, both devices on one machine — NAT traversal between two networks, mobile links), more than two devices, receipt files (the books here hold bookings only — a year of PDFs adds megabytes to the archive), a real Aleph (the fake answers from memory), and browsers other than Chromium.
 - Honest weak spots, all measured rather than assumed: the burst stall over a default-limited relay; the 23 s reconnect after a pause; the superlinear restore.
 
 ## Earlier: how the books behave as they grow
