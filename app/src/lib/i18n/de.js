@@ -1517,6 +1517,9 @@ export default {
 			noReceipt: 'Von dir entschieden: Kein Beleg nötig – {reason}',
 			noReason: 'ohne Grund',
 			ownCompany: 'Eigene Umbuchung: Die Gegenpartei ist deine Firma „{company}“',
+			ownCard: 'Eigene Umbuchung: Ausgleich deiner Kreditkarte {account}',
+			ownCardSettlement:
+				'Eigene Umbuchung: Ausgleich der Kreditkarte vom Bankkonto – die Abbuchung dort ist der Beleg',
 			ownIban: 'Eigene Umbuchung: Das Gegenkonto ist dein Konto {account}',
 			ownIbanFound: '– die Gegenbuchung dort vom {date} ist verknüpft.',
 			ownIbanMissing:

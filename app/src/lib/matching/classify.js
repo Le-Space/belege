@@ -284,6 +284,8 @@ export function feeKey(tx) {
  * @property {number} [graceDays] see grace.js
  * @property {Set<string>} [feeKeys] learned bank fees (feeKey)
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [counterBookings] bookings on our other accounts with the opposite amount within a few days
+ * @property {(tx: Record<string, any>) => { account: Record<string, any>, other: Record<string, any> | null } | null} [cardOf]
+ *   a bank debit that settles one of our credit cards (#382): the card's account, and its settlement line where it has one
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [sameReference] bookings on our other accounts with the same reference or transaction hash, the other way (context.js)
  * @property {Set<string>} [notTransfers] pairs a person said are no transfer (transferPairKey)
  * @property {(tx: Record<string, any>) => { other: Record<string, any>, role: 'charge' | 'refund', full: boolean, manual: boolean } | null} [refundOf] a charge's refund or a refund's charge (refunds.js)
@@ -314,7 +316,7 @@ export function feeKey(tx) {
  * @property {string} [ruleId]
  * @property {'counterparty' | 'purpose' | 'any'} [ruleField] what the rule looked at
  * @property {string} [ruleContains] the rule's text
- * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'bridge' | 'cross-chain' | 'manual' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee' | 'employee' | 'wage-words' | 'tax-office' | 'tax-number' | 'municipality' | 'insurer'} [via] how an own transfer or a bank fee was recognised
+ * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'bridge' | 'cross-chain' | 'manual' | 'card' | 'card-settlement' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee' | 'employee' | 'wage-words' | 'tax-office' | 'tax-number' | 'municipality' | 'insurer'} [via] how an own transfer or a bank fee was recognised
  * @property {string} [address] our own wallet's address, for via 'own-address'
  * @property {string} [vendor] the prepaid vendor, for kind 'prepaid-topup'
  * @property {import('./payroll.js').TaxKind} [tax] which tax, for 'tax-payment' and 'payroll-tax' (#233)
@@ -373,6 +375,8 @@ const TRANSFER_WORDS =
 function transferSign(tx, companyNames) {
 	// A deposit or withdrawal of euros on an exchange: money from or to a bank.
 	if (tx.source === 'kraken' && tx.movement === 'transfer' && !tx.quantity) return 'Kraken';
+	// A credit card's statement line that settles it from the bank (#382, bank/card-csv.js).
+	if (tx.bookingType === 'Kartenausgleich') return 'Kartenausgleich';
 	const text = `${tx.purpose ?? ''} ${tx.counterparty ?? ''}`;
 	const word = TRANSFER_WORDS.exec(text)?.[0];
 	if (word) return word;
@@ -698,6 +702,26 @@ export function classifyTransaction(tx, ctx) {
 			counterDay: String(o.bookedOn ?? ''),
 			sign: /** @type {string} */ (sign)
 		};
+	}
+	// The bank's debit that settles one of our credit cards (#382): the card's
+	// number ends in it, and a card word says so – its settlement line linked
+	// where the card's statement has one.
+	const card = ctx.cardOf?.(tx);
+	if (card) {
+		return {
+			kind: 'own-transfer',
+			account: '1360',
+			via: 'card',
+			ibanLast4: String(card.account.ibanLast4 ?? ''),
+			counterAccountId: String(card.account.id),
+			...(card.other
+				? { counterBookingId: String(card.other.id), counterDay: String(card.other.bookedOn ?? '') }
+				: {})
+		};
+	}
+	// A card's settlement line whose debit is not in the books: no receipt either.
+	if (tx.bookingType === 'Kartenausgleich' && Number(tx.amountCents ?? 0) > 0) {
+		return { kind: 'own-transfer', account: '1360', via: 'card-settlement' };
 	}
 	const company = ctx.companyNames.find((c) => isOwnName(counterparty, c));
 	if (company) return { kind: 'own-transfer', account: '1360', via: 'company', company };

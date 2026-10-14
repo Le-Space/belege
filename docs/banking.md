@@ -27,11 +27,14 @@ A company credit card is an account of its own ([#382](https://github.com/Le-Spa
 - **Columns** are recognised by their usual German and English names: Belegdatum/Transaction date, Buchungsdatum, Beschreibung/Merchant, Betrag/Amount (or Soll/Haben, Debit/Credit), Währung, Originalbetrag, Originalwährung, Kurs, Referenz. Lines above the table (the card, the period) are skipped. Before the import the lines are shown; a column that is not recognised can be picked by hand, and the choice is kept for the card's next statement.
 - **Charges are money out.** Most issuers list them as positive amounts: Belege turns the sign round where most lines are positive and no debit/credit columns say otherwise; the box can be changed before the import.
 - **Each line is a payment** of the card's account. The matching links it to its receipt like any payment, so the receipt counts as **paid by the company**, and a receipt in another currency takes the **euros the card charged** ([travel.md](travel.md)). An amount in another currency is kept with its currency and the issuer's rate. A line without a receipt asks for one, as any payment does.
-- **The settlement** from the bank account ("Zahlung erhalten", "Lastschrift" …) is kept as such (booking type _Kartenausgleich_).
+- **The monthly debit** on the bank account is an own transfer to the card (account 1360), no receipt asked for:
+  - where the card's statement has its settlement line ("Zahlung erhalten", "Lastschrift" …, kept as booking type _Kartenausgleich_), the two are paired by the amount within a few days;
+  - else by the card number's last four digits in the debit's text together with a card word (Kreditkarte, Kartenabrechnung, Visa, Mastercard, Amex, card …) – four digits alone never do;
+  - a settlement line whose debit is not in the books needs no receipt either.
 - **Importing the same statement again** adds only what is new.
 - **The card's ledger account** is set under _Einstellungen → Buchhaltung_, as a bank account's; which one is for the tax adviser.
 
-Not yet: the monthly debit on the bank account recognised as the transfer to the card, and statements as PDF.
+Not yet: statements as PDF.
 
 ## Hibiscus
 

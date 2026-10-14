@@ -1489,6 +1489,9 @@ export default {
 			noReceipt: 'Decided by you: No receipt needed – {reason}',
 			noReason: 'no reason given',
 			ownCompany: 'Own transfer: the counterparty is your company “{company}”',
+			ownCard: 'Own transfer: settles your credit card {account}',
+			ownCardSettlement:
+				'Own transfer: the credit card settled from the bank account – the debit there is its receipt',
 			ownIban: 'Own transfer: the contra account is your account {account}',
 			ownIbanFound: '– the counter-booking there on {date} is linked.',
 			ownIbanMissing:

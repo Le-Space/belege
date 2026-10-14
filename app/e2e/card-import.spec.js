@@ -26,6 +26,28 @@ test('a credit card statement read from CSV, shown, imported once, among the pay
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
+	// The bank's debit that settles the card, a day after the statement (step 2).
+	await page.evaluate(async () => {
+		const e2e = /** @type {any} */ (window).__belegeE2E;
+		const bank = await e2e.addAccount({
+			source: 'hibiscus',
+			sourceAccountId: '0042',
+			ibanLast4: '0042',
+			name: 'Geschäftskonto Test',
+			currency: 'EUR'
+		});
+		await e2e.addTransaction({
+			accountId: bank.id,
+			source: 'hibiscus',
+			currency: 'EUR',
+			bookedOn: '2026-06-01',
+			amountCents: -11_463,
+			counterparty: 'Beispielbank',
+			purpose: 'Lastschrift Kreditkarte',
+			bookingType: 'Lastschrift'
+		});
+	});
+
 	await page.getByTestId('setup-start-file').click();
 	const cards = page.getByTestId('cards-card');
 	await cards.getByTestId('card-add').click();
@@ -69,4 +91,15 @@ test('a credit card statement read from CSV, shown, imported once, among the pay
 	const rows = page.getByTestId('transaction');
 	await expect(rows).toHaveCount(3);
 	await expect(rows.filter({ hasText: 'Taxi Beispiel Prag' })).toContainText('24,73');
+	// The card's settlement needs no receipt: it is the transfer from the bank.
+	await expect(rows.filter({ hasText: 'Zahlung erhalten' })).not.toContainText('ohne Beleg');
+
+	// And the bank's debit in June: an own transfer to the card, no receipt asked for.
+	await page.locator('[data-testid="transaction-month"][data-month="2026-06"]').click();
+	await page.getByTestId('filter-all').click();
+	const debit = page.getByTestId('transaction').filter({ hasText: 'Lastschrift Kreditkarte' });
+	await expect(debit).toHaveCount(1);
+	await expect(debit).not.toContainText('ohne Beleg');
+	await debit.click();
+	await expect(page.getByTestId('tx-detail')).toContainText('Eigene Umbuchung');
 });
