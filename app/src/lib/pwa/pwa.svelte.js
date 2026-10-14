@@ -3,6 +3,7 @@
 // install prompt where there is one (Chromium's beforeinstallprompt).
 // Nothing here in the dev server: it would cache what Vite serves.
 import { dev } from '$app/environment';
+import { base } from '$app/paths';
 
 export const pwa = $state({
 	/** The browser offers to install the app. */
@@ -44,7 +45,9 @@ export async function startPwa() {
 	});
 	if (dev || !('serviceWorker' in navigator)) return;
 	try {
-		registration = await navigator.serviceWorker.register('/service-worker.js');
+		// Beside the page, under whatever path the build is served at: the
+		// origin's root, or …/ipfs/<cid>/ on a path gateway (the worker's scope).
+		registration = await navigator.serviceWorker.register(`${base}/service-worker.js`);
 		watch(registration);
 		navigator.serviceWorker.addEventListener('controllerchange', () => {
 			// Only after "Neu laden": the first install claims the page without one.
