@@ -2615,6 +2615,9 @@ export default {
 			what: 'One statement per month: the trips with their receipts, allowances and mileage, and the hospitality bills. It becomes a numbered PDF, kept as a receipt for the payout.',
 			traveller: 'Traveller (on the PDF)',
 			private: 'Receipts paid privately',
+			advance: 'Paid as an advance already',
+			toPayOut: 'Still to pay out',
+			owedBack: 'To be paid back by the person',
 			outlay: 'Booked as outlays (paid back there)',
 			company: 'Receipts paid by the company (not paid back)',
 			noName: 'The PDF needs the traveller’s name.',
@@ -2640,6 +2643,7 @@ export default {
 				receiptWithoutAmount: 'Receipt paid privately without an amount: {what}',
 				nothing: 'Nothing to settle this month.',
 				noRateAbroad: 'Day abroad without a rate, settled without an amount: {what}',
+				advanceExceeds: 'The advance is higher than the costs: the person owes the rest back.',
 				lodgingNoRate: 'Night without a rate, no overnight flat rate: {what}',
 				lodgingWithHotel:
 					'Overnight flat rate and a hotel receipt on the same trip – no night twice: {what}',
@@ -3020,6 +3024,17 @@ export default {
 			linkSwapTitle:
 				'The other side of a swap that no rule recognises – say via another chain or an exchange. Neither side then needs a receipt; for tax purposes a disposal and an acquisition.',
 			linkSwapNone: 'No booking in the other direction on another account within 31 days.',
+			travelAdvance: {
+				offer: 'Advance for travel expenses …',
+				hint: 'Money before a trip: it needs no receipt of its own – the travel statement documents it and later pays out only the rest.',
+				trip: 'For the trip',
+				noTrip: 'no particular trip',
+				mark: 'Mark as an advance',
+				title: 'Advance for travel expenses: {name}',
+				taken: 'Settled with {number}: {amount}',
+				open: 'Not accounted for yet: {amount}',
+				undo: 'Not an advance'
+			},
 			travelPayout: {
 				title: 'Pays out travel costs',
 				item: '{number} · travel costs {month} · {amount}',

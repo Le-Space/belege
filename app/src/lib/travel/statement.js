@@ -24,6 +24,8 @@ import { formatDate } from '../bank/format.js';
 import { receiptDate, receiptVendor } from '../receipts/view.js';
 import { cleanTrip, tripFigures, tripsOf } from './records.js';
 import { euroOf, hospitalityOf, paidByGuess, receiptsOfTrip, travelKind } from './view.js';
+import { advancesOf, allocateAdvances } from './advances.js';
+import { statementChains } from './payout.js';
 
 /** @typedef {Record<string, any>} Rec */
 
@@ -94,8 +96,9 @@ function receiptLine(r, paidBy, outlays, books) {
  * @param {string} p.month YYYY-MM
  * @param {Rec[]} p.travel the travel collection's
  * @param {Rec[]} p.receipts
- * @param {Rec[]} [p.transactions] for who paid a hospitality bill without a trip
+ * @param {Rec[]} [p.transactions] for who paid a hospitality bill without a trip, and the advances (#381)
  * @param {Rec[]} [p.matches]
+ * @param {string | null} [p.corrects] the closed statement this one would replace: its advances become this one's
  */
 export function statementOf({
 	travellerId,
@@ -103,7 +106,8 @@ export function statementOf({
 	travel,
 	receipts,
 	transactions = [],
-	matches = []
+	matches = [],
+	corrects = null
 }) {
 	const ownTrips = travel.filter(
 		(r) => r.kind === 'trip' && !r.deleted && r.travellerId === travellerId
@@ -253,11 +257,39 @@ export function statementOf({
 		for (const v of l.vat) vatByRate[v.rate] = (vatByRate[v.rate] ?? 0) + v.cents;
 	const splits = [...hospitality.map((x) => x.split), ...tripHospitality.map((x) => x.split)];
 
+	const toPayBackCents = allowanceCents + mileageCents + lodgingCents + privateCents;
+	// Advances paid before (#381): those for its trips, and of the others what the
+	// traveller's earlier statements leave – as the settlement will count them.
+	const chains = statementChains(travel).filter(
+		(c) => !corrects || !c.members.some((m) => String(m.id) === String(corrects))
+	);
+	const { byChain } = allocateAdvances(
+		[
+			...chains,
+			{
+				head: { travellerId, toPayBackCents },
+				tripIds: trips.map((x) => String(x.trip.id))
+			}
+		],
+		advancesOf(transactions)
+	);
+	const advances = /** @type {{ advance: import('./advances.js').Advance, cents: number }[]} */ (
+		byChain.at(-1)
+	).map((a) => ({
+		transactionId: String(a.advance.tx.id),
+		date: String(a.advance.tx.bookedOn ?? ''),
+		tripId: a.advance.tripId,
+		cents: a.cents
+	}));
+	const advanceCents = sum(advances.map((a) => a.cents));
+	if (advanceCents > toPayBackCents) checks.push({ level: 'warning', code: 'advanceExceeds' });
+
 	return {
 		travellerId,
 		month,
 		trips,
 		hospitality,
+		advances,
 		checks,
 		ready: !checks.some((c) => c.level === 'error'),
 		rates: [...rates.values()],
@@ -271,7 +303,10 @@ export function statementOf({
 			vatByRate,
 			hospitalityDeductibleCents: sum(splits.map((s) => s.deductibleCents)),
 			hospitalityNonDeductibleCents: sum(splits.map((s) => s.nonDeductibleCents)),
-			toPayBackCents: allowanceCents + mileageCents + lodgingCents + privateCents
+			toPayBackCents,
+			advanceCents,
+			// What is left to pay out after the advances; below 0: the traveller owes it.
+			toPayOutCents: toPayBackCents - advanceCents
 		}
 	};
 }
@@ -322,6 +357,7 @@ export function snapshotOf(s) {
 			...h.line,
 			split: { ...h.split, share: h.split.share ?? null }
 		})),
+		advances: s.advances,
 		totals: s.totals,
 		rates: s.rates,
 		warnings: s.checks.filter((c) => c.level === 'warning')

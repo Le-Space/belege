@@ -9,7 +9,7 @@
 	import { confirmBooking } from './booking/actions.js';
 	import { isNetworkFee, setFeeRule } from './booking/fee-rule.js';
 	import { cleanMatchingSettings } from './matching/classify.js';
-	import { travelSetOf } from '$lib/travel/accounts.js';
+	import { clearingAccountOf, travelSetOf } from '$lib/travel/accounts.js';
 	import { suggestBooking } from './booking/suggest.js';
 	import { cleanDatevSettings, privateAccounts } from './booking/settings.js';
 	import {
@@ -40,7 +40,8 @@
 			partners: app.partners ?? [],
 			keys,
 			privateAccounts: privateAccountsNow,
-			travelSet: travelSetOf(cleanDatevSettings(app.datevSettings), app.travel)
+			travelSet: travelSetOf(cleanDatevSettings(app.datevSettings), app.travel),
+			travelClearing: clearingAccountOf(cleanDatevSettings(app.datevSettings), app.travel)
 		})
 	);
 	let income = $derived((tx.amountCents ?? 0) > 0);

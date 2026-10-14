@@ -78,7 +78,8 @@ export async function createTravelStatement({
 		travel: travel.filter((/** @type {Rec} */ r) => !r.deleted),
 		receipts: await store.receipts.list(),
 		transactions: (await store.transactions?.list()) ?? [],
-		matches: (await store.matches?.list()) ?? []
+		matches: (await store.matches?.list()) ?? [],
+		corrects: replaced?.id ?? null
 	});
 	if (!statement.ready) throw new StatementError('The statement has open checks.', 'checks');
 
@@ -130,6 +131,8 @@ export async function createTravelStatement({
 		corrects: replaced?.id ?? null,
 		receiptId: record.id,
 		toPayBackCents: statement.totals.toPayBackCents,
+		// The advances it was made with (#381); the settlement counts them again from the payments.
+		advanceCents: statement.totals.advanceCents,
 		snapshot: snapshotOf(statement)
 	});
 	// Booked on the traveller's account (step 6): what it owes them, by account.

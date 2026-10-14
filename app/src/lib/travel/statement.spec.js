@@ -144,7 +144,9 @@ describe('the travel statement (#213, step 5)', () => {
 			vatByRate: { 7: 588 + 733, 19: 1900 },
 			hospitalityDeductibleCents: 7000,
 			hospitalityNonDeductibleCents: 3000,
-			toPayBackCents: 2240 + 720 + 8990 + 11900
+			toPayBackCents: 2240 + 720 + 8990 + 11900,
+			advanceCents: 0,
+			toPayOutCents: 2240 + 720 + 8990 + 11900
 		});
 		expect(s.trips[0].receipts.find((l) => l.receiptId === 'R3')).toMatchObject({
 			paidBy: 'private',

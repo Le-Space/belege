@@ -197,6 +197,7 @@
 	// The month's statement (step 5), of the traveller shown.
 	let owner = $derived(who);
 	let closed = $derived(owner ? closedStatements(app.travel, owner.id, month) : []);
+	let correcting = $state(false);
 	let preview = $derived(
 		owner
 			? statementOf({
@@ -205,7 +206,8 @@
 					travel: app.travel,
 					receipts: app.receipts,
 					transactions: app.transactions,
-					matches: app.matches
+					matches: app.matches,
+					corrects: correcting ? (closed[0]?.id ?? null) : null
 				})
 			: null
 	);
@@ -237,7 +239,6 @@
 				: ''
 		};
 	});
-	let correcting = $state(false);
 	let travellerName = $state('');
 	let nameTouched = $state(false);
 	$effect(() => {
@@ -763,6 +764,25 @@
 			>
 				{formatMoney(preview.totals.toPayBackCents, 'EUR')}
 			</dd>
+			{#if preview.totals.advanceCents}
+				<dt class="text-text">{t('reisen.statement.advance')}</dt>
+				<dd class="text-right font-mono tabular-nums" data-testid="reisen-statement-advance">
+					−{formatMoney(preview.totals.advanceCents, 'EUR')}
+				</dd>
+				<dt class="font-medium text-heading">
+					{t(
+						preview.totals.toPayOutCents < 0
+							? 'reisen.statement.owedBack'
+							: 'reisen.statement.toPayOut'
+					)}
+				</dt>
+				<dd
+					class="text-right font-mono font-medium tabular-nums"
+					data-testid="reisen-statement-payout-rest"
+				>
+					{formatMoney(Math.abs(preview.totals.toPayOutCents), 'EUR')}
+				</dd>
+			{/if}
 		</dl>
 		{#if preview.checks.length}
 			<ul class="mt-3 space-y-1 text-sm" data-testid="reisen-statement-checks">

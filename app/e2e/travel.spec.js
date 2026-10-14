@@ -862,3 +862,78 @@ test('an employee travels: added under Einstellungen, a trip and a statement of 
 	await expect(page.getByTestId('reisen-trip')).toHaveCount(0);
 	await expect(page.getByTestId('reisen-statement-closed')).toHaveCount(0);
 });
+
+test('an advance before a trip: marked on the payment, the statement pays out only the rest (#381)', async ({
+	page
+}) => {
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('E2E');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+
+	// A made-up advance of 20 EUR, paid before the trip.
+	await page.evaluate(async () => {
+		const e2e = /** @type {any} */ (window).__belegeE2E;
+		const bank = await e2e.addAccount({
+			source: 'hibiscus',
+			sourceAccountId: '0042',
+			ibanLast4: '0042',
+			name: 'Geschäftskonto Test',
+			currency: 'EUR'
+		});
+		await e2e.addTransaction({
+			accountId: bank.id,
+			source: 'hibiscus',
+			currency: 'EUR',
+			bookedOn: '2026-04-28',
+			amountCents: -2_000,
+			counterparty: 'Erika Beispiel',
+			purpose: 'Vorschuss Messe Musterstadt',
+			bookingType: 'Überweisung'
+		});
+	});
+
+	// The trip, on Reisen.
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
+	await page.getByTestId('belege-reisen').click();
+	await page.getByTestId('reisen-new').click();
+	await page.getByTestId('reise-destination').fill('Musterstadt');
+	await page.getByTestId('reise-reason').fill('Messe Beispiel');
+	await page.getByTestId('reise-start').fill('2026-05-04T07:00');
+	await page.getByTestId('reise-end').fill('2026-05-05T19:30');
+	await page.getByTestId('reise-save').click();
+	await expect(page.getByTestId('reise-saved')).toBeVisible();
+
+	// The payment marked as the advance for it.
+	await page.getByRole('navigation').getByRole('link', { name: 'Zahlungen' }).click();
+	await page.getByTestId('year-switch').selectOption('2026');
+	await page.locator('[data-testid="transaction-month"][data-month="2026-04"]').click();
+	await page.getByTestId('filter-all').click();
+	await page.getByTestId('transaction').filter({ hasText: 'Vorschuss Messe' }).click();
+	const tx = page.getByTestId('tx-detail');
+	await tx.getByTestId('travel-advance-open').click();
+	await expect(tx.getByTestId('travel-advance-trip').locator('option').nth(1)).toContainText(
+		'Musterstadt'
+	);
+	await tx.getByTestId('travel-advance-trip').selectOption({ index: 1 });
+	await tx.getByTestId('travel-advance-mark').click();
+	await expect(tx.getByTestId('travel-advance')).toContainText('Vorschuss für Reisekosten');
+	await expect(tx.getByTestId('travel-advance-open')).toHaveCount(0);
+	await expect(tx.getByTestId('travel-advance')).toContainText('Musterstadt');
+	// No statement has taken it yet.
+	await expect(tx.getByTestId('travel-advance-unsettled')).toContainText('20,00 EUR');
+	await tx.getByTestId('tx-detail-close').click();
+
+	// May's statement: 28 EUR, 20 EUR of it paid already, 8 EUR to pay out.
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
+	await page.getByTestId('belege-reisen').click();
+	const picker = page.getByTestId('reisen-month');
+	await picker.getByLabel('Monat: Jahr').selectOption('2026');
+	await picker.getByLabel('Monat: Monat').selectOption('05');
+	const statement = page.getByTestId('reisen-statement');
+	await expect(statement.getByTestId('reisen-statement-amount')).toHaveText('28,00 EUR');
+	await expect(statement.getByTestId('reisen-statement-advance')).toHaveText('−20,00 EUR');
+	await expect(statement.getByTestId('reisen-statement-payout-rest')).toHaveText('8,00 EUR');
+});

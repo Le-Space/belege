@@ -10,14 +10,19 @@
 // chain of statements owes what its newest says. A payout linked to several
 // chains pays the oldest first.
 //
-// Booked against the clearing account the statement was booked on, by the
-// money's way (booking/suggest.js): the shareholder clearing account of a
-// UG/GmbH, a withdrawal (1800) for a sole proprietor or partner.
+// Advances paid before (advances.js, #381) count as paid first: for a trip,
+// on the statement that has it; else on the traveller's oldest open ones.
+//
+// Booked against the traveller's clearing account, by the money's way
+// (booking/suggest.js): an employee's own; for the owner, the one set on
+// them, else the shareholder clearing account of a UG/GmbH, a withdrawal
+// (1800) for a sole proprietor or partner.
 
 import { recordEvent } from '../activity/events.js';
 import { confirmMatch } from '../matching/actions.js';
 import { isActive, syncLinks } from '../matching/engine.js';
 import { isOutlay } from '../outlays/outlays.js';
+import { advancesOf, allocateAdvances } from './advances.js';
 
 /** @typedef {Record<string, any>} Rec */
 
@@ -56,8 +61,10 @@ export function statementChains(travel) {
  * @typedef {object} Settlement
  * @property {Rec} head the newest statement of the chain
  * @property {number} owedCents what it says is to be paid back
+ * @property {number} advanceCents what advances paid of it before (#381)
  * @property {number} paidCents what the payouts linked to the chain pay of it
- * @property {number} openCents
+ * @property {number} openCents owed − advances − payouts; below 0: a claim on the traveller
+ * @property {{ tx: Rec, cents: number }[]} advances
  * @property {{ tx: Rec, cents: number }[]} payouts
  */
 
@@ -87,12 +94,15 @@ export function statementSettlements({ travel, matches, transactions }) {
 		set.add(chain);
 		linked.set(String(tx.id), set);
 	}
+	const { byChain } = allocateAdvances(chains, advancesOf(transactions));
 	/** @type {Settlement[]} */
-	const out = chains.map((c) => ({
+	const out = chains.map((c, i) => ({
 		head: c.head,
 		owedCents: Number(c.head.toPayBackCents ?? 0),
+		advanceCents: byChain[i].reduce((s, a) => s + a.cents, 0),
 		paidCents: 0,
 		openCents: 0,
+		advances: byChain[i].map((a) => ({ tx: a.advance.tx, cents: a.cents })),
 		payouts: []
 	}));
 	// Each payout pays its chains, the oldest first; what is left goes on the newest.
@@ -111,14 +121,16 @@ export function statementSettlements({ travel, matches, transactions }) {
 		p.chains.forEach((i, n) => {
 			const s = out[i];
 			const take =
-				n === p.chains.length - 1 ? left : Math.max(0, Math.min(left, s.owedCents - s.paidCents));
+				n === p.chains.length - 1
+					? left
+					: Math.max(0, Math.min(left, s.owedCents - s.advanceCents - s.paidCents));
 			if (take <= 0) return;
 			s.paidCents += take;
 			s.payouts.push({ tx: p.tx, cents: take });
 			left -= take;
 		});
 	}
-	for (const s of out) s.openCents = s.owedCents - s.paidCents;
+	for (const s of out) s.openCents = s.owedCents - s.advanceCents - s.paidCents;
 	return out;
 }
 

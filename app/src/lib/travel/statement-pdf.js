@@ -49,6 +49,7 @@ const REFUSED = /** @type {Record<string, string>} */ ({
 const WARNING = /** @type {Record<string, string>} */ ({
 	noRateAbroad: 'Auslandstag ohne Satz: ohne Betrag abgerechnet.',
 	lodgingNoRate: 'Nacht ohne Satz: ohne Übernachtungspauschale abgerechnet.',
+	advanceExceeds: 'Vorschuss höher als die Kosten: der Rest ist vom Reisenden zurückzuzahlen.',
 	lodgingWithHotel:
 		'Übernachtungspauschale und Hotelbeleg an derselben Reise: keine Nacht doppelt erstatten.',
 	rateNotListed:
@@ -118,6 +119,12 @@ export async function travelStatementPdf(doc) {
 	field('Reisende(r)', `${doc.traveller || '—'}${role ? ` (${role})` : ''}`, true);
 	if (doc.corrects) field('Ersetzt', `Abrechnung ${doc.corrects}`);
 	field('Zu erstatten', euro(s.totals.toPayBackCents), true);
+	if (s.totals.advanceCents)
+		field(
+			s.totals.toPayOutCents < 0 ? 'Vom Reisenden zurückzuzahlen' : 'Noch auszuzahlen',
+			euro(Math.abs(s.totals.toPayOutCents)),
+			true
+		);
 	rule();
 
 	s.trips.forEach((x, i) => {
@@ -263,7 +270,20 @@ export async function travelStatementPdf(doc) {
 			`abziehbar ${euro(s.totals.hospitalityDeductibleCents)} · nicht abziehbar ${euro(s.totals.hospitalityNonDeductibleCents)}`
 		);
 	}
-	field('Zu erstatten', euro(s.totals.toPayBackCents), true);
+	if (s.totals.advanceCents) {
+		field('Zu erstatten', euro(s.totals.toPayBackCents));
+		field(
+			'Bereits als Vorschuss gezahlt',
+			s.advances
+				.map((a) => `${a.date ? formatDate(a.date, 'de-DE') : '—'} ${euro(a.cents)}`)
+				.join(' · ')
+		);
+		field(
+			s.totals.toPayOutCents < 0 ? 'Vom Reisenden zurückzuzahlen' : 'Noch auszuzahlen',
+			euro(Math.abs(s.totals.toPayOutCents)),
+			true
+		);
+	} else field('Zu erstatten', euro(s.totals.toPayBackCents), true);
 	rule();
 
 	heading('Angewandte Sätze');

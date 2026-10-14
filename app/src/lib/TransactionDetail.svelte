@@ -22,6 +22,7 @@
 	import NewPortal from './portals/NewPortal.svelte';
 	import OutlayRepayment from './outlays/OutlayRepayment.svelte';
 	import TravelPayout from './travel/TravelPayout.svelte';
+	import TravelAdvance from './travel/TravelAdvance.svelte';
 	import { createPortalClient } from './portals/client.js';
 	import {
 		fetchPortal,
@@ -2315,6 +2316,7 @@
 				{/if}
 				<OutlayRepayment {tx} {onopen} />
 				<TravelPayout {tx} />
+				<TravelAdvance {tx} />
 				{#if tx.privateRepaymentOf?.length}
 					<div class="mt-1 text-sm" data-testid="tx-private-repayment">
 						<p class="font-medium text-heading">

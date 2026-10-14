@@ -77,6 +77,8 @@ export function learnedPartner(partners, receipt, tx) {
  *   where a private payment and its repayment go, by the legal form (#172)
  * @param {import('../travel/accounts.js').TravelSet | ((receipt: Record<string, any>) => import('../travel/accounts.js').TravelSet) | null} [context.travelSet]
  *   the travel accounts' set (#213): one, or per receipt, by its trip's traveller (#380)
+ * @param {((p: { travellerId?: string | null, receiptId?: string | null }) => string | null) | null} [context.travelClearing]
+ *   a traveller's clearing account, for an advance (#381) and a statement's payout (travel/accounts.js clearingAccountOf)
  * @returns {Suggestion}
  */
 export function suggestBooking(
@@ -87,7 +89,8 @@ export function suggestBooking(
 		partners = [],
 		keys = DEFAULT_TAX_KEYS,
 		privateAccounts = { payment: null, repayment: null },
-		travelSet = null
+		travelSet = null,
+		travelClearing = null
 	}
 ) {
 	if (isBookingConfirmed(tx)) {
@@ -155,11 +158,24 @@ export function suggestBooking(
 	}
 	const income = Number(tx.amountCents ?? 0) > 0;
 	const receipt = receipts[0] ?? null;
-	// The payout of a travel statement (#213, step 7): against the clearing account,
-	// by the money's way, as a private repayment.
+	// An advance to a traveller (#381): against their clearing account, as the payout.
+	if (tx.travelAdvance?.travellerId && !income) {
+		return {
+			account: travelClearing?.({ travellerId: String(tx.travelAdvance.travellerId) }) ?? null,
+			taxKey: '',
+			source: 'travel',
+			taxVia: 'none',
+			vendor: null,
+			category: 'advance'
+		};
+	}
+	// The payout of a travel statement (#213, step 7): against the traveller's clearing
+	// account (#380: an employee's own), by the money's way, as a private repayment.
 	if (receipt && isStatementReceipt(receipt) && !income) {
 		return {
-			account: privateAccounts.payment,
+			account: travelClearing
+				? travelClearing({ receiptId: String(receipt.id) })
+				: privateAccounts.payment,
 			taxKey: '',
 			source: 'travel',
 			taxVia: 'none',

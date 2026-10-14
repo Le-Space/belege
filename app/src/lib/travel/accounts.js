@@ -14,6 +14,8 @@
 
 /* eslint-disable belege/no-german -- SKR 03 account names are German by nature (#192) */
 
+import { privateAccounts } from '../booking/settings.js';
+
 /**
  * @typedef {'fares' | 'accommodation' | 'meals' | 'mileage' | 'incidental' | 'hospitality' | 'hospitalityNonDeductible'} TravelCategory
  * @typedef {'employee' | 'owner'} TravelSet
@@ -99,3 +101,29 @@ export function receiptCategory(receipt, kind) {
 
 /** @param {TravelSet} set @param {TravelCategory} category */
 export const travelAccount = (set, category) => TRAVEL_ACCOUNTS[set][category];
+
+/**
+ * The clearing account money to a traveller goes against – an advance
+ * (#381), a statement's payout: an employee's own (#380), none without it;
+ * the owner's own where set, else the one the legal form names for a
+ * private payment (booking/settings.js privateAccounts).
+ *
+ * @param {import('../booking/settings.js').DatevSettings} settings cleaned
+ * @param {Record<string, any>[]} travel the travel records
+ * @returns {(p: { travellerId?: string | null, receiptId?: string | null }) => string | null}
+ *   by the traveller, or by a statement's receipt
+ */
+export function clearingAccountOf(settings, travel) {
+	const byId = new Map(travel.map((r) => [String(r.id), r]));
+	const byReceipt = new Map(
+		travel.filter((r) => r.kind === 'statement' && r.receiptId).map((r) => [String(r.receiptId), r])
+	);
+	const payment = privateAccounts(settings).payment;
+	return ({ travellerId = null, receiptId = null }) => {
+		const id = travellerId ?? byReceipt.get(String(receiptId))?.travellerId ?? null;
+		const traveller = id ? byId.get(String(id)) : null;
+		const own = String(traveller?.clearingAccount ?? '').trim();
+		if (own) return own;
+		return traveller?.role === 'employee' ? null : payment;
+	};
+}
