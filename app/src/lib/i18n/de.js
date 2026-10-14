@@ -2393,6 +2393,7 @@ export default {
 		source: {
 			hibiscus: 'Hibiscus',
 			camt: 'CAMT-Import',
+			card: 'Kreditkarte',
 			enablebanking: 'Enable Banking',
 			kraken: 'Kraken',
 			nyx: 'Wallet (Nym/Nyx)',
@@ -3559,6 +3560,47 @@ export default {
 				back: 'Zur Seite Bank'
 			}
 		},
+		cards: {
+			title: 'Firmenkreditkarten',
+			intro:
+				'Jede Karte ist ein eigenes Konto: Ihre Abrechnung (CSV des Kartenherausgebers) wird Zeile für Zeile zu Zahlungen, die Belege wie jede Zahlung finden – von der Firma bezahlt, in den Euro, die die Karte belastet hat. Die Datei wird nur hier im Browser gelesen.',
+			add: 'Karte hinzufügen',
+			name: 'Name der Karte',
+			last4: 'Letzte 4 Ziffern',
+			save: 'Karte anlegen',
+			choose: 'Abrechnung einlesen (CSV) …',
+			lines: '{count} Umsätze',
+			previewTitle: 'Abrechnung für {name}',
+			mappingHint:
+				'Die Spalten sind nach ihren Namen erkannt. Passt eine nicht, wähl sie hier; die Wahl gilt auch für die nächste Abrechnung dieses Formats.',
+			field: {
+				date: 'Belegdatum',
+				postingDate: 'Buchungsdatum',
+				description: 'Händler / Text',
+				amount: 'Betrag (EUR)',
+				debit: 'Belastung',
+				credit: 'Gutschrift',
+				currency: 'Währung',
+				originalAmount: 'Originalbetrag',
+				originalCurrency: 'Originalwährung',
+				rate: 'Kurs',
+				reference: 'Referenz'
+			},
+			invert: 'Belastungen stehen in der Datei als positive Beträge',
+			settlement: 'Ausgleich vom Bankkonto',
+			summary:
+				'{count} Umsätze · Belastungen {out} · Gutschriften {in} · {skipped} Zeilen übersprungen (ohne Datum, Betrag oder in anderer Abrechnungswährung)',
+			import: 'Importieren',
+			cancel: 'Abbrechen',
+			imported: '{name}: {new} neu, {skipped} schon vorhanden.',
+			error: {
+				name: 'Die Karte braucht einen Namen.',
+				last4: 'Bitte die letzten 4 Ziffern der Karte.',
+				noTable: 'In dieser Datei steht keine Tabelle mit Datum und Betrag.'
+			},
+			adviser:
+				'Das Sachkonto der Karte trägst du unter Einstellungen → Buchhaltung ein, wie bei einem Bankkonto; welches, klärst du mit der Steuerberatung.'
+		},
 		camt: {
 			choose: 'Kontoauszug wählen …',
 			reading: 'Lese Kontoauszug …',
@@ -3606,7 +3648,8 @@ export default {
 			enablebanking: 'Enable Banking',
 			hibiscus: 'Hibiscus',
 			kraken: 'Kraken',
-			wallet: 'Eigene Wallet'
+			wallet: 'Eigene Wallet',
+			card: 'Kreditkarte'
 		},
 		wallets: {
 			import: 'Verlauf importieren (CSV)',

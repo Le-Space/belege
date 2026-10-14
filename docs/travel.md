@@ -115,6 +115,6 @@ On Reisen, and counted on Home and Rückfragen:
 ## Not yet
 
 - Pay above the statutory allowances: Belege pays back exactly those and receipts at their amount, so it names nothing as wage-tax relevant; the tax adviser confirms.
-- A company credit card's statement taken line by line.
+- A company credit card's monthly debit recognised as the transfer to the card ([banking.md](banking.md) has the card's lines).
 
 The rates, accounts and the treatment of a family member's car are to be confirmed with the tax adviser; this describes what Belege does, not tax advice.

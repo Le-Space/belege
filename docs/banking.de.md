@@ -10,7 +10,7 @@ Zahlungen kommen auf drei Wegen in Belege. Alle füllen dieselben Bücher, und e
 | Hibiscus                 | die Bridge, Hibiscus/Jameica, FinTS   | deutsche Banken mit FinTS/HBCI | bei „Synchronisieren“        |
 | Enable Banking           | die Bridge und deine eigene Anwendung | Banken in Europa (PSD2)        | bei „Umsätze holen“          |
 
-Alle drei stehen unter _Integrationen → Bank_.
+Alle drei stehen unter _Integrationen → Bank_, ebenso Firmenkreditkarten.
 
 ## Kontoauszug-Dateien (CAMT.053)
 
@@ -19,6 +19,19 @@ Exportiere den Kontoauszug im Online-Banking als CAMT.053 (XML) und lade ihn unt
 Nennt der Auszug einer Bank keine IBAN, trag die IBAN des Kontos unter _Einstellungen → Eigene IBANs_ ein. Dann werden Umbuchungen zwischen deinen eigenen Konten erkannt.
 
 **Besonders Wise:** Seine Auszüge nennen die eigene IBAN des Kontos nie. Ohne sie verlangt eine Zahlung vom Bankkonto zu Wise einen Beleg; die Bank nennt den Empfänger oft „Wise Europe SA“. Der Rückweg wird erkannt, weil Wise ihn unter eurem Firmennamen schickt. Das nutzt Belege: Eine IBAN, die Geld unter eurem Firmennamen schickt, wird auf Home als „Ist das ein eigenes Konto?“ angeboten, zusammen mit den offenen Zahlungen, die sie erklären würde. „Ja, eigenes Konto“ speichert sie als eigene IBAN, und jede Zahlung dorthin ist von da an eine eigene Umbuchung (Konto 1360). „Nein, nicht unseres“ beendet das Angebot, etwa bei einem Kunden, dessen Name eurem nur ähnelt. Ohne den Klick wird nichts gespeichert.
+
+## Firmenkreditkarten
+
+Eine Firmenkreditkarte ist ein eigenes Konto ([#382](https://github.com/Le-Space/belege/issues/382)). Unter _Integrationen → Bank → Firmenkreditkarten_ legst du sie mit einem Namen und den letzten vier Ziffern der Kartennummer an und liest dann ihre Abrechnung ein: den **CSV**-Export des Kartenherausgebers, nur im Browser gelesen, nie hochgeladen.
+
+- **Spalten** werden an ihren üblichen deutschen und englischen Namen erkannt: Belegdatum/Transaction date, Buchungsdatum, Beschreibung/Merchant, Betrag/Amount (oder Soll/Haben, Debit/Credit), Währung, Originalbetrag, Originalwährung, Kurs, Referenz. Zeilen über der Tabelle (Karte, Zeitraum) werden übersprungen. Vor dem Import werden die Zeilen gezeigt; eine nicht erkannte Spalte lässt sich von Hand wählen, und die Wahl gilt für die nächste Abrechnung der Karte.
+- **Belastungen sind Ausgaben.** Die meisten Herausgeber führen sie als positive Beträge: Belege dreht das Vorzeichen, wo die meisten Zeilen positiv sind und keine Soll/Haben-Spalten etwas anderes sagen; das Kästchen lässt sich vor dem Import ändern.
+- **Jede Zeile ist eine Zahlung** des Kartenkontos. Das Matching verknüpft sie wie jede Zahlung mit ihrem Beleg; der Beleg gilt damit als **von der Firma bezahlt**, und ein Beleg in fremder Währung bekommt **die Euro, die die Karte belastet hat** ([travel.de.md](travel.de.md)). Ein Betrag in fremder Währung bleibt mit Währung und Kurs des Herausgebers erhalten. Eine Zeile ohne Beleg fragt nach einem, wie jede Zahlung.
+- **Der Ausgleich** vom Bankkonto („Zahlung erhalten“, „Lastschrift“ …) wird als solcher erkannt (Buchungsart _Kartenausgleich_).
+- **Dieselbe Abrechnung noch einmal** fügt nur Neues hinzu.
+- **Das Sachkonto der Karte** trägst du unter _Einstellungen → Buchhaltung_ ein, wie bei einem Bankkonto; welches, klärt die Steuerberatung.
+
+Noch nicht: die monatliche Abbuchung auf dem Bankkonto als Umbuchung zur Karte erkannt, und Abrechnungen als PDF.
 
 ## Hibiscus
 

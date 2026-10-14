@@ -10,7 +10,7 @@ Payments come into Belege in three ways. Each one fills the same books, and an a
 | Hibiscus              | the bridge, Hibiscus/Jameica, FinTS | German banks with FinTS/HBCI | on "Synchronisieren"   |
 | Enable Banking        | the bridge and your own application | banks in Europe (PSD2)       | on "Umsätze holen"     |
 
-All three are under _Integrationen → Bank_.
+All three are under _Integrationen → Bank_, as are company credit cards.
 
 ## Statement files (CAMT.053)
 
@@ -19,6 +19,19 @@ Export the statement as CAMT.053 (XML) in your online banking and upload it unde
 If a bank's statement names no IBAN, enter the account's IBAN under _Einstellungen → eigene IBANs_. Transfers between your own accounts are then recognised.
 
 **Wise in particular:** its statements never name the account's own IBAN. Without it, a payment from your bank account to Wise asks for a receipt; the bank often calls the payee "Wise Europe SA". The way back is recognised, because Wise sends it under your company's name. Belege uses that: an IBAN that sends money under your company's name is offered on Home as "Ist das ein eigenes Konto?", together with the open payments it would explain. "Ja, eigenes Konto" saves it as an own IBAN, and every payment to it is an own transfer from then on (account 1360). "Nein, nicht unseres" stops the offer, for example for a customer whose name only looks like yours. Nothing is saved without the click.
+
+## Company credit cards
+
+A company credit card is an account of its own ([#382](https://github.com/Le-Space/belege/issues/382)). Under _Integrationen → Bank → Firmenkreditkarten_ add it with a name and the card number's last four digits, then read its statement: the card issuer's **CSV** export, read in the browser and never uploaded.
+
+- **Columns** are recognised by their usual German and English names: Belegdatum/Transaction date, Buchungsdatum, Beschreibung/Merchant, Betrag/Amount (or Soll/Haben, Debit/Credit), Währung, Originalbetrag, Originalwährung, Kurs, Referenz. Lines above the table (the card, the period) are skipped. Before the import the lines are shown; a column that is not recognised can be picked by hand, and the choice is kept for the card's next statement.
+- **Charges are money out.** Most issuers list them as positive amounts: Belege turns the sign round where most lines are positive and no debit/credit columns say otherwise; the box can be changed before the import.
+- **Each line is a payment** of the card's account. The matching links it to its receipt like any payment, so the receipt counts as **paid by the company**, and a receipt in another currency takes the **euros the card charged** ([travel.md](travel.md)). An amount in another currency is kept with its currency and the issuer's rate. A line without a receipt asks for one, as any payment does.
+- **The settlement** from the bank account ("Zahlung erhalten", "Lastschrift" …) is kept as such (booking type _Kartenausgleich_).
+- **Importing the same statement again** adds only what is new.
+- **The card's ledger account** is set under _Einstellungen → Buchhaltung_, as a bank account's; which one is for the tax adviser.
+
+Not yet: the monthly debit on the bank account recognised as the transfer to the card, and statements as PDF.
 
 ## Hibiscus
 

@@ -2358,6 +2358,7 @@ export default {
 		source: {
 			hibiscus: 'Hibiscus',
 			camt: 'CAMT import',
+			card: 'Credit card',
 			enablebanking: 'Enable Banking',
 			kraken: 'Kraken',
 			nyx: 'Wallet (Nym/Nyx)',
@@ -3516,6 +3517,47 @@ export default {
 				back: 'To the Bank page'
 			}
 		},
+		cards: {
+			title: 'Company credit cards',
+			intro:
+				'Each card is an account of its own: its statement (the card issuer’s CSV) becomes payments line by line, which receipts find like any payment – paid by the company, in the euros the card charged. The file is read only here in the browser.',
+			add: 'Add a card',
+			name: 'Name of the card',
+			last4: 'Last 4 digits',
+			save: 'Add card',
+			choose: 'Read a statement (CSV) …',
+			lines: '{count} bookings',
+			previewTitle: 'Statement for {name}',
+			mappingHint:
+				'The columns are recognised by their names. Where one does not fit, pick it here; the choice holds for the next statement of this format too.',
+			field: {
+				date: 'Transaction date',
+				postingDate: 'Posting date',
+				description: 'Merchant / text',
+				amount: 'Amount (EUR)',
+				debit: 'Debit',
+				credit: 'Credit',
+				currency: 'Currency',
+				originalAmount: 'Original amount',
+				originalCurrency: 'Original currency',
+				rate: 'Rate',
+				reference: 'Reference'
+			},
+			invert: 'Charges are positive amounts in the file',
+			settlement: 'Settled from the bank account',
+			summary:
+				'{count} bookings · charges {out} · credits {in} · {skipped} rows skipped (no date, no amount or another billing currency)',
+			import: 'Import',
+			cancel: 'Cancel',
+			imported: '{name}: {new} new, {skipped} there already.',
+			error: {
+				name: 'The card needs a name.',
+				last4: 'The last 4 digits of the card, please.',
+				noTable: 'This file has no table with a date and an amount.'
+			},
+			adviser:
+				'Enter the card’s ledger account under Settings → Bookkeeping, as for a bank account; which one is for the tax adviser.'
+		},
 		camt: {
 			choose: 'Choose bank statement …',
 			reading: 'Reading bank statement …',
@@ -3563,7 +3605,8 @@ export default {
 			enablebanking: 'Enable Banking',
 			hibiscus: 'Hibiscus',
 			kraken: 'Kraken',
-			wallet: 'Own wallet'
+			wallet: 'Own wallet',
+			card: 'Credit card'
 		},
 		wallets: {
 			import: 'Import history (CSV)',

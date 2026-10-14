@@ -115,6 +115,6 @@ Auf Reisen, gezählt auf Home und unter Rückfragen:
 ## Noch nicht
 
 - Erstattungen über den gesetzlichen Pauschalen: Belege erstattet genau diese und Belege in ihrer Höhe, nennt also nichts als lohnsteuerpflichtig; das bestätigt die Steuerberatung.
-- Die Abrechnung einer Firmenkreditkarte Zeile für Zeile.
+- Die monatliche Abbuchung einer Firmenkreditkarte als Umbuchung zur Karte ([banking.de.md](banking.de.md) hat die Zeilen der Karte).
 
 Sätze, Konten und die Behandlung des Autos von Familienangehörigen sind mit der Steuerberatung abzustimmen; das beschreibt, was Belege tut, keine Steuerberatung.
