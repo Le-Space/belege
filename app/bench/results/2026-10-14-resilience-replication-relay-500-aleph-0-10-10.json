@@ -1,0 +1,155 @@
+{
+	"date": "2026-10-14",
+	"label": "aleph-0-10-10",
+	"machine": {
+		"cpus": "Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz",
+		"cores": 16,
+		"memGB": 32
+	},
+	"scenario": "replication-relay",
+	"size": 500,
+	"writeMs": 4652,
+	"pairMs": 3348,
+	"initialSyncMs": 17578,
+	"macToPhone": {
+		"n": 3,
+		"min": 230,
+		"median": 233,
+		"p95": 450,
+		"max": 450
+	},
+	"phoneToMac": {
+		"n": 3,
+		"min": 226,
+		"median": 238,
+		"p95": 244,
+		"max": 244
+	},
+	"burst": {
+		"size": 100,
+		"writeMs": 942,
+		"syncMs": 2354,
+		"arrived": 100,
+		"network": {
+			"samples": [
+				{
+					"t": 10,
+					"mac": {
+						"connections": [
+							{
+								"peer": "12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/libp2p/circuit/relay/0.2.0/stop"
+								]
+							},
+							{
+								"peer": "12D3KooWDXNyKSNUQxrAGgxa2wnGWqWfkJnMYK5Dnpfu7PJLEBwi",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/p2p/12D3KooWDXNyKSNUQxrAGgxa2wnGWqWfkJnMYK5Dnpfu7PJLEBwi",
+								"limited": null,
+								"limits": {},
+								"direction": "inbound",
+								"status": "open",
+								"streams": [
+									"/meshsub/1.2.0",
+									"/meshsub/1.2.0"
+								]
+							},
+							{
+								"peer": "12D3KooWDXNyKSNUQxrAGgxa2wnGWqWfkJnMYK5Dnpfu7PJLEBwi",
+								"addr": "/dns4/46-247-131-210.k51qzi5uqu5dh1qn145a6ckgguzidvwjg9945i61ucbinvzduzwdqhfdj4lbde.libp2p.direct/tcp/24415/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/webrtc/p2p/12D3KooWDXNyKSNUQxrAGgxa2wnGWqWfkJnMYK5Dnpfu7PJLEBwi",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							},
+							{
+								"peer": "12D3KooWDXNyKSNUQxrAGgxa2wnGWqWfkJnMYK5Dnpfu7PJLEBwi",
+								"addr": "/webrtc/p2p/12D3KooWDXNyKSNUQxrAGgxa2wnGWqWfkJnMYK5Dnpfu7PJLEBwi",
+								"limited": null,
+								"limits": null,
+								"direction": "inbound",
+								"status": "open",
+								"streams": []
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWDXNyKSNUQxrAGgxa2wnGWqWfkJnMYK5Dnpfu7PJLEBwi"
+						]
+					},
+					"phone": {
+						"connections": [
+							{
+								"peer": "12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/libp2p/circuit/relay/0.2.0/hop"
+								]
+							},
+							{
+								"peer": "12D3KooWL8uJytnsQiUGdPgYnRjcLvSdQV6oySk9tNbV93rDZr39",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/p2p/12D3KooWL8uJytnsQiUGdPgYnRjcLvSdQV6oySk9tNbV93rDZr39",
+								"limited": null,
+								"limits": {},
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/meshsub/1.2.0",
+									"/meshsub/1.2.0"
+								]
+							},
+							{
+								"peer": "12D3KooWL8uJytnsQiUGdPgYnRjcLvSdQV6oySk9tNbV93rDZr39",
+								"addr": "/webrtc/p2p/12D3KooWL8uJytnsQiUGdPgYnRjcLvSdQV6oySk9tNbV93rDZr39",
+								"limited": null,
+								"limits": null,
+								"direction": "inbound",
+								"status": "open",
+								"streams": []
+							},
+							{
+								"peer": "12D3KooWL8uJytnsQiUGdPgYnRjcLvSdQV6oySk9tNbV93rDZr39",
+								"addr": "/dns4/46-247-131-210.k51qzi5uqu5dh1qn145a6ckgguzidvwjg9945i61ucbinvzduzwdqhfdj4lbde.libp2p.direct/tcp/24415/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/webrtc/p2p/12D3KooWL8uJytnsQiUGdPgYnRjcLvSdQV6oySk9tNbV93rDZr39",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWL8uJytnsQiUGdPgYnRjcLvSdQV6oySk9tNbV93rDZr39"
+						]
+					}
+				}
+			],
+			"events": {
+				"mac": [],
+				"phone": []
+			},
+			"console": {
+				"mac": [],
+				"phone": []
+			}
+		}
+	},
+	"peers": {
+		"mac": "12D3KooWL8uJytnsQiUGdPgYnRjcLvSdQV6oySk9tNbV93rDZr39",
+		"phone": "12D3KooWDXNyKSNUQxrAGgxa2wnGWqWfkJnMYK5Dnpfu7PJLEBwi"
+	},
+	"relayLimits": {
+		"external": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+		"unlimited": false,
+		"dataLimit": null,
+		"durationMs": null
+	}
+}

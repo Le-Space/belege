@@ -1,0 +1,562 @@
+{
+	"date": "2026-10-14",
+	"label": "aleph-0-10-10",
+	"machine": {
+		"cpus": "Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz",
+		"cores": 16,
+		"memGB": 32
+	},
+	"scenario": "replication-relay",
+	"size": 50,
+	"writeMs": 454,
+	"pairMs": 1833,
+	"initialSyncMs": 2383,
+	"macToPhone": {
+		"n": 3,
+		"min": 374,
+		"median": 378,
+		"p95": 378,
+		"max": 378
+	},
+	"phoneToMac": {
+		"n": 3,
+		"min": 375,
+		"median": 376,
+		"p95": 394,
+		"max": 394
+	},
+	"burst": {
+		"size": 100,
+		"writeMs": 1036,
+		"syncMs": 5520,
+		"arrived": 100,
+		"network": {
+			"samples": [
+				{
+					"t": 9,
+					"mac": {
+						"connections": [
+							{
+								"peer": "12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/libp2p/circuit/relay/0.2.0/stop",
+									"/ipfs/ping/1.0.0"
+								]
+							},
+							{
+								"peer": "12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/p2p/12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"limited": null,
+								"limits": {},
+								"direction": "inbound",
+								"status": "open",
+								"streams": [
+									"/meshsub/1.2.0",
+									"/meshsub/1.2.0",
+									""
+								]
+							},
+							{
+								"peer": "12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"addr": "/dns4/46-247-131-210.k51qzi5uqu5dh1qn145a6ckgguzidvwjg9945i61ucbinvzduzwdqhfdj4lbde.libp2p.direct/tcp/24415/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/webrtc/p2p/12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							},
+							{
+								"peer": "12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"addr": "/webrtc/p2p/12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"limited": null,
+								"limits": null,
+								"direction": "inbound",
+								"status": "open",
+								"streams": []
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj"
+						]
+					},
+					"phone": {
+						"connections": [
+							{
+								"peer": "12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/libp2p/circuit/relay/0.2.0/hop"
+								]
+							},
+							{
+								"peer": "12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/p2p/12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"limited": null,
+								"limits": {},
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/meshsub/1.2.0",
+									"/meshsub/1.2.0",
+									""
+								]
+							},
+							{
+								"peer": "12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"addr": "/webrtc/p2p/12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"limited": null,
+								"limits": null,
+								"direction": "inbound",
+								"status": "open",
+								"streams": []
+							},
+							{
+								"peer": "12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"addr": "/dns4/46-247-131-210.k51qzi5uqu5dh1qn145a6ckgguzidvwjg9945i61ucbinvzduzwdqhfdj4lbde.libp2p.direct/tcp/24415/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/webrtc/p2p/12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT"
+						]
+					}
+				},
+				{
+					"t": 1016,
+					"mac": {
+						"connections": [
+							{
+								"peer": "12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/libp2p/circuit/relay/0.2.0/stop",
+									"/ipfs/ping/1.0.0"
+								]
+							},
+							{
+								"peer": "12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/p2p/12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"limited": null,
+								"limits": {},
+								"direction": "inbound",
+								"status": "open",
+								"streams": [
+									"/meshsub/1.2.0",
+									"/meshsub/1.2.0"
+								]
+							},
+							{
+								"peer": "12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"addr": "/dns4/46-247-131-210.k51qzi5uqu5dh1qn145a6ckgguzidvwjg9945i61ucbinvzduzwdqhfdj4lbde.libp2p.direct/tcp/24415/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/webrtc/p2p/12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							},
+							{
+								"peer": "12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"addr": "/webrtc/p2p/12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"limited": null,
+								"limits": null,
+								"direction": "inbound",
+								"status": "open",
+								"streams": []
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj"
+						]
+					},
+					"phone": {
+						"connections": [
+							{
+								"peer": "12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/libp2p/circuit/relay/0.2.0/hop"
+								]
+							},
+							{
+								"peer": "12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/p2p/12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"limited": null,
+								"limits": {},
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/meshsub/1.2.0",
+									"/meshsub/1.2.0",
+									""
+								]
+							},
+							{
+								"peer": "12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"addr": "/webrtc/p2p/12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"limited": null,
+								"limits": null,
+								"direction": "inbound",
+								"status": "open",
+								"streams": []
+							},
+							{
+								"peer": "12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"addr": "/dns4/46-247-131-210.k51qzi5uqu5dh1qn145a6ckgguzidvwjg9945i61ucbinvzduzwdqhfdj4lbde.libp2p.direct/tcp/24415/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/webrtc/p2p/12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT"
+						]
+					}
+				},
+				{
+					"t": 3014,
+					"mac": {
+						"connections": [
+							{
+								"peer": "12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/libp2p/circuit/relay/0.2.0/stop"
+								]
+							},
+							{
+								"peer": "12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/p2p/12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"limited": null,
+								"limits": {},
+								"direction": "inbound",
+								"status": "open",
+								"streams": [
+									"/meshsub/1.2.0",
+									"/meshsub/1.2.0"
+								]
+							},
+							{
+								"peer": "12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"addr": "/dns4/46-247-131-210.k51qzi5uqu5dh1qn145a6ckgguzidvwjg9945i61ucbinvzduzwdqhfdj4lbde.libp2p.direct/tcp/24415/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/webrtc/p2p/12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							},
+							{
+								"peer": "12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"addr": "/webrtc/p2p/12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"limited": null,
+								"limits": null,
+								"direction": "inbound",
+								"status": "open",
+								"streams": []
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj"
+						]
+					},
+					"phone": {
+						"connections": [
+							{
+								"peer": "12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/libp2p/circuit/relay/0.2.0/hop",
+									""
+								]
+							},
+							{
+								"peer": "12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/p2p/12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"limited": null,
+								"limits": {},
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/meshsub/1.2.0",
+									"/meshsub/1.2.0",
+									"",
+									""
+								]
+							},
+							{
+								"peer": "12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"addr": "/webrtc/p2p/12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"limited": null,
+								"limits": null,
+								"direction": "inbound",
+								"status": "open",
+								"streams": []
+							},
+							{
+								"peer": "12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"addr": "/dns4/46-247-131-210.k51qzi5uqu5dh1qn145a6ckgguzidvwjg9945i61ucbinvzduzwdqhfdj4lbde.libp2p.direct/tcp/24415/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/webrtc/p2p/12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT"
+						]
+					}
+				},
+				{
+					"t": 5015,
+					"mac": {
+						"connections": [
+							{
+								"peer": "12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/libp2p/circuit/relay/0.2.0/stop"
+								]
+							},
+							{
+								"peer": "12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/p2p/12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"limited": null,
+								"limits": {},
+								"direction": "inbound",
+								"status": "open",
+								"streams": [
+									"/meshsub/1.2.0",
+									"/meshsub/1.2.0",
+									""
+								]
+							},
+							{
+								"peer": "12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"addr": "/dns4/46-247-131-210.k51qzi5uqu5dh1qn145a6ckgguzidvwjg9945i61ucbinvzduzwdqhfdj4lbde.libp2p.direct/tcp/24415/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/webrtc/p2p/12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							},
+							{
+								"peer": "12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"addr": "/webrtc/p2p/12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"limited": null,
+								"limits": null,
+								"direction": "inbound",
+								"status": "open",
+								"streams": []
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj"
+						]
+					},
+					"phone": {
+						"connections": [
+							{
+								"peer": "12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/libp2p/circuit/relay/0.2.0/hop",
+									"/ipfs/ping/1.0.0"
+								]
+							},
+							{
+								"peer": "12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/p2p/12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"limited": null,
+								"limits": {},
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/meshsub/1.2.0",
+									"/meshsub/1.2.0",
+									""
+								]
+							},
+							{
+								"peer": "12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"addr": "/webrtc/p2p/12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"limited": null,
+								"limits": null,
+								"direction": "inbound",
+								"status": "open",
+								"streams": []
+							},
+							{
+								"peer": "12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"addr": "/dns4/46-247-131-210.k51qzi5uqu5dh1qn145a6ckgguzidvwjg9945i61ucbinvzduzwdqhfdj4lbde.libp2p.direct/tcp/24415/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/webrtc/p2p/12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT"
+						]
+					}
+				},
+				{
+					"t": 6020,
+					"mac": {
+						"connections": [
+							{
+								"peer": "12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/libp2p/circuit/relay/0.2.0/stop"
+								]
+							},
+							{
+								"peer": "12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/p2p/12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"limited": null,
+								"limits": {},
+								"direction": "inbound",
+								"status": "open",
+								"streams": [
+									"/meshsub/1.2.0",
+									"/meshsub/1.2.0"
+								]
+							},
+							{
+								"peer": "12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"addr": "/dns4/46-247-131-210.k51qzi5uqu5dh1qn145a6ckgguzidvwjg9945i61ucbinvzduzwdqhfdj4lbde.libp2p.direct/tcp/24415/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/webrtc/p2p/12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							},
+							{
+								"peer": "12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"addr": "/webrtc/p2p/12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj",
+								"limited": null,
+								"limits": null,
+								"direction": "inbound",
+								"status": "open",
+								"streams": []
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj"
+						]
+					},
+					"phone": {
+						"connections": [
+							{
+								"peer": "12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/libp2p/circuit/relay/0.2.0/hop"
+								]
+							},
+							{
+								"peer": "12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"addr": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/p2p/12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"limited": null,
+								"limits": {},
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/meshsub/1.2.0",
+									"/meshsub/1.2.0"
+								]
+							},
+							{
+								"peer": "12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"addr": "/webrtc/p2p/12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"limited": null,
+								"limits": null,
+								"direction": "inbound",
+								"status": "open",
+								"streams": []
+							},
+							{
+								"peer": "12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"addr": "/dns4/46-247-131-210.k51qzi5uqu5dh1qn145a6ckgguzidvwjg9945i61ucbinvzduzwdqhfdj4lbde.libp2p.direct/tcp/24415/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq/p2p-circuit/webrtc/p2p/12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT"
+						]
+					}
+				}
+			],
+			"events": {
+				"mac": [],
+				"phone": []
+			},
+			"console": {
+				"mac": [],
+				"phone": []
+			}
+		}
+	},
+	"peers": {
+		"mac": "12D3KooWPjaDD1EP1Rk9nVJgLMqL3rbtPQ8quo5gtp2SbpVdh8yT",
+		"phone": "12D3KooWGtagNY12tVVvezFxytKnfEXL2pdL6U5EraeM6w5zrtrj"
+	},
+	"relayLimits": {
+		"external": "/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq",
+		"unlimited": false,
+		"dataLimit": null,
+		"durationMs": null
+	}
+}
