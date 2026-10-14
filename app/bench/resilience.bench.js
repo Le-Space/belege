@@ -36,6 +36,20 @@ const ROUNDS = Number(process.env.RESILIENCE_ROUNDS || 10);
 /** Bookings in the burst, and on each side of the partition. */
 const BURST = 100;
 const PARTITION_EACH = 20;
+/** How long the burst may take to arrive before it counts as stalled. */
+const BURST_TIMEOUT_MS = Number(process.env.RESILIENCE_BURST_TIMEOUT_MS || 10 * 60 * 1000);
+/**
+ * A quiet spell before the burst, so a relay's circuit can expire while the
+ * devices sit idle on an established direct connection — the shape of a bank
+ * import after twenty minutes on a Le Space relay.
+ */
+const BURST_DELAY_MS = Number(process.env.RESILIENCE_BURST_DELAY_MS || 0);
+/** The test relay's circuit limits, as e2e/relay.js reads them; kept with each result. */
+const RELAY_LIMITS = {
+	unlimited: Boolean(process.env.E2E_RELAY_UNLIMITED),
+	dataLimit: process.env.E2E_RELAY_DATA_LIMIT ?? null,
+	durationMs: process.env.E2E_RELAY_DURATION_MS ?? null
+};
 
 /** A small deterministic PRNG, so every run writes the same books. @param {number} seed */
 function prng(seed) {
@@ -154,6 +168,74 @@ async function untilCount(page, n, timeout = 10 * 60 * 1000) {
 	const t0 = Date.now();
 	await expect.poll(() => count(page), { timeout, intervals: [50, 100, 200, 500] }).toBe(n);
 	return Date.now() - t0;
+}
+
+/** The sync node's network as the page sees it: `__belegeE2E.bench` in session.svelte.js. */
+const net = {
+	watch: (/** @type {import('@playwright/test').Page} */ page) =>
+		page.evaluate(() => /** @type {any} */ (window).__belegeE2E.bench.watchNet()),
+	connections: (/** @type {import('@playwright/test').Page} */ page) =>
+		page.evaluate(() => /** @type {any} */ (window).__belegeE2E.bench.connections()),
+	pubsubPeers: (/** @type {import('@playwright/test').Page} */ page) =>
+		page.evaluate(() => /** @type {any} */ (window).__belegeE2E.bench.pubsubPeers()),
+	log: (/** @type {import('@playwright/test').Page} */ page) =>
+		page.evaluate(() => /** @type {any} */ (window).__belegeE2E.bench.netlog()),
+	peerId: (/** @type {import('@playwright/test').Page} */ page) =>
+		page.evaluate(() => /** @type {any} */ (window).__belegeE2E.peerId())
+};
+
+/**
+ * Watch the two devices' networks while something is measured: a snapshot of
+ * every connection whenever one changes, and the pages' event logs at the end.
+ *
+ * @param {{ mac: import('@playwright/test').Page, phone: import('@playwright/test').Page }} pages
+ */
+async function watchNetwork(pages) {
+	await Promise.all(Object.values(pages).map(net.watch));
+	const t0 = Date.now();
+	/** @type {Array<Record<string, unknown>>} */
+	const samples = [];
+	let last = '';
+	let stopped = false;
+	const sample = async () => {
+		if (stopped) return;
+		try {
+			const snapshot = Object.fromEntries(
+				await Promise.all(
+					Object.entries(pages).map(async ([name, page]) => [
+						name,
+						{ connections: await net.connections(page), pubsubPeers: await net.pubsubPeers(page) }
+					])
+				)
+			);
+			const key = JSON.stringify(snapshot);
+			if (key !== last) {
+				last = key;
+				samples.push({ t: Date.now() - t0, ...snapshot });
+			}
+		} catch {
+			// A page that is closing; the next tick may do better.
+		}
+	};
+	const timer = setInterval(() => void sample(), 1000);
+	await sample();
+	return {
+		async stop() {
+			stopped = true;
+			clearInterval(timer);
+			const events = Object.fromEntries(
+				await Promise.all(
+					Object.entries(pages).map(async ([name, page]) => [
+						name,
+						(await net.log(page))
+							.filter((/** @type {any} */ e) => e.t >= t0 - 1000)
+							.map((/** @type {any} */ e) => ({ ...e, t: e.t - t0 }))
+					])
+				)
+			);
+			return { samples, events };
+		}
+	};
 }
 
 /** @param {number[]} xs */
@@ -318,21 +400,36 @@ for (const mode of /** @type {const} */ (['relay', 'qr'])) {
 				r.macToPhone = await roundTrips(mac.page, phone.page, books.accountId, `m2p-${mode}`);
 				r.phoneToMac = await roundTrips(phone.page, mac.page, books.accountId, `p2m-${mode}`);
 
-				// A burst, as a bank import is.
+				// A burst, as a bank import is — watched, because this is where a
+				// relay's circuit limit shows (docs/resilience-report.md).
 				const before = await count(phone.page);
+				const watching = await watchNetwork({ mac: mac.page, phone: phone.page });
+				if (BURST_DELAY_MS > 0) await mac.page.waitForTimeout(BURST_DELAY_MS);
 				const burst = await putMany(
 					mac.page,
 					'transactions',
 					bookings(BURST, books.accountId, `burst-${mode}`)
 				);
+				/** @type {number | null} */
+				let syncMs = null;
+				try {
+					syncMs = await untilCount(phone.page, before + BURST, BURST_TIMEOUT_MS);
+				} catch {
+					// Stalled: what arrived, and what the network did, go into the result.
+				}
 				r.burst = {
 					size: BURST,
 					writeMs: burst.ms,
-					syncMs: await untilCount(phone.page, before + BURST)
+					syncMs,
+					arrived: (await count(phone.page)) - before,
+					network: await watching.stop()
 				};
-				expect(await sourceIds(phone.page)).toEqual(await sourceIds(mac.page));
+				r.peers = { mac: await net.peerId(mac.page), phone: await net.peerId(phone.page) };
+				if (mode === 'relay') r.relayLimits = RELAY_LIMITS;
 				if (mode === 'qr') r.outsideRequests = outside.length;
 				keep(r);
+				expect(syncMs, `the burst stalled at ${r.burst.arrived} of ${BURST}`).not.toBeNull();
+				expect(await sourceIds(phone.page)).toEqual(await sourceIds(mac.page));
 			} finally {
 				await mac.context.close();
 				await phone.context.close();

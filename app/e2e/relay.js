@@ -57,6 +57,24 @@ export async function startRelay() {
 	return relay;
 }
 
+/**
+ * The circuit limits, from the environment. The library caps a circuit at
+ * 2 minutes and 128 KiB; the Le Space relays run at 20 minutes and 10 GiB.
+ * The specs keep the library's defaults. The resilience benchmark lifts both
+ * with `E2E_RELAY_UNLIMITED=1`, or sets one of them — `E2E_RELAY_DATA_LIMIT`
+ * in bytes, `E2E_RELAY_DURATION_MS` — to tell which of the two closes a
+ * circuit (docs/resilience-report.md).
+ */
+export function circuitLimits() {
+	if (process.env.E2E_RELAY_UNLIMITED) return { applyDefaultLimit: false };
+	const data = process.env.E2E_RELAY_DATA_LIMIT;
+	const duration = process.env.E2E_RELAY_DURATION_MS;
+	return {
+		...(data ? { defaultDataLimit: BigInt(data) } : {}),
+		...(duration ? { defaultDurationLimit: Number(duration) } : {})
+	};
+}
+
 async function createRelay() {
 	return createLibp2p({
 		privateKey: await relayKey(),
@@ -70,10 +88,7 @@ async function createRelay() {
 			relay: circuitRelayServer({
 				reservations: {
 					maxReservations: 32,
-					// The library caps a circuit at 2 minutes and 128 KiB; the Le Space
-					// relays run at 20 minutes and 10 GiB. The resilience benchmark
-					// measures both, the specs keep the library's defaults.
-					...(process.env.E2E_RELAY_UNLIMITED ? { applyDefaultLimit: false } : {})
+					...circuitLimits()
 				}
 			})
 		}

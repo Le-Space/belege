@@ -1023,7 +1023,81 @@ function installE2EHooks() {
 			},
 			refresh: () => refresh(),
 			match: () => runMatchingNow('manual'),
-			estimate: () => navigator.storage.estimate()
+			estimate: () => navigator.storage.estimate(),
+			// The sync node's network, for the resilience benchmark: its
+			// connections as they are, and what happened since `watchNet()` —
+			// connections opened and closed, peers gone, OrbitDB's heads
+			// exchanges and sync errors — each with the time.
+			connections: () => connectionsOf(session?.libp2p),
+			// Whom gossipsub still counts as a peer: it keeps that list itself,
+			// and it can forget a peer that libp2p is still connected to.
+			pubsubPeers: () =>
+				(session?.libp2p?.services?.pubsub?.getPeers?.() ?? []).map((/** @type {any} */ p) =>
+					String(p)
+				),
+			watchNet: () => watchNet(session?.libp2p, session?.store?.databases?.()),
+			netlog: () => netlog.slice()
 		}
 	};
+}
+
+/** @type {Array<Record<string, unknown>>} */
+const netlog = [];
+/** @type {WeakSet<object>} */
+const watched = new WeakSet();
+
+/** @param {any} c a libp2p connection */
+const describeConnection = (c) => ({
+	peer: String(c.remotePeer),
+	addr: String(c.remoteAddr),
+	// libp2p 3 marks a relayed connection with `limits`; `limited` is the
+	// older flag the app's device-sync still reads. Both, to tell them apart.
+	limited: c.limited ?? null,
+	limits: c.limits ?? null,
+	direction: c.direction,
+	status: c.status,
+	streams: (c.streams ?? []).map((/** @type {any} */ s) => s.protocol ?? '?')
+});
+
+/** @param {any} libp2p */
+function connectionsOf(libp2p) {
+	return (libp2p?.getConnections?.() ?? []).map(describeConnection);
+}
+
+/**
+ * Start writing the node's network events into `netlog`, once per node and
+ * per database. Reading `netlog()` leaves it in place.
+ *
+ * @param {any} libp2p
+ * @param {Record<string, any> | undefined} databases the store's OrbitDB databases by name
+ */
+function watchNet(libp2p, databases) {
+	const note = (/** @type {string} */ event, /** @type {Record<string, unknown>} */ detail) =>
+		netlog.push({ t: Date.now(), event, ...detail });
+	if (libp2p && !watched.has(libp2p)) {
+		watched.add(libp2p);
+		libp2p.addEventListener('connection:open', (/** @type {any} */ e) =>
+			note('connection:open', describeConnection(e.detail))
+		);
+		libp2p.addEventListener('connection:close', (/** @type {any} */ e) =>
+			note('connection:close', describeConnection(e.detail))
+		);
+		libp2p.addEventListener('peer:disconnect', (/** @type {any} */ e) =>
+			note('peer:disconnect', { peer: String(e.detail) })
+		);
+	}
+	for (const [name, db] of Object.entries(databases ?? {})) {
+		if (!db?.events || watched.has(db)) continue;
+		watched.add(db);
+		db.events.on('join', (/** @type {unknown} */ peer, /** @type {unknown[]} */ heads) =>
+			note('orbitdb:join', { db: name, peer: String(peer), heads: heads?.length ?? null })
+		);
+		db.events.on('leave', (/** @type {unknown} */ peer) =>
+			note('orbitdb:leave', { db: name, peer: String(peer) })
+		);
+		db.events.on('error', (/** @type {any} */ error) =>
+			note('orbitdb:error', { db: name, name: error?.name, message: error?.message })
+		);
+	}
+	return netlog.length;
 }
