@@ -9,7 +9,10 @@ import { relayAddr } from '../e2e/relay.js';
 const port = Number(process.env.BENCH_PORT || 4396);
 process.env.E2E_BRIDGE_PORT ||= '4397';
 const bridgePort = Number(process.env.E2E_BRIDGE_PORT);
-const relay = await relayAddr();
+// The relay the devices meet through: the local test relay (e2e/relay.js), or
+// an outside one named by BENCH_RELAY_ADDR — a Le Space relay on Aleph, say —
+// to measure a real relay's circuit limits rather than the library's defaults.
+const relay = process.env.BENCH_RELAY_ADDR?.trim() || (await relayAddr());
 
 export default defineConfig({
 	testDir: '.',
