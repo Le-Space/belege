@@ -17,6 +17,7 @@ import { privateAccounts } from '../booking/settings.js';
 import { isAccountNumber } from '../booking/skr03.js';
 import { euroCents } from '../outlays/outlays.js';
 import { mealAllowance, threeMonthCuts } from './allowance.js';
+import { lodgingFlat } from './lodging.js';
 import { mileage } from './mileage.js';
 
 /** @typedef {Record<string, any>} Rec */
@@ -212,6 +213,14 @@ export function cleanTrip(input) {
 		stops,
 		overnight: typeof input?.overnight === 'boolean' ? input.overnight : null,
 		meals,
+		// Nights without a hotel invoice, by the date they start (lodging.js, #380).
+		nights: [
+			...new Set(
+				(Array.isArray(input?.nights) ? input.nights : []).filter((/** @type {any} */ d) =>
+					DAY.test(d)
+				)
+			)
+		].sort(),
 		mileage: (Array.isArray(input?.mileage) ? input.mileage : []).map(cleanMileageLine),
 		note: text(input?.note)
 	};
@@ -386,12 +395,13 @@ export function tripDates(trip) {
 
 /**
  * What a trip comes to by the rules (step 1): its meal allowance, cut by the
- * three-month rule from all of the traveller's trips to the same place, and
- * its mileage lines.
+ * three-month rule from all of the traveller's trips to the same place, its
+ * mileage lines, and – for an employee – the flat rates of the nights ticked
+ * as without an invoice (#380).
  *
  * @param {Rec} trip
  * @param {Rec[]} trips the traveller's other trips, for the three-month rule
- * @param {{ familyCar?: import('./mileage.js').FamilyCarRule }} [settings]
+ * @param {{ familyCar?: import('./mileage.js').FamilyCarRule, traveller?: Rec | null }} [settings]
  */
 export function tripFigures(trip, trips, settings = {}) {
 	const timed = TIME.test(trip.start) && TIME.test(trip.end) && trip.end > trip.start;
@@ -423,9 +433,21 @@ export function tripFigures(trip, trips, settings = {}) {
 		id: line.id,
 		...mileage(line, settings)
 	}));
+	const lodging =
+		timed && settings.traveller?.role === 'employee' && trip.nights?.length
+			? lodgingFlat({
+					start: trip.start,
+					end: trip.end,
+					country: trip.country,
+					stops: trip.stops,
+					nights: trip.nights
+				})
+			: null;
 	return {
 		allowance,
 		mileage: lines,
+		lodging,
+		lodgingCents: lodging?.cents ?? 0,
 		allowanceCents: allowance?.cents ?? 0,
 		mileageCents: lines.reduce((/** @type {number} */ s, /** @type {any} */ l) => s + l.cents, 0)
 	};

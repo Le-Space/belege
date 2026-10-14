@@ -10,6 +10,9 @@
 //   a receipt paid privately   its gross, its VAT key, linked to the receipt
 //   meal allowances            the month's total, no VAT, linked to the statement
 //   mileage                    the month's total, no VAT, linked to the statement
+//   overnight flat rates       an employee's nights without an invoice (#380):
+//                              the month's total on the accommodation account,
+//                              no VAT, linked to the statement
 //   a hospitality bill         split: net × 70 % plus the whole VAT on 4650
 //                              with its key, the rest on 4654 without one,
 //                              both linked to the bill
@@ -160,6 +163,17 @@ export function statementLines(s, { set, receipts, keys }) {
 			category: 'meals',
 			receiptId: null,
 			text: `Verpflegungspauschalen ${month}`
+		});
+	if (s.totals.lodgingCents)
+		out.push({
+			key: 'lodging',
+			cents: s.totals.lodgingCents,
+			account: travelAccount(set, 'accommodation').number,
+			taxKey: '',
+			taxVia: 'none',
+			category: 'accommodation',
+			receiptId: null,
+			text: `Übernachtungspauschalen ${month}`
 		});
 	if (s.totals.mileageCents)
 		out.push({

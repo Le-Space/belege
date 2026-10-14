@@ -10,14 +10,17 @@ import { defaultDatevSettings } from '../booking/settings.js';
 import { suggestBooking } from '../booking/suggest.js';
 import { createBlobStore } from '../receipts/blob-store.js';
 import { travelSet, travelSetOf } from './accounts.js';
-import { travellerAccount } from './booking.js';
+import { statementLines, travellerAccount } from './booking.js';
+import { lodgingFlat, nightsOf } from './lodging.js';
 import { suggestStatements } from './payout.js';
 import {
 	cleanTraveller,
+	cleanTrip,
 	removeTraveller,
 	saveTraveller,
 	saveTrip,
-	travellersOf
+	travellersOf,
+	tripFigures
 } from './records.js';
 import { createTravelStatement } from './statement-actions.js';
 import { statementOf } from './statement.js';
@@ -209,5 +212,106 @@ describe('travellers (#380)', () => {
 		expect(
 			suggestStatements(tx('DE00000000000000009999', 7000), /** @type {any} */ (all), travellers)
 		).toEqual(['001', '003']);
+	});
+});
+
+describe('overnight flat rates without an invoice (#380, step 2)', () => {
+	it('the nights of a trip, and their rates: 20 € at home, the letter’s abroad, by the place at midnight', () => {
+		expect(nightsOf('2026-05-04T07:00', '2026-05-07T18:00')).toEqual([
+			'2026-05-04',
+			'2026-05-05',
+			'2026-05-06'
+		]);
+		expect(nightsOf('2026-05-04T07:00', '2026-05-04T21:00')).toEqual([]);
+		// Out on Monday, in Moscow from Tuesday noon, home on Thursday.
+		const trip = {
+			start: '2026-05-04T07:00',
+			end: '2026-05-07T18:00',
+			stops: [
+				{ at: '2026-05-05T12:00', country: 'RU', city: 'Moskau' },
+				{ at: '2026-05-07T15:00', country: 'DE' }
+			]
+		};
+		const flat = lodgingFlat({ ...trip, nights: ['2026-05-04', '2026-05-05', '2026-05-09'] });
+		expect(flat.nights.map((n) => [n.date, n.country, n.city, n.cents])).toEqual([
+			['2026-05-04', 'DE', null, 2000],
+			['2026-05-05', 'RU', 'Moskau', 23500]
+		]);
+		expect(flat).toMatchObject({ cents: 25500, missing: [] });
+		expect(flat.nights[0].rate?.source).toBe('R 9.7 Abs. 3 LStR');
+		expect(flat.nights[1].rate?.source).toMatch(/BMF-Schreiben vom 5. Dezember 2025/);
+		// Abroad before the first letter in the table: no rate, named.
+		const early = lodgingFlat({
+			start: '2024-05-04T07:00',
+			end: '2024-05-06T18:00',
+			stops: [{ at: '2024-05-04T12:00', country: 'AT' }],
+			nights: ['2024-05-04']
+		});
+		expect(early).toMatchObject({ cents: 0, missing: ['2024-05-04'] });
+	});
+
+	it('kept on the trip; counted for an employee only, never for the owner', () => {
+		const { trip } = cleanTrip({
+			...TRIP,
+			travellerId: 'E',
+			nights: ['2026-05-04', 'x', '2026-05-04']
+		});
+		expect(trip.nights).toEqual(['2026-05-04']);
+		const employee = tripFigures(trip, [], { traveller: { role: 'employee' } });
+		expect(employee).toMatchObject({ lodgingCents: 2000, allowanceCents: 2800 });
+		const owner = tripFigures(trip, [], { traveller: { role: 'owner' } });
+		expect(owner).toMatchObject({ lodging: null, lodgingCents: 0 });
+	});
+
+	it('in the statement and its booking: paid back, on the accommodation account; a hotel receipt beside it warned', async () => {
+		const s = store();
+		const { traveller: anna } = await saveTraveller(s, {
+			name: 'Anna Beispiel',
+			clearingAccount: '70001'
+		});
+		const { trip } = await saveTrip(s, { ...TRIP, travellerId: anna.id, nights: ['2026-05-04'] });
+		const books = () => ({ month: '2026-05', travellerId: String(anna.id) });
+		const plain = statementOf({
+			...books(),
+			travel: await s.travel.list(),
+			receipts: await s.receipts.list()
+		});
+		expect(plain.totals).toMatchObject({ lodgingCents: 2000, toPayBackCents: 2800 + 2000 });
+		expect(plain.rates).toContainEqual(
+			expect.objectContaining({ kind: 'lodging', country: 'DE', cents: 2000 })
+		);
+		expect(plain.checks.filter((c) => c.code.startsWith('lodging'))).toEqual([]);
+		expect(
+			statementLines(plain, { set: 'employee', receipts: new Map() }).map((l) => [
+				l.key,
+				l.account,
+				l.cents,
+				l.taxKey
+			])
+		).toEqual([
+			['meals', '4664', 2800, ''],
+			['lodging', '4666', 2000, '']
+		]);
+		// A hotel bill on the same trip as well: said, for no night to be paid twice.
+		await s.receipts.put({
+			vendor: 'Hotel Beispiel',
+			documentDate: '2026-05-05',
+			amountCents: 9000,
+			currency: 'EUR',
+			status: 'ausgelesen',
+			extraction: { vat: [{ rate: 7, amount: 5.89 }], travel: { kind: 'hotel' } },
+			travel: { tripId: trip.id, paidBy: 'company' }
+		});
+		const both = statementOf({
+			...books(),
+			travel: await s.travel.list(),
+			receipts: await s.receipts.list()
+		});
+		expect(both.checks).toContainEqual({
+			level: 'warning',
+			code: 'lodgingWithHotel',
+			tripId: trip.id
+		});
+		expect(both.ready).toBe(true);
 	});
 });

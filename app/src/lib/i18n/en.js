@@ -2640,6 +2640,9 @@ export default {
 				receiptWithoutAmount: 'Receipt paid privately without an amount: {what}',
 				nothing: 'Nothing to settle this month.',
 				noRateAbroad: 'Day abroad without a rate, settled without an amount: {what}',
+				lodgingNoRate: 'Night without a rate, no overnight flat rate: {what}',
+				lodgingWithHotel:
+					'Overnight flat rate and a hotel receipt on the same trip – no night twice: {what}',
 				travellerWithoutAccount:
 					'This person’s clearing account is missing – enter it under Settings → Travellers.',
 				rateNotListed:
@@ -2692,6 +2695,11 @@ export default {
 		remove: 'Remove',
 		addStop: 'Add a border crossing',
 		meals: 'Meals provided',
+		nights: 'Nights without a hotel invoice',
+		nightsHint:
+			'Employees only: for a night without an invoice the company may pay the flat rate (20 € in Germany, abroad the BMF letter’s rate). Tick only nights there is no hotel receipt for.',
+		night: 'Night from {date}',
+		lodging: 'Overnight flat rates',
 		appointments: 'Appointments on these days, from invitations',
 		appointmentTake: 'Take it as the reason',
 		breakfastProposal: 'The hotel invoice includes breakfast on: {days}.',

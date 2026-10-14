@@ -20,8 +20,8 @@
 //   - any other country Luxembourg's.
 // The last two are named on the statement, for the tax adviser.
 //
-// The overnight rates apply to an employer's refund only, never to the owner
-// (#380): kept in the table, not used yet.
+// The overnight rates apply to an employer's refund only, never to the owner:
+// used for employees' nights without an invoice (lodging.js, #380).
 
 /**
  * @typedef {[country: string, city: string | null, full: number, partial: number, lodging: number]} AbroadRow

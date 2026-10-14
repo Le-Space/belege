@@ -68,7 +68,8 @@
 				trip,
 				figures: tripFigures(
 					trip,
-					trips.filter((o) => o.travellerId === trip.travellerId)
+					trips.filter((o) => o.travellerId === trip.travellerId),
+					{ traveller: travellers.find((p) => p.id === trip.travellerId) ?? null }
 				),
 				receipts: receiptsOfTrip(app.receipts, trip.id).length
 			}))
@@ -586,7 +587,10 @@
 							>
 						</span>
 						<span class="font-mono tabular-nums" data-testid="reisen-trip-sum"
-							>{formatMoney(x.figures.allowanceCents + x.figures.mileageCents, 'EUR')}</span
+							>{formatMoney(
+								x.figures.allowanceCents + x.figures.mileageCents + x.figures.lodgingCents,
+								'EUR'
+							)}</span
 						>
 					</a>
 				</li>
@@ -732,6 +736,12 @@
 			<dd class="text-right font-mono tabular-nums">
 				{formatMoney(preview.totals.mileageCents, 'EUR')}
 			</dd>
+			{#if preview.totals.lodgingCents}
+				<dt class="text-text">{t('reise.lodging')}</dt>
+				<dd class="text-right font-mono tabular-nums" data-testid="reisen-statement-lodging">
+					{formatMoney(preview.totals.lodgingCents, 'EUR')}
+				</dd>
+			{/if}
 			<dt class="text-text">{t('reisen.statement.private')}</dt>
 			<dd class="text-right font-mono tabular-nums">
 				{formatMoney(preview.totals.privateCents, 'EUR')}

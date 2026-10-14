@@ -2679,6 +2679,9 @@ export default {
 				receiptWithoutAmount: 'Privat bezahlter Beleg ohne Betrag: {what}',
 				nothing: 'In diesem Monat gibt es nichts abzurechnen.',
 				noRateAbroad: 'Auslandstag ohne Satz, ohne Betrag abgerechnet: {what}',
+				lodgingNoRate: 'Nacht ohne Satz, ohne Übernachtungspauschale: {what}',
+				lodgingWithHotel:
+					'Übernachtungspauschale und Hotelbeleg an derselben Reise – keine Nacht doppelt: {what}',
 				travellerWithoutAccount:
 					'Für diese Person fehlt das Gegenkonto – unter Einstellungen → Reisende eintragen.',
 				rateNotListed:
@@ -2730,6 +2733,11 @@ export default {
 		remove: 'Entfernen',
 		addStop: 'Grenzübertritt hinzufügen',
 		meals: 'Gestellte Mahlzeiten',
+		nights: 'Übernachtungen ohne Hotelrechnung',
+		nightsHint:
+			'Nur für Angestellte: Für eine Nacht ohne Rechnung darf die Firma die Pauschale erstatten (Inland 20 €, im Ausland der Satz des BMF-Schreibens). Kreuz nur Nächte an, für die es keinen Hotelbeleg gibt.',
+		night: 'Nacht ab {date}',
+		lodging: 'Übernachtungspauschalen',
 		appointments: 'Termine an diesen Tagen, aus Einladungen',
 		appointmentTake: 'Als Anlass übernehmen',
 		breakfastProposal: 'Die Hotelrechnung enthält Frühstück am: {days}.',

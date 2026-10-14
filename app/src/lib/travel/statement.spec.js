@@ -137,6 +137,7 @@ describe('the travel statement (#213, step 5)', () => {
 		expect(s.totals).toEqual({
 			allowanceCents: 1400 + 1400 - 560,
 			mileageCents: 24 * 30,
+			lodgingCents: 0,
 			privateCents: 8990 + 11900,
 			outlayCents: 1900,
 			companyCents: 11200,
