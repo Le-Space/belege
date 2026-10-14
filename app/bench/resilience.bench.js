@@ -46,6 +46,8 @@ const BURST_TIMEOUT_MS = Number(process.env.RESILIENCE_BURST_TIMEOUT_MS || 10 * 
 const BURST_DELAY_MS = Number(process.env.RESILIENCE_BURST_DELAY_MS || 0);
 /** The test relay's circuit limits, as e2e/relay.js reads them; kept with each result. */
 const RELAY_LIMITS = {
+	/** An outside relay's address when the run went against one, else the local test relay. */
+	external: process.env.BENCH_RELAY_ADDR?.trim() || null,
 	unlimited: Boolean(process.env.E2E_RELAY_UNLIMITED),
 	dataLimit: process.env.E2E_RELAY_DATA_LIMIT ?? null,
 	durationMs: process.env.E2E_RELAY_DURATION_MS ?? null
