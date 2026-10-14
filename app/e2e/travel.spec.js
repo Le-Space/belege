@@ -732,6 +732,9 @@ test('the statement paid out in two transfers, each linked to it (#213, step 7)'
 		const choice = tx.getByTestId('travel-payout-choice');
 		await expect(choice).toHaveCount(1);
 		await expect(choice.locator('input')).toBeChecked();
+		// A matching run in between keeps the list open and the tick (it closed it before).
+		await page.evaluate(() => /** @type {any} */ (window).__belegeE2E.runMatching());
+		await expect(choice.locator('input')).toBeChecked();
 		await tx.getByTestId('travel-payout-link').click();
 		await expect(tx.getByTestId('travel-payout-item')).toContainText('RK-2025-001');
 	};
@@ -918,6 +921,10 @@ test('an advance before a trip: marked on the payment, the statement pays out on
 		'Musterstadt'
 	);
 	await tx.getByTestId('travel-advance-trip').selectOption({ index: 1 });
+	// A matching run in between refreshes the books: the form stays open, its choice kept.
+	await page.evaluate(() => /** @type {any} */ (window).__belegeE2E.runMatching());
+	await expect(tx.getByTestId('travel-advance-mark')).toBeVisible();
+	await expect(tx.getByTestId('travel-advance-trip')).not.toHaveValue('');
 	await tx.getByTestId('travel-advance-mark').click();
 	await expect(tx.getByTestId('travel-advance')).toContainText('Vorschuss für Reisekosten');
 	await expect(tx.getByTestId('travel-advance-open')).toHaveCount(0);

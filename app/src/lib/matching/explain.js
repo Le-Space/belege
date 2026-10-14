@@ -216,6 +216,17 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 			if (c.via === 'company') {
 				return t('explain.rule.ownCompany', { company: c.company ?? '' });
 			}
+			// A credit card settled from the bank (#382).
+			if (c.via === 'card') {
+				const card = accounts.find((a) => a.id === c.counterAccountId);
+				const line = t('explain.rule.ownCard', {
+					account: card ? accountLabel(card) : `···${c.ibanLast4 ?? ''}`
+				});
+				return c.counterBookingId
+					? `${line} ${t('explain.rule.ownIbanFound', { date: c.counterDay ? formatDate(c.counterDay) : '?' })}`
+					: line;
+			}
+			if (c.via === 'card-settlement') return t('explain.rule.ownCardSettlement');
 			const own = accounts.find(
 				(a) => String(a.ibanLast4 ?? '').toUpperCase() === String(c.ibanLast4 ?? '').toUpperCase()
 			);

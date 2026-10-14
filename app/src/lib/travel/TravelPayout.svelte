@@ -64,8 +64,14 @@
 	/** @type {string | null} */
 	let error = $state(null);
 
+	// Another payment: the list closed. Only then – the same payment comes back
+	// as a new object after every refresh (a matching run), and closing on that
+	// threw away what was being chosen.
+	let shownFor = '';
 	$effect(() => {
-		void tx.id;
+		const id = String(tx.id);
+		if (id === shownFor) return;
+		shownFor = id;
 		choosing = false;
 		error = null;
 	});

@@ -27,11 +27,14 @@ Eine Firmenkreditkarte ist ein eigenes Konto ([#382](https://github.com/Le-Space
 - **Spalten** werden an ihren üblichen deutschen und englischen Namen erkannt: Belegdatum/Transaction date, Buchungsdatum, Beschreibung/Merchant, Betrag/Amount (oder Soll/Haben, Debit/Credit), Währung, Originalbetrag, Originalwährung, Kurs, Referenz. Zeilen über der Tabelle (Karte, Zeitraum) werden übersprungen. Vor dem Import werden die Zeilen gezeigt; eine nicht erkannte Spalte lässt sich von Hand wählen, und die Wahl gilt für die nächste Abrechnung der Karte.
 - **Belastungen sind Ausgaben.** Die meisten Herausgeber führen sie als positive Beträge: Belege dreht das Vorzeichen, wo die meisten Zeilen positiv sind und keine Soll/Haben-Spalten etwas anderes sagen; das Kästchen lässt sich vor dem Import ändern.
 - **Jede Zeile ist eine Zahlung** des Kartenkontos. Das Matching verknüpft sie wie jede Zahlung mit ihrem Beleg; der Beleg gilt damit als **von der Firma bezahlt**, und ein Beleg in fremder Währung bekommt **die Euro, die die Karte belastet hat** ([travel.de.md](travel.de.md)). Ein Betrag in fremder Währung bleibt mit Währung und Kurs des Herausgebers erhalten. Eine Zeile ohne Beleg fragt nach einem, wie jede Zahlung.
-- **Der Ausgleich** vom Bankkonto („Zahlung erhalten“, „Lastschrift“ …) wird als solcher erkannt (Buchungsart _Kartenausgleich_).
+- **Die monatliche Abbuchung** auf dem Bankkonto ist eine eigene Umbuchung zur Karte (Konto 1360), ohne Belegfrage:
+  - hat die Kartenabrechnung ihre Ausgleichszeile („Zahlung erhalten“, „Lastschrift“ …, gespeichert als Buchungsart _Kartenausgleich_), werden beide über den Betrag innerhalb weniger Tage gepaart;
+  - sonst über die letzten vier Ziffern der Kartennummer im Text der Abbuchung zusammen mit einem Kartenwort (Kreditkarte, Kartenabrechnung, Visa, Mastercard, Amex, card …) – vier Ziffern allein genügen nie;
+  - eine Ausgleichszeile, deren Abbuchung nicht in den Büchern ist, braucht ebenfalls keinen Beleg.
 - **Dieselbe Abrechnung noch einmal** fügt nur Neues hinzu.
 - **Das Sachkonto der Karte** trägst du unter _Einstellungen → Buchhaltung_ ein, wie bei einem Bankkonto; welches, klärt die Steuerberatung.
 
-Noch nicht: die monatliche Abbuchung auf dem Bankkonto als Umbuchung zur Karte erkannt, und Abrechnungen als PDF.
+Noch nicht: Abrechnungen als PDF.
 
 ## Hibiscus
 
