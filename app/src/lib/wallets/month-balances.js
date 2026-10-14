@@ -4,7 +4,8 @@
 //   explorer  the explorer's own balance after each change (Blockscout's
 //             coin balance history, the native coin of an EVM chain).
 //             Independent of the transactions: it carries what they lack,
-//             a rollup's L1 data fee say.
+//             a rollup's L1 data fee say. A wallet's own running balance
+//             (the Monero CLI export's) comes the same way, as `history`.
 //   history   the source's own list of movements, summed from nothing – only
 //             where the whole history was read and its sum is exactly the
 //             balance the source reports today. A history that misses
@@ -69,9 +70,10 @@ export function monthsFromPoints(points, until, source) {
 }
 
 /**
- * From the explorer's running balance of the native coin.
+ * From a running balance the source gives: an explorer's of the native coin,
+ * or a wallet's own (`source: 'history'`).
  *
- * @param {{ asset: string, decimals: number, points: { time: string, value: string }[] }[] | undefined} balanceHistory
+ * @param {{ asset: string, decimals: number, points: { time: string, value: string }[], source?: 'explorer' | 'history' }[] | undefined} balanceHistory
  * @param {string} asset
  * @param {string} until YYYY-MM
  * @returns {Record<string, SourceMonthBalance> | null}
@@ -79,7 +81,7 @@ export function monthsFromPoints(points, until, source) {
 export function explorerMonthBalances(balanceHistory, asset, until) {
 	const h = (balanceHistory ?? []).find((b) => b.asset === asset);
 	if (!h || !h.points.length) return null;
-	return monthsFromPoints(h.points, until, 'explorer');
+	return monthsFromPoints(h.points, until, h.source ?? 'explorer');
 }
 
 /**

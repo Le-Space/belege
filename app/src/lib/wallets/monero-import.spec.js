@@ -14,6 +14,7 @@ import {
 	toPiconero
 } from './monero-import.js';
 import { addWallet } from './wallet-sync.js';
+import { balancesOf } from '../export/statement.js';
 import { looksLikeAddress, WALLET_CHAINS, walletChain } from './chains.js';
 
 const h = (/** @type {string} */ c) => c.repeat(64).slice(0, 64);
@@ -145,5 +146,56 @@ describe('importing into the books', () => {
 		const again = await importMoneroExport({ client, store: s, wallet, text: GUI });
 		expect(again.totals.new).toBe(0);
 		expect(await s.transactions.list()).toHaveLength(4);
+		// The GUI export has no running balance: the month balances are the transfers summed.
+		expect(account.monthBalances?.['2025-05']).toMatchObject({ source: 'history' });
+	});
+
+	it('the CLI export: the wallet’s own running balance gives the balance and the months (#287)', async () => {
+		const s = store();
+		const wallet = await addWallet(s.settings, { chain: 'monero', address: ADDRESS });
+		await importMoneroExport({
+			client,
+			store: s,
+			wallet,
+			text: CLI,
+			now: new Date('2025-07-10T00:00:00Z')
+		});
+		const [account] = await s.accounts.list();
+		expect(account.balance).toBe('2.399939');
+		expect(account.monthBalances).toEqual({
+			'2025-03': { opening: '0', closing: '2500000000000', source: 'history' },
+			'2025-04': { opening: '2500000000000', closing: '2500000000000', source: 'history' },
+			'2025-05': { opening: '2500000000000', closing: '1799939000000', source: 'history' },
+			'2025-06': { opening: '1799939000000', closing: '2399939000000', source: 'history' },
+			'2025-07': { opening: '2399939000000', closing: '2399939000000', source: 'history' }
+		});
+	});
+
+	it('where the wallet’s running balance and the rows differ, the wallet’s figure stands (#287)', async () => {
+		// Made up: the wallet counts 0.05 XMR more from June on than the rows show
+		// (say, a transfer the export left out). The months take the wallet's figure.
+		const lines = CLI.split('\n');
+		lines[4] = lines[4].replace(pad('2.399939000000', 20), pad('2.449939000000', 20));
+		const s = store();
+		const wallet = await addWallet(s.settings, { chain: 'monero', address: ADDRESS });
+		await importMoneroExport({
+			client,
+			store: s,
+			wallet,
+			text: lines.join('\n'),
+			now: new Date('2025-07-10T00:00:00Z')
+		});
+		const [account] = await s.accounts.list();
+		expect(account.balance).toBe('2.449939');
+		expect(account.monthBalances['2025-05'].closing).toBe('1799939000000');
+		expect(account.monthBalances['2025-06'].closing).toBe('2449939000000');
+		// The statement finds the gap in its month, and only there.
+		const own = (await s.transactions.list()).filter((t) => t.accountId === account.id);
+		expect(balancesOf(account, own, '2025-05')?.check).toMatchObject({ status: 'ok', by: 'month' });
+		expect(balancesOf(account, own, '2025-06')?.check).toMatchObject({
+			status: 'open',
+			by: 'month',
+			difference: { units: '50000000000' }
+		});
 	});
 });
