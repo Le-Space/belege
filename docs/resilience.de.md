@@ -55,6 +55,15 @@ Was das sagt:
 - **Ein Gerät, das den Relay verliert, wählt ihn nie wieder an** (#403). `@libp2p/circuit-relay-v2` verwirft Reservierung und Keep-alive-Markierung des Relays, libp2ps Reconnect-Queue findet danach nichts mehr zum Neuwählen, und die App hat keinen Ersatz. Bis zum Neuladen ist das Gerät für jedes nicht schon verbundene Gerät unsichtbar; die beiden hier synchronisierten weiter über WebRTC, deshalb kam der Schub trotzdem durch. In Lauf 3 zog Gossipsub binnen 4 s nach dem Verlust des Circuits auf WebRTC um, der Stall aus #393 trat hier also nicht auf — die geplante Messung, der Circuit-Ablauf nach 20 Minuten unter einer ruhenden direkten Verbindung, steht weiter aus und braucht eine verlustfreie Leitung oder ein Gerät, das neu wählt.
 - **Jede verlorene Verbindung meldet genau 60 s später ein zweites Schließen**, ohne Öffnen dazwischen. `@libp2p/websockets` versucht den Reset mit dem reservierten Close-Code 1006, Browser wie Node lehnen ihn ab, und der Socket bleibt eine Minute liegen (Fix upstream offen: libp2p/js-libp2p#3625). Das erste Schließen zählt.
 
+**Später am selben Tag, ohne die Ruhe, bei 50 und bei 500** (`app/bench/results/2026-10-14-resilience-replication-relay-{50,500}-aleph-0-10-10.json`): derselbe Relay, drei Rundreisen, dann sofort der Schub.
+
+| Bücher | Koppeln | Nachzügler hat alle | Mac → Telefon / Telefon → Mac, Median | Schub von 100    | wo der Schub lief                          |
+| ------ | ------- | ------------------- | ------------------------------------- | ---------------- | ------------------------------------------ |
+| 50     | 1,8 s   | 2,4 s               | 378 / 376 ms                          | 100/100 in 5,5 s | über den Circuit des Relays, WebRTC leer   |
+| 500    | 3,3 s   | 17,6 s              | 233 / 238 ms                          | 100/100 in 2,4 s | über den Circuit des Relays, WebRTC leer   |
+
+Diesmal lief auch der Schub selbst durch den Relay: Auf beiden Geräten lagen Gossipsubs Streams den ganzen Schub über auf dem Circuit, die WebRTC-Verbindung trug keinen (#393 von der anderen Seite gesehen — nichts schloss den Circuit, also stallte nichts). In einem Zwei-Minuten-Lauf sind die 10 GiB und 20 Minuten des Relays weit weg, und keine Verbindung ging verloren. Was es hinzufügt: Durch den Produktions-Relay kostet ein Schub von 100 zwei bis fünf Sekunden statt anderthalb über WebRTC, und die Leitung am Nachmittag war langsamer als am Morgen — 233 bis 378 ms je Rundreise statt 170.
+
 ## Netztrennung: Schreibzugriffe auf beiden Seiten, danach zusammengeführt
 
 Bücher mit 50 Buchungen auf beiden Geräten über den Relay; das Telefon pausiert sein Netz („Alles pausieren" im Menü des Abzeichens — der Connection Gater schließt, jede Verbindung wird aufgelegt); beide Seiten schreiben 20 Buchungen; das Telefon setzt fort.

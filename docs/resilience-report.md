@@ -55,6 +55,15 @@ What it says:
 - **A device that loses the relay never dials it again** (#403). `@libp2p/circuit-relay-v2` drops the reservation and the relay's keep-alive tag, libp2p's reconnect queue then finds nothing to redial, and the app has no fallback. Until the page reloads the device is invisible to any device not already connected to it; the two here kept syncing over WebRTC, which is why the burst still passed. In run 3 gossipsub moved to WebRTC within 4 s of losing the circuit, so the #393 stall did not occur here — the planned measurement, the circuit expiring at 20 minutes under an idle direct connection, is still open and needs a loss-free line or a device that redials.
 - **Every lost connection reports a second close exactly 60 s later**, without an open in between. `@libp2p/websockets` tries to reset the socket with the reserved close code 1006, browser and Node both refuse, and the socket lingers a minute (upstream fix open: libp2p/js-libp2p#3625). Read the first close.
 
+**Later the same day, without the quiet, at 50 and at 500** (`app/bench/results/2026-10-14-resilience-replication-relay-{50,500}-aleph-0-10-10.json`): the same relay, three round trips, then the burst at once.
+
+| books | pair  | late joiner gets all | Mac → phone / phone → Mac, median | burst of 100     | where the burst ran                       |
+| ----- | ----- | -------------------- | --------------------------------- | ---------------- | ----------------------------------------- |
+| 50    | 1.8 s | 2.4 s                | 378 / 376 ms                      | 100/100 in 5.5 s | through the relay's circuit, WebRTC idle  |
+| 500   | 3.3 s | 17.6 s               | 233 / 238 ms                      | 100/100 in 2.4 s | through the relay's circuit, WebRTC idle  |
+
+This time the burst itself went through the relay: on both devices gossipsub's streams sat on the circuit for the whole burst and the WebRTC connection carried none (#393, seen from the other side — nothing closed the circuit, so nothing stalled). In a two-minute run the relay's 10 GiB and 20 minutes are far away, and no connection was lost. What it adds: through the production relay a burst of 100 costs two to five seconds instead of one and a half over WebRTC, and the afternoon's line was slower than the morning's — 233 to 378 ms per round trip instead of 170.
+
 ## Partition: writes on both sides, merged after
 
 Books of 50 on both devices over the relay; the phone pauses its network ("Alles pausieren" in the badge's menu — the connection gater closes, every connection is hung up); both sides write 20 bookings; the phone resumes.
