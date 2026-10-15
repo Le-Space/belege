@@ -1,8 +1,14 @@
 <script>
 	// Verlauf: what the app did (sync, mail fetch, extraction, matching) and
 	// what a person decided, newest first, from the sealed `events` collection.
-	// Each entry links to its receipt and its booking.
+	// Each entry links to its receipt and its booking; the receipt shows its
+	// preview on hover, as on Zahlungen (#273, receipts/peek.js).
 	import { onMount } from 'svelte';
+	import ReceiptPeek from '$lib/ReceiptPeek.svelte';
+	import PeekLink from '$lib/receipts/PeekLink.svelte';
+	import { createPeek } from '$lib/receipts/peek.js';
+	import { receiptDate, receiptVendor } from '$lib/receipts/view.js';
+	import { formatDate, formatMoney } from '$lib/bank/format.js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
@@ -33,6 +39,15 @@
 
 	/** @param {string} id */
 	const receiptHref = (id) => `${resolve('/belege')}?receipt=${encodeURIComponent(id)}`;
+	let receiptById = $derived(new Map(app.receipts.map((r) => [String(r.id), r])));
+
+	// The hover preview of an entry's receipt: what was read, at a glance.
+	/** @type {{ receipt: Record<string, any>, anchor: HTMLElement } | null} */
+	let peeked = $state(null);
+	const peek = createPeek({
+		onchange: (v) =>
+			(peeked = /** @type {{ receipt: Record<string, any>, anchor: HTMLElement } | null} */ (v))
+	});
 	/** @param {string} id */
 	const txHref = (id) => `${resolve('/zahlungen')}?tx=${encodeURIComponent(id)}`;
 
@@ -47,6 +62,26 @@
 	const chip =
 		'rounded-full border px-3 py-1 text-sm aria-pressed:border-cyan-800 aria-pressed:bg-surface aria-pressed:font-medium aria-pressed:text-heading dark:aria-pressed:border-cyan';
 </script>
+
+{#if peeked}
+	<ReceiptPeek
+		receipt={peeked.receipt}
+		anchor={peeked.anchor}
+		title={receiptVendor(/** @type {any} */ (peeked.receipt))}
+		detail={[
+			peeked.receipt.amountCents != null
+				? formatMoney(Math.abs(peeked.receipt.amountCents), peeked.receipt.currency ?? 'EUR')
+				: '',
+			((d) => (d ? formatDate(d) : ''))(receiptDate(/** @type {any} */ (peeked.receipt)))
+		]
+			.filter(Boolean)
+			.join(' · ')}
+		onenter={() => peek.stay()}
+		onleave={() => peek.leave()}
+		onscrolled={() => peek.scrolled()}
+		onclose={() => peek.close()}
+	/>
+{/if}
 
 <h1 class="text-2xl font-bold text-heading">{t('verlauf.title')}</h1>
 <p class="mt-1 text-sm text-faint">{t('verlauf.intro')}</p>
@@ -119,10 +154,13 @@
 					{#if d.receiptId || d.transactionId}
 						<p class="mt-1 flex flex-wrap gap-3 text-sm">
 							{#if d.receiptId}
-								<a
-									class="text-text underline hover:text-heading"
+								<PeekLink
+									receipt={receiptById.get(String(d.receiptId))}
 									href={receiptHref(d.receiptId)}
-									data-testid="verlauf-open-receipt">{t('verlauf.openReceipt')}</a
+									{peek}
+									open={peeked?.receipt.id === d.receiptId}
+									class="text-text underline hover:text-heading"
+									testid="verlauf-open-receipt">{t('verlauf.openReceipt')}</PeekLink
 								>
 							{/if}
 							{#if d.transactionId}

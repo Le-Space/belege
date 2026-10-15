@@ -291,6 +291,13 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	await page.locator('[data-testid="verlauf-filter"][data-group="abruf"]').click();
 	await expect(events.filter({ hasText: 'E-Mails abgerufen' })).toHaveCount(2);
 	await page.locator('[data-testid="verlauf-filter"][data-group="auslesen"]').click();
+	// The receipt shows its preview on hover, as on Zahlungen.
+	await events.getByTestId('verlauf-open-receipt').hover();
+	const verlaufPeek = page.getByTestId('receipt-peek');
+	await expect(verlaufPeek).toBeVisible();
+	await expect(verlaufPeek).toContainText(RECEIPTS.wolkenfabrik.vendor);
+	await page.keyboard.press('Escape');
+	await expect(verlaufPeek).toHaveCount(0);
 	await events.getByTestId('verlauf-open-receipt').click();
 	await expect(detail.getByTestId('detail-vendor')).toHaveText(RECEIPTS.wolkenfabrik.vendor);
 	// A receipt opened by link shows its own month (#313); the rest of the spec looks at the year.

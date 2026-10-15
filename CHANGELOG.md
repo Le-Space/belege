@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **The Verlauf shows a receipt's preview,** as Zahlungen, Reisen and the export do: hovering "Beleg öffnen" on an entry – read, failed or decided – shows the receipt with its lens; on a touch screen a "Vorschau" button opens it.
+
 ## [0.11.1] – 2026-10-15
 
 ### Added
