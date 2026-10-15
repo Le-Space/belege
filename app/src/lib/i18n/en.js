@@ -538,7 +538,21 @@ export default {
 	consent: {
 		title: 'Before you start',
 		intro:
-			'Le Space Belege brings your bank transactions and receipts together. This explains where your data is stored and what leaves this computer – briefly for everyone, and in detail with the “Technical” switch.',
+			'Le Space Belege brings your bank accounts, crypto wallets and exchanges together with your receipts – locally on your device, not in a cloud. This explains where your data is stored and what leaves this computer – briefly for everyone, and in detail with the “Technical” switch.',
+		highlights: {
+			local: {
+				title: 'Local, not in a cloud',
+				text: 'Your books live in this browser and on your own devices, sealed with your passkey. Le Space runs no server that holds them.'
+			},
+			crypto: {
+				title: 'Crypto included',
+				text: 'Kraken and your own wallets – Bitcoin, Ethereum and other EVM chains, Cosmos, Monero – booked in euros at the day’s rate with its source, matched like bank payments, and in the DATEV export.'
+			},
+			books: {
+				title: 'Bank and receipts, matched',
+				text: 'Bank transactions and receipts from mail, upload or portals found for each other – one DATEV package a month for your bookkeeping.'
+			}
+		},
 		earlyHeading: 'Still early.',
 		earlyBody:
 			'Le Space Belege is in development. Keep storing your bank statements and receipts somewhere else as well.',

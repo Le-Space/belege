@@ -557,7 +557,21 @@ export default {
 	consent: {
 		title: 'Bevor du anfängst',
 		intro:
-			'Le Space Belege bringt deine Kontoumsätze und Belege zusammen. Hier steht, wo deine Daten liegen und was diesen Rechner verlässt – kurz für alle, und mit dem Schalter „Technisch“ im Detail.',
+			'Le Space Belege bringt deine Bankkonten, Krypto-Wallets und Börsenkonten mit deinen Belegen zusammen – lokal auf deinem Gerät, nicht in einer Cloud. Hier steht, wo deine Daten liegen und was diesen Rechner verlässt – kurz für alle, und mit dem Schalter „Technisch“ im Detail.',
+		highlights: {
+			local: {
+				title: 'Lokal, nicht in der Cloud',
+				text: 'Deine Bücher liegen in diesem Browser und auf deinen eigenen Geräten, versiegelt mit deinem Passkey. Le Space betreibt keinen Server, der sie hält.'
+			},
+			crypto: {
+				title: 'Krypto inklusive',
+				text: 'Kraken und eigene Wallets – Bitcoin, Ethereum und andere EVM-Chains, Cosmos, Monero – in Euro zum Tageskurs samt Quelle gebucht, wie Bankzahlungen abgeglichen und im DATEV-Export.'
+			},
+			books: {
+				title: 'Bank und Belege, abgeglichen',
+				text: 'Kontoumsätze und Belege aus Mail, Upload oder Portalen finden zueinander – jeden Monat ein DATEV-Paket für die Buchhaltung.'
+			}
+		},
 		earlyHeading: 'Noch früh.',
 		earlyBody:
 			'Le Space Belege ist in Entwicklung. Bewahre Kontoauszüge und Belege weiterhin auch anderswo auf.',

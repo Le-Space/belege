@@ -28,17 +28,26 @@
 	import AiMark from './AiMark.svelte';
 	import { technicalView } from './technical-view.js';
 
+	// Crypto right after privacy: with "local, not cloud" what sets Belege apart.
 	const FEATURE_GROUPS = [
 		'privacy',
+		'crypto',
 		'payments',
 		'receipts',
 		'matching',
 		'ai',
-		'crypto',
 		'export',
 		'travel',
 		'devices'
 	];
+
+	const HIGHLIGHTS = ['local', 'crypto', 'books'];
+	/** Each highlight's edge, in the colours of the sections that tell it in detail. */
+	const HIGHLIGHT_EDGE = /** @type {Record<string, string>} */ ({
+		local: 'border-l-data',
+		crypto: 'border-l-coral',
+		books: 'border-l-cyan'
+	});
 
 	/** @type {HTMLDialogElement | undefined} */
 	let dialog = $state();
@@ -123,8 +132,24 @@
 	<div
 		class="consent-body mt-3 grid min-h-0 gap-4 overflow-auto md:grid-cols-[minmax(0,1fr)_19rem]"
 	>
-		<div class="flex min-w-0 flex-col gap-5">
+		<!-- The story and what sets Belege apart, across both columns. -->
+		<div class="flex min-w-0 flex-col gap-3 md:col-span-2">
 			<p class="text-sm leading-relaxed">{t('consent.intro')}</p>
+			<!-- What sets Belege apart, before anything else: local, crypto, bank and receipts. -->
+			<ul class="grid gap-2 sm:grid-cols-3" data-testid="consent-highlights">
+				{#each HIGHLIGHTS as id (id)}
+					<li
+						class="rounded-md border border-l-4 border-border p-3 text-sm {HIGHLIGHT_EDGE[id] ??
+							''}"
+						data-highlight={id}
+					>
+						<p class="font-semibold text-heading">{t(`consent.highlights.${id}.title`)}</p>
+						<p class="mt-1 leading-relaxed">{t(`consent.highlights.${id}.text`)}</p>
+					</li>
+				{/each}
+			</ul>
+		</div>
+		<div class="flex min-w-0 flex-col gap-5">
 			<p class="rounded-md border border-border p-3 text-sm" data-testid="consent-warning">
 				<span class="font-medium text-heading">{t('consent.earlyHeading')}</span>
 				{t('consent.earlyBody')}
