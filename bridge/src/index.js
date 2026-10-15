@@ -15,6 +15,7 @@ import { createMatchAssist } from './llm/match-assist.js';
 import { createTransferAssist } from './llm/transfer-assist.js';
 import { createVendorAssist } from './llm/vendor-assist.js';
 import { createKrakenClient, parseKrakenCredentials } from './kraken.js';
+import { createPaperlessClient } from './paperless.js';
 import { createEnableBankingClient, enableBankingSecrets } from './enablebanking.js';
 import { createEnableBankingLinks } from './enablebanking-links.js';
 import { createWalletService } from './chains/index.js';
@@ -41,6 +42,7 @@ export { createExtractor, checkExtraction } from './llm/extract.js';
 export { redact } from './llm/redact.js';
 export { createRateService, RATE_SOURCES, RateError } from './rates.js';
 export { createKrakenClient, KrakenError, parseAsset } from './kraken.js';
+export { createPaperlessClient, PaperlessError } from './paperless.js';
 export {
 	createEnableBankingClient,
 	EnableBankingError,
@@ -67,6 +69,7 @@ export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
  * @param {import('./keychain.js').Keychain} [options.llmKeychain] the LLM API key
  * @param {import('./keychain.js').Keychain} [options.coingeckoKeychain] an optional CoinGecko demo key
  * @param {import('./keychain.js').Keychain} [options.krakenKeychain] the Kraken API key, JSON { key, secret }
+ * @param {import('./keychain.js').Keychain} [options.paperlessKeychain] the Paperless-ngx API token
  * @param {import('./keychain.js').Keychain} [options.enablebankingKeychain] the key to the sealed Enable Banking file
  * @param {import('./keychain.js').Keychain} [options.alchemyKeychain] an optional Alchemy API key (own EVM wallets)
  * @param {(network: string) => string} [options.alchemyBaseUrl] tests: a fake Alchemy on 127.0.0.1
@@ -100,6 +103,7 @@ export async function startBridge({
 	llmKeychain = systemKeychain({ account: 'llm' }),
 	coingeckoKeychain = systemKeychain({ account: 'coingecko' }),
 	krakenKeychain = systemKeychain({ account: 'kraken' }),
+	paperlessKeychain = systemKeychain({ account: 'paperless' }),
 	enablebankingKeychain = systemKeychain({ account: 'enablebanking' }),
 	alchemyKeychain = systemKeychain({ account: 'alchemy' }),
 	alchemyBaseUrl,
@@ -307,6 +311,12 @@ export async function startBridge({
 					baseUrl: config.kraken.baseUrl,
 					pageDelayMs: krakenPageDelayMs,
 					getCredentials: async () => parseKrakenCredentials(await krakenKeychain.read())
+				})
+			: null,
+		paperless: config.paperless.configured
+			? createPaperlessClient({
+					baseUrl: config.paperless.baseUrl,
+					getToken: () => paperlessKeychain.read()
 				})
 			: null,
 		enablebanking: enablebankingClient,

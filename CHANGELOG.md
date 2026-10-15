@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Paperless-ngx as a receipt source, the bridge's part** (#318). `pnpm setup:paperless` stores the address (https, or http on this machine only) and the API token (keychain). `GET /paperless/documents?since=` lists what Paperless added, with its OCR text, tag, correspondent and document type names; `GET /paperless/document?id=` hands out the original file when it is a PDF or an image – so a mail attachment and its Paperless copy have the same hash – else the archive PDF. No redirect is followed, nothing over 15 MB, and the log gets counts, never titles or text. The app's side follows.
+
 ### Changed
 
 - **The consent screen says first what sets Belege apart** (#412). The intro names bank accounts, crypto wallets and exchanges together with receipts – locally on the device, not in a cloud. Three highlights follow right under it, before anything is folded away: _Local, not in a cloud_, _Crypto included_ (Kraken and own wallets, booked in euros at the day's rate, matched like bank payments, in the DATEV export) and _Bank and receipts, matched_. In the folded feature list, crypto now comes right after privacy. What is consented to is unchanged.

@@ -37,6 +37,7 @@ export const ACCOUNTS = /** @type {const} */ ({
 	imap: { what: 'mail password', setup: 'setup:mail' },
 	llm: { what: 'LLM API key', setup: 'setup:llm' },
 	kraken: { what: 'Kraken API key', setup: 'setup:kraken' },
+	paperless: { what: 'Paperless-ngx API token', setup: 'setup:paperless' },
 	bitcoin: { what: 'Bitcoin zpub', setup: 'setup:bitcoin' },
 	coingecko: { what: 'CoinGecko API key', setup: 'setup:coingecko' },
 	alchemy: { what: 'Alchemy API key', setup: 'setup:alchemy' },
