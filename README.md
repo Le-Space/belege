@@ -52,6 +52,8 @@ Each source is set up once, in the terminal; secrets go into the macOS keychain,
 
 Own Cosmos and EVM wallets are added in the app (_Integrationen → Eigene Wallets_) and need no setup.
 
+**To try it, or for a demo, without any real data:** `pnpm demo` starts the bridge with a made-up bank account, a made-up mailbox with invoices as PDFs, and your local Ollama if it runs (else a fake model; `-- --fake-llm` forces it). Stop your own bridge first; the demo takes its port, keeps its configuration in a temporary folder and deletes it on Ctrl+C. Use a fresh browser profile and a new passkey for it.
+
 ## Development
 
 ```bash

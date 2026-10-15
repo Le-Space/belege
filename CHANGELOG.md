@@ -8,6 +8,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **`pnpm demo`: Belege with made-up books,** for trying it out or recording a demo. It starts the bridge in test mode on its usual port with a fake Hibiscus (a business account whose payments fit the invoices), a fake mailbox (invoices as PDFs, a phishing look-alike, a private mail, an invitation) and the local Ollama when it runs with its model, else a fake model (`-- --fake-llm`); `-- --lan` adds the relay for a phone in the same Wi-Fi. Nothing real is read or written; the configuration lives in a temporary folder, deleted on Ctrl+C.
 - **Travel receipts ask: business trip, business without a trip, or private** (#425). Every trip proposal on _Reisen_ now has three answers: "Als Reise anlegen", "Geschäftlich, keine Reise" (was "Keine Reise") and "Privat", which sets each receipt aside as private and marks a payment from the business account that paid one as private (#293, #172), both reversible. A conference or event ticket alone is a proposal of its own ("Veranstaltung in …"), so it is asked about too. The AI only reads the receipts; rules propose, and nothing is decided without a click.
 - **The Verlauf shows a receipt's preview,** as Zahlungen, Reisen and the export do: hovering "Beleg öffnen" on an entry – read, failed or decided – shows the receipt with its lens; on a touch screen a "Vorschau" button opens it.
 

@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "pnpm --filter @belege/app dev",
     "bridge": "pnpm --filter @belege/bridge start",
+    "demo": "node bridge/scripts/demo.mjs",
     "setup:hibiscus": "pnpm --filter @belege/bridge setup:hibiscus",
     "setup:mail": "pnpm --filter @belege/bridge setup:mail",
     "setup:llm": "pnpm --filter @belege/bridge setup:llm",
