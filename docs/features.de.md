@@ -20,6 +20,7 @@ Was Le Space Belege heute kann, nach Kategorien. Dieselbe Liste steht kürzer au
 
 - **Von überall:**
   - aus dem Buchhaltungs-Postfach (IMAP, nur lesend), per Upload und aus einem geteilten Ordner;
+  - aus deinem eigenen **Paperless-ngx** ([#318](https://github.com/Le-Space/belege/issues/318)), über die Bridge (`pnpm setup:paperless`): was seit dem letzten Abruf neu ist, beim Öffnen der Belege-Seite und auf Klick. Die Originaldatei ist der Beleg; ein Mail-Anhang, der auch in Paperless landete, wird so an seinen Bytes als doppelt erkannt. Ein Scan oder Foto ohne Textebene wird mit dem Text gelesen, den Paperless erkannt hat. Solange Paperless an ist, ruft Belege das Postfach nicht selbst ab – das machen die Mailregeln von Paperless –, außer du schaltest es ein; dann bleiben Dokumente mit den genannten Tags draußen;
   - aus Kundenportalen über einen Browser auf dem Rechner der Bridge: Vodafone MeinKabel, und eigene Portale, deren Weg du einmal aufzeichnest;
   - auf Klick aus der Suche im privaten Postfach, direkt von der Buchung aus.
 - **Geprüft.**

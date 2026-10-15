@@ -21,6 +21,8 @@
 	import { scamContext, scamSigns } from '$lib/receipts/scam.js';
 	import MonthPicker from '$lib/MonthPicker.svelte';
 	import AiMark from '$lib/AiMark.svelte';
+	import PaperlessCard from '$lib/paperless/PaperlessCard.svelte';
+	import { cleanPaperlessSettings, loadPaperlessSettings } from '$lib/paperless/import.js';
 	import ReceiptPeek from '$lib/ReceiptPeek.svelte';
 	import OutlayCard from '$lib/outlays/OutlayCard.svelte';
 	import PayrollDocCard from '$lib/matching/PayrollDocCard.svelte';
@@ -48,7 +50,7 @@
 	import { getSetting, setSetting } from '$lib/store/settings.js';
 	import { formatDate, formatMoney } from '$lib/bank/format.js';
 	import { fetchAccountingMail, needsConfirmation } from '$lib/receipts/import.js';
-	import { extractable } from '$lib/receipts/extract.js';
+	import { extractable, ocrText } from '$lib/receipts/extract.js';
 	import { loadUpload, upload, uploadFiles } from '$lib/receipts/upload.svelte.js';
 	import { isUndated } from '$lib/year/year.js';
 	import {
@@ -97,8 +99,15 @@
 
 	/** @type {ReturnType<typeof createBridgeClient> | null} */
 	let client = $state(null);
-	/** @type {{ mail: boolean, llm: boolean, address: string } | null} */
+	/** @type {{ mail: boolean, llm: boolean, paperless: boolean, address: string } | null} */
 	let bridgeInfo = $state(null);
+	/** Paperless-ngx (#318): the last fetch, the tags left out, mail fetched here too. */
+	let paperless = $state(cleanPaperlessSettings(null));
+	/** Belege reads the mailbox itself: no Paperless, or the person wants both. */
+	let paperlessOn = $derived(
+		Boolean(/** @type {{ paperless?: boolean } | null} */ (bridgeInfo)?.paperless)
+	);
+	let ownMail = $derived(!paperlessOn || paperless.mailToo);
 
 	/** @type {string} 'all', 'mail', 'upload', 'folder' or `portal:<id>` */
 	let source = $state('all');
@@ -318,6 +327,7 @@
 		}
 		folderHandle = await savedFolder();
 		readAfterFetch = (await getSetting(store.settings, 'mailFetch'))?.readAfterFetch !== false;
+		paperless = await loadPaperlessSettings(store.settings);
 		await loadUpload();
 		const saved = await getSetting(store.settings, 'bridge');
 		if (!saved?.token) return;
@@ -333,6 +343,7 @@
 			bridgeInfo = {
 				mail: health.mail?.configured ?? false,
 				llm: health.llm?.configured ?? false,
+				paperless: health.paperless?.configured ?? false,
 				address: health.mail?.accountingAddress ?? ''
 			};
 		} catch {
@@ -410,6 +421,13 @@
 		// matching run comes after, with their amounts and vendors.
 		const ctx = queueContext();
 		if (readAfterFetch && ctx && toRead.length) await extractAll(ctx, toRead);
+		await runMatchingNow();
+	}
+
+	/** New receipts from Paperless: read them (switchable, as after a mail fetch), then match. */
+	async function paperlessNew(/** @type {string[]} */ ids) {
+		const ctx = queueContext();
+		if (readAfterFetch && ctx && ids.length) await extractAll(ctx, ids);
 		await runMatchingNow();
 	}
 
@@ -627,7 +645,10 @@
 	/** @param {Receipt} r */
 	function extractionNote(r) {
 		if (extractRun.errors[r.id]) return extractRun.errors[r.id];
-		if (r.extractionError === 'image' || (String(r.mime).startsWith('image/') && !r.extraction)) {
+		if (
+			r.extractionError === 'image' ||
+			(String(r.mime).startsWith('image/') && !r.extraction && !ocrText(r))
+		) {
 			return t('belege.imageGap');
 		}
 		if (r.extractionError === 'no-text') return t('belege.noText');
@@ -638,18 +659,28 @@
 	const verdictText = (r) =>
 		r.outgoing ? t('belege.verdict.outgoing') : t(`belege.verdict.${r.authVerdict ?? 'none'}`);
 
-	const sourceButtons = /** @type {const} */ (['all', 'mail', 'upload', 'folder']);
-	// A portal is listed once it has receipts.
+	// Paperless takes the mail entry's place while it is on (#318); either stays
+	// listed while it has receipts. A portal is listed once it has receipts.
+	let sourceButtons = $derived(
+		/** @type {('all' | 'mail' | 'paperless' | 'upload' | 'folder')[]} */ ([
+			'all',
+			...(ownMail || counts.mail ? /** @type {const} */ (['mail']) : []),
+			...(paperlessOn || counts.paperless ? /** @type {const} */ (['paperless']) : []),
+			'upload',
+			'folder'
+		])
+	);
 	let sourceList = $derived([
 		...sourceButtons.map((s) => ({ key: s, label: sourceLabel(s), count: counts[s] })),
 		...portalSources(receipts)
 	]);
-	/** @param {'all' | 'mail' | 'upload' | 'folder'} s */
+	/** @param {'all' | 'mail' | 'paperless' | 'upload' | 'folder'} s */
 	function sourceLabel(s) {
 		if (s === 'all') return t('belege.sourceAll');
 		if (s === 'mail') {
 			return t('belege.sourceMail', { address: bridgeInfo?.address || 'buchhaltung@' });
 		}
+		if (s === 'paperless') return t('belege.sourcePaperless');
 		if (s === 'upload') return t('belege.sourceUpload');
 		return t('belege.sourceFolder');
 	}
@@ -711,63 +742,73 @@
 		</p>
 	{/if}
 
-	<section class="mt-4 {card} px-5 py-4" aria-labelledby="mail-h">
-		<h2 id="mail-h" class="text-lg font-semibold">{t('belege.mailTitle')}</h2>
-		{#if !client}
-			<p class="mt-1 text-sm text-text" data-testid="mail-no-bridge">
-				{t('belege.mailNoBridge')}<a class="underline" href={resolve('/integrationen')}
-					>{t('belege.mailNoBridgeLink')}</a
-				>{t('belege.mailNoBridgeAfter')}
-			</p>
-		{:else}
-			<p class="mt-1 text-sm text-text">
-				{t('belege.mailIntro', { address: bridgeInfo?.address || 'buchhaltung@' })}
-			</p>
-			{#if bridgeInfo && !bridgeInfo.mail}
-				<p class="mt-2 text-sm text-danger">{t('belege.mailNotSetUp')}</p>
-			{/if}
-			<div class="mt-3 flex flex-wrap items-end gap-3">
-				<MonthPicker bind:value={monthFrom} label={t('belege.mailFrom')} testid="mail-from" />
-				<MonthPicker bind:value={monthTo} label={t('belege.mailTo')} testid="mail-to" />
-				<button
-					type="button"
-					class="text-sm text-text underline hover:text-heading"
-					onclick={() => {
-						const last = new Date().getFullYear() - 1;
-						monthFrom = `${last}-01`;
-						monthTo = `${last}-12`;
-					}}
-					data-testid="mail-last-year">{t('belege.mailLastYear')}</button
-				>
-				<button
-					type="button"
-					class={primary}
-					onclick={fetchMail}
-					disabled={fetching || !monthFrom || !monthTo}
-					data-testid="mail-fetch"
-					>{fetching ? t('belege.mailFetching') : t('belege.mailFetch')}</button
-				>
-			</div>
-			<label class="mt-2 flex items-center gap-2 text-sm text-text">
-				<input
-					type="checkbox"
-					checked={readAfterFetch}
-					onchange={(e) => setReadAfterFetch(e.currentTarget.checked)}
-					data-testid="mail-read-after"
-				/>
-				<span class="inline-flex items-center gap-1"><AiMark />{t('belege.mailReadAfter')}</span>
-			</label>
-			{#if fetchResult}
-				<p class="mt-2 text-sm text-heading" role="status" data-testid="mail-result">
-					{fetchResult}
+	{#if client && paperlessOn}
+		<PaperlessCard {client} bind:settings={paperless} onNew={paperlessNew} />
+	{/if}
+
+	{#if !ownMail}
+		<p class="mt-2 text-sm text-faint" data-testid="mail-by-paperless">
+			{t('belege.paperless.mailOff')}
+		</p>
+	{:else}
+		<section class="mt-4 {card} px-5 py-4" aria-labelledby="mail-h">
+			<h2 id="mail-h" class="text-lg font-semibold">{t('belege.mailTitle')}</h2>
+			{#if !client}
+				<p class="mt-1 text-sm text-text" data-testid="mail-no-bridge">
+					{t('belege.mailNoBridge')}<a class="underline" href={resolve('/integrationen')}
+						>{t('belege.mailNoBridgeLink')}</a
+					>{t('belege.mailNoBridgeAfter')}
 				</p>
+			{:else}
+				<p class="mt-1 text-sm text-text">
+					{t('belege.mailIntro', { address: bridgeInfo?.address || 'buchhaltung@' })}
+				</p>
+				{#if bridgeInfo && !bridgeInfo.mail}
+					<p class="mt-2 text-sm text-danger">{t('belege.mailNotSetUp')}</p>
+				{/if}
+				<div class="mt-3 flex flex-wrap items-end gap-3">
+					<MonthPicker bind:value={monthFrom} label={t('belege.mailFrom')} testid="mail-from" />
+					<MonthPicker bind:value={monthTo} label={t('belege.mailTo')} testid="mail-to" />
+					<button
+						type="button"
+						class="text-sm text-text underline hover:text-heading"
+						onclick={() => {
+							const last = new Date().getFullYear() - 1;
+							monthFrom = `${last}-01`;
+							monthTo = `${last}-12`;
+						}}
+						data-testid="mail-last-year">{t('belege.mailLastYear')}</button
+					>
+					<button
+						type="button"
+						class={primary}
+						onclick={fetchMail}
+						disabled={fetching || !monthFrom || !monthTo}
+						data-testid="mail-fetch"
+						>{fetching ? t('belege.mailFetching') : t('belege.mailFetch')}</button
+					>
+				</div>
+				<label class="mt-2 flex items-center gap-2 text-sm text-text">
+					<input
+						type="checkbox"
+						checked={readAfterFetch}
+						onchange={(e) => setReadAfterFetch(e.currentTarget.checked)}
+						data-testid="mail-read-after"
+					/>
+					<span class="inline-flex items-center gap-1"><AiMark />{t('belege.mailReadAfter')}</span>
+				</label>
+				{#if fetchResult}
+					<p class="mt-2 text-sm text-heading" role="status" data-testid="mail-result">
+						{fetchResult}
+					</p>
+				{/if}
+				{#if fetchError}
+					<p class="mt-2 text-sm text-danger" role="alert" data-testid="mail-error">{fetchError}</p>
+					<WayOut message={fetchError} />
+				{/if}
 			{/if}
-			{#if fetchError}
-				<p class="mt-2 text-sm text-danger" role="alert" data-testid="mail-error">{fetchError}</p>
-				<WayOut message={fetchError} />
-			{/if}
-		{/if}
-	</section>
+		</section>
+	{/if}
 
 	{#if receipts.length === 0}
 		<p class="mt-6 {card} px-5 py-4 text-text" data-testid="receipts-empty">
@@ -1464,7 +1505,7 @@
 								{extractionNote(selected)}
 							</p>
 						{/if}
-						{#if client && !needsConfirmation(selected) && !String(selected.mime).startsWith('image/')}
+						{#if client && !needsConfirmation(selected) && (!String(selected.mime).startsWith('image/') || ocrText(selected))}
 							<button
 								type="button"
 								class="mt-3 inline-flex items-center gap-1.5 {primary}"

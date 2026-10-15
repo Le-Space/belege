@@ -42,7 +42,7 @@ describe('receipts view', () => {
 	it('counts per source', () => {
 		expect(
 			sourceCounts([r({ source: 'mail' }), r({ source: 'mail' }), r({}), r({ source: 'folder' })])
-		).toEqual({ all: 4, mail: 2, upload: 1, folder: 1 });
+		).toEqual({ all: 4, mail: 2, paperless: 0, upload: 1, folder: 1 });
 	});
 
 	it('vendor: the extraction, else the sender name, else the file', () => {

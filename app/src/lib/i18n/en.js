@@ -310,6 +310,7 @@ export default {
 				"Aleph did not keep the backup: the bridge's account has {credits} credits, and keeping this backup for a day needs {required}. Put credits on it (app.aleph.cloud → Credits) and back up again.",
 			alephRejected: 'Aleph did not keep the backup ({error}).',
 			mailNotSetUp: 'The mailbox is not set up on the bridge (pnpm setup:mail).',
+			paperlessNotSetUp: 'Paperless is not set up on the bridge (pnpm setup:paperless).',
 			llmNotSetUp: 'Reading receipts is not set up on the bridge (pnpm setup:llm).',
 			senderUnverified: 'The sender is not confirmed (DKIM/SPF): approve first.',
 			noModel: 'No model gave a usable answer ({reasons}).'
@@ -559,6 +560,7 @@ export default {
 		technicalHeading: 'Under the hood',
 		integrationNames: {
 			monero: 'Monero (the wallet’s export, read only in the browser)',
+			paperless: 'Paperless-ngx (your own archive, on this machine)',
 			'aleph-backup': 'Aleph Cloud (backup through the OrbitDB Storage Bridge)',
 			hibiscus: 'Hibiscus (banks via FinTS/HBCI)',
 			camt: 'CAMT.053 bank statements, e.g. Revolut Business',
@@ -732,6 +734,7 @@ export default {
 			groups: {
 				banks: 'Banks and bank statements',
 				exchanges: 'Exchanges',
+				archives: 'Document archives',
 				chains: 'Blockchains (own wallets)',
 				data: 'Data and rate sources',
 				explorers: 'Block explorers (link only)',
@@ -749,9 +752,9 @@ export default {
 			leaves: 'What leaves the computer:',
 			bridge: {
 				name: 'Bridge on this computer (127.0.0.1)',
-				text: 'Fetches transactions from Hibiscus and receipts from your mailbox. The app only receives accounts you have approved on the bridge, and only emails to the bookkeeping address.',
+				text: 'Fetches transactions from Hibiscus and receipts from your mailbox or your Paperless-ngx. The app only receives accounts you have approved on the bridge, and only emails to the bookkeeping address.',
 				leaves:
-					'The bridge queries your mailbox (IMAP) and sends redacted text to the language model for extraction (see below). From a calendar invitation (.ics) it takes only title, place and times – no attendees, no organiser, no links. Hibiscus establishes the connection to your bank (FinTS).',
+					'The bridge queries your mailbox (IMAP) and sends redacted text to the language model for extraction (see below). From a calendar invitation (.ics) it takes only title, place and times – no attendees, no organiser, no links. Hibiscus establishes the connection to your bank (FinTS). The bridge asks Paperless-ngx only on this machine or over https, with a token from the keychain, for new documents and their recognised text.',
 				technical:
 					'The bridge listens only on 127.0.0.1 (port 8765) and starts on no other address. Pairing uses a one-time code; the bearer token is stored encrypted in the app’s settings, and on the bridge only its hash. CORS allows only the registered app addresses; the Host header must be 127.0.0.1 or localhost. Jameica’s certificate is pinned; the Hibiscus password, IMAP token and API key are kept in the macOS Keychain. Accounts without an approved IBAN ending are not queried at all. The bridge opens mailboxes read-only.'
 			},
@@ -2090,6 +2093,21 @@ export default {
 				'foreign-links': 'Links to hosts other than the sender: {detail}'
 			}
 		},
+		paperless: {
+			title: 'Fetch from Paperless',
+			intro:
+				'Fetches through the bridge what Paperless-ngx has added since the last fetch – when this page opens and on a click. The original file becomes the receipt; a scan without a text layer is read with the text Paperless recognised.',
+			fetch: 'Fetch from Paperless',
+			fetching: 'Fetching …',
+			result:
+				'{documents} documents · new: {new} · already there: {known} · duplicate: {duplicate} · left out: {skipped} · no receipt file: {unsupported}',
+			mailToo: 'Belege still fetches the mailbox itself',
+			skipTags: 'Leave out documents with these Paperless tags (comma-separated)',
+			skipTagsHint:
+				'The tag your Paperless mail rule sets: then Belege reads each email once, through the mailbox.',
+			mailOff:
+				'Paperless fetches the emails: Belege does not read the mailbox itself, or every invoice would come twice. Switch it in the Paperless card.'
+		},
 		mailFetch: 'Fetch emails',
 		mailFetching: 'Fetching …',
 		mailNoBridge: 'For emails and reading receipts, pair the bridge under ',
@@ -2112,6 +2130,7 @@ export default {
 		sourceMail: 'Email {address}',
 		sourceUpload: 'Uploaded',
 		sourceFolder: 'Folder',
+		sourcePaperless: 'Paperless',
 		search: 'Search receipts',
 		searchPlaceholder: 'Search: vendor, amount, date, invoice number',
 		extractAll: 'Extract all new ({count})',
@@ -2248,6 +2267,7 @@ export default {
 			mail: 'Email',
 			upload: 'Uploaded',
 			folder: 'Folder',
+			paperless: 'Paperless-ngx',
 			portal: 'Customer portal',
 			eigenbeleg: 'Eigenbeleg',
 			'invoice-app': 'Invoice app (own invoice)'
@@ -2315,6 +2335,7 @@ export default {
 			'bank-sync': 'Transactions fetched',
 			'booking-changed': 'Booking changed on fetch',
 			'mail-fetch': 'Emails fetched',
+			'paperless-fetch': 'Fetched from Paperless',
 			'file-import-upload': 'Receipts uploaded',
 			'file-import-folder': 'Folder read',
 			'sender-verdict': 'Sender check updated',
@@ -2339,6 +2360,8 @@ export default {
 			mailFetch:
 				'{from} to {to}: {mails} emails · new: {new} · already there: {skipped} · duplicate: {duplicate}',
 			fileImport: 'new: {new} · duplicate: {duplicate} · not supported: {unsupported}',
+			paperlessFetch:
+				'{documents} documents · new: {new} · already there: {known} · duplicate: {duplicate} · left out: {skipped}',
 			senderVerdict: '{vendor}: {was} → {now}',
 			senderReleased: ' – released for reading',
 			extract: '{vendor} · {model} · {seconds} s · {tokens} tokens · {redactions} spots redacted',
@@ -3387,6 +3410,7 @@ export default {
 				wallets: 'Own wallets',
 				aleph: 'Aleph Cloud',
 				mail: 'Mailbox',
+				paperless: 'Paperless-ngx',
 				portale: 'Customer portals',
 				'rechnungs-app': 'Invoice app',
 				assistent: 'Access for an assistant'
@@ -3425,6 +3449,7 @@ export default {
 				aleph: '{count} accounts with credits',
 				alephNone: 'Hosting credits of your own Ethereum addresses',
 				mail: 'Receipts from the bookkeeping address – under Receipts',
+				paperless: 'Documents from your Paperless archive – under Receipts (pnpm setup:paperless)',
 				portals: 'Fetch invoices directly from customer accounts',
 				invoiceApp: 'Eigenbelege with your number sequence and letterhead',
 				assistant: 'Let someone read one year, redacted, with an expiry'

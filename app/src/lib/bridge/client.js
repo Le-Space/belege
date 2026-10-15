@@ -17,11 +17,12 @@ import { noteWayOut, wayOutKind } from '../help/way-out.js';
 export const DEFAULT_BRIDGE_URL = import.meta.env?.VITE_BRIDGE_URL || 'http://127.0.0.1:8765';
 
 export class BridgeError extends Error {
-	/** @param {string} message @param {number} status */
-	constructor(message, status) {
+	/** @param {string} message @param {number} status @param {string | null} [code] the bridge's */
+	constructor(message, status, code = null) {
 		super(message);
 		this.name = 'BridgeError';
 		this.status = status;
+		this.code = code;
 	}
 }
 
@@ -73,7 +74,7 @@ const withTerms = (body) => JSON.stringify({ ...body, redactTerms: redactTerms()
  */
 function failed(message, status, body) {
 	noteWayOut(message, wayOutKind(status, body));
-	return new BridgeError(message, status);
+	return new BridgeError(message, status, body?.code ?? null);
 }
 
 /**
@@ -259,7 +260,9 @@ export function createBridgeClient({
 						? t('messages.bridge.mailNotSetUp')
 						: body?.code === 'LLM_NOT_SET_UP'
 							? t('messages.bridge.llmNotSetUp')
-							: body?.error
+							: body?.code === 'PAPERLESS_NOT_SET_UP'
+								? t('messages.bridge.paperlessNotSetUp')
+								: body?.error
 			});
 			if (res.status === 402 && body?.code === 'ALEPH_BACKUP_REJECTED') {
 				// Aleph refused to keep a backup; with too little credit it says how much is needed.
@@ -295,7 +298,7 @@ export function createBridgeClient({
 
 	return {
 		url: base,
-		/** @returns {Promise<{ ok: boolean, paired: boolean, pairingOpen: boolean, hibiscus: { configured: boolean }, mail?: { configured: boolean, accountingAddress: string | null }, llm?: { configured: boolean, models: string[] }, kraken?: { configured: boolean }, enablebanking?: { configured: boolean }, backup?: { aleph: boolean }, wallets?: { available: boolean } }>} */
+		/** @returns {Promise<{ ok: boolean, paired: boolean, pairingOpen: boolean, hibiscus: { configured: boolean }, mail?: { configured: boolean, accountingAddress: string | null }, llm?: { configured: boolean, models: string[] }, kraken?: { configured: boolean }, paperless?: { configured: boolean }, enablebanking?: { configured: boolean }, backup?: { aleph: boolean }, wallets?: { available: boolean } }>} */
 		health: () => call('/health'),
 		/** @param {string} code @returns {Promise<string>} the token */
 		async pair(code) {
@@ -474,6 +477,26 @@ export function createBridgeClient({
 		 *   `transferRefs`: whether Kraken gave the on-chain hashes of deposits and withdrawals
 		 */
 		krakenLedgers: (since) => call(`/kraken/ledgers?since=${encodeURIComponent(since)}`),
+		/**
+		 * What Paperless-ngx added after `since`, with its OCR text (#318).
+		 *
+		 * @param {string | null} since ISO, or null for everything
+		 * @returns {Promise<import('../paperless/import.js').PaperlessDocument[]>}
+		 */
+		async paperlessDocuments(since) {
+			const q = since ? `?${new URLSearchParams({ since })}` : '';
+			return (await call(`/paperless/documents${q}`)).documents ?? [];
+		},
+		/**
+		 * One Paperless document's bytes: the original PDF or image, else its archive PDF.
+		 *
+		 * @param {number} id
+		 * @returns {Promise<Uint8Array>}
+		 */
+		paperlessDocument: (id) =>
+			/** @type {Promise<Uint8Array>} */ (
+				call(`/paperless/document?${new URLSearchParams({ id: String(id) })}`, {}, true)
+			),
 		/**
 		 * The chains an own wallet can be on: endpoints and explorers.
 		 *

@@ -20,6 +20,7 @@ What Le Space Belege does today, by category. The app shows the same list, short
 
 - **From everywhere:**
   - the accounting mailbox (IMAP, read-only), uploads and a shared folder;
+  - your own **Paperless-ngx** ([#318](https://github.com/Le-Space/belege/issues/318)), through the bridge (`pnpm setup:paperless`): what it added since the last fetch, when the Belege page opens and on a click. The original file is the receipt, so a mail attachment that also reached Paperless is caught as a duplicate by its bytes; a scan or photo without a text layer is read with the text Paperless recognised. While Paperless is on, Belege does not read the mailbox itself – Paperless' mail rules do – unless you switch that on, and then documents with the tags you name are left out;
   - customer portals through a browser on the bridge's Mac: Vodafone MeinKabel, and portals of your own by recording the way once;
   - on a click, a search in the private mailbox from the booking.
 - **Checked.**

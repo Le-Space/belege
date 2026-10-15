@@ -30,7 +30,7 @@ import { formatDate } from '../bank/format.js';
 
 /**
  * @typedef {object} Facts
- * @property {{ token: string | null, state: string, via?: 'local' | 'device', health: { hibiscus: boolean, kraken: boolean, mail: boolean, llm: boolean, backup?: boolean } }} bridge
+ * @property {{ token: string | null, state: string, via?: 'local' | 'device', health: { hibiscus: boolean, kraken: boolean, paperless?: boolean, mail: boolean, llm: boolean, backup?: boolean } }} bridge
  * @property {{ flag: boolean, online: boolean, removed: boolean, error: string | null, connected: number }} devices
  * @property {Record<string, any>[]} accounts the books' accounts
  * @property {Record<string, any>[]} events newest first
@@ -184,6 +184,16 @@ export function integrationsOverview(f) {
 			state: f.bridge.health.mail && paired ? 'setUp' : 'notSetUp',
 			line: 'mail',
 			when: f.events.find((e) => e.kind === 'mail-fetch')?.at ?? null
+		},
+		{
+			id: 'paperless',
+			href: '/belege',
+			group: 'sources',
+			initials: 'Pl',
+			kind: viaBridge(f.bridge.health.paperless ?? false),
+			state: f.bridge.health.paperless && paired ? 'setUp' : 'notSetUp',
+			line: 'paperless',
+			when: f.events.find((e) => e.kind === 'paperless-fetch')?.at ?? null
 		},
 		{
 			id: 'portale',

@@ -98,12 +98,18 @@ export function groupReceiptsByMonth(receipts) {
 
 /**
  * @param {ReceiptLike[]} receipts
- * @returns {{ all: number, mail: number, upload: number, folder: number }}
+ * @returns {{ all: number, mail: number, paperless: number, upload: number, folder: number }}
  */
 export function sourceCounts(receipts) {
-	const counts = { all: receipts.length, mail: 0, upload: 0, folder: 0 };
+	const counts = { all: receipts.length, mail: 0, paperless: 0, upload: 0, folder: 0 };
 	for (const r of receipts) {
-		if (r.source === 'mail' || r.source === 'upload' || r.source === 'folder') counts[r.source]++;
+		if (
+			r.source === 'mail' ||
+			r.source === 'paperless' ||
+			r.source === 'upload' ||
+			r.source === 'folder'
+		)
+			counts[r.source]++;
 	}
 	return counts;
 }

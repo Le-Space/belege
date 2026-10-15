@@ -198,6 +198,68 @@ describe('extractReceipt', () => {
 		expect(extractable(await receipts.list()).map((r) => r.fileName)).toEqual([]);
 	});
 
+	it('a scan or photo from Paperless is read with its OCR text (#318)', async () => {
+		const { receipts, blobs, client, sent } = await setup();
+		const ocr = 'Musterbaumarkt\nSchrauben 4,99\nSUMME EUR 4,99';
+		const { record: photo } = await importFile({
+			receipts,
+			blobs,
+			bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 3, 4]),
+			fileName: 'scan-0001.jpg',
+			source: 'paperless',
+			sourceRef: 'paperless:12',
+			fields: { subject: 'Kassenbon Baumarkt', paperlessContent: ocr }
+		});
+		const { record: scan } = await importFile({
+			receipts,
+			blobs,
+			bytes: new TextEncoder().encode('%PDF-1.4 scanned'),
+			fileName: 'scan.pdf',
+			source: 'paperless',
+			sourceRef: 'paperless:13',
+			fields: { paperlessContent: ocr }
+		});
+		const { record: short } = await importFile({
+			receipts,
+			blobs,
+			bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 5, 6]),
+			fileName: 'blurry.jpg',
+			source: 'paperless',
+			sourceRef: 'paperless:14',
+			fields: { paperlessContent: '4,99' }
+		});
+		// Both with OCR text are taken by "Alle neuen auslesen"; the one without enough is not.
+		expect(
+			extractable(await receipts.list())
+				.map((r) => r.fileName)
+				.sort()
+		).toEqual(['scan-0001.jpg', 'scan.pdf']);
+
+		await extractReceipt({ client, receipts, blobs, record: /** @type {any} */ (photo), pdfText });
+		await extractReceipt({
+			client,
+			receipts,
+			blobs,
+			record: /** @type {any} */ (scan),
+			pdfText: async () => ({ text: ' ' })
+		});
+		expect(sent.map((b) => b.text)).toEqual([ocr, ocr]);
+		expect(sent[0].hints).toMatchObject({
+			subject: 'Kassenbon Baumarkt',
+			fileName: 'scan-0001.jpg'
+		});
+
+		const blurry = await extractReceipt({
+			client,
+			receipts,
+			blobs,
+			record: /** @type {any} */ (short),
+			pdfText
+		});
+		expect(blurry.extractionError).toBe('image');
+		expect(sent).toHaveLength(2);
+	});
+
 	it('a bridge error is kept on the record and thrown', async () => {
 		const { receipts, blobs } = await setup();
 		const { record } = await importFile({

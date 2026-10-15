@@ -8,6 +8,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **Paperless-ngx as a receipt source, in the app** (#318). With `pnpm setup:paperless` done, the Belege page fetches what Paperless added since the last fetch – when it opens and on "Aus Paperless holen" – as receipts of the new source "Paperless", read right away like mail. A document already known is not fetched again; the original file makes a mail attachment that also reached Paperless a duplicate; a scan or photo without a text layer is read with Paperless' OCR text. While Paperless is on, Belege does not fetch the mailbox itself (it says so where the mail card was), unless "Belege ruft das Postfach trotzdem selbst ab" is ticked – then documents with the Paperless tags named there are left out. Integrationen lists Paperless; the consent screen names it (consent version 23); the Verlauf records each fetch.
 - **Paperless-ngx as a receipt source, the bridge's part** (#318). `pnpm setup:paperless` stores the address (https, or http on this machine only) and the API token (keychain). `GET /paperless/documents?since=` lists what Paperless added, with its OCR text, tag, correspondent and document type names; `GET /paperless/document?id=` hands out the original file when it is a PDF or an image – so a mail attachment and its Paperless copy have the same hash – else the archive PDF. No redirect is followed, nothing over 15 MB, and the log gets counts, never titles or text. The app's side follows.
 
 ### Changed

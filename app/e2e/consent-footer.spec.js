@@ -24,9 +24,12 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	await expect(highlights.nth(2)).toContainText('Bank und Belege, abgeglichen');
 	// What Belege works with, with logos drawn in the page: no third party is asked.
 	const integrations = dialog.getByTestId('consent-integrations');
-	await expect(integrations.getByTestId('consent-integration-group')).toHaveCount(9);
+	await expect(integrations.getByTestId('consent-integration-group')).toHaveCount(10);
 	// Every chain, Monero too, and the backup service (#77) by name.
 	await expect(integrations.locator('[data-integration="monero"]')).toContainText('Monero');
+	await expect(integrations.locator('[data-integration="paperless"]')).toContainText(
+		'Paperless-ngx'
+	);
 	await expect(integrations.locator('[data-integration="aleph-backup"]')).toContainText(
 		'OrbitDB Storage Bridge'
 	);
@@ -124,7 +127,7 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	);
 	expect(Object.keys(after).filter((key) => !before.includes(key))).toEqual(['belege.consent']);
 	// CONSENT_VERSION in src/lib/consent.js.
-	expect(after['belege.consent']).toBe('22');
+	expect(after['belege.consent']).toBe('23');
 	await expect(page.getByTestId('passkey-onboarding')).toBeVisible();
 
 	await page.reload();

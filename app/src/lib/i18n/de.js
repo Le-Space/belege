@@ -324,6 +324,7 @@ export default {
 				'Aleph hat die Sicherung nicht behalten: Auf dem Konto der Bridge sind {credits} Credits, für einen Tag braucht diese Sicherung {required}. Lade Credits auf (app.aleph.cloud → Credits) und sichere noch einmal.',
 			alephRejected: 'Aleph hat die Sicherung nicht behalten ({error}).',
 			mailNotSetUp: 'Das Postfach ist auf der Bridge nicht eingerichtet (pnpm setup:mail).',
+			paperlessNotSetUp: 'Paperless ist auf der Bridge nicht eingerichtet (pnpm setup:paperless).',
 			llmNotSetUp: 'Das Auslesen ist auf der Bridge nicht eingerichtet (pnpm setup:llm).',
 			senderUnverified: 'Der Absender ist nicht bestätigt (DKIM/SPF): erst freigeben.',
 			noModel: 'Kein Modell lieferte eine brauchbare Antwort ({reasons}).'
@@ -579,6 +580,7 @@ export default {
 		// The names of what Belege works with, where they carry words (consent/integrations.js).
 		integrationNames: {
 			monero: 'Monero (Export der Wallet, nur im Browser gelesen)',
+			paperless: 'Paperless-ngx (dein eigenes Archiv, auf diesem Rechner)',
 			'aleph-backup': 'Aleph Cloud (Backup über die OrbitDB Storage Bridge)',
 			hibiscus: 'Hibiscus (Banken per FinTS/HBCI)',
 			camt: 'CAMT.053-Kontoauszüge, z. B. Revolut Business',
@@ -753,6 +755,7 @@ export default {
 			groups: {
 				banks: 'Banken und Kontoauszüge',
 				exchanges: 'Börsen',
+				archives: 'Dokumentenarchive',
 				chains: 'Blockchains (eigene Wallets)',
 				data: 'Daten- und Kursquellen',
 				explorers: 'Block-Explorer (nur als Link)',
@@ -770,9 +773,9 @@ export default {
 			leaves: 'Was den Rechner verlässt:',
 			bridge: {
 				name: 'Bridge auf diesem Rechner (127.0.0.1)',
-				text: 'Holt Umsätze aus Hibiscus und Belege aus deinem Postfach. Bei der App kommen nur Konten an, die du auf der Bridge freigegeben hast, und nur E-Mails an die Buchhaltungsadresse.',
+				text: 'Holt Umsätze aus Hibiscus und Belege aus deinem Postfach oder deinem Paperless-ngx. Bei der App kommen nur Konten an, die du auf der Bridge freigegeben hast, und nur E-Mails an die Buchhaltungsadresse.',
 				leaves:
-					'Die Bridge fragt dein Postfach (IMAP) ab und schickt zum Auslesen geschwärzten Text an das Sprachmodell (siehe unten). Aus einer Kalendereinladung (.ics) übernimmt sie nur Titel, Ort und Zeiten – keine Teilnehmer, keinen Veranstalter, keine Links. Die Verbindung zu deiner Bank (FinTS) baut Hibiscus auf.',
+					'Die Bridge fragt dein Postfach (IMAP) ab und schickt zum Auslesen geschwärzten Text an das Sprachmodell (siehe unten). Aus einer Kalendereinladung (.ics) übernimmt sie nur Titel, Ort und Zeiten – keine Teilnehmer, keinen Veranstalter, keine Links. Die Verbindung zu deiner Bank (FinTS) baut Hibiscus auf. Paperless-ngx fragt die Bridge nur auf diesem Rechner oder über https ab, mit einem Token aus dem Schlüsselbund; sie holt dort neue Dokumente und deren erkannten Text.',
 				technical:
 					'Die Bridge hört nur auf 127.0.0.1 (Port 8765) und startet auf keiner anderen Adresse. Gekoppelt wird mit einem Einmalcode; das Bearer-Token liegt verschlüsselt in den Einstellungen der App, auf der Bridge nur sein Hash. CORS lässt nur die eingetragenen App-Adressen zu, der Host-Header muss 127.0.0.1 oder localhost sein. Das Zertifikat von Jameica ist gepinnt; Hibiscus-Passwort, IMAP-Token und API-Schlüssel liegen im macOS-Schlüsselbund. Konten ohne freigegebene IBAN-Endung werden gar nicht erst abgefragt. Postfächer öffnet die Bridge nur lesend.'
 			},
@@ -2122,6 +2125,21 @@ export default {
 				'foreign-links': 'Links zu anderen Hosts als dem Absender: {detail}'
 			}
 		},
+		paperless: {
+			title: 'Aus Paperless holen',
+			intro:
+				'Holt über die Bridge, was Paperless-ngx seit dem letzten Abruf neu hat – beim Öffnen dieser Seite und auf Klick. Die Originaldatei kommt als Beleg; ein Scan ohne Textebene wird mit dem Text gelesen, den Paperless erkannt hat.',
+			fetch: 'Aus Paperless holen',
+			fetching: 'Hole …',
+			result:
+				'{documents} Dokumente · neu: {new} · schon vorhanden: {known} · doppelt: {duplicate} · ausgelassen: {skipped} · keine Belegdatei: {unsupported}',
+			mailToo: 'Belege ruft das Postfach trotzdem selbst ab',
+			skipTags: 'Dokumente mit diesen Paperless-Tags auslassen (durch Komma getrennt)',
+			skipTagsHint:
+				'Der Tag, den deine Paperless-Mailregel setzt: Dann liest Belege jede E-Mail nur einmal, über das Postfach.',
+			mailOff:
+				'Paperless holt die E-Mails: Belege ruft das Postfach nicht selbst ab, sonst käme jede Rechnung doppelt. Umschalten in der Paperless-Karte.'
+		},
 		mailFetch: 'E-Mails abrufen',
 		mailFetching: 'Rufe ab …',
 		mailNoBridge: 'Für E-Mails und das Auslesen die Bridge unter ',
@@ -2145,6 +2163,7 @@ export default {
 		sourceMail: 'E-Mail {address}',
 		sourceUpload: 'Hochgeladen',
 		sourceFolder: 'Ordner',
+		sourcePaperless: 'Paperless',
 		search: 'Belege durchsuchen',
 		searchPlaceholder: 'Suchen: Anbieter, Betrag, Datum, Rechnungsnummer',
 		extractAll: 'Alle neuen auslesen ({count})',
@@ -2281,6 +2300,7 @@ export default {
 			mail: 'E-Mail',
 			upload: 'Hochgeladen',
 			folder: 'Ordner',
+			paperless: 'Paperless-ngx',
 			portal: 'Kundenportal',
 			eigenbeleg: 'Eigenbeleg',
 			'invoice-app': 'Rechnungs-App (eigene Rechnung)'
@@ -2348,6 +2368,7 @@ export default {
 			'bank-sync': 'Umsätze abgerufen',
 			'booking-changed': 'Buchung beim Abruf geändert',
 			'mail-fetch': 'E-Mails abgerufen',
+			'paperless-fetch': 'Aus Paperless geholt',
 			'file-import-upload': 'Belege hochgeladen',
 			'file-import-folder': 'Ordner eingelesen',
 			'sender-verdict': 'Absenderprüfung aktualisiert',
@@ -2372,6 +2393,8 @@ export default {
 			mailFetch:
 				'{from} bis {to}: {mails} E-Mails · neu: {new} · schon vorhanden: {skipped} · doppelt: {duplicate}',
 			fileImport: 'neu: {new} · doppelt: {duplicate} · nicht unterstützt: {unsupported}',
+			paperlessFetch:
+				'{documents} Dokumente · neu: {new} · schon vorhanden: {known} · doppelt: {duplicate} · ausgelassen: {skipped}',
 			senderVerdict: '{vendor}: {was} → {now}',
 			senderReleased: ' – zum Auslesen freigegeben',
 			extract:
@@ -3428,6 +3451,7 @@ export default {
 				wallets: 'Eigene Wallets',
 				aleph: 'Aleph Cloud',
 				mail: 'Postfach',
+				paperless: 'Paperless-ngx',
 				portale: 'Kundenportale',
 				'rechnungs-app': 'Rechnungs-App',
 				assistent: 'Einblick für einen Assistenten'
@@ -3467,6 +3491,7 @@ export default {
 				aleph: '{count} Konten mit Credits',
 				alephNone: 'Hosting-Credits eigener Ethereum-Adressen',
 				mail: 'Belege aus der Buchhaltungs-Adresse – unter Belege',
+				paperless: 'Dokumente aus deinem Paperless-Archiv – unter Belege (pnpm setup:paperless)',
 				portals: 'Rechnungen direkt aus Kundenkonten holen',
 				invoiceApp: 'Eigenbelege mit deinem Nummernkreis und Firmenkopf',
 				assistant: 'Ein Jahr lesen lassen, geschwärzt, mit Ablauf'
