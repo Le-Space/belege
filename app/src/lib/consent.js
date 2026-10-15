@@ -50,7 +50,10 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     grants, credits and backups (#77).
 // 23: the bridge fetches documents from the person's own Paperless-ngx, on this
 //     machine or over https, with a token from the keychain (#318).
-export const CONSENT_VERSION = '23';
+// 24: who offers Belege and on what terms – free, no warranty, liability for
+//     intent and gross negligence only, the books are the user's to keep; the
+//     imprint and privacy policy of Le Space UG linked.
+export const CONSENT_VERSION = '24';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 
