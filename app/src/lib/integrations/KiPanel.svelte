@@ -8,7 +8,8 @@
 	import { integer } from '$lib/receipts/how.js';
 	import { describeMoment } from '$lib/moment.js';
 	import { app } from '$lib/session.svelte.js';
-	import { list, t } from '$lib/i18n/index.js';
+	import { currentLocale, list, t } from '$lib/i18n/index.js';
+	import { docUrl } from '$lib/help/integration-help.js';
 	import { bridge, bridgeClient } from './bridge-state.svelte.js';
 
 	/** @type {Awaited<ReturnType<ReturnType<typeof bridgeClient>['llmStatus']>> | null} */
@@ -127,5 +128,27 @@
 			data-testid="ki-verlauf">{t('integrationen.ki.verlauf')}</a
 		>
 	{/if}
+	<!-- A model on this computer (docs/ollama.md): open while none is set up or one is local. -->
+	<details
+		class="mt-3 rounded-lg border border-border bg-surface px-4 py-2 text-sm"
+		open={!llmStatus?.configured || /:11434$/.test(String(llmStatus?.provider ?? ''))}
+		data-testid="ki-ollama"
+	>
+		<summary class="flex min-h-11 cursor-pointer items-center font-medium text-heading">
+			{t('integrationen.ki.ollama.title')}
+		</summary>
+		<p class="text-text">{t('integrationen.ki.ollama.intro')}</p>
+		<ol class="mt-2 list-decimal space-y-1 pl-5 text-text">
+			{#each list('integrationen.ki.ollama.steps') as step (step)}
+				<li>{step}</li>
+			{/each}
+		</ol>
+		<a
+			class="mt-2 mb-2 inline-block text-text underline hover:text-heading"
+			href={docUrl('docs/ollama{de}.md', currentLocale())}
+			rel="noreferrer"
+			data-testid="ki-ollama-doc">{t('integrationen.ki.ollama.doc')}</a
+		>
+	</details>
 	<TechnicalNote class="mt-3" lines={list('integrationen.ki.technical')} />
 </section>

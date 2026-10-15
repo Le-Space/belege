@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import de from '../i18n/de.js';
 import en from '../i18n/en.js';
-import { INTEGRATION_HELP, helpDoc } from './integration-help.js';
+import { INTEGRATION_HELP, docUrl, helpDoc } from './integration-help.js';
 import { noteWayOut, wayOutKind, wayOutOf } from './way-out.js';
 
 /** @param {any} catalogue @param {string} key */
@@ -70,6 +70,12 @@ describe('help on an integration’s page (#200, step 4)', () => {
 	it('links the German twin of a doc where there is one', () => {
 		expect(helpDoc('ki', 'en')).toBe('https://github.com/Le-Space/belege/blob/main/docs/ai.md');
 		expect(helpDoc('ki', 'de')).toBe('https://github.com/Le-Space/belege/blob/main/docs/ai.de.md');
+		expect(docUrl('docs/ollama{de}.md', 'de')).toBe(
+			'https://github.com/Le-Space/belege/blob/main/docs/ollama.de.md'
+		);
+		expect(docUrl('docs/ollama{de}.md', 'en')).toBe(
+			'https://github.com/Le-Space/belege/blob/main/docs/ollama.md'
+		);
 		expect(helpDoc('wallets', 'en')).toMatch(/docs\/crypto\.md#own-wallets$/);
 		expect(helpDoc('wallets', 'de')).toMatch(/docs\/crypto\.de\.md$/);
 		expect(helpDoc('bridge', 'de')).toMatch(/bridge\/README\.md$/);

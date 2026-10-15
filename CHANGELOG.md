@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A guide for reading receipts with Ollama on your own computer** ([docs/ollama.md](docs/ollama.md), [Deutsch](docs/ollama.de.md)): what to download for how much memory, the two Ollama settings that matter (context length, keep-alive), the `pnpm setup:llm` answers, one AI request at a time, the measured speed on an Intel Mac, and what to do when something goes wrong. _Integrationen → KI – Beleg-Auslesen_ shows the steps in short, with a link to the guide; open while no model is set up or the model is local. Linked from the README and docs/ai.md.
+
 ### Changed
 
 - **No redaction for a model on this machine** (#423). The bridge sends text as it is when the model runs on this computer (Ollama, LM Studio): nothing leaves, and redaction would only hide from the model what the receipt says. `llm.redaction` in `bridge.json`: `auto` (default) is off for a loopback base URL, on otherwise; `pnpm setup:llm` asks for a loopback URL whether the model runs there (a proxy may forward to a provider) and stores `off` or `on`, and asks for terms only when they are used. Every LLM route goes the same way. `GET /llm/status` and _Integrationen → KI_ show whether text is blacked out.

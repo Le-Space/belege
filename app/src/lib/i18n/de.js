@@ -3715,6 +3715,19 @@ export default {
 				'Die KI liest nur Belege aus: Anbieter, Betrag, Datum, Rechnungsnummer. Die Zuordnung zu Zahlungen macht die App selbst, nachvollziehbar nach Punkten.',
 			keyWhere:
 				'Der API-Key liegt nur im Schlüsselbund der Bridge – ändern mit pnpm setup:llm. Er kommt nie in den Browser.',
+			ollama: {
+				title: 'Lokal mit Ollama: nichts verlässt den Rechner',
+				intro:
+					'Statt eines Anbieters im Internet liest ein Modell auf deinem Rechner die Belege. Kostenlos, aber langsamer: auf einem Intel-Mac etwa zwei Minuten pro Beleg.',
+				steps: [
+					'Ollama von ollama.com/download installieren und starten.',
+					'Ein Modell laden, das in den Arbeitsspeicher passt – ab 32 GB: ollama pull qwen3:30b-a3b-instruct-2507-q4_K_M (18 GB); mit 16 GB: qwen3:4b-instruct-2507-q4_K_M (2,5 GB).',
+					'Größeren Kontext und längeres Vorhalten setzen (launchctl setenv OLLAMA_CONTEXT_LENGTH 16384 und OLLAMA_KEEP_ALIVE 2h), dann Ollama neu starten.',
+					'pnpm setup:llm: Basis-URL http://127.0.0.1:11434/v1, der Modellname für beide Modelle, beim API-Key Enter. Dann die Bridge neu starten.',
+					'Unter Statistik die gleichzeitigen KI-Anfragen auf 1 stellen.'
+				],
+				doc: 'Die ganze Anleitung, mit Messwerten und Hilfe bei Fehlern'
+			},
 			noBridge: 'Die Bridge ist nicht gekoppelt: Einstellungen erst nach dem Koppeln sichtbar.',
 			unreachable: 'Die Bridge sagt nichts über das Auslesen (ältere Version?): {error}',
 			provider: 'Anbieter (Host)',

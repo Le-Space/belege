@@ -150,6 +150,14 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	const ki = page.getByTestId('ki-card');
 	await expect(ki.getByTestId('ki-simple')).toContainText('Die KI liest nur Belege aus');
 	await expect(ki.getByTestId('ki-simple')).toContainText('macht die App selbst');
+	// How to read locally with Ollama, and where the whole guide is (docs/ollama.de.md).
+	await expect(ki.getByTestId('ki-ollama')).toContainText(
+		'ollama pull qwen3:30b-a3b-instruct-2507'
+	);
+	await expect(ki.getByTestId('ki-ollama-doc')).toHaveAttribute(
+		'href',
+		'https://github.com/Le-Space/belege/blob/main/docs/ollama.de.md'
+	);
 	await expect(ki.getByTestId('ki-key')).toHaveText('eingerichtet ✓');
 	await expect(ki.getByTestId('ki-provider')).toHaveText(new URL(llm.url).host);
 	await expect(ki.getByTestId('ki-models')).toHaveText(
