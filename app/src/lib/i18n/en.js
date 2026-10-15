@@ -3659,6 +3659,19 @@ export default {
 				'The AI only reads receipts: vendor, amount, date, invoice number. Linking them to payments is done by the app itself, traceably by points.',
 			keyWhere:
 				'The API key lives only in the bridge’s keychain – change it with pnpm setup:llm. It never reaches the browser.',
+			ollama: {
+				title: 'Locally with Ollama: nothing leaves the computer',
+				intro:
+					'Instead of a provider on the internet, a model on your computer reads the receipts. Free, but slower: about two minutes per receipt on an Intel Mac.',
+				steps: [
+					'Install Ollama from ollama.com/download and start it.',
+					'Download a model that fits your memory – 32 GB or more: ollama pull qwen3:30b-a3b-instruct-2507-q4_K_M (18 GB); with 16 GB: qwen3:4b-instruct-2507-q4_K_M (2.5 GB).',
+					'Set a larger context and a longer keep-alive (launchctl setenv OLLAMA_CONTEXT_LENGTH 16384 and OLLAMA_KEEP_ALIVE 2h), then restart Ollama.',
+					'pnpm setup:llm: base URL http://127.0.0.1:11434/v1, the model name for both models, Enter for the API key. Then restart the bridge.',
+					'Under Statistik, set the AI requests at once to 1.'
+				],
+				doc: 'The whole guide, with measurements and help when something goes wrong'
+			},
 			noBridge: 'The bridge is not paired: settings only visible after pairing.',
 			unreachable: 'The bridge says nothing about receipt reading (older version?): {error}',
 			provider: 'Provider (host)',

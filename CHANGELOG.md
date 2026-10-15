@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A guide for reading receipts with Ollama on your own computer** ([docs/ollama.md](docs/ollama.md), [Deutsch](docs/ollama.de.md)): what to download for how much memory, the two Ollama settings that matter (context length, keep-alive), the `pnpm setup:llm` answers, one AI request at a time, the measured speed on an Intel Mac, and what to do when something goes wrong. _Integrationen → KI – Beleg-Auslesen_ shows the steps in short, with a link to the guide; open while no model is set up or the model is local. Linked from the README and docs/ai.md.
+
 ### Fixed
 
 - **A model on this machine gets ten minutes per answer.** On a CPU (Ollama on an Intel Mac) one receipt takes two minutes and more, and the first after a pause also loads the model; the bridge's three minutes cut a part of them off. A model on 127.0.0.1/localhost now gets 10 minutes, one elsewhere still 3. A timed-out attempt says `no answer within … s` instead of `unreachable: timeout`. [docs/ai.md](docs/ai.md) has the measured numbers and the Ollama settings that go with them.

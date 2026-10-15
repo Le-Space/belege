@@ -26,6 +26,15 @@ export const INTEGRATION_HELP = {
 };
 
 /**
+ * A page of the docs in a language: `docs/ollama{de}.md` → the German twin in German.
+ *
+ * @param {string} path in the repository, with `{de}` where a German twin exists
+ * @param {'de' | 'en'} locale
+ */
+export const docUrl = (path, locale) =>
+	`${REPO}${path.replace('{de}', locale === 'de' ? '.de' : '')}`;
+
+/**
  * The docs link for an integration in a language.
  *
  * @param {string} id
