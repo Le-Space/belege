@@ -38,6 +38,7 @@
 	import { cleanDatevSettings, privateAccounts } from '$lib/booking/settings.js';
 	import NeedsCard from '$lib/integrations/NeedsCard.svelte';
 	import SetupChecklist from '$lib/setup/SetupChecklist.svelte';
+	import SafetyCard from '$lib/storage/SafetyCard.svelte';
 	import TotalsCard from '$lib/dashboard/TotalsCard.svelte';
 	import { integrationFacts, loadIntegrationFacts } from '$lib/integrations/facts.svelte.js';
 	import { integrationsOverview } from '$lib/integrations/overview.js';
@@ -237,6 +238,8 @@
 <p class="mt-1 text-sm text-faint">{t('home.intro')}</p>
 
 <SetupChecklist />
+
+<SafetyCard />
 
 {#each RESUME_KINDS as kind (kind)}
 	{@const ids = kind === 'extract' ? leftToRead : leftToSuggest}
