@@ -10,6 +10,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **Docs: where the secret lives.** An illustration in the backup docs (`docs/backup.md`, `docs/backup.de.md`) shows what stays on the device — passkey, HKDF, data key, the encrypted receipt files and OrbitDB log — and that only ciphertext crosses the device boundary. The README's docs list now links the backup docs.
 - **Company credit cards** (#382; #405, #407). Each card is an account of its own, under _Integrationen → Bank_, with a name and the card number's last four digits. See [banking.md](docs/banking.md).
   - **The statement from the issuer's CSV,** read in the browser: the columns recognised by their usual German and English names, the lines shown before the import, a column or the sign changeable, the choice kept for the next statement. Charges become money out; an amount in another currency keeps its currency and the issuer's rate.
   - **Each line is a payment:** the matching links it to its receipt, which then counts as paid by the company – and a receipt in another currency on a trip takes the euros the card charged.

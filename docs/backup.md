@@ -80,6 +80,10 @@ Records keep their ids, links and times; receipt files are sealed anew with the 
 
 ## What leaves
 
+![Where the secret lives: passkey, HKDF and the data key stay on the device; receipt files and the OrbitDB log are encrypted there; only ciphertext crosses the device boundary to own devices, invited peers and the archive](media/belege-layers-en.png)
+
+_Everything left of the line never leaves the device; what crosses it is ciphertext. The data key is derived from the passkey and exists nowhere else — like an SSH private key._
+
 - **To Aleph's IPFS host, from the browser:** the sealed file. Aleph sees its size and this computer's IP address, not what is in it.
 - **To the Aleph API, from the browser:**
   - the STORE message, with the address of this browser's key, the account's and the file's CID;

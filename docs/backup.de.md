@@ -80,6 +80,10 @@ Einträge behalten ihre IDs, Verknüpfungen und Zeiten; Belegdateien werden mit 
 
 ## Was hinausgeht
 
+![Wo das Geheimnis sitzt: Passkey, HKDF und Datenschlüssel bleiben auf dem Gerät; Belegdateien und das OrbitDB-Log liegen dort verschlüsselt; über die Gerätegrenze geht nur Chiffretext zu eigenen Geräten, eingeladenen Peers und ins Archiv](media/belege-schichten.png)
+
+_Alles links der Linie verlässt das Gerät nie; was sie überquert, ist Chiffretext. Der Datenschlüssel wird aus dem Passkey abgeleitet und existiert nirgends sonst — wie ein privater SSH-Schlüssel._
+
 - **An Alephs IPFS-Host, aus dem Browser:** die versiegelte Datei. Aleph sieht ihre Größe und die IP-Adresse dieses Computers, nicht den Inhalt.
 - **An die Aleph-API, aus dem Browser:**
   - die STORE-Nachricht mit der Adresse des Schlüssels dieses Browsers, der Adresse des Kontos und der CID der Datei;
