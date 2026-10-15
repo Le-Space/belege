@@ -74,6 +74,7 @@ The app is in [`app/`](app/README.md), the bridge in [`bridge/`](bridge/README.m
 - [Private outlays](docs/outlays.md) ([Deutsch](docs/outlays.de.md))
 - [Travel expenses](docs/travel.md) ([Deutsch](docs/travel.de.md))
 - [Device proof: only own devices get the books](docs/device-proof.md) ([Deutsch](docs/device-proof.de.md))
+- [Backup on Aleph Cloud, and what leaves the device](docs/backup.md) ([Deutsch](docs/backup.de.md))
 - [Performance](docs/performance.md) ([Deutsch](docs/performance.de.md))
 - [Phase 0: the feasibility spikes](docs/phase-0.md)
 
