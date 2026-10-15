@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.11.0] – 2026-10-15
+
 ### Added
 
 - **A provider that refuses stops the AI run and says so** (#417). No credit left (HTTP 402), an API key it refuses, a model it does not know, or no answer at all (a local Ollama not running) each get their own code from the bridge (`LLM_NO_CREDIT`, `LLM_AUTH`, `LLM_MODEL`, `LLM_UNREACHABLE`); the second model is not asked when the refusal holds for the whole account. "Alle neuen auslesen" and the AI suggestions stop at once instead of failing every receipt, mark none as failed, and say what to do ("Das Guthaben bei DeepSeek ist aufgebraucht …"); Home offers "Weitermachen" for the rest, with the reason. The bridge log names each attempt's model, status and time, never the text; `GET /llm/status` keeps the last refusal.
