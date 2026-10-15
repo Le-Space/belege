@@ -9,6 +9,9 @@ All notable changes to Le Space Belege. The format follows
 ### Added
 
 - **Travel receipts ask: business trip, business without a trip, or private** (#425). Every trip proposal on _Reisen_ now has three answers: "Als Reise anlegen", "Geschäftlich, keine Reise" (was "Keine Reise") and "Privat", which sets each receipt aside as private and marks a payment from the business account that paid one as private (#293, #172), both reversible. A conference or event ticket alone is a proposal of its own ("Veranstaltung in …"), so it is asked about too. The AI only reads the receipts; rules propose, and nothing is decided without a click.
+- **The Verlauf shows a receipt's preview,** as Zahlungen, Reisen and the export do: hovering "Beleg öffnen" on an entry – read, failed or decided – shows the receipt with its lens; on a touch screen a "Vorschau" button opens it.
+
+## [0.11.1] – 2026-10-15
 
 ### Added
 
@@ -17,8 +20,6 @@ All notable changes to Le Space Belege. The format follows
 ### Changed
 
 - **No redaction for a model on this machine** (#423). The bridge sends text as it is when the model runs on this computer (Ollama, LM Studio): nothing leaves, and redaction would only hide from the model what the receipt says. `llm.redaction` in `bridge.json`: `auto` (default) is off for a loopback base URL, on otherwise; `pnpm setup:llm` asks for a loopback URL whether the model runs there (a proxy may forward to a provider) and stores `off` or `on`, and asks for terms only when they are used. Every LLM route goes the same way. `GET /llm/status` and _Integrationen → KI_ show whether text is blacked out.
-
-### Changed
 
 - **Who offers Belege, and on what terms.** The consent screen has a section "Nutzung und Haftung": Belege is provided free of charge by Le Space UG (haftungsbeschränkt) as free software (AGPL-3.0), without warranty; Le Space UG is liable only for intent and gross negligence (statutory liability for injury to life, body and health and under the Product Liability Act unaffected); the books are on the user's devices and theirs to back up; Belege prepares bookkeeping and replaces neither bookkeeping nor tax advice. It links the imprint and privacy policy of Le Space UG on le-space.de (`#impressum`, `#datenschutz`), and the footer has an "Impressum" link. Consent version 24.
 
