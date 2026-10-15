@@ -29,6 +29,7 @@ export function defaultConfigPath() {
  * @property {LlmConfig} llm
  * @property {Record<string, import('./portals/index.js').PortalConfig>} portals customer portals, by id
  * @property {KrakenConfig} kraken
+ * @property {PaperlessConfig} paperless
  * @property {EnableBankingConfig} enablebanking
  * @property {{ configured: boolean }} alephBackup set by setup:aleph once the backup key is in
  *   the keychain (aleph-backup.js, issue #77)
@@ -45,6 +46,12 @@ export function defaultConfigPath() {
  * @typedef {object} KrakenConfig
  * @property {boolean} configured set by setup:kraken once a key is in the keychain
  * @property {string} baseUrl https://api.kraken.com; tests point it at a fake on 127.0.0.1
+ */
+
+/**
+ * @typedef {object} PaperlessConfig a Paperless-ngx as a receipt source (paperless.js, issue #318)
+ * @property {boolean} configured set by setup:paperless once the API token is in the keychain
+ * @property {string} baseUrl on this machine (http on loopback) or https; never a LAN address over http
  */
 
 /**
@@ -111,6 +118,7 @@ export function defaultConfig() {
 		llm: defaultLlmConfig(),
 		portals: {},
 		kraken: { configured: false, baseUrl: 'https://api.kraken.com' },
+		paperless: { configured: false, baseUrl: 'http://127.0.0.1:8000' },
 		enablebanking: {
 			configured: false,
 			appId: null,
@@ -136,6 +144,26 @@ function krakenBaseUrl(value) {
 		return url.protocol === 'https:' || (url.protocol === 'http:' && loopback)
 			? value.replace(/\/+$/, '')
 			: null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Where Paperless-ngx answers: https, or http on this machine – never plain http
+ * to another host in the network. No credentials in it; a path prefix may stay.
+ *
+ * @param {unknown} value
+ * @returns {string | null}
+ */
+export function paperlessBaseUrl(value) {
+	if (typeof value !== 'string') return null;
+	try {
+		const url = new URL(value.trim());
+		const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
+		if (!(url.protocol === 'https:' || (url.protocol === 'http:' && loopback))) return null;
+		if (url.username || url.password || url.search || url.hash) return null;
+		return `${url.origin}${url.pathname}`.replace(/\/+$/, '');
 	} catch {
 		return null;
 	}
@@ -192,6 +220,10 @@ export function withDefaults(raw) {
 		kraken: {
 			configured: raw?.kraken?.configured === true,
 			baseUrl: krakenBaseUrl(raw?.kraken?.baseUrl) ?? d.kraken.baseUrl
+		},
+		paperless: {
+			configured: raw?.paperless?.configured === true,
+			baseUrl: paperlessBaseUrl(raw?.paperless?.baseUrl) ?? d.paperless.baseUrl
 		},
 		enablebanking: {
 			configured: raw?.enablebanking?.configured === true,

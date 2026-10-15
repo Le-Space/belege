@@ -31,6 +31,8 @@
 //   GET  /enablebanking/transactions?account=<uid>&since=YYYY-MM-DD token → an allowed account's booked transactions
 //   GET  /kraken/balances                                         token → non-zero balances (kraken.js)
 //   GET  /kraken/ledgers?since=YYYY-MM-DD                         token → the ledger, oldest first
+//   GET  /paperless/documents[?since=<ISO>]                       token → Paperless-ngx documents added since, with OCR text (paperless.js)
+//   GET  /paperless/document?id=<n>                               token → its bytes: the original PDF or image, else the archive PDF
 //   GET  /chains                                                  token → chains, endpoints, explorers, alchemy: bool (chains/)
 //   GET  /bitcoin/key                                             token → the zpub's fingerprint, never the zpub
 //   GET  /lan-relay                                               token → the relay for own devices in the own network: its address (lan-relay.js)
@@ -110,6 +112,8 @@ const MAX_EXTRACT_BODY = 256 * 1024;
  * @param {import('./portals/manager.js').PortalManager | null} [options.portals] the portal connector
  * @param {ReturnType<typeof import('./rates.js').createRateService> | null} [options.rates] exchange rates
  * @param {ReturnType<typeof import('./kraken.js').createKrakenClient> | null} [options.kraken] null when Kraken is not set up
+ * @param {ReturnType<typeof import('./paperless.js').createPaperlessClient> | null} [options.paperless]
+ *   Paperless-ngx as a receipt source (issue #318): null when not set up
  * @param {ReturnType<typeof import('./enablebanking.js').createEnableBankingClient> | null} [options.enablebanking]
  *   the own Enable Banking application: null when not set up (issue #224)
  * @param {ReturnType<typeof import('./enablebanking-links.js').createEnableBankingLinks> | null} [options.enablebankingLinks]
@@ -139,6 +143,7 @@ export function createBridgeServer({
 	portals = null,
 	rates = null,
 	kraken = null,
+	paperless = null,
 	enablebanking = null,
 	enablebankingLinks = null,
 	wallets = null,
@@ -284,6 +289,7 @@ export function createBridgeServer({
 				llm: { configured: Boolean(llm), models: llm ? llm.models : [] },
 				portals: { available: Boolean(portals) },
 				kraken: { configured: Boolean(kraken) },
+				paperless: { configured: Boolean(paperless) },
 				enablebanking: { configured: Boolean(enablebanking) },
 				backup: { aleph: Boolean(alephBackup) },
 				wallets: { available: Boolean(wallets) },
@@ -785,6 +791,30 @@ export function createBridgeServer({
 					);
 				}
 				return send(res, 200, { since, entries, transferRefs });
+			}
+		}
+
+		if (path.startsWith('/paperless/') && req.method === 'GET') {
+			if (!paperless) {
+				return send(res, 503, {
+					error: 'Paperless is not set up: run `pnpm setup:paperless`.',
+					code: 'PAPERLESS_NOT_SET_UP'
+				});
+			}
+			if (path === '/paperless/documents') {
+				const since = url.searchParams.get('since');
+				if (since !== null && Number.isNaN(Date.parse(since))) {
+					return send(res, 400, { error: 'since must be an ISO date or time' });
+				}
+				const documents = await paperless.documents({ since });
+				log(`paperless: ${documents.length} document(s)${since ? ' since the last import' : ''}`);
+				return send(res, 200, { documents });
+			}
+			if (path === '/paperless/document') {
+				const id = Number(url.searchParams.get('id'));
+				const { bytes, mime, variant } = await paperless.document(id);
+				log(`paperless: document ${id}, ${variant}, ${bytes.length} bytes`);
+				return sendBytes(res, bytes, mime);
 			}
 		}
 
