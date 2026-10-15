@@ -10,9 +10,12 @@ import { acceptConsent } from './consent.js';
 
 test.use({ locale: 'en-GB' });
 
-/** Words that stay German in English, with why. None so far. */
+/** Words that stay German in English, with why. */
 /** @type {string[]} */
-const KEPT = [];
+const KEPT = [
+	// The company's registered name, legal form included: "Le Space UG (haftungsbeschränkt)".
+	'UG (haftungsbeschränkt)'
+];
 
 /** @param {import('@playwright/test').Page} page */
 async function germanOn(page) {

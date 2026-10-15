@@ -22,6 +22,18 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	await expect(highlights.nth(1)).toContainText('Krypto inklusive');
 	await expect(highlights.nth(1)).toContainText('Bitcoin, Ethereum');
 	await expect(highlights.nth(2)).toContainText('Bank und Belege, abgeglichen');
+	// Who offers Belege and on what terms; the imprint and privacy policy of Le Space UG linked.
+	const terms = dialog.getByTestId('consent-terms');
+	await expect(terms).toContainText('kostenlos zur Verfügung gestellt');
+	await expect(terms).toContainText('nur für Vorsatz und grobe Fahrlässigkeit');
+	await expect(terms.getByTestId('consent-imprint')).toHaveAttribute(
+		'href',
+		'https://le-space.de/#impressum'
+	);
+	await expect(terms.getByTestId('consent-company-privacy')).toHaveAttribute(
+		'href',
+		'https://le-space.de/#datenschutz'
+	);
 	// What Belege works with, with logos drawn in the page: no third party is asked.
 	const integrations = dialog.getByTestId('consent-integrations');
 	await expect(integrations.getByTestId('consent-integration-group')).toHaveCount(10);
@@ -127,7 +139,7 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	);
 	expect(Object.keys(after).filter((key) => !before.includes(key))).toEqual(['belege.consent']);
 	// CONSENT_VERSION in src/lib/consent.js.
-	expect(after['belege.consent']).toBe('23');
+	expect(after['belege.consent']).toBe('24');
 	await expect(page.getByTestId('passkey-onboarding')).toBeVisible();
 
 	await page.reload();
@@ -140,6 +152,10 @@ test('the consent screen can be opened again, from the footer and the header', a
 	await acceptConsent(page);
 	const dialog = page.getByTestId('consent-modal');
 
+	await expect(page.getByTestId('imprint-link')).toHaveAttribute(
+		'href',
+		'https://le-space.de/#impressum'
+	);
 	await page.getByTestId('consent-reopen').click();
 	await expect(dialog).toBeVisible();
 	await dialog.getByTestId('consent-close').click();

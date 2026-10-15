@@ -10,6 +10,10 @@ All notable changes to Le Space Belege. The format follows
 
 - **A guide for reading receipts with Ollama on your own computer** ([docs/ollama.md](docs/ollama.md), [Deutsch](docs/ollama.de.md)): what to download for how much memory, the two Ollama settings that matter (context length, keep-alive), the `pnpm setup:llm` answers, one AI request at a time, the measured speed on an Intel Mac, and what to do when something goes wrong. _Integrationen → KI – Beleg-Auslesen_ shows the steps in short, with a link to the guide; open while no model is set up or the model is local. Linked from the README and docs/ai.md.
 
+### Changed
+
+- **Who offers Belege, and on what terms.** The consent screen has a section "Nutzung und Haftung": Belege is provided free of charge by Le Space UG (haftungsbeschränkt) as free software (AGPL-3.0), without warranty; Le Space UG is liable only for intent and gross negligence (statutory liability for injury to life, body and health and under the Product Liability Act unaffected); the books are on the user's devices and theirs to back up; Belege prepares bookkeeping and replaces neither bookkeeping nor tax advice. It links the imprint and privacy policy of Le Space UG on le-space.de (`#impressum`, `#datenschutz`), and the footer has an "Impressum" link. Consent version 24.
+
 ### Fixed
 
 - **A model on this machine gets ten minutes per answer.** On a CPU (Ollama on an Intel Mac) one receipt takes two minutes and more, and the first after a pause also loads the model; the bridge's three minutes cut a part of them off. A model on 127.0.0.1/localhost now gets 10 minutes, one elsewhere still 3. A timed-out attempt says `no answer within … s` instead of `unreachable: timeout`. [docs/ai.md](docs/ai.md) has the measured numbers and the Ollama settings that go with them.

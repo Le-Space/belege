@@ -17,6 +17,7 @@
 	// sections, a planned option and per-service detail. The look is the
 	// element's, mapped onto the same tokens escrow01 maps it onto.
 	import { has, t, list } from './i18n/index.js';
+	import { IMPRINT_URL, PRIVACY_URL } from '$lib/legal.js';
 	import { deviceSyncOn } from './sync/device-sync.js';
 	import { setDevicesNetwork } from './session.svelte.js';
 	import IntegrationLogo from './consent/IntegrationLogo.svelte';
@@ -154,6 +155,33 @@
 				<span class="font-medium text-heading">{t('consent.earlyHeading')}</span>
 				{t('consent.earlyBody')}
 			</p>
+
+			<!-- Who offers Belege, and on what terms: free, no warranty, the books are yours to keep. -->
+			<section class="rounded-md border border-border p-3 text-sm" data-testid="consent-terms">
+				<h3 class="font-medium text-heading">{t('consent.terms.heading')}</h3>
+				<ul class="mt-1 list-disc space-y-1 pl-5 text-text">
+					{#each list('consent.terms.items') as item (item)}
+						<li>{item}</li>
+					{/each}
+				</ul>
+				<p class="mt-2">
+					<a
+						class="underline hover:text-heading"
+						href={IMPRINT_URL}
+						target="_blank"
+						rel="noopener noreferrer"
+						data-testid="consent-imprint">{t('consent.terms.imprint')}</a
+					>
+					<span aria-hidden="true">·</span>
+					<a
+						class="underline hover:text-heading"
+						href={PRIVACY_URL}
+						target="_blank"
+						rel="noopener noreferrer"
+						data-testid="consent-company-privacy">{t('consent.terms.privacy')}</a
+					>
+				</p>
+			</section>
 
 			<!-- What Belege can do: folded, so the consent stays about the data. -->
 			<details class="rounded-md border border-border p-3 text-sm" data-testid="consent-features">
