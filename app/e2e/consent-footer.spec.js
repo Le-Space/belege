@@ -14,6 +14,14 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	await page.goto('/');
 	const dialog = page.getByTestId('consent-modal');
 	await expect(dialog).toBeVisible();
+	// What sets Belege apart, first and unfolded: local not cloud, crypto, bank and receipts.
+	await expect(dialog).toContainText('lokal auf deinem Gerät, nicht in einer Cloud');
+	const highlights = dialog.getByTestId('consent-highlights').locator('li');
+	await expect(highlights).toHaveCount(3);
+	await expect(highlights.nth(0)).toContainText('Lokal, nicht in der Cloud');
+	await expect(highlights.nth(1)).toContainText('Krypto inklusive');
+	await expect(highlights.nth(1)).toContainText('Bitcoin, Ethereum');
+	await expect(highlights.nth(2)).toContainText('Bank und Belege, abgeglichen');
 	// What Belege works with, with logos drawn in the page: no third party is asked.
 	const integrations = dialog.getByTestId('consent-integrations');
 	await expect(integrations.getByTestId('consent-integration-group')).toHaveCount(9);
@@ -36,6 +44,8 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	await expect(features.locator('h4').first()).toBeHidden();
 	await features.locator('summary').click();
 	await expect(features.getByRole('heading', { name: 'Krypto' })).toBeVisible();
+	// Right after privacy in the list.
+	await expect(features.locator('h4').nth(1)).toHaveText('Krypto');
 	await expect(dialog.getByRole('heading', { name: 'Bevor du anfängst' })).toBeVisible();
 
 	// A decision, not something to dismiss: no close control, and Escape does
