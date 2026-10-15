@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.12.0] – 2026-10-15
+
 ### Added
 
 - **`pnpm demo`: Belege with made-up books,** for trying it out or recording a demo. It starts the bridge in test mode on its usual port with a fake Hibiscus (a business account whose payments fit the invoices), a fake mailbox (invoices as PDFs, a phishing look-alike, a private mail, an invitation) and the local Ollama when it runs with its model, else a fake model (`-- --fake-llm`); `-- --lan` adds the relay for a phone in the same Wi-Fi. Nothing real is read or written; the configuration lives in a temporary folder, deleted on Ctrl+C.
