@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.11.1] – 2026-10-15
+
 ### Added
 
 - **A guide for reading receipts with Ollama on your own computer** ([docs/ollama.md](docs/ollama.md), [Deutsch](docs/ollama.de.md)): what to download for how much memory, the two Ollama settings that matter (context length, keep-alive), the `pnpm setup:llm` answers, one AI request at a time, the measured speed on an Intel Mac, and what to do when something goes wrong. _Integrationen → KI – Beleg-Auslesen_ shows the steps in short, with a link to the guide; open while no model is set up or the model is local. Linked from the README and docs/ai.md.
