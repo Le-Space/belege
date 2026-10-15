@@ -300,6 +300,11 @@
 				</div>
 			</div>
 		{/if}
+		{#if aiRun.stopped && !aiRun.progress}
+			<p class="mt-2 text-sm text-danger" role="alert" data-testid="ai-all-stopped">
+				{aiRun.stopped}
+			</p>
+		{/if}
 		{#if aiRun.failed && !aiRun.progress}
 			<p class="mt-2 text-sm text-danger" data-testid="ai-all-failed">
 				{t('rueckfragen.ai.failed', { count: aiRun.failed })}

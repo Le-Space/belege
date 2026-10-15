@@ -34,7 +34,9 @@ export const aiRun = $state({
 	progress: null,
 	cancelling: false,
 	/** questions the model could not be asked about (an error) in the last run */
-	failed: 0
+	failed: 0,
+	/** @type {string | null} why the last run stopped: the provider refused (#417) */
+	stopped: null
 });
 
 /**
@@ -230,7 +232,8 @@ export async function suggestAll(ctx, ids, { now = clock } = {}) {
 			await ctx.refresh?.();
 		},
 		onProgress: (left) => savePending(settings, 'suggest', left),
-		onEnd: (left, how) => savePending(settings, 'suggest', how === 'closed' ? left : [])
+		onEnd: (left, how) =>
+			savePending(settings, 'suggest', how === 'closed' || how === 'stopped' ? left : [])
 	});
 }
 

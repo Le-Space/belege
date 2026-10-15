@@ -26,6 +26,19 @@ export class BridgeError extends Error {
 	}
 }
 
+/** The bridge's codes for a language-model provider that refuses (bridge/src/llm/extract.js REFUSALS). */
+export const LLM_REFUSALS = new Set(['LLM_NO_CREDIT', 'LLM_AUTH', 'LLM_MODEL', 'LLM_UNREACHABLE']);
+
+/** A provider's host as people know it. @param {unknown} host */
+export function providerName(host) {
+	const h = String(host ?? '');
+	if (/(^|\.)deepseek\.com$/.test(h)) return 'DeepSeek';
+	if (/(^|\.)libertai\.io$/.test(h)) return 'LibertAI';
+	if (/:11434$/.test(h)) return 'Ollama';
+	if (/:1234$/.test(h)) return 'LM Studio';
+	return h || 'KI-Anbieter';
+}
+
 /** @type {() => string[]} what the app adds to the bridge's redaction list on every LLM call */
 let redactTerms = () => [];
 
@@ -280,6 +293,14 @@ export function createBridgeClient({
 			}
 			if (res.status === 403 && body?.code === 'SENDER_UNVERIFIED') {
 				throw new BridgeError(t('messages.bridge.senderUnverified'), 403);
+			}
+			// The provider refused (#417): every further call would be refused the same way.
+			if (LLM_REFUSALS.has(body?.code)) {
+				throw failed(
+					t(`messages.bridge.refused.${body.code}`, { provider: providerName(body.provider) }),
+					res.status,
+					body
+				);
 			}
 			if (res.status === 502 && body?.code === 'EXTRACT_FAILED') {
 				const reasons = (body.attempts ?? []).map(

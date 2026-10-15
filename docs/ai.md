@@ -34,6 +34,10 @@ Before every call the bridge redacts (`bridge/src/llm/redact.js`): the names on 
 
 Answers are JSON and checked (net + VAT = gross, dates are dates, a pick is one of the candidates). An answer that does not check out is retried once with the second model, then discarded. What was sent is kept with the receipt (_An die KI gesendet_) or shown with the search (_Was an das Sprachmodell ging_). The Verlauf logs model, time and tokens of every call. The bridge's log has counts only.
 
+### When the provider refuses
+
+When the provider refuses rather than a model failing on one text – **no credit left** (HTTP 402), **an API key it does not accept**, **a model it does not know**, or **no answer at all** (a local Ollama that is not running) – the bridge says so with its own code (`LLM_NO_CREDIT`, `LLM_AUTH`, `LLM_MODEL`, `LLM_UNREACHABLE`) and writes the attempts' models and statuses to its log, never the text ([#417](https://github.com/Le-Space/belege/issues/417)). The app then **stops the run** ("Alle neuen auslesen", the AI suggestions): no further receipt or question is sent, none is marked as failed, and the message says what to do – top up, `pnpm setup:llm`, start the service. The rest waits on Home under "Weitermachen". `GET /llm/status` keeps the last refusal and when it happened.
+
 ## Without AI (fixed rules)
 
 - **Matching** receipts to bookings: points for amount, invoice and customer number, IBAN, vendor name, a learned vendor alias and date (`app/src/lib/matching/score.js`). _Warum diese Zuordnung?_ explains every link.

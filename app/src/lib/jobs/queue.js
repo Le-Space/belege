@@ -7,9 +7,14 @@
 // hand. After every id, and at the end, the caller learns which ids are left,
 // to keep them for "weitermachen" after a reload (jobs/pending.js).
 //
+// A provider that refuses – no credit, a wrong key, a model it does not know,
+// no answer at all (#417), or the bridge itself gone – stops the run: every
+// further id would be refused the same way. The id goes back, nothing counts
+// as failed, and `state.stopped` says why; the rest is kept like a locked run's.
+//
 // Plain JS: the caller hands in its own `$state` object for the progress.
 
-/** @typedef {{ progress: { done: number, count: number } | null, cancelling: boolean, failed: number }} RunState */
+/** @typedef {{ progress: { done: number, count: number } | null, cancelling: boolean, failed: number, stopped?: string | null }} RunState */
 
 export const MIN_WORKERS = 1;
 export const MAX_WORKERS = 4;
@@ -20,6 +25,15 @@ const MAX_PAUSE_MS = 30_000;
 /** Whether an error says: too many requests, try again later. @param {any} error */
 export const isRateLimit = (error) => error?.status === 429;
 
+/** The bridge's codes for a provider that refuses (bridge/src/llm/extract.js REFUSALS). */
+const REFUSED = new Set(['LLM_NO_CREDIT', 'LLM_AUTH', 'LLM_MODEL', 'LLM_UNREACHABLE']);
+
+/**
+ * Whether an error says: nothing more will go through – the provider refuses,
+ * or the bridge does not answer (status 0). @param {any} error
+ */
+export const isRefusal = (error) => REFUSED.has(error?.code) || error?.status === 0;
+
 /**
  * @param {object} params
  * @param {string[]} params.ids
@@ -28,7 +42,7 @@ export const isRateLimit = (error) => error?.status === 429;
  * @param {number} [params.workers] requests at once (1–4)
  * @param {() => boolean} [params.isOpen] false once the books are locked
  * @param {(left: string[]) => unknown} [params.onProgress] ids not done yet, after each one
- * @param {(left: string[], how: 'done' | 'cancelled' | 'closed') => unknown} [params.onEnd]
+ * @param {(left: string[], how: 'done' | 'cancelled' | 'closed' | 'stopped') => unknown} [params.onEnd]
  * @param {(ms: number) => Promise<void>} [params.sleep]
  * @returns {Promise<boolean>} false when a run of this state is going already
  */
@@ -46,6 +60,7 @@ export async function runQueue({
 	state.progress = { done: 0, count: ids.length };
 	state.cancelling = false;
 	state.failed = 0;
+	state.stopped = null;
 	const queue = [...ids];
 	/** @type {Set<string>} */
 	const inFlight = new Set();
@@ -57,7 +72,7 @@ export async function runQueue({
 
 	const worker = async () => {
 		while (queue.length) {
-			if (state.cancelling) return;
+			if (state.cancelling || state.stopped) return;
 			if (!isOpen()) {
 				closed = true;
 				return;
@@ -71,7 +86,10 @@ export async function runQueue({
 				pause = Math.floor(pause / 2) < 1000 ? 0 : Math.floor(pause / 2);
 			} catch (error) {
 				const tries = (retries.get(id) ?? 0) + 1;
-				if (isRateLimit(error) && tries <= MAX_RETRIES) {
+				if (isRefusal(error)) {
+					queue.unshift(id);
+					state.stopped ??= error instanceof Error ? error.message : String(error);
+				} else if (isRateLimit(error) && tries <= MAX_RETRIES) {
 					retries.set(id, tries);
 					queue.push(id);
 					pause = Math.min(Math.max(pause * 2, 2000), MAX_PAUSE_MS);
@@ -92,7 +110,14 @@ export async function runQueue({
 		await onProgress?.(left());
 		await Promise.all(Array.from({ length: n }, worker));
 	} finally {
-		const how = closed || !isOpen() ? 'closed' : state.cancelling ? 'cancelled' : 'done';
+		const how =
+			closed || !isOpen()
+				? 'closed'
+				: state.stopped
+					? 'stopped'
+					: state.cancelling
+						? 'cancelled'
+						: 'done';
 		const rest = left();
 		state.progress = null;
 		state.cancelling = false;
