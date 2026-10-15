@@ -39,13 +39,13 @@ launchctl setenv OLLAMA_KEEP_ALIVE 2h
 pnpm setup:llm
 ```
 
-| Question            | Answer                                                                       |
-| ------------------- | ---------------------------------------------------------------------------- |
-| LLM base URL        | `http://127.0.0.1:11434/v1`                                                  |
-| Model               | the name from step 1, e.g. `qwen3:30b-a3b-instruct-2507-q4_K_M`              |
-| Model for the retry | the same name (or the small model, if both are downloaded)                   |
-| Terms to black out  | Enter keeps yours. Nothing leaves anyway; the terms do no harm.              |
-| API key             | Enter. Ollama needs none; a key stored for another provider stays for later. |
+| Question                                     | Answer                                                                                                                                                                                                                                |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LLM base URL                                 | `http://127.0.0.1:11434/v1`                                                                                                                                                                                                           |
+| Model                                        | the name from step 1, e.g. `qwen3:30b-a3b-instruct-2507-q4_K_M`                                                                                                                                                                       |
+| Model for the retry                          | the same name (or the small model, if both are downloaded)                                                                                                                                                                            |
+| Does the model run on this machine itself …? | Enter (yes). Nothing leaves, so nothing is blacked out ([#423](https://github.com/Le-Space/belege/issues/423)); the terms are not asked and are kept for later. Answer `n` only for a proxy on 127.0.0.1 that forwards to a provider. |
+| API key                                      | Enter. Ollama needs none; a key stored for another provider stays for later.                                                                                                                                                          |
 
 Then restart the bridge (`pnpm bridge`). In the app, _Integrationen → KI – Beleg-Auslesen_ shows the provider `127.0.0.1:11434` and the model.
 
