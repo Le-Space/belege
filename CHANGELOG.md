@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **A model on this machine gets ten minutes per answer.** On a CPU (Ollama on an Intel Mac) one receipt takes two minutes and more, and the first after a pause also loads the model; the bridge's three minutes cut a part of them off. A model on 127.0.0.1/localhost now gets 10 minutes, one elsewhere still 3. A timed-out attempt says `no answer within … s` instead of `unreachable: timeout`. [docs/ai.md](docs/ai.md) has the measured numbers and the Ollama settings that go with them.
+
 ## [0.11.0] – 2026-10-15
 
 ### Added

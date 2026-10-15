@@ -18,7 +18,14 @@ import { redact, sumCounts } from './redact.js';
 
 export const MAX_TOKENS = 6000;
 export const MAX_TEXT = 30_000;
-const TIMEOUT_MS = 180_000;
+/** How long one answer may take from a provider elsewhere. */
+export const TIMEOUT_MS = 180_000;
+/**
+ * …and from a model on this machine: on a CPU (Ollama on an Intel Mac) one
+ * receipt takes two minutes and more, and the first after a pause also loads
+ * the model into memory. Measured 2026-10-15: 121–154 s per receipt, warm.
+ */
+export const LOCAL_TIMEOUT_MS = 600_000;
 
 export const SYSTEM = `You extract bookkeeping data from receipts in any language (German, English, Russian, Ukrainian,
 Polish, Czech, Turkish, Arabic, Spanish, Italian, French or any other) for a German company (UG).
@@ -355,6 +362,7 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 		throw new Error('The LLM base URL must be https (http only for a server on this machine).');
 	}
 	const models = [...new Set([config.model, config.retryModel].filter(Boolean))];
+	const timeoutMs = loopback ? LOCAL_TIMEOUT_MS : TIMEOUT_MS;
 
 	/**
 	 * @param {string} model
@@ -377,13 +385,15 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 						{ role: 'user', content }
 					]
 				}),
-				signal: AbortSignal.timeout(TIMEOUT_MS)
+				signal: AbortSignal.timeout(timeoutMs)
 			});
 		} catch (/** @type {any} */ error) {
 			const timeout = error.name === 'TimeoutError';
 			return {
 				ok: false,
-				reason: `unreachable: ${timeout ? 'timeout' : (error.cause?.code ?? error.code ?? error.name)}`,
+				reason: timeout
+					? `no answer within ${timeoutMs / 1000} s`
+					: `unreachable: ${error.cause?.code ?? error.code ?? error.name}`,
 				// A timeout is this text taking too long, not the provider being gone.
 				unreachable: !timeout
 			};

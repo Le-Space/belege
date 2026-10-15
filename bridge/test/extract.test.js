@@ -692,8 +692,31 @@ test('a provider that cannot be reached is named, a slow answer is not (#417)', 
 			throw Object.assign(new Error('timed out'), { name: 'TimeoutError' });
 		}
 	});
-	await assert.rejects(slow.extract({ text: 'Rechnung über 23,80 EUR von Beispiel GmbH' }), {
-		code: 'EXTRACT_FAILED'
-	});
+	await assert.rejects(
+		slow.extract({ text: 'Rechnung über 23,80 EUR von Beispiel GmbH' }),
+		(/** @type {any} */ e) => {
+			assert.equal(e.code, 'EXTRACT_FAILED');
+			// A model on this machine gets ten minutes: on a CPU one receipt takes minutes.
+			assert.deepEqual(
+				e.attempts.map((/** @type {any} */ a) => a.reason),
+				['no answer within 600 s', 'no answer within 600 s']
+			);
+			return true;
+		}
+	);
 	assert.equal(slow.lastRefusal(), null);
+	const remote = createExtractor({
+		config: { ...config, baseUrl: 'https://api.deepseek.example/v1', retryModel: 'local-a' },
+		getKey: async () => 'none',
+		fetch: async () => {
+			throw Object.assign(new Error('timed out'), { name: 'TimeoutError' });
+		}
+	});
+	await assert.rejects(
+		remote.extract({ text: 'Rechnung über 23,80 EUR von Beispiel GmbH' }),
+		(/** @type {any} */ e) => {
+			assert.equal(e.attempts[0].reason, 'no answer within 180 s');
+			return true;
+		}
+	);
 });
