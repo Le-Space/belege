@@ -1259,6 +1259,25 @@ export default {
 		hidden: '{count} weitere in anderen Jahren'
 	},
 	home: {
+		safety: {
+			warn: {
+				title: 'Deine Bücher liegen nur in diesem Browser',
+				text: 'Der Browser hat nicht zugesagt, sie dauerhaft zu behalten: Wird der Platz auf dem Gerät knapp, darf er sie ohne Rückfrage löschen. Eine zweite Kopie gibt es nicht – kein aktuelles Backup, kein eigenes Gerät.'
+			},
+			remind: {
+				title: 'Zeit für ein Backup',
+				text: 'Der Browser behält deine Bücher. Eine kaputte Platte, ein verlorener Laptop oder gelöschte Websitedaten nähmen sie trotzdem mit, solange es keine zweite Kopie gibt.'
+			},
+			noBackup: 'Noch kein Backup.',
+			backupToday: 'Letztes Backup: heute.',
+			backupAge: 'Letztes Backup vor {days} Tagen.',
+			persist: 'Dauerhaft speichern',
+			backup: 'Backup machen',
+			device: 'Eigenes Gerät verbinden',
+			snooze: 'In einer Woche wieder',
+			refused:
+				'Der Browser hat abgelehnt. Chrome sagt eher zu, wenn Belege als App installiert ist oder ein Lesezeichen hat. Sicher bist du erst mit einem Backup oder einem zweiten Gerät.'
+		},
 		ownIban: {
 			title: 'Ist das ein eigenes Konto?',
 			what: 'Von diesen IBANs kommt Geld unter eurem Firmennamen – meist ein eigenes Konto, dessen Auszüge die IBAN nicht nennen (Wise zum Beispiel). Als eigene IBAN gespeichert, gilt jede Zahlung dorthin als eigene Umbuchung.',

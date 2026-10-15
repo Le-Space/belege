@@ -66,6 +66,7 @@
 
 	async function persist() {
 		persisted = await navigator.storage.persist().catch(() => false);
+		app.persisted = persisted;
 	}
 
 	/** @param {number} bytes */

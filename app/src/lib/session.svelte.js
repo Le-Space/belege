@@ -10,6 +10,7 @@ import { classifyTransaction, cleanMatchingSettings } from './matching/classify.
 import { buildMatchingContext } from './matching/context.js';
 import { cleanChart } from './booking/chart.js';
 import { t } from './i18n/index.js';
+import { requestPersistence } from './storage/safety.js';
 
 /** @typedef {import('./node.js').Session} Session */
 /** @typedef {import('./store/repository.js').StoredRecord} StoredRecord */
@@ -27,6 +28,12 @@ export const app = $state({
 	unlock: null,
 	/** @type {string | null} */
 	did: null,
+	/**
+	 * Whether the browser keeps this site's storage for good (storage/safety.js),
+	 * asked on every unlock; null: not asked yet, or it cannot say.
+	 * @type {boolean | null}
+	 */
+	persisted: null,
 	/** Device sync (#123): off, or this device's id and the devices it knows. */
 	sync: {
 		online: false,
@@ -904,6 +911,8 @@ async function unlockWith(credential, progress) {
 	progress?.status({ step: 'books' });
 	await refresh();
 	installE2EHooks();
+	// Not awaited: the browser's answer, for Home's warning (storage/safety.js).
+	requestPersistence().then((kept) => (app.persisted = kept));
 	// Not awaited: rates for instalments of invoices in another currency.
 	fillExchangeRates();
 	// Not awaited: the books are open, whatever the relay does.

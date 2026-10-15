@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Books no longer rest on the browser's goodwill unasked.** Everything lies in the browser's IndexedDB, and a browser that has not granted persistent storage may clear it when the disk runs low – silently, while the passkey still unlocks, into empty books. Belege now asks for persistent storage on every unlock, not only from a button under _Einstellungen → Speicher_. Home warns while the browser has not agreed and there is no second copy (no backup in the last 7 days, no own device), with the way to each; once the browser keeps the books, a reminder asks for a backup, put away for a week at a time.
+
 ## [0.10.0] – 2026-10-14
 
 ### Added

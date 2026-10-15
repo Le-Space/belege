@@ -1233,6 +1233,25 @@ export default {
 		hidden: '{count} more in other years'
 	},
 	home: {
+		safety: {
+			warn: {
+				title: 'Your books live only in this browser',
+				text: 'The browser has not promised to keep them: when the device runs low on space, it may delete them without asking. There is no second copy – no recent backup, no own device.'
+			},
+			remind: {
+				title: 'Time for a backup',
+				text: 'The browser keeps your books. A broken disk, a lost laptop or cleared site data would still take them, as long as there is no second copy.'
+			},
+			noBackup: 'No backup yet.',
+			backupToday: 'Last backup: today.',
+			backupAge: 'Last backup {days} days ago.',
+			persist: 'Keep for good',
+			backup: 'Make a backup',
+			device: 'Connect an own device',
+			snooze: 'Again in a week',
+			refused:
+				'The browser said no. Chrome is more likely to agree when Belege is installed as an app or bookmarked. Only a backup or a second device makes the books safe.'
+		},
 		ownIban: {
 			title: 'Is this an own account?',
 			what: 'Money comes from these IBANs under your company’s name – usually an own account whose statements do not name its IBAN (Wise, for example). Saved as an own IBAN, every payment to it counts as an own transfer.',
