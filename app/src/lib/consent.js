@@ -48,7 +48,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 22: the browser signs the order to keep a backup itself, once the bridge's
 //     account allows its own key, and asks Aleph's API for the account's
 //     grants, credits and backups (#77).
-export const CONSENT_VERSION = '22';
+// 23: the bridge fetches documents from the person's own Paperless-ngx, on this
+//     machine or over https, with a token from the keychain (#318).
+export const CONSENT_VERSION = '23';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

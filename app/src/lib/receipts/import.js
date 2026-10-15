@@ -26,7 +26,7 @@ import { recordEvent } from '../activity/events.js';
 import { sha256Hex } from './blob-store.js';
 import { eInvoiceFields, pdfEInvoice, sniffEInvoice } from './einvoice.js';
 
-/** @typedef {'mail' | 'upload' | 'folder' | 'portal' | 'eigenbeleg' | 'invoice-app'} ReceiptSource portal: portals/import.js; eigenbeleg: eigenbeleg.js; invoice-app: ucep/issued.js */
+/** @typedef {'mail' | 'upload' | 'folder' | 'portal' | 'paperless' | 'eigenbeleg' | 'invoice-app'} ReceiptSource portal: portals/import.js; paperless: paperless/import.js; eigenbeleg: eigenbeleg.js; invoice-app: ucep/issued.js */
 /** @typedef {'neu' | 'ausgelesen' | 'rückfrage' | 'zugeordnet' | 'ignoriert'} ReceiptStatus */
 
 export const MAX_FILE_BYTES = 15 * 1024 * 1024;

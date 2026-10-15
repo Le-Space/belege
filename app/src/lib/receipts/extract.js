@@ -163,7 +163,10 @@ export async function extractReceipt({
 		);
 	}
 
-	if (record.mime?.startsWith('image/')) {
+	// A scan or photo from Paperless-ngx: its OCR text stands in for the text
+	// layer the file lacks (#318). It is read like any other text, never obeyed.
+	const ocr = ocrText(record);
+	if (record.mime?.startsWith('image/') && !ocr) {
 		return writeOnLatest(() => ({ extractionError: 'image' }));
 	}
 
@@ -183,8 +186,11 @@ export async function extractReceipt({
 		const read = pdfText ?? (await import('./pdf.js')).extractPdfText;
 		text = (await read(pdf)).text;
 		if (text.replace(/\s+/g, '').length < MIN_TEXT) {
-			return writeOnLatest(() => ({ extractionError: 'no-text' }));
+			if (!ocr) return writeOnLatest(() => ({ extractionError: 'no-text' }));
+			text = ocr;
 		}
+	} else if (ocr) {
+		text = ocr;
 	} else {
 		text = [record.subject, record.excerpt].filter(Boolean).join('\n\n');
 	}
@@ -249,7 +255,18 @@ export async function extractReceipt({
 }
 
 /**
- * The receipts "Alle neuen auslesen" takes: new, not waiting for a yes, not an image.
+ * Paperless' OCR text of a receipt, when it has enough to read (#318); else ''.
+ *
+ * @param {Record<string, any>} record
+ */
+export function ocrText(record) {
+	const text = record.source === 'paperless' ? String(record.paperlessContent ?? '') : '';
+	return text.replace(/\s+/g, '').length >= MIN_TEXT ? text : '';
+}
+
+/**
+ * The receipts "Alle neuen auslesen" takes: new, not waiting for a yes, not an
+ * image or a PDF without text – unless Paperless' OCR text stands in.
  *
  * @param {import('../store/repository.js').StoredRecord[]} records
  */
@@ -259,7 +276,7 @@ export function extractable(records) {
 			r.status === 'neu' &&
 			!r.extraction &&
 			!needsConfirmation(r) &&
-			!String(r.mime ?? '').startsWith('image/') &&
-			r.extractionError !== 'no-text'
+			((!String(r.mime ?? '').startsWith('image/') && r.extractionError !== 'no-text') ||
+				Boolean(ocrText(r)))
 	);
 }

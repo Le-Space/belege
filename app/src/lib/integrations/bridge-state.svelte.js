@@ -11,6 +11,7 @@ import { t } from '$lib/i18n/index.js';
  * @typedef {object} BridgeHealth what /health says is set up
  * @property {boolean} hibiscus
  * @property {boolean} kraken
+ * @property {boolean} [paperless] Paperless-ngx set up on the bridge (#318)
  * @property {boolean} mail
  * @property {boolean} llm
  * @property {boolean} enablebanking
@@ -32,6 +33,7 @@ export const bridge = $state({
 	health: {
 		hibiscus: false,
 		kraken: false,
+		paperless: false,
 		mail: false,
 		llm: false,
 		enablebanking: false,
@@ -74,6 +76,7 @@ export async function checkBridge() {
 		bridge.health = {
 			hibiscus: health.hibiscus?.configured ?? false,
 			kraken: health.kraken?.configured ?? false,
+			paperless: health.paperless?.configured ?? false,
 			mail: health.mail?.configured ?? false,
 			llm: health.llm?.configured ?? false,
 			backup: health.backup?.aleph ?? false,

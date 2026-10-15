@@ -68,6 +68,18 @@ export function describeEvent(e, { receipts = [], transactions = [] } = {}) {
 						duplicate: e.duplicate ?? 0
 					}) + (e.verdicts ? t('belege.mailVerdicts', { count: e.verdicts }) : '')
 			};
+		case 'paperless-fetch':
+			return {
+				...base,
+				title: t('verlauf.kind.paperless-fetch'),
+				text: t('verlauf.text.paperlessFetch', {
+					documents: e.documents ?? 0,
+					new: e.new ?? 0,
+					known: e.known ?? 0,
+					duplicate: e.duplicate ?? 0,
+					skipped: e.skipped ?? 0
+				})
+			};
 		case 'file-import':
 			return {
 				...base,

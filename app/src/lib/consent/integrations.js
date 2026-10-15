@@ -78,6 +78,7 @@ export const INTEGRATION_GROUPS = [
 		]
 	},
 	{ id: 'exchanges', items: [{ id: 'kraken', name: 'Kraken', initials: 'Kr' }] },
+	{ id: 'archives', items: [{ id: 'paperless', name: 'Paperless-ngx', initials: 'Pl' }] },
 	{
 		id: 'chains',
 		items: [

@@ -69,6 +69,7 @@ let keychain;
 let mailKeychain;
 let llmKeychain;
 let krakenKeychain;
+let paperlessKeychain;
 let enablebankingKeychain;
 let coingeckoKeychain;
 let bitcoinKeychain;
@@ -101,6 +102,10 @@ if (testMode) {
 	portalKeychain = () => portalPassword;
 	portalPasswordDialog = async () => process.env.BELEGE_BRIDGE_TEST_PORTAL_DIALOG ?? null;
 	krakenKeychain = memoryKeychain(process.env.BELEGE_BRIDGE_TEST_KRAKEN_KEY ?? null, 'kraken');
+	paperlessKeychain = memoryKeychain(
+		process.env.BELEGE_BRIDGE_TEST_PAPERLESS_TOKEN ?? null,
+		'paperless'
+	);
 	enablebankingKeychain = memoryKeychain(
 		process.env.BELEGE_BRIDGE_TEST_ENABLEBANKING_KEY ?? null,
 		'enablebanking'
@@ -147,6 +152,7 @@ try {
 		mailKeychain,
 		llmKeychain,
 		krakenKeychain,
+		paperlessKeychain,
 		enablebankingKeychain,
 		coingeckoKeychain,
 		bitcoinKeychain,
