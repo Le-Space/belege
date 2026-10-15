@@ -923,6 +923,8 @@ export function createBridgeServer({
 							: null
 				},
 				keyConfigured,
+				// The provider's last refusal since the bridge started (#417): no credit, key, …
+				lastRefusal: llm?.lastRefusal?.() ?? null,
 				redactTerms: config.llm.redactTerms.length,
 				mail: { authServId: config.mail.authServId ?? null }
 			});
@@ -1013,13 +1015,18 @@ export function createBridgeServer({
 								? 502
 								: 500);
 			// Messages are the bridge's own; they carry no password, no bank data and no mail text.
-			log(`${req.method} ${url.pathname}: ${error.code ?? error.name}: ${error.message}`);
+			// A model's attempts say model, status and time – never the text (#417).
+			const tried = Array.isArray(error.attempts)
+				? ` (${error.attempts.map((/** @type {any} */ a) => `${a.model}: ${a.reason}, ${a.ms} ms`).join('; ')})`
+				: '';
+			log(`${req.method} ${url.pathname}: ${error.code ?? error.name}: ${error.message}${tried}`);
 			if (!res.headersSent) {
 				send(res, status, {
 					error: error.message,
 					code: error.code ?? null,
 					...(Array.isArray(error.attempts) ? { attempts: error.attempts } : {}),
 					...(error.step ? { step: error.step } : {}),
+					...(error.provider ? { provider: error.provider } : {}),
 					...(error.reason ? { reason: error.reason } : {})
 				});
 			}

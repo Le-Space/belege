@@ -244,14 +244,18 @@
 {#each RESUME_KINDS as kind (kind)}
 	{@const ids = kind === 'extract' ? leftToRead : leftToSuggest}
 	{#if ids.length}
+		{@const stopped = kind === 'extract' ? extractRun.stopped : aiRun.stopped}
 		<section
 			class="mt-4 flex flex-wrap items-center justify-between gap-3 {card}"
 			role="status"
 			data-testid={`resume-${kind}`}
 		>
-			<p class="min-w-0 flex-1 text-sm text-heading">
-				{t(`home.resume.${kind}`, { count: ids.length })}
-			</p>
+			<div class="min-w-0 flex-1 text-sm">
+				<p class="text-heading">{t(`home.resume.${kind}`, { count: ids.length })}</p>
+				{#if stopped}
+					<p class="mt-1 text-danger" data-testid={`resume-${kind}-why`}>{stopped}</p>
+				{/if}
+			</div>
 			<div class="flex gap-2">
 				<button
 					type="button"

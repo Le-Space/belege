@@ -311,6 +311,16 @@ export default {
 			alephRejected: 'Aleph did not keep the backup ({error}).',
 			mailNotSetUp: 'The mailbox is not set up on the bridge (pnpm setup:mail).',
 			paperlessNotSetUp: 'Paperless is not set up on the bridge (pnpm setup:paperless).',
+			refused: {
+				LLM_NO_CREDIT:
+					'Your credit with {provider} is used up. Top it up there, then “Continue” on Home.',
+				LLM_AUTH:
+					'{provider} does not accept the API key: run pnpm setup:llm again, then restart the bridge.',
+				LLM_MODEL:
+					'{provider} does not know the configured model: pnpm setup:llm, then restart the bridge.',
+				LLM_UNREACHABLE:
+					'{provider} cannot be reached. Is the service running (for Ollama: the app)? Then “Continue” on Home.'
+			},
 			llmNotSetUp: 'Reading receipts is not set up on the bridge (pnpm setup:llm).',
 			senderUnverified: 'The sender is not confirmed (DKIM/SPF): approve first.',
 			noModel: 'No model gave a usable answer ({reasons}).'
@@ -1289,8 +1299,7 @@ export default {
 			keep: 'Receipt is correct'
 		},
 		resume: {
-			extract:
-				'{count} receipts were not fully read when the page was reloaded or locked. Continue?',
+			extract: '{count} receipts were not fully read because the run was interrupted. Continue?',
 			suggest:
 				'AI suggestions are still missing for {count} questions because the run was interrupted. Continue?',
 			go: 'Continue',

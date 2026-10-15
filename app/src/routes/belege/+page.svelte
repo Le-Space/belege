@@ -935,6 +935,11 @@
 						{/if}
 					{/if}
 				</div>
+				{#if extractRun.stopped && !extractRun.progress}
+					<p class="mt-2 text-sm text-danger" role="alert" data-testid="extract-stopped">
+						{extractRun.stopped}
+					</p>
+				{/if}
 
 				<div
 					class="mt-3 flex flex-wrap gap-1.5 text-xs"

@@ -9,6 +9,7 @@
 
 import { eventCalls } from '../stats/usage.js';
 import { recordEvent, tokenCount } from '../activity/events.js';
+import { isRateLimit, isRefusal } from '../jobs/queue.js';
 import { needsConfirmation } from './import.js';
 import { eInvoiceFields, pdfEInvoice } from './einvoice.js';
 import { t } from '../i18n/index.js';
@@ -212,6 +213,9 @@ export async function extractReceipt({
 		});
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
+		// Refused by the provider or the bridge (#417), or rate-limited: this receipt
+		// was not read at all, and stays waiting as it is.
+		if (isRefusal(error) || isRateLimit(error)) throw error;
 		await writeOnLatest(() => ({ extractionError: message }));
 		await recordEvent(events, 'extract', { receiptId: record.id, ok: false, error: message });
 		throw error;

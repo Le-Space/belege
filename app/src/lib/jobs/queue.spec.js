@@ -58,7 +58,7 @@ describe('runQueue', () => {
 		expect(progress[0]).toEqual(['a', 'b', 'c', 'd']);
 		expect(progress[1]).toEqual(['b', 'c', 'd']);
 		expect(progress.at(-1)).toEqual([]);
-		expect(s).toEqual({ progress: null, cancelling: false, failed: 0 });
+		expect(s).toEqual({ progress: null, cancelling: false, failed: 0, stopped: null });
 	});
 
 	it('the number of workers is kept between 1 and 4', async () => {
@@ -123,6 +123,50 @@ describe('runQueue', () => {
 		});
 		expect(calls).toBe(7);
 		expect(s.failed).toBe(1);
+	});
+
+	it('a provider that refuses stops the run: the id goes back, nothing fails (#417)', async () => {
+		for (const error of [
+			Object.assign(new Error('Das Guthaben bei DeepSeek ist aufgebraucht.'), {
+				status: 402,
+				code: 'LLM_NO_CREDIT'
+			}),
+			Object.assign(new Error('Ollama ist nicht erreichbar.'), {
+				status: 502,
+				code: 'LLM_UNREACHABLE'
+			}),
+			Object.assign(new Error('Bridge nicht erreichbar'), { status: 0 })
+		]) {
+			const s = state();
+			/** @type {string[]} */
+			const asked = [];
+			/** @type {{ left: string[], how: string }[]} */
+			const ends = [];
+			await runQueue({
+				ids: ['a', 'b', 'c', 'd'],
+				state: s,
+				workers: 1,
+				handle: async (id) => {
+					asked.push(id);
+					if (id === 'b') throw error;
+				},
+				onEnd: (left, how) => void ends.push({ left, how })
+			});
+			expect(asked).toEqual(['a', 'b']);
+			expect(ends).toEqual([{ left: ['b', 'c', 'd'], how: 'stopped' }]);
+			expect(s).toMatchObject({ failed: 0, stopped: error.message, progress: null });
+		}
+		// A failure that is this one id's own goes on as before, and clears an old stop.
+		const s = { ...state(), stopped: 'old' };
+		await runQueue({
+			ids: ['a', 'b'],
+			state: s,
+			handle: async (id) => {
+				if (id === 'a')
+					throw Object.assign(new Error('x'), { status: 502, code: 'EXTRACT_FAILED' });
+			}
+		});
+		expect(s).toMatchObject({ failed: 1, stopped: null });
 	});
 
 	it('cancel ends with nothing kept; locking keeps what is left', async () => {

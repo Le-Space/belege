@@ -270,7 +270,45 @@ describe('/extract', () => {
 		const before = llm.requests.length;
 		const res = await post({ text: INVOICE_TEXT });
 		assert.equal(res.status, 502);
+		assert.equal(res.json.code, 'LLM_AUTH');
 		assert.equal(llm.requests.length - before, 1);
+		script({});
+	});
+
+	test('the provider refusing is named, so the app stops its run (#417)', async () => {
+		// No credit: once, not again with the other model; 402 with the provider's host.
+		script({ 'deepseek-flash': 'http402' });
+		let before = llm.requests.length;
+		const broke = await post({ text: INVOICE_TEXT });
+		assert.equal(broke.status, 402);
+		assert.equal(broke.json.code, 'LLM_NO_CREDIT');
+		assert.equal(broke.json.provider, new URL(llm.url).host);
+		assert.equal(llm.requests.length - before, 1);
+		assert.deepEqual(
+			broke.json.attempts.map((/** @type {any} */ a) => a.reason),
+			['HTTP 402']
+		);
+		// A model the provider does not know: by 404, or by a 400 that says so.
+		script({ 'deepseek-flash': 'http404', 'deepseek-v4-pro': 'http400model' });
+		const unknown = await post({ text: INVOICE_TEXT });
+		assert.equal(unknown.json.code, 'LLM_MODEL');
+		// Any other 400, or one model refused and the other answering badly: this text failed.
+		script({ 'deepseek-flash': 'http400', 'deepseek-v4-pro': 'http400' });
+		assert.equal((await post({ text: INVOICE_TEXT })).json.code, 'EXTRACT_FAILED');
+		script({ 'deepseek-flash': 'http402', 'deepseek-v4-pro': 'garbage' });
+		before = llm.requests.length;
+		assert.equal((await post({ text: INVOICE_TEXT })).json.code, 'LLM_NO_CREDIT');
+		assert.equal(llm.requests.length - before, 1, 'no second model after a 402');
+		// A mix is no refusal: the first model unknown, the second answering.
+		script({ 'deepseek-flash': 'http404' });
+		const mixed = await post({ text: INVOICE_TEXT });
+		assert.equal(mixed.status, 200);
+		assert.equal(mixed.json.model, 'deepseek-v4-pro');
+		// The status page remembers the last refusal.
+		const status = await request(port, '/llm/status', {
+			headers: { origin: APP, authorization: `Bearer ${token}` }
+		});
+		assert.equal(status.json.lastRefusal.code, 'LLM_NO_CREDIT');
 		script({});
 	});
 
@@ -338,7 +376,10 @@ describe('/extract', () => {
 		});
 		responses.push(res.text);
 		assert.equal(res.status, 200);
-		assert.deepEqual(res.json, {
+		const { lastRefusal, ...rest } = res.json;
+		// The tests before left a refusal behind: its code and when, nothing else.
+		assert.deepEqual(Object.keys(lastRefusal ?? { code: 0, at: 0 }).sort(), ['at', 'code']);
+		assert.deepEqual(rest, {
 			configured: true,
 			provider: new URL(llm.url).host,
 			models: { primary: 'deepseek-flash', fallback: 'deepseek-v4-pro' },
@@ -617,4 +658,42 @@ test('travel fields made exact: a kind, times, days, nights; what does not fit i
 	assert.equal(old.departure, '2025-11-02T06:30');
 	assert.equal(normalizeTravelFields({ travel: 'Bahn' }).travel, null);
 	assert.equal(normalizeTravelFields({}).travel, null);
+});
+
+test('a provider that cannot be reached is named, a slow answer is not (#417)', async () => {
+	const config = {
+		...defaultConfig().llm,
+		baseUrl: 'http://127.0.0.1:11434/v1',
+		model: 'local-a',
+		retryModel: 'local-b',
+		configured: true
+	};
+	/** @type {string[]} */
+	const asked = [];
+	const refused = createExtractor({
+		config,
+		getKey: async () => 'none',
+		fetch: async (url) => {
+			asked.push(String(url));
+			throw Object.assign(new TypeError('fetch failed'), { cause: { code: 'ECONNREFUSED' } });
+		}
+	});
+	await assert.rejects(refused.extract({ text: 'Rechnung über 23,80 EUR von Beispiel GmbH' }), {
+		code: 'LLM_UNREACHABLE',
+		status: 502
+	});
+	assert.equal(asked.length, 1, 'the second model is not asked when nobody answers');
+	assert.equal(refused.lastRefusal()?.code, 'LLM_UNREACHABLE');
+
+	const slow = createExtractor({
+		config,
+		getKey: async () => 'none',
+		fetch: async () => {
+			throw Object.assign(new Error('timed out'), { name: 'TimeoutError' });
+		}
+	});
+	await assert.rejects(slow.extract({ text: 'Rechnung über 23,80 EUR von Beispiel GmbH' }), {
+		code: 'EXTRACT_FAILED'
+	});
+	assert.equal(slow.lastRefusal(), null);
 });

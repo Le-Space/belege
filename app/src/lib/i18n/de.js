@@ -325,6 +325,16 @@ export default {
 			alephRejected: 'Aleph hat die Sicherung nicht behalten ({error}).',
 			mailNotSetUp: 'Das Postfach ist auf der Bridge nicht eingerichtet (pnpm setup:mail).',
 			paperlessNotSetUp: 'Paperless ist auf der Bridge nicht eingerichtet (pnpm setup:paperless).',
+			refused: {
+				LLM_NO_CREDIT:
+					'Das Guthaben bei {provider} ist aufgebraucht. Lade es beim Anbieter auf, dann „Weitermachen“ auf Home.',
+				LLM_AUTH:
+					'{provider} nimmt den API-Schlüssel nicht an: pnpm setup:llm erneut ausführen, dann die Bridge neu starten.',
+				LLM_MODEL:
+					'{provider} kennt das eingestellte Modell nicht: pnpm setup:llm, dann die Bridge neu starten.',
+				LLM_UNREACHABLE:
+					'{provider} ist nicht erreichbar. Läuft der Dienst (bei Ollama: die App)? Dann „Weitermachen“ auf Home.'
+			},
 			llmNotSetUp: 'Das Auslesen ist auf der Bridge nicht eingerichtet (pnpm setup:llm).',
 			senderUnverified: 'Der Absender ist nicht bestätigt (DKIM/SPF): erst freigeben.',
 			noModel: 'Kein Modell lieferte eine brauchbare Antwort ({reasons}).'
@@ -1316,7 +1326,7 @@ export default {
 		},
 		resume: {
 			extract:
-				'{count} Belege wurden nicht fertig ausgelesen, als die Seite neu geladen oder gesperrt wurde. Weitermachen?',
+				'{count} Belege wurden nicht fertig ausgelesen, weil der Lauf unterbrochen wurde. Weitermachen?',
 			suggest:
 				'Für {count} Rückfragen fehlen noch KI-Vorschläge, weil der Lauf unterbrochen wurde. Weitermachen?',
 			go: 'Weitermachen',

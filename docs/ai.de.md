@@ -34,6 +34,10 @@ Vor jedem Aufruf schwärzt die Bridge (`bridge/src/llm/redact.js`): die Namen au
 
 Die Antworten sind JSON und werden geprüft (Netto + USt = Brutto, Daten sind Daten, ein Vorschlag ist einer der Kandidaten). Passt eine Antwort nicht, fragt die Bridge einmal das zweite Modell, sonst wird sie verworfen. Was gesendet wurde, bleibt am Beleg (_An die KI gesendet_) oder steht bei der Suche (_Was an das Sprachmodell ging_). Der Verlauf nennt Modell, Dauer und Tokens jedes Aufrufs; das Protokoll der Bridge nur Zahlen.
 
+### Wenn der Anbieter ablehnt
+
+Lehnt der Anbieter ab, statt dass ein Modell an einem Text scheitert – **Guthaben aufgebraucht** (HTTP 402), **API-Schlüssel nicht angenommen**, **Modell unbekannt** oder **gar keine Antwort** (ein lokales Ollama, das nicht läuft) –, meldet die Bridge das mit eigenem Code (`LLM_NO_CREDIT`, `LLM_AUTH`, `LLM_MODEL`, `LLM_UNREACHABLE`) und schreibt Modelle und Status der Versuche in ihr Log, nie den Text ([#417](https://github.com/Le-Space/belege/issues/417)). Die App **hält den Lauf dann an** („Alle neuen auslesen“, die KI-Vorschläge): Kein weiterer Beleg und keine weitere Rückfrage geht raus, keiner gilt als gescheitert, und die Meldung sagt, was zu tun ist – aufladen, `pnpm setup:llm`, den Dienst starten. Der Rest wartet auf Home unter „Weitermachen“. `GET /llm/status` merkt sich die letzte Ablehnung und wann sie war.
+
 ## Ohne KI (feste Regeln)
 
 - **Zuordnen** von Belegen zu Buchungen: Punkte für Betrag, Rechnungs- und Kundennummer, IBAN, Anbietername, gelernten Anbieter und Datum (`app/src/lib/matching/score.js`). _Warum diese Zuordnung?_ begründet jede Zuordnung.

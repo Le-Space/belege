@@ -93,22 +93,57 @@ export class ExtractError extends Error {
 }
 
 /**
- * Every model refused for the provider's rate limit: the caller should slow
- * down and try again later (HTTP 429), not count it as a failed read.
- *
- * @param {number[]} statuses
- * @param {any[]} attempts
+ * The provider refused, rather than a model failing on this one text (#417):
+ * what each kind of refusal is called, its HTTP status towards the app, and
+ * what the bridge says. The app stops a run on any of them – every further
+ * receipt would be refused the same way – and keeps the rest for later.
  */
-function failed(statuses, attempts) {
-	return statuses.length && statuses.every((s) => s === 429)
-		? new ExtractError(
-				'the provider limits requests; try again shortly',
-				429,
-				'LLM_RATE_LIMIT',
-				attempts
-			)
-		: new ExtractError('no model gave a usable answer', 502, 'EXTRACT_FAILED', attempts);
+export const REFUSALS = Object.freeze({
+	rate: {
+		code: 'LLM_RATE_LIMIT',
+		status: 429,
+		message: 'the provider limits requests; try again shortly'
+	},
+	credit: { code: 'LLM_NO_CREDIT', status: 402, message: "the provider's credit is used up" },
+	auth: { code: 'LLM_AUTH', status: 502, message: 'the provider refuses the API key' },
+	model: { code: 'LLM_MODEL', status: 502, message: 'the provider does not know the model' },
+	unreachable: { code: 'LLM_UNREACHABLE', status: 502, message: 'the provider cannot be reached' }
+});
+
+/**
+ * What kind of refusal one attempt was, or null when the provider answered.
+ *
+ * @param {{ status?: number, unreachable?: boolean, modelUnknown?: boolean }} r
+ * @returns {keyof typeof REFUSALS | null}
+ */
+export function refusalOf(r) {
+	if (r.unreachable) return 'unreachable';
+	if (r.status === 429) return 'rate';
+	if (r.status === 402) return 'credit';
+	if (r.status === 401 || r.status === 403) return 'auth';
+	if (r.status === 404 || (r.status === 400 && r.modelUnknown)) return 'model';
+	return null;
 }
+
+/**
+ * Every attempt refused the same way: that refusal. Anything else – a model
+ * that answered but not usably, or a mix – is a failed read of this text.
+ *
+ * @param {(keyof typeof REFUSALS | null)[]} kinds one per attempt
+ * @param {any[]} attempts
+ * @param {string} provider the host the text went to
+ */
+export function failed(kinds, attempts, provider) {
+	const [first] = kinds;
+	if (first && kinds.every((k) => k === first)) {
+		const r = REFUSALS[first];
+		return Object.assign(new ExtractError(r.message, r.status, r.code, attempts), { provider });
+	}
+	return new ExtractError('no model gave a usable answer', 502, 'EXTRACT_FAILED', attempts);
+}
+
+/** A refusal that holds for every model of the provider: no use asking the next one. */
+const ACCOUNT_WIDE = new Set(['credit', 'auth', 'unreachable']);
 
 /** @param {unknown} v */
 const isDay = (v) => {
@@ -345,14 +380,29 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 				signal: AbortSignal.timeout(TIMEOUT_MS)
 			});
 		} catch (/** @type {any} */ error) {
+			const timeout = error.name === 'TimeoutError';
 			return {
 				ok: false,
-				reason: `unreachable: ${error.name === 'TimeoutError' ? 'timeout' : (error.code ?? error.name)}`
+				reason: `unreachable: ${timeout ? 'timeout' : (error.cause?.code ?? error.code ?? error.name)}`,
+				// A timeout is this text taking too long, not the provider being gone.
+				unreachable: !timeout
 			};
 		}
 		if (!res.ok) {
-			await res.body?.cancel().catch(() => {});
-			return { ok: false, reason: `HTTP ${res.status}`, status: res.status };
+			// A 400 may say the model is unknown (DeepSeek: "Model Not Exist"); only that is read.
+			const said =
+				res.status === 400
+					? await res.text().catch(() => '')
+					: (await res.body?.cancel().catch(() => {}), '');
+			return {
+				ok: false,
+				reason: `HTTP ${res.status}`,
+				status: res.status,
+				modelUnknown:
+					/model[^.]{0,40}(not exist|not found|unknown|does not exist)|unknown model|no such model/i.test(
+						String(said).slice(0, 2000)
+					)
+			};
 		}
 		/** @type {any} */
 		let body;
@@ -392,11 +442,21 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 	}
 
 	const provider = url.host;
+	/** @type {{ code: string, at: string } | null} the provider's last refusal, for GET /llm/status */
+	let lastRefusal = null;
+	/** @param {ExtractError} error */
+	const remember = (error) => {
+		if (error.code !== 'EXTRACT_FAILED')
+			lastRefusal = { code: error.code, at: new Date().toISOString() };
+		return error;
+	};
 
 	return {
 		models,
 		/** Where the text goes, without path, query or credentials: for GET /llm/status. */
 		provider,
+		/** The provider's last refusal since the bridge started (#417), or null. */
+		lastRefusal: () => lastRefusal,
 		/**
 		 * Another JSON question to the same models, flash first, v4-pro when the
 		 * answer does not check out. The caller redacts the content.
@@ -408,13 +468,13 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 			const key = await getKey();
 			/** @type {Attempt[]} */
 			const attempts = [];
-			/** @type {number[]} */
-			const statuses = [];
+			/** @type {(keyof typeof REFUSALS | null)[]} */
+			const kinds = [];
 			const started = Date.now();
 			for (const model of models) {
 				const t0 = Date.now();
 				const r = await ask(model, key, content, { system, check });
-				statuses.push(Number(r.status ?? 0));
+				kinds.push(refusalOf(r));
 				attempts.push({
 					model,
 					ok: r.ok,
@@ -425,9 +485,9 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 				if (r.ok) {
 					return { data: r.data, model, usage: r.usage, ms: Date.now() - started, attempts };
 				}
-				if (r.status === 401) break;
+				if (ACCOUNT_WIDE.has(String(kinds.at(-1)))) break;
 			}
-			throw failed(statuses, attempts);
+			throw remember(failed(kinds, attempts, provider));
 		},
 		/**
 		 * @param {{ text: string, hints?: Record<string, string> }} input
@@ -454,13 +514,13 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 			const key = await getKey();
 			/** @type {Attempt[]} */
 			const attempts = [];
-			/** @type {number[]} */
-			const statuses = [];
+			/** @type {(keyof typeof REFUSALS | null)[]} */
+			const kinds = [];
 			const started = Date.now();
 			for (const model of models) {
 				const t0 = Date.now();
 				const r = await ask(model, key, content);
-				statuses.push(Number(r.status ?? 0));
+				kinds.push(refusalOf(r));
 				attempts.push({
 					model,
 					ok: r.ok,
@@ -486,10 +546,10 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 						sentText: content
 					};
 				}
-				// A wrong key is wrong for every model.
-				if (r.status === 401) break;
+				// No credit, a wrong key, no provider: the same for every model.
+				if (ACCOUNT_WIDE.has(String(kinds.at(-1)))) break;
 			}
-			throw failed(statuses, attempts);
+			throw remember(failed(kinds, attempts, provider));
 		}
 	};
 }
