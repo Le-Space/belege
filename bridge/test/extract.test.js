@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 
 import { createBridgeServer } from '../src/server.js';
 import { createPairing } from '../src/pairing.js';
-import { defaultConfig } from '../src/config.js';
+import { defaultConfig, redactionOff, withDefaults } from '../src/config.js';
 import { createMailClient } from '../src/mail/imap.js';
 import { checkExtraction, createExtractor, normalizeTravelFields } from '../src/llm/extract.js';
 import {
@@ -58,6 +58,8 @@ describe('/extract', () => {
 				...defaultConfig().llm,
 				baseUrl: llm.url,
 				redactTerms: [SECRETS.customerName, 'Beispielkund'],
+				// The fake on 127.0.0.1 stands in for a provider elsewhere: text is blacked out.
+				redaction: 'on',
 				configured: true
 			}
 		};
@@ -385,6 +387,7 @@ describe('/extract', () => {
 			models: { primary: 'deepseek-flash', fallback: 'deepseek-v4-pro' },
 			keyConfigured: true,
 			redactTerms: 2,
+			redaction: { mode: 'on', active: true },
 			mail: { authServId: null }
 		});
 		// The terms themselves stay on the bridge.
@@ -719,4 +722,46 @@ test('a provider that cannot be reached is named, a slow answer is not (#417)', 
 			return true;
 		}
 	);
+});
+
+test('a model on this machine gets the text as it is; a provider elsewhere does not (#423)', async () => {
+	const text = 'Rechnung an Erika Beispielkund, IBAN DE89 3704 0044 0532 0130 00, Summe 23,80 EUR';
+	/** @type {string[]} */
+	const sent = [];
+	/** @param {Partial<import('../src/config.js').LlmConfig>} over */
+	const extractor = (over) =>
+		createExtractor({
+			config: {
+				...defaultConfig().llm,
+				redactTerms: ['Erika Beispielkund'],
+				configured: true,
+				...over
+			},
+			getKey: async () => 'none',
+			fetch: async (_url, /** @type {any} */ init) => {
+				sent.push(JSON.parse(init.body).messages[1].content);
+				throw Object.assign(new Error('timed out'), { name: 'TimeoutError' });
+			}
+		});
+	const run = (/** @type {any} */ e) => e.extract({ text }).catch(() => null);
+
+	await run(extractor({ baseUrl: 'http://127.0.0.1:11434/v1', redaction: 'auto' }));
+	assert.ok(sent.at(-1)?.includes('Erika Beispielkund'), 'local: the name goes as it is');
+	assert.ok(sent.at(-1)?.includes('DE89 3704 0044 0532 0130 00'), 'local: the IBAN goes as it is');
+
+	await run(extractor({ baseUrl: 'http://127.0.0.1:4000/v1', redaction: 'on' }));
+	assert.equal(sent.at(-1)?.includes('Erika Beispielkund'), false, 'a proxy said so: blacked out');
+
+	await run(extractor({ baseUrl: 'https://api.deepseek.example/v1', redaction: 'auto' }));
+	assert.equal(sent.at(-1)?.includes('DE89 3704'), false, 'elsewhere: blacked out');
+});
+
+test('redactionOff: auto by the base URL, on and off as set, junk is auto (#423)', () => {
+	assert.equal(redactionOff({ baseUrl: 'http://127.0.0.1:11434/v1', redaction: 'auto' }), true);
+	assert.equal(redactionOff({ baseUrl: 'http://localhost:1234/v1', redaction: 'auto' }), true);
+	assert.equal(redactionOff({ baseUrl: 'https://api.deepseek.com', redaction: 'auto' }), false);
+	assert.equal(redactionOff({ baseUrl: 'http://127.0.0.1:4000/v1', redaction: 'on' }), false);
+	assert.equal(redactionOff({ baseUrl: 'https://api.deepseek.com', redaction: 'off' }), true);
+	assert.equal(withDefaults({ llm: { redaction: 'nie' } }).llm.redaction, 'auto');
+	assert.equal(withDefaults({}).llm.redaction, 'auto');
 });

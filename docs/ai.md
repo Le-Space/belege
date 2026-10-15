@@ -33,6 +33,8 @@ Before every call the bridge redacts (`bridge/src/llm/redact.js`): the names on 
 
 **This limits what leaves; it does not make a text anonymous.** A name that is on no list and follows no label gets through. The vendor, amounts, dates, invoice and customer numbers and what a receipt is about stay on purpose: reading and matching need them. `bridge/test/redact-scorecard.test.js` keeps made-up documents with what must be hidden, what must stay and the gaps that are known; the count of each moves only with a reason. For nothing to leave the machine, set a local model (Ollama, LM Studio).
 
+**No redaction for a model on this machine** ([#423](https://github.com/Le-Space/belege/issues/423)). Nothing leaves the computer then, and redaction would only cost reading quality – the model would see `[NAME]` and `[IBAN …1234]` instead of what the receipt says. `llm.redaction` in `bridge.json` decides: `auto` (the default) is off for a base URL on `127.0.0.1`/`localhost`, on for anything else; `pnpm setup:llm` asks for a loopback URL whether the model really runs there – a proxy on 127.0.0.1 may forward to a provider – and stores `off` or `on`. _Integrationen → KI – Beleg-Auslesen_ shows which.
+
 Answers are JSON and checked (net + VAT = gross, dates are dates, a pick is one of the candidates). An answer that does not check out is retried once with the second model, then discarded. What was sent is kept with the receipt (_An die KI gesendet_) or shown with the search (_Was an das Sprachmodell ging_). The Verlauf logs model, time and tokens of every call. The bridge's log has counts only.
 
 ### When the provider refuses

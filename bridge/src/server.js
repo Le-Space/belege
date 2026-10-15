@@ -19,7 +19,7 @@
 //   DELETE /share/<id>                                             token → revoked
 //   POST /vendor/assist { vendor, from, until, opening, closing, rows, findings }  token → a few notes on what does not add up
 //   POST /transfer/assist { booking, candidates }               token → the LLM's pick of an own transfer's other side
-//   GET  /llm/status                                              token → provider, models, key present?
+//   GET  /llm/status                                              token → provider, models, key present?, redaction on/off
 //   POST /extract      { text, hints, source, confirmedByUser }   token
 //   GET  /rates?asset=BTC&date=YYYY-MM-DD[&prefer=kraken][&contract=0x…&chain=ethereum[&block=N&decimals=D]]  token → EUR per unit, source (rates.js; the DEX pool at the block: dex-rate.js)
 //   GET  /enablebanking/banks?country=DE                          token → the banks Enable Banking offers (enablebanking-links.js)
@@ -68,6 +68,7 @@ import { ALEPH_API } from './aleph.js';
 import { MAX_BACKUP_BYTES } from './aleph-backup.js';
 import { checkEndpoint } from './chains/http.js';
 import { withExtraTerms } from './llm/redact.js';
+import { redactionOff } from './config.js';
 
 export const LOOPBACK = '127.0.0.1';
 
@@ -926,6 +927,8 @@ export function createBridgeServer({
 				// The provider's last refusal since the bridge started (#417): no credit, key, …
 				lastRefusal: llm?.lastRefusal?.() ?? null,
 				redactTerms: config.llm.redactTerms.length,
+				// Whether text is blacked out before it goes to the model (#423).
+				redaction: { mode: config.llm.redaction, active: !redactionOff(config.llm) },
 				mail: { authServId: config.mail.authServId ?? null }
 			});
 		}

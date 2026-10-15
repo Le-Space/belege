@@ -85,6 +85,8 @@ test.beforeAll(async () => {
 				...defaultConfig().llm,
 				baseUrl: llm.url,
 				redactTerms: [SECRETS.customerName],
+				// The fake on 127.0.0.1 stands in for a provider elsewhere: text is blacked out (#423).
+				redaction: 'on',
 				configured: true
 			}
 		},
@@ -154,6 +156,7 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 		'deepseek-flash, beim zweiten Versuch deepseek-v4-pro'
 	);
 	await expect(ki.getByTestId('ki-terms')).toHaveText('1');
+	await expect(ki.getByTestId('ki-redaction')).toHaveAttribute('data-active', 'true');
 	await expect(ki.getByTestId('ki-authserv')).toContainText('nicht gesetzt – pnpm setup:mail');
 	await expect(ki.getByTestId('ki-totals')).toHaveText('0 Aufrufe · 0 Tokens');
 	expect((await page.content()).includes(FAKE_LLM_KEY)).toBe(false);

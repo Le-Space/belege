@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { defaultConfigPath, loadConfig, saveConfig } from './config.js';
 import { systemKeychain } from './keychain.js';
 import { ask, askHidden, closePrompts } from './prompt.js';
-import { loadRepoEnv, storeSecret } from './setup-secret.js';
+import { loadRepoEnv, storeSecret, yes } from './setup-secret.js';
 
 const MODEL = /^[A-Za-z0-9._:/-]{1,80}$/;
 
@@ -63,19 +63,41 @@ export async function runLlmSetup({ io, keychain, configPath, env = {} }) {
 		return false;
 	}
 
+	// A model on this machine gets the text as it is (#423). A loopback URL may
+	// also be a proxy that forwards to a provider, so the person says which.
+	/** @type {'on' | 'off'} */
+	let redaction = 'on';
+	if (loopback) {
+		const local = yes(
+			(await io.ask(
+				'Does the model run on this machine itself (not a proxy that forwards to a provider)? Then nothing is blacked out. [Y/n]: '
+			)) || 'y'
+		);
+		redaction = local ? 'off' : 'on';
+	}
+
 	const termsDefault = l.redactTerms.length ? l.redactTerms.join('; ') : (env.REDACT_TERMS ?? '');
-	io.print(
-		'Terms to black out before text leaves this machine, separated by ";": your first and family name, together and the family name alone, and the names of others on your receipts (family on tickets, staff).'
-	);
-	io.print(
-		"The company names from the app's Einstellungen are added by the app. IBANs, e-mail addresses, phone numbers, streets and postcodes are blacked out anyway."
-	);
-	io.print(
-		'A name that is on no list and follows no label gets through. For nothing to leave, set a model on this machine – our advice for now, until fast models in a TEE with a checkable attestation are available.'
-	);
-	const termsAnswer = await io.ask(
-		`Terms${termsDefault ? ` [${termsDefault}]` : ''} ("-" for none): `
-	);
+	if (redaction === 'off') {
+		io.print(
+			'Nothing leaves this machine, so nothing is blacked out. Your terms are kept for later.'
+		);
+	}
+	const askTerms = redaction === 'on';
+	if (askTerms)
+		io.print(
+			'Terms to black out before text leaves this machine, separated by ";": your first and family name, together and the family name alone, and the names of others on your receipts (family on tickets, staff).'
+		);
+	if (askTerms) {
+		io.print(
+			"The company names from the app's Einstellungen are added by the app. IBANs, e-mail addresses, phone numbers, streets and postcodes are blacked out anyway."
+		);
+		io.print(
+			'A name that is on no list and follows no label gets through. For nothing to leave, set a model on this machine – our advice for now, until fast models in a TEE with a checkable attestation are available.'
+		);
+	}
+	const termsAnswer = askTerms
+		? await io.ask(`Terms${termsDefault ? ` [${termsDefault}]` : ''} ("-" for none): `)
+		: '';
 	const redactTerms = (termsAnswer === '-' ? '' : termsAnswer || termsDefault)
 		.split(';')
 		.map((t) => t.trim())
@@ -91,9 +113,13 @@ export async function runLlmSetup({ io, keychain, configPath, env = {} }) {
 	});
 	if (!stored) return false;
 
-	config.llm = { baseUrl, model, retryModel, redactTerms, configured: true };
+	config.llm = { baseUrl, model, retryModel, redactTerms, redaction, configured: true };
 	await saveConfig(config, configPath);
-	io.print(`Saved ${configPath} (${redactTerms.length} term(s) to black out).`);
+	io.print(
+		redaction === 'off'
+			? `Saved ${configPath} (a model on this machine: nothing is blacked out).`
+			: `Saved ${configPath} (${redactTerms.length} term(s) to black out).`
+	);
 	io.print('Restart the bridge (pnpm bridge) to use it.');
 	return true;
 }

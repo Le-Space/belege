@@ -163,8 +163,39 @@ test('setup:llm stores URL, models and terms, the key in the keychain; DEEPSEEK_
 		model: 'deepseek-flash',
 		retryModel: 'deepseek-v4-pro',
 		redactTerms: ['Erika Beispiel', 'Beispiel'],
+		redaction: 'on',
 		configured: true
 	});
+});
+
+test('setup:llm: a model on this machine is asked about once, and then not blacked out (#423)', async () => {
+	const keychain = memoryKeychain('sk-kept', 'llm');
+	const local = scripted(['http://127.0.0.1:11434/v1', 'qwen3:8b', 'qwen3:8b', '']);
+	const localPath = join(dir, 'llm-local.json');
+	assert.equal(await runLlmSetup({ io: local.io, keychain, configPath: localPath }), true);
+	assert.equal((await loadConfig(localPath)).llm.redaction, 'off');
+	assert.ok(local.out.some((l) => /Does the model run on this machine itself/.test(l)));
+	assert.equal(
+		local.out.some((l) => /^Terms/.test(l)),
+		false,
+		'no terms asked when nothing is blacked out'
+	);
+
+	// A proxy on 127.0.0.1 that forwards to a provider: blacked out.
+	const proxy = scripted(['http://127.0.0.1:4000/v1', 'm', 'm', 'n', '-']);
+	const proxyPath = join(dir, 'llm-proxy.json');
+	assert.equal(await runLlmSetup({ io: proxy.io, keychain, configPath: proxyPath }), true);
+	assert.equal((await loadConfig(proxyPath)).llm.redaction, 'on');
+
+	// A provider elsewhere is never asked.
+	const remote = scripted(['https://api.deepseek.com', '', '', '-']);
+	const remotePath = join(dir, 'llm-remote.json');
+	assert.equal(await runLlmSetup({ io: remote.io, keychain, configPath: remotePath }), true);
+	assert.equal((await loadConfig(remotePath)).llm.redaction, 'on');
+	assert.equal(
+		remote.out.some((l) => /on this machine itself/.test(l)),
+		false
+	);
 });
 
 test('setup:llm: a key from the hidden prompt; "-" clears the terms; http is refused', async () => {

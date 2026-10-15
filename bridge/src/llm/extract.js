@@ -14,6 +14,7 @@
 // The text is redacted (redact.js) before anything is sent, here and not in
 // the browser. Neither the text nor the answer is ever logged.
 
+import { redactionOff } from '../config.js';
 import { redact, sumCounts } from './redact.js';
 
 export const MAX_TOKENS = 6000;
@@ -47,7 +48,7 @@ Answer with one JSON object and nothing else, using exactly these keys (null whe
   "vat": [ { "rate": number, "amount": number, "category": "standard" | "reduced" | "zero" | "exempt" | "reverse_charge" | "intra_eu" | "export" | "not_taxable" | null } ],
   "gross": number,                  // the amount that is or was paid; negative for credit notes
   "payment": "direct_debit" | "card" | "paypal" | "bank_transfer" | "paid" | "open" | null,
-  "iban_last4": string | null,      // from a redacted IBAN like [IBAN …1234]
+  "iban_last4": string | null,      // the IBAN's last four, also from a redacted one like [IBAN …1234]
   "reverse_charge": boolean,        // no German VAT because the vendor is abroad (§13b UStG)
   "travel": {                       // only for a travel cost, a hotel, a restaurant meal or an event ticket
     "kind": "train" | "bus" | "flight" | "public_transport" | "taxi" | "rental_car" | "fuel" | "parking" | "hotel" | "restaurant" | "event",
@@ -504,7 +505,7 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 		 * @returns {Promise<ExtractResult>}
 		 */
 		async extract({ text, hints = {} }) {
-			const options = { terms: config.redactTerms, ownDomains };
+			const options = { terms: config.redactTerms, ownDomains, off: redactionOff(config) };
 			const body = redact(text, options);
 			const counts = { ...body.counts };
 			/** @type {Record<string, string>} */
