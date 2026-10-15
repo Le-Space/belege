@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The consent screen says first what sets Belege apart** (#412). The intro names bank accounts, crypto wallets and exchanges together with receipts – locally on the device, not in a cloud. Three highlights follow right under it, before anything is folded away: _Local, not in a cloud_, _Crypto included_ (Kraken and own wallets, booked in euros at the day's rate, matched like bank payments, in the DATEV export) and _Bank and receipts, matched_. In the folded feature list, crypto now comes right after privacy. What is consented to is unchanged.
+
 ### Fixed
 
 - **Books no longer rest on the browser's goodwill unasked.** Everything lies in the browser's IndexedDB, and a browser that has not granted persistent storage may clear it when the disk runs low – silently, while the passkey still unlocks, into empty books. Belege now asks for persistent storage on every unlock, not only from a button under _Einstellungen → Speicher_. Home warns while the browser has not agreed and there is no second copy (no backup in the last 7 days, no own device), with the way to each; once the browser keeps the books, a reminder asks for a backup, put away for a week at a time.
@@ -14,6 +18,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **Payroll and tax documents linked to their payments** (#233, #410). On a receipt, "Lohn- oder Steuerunterlage …" keeps it as a payroll run's payslips or journal, a wage-tax return, a contribution statement or a tax assessment, for a period (`12/2025`, `2025-Q4`, `2024`). Kind and period are proposed from the file name, subject and text; the payments of that kind and period are ticked, and one click links the document to all of them – nothing is linked by itself. The DATEV booking text of such a payment says what it is and for which period (`Lohn 12/2025 …`, `LSt 12/2025 …`) instead of the vendor. See [matching.md](docs/matching.md).
 - **Docs: where the secret lives.** An illustration in the backup docs (`docs/backup.md`, `docs/backup.de.md`) shows what stays on the device — passkey, HKDF, data key, the encrypted receipt files and OrbitDB log — and that only ciphertext crosses the device boundary. The README's docs list now links the backup docs.
 - **Company credit cards** (#382; #405, #407). Each card is an account of its own, under _Integrationen → Bank_, with a name and the card number's last four digits. See [banking.md](docs/banking.md).
   - **The statement from the issuer's CSV,** read in the browser: the columns recognised by their usual German and English names, the lines shown before the import, a column or the sign changeable, the choice kept for the next statement. Charges become money out; an amount in another currency keeps its currency and the issuer's rate.
