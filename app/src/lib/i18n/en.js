@@ -544,7 +544,8 @@ export default {
 		releaseExact: 'Released version – the notes are in the release on GitHub.',
 		releaseAfter: '{count} changes after version {release}, not released yet.',
 		source: 'Source code',
-		privacy: 'Privacy & technology'
+		privacy: 'Privacy & technology',
+		imprint: 'Imprint'
 	},
 	consent: {
 		title: 'Before you start',
@@ -567,6 +568,17 @@ export default {
 		earlyHeading: 'Still early.',
 		earlyBody:
 			'Le Space Belege is in development. Keep storing your bank statements and receipts somewhere else as well.',
+		terms: {
+			heading: 'Use and liability',
+			items: [
+				'Le Space Belege is provided free of charge by Le Space UG (haftungsbeschränkt), as free software (AGPL-3.0). There is no warranty that the app works without errors or stays available.',
+				'Le Space UG is liable only for intent and gross negligence. Statutory liability for injury to life, body and health and under the Product Liability Act is not affected.',
+				'Your books are only on your devices, not with us. Keeping them safe is up to you: make backups, connect a second device, and keep your bank statements and receipts elsewhere too.',
+				'Belege prepares your bookkeeping; it replaces neither bookkeeping nor tax advice. Check matches, amounts read and every export before you pass it on – the AI can be wrong too.'
+			],
+			imprint: 'Imprint',
+			privacy: 'Privacy policy of Le Space UG'
+		},
 		technicalHeading: 'Under the hood',
 		integrationNames: {
 			monero: 'Monero (the wallet’s export, read only in the browser)',

@@ -563,7 +563,8 @@ export default {
 		releaseExact: 'Veröffentlichte Version – die Notizen stehen im Release auf GitHub.',
 		releaseAfter: '{count} Änderungen nach der Version {release}, noch nicht veröffentlicht.',
 		source: 'Quellcode',
-		privacy: 'Datenschutz & Technik'
+		privacy: 'Datenschutz & Technik',
+		imprint: 'Impressum'
 	},
 	consent: {
 		title: 'Bevor du anfängst',
@@ -586,6 +587,17 @@ export default {
 		earlyHeading: 'Noch früh.',
 		earlyBody:
 			'Le Space Belege ist in Entwicklung. Bewahre Kontoauszüge und Belege weiterhin auch anderswo auf.',
+		terms: {
+			heading: 'Nutzung und Haftung',
+			items: [
+				'Le Space Belege wird von der Le Space UG (haftungsbeschränkt) kostenlos zur Verfügung gestellt, als freie Software (AGPL-3.0). Es gibt keine Gewähr, dass die App fehlerfrei arbeitet oder dauerhaft erreichbar ist.',
+				'Die Le Space UG haftet nur für Vorsatz und grobe Fahrlässigkeit. Die gesetzliche Haftung für Schäden an Leben, Körper und Gesundheit und nach dem Produkthaftungsgesetz bleibt unberührt.',
+				'Deine Bücher liegen nur auf deinen Geräten, nicht bei uns. Ihre Sicherung liegt bei dir: Mach Backups, verbinde ein zweites Gerät und bewahre Kontoauszüge und Belege auch anderswo auf.',
+				'Belege bereitet deine Buchhaltung vor; es ersetzt weder Buchführung noch Steuerberatung. Prüfe Zuordnungen, ausgelesene Beträge und jeden Export, bevor du ihn weitergibst – auch die KI kann sich irren.'
+			],
+			imprint: 'Impressum',
+			privacy: 'Datenschutzerklärung der Le Space UG'
+		},
 		technicalHeading: 'Unter der Haube',
 		// The names of what Belege works with, where they carry words (consent/integrations.js).
 		integrationNames: {
