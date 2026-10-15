@@ -1,6 +1,6 @@
 // Wires config, keychain, pairing, Hibiscus, mail and the LLM into a running bridge.
 
-import { loadConfig, saveConfig, defaultConfigPath } from './config.js';
+import { loadConfig, saveConfig, defaultConfigPath, redactionOff } from './config.js';
 import { createHibiscusClient } from './hibiscus.js';
 import { systemKeychain } from './keychain.js';
 import { createPairing } from './pairing.js';
@@ -166,22 +166,29 @@ export async function startBridge({
 			[domainOf(config.mail.user), domainOf(config.mail.accountingAddress)].filter(Boolean)
 		)
 	];
+	// A model on this machine gets the text as it is (#423, config.js redactionOff).
+	const off = redactionOff(config.llm);
+	if (config.llm.configured && off) log('LLM on this machine: text is not blacked out.');
 	const llm = config.llm.configured
 		? createExtractor({ config: config.llm, getKey: () => llmKeychain.read(), ownDomains })
 		: null;
 	if (!llm) log('No LLM is set up: run `pnpm setup:llm`.');
 	const matchAssist = llm
-		? createMatchAssist({ llm, redaction: { terms: config.llm.redactTerms, ownDomains } })
+		? createMatchAssist({ llm, redaction: { terms: config.llm.redactTerms, ownDomains, off } })
 		: null;
 	const transferAssist = llm
-		? createTransferAssist({ llm, redaction: { terms: config.llm.redactTerms, ownDomains } })
+		? createTransferAssist({ llm, redaction: { terms: config.llm.redactTerms, ownDomains, off } })
 		: null;
 	const vendorAssist = llm
-		? createVendorAssist({ llm, redaction: { terms: config.llm.redactTerms, ownDomains } })
+		? createVendorAssist({ llm, redaction: { terms: config.llm.redactTerms, ownDomains, off } })
 		: null;
 	const assist =
 		llm && mail
-			? createMailAssist({ llm, mail, redaction: { terms: config.llm.redactTerms, ownDomains } })
+			? createMailAssist({
+					llm,
+					mail,
+					redaction: { terms: config.llm.redactTerms, ownDomains, off }
+				})
 			: null;
 
 	// Customer portals: a browser with a profile per portal next to bridge.json.

@@ -8,6 +8,10 @@ All notable changes to Le Space Belege. The format follows
 
 ### Changed
 
+- **No redaction for a model on this machine** (#423). The bridge sends text as it is when the model runs on this computer (Ollama, LM Studio): nothing leaves, and redaction would only hide from the model what the receipt says. `llm.redaction` in `bridge.json`: `auto` (default) is off for a loopback base URL, on otherwise; `pnpm setup:llm` asks for a loopback URL whether the model runs there (a proxy may forward to a provider) and stores `off` or `on`, and asks for terms only when they are used. Every LLM route goes the same way. `GET /llm/status` and _Integrationen → KI_ show whether text is blacked out.
+
+### Changed
+
 - **Who offers Belege, and on what terms.** The consent screen has a section "Nutzung und Haftung": Belege is provided free of charge by Le Space UG (haftungsbeschränkt) as free software (AGPL-3.0), without warranty; Le Space UG is liable only for intent and gross negligence (statutory liability for injury to life, body and health and under the Product Liability Act unaffected); the books are on the user's devices and theirs to back up; Belege prepares bookkeeping and replaces neither bookkeeping nor tax advice. It links the imprint and privacy policy of Le Space UG on le-space.de (`#impressum`, `#datenschutz`), and the footer has an "Impressum" link. Consent version 24.
 
 ### Fixed

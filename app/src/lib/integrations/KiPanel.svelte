@@ -77,6 +77,18 @@
 			>
 				{llmStatus.keyConfigured ? t('integrationen.ki.keyOk') : t('integrationen.ki.keyMissing')}
 			</dd>
+			{#if llmStatus.redaction}
+				<dt class="text-faint">{t('integrationen.ki.redaction')}</dt>
+				<dd
+					class="text-heading"
+					data-testid="ki-redaction"
+					data-active={llmStatus.redaction.active ? 'true' : 'false'}
+				>
+					{llmStatus.redaction.active
+						? t('integrationen.ki.redactionOn')
+						: t('integrationen.ki.redactionOff')}
+				</dd>
+			{/if}
 			<dt class="text-faint">{t('integrationen.ki.terms')}</dt>
 			<dd class="text-heading tabular-nums" data-testid="ki-terms">{llmStatus.redactTerms}</dd>
 			<dt class="text-faint">{t('integrationen.ki.authServ')}</dt>

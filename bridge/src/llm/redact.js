@@ -243,12 +243,14 @@ const START = '(?<![\\p{L}\\p{N}])';
 
 /**
  * @param {string} input
- * @param {{ terms?: string[], ownDomains?: string[] }} [options]
+ * @param {{ terms?: string[], ownDomains?: string[], off?: boolean }} [options] `off`: a model
+ *   on this machine (#423) – the text goes as it is
  * @returns {{ text: string, count: number, counts: RedactionCounts }}
  */
-export function redact(input, { terms = [], ownDomains = [] } = {}) {
+export function redact(input, { terms = [], ownDomains = [], off = false } = {}) {
 	/** @type {RedactionCounts} */
 	const counts = emptyCounts();
+	if (off) return { text: String(input ?? ''), count: 0, counts };
 	/**
 	 * @param {keyof RedactionCounts} kind
 	 * @param {string} s

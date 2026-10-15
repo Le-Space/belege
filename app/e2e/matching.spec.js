@@ -120,6 +120,8 @@ test.beforeAll(async () => {
 				...defaultConfig().llm,
 				baseUrl: llm.url,
 				redactTerms: [SECRETS.customerName],
+				// The fake on 127.0.0.1 stands in for a provider elsewhere: text is blacked out (#423).
+				redaction: 'on',
 				configured: true
 			}
 		},

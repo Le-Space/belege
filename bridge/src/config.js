@@ -79,6 +79,8 @@ export function defaultConfigPath() {
  * @property {string} model
  * @property {string} retryModel
  * @property {string[]} redactTerms blacked out before any text leaves (own name, family names)
+ * @property {'auto' | 'on' | 'off'} redaction whether text is blacked out before it goes to the
+ *   model (#423): auto = off for a model on this machine (loopback), on for any other
  * @property {boolean} configured set by setup:llm once a key is in the keychain
  */
 
@@ -103,8 +105,27 @@ export function defaultLlmConfig() {
 		model: 'deepseek-flash',
 		retryModel: 'deepseek-v4-pro',
 		redactTerms: [],
+		redaction: 'auto',
 		configured: false
 	};
+}
+
+/**
+ * Whether the bridge sends text as it is (#423): a model on this machine sees
+ * nothing leave it, and redaction would only cost reading quality. `auto` takes
+ * a loopback base URL for such a model; setup:llm asks, since a proxy on
+ * 127.0.0.1 may forward to a provider, and stores `on` or `off`.
+ *
+ * @param {Pick<LlmConfig, 'baseUrl' | 'redaction'>} llm
+ */
+export function redactionOff(llm) {
+	if (llm.redaction === 'off') return true;
+	if (llm.redaction === 'on') return false;
+	try {
+		return ['127.0.0.1', 'localhost', '[::1]'].includes(new URL(llm.baseUrl).hostname);
+	} catch {
+		return false;
+	}
 }
 
 /** @returns {BridgeConfig} */
@@ -211,7 +232,8 @@ export function withDefaults(raw) {
 		llm: {
 			...d.llm,
 			...(raw?.llm ?? {}),
-			redactTerms: Array.isArray(raw?.llm?.redactTerms) ? raw.llm.redactTerms.map(String) : []
+			redactTerms: Array.isArray(raw?.llm?.redactTerms) ? raw.llm.redactTerms.map(String) : [],
+			redaction: ['auto', 'on', 'off'].includes(raw?.llm?.redaction) ? raw.llm.redaction : 'auto'
 		},
 		portals:
 			raw?.portals && typeof raw.portals === 'object' && !Array.isArray(raw.portals)

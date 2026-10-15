@@ -418,7 +418,7 @@ export function createBridgeClient({
 		 * whether a key is in its keychain (never the key), how many terms it
 		 * blacks out, and the mail server id it trusts for the sender check.
 		 *
-		 * @returns {Promise<{ configured: boolean, provider: string | null, models: { primary: string | null, fallback: string | null }, keyConfigured: boolean, redactTerms: number, mail: { authServId: string | null } }>}
+		 * @returns {Promise<{ configured: boolean, provider: string | null, models: { primary: string | null, fallback: string | null }, keyConfigured: boolean, redactTerms: number, redaction?: { mode: 'auto' | 'on' | 'off', active: boolean }, mail: { authServId: string | null } }>}
 		 */
 		llmStatus: () => call('/llm/status'),
 		/**
