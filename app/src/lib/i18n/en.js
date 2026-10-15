@@ -2692,12 +2692,15 @@ export default {
 		},
 		proposals: {
 			title: 'Proposed by the receipts: {count}',
-			what: 'Tickets, hotel invoices and the receipts of their days, grouped by date and route – by rules, not by AI. Nothing is created without your click.',
+			what: 'Tickets, hotel invoices, conference and event tickets and the receipts of their days, grouped by date and route – by rules, not by AI. You say what it was: a business trip, business without a trip, or private – then the receipts are set aside as private and a payment from the business account is marked private. Everything can be taken back.',
+			event: 'Event in {place}, {from}',
 			new: 'Trip to {destination}, {from} – {to}',
 			addTo: 'To the trip {trip}',
 			make: 'Make it a trip',
 			add: 'Add to the trip',
-			dismiss: 'Not a trip',
+			dismiss: 'Business, not a trip',
+			private: 'Private',
+			privateNote: 'Private: trip or event {destination}, {from}',
 			elsewhere: 'More proposals in other months: {count}.',
 			show: 'Show'
 		},

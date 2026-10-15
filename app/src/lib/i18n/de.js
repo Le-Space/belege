@@ -2732,12 +2732,15 @@ export default {
 		},
 		proposals: {
 			title: 'Von den Belegen vorgeschlagen: {count}',
-			what: 'Tickets, Hotelrechnungen und die Belege ihrer Tage, nach Datum und Strecke gebündelt – nach Regeln, nicht per KI. Angelegt wird nichts ohne deinen Klick.',
+			what: 'Tickets, Hotelrechnungen, Konferenz- und Veranstaltungstickets und die Belege ihrer Tage, nach Datum und Strecke gebündelt – nach Regeln, nicht per KI. Du sagst, was es war: Geschäftsreise, geschäftlich ohne Reise, oder privat – dann werden die Belege als privat aussortiert und eine Zahlung vom Geschäftskonto als private markiert. Alles lässt sich zurücknehmen.',
+			event: 'Veranstaltung in {place}, {from}',
 			new: 'Reise nach {destination}, {from} – {to}',
 			addTo: 'Zur Reise {trip}',
 			make: 'Als Reise anlegen',
 			add: 'Zur Reise hinzufügen',
-			dismiss: 'Keine Reise',
+			dismiss: 'Geschäftlich, keine Reise',
+			private: 'Privat',
+			privateNote: 'Privat: Reise oder Veranstaltung {destination}, {from}',
 			elsewhere: 'Weitere Vorschläge in anderen Monaten: {count}.',
 			show: 'Zeigen'
 		},
