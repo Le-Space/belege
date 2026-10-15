@@ -13,7 +13,11 @@
 //   joiners  taxi, fuel, parking, rental car, restaurant, event: their day
 //            falls into a seeded trip → they join it; into a trip already
 //            there → offered for that trip. Otherwise they propose nothing:
-//            a dinner at home is no trip.
+//            a dinner at home is no trip – except an event (#425): a
+//            conference or meetup ticket alone is proposed on its own, since
+//            it is business or private, and maybe a trip.
+// Every proposal is answered by a person: a trip, business without a trip,
+// or private (proposal-actions.js).
 // A receipt known only by its words (words.js) proposes nothing either: a
 // guess has no days and no route.
 
@@ -183,8 +187,9 @@ export function tripProposals({ receipts, travel }) {
 		if (!JOINERS.has(p.kind)) continue;
 		const g = groups.find((x) => x.fromDay <= p.fromDay && p.fromDay <= x.toDay);
 		if (g) g.pieces.push(p);
-		// On a day of a trip already there: offered for that trip on its own.
-		else if (tripOn(trips, p.fromDay, p.toDay))
+		// On a day of a trip already there: offered for that trip on its own;
+		// an event ticket alone too (#425): business or private, and maybe a trip.
+		else if (tripOn(trips, p.fromDay, p.toDay) || p.kind === 'event')
 			groups.push({ pieces: [p], fromDay: p.fromDay, toDay: p.toDay });
 	}
 	groups.sort((a, b) => a.fromDay.localeCompare(b.fromDay));
@@ -254,7 +259,12 @@ function destinationOf(pieces) {
 		c.n++;
 		count.set(k, c);
 	}
-	return [...count.values()].sort((a, b) => b.n - a.n)[0]?.name ?? '';
+	return (
+		[...count.values()].sort((a, b) => b.n - a.n)[0]?.name ??
+		// An event alone: where it takes place.
+		pieces.find((p) => p.kind === 'event' && p.to)?.to ??
+		''
+	);
 }
 
 /** Days after a statement is made before its payout is asked about. */

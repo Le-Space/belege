@@ -10,7 +10,13 @@
 	import ReceiptPeek from '$lib/ReceiptPeek.svelte';
 	import PeekLink from '$lib/receipts/PeekLink.svelte';
 	import { createPeek } from '$lib/receipts/peek.js';
-	import { app, currentBlobs, currentStore, refreshNow } from '$lib/session.svelte.js';
+	import {
+		app,
+		currentBlobs,
+		currentStore,
+		refreshNow,
+		runMatchingNow
+	} from '$lib/session.svelte.js';
 	import { statementOf } from '$lib/travel/statement.js';
 	import { closedStatements, createTravelStatement } from '$lib/travel/statement-actions.js';
 	import { statementSettlements } from '$lib/travel/payout.js';
@@ -27,7 +33,11 @@
 		tripMonth
 	} from '$lib/travel/records.js';
 	import { openTravelQuestions, tripProposals } from '$lib/travel/proposals.js';
-	import { acceptProposal, dismissProposal } from '$lib/travel/proposal-actions.js';
+	import {
+		acceptProposal,
+		dismissProposal,
+		privateProposal
+	} from '$lib/travel/proposal-actions.js';
 	import {
 		allAppointments,
 		appointmentDays,
@@ -158,6 +168,31 @@
 			});
 			await refreshNow();
 			await goto(resolve('/reisen/[id]', { id: tripId }));
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			busy = false;
+		}
+	}
+
+	/** "Privat" (#425): set aside, and a business payment marked private. @param {import('$lib/travel/proposals.js').Proposal} proposal */
+	async function makePrivate(proposal) {
+		const store = currentStore();
+		if (!store) return;
+		busy = true;
+		error = null;
+		try {
+			await privateProposal({
+				store,
+				proposal,
+				books: app,
+				note: t('reisen.proposals.privateNote', {
+					destination: proposal.destination || t('reisen.untitled'),
+					from: when(proposal.start)
+				})
+			});
+			await refreshNow();
+			await runMatchingNow();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -444,11 +479,16 @@
 					<p class="font-medium text-heading" data-testid="reisen-proposal-title">
 						{trip
 							? t('reisen.proposals.addTo', { trip: tripLine(trip) })
-							: t('reisen.proposals.new', {
-									destination: p.destination || t('reisen.untitled'),
-									from: when(p.start),
-									to: when(p.end)
-								})}
+							: p.kinds.length === 1 && p.kinds[0] === 'event'
+								? t('reisen.proposals.event', {
+										place: p.destination || t('reisen.untitled'),
+										from: when(p.start)
+									})
+								: t('reisen.proposals.new', {
+										destination: p.destination || t('reisen.untitled'),
+										from: when(p.start),
+										to: when(p.end)
+									})}
 					</p>
 					<ul class="mt-1 text-xs text-text">
 						{#each p.receiptIds as id (id)}
@@ -485,6 +525,13 @@
 							onclick={() => dismiss(p)}
 							disabled={busy}
 							data-testid="reisen-proposal-dismiss">{t('reisen.proposals.dismiss')}</button
+						>
+						<button
+							type="button"
+							class={btn.link}
+							onclick={() => makePrivate(p)}
+							disabled={busy}
+							data-testid="reisen-proposal-private">{t('reisen.proposals.private')}</button
 						>
 					</div>
 				</li>

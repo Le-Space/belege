@@ -288,7 +288,7 @@ test('without AI: a PDF’s words and a mail’s subject hint at travel, read on
 	await expect(page.getByTestId('reisen-questions')).toHaveCount(0);
 });
 
-test('trips proposed by the receipts: one made with a click, one dismissed for good (#213, step 4b)', async ({
+test('trips proposed by the receipts: one made with a click, one dismissed for good, one private (#213, #425)', async ({
 	page
 }) => {
 	await addVirtualAuthenticator(page);
@@ -344,6 +344,12 @@ test('trips proposed by the receipts: one made with a click, one dismissed for g
 			departure: '2025-04-22T08:00',
 			arrival: '2025-04-22T09:30'
 		});
+		// A conference ticket alone (#425): asked about on its own.
+		await add('Konferenz Beispiel', '2025-04-01', 29000, {
+			kind: 'event',
+			place: 'Konferenzstadt',
+			departure: '2025-04-15T09:00'
+		});
 		// May: shown as a proposal in another month.
 		await add('Flug Beispiel', '2025-05-02', 21000, {
 			kind: 'flight',
@@ -361,13 +367,21 @@ test('trips proposed by the receipts: one made with a click, one dismissed for g
 	await picker.getByLabel('Monat: Monat').selectOption('04');
 
 	const proposals = page.getByTestId('reisen-proposal');
-	await expect(proposals).toHaveCount(2);
+	await expect(proposals).toHaveCount(3);
 	await expect(page.getByTestId('reisen-proposals-elsewhere')).toContainText('1');
 	const trip = proposals.filter({ hasText: 'Musterstadt' });
 	await expect(trip.getByTestId('reisen-proposal-title')).toHaveText(
 		'Reise nach Musterstadt, 08.04.2025 07:12 – 09.04.2025 20:41'
 	);
 	await expect(trip.getByRole('link')).toHaveCount(4);
+
+	// The conference was private (#425): set aside, and not offered again.
+	const event = proposals.filter({ hasText: 'Konferenzstadt' });
+	await expect(event.getByTestId('reisen-proposal-title')).toHaveText(
+		'Veranstaltung in Konferenzstadt, 15.04.2025 09:00'
+	);
+	await event.getByTestId('reisen-proposal-private').click();
+	await expect(proposals).toHaveCount(2);
 
 	// The day trip is no trip: dismissed, and not offered again.
 	await proposals.filter({ hasText: 'B-Dorf' }).getByTestId('reisen-proposal-dismiss').click();

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { memoryCollection } from '../bank/test-support.js';
 import { defaultDatevSettings } from '../booking/settings.js';
-import { acceptProposal, dismissProposal } from './proposal-actions.js';
+import { acceptProposal, dismissProposal, privateProposal } from './proposal-actions.js';
 import { openTravelQuestions, pieceOf, tripProposals } from './proposals.js';
 
 // Made-up tickets, hotels and bills; no real vendor, person or booking.
@@ -207,5 +207,83 @@ describe('trip proposals (#213, step 4b)', () => {
 		expect(asked([])).toEqual(['old']);
 		const [p] = tripProposals({ receipts: [out], travel: [] });
 		expect(asked([{ id: 'D', kind: 'dismissed', key: p.key }])).toEqual(['old']);
+	});
+
+	it('a conference ticket alone is a proposal of its own; a dinner alone is not (#425)', () => {
+		const ticket = read(
+			{ kind: 'event', place: 'Musterstadt', departure: '2026-05-12T09:00' },
+			{ documentDate: '2026-05-01' }
+		);
+		const dinner = read({ kind: 'restaurant' }, { documentDate: '2026-05-20' });
+		const out = tripProposals({ receipts: [ticket, dinner], travel: [] });
+		expect(out).toHaveLength(1);
+		expect(out[0]).toMatchObject({
+			receiptIds: [ticket.id],
+			kinds: ['event'],
+			destination: 'Musterstadt',
+			start: '2026-05-12T09:00'
+		});
+	});
+
+	it('"Privat": every receipt set aside with the note; a business payment marked private, an outlay not (#425)', async () => {
+		const store = {
+			travel: memoryCollection('travel').collection,
+			receipts: memoryCollection('receipts').collection,
+			matches: memoryCollection('matches').collection,
+			transactions: memoryCollection('transactions').collection,
+			questions: memoryCollection('questions').collection,
+			events: memoryCollection('events').collection
+		};
+		const fare = await store.receipts.put({
+			...train('A-Stadt', 'Musterstadt', '2026-07-01T08:00', '2026-07-01T11:00'),
+			id: undefined
+		});
+		const room = await store.receipts.put({
+			...hotel('Musterstadt', '2026-07-01', '2026-07-03'),
+			id: undefined
+		});
+		// The fare paid from the business account, the room laid out privately (#293).
+		const business = await store.transactions.put({
+			bookedOn: '2026-06-20',
+			amountCents: -8900,
+			counterparty: 'Beispielbahn',
+			source: 'hibiscus'
+		});
+		const outlay = await store.transactions.put({
+			bookedOn: '2026-07-03',
+			amountCents: -12000,
+			counterparty: 'Hotel Beispiel',
+			source: 'outlay',
+			outlay: { kind: 'outlay' }
+		});
+		await store.matches.put({
+			receiptId: fare.id,
+			transactionId: business.id,
+			state: 'confirmed'
+		});
+		await store.matches.put({ receiptId: room.id, transactionId: outlay.id, state: 'confirmed' });
+		const [proposal] = tripProposals({ receipts: await store.receipts.list(), travel: [] });
+		expect(proposal.receiptIds.sort()).toEqual([fare.id, room.id].sort());
+
+		const books = {
+			transactions: await store.transactions.list(),
+			matches: await store.matches.list()
+		};
+		const done = await privateProposal({ store, proposal, books, note: 'Privat: Urlaub' });
+		expect(done).toEqual({ receipts: 2, payments: 1 });
+		for (const id of [fare.id, room.id]) {
+			expect(await store.receipts.get(id)).toMatchObject({
+				status: 'ignoriert',
+				setAside: { reason: 'private', note: 'Privat: Urlaub' }
+			});
+		}
+		expect((await store.transactions.get(business.id))?.privateMistake?.note).toBe(
+			'Privat: Urlaub'
+		);
+		expect((await store.transactions.get(outlay.id))?.privateMistake ?? null).toBeNull();
+		// Set aside, they are proposed no more.
+		expect(
+			tripProposals({ receipts: await store.receipts.list(), travel: await store.travel.list() })
+		).toEqual([]);
 	});
 });

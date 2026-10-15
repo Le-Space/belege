@@ -8,6 +8,10 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **Travel receipts ask: business trip, business without a trip, or private** (#425). Every trip proposal on _Reisen_ now has three answers: "Als Reise anlegen", "Geschäftlich, keine Reise" (was "Keine Reise") and "Privat", which sets each receipt aside as private and marks a payment from the business account that paid one as private (#293, #172), both reversible. A conference or event ticket alone is a proposal of its own ("Veranstaltung in …"), so it is asked about too. The AI only reads the receipts; rules propose, and nothing is decided without a click.
+
+### Added
+
 - **A guide for reading receipts with Ollama on your own computer** ([docs/ollama.md](docs/ollama.md), [Deutsch](docs/ollama.de.md)): what to download for how much memory, the two Ollama settings that matter (context length, keep-alive), the `pnpm setup:llm` answers, one AI request at a time, the measured speed on an Intel Mac, and what to do when something goes wrong. _Integrationen → KI – Beleg-Auslesen_ shows the steps in short, with a link to the guide; open while no model is set up or the model is local. Linked from the README and docs/ai.md.
 
 ### Changed
