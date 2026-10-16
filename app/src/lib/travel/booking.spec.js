@@ -8,7 +8,7 @@ import { suggestBooking } from '../booking/suggest.js';
 import { planMonth } from '../export/plan.js';
 import { createBlobStore } from '../receipts/blob-store.js';
 import { travelSet } from './accounts.js';
-import { statementLines } from './booking.js';
+import { hospitalitySplit, statementLines } from './booking.js';
 import { createTravelStatement } from './statement-actions.js';
 import { statementOf } from './statement.js';
 
@@ -141,8 +141,10 @@ describe('travel bookings (#213, step 6)', () => {
 		const employee = statementLines(s, { set: 'employee', receipts: byId });
 		expect(employee.map((l) => [l.category, l.account, l.cents, l.taxKey])).toEqual([
 			['fares', '4663', 8990, '8'],
-			['hospitality', '4650', 7000 + 1900, '9'],
-			['hospitalityNonDeductible', '4654', 3000, ''],
+			// 119,00 gross at 19 %: 70 % of the gross deductible, 30 % not, both with the
+			// input VAT key – DATEV works 13,30 + 5,70 = 19,00 VAT out of them (§ 15 UStG).
+			['hospitality', '4650', 8330, '9'],
+			['hospitalityNonDeductible', '4654', 3570, '9'],
 			['meals', '4664', 2240, ''],
 			['mileage', '4668', 720, '']
 		]);
@@ -197,7 +199,7 @@ describe('travel bookings (#213, step 6)', () => {
 		expect(suggestions.map((/** @type {any} */ s) => [s.source, s.account, s.taxKey])).toEqual([
 			['travel', '4663', '8'],
 			['travel', '4650', '9'],
-			['travel', '4654', ''],
+			['travel', '4654', '9'],
 			['travel', '4664', ''],
 			['travel', '4668', '']
 		]);
@@ -221,8 +223,8 @@ describe('travel bookings (#213, step 6)', () => {
 		const lines = plan.lines.filter((l) => l.tx.source === 'travel').map((l) => l.line);
 		expect(lines.map((l) => [l.account, l.contra, l.amountCents, l.taxKey])).toEqual([
 			['1520', '4663', -8990, '8'],
-			['1520', '4650', -8900, '9'],
-			['1520', '4654', -3000, ''],
+			['1520', '4650', -8330, '9'],
+			['1520', '4654', -3570, '9'],
 			['1520', '4664', -2240, ''],
 			['1520', '4668', -720, '']
 		]);
@@ -306,5 +308,60 @@ describe('travel bookings (#213, step 6)', () => {
 		});
 		// Without the set (or off a trip), as before.
 		expect(suggestBooking(tx, { receipts: [hotel] }).source).toBeNull();
+	});
+});
+
+describe('hospitalitySplit (DATEV: the VAT out of each line’s gross)', () => {
+	const keys = { input19: '9', input7: '8', output19: '3', output7: '2', reverseCharge: '94' };
+	/** @param {number} gross @param {number} rate @param {number} cents */
+	const vatOf = (gross, rate, cents) => Math.round((gross * rate) / (100 + rate)) === cents;
+
+	it('a restaurant bill at 7 % and 19 %: each rate 70/30, both lines keyed, the whole VAT claimed', () => {
+		// Made up: food 50,00 net + 3,50 VAT; drinks 20,00 net + 3,80 VAT; 77,30 paid.
+		const line = /** @type {any} */ ({
+			grossCents: 7730,
+			vat: [
+				{ rate: 7, cents: 350 },
+				{ rate: 19, cents: 380 }
+			]
+		});
+		const parts = hospitalitySplit(line, 0.7, keys);
+		expect(parts.map((p) => [p.rate, p.taxKey, p.deductibleCents, p.restCents])).toEqual([
+			[7, '8', 3745, 1605],
+			[19, '9', 1666, 714]
+		]);
+		// What DATEV takes out of each line adds up to the bill's VAT.
+		expect(vatOf(3745, 7, 245) && vatOf(1605, 7, 105)).toBe(true);
+		expect(vatOf(1666, 19, 266) && vatOf(714, 19, 114)).toBe(true);
+		expect(parts.reduce((n, p) => n + p.deductibleCents + p.restCents, 0)).toBe(7730);
+	});
+
+	it('another currency: its euros 70/30, no key', () => {
+		const line = /** @type {any} */ ({ grossCents: 10500, vat: [] });
+		expect(hospitalitySplit(line, 0.7, keys)).toEqual([
+			{
+				rate: null,
+				grossCents: 10500,
+				taxKey: '',
+				via: 'no-vat',
+				deductibleCents: 7350,
+				restCents: 3150
+			}
+		]);
+	});
+
+	it('VAT that does not fit the bill: one part without a split by rate', () => {
+		const line = /** @type {any} */ ({ grossCents: 1000, vat: [{ rate: 19, cents: 1900 }] });
+		expect(hospitalitySplit(line, 0.7, keys).map((p) => [p.rate, p.grossCents])).toEqual([
+			[null, 1000]
+		]);
+	});
+
+	it('gross beyond the VAT the extraction covered: that rest unkeyed', () => {
+		const line = /** @type {any} */ ({ grossCents: 12400, vat: [{ rate: 19, cents: 1900 }] });
+		expect(hospitalitySplit(line, 0.7, keys).map((p) => [p.rate, p.grossCents, p.taxKey])).toEqual([
+			[19, 11900, '9'],
+			[null, 500, '']
+		]);
 	});
 });
