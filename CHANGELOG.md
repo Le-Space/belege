@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.12.1] – 2026-10-16
+
 ### Fixed
 
 - **A passkey prompt is answered only by the passkey it is for** (#429). After the first touch, every prompt names its credential, so a second Belege passkey on the same security key can no longer answer it – which left keys from one passkey and the identity from the other, and the first write failed with "… is not allowed to write to the log". The picker shows the name typed under "Name für den Passkey" instead of an id like `belege-3f2a…` (new passkeys only).
