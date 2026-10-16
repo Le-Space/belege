@@ -145,10 +145,13 @@ export async function readPrfOutput(credential) {
 	// Cast: the 0.8.0 declaration still says `(credential) => Uint8Array | null`;
 	// the code takes options and returns `{ seed, source }`.
 	const extract =
-		/** @type {(c: any, o: { prfInput: Uint8Array }) => Promise<{ seed: Uint8Array | null }>} */ (
+		/** @type {(c: any, o: { prfInput: Uint8Array, discoverableCredentials: boolean }) => Promise<{ seed: Uint8Array | null }>} */ (
 			/** @type {unknown} */ (extractPrfSeedFromCredential)
 		);
-	const { seed } = await extract(credential, { prfInput });
+	// Asked of this credential only (#429): under the provider's default the
+	// request names none, and another passkey of this origin on the same
+	// authenticator could answer – keys from one passkey, the DID from another.
+	const { seed } = await extract(credential, { prfInput, discoverableCredentials: false });
 	if (!(seed instanceof Uint8Array) || seed.length < 32) throw new PrfUnavailableError();
 	return seed;
 }

@@ -9,8 +9,10 @@
 	import { hasStoredPasskeyCredential } from './passkey-identity.js';
 	import { intlLocale, t } from './i18n/index.js';
 	import ResetDialog from './storage/ResetDialog.svelte';
+	import PasskeyStepDialog from './PasskeyStepDialog.svelte';
 
-	const hasStoredPasskey = hasStoredPasskeyCredential();
+	// Read again after each attempt: a cancelled create or restore has stored its credential (#429).
+	let hasStoredPasskey = $derived(app.status !== 'starting' && hasStoredPasskeyCredential());
 	// A way to start over without unlocking: the passkey or the store may be what is broken (#212).
 	let resetOpen = $state(false);
 	let label = $state('');
@@ -163,3 +165,4 @@
 </section>
 
 <ResetDialog bind:open={resetOpen} onclose={() => (resetOpen = false)} />
+<PasskeyStepDialog />

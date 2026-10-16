@@ -37,6 +37,8 @@ export async function device(browser, { mode = 'public', lanRelay = '' } = {}) {
 		({ prf, mode, lanRelay, debug }) => {
 			/** @type {any} */ (globalThis).__belegeTestPrf = prf;
 			if (debug) localStorage.setItem('debug', debug);
+			// No "Weiter" between the passkey prompts (#429), as addVirtualAuthenticator does.
+			/** @type {any} */ (globalThis).__belegeSkipPasskeySteps = true;
 			localStorage.setItem('belege.device-sync', 'on');
 			// Only the first time: a mode chosen in the menu must survive a reload.
 			if (!localStorage.getItem('belege.network-mode')) {

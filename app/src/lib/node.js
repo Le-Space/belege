@@ -29,7 +29,9 @@ import { createOrbitDB, useIdentityProvider } from '@orbitdb/core';
 import {
 	OrbitDBWebAuthnIdentityProviderFunction,
 	WebAuthnDIDProvider,
-	deriveSigningKeyBytes
+	configureWebAuthn,
+	deriveSigningKeyBytes,
+	getWebAuthnConfig
 } from '@le-space/orbitdb-identity-provider-webauthn-did';
 import * as dagCbor from '@ipld/dag-cbor';
 
@@ -123,13 +125,42 @@ export const STORAGE_PATHS = Object.freeze({
  */
 
 /**
+ * Run `fn` with the provider asking for this credential only (#429).
+ *
+ * The provider's identity proof takes no per-call option: under its default
+ * policy (discoverable credentials) it leaves `allowCredentials` out, and any
+ * passkey of this origin on the authenticator may answer – one that is not
+ * the credential gives a proof OrbitDB later refuses. The policy is switched
+ * off for this call only; a restore's first touch needs it on, because there
+ * it has no credential to name yet.
+ *
+ * @template T
+ * @param {() => Promise<T>} fn
+ * @returns {Promise<T>}
+ */
+async function pinnedToCredential(fn) {
+	const { discoverableCredentials } = getWebAuthnConfig();
+	configureWebAuthn({ discoverableCredentials: false });
+	try {
+		return await fn();
+	} finally {
+		configureWebAuthn({ discoverableCredentials });
+	}
+}
+
+/**
  * Unlock the books with a passkey: PRF → key, then Helia, OrbitDB and the
  * sealed databases.
  *
  * Prompts: one for the PRF output here. The provider signs the identity with
  * the passkey once per identity document and keeps that (public) proof, so a
  * new passkey adds its `create` and that signature, a restore its two touches
- * and that signature, and an unlock nothing.
+ * and that signature, and an unlock nothing. Both prompts here name the
+ * credential, so no other passkey of this origin can answer them (#429).
+ *
+ * `beforePrompt`, when given, is awaited before each of them: the page says
+ * what the next touch is for (passkey-steps.svelte.js). A flow whose proof is
+ * already kept (an unlock) passes none.
  *
  * Each step is reported to `onStatus` as it starts – the unlock screen shows
  * it, and the console times it: opening large books, or moving them into the
@@ -137,12 +168,14 @@ export const STORAGE_PATHS = Object.freeze({
  * unlock that is working looks the same as one that hangs.
  *
  * @param {any} credential from passkey-identity.js
- * @param {{ onStatus?: (status: UnlockStatus) => void }} [options]
+ * @param {{ onStatus?: (status: UnlockStatus) => void,
+ *   beforePrompt?: (purpose: 'prf' | 'proof') => Promise<void> }} [options]
  * @returns {Promise<Session>}
  * @throws {import('./passkey-identity.js').PrfUnavailableError} before anything is opened
  */
-export async function startSession(credential, { onStatus } = {}) {
+export async function startSession(credential, { onStatus, beforePrompt } = {}) {
 	onStatus?.({ step: 'keys' });
+	await beforePrompt?.('prf');
 	// First, and before anything is opened: without PRF there is no key, and
 	// without a key nothing is read or written. No plaintext fallback.
 	const prfOutput = await readPrfOutput(credential);
@@ -223,9 +256,12 @@ export async function startSession(credential, { onStatus } = {}) {
 				: await deriveSigningKeyBytes(prfOutput, did);
 		const identities = await createSessionIdentities(helia, { did, signingKey });
 
-		const identity = await identities.createIdentity({
-			provider: OrbitDBWebAuthnIdentityProviderFunction({ webauthnCredential: credential })
-		});
+		await beforePrompt?.('proof');
+		const identity = await pinnedToCredential(() =>
+			identities.createIdentity({
+				provider: OrbitDBWebAuthnIdentityProviderFunction({ webauthnCredential: credential })
+			})
+		);
 		const orbitdb = await createOrbitDB({
 			ipfs: helia,
 			// @ts-expect-error `identities` is a documented option the bundled types omit

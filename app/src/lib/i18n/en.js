@@ -279,6 +279,8 @@ export default {
 			createFailed: 'The passkey could not be created.',
 			notFound: 'No passkey for Belege was found on this device.',
 			notStored: 'No passkey is stored in this browser.',
+			stepCancelled:
+				'Cancelled before the books were opened. The passkey is stored in this browser: “Unlock with saved passkey” carries on.',
 			noPrf:
 				'This passkey does not provide a PRF secret. Belege encrypts all data with a key derived from this secret and opens no data without it. Please use a passkey in a browser and password manager with PRF support (e.g. current Chrome, Safari or Firefox with iCloud Keychain, Google Password Manager or 1Password).'
 		},
@@ -883,6 +885,21 @@ export default {
 		restoreHeading: 'Already have a passkey?',
 		restore: 'Restore with existing passkey',
 		busy: 'Please confirm the passkey …',
+		steps: {
+			count: 'Passkey prompt {n} of {of}',
+			prf: {
+				title: 'Now the key to your books',
+				why: 'Your passkey gives Belege a secret. It becomes the key your books and receipts are encrypted with; it is not stored anywhere.'
+			},
+			proof: {
+				title: 'Last: your signature',
+				why: 'Your passkey signs once that the entries in your books are yours. Belege keeps this signature: the next unlock asks only once.'
+			},
+			notALoop:
+				'Each prompt has its own purpose; it is not a repeat. With a security key: touch it and, if asked, enter the PIN.',
+			continue: 'Continue',
+			cancel: 'Cancel'
+		},
 		progress: {
 			keys: 'Deriving the keys from the passkey …',
 			network: 'Starting storage and network …',

@@ -6,6 +6,7 @@ import {
 	restorePasskeyCredential
 } from './passkey-identity.js';
 import { getSetting } from './store/settings.js';
+import { passkeyStepsFor } from './passkey-steps.svelte.js';
 import { classifyTransaction, cleanMatchingSettings } from './matching/classify.js';
 import { buildMatchingContext } from './matching/context.js';
 import { cleanChart } from './booking/chart.js';
@@ -879,12 +880,16 @@ export async function removeSyncDevice(peerId) {
 /**
  * @param {any} credential
  * @param {ReturnType<typeof import('./unlock-progress.js').createUnlockProgress>} [progress]
+ * @param {(purpose: 'prf' | 'proof') => Promise<void>} [beforePrompt] what the next touch is for (#429)
  */
-async function unlockWith(credential, progress) {
+async function unlockWith(credential, progress, beforePrompt) {
 	// Loaded lazily: Helia, libp2p and OrbitDB are most of the bundle, and the
 	// onboarding screen needs none of them.
 	const { startSession } = await import('./node.js');
-	session = await startSession(credential, { onStatus: (s) => progress?.status(s) });
+	session = await startSession(credential, {
+		onStatus: (s) => progress?.status(s),
+		beforePrompt
+	});
 	app.network.syncCapable = Boolean(session.online);
 	app.network.reloadNeeded = false;
 	app.network.mode = session.mode;
@@ -928,8 +933,9 @@ async function unlockWith(credential, progress) {
 /**
  * @param {() => Promise<any>} getCredential
  * @param {string} nothingFound shown when the credential step finds nothing
+ * @param {'create' | 'restore' | 'unlock'} flow which prompts follow, and what is said before each (#429)
  */
-async function run(getCredential, nothingFound) {
+async function run(getCredential, nothingFound, flow) {
 	app.status = 'starting';
 	app.error = null;
 	/** @type {ReturnType<typeof import('./unlock-progress.js').createUnlockProgress> | null} */
@@ -940,7 +946,7 @@ async function run(getCredential, nothingFound) {
 		// After the passkey answered: from here on the books open, and that is shown.
 		const { createUnlockProgress } = await import('./unlock-progress.js');
 		progress = createUnlockProgress({ onChange: (s) => (app.unlock = s) });
-		await unlockWith(credential, progress);
+		await unlockWith(credential, progress, passkeyStepsFor(flow));
 		progress.finish('ready');
 		app.unlock = null;
 		app.status = 'ready';
@@ -956,18 +962,22 @@ async function run(getCredential, nothingFound) {
 /** @param {string} label shown in the passkey picker; identifies nothing */
 export function createPasskey(label) {
 	const name = label.trim() || 'Le Space Belege';
+	// The label in both: a security key's picker lists `user.name` (the
+	// provider's `userId`), not the display name (#429). The provider makes
+	// the user handle, which is what identifies the credential, at random.
 	return run(
-		() => createPasskeyCredential({ userId: `belege-${crypto.randomUUID()}`, displayName: name }),
-		t('messages.passkey.createFailed')
+		() => createPasskeyCredential({ userId: name, displayName: name }),
+		t('messages.passkey.createFailed'),
+		'create'
 	);
 }
 
 export function restorePasskey() {
-	return run(() => restorePasskeyCredential(), t('messages.passkey.notFound'));
+	return run(() => restorePasskeyCredential(), t('messages.passkey.notFound'), 'restore');
 }
 
 export function unlockStoredPasskey() {
-	return run(async () => loadStoredPasskeyCredential(), t('messages.passkey.notStored'));
+	return run(async () => loadStoredPasskeyCredential(), t('messages.passkey.notStored'), 'unlock');
 }
 
 /**
