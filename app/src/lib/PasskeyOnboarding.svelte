@@ -10,6 +10,10 @@
 	import { intlLocale, t } from './i18n/index.js';
 	import ResetDialog from './storage/ResetDialog.svelte';
 	import PasskeyStepDialog from './PasskeyStepDialog.svelte';
+	import { sharedOrigin } from './shared-origin.js';
+
+	// On a path-style gateway nothing opens (shared-origin.js): no passkey asked, no books.
+	const shared = sharedOrigin();
 
 	// Read again after each attempt: a cancelled create or restore has stored its credential (#429).
 	let hasStoredPasskey = $derived(app.status !== 'starting' && hasStoredPasskeyCredential());
@@ -56,59 +60,74 @@
 	<h1 class="text-xl font-semibold text-heading">{t('onboarding.title')}</h1>
 	<p class="mt-2 text-sm leading-relaxed text-text">{t('onboarding.intro')}</p>
 
-	{#if hasStoredPasskey}
-		<button
-			type="button"
-			class="mt-6 {primary}"
-			disabled={busy}
-			onclick={unlockStoredPasskey}
-			data-testid="passkey-unlock"
+	{#if shared}
+		<div
+			class="mt-6 rounded-md border border-danger/40 bg-danger/10 p-3 text-sm text-heading"
+			role="alert"
+			data-testid="passkey-shared-origin"
 		>
-			{t('onboarding.unlock')}
-		</button>
+			<p>{t('onboarding.sharedOrigin')}</p>
+			<a
+				class="mt-2 inline-block font-medium underline"
+				href="https://belege.le-space.de/"
+				data-testid="passkey-shared-origin-link">belege.le-space.de</a
+			>
+		</div>
+	{:else}
+		{#if hasStoredPasskey}
+			<button
+				type="button"
+				class="mt-6 {primary}"
+				disabled={busy}
+				onclick={unlockStoredPasskey}
+				data-testid="passkey-unlock"
+			>
+				{t('onboarding.unlock')}
+			</button>
+		{/if}
+
+		<div class="mt-6 space-y-2">
+			<h2 class="text-xs font-semibold tracking-wide text-faint uppercase">
+				{t('onboarding.newHeading')}
+			</h2>
+			<label class="block text-sm font-medium text-heading" for="passkey-label"
+				>{t('onboarding.label')}</label
+			>
+			<input
+				id="passkey-label"
+				type="text"
+				bind:value={label}
+				placeholder={t('onboarding.labelPlaceholder')}
+				class="w-full rounded-md border px-3 py-2 text-sm"
+				data-testid="passkey-label"
+			/>
+			<p class="text-xs text-faint">{t('onboarding.labelHint')}</p>
+			<button
+				type="button"
+				class={hasStoredPasskey ? secondary : primary}
+				disabled={busy}
+				onclick={() => createPasskey(label)}
+				data-testid="passkey-create"
+			>
+				{t('onboarding.create')}
+			</button>
+		</div>
+
+		<div class="mt-6 space-y-2 border-t border-border pt-4">
+			<h2 class="text-xs font-semibold tracking-wide text-faint uppercase">
+				{t('onboarding.restoreHeading')}
+			</h2>
+			<button
+				type="button"
+				class={secondary}
+				disabled={busy}
+				onclick={restorePasskey}
+				data-testid="passkey-restore"
+			>
+				{t('onboarding.restore')}
+			</button>
+		</div>
 	{/if}
-
-	<div class="mt-6 space-y-2">
-		<h2 class="text-xs font-semibold tracking-wide text-faint uppercase">
-			{t('onboarding.newHeading')}
-		</h2>
-		<label class="block text-sm font-medium text-heading" for="passkey-label"
-			>{t('onboarding.label')}</label
-		>
-		<input
-			id="passkey-label"
-			type="text"
-			bind:value={label}
-			placeholder={t('onboarding.labelPlaceholder')}
-			class="w-full rounded-md border px-3 py-2 text-sm"
-			data-testid="passkey-label"
-		/>
-		<p class="text-xs text-faint">{t('onboarding.labelHint')}</p>
-		<button
-			type="button"
-			class={hasStoredPasskey ? secondary : primary}
-			disabled={busy}
-			onclick={() => createPasskey(label)}
-			data-testid="passkey-create"
-		>
-			{t('onboarding.create')}
-		</button>
-	</div>
-
-	<div class="mt-6 space-y-2 border-t border-border pt-4">
-		<h2 class="text-xs font-semibold tracking-wide text-faint uppercase">
-			{t('onboarding.restoreHeading')}
-		</h2>
-		<button
-			type="button"
-			class={secondary}
-			disabled={busy}
-			onclick={restorePasskey}
-			data-testid="passkey-restore"
-		>
-			{t('onboarding.restore')}
-		</button>
-	</div>
 
 	{#if busy}
 		<div

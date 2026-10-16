@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **The app opens the books only on an origin of its own:** the domain, or a gateway that gives every CID its own subdomain. On a path-style gateway (`…/ipfs/<cid>/`), whose origin all CIDs there share, it asks for no passkey, opens nothing, removes its service worker, and says where to open it. The release notes no longer link a path-style gateway (since 0.9.1 they did).
+
 ## [0.12.3] – 2026-10-16
 
 ### Changed
