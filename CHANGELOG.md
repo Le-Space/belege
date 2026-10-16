@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.12.2] – 2026-10-16
+
 ### Changed
 
 - **The AI hints say "geschwärzt" only where it is true** (#431). With a model on the bridge's own computer nothing is blacked out (#423); the hints on "Alle neuen auslesen", the upload, mail and portal imports, "Mit KI weitersuchen", the AI suggestions and the vendor timeline then say that the text stays on the computer, unredacted. The app asks the bridge after unlocking and pairing; without an answer it keeps the cautious wording.
