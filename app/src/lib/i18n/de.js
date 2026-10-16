@@ -1063,7 +1063,7 @@ export default {
 	},
 	backup: {
 		title: 'Backup',
-		what: 'Alles, was Belege in diesem Browser hält – die Bücher und jede Belegdatei – als eine Datei, versiegelt mit einem Schlüssel aus deinem Passkey, aufbewahrt bei Aleph Cloud. Öffnen kannst nur du sie, mit demselben Passkey.',
+		what: 'Alles, was Le Space Belege in diesem Browser hält – die Bücher und jede Belegdatei – als eine Datei, versiegelt mit einem Schlüssel aus deinem Passkey, aufbewahrt bei Aleph Cloud. Öffnen kannst nur du sie, mit demselben Passkey.',
 		notSetUp: 'Die Bridge hat noch keinen Backup-Schlüssel. Im Terminal, im Ordner von Belege:',
 		noOwner:
 			'Noch kein Aleph-Konto, das zahlt: Koppel die Bridge, nachdem du dort einmal pnpm setup:aleph ausgeführt hast, oder trag die Adresse des Kontos ein.',
