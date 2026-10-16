@@ -119,6 +119,8 @@ test('no credit with the provider stops the run and says what to do', async ({ p
 	});
 
 	await tab('Belege').click();
+	// The fake model is on 127.0.0.1 and nothing is blacked out (#423): the hint says so (#431).
+	await expect(page.getByTestId('extract-all')).toHaveAttribute('title', /Ungeschwärzt/);
 	const before = llm.requests.length;
 	await page.getByTestId('extract-all').click();
 	const stopped = page.getByTestId('extract-stopped');

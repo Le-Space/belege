@@ -1,4 +1,5 @@
 <script>
+	import { aiText } from '$lib/ai-text.js';
 	// Belege: sources on the left, receipts by month in the middle, the chosen
 	// one on the right with a preview and what was read from it. Receipts come
 	// from the accounting mailbox (through the bridge), from uploads, from a
@@ -912,7 +913,7 @@
 							class="inline-flex items-center gap-1.5 {button}"
 							onclick={startExtractAll}
 							disabled={extractRun.progress !== null}
-							title={t('ai.extract')}
+							title={aiText('ai.extract')}
 							data-testid="extract-all"
 							><AiMark />{extractRun.progress
 								? t('belege.extracting', {
@@ -1516,7 +1517,7 @@
 								class="mt-3 inline-flex items-center gap-1.5 {primary}"
 								onclick={() => selected && extract(selected)}
 								disabled={reading.has(selected.id)}
-								title={t('ai.extract')}
+								title={aiText('ai.extract')}
 								data-testid="extract"
 								><AiMark />{reading.has(selected.id)
 									? t('belege.extractBusy')

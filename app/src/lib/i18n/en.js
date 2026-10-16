@@ -223,7 +223,7 @@ export default {
 			},
 			ai: {
 				title: 'AI for extraction',
-				why: 'Reads vendor, amount, date and number from receipts – with your own model in the bridge, redacted first. Without AI you enter these by hand.',
+				why: 'Reads vendor, amount, date and number from receipts – with your own model in the bridge; what goes to a provider on the internet is redacted first. Without AI you enter these by hand.',
 				time: 'about 5 minutes'
 			},
 			books: {
@@ -576,7 +576,7 @@ export default {
 				'Le Space Belege is provided free of charge by Le Space UG (haftungsbeschränkt), as free software (AGPL-3.0). There is no warranty that the app works without errors or stays available.',
 				'Le Space UG is liable only for intent and gross negligence. Statutory liability for injury to life, body and health and under the Product Liability Act is not affected.',
 				'Your books are only on your devices, not with us. Keeping them safe is up to you: make backups, connect a second device, and keep your bank statements and receipts elsewhere too.',
-				'Belege prepares your bookkeeping; it replaces neither bookkeeping nor tax advice. Check matches, amounts read and every export before you pass it on – the AI can be wrong too.'
+				'Le Space Belege prepares your bookkeeping; it replaces neither bookkeeping nor tax advice. Check matches, amounts read and every export before you pass it on – the AI can be wrong too.'
 			],
 			imprint: 'Imprint',
 			privacy: 'Privacy policy of Le Space UG'
@@ -632,7 +632,7 @@ export default {
 				items: [
 					'Points for amount, invoice and customer number, IBAN, vendor and date: confident pairs are linked, the rest becomes a question.',
 					'Transfers between your own accounts (also across chains and bridges), bank fees and refunds need no receipt.',
-					'Vendor accounts for prepaid balances and collective invoices; Belege learns from your links.'
+					'Vendor accounts for prepaid balances and collective invoices; Le Space Belege learns from your links.'
 				]
 			},
 			ai: {
@@ -671,7 +671,7 @@ export default {
 				items: [
 					'The same books on phone and computer; a device only gets them once it proves the passkey.',
 					'Devices meet via public relays, at the relay of your own bridge on the same network, or with no relay at all by QR code – or via all of them, in which case a new device only gets in on your own network.',
-					'The phone uses the computer’s bridge; Belege can be installed as an app.',
+					'The phone uses the computer’s bridge; Le Space Belege can be installed as an app.',
 					'Invoice app (UCEP): have Eigenbelege (self-made receipts) created and report paid invoices; read-only access for an assistant.'
 				]
 			}
@@ -712,12 +712,12 @@ export default {
 			options: 'Settings',
 			devices: 'Sync own devices',
 			devicesText:
-				'Your books and receipts also on your phone or a second computer with the same passkey. The devices connect via a Le Space relay (found via Aleph, see “Le Space relays”) and, where possible, directly; everything is encrypted before it leaves the device. Or, in the network menu at the top under “Where devices meet”, without a relay by QR: two devices on the same network scan each other’s code and connect directly – then Belege asks neither Aleph nor a relay nor a STUN server, and the code shows only the device’s identifier and its addresses on the local network. Or “Only on your own network”: the devices meet at the relay of your own bridge (set up on the computer with `pnpm setup:relay`) – then Belege asks neither Aleph nor a public relay nor a STUN server, and your computer sees only the addresses on the local network and when the devices are connected. Or “Both”: all three ways at once, but a device the books don’t know yet only gets in by QR or via your bridge’s relay – only after that via the public relays as well. A device only gets the books once it proves that it has the same passkey; the relay and other peers get none of it, not even encrypted. The relay sees that two devices are talking to each other, their IP addresses and the identifiers (hash values) of the databases, never contents. Applies to this device, from the next unlock. On a computer with a bridge you can additionally share the bridge with your own devices (Integrations → Own devices): then the phone uses bank, mailbox, AI and wallets via this computer – only the shared queries, encrypted; the bridge’s credentials stay on the computer.',
+				'Your books and receipts also on your phone or a second computer with the same passkey. The devices connect via a Le Space relay (found via Aleph, see “Le Space relays”) and, where possible, directly; everything is encrypted before it leaves the device. Or, in the network menu at the top under “Where devices meet”, without a relay by QR: two devices on the same network scan each other’s code and connect directly – then Le Space Belege asks neither Aleph nor a relay nor a STUN server, and the code shows only the device’s identifier and its addresses on the local network. Or “Only on your own network”: the devices meet at the relay of your own bridge (set up on the computer with `pnpm setup:relay`) – then Le Space Belege asks neither Aleph nor a public relay nor a STUN server, and your computer sees only the addresses on the local network and when the devices are connected. Or “Both”: all three ways at once, but a device the books don’t know yet only gets in by QR or via your bridge’s relay – only after that via the public relays as well. A device only gets the books once it proves that it has the same passkey; the relay and other peers get none of it, not even encrypted. The relay sees that two devices are talking to each other, their IP addresses and the identifiers (hash values) of the databases, never contents. Applies to this device, from the next unlock. On a computer with a bridge you can additionally share the bridge with your own devices (Integrations → Own devices): then the phone uses bank, mailbox, AI and wallets via this computer – only the shared queries, encrypted; the bridge’s credentials stay on the computer.',
 			collaboration: 'Collaboration',
 			collaborationText:
 				'Shared books with colleagues or your tax advisor, chat and later video. This comes later and will then be switched on explicitly here – not before, and not by itself.',
 			technical: [
-				'A libp2p node runs in the browser because OrbitDB needs one – without transports, without a bootstrap list and without peer discovery. It cannot dial anyone and listens on no address. Only when you pair Belege with your invoice app is a second, separate node added that connects to a relay (see “Invoice app” below); it cannot reach your books.',
+				'A libp2p node runs in the browser because OrbitDB needs one – without transports, without a bootstrap list and without peer discovery. It cannot dial anyone and listens on no address. Only when you pair Le Space Belege with your invoice app is a second, separate node added that connects to a relay (see “Invoice app” below); it cannot reach your books.',
 				'Its peer key (Ed25519) is created anew in every session and stored nowhere.',
 				'With “Sync own devices” this node gets the transports of the invoice app node: WebSocket to the relay, a reservation there, WebRTC for the direct connection, plus gossipsub for OrbitDB. Its peer key then comes from the passkey and a random value of this browser, so that each device has its own stable identifier. The devices know each other through sealed entries in the settings (`device:<identifier>`). Before a device gets anything, it proves the passkey: an HMAC over both identifiers with a key that is derived from the passkey and never transmitted. Until then the node answers only identify and the relay – no gossipsub, no OrbitDB heads, no Bitswap, no bridge.',
 				'In the “Without a relay, by QR” mode the node has only the transport of @le-space/libp2p-webrtc-qr: no WebSocket, no relay address, no query to Aleph. Invitation and answer are each a WebRTC SDP with local candidates only (no STUN), signed with the device’s peer key and checked against the peer ID inside; because the SDP contains the DTLS fingerprint, the signature binds the connection to both identifiers, as Noise otherwise does. A code is valid for ten minutes. The passkey proof runs on this connection as on any other. The mode is stored sealed in the settings (`network-mode`) and as a copy in this browser.',
@@ -752,9 +752,9 @@ export default {
 			]
 		},
 		integrations: {
-			title: 'What Belege works with',
+			title: 'What Le Space Belege works with',
 			simple:
-				'Banks, exchanges and blockchains whose bookings Belege reads, and the services it asks for that – only when you set them up or use them. The logos are built into the app; this dialog loads nothing from third-party servers.',
+				'Banks, exchanges and blockchains whose bookings Le Space Belege reads, and the services it asks for that – only when you set them up or use them. The logos are built into the app; this dialog loads nothing from third-party servers.',
 			groups: {
 				banks: 'Banks and bank statements',
 				exchanges: 'Exchanges',
@@ -768,7 +768,7 @@ export default {
 				apps: 'Connected apps'
 			},
 			marks:
-				'Trademarks and logos belong to their owners; they only show what Belege works with. Logos: Simple Icons (CC0).'
+				'Trademarks and logos belong to their owners; they only show what Le Space Belege works with. Logos: Simple Icons (CC0).'
 		},
 		services: {
 			title: 'External services',
@@ -793,13 +793,13 @@ export default {
 				name: 'Enable Banking (banks without Hibiscus)',
 				text: 'When set up: the bridge links banks Hibiscus does not reach, through your own Enable Banking application. You give the consent on your bank’s own page.',
 				leaves:
-					'To Enable Banking: which bank you link, after your consent your accounts (IBAN, name, currency) and the transactions of the accounts you bring into the books – they pass through its servers. Also this computer’s IP address. Neither Belege nor the bridge sees your bank password.',
+					'To Enable Banking: which bank you link, after your consent your accounts (IBAN, name, currency) and the transactions of the accounts you bring into the books – they pass through its servers. Also this computer’s IP address. Neither Le Space Belege nor the bridge sees your bank password.',
 				technical:
 					'An account information service (AIS) under PSD2. Only the bridge talks to api.enablebanking.com; every request is signed with your application’s key (RS256 JWT). The key and the sessions are sealed beside the bridge’s configuration, never in the browser and not in the books; the app gets only the last four characters of an account’s IBAN. The browser only goes to the bank and back to /integrationen/bank/verbunden. The bank’s one-time code is in that address and so also passes the gateway that serves the page; without the key it is worthless, and the page takes it out of the address at once. Only accounts whose IBAN ending is released in the bridge (pnpm setup:enablebanking -- --accounts) leave the bridge, and fetching happens only on your click. A consent lasts 180 days at most; “Unlink” ends it at Enable Banking.'
 			},
 			backup: {
 				name: 'Backup on Aleph Cloud',
-				text: 'When set up and only on your click: everything Belege keeps, sealed with a key from your passkey, as one file on Aleph Cloud.',
+				text: 'When set up and only on your click: everything Le Space Belege keeps, sealed with a key from your passkey, as one file on Aleph Cloud.',
 				leaves:
 					'To Aleph’s IPFS host, directly from this browser: the sealed file (Aleph sees its size and this computer’s IP address, not what is in it). To the Aleph API: a signed order naming the file – by this browser’s own key once the bridge’s account has allowed it, by the bridge until then – and reads of that account’s grants, credits and backups, by its address. To restore, the browser fetches the sealed file from Aleph’s gateway by its CID.',
 				technical:
@@ -831,19 +831,19 @@ export default {
 			},
 			ucep: {
 				name: 'Invoice app (UCEP via a relay)',
-				text: 'Only if you pair Belege with your invoice app under Integrations: Belege connects to it via a relay to have an Eigenbeleg (self-made receipt) created for a payment without a receipt, and – on your click on “Sync invoices” – to fetch the invoices you have issued and tell it which ones are paid.',
+				text: 'Only if you pair Le Space Belege with your invoice app under Integrations: Le Space Belege connects to it via a relay to have an Eigenbeleg (self-made receipt) created for a payment without a receipt, and – on your click on “Sync invoices” – to fetch the invoices you have issued and tell it which ones are paid.',
 				leaves:
-					'The IP address of this device and Belege’s peer ID – to the operator of the relay (one of the Le Space relays, see below). For an Eigenbeleg, the details of this one payment (date, amount, description, reason, the counterparty as you enter it, the payment’s internal identifier in Belege, and for crypto the chain, quantity, rate with source and time, and the transaction hash). For a paid invoice only: on which day, which amount and the payment’s internal identifier – never account, IBAN or payment reference. Both to your invoice app, no one else; never the rest of your books.',
+					'The IP address of this device and Le Space Belege’s peer ID – to the operator of the relay (one of the Le Space relays, see below). For an Eigenbeleg, the details of this one payment (date, amount, description, reason, the counterparty as you enter it, the payment’s internal identifier in Le Space Belege, and for crypto the chain, quantity, rate with source and time, and the transaction hash). For a paid invoice only: on which day, which amount and the payment’s internal identifier – never account, IBAN or payment reference. Both to your invoice app, no one else; never the rest of your books.',
 				technical:
-					'libp2p with WebSocket to the relay (Circuit Relay v2) and WebRTC for the direct connection; Noise encrypts every connection end to end, the relay sees only ciphertext. The peer ID comes from a key that is derived from your passkey and never stored. The pairing (UCEP, Le-Space/ucep-spec) grants Belege only the rights “create Eigenbelege”, “read own documents”, “read issued invoices” and “report payments”. Without pairing, Belege establishes no connection.'
+					'libp2p with WebSocket to the relay (Circuit Relay v2) and WebRTC for the direct connection; Noise encrypts every connection end to end, the relay sees only ciphertext. The peer ID comes from a key that is derived from your passkey and never stored. The pairing (UCEP, Le-Space/ucep-spec) grants Le Space Belege only the rights “create Eigenbelege”, “read own documents”, “read issued invoices” and “report payments”. Without pairing, Le Space Belege establishes no connection.'
 			},
 			relays: {
 				name: 'Le Space relays (found via Aleph)',
-				text: 'Only when Belege goes online – for the invoice app or for your own devices: Belege asks api.aleph.im for the current addresses of the Le Space relays and connects to them. Only entries from the two wallets that Le Space operates for this purpose count; other entries are ignored.',
+				text: 'Only when Le Space Belege goes online – for the invoice app or for your own devices: it asks api.aleph.im for the current addresses of the Le Space relays and connects to them. Only entries from the two wallets that Le Space operates for this purpose count; other entries are ignored.',
 				leaves:
-					'To Aleph (api.aleph.im): the IP address of this device, when looking up. To the operator of the relay: the IP address, the peer ID of Belege and of the other side, when you are connected and how many bytes flow – never contents. Belege names to the relay neither its databases nor the protocols it speaks with your devices; a device learns those only once it has proved the passkey. For a direct connection (WebRTC), to public STUN servers (Google, Twilio, Cloudflare, Mozilla): the IP address.',
+					'To Aleph (api.aleph.im): the IP address of this device, when looking up. To the operator of the relay: the IP address, the peer ID of Le Space Belege and of the other side, when you are connected and how many bytes flow – never contents. Le Space Belege names to the relay neither its databases nor the protocols it speaks with your devices; a device learns those only once it has proved the passkey. For a direct connection (WebRTC), to public STUN servers (Google, Twilio, Cloudflare, Mozilla): the IP address.',
 				technical:
-					'Aleph POST messages in the channel simple-todo (ref simple-todo-bootstrap, type relay-bootstrap-v2, registration relay:orbitdb-relay:orbitdb-relay), as Le-Space/relay-button writes them; the newest entry per Le Space wallet is taken, and from it a TLS WebSocket address. If Aleph does not respond, Belege uses the last known relays. Every connection via a relay is encrypted end to end with Noise; the relay can read nothing, change nothing and cannot pose as the other side (Noise checks the peer ID). A third-party relay could at most see who is connected to whom and when, or refuse connections – hence only the Le Space wallets. The peer ID comes from your passkey and stays the same; anyone who knows it can recognise connections from Belege.'
+					'Aleph POST messages in the channel simple-todo (ref simple-todo-bootstrap, type relay-bootstrap-v2, registration relay:orbitdb-relay:orbitdb-relay), as Le-Space/relay-button writes them; the newest entry per Le Space wallet is taken, and from it a TLS WebSocket address. If Aleph does not respond, Le Space Belege uses the last known relays. Every connection via a relay is encrypted end to end with Noise; the relay can read nothing, change nothing and cannot pose as the other side (Noise checks the peer ID). A third-party relay could at most see who is connected to whom and when, or refuse connections – hence only the Le Space wallets. The peer ID comes from your passkey and stays the same; anyone who knows it can recognise connections from Le Space Belege.'
 			}
 		},
 		status: {
@@ -1250,6 +1250,8 @@ export default {
 		explain: 'Explain inconsistencies',
 		explainTitle:
 			'Sends the timeline to your language model: dates, amounts, periods, items and the findings – redacted, without phone, customer and invoice numbers. Hints only, nothing is booked.',
+		explainTitleLocal:
+			'Gives the timeline to your language model on this computer: dates, amounts, periods, items and the findings – unredacted, as nothing leaves the computer. Hints only, nothing is booked.',
 		explainNeedsBridge: 'This needs the bridge to be paired with a language model.',
 		notes: 'AI notes',
 		pdf: 'Download as PDF',
@@ -1724,6 +1726,8 @@ export default {
 		ai: {
 			button: 'AI suggestions for all open questions ({count})',
 			what: 'For {count} payments without a receipt, the bridge asks your language model which receipt fits – one request per payment with the redacted booking and up to 25 nearest receipts.',
+			whatLocal:
+				'For {count} payments without a receipt, the bridge asks your language model on this computer which receipt fits – one request per payment with the booking and up to 25 nearest receipts, unredacted, as nothing leaves the computer.',
 			tokens: 'Based on your last AI suggestions, about {tokens} tokens.',
 			tokensUnknown: 'History shows how many tokens this takes after the first run.',
 			only: 'These are only suggestions: nothing is linked until you accept one.',
@@ -1785,12 +1789,20 @@ export default {
 		mark: 'AI',
 		extract:
 			'With AI: the bridge sends the receipt’s text – redacted, never the file – to the language model you have set, and gets back vendor, amount, date and numbers.',
+		extractLocal:
+			'With AI: the bridge gives the receipt’s text – never the file – to your language model on this computer and gets back vendor, amount, date and numbers. Unredacted, as nothing leaves the computer.',
 		upload:
 			'With AI: after the upload the bridge extracts the receipt with your language model (text only, redacted). Linking happens without AI.',
+		uploadLocal:
+			'With AI: after the upload the bridge extracts the receipt with your language model on this computer (text only, unredacted – it does not leave the computer). Linking happens without AI.',
 		import:
 			'With AI: after the import the bridge extracts the email or its attachment with your language model (text only, redacted). Linking happens without AI.',
+		importLocal:
+			'With AI: after the import the bridge extracts the email or its attachment with your language model on this computer (text only, unredacted – it does not leave the computer). Linking happens without AI.',
 		portal:
-			'With AI: the bridge extracts the fetched invoices with your language model (text only, redacted). Signing in and fetching work without AI.'
+			'With AI: the bridge extracts the fetched invoices with your language model (text only, redacted). Signing in and fetching work without AI.',
+		portalLocal:
+			'With AI: the bridge extracts the fetched invoices with your language model on this computer (text only, unredacted – it does not leave the computer). Signing in and fetching work without AI.'
 	},
 	settings: {
 		title: 'Settings',
@@ -3235,6 +3247,8 @@ export default {
 			linkTransferAi: 'AI suggestion',
 			linkTransferAiTitle:
 				'Asks your language model which of these bookings is the other side: for each booking the direction, amount, quantity, day, account type, counterparty and reference – redacted, without addresses, IBANs and hashes. Only a suggestion: nothing is linked until you click.',
+			linkTransferAiTitleLocal:
+				'Asks your language model on this computer which of these bookings is the other side: for each booking the direction, amount, quantity, day, account type, counterparty and reference – unredacted, as nothing leaves the computer. Only a suggestion: nothing is linked until you click.',
 			linkTransferAiPick: 'AI suggestion ({confidence}): {reason}',
 			linkTransferAiNone: 'AI suggestion: none of these bookings is the other side.',
 			linkTransferAiTake: 'Accept',
@@ -3268,6 +3282,8 @@ export default {
 			aiChoiceBusy: 'AI is checking …',
 			aiChoiceTitle:
 				'The bridge sends your configured language model the booking (counterparty, payment reference, amount, day) and up to 25 matching receipts with vendor, amount, date, invoice number and short description – redacted. It names the matching receipt; the linking is up to you.',
+			aiChoiceTitleLocal:
+				'The bridge gives your language model on this computer the booking (counterparty, payment reference, amount, day) and up to 25 matching receipts with vendor, amount, date, invoice number and short description – unredacted, as nothing leaves the computer. It names the matching receipt; the linking is up to you.',
 			aiChoiceNone: '{model} checked {count} receipts ({seconds} s) and considers none a match',
 			aiChoiceModel: 'The language model',
 			aiChoiceChecked: 'Which {count} receipts were checked?',
@@ -3280,6 +3296,8 @@ export default {
 			aiSearching: 'AI is searching …',
 			aiSearchTitle:
 				'The bridge asks your configured language model twice: 1. counterparty and payment reference (redacted) → search terms and sender domains. 2. subject, sender domain, attachment names and arrival day of the hits (redacted) → which email is the receipt. No email text, no full address.',
+			aiSearchTitleLocal:
+				'The bridge asks your language model on this computer twice: 1. counterparty and payment reference → search terms and sender domains. 2. subject, sender domain, attachment names and arrival day of the hits → which email is the receipt. Unredacted, as nothing leaves the computer; no email text, no full address.',
 			aiSearchHint:
 				'No clear hit? The language model suggests search terms and judges the hits – only by subject, sender domain and file names, never by the text of the emails.',
 			aiSummary: 'AI search: search terms {terms} · senders {domains} · {count} hits',

@@ -35,6 +35,14 @@ export const app = $state({
 	 * @type {boolean | null}
 	 */
 	persisted: null,
+	/**
+	 * Whether the paired bridge blacks out what goes to its language model
+	 * (#423): false for a model on its own computer, which gets the text as it
+	 * is. null: not known (no bridge, no model, not asked yet) – the hints then
+	 * say "geschwärzt", as for a provider on the internet (ai-text.js).
+	 * @type {boolean | null}
+	 */
+	llmRedaction: null,
 	/** Device sync (#123): off, or this device's id and the devices it knows. */
 	sync: {
 		online: false,
@@ -646,6 +654,22 @@ export function fillExchangeRates() {
 	return next;
 }
 
+/**
+ * Ask the paired bridge whether it blacks out what goes to its model; never
+ * throws, an unknown answer leaves null.
+ */
+export async function refreshLlmRedaction() {
+	try {
+		const client = await pairedClient();
+		if (!client) return;
+		const status = /** @type {any} */ (await client.llmStatus());
+		const active = status?.configured ? status.redaction?.active : undefined;
+		app.llmRedaction = typeof active === 'boolean' ? active : null;
+	} catch {
+		// Offline or an older bridge: the cautious wording stays.
+	}
+}
+
 /** Bridge client from the sealed settings, or null when none is paired. */
 async function pairedClient() {
 	if (!session) return null;
@@ -920,6 +944,8 @@ async function unlockWith(credential, progress, beforePrompt) {
 	requestPersistence().then((kept) => (app.persisted = kept));
 	// Not awaited: rates for instalments of invoices in another currency.
 	fillExchangeRates();
+	// Not awaited: whether the AI hints may say "geschwärzt" (ai-text.js).
+	refreshLlmRedaction();
 	// Not awaited: the books are open, whatever the relay does.
 	startUcepIfPaired();
 	startDeviceSyncIfOn().then(watchQrConnections);

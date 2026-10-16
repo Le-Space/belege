@@ -1,4 +1,5 @@
 <script>
+	import { aiText } from '$lib/ai-text.js';
 	// One booking in full: counterparty, date, the whole purpose, the amount;
 	// its receipt(s) with a preview; the other payments to the same
 	// counterparty; and what a person can do: link a receipt, undo a link,
@@ -1357,7 +1358,7 @@
 	     chosen (#274) – below a long list it is not found –, else at the end of the part. -->
 	<label
 		class="{button} inline-flex cursor-pointer items-center gap-1.5"
-		title={t('ai.upload')}
+		title={aiText('ai.upload')}
 		data-testid="tx-upload-label"
 	>
 		<AiMark />
@@ -2569,7 +2570,7 @@
 											class="mt-2 {button}"
 											onclick={suggestTransferByAi}
 											disabled={busy || linkAsking}
-											title={t('zahlungen.detail.linkTransferAiTitle')}
+											title={aiText('zahlungen.detail.linkTransferAiTitle')}
 											data-testid="tx-link-transfer-ai"
 											><AiMark />{t('zahlungen.detail.linkTransferAi')}</button
 										>
@@ -2734,7 +2735,7 @@
 											class="inline-flex items-center gap-1.5 {button}"
 											onclick={suggestByAi}
 											disabled={aiPicking || busy || Boolean(aiEmpty)}
-											title={t('zahlungen.detail.aiChoiceTitle')}
+											title={aiText('zahlungen.detail.aiChoiceTitle')}
 											data-testid="tx-ai-choice-ask"
 											><AiMark />{aiPicking
 												? t('zahlungen.detail.aiChoiceBusy')
@@ -2981,7 +2982,7 @@
 															class="mt-1 inline-flex items-center gap-1.5 {button}"
 															onclick={() => importHit(hit)}
 															disabled={importingId !== null}
-															title={t('ai.import')}
+															title={aiText('ai.import')}
 															data-testid="tx-private-import"
 															><AiMark />{importingId === hit.id
 																? t('zahlungen.detail.privateImporting')
@@ -3024,7 +3025,7 @@
 												class="mt-2 inline-flex items-center gap-1.5 {button}"
 												onclick={assistSearch}
 												disabled={assisting || busy}
-												title={t('zahlungen.detail.aiSearchTitle')}
+												title={aiText('zahlungen.detail.aiSearchTitle')}
 												data-testid="tx-private-ai"
 											>
 												<AiMark />
@@ -3122,7 +3123,7 @@
 												class="inline-flex items-center gap-1.5 {button}"
 												onclick={vendorFetch}
 												disabled={vendorBusy || busy}
-												title={t('ai.portal')}
+												title={aiText('ai.portal')}
 												data-testid="tx-vendor-fetch"
 												><AiMark />{vendorBusy
 													? t('zahlungen.detail.vendor.fetching')

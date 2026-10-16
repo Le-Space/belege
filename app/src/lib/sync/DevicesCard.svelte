@@ -251,7 +251,7 @@
 				type="button"
 				class="mt-2 {button}"
 				onclick={() => {
-					consent.reopen();
+					consent.reopen('network');
 					flagOn = deviceSyncOn();
 				}}
 				data-testid="devices-open-consent">{t('devices.openConsent')}</button

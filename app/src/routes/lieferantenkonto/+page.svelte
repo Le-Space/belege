@@ -1,4 +1,5 @@
 <script>
+	import { aiText } from '$lib/ai-text.js';
 	// Lieferantenkonto (issue #121): one vendor's payments and receipts on one
 	// timeline with a running balance, for prepaid tariffs and collective
 	// billing, where one payment never pairs with one receipt
@@ -228,7 +229,9 @@
 				type="button"
 				class={button}
 				disabled={!client || explaining || !timeline.rows.length}
-				title={client ? t('vendorAccount.explainTitle') : t('vendorAccount.explainNeedsBridge')}
+				title={client
+					? aiText('vendorAccount.explainTitle')
+					: t('vendorAccount.explainNeedsBridge')}
 				onclick={explain}
 				data-testid="vendor-account-explain"><AiMark />{t('vendorAccount.explain')}</button
 			>

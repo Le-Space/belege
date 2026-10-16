@@ -1,4 +1,5 @@
 <script>
+	import { aiText } from '$lib/ai-text.js';
 	// Integrationen → Kundenportale: each portal the bridge knows, its session,
 	// and "Anmelden" (a window on the bridge's Mac), "Rechnungen holen" (from
 	// a month on) and "Abmelden" (ends the session, deletes the profile).
@@ -386,7 +387,7 @@
 										: button}"
 									disabled={Boolean(busy[portal.id]) || !/^\d{4}-\d{2}$/.test(since)}
 									onclick={() => fetchInvoices(portal.id)}
-									title={t('ai.portal')}
+									title={aiText('ai.portal')}
 									data-testid="portal-fetch"
 									><AiMark />{busy[portal.id] === 'fetch'
 										? t('portals.fetching')

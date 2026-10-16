@@ -1,4 +1,5 @@
 <script>
+	import { aiText } from '$lib/ai-text.js';
 	// Rückfragen: what the matching engine was not sure about. Every answer is
 	// a record the next run respects (matching/actions.js, engine.js).
 	import { resolve } from '$app/paths';
@@ -267,7 +268,7 @@
 		{#if aiAsk && !aiRun.progress}
 			<div class="mt-3 text-sm text-text" data-testid="ai-all-confirm">
 				<p>
-					{t('rueckfragen.ai.what', { count: estimate.requests })}
+					{aiText('rueckfragen.ai.what', { count: estimate.requests })}
 					{estimate.tokens
 						? t('rueckfragen.ai.tokens', { tokens: estimate.tokens.toLocaleString(intlLocale()) })
 						: t('rueckfragen.ai.tokensUnknown')}
