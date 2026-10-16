@@ -76,6 +76,8 @@ async function device(browser, { share = false, noBridge = false }) {
 	await context.addInitScript(
 		({ prf, share }) => {
 			/** @type {any} */ (globalThis).__belegeTestPrf = prf;
+			// No "Weiter" between the passkey prompts (#429), as addVirtualAuthenticator does.
+			/** @type {any} */ (globalThis).__belegeSkipPasskeySteps = true;
 			localStorage.setItem('belege.device-sync', 'on');
 			if (share) localStorage.setItem('belege.bridge-share', 'on');
 		},

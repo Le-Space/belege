@@ -6,6 +6,14 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **A passkey prompt is answered only by the passkey it is for** (#429). After the first touch, every prompt names its credential, so a second Belege passkey on the same security key can no longer answer it – which left keys from one passkey and the identity from the other, and the first write failed with "… is not allowed to write to the log". The picker shows the name typed under "Name für den Passkey" instead of an id like `belege-3f2a…` (new passkeys only).
+
+### Changed
+
+- **Creating or restoring a passkey says what each further touch is for** (#429): before the second and third prompt of "Passkey anlegen" (and the third and fourth of a restore) a short dialog names the step ("Passkey-Abfrage 2 von 3"), says what it is for, and the prompt starts on "Weiter". "Abbrechen" stops before anything is opened. Unlocking stays one touch.
+
 ## [0.12.0] – 2026-10-15
 
 ### Added

@@ -1,6 +1,7 @@
 // Ported from Le-Space/simple-todo packages/e2e-kit (src/webauthn.mjs) at 56647d5.
-// Changed: nothing but this header; `forgetThisDevice` defaults to /robots.txt,
-// which this app ships in static/.
+// Changed: `forgetThisDevice` defaults to /robots.txt, which this app ships in
+// static/; `addVirtualAuthenticator` skips the steps between prompts (#429)
+// and `recordCeremonies` notes which credentials a request names.
 //
 /**
  * The passkey, as a test sees it: a virtual authenticator, and a count of how
@@ -33,6 +34,11 @@ export async function addVirtualAuthenticator(page) {
 			automaticPresenceSimulation: true
 		}
 	});
+	// No "Weiter" between the prompts of a create or restore (passkey-steps.svelte.js):
+	// only e2e/passkey-steps.spec.js clicks through them, and switches this off.
+	await page.addInitScript(() => {
+		/** @type {any} */ (window).__belegeSkipPasskeySteps = true;
+	});
 	return cdp;
 }
 
@@ -43,13 +49,21 @@ export async function addVirtualAuthenticator(page) {
  */
 export async function recordCeremonies(page) {
 	await page.addInitScript(() => {
-		/** @type {{ kind: string, prf: boolean, ok: boolean }[]} */
+		/** @type {{ kind: string, prf: boolean, allow: number, name?: string, ok: boolean }[]} */
 		const log = [];
 		Object.defineProperty(window, '__webauthnCeremonies', { value: log });
 		for (const kind of /** @type {const} */ (['create', 'get'])) {
 			const original = navigator.credentials[kind].bind(navigator.credentials);
 			navigator.credentials[kind] = async (/** @type {any} */ options) => {
-				const entry = { kind, prf: Boolean(options?.publicKey?.extensions?.prf), ok: false };
+				const entry = {
+					kind,
+					prf: Boolean(options?.publicKey?.extensions?.prf),
+					// How many credentials the request names: 0 lets any passkey of the origin answer.
+					allow: options?.publicKey?.allowCredentials?.length ?? 0,
+					// What a picker lists for a new passkey (`user.name`).
+					...(kind === 'create' ? { name: options?.publicKey?.user?.name } : {}),
+					ok: false
+				};
 				log.push(entry);
 				const result = await original(options);
 				entry.ok = true;
@@ -63,7 +77,7 @@ export async function recordCeremonies(page) {
  * The ceremonies since the last call, and forget them.
  *
  * @param {import('@playwright/test').Page} page
- * @returns {Promise<{ kind: string, prf: boolean, ok: boolean }[]>}
+ * @returns {Promise<{ kind: string, prf: boolean, allow: number, name?: string, ok: boolean }[]>}
  */
 export async function takeCeremonies(page) {
 	return page.evaluate(() => /** @type {any} */ (window).__webauthnCeremonies.splice(0));

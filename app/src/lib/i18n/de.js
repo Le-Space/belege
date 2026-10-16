@@ -293,6 +293,8 @@ export default {
 			createFailed: 'Der Passkey konnte nicht angelegt werden.',
 			notFound: 'Auf diesem Gerät wurde kein Passkey für Belege gefunden.',
 			notStored: 'In diesem Browser ist kein Passkey gespeichert.',
+			stepCancelled:
+				'Abgebrochen, bevor die Bücher geöffnet wurden. Der Passkey ist in diesem Browser gespeichert: „Mit gespeichertem Passkey entsperren“ macht weiter.',
 			noPrf:
 				'Dieser Passkey liefert kein PRF-Geheimnis. Belege verschlüsselt alle Daten mit einem Schlüssel aus diesem Geheimnis und öffnet ohne ihn keine Daten. Bitte einen Passkey in einem Browser und Passwort-Manager mit PRF-Unterstützung verwenden (z. B. aktuelles Chrome, Safari oder Firefox mit iCloud-Schlüsselbund, Google Passwortmanager oder 1Password).'
 		},
@@ -904,6 +906,21 @@ export default {
 		restoreHeading: 'Schon einen Passkey?',
 		restore: 'Mit vorhandenem Passkey wiederherstellen',
 		busy: 'Bitte den Passkey bestätigen …',
+		steps: {
+			count: 'Passkey-Abfrage {n} von {of}',
+			prf: {
+				title: 'Jetzt der Schlüssel für deine Bücher',
+				why: 'Dein Passkey gibt Belege ein Geheimnis. Daraus entsteht der Schlüssel, mit dem deine Bücher und Belege verschlüsselt sind; gespeichert wird er nirgends.'
+			},
+			proof: {
+				title: 'Zuletzt: deine Unterschrift',
+				why: 'Dein Passkey unterschreibt einmal, dass die Einträge in deinen Büchern von dir stammen. Belege bewahrt diese Unterschrift auf: Beim nächsten Entsperren fragt es nur noch einmal.'
+			},
+			notALoop:
+				'Jede Abfrage hat ihren eigenen Zweck, es ist keine Wiederholung. Mit einem Sicherheitsschlüssel: berühren und, falls gefragt, die PIN eingeben.',
+			continue: 'Weiter',
+			cancel: 'Abbrechen'
+		},
 		progress: {
 			keys: 'Schlüssel aus dem Passkey ableiten …',
 			network: 'Speicher und Netz starten …',

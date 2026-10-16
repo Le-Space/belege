@@ -86,11 +86,12 @@ test('a passkey opens sealed books that survive a reload', async ({ page }) => {
 	console.log('ceremonies on create:', JSON.stringify(created));
 	expect(created.every((c) => c.ok)).toBe(true);
 	// Three prompts: register, one PRF evaluation (the database key and the
-	// signing key both come from it), and the identity signature.
-	expect(created.map((c) => [c.kind, c.prf])).toEqual([
-		['create', true],
-		['get', true],
-		['get', false]
+	// signing key both come from it), and the identity signature. Both gets
+	// name the new credential: no other passkey of this origin can answer (#429).
+	expect(created.map((c) => [c.kind, c.prf, c.allow])).toEqual([
+		['create', true, 0],
+		['get', true, 1],
+		['get', false, 1]
 	]);
 
 	await page.getByRole('link', { name: 'Zahlungen' }).click();
@@ -142,7 +143,7 @@ test('a passkey opens sealed books that survive a reload', async ({ page }) => {
 	console.log('ceremonies on unlock:', JSON.stringify(unlocked));
 	// One prompt: the PRF evaluation. The signing key is derived from it again,
 	// and the identity's passkey proof (public) is kept, so nothing else asks.
-	expect(unlocked.map((c) => [c.kind, c.prf])).toEqual([['get', true]]);
+	expect(unlocked.map((c) => [c.kind, c.prf, c.allow])).toEqual([['get', true, 1]]);
 
 	// The same identity: the key derived again is the key, and the identity
 	// document is the same document. The peer key is new every session.
@@ -231,11 +232,13 @@ test('a restored passkey derives the same signing key and keeps none', async ({ 
 	// Four prompts: the provider's two restore touches (DID, then signing key
 	// from PRF), the PRF read for the database key, and the identity signature
 	// (a new device has no cached proof). Unchanged by keeping no key at rest.
-	expect(restoring.map((c) => [c.kind, c.prf])).toEqual([
-		['get', true],
-		['get', false],
-		['get', true],
-		['get', false]
+	// Only the first touch is open to any passkey of the origin: it is how the
+	// passkey is found. The other three name it (#429).
+	expect(restoring.map((c) => [c.kind, c.prf, c.allow])).toEqual([
+		['get', true, 0],
+		['get', false, 1],
+		['get', true, 1],
+		['get', false, 1]
 	]);
 	const restored = await sessionFacts(page);
 	expect(restored.secrets.signingKey).toBe(created.secrets.signingKey);
@@ -271,6 +274,10 @@ test('without PRF the books stay shut, with a clear message', async ({ page }) =
 			hasPrf: false,
 			automaticPresenceSimulation: true
 		}
+	});
+	// As addVirtualAuthenticator does: no "Weiter" between the prompts (#429).
+	await page.addInitScript(() => {
+		/** @type {any} */ (window).__belegeSkipPasskeySteps = true;
 	});
 
 	await page.goto('/');
