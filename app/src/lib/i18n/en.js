@@ -1039,7 +1039,7 @@ export default {
 	},
 	backup: {
 		title: 'Backup',
-		what: 'Everything Belege keeps in this browser – the books and every receipt file – as one file, sealed with a key from your passkey, kept on Aleph Cloud. Nobody but you can open it, with the same passkey.',
+		what: 'Everything Le Space Belege keeps in this browser – the books and every receipt file – as one file, sealed with a key from your passkey, kept on Aleph Cloud. Nobody but you can open it, with the same passkey.',
 		notSetUp: 'The bridge has no backup key yet. In the terminal, in Belege’s folder:',
 		noOwner:
 			'No Aleph account that pays yet: pair the bridge after running pnpm setup:aleph there once, or enter the account’s address.',
