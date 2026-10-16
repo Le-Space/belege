@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.12.3] – 2026-10-16
+
 ### Changed
 
 - The backup card calls the product "Le Space Belege", as the consent screen does since #432.
