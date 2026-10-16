@@ -55,7 +55,9 @@
 
 	// Device sync is this device's choice, kept in this browser (sync/device-sync.js).
 	let syncOn = $state(deviceSyncOn());
-	const { open, accepted } = consent;
+	const { open, accepted, section } = consent;
+	/** @type {HTMLDetailsElement | undefined} */
+	let networkSection = $state();
 
 	$effect(() => {
 		if (!dialog) return;
@@ -63,6 +65,11 @@
 			// The menu may have switched own devices since it was last open (#327).
 			syncOn = deviceSyncOn();
 			dialog.showModal();
+			// "Einschalten …" in the network menu: straight to the switch.
+			if ($section === 'network' && networkSection) {
+				networkSection.open = true;
+				networkSection.scrollIntoView({ block: 'start' });
+			}
 		}
 		if (!$open && dialog.open) dialog.close();
 	});
@@ -156,9 +163,15 @@
 				{t('consent.earlyBody')}
 			</p>
 
-			<!-- Who offers Belege, and on what terms: free, no warranty, the books are yours to keep. -->
-			<section class="rounded-md border border-border p-3 text-sm" data-testid="consent-terms">
-				<h3 class="font-medium text-heading">{t('consent.terms.heading')}</h3>
+			<!-- Who offers Belege, and on what terms: free, no warranty, the books are yours to keep.
+			     Folded like the sections below (#431); the warning above stays open. -->
+			<details
+				class="rounded-md border border-l-4 border-border border-l-warning p-3 text-sm"
+				data-testid="consent-terms"
+			>
+				<summary class="cursor-pointer font-medium text-heading">
+					{t('consent.terms.heading')}
+				</summary>
 				<ul class="mt-1 list-disc space-y-1 pl-5 text-text">
 					{#each list('consent.terms.items') as item (item)}
 						<li>{item}</li>
@@ -181,10 +194,13 @@
 						data-testid="consent-company-privacy">{t('consent.terms.privacy')}</a
 					>
 				</p>
-			</section>
+			</details>
 
 			<!-- What Belege can do: folded, so the consent stays about the data. -->
-			<details class="rounded-md border border-border p-3 text-sm" data-testid="consent-features">
+			<details
+				class="rounded-md border border-l-4 border-border border-l-cyan p-3 text-sm"
+				data-testid="consent-features"
+			>
 				<summary class="cursor-pointer font-medium text-heading">
 					{t('consent.features.title')}
 				</summary>
@@ -200,8 +216,10 @@
 			</details>
 
 			<!-- Identity -->
-			<section class="border-l-4 border-l-identity pl-3" data-testid="consent-identity">
-				<h3 class="text-base font-semibold">{t('consent.identity.title')}</h3>
+			<details class="border-l-4 border-l-identity pl-3" data-testid="consent-identity">
+				<summary class="cursor-pointer marker:text-faint">
+					<h3 class="inline text-base font-semibold">{t('consent.identity.title')}</h3>
+				</summary>
 				{#each list('consent.identity.simple') as line (line)}
 					<p class="mt-1.5 text-sm leading-relaxed">{line}</p>
 				{/each}
@@ -210,14 +228,24 @@
 					lines={list('consent.identity.technical')}
 					testid="consent-technical-identity"
 				/>
-			</section>
+			</details>
 
 			<!-- Storage -->
-			<section class="border-l-4 border-l-data pl-3" data-testid="consent-storage">
-				<h3 class="text-base font-semibold">{t('consent.storage.title')}</h3>
-				{#each list('consent.storage.simple') as line (line)}
-					<p class="mt-1.5 text-sm leading-relaxed">{line}</p>
-				{/each}
+			<!-- The loss stays in view when the section is folded: it is what one has to know. -->
+			<div class="border-l-4 border-l-data pl-3" data-testid="consent-storage">
+				<details>
+					<summary class="cursor-pointer marker:text-faint">
+						<h3 class="inline text-base font-semibold">{t('consent.storage.title')}</h3>
+					</summary>
+					{#each list('consent.storage.simple') as line (line)}
+						<p class="mt-1.5 text-sm leading-relaxed">{line}</p>
+					{/each}
+					<TechnicalNote
+						class="mt-3"
+						lines={list('consent.storage.technical')}
+						testid="consent-technical-storage"
+					/>
+				</details>
 				<p
 					class="mt-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-heading"
 					data-testid="consent-loss"
@@ -225,18 +253,19 @@
 					<strong class="text-danger">{t('consent.storage.lossHeading')}</strong>
 					{t('consent.storage.loss')}
 				</p>
-				<TechnicalNote
-					class="mt-3"
-					lines={list('consent.storage.technical')}
-					testid="consent-technical-storage"
-				/>
-			</section>
+			</div>
 
 			<!-- Network -->
-			<section class="border-l-4 border-l-infra pl-3" data-testid="consent-network">
-				<h3 class="flex flex-wrap items-center gap-2 text-base font-semibold">
-					{syncOn ? t('consent.network.titleDevices') : t('consent.network.title')}
-				</h3>
+			<details
+				class="border-l-4 border-l-infra pl-3"
+				data-testid="consent-network"
+				bind:this={networkSection}
+			>
+				<summary class="cursor-pointer marker:text-faint">
+					<h3 class="inline text-base font-semibold">
+						{syncOn ? t('consent.network.titleDevices') : t('consent.network.title')}
+					</h3>
+				</summary>
 				{#each list('consent.network.simple') as line (line)}
 					<p class="mt-1.5 text-sm leading-relaxed">{line}</p>
 				{/each}
@@ -323,13 +352,15 @@
 					lines={list('consent.network.technical')}
 					testid="consent-technical-network"
 				/>
-			</section>
+			</details>
 
 			<!-- Where a language model helps, and whose it is -->
-			<section class="border-l-4 border-l-coral pl-3" data-testid="consent-ai">
-				<h3 class="flex items-center gap-1.5 text-base font-semibold">
-					<AiMark />{t('consent.ai.title')}
-				</h3>
+			<details class="border-l-4 border-l-coral pl-3" data-testid="consent-ai">
+				<summary class="cursor-pointer marker:text-faint">
+					<h3 class="inline-flex items-center gap-1.5 text-base font-semibold">
+						<AiMark />{t('consent.ai.title')}
+					</h3>
+				</summary>
 				{#each list('consent.ai.simple') as line (line)}
 					<p class="mt-1.5 text-sm leading-relaxed">{line}</p>
 				{/each}
@@ -349,11 +380,13 @@
 					lines={list('consent.ai.technical')}
 					testid="consent-technical-ai"
 				/>
-			</section>
+			</details>
 
 			<!-- External services -->
-			<section class="border-l-4 border-l-cyan pl-3" data-testid="consent-services">
-				<h3 class="text-base font-semibold">{t('consent.services.title')}</h3>
+			<details class="border-l-4 border-l-cyan pl-3" data-testid="consent-services">
+				<summary class="cursor-pointer marker:text-faint">
+					<h3 class="inline text-base font-semibold">{t('consent.services.title')}</h3>
+				</summary>
 				{#each list('consent.services.simple') as line (line)}
 					<p class="mt-1.5 text-sm leading-relaxed">{line}</p>
 				{/each}
@@ -392,11 +425,13 @@
 						</li>
 					{/each}
 				</ul>
-			</section>
+			</details>
 
 			<!-- What Belege works with: banks, exchanges, chains, data sources, explorers. -->
-			<section class="border-l-4 border-l-cyan pl-3" data-testid="consent-integrations">
-				<h3 class="text-base font-semibold">{t('consent.integrations.title')}</h3>
+			<details class="border-l-4 border-l-cyan pl-3" data-testid="consent-integrations">
+				<summary class="cursor-pointer marker:text-faint">
+					<h3 class="inline text-base font-semibold">{t('consent.integrations.title')}</h3>
+				</summary>
 				<p class="mt-1.5 text-sm leading-relaxed">{t('consent.integrations.simple')}</p>
 				<div class="mt-2 grid gap-3 sm:grid-cols-2">
 					{#each INTEGRATION_GROUPS as group (group.id)}
@@ -424,7 +459,7 @@
 					{/each}
 				</div>
 				<p class="mt-2 text-xs text-faint">{t('consent.integrations.marks')}</p>
-			</section>
+			</details>
 		</div>
 
 		<!-- The statement panel: what is kept where, in one look. -->

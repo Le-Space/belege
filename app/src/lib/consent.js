@@ -85,10 +85,13 @@ export function createConsent({
 
 	const accepted = writable(read());
 	const open = writable(!read());
+	/** @type {import('svelte/store').Writable<'network' | null>} the section to unfold on opening */
+	const section = writable(/** @type {'network' | null} */ (null));
 
 	return {
 		accepted: { subscribe: accepted.subscribe },
 		open: { subscribe: open.subscribe },
+		section: { subscribe: section.subscribe },
 		/** "Verstanden": remember it, and close. */
 		accept() {
 			try {
@@ -99,8 +102,14 @@ export function createConsent({
 			accepted.set(true);
 			open.set(false);
 		},
-		/** From the footer or the header, after it was accepted. */
-		reopen() {
+		/**
+		 * From the footer or the header, after it was accepted. `network` unfolds
+		 * that section, where own devices are switched on.
+		 *
+		 * @param {'network'} [at]
+		 */
+		reopen(at) {
+			section.set(at ?? null);
 			open.set(true);
 		},
 		/** Close without a decision; only once it has been accepted. */

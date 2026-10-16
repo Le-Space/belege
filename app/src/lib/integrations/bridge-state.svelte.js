@@ -3,7 +3,7 @@
 // and what is set up on it. Shared by the overview and every integration's
 // own page, so pairing on one shows on the others.
 import { createBridgeClient, DEFAULT_BRIDGE_URL } from '$lib/bridge/client.js';
-import { app, currentStore } from '$lib/session.svelte.js';
+import { app, currentStore, refreshLlmRedaction } from '$lib/session.svelte.js';
 import { getSetting, setSetting } from '$lib/store/settings.js';
 import { t } from '$lib/i18n/index.js';
 
@@ -107,6 +107,8 @@ export async function pairBridge(code) {
 		});
 		bridge.token = token;
 		await checkBridge();
+		// Not awaited: whether the AI hints may say "geschwärzt" (ai-text.js).
+		refreshLlmRedaction();
 		return true;
 	} catch (error) {
 		bridge.error = error instanceof Error ? error.message : String(error);

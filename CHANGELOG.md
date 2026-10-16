@@ -6,6 +6,11 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The AI hints say "geschwärzt" only where it is true** (#431). With a model on the bridge's own computer nothing is blacked out (#423); the hints on "Alle neuen auslesen", the upload, mail and portal imports, "Mit KI weitersuchen", the AI suggestions and the vendor timeline then say that the text stays on the computer, unredacted. The app asks the bridge after unlocking and pairing; without an answer it keeps the cautious wording.
+- **The consent screen folds its sections** (#431): "Nutzung und Haftung" and the coloured sections (Identität, Speicherung, Netzwerk, KI, Externe Dienste, Womit Le Space Belege arbeitet) open on a click, keeping their colours; "Nutzung und Haftung" and "Was Le Space Belege kann" got one too. The warning about losing the passkey stays in view. "Eigene Geräte einschalten …" opens the screen with the network section unfolded. The product is called "Le Space Belege" throughout the screen.
+
 ## [0.12.1] – 2026-10-16
 
 ### Fixed

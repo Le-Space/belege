@@ -24,6 +24,13 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	await expect(highlights.nth(2)).toContainText('Bank und Belege, abgeglichen');
 	// Who offers Belege and on what terms; the imprint and privacy policy of Le Space UG linked.
 	const terms = dialog.getByTestId('consent-terms');
+	// Folded, as are the coloured sections (#431); the loss stays in view.
+	for (const id of ['consent-terms', 'consent-identity', 'consent-network', 'consent-ai']) {
+		expect(await dialog.getByTestId(id).evaluate((d) => /** @type {any} */ (d).open)).toBe(false);
+	}
+	await expect(dialog.getByTestId('consent-loss')).toBeVisible();
+	await terms.locator('summary').click();
+	await expect(terms.getByTestId('consent-imprint')).toBeVisible();
 	await expect(terms).toContainText('kostenlos zur Verfügung gestellt');
 	await expect(terms).toContainText('nur für Vorsatz und grobe Fahrlässigkeit');
 	await expect(terms.getByTestId('consent-imprint')).toHaveAttribute(
@@ -36,6 +43,7 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	);
 	// What Belege works with, with logos drawn in the page: no third party is asked.
 	const integrations = dialog.getByTestId('consent-integrations');
+	await integrations.locator('summary').click();
 	await expect(integrations.getByTestId('consent-integration-group')).toHaveCount(10);
 	// Every chain, Monero too, and the backup service (#77) by name.
 	await expect(integrations.locator('[data-integration="monero"]')).toContainText('Monero');

@@ -24,6 +24,9 @@
 		llmError = null;
 		try {
 			llmStatus = await bridgeClient().llmStatus();
+			// The AI hints elsewhere follow what the bridge says here (ai-text.js).
+			const active = llmStatus?.configured ? llmStatus.redaction?.active : undefined;
+			app.llmRedaction = typeof active === 'boolean' ? active : null;
 		} catch (error) {
 			llmStatus = null;
 			llmError = error instanceof Error ? error.message : String(error);

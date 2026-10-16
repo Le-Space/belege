@@ -192,7 +192,7 @@
 								class={small}
 								onclick={() => {
 									open = false;
-									consent.reopen();
+									consent.reopen('network');
 								}}
 								data-testid="network-devices-setup">{t('header.network.switchOnFirst')}</button
 							>
@@ -277,7 +277,7 @@
 				class="mt-3 text-xs text-text underline"
 				onclick={() => {
 					open = false;
-					consent.reopen();
+					consent.reopen('network');
 				}}
 				data-testid="network-consent">{t('header.network.more')}</button
 			>

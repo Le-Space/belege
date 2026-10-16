@@ -235,7 +235,7 @@ export default {
 			},
 			ai: {
 				title: 'KI zum Auslesen',
-				why: 'Liest Anbieter, Betrag, Datum und Nummer aus Belegen – mit deinem eigenen Modell in der Bridge, vorher geschwärzt. Ohne KI trägst du das von Hand ein.',
+				why: 'Liest Anbieter, Betrag, Datum und Nummer aus Belegen – mit deinem eigenen Modell in der Bridge; was an einen Anbieter im Internet geht, wird vorher geschwärzt. Ohne KI trägst du das von Hand ein.',
 				time: 'etwa 5 Minuten'
 			},
 			books: {
@@ -653,7 +653,7 @@ export default {
 				items: [
 					'Punkte aus Betrag, Rechnungs- und Kundennummer, IBAN, Lieferant und Datum: sichere Paare werden verknüpft, der Rest wird eine Frage.',
 					'Umbuchungen zwischen eigenen Konten (auch über Chains und Bridges), Bankgebühren und Erstattungen brauchen keinen Beleg.',
-					'Lieferantenkonten für Guthaben- und Sammelabrechnungen; Belege lernt aus deinen Verknüpfungen.'
+					'Lieferantenkonten für Guthaben- und Sammelabrechnungen; Le Space Belege lernt aus deinen Verknüpfungen.'
 				]
 			},
 			ai: {
@@ -692,7 +692,7 @@ export default {
 				items: [
 					'Dieselben Bücher auf Telefon und Rechner; ein Gerät bekommt sie erst, wenn es den Passkey beweist.',
 					'Geräte treffen sich über öffentliche Relays, am Relay deiner eigenen Bridge im selben Netz oder ganz ohne Relay per QR-Code – oder über alle, wobei ein neues Gerät nur im eigenen Netz hereinkommt.',
-					'Das Telefon nutzt die Bridge des Rechners; Belege lässt sich als App installieren.',
+					'Das Telefon nutzt die Bridge des Rechners; Le Space Belege lässt sich als App installieren.',
 					'Rechnungs-App (UCEP): Eigenbelege erstellen lassen und bezahlte Rechnungen melden; eine Lese-Freigabe für eine Assistenz.'
 				]
 			}
@@ -733,12 +733,12 @@ export default {
 			options: 'Einstellungen',
 			devices: 'Eigene Geräte synchronisieren',
 			devicesText:
-				'Deine Bücher und Belege auch auf deinem Telefon oder einem zweiten Rechner mit demselben Passkey. Die Geräte verbinden sich über ein Le-Space-Relay (gefunden über Aleph, siehe „Le-Space-Relays“) und, wo möglich, direkt; alles ist verschlüsselt, bevor es das Gerät verlässt. Oder, im Netzwerk-Menü oben unter „Wo sich Geräte treffen“, ohne Relay per QR: Zwei Geräte im selben Netz scannen gegenseitig einen Code und verbinden sich direkt – dann fragt Belege weder Aleph noch ein Relay noch einen STUN-Server, und der Code zeigt nur die Kennung des Geräts und seine Adressen im lokalen Netz. Oder „Nur im eigenen Netz“: Die Geräte treffen sich am Relay deiner eigenen Bridge (auf dem Rechner mit `pnpm setup:relay` eingerichtet) – dann fragt Belege weder Aleph noch einen öffentlichen Relay noch einen STUN-Server, und dein Rechner sieht nur die Adressen im lokalen Netz und wann die Geräte verbunden sind. Oder „Beides“: alle drei Wege zugleich, aber ein Gerät, das die Bücher noch nicht kennen, kommt nur per QR oder über den Relay deiner Bridge herein – erst danach auch über die öffentlichen Relays. Ein Gerät bekommt die Bücher erst, wenn es beweist, dass es denselben Passkey hat; der Relay und andere Peers bekommen nichts davon, auch nicht verschlüsselt. Der Relay sieht, dass zwei Geräte miteinander reden, ihre IP-Adressen und die Kennungen (Hash-Werte) der Datenbanken, nie Inhalte. Gilt für dieses Gerät, ab dem nächsten Entsperren. Auf einem Rechner mit Bridge kannst du sie zusätzlich für deine eigenen Geräte freigeben (Integrationen → Eigene Geräte): Dann nutzt das Telefon Bank, Postfach, KI und Wallets über diesen Rechner – nur die freigegebenen Abfragen, verschlüsselt, der Zugang der Bridge bleibt auf dem Rechner.',
+				'Deine Bücher und Belege auch auf deinem Telefon oder einem zweiten Rechner mit demselben Passkey. Die Geräte verbinden sich über ein Le-Space-Relay (gefunden über Aleph, siehe „Le-Space-Relays“) und, wo möglich, direkt; alles ist verschlüsselt, bevor es das Gerät verlässt. Oder, im Netzwerk-Menü oben unter „Wo sich Geräte treffen“, ohne Relay per QR: Zwei Geräte im selben Netz scannen gegenseitig einen Code und verbinden sich direkt – dann fragt Le Space Belege weder Aleph noch ein Relay noch einen STUN-Server, und der Code zeigt nur die Kennung des Geräts und seine Adressen im lokalen Netz. Oder „Nur im eigenen Netz“: Die Geräte treffen sich am Relay deiner eigenen Bridge (auf dem Rechner mit `pnpm setup:relay` eingerichtet) – dann fragt Le Space Belege weder Aleph noch einen öffentlichen Relay noch einen STUN-Server, und dein Rechner sieht nur die Adressen im lokalen Netz und wann die Geräte verbunden sind. Oder „Beides“: alle drei Wege zugleich, aber ein Gerät, das die Bücher noch nicht kennen, kommt nur per QR oder über den Relay deiner Bridge herein – erst danach auch über die öffentlichen Relays. Ein Gerät bekommt die Bücher erst, wenn es beweist, dass es denselben Passkey hat; der Relay und andere Peers bekommen nichts davon, auch nicht verschlüsselt. Der Relay sieht, dass zwei Geräte miteinander reden, ihre IP-Adressen und die Kennungen (Hash-Werte) der Datenbanken, nie Inhalte. Gilt für dieses Gerät, ab dem nächsten Entsperren. Auf einem Rechner mit Bridge kannst du sie zusätzlich für deine eigenen Geräte freigeben (Integrationen → Eigene Geräte): Dann nutzt das Telefon Bank, Postfach, KI und Wallets über diesen Rechner – nur die freigegebenen Abfragen, verschlüsselt, der Zugang der Bridge bleibt auf dem Rechner.',
 			collaboration: 'Zusammenarbeit',
 			collaborationText:
 				'Gemeinsame Bücher mit Kolleginnen, Kollegen oder der Steuerberatung, Chat und später Video. Das kommt später und wird dann hier ausdrücklich eingeschaltet – nicht vorher und nicht von selbst.',
 			technical: [
-				'Im Browser läuft ein libp2p-Knoten, weil OrbitDB einen braucht – ohne Transporte, ohne Bootstrap-Liste und ohne Peer-Discovery. Er kann niemanden anwählen und hört auf keiner Adresse. Nur wenn du Belege mit deiner Rechnungs-App koppelst, kommt ein zweiter, eigener Knoten dazu, der sich mit einem Relay verbindet (siehe „Rechnungs-App“ unten); an deine Bücher kommt er nicht.',
+				'Im Browser läuft ein libp2p-Knoten, weil OrbitDB einen braucht – ohne Transporte, ohne Bootstrap-Liste und ohne Peer-Discovery. Er kann niemanden anwählen und hört auf keiner Adresse. Nur wenn du Le Space Belege mit deiner Rechnungs-App koppelst, kommt ein zweiter, eigener Knoten dazu, der sich mit einem Relay verbindet (siehe „Rechnungs-App“ unten); an deine Bücher kommt er nicht.',
 				'Sein Peer-Schlüssel (Ed25519) entsteht in jeder Sitzung neu und wird nirgends gespeichert.',
 				'Mit „Eigene Geräte synchronisieren“ bekommt dieser Knoten die Transporte des Rechnungs-App-Knotens: WebSocket zum Relay, eine Reservierung dort, WebRTC für die direkte Verbindung, dazu gossipsub für OrbitDB. Sein Peer-Schlüssel kommt dann aus dem Passkey und einem Zufallswert dieses Browsers, damit jedes Gerät seine eigene, gleichbleibende Kennung hat. Die Geräte kennen einander über versiegelte Einträge in den Einstellungen (`device:<Kennung>`). Bevor ein Gerät etwas bekommt, beweist es den Passkey: ein HMAC über beide Kennungen mit einem Schlüssel, der aus dem Passkey abgeleitet und nie übertragen wird. Bis dahin beantwortet der Knoten nur identify und den Relay – kein gossipsub, keine OrbitDB-Heads, kein Bitswap, keine Bridge.',
 				'Im Modus „Ohne Relay, per QR“ hat der Knoten nur den Transport von @le-space/libp2p-webrtc-qr: kein WebSocket, keine Relay-Adresse, keine Abfrage bei Aleph. Einladung und Antwort sind je eine WebRTC-SDP mit nur lokalen Kandidaten (kein STUN), signiert mit dem Peer-Schlüssel des Geräts und gegen die Peer-ID darin geprüft; weil die SDP den DTLS-Fingerabdruck enthält, bindet die Signatur die Verbindung an beide Kennungen, wie sonst Noise. Ein Code gilt zehn Minuten. Der Passkey-Beweis läuft auf dieser Verbindung wie auf jeder anderen. Der Modus liegt versiegelt in den Einstellungen (`network-mode`) und als Kopie in diesem Browser.',
@@ -773,9 +773,9 @@ export default {
 			]
 		},
 		integrations: {
-			title: 'Womit Belege arbeitet',
+			title: 'Womit Le Space Belege arbeitet',
 			simple:
-				'Banken, Börsen und Blockchains, deren Buchungen Belege liest, und die Dienste, die es dafür fragt – nur wenn du sie einrichtest oder benutzt. Die Logos sind in die App eingebaut; dieser Dialog lädt nichts von fremden Servern.',
+				'Banken, Börsen und Blockchains, deren Buchungen Le Space Belege liest, und die Dienste, die es dafür fragt – nur wenn du sie einrichtest oder benutzt. Die Logos sind in die App eingebaut; dieser Dialog lädt nichts von fremden Servern.',
 			groups: {
 				banks: 'Banken und Kontoauszüge',
 				exchanges: 'Börsen',
@@ -789,7 +789,7 @@ export default {
 				apps: 'Verbundene Apps'
 			},
 			marks:
-				'Marken und Logos gehören ihren Inhabern; sie zeigen nur, womit Belege zusammenarbeitet. Logos: Simple Icons (CC0).'
+				'Marken und Logos gehören ihren Inhabern; sie zeigen nur, womit Le Space Belege zusammenarbeitet. Logos: Simple Icons (CC0).'
 		},
 		services: {
 			title: 'Externe Dienste',
@@ -820,7 +820,7 @@ export default {
 			},
 			backup: {
 				name: 'Backup bei Aleph Cloud',
-				text: 'Wenn eingerichtet und nur auf deinen Klick: alles, was Belege hält, versiegelt mit einem Schlüssel aus deinem Passkey, als eine Datei bei Aleph Cloud.',
+				text: 'Wenn eingerichtet und nur auf deinen Klick: alles, was Le Space Belege hält, versiegelt mit einem Schlüssel aus deinem Passkey, als eine Datei bei Aleph Cloud.',
 				leaves:
 					'An Alephs IPFS-Host, direkt aus diesem Browser: die versiegelte Datei (Aleph sieht ihre Größe und die IP-Adresse dieses Computers, nicht den Inhalt). An die Aleph-API: ein unterschriebener Auftrag, der die Datei nennt – vom eigenen Schlüssel dieses Browsers, sobald das Konto der Bridge ihn freigegeben hat, bis dahin von der Bridge; dazu Abfragen der Freigabe, der Credits und der Backups dieses Kontos, mit seiner Adresse. Zum Wiederherstellen holt der Browser die versiegelte Datei über ihre CID von Alephs Gateway.',
 				technical:
@@ -852,19 +852,19 @@ export default {
 			},
 			ucep: {
 				name: 'Rechnungs-App (UCEP über ein Relay)',
-				text: 'Nur wenn du Belege unter Integrationen mit deiner Rechnungs-App koppelst: Belege verbindet sich über ein Relay mit ihr, um für eine Zahlung ohne Beleg einen Eigenbeleg erstellen zu lassen, und – auf deinen Klick „Rechnungen abgleichen“ – um deine ausgestellten Rechnungen zu holen und ihr zu sagen, welche bezahlt sind.',
+				text: 'Nur wenn du Belege unter Integrationen mit deiner Rechnungs-App koppelst: Le Space Belege verbindet sich über ein Relay mit ihr, um für eine Zahlung ohne Beleg einen Eigenbeleg erstellen zu lassen, und – auf deinen Klick „Rechnungen abgleichen“ – um deine ausgestellten Rechnungen zu holen und ihr zu sagen, welche bezahlt sind.',
 				leaves:
-					'Die IP-Adresse dieses Geräts und die Peer-ID von Belege – an den Betreiber des Relays (eines der Le-Space-Relays, siehe unten). Für einen Eigenbeleg die Angaben dieser einen Zahlung (Datum, Betrag, Beschreibung, Grund, die Gegenpartei, wie du sie einträgst, die interne Kennung der Zahlung in Belege, bei Krypto Chain, Menge, Kurs mit Quelle und Zeitpunkt und den Hash der Transaktion). Für eine bezahlte Rechnung nur: an welchem Tag, welcher Betrag und die interne Kennung der Zahlung – nie Konto, IBAN oder Verwendungszweck. Beides an deine Rechnungs-App, sonst niemanden; deine übrigen Bücher nie.',
+					'Die IP-Adresse dieses Geräts und die Peer-ID von Le Space Belege – an den Betreiber des Relays (eines der Le-Space-Relays, siehe unten). Für einen Eigenbeleg die Angaben dieser einen Zahlung (Datum, Betrag, Beschreibung, Grund, die Gegenpartei, wie du sie einträgst, die interne Kennung der Zahlung in Le Space Belege, bei Krypto Chain, Menge, Kurs mit Quelle und Zeitpunkt und den Hash der Transaktion). Für eine bezahlte Rechnung nur: an welchem Tag, welcher Betrag und die interne Kennung der Zahlung – nie Konto, IBAN oder Verwendungszweck. Beides an deine Rechnungs-App, sonst niemanden; deine übrigen Bücher nie.',
 				technical:
-					'libp2p mit WebSocket zum Relay (Circuit Relay v2) und WebRTC für die direkte Verbindung; Noise verschlüsselt jede Verbindung Ende zu Ende, das Relay sieht nur Chiffretext. Die Peer-ID kommt aus einem Schlüssel, der aus deinem Passkey abgeleitet und nie gespeichert wird. Die Kopplung (UCEP, Le-Space/ucep-spec) gibt Belege nur die Rechte „Eigenbelege erstellen“, „eigene Dokumente lesen“, „ausgestellte Rechnungen lesen“ und „Zahlungen melden“. Ohne Kopplung baut Belege keine Verbindung auf.'
+					'libp2p mit WebSocket zum Relay (Circuit Relay v2) und WebRTC für die direkte Verbindung; Noise verschlüsselt jede Verbindung Ende zu Ende, das Relay sieht nur Chiffretext. Die Peer-ID kommt aus einem Schlüssel, der aus deinem Passkey abgeleitet und nie gespeichert wird. Die Kopplung (UCEP, Le-Space/ucep-spec) gibt Le Space Belege nur die Rechte „Eigenbelege erstellen“, „eigene Dokumente lesen“, „ausgestellte Rechnungen lesen“ und „Zahlungen melden“. Ohne Kopplung baut Le Space Belege keine Verbindung auf.'
 			},
 			relays: {
 				name: 'Le-Space-Relays (gefunden über Aleph)',
-				text: 'Nur wenn Belege ins Netz geht – für die Rechnungs-App oder für deine eigenen Geräte: Belege fragt api.aleph.im nach den aktuellen Adressen der Le-Space-Relays und verbindet sich mit ihnen. Es zählen nur Einträge der beiden Wallets, die Le Space dafür betreibt; fremde Einträge werden ignoriert.',
+				text: 'Nur wenn Le Space Belege ins Netz geht – für die Rechnungs-App oder für deine eigenen Geräte: Es fragt api.aleph.im nach den aktuellen Adressen der Le-Space-Relays und verbindet sich mit ihnen. Es zählen nur Einträge der beiden Wallets, die Le Space dafür betreibt; fremde Einträge werden ignoriert.',
 				leaves:
-					'An Aleph (api.aleph.im): die IP-Adresse dieses Geräts, beim Nachschlagen. An den Betreiber des Relays: die IP-Adresse, die Peer-ID von Belege und der Gegenseite, wann ihr verbunden seid und wie viele Bytes fließen – nie Inhalte. Belege nennt dem Relay weder seine Datenbanken noch die Protokolle, die es mit deinen Geräten spricht; die erfährt ein Gerät erst, wenn es den Passkey bewiesen hat. Für eine direkte Verbindung (WebRTC) an öffentliche STUN-Server (Google, Twilio, Cloudflare, Mozilla): die IP-Adresse.',
+					'An Aleph (api.aleph.im): die IP-Adresse dieses Geräts, beim Nachschlagen. An den Betreiber des Relays: die IP-Adresse, die Peer-ID von Le Space Belege und der Gegenseite, wann ihr verbunden seid und wie viele Bytes fließen – nie Inhalte. Le Space Belege nennt dem Relay weder seine Datenbanken noch die Protokolle, die es mit deinen Geräten spricht; die erfährt ein Gerät erst, wenn es den Passkey bewiesen hat. Für eine direkte Verbindung (WebRTC) an öffentliche STUN-Server (Google, Twilio, Cloudflare, Mozilla): die IP-Adresse.',
 				technical:
-					'Aleph-POST-Nachrichten im Kanal simple-todo (ref simple-todo-bootstrap, Typ relay-bootstrap-v2, Registrierung relay:orbitdb-relay:orbitdb-relay), wie Le-Space/relay-button sie schreibt; genommen wird der neueste Eintrag je Le-Space-Wallet und davon eine TLS-WebSocket-Adresse. Antwortet Aleph nicht, nimmt Belege die zuletzt bekannten Relays. Jede Verbindung über ein Relay ist mit Noise Ende zu Ende verschlüsselt; das Relay kann nichts lesen, nichts verändern und sich nicht als die Gegenseite ausgeben (Noise prüft die Peer-ID). Ein fremdes Relay könnte höchstens sehen, wer wann mit wem verbunden ist, oder Verbindungen verweigern – deshalb nur die Le-Space-Wallets. Die Peer-ID kommt aus deinem Passkey und bleibt gleich; wer sie kennt, kann Verbindungen von Belege wiedererkennen.'
+					'Aleph-POST-Nachrichten im Kanal simple-todo (ref simple-todo-bootstrap, Typ relay-bootstrap-v2, Registrierung relay:orbitdb-relay:orbitdb-relay), wie Le-Space/relay-button sie schreibt; genommen wird der neueste Eintrag je Le-Space-Wallet und davon eine TLS-WebSocket-Adresse. Antwortet Aleph nicht, nimmt Le Space Belege die zuletzt bekannten Relays. Jede Verbindung über ein Relay ist mit Noise Ende zu Ende verschlüsselt; das Relay kann nichts lesen, nichts verändern und sich nicht als die Gegenseite ausgeben (Noise prüft die Peer-ID). Ein fremdes Relay könnte höchstens sehen, wer wann mit wem verbunden ist, oder Verbindungen verweigern – deshalb nur die Le-Space-Wallets. Die Peer-ID kommt aus deinem Passkey und bleibt gleich; wer sie kennt, kann Verbindungen von Belege wiedererkennen.'
 			}
 		},
 		status: {
@@ -1276,6 +1276,8 @@ export default {
 		explain: 'Ungereimtheiten erklären',
 		explainTitle:
 			'Schickt die Zeitleiste an dein Sprachmodell: Daten, Beträge, Zeiträume, Positionen und die Befunde – geschwärzt, ohne Rufnummern, Kunden- und Rechnungsnummern. Nur Hinweise, gebucht wird nichts.',
+		explainTitleLocal:
+			'Gibt die Zeitleiste deinem Sprachmodell auf diesem Rechner: Daten, Beträge, Zeiträume, Positionen und die Befunde – ungeschwärzt, weil nichts den Rechner verlässt. Nur Hinweise, gebucht wird nichts.',
 		explainNeedsBridge: 'Dafür muss die Bridge mit einem Sprachmodell gekoppelt sein.',
 		notes: 'Hinweise der KI',
 		pdf: 'Als PDF herunterladen',
@@ -1753,6 +1755,8 @@ export default {
 		ai: {
 			button: 'KI-Vorschläge für alle offenen Rückfragen ({count})',
 			what: 'Für {count} Zahlungen ohne Beleg fragt die Bridge dein Sprachmodell, welcher Beleg passt – je Zahlung eine Anfrage mit der geschwärzten Buchung und den bis zu 25 nächstgelegenen Belegen.',
+			whatLocal:
+				'Für {count} Zahlungen ohne Beleg fragt die Bridge dein Sprachmodell auf diesem Rechner, welcher Beleg passt – je Zahlung eine Anfrage mit der Buchung und den bis zu 25 nächstgelegenen Belegen, ungeschwärzt, weil nichts den Rechner verlässt.',
 			tokens: 'Nach deinen letzten KI-Vorschlägen etwa {tokens} Tokens.',
 			tokensUnknown: 'Wie viele Tokens das braucht, zeigt der Verlauf nach dem ersten Lauf.',
 			only: 'Es sind nur Vorschläge: Zugeordnet wird nichts, bis du einen übernimmst.',
@@ -1815,12 +1819,20 @@ export default {
 		mark: 'KI',
 		extract:
 			'Mit KI: Die Bridge schickt den Text des Belegs – geschwärzt, nie die Datei – an das Sprachmodell, das du eingestellt hast, und bekommt Anbieter, Betrag, Datum und Nummern zurück.',
+		extractLocal:
+			'Mit KI: Die Bridge gibt den Text des Belegs – nie die Datei – deinem Sprachmodell auf diesem Rechner und bekommt Anbieter, Betrag, Datum und Nummern zurück. Ungeschwärzt, weil nichts den Rechner verlässt.',
 		upload:
 			'Mit KI: Nach dem Hochladen liest die Bridge den Beleg mit deinem Sprachmodell aus (nur der Text, geschwärzt). Zugeordnet wird er ohne KI.',
+		uploadLocal:
+			'Mit KI: Nach dem Hochladen liest die Bridge den Beleg mit deinem Sprachmodell auf diesem Rechner aus (nur der Text, ungeschwärzt – er verlässt den Rechner nicht). Zugeordnet wird er ohne KI.',
 		import:
 			'Mit KI: Nach der Übernahme liest die Bridge die E-Mail oder ihren Anhang mit deinem Sprachmodell aus (nur der Text, geschwärzt). Zugeordnet wird ohne KI.',
+		importLocal:
+			'Mit KI: Nach der Übernahme liest die Bridge die E-Mail oder ihren Anhang mit deinem Sprachmodell auf diesem Rechner aus (nur der Text, ungeschwärzt – er verlässt den Rechner nicht). Zugeordnet wird ohne KI.',
 		portal:
-			'Mit KI: Die geholten Rechnungen liest die Bridge mit deinem Sprachmodell aus (nur der Text, geschwärzt). Anmelden und Holen kommen ohne KI aus.'
+			'Mit KI: Die geholten Rechnungen liest die Bridge mit deinem Sprachmodell aus (nur der Text, geschwärzt). Anmelden und Holen kommen ohne KI aus.',
+		portalLocal:
+			'Mit KI: Die geholten Rechnungen liest die Bridge mit deinem Sprachmodell auf diesem Rechner aus (nur der Text, ungeschwärzt – er verlässt den Rechner nicht). Anmelden und Holen kommen ohne KI aus.'
 	},
 	settings: {
 		title: 'Einstellungen',
@@ -3272,6 +3284,8 @@ export default {
 			linkTransferAi: 'KI-Vorschlag',
 			linkTransferAiTitle:
 				'Fragt dein Sprachmodell, welche dieser Buchungen die andere Seite ist: je Buchung Richtung, Betrag, Menge, Tag, Kontoart, Gegenpartei und Zweck – geschwärzt, ohne Adressen, IBANs und Hashes. Nur ein Vorschlag: Verknüpft wird erst mit deinem Klick.',
+			linkTransferAiTitleLocal:
+				'Fragt dein Sprachmodell auf diesem Rechner, welche dieser Buchungen die andere Seite ist: je Buchung Richtung, Betrag, Menge, Tag, Kontoart, Gegenpartei und Zweck – ungeschwärzt, weil nichts den Rechner verlässt. Nur ein Vorschlag: Verknüpft wird erst mit deinem Klick.',
 			linkTransferAiPick: 'KI-Vorschlag ({confidence}): {reason}',
 			linkTransferAiNone: 'KI-Vorschlag: Keine dieser Buchungen ist die andere Seite.',
 			linkTransferAiTake: 'Übernehmen',
@@ -3306,6 +3320,8 @@ export default {
 			aiChoiceBusy: 'KI prüft …',
 			aiChoiceTitle:
 				'Die Bridge schickt dein eingestelltes Sprachmodell die Buchung (Gegenpartei, Verwendungszweck, Betrag, Tag) und bis zu 25 passende Belege mit Anbieter, Betrag, Datum, Rechnungsnummer und Kurzbeschreibung – geschwärzt. Es nennt den passenden Beleg; zuordnen tust du.',
+			aiChoiceTitleLocal:
+				'Die Bridge gibt deinem Sprachmodell auf diesem Rechner die Buchung (Gegenpartei, Verwendungszweck, Betrag, Tag) und bis zu 25 passende Belege mit Anbieter, Betrag, Datum, Rechnungsnummer und Kurzbeschreibung – ungeschwärzt, weil nichts den Rechner verlässt. Es nennt den passenden Beleg; zuordnen tust du.',
 			aiChoiceNone: '{model} hat {count} Belege geprüft ({seconds} s) und hält keinen für passend',
 			aiChoiceModel: 'Das Sprachmodell',
 			aiChoiceChecked: 'Welche {count} Belege wurden geprüft?',
@@ -3318,6 +3334,8 @@ export default {
 			aiSearching: 'KI sucht …',
 			aiSearchTitle:
 				'Die Bridge fragt dein eingestelltes Sprachmodell zweimal: 1. Gegenpartei und Verwendungszweck (geschwärzt) → Suchwörter und Absender-Domains. 2. Betreff, Absender-Domain, Anhangnamen und Eingangstag der Treffer (geschwärzt) → welche E-Mail der Beleg ist. Kein E-Mail-Text, keine vollständige Adresse.',
+			aiSearchTitleLocal:
+				'Die Bridge fragt dein Sprachmodell auf diesem Rechner zweimal: 1. Gegenpartei und Verwendungszweck → Suchwörter und Absender-Domains. 2. Betreff, Absender-Domain, Anhangnamen und Eingangstag der Treffer → welche E-Mail der Beleg ist. Ungeschwärzt, weil nichts den Rechner verlässt; kein E-Mail-Text, keine vollständige Adresse.',
 			aiSearchHint:
 				'Kein klarer Treffer? Das Sprachmodell schlägt Suchwörter vor und beurteilt die Treffer – nur nach Betreff, Absender-Domain und Dateinamen, nie nach dem Text der E-Mails.',
 			aiSummary: 'KI-Suche: Suchwörter {terms} · Absender {domains} · {count} Treffer',
