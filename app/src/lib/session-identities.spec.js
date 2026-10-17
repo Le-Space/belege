@@ -112,6 +112,7 @@ describe('withoutStaleIdentityCache (orbitdb/orbitdb#1258)', () => {
 	/** @param {{ cached: boolean, idSignature: boolean }} answers */
 	const fake = ({ cached, idSignature }) => {
 		const calls = { verify: 0 };
+		/** @type {{ verifyIdentity: (identity: any) => Promise<boolean>, verify: (signature: string, publicKey: string, data: string) => Promise<boolean> }} */
 		const identities = {
 			verifyIdentity: async () => cached,
 			verify: async () => {

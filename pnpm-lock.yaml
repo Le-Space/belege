@@ -45,8 +45,8 @@ importers:
         specifier: 0.14.0
         version: 0.14.0(@multiformats/multiaddr@13.0.3)(libp2p@3.3.7)
       '@le-space/orbitdb-identity-provider-webauthn-did':
-        specifier: 0.8.0
-        version: 0.8.0(@orbitdb/core@4.0.0)
+        specifier: 0.11.0
+        version: 0.11.0(@orbitdb/core@4.0.0)
       '@le-space/orbitdb-storage-bridge':
         specifier: 0.17.0
         version: 0.17.0(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)
@@ -807,8 +807,8 @@ packages:
       ggwave:
         optional: true
 
-  '@le-space/orbitdb-identity-provider-webauthn-did@0.8.0':
-    resolution: {integrity: sha512-vNZaiClqv5OEj9pTXupgaHcV9YgNzfjuWV3HdjBNIomK0DgouEFZjhPDMO0vec+knn8RQMZ1oIZyMKETTIDEZg==}
+  '@le-space/orbitdb-identity-provider-webauthn-did@0.11.0':
+    resolution: {integrity: sha512-yUX8HWUoCTVfPLvXNEY+wP/sIQxdsZjJOoQPU4wV/9BLa+MzE71vjX0Vn7KDe4LAFm2szlVAMyWNQSgKtAyw2g==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
       '@orbitdb/core': ^4.0.0
@@ -5606,7 +5606,7 @@ snapshots:
       uint8arraylist: 3.0.2
       uint8arrays: 6.1.1
 
-  '@le-space/orbitdb-identity-provider-webauthn-did@0.8.0(@orbitdb/core@4.0.0)':
+  '@le-space/orbitdb-identity-provider-webauthn-did@0.11.0(@orbitdb/core@4.0.0)':
     dependencies:
       '@ipld/dag-cbor': 10.0.1
       '@ipld/dag-ucan': 3.4.5
