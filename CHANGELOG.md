@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.12.4] – 2026-10-17
+
 ### Security
 
 - **Text goes unredacted only to a model `setup:llm` was told runs on this machine.** A bridge config from before #423 had no answer and counted a loopback URL as such a model – a proxy on 127.0.0.1 that forwards to a provider then got the text unredacted. Now an unanswered config blacks out (the bridge says at start how to switch it off), and `off` with a URL that is not loopback blacks out too. The request to the model follows no redirect. `/llm/status` says `local`, and the app's "ungeschwärzt" hints need it.
