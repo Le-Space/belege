@@ -27,7 +27,7 @@
 /* eslint-disable belege/no-german -- the Buchungstext of a German booking (#192) */
 
 import { importTransactions, upsertAccount } from '../bank/import.js';
-import { privateAccounts } from '../booking/settings.js';
+import { DEFAULT_TAX_KEYS, privateAccounts } from '../booking/settings.js';
 import { taxKeyFor } from '../booking/tax-keys.js';
 import { confirmMatch } from '../matching/actions.js';
 import { lastDayOf } from './statement.js';
@@ -90,6 +90,56 @@ const germanKey = (line, receipt, keys, account = null) =>
 		: { taxKey: '', via: 'no-vat' };
 
 /**
+ * A hospitality bill split for DATEV: per VAT rate, its gross 70/30 onto the
+ * deductible (4650) and the non-deductible (4654) account, BOTH with the input
+ * VAT key. DATEV works the VAT out of each line's gross, so the whole VAT is
+ * claimed – it is deductible in full (§ 15 UStG); only the expense is limited
+ * (§ 4 Abs. 5 Nr. 2 EStG). Gross without German VAT (another currency, a part
+ * the extraction did not cover) splits the same way without a key.
+ *
+ * From the statement's line: its euros (`grossCents`, which a payment in another
+ * currency made) and its German VAT. The tip stays out, as in the bill paid.
+ *
+ * @param {import('./statement.js').ReceiptLine} l
+ * @param {number} deductibleShare e.g. 0.7; 0 without a rate for the day
+ * @param {import('../booking/settings.js').TaxKeys} keys
+ * @returns {{ grossCents: number, rate: number | null, taxKey: string, via: string, deductibleCents: number, restCents: number }[]}
+ */
+export function hospitalitySplit(l, deductibleShare, keys) {
+	const total = /** @type {number} */ (l.grossCents);
+	/** @type {Map<number, number>} rate → VAT cents */
+	const byRate = new Map();
+	for (const v of l.vat) byRate.set(v.rate, (byRate.get(v.rate) ?? 0) + v.cents);
+	const groups = [...byRate].map(([rate, vat]) => ({
+		rate,
+		grossCents: Math.round((vat * 100) / rate) + vat
+	}));
+	const covered = groups.reduce((n, g) => n + g.grossCents, 0);
+	// VAT that does not fit the bill (more gross than paid): no split by rate.
+	const parts =
+		covered > total || groups.some((g) => !(g.rate > 0))
+			? [{ rate: null, grossCents: total }]
+			: [...groups, ...(total > covered ? [{ rate: null, grossCents: total - covered }] : [])];
+	return parts.map((g) => {
+		const key =
+			g.rate === 19
+				? { taxKey: keys.input19, via: 'vat19' }
+				: g.rate === 7
+					? { taxKey: keys.input7, via: 'vat7' }
+					: g.rate === null
+						? { taxKey: '', via: 'no-vat' }
+						: { taxKey: '', via: 'other-rate' };
+		const deductibleCents = Math.round(g.grossCents * deductibleShare);
+		return {
+			...g,
+			...key,
+			deductibleCents,
+			restCents: g.grossCents - deductibleCents
+		};
+	});
+}
+
+/**
  * The lines a statement books: pure, from what it printed.
  *
  * @param {import('./statement.js').Statement} s
@@ -111,32 +161,34 @@ export function statementLines(s, { set, receipts, keys }) {
 		const r = receipts.get(l.receiptId);
 		if (!r) continue;
 		if (r.hospitality) {
-			// The bill as paid, without a tip: net × the deductible share, plus the whole VAT.
-			const split = hospitalityOf({ ...r, hospitality: { ...r.hospitality, tipCents: 0 } });
-			const deductible = split.deductibleCents + split.inputVatCents;
-			const rest = /** @type {number} */ (l.grossCents) - deductible;
-			const key = germanKey(l, r, keys);
-			out.push({
-				key: `${l.receiptId}:hospitality`,
-				cents: deductible,
-				account: travelAccount(set, 'hospitality').number,
-				taxKey: key.taxKey,
-				taxVia: key.via,
-				category: 'hospitality',
-				receiptId: l.receiptId,
-				text: `Bewirtung ${l.vendor} (abziehbar)`
+			const share = hospitalityOf(r).share?.deductible ?? 0;
+			const parts = hospitalitySplit(l, share, keys ?? DEFAULT_TAX_KEYS);
+			parts.forEach((part, i) => {
+				// One part keeps the keys a statement booked before; more get the rate.
+				const suffix = parts.length > 1 ? `:${part.rate ?? 'rest'}` : '';
+				if (part.deductibleCents > 0 || i === 0)
+					out.push({
+						key: `${l.receiptId}:hospitality${suffix}`,
+						cents: part.deductibleCents,
+						account: travelAccount(set, 'hospitality').number,
+						taxKey: part.taxKey,
+						taxVia: part.via,
+						category: 'hospitality',
+						receiptId: l.receiptId,
+						text: `Bewirtung ${l.vendor} (abziehbar)`
+					});
+				if (part.restCents > 0)
+					out.push({
+						key: `${l.receiptId}:hospitalityNonDeductible${suffix}`,
+						cents: part.restCents,
+						account: travelAccount(set, 'hospitalityNonDeductible').number,
+						taxKey: part.taxKey,
+						taxVia: part.via,
+						category: 'hospitalityNonDeductible',
+						receiptId: l.receiptId,
+						text: `Bewirtung ${l.vendor} (nicht abziehbar)`
+					});
 			});
-			if (rest > 0)
-				out.push({
-					key: `${l.receiptId}:hospitalityNonDeductible`,
-					cents: rest,
-					account: travelAccount(set, 'hospitalityNonDeductible').number,
-					taxKey: '',
-					taxVia: 'none',
-					category: 'hospitalityNonDeductible',
-					receiptId: l.receiptId,
-					text: `Bewirtung ${l.vendor} (nicht abziehbar)`
-				});
 			continue;
 		}
 		const category = receiptCategory(r, l.kind);

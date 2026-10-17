@@ -10,6 +10,10 @@ All notable changes to Le Space Belege. The format follows
 
 - **The app opens the books only on an origin of its own:** the domain, or a gateway that gives every CID its own subdomain. On a path-style gateway (`…/ipfs/<cid>/`), whose origin all CIDs there share, it asks for no passkey, opens nothing, removes its service worker, and says where to open it. The release notes no longer link a path-style gateway (since 0.9.1 they did).
 
+### Fixed
+
+- **Hospitality on a travel statement claimed too little input VAT in DATEV.** The deductible line carried 70 % of the net plus the whole VAT under the VAT key, the rest went to 4654 without one; DATEV works the VAT out of a line's gross, so of 19,00 € only 14,21 € were claimed, and a bill at 7 % and 19 % claimed none. Now each VAT rate's gross is split 70/30 onto 4650 and 4654, both with the input VAT key. A bill in another currency splits its euros from the statement, where it was booked as all non-deductible. Statements booked before keep their lines; a correction books the new ones.
+
 ## [0.12.3] – 2026-10-16
 
 ### Changed

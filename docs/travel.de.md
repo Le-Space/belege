@@ -79,9 +79,10 @@ Die Abrechnung wird auf dem Konto des Reisenden gebucht, **„Reisekosten <Name>
 | Verpflegungspauschalen (Monatssumme, ohne USt) | 4664                                                        | 4674                                    |
 | Kilometer (Monatssumme, ohne USt)              | 4668                                                        | 4673                                    |
 | Sonstiges auf einer Reise                      | 4660                                                        | 4670                                    |
-| Bewirtung: 70 % netto plus USt / der Rest      | 4650 / 4654                                                 | 4650 / 4654                             |
+| Bewirtung: 70 % / 30 % des Bruttos, je mit USt | 4650 / 4654                                                 | 4650 / 4654                             |
 
 - Ein privat bezahlter Beleg wird mit seinem Brutto und dem BU-Schlüssel seiner deutschen Umsatzsteuer gebucht und mit ihm verknüpft; Pauschalen und Kilometer mit der Abrechnung.
+- Eine Bewirtung wird je Steuersatz geteilt: 70 % des Bruttos auf 4650, 30 % auf 4654, **beide mit dem Vorsteuer-Schlüssel**. DATEV rechnet die Steuer aus jeder Zeile heraus, so wird die ganze Vorsteuer abgezogen (§ 15 UStG); begrenzt ist nur der Aufwand (§ 4 Abs. 5 Nr. 2 EStG). Eine Rechnung mit 7 % für Speisen und 19 % für Getränke ergibt vier Zeilen.
 - Als Auslage gebuchte und von der Firma bezahlte Belege werden nicht noch einmal gebucht. Ein Beleg auf einer Reise, vom Geschäftskonto bezahlt, bekommt sein Reisekostenkonto ebenfalls vorgeschlagen.
 - Jede Zeile bekommt ihr Konto vorgeschlagen; **„Konten … übernehmen“** im Export bestätigt sie mit den anderen automatischen Vorschlägen. Eine Korrektur storniert die Zeilen der ersetzten Abrechnung und bucht dann ihre eigenen.
 - Die Zeilen gehen in den DATEV-Buchungsstapel des Monats, die Abrechnung und ihre Belege ins ZIP ([export.de.md](export.de.md)).

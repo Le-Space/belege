@@ -72,16 +72,17 @@ One statement per traveller and month, on Reisen:
 
 The statement is booked on the traveller's account **"Reisekosten <name>"**, an account without an import. Its ledger account is the traveller's clearing account: an employee's own, the owner's from the legal form where none is set (Buchhaltung): the shareholder clearing account of a UG/GmbH, 1890 for a sole proprietor or partnership. An employee's statement uses the employee accounts (466x) whatever the legal form. The hospitality bills of no trip are in the owner's statement only. Each line an outflow on the month's last day, in euros:
 
-|                                                  | UG/GmbH (the managing shareholder is employed) | Sole proprietor, partnership |
-| ------------------------------------------------ | ---------------------------------------------- | ---------------------------- |
-| Fares, fuel, parking, taxi                       | 4663                                           | 4673                         |
-| Accommodation (an employee's flat rates too)     | 4666                                           | 4676                         |
-| Meal allowances (month's total, no VAT)          | 4664                                           | 4674                         |
-| Mileage (month's total, no VAT)                  | 4668                                           | 4673                         |
-| Other on a trip                                  | 4660                                           | 4670                         |
-| Hospitality: 70 % of net plus the VAT / the rest | 4650 / 4654                                    | 4650 / 4654                  |
+|                                                      | UG/GmbH (the managing shareholder is employed) | Sole proprietor, partnership |
+| ---------------------------------------------------- | ---------------------------------------------- | ---------------------------- |
+| Fares, fuel, parking, taxi                           | 4663                                           | 4673                         |
+| Accommodation (an employee's flat rates too)         | 4666                                           | 4676                         |
+| Meal allowances (month's total, no VAT)              | 4664                                           | 4674                         |
+| Mileage (month's total, no VAT)                      | 4668                                           | 4673                         |
+| Other on a trip                                      | 4660                                           | 4670                         |
+| Hospitality: 70 % / 30 % of the gross, each with VAT | 4650 / 4654                                    | 4650 / 4654                  |
 
 - A receipt paid privately is booked with its gross and the BU key of its German VAT, linked to it; allowances and mileage are linked to the statement.
+- A hospitality bill is split per VAT rate: 70 % of the gross onto 4650, 30 % onto 4654, **both with the input VAT key**. DATEV works the VAT out of each line, so the whole input VAT is claimed (§ 15 UStG); only the expense is limited (§ 4 Abs. 5 Nr. 2 EStG). A bill at 7 % for food and 19 % for drinks gives four lines.
 - Receipts booked as outlays and those paid by the company are not booked again. A receipt on a trip paid from a business account is suggested its travel account too.
 - Each line is suggested its account; **"Konten … übernehmen"** in the export confirms them with the other automatic suggestions. A correction reverses the lines of the statement it replaces, then books its own.
 - The lines go into the month's DATEV Buchungsstapel, the statement and its receipts into the ZIP ([export.md](export.md)).
