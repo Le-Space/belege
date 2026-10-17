@@ -8,6 +8,7 @@ import {
 import { getSetting } from './store/settings.js';
 import { passkeyStepsFor } from './passkey-steps.svelte.js';
 import { sharedOrigin } from './shared-origin.js';
+import { redactionFromStatus } from './llm-redaction.js';
 import { classifyTransaction, cleanMatchingSettings } from './matching/classify.js';
 import { buildMatchingContext } from './matching/context.js';
 import { cleanChart } from './booking/chart.js';
@@ -663,9 +664,7 @@ export async function refreshLlmRedaction() {
 	try {
 		const client = await pairedClient();
 		if (!client) return;
-		const status = /** @type {any} */ (await client.llmStatus());
-		const active = status?.configured ? status.redaction?.active : undefined;
-		app.llmRedaction = typeof active === 'boolean' ? active : null;
+		app.llmRedaction = redactionFromStatus(await client.llmStatus());
 	} catch {
 		// Offline or an older bridge: the cautious wording stays.
 	}

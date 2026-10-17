@@ -1,6 +1,12 @@
 // Wires config, keychain, pairing, Hibiscus, mail and the LLM into a running bridge.
 
-import { loadConfig, saveConfig, defaultConfigPath, redactionOff } from './config.js';
+import {
+	loadConfig,
+	saveConfig,
+	defaultConfigPath,
+	isLoopbackUrl,
+	redactionOff
+} from './config.js';
 import { createHibiscusClient } from './hibiscus.js';
 import { systemKeychain } from './keychain.js';
 import { createPairing } from './pairing.js';
@@ -169,6 +175,14 @@ export async function startBridge({
 	// A model on this machine gets the text as it is (#423, config.js redactionOff).
 	const off = redactionOff(config.llm);
 	if (config.llm.configured && off) log('LLM on this machine: text is not blacked out.');
+	else if (
+		config.llm.configured &&
+		config.llm.redaction === 'auto' &&
+		isLoopbackUrl(config.llm.baseUrl)
+	)
+		log(
+			'LLM on 127.0.0.1: text is blacked out until `pnpm setup:llm` is told the model runs on this machine.'
+		);
 	const llm = config.llm.configured
 		? createExtractor({ config: config.llm, getKey: () => llmKeychain.read(), ownDomains })
 		: null;

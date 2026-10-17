@@ -387,7 +387,7 @@ describe('/extract', () => {
 			models: { primary: 'deepseek-flash', fallback: 'deepseek-v4-pro' },
 			keyConfigured: true,
 			redactTerms: 2,
-			redaction: { mode: 'on', active: true },
+			redaction: { mode: 'on', active: true, local: false },
 			mail: { authServId: null }
 		});
 		// The terms themselves stay on the bridge.
@@ -745,7 +745,7 @@ test('a model on this machine gets the text as it is; a provider elsewhere does 
 		});
 	const run = (/** @type {any} */ e) => e.extract({ text }).catch(() => null);
 
-	await run(extractor({ baseUrl: 'http://127.0.0.1:11434/v1', redaction: 'auto' }));
+	await run(extractor({ baseUrl: 'http://127.0.0.1:11434/v1', redaction: 'off' }));
 	assert.ok(sent.at(-1)?.includes('Erika Beispielkund'), 'local: the name goes as it is');
 	assert.ok(sent.at(-1)?.includes('DE89 3704 0044 0532 0130 00'), 'local: the IBAN goes as it is');
 
@@ -754,14 +754,45 @@ test('a model on this machine gets the text as it is; a provider elsewhere does 
 
 	await run(extractor({ baseUrl: 'https://api.deepseek.example/v1', redaction: 'auto' }));
 	assert.equal(sent.at(-1)?.includes('DE89 3704'), false, 'elsewhere: blacked out');
+
+	// A loopback config from before #423, never asked: blacked out (it may be a proxy).
+	await run(extractor({ baseUrl: 'http://127.0.0.1:4000/v1', redaction: 'auto' }));
+	assert.equal(sent.at(-1)?.includes('Erika Beispielkund'), false, 'not asked: blacked out');
 });
 
-test('redactionOff: auto by the base URL, on and off as set, junk is auto (#423)', () => {
-	assert.equal(redactionOff({ baseUrl: 'http://127.0.0.1:11434/v1', redaction: 'auto' }), true);
-	assert.equal(redactionOff({ baseUrl: 'http://localhost:1234/v1', redaction: 'auto' }), true);
+test('redactionOff: only `off` on a loopback URL; auto and anything else black out (#423)', () => {
+	assert.equal(redactionOff({ baseUrl: 'http://127.0.0.1:11434/v1', redaction: 'off' }), true);
+	assert.equal(redactionOff({ baseUrl: 'http://localhost:1234/v1', redaction: 'off' }), true);
+	assert.equal(redactionOff({ baseUrl: 'http://127.0.0.1:11434/v1', redaction: 'auto' }), false);
 	assert.equal(redactionOff({ baseUrl: 'https://api.deepseek.com', redaction: 'auto' }), false);
 	assert.equal(redactionOff({ baseUrl: 'http://127.0.0.1:4000/v1', redaction: 'on' }), false);
-	assert.equal(redactionOff({ baseUrl: 'https://api.deepseek.com', redaction: 'off' }), true);
+	// `off` by hand with a provider on the internet: blacked out all the same.
+	assert.equal(redactionOff({ baseUrl: 'https://api.deepseek.com', redaction: 'off' }), false);
+	assert.equal(
+		redactionOff({ baseUrl: 'http://127.0.0.1.nip.io:11434/v1', redaction: 'off' }),
+		false
+	);
 	assert.equal(withDefaults({ llm: { redaction: 'nie' } }).llm.redaction, 'auto');
 	assert.equal(withDefaults({}).llm.redaction, 'auto');
+});
+
+test('the model request follows no redirect: the text would go along (#431)', async () => {
+	/** @type {any[]} */
+	const inits = [];
+	const extractor = createExtractor({
+		config: {
+			...defaultConfig().llm,
+			baseUrl: 'http://127.0.0.1:11434/v1',
+			redaction: 'off',
+			configured: true
+		},
+		getKey: async () => 'none',
+		fetch: async (_url, /** @type {any} */ init) => {
+			inits.push(init);
+			throw Object.assign(new Error('timed out'), { name: 'TimeoutError' });
+		}
+	});
+	await extractor.extract({ text: 'Rechnung 2026-1, Beispiel GmbH, 10,00 EUR' }).catch(() => null);
+	assert.ok(inits.length > 0);
+	assert.ok(inits.every((i) => i.redirect === 'error'));
 });

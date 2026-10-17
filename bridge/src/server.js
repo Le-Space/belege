@@ -927,8 +927,13 @@ export function createBridgeServer({
 				// The provider's last refusal since the bridge started (#417): no credit, key, …
 				lastRefusal: llm?.lastRefusal?.() ?? null,
 				redactTerms: config.llm.redactTerms.length,
-				// Whether text is blacked out before it goes to the model (#423).
-				redaction: { mode: config.llm.redaction, active: !redactionOff(config.llm) },
+				// Whether text is blacked out before it goes to the model (#423); `local`: it
+				// goes unredacted to a model setup:llm was told runs on this machine.
+				redaction: {
+					mode: config.llm.redaction,
+					active: !redactionOff(config.llm),
+					local: redactionOff(config.llm)
+				},
 				mail: { authServId: config.mail.authServId ?? null }
 			});
 		}

@@ -8,6 +8,7 @@
 	import { integer } from '$lib/receipts/how.js';
 	import { describeMoment } from '$lib/moment.js';
 	import { app } from '$lib/session.svelte.js';
+	import { redactionFromStatus } from '$lib/llm-redaction.js';
 	import { currentLocale, list, t } from '$lib/i18n/index.js';
 	import { docUrl } from '$lib/help/integration-help.js';
 	import { bridge, bridgeClient } from './bridge-state.svelte.js';
@@ -25,8 +26,7 @@
 		try {
 			llmStatus = await bridgeClient().llmStatus();
 			// The AI hints elsewhere follow what the bridge says here (ai-text.js).
-			const active = llmStatus?.configured ? llmStatus.redaction?.active : undefined;
-			app.llmRedaction = typeof active === 'boolean' ? active : null;
+			app.llmRedaction = redactionFromStatus(llmStatus);
 		} catch (error) {
 			llmStatus = null;
 			llmError = error instanceof Error ? error.message : String(error);
