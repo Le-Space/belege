@@ -81,3 +81,12 @@ describe('the text of a kept mail (#288)', () => {
 		);
 	});
 });
+
+describe('htmlText: character references no character has', () => {
+	it('become U+FFFD instead of throwing (a mail must not stop the export)', () => {
+		expect(htmlText('a&#99999999;b&#xD800;c&#0;d&#x110000;e')).toBe(
+			'a\ufffdb\ufffdc\ufffdd\ufffde'
+		);
+		expect(htmlText('&#8364; &#x20AC;')).toBe('€ €');
+	});
+});

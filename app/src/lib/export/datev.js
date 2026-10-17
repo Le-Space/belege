@@ -22,6 +22,8 @@
 // ("Basis-Umsatz", "WKZ Basis-Umsatz"; the gem writes "Basisumsatz"). DATEV
 // reads the fields by position, not by heading. See docs/export.md.
 
+import { inert } from './inert.js';
+
 /* eslint-disable belege/no-german -- the DATEV format is German (#192) */
 
 /** The column headings of format version 13, in order. */
@@ -173,7 +175,7 @@ export function text(value, max = 255) {
 		.trim()
 		.slice(0, max)
 		.trim();
-	return s ? `"${s.replace(/"/g, '""')}"` : '';
+	return s ? `"${inert(s).replace(/"/g, '""')}"` : '';
 }
 
 /**

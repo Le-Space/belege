@@ -6,6 +6,8 @@
 // false` (no font programs compiled with eval, CVE-2024-4367) and every call
 // gets a copy of the bytes (pdf.js takes ownership of the buffer it is given).
 
+import { Unzlib } from 'fflate';
+
 /** Frees what pdf.js holds; the proxy's own method moved between versions. */
 async function close(/** @type {any} */ pdf) {
 	try {
@@ -76,26 +78,65 @@ export async function renderFirstPage(bytes, canvas, width = 360, oversample = 1
 	}
 }
 
+/** An embedded file larger than this is not read (an e-invoice XML is kilobytes). */
+export const MAX_ATTACHMENT = 5 * 1024 * 1024;
+
+/**
+ * Inflate (zlib), stopping at `max` bytes: null when it would be more, or is broken.
+ *
+ * @param {Uint8Array} raw
+ * @param {number} max
+ * @returns {Uint8Array | null}
+ */
+export function inflateAtMost(raw, max) {
+	/** @type {Uint8Array[]} */
+	const chunks = [];
+	let size = 0;
+	let over = false;
+	const inflate = new Unzlib((chunk) => {
+		size += chunk.length;
+		if (size > max) over = true;
+		else chunks.push(chunk);
+	});
+	try {
+		// In slices, so a bomb stops after one slice's worth of output past the limit.
+		for (let i = 0; i < raw.length && !over; i += 16 * 1024) {
+			inflate.push(raw.subarray(i, i + 16 * 1024), i + 16 * 1024 >= raw.length);
+		}
+	} catch {
+		return null;
+	}
+	if (over) return null;
+	const out = new Uint8Array(size);
+	let at = 0;
+	for (const c of chunks) {
+		out.set(c, at);
+		at += c.length;
+	}
+	return out;
+}
+
 /**
  * The files embedded in a PDF (its attachments: the catalog's
  * `/Names /EmbeddedFiles` tree): a ZUGFeRD / Factur-X invoice carries its
  * XML so (issue #160). Read with pdf-lib, which only parses the structure –
  * nothing is rendered or run.
  *
+ * Only the attachments `accept` takes by name are decoded, and each only up to
+ * `maxBytes`: a small stream can inflate to gigabytes, so the name is checked
+ * first and the inflating stops at the limit (the file is then left out).
+ * FlateDecode and unfiltered streams only – what e-invoices use.
+ *
  * @param {Uint8Array} bytes
+ * @param {{ accept?: (name: string) => boolean, maxBytes?: number }} [options]
  * @returns {Promise<{ name: string, bytes: Uint8Array }[]>}
  */
-export async function pdfAttachments(bytes) {
-	const {
-		PDFDocument,
-		PDFName,
-		PDFDict,
-		PDFArray,
-		PDFString,
-		PDFHexString,
-		PDFRawStream,
-		decodePDFRawStream
-	} = await import('pdf-lib');
+export async function pdfAttachments(
+	bytes,
+	{ accept = () => true, maxBytes = MAX_ATTACHMENT } = {}
+) {
+	const { PDFDocument, PDFName, PDFDict, PDFArray, PDFString, PDFHexString, PDFRawStream } =
+		await import('pdf-lib');
 	const doc = await PDFDocument.load(new Uint8Array(bytes), {
 		ignoreEncryption: true,
 		updateMetadata: false,
@@ -112,7 +153,16 @@ export async function pdfAttachments(bytes) {
 		const stream = ef instanceof PDFDict ? ef.lookup(PDFName.of('F')) : null;
 		if (!(stream instanceof PDFRawStream)) return;
 		const name = str(spec.lookup(PDFName.of('UF'))) || str(spec.lookup(PDFName.of('F')));
-		out.push({ name, bytes: decodePDFRawStream(stream).decode() });
+		if (!accept(name)) return;
+		const filter = stream.dict.lookup(PDFName.of('Filter'));
+		const filters = filter instanceof PDFArray ? filter.asArray() : filter ? [filter] : [];
+		const raw = stream.getContents();
+		/** @type {Uint8Array | null} */
+		let data = null;
+		if (filters.length === 0) data = raw.length <= maxBytes ? raw : null;
+		else if (filters.length === 1 && String(filters[0]) === '/FlateDecode')
+			data = inflateAtMost(raw, maxBytes);
+		if (data) out.push({ name, bytes: data });
 	}
 	/** @param {any} node a name tree node @param {number} depth */
 	function walk(node, depth) {

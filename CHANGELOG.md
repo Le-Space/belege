@@ -10,6 +10,10 @@ All notable changes to Le Space Belege. The format follows
 
 ### Security
 
+- **Exports and mail intake harden against hostile content.** Text cells in the month overview CSV and the DATEV file that a spreadsheet would read as a formula are kept as text; a mail's character references that name no character become U+FFFD; a mail that cannot be read as text no longer stops the month's export; files embedded in a PDF are read only when their name is an e-invoice's, and only up to 5 MB; long words in a mail's PDF are cut by halving.
+
+### Security
+
 - **Text goes unredacted only to a model `setup:llm` was told runs on this machine.** A bridge config from before #423 had no answer and counted a loopback URL as such a model – a proxy on 127.0.0.1 that forwards to a provider then got the text unredacted. Now an unanswered config blacks out (the bridge says at start how to switch it off), and `off` with a URL that is not loopback blacks out too. The request to the model follows no redirect. `/llm/status` says `local`, and the app's "ungeschwärzt" hints need it.
 - **The app opens the books only on an origin of its own:** the domain, or a gateway that gives every CID its own subdomain. On a path-style gateway (`…/ipfs/<cid>/`), whose origin all CIDs there share, it asks for no passkey, opens nothing, removes its service worker, and says where to open it. The release notes no longer link a path-style gateway (since 0.9.1 they did).
 

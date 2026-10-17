@@ -7,6 +7,7 @@
 // or exchange account – Belege keeps one per asset, the file one per address –
 // and one movement per booking, the fee apart as it is booked apart.
 
+import { inert } from './inert.js';
 import { fromUnits } from '../assets/quantity.js';
 import { walletChain } from '../wallets/chains.js';
 
@@ -254,9 +255,6 @@ export const CSV_COLUMNS = /** @type {const} */ ([
 	'explorer_url',
 	'id'
 ]);
-
-/** Text a spreadsheet would take for a formula gets a leading apostrophe. @param {string} text */
-const inert = (text) => (/^[=+\-@\t\r]/.test(text) ? `'${text}` : text);
 
 /** @param {string} field */
 const quoted = (field) => (/[",\r\n]/.test(field) ? `"${field.replaceAll('"', '""')}"` : field);

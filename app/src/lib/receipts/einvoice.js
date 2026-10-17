@@ -427,7 +427,11 @@ export async function pdfEInvoice(pdf, { attachments, DOMParser: Parser, now } =
 	try {
 		const list = attachments
 			? await attachments(pdf)
-			: await (await import('./pdf.js')).pdfAttachments(pdf);
+			: await (
+					await import('./pdf.js')
+				).pdfAttachments(pdf, {
+					accept: (name) => EMBEDDED_NAME.test(name)
+				});
 		const found = list.find((a) => EMBEDDED_NAME.test(a.name) && sniffEInvoice(a.bytes));
 		if (!found) return null;
 		const fields = eInvoiceFields(found.bytes, {
