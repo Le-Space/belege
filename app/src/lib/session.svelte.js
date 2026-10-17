@@ -7,6 +7,7 @@ import {
 } from './passkey-identity.js';
 import { getSetting } from './store/settings.js';
 import { passkeyStepsFor } from './passkey-steps.svelte.js';
+import { sharedOrigin } from './shared-origin.js';
 import { classifyTransaction, cleanMatchingSettings } from './matching/classify.js';
 import { buildMatchingContext } from './matching/context.js';
 import { cleanChart } from './booking/chart.js';
@@ -962,6 +963,8 @@ async function unlockWith(credential, progress, beforePrompt) {
  * @param {'create' | 'restore' | 'unlock'} flow which prompts follow, and what is said before each (#429)
  */
 async function run(getCredential, nothingFound, flow) {
+	// Never on an origin other CIDs share (shared-origin.js); the screen offers no button there.
+	if (sharedOrigin()) return;
 	app.status = 'starting';
 	app.error = null;
 	/** @type {ReturnType<typeof import('./unlock-progress.js').createUnlockProgress> | null} */

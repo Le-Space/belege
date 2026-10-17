@@ -884,6 +884,8 @@ export default {
 		create: 'Create passkey',
 		restoreHeading: 'Already have a passkey?',
 		restore: 'Restore with existing passkey',
+		sharedOrigin:
+			'This address is on an IPFS gateway the browser shares with every other page there. Your books and your passkey would not be safe here, so Le Space Belege does not open them here. Open it at belege.le-space.de or through a gateway that gives every CID a subdomain of its own (<cid>.ipfs.…).',
 		busy: 'Please confirm the passkey …',
 		steps: {
 			count: 'Passkey prompt {n} of {of}',

@@ -905,6 +905,8 @@ export default {
 		create: 'Passkey anlegen',
 		restoreHeading: 'Schon einen Passkey?',
 		restore: 'Mit vorhandenem Passkey wiederherstellen',
+		sharedOrigin:
+			'Diese Adresse liegt auf einem IPFS-Gateway, das sich der Browser mit allen anderen Seiten dort teilt. Deine Bücher und dein Passkey wären hier nicht geschützt, deshalb öffnet Le Space Belege sie hier nicht. Öffne es unter belege.le-space.de oder über ein Gateway, das jeder CID eine eigene Subdomain gibt (<cid>.ipfs.…).',
 		busy: 'Bitte den Passkey bestätigen …',
 		steps: {
 			count: 'Passkey-Abfrage {n} von {of}',
