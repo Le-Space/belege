@@ -137,5 +137,7 @@ jobs:
           CID: ${{ needs.publish.outputs.cid }}
         run: |
           gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json body -q .body > notes.md
-          printf '\n\n**On IPFS:** `%s`\n\nhttps://%s · https://ipfs.aleph.sh/ipfs/%s · https://belege-le--space-de.ipns.inbrowser.link/\n' "$CID" "$SITE_DOMAIN" "$CID" >> notes.md
+          # The domain and a subdomain gateway only: a path gateway's origin is
+          # shared by every CID on it, and the app does not open there.
+          printf '\n\n**On IPFS:** `%s`\n\nhttps://%s · https://belege-le--space-de.ipns.inbrowser.link/\n' "$CID" "$SITE_DOMAIN" >> notes.md
           gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --notes-file notes.md

@@ -4,6 +4,7 @@
 // Nothing here in the dev server: it would cache what Vite serves.
 import { dev } from '$app/environment';
 import { base } from '$app/paths';
+import { sharedOrigin } from '$lib/shared-origin.js';
 
 export const pwa = $state({
 	/** The browser offers to install the app. */
@@ -44,9 +45,15 @@ export async function startPwa() {
 		pwa.installable = false;
 	});
 	if (dev || !('serviceWorker' in navigator)) return;
+	if (sharedOrigin()) {
+		// No worker and no cache on an origin other CIDs share (shared-origin.js);
+		// one an earlier build registered here goes.
+		await dropWorkers().catch(() => {});
+		return;
+	}
 	try {
-		// Beside the page, under whatever path the build is served at: the
-		// origin's root, or …/ipfs/<cid>/ on a path gateway (the worker's scope).
+		// Beside the page, at the origin's root (its own origin: the domain or a
+		// subdomain gateway).
 		registration = await navigator.serviceWorker.register(`${base}/service-worker.js`);
 		watch(registration);
 		navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -55,6 +62,17 @@ export async function startPwa() {
 		});
 	} catch {
 		// Refused (a private window, a policy): the app works as before.
+	}
+}
+
+/** This build's workers and caches on this origin, removed. */
+async function dropWorkers() {
+	const scope = new URL(`${base}/`, location.href).href;
+	for (const reg of await navigator.serviceWorker.getRegistrations()) {
+		if (reg.scope === scope) await reg.unregister();
+	}
+	for (const name of await caches.keys()) {
+		if (name.startsWith('belege-')) await caches.delete(name);
 	}
 }
 
