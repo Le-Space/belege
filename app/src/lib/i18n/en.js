@@ -1034,6 +1034,8 @@ export default {
 		errors: {
 			format: 'This is no Belege move file, or it is damaged.',
 			key: 'This file is sealed for another key, or it was changed.',
+			otherKey:
+				'This file was made for the one-time key {sealedFor}; this page shows {here}. A one-time key holds only while its page stays open – after a reload an older file no longer fits. Make the move file again in the old books, with the key above, then pick the new file.',
 			'not-empty': 'These books are not empty. Books are taken over only into empty ones.',
 			'missing-file': 'A receipt file is missing on this device. Let it sync first, then move.',
 			check: 'The move file does not add up. Nothing was taken over.'
