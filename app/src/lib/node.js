@@ -311,8 +311,10 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 			},
 			/**
 			 * Put a sealed backup back into these books (backup/archive.js). The
-			 * databases are closed first and reopened by the restore: the page
-			 * reloads afterwards, and the books open with what came back.
+			 * databases are closed once the backup opened with this passkey and fits
+			 * these books – not before: a wrong passkey or a broken file leaves the
+			 * books open. The restore reopens them behind the store's back, so the page
+			 * reloads afterwards; an error after the close says so (`booksClosed`).
 			 *
 			 * @param {Uint8Array} sealed
 			 * @param {(p: import('./backup/archive.js').RestoreProgress) => void} [onProgress]
@@ -335,7 +337,7 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 					oldAddresses[name] = String(db.address);
 					await db.close();
 				}
-				await store.close();
+				let closed = false;
 				const result = await restoreBackup({
 					orbitdb,
 					sealed,
@@ -352,7 +354,14 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 						},
 						{ name: 'old', addresses: oldAddresses, open: oldOptions }
 					],
-					onProgress
+					onProgress,
+					beforeRestore: async () => {
+						await store.close();
+						closed = true;
+					}
+				}).catch((/** @type {any} */ error) => {
+					if (closed && error && typeof error === 'object') error.booksClosed = true;
+					throw error;
 				});
 				// Back into the old databases: they move in on the next unlock.
 				if (result.target === 'old') clearFlag(moveFlag);

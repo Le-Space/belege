@@ -283,13 +283,19 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 
 			/** @type {any[]} */
 			const seen = [];
+			let closes = 0;
 			const result = await restoreBackup({
 				orbitdb: b.orbitdb,
 				sealed: backup.sealed,
 				key: backupKey,
 				targets: [{ name: 'sealed', addresses, open: await b.options() }],
-				onProgress: (p) => seen.push(p)
+				onProgress: (p) => seen.push(p),
+				beforeRestore: async () => {
+					closes++;
+				}
 			});
+			// Once, when the backup opened and fitted: where the caller closes its books.
+			expect(closes).toBe(1);
 			expect(result.target).toBe('sealed');
 			expect(result.databases.find((d) => d.collection === 'partners')?.joined).toBe(1);
 			expect(seen[0]).toEqual({ stage: 'opening' });
@@ -313,12 +319,18 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 			const addresses = addressesOf(store);
 			await store.close();
 			const other = await deriveBackupKey(new Uint8Array(32).fill(3));
+			// Refused before the books would be closed: they stay open.
+			let closes = 0;
+			const beforeRestore = async () => {
+				closes++;
+			};
 			await expect(
 				restoreBackup({
 					orbitdb: b.orbitdb,
 					sealed: backup.sealed,
 					key: other,
-					targets: [{ name: 'sealed', addresses, open: await b.options() }]
+					targets: [{ name: 'sealed', addresses, open: await b.options() }],
+					beforeRestore
 				})
 			).rejects.toBeInstanceOf(WrongPasskeyError);
 			const elsewhere = Object.fromEntries(
@@ -329,9 +341,11 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 					orbitdb: b.orbitdb,
 					sealed: backup.sealed,
 					key: backupKey,
-					targets: [{ name: 'sealed', addresses: elsewhere, open: await b.options() }]
+					targets: [{ name: 'sealed', addresses: elsewhere, open: await b.options() }],
+					beforeRestore
 				})
 			).rejects.toThrow(/do not have/);
+			expect(closes).toBe(0);
 		} finally {
 			await b.stop();
 		}

@@ -92,7 +92,10 @@ export function sealedFile({ path, keychain, label, setup = 'setup' }) {
 			let key;
 			try {
 				key = await fileKey();
-			} catch {
+			} catch (/** @type {any} */ error) {
+				// A new key only where there is none, or none that can be used. A keychain
+				// that refused to answer keeps its key: a new one would orphan the file.
+				if (error?.code !== 'KEYCHAIN_MISSING' && error?.code !== 'SEALED_BROKEN') throw error;
 				key = randomBytes(32);
 				await keychain.write(key.toString('hex'));
 			}

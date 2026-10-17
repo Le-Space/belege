@@ -258,9 +258,12 @@ export class WrongPasskeyError extends Error {
  * @param {{ name: string, addresses: Record<string, string>, open: Record<string, any> }[]} params.targets
  *   each set of databases: its addresses by collection, and what `orbitdb.open` needs for it
  * @param {(progress: RestoreProgress) => void} [params.onProgress]
+ * @param {() => Promise<void>} [params.beforeRestore] runs once the backup opened
+ *   with this key and fits these books, right before anything is written – where
+ *   the caller closes its databases, so a backup that does not fit leaves them open
  * @returns {Promise<{ manifest: BackupManifest, target: string, databases: { collection: string, joined: number, entries: number | null }[] }>}
  */
-export async function restoreBackup({ orbitdb, sealed, key, targets, onProgress }) {
+export async function restoreBackup({ orbitdb, sealed, key, targets, onProgress, beforeRestore }) {
 	onProgress?.({ stage: 'opening' });
 	let opened;
 	try {
@@ -282,6 +285,7 @@ export async function restoreBackup({ orbitdb, sealed, key, targets, onProgress 
 		Object.entries(addresses).map(([collection, address]) => [String(address), collection])
 	);
 	const { restoreFromBlocks } = await import('@le-space/orbitdb-storage-bridge/restore-cid');
+	await beforeRestore?.();
 	// The package only warns when a head cannot be joined; here that is a failed restore.
 	/** @type {string[]} */
 	const warnings = [];
