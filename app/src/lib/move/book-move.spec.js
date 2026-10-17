@@ -166,7 +166,11 @@ describe('the move file (#328)', () => {
 			appVersion: '0.0.0-test'
 		});
 		const other = createMoveKey();
-		await expect(openMoveFile(file, other)).rejects.toMatchObject({ code: 'key' });
+		// A file for another one-time key (its page was reloaded) names both fingerprints.
+		await expect(openMoveFile(file, other)).rejects.toMatchObject({
+			code: 'key',
+			keys: { sealedFor: keyFingerprint(key.publicKey), here: keyFingerprint(other.publicKey) }
+		});
 		await expect(openMoveFile(file, { passphrase: generatePassphrase() })).rejects.toMatchObject({
 			code: 'key'
 		});
