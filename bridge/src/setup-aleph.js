@@ -56,10 +56,28 @@ export async function runAlephSetup({
 	makeKey = newBackupKey
 }) {
 	const config = await loadConfig(configPath);
-	const stored = await keychain.read().then(
-		(k) => (isBackupKey(k) ? String(k).trim() : null),
-		() => null
-	);
+	// Only an entry that is not there makes a new key. A keychain that could not
+	// be read (denied, locked, a session without access) or holds something else
+	// changes nothing: a new key would replace the funded account's for good.
+	/** @type {string | null} */
+	let stored = null;
+	try {
+		const k = await keychain.read();
+		if (isBackupKey(k)) stored = String(k).trim();
+		else if (!replace) {
+			io.print(
+				'The keychain holds an entry for the backup key (service belege-bridge, account aleph-backup) that is no key. Nothing changed; `pnpm setup:aleph --new` replaces it.'
+			);
+			return false;
+		}
+	} catch (/** @type {any} */ error) {
+		if (error?.code !== 'KEYCHAIN_MISSING') {
+			io.print(
+				`The keychain could not be read (${error?.code ?? 'error'}): nothing changed. Allow the access, or unlock the keychain, and run it again.`
+			);
+			return false;
+		}
+	}
 
 	if (stored && !replace) {
 		if (!config.alephBackup.configured) {

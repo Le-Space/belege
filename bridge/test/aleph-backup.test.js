@@ -20,7 +20,7 @@ import {
 } from '../src/aleph-backup.js';
 import { startBridge } from '../src/index.js';
 import { defaultConfig, loadConfig, saveConfig } from '../src/config.js';
-import { memoryKeychain } from '../src/keychain.js';
+import { KeychainError, memoryKeychain } from '../src/keychain.js';
 import { runAlephGrants, runAlephSetup } from '../src/setup-aleph.js';
 import { startFakeAleph } from './support/fake-aleph.js';
 import { request } from './support/http.js';
@@ -533,5 +533,56 @@ describe('/backup', () => {
 			apiHost: aleph.url
 		});
 		await assert.rejects(backup.put(new Uint8Array([1]), { name: 'x.car' }), /404/);
+	});
+});
+
+describe('setup:aleph never replaces a key it could not read', () => {
+	const quiet = () => {
+		/** @type {string[]} */ const out = [];
+		return { out, io: { ask: async () => 'y', print: (/** @type {string} */ l) => out.push(l) } };
+	};
+
+	test('a keychain that refuses (denied, locked): nothing written, and it says why', async () => {
+		const configPath = join(dir, 'denied.json');
+		await saveConfig(defaultConfig(), configPath);
+		let written = false;
+		const keychain = {
+			read: async () => {
+				throw new KeychainError('The keychain refused.', 'KEYCHAIN_DENIED');
+			},
+			write: async () => {
+				written = true;
+			}
+		};
+		const run = quiet();
+		assert.equal(
+			await runAlephSetup({ io: run.io, keychain, configPath, makeKey: () => KEY }),
+			false
+		);
+		assert.equal(written, false);
+		assert.ok(run.out.some((l) => l.includes('KEYCHAIN_DENIED') && l.includes('nothing changed')));
+		assert.equal((await loadConfig(configPath)).alephBackup.configured, false);
+	});
+
+	test('an entry that is no key: kept unless --new', async () => {
+		const configPath = join(dir, 'junk.json');
+		await saveConfig(defaultConfig(), configPath);
+		const keychain = memoryKeychain('not a key', 'aleph-backup');
+		assert.equal(
+			await runAlephSetup({ io: quiet().io, keychain, configPath, makeKey: () => KEY }),
+			false
+		);
+		assert.equal(await keychain.read(), 'not a key');
+		assert.equal(
+			await runAlephSetup({
+				io: quiet().io,
+				keychain,
+				configPath,
+				replace: true,
+				makeKey: () => KEY
+			}),
+			true
+		);
+		assert.equal(await keychain.read(), KEY);
 	});
 });

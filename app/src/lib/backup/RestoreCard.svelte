@@ -138,6 +138,8 @@
 			setTimeout(() => location.reload(), 2500);
 		} catch (e) {
 			phase = '';
+			// Failed after the books were closed for it: they open again only on a reload.
+			if (/** @type {any} */ (e)?.booksClosed) setTimeout(() => location.reload(), 4000);
 			error =
 				e instanceof Error && e.name === 'WrongPasskeyError'
 					? t('restore.wrongPasskey')

@@ -176,7 +176,12 @@ export async function runEnableBankingSetup({
 			.then((/** @type {any} */ s) =>
 				s?.sessions && typeof s.sessions === 'object' ? s.sessions : {}
 			)
-			.catch(() => ({}));
+			.catch((/** @type {any} */ error) => {
+				// Nothing sealed yet, or no key for it: nothing to keep. Anything else
+				// (the keychain refused) stops here, not with the linked banks dropped.
+				if (error?.code === 'SEALED_MISSING' || error?.code === 'KEYCHAIN_MISSING') return {};
+				throw error;
+			});
 	}
 	await secrets.write({ privateKey, sessions });
 	config.enablebanking = { ...current, configured: true, appId, redirectUrl };

@@ -6,6 +6,11 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **A keychain that could not be read no longer means "no key".** `pnpm setup:aleph` made a new backup key when the keychain refused (denied, locked, a session without access) or held something else, and replaced the funded account's key for good; now only a missing entry makes one, anything else stops with the reason. The sealed Enable Banking file keeps its key the same way, and its setup no longer drops the linked banks on such an error.
+- **A restore that fails leaves the books open.** The books were closed before the backup was opened; a backup made with another passkey, or a broken download, left a page that looked open but could no longer write. Now they close only once the backup opened with this passkey and fits these books; a failure after that reloads the page.
+
 ## [0.12.5] – 2026-10-17
 
 ## [0.12.4] – 2026-10-17

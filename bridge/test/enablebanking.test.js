@@ -16,7 +16,7 @@ import {
 	parsePrivateKey,
 	signJwt
 } from '../src/enablebanking.js';
-import { memoryKeychain } from '../src/keychain.js';
+import { KeychainError, memoryKeychain } from '../src/keychain.js';
 import { sealedFile } from '../src/sealed-file.js';
 import { runEnableBankingSetup } from '../src/setup-enablebanking.js';
 import { startBridge } from '../src/index.js';
@@ -367,4 +367,19 @@ test('setup: an application not active yet is told how to activate it; a sandbox
 		readKeyFile: async () => FAKE_EB_PRIVATE_KEY
 	});
 	assert.ok(out.some((l) => /A sandbox application reaches test banks only/.test(l)));
+});
+
+test('the sealed file keeps its key when the keychain refuses to answer', async () => {
+	let written = false;
+	const keychain = {
+		read: async () => {
+			throw new KeychainError('The keychain refused.', 'KEYCHAIN_DENIED');
+		},
+		write: async () => {
+			written = true;
+		}
+	};
+	const file = sealedFile({ path: join(dir, 'refused.sealed'), keychain, label: 'enablebanking' });
+	await assert.rejects(file.write({ privateKey: 'made-up', sessions: {} }), /refused/);
+	assert.equal(written, false);
 });
