@@ -71,10 +71,17 @@ export function wrap(text, measure, width) {
 			if (line) out.push(line);
 			let rest = word;
 			while (measure(rest) > width && rest.length > 1) {
-				let cut = rest.length - 1;
-				while (cut > 1 && measure(rest.slice(0, cut)) > width) cut--;
-				out.push(rest.slice(0, cut));
-				rest = rest.slice(cut);
+				// The longest start that fits, by halving: a long word costs log n measures
+				// per line, not n (it was cubic in the word's length).
+				let lo = 1;
+				let hi = rest.length - 1;
+				while (lo < hi) {
+					const mid = Math.ceil((lo + hi) / 2);
+					if (measure(rest.slice(0, mid)) <= width) lo = mid;
+					else hi = mid - 1;
+				}
+				out.push(rest.slice(0, lo));
+				rest = rest.slice(lo);
 			}
 			line = rest;
 		}

@@ -16,6 +16,15 @@ import { zipSync, strToU8 } from 'fflate';
 import { recordEvent } from '../activity/events.js';
 import { receiptVendor } from '../receipts/view.js';
 import { emlText } from '../receipts/eml.js';
+
+/** The mail's text, or null when it cannot be read. @param {Uint8Array} eml */
+function safeEmlText(eml) {
+	try {
+		return emlText(eml);
+	} catch {
+		return null;
+	}
+}
 import { encodeWindows1252 } from './cp1252.js';
 import { buchungsstapel } from './datev.js';
 import { overviewCsv } from './overview.js';
@@ -111,7 +120,8 @@ export async function buildMonthZip({ plan, settings, accounts, classifications,
 			files[receiptPath(number, r)] = await mailReceiptPdf(r, {
 				number,
 				created,
-				text: eml ? emlText(eml) : null
+				// A mail that cannot be read as text keeps the month's export going.
+				text: eml ? safeEmlText(eml) : null
 			});
 			if (eml) files[receiptPath(number, r).replace(/\.pdf$/, '.eml')] = eml;
 		} else {

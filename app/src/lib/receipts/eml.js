@@ -103,6 +103,18 @@ const ENTITIES = /** @type {Record<string, string>} */ ({
 /* eslint-enable belege/no-german */
 
 /**
+ * A numeric character reference's character; U+FFFD for one no character has
+ * (beyond U+10FFFF, a surrogate, NUL), as HTML does – never a throw.
+ *
+ * @param {number} n
+ */
+function codePoint(n) {
+	return Number.isInteger(n) && n > 0 && n <= 0x10ffff && !(n >= 0xd800 && n <= 0xdfff)
+		? String.fromCodePoint(n)
+		: '\ufffd';
+}
+
+/**
  * An HTML part as text: scripts, styles and the head dropped, block ends as
  * line breaks, tags removed, entities decoded.
  *
@@ -116,8 +128,8 @@ export function htmlText(html) {
 		.replace(/<\/(p|div|tr|li|h[1-6]|table|blockquote)\s*>/gi, '\n')
 		.replace(/<(td|th)\b[^>]*>/gi, ' ')
 		.replace(/<[^>]+>/g, '')
-		.replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
-		.replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+		.replace(/&#(\d+);/g, (_, n) => codePoint(Number(n)))
+		.replace(/&#x([0-9a-f]+);/gi, (_, n) => codePoint(parseInt(n, 16)))
 		.replace(/&([a-z]+);/gi, (m, name) => ENTITIES[name] ?? m)
 		.replace(/[ \t]+/g, ' ')
 		.replace(/ ?\n ?/g, '\n')

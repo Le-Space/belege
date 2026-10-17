@@ -88,3 +88,20 @@ describe('the PDF of a mail receipt', () => {
 		]);
 	});
 });
+
+describe('wrap: a very long word', () => {
+	it('is cut by halving, not one character at a time', () => {
+		let calls = 0;
+		/** @param {string} s */
+		const measure = (s) => {
+			calls++;
+			return s.length;
+		};
+		const word = 'x'.repeat(20000);
+		const lines = wrap(word, measure, 80);
+		expect(lines.join('')).toBe(word);
+		expect(lines.every((l) => l.length <= 80)).toBe(true);
+		// 250 lines × about log2(20000) measures each, not 20000² / 2.
+		expect(calls).toBeLessThan(250 * 20);
+	});
+});

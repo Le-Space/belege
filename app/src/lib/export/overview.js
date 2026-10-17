@@ -6,6 +6,7 @@
 
 /* eslint-disable belege/no-german -- the monthly export for German bookkeeping stays German (#192) */
 
+import { inert } from './inert.js';
 import { isMailText } from './plan.js';
 import { accountLabel, formatDate } from '../bank/format.js';
 import { DOCUMENT_LOCALE, tDocument as t } from '../i18n/index.js';
@@ -34,7 +35,7 @@ export const OVERVIEW_COLUMNS = Object.freeze([
 
 /** @param {unknown} v */
 function cell(v) {
-	const s = String(v ?? '').replace(/[\r\n]+/g, ' ');
+	const s = inert(String(v ?? '').replace(/[\r\n]+/g, ' '));
 	return /[;"]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
