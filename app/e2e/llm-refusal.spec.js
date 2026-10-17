@@ -49,6 +49,8 @@ test.beforeAll(async () => {
 				baseUrl: llm.url,
 				model: 'deepseek-flash',
 				retryModel: 'deepseek-v4-pro',
+				// Told setup:llm it runs here: nothing blacked out (#423).
+				redaction: 'off',
 				configured: true
 			}
 		},
@@ -119,7 +121,7 @@ test('no credit with the provider stops the run and says what to do', async ({ p
 	});
 
 	await tab('Belege').click();
-	// The fake model is on 127.0.0.1 and nothing is blacked out (#423): the hint says so (#431).
+	// The fake model is on 127.0.0.1, said to run here: nothing blacked out (#423), and the hint says so (#431).
 	await expect(page.getByTestId('extract-all')).toHaveAttribute('title', /Ungeschwärzt/);
 	const before = llm.requests.length;
 	await page.getByTestId('extract-all').click();

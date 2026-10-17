@@ -376,6 +376,8 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 		try {
 			res = await f(`${base}/chat/completions`, {
 				method: 'POST',
+				// A redirect would carry the text (unredacted for a local model) elsewhere.
+				redirect: 'error',
 				headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					model,

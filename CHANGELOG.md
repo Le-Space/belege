@@ -8,6 +8,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Security
 
+- **Text goes unredacted only to a model `setup:llm` was told runs on this machine.** A bridge config from before #423 had no answer and counted a loopback URL as such a model – a proxy on 127.0.0.1 that forwards to a provider then got the text unredacted. Now an unanswered config blacks out (the bridge says at start how to switch it off), and `off` with a URL that is not loopback blacks out too. The request to the model follows no redirect. `/llm/status` says `local`, and the app's "ungeschwärzt" hints need it.
 - **The app opens the books only on an origin of its own:** the domain, or a gateway that gives every CID its own subdomain. On a path-style gateway (`…/ipfs/<cid>/`), whose origin all CIDs there share, it asks for no passkey, opens nothing, removes its service worker, and says where to open it. The release notes no longer link a path-style gateway (since 0.9.1 they did).
 
 ## [0.12.3] – 2026-10-16
