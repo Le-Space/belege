@@ -71,7 +71,9 @@
 	function explain(e) {
 		error =
 			e instanceof MoveError
-				? t(`move.errors.${e.code}`)
+				? e.keys
+					? t('move.errors.otherKey', e.keys)
+					: t(`move.errors.${e.code}`)
 				: String(/** @type {any} */ (e)?.message ?? e);
 	}
 
@@ -129,7 +131,10 @@
 				ownKey &&
 				header.seal.to !== keyFingerprint(ownKey.publicKey)
 			) {
-				throw new MoveError('another key', 'key');
+				throw new MoveError('another key', 'key', {
+					sealedFor: String(header.seal.to),
+					here: keyFingerprint(ownKey.publicKey)
+				});
 			}
 			chosen = { file, header };
 		} catch (e) {

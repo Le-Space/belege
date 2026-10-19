@@ -69,11 +69,17 @@ export const MUST_BE_EMPTY = Object.freeze([
 ]);
 
 export class MoveError extends Error {
-	/** @param {string} message @param {'format' | 'key' | 'not-empty' | 'missing-file' | 'check'} code */
-	constructor(message, code) {
+	/**
+	 * @param {string} message
+	 * @param {'format' | 'key' | 'not-empty' | 'missing-file' | 'check'} code
+	 * @param {{ sealedFor: string, here: string }} [keys] a file sealed for another move key:
+	 *   the fingerprint it names, and this page's – so the person sees which file is stale
+	 */
+	constructor(message, code, keys) {
 		super(message);
 		this.name = 'MoveError';
 		this.code = code;
+		this.keys = keys ?? null;
 	}
 }
 
@@ -387,7 +393,10 @@ export async function openMoveFile(file, key) {
 	let raw;
 	if (header.seal?.kind === 'x25519' && 'secretKey' in key) {
 		if (header.seal.to !== keyFingerprint(key.publicKey)) {
-			throw new MoveError('This file was sealed for another key.', 'key');
+			throw new MoveError('This file was sealed for another key.', 'key', {
+				sealedFor: String(header.seal.to),
+				here: keyFingerprint(key.publicKey)
+			});
 		}
 		const ephemeral = unb64(String(header.seal.ephemeral));
 		const shared = x25519.getSharedSecret(key.secretKey, ephemeral);

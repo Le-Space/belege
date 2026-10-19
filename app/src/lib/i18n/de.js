@@ -1057,6 +1057,8 @@ export default {
 		errors: {
 			format: 'Das ist keine Umzugsdatei von Belege, oder sie ist beschädigt.',
 			key: 'Diese Datei ist für einen anderen Schlüssel versiegelt, oder sie wurde verändert.',
+			otherKey:
+				'Diese Datei wurde für den Einmal-Schlüssel {sealedFor} gemacht, diese Seite zeigt {here}. Ein Einmal-Schlüssel gilt nur, solange seine Seite offen ist – wurde sie neu geladen, passt eine ältere Datei nicht mehr. Erstelle die Umzugsdatei in den alten Büchern neu, mit dem Schlüssel oben, und wähle dann die neue Datei.',
 			'not-empty': 'Diese Bücher sind nicht leer. Übernommen wird nur in leere Bücher.',
 			'missing-file':
 				'Eine Belegdatei fehlt auf diesem Gerät. Erst synchronisieren lassen, dann umziehen.',
