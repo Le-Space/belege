@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.12.7] – 2026-10-19
+
 ### Changed
 
 - **A move file made for an earlier one-time key says so.** Picking one on a page whose key has changed since (it was reloaded) named "another key, or changed"; now it names both fingerprints and says to make the file again with the key shown.
