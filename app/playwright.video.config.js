@@ -1,0 +1,41 @@
+// The demo recordings (e2e-video/): the app built as for the specs, one
+// browser at 1280×720, English, and a video of every page. Not part of
+// `pnpm test:e2e`; run with `pnpm exec playwright test -c playwright.video.config.js`.
+import { defineConfig, devices } from '@playwright/test';
+import { relayAddr } from './e2e/relay.js';
+
+const port = Number(process.env.E2E_PORT || 4391);
+process.env.E2E_BRIDGE_PORT ||= '4392';
+const bridgePort = Number(process.env.E2E_BRIDGE_PORT);
+const relay = await relayAddr();
+const size = { width: 1280, height: 720 };
+
+export default defineConfig({
+	testDir: 'e2e-video',
+	outputDir: 'e2e-video/results',
+	globalSetup: './e2e/global-setup.js',
+	retries: 0,
+	workers: 1,
+	timeout: 900_000,
+	expect: { timeout: 30_000 },
+	webServer: {
+		command: `pnpm exec vite build && pnpm exec vite preview --port ${port} --strictPort`,
+		env: {
+			VITE_E2E: 'true',
+			VITE_BRIDGE_URL: `http://127.0.0.1:${bridgePort}`,
+			VITE_RELAY_ADDRS: relay
+		},
+		port,
+		reuseExistingServer: false,
+		timeout: 240_000
+	},
+	use: {
+		baseURL: `http://localhost:${port}`,
+		locale: 'en-GB',
+		viewport: size,
+		video: { mode: 'on', size },
+		screenshot: 'off',
+		trace: 'off'
+	},
+	projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: size } }]
+});
