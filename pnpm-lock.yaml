@@ -48,8 +48,8 @@ importers:
         specifier: 0.11.0
         version: 0.11.0(@orbitdb/core@4.0.0)
       '@le-space/orbitdb-storage-bridge':
-        specifier: 0.22.0
-        version: 0.22.0(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)
+        specifier: 0.22.1
+        version: 0.22.1(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)
       '@le-space/ucep':
         specifier: 0.2.0-draft.4
         version: 0.2.0-draft.4
@@ -226,8 +226,8 @@ importers:
         specifier: 8.0.1
         version: 8.0.1
       '@le-space/orbitdb-storage-bridge':
-        specifier: 0.22.0
-        version: 0.22.0(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)
+        specifier: 0.22.1
+        version: 0.22.1(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)
       '@libp2p/circuit-relay-v2':
         specifier: 4.2.9
         version: 4.2.9
@@ -813,8 +813,8 @@ packages:
     peerDependencies:
       '@orbitdb/core': ^4.0.0
 
-  '@le-space/orbitdb-storage-bridge@0.22.0':
-    resolution: {integrity: sha512-NBDBMp9Z9HGHl5c/QGoF793fNDz6VtyEUSIXQkDLRAV2oGSAdz4TRVE1P5nN5lnL3QzFQokPY+cbE9cV2Dl/uQ==}
+  '@le-space/orbitdb-storage-bridge@0.22.1':
+    resolution: {integrity: sha512-jZuSXBzrzwu/N/14u29VL8AY8GjYl507C3euR8yNi9+ow55vAXfNtqdDLjaGJ3/DVa3sjF61YXnHcEaIqU9h6g==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
       '@storacha/client': ^2.0.0
@@ -5624,7 +5624,7 @@ snapshots:
       iso-webauthn-varsig: '@le-space/iso-webauthn-varsig@0.3.0'
       multiformats: 14.0.5
 
-  '@le-space/orbitdb-storage-bridge@0.22.0(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)':
+  '@le-space/orbitdb-storage-bridge@0.22.1(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)':
     dependencies:
       '@chainsafe/libp2p-noise': 17.0.0
       '@chainsafe/libp2p-yamux': 8.0.1
