@@ -50,7 +50,9 @@
 		outputVat({ receipts, matches, transactions, year, startMonth, period, basis, isOwn })
 	);
 	/** The international and special cases of the year (#354): what is not in the table. */
-	let kinds = $derived(vatKinds({ receipts, isOwn, year, startMonth, period }));
+	let kinds = $derived(
+		vatKinds({ receipts, isOwn, year, startMonth, period, transactions, matches })
+	);
 	let special = $derived(
 		['intraEu', 'thirdCountry', 'reverseChargeDe', 'exempt'].some((k) => kinds.output[k]) ||
 			Boolean(kinds.input.intraEuAcquisition) ||
@@ -218,6 +220,22 @@
 				{#if out.none.invoices}
 					<li>
 						{t('home.vat.outputNone', { amount: money(out.none.cents), count: out.none.invoices })}
+					</li>
+				{/if}
+				{#if out.foreign.invoices}
+					<li class="text-warning" data-testid="vat-output-foreign">
+						{t('home.vat.outputForeign', {
+							count: out.foreign.invoices,
+							currencies: out.foreign.currencies.join(', ')
+						})}
+					</li>
+				{/if}
+				{#if out.undated.invoices}
+					<li class="text-warning" data-testid="vat-output-undated">
+						{t('home.vat.outputUndated', {
+							amount: money(out.undated.cents),
+							count: out.undated.invoices
+						})}
 					</li>
 				{/if}
 				{#if !withOutput}

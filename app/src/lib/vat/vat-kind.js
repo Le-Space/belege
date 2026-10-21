@@ -26,6 +26,7 @@
 // Which case applies, and how it is reported, is the tax adviser's to
 // confirm: this sorts what the invoices say.
 
+import { euroOf, receiptCurrency } from '../travel/view.js';
 import { fiscalYearOf } from '../year/year.js';
 import { periodsOf, vatDay } from './input-vat.js';
 
@@ -165,6 +166,9 @@ export function vatCase(r, own) {
  * @param {number} p.year
  * @param {number} [p.startMonth]
  * @param {'month' | 'quarter'} [p.period] the ZM's period
+ * @param {Rec[]} [p.transactions] with `matches`: the euros of a receipt in another
+ *   currency (a linked payment, a rate kept); without euros it is unclear (`currency`)
+ * @param {Rec[]} [p.matches]
  * @returns {{
  *   output: Record<string, KindSum>,
  *   input: Record<string, KindSum>,
@@ -172,7 +176,15 @@ export function vatCase(r, own) {
  *   zm: { period: string, vatId: string, country: string | null, netCents: number, invoices: number }[]
  * }}
  */
-export function vatKinds({ receipts, isOwn, year, startMonth = 1, period = 'quarter' }) {
+export function vatKinds({
+	receipts,
+	isOwn,
+	year,
+	startMonth = 1,
+	period = 'quarter',
+	transactions = [],
+	matches = []
+}) {
 	const periods = periodsOf(year, startMonth, period);
 	const periodOf = new Map(periods.flatMap((p) => p.months.map((m) => [m, p.key])));
 	/** @type {{ output: Record<string, KindSum>, input: Record<string, KindSum> }} */
@@ -186,7 +198,23 @@ export function vatKinds({ receipts, isOwn, year, startMonth = 1, period = 'quar
 			continue;
 		const day = vatDay(r);
 		if (!day || fiscalYearOf(day, startMonth) !== year) continue;
-		const c = vatCase(r, isOwn(r));
+		let c = vatCase(r, isOwn(r));
+		// Never another currency's cents as euros: converted by what the books know, else unclear.
+		const currency = receiptCurrency(r);
+		if (currency !== 'EUR' && c.kind !== 'unclear') {
+			const euro = euroOf(r, { transactions, matches });
+			const original = euro.originalCents;
+			if (euro.cents == null || !original) {
+				unclear.push({ id: String(r.id), side: c.side, reason: 'currency' });
+				continue;
+			}
+			const factor = euro.cents / original;
+			c = {
+				...c,
+				netCents: Math.round(c.netCents * factor),
+				vatCents: Math.round(c.vatCents * factor)
+			};
+		}
 		if (c.kind === 'unclear') {
 			unclear.push({ id: String(r.id), side: c.side, reason: c.reason });
 			continue;

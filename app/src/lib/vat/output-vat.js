@@ -19,6 +19,7 @@
 // A help for the advance return, as the invoices say it – not the return.
 
 import { isActive } from '../matching/engine.js';
+import { euroOf, receiptCurrency } from '../travel/view.js';
 import { fiscalYearOf } from '../year/year.js';
 import { periodsOf, vatDay } from './input-vat.js';
 
@@ -97,6 +98,8 @@ export function invoiceVat(r) {
  *   missing: { cents: number, invoices: number },
  *   none: { cents: number, invoices: number },
  *   open: { cents: number, invoices: number },
+ *   undated: { cents: number, invoices: number },
+ *   foreign: { invoices: number, currencies: string[] },
  *   invoices: number
  * }}
  */
@@ -131,7 +134,16 @@ export function outputVat({
 		missing: { cents: 0, invoices: 0 },
 		none: { cents: 0, invoices: 0 },
 		open: { cents: 0, invoices: 0 },
+		// Soll: an invoice without a date counts in no month – shown, not lost.
+		undated: { cents: 0, invoices: 0 },
+		// Another currency with no euros known yet (Soll: no rate; Ist: not paid in euros).
+		foreign: { invoices: 0, currencies: /** @type {string[]} */ ([]) },
 		invoices: 0
+	};
+	/** @param {string} currency */
+	const foreignOne = (currency) => {
+		out.foreign.invoices++;
+		if (!out.foreign.currencies.includes(currency)) out.foreign.currencies.push(currency);
 	};
 	const txById = new Map(transactions.filter((t) => !t.deleted).map((t) => [String(t.id), t]));
 	/** @type {Map<string, Rec[]>} receipt id → its linked payments */
@@ -147,24 +159,36 @@ export function outputVat({
 	const inYear = (/** @type {string} */ day) => fiscalYearOf(day, startMonth) === year;
 
 	/**
-	 * A share of an invoice's VAT on one day.
+	 * An invoice's VAT, in shares on their days. Each share takes what the shares
+	 * so far leave of the rounded running total, so the parts add up to the
+	 * invoice's VAT to the cent (two halves of 1,01 are 0,51 + 0,50, not 0,51 + 0,51).
 	 *
-	 * @param {string} day YYYY-MM-DD
+	 * @param {{ day: string, share: number }[]} when
 	 * @param {Record<number, number>} byRate
-	 * @param {number} share 0–1
-	 * @param {Set<object>} counted the sums this invoice already counts in
 	 */
-	function add(day, byRate, share, counted) {
-		for (const sum of [byMonth.get(day.slice(0, 7)), out.year]) {
-			if (!sum) continue;
+	function addAll(when, byRate) {
+		const counted = new Set();
+		/** @type {Record<string, number>} */
+		const done = {};
+		let cumulative = 0;
+		for (const w of when) {
+			cumulative += w.share;
+			const counts = inYear(w.day);
 			for (const [rate, amount] of Object.entries(byRate)) {
-				const part = Math.round(amount * share);
-				if (rate === '19') sum.r19 += part;
-				else if (rate === '7') sum.r7 += part;
-				else sum.other += part;
-				sum.total += part;
+				const part = Math.round(amount * cumulative) - (done[rate] ?? 0);
+				done[rate] = (done[rate] ?? 0) + part;
+				if (!counts) continue;
+				for (const sum of [byMonth.get(w.day.slice(0, 7)), out.year]) {
+					if (!sum) continue;
+					if (rate === '19') sum.r19 += part;
+					else if (rate === '7') sum.r7 += part;
+					else sum.other += part;
+					sum.total += part;
+				}
 			}
-			if (!counted.has(sum)) {
+			if (!counts) continue;
+			for (const sum of [byMonth.get(w.day.slice(0, 7)), out.year]) {
+				if (!sum || counted.has(sum)) continue;
 				counted.add(sum);
 				sum.invoices++;
 			}
@@ -172,21 +196,54 @@ export function outputVat({
 	}
 
 	for (const r of ownInvoices) {
-		const vat = invoiceVat(r);
+		let vat = invoiceVat(r);
 		const issued = vatDay(r);
-		const payments = (paidBy.get(String(r.id)) ?? [])
-			.filter((tx) => Number(tx.amountCents) > 0)
+		const currency = receiptCurrency(r);
+		// Payments in the invoice's own direction: money in for an invoice, out for a
+		// credit note (which then takes its VAT off again).
+		const sign = Math.sign(vat.gross);
+		let payments = (paidBy.get(String(r.id)) ?? [])
+			.filter((tx) => sign !== 0 && Math.sign(Number(tx.amountCents)) === sign)
 			.sort((a, b) => String(a.bookedOn).localeCompare(String(b.bookedOn)));
+		if (currency !== 'EUR') {
+			// Never its dollars as euros: in euros by what came in (Ist), or by the
+			// euros known for it (Soll: a payment, a rate kept) – else apart, unsummed.
+			payments = payments.filter((tx) => String(tx.currency ?? 'EUR').toUpperCase() === 'EUR');
+			const paidEuros = payments.reduce((n, tx) => n + Math.abs(Number(tx.amountCents)), 0);
+			const known = basis === 'ist' ? paidEuros : euroOf(r, { transactions, matches }).cents;
+			const day = basis === 'ist' ? payments.at(-1)?.bookedOn : issued;
+			if (!known || vat.gross === 0) {
+				if ((day && inYear(String(day))) || (issued && inYear(issued))) foreignOne(currency);
+				continue;
+			}
+			const factor = known / Math.abs(vat.gross);
+			const euros = sign * known;
+			vat =
+				vat.kind === 'vat'
+					? {
+							kind: 'vat',
+							gross: euros,
+							byRate: Object.fromEntries(
+								Object.entries(vat.byRate).map(([rate, n]) => [rate, Math.round(n * factor)])
+							)
+						}
+					: { kind: vat.kind, gross: euros };
+		}
 		// The day(s) it counts on: the invoice date (Soll), or each payment with its share (Ist).
 		/** @type {{ day: string, share: number }[]} */
 		let when = [];
 		if (basis === 'soll') {
 			if (issued) when = [{ day: issued, share: 1 }];
+			else {
+				out.undated.cents += vat.gross;
+				out.undated.invoices++;
+				continue;
+			}
 		} else if (vat.gross !== 0) {
 			let left = Math.abs(vat.gross);
 			for (const tx of payments) {
 				if (left <= 0) break;
-				const paid = Math.min(Number(tx.amountCents), left);
+				const paid = Math.min(Math.abs(Number(tx.amountCents)), left);
 				left -= paid;
 				when.push({ day: String(tx.bookedOn), share: paid / Math.abs(vat.gross) });
 			}
@@ -207,8 +264,7 @@ export function outputVat({
 			}
 			continue;
 		}
-		const counted = new Set();
-		for (const w of here) add(w.day, vat.byRate, w.share, counted);
+		addAll(when, vat.byRate);
 		if (basis === 'ist' && share < 1) {
 			const total = Object.values(vat.byRate).reduce((s, n) => s + n, 0);
 			out.open.cents += Math.round(total * (1 - share));
