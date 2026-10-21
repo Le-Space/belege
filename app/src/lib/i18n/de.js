@@ -1415,6 +1415,10 @@ export default {
 			outputMissing:
 				'Rechnungen ohne Steuerangabe der Rechnungs-App: {count} ({amount} brutto) – nicht in der Umsatzsteuer, bis die App die Steuer je Satz liefert.',
 			outputNone: 'Rechnungen ohne Umsatzsteuer: {count} ({amount}).',
+			outputForeign:
+				'Eigene Rechnungen in {currencies} ohne bekannten Euro-Betrag: {count}. Sie zählen erst, wenn eine Zahlung in Euro verknüpft ist – nie ihr Betrag als Euro.',
+			outputUndated:
+				'Eigene Rechnungen ohne Rechnungsdatum: {count} ({amount}). Bei Soll zählen sie in keinem Monat – das Datum am Beleg nachtragen.',
 			turnover:
 				'Umsatz {year} aus deinen Rechnungen: {amount}. Grenze im laufenden Jahr: {limit}; im Vorjahr höchstens {previous}.',
 			turnoverOver:
@@ -1455,7 +1459,8 @@ export default {
 				reasons: {
 					noCustomerVatId: 'EU-Rechnung ohne USt-IdNr der Kundin/des Kunden',
 					noCountry: 'ohne Umsatzsteuer, Land unbekannt',
-					noCategory: 'ohne Umsatzsteuer, Grund nicht genannt'
+					noCategory: 'ohne Umsatzsteuer, Grund nicht genannt',
+					currency: 'andere Währung, Euro-Betrag noch nicht bekannt'
 				},
 				note: 'So, wie die Rechnungen es sagen. Welche Fälle wie zu melden sind, klärst du mit deiner Steuerberatung.'
 			},

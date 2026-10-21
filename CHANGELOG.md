@@ -10,6 +10,14 @@ All notable changes to Le Space Belege. The format follows
 
 - **Storage bridge 0.17.0 → 0.22.1.** Nothing Belege calls changed its shape: `createAlephBackend`, `createAlephPin`, `createAlephAuthorizer`, `listAlephStores`, `waitForMessage` and `buildAppBackup` answer as before. What the install drops is Storacha: the bridge no longer carries the 28 `@storacha/*`, `@ucanto/*` and `@web3-storage/*` packages for a service that shut down in May, and `dotenv` leaves with it. The lockfile leaves the bridge's optional Storacha peer unresolved on purpose, so a reinstall does not bring them back. 0.22.1 is the first version whose Storacha driver loads its client lazily; 0.22.0 broke the Vite build of any app without the peer.
 
+### Fixed
+
+- **The VAT card counts credit notes, other currencies, instalments and undated invoices right.**
+  - Under Ist, an own credit note refunded to the customer took no VAT off; payments now count in the invoice's own direction.
+  - An own invoice or a receipt in another currency was summed as if its amount were euros, the small-business limit (§ 19) included. Now it counts in euros: under Ist with the euros that came in, under Soll and on the VAT kinds with the euros the books know (a linked payment, a rate kept); without them it is listed apart ("Kurs fehlt", "andere Währung") and not summed.
+  - Instalments rounded each payment's share on its own, so two halves of 1,01 € made 1,02 €; the parts now add up to the invoice's VAT to the cent.
+  - Under Soll, an own invoice without a date counted nowhere and was not listed either; now it is shown as undated.
+
 ## [0.12.7] – 2026-10-19
 
 ### Changed
@@ -26,11 +34,11 @@ All notable changes to Le Space Belege. The format follows
 
 ## [0.12.5] – 2026-10-17
 
-## [0.12.4] – 2026-10-17
-
 ### Security
 
 - **Exports and mail intake harden against hostile content.** Text cells in the month overview CSV and the DATEV file that a spreadsheet would read as a formula are kept as text; a mail's character references that name no character become U+FFFD; a mail that cannot be read as text no longer stops the month's export; files embedded in a PDF are read only when their name is an e-invoice's, and only up to 5 MB; long words in a mail's PDF are cut by halving.
+
+## [0.12.4] – 2026-10-17
 
 ### Security
 

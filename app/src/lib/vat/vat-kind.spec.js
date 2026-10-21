@@ -155,3 +155,32 @@ describe('the VAT case of an invoice (#354)', () => {
 		]);
 	});
 });
+
+describe('VAT kinds in another currency (review 16.10.)', () => {
+	const own = (/** @type {any} */ r) => r.ownInvoice === true;
+	it('in euros where the books know them, else unclear – never its pounds as euros', () => {
+		const export1 = {
+			...inv('E', {
+				net: 1000,
+				gross: 1000,
+				currency: 'USD',
+				vat: [line(0, 0, 'export')],
+				customer_country: 'US'
+			}),
+			ownInvoice: true,
+			currency: 'USD',
+			amountCents: 100000
+		};
+		const other = { ...export1, id: 'F' };
+		const kinds = vatKinds({
+			receipts: [export1, other],
+			isOwn: own,
+			year: 2026,
+			transactions: [{ id: 'P', bookedOn: '2026-05-20', amountCents: 92000, currency: 'EUR' }],
+			matches: [{ receiptId: 'E', transactionId: 'P', state: 'confirmed' }]
+		});
+		const sums = Object.values(kinds.output);
+		expect(sums.reduce((n, s) => n + s.netCents, 0)).toBe(92000);
+		expect(kinds.unclear).toEqual([{ id: 'F', side: 'output', reason: 'currency' }]);
+	});
+});

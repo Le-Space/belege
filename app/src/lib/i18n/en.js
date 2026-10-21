@@ -1387,6 +1387,10 @@ export default {
 			outputMissing:
 				'Invoices whose VAT the invoice app did not send: {count} ({amount} gross) – not in the output VAT until the app sends the VAT per rate.',
 			outputNone: 'Invoices without VAT: {count} ({amount}).',
+			outputForeign:
+				'Own invoices in {currencies} with no euro amount known: {count}. They count once a payment in euros is linked – never their amount as euros.',
+			outputUndated:
+				'Own invoices without an invoice date: {count} ({amount}). Under Soll they count in no month – add the date on the receipt.',
 			turnover:
 				'Turnover {year} from your invoices: {amount}. Limit in the current year: {limit}; in the previous year at most {previous}.',
 			turnoverOver:
@@ -1425,7 +1429,8 @@ export default {
 				reasons: {
 					noCustomerVatId: 'EU invoice without the customer’s VAT ID',
 					noCountry: 'no VAT, country unknown',
-					noCategory: 'no VAT, reason not given'
+					noCategory: 'no VAT, reason not given',
+					currency: 'another currency, its euros not known yet'
 				},
 				note: 'As the invoices say it. Which cases are reported how is for you and your tax advisor to settle.'
 			},
