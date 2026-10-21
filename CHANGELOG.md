@@ -15,9 +15,6 @@ All notable changes to Le Space Belege. The format follows
 ### Changed
 
 - **A move file made for an earlier one-time key says so.** Picking one on a page whose key has changed since (it was reloaded) named "another key, or changed"; now it names both fingerprints and says to make the file again with the key shown.
-
-### Changed
-
 - **The identity-cache workaround comes from the provider now.** OrbitDB refuses another session of the same passkey ("… is not allowed to write to the log", orbitdb/orbitdb#1258); the wrapper that answered this in `session-identities.js` since #259 is `withoutStaleIdentityCache` of `@le-space/orbitdb-identity-provider-webauthn-did` 0.11.0, shared with simple-todo, and Belege imports it. The provider moves from 0.8.0 to 0.11.0 with it.
 
 ## [0.12.6] – 2026-10-17
