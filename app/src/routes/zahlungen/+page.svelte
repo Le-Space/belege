@@ -362,7 +362,7 @@
 		</div>
 	</div>
 
-	<div class="mt-4 grid gap-4 md:grid-cols-[14rem_1fr]">
+	<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-[14rem_minmax(0,1fr)]">
 		<nav aria-label={t('zahlungen.months')}>
 			<ul class="flex gap-2 overflow-x-auto pb-1 md:flex-col md:gap-1 md:overflow-visible md:pb-0">
 				{#each months as m (m.month)}
@@ -418,7 +418,7 @@
 							<li>
 								<button
 									type="button"
-									class="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface-2/60"
+									class="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-left hover:bg-surface-2/60 sm:flex-nowrap"
 									onclick={() => (openId = tx.id)}
 									{...linkedByTx.has(tx.id)
 										? peekHandlers(peek, /** @type {any} */ (linkedByTx.get(tx.id)).receipt)
@@ -428,7 +428,7 @@
 									data-testid="transaction"
 									data-covered={cover ? 'true' : 'false'}
 								>
-									<span class="min-w-0 flex-1">
+									<span class="min-w-0 basis-full sm:flex-1 sm:basis-0">
 										<span
 											class="block truncate font-medium {payee.from === 'unknown'
 												? 'text-faint italic'
@@ -524,12 +524,14 @@
 									{/if}
 									{#if badge(tx)}
 										<span
-											class="shrink-0 rounded border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-text"
+											class="min-w-0 truncate rounded border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-text sm:shrink-0"
 											data-testid="account-badge">{badge(tx)}</span
 										>
 									{/if}
 									<span
-										class="shrink-0 font-mono whitespace-nowrap tabular-nums {txDirection(tx) < 0
+										class="ml-auto shrink-0 font-mono whitespace-nowrap tabular-nums {txDirection(
+											tx
+										) < 0
 											? 'text-red-700 dark:text-red-400'
 											: txDirection(tx) > 0
 												? 'text-emerald-700 dark:text-emerald-400'

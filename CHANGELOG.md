@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **A folding phone shows the app at its own width again.** Below 768 px the payments page was as wide as its month strip – nine months made it 1,664 px – and the phone zoomed the whole app out to fit, small and movable sideways. The strip scrolls inside its column now. On a narrow screen a payment's account and amount take a line of their own instead of running off the edge; between 640 and 1024 px (a folding phone opened) the name and the switches share the first row of the header and the state takes the second, instead of the name squeezed to a column of single words. A new E2E spec checks six pages at 344 and 690 px.
+
 ### Changed
 
 - **The KI card says why it blacks out a local model, and why reads failed.** A model on 127.0.0.1 whose `setup:llm` answer is missing (a config from before #423) is blacked out since #438; the card now says so, with `pnpm setup:llm` to copy. Under "Bisher" it shows how many failures were in the last 7 days and the three most frequent reasons, numbers folded – so an old run (credit used up, a slow model) is told apart from a problem now.
