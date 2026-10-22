@@ -14,6 +14,7 @@ import { assetOf } from '../assets/registry.js';
 import { displayPurpose, txDirection } from '../bank/format.js';
 import { walletChain } from '../wallets/chains.js';
 import { settlement } from './instalments.js';
+import { receiptDate } from '../receipts/view.js';
 
 /** @typedef {import('./classify.js').Classification} Classification */
 /** @typedef {{ id: string } & Record<string, any>} Rec */
@@ -198,7 +199,38 @@ export function receiptChoices(tx, receipts, matches, ctx = {}) {
 				...(part ? { alongside: part } : {})
 			};
 		})
-		.sort((a, b) => b.score - a.score || (a.receipt.id < b.receipt.id ? 1 : -1));
+		.sort(
+			(a, b) =>
+				// Points for what speaks for a receipt; a penalty (far date, other direction)
+				// only puts it among the unranked, which nearness in time orders.
+				Math.max(b.score, 0) - Math.max(a.score, 0) ||
+				// Equal points: nearest in time to the payment first, undated last – not
+				// the newest receipt first, which put next year's on top of this year's.
+				distance(a.receipt) - distance(b.receipt) ||
+				(a.receipt.id < b.receipt.id ? 1 : -1)
+		);
+
+	/** Days between a receipt and the payment; Infinity for one with no day at all. @param {Rec} r */
+	function distance(r) {
+		const day = dayNumber(receiptDay(r));
+		const paid = dayNumber(tx.bookedOn);
+		return day === null || paid === null ? Infinity : Math.abs(day - paid);
+	}
+}
+
+/**
+ * The day a receipt is placed by in time: its date, else the day it came in
+ * (a receipt not read yet has no date of its own).
+ *
+ * @param {Rec} r
+ * @returns {string | null} YYYY-MM-DD
+ */
+export function receiptDay(r) {
+	const got = typeof r.receivedAt === 'string' ? r.receivedAt : r.createdAt;
+	return (
+		receiptDate(r) ??
+		(typeof got === 'string' && /^\d{4}-\d{2}-\d{2}/.test(got) ? got.slice(0, 10) : null)
+	);
 }
 
 /**
