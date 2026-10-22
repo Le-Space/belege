@@ -55,9 +55,13 @@ describe('receiptChoices: equal points, nearest in time first', () => {
 	});
 
 	it('receiptDay: its date, else when it came in', () => {
-		expect(receiptDay({ documentDate: '2025-01-15' })).toBe('2025-01-15');
-		expect(receiptDay({ receivedAt: '2026-10-20T08:00:00Z' })).toBe('2026-10-20');
-		expect(receiptDay({ createdAt: '2026-10-21T09:00:00Z' })).toBe('2026-10-21');
-		expect(receiptDay({})).toBe(null);
+		expect(receiptDay(/** @type {any} */ ({ documentDate: '2025-01-15' }))).toBe('2025-01-15');
+		expect(receiptDay(/** @type {any} */ ({ receivedAt: '2026-10-20T08:00:00Z' }))).toBe(
+			'2026-10-20'
+		);
+		expect(receiptDay(/** @type {any} */ ({ createdAt: '2026-10-21T09:00:00Z' }))).toBe(
+			'2026-10-21'
+		);
+		expect(receiptDay(/** @type {any} */ ({}))).toBe(null);
 	});
 });
