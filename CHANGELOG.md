@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.12.8] – 2026-10-22
+
 ### Changed
 
 - **Storage bridge 0.17.0 → 0.22.1.** Nothing Belege calls changed its shape: `createAlephBackend`, `createAlephPin`, `createAlephAuthorizer`, `listAlephStores`, `waitForMessage` and `buildAppBackup` answer as before. What the install drops is Storacha: the bridge no longer carries the 28 `@storacha/*`, `@ucanto/*` and `@web3-storage/*` packages for a service that shut down in May, and `dotenv` leaves with it. The lockfile leaves the bridge's optional Storacha peer unresolved on purpose, so a reinstall does not bring them back. 0.22.1 is the first version whose Storacha driver loads its client lazily; 0.22.0 broke the Vite build of any app without the peer.
