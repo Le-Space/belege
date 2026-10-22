@@ -1087,7 +1087,7 @@ export default {
 	},
 	backup: {
 		title: 'Backup',
-		what: 'Alles, was Le Space Belege in diesem Browser hält – die Bücher und jede Belegdatei – als eine Datei, versiegelt mit einem Schlüssel aus deinem Passkey, aufbewahrt bei Aleph Cloud. Öffnen kannst nur du sie, mit demselben Passkey.',
+		what: 'Alles, was Le Space Belege in diesem Browser hält – die Bücher und jede Belegdatei – als eine Datei, versiegelt mit einem Schlüssel aus deinem Passkey. Sie liegt auf Alephs IPFS: Wer ihre Kennung (CID) kennt, kann sie herunterladen, aber nicht öffnen – das kannst nur du, mit demselben Passkey. Aleph bewahrt sie auf, solange das Konto Credits hat; auf wie vielen Knoten, sagt Aleph nicht.',
 		notSetUp: 'Die Bridge hat noch keinen Backup-Schlüssel. Im Terminal, im Ordner von Belege:',
 		noOwner:
 			'Noch kein Aleph-Konto, das zahlt: Koppel die Bridge, nachdem du dort einmal pnpm setup:aleph ausgeführt hast, oder trag die Adresse des Kontos ein.',
@@ -1115,10 +1115,24 @@ export default {
 			'Das Konto hat keine Credits. Aleph bewahrt ein Backup nur auf, solange das Konto zahlen kann: lade Credits unter app.aleph.cloud auf oder schick ALEPH an die Adresse.',
 		leaves:
 			'Geht hinaus: die versiegelte Datei an Alephs IPFS-Host (er sieht die IP-Adresse dieses Computers und die Größe) und an die Aleph-API ein Auftrag, der die Datei nennt – unterschrieben vom Schlüssel dieses Browsers oder, ohne Freigabe, von der Bridge. Zum Anzeigen fragt die Seite Aleph nach Freigabe und Credits des Kontos.',
+		ownerChange: 'Ändern',
+		ask: 'Dieses Backup ist {size} groß und kostet etwa {perDay} Credits pro Tag, solange Aleph es aufbewahrt – jedes Backup ist eine ganze Kopie. Mit den Backups, die schon liegen, reichen die Credits dann {days}. Hochladen?',
+		upload: 'Hochladen',
+		cancel: 'Abbrechen',
+		cost: 'Bei Aleph liegen {size} Backups, etwa {perDay} Credits pro Tag – die Credits reichen {days}. Ein Schätzwert: Den Preis legt Aleph fest.',
+		unknown: 'Aleph kennt den Auftrag nicht',
+		rejected: 'Aleph hat abgelehnt',
+		unknownHint:
+			'Die Datei liegt auf Alephs IPFS-Host, aber einen Auftrag, sie aufzubewahren, kennt Aleph nicht. Ohne Auftrag darf Aleph sie löschen.',
+		rejectedHint: 'Aleph hat den Auftrag abgelehnt und bewahrt die Datei nicht auf.',
+		rekeep: 'Aleph erneut beauftragen',
+		order: 'Auftrag bei Aleph:',
+		days: { about: 'etwa {days} Tage', overYear: 'länger als ein Jahr' },
 		now: 'Jetzt sichern',
 		step: {
 			packing: 'Wird gepackt und versiegelt …',
 			uploading: 'Wird zu Aleph hochgeladen …',
+			asking: '…',
 			keeping: 'Aleph wird beauftragt …'
 		},
 		paused: 'Das Netz ist pausiert.',

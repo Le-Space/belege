@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The backup card says what a backup costs, asks Aleph again, and shows the paying address once.** Every backup is a whole copy, paid every day: above "Jetzt sichern" the card shows what the kept backups cost a day together and how long the credits last, and when a new one would leave less than 30 days, it asks before uploading (an estimate, about 54 credits per MiB and day). "Erneut prüfen" now asks Aleph about every backup in the list, by its STORE's item hash (shown, with a link): a request Aleph does not know or refused says so, and "Aleph erneut beauftragen" sends a new STORE for the same file without uploading it again. A 499 MB backup had stayed "Aleph hat noch nicht bestätigt" for good, though Aleph had no request for it. "Erneut prüfen" also reads the credits from Aleph again, not the bridge's answer from when the card opened. The paying account's address shows once, with "Ändern"; the field only to change it. The card says the sealed file lies on Aleph's IPFS – fetchable by its CID, not readable – and that Aleph does not say on how many nodes.
+
 ## [0.14.0] – 2026-10-22
 
 ### Fixed

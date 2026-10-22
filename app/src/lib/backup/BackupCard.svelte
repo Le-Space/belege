@@ -14,19 +14,21 @@
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { releaseName } from '$lib/build-info.js';
 	import { card } from '$lib/ui/styles.js';
-	import { backupName, loadBackups, rememberBackup } from './history.js';
+	import { backupName, loadBackups, rememberBackup, updateBackup } from './history.js';
 	import {
 		BACKUP_CHANNEL,
 		BackupRefusedError,
 		alephEndpoints,
 		backupAddressOf,
 		creditsOf,
+		creditsPerDay,
 		ensureBackupKey,
 		isAddress,
 		isGranted,
 		keepWithKey,
 		loadOwner,
-		saveOwner
+		saveOwner,
+		storeStatus
 	} from './keeper.js';
 
 	let { url, token } = $props();
@@ -52,7 +54,7 @@
 	let checking = $state(false);
 	/** @type {import('./history.js').BackupRecord[]} */
 	let backups = $state([]);
-	/** @type {'' | 'packing' | 'uploading' | 'keeping'} */
+	/** @type {'' | 'packing' | 'asking' | 'uploading' | 'keeping'} */
 	let step = $state('');
 	/** @type {string | null} */
 	let error = $state(null);
@@ -60,6 +62,14 @@
 	let made = $state(null);
 	/** @type {import('./archive.js').BackupProgress | null} what packing is at */
 	let progress = $state(null);
+	/** The address field: open while there is no account, or to change it. */
+	let editingOwner = $state(false);
+	/** A backup packed and waiting for "Hochladen" because of what it costs. */
+	let asking = $state(/** @type {{ size: number, perDay: number, days: number } | null} */ (null));
+	/** @type {((go: boolean) => void) | null} */
+	let answer = null;
+	/** Which history row is being kept again, by CID and time. */
+	let rekeeping = $state('');
 
 	/** The bridge signs while this key is not granted, if it can. */
 	const bridgeSigns = $derived(Boolean(token && status?.configured));
@@ -69,6 +79,16 @@
 	const command = $derived(
 		address ? `pnpm setup:aleph -- --authorize ${address} --channel ${BACKUP_CHANNEL}` : ''
 	);
+	// What the backups Aleph keeps cost a day, together, and how long the
+	// credits last at that rate. Every backup is a whole copy, kept until forgotten.
+	const keptBytes = $derived(
+		backups.filter((b) => b.status === 'processed').reduce((n, b) => n + b.size, 0)
+	);
+	const keptPerDay = $derived(creditsPerDay(keptBytes));
+	/** Below this many days of credits, a new backup asks first. */
+	const ASK_BELOW_DAYS = 30;
+	/** @param {number} perDay */
+	const daysFor = (perDay) => (credits === null || perDay <= 0 ? Infinity : credits / perDay);
 
 	$effect(() => {
 		load(token);
@@ -106,15 +126,94 @@
 		try {
 			const [g, c] = await Promise.allSettled([
 				isGranted({ owner, address, endpoints }),
-				owner === status?.address && status?.credits !== undefined
-					? Promise.resolve(status.credits ?? null)
-					: creditsOf({ owner, endpoints })
+				creditsOf({ owner, endpoints })
 			]);
 			granted = g.status === 'fulfilled' ? g.value : null;
-			credits = c.status === 'fulfilled' ? c.value : null;
+			// Aleph's answer now; the bridge's, read when the card opened, only
+			// when Aleph does not answer (it was stale once credits were added).
+			credits =
+				c.status === 'fulfilled' && c.value !== null
+					? c.value
+					: owner === status?.address
+						? (status?.credits ?? null)
+						: null;
+			await settle();
 		} finally {
 			checking = false;
 		}
+	}
+
+	/**
+	 * Ask Aleph again what became of every backup: it answers `pending` first
+	 * and decides later, a STORE it never took is `unknown`, and one it kept
+	 * can be forgotten since – none of which shows unless someone asks.
+	 */
+	async function settle() {
+		const store = currentStore();
+		if (!store) return;
+		for (const b of backups) {
+			if (!b.itemHash || b.status === 'forgotten') continue;
+			const now = await storeStatus({ itemHash: b.itemHash, endpoints }).catch(() => null);
+			if (now && now !== b.status) backups = await updateBackup(store.settings, b, { status: now });
+		}
+	}
+
+	/**
+	 * Have Aleph keep what is on its IPFS host: signed by this browser's key
+	 * once granted, else by the bridge.
+	 *
+	 * @param {string} cid
+	 * @returns {Promise<{ status: string, itemHash: string, address?: string, sender?: string }>}
+	 */
+	async function keep(cid) {
+		if (granted === true && owner && key) return keepWithKey({ cid, owner, key, endpoints });
+		return { ...(await client.alephKeep(cid)), sender: status?.address };
+	}
+
+	/** @param {unknown} e */
+	const refused = (e) =>
+		e instanceof BackupRefusedError
+			? e.kind === 'credits'
+				? t('messages.bridge.alephNotKept', {
+						credits: Number(e.reason.credits).toLocaleString(intlLocale()),
+						required: Number(e.reason.required).toLocaleString(intlLocale())
+					})
+				: t('messages.bridge.alephRejected', { error: String(e.reason.errorCode ?? '') })
+			: e instanceof Error
+				? e.message
+				: String(e);
+
+	/**
+	 * A backup Aleph does not know, or refused, kept again: the same file on
+	 * Aleph's IPFS host, a new STORE for it – nothing uploaded again.
+	 *
+	 * @param {import('./history.js').BackupRecord} b
+	 */
+	async function keepAgain(b) {
+		const store = currentStore();
+		if (!store || !owner) return;
+		error = null;
+		rekeeping = b.cid + b.at;
+		try {
+			const kept = await keep(b.cid);
+			backups = await updateBackup(store.settings, b, {
+				status: kept.status,
+				itemHash: kept.itemHash,
+				...(kept.sender ? { sender: kept.sender } : {})
+			});
+		} catch (e) {
+			error = refused(e);
+		} finally {
+			rekeeping = '';
+		}
+		if (owner) credits = await creditsOf({ owner, endpoints }).catch(() => credits);
+	}
+
+	/** The answer to "Hochladen?". @param {boolean} go */
+	function decide(go) {
+		answer?.(go);
+		answer = null;
+		asking = null;
 	}
 
 	async function setOwner() {
@@ -127,6 +226,7 @@
 		}
 		owner = await saveOwner(store.settings, ownerInput);
 		ownerInput = owner;
+		editingOwner = false;
 		granted = null;
 		credits = null;
 		await check();
@@ -145,6 +245,16 @@
 				appVersion: releaseName() || 'dev',
 				onProgress: (p) => (progress = p)
 			});
+			// A whole copy costs credits every day it is kept: when the credits
+			// would not last a month with it, ask before it goes up.
+			const perDay = creditsPerDay(built.sealed.length);
+			const days = daysFor(keptPerDay + perDay);
+			if (days < ASK_BELOW_DAYS) {
+				step = 'asking';
+				asking = { size: built.sealed.length, perDay, days };
+				const go = await new Promise((resolve) => (answer = resolve));
+				if (!go) return;
+			}
 			step = 'uploading';
 			// The storage bridge's Aleph backend, in the browser: no key, no bridge.
 			const { createAlephBackend } = await import(
@@ -155,10 +265,7 @@
 				{ name: backupName(at) }
 			);
 			step = 'keeping';
-			const kept =
-				granted === true
-					? await keepWithKey({ cid: handle.id, owner, key, endpoints })
-					: { ...(await client.alephKeep(handle.id)), sender: status?.address };
+			const kept = await keep(handle.id);
 			/** @type {import('./history.js').BackupRecord} */
 			const record = {
 				at: at.toISOString(),
@@ -178,20 +285,11 @@
 			backups = await rememberBackup(store.settings, record);
 			made = record;
 		} catch (e) {
-			error =
-				e instanceof BackupRefusedError
-					? e.kind === 'credits'
-						? t('messages.bridge.alephNotKept', {
-								credits: Number(e.reason.credits).toLocaleString(intlLocale()),
-								required: Number(e.reason.required).toLocaleString(intlLocale())
-							})
-						: t('messages.bridge.alephRejected', { error: String(e.reason.errorCode ?? '') })
-					: e instanceof Error
-						? e.message
-						: String(e);
+			error = refused(e);
 		} finally {
 			step = '';
 			progress = null;
+			asking = null;
 		}
 		// What a backup costs shows on the account's credits.
 		if (owner) credits = await creditsOf({ owner, endpoints }).catch(() => credits);
@@ -237,8 +335,22 @@
 			new Date(iso)
 		);
 	const creditsText = (/** @type {number} */ n) => Math.round(n).toLocaleString(intlLocale());
+	/** Credits a day: a small backup costs less than one. @param {number} n */
+	const perDayText = (n) =>
+		n.toLocaleString(intlLocale(), { maximumFractionDigits: n < 10 ? 2 : 0 });
 	const kept = (/** @type {string} */ s) =>
-		s === 'processed' ? t('backup.kept') : t('backup.pending');
+		s === 'processed'
+			? t('backup.kept')
+			: s === 'unknown'
+				? t('backup.unknown')
+				: s === 'rejected'
+					? t('backup.rejected')
+					: t('backup.pending');
+	/** Days, as "about 8" or "more than a year". @param {number} d */
+	const daysText = (d) =>
+		d > 365
+			? t('backup.days.overYear')
+			: t('backup.days.about', { days: Math.max(0, Math.floor(d)) });
 </script>
 
 {#snippet contents(/** @type {import('./history.js').BackupRecord} */ r)}
@@ -291,13 +403,22 @@
 	{#if owner}
 		<dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
 			<dt class="text-faint">{t('backup.account')}</dt>
-			<dd class="min-w-0">
+			<dd class="flex min-w-0 flex-wrap items-center gap-x-2">
 				<CopyButton
 					text={owner}
 					label={t('backup.copyAddress')}
 					testid="backup-address"
 					valueClass="font-mono text-xs break-all text-heading">{owner}</CopyButton
 				>
+				{#if !editingOwner}
+					<button
+						type="button"
+						class="text-xs text-link underline"
+						onclick={() => (editingOwner = true)}
+						disabled={Boolean(step)}
+						data-testid="backup-owner-change">{t('backup.ownerChange')}</button
+					>
+				{/if}
 			</dd>
 			<dt class="text-faint">{t('backup.credits')}</dt>
 			<dd class="text-heading" data-testid="backup-credits">
@@ -351,7 +472,7 @@
 				disabled={Boolean(step) || checking}
 				data-testid="backup-check">{t('backup.check')}</button
 			>
-			{#if step}
+			{#if step && step !== 'asking'}
 				<span class="text-sm text-faint" role="status" data-testid="backup-step"
 					>{step === 'packing' ? packing(progress) : t(`backup.step.${step}`)}</span
 				>
@@ -359,36 +480,87 @@
 				<span class="text-sm text-faint">{t('backup.paused')}</span>
 			{/if}
 		</div>
+		{#if asking}
+			<div
+				class="mt-3 rounded-md border border-border bg-surface-2 p-3 text-sm"
+				role="alertdialog"
+				aria-labelledby="backup-ask-text"
+				data-testid="backup-ask"
+			>
+				<p id="backup-ask-text" class="text-heading">
+					{t('backup.ask', {
+						size: size(asking.size),
+						perDay: perDayText(asking.perDay),
+						days: daysText(asking.days)
+					})}
+				</p>
+				<div class="mt-2 flex flex-wrap gap-2">
+					<button
+						type="button"
+						class={button}
+						onclick={() => decide(true)}
+						data-testid="backup-upload">{t('backup.upload')}</button
+					>
+					<button
+						type="button"
+						class={button}
+						onclick={() => decide(false)}
+						data-testid="backup-cancel">{t('backup.cancel')}</button
+					>
+				</div>
+			</div>
+		{:else if keptBytes > 0}
+			<p class="mt-2 text-xs text-faint" data-testid="backup-cost">
+				{t('backup.cost', {
+					size: size(keptBytes),
+					perDay: perDayText(keptPerDay),
+					days: daysText(daysFor(keptPerDay))
+				})}
+			</p>
+		{/if}
 	{:else}
 		<p class="mt-2 text-sm text-text" data-testid="backup-no-owner">{t('backup.noOwner')}</p>
 	{/if}
 
-	<form
-		class="mt-3 flex flex-wrap items-end gap-2"
-		onsubmit={(e) => {
-			e.preventDefault();
-			setOwner();
-		}}
-	>
-		<label class="flex min-w-64 flex-1 flex-col text-sm text-faint"
-			>{t('backup.ownerLabel')}
-			<input
-				class="mt-1 rounded-md border border-border bg-surface px-2 py-1.5 font-mono text-xs text-heading"
-				bind:value={ownerInput}
-				placeholder="0x…"
-				autocomplete="off"
-				spellcheck="false"
-				data-testid="backup-owner"
-			/>
-		</label>
-		<button
-			type="submit"
-			class={button}
-			disabled={Boolean(step) || !ownerInput.trim() || ownerInput.trim() === owner}
-			data-testid="backup-owner-save">{t('backup.ownerSave')}</button
+	{#if !owner || editingOwner}
+		<form
+			class="mt-3 flex flex-wrap items-end gap-2"
+			onsubmit={(e) => {
+				e.preventDefault();
+				setOwner();
+			}}
 		>
-	</form>
-	<p class="mt-1 text-xs text-faint">{t('backup.ownerHint')}</p>
+			<label class="flex min-w-64 flex-1 flex-col text-sm text-faint"
+				>{t('backup.ownerLabel')}
+				<input
+					class="mt-1 rounded-md border border-border bg-surface px-2 py-1.5 font-mono text-xs text-heading"
+					bind:value={ownerInput}
+					placeholder="0x…"
+					autocomplete="off"
+					spellcheck="false"
+					data-testid="backup-owner"
+				/>
+			</label>
+			<button
+				type="submit"
+				class={button}
+				disabled={Boolean(step) || !ownerInput.trim() || ownerInput.trim() === owner}
+				data-testid="backup-owner-save">{t('backup.ownerSave')}</button
+			>
+			{#if owner}
+				<button
+					type="button"
+					class={button}
+					onclick={() => {
+						ownerInput = owner ?? '';
+						editingOwner = false;
+					}}
+					data-testid="backup-owner-cancel">{t('backup.cancel')}</button
+				>
+			{/if}
+		</form>
+		<p class="mt-1 text-xs text-faint">{t('backup.ownerHint')}</p>
+	{/if}
 
 	{#if made}
 		<div class="mt-3 text-sm" role="status" data-testid="backup-made">
@@ -432,6 +604,32 @@
 					<span class="text-heading">{when(b.at)}</span>
 					<span class="text-faint">{size(b.size)} · {kept(b.status)}</span>
 					<span class="w-full font-mono text-xs break-all text-faint">{b.cid}</span>
+					{#if b.itemHash}
+						<span class="w-full text-xs text-faint" data-testid="backup-row-order"
+							>{t('backup.order')}
+							<a
+								class="font-mono break-all text-link underline"
+								href={`${endpoints.apiHost}/api/v0/messages/${b.itemHash}`}
+								target="_blank"
+								rel="noopener noreferrer">{b.itemHash}</a
+							></span
+						>
+					{/if}
+					{#if b.status === 'unknown' || b.status === 'rejected'}
+						<span class="flex w-full flex-wrap items-center gap-2 text-xs text-text">
+							{b.status === 'unknown' ? t('backup.unknownHint') : t('backup.rejectedHint')}
+							<button
+								type="button"
+								class={button}
+								onclick={() => keepAgain(b)}
+								disabled={Boolean(step) || Boolean(rekeeping) || !canBackUp}
+								data-testid="backup-rekeep"
+								>{rekeeping === b.cid + b.at
+									? t('backup.step.keeping')
+									: t('backup.rekeep')}</button
+							>
+						</span>
+					{/if}
 					{#if b.databases}
 						<details class="w-full" data-testid="backup-row-details">
 							<summary class="cursor-pointer text-xs text-faint">{t('backup.contents')}</summary>

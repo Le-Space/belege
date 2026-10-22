@@ -18,7 +18,8 @@ export const KEEP = 50;
  * @property {'aleph'} provider
  * @property {string} cid what the backup is fetched by
  * @property {number} size bytes, sealed
- * @property {string} status Aleph's: `processed` is kept, `pending` not yet
+ * @property {string} status Aleph's: `processed` is kept, `pending` not yet,
+ *   `rejected`, or `unknown` when Aleph does not know the STORE (keeper.js `storeStatus`)
  * @property {string} [itemHash] the STORE message
  * @property {string} [address] the Aleph account that pays
  * @property {string} [sender] who signed the STORE: this browser's key, or the bridge's
@@ -70,4 +71,19 @@ export function ingestUrlOf(url) {
 		// not a URL
 	}
 	return null;
+}
+
+/**
+ * Change one backup in the list, found by when it was made and its CID.
+ *
+ * @param {import('../store/repository.js').Collection} settings
+ * @param {Pick<BackupRecord, 'at' | 'cid'>} which
+ * @param {Partial<BackupRecord>} patch
+ */
+export async function updateBackup(settings, which, patch) {
+	const list = (await loadBackups(settings)).map((b) =>
+		b.at === which.at && b.cid === which.cid ? { ...b, ...patch } : b
+	);
+	await setSetting(settings, BACKUPS_KEY, list);
+	return list;
 }
