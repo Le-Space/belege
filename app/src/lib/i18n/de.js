@@ -3116,11 +3116,13 @@ export default {
 				sources: 'Quelle',
 				tab: {
 					passend: 'Passend',
+					jahr: 'Aus {year}',
 					alle: 'Alle Belege',
 					postfach: 'Privates Postfach',
 					paperless: 'Paperless',
 					portal: 'Portal'
 				},
+				unread: 'eingegangen am {date}, noch nicht ausgelesen',
 				other: 'Anderen Beleg suchen',
 				open: 'Doch einen Beleg suchen',
 				sameAmount: 'Betrag gleich',
