@@ -23,6 +23,7 @@
     "setup:alchemy": "pnpm --filter @belege/bridge setup:alchemy",
     "setup:relay": "pnpm --filter @belege/bridge setup:relay",
     "setup:aleph": "pnpm --filter @belege/bridge setup:aleph",
+    "setup:origins": "pnpm --filter @belege/bridge setup:origins",
     "build": "pnpm --filter @belege/app build",
     "check": "pnpm --filter @belege/app check",
     "lint": "pnpm --filter @belege/app lint && pnpm --filter @belege/bridge lint",

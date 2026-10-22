@@ -6,6 +6,14 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`pnpm setup:origins`: which pages may call the bridge**, without editing `bridge.json` or running `setup:hibiscus` again: `-- --add <origin>`, `-- --remove <origin>`, `-- --defaults`; without flags it lists them. Only `appOrigins` changes.
+
+### Changed
+
+- **A bridge that does not let this page in says so, with the command that does.** "Status prüfen" under Integrationen → Bridge said only "nicht erreichbar"; now it tells a running bridge that refuses this page apart and offers `pnpm setup:origins -- --add <this page>` to copy, as the setup guide does. The bridge's log names the same command for a refused origin, and its start-up line says how to change the list.
+
 ## [0.12.8] – 2026-10-22
 
 ### Changed

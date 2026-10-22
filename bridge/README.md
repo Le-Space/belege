@@ -27,6 +27,25 @@ addressed to the accounting alias, and sends only redacted text to the LLM.
 4. **Start it**: `pnpm bridge`. Until a browser is paired it prints a one-time pairing code (10
    minutes, one use). `pnpm bridge -- --pair` prints a new one to pair another browser.
 5. **Pair**: in the app, Integrationen → Bridge → enter the code → Koppeln.
+
+   **Which pages may call the bridge** (`appOrigins`): `http://localhost:5173` (the app from
+   `pnpm dev`) and `https://belege.le-space.de` for a new bridge. Any other page gets 403, the
+   log says `refused origin "…"` with the command that lets it in, and the app's "Status prüfen"
+   says "Die Bridge läuft, lässt diese Seite … aber nicht herein" with the same command to copy.
+   An origin is scheme, host and port: `http://127.0.0.1:5173` is another one than
+   `http://localhost:5173`.
+
+   ```bash
+   pnpm setup:origins                                         # the list, and how to change it
+   pnpm setup:origins -- --add https://belege.le-space.de     # allow a page
+   pnpm setup:origins -- --remove http://127.0.0.1:5173       # take one back
+   pnpm setup:origins -- --defaults                           # the list a new bridge has
+   ```
+
+   Only `appOrigins` in `bridge.json` changes; restart the bridge afterwards. `pnpm setup:hibiscus`
+   asks for the list too, and keeps what you answer – an answer without the domain is why
+   belege.le-space.de may be refused.
+
 6. **Mail** (optional): `pnpm setup:mail` asks for IMAP host, port and user, the accounting
    address (default `buchhaltung@le-space.de`) and the password or Mailu auth token (hidden prompt,
    into the keychain). `IMAP_*` from the repo's `.env` are offered as defaults, `IMAP_PASSWORD`
