@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **"Beleg finden" searches Paperless too.** With Paperless-ngx set up in the bridge, a chip "Paperless" beside "Privates Postfach" asks Paperless' own full-text search – with the search text, else the payment's counterparty – and lists title, correspondent, date and type, and whether the document is among the receipts already. "Übernehmen und zuordnen" takes it over like an upload: read, linked to this payment as your decision, kept as from Paperless so a later fetch knows it. New bridge route `GET /paperless/search?query=` (at most 25, no OCR text; the log never gets the words).
+
 ### Changed
 
 - **"Beleg finden" lists receipts by nearness in time, not by which came in last.** Where no receipt scores, the list opened on the newest receipts – a payment from January 2025 showed receipts of 2026 first. Now receipts with points come first, then the rest by how near their date (else the day they came in) is to the payment, undated last; a penalty (a far date, the other direction) no longer puts a receipt below the unranked. A receipt not read yet shows "eingegangen am …, noch nicht ausgelesen" instead of "—". A new chip "Aus <year>" lists only the receipts of the payment's year.

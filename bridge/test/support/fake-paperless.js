@@ -129,8 +129,16 @@ export async function startFakePaperless({ documents = sampleDocuments(), pageSi
 		if (url.pathname === '/api/document_types/') return json(200, paged(DOCUMENT_TYPES, url));
 		if (url.pathname === '/api/documents/') {
 			const after = url.searchParams.get('added__gt');
+			// Paperless' full-text search, as plain as it gets: every word in title or text.
+			const words = (url.searchParams.get('query') ?? '')
+				.toLowerCase()
+				.split(/\s+/)
+				.filter(Boolean);
 			const rows = documents
 				.filter((d) => !after || Date.parse(d.added) > Date.parse(after))
+				.filter((d) =>
+					words.every((w) => `${d.title ?? ''} ${d.content ?? ''}`.toLowerCase().includes(w))
+				)
 				.map(({ original, archive, ...row }) => row);
 			return json(200, paged(rows, url));
 		}

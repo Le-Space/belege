@@ -509,6 +509,15 @@ export function createBridgeClient({
 			return (await call(`/paperless/documents${q}`)).documents ?? [];
 		},
 		/**
+		 * Paperless' full-text search: at most 25 documents, without their OCR text.
+		 *
+		 * @param {string} query
+		 * @returns {Promise<Omit<import('../paperless/import.js').PaperlessDocument, 'content'>[]>}
+		 */
+		async paperlessSearch(query) {
+			return (await call(`/paperless/search?${new URLSearchParams({ query })}`)).documents ?? [];
+		},
+		/**
 		 * One Paperless document's bytes: the original PDF or image, else its archive PDF.
 		 *
 		 * @param {number} id

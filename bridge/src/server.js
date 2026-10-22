@@ -32,6 +32,7 @@
 //   GET  /kraken/balances                                         token → non-zero balances (kraken.js)
 //   GET  /kraken/ledgers?since=YYYY-MM-DD                         token → the ledger, oldest first
 //   GET  /paperless/documents[?since=<ISO>]                       token → Paperless-ngx documents added since, with OCR text (paperless.js)
+//   GET  /paperless/search?query=<text>                           token → Paperless' full-text search, at most 25 documents, no OCR text
 //   GET  /paperless/document?id=<n>                               token → its bytes: the original PDF or image, else the archive PDF
 //   GET  /chains                                                  token → chains, endpoints, explorers, alchemy: bool (chains/)
 //   GET  /bitcoin/key                                             token → the zpub's fingerprint, never the zpub
@@ -809,6 +810,12 @@ export function createBridgeServer({
 				}
 				const documents = await paperless.documents({ since });
 				log(`paperless: ${documents.length} document(s)${since ? ' since the last import' : ''}`);
+				return send(res, 200, { documents });
+			}
+			if (path === '/paperless/search') {
+				const documents = await paperless.search(url.searchParams.get('query') ?? '');
+				// A count, never the words searched for.
+				log(`paperless: search, ${documents.length} document(s)`);
 				return send(res, 200, { documents });
 			}
 			if (path === '/paperless/document') {

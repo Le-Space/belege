@@ -3083,6 +3083,7 @@ export default {
 					jahr: 'From {year}',
 					alle: 'All receipts',
 					postfach: 'Private mailbox',
+					paperless: 'Paperless',
 					portal: 'Portal'
 				},
 				unread: 'came in on {date}, not read yet',
@@ -3357,6 +3358,15 @@ export default {
 			receiptAssign: 'Link to this payment',
 			receiptPoints: ' ({score} pts)',
 			noBridge: 'To search, pair the bridge under Integrations.',
+			paperless: {
+				hint: 'Searches the full text of your Paperless-ngx through the bridge – with the search text above, else the counterparty. A hit is taken over like an upload, read and linked to this payment.',
+				search: 'Search Paperless: “{query}”',
+				searching: 'Searching Paperless …',
+				none: 'Paperless finds nothing for it. Try another search text above.',
+				known: 'already among the receipts',
+				take: 'Take over and link',
+				taking: 'Taking over …'
+			},
 			vendor: {
 				title: 'Fetch from the vendor',
 				income:
