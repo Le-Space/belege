@@ -37,6 +37,7 @@ import { scryptAsync } from '@noble/hashes/scrypt.js';
 import { recordEvent } from '../activity/events.js';
 import { sealer } from '../db-encryption.js';
 import { COLLECTIONS } from '../store/repository.js';
+import { getSetting, setSetting } from '../store/settings.js';
 import { isUlid } from '../store/ids.js';
 import { DEVICE_PREFIX } from '../sync/device-sync.js';
 
@@ -453,6 +454,41 @@ function check(header, body) {
 }
 
 /**
+ * The setting a take-over writes first and removes last: while it is
+ * there, the take-over of that same file was cut short (a reload, a closed
+ * tab), and these books – partly filled by it – may take it over again.
+ */
+export const MOVE_IN_SETTING = 'move-in';
+
+/**
+ * The interrupted take-over these books hold, or null.
+ *
+ * @param {Record<string, import('../store/repository.js').Collection>} store
+ * @returns {Promise<{ packedAt: string, counts: Record<string, number> } | null>}
+ */
+export async function interruptedMove(store) {
+	const value = /** @type {any} */ (await getSetting(store.settings, MOVE_IN_SETTING));
+	return value && typeof value.packedAt === 'string' ? value : null;
+}
+
+/**
+ * Whether everything these books hold is in the opened file: the books a
+ * cut-short take-over left, which this file may finish.
+ *
+ * @param {Record<string, import('../store/repository.js').Collection>} store
+ * @param {Awaited<ReturnType<typeof openMoveFile>>} opened
+ */
+async function onlyFrom(store, opened) {
+	for (const name of MUST_BE_EMPTY) {
+		const ids = new Set((opened.records[name] ?? []).map((/** @type {any} */ r) => String(r.id)));
+		for (const r of await store[name].list({ includeDeleted: true })) {
+			if (!ids.has(String(r.id))) return false;
+		}
+	}
+	return true;
+}
+
+/**
  * Whether these books are empty enough to take others over.
  *
  * @param {Record<string, import('../store/repository.js').Collection>} store
@@ -473,22 +509,43 @@ export async function isEmptyBooks(store) {
  * @param {Record<string, import('../store/repository.js').Collection>} params.store
  * @param {{ put: (bytes: Uint8Array) => Promise<string> }} params.blobs
  * @param {Awaited<ReturnType<typeof openMoveFile>>} params.opened
+ * @param {(progress: { stage: 'files', done: number, total: number }
+ *   | { stage: 'records', collection: string, done: number, total: number }) => void} [params.onProgress]
+ *   after each file and record, for the screen (large books take minutes)
  * @returns {Promise<{ records: number, files: number }>}
  */
-export async function takeOverBooks({ store, blobs, opened }) {
-	if (!(await isEmptyBooks(store))) {
+export async function takeOverBooks({ store, blobs, opened, onProgress }) {
+	// Empty books, or a take-over cut short whose records all are in this file
+	// too – the same file, or a newer one from the same books (a one-time key
+	// does not outlive a reload). Every record keeps its id, so writing it again
+	// replaces it and nothing doubles; a file from other books is refused.
+	const interrupted = await interruptedMove(store);
+	const again = interrupted !== null && (await onlyFrom(store, opened));
+	if (!again && !(await isEmptyBooks(store))) {
 		throw new MoveError(
 			'These books are not empty: books are taken over only into empty ones.',
 			'not-empty'
 		);
 	}
+	if (!again || interrupted?.packedAt !== opened.header.packedAt) {
+		await setSetting(store.settings, MOVE_IN_SETTING, {
+			packedAt: opened.header.packedAt,
+			counts: opened.header.counts
+		});
+	}
 	/** @type {Map<string, string>} old CID → new */
 	const cids = new Map();
-	for (const [cid, bytes] of opened.files) cids.set(cid, await blobs.put(bytes));
+	const files = opened.files.size;
+	for (const [cid, bytes] of opened.files) {
+		cids.set(cid, await blobs.put(bytes));
+		onProgress?.({ stage: 'files', done: cids.size, total: files });
+	}
 	/** @type {Map<string, string>} key → id of a setting this session already wrote */
 	const existing = new Map((await store.settings.list()).map((r) => [String(r.key), String(r.id)]));
 	let records = 0;
 	for (const name of COLLECTIONS) {
+		const total = opened.records[name].length;
+		let done = 0;
 		for (const r of opened.records[name]) {
 			// One record per setting: the moved one counts, the one this fresh session wrote goes.
 			const local = name === 'settings' ? existing.get(String(r.key)) : undefined;
@@ -504,8 +561,12 @@ export async function takeOverBooks({ store, blobs, opened }) {
 					: r;
 			await store[name].restore(/** @type {any} */ (moved));
 			records++;
+			onProgress?.({ stage: 'records', collection: name, done: ++done, total });
 		}
 	}
+	// Done: the marker goes, and with it any second take-over.
+	const [marker] = await store.settings.list({ where: (r) => r.key === MOVE_IN_SETTING });
+	if (marker) await store.settings.softDelete(marker.id);
 	await recordEvent(store.events, 'books-moved', {
 		packedAt: opened.header.packedAt,
 		records,

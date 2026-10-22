@@ -1001,6 +1001,26 @@ export default {
 		fingerprint: 'Fingerprint:',
 		takeOver: 'Take over',
 		busy: 'Working …',
+		progress: {
+			opening: 'Opening the move file …',
+			files: 'Receipt files: {done} of {total}',
+			records: '{collection}: {done} of {total}',
+			keepOpen:
+				'for {seconds} s – please keep this tab open. If it stops, the same file carries on here.',
+			collections: {
+				transactions: 'Payments',
+				receipts: 'Receipts',
+				partners: 'Partners',
+				accounts: 'Accounts',
+				settings: 'Settings',
+				matches: 'Links',
+				questions: 'Questions',
+				events: 'History',
+				travel: 'Trips'
+			}
+		},
+		interrupted:
+			'A move from {date} into these books was cut short. Pick the same move file again – or a new one from the same old books, if the one-time key no longer holds – and “Take over”: it carries on, nothing doubles.',
 		summary: 'Packed on {date}: {transactions} payments, {receipts} receipts, {files} files.',
 		leftOutNote: 'Not included, as they belong to the old passkey or device: {list}.',
 		leftOut: {

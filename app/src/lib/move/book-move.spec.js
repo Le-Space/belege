@@ -8,6 +8,7 @@ import {
 	MoveError,
 	createMoveKey,
 	generatePassphrase,
+	interruptedMove,
 	isEmptyBooks,
 	keyFingerprint,
 	normalizePassphrase,
@@ -250,5 +251,86 @@ describe('the move file (#328)', () => {
 			where: (/** @type {any} */ r) => r.key === 'datev'
 		});
 		expect(datev.map((/** @type {any} */ r) => r.value.consultantNumber)).toEqual(['1001']);
+	});
+});
+
+describe('a take-over that takes minutes', () => {
+	/** @param {any} a @param {any} key */
+	const pack = async (a, key) =>
+		openMoveFile(
+			(
+				await packBooks({
+					store: a.store,
+					blobs: a.blobs,
+					seal: { to: key.publicKey },
+					appVersion: '0.0.0-test'
+				})
+			).file,
+			key
+		);
+
+	it('says where it is: every file, every record by collection', async () => {
+		const a = await source();
+		const b = await books();
+		const key = createMoveKey();
+		/** @type {any[]} */
+		const seen = [];
+		await takeOverBooks({
+			store: b.store,
+			blobs: b.blobs,
+			opened: await pack(a, key),
+			onProgress: (p) => seen.push(p)
+		});
+		const files = seen.filter((p) => p.stage === 'files');
+		expect(files.at(-1)).toEqual({ stage: 'files', done: 3, total: 3 });
+		const receipts = seen.filter((p) => p.stage === 'records' && p.collection === 'receipts');
+		expect(receipts.at(-1)).toMatchObject({ done: 3, total: 3 });
+		expect(await interruptedMove(b.store)).toBe(null);
+	});
+
+	it('cut short, it carries on with the same or a newer file of the same books – nothing doubles', async () => {
+		const a = await source();
+		const b = await books();
+		const key = createMoveKey();
+		const opened = await pack(a, key);
+		const restore = b.store.receipts.restore;
+		let calls = 0;
+		b.store.receipts.restore = async (/** @type {any} */ r) => {
+			if (++calls === 2) throw new Error('the tab was closed');
+			return restore(r);
+		};
+		await expect(takeOverBooks({ store: b.store, blobs: b.blobs, opened })).rejects.toThrow(
+			/closed/
+		);
+		b.store.receipts.restore = restore;
+		expect(await isEmptyBooks(b.store)).toBe(false);
+		expect(await interruptedMove(b.store)).toMatchObject({ packedAt: opened.header.packedAt });
+
+		// A newer file from the same books (the one-time key did not outlive a reload).
+		const newer = await pack(a, createMoveKey());
+		const done = await takeOverBooks({ store: b.store, blobs: b.blobs, opened: newer });
+		expect(done.records).toBe(8);
+		expect(await b.store.transactions.list()).toHaveLength(1);
+		expect(await b.store.receipts.list({ includeDeleted: true })).toHaveLength(3);
+		expect(await interruptedMove(b.store)).toBe(null);
+	});
+
+	it('cut short, a file from other books is still refused', async () => {
+		const a = await source();
+		const other = await source();
+		const b = await books();
+		const key = createMoveKey();
+		const opened = await pack(a, key);
+		const restore = b.store.receipts.restore;
+		b.store.receipts.restore = async () => {
+			throw new Error('the tab was closed');
+		};
+		await expect(takeOverBooks({ store: b.store, blobs: b.blobs, opened })).rejects.toThrow(
+			/closed/
+		);
+		b.store.receipts.restore = restore;
+		await expect(
+			takeOverBooks({ store: b.store, blobs: b.blobs, opened: await pack(other, createMoveKey()) })
+		).rejects.toMatchObject({ code: 'not-empty' });
 	});
 });

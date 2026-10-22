@@ -13,6 +13,7 @@ All notable changes to Le Space Belege. The format follows
 ### Changed
 
 - **A bridge that does not let this page in says so, with the command that does.** "Status prüfen" under Integrationen → Bridge said only "nicht erreichbar"; now it tells a running bridge that refuses this page apart and offers `pnpm setup:origins -- --add <this page>` to copy, as the setup guide does. The bridge's log names the same command for a refused origin, and its start-up line says how to change the list.
+- **"Übernehmen" in Bücher umziehen shows where it is, and a take-over cut short carries on.** Large books (here: 357 payments, 1,399 receipts, 1,424 files) take minutes, and the card said only "Arbeite …". It now shows each step – opening the file, the receipt files, the records by collection, each with a bar – and the time so far, with a word to keep the tab open. A take-over stopped by a reload or a closed tab left half-filled books that refused any second try; now those books take the same file, or a newer one from the same old books, again and finish – records keep their ids, so nothing doubles. A file from other books is still refused.
 
 ## [0.12.8] – 2026-10-22
 
