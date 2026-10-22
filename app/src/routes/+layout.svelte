@@ -84,10 +84,11 @@
 	>
 		<!--
 		A grid, as in escrow01: on a phone the name and the switches share the
-		first row and the state takes the second; from `sm` on, one row.
+		first row and the state takes the second; from `lg` on, one row (a
+		folding phone opened, ~700 px, squeezed the name into a column of single words).
 	-->
 		<header
-			class="mb-4 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 sm:mb-6 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
+			class="mb-4 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 sm:mb-6 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_auto_auto]"
 		>
 			<div class="col-start-1 row-start-1 flex min-w-0 items-center gap-3">
 				<a
@@ -102,19 +103,23 @@
 					<BelegeMark size={44} />
 				</a>
 				<div class="min-w-0">
-					<p class="font-bold text-heading sm:truncate sm:text-3xl" data-testid="app-name">
+					<p
+						class="font-bold text-heading sm:truncate sm:text-2xl lg:text-3xl"
+						data-testid="app-name"
+					>
 						<span
-							class="block text-xs font-semibold tracking-wide text-faint sm:inline sm:text-3xl sm:font-bold sm:tracking-normal sm:text-heading"
+							class="block text-xs font-semibold tracking-wide text-faint sm:inline sm:text-2xl sm:font-bold sm:tracking-normal sm:text-heading lg:text-3xl"
 							>{t('app.maker')}</span
 						>
-						<span class="block text-xl leading-tight sm:inline sm:text-3xl">{t('app.product')}</span
+						<span class="block text-xl leading-tight sm:inline sm:text-2xl lg:text-3xl"
+							>{t('app.product')}</span
 						>
 					</p>
 					<p class="mt-0.5 hidden text-sm text-faint sm:block">{t('app.tagline')}</p>
 				</div>
 			</div>
 			<div
-				class="col-span-2 row-start-2 flex min-w-0 flex-wrap items-center gap-2 sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:justify-end"
+				class="col-span-2 row-start-2 flex min-w-0 flex-wrap items-center gap-2 lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:justify-end"
 			>
 				<LocalOnlyBadge />
 				{#if ready && app.did}
@@ -127,7 +132,7 @@
 				{/if}
 			</div>
 			<div
-				class="col-start-2 row-start-1 flex flex-wrap items-center justify-end gap-1 sm:col-start-3 sm:flex-nowrap sm:gap-2"
+				class="col-start-2 row-start-1 flex flex-wrap items-center justify-end gap-1 sm:flex-nowrap sm:gap-2 lg:col-start-3"
 			>
 				{#if ready}<SettingsLink />{/if}
 				<PageQr />
