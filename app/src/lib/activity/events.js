@@ -110,11 +110,16 @@ export function filterEvents(events, group = 'all') {
  * The totals the KI card shows: calls, tokens, the last extraction.
  *
  * @param {Record<string, any>[]} events
- * @returns {{ calls: number, failed: number, fallbacks: number, tokens: number, lastAt: string | null, lastModel: string | null }}
+ * @param {{ now?: number }} [options] "the last 7 days" end now
+ * @returns {{ calls: number, failed: number, failedRecent: number, failedReasons: { reason: string, count: number }[], fallbacks: number, tokens: number, lastAt: string | null, lastModel: string | null }}
  */
-export function extractionTotals(events) {
+export function extractionTotals(events, { now = Date.now() } = {}) {
 	let calls = 0;
 	let failed = 0;
+	let failedRecent = 0;
+	/** @type {Map<string, number>} */
+	const reasons = new Map();
+	const recentFrom = now - 7 * 864e5;
 	let fallbacks = 0;
 	let tokens = 0;
 	/** @type {Record<string, any> | null} */
@@ -122,7 +127,12 @@ export function extractionTotals(events) {
 	for (const e of events) {
 		if (e.deleted || e.kind !== 'extract') continue;
 		calls++;
-		if (e.ok === false) failed++;
+		if (e.ok === false) {
+			failed++;
+			if (Date.parse(String(e.at)) >= recentFrom) failedRecent++;
+			const reason = failureReason(e.error);
+			reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
+		}
 		if (e.fallback) fallbacks++;
 		tokens += typeof e.tokensTotal === 'number' ? e.tokensTotal : tokenCount(e.tokens);
 		if (!last || String(e.at) > String(last.at)) last = e;
@@ -130,11 +140,28 @@ export function extractionTotals(events) {
 	return {
 		calls,
 		failed,
+		// In the last 7 days: an old run of failures (credit used up, a slow model) apart from now.
+		failedRecent,
+		// The most frequent reasons, numbers folded so "… 300588 ms" and "… 301154 ms" are one.
+		failedReasons: [...reasons]
+			.map(([reason, count]) => ({ reason, count }))
+			.sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason))
+			.slice(0, 3),
 		fallbacks,
 		tokens,
 		lastAt: last?.at ?? null,
 		lastModel: last?.model ?? null
 	};
+}
+
+/**
+ * A failure's reason to count by: the message, its numbers as `#`, at most 120 characters.
+ *
+ * @param {unknown} error
+ */
+export function failureReason(error) {
+	const text = String(error ?? '').trim() || '?';
+	return text.replace(/\d+/g, '#').slice(0, 120);
 }
 
 /**

@@ -21,6 +21,7 @@ import { FAKE_LLM_KEY, startFakeLlm } from '@belege/bridge/testing/llm';
 import { FAKE_PAPERLESS_TOKEN, startFakePaperless } from '@belege/bridge/testing/paperless';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
+import { openIntegration } from './integrations.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -104,6 +105,12 @@ test('documents from Paperless become receipts, scans read with its OCR text', a
 	await page.getByRole('button', { name: 'Koppeln' }).click();
 	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
 	await expect(page.getByTestId('integration-paperless')).toBeVisible();
+
+	// Its fake model is on 127.0.0.1, but setup:llm was never told it runs here (#438):
+	// blacked out, and the KI card says how to change that.
+	await openIntegration(page, 'ki');
+	await expect(page.getByTestId('ki-redaction')).toHaveAttribute('data-active', 'true');
+	await expect(page.getByTestId('ki-redaction-command')).toContainText('pnpm setup:llm');
 
 	// Opening Belege fetches on its own: four documents, the spreadsheet is no receipt file.
 	await tab('Belege').click();

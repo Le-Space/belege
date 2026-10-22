@@ -3831,6 +3831,9 @@ export default {
 			totalsValue: '{calls} Aufrufe · {tokens} Tokens',
 			totalsFailed: ' · {count} fehlgeschlagen',
 			totalsFallback: ' · {count}× zweiter Versuch',
+			failedRecent: 'davon in den letzten 7 Tagen: {count}. Die häufigsten Gründe:',
+			redactionConfirm:
+				'Das Modell läuft auf diesem Rechner? Einmal im Terminal, bei „Does the model run on this machine itself“ Enter, dann die Bridge neu starten – danach wird nichts mehr geschwärzt:',
 			verlauf: 'Alle Aufrufe im Verlauf',
 			technical: [
 				'Die Bridge schickt die Textebene eines PDFs (oder den Text einer E-Mail) an die OpenAI-kompatible Chat-API des Anbieters (/chat/completions, JSON-Modus, max_tokens 6000). Vorher schwärzt sie Namen aus ihrer Liste und deine Firmennamen aus den Einstellungen, Namen nach einer Anrede oder einem Etikett („Herr“, „Ansprechpartner:“, auch in anderen Sprachen und Schriften, etwa „Пассажир:“ oder „Yolcu:“), Passnummern, IBANs und Kartennummern bis auf die letzten vier Stellen, E-Mail-Adressen (von fremden bleibt die Domain), Telefonnummern, Geburtsdaten, Steuernummern, Straßen, Postleitzahlen und Links (nur der Host bleibt). Das begrenzt, was hinausgeht, anonym macht es den Text nicht: Ein Name, der auf keiner Liste steht und hinter keinem Etikett, geht durch, ebenso Anbieter, Beträge, Rechnungsnummern und worum es im Beleg geht. Soll nichts hinausgehen, stell ein Modell auf diesem Rechner ein (etwa Ollama). Was gesendet wurde, steht beim Beleg unter „An die KI gesendet“.',

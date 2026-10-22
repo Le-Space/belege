@@ -3786,6 +3786,9 @@ export default {
 			totals: 'So far',
 			totalsValue: '{calls} calls · {tokens} tokens',
 			totalsFailed: ' · {count} failed',
+			failedRecent: 'of them in the last 7 days: {count}. The most frequent reasons:',
+			redactionConfirm:
+				'Does the model run on this computer? Once in the terminal, Enter at “Does the model run on this machine itself”, then restart the bridge – after that nothing is blacked out:',
 			totalsFallback: ' · {count}× second attempt',
 			verlauf: 'All calls in History',
 			technical: [
