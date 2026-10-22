@@ -110,9 +110,15 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 		`pnpm setup:aleph -- --authorize ${browserKey} --channel BELEGE-BACKUP`
 	);
 	await expect(card.getByTestId('backup-no-credits')).toBeVisible();
+	// Without credits the page asks before it uploads a copy that costs every day.
+	await card.getByTestId('backup-now').click();
+	await expect(card.getByTestId('backup-ask')).toContainText(
+		/Credits pro Tag, solange Aleph es aufbewahrt.*reichen die Credits dann etwa 0 Tage/,
+		{ timeout: 30_000 }
+	);
 	// Without credits Aleph keeps nothing (a STORE is paid in credits since
 	// storage bridge 0.17.0), and the app says how many it takes.
-	await card.getByTestId('backup-now').click();
+	await card.getByTestId('backup-upload').click();
 	await expect(card.getByTestId('backup-error')).toContainText(
 		/Aleph hat die Sicherung nicht behalten: Auf dem Konto der Bridge sind 0 Credits, für einen Tag braucht diese Sicherung \d+/,
 		{ timeout: 30_000 }
@@ -153,6 +159,31 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 	expect(bridgeOut).toContain('backup: kept on Aleph, processed');
 	expect(bridgeOut).not.toContain(cid);
 	expect(bridgeOut).not.toContain(KEY);
+	// With credits for years, no question; what the kept backups cost a day shows.
+	await expect(card.getByTestId('backup-ask')).toHaveCount(0);
+	await expect(card.getByTestId('backup-cost')).toContainText('länger als ein Jahr');
+	// The paying account shows once; its field only to change it.
+	await expect(card.getByTestId('backup-owner')).toHaveCount(0);
+	await card.getByTestId('backup-owner-change').click();
+	await expect(card.getByTestId('backup-owner')).toHaveValue(alephAccountOf(KEY));
+	await card.getByTestId('backup-owner-cancel').click();
+	await expect(card.getByTestId('backup-owner')).toHaveCount(0);
+
+	// A STORE Aleph never took (it does not know the item hash): "Erneut
+	// prüfen" asks, says so, and the same file is kept again, not uploaded again.
+	const row = card.getByTestId('backup-row').first();
+	await expect(row.getByTestId('backup-row-order')).toContainText(/[0-9a-f]{64}/);
+	aleph.stores.splice(
+		aleph.stores.findIndex((s) => s.cid === cid),
+		1
+	);
+	await card.getByTestId('backup-check').click();
+	await expect(row).toContainText('Aleph kennt den Auftrag nicht');
+	await row.getByTestId('backup-rekeep').click();
+	await expect(row).toContainText('von Aleph aufbewahrt', { timeout: 30_000 });
+	await expect(row.getByTestId('backup-rekeep')).toHaveCount(0);
+	expect(aleph.added.size).toBe(2);
+	expect(aleph.stores.at(-1)).toMatchObject({ cid, status: 'processed' });
 
 	// The account allows this browser's key, with the command the page showed.
 	/** @type {string[]} */ const printed = [];
@@ -182,7 +213,8 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 		payment: 'credit',
 		status: 'processed'
 	});
-	expect(bridgeOut.match(/backup: kept on Aleph/g)).toHaveLength(1);
+	// Twice by the bridge: the backup, and keeping it again; none since the grant.
+	expect(bridgeOut.match(/backup: kept on Aleph/g)).toHaveLength(2);
 
 	// The overview says so.
 	await page.getByTestId('integration-back').click();

@@ -37,6 +37,12 @@ _Integrationen → Backup → "Jetzt sichern"_.
 
 The backup never passes through the bridge. The page shows the backup's CID; keep it somewhere.
 
+**What it costs.** Every backup is a whole copy, kept – and paid for every day – until it is forgotten. Above "Jetzt sichern" the page shows what the backups Aleph keeps cost a day together, and how long the credits last. When a new backup would leave less than 30 days of credits, the page asks before it uploads. The rate is an estimate (about 54 credits per MiB and day, as Aleph asked on 2026-10-03); Aleph sets the price.
+
+**Whether Aleph kept it.** Aleph answers a STORE with `pending` first and decides later. "Erneut prüfen" asks Aleph about every backup in the list again, by its request (the STORE's item hash, shown with a link). If Aleph does not know a request, or refused it, the row says so, and "Aleph erneut beauftragen" sends a new STORE for the same file – nothing is uploaded again.
+
+**Who can fetch it.** The sealed file is on Aleph's IPFS: whoever knows its CID can download it through any IPFS gateway, but not open it. How many of Aleph's nodes hold a copy, Aleph does not say; the node that processes the STORE pins it.
+
 This browser's key is made here and kept sealed in the settings, as the bridge token is. It goes with the books to your own devices and into every backup. A stolen key could only have Aleph keep files on that one channel at the account's expense. It opens no backup, since those are sealed with the passkey's key, and it moves no funds. `pnpm setup:aleph -- --revoke <address>` takes the grant back.
 
 ## Restore
@@ -84,10 +90,11 @@ Records keep their ids, links and times; receipt files are sealed anew with the 
 
 _Everything left of the line never leaves the device; what crosses it is ciphertext. The data key is derived from the passkey and exists nowhere else — like an SSH private key._
 
-- **To Aleph's IPFS host, from the browser:** the sealed file. Aleph sees its size and this computer's IP address, not what is in it.
+- **To Aleph's IPFS host, from the browser:** the sealed file. Aleph sees its size and this computer's IP address, not what is in it. Anyone who knows the CID can fetch the sealed file from IPFS.
 - **To the Aleph API, from the browser:**
   - the STORE message, with the address of this browser's key, the account's and the file's CID;
-  - reads of the account's grants, its credits and its list of backups, by its address.
+  - reads of the account's grants, its credits and its list of backups, by its address;
+  - on "Erneut prüfen", the item hash of each backup's STORE, to ask what became of it.
 - **To the Aleph API, from the bridge:**
   - without the grant, the STORE message with the address of its backup key and the file's CID;
   - on `--authorize` and `--revoke`, the list of keys the account allows.

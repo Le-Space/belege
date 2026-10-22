@@ -274,3 +274,30 @@ export async function findBackups({ owner, endpoints = alephEndpoints(), fetch: 
 	});
 	return stores;
 }
+
+/**
+ * Credits a day for keeping one MiB on Aleph, paid in credits: what Aleph
+ * asked for a day of a file when an account had too few (measured 2026-10-03,
+ * the same rate as the fake in bridge/test/support/fake-aleph.js). An
+ * estimate: Aleph sets the price, and says the real one only when it refuses.
+ */
+export const CREDITS_PER_MIB_DAY = 54;
+
+/** About what keeping `bytes` costs a day, in credits. @param {number} bytes */
+export const creditsPerDay = (bytes) => (bytes / 1048576) * CREDITS_PER_MIB_DAY;
+
+/**
+ * What Aleph says about a STORE now: `processed`, `pending`, `rejected`,
+ * `forgotten` – or `unknown` when it does not know the message at all (a
+ * request that never arrived, or was dropped before it was checked).
+ *
+ * @param {{ itemHash: string, endpoints?: AlephEndpoints, fetch?: typeof fetch }} params
+ * @returns {Promise<string>}
+ */
+export async function storeStatus({ itemHash, endpoints = alephEndpoints(), fetch: f = fetch }) {
+	const response = await f(`${endpoints.apiHost}/api/v0/messages/${encodeURIComponent(itemHash)}`);
+	if (response.status === 404) return 'unknown';
+	if (!response.ok) throw new Error(`Aleph did not answer: ${response.status}`);
+	const body = /** @type {any} */ (await response.json());
+	return typeof body?.status === 'string' ? body.status : 'unknown';
+}

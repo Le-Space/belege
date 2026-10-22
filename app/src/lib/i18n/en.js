@@ -1063,7 +1063,7 @@ export default {
 	},
 	backup: {
 		title: 'Backup',
-		what: 'Everything Le Space Belege keeps in this browser – the books and every receipt file – as one file, sealed with a key from your passkey, kept on Aleph Cloud. Nobody but you can open it, with the same passkey.',
+		what: "Everything Le Space Belege keeps in this browser – the books and every receipt file – as one file, sealed with a key from your passkey. It lies on Aleph's IPFS: whoever knows its identifier (CID) can download it, but not open it – only you can, with the same passkey. Aleph keeps it while the account has credits; on how many nodes, Aleph does not say.",
 		notSetUp: 'The bridge has no backup key yet. In the terminal, in Belege’s folder:',
 		noOwner:
 			'No Aleph account that pays yet: pair the bridge after running pnpm setup:aleph there once, or enter the account’s address.',
@@ -1091,10 +1091,24 @@ export default {
 			'The account has no credits. Aleph keeps a backup only while the account can pay: put credits on it at app.aleph.cloud, or send it ALEPH.',
 		leaves:
 			'Goes out: the sealed file to Aleph’s IPFS host (it sees this computer’s IP address and the size), and to the Aleph API an order naming the file – signed by this browser’s key or, without the grant, by the bridge. To show this page, it asks Aleph for the account’s grants and credits.',
+		ownerChange: 'Change',
+		ask: 'This backup is {size} and costs about {perDay} credits a day for as long as Aleph keeps it – every backup is a whole copy. With the backups already there, the credits then last {days}. Upload?',
+		upload: 'Upload',
+		cancel: 'Cancel',
+		cost: 'Aleph keeps {size} of backups, about {perDay} credits a day – the credits last {days}. An estimate: Aleph sets the price.',
+		unknown: 'Aleph does not know the request',
+		rejected: 'Aleph refused',
+		unknownHint:
+			"The file is on Aleph's IPFS host, but Aleph knows no request to keep it. Without one, Aleph may delete it.",
+		rejectedHint: 'Aleph refused the request and does not keep the file.',
+		rekeep: 'Ask Aleph again',
+		order: 'Request at Aleph:',
+		days: { about: 'about {days} days', overYear: 'more than a year' },
 		now: 'Back up now',
 		step: {
 			packing: 'Packing and sealing …',
 			uploading: 'Uploading to Aleph …',
+			asking: '…',
 			keeping: 'Having Aleph keep it …'
 		},
 		paused: 'The network is paused.',

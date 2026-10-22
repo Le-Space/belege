@@ -14,14 +14,17 @@ import {
 	BACKUP_CHANNEL,
 	BackupRefusedError,
 	KEY_SETTING,
+	CREDITS_PER_MIB_DAY,
 	alephEndpoints,
 	creditsOf,
+	creditsPerDay,
 	ensureBackupKey,
 	findBackups,
 	isGranted,
 	keepWithKey,
 	loadOwner,
-	saveOwner
+	saveOwner,
+	storeStatus
 } from './keeper.js';
 
 const OWNER = toChecksumAddress(`0x${'ab'.repeat(20)}`);
@@ -292,5 +295,32 @@ describe('keeping it on Aleph with this browser’s key', () => {
 		const url = new URL(aleph.asked[0]);
 		expect(url.searchParams.get('owners')).toBe(OWNER);
 		expect(url.searchParams.get('channels')).toBe(BACKUP_CHANNEL);
+	});
+});
+
+describe('after the backup went up', () => {
+	/** @param {number} code @param {unknown} [body] @returns {typeof fetch} */
+	const answering = (code, body) =>
+		/** @type {any} */ (
+			async (/** @type {string} */ url) => {
+				expect(url).toBe(`https://aleph.test/api/v0/messages/${'c'.repeat(64)}`);
+				return new Response(JSON.stringify(body ?? {}), { status: code });
+			}
+		);
+
+	it('asks Aleph what became of a STORE, and says when Aleph does not know it', async () => {
+		const ask = (/** @type {typeof fetch} */ f) =>
+			storeStatus({ itemHash: 'c'.repeat(64), endpoints, fetch: f });
+		expect(await ask(answering(200, { status: 'processed' }))).toBe('processed');
+		expect(await ask(answering(200, { status: 'pending' }))).toBe('pending');
+		expect(await ask(answering(200, { status: 'rejected', error_code: 6 }))).toBe('rejected');
+		expect(await ask(answering(404, { error: 'not found' }))).toBe('unknown');
+		await expect(ask(answering(503))).rejects.toThrow('503');
+	});
+
+	it('estimates what keeping a backup costs a day', () => {
+		expect(creditsPerDay(1048576)).toBe(CREDITS_PER_MIB_DAY);
+		// The 499 MB a full set of books came to: about 25,700 a day.
+		expect(Math.round(creditsPerDay(499_333_147))).toBe(25715);
 	});
 });
