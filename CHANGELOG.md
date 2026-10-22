@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The KI card says why it blacks out a local model, and why reads failed.** A model on 127.0.0.1 whose `setup:llm` answer is missing (a config from before #423) is blacked out since #438; the card now says so, with `pnpm setup:llm` to copy. Under "Bisher" it shows how many failures were in the last 7 days and the three most frequent reasons, numbers folded – so an old run (credit used up, a slow model) is told apart from a problem now.
+
 ### Added
 
 - **"Beleg finden" searches Paperless too.** With Paperless-ngx set up in the bridge, a chip "Paperless" beside "Privates Postfach" asks Paperless' own full-text search – with the search text, else the payment's counterparty – and lists title, correspondent, date and type, and whether the document is among the receipts already. "Übernehmen und zuordnen" takes it over like an upload: read, linked to this payment as your decision, kept as from Paperless so a later fetch knows it. New bridge route `GET /paperless/search?query=` (at most 25, no OCR text; the log never gets the words).

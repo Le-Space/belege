@@ -3,6 +3,7 @@
 	// its key is there, what was read so far. Moved from the Integrationen page.
 	import { resolve } from '$app/paths';
 	import WayOut from '$lib/help/WayOut.svelte';
+	import CopyButton from '$lib/CopyButton.svelte';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
 	import { extractionTotals } from '$lib/activity/events.js';
 	import { integer } from '$lib/receipts/how.js';
@@ -18,6 +19,14 @@
 	/** @type {string | null} */
 	let llmError = $state(null);
 	let totals = $derived(extractionTotals(app.events));
+	// A model on this computer whose setup:llm answer is missing (a config from before #423).
+	let unconfirmedLocal = $derived.by(() => {
+		const status = /** @type {any} */ (llmStatus);
+		return (
+			status?.redaction?.mode === 'auto' &&
+			/^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/.test(String(status?.provider ?? ''))
+		);
+	});
 	let lastMoment = $derived(totals.lastAt ? describeMoment(totals.lastAt) : null);
 	let token = $derived(bridge.token);
 
@@ -91,6 +100,19 @@
 					{llmStatus.redaction.active
 						? t('integrationen.ki.redactionOn')
 						: t('integrationen.ki.redactionOff')}
+					{#if unconfirmedLocal}
+						<!-- A model on this computer that setup:llm was not told about: blacked out until it is (#438). -->
+						<span class="mt-1 block text-xs text-text" data-testid="ki-redaction-confirm">
+							{t('integrationen.ki.redactionConfirm')}
+							<CopyButton
+								text="pnpm setup:llm"
+								label={t('help.copyCommand')}
+								testid="ki-redaction-command"
+								valueClass="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs whitespace-nowrap text-heading"
+								>pnpm setup:llm</CopyButton
+							>
+						</span>
+					{/if}
 				</dd>
 			{/if}
 			<dt class="text-faint">{t('integrationen.ki.terms')}</dt>
@@ -114,15 +136,27 @@
 				{/if}
 			</dd>
 			<dt class="text-faint">{t('integrationen.ki.totals')}</dt>
-			<dd class="text-heading tabular-nums" data-testid="ki-totals">
-				{t('integrationen.ki.totalsValue', {
-					calls: integer(totals.calls),
-					tokens: integer(totals.tokens)
-				})}{totals.failed
-					? t('integrationen.ki.totalsFailed', { count: totals.failed })
-					: ''}{totals.fallbacks
-					? t('integrationen.ki.totalsFallback', { count: totals.fallbacks })
-					: ''}
+			<dd class="text-heading tabular-nums">
+				<span data-testid="ki-totals"
+					>{t('integrationen.ki.totalsValue', {
+						calls: integer(totals.calls),
+						tokens: integer(totals.tokens)
+					})}{totals.failed
+						? t('integrationen.ki.totalsFailed', { count: totals.failed })
+						: ''}{totals.fallbacks
+						? t('integrationen.ki.totalsFallback', { count: totals.fallbacks })
+						: ''}</span
+				>
+				{#if totals.failed}
+					<span class="mt-1 block text-xs text-text" data-testid="ki-failed">
+						{t('integrationen.ki.failedRecent', { count: integer(totals.failedRecent) })}
+					</span>
+					<ul class="mt-0.5 text-xs text-faint" data-testid="ki-failed-reasons">
+						{#each totals.failedReasons as r (r.reason)}
+							<li>{integer(r.count)} × <span class="break-all">{r.reason}</span></li>
+						{/each}
+					</ul>
+				{/if}
 			</dd>
 		</dl>
 		<a
