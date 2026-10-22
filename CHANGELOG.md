@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.14.0] – 2026-10-22
+
 ### Fixed
 
 - **A folding phone shows the app at its own width again.** Below 768 px the payments page was as wide as its month strip – nine months made it 1,664 px – and the phone zoomed the whole app out to fit, small and movable sideways. The strip scrolls inside its column now. On a narrow screen a payment's account and amount take a line of their own instead of running off the edge; between 640 and 1024 px (a folding phone opened) the name and the switches share the first row of the header and the state takes the second, instead of the name squeezed to a column of single words. A new E2E spec checks six pages at 344 and 690 px.
