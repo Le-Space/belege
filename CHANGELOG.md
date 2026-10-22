@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.13.0] – 2026-10-22
+
 ### Added
 
 - **`pnpm setup:origins`: which pages may call the bridge**, without editing `bridge.json` or running `setup:hibiscus` again: `-- --add <origin>`, `-- --remove <origin>`, `-- --defaults`; without flags it lists them. Only `appOrigins` changes.
