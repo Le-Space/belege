@@ -58,16 +58,19 @@ export function contradictions(receipt, tx) {
  * @param {{ name: string, bytes: Uint8Array }} params.file
  * @param {{ companyNames?: string[] }} [params.ctx]
  * @param {(bytes: Uint8Array) => Promise<{ text: string }>} [params.pdfText]
+ * @param {{ source: import('./import.js').ReceiptSource, sourceRef: string, fields?: Record<string, any> }} [params.origin]
+ *   where the file came from when not an upload – e.g. Paperless, so a later fetch knows it
  * @returns {Promise<{ outcome: 'linked' | 'linked-elsewhere' | 'unsupported' | 'too-large', receipt: StoredRecord | null, duplicate: boolean, score: number | null, reasons: string[], warnings: ('amount' | 'invoice-number' | 'unread')[], extractError: string | null, elsewhere?: StoredRecord | null }>}
  */
-export async function attachUpload({ store, blobs, client, tx, file, ctx = {}, pdfText }) {
+export async function attachUpload({ store, blobs, client, tx, file, ctx = {}, pdfText, origin }) {
 	const imported = await importFile({
 		receipts: store.receipts,
 		blobs,
 		bytes: file.bytes,
 		fileName: file.name,
-		source: 'upload',
-		sourceRef: `upload:${file.name}`
+		source: origin?.source ?? 'upload',
+		sourceRef: origin?.sourceRef ?? `upload:${file.name}`,
+		...(origin?.fields ? { fields: origin.fields } : {})
 	});
 	/** @type {StoredRecord | null} */
 	let receipt = imported.record;

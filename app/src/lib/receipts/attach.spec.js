@@ -91,6 +91,30 @@ describe('attachUpload', () => {
 		expect(kinds).toContain('extract');
 	});
 
+	it('from Paperless: kept as such, so a later Paperless fetch knows it', async () => {
+		const t = await booking();
+		const r = await attachUpload({
+			store: /** @type {any} */ (store),
+			blobs,
+			client: bridge({ vendor: 'Kabel Test GmbH', gross: 39.99, invoice_number: 'KT-2026-0901' }),
+			tx: t,
+			file: { name: 'scan-7.pdf', bytes: pdf('P') },
+			pdfText,
+			origin: {
+				source: 'paperless',
+				sourceRef: 'paperless:7',
+				fields: { paperless: { id: 7, title: 'Rechnung Kabel' } }
+			}
+		});
+		expect(r.outcome).toBe('linked');
+		const receipt = await store.receipts.get(r.receipt?.id);
+		expect(receipt).toMatchObject({
+			source: 'paperless',
+			sourceRef: 'paperless:7',
+			paperless: { id: 7, title: 'Rechnung Kabel' }
+		});
+	});
+
 	it('low points still link, with the contradictions named; the same file again is that receipt', async () => {
 		const t = await booking();
 		const first = await attachUpload({

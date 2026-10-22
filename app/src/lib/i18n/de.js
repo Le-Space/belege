@@ -3118,6 +3118,7 @@ export default {
 					passend: 'Passend',
 					alle: 'Alle Belege',
 					postfach: 'Privates Postfach',
+					paperless: 'Paperless',
 					portal: 'Portal'
 				},
 				other: 'Anderen Beleg suchen',
@@ -3393,6 +3394,15 @@ export default {
 			receiptAssign: 'Dieser Zahlung zuordnen',
 			receiptPoints: ' ({score} P.)',
 			noBridge: 'Für die Suche die Bridge unter Integrationen koppeln.',
+			paperless: {
+				hint: 'Sucht im Volltext deines Paperless-ngx über die Bridge – mit dem Suchtext oben, sonst mit der Gegenpartei. Ein Treffer wird wie ein Upload übernommen, ausgelesen und dieser Zahlung zugeordnet.',
+				search: 'In Paperless suchen: „{query}“',
+				searching: 'Suche in Paperless …',
+				none: 'Paperless findet dazu nichts. Anderen Suchtext oben eingeben.',
+				known: 'schon in den Belegen',
+				take: 'Übernehmen und zuordnen',
+				taking: 'Übernehme …'
+			},
 			vendor: {
 				title: 'Beim Anbieter holen',
 				income:

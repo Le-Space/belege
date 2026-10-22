@@ -146,4 +146,32 @@ test('documents from Paperless become receipts, scans read with its OCR text', a
 	await expect(page.getByTestId('paperless-card').getByTestId('paperless-skip-tags')).toHaveValue(
 		'aus-Mail'
 	);
+
+	// "Beleg finden" on a payment asks Paperless' own search and links the hit.
+	await page.evaluate(() =>
+		/** @type {any} */ (window).__belegeE2E.addTransaction({
+			bookedOn: '2026-09-10',
+			counterparty: 'Musterbaumarkt',
+			purpose: 'Kartenzahlung',
+			amountCents: -499
+		})
+	);
+	await tab('Zahlungen').click();
+	await page.getByTestId('transaction').filter({ hasText: 'Musterbaumarkt' }).click();
+	const detail = page.getByTestId('tx-detail');
+	await detail.getByTestId('tx-find-tab-paperless').click();
+	await detail.getByTestId('tx-find-query').fill('Schrauben');
+	await detail.getByTestId('tx-paperless-search').click();
+	const hit = detail.getByTestId('tx-paperless-hit');
+	await expect(hit).toHaveCount(1);
+	await expect(hit).toContainText('Kassenbon Baumarkt');
+	// Fetched before: the hit says so, and taking it links that receipt, no copy.
+	await expect(hit).toContainText('schon in den Belegen');
+	const before = paperless.seen.filter((p) => p.includes('query=')).length;
+	expect(before).toBeGreaterThan(0);
+	await hit.getByTestId('tx-paperless-take').click();
+	await expect(detail.getByTestId('tx-upload-result')).toContainText('Zugeordnet');
+	await expect(detail.getByTestId('tx-linked-state')).toContainText('bestätigt');
+	// The words searched for never reach the bridge's log.
+	expect(bridgeOut).not.toContain('Schrauben');
 });

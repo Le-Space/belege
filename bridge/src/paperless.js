@@ -29,6 +29,8 @@ export const PAGE_SIZE = 100;
 const MAX_PAGES = 100;
 /** The OCR text of one document, at most (the extraction reads no more either). */
 export const MAX_CONTENT = 30_000;
+/** A search lists at most this many documents. */
+export const SEARCH_LIMIT = 25;
 const LIST_TIMEOUT_MS = 30_000;
 const FILE_TIMEOUT_MS = 120_000;
 
@@ -193,6 +195,49 @@ export function createPaperlessClient({ baseUrl, getToken, fetch: doFetch = fetc
 					originalFileName: typeof r.original_file_name === 'string' ? r.original_file_name : null,
 					mimeType: typeof r.mime_type === 'string' ? r.mime_type : null,
 					content: typeof r.content === 'string' ? r.content.slice(0, MAX_CONTENT) : ''
+				}));
+		},
+
+		/**
+		 * Paperless' own full-text search (#318 follow-up): at most `limit` documents
+		 * for `query`, best first, without their OCR text – a list to pick from.
+		 *
+		 * @param {string} query 1–200 characters
+		 * @param {{ limit?: number }} [options]
+		 * @returns {Promise<Omit<PaperlessDocument, 'content'>[]>}
+		 */
+		async search(query, { limit = SEARCH_LIMIT } = {}) {
+			const q = String(query ?? '').trim();
+			if (!q || q.length > 200) {
+				throw new PaperlessError('a search needs 1 to 200 characters', 'PAPERLESS_BAD_QUERY', 400);
+			}
+			const [tags, correspondents, types] = await Promise.all([
+				names('/api/tags/'),
+				names('/api/correspondents/'),
+				names('/api/document_types/')
+			]);
+			const page = Math.max(1, Math.min(Number(limit) || SEARCH_LIMIT, SEARCH_LIMIT));
+			const body = await json(
+				`/api/documents/?${new URLSearchParams({ query: q, page_size: String(page), page: '1' })}`
+			);
+			const rows = Array.isArray(body?.results) ? body.results : [];
+			return rows
+				.filter((r) => Number.isSafeInteger(r?.id))
+				.slice(0, page)
+				.map((r) => ({
+					id: Number(r.id),
+					title: typeof r.title === 'string' ? r.title : '',
+					created: day(r.created_date) ?? day(r.created),
+					added: typeof r.added === 'string' ? r.added : null,
+					correspondent:
+						r.correspondent == null ? null : (correspondents.get(Number(r.correspondent)) ?? null),
+					documentType:
+						r.document_type == null ? null : (types.get(Number(r.document_type)) ?? null),
+					tags: (Array.isArray(r.tags) ? r.tags : [])
+						.map((/** @type {unknown} */ id) => tags.get(Number(id)))
+						.filter((/** @type {unknown} */ n) => typeof n === 'string' && n),
+					originalFileName: typeof r.original_file_name === 'string' ? r.original_file_name : null,
+					mimeType: typeof r.mime_type === 'string' ? r.mime_type : null
 				}));
 		},
 

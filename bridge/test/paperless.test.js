@@ -253,6 +253,35 @@ describe('/paperless routes', () => {
 		}
 	});
 
+	test('search: Paperless full text, no OCR text out, the words never in the log', async () => {
+		const { bridge, port, logged, auth } = await bridgeWith(true);
+		try {
+			assert.equal(
+				(await request(port, '/paperless/search?query=Baumarkt', { headers: { origin: APP } }))
+					.status,
+				401
+			);
+			const hit = await request(port, '/paperless/search?query=Schrauben', { headers: auth });
+			assert.equal(hit.status, 200);
+			assert.deepEqual(
+				hit.json.documents.map((/** @type {any} */ d) => d.title),
+				['Kassenbon Baumarkt']
+			);
+			assert.equal('content' in hit.json.documents[0], false);
+			const none = await request(port, '/paperless/search?query=Nirgendwo', { headers: auth });
+			assert.deepEqual(none.json.documents, []);
+			const empty = await request(port, '/paperless/search?query=', { headers: auth });
+			assert.equal(empty.status, 400);
+			assert.equal(
+				logged.some((l) => l.includes('Schrauben')),
+				false
+			);
+			assert.ok(logged.some((l) => l === 'paperless: search, 1 document(s)'));
+		} finally {
+			await bridge.close();
+		}
+	});
+
 	test('without setup:paperless, a 503 that says what to run', async () => {
 		const { bridge, port, auth } = await bridgeWith(false);
 		try {

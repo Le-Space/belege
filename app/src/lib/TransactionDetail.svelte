@@ -136,6 +136,7 @@
 	import { cleanDatevSettings, privateAccounts } from './booking/settings.js';
 	import { graceWait, localDay } from './matching/grace.js';
 	import { list, t } from './i18n/index.js';
+	import { paperlessSourceRef } from './paperless/import.js';
 
 	/** @type {{ txId: string, onclose: () => void, onopen: (id: string) => void }} */
 	let { txId, onclose, onopen } = $props();
@@ -529,6 +530,11 @@
 			if (!saved?.token) return;
 			client = createBridgeClient({ url: saved.url, token: saved.token });
 			bridgeAt = { url: saved.url, token: saved.token };
+			// "Paperless" among the sources only where the bridge has it set up.
+			client
+				.health()
+				.then((h) => (paperlessOn = /** @type {any} */ (h)?.paperless?.configured === true))
+				.catch(() => {});
 			void loadPortals();
 		});
 	});
@@ -546,6 +552,7 @@
 		reason = '';
 		error = null;
 		hits = null;
+		paperlessHits = null;
 		importNote = null;
 		uploadResult = null;
 		folderNote = null;
@@ -632,11 +639,87 @@
 		}
 	}
 
+	let paperlessOn = $state(false);
+	/** @type {Omit<import('$lib/paperless/import.js').PaperlessDocument, 'content'>[] | null} */
+	let paperlessHits = $state(null);
+	let paperlessSearching = $state(false);
+	/** @type {number | null} */
+	let paperlessTaking = $state(null);
+
+	/** Paperless' full-text search, for the search text – or the counterparty when there is none. */
+	async function searchPaperless() {
+		if (!client || !tx) return;
+		const query = findQuery.trim() || String(tx.counterparty ?? '').trim();
+		if (!query) return;
+		paperlessSearching = true;
+		error = null;
+		try {
+			paperlessHits = await client.paperlessSearch(query);
+		} catch (e) {
+			error = message(e);
+		} finally {
+			paperlessSearching = false;
+		}
+	}
+
+	/**
+	 * A Paperless document into the books and onto this booking: as an upload
+	 * would be, read and linked as the person's decision, kept as from Paperless
+	 * (a later Paperless fetch knows it).
+	 *
+	 * @param {Omit<import('$lib/paperless/import.js').PaperlessDocument, 'content'>} doc
+	 */
+	async function takePaperless(doc) {
+		if (!client) return;
+		paperlessTaking = doc.id;
+		error = null;
+		try {
+			const bytes = await client.paperlessDocument(doc.id);
+			await attachHere(
+				{ name: doc.originalFileName || `paperless-${doc.id}.pdf`, bytes },
+				{
+					source: 'paperless',
+					sourceRef: paperlessSourceRef(doc.id),
+					fields: {
+						from: doc.correspondent ?? null,
+						subject: doc.title || null,
+						receivedAt: doc.created ?? (doc.added ? doc.added.slice(0, 10) : null),
+						paperless: {
+							id: doc.id,
+							title: doc.title,
+							created: doc.created,
+							added: doc.added,
+							correspondent: doc.correspondent,
+							documentType: doc.documentType,
+							tags: doc.tags ?? []
+						}
+					}
+				}
+			);
+		} catch (e) {
+			error = message(e);
+		} finally {
+			paperlessTaking = null;
+		}
+	}
+
 	/** @param {File | undefined} file */
 	async function uploadHere(file) {
+		if (!file) return;
+		await attachHere({ name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) });
+	}
+
+	/**
+	 * A file into the books and onto this booking, as the person's decision: an
+	 * upload, or a document picked from Paperless (`origin`).
+	 *
+	 * @param {{ name: string, bytes: Uint8Array }} file
+	 * @param {{ source: import('./receipts/import.js').ReceiptSource, sourceRef: string, fields?: Record<string, any> }} [origin]
+	 */
+	async function attachHere(file, origin) {
 		const store = currentStore();
 		const blobs = currentBlobs();
-		if (!file || !store || !blobs || !tx) return;
+		if (!store || !blobs || !tx) return;
 		uploading = true;
 		error = null;
 		uploadResult = null;
@@ -647,8 +730,9 @@
 				blobs,
 				client,
 				tx: booking,
-				file: { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) },
-				ctx: { companyNames: app.matchingSettings?.companyNames ?? [] }
+				file,
+				ctx: { companyNames: app.matchingSettings?.companyNames ?? [] },
+				...(origin ? { origin } : {})
 			});
 			if (r.outcome === 'linked-elsewhere' && r.receipt) {
 				const other = r.elsewhere;
@@ -979,7 +1063,7 @@
 
 	// "Beleg finden": one search text for the lists and the private mailbox.
 	let findQuery = $state('');
-	/** @type {'passend' | 'alle' | 'postfach' | 'portal' | null} null: the default for this booking */
+	/** @type {'passend' | 'alle' | 'postfach' | 'paperless' | 'portal' | null} null: the default for this booking */
 	let findTab = $state(null);
 	/** The search text, when the bridge takes it as its text (3–100 plain characters). */
 	let freeText = $derived.by(() => {
@@ -1337,7 +1421,14 @@
 	let tab = $derived(findTab ?? (suggestions.length ? 'passend' : 'alle'));
 	/** @param {string | number | null} id */
 	const pickTab = (id) => {
-		if (id === 'passend' || id === 'alle' || id === 'postfach' || id === 'portal') findTab = id;
+		if (
+			id === 'passend' ||
+			id === 'alle' ||
+			id === 'postfach' ||
+			id === 'paperless' ||
+			id === 'portal'
+		)
+			findTab = id;
 	};
 	let rows = $derived(tab === 'passend' ? foundSuggestions : foundAll);
 
@@ -2707,7 +2798,7 @@
 							role="group"
 							aria-label={t('zahlungen.detail.find.sources')}
 						>
-							{#each [['passend', foundSuggestions.length], ['alle', foundAll.length], ['postfach', hits ? hits.length : null], ['portal', null]] as [id, count] (id)}
+							{#each [['passend', foundSuggestions.length], ['alle', foundAll.length], ['postfach', hits ? hits.length : null], ...(paperlessOn ? [['paperless', paperlessHits ? paperlessHits.length : null]] : []), ['portal', null]] as [id, count] (id)}
 								<button
 									type="button"
 									class="rounded-full border px-3 py-1 text-sm {tab === id
@@ -3085,6 +3176,67 @@
 																: ''}</button
 														>
 													{/if}
+												</li>
+											{/each}
+										</ul>
+									{/if}
+								{/if}
+							</div>
+						{:else if tab === 'paperless'}
+							<div class="mt-3" data-testid="tx-find-paperless">
+								<p class="text-sm text-faint">{t('zahlungen.detail.paperless.hint')}</p>
+								<button
+									type="button"
+									class="mt-2 {button}"
+									onclick={searchPaperless}
+									disabled={paperlessSearching || !client}
+									data-testid="tx-paperless-search"
+									>{paperlessSearching
+										? t('zahlungen.detail.paperless.searching')
+										: t('zahlungen.detail.paperless.search', {
+												query: findQuery.trim() || tx.counterparty || ''
+											})}</button
+								>
+								{#if paperlessHits}
+									{#if paperlessHits.length === 0}
+										<p class="mt-2 text-sm text-faint" data-testid="tx-paperless-none">
+											{t('zahlungen.detail.paperless.none')}
+										</p>
+									{:else}
+										<ul class="mt-2 divide-y divide-border text-sm">
+											{#each paperlessHits as doc (doc.id)}
+												{@const known = app.receipts.find(
+													(r) => !r.deleted && r.sourceRef === paperlessSourceRef(doc.id)
+												)}
+												<li
+													class="flex flex-wrap items-center gap-2 py-2"
+													data-testid="tx-paperless-hit"
+												>
+													<span class="min-w-0 flex-1">
+														<span class="block truncate font-medium text-heading"
+															>{doc.title || doc.originalFileName || `#${doc.id}`}</span
+														>
+														<span class="block truncate text-xs text-faint"
+															>{[
+																doc.correspondent,
+																doc.created ? formatDate(doc.created) : null,
+																doc.documentType,
+																known ? t('zahlungen.detail.paperless.known') : null
+															]
+																.filter(Boolean)
+																.join(' · ')}</span
+														>
+													</span>
+													<button
+														type="button"
+														class={button}
+														onclick={() => takePaperless(doc)}
+														disabled={paperlessTaking !== null || uploading}
+														data-testid="tx-paperless-take"
+														>{paperlessTaking === doc.id
+															? t('zahlungen.detail.paperless.taking')
+															: t('zahlungen.detail.paperless.take')}</button
+													>
 												</li>
 											{/each}
 										</ul>
