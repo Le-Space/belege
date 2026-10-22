@@ -988,7 +988,9 @@ export function createBridgeServer({
 		const origin = req.headers.origin;
 		if (origin !== undefined) {
 			if (!allowedOrigins.has(origin)) {
-				log(`refused origin ${JSON.stringify(origin).slice(0, 80)}`);
+				log(
+					`refused origin ${JSON.stringify(origin).slice(0, 80)} – to let it in: pnpm setup:origins -- --add ${String(origin).slice(0, 80)}, then restart the bridge`
+				);
 				return send(res, 403, { error: 'origin not allowed' });
 			}
 			res.setHeader('Access-Control-Allow-Origin', origin);

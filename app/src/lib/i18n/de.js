@@ -263,7 +263,7 @@ export default {
 			found: 'Bridge gefunden – jetzt mit dem Code aus dem Terminal koppeln.',
 			diagnosis: {
 				origin:
-					'Die Bridge läuft, lässt aber diese Seite ({origin}) nicht herein. Trag die Adresse in ~/.config/belege/bridge.json unter appOrigins ein und starte die Bridge neu.',
+					'Die Bridge läuft, lässt aber diese Seite ({origin}) nicht herein: Sie steht nicht in der Liste der erlaubten Seiten (appOrigins). Einmal im Terminal, dann die Bridge neu starten:',
 				mixed:
 					'Eine https-Seite darf eine http-Adresse nur auf diesem Rechner fragen (127.0.0.1). Starte die Bridge auf diesem Rechner oder öffne die App lokal (pnpm dev).',
 				'bad-url': 'Das ist keine Adresse. Üblich ist http://127.0.0.1:8765.',
@@ -317,7 +317,7 @@ export default {
 		},
 		bridge: {
 			unreachable:
-				'Die Bridge ist nicht erreichbar (läuft sie, und ist diese Adresse in appOrigins erlaubt?).',
+				'Die Bridge ist nicht erreichbar. Läuft sie (pnpm bridge)? Ob sie diese Seite hereinlässt, sagt „Status prüfen“ unter Integrationen → Bridge.',
 			unknownDevice: 'Die Bridge kennt dieses Gerät nicht (neu koppeln).',
 			originNotAllowed: 'Diese App-Adresse ist in der Bridge nicht erlaubt.',
 			wrongCode: 'Falscher Kopplungscode.',
@@ -2746,8 +2746,7 @@ export default {
 		wayOut: {
 			unreachable: 'Starte die Bridge im Terminal:',
 			'unknown-device': 'Die Kopplung ist auf der Bridge nicht mehr bekannt.',
-			origin:
-				'Trag die Adresse dieser Seite in ~/.config/belege/bridge.json unter appOrigins ein und starte die Bridge neu.',
+			origin: 'Einmal im Terminal, dann die Bridge neu starten (Ctrl+C, pnpm bridge):',
 			mail: 'Richte das Postfach einmal im Terminal ein, dann die Bridge neu starten:',
 			llm: 'Richte das Sprachmodell einmal im Terminal ein, dann die Bridge neu starten:',
 			hibiscus: 'Richte Hibiscus einmal im Terminal ein, dann die Bridge neu starten:',
@@ -3634,6 +3633,8 @@ export default {
 				'Dieses Gerät nutzt die Bridge deines Macs. Koppeln, Einrichten und Entkoppeln geschehen dort; hier gehen nur lesende Abfragen und das Auslesen hinüber.',
 			noHibiscus: 'Hibiscus ist noch nicht eingerichtet',
 			offline: 'Bridge nicht erreichbar',
+			originRefused:
+				'Die Bridge läuft, lässt diese Seite ({origin}) aber nicht herein: Sie steht nicht in ihrer Liste der erlaubten Seiten (appOrigins).',
 			unknown: 'Status unbekannt',
 			url: 'Bridge-Adresse',
 			code: 'Kopplungscode',

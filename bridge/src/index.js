@@ -376,7 +376,9 @@ export async function startBridge({
 	});
 	const address = await bridge.listen({ port: port ?? config.bridge.port });
 	print(`belege bridge listening on http://${address.host}:${address.port}`);
-	print(`Allowed app origins: ${config.appOrigins.join(', ') || '(none)'}`);
+	print(
+		`Allowed app origins: ${config.appOrigins.join(', ') || '(none)'} (change: pnpm setup:origins)`
+	);
 	if (lanRelay) {
 		print(`LAN relay for own devices on ${config.lanRelay.host}, UDP ${config.lanRelay.port}`);
 	}

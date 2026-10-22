@@ -251,7 +251,7 @@ export default {
 			found: 'Bridge found – now pair it with the code from the terminal.',
 			diagnosis: {
 				origin:
-					'The bridge runs but does not let this page ({origin}) in. Add the address to appOrigins in ~/.config/belege/bridge.json and restart the bridge.',
+					'The bridge runs but does not let this page ({origin}) in: it is not on its list of allowed pages (appOrigins). Once in the terminal, then restart the bridge:',
 				mixed:
 					'An https page may ask a plain-http address only on this computer (127.0.0.1). Start the bridge on this computer, or open the app locally (pnpm dev).',
 				'bad-url': 'That is not an address. The usual one is http://127.0.0.1:8765.',
@@ -303,7 +303,7 @@ export default {
 		},
 		bridge: {
 			unreachable:
-				'The bridge cannot be reached (is it running, and is this address allowed in appOrigins?).',
+				'The bridge cannot be reached. Is it running (pnpm bridge)? Whether it lets this page in, "Status prüfen" under Integrationen → Bridge says.',
 			unknownDevice: 'The bridge does not know this device (pair again).',
 			originNotAllowed: 'This app address is not allowed in the bridge.',
 			wrongCode: 'Wrong pairing code.',
@@ -2706,8 +2706,7 @@ export default {
 		wayOut: {
 			unreachable: 'Start the bridge in the terminal:',
 			'unknown-device': 'The bridge no longer knows this pairing.',
-			origin:
-				'Add this page’s address to appOrigins in ~/.config/belege/bridge.json and restart the bridge.',
+			origin: 'Once in the terminal, then restart the bridge (Ctrl+C, pnpm bridge):',
 			mail: 'Set up the mailbox once in the terminal, then restart the bridge:',
 			llm: 'Set up the language model once in the terminal, then restart the bridge:',
 			hibiscus: 'Set up Hibiscus once in the terminal, then restart the bridge:',
@@ -3591,6 +3590,8 @@ export default {
 				'This device uses your Mac’s bridge. Pairing, setting up and unpairing happen there; only read-only queries and receipt reading go across from here.',
 			noHibiscus: 'Hibiscus is not set up yet',
 			offline: 'Bridge not reachable',
+			originRefused:
+				'The bridge runs but does not let this page ({origin}) in: it is not on its list of allowed pages (appOrigins).',
 			unknown: 'Status unknown',
 			url: 'Bridge address',
 			code: 'Pairing code',

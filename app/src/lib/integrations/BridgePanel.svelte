@@ -1,4 +1,5 @@
 <script>
+	import WayOut from '$lib/help/WayOut.svelte';
 	// The bridge: whether it answers and whether this device is paired, pairing
 	// by code, "Kopplung lösen" (issue #152: on the overview as its first row,
 	// and on its own page).
@@ -104,5 +105,6 @@
 	{/if}
 	{#if bridge.error}
 		<p class="mt-3 text-sm text-danger" role="alert" data-testid="bridge-error">{bridge.error}</p>
+		<WayOut message={bridge.error} />
 	{/if}
 </div>

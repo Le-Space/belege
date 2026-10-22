@@ -6,6 +6,7 @@ import { createBridgeClient, DEFAULT_BRIDGE_URL } from '$lib/bridge/client.js';
 import { app, currentStore, refreshLlmRedaction } from '$lib/session.svelte.js';
 import { getSetting, setSetting } from '$lib/store/settings.js';
 import { t } from '$lib/i18n/index.js';
+import { noteWayOut } from '$lib/help/way-out.js';
 
 /**
  * @typedef {object} BridgeHealth what /health says is set up
@@ -85,6 +86,13 @@ export async function checkBridge() {
 	} catch (error) {
 		bridge.state = 'offline';
 		bridge.error = error instanceof Error ? error.message : String(error);
+		// Running, but not letting this page in: say so, with the command that does.
+		const { diagnoseBridge } = await import('$lib/setup/diagnose.js');
+		if ((await diagnoseBridge(bridge.url).catch(() => null)) === 'origin') {
+			const message = t('integrationen.bridge.originRefused', { origin: location.origin });
+			noteWayOut(message, 'origin');
+			bridge.error = message;
+		}
 	}
 }
 
