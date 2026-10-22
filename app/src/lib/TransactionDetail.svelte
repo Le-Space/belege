@@ -113,6 +113,7 @@
 		matchOfReceipt,
 		ownNameCandidate,
 		receiptChoices,
+		receiptDay as receiptPlacedOn,
 		transferCandidates,
 		migrationCandidates
 	} from './matching/view.js';
@@ -979,7 +980,7 @@
 
 	// "Beleg finden": one search text for the lists and the private mailbox.
 	let findQuery = $state('');
-	/** @type {'passend' | 'alle' | 'postfach' | 'portal' | null} null: the default for this booking */
+	/** @type {'passend' | 'jahr' | 'alle' | 'postfach' | 'portal' | null} null: the default for this booking */
 	let findTab = $state(null);
 	/** The search text, when the bridge takes it as its text (3–100 plain characters). */
 	let freeText = $derived.by(() => {
@@ -1282,6 +1283,12 @@
 		const d = receiptDate(r);
 		return d ? formatDate(d) : '';
 	};
+	/**
+	 * Not read yet: no amount and no date of its own – shown by when it came in, not as "—".
+	 * @param {import('$lib/store/repository.js').StoredRecord} r
+	 */
+	const unread = (r) =>
+		typeof r.amountCents !== 'number' && !receiptDate(r) && Boolean(receiptPlacedOn(r));
 	/** @param {string[]} reasons */
 	const reasonText = (reasons) => (reasons ?? []).map((x) => t(`matching.reason.${x}`)).join(' · ');
 
@@ -1334,12 +1341,17 @@
 	);
 	let foundSuggestions = $derived(suggestions.filter((c) => findsReceipt(c.receipt)));
 	let foundAll = $derived(choices.filter((c) => findsReceipt(c.receipt)));
+	// "Gleiches Jahr": the receipts placed in the payment's calendar year (by their date, else when they came in).
+	let foundYear = $derived(
+		foundAll.filter((c) => receiptPlacedOn(c.receipt)?.slice(0, 4) === tx?.bookedOn?.slice(0, 4))
+	);
 	let tab = $derived(findTab ?? (suggestions.length ? 'passend' : 'alle'));
 	/** @param {string | number | null} id */
 	const pickTab = (id) => {
-		if (id === 'passend' || id === 'alle' || id === 'postfach' || id === 'portal') findTab = id;
+		if (id === 'passend' || id === 'jahr' || id === 'alle' || id === 'postfach' || id === 'portal')
+			findTab = id;
 	};
-	let rows = $derived(tab === 'passend' ? foundSuggestions : foundAll);
+	let rows = $derived(tab === 'passend' ? foundSuggestions : tab === 'jahr' ? foundYear : foundAll);
 
 	/** @param {Record<string, any>} c */
 	function coverageText(c) {
@@ -2707,7 +2719,7 @@
 							role="group"
 							aria-label={t('zahlungen.detail.find.sources')}
 						>
-							{#each [['passend', foundSuggestions.length], ['alle', foundAll.length], ['postfach', hits ? hits.length : null], ['portal', null]] as [id, count] (id)}
+							{#each [['passend', foundSuggestions.length], ['jahr', foundYear.length], ['alle', foundAll.length], ['postfach', hits ? hits.length : null], ['portal', null]] as [id, count] (id)}
 								<button
 									type="button"
 									class="rounded-full border px-3 py-1 text-sm {tab === id
@@ -2716,7 +2728,9 @@
 									aria-pressed={tab === id}
 									onclick={() => pickTab(id)}
 									data-testid={`tx-find-tab-${id}`}
-									>{t(`zahlungen.detail.find.tab.${id}`)}{#if count !== null}
+									>{t(`zahlungen.detail.find.tab.${id}`, {
+										year: tx?.bookedOn?.slice(0, 4) ?? ''
+									})}{#if count !== null}
 										<span class="ml-1 font-mono text-xs opacity-80">{count}</span>{/if}</button
 								>
 							{/each}
@@ -2726,7 +2740,7 @@
 							{@render uploadControls()}
 						</div>
 
-						{#if tab === 'passend' || tab === 'alle'}
+						{#if tab === 'passend' || tab === 'jahr' || tab === 'alle'}
 							<div class="mt-3" data-testid="tx-choices">
 								{#if client && choices.length}
 									<div class="mb-2" data-testid="tx-ai-choice">
@@ -2839,10 +2853,18 @@
 											<span class="block truncate text-sm font-medium text-heading"
 												>{receiptVendor(c.receipt)}</span
 											>
-											<span class="block truncate text-xs text-faint"
-												>{[receiptAmount(c.receipt), receiptDay(c.receipt), c.receipt.invoiceNumber]
-													.filter(Boolean)
-													.join(' · ')}</span
+											<span class="block truncate text-xs text-faint" data-testid="tx-choice-facts"
+												>{unread(c.receipt)
+													? t('zahlungen.detail.find.unread', {
+															date: formatDate(/** @type {string} */ (receiptPlacedOn(c.receipt)))
+														})
+													: [
+															receiptAmount(c.receipt),
+															receiptDay(c.receipt),
+															c.receipt.invoiceNumber
+														]
+															.filter(Boolean)
+															.join(' · ')}</span
 											>
 											{#if c.alongside}
 												<span

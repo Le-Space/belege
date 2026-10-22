@@ -3080,10 +3080,12 @@ export default {
 				sources: 'Source',
 				tab: {
 					passend: 'Matching',
+					jahr: 'From {year}',
 					alle: 'All receipts',
 					postfach: 'Private mailbox',
 					portal: 'Portal'
 				},
+				unread: 'came in on {date}, not read yet',
 				other: 'Search for another receipt',
 				open: 'Search for a receipt after all',
 				sameAmount: 'Same amount',
