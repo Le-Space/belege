@@ -12,21 +12,19 @@ All notable changes to Le Space Belege. The format follows
 
 ## [0.14.0] – 2026-10-22
 
-### Fixed
-
-- **A folding phone shows the app at its own width again.** Below 768 px the payments page was as wide as its month strip – nine months made it 1,664 px – and the phone zoomed the whole app out to fit, small and movable sideways. The strip scrolls inside its column now. On a narrow screen a payment's account and amount take a line of their own instead of running off the edge; between 640 and 1024 px (a folding phone opened) the name and the switches share the first row of the header and the state takes the second, instead of the name squeezed to a column of single words. A new E2E spec checks six pages at 344 and 690 px.
-
-### Changed
-
-- **The KI card says why it blacks out a local model, and why reads failed.** A model on 127.0.0.1 whose `setup:llm` answer is missing (a config from before #423) is blacked out since #438; the card now says so, with `pnpm setup:llm` to copy. Under "Bisher" it shows how many failures were in the last 7 days and the three most frequent reasons, numbers folded – so an old run (credit used up, a slow model) is told apart from a problem now.
-
 ### Added
 
 - **"Beleg finden" searches Paperless too.** With Paperless-ngx set up in the bridge, a chip "Paperless" beside "Privates Postfach" asks Paperless' own full-text search – with the search text, else the payment's counterparty – and lists title, correspondent, date and type, and whether the document is among the receipts already. "Übernehmen und zuordnen" takes it over like an upload: read, linked to this payment as your decision, kept as from Paperless so a later fetch knows it. New bridge route `GET /paperless/search?query=` (at most 25, no OCR text; the log never gets the words).
 
 ### Changed
 
+- **The KI card says why it blacks out a local model, and why reads failed.** A model on 127.0.0.1 whose `setup:llm` answer is missing (a config from before #423) is blacked out since #438; the card now says so, with `pnpm setup:llm` to copy. Under "Bisher" it shows how many failures were in the last 7 days and the three most frequent reasons, numbers folded – so an old run (credit used up, a slow model) is told apart from a problem now.
+
 - **"Beleg finden" lists receipts by nearness in time, not by which came in last.** Where no receipt scores, the list opened on the newest receipts – a payment from January 2025 showed receipts of 2026 first. Now receipts with points come first, then the rest by how near their date (else the day they came in) is to the payment, undated last; a penalty (a far date, the other direction) no longer puts a receipt below the unranked. A receipt not read yet shows "eingegangen am …, noch nicht ausgelesen" instead of "—". A new chip "Aus <year>" lists only the receipts of the payment's year.
+
+### Fixed
+
+- **A folding phone shows the app at its own width again.** Below 768 px the payments page was as wide as its month strip – nine months made it 1,664 px – and the phone zoomed the whole app out to fit, small and movable sideways. The strip scrolls inside its column now. On a narrow screen a payment's account and amount take a line of their own instead of running off the edge; between 640 and 1024 px (a folding phone opened) the name and the switches share the first row of the header and the state takes the second, instead of the name squeezed to a column of single words. A new E2E spec checks six pages at 344 and 690 px.
 
 ## [0.13.0] – 2026-10-22
 
