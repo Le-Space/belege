@@ -1023,6 +1023,26 @@ export default {
 		fingerprint: 'Fingerabdruck:',
 		takeOver: 'Übernehmen',
 		busy: 'Arbeite …',
+		progress: {
+			opening: 'Umzugsdatei öffnen …',
+			files: 'Belegdateien: {done} von {total}',
+			records: '{collection}: {done} von {total}',
+			keepOpen:
+				'seit {seconds} s – bitte den Tab offen lassen. Bricht es ab, macht dieselbe Datei hier weiter.',
+			collections: {
+				transactions: 'Zahlungen',
+				receipts: 'Belege',
+				partners: 'Partner',
+				accounts: 'Konten',
+				settings: 'Einstellungen',
+				matches: 'Zuordnungen',
+				questions: 'Rückfragen',
+				events: 'Verlauf',
+				travel: 'Reisen'
+			}
+		},
+		interrupted:
+			'Ein Umzug vom {date} in diese Bücher wurde unterbrochen. Dieselbe Umzugsdatei noch einmal wählen – oder eine neue aus denselben alten Büchern, wenn der Einmal-Schlüssel nicht mehr gilt – und „Übernehmen“: Er macht weiter, nichts wird doppelt.',
 		summary: 'Gepackt am {date}: {transactions} Zahlungen, {receipts} Belege, {files} Dateien.',
 		leftOutNote: 'Nicht dabei, weil sie zum alten Passkey oder Gerät gehören: {list}.',
 		leftOut: {

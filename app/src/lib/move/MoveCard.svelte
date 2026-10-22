@@ -25,6 +25,7 @@
 		MoveError,
 		createMoveKey,
 		generatePassphrase,
+		interruptedMove,
 		isEmptyBooks,
 		keyFingerprint,
 		openMoveFile,
@@ -62,9 +63,27 @@
 	let done = $state(null);
 	let typedPassphrase = $state('');
 
+	/** @type {{ packedAt: string } | null} a take-over that was cut short */
+	let interrupted = $state(null);
+	/**
+	 * Where a take-over is: unsealing the file, its files, its records by collection.
+	 * @type {{ stage: 'opening' } | { stage: 'files', done: number, total: number } | { stage: 'records', collection: string, done: number, total: number } | null}
+	 */
+	let progress = $state(null);
+	let since = $state(0);
+	let clock = $state(Date.now());
+	$effect(() => {
+		if (!progress) return;
+		const id = setInterval(() => (clock = Date.now()), 1000);
+		return () => clearInterval(id);
+	});
+
 	onMount(async () => {
 		const store = /** @type {any} */ (currentStore());
-		if (store) empty = await isEmptyBooks(store);
+		if (!store) return;
+		interrupted = await interruptedMove(store);
+		// Books a take-over left half filled may take that same file over again.
+		empty = interrupted ? true : await isEmptyBooks(store);
 	});
 
 	/** @param {unknown} e */
@@ -150,9 +169,18 @@
 		if (!key) return;
 		busy = true;
 		error = null;
+		since = Date.now();
+		clock = since;
+		progress = { stage: 'opening' };
 		try {
 			const opened = await openMoveFile(chosen.file, key);
-			done = await takeOverBooks({ store, blobs, opened });
+			done = await takeOverBooks({
+				store,
+				blobs,
+				opened,
+				onProgress: (p) => (progress = p)
+			});
+			interrupted = null;
 			// Used: the key is gone, and so are the decrypted books.
 			ownKey = null;
 			chosen = null;
@@ -163,8 +191,21 @@
 			explain(e);
 		} finally {
 			busy = false;
+			progress = null;
 		}
 	}
+
+	let progressText = $derived.by(() => {
+		if (!progress) return '';
+		if (progress.stage === 'opening') return t('move.progress.opening');
+		if (progress.stage === 'files')
+			return t('move.progress.files', { done: progress.done, total: progress.total });
+		return t('move.progress.records', {
+			collection: t(`move.progress.collections.${progress.collection}`),
+			done: progress.done,
+			total: progress.total
+		});
+	});
 
 	/** @param {import('./book-move.js').MoveHeader} header */
 	const summary = (header) =>
@@ -191,6 +232,11 @@
 			<p class="mt-1 text-text">{t('move.doneNext')}</p>
 		</div>
 	{:else if empty === true}
+		{#if interrupted}
+			<p class="mt-3 text-sm text-warning" data-testid="move-interrupted">
+				{t('move.interrupted', { date: formatDate(interrupted.packedAt.slice(0, 10)) })}
+			</p>
+		{/if}
 		{#if mode !== 'receive'}
 			<button type="button" class="{button} mt-3" onclick={receive} data-testid="move-receive"
 				>{t('move.receive')}</button
@@ -252,6 +298,31 @@
 							onclick={takeOver}
 							data-testid="move-take-over">{busy ? t('move.busy') : t('move.takeOver')}</button
 						>
+						{#if progress}
+							<div class="mt-2 text-sm" role="status" data-testid="move-progress">
+								<p class="text-heading" data-testid="move-progress-step">{progressText}</p>
+								{#if progress.stage !== 'opening'}
+									<div
+										class="mt-1 h-1.5 max-w-md overflow-hidden rounded-full bg-border"
+										role="progressbar"
+										aria-valuemin="0"
+										aria-valuemax={progress.total}
+										aria-valuenow={progress.done}
+										aria-label={progressText}
+									>
+										<div
+											class="h-full bg-cyan-800 dark:bg-cyan"
+											style:width="{progress.total ? (100 * progress.done) / progress.total : 0}%"
+										></div>
+									</div>
+								{/if}
+								<p class="mt-1 text-xs text-faint">
+									{t('move.progress.keepOpen', {
+										seconds: Math.max(0, Math.round((clock - since) / 1000))
+									})}
+								</p>
+							</div>
+						{/if}
 					{/if}
 				</li>
 			</ol>

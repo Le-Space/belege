@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **"Übernehmen" in Bücher umziehen shows where it is, and a take-over cut short carries on.** Large books (here: 357 payments, 1,399 receipts, 1,424 files) take minutes, and the card said only "Arbeite …". It now shows each step – opening the file, the receipt files, the records by collection, each with a bar – and the time so far, with a word to keep the tab open. A take-over stopped by a reload or a closed tab left half-filled books that refused any second try; now those books take the same file, or a newer one from the same old books, again and finish – records keep their ids, so nothing doubles. A file from other books is still refused.
+
 ## [0.12.8] – 2026-10-22
 
 ### Changed
