@@ -48,7 +48,9 @@ export async function loadIntegrationFacts({ recheck = false } = {}) {
 	kept.wallets = w.length;
 	kept.aleph = a.accounts.length;
 	kept.invoiceApp = Boolean(inv);
-	if (recheck || !bridge.loaded) await loadBridge();
+	// No token yet: read it again. On a device that reaches the bridge through
+	// another one, it comes with the books by sync, possibly after the first read.
+	if (recheck || !bridge.loaded || !bridge.token) await loadBridge();
 }
 
 /** @returns {import('./overview.js').Facts} */
