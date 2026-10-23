@@ -99,7 +99,8 @@ test('a passkey opens sealed books that survive a reload', async ({ page }) => {
 
 	const first = await sessionFacts(page);
 	expect(first.did).toBe(did);
-	expect(first.secrets?.signingKey).toMatch(/^[0-9a-f]{64}$/);
+	// 64 bytes: an Ed25519 key as libp2p wants it, seed and public half.
+	expect(first.secrets?.signingKey).toMatch(/^[0-9a-f]{128}$/);
 
 	// A booking, through the real store.
 	await book(page, marker);
