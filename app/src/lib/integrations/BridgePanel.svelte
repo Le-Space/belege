@@ -34,7 +34,12 @@
 	<div class="flex flex-wrap items-start justify-between gap-3">
 		<div class="min-w-0">
 			{#if intro}<p class="text-sm text-text">{t('integrationen.bridge.intro')}</p>{/if}
-			<p class="mt-1 text-sm text-text" data-testid="bridge-status" data-state={bridge.state}>
+			<p
+				class="mt-1 text-sm text-text"
+				data-testid="bridge-status"
+				data-state={bridge.state}
+				data-paired={bridge.token ? 'true' : 'false'}
+			>
 				{#if bridge.state === 'checking'}
 					{t('integrationen.bridge.checking')}
 				{:else if bridge.state === 'online'}
@@ -53,7 +58,7 @@
 				{/if}
 			</p>
 		</div>
-		<button type="button" class={secondary} onclick={checkBridge}
+		<button type="button" class={secondary} onclick={checkBridge} data-testid="bridge-check"
 			>{t('integrationen.bridge.check')}</button
 		>
 	</div>

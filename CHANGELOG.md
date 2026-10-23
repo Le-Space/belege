@@ -22,6 +22,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **A phone that uses the Mac's bridge picks up the pairing when it arrives.** The token is the Mac's and comes to the phone with the books by sync, often after a page has read the settings; the KI card then said "Die Bridge ist nicht gekoppelt" until the app was reopened (#457 only re-read it when a page opened). While no token is known, every change to the settings now reads it again, and the bridge's status follows at once.
+
 - **The shared folder reads new files with the AI only while "gleich auslesen" is on (#475).** The minute-by-minute folder check (and "Ordner jetzt prüfen" in a payment) sent every new file to the model whenever a bridge was paired, ignoring the switch beside the upload. It follows the switch now, which says so ("Neue Belege gleich auslesen und zuordnen (Hochladen und freigegebener Ordner)"); files left unread wait under Belege → Neu, and the result says how many, and how many images had no text. Images go to the extraction, which marks them without sending anything. The consent screen names the folder among the AI's uses (consent version 26).
 
 ## [0.16.0] – 2026-10-23

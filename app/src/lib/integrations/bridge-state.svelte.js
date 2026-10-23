@@ -55,13 +55,59 @@ export const bridgeViaDevice = () => bridge.state === 'online' && app.sync.bridg
 /** A client with this device's token. */
 export const bridgeClient = () => createBridgeClient({ url: bridge.url, token: bridge.token });
 
+/** The books whose settings are watched for a pairing that comes later. */
+const watched = new WeakSet();
+/** Reads of the pairing so far: only the latest one's answer counts. */
+let reads = 0;
+
+/**
+ * While no token is known, every change to the settings reads it again: on a
+ * device that reaches the bridge through another one (#142), the token is that
+ * device's and comes with the books by sync – often after a page has read it.
+ *
+ * @param {{ settings: import('$lib/store/repository.js').Collection }} store the open books
+ */
+function watchForToken(store) {
+	if (watched.has(store)) return;
+	watched.add(store);
+	let reading = false;
+	let again = false;
+	store.settings.onChange(async () => {
+		if (bridge.token || currentStore() !== store) return;
+		// A change during a read is read after it: it may be the one with the token.
+		if (reading) return void (again = true);
+		reading = true;
+		try {
+			do {
+				again = false;
+				const read = ++reads;
+				const saved = /** @type {any} */ (await getSetting(store.settings, 'bridge'));
+				if (saved?.token && read === reads && !bridge.token && currentStore() === store) {
+					if (saved.url) bridge.url = saved.url;
+					bridge.token = saved.token;
+					await checkBridge();
+				}
+			} while (again && !bridge.token);
+		} catch {
+			// the next change reads it again
+		} finally {
+			reading = false;
+		}
+	});
+}
+
 /** Read the saved pairing, then ask the bridge how it is. */
 export async function loadBridge() {
 	const store = currentStore();
 	if (!store) return;
+	watchForToken(store);
+	const read = ++reads;
 	const saved = /** @type {any} */ (await getSetting(store.settings, 'bridge'));
-	if (saved?.url) bridge.url = saved.url;
-	bridge.token = saved?.token ?? null;
+	// A later read – the watcher's, with a token that just came – knows better.
+	if (read === reads) {
+		if (saved?.url) bridge.url = saved.url;
+		bridge.token = saved?.token ?? null;
+	}
 	bridge.loaded = true;
 	await checkBridge();
 }

@@ -172,20 +172,23 @@ test('the phone reaches the bridge through the desktop', async ({ browser }) => 
 				.getByTestId('devices-item-state')
 		).toContainText('verbunden', { timeout: 60_000 });
 
-		// The pairing replicated to the phone; its calls go through the Mac.
+		// The pairing replicated to the phone; its calls go through the Mac. The page
+		// picks the token up when it arrives: waited for, not reopened until it has.
+		await tab(phone.page, 'Integrationen');
+		const status = phone.page.getByTestId('bridge-status');
+		await expect(status).toHaveAttribute('data-paired', 'true', { timeout: 90_000 });
+		// Reached through the Mac once the devices' route is up; "Status prüfen" asks again.
 		await expect
 			.poll(
 				async () => {
-					// The page reads the pairing when it opens: opened anew until it has replicated.
-					await tab(phone.page, 'Home');
-					await tab(phone.page, 'Integrationen');
-					const status = phone.page.getByTestId('bridge-status');
-					await expect(status).not.toHaveAttribute('data-state', 'checking', { timeout: 70_000 });
-					return status.textContent();
+					const state = await status.getAttribute('data-state');
+					if (state === 'offline') await phone.page.getByTestId('bridge-check').click();
+					return state;
 				},
-				{ timeout: 90_000, intervals: [2_000] }
+				{ timeout: 70_000, intervals: [2_000] }
 			)
-			.toContain('über deinen Mac');
+			.toBe('online');
+		await expect(status).toContainText('über deinen Mac');
 		expect(phone.blocked).toContain('/health');
 		// Pairing belongs to the Mac: the phone offers no "Kopplung lösen", which would unpair it too.
 		await expect(phone.page.getByTestId('bridge-via-device')).toBeVisible();
