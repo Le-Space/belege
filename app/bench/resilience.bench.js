@@ -629,9 +629,19 @@ if (SCENARIOS.includes('recovery')) {
 				await expect(card.getByTestId('restore-confirm')).toBeVisible();
 				t0 = Date.now();
 				await card.getByTestId('restore-yes').click();
-				await expect(card.getByTestId('restore-done')).toContainText('Wiederhergestellt', {
+				// Either ending, not just the happy one: a restore that fails says so in
+				// the card and then reloads the page, and a wait for `restore-done` alone
+				// turned a two-minute failure into a ten-minute timeout with nothing to
+				// read afterwards – which is how an out-of-space browser went unnoticed.
+				await expect(card.getByTestId(/^restore-(done|error)$/).first()).toBeVisible({
 					timeout: 10 * 60 * 1000
 				});
+				const failure = await card
+					.getByTestId('restore-error')
+					.textContent({ timeout: 1000 })
+					.catch(() => null);
+				if (failure) throw new Error(`Die Wiederherstellung meldete: ${failure}`);
+				await expect(card.getByTestId('restore-done')).toContainText('Wiederhergestellt');
 				r.restoreMs = Date.now() - t0;
 
 				// The page reloads by itself; the passkey opens the books, every booking back.
