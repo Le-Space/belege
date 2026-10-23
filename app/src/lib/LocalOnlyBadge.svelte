@@ -46,9 +46,59 @@
 								count: p.devices ?? 0,
 								error: p.error ?? ''
 							})
-						)
+						),
+						...proof()
 					].join('\n')
 	);
+
+	/**
+	 * What is actually connected, to be checked: this node's peer id and its
+	 * place at a relay, and each own device with every connection to it – the
+	 * remote multiaddr, direct or through the relay, the last ping's round trip.
+	 */
+	function proof() {
+		const state = app.sync.state;
+		if (!state) return [];
+		const lines = ['', t('header.network.proof.self', { peerId: state.self })];
+		for (const addr of (state.addrs ?? []).filter((a) => a.includes('/p2p-circuit'))) {
+			lines.push(t('header.network.proof.relay', { addr }));
+		}
+		for (const d of state.devices.filter((x) => x.connected)) {
+			lines.push(t('header.network.proof.device', { label: d.label || '–', peerId: d.peerId }));
+			for (const l of d.links ?? []) {
+				lines.push(
+					t(l.direct ? 'header.network.proof.direct' : 'header.network.proof.relayed', {
+						addr: l.addr,
+						rtt: l.rtt ?? '?'
+					})
+				);
+			}
+		}
+		const pulse = app.sync.pulse;
+		if (pulse) {
+			const label = state.devices.find((d) => d.peerId === pulse.peerId)?.label || pulse.peerId;
+			lines.push(
+				t('header.network.proof.pulse', {
+					label,
+					rtt: pulse.rtt,
+					time: new Date(pulse.at).toLocaleTimeString()
+				})
+			);
+		}
+		return lines;
+	}
+
+	// An own device answered a ping (device-sync.js, the connection monitor's,
+	// every 10 s): the dot lights up in another colour for a moment.
+	let pulsing = $state(false);
+	/** @type {ReturnType<typeof setTimeout> | undefined} */
+	let pulseTimer;
+	$effect(() => {
+		if (!app.sync.pulse) return;
+		pulsing = true;
+		clearTimeout(pulseTimer);
+		pulseTimer = setTimeout(() => (pulsing = false), 700);
+	});
 	const DOT = {
 		off: 'border-2 border-faint',
 		paused: 'border-2 border-amber-500',
@@ -111,9 +161,16 @@
 		aria-haspopup="dialog"
 		data-testid="local-only"
 		data-state={status.state}
+		data-pulse={pulsing ? 'on' : 'off'}
 		class="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-medium whitespace-nowrap text-text outline-none hover:text-heading focus-visible:ring-2 focus-visible:ring-cyan-500"
 	>
-		<span class="h-2 w-2 shrink-0 rounded-full {DOT[status.state]}" aria-hidden="true"></span>
+		<span
+			class="h-2 w-2 shrink-0 rounded-full transition-colors duration-300 {pulsing
+				? 'bg-infra ring-2 ring-infra/40'
+				: DOT[status.state]}"
+			aria-hidden="true"
+			data-testid="network-dot"
+		></span>
 		<span>{label}</span>
 	</button>
 

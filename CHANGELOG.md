@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **The network badge shows what is actually connected, and lights up when an own device answers.** Hovering it now names this device's peer id, its addresses at the relay, and for each connected own device its peer id and every connection to it – the remote multiaddr, direct (WebRTC) or through the relay, the last round trip in ms – and when the last ping came back. The dot flashes in another colour each time an own device answers the ping libp2p's connection monitor sends anyway (every 10 s): watched, not sent – no traffic of its own.
+
 - **The backup card links Aleph's dashboard.** Beside the credits: "Credits kaufen oder überweisen" (app.aleph.cloud → Credits: top up, transfer, history). Under the grant command: the same grant without a terminal, in the dashboard's Permissions – the browser's address, message type STORE, channel BELEGE-BACKUP.
 
 - **"Wer hält es?" for every backup.** Under each backup in the history, a click asks IPFS delegated routing (through Helia's delegated routing client) which nodes announce its CID, names those that are Aleph core channel nodes (Aleph's `corechannel` aggregate, by IP) and places each IP with ipwho.is: node, IP, city and country, network, and the spread by network and country. Asked only on that click; the card names the three services and what they see.

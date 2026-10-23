@@ -28,6 +28,14 @@ export default {
 			both: 'Im Netz: Geräte + Rechnungs-App',
 			only: { devices: 'Im Netz: eigene Geräte', 'invoice-app': 'Im Netz: Rechnungs-App' },
 			title: 'Netzwerk an – über ein Le-Space-Relay (TLS-WebSocket), Ende zu Ende verschlüsselt:',
+			proof: {
+				self: 'Dieses Gerät: {peerId}',
+				relay: '  am Relay erreichbar: {addr}',
+				device: '{label}: {peerId}',
+				direct: '  direkt: {addr} – {rtt} ms',
+				relayed: '  über das Relay: {addr} – {rtt} ms',
+				pulse: 'Letzte Ping-Antwort: {label}, {rtt} ms, um {time}'
+			},
 			part: {
 				devices: {
 					connecting: '• Eigene Geräte: verbindet …',
