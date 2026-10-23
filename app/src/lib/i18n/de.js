@@ -28,6 +28,14 @@ export default {
 			both: 'Im Netz: Geräte + Rechnungs-App',
 			only: { devices: 'Im Netz: eigene Geräte', 'invoice-app': 'Im Netz: Rechnungs-App' },
 			title: 'Netzwerk an – über ein Le-Space-Relay (TLS-WebSocket), Ende zu Ende verschlüsselt:',
+			proof: {
+				self: 'Dieses Gerät: {peerId}',
+				relay: '  am Relay erreichbar: {addr}',
+				device: '{label}: {peerId}',
+				direct: '  direkt: {addr} – {rtt} ms',
+				relayed: '  über das Relay: {addr} – {rtt} ms',
+				pulse: 'Letzte Ping-Antwort: {label}, {rtt} ms, um {time}'
+			},
 			part: {
 				devices: {
 					connecting: '• Eigene Geräte: verbindet …',
@@ -1145,6 +1153,22 @@ export default {
 		rekeep: 'Aleph erneut beauftragen',
 		order: 'Auftrag bei Aleph:',
 		days: { about: 'etwa {days} Tage', overYear: 'länger als ein Jahr' },
+		holders: {
+			ask: 'Wer hält es?',
+			note: '„Wer hält es?“ fragt drei öffentliche Dienste: das IPFS-Routing (delegated-ipfs.dev) nach den Knoten, die die CID anbieten – es sieht die CID –, Aleph nach seinen Kernknoten und ipwho.is nach dem Ort der Knoten-IPs. Alle drei sehen die IP-Adresse dieses Computers.',
+			asking: 'Frage das IPFS-Netz …',
+			summary:
+				'{count} IPFS-Knoten bieten dieses Backup gerade an, davon {aleph} Aleph-Kernknoten (Aleph hat {active} aktive).',
+			none: 'Gerade bietet kein IPFS-Knoten dieses Backup an – oder das Routing kennt keinen.',
+			failed: 'Das IPFS-Routing hat nicht geantwortet: {error}',
+			spread: 'Nach Netz: {networks}. Nach Land: {countries}.',
+			node: 'Knoten',
+			ip: 'IP',
+			place: 'Ort',
+			network: 'Netz',
+			notAleph: 'kein Aleph-Knoten',
+			noPlace: 'unbekannt'
+		},
 		full: 'Neues Vollbackup',
 		chainFirst:
 			'Das erste Backup ist ein Vollbackup: alles, was dieser Browser hält. Danach sichert „Jetzt sichern“ nur noch, was seitdem neu ist.',
@@ -1158,6 +1182,10 @@ export default {
 		kindIncrement: 'Zuwachs {sequence}',
 		oldBridge:
 			'Die Bridge hat den Zuwachs ohne Verweis auf sein Vollbackup bei Aleph abgelegt – sie ist älter als diese Seite. Bridge aktualisieren (git pull, pnpm install, neu starten); das nächste Backup sichert alles seit dem letzten noch einmal.',
+		creditsLink: 'Credits kaufen oder überweisen (Aleph-Dashboard)',
+		grantDashboard:
+			'Oder im Aleph-Dashboard, mit der Wallet des Kontos: unter Berechtigungen die Adresse oben eintragen, Nachrichtentyp STORE, Kanal {channel}.',
+		grantDashboardLink: 'Berechtigungen öffnen',
 		now: 'Jetzt sichern',
 		step: {
 			packing: 'Wird gepackt und versiegelt …',

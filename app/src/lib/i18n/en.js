@@ -24,6 +24,14 @@ export default {
 			both: 'Online: devices + invoice app',
 			only: { devices: 'Online: own devices', 'invoice-app': 'Online: invoice app' },
 			title: 'Network on – via a Le-Space relay (TLS WebSocket), end-to-end encrypted:',
+			proof: {
+				self: 'This device: {peerId}',
+				relay: '  reachable at the relay: {addr}',
+				device: '{label}: {peerId}',
+				direct: '  direct: {addr} – {rtt} ms',
+				relayed: '  through the relay: {addr} – {rtt} ms',
+				pulse: 'Last ping answer: {label}, {rtt} ms, at {time}'
+			},
 			part: {
 				devices: {
 					connecting: '• Own devices: connecting …',
@@ -1121,6 +1129,22 @@ export default {
 		rekeep: 'Ask Aleph again',
 		order: 'Request at Aleph:',
 		days: { about: 'about {days} days', overYear: 'more than a year' },
+		holders: {
+			ask: 'Who holds it?',
+			note: '"Who holds it?" asks three public services: IPFS routing (delegated-ipfs.dev) for the nodes offering the CID – it sees the CID –, Aleph for its core nodes, and ipwho.is where the nodes\' IPs are. All three see this computer\'s IP address.',
+			asking: 'Asking the IPFS network …',
+			summary:
+				'{count} IPFS nodes offer this backup right now, {aleph} of them Aleph core nodes (Aleph has {active} active).',
+			none: 'No IPFS node offers this backup right now – or routing knows of none.',
+			failed: 'IPFS routing did not answer: {error}',
+			spread: 'By network: {networks}. By country: {countries}.',
+			node: 'Node',
+			ip: 'IP',
+			place: 'Place',
+			network: 'Network',
+			notAleph: 'not an Aleph node',
+			noPlace: 'unknown'
+		},
 		full: 'New full backup',
 		chainFirst:
 			'The first backup is a full one: everything this browser keeps. After it, "Jetzt sichern" backs up only what is new since.',
@@ -1134,6 +1158,10 @@ export default {
 		kindIncrement: 'Increment {sequence}',
 		oldBridge:
 			'The bridge kept the increment on Aleph without naming its full backup – it is older than this page. Update the bridge (git pull, pnpm install, restart); the next backup ships everything since the last one again.',
+		creditsLink: 'Buy or transfer credits (Aleph dashboard)',
+		grantDashboard:
+			"Or in Aleph's dashboard, with the account's wallet: under Permissions, add the address above, message type STORE, channel {channel}.",
+		grantDashboardLink: 'Open Permissions',
 		now: 'Back up now',
 		step: {
 			packing: 'Packing and sealing …',

@@ -50,6 +50,8 @@ export const app = $state({
 		online: false,
 		/** @type {import('./sync/device-sync.js').SyncState | null} */
 		state: null,
+		/** @type {import('./sync/device-sync.js').SyncPulse | null} the last ping an own device answered */
+		pulse: null,
 		/** @type {string | null} */
 		error: null,
 		/** Another device removed this one; its sync is switched off. */
@@ -795,6 +797,9 @@ async function startDeviceSyncIfOn() {
 			since: deviceSyncSince(),
 			onState: (state) => {
 				app.sync.state = state;
+			},
+			onPulse: (pulse) => {
+				app.sync.pulse = pulse;
 			},
 			gate: session.deviceGate ?? undefined,
 			onRemoved: () => {

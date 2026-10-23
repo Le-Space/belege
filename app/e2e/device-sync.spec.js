@@ -77,6 +77,22 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 		await expect(badge).toHaveAttribute('data-state', 'connected', { timeout: 30_000 });
 		await expect(badge).toContainText('Im Netz: eigene Geräte');
 		await expect(badge).toHaveAttribute('title', /Eigene Geräte: 1 verbunden/);
+		// What is connected, to be checked: the Mac's peer id, the address it is
+		// reached over, direct or through the relay, with the round trip …
+		await expect(badge).toHaveAttribute('title', new RegExp(`: ${macId}\\n`));
+		await expect(badge).toHaveAttribute('title', /(direkt|über das Relay): \/\S+ – (\d+|\?) ms/);
+		// A circuit without WebRTC is never called direct.
+		expect(await badge.getAttribute('title')).not.toMatch(/direkt: \S*\/p2p-circuit\/p2p\//);
+		// … and the Mac answering the connection monitor's ping (every 10 s)
+		// lights the dot up for a moment.
+		await phone.page.waitForFunction(
+			() =>
+				/** @type {HTMLElement | null} */ (document.querySelector('[data-testid="local-only"]'))
+					?.dataset.pulse === 'on',
+			null,
+			{ polling: 'raf', timeout: 30_000 }
+		);
+		await expect(badge).toHaveAttribute('title', /Letzte Ping-Antwort: .+, \d+ ms, um /);
 		// "Alles pausieren" in the badge's menu: at once, and the Mac is no longer connected …
 		await badge.click();
 		await phone.page.getByTestId('network-pause').click();

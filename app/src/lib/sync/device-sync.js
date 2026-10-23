@@ -290,6 +290,7 @@ export const knownDevices = (settingsRecords) =>
  * @param {string} p.label this device, as the person may call it
  * @param {string} [p.since] when sync was switched on here (deviceSyncSince)
  * @param {(state: SyncState) => void} [p.onState]
+ * @param {(pulse: SyncPulse) => void} [p.onPulse] an own device answered a ping
  * @param {() => void} [p.onRemoved] another device removed this one
  * @param {{ isProved: (peerId: string) => boolean, forget: (peerId: string) => void, proveTo?: (peerId: string) => Promise<void>, onProved?: (listener: (peerId: string) => void) => () => void }} [p.gate]
  *   which peers proved the passkey (device-gate.js); one that has not is not connected
@@ -302,6 +303,7 @@ export async function startDeviceSync({
 	label,
 	since = '',
 	onState = () => {},
+	onPulse = () => {},
 	onRemoved = () => {},
 	gate = { isProved: () => true, forget: () => {} },
 	now = () => new Date().toISOString()
@@ -408,17 +410,73 @@ export async function startDeviceSync({
 		onRemoved();
 	}
 
+	/** @type {WeakSet<object>} connections whose pings are watched */
+	const watched = new WeakSet();
+	/**
+	 * libp2p's connection monitor pings every connection (every 10 s) and
+	 * writes the round trip to `conn.rtt`. Watched here, not sent: an own
+	 * device's answer is a pulse, with no ping of our own on the wire.
+	 *
+	 * @param {any} conn
+	 */
+	function watchPings(conn) {
+		if (!conn || watched.has(conn)) return;
+		watched.add(conn);
+		let rtt = conn.rtt;
+		try {
+			Object.defineProperty(conn, 'rtt', {
+				configurable: true,
+				enumerable: true,
+				get: () => rtt,
+				set: (value) => {
+					rtt = value;
+					const peerId = conn.remotePeer.toString();
+					if (stopped || !connected(peerId)) return;
+					onPulse({
+						peerId,
+						rtt: Math.round(value),
+						addr: conn.remoteAddr.toString(),
+						at: Date.now()
+					});
+					report();
+				}
+			});
+		} catch {
+			// A connection that does not let its rtt be watched: no pulse from it.
+		}
+	}
+
+	/** The connections to a device, as they are: address, direct or relayed, round trip. @param {string} peerId */
+	const links = (peerId) =>
+		libp2p
+			.getConnections()
+			.filter((/** @type {any} */ c) => c.remotePeer.toString() === peerId)
+			.map((/** @type {any} */ c) => {
+				watchPings(c);
+				const addr = c.remoteAddr.toString();
+				return {
+					addr,
+					// By the address, not `limited`: a relay that sets no limits (the test
+					// relay, a bridge's) gives a circuit that is not limited, and still
+					// relayed. WebRTC signalled through the relay is direct.
+					direct: addr.includes('/webrtc') || !addr.includes('/p2p-circuit'),
+					rtt: typeof c.rtt === 'number' ? Math.round(c.rtt) : null
+				};
+			});
+
 	function report() {
+		/** @type {string[]} */
+		const addrs = libp2p.getMultiaddrs().map((/** @type {any} */ a) => a.toString());
 		onState({
 			self,
-			reachable: libp2p
-				.getMultiaddrs()
-				.some((/** @type {any} */ a) => a.toString().includes('/p2p-circuit')),
+			reachable: addrs.some((a) => a.includes('/p2p-circuit')),
+			addrs,
 			devices: [...known].map((peerId) => ({
 				peerId,
 				label: records.get(peerId)?.label ?? '',
 				connected: connected(peerId),
-				direct: direct(peerId)
+				direct: direct(peerId),
+				links: links(peerId)
 			}))
 		});
 	}
@@ -522,5 +580,12 @@ export async function startDeviceSync({
 }
 
 /**
- * @typedef {{ self: string, reachable: boolean, devices: { peerId: string, label: string, connected: boolean, direct: boolean }[] }} SyncState
+ * @typedef {{ self: string, reachable: boolean, addrs?: string[], devices: { peerId: string, label: string, connected: boolean, direct: boolean, links?: { addr: string, direct: boolean, rtt: number | null }[] }[] }} SyncState
+ *   `addrs`: this node's own addresses (a `/p2p-circuit` one is its place at a relay);
+ *   a device's `links`: each connection to it, by remote address, direct or relayed, with the last round trip in ms
+ */
+
+/**
+ * @typedef {{ peerId: string, rtt: number, addr: string, at: number }} SyncPulse
+ *   an own device answered the connection monitor's ping, over `addr`, after `rtt` ms
  */
