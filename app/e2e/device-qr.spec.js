@@ -54,13 +54,15 @@ test('two devices connect by QR, without a relay, and sync', async ({ browser })
 		await expect(invite.locator('svg')).toBeVisible();
 		const offer = String(await invite.getAttribute('data-code'));
 
-		// The phone scans it and shows its answer.
-		await openIntegration(phone.page, 'geraete');
-		await phone.page.getByTestId('devices-scan').click();
+		// The phone scans it and shows its answer – right in the header's network
+		// menu, unfolded there while no device is connected.
+		await phone.page.getByTestId('local-only').click();
+		await expect(phone.page.getByTestId('network-qr-mode')).toBeVisible();
+		await phone.page.getByTestId('network-scan').click();
 		await phone.page.evaluate((c) => {
 			/** @type {any} */ (globalThis).__scanValue = c;
 		}, offer);
-		const answer = phone.page.getByTestId('devices-qr-code');
+		const answer = phone.page.getByTestId('network-qr-code');
 		await expect(answer).toHaveAttribute('data-phase', 'answer', { timeout: 30_000 });
 		const reply = String(await answer.getAttribute('data-code'));
 
@@ -72,6 +74,8 @@ test('two devices connect by QR, without a relay, and sync', async ({ browser })
 			timeout: 30_000
 		});
 		// The phone added the Mac too, once the Mac proved the passkey to it.
+		await phone.page.keyboard.press('Escape');
+		await openIntegration(phone.page, 'geraete');
 		await expect(phone.page.getByTestId('devices-item-state')).toHaveText('verbunden · direkt', {
 			timeout: 60_000
 		});

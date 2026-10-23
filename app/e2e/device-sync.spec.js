@@ -104,8 +104,9 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 				.filter({ hasText: macId })
 				.getByTestId('devices-item-state')
 		).toHaveText('nicht verbunden', { timeout: 30_000 });
-		// … and "Fortsetzen" connects it again, in this session.
-		await badge.click();
+		// … and "Fortsetzen" connects it again, in this session. The menu stayed
+		// open: the click that swapped "Alles pausieren" for it does not close it.
+		await expect(phone.page.getByTestId('network-menu')).toBeVisible();
 		await phone.page.getByTestId('network-resume').click();
 		await expect(badge).toHaveAttribute('data-state', 'connected', { timeout: 60_000 });
 		await expect(
