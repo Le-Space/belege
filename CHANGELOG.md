@@ -20,6 +20,10 @@ All notable changes to Le Space Belege. The format follows
 
 - **LibertAI confidential reads without the model's "thinking".** In the enclave `qwen3.8-27b-tee` thinks before it answers; measured on six made-up receipts through Belege's own extraction request, that took 38 s and up to 6,000 tokens a receipt and left two unread, against 5.8 s, about 370 tokens and all six right with it off. In TEE mode the bridge now sends `enable_thinking: false`; other providers' requests are unchanged.
 
+### Fixed
+
+- **"Aus Paperless holen" goes on past a slow document, and says where it is.** A first fetch of a thousand documents stopped at the first one Paperless did not deliver within two minutes, with a bare "TimeoutError: signal timed out" – the bridge's timeout also covers reading the file, and that part was not caught. Now the bridge names it ("Paperless did not deliver the document within 120 s", `PAPERLESS_TIMEOUT`), the app skips that document, counts it ("… diesmal nicht rechtzeitig geliefert – der nächste Abruf holt sie") and goes on, and the mark of the last fetch stays where it was, so the next fetch lists it again (the ones in already are not downloaded again). Three in a row, and Paperless is taken to be down: the fetch stops and says so. While it runs: "Dokument 412 von 1065 …".
+
 ## [0.16.0] – 2026-10-23
 
 ### Added

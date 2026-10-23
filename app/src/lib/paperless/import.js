@@ -83,8 +83,17 @@ export const parseTags = (text) =>
  */
 
 /**
- * @typedef {{ new: number, known: number, duplicate: number, skipped: number, unsupported: number }} PaperlessCounts
+ * @typedef {{ new: number, known: number, duplicate: number, skipped: number, unsupported: number, failed: number }} PaperlessCounts
+ *   failed: documents Paperless did not deliver this time (a timeout, a broken-off answer) – fetched again next time
  */
+
+/** So many documents in a row not delivered, and Paperless is taken to be down: the fetch stops. */
+export const STOP_AFTER_FAILURES = 3;
+
+/** A document Paperless did not deliver this time, as opposed to one that is no receipt. @param {any} error */
+const notDelivered = (error) =>
+	['PAPERLESS_TIMEOUT', 'PAPERLESS_UNREACHABLE'].includes(error?.code) ||
+	/timed out|TimeoutError/i.test(String(error?.message ?? ''));
 
 /**
  * The documents of a list into the books.
@@ -96,6 +105,7 @@ export const parseTags = (text) =>
  * @param {PaperlessDocument[]} params.documents
  * @param {string[]} [params.skipTags]
  * @param {import('../store/repository.js').StoredRecord[]} [params.created] the new records are pushed here
+ * @param {(p: { done: number, total: number }) => void} [params.onProgress]
  * @returns {Promise<PaperlessCounts>}
  */
 export async function importPaperlessDocuments({
@@ -104,7 +114,8 @@ export async function importPaperlessDocuments({
 	client,
 	documents,
 	skipTags = [],
-	created
+	created,
+	onProgress
 }) {
 	const all = await receipts.list({ includeDeleted: true });
 	const seen = {
@@ -113,8 +124,11 @@ export async function importPaperlessDocuments({
 	};
 	const skip = new Set(skipTags.map((t) => t.toLowerCase()));
 	/** @type {PaperlessCounts} */
-	const counts = { new: 0, known: 0, duplicate: 0, skipped: 0, unsupported: 0 };
+	const counts = { new: 0, known: 0, duplicate: 0, skipped: 0, unsupported: 0, failed: 0 };
+	let inARow = 0;
+	let done = 0;
 	for (const doc of documents) {
+		onProgress?.({ done: done++, total: documents.length });
 		const sourceRef = paperlessSourceRef(doc.id);
 		if (seen.refs.has(sourceRef)) {
 			counts.known++;
@@ -133,8 +147,16 @@ export async function importPaperlessDocuments({
 				counts.unsupported++;
 				continue;
 			}
+			// One slow document does not end the fetch: it comes again next time.
+			// Several in a row, and Paperless is down – then it stops, and says so.
+			if (notDelivered(error)) {
+				counts.failed++;
+				if (++inARow >= STOP_AFTER_FAILURES) throw error;
+				continue;
+			}
 			throw error;
 		}
+		inARow = 0;
 		const { outcome, record } = await importFile({
 			receipts,
 			blobs,
@@ -184,9 +206,10 @@ export function newestAdded(documents, before) {
  * @param {{ receipts: import('../store/repository.js').Collection, settings: import('../store/repository.js').Collection, events?: import('../store/repository.js').Collection }} params.store
  * @param {import('../receipts/blob-store.js').BlobStore} params.blobs
  * @param {{ paperlessDocuments: (since: string | null) => Promise<PaperlessDocument[]>, paperlessDocument: (id: number) => Promise<Uint8Array> }} params.client
+ * @param {(p: { done: number, total: number }) => void} [params.onProgress] where the fetch is
  * @returns {Promise<{ documents: number, counts: PaperlessCounts, createdIds: string[] }>}
  */
-export async function fetchPaperless({ store, blobs, client }) {
+export async function fetchPaperless({ store, blobs, client, onProgress }) {
 	const settings = await loadPaperlessSettings(store.settings);
 	const documents = await client.paperlessDocuments(settings.since);
 	/** @type {import('../store/repository.js').StoredRecord[]} */
@@ -197,9 +220,12 @@ export async function fetchPaperless({ store, blobs, client }) {
 		client,
 		documents,
 		skipTags: settings.skipTags,
-		created
+		created,
+		onProgress
 	});
-	const since = newestAdded(documents, settings.since);
+	// A document not delivered keeps the mark where it was: the next fetch lists
+	// it again (the ones in already are known and not downloaded again).
+	const since = counts.failed ? settings.since : newestAdded(documents, settings.since);
 	if (since !== settings.since) await savePaperlessSettings(store.settings, { since });
 	await recordEvent(store.events, 'paperless-fetch', { documents: documents.length, ...counts });
 	return { documents: documents.length, counts, createdIds: created.map((r) => r.id) };
