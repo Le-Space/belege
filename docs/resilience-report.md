@@ -81,16 +81,18 @@ Convergence after the reconnect is immediate; what costs is the reconnect itself
 
 One browser, the bridge in test mode, the fake Aleph. Books of _n_ bookings, "Jetzt sichern" (the storage bridge seals the database and stores it), then `localStorage`, `sessionStorage` and every IndexedDB are deleted and the bridge is stopped. The same passkey opens empty books; the account's address alone lists the backup; "Wiederherstellen" fetches it, puts the blocks back and joins the heads; the page reloads, the passkey unlocks.
 
-Measured again on **23 October 2026**, same machine, entries signed with Ed25519, and the storage bridge carrying two fixes that 0.23.0 does not have ([#172](https://github.com/NiKrause/orbitdb-storage-bridge/pull/172), [#174](https://github.com/NiKrause/orbitdb-storage-bridge/pull/174)). Docker (five Paperless containers) and Jameica were **running** for these runs, where the earlier ones had them stopped, so the figures are conservative. The 13 October numbers, with bridge 0.17.0, are in brackets.
+Measured again on **23 October 2026**, same machine, entries signed with Ed25519, and the storage bridge at [0.24.0](https://github.com/NiKrause/orbitdb-storage-bridge/blob/main/CHANGES.md). Docker (five Paperless containers) and Jameica were **running** for these runs, where the earlier ones had them stopped, so the figures are conservative. The 13 October numbers, with bridge 0.17.0, are in brackets; 5 000 and 10 000 were never reached before, so they have none.
 
 | books (bookings) | IndexedDB | backup (click → "von Aleph aufbewahrt") | restore (click → "Wiederhergestellt") | unlock after reload | every booking back |
 | ---------------- | --------- | --------------------------------------- | ------------------------------------- | ------------------- | ------------------ |
-| 50               | 8.2 MB    | 0.4 s                                   | **0.9 s** _(1.4 s)_                   | 0.2 s               | yes, 0 lost        |
-| 500              | 9.4 MB    | 0.4 s                                   | **5.4 s** _(40 s)_                    | 0.8 s               | yes, 0 lost        |
-| 1 000            | 10.7 MB   | 0.6 s                                   | **8.5 s** _(126 s)_                   | 0.9 s               | yes, 0 lost        |
-| 2 000            | 13.3 MB   | 2.6 s                                   | **17.7 s** _(—)_                      | 2.4 s               | yes, 0 lost        |
+| 50               | 8.3 MB    | 0.3 s                                   | **0.8 s** _(1.4 s)_                   | 0.2 s               | yes, 0 lost        |
+| 500              | 9.4 MB    | 0.4 s                                   | **3.9 s** _(40 s)_                    | 0.8 s               | yes, 0 lost        |
+| 1 000            | 10.7 MB   | 0.6 s                                   | **7.4 s** _(126 s)_                   | 0.8 s               | yes, 0 lost        |
+| 2 000            | 13.3 MB   | 2.6 s                                   | **14.5 s** _(—)_                      | 1.4 s               | yes, 0 lost        |
+| 5 000            | 21.3 MB   | 8.1 s                                   | **40.5 s** _(—)_                      | 3.4 s               | yes, 0 lost        |
+| 10 000           | 34.3 MB   | 16.6 s                                  | **79.1 s** _(—)_                      | 6.9 s               | yes, 0 lost        |
 
-The backup is cheap and flat. The restore is now **linear** — twice the books, twice the time — and 2 000 bookings come back for the first time.
+The restore is **linear**, and the column that proves it is not in the table: from 500 bookings upward it costs 7.3–8.1 ms per booking, whatever the total. Ten thousand come back in 79 s, where two thousand used to not come back at all. The backup is no longer flat at this scale either — it grows with the books, to 16.6 s at 10 000 — and so does the unlock after the restore.
 
 **They never used to, and not because they were slow.** `CarReader` hands out each block of a backup as a view into the single `ArrayBuffer` the whole CAR lives in, and IndexedDB's structured clone stores *the buffer behind a view*, not the view. So restoring a 3.7 MB backup asked the browser for 3.7 MB **per block** — about 7.5 GB for 2 016 of them — and it refused everything past roughly block 500 with `QuotaExceededError`. N blocks each carrying an archive that itself grows with N is quadratic, and that is the "grows faster than the books" this report kept describing. Reproduced with nothing but a `LevelBlockstore` in a blank page: the same 2 016 blocks cost 4 MB as standalone copies and all went in; as views into one buffer they cost 1 862 MB and stopped at block 494 ([#174](https://github.com/NiKrause/orbitdb-storage-bridge/pull/174)).
 
@@ -98,7 +100,7 @@ An earlier version of this table said 2 000 bookings "still did not finish in 10
 
 The earlier repair is still in these numbers and was still real: `restoreFromBlocks` used to put every block into the log storage of *every* database, 18 099 writes where 2 011 blocks exist ([#152](https://github.com/NiKrause/orbitdb-storage-bridge/issues/152), fixed in [#168](https://github.com/NiKrause/orbitdb-storage-bridge/pull/168) and [#170](https://github.com/NiKrause/orbitdb-storage-bridge/pull/170)). It was never the dominant cost, though, and the conclusion this report drew from what remained — that IndexedDB writes are inherently slow here and batching them is the next lever — was wrong twice over. Batching was tried and measured **slower** (33–35 s against 18–19 s at 500 bookings, reverted); the writes were not slow, there were a thousand times too many bytes in each.
 
-Nothing is lost at any size. The unlock after the restore no longer grows the way it did (0.2 s, 0.8 s, 0.9 s, 2.4 s against 0.3 s, 4.4 s, 13.0 s): it was paying for the same bloated blockstore.
+Nothing is lost at any size, up to ten thousand bookings. The unlock after the restore no longer grows the way it did (0.8 s at 1 000, against 13.0 s before): it was paying for the same bloated blockstore.
 
 ## The identity's curve: Ed25519 against secp256k1
 
