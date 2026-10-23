@@ -10,11 +10,12 @@
 	import { createBridgeClient } from '$lib/bridge/client.js';
 	import CopyButton from '$lib/CopyButton.svelte';
 	import WayOut from '$lib/help/WayOut.svelte';
-	import { app, currentStore, makeBackup } from '$lib/session.svelte.js';
+	import { app, currentStore, makeBackup, makeIncrement } from '$lib/session.svelte.js';
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { releaseName } from '$lib/build-info.js';
 	import { card } from '$lib/ui/styles.js';
 	import { backupName, loadBackups, rememberBackup, updateBackup } from './history.js';
+	import { chainAfter, chainFromBase, loadChain, saveChain } from './chain.js';
 	import {
 		BACKUP_CHANNEL,
 		BackupRefusedError,
@@ -70,6 +71,16 @@
 	let answer = null;
 	/** Which history row is being kept again, by CID and time. */
 	let rekeeping = $state('');
+	/** @type {import('./archive.js').BackupChain | null} where the chain of backups stands (#454) */
+	let chain = $state(null);
+	/** The last "Jetzt sichern" found nothing new. */
+	let nothingNew = $state(false);
+	/** The chain's full backup, as this browser's history has it (another device's: not there). */
+	const chainBase = $derived(chain ? backups.find((b) => b.cid === chain?.base) : undefined);
+	/** An increment builds on its full backup only while Aleph may keep that. */
+	const chainUsable = $derived(
+		Boolean(chain) && !['unknown', 'rejected', 'forgotten'].includes(chainBase?.status ?? '')
+	);
 
 	/** The bridge signs while this key is not granted, if it can. */
 	const bridgeSigns = $derived(Boolean(token && status?.configured));
@@ -100,6 +111,7 @@
 		const store = currentStore();
 		if (!store) return;
 		backups = await loadBackups(store.settings);
+		chain = await loadChain(store.settings);
 		key = await ensureBackupKey(store.settings);
 		address = await backupAddressOf(key);
 		owner = await loadOwner(store.settings);
@@ -163,11 +175,12 @@
 	 * once granted, else by the bridge.
 	 *
 	 * @param {string} cid
-	 * @returns {Promise<{ status: string, itemHash: string, address?: string, sender?: string }>}
+	 * @param {string} [ref] an increment's: its full backup's CID
+	 * @returns {Promise<{ status: string, itemHash: string, address?: string, sender?: string, ref?: string }>}
 	 */
-	async function keep(cid) {
-		if (granted === true && owner && key) return keepWithKey({ cid, owner, key, endpoints });
-		return { ...(await client.alephKeep(cid)), sender: status?.address };
+	async function keep(cid, ref) {
+		if (granted === true && owner && key) return keepWithKey({ cid, owner, key, endpoints, ref });
+		return { ...(await client.alephKeep(cid, ref)), sender: status?.address };
 	}
 
 	/** @param {unknown} e */
@@ -195,7 +208,7 @@
 		error = null;
 		rekeeping = b.cid + b.at;
 		try {
-			const kept = await keep(b.cid);
+			const kept = await keep(b.cid, b.kind === 'increment' ? b.base : undefined);
 			backups = await updateBackup(store.settings, b, {
 				status: kept.status,
 				itemHash: kept.itemHash,
@@ -232,19 +245,34 @@
 		await check();
 	}
 
-	async function backUp() {
+	/**
+	 * "Jetzt sichern": after a full backup, only what is new since the chain's
+	 * last backup (#454) – an increment, kept with its base's CID as `ref`.
+	 * The first backup, one whose base Aleph does not keep, and "Neues
+	 * Vollbackup" are full ones, and start a new chain.
+	 *
+	 * @param {{ full?: boolean }} [options]
+	 */
+	async function backUp({ full = false } = {}) {
 		const store = currentStore();
 		if (!store || !owner || !key) return;
 		error = null;
 		made = null;
+		nothingNew = false;
 		progress = null;
+		const continuing = !full && chainUsable && chain ? chain : null;
 		try {
 			step = 'packing';
 			const at = new Date();
-			const built = await makeBackup({
-				appVersion: releaseName() || 'dev',
-				onProgress: (p) => (progress = p)
-			});
+			const appVersion = releaseName() || 'dev';
+			const onProgress = (/** @type {any} */ p) => (progress = p);
+			const built = continuing
+				? await makeIncrement({ chain: continuing, appVersion, onProgress })
+				: await makeBackup({ appVersion, onProgress });
+			if (!built) {
+				nothingNew = true;
+				return;
+			}
 			// A whole copy costs credits every day it is kept: when the credits
 			// would not last a month with it, ask before it goes up.
 			const perDay = creditsPerDay(built.sealed.length);
@@ -262,10 +290,10 @@
 			);
 			const handle = await createAlephBackend({ ingestUrl: endpoints.ingestUrl }).putBlob(
 				built.sealed,
-				{ name: backupName(at) }
+				{ name: backupName(at, continuing ? continuing.sequence + 1 : 0) }
 			);
 			step = 'keeping';
-			const kept = await keep(handle.id);
+			const kept = await keep(handle.id, continuing?.base);
 			/** @type {import('./history.js').BackupRecord} */
 			const record = {
 				at: at.toISOString(),
@@ -276,14 +304,40 @@
 				itemHash: kept.itemHash,
 				address: kept.address,
 				...(kept.sender ? { sender: kept.sender } : {}),
-				entries: databasesOf(built.manifest).reduce((n, d) => n + d.entries, 0),
-				databases: databasesOf(built.manifest),
-				files: built.manifest.files.length,
-				blocks: built.blocks,
-				missing: built.manifest.missing
+				...('heads' in built
+					? {
+							kind: /** @type {const} */ ('increment'),
+							base: continuing?.base,
+							sequence: (continuing?.sequence ?? 0) + 1,
+							entries: built.entries,
+							databases: built.databases,
+							files: built.files.length,
+							blocks: built.blocks,
+							missing: built.missing
+						}
+					: {
+							kind: /** @type {const} */ ('full'),
+							entries: databasesOf(built.manifest).reduce((n, d) => n + d.entries, 0),
+							databases: databasesOf(built.manifest),
+							files: built.manifest.files.length,
+							blocks: built.blocks,
+							missing: built.manifest.missing
+						})
 			};
 			backups = await rememberBackup(store.settings, record);
 			made = record;
+			// The chain moves once Aleph has taken it. An increment the bridge
+			// kept without its `ref` (an older bridge) is not found by its chain:
+			// the next one ships everything since again.
+			if (kept.status !== 'rejected') {
+				if (!('heads' in built)) {
+					chain = await saveChain(store.settings, chainFromBase(built.manifest, handle.id));
+				} else if (continuing && kept.ref === continuing.base) {
+					chain = await saveChain(store.settings, chainAfter(continuing, built, handle.id));
+				} else {
+					error = t('backup.oldBridge');
+				}
+			}
 		} catch (e) {
 			error = refused(e);
 		} finally {
@@ -461,10 +515,19 @@
 			<button
 				type="button"
 				class={button}
-				onclick={backUp}
+				onclick={() => backUp()}
 				disabled={Boolean(step) || !canBackUp}
 				data-testid="backup-now">{t('backup.now')}</button
 			>
+			{#if chainUsable}
+				<button
+					type="button"
+					class={button}
+					onclick={() => backUp({ full: true })}
+					disabled={Boolean(step) || !canBackUp}
+					data-testid="backup-full">{t('backup.full')}</button
+				>
+			{/if}
 			<button
 				type="button"
 				class={button}
@@ -478,8 +541,20 @@
 				>
 			{:else if app.network.paused}
 				<span class="text-sm text-faint">{t('backup.paused')}</span>
+			{:else if nothingNew}
+				<span class="text-sm text-text" role="status" data-testid="backup-nothing-new"
+					>{t('backup.nothingNew')}</span
+				>
 			{/if}
 		</div>
+		<p class="mt-2 text-xs text-faint" data-testid="backup-chain">
+			{chainUsable && chain
+				? t('backup.chainNext', {
+						sequence: chain.sequence + 1,
+						date: chainBase ? when(chainBase.at) : t('backup.chainElsewhere')
+					})
+				: t('backup.chainFirst')}
+		</p>
 		{#if asking}
 			<div
 				class="mt-3 rounded-md border border-border bg-surface-2 p-3 text-sm"
@@ -565,10 +640,11 @@
 	{#if made}
 		<div class="mt-3 text-sm" role="status" data-testid="backup-made">
 			<p class="text-heading">
-				{t('backup.made', {
+				{t(made.kind === 'increment' ? 'backup.madeIncrement' : 'backup.made', {
 					size: size(made.size),
 					entries: made.entries,
 					files: made.files,
+					sequence: made.sequence ?? 0,
 					kept: kept(made.status)
 				})}
 			</p>
@@ -601,7 +677,14 @@
 					class="flex flex-wrap items-baseline justify-between gap-2 py-1.5"
 					data-testid="backup-row"
 				>
-					<span class="text-heading">{when(b.at)}</span>
+					<span class="text-heading"
+						>{when(b.at)}
+						<span class="text-xs text-faint" data-testid="backup-row-kind"
+							>· {b.kind === 'increment'
+								? t('backup.kindIncrement', { sequence: b.sequence ?? 0 })
+								: t('backup.kindFull')}</span
+						></span
+					>
 					<span class="text-faint">{size(b.size)} · {kept(b.status)}</span>
 					<span class="w-full font-mono text-xs break-all text-faint">{b.cid}</span>
 					{#if b.itemHash}

@@ -27,6 +27,19 @@
 // No block is read from the network: a receipt file's block this browser
 // lacks is counted as missing, never fetched, and a backup with missing blocks
 // says so.
+//
+// Increments (#454). A full backup is the base of a chain; after it, a backup
+// holds only what is new: through the storage bridge's `collectIncrement`
+// (`/live-backup`), the log entries no backup of the chain had – walked from
+// each database's heads down to the heads the chain last shipped – with every
+// changed database's manifest, access controller and writers' identities, and
+// the receipt files the chain has not got yet. Its root is the storage
+// bridge's increment manifest (`kind: "increment"`, `base`, `sequence`,
+// `previous`); a block of Belege's own beside it names the files and the app's
+// version. Sealed the same way, so Aleph sees one more opaque file. Restoring
+// is the base and its increments together (`mergeIncrements`): every block of
+// all of them, each database joined at the heads of all of them; a chain with
+// a hole is refused, it would join heads onto entries nobody has.
 
 import * as dagCbor from '@ipld/dag-cbor';
 import { CID } from 'multiformats/cid';
@@ -109,6 +122,31 @@ export async function fileBlocks(blockstore, files, onFile) {
 	return { blocks, missing };
 }
 
+/** MAGIC ‖ nonce ‖ AES-GCM(CAR). @param {Uint8Array} car @param {Uint8Array} backupKey */
+async function seal(car, backupKey) {
+	const sealed = await (await sealer(backupKey)).seal(car);
+	const out = new Uint8Array(MAGIC.length + sealed.length);
+	out.set(MAGIC, 0);
+	out.set(sealed, MAGIC.length);
+	return out;
+}
+
+/**
+ * Every receipt file the books name: receipts' files, mails kept as received
+ * and e-invoice XML, deleted receipts' too, for their log still names them.
+ *
+ * @param {import('../store/repository.js').Collection} receipts
+ */
+async function receiptFiles(receipts) {
+	return [
+		...new Set(
+			(await receipts.list({ includeDeleted: true }))
+				.flatMap((r) => [r.fileCid, r.emlCid, r.xmlCid])
+				.filter((c) => typeof c === 'string' && c)
+		)
+	];
+}
+
 /**
  * Build and seal a backup.
  *
@@ -155,13 +193,7 @@ export async function buildBackup({
 		}
 	);
 
-	const files = [
-		...new Set(
-			(await receipts.list({ includeDeleted: true }))
-				.flatMap((r) => [r.fileCid, r.emlCid, r.xmlCid])
-				.filter((c) => typeof c === 'string' && c)
-		)
-	];
+	const files = await receiptFiles(receipts);
 	onProgress?.({ stage: 'files', done: 0, total: files.length });
 	const { blocks: own, missing } = await fileBlocks(blockstore, files, (done) =>
 		onProgress?.({ stage: 'files', done, total: files.length })
@@ -185,16 +217,147 @@ export async function buildBackup({
 
 	const car = await createCARFromBlocks(blocks, rootCid.toString());
 	onProgress?.({ stage: 'sealing', bytes: car.length });
-	const sealed = await (await sealer(backupKey)).seal(car);
-	const out = new Uint8Array(MAGIC.length + sealed.length);
-	out.set(MAGIC, 0);
-	out.set(sealed, MAGIC.length);
-	return { sealed: out, manifest, blocks: blocks.size, carBytes: car.length };
+	return {
+		sealed: await seal(car, backupKey),
+		manifest,
+		blocks: blocks.size,
+		carBytes: car.length
+	};
 }
 
 /**
- * Open a sealed backup: every block checked against its own CID, and the
- * manifest found among them.
+ * Where a chain of backups stands: the full backup it starts from, the last
+ * increment, the heads each database had when last shipped and the receipt
+ * files shipped so far (backup/chain.js keeps it in the sealed settings).
+ *
+ * @typedef {object} BackupChain
+ * @property {string} base the full backup's CID
+ * @property {number} sequence of the last increment; 0 right after the base
+ * @property {string | null} previous the last increment's CID
+ * @property {Record<string, string[]>} heads by database address
+ * @property {string[]} files receipt files' root CIDs in the chain
+ */
+
+/**
+ * Every log entry reachable from these heads: what the chain has shipped.
+ *
+ * @param {any} database @param {string[]} heads
+ */
+async function reachable(database, heads) {
+	/** @type {Set<string>} */
+	const seen = new Set();
+	const stack = [...heads];
+	while (stack.length) {
+		const hash = /** @type {string} */ (stack.pop());
+		if (seen.has(hash)) continue;
+		seen.add(hash);
+		const entry = await database.log.get(hash).catch(() => null);
+		if (entry?.next) stack.push(...entry.next);
+	}
+	return seen;
+}
+
+/**
+ * Build and seal what is new since the chain's last backup: the increment.
+ * `null` when nothing is – or only settings, which every backup writes itself.
+ *
+ * @param {object} params
+ * @param {Record<string, any>} params.databases the opened OrbitDB databases, by collection
+ * @param {any} params.blockstore Helia's blockstore
+ * @param {import('../store/repository.js').Collection} params.receipts
+ * @param {Uint8Array} params.key the backup key
+ * @param {BackupChain} params.chain
+ * @param {string} params.appVersion
+ * @param {() => Date} [params.now]
+ * @param {(progress: BackupProgress) => void} [params.onProgress]
+ * @returns {Promise<null | { sealed: Uint8Array, manifest: any, heads: Record<string, string[]>,
+ *   files: string[], entries: number, databases: { collection: string, entries: number }[],
+ *   blocks: number, missing: number, carBytes: number }>}
+ */
+export async function buildIncrement({
+	databases,
+	blockstore,
+	receipts,
+	key: backupKey,
+	chain,
+	appVersion,
+	now = () => new Date(),
+	onProgress
+}) {
+	const { collectIncrement } = await import('@le-space/orbitdb-storage-bridge/live-backup');
+	const { createCARFromBlocks } = await import('@le-space/orbitdb-storage-bridge/backup-car');
+
+	/** @type {Map<string, { database: any, shipped: Set<string>, collection: string }>} */
+	const watched = new Map();
+	const names = Object.keys(databases);
+	for (const [index, [collection, database]] of Object.entries(databases).entries()) {
+		const address = String(database.address);
+		const since = chain.heads[address] ?? [];
+		const shipped = await reachable(database, since);
+		// The storage bridge reads the heads it continues from off the set.
+		/** @type {any} */ (shipped).heads = since;
+		watched.set(address, { database, shipped, collection });
+		onProgress?.({
+			stage: 'database',
+			index,
+			total: names.length,
+			name: collection,
+			entries: shipped.size
+		});
+	}
+
+	const had = new Set(chain.files);
+	const files = (await receiptFiles(receipts)).filter((f) => !had.has(f));
+	onProgress?.({ stage: 'files', done: 0, total: files.length });
+	const { blocks: own, missing } = await fileBlocks(blockstore, files, (done) =>
+		onProgress?.({ stage: 'files', done, total: files.length })
+	);
+	// Belege's word on it, beside the storage bridge's manifest.
+	const info = dagCbor.encode({ kind: 'belege-increment', v: 1, appVersion, files, missing });
+	const infoCid = CID.createV1(dagCbor.code, await sha256.digest(info));
+	own.set(infoCid.toString(), { cid: infoCid, bytes: info });
+
+	const increment = await collectIncrement(watched, {
+		sequence: chain.sequence + 1,
+		base: chain.base,
+		previous: chain.previous,
+		blocks: own,
+		now
+	});
+	// Every backup writes the settings (its history, the chain): new settings
+	// alone are no reason for an increment – they go with the next one.
+	const changed = /** @type {any} */ (increment?.manifest.metadata)?.databases?.some(
+		(/** @type {any} */ d) => d.collection !== 'settings' && d.entries > 0
+	);
+	if (!increment || (!changed && files.length === 0)) return null;
+
+	/** @type {Record<string, string[]>} */
+	const heads = { ...chain.heads };
+	for (const [address, shipped] of increment.shipped) heads[address] = shipped.heads;
+	const car = await createCARFromBlocks(increment.blocks, increment.root);
+	onProgress?.({ stage: 'sealing', bytes: car.length });
+	return {
+		sealed: await seal(car, backupKey),
+		manifest: increment.manifest,
+		heads,
+		files,
+		entries: increment.entries,
+		databases: /** @type {any} */ (increment.manifest.metadata).databases.map(
+			(/** @type {any} */ d) => ({
+				collection: String(d.collection ?? d.name),
+				entries: Number(d.entries ?? 0)
+			})
+		),
+		blocks: increment.blocks.size,
+		missing,
+		carBytes: car.length
+	};
+}
+
+/**
+ * Open a sealed backup – a full one or an increment: every block checked
+ * against its own CID, and the manifest found among them (`kind`
+ * `belege-backup` or `increment`).
  *
  * @param {Uint8Array} sealed
  * @param {Uint8Array} backupKey
@@ -216,9 +379,29 @@ export async function openBackup(sealed, backupKey) {
 		} catch {
 			continue;
 		}
-		if (value?.kind === 'belege-backup') return { manifest: value, blocks };
+		if (value?.kind === 'belege-backup' || value?.kind === 'increment') {
+			return { manifest: value, blocks };
+		}
 	}
 	throw new Error('Not a belege backup.');
+}
+
+/** Thrown when an increment is restored without the full backup it builds on. */
+export class IncrementWithoutBaseError extends Error {
+	constructor() {
+		super('This is an increment: restore the full backup it builds on, with its increments.');
+		this.name = 'IncrementWithoutBaseError';
+	}
+}
+
+/** Thrown when increments of a chain are missing: their heads would join onto entries nobody has. */
+export class ChainGapError extends Error {
+	/** @param {number[]} missing sequence numbers */
+	constructor(missing) {
+		super(`Increments of this backup are missing: ${missing.join(', ')}.`);
+		this.name = 'ChainGapError';
+		this.missing = missing;
+	}
 }
 
 /** Thrown when the backup cannot be opened with this passkey's key. */
@@ -251,9 +434,15 @@ export class WrongPasskeyError extends Error {
  * (`target`). The open databases are closed by `restoreFromBlocks` and
  * reopened behind the store's back, so the caller reloads the page afterwards.
  *
+ * With `increments`, the full backup's increments go back with it: all of
+ * them opened first, each one this base's (`base`, its CID), the chain without
+ * a hole (`ChainGapError`), then the blocks of all as one.
+ *
  * @param {object} params
  * @param {any} params.orbitdb
- * @param {Uint8Array} params.sealed
+ * @param {Uint8Array} params.sealed the full backup
+ * @param {Uint8Array[]} [params.increments] its increments, sealed, in any order
+ * @param {string} [params.base] the full backup's CID, which its increments name
  * @param {Uint8Array} params.key the backup key
  * @param {{ name: string, addresses: Record<string, string>, open: Record<string, any> }[]} params.targets
  *   each set of databases: its addresses by collection, and what `orbitdb.open` needs for it
@@ -261,20 +450,53 @@ export class WrongPasskeyError extends Error {
  * @param {() => Promise<void>} [params.beforeRestore] runs once the backup opened
  *   with this key and fits these books, right before anything is written – where
  *   the caller closes its databases, so a backup that does not fit leaves them open
- * @returns {Promise<{ manifest: BackupManifest, target: string, databases: { collection: string, joined: number, entries: number | null }[] }>}
+ * @returns {Promise<{ manifest: BackupManifest, target: string, increments: number, databases: { collection: string, joined: number, entries: number | null }[] }>}
  */
-export async function restoreBackup({ orbitdb, sealed, key, targets, onProgress, beforeRestore }) {
+export async function restoreBackup({
+	orbitdb,
+	sealed,
+	increments = [],
+	base,
+	key,
+	targets,
+	onProgress,
+	beforeRestore
+}) {
 	onProgress?.({ stage: 'opening' });
-	let opened;
-	try {
-		opened = await openBackup(sealed, key);
-	} catch (error) {
-		// AES-GCM refuses a wrong key as an OperationError; a foreign file is "Not a belege backup."
-		if (error instanceof Error && error.name === 'OperationError') throw new WrongPasskeyError();
-		throw error;
+	/** @param {Uint8Array} bytes */
+	const unseal = async (bytes) => {
+		try {
+			return await openBackup(bytes, key);
+		} catch (error) {
+			// AES-GCM refuses a wrong key as an OperationError; a foreign file is "Not a belege backup."
+			if (error instanceof Error && error.name === 'OperationError') throw new WrongPasskeyError();
+			throw error;
+		}
+	};
+	const opened = await unseal(sealed);
+	if (/** @type {any} */ (opened.manifest).kind === 'increment')
+		throw new IncrementWithoutBaseError();
+	const manifest = opened.manifest;
+	let blocks = opened.blocks;
+	let metadata = /** @type {any} */ (manifest.metadata);
+	if (increments.length) {
+		const chain = [];
+		for (const bytes of increments) {
+			const inc = /** @type {any} */ (await unseal(bytes));
+			if (inc.manifest.kind !== 'increment' || (base && inc.manifest.base !== base)) continue;
+			chain.push(inc);
+		}
+		const { mergeIncrements } = await import('@le-space/orbitdb-storage-bridge/live-backup');
+		const merged = /** @type {any} */ (
+			mergeIncrements({ base: { metadata, blocks }, increments: chain })
+		);
+		const missing = [...merged.gaps];
+		const first = merged.sequences[0];
+		if (first !== undefined) for (let s = 1; s < first; s++) missing.push(s);
+		if (missing.length) throw new ChainGapError(missing.sort((a, b) => a - b));
+		blocks = merged.blocks;
+		metadata = merged.metadata;
 	}
-	const { manifest, blocks } = opened;
-	const metadata = /** @type {any} */ (manifest.metadata);
 	const target = targets.find((t) => {
 		const ours = new Set(Object.values(t.addresses).map(String));
 		return metadata.databases.every((/** @type {any} */ d) => ours.has(String(d.address)));
@@ -306,6 +528,7 @@ export async function restoreBackup({ orbitdb, sealed, key, targets, onProgress,
 	return {
 		manifest,
 		target: target.name,
+		increments: increments.length,
 		databases: restored.databases.map((d) => ({
 			collection: byAddress[d.address] ?? d.address,
 			joined: d.joined,

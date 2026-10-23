@@ -8,7 +8,10 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createAlephPin } from '@le-space/orbitdb-storage-bridge/backends/aleph-pin';
+import {
+	createAlephPin,
+	listAlephStores
+} from '@le-space/orbitdb-storage-bridge/backends/aleph-pin';
 import { createAlephBackend } from '@le-space/orbitdb-storage-bridge/backends/aleph';
 
 import {
@@ -458,6 +461,38 @@ describe('/backup', () => {
 			});
 			assert.equal(bad.status, 400);
 			assert.equal(bad.json.code, 'ALEPH_BACKUP_CID');
+
+			// An increment names the full backup it builds on: the STORE carries it
+			// as `ref`, and Aleph lists the chain by it.
+			const inc = await createAlephBackend({ ingestUrl: `${aleph.url}/api/v0/add` }).putBlob(
+				new Uint8Array(randomBytes(512)),
+				{ name: 'increment.car' }
+			);
+			const withRef = await request(port, '/backup/aleph/pin', {
+				method: 'POST',
+				headers: auth,
+				body: { cid: inc.id, ref: id }
+			});
+			assert.equal(withRef.status, 200, withRef.text);
+			assert.equal(withRef.json.ref, id);
+			assert.equal(/** @type {any} */ (aleph.stores.at(-1)).ref, id);
+			const chain = await listAlephStores({
+				owner: addressOf(KEY),
+				channel: BACKUP_CHANNEL,
+				ref: id,
+				apiHost: aleph.url
+			});
+			assert.deepEqual(
+				chain.stores.map((st) => st.cid),
+				[inc.id]
+			);
+			const badRef = await request(port, '/backup/aleph/pin', {
+				method: 'POST',
+				headers: auth,
+				body: { cid: inc.id, ref: 'no cid' }
+			});
+			assert.equal(badRef.status, 400);
+			assert.equal(badRef.json.code, 'ALEPH_BACKUP_REF');
 		} finally {
 			await bridge.close();
 		}

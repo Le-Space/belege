@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Incremental backups (#454).** After a full backup, "Jetzt sichern" uploads only what is new since the last one: the new log entries and receipt files, sealed as before, through the storage bridge's `/live-backup` (`collectIncrement`, `mergeIncrements`). A day of new payments is kilobytes instead of a whole copy of the books – about 500 MB, some 26,000 credits a day on Aleph, for a year of receipts. Aleph keeps an increment with its full backup's CID as the STORE's `ref`; "Wiederherstellen" lists each full backup with its increments, fetches all of them and refuses a chain with a hole. "Neues Vollbackup" starts a new chain. The bridge's `POST /backup/aleph/pin` takes the `ref` (an older bridge keeps the increment without it: the page says so and the next backup ships everything since again). Where the chain stands lives in the sealed settings, so another own device continues it.
+
 ## [0.15.0] – 2026-10-23
 
 ### Fixed

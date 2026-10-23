@@ -101,8 +101,10 @@ export const STORAGE_PATHS = Object.freeze({
  * @property {import('./receipts/blob-store.js').BlobStore} blobs receipt files, sealed with the blob key
  * @property {(meta: { appVersion: string, onProgress?: (p: import('./backup/archive.js').BackupProgress) => void }) => Promise<Awaited<ReturnType<typeof import('./backup/archive.js').buildBackup>>>} makeBackup
  *   everything this browser keeps, as one sealed backup (issue #77)
- * @property {(sealed: Uint8Array, onProgress?: (p: import('./backup/archive.js').RestoreProgress) => void) => Promise<Awaited<ReturnType<typeof import('./backup/archive.js').restoreBackup>>>} restoreBackup
- *   a sealed backup back into these books; reload the page afterwards
+ * @property {(meta: { chain: import('./backup/archive.js').BackupChain, appVersion: string, onProgress?: (p: import('./backup/archive.js').BackupProgress) => void }) => Promise<Awaited<ReturnType<typeof import('./backup/archive.js').buildIncrement>>>} makeIncrement
+ *   what is new since the chain's last backup, sealed; null when nothing is (#454)
+ * @property {(sealed: Uint8Array, onProgress?: (p: import('./backup/archive.js').RestoreProgress) => void, chain?: { increments: Uint8Array[], base: string }) => Promise<Awaited<ReturnType<typeof import('./backup/archive.js').restoreBackup>>>} restoreBackup
+ *   a sealed backup, with its increments, back into these books; reload the page afterwards
  * @property {string} identityHash the identity document's hash
  * @property {string} peerId this session's libp2p peer id
  * @property {Uint8Array} ucepSeed the seed of the UCEP node's peer key, derived from the passkey
@@ -310,6 +312,23 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 				});
 			},
 			/**
+			 * What is new since the chain's last backup, sealed (backup/archive.js, #454).
+			 *
+			 * @param {{ chain: import('./backup/archive.js').BackupChain, appVersion: string, onProgress?: (p: import('./backup/archive.js').BackupProgress) => void }} meta
+			 */
+			async makeIncrement({ chain, appVersion, onProgress }) {
+				const { buildIncrement } = await import('./backup/archive.js');
+				return buildIncrement({
+					databases: store.databases(),
+					blockstore: helia.blockstore,
+					receipts: store.receipts,
+					key: backupKey,
+					chain,
+					appVersion,
+					onProgress
+				});
+			},
+			/**
 			 * Put a sealed backup back into these books (backup/archive.js). The
 			 * databases are closed once the backup opened with this passkey and fits
 			 * these books – not before: a wrong passkey or a broken file leaves the
@@ -318,8 +337,9 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 			 *
 			 * @param {Uint8Array} sealed
 			 * @param {(p: import('./backup/archive.js').RestoreProgress) => void} [onProgress]
+			 * @param {{ increments: Uint8Array[], base: string }} [chain] the full backup's increments (#454)
 			 */
-			async restoreBackup(sealed, onProgress) {
+			async restoreBackup(sealed, onProgress, chain) {
 				const { restoreBackup } = await import('./backup/archive.js');
 				const { sealedEncryption } = await import('./entry-encryption.js');
 				const { default: SealedDocuments } = await import('./store/sealed-documents.js');
@@ -341,6 +361,7 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 				const result = await restoreBackup({
 					orbitdb,
 					sealed,
+					...(chain ? { increments: chain.increments, base: chain.base } : {}),
 					key: backupKey,
 					targets: [
 						{

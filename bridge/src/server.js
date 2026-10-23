@@ -43,7 +43,7 @@
 //   GET  /aleph/statement?address=0x…&month=YYYY-MM[&api=]        token → a month's credits: balances, top-ups, usage per day
 //   GET  /backup/status                                           token → { aleph: { configured, address, credits, ingestUrl, gateways, apiHost } } (aleph-backup.js)
 //   GET  /backup/aleph/list                                       token → { backups: [{ cid, at, itemHash }] }: what this account had Aleph keep
-//   POST /backup/aleph/pin { cid }                                token → { cid, address, itemHash, status }: what the app uploaded, kept
+//   POST /backup/aleph/pin { cid, ref? }                          token → { cid, address, itemHash, status, ref? }: what the app uploaded, kept; an increment's ref is its base's CID
 //   POST /backup/aleph?name=<file name>  (the sealed bytes)       token → { cid, size, address, itemHash, status }: uploaded and kept
 //   /portals…          customer portals (portals/routes.js)            token
 //
@@ -698,7 +698,10 @@ export function createBridgeServer({
 			const body = /** @type {any} */ (await readJson(req));
 			let kept;
 			try {
-				kept = await alephBackup.pin(String(body?.cid ?? ''));
+				kept = await alephBackup.pin(
+					String(body?.cid ?? ''),
+					body?.ref === undefined ? {} : { ref: String(body.ref) }
+				);
 			} catch (/** @type {any} */ error) {
 				if (error?.name === 'BackendError') {
 					throw Object.assign(new Error(error.message), {

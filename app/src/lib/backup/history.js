@@ -23,11 +23,14 @@ export const KEEP = 50;
  * @property {string} [itemHash] the STORE message
  * @property {string} [address] the Aleph account that pays
  * @property {string} [sender] who signed the STORE: this browser's key, or the bridge's
- * @property {number} entries log entries in it, all databases
+ * @property {number} entries log entries in it, all databases (an increment's: the new ones)
  * @property {{ collection: string, entries: number }[]} [databases] per database
  * @property {number} files receipt files in it
  * @property {number} [blocks] blocks in it, all told
  * @property {number} missing receipt-file blocks this browser did not have
+ * @property {'full' | 'increment'} [kind] `full` when absent (before #454)
+ * @property {string} [base] an increment's: the full backup it builds on
+ * @property {number} [sequence] an increment's number in its chain, from 1
  */
 
 /** @param {import('../store/repository.js').Collection} settings @returns {Promise<BackupRecord[]>} */
@@ -51,9 +54,13 @@ export async function rememberBackup(settings, record) {
 	return list;
 }
 
-/** The file name a backup goes up as. @param {Date} at */
-export const backupName = (at) =>
-	`belege-${at.toISOString().slice(0, 16).replace(/[:]/g, '').replace('T', '-')}.backup`;
+/**
+ * The file name a backup goes up as; an increment's says its number.
+ *
+ * @param {Date} at @param {number} [sequence] 0 for a full backup
+ */
+export const backupName = (at, sequence = 0) =>
+	`belege-${at.toISOString().slice(0, 16).replace(/[:]/g, '').replace('T', '-')}${sequence ? `-${sequence}` : ''}.backup`;
 
 /**
  * Where the browser may upload: Aleph's IPFS host over https, or a fake on
