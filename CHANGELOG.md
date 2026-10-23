@@ -22,6 +22,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **The shared folder reads new files with the AI only while "gleich auslesen" is on (#475).** The minute-by-minute folder check (and "Ordner jetzt prüfen" in a payment) sent every new file to the model whenever a bridge was paired, ignoring the switch beside the upload. It follows the switch now, which says so ("Neue Belege gleich auslesen und zuordnen (Hochladen und freigegebener Ordner)"); files left unread wait under Belege → Neu, and the result says how many, and how many images had no text. Images go to the extraction, which marks them without sending anything. The consent screen names the folder among the AI's uses (consent version 26).
+
 - **"Aus Paperless holen" goes on past a slow document, and says where it is.** A first fetch of a thousand documents stopped at the first one Paperless did not deliver within two minutes, with a bare "TimeoutError: signal timed out" – the bridge's timeout also covers reading the file, and that part was not caught. Now the bridge names it ("Paperless did not deliver the document within 120 s", `PAPERLESS_TIMEOUT`), the app skips that document, counts it ("… diesmal nicht rechtzeitig geliefert – der nächste Abruf holt sie") and goes on, and the mark of the last fetch stays where it was, so the next fetch lists it again (the ones in already are not downloaded again). Three in a row, and Paperless is taken to be down: the fetch stops and says so. While it runs: "Dokument 412 von 1065 …".
 
 ## [0.16.0] – 2026-10-23

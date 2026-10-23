@@ -778,7 +778,7 @@ export default {
 			],
 			usesHeading: 'Mit KI',
 			uses: [
-				'Belege auslesen: Anbieter, Betrag, Datum, Rechnungs- und Kundennummer aus dem Text eines Belegs, bei Reisekosten auch Art, Strecke, Zeiten, Hotelnächte und ob das Frühstück inklusive ist – und ob es überhaupt ein Beleg ist (Anmelde-Mails und Newsletter nicht). Bei „Auslesen“, „Alle neuen auslesen“, „Beleg hochladen“, „Als Beleg übernehmen“ und „Rechnungen holen“.',
+				'Belege auslesen: Anbieter, Betrag, Datum, Rechnungs- und Kundennummer aus dem Text eines Belegs, bei Reisekosten auch Art, Strecke, Zeiten, Hotelnächte und ob das Frühstück inklusive ist – und ob es überhaupt ein Beleg ist (Anmelde-Mails und Newsletter nicht). Bei „Auslesen“, „Alle neuen auslesen“, „Beleg hochladen“, „Als Beleg übernehmen“ und „Rechnungen holen“ – und für neue Dateien im freigegebenen Ordner, solange „gleich auslesen“ an ist.',
 				'„Mit KI weitersuchen“ im privaten Postfach: Suchwörter und Absender vorschlagen, dann unter den Treffern den Beleg wählen – nach Betreff, Absender-Domain und Dateinamen, nie nach dem Text der E-Mails.',
 				'„KI-Vorschlag“ unter „Beleg zuordnen“: unter bis zu 25 deiner Belege den passenden zu einer Buchung nennen – nach Anbieter, Betrag, Datum, Rechnungsnummer und Kurzbeschreibung. Zuordnen tust du.',
 				'„KI-Vorschlag“ unter „Als Gegenbuchung verknüpfen …“: unter bis zu 8 Buchungen auf deinen anderen Konten die andere Seite einer eigenen Umbuchung nennen – nach Richtung, Betrag, Menge, Tag, Kontoart, Gegenpartei und Zweck, ohne Adressen, IBANs und Hashes. Verknüpfen tust du.',
@@ -2274,7 +2274,8 @@ export default {
 		mailFrom: 'Von Monat',
 		mailTo: 'Bis Monat',
 		mailLastYear: 'Ganzes Vorjahr',
-		uploadReadAfter: 'Hochgeladene Belege gleich auslesen und zuordnen',
+		uploadReadAfter:
+			'Neue Belege gleich auslesen und zuordnen (Hochladen und freigegebener Ordner)',
 		mailReadAfter: 'Neue Belege nach dem Abruf gleich auslesen',
 		trash: {
 			button: 'Mail in den Papierkorb verschieben',
@@ -3560,9 +3561,13 @@ export default {
 			folderCheck: 'Ordner jetzt prüfen',
 			folderChecking: 'Prüfe den Ordner …',
 			folderResult: 'Ordner: {count} neu eingelesen und abgeglichen.',
+			folderWaiting:
+				'{count} davon warten unter Belege → Neu aufs Auslesen („gleich auslesen“ ist aus, oder der Absender ist noch zu bestätigen).',
+			folderImages: '{count} Bild(er) ohne Text: von Hand prüfen.',
 			folderNothing: 'Ordner: nichts Neues.',
 			folderDenied: 'Der Browser hat keinen Lesezugriff auf den Ordner erhalten.',
-			folderHint: 'Solange die App offen ist, prüft sie den freigegebenen Ordner jede Minute.'
+			folderHint:
+				'Solange die App offen ist, prüft sie den freigegebenen Ordner jede Minute. Neue Dateien liest sie mit der KI nur aus, wenn „gleich auslesen“ beim Hochladen an ist.'
 		}
 	},
 	integrationen: {

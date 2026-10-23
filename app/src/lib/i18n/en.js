@@ -757,7 +757,7 @@ export default {
 			],
 			usesHeading: 'With AI',
 			uses: [
-				'Extract receipts: vendor, amount, date, invoice and customer number from the text of a receipt, for travel costs also their kind, route, times, hotel nights and whether breakfast is included – and whether it is a receipt at all (sign-in emails and newsletters are not). With “Extract”, “Extract all new”, “Upload receipt”, “Use as receipt” and “Fetch invoices”.',
+				'Extract receipts: vendor, amount, date, invoice and customer number from the text of a receipt, for travel costs also their kind, route, times, hotel nights and whether breakfast is included – and whether it is a receipt at all (sign-in emails and newsletters are not). With “Extract”, “Extract all new”, “Upload receipt”, “Use as receipt” and “Fetch invoices” – and for new files in the shared folder, while “read at once” is on.',
 				'“Keep searching with AI” in the private mailbox: suggest search terms and senders, then choose the receipt among the hits – by subject, sender domain and file names, never by the text of the emails.',
 				'“AI suggestion” under “Link receipt”: name the matching one of up to 25 of your receipts for a booking – by vendor, amount, date, invoice number and short description. You do the linking.',
 				'“AI suggestion” under “Link as counter-booking …”: name, among up to 8 bookings on your other accounts, the other side of a transfer between your own accounts – by direction, amount, quantity, day, account type, counterparty and purpose, without addresses, IBANs and hashes. You do the linking.',
@@ -2242,7 +2242,7 @@ export default {
 		mailFrom: 'From month',
 		mailTo: 'To month',
 		mailLastYear: 'All of last year',
-		uploadReadAfter: 'Read and match uploaded receipts at once',
+		uploadReadAfter: 'Read and match new receipts at once (uploads and the shared folder)',
 		mailReadAfter: 'Read new receipts right after fetching',
 		trash: {
 			button: 'Move mail to the bin',
@@ -3519,9 +3519,13 @@ export default {
 			folderCheck: 'Check folder now',
 			folderChecking: 'Checking the folder …',
 			folderResult: 'Folder: {count} new read in and matched.',
+			folderWaiting:
+				'{count} of them wait under Belege → Neu to be read (“read at once” is off, or the sender is still to be confirmed).',
+			folderImages: '{count} image(s) without text: check by hand.',
 			folderNothing: 'Folder: nothing new.',
 			folderDenied: 'The browser was not granted read access to the folder.',
-			folderHint: 'While the app is open, it checks the shared folder every minute.'
+			folderHint:
+				'While the app is open, it checks the shared folder every minute. It reads new files with the AI only while “read at once” is on for uploads.'
 		}
 	},
 	integrationen: {
