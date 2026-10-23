@@ -817,10 +817,10 @@ export default {
 					'The CAR of every database block (entries already sealed, manifests, access controllers, writers’ identities) and every receipt file’s sealed blocks is sealed once more with AES-256-GCM under a key derived from the passkey’s PRF (HKDF, belege/backup-key/v1). Upload: POST https://ipfs.aleph.cloud/api/v0/add, no key. The STORE message (personal_sign, channel BELEGE-BACKUP, paid in credits of the bridge’s account) is signed by a secp256k1 key this browser makes itself and keeps sealed in the settings – once the account has allowed it in its security aggregate (pnpm setup:aleph -- --authorize); until then by the bridge’s key (pnpm setup:aleph, in the keychain). Aleph keeps the file while the account has credits. The backups are listed by Aleph’s messages API (api2.aleph.im) with owners=<account>.'
 			},
 			deepseek: {
-				name: 'Language model – DeepSeek by default (extracting receipts, AI search)',
+				name: 'Language model – DeepSeek by default, or LibertAI confidential (extracting receipts, AI search)',
 				text: 'The model you set up in the bridge. Only for buttons with ✦ (see “AI” above).',
 				leaves:
-					'When extracting, the redacted text of a receipt; with “Keep searching with AI”, counterparty and payment reference as well as subject, sender domain and file names of the hits, redacted. With DeepSeek the servers are outside the EU; a local model does not leave this computer. Our advice for now: a local model, or wait with AI until fast models are available in a confidential environment (TEE) that can be checked.',
+					'When extracting, the redacted text of a receipt; with “Keep searching with AI”, counterparty and payment reference as well as subject, sender domain and file names of the hits, redacted. With DeepSeek the servers are outside the EU; a local model does not leave this computer. With LibertAI confidential (TEE) the model runs in an enclave on Aleph Cloud that the bridge checks before every connection (AMD signature, pinned measurement); the text ends only in the enclave, LibertAI sees this Mac’s IP address, sizes and times, not the text. What that proves is which image runs, not what it does, and confidential GPUs on Aleph have no independent audit yet. Our advice for now: a local model, or LibertAI confidential.',
 				technical:
 					'The bridge sends only the text layer of a PDF (or the text of an email) with subject and sender, after redacting names from its list and your company names from Settings, names after a salutation or a label (“Herr”, “Contact:”, also in other languages and scripts, such as “Пассажир:” or “Yolcu:”), passport numbers, IBANs and card numbers except for the last four digits, email addresses (of others the domain remains), phone numbers, dates of birth, tax numbers, streets, postcodes and links (only the host remains) – never the file itself. This limits what goes out; it does not make the text anonymous: a name that is on no list and follows no label gets through, and so do the vendor, amounts, invoice numbers and what the receipt is about. For nothing to go out, set a model on this computer (such as Ollama). DeepSeek runs its servers in China. The API key is kept in the bridge’s macOS Keychain, never in the browser. The bridge extracts emails from senders that did not pass the DKIM/SPF check only after your approval.'
 			},
@@ -3874,6 +3874,12 @@ export default {
 			totalsValue: '{calls} calls · {tokens} tokens',
 			totalsFailed: ' · {count} failed',
 			failedRecent: 'of them in the last 7 days: {count}. The most frequent reasons:',
+			tee: 'Confidential (TEE)',
+			teeVerified:
+				'Attestation checked, {time}: the model runs in the pinned enclave, and the request ends only there.',
+			teePinned: 'Pinned; checked before the first request.',
+			teeFailed: 'Attestation failed – nothing was sent: {error}',
+			teePin: 'Deployment {item} · measurement {measurement} · source {commit}',
 			redactionConfirm:
 				'Does the model run on this computer? Once in the terminal, Enter at “Does the model run on this machine itself”, then restart the bridge – after that nothing is blacked out:',
 			totalsFallback: ' · {count}× second attempt',

@@ -19,7 +19,7 @@
 //   DELETE /share/<id>                                             token → revoked
 //   POST /vendor/assist { vendor, from, until, opening, closing, rows, findings }  token → a few notes on what does not add up
 //   POST /transfer/assist { booking, candidates }               token → the LLM's pick of an own transfer's other side
-//   GET  /llm/status                                              token → provider, models, key present?, redaction on/off
+//   GET  /llm/status                                              token → provider, models, key present?, redaction on/off, the TEE pin and its last proof
 //   POST /extract      { text, hints, source, confirmedByUser }   token
 //   GET  /rates?asset=BTC&date=YYYY-MM-DD[&prefer=kraken][&contract=0x…&chain=ethereum[&block=N&decimals=D]]  token → EUR per unit, source (rates.js; the DEX pool at the block: dex-rate.js)
 //   GET  /enablebanking/banks?country=DE                          token → the banks Enable Banking offers (enablebanking-links.js)
@@ -102,6 +102,7 @@ const MAX_EXTRACT_BODY = 256 * 1024;
  *   null when Hibiscus is not set up yet
  * @param {import('./mail/imap.js').MailClient | null} [options.mail] null when mail is not set up
  * @param {import('./llm/extract.js').Extractor | null} [options.llm] null when no LLM is set up
+ * @param {(() => object) | null} [options.llmTee] a confidential model's pin and last proof (#416, llm/confidential.js)
  * @param {() => Promise<boolean>} [options.llmKeyPresent] whether the keychain holds an API key;
  *   says yes or no, never hands the key out
  * @param {ReturnType<typeof import('./llm/assist.js').createMailAssist> | null} [options.assist]
@@ -137,6 +138,7 @@ export function createBridgeServer({
 	mail = null,
 	llm = null,
 	llmKeyPresent = async () => false,
+	llmTee = null,
 	assist = null,
 	matchAssist = null,
 	transferAssist = null,
@@ -944,7 +946,9 @@ export function createBridgeServer({
 					active: !redactionOff(config.llm),
 					local: redactionOff(config.llm)
 				},
-				mail: { authServId: config.mail.authServId ?? null }
+				mail: { authServId: config.mail.authServId ?? null },
+				// A confidential model (#416): the pinned enclave and how its last proof went.
+				tee: llmTee ? llmTee() : null
 			});
 		}
 

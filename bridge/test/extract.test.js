@@ -388,7 +388,8 @@ describe('/extract', () => {
 			keyConfigured: true,
 			redactTerms: 2,
 			redaction: { mode: 'on', active: true, local: false },
-			mail: { authServId: null }
+			mail: { authServId: null },
+			tee: null
 		});
 		// The terms themselves stay on the bridge.
 		assert.equal(res.text.includes(SECRETS.customerName), false);

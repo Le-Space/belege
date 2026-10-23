@@ -14,6 +14,7 @@ import { createBridgeServer } from './server.js';
 import { createMailClient } from './mail/imap.js';
 import { domainOf } from './mail/auth-results.js';
 import { createExtractor } from './llm/extract.js';
+import { createConfidentialFetch } from './llm/confidential.js';
 import { createMailAssist } from './llm/assist.js';
 import { createRateService } from './rates.js';
 import { createDexRates } from './dex-rate.js';
@@ -183,8 +184,22 @@ export async function startBridge({
 		log(
 			'LLM on 127.0.0.1: text is blacked out until `pnpm setup:llm` is told the model runs on this machine.'
 		);
+	// A confidential model (#416): every request to the pinned enclave, attested.
+	const tee =
+		config.llm.configured && config.llm.tee
+			? createConfidentialFetch({ pin: config.llm.tee, baseUrl: config.llm.baseUrl })
+			: null;
+	if (tee)
+		log(
+			`LLM in a confidential VM: every request goes to the attested enclave ${config.llm.tee?.itemHash.slice(0, 12)}…`
+		);
 	const llm = config.llm.configured
-		? createExtractor({ config: config.llm, getKey: () => llmKeychain.read(), ownDomains })
+		? createExtractor({
+				config: config.llm,
+				getKey: () => llmKeychain.read(),
+				ownDomains,
+				...(tee ? { fetch: tee.fetch } : {})
+			})
 		: null;
 	if (!llm) log('No LLM is set up: run `pnpm setup:llm`.');
 	const matchAssist = llm
@@ -319,6 +334,7 @@ export async function startBridge({
 		transferAssist,
 		vendorAssist,
 		// Reads the keychain entry to see that there is one; the value stays here.
+		llmTee: tee ? tee.status : null,
 		llmKeyPresent: async () => {
 			try {
 				return Boolean(await llmKeychain.read());

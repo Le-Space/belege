@@ -8,12 +8,15 @@ In the app, every button that calls the model carries the **✦** mark (`app/src
 
 ## Which model, for now
 
-**Our advice today: a local model** (Ollama, LM Studio), or wait with AI until a fast model runs in a confidential computing environment (TEE) whose attestation can be checked. Belege would ask such a model only when needed, on a ✦ click as now.
+**Our advice today: a local model** (Ollama, LM Studio), or LibertAI confidential, whose enclave the bridge attests before every connection (below). Belege would ask such a model only when needed, on a ✦ click as now.
 
 - **Local:** nothing leaves your computer. An 8B model reads simple receipts; several VAT rates, reverse charge, long texts and receipts in other languages and scripts (Russian, Arabic …) go wrong more often, and the bridge's checks catch part of that. The prompt asks for receipts in any language (#366); how well a language is read is the model's matter.
   - **Set up step by step, with what to download, the settings and measured speed:** [ollama.md](ollama.md). In short: on an Intel Mac `qwen3:30b-a3b-instruct-2507-q4_K_M` read our made-up receipts right at about two minutes each; the bridge waits up to 10 minutes for a model on this machine (3 for one elsewhere).
 - **Hosted, no TEE** (DeepSeek, the default): the provider can read what the bridge sends. Redaction limits that; it does not make a receipt anonymous (see _Redaction_ below).
-- **Hosted, in a TEE:** only worth it once each call can be checked to run in an attested environment. Until the bridge can check that itself, it is the provider's word. Belege will say here which providers qualify once it can.
+- **Hosted, in a TEE – LibertAI confidential** (#416): the bridge checks it itself. `pnpm setup:llm`, choice 2, looks the enclave up in LibertAI's signed manifest, checks AMD's signature chain, that the report binds the TLS key served, the launch measurement and that the guest cannot be debugged, shows deployment, measurement and source commit, and pins them on a yes. Every request then goes to that enclave over a TLS session that ends inside it (`@libertai/confidential-inference`), never through `api.libertai.io`; each new connection is checked again. A replaced deployment is not followed: requests fail with `LLM_ATTESTATION_FAILED` until `setup:llm` re-pins it on a yes. The KI card shows the pin and the last check.
+  - **Model:** `qwen3.8-27b-tee`, the only one LibertAI publishes for attested use (checked 2026-10-23). The key comes from console.libertai.io (sign in with a wallet such as MetaMask, or e-mail), into the bridge's keychain; the enclave answers without one with 401 (no pay-per-request inside it).
+  - **What it proves, and what not:** which image runs, not what it does (for that, rebuild it: `Libertai/confidential-inference`, VERIFYING.md); LibertAI still sees this Mac's IP address, sizes and times and can refuse service; confidential GPUs on Aleph have no independent audit yet. Text is still blacked out before it goes.
+  - Speed and reading quality against our scorecard: not measured yet (#416).
 
 ## With AI
 

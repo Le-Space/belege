@@ -8,6 +8,10 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **LibertAI confidential: receipts read in an enclave the bridge attests itself (#416).** `pnpm setup:llm` offers "LibertAI, confidential": it looks up the enclave for `qwen3.8-27b-tee` in LibertAI's signed manifest, checks it (AMD signature chain, the report binding the TLS key served, the launch measurement, no debugging), shows deployment, measurement and source commit, and pins them on a yes. Every model request then goes to that enclave over a TLS session that ends inside it (`@libertai/confidential-inference`), never through `api.libertai.io`; a replaced deployment fails with `LLM_ATTESTATION_FAILED` until re-pinned on a yes – no fallback. Redaction stays on. The KI card shows the pin and the last check; the consent screen says what this proves and what LibertAI still sees (consent version 25); docs/ai says how. The key comes from console.libertai.io.
+
+### Added
+
 - **A data light and a sync log for own devices.** Beside the network badge's dot, a second light flashes gold when an entry comes from another own device and cyan when one written here goes to them; hovering names the last one (from which device, which book, when). Integrationen → Eigene Geräte shows per device when it last sent something, and a "Sync-Protokoll": per entry when, from which device or written here, which book, new/changed/deleted, and what it is – a receipt's file name, size and date, a payment's counterparty, amount and day, a setting's key. The log stays on this device only, sealed under a key of its own from the passkey, the newest 300; never in the books, or every device would log the others' log. Every device writes with the passkey's identity, so "here" is told by the entries this session wrote; what came is attributed to the device the database last exchanged heads with.
 
 ## [0.16.0] – 2026-10-23

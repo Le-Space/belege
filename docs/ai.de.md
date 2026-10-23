@@ -8,12 +8,15 @@ In der App trägt jeder Knopf, der das Modell fragt, das Zeichen **✦** (`app/s
 
 ## Welches Modell, derzeit
 
-**Unser Rat heute: ein lokales Modell** (Ollama, LM Studio), oder mit der KI warten, bis ein schnelles Modell in einer vertraulichen Ausführungsumgebung (TEE) läuft, deren Attestierung sich prüfen lässt. Belege würde ein solches Modell nur bei Bedarf fragen, wie bisher auf einen ✦-Klick.
+**Unser Rat heute: ein lokales Modell** (Ollama, LM Studio), oder LibertAI vertraulich, dessen Enklave die Bridge vor jedem Verbindungsaufbau attestiert (unten). Belege würde ein solches Modell nur bei Bedarf fragen, wie bisher auf einen ✦-Klick.
 
 - **Lokal:** Nichts verlässt deinen Rechner. Ein 8B-Modell liest einfache Belege; mehrere Steuersätze, Reverse Charge, lange Texte und Belege in anderen Sprachen und Schriften (Russisch, Arabisch …) gehen öfter schief, die Prüfungen der Bridge fangen einen Teil davon ab. Die Anweisung verlangt Belege in jeder Sprache (#366); wie gut eine Sprache gelesen wird, liegt am Modell.
   - **Schritt für Schritt einrichten, mit Download, Einstellungen und gemessener Geschwindigkeit:** [ollama.de.md](ollama.de.md). Kurz: Auf einem Intel-Mac las `qwen3:30b-a3b-instruct-2507-q4_K_M` unsere erfundenen Belege richtig, mit etwa zwei Minuten pro Beleg; die Bridge wartet bei einem Modell auf diesem Rechner bis zu 10 Minuten (bei einem anderswo 3).
 - **Gehostet, ohne TEE** (DeepSeek, voreingestellt): Der Anbieter kann lesen, was die Bridge schickt. Die Schwärzung begrenzt das; anonym macht sie einen Beleg nicht (siehe _Schwärzung_ unten).
-- **Gehostet, im TEE:** Lohnt erst, wenn sich bei jedem Aufruf prüfen lässt, dass er in einer attestierten Umgebung läuft. Solange die Bridge das nicht selbst prüft, ist es das Wort des Anbieters. Welche Anbieter das erfüllen, steht hier, sobald sie es kann.
+- **Gehostet, im TEE – LibertAI vertraulich** (#416): Die Bridge prüft es selbst. `pnpm setup:llm`, Wahl 2, sucht die Enklave in LibertAIs signiertem Manifest, prüft AMDs Signaturkette, dass der Bericht den ausgelieferten TLS-Schlüssel bindet, die Start-Messung und dass der Gast nicht debugbar ist, zeigt Deployment, Messung und Quellstand und nagelt sie auf ein Ja fest. Jede Anfrage geht dann an diese Enklave, über eine TLS-Sitzung, die erst in ihr endet (`@libertai/confidential-inference`), nie über `api.libertai.io`; jede neue Verbindung wird wieder geprüft. Einem ersetzten Deployment folgt sie nicht: Anfragen schlagen mit `LLM_ATTESTATION_FAILED` fehl, bis `setup:llm` es auf ein Ja neu festnagelt. Die KI-Karte zeigt die Festlegung und die letzte Prüfung.
+  - **Modell:** `qwen3.8-27b-tee`, das einzige, das LibertAI für attestierte Nutzung veröffentlicht (geprüft am 23.10.2026). Der Schlüssel kommt von console.libertai.io (Anmeldung mit einer Wallet wie MetaMask oder per E-Mail), in den Schlüsselbund der Bridge; ohne ihn antwortet die Enklave mit 401 (kein Bezahlen pro Anfrage darin).
+  - **Was es beweist und was nicht:** welches Abbild läuft, nicht was es tut (dafür neu bauen: `Libertai/confidential-inference`, VERIFYING.md); LibertAI sieht weiter die IP-Adresse dieses Macs, Größen und Zeiten und kann den Dienst verweigern; vertrauliche GPUs auf Aleph haben noch kein unabhängiges Audit. Geschwärzt wird trotzdem.
+  - Geschwindigkeit und Lesequalität auf unserer Scorecard: noch nicht gemessen (#416).
 
 ## Mit KI
 

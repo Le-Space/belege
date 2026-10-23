@@ -28,6 +28,8 @@
 		);
 	});
 	let lastMoment = $derived(totals.lastAt ? describeMoment(totals.lastAt) : null);
+	/** A confidential model's pin and last proof (#416), as /llm/status says. */
+	let tee = $derived(/** @type {any} */ (llmStatus)?.tee ?? null);
 	let token = $derived(bridge.token);
 
 	async function loadLlmStatus() {
@@ -73,6 +75,30 @@
 					<span class="font-sans text-danger">· {t('integrationen.ki.notSetUp')}</span>
 				{/if}
 			</dd>
+			{#if tee}
+				<!-- A model in an attested enclave (#416): which one is pinned, and the last proof. -->
+				<dt class="text-faint">{t('integrationen.ki.tee')}</dt>
+				<dd
+					class="text-heading"
+					data-testid="ki-tee"
+					data-state={tee.error ? 'failed' : tee.verifiedAt ? 'verified' : 'pinned'}
+				>
+					{tee.error
+						? t('integrationen.ki.teeFailed', { error: tee.error })
+						: tee.verifiedAt
+							? t('integrationen.ki.teeVerified', {
+									time: new Date(tee.verifiedAt).toLocaleString()
+								})
+							: t('integrationen.ki.teePinned')}
+					<span class="mt-0.5 block font-mono text-xs break-all text-faint" data-testid="ki-tee-pin"
+						>{t('integrationen.ki.teePin', {
+							item: tee.itemHash,
+							measurement: `${String(tee.measurement).slice(0, 16)}…`,
+							commit: tee.sourceCommit ?? '—'
+						})}</span
+					>
+				</dd>
+			{/if}
 			<dt class="text-faint">{t('integrationen.ki.models')}</dt>
 			<dd class="text-heading" data-testid="ki-models">
 				{llmStatus.models.fallback

@@ -83,6 +83,8 @@ export function defaultConfigPath() {
  *   model (#423): `off` only for a loopback base URL whose model setup:llm was told runs on this
  *   machine; `auto` (not asked yet, e.g. a config from before #423) and `on` black out
  * @property {boolean} configured set by setup:llm once a key is in the keychain
+ * @property {import('./llm/confidential.js').TeePin | null} tee a confidential model (#416): the
+ *   enclave setup:llm pinned; every request goes to it, attested, or fails – never to the gateway
  */
 
 export const DEFAULT_ACCOUNTING_ADDRESS = 'buchhaltung@le-space.de';
@@ -107,7 +109,25 @@ export function defaultLlmConfig() {
 		retryModel: 'deepseek-v4-pro',
 		redactTerms: [],
 		redaction: 'auto',
-		configured: false
+		configured: false,
+		tee: null
+	};
+}
+
+/** A pin as setup:llm writes it, or null. @param {any} raw @returns {import('./llm/confidential.js').TeePin | null} */
+function teePinOf(raw) {
+	if (!raw || raw.provider !== 'libertai') return null;
+	if (
+		!/^[0-9a-f]{64}$/.test(String(raw.itemHash)) ||
+		!/^[0-9a-f]{32,}$/i.test(String(raw.measurement))
+	)
+		return null;
+	return {
+		provider: 'libertai',
+		itemHash: String(raw.itemHash),
+		measurement: String(raw.measurement),
+		sourceCommit: typeof raw.sourceCommit === 'string' ? raw.sourceCommit : null,
+		pinnedAt: String(raw.pinnedAt ?? '')
 	};
 }
 
@@ -240,7 +260,8 @@ export function withDefaults(raw) {
 			...d.llm,
 			...(raw?.llm ?? {}),
 			redactTerms: Array.isArray(raw?.llm?.redactTerms) ? raw.llm.redactTerms.map(String) : [],
-			redaction: ['auto', 'on', 'off'].includes(raw?.llm?.redaction) ? raw.llm.redaction : 'auto'
+			redaction: ['auto', 'on', 'off'].includes(raw?.llm?.redaction) ? raw.llm.redaction : 'auto',
+			tee: teePinOf(raw?.llm?.tee)
 		},
 		portals:
 			raw?.portals && typeof raw.portals === 'object' && !Array.isArray(raw.portals)
