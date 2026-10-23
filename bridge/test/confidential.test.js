@@ -187,3 +187,52 @@ test('without a TEE the request is as before: no thinking switch for other provi
 		false
 	);
 });
+
+test('in the attested enclave nothing is blacked out, unless setup:llm was told to', async () => {
+	const { redactionOff, redactionOffForEnclave } = await import('../src/config.js');
+	const base = { baseUrl: BASE, redaction: /** @type {const} */ ('off') };
+	assert.equal(redactionOff({ ...base, tee: PIN }), true);
+	assert.equal(redactionOffForEnclave({ ...base, tee: PIN }), true);
+	// The same answer without a pinned enclave: a provider elsewhere is always blacked out.
+	assert.equal(redactionOff({ ...base, tee: null }), false);
+	assert.equal(redactionOff({ ...base, redaction: 'on', tee: PIN }), false);
+
+	/** @type {string[]} */ const sent = [];
+	const fake = fakeConnect({
+		answer: () =>
+			Response.json({
+				choices: [
+					{
+						finish_reason: 'stop',
+						message: {
+							content: JSON.stringify({ gross: 23.8, currency: 'EUR', invoice_date: '2026-10-21' })
+						}
+					}
+				]
+			})
+	});
+	const tee = createConfidentialFetch({ pin: PIN, baseUrl: BASE, connect: fake.connect });
+	const extractor = createExtractor({
+		config: {
+			baseUrl: BASE,
+			model: 'qwen3.8-27b-tee',
+			retryModel: 'qwen3.8-27b-tee',
+			redactTerms: ['Erika Beispielkund'],
+			redaction: 'off',
+			configured: true,
+			tee: PIN
+		},
+		getKey: async () => 'lt-made-up-key',
+		fetch: /** @type {any} */ (
+			async (/** @type {string} */ url, /** @type {any} */ init) => {
+				sent.push(JSON.parse(init.body).messages[1].content);
+				return tee.fetch(url, init);
+			}
+		)
+	});
+	await extractor.extract({
+		text: 'Rechnung an Erika Beispielkund, IBAN DE89 3704 0044 0532 0130 00, Summe 23,80 EUR, 21.10.2026'
+	});
+	assert.match(sent[0], /Erika Beispielkund/);
+	assert.match(sent[0], /DE89 3704 0044 0532 0130 00/);
+});

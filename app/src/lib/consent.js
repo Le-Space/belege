@@ -57,7 +57,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     enclave on Aleph Cloud, what it proves and what LibertAI still sees (#416).
 // 26: new files in the shared folder are read with the model too, but only
 //     while "gleich auslesen" is on (#475).
-export const CONSENT_VERSION = '26';
+// 27: text goes unredacted into LibertAI's attested enclave, unless setup:llm
+//     is told to black it out (#416).
+export const CONSENT_VERSION = '27';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

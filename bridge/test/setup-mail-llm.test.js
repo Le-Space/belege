@@ -228,7 +228,8 @@ test('setup:llm: LibertAI confidential – the enclave verified, shown and pinne
 		pinnedAt: '2026-10-23T10:00:00.000Z'
 	});
 	/** @type {string[]} */ const asked = [];
-	const first = scripted(['2', '', '', 'Erika Beispiel'], ['lt-made-up-key']);
+	// Blacking out is asked; here the person wants it anyway, with a term.
+	const first = scripted(['2', '', '', 'y', 'Erika Beispiel'], ['lt-made-up-key']);
 	assert.equal(
 		await runLlmSetup({
 			io: first.io,
@@ -267,6 +268,7 @@ test('setup:llm: LibertAI confidential – the enclave verified, shown and pinne
 	);
 	assert.ok(declined.out.some((l) => /The pinned deployment was a{64}/.test(l)));
 	assert.equal((await loadConfig(configPath)).llm.tee?.itemHash, 'a'.repeat(64));
+	// The default: nothing blacked out in the enclave.
 	const taken = scripted(['', '', 'y', ''], ['']);
 	assert.equal(
 		await runLlmSetup({
@@ -278,6 +280,13 @@ test('setup:llm: LibertAI confidential – the enclave verified, shown and pinne
 		true
 	);
 	assert.equal((await loadConfig(configPath)).llm.tee?.itemHash, 'c'.repeat(64));
+	assert.equal((await loadConfig(configPath)).llm.redaction, 'off');
+	assert.deepEqual(
+		(await loadConfig(configPath)).llm.redactTerms,
+		['Erika Beispiel'],
+		'kept for later'
+	);
+	assert.ok(taken.out.some((l) => /Nothing is blacked out/.test(l)));
 
 	// An enclave that fails its proof: nothing saved.
 	const failing = scripted(['2', '']);

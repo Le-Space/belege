@@ -13,6 +13,12 @@ describe('redactionFromStatus', () => {
 		// An older bridge (no `local`), or no model set up.
 		expect(redactionFromStatus({ configured: true, redaction: { active: false } })).toBe(null);
 		expect(
+			redactionFromStatus({
+				configured: true,
+				redaction: { active: false, local: false, enclave: true }
+			})
+		).toBe('enclave');
+		expect(
 			redactionFromStatus({ configured: false, redaction: { active: false, local: true } })
 		).toBe(null);
 		expect(redactionFromStatus(null)).toBe(null);

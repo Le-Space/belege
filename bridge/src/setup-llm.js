@@ -151,8 +151,10 @@ export async function runLlmSetup({
 
 /**
  * LibertAI's confidential inference (#416): the enclave looked up and proved,
- * shown, and pinned on a yes. Text is still blacked out before it goes (defence
- * in depth), and the API key from console.libertai.io goes to the keychain.
+ * shown, and pinned on a yes. Whether text is blacked out before it goes into
+ * the enclave is asked; the default is not to – nobody between this machine
+ * and the attested enclave can read it. The API key from console.libertai.io
+ * goes to the keychain.
  *
  * @param {object} p
  * @param {{ ask: (q: string) => Promise<string>, askHidden: (q: string) => Promise<string>, print: (line: string) => void }} p.io
@@ -202,17 +204,31 @@ async function libertaiSetup({ io, keychain, configPath, config, findDeployment 
 		return false;
 	}
 
-	const termsDefault = l.redactTerms.join('; ');
+	// The enclave is attested and the TLS ends inside it: blacking out would only
+	// cost reading quality. What the attestation does not prove – what the image
+	// does – is said here, and the person may still choose to black out.
 	io.print(
-		'Text is still blacked out before it goes: the enclave is attested, LibertAI still sees your IP address, sizes and times. Terms to black out, separated by ";":'
+		'The text goes into the attested enclave; nobody on the way, LibertAI included, can read it. The attestation proves which image runs, not what it does.'
 	);
-	const termsAnswer = await io.ask(
-		`Terms${termsDefault ? ` [${termsDefault}]` : ''} ("-" for none): `
+	const blackOut = yes(
+		(await io.ask(
+			'Black out names, IBANs and addresses before text goes into the enclave anyway? [y/N]: '
+		)) || 'n'
 	);
-	const redactTerms = (termsAnswer === '-' ? '' : termsAnswer || termsDefault)
-		.split(';')
-		.map((t) => t.trim())
-		.filter((t) => t.length >= 2);
+	const termsDefault = l.redactTerms.join('; ');
+	let redactTerms = l.redactTerms;
+	if (blackOut) {
+		io.print('Terms to black out, separated by ";":');
+		const termsAnswer = await io.ask(
+			`Terms${termsDefault ? ` [${termsDefault}]` : ''} ("-" for none): `
+		);
+		redactTerms = (termsAnswer === '-' ? '' : termsAnswer || termsDefault)
+			.split(';')
+			.map((t) => t.trim())
+			.filter((t) => t.length >= 2);
+	} else {
+		io.print('Nothing is blacked out. Your terms are kept for later.');
+	}
 
 	const stored = await storeSecret({
 		io,
@@ -229,13 +245,15 @@ async function libertaiSetup({ io, keychain, configPath, config, findDeployment 
 		model,
 		retryModel: model,
 		redactTerms,
-		redaction: 'on',
+		redaction: blackOut ? 'on' : 'off',
 		configured: true,
 		tee: pin
 	};
 	await saveConfig(config, configPath);
 	io.print(
-		`Saved ${configPath}: ${model} in the pinned enclave, ${redactTerms.length} term(s) to black out.`
+		blackOut
+			? `Saved ${configPath}: ${model} in the pinned enclave, ${redactTerms.length} term(s) to black out.`
+			: `Saved ${configPath}: ${model} in the pinned enclave, nothing blacked out.`
 	);
 	io.print('Restart the bridge (pnpm bridge) to use it.');
 	return true;
