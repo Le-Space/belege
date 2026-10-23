@@ -24,6 +24,8 @@
 	import { networkStatus } from './network-status.js';
 	import { NETWORK_MODES } from './sync/network-mode.js';
 	import QrExchange from './sync/QrExchange.svelte';
+	import { clearPendingInvite, iosOutsideApp } from './sync/qr-link-url.js';
+	import { deviceSyncOn } from './sync/device-sync.js';
 
 	let status = $derived(networkStatus(app));
 	let label = $derived(
@@ -155,6 +157,22 @@
 	);
 	/** Unfolded when the menu opens with no device connected in "Ohne Relay, per QR". */
 	let qrOpen = $state(false);
+	/** iOS Safari, not the app from the home screen: its books are not here. */
+	const iosOutside =
+		typeof navigator !== 'undefined' &&
+		iosOutsideApp(
+			/** @type {any} */ (navigator),
+			globalThis.matchMedia?.('(display-mode: standalone)').matches ?? false
+		);
+	// An invite came by link: once the books are open, the menu opens on it.
+	let shownInvite = '';
+	$effect(() => {
+		const code = app.network.qrInvite;
+		if (!unlocked || !code || code === shownInvite) return;
+		shownInvite = code;
+		open = true;
+		qrOpen = true;
+	});
 
 	/** A part's state as the menu's second line: the tooltip line without its name. @param {import('./network-status.js').NetworkPart | undefined} p */
 	const stateLine = (p) =>
@@ -313,6 +331,71 @@
 							>
 						{/if}
 					</div>
+					{#if app.network.qrInvite}
+						<!-- A QR invite that came by link (sync/qr-link-url.js). -->
+						<div class="py-2 text-xs" data-testid="network-qr-link">
+							<p class="font-medium text-heading">{t('header.network.qrLink.title')}</p>
+							{#if iosOutside}
+								<p class="mt-1 text-warning" data-testid="network-qr-link-ios">
+									{t('header.network.qrLink.ios')}
+								</p>
+							{/if}
+							{#if qrHere}
+								<p class="mt-1 text-faint">{t('header.network.qrLink.answering')}</p>
+							{:else}
+								<p class="mt-1 text-text" data-testid="network-qr-link-why">
+									{!deviceSyncOn()
+										? t('header.network.qrLink.devicesOff')
+										: t('header.network.qrLink.otherMode')}
+								</p>
+								<div class="mt-2 flex flex-wrap gap-2">
+									{#if !deviceSyncOn()}
+										<button
+											type="button"
+											class={small}
+											onclick={() => {
+												open = false;
+												consent.reopen('network');
+											}}
+											data-testid="network-qr-link-devices"
+											>{t('header.network.qrLink.devicesOn')}</button
+										>
+									{:else if app.network.mode !== 'qr' && app.network.mode !== 'both'}
+										<button
+											type="button"
+											class={small}
+											disabled={busy}
+											onclick={() =>
+												run(async () => {
+													await setNetworkMode('qr');
+													location.reload();
+												})}
+											data-testid="network-qr-link-switch"
+											>{t('header.network.qrLink.switch')}</button
+										>
+									{:else}
+										<button
+											type="button"
+											class={small}
+											onclick={() => location.reload()}
+											data-testid="network-qr-link-reload"
+											>{t('header.network.qrLink.reload')}</button
+										>
+									{/if}
+									<button
+										type="button"
+										class={small}
+										onclick={() => {
+											clearPendingInvite(sessionStorage);
+											app.network.qrInvite = null;
+										}}
+										data-testid="network-qr-link-dismiss"
+										>{t('header.network.qrLink.dismiss')}</button
+									>
+								</div>
+							{/if}
+						</div>
+					{/if}
 					{#if qrHere}
 						<!-- "Ohne Relay, per QR" (or "Beides"): the code exchange right here,
 						     needed after every reload; unfolded while no device is connected. -->
@@ -328,7 +411,12 @@
 								<span class="text-xs text-faint" aria-hidden="true">{qrOpen ? '▲' : '▼'}</span>
 							</button>
 							{#if qrOpen}
-								<QrExchange compact prefix="network-qr" scanPrefix="network-scan" />
+								<QrExchange
+									compact
+									prefix="network-qr"
+									scanPrefix="network-scan"
+									pending={app.network.qrInvite}
+								/>
 							{/if}
 						</div>
 					{/if}

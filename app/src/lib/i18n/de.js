@@ -29,6 +29,18 @@ export default {
 			only: { devices: 'Im Netz: eigene Geräte', 'invoice-app': 'Im Netz: Rechnungs-App' },
 			title: 'Netzwerk an – über ein Le-Space-Relay (TLS-WebSocket), Ende zu Ende verschlüsselt:',
 			qr: 'Gerät per QR verbinden',
+			qrLink: {
+				title: 'Ein Gerät lädt dich per QR ein',
+				answering: 'Die Einladung kam per Link; die Antwort steht gleich hier.',
+				devicesOff: 'Dafür müssen eigene Geräte eingeschaltet sein.',
+				devicesOn: 'Eigene Geräte einschalten',
+				otherMode:
+					'Dafür muss dieses Gerät per QR verbinden („Ohne Relay, per QR“). Die Umstellung gilt nach einem Neuladen; die Einladung bleibt zehn Minuten.',
+				switch: 'Auf „Ohne Relay, per QR“ umstellen und neu laden',
+				reload: 'Neu laden',
+				dismiss: 'Verwerfen',
+				ios: 'Auf dem iPhone hält die Belege-App vom Home-Bildschirm ihre Bücher getrennt von Safari: Hier in Safari sind sie nicht. Öffne lieber die App und scanne dort mit „QR-Code scannen“. Verbindest du hier, synchronisiert Safari als eigenes Gerät.'
+			},
 			proof: {
 				self: 'Dieses Gerät: {peerId}',
 				relay: '  am Relay erreichbar: {addr}',
@@ -1339,7 +1351,8 @@ export default {
 			invite: 'Einladung zeigen',
 			inviteLabel: 'QR-Code mit der Einladung dieses Geräts',
 			inviteHint:
-				'Mit dem anderen Gerät scannen und dann dessen Antwort hier mit „QR-Code scannen“ erfassen. Gilt zehn Minuten.',
+				'Mit der Kamera des anderen Geräts scannen – der Code ist ein Link, der Belege dort öffnet – oder dort in Belege mit „QR-Code scannen“. Dann dessen Antwort hier mit „QR-Code scannen“ erfassen. Gilt zehn Minuten.',
+			byLink: 'Die Einladung kam per Link: Das ist die Antwort darauf.',
 			answerLabel: 'QR-Code mit der Antwort dieses Geräts',
 			answerHint: 'Mit dem Gerät scannen, das die Einladung gezeigt hat.',
 			copy: 'Code kopieren',

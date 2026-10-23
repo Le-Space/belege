@@ -25,6 +25,18 @@ export default {
 			only: { devices: 'Online: own devices', 'invoice-app': 'Online: invoice app' },
 			title: 'Network on – via a Le-Space relay (TLS WebSocket), end-to-end encrypted:',
 			qr: 'Connect a device by QR',
+			qrLink: {
+				title: 'A device invites you by QR',
+				answering: 'The invite came by link; the answer shows here in a moment.',
+				devicesOff: 'For that, own devices must be switched on.',
+				devicesOn: 'Switch own devices on',
+				otherMode:
+					'For that, this device must connect by QR (“Ohne Relay, per QR”). The switch applies after a reload; the invite keeps for ten minutes.',
+				switch: 'Switch to “Ohne Relay, per QR” and reload',
+				reload: 'Reload',
+				dismiss: 'Discard',
+				ios: 'On the iPhone, the Belege app from the home screen keeps its books apart from Safari: they are not here in Safari. Better open the app and scan with “QR-Code scannen” there. If you connect here, Safari syncs as a device of its own.'
+			},
 			proof: {
 				self: 'This device: {peerId}',
 				relay: '  reachable at the relay: {addr}',
@@ -1313,7 +1325,8 @@ export default {
 			invite: 'Show invitation',
 			inviteLabel: 'QR code with this device’s invitation',
 			inviteHint:
-				'Scan with the other device, then capture its answer here with “Scan QR code”. Valid for ten minutes.',
+				'Scan it with the other device’s camera – the code is a link that opens Belege there – or in Belege there with “QR-Code scannen”. Then take its answer here with “QR-Code scannen”. Valid for ten minutes.',
+			byLink: 'The invite came by link: this is the answer to it.',
 			answerLabel: 'QR code with this device’s answer',
 			answerHint: 'Scan with the device that showed the invitation.',
 			copy: 'Copy code',

@@ -81,7 +81,7 @@ Was Le Space Belege heute kann, nach Kategorien. Dieselbe Liste steht kürzer au
 - **Wo sich Geräte treffen** ([#148](https://github.com/Le-Space/belege/issues/148)):
   - an den öffentlichen Le-Space-Relays;
   - am Relay deiner eigenen Bridge, nur im eigenen Netz (`pnpm setup:relay`, WebRTC-Direct, kein Zertifikat zu installieren);
-  - ganz ohne Relay, indem sie zwei QR-Codes tauschen;
+  - ganz ohne Relay, indem sie zwei QR-Codes tauschen – direkt im Netz-Menü oben; die Einladung ist ein Link, den die Kamera des Telefons öffnet, und nach dem Entsperren zeigt das Menü dort gleich die Antwort (auf dem iPhone besser aus der App vom Home-Bildschirm, die ihre Bücher getrennt von Safari hält);
   - oder über alle, wobei ein Gerät, das die Bücher noch nicht kennen, nur per QR oder über den Relay der eigenen Bridge hereinkommt.
 - **Das Telefon nutzt die Bridge des Rechners.** Belege lässt sich als App installieren (PWA), und die App-Hülle funktioniert offline.
 - **Rechnungs-App (UCEP):** Sie erstellt Eigenbelege für Belege und erfährt, welche ihrer Rechnungen bezahlt sind.

@@ -26,6 +26,7 @@
 	import { resolve } from '$app/paths';
 	import { afterNavigate, replaceState } from '$app/navigation';
 	import { captureReturn } from '$lib/enablebanking/return.js';
+	import { pendingInvite, takeLinkedInvite } from '$lib/sync/qr-link-url.js';
 	import { resetPending, wipeBrowser } from '$lib/storage/reset.js';
 
 	// The language before the first word is drawn (i18n/, #192).
@@ -51,7 +52,20 @@
 			replace: (path) => replaceState(path, page.state),
 			storage: sessionStorage
 		});
+		takeInvite();
 	});
+	// A QR invite opened by a phone's camera (sync/qr-link-url.js): out of the
+	// address, kept for this tab, answered in the network menu once unlocked.
+	// Also when the link is put into a tab that is open already: then only the
+	// fragment changes, and no navigation runs.
+	function takeInvite() {
+		app.network.qrInvite =
+			takeLinkedInvite({
+				location,
+				storage: sessionStorage,
+				replace: (path) => replaceState(path, page.state)
+			}) ?? pendingInvite(sessionStorage);
+	}
 	onMount(async () => {
 		if (!resetting) return;
 		const report = await wipeBrowser();
@@ -59,6 +73,8 @@
 		else resetBlocked = true;
 	});
 </script>
+
+<svelte:window onhashchange={takeInvite} />
 
 {#if resetting}
 	<main class="mx-auto max-w-xl px-4 py-16 text-center" data-testid="reset-running">
