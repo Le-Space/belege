@@ -198,7 +198,32 @@ export async function runMatching({
 		}
 		live.push(m);
 	}
-	const active = live.filter(isActive);
+	// Two devices may link the same pair before they see each other's link
+	// (each runs the engine on its own, #473). Once both links are here, one
+	// stays – a confirmed one before an automatic one, then the oldest id – and
+	// the others go; every device picks the same, so they agree.
+	/** @type {Map<string, any[]>} */
+	const byPair = new Map();
+	for (const m of live.filter(isActive)) {
+		const key = pairKey(m.receiptId, m.transactionId);
+		byPair.set(key, [...(byPair.get(key) ?? []), m]);
+	}
+	/** @type {Set<string>} */
+	const twice = new Set();
+	for (const same of byPair.values()) {
+		if (same.length < 2) continue;
+		same.sort(
+			(a, b) =>
+				(a.state === 'confirmed' ? 0 : 1) - (b.state === 'confirmed' ? 0 : 1) ||
+				(a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+		);
+		for (const extra of same.slice(1)) {
+			await store.matches.softDelete(extra.id);
+			twice.add(extra.id);
+			writes++;
+		}
+	}
+	const active = live.filter((m) => isActive(m) && !twice.has(m.id));
 	const rejected = new Set(
 		live.filter((m) => m.state === 'rejected').map((m) => pairKey(m.receiptId, m.transactionId))
 	);

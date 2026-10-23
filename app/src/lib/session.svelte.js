@@ -601,6 +601,11 @@ export function runMatchingNow(trigger = 'auto') {
 			await refresh();
 			// Links the run made may be to an invoice in another currency.
 			fillExchangeRates();
+			// The books as this run left them, for the catch-up after the next unlock (#473).
+			if (app.did) {
+				const { fingerprint, noteRun } = await import('./matching/catch-up.js');
+				noteRun(globalThis.localStorage, app.did, fingerprint(app));
+			}
 		}
 	});
 	matchingQueue = next;
@@ -802,6 +807,8 @@ let syncLog = null;
 async function watchSync() {
 	if (!session) return;
 	const { createSyncLog, describeEntry } = await import('./sync/sync-log.js');
+	const { callsForRun, debounced } = await import('./matching/catch-up.js');
+	const catchUpSoon = debounced(() => runMatchingNow());
 	syncLog = createSyncLog(session.syncLogSealer);
 	app.sync.log = await syncLog.load();
 	app.sync.lastIn = {};
@@ -842,6 +849,8 @@ async function watchSync() {
 				};
 				app.sync.data = line;
 				if (!here && peerId) app.sync.lastIn = { ...app.sync.lastIn, [peerId]: at };
+				// What came may pair with what is here: one run once the burst is over (#473).
+				if (callsForRun(line)) catchUpSoon();
 				app.sync.log = /** @type {ReturnType<typeof createSyncLog>} */ (syncLog).add(line);
 			}, 50);
 		});
@@ -1031,6 +1040,13 @@ async function unlockWith(credential, progress, beforePrompt) {
 	progress?.status({ step: 'books' });
 	await refresh();
 	installE2EHooks();
+	// Changed elsewhere while this device was locked: one run, in the background (#473).
+	{
+		const { fingerprint, lastRunOf } = await import('./matching/catch-up.js');
+		if (app.did && lastRunOf(globalThis.localStorage, app.did) !== fingerprint(app)) {
+			runMatchingNow();
+		}
+	}
 	// Not awaited: the browser's answer, for Home's warning (storage/safety.js).
 	requestPersistence().then((kept) => (app.persisted = kept));
 	// Not awaited: rates for instalments of invoices in another currency.
