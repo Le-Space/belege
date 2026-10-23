@@ -96,10 +96,12 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 
 	await openIntegration(page, 'backup');
 	const card = page.getByTestId('backup-card');
-	// Before anything goes up: public, but sealed – and where to wait for the other way.
+	// Before anything goes up: where it lies and what that is good for, what of it
+	// is public, and where to wait for the other way.
 	const notice = card.getByTestId('backup-public');
-	await expect(notice).toContainText('Verschlüsselt, aber öffentlich erreichbar');
-	await expect(notice).toContainText('öffentlichem Nachrichtenverlauf');
+	await expect(notice).toContainText('Wo dein Backup liegt');
+	await expect(notice).toContainText('Verteilt statt an einem Ort');
+	await expect(notice).toContainText('öffentlicher Nachrichtenverlauf');
 	await expect(notice.getByTestId('backup-public-alternative')).toHaveAttribute(
 		'href',
 		'https://github.com/Le-Space/belege/issues/459'
@@ -262,9 +264,20 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 	await card.getByTestId('backup-check').click();
 	await expect(card.getByTestId('backup-granted')).toBeVisible();
 
-	// From now on the browser signs, for the bridge's account; the bridge only watches.
+	// From now on the browser signs, for the bridge's account; the bridge only
+	// watches. Something new first: after the full backup, only that goes up,
+	// as an increment naming the full backup (#454).
+	await page.evaluate(async () => {
+		await /** @type {any} */ (window).__belegeE2E.addTransaction({
+			bookedOn: new Date().toISOString().slice(0, 10),
+			counterparty: 'Zweite Probe',
+			purpose: 'Backup-Probe',
+			amountCents: -99
+		});
+	});
 	await card.getByTestId('backup-now').click();
 	await expect(card.getByTestId('backup-row')).toHaveCount(2, { timeout: 30_000 });
+	await expect(card.getByTestId('backup-made')).toContainText('Zuwachs 1 gesichert');
 	await expect(card.getByTestId('backup-made')).toContainText('von Aleph aufbewahrt');
 	const own = aleph.stores.at(-1);
 	expect(own).toMatchObject({
@@ -272,7 +285,8 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 		owner: alephAccountOf(KEY),
 		channel: 'BELEGE-BACKUP',
 		payment: 'credit',
-		status: 'processed'
+		status: 'processed',
+		ref: cid
 	});
 	// Twice by the bridge: the backup, and keeping it again; none since the grant.
 	expect(bridgeOut.match(/backup: kept on Aleph/g)).toHaveLength(2);

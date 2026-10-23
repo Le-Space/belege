@@ -970,6 +970,12 @@ export default {
 		fetching: 'Fetching the backup from Aleph …',
 		opening: 'Opening the backup …',
 		database: 'Database {index} of {total}: {name} …',
+		increments: '+ {count} increments',
+		fetchingIncrements: 'Fetching increments: {done} of {total} …',
+		doneIncrements: 'With {count} increments to the full backup.',
+		isIncrement:
+			'This is an increment, not a full backup: restore the full backup it builds on – its increments come along.',
+		gap: 'Increments of this full backup are missing ({missing}). Without them it cannot be brought back completely; nothing was changed.',
 		done: 'Restored. The page reloads – unlock with the passkey.',
 		wrongPasskey:
 			'This backup cannot be opened with this passkey: it was made with another one. A backup opens only with the passkey it was made with.',
@@ -1065,14 +1071,14 @@ export default {
 		title: 'Backup',
 		what: "Everything Le Space Belege keeps in this browser – the books and every receipt file – as one file, sealed with a key from your passkey. It lies on Aleph's IPFS: whoever knows its identifier (CID) can download it, but not open it – only you can, with the same passkey. Aleph keeps it while the account has credits.",
 		public: {
-			title: 'Encrypted, but publicly reachable',
-			ipfs: "The backup lies on publicly reachable IPFS nodes. According to Aleph's support, Aleph distributes the blocks to all its nodes – this may change. Each of these nodes hands the file to anyone who names its CID.",
-			cids: "Every backup's CID is in Aleph's public message log, with the time, the size and the paying account. Anyone recording it sees when and how much you back up.",
+			title: 'Where your backup lies – and what that means',
+			spread:
+				"Spread out instead of in one place: the backup is not in a single data centre but on many of Aleph's IPFS nodes – according to Aleph's support, on all its nodes (this may change). When a provider or a region goes down, as in the fire at OVH's Strasbourg data centre in 2021 or in the outages that keep hitting the big clouds, it stays reachable: it can be brought back from any node that has it.",
 			sealed:
-				'Nobody sees what is in it: the file is sealed with a key from your passkey before it leaves this browser.',
-			upside: 'The upside: it can be brought back from any IPFS node that has it.',
+				'Only you can read it: it is sealed with a key from your passkey before it leaves this browser.',
+			open: "What is public is the envelope and the outline: anyone who knows its CID can download the sealed file, and Aleph's public message log names each backup's CID, time, size and paying account.",
 			alternative:
-				'If you do not want your receipts on public IPFS, even encrypted, wait for the backup on Filecoin Onchain Cloud:',
+				'Whether that suits you is your choice. If you do not want your receipts on public IPFS, even encrypted: backup on Filecoin Onchain Cloud,',
 			alternativeLink: 'being planned'
 		},
 		notSetUp: 'The bridge has no backup key yet. In the terminal, in Belege’s folder:',
@@ -1131,6 +1137,19 @@ export default {
 			notAleph: 'not an Aleph node',
 			noPlace: 'unknown'
 		},
+		full: 'New full backup',
+		chainFirst:
+			'The first backup is a full one: everything this browser keeps. After it, "Jetzt sichern" backs up only what is new since.',
+		chainNext:
+			'"Jetzt sichern" backs up only what is new since the last backup – increment {sequence} to the full backup of {date}. A restore needs the full backup and all its increments; Aleph keeps each until it is forgotten.',
+		chainElsewhere: 'another device',
+		nothingNew: 'Nothing new since the last backup.',
+		madeIncrement:
+			'Increment {sequence} backed up: {size}, {entries} new entries, {files} new receipt files – {kept}.',
+		kindFull: 'Full backup',
+		kindIncrement: 'Increment {sequence}',
+		oldBridge:
+			'The bridge kept the increment on Aleph without naming its full backup – it is older than this page. Update the bridge (git pull, pnpm install, restart); the next backup ships everything since the last one again.',
 		now: 'Back up now',
 		step: {
 			packing: 'Packing and sealing …',

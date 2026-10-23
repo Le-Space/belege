@@ -24,7 +24,18 @@ import {
 } from '../database-keys.js';
 import { openStore, COLLECTIONS } from '../store/repository.js';
 import { createBlobStore } from '../receipts/blob-store.js';
-import { MAGIC, WrongPasskeyError, buildBackup, openBackup, restoreBackup } from './archive.js';
+import {
+	ChainGapError,
+	IncrementWithoutBaseError,
+	MAGIC,
+	WrongPasskeyError,
+	buildBackup,
+	buildIncrement,
+	openBackup,
+	restoreBackup
+} from './archive.js';
+import { chainAfter, chainFromBase } from './chain.js';
+import { setSetting } from '../store/settings.js';
 
 const MARKER = 'Backupmarker-Kieselweg-4e1b';
 /** A made-up mail as received. */
@@ -350,4 +361,121 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 			await b.stop();
 		}
 	}, 60_000);
+
+	describe('increments (#454)', () => {
+		const BASE = 'bafkreibasebasebasebasebasebasebasebasebasebasebasebaseb';
+		/** @param {import('./archive.js').BackupChain} chain */
+		const increment = (chain) =>
+			buildIncrement({
+				databases: a.store.databases(),
+				blockstore: a.helia.blockstore,
+				receipts: a.store.receipts,
+				key: backupKey,
+				chain,
+				appVersion: '0.0.0-test',
+				now: () => new Date('2026-10-23T08:00:00Z')
+			});
+
+		it('nothing new since the full backup: no increment', async () => {
+			expect(await increment(chainFromBase(backup.manifest, BASE))).toBeNull();
+		}, 60_000);
+
+		it('holds only what is new, and the base with its increments brings all of it back', async () => {
+			const chain = chainFromBase(backup.manifest, BASE);
+			await a.store.transactions.put({
+				bookedOn: '2026-10-22',
+				counterparty: 'Zuwachs-Probe-Lindenhof',
+				amountCents: -1999
+			});
+			const second = new Uint8Array(4096).fill(0x42);
+			await a.store.receipts.put({ fileName: 'zweiter.pdf', fileCid: await a.blobs.put(second) });
+			const one = /** @type {NonNullable<Awaited<ReturnType<typeof increment>>>} */ (
+				await increment(chain)
+			);
+			expect(one).not.toBeNull();
+			expect(one.manifest).toMatchObject({ kind: 'increment', sequence: 1, base: BASE });
+			// One new payment and one new receipt: two entries, one new file.
+			expect(one.entries).toBe(2);
+			expect(one.files).toHaveLength(1);
+			expect(one.databases.map((d) => d.collection).sort()).toEqual(['receipts', 'transactions']);
+			// Far smaller than the full backup, and as opaque.
+			expect(one.sealed.length).toBeLessThan(backup.sealed.length / 10);
+			expect(one.sealed.subarray(0, MAGIC.length)).toEqual(MAGIC);
+			expect(new TextDecoder('latin1').decode(one.sealed)).not.toContain('Zuwachs-Probe');
+
+			// A second one after it: only what came since. Settings alone – every
+			// backup writes its history there – make none.
+			const after = chainAfter(
+				chain,
+				one,
+				'bafkreioneoneoneoneoneoneoneoneoneoneoneoneoneoneoneoneon'
+			);
+			expect(await increment(after)).toBeNull();
+			await setSetting(a.store.settings, 'backups', []);
+			expect(await increment(after)).toBeNull();
+			await a.store.partners.put({ name: 'Zuwachs Zwei GmbH' });
+			const two = /** @type {NonNullable<Awaited<ReturnType<typeof increment>>>} */ (
+				await increment(after)
+			);
+			expect(two.manifest).toMatchObject({ sequence: 2, previous: after.previous });
+			// The partner, and the setting that waited for it.
+			expect(two.entries).toBe(2);
+			expect(two.files).toHaveLength(0);
+
+			// Into empty books: the base, then both increments, in any order.
+			const b = await diskNode();
+			try {
+				const empty = await b.open();
+				const addresses = addressesOf(empty);
+				await empty.close();
+				const restore = async (/** @type {Uint8Array[]} */ increments) =>
+					restoreBackup({
+						orbitdb: b.orbitdb,
+						sealed: backup.sealed,
+						increments,
+						base: BASE,
+						key: backupKey,
+						targets: [{ name: 'sealed', addresses, open: await b.options() }]
+					});
+				// Without the first increment, the chain has a hole: refused.
+				await expect(restore([two.sealed])).rejects.toBeInstanceOf(ChainGapError);
+				// An increment alone is not a backup to restore.
+				await expect(
+					restoreBackup({
+						orbitdb: b.orbitdb,
+						sealed: one.sealed,
+						key: backupKey,
+						targets: [{ name: 'sealed', addresses, open: await b.options() }]
+					})
+				).rejects.toBeInstanceOf(IncrementWithoutBaseError);
+
+				const result = await restoreBackup({
+					orbitdb: b.orbitdb,
+					sealed: backup.sealed,
+					increments: [two.sealed, one.sealed],
+					base: BASE,
+					key: backupKey,
+					targets: [{ name: 'sealed', addresses, open: await b.options() }]
+				});
+				expect(result.increments).toBe(2);
+				const books = await b.open();
+				const names = (await books.transactions.list()).map((t) => t.counterparty).sort();
+				expect(names).toEqual([MARKER, 'Zuwachs-Probe-Lindenhof'].sort());
+				expect((await books.partners.list()).map((p) => p.name).sort()).toEqual(
+					['Wolkenfabrik AG', 'Zuwachs Zwei GmbH'].sort()
+				);
+				const blobs = await createBlobStore({
+					blockstore: b.helia.blockstore,
+					key: await deriveBlobKey(prfOutput)
+				});
+				const receipt = /** @type {any} */ (
+					(await books.receipts.list()).find((r) => r.fileName === 'zweiter.pdf')
+				);
+				expect(await blobs.get(receipt.fileCid)).toEqual(second);
+				await books.close();
+			} finally {
+				await b.stop();
+			}
+		}, 120_000);
+	});
 });

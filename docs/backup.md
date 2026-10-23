@@ -37,21 +37,25 @@ _Integrationen → Backup → "Jetzt sichern"_.
 
 The backup never passes through the bridge. The page shows the backup's CID; keep it somewhere.
 
+**Full backups and increments.** The first backup is a full one: everything this browser keeps. After it, "Jetzt sichern" uploads only what is new since the last backup of the chain – an increment: the new log entries (with each changed database's manifest and its writers' identities) and the receipt files the chain has not got yet, sealed the same way. Aleph keeps it with a STORE whose `ref` is the full backup's CID, so a restore finds the chain without downloading anything. "Neues Vollbackup" starts a new chain; so does the next backup when Aleph does not keep the full one. Settings alone – every backup writes its own history there – make no increment; they go with the next one. Where the chain stands (the full backup, the last increment, the heads shipped, the receipt files shipped) is kept in the sealed settings, so another own device continues it.
+
 **What it costs.** Every backup is a whole copy, kept – and paid for every day – until it is forgotten. Above "Jetzt sichern" the page shows what the backups Aleph keeps cost a day together, and how long the credits last. When a new backup would leave less than 30 days of credits, the page asks before it uploads. The rate is an estimate (about 54 credits per MiB and day, as Aleph asked on 2026-10-03); Aleph sets the price.
 
 **Whether Aleph kept it.** Aleph answers a STORE with `pending` first and decides later. "Erneut prüfen" asks Aleph about every backup in the list again, by its request (the STORE's item hash, shown with a link). If Aleph does not know a request, or refused it, the row says so, and "Aleph erneut beauftragen" sends a new STORE for the same file – nothing is uploaded again.
 
-**Who can fetch it – encrypted, but public.** The card says this in a box of its own, before anything goes up:
+**Where it lies – spread out, encrypted, with a public envelope.** The card says this in a box of its own, before anything goes up:
 
 - The sealed file lies on publicly reachable IPFS nodes. According to Aleph's support, Aleph distributes the blocks to all its nodes (and this may change). Whoever knows the CID can download it from any of them, through any IPFS gateway – but not open it.
 - Every backup's CID is in Aleph's public message log, with time, size, the paying account and the channel. Anyone recording that log sees when and how much is backed up.
-- The upside: a restore works from any IPFS node that has the file.
+- The upside: the backup is not in one data centre. When a provider or a region goes down – as in the fire at OVH's Strasbourg data centre in 2021, or the outages that keep hitting the big clouds – it stays reachable, and a restore works from any IPFS node that has the file. Whether that is worth the public envelope is the user's choice.
 - Which nodes have it: **"Wer hält es?"** under each backup in the history asks, on that click only, IPFS delegated routing for the peers announcing its CID (`https://delegated-ipfs.dev/routing/v1/providers/<cid>`, through Helia's `@helia/delegated-routing-v1-http-api-client`, used on its own – not wired into the app's Helia node, which would then ask it for every block), Aleph's `corechannel` aggregate (`0xa1B3bb7d2332383D96b7796B908fB7f7F3c2Be10`) for its core nodes' names by IP, and ipwho.is for each IP's city, country and network. It lists node, IP, place and network, and the spread by network and country. The routing service sees the CID, ipwho.is the nodes' IPs; all three see this computer's IP address. On 2026-10-23 one backup had 13 providers, all of them Aleph core channel nodes (of 58 active), 8 of them at Hetzner (Falkenstein, Helsinki).
 - A backup without public IPFS, on Filecoin Onchain Cloud with chosen storage providers, is planned: [#459](https://github.com/Le-Space/belege/issues/459).
 
 This browser's key is made here and kept sealed in the settings, as the bridge token is. It goes with the books to your own devices and into every backup. A stolen key could only have Aleph keep files on that one channel at the account's expense. It opens no backup, since those are sealed with the passkey's key, and it moves no funds. `pnpm setup:aleph -- --revoke <address>` takes the grant back.
 
 ## Restore
+
+A full backup comes back together with all its increments: the card lists each full backup with how many there are (Aleph's `refs=`, and the history here), fetches them all, and refuses a chain with a hole – its newer heads would point at entries nobody has. An increment alone is not restored; its full backup is.
 
 _Integrationen → Backup → "Wiederherstellen"_, after unlocking with **the same passkey**. On a new device that means "Mit vorhandenem Passkey wiederherstellen".
 

@@ -992,6 +992,12 @@ export default {
 		fetching: 'Backup wird von Aleph geholt …',
 		opening: 'Backup wird geöffnet …',
 		database: 'Datenbank {index} von {total}: {name} …',
+		increments: '+ {count} Zuwächse',
+		fetchingIncrements: 'Zuwächse werden geladen: {done} von {total} …',
+		doneIncrements: 'Mit {count} Zuwächsen zum Vollbackup.',
+		isIncrement:
+			'Das ist ein Zuwachs, kein Vollbackup: Stell das Vollbackup wieder her, auf dem er aufbaut – seine Zuwächse kommen mit.',
+		gap: 'Zu diesem Vollbackup fehlen Zuwächse ({missing}). Ohne sie lässt es sich nicht vollständig zurückholen; nichts wurde geändert.',
 		done: 'Wiederhergestellt. Die Seite lädt neu – entsperre mit dem Passkey.',
 		wrongPasskey:
 			'Dieses Backup lässt sich mit diesem Passkey nicht öffnen: Es wurde mit einem anderen gemacht. Ein Backup öffnet nur der Passkey, mit dem es gemacht wurde.',
@@ -1089,14 +1095,14 @@ export default {
 		title: 'Backup',
 		what: 'Alles, was Le Space Belege in diesem Browser hält – die Bücher und jede Belegdatei – als eine Datei, versiegelt mit einem Schlüssel aus deinem Passkey. Sie liegt auf Alephs IPFS: Wer ihre Kennung (CID) kennt, kann sie herunterladen, aber nicht öffnen – das kannst nur du, mit demselben Passkey. Aleph bewahrt sie auf, solange das Konto Credits hat.',
 		public: {
-			title: 'Verschlüsselt, aber öffentlich erreichbar',
-			ipfs: 'Das Backup liegt auf öffentlich erreichbaren IPFS-Knoten. Nach Auskunft des Aleph-Supports verteilt Aleph die Blöcke auf alle seine Knoten – das kann sich ändern. Jeder dieser Knoten gibt die Datei an jeden heraus, der ihre CID nennt.',
-			cids: 'Die CID jedes Backups steht in Alephs öffentlichem Nachrichtenverlauf, mit Zeitpunkt, Größe und dem zahlenden Konto. Wer mitprotokolliert, sieht, wann und wie viel du sicherst.',
+			title: 'Wo dein Backup liegt – und was das bedeutet',
+			spread:
+				'Verteilt statt an einem Ort: Das Backup liegt nicht in einem einzelnen Rechenzentrum, sondern auf vielen IPFS-Knoten von Aleph – nach Auskunft des Aleph-Supports auf allen seinen Knoten (das kann sich ändern). Fällt ein Anbieter oder eine Region aus, wie beim Brand im OVH-Rechenzentrum Straßburg 2021 oder bei den immer wieder auftretenden Ausfällen großer Clouds, bleibt es erreichbar: Zurückholen lässt es sich von jedem Knoten, der es hat.',
 			sealed:
-				'Den Inhalt sieht niemand: Die Datei ist mit einem Schlüssel aus deinem Passkey versiegelt, bevor sie diesen Browser verlässt.',
-			upside: 'Der Vorteil: Zurückholen lässt sie sich von jedem IPFS-Knoten, der sie hat.',
+				'Lesen kannst es nur du: Es ist mit einem Schlüssel aus deinem Passkey versiegelt, bevor es diesen Browser verlässt.',
+			open: 'Öffentlich sind die Hülle und die Eckdaten: Die versiegelte Datei kann laden, wer ihre CID kennt, und Alephs öffentlicher Nachrichtenverlauf nennt zu jedem Backup CID, Zeitpunkt, Größe und das zahlende Konto.',
 			alternative:
-				'Wer seine Belege nicht verschlüsselt im öffentlichen IPFS haben will, wartet auf das Backup auf Filecoin Onchain Cloud:',
+				'Ob dir das passt, entscheidest du. Wer seine Belege auch verschlüsselt nicht im öffentlichen IPFS haben will: Backup auf Filecoin Onchain Cloud,',
 			alternativeLink: 'in Planung'
 		},
 		notSetUp: 'Die Bridge hat noch keinen Backup-Schlüssel. Im Terminal, im Ordner von Belege:',
@@ -1155,6 +1161,19 @@ export default {
 			notAleph: 'kein Aleph-Knoten',
 			noPlace: 'unbekannt'
 		},
+		full: 'Neues Vollbackup',
+		chainFirst:
+			'Das erste Backup ist ein Vollbackup: alles, was dieser Browser hält. Danach sichert „Jetzt sichern“ nur noch, was seitdem neu ist.',
+		chainNext:
+			'„Jetzt sichern“ sichert nur, was seit dem letzten Backup neu ist – Zuwachs {sequence} zum Vollbackup vom {date}. Zum Wiederherstellen braucht es das Vollbackup und alle Zuwächse; Aleph bewahrt jeden auf, bis er vergessen wird.',
+		chainElsewhere: 'einem anderen Gerät',
+		nothingNew: 'Seit dem letzten Backup ist nichts dazugekommen.',
+		madeIncrement:
+			'Zuwachs {sequence} gesichert: {size}, {entries} neue Einträge, {files} neue Belegdateien – {kept}.',
+		kindFull: 'Vollbackup',
+		kindIncrement: 'Zuwachs {sequence}',
+		oldBridge:
+			'Die Bridge hat den Zuwachs ohne Verweis auf sein Vollbackup bei Aleph abgelegt – sie ist älter als diese Seite. Bridge aktualisieren (git pull, pnpm install, neu starten); das nächste Backup sichert alles seit dem letzten noch einmal.',
 		now: 'Jetzt sichern',
 		step: {
 			packing: 'Wird gepackt und versiegelt …',

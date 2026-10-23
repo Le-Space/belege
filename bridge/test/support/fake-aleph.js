@@ -36,7 +36,8 @@
 //                          (IPFS delegated routing)
 //   GET  /geo/<ip>         where an IP is, in ipwho.is' shape
 //   GET  /api/v0/messages.json   STOREs by `addresses` (the sender) or
-//                          `owners` (the paying account), and `channels`
+//                          `owners` (the paying account), `channels` and
+//                          `refs` (a STORE's free-text `ref`)
 //
 // Any page may ask, as Aleph's API answers browsers (checked 2026-10-04): a
 // preflight gets the asking origin back with POST and CONTENT-TYPE allowed,
@@ -121,7 +122,7 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 	const added = new Map();
 	/** The STORE messages taken: their sender, CID, channel and status. */
 	const stores =
-		/** @type {{ sender: string, cid: string, channel: string, status: string, owner: string, time: number, itemHash: string, payment: string | null, errorCode?: number, details?: unknown }[]} */ ([]);
+		/** @type {{ sender: string, cid: string, channel: string, status: string, owner: string, time: number, itemHash: string, payment: string | null, ref?: string, errorCode?: number, details?: unknown }[]} */ ([]);
 	/** Each account's `security` authorizations, by checksummed address. @type {Map<string, any[]>} */
 	const authorizations = new Map();
 	/** The AGGREGATE messages taken, by item hash. @type {Map<string, { status: string }>} */
@@ -180,6 +181,7 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 			const senders = (url.searchParams.get('addresses') ?? '').split(',').filter(Boolean);
 			const owners = (url.searchParams.get('owners') ?? '').split(',').filter(Boolean);
 			const channels = (url.searchParams.get('channels') ?? '').split(',').filter(Boolean);
+			const refs = (url.searchParams.get('refs') ?? '').split(',').filter(Boolean);
 			if (url.searchParams.get('msgTypes') !== 'STORE') return reply(400, { error: 'msgTypes' });
 			return reply(200, {
 				messages: stores
@@ -187,6 +189,7 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 					.filter((s) => !senders.length || senders.includes(s.sender))
 					.filter((s) => !owners.length || owners.includes(s.owner))
 					.filter((s) => !channels.length || channels.includes(s.channel))
+					.filter((s) => !refs.length || (s.ref && refs.includes(s.ref)))
 					.map((s) => ({
 						type: 'STORE',
 						item_hash: s.itemHash,
@@ -197,6 +200,7 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 							item_type: 'ipfs',
 							item_hash: s.cid,
 							...(s.payment ? { payment: { type: s.payment } } : {}),
+							...(s.ref ? { ref: s.ref } : {}),
 							time: s.time
 						}
 					})),
@@ -325,6 +329,7 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 				time: content.time,
 				itemHash: m.item_hash,
 				payment,
+				...(typeof content.ref === 'string' && content.ref ? { ref: content.ref } : {}),
 				...verdict
 			});
 			return answer(verdict.status);

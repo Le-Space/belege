@@ -207,9 +207,10 @@ export class BackupRefusedError extends Error {
  * @param {string} params.owner the paying account
  * @param {Uint8Array} params.key this browser's Aleph key
  * @param {AlephEndpoints} [params.endpoints]
+ * @param {string} [params.ref] an increment's: the CID of the full backup it builds on
  * @param {typeof fetch} [params.fetch]
  * @param {{ timeout?: number, interval?: number }} [params.settle]
- * @returns {Promise<{ itemHash: string, status: string, sender: string, address: string }>}
+ * @returns {Promise<{ itemHash: string, status: string, sender: string, address: string, ref?: string }>}
  * @throws {BackupRefusedError} when Aleph refuses to keep it
  */
 export async function keepWithKey({
@@ -217,6 +218,7 @@ export async function keepWithKey({
 	owner,
 	key,
 	endpoints = alephEndpoints(),
+	ref,
 	fetch: f,
 	settle = {}
 }) {
@@ -233,7 +235,7 @@ export async function keepWithKey({
 		apiHost: endpoints.apiHost,
 		channel: BACKUP_CHANNEL,
 		...withFetch
-	})(cid);
+	})(cid, ref ? { ref } : {});
 	/** @type {any} */
 	const final =
 		sent.status === 'pending'
@@ -254,22 +256,31 @@ export async function keepWithKey({
 		}
 		throw new BackupRefusedError('rejected', { errorCode: final.errorCode ?? null });
 	}
-	return { itemHash: sent.itemHash, status: final.status, sender, address: owner };
+	return {
+		itemHash: sent.itemHash,
+		status: final.status,
+		sender,
+		address: owner,
+		...(ref ? { ref } : {})
+	};
 }
 
 /**
  * The backups kept for the paying account, newest first, from Aleph's public
- * messages API: those the bridge sent and those this key sent alike.
+ * messages API: those the bridge sent and those this key sent alike. A full
+ * backup carries no `ref`; an increment carries its full backup's CID, and
+ * with `ref` only that chain's increments are listed.
  *
- * @param {{ owner: string, endpoints?: AlephEndpoints, fetch?: typeof fetch }} params
- * @returns {Promise<{ cid: string, itemHash: string, sender: string, owner: string, time: number }[]>}
+ * @param {{ owner: string, ref?: string, endpoints?: AlephEndpoints, fetch?: typeof fetch }} params
+ * @returns {Promise<{ cid: string, itemHash: string, sender: string, owner: string, time: number, ref?: string }[]>}
  */
-export async function findBackups({ owner, endpoints = alephEndpoints(), fetch: f }) {
+export async function findBackups({ owner, ref, endpoints = alephEndpoints(), fetch: f }) {
 	const { listAlephStores } = await import('@le-space/orbitdb-storage-bridge/backends/aleph-pin');
 	const { stores } = await listAlephStores({
 		owner,
 		channel: BACKUP_CHANNEL,
 		apiHost: endpoints.apiHost,
+		...(ref ? { ref } : {}),
 		...(f ? { fetch: f } : {})
 	});
 	return stores;

@@ -37,21 +37,25 @@ _Integrationen → Backup → „Jetzt sichern“_.
 
 Das Backup selbst läuft nie über die Bridge. Die Seite zeigt die CID des Backups; heb sie irgendwo auf.
 
+**Vollbackups und Zuwächse.** Das erste Backup ist ein Vollbackup: alles, was dieser Browser hält. Danach lädt „Jetzt sichern“ nur hoch, was seit dem letzten Backup der Kette neu ist – einen Zuwachs: die neuen Log-Einträge (mit Manifest und den Identitäten der Schreiber jeder geänderten Datenbank) und die Belegdateien, die die Kette noch nicht hat, genauso versiegelt. Aleph bewahrt ihn mit einer STORE-Nachricht auf, deren `ref` die CID des Vollbackups ist; so findet die Wiederherstellung die Kette, ohne etwas herunterzuladen. „Neues Vollbackup“ beginnt eine neue Kette; ebenso das nächste Backup, wenn Aleph das Vollbackup nicht aufbewahrt. Einstellungen allein – jedes Backup schreibt dort seine eigene Liste – ergeben keinen Zuwachs; sie gehen mit dem nächsten mit. Wo die Kette steht (Vollbackup, letzter Zuwachs, gesicherte Heads und Belegdateien), liegt in den versiegelten Einstellungen; ein anderes eigenes Gerät setzt sie fort.
+
 **Was es kostet.** Jedes Backup ist eine ganze Kopie, aufbewahrt – und jeden Tag bezahlt –, bis es vergessen wird. Über „Jetzt sichern“ zeigt die Seite, was die Backups bei Aleph zusammen pro Tag kosten und wie lange die Credits reichen. Würden die Credits mit einem neuen Backup keine 30 Tage mehr reichen, fragt die Seite vor dem Hochladen. Der Satz ist ein Schätzwert (etwa 54 Credits pro MiB und Tag, wie Aleph am 03.10.2026 verlangte); den Preis legt Aleph fest.
 
 **Ob Aleph es aufbewahrt.** Aleph beantwortet eine STORE-Nachricht zuerst mit `pending` und entscheidet später. „Erneut prüfen“ fragt Aleph zu jedem Backup der Liste noch einmal, über seinen Auftrag (den Item-Hash der STORE-Nachricht, mit Link). Kennt Aleph einen Auftrag nicht oder hat ihn abgelehnt, steht das in der Zeile, und „Aleph erneut beauftragen“ schickt eine neue STORE-Nachricht für dieselbe Datei – hochgeladen wird nichts noch einmal.
 
-**Wer sie laden kann – verschlüsselt, aber öffentlich.** Die Karte sagt das in einem eigenen Kasten, bevor etwas hinausgeht:
+**Wo es liegt – verteilt, verschlüsselt, mit öffentlicher Hülle.** Die Karte sagt das in einem eigenen Kasten, bevor etwas hinausgeht:
 
 - Die versiegelte Datei liegt auf öffentlich erreichbaren IPFS-Knoten. Nach Auskunft des Aleph-Supports verteilt Aleph die Blöcke auf alle seine Knoten (das kann sich ändern). Wer die CID kennt, kann sie von jedem davon laden, über jedes IPFS-Gateway – aber nicht öffnen.
 - Die CID jedes Backups steht in Alephs öffentlichem Nachrichtenverlauf, mit Zeitpunkt, Größe, zahlendem Konto und Kanal. Wer diesen Verlauf mitprotokolliert, sieht, wann und wie viel gesichert wird.
-- Der Vorteil: Zurückholen geht von jedem IPFS-Knoten, der die Datei hat.
+- Der Vorteil: Das Backup liegt nicht in einem Rechenzentrum. Fällt ein Anbieter oder eine Region aus – wie beim Brand im OVH-Rechenzentrum Straßburg 2021 oder bei den immer wieder auftretenden Ausfällen großer Clouds –, bleibt es erreichbar, und Zurückholen geht von jedem IPFS-Knoten, der die Datei hat. Ob das die öffentliche Hülle wert ist, entscheidet der Nutzer.
 - Welche Knoten es haben: **„Wer hält es?“** unter jedem Backup der Liste fragt, nur bei diesem Klick, das IPFS-Routing nach den Knoten, die seine CID anbieten (`https://delegated-ipfs.dev/routing/v1/providers/<cid>`, über Helias `@helia/delegated-routing-v1-http-api-client`, für sich genutzt – nicht in den Helia-Knoten der App eingebaut, der es sonst nach jedem Block fragte), Alephs Aggregat `corechannel` (`0xa1B3bb7d2332383D96b7796B908fB7f7F3c2Be10`) nach den Namen seiner Kernknoten je IP und ipwho.is nach Stadt, Land und Netz jeder IP. Es zeigt Knoten, IP, Ort und Netz und die Verteilung nach Netz und Land. Der Routing-Dienst sieht die CID, ipwho.is die IPs der Knoten; alle drei sehen die IP-Adresse dieses Computers. Am 23.10.2026 hatte ein Backup 13 Anbieter, alle Aleph-Kernknoten (von 58 aktiven), 8 davon bei Hetzner (Falkenstein, Helsinki).
 - Ein Backup ohne öffentliches IPFS, auf Filecoin Onchain Cloud bei ausgewählten Speicheranbietern, ist geplant: [#459](https://github.com/Le-Space/belege/issues/459).
 
 Der Schlüssel dieses Browsers wird hier erzeugt und versiegelt in den Einstellungen gehalten, wie das Bridge-Token. Er geht mit den Büchern auf eigene Geräte und in jedes Backup. Ein gestohlener Schlüssel könnte nur auf Kosten des Kontos Dateien in diesem einen Kanal aufbewahren lassen. Er öffnet kein Backup, denn die sind mit dem Schlüssel aus dem Passkey versiegelt, und er bewegt keine Guthaben. `pnpm setup:aleph -- --revoke <Adresse>` nimmt die Freigabe zurück.
 
 ## Wiederherstellen
+
+Ein Vollbackup kommt mit allen seinen Zuwächsen zurück: Die Karte zeigt zu jedem Vollbackup, wie viele es gibt (Alephs `refs=` und die Liste hier), lädt sie alle und lehnt eine Kette mit Lücke ab – ihre neueren Heads zeigten auf Einträge, die niemand hat. Ein Zuwachs allein wird nicht wiederhergestellt, sondern sein Vollbackup.
 
 _Integrationen → Backup → „Wiederherstellen“_, nach dem Entsperren mit **demselben Passkey**. Auf einem neuen Gerät heißt das: „Mit vorhandenem Passkey wiederherstellen“.
 
