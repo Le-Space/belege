@@ -28,6 +28,20 @@ Beide Geräte erreichen sich über einen Circuit-Relay (was die öffentlichen Le
 
 **Warum, gemessen am 13.10.2026** mit Netzwerkmitschrieb während des Schubs (jede Verbindung mit ihren Streams auf beiden Geräten, Gossipsubs Peerliste, OrbitDBs Heads-Austausche; `app/bench/results/2026-10-13-resilience-replication-relay-50-*.json`): Zum Zeitpunkt des Schubs haben die Geräte eine direkte WebRTC-Verbindung, aber Gossipsub läuft weiter über den Circuit des Relays — es öffnet seine Streams auf der ersten Verbindung zu einem Peer und zieht nie um. Schließt der Relay den Circuit, behält Gossipsub den Peer, verliert beide Streams und öffnet neue nur für eine _neue_ Verbindung; OrbitDBs Sync, der nie eine Trennung sah, tauscht keine Heads mehr aus. Ob der Schub durchkommt, ist dann eine Frage des Timings: Eine WebRTC-Verbindung, die jung genug ist, dass ihr Verbindungsereignis nach dem Schließen eintrifft, trägt weiter (100 von 100 in 1,9–2,4 s in drei Läufen); eine eingespielte nicht (28 von 100 in einem vierten, gleichen Lauf). Ohne Datengrenze, mit 5 s Circuit-Dauer und dann 8 s Ruhe vor dem Schub — die Form eines Imports nach zwanzig Minuten an einem Le-Space-Relay — kommt gar nichts an: 0 von 100, jedes Mal. Festgehalten als [belege#393](https://github.com/Le-Space/belege/issues/393); die richtige Korrektur gehört in Gossipsub, eine Wiederverbindung in der App ist der Notbehelf. Eine frühere Fassung dieser Seite machte [orbitdb-relay#59](https://github.com/NiKrause/orbitdb-relay/issues/59) verantwortlich; dieser Relay-Fehler ist echt, läuft aber auf dem Relay, und der Relay des Benchmarks ist ein nackter libp2p-Circuit-Relay ohne orbitdb-relay-Code.
 
+**Der Notbehelf, und was er taugt (23.10.2026).** Die Wählrunde fragte bisher, ob eine Verbindung zum Gerät offen ist — und in diesem Zustand sind drei offen. Sie fragt jetzt, ob eine davon einen `/meshsub/`-Stream trägt, gibt einer stummen Verbindung 45 s für den Fall, dass sie sich nur einrichtet, und legt dann auf: ein erneutes Wählen bekäme die bestehende Verbindung zurück, statt einen Circuit zu bauen, also muss sie erst weg, bevor eine brauchbare entstehen kann. Derselbe Test-Relay mit seinen Standardgrenzen, 500 Buchungen, je ein Lauf:
+
+| | ohne die Wählrunde | mit ihr |
+| --- | --- | --- |
+| Schub binnen 20 s synchron | nein | nein |
+| beim Stocken angekommen | 26 von 100 | 27 von 100 |
+| Verbindungen, davon mit `/meshsub/` | 3, keine | 3, keine |
+| von selbst zurückgekommen | **nie** | **nach 53,0 s** |
+| am Ende angekommen | 26 von 100 | **100 von 100** |
+
+Beide Arme stocken gleich, auf eine Buchung genau; der Unterschied ist allein, ob es jemandem auffällt. Drei offene Verbindungen und unter ihnen kein einziger Gossipsub-Stream — das ist #393 selbst, von innen gesehen, und es ist der Grund, warum eine Zählung angekommener Buchungen das Stocken nie erklären konnte.
+
+Mehr als ein Notbehelf ist das nicht. Er legt eine Verbindung auf, die gesund aussieht, um eine neue zu erzwingen, er wartet dafür 45 s, und er darf das pro Gerät höchstens alle fünf Minuten — ein Fehlalarm darf kein funktionierendes Gerät in eine Schleife legen. Der Fehler, den er umgeht, sitzt in Gossipsub, also bleiben [#393](https://github.com/Le-Space/belege/issues/393) und [#403](https://github.com/Le-Space/belege/issues/403) offen.
+
 **Mit produktionsnahen Grenzen** (die Le-Space-Relays laufen mit 20 Minuten und 10 GiB je Circuit; `E2E_RELAY_UNLIMITED=1` hebt die Grenze des Test-Relays auf) läuft alles durch, und die Zahlen decken sich im Rauschen mit denen ohne Relay:
 
 | Bücher (Buchungen) | Koppeln (Scan → „verbunden") | Nachzügler hat alle | Mac → Telefon, Median (p95) | Telefon → Mac, Median (p95) | Schub von 100 |

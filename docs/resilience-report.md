@@ -28,6 +28,20 @@ Both devices reach each other through a circuit relay (what the public Le Space 
 
 **Why, measured on 2026-10-13** with the network watched during the burst (every connection and its streams on both devices, gossipsub's peer list, OrbitDB's heads exchanges; `app/bench/results/2026-10-13-resilience-replication-relay-50-*.json`): by the time of the burst the devices have a direct WebRTC connection, but gossipsub still runs over the relay's circuit — it opens its streams on the first connection to a peer and never moves them. When the relay closes the circuit, gossipsub keeps the peer and loses both streams; it opens new ones only for a _new_ connection, and OrbitDB's sync, which never saw a disconnect, exchanges no heads again. Whether the burst survives is then a matter of timing: a WebRTC connection young enough for its connect event to land after the close carries on (100 of 100 in 1.9–2.4 s in three runs); an established one does not (28 of 100 in a fourth, identical run). With the data cap lifted and the circuit's duration set to 5 s, then 8 s of quiet before the burst — the shape of an import after twenty minutes on a Le Space relay — nothing arrives at all: 0 of 100, every time. Filed as [belege#393](https://github.com/Le-Space/belege/issues/393); the right fix is in gossipsub, an app-side reconnect is the stopgap. An earlier version of this page blamed [orbitdb-relay#59](https://github.com/NiKrause/orbitdb-relay/issues/59); that relay bug is real but runs on the relay, and the benchmark's relay is a plain libp2p circuit relay with no orbitdb-relay code in it.
 
+**The stopgap, and what it is worth (2026-10-23).** The redial round used to ask whether a connection to the device was open — and in this state three are. It now asks whether any of them carries a `/meshsub/` stream, gives a mute connection 45 s in case it is merely settling, and then hangs it up: dialling again would hand back the connection that already exists instead of building a circuit, so the connection has to go before a useful one can be made. Same test relay with its default limits, 500 bookings, one run each arm:
+
+| | without the redial | with it |
+| --- | --- | --- |
+| burst synced within 20 s | no | no |
+| arrived when it stalled | 26 of 100 | 27 of 100 |
+| connections, of which carrying `/meshsub/` | 3, none | 3, none |
+| came back by itself | **never** | **after 53.0 s** |
+| arrived in the end | 26 of 100 | **100 of 100** |
+
+Both arms stall the same way, within one booking of each other; the only difference is whether anything notices. Three open connections and not one gossipsub stream among them is #393 itself, seen from inside the application — and it is why a count of arrived bookings could never explain the stall on its own.
+
+This is a stopgap and nothing more. It hangs up a connection that looks healthy to force a new one, it waits 45 s before doing so, and it is rate-limited to once per device every five minutes because a wrong guess must not drop a working device in a loop. The bug it works around is gossipsub's, so [#393](https://github.com/Le-Space/belege/issues/393) and [#403](https://github.com/Le-Space/belege/issues/403) stay open.
+
 **With production-like limits** (the Le Space relays run 20 minutes and 10 GiB per circuit; `E2E_RELAY_UNLIMITED=1` lifts the test relay's cap), everything passes, and the numbers match the relay-free ones within noise:
 
 | books (bookings) | pair (scan → "verbunden") | late joiner gets all of them | Mac → phone, median (p95) | phone → Mac, median (p95) | burst of 100 |
