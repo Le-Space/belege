@@ -144,16 +144,24 @@ export function isLoopbackUrl(baseUrl) {
  * Whether the bridge sends text as it is (#423): a model on this machine sees
  * nothing leave it, and redaction would only cost reading quality.
  *
- * Only when both hold: the base URL is loopback, and setup:llm was told the
- * model runs here (`off`) – a loopback URL may also be a proxy that forwards to
- * a provider. A config from before #423 has no answer (`auto`) and blacks out
- * until setup:llm asks; `off` with any other URL blacks out too.
+ * Only when setup:llm was told so (`off`) and one of two holds:
+ *   - the base URL is loopback – a loopback URL may also be a proxy that
+ *     forwards to a provider, so setup:llm asks whether the model runs here;
+ *   - a confidential model is pinned (`tee`, #416): every request goes to the
+ *     attested enclave and its TLS ends inside it; setup:llm asks whether to
+ *     black out anyway, and the default is not to.
+ * A config from before #423 has no answer (`auto`) and blacks out until
+ * setup:llm asks; `off` with any other URL blacks out too.
  *
- * @param {Pick<LlmConfig, 'baseUrl' | 'redaction'>} llm
+ * @param {Pick<LlmConfig, 'baseUrl' | 'redaction'> & { tee?: LlmConfig['tee'] }} llm
  */
 export function redactionOff(llm) {
-	return llm.redaction === 'off' && isLoopbackUrl(llm.baseUrl);
+	return llm.redaction === 'off' && (isLoopbackUrl(llm.baseUrl) || Boolean(llm.tee));
 }
+
+/** Text unredacted because it goes into an attested enclave, not to this machine. @param {Pick<LlmConfig, 'baseUrl' | 'redaction' | 'tee'>} llm */
+export const redactionOffForEnclave = (llm) =>
+	redactionOff(llm) && Boolean(llm.tee) && !isLoopbackUrl(llm.baseUrl);
 
 /** @returns {BridgeConfig} */
 export function defaultConfig() {

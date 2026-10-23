@@ -791,7 +791,7 @@ export default {
 				'Was die KI liefert, prüfst du: Am Beleg stehen das Modell und der gesendete Text, ein KI-Vorschlag wird erst auf deinen Klick übernommen, und der Verlauf nennt jeden Aufruf.',
 			technical: [
 				'Das Sprachmodell stellst du in der Bridge ein (pnpm setup:llm): jede Schnittstelle im OpenAI-Format (/chat/completions) – per https, oder per http nur auf diesem Rechner (127.0.0.1, localhost), etwa Ollama oder LM Studio. Voreingestellt sind deepseek-flash, mit deepseek-v4-pro als zweitem Versuch.',
-				'Vor jedem Aufruf schwärzt die Bridge Namen aus ihrer Liste und deine Firmennamen aus den Einstellungen, Namen nach einer Anrede oder einem Etikett („Herr“, „Ansprechpartner:“, auch in anderen Sprachen und Schriften, etwa „Пассажир:“ oder „Yolcu:“), Passnummern, IBANs und Kartennummern bis auf die letzten vier Stellen, E-Mail-Adressen (von fremden bleibt die Domain), Telefonnummern, Geburtsdaten, Steuernummern, Straßen, Postleitzahlen und Links (nur der Host bleibt). Das begrenzt, was hinausgeht, anonym macht es den Text nicht: Ein Name, der auf keiner Liste steht und hinter keinem Etikett, geht durch, ebenso Anbieter, Beträge, Rechnungsnummern und worum es im Beleg geht. Soll nichts hinausgehen, stell ein Modell auf diesem Rechner ein (etwa Ollama). Die Antworten sind JSON und werden geprüft (Summen, Datumsformate, Kandidatennummern); was nicht passt, wird verworfen.',
+				'Vor jedem Aufruf schwärzt die Bridge Namen aus ihrer Liste und deine Firmennamen aus den Einstellungen, Namen nach einer Anrede oder einem Etikett („Herr“, „Ansprechpartner:“, auch in anderen Sprachen und Schriften, etwa „Пассажир:“ oder „Yolcu:“), Passnummern, IBANs und Kartennummern bis auf die letzten vier Stellen, E-Mail-Adressen (von fremden bleibt die Domain), Telefonnummern, Geburtsdaten, Steuernummern, Straßen, Postleitzahlen und Links (nur der Host bleibt). Das begrenzt, was hinausgeht, anonym macht es den Text nicht: Ein Name, der auf keiner Liste steht und hinter keinem Etikett, geht durch, ebenso Anbieter, Beträge, Rechnungsnummern und worum es im Beleg geht. Bei einem Modell auf diesem Rechner und bei LibertAI vertraulich, in der attestierten Enklave, schwärzt sie nicht – es sei denn, du wählst es bei pnpm setup:llm. Soll nichts hinausgehen, stell ein Modell auf diesem Rechner ein (etwa Ollama). Die Antworten sind JSON und werden geprüft (Summen, Datumsformate, Kandidatennummern); was nicht passt, wird verworfen.',
 				'Der API-Schlüssel liegt im macOS-Schlüsselbund der Bridge, nie im Browser. Das Protokoll der Bridge nennt nur Zahlen, nie Text. Im Verlauf der App stehen Modell, Dauer und Tokens jedes Aufrufs.'
 			]
 		},
@@ -853,7 +853,7 @@ export default {
 				name: 'Sprachmodell – voreingestellt DeepSeek, oder LibertAI vertraulich (Belege auslesen, KI-Suche)',
 				text: 'Das Modell, das du in der Bridge einstellst. Nur bei Knöpfen mit ✦ (siehe „KI“ oben).',
 				leaves:
-					'Beim Auslesen der geschwärzte Text eines Belegs; bei „Mit KI weitersuchen“ Gegenpartei und Verwendungszweck sowie Betreff, Absender-Domain und Dateinamen der Treffer, geschwärzt. Bei DeepSeek stehen die Server außerhalb der EU; ein lokales Modell verlässt diesen Rechner nicht. Mit LibertAI vertraulich (TEE) läuft das Modell in einer Enklave auf Aleph Cloud, die die Bridge vor jedem Verbindungsaufbau prüft (AMD-Signatur, festgenagelte Messung); der Text endet erst in der Enklave, LibertAI sieht die IP-Adresse dieses Macs, Größen und Zeiten, nicht den Text. Geprüft ist damit, welches Abbild läuft, nicht was es tut, und für vertrauliche GPUs auf Aleph gibt es noch kein unabhängiges Audit. Unser Rat derzeit: ein lokales Modell, oder LibertAI vertraulich.',
+					'Beim Auslesen der geschwärzte Text eines Belegs; bei „Mit KI weitersuchen“ Gegenpartei und Verwendungszweck sowie Betreff, Absender-Domain und Dateinamen der Treffer, geschwärzt. Bei DeepSeek stehen die Server außerhalb der EU; ein lokales Modell verlässt diesen Rechner nicht. Mit LibertAI vertraulich (TEE) läuft das Modell in einer Enklave auf Aleph Cloud, die die Bridge vor jedem Verbindungsaufbau prüft (AMD-Signatur, festgenagelte Messung); der Text endet erst in der Enklave, LibertAI sieht die IP-Adresse dieses Macs, Größen und Zeiten, nicht den Text. Geprüft ist damit, welches Abbild läuft, nicht was es tut, und für vertrauliche GPUs auf Aleph gibt es noch kein unabhängiges Audit. Der Text geht ungeschwärzt hinein, es sei denn, du wählst bei pnpm setup:llm das Schwärzen. Unser Rat derzeit: ein lokales Modell, oder LibertAI vertraulich.',
 				technical:
 					'Die Bridge schickt nur die Textebene eines PDFs (oder den Text einer E-Mail) mit Betreff und Absender, nachdem sie Namen aus ihrer Liste und deine Firmennamen aus den Einstellungen, Namen nach einer Anrede oder einem Etikett („Herr“, „Ansprechpartner:“, auch in anderen Sprachen und Schriften, etwa „Пассажир:“ oder „Yolcu:“), Passnummern, IBANs und Kartennummern bis auf die letzten vier Stellen, E-Mail-Adressen (von fremden bleibt die Domain), Telefonnummern, Geburtsdaten, Steuernummern, Straßen, Postleitzahlen und Links (nur der Host bleibt) geschwärzt hat – nie die Datei selbst. Das begrenzt, was hinausgeht, anonym macht es den Text nicht: Ein Name, der auf keiner Liste steht und hinter keinem Etikett, geht durch, ebenso Anbieter, Beträge, Rechnungsnummern und worum es im Beleg geht. Soll nichts hinausgehen, stell ein Modell auf diesem Rechner ein (etwa Ollama). DeepSeek betreibt seine Server in China. Der API-Schlüssel liegt im macOS-Schlüsselbund der Bridge, nie im Browser. E-Mails von Absendern ohne bestandene DKIM/SPF-Prüfung liest die Bridge erst nach deiner Freigabe aus.'
 			},
@@ -1402,6 +1402,8 @@ export default {
 			'Schickt die Zeitleiste an dein Sprachmodell: Daten, Beträge, Zeiträume, Positionen und die Befunde – geschwärzt, ohne Rufnummern, Kunden- und Rechnungsnummern. Nur Hinweise, gebucht wird nichts.',
 		explainTitleLocal:
 			'Gibt die Zeitleiste deinem Sprachmodell auf diesem Rechner: Daten, Beträge, Zeiträume, Positionen und die Befunde – ungeschwärzt, weil nichts den Rechner verlässt. Nur Hinweise, gebucht wird nichts.',
+		explainTitleEnclave:
+			'Gibt die Zeitleiste deinem Sprachmodell in der attestierten Enklave: Daten, Beträge, Zeiträume, Positionen und die Befunde – ungeschwärzt – lesen kann es nur die geprüfte Enklave. Nur Hinweise, gebucht wird nichts.',
 		explainNeedsBridge: 'Dafür muss die Bridge mit einem Sprachmodell gekoppelt sein.',
 		notes: 'Hinweise der KI',
 		pdf: 'Als PDF herunterladen',
@@ -1886,6 +1888,8 @@ export default {
 			what: 'Für {count} Zahlungen ohne Beleg fragt die Bridge dein Sprachmodell, welcher Beleg passt – je Zahlung eine Anfrage mit der geschwärzten Buchung und den bis zu 25 nächstgelegenen Belegen.',
 			whatLocal:
 				'Für {count} Zahlungen ohne Beleg fragt die Bridge dein Sprachmodell auf diesem Rechner, welcher Beleg passt – je Zahlung eine Anfrage mit der Buchung und den bis zu 25 nächstgelegenen Belegen, ungeschwärzt, weil nichts den Rechner verlässt.',
+			whatEnclave:
+				'Für {count} Zahlungen ohne Beleg fragt die Bridge dein Sprachmodell in der attestierten Enklave, welcher Beleg passt – je Zahlung eine Anfrage mit der Buchung und den bis zu 25 nächstgelegenen Belegen, ungeschwärzt – lesen kann es nur die geprüfte Enklave.',
 			tokens: 'Nach deinen letzten KI-Vorschlägen etwa {tokens} Tokens.',
 			tokensUnknown: 'Wie viele Tokens das braucht, zeigt der Verlauf nach dem ersten Lauf.',
 			only: 'Es sind nur Vorschläge: Zugeordnet wird nichts, bis du einen übernimmst.',
@@ -1950,18 +1954,26 @@ export default {
 			'Mit KI: Die Bridge schickt den Text des Belegs – geschwärzt, nie die Datei – an das Sprachmodell, das du eingestellt hast, und bekommt Anbieter, Betrag, Datum und Nummern zurück.',
 		extractLocal:
 			'Mit KI: Die Bridge gibt den Text des Belegs – nie die Datei – deinem Sprachmodell auf diesem Rechner und bekommt Anbieter, Betrag, Datum und Nummern zurück. Ungeschwärzt, weil nichts den Rechner verlässt.',
+		extractEnclave:
+			'Mit KI: Die Bridge gibt den Text des Belegs – nie die Datei – deinem Sprachmodell in der attestierten Enklave und bekommt Anbieter, Betrag, Datum und Nummern zurück. Ungeschwärzt – lesen kann ihn nur die geprüfte Enklave.',
 		upload:
 			'Mit KI: Nach dem Hochladen liest die Bridge den Beleg mit deinem Sprachmodell aus (nur der Text, geschwärzt). Zugeordnet wird er ohne KI.',
 		uploadLocal:
 			'Mit KI: Nach dem Hochladen liest die Bridge den Beleg mit deinem Sprachmodell auf diesem Rechner aus (nur der Text, ungeschwärzt – er verlässt den Rechner nicht). Zugeordnet wird er ohne KI.',
+		uploadEnclave:
+			'Mit KI: Nach dem Hochladen liest die Bridge den Beleg mit deinem Sprachmodell in der attestierten Enklave aus (nur der Text, ungeschwärzt – lesen kann ihn nur die geprüfte Enklave). Zugeordnet wird er ohne KI.',
 		import:
 			'Mit KI: Nach der Übernahme liest die Bridge die E-Mail oder ihren Anhang mit deinem Sprachmodell aus (nur der Text, geschwärzt). Zugeordnet wird ohne KI.',
 		importLocal:
 			'Mit KI: Nach der Übernahme liest die Bridge die E-Mail oder ihren Anhang mit deinem Sprachmodell auf diesem Rechner aus (nur der Text, ungeschwärzt – er verlässt den Rechner nicht). Zugeordnet wird ohne KI.',
+		importEnclave:
+			'Mit KI: Nach der Übernahme liest die Bridge die E-Mail oder ihren Anhang mit deinem Sprachmodell in der attestierten Enklave aus (nur der Text, ungeschwärzt – lesen kann ihn nur die geprüfte Enklave). Zugeordnet wird ohne KI.',
 		portal:
 			'Mit KI: Die geholten Rechnungen liest die Bridge mit deinem Sprachmodell aus (nur der Text, geschwärzt). Anmelden und Holen kommen ohne KI aus.',
 		portalLocal:
-			'Mit KI: Die geholten Rechnungen liest die Bridge mit deinem Sprachmodell auf diesem Rechner aus (nur der Text, ungeschwärzt – er verlässt den Rechner nicht). Anmelden und Holen kommen ohne KI aus.'
+			'Mit KI: Die geholten Rechnungen liest die Bridge mit deinem Sprachmodell auf diesem Rechner aus (nur der Text, ungeschwärzt – er verlässt den Rechner nicht). Anmelden und Holen kommen ohne KI aus.',
+		portalEnclave:
+			'Mit KI: Die geholten Rechnungen liest die Bridge mit deinem Sprachmodell in der attestierten Enklave aus (nur der Text, ungeschwärzt – lesen kann ihn nur die geprüfte Enklave). Anmelden und Holen kommen ohne KI aus.'
 	},
 	settings: {
 		title: 'Einstellungen',
@@ -3421,6 +3433,8 @@ export default {
 				'Fragt dein Sprachmodell, welche dieser Buchungen die andere Seite ist: je Buchung Richtung, Betrag, Menge, Tag, Kontoart, Gegenpartei und Zweck – geschwärzt, ohne Adressen, IBANs und Hashes. Nur ein Vorschlag: Verknüpft wird erst mit deinem Klick.',
 			linkTransferAiTitleLocal:
 				'Fragt dein Sprachmodell auf diesem Rechner, welche dieser Buchungen die andere Seite ist: je Buchung Richtung, Betrag, Menge, Tag, Kontoart, Gegenpartei und Zweck – ungeschwärzt, weil nichts den Rechner verlässt. Nur ein Vorschlag: Verknüpft wird erst mit deinem Klick.',
+			linkTransferAiTitleEnclave:
+				'Fragt dein Sprachmodell in der attestierten Enklave, welche dieser Buchungen die andere Seite ist: je Buchung Richtung, Betrag, Menge, Tag, Kontoart, Gegenpartei und Zweck – ungeschwärzt – lesen kann es nur die geprüfte Enklave. Nur ein Vorschlag: Verknüpft wird erst mit deinem Klick.',
 			linkTransferAiPick: 'KI-Vorschlag ({confidence}): {reason}',
 			linkTransferAiNone: 'KI-Vorschlag: Keine dieser Buchungen ist die andere Seite.',
 			linkTransferAiTake: 'Übernehmen',
@@ -3457,6 +3471,8 @@ export default {
 				'Die Bridge schickt dein eingestelltes Sprachmodell die Buchung (Gegenpartei, Verwendungszweck, Betrag, Tag) und bis zu 25 passende Belege mit Anbieter, Betrag, Datum, Rechnungsnummer und Kurzbeschreibung – geschwärzt. Es nennt den passenden Beleg; zuordnen tust du.',
 			aiChoiceTitleLocal:
 				'Die Bridge gibt deinem Sprachmodell auf diesem Rechner die Buchung (Gegenpartei, Verwendungszweck, Betrag, Tag) und bis zu 25 passende Belege mit Anbieter, Betrag, Datum, Rechnungsnummer und Kurzbeschreibung – ungeschwärzt, weil nichts den Rechner verlässt. Es nennt den passenden Beleg; zuordnen tust du.',
+			aiChoiceTitleEnclave:
+				'Die Bridge gibt deinem Sprachmodell in der attestierten Enklave die Buchung (Gegenpartei, Verwendungszweck, Betrag, Tag) und bis zu 25 passende Belege mit Anbieter, Betrag, Datum, Rechnungsnummer und Kurzbeschreibung – ungeschwärzt – lesen kann es nur die geprüfte Enklave. Es nennt den passenden Beleg; zuordnen tust du.',
 			aiChoiceNone: '{model} hat {count} Belege geprüft ({seconds} s) und hält keinen für passend',
 			aiChoiceModel: 'Das Sprachmodell',
 			aiChoiceChecked: 'Welche {count} Belege wurden geprüft?',
@@ -3471,6 +3487,8 @@ export default {
 				'Die Bridge fragt dein eingestelltes Sprachmodell zweimal: 1. Gegenpartei und Verwendungszweck (geschwärzt) → Suchwörter und Absender-Domains. 2. Betreff, Absender-Domain, Anhangnamen und Eingangstag der Treffer (geschwärzt) → welche E-Mail der Beleg ist. Kein E-Mail-Text, keine vollständige Adresse.',
 			aiSearchTitleLocal:
 				'Die Bridge fragt dein Sprachmodell auf diesem Rechner zweimal: 1. Gegenpartei und Verwendungszweck → Suchwörter und Absender-Domains. 2. Betreff, Absender-Domain, Anhangnamen und Eingangstag der Treffer → welche E-Mail der Beleg ist. Ungeschwärzt, weil nichts den Rechner verlässt; kein E-Mail-Text, keine vollständige Adresse.',
+			aiSearchTitleEnclave:
+				'Die Bridge fragt dein Sprachmodell in der attestierten Enklave zweimal: 1. Gegenpartei und Verwendungszweck → Suchwörter und Absender-Domains. 2. Betreff, Absender-Domain, Anhangnamen und Eingangstag der Treffer → welche E-Mail der Beleg ist. Ungeschwärzt – lesen kann ihn nur die geprüfte Enklave; kein E-Mail-Text, keine vollständige Adresse.',
 			aiSearchHint:
 				'Kein klarer Treffer? Das Sprachmodell schlägt Suchwörter vor und beurteilt die Treffer – nur nach Betreff, Absender-Domain und Dateinamen, nie nach dem Text der E-Mails.',
 			aiSummary: 'KI-Suche: Suchwörter {terms} · Absender {domains} · {count} Treffer',
@@ -3927,6 +3945,8 @@ export default {
 			redaction: 'Schwärzung',
 			redactionOn: 'an – Namen, IBANs und Adressen werden vor dem Senden geschwärzt',
 			redactionOff: 'aus – das Modell läuft auf diesem Rechner, es geht nichts hinaus',
+			redactionOffEnclave:
+				'aus – das Modell läuft in der attestierten Enklave; lesen kann den Text nur sie',
 			terms: 'Schwärzungsbegriffe',
 			authServ: 'Server-Kennung (Absenderprüfung)',
 			authServNone: 'nicht gesetzt – pnpm setup:mail',

@@ -387,7 +387,7 @@ describe('/extract', () => {
 			models: { primary: 'deepseek-flash', fallback: 'deepseek-v4-pro' },
 			keyConfigured: true,
 			redactTerms: 2,
-			redaction: { mode: 'on', active: true, local: false },
+			redaction: { mode: 'on', active: true, local: false, enclave: false },
 			mail: { authServId: null },
 			tee: null
 		});

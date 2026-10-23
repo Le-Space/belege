@@ -69,7 +69,7 @@ import { ALEPH_API } from './aleph.js';
 import { MAX_BACKUP_BYTES } from './aleph-backup.js';
 import { checkEndpoint } from './chains/http.js';
 import { withExtraTerms } from './llm/redact.js';
-import { redactionOff } from './config.js';
+import { redactionOff, redactionOffForEnclave } from './config.js';
 
 export const LOOPBACK = '127.0.0.1';
 
@@ -944,7 +944,9 @@ export function createBridgeServer({
 				redaction: {
 					mode: config.llm.redaction,
 					active: !redactionOff(config.llm),
-					local: redactionOff(config.llm)
+					local: redactionOff(config.llm) && !redactionOffForEnclave(config.llm),
+					// Off because the model runs in the attested enclave (#416), not here.
+					enclave: redactionOffForEnclave(config.llm)
 				},
 				mail: { authServId: config.mail.authServId ?? null },
 				// A confidential model (#416): the pinned enclave and how its last proof went.

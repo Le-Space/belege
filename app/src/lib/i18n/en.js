@@ -770,7 +770,7 @@ export default {
 				'You check what the AI delivers: the receipt shows the model and the text sent, an AI suggestion is only applied on your click, and the History lists every call.',
 			technical: [
 				'You set up the language model in the bridge (pnpm setup:llm): any interface in the OpenAI format (/chat/completions) – via https, or via http only on this computer (127.0.0.1, localhost), such as Ollama or LM Studio. The default is deepseek-flash, with deepseek-v4-pro as the second attempt.',
-				'Before every call the bridge redacts names from its list and your company names from Settings, names after a salutation or a label (“Herr”, “Contact:”, also in other languages and scripts, such as “Пассажир:” or “Yolcu:”), passport numbers, IBANs and card numbers except for the last four digits, email addresses (of others the domain remains), phone numbers, dates of birth, tax numbers, streets, postcodes and links (only the host remains). This limits what goes out; it does not make the text anonymous: a name that is on no list and follows no label gets through, and so do the vendor, amounts, invoice numbers and what the receipt is about. For nothing to go out, set a model on this computer (such as Ollama). The responses are JSON and are checked (totals, date formats, candidate numbers); whatever doesn’t fit is discarded.',
+				'Before every call the bridge redacts names from its list and your company names from Settings, names after a salutation or a label (“Herr”, “Contact:”, also in other languages and scripts, such as “Пассажир:” or “Yolcu:”), passport numbers, IBANs and card numbers except for the last four digits, email addresses (of others the domain remains), phone numbers, dates of birth, tax numbers, streets, postcodes and links (only the host remains). This limits what goes out; it does not make the text anonymous: a name that is on no list and follows no label gets through, and so do the vendor, amounts, invoice numbers and what the receipt is about. With a model on this computer, and with LibertAI confidential in the attested enclave, it does not redact – unless you choose so in pnpm setup:llm. For nothing to go out, set a model on this computer (such as Ollama). The responses are JSON and are checked (totals, date formats, candidate numbers); whatever doesn’t fit is discarded.',
 				'The API key is kept in the bridge’s macOS Keychain, never in the browser. The bridge’s log records only numbers, never text. The app’s History shows the model, duration and tokens of every call.'
 			]
 		},
@@ -832,7 +832,7 @@ export default {
 				name: 'Language model – DeepSeek by default, or LibertAI confidential (extracting receipts, AI search)',
 				text: 'The model you set up in the bridge. Only for buttons with ✦ (see “AI” above).',
 				leaves:
-					'When extracting, the redacted text of a receipt; with “Keep searching with AI”, counterparty and payment reference as well as subject, sender domain and file names of the hits, redacted. With DeepSeek the servers are outside the EU; a local model does not leave this computer. With LibertAI confidential (TEE) the model runs in an enclave on Aleph Cloud that the bridge checks before every connection (AMD signature, pinned measurement); the text ends only in the enclave, LibertAI sees this Mac’s IP address, sizes and times, not the text. What that proves is which image runs, not what it does, and confidential GPUs on Aleph have no independent audit yet. Our advice for now: a local model, or LibertAI confidential.',
+					'When extracting, the redacted text of a receipt; with “Keep searching with AI”, counterparty and payment reference as well as subject, sender domain and file names of the hits, redacted. With DeepSeek the servers are outside the EU; a local model does not leave this computer. With LibertAI confidential (TEE) the model runs in an enclave on Aleph Cloud that the bridge checks before every connection (AMD signature, pinned measurement); the text ends only in the enclave, LibertAI sees this Mac’s IP address, sizes and times, not the text. What that proves is which image runs, not what it does, and confidential GPUs on Aleph have no independent audit yet. The text goes in unredacted, unless you choose redaction in pnpm setup:llm. Our advice for now: a local model, or LibertAI confidential.',
 				technical:
 					'The bridge sends only the text layer of a PDF (or the text of an email) with subject and sender, after redacting names from its list and your company names from Settings, names after a salutation or a label (“Herr”, “Contact:”, also in other languages and scripts, such as “Пассажир:” or “Yolcu:”), passport numbers, IBANs and card numbers except for the last four digits, email addresses (of others the domain remains), phone numbers, dates of birth, tax numbers, streets, postcodes and links (only the host remains) – never the file itself. This limits what goes out; it does not make the text anonymous: a name that is on no list and follows no label gets through, and so do the vendor, amounts, invoice numbers and what the receipt is about. For nothing to go out, set a model on this computer (such as Ollama). DeepSeek runs its servers in China. The API key is kept in the bridge’s macOS Keychain, never in the browser. The bridge extracts emails from senders that did not pass the DKIM/SPF check only after your approval.'
 			},
@@ -1376,6 +1376,8 @@ export default {
 			'Sends the timeline to your language model: dates, amounts, periods, items and the findings – redacted, without phone, customer and invoice numbers. Hints only, nothing is booked.',
 		explainTitleLocal:
 			'Gives the timeline to your language model on this computer: dates, amounts, periods, items and the findings – unredacted, as nothing leaves the computer. Hints only, nothing is booked.',
+		explainTitleEnclave:
+			'Gives the timeline to your language model in the attested enclave: dates, amounts, periods, items and the findings – unredacted – only the verified enclave can read it. Hints only, nothing is booked.',
 		explainNeedsBridge: 'This needs the bridge to be paired with a language model.',
 		notes: 'AI notes',
 		pdf: 'Download as PDF',
@@ -1857,6 +1859,8 @@ export default {
 			what: 'For {count} payments without a receipt, the bridge asks your language model which receipt fits – one request per payment with the redacted booking and up to 25 nearest receipts.',
 			whatLocal:
 				'For {count} payments without a receipt, the bridge asks your language model on this computer which receipt fits – one request per payment with the booking and up to 25 nearest receipts, unredacted, as nothing leaves the computer.',
+			whatEnclave:
+				'For {count} payments without a receipt, the bridge asks your language model in the attested enclave which receipt fits – one request per payment with the booking and up to 25 nearest receipts, unredacted – only the verified enclave can read it.',
 			tokens: 'Based on your last AI suggestions, about {tokens} tokens.',
 			tokensUnknown: 'History shows how many tokens this takes after the first run.',
 			only: 'These are only suggestions: nothing is linked until you accept one.',
@@ -1920,18 +1924,26 @@ export default {
 			'With AI: the bridge sends the receipt’s text – redacted, never the file – to the language model you have set, and gets back vendor, amount, date and numbers.',
 		extractLocal:
 			'With AI: the bridge gives the receipt’s text – never the file – to your language model on this computer and gets back vendor, amount, date and numbers. Unredacted, as nothing leaves the computer.',
+		extractEnclave:
+			'With AI: the bridge gives the receipt’s text – never the file – to your language model in the attested enclave and gets back vendor, amount, date and numbers. Unredacted – only the verified enclave can read it.',
 		upload:
 			'With AI: after the upload the bridge extracts the receipt with your language model (text only, redacted). Linking happens without AI.',
 		uploadLocal:
 			'With AI: after the upload the bridge extracts the receipt with your language model on this computer (text only, unredacted – it does not leave the computer). Linking happens without AI.',
+		uploadEnclave:
+			'With AI: after the upload the bridge extracts the receipt with your language model in the attested enclave (text only, unredacted – only the verified enclave can read it). Linking happens without AI.',
 		import:
 			'With AI: after the import the bridge extracts the email or its attachment with your language model (text only, redacted). Linking happens without AI.',
 		importLocal:
 			'With AI: after the import the bridge extracts the email or its attachment with your language model on this computer (text only, unredacted – it does not leave the computer). Linking happens without AI.',
+		importEnclave:
+			'With AI: after the import the bridge extracts the email or its attachment with your language model in the attested enclave (text only, unredacted – only the verified enclave can read it). Linking happens without AI.',
 		portal:
 			'With AI: the bridge extracts the fetched invoices with your language model (text only, redacted). Signing in and fetching work without AI.',
 		portalLocal:
-			'With AI: the bridge extracts the fetched invoices with your language model on this computer (text only, unredacted – it does not leave the computer). Signing in and fetching work without AI.'
+			'With AI: the bridge extracts the fetched invoices with your language model on this computer (text only, unredacted – it does not leave the computer). Signing in and fetching work without AI.',
+		portalEnclave:
+			'With AI: the bridge extracts the fetched invoices with your language model in the attested enclave (text only, unredacted – only the verified enclave can read it). Signing in and fetching work without AI.'
 	},
 	settings: {
 		title: 'Settings',
@@ -3382,6 +3394,8 @@ export default {
 				'Asks your language model which of these bookings is the other side: for each booking the direction, amount, quantity, day, account type, counterparty and reference – redacted, without addresses, IBANs and hashes. Only a suggestion: nothing is linked until you click.',
 			linkTransferAiTitleLocal:
 				'Asks your language model on this computer which of these bookings is the other side: for each booking the direction, amount, quantity, day, account type, counterparty and reference – unredacted, as nothing leaves the computer. Only a suggestion: nothing is linked until you click.',
+			linkTransferAiTitleEnclave:
+				'Asks your language model in the attested enclave which of these bookings is the other side: for each booking the direction, amount, quantity, day, account type, counterparty and reference – unredacted – only the verified enclave can read it. Only a suggestion: nothing is linked until you click.',
 			linkTransferAiPick: 'AI suggestion ({confidence}): {reason}',
 			linkTransferAiNone: 'AI suggestion: none of these bookings is the other side.',
 			linkTransferAiTake: 'Accept',
@@ -3417,6 +3431,8 @@ export default {
 				'The bridge sends your configured language model the booking (counterparty, payment reference, amount, day) and up to 25 matching receipts with vendor, amount, date, invoice number and short description – redacted. It names the matching receipt; the linking is up to you.',
 			aiChoiceTitleLocal:
 				'The bridge gives your language model on this computer the booking (counterparty, payment reference, amount, day) and up to 25 matching receipts with vendor, amount, date, invoice number and short description – unredacted, as nothing leaves the computer. It names the matching receipt; the linking is up to you.',
+			aiChoiceTitleEnclave:
+				'The bridge gives your language model in the attested enclave the booking (counterparty, payment reference, amount, day) and up to 25 matching receipts with vendor, amount, date, invoice number and short description – unredacted – only the verified enclave can read it. It names the matching receipt; the linking is up to you.',
 			aiChoiceNone: '{model} checked {count} receipts ({seconds} s) and considers none a match',
 			aiChoiceModel: 'The language model',
 			aiChoiceChecked: 'Which {count} receipts were checked?',
@@ -3431,6 +3447,8 @@ export default {
 				'The bridge asks your configured language model twice: 1. counterparty and payment reference (redacted) → search terms and sender domains. 2. subject, sender domain, attachment names and arrival day of the hits (redacted) → which email is the receipt. No email text, no full address.',
 			aiSearchTitleLocal:
 				'The bridge asks your language model on this computer twice: 1. counterparty and payment reference → search terms and sender domains. 2. subject, sender domain, attachment names and arrival day of the hits → which email is the receipt. Unredacted, as nothing leaves the computer; no email text, no full address.',
+			aiSearchTitleEnclave:
+				'The bridge asks your language model in the attested enclave twice: 1. counterparty and payment reference → search terms and sender domains. 2. subject, sender domain, attachment names and arrival day of the hits → which email is the receipt. Unredacted – only the verified enclave can read it; no email text, no full address.',
 			aiSearchHint:
 				'No clear hit? The language model suggests search terms and judges the hits – only by subject, sender domain and file names, never by the text of the emails.',
 			aiSummary: 'AI search: search terms {terms} · senders {domains} · {count} hits',
@@ -3881,6 +3899,8 @@ export default {
 			redaction: 'Redaction',
 			redactionOn: 'on – names, IBANs and addresses are blacked out before sending',
 			redactionOff: 'off – the model runs on this computer, nothing leaves it',
+			redactionOffEnclave:
+				'off – the model runs in the attested enclave; only it can read the text',
 			terms: 'Redaction terms',
 			authServ: 'Server ID (sender check)',
 			authServNone: 'not set – pnpm setup:mail',

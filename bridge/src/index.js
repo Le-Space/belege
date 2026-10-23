@@ -175,7 +175,12 @@ export async function startBridge({
 	];
 	// A model on this machine gets the text as it is (#423, config.js redactionOff).
 	const off = redactionOff(config.llm);
-	if (config.llm.configured && off) log('LLM on this machine: text is not blacked out.');
+	if (config.llm.configured && off)
+		log(
+			config.llm.tee
+				? 'LLM in the attested enclave: text is not blacked out.'
+				: 'LLM on this machine: text is not blacked out.'
+		);
 	else if (
 		config.llm.configured &&
 		config.llm.redaction === 'auto' &&

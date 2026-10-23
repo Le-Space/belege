@@ -41,8 +41,9 @@ export const app = $state({
 	 * Whether the paired bridge blacks out what goes to its language model
 	 * (#423): false for a model on its own computer, which gets the text as it
 	 * is. null: not known (no bridge, no model, not asked yet) – the hints then
-	 * say "geschwärzt", as for a provider on the internet (ai-text.js).
-	 * @type {boolean | null}
+	 * say "geschwärzt", as for a provider on the internet (ai-text.js); 'enclave':
+	 * unredacted into an attested enclave (#416).
+	 * @type {boolean | 'enclave' | null}
 	 */
 	llmRedaction: null,
 	/** Device sync (#123): off, or this device's id and the devices it knows. */

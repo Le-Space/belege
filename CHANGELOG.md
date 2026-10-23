@@ -20,6 +20,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Changed
 
+- **Nothing is blacked out for LibertAI confidential, unless asked (#416).** Nobody between the Mac and the attested enclave can read the text, so redaction only cost reading quality. `pnpm setup:llm` (choice 2) now asks "Black out … anyway? [y/N]" and defaults to no; the bridge sends the text as it is into the pinned enclave, as to a model on this machine. The KI card says "aus – das Modell läuft in der attestierten Enklave", and every AI hint has its own wording for it ("ungeschwärzt – lesen kann ihn nur die geprüfte Enklave") instead of claiming "geschwärzt" or "auf diesem Rechner". `/llm/status` tells it apart (`redaction.enclave`). The consent screen says so (consent version 27).
+
 - **LibertAI confidential reads without the model's "thinking".** In the enclave `qwen3.8-27b-tee` thinks before it answers; measured on six made-up receipts through Belege's own extraction request, that took 38 s and up to 6,000 tokens a receipt and left two unread, against 5.8 s, about 370 tokens and all six right with it off. In TEE mode the bridge now sends `enable_thinking: false`; other providers' requests are unchanged.
 
 ### Fixed

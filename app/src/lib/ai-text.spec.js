@@ -1,7 +1,7 @@
 // The AI hints say "geschwärzt" only when the bridge blacks out (#431).
 import { describe, expect, it, vi } from 'vitest';
 
-const app = vi.hoisted(() => ({ llmRedaction: /** @type {boolean | null} */ (null) }));
+const app = vi.hoisted(() => ({ llmRedaction: /** @type {boolean | 'enclave' | null} */ (null) }));
 vi.mock('./session.svelte.js', () => ({ app }));
 
 const { aiText } = await import('./ai-text.js');
@@ -35,6 +35,27 @@ describe('aiText', () => {
 		app.llmRedaction = false;
 		expect(aiText('ai.extract')).toContain('Ungeschwärzt, weil nichts den Rechner verlässt.');
 		expect(aiText('rueckfragen.ai.what', { count: 3 })).toMatch(/^Für 3 Zahlungen/);
+	});
+
+	it('says only the verified enclave can read it, for a model in an attested enclave', () => {
+		app.llmRedaction = 'enclave';
+		expect(aiText('ai.extract')).toContain('in der attestierten Enklave');
+		expect(aiText('ai.extract')).toContain(
+			'Ungeschwärzt – lesen kann ihn nur die geprüfte Enklave.'
+		);
+		expect(aiText('ai.extract')).not.toContain('Rechner');
+	});
+
+	it('has an enclave twin for every hint, in both languages, that never says "on this computer"', () => {
+		for (const catalogue of [de, en]) {
+			for (const key of KEYS) {
+				const enclave = at(catalogue, `${key}Enclave`);
+				expect(typeof enclave, `${key}Enclave`).toBe('string');
+				expect(enclave).not.toMatch(
+					/(?<!un)geschwärzt|(?<!un)redacted|diesem Rechner|this computer/i
+				);
+			}
+		}
 	});
 
 	it('has a local twin for every hint, in both languages, without "geschwärzt" claims', () => {

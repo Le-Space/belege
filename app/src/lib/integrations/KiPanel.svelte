@@ -125,7 +125,9 @@
 				>
 					{llmStatus.redaction.active
 						? t('integrationen.ki.redactionOn')
-						: t('integrationen.ki.redactionOff')}
+						: /** @type {any} */ (llmStatus.redaction).enclave
+							? t('integrationen.ki.redactionOffEnclave')
+							: t('integrationen.ki.redactionOff')}
 					{#if unconfirmedLocal}
 						<!-- A model on this computer that setup:llm was not told about: blacked out until it is (#438). -->
 						<span class="mt-1 block text-xs text-text" data-testid="ki-redaction-confirm">
