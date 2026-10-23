@@ -2314,6 +2314,9 @@ export default {
 			fetching: 'Hole …',
 			result:
 				'{documents} Dokumente · neu: {new} · schon vorhanden: {known} · doppelt: {duplicate} · ausgelassen: {skipped} · keine Belegdatei: {unsupported}',
+			progress: 'Dokument {done} von {total} …',
+			failed:
+				'{count} Dokument(e) hat Paperless diesmal nicht rechtzeitig geliefert – der nächste Abruf holt sie.',
 			mailToo: 'Belege ruft das Postfach trotzdem selbst ab',
 			skipTags: 'Dokumente mit diesen Paperless-Tags auslassen (durch Komma getrennt)',
 			skipTagsHint:

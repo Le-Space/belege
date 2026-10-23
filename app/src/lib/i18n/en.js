@@ -2280,6 +2280,8 @@ export default {
 			fetching: 'Fetching …',
 			result:
 				'{documents} documents · new: {new} · already there: {known} · duplicate: {duplicate} · left out: {skipped} · no receipt file: {unsupported}',
+			progress: 'Document {done} of {total} …',
+			failed: 'Paperless did not deliver {count} document(s) in time – the next fetch gets them.',
 			mailToo: 'Belege still fetches the mailbox itself',
 			skipTags: 'Leave out documents with these Paperless tags (comma-separated)',
 			skipTagsHint:

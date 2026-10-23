@@ -22,6 +22,8 @@
 	let { client, settings = $bindable(), onNew } = $props();
 
 	let busy = $state(false);
+	/** @type {{ done: number, total: number } | null} where the fetch is */
+	let progress = $state(null);
 	/** @type {string | null} */
 	let result = $state(null);
 	/** @type {string | null} */
@@ -38,14 +40,25 @@
 		/** @type {string[]} */
 		let created = [];
 		try {
-			const { documents, counts, createdIds } = await fetchPaperless({ store, blobs, client });
-			result = t('belege.paperless.result', { documents, ...counts });
+			const { documents, counts, createdIds } = await fetchPaperless({
+				store,
+				blobs,
+				client,
+				onProgress: (p) => (progress = p)
+			});
+			result = [
+				t('belege.paperless.result', { documents, ...counts }),
+				counts.failed ? t('belege.paperless.failed', { count: counts.failed }) : ''
+			]
+				.filter(Boolean)
+				.join(' ');
 			created = createdIds;
 			await refreshNow();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
 			busy = false;
+			progress = null;
 		}
 		if (created.length) await onNew(created);
 	}
@@ -77,6 +90,11 @@
 			data-testid="paperless-fetch"
 			>{busy ? t('belege.paperless.fetching') : t('belege.paperless.fetch')}</button
 		>
+		{#if busy && progress?.total}
+			<span class="text-sm text-faint" role="status" data-testid="paperless-progress"
+				>{t('belege.paperless.progress', { done: progress.done, total: progress.total })}</span
+			>
+		{/if}
 	</div>
 	{#if result}
 		<p class="mt-2 text-sm text-heading" role="status" data-testid="paperless-result">{result}</p>

@@ -293,3 +293,37 @@ describe('/paperless routes', () => {
 		}
 	});
 });
+
+test('a document still coming after the timeout is named as such, not as "signal timed out"', async () => {
+	const slow = createPaperlessClient({
+		baseUrl: 'https://paperless.example',
+		getToken: async () => FAKE_PAPERLESS_TOKEN,
+		fetch: /** @type {any} */ (
+			async () => ({
+				ok: true,
+				status: 200,
+				headers: new Headers({ 'content-type': 'application/pdf' }),
+				arrayBuffer: async () => {
+					throw new DOMException('signal timed out', 'TimeoutError');
+				}
+			})
+		)
+	});
+	await assert.rejects(slow.document(1712), (/** @type {any} */ e) => {
+		assert.ok(e instanceof PaperlessError);
+		assert.equal(e.code, 'PAPERLESS_TIMEOUT');
+		assert.equal(e.status, 504);
+		assert.match(e.message, /did not deliver the document within 120 s/);
+		return true;
+	});
+	const unanswered = createPaperlessClient({
+		baseUrl: 'https://paperless.example',
+		getToken: async () => FAKE_PAPERLESS_TOKEN,
+		fetch: /** @type {any} */ (
+			async () => {
+				throw new DOMException('signal timed out', 'TimeoutError');
+			}
+		)
+	});
+	await assert.rejects(unanswered.document(1712), { code: 'PAPERLESS_TIMEOUT', status: 504 });
+});

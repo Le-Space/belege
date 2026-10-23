@@ -26,6 +26,8 @@ All notable changes to Le Space Belege. The format follows
 
 - **Matching catches up on what came from another device, and on unlock (#473).** It ran only after an import or an action on this device: a receipt fetched on the Mac and its payment booked on the phone waited for the next click. Now one run starts 5 s after entries came by sync (payments, receipts, links, the matching settings), and one after unlocking when the books are not as this device's last run left them (a fingerprint kept in this browser). The same pair linked on two devices before they saw each other's link is settled on the next run: one link stays – a confirmed one before an automatic one, then the oldest – on every device alike.
 
+- **"Aus Paperless holen" goes on past a slow document, and says where it is.** A first fetch of a thousand documents stopped at the first one Paperless did not deliver within two minutes, with a bare "TimeoutError: signal timed out" – the bridge's timeout also covers reading the file, and that part was not caught. Now the bridge names it ("Paperless did not deliver the document within 120 s", `PAPERLESS_TIMEOUT`), the app skips that document, counts it ("… diesmal nicht rechtzeitig geliefert – der nächste Abruf holt sie") and goes on, and the mark of the last fetch stays where it was, so the next fetch lists it again (the ones in already are not downloaded again). Three in a row, and Paperless is taken to be down: the fetch stops and says so. While it runs: "Dokument 412 von 1065 …".
+
 ## [0.16.0] – 2026-10-23
 
 ### Added

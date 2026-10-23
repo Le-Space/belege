@@ -89,7 +89,14 @@ describe('importPaperlessDocuments', () => {
 			documents: [doc(11)],
 			created
 		});
-		expect(counts).toEqual({ new: 1, known: 0, duplicate: 0, skipped: 0, unsupported: 0 });
+		expect(counts).toEqual({
+			new: 1,
+			known: 0,
+			duplicate: 0,
+			skipped: 0,
+			unsupported: 0,
+			failed: 0
+		});
 		const [r] = created;
 		expect(r).toMatchObject({
 			source: 'paperless',
@@ -188,17 +195,51 @@ describe('fetchPaperless', () => {
 		expect(kinds.filter((k) => k === 'paperless-fetch')).toHaveLength(2);
 	});
 
-	it('remembers nothing when the import fails half-way', async () => {
+	it('a document Paperless does not deliver in time is skipped, and the mark stays for it', async () => {
 		const { receipts, settings, events, blobs } = await setup();
-		const client = bridge({ 3: pdf('three') }, [doc(3), doc(4)]);
+		const client = bridge({ 3: pdf('three'), 4: pdf('four') }, [doc(3), doc(4)]);
+		let slow = true;
+		const deliver = client.paperlessDocument;
 		client.paperlessDocument = async (id) => {
-			if (id === 4)
-				throw Object.assign(new Error('unreachable'), { code: 'PAPERLESS_UNREACHABLE' });
-			return pdf('three');
+			if (id === 3 && slow)
+				throw Object.assign(new Error('Paperless did not deliver the document within 120 s'), {
+					code: 'PAPERLESS_TIMEOUT'
+				});
+			return deliver(id);
+		};
+		/** @type {{ done: number, total: number }[]} */
+		const seen = [];
+		const store = { receipts, settings, events };
+		const once = await fetchPaperless({ store, blobs, client, onProgress: (p) => seen.push(p) });
+		// The rest came in; the slow one is counted, and the mark did not move past it.
+		expect(once.counts).toMatchObject({ new: 1, failed: 1 });
+		expect(seen).toEqual([
+			{ done: 0, total: 2 },
+			{ done: 1, total: 2 }
+		]);
+		expect((await loadPaperlessSettings(settings)).since).toBe(null);
+		// The next fetch gets it; the one in already is not downloaded again.
+		slow = false;
+		const again = await fetchPaperless({ store, blobs, client });
+		expect(again.counts).toMatchObject({ new: 1, known: 1, failed: 0 });
+		expect((await loadPaperlessSettings(settings)).since).toBe(doc(4).added);
+	});
+
+	it('several documents in a row not delivered: Paperless is down, the fetch stops and says so', async () => {
+		const { receipts, settings, events, blobs } = await setup();
+		const client = bridge({}, [doc(3), doc(4), doc(5), doc(6)]);
+		/** @type {number[]} */
+		const asked = [];
+		client.paperlessDocument = async (id) => {
+			asked.push(id);
+			throw Object.assign(new Error('Paperless is not reachable (ECONNREFUSED)'), {
+				code: 'PAPERLESS_UNREACHABLE'
+			});
 		};
 		await expect(
 			fetchPaperless({ store: { receipts, settings, events }, blobs, client })
-		).rejects.toThrow('unreachable');
+		).rejects.toThrow('not reachable');
+		expect(asked).toEqual([3, 4, 5]);
 		expect((await loadPaperlessSettings(settings)).since).toBe(null);
 	});
 });

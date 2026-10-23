@@ -100,8 +100,15 @@ export function createPaperlessClient({ baseUrl, getToken, fetch: doFetch = fetc
 				signal: AbortSignal.timeout(timeout)
 			});
 		} catch (/** @type {any} */ error) {
+			if (error?.name === 'TimeoutError') {
+				throw new PaperlessError(
+					`Paperless did not answer within ${timeout / 1000} s`,
+					'PAPERLESS_TIMEOUT',
+					504
+				);
+			}
 			throw new PaperlessError(
-				`Paperless is not reachable (${error?.name === 'TimeoutError' ? 'timeout' : (error?.cause?.code ?? error?.name ?? 'error')})`,
+				`Paperless is not reachable (${error?.cause?.code ?? error?.name ?? 'error'})`,
 				'PAPERLESS_UNREACHABLE'
 			);
 		}
@@ -276,7 +283,20 @@ export function createPaperlessClient({ baseUrl, getToken, fetch: doFetch = fetc
 			await res.body?.cancel();
 			throw new PaperlessError('the document is larger than 15 MB', 'PAPERLESS_TOO_LARGE', 413);
 		}
-		const bytes = Buffer.from(await res.arrayBuffer());
+		// The timeout covers the body too: a document still coming after two
+		// minutes ends here, named, not as a bare "signal timed out".
+		let bytes;
+		try {
+			bytes = Buffer.from(await res.arrayBuffer());
+		} catch (/** @type {any} */ error) {
+			throw new PaperlessError(
+				error?.name === 'TimeoutError'
+					? `Paperless did not deliver the document within ${FILE_TIMEOUT_MS / 1000} s`
+					: `Paperless broke off sending the document (${error?.cause?.code ?? error?.name ?? 'error'})`,
+				error?.name === 'TimeoutError' ? 'PAPERLESS_TIMEOUT' : 'PAPERLESS_UNREACHABLE',
+				error?.name === 'TimeoutError' ? 504 : 502
+			);
+		}
 		if (bytes.length > MAX_INVOICE_BYTES) {
 			throw new PaperlessError('the document is larger than 15 MB', 'PAPERLESS_TOO_LARGE', 413);
 		}
