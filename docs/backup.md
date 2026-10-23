@@ -41,7 +41,13 @@ The backup never passes through the bridge. The page shows the backup's CID; kee
 
 **Whether Aleph kept it.** Aleph answers a STORE with `pending` first and decides later. "Erneut prüfen" asks Aleph about every backup in the list again, by its request (the STORE's item hash, shown with a link). If Aleph does not know a request, or refused it, the row says so, and "Aleph erneut beauftragen" sends a new STORE for the same file – nothing is uploaded again.
 
-**Who can fetch it.** The sealed file is on Aleph's IPFS: whoever knows its CID can download it through any IPFS gateway, but not open it. How many of Aleph's nodes hold a copy, Aleph does not say; the node that processes the STORE pins it.
+**Who can fetch it – encrypted, but public.** The card says this in a box of its own, before anything goes up:
+
+- The sealed file lies on publicly reachable IPFS nodes. According to Aleph's support, Aleph distributes the blocks to all its nodes (and this may change). Whoever knows the CID can download it from any of them, through any IPFS gateway – but not open it.
+- Every backup's CID is in Aleph's public message log, with time, size, the paying account and the channel. Anyone recording that log sees when and how much is backed up.
+- The upside: a restore works from any IPFS node that has the file.
+- Which nodes have it can be checked: IPFS routing lists the providers of a CID (`https://delegated-ipfs.dev/routing/v1/providers/<cid>`), and Aleph lists its core channel nodes (aggregate `corechannel` of `0xa1B3bb7d2332383D96b7796B908fB7f7F3c2Be10`). On 2026-10-23 one backup had 13 providers, all of them Aleph core channel nodes (of 58 active).
+- A backup without public IPFS, on Filecoin Onchain Cloud with chosen storage providers, is planned: [#459](https://github.com/Le-Space/belege/issues/459).
 
 This browser's key is made here and kept sealed in the settings, as the bridge token is. It goes with the books to your own devices and into every backup. A stolen key could only have Aleph keep files on that one channel at the account's expense. It opens no backup, since those are sealed with the passkey's key, and it moves no funds. `pnpm setup:aleph -- --revoke <address>` takes the grant back.
 
