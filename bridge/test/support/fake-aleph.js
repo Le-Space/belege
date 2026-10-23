@@ -27,6 +27,14 @@
 //   GET  /api/v0/messages/<item hash>   a STORE's or AGGREGATE's status, with
 //                          `error_code` and `details` when rejected
 //   GET  /api/v0/aggregates/<address>.json?keys=security   the authorizations
+//   GET  /api/v0/aggregates/<address>.json?keys=corechannel  Aleph's core channel
+//                          nodes, as `holders()` set them
+//
+// And, for "Wer hält es?" (app backup/holders.js), what the public services
+// beside Aleph answer, as `holders()` set them:
+//   GET  /routing/v1/providers/<cid>   the peers announcing a CID, as NDJSON
+//                          (IPFS delegated routing)
+//   GET  /geo/<ip>         where an IP is, in ipwho.is' shape
 //   GET  /api/v0/messages.json   STOREs by `addresses` (the sender) or
 //                          `owners` (the paying account), `channels` and
 //                          `refs` (a STORE's free-text `ref`)
@@ -119,6 +127,15 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 	const authorizations = new Map();
 	/** The AGGREGATE messages taken, by item hash. @type {Map<string, { status: string }>} */
 	const aggregates = new Map();
+	/** What "Wer hält es?" is told. */
+	const network = {
+		/** @type {{ name: string, multiaddress: string, status: string }[] | null} */
+		nodes: null,
+		/** @type {Record<string, { ID: string, Addrs: string[] }[]>} by CID */
+		providers: {},
+		/** @type {Record<string, { country: string, country_code: string, city: string, org: string }>} by IP */
+		places: {}
+	};
 	/** Does `owner` let `sender` send a STORE on `channel`? @param {string} owner @param {string} sender @param {string} channel */
 	const allowed = (owner, sender, channel) =>
 		(authorizations.get(toChecksumAddress(owner)) ?? []).some(
@@ -322,11 +339,36 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 			/^\/api\/v0\/aggregates\/0x[0-9a-fA-F]{40}\.json$/.test(url.pathname)
 		) {
 			const owner = url.pathname.slice('/api/v0/aggregates/'.length, -'.json'.length);
+			if (url.searchParams.get('keys') === 'corechannel') {
+				if (!network.nodes) return reply(404, { error: 'No aggregate found' });
+				return reply(200, { address: owner, data: { corechannel: { nodes: network.nodes } } });
+			}
 			const list = authorizations.get(owner);
 			// Aleph keys accounts by their checksummed form, as for balances.
 			if (!list || owner !== toChecksumAddress(owner))
 				return reply(404, { error: 'No aggregate found' });
 			return reply(200, { address: owner, data: { security: { authorizations: list } } });
+		}
+		const routed = /^\/routing\/v1\/providers\/([A-Za-z0-9]+)$/.exec(url.pathname);
+		if (req.method === 'GET' && routed) {
+			const peers = network.providers[routed[1]] ?? [];
+			if (!peers.length) return reply(404, { error: 'no providers' });
+			res.writeHead(200, {
+				'Content-Type': 'application/x-ndjson',
+				'Access-Control-Allow-Origin': origin
+			});
+			return res.end(
+				peers
+					.map((p) => JSON.stringify({ Schema: 'peer', Protocols: ['transport-bitswap'], ...p }))
+					.join('\n') + '\n'
+			);
+		}
+		const geo = /^\/geo\/([0-9a-fA-F.:]+)$/.exec(url.pathname);
+		if (req.method === 'GET' && geo) {
+			const place = network.places[geo[1]];
+			if (!place) return reply(200, { ip: geo[1], success: false, message: 'Reserved range' });
+			const { org, ...rest } = place;
+			return reply(200, { ip: geo[1], success: true, ...rest, connection: { org } });
 		}
 		const m =
 			/^\/api\/v0\/addresses\/(0x[0-9a-fA-F]{40})\/(balance|credit_history(?:\/summary)?)$/.exec(
@@ -433,6 +475,14 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 		calls,
 		added,
 		stores,
+		/**
+		 * What "Wer hält es?" is told: Aleph's nodes, who announces which CID, and where IPs are.
+		 *
+		 * @param {Partial<typeof network>} told
+		 */
+		holders(told) {
+			Object.assign(network, told);
+		},
 		/** Put credits on an account, as a transfer would. @param {string} address @param {number} credits */
 		fund(address, credits) {
 			const key = toChecksumAddress(address);

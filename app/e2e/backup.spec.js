@@ -179,6 +179,59 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 	expect(bridgeOut).toContain('backup: kept on Aleph, processed');
 	expect(bridgeOut).not.toContain(cid);
 	expect(bridgeOut).not.toContain(KEY);
+	// "Wer hält es?": the peers announcing the backup's CID, named where they are
+	// Aleph's core nodes, and placed – all from the fake here, all made up.
+	aleph.holders({
+		nodes: [
+			{
+				name: 'Beispielknoten Nord',
+				multiaddress: '/ip4/203.0.113.7/tcp/4025/p2p/QmX',
+				status: 'active'
+			},
+			{
+				name: 'Beispielknoten Süd',
+				multiaddress: '/ip4/198.51.100.10/tcp/4025/p2p/QmY',
+				status: 'active'
+			}
+		],
+		providers: {
+			[cid]: [
+				{
+					ID: 'QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN',
+					Addrs: ['/ip4/203.0.113.7/tcp/4001']
+				},
+				{
+					ID: 'QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa',
+					Addrs: ['/ip4/198.51.100.20/tcp/4001']
+				}
+			]
+		},
+		places: {
+			'203.0.113.7': {
+				country: 'Finnland',
+				country_code: 'FI',
+				city: 'Helsinki',
+				org: 'Beispiel Hosting Oy'
+			}
+		}
+	});
+	await card.getByTestId('backup-holders').first().click();
+	const held = card.getByTestId('backup-holders-result');
+	await expect(held.getByTestId('backup-holders-summary')).toHaveText(
+		'2 IPFS-Knoten bieten dieses Backup gerade an, davon 1 Aleph-Kernknoten (Aleph hat 2 aktive).',
+		{ timeout: 30_000 }
+	);
+	await expect(held.getByTestId('backup-holder')).toHaveCount(2);
+	await expect(held.getByTestId('backup-holder').first()).toContainText('Beispielknoten Nord');
+	await expect(held.getByTestId('backup-holder').first()).toContainText('Helsinki, Finnland');
+	await expect(held.getByTestId('backup-holder').first()).toContainText('Beispiel Hosting Oy');
+	await expect(held.getByTestId('backup-holder').nth(1)).toContainText('kein Aleph-Knoten');
+	await expect(held.getByTestId('backup-holder').nth(1)).toContainText('unbekannt');
+	await expect(held.getByTestId('backup-holders-spread')).toHaveText(
+		'Nach Netz: Beispiel Hosting Oy 1. Nach Land: Finnland 1.'
+	);
+	expect(aleph.calls).toContain(`/routing/v1/providers/${cid}`);
+
 	// With credits for years, no question; what the kept backups cost a day shows.
 	await expect(card.getByTestId('backup-ask')).toHaveCount(0);
 	await expect(card.getByTestId('backup-cost')).toContainText('länger als ein Jahr');
