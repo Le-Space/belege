@@ -41,11 +41,11 @@ The backup never passes through the bridge. The page shows the backup's CID; kee
 
 **Whether Aleph kept it.** Aleph answers a STORE with `pending` first and decides later. "Erneut prüfen" asks Aleph about every backup in the list again, by its request (the STORE's item hash, shown with a link). If Aleph does not know a request, or refused it, the row says so, and "Aleph erneut beauftragen" sends a new STORE for the same file – nothing is uploaded again.
 
-**Who can fetch it – encrypted, but public.** The card says this in a box of its own, before anything goes up:
+**Where it lies – spread out, encrypted, with a public envelope.** The card says this in a box of its own, before anything goes up:
 
 - The sealed file lies on publicly reachable IPFS nodes. According to Aleph's support, Aleph distributes the blocks to all its nodes (and this may change). Whoever knows the CID can download it from any of them, through any IPFS gateway – but not open it.
 - Every backup's CID is in Aleph's public message log, with time, size, the paying account and the channel. Anyone recording that log sees when and how much is backed up.
-- The upside: a restore works from any IPFS node that has the file.
+- The upside: the backup is not in one data centre. When a provider or a region goes down – as in the fire at OVH's Strasbourg data centre in 2021, or the outages that keep hitting the big clouds – it stays reachable, and a restore works from any IPFS node that has the file. Whether that is worth the public envelope is the user's choice.
 - Which nodes have it can be checked: IPFS routing lists the providers of a CID (`https://delegated-ipfs.dev/routing/v1/providers/<cid>`), and Aleph lists its core channel nodes (aggregate `corechannel` of `0xa1B3bb7d2332383D96b7796B908fB7f7F3c2Be10`). On 2026-10-23 one backup had 13 providers, all of them Aleph core channel nodes (of 58 active).
 - A backup without public IPFS, on Filecoin Onchain Cloud with chosen storage providers, is planned: [#459](https://github.com/Le-Space/belege/issues/459).
 
