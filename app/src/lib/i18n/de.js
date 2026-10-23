@@ -1093,7 +1093,18 @@ export default {
 	},
 	backup: {
 		title: 'Backup',
-		what: 'Alles, was Le Space Belege in diesem Browser hält – die Bücher und jede Belegdatei – als eine Datei, versiegelt mit einem Schlüssel aus deinem Passkey. Sie liegt auf Alephs IPFS: Wer ihre Kennung (CID) kennt, kann sie herunterladen, aber nicht öffnen – das kannst nur du, mit demselben Passkey. Aleph bewahrt sie auf, solange das Konto Credits hat; auf wie vielen Knoten, sagt Aleph nicht.',
+		what: 'Alles, was Le Space Belege in diesem Browser hält – die Bücher und jede Belegdatei – als eine Datei, versiegelt mit einem Schlüssel aus deinem Passkey. Sie liegt auf Alephs IPFS: Wer ihre Kennung (CID) kennt, kann sie herunterladen, aber nicht öffnen – das kannst nur du, mit demselben Passkey. Aleph bewahrt sie auf, solange das Konto Credits hat.',
+		public: {
+			title: 'Verschlüsselt, aber öffentlich erreichbar',
+			ipfs: 'Das Backup liegt auf öffentlich erreichbaren IPFS-Knoten. Nach Auskunft des Aleph-Supports verteilt Aleph die Blöcke auf alle seine Knoten – das kann sich ändern. Jeder dieser Knoten gibt die Datei an jeden heraus, der ihre CID nennt.',
+			cids: 'Die CID jedes Backups steht in Alephs öffentlichem Nachrichtenverlauf, mit Zeitpunkt, Größe und dem zahlenden Konto. Wer mitprotokolliert, sieht, wann und wie viel du sicherst.',
+			sealed:
+				'Den Inhalt sieht niemand: Die Datei ist mit einem Schlüssel aus deinem Passkey versiegelt, bevor sie diesen Browser verlässt.',
+			upside: 'Der Vorteil: Zurückholen lässt sie sich von jedem IPFS-Knoten, der sie hat.',
+			alternative:
+				'Wer seine Belege nicht verschlüsselt im öffentlichen IPFS haben will, wartet auf das Backup auf Filecoin Onchain Cloud:',
+			alternativeLink: 'in Planung'
+		},
 		notSetUp: 'Die Bridge hat noch keinen Backup-Schlüssel. Im Terminal, im Ordner von Belege:',
 		noOwner:
 			'Noch kein Aleph-Konto, das zahlt: Koppel die Bridge, nachdem du dort einmal pnpm setup:aleph ausgeführt hast, oder trag die Adresse des Kontos ein.',

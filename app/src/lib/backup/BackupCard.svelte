@@ -33,6 +33,8 @@
 	} from './keeper.js';
 
 	let { url, token } = $props();
+	/** The backup without public IPFS, being planned. */
+	const FILECOIN_ISSUE = 'https://github.com/Le-Space/belege/issues/459';
 	const client = $derived(createBridgeClient({ url, token }));
 
 	let status = $state(
@@ -445,6 +447,31 @@
 <section class={card} aria-labelledby="backup-h" data-testid="backup-card">
 	<h2 id="backup-h" class="text-lg font-semibold text-heading">{t('backup.title')}</h2>
 	<p class="mt-1 text-sm text-text">{t('backup.what')}</p>
+	<!-- Said before anything goes up, not in a footnote: public, but sealed. -->
+	<div
+		class="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
+		role="note"
+		aria-labelledby="backup-public-h"
+		data-testid="backup-public"
+	>
+		<p id="backup-public-h" class="font-semibold">{t('backup.public.title')}</p>
+		<ul class="mt-1 list-disc space-y-1 pl-5">
+			<li>{t('backup.public.ipfs')}</li>
+			<li>{t('backup.public.cids')}</li>
+			<li>{t('backup.public.sealed')}</li>
+			<li>{t('backup.public.upside')}</li>
+		</ul>
+		<p class="mt-2">
+			{t('backup.public.alternative')}
+			<a
+				class="underline"
+				href={FILECOIN_ISSUE}
+				target="_blank"
+				rel="noopener noreferrer"
+				data-testid="backup-public-alternative">{t('backup.public.alternativeLink')}</a
+			>
+		</p>
+	</div>
 	{#if token && status && !status.configured}
 		<p class="mt-2 text-sm text-text" data-testid="backup-not-set-up">
 			{t('backup.notSetUp')}
