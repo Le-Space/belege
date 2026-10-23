@@ -1590,6 +1590,8 @@ export default {
 		reason: {
 			instalment: 'instalment',
 			'remaining-amount': 'remaining amount',
+			'amount-original': 'amount (original currency)',
+			'amount-converted': 'amount (converted)',
 			amount: 'Amount',
 			'invoice-number': 'Invoice number',
 			'customer-number': 'Customer number',
@@ -1663,6 +1665,12 @@ export default {
 			'remaining-amount': 'amount equals what is still open',
 			amount: 'Amount matches',
 			amountValue: 'Amount matches ({amount})',
+			amountOriginal: "Amount matches – in the receipt's currency, as the bank says",
+			amountOriginalValue: 'Amount matches ({amount} as the bank says)',
+			amountConverted: "Amount converted at the booking day's rate",
+			ecb: 'ECB',
+			amountConvertedValue:
+				'Amount converted: {eur} is {amount} at the {source} rate of {day} (1 {currency} = {rate} EUR), {diff} % off {invoice}',
 			invoice: 'Invoice number in the payment reference',
 			invoiceValue: 'Invoice number {number} in the payment reference',
 			customer: 'Customer number in the payment reference',
