@@ -81,14 +81,37 @@ Die Zusammenführung nach der Wiederverbindung ist sofort da; was kostet, ist di
 
 Ein Browser, die Bridge im Testmodus, das Fake-Aleph. Bücher mit _n_ Buchungen, „Jetzt sichern" (die Storage Bridge versiegelt die Datenbank und legt sie ab), dann werden `localStorage`, `sessionStorage` und jede IndexedDB gelöscht und die Bridge gestoppt. Derselbe Passkey öffnet leere Bücher; die Adresse des Kontos allein listet die Sicherung; „Wiederherstellen" holt sie, legt die Blöcke zurück und joint die Heads; die Seite lädt neu, der Passkey entsperrt.
 
+Neu gemessen am **23. Oktober 2026**, dieselbe Maschine, mit der Storage Bridge 0.23.0 und Einträgen, die mit Ed25519 unterschrieben sind; Docker (fünf Paperless-Container) und Jameica waren für diese Läufe beendet, und die Zeile mit 500 Buchungen gibt die Spanne aus drei Läufen. In Klammern die Werte vom 13. Oktober mit Bridge 0.17.0.
+
 | Bücher (Buchungen) | IndexedDB | Sicherung (Klick → „von Aleph aufbewahrt") | Wiederherstellung (Klick → „Wiederhergestellt") | Entsperren nach dem Neuladen | jede Buchung zurück |
 | ------------------ | --------- | ------------------------------------------ | ----------------------------------------------- | ---------------------------- | ------------------- |
-| 50                 | 8,0 MB    | 0,3 s                                      | 1,4 s                                           | 0,4 s                        | ja, 0 verloren      |
-| 500                | 9,2 MB    | 0,5 s                                      | 40 s                                            | 4,9 s                        | ja, 0 verloren      |
-| 1 000              | 10,5 MB   | 0,7 s                                      | 126 s                                           | 13,0 s                       | ja, 0 verloren      |
-| 2 000              | —         | (nicht erreicht)                           | **nach 10 min nicht fertig**                    | —                            | —                   |
+| 50                 | 8,2 MB    | 0,4 s                                      | 1,4 s _(1,4 s)_                                 | 0,3 s                        | ja, 0 verloren      |
+| 500                | 9,4 MB    | 0,4 s                                      | **18–19 s** _(40 s)_                            | 4,4 s                        | ja, 0 verloren      |
+| 1 000              | 10,7 MB   | 0,6 s                                      | **57 s** _(126 s)_                              | 13,0 s                       | ja, 0 verloren      |
+| 2 000              | —         | (nicht erreicht)                           | **weiterhin nach 10 min nicht fertig**          | —                            | —                   |
 
-Die Sicherung ist billig und flach. Die Wiederherstellung nicht: 1,4 s bei 50, 40 s bei 500, 126 s bei 1 000 — grob die dreifache Zeit für die doppelten Bücher — und 2 000 wurden innerhalb der Zehn-Minuten-Grenze des Benchmarks nicht fertig. Das Entsperren danach wächst mit (0,4 s, 4,9 s, 13 s): der erste Durchlauf jedes Logs, wie [performance.de.md](performance.de.md) es beschreibt. Die Kosten stecken in `restoreFromBlocks` der Storage Bridge (0.17.0): Für jede Datenbank läuft sie noch einmal durch jeden Block der Sicherung und joint die Heads einzeln in das versiegelte Log, wobei jeder Join durch gerade geschriebene Einträge zurückliest. Verloren geht nichts — die Wiederherstellung mit 500 Buchungen brachte jede zurück —, aber beim heutigen Wachstum würde das dritte Jahr einer Firma Minuten warten. Das ist das Nächste, was zu beheben ist: [orbitdb-storage-bridge#152](https://github.com/NiKrause/orbitdb-storage-bridge/issues/152).
+Die Sicherung ist billig und flach. Die Wiederherstellung ist **doppelt so schnell wie vorher** — und wächst immer noch schneller als die Bücher.
+
+Gefunden und behoben: `restoreFromBlocks` legte jeden Block der Sicherung in den Log-Speicher **jeder** Datenbank, und dieser Speicher zeigt unten auf denselben Blockspeicher, den die Funktion vorher schon gefüllt hat. Bei neun Datenbanken bedeuteten 2 000 Einträge 18 099 Schreibvorgänge für 2 011 Blöcke — hier jeder davon eine IndexedDB-Transaktion. Jetzt bekommt jeder Block die Datenbank, die sein Eintrag nennt, und `joinIncrements` hält es bei einer zusammengeführten Kette genauso ([orbitdb-storage-bridge#152](https://github.com/NiKrause/orbitdb-storage-bridge/issues/152), behoben in [#168](https://github.com/NiKrause/orbitdb-storage-bridge/pull/168) und [#170](https://github.com/NiKrause/orbitdb-storage-bridge/pull/170), veröffentlicht in 0.23.0). Gemessen: 40 s → 18 s bei 500 Buchungen, 126 s → 57 s bei 1 000.
+
+Was übrig bleibt, ist **nicht** die Unterschrift und nicht die Rechnerei dieser Bibliothek. In Node, wo der Speicher fast nichts kostet, verläuft dieselbe Wiederherstellung von 2 000 Einträgen linear und dauert 11,8 s. Im Browser verbringt ein CPU-Profil der Wiederherstellung mit 500 Buchungen 43 % mit Warten auf Ein- und Ausgabe, und der größte Teil seines JavaScripts steckt in den Rückrufen von IndexedDB-Transaktionen (allein `oncomplete` 7,9 s); von der Signaturprüfung ist kaum etwas zu sehen. Deshalb werden 2 000 Buchungen weiterhin nicht innerhalb der Zehn-Minuten-Grenze fertig, und deshalb hat die Form — etwa die dreifache Zeit für die doppelten Bücher — die Reparatur überlebt: weniger Schreibvorgänge, jeder einzelne so langsam wie zuvor. Der nächste Hebel sind weniger und gebündelte IndexedDB-Schreibvorgänge.
+
+Verloren geht bei keiner Größe etwas, die fertig wurde. Das Entsperren danach wächst wie gehabt mit den Büchern (0,3 s, 4,4 s, 13,0 s): der erste Durchlauf jedes Logs, wie [performance.de.md](performance.de.md) es beschreibt.
+
+## Die Kurve der Identität: Ed25519 gegen secp256k1
+
+OrbitDB prüft jeden Eintrag, den es einhängt, und der Schlüssel der Identität entscheidet, was das kostet: 3,45 ms je Prüfung bei secp256k1, 0,17 ms bei Ed25519, gemessen über `@libp2p/crypto` — den Weg, über den OrbitDB prüft. In Node ist das die ganze Geschichte: Eine Wiederherstellung von 2 000 Einträgen dauert mit secp256k1 11,8 s und mit Ed25519 5,6 s.
+
+Im Browser ist davon fast nichts zu sehen. Sechs Läufe am 23. Oktober 2026, verschränkt (Ed, secp, Ed, secp, …), damit eine Drift der Maschinenlast beide Seiten gleich trifft, je 500 Buchungen:
+
+| | Ed25519 | secp256k1 |
+| --- | --- | --- |
+| Wiederherstellung | 17,6–19,2 s (Median 19,1) | 16,1–19,7 s (Median 18,2) |
+| Nachzügler, ohne Relay | 4,91–4,97 s (Median 4,94) | 4,97–5,41 s (Median 5,40) |
+
+Die Wiederherstellung kümmert es nicht: Die Spannen überlappen fast vollständig, und das Wenige, das die Kurve spart, geht in IndexedDB unter. Den Nachzügler schon, ein wenig — etwa eine halbe von fünf Sekunden, also rund ein Zehntel, und die Ed25519-Läufe liegen dabei innerhalb von 60 ms beieinander, während die anderen streuen. Beides passt zur Theorie: 500 Einträge sparen höchstens 1,65 s Prüfzeit, und nur dort, wo nicht ohnehin der Speicher bremst.
+
+Belege unterschreibt seit dieser Messung mit Ed25519. Die DID ändert sich dadurch nicht — sie ist der P-256-Schlüssel des Passkeys —, Bücher von vorher bleiben also lesbar und beschreibbar.
 
 ## Die App von IPFS
 
