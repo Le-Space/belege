@@ -207,11 +207,13 @@
 						? t('restore.isIncrement')
 						: name === 'ChainGapError'
 							? t('restore.gap', { missing: missing.join(', ') })
-							: e instanceof Error && e.name === 'BackendError'
-								? t('restore.notFetched')
-								: e instanceof Error
-									? e.message
-									: String(e);
+							: name === 'BlocksNotStoredError'
+								? t('restore.noSpace')
+								: e instanceof Error && e.name === 'BackendError'
+									? t('restore.notFetched')
+									: e instanceof Error
+										? e.message
+										: String(e);
 		}
 	}
 
