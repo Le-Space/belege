@@ -362,6 +362,29 @@ describe('runMatching', () => {
 		expect(byId.get(gone.id)?.deleted).toBe(true);
 	});
 
+	it('the same pair linked on two devices at once: one link stays, the same on both', async () => {
+		const t = await add('transactions', tx({ bookedOn: '2026-09-02', amountCents: -3999 }));
+		const r = await add('receipts', receipt({ vendor: 'Beispiel GmbH', gross: 39.99 }));
+		const pair = { transactionId: t.id, receiptId: r.id, score: 100, reasons: ['amount'] };
+		// As if each device had run the engine before it saw the other's link.
+		const first = await store.matches.put({ ...pair, state: 'auto' });
+		const second = await store.matches.put({ ...pair, state: 'auto' });
+		await runMatching({ store });
+		const active = (await store.matches.list()).filter(
+			(m) => m.state === 'auto' || m.state === 'confirmed'
+		);
+		expect(active.map((m) => m.id)).toEqual([first.id < second.id ? first.id : second.id]);
+		// A confirmed link wins over an automatic one, whichever came first.
+		const manual = await store.matches.put({ ...pair, state: 'confirmed', reasons: ['manual'] });
+		await runMatching({ store });
+		const after = (await store.matches.list()).filter(
+			(m) => m.state === 'auto' || m.state === 'confirmed'
+		);
+		expect(after.map((m) => m.id)).toEqual([manual.id]);
+		// And then it is settled: nothing more to write.
+		expect((await runMatching({ store })).writes).toBe(0);
+	});
+
 	it('is idempotent: a second run writes nothing', async () => {
 		await seedMonth();
 		await runMatching({ store });
