@@ -72,6 +72,36 @@
 	let answer = null;
 	/** Which history row is being kept again, by CID and time. */
 	let rekeeping = $state('');
+	/**
+	 * "Wer hält es?" for one backup (holders.js): asked on a click only.
+	 *
+	 * @type {{ cid: string, busy: boolean, error?: string, result?: Awaited<ReturnType<typeof import('./holders.js').whoHolds>> & { networks: string, countries: string } } | null}
+	 */
+	let holders = $state(null);
+
+	/** @param {string} cid */
+	async function askWhoHolds(cid) {
+		holders = { cid, busy: true };
+		try {
+			const { spread, whoHolds } = await import('./holders.js');
+			const found = await whoHolds({ cid, apiHost: endpoints.apiHost });
+			/** @param {{ name: string, count: number }[]} l */
+			const as = (l) => l.map((x) => `${x.name} ${x.count}`).join(' · ');
+			const result = {
+				...found,
+				networks: as(spread(found.holders, 'network')),
+				countries: as(spread(found.holders, 'country'))
+			};
+			if (holders?.cid === cid) holders = { cid, busy: false, result };
+		} catch (e) {
+			if (holders?.cid === cid) {
+				holders = { cid, busy: false, error: e instanceof Error ? e.message : String(e) };
+			}
+		}
+	}
+	/** "Helsinki, Finland" – what is known of it. @param {{ city: string, country: string } | null} place */
+	const placeText = (place) =>
+		place ? [place.city, place.country].filter(Boolean).join(', ') : t('backup.holders.noPlace');
 
 	/** The bridge signs while this key is not granted, if it can. */
 	const bridgeSigns = $derived(Boolean(token && status?.configured));
@@ -622,6 +652,7 @@
 	{/if}
 	{#if backups.length}
 		<h3 class="mt-4 text-sm font-semibold text-heading">{t('backup.history')}</h3>
+		<p class="mt-1 text-xs text-faint">{t('backup.holders.note')}</p>
 		<ul class="mt-1 divide-y divide-border text-sm" data-testid="backup-history">
 			{#each backups as b (b.cid + b.at)}
 				<li
@@ -631,6 +662,75 @@
 					<span class="text-heading">{when(b.at)}</span>
 					<span class="text-faint">{size(b.size)} · {kept(b.status)}</span>
 					<span class="w-full font-mono text-xs break-all text-faint">{b.cid}</span>
+					<span class="w-full">
+						<button
+							type="button"
+							class="text-xs text-link underline disabled:opacity-50"
+							onclick={() => askWhoHolds(b.cid)}
+							disabled={holders?.busy || app.network.paused}
+							data-testid="backup-holders">{t('backup.holders.ask')}</button
+						>
+					</span>
+					{#if holders?.cid === b.cid}
+						<div class="w-full text-xs" role="status" data-testid="backup-holders-result">
+							{#if holders.busy}
+								<p class="text-faint">{t('backup.holders.asking')}</p>
+							{:else if holders.error}
+								<p class="text-danger">{t('backup.holders.failed', { error: holders.error })}</p>
+							{:else if holders.result}
+								{@const r = holders.result}
+								<p class="text-text" data-testid="backup-holders-summary">
+									{r.holders.length
+										? t('backup.holders.summary', {
+												count: r.holders.length,
+												aleph: r.holders.filter((h) => h.aleph).length,
+												active: r.alephActive ?? '?'
+											})
+										: t('backup.holders.none')}
+								</p>
+								{#if r.holders.length}
+									<table class="mt-1 w-full text-left">
+										<thead class="text-faint">
+											<tr>
+												<th scope="col" class="py-0.5 pr-2 font-medium"
+													>{t('backup.holders.node')}</th
+												>
+												<th scope="col" class="py-0.5 pr-2 font-medium">{t('backup.holders.ip')}</th
+												>
+												<th scope="col" class="py-0.5 pr-2 font-medium"
+													>{t('backup.holders.place')}</th
+												>
+												<th scope="col" class="py-0.5 font-medium">{t('backup.holders.network')}</th
+												>
+											</tr>
+										</thead>
+										<tbody>
+											{#each r.holders as h (h.peerId)}
+												<tr class="align-top" data-testid="backup-holder">
+													<td class="py-0.5 pr-2 text-heading" title={h.peerId}
+														>{h.aleph ?? t('backup.holders.notAleph')}</td
+													>
+													<td class="py-0.5 pr-2 font-mono break-all text-text"
+														>{h.ips.join(', ') || '–'}</td
+													>
+													<td class="py-0.5 pr-2 text-text">{placeText(h.place)}</td>
+													<td class="py-0.5 text-faint">{h.place?.network || '–'}</td>
+												</tr>
+											{/each}
+										</tbody>
+									</table>
+									{#if r.placed}
+										<p class="mt-1 text-faint" data-testid="backup-holders-spread">
+											{t('backup.holders.spread', {
+												networks: r.networks,
+												countries: r.countries
+											})}
+										</p>
+									{/if}
+								{/if}
+							{/if}
+						</div>
+					{/if}
 					{#if b.itemHash}
 						<span class="w-full text-xs text-faint" data-testid="backup-row-order"
 							>{t('backup.order')}

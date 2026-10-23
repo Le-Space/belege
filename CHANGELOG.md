@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **"Wer hält es?" for every backup.** Under each backup in the history, a click asks IPFS delegated routing (through Helia's delegated routing client) which nodes announce its CID, names those that are Aleph core channel nodes (Aleph's `corechannel` aggregate, by IP) and places each IP with ipwho.is: node, IP, city and country, network, and the spread by network and country. Asked only on that click; the card names the three services and what they see.
+
 ### Changed
 
 - **The backup card says, in a box of its own, that the backup is encrypted but public.** Before anything goes up: the sealed file lies on publicly reachable IPFS nodes (Aleph distributes the blocks to all its nodes, according to its support – this may change), every backup's CID is in Aleph's public message log with time, size and paying account, nobody can open it without the passkey, and the upside is a restore from any IPFS node that has it. Who does not want that waits for the backup on Filecoin Onchain Cloud (#459). docs/backup says how to list the nodes that hold a backup.

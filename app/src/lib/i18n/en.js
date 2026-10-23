@@ -1115,6 +1115,22 @@ export default {
 		rekeep: 'Ask Aleph again',
 		order: 'Request at Aleph:',
 		days: { about: 'about {days} days', overYear: 'more than a year' },
+		holders: {
+			ask: 'Who holds it?',
+			note: '"Who holds it?" asks three public services: IPFS routing (delegated-ipfs.dev) for the nodes offering the CID – it sees the CID –, Aleph for its core nodes, and ipwho.is where the nodes\' IPs are. All three see this computer\'s IP address.',
+			asking: 'Asking the IPFS network …',
+			summary:
+				'{count} IPFS nodes offer this backup right now, {aleph} of them Aleph core nodes (Aleph has {active} active).',
+			none: 'No IPFS node offers this backup right now – or routing knows of none.',
+			failed: 'IPFS routing did not answer: {error}',
+			spread: 'By network: {networks}. By country: {countries}.',
+			node: 'Node',
+			ip: 'IP',
+			place: 'Place',
+			network: 'Network',
+			notAleph: 'not an Aleph node',
+			noPlace: 'unknown'
+		},
 		now: 'Back up now',
 		step: {
 			packing: 'Packing and sealing …',

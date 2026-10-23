@@ -1139,6 +1139,22 @@ export default {
 		rekeep: 'Aleph erneut beauftragen',
 		order: 'Auftrag bei Aleph:',
 		days: { about: 'etwa {days} Tage', overYear: 'länger als ein Jahr' },
+		holders: {
+			ask: 'Wer hält es?',
+			note: '„Wer hält es?“ fragt drei öffentliche Dienste: das IPFS-Routing (delegated-ipfs.dev) nach den Knoten, die die CID anbieten – es sieht die CID –, Aleph nach seinen Kernknoten und ipwho.is nach dem Ort der Knoten-IPs. Alle drei sehen die IP-Adresse dieses Computers.',
+			asking: 'Frage das IPFS-Netz …',
+			summary:
+				'{count} IPFS-Knoten bieten dieses Backup gerade an, davon {aleph} Aleph-Kernknoten (Aleph hat {active} aktive).',
+			none: 'Gerade bietet kein IPFS-Knoten dieses Backup an – oder das Routing kennt keinen.',
+			failed: 'Das IPFS-Routing hat nicht geantwortet: {error}',
+			spread: 'Nach Netz: {networks}. Nach Land: {countries}.',
+			node: 'Knoten',
+			ip: 'IP',
+			place: 'Ort',
+			network: 'Netz',
+			notAleph: 'kein Aleph-Knoten',
+			noPlace: 'unbekannt'
+		},
 		now: 'Jetzt sichern',
 		step: {
 			packing: 'Wird gepackt und versiegelt …',
