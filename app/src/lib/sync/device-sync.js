@@ -110,6 +110,20 @@ const QR_PREFIX = 'belege-device:';
 export const deviceCode = (peerId) => `${QR_PREFIX}${peerId}`;
 
 /**
+ * Whether a connection's remote address reaches the device itself rather
+ * than through a relay. By the address, not `limited`: a relay that sets no
+ * limits (the test relay, a bridge's) gives a circuit that is not limited,
+ * and still relayed. WebRTC signalled through a relay is direct – but only
+ * WebRTC after the circuit: the bridge's relay is itself reached over
+ * `/webrtc-direct`, and a circuit through it is not.
+ * @param {string} addr
+ */
+export function isDirectAddr(addr) {
+	const circuit = addr.lastIndexOf('/p2p-circuit');
+	return circuit < 0 || /\/webrtc(\/|$)/.test(addr.slice(circuit));
+}
+
+/**
  * A scanned or pasted code → the peer id in it, or null.
  *
  * @param {unknown} text
@@ -369,7 +383,10 @@ export async function startDeviceSync({
 	const direct = (/** @type {string} */ peerId) =>
 		libp2p
 			.getConnections()
-			.some((/** @type {any} */ c) => c.remotePeer.toString() === peerId && !c.limited);
+			.some(
+				(/** @type {any} */ c) =>
+					c.remotePeer.toString() === peerId && isDirectAddr(c.remoteAddr.toString())
+			);
 
 	async function refreshKnown() {
 		records = new Map(deviceRecords(await all()).map((d) => [d.peerId, d]));
@@ -456,10 +473,7 @@ export async function startDeviceSync({
 				const addr = c.remoteAddr.toString();
 				return {
 					addr,
-					// By the address, not `limited`: a relay that sets no limits (the test
-					// relay, a bridge's) gives a circuit that is not limited, and still
-					// relayed. WebRTC signalled through the relay is direct.
-					direct: addr.includes('/webrtc') || !addr.includes('/p2p-circuit'),
+					direct: isDirectAddr(addr),
 					rtt: typeof c.rtt === 'number' ? Math.round(c.rtt) : null
 				};
 			});

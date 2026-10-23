@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **"direkt" in the devices card means what the badge means.** The card called a device direct by libp2p's `limited` flag, the badge by the address; a circuit through a relay that sets no limits (the bridge's) was "direkt" in the card and "über das Relay" in the badge. Both read the address now, and a circuit through the bridge's relay, itself reached over `/webrtc-direct`, is no longer taken for WebRTC.
+
 ## [0.18.0] – 2026-10-23
 
 ### Changed
