@@ -24,6 +24,13 @@ export default {
 			both: 'Online: devices + invoice app',
 			only: { devices: 'Online: own devices', 'invoice-app': 'Online: invoice app' },
 			title: 'Network on – via a Le-Space relay (TLS WebSocket), end-to-end encrypted:',
+			titleBy: {
+				public:
+					'Network on – own devices through a Le-Space relay (TLS WebSocket), end-to-end encrypted:',
+				qr: 'Network on – own devices directly over WebRTC, without a relay (connected by QR code), end-to-end encrypted:',
+				lan: 'Network on – own devices through your bridge’s relay, in your own network only, end-to-end encrypted:',
+				both: 'Network on – new devices by QR or through your bridge’s relay, known ones also through the Le-Space relays, end-to-end encrypted:'
+			},
 			qr: 'Connect a device by QR',
 			qrLink: {
 				title: 'A device invites you by QR',
@@ -45,7 +52,10 @@ export default {
 				relayed: '  through the relay: {addr} – {rtt} ms',
 				dataIn: 'Last data: from {device}, {book}, at {time}',
 				dataOut: 'Last data: written here, for the devices, {book}, at {time}',
-				pulse: 'Last ping answer: {label}, {rtt} ms, at {time}'
+				dataOutWaiting:
+					'Last data: written here, {book}, at {time} – goes out at the next connection',
+				pulse: 'Last ping answer: {label}, {rtt} ms, at {time}',
+				pulseGone: 'Last ping answer: {label}, {rtt} ms, at {time} – not connected since'
 			},
 			part: {
 				devices: {

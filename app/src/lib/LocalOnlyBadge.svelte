@@ -43,7 +43,11 @@
 			: status.parts.length === 0
 				? t('header.localOnlyTitle')
 				: [
-						t('header.network.title'),
+						// How own devices meet, as this session's node was built; the invoice
+						// app alone always goes through a Le-Space relay.
+						status.parts.some((p) => p.id === 'devices')
+							? t(`header.network.titleBy.${app.network.mode}`)
+							: t('header.network.title'),
 						...status.parts.map((p) =>
 							t(`header.network.part.${p.id}.${p.state}`, {
 								count: p.devices ?? 0,
@@ -77,6 +81,7 @@
 				);
 			}
 		}
+		const anyConnected = state.devices.some((d) => d.connected);
 		const data = app.sync.data;
 		if (data) {
 			const device = data.peerId
@@ -84,7 +89,11 @@
 				: '';
 			lines.push(
 				t(
-					data.direction === 'in' ? 'header.network.proof.dataIn' : 'header.network.proof.dataOut',
+					data.direction === 'in'
+						? 'header.network.proof.dataIn'
+						: anyConnected
+							? 'header.network.proof.dataOut'
+							: 'header.network.proof.dataOutWaiting',
 					{
 						device,
 						book: t(`storage.databases.${data.collection}`),
@@ -96,8 +105,10 @@
 		const pulse = app.sync.pulse;
 		if (pulse) {
 			const label = state.devices.find((d) => d.peerId === pulse.peerId)?.label || pulse.peerId;
+			// A ping from a device that is gone since is history, and says so.
+			const still = state.devices.some((d) => d.peerId === pulse.peerId && d.connected);
 			lines.push(
-				t('header.network.proof.pulse', {
+				t(still ? 'header.network.proof.pulse' : 'header.network.proof.pulseGone', {
 					label,
 					rtt: pulse.rtt,
 					time: new Date(pulse.at).toLocaleTimeString()

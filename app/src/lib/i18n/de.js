@@ -28,6 +28,13 @@ export default {
 			both: 'Im Netz: Geräte + Rechnungs-App',
 			only: { devices: 'Im Netz: eigene Geräte', 'invoice-app': 'Im Netz: Rechnungs-App' },
 			title: 'Netzwerk an – über ein Le-Space-Relay (TLS-WebSocket), Ende zu Ende verschlüsselt:',
+			titleBy: {
+				public:
+					'Netzwerk an – eigene Geräte über ein Le-Space-Relay (TLS-WebSocket), Ende zu Ende verschlüsselt:',
+				qr: 'Netzwerk an – eigene Geräte direkt per WebRTC, ohne Relay (per QR-Code verbunden), Ende zu Ende verschlüsselt:',
+				lan: 'Netzwerk an – eigene Geräte über das Relay deiner Bridge, nur im eigenen Netz, Ende zu Ende verschlüsselt:',
+				both: 'Netzwerk an – neue Geräte per QR oder über das Relay deiner Bridge, bekannte auch über die Le-Space-Relays, Ende zu Ende verschlüsselt:'
+			},
 			qr: 'Gerät per QR verbinden',
 			qrLink: {
 				title: 'Ein Gerät lädt dich per QR ein',
@@ -49,7 +56,11 @@ export default {
 				relayed: '  über das Relay: {addr} – {rtt} ms',
 				dataIn: 'Letzte Daten: von {device}, {book}, um {time}',
 				dataOut: 'Letzte Daten: hier geschrieben, an die Geräte, {book}, um {time}',
-				pulse: 'Letzte Ping-Antwort: {label}, {rtt} ms, um {time}'
+				dataOutWaiting:
+					'Letzte Daten: hier geschrieben, {book}, um {time} – geht beim nächsten Verbinden hinaus',
+				pulse: 'Letzte Ping-Antwort: {label}, {rtt} ms, um {time}',
+				pulseGone:
+					'Letzte Ping-Antwort: {label}, {rtt} ms, um {time} – seitdem nicht mehr verbunden'
 			},
 			part: {
 				devices: {

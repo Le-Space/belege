@@ -89,6 +89,21 @@ test('two devices connect by QR, without a relay, and sync', async ({ browser })
 
 		// Nobody else was asked: no Aleph, no relay, no WebSocket at all (not even the local test relay).
 		expect(outside).toEqual([]);
+
+		// The badge says how they meet: directly, no relay.
+		const badge = phone.page.getByTestId('local-only');
+		await expect(badge).toHaveAttribute('title', /direkt per WebRTC, ohne Relay/);
+		await expect(badge).not.toHaveAttribute('title', /Le-Space-Relay/);
+		// The Mac goes (as a phone's tab does in the background): the last ping is
+		// history, and what is written now waits for the next connection.
+		await expect(badge).toHaveAttribute('title', /Letzte Ping-Antwort: /, { timeout: 30_000 });
+		await mac.context.close();
+		await expect(badge).toHaveAttribute('data-state', 'online', { timeout: 60_000 });
+		await expect(badge).toHaveAttribute('title', /seitdem nicht mehr verbunden/);
+		await phone.page.getByTestId('add-test-transaction').click();
+		await expect(badge).toHaveAttribute('title', /geht beim nächsten Verbinden hinaus/, {
+			timeout: 30_000
+		});
 	} finally {
 		await mac.context.close();
 		await phone.context.close();
