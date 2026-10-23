@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.15.0] – 2026-10-23
+
 ### Fixed
 
 - **A device that reaches the bridge through another one finds its pairing on every integration page.** The token comes with the books by sync; when it arrived after the first read, the overview showed "über deinen Mac" while the KI card said the bridge was not paired, until a reload. A page now reads the token again while none is known.
