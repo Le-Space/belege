@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.16.0] – 2026-10-23
+
 ### Added
 
 - **The network badge shows what is actually connected, and lights up when an own device answers.** Hovering it now names this device's peer id, its addresses at the relay, and for each connected own device its peer id and every connection to it – the remote multiaddr, direct (WebRTC) or through the relay, the last round trip in ms – and when the last ping came back. The dot flashes in another colour each time an own device answers the ping libp2p's connection monitor sends anyway (every 10 s): watched, not sent – no traffic of its own.
