@@ -1134,6 +1134,10 @@ export default {
 		kindIncrement: 'Increment {sequence}',
 		oldBridge:
 			'The bridge kept the increment on Aleph without naming its full backup – it is older than this page. Update the bridge (git pull, pnpm install, restart); the next backup ships everything since the last one again.',
+		creditsLink: 'Buy or transfer credits (Aleph dashboard)',
+		grantDashboard:
+			"Or in Aleph's dashboard, with the account's wallet: under Permissions, add the address above, message type STORE, channel {channel}.",
+		grantDashboardLink: 'Open Permissions',
 		now: 'Back up now',
 		step: {
 			packing: 'Packing and sealing …',

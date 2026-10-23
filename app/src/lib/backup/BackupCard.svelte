@@ -33,6 +33,9 @@
 	} from './keeper.js';
 
 	let { url, token } = $props();
+	/** Aleph's dashboard: credits bought, transferred and spent; and the keys an account lets act for it. */
+	const ALEPH_CREDITS = 'https://app.aleph.cloud/console/credits/';
+	const ALEPH_PERMISSIONS = 'https://app.aleph.cloud/console/permissions/';
 	/** The backup without public IPFS, being planned. */
 	const FILECOIN_ISSUE = 'https://github.com/Le-Space/belege/issues/459';
 	const client = $derived(createBridgeClient({ url, token }));
@@ -502,8 +505,15 @@
 				{/if}
 			</dd>
 			<dt class="text-faint">{t('backup.credits')}</dt>
-			<dd class="text-heading" data-testid="backup-credits">
+			<dd class="flex flex-wrap items-baseline gap-x-2 text-heading" data-testid="backup-credits">
 				{credits === null ? t('backup.creditsUnknown') : creditsText(credits)}
+				<a
+					class="text-xs text-link underline"
+					href={ALEPH_CREDITS}
+					target="_blank"
+					rel="noopener noreferrer"
+					data-testid="backup-credits-link">{t('backup.creditsLink')}</a
+				>
 			</dd>
 			<dt class="text-faint">{t('backup.ownKey')}</dt>
 			<dd class="min-w-0">
@@ -535,6 +545,15 @@
 					testid="backup-grant-command"
 					valueClass="font-mono text-xs break-all text-heading">{command}</CopyButton
 				>
+				<p class="mt-1 text-xs text-faint" data-testid="backup-grant-dashboard">
+					{t('backup.grantDashboard', { channel: BACKUP_CHANNEL })}
+					<a
+						class="text-link underline"
+						href={ALEPH_PERMISSIONS}
+						target="_blank"
+						rel="noopener noreferrer">{t('backup.grantDashboardLink')}</a
+					>
+				</p>
 			</div>
 		{/if}
 		<p class="mt-3 text-xs text-faint">{t('backup.leaves')}</p>

@@ -1158,6 +1158,10 @@ export default {
 		kindIncrement: 'Zuwachs {sequence}',
 		oldBridge:
 			'Die Bridge hat den Zuwachs ohne Verweis auf sein Vollbackup bei Aleph abgelegt – sie ist älter als diese Seite. Bridge aktualisieren (git pull, pnpm install, neu starten); das nächste Backup sichert alles seit dem letzten noch einmal.',
+		creditsLink: 'Credits kaufen oder überweisen (Aleph-Dashboard)',
+		grantDashboard:
+			'Oder im Aleph-Dashboard, mit der Wallet des Kontos: unter Berechtigungen die Adresse oben eintragen, Nachrichtentyp STORE, Kanal {channel}.',
+		grantDashboardLink: 'Berechtigungen öffnen',
 		now: 'Jetzt sichern',
 		step: {
 			packing: 'Wird gepackt und versiegelt …',

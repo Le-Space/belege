@@ -120,6 +120,16 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 		`pnpm setup:aleph -- --authorize ${browserKey} --channel BELEGE-BACKUP`
 	);
 	await expect(card.getByTestId('backup-no-credits')).toBeVisible();
+	// Where credits are bought or transferred, and where the key can be let in without a terminal.
+	await expect(card.getByTestId('backup-credits-link')).toHaveAttribute(
+		'href',
+		'https://app.aleph.cloud/console/credits/'
+	);
+	await expect(card.getByTestId('backup-grant-dashboard')).toContainText('Kanal BELEGE-BACKUP');
+	await expect(card.getByTestId('backup-grant-dashboard').locator('a')).toHaveAttribute(
+		'href',
+		'https://app.aleph.cloud/console/permissions/'
+	);
 	// Without credits the page asks before it uploads a copy that costs every day.
 	await card.getByTestId('backup-now').click();
 	await expect(card.getByTestId('backup-ask')).toContainText(
