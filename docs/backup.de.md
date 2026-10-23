@@ -43,11 +43,11 @@ Das Backup selbst läuft nie über die Bridge. Die Seite zeigt die CID des Backu
 
 **Ob Aleph es aufbewahrt.** Aleph beantwortet eine STORE-Nachricht zuerst mit `pending` und entscheidet später. „Erneut prüfen“ fragt Aleph zu jedem Backup der Liste noch einmal, über seinen Auftrag (den Item-Hash der STORE-Nachricht, mit Link). Kennt Aleph einen Auftrag nicht oder hat ihn abgelehnt, steht das in der Zeile, und „Aleph erneut beauftragen“ schickt eine neue STORE-Nachricht für dieselbe Datei – hochgeladen wird nichts noch einmal.
 
-**Wer sie laden kann – verschlüsselt, aber öffentlich.** Die Karte sagt das in einem eigenen Kasten, bevor etwas hinausgeht:
+**Wo es liegt – verteilt, verschlüsselt, mit öffentlicher Hülle.** Die Karte sagt das in einem eigenen Kasten, bevor etwas hinausgeht:
 
 - Die versiegelte Datei liegt auf öffentlich erreichbaren IPFS-Knoten. Nach Auskunft des Aleph-Supports verteilt Aleph die Blöcke auf alle seine Knoten (das kann sich ändern). Wer die CID kennt, kann sie von jedem davon laden, über jedes IPFS-Gateway – aber nicht öffnen.
 - Die CID jedes Backups steht in Alephs öffentlichem Nachrichtenverlauf, mit Zeitpunkt, Größe, zahlendem Konto und Kanal. Wer diesen Verlauf mitprotokolliert, sieht, wann und wie viel gesichert wird.
-- Der Vorteil: Zurückholen geht von jedem IPFS-Knoten, der die Datei hat.
+- Der Vorteil: Das Backup liegt nicht in einem Rechenzentrum. Fällt ein Anbieter oder eine Region aus – wie beim Brand im OVH-Rechenzentrum Straßburg 2021 oder bei den immer wieder auftretenden Ausfällen großer Clouds –, bleibt es erreichbar, und Zurückholen geht von jedem IPFS-Knoten, der die Datei hat. Ob das die öffentliche Hülle wert ist, entscheidet der Nutzer.
 - Welche Knoten sie haben, lässt sich prüfen: Das IPFS-Routing nennt die Anbieter einer CID (`https://delegated-ipfs.dev/routing/v1/providers/<cid>`), und Aleph listet seine Kernknoten (Aggregat `corechannel` von `0xa1B3bb7d2332383D96b7796B908fB7f7F3c2Be10`). Am 23.10.2026 hatte ein Backup 13 Anbieter, alle Aleph-Kernknoten (von 58 aktiven).
 - Ein Backup ohne öffentliches IPFS, auf Filecoin Onchain Cloud bei ausgewählten Speicheranbietern, ist geplant: [#459](https://github.com/Le-Space/belege/issues/459).
 

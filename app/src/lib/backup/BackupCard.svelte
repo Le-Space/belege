@@ -447,19 +447,19 @@
 <section class={card} aria-labelledby="backup-h" data-testid="backup-card">
 	<h2 id="backup-h" class="text-lg font-semibold text-heading">{t('backup.title')}</h2>
 	<p class="mt-1 text-sm text-text">{t('backup.what')}</p>
-	<!-- Said before anything goes up, not in a footnote: public, but sealed. -->
+	<!-- Said before anything goes up, not in a footnote: where it lies, what that
+	     is good for, what of it is public – and that the choice is the user's. -->
 	<div
-		class="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
+		class="mt-3 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm text-text"
 		role="note"
 		aria-labelledby="backup-public-h"
 		data-testid="backup-public"
 	>
-		<p id="backup-public-h" class="font-semibold">{t('backup.public.title')}</p>
+		<p id="backup-public-h" class="font-semibold text-heading">{t('backup.public.title')}</p>
 		<ul class="mt-1 list-disc space-y-1 pl-5">
-			<li>{t('backup.public.ipfs')}</li>
-			<li>{t('backup.public.cids')}</li>
+			<li>{t('backup.public.spread')}</li>
 			<li>{t('backup.public.sealed')}</li>
-			<li>{t('backup.public.upside')}</li>
+			<li>{t('backup.public.open')}</li>
 		</ul>
 		<p class="mt-2">
 			{t('backup.public.alternative')}

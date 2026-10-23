@@ -1095,14 +1095,14 @@ export default {
 		title: 'Backup',
 		what: 'Alles, was Le Space Belege in diesem Browser hält – die Bücher und jede Belegdatei – als eine Datei, versiegelt mit einem Schlüssel aus deinem Passkey. Sie liegt auf Alephs IPFS: Wer ihre Kennung (CID) kennt, kann sie herunterladen, aber nicht öffnen – das kannst nur du, mit demselben Passkey. Aleph bewahrt sie auf, solange das Konto Credits hat.',
 		public: {
-			title: 'Verschlüsselt, aber öffentlich erreichbar',
-			ipfs: 'Das Backup liegt auf öffentlich erreichbaren IPFS-Knoten. Nach Auskunft des Aleph-Supports verteilt Aleph die Blöcke auf alle seine Knoten – das kann sich ändern. Jeder dieser Knoten gibt die Datei an jeden heraus, der ihre CID nennt.',
-			cids: 'Die CID jedes Backups steht in Alephs öffentlichem Nachrichtenverlauf, mit Zeitpunkt, Größe und dem zahlenden Konto. Wer mitprotokolliert, sieht, wann und wie viel du sicherst.',
+			title: 'Wo dein Backup liegt – und was das bedeutet',
+			spread:
+				'Verteilt statt an einem Ort: Das Backup liegt nicht in einem einzelnen Rechenzentrum, sondern auf vielen IPFS-Knoten von Aleph – nach Auskunft des Aleph-Supports auf allen seinen Knoten (das kann sich ändern). Fällt ein Anbieter oder eine Region aus, wie beim Brand im OVH-Rechenzentrum Straßburg 2021 oder bei den immer wieder auftretenden Ausfällen großer Clouds, bleibt es erreichbar: Zurückholen lässt es sich von jedem Knoten, der es hat.',
 			sealed:
-				'Den Inhalt sieht niemand: Die Datei ist mit einem Schlüssel aus deinem Passkey versiegelt, bevor sie diesen Browser verlässt.',
-			upside: 'Der Vorteil: Zurückholen lässt sie sich von jedem IPFS-Knoten, der sie hat.',
+				'Lesen kannst es nur du: Es ist mit einem Schlüssel aus deinem Passkey versiegelt, bevor es diesen Browser verlässt.',
+			open: 'Öffentlich sind die Hülle und die Eckdaten: Die versiegelte Datei kann laden, wer ihre CID kennt, und Alephs öffentlicher Nachrichtenverlauf nennt zu jedem Backup CID, Zeitpunkt, Größe und das zahlende Konto.',
 			alternative:
-				'Wer seine Belege nicht verschlüsselt im öffentlichen IPFS haben will, wartet auf das Backup auf Filecoin Onchain Cloud:',
+				'Ob dir das passt, entscheidest du. Wer seine Belege auch verschlüsselt nicht im öffentlichen IPFS haben will: Backup auf Filecoin Onchain Cloud,',
 			alternativeLink: 'in Planung'
 		},
 		notSetUp: 'Die Bridge hat noch keinen Backup-Schlüssel. Im Terminal, im Ordner von Belege:',

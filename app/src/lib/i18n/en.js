@@ -1071,14 +1071,14 @@ export default {
 		title: 'Backup',
 		what: "Everything Le Space Belege keeps in this browser – the books and every receipt file – as one file, sealed with a key from your passkey. It lies on Aleph's IPFS: whoever knows its identifier (CID) can download it, but not open it – only you can, with the same passkey. Aleph keeps it while the account has credits.",
 		public: {
-			title: 'Encrypted, but publicly reachable',
-			ipfs: "The backup lies on publicly reachable IPFS nodes. According to Aleph's support, Aleph distributes the blocks to all its nodes – this may change. Each of these nodes hands the file to anyone who names its CID.",
-			cids: "Every backup's CID is in Aleph's public message log, with the time, the size and the paying account. Anyone recording it sees when and how much you back up.",
+			title: 'Where your backup lies – and what that means',
+			spread:
+				"Spread out instead of in one place: the backup is not in a single data centre but on many of Aleph's IPFS nodes – according to Aleph's support, on all its nodes (this may change). When a provider or a region goes down, as in the fire at OVH's Strasbourg data centre in 2021 or in the outages that keep hitting the big clouds, it stays reachable: it can be brought back from any node that has it.",
 			sealed:
-				'Nobody sees what is in it: the file is sealed with a key from your passkey before it leaves this browser.',
-			upside: 'The upside: it can be brought back from any IPFS node that has it.',
+				'Only you can read it: it is sealed with a key from your passkey before it leaves this browser.',
+			open: "What is public is the envelope and the outline: anyone who knows its CID can download the sealed file, and Aleph's public message log names each backup's CID, time, size and paying account.",
 			alternative:
-				'If you do not want your receipts on public IPFS, even encrypted, wait for the backup on Filecoin Onchain Cloud:',
+				'Whether that suits you is your choice. If you do not want your receipts on public IPFS, even encrypted: backup on Filecoin Onchain Cloud,',
 			alternativeLink: 'being planned'
 		},
 		notSetUp: 'The bridge has no backup key yet. In the terminal, in Belege’s folder:',
