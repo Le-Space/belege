@@ -28,6 +28,7 @@ export default {
 			both: 'Im Netz: Geräte + Rechnungs-App',
 			only: { devices: 'Im Netz: eigene Geräte', 'invoice-app': 'Im Netz: Rechnungs-App' },
 			title: 'Netzwerk an – über ein Le-Space-Relay (TLS-WebSocket), Ende zu Ende verschlüsselt:',
+			qr: 'Gerät per QR verbinden',
 			proof: {
 				self: 'Dieses Gerät: {peerId}',
 				relay: '  am Relay erreichbar: {addr}',

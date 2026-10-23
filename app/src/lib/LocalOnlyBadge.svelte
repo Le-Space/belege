@@ -23,6 +23,7 @@
 	import { t } from './i18n/index.js';
 	import { networkStatus } from './network-status.js';
 	import { NETWORK_MODES } from './sync/network-mode.js';
+	import QrExchange from './sync/QrExchange.svelte';
 
 	let status = $derived(networkStatus(app));
 	let label = $derived(
@@ -115,6 +116,15 @@
 	let devicesPart = $derived(status.parts.find((p) => p.id === 'devices'));
 	let appPart = $derived(status.parts.find((p) => p.id === 'invoice-app'));
 	let unlocked = $derived(app.status === 'ready');
+	/** The code exchange belongs in the menu where devices meet by QR, and sync is on. */
+	let qrHere = $derived(
+		unlocked &&
+			app.sync.online &&
+			!app.network.paused &&
+			(app.network.mode === 'qr' || app.network.mode === 'both')
+	);
+	/** Unfolded when the menu opens with no device connected in "Ohne Relay, per QR". */
+	let qrOpen = $state(false);
 
 	/** A part's state as the menu's second line: the tooltip line without its name. @param {import('./network-status.js').NetworkPart | undefined} p */
 	const stateLine = (p) =>
@@ -137,7 +147,10 @@
 
 	/** @param {MouseEvent} e */
 	function outside(e) {
-		if (open && root && !root.contains(/** @type {Node} */ (e.target))) open = false;
+		// The event's path, not `contains`: a click that swaps its own button for
+		// something else (the scan button for the camera) has a target that is no
+		// longer in the menu by the time it gets here.
+		if (open && root && !e.composedPath().includes(root)) open = false;
 	}
 	/** @param {KeyboardEvent} e */
 	function escape(e) {
@@ -154,7 +167,10 @@
 <div class="relative" bind:this={root}>
 	<button
 		type="button"
-		onclick={() => (open = !open)}
+		onclick={() => {
+			open = !open;
+			if (open) qrOpen = app.network.mode === 'qr' && !(devicesPart?.devices ?? 0);
+		}}
 		{title}
 		aria-label={title}
 		aria-expanded={open}
@@ -255,6 +271,25 @@
 							>
 						{/if}
 					</div>
+					{#if qrHere}
+						<!-- "Ohne Relay, per QR" (or "Beides"): the code exchange right here,
+						     needed after every reload; unfolded while no device is connected. -->
+						<div class="py-2" data-testid="network-qr">
+							<button
+								type="button"
+								class="flex w-full items-center justify-between gap-2 text-left text-heading"
+								aria-expanded={qrOpen}
+								onclick={() => (qrOpen = !qrOpen)}
+								data-testid="network-qr-toggle"
+							>
+								<span>{t('header.network.qr')}</span>
+								<span class="text-xs text-faint" aria-hidden="true">{qrOpen ? '▲' : '▼'}</span>
+							</button>
+							{#if qrOpen}
+								<QrExchange compact prefix="network-qr" scanPrefix="network-scan" />
+							{/if}
+						</div>
+					{/if}
 					<div class={row} data-testid="network-app">
 						<span class="min-w-0">
 							<span class="block text-heading">{t('header.network.app')}</span>
