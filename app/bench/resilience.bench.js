@@ -44,6 +44,17 @@ const BURST_TIMEOUT_MS = Number(process.env.RESILIENCE_BURST_TIMEOUT_MS || 10 * 
  * import after twenty minutes on a Le Space relay.
  */
 const BURST_DELAY_MS = Number(process.env.RESILIENCE_BURST_DELAY_MS || 0);
+/**
+ * How long a burst may take before it counts as stalled.
+ *
+ * Not a limit: the wait continues to `BURST_TIMEOUT_MS` afterwards. It is the
+ * line between "arrived" and "stalled and then came back", which one timeout
+ * cannot draw — and the second case is the whole question behind #393, where
+ * replication stops on a connection that still looks healthy and only a redial
+ * can restart it. A burst of 100 that is going to arrive arrives in seconds.
+ */
+const STALL_MS = Number(process.env.RESILIENCE_STALL_MS || 20_000);
+
 /** The test relay's circuit limits, as e2e/relay.js reads them; kept with each result. */
 const RELAY_LIMITS = {
 	/** An outside relay's address when the run went against one, else the local test relay. */
@@ -428,15 +439,38 @@ for (const mode of /** @type {const} */ (['relay', 'qr'])) {
 				);
 				/** @type {number | null} */
 				let syncMs = null;
+				/** @type {number | null} */
+				let recoveryMs = null;
+				/** @type {null | { arrived: number, meshsub: number, connections: number }} */
+				let atStall = null;
 				try {
-					syncMs = await untilCount(phone.page, before + BURST, BURST_TIMEOUT_MS);
+					syncMs = await untilCount(phone.page, before + BURST, STALL_MS);
 				} catch {
-					// Stalled: what arrived, and what the network did, go into the result.
+					// Stalled. Look at what it stalled *in* before waiting on: a
+					// connection carrying no `/meshsub/` stream is the state #393
+					// leaves behind, and no count can show it.
+					const conns = await net.connections(phone.page);
+					atStall = {
+						arrived: (await count(phone.page)) - before,
+						meshsub: conns.filter((/** @type {any} */ c) =>
+							(c.streams ?? []).some((/** @type {string} */ pr) => pr.startsWith('/meshsub/'))
+						).length,
+						connections: conns.length
+					};
+					const since = Date.now();
+					try {
+						await untilCount(phone.page, before + BURST, BURST_TIMEOUT_MS);
+						recoveryMs = Date.now() - since;
+					} catch {
+						// Never came back. Null is the finding, not a missing value.
+					}
 				}
 				r.burst = {
 					size: BURST,
 					writeMs: burst.ms,
 					syncMs,
+					atStall,
+					recoveryMs,
 					arrived: (await count(phone.page)) - before,
 					network: await watching.stop()
 				};
@@ -444,7 +478,11 @@ for (const mode of /** @type {const} */ (['relay', 'qr'])) {
 				if (mode === 'relay') r.relayLimits = RELAY_LIMITS;
 				if (mode === 'qr') r.outsideRequests = outside.length;
 				keep(r);
-				expect(syncMs, `the burst stalled at ${r.burst.arrived} of ${BURST}`).not.toBeNull();
+				expect(
+					syncMs ?? recoveryMs,
+					`the burst stalled at ${atStall?.arrived ?? 0} of ${BURST} and was still at ` +
+						`${r.burst.arrived} when the wait ran out`
+				).not.toBeNull();
 				expect(await sourceIds(phone.page)).toEqual(await sourceIds(mac.page));
 			} finally {
 				await mac.context.close();
