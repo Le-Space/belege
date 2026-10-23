@@ -22,6 +22,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **The shared folder reads new files with the AI only while "gleich auslesen" is on (#475).** The minute-by-minute folder check (and "Ordner jetzt prüfen" in a payment) sent every new file to the model whenever a bridge was paired, ignoring the switch beside the upload. It follows the switch now, which says so ("Neue Belege gleich auslesen und zuordnen (Hochladen und freigegebener Ordner)"); files left unread wait under Belege → Neu, and the result says how many, and how many images had no text. Images go to the extraction, which marks them without sending anything. The consent screen names the folder among the AI's uses (consent version 26).
+
 - **Matching catches up on what came from another device, and on unlock (#473).** It ran only after an import or an action on this device: a receipt fetched on the Mac and its payment booked on the phone waited for the next click. Now one run starts 5 s after entries came by sync (payments, receipts, links, the matching settings), and one after unlocking when the books are not as this device's last run left them (a fingerprint kept in this browser). The same pair linked on two devices before they saw each other's link is settled on the next run: one link stays – a confirmed one before an automatic one, then the oldest – on every device alike.
 
 ## [0.16.0] – 2026-10-23

@@ -815,7 +815,13 @@
 			folderNote = !r?.permitted
 				? t('zahlungen.detail.folderDenied')
 				: r.created
-					? t('zahlungen.detail.folderResult', { count: r.created })
+					? [
+							t('zahlungen.detail.folderResult', { count: r.created }),
+							r.waiting ? t('zahlungen.detail.folderWaiting', { count: r.waiting }) : '',
+							r.images ? t('zahlungen.detail.folderImages', { count: r.images }) : ''
+						]
+							.filter(Boolean)
+							.join(' ')
 					: t('zahlungen.detail.folderNothing');
 		} catch (e) {
 			error = message(e);

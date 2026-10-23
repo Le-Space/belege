@@ -748,10 +748,10 @@ export async function dropPendingJob(kind) {
 
 /**
  * The shared folder, checked again (receipts/folder-watch.js): new files are
- * imported, read when a bridge is paired, and matched.
+ * imported, read while "gleich auslesen" is on and a bridge is paired, and matched.
  *
  * @param {{ prompt?: boolean }} [options] `prompt` only from a click: asks for read permission
- * @returns {Promise<{ configured: boolean, permitted: boolean, created: number, counts: any } | null>}
+ * @returns {Promise<{ configured: boolean, permitted: boolean, created: number, counts: any, read?: number, waiting?: number, images?: number } | null>}
  */
 export async function checkFolderNow({ prompt = false } = {}) {
 	if (!session) return null;
@@ -762,30 +762,42 @@ export async function checkFolderNow({ prompt = false } = {}) {
 	const store = session.store;
 	const blobs = session.blobs;
 	const r = await checkFolder({ store, blobs, handle, prompt });
+	/** @type {{ read: number, waiting: number, images: number }} */
+	let reading = { read: 0, waiting: 0, images: 0 };
 	if (r.created.length) {
-		const client = await pairedClient();
-		if (client) {
-			const { extractReceipt } = await import('./receipts/extract.js');
-			const { needsConfirmation } = await import('./receipts/import.js');
-			for (const record of r.created) {
-				if (needsConfirmation(record) || String(record.mime).startsWith('image/')) continue;
-				try {
-					await extractReceipt({
-						client,
-						receipts: store.receipts,
-						blobs,
-						record,
-						events: store.events
-					});
-				} catch (error) {
-					console.error('reading a folder file failed:', error);
-				}
-			}
-		}
+		// Read with the model only while "gleich auslesen" is on, as an upload is (#475).
+		const { getSetting } = await import('./store/settings.js');
+		const readAfter = (await getSetting(store.settings, 'uploadRead'))?.readAfter !== false;
+		const client = readAfter ? await pairedClient() : null;
+		const { readNewFiles } = await import('./receipts/folder-watch.js');
+		const { extractReceipt } = await import('./receipts/extract.js');
+		const { needsConfirmation } = await import('./receipts/import.js');
+		/** @type {any} only called when there is one (`canRead`) */
+		const reader = client;
+		reading = await readNewFiles({
+			created: r.created,
+			readAfter,
+			canRead: Boolean(client),
+			needsConfirmation,
+			read: (record) =>
+				extractReceipt({
+					client: reader,
+					receipts: store.receipts,
+					blobs,
+					record,
+					events: store.events
+				})
+		});
 		await refresh();
 		await runMatchingNow();
 	}
-	return { configured: true, permitted: r.permitted, created: r.created.length, counts: r.counts };
+	return {
+		configured: true,
+		permitted: r.permitted,
+		created: r.created.length,
+		counts: r.counts,
+		...reading
+	};
 }
 
 /** @type {(() => void) | null} */
