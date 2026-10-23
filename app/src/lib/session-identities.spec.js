@@ -117,7 +117,13 @@ describe('the key type and books that already exist', () => {
 				id: migrationDid,
 				provider: didProvider(migrationDid)()
 			});
-			const orbitdb = await createOrbitDB({ ipfs, identities, identity, directory });
+			const orbitdb = await createOrbitDB({
+				ipfs,
+				// @ts-expect-error `identities` is a documented option the bundled types omit
+				identities,
+				identity,
+				directory
+			});
 			return { orbitdb, identity };
 		}
 
