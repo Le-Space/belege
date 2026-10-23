@@ -20,6 +20,10 @@ All notable changes to Le Space Belege. The format follows
 
 - **LibertAI confidential reads without the model's "thinking".** In the enclave `qwen3.8-27b-tee` thinks before it answers; measured on six made-up receipts through Belege's own extraction request, that took 38 s and up to 6,000 tokens a receipt and left two unread, against 5.8 s, about 370 tokens and all six right with it off. In TEE mode the bridge now sends `enable_thinking: false`; other providers' requests are unchanged.
 
+### Fixed
+
+- **The shared folder reads new files with the AI only while "gleich auslesen" is on (#475).** The minute-by-minute folder check (and "Ordner jetzt prüfen" in a payment) sent every new file to the model whenever a bridge was paired, ignoring the switch beside the upload. It follows the switch now, which says so ("Neue Belege gleich auslesen und zuordnen (Hochladen und freigegebener Ordner)"); files left unread wait under Belege → Neu, and the result says how many, and how many images had no text. Images go to the extraction, which marks them without sending anything. The consent screen names the folder among the AI's uses (consent version 26).
+
 ## [0.16.0] – 2026-10-23
 
 ### Added

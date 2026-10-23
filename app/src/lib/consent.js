@@ -55,7 +55,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     imprint and privacy policy of Le Space UG linked.
 // 25: the language model may be LibertAI's confidential inference: an attested
 //     enclave on Aleph Cloud, what it proves and what LibertAI still sees (#416).
-export const CONSENT_VERSION = '25';
+// 26: new files in the shared folder are read with the model too, but only
+//     while "gleich auslesen" is on (#475).
+export const CONSENT_VERSION = '26';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 
