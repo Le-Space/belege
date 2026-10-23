@@ -8,6 +8,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **The QR invite is a link a phone's camera opens.** The invite's code is `https://…/#qr=<signed invite>`: the camera opens Belege at it, the invite leaves the address at once (the fragment never reaches the server), the tab keeps it ten minutes, and once the passkey has opened the books the network menu opens and shows the answer for the inviting device to scan. In-app scanning and pasting take the link or the bare code. A device that is not in "Ohne Relay, per QR" is offered the switch (it applies after a reload; the invite waits), never switched by itself. In iOS Safari outside the home-screen app the menu says that the app keeps its books apart from Safari and should be used instead.
 - **The QR code exchange in the network menu.** In "Ohne Relay, per QR" (and "Beides") the header's network menu has "Gerät per QR verbinden": invite, scan, answer and paste, as in Integrationen → Eigene Geräte – unfolded when the menu opens with no device connected, since it is needed after every reload. The exchange is one component now (`sync/QrExchange.svelte`) for both places. A click that swaps its own button (scan → camera) no longer closes the menu.
 
 ### Added

@@ -10,9 +10,20 @@
 	import { t } from '$lib/i18n/index.js';
 	import CopyButton from '$lib/CopyButton.svelte';
 	import QrScan from './QrScan.svelte';
+	import { resolve } from '$app/paths';
+	import { clearPendingInvite, codeFrom, inviteLink } from './qr-link-url.js';
 
-	/** @type {{ compact?: boolean, prefix?: string, scanPrefix?: string }} */
-	let { compact = false, prefix = 'devices-qr', scanPrefix = 'devices-scan' } = $props();
+	/**
+	 * `pending`: an invite that came by link, answered at once.
+	 *
+	 * @type {{ compact?: boolean, prefix?: string, scanPrefix?: string, pending?: string | null }}
+	 */
+	let {
+		compact = false,
+		prefix = 'devices-qr',
+		scanPrefix = 'devices-scan',
+		pending = null
+	} = $props();
 
 	/** @type {'idle' | 'invite' | 'answer' | 'connected'} */
 	let qrPhase = $state('idle');
@@ -40,7 +51,7 @@
 		busy = true;
 		error = null;
 		try {
-			const done = await qrScanned(text);
+			const done = await qrScanned(codeFrom(text));
 			if ('answer' in done) {
 				qrCode = done.answer;
 				qrPhase = 'answer';
@@ -55,6 +66,31 @@
 			busy = false;
 		}
 	}
+
+	// The invite shows as a link (qr-link-url.js): a phone's own camera opens
+	// Belege at it. The answer stays a bare code: the inviting device is open
+	// already and scans it here.
+	const shown = $derived.by(() => {
+		const phase = /** @type {string} */ (qrPhase);
+		return phase === 'invite' && qrCode
+			? inviteLink(qrCode, `${location.origin}${resolve('/')}`)
+			: qrCode;
+	});
+
+	// An invite that came by link: answered once, and forgotten by the tab.
+	let answered = false;
+	/** The answer on screen is to an invite that came by link. */
+	let byLink = $state(false);
+	$effect(() => {
+		// Read before it is cleared: a prop follows the state it comes from.
+		const code = pending;
+		if (!code || answered) return;
+		answered = true;
+		byLink = true;
+		clearPendingInvite(globalThis.sessionStorage);
+		app.network.qrInvite = null;
+		useCode(code);
+	});
 
 	const button = compact
 		? 'min-h-9 rounded-md border border-border px-2.5 text-xs font-medium text-heading hover:bg-surface-2 disabled:opacity-50'
@@ -82,16 +118,22 @@
 			data-testid="{prefix}-code"
 			data-phase={qrPhase}
 			data-code={qrCode}
+			data-link={qrPhase === 'invite' ? shown : undefined}
 		>
-			<!-- eslint-disable-next-line svelte/no-at-html-tags -- uqr's own SVG of a signed code -->
-			{@html renderSVG(qrCode, { border: 2 })}
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -- uqr's own SVG of a signed code, or of the link carrying it -->
+			{@html renderSVG(shown, { border: 2 })}
 		</div>
+		{#if byLink && qrPhase === 'answer'}
+			<p class="mt-1 text-xs text-text" data-testid="{prefix}-by-link">
+				{t('devices.qrMode.byLink')}
+			</p>
+		{/if}
 		<p class="mt-1 text-xs text-faint">{t(`devices.qrMode.${qrPhase}Hint`)}</p>
 		<CopyButton
-			text={qrCode}
+			text={shown}
 			label={t('devices.qrMode.copy')}
 			testid="{prefix}-copy"
-			valueClass="hidden">{qrCode}</CopyButton
+			valueClass="hidden">{shown}</CopyButton
 		>
 	{:else if qrPhase === 'connected'}
 		<p class="mt-2 text-success" role="status" data-testid="{prefix}-connected">

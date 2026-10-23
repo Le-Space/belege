@@ -107,7 +107,9 @@ export const app = $state({
 		/** @type {import('./sync/network-mode.js').NetworkMode} */
 		modeWanted: 'public',
 		/** @type {string | null} the relay in the own bridge, as the books know it (#148) */
-		lanRelay: null
+		lanRelay: null,
+		/** @type {string | null} a QR invite that came by link, waiting for the books to open (sync/qr-link-url.js) */
+		qrInvite: null
 	},
 	/** Belege as a UCEP consumer (ucep/): the invoicing app it is paired with. */
 	ucep: {
