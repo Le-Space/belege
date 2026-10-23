@@ -25,6 +25,8 @@ On an empty device, two things:
    pnpm setup:aleph -- --authorize <address> --channel BELEGE-BACKUP
    ```
 
+   Or, without a terminal, in Aleph's dashboard with the account's wallet: [Permissions](https://app.aleph.cloud/console/permissions/), the browser's address, message type STORE, channel `BELEGE-BACKUP`. Credits are bought and transferred under [Credits](https://app.aleph.cloud/console/credits/).
+
    From then on the browser signs the order to Aleph itself, and the bridge need not run for a backup. Until then the bridge signs, as before.
 
 ## Back up
