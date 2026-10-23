@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Incremental backups (#454).** After a full backup, "Jetzt sichern" uploads only what is new since the last one: the new log entries and receipt files, sealed as before, through the storage bridge's `/live-backup` (`collectIncrement`, `mergeIncrements`). A day of new payments is kilobytes instead of a whole copy of the books – about 500 MB, some 26,000 credits a day on Aleph, for a year of receipts. Aleph keeps an increment with its full backup's CID as the STORE's `ref`; "Wiederherstellen" lists each full backup with its increments, fetches all of them and refuses a chain with a hole. "Neues Vollbackup" starts a new chain. The bridge's `POST /backup/aleph/pin` takes the `ref` (an older bridge keeps the increment without it: the page says so and the next backup ships everything since again). Where the chain stands lives in the sealed settings, so another own device continues it.
+
 ### Changed
 
 - **The backup card says, in a box of its own, that the backup is encrypted but public.** Before anything goes up: the sealed file lies on publicly reachable IPFS nodes (Aleph distributes the blocks to all its nodes, according to its support – this may change), every backup's CID is in Aleph's public message log with time, size and paying account, nobody can open it without the passkey, and the upside is a restore from any IPFS node that has it. Who does not want that waits for the backup on Filecoin Onchain Cloud (#459). docs/backup says how to list the nodes that hold a backup.

@@ -37,6 +37,8 @@ _Integrationen → Backup → "Jetzt sichern"_.
 
 The backup never passes through the bridge. The page shows the backup's CID; keep it somewhere.
 
+**Full backups and increments.** The first backup is a full one: everything this browser keeps. After it, "Jetzt sichern" uploads only what is new since the last backup of the chain – an increment: the new log entries (with each changed database's manifest and its writers' identities) and the receipt files the chain has not got yet, sealed the same way. Aleph keeps it with a STORE whose `ref` is the full backup's CID, so a restore finds the chain without downloading anything. "Neues Vollbackup" starts a new chain; so does the next backup when Aleph does not keep the full one. Settings alone – every backup writes its own history there – make no increment; they go with the next one. Where the chain stands (the full backup, the last increment, the heads shipped, the receipt files shipped) is kept in the sealed settings, so another own device continues it.
+
 **What it costs.** Every backup is a whole copy, kept – and paid for every day – until it is forgotten. Above "Jetzt sichern" the page shows what the backups Aleph keeps cost a day together, and how long the credits last. When a new backup would leave less than 30 days of credits, the page asks before it uploads. The rate is an estimate (about 54 credits per MiB and day, as Aleph asked on 2026-10-03); Aleph sets the price.
 
 **Whether Aleph kept it.** Aleph answers a STORE with `pending` first and decides later. "Erneut prüfen" asks Aleph about every backup in the list again, by its request (the STORE's item hash, shown with a link). If Aleph does not know a request, or refused it, the row says so, and "Aleph erneut beauftragen" sends a new STORE for the same file – nothing is uploaded again.
@@ -52,6 +54,8 @@ The backup never passes through the bridge. The page shows the backup's CID; kee
 This browser's key is made here and kept sealed in the settings, as the bridge token is. It goes with the books to your own devices and into every backup. A stolen key could only have Aleph keep files on that one channel at the account's expense. It opens no backup, since those are sealed with the passkey's key, and it moves no funds. `pnpm setup:aleph -- --revoke <address>` takes the grant back.
 
 ## Restore
+
+A full backup comes back together with all its increments: the card lists each full backup with how many there are (Aleph's `refs=`, and the history here), fetches them all, and refuses a chain with a hole – its newer heads would point at entries nobody has. An increment alone is not restored; its full backup is.
 
 _Integrationen → Backup → "Wiederherstellen"_, after unlocking with **the same passkey**. On a new device that means "Mit vorhandenem Passkey wiederherstellen".
 

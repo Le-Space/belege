@@ -209,9 +209,20 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 	await card.getByTestId('backup-check').click();
 	await expect(card.getByTestId('backup-granted')).toBeVisible();
 
-	// From now on the browser signs, for the bridge's account; the bridge only watches.
+	// From now on the browser signs, for the bridge's account; the bridge only
+	// watches. Something new first: after the full backup, only that goes up,
+	// as an increment naming the full backup (#454).
+	await page.evaluate(async () => {
+		await /** @type {any} */ (window).__belegeE2E.addTransaction({
+			bookedOn: new Date().toISOString().slice(0, 10),
+			counterparty: 'Zweite Probe',
+			purpose: 'Backup-Probe',
+			amountCents: -99
+		});
+	});
 	await card.getByTestId('backup-now').click();
 	await expect(card.getByTestId('backup-row')).toHaveCount(2, { timeout: 30_000 });
+	await expect(card.getByTestId('backup-made')).toContainText('Zuwachs 1 gesichert');
 	await expect(card.getByTestId('backup-made')).toContainText('von Aleph aufbewahrt');
 	const own = aleph.stores.at(-1);
 	expect(own).toMatchObject({
@@ -219,7 +230,8 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 		owner: alephAccountOf(KEY),
 		channel: 'BELEGE-BACKUP',
 		payment: 'credit',
-		status: 'processed'
+		status: 'processed',
+		ref: cid
 	});
 	// Twice by the bridge: the backup, and keeping it again; none since the grant.
 	expect(bridgeOut.match(/backup: kept on Aleph/g)).toHaveLength(2);

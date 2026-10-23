@@ -970,6 +970,12 @@ export default {
 		fetching: 'Fetching the backup from Aleph …',
 		opening: 'Opening the backup …',
 		database: 'Database {index} of {total}: {name} …',
+		increments: '+ {count} increments',
+		fetchingIncrements: 'Fetching increments: {done} of {total} …',
+		doneIncrements: 'With {count} increments to the full backup.',
+		isIncrement:
+			'This is an increment, not a full backup: restore the full backup it builds on – its increments come along.',
+		gap: 'Increments of this full backup are missing ({missing}). Without them it cannot be brought back completely; nothing was changed.',
 		done: 'Restored. The page reloads – unlock with the passkey.',
 		wrongPasskey:
 			'This backup cannot be opened with this passkey: it was made with another one. A backup opens only with the passkey it was made with.',
@@ -1115,6 +1121,19 @@ export default {
 		rekeep: 'Ask Aleph again',
 		order: 'Request at Aleph:',
 		days: { about: 'about {days} days', overYear: 'more than a year' },
+		full: 'New full backup',
+		chainFirst:
+			'The first backup is a full one: everything this browser keeps. After it, "Jetzt sichern" backs up only what is new since.',
+		chainNext:
+			'"Jetzt sichern" backs up only what is new since the last backup – increment {sequence} to the full backup of {date}. A restore needs the full backup and all its increments; Aleph keeps each until it is forgotten.',
+		chainElsewhere: 'another device',
+		nothingNew: 'Nothing new since the last backup.',
+		madeIncrement:
+			'Increment {sequence} backed up: {size}, {entries} new entries, {files} new receipt files – {kept}.',
+		kindFull: 'Full backup',
+		kindIncrement: 'Increment {sequence}',
+		oldBridge:
+			'The bridge kept the increment on Aleph without naming its full backup – it is older than this page. Update the bridge (git pull, pnpm install, restart); the next backup ships everything since the last one again.',
 		now: 'Back up now',
 		step: {
 			packing: 'Packing and sealing …',

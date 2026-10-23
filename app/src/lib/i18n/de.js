@@ -992,6 +992,12 @@ export default {
 		fetching: 'Backup wird von Aleph geholt …',
 		opening: 'Backup wird geöffnet …',
 		database: 'Datenbank {index} von {total}: {name} …',
+		increments: '+ {count} Zuwächse',
+		fetchingIncrements: 'Zuwächse werden geladen: {done} von {total} …',
+		doneIncrements: 'Mit {count} Zuwächsen zum Vollbackup.',
+		isIncrement:
+			'Das ist ein Zuwachs, kein Vollbackup: Stell das Vollbackup wieder her, auf dem er aufbaut – seine Zuwächse kommen mit.',
+		gap: 'Zu diesem Vollbackup fehlen Zuwächse ({missing}). Ohne sie lässt es sich nicht vollständig zurückholen; nichts wurde geändert.',
 		done: 'Wiederhergestellt. Die Seite lädt neu – entsperre mit dem Passkey.',
 		wrongPasskey:
 			'Dieses Backup lässt sich mit diesem Passkey nicht öffnen: Es wurde mit einem anderen gemacht. Ein Backup öffnet nur der Passkey, mit dem es gemacht wurde.',
@@ -1139,6 +1145,19 @@ export default {
 		rekeep: 'Aleph erneut beauftragen',
 		order: 'Auftrag bei Aleph:',
 		days: { about: 'etwa {days} Tage', overYear: 'länger als ein Jahr' },
+		full: 'Neues Vollbackup',
+		chainFirst:
+			'Das erste Backup ist ein Vollbackup: alles, was dieser Browser hält. Danach sichert „Jetzt sichern“ nur noch, was seitdem neu ist.',
+		chainNext:
+			'„Jetzt sichern“ sichert nur, was seit dem letzten Backup neu ist – Zuwachs {sequence} zum Vollbackup vom {date}. Zum Wiederherstellen braucht es das Vollbackup und alle Zuwächse; Aleph bewahrt jeden auf, bis er vergessen wird.',
+		chainElsewhere: 'einem anderen Gerät',
+		nothingNew: 'Seit dem letzten Backup ist nichts dazugekommen.',
+		madeIncrement:
+			'Zuwachs {sequence} gesichert: {size}, {entries} neue Einträge, {files} neue Belegdateien – {kept}.',
+		kindFull: 'Vollbackup',
+		kindIncrement: 'Zuwachs {sequence}',
+		oldBridge:
+			'Die Bridge hat den Zuwachs ohne Verweis auf sein Vollbackup bei Aleph abgelegt – sie ist älter als diese Seite. Bridge aktualisieren (git pull, pnpm install, neu starten); das nächste Backup sichert alles seit dem letzten noch einmal.',
 		now: 'Jetzt sichern',
 		step: {
 			packing: 'Wird gepackt und versiegelt …',

@@ -27,6 +27,7 @@ const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
 const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
 const KEY = createHash('sha256').update('belege e2e restore key').digest('hex');
 const MARKER = 'Wiederherstellungsprobe-Ahornweg';
+const LATER = 'Zuwachsprobe-Birkenweg';
 
 /** @type {Awaited<ReturnType<typeof startFakeAleph>>} */ let aleph;
 /** @type {import('node:child_process').ChildProcess | null} */ let bridge = null;
@@ -127,6 +128,42 @@ test('a browser that lost everything gets its books back from the backup', async
 	await expect(page.getByTestId('backup-made')).toContainText('von Aleph aufbewahrt', {
 		timeout: 30_000
 	});
+	const full = /** @type {any} */ (aleph.stores.at(-1));
+	expect(full.ref).toBeUndefined();
+
+	// After the full backup, only what is new (#454): nothing yet – the backup's
+	// own bookkeeping in the settings does not count – then one payment.
+	const backups = page.getByTestId('backup-card');
+	await expect(backups.getByTestId('backup-chain')).toContainText('Zuwachs 1 zum Vollbackup');
+	await backups.getByTestId('backup-now').click();
+	await expect(backups.getByTestId('backup-nothing-new')).toBeVisible({ timeout: 30_000 });
+	expect(aleph.stores).toHaveLength(1);
+	await page.evaluate(async (marker) => {
+		const e2e = /** @type {any} */ (window).__belegeE2E;
+		await e2e.addTransaction({
+			bookedOn: new Date().toISOString().slice(0, 10),
+			counterparty: marker,
+			purpose: 'Nachtrag',
+			amountCents: -815
+		});
+	}, LATER);
+	await backups.getByTestId('backup-now').click();
+	await expect(page.getByTestId('backup-made')).toContainText('Zuwachs 1 gesichert', {
+		timeout: 30_000
+	});
+	// The payment, and the settings the full backup wrote (its history, the chain).
+	await expect(
+		page
+			.getByTestId('backup-made')
+			.locator('[data-testid="backup-contents-row"][data-collection="transactions"] td')
+	).toHaveText('1');
+	await expect(page.getByTestId('backup-made')).toContainText('3 neue Einträge');
+	await expect(backups.getByTestId('backup-row-kind').first()).toContainText('Zuwachs 1');
+	// Kept on Aleph with its full backup's CID as `ref`, and far smaller.
+	const increment = /** @type {any} */ (aleph.stores.at(-1));
+	expect(increment.ref).toBe(full.cid);
+	expect(aleph.added.get(increment.cid).length).toBeLessThan(aleph.added.get(full.cid).length);
+	await expect(backups.getByTestId('backup-chain')).toContainText('Zuwachs 2 zum Vollbackup');
 
 	// Everything this browser had is gone; the passkey is not.
 	await forgetThisDevice(page);
@@ -144,7 +181,9 @@ test('a browser that lost everything gets its books back from the backup', async
 	await expect(card.getByTestId('restore-none')).toBeVisible();
 	await card.getByTestId('restore-owner').fill(alephAccountOf(KEY).toLowerCase());
 	await card.getByTestId('restore-owner-list').click();
+	// One full backup, its increment with it.
 	await expect(card.getByTestId('restore-row')).toHaveCount(1);
+	await expect(card.getByTestId('restore-row-increments')).toHaveText('· + 1 Zuwächse');
 	await expect(card.getByTestId('restore-owner')).toHaveValue(alephAccountOf(KEY));
 	expect(aleph.calls).toContain('/api/v0/messages.json');
 
@@ -160,10 +199,12 @@ test('a browser that lost everything gets its books back from the backup', async
 		timeout: 30_000
 	});
 	await expect(card.getByTestId('restore-done')).toContainText('Zahlungen');
+	await expect(card.getByTestId('restore-done-increments')).toContainText('Mit 1 Zuwächsen');
 
 	// The page reloads by itself; the passkey opens the books, and the payment is back.
 	await expect(page.getByTestId('passkey-unlock')).toBeVisible({ timeout: 30_000 });
 	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();
 	await expect(page.getByTestId('own-did')).toHaveAttribute('data-did', String(did));
-	await expect.poll(() => transactions(page)).toEqual([MARKER]);
+	// Both payments: the full backup's and the increment's.
+	await expect.poll(async () => (await transactions(page)).sort()).toEqual([LATER, MARKER].sort());
 });

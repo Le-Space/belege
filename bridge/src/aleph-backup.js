@@ -163,15 +163,20 @@ export function createAlephBackup({
 		return k;
 	}
 
-	/** A STORE message for a CID, signed with the key. @param {string} k @param {string} cid */
-	function storeFor(k, cid) {
+	/**
+	 * A STORE message for a CID, signed with the key; with a `ref`, the label an
+	 * increment carries: the CID of the full backup it builds on.
+	 *
+	 * @param {string} k @param {string} cid @param {string} [ref]
+	 */
+	function storeFor(k, cid, ref) {
 		return createAlephPin({
 			sender: addressOf(k),
 			sign: async (_address, message) => personalSign(k, message),
 			apiHost,
 			channel: BACKUP_CHANNEL,
 			fetch: f
-		})(cid);
+		})(cid, ref ? { ref } : {});
 	}
 
 	return {
@@ -222,22 +227,31 @@ export function createAlephBackup({
 
 		/**
 		 * Ask Aleph to keep what the app has already uploaded to its IPFS host.
+		 * An increment names the full backup it builds on as its `ref`, so the
+		 * chain is found by Aleph's `refs=` without downloading anything.
 		 *
 		 * @param {string} cid the id Aleph's IPFS host answered
-		 * @returns {Promise<{ cid: string, address: string, itemHash: string, status: string }>}
+		 * @param {{ ref?: string }} [meta]
+		 * @returns {Promise<{ cid: string, address: string, itemHash: string, status: string, ref?: string }>}
 		 */
-		async pin(cid) {
+		async pin(cid, { ref } = {}) {
 			if (!isAlephCid(cid)) {
 				throw Object.assign(new Error('not a CID'), { status: 400, code: 'ALEPH_BACKUP_CID' });
 			}
+			if (ref !== undefined && !isAlephCid(ref)) {
+				throw Object.assign(new Error('the ref is not a CID'), {
+					status: 400,
+					code: 'ALEPH_BACKUP_REF'
+				});
+			}
 			const k = await key();
 			const address = addressOf(k);
-			const { itemHash, status } = await settleStore(await storeFor(k, cid), {
+			const { itemHash, status } = await settleStore(await storeFor(k, cid, ref), {
 				apiHost,
 				fetch: f,
 				...settle
 			});
-			return { cid, address, itemHash, status };
+			return { cid, address, itemHash, status, ...(ref ? { ref } : {}) };
 		},
 
 		/**

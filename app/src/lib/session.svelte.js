@@ -452,15 +452,27 @@ export async function makeBackup(meta) {
 }
 
 /**
- * Put a sealed backup back into these books (backup/archive.js, #77). The
- * books are closed for it: reload the page afterwards.
+ * What is new since the chain's last backup, sealed (backup/archive.js, #454);
+ * null when nothing is.
+ *
+ * @param {{ chain: import('./backup/archive.js').BackupChain, appVersion: string, onProgress?: (p: import('./backup/archive.js').BackupProgress) => void }} meta
+ */
+export async function makeIncrement(meta) {
+	if (!session) throw new Error('The books are not open.');
+	return session.makeIncrement(meta);
+}
+
+/**
+ * Put a sealed backup back into these books (backup/archive.js, #77), with its
+ * increments (#454). The books are closed for it: reload the page afterwards.
  *
  * @param {Uint8Array} sealed
  * @param {(p: import('./backup/archive.js').RestoreProgress) => void} [onProgress]
+ * @param {{ increments: Uint8Array[], base: string }} [chain]
  */
-export async function restoreBackup(sealed, onProgress) {
+export async function restoreBackup(sealed, onProgress, chain) {
 	if (!session) throw new Error('The books are not open.');
-	return session.restoreBackup(sealed, onProgress);
+	return session.restoreBackup(sealed, onProgress, chain);
 }
 
 /** @type {Promise<void> | null} the refresh running now */

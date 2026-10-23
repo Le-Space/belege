@@ -606,13 +606,19 @@ export function createBridgeClient({
 		backupStatus: () => call('/backup/status'),
 		/**
 		 * Have Aleph keep a backup the app uploaded to its IPFS host: the bridge
-		 * signs the STORE message with its backup key.
+		 * signs the STORE message with its backup key. An increment names the
+		 * full backup it builds on (`ref`); an older bridge drops it and
+		 * answers without `ref`.
 		 *
 		 * @param {string} cid
-		 * @returns {Promise<{ cid: string, address: string, itemHash: string, status: string }>}
+		 * @param {string} [ref]
+		 * @returns {Promise<{ cid: string, address: string, itemHash: string, status: string, ref?: string }>}
 		 */
-		alephKeep: (cid) =>
-			call('/backup/aleph/pin', { method: 'POST', body: JSON.stringify({ cid }) }),
+		alephKeep: (cid, ref) =>
+			call('/backup/aleph/pin', {
+				method: 'POST',
+				body: JSON.stringify(ref ? { cid, ref } : { cid })
+			}),
 		/**
 		 * "Mit KI weitersuchen": the LLM suggests search words and sender domains
 		 * from the booking (redacted by the bridge), the bridge searches, and the

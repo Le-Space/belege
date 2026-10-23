@@ -10,6 +10,10 @@
 	// bridge or this browser's key sent the STORE; the history here adds those
 	// made from this browser, and a CID can be typed. The account's address
 	// comes from the settings, from the paired bridge, or is typed: it is public.
+	//
+	// Increments (#454): a full backup is listed with the increments that build
+	// on it – Aleph lists them by their `ref`, the full backup's CID, and the
+	// history knows those made here – and goes back together with all of them.
 	import { createBridgeClient } from '$lib/bridge/client.js';
 	import { app, currentStore, restoreBackup } from '$lib/session.svelte.js';
 	import { intlLocale, t } from '$lib/i18n/index.js';
@@ -20,8 +24,12 @@
 	let { url, token } = $props();
 	const client = $derived(createBridgeClient({ url, token }));
 
-	/** @type {{ cid: string, at: string }[]} */
+	/** @type {{ cid: string, at: string, increments: string[] }[]} full backups, each with its increments */
 	let found = $state([]);
+	/** Increments fetched so far, while fetching them. */
+	let fetched = $state(/** @type {{ done: number, total: number } | null} */ (null));
+	/** How many increments the last restore put back with the full backup. */
+	let restoredIncrements = $state(0);
 	/** @type {import('./keeper.js').AlephEndpoints} */
 	let endpoints = $state(alephEndpoints());
 	/** @type {string | null} the account that pays, whose backups Aleph lists */
@@ -76,15 +84,28 @@
 	}
 
 	async function list() {
-		/** @type {Record<string, string>} CID → when, the history's first */
+		/** @type {Record<string, string>} full backups: CID → when, the history's first */
 		const byCid = {};
+		/** @type {Record<string, string[]>} full backup's CID → its increments */
+		const chains = {};
+		/** @param {string} base @param {string} cid */
+		const link = (base, cid) => {
+			const list = (chains[base] ??= []);
+			if (!list.includes(cid)) list.push(cid);
+		};
 		const store = currentStore();
-		if (store) for (const b of await loadBackups(store.settings)) byCid[b.cid] ??= b.at;
+		if (store) {
+			for (const b of await loadBackups(store.settings)) {
+				if (b.kind === 'increment' && b.base) link(b.base, b.cid);
+				else byCid[b.cid] ??= b.at;
+			}
+		}
 		unlisted = false;
 		if (owner) {
 			try {
 				for (const b of await findBackups({ owner, endpoints })) {
-					byCid[b.cid] ??= new Date(b.time * 1000).toISOString();
+					if (b.ref) link(b.ref, b.cid);
+					else byCid[b.cid] ??= new Date(b.time * 1000).toISOString();
 				}
 			} catch {
 				// No list from Aleph: the history and a typed CID still work.
@@ -92,8 +113,30 @@
 			}
 		}
 		found = Object.entries(byCid)
-			.map(([cid, at]) => ({ cid, at }))
+			.map(([cid, at]) => ({ cid, at, increments: chains[cid] ?? [] }))
 			.sort((a, b) => (a.at < b.at ? 1 : -1));
+	}
+
+	/**
+	 * The increments of a full backup, asked for again right before the
+	 * restore: those listed, those Aleph lists by its CID now, those made here.
+	 *
+	 * @param {string} base
+	 */
+	async function incrementsOf(base) {
+		const cids = [...(found.find((f) => f.cid === base)?.increments ?? [])];
+		const store = currentStore();
+		if (store) {
+			for (const b of await loadBackups(store.settings)) {
+				if (b.kind === 'increment' && b.base === base) cids.push(b.cid);
+			}
+		}
+		if (owner) {
+			for (const b of await findBackups({ owner, ref: base, endpoints }).catch(() => [])) {
+				cids.push(b.cid);
+			}
+		}
+		return cids.filter((cid, i) => cids.indexOf(cid) === i);
 	}
 
 	async function setOwner() {
@@ -129,10 +172,24 @@
 			const { createAlephBackend } = await import(
 				'@le-space/orbitdb-storage-bridge/backends/aleph'
 			);
-			const sealed = await createAlephBackend({ gateways: endpoints.gateways }).getBlob(cid);
+			const gateway = createAlephBackend({ gateways: endpoints.gateways });
+			const sealed = await gateway.getBlob(cid);
+			const wanted = await incrementsOf(cid);
+			/** @type {Uint8Array[]} */
+			const increments = [];
+			fetched = wanted.length ? { done: 0, total: wanted.length } : null;
+			for (const inc of wanted) {
+				increments.push(await gateway.getBlob(inc));
+				fetched = { done: increments.length, total: wanted.length };
+			}
 			phase = 'restoring';
-			const done = await restoreBackup(sealed, (p) => (progress = p));
+			const done = await restoreBackup(
+				sealed,
+				(p) => (progress = p),
+				increments.length ? { increments, base: cid } : undefined
+			);
 			result = done.databases;
+			restoredIncrements = done.increments ?? 0;
 			phase = 'done';
 			// The books were closed for the restore: open them again, with what came back.
 			setTimeout(() => location.reload(), 2500);
@@ -140,14 +197,21 @@
 			phase = '';
 			// Failed after the books were closed for it: they open again only on a reload.
 			if (/** @type {any} */ (e)?.booksClosed) setTimeout(() => location.reload(), 4000);
+			const name = e instanceof Error ? e.name : '';
+			/** @type {number[]} increments a chain lacks (ChainGapError) */
+			const missing = e instanceof Error && 'missing' in e ? /** @type {any} */ (e).missing : [];
 			error =
-				e instanceof Error && e.name === 'WrongPasskeyError'
+				name === 'WrongPasskeyError'
 					? t('restore.wrongPasskey')
-					: e instanceof Error && e.name === 'BackendError'
-						? t('restore.notFetched')
-						: e instanceof Error
-							? e.message
-							: String(e);
+					: name === 'IncrementWithoutBaseError'
+						? t('restore.isIncrement')
+						: name === 'ChainGapError'
+							? t('restore.gap', { missing: missing.join(', ') })
+							: e instanceof Error && e.name === 'BackendError'
+								? t('restore.notFetched')
+								: e instanceof Error
+									? e.message
+									: String(e);
 		}
 	}
 
@@ -161,7 +225,9 @@
 	const busy = $derived(Boolean(phase) || app.network.paused);
 	const stepText = $derived(
 		phase === 'fetching'
-			? t('restore.fetching')
+			? fetched
+				? t('restore.fetchingIncrements', fetched)
+				: t('restore.fetching')
 			: phase === 'restoring'
 				? progress?.stage === 'database'
 					? t('restore.database', {
@@ -217,6 +283,11 @@
 				>
 					<span class="min-w-0">
 						<span class="text-heading">{when(b.at)}</span>
+						{#if b.increments.length}
+							<span class="text-xs text-faint" data-testid="restore-row-increments"
+								>· {t('restore.increments', { count: b.increments.length })}</span
+							>
+						{/if}
 						<span class="block font-mono text-xs break-all text-faint">{b.cid}</span>
 					</span>
 					<button
@@ -286,6 +357,11 @@
 	{#if phase === 'done'}
 		<div class="mt-3 text-sm" role="status" data-testid="restore-done">
 			<p class="text-heading">{t('restore.done')}</p>
+			{#if restoredIncrements}
+				<p class="text-xs text-faint" data-testid="restore-done-increments">
+					{t('restore.doneIncrements', { count: restoredIncrements })}
+				</p>
+			{/if}
 			<ul class="mt-1 text-xs text-faint">
 				{#each result.filter((d) => d.joined > 0) as d (d.collection)}
 					<li>{t(`storage.databases.${d.collection}`)}</li>
