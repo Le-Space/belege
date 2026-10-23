@@ -7,11 +7,11 @@
 	},
 	"scenario": "recovery",
 	"size": 1000,
-	"writeMs": 7026,
+	"writeMs": 8136,
 	"storageMB": 10.7,
-	"backupMs": 626,
-	"restoreMs": 56710,
-	"unlockMs": 12969,
-	"recoveredMs": 8,
+	"backupMs": 641,
+	"restoreMs": 8468,
+	"unlockMs": 850,
+	"recoveredMs": 6,
 	"lost": 0
 }
