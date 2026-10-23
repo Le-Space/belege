@@ -24,6 +24,14 @@ export default {
 			both: 'Online: devices + invoice app',
 			only: { devices: 'Online: own devices', 'invoice-app': 'Online: invoice app' },
 			title: 'Network on – via a Le-Space relay (TLS WebSocket), end-to-end encrypted:',
+			proof: {
+				self: 'This device: {peerId}',
+				relay: '  reachable at the relay: {addr}',
+				device: '{label}: {peerId}',
+				direct: '  direct: {addr} – {rtt} ms',
+				relayed: '  through the relay: {addr} – {rtt} ms',
+				pulse: 'Last ping answer: {label}, {rtt} ms, at {time}'
+			},
 			part: {
 				devices: {
 					connecting: '• Own devices: connecting …',
