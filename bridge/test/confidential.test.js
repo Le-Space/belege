@@ -127,6 +127,10 @@ test('the extractor reads a receipt through the enclave, and stops the run when 
 	);
 	assert.equal(fake.requests[0].url, `${ENCLAVE}/chat/completions`);
 	assert.equal(fake.requests[0].init.headers.Authorization, 'Bearer lt-made-up-key');
+	// Without the model's "thinking": six times faster, as right (#416).
+	assert.deepEqual(JSON.parse(fake.requests[0].init.body).chat_template_kwargs, {
+		enable_thinking: false
+	});
 
 	const broken = createExtractor({
 		config: {
@@ -151,5 +155,35 @@ test('the extractor reads a receipt through the enclave, and stops the run when 
 			assert.match(`${e.message} ${JSON.stringify(e)}`, /LLM_ATTESTATION_FAILED/);
 			return true;
 		}
+	);
+});
+
+test('without a TEE the request is as before: no thinking switch for other providers', async () => {
+	/** @type {any[]} */ const bodies = [];
+	const extractor = createExtractor({
+		config: {
+			baseUrl: 'https://api.deepseek.example',
+			model: 'deepseek-flash',
+			retryModel: 'deepseek-flash',
+			redactTerms: [],
+			redaction: 'on',
+			configured: true,
+			tee: null
+		},
+		getKey: async () => 'sk-made-up',
+		fetch: /** @type {any} */ (
+			async (/** @type {string} */ _url, /** @type {any} */ init) => {
+				bodies.push(JSON.parse(init.body));
+				return new Response('{}', { status: 500 });
+			}
+		)
+	});
+	await extractor
+		.extract({ text: 'Beispiel Baumarkt, Summe 23,80 EUR, 21.10.2026' })
+		.catch(() => null);
+	assert.ok(bodies.length > 0);
+	assert.equal(
+		bodies.some((b) => 'chat_template_kwargs' in b),
+		false
 	);
 });

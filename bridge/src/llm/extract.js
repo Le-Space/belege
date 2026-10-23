@@ -386,7 +386,12 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 					messages: [
 						{ role: 'system', content: system },
 						{ role: 'user', content }
-					]
+					],
+					// LibertAI's enclave serves qwen3.8-27b-tee with its "thinking" on: measured
+					// 2026-10-23 on six made-up receipts, 38 s and up to 6000 tokens a receipt
+					// (two not read), against 5.8 s and ~370 tokens with it off, all six right
+					// (#416). Its gateway answers without it already.
+					...(config.tee ? { chat_template_kwargs: { enable_thinking: false } } : {})
 				}),
 				signal: AbortSignal.timeout(timeoutMs)
 			});
