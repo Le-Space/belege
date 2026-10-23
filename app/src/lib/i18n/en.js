@@ -1063,7 +1063,18 @@ export default {
 	},
 	backup: {
 		title: 'Backup',
-		what: "Everything Le Space Belege keeps in this browser – the books and every receipt file – as one file, sealed with a key from your passkey. It lies on Aleph's IPFS: whoever knows its identifier (CID) can download it, but not open it – only you can, with the same passkey. Aleph keeps it while the account has credits; on how many nodes, Aleph does not say.",
+		what: "Everything Le Space Belege keeps in this browser – the books and every receipt file – as one file, sealed with a key from your passkey. It lies on Aleph's IPFS: whoever knows its identifier (CID) can download it, but not open it – only you can, with the same passkey. Aleph keeps it while the account has credits.",
+		public: {
+			title: 'Encrypted, but publicly reachable',
+			ipfs: "The backup lies on publicly reachable IPFS nodes. According to Aleph's support, Aleph distributes the blocks to all its nodes – this may change. Each of these nodes hands the file to anyone who names its CID.",
+			cids: "Every backup's CID is in Aleph's public message log, with the time, the size and the paying account. Anyone recording it sees when and how much you back up.",
+			sealed:
+				'Nobody sees what is in it: the file is sealed with a key from your passkey before it leaves this browser.',
+			upside: 'The upside: it can be brought back from any IPFS node that has it.',
+			alternative:
+				'If you do not want your receipts on public IPFS, even encrypted, wait for the backup on Filecoin Onchain Cloud:',
+			alternativeLink: 'being planned'
+		},
 		notSetUp: 'The bridge has no backup key yet. In the terminal, in Belege’s folder:',
 		noOwner:
 			'No Aleph account that pays yet: pair the bridge after running pnpm setup:aleph there once, or enter the account’s address.',

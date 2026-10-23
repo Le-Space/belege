@@ -96,6 +96,14 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 
 	await openIntegration(page, 'backup');
 	const card = page.getByTestId('backup-card');
+	// Before anything goes up: public, but sealed – and where to wait for the other way.
+	const notice = card.getByTestId('backup-public');
+	await expect(notice).toContainText('Verschlüsselt, aber öffentlich erreichbar');
+	await expect(notice).toContainText('öffentlichem Nachrichtenverlauf');
+	await expect(notice.getByTestId('backup-public-alternative')).toHaveAttribute(
+		'href',
+		'https://github.com/Le-Space/belege/issues/459'
+	);
 	// The account that pays is the bridge's; this browser has a key of its own,
 	// not allowed yet, so the bridge signs and the page shows the command.
 	await expect(card.getByTestId('backup-address')).toContainText(alephAccountOf(KEY));
