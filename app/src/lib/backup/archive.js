@@ -448,8 +448,9 @@ export class WrongPasskeyError extends Error {
  *   each set of databases: its addresses by collection, and what `orbitdb.open` needs for it
  * @param {(progress: RestoreProgress) => void} [params.onProgress]
  * @param {() => Promise<void>} [params.beforeRestore] runs once the backup opened
- *   with this key and fits these books, right before anything is written – where
- *   the caller closes its databases, so a backup that does not fit leaves them open
+ *   with this key, fits these books and is wholly in the blockstore – where the
+ *   caller closes its databases. A backup that does not fit, or that the browser
+ *   has no room for, throws before this and leaves them open
  * @returns {Promise<{ manifest: BackupManifest, target: string, increments: number, databases: { collection: string, joined: number, entries: number | null }[] }>}
  */
 export async function restoreBackup({
@@ -507,12 +508,16 @@ export async function restoreBackup({
 		Object.entries(addresses).map(([collection, address]) => [String(address), collection])
 	);
 	const { restoreFromBlocks } = await import('@le-space/orbitdb-storage-bridge/restore-cid');
-	await beforeRestore?.();
 	// The package only warns when a head cannot be joined; here that is a failed restore.
 	/** @type {string[]} */
 	const warnings = [];
 	const restored = await restoreFromBlocks(orbitdb, blocks, metadata, {
 		open,
+		// Closing the books is the package's call, not ours: it writes the blocks
+		// first, and a browser whose storage is spent refuses them. Closed before
+		// that, the books would be shut for a restore that never starts – which is
+		// how an out-of-space device ends up on its lock screen with nothing in it.
+		beforeJoin: beforeRestore,
 		log: { info() {}, debug() {}, warn: (/** @type {string} */ m) => warnings.push(String(m)) },
 		onProgress: (p) =>
 			onProgress?.({

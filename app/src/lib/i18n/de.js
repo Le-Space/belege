@@ -1024,7 +1024,9 @@ export default {
 		done: 'Wiederhergestellt. Die Seite lädt neu – entsperre mit dem Passkey.',
 		wrongPasskey:
 			'Dieses Backup lässt sich mit diesem Passkey nicht öffnen: Es wurde mit einem anderen gemacht. Ein Backup öffnet nur der Passkey, mit dem es gemacht wurde.',
-		notFetched: 'Alephs Gateway hat das Backup nicht zurückgegeben. Versuch es gleich noch einmal.'
+		notFetched: 'Alephs Gateway hat das Backup nicht zurückgegeben. Versuch es gleich noch einmal.',
+		noSpace:
+			'Dieser Browser hat keinen Platz mehr für das Backup. Deine Bücher sind unberührt. Schaff Platz auf dem Gerät oder entferne Daten anderer Seiten und versuch es noch einmal.'
 	},
 	social: {
 		title: 'Le Space Belege – Zahlungen und Belege, lokal im Browser',
