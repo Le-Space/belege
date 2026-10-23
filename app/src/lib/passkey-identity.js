@@ -16,6 +16,7 @@
 // The passkey is bound to the page origin (rpId). A credential created on
 // localhost cannot be used on the deployed app or an IPFS gateway.
 import { withRestoredSigningKey } from './restored-signing-key.js';
+import { SIGNING_KEY_TYPE } from './session-identities.js';
 import {
 	WebAuthnDIDProvider,
 	storeWebAuthnCredential,
@@ -105,7 +106,10 @@ export function loadStoredPasskeyCredential() {
 export async function restorePasskeyCredential({ onTouch } = {}) {
 	let restored;
 	try {
-		restored = await restoreIdentityFromAuthenticator({ onTouch });
+		restored = await restoreIdentityFromAuthenticator({
+			onTouch,
+			signingKeyType: SIGNING_KEY_TYPE
+		});
 	} catch (error) {
 		if (/** @type {any} */ (error)?.name === 'PrfUnavailableError') throw new PrfUnavailableError();
 		console.warn('the authenticator could not answer for an identity:', error);

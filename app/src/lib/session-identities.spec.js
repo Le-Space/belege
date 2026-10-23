@@ -5,9 +5,17 @@ import * as dagCbor from '@ipld/dag-cbor';
 import { deriveSigningKeyBytes } from '@le-space/orbitdb-identity-provider-webauthn-did';
 import { isSessionKeystore } from '@le-space/orbitdb-identity-provider-webauthn-did/keystore';
 
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { createOrbitDB, useIdentityProvider } from '@orbitdb/core';
+import { generateKeyPair } from '@libp2p/crypto/keys';
+
 import { createOfflineLibp2p } from './network.js';
 import {
 	LEGACY_KEYSTORE_DATABASE,
+	SIGNING_KEY_TYPE,
 	createSessionIdentities,
 	forgetLegacyKeystore,
 	withoutStaleIdentityCache
@@ -33,33 +41,112 @@ afterAll(async () => {
 
 describe('createSessionIdentities', () => {
 	it('keeps the signing key in a keystore that lives in memory only', async () => {
-		const signingKey = await deriveSigningKeyBytes(prfOutput, did);
+		const signingKey = await deriveSigningKeyBytes(prfOutput, did, SIGNING_KEY_TYPE);
 		const identities = await createSessionIdentities(await helia(), { did, signingKey });
 
 		expect(isSessionKeystore(identities.keystore)).toBe(true);
 		const key = await identities.keystore.getKey(did);
 		expect(key?.raw).toEqual(signingKey);
+		// The length is what libp2p reads the curve from, and the curve is what
+		// every join verifies against.
+		expect(signingKey.length).toBe(64);
+		expect(key?.type).toBe('Ed25519');
 	});
 
 	it('forgets the key between sessions, and a session derives the same one again', async () => {
-		const signingKey = await deriveSigningKeyBytes(prfOutput, did);
+		const signingKey = await deriveSigningKeyBytes(prfOutput, did, SIGNING_KEY_TYPE);
 		const one = await createSessionIdentities(await helia(), { did, signingKey });
 		const other = await createSessionIdentities(await helia(), { did: `${did}2`, signingKey });
 
 		// Nothing is shared: each session has only what it was given.
 		expect(await other.keystore.getKey(did)).toBeFalsy();
-		expect(await deriveSigningKeyBytes(prfOutput, did)).toEqual(signingKey);
+		expect(await deriveSigningKeyBytes(prfOutput, did, SIGNING_KEY_TYPE)).toEqual(signingKey);
 		expect((await one.keystore.getKey(did))?.raw).toEqual(signingKey);
 	});
 
 	it('refuses a missing DID or a key of the wrong size', async () => {
 		const node = await helia();
 		await expect(
-			createSessionIdentities(node, { did: '', signingKey: new Uint8Array(32) })
+			createSessionIdentities(node, { did: '', signingKey: new Uint8Array(64) })
 		).rejects.toThrow(/DID/);
 		await expect(
 			createSessionIdentities(node, { did, signingKey: new Uint8Array(16) })
-		).rejects.toThrow(/32-byte/);
+		).rejects.toThrow(/64-byte/);
+		// A secp256k1 key is the right shape for the old scheme and the wrong one
+		// now: 32 bytes would make libp2p read the curve as secp256k1 again.
+		await expect(
+			createSessionIdentities(node, { did, signingKey: new Uint8Array(32) })
+		).rejects.toThrow(/64-byte/);
+	});
+});
+
+describe('the key type and books that already exist', () => {
+	/**
+	 * A provider shaped like the WebAuthn one: the identity's *id* is the DID,
+	 * so the key the keystore holds under that id is what signs entries — and
+	 * the curve can change under a DID that stays. The default `publickey`
+	 * provider derives the id from the key instead, where this question cannot
+	 * even be asked.
+	 */
+	function didProvider(/** @type {string} */ forDid) {
+		const provider = () => {
+			const instance = async () => instance;
+			instance.type = 'spec-did';
+			instance.getId = async () => forDid;
+			instance.signIdentity = async (/** @type {any} */ data) => `spec:${forDid}:${data}`;
+			return instance;
+		};
+		provider.type = 'spec-did';
+		provider.verifyIdentity = async () => true;
+		return provider;
+	}
+
+	it('keeps books written with the old secp256k1 key readable and writable', async () => {
+		const migrationDid = 'did:key:zSigningKeyMigration';
+		useIdentityProvider(didProvider(migrationDid));
+		const ipfs = await helia();
+		// Outside the repository, as the backup spec does: OrbitDB writes LevelDB
+		// files and nothing of it belongs in a commit.
+		const directory = await mkdtemp(join(tmpdir(), 'belege-identity-spec-'));
+
+		/** An OrbitDB for this DID whose entries are signed with `type`. */
+		async function nodeFor(/** @type {'secp256k1' | 'Ed25519'} */ type) {
+			const key = await generateKeyPair(type);
+			const identities = await createSessionIdentitiesForSpec(ipfs, migrationDid, key.raw);
+			const identity = await identities.createIdentity({
+				id: migrationDid,
+				provider: didProvider(migrationDid)()
+			});
+			const orbitdb = await createOrbitDB({
+				ipfs,
+				// @ts-expect-error `identities` is a documented option the bundled types omit
+				identities,
+				identity,
+				directory
+			});
+			return { orbitdb, identity };
+		}
+
+		const before = await nodeFor('secp256k1');
+		const books = await before.orbitdb.open('migration-books', { type: 'documents' });
+		for (const n of [1, 2, 3]) await books.put({ _id: `b${n}`, amount: n * 100 });
+		const address = String(books.address);
+		await books.close();
+		await before.orbitdb.stop();
+
+		const after = await nodeFor('Ed25519');
+		// The DID is the passkey's, not the signing key's: it does not move, and
+		// the access controller writes it into the manifest.
+		expect(after.identity.id).toBe(before.identity.id);
+		expect(after.identity.publicKey).not.toBe(before.identity.publicKey);
+
+		const reopened = await after.orbitdb.open(address, { type: 'documents' });
+		expect((await reopened.all()).length).toBe(3);
+		await reopened.put({ _id: 'b4', amount: 400 });
+		expect((await reopened.all()).length).toBe(4);
+		await reopened.close();
+		await after.orbitdb.stop();
+		await rm(directory, { recursive: true, force: true });
 	});
 });
 
@@ -152,3 +239,17 @@ describe('withoutStaleIdentityCache (orbitdb/orbitdb#1258)', () => {
 		).toBe(false);
 	});
 });
+
+/** `createSessionIdentities` with a key the caller chose, for the migration test. */
+async function createSessionIdentitiesForSpec(
+	/** @type {any} */ ipfs,
+	/** @type {string} */ forDid,
+	/** @type {Uint8Array} */ raw
+) {
+	const identities = await createSessionIdentities(ipfs, {
+		did: forDid,
+		signingKey: raw.length === 64 ? raw : new Uint8Array(64)
+	});
+	if (raw.length !== 64) await identities.keystore.addKey(forDid, { privateKey: raw });
+	return identities;
+}

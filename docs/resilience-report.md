@@ -81,14 +81,37 @@ Convergence after the reconnect is immediate; what costs is the reconnect itself
 
 One browser, the bridge in test mode, the fake Aleph. Books of _n_ bookings, "Jetzt sichern" (the storage bridge seals the database and stores it), then `localStorage`, `sessionStorage` and every IndexedDB are deleted and the bridge is stopped. The same passkey opens empty books; the account's address alone lists the backup; "Wiederherstellen" fetches it, puts the blocks back and joins the heads; the page reloads, the passkey unlocks.
 
+Measured again on **23 October 2026**, same machine, with the storage bridge at 0.23.0 and entries signed with Ed25519; Docker (five Paperless containers) and Jameica were stopped for these runs, and the 500 row is the span of three runs. The October 13 numbers, with bridge 0.17.0, are in brackets.
+
 | books (bookings) | IndexedDB | backup (click → "von Aleph aufbewahrt") | restore (click → "Wiederhergestellt") | unlock after reload | every booking back |
 | ---------------- | --------- | --------------------------------------- | ------------------------------------- | ------------------- | ------------------ |
-| 50               | 8.0 MB    | 0.3 s                                   | 1.4 s                                 | 0.4 s               | yes, 0 lost        |
-| 500              | 9.2 MB    | 0.5 s                                   | 40 s                                  | 4.9 s               | yes, 0 lost        |
-| 1 000            | 10.5 MB   | 0.7 s                                   | 126 s                                 | 13.0 s              | yes, 0 lost        |
-| 2 000            | —         | (not reached)                           | **did not finish in 10 min**          | —                   | —                  |
+| 50               | 8.2 MB    | 0.4 s                                   | 1.4 s _(1.4 s)_                       | 0.3 s               | yes, 0 lost        |
+| 500              | 9.4 MB    | 0.4 s                                   | **18–19 s** _(40 s)_                  | 4.4 s               | yes, 0 lost        |
+| 1 000            | 10.7 MB   | 0.6 s                                   | **57 s** _(126 s)_                    | 13.0 s              | yes, 0 lost        |
+| 2 000            | —         | (not reached)                           | **still did not finish in 10 min**    | —                   | —                  |
 
-The backup is cheap and flat. The restore is not: 1.4 s at 50, 40 s at 500, 126 s at 1 000 — roughly three times the time for twice the books — and 2 000 did not finish within the benchmark's ten-minute limit. The unlock after the restore grows with it (0.4 s, 4.9 s, 13 s): the first walk of every log, as [performance.md](performance.md) describes. The cost is in `restoreFromBlocks` of the storage bridge (0.17.0): for every database it walks every block of the backup once more and joins the heads into the sealed log one by one, each join reading back through entries it just wrote. Nothing is lost — the 500-booking restore brought every booking back — but at today's growth a company's third year would wait minutes. This is the next thing to fix, tracked as [orbitdb-storage-bridge#152](https://github.com/NiKrause/orbitdb-storage-bridge/issues/152).
+The backup is cheap and flat. The restore is **twice as fast as it was**, and still grows faster than the books do.
+
+What was found and fixed: `restoreFromBlocks` put every block of the backup into the log storage of *every* database in it — and that storage reads through to the same blockstore the function has already filled. With nine databases, 2 000 entries meant 18 099 writes where 2 011 blocks exist, each of them an IndexedDB transaction here. It now gives each block to the database its entry names, and `joinIncrements` does the same for a merged chain ([orbitdb-storage-bridge#152](https://github.com/NiKrause/orbitdb-storage-bridge/issues/152), fixed in [#168](https://github.com/NiKrause/orbitdb-storage-bridge/pull/168) and [#170](https://github.com/NiKrause/orbitdb-storage-bridge/pull/170), released in 0.23.0). Measured here: 40 s → 18 s at 500 bookings, 126 s → 57 s at 1 000.
+
+What is left is **not** the signature work, and not this library's arithmetic. In Node, where storage costs almost nothing, the same restore of 2 000 entries is linear and takes 11.8 s. In this browser a CPU profile of the 500-booking restore spends 43 % waiting on IO and most of its JavaScript in IndexedDB transaction callbacks (`oncomplete` alone 7.9 s); signature verification barely shows. That is why 2 000 bookings still do not finish inside the benchmark's ten-minute limit, and why the shape — about three times the time for twice the books — survived the fix: fewer writes, each still as slow. Fewer and batched IndexedDB writes are the next lever.
+
+Nothing is lost at any size that finished. The unlock after the restore grows with the books as before (0.3 s, 4.4 s, 13.0 s): the first walk of every log, as [performance.md](performance.md) describes.
+
+## The identity's curve: Ed25519 against secp256k1
+
+OrbitDB verifies every entry it joins, and the identity's key decides what that costs: 3.45 ms per verification on secp256k1, 0.17 ms on Ed25519, measured through `@libp2p/crypto`, the path OrbitDB verifies through. In Node that is the whole story — a restore of 2 000 entries takes 11.8 s on secp256k1 and 5.6 s on Ed25519.
+
+In this browser it is nearly invisible. Six runs on 23 October 2026, interleaved (Ed, secp, Ed, secp, …) so that any drift in the machine's load would hit both sides alike, 500 bookings each:
+
+| | Ed25519 | secp256k1 |
+| --- | --- | --- |
+| restore | 17.6–19.2 s (median 19.1) | 16.1–19.7 s (median 18.2) |
+| late joiner, no relay | 4.91–4.97 s (median 4.94) | 4.97–5.41 s (median 5.40) |
+
+The restore does not care: the spans overlap almost entirely, and what little the curve saves disappears into IndexedDB. The late joiner does, slightly — about half a second of five, which is roughly a tenth, and the Ed25519 runs sit within 60 ms of each other while the others spread. Both are consistent with the theory: 500 entries save 1.65 s of verification at most, and only where storage is not already the bottleneck.
+
+Belege signs with Ed25519 since this measurement. The DID does not change with it — it is the passkey's own P-256 key — so books written before stay readable and writable.
 
 ## The app from IPFS
 

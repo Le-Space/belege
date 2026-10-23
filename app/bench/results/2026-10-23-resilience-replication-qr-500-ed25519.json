@@ -1,0 +1,91 @@
+{
+	"date": "2026-10-23",
+	"machine": {
+		"cpus": "Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz",
+		"cores": 16,
+		"memGB": 32
+	},
+	"scenario": "replication-qr",
+	"size": 500,
+	"writeMs": 3960,
+	"pairMs": 953,
+	"initialSyncMs": 4916,
+	"macToPhone": {
+		"n": 10,
+		"min": 120,
+		"median": 130,
+		"p95": 140,
+		"max": 140
+	},
+	"phoneToMac": {
+		"n": 10,
+		"min": 99,
+		"median": 124,
+		"p95": 132,
+		"max": 132
+	},
+	"burst": {
+		"size": 100,
+		"writeMs": 771,
+		"syncMs": 1785,
+		"arrived": 100,
+		"network": {
+			"samples": [
+				{
+					"t": 9,
+					"mac": {
+						"connections": [
+							{
+								"peer": "12D3KooWQYJbBDN4H1eGxGccczVFdNZXHLWkWzUhvBVbSdh2HnGg",
+								"addr": "/webrtc/p2p/12D3KooWQYJbBDN4H1eGxGccczVFdNZXHLWkWzUhvBVbSdh2HnGg",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/meshsub/1.2.0",
+									"/meshsub/1.2.0"
+								]
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWQYJbBDN4H1eGxGccczVFdNZXHLWkWzUhvBVbSdh2HnGg"
+						]
+					},
+					"phone": {
+						"connections": [
+							{
+								"peer": "12D3KooWLSyLPrvawr3TAKWR2DoeDdQ3bFPQ9XaqCRnTd7Zvmpra",
+								"addr": "/webrtc/p2p/12D3KooWLSyLPrvawr3TAKWR2DoeDdQ3bFPQ9XaqCRnTd7Zvmpra",
+								"limited": null,
+								"limits": null,
+								"direction": "inbound",
+								"status": "open",
+								"streams": [
+									"/meshsub/1.2.0",
+									"/meshsub/1.2.0"
+								]
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWLSyLPrvawr3TAKWR2DoeDdQ3bFPQ9XaqCRnTd7Zvmpra"
+						]
+					}
+				}
+			],
+			"events": {
+				"mac": [],
+				"phone": []
+			},
+			"console": {
+				"mac": [],
+				"phone": []
+			}
+		}
+	},
+	"peers": {
+		"mac": "12D3KooWLSyLPrvawr3TAKWR2DoeDdQ3bFPQ9XaqCRnTd7Zvmpra",
+		"phone": "12D3KooWQYJbBDN4H1eGxGccczVFdNZXHLWkWzUhvBVbSdh2HnGg"
+	},
+	"outsideRequests": 0
+}

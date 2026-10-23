@@ -19,7 +19,7 @@ pnpm test:e2e     # Playwright, Chromium with a virtual passkey (PRF)
   (`info = belege/db-key/v1`) and the database names (`belege/db-name/v1:<collection>`), so an
   address cannot be guessed from the DID; receipt files get a key of their own
   (`belege/blob-key/v1`). The provider's OrbitDB signing key is derived from the same answer. Nothing derived is stored. No PRF, no data: there is no plaintext fallback.
-- **No private key at rest.** The OrbitDB signing key (secp256k1, the provider's default) is
+- **No private key at rest.** The OrbitDB signing key (Ed25519) is
   derived again from that same PRF answer at every unlock and lives in a session-only keystore
   (`src/lib/session-identities.js`); the libp2p peer key is a fresh Ed25519 key per session with no
   datastore to land in (`src/lib/network.js`). The keystore database an earlier build wrote

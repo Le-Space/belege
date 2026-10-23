@@ -46,7 +46,11 @@ import {
 	deriveReplicationKey
 } from './database-keys.js';
 import { readPrfOutput } from './passkey-identity.js';
-import { createSessionIdentities, forgetLegacyKeystore } from './session-identities.js';
+import {
+	createSessionIdentities,
+	forgetLegacyKeystore,
+	SIGNING_KEY_TYPE
+} from './session-identities.js';
 import { openStore } from './store/repository.js';
 import { createBlobStore } from './receipts/blob-store.js';
 
@@ -248,14 +252,16 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 		// the keystore before the provider looks, so it does not ask. The
 		// keystore is in memory: the next unlock derives the key again.
 		//
-		// secp256k1, the provider's default, as before: the key, and with it the
-		// identity document and its cached passkey proof, stay what PR #1 made.
+		// Ed25519, where secp256k1 used to be: the DID does not change
+		// — it is the passkey's own P-256 key — but the identity document does,
+		// because the signing key is part of it, and the passkey signs the new one
+		// once. Entries written before keep their key and verify as they always did.
 		onStatus?.({ step: 'identity' });
 		const did = credential.did ?? (await WebAuthnDIDProvider.createDID(credential));
 		const signingKey =
 			credential.signingKey instanceof Uint8Array
 				? credential.signingKey
-				: await deriveSigningKeyBytes(prfOutput, did);
+				: await deriveSigningKeyBytes(prfOutput, did, SIGNING_KEY_TYPE);
 		const identities = await createSessionIdentities(helia, { did, signingKey });
 
 		await beforePrompt?.('proof');
