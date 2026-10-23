@@ -52,6 +52,12 @@ export const app = $state({
 		state: null,
 		/** @type {import('./sync/device-sync.js').SyncPulse | null} the last ping an own device answered */
 		pulse: null,
+		/** @type {import('./sync/sync-log.js').SyncLine | null} the last entry that came or went (sync/sync-log.js) */
+		data: null,
+		/** @type {import('./sync/sync-log.js').SyncLine[]} the sync log, newest first */
+		log: [],
+		/** @type {Record<string, number>} when each own device last sent something, by peer id */
+		lastIn: {},
 		/** @type {string | null} */
 		error: null,
 		/** Another device removed this one; its sync is switched off. */
@@ -781,6 +787,71 @@ let stopFolderWatch = null;
 /** @type {Awaited<ReturnType<typeof import('./sync/device-sync.js').startDeviceSync>> | null} */
 let deviceSync = null;
 
+/** @type {ReturnType<typeof import('./sync/sync-log.js').createSyncLog> | null} */
+let syncLog = null;
+
+/**
+ * The sync log and the data light (sync/sync-log.js): every entry a
+ * collection takes, as written here or come by sync. Written here counts
+ * only while device sync is on – then it goes to the others; what came is
+ * attributed to the device its database last exchanged heads with (OrbitDB's
+ * `join`), else to the one own device connected.
+ */
+async function watchSync() {
+	if (!session) return;
+	const { createSyncLog, describeEntry } = await import('./sync/sync-log.js');
+	syncLog = createSyncLog(session.syncLogSealer);
+	app.sync.log = await syncLog.load();
+	app.sync.lastIn = {};
+	for (const line of [...app.sync.log].reverse()) {
+		if (line.direction === 'in' && line.peerId) app.sync.lastIn[line.peerId] = line.at;
+	}
+	/** @type {Record<string, { peer: string, at: number }>} the last heads exchange, by collection */
+	const lastJoin = {};
+	const databases = session.store.databases();
+	const own = session.store;
+	for (const [name, db] of Object.entries(databases)) {
+		db.events?.on?.('join', (/** @type {unknown} */ peer) => {
+			lastJoin[name] = { peer: String(peer), at: Date.now() };
+		});
+		const collection = /** @type {any} */ (own)[name];
+		collection?.onEntry?.((/** @type {any} */ entry) => {
+			// After the write that made it has returned: only then is its hash known as ours.
+			setTimeout(() => {
+				const here = collection.wroteHere(entry.hash);
+				if (here && !app.sync.online) return;
+				const at = Date.now();
+				const connected = (app.sync.state?.devices ?? []).filter((d) => d.connected);
+				const joined = lastJoin[name];
+				const peerId = here
+					? null
+					: joined && at - joined.at < 120_000
+						? joined.peer
+						: connected.length === 1
+							? connected[0].peerId
+							: null;
+				/** @type {import('./sync/sync-log.js').SyncLine} */
+				const line = {
+					at,
+					direction: here ? 'out' : 'in',
+					collection: name,
+					peerId,
+					...describeEntry(name, entry)
+				};
+				app.sync.data = line;
+				if (!here && peerId) app.sync.lastIn = { ...app.sync.lastIn, [peerId]: at };
+				app.sync.log = /** @type {ReturnType<typeof createSyncLog>} */ (syncLog).add(line);
+			}, 50);
+		});
+	}
+}
+
+/** "Protokoll leeren": the sync log of this browser. */
+export async function clearSyncLog() {
+	await syncLog?.clear();
+	app.sync.log = [];
+}
+
 /** Device sync (#123): only when this device switched it on, so the node is online. */
 async function startDeviceSyncIfOn() {
 	app.sync.online = Boolean(session?.online);
@@ -953,6 +1024,7 @@ async function unlockWith(credential, progress, beforePrompt) {
 	session.store.settings.onChange(() => {
 		applyStoredMode().catch(() => {});
 	});
+	await watchSync();
 	await applyStoredMode();
 	progress?.status({ step: 'books' });
 	await refresh();

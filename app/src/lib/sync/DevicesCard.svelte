@@ -7,9 +7,9 @@
 	// device shows an invite, the other scans it and shows its answer, the
 	// first scans that back (sync/qr-link.js).
 	import { renderSVG } from 'uqr';
-	import { app, addSyncDevice, removeSyncDevice } from '$lib/session.svelte.js';
+	import { app, addSyncDevice, clearSyncLog, removeSyncDevice } from '$lib/session.svelte.js';
 	import { consent } from '$lib/consent.js';
-	import { t } from '$lib/i18n/index.js';
+	import { intlLocale, t } from '$lib/i18n/index.js';
 	import CopyButton from '$lib/CopyButton.svelte';
 	import QrExchange from './QrExchange.svelte';
 	import QrScan from './QrScan.svelte';
@@ -62,6 +62,36 @@
 		}
 	}
 
+	/** @param {number} at */
+	const when = (at) =>
+		new Intl.DateTimeFormat(intlLocale(), { dateStyle: 'short', timeStyle: 'medium' }).format(
+			new Date(at)
+		);
+	/** @param {string | null} peerId */
+	const deviceName = (peerId) =>
+		(peerId && app.sync.state?.devices.find((d) => d.peerId === peerId)?.label) ||
+		(peerId ? `${peerId.slice(0, 10)}…` : t('devices.log.someDevice'));
+	/** A receipt's file, size and date; a payment's counterparty, amount and day; a setting's key. @param {import('./sync-log.js').SyncLine} line */
+	const whatText = (line) => {
+		const w = line.what ?? {};
+		const parts = [];
+		if (w.fileName) parts.push(w.fileName);
+		if (typeof w.size === 'number')
+			parts.push(
+				`${new Intl.NumberFormat(intlLocale(), { maximumFractionDigits: 0 }).format(w.size / 1024)} kB`
+			);
+		if (w.counterparty) parts.push(w.counterparty);
+		if (typeof w.amountCents === 'number')
+			parts.push(
+				new Intl.NumberFormat(intlLocale(), { style: 'currency', currency: 'EUR' }).format(
+					w.amountCents / 100
+				)
+			);
+		if (w.date) parts.push(w.date);
+		if (w.key) parts.push(w.key);
+		return parts.join(' · ');
+	};
+
 	const card = 'mt-6 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm';
 	const button =
 		'rounded-md border border-border px-3 py-1.5 text-sm text-text hover:bg-surface-2 hover:text-heading disabled:opacity-50';
@@ -79,6 +109,11 @@
 					<span class="min-w-0">
 						<span class="block text-heading">{d.label || t('devices.unnamed')}</span>
 						<span class="block font-mono text-xs break-all text-faint">{d.peerId}</span>
+						<span class="block text-xs text-faint" data-testid="devices-item-last"
+							>{app.sync.lastIn[d.peerId]
+								? t('devices.lastData', { time: when(app.sync.lastIn[d.peerId]) })
+								: t('devices.noData')}</span
+						>
 					</span>
 					<span class="flex items-center gap-2">
 						<span
@@ -118,6 +153,49 @@
 	{:else}
 		<p class="mt-1 text-sm text-faint">{t('devices.none')}</p>
 	{/if}
+	{@render syncLogBlock()}
+{/snippet}
+
+{#snippet syncLogBlock()}
+	<!-- What came and went (sync/sync-log.js): on this device only, sealed. -->
+	<details class="mt-4" data-testid="sync-log">
+		<summary class="cursor-pointer text-sm font-semibold text-heading"
+			>{t('devices.log.title', { count: app.sync.log.length })}</summary
+		>
+		<p class="mt-1 text-xs text-faint">{t('devices.log.what')}</p>
+		{#if app.sync.log.length}
+			<ul class="mt-2 divide-y divide-border text-xs" data-testid="sync-log-list">
+				{#each app.sync.log.slice(0, 100) as line, i (line.at + line.id + i)}
+					<li
+						class="flex flex-wrap gap-x-2 py-1"
+						data-testid="sync-log-line"
+						data-direction={line.direction}
+					>
+						<span class="text-faint tabular-nums">{when(line.at)}</span>
+						<span
+							class={line.direction === 'in'
+								? 'text-amber-800 dark:text-data'
+								: 'text-cyan-800 dark:text-cyan'}
+							>{line.direction === 'in'
+								? t('devices.log.from', { device: deviceName(line.peerId) })
+								: t('devices.log.here')}</span
+						>
+						<span class="text-heading">{t(`storage.databases.${line.collection}`)}</span>
+						<span class="text-text">{t(`devices.log.op.${line.op}`)}</span>
+						<span class="min-w-0 break-all text-text">{whatText(line)}</span>
+					</li>
+				{/each}
+			</ul>
+			<button
+				type="button"
+				class="mt-2 rounded-md border border-border px-2 py-1 text-xs text-text hover:bg-surface-2"
+				onclick={() => clearSyncLog()}
+				data-testid="sync-log-clear">{t('devices.log.clear')}</button
+			>
+		{:else}
+			<p class="mt-2 text-xs text-faint" data-testid="sync-log-empty">{t('devices.log.empty')}</p>
+		{/if}
+	</details>
 {/snippet}
 
 <section class={card} aria-labelledby="devices-h" data-testid="devices-card">

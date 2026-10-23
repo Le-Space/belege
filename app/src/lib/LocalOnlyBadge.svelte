@@ -75,6 +75,22 @@
 				);
 			}
 		}
+		const data = app.sync.data;
+		if (data) {
+			const device = data.peerId
+				? state.devices.find((d) => d.peerId === data.peerId)?.label || data.peerId
+				: '';
+			lines.push(
+				t(
+					data.direction === 'in' ? 'header.network.proof.dataIn' : 'header.network.proof.dataOut',
+					{
+						device,
+						book: t(`storage.databases.${data.collection}`),
+						time: new Date(data.at).toLocaleTimeString()
+					}
+				)
+			);
+		}
 		const pulse = app.sync.pulse;
 		if (pulse) {
 			const label = state.devices.find((d) => d.peerId === pulse.peerId)?.label || pulse.peerId;
@@ -88,6 +104,20 @@
 		}
 		return lines;
 	}
+
+	// An entry came from an own device, or was written here for them
+	// (sync/sync-log.js): a second light, gold for in, cyan for out.
+	/** @type {'in' | 'out' | null} */
+	let flow = $state(null);
+	/** @type {ReturnType<typeof setTimeout> | undefined} */
+	let flowTimer;
+	$effect(() => {
+		const data = app.sync.data;
+		if (!data) return;
+		flow = data.direction;
+		clearTimeout(flowTimer);
+		flowTimer = setTimeout(() => (flow = null), 700);
+	});
 
 	// An own device answered a ping (device-sync.js, the connection monitor's,
 	// every 10 s): the dot lights up in another colour for a moment.
@@ -187,6 +217,18 @@
 			aria-hidden="true"
 			data-testid="network-dot"
 		></span>
+		{#if app.sync.online && !app.network.paused}
+			<span
+				class="h-2 w-2 shrink-0 rounded-full transition-colors duration-300 {flow === 'in'
+					? 'bg-data ring-2 ring-data/40'
+					: flow === 'out'
+						? 'bg-cyan ring-2 ring-cyan/40'
+						: 'border border-border'}"
+				aria-hidden="true"
+				data-testid="network-data-dot"
+				data-flow={flow ?? 'none'}
+			></span>
+		{/if}
 		<span>{label}</span>
 	</button>
 
