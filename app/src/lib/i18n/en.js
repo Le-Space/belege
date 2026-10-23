@@ -31,6 +31,8 @@ export default {
 				device: '{label}: {peerId}',
 				direct: '  direct: {addr} – {rtt} ms',
 				relayed: '  through the relay: {addr} – {rtt} ms',
+				dataIn: 'Last data: from {device}, {book}, at {time}',
+				dataOut: 'Last data: written here, for the devices, {book}, at {time}',
 				pulse: 'Last ping answer: {label}, {rtt} ms, at {time}'
 			},
 			part: {
@@ -1294,6 +1296,18 @@ export default {
 		scanWrong: 'This QR code is not a device ID.',
 		bothMode:
 			'“Both”: a new device joins via QR code or via your bridge’s relay; after that the devices also meet via the public relays.',
+		lastData: 'last data: {time}',
+		noData: 'no data seen from this device yet',
+		log: {
+			title: 'Sync log ({count})',
+			what: 'What came and went between your devices, per entry: when, from which device, which book, what it is. On this device only, sealed, the newest 300 – never in the books, or every device would log the others’ log. “From” names the device the database last exchanged with.',
+			from: 'from {device}',
+			here: 'written here',
+			someDevice: 'a device',
+			op: { new: 'new', changed: 'changed', deleted: 'deleted' },
+			empty: 'Nothing yet – it shows once entries go between the devices.',
+			clear: 'Clear the log'
+		},
 		qrMode: {
 			what: 'Without a relay: one device shows an invitation, the other scans it and shows its answer, the first scans the answer. Then both are connected directly – no relay, no server in between.',
 			invite: 'Show invitation',

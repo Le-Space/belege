@@ -128,6 +128,19 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 		await expect(phone.page.getByTestId('transaction')).toHaveCount(2);
 		await tab(mac.page, 'Zahlungen');
 		await expect(mac.page.getByTestId('transaction')).toHaveCount(2, { timeout: 90_000 });
+		// … and the Mac's sync log has it: from the phone, a payment, new – with
+		// when the phone last sent something beside it in the device list.
+		await openIntegration(mac.page, 'geraete');
+		const log = mac.page.getByTestId('sync-log');
+		await log.locator('summary').click();
+		const came = log
+			.getByTestId('sync-log-line')
+			.filter({ hasText: 'Zahlungen' })
+			.filter({ hasText: 'neu' })
+			.filter({ hasText: 'von ' });
+		await expect(came.first()).toHaveAttribute('data-direction', 'in', { timeout: 30_000 });
+		await expect(mac.page.getByTestId('devices-item-last')).toContainText('zuletzt Daten');
+		await tab(mac.page, 'Zahlungen');
 
 		// What the relay learned from identify while all that went through it (#209):
 		// it knows the Mac, and that it speaks identify and the relay's protocols –
@@ -149,8 +162,18 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 		const agents = [...new Set(told.map((entry) => entry.agent).filter(Boolean))];
 		expect(agents).toEqual(['js-libp2p']);
 
-		// … and one more on the Mac, now that both are connected, on the phone.
+		// … and one more on the Mac, now that both are connected, on the phone –
+		// whose data light flashes for what came in.
+		const flashed = phone.page.waitForFunction(
+			() =>
+				/** @type {HTMLElement | null} */ (
+					document.querySelector('[data-testid="network-data-dot"]')
+				)?.dataset.flow === 'in',
+			null,
+			{ polling: 'raf', timeout: 90_000 }
+		);
 		await mac.page.getByTestId('add-test-transaction').click();
+		await flashed;
 		await expect(phone.page.getByTestId('transaction')).toHaveCount(3, { timeout: 90_000 });
 
 		// The Mac removes the phone: the Mac lets go of it, and the phone, once

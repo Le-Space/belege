@@ -46,6 +46,7 @@ import {
 	deriveReplicationKey
 } from './database-keys.js';
 import { readPrfOutput } from './passkey-identity.js';
+import { sealer } from './db-encryption.js';
 import {
 	createSessionIdentities,
 	forgetLegacyKeystore,
@@ -112,6 +113,8 @@ export const STORAGE_PATHS = Object.freeze({
  * @property {string} identityHash the identity document's hash
  * @property {string} peerId this session's libp2p peer id
  * @property {Uint8Array} ucepSeed the seed of the UCEP node's peer key, derived from the passkey
+ * @property {{ seal: (bytes: Uint8Array) => Promise<Uint8Array>, open: (bytes: Uint8Array) => Promise<Uint8Array> }} syncLogSealer
+ *   seals the sync log in this browser (sync/sync-log.js), under a key of its own
  * @property {boolean} online device sync is on: the node talks to the relay (#123)
  * @property {string[]} relays
  * @property {import('./sync/network-mode.js').NetworkMode} mode where devices meet, as the node was built (#148)
@@ -192,6 +195,9 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 	const replicationKey = await deriveReplicationKey(prfOutput);
 	// The UCEP node's key (ucep/net.js): the same peer id on every unlock.
 	const ucepSeed = await derivePeerKeySeed(prfOutput);
+	// The sync log's own key (sync/sync-log.js): never the books'.
+	const { SYNC_LOG_INFO } = await import('./sync/sync-log.js');
+	const syncLogSealer = await sealer(await deriveDatabaseKey(prfOutput, SYNC_LOG_INFO));
 
 	// A PR #1 build kept the signing key in IndexedDB. Gone before anything opens.
 	await forgetLegacyKeystore();
@@ -395,6 +401,7 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 				return result;
 			},
 			ucepSeed,
+			syncLogSealer,
 			online,
 			relays,
 			mode,

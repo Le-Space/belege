@@ -66,6 +66,9 @@ export const OLD_COLLECTIONS = /** @type {const} */ ([
  * @property {(record: StoredRecord) => Promise<StoredRecord>} restore a record from other books, as it
  *   was there – id, createdAt, updatedAt and deleted kept; written by this identity (#328)
  * @property {(listener: (event: { collection: CollectionName }) => void) => () => void} onChange returns an unsubscribe
+ * @property {(listener: (entry: { hash: string, payload: { op: string, key: string, value: any } }) => void) => () => void} onEntry
+ *   every entry the log takes – written here or come by sync – opened; returns an unsubscribe
+ * @property {(hash: string) => boolean} wroteHere whether this session wrote that entry (the sync log, sync/sync-log.js)
  * @property {() => Promise<{ entries: number, bytes: number }>} stats what its log takes: every version written, and about how many bytes
  */
 
@@ -87,6 +90,19 @@ function assertCents(record) {
  * @returns {Collection}
  */
 export function createCollection(db, name, { author, now = () => new Date() }) {
+	/**
+	 * The entries this session wrote, newest last: every device writes with the
+	 * same identity (the passkey's), so an entry does not say where it was made.
+	 * @type {Set<string>}
+	 */
+	const written = new Set();
+	/** @param {unknown} hash */
+	const remember = (hash) => {
+		if (typeof hash !== 'string') return;
+		written.add(hash);
+		if (written.size > 1000) written.delete(/** @type {string} */ (written.values().next().value));
+	};
+
 	/** @param {string} id */
 	async function get(id) {
 		const found = await db.get(id);
@@ -114,7 +130,7 @@ export function createCollection(db, name, { author, now = () => new Date() }) {
 			deleted: input.deleted ?? existing?.deleted ?? false,
 			author
 		};
-		await db.put(record);
+		remember(await db.put(record));
 		return record;
 	}
 
@@ -151,7 +167,7 @@ export function createCollection(db, name, { author, now = () => new Date() }) {
 			deleted: input.deleted === true,
 			author
 		};
-		await db.put(record);
+		remember(await db.put(record));
 		return record;
 	}
 
@@ -160,6 +176,12 @@ export function createCollection(db, name, { author, now = () => new Date() }) {
 		const handler = () => listener({ collection: name });
 		db.events.on('update', handler);
 		return () => db.events.off('update', handler);
+	}
+
+	/** @type {Collection['onEntry']} */
+	function onEntry(listener) {
+		db.events.on('update', listener);
+		return () => db.events.off('update', listener);
 	}
 
 	/** @type {Collection['stats']} */
@@ -174,6 +196,8 @@ export function createCollection(db, name, { author, now = () => new Date() }) {
 		softDelete,
 		restore,
 		onChange,
+		onEntry,
+		wroteHere: (hash) => written.has(hash),
 		stats
 	};
 }
