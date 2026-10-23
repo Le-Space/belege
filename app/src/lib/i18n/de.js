@@ -838,10 +838,10 @@ export default {
 					'Das CAR aller Datenbank-Blöcke (Einträge schon versiegelt, Manifeste, Access-Controller, Identitäten der Schreiber) und der versiegelten Blöcke jeder Belegdatei wird noch einmal mit AES-256-GCM versiegelt, unter einem Schlüssel aus dem PRF des Passkeys (HKDF, belege/backup-key/v1). Upload: POST https://ipfs.aleph.cloud/api/v0/add, ohne Schlüssel. Die STORE-Nachricht (personal_sign, Kanal BELEGE-BACKUP, bezahlt mit Credits des Kontos der Bridge) unterschreibt ein secp256k1-Schlüssel, den dieser Browser selbst erzeugt und versiegelt in den Einstellungen hält – sobald das Konto ihn in seinem security-Aggregat freigegeben hat (pnpm setup:aleph -- --authorize); bis dahin der Schlüssel der Bridge (pnpm setup:aleph, im Schlüsselbund). Aleph bewahrt die Datei auf, solange das Konto Credits hat. Die Backups listet die Nachrichten-API von Aleph (api2.aleph.im) über owners=<Konto>.'
 			},
 			deepseek: {
-				name: 'Sprachmodell – voreingestellt DeepSeek (Belege auslesen, KI-Suche)',
+				name: 'Sprachmodell – voreingestellt DeepSeek, oder LibertAI vertraulich (Belege auslesen, KI-Suche)',
 				text: 'Das Modell, das du in der Bridge einstellst. Nur bei Knöpfen mit ✦ (siehe „KI“ oben).',
 				leaves:
-					'Beim Auslesen der geschwärzte Text eines Belegs; bei „Mit KI weitersuchen“ Gegenpartei und Verwendungszweck sowie Betreff, Absender-Domain und Dateinamen der Treffer, geschwärzt. Bei DeepSeek stehen die Server außerhalb der EU; ein lokales Modell verlässt diesen Rechner nicht. Unser Rat derzeit: ein lokales Modell, oder mit der KI warten, bis schnelle Modelle in einer prüfbar vertraulichen Umgebung (TEE) verfügbar sind.',
+					'Beim Auslesen der geschwärzte Text eines Belegs; bei „Mit KI weitersuchen“ Gegenpartei und Verwendungszweck sowie Betreff, Absender-Domain und Dateinamen der Treffer, geschwärzt. Bei DeepSeek stehen die Server außerhalb der EU; ein lokales Modell verlässt diesen Rechner nicht. Mit LibertAI vertraulich (TEE) läuft das Modell in einer Enklave auf Aleph Cloud, die die Bridge vor jedem Verbindungsaufbau prüft (AMD-Signatur, festgenagelte Messung); der Text endet erst in der Enklave, LibertAI sieht die IP-Adresse dieses Macs, Größen und Zeiten, nicht den Text. Geprüft ist damit, welches Abbild läuft, nicht was es tut, und für vertrauliche GPUs auf Aleph gibt es noch kein unabhängiges Audit. Unser Rat derzeit: ein lokales Modell, oder LibertAI vertraulich.',
 				technical:
 					'Die Bridge schickt nur die Textebene eines PDFs (oder den Text einer E-Mail) mit Betreff und Absender, nachdem sie Namen aus ihrer Liste und deine Firmennamen aus den Einstellungen, Namen nach einer Anrede oder einem Etikett („Herr“, „Ansprechpartner:“, auch in anderen Sprachen und Schriften, etwa „Пассажир:“ oder „Yolcu:“), Passnummern, IBANs und Kartennummern bis auf die letzten vier Stellen, E-Mail-Adressen (von fremden bleibt die Domain), Telefonnummern, Geburtsdaten, Steuernummern, Straßen, Postleitzahlen und Links (nur der Host bleibt) geschwärzt hat – nie die Datei selbst. Das begrenzt, was hinausgeht, anonym macht es den Text nicht: Ein Name, der auf keiner Liste steht und hinter keinem Etikett, geht durch, ebenso Anbieter, Beträge, Rechnungsnummern und worum es im Beleg geht. Soll nichts hinausgehen, stell ein Modell auf diesem Rechner ein (etwa Ollama). DeepSeek betreibt seine Server in China. Der API-Schlüssel liegt im macOS-Schlüsselbund der Bridge, nie im Browser. E-Mails von Absendern ohne bestandene DKIM/SPF-Prüfung liest die Bridge erst nach deiner Freigabe aus.'
 			},
@@ -3919,6 +3919,12 @@ export default {
 			totalsFailed: ' · {count} fehlgeschlagen',
 			totalsFallback: ' · {count}× zweiter Versuch',
 			failedRecent: 'davon in den letzten 7 Tagen: {count}. Die häufigsten Gründe:',
+			tee: 'Vertraulich (TEE)',
+			teeVerified:
+				'Attestierung geprüft, {time}: Das Modell läuft in der festgenagelten Enklave, die Anfrage endet erst dort.',
+			teePinned: 'Festgenagelt; geprüft wird vor der ersten Anfrage.',
+			teeFailed: 'Attestierung fehlgeschlagen – nichts wurde gesendet: {error}',
+			teePin: 'Deployment {item} · Messung {measurement} · Quellstand {commit}',
 			redactionConfirm:
 				'Das Modell läuft auf diesem Rechner? Einmal im Terminal, bei „Does the model run on this machine itself“ Enter, dann die Bridge neu starten – danach wird nichts mehr geschwärzt:',
 			verlauf: 'Alle Aufrufe im Verlauf',

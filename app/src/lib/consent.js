@@ -53,7 +53,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 24: who offers Belege and on what terms – free, no warranty, liability for
 //     intent and gross negligence only, the books are the user's to keep; the
 //     imprint and privacy policy of Le Space UG linked.
-export const CONSENT_VERSION = '24';
+// 25: the language model may be LibertAI's confidential inference: an attested
+//     enclave on Aleph Cloud, what it proves and what LibertAI still sees (#416).
+export const CONSENT_VERSION = '25';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 
