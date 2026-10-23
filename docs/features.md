@@ -81,7 +81,7 @@ What Le Space Belege does today, by category. The app shows the same list, short
 - **Where devices meet** ([#148](https://github.com/Le-Space/belege/issues/148)):
   - at the public Le-Space relays;
   - at a relay in your own bridge, in your own network only (`pnpm setup:relay`, WebRTC-Direct, no certificate to install);
-  - without any relay, by scanning two QR codes;
+  - without any relay, by scanning two QR codes – right in the network menu at the top; the invite is a link the phone's camera opens, and once unlocked the menu there shows the answer (on an iPhone better from the home-screen app, which keeps its books apart from Safari);
   - or all of them, with a device the books do not know yet let in only by QR or through the own bridge's relay.
 - **A phone uses the computer's bridge.** Belege installs as an app (PWA), and the app shell works offline.
 - **Invoicing app (UCEP):** it makes Eigenbelege for Belege and learns which of its invoices were paid.
