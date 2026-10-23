@@ -8,6 +8,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [0.18.0] – 2026-10-23
 
+### Changed
+
+- **Nothing is blacked out for LibertAI confidential, unless asked (#416).** Nobody between the Mac and the attested enclave can read the text, so redaction only cost reading quality. `pnpm setup:llm` (choice 2) now asks "Black out … anyway? [y/N]" and defaults to no; the bridge sends the text as it is into the pinned enclave, as to a model on this machine. The KI card says "aus – das Modell läuft in der attestierten Enklave", and every AI hint has its own wording for it ("ungeschwärzt – lesen kann ihn nur die geprüfte Enklave") instead of claiming "geschwärzt" or "auf diesem Rechner". `/llm/status` tells it apart (`redaction.enclave`). The consent screen says so (consent version 27).
+
 ## [0.17.0] – 2026-10-23
 
 ### Added
@@ -21,8 +25,6 @@ All notable changes to Le Space Belege. The format follows
 - **A data light and a sync log for own devices.** Beside the network badge's dot, a second light flashes gold when an entry comes from another own device and cyan when one written here goes to them; hovering names the last one (from which device, which book, when). Integrationen → Eigene Geräte shows per device when it last sent something, and a "Sync-Protokoll": per entry when, from which device or written here, which book, new/changed/deleted, and what it is – a receipt's file name, size and date, a payment's counterparty, amount and day, a setting's key. The log stays on this device only, sealed under a key of its own from the passkey, the newest 300; never in the books, or every device would log the others' log. Every device writes with the passkey's identity, so "here" is told by the entries this session wrote; what came is attributed to the device the database last exchanged heads with.
 
 ### Changed
-
-- **Nothing is blacked out for LibertAI confidential, unless asked (#416).** Nobody between the Mac and the attested enclave can read the text, so redaction only cost reading quality. `pnpm setup:llm` (choice 2) now asks "Black out … anyway? [y/N]" and defaults to no; the bridge sends the text as it is into the pinned enclave, as to a model on this machine. The KI card says "aus – das Modell läuft in der attestierten Enklave", and every AI hint has its own wording for it ("ungeschwärzt – lesen kann ihn nur die geprüfte Enklave") instead of claiming "geschwärzt" or "auf diesem Rechner". `/llm/status` tells it apart (`redaction.enclave`). The consent screen says so (consent version 27).
 
 - **LibertAI confidential reads without the model's "thinking".** In the enclave `qwen3.8-27b-tee` thinks before it answers; measured on six made-up receipts through Belege's own extraction request, that took 38 s and up to 6,000 tokens a receipt and left two unread, against 5.8 s, about 370 tokens and all six right with it off. In TEE mode the bridge now sends `enable_thinking: false`; other providers' requests are unchanged.
 
