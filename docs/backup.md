@@ -120,6 +120,10 @@ _Everything left of the line never leaves the device; what crosses it is ciphert
 - **Restore:**
   - the storage bridge's `restoreFromBlocks` puts the databases back from the opened backup;
   - if a head cannot be joined, the restore stops with the reason instead of reporting success.
+- **Writer ([#496](https://github.com/Le-Space/belege/issues/496)):**
+  - the books write as an identity of their own, an Ed25519 key derived from the books' secret (`belege/books-secret/v1`, from the passkey's PRF result until the vault of [#406](https://github.com/Le-Space/belege/issues/406) keeps it). It is the root of every collection's access controller (`OrbitDBAccessController`, its own list database sealed like the others). The passkey's DID is still the one shown, and what a record names as its author;
+  - books written by the passkey move once, on the first unlock with this version, with every entry and its clock (`store/migrate.js`). The databases are others then, so the next backup starts a new chain with a full backup;
+  - a backup from before the move goes back into the passkey's databases and moves in on the next unlock.
 - **Entries from earlier sessions:**
   - OrbitDB 4.0.0 remembers verified identities by `signatures.id` and refuses a different one with the same id;
   - a passkey identity has the same `signatures.id` in every session but a new WebAuthn assertion, so entries from an earlier session (from a backup, or synced from an own device) were refused;

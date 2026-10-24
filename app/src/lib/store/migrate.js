@@ -44,7 +44,8 @@ async function entriesOf(log) {
  * @param {object} p
  * @param {any} p.from the old database, opened with `data` encryption and without sync
  * @param {any} p.to the new database, opened with both layers
- * @param {any} p.identity the writer (orbitdb.identity), the same as the old entries'
+ * @param {any} p.identity the writer (orbitdb.identity): the old entries' own, or the books'
+ *   identity that every entry is signed anew by when the passkey's databases move to it (#496)
  * @param {(moved: number, total: number) => void} [p.onProgress]
  * @returns {Promise<{ total: number, moved: number }>}
  */

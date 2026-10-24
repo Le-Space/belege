@@ -120,6 +120,10 @@ _Alles links der Linie verlässt das Gerät nie; was sie überquert, ist Chiffre
 - **Wiederherstellen:**
   - `restoreFromBlocks` der Storage-Bridge spielt die Datenbanken aus dem geöffneten Backup zurück.
   - Lässt sich ein Head nicht einhängen, bricht die Wiederherstellung mit dem Grund ab, statt Erfolg zu melden.
+- **Schreiber ([#496](https://github.com/Le-Space/belege/issues/496)):**
+  - Die Bücher schreiben als eigene Identität: ein Ed25519-Schlüssel aus dem Geheimnis der Bücher (`belege/books-secret/v1`, aus dem PRF-Ergebnis des Passkeys, bis der Tresor aus [#406](https://github.com/Le-Space/belege/issues/406) es hält). Sie ist die Wurzel des Access-Controllers jeder Sammlung (`OrbitDBAccessController`, dessen eigene Listen-Datenbank wie die anderen versiegelt ist). Angezeigt wird weiter die DID des Passkeys, und sie steht als Autor in jedem Datensatz.
+  - Bücher, die der Passkey geschrieben hat, ziehen einmal um, beim ersten Entsperren mit dieser Version, mit jedem Eintrag und seiner Uhr (`store/migrate.js`). Die Datenbanken sind danach andere, deshalb beginnt das nächste Backup eine neue Kette mit einem Vollbackup.
+  - Ein Backup von vor dem Umzug geht in die Datenbanken des Passkeys zurück und zieht beim nächsten Entsperren um.
 - **Einträge früherer Sitzungen:**
   - OrbitDB 4.0.0 merkt sich verifizierte Identitäten nach `signatures.id` und lehnt eine abweichende mit derselben ID ab.
   - Eine Passkey-Identität hat in jeder Sitzung dieselbe `signatures.id`, aber eine neue WebAuthn-Zusicherung. Einträge einer früheren Sitzung (aus einem Backup oder per Sync von einem eigenen Gerät) wurden deshalb abgelehnt.

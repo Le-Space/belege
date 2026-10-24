@@ -474,6 +474,20 @@ export async function makeIncrement(meta) {
 }
 
 /**
+ * Whether a chain of backups goes on in these databases: an increment names
+ * the databases its chain began in, and books that moved to their own
+ * identity (#496) are in others – their next backup is a full one.
+ *
+ * @param {import('./backup/archive.js').BackupChain | null | undefined} chain
+ */
+export function chainFitsBooks(chain) {
+	if (!session || !chain) return false;
+	return Object.values(session.store.databases()).every((db) =>
+		Object.hasOwn(chain.heads, String(db.address))
+	);
+}
+
+/**
  * Put a sealed backup back into these books (backup/archive.js, #77), with its
  * increments (#454). The books are closed for it: reload the page afterwards.
  *
@@ -1162,6 +1176,7 @@ function installE2EHooks() {
 			if (!secrets) return null;
 			return {
 				signingKey: hex(secrets.signingKey),
+				booksSecret: hex(secrets.booksSecret),
 				databaseKey: hex(secrets.databaseKey),
 				replicationKey: hex(secrets.replicationKey),
 				blobKey: hex(secrets.blobKey),
@@ -1169,6 +1184,17 @@ function installE2EHooks() {
 			};
 		},
 		addTransaction: (/** @type {Record<string, any>} */ tx) => session?.store.transactions.put(tx),
+		// The books' own identity and where their databases are (#496).
+		booksDid: () => session?.booksDid,
+		addresses: () =>
+			session
+				? Object.fromEntries(
+						Object.entries(session.store.databases()).map(([name, db]) => [
+							name,
+							String(db.address)
+						])
+					)
+				: null,
 		transactions: () => session?.store.transactions.list(),
 		// A made-up receipt, as reading one would leave it (instalments spec, #258).
 		addReceipt: (/** @type {Record<string, any>} */ r) => session?.store.receipts.put(r),

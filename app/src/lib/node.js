@@ -10,6 +10,14 @@
 // the provider's own PRF prompt. That key lives in a session-only keystore
 // (session-identities.js) and the libp2p peer key is ephemeral (network.js):
 // no private key is kept in IndexedDB or localStorage.
+//
+// The books write as an identity of their own (#496): an Ed25519 signer from
+// the books' secret, the root of every collection's access controller
+// (store/books-access.js), so a second passkey or a recovery phrase can write
+// to the same books once the vault keeps that secret (#406). The passkey's
+// identity stays the person's: its DID is shown, and is what a record says
+// wrote it. The databases the passkey wrote before move once, with their
+// whole history (store/migrate.js).
 
 import { networkPause } from './network-pause.js';
 import { createLibp2p } from 'libp2p';
@@ -30,6 +38,7 @@ import {
 	OrbitDBWebAuthnIdentityProviderFunction,
 	WebAuthnDIDProvider,
 	configureWebAuthn,
+	createSecretSigner,
 	deriveSigningKeyBytes,
 	getWebAuthnConfig
 } from '@le-space/orbitdb-identity-provider-webauthn-did';
@@ -39,6 +48,7 @@ import { createEphemeralPeerKey, createOfflineLibp2p } from './network.js';
 import {
 	deriveBackupKey,
 	deriveBlobKey,
+	deriveBooksSecret,
 	deriveDatabaseKey,
 	deriveDeviceAuthKey,
 	deriveDevicePeerSeed,
@@ -48,11 +58,15 @@ import {
 import { readPrfOutput } from './passkey-identity.js';
 import { sealer } from './db-encryption.js';
 import {
+	BOOKS_IDENTITY_INFO,
+	createBooksIdentities,
 	createSessionIdentities,
 	forgetLegacyKeystore,
 	SIGNING_KEY_TYPE
 } from './session-identities.js';
 import { openStore } from './store/repository.js';
+import { booksAccessController, sealAccessLists } from './store/books-access.js';
+import { sealedEncryption } from './entry-encryption.js';
 import { createBlobStore } from './receipts/blob-store.js';
 
 /**
@@ -65,6 +79,13 @@ import { createBlobStore } from './receipts/blob-store.js';
  * of the old books clears it, so they move in again.
  */
 export const SEALED_BOOKS_FLAG = 'belege.sealed-books';
+
+/**
+ * Set once the passkey's databases have moved to the books' own identity in
+ * this browser (#496), per books identity. A flag, nothing secret; a restored
+ * backup of the passkey's databases clears it, so they move in again.
+ */
+export const BOOKS_IDENTITY_FLAG = 'belege.books-identity';
 
 /** @param {string} key */
 function flagSet(key) {
@@ -101,7 +122,8 @@ export const STORAGE_PATHS = Object.freeze({
 
 /**
  * @typedef {object} Session
- * @property {string} did
+ * @property {string} did the passkey's: shown, and what a record says wrote it
+ * @property {string} booksDid the books' own identity, the root writer of every collection (#496)
  * @property {Awaited<ReturnType<typeof openStore>>} store
  * @property {import('./receipts/blob-store.js').BlobStore} blobs receipt files, sealed with the blob key
  * @property {(meta: { appVersion: string, onProgress?: (p: import('./backup/archive.js').BackupProgress) => void }) => Promise<Awaited<ReturnType<typeof import('./backup/archive.js').buildBackup>>>} makeBackup
@@ -121,7 +143,7 @@ export const STORAGE_PATHS = Object.freeze({
  * @property {any} libp2p the node under Helia and OrbitDB
  * @property {ReturnType<typeof createDeviceGate> | null} deviceGate which peers proved the passkey (online only)
  * @property {() => Promise<void>} stop
- * @property {{ signingKey: Uint8Array, databaseKey: Uint8Array, replicationKey: Uint8Array, blobKey: Uint8Array, peerKey: Uint8Array }} [secretsForE2E]
+ * @property {{ signingKey: Uint8Array, booksSecret: Uint8Array, databaseKey: Uint8Array, replicationKey: Uint8Array, blobKey: Uint8Array, peerKey: Uint8Array }} [secretsForE2E]
  *   only in E2E builds
  */
 
@@ -276,32 +298,63 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 				provider: OrbitDBWebAuthnIdentityProviderFunction({ webauthnCredential: credential })
 			})
 		);
+		// The books' own identity (#496): what OrbitDB signs every entry as.
+		const booksSecret = await deriveBooksSecret(prfOutput);
+		// E2E builds only: books as they were made before #496, written by the
+		// passkey, so a test can watch them move (e2e/books-identity.spec.js).
+		const beforeBooksIdentity =
+			import.meta.env.VITE_E2E === 'true' &&
+			/** @type {any} */ (globalThis).__belegeBeforeBooksIdentity === true;
+		const books = await createSecretSigner(booksSecret, { info: BOOKS_IDENTITY_INFO });
+		const booksIdentities = beforeBooksIdentity
+			? identities
+			: await createBooksIdentities(helia, books);
+		const booksIdentity = beforeBooksIdentity
+			? identity
+			: await booksIdentities.createIdentity({
+					provider: OrbitDBWebAuthnIdentityProviderFunction({ signer: books })
+				});
 		const orbitdb = await createOrbitDB({
 			ipfs: helia,
 			// @ts-expect-error `identities` is a documented option the bundled types omit
-			identities,
-			identity,
+			identities: booksIdentities,
+			identity: booksIdentity,
 			directory: STORAGE_PATHS.orbitdb
 		});
+		// The access list's own database is sealed like every other (books-access.js).
+		const encryption = await sealedEncryption(encryptionKey, replicationKey);
+		sealAccessLists(encryption);
 		// The books before the replication layer move in once per browser
-		// (store/migrate.js); a restored backup of them moves in again.
+		// (store/migrate.js); a restored backup of them moves in again. So do the
+		// passkey's databases, to the books' identity (#496).
 		const moveFlag = `${SEALED_BOOKS_FLAG}:${identity.id}`;
+		const booksFlag = `${BOOKS_IDENTITY_FLAG}:${booksIdentity.id}`;
 		const store = await openStore({
 			orbitdb,
 			encryptionKey,
 			replicationKey,
 			prfOutput,
+			...(beforeBooksIdentity
+				? {}
+				: {
+						accessController: booksAccessController(booksIdentity.id),
+						author: identity.id,
+						formerWriter: identity.id,
+						moveFromPasskey: !flagSet(booksFlag)
+					}),
 			move: !flagSet(moveFlag),
 			onOpen: (collection) => onStatus?.({ step: 'open', collection }),
 			onMove: ({ collection, moved, total }) =>
 				onStatus?.({ step: 'move', collection, done: moved, total })
 		});
 		setFlag(moveFlag);
+		if (!beforeBooksIdentity) setFlag(booksFlag);
 		onStatus?.({ step: 'blobs' });
 		const blobs = await createBlobStore({ blockstore: helia.blockstore, key: blobKey, online });
 
 		return {
 			did: identity.id,
+			booksDid: booksIdentity.id,
 			identityHash: identity.hash,
 			peerId: libp2p.peerId.toString(),
 			store,
@@ -355,20 +408,39 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 			 */
 			async restoreBackup(sealed, onProgress, chain) {
 				const { restoreBackup } = await import('./backup/archive.js');
-				const { sealedEncryption } = await import('./entry-encryption.js');
 				const { default: SealedDocuments } = await import('./store/sealed-documents.js');
-				const { oldBooksNames, oldBooksOpenOptions } = await import('./store/repository.js');
+				const { oldBooksNames, oldBooksOpenOptions, passkeyBooksOpenOptions } = await import(
+					'./store/repository.js'
+				);
+				const { deriveSealedDatabaseName } = await import('./database-keys.js');
 				const addresses = Object.fromEntries(
 					Object.entries(store.databases()).map(([name, db]) => [name, String(db.address)])
 				);
 				// A backup made before the replication layer names the old databases:
 				// their addresses, from opening them (without sync) once.
-				const oldOptions = await oldBooksOpenOptions(encryptionKey);
+				const oldOptions = await oldBooksOpenOptions(encryptionKey, identity.id);
 				/** @type {Record<string, string>} */
 				const oldAddresses = {};
 				for (const [name, dbName] of Object.entries(await oldBooksNames(prfOutput))) {
 					const db = await orbitdb.open(dbName, oldOptions);
 					oldAddresses[name] = String(db.address);
+					await db.close();
+				}
+				// A backup made before the books' own identity (#496) names the
+				// passkey's databases: their addresses, from opening them likewise.
+				const passkeyOptions = await passkeyBooksOpenOptions(
+					encryptionKey,
+					replicationKey,
+					identity.id
+				);
+				/** @type {Record<string, string>} */
+				const passkeyAddresses = {};
+				for (const name of Object.keys(addresses)) {
+					const db = await orbitdb.open(
+						await deriveSealedDatabaseName(prfOutput, name),
+						passkeyOptions
+					);
+					passkeyAddresses[name] = String(db.address);
 					await db.close();
 				}
 				let closed = false;
@@ -388,6 +460,7 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 								encryption: await sealedEncryption(encryptionKey, replicationKey)
 							}
 						},
+						{ name: 'passkey', addresses: passkeyAddresses, open: passkeyOptions },
 						{ name: 'old', addresses: oldAddresses, open: oldOptions }
 					],
 					onProgress,
@@ -401,6 +474,7 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 				});
 				// Back into the old databases: they move in on the next unlock.
 				if (result.target === 'old') clearFlag(moveFlag);
+				if (result.target === 'passkey') clearFlag(booksFlag);
 				return result;
 			},
 			ucepSeed,
@@ -416,6 +490,7 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 				? {
 						secretsForE2E: {
 							signingKey,
+							booksSecret,
 							databaseKey: encryptionKey,
 							replicationKey,
 							blobKey,
@@ -426,6 +501,7 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 			async stop() {
 				closeQrSession();
 				await store.close();
+				sealAccessLists(null);
 				await orbitdb.stop();
 				await helia.stop();
 			}

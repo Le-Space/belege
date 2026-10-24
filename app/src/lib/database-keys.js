@@ -67,6 +67,15 @@ export const REPLICATION_KEY_INFO = 'belege/replication-key/v1';
  */
 export const SEALED_DB_NAME_INFO = 'belege/db-name/v2';
 
+/**
+ * The books' secret (#496): what their own identity is made from
+ * (session-identities.js `BOOKS_IDENTITY_INFO`), the root writer of every
+ * collection. Derived here until the vault (#406) keeps it; the vault takes
+ * this very value. Bumping it gives the books another identity, and with it
+ * other databases.
+ */
+export const BOOKS_SECRET_INFO = 'belege/books-secret/v1';
+
 const KEY_BYTES = 32;
 const NAME_BYTES = 16;
 
@@ -222,6 +231,19 @@ export async function deriveDeviceAuthKey(prfOutput) {
 export async function deriveReplicationKey(prfOutput) {
 	assertPrfOutput(prfOutput);
 	return hkdf(prfOutput, REPLICATION_KEY_INFO, KEY_BYTES);
+}
+
+/**
+ * The books' secret (#496): made into the books' own signer with
+ * `createSecretSigner`, so the collections are written as the books, not as
+ * one passkey. Never written anywhere.
+ *
+ * @param {Uint8Array} prfOutput
+ * @returns {Promise<Uint8Array>} 32 bytes
+ */
+export async function deriveBooksSecret(prfOutput) {
+	assertPrfOutput(prfOutput);
+	return hkdf(prfOutput, BOOKS_SECRET_INFO, KEY_BYTES);
 }
 
 /**
