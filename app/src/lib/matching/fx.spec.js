@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { memoryCollection } from '../bank/test-support.js';
-import { fillFx, fxGaps } from './fx.js';
+import { fillFx, fxCandidateGaps, fxGaps } from './fx.js';
 
 const books = () => ({
 	receipts: [
@@ -95,5 +95,88 @@ describe('fillFx', () => {
 		// The day without a rate stays a gap, asked again next time.
 		const again = fxGaps({ ...withIds, transactions: await collection.list() });
 		expect(again.map((g) => g.day)).toEqual(['2025-06-30']);
+	});
+});
+
+describe('rates for candidates (#474)', () => {
+	const candidates = () => ({
+		receipts: [
+			{
+				id: 'R-OPEN',
+				currency: 'USD',
+				amountCents: 8_700,
+				documentDate: '2026-03-02',
+				extraction: { currency: 'USD', gross: 87, vendor: 'Example Cloud Ltd' }
+			},
+			// Linked already: its own gaps are fxGaps'.
+			{
+				id: 'R-LINKED',
+				currency: 'USD',
+				amountCents: 1_000,
+				documentDate: '2026-03-02',
+				extraction: { currency: 'USD', gross: 10 }
+			},
+			// Crypto: evidence in the receipt, not a rate.
+			{
+				id: 'R-XMR',
+				currency: 'XMR',
+				amountCents: 200,
+				documentDate: '2026-03-02',
+				extraction: { currency: 'XMR', gross: 2 }
+			}
+		],
+		transactions: [
+			{ id: 'T-NEAR', bookedOn: '2026-03-04', amountCents: -8_032, currency: 'EUR' },
+			{ id: 'T-FAR', bookedOn: '2026-03-05', amountCents: -2_500, currency: 'EUR' },
+			// Outside the receipt's window (−5 … +10 days).
+			{ id: 'T-LATE', bookedOn: '2026-04-30', amountCents: -8_032, currency: 'EUR' },
+			{ id: 'T-LINKED', bookedOn: '2026-03-04', amountCents: -920, currency: 'EUR' },
+			{
+				id: 'T-ORIGINAL',
+				bookedOn: '2026-03-04',
+				amountCents: -8_000,
+				currency: 'EUR',
+				original: { amount: '87.00', currency: 'USD' }
+			}
+		],
+		matches: [{ receiptId: 'R-LINKED', transactionId: 'T-LINKED', state: 'auto' }]
+	});
+
+	it('names euro bookings in the window of an open receipt in another currency', () => {
+		const gaps = fxCandidateGaps(candidates());
+		expect(gaps.map((g) => [g.tx.id, g.currency, g.near])).toEqual([
+			['T-NEAR', 'USD', [8_700]],
+			['T-FAR', 'USD', [8_700]]
+		]);
+	});
+
+	it('keeps the rate only where the amount comes near, and asks each day once', async () => {
+		const { collection } = memoryCollection('transactions');
+		const b = candidates();
+		/** @type {Record<string, any>} */
+		const stored = {};
+		for (const { id, ...t } of b.transactions) stored[id] = await collection.put(t);
+		const gaps = fxCandidateGaps({
+			...b,
+			transactions: Object.values(stored),
+			matches: b.matches.map((m) => ({ ...m, transactionId: stored[m.transactionId].id }))
+		}).filter((g) => g.currency === 'USD');
+		/** @type {string[]} */
+		const asked = [];
+		const client = {
+			rate: async (/** @type {string} */ asset, /** @type {string} */ date) => {
+				asked.push(`${asset} ${date}`);
+				return { asset, date, rate: '0.92', source: 'ecb', at: `${date}T00:00:00Z` };
+			}
+		};
+		expect(await fillFx({ client, transactions: collection, gaps })).toBe(1);
+		const all = await collection.list();
+		const near = all.find((t) => t.id === stored['T-NEAR'].id);
+		const far = all.find((t) => t.id === stored['T-FAR'].id);
+		expect(near?.fx).toEqual({ USD: { rate: '0.92', source: 'ecb', at: '2026-03-04T00:00:00Z' } });
+		expect(far?.fx).toBeUndefined();
+		// A day asked once is not asked again on the next run.
+		await fillFx({ client, transactions: collection, gaps });
+		expect(asked.filter((a) => a === 'USD 2026-03-05')).toHaveLength(1);
 	});
 });

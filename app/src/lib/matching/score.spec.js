@@ -458,3 +458,72 @@ describe('assign: the phase-0 cases', () => {
 		expect(ranked.map((c) => c.transactionId)).toEqual([good.id, worse.id]);
 	});
 });
+
+describe('a receipt in another currency (#474)', () => {
+	const usd = (/** @type {Record<string, any>} */ x = {}) =>
+		receipt({
+			vendor: 'Example Cloud Ltd',
+			invoice_number: 'INV-99812',
+			invoice_date: '2026-03-02',
+			currency: 'USD',
+			gross: 87,
+			...x
+		});
+	const card = (/** @type {Record<string, any>} */ t = {}) =>
+		tx({
+			amountCents: -8_032,
+			bookedOn: '2026-03-04',
+			counterparty: 'EXAMPLE CLOUD LTD',
+			purpose: 'INV-99812',
+			bookingType: 'Kartenzahlung',
+			...t
+		});
+
+	it("counts the bank's original amount in the receipt's currency as the amount", () => {
+		const s = score(usd(), card({ original: { amount: '87.00', currency: 'USD' } }));
+		expect(s.reasons).toContain('amount-original');
+		expect(s.score).toBeGreaterThanOrEqual(SURE);
+	});
+
+	it('an original amount in another currency, or another amount, is no match', () => {
+		expect(
+			score(usd(), card({ original: { amount: '87.00', currency: 'GBP' } })).reasons
+		).not.toContain('amount-original');
+		expect(
+			score(usd(), card({ original: { amount: '78.00', currency: 'USD' } })).reasons
+		).not.toContain('amount-original');
+	});
+
+	it("counts a euro amount at the day's rate within the tolerance, for fewer points", () => {
+		// 80,32 € at 0,92 € per dollar: 87,30 USD, 0,3 % off 87,00.
+		const fx = { USD: { rate: '0.92', source: 'ecb', at: '2026-03-04T00:00:00Z' } };
+		const s = score(usd(), card({ fx }));
+		expect(s.reasons).toContain('amount-converted');
+		expect(s.reasons).not.toContain('amount');
+		// With the invoice number, sure; without it, a question at most.
+		expect(s.score).toBeGreaterThanOrEqual(SURE);
+		const bare = score(usd({ invoice_number: null }), card({ fx, purpose: 'Kartenzahlung' }));
+		expect(bare.score).toBeLessThan(SURE);
+		expect(bare.score).toBeGreaterThanOrEqual(CANDIDATE);
+	});
+
+	it('not outside the tolerance', () => {
+		// 80,32 € at 0,80: 100,40 USD – far off 87,00.
+		const fx = { USD: { rate: '0.80', source: 'ecb', at: '2026-03-04T00:00:00Z' } };
+		expect(score(usd(), card({ fx })).reasons).not.toContain('amount-converted');
+	});
+
+	it('leaves a receipt in euros as it was', () => {
+		const eur = receipt({
+			vendor: 'Example Cloud Ltd',
+			invoice_date: '2026-03-02',
+			currency: 'EUR',
+			gross: 80.32
+		});
+		const fx = { USD: { rate: '0.92', source: 'ecb', at: '' } };
+		const s = score(eur, card({ fx, original: { amount: '87.30', currency: 'USD' } }));
+		expect(s.reasons).toContain('amount');
+		expect(s.reasons).not.toContain('amount-converted');
+		expect(s.reasons).not.toContain('amount-original');
+	});
+});

@@ -121,3 +121,27 @@ describe('classificationLine', () => {
 		expect(classificationLine(null)).toBeNull();
 	});
 });
+
+describe('a receipt in another currency (#474)', () => {
+	const usd = { id: 'R2', currency: 'USD', amountCents: 8_700, extraction: { gross: 87 } };
+	it("names the amount the bank gave in the receipt's currency", () => {
+		const card = { ...tx, amountCents: -8_000, original: { amount: '87.00', currency: 'USD' } };
+		expect(plain(reasonsText(['amount-original'], { tx: card, receipt: usd }))).toBe(
+			'Betrag gleich (87,00 USD laut Bank)'
+		);
+	});
+	it('names the rate, its day and source, and how far off', () => {
+		const card = {
+			...tx,
+			amountCents: -8_032,
+			bookedOn: '2026-03-04',
+			fx: { USD: { rate: '0.92', source: 'ecb', at: '2026-03-04T00:00:00Z' } }
+		};
+		expect(plain(reasonsText(['amount-converted'], { tx: card, receipt: usd }))).toBe(
+			'Betrag umgerechnet: 80,32 EUR sind 87,30 USD zum EZB-Kurs vom 04.03.2026 (1 USD = 0,92 EUR), 0,3 % neben 87,00 USD'
+		);
+		expect(pointsBreakdown(['amount-converted', 'invoice-number'], 75)).toBe(
+			'Betrag (umgerechnet) +25 · Rechnungsnummer +50 = 75 Punkte'
+		);
+	});
+});

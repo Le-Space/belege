@@ -1631,6 +1631,8 @@ export default {
 		reason: {
 			instalment: 'Teilzahlung',
 			'remaining-amount': 'Restbetrag',
+			'amount-original': 'Betrag (Originalwährung)',
+			'amount-converted': 'Betrag (umgerechnet)',
 			amount: 'Betrag',
 			'invoice-number': 'Rechnungsnummer',
 			'customer-number': 'Kundennummer',
@@ -1702,6 +1704,12 @@ export default {
 			'remaining-amount': 'Betrag gleich dem noch offenen Rest',
 			amount: 'Betrag gleich',
 			amountValue: 'Betrag gleich ({amount})',
+			amountOriginal: 'Betrag gleich – in der Währung des Belegs, laut Bank',
+			amountOriginalValue: 'Betrag gleich ({amount} laut Bank)',
+			amountConverted: 'Betrag umgerechnet zum Kurs des Buchungstags',
+			ecb: 'EZB',
+			amountConvertedValue:
+				'Betrag umgerechnet: {eur} sind {amount} zum {source}-Kurs vom {day} (1 {currency} = {rate} EUR), {diff} % neben {invoice}',
 			invoice: 'Rechnungsnummer im Verwendungszweck',
 			invoiceValue: 'Rechnungsnummer {number} im Verwendungszweck',
 			customer: 'Kundennummer im Verwendungszweck',

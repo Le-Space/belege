@@ -654,7 +654,9 @@ let fxQueue = Promise.resolve(0);
  * The ECB rate of the day for payments linked to an invoice in another
  * currency, where none is kept yet (matching/fx.js): so instalments in euros
  * – a bank transfer, a Monero payment valued in euros – count in the
- * invoice's currency. Through the bridge; without one, nothing happens.
+ * invoice's currency. And for euro bookings that, at it, come near an open
+ * receipt in another currency (#474), with matching run again for them.
+ * Through the bridge; without one, nothing happens.
  * One run at a time; the books are read again when a rate came.
  *
  * @returns {Promise<number>} bookings that got a rate
@@ -663,17 +665,29 @@ export function fillExchangeRates() {
 	const next = fxQueue
 		.then(async () => {
 			if (!session) return 0;
-			const { fxGaps, fillFx } = await import('./matching/fx.js');
-			const gaps = fxGaps({
+			const { fxGaps, fxCandidateGaps, fillFx } = await import('./matching/fx.js');
+			const books = {
 				receipts: app.receipts,
 				matches: app.matches,
 				transactions: app.transactions
-			});
-			if (!gaps.length) return 0;
+			};
+			const linked = fxGaps(books);
+			const candidates = fxCandidateGaps(books);
+			if (!linked.length && !candidates.length) return 0;
 			const client = await pairedClient();
 			if (!client || !session) return 0;
-			const filled = await fillFx({ client, transactions: session.store.transactions, gaps });
-			if (filled) await refresh();
+			const filled = await fillFx({
+				client,
+				transactions: session.store.transactions,
+				gaps: [...linked, ...candidates]
+			});
+			if (!filled) return 0;
+			await refresh();
+			// A booking that now comes near an open receipt in another currency
+			// may be its payment (#474): matching counts it on the next run.
+			const kept = (/** @type {any} */ g) =>
+				app.transactions.some((t) => t.id === g.tx.id && t.fx?.[g.currency]?.rate);
+			if (candidates.some(kept)) runMatchingNow();
 			return filled;
 		})
 		.catch((error) => {

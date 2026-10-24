@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **A receipt in another currency links to its euro payment (#474).** Matching gave amount points only for the same amount in the same currency, so a USD or GBP invoice paid by card from a euro account almost never linked by itself. Now the bank's original amount in the receipt's currency ("USD 87,00" on a card payment) counts as the amount (+40); without one, a euro booking in the receipt's date window gets the ECB rate of its day from the bridge, kept only when at it the amount comes within 3 % of what is open, and counts as a converted amount (+25, so it needs another sign such as the invoice number). "Warum diese Zuordnung?" names the rate, its day, and how far off it is. Crypto stays as it was.
+
 ### Fixed
 
 - **The network badge says how devices meet, and what is history.** Its first line was always "über ein Le-Space-Relay (TLS-WebSocket)", also in "Ohne Relay, per QR" where there is no relay; it follows the mode now (directly over WebRTC by QR; through the bridge's relay; both). The last ping answer of a device that is gone since says "seitdem nicht mehr verbunden" instead of reading as current, and an entry written here while no device is connected "geht beim nächsten Verbinden hinaus" instead of "an die Geräte".

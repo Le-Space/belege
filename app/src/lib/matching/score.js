@@ -2,7 +2,13 @@
 // sure. Pure: no store, no clock, no network. Ported from
 // spikes/matching/match.mjs (phase 0) and hardened:
 //
-//   amount            40  same absolute amount in cents, same currency
+//   amount            40  same absolute amount in cents, same currency – or,
+//                         paid from another currency, the bank's original
+//                         amount in the receipt's currency (`original`)
+//   converted amount  25  paid in euros, the receipt in another currency: at
+//                         the ECB rate of the booking day (`fx`, fx.js) within
+//                         FX_MATCH_TOLERANCE of what is open – card fees and
+//                         spreads; less than exact, so it needs a second sign
 //   invoice number    50  the receipt's number, separators stripped, in the
 //                         purpose or the end-to-end id
 //   customer number   20  the same for the customer number
@@ -30,6 +36,7 @@ import { INSTALMENT_WORDS } from './instalments.js';
 
 export const POINTS = Object.freeze({
 	amount: 40,
+	amountConverted: 25,
 	invoiceNumber: 50,
 	customerNumber: 20,
 	iban: 15,
@@ -56,6 +63,8 @@ export const MIN_REF = 5;
 export const MAX_CANDIDATES = 3;
 /** A candidate below this is noise, not worth offering. */
 export const SHOWN = 40;
+/** How far a converted amount may be off what is open: card fees and spreads (#474). */
+export const FX_MATCH_TOLERANCE = 0.03;
 
 /**
  * @typedef {object} ReceiptFacts
@@ -89,6 +98,9 @@ export const SHOWN = 40;
  * @property {string} counterpartyIban compact, or ''
  * @property {number | null} day
  * @property {string[]} learnedVendors vendors a person linked this counterparty to (partners.js)
+ * @property {{ currency: string, cents: number } | null} [original] what the bank says was paid in
+ *   another currency (a card payment "USD 87,00")
+ * @property {Record<string, number>} [fx] the ECB rate of the booking day by currency, EUR per unit (fx.js)
  */
 
 /** @typedef {{ score: number, reasons: string[] }} Score */
@@ -169,8 +181,41 @@ export function txFacts(t, ctx = {}) {
 		counterparty: String(t.counterparty ?? ''),
 		counterpartyIban: compactIban(t.counterpartyIban) || compactIban(tagged),
 		day: dayNumber(t.bookedOn),
-		learnedVendors: ctx.learnedVendors?.get(txAlias(t)) ?? []
+		learnedVendors: ctx.learnedVendors?.get(txAlias(t)) ?? [],
+		original: originalOf(t.original),
+		fx: ratesOf(t.fx)
 	};
+}
+
+/** The bank's original amount in cents, or null. @param {any} original */
+function originalOf(original) {
+	const m = /^-?\d+(?:\.\d{1,2})?$/.exec(String(original?.amount ?? '').trim());
+	const currency = String(original?.currency ?? '').toUpperCase();
+	if (!m || !/^[A-Z]{3}$/.test(currency)) return null;
+	return { currency, cents: Math.round(Math.abs(Number(m[0])) * 100) };
+}
+
+/** `fx: { USD: { rate: '0.92' } }` → `{ USD: 0.92 }`, positive rates only. @param {any} fx */
+function ratesOf(fx) {
+	/** @type {Record<string, number>} */
+	const out = {};
+	for (const [currency, kept] of Object.entries(fx ?? {})) {
+		const rate = Number(/** @type {any} */ (kept)?.rate);
+		if (Number.isFinite(rate) && rate > 0) out[currency.toUpperCase()] = rate;
+	}
+	return out;
+}
+
+/**
+ * A euro booking's amount in another currency at the day's rate, or null.
+ *
+ * @param {TxFacts} t
+ * @param {string} currency
+ */
+export function convertedCents(t, currency) {
+	const rate = t.fx?.[currency];
+	if (t.currency !== 'EUR' || !rate) return null;
+	return Math.round(Math.abs(t.amountCents) / rate);
 }
 
 /**
@@ -193,9 +238,21 @@ export function scorePair(r, t) {
 	const cents = Math.abs(t.amountCents);
 	const open = r.openCents ?? r.absCents;
 	const sameCurrency = t.currency === r.currency;
+	const currency = r.currency.toUpperCase();
+	const converted = sameCurrency ? null : convertedCents(t, currency);
 	// What is open is the amount to meet: the whole invoice, or – partly paid – its rest.
 	if (sameCurrency && cents === open) add('amount', r.partial ? 'remaining-amount' : 'amount');
-	else if (sameCurrency && cents > 0 && cents < open) {
+	// Paid from euros: what the bank says went out in the receipt's currency,
+	// else the day's rate, near enough (#474).
+	else if (!sameCurrency && t.original?.currency === currency && t.original.cents === open) {
+		add('amount', 'amount-original');
+	} else if (
+		converted !== null &&
+		open > 0 &&
+		Math.abs(converted - open) <= open * FX_MATCH_TOLERANCE
+	) {
+		add('amountConverted', 'amount-converted');
+	} else if (sameCurrency && cents > 0 && cents < open) {
 		// A part: the invoice is paid in part already, or the purpose names it and
 		// says "Teilzahlung" – the word alone is too common ("Abschlag", "Rate").
 		const named = r.invoiceNumber.length >= MIN_REF && t.text.includes(r.invoiceNumber);
