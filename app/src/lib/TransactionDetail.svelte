@@ -2076,7 +2076,25 @@
 						{t('zahlungen.detail.memoIn', { memo: memoIn })}
 					</p>
 				{/if}
-				{#if classification?.lookalike}
+				{#if classification?.kind === 'token-spam'}
+					<div
+						class="mt-2 rounded-md border border-l-4 border-red-300 border-l-red-700 bg-red-50 px-3 py-2 dark:border-red-900 dark:border-l-red-400 dark:bg-red-950/40"
+						role="alert"
+						data-testid="tx-spam-warning"
+					>
+						<p class="text-sm font-semibold text-red-800 dark:text-red-300">
+							{t('zahlungen.detail.poisonTitle')}
+						</p>
+						<p class="mt-0.5 text-sm break-all text-text">
+							{t('zahlungen.detail.spamText', {
+								address: String(tx.counterpartyAddress ?? '')
+							})}
+							{#if classification.lookalike}
+								{t('zahlungen.detail.spamLookalike', { known: classification.lookalike })}
+							{/if}
+						</p>
+					</div>
+				{:else if classification?.lookalike}
 					<div
 						class="mt-2 rounded-md border border-l-4 border-red-300 border-l-red-700 bg-red-50 px-3 py-2 dark:border-red-900 dark:border-l-red-400 dark:bg-red-950/40"
 						role="alert"
@@ -2258,14 +2276,15 @@
 						{/if}
 					</div>
 				{/each}
-				{#if tx.rateMissing || (showDetails && tx.quantity)}
+				<!-- A fake token has no rate to find, nor one to enter. -->
+				{#if (tx.rateMissing && classification?.kind !== 'token-spam') || (showDetails && tx.quantity)}
 					<div class="mt-2 text-sm" data-testid="tx-rate">
-						{#if tx.rateMissing}
+						{#if tx.rateMissing && classification?.kind !== 'token-spam'}
 							<p class="text-warning" data-testid="tx-rate-missing">
 								{t('zahlungen.detail.rate.missing', { reason: tx.rateMissing.reason ?? '' })}
 							</p>
 						{/if}
-						{#if rateOpen || tx.rateMissing}
+						{#if rateOpen || (tx.rateMissing && classification?.kind !== 'token-spam')}
 							<form
 								class="mt-1 flex flex-wrap items-end gap-2"
 								onsubmit={(e) => {

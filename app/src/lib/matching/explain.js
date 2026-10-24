@@ -360,6 +360,8 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 				date: c.counterDay ? formatDate(c.counterDay) : '?'
 			});
 		}
+		case 'token-spam':
+			return t('explain.rule.tokenSpam');
 		case 'crypto-dust':
 			return c.lookalike
 				? t('explain.rule.dustLookalike', { known: c.lookalike })

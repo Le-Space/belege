@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **A fake token's "transfer" is told apart (address poisoning).** A token contract can log a Transfer out of any wallet without its key; spam runs do so by the thousand, from tokens named like real ones ("U⁯S⁯DΤ" with a Greek tau), to an address made to look like one the wallet really paid. Such a booking showed as a payment needing a receipt, an account and a rate. A token without any rate that someone else moved out of an own wallet, or whose symbol has characters no real token writes, is now "Fake-Token (Adressvergiftung) – nichts bewegt, kein Beleg nötig"; the payment warns never to send to its address (and names the address it imitates, where one is known), and asks for no rate.
+
 - **Older backup chains can be deleted on Aleph.** Each "Neues Vollbackup" starts a new chain, and the older ones went on costing credits (about 54 a MiB a day) with no way to stop it from the app. The backup card lists them now – when made, how many increments, what they cost a day – and "Löschen", after "Endgültig löschen?", has Aleph forget every STORE of that chain (FORGET, signed with this browser's key; Aleph lets it forget what it could have sent itself, the bridge's STOREs too). The current chain is never offered, nor anything while it is not kept.
 
 ### Fixed

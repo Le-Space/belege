@@ -1693,6 +1693,7 @@ export default {
 			'token-burn': 'Vom Projekt verbrannt',
 			'token-migration': 'Token-Migration',
 			'crypto-dust': 'Staub',
+			'token-spam': 'Fake-Token',
 			'rule-ignore': 'Ignoriert',
 			'rule-private': 'Privat'
 		},
@@ -1712,6 +1713,7 @@ export default {
 			'token-burn': 'Vom Token-Projekt verbrannt – keine Zahlung, kein Beleg',
 			'token-migration': 'Token-Migration – beide Transaktionen im Block-Explorer sind der Beleg',
 			'crypto-dust': 'Staub unter einem Cent – kein Beleg nötig',
+			'token-spam': 'Fake-Token (Adressvergiftung) – nichts bewegt, kein Beleg nötig',
 			'rule-ignore': 'Ignoriert nach eigener Anweisung: {reason}',
 			'rule-private': 'Privat nach eigener Anweisung: {reason}',
 			'no-receipt': 'Kein Beleg nötig: {reason}'
@@ -1846,6 +1848,8 @@ export default {
 			dust: 'Staub: weniger als ein Cent wert, empfangen, ohne dass du etwas getan hast. Kein Beleg nötig. Oft ein Test oder Werbung – oder der Anfang einer Adressvergiftung: Verwende die Absenderadresse nie als Empfänger.',
 			dustLookalike:
 				'Staub von einer Adresse, die aussieht wie {known}, aber eine andere ist – sehr wahrscheinlich Adressvergiftung. Kein Beleg nötig.',
+			tokenSpam:
+				'Fake-Token: ein Token ohne Kurs, den nicht diese Wallet bewegt hat, oder dessen Name einen echten nachahmt. Ein Token-Vertrag kann eine Überweisung von jeder Adresse melden, ohne deren Schlüssel – bewegt wurde nichts. Kein Beleg nötig. Er soll eine Adresse in deine Historie legen: nie an sie senden.',
 			cryptoReward:
 				'Staking- oder Earn-Ertrag der Börse – der Kontoauszug ist der Beleg. Auf welches Konto er gehört, klärt ihr mit dem Steuerberater.',
 			ignore: 'Eigene Anweisung: {field} enthält „{contains}“ → ignoriert ({reason})',
@@ -3293,6 +3297,9 @@ export default {
 					'Kein Beleg erreicht genug Punkte. Unter „Alle Belege“ stehen alle offenen, im Postfach und beim Anbieter lässt sich weitersuchen.'
 			},
 			poisonTitle: 'Achtung: mögliche Adressvergiftung',
+			spamText:
+				'Diese Buchung hat ein Fake-Token erzeugt, nicht deine Wallet: Bewegt wurde nichts. Die Adresse {address} wurde in deine Historie gelegt, damit du sie beim nächsten Senden versehentlich kopierst. Nie an diese Adresse senden; die Empfängeradresse immer vollständig vergleichen.',
+			spamLookalike: 'Sie beginnt und endet wie {known}, mit der du zu tun hattest.',
 			poisonText:
 				'Die Absenderadresse {address} beginnt und endet wie {known}, mit der du zu tun hattest, ist aber eine andere. So eine Adresse wird mit einem winzigen Betrag in deine Historie gelegt, damit du sie beim nächsten Senden versehentlich kopierst. Nie an diese Adresse senden; die Empfängeradresse immer vollständig vergleichen.',
 			title: 'Zahlung',
