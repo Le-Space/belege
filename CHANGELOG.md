@@ -14,6 +14,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **A device gossipsub has stopped talking to is hung up and dialled again (#489).** OrbitDB's heads ride gossipsub, which stays on the first connection to a device; when the relay closed that circuit, the direct WebRTC connection beside it carried no gossipsub, and nothing replicated while the device looked connected (#393). The redial round now asks whether a connection carries a gossipsub stream; one that has none for 45 s is hung up – at most once per device in five minutes – and the next dial builds one gossipsub uses. Measured: a stalled burst of 100 bookings came back after 53 s instead of never. A stopgap: the bug is gossipsub's, and #393 and #403 stay open.
+
 - **"direkt" in the devices card means what the badge means.** The card called a device direct by libp2p's `limited` flag, the badge by the address; a circuit through a relay that sets no limits (the bridge's) was "direkt" in the card and "über das Relay" in the badge. Both read the address now, and a circuit through the bridge's relay, itself reached over `/webrtc-direct`, is no longer taken for WebRTC.
 
 - **The network badge says how devices meet, and what is history.** Its first line was always "über ein Le-Space-Relay (TLS-WebSocket)", also in "Ohne Relay, per QR" where there is no relay; it follows the mode now (directly over WebRTC by QR; through the bridge's relay; both). The last ping answer of a device that is gone since says "seitdem nicht mehr verbunden" instead of reading as current, and an entry written here while no device is connected "geht beim nächsten Verbinden hinaus" instead of "an die Geräte".
