@@ -28,6 +28,20 @@ Beide Geräte erreichen sich über einen Circuit-Relay (was die öffentlichen Le
 
 **Warum, gemessen am 13.10.2026** mit Netzwerkmitschrieb während des Schubs (jede Verbindung mit ihren Streams auf beiden Geräten, Gossipsubs Peerliste, OrbitDBs Heads-Austausche; `app/bench/results/2026-10-13-resilience-replication-relay-50-*.json`): Zum Zeitpunkt des Schubs haben die Geräte eine direkte WebRTC-Verbindung, aber Gossipsub läuft weiter über den Circuit des Relays — es öffnet seine Streams auf der ersten Verbindung zu einem Peer und zieht nie um. Schließt der Relay den Circuit, behält Gossipsub den Peer, verliert beide Streams und öffnet neue nur für eine _neue_ Verbindung; OrbitDBs Sync, der nie eine Trennung sah, tauscht keine Heads mehr aus. Ob der Schub durchkommt, ist dann eine Frage des Timings: Eine WebRTC-Verbindung, die jung genug ist, dass ihr Verbindungsereignis nach dem Schließen eintrifft, trägt weiter (100 von 100 in 1,9–2,4 s in drei Läufen); eine eingespielte nicht (28 von 100 in einem vierten, gleichen Lauf). Ohne Datengrenze, mit 5 s Circuit-Dauer und dann 8 s Ruhe vor dem Schub — die Form eines Imports nach zwanzig Minuten an einem Le-Space-Relay — kommt gar nichts an: 0 von 100, jedes Mal. Festgehalten als [belege#393](https://github.com/Le-Space/belege/issues/393); die richtige Korrektur gehört in Gossipsub, eine Wiederverbindung in der App ist der Notbehelf. Eine frühere Fassung dieser Seite machte [orbitdb-relay#59](https://github.com/NiKrause/orbitdb-relay/issues/59) verantwortlich; dieser Relay-Fehler ist echt, läuft aber auf dem Relay, und der Relay des Benchmarks ist ein nackter libp2p-Circuit-Relay ohne orbitdb-relay-Code.
 
+**Der Notbehelf, und was er taugt (23.10.2026).** Die Wählrunde fragte bisher, ob eine Verbindung zum Gerät offen ist — und in diesem Zustand sind drei offen. Sie fragt jetzt, ob eine davon einen `/meshsub/`-Stream trägt, gibt einer stummen Verbindung 45 s für den Fall, dass sie sich nur einrichtet, und legt dann auf: ein erneutes Wählen bekäme die bestehende Verbindung zurück, statt einen Circuit zu bauen, also muss sie erst weg, bevor eine brauchbare entstehen kann. Derselbe Test-Relay mit seinen Standardgrenzen, 500 Buchungen, je ein Lauf:
+
+| | ohne die Wählrunde | mit ihr |
+| --- | --- | --- |
+| Schub binnen 20 s synchron | nein | nein |
+| beim Stocken angekommen | 26 von 100 | 27 von 100 |
+| Verbindungen, davon mit `/meshsub/` | 3, keine | 3, keine |
+| von selbst zurückgekommen | **nie** | **nach 53,0 s** |
+| am Ende angekommen | 26 von 100 | **100 von 100** |
+
+Beide Arme stocken gleich, auf eine Buchung genau; der Unterschied ist allein, ob es jemandem auffällt. Drei offene Verbindungen und unter ihnen kein einziger Gossipsub-Stream — das ist #393 selbst, von innen gesehen, und es ist der Grund, warum eine Zählung angekommener Buchungen das Stocken nie erklären konnte.
+
+Mehr als ein Notbehelf ist das nicht. Er legt eine Verbindung auf, die gesund aussieht, um eine neue zu erzwingen, er wartet dafür 45 s, und er darf das pro Gerät höchstens alle fünf Minuten — ein Fehlalarm darf kein funktionierendes Gerät in eine Schleife legen. Der Fehler, den er umgeht, sitzt in Gossipsub, also bleiben [#393](https://github.com/Le-Space/belege/issues/393) und [#403](https://github.com/Le-Space/belege/issues/403) offen.
+
 **Mit produktionsnahen Grenzen** (die Le-Space-Relays laufen mit 20 Minuten und 10 GiB je Circuit; `E2E_RELAY_UNLIMITED=1` hebt die Grenze des Test-Relays auf) läuft alles durch, und die Zahlen decken sich im Rauschen mit denen ohne Relay:
 
 | Bücher (Buchungen) | Koppeln (Scan → „verbunden") | Nachzügler hat alle | Mac → Telefon, Median (p95) | Telefon → Mac, Median (p95) | Schub von 100 |
@@ -81,16 +95,18 @@ Die Zusammenführung nach der Wiederverbindung ist sofort da; was kostet, ist di
 
 Ein Browser, die Bridge im Testmodus, das Fake-Aleph. Bücher mit _n_ Buchungen, „Jetzt sichern" (die Storage Bridge versiegelt die Datenbank und legt sie ab), dann werden `localStorage`, `sessionStorage` und jede IndexedDB gelöscht und die Bridge gestoppt. Derselbe Passkey öffnet leere Bücher; die Adresse des Kontos allein listet die Sicherung; „Wiederherstellen" holt sie, legt die Blöcke zurück und joint die Heads; die Seite lädt neu, der Passkey entsperrt.
 
-Neu gemessen am **23. Oktober 2026**, dieselbe Maschine, Einträge mit Ed25519 unterschrieben, und die Storage Bridge mit zwei Reparaturen, die 0.23.0 noch nicht hat ([#172](https://github.com/NiKrause/orbitdb-storage-bridge/pull/172), [#174](https://github.com/NiKrause/orbitdb-storage-bridge/pull/174)). Docker (fünf Paperless-Container) und Jameica **liefen** bei diesen Messungen, anders als bei den vorigen — die Zahlen sind also eher zu hoch als zu niedrig. In Klammern die Werte vom 13. Oktober mit Bridge 0.17.0.
+Neu gemessen am **23. Oktober 2026**, dieselbe Maschine, Einträge mit Ed25519 unterschrieben, und die Storage Bridge in [0.24.0](https://github.com/NiKrause/orbitdb-storage-bridge/blob/main/CHANGES.md). Docker (fünf Paperless-Container) und Jameica **liefen** bei diesen Messungen, anders als bei den vorigen — die Zahlen sind also eher zu hoch als zu niedrig. In Klammern die Werte vom 13. Oktober mit Bridge 0.17.0; 5 000 und 10 000 waren vorher nie erreichbar und haben keine.
 
 | Bücher (Buchungen) | IndexedDB | Sicherung (Klick → „von Aleph aufbewahrt") | Wiederherstellung (Klick → „Wiederhergestellt") | Entsperren nach dem Neuladen | jede Buchung zurück |
 | ------------------ | --------- | ------------------------------------------ | ----------------------------------------------- | ---------------------------- | ------------------- |
-| 50                 | 8,2 MB    | 0,4 s                                      | **0,9 s** _(1,4 s)_                             | 0,2 s                        | ja, 0 verloren      |
-| 500                | 9,4 MB    | 0,4 s                                      | **5,4 s** _(40 s)_                              | 0,8 s                        | ja, 0 verloren      |
-| 1 000              | 10,7 MB   | 0,6 s                                      | **8,5 s** _(126 s)_                             | 0,9 s                        | ja, 0 verloren      |
-| 2 000              | 13,3 MB   | 2,6 s                                      | **17,7 s** _(—)_                                | 2,4 s                        | ja, 0 verloren      |
+| 50                 | 8,3 MB    | 0,3 s                                      | **0,8 s** _(1,4 s)_                             | 0,2 s                        | ja, 0 verloren      |
+| 500                | 9,4 MB    | 0,4 s                                      | **3,9 s** _(40 s)_                              | 0,8 s                        | ja, 0 verloren      |
+| 1 000              | 10,7 MB   | 0,6 s                                      | **7,4 s** _(126 s)_                             | 0,8 s                        | ja, 0 verloren      |
+| 2 000              | 13,3 MB   | 2,6 s                                      | **14,5 s** _(—)_                                | 1,4 s                        | ja, 0 verloren      |
+| 5 000              | 21,3 MB   | 8,1 s                                      | **40,5 s** _(—)_                                | 3,4 s                        | ja, 0 verloren      |
+| 10 000             | 34,3 MB   | 16,6 s                                     | **79,1 s** _(—)_                                | 6,9 s                        | ja, 0 verloren      |
 
-Die Sicherung ist billig und flach. Die Wiederherstellung ist jetzt **linear** — doppelt so viele Bücher, doppelt so lange — und 2 000 Buchungen kommen zum ersten Mal zurück.
+Die Wiederherstellung ist **linear**, und die Spalte, die das beweist, steht nicht in der Tabelle: ab 500 Buchungen kostet jede 7,3 bis 8,1 Millisekunden, gleich wie viele es insgesamt sind. Zehntausend kommen in 79 s zurück, wo zweitausend vorher gar nicht zurückkamen. Die Sicherung ist in dieser Größenordnung auch nicht mehr flach — sie wächst mit den Büchern, auf 16,6 s bei 10 000 — und das Entsperren danach ebenso.
 
 **Das taten sie nie, und nicht, weil sie langsam waren.** `CarReader` gibt jeden Block einer Sicherung als Ausschnitt in den **einen** `ArrayBuffer` heraus, in dem das ganze CAR liegt, und IndexedDB speichert hinter einem Ausschnitt *den dahinterliegenden Puffer*, nicht den Ausschnitt. Eine Sicherung von 3,7 MB verlangte vom Browser also 3,7 MB **pro Block** — rund 7,5 GB für 2 016 Stück — und er verweigerte alles ab etwa Block 500 mit `QuotaExceededError`. N Blöcke, von denen jeder ein mit N wachsendes Archiv mitträgt, ist quadratisch, und genau das ist das „wächst schneller als die Bücher", das dieser Bericht beschrieben hat. Nachgestellt mit nichts als einem `LevelBlockstore` in einer leeren Seite: dieselben 2 016 Blöcke kosten als freistehende Kopien 4 MB und gehen alle hinein; als Ausschnitte eines Puffers kosten sie 1 862 MB und hören bei Block 494 auf ([#174](https://github.com/NiKrause/orbitdb-storage-bridge/pull/174)).
 
@@ -98,7 +114,7 @@ In einer früheren Fassung stand hier, 2 000 Buchungen seien „weiterhin nach 1
 
 Die frühere Reparatur steckt weiterhin in diesen Zahlen und war auch richtig: `restoreFromBlocks` legte jeden Block in den Log-Speicher **jeder** Datenbank, 18 099 Schreibvorgänge für 2 011 Blöcke ([#152](https://github.com/NiKrause/orbitdb-storage-bridge/issues/152), behoben in [#168](https://github.com/NiKrause/orbitdb-storage-bridge/pull/168) und [#170](https://github.com/NiKrause/orbitdb-storage-bridge/pull/170)). Der Hauptkostenpunkt war sie nie, und der Schluss, den dieser Bericht aus dem Rest zog — IndexedDB-Schreibvorgänge seien hier grundsätzlich langsam, Bündeln sei der nächste Hebel —, war gleich doppelt falsch. Das Bündeln wurde ausprobiert und war **langsamer** (33–35 s gegen 18–19 s bei 500 Buchungen, wieder verworfen); die Schreibvorgänge waren nicht langsam, es waren tausendmal zu viele Bytes in jedem.
 
-Verloren geht bei keiner Größe etwas. Das Entsperren danach wächst nicht mehr wie zuvor (0,2 s, 0,8 s, 0,9 s, 2,4 s gegen 0,3 s, 4,4 s, 13,0 s): es bezahlte denselben aufgeblähten Blockspeicher mit.
+Verloren geht bei keiner Größe etwas, bis zu zehntausend Buchungen. Das Entsperren danach wächst nicht mehr wie zuvor (0,8 s bei 1 000 gegen 13,0 s davor): es bezahlte denselben aufgeblähten Blockspeicher mit.
 
 ## Die Kurve der Identität: Ed25519 gegen secp256k1
 

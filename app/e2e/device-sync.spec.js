@@ -77,6 +77,7 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 		await expect(badge).toHaveAttribute('data-state', 'connected', { timeout: 30_000 });
 		await expect(badge).toContainText('Im Netz: eigene Geräte');
 		await expect(badge).toHaveAttribute('title', /Eigene Geräte: 1 verbunden/);
+		await expect(badge).toHaveAttribute('title', /eigene Geräte über ein Le-Space-Relay/);
 		// What is connected, to be checked: the Mac's peer id, the address it is
 		// reached over, direct or through the relay, with the round trip …
 		await expect(badge).toHaveAttribute('title', new RegExp(`: ${macId}\\n`));

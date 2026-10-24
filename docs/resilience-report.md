@@ -28,6 +28,20 @@ Both devices reach each other through a circuit relay (what the public Le Space 
 
 **Why, measured on 2026-10-13** with the network watched during the burst (every connection and its streams on both devices, gossipsub's peer list, OrbitDB's heads exchanges; `app/bench/results/2026-10-13-resilience-replication-relay-50-*.json`): by the time of the burst the devices have a direct WebRTC connection, but gossipsub still runs over the relay's circuit — it opens its streams on the first connection to a peer and never moves them. When the relay closes the circuit, gossipsub keeps the peer and loses both streams; it opens new ones only for a _new_ connection, and OrbitDB's sync, which never saw a disconnect, exchanges no heads again. Whether the burst survives is then a matter of timing: a WebRTC connection young enough for its connect event to land after the close carries on (100 of 100 in 1.9–2.4 s in three runs); an established one does not (28 of 100 in a fourth, identical run). With the data cap lifted and the circuit's duration set to 5 s, then 8 s of quiet before the burst — the shape of an import after twenty minutes on a Le Space relay — nothing arrives at all: 0 of 100, every time. Filed as [belege#393](https://github.com/Le-Space/belege/issues/393); the right fix is in gossipsub, an app-side reconnect is the stopgap. An earlier version of this page blamed [orbitdb-relay#59](https://github.com/NiKrause/orbitdb-relay/issues/59); that relay bug is real but runs on the relay, and the benchmark's relay is a plain libp2p circuit relay with no orbitdb-relay code in it.
 
+**The stopgap, and what it is worth (2026-10-23).** The redial round used to ask whether a connection to the device was open — and in this state three are. It now asks whether any of them carries a `/meshsub/` stream, gives a mute connection 45 s in case it is merely settling, and then hangs it up: dialling again would hand back the connection that already exists instead of building a circuit, so the connection has to go before a useful one can be made. Same test relay with its default limits, 500 bookings, one run each arm:
+
+| | without the redial | with it |
+| --- | --- | --- |
+| burst synced within 20 s | no | no |
+| arrived when it stalled | 26 of 100 | 27 of 100 |
+| connections, of which carrying `/meshsub/` | 3, none | 3, none |
+| came back by itself | **never** | **after 53.0 s** |
+| arrived in the end | 26 of 100 | **100 of 100** |
+
+Both arms stall the same way, within one booking of each other; the only difference is whether anything notices. Three open connections and not one gossipsub stream among them is #393 itself, seen from inside the application — and it is why a count of arrived bookings could never explain the stall on its own.
+
+This is a stopgap and nothing more. It hangs up a connection that looks healthy to force a new one, it waits 45 s before doing so, and it is rate-limited to once per device every five minutes because a wrong guess must not drop a working device in a loop. The bug it works around is gossipsub's, so [#393](https://github.com/Le-Space/belege/issues/393) and [#403](https://github.com/Le-Space/belege/issues/403) stay open.
+
 **With production-like limits** (the Le Space relays run 20 minutes and 10 GiB per circuit; `E2E_RELAY_UNLIMITED=1` lifts the test relay's cap), everything passes, and the numbers match the relay-free ones within noise:
 
 | books (bookings) | pair (scan → "verbunden") | late joiner gets all of them | Mac → phone, median (p95) | phone → Mac, median (p95) | burst of 100 |
@@ -81,16 +95,18 @@ Convergence after the reconnect is immediate; what costs is the reconnect itself
 
 One browser, the bridge in test mode, the fake Aleph. Books of _n_ bookings, "Jetzt sichern" (the storage bridge seals the database and stores it), then `localStorage`, `sessionStorage` and every IndexedDB are deleted and the bridge is stopped. The same passkey opens empty books; the account's address alone lists the backup; "Wiederherstellen" fetches it, puts the blocks back and joins the heads; the page reloads, the passkey unlocks.
 
-Measured again on **23 October 2026**, same machine, entries signed with Ed25519, and the storage bridge carrying two fixes that 0.23.0 does not have ([#172](https://github.com/NiKrause/orbitdb-storage-bridge/pull/172), [#174](https://github.com/NiKrause/orbitdb-storage-bridge/pull/174)). Docker (five Paperless containers) and Jameica were **running** for these runs, where the earlier ones had them stopped, so the figures are conservative. The 13 October numbers, with bridge 0.17.0, are in brackets.
+Measured again on **23 October 2026**, same machine, entries signed with Ed25519, and the storage bridge at [0.24.0](https://github.com/NiKrause/orbitdb-storage-bridge/blob/main/CHANGES.md). Docker (five Paperless containers) and Jameica were **running** for these runs, where the earlier ones had them stopped, so the figures are conservative. The 13 October numbers, with bridge 0.17.0, are in brackets; 5 000 and 10 000 were never reached before, so they have none.
 
 | books (bookings) | IndexedDB | backup (click → "von Aleph aufbewahrt") | restore (click → "Wiederhergestellt") | unlock after reload | every booking back |
 | ---------------- | --------- | --------------------------------------- | ------------------------------------- | ------------------- | ------------------ |
-| 50               | 8.2 MB    | 0.4 s                                   | **0.9 s** _(1.4 s)_                   | 0.2 s               | yes, 0 lost        |
-| 500              | 9.4 MB    | 0.4 s                                   | **5.4 s** _(40 s)_                    | 0.8 s               | yes, 0 lost        |
-| 1 000            | 10.7 MB   | 0.6 s                                   | **8.5 s** _(126 s)_                   | 0.9 s               | yes, 0 lost        |
-| 2 000            | 13.3 MB   | 2.6 s                                   | **17.7 s** _(—)_                      | 2.4 s               | yes, 0 lost        |
+| 50               | 8.3 MB    | 0.3 s                                   | **0.8 s** _(1.4 s)_                   | 0.2 s               | yes, 0 lost        |
+| 500              | 9.4 MB    | 0.4 s                                   | **3.9 s** _(40 s)_                    | 0.8 s               | yes, 0 lost        |
+| 1 000            | 10.7 MB   | 0.6 s                                   | **7.4 s** _(126 s)_                   | 0.8 s               | yes, 0 lost        |
+| 2 000            | 13.3 MB   | 2.6 s                                   | **14.5 s** _(—)_                      | 1.4 s               | yes, 0 lost        |
+| 5 000            | 21.3 MB   | 8.1 s                                   | **40.5 s** _(—)_                      | 3.4 s               | yes, 0 lost        |
+| 10 000           | 34.3 MB   | 16.6 s                                  | **79.1 s** _(—)_                      | 6.9 s               | yes, 0 lost        |
 
-The backup is cheap and flat. The restore is now **linear** — twice the books, twice the time — and 2 000 bookings come back for the first time.
+The restore is **linear**, and the column that proves it is not in the table: from 500 bookings upward it costs 7.3–8.1 ms per booking, whatever the total. Ten thousand come back in 79 s, where two thousand used to not come back at all. The backup is no longer flat at this scale either — it grows with the books, to 16.6 s at 10 000 — and so does the unlock after the restore.
 
 **They never used to, and not because they were slow.** `CarReader` hands out each block of a backup as a view into the single `ArrayBuffer` the whole CAR lives in, and IndexedDB's structured clone stores *the buffer behind a view*, not the view. So restoring a 3.7 MB backup asked the browser for 3.7 MB **per block** — about 7.5 GB for 2 016 of them — and it refused everything past roughly block 500 with `QuotaExceededError`. N blocks each carrying an archive that itself grows with N is quadratic, and that is the "grows faster than the books" this report kept describing. Reproduced with nothing but a `LevelBlockstore` in a blank page: the same 2 016 blocks cost 4 MB as standalone copies and all went in; as views into one buffer they cost 1 862 MB and stopped at block 494 ([#174](https://github.com/NiKrause/orbitdb-storage-bridge/pull/174)).
 
@@ -98,7 +114,7 @@ An earlier version of this table said 2 000 bookings "still did not finish in 10
 
 The earlier repair is still in these numbers and was still real: `restoreFromBlocks` used to put every block into the log storage of *every* database, 18 099 writes where 2 011 blocks exist ([#152](https://github.com/NiKrause/orbitdb-storage-bridge/issues/152), fixed in [#168](https://github.com/NiKrause/orbitdb-storage-bridge/pull/168) and [#170](https://github.com/NiKrause/orbitdb-storage-bridge/pull/170)). It was never the dominant cost, though, and the conclusion this report drew from what remained — that IndexedDB writes are inherently slow here and batching them is the next lever — was wrong twice over. Batching was tried and measured **slower** (33–35 s against 18–19 s at 500 bookings, reverted); the writes were not slow, there were a thousand times too many bytes in each.
 
-Nothing is lost at any size. The unlock after the restore no longer grows the way it did (0.2 s, 0.8 s, 0.9 s, 2.4 s against 0.3 s, 4.4 s, 13.0 s): it was paying for the same bloated blockstore.
+Nothing is lost at any size, up to ten thousand bookings. The unlock after the restore no longer grows the way it did (0.8 s at 1 000, against 13.0 s before): it was paying for the same bloated blockstore.
 
 ## The identity's curve: Ed25519 against secp256k1
 

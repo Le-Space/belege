@@ -47,6 +47,12 @@ export const SYNC_FLAG_KEY = 'belege.device-sync';
 export const DEVICE_SALT_KEY = 'belege.device-salt';
 /** How often a known device that is not connected is dialled again. */
 export const REDIAL_MS = 30_000;
+/** How long a connected device may stay without a gossipsub stream before it is hung up. */
+export const MUTE_MS = 45_000;
+/** No device is hung up for being mute more often than this: a wrong guess must not loop. */
+export const HANGUP_EVERY_MS = 5 * 60_000;
+/** What OrbitDB's heads ride on. A connection without it carries no replication. */
+const MESHSUB = '/meshsub/';
 /** A settings record per device: one record each, so two devices never overwrite each other. */
 export const DEVICE_PREFIX = 'device:';
 
@@ -388,6 +394,31 @@ export async function startDeviceSync({
 					c.remotePeer.toString() === peerId && isDirectAddr(c.remoteAddr.toString())
 			);
 
+	/**
+	 * Is gossipsub talking to this device? OrbitDB's heads ride gossipsub, so a
+	 * connection carrying no `/meshsub/` stream replicates nothing, however
+	 * healthy it looks – and that is exactly the state #393 leaves behind: the
+	 * relay closes the circuit gossipsub bound its streams to, the direct
+	 * connection beside it survives, and gossipsub opens nothing on the
+	 * survivor. Asking whether a connection is open cannot see that.
+	 */
+	const gossiping = (/** @type {string} */ peerId) =>
+		libp2p
+			.getConnections()
+			.some(
+				(/** @type {any} */ c) =>
+					c.remotePeer.toString() === peerId &&
+					(c.streams ?? []).some((/** @type {any} */ st) =>
+						String(st.protocol ?? '').startsWith(MESHSUB)
+					)
+			);
+
+	/** Since when a device has been connected with gossipsub silent, in ms. */
+	const muteSince = new Map();
+	/** When each device was last hung up for it, so a false alarm cannot loop. */
+	const lastHangUp = new Map();
+	let hangUps = 0;
+
 	async function refreshKnown() {
 		records = new Map(deviceRecords(await all()).map((d) => [d.peerId, d]));
 		if (removedHere(records.get(self))) {
@@ -416,6 +447,39 @@ export async function startDeviceSync({
 	async function hangUp(peerId) {
 		for (const c of libp2p.getConnections())
 			if (c.remotePeer.toString() === peerId) await c.close().catch(() => {});
+	}
+
+	/**
+	 * Hang up a device that has been connected while gossipsub stayed silent.
+	 *
+	 * Dialling it again would change nothing – libp2p hands back the connection
+	 * that already exists instead of building a circuit – so the connection has
+	 * to go, and the next dial builds one gossipsub will actually use. Waiting
+	 * `MUTE_MS` first keeps a connection that is merely still settling; the
+	 * rate limit keeps a wrong guess from hanging up a working device in a loop.
+	 *
+	 * @param {string} peerId
+	 * @returns {Promise<boolean>} whether it was hung up
+	 */
+	async function hangUpIfMute(peerId) {
+		const at = Date.parse(now());
+		if (gossiping(peerId)) {
+			muteSince.delete(peerId);
+			return false;
+		}
+		const since = muteSince.get(peerId);
+		if (since === undefined) {
+			muteSince.set(peerId, at);
+			return false;
+		}
+		if (at - since < MUTE_MS) return false;
+		const last = lastHangUp.get(peerId);
+		if (last !== undefined && at - last < HANGUP_EVERY_MS) return false;
+		lastHangUp.set(peerId, at);
+		muteSince.delete(peerId);
+		hangUps++;
+		await hangUp(peerId);
+		return true;
 	}
 
 	/** Another device removed this one: stop and hang up. */
@@ -484,12 +548,14 @@ export async function startDeviceSync({
 		onState({
 			self,
 			reachable: addrs.some((a) => a.includes('/p2p-circuit')),
+			hangUps,
 			addrs,
 			devices: [...known].map((peerId) => ({
 				peerId,
 				label: records.get(peerId)?.label ?? '',
 				connected: connected(peerId),
 				direct: direct(peerId),
+				gossiping: gossiping(peerId),
 				links: links(peerId)
 			}))
 		});
@@ -498,8 +564,13 @@ export async function startDeviceSync({
 	/** @param {string} peerId */
 	async function dial(peerId) {
 		if (stopped) return;
-		// Connected, but not proved yet (the first exchange failed): again.
-		if (open(peerId)) return void (await gate.proveTo?.(peerId));
+		if (open(peerId)) {
+			// Connected, but not proved yet (the first exchange failed): again.
+			await gate.proveTo?.(peerId);
+			// Open is not the same as replicating: a mute one is hung up, and
+			// then dialled below as if it had never been connected (#393, #403).
+			if (!(await hangUpIfMute(peerId))) return;
+		}
 		const { multiaddr } = await import('@multiformats/multiaddr');
 		for (const relay of relays) {
 			try {
@@ -594,9 +665,11 @@ export async function startDeviceSync({
 }
 
 /**
- * @typedef {{ self: string, reachable: boolean, addrs?: string[], devices: { peerId: string, label: string, connected: boolean, direct: boolean, links?: { addr: string, direct: boolean, rtt: number | null }[] }[] }} SyncState
+ * @typedef {{ self: string, reachable: boolean, hangUps?: number, addrs?: string[], devices: { peerId: string, label: string, connected: boolean, direct: boolean, gossiping?: boolean, links?: { addr: string, direct: boolean, rtt: number | null }[] }[] }} SyncState
  *   `addrs`: this node's own addresses (a `/p2p-circuit` one is its place at a relay);
  *   a device's `links`: each connection to it, by remote address, direct or relayed, with the last round trip in ms
+ *   `gossiping`: a `/meshsub/` stream is open to it, so replication can actually move (#393);
+ *   `hangUps`: how often a device was hung up for staying mute while connected
  */
 
 /**

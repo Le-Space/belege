@@ -10,6 +10,8 @@ All notable changes to Le Space Belege. The format follows
 
 - **"direkt" in the devices card means what the badge means.** The card called a device direct by libp2p's `limited` flag, the badge by the address; a circuit through a relay that sets no limits (the bridge's) was "direkt" in the card and "über das Relay" in the badge. Both read the address now, and a circuit through the bridge's relay, itself reached over `/webrtc-direct`, is no longer taken for WebRTC.
 
+- **The network badge says how devices meet, and what is history.** Its first line was always "über ein Le-Space-Relay (TLS-WebSocket)", also in "Ohne Relay, per QR" where there is no relay; it follows the mode now (directly over WebRTC by QR; through the bridge's relay; both). The last ping answer of a device that is gone since says "seitdem nicht mehr verbunden" instead of reading as current, and an entry written here while no device is connected "geht beim nächsten Verbinden hinaus" instead of "an die Geräte".
+
 ## [0.18.0] – 2026-10-23
 
 ### Changed
