@@ -51,8 +51,8 @@ importers:
         specifier: 0.11.0
         version: 0.11.0(@orbitdb/core@4.0.0)
       '@le-space/orbitdb-storage-bridge':
-        specifier: 0.24.0
-        version: 0.24.0(@storacha/client@2.1.4(encoding@0.1.13))(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)
+        specifier: 0.25.1
+        version: 0.25.1(@storacha/client@2.1.4(encoding@0.1.13))(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)
       '@le-space/ucep':
         specifier: 0.2.0-draft.4
         version: 0.2.0-draft.4
@@ -229,8 +229,8 @@ importers:
         specifier: 8.0.1
         version: 8.0.1
       '@le-space/orbitdb-storage-bridge':
-        specifier: 0.24.0
-        version: 0.24.0(@storacha/client@2.1.4(encoding@0.1.13))(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)
+        specifier: 0.25.1
+        version: 0.25.1(@storacha/client@2.1.4(encoding@0.1.13))(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)
       '@libertai/confidential-inference':
         specifier: 0.1.0
         version: 0.1.0
@@ -819,8 +819,8 @@ packages:
     peerDependencies:
       '@orbitdb/core': ^4.0.0
 
-  '@le-space/orbitdb-storage-bridge@0.24.0':
-    resolution: {integrity: sha512-CeUXWBHMsEvYt/AzTkEYLzo7Wkox5Gh6++VENzv57K/u+q1UWfehGPVk3TNosq5eWrt8hPPosw+DFoe8riTNIg==}
+  '@le-space/orbitdb-storage-bridge@0.25.1':
+    resolution: {integrity: sha512-wvVA7YSyAGiIWKjEHldttu7JvL19O/Z96mKrJ8UikNQDbwSOadRoK88LxJl8dHelghZdIC2pX/5wDx0jOpwTEQ==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
       '@storacha/client': ^2.0.0
@@ -5634,7 +5634,7 @@ snapshots:
       iso-webauthn-varsig: '@le-space/iso-webauthn-varsig@0.3.0'
       multiformats: 14.0.5
 
-  '@le-space/orbitdb-storage-bridge@0.24.0(@storacha/client@2.1.4(encoding@0.1.13))(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)':
+  '@le-space/orbitdb-storage-bridge@0.25.1(@storacha/client@2.1.4(encoding@0.1.13))(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)':
     dependencies:
       '@chainsafe/libp2p-noise': 17.0.0
       '@chainsafe/libp2p-yamux': 8.0.1
