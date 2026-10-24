@@ -23,7 +23,7 @@ async function sessionFacts(page) {
 			identityHash: /** @type {string} */ (e2e.identityHash()),
 			peerId: /** @type {string} */ (e2e.peerId()),
 			secrets:
-				/** @type {{ signingKey: string, booksSecret: string, databaseKey: string, blobKey: string, peerKey: string }} */ (
+				/** @type {{ signingKey?: string, booksSecret: string, databaseKey: string, blobKey: string, peerKey: string }} */ (
 					e2e.secrets()
 				)
 		};
@@ -85,13 +85,13 @@ test('a passkey opens sealed books that survive a reload', async ({ page }) => {
 	const created = await takeCeremonies(page);
 	console.log('ceremonies on create:', JSON.stringify(created));
 	expect(created.every((c) => c.ok)).toBe(true);
-	// Three prompts: register, one PRF evaluation (the database key and the
-	// signing key both come from it), and the identity signature. Both gets
-	// name the new credential: no other passkey of this origin can answer (#429).
+	// Two prompts: register, and one PRF evaluation (every key and the books'
+	// own identity come from it, #496). No identity signature: the passkey signs
+	// nothing for OrbitDB. The get names the new credential: no other passkey
+	// of this origin can answer (#429).
 	expect(created.map((c) => [c.kind, c.prf, c.allow])).toEqual([
 		['create', true, 0],
-		['get', true, 1],
-		['get', false, 1]
+		['get', true, 1]
 	]);
 
 	await page.getByRole('link', { name: 'Zahlungen' }).click();
@@ -99,8 +99,9 @@ test('a passkey opens sealed books that survive a reload', async ({ page }) => {
 
 	const first = await sessionFacts(page);
 	expect(first.did).toBe(did);
-	// 64 bytes: an Ed25519 key as libp2p wants it, seed and public half.
-	expect(first.secrets?.signingKey).toMatch(/^[0-9a-f]{128}$/);
+	// 32 bytes: the books' secret, their own identity's (#496). No passkey signing key.
+	expect(first.secrets?.booksSecret).toMatch(/^[0-9a-f]{64}$/);
+	expect(first.secrets?.signingKey).toBeUndefined();
 
 	// A booking, through the real store.
 	await book(page, marker);
@@ -142,8 +143,8 @@ test('a passkey opens sealed books that survive a reload', async ({ page }) => {
 
 	const unlocked = await takeCeremonies(page);
 	console.log('ceremonies on unlock:', JSON.stringify(unlocked));
-	// One prompt: the PRF evaluation. The signing key is derived from it again,
-	// and the identity's passkey proof (public) is kept, so nothing else asks.
+	// One prompt: the PRF evaluation. The books' identity is derived from it
+	// again, so nothing else asks.
 	expect(unlocked.map((c) => [c.kind, c.prf, c.allow])).toEqual([['get', true, 1]]);
 
 	// The same identity: the key derived again is the key, and the identity
@@ -151,7 +152,7 @@ test('a passkey opens sealed books that survive a reload', async ({ page }) => {
 	const second = await sessionFacts(page);
 	expect(second.did).toBe(did);
 	expect(second.identityHash).toBe(first.identityHash);
-	expect(second.secrets.signingKey).toBe(first.secrets.signingKey);
+	expect(second.secrets.booksSecret).toBe(first.secrets.booksSecret);
 	expect(second.secrets.databaseKey).toBe(first.secrets.databaseKey);
 	expect(second.secrets.blobKey).toBe(first.secrets.blobKey);
 	expect(second.secrets.blobKey).not.toBe(first.secrets.databaseKey);
@@ -193,7 +194,6 @@ test('a passkey opens sealed books that survive a reload', async ({ page }) => {
 	// identity document, its clock or the entries before it in the clear.
 	expect(text).not.toContain(first.identityHash);
 	const secrets = {
-		'signing key': first.secrets.signingKey,
 		'books secret': first.secrets.booksSecret,
 		'database key': first.secrets.databaseKey,
 		'replication key': first.secrets.replicationKey,
@@ -209,7 +209,7 @@ test('a passkey opens sealed books that survive a reload', async ({ page }) => {
 	}
 });
 
-test('a restored passkey derives the same signing key and keeps none', async ({ page }) => {
+test('a restored passkey derives the same books secret and keeps none', async ({ page }) => {
 	await addVirtualAuthenticator(page);
 	await recordCeremonies(page);
 
@@ -231,19 +231,18 @@ test('a restored passkey derives the same signing key and keeps none', async ({ 
 	const restoring = await takeCeremonies(page);
 	console.log('ceremonies on restore:', JSON.stringify(restoring));
 	expect(restoring.every((c) => c.ok)).toBe(true);
-	// Four prompts: the provider's two restore touches (DID, then signing key
-	// from PRF), the PRF read for the database key, and the identity signature
-	// (a new device has no cached proof). Unchanged by keeping no key at rest.
-	// Only the first touch is open to any passkey of the origin: it is how the
-	// passkey is found. The other three name it (#429).
+	// Three prompts: the provider's two restore touches that find the passkey
+	// and its DID, and the PRF read for the keys and the books' identity. No
+	// identity signature since the books sign as themselves (#496). Only the
+	// first touch is open to any passkey of the origin: it is how the passkey
+	// is found. The other two name it (#429).
 	expect(restoring.map((c) => [c.kind, c.prf, c.allow])).toEqual([
 		['get', true, 0],
 		['get', false, 1],
-		['get', true, 1],
-		['get', false, 1]
+		['get', true, 1]
 	]);
 	const restored = await sessionFacts(page);
-	expect(restored.secrets.signingKey).toBe(created.secrets.signingKey);
+	expect(restored.secrets.booksSecret).toBe(created.secrets.booksSecret);
 	expect(restored.secrets.databaseKey).toBe(created.secrets.databaseKey);
 
 	// Writable, and no key on this device either.
@@ -253,7 +252,6 @@ test('a restored passkey derives the same signing key and keeps none', async ({ 
 	const { inventory, text } = await everythingStoredAsText(page);
 	expect(inventory.some((db) => /keystore/i.test(db.database))).toBe(false);
 	for (const spelling of [
-		...spellings(restored.secrets.signingKey),
 		...spellings(restored.secrets.booksSecret),
 		...spellings(restored.secrets.databaseKey),
 		...spellings(restored.secrets.blobKey),

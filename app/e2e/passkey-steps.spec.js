@@ -24,24 +24,18 @@ test('creating a passkey says what each further touch is for', async ({ page }) 
 
 	const dialog = page.getByTestId('passkey-step-dialog');
 	await expect(dialog).toBeVisible();
-	await expect(page.getByTestId('passkey-step-count')).toHaveText('Passkey-Abfrage 2 von 3');
+	await expect(page.getByTestId('passkey-step-count')).toHaveText('Passkey-Abfrage 2 von 2');
 	await expect(dialog.getByRole('heading')).toHaveText('Jetzt der Schlüssel für deine Bücher');
 	// The passkey is made, the next prompt waits for the click.
 	const first = await takeCeremonies(page);
 	expect(first.map((c) => [c.kind, c.name])).toEqual([['create', 'Beispiel Studio']]);
 
-	await page.getByTestId('passkey-step-continue').click();
-	await expect(page.getByTestId('passkey-step-count')).toHaveText('Passkey-Abfrage 3 von 3');
-	await expect(dialog.getByRole('heading')).toHaveText('Zuletzt: deine Unterschrift');
-	expect((await takeCeremonies(page)).map((c) => [c.kind, c.prf, c.allow])).toEqual([
-		['get', true, 1]
-	]);
-
+	// The PRF read is the last: no identity signature since the books sign as themselves (#496).
 	await page.getByTestId('passkey-step-continue').click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
 	await expect(dialog).toBeHidden();
 	expect((await takeCeremonies(page)).map((c) => [c.kind, c.prf, c.allow])).toEqual([
-		['get', false, 1]
+		['get', true, 1]
 	]);
 });
 
@@ -51,7 +45,7 @@ test('cancelling between the prompts opens nothing, and the stored passkey carri
 	await withSteps(page);
 	await page.getByTestId('passkey-label').fill('Beispiel Studio');
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
-	await expect(page.getByTestId('passkey-step-count')).toHaveText('Passkey-Abfrage 2 von 3');
+	await expect(page.getByTestId('passkey-step-count')).toHaveText('Passkey-Abfrage 2 von 2');
 
 	await page.getByTestId('passkey-step-cancel').click();
 	await expect(page.getByTestId('passkey-error')).toContainText('Abgebrochen');

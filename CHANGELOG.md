@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Changed
 
+- **One passkey prompt fewer when creating or restoring.** Since the books sign as themselves (#496), the passkey no longer signs an OrbitDB identity: creating a passkey asks twice instead of three times ("Passkey-Abfrage 2 von 2"), restoring one three times instead of four. The passkey's DID is still the one shown and the author of every record; unlocking still asks once.
+
 - **The books write as an identity of their own (#496).** Every collection was opened with OrbitDB's default access controller, its write list the DID of the passkey that made the books and part of each database's address – so a second passkey or a recovery phrase could never write there (#406). The books now have their own identity, an Ed25519 key from the books' secret (derived from the passkey's PRF result until the vault keeps it), the root of each collection's `OrbitDBAccessController`, whose own list database is sealed like the others. On the first unlock with this version the passkey's databases move there with every entry and its clock; the passkey's DID is still the one shown and the author of every record. The next backup is a full one; a backup from before the move restores and moves in on the next unlock.
 
 ## [0.21.0] – 2026-10-24

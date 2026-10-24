@@ -926,10 +926,6 @@ export default {
 				title: 'Now the key to your books',
 				why: 'Your passkey gives Belege a secret. It becomes the key your books and receipts are encrypted with; it is not stored anywhere.'
 			},
-			proof: {
-				title: 'Last: your signature',
-				why: 'Your passkey signs once that the entries in your books are yours. Belege keeps this signature: the next unlock asks only once.'
-			},
 			notALoop:
 				'Each prompt has its own purpose; it is not a repeat. With a security key: touch it and, if asked, enter the PIN.',
 			continue: 'Continue',

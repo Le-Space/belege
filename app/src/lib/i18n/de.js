@@ -948,10 +948,6 @@ export default {
 				title: 'Jetzt der Schlüssel für deine Bücher',
 				why: 'Dein Passkey gibt Belege ein Geheimnis. Daraus entsteht der Schlüssel, mit dem deine Bücher und Belege verschlüsselt sind; gespeichert wird er nirgends.'
 			},
-			proof: {
-				title: 'Zuletzt: deine Unterschrift',
-				why: 'Dein Passkey unterschreibt einmal, dass die Einträge in deinen Büchern von dir stammen. Belege bewahrt diese Unterschrift auf: Beim nächsten Entsperren fragt es nur noch einmal.'
-			},
 			notALoop:
 				'Jede Abfrage hat ihren eigenen Zweck, es ist keine Wiederholung. Mit einem Sicherheitsschlüssel: berühren und, falls gefragt, die PIN eingeben.',
 			continue: 'Weiter',
