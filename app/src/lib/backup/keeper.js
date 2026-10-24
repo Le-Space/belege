@@ -287,6 +287,71 @@ export async function findBackups({ owner, ref, endpoints = alephEndpoints(), fe
 }
 
 /**
+ * Forget a chain of backups on Aleph (FORGET): its full backup – every STORE
+ * that keeps that CID, a backup kept again has two – and every increment
+ * that names it as `ref`, whoever sent them. Signed with this browser's key:
+ * Aleph lets a FORGET's sender forget what it could have sent itself
+ * (aleph-im/pyaleph#1156, live since 0.11), and the grant lets this key send
+ * STORE on BELEGE-BACKUP for the account – also the bridge's own STOREs. The
+ * files are unpinned and cost nothing from then on; nothing of that chain
+ * can be restored again.
+ *
+ * @param {object} params
+ * @param {string} params.base the chain's full backup's CID
+ * @param {string} params.owner the paying account
+ * @param {Uint8Array} params.key this browser's Aleph key
+ * @param {AlephEndpoints} [params.endpoints]
+ * @param {typeof fetch} [params.fetch]
+ * @param {{ timeout?: number, interval?: number }} [params.settle]
+ * @returns {Promise<{ forgotten: string[], rejected: string[], pending: string[], failed: string[] }>} item hashes
+ */
+export async function forgetChain({
+	base,
+	owner,
+	key,
+	endpoints = alephEndpoints(),
+	fetch: f,
+	settle = {}
+}) {
+	const [{ createAlephForget, forgetAlephStores }, { alephAddressOf, alephSign }] =
+		await Promise.all([
+			import('@le-space/orbitdb-storage-bridge/backends/aleph-pin'),
+			import('./aleph-signer.js')
+		]);
+	const withFetch = f ? { fetch: f } : {};
+	const forget = createAlephForget({
+		sender: alephAddressOf(key),
+		owner,
+		sign: async (_address, message) => alephSign(key, message),
+		apiHost: endpoints.apiHost,
+		channel: BACKUP_CHANNEL,
+		...withFetch
+	});
+	const common = {
+		owner,
+		channel: BACKUP_CHANNEL,
+		forget,
+		reason: `Belege: backup chain ${base} removed by its owner`,
+		apiHost: endpoints.apiHost,
+		settle: { timeout: settle.timeout ?? 60_000, interval: settle.interval ?? 2_000 },
+		...withFetch
+	};
+	// The increments first: should the full backup's FORGET not go through,
+	// what is left is still a backup one can restore.
+	const increments = await forgetAlephStores({ ...common, ref: base });
+	const full = await forgetAlephStores({
+		...common,
+		keep: (/** @type {{ cid: string, ref?: string }} */ s) => !(s.cid === base && !s.ref)
+	});
+	return {
+		forgotten: [...increments.forgotten, ...full.forgotten],
+		rejected: [...increments.rejected, ...full.rejected].map((r) => r.itemHash),
+		pending: [...increments.pending, ...full.pending].map((r) => r.itemHash),
+		failed: [...increments.failed, ...full.failed].map((r) => r.itemHash)
+	};
+}
+
+/**
  * Credits a day for keeping one MiB on Aleph, paid in credits: what Aleph
  * asked for a day of a file when an account had too few (measured 2026-10-03,
  * the same rate as the fake in bridge/test/support/fake-aleph.js). An

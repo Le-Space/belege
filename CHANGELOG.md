@@ -16,6 +16,10 @@ All notable changes to Le Space Belege. The format follows
 
 - **The network badge says how devices meet, and what is history.** Its first line was always "über ein Le-Space-Relay (TLS-WebSocket)", also in "Ohne Relay, per QR" where there is no relay; it follows the mode now (directly over WebRTC by QR; through the bridge's relay; both). The last ping answer of a device that is gone since says "seitdem nicht mehr verbunden" instead of reading as current, and an entry written here while no device is connected "geht beim nächsten Verbinden hinaus" instead of "an die Geräte".
 
+### Added
+
+- **Older backup chains can be deleted on Aleph.** Each "Neues Vollbackup" starts a new chain, and the older ones went on costing credits (about 54 a MiB a day) with no way to stop it from the app. The backup card lists them now – when made, how many increments, what they cost a day – and "Löschen", after "Endgültig löschen?", has Aleph forget every STORE of that chain (FORGET, signed with this browser's key; Aleph lets it forget what it could have sent itself, the bridge's STOREs too). The current chain is never offered, nor anything while it is not kept.
+
 ## [0.18.0] – 2026-10-23
 
 ### Changed

@@ -20,6 +20,7 @@ import {
 	creditsPerDay,
 	ensureBackupKey,
 	findBackups,
+	forgetChain,
 	isGranted,
 	keepWithKey,
 	loadOwner,
@@ -322,5 +323,71 @@ describe('after the backup went up', () => {
 		expect(creditsPerDay(1048576)).toBe(CREDITS_PER_MIB_DAY);
 		// The 499 MB a full set of books came to: about 25,700 a day.
 		expect(Math.round(creditsPerDay(499_333_147))).toBe(25715);
+	});
+});
+
+describe('forgetting an older chain', () => {
+	const key = new Uint8Array(32).fill(7);
+	it('forgets its increments, then every STORE of its full backup, signed by this key for the account', async () => {
+		const bridge = toChecksumAddress(`0x${'cd'.repeat(20)}`);
+		const store = (
+			/** @type {string} */ hash,
+			/** @type {string} */ cid,
+			/** @type {string} */ ref = ''
+		) => ({
+			item_hash: hash,
+			sender: bridge,
+			channel: BACKUP_CHANNEL,
+			content: {
+				address: OWNER,
+				item_type: 'ipfs',
+				item_hash: cid,
+				time: 1,
+				...(ref ? { ref } : {})
+			}
+		});
+		const kept = [
+			store('a'.repeat(64), 'QmOld'),
+			store('b'.repeat(64), 'QmOld'),
+			store('c'.repeat(64), 'QmOldInc1', 'QmOld'),
+			store('d'.repeat(64), 'QmNew'),
+			store('e'.repeat(64), 'QmNewInc1', 'QmNew')
+		];
+		/** @type {any[]} */ const posted = [];
+		const fetchImpl = async (/** @type {string} */ url, /** @type {any} */ init) => {
+			const u = new URL(url);
+			const ok = (/** @type {any} */ body) => ({
+				ok: true,
+				status: 200,
+				json: async () => body,
+				text: async () => ''
+			});
+			if (u.pathname === '/api/v0/messages' && init?.method === 'POST') {
+				posted.push(JSON.parse(init.body).message);
+				return ok({ message_status: 'processed' });
+			}
+			if (u.pathname === '/api/v0/messages.json') {
+				const refs = u.searchParams.get('refs');
+				const matched = kept.filter((m) => !refs || m.content.ref === refs);
+				return ok({ messages: matched, pagination_total: matched.length });
+			}
+			return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
+		};
+		const result = await forgetChain({
+			base: 'QmOld',
+			owner: OWNER,
+			key,
+			endpoints,
+			fetch: /** @type {any} */ (fetchImpl)
+		});
+		expect(
+			posted.map((m) => [m.type, m.sender, m.channel, JSON.parse(m.item_content).hashes])
+		).toEqual([
+			['FORGET', alephAddressOf(key), BACKUP_CHANNEL, ['c'.repeat(64)]],
+			['FORGET', alephAddressOf(key), BACKUP_CHANNEL, ['a'.repeat(64), 'b'.repeat(64)]]
+		]);
+		expect(JSON.parse(posted[0].item_content).address).toBe(OWNER);
+		expect(result.forgotten).toEqual(['c'.repeat(64), 'a'.repeat(64), 'b'.repeat(64)]);
+		expect(result.rejected).toEqual([]);
 	});
 });
