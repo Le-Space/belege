@@ -753,9 +753,9 @@ export default {
 			lossHeading: 'Wichtig:',
 			technical: [
 				'Aus der PRF-Antwort des Passkeys leitet HKDF-SHA-256 den AES-GCM-Schlüssel ab, mit dem jede Datenbank versiegelt ist (info belege/db-key/v1), und die Namen der Datenbanken (belege/db-name/v1:<Sammlung>), damit sich keine Adresse aus der DID erraten lässt. Nichts davon wird gespeichert.',
-				'Kein privater Schlüssel liegt auf dem Gerät: Den OrbitDB-Signaturschlüssel (Ed25519) leitet der Identity-Provider bei jedem Entsperren aus derselben PRF-Antwort ab. Er lebt nur im Arbeitsspeicher dieser Sitzung.',
+				'Kein privater Schlüssel liegt auf dem Gerät: Die Bücher schreiben als eigene Identität, ein Ed25519-Schlüssel, der bei jedem Entsperren aus einem Geheimnis der Bücher entsteht, das wiederum aus derselben PRF-Antwort kommt (belege/books-secret/v1). Er lebt nur im Arbeitsspeicher dieser Sitzung. Der Passkey selbst unterschreibt nichts für die Datenbanken; seine DID steht als Autor in jedem Eintrag.',
 				'Gespeichert werden die OrbitDB-Dokumentdatenbanken transactions, receipts, partners, accounts, settings, matches, questions, events und travel, auf Helia mit LevelBlockstore und LevelDatastore in IndexedDB (belege/helia-blocks, belege/helia-data, belege/orbitdb). Jeder Eintrag ist mit AES-GCM verschlüsselt und als Ganzes noch einmal mit einem eigenen Schlüssel (belege/replication-key/v1): Ohne ihn sind weder Inhalt noch Schreiber, Zeitpunkt oder Verweise eines Eintrags lesbar, und die Namen der Datenbanken verraten nicht, was sie enthalten. Belegdateien haben einen eigenen Schlüssel (belege/blob-key/v1).',
-				'Im localStorage liegt nur Öffentliches: die Angaben zum Passkey (Credential-ID, öffentlicher Schlüssel, DID, PRF-Eingabe), die Signatur des Passkeys über das Identitätsdokument und drei Merker dieser Seite (Hinweis gelesen, Hell/Dunkel, Technisch).'
+				'Im localStorage liegt kein Schlüssel und nichts aus den Büchern, nur Öffentliches: die Angaben zum Passkey (Credential-ID, öffentlicher Schlüssel, DID, PRF-Eingabe) und Merker dieser Seite, etwa ob der Hinweis gelesen ist, Hell/Dunkel, die Sprache, das Netz und ob die Bücher schon umgezogen sind. Bücher aus früheren Versionen können dort noch die Signatur des Passkeys über ihr früheres Identitätsdokument haben.'
 			]
 		},
 		network: {

@@ -731,9 +731,9 @@ export default {
 			lossHeading: 'Important:',
 			technical: [
 				'From the passkey’s PRF response, HKDF-SHA-256 derives the AES-GCM key that seals every database (info belege/db-key/v1), and the names of the databases (belege/db-name/v1:<collection>), so that no address can be guessed from the DID. None of this is stored.',
-				'No private key is kept on the device: the identity provider derives the OrbitDB signing key (Ed25519) from the same PRF response each time you unlock. It lives only in the memory of this session.',
+				'No private key is kept on the device: the books write as an identity of their own, an Ed25519 key made at every unlock from a secret of the books, which comes from the same PRF response (belege/books-secret/v1). It lives only in the memory of this session. The passkey itself signs nothing for the databases; its DID is named as the author of every entry.',
 				'Stored are the OrbitDB document databases transactions, receipts, partners, accounts, settings, matches, questions, events and travel, on Helia with LevelBlockstore and LevelDatastore in IndexedDB (belege/helia-blocks, belege/helia-data, belege/orbitdb). Every entry is encrypted with AES-GCM and, as a whole, once more with a key of its own (belege/replication-key/v1): without it, neither an entry’s content nor its writer, time or links can be read, and the databases’ names do not say what they hold. Receipt files have a separate key (belege/blob-key/v1).',
-				'localStorage holds only public data: the passkey details (credential ID, public key, DID, PRF input), the passkey’s signature over the identity document and three flags of this page (notice read, light/dark, technical).'
+				'localStorage holds no key and nothing from the books, only public data: the passkey details (credential ID, public key, DID, PRF input) and flags of this page, such as whether the notice was read, light/dark, the language, the network and whether the books have moved. Books from earlier versions may still have the passkey’s signature over their earlier identity document there.'
 			]
 		},
 		network: {
