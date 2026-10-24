@@ -3918,7 +3918,7 @@ export default {
 			keyWhere:
 				'The API key lives only in the bridge’s keychain – change it with pnpm setup:llm. It never reaches the browser.',
 			ollama: {
-				title: 'Locally with Ollama: nothing leaves the computer',
+				title: 'Guide: reading locally with Ollama – then nothing leaves the computer',
 				intro:
 					'Instead of a provider on the internet, a model on your computer reads the receipts. Free, but slower: about two minutes per receipt on an Intel Mac.',
 				steps: [

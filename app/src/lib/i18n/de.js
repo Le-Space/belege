@@ -3966,7 +3966,7 @@ export default {
 			keyWhere:
 				'Der API-Key liegt nur im Schlüsselbund der Bridge – ändern mit pnpm setup:llm. Er kommt nie in den Browser.',
 			ollama: {
-				title: 'Lokal mit Ollama: nichts verlässt den Rechner',
+				title: 'Anleitung: lokal mit Ollama lesen – dann verlässt nichts den Rechner',
 				intro:
 					'Statt eines Anbieters im Internet liest ein Modell auf deinem Rechner die Belege. Kostenlos, aber langsamer: auf einem Intel-Mac etwa zwei Minuten pro Beleg.',
 				steps: [

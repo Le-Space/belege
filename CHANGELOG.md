@@ -10,6 +10,10 @@ All notable changes to Le Space Belege. The format follows
 
 - **Older backup chains can be deleted on Aleph.** Each "Neues Vollbackup" starts a new chain, and the older ones went on costing credits (about 54 a MiB a day) with no way to stop it from the app. The backup card lists them now – when made, how many increments, what they cost a day – and "Löschen", after "Endgültig löschen?", has Aleph forget every STORE of that chain (FORGET, signed with this browser's key; Aleph lets it forget what it could have sent itself, the bridge's STOREs too). The current chain is never offered, nor anything while it is not kept.
 
+### Fixed
+
+- **The AI card: the Ollama guide looks like a guide, and failures keep their model names.** The folded guide "Lokal mit Ollama: nichts verlässt den Rechner" had lost its disclosure triangle and read like a statement about the current setup, also with a provider on the internet; it is marked as a guide now and opens as one. The most frequent failure reasons folded every number into `#`, so `qwen3.8-27b-tee` became `qwen#.#-#b-tee` and "HTTP 402" (no credit) looked like "HTTP 500"; only measurements standing alone are folded now.
+
 ## [0.19.0] – 2026-10-24
 
 ### Changed

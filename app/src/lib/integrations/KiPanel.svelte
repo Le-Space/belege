@@ -199,7 +199,8 @@
 		open={!llmStatus?.configured || /:11434$/.test(String(llmStatus?.provider ?? ''))}
 		data-testid="ki-ollama"
 	>
-		<summary class="flex min-h-11 cursor-pointer items-center font-medium text-heading">
+		<!-- Not flex: that hides the disclosure triangle, and a closed guide read as a statement. -->
+		<summary class="min-h-11 cursor-pointer py-2.5 font-medium text-heading">
 			{t('integrationen.ki.ollama.title')}
 		</summary>
 		<p class="text-text">{t('integrationen.ki.ollama.intro')}</p>
