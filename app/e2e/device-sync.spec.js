@@ -84,6 +84,21 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 		await expect(badge).toHaveAttribute('title', /(direkt|über das Relay): \/\S+ – (\d+|\?) ms/);
 		// A circuit without WebRTC is never called direct.
 		expect(await badge.getAttribute('title')).not.toMatch(/direkt: \S*\/p2p-circuit\/p2p\//);
+		// The devices card says "direkt" exactly when the badge lists a direct
+		// address: both read the same connections the same way.
+		await expect
+			.poll(async () => {
+				const title = String(await badge.getAttribute('title'));
+				const card = String(
+					await phone.page
+						.getByTestId('devices-item')
+						.filter({ hasText: macId })
+						.getByTestId('devices-item-state')
+						.textContent()
+				);
+				return card.endsWith('· direkt') === /direkt: \//.test(title);
+			})
+			.toBe(true);
 		// … and the Mac answering the connection monitor's ping (every 10 s)
 		// lights the dot up for a moment.
 		await phone.page.waitForFunction(

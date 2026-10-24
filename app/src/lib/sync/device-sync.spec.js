@@ -9,6 +9,7 @@ import {
 	blocked,
 	deviceCode,
 	deviceRecords,
+	isDirectAddr,
 	isPeerId,
 	knownDevices,
 	parseDeviceCode,
@@ -58,6 +59,29 @@ describe('knownDevices', () => {
 		]);
 		expect(devices).toMatchObject([{ peerId: id, label: 'Chrome auf Mac', addedAt: '2026-01-02' }]);
 		expect(devices).toHaveLength(1);
+	});
+});
+
+describe('isDirectAddr', () => {
+	const RELAY = '12D3KooWNmFsNbztWUBmnaGf1xXyxABwMY1KiE41szzspFevFxqG';
+	const PEER = '12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X';
+	it('calls a connection without a circuit direct', () => {
+		expect(isDirectAddr(`/ip4/192.0.2.7/udp/4001/quic-v1/p2p/${PEER}`)).toBe(true);
+	});
+	it('calls WebRTC signalled through a relay direct', () => {
+		expect(
+			isDirectAddr(`/dns4/relay.example/tcp/443/tls/ws/p2p/${RELAY}/p2p-circuit/webrtc/p2p/${PEER}`)
+		).toBe(true);
+	});
+	it('never calls a circuit direct, also not through a relay reached over WebRTC-Direct', () => {
+		expect(
+			isDirectAddr(`/dns4/relay.example/tcp/443/tls/ws/p2p/${RELAY}/p2p-circuit/p2p/${PEER}`)
+		).toBe(false);
+		expect(
+			isDirectAddr(
+				`/ip4/192.168.10.23/udp/4990/webrtc-direct/certhash/uEiD3OphLir77I26uAdKgLdpMSBwo8PcLVg8IzkNU9XUteQ/p2p/${RELAY}/p2p-circuit/p2p/${PEER}`
+			)
+		).toBe(false);
 	});
 });
 
