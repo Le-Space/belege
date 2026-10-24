@@ -108,7 +108,7 @@ export const STORAGE_PATHS = Object.freeze({
  *   everything this browser keeps, as one sealed backup (issue #77)
  * @property {(meta: { chain: import('./backup/archive.js').BackupChain, appVersion: string, onProgress?: (p: import('./backup/archive.js').BackupProgress) => void }) => Promise<Awaited<ReturnType<typeof import('./backup/archive.js').buildIncrement>>>} makeIncrement
  *   what is new since the chain's last backup, sealed; null when nothing is (#454)
- * @property {(sealed: Uint8Array, onProgress?: (p: import('./backup/archive.js').RestoreProgress) => void, chain?: { increments: Uint8Array[], base: string }) => Promise<Awaited<ReturnType<typeof import('./backup/archive.js').restoreBackup>>>} restoreBackup
+ * @property {(sealed: Uint8Array, onProgress?: (p: import('./backup/archive.js').RestoreProgress) => void, chain?: { increments?: Uint8Array[], base?: string, fetchBytes?: (cid: string) => Promise<Uint8Array> }) => Promise<Awaited<ReturnType<typeof import('./backup/archive.js').restoreBackup>>>} restoreBackup
  *   a sealed backup, with its increments, back into these books; reload the page afterwards
  * @property {string} identityHash the identity document's hash
  * @property {string} peerId this session's libp2p peer id
@@ -349,7 +349,9 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 			 *
 			 * @param {Uint8Array} sealed
 			 * @param {(p: import('./backup/archive.js').RestoreProgress) => void} [onProgress]
-			 * @param {{ increments: Uint8Array[], base: string }} [chain] the full backup's increments (#454)
+			 * @param {{ increments?: Uint8Array[], base?: string,
+			 *   fetchBytes?: (cid: string) => Promise<Uint8Array> }} [chain] the full
+			 *   backup's increments (#454), and where to look for a head it lacks
 			 */
 			async restoreBackup(sealed, onProgress, chain) {
 				const { restoreBackup } = await import('./backup/archive.js');
@@ -374,6 +376,7 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 					orbitdb,
 					sealed,
 					...(chain ? { increments: chain.increments, base: chain.base } : {}),
+					...(chain?.fetchBytes ? { fetchBytes: chain.fetchBytes } : {}),
 					key: backupKey,
 					targets: [
 						{

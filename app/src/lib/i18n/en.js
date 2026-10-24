@@ -1013,6 +1013,8 @@ export default {
 		wrongPasskey:
 			'This backup cannot be opened with this passkey: it was made with another one. A backup opens only with the passkey it was made with.',
 		notFetched: 'Aleph’s gateway did not give the backup back. Try again in a moment.',
+		incomplete:
+			'This backup is missing a piece, and it could not be fetched either. Your books are untouched. Try another backup, or try again when you are online.',
 		noSpace:
 			'This browser has no room left for the backup. Your books are untouched. Free some space on the device, or remove other sites’ data, and try again.'
 	},

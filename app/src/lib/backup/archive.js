@@ -446,6 +446,9 @@ export class WrongPasskeyError extends Error {
  * @param {Uint8Array} params.key the backup key
  * @param {{ name: string, addresses: Record<string, string>, open: Record<string, any> }[]} params.targets
  *   each set of databases: its addresses by collection, and what `orbitdb.open` needs for it
+ * @param {((cid: string) => Promise<Uint8Array>)} [params.fetchBytes] where a head
+ *   the backup does not carry may still be found – Aleph's gateway, as the card
+ *   already uses it for the archive itself
  * @param {(progress: RestoreProgress) => void} [params.onProgress]
  * @param {() => Promise<void>} [params.beforeRestore] runs once the backup opened
  *   with this key, fits these books and is wholly in the blockstore – where the
@@ -461,7 +464,8 @@ export async function restoreBackup({
 	key,
 	targets,
 	onProgress,
-	beforeRestore
+	beforeRestore,
+	fetchBytes
 }) {
 	onProgress?.({ stage: 'opening' });
 	/** @param {Uint8Array} bytes */
@@ -513,6 +517,14 @@ export async function restoreBackup({
 	const warnings = [];
 	const restored = await restoreFromBlocks(orbitdb, blocks, metadata, {
 		open,
+		// A head the backup does not carry: ask Aleph's gateway for it. The
+		// package checks whatever comes back against the CID that asked for it,
+		// so the gateway is a second source and never one to trust.
+		fetchBytes,
+		// And if it still cannot be had, refuse. These books are replaced by
+		// what comes back; half of them is worse than none, and refusing here
+		// leaves the ones on the device alone.
+		requireHeads: true,
 		// Closing the books is the package's call, not ours: it writes the blocks
 		// first, and a browser whose storage is spent refuses them. Closed before
 		// that, the books would be shut for a restore that never starts – which is

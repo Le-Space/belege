@@ -1036,6 +1036,8 @@ export default {
 		wrongPasskey:
 			'Dieses Backup lässt sich mit diesem Passkey nicht öffnen: Es wurde mit einem anderen gemacht. Ein Backup öffnet nur der Passkey, mit dem es gemacht wurde.',
 		notFetched: 'Alephs Gateway hat das Backup nicht zurückgegeben. Versuch es gleich noch einmal.',
+		incomplete:
+			'Diesem Backup fehlt ein Teil, und er ließ sich auch nicht nachladen. Deine Bücher sind unberührt. Versuch ein anderes Backup, oder noch einmal, wenn du online bist.',
 		noSpace:
 			'Dieser Browser hat keinen Platz mehr für das Backup. Deine Bücher sind unberührt. Schaff Platz auf dem Gerät oder entferne Daten anderer Seiten und versuch es noch einmal.'
 	},
