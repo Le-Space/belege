@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { memoryCollection } from '../bank/test-support.js';
-import { extractionTotals, filterEvents, recordEvent } from './events.js';
+import { failureReason, extractionTotals, filterEvents, recordEvent } from './events.js';
 import { describeEvent } from './view.js';
 
 describe('recordEvent', () => {
@@ -91,7 +91,7 @@ describe('filterEvents and extractionTotals', () => {
 			calls: 3,
 			failed: 1,
 			failedRecent: 1,
-			failedReasons: [{ reason: 'HTTP #', count: 1 }],
+			failedReasons: [{ reason: 'HTTP 500', count: 1 }],
 			fallbacks: 1,
 			tokens: 962,
 			lastAt: '2026-09-24T11:00:00Z',
@@ -201,6 +201,18 @@ describe('why extractions failed', () => {
 			fail('6', '2026-10-21', 'checks failed: net + VAT is not gross'),
 			fail('7', '2026-10-21', 'something else')
 		];
+		// A model's name keeps its numbers: three models are three reasons, not one.
+		expect(
+			[
+				'No model gave a usable answer (qwen3.8-27b-tee: checks failed: gross missing)',
+				'No model gave a usable answer (deepseek-v4-pro: HTTP 402)',
+				'No model gave a usable answer (qwen3:30b-a3b-instruct-2507-q4_K_M: no answer within 600 s)'
+			].map(failureReason)
+		).toEqual([
+			'No model gave a usable answer (qwen3.8-27b-tee: checks failed: gross missing)',
+			'No model gave a usable answer (deepseek-v4-pro: HTTP 402)',
+			'No model gave a usable answer (qwen3:30b-a3b-instruct-2507-q4_K_M: no answer within # s)'
+		]);
 		const totals = extractionTotals(/** @type {any} */ (events), {
 			now: Date.parse('2026-10-22T12:00:00Z')
 		});
@@ -209,7 +221,7 @@ describe('why extractions failed', () => {
 		expect(totals.failedReasons).toEqual([
 			{ reason: 'no answer within # s (# ms)', count: 3 },
 			{
-				reason: "LLM_NO_CREDIT: the provider's credit is used up (deepseek-flash: HTTP #)",
+				reason: "LLM_NO_CREDIT: the provider's credit is used up (deepseek-flash: HTTP 402)",
 				count: 2
 			},
 			{ reason: 'checks failed: net + VAT is not gross', count: 1 }

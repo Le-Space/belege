@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The AI card: the Ollama guide looks like a guide, and failures keep their model names.** The folded guide "Lokal mit Ollama: nichts verlässt den Rechner" had lost its disclosure triangle and read like a statement about the current setup, also with a provider on the internet; it is marked as a guide now and opens as one. The most frequent failure reasons folded every number into `#`, so `qwen3.8-27b-tee` became `qwen#.#-#b-tee` and "HTTP 402" (no credit) looked like "HTTP 500"; only measurements standing alone are folded now.
+
 ## [0.19.0] – 2026-10-24
 
 ### Changed

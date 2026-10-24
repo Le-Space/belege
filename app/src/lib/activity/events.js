@@ -155,13 +155,17 @@ export function extractionTotals(events, { now = Date.now() } = {}) {
 }
 
 /**
- * A failure's reason to count by: the message, its numbers as `#`, at most 120 characters.
+ * A failure's reason to count by: the message, at most 120 characters, its
+ * measurements as `#` – "… 300588 ms" and "… 301154 ms" are one reason. Only
+ * numbers that stand alone: those in a model's name (`qwen3.8-27b-tee`,
+ * `deepseek-v4-pro`) stay, and so does an HTTP status, which says what went
+ * wrong (402: no credit, 500: the provider).
  *
  * @param {unknown} error
  */
 export function failureReason(error) {
 	const text = String(error ?? '').trim() || '?';
-	return text.replace(/\d+/g, '#').slice(0, 120);
+	return text.replace(/(?<![\w.:-])(?<!HTTP )\d+(?:[.,]\d+)?(?![A-Za-z])/g, '#').slice(0, 120);
 }
 
 /**
