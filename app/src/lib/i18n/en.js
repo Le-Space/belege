@@ -1200,6 +1200,26 @@ export default {
 		made: 'Backed up: {size}, {entries} entries, {files} receipt files – {kept}.',
 		kept: 'kept by Aleph',
 		pending: 'Aleph has not confirmed yet',
+		forgotten: 'deleted on Aleph',
+		older: {
+			title: 'Older backup chains',
+			intro:
+				'Each chain starts with a full backup; its increments build on it. New backups continue the current chain; older ones go on costing credits for as long as Aleph keeps them.',
+			chain: 'Full backup of {at}',
+			chainUndated: 'Full backup {cid}',
+			increments: '{count} increments',
+			incrementsOne: '1 increment',
+			cost: '{size} · about {perDay} credits a day',
+			forget: 'Delete',
+			confirm:
+				'Delete for good? Aleph lets this chain go, and nothing in it can be restored afterwards – not even by its CID. The current backup stays.',
+			confirmYes: 'Delete for good',
+			forgetting: 'Asking Aleph to delete it …',
+			done: 'Deleted: {count} orders released on Aleph. They cost nothing from now on.',
+			incomplete:
+				'Not everything was deleted: Aleph did not release {count} orders, or has not confirmed yet. Try again later.',
+			needsGrant: "Only this browser's own key can delete – set up the grant above first."
+		},
 		cid: 'Get it back by:',
 		copyCid: 'Copy CID',
 		missing:

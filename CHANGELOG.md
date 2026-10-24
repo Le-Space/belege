@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Older backup chains can be deleted on Aleph.** Each "Neues Vollbackup" starts a new chain, and the older ones went on costing credits (about 54 a MiB a day) with no way to stop it from the app. The backup card lists them now – when made, how many increments, what they cost a day – and "Löschen", after "Endgültig löschen?", has Aleph forget every STORE of that chain (FORGET, signed with this browser's key; Aleph lets it forget what it could have sent itself, the bridge's STOREs too). The current chain is never offered, nor anything while it is not kept.
+
 ### Fixed
 
 - **The AI card: the Ollama guide looks like a guide, and failures keep their model names.** The folded guide "Lokal mit Ollama: nichts verlässt den Rechner" had lost its disclosure triangle and read like a statement about the current setup, also with a provider on the internet; it is marked as a guide now and opens as one. The most frequent failure reasons folded every number into `#`, so `qwen3.8-27b-tee` became `qwen#.#-#b-tee` and "HTTP 402" (no credit) looked like "HTTP 500"; only measurements standing alone are folded now.
@@ -17,6 +21,8 @@ All notable changes to Le Space Belege. The format follows
 - **A receipt in another currency links to its euro payment (#474).** Matching gave amount points only for the same amount in the same currency, so a USD or GBP invoice paid by card from a euro account almost never linked by itself. Now the bank's original amount in the receipt's currency ("USD 87,00" on a card payment) counts as the amount (+40); without one, a euro booking in the receipt's date window gets the ECB rate of its day from the bridge, kept only when at it the amount comes within 3 % of what is open, and counts as a converted amount (+25, so it needs another sign such as the invoice number). "Warum diese Zuordnung?" names the rate, its day, and how far off it is. Crypto stays as it was.
 
 ### Fixed
+
+- **A device gossipsub has stopped talking to is hung up and dialled again (#489).** OrbitDB's heads ride gossipsub, which stays on the first connection to a device; when the relay closed that circuit, the direct WebRTC connection beside it carried no gossipsub, and nothing replicated while the device looked connected (#393). The redial round now asks whether a connection carries a gossipsub stream; one that has none for 45 s is hung up – at most once per device in five minutes – and the next dial builds one gossipsub uses. Measured: a stalled burst of 100 bookings came back after 53 s instead of never. A stopgap: the bug is gossipsub's, and #393 and #403 stay open.
 
 - **"direkt" in the devices card means what the badge means.** The card called a device direct by libp2p's `limited` flag, the badge by the address; a circuit through a relay that sets no limits (the bridge's) was "direkt" in the card and "über das Relay" in the badge. Both read the address now, and a circuit through the bridge's relay, itself reached over `/webrtc-direct`, is no longer taken for WebRTC.
 

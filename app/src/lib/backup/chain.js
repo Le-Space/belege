@@ -58,3 +58,60 @@ export async function saveChain(settings, chain) {
 	await setSetting(settings, CHAIN_SETTING, chain);
 	return chain;
 }
+
+/**
+ * @typedef {object} OlderChain
+ * @property {string} base its full backup's CID
+ * @property {string} at when the full backup was made ('' when this browser's history lacks it)
+ * @property {number} increments how many increments it has here
+ * @property {number} bytes what of it Aleph keeps (or is deciding on), sealed
+ * @property {import('./history.js').BackupRecord[]} records its rows in the history
+ */
+
+/** Aleph keeps it, or has not decided yet. @param {import('./history.js').BackupRecord} b */
+const held = (b) => b.status === 'processed' || b.status === 'pending';
+
+/**
+ * The chains of backups other than the one backups go on with: each full
+ * backup with its increments, from the history, those Aleph still keeps.
+ * Without a chain (before #454) the newest full backup Aleph keeps is the one
+ * to keep; with none kept, nothing is offered – every chain is someone's
+ * last backup then.
+ *
+ * @param {import('./history.js').BackupRecord[]} backups
+ * @param {string | null | undefined} current the chain's full backup's CID
+ * @returns {OlderChain[]} newest first
+ */
+export function olderChains(backups, current) {
+	const isFull = (/** @type {import('./history.js').BackupRecord} */ b) => b.kind !== 'increment';
+	const keep =
+		current ??
+		backups
+			.filter((b) => isFull(b) && b.status === 'processed')
+			.sort((a, b) => (a.at < b.at ? 1 : -1))[0]?.cid;
+	if (!keep || !backups.some((b) => b.cid === keep && b.status === 'processed')) return [];
+	/** @type {Map<string, import('./history.js').BackupRecord[]>} */
+	const byBase = new Map();
+	for (const b of backups) {
+		const base = isFull(b) ? b.cid : b.base;
+		if (!base || base === keep) continue;
+		byBase.set(base, [...(byBase.get(base) ?? []), b]);
+	}
+	return [...byBase.entries()]
+		.filter(([, records]) => records.some(held))
+		.map(([base, records]) => {
+			const full = records.filter(isFull).sort((a, b) => (a.at < b.at ? -1 : 1))[0];
+			return {
+				base,
+				at: full?.at ?? '',
+				increments: new Set(records.filter((b) => !isFull(b)).map((b) => b.cid)).size,
+				// A backup kept again has two rows and one file.
+				bytes: [...new Map(records.filter(held).map((b) => [b.cid, b.size])).values()].reduce(
+					(n, size) => n + size,
+					0
+				),
+				records
+			};
+		})
+		.sort((a, b) => (a.at < b.at ? 1 : -1));
+}

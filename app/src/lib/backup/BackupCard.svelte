@@ -15,7 +15,7 @@
 	import { releaseName } from '$lib/build-info.js';
 	import { card } from '$lib/ui/styles.js';
 	import { backupName, loadBackups, rememberBackup, updateBackup } from './history.js';
-	import { chainAfter, chainFromBase, loadChain, saveChain } from './chain.js';
+	import { chainAfter, chainFromBase, loadChain, olderChains, saveChain } from './chain.js';
 	import {
 		BACKUP_CHANNEL,
 		BackupRefusedError,
@@ -24,6 +24,7 @@
 		creditsOf,
 		creditsPerDay,
 		ensureBackupKey,
+		forgetChain,
 		isAddress,
 		isGranted,
 		keepWithKey,
@@ -116,6 +117,53 @@
 	const chainUsable = $derived(
 		Boolean(chain) && !['unknown', 'rejected', 'forgotten'].includes(chainBase?.status ?? '')
 	);
+
+	/** The chains backups no longer go on with: they cost credits until forgotten. */
+	const currentBase = () => chain?.base;
+	const older = $derived(olderChains(backups, currentBase()));
+	/** Which older chain asks "Endgültig löschen?", and which is being forgotten, by base CID. */
+	let confirming = $state('');
+	let forgetting = $state('');
+	/** What the last "Löschen" did. */
+	let forgotten = $state(/** @type {{ count: number, left: number } | null} */ (null));
+	/** Only this browser's key forgets: the bridge has no way to. */
+	const canForget = $derived(
+		granted === true && Boolean(owner && key) && !app.network.paused && !step && !forgetting
+	);
+
+	/**
+	 * "Endgültig löschen": Aleph forgets the chain (keeper.js `forgetChain`);
+	 * its rows say so, and stop counting in what the backups cost.
+	 *
+	 * @param {import('./chain.js').OlderChain} c
+	 */
+	async function forgetOlder(c) {
+		const store = currentStore();
+		if (!store || !owner || !key || c.base === chain?.base) return;
+		error = null;
+		forgotten = null;
+		confirming = '';
+		forgetting = c.base;
+		try {
+			const result = await forgetChain({ base: c.base, owner, key, endpoints });
+			const gone = new Set(result.forgotten);
+			for (const b of c.records) {
+				if (b.itemHash && gone.has(b.itemHash)) {
+					backups = await updateBackup(store.settings, b, { status: 'forgotten' });
+				}
+			}
+			forgotten = {
+				count: result.forgotten.length,
+				left: result.rejected.length + result.pending.length + result.failed.length
+			};
+			await settle();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			forgetting = '';
+		}
+		credits = await creditsOf({ owner, endpoints }).catch(() => credits);
+	}
 
 	/** The bridge signs while this key is not granted, if it can. */
 	const bridgeSigns = $derived(Boolean(token && status?.configured));
@@ -434,7 +482,9 @@
 				? t('backup.unknown')
 				: s === 'rejected'
 					? t('backup.rejected')
-					: t('backup.pending');
+					: s === 'forgotten'
+						? t('backup.forgotten')
+						: t('backup.pending');
 	/** Days, as "about 8" or "more than a year". @param {number} d */
 	const daysText = (d) =>
 		d > 365
@@ -744,6 +794,73 @@
 	{#if error}
 		<p class="mt-2 text-sm text-danger" role="alert" data-testid="backup-error">{error}</p>
 		<WayOut message={error} />
+	{/if}
+	{#if older.length || forgotten}
+		<h3 class="mt-4 text-sm font-semibold text-heading">{t('backup.older.title')}</h3>
+		<p class="mt-1 text-xs text-faint">{t('backup.older.intro')}</p>
+		<ul class="mt-1 divide-y divide-border text-sm" data-testid="backup-older">
+			{#each older as c (c.base)}
+				<li class="flex flex-wrap items-baseline gap-2 py-1.5" data-testid="backup-older-chain">
+					<span class="text-heading"
+						>{c.at
+							? t('backup.older.chain', { at: when(c.at) })
+							: t('backup.older.chainUndated', { cid: `${c.base.slice(0, 12)}…` })}</span
+					>
+					<span class="text-xs text-faint"
+						>· {c.increments === 1
+							? t('backup.older.incrementsOne')
+							: t('backup.older.increments', { count: c.increments })} · {t('backup.older.cost', {
+							size: size(c.bytes),
+							perDay: perDayText(creditsPerDay(c.bytes))
+						})}</span
+					>
+					{#if confirming === c.base}
+						<span class="flex w-full flex-wrap items-center gap-2" role="alert">
+							<span class="text-warn w-full text-xs" data-testid="backup-older-confirm"
+								>{t('backup.older.confirm')}</span
+							>
+							<button
+								type="button"
+								class="rounded-md border border-danger px-3 py-1.5 text-sm text-danger hover:bg-surface-2 disabled:opacity-50"
+								onclick={() => forgetOlder(c)}
+								disabled={!canForget}
+								data-testid="backup-older-yes">{t('backup.older.confirmYes')}</button
+							>
+							<button
+								type="button"
+								class={button}
+								onclick={() => (confirming = '')}
+								data-testid="backup-older-no">{t('backup.cancel')}</button
+							>
+						</span>
+					{:else if forgetting === c.base}
+						<span class="w-full text-xs text-faint" role="status"
+							>{t('backup.older.forgetting')}</span
+						>
+					{:else}
+						<button
+							type="button"
+							class={button}
+							onclick={() => (confirming = c.base)}
+							disabled={!canForget}
+							data-testid="backup-older-forget">{t('backup.older.forget')}</button
+						>
+					{/if}
+				</li>
+			{/each}
+		</ul>
+		{#if older.length && granted !== true}
+			<p class="mt-1 text-xs text-faint" data-testid="backup-older-needs-grant">
+				{t('backup.older.needsGrant')}
+			</p>
+		{/if}
+		{#if forgotten}
+			<p class="mt-1 text-sm text-text" role="status" data-testid="backup-older-done">
+				{forgotten.left
+					? t('backup.older.incomplete', { count: forgotten.left })
+					: t('backup.older.done', { count: forgotten.count })}
+			</p>
+		{/if}
 	{/if}
 	{#if backups.length}
 		<h3 class="mt-4 text-sm font-semibold text-heading">{t('backup.history')}</h3>

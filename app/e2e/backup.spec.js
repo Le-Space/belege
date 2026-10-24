@@ -301,6 +301,44 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 	// Twice by the bridge: the backup, and keeping it again; none since the grant.
 	expect(bridgeOut.match(/backup: kept on Aleph/g)).toHaveLength(2);
 
+	// One chain so far: nothing older to delete.
+	await expect(card.getByTestId('backup-older-chain')).toHaveCount(0);
+
+	// "Neues Vollbackup" starts a new chain; the first – the bridge's full
+	// backup and the browser's increment – costs credits until it is deleted,
+	// and says so.
+	await card.getByTestId('backup-full').click();
+	await expect(card.getByTestId('backup-row')).toHaveCount(3, { timeout: 30_000 });
+	const older = card.getByTestId('backup-older-chain');
+	await expect(older).toHaveCount(1);
+	await expect(older).toContainText(/Vollbackup vom .* · 1 Zuwachs · .* Credits am Tag/);
+	const newFull = /** @type {any} */ (aleph.stores.at(-1));
+	expect(newFull).toMatchObject({ sender: browserKey, status: 'processed' });
+	expect(newFull.ref).toBeUndefined();
+	// Asked first; "Abbrechen" deletes nothing.
+	await older.getByTestId('backup-older-forget').click();
+	await expect(older.getByTestId('backup-older-confirm')).toContainText(
+		'aus ihr lässt sich danach nichts mehr wiederherstellen'
+	);
+	await older.getByTestId('backup-older-no').click();
+	expect(aleph.stores.filter((s) => s.status === 'forgotten')).toHaveLength(0);
+	// "Endgültig löschen": this browser's key forgets every STORE of that
+	// chain, the bridge's too; the new chain stays.
+	await older.getByTestId('backup-older-forget').click();
+	await older.getByTestId('backup-older-yes').click();
+	await expect(card.getByTestId('backup-older-done')).toContainText(
+		'Gelöscht: 2 Aufträge bei Aleph freigegeben',
+		{ timeout: 30_000 }
+	);
+	await expect(card.getByTestId('backup-older-chain')).toHaveCount(0);
+	const firstChain = aleph.stores.filter((s) => s.cid === cid || s.ref === cid);
+	expect(firstChain.filter((s) => s.status === 'forgotten')).toHaveLength(2);
+	expect(firstChain.filter((s) => s.status === 'processed')).toHaveLength(0);
+	expect(aleph.stores.find((s) => s.itemHash === newFull.itemHash)?.status).toBe('processed');
+	await expect(
+		card.getByTestId('backup-row').filter({ hasText: 'bei Aleph gelöscht' })
+	).toHaveCount(2);
+
 	// The overview says so.
 	await page.getByTestId('integration-back').click();
 	await expect(page.locator('[data-testid="integration-row"][data-id="backup"]')).toContainText(
