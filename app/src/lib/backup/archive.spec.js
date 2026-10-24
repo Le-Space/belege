@@ -222,7 +222,10 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 			expect((await b.store.partners.list()).map((p) => p.name)).toEqual(['Wolkenfabrik AG']);
 			const restored = await b.store.receipts.list();
 			const receipt = /** @type {any} */ (restored.find((r) => r.fileCid));
-			expect(await b.blobs.get(receipt.fileCid)).toEqual(file);
+			// Compared natively: toEqual walks the 1 MiB file byte by byte.
+			const back = await b.blobs.get(receipt.fileCid);
+			expect(back.length).toBe(file.length);
+			expect(Buffer.compare(back, file)).toBe(0);
 			const mail = /** @type {any} */ (restored.find((r) => r.emlCid));
 			expect(await b.blobs.get(mail.emlCid)).toEqual(EML);
 			const xml = /** @type {any} */ (restored.find((r) => r.xmlCid));

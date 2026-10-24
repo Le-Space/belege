@@ -81,7 +81,11 @@ describe('blob store', () => {
 			expect(size).toBeLessThanOrEqual(CHUNK_BYTES);
 		}
 		expect(blocks).toBe(4); // three chunks and the root
-		expect(await blobs.get(cid)).toEqual(file);
+		// Compared natively: toEqual walks 2 MiB byte by byte (7 s alone, past
+		// the 30 s timeout under a full parallel run).
+		const back = await blobs.get(cid);
+		expect(back.length).toBe(file.length);
+		expect(Buffer.compare(back, file)).toBe(0);
 	});
 
 	it('a changed block fails instead of returning something else', async () => {
