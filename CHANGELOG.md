@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.19.0] – 2026-10-24
+
 ### Changed
 
 - **A receipt in another currency links to its euro payment (#474).** Matching gave amount points only for the same amount in the same currency, so a USD or GBP invoice paid by card from a euro account almost never linked by itself. Now the bank's original amount in the receipt's currency ("USD 87,00" on a card payment) counts as the amount (+40); without one, a euro booking in the receipt's date window gets the ECB rate of its day from the bridge, kept only when at it the amount comes within 3 % of what is open, and counts as a converted amount (+25, so it needs another sign such as the invoice number). "Warum diese Zuordnung?" names the rate, its day, and how far off it is. Crypto stays as it was.
