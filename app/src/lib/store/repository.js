@@ -16,6 +16,7 @@
 // one in plaintext. The databases before the replication layer are opened
 // only to move them (store/migrate.js), without sync.
 
+import { IPFSAccessController } from '@orbitdb/core';
 import { payloadEncryption, sealedEncryption } from '../entry-encryption.js';
 import { deriveDatabaseName, deriveSealedDatabaseName } from '../database-keys.js';
 import { moveLog } from './migrate.js';
@@ -203,18 +204,53 @@ export function createCollection(db, name, { author, now = () => new Date() }) {
 }
 
 /**
+ * The access controller a passkey's databases were made with before the
+ * books had their own identity (#496): OrbitDB's default, its write list that
+ * passkey's DID. Spelled out, so another identity opening them by name finds
+ * the same address.
+ *
+ * @param {string} writer the passkey's DID
+ */
+export const passkeyAccessController = (writer) => {
+	if (typeof writer !== 'string' || !writer)
+		throw new Error('The former writer’s DID is required.');
+	return IPFSAccessController({ write: [writer] });
+};
+
+/**
  * How the databases before the replication layer are opened: payload sealed,
  * entries not, and never synced. For moving them, and for restoring a backup
- * made of them.
+ * made of them. They were written by the passkey (`formerWriter`).
  *
  * @param {Uint8Array} encryptionKey
+ * @param {string} [formerWriter] the passkey's DID; OrbitDB's identity when absent
  */
-export async function oldBooksOpenOptions(encryptionKey) {
+export async function oldBooksOpenOptions(encryptionKey, formerWriter) {
 	return {
 		type: SealedDocuments.type,
 		Database: SealedDocuments({ indexBy: 'id' }),
 		encryption: await payloadEncryption(encryptionKey),
-		sync: false
+		sync: false,
+		...(formerWriter ? { AccessController: passkeyAccessController(formerWriter) } : {})
+	};
+}
+
+/**
+ * How the sealed databases the passkey wrote before the books' own identity
+ * (#496) are opened: both layers sealed, the passkey's access controller,
+ * never synced. For moving them, and for restoring a backup made of them.
+ *
+ * @param {Uint8Array} encryptionKey
+ * @param {Uint8Array} replicationKey
+ * @param {string} formerWriter the passkey's DID
+ */
+export async function passkeyBooksOpenOptions(encryptionKey, replicationKey, formerWriter) {
+	return {
+		type: SealedDocuments.type,
+		Database: SealedDocuments({ indexBy: 'id' }),
+		encryption: await sealedEncryption(encryptionKey, replicationKey),
+		sync: false,
+		AccessController: passkeyAccessController(formerWriter)
 	};
 }
 
@@ -235,7 +271,9 @@ export async function oldBooksNames(prfOutput) {
  *
  * With `move`, the books before the replication layer are moved into the
  * sealed databases first (store/migrate.js): entry by entry, with their
- * clocks, adding only what is not there yet.
+ * clocks, adding only what is not there yet. With `moveFromPasskey`, so are
+ * the sealed databases the passkey (`formerWriter`) wrote before the books
+ * had their own identity (#496).
  *
  * @param {object} params
  * @param {any} params.orbitdb a started OrbitDB instance
@@ -247,7 +285,13 @@ export async function oldBooksNames(prfOutput) {
  * @param {(name: string) => void} [params.onOpen] before each collection is opened (its index is
  *   built from the log then – on large books what takes the time on every unlock)
  * @param {Record<string, any>} [params.openOptions] extra `orbitdb.open` options (tests pass memory storages)
- * @returns {Promise<{ transactions: Collection, receipts: Collection, partners: Collection, accounts: Collection, settings: Collection, matches: Collection, questions: Collection, events: Collection, travel: Collection, moved: Record<string, { total: number, moved: number }>, databases: () => Record<string, any>, resync: () => Promise<void>, close: () => Promise<void> }>}
+ * @param {any} [params.accessController] who may write: `booksAccessController` (books-access.js);
+ *   OrbitDB's default when absent
+ * @param {string} [params.author] who a record says wrote it: the passkey's DID, not the books' (#496);
+ *   OrbitDB's identity when absent
+ * @param {string} [params.formerWriter] the passkey's DID the earlier databases were written by
+ * @param {boolean} [params.moveFromPasskey] move the passkey's sealed databases in (needs `formerWriter`)
+ * @returns {Promise<{ transactions: Collection, receipts: Collection, partners: Collection, accounts: Collection, settings: Collection, matches: Collection, questions: Collection, events: Collection, travel: Collection, moved: Record<string, { total: number, moved: number }>, movedFromPasskey: Record<string, { total: number, moved: number }>, databases: () => Record<string, any>, resync: () => Promise<void>, close: () => Promise<void> }>}
  */
 export async function openStore({
 	orbitdb,
@@ -257,7 +301,11 @@ export async function openStore({
 	move = false,
 	onOpen,
 	onMove,
-	openOptions = {}
+	openOptions = {},
+	accessController,
+	author: writtenBy,
+	formerWriter,
+	moveFromPasskey = false
 }) {
 	if (!(encryptionKey instanceof Uint8Array) || encryptionKey.length !== 32) {
 		throw new Error('The store cannot be opened without its 32-byte encryption key.');
@@ -265,7 +313,10 @@ export async function openStore({
 	if (!(replicationKey instanceof Uint8Array) || replicationKey.length !== 32) {
 		throw new Error('The store cannot be opened without its 32-byte replication key.');
 	}
-	const author = orbitdb.identity.id;
+	if (moveFromPasskey && !formerWriter) {
+		throw new Error('Moving the passkey’s databases needs the DID they were written by.');
+	}
+	const author = writtenBy ?? orbitdb.identity.id;
 	const encryption = await sealedEncryption(encryptionKey, replicationKey);
 	/** @param {string} name */
 	const extra = async (name) =>
@@ -281,6 +332,7 @@ export async function openStore({
 			type: SealedDocuments.type,
 			Database: SealedDocuments({ indexBy: 'id' }),
 			encryption,
+			...(accessController ? { AccessController: accessController } : {}),
 			...(await extra(name))
 		});
 		collections[name] = createCollection(dbs[name], name, { author });
@@ -290,7 +342,7 @@ export async function openStore({
 	const moved = {};
 	if (move) {
 		const names = await oldBooksNames(prfOutput);
-		const options = await oldBooksOpenOptions(encryptionKey);
+		const options = await oldBooksOpenOptions(encryptionKey, formerWriter);
 		for (const name of OLD_COLLECTIONS) {
 			const from = await orbitdb.open(names[name], { ...options, ...(await extra(name)) });
 			try {
@@ -302,6 +354,31 @@ export async function openStore({
 				});
 			} finally {
 				await from.close();
+			}
+		}
+	}
+
+	/** What `moveFromPasskey` moved, by collection (#496). */
+	/** @type {Record<string, { total: number, moved: number }>} */
+	const movedFromPasskey = {};
+	if (moveFromPasskey && formerWriter) {
+		const options = await passkeyBooksOpenOptions(encryptionKey, replicationKey, formerWriter);
+		for (const name of COLLECTIONS) {
+			const from = await orbitdb.open(await deriveSealedDatabaseName(prfOutput, name), {
+				...options,
+				...(await extra(name))
+			});
+			try {
+				// The same database (an identity that is the passkey's): nothing to move.
+				if (String(from.address) === String(dbs[name].address)) continue;
+				movedFromPasskey[name] = await moveLog({
+					from,
+					to: dbs[name],
+					identity: orbitdb.identity,
+					onProgress: (done, total) => onMove?.({ collection: name, moved: done, total })
+				});
+			} finally {
+				if (String(from.address) !== String(dbs[name].address)) await from.close();
 			}
 		}
 	}
@@ -318,6 +395,7 @@ export async function openStore({
 		travel: collections.travel,
 		/** What `move` moved, by collection: entries in the old log, and how many were new. */
 		moved,
+		movedFromPasskey,
 		/** The opened OrbitDB databases, by collection: what a backup reads (backup/archive.js). */
 		databases: () => ({ ...dbs }),
 		/**

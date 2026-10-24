@@ -10,7 +10,13 @@
 	import { createBridgeClient } from '$lib/bridge/client.js';
 	import CopyButton from '$lib/CopyButton.svelte';
 	import WayOut from '$lib/help/WayOut.svelte';
-	import { app, currentStore, makeBackup, makeIncrement } from '$lib/session.svelte.js';
+	import {
+		app,
+		chainFitsBooks,
+		currentStore,
+		makeBackup,
+		makeIncrement
+	} from '$lib/session.svelte.js';
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { releaseName } from '$lib/build-info.js';
 	import { card } from '$lib/ui/styles.js';
@@ -113,9 +119,15 @@
 	let nothingNew = $state(false);
 	/** The chain's full backup, as this browser's history has it (another device's: not there). */
 	const chainBase = $derived(chain ? backups.find((b) => b.cid === chain?.base) : undefined);
-	/** An increment builds on its full backup only while Aleph may keep that. */
+	/**
+	 * An increment builds on its full backup only while Aleph may keep that,
+	 * and only in the databases the chain began in (#496: books that moved to
+	 * their own identity start a new chain).
+	 */
 	const chainUsable = $derived(
-		Boolean(chain) && !['unknown', 'rejected', 'forgotten'].includes(chainBase?.status ?? '')
+		Boolean(chain) &&
+			!['unknown', 'rejected', 'forgotten'].includes(chainBase?.status ?? '') &&
+			chainFitsBooks(chain)
 	);
 
 	/** The chains backups no longer go on with: they cost credits until forgotten. */

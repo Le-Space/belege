@@ -63,6 +63,33 @@ export async function createSessionIdentities(ipfs, { did, signingKey }) {
 }
 
 /**
+ * The `info` the books' signer is derived under (`createSecretSigner`, #496).
+ * Bumping it gives the books another identity, and with it other databases.
+ */
+export const BOOKS_IDENTITY_INFO = 'belege/books-identity/v1';
+
+/**
+ * Identities on a session-only keystore that signs as the books (#496): the
+ * collections are written by the books' own identity, an Ed25519 signer from
+ * the books' secret, which holds its key inside and hands none out. Entries
+ * an earlier passkey identity wrote (the databases before the move, and
+ * backups of them) still verify through the registered provider.
+ *
+ * @param {any} ipfs a Helia instance
+ * @param {{ did: string, type: 'Ed25519', publicKey: Uint8Array, sign: (data: Uint8Array) => Promise<Uint8Array> }} signer
+ *   from `createSecretSigner`
+ * @returns {Promise<any>} OrbitDB Identities
+ */
+export async function createBooksIdentities(ipfs, signer) {
+	if (!signer || typeof signer.sign !== 'function' || typeof signer.did !== 'string') {
+		throw new Error('A signer from createSecretSigner is required.');
+	}
+	// Typed `unknown` by the provider; it is an OrbitDB KeyStore on MemoryStorage.
+	const keystore = /** @type {any} */ (await createSessionKeystore({ signer }));
+	return withoutStaleIdentityCache(await Identities({ ipfs, keystore }));
+}
+
+/**
  * OrbitDB 4.0.0 remembers a verified identity under its `signatures.id` and
  * refuses another session of the same passkey (orbitdb/orbitdb#1258): this
  * session's identity cached, every entry an earlier session signed – from a

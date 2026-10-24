@@ -23,7 +23,7 @@ async function sessionFacts(page) {
 			identityHash: /** @type {string} */ (e2e.identityHash()),
 			peerId: /** @type {string} */ (e2e.peerId()),
 			secrets:
-				/** @type {{ signingKey: string, databaseKey: string, blobKey: string, peerKey: string }} */ (
+				/** @type {{ signingKey: string, booksSecret: string, databaseKey: string, blobKey: string, peerKey: string }} */ (
 					e2e.secrets()
 				)
 		};
@@ -194,6 +194,7 @@ test('a passkey opens sealed books that survive a reload', async ({ page }) => {
 	expect(text).not.toContain(first.identityHash);
 	const secrets = {
 		'signing key': first.secrets.signingKey,
+		'books secret': first.secrets.booksSecret,
 		'database key': first.secrets.databaseKey,
 		'replication key': first.secrets.replicationKey,
 		'blob key': first.secrets.blobKey,
@@ -253,6 +254,7 @@ test('a restored passkey derives the same signing key and keeps none', async ({ 
 	expect(inventory.some((db) => /keystore/i.test(db.database))).toBe(false);
 	for (const spelling of [
 		...spellings(restored.secrets.signingKey),
+		...spellings(restored.secrets.booksSecret),
 		...spellings(restored.secrets.databaseKey),
 		...spellings(restored.secrets.blobKey),
 		...spellings(restored.secrets.peerKey)
