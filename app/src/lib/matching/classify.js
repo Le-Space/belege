@@ -30,7 +30,7 @@ import { cleanPrepaidVendors } from './vendor-account.js';
 import { counterpartyKey } from './partners.js';
 import { compactIban, normalizeRef } from './normalize.js';
 import { cosmosChainOf, normalizeAddress, walletChain } from '../wallets/chains.js';
-import { isDust } from './dust.js';
+import { isDust, isSpoofedToken } from './dust.js';
 import { t } from '../i18n/index.js';
 
 /** Legal forms dropped before two company names are compared. */
@@ -304,9 +304,10 @@ export function feeKey(tx) {
 
 /**
  * @typedef {object} Classification
- * @property {'rule-ignore' | 'rule-private' | 'bank-fee' | 'own-transfer' | 'loan' | 'wage' | 'payroll-tax' | 'social-security' | 'tax-payment' | 'crypto-reward' | 'crypto-stake' | 'crypto-dust' | 'crypto-swap' | 'token-burn' | 'token-migration' | 'refund' | 'prepaid-topup'} kind
+ * @property {'rule-ignore' | 'rule-private' | 'bank-fee' | 'own-transfer' | 'loan' | 'wage' | 'payroll-tax' | 'social-security' | 'tax-payment' | 'crypto-reward' | 'crypto-stake' | 'crypto-dust' | 'token-spam' | 'crypto-swap' | 'token-burn' | 'token-migration' | 'refund' | 'prepaid-topup'} kind
  *   `token-burn`: tokens burned in the token project's transaction, not the person's (#162);
  *   `token-migration`: such a burn and its replacement, linked by a person
+ *   `token-spam`: a fake token's transfer on an own wallet – address poisoning (dust.js `isSpoofedToken`);
  *   `crypto-dust`: an incoming wallet transfer worth less than a cent
  *   `crypto-stake`: tokens delegated to staking (or back); no receipt, and not
  *   on 1360: the return at the end of an unbonding is no transaction, so a
@@ -671,6 +672,11 @@ export function classifyTransaction(tx, ctx) {
 			counterDay: String(o.bookedOn ?? ''),
 			chain: String(o.source ?? '')
 		};
+	}
+	// A fake token's transfer (address poisoning): no payment, and a warning.
+	if (isSpoofedToken(tx)) {
+		const lookalike = ctx.lookalikeOf?.(tx);
+		return { kind: 'token-spam', ...(lookalike ? { lookalike } : {}) };
 	}
 	if (isDust(tx)) {
 		const lookalike = ctx.lookalikeOf?.(tx);

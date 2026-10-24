@@ -30,6 +30,7 @@ const STANDS_IN = /** @type {Record<string, string>} */ ({
 	'token-burn': 'Burn (Projekt)',
 	'token-migration': 'Migration',
 	'crypto-dust': 'Staub',
+	'token-spam': 'Fake-Token',
 	loan: 'Darlehen',
 	'rule-ignore': 'ignoriert',
 	'rule-private': 'privat',

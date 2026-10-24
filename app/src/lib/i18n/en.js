@@ -1661,6 +1661,7 @@ export default {
 			'token-burn': 'Burned by the project',
 			'token-migration': 'Token migration',
 			'crypto-dust': 'Dust',
+			'token-spam': 'Fake token',
 			'rule-ignore': 'Ignored',
 			'rule-private': 'Private'
 		},
@@ -1682,6 +1683,7 @@ export default {
 			'token-migration':
 				'Token migration – both transactions in the block explorer are the receipt',
 			'crypto-dust': 'Dust under one cent – no receipt needed',
+			'token-spam': 'Fake token (address poisoning) – nothing moved, no receipt needed',
 			'rule-ignore': 'Ignored per own instruction: {reason}',
 			'rule-private': 'Private per own instruction: {reason}',
 			'no-receipt': 'No receipt needed: {reason}'
@@ -1813,6 +1815,8 @@ export default {
 			staking:
 				'Staking: the tokens are delegated and remain yours. No receipt needed. Not on 1360 – their return after unbonding is not a transaction, so a transfer would never balance; clarify the account with your tax advisor.',
 			dust: 'Dust: worth less than a cent, received without you doing anything. No receipt needed. Often a test or advertising – or the start of address poisoning: never use the sender address as a recipient.',
+			tokenSpam:
+				'Fake token: a token without any rate that this wallet did not move, or whose name imitates a real one. A token contract can report a transfer from any address without its key – nothing moved. No receipt needed. It is meant to put an address into your history: never send to it.',
 			dustLookalike:
 				'Dust from an address that looks like {known} but is a different one – very likely address poisoning. No receipt needed.',
 			cryptoReward:
@@ -3253,6 +3257,9 @@ export default {
 					'No receipt scores enough points. “All receipts” lists all open ones; you can keep searching in the mailbox and at the vendor.'
 			},
 			poisonTitle: 'Warning: possible address poisoning',
+			spamText:
+				'A fake token made this booking, not your wallet: nothing moved. The address {address} was put into your history so that you copy it by mistake the next time you send. Never send to this address; always compare the recipient address in full.',
+			spamLookalike: 'It starts and ends like {known}, which you have dealt with.',
 			poisonText:
 				'The sender address {address} starts and ends like {known}, which you have dealt with, but it is a different one. An address like this is planted in your history with a tiny amount so that you copy it by mistake the next time you send. Never send to this address; always compare the recipient address in full.',
 			title: 'Payment',
