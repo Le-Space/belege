@@ -479,7 +479,8 @@ export async function makeIncrement(meta) {
  *
  * @param {Uint8Array} sealed
  * @param {(p: import('./backup/archive.js').RestoreProgress) => void} [onProgress]
- * @param {{ increments: Uint8Array[], base: string }} [chain]
+ * @param {{ increments?: Uint8Array[], base?: string, fetchBytes?: (cid: string) => Promise<Uint8Array> }} [chain] its increments (#454), and where a
+ *   head the backup does not carry may still be found
  */
 export async function restoreBackup(sealed, onProgress, chain) {
 	if (!session) throw new Error('The books are not open.');

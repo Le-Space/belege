@@ -183,11 +183,21 @@
 				fetched = { done: increments.length, total: wanted.length };
 			}
 			phase = 'restoring';
-			const done = await restoreBackup(
-				sealed,
-				(p) => (progress = p),
-				increments.length ? { increments, base: cid } : undefined
+			// The same gateways the archive itself came from, offered as a second
+			// source for a head the backup does not carry. Ten seconds, not sixty:
+			// beside a restore that is otherwise done, this is a long shot.
+			const { fetchFromGateways, RAW_BLOCK } = await import(
+				'@le-space/orbitdb-storage-bridge/gateway-fetch'
 			);
+			const done = await restoreBackup(sealed, (p) => (progress = p), {
+				...(increments.length ? { increments, base: cid } : {}),
+				fetchBytes: (/** @type {string} */ block) =>
+					fetchFromGateways(block, {
+						gateways: endpoints.gateways,
+						accept: RAW_BLOCK,
+						timeout: 10_000
+					})
+			});
 			result = done.databases;
 			restoredIncrements = done.increments ?? 0;
 			phase = 'done';
@@ -207,13 +217,15 @@
 						? t('restore.isIncrement')
 						: name === 'ChainGapError'
 							? t('restore.gap', { missing: missing.join(', ') })
-							: name === 'BlocksNotStoredError'
-								? t('restore.noSpace')
-								: e instanceof Error && e.name === 'BackendError'
-									? t('restore.notFetched')
-									: e instanceof Error
-										? e.message
-										: String(e);
+							: name === 'MissingHeadsError'
+								? t('restore.incomplete')
+								: name === 'BlocksNotStoredError'
+									? t('restore.noSpace')
+									: e instanceof Error && e.name === 'BackendError'
+										? t('restore.notFetched')
+										: e instanceof Error
+											? e.message
+											: String(e);
 		}
 	}
 
