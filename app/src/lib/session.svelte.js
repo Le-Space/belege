@@ -1184,6 +1184,17 @@ function installE2EHooks() {
 			};
 		},
 		addTransaction: (/** @type {Record<string, any>} */ tx) => session?.store.transactions.put(tx),
+		// The books' own identity and where their databases are (#496).
+		booksDid: () => session?.booksDid,
+		addresses: () =>
+			session
+				? Object.fromEntries(
+						Object.entries(session.store.databases()).map(([name, db]) => [
+							name,
+							String(db.address)
+						])
+					)
+				: null,
 		transactions: () => session?.store.transactions.list(),
 		// A made-up receipt, as reading one would leave it (instalments spec, #258).
 		addReceipt: (/** @type {Record<string, any>} */ r) => session?.store.receipts.put(r),

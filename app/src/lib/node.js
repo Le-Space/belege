@@ -300,11 +300,20 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 		);
 		// The books' own identity (#496): what OrbitDB signs every entry as.
 		const booksSecret = await deriveBooksSecret(prfOutput);
+		// E2E builds only: books as they were made before #496, written by the
+		// passkey, so a test can watch them move (e2e/books-identity.spec.js).
+		const beforeBooksIdentity =
+			import.meta.env.VITE_E2E === 'true' &&
+			/** @type {any} */ (globalThis).__belegeBeforeBooksIdentity === true;
 		const books = await createSecretSigner(booksSecret, { info: BOOKS_IDENTITY_INFO });
-		const booksIdentities = await createBooksIdentities(helia, books);
-		const booksIdentity = await booksIdentities.createIdentity({
-			provider: OrbitDBWebAuthnIdentityProviderFunction({ signer: books })
-		});
+		const booksIdentities = beforeBooksIdentity
+			? identities
+			: await createBooksIdentities(helia, books);
+		const booksIdentity = beforeBooksIdentity
+			? identity
+			: await booksIdentities.createIdentity({
+					provider: OrbitDBWebAuthnIdentityProviderFunction({ signer: books })
+				});
 		const orbitdb = await createOrbitDB({
 			ipfs: helia,
 			// @ts-expect-error `identities` is a documented option the bundled types omit
@@ -325,17 +334,21 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 			encryptionKey,
 			replicationKey,
 			prfOutput,
-			accessController: booksAccessController(booksIdentity.id),
-			author: identity.id,
-			formerWriter: identity.id,
+			...(beforeBooksIdentity
+				? {}
+				: {
+						accessController: booksAccessController(booksIdentity.id),
+						author: identity.id,
+						formerWriter: identity.id,
+						moveFromPasskey: !flagSet(booksFlag)
+					}),
 			move: !flagSet(moveFlag),
-			moveFromPasskey: !flagSet(booksFlag),
 			onOpen: (collection) => onStatus?.({ step: 'open', collection }),
 			onMove: ({ collection, moved, total }) =>
 				onStatus?.({ step: 'move', collection, done: moved, total })
 		});
 		setFlag(moveFlag);
-		setFlag(booksFlag);
+		if (!beforeBooksIdentity) setFlag(booksFlag);
 		onStatus?.({ step: 'blobs' });
 		const blobs = await createBlobStore({ blockstore: helia.blockstore, key: blobKey, online });
 
