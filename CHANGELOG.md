@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.20.0] – 2026-10-24
+
 ### Added
 
 - **Older backup chains can be deleted on Aleph.** Each "Neues Vollbackup" starts a new chain, and the older ones went on costing credits (about 54 a MiB a day) with no way to stop it from the app. The backup card lists them now – when made, how many increments, what they cost a day – and "Löschen", after "Endgültig löschen?", has Aleph forget every STORE of that chain (FORGET, signed with this browser's key; Aleph lets it forget what it could have sent itself, the bridge's STOREs too). The current chain is never offered, nor anything while it is not kept.
