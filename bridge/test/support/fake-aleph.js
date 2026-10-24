@@ -24,6 +24,15 @@
 //                          An AGGREGATE on channel `security`, key
 //                          `security`, sent by the account itself, sets that
 //                          account's authorizations.
+//                          A FORGET names STOREs by item hash; as pyaleph
+//                          checks it since 0.11 (aleph-im/pyaleph#1156), its
+//                          sender must be one who could have sent each target:
+//                          the target's owner, or a delegate the owner lets
+//                          send STORE on the target's channel – whoever sent
+//                          the target. Processed: the targets are
+//                          `forgotten`; one not processed (or unknown) keeps
+//                          it `pending`, as Aleph retries; one the sender
+//                          could not have sent → `rejected`, error 3.
 //   GET  /api/v0/messages/<item hash>   a STORE's or AGGREGATE's status, with
 //                          `error_code` and `details` when rejected
 //   GET  /api/v0/aggregates/<address>.json?keys=security   the authorizations
@@ -37,7 +46,9 @@
 //   GET  /geo/<ip>         where an IP is, in ipwho.is' shape
 //   GET  /api/v0/messages.json   STOREs by `addresses` (the sender) or
 //                          `owners` (the paying account), `channels` and
-//                          `refs` (a STORE's free-text `ref`)
+//                          `refs` (a STORE's free-text `ref`), processed ones
+//                          only, by `pagination` and `page`, with the total of
+//                          what matched
 //
 // Any page may ask, as Aleph's API answers browsers (checked 2026-10-04): a
 // preflight gets the asking origin back with POST and CONTENT-TYPE allowed,
@@ -127,6 +138,8 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 	const authorizations = new Map();
 	/** The AGGREGATE messages taken, by item hash. @type {Map<string, { status: string }>} */
 	const aggregates = new Map();
+	/** The FORGET messages taken, by item hash. @type {Map<string, { status: string, errorCode?: number }>} */
+	const forgets = new Map();
 	/** What "Wer hält es?" is told. */
 	const network = {
 		/** @type {{ name: string, multiaddress: string, status: string }[] | null} */
@@ -183,30 +196,33 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 			const channels = (url.searchParams.get('channels') ?? '').split(',').filter(Boolean);
 			const refs = (url.searchParams.get('refs') ?? '').split(',').filter(Boolean);
 			if (url.searchParams.get('msgTypes') !== 'STORE') return reply(400, { error: 'msgTypes' });
+			const per = Math.max(1, Number(url.searchParams.get('pagination') ?? 20));
+			const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
+			const matched = stores
+				.filter((s) => s.status === 'processed')
+				.filter((s) => !senders.length || senders.includes(s.sender))
+				.filter((s) => !owners.length || owners.includes(s.owner))
+				.filter((s) => !channels.length || channels.includes(s.channel))
+				.filter((s) => !refs.length || (s.ref && refs.includes(s.ref)))
+				.sort((a, b) => b.time - a.time);
 			return reply(200, {
-				messages: stores
-					.filter((s) => s.status === 'processed')
-					.filter((s) => !senders.length || senders.includes(s.sender))
-					.filter((s) => !owners.length || owners.includes(s.owner))
-					.filter((s) => !channels.length || channels.includes(s.channel))
-					.filter((s) => !refs.length || (s.ref && refs.includes(s.ref)))
-					.map((s) => ({
-						type: 'STORE',
-						item_hash: s.itemHash,
-						sender: s.sender,
-						channel: s.channel,
-						content: {
-							address: s.owner,
-							item_type: 'ipfs',
-							item_hash: s.cid,
-							...(s.payment ? { payment: { type: s.payment } } : {}),
-							...(s.ref ? { ref: s.ref } : {}),
-							time: s.time
-						}
-					})),
-				pagination_page: 1,
-				pagination_total: stores.length,
-				pagination_per_page: 50
+				messages: matched.slice((page - 1) * per, page * per).map((s) => ({
+					type: 'STORE',
+					item_hash: s.itemHash,
+					sender: s.sender,
+					channel: s.channel,
+					content: {
+						address: s.owner,
+						item_type: 'ipfs',
+						item_hash: s.cid,
+						...(s.payment ? { payment: { type: s.payment } } : {}),
+						...(s.ref ? { ref: s.ref } : {}),
+						time: s.time
+					}
+				})),
+				pagination_page: page,
+				pagination_total: matched.length,
+				pagination_per_page: per
 			});
 		}
 		if (req.method === 'POST' && url.pathname === '/api/v0/add') {
@@ -280,6 +296,47 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 					authorizations.set(toChecksumAddress(m.sender), content.content.authorizations);
 				}
 				return answer(status);
+			}
+
+			if (m?.type === 'FORGET') {
+				const shapeOk =
+					hashOk &&
+					m.chain === 'ETH' &&
+					m.item_type === 'inline' &&
+					typeof m.channel === 'string' &&
+					typeof content?.address === 'string' &&
+					Array.isArray(content?.hashes) &&
+					content.hashes.length > 0 &&
+					content.hashes.length <= 1000 &&
+					content.hashes.every((/** @type {unknown} */ h) => typeof h === 'string');
+				if (!shapeOk) return reply(422, { error: 'not a FORGET this fake takes' });
+				const targets = content.hashes.map((/** @type {string} */ h) =>
+					stores.find((s) => s.itemHash === h)
+				);
+				/** @type {{ status: string, errorCode?: number }} */
+				let verdict = { status: 'processed' };
+				if (!signatureOk) verdict = { status: 'pending' };
+				else if (
+					targets.some(
+						(/** @type {any} */ s) => !s || !['processed', 'forgotten'].includes(s.status)
+					)
+				) {
+					verdict = { status: 'pending' };
+				} else if (
+					targets.some(
+						(/** @type {any} */ s) =>
+							s.status !== 'forgotten' &&
+							toChecksumAddress(s.owner) !== toChecksumAddress(m.sender) &&
+							!allowed(s.owner, m.sender, s.channel)
+					)
+				) {
+					verdict = { status: 'rejected', errorCode: 3 };
+				}
+				if (verdict.status === 'processed') {
+					for (const s of targets) s.status = 'forgotten';
+				}
+				forgets.set(m.item_hash, verdict);
+				return answer(verdict.status);
 			}
 
 			const shapeOk =
@@ -459,6 +516,14 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 		}
 		const aggregate = msg && aggregates.get(msg[1]);
 		if (aggregate) return reply(200, { status: aggregate.status, item_hash: msg[1] });
+		const forget = msg && forgets.get(msg[1]);
+		if (forget) {
+			return reply(200, {
+				status: forget.status,
+				item_hash: msg[1],
+				...(forget.errorCode !== undefined ? { error_code: forget.errorCode } : {})
+			});
+		}
 		if (msg && messages[msg[1]]) {
 			const { type, name } = messages[msg[1]];
 			return reply(200, {

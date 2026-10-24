@@ -1225,6 +1225,27 @@ export default {
 		made: 'Gesichert: {size}, {entries} Einträge, {files} Belegdateien – {kept}.',
 		kept: 'von Aleph aufbewahrt',
 		pending: 'Aleph hat noch nicht bestätigt',
+		forgotten: 'bei Aleph gelöscht',
+		older: {
+			title: 'Ältere Backup-Ketten',
+			intro:
+				'Jede Kette beginnt mit einem Vollbackup, die Zuwächse bauen darauf auf. Neue Backups gehen auf der aktuellen Kette weiter; ältere kosten weiter Credits, solange Aleph sie aufbewahrt.',
+			chain: 'Vollbackup vom {at}',
+			chainUndated: 'Vollbackup {cid}',
+			increments: '{count} Zuwächse',
+			incrementsOne: '1 Zuwachs',
+			cost: '{size} · etwa {perDay} Credits am Tag',
+			forget: 'Löschen',
+			confirm:
+				'Endgültig löschen? Aleph gibt diese Kette frei, und aus ihr lässt sich danach nichts mehr wiederherstellen – auch nicht mit der CID. Das aktuelle Backup bleibt.',
+			confirmYes: 'Endgültig löschen',
+			forgetting: 'Aleph wird beauftragt, sie zu löschen …',
+			done: 'Gelöscht: {count} Aufträge bei Aleph freigegeben. Sie kosten ab jetzt nichts mehr.',
+			incomplete:
+				'Nicht alles wurde gelöscht: {count} Aufträge hat Aleph nicht freigegeben oder noch nicht bestätigt. Später noch einmal versuchen.',
+			needsGrant:
+				'Löschen kann nur der eigene Schlüssel dieses Browsers – erst die Freigabe oben einrichten.'
+		},
 		cid: 'Zurück bekommst du es über:',
 		copyCid: 'CID kopieren',
 		missing:
