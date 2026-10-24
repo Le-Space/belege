@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.20.0] – 2026-10-24
+
 ### Added
 
 - **A fake token's "transfer" is told apart (address poisoning).** A token contract can log a Transfer out of any wallet without its key; spam runs do so by the thousand, from tokens named like real ones ("U⁯S⁯DΤ" with a Greek tau), to an address made to look like one the wallet really paid. Such a booking showed as a payment needing a receipt, an account and a rate. A token without any rate that someone else moved out of an own wallet, or whose symbol has characters no real token writes, is now "Fake-Token (Adressvergiftung) – nichts bewegt, kein Beleg nötig"; the payment warns never to send to its address (and names the address it imitates, where one is known), and asks for no rate.
