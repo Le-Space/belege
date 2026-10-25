@@ -50,9 +50,12 @@ export const app = $state({
 	 * The books' passkeys (#406): one slot each in the vault, this browser's
 	 * name for it, and whether it is the one that unlocked. `indexOn`: the
 	 * vault is published on Aleph for empty devices (backup/vault-index.js).
-	 * @type {{ slots: { kid: string, label: string, addedAt: string, mine: boolean }[], indexOn: boolean }}
+	 * `words`: the recovery words' slot, when there is one (stage 2).
+	 * @type {{ slots: { kid: string, label: string, addedAt: string, mine: boolean }[], indexOn: boolean, words: { addedAt: string } | null }}
 	 */
-	vault: { slots: [], indexOn: false },
+	vault: { slots: [], indexOn: false, words: null },
+	/** Books just made: recovery words are offered once (keys/WordsOffer.svelte). */
+	offerWords: false,
 	/** Device sync (#123): off, or this device's id and the devices it knows. */
 	sync: {
 		online: false,
@@ -1075,19 +1078,31 @@ export async function removeSyncDevice(peerId) {
 }
 
 /**
+ * @typedef {{ opened: import('./books-vault.js').OpenedVault, owner: string, label: string }} Recovered
+ *   the vault the recovery words opened, for a new passkey (#406, stage 2)
+ */
+
+/**
  * @param {any} credential
  * @param {ReturnType<typeof import('./unlock-progress.js').createUnlockProgress>} [progress]
  * @param {(purpose: 'prf') => Promise<void>} [beforePrompt] what the next touch is for (#429)
- * @param {{ lookupVault?: boolean }} [options] an empty device: ask Aleph's index for the vault (#406)
+ * @param {{ lookupVault?: boolean, recovered?: Recovered }} [options] `lookupVault`: an empty
+ *   device – ask Aleph's index for the vault (#406); `recovered`: opened with recovery words
  */
-async function unlockWith(credential, progress, beforePrompt, { lookupVault = false } = {}) {
+async function unlockWith(
+	credential,
+	progress,
+	beforePrompt,
+	{ lookupVault = false, recovered } = {}
+) {
 	// Loaded lazily: Helia, libp2p and OrbitDB are most of the bundle, and the
 	// onboarding screen needs none of them.
 	const { startSession } = await import('./node.js');
 	session = await startSession(credential, {
 		onStatus: (s) => progress?.status(s),
 		beforePrompt,
-		lookupVault
+		lookupVault,
+		...(recovered ? { recovered } : {})
 	});
 	await showVault();
 	app.network.syncCapable = Boolean(session.online);
@@ -1144,8 +1159,10 @@ async function unlockWith(credential, progress, beforePrompt, { lookupVault = fa
  * @param {() => Promise<any>} getCredential
  * @param {string} nothingFound shown when the credential step finds nothing
  * @param {'create' | 'restore' | 'unlock'} flow which prompts follow, and what is said before each (#429)
+ * @param {{ recovered?: () => Recovered | undefined }} [options]
+ *   the vault the recovery words opened, once `getCredential` has opened it
  */
-async function run(getCredential, nothingFound, flow) {
+async function run(getCredential, nothingFound, flow, { recovered } = {}) {
 	// Never on an origin other CIDs share (shared-origin.js); the screen offers no button there.
 	if (sharedOrigin()) return;
 	app.status = 'starting';
@@ -1160,11 +1177,14 @@ async function run(getCredential, nothingFound, flow) {
 		progress = createUnlockProgress({ onChange: (s) => (app.unlock = s) });
 		// A restore is an empty device: its passkey's vault may be on Aleph (#406),
 		// asked unless the network is paused.
+		const opened = recovered?.();
 		await unlockWith(credential, progress, passkeyStepsFor(flow), {
-			lookupVault: flow === 'restore' && !networkPause()
+			lookupVault: flow === 'restore' && !networkPause(),
+			...(opened ? { recovered: opened } : {})
 		});
 		progress.finish('ready');
 		app.unlock = null;
+		app.offerWords = flow === 'create' && !opened;
 		app.status = 'ready';
 	} catch (error) {
 		progress?.finish('failed');
@@ -1182,16 +1202,22 @@ const VAULT_INDEX_SETTING = 'vault/index';
 async function showVault() {
 	if (!session) return;
 	const { record, kid } = session.vault;
+	const { wordsSlotId } = await import('./books-vault.js');
+	const wordsKid = await wordsSlotId();
 	// Every slot in the vault, named where this browser knows the name.
 	const known = new Map(record.slots.map((s) => [s.kid, s]));
+	const words = record.vault.slots.some((/** @type {{ kid: string }} */ v) => v.kid === wordsKid);
 	app.vault = {
-		slots: record.vault.slots.map((/** @type {{ kid: string }} */ v) => ({
-			kid: v.kid,
-			label: known.get(v.kid)?.label ?? '',
-			addedAt: known.get(v.kid)?.addedAt ?? '',
-			mine: v.kid === kid
-		})),
-		indexOn: (await getSetting(session.store.settings, VAULT_INDEX_SETTING)) === true
+		slots: record.vault.slots
+			.filter((/** @type {{ kid: string }} */ v) => v.kid !== wordsKid)
+			.map((/** @type {{ kid: string }} */ v) => ({
+				kid: v.kid,
+				label: known.get(v.kid)?.label ?? '',
+				addedAt: known.get(v.kid)?.addedAt ?? '',
+				mine: v.kid === kid
+			})),
+		indexOn: (await getSetting(session.store.settings, VAULT_INDEX_SETTING)) === true,
+		words: words ? { addedAt: known.get(wordsKid)?.addedAt ?? '' } : null
 	};
 }
 
@@ -1274,7 +1300,11 @@ export async function removeBooksPasskey(kid, { renew = false } = {}) {
 		);
 		/** @type {{ prfOutput: Uint8Array, rawCredentialId: Uint8Array }[]} */
 		const answers = [];
-		for (const slot of session.vault.record.slots.filter((s) => s.kid !== kid)) {
+		const wordsKid = await vaultModule.wordsSlotId();
+		// The recovery words cannot answer here: a renewed vault has none, and says so.
+		for (const slot of session.vault.record.slots.filter(
+			(s) => s.kid !== kid && s.kid !== wordsKid
+		)) {
 			const rawCredentialId = new Uint8Array(
 				WebAuthnDIDProvider.base64urlToArrayBuffer(slot.credentialId)
 			);
@@ -1291,6 +1321,109 @@ export async function removeBooksPasskey(kid, { renew = false } = {}) {
 	}
 	await showVault();
 	if (app.vault.indexOn && !networkPause()) await publishBooksVault();
+}
+
+/**
+ * Give the books recovery words (#406, stage 2), once the person has written
+ * them down and given three of them back: one more slot in the vault. Words
+ * the books had are replaced. Published on Aleph (index W) when the vault is.
+ *
+ * @param {string[]} words from `newRecoveryWords`
+ * @param {{ publish?: boolean }} [options]
+ */
+export async function addBooksRecoveryWords(words, { publish = false } = {}) {
+	if (!session) throw new Error('The books are not open.');
+	const [{ seedFromWords }, { addRecoveryWords }, { wordsIndexKey }] = await Promise.all([
+		import('./recovery-words.js'),
+		import('./books-vault.js'),
+		import('./backup/vault-index.js')
+	]);
+	const seed = await seedFromWords(words);
+	try {
+		session.vault = await addRecoveryWords(session.vault, seed, globalThis.localStorage);
+		const key = await wordsIndexKey(seed);
+		await showVault();
+		if ((publish || app.vault.indexOn) && !networkPause()) await publishBooksVault([key]);
+	} finally {
+		seed.fill(0);
+	}
+}
+
+/** Take the recovery words out of the vault. */
+export async function removeBooksRecoveryWords() {
+	if (!session) throw new Error('The books are not open.');
+	const { removeRecoveryWords } = await import('./books-vault.js');
+	session.vault = await removeRecoveryWords(session.vault, globalThis.localStorage);
+	await showVault();
+	if (app.vault.indexOn && !networkPause()) await publishBooksVault();
+}
+
+/**
+ * Open the books with recovery words, on a device without any of their
+ * passkeys (#406, stage 2): the words open the vault – kept in this browser,
+ * or found on Aleph through their index unless the network is paused – then
+ * a new passkey is made, gets its slot, and opens the books as any other.
+ * Two prompts, as when creating. Nothing is made when the words open nothing.
+ *
+ * @param {string} text the words as typed or pasted
+ * @param {string} label the new passkey's name
+ */
+export function recoverWithWords(text, label) {
+	const name = label.trim() || 'Le Space Belege';
+	/** @type {Recovered | undefined} */
+	let recovered;
+	return run(
+		async () => {
+			const [words, vaultModule, indexes] = await Promise.all([
+				import('./recovery-words.js'),
+				import('./books-vault.js'),
+				import('./backup/vault-index.js')
+			]);
+			const typed = words.normalizeWords(text);
+			const check = await words.checkWords(typed);
+			if (!check.ok) {
+				throw new Error(
+					check.unknown.length
+						? t('onboarding.words.unknown', { positions: check.unknown.join(', ') })
+						: check.count !== words.WORD_COUNT
+							? t('onboarding.words.count', { count: check.count })
+							: t('onboarding.words.checksum')
+				);
+			}
+			const seed = await words.seedFromWords(typed);
+			try {
+				const lookup = !networkPause();
+				let opened = await vaultModule
+					.openWithWords({
+						seed,
+						storage: globalThis.localStorage,
+						...(lookup ? { find: () => indexes.findVaultWithWords({ seed }) } : {})
+					})
+					.catch((/** @type {any} */ e) => {
+						if (e?.code === 'VAULT_LOCKED') throw new Error(t('onboarding.words.wrong'));
+						throw e;
+					});
+				if (!opened) {
+					throw new Error(lookup ? t('onboarding.words.notFound') : t('onboarding.words.notHere'));
+				}
+				let owner = '';
+				if (lookup) {
+					const current = await indexes.readRootIndex({ root: opened.root }).catch(() => null);
+					owner = current?.pointer?.owner ?? '';
+					if (current?.vault) {
+						opened = await vaultModule.newerWithWords(opened, current.vault, seed, current.slots);
+					}
+				}
+				recovered = { opened, owner, label: name };
+			} finally {
+				seed.fill(0);
+			}
+			return createPasskeyCredential({ userId: name, displayName: name });
+		},
+		t('messages.passkey.createFailed'),
+		'create',
+		{ recovered: () => recovered }
+	);
 }
 
 /** @param {string} label shown in the passkey picker; identifies nothing */

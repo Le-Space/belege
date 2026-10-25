@@ -9,6 +9,9 @@
 //             kept for – sealed under a key from the root. Any device with
 //             the vault open keeps it current.
 //
+//   index W – one per set of recovery words (stage 2), from their seed: like
+//             P, the vault record as it was when the words were made.
+//
 // An empty device with passkey B: B's PRF output → index P(B) → the vault,
 // opened with B's slot → the root → index M → the current vault and the
 // account → the backups (keeper.js `findBackups`).
@@ -30,6 +33,7 @@ export const VAULT_INDEX_KEY = 'belege-vault';
 export const VAULT_INDEX_CHANNEL = 'BELEGE-VAULT';
 
 const PASSKEY_INDEX_INFO = 'belege/vault-index/passkey/v1';
+const WORDS_INDEX_INFO = 'belege/vault-index/words/v1';
 const ROOT_INDEX_INFO = 'belege/vault-index/root/v1';
 const POINTER_KEY_INFO = 'belege/vault-index/pointer/v1';
 /** Bound to every sealed pointer: it opens as nothing else. */
@@ -70,6 +74,9 @@ async function indexKey(material, info) {
 
 /** Index P's key, from a passkey's PRF output. @param {Uint8Array} prfOutput */
 export const passkeyIndexKey = (prfOutput) => indexKey(prfOutput, PASSKEY_INDEX_INFO);
+
+/** Index W's key, from the recovery words' seed. @param {Uint8Array} seed */
+export const wordsIndexKey = (seed) => indexKey(seed, WORDS_INDEX_INFO);
 
 /** Index M's key, from the vault's root. @param {Uint8Array} root */
 export const rootIndexKey = (root) => indexKey(root, ROOT_INDEX_INFO);
@@ -230,6 +237,24 @@ export async function findVaultOnAleph({ prfOutput, endpoints, fetch: f }) {
 }
 
 /**
+ * The books' vault as index W of these recovery words holds it, for an empty
+ * device; null when there is none.
+ *
+ * @param {{ seed: Uint8Array, endpoints?: import('./keeper.js').AlephEndpoints, fetch?: typeof fetch }} params
+ * @returns {Promise<import('../books-vault.js').VaultRecord | null>}
+ */
+export async function findVaultWithWords({ seed, endpoints, fetch: f }) {
+	const content = await readIndex({
+		key: await wordsIndexKey(seed),
+		...(endpoints ? { endpoints } : {}),
+		...(f ? { fetch: f } : {})
+	});
+	return content?.vault
+		? { vault: content.vault, slots: slotsOf(content.slots), removed: [] }
+		: null;
+}
+
+/**
  * Published slot details, with no name: `{ kid, credentialId, addedAt }`.
  * @param {unknown} slots
  * @returns {import('../books-vault.js').SlotInfo[]}
@@ -242,7 +267,8 @@ function slotsOf(slots) {
 			kid: s.kid,
 			label: '',
 			credentialId: s.credentialId,
-			addedAt: typeof s.addedAt === 'string' ? s.addedAt : ''
+			addedAt: typeof s.addedAt === 'string' ? s.addedAt : '',
+			...(s.kind === 'words' ? { kind: /** @type {const} */ ('words') } : {})
 		}));
 }
 
@@ -282,10 +308,11 @@ export async function publishVault({ root, record, passkeyKeys, owner, endpoints
 	const options = { ...(endpoints ? { endpoints } : {}), ...(f ? { fetch: f } : {}) };
 	const vault = record.vault;
 	// No names: those stay in this browser.
-	const slots = record.slots.map(({ kid, credentialId, addedAt }) => ({
+	const slots = record.slots.map(({ kid, credentialId, addedAt, kind }) => ({
 		kid,
 		credentialId,
-		addedAt
+		addedAt,
+		...(kind ? { kind } : {})
 	}));
 	await publishIndex({
 		key: await rootIndexKey(root),

@@ -10,7 +10,12 @@ import {
 	VAULTS_STORAGE_KEY,
 	VaultStorageError,
 	addPasskey,
+	addRecoveryWords,
 	adoptNewerVault,
+	hasRecoveryWords,
+	newerWithWords,
+	openWithWords,
+	removeRecoveryWords,
 	loadVaultRecords,
 	openBooksVault,
 	removePasskey,
@@ -180,6 +185,73 @@ describe('the books’ vault', () => {
 		);
 		await expect(openBooksVault({ ...A, storage: here })).rejects.toBeInstanceOf(
 			RemovedPasskeyError
+		);
+	});
+});
+
+describe('recovery words in the vault (stage 2)', () => {
+	const SEED = bytes(64, 0x5e);
+	const OTHER = bytes(64, 0x6f);
+
+	it('a words slot opens the same root without any passkey, and a new passkey gets its slot', async () => {
+		const storage = memoryStorage();
+		const opened = await addRecoveryWords(await openBooksVault({ ...A, storage }), SEED, storage);
+		expect(await hasRecoveryWords(opened.record)).toBe(true);
+		expect(opened.record.slots.find((s) => s.kind === 'words')?.label).toBe('');
+		// Nothing of the seed in what is kept.
+		expect(storage.getItem(VAULTS_STORAGE_KEY)).not.toContain(Buffer.from(SEED).toString('hex'));
+
+		// An empty device: the record comes from elsewhere (the index), the words open it.
+		const empty = memoryStorage();
+		const withWords = await openWithWords({
+			seed: SEED,
+			storage: empty,
+			find: async () => opened.record
+		});
+		expect(withWords?.found).toBe(true);
+		expect(withWords?.root).toEqual(A.prfOutput);
+		// Kept nowhere until a passkey has its slot; then C opens the same books.
+		expect(empty.getItem(VAULTS_STORAGE_KEY)).toBeNull();
+		await addPasskey(/** @type {any} */ (withWords), C, empty);
+		const withC = await openBooksVault({ ...C, storage: empty });
+		expect(withC.root).toEqual(A.prfOutput);
+		expect(withC.created).toBe(false);
+	});
+
+	it('wrong words do not open it; without a words slot there is nothing to open', async () => {
+		const storage = memoryStorage();
+		const opened = await openBooksVault({ ...A, storage });
+		expect(await openWithWords({ seed: SEED, storage })).toBeNull();
+		await addRecoveryWords(opened, SEED, storage);
+		await expect(openWithWords({ seed: OTHER, storage })).rejects.toThrow();
+	});
+
+	it('new words replace the old; taken out, they open nothing', async () => {
+		const storage = memoryStorage();
+		let opened = await addRecoveryWords(await openBooksVault({ ...A, storage }), SEED, storage);
+		opened = await addRecoveryWords(opened, OTHER, storage);
+		expect(opened.record.vault.slots).toHaveLength(2);
+		await expect(openWithWords({ seed: SEED, storage })).rejects.toThrow();
+		expect((await openWithWords({ seed: OTHER, storage }))?.root).toEqual(A.prfOutput);
+		opened = await removeRecoveryWords(opened, storage);
+		expect(await hasRecoveryWords(opened.record)).toBe(false);
+		expect(await openWithWords({ seed: OTHER, storage })).toBeNull();
+	});
+
+	it('a newer record of the same books is taken when the words are still in it', async () => {
+		const storage = memoryStorage();
+		const opened = await addRecoveryWords(await openBooksVault({ ...A, storage }), SEED, storage);
+		const older = /** @type {any} */ (await openWithWords({ seed: SEED, storage }));
+		const newer = await addPasskey(opened, B, storage);
+		const taken = await newerWithWords(older, newer.record.vault, SEED, [
+			{ kid: newer.record.slots[1].kid, label: '', credentialId: 'cred-b', addedAt: '' }
+		]);
+		expect(taken.record.vault.slots).toHaveLength(3);
+		expect(taken.record.slots.map((s) => s.credentialId)).toEqual(['cred-b']);
+		// Without the words in it, the one opened stays.
+		const withoutWords = await removeRecoveryWords(newer, storage);
+		expect((await newerWithWords(older, withoutWords.record.vault, SEED)).record).toBe(
+			older.record
 		);
 	});
 });

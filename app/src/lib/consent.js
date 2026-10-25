@@ -59,7 +59,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     while "gleich auslesen" is on (#475).
 // 27: text goes unredacted into LibertAI's attested enclave, unless setup:llm
 //     is told to black it out (#416).
-export const CONSENT_VERSION = '29';
+// 30: recovery words – losing every passkey loses the books only without
+//     them; opening with them makes a new passkey, two prompts (#406).
+export const CONSENT_VERSION = '30';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

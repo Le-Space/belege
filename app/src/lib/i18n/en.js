@@ -718,7 +718,7 @@ export default {
 			technical: [
 				'A WebAuthn passkey with P-256 (ES256), stored as discoverable. Your DID (did:key:…) is its public key, formed by @le-space/orbitdb-identity-provider-webauthn-did. The private key never leaves the authenticator.',
 				'The PRF extension (CTAP hmac-secret) is mandatory. If the authenticator provides no PRF secret, start-up aborts; there is no unencrypted fallback.',
-				'Passkey prompts: creating 2, unlocking 1, restoring on a new device 3.'
+				'Passkey prompts: creating 2, unlocking 1, restoring on a new device 3, opening with recovery words 2.'
 			]
 		},
 		storage: {
@@ -728,7 +728,7 @@ export default {
 				'Everything is encrypted, with keys made anew each time you unlock: your passkey opens its slot in your books’ vault for them. The keys themselves are never stored.',
 				'What the page shows, browser extensions allowed to run here see as well. For Belege, a browser profile of its own without extensions is the safe choice.'
 			],
-			loss: 'If you lose every passkey of your books, you lose access to your data. Nobody can recover it then, not even us. So add a second one under Settings → Keys. If you delete this browser’s site data, the data here is gone as well.',
+			loss: 'If you lose every passkey of your books and have no recovery words, you lose access to your data. Nobody can recover it then, not even us. So write down the 24 words under Settings → Keys, or add a second passkey. If you delete this browser’s site data, the data here is gone as well.',
 			lossHeading: 'Important:',
 			keysDoc: 'How the keys work',
 			technical: [
@@ -908,6 +908,20 @@ export default {
 			'You can find this notice at any time at the bottom of the page under “Privacy & technology”.'
 	},
 	onboarding: {
+		words: {
+			open: 'Open with recovery words',
+			hint: 'No passkey of the books left? With the 24 words you open them here and make a new passkey on the way (two prompts). If the vault is kept on Aleph, Belege finds it; otherwise only in the browser that holds it.',
+			label: 'The 24 words, in their order',
+			passkeyLabel: 'Name of the new passkey',
+			go: 'Make a new passkey and open the books',
+			unknown: 'The list does not know these words: place {positions}.',
+			count: 'These are {count} words – it takes 24.',
+			checksum: 'The words do not fit together: one is probably misspelt or swapped.',
+			wrong: 'These words do not open the vault.',
+			notFound: 'There is no vault for these words – neither in this browser nor on Aleph.',
+			notHere:
+				'This browser holds no vault for these words; the network is paused, Aleph was not asked.'
+		},
 		title: 'Unlock your books',
 		intro:
 			'Your bookkeeping data stays on this device and is encrypted with a key from your passkey. Without the passkey nobody can read it – not even us.',
@@ -2037,6 +2051,36 @@ export default {
 		},
 		keys: {
 			title: 'Keys',
+			words: {
+				title: 'Recovery words',
+				what: '24 words on paper that open the books when every passkey is gone – on an empty device, without a passkey: a new one is made there with them. Belege makes them at random; they are stored nowhere, only a slot in the vault that opens with them.',
+				none: 'No recovery words yet. Write them down and keep the paper safe, apart from your devices.',
+				has: 'Recovery words made on {date}.',
+				start: 'Make words',
+				new: 'Make new words',
+				writeDown: 'Write these 24 words on paper, in this order. They are shown only now.',
+				paper: 'No photo, no notes app, no clipboard: whoever has the words opens the books.',
+				written: 'I have written down the 24 words.',
+				next: 'Next',
+				askBack: 'To check: which words are at these places?',
+				confirm: 'Confirm the words',
+				saving: 'Saving …',
+				back: 'Show the words again',
+				wrongBack: 'Not right at place {positions}. Look at your paper again.',
+				added: 'The recovery words open the books now. Older words open nothing any more.',
+				remove: 'Remove the words',
+				removeSure: 'Afterwards the words no longer open the books.',
+				removeYes: 'Yes, remove',
+				removed: 'The recovery words are removed.',
+				publish:
+					'Keep the vault on Aleph, so an empty device finds it with the words alone (sealed, without names).',
+				equivalent:
+					'The words weigh as much as all passkeys together. Whoever saw them knows the root of the keys – as with a passkey, removing helps only for what comes after. Renewing the vault (a passkey in other hands) drops the words: make new ones then.',
+				offerTitle: 'Secure your books:',
+				offer: 'Make recovery words – 24 words on paper, in case your passkey is lost.',
+				offerGo: 'Make them now',
+				offerLater: 'Later'
+			},
 			intro:
 				'Which passkeys open your books. Each has a slot of its own in the books’ vault; every slot opens the same books and every backup.',
 			singleHeading: 'Only one key:',

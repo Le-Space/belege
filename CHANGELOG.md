@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Recovery words: the books open when every passkey is gone (#406, stage 2).** 24 words on paper – BIP39, 256 random bits, drawn by Belege, never chosen – are one more slot in the books' vault, its key from the words' seed. Offered right after new books are made and under _Einstellungen → Schlüssel_: shown once, three asked back, then kept nowhere but as that sealed slot (and, when the vault is kept on Aleph, at an index derived from the words, with no names). On the lock screen, "Mit Wiederherstellungswörtern öffnen" takes the words as typed or pasted – numbered or not; a misspelt or swapped word is caught by the checksum before anything is made –, finds the vault in this browser or on Aleph, makes a new passkey (two prompts) and gives it a slot: the same books, identity and keys. The keys page no longer calls one passkey with words "the only key"; renewing the vault takes the words out. Consent version 30; `docs/keys.md` describes the words and shows slot W.
+
 ## [0.23.0] – 2026-10-25
 
 ### Added
