@@ -1231,6 +1231,8 @@ export default {
 			'Oder im Aleph-Dashboard, mit der Wallet des Kontos: unter Berechtigungen die Adresse oben eintragen, Nachrichtentyp STORE, Kanal {channel}.',
 		grantDashboardLink: 'Berechtigungen öffnen',
 		now: 'Jetzt sichern',
+		uploadTimedOut:
+			'Der Upload zu Aleph ist nach {minutes} Minuten nicht fertig geworden: Für {size} war die Leitung zu langsam oder unterbrochen. Nichts wurde aufbewahrt und nichts kostet. Erneut versuchen, am besten an einer schnelleren Leitung und mit diesem Tab im Vordergrund.',
 		keepWorking:
 			'Du kannst in Belege weiterarbeiten: Das Backup läuft weiter, oben im Kopf siehst du, wie weit es ist. Nur den Tab nicht schließen oder neu laden.',
 		auto: {

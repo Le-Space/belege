@@ -3,7 +3,7 @@
 // the preflight, as Aleph's IPFS host does – the same upload without it, that
 // host not asked again. Against a stand-in XMLHttpRequest; the hashes are made up.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { addedHash, uploadToAleph } from './upload.js';
+import { UploadTimeoutError, addedHash, uploadToAleph } from './upload.js';
 
 /** What the stand-in host does with each request. */
 let behaviour = /** @type {(x: FakeXhr) => void} */ (() => {});
@@ -130,5 +130,21 @@ describe('uploadToAleph', () => {
 				name: 'b'
 			})
 		).rejects.toThrow(/413 Payload Too Large/);
+	});
+
+	it('a big file gets time for a slow line, and says how long it waited', async () => {
+		vi.stubGlobal('XMLHttpRequest', FakeXhr);
+		behaviour = (x) => x.ontimeout?.();
+		const size = 500e6;
+		const error = await uploadToAleph({
+			ingestUrl: 'https://ipfs.slow.test/api/v0/add',
+			bytes: new Uint8Array(size),
+			name: 'b'
+		}).catch((e) => e);
+		expect(error).toBeInstanceOf(UploadTimeoutError);
+		// Two minutes, and 500 MB at 100 kB/s.
+		expect(made[0].timeout).toBe(120_000 + size / 100);
+		expect(error.minutes).toBe(85);
+		expect(error.size).toBe(size);
 	});
 });
