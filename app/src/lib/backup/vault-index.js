@@ -141,9 +141,21 @@ async function sha256Hex(text) {
 	);
 }
 
+const sleep = (/** @type {number} */ ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Aleph's word on a message we sent. */
+const REFUSED = ['rejected', 'forgotten'];
+
 /**
  * Publish `content` at the address of `key`: an AGGREGATE message on Aleph,
- * signed by that key (`personal_sign`), for itself.
+ * signed by that key (`personal_sign`), for itself – and wait until Aleph has
+ * processed it. As paperless-anywhere learned live (2026-10-23): the
+ * synchronous broadcast may never answer while Aleph is slow, although the
+ * message gets processed; and one answered `pending` is not kept yet. So,
+ * after `answerMs` without an answer, or on `pending`, ask for its status
+ * every `pollMs`; while Aleph does not know it (404) the broadcast may not
+ * have arrived – send it again, unsynchronised. The same signed message each
+ * time: Aleph keeps it once, by its hash.
  *
  * @param {object} params
  * @param {Uint8Array} params.key from `passkeyIndexKey` or `rootIndexKey`
@@ -151,6 +163,7 @@ async function sha256Hex(text) {
  * @param {import('./keeper.js').AlephEndpoints} [params.endpoints]
  * @param {typeof fetch} [params.fetch]
  * @param {() => number} [params.now] seconds
+ * @param {{ answerMs?: number, pollMs?: number, waitMs?: number }} [params.patience]
  * @returns {Promise<{ address: string, itemHash: string }>}
  */
 export async function publishIndex({
@@ -158,7 +171,8 @@ export async function publishIndex({
 	content,
 	endpoints = alephEndpoints(),
 	fetch: f = fetch,
-	now = () => Date.now() / 1000
+	now = () => Date.now() / 1000,
+	patience: { answerMs = 60_000, pollMs = 5_000, waitMs = 5 * 60_000 } = {}
 }) {
 	const { alephAddressOf, alephSign } = await import('./aleph-signer.js');
 	const address = alephAddressOf(key);
@@ -178,15 +192,45 @@ export async function publishIndex({
 		key,
 		[unsigned.chain, unsigned.sender, unsigned.type, unsigned.item_hash].join('\n')
 	);
-	const response = await f(`${endpoints.apiHost}/api/v0/messages`, {
-		method: 'POST',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ message: { ...unsigned, signature }, sync: true })
-	});
-	if (!response.ok && response.status !== 202) {
-		throw new Error(`Aleph did not take the vault index: ${response.status}`);
+	const message = { ...unsigned, signature };
+	const done = { address, itemHash: unsigned.item_hash };
+	/** @param {boolean} sync @param {number} [ms] */
+	const send = (sync, ms) =>
+		f(`${endpoints.apiHost}/api/v0/messages`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ message, sync }),
+			...(ms ? { signal: AbortSignal.timeout(ms) } : {})
+		});
+
+	try {
+		const response = await send(true, answerMs);
+		if (response.status === 422 || (!response.ok && response.status !== 202)) {
+			throw new Error(`Aleph did not take the vault index: ${response.status}`);
+		}
+		const answer = /** @type {any} */ (await response.json().catch(() => null));
+		const status = answer?.message_status;
+		if (REFUSED.includes(status)) throw new Error(`Aleph refused the vault index: ${status}`);
+		if (response.status === 200 && status !== 'pending') return done;
+	} catch (e) {
+		const name = /** @type {any} */ (e)?.name;
+		if (!['TimeoutError', 'AbortError', 'TypeError'].includes(name)) throw e;
 	}
-	return { address, itemHash: unsigned.item_hash };
+
+	const until = Date.now() + waitMs;
+	while (Date.now() < until) {
+		await sleep(pollMs);
+		const res = await f(`${endpoints.apiHost}/api/v0/messages/${unsigned.item_hash}`, {
+			cache: 'no-store'
+		}).catch(() => null);
+		const status = res?.ok ? (await res.json().catch(() => null))?.status : null;
+		if (status === 'processed') return done;
+		if (REFUSED.includes(status)) throw new Error(`Aleph refused the vault index: ${status}`);
+		if (res?.status === 404) await send(false, answerMs).catch(() => null);
+	}
+	throw new Error(
+		`Aleph did not keep the vault index within ${Math.round(waitMs / 60_000)} minutes`
+	);
 }
 
 /**
@@ -277,9 +321,22 @@ export async function readRootIndex({ root, endpoints, fetch: f }) {
  * @param {string | null} [params.owner] the paying Aleph account
  * @param {import('./keeper.js').AlephEndpoints} [params.endpoints]
  * @param {typeof fetch} [params.fetch]
+ * @param {{ answerMs?: number, pollMs?: number, waitMs?: number }} [params.patience] see `publishIndex`
  */
-export async function publishVault({ root, record, passkeyKeys, owner, endpoints, fetch: f }) {
-	const options = { ...(endpoints ? { endpoints } : {}), ...(f ? { fetch: f } : {}) };
+export async function publishVault({
+	root,
+	record,
+	passkeyKeys,
+	owner,
+	endpoints,
+	fetch: f,
+	patience
+}) {
+	const options = {
+		...(endpoints ? { endpoints } : {}),
+		...(f ? { fetch: f } : {}),
+		...(patience ? { patience } : {})
+	};
 	const vault = record.vault;
 	// No names: those stay in this browser.
 	const slots = record.slots.map(({ kid, credentialId, addedAt }) => ({
