@@ -10,6 +10,10 @@ All notable changes to Le Space Belege. The format follows
 
 - **Recovery words: the books open when every passkey is gone (#406, stage 2).** 24 words on paper – BIP39, 256 random bits, drawn by Belege, never chosen – are one more slot in the books' vault, its key from the words' seed. Offered right after new books are made and under _Einstellungen → Schlüssel_: shown once, three asked back, then kept nowhere but as that sealed slot (and, when the vault is kept on Aleph, at an index derived from the words, with no names). On the lock screen, "Mit Wiederherstellungswörtern öffnen" takes the words as typed or pasted – numbered or not; a misspelt or swapped word is caught by the checksum before anything is made –, finds the vault in this browser or on Aleph, makes a new passkey (two prompts) and gives it a slot: the same books, identity and keys. The keys page no longer calls one passkey with words "the only key"; renewing the vault takes the words out. Consent version 30; `docs/keys.md` describes the words and shows slot W.
 
+### Fixed
+
+- **The vault's index on Aleph is kept, not only sent (#406).** It was broadcast once: an answer that never came (Aleph is slow at times, though it processes the message), or `pending` followed by a rejection, looked like a kept index or failed for good. Now, after a minute without an answer or on `pending`, Belege asks Aleph for the message's status for up to five minutes, sends the same signed message again while Aleph does not know it, and reports a rejection – as paperless-anywhere does.
+
 ## [0.23.0] – 2026-10-25
 
 ### Added

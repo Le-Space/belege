@@ -10,7 +10,9 @@ import {
 	findVaultOnAleph,
 	openPointer,
 	passkeyIndexKey,
+	publishIndex,
 	publishVault,
+	readIndex,
 	readRootIndex,
 	rootIndexKey,
 	sealPointer
@@ -123,5 +125,109 @@ describe('the vault index', () => {
 			await findVaultOnAleph({ prfOutput: bytes(3), endpoints, fetch: aleph.fetch })
 		).toBeNull();
 		expect(await readRootIndex({ root: bytes(3), endpoints, fetch: aleph.fetch })).toBeNull();
+	});
+});
+
+/**
+ * Aleph as it was met live (paperless-anywhere, 2026-10-23): the synchronous
+ * broadcast that never answers although the message is processed, the one
+ * that never arrived, and `pending` before it decides.
+ *
+ * @param {'hang' | 'lost' | 'pending' | 'rejected'} mode
+ */
+function moodyAleph(mode) {
+	const aleph = fakeAleph();
+	/** @type {Map<string, string>} status by item hash */
+	const status = new Map();
+	let lostOnce = mode === 'lost';
+	const reply = (/** @type {number} */ code, /** @type {any} */ body) => ({
+		ok: code < 300,
+		status: code,
+		json: async () => body,
+		text: async () => JSON.stringify(body)
+	});
+	const fetchImpl = async (/** @type {string} */ url, /** @type {any} */ init) => {
+		const u = new URL(url);
+		if (u.pathname === '/api/v0/messages' && init?.method === 'POST') {
+			const { message, sync } = JSON.parse(init.body);
+			if (lostOnce) {
+				lostOnce = false;
+				throw new TypeError('Failed to fetch');
+			}
+			await aleph.fetch(url, init);
+			const hash = message.item_hash;
+			if (mode === 'rejected') {
+				status.set(hash, 'rejected');
+				return reply(202, { message_status: 'pending' });
+			}
+			status.set(hash, mode === 'pending' ? 'pending' : 'processed');
+			if (mode === 'hang' && sync) {
+				// Processed, but the answer never comes: until the caller gives up.
+				return new Promise((_, reject) =>
+					init.signal?.addEventListener('abort', () => reject(init.signal.reason))
+				);
+			}
+			return reply(sync && mode !== 'pending' ? 200 : 202, {
+				message_status: status.get(hash)
+			});
+		}
+		const m = /^\/api\/v0\/messages\/([0-9a-f]{64})$/.exec(u.pathname);
+		if (m) {
+			const now = status.get(m[1]);
+			if (!now) return reply(404, {});
+			// Pending decides on the next look.
+			if (now === 'pending') status.set(m[1], 'processed');
+			return reply(200, { status: now });
+		}
+		return aleph.fetch(url, init);
+	};
+	return { ...aleph, status, fetch: /** @type {any} */ (fetchImpl) };
+}
+
+describe('publishing the index waits until Aleph has it', () => {
+	const patience = { answerMs: 50, pollMs: 5, waitMs: 2_000 };
+	const content = { vault: { version: 1, id: 'v1', slots: [] }, slots: [] };
+
+	it('an answer that never comes: asked for its status instead', async () => {
+		const aleph = moodyAleph('hang');
+		const key = await rootIndexKey(bytes(4));
+		const { itemHash } = await publishIndex({
+			key,
+			content,
+			endpoints,
+			fetch: aleph.fetch,
+			patience
+		});
+		expect(aleph.status.get(itemHash)).toBe('processed');
+		expect(await readIndex({ key, endpoints, fetch: aleph.fetch })).toEqual(content);
+	});
+
+	it('a broadcast that never arrived: sent again', async () => {
+		const aleph = moodyAleph('lost');
+		const key = await rootIndexKey(bytes(5));
+		await publishIndex({ key, content, endpoints, fetch: aleph.fetch, patience });
+		expect(aleph.posted).toHaveLength(1);
+		expect(await readIndex({ key, endpoints, fetch: aleph.fetch })).toEqual(content);
+	});
+
+	it('pending: waits for processed', async () => {
+		const aleph = moodyAleph('pending');
+		const key = await rootIndexKey(bytes(6));
+		const { itemHash } = await publishIndex({
+			key,
+			content,
+			endpoints,
+			fetch: aleph.fetch,
+			patience
+		});
+		expect(aleph.status.get(itemHash)).toBe('processed');
+	});
+
+	it('pending, then rejected: an error, not a success', async () => {
+		const aleph = moodyAleph('rejected');
+		const key = await rootIndexKey(bytes(8));
+		await expect(
+			publishIndex({ key, content, endpoints, fetch: aleph.fetch, patience })
+		).rejects.toThrow(/refused the vault index: rejected/);
 	});
 });
