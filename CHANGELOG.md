@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **A full backup of several hundred MB goes through on a home uplink.** The upload gave up after two minutes (since 0.23.0: two minutes and 1 MB/s), so a 500 MB backup on a slower line ended with "Aleph ingest is unreachable: signal timed out" and was never kept. It now waits two minutes plus the time at 100 kB/s – 85 minutes for 500 MB –, and when even that runs out says so in words: how long it waited, that nothing was kept or costs, and to try again on a faster line with the tab in front.
+
 - **The header no longer shows "Backup {percent} %".** Where Aleph's IPFS host does not let the upload be counted – its real one, for every page but its console – the header took the text meant for a counted upload, without a number. It now says "Backup wird hochgeladen"; the fake Aleph in the tests refuses that preflight as the real one does, and never lets one be cached.
 
 ## [0.23.0] – 2026-10-25
@@ -27,8 +29,6 @@ All notable changes to Le Space Belege. The format follows
 - **A backup goes on while you work elsewhere, and shows how far it is.** "Jetzt sichern" ran inside the backup card: leaving the page hid it, and coming back offered a second run beside the first. The run is now the app's: the header shows it on every page ("Backup 42 %", or "Backup wartet auf dich" when it asks before uploading), one click leads back to the card, and closing or reloading the tab asks first. The card shows the step out of three with a bar. The upload is counted where the host allows it; Aleph's IPFS host refuses the browser's preflight for that (its upload itself is open), so there the upload is sent as before and the bar shows that it is going and for how long.
 
 ### Fixed
-
-- **A full backup of several hundred MB goes through on a home uplink.** The upload gave up after two minutes (since 0.23.0: two minutes and 1 MB/s), so a 500 MB backup on a slower line ended with "Aleph ingest is unreachable: signal timed out" and was never kept. It now waits two minutes plus the time at 100 kB/s – 85 minutes for 500 MB –, and when even that runs out says so in words: how long it waited, that nothing was kept or costs, and to try again on a faster line with the tab in front.
 
 - **"Beleg finden" starts with the payment's year.** With no suggestion, the search opened on "Alle Belege" – every receipt ever kept, so typing the provider's name showed ones from 2019 for a payment in 2025. It now opens on "Aus {year}"; when that year has none, the list says how many other years have and that they are under "Alle Belege", which still holds them all.
 
