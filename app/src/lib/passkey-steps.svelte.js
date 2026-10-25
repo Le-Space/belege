@@ -1,7 +1,7 @@
 // Between two passkey prompts, a word on what the next one is for (#429).
 //
-// Creating a passkey asks the authenticator three times in a row, restoring
-// one four times. Without a word in between that looks like a loop. So before
+// Creating a passkey asks the authenticator twice in a row, restoring one
+// three times. Without a word in between that looks like a loop. So before
 // each further prompt the page says what it is for and waits for "Weiter":
 // the prompt then starts from that click, which browsers that want a user
 // gesture for every WebAuthn call (Safari) need anyway. "Abbrechen" stops the
@@ -9,7 +9,7 @@
 
 import { t } from './i18n/index.js';
 
-/** @typedef {'prf' | 'proof'} PasskeyPurpose */
+/** @typedef {'prf'} PasskeyPurpose */
 
 /**
  * The step on screen, or null. `resolve` continues, `reject` cancels.
@@ -68,15 +68,12 @@ export function confirmPasskeyStep(step) {
  * @returns {((purpose: PasskeyPurpose) => Promise<void>) | undefined}
  */
 export function passkeyStepsFor(flow) {
-	// create: the passkey (1), the PRF read (2), the identity proof (3).
-	// restore: two touches to find the passkey (1, 2), then the same two.
-	// unlock: the PRF read only, straight from its button; the proof is kept.
+	// create: the passkey (1), the PRF read (2).
+	// restore: two touches to find the passkey (1, 2), then the PRF read (3).
+	// unlock: the PRF read only, straight from its button.
+	// No identity proof since the books sign as themselves (#496).
 	const plan =
-		flow === 'create'
-			? { of: 3, prf: 2, proof: 3 }
-			: flow === 'restore'
-				? { of: 4, prf: 3, proof: 4 }
-				: null;
+		flow === 'create' ? { of: 2, prf: 2 } : flow === 'restore' ? { of: 3, prf: 3 } : null;
 	if (!plan) return undefined;
 	return (purpose) => confirmPasskeyStep({ n: plan[purpose], of: plan.of, purpose });
 }

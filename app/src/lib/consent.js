@@ -59,7 +59,7 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     while "gleich auslesen" is on (#475).
 // 27: text goes unredacted into LibertAI's attested enclave, unless setup:llm
 //     is told to black it out (#416).
-export const CONSENT_VERSION = '27';
+export const CONSENT_VERSION = '28';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

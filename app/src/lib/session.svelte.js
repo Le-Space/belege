@@ -1045,7 +1045,7 @@ export async function removeSyncDevice(peerId) {
 /**
  * @param {any} credential
  * @param {ReturnType<typeof import('./unlock-progress.js').createUnlockProgress>} [progress]
- * @param {(purpose: 'prf' | 'proof') => Promise<void>} [beforePrompt] what the next touch is for (#429)
+ * @param {(purpose: 'prf') => Promise<void>} [beforePrompt] what the next touch is for (#429)
  */
 async function unlockWith(credential, progress, beforePrompt) {
 	// Loaded lazily: Helia, libp2p and OrbitDB are most of the bundle, and the
@@ -1175,7 +1175,8 @@ function installE2EHooks() {
 			const secrets = session?.secretsForE2E;
 			if (!secrets) return null;
 			return {
-				signingKey: hex(secrets.signingKey),
+				// Only books made as before #496 (an E2E switch) have a passkey signing key.
+				...(secrets.signingKey ? { signingKey: hex(secrets.signingKey) } : {}),
 				booksSecret: hex(secrets.booksSecret),
 				databaseKey: hex(secrets.databaseKey),
 				replicationKey: hex(secrets.replicationKey),

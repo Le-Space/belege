@@ -132,7 +132,7 @@ export const STORAGE_PATHS = Object.freeze({
  *   what is new since the chain's last backup, sealed; null when nothing is (#454)
  * @property {(sealed: Uint8Array, onProgress?: (p: import('./backup/archive.js').RestoreProgress) => void, chain?: { increments?: Uint8Array[], base?: string, fetchBytes?: (cid: string) => Promise<Uint8Array> }) => Promise<Awaited<ReturnType<typeof import('./backup/archive.js').restoreBackup>>>} restoreBackup
  *   a sealed backup, with its increments, back into these books; reload the page afterwards
- * @property {string} identityHash the identity document's hash
+ * @property {string} identityHash the books' identity document's hash
  * @property {string} peerId this session's libp2p peer id
  * @property {Uint8Array} ucepSeed the seed of the UCEP node's peer key, derived from the passkey
  * @property {{ seal: (bytes: Uint8Array) => Promise<Uint8Array>, open: (bytes: Uint8Array) => Promise<Uint8Array> }} syncLogSealer
@@ -143,7 +143,7 @@ export const STORAGE_PATHS = Object.freeze({
  * @property {any} libp2p the node under Helia and OrbitDB
  * @property {ReturnType<typeof createDeviceGate> | null} deviceGate which peers proved the passkey (online only)
  * @property {() => Promise<void>} stop
- * @property {{ signingKey: Uint8Array, booksSecret: Uint8Array, databaseKey: Uint8Array, replicationKey: Uint8Array, blobKey: Uint8Array, peerKey: Uint8Array }} [secretsForE2E]
+ * @property {{ signingKey?: Uint8Array, booksSecret: Uint8Array, databaseKey: Uint8Array, replicationKey: Uint8Array, blobKey: Uint8Array, peerKey: Uint8Array }} [secretsForE2E]
  *   only in E2E builds
  */
 
@@ -183,15 +183,14 @@ async function pinnedToCredential(fn) {
  * Unlock the books with a passkey: PRF → key, then Helia, OrbitDB and the
  * sealed databases.
  *
- * Prompts: one for the PRF output here. The provider signs the identity with
- * the passkey once per identity document and keeps that (public) proof, so a
- * new passkey adds its `create` and that signature, a restore its two touches
- * and that signature, and an unlock nothing. Both prompts here name the
- * credential, so no other passkey of this origin can answer them (#429).
+ * Prompts: one for the PRF output here, and nothing else: the books sign as
+ * their own identity (#496), not the passkey. A new passkey adds its `create`,
+ * a restore its two touches. The prompt names the credential, so no other
+ * passkey of this origin can answer it (#429).
  *
- * `beforePrompt`, when given, is awaited before each of them: the page says
- * what the next touch is for (passkey-steps.svelte.js). A flow whose proof is
- * already kept (an unlock) passes none.
+ * `beforePrompt`, when given, is awaited before it: the page says what the
+ * touch is for (passkey-steps.svelte.js). An unlock, whose touch its own button
+ * starts, passes none.
  *
  * Each step is reported to `onStatus` as it starts – the unlock screen shows
  * it, and the console times it: opening large books, or moving them into the
@@ -200,7 +199,7 @@ async function pinnedToCredential(fn) {
  *
  * @param {any} credential from passkey-identity.js
  * @param {{ onStatus?: (status: UnlockStatus) => void,
- *   beforePrompt?: (purpose: 'prf' | 'proof') => Promise<void> }} [options]
+ *   beforePrompt?: (purpose: 'prf') => Promise<void> }} [options]
  * @returns {Promise<Session>}
  * @throws {import('./passkey-identity.js').PrfUnavailableError} before anything is opened
  */
@@ -274,43 +273,40 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 			// Already registered.
 		}
 
-		// The provider would ask the passkey for this very PRF output again to
-		// derive its secp256k1 signing key. Derived here from the answer already
-		// in hand, with the provider's own function, it is the same key — and in
-		// the keystore before the provider looks, so it does not ask. The
-		// keystore is in memory: the next unlock derives the key again.
-		//
-		// Ed25519, where secp256k1 used to be: the DID does not change
-		// — it is the passkey's own P-256 key — but the identity document does,
-		// because the signing key is part of it, and the passkey signs the new one
-		// once. Entries written before keep their key and verify as they always did.
 		onStatus?.({ step: 'identity' });
+		// The passkey's DID: the person's, shown, and what a record says wrote
+		// it. The passkey signs nothing for OrbitDB any more – the books do
+		// (#496) – so no identity proof is asked for.
 		const did = credential.did ?? (await WebAuthnDIDProvider.createDID(credential));
-		const signingKey =
-			credential.signingKey instanceof Uint8Array
-				? credential.signingKey
-				: await deriveSigningKeyBytes(prfOutput, did, SIGNING_KEY_TYPE);
-		const identities = await createSessionIdentities(helia, { did, signingKey });
-
-		await beforePrompt?.('proof');
-		const identity = await pinnedToCredential(() =>
-			identities.createIdentity({
-				provider: OrbitDBWebAuthnIdentityProviderFunction({ webauthnCredential: credential })
-			})
-		);
 		// The books' own identity (#496): what OrbitDB signs every entry as.
 		const booksSecret = await deriveBooksSecret(prfOutput);
 		// E2E builds only: books as they were made before #496, written by the
-		// passkey, so a test can watch them move (e2e/books-identity.spec.js).
+		// passkey's own identity (its signing key from the PRF answer, its proof
+		// one more touch), so a test can watch them move (e2e/books-identity.spec.js).
 		const beforeBooksIdentity =
 			import.meta.env.VITE_E2E === 'true' &&
 			/** @type {any} */ (globalThis).__belegeBeforeBooksIdentity === true;
+		const passkeyWriter = beforeBooksIdentity
+			? await (async () => {
+					const signingKey =
+						credential.signingKey instanceof Uint8Array
+							? credential.signingKey
+							: await deriveSigningKeyBytes(prfOutput, did, SIGNING_KEY_TYPE);
+					const identities = await createSessionIdentities(helia, { did, signingKey });
+					const identity = await pinnedToCredential(() =>
+						identities.createIdentity({
+							provider: OrbitDBWebAuthnIdentityProviderFunction({ webauthnCredential: credential })
+						})
+					);
+					return { signingKey, identities, identity };
+				})()
+			: null;
 		const books = await createSecretSigner(booksSecret, { info: BOOKS_IDENTITY_INFO });
-		const booksIdentities = beforeBooksIdentity
-			? identities
+		const booksIdentities = passkeyWriter
+			? passkeyWriter.identities
 			: await createBooksIdentities(helia, books);
-		const booksIdentity = beforeBooksIdentity
-			? identity
+		const booksIdentity = passkeyWriter
+			? passkeyWriter.identity
 			: await booksIdentities.createIdentity({
 					provider: OrbitDBWebAuthnIdentityProviderFunction({ signer: books })
 				});
@@ -327,7 +323,7 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 		// The books before the replication layer move in once per browser
 		// (store/migrate.js); a restored backup of them moves in again. So do the
 		// passkey's databases, to the books' identity (#496).
-		const moveFlag = `${SEALED_BOOKS_FLAG}:${identity.id}`;
+		const moveFlag = `${SEALED_BOOKS_FLAG}:${did}`;
 		const booksFlag = `${BOOKS_IDENTITY_FLAG}:${booksIdentity.id}`;
 		const store = await openStore({
 			orbitdb,
@@ -338,8 +334,8 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 				? {}
 				: {
 						accessController: booksAccessController(booksIdentity.id),
-						author: identity.id,
-						formerWriter: identity.id,
+						author: did,
+						formerWriter: did,
 						moveFromPasskey: !flagSet(booksFlag)
 					}),
 			move: !flagSet(moveFlag),
@@ -353,9 +349,9 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 		const blobs = await createBlobStore({ blockstore: helia.blockstore, key: blobKey, online });
 
 		return {
-			did: identity.id,
+			did,
 			booksDid: booksIdentity.id,
-			identityHash: identity.hash,
+			identityHash: booksIdentity.hash,
 			peerId: libp2p.peerId.toString(),
 			store,
 			blobs,
@@ -418,7 +414,7 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 				);
 				// A backup made before the replication layer names the old databases:
 				// their addresses, from opening them (without sync) once.
-				const oldOptions = await oldBooksOpenOptions(encryptionKey, identity.id);
+				const oldOptions = await oldBooksOpenOptions(encryptionKey, did);
 				/** @type {Record<string, string>} */
 				const oldAddresses = {};
 				for (const [name, dbName] of Object.entries(await oldBooksNames(prfOutput))) {
@@ -428,11 +424,7 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 				}
 				// A backup made before the books' own identity (#496) names the
 				// passkey's databases: their addresses, from opening them likewise.
-				const passkeyOptions = await passkeyBooksOpenOptions(
-					encryptionKey,
-					replicationKey,
-					identity.id
-				);
+				const passkeyOptions = await passkeyBooksOpenOptions(encryptionKey, replicationKey, did);
 				/** @type {Record<string, string>} */
 				const passkeyAddresses = {};
 				for (const name of Object.keys(addresses)) {
@@ -489,7 +481,7 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 			...(import.meta.env.VITE_E2E === 'true'
 				? {
 						secretsForE2E: {
-							signingKey,
+							...(passkeyWriter ? { signingKey: passkeyWriter.signingKey } : {}),
 							booksSecret,
 							databaseKey: encryptionKey,
 							replicationKey,
