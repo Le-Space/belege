@@ -729,6 +729,7 @@ export default {
 			],
 			loss: 'If you lose the passkey, you lose access to your data. Nobody can recover it then, not even us. If you delete this browser’s site data, it is gone as well.',
 			lossHeading: 'Important:',
+			keysDoc: 'How the keys work',
 			technical: [
 				'From the passkey’s PRF response, HKDF-SHA-256 derives the AES-GCM key that seals every database (info belege/db-key/v1), and the names of the databases (belege/db-name/v1:<collection>), so that no address can be guessed from the DID. None of this is stored.',
 				'No private key is kept on the device: the books write as an identity of their own, an Ed25519 key made at every unlock from a secret of the books, which comes from the same PRF response (belege/books-secret/v1). It lives only in the memory of this session. The passkey itself signs nothing for the databases; its DID is named as the author of every entry.',
