@@ -51,6 +51,18 @@ export async function createPasskeyCredential({ userId, displayName }) {
 }
 
 /**
+ * Register one more passkey for books that are open (#406): kept nowhere –
+ * this browser goes on unlocking with its own passkey. The provider makes the
+ * user handle at random, so no passkey on the authenticator is replaced.
+ *
+ * @param {{ displayName: string }} options
+ * @returns {Promise<any>} the WebAuthn credential
+ */
+export async function createAdditionalPasskey({ displayName }) {
+	return WebAuthnDIDProvider.createCredential({ userId: displayName, displayName });
+}
+
+/**
  * What the provider needs, rebuilt from what the authenticator gave back.
  *
  * The constants are the ones `createCredential()` writes for a P-256 passkey

@@ -2033,7 +2033,47 @@ export default {
 			books: 'Buchhaltung (DATEV)',
 			chart: 'Kontenplan',
 			travellers: 'Reisende',
+			keys: 'Schlüssel',
 			privacy: 'Datenschutz & Technik'
+		},
+		keys: {
+			title: 'Schlüssel',
+			intro:
+				'Welche Passkeys deine Bücher öffnen. Jeder hat ein eigenes Fach im Tresor der Bücher; jedes Fach öffnet dieselben Bücher und jede Sicherung.',
+			singleHeading: 'Einziger Schlüssel:',
+			single:
+				'Diese Bücher öffnet nur ein Passkey. Geht er verloren, sind Bücher und Sicherungen nicht mehr lesbar. Leg einen zweiten an, etwa einen Sicherheitsschlüssel, den du sicher aufbewahrst.',
+			unnamed: 'Passkey',
+			since: 'seit {date}',
+			mine: 'dieser Passkey',
+			remove: 'Entfernen',
+			removeHow:
+				'Einfach entfernen: Dieser Passkey öffnet die Bücher ab jetzt nicht mehr. Mit Erneuerung: Der Tresor bekommt außerdem einen neuen Schlüssel – für einen Passkey, der in fremde Hände geraten sein könnte. Dafür antwortet jeder verbleibende Passkey einmal, auch dieser.',
+			removePlain: 'Entfernen',
+			removeRenew: 'Entfernen und Tresor erneuern',
+			removed: 'Entfernt. Dieser Passkey öffnet die Bücher nicht mehr.',
+			renewed: 'Entfernt, der Tresor ist erneuert.',
+			removeLimit:
+				'Was Entfernen nicht kann: Ein Passkey, der die Bücher schon geöffnet hat, kennt die Wurzel ihrer Schlüssel, und ältere Sicherungen tragen sein Fach weiter.',
+			addLabel: 'Weiteren Passkey anlegen',
+			addPlaceholder: 'z. B. YubiKey im Safe',
+			add: 'Passkey anlegen',
+			adding: 'Wird angelegt …',
+			addHint:
+				'Zwei Abfragen: der neue Passkey, dann seine Antwort. Dieser Browser öffnet die Bücher weiter mit seinem eigenen Passkey.',
+			added: 'Angelegt. Der neue Passkey öffnet dieselben Bücher.',
+			publish:
+				'Tresor versiegelt bei Aleph hinterlegen, damit ein leeres Gerät ihn mit jedem dieser Passkeys findet',
+			publishPaused: 'Das Netz ist pausiert: Der Tresor wird nicht bei Aleph hinterlegt.',
+			notPublished:
+				'Der Tresor liegt nur in diesem Browser. Ein leeres Gerät findet ihn mit dem zweiten Passkey nur, wenn er bei Aleph hinterlegt ist.',
+			publishNow: 'Jetzt hinterlegen',
+			published: 'Bei Aleph hinterlegt.',
+			paused: 'Das Netz ist pausiert.',
+			technical: [
+				'Der Tresor hält die Wurzel R, aus der jeder Schlüssel per HKDF entsteht (die PRF-Antwort des Passkeys, der die Bücher angelegt hat), versiegelt mit einem zufälligen Tresorschlüssel (AES-256-GCM). Jedes Fach ist der Tresorschlüssel, versiegelt mit einem Schlüssel aus der PRF-Antwort seines Passkeys (belege/vault-slot/v1), gebunden an Tresor und Passkey.',
+				'Bei Aleph liegen, als Aggregat belege-vault: unter einer Adresse aus der PRF-Antwort jedes Passkeys der Tresor-Datensatz; unter einer Adresse aus der Wurzel der aktuelle Datensatz und das zahlende Konto, versiegelt. Keine Namen der Passkeys, kein Wallet.'
+			]
 		}
 	},
 	travellers: {

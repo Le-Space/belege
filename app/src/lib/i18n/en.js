@@ -2001,7 +2001,47 @@ export default {
 			books: 'Bookkeeping (DATEV)',
 			chart: 'Chart of accounts',
 			travellers: 'Travellers',
+			keys: 'Keys',
 			privacy: 'Privacy & technical'
+		},
+		keys: {
+			title: 'Keys',
+			intro:
+				'Which passkeys open your books. Each has a slot of its own in the books’ vault; every slot opens the same books and every backup.',
+			singleHeading: 'Only one key:',
+			single:
+				'One passkey opens these books. If it is lost, the books and the backups can no longer be read. Add a second one, such as a security key you keep somewhere safe.',
+			unnamed: 'Passkey',
+			since: 'since {date}',
+			mine: 'this passkey',
+			remove: 'Remove',
+			removeHow:
+				'Remove: this passkey no longer opens the books. With renewal: the vault also gets a new key – for a passkey that may be in other hands. For that, every passkey that stays answers once, this one too.',
+			removePlain: 'Remove',
+			removeRenew: 'Remove and renew the vault',
+			removed: 'Removed. This passkey no longer opens the books.',
+			renewed: 'Removed, and the vault is renewed.',
+			removeLimit:
+				'What removing cannot do: a passkey that has opened the books knows the root of their keys, and older backups still carry its slot.',
+			addLabel: 'Add another passkey',
+			addPlaceholder: 'e.g. security key in the safe',
+			add: 'Add passkey',
+			adding: 'Adding …',
+			addHint:
+				'Two prompts: the new passkey, then its answer. This browser goes on opening the books with its own passkey.',
+			added: 'Added. The new passkey opens the same books.',
+			publish:
+				'Keep the vault on Aleph, sealed, so an empty device finds it with any of these passkeys',
+			publishPaused: 'The network is paused: the vault is not kept on Aleph.',
+			notPublished:
+				'The vault is only in this browser. An empty device finds it with the second passkey only once it is kept on Aleph.',
+			publishNow: 'Keep it there now',
+			published: 'Kept on Aleph.',
+			paused: 'The network is paused.',
+			technical: [
+				'The vault holds the root R every key is derived from with HKDF (the PRF output of the passkey that made the books), sealed under a random vault key (AES-256-GCM). Each slot is the vault key sealed under a key from its passkey’s PRF output (belege/vault-slot/v1), bound to the vault and the passkey.',
+				'On Aleph, as aggregate belege-vault: at an address from each passkey’s PRF output, the vault record; at an address from the root, the current record and the paying account, sealed. No names of passkeys, no wallet.'
+			]
 		}
 	},
 	travellers: {

@@ -46,7 +46,8 @@ const ROOT_BYTES = 32;
  * @typedef {{ kid: string, label: string, credentialId: string, addedAt: string }} SlotInfo
  *   what this browser says about a slot, beside the sealed vault: public
  * @typedef {{ vault: any, slots: SlotInfo[], removed: string[] }} VaultRecord
- * @typedef {{ record: VaultRecord, vaultKey: Uint8Array, root: Uint8Array, kid: string, created: boolean }} OpenedVault
+ * @typedef {{ record: VaultRecord, vaultKey: Uint8Array, root: Uint8Array, kid: string, created: boolean, found?: boolean }} OpenedVault
+ *   `found`: the record came from elsewhere (the index), not this browser
  */
 
 /** A vault record that cannot be read: never a reason to make new books. */
@@ -180,17 +181,20 @@ export async function openBooksVault({
 	const records = loadVaultRecords(storage);
 	let record = records.find((r) => r.vault.slots.some((/** @type {any} */ s) => s.kid === kid));
 	if (!record && records.some((r) => r.removed.includes(kid))) throw new RemovedPasskeyError();
+	let found = false;
 	if (!record && find) {
-		const found = await find(kid);
-		if (found && found.vault.slots.some((/** @type {any} */ s) => s.kid === kid)) {
-			record = found;
-			saveVaultRecord(storage, record);
+		const elsewhere = await find(kid);
+		if (elsewhere && elsewhere.vault.slots.some((/** @type {any} */ s) => s.kid === kid)) {
+			record = elsewhere;
+			found = true;
 		}
 	}
 	const slotKey = await slotKeyOf(prfOutput);
 	if (record) {
 		const { payload, vaultKey } = await openVault(record.vault, { slotKey, rawCredentialId });
-		return { record, vaultKey, root: decodePayload(payload), kid, created: false };
+		// Kept here only once it opened with this passkey.
+		if (found) saveVaultRecord(storage, record);
+		return { record, vaultKey, root: decodePayload(payload), kid, created: false, found };
 	}
 	const root = Uint8Array.from(prfOutput);
 	const { vault, vaultKey } = await createVault(encodePayload(root), { slotKey, rawCredentialId });
@@ -293,6 +297,54 @@ export async function renewBooksVault(opened, answers, removed, storage) {
 		vault,
 		slots: opened.record.slots.filter((s) => kids.includes(s.kid)),
 		removed: [...new Set([...opened.record.removed, ...removed])]
+	};
+	const records = loadVaultRecords(storage).filter((r) => r.vault.id !== opened.record.vault.id);
+	records.push(record);
+	storage.setItem(VAULTS_STORAGE_KEY, JSON.stringify(records));
+	return { ...opened, record, vaultKey };
+}
+
+/**
+ * Take a newer record of the same books – the current one from index M – in
+ * place of the one opened: only if this passkey's slot opens it and gives the
+ * same root. A record without this passkey's slot means it was removed there:
+ * refused, and remembered here.
+ *
+ * @param {OpenedVault} opened
+ * @param {any} vault the newer vault record
+ * @param {{ prfOutput: Uint8Array, rawCredentialId: Uint8Array }} passkey this one
+ * @param {Pick<Storage, 'getItem' | 'setItem'>} storage
+ * @returns {Promise<OpenedVault>}
+ */
+export async function adoptNewerVault(opened, vault, passkey, storage) {
+	// The same record (a slot added keeps the vault's id, so the whole record is compared).
+	if (!vault || !Array.isArray(vault.slots)) return opened;
+	if (JSON.stringify(vault) === JSON.stringify(opened.record.vault)) return opened;
+	if (!vault.slots.some((/** @type {any} */ s) => s.kid === opened.kid)) {
+		const record = {
+			...opened.record,
+			removed: [...new Set([...opened.record.removed, opened.kid])]
+		};
+		record.vault = {
+			...opened.record.vault,
+			slots: opened.record.vault.slots.filter((/** @type {any} */ s) => s.kid !== opened.kid)
+		};
+		saveVaultRecord(storage, record);
+		throw new RemovedPasskeyError();
+	}
+	const { payload, vaultKey } = await openVault(vault, {
+		slotKey: await slotKeyOf(passkey.prfOutput),
+		rawCredentialId: passkey.rawCredentialId
+	});
+	const root = decodePayload(payload);
+	if (root.length !== opened.root.length || root.some((b, i) => b !== opened.root[i])) {
+		throw new VaultStorageError('The newer vault holds other books.');
+	}
+	const kids = new Set(vault.slots.map((/** @type {any} */ s) => s.kid));
+	const record = {
+		vault,
+		slots: opened.record.slots.filter((s) => kids.has(s.kid)),
+		removed: opened.record.removed
 	};
 	const records = loadVaultRecords(storage).filter((r) => r.vault.id !== opened.record.vault.id);
 	records.push(record);

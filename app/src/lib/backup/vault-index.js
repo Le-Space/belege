@@ -35,9 +35,16 @@ const POINTER_PURPOSE = 'belege/vault-pointer/v1';
 
 /** @param {Uint8Array} material @param {string} info @returns {Promise<Uint8Array>} */
 async function hkdf(material, info) {
-	const key = await crypto.subtle.importKey('raw', material, 'HKDF', false, ['deriveBits']);
+	const key = await crypto.subtle.importKey('raw', Uint8Array.from(material), 'HKDF', false, [
+		'deriveBits'
+	]);
 	const bits = await crypto.subtle.deriveBits(
-		{ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(0), info: new TextEncoder().encode(info) },
+		{
+			name: 'HKDF',
+			hash: 'SHA-256',
+			salt: new Uint8Array(0),
+			info: new TextEncoder().encode(info)
+		},
 		key,
 		256
 	);
@@ -67,10 +74,13 @@ export const rootIndexKey = (root) => indexKey(root, ROOT_INDEX_INFO);
 
 /** @param {Uint8Array} root */
 async function pointerKey(root) {
-	return crypto.subtle.importKey('raw', await hkdf(root, POINTER_KEY_INFO), 'AES-GCM', false, [
-		'encrypt',
-		'decrypt'
-	]);
+	return crypto.subtle.importKey(
+		'raw',
+		Uint8Array.from(await hkdf(root, POINTER_KEY_INFO)),
+		'AES-GCM',
+		false,
+		['encrypt', 'decrypt']
+	);
 }
 
 /** @param {Uint8Array} b */
@@ -103,7 +113,8 @@ export async function sealPointer(root, pointer) {
  * @returns {Promise<{ owner: string } | null>}
  */
 export async function openPointer(root, sealed) {
-	if (!sealed || typeof sealed.iv !== 'string' || typeof sealed.ciphertext !== 'string') return null;
+	if (!sealed || typeof sealed.iv !== 'string' || typeof sealed.ciphertext !== 'string')
+		return null;
 	try {
 		const plain = await crypto.subtle.decrypt(
 			{
@@ -196,4 +207,58 @@ export async function readIndex({ key, endpoints = alephEndpoints(), fetch: f = 
 	const body = /** @type {any} */ (await response.json());
 	const content = body?.data?.[VAULT_INDEX_KEY];
 	return content && typeof content === 'object' ? content : null;
+}
+
+/**
+ * The books' vault as index P of this passkey holds it, for an empty device;
+ * null when there is none.
+ *
+ * @param {{ prfOutput: Uint8Array, endpoints?: import('./keeper.js').AlephEndpoints, fetch?: typeof fetch }} params
+ * @returns {Promise<import('../books-vault.js').VaultRecord | null>}
+ */
+export async function findVaultOnAleph({ prfOutput, endpoints, fetch: f }) {
+	const content = await readIndex({
+		key: await passkeyIndexKey(prfOutput),
+		...(endpoints ? { endpoints } : {}),
+		...(f ? { fetch: f } : {})
+	});
+	return content?.vault ? { vault: content.vault, slots: [], removed: [] } : null;
+}
+
+/**
+ * Index M: the current vault record and the pointer, opened; null when there is none.
+ *
+ * @param {{ root: Uint8Array, endpoints?: import('./keeper.js').AlephEndpoints, fetch?: typeof fetch }} params
+ * @returns {Promise<{ vault: any, pointer: { owner: string } | null } | null>}
+ */
+export async function readRootIndex({ root, endpoints, fetch: f }) {
+	const content = await readIndex({
+		key: await rootIndexKey(root),
+		...(endpoints ? { endpoints } : {}),
+		...(f ? { fetch: f } : {})
+	});
+	if (!content?.vault) return null;
+	return { vault: content.vault, pointer: await openPointer(root, content.pointer) };
+}
+
+/**
+ * Publish the vault: at index M with the pointer (when the paying account is
+ * known), and at index P of each passkey whose index key is at hand.
+ *
+ * @param {object} params
+ * @param {Uint8Array} params.root
+ * @param {any} params.vault the current vault record
+ * @param {Uint8Array[]} params.passkeyKeys from `passkeyIndexKey`
+ * @param {string | null} [params.owner] the paying Aleph account
+ * @param {import('./keeper.js').AlephEndpoints} [params.endpoints]
+ * @param {typeof fetch} [params.fetch]
+ */
+export async function publishVault({ root, vault, passkeyKeys, owner, endpoints, fetch: f }) {
+	const options = { ...(endpoints ? { endpoints } : {}), ...(f ? { fetch: f } : {}) };
+	await publishIndex({
+		key: await rootIndexKey(root),
+		content: { vault, ...(owner ? { pointer: await sealPointer(root, { owner }) } : {}) },
+		...options
+	});
+	for (const key of passkeyKeys) await publishIndex({ key, content: { vault }, ...options });
 }

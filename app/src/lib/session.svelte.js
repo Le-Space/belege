@@ -46,6 +46,13 @@ export const app = $state({
 	 * @type {boolean | 'enclave' | null}
 	 */
 	llmRedaction: null,
+	/**
+	 * The books' passkeys (#406): one slot each in the vault, this browser's
+	 * name for it, and whether it is the one that unlocked. `indexOn`: the
+	 * vault is published on Aleph for empty devices (backup/vault-index.js).
+	 * @type {{ slots: { kid: string, label: string, addedAt: string, mine: boolean }[], indexOn: boolean }}
+	 */
+	vault: { slots: [], indexOn: false },
 	/** Device sync (#123): off, or this device's id and the devices it knows. */
 	sync: {
 		online: false,
@@ -1046,15 +1053,18 @@ export async function removeSyncDevice(peerId) {
  * @param {any} credential
  * @param {ReturnType<typeof import('./unlock-progress.js').createUnlockProgress>} [progress]
  * @param {(purpose: 'prf') => Promise<void>} [beforePrompt] what the next touch is for (#429)
+ * @param {{ lookupVault?: boolean }} [options] an empty device: ask Aleph's index for the vault (#406)
  */
-async function unlockWith(credential, progress, beforePrompt) {
+async function unlockWith(credential, progress, beforePrompt, { lookupVault = false } = {}) {
 	// Loaded lazily: Helia, libp2p and OrbitDB are most of the bundle, and the
 	// onboarding screen needs none of them.
 	const { startSession } = await import('./node.js');
 	session = await startSession(credential, {
 		onStatus: (s) => progress?.status(s),
-		beforePrompt
+		beforePrompt,
+		lookupVault
 	});
+	await showVault();
 	app.network.syncCapable = Boolean(session.online);
 	app.network.reloadNeeded = false;
 	app.network.mode = session.mode;
@@ -1123,7 +1133,11 @@ async function run(getCredential, nothingFound, flow) {
 		// After the passkey answered: from here on the books open, and that is shown.
 		const { createUnlockProgress } = await import('./unlock-progress.js');
 		progress = createUnlockProgress({ onChange: (s) => (app.unlock = s) });
-		await unlockWith(credential, progress, passkeyStepsFor(flow));
+		// A restore is an empty device: its passkey's vault may be on Aleph (#406),
+		// asked unless the network is paused.
+		await unlockWith(credential, progress, passkeyStepsFor(flow), {
+			lookupVault: flow === 'restore' && !networkPause()
+		});
 		progress.finish('ready');
 		app.unlock = null;
 		app.status = 'ready';
@@ -1134,6 +1148,122 @@ async function run(getCredential, nothingFound, flow) {
 		app.status = 'error';
 		app.error = error instanceof Error ? error.message : String(error);
 	}
+}
+
+/** The setting that says the vault is published on Aleph (#406). */
+const VAULT_INDEX_SETTING = 'vault/index';
+
+/** What the keys page shows of the open vault. */
+async function showVault() {
+	if (!session) return;
+	const { record, kid } = session.vault;
+	app.vault = {
+		slots: record.slots.map((s) => ({
+			kid: s.kid,
+			label: s.label,
+			addedAt: s.addedAt,
+			mine: s.kid === kid
+		})),
+		indexOn: (await getSetting(session.store.settings, VAULT_INDEX_SETTING)) === true
+	};
+}
+
+/**
+ * Publish the vault on Aleph (#406): index M with the pointer to the paying
+ * account, and index P of this passkey and of `extraKeys`. Never while the
+ * network is paused. Switches publishing on for later backups.
+ *
+ * @param {Uint8Array[]} [extraKeys] index keys of passkeys just added
+ */
+export async function publishBooksVault(extraKeys = []) {
+	if (!session) throw new Error('The books are not open.');
+	if (networkPause()) throw new Error(t('settings.keys.paused'));
+	const [{ publishVault }, { loadOwner }, { setSetting }] = await Promise.all([
+		import('./backup/vault-index.js'),
+		import('./backup/keeper.js'),
+		import('./store/settings.js')
+	]);
+	await publishVault({
+		root: session.vault.root,
+		vault: session.vault.record.vault,
+		passkeyKeys: [session.ownIndexKey, ...extraKeys],
+		owner: await loadOwner(session.store.settings)
+	});
+	await setSetting(session.store.settings, VAULT_INDEX_SETTING, true);
+	await showVault();
+}
+
+/**
+ * Give the books one more passkey (#406): it is made now, answers once, and
+ * gets its own slot in the vault. This browser goes on unlocking with its own.
+ *
+ * @param {string} label
+ * @param {{ publish?: boolean }} [options] publish the vault on Aleph as well
+ */
+export async function addBooksPasskey(label, { publish = false } = {}) {
+	if (!session) throw new Error('The books are not open.');
+	const name = label.trim() || 'Le Space Belege';
+	const [{ createAdditionalPasskey, readPrfOutput }, { addPasskey }, { passkeyIndexKey }] =
+		await Promise.all([
+			import('./passkey-identity.js'),
+			import('./books-vault.js'),
+			import('./backup/vault-index.js')
+		]);
+	const credential = await createAdditionalPasskey({ displayName: name });
+	const prfOutput = await readPrfOutput(credential);
+	session.vault = await addPasskey(
+		session.vault,
+		{
+			prfOutput,
+			rawCredentialId: credential.rawCredentialId,
+			credentialId: String(credential.credentialId ?? ''),
+			label: name
+		},
+		globalThis.localStorage
+	);
+	const key = await passkeyIndexKey(prfOutput);
+	prfOutput.fill(0);
+	await showVault();
+	if (publish || app.vault.indexOn) await publishBooksVault([key]);
+}
+
+/**
+ * Take a passkey's slot out (#406). With `renew`, the vault gets a new key and
+ * a slot for every passkey that stays – each answers once, this one too – for
+ * a passkey that may be in other hands.
+ *
+ * @param {string} kid
+ * @param {{ renew?: boolean }} [options]
+ */
+export async function removeBooksPasskey(kid, { renew = false } = {}) {
+	if (!session) throw new Error('The books are not open.');
+	const vaultModule = await import('./books-vault.js');
+	if (!renew) {
+		session.vault = vaultModule.removePasskey(session.vault, kid, globalThis.localStorage);
+	} else {
+		const { readPrfOutput } = await import('./passkey-identity.js');
+		const { WebAuthnDIDProvider } = await import(
+			'@le-space/orbitdb-identity-provider-webauthn-did'
+		);
+		/** @type {{ prfOutput: Uint8Array, rawCredentialId: Uint8Array }[]} */
+		const answers = [];
+		for (const slot of session.vault.record.slots.filter((s) => s.kid !== kid)) {
+			const rawCredentialId = new Uint8Array(
+				WebAuthnDIDProvider.base64urlToArrayBuffer(slot.credentialId)
+			);
+			const prfOutput = await readPrfOutput({ credentialId: slot.credentialId, rawCredentialId });
+			answers.push({ prfOutput, rawCredentialId });
+		}
+		session.vault = await vaultModule.renewBooksVault(
+			session.vault,
+			answers,
+			[kid],
+			globalThis.localStorage
+		);
+		for (const a of answers) a.prfOutput.fill(0);
+	}
+	await showVault();
+	if (app.vault.indexOn && !networkPause()) await publishBooksVault();
 }
 
 /** @param {string} label shown in the passkey picker; identifies nothing */

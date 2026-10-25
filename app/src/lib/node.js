@@ -56,7 +56,7 @@ import {
 	deriveReplicationKey
 } from './database-keys.js';
 import { readPrfOutput } from './passkey-identity.js';
-import { openBooksVault } from './books-vault.js';
+import { adoptNewerVault, openBooksVault } from './books-vault.js';
 import { sealer } from './db-encryption.js';
 import {
 	BOOKS_IDENTITY_INFO,
@@ -126,6 +126,7 @@ export const STORAGE_PATHS = Object.freeze({
  * @property {string} did the passkey's: shown, and what a record says wrote it
  * @property {string} booksDid the books' own identity, the root writer of every collection (#496)
  * @property {import('./books-vault.js').OpenedVault} vault the books' vault, open (#406)
+ * @property {Uint8Array} ownIndexKey this passkey's index key on Aleph (backup/vault-index.js), in memory
  * @property {Awaited<ReturnType<typeof openStore>>} store
  * @property {import('./receipts/blob-store.js').BlobStore} blobs receipt files, sealed with the blob key
  * @property {(meta: { appVersion: string, onProgress?: (p: import('./backup/archive.js').BackupProgress) => void }) => Promise<Awaited<ReturnType<typeof import('./backup/archive.js').buildBackup>>>} makeBackup
@@ -202,12 +203,15 @@ async function pinnedToCredential(fn) {
  * @param {any} credential from passkey-identity.js
  * @param {{ onStatus?: (status: UnlockStatus) => void,
  *   beforePrompt?: (purpose: 'prf') => Promise<void>,
- *   findVault?: (kid: string) => Promise<import('./books-vault.js').VaultRecord | null> }} [options]
- *   `findVault`: where to look for the books' vault when this browser has none for the passkey (#406)
+ *   lookupVault?: boolean }} [options]
+ *   `lookupVault`: an empty device – ask Aleph's index for the books' vault (#406)
  * @returns {Promise<Session>}
  * @throws {import('./passkey-identity.js').PrfUnavailableError} before anything is opened
  */
-export async function startSession(credential, { onStatus, beforePrompt, findVault } = {}) {
+export async function startSession(
+	credential,
+	{ onStatus, beforePrompt, lookupVault = false } = {}
+) {
 	onStatus?.({ step: 'keys' });
 	await beforePrompt?.('prf');
 	// First, and before anything is opened: without PRF there is no key, and
@@ -217,14 +221,34 @@ export async function startSession(credential, { onStatus, beforePrompt, findVau
 	// books made before the vault, the PRF output itself, kept there on this
 	// first unlock; for a passkey added later, the founding passkey's, through
 	// its own slot. Each key below is derived from it as it always was.
-	const vault = await openBooksVault({
+	// An empty device (`lookupVault`): this browser has no vault for the
+	// passkey, so its index on Aleph is asked (backup/vault-index.js), then the
+	// books' own index for the current record – which may say the passkey was
+	// removed there.
+	const indexes = lookupVault ? await import('./backup/vault-index.js') : null;
+	let vault = await openBooksVault({
 		prfOutput: passkeyPrf,
 		rawCredentialId: credential.rawCredentialId,
 		credentialId: String(credential.credentialId ?? ''),
 		label: String(credential.displayName ?? ''),
 		storage: globalThis.localStorage,
-		...(findVault ? { find: findVault } : {})
+		...(indexes ? { find: () => indexes.findVaultOnAleph({ prfOutput: passkeyPrf }) } : {})
 	});
+	if (indexes && vault.found) {
+		const current = await indexes.readRootIndex({ root: vault.root }).catch(() => null);
+		if (current?.vault) {
+			vault = await adoptNewerVault(
+				vault,
+				current.vault,
+				{ prfOutput: passkeyPrf, rawCredentialId: credential.rawCredentialId },
+				globalThis.localStorage
+			);
+		}
+	}
+	// This passkey's index key: kept in memory, so the vault can be published
+	// there later without asking the passkey again.
+	const { passkeyIndexKey } = await import('./backup/vault-index.js');
+	const ownIndexKey = await passkeyIndexKey(passkeyPrf);
 	const prfOutput = vault.root;
 	const encryptionKey = await deriveDatabaseKey(prfOutput);
 	const blobKey = await deriveBlobKey(prfOutput);
@@ -369,6 +393,7 @@ export async function startSession(credential, { onStatus, beforePrompt, findVau
 			did,
 			booksDid: booksIdentity.id,
 			vault,
+			ownIndexKey,
 			identityHash: booksIdentity.hash,
 			peerId: libp2p.peerId.toString(),
 			store,
