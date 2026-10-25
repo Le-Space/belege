@@ -23,7 +23,11 @@
 //                          payment Aleph books `hold` and processes it.
 //                          An AGGREGATE on channel `security`, key
 //                          `security`, sent by the account itself, sets that
-//                          account's authorizations.
+//                          account's authorizations. Any other AGGREGATE (the
+//                          app's vault index, #406) is kept under its key for
+//                          the address that sent it, its fields merged into
+//                          what was there, as Aleph does; only the address
+//                          itself may send one for itself.
 //                          A FORGET names STOREs by item hash; as pyaleph
 //                          checks it since 0.11 (aleph-im/pyaleph#1156), its
 //                          sender must be one who could have sent each target:
@@ -36,6 +40,7 @@
 //   GET  /api/v0/messages/<item hash>   a STORE's or AGGREGATE's status, with
 //                          `error_code` and `details` when rejected
 //   GET  /api/v0/aggregates/<address>.json?keys=security   the authorizations
+//   GET  /api/v0/aggregates/<address>.json?keys=<key>   any other aggregate kept
 //   GET  /api/v0/aggregates/<address>.json?keys=corechannel  Aleph's core channel
 //                          nodes, as `holders()` set them
 //
@@ -138,6 +143,8 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 	const authorizations = new Map();
 	/** The AGGREGATE messages taken, by item hash. @type {Map<string, { status: string }>} */
 	const aggregates = new Map();
+	/** Other aggregates, by checksummed address, then key. @type {Map<string, Record<string, any>>} */
+	const kept = new Map();
 	/** The FORGET messages taken, by item hash. @type {Map<string, { status: string, errorCode?: number }>} */
 	const forgets = new Map();
 	/** What "Wer hält es?" is told. */
@@ -280,6 +287,27 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 					message_status: status === 'processed' ? 'processed' : 'pending'
 				});
 
+			if (m?.type === 'AGGREGATE' && content?.key !== 'security') {
+				const shapeOk =
+					hashOk &&
+					m.chain === 'ETH' &&
+					m.item_type === 'inline' &&
+					typeof m.channel === 'string' &&
+					typeof content?.key === 'string' &&
+					content?.address === m.sender &&
+					content?.content &&
+					typeof content.content === 'object';
+				if (!shapeOk) return reply(422, { error: 'not an AGGREGATE this fake takes' });
+				const status = signatureOk ? 'processed' : 'rejected';
+				aggregates.set(m.item_hash, { status });
+				if (status === 'processed') {
+					const address = toChecksumAddress(m.sender);
+					const all = kept.get(address) ?? {};
+					all[content.key] = { ...(all[content.key] ?? {}), ...content.content };
+					kept.set(address, all);
+				}
+				return answer(status);
+			}
 			if (m?.type === 'AGGREGATE') {
 				const shapeOk =
 					hashOk &&
@@ -399,6 +427,12 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 			if (url.searchParams.get('keys') === 'corechannel') {
 				if (!network.nodes) return reply(404, { error: 'No aggregate found' });
 				return reply(200, { address: owner, data: { corechannel: { nodes: network.nodes } } });
+			}
+			const asked = url.searchParams.get('keys') ?? '';
+			if (asked && asked !== 'security') {
+				const value = owner === toChecksumAddress(owner) ? kept.get(owner)?.[asked] : undefined;
+				if (!value) return reply(404, { error: 'No aggregate found' });
+				return reply(200, { address: owner, data: { [asked]: value } });
 			}
 			const list = authorizations.get(owner);
 			// Aleph keys accounts by their checksummed form, as for balances.
@@ -540,6 +574,8 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 		calls,
 		added,
 		stores,
+		/** Other aggregates kept, by address and key (the vault index, #406). */
+		kept,
 		/**
 		 * What "Wer hält es?" is told: Aleph's nodes, who announces which CID, and where IPs are.
 		 *

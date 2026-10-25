@@ -747,17 +747,18 @@ export default {
 			title: 'Speicherung: nur in diesem Browser, immer verschlüsselt',
 			simple: [
 				'Deine Buchungen, Belege und Einstellungen liegen nur in diesem Browser auf diesem Gerät – nirgends sonst, auch nicht bei uns.',
-				'Alles ist verschlüsselt, mit einem Schlüssel, den dein Passkey bei jedem Entsperren neu erzeugt. Der Schlüssel selbst wird nie gespeichert.',
+				'Alles ist verschlüsselt, mit Schlüsseln, die bei jedem Entsperren neu entstehen: Dein Passkey öffnet dafür sein Fach im Tresor deiner Bücher. Die Schlüssel selbst werden nie gespeichert.',
 				'Was die Seite zeigt, sehen auch Browser-Erweiterungen, die hier laufen dürfen. Für Belege empfiehlt sich ein eigenes Browserprofil ohne Erweiterungen.'
 			],
-			loss: 'Verlierst du den Passkey, verlierst du den Zugang zu deinen Daten. Niemand kann sie dann wiederherstellen, auch wir nicht. Löschst du die Website-Daten dieses Browsers, sind sie ebenfalls weg.',
+			loss: 'Verlierst du alle Passkeys deiner Bücher, verlierst du den Zugang zu deinen Daten. Niemand kann sie dann wiederherstellen, auch wir nicht. Leg deshalb unter Einstellungen → Schlüssel einen zweiten an. Löschst du die Website-Daten dieses Browsers, sind die Daten hier ebenfalls weg.',
 			lossHeading: 'Wichtig:',
 			keysDoc: 'Wie die Schlüssel funktionieren',
 			technical: [
 				'Aus der PRF-Antwort des Passkeys leitet HKDF-SHA-256 den AES-GCM-Schlüssel ab, mit dem jede Datenbank versiegelt ist (info belege/db-key/v1), und die Namen der Datenbanken (belege/db-name/v1:<Sammlung>), damit sich keine Adresse aus der DID erraten lässt. Nichts davon wird gespeichert.',
 				'Kein privater Schlüssel liegt auf dem Gerät: Die Bücher schreiben als eigene Identität, ein Ed25519-Schlüssel, der bei jedem Entsperren aus einem Geheimnis der Bücher entsteht, das wiederum aus derselben PRF-Antwort kommt (belege/books-secret/v1). Er lebt nur im Arbeitsspeicher dieser Sitzung. Der Passkey selbst unterschreibt nichts für die Datenbanken; seine DID steht als Autor in jedem Eintrag.',
 				'Gespeichert werden die OrbitDB-Dokumentdatenbanken transactions, receipts, partners, accounts, settings, matches, questions, events und travel, auf Helia mit LevelBlockstore und LevelDatastore in IndexedDB (belege/helia-blocks, belege/helia-data, belege/orbitdb). Jeder Eintrag ist mit AES-GCM verschlüsselt und als Ganzes noch einmal mit einem eigenen Schlüssel (belege/replication-key/v1): Ohne ihn sind weder Inhalt noch Schreiber, Zeitpunkt oder Verweise eines Eintrags lesbar, und die Namen der Datenbanken verraten nicht, was sie enthalten. Belegdateien haben einen eigenen Schlüssel (belege/blob-key/v1).',
-				'Im localStorage liegt kein Schlüssel und nichts aus den Büchern, nur Öffentliches: die Angaben zum Passkey (Credential-ID, öffentlicher Schlüssel, DID, PRF-Eingabe) und Merker dieser Seite, etwa ob der Hinweis gelesen ist, Hell/Dunkel, die Sprache, das Netz und ob die Bücher schon umgezogen sind. Bücher aus früheren Versionen können dort noch die Signatur des Passkeys über ihr früheres Identitätsdokument haben.'
+				'Im localStorage liegt kein Schlüssel und nichts aus den Büchern, nur Öffentliches: die Angaben zum Passkey (Credential-ID, öffentlicher Schlüssel, DID, PRF-Eingabe) und Merker dieser Seite, etwa ob der Hinweis gelesen ist, Hell/Dunkel, die Sprache, das Netz und ob die Bücher schon umgezogen sind. Bücher aus früheren Versionen können dort noch die Signatur des Passkeys über ihr früheres Identitätsdokument haben.',
+				'Der Tresor der Bücher (#406) liegt versiegelt im localStorage: die Wurzel aller Schlüssel unter einem zufälligen Tresorschlüssel, und je Passkey ein Fach mit diesem Schlüssel, versiegelt mit einem Schlüssel aus der PRF-Antwort des Passkeys (AES-256-GCM). Wer will, legt ihn zusätzlich bei Aleph ab (Einstellungen → Schlüssel): versiegelt, unter Adressen, die aus Passkey und Wurzel abgeleitet sind, mit der Credential-ID jedes Passkeys, ohne Namen.'
 			]
 		},
 		network: {
@@ -1032,7 +1033,7 @@ export default {
 		gap: 'Zu diesem Vollbackup fehlen Zuwächse ({missing}). Ohne sie lässt es sich nicht vollständig zurückholen; nichts wurde geändert.',
 		done: 'Wiederhergestellt. Die Seite lädt neu – entsperre mit dem Passkey.',
 		wrongPasskey:
-			'Dieses Backup lässt sich mit diesem Passkey nicht öffnen: Es wurde mit einem anderen gemacht. Ein Backup öffnet nur der Passkey, mit dem es gemacht wurde.',
+			'Dieses Backup lässt sich mit diesem Passkey nicht öffnen: Es gehört zu anderen Büchern. Ein Backup öffnet jeder Passkey der Bücher, aus denen es stammt.',
 		notFetched: 'Alephs Gateway hat das Backup nicht zurückgegeben. Versuch es gleich noch einmal.',
 		incomplete:
 			'Diesem Backup fehlt ein Teil, und er ließ sich auch nicht nachladen. Deine Bücher sind unberührt. Versuch ein anderes Backup, oder noch einmal, wenn du online bist.',
@@ -2033,7 +2034,47 @@ export default {
 			books: 'Buchhaltung (DATEV)',
 			chart: 'Kontenplan',
 			travellers: 'Reisende',
+			keys: 'Schlüssel',
 			privacy: 'Datenschutz & Technik'
+		},
+		keys: {
+			title: 'Schlüssel',
+			intro:
+				'Welche Passkeys deine Bücher öffnen. Jeder hat ein eigenes Fach im Tresor der Bücher; jedes Fach öffnet dieselben Bücher und jede Sicherung.',
+			singleHeading: 'Einziger Schlüssel:',
+			single:
+				'Diese Bücher öffnet nur ein Passkey. Geht er verloren, sind Bücher und Sicherungen nicht mehr lesbar. Leg einen zweiten an, etwa einen Sicherheitsschlüssel, den du sicher aufbewahrst.',
+			unnamed: 'Passkey',
+			since: 'seit {date}',
+			mine: 'dieser Passkey',
+			remove: 'Entfernen',
+			removeHow:
+				'Einfach entfernen: Dieser Passkey öffnet die Bücher ab jetzt nicht mehr. Mit Erneuerung: Der Tresor bekommt außerdem einen neuen Schlüssel – für einen Passkey, der in fremde Hände geraten sein könnte. Dafür antwortet jeder verbleibende Passkey einmal, auch dieser.',
+			removePlain: 'Entfernen',
+			removeRenew: 'Entfernen und Tresor erneuern',
+			removed: 'Entfernt. Dieser Passkey öffnet die Bücher nicht mehr.',
+			renewed: 'Entfernt, der Tresor ist erneuert.',
+			removeLimit:
+				'Was Entfernen nicht kann: Ein Passkey, der die Bücher schon geöffnet hat, kennt die Wurzel ihrer Schlüssel, und ältere Sicherungen tragen sein Fach weiter.',
+			addLabel: 'Weiteren Passkey anlegen',
+			addPlaceholder: 'z. B. YubiKey im Safe',
+			add: 'Passkey anlegen',
+			adding: 'Wird angelegt …',
+			addHint:
+				'Zwei Abfragen: der neue Passkey, dann seine Antwort. Dieser Browser öffnet die Bücher weiter mit seinem eigenen Passkey.',
+			added: 'Angelegt. Der neue Passkey öffnet dieselben Bücher.',
+			publish:
+				'Tresor versiegelt bei Aleph hinterlegen, damit ein leeres Gerät ihn mit jedem dieser Passkeys findet',
+			publishPaused: 'Das Netz ist pausiert: Der Tresor wird nicht bei Aleph hinterlegt.',
+			notPublished:
+				'Der Tresor liegt nur in diesem Browser. Ein leeres Gerät findet ihn mit dem zweiten Passkey nur, wenn er bei Aleph hinterlegt ist.',
+			publishNow: 'Jetzt hinterlegen',
+			published: 'Bei Aleph hinterlegt.',
+			paused: 'Das Netz ist pausiert.',
+			technical: [
+				'Der Tresor hält die Wurzel R, aus der jeder Schlüssel per HKDF entsteht (die PRF-Antwort des Passkeys, der die Bücher angelegt hat), versiegelt mit einem zufälligen Tresorschlüssel (AES-256-GCM). Jedes Fach ist der Tresorschlüssel, versiegelt mit einem Schlüssel aus der PRF-Antwort seines Passkeys (belege/vault-slot/v1), gebunden an Tresor und Passkey.',
+				'Bei Aleph liegen, als Aggregat belege-vault: unter einer Adresse aus der PRF-Antwort jedes Passkeys der Tresor-Datensatz; unter einer Adresse aus der Wurzel der aktuelle Datensatz und das zahlende Konto, versiegelt. Keine Namen der Passkeys, kein Wallet.'
+			]
 		}
 	},
 	travellers: {

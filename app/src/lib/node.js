@@ -56,6 +56,7 @@ import {
 	deriveReplicationKey
 } from './database-keys.js';
 import { readPrfOutput } from './passkey-identity.js';
+import { adoptNewerVault, openBooksVault } from './books-vault.js';
 import { sealer } from './db-encryption.js';
 import {
 	BOOKS_IDENTITY_INFO,
@@ -124,6 +125,8 @@ export const STORAGE_PATHS = Object.freeze({
  * @typedef {object} Session
  * @property {string} did the passkey's: shown, and what a record says wrote it
  * @property {string} booksDid the books' own identity, the root writer of every collection (#496)
+ * @property {import('./books-vault.js').OpenedVault} vault the books' vault, open (#406)
+ * @property {Uint8Array} ownIndexKey this passkey's index key on Aleph (backup/vault-index.js), in memory
  * @property {Awaited<ReturnType<typeof openStore>>} store
  * @property {import('./receipts/blob-store.js').BlobStore} blobs receipt files, sealed with the blob key
  * @property {(meta: { appVersion: string, onProgress?: (p: import('./backup/archive.js').BackupProgress) => void }) => Promise<Awaited<ReturnType<typeof import('./backup/archive.js').buildBackup>>>} makeBackup
@@ -199,16 +202,58 @@ async function pinnedToCredential(fn) {
  *
  * @param {any} credential from passkey-identity.js
  * @param {{ onStatus?: (status: UnlockStatus) => void,
- *   beforePrompt?: (purpose: 'prf') => Promise<void> }} [options]
+ *   beforePrompt?: (purpose: 'prf') => Promise<void>,
+ *   lookupVault?: boolean }} [options]
+ *   `lookupVault`: an empty device – ask Aleph's index for the books' vault (#406)
  * @returns {Promise<Session>}
  * @throws {import('./passkey-identity.js').PrfUnavailableError} before anything is opened
  */
-export async function startSession(credential, { onStatus, beforePrompt } = {}) {
+export async function startSession(
+	credential,
+	{ onStatus, beforePrompt, lookupVault = false } = {}
+) {
 	onStatus?.({ step: 'keys' });
 	await beforePrompt?.('prf');
 	// First, and before anything is opened: without PRF there is no key, and
 	// without a key nothing is read or written. No plaintext fallback.
-	const prfOutput = await readPrfOutput(credential);
+	const passkeyPrf = await readPrfOutput(credential);
+	// The root every key is derived from, out of the books' vault (#406): for
+	// books made before the vault, the PRF output itself, kept there on this
+	// first unlock; for a passkey added later, the founding passkey's, through
+	// its own slot. Each key below is derived from it as it always was.
+	// An empty device (`lookupVault`): this browser has no vault for the
+	// passkey, so its index on Aleph is asked (backup/vault-index.js), then the
+	// books' own index for the current record – which may say the passkey was
+	// removed there.
+	const indexes = lookupVault ? await import('./backup/vault-index.js') : null;
+	let vault = await openBooksVault({
+		prfOutput: passkeyPrf,
+		rawCredentialId: credential.rawCredentialId,
+		credentialId: String(credential.credentialId ?? ''),
+		label: String(credential.displayName ?? ''),
+		storage: globalThis.localStorage,
+		...(indexes ? { find: () => indexes.findVaultOnAleph({ prfOutput: passkeyPrf }) } : {})
+	});
+	/** The paying Aleph account, as the books' index names it (an empty device). */
+	let pointedOwner = '';
+	if (indexes && vault.found) {
+		const current = await indexes.readRootIndex({ root: vault.root }).catch(() => null);
+		pointedOwner = current?.pointer?.owner ?? '';
+		if (current?.vault) {
+			vault = await adoptNewerVault(
+				vault,
+				current.vault,
+				{ prfOutput: passkeyPrf, rawCredentialId: credential.rawCredentialId },
+				globalThis.localStorage,
+				current.slots
+			);
+		}
+	}
+	// This passkey's index key: kept in memory, so the vault can be published
+	// there later without asking the passkey again.
+	const { passkeyIndexKey } = await import('./backup/vault-index.js');
+	const ownIndexKey = await passkeyIndexKey(passkeyPrf);
+	const prfOutput = vault.root;
 	const encryptionKey = await deriveDatabaseKey(prfOutput);
 	const blobKey = await deriveBlobKey(prfOutput);
 	const backupKey = await deriveBackupKey(prfOutput);
@@ -291,7 +336,7 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 					const signingKey =
 						credential.signingKey instanceof Uint8Array
 							? credential.signingKey
-							: await deriveSigningKeyBytes(prfOutput, did, SIGNING_KEY_TYPE);
+							: await deriveSigningKeyBytes(passkeyPrf, did, SIGNING_KEY_TYPE);
 					const identities = await createSessionIdentities(helia, { did, signingKey });
 					const identity = await pinnedToCredential(() =>
 						identities.createIdentity({
@@ -345,12 +390,22 @@ export async function startSession(credential, { onStatus, beforePrompt } = {}) 
 		});
 		setFlag(moveFlag);
 		if (!beforeBooksIdentity) setFlag(booksFlag);
+		// An empty device that found the books through the index: the account the
+		// backups are kept for, so "Wiederherstellen" lists them at once.
+		if (pointedOwner) {
+			const { isAddress, loadOwner, saveOwner } = await import('./backup/keeper.js');
+			if (isAddress(pointedOwner) && !(await loadOwner(store.settings))) {
+				await saveOwner(store.settings, pointedOwner);
+			}
+		}
 		onStatus?.({ step: 'blobs' });
 		const blobs = await createBlobStore({ blockstore: helia.blockstore, key: blobKey, online });
 
 		return {
 			did,
 			booksDid: booksIdentity.id,
+			vault,
+			ownIndexKey,
 			identityHash: booksIdentity.hash,
 			peerId: libp2p.peerId.toString(),
 			store,

@@ -15,7 +15,8 @@
 		chainFitsBooks,
 		currentStore,
 		makeBackup,
-		makeIncrement
+		makeIncrement,
+		publishBooksVault
 	} from '$lib/session.svelte.js';
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { releaseName } from '$lib/build-info.js';
@@ -421,6 +422,11 @@
 			};
 			backups = await rememberBackup(store.settings, record);
 			made = record;
+			// The books' index on Aleph names the account the backups are kept
+			// for (#406): kept current, when the vault is kept there at all.
+			if (app.vault.indexOn && !app.network.paused) {
+				publishBooksVault().catch((e) => console.warn('vault index:', e));
+			}
 			// The chain moves once Aleph has taken it. An increment the bridge
 			// kept without its `ref` (an older bridge) is not found by its chain:
 			// the next one ships everything since again.

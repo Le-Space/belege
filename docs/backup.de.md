@@ -2,14 +2,14 @@
 
 _English: [backup.md](backup.md)_
 
-Ein Backup enthält alles, was Belege in diesem Browser hält: die Datenbanken der Bücher und jede Belegdatei, auch die per Mail gekommenen. Es ist eine Datei, versiegelt mit einem Schlüssel aus deinem Passkey. Aleph Cloud bewahrt sie auf. Öffnen kann sie nur derselbe Passkey, auch Aleph nicht.
+Ein Backup enthält alles, was Belege in diesem Browser hält: die Datenbanken der Bücher und jede Belegdatei, auch die per Mail gekommenen. Es ist eine Datei, versiegelt mit einem Schlüssel aus dem Tresor der Bücher ([keys.de.md](keys.de.md)). Aleph Cloud bewahrt sie auf. Öffnen kann sie nur ein Passkey dieser Bücher, auch Aleph nicht.
 
 ## Was du zum Wiederherstellen brauchst
 
 Auf einem leeren Gerät zwei Dinge:
 
-1. **Denselben Passkey.** Der Schlüssel des Backups wird aus dem Passkey abgeleitet, mit dem es gemacht wurde. Ein anderer Passkey öffnet es nicht („mit einem anderen gemacht“).
-2. **Die Adresse des Aleph-Kontos, das zahlt**, oder die CID des Backups. Über das Konto findet Belege die Backups: Es fragt Aleph nach den STORE-Nachrichten dieses Kontos im Kanal `BELEGE-BACKUP`. Die Adresse ist öffentlich, aber auf einem leeren Gerät der einzige Weg zu den Backups; schreib sie auf. `pnpm setup:aleph` zeigt sie, und eine gekoppelte Bridge nennt sie von selbst.
+1. **Einen Passkey dieser Bücher.** Der Schlüssel des Backups wird aus der Wurzel der Bücher abgeleitet, die jeder Passkey mit einem Fach im Tresor öffnet – auch Backups von bevor er eins hatte. Ein Passkey anderer Bücher öffnet es nicht („gehört zu anderen Büchern“).
+2. **Die Adresse des Aleph-Kontos, das zahlt**, oder die CID des Backups. Über das Konto findet Belege die Backups: Es fragt Aleph nach den STORE-Nachrichten dieses Kontos im Kanal `BELEGE-BACKUP`. Die Adresse ist öffentlich; schreib sie auf. `pnpm setup:aleph` zeigt sie, eine gekoppelte Bridge nennt sie von selbst, und liegt der Tresor bei Aleph, erfährt ein leeres Gerät sie von dort.
 
 ## Einmal einrichten
 
@@ -59,7 +59,7 @@ Der Schlüssel dieses Browsers wird hier erzeugt und versiegelt in den Einstellu
 
 Ein Vollbackup kommt mit allen seinen Zuwächsen zurück: Die Karte zeigt zu jedem Vollbackup, wie viele es gibt (Alephs `refs=` und die Liste hier), lädt sie alle und lehnt eine Kette mit Lücke ab – ihre neueren Heads zeigten auf Einträge, die niemand hat. Ein Zuwachs allein wird nicht wiederhergestellt, sondern sein Vollbackup.
 
-_Integrationen → Backup → „Wiederherstellen“_, nach dem Entsperren mit **demselben Passkey**. Auf einem neuen Gerät heißt das: „Mit vorhandenem Passkey wiederherstellen“.
+_Integrationen → Backup → „Wiederherstellen“_, nach dem Entsperren mit **einem Passkey dieser Bücher**. Auf einem neuen Gerät heißt das: „Mit vorhandenem Passkey wiederherstellen“.
 
 Die Liste zeigt:
 
@@ -68,7 +68,7 @@ Die Liste zeigt:
 
 Eine CID lässt sich auch eintippen. Nach einer Rückfrage holt der Browser die versiegelte Datei von Alephs Gateway, öffnet sie mit dem Schlüssel aus dem Passkey und spielt alle Datenbanken und Belegdateien zurück. Er **führt zusammen**: Was hier in den Büchern ist, bleibt; was das Backup enthält, kommt dazu; gelöscht wird nichts. Danach lädt die Seite neu, und der Passkey öffnet die Bücher wieder.
 
-Ein Backup eines anderen Passkeys lässt sich nicht öffnen („mit einem anderen gemacht“), und eines mit fremden Büchern wird abgelehnt.
+Ein Backup anderer Bücher lässt sich nicht öffnen („gehört zu anderen Büchern“).
 
 ## Einen anderen Schlüssel sichern lassen
 

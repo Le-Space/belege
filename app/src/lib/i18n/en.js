@@ -725,17 +725,18 @@ export default {
 			title: 'Storage: only in this browser, always encrypted',
 			simple: [
 				'Your bookings, receipts and settings are stored only in this browser on this device – nowhere else, not with us either.',
-				'Everything is encrypted, with a key that your passkey creates anew each time you unlock. The key itself is never stored.',
+				'Everything is encrypted, with keys made anew each time you unlock: your passkey opens its slot in your books’ vault for them. The keys themselves are never stored.',
 				'What the page shows, browser extensions allowed to run here see as well. For Belege, a browser profile of its own without extensions is the safe choice.'
 			],
-			loss: 'If you lose the passkey, you lose access to your data. Nobody can recover it then, not even us. If you delete this browser’s site data, it is gone as well.',
+			loss: 'If you lose every passkey of your books, you lose access to your data. Nobody can recover it then, not even us. So add a second one under Settings → Keys. If you delete this browser’s site data, the data here is gone as well.',
 			lossHeading: 'Important:',
 			keysDoc: 'How the keys work',
 			technical: [
 				'From the passkey’s PRF response, HKDF-SHA-256 derives the AES-GCM key that seals every database (info belege/db-key/v1), and the names of the databases (belege/db-name/v1:<collection>), so that no address can be guessed from the DID. None of this is stored.',
 				'No private key is kept on the device: the books write as an identity of their own, an Ed25519 key made at every unlock from a secret of the books, which comes from the same PRF response (belege/books-secret/v1). It lives only in the memory of this session. The passkey itself signs nothing for the databases; its DID is named as the author of every entry.',
 				'Stored are the OrbitDB document databases transactions, receipts, partners, accounts, settings, matches, questions, events and travel, on Helia with LevelBlockstore and LevelDatastore in IndexedDB (belege/helia-blocks, belege/helia-data, belege/orbitdb). Every entry is encrypted with AES-GCM and, as a whole, once more with a key of its own (belege/replication-key/v1): without it, neither an entry’s content nor its writer, time or links can be read, and the databases’ names do not say what they hold. Receipt files have a separate key (belege/blob-key/v1).',
-				'localStorage holds no key and nothing from the books, only public data: the passkey details (credential ID, public key, DID, PRF input) and flags of this page, such as whether the notice was read, light/dark, the language, the network and whether the books have moved. Books from earlier versions may still have the passkey’s signature over their earlier identity document there.'
+				'localStorage holds no key and nothing from the books, only public data: the passkey details (credential ID, public key, DID, PRF input) and flags of this page, such as whether the notice was read, light/dark, the language, the network and whether the books have moved. Books from earlier versions may still have the passkey’s signature over their earlier identity document there.',
+				'The books’ vault (#406) is kept in localStorage, sealed: the root of every key under a random vault key, and for each passkey a slot holding that key, sealed under a key from the passkey’s PRF response (AES-256-GCM). Whoever wants also keeps it on Aleph (Settings → Keys): sealed, at addresses derived from passkey and root, with each passkey’s credential ID and no names.'
 			]
 		},
 		network: {
@@ -1009,7 +1010,7 @@ export default {
 		gap: 'Increments of this full backup are missing ({missing}). Without them it cannot be brought back completely; nothing was changed.',
 		done: 'Restored. The page reloads – unlock with the passkey.',
 		wrongPasskey:
-			'This backup cannot be opened with this passkey: it was made with another one. A backup opens only with the passkey it was made with.',
+			'This backup cannot be opened with this passkey: it belongs to other books. A backup opens with any passkey of the books it came from.',
 		notFetched: 'Aleph’s gateway did not give the backup back. Try again in a moment.',
 		incomplete:
 			'This backup is missing a piece, and it could not be fetched either. Your books are untouched. Try another backup, or try again when you are online.',
@@ -2001,7 +2002,47 @@ export default {
 			books: 'Bookkeeping (DATEV)',
 			chart: 'Chart of accounts',
 			travellers: 'Travellers',
+			keys: 'Keys',
 			privacy: 'Privacy & technical'
+		},
+		keys: {
+			title: 'Keys',
+			intro:
+				'Which passkeys open your books. Each has a slot of its own in the books’ vault; every slot opens the same books and every backup.',
+			singleHeading: 'Only one key:',
+			single:
+				'One passkey opens these books. If it is lost, the books and the backups can no longer be read. Add a second one, such as a security key you keep somewhere safe.',
+			unnamed: 'Passkey',
+			since: 'since {date}',
+			mine: 'this passkey',
+			remove: 'Remove',
+			removeHow:
+				'Remove: this passkey no longer opens the books. With renewal: the vault also gets a new key – for a passkey that may be in other hands. For that, every passkey that stays answers once, this one too.',
+			removePlain: 'Remove',
+			removeRenew: 'Remove and renew the vault',
+			removed: 'Removed. This passkey no longer opens the books.',
+			renewed: 'Removed, and the vault is renewed.',
+			removeLimit:
+				'What removing cannot do: a passkey that has opened the books knows the root of their keys, and older backups still carry its slot.',
+			addLabel: 'Add another passkey',
+			addPlaceholder: 'e.g. security key in the safe',
+			add: 'Add passkey',
+			adding: 'Adding …',
+			addHint:
+				'Two prompts: the new passkey, then its answer. This browser goes on opening the books with its own passkey.',
+			added: 'Added. The new passkey opens the same books.',
+			publish:
+				'Keep the vault on Aleph, sealed, so an empty device finds it with any of these passkeys',
+			publishPaused: 'The network is paused: the vault is not kept on Aleph.',
+			notPublished:
+				'The vault is only in this browser. An empty device finds it with the second passkey only once it is kept on Aleph.',
+			publishNow: 'Keep it there now',
+			published: 'Kept on Aleph.',
+			paused: 'The network is paused.',
+			technical: [
+				'The vault holds the root R every key is derived from with HKDF (the PRF output of the passkey that made the books), sealed under a random vault key (AES-256-GCM). Each slot is the vault key sealed under a key from its passkey’s PRF output (belege/vault-slot/v1), bound to the vault and the passkey.',
+				'On Aleph, as aggregate belege-vault: at an address from each passkey’s PRF output, the vault record; at an address from the root, the current record and the paying account, sealed. No names of passkeys, no wallet.'
+			]
 		}
 	},
 	travellers: {
