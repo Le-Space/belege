@@ -3291,6 +3291,8 @@ export default {
 				sameAmount: 'Same amount',
 				otherCurrency: 'other currency',
 				days: '{days} days',
+				noneThisYear:
+					'None from {year}. {count} from other years are under “All receipts” – otherwise search the mailbox or the provider.',
 				noMatch: 'Nothing found – change the search text or pick another source.',
 				noSuggestion:
 					'No receipt scores enough points. “All receipts” lists all open ones; you can keep searching in the mailbox and at the vendor.'

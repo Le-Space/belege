@@ -3331,6 +3331,8 @@ export default {
 				sameAmount: 'Betrag gleich',
 				otherCurrency: 'andere Währung',
 				days: '{days} Tage',
+				noneThisYear:
+					'Aus {year} keiner. {count} aus anderen Jahren stehen unter „Alle Belege“ – sonst im Postfach oder beim Anbieter weitersuchen.',
 				noMatch: 'Nichts gefunden – Suchtext ändern oder eine andere Quelle wählen.',
 				noSuggestion:
 					'Kein Beleg erreicht genug Punkte. Unter „Alle Belege“ stehen alle offenen, im Postfach und beim Anbieter lässt sich weitersuchen.'
