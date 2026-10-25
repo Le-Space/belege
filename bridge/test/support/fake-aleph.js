@@ -57,7 +57,10 @@
 //
 // Any page may ask, as Aleph's API answers browsers (checked 2026-10-04): a
 // preflight gets the asking origin back with POST and CONTENT-TYPE allowed,
-// and every answer names that origin.
+// and every answer names that origin. With `cors.uploadPreflight` false, the
+// IPFS host's `add` answers a preflight without allowing the origin, as
+// ipfs.aleph.cloud does for every page but its console (aleph-im/pyaleph#1280):
+// an upload that wants its progress is refused, a plain one goes through.
 import http from 'node:http';
 import { createHash } from 'node:crypto';
 
@@ -147,6 +150,12 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 	const kept = new Map();
 	/** The FORGET messages taken, by item hash. @type {Map<string, { status: string, errorCode?: number }>} */
 	const forgets = new Map();
+	/** How the IPFS host answers a preflight (see the head of this file). */
+	const cors = {
+		uploadPreflight: true,
+		/** @type {Promise<unknown> | null} answered once this settles */
+		holdUploads: /** @type {Promise<unknown> | null} */ (null)
+	};
 	/** What "Wer hält es?" is told. */
 	const network = {
 		/** @type {{ name: string, multiaddress: string, status: string }[] | null} */
@@ -175,8 +184,14 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 			});
 			res.end(JSON.stringify(body));
 		};
+		if (req.method === 'OPTIONS' && !cors.uploadPreflight && url.pathname === '/api/v0/add') {
+			res.writeHead(200, { 'Access-Control-Allow-Methods': 'GET,OPTIONS,POST' });
+			return res.end();
+		}
 		if (req.method === 'OPTIONS') {
 			res.writeHead(200, {
+				// As Aleph's hosts answer: never kept, every upload asks again.
+				'Access-Control-Max-Age': '0',
 				'Access-Control-Allow-Origin': origin,
 				'Access-Control-Allow-Methods': 'POST',
 				'Access-Control-Allow-Headers': 'CONTENT-TYPE'
@@ -233,6 +248,8 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 			});
 		}
 		if (req.method === 'POST' && url.pathname === '/api/v0/add') {
+			// A test may hold the answer, to look at the page while it uploads.
+			if (cors.holdUploads) await cors.holdUploads;
 			const form = await new Request('http://x', {
 				method: 'POST',
 				headers: { 'content-type': String(req.headers['content-type'] ?? '') },
@@ -576,6 +593,7 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 		stores,
 		/** Other aggregates kept, by address and key (the vault index, #406). */
 		kept,
+		cors,
 		/**
 		 * What "Wer hält es?" is told: Aleph's nodes, who announces which CID, and where IPs are.
 		 *

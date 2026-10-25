@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The header no longer shows "Backup {percent} %".** Where Aleph's IPFS host does not let the upload be counted – its real one, for every page but its console – the header took the text meant for a counted upload, without a number. It now says "Backup wird hochgeladen"; the fake Aleph in the tests refuses that preflight as the real one does, and never lets one be cached.
+
 ## [0.23.0] – 2026-10-25
 
 ### Added

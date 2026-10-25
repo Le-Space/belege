@@ -294,22 +294,24 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 		});
 	});
 	// Aleph's IPFS host held for a moment: the upload goes on while the person
-	// is elsewhere, and the header counts it.
+	// is elsewhere, and the header shows it. Like Aleph's real host
+	// (aleph-im/pyaleph#1280), this one refuses the preflight an upload with
+	// progress needs: it goes up uncounted, and the header says so in words.
+	aleph.cors.uploadPreflight = false;
 	/** @type {() => void} */ let release = () => {};
 	const holding = new Promise((resolve) => (release = () => resolve(undefined)));
-	await page.route(`${aleph.url}/api/v0/add`, async (route) => {
-		await holding;
-		await route.continue();
-	});
+	aleph.cors.holdUploads = holding;
 	await card.getByTestId('backup-now').click();
 	await page.getByTestId('tab-zahlungen').click();
 	await expect(page.getByTestId('backup-badge')).toHaveAttribute('data-step', 'uploading', {
 		timeout: 30_000
 	});
-	await expect(page.getByTestId('backup-badge')).toContainText(/Backup \d+ %/);
+	await expect(page.getByTestId('backup-badge')).toHaveText(/Backup wird hochgeladen/);
+	await expect(page.getByTestId('backup-badge')).not.toContainText('{');
 	release();
 	await expect(page.getByTestId('backup-badge')).toHaveCount(0, { timeout: 30_000 });
-	await page.unroute(`${aleph.url}/api/v0/add`);
+	aleph.cors.holdUploads = null;
+	aleph.cors.uploadPreflight = true;
 	await openIntegration(page, 'backup');
 	await expect(card.getByTestId('backup-row')).toHaveCount(2, { timeout: 30_000 });
 	await expect(card.getByTestId('backup-made')).toContainText('Zuwachs 1 gesichert');
