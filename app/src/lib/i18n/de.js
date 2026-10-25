@@ -740,7 +740,7 @@ export default {
 			technical: [
 				'Ein WebAuthn-Passkey mit P-256 (ES256), auffindbar gespeichert. Deine DID (did:key:…) ist sein öffentlicher Schlüssel, gebildet von @le-space/orbitdb-identity-provider-webauthn-did. Der private Schlüssel verlässt den Authenticator nie.',
 				'Die PRF-Erweiterung (CTAP hmac-secret) ist Pflicht. Liefert der Authenticator kein PRF-Geheimnis, bricht der Start ab; einen unverschlüsselten Ersatzweg gibt es nicht.',
-				'Passkey-Abfragen: Anlegen 3, Entsperren 1, Wiederherstellen auf einem neuen Gerät 4.'
+				'Passkey-Abfragen: Anlegen 2, Entsperren 1, Wiederherstellen auf einem neuen Gerät 3.'
 			]
 		},
 		storage: {
@@ -752,6 +752,7 @@ export default {
 			],
 			loss: 'Verlierst du den Passkey, verlierst du den Zugang zu deinen Daten. Niemand kann sie dann wiederherstellen, auch wir nicht. Löschst du die Website-Daten dieses Browsers, sind sie ebenfalls weg.',
 			lossHeading: 'Wichtig:',
+			keysDoc: 'Wie die Schlüssel funktionieren',
 			technical: [
 				'Aus der PRF-Antwort des Passkeys leitet HKDF-SHA-256 den AES-GCM-Schlüssel ab, mit dem jede Datenbank versiegelt ist (info belege/db-key/v1), und die Namen der Datenbanken (belege/db-name/v1:<Sammlung>), damit sich keine Adresse aus der DID erraten lässt. Nichts davon wird gespeichert.',
 				'Kein privater Schlüssel liegt auf dem Gerät: Die Bücher schreiben als eigene Identität, ein Ed25519-Schlüssel, der bei jedem Entsperren aus einem Geheimnis der Bücher entsteht, das wiederum aus derselben PRF-Antwort kommt (belege/books-secret/v1). Er lebt nur im Arbeitsspeicher dieser Sitzung. Der Passkey selbst unterschreibt nichts für die Datenbanken; seine DID steht als Autor in jedem Eintrag.',

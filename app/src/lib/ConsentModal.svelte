@@ -16,7 +16,8 @@
 	// flat list; this app makes no connection at all and its statement has
 	// sections, a planned option and per-service detail. The look is the
 	// element's, mapped onto the same tokens escrow01 maps it onto.
-	import { has, t, list } from './i18n/index.js';
+	import { currentLocale, has, t, list } from './i18n/index.js';
+	import { docUrl } from '$lib/help/integration-help.js';
 	import { IMPRINT_URL, PRIVACY_URL } from '$lib/legal.js';
 	import { deviceSyncOn } from './sync/device-sync.js';
 	import { setDevicesNetwork } from './session.svelte.js';
@@ -252,6 +253,14 @@
 				>
 					<strong class="text-danger">{t('consent.storage.lossHeading')}</strong>
 					{t('consent.storage.loss')}
+					<!-- In a new tab: the consent stays where it is. -->
+					<a
+						class="underline hover:text-heading"
+						href={docUrl('docs/keys{de}.md', currentLocale())}
+						target="_blank"
+						rel="noopener noreferrer"
+						data-testid="consent-keys-doc">{t('consent.storage.keysDoc')}</a
+					>
 				</p>
 			</div>
 

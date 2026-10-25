@@ -24,6 +24,11 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	await expect(highlights.nth(2)).toContainText('Bank und Belege, abgeglichen');
 	// Who offers Belege and on what terms; the imprint and privacy policy of Le Space UG linked.
 	const terms = dialog.getByTestId('consent-terms');
+	// What a lost passkey means, in a new tab: the keys page in the reader's language.
+	const keysDoc = dialog.getByTestId('consent-keys-doc');
+	await expect(keysDoc).toBeVisible();
+	await expect(keysDoc).toHaveAttribute('href', /\/docs\/keys\.de\.md$/);
+	await expect(keysDoc).toHaveAttribute('target', '_blank');
 	// A separate browser profile without extensions, recommended (docs/threat-model.md).
 	await expect(dialog).toContainText('ein eigenes Browserprofil ohne Erweiterungen');
 	// Folded, as are the coloured sections (#431); the loss stays in view.

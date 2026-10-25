@@ -76,6 +76,7 @@ The app is in [`app/`](app/README.md), the bridge in [`bridge/`](bridge/README.m
 - [Crypto](docs/crypto.md) ([Deutsch](docs/crypto.de.md))
 - [Private outlays](docs/outlays.md) ([Deutsch](docs/outlays.de.md))
 - [Travel expenses](docs/travel.md) ([Deutsch](docs/travel.de.md))
+- [Keys and recovery: what a lost passkey means](docs/keys.md) ([Deutsch](docs/keys.de.md))
 - [Device proof: only own devices get the books](docs/device-proof.md) ([Deutsch](docs/device-proof.de.md))
 - [Backup on Aleph Cloud, and what leaves the device](docs/backup.md) ([Deutsch](docs/backup.de.md))
 - [What Belege protects against, and what not](docs/threat-model.md) ([Deutsch](docs/threat-model.de.md))
