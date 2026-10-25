@@ -136,6 +136,14 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 		/Credits pro Tag, solange Aleph es aufbewahrt.*reichen die Credits dann etwa 0 Tage/,
 		{ timeout: 30_000 }
 	);
+	// The run is the app's, not the card's: elsewhere in Belege the header says
+	// it is waiting, and leads back to the question.
+	await page.getByTestId('tab-zahlungen').click();
+	const badge = page.getByTestId('backup-badge');
+	await expect(badge).toHaveAttribute('data-step', 'asking');
+	await expect(badge).toContainText('Backup wartet auf dich');
+	await badge.click();
+	await expect(card.getByTestId('backup-ask')).toBeVisible();
 	// Without credits Aleph keeps nothing (a STORE is paid in credits since
 	// storage bridge 0.17.0), and the app says how many it takes.
 	await card.getByTestId('backup-upload').click();
@@ -285,7 +293,24 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 			amountCents: -99
 		});
 	});
+	// Aleph's IPFS host held for a moment: the upload goes on while the person
+	// is elsewhere, and the header counts it.
+	/** @type {() => void} */ let release = () => {};
+	const holding = new Promise((resolve) => (release = () => resolve(undefined)));
+	await page.route(`${aleph.url}/api/v0/add`, async (route) => {
+		await holding;
+		await route.continue();
+	});
 	await card.getByTestId('backup-now').click();
+	await page.getByTestId('tab-zahlungen').click();
+	await expect(page.getByTestId('backup-badge')).toHaveAttribute('data-step', 'uploading', {
+		timeout: 30_000
+	});
+	await expect(page.getByTestId('backup-badge')).toContainText(/Backup \d+ %/);
+	release();
+	await expect(page.getByTestId('backup-badge')).toHaveCount(0, { timeout: 30_000 });
+	await page.unroute(`${aleph.url}/api/v0/add`);
+	await openIntegration(page, 'backup');
 	await expect(card.getByTestId('backup-row')).toHaveCount(2, { timeout: 30_000 });
 	await expect(card.getByTestId('backup-made')).toContainText('Zuwachs 1 gesichert');
 	await expect(card.getByTestId('backup-made')).toContainText('von Aleph aufbewahrt');

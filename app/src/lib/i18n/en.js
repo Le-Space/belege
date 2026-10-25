@@ -1191,6 +1191,15 @@ export default {
 			"Or in Aleph's dashboard, with the account's wallet: under Permissions, add the address above, message type STORE, channel {channel}.",
 		grantDashboardLink: 'Open Permissions',
 		now: 'Back up now',
+		keepWorking:
+			'You can go on working in Belege: the backup carries on, and the header shows how far it is. Just do not close or reload the tab.',
+		badge: {
+			title: 'To the backup',
+			packing: 'Backup being packed',
+			uploading: 'Backup {percent} %',
+			asking: 'Backup is waiting for you',
+			keeping: 'Backup: asking Aleph'
+		},
 		step: {
 			packing: 'Packing and sealing …',
 			uploading: 'Uploading to Aleph …',
@@ -1226,6 +1235,10 @@ export default {
 		missing:
 			'{count} blocks were not in this browser and are missing from the backup. With device sync, open the books on the device that has them.',
 		progress: {
+			step: 'Step {index} of {total}',
+			upload: '{sent} of {total} uploaded – {percent} %',
+			uploadUnmeasured:
+				'Uploading {size} – for {seconds} s. Aleph’s IPFS host does not let the progress be counted.',
 			database: 'Database {index} of {total}: {name}, {entries} entries …',
 			files: 'Receipt files: {done} of {total} …',
 			sealing: 'Sealing {size} …'

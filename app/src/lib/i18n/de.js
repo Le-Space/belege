@@ -1216,6 +1216,15 @@ export default {
 			'Oder im Aleph-Dashboard, mit der Wallet des Kontos: unter Berechtigungen die Adresse oben eintragen, Nachrichtentyp STORE, Kanal {channel}.',
 		grantDashboardLink: 'Berechtigungen öffnen',
 		now: 'Jetzt sichern',
+		keepWorking:
+			'Du kannst in Belege weiterarbeiten: Das Backup läuft weiter, oben im Kopf siehst du, wie weit es ist. Nur den Tab nicht schließen oder neu laden.',
+		badge: {
+			title: 'Zum Backup',
+			packing: 'Backup wird gepackt',
+			uploading: 'Backup {percent} %',
+			asking: 'Backup wartet auf dich',
+			keeping: 'Backup: Aleph wird beauftragt'
+		},
 		step: {
 			packing: 'Wird gepackt und versiegelt …',
 			uploading: 'Wird zu Aleph hochgeladen …',
@@ -1252,6 +1261,10 @@ export default {
 		missing:
 			'{count} Blöcke waren nicht in diesem Browser und fehlen im Backup. Mit Gerätesync: öffne die Bücher auf dem Gerät, das sie hat.',
 		progress: {
+			step: 'Schritt {index} von {total}',
+			upload: '{sent} von {total} hochgeladen – {percent} %',
+			uploadUnmeasured:
+				'{size} werden hochgeladen – seit {seconds} s. Alephs IPFS-Host lässt den Fortschritt nicht mitzählen.',
 			database: 'Datenbank {index} von {total}: {name}, {entries} Einträge …',
 			files: 'Belegdateien: {done} von {total} …',
 			sealing: '{size} werden versiegelt …'

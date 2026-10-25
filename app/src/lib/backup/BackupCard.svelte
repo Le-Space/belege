@@ -10,22 +10,16 @@
 	import { createBridgeClient } from '$lib/bridge/client.js';
 	import CopyButton from '$lib/CopyButton.svelte';
 	import WayOut from '$lib/help/WayOut.svelte';
-	import {
-		app,
-		chainFitsBooks,
-		currentStore,
-		makeBackup,
-		makeIncrement,
-		publishBooksVault
-	} from '$lib/session.svelte.js';
+	import { untrack } from 'svelte';
+	import { app, chainFitsBooks, currentStore } from '$lib/session.svelte.js';
 	import { intlLocale, t } from '$lib/i18n/index.js';
-	import { releaseName } from '$lib/build-info.js';
 	import { card } from '$lib/ui/styles.js';
-	import { backupName, loadBackups, rememberBackup, updateBackup } from './history.js';
-	import { chainAfter, chainFromBase, loadChain, olderChains, saveChain } from './chain.js';
+	import { loadBackups, updateBackup } from './history.js';
+	import { loadChain, olderChains } from './chain.js';
+	import BackupProgress from './BackupProgress.svelte';
+	import { backupRun, decideBackup, refused, runBackup, sizeText } from './run.svelte.js';
 	import {
 		BACKUP_CHANNEL,
-		BackupRefusedError,
 		alephEndpoints,
 		backupAddressOf,
 		creditsOf,
@@ -39,6 +33,8 @@
 		saveOwner,
 		storeStatus
 	} from './keeper.js';
+	// The run itself is the app's (run.svelte.js): it goes on when this card is
+	// left, and the header shows it.
 
 	let { url, token } = $props();
 	/** Aleph's dashboard: credits bought, transferred and spent; and the keys an account lets act for it. */
@@ -68,20 +64,15 @@
 	let checking = $state(false);
 	/** @type {import('./history.js').BackupRecord[]} */
 	let backups = $state([]);
-	/** @type {'' | 'packing' | 'asking' | 'uploading' | 'keeping'} */
-	let step = $state('');
-	/** @type {string | null} */
+	const step = $derived(backupRun.step);
+	/** @type {string | null} what this card did last that failed */
 	let error = $state(null);
-	/** @type {import('./history.js').BackupRecord | null} */
-	let made = $state(null);
-	/** @type {import('./archive.js').BackupProgress | null} what packing is at */
-	let progress = $state(null);
+	/** A failure of this card's, else of the last backup run. */
+	const shownError = $derived(error ?? backupRun.error);
+	const made = $derived(backupRun.made);
 	/** The address field: open while there is no account, or to change it. */
 	let editingOwner = $state(false);
-	/** A backup packed and waiting for "Hochladen" because of what it costs. */
-	let asking = $state(/** @type {{ size: number, perDay: number, days: number } | null} */ (null));
-	/** @type {((go: boolean) => void) | null} */
-	let answer = null;
+	const asking = $derived(backupRun.asking);
 	/** Which history row is being kept again, by CID and time. */
 	let rekeeping = $state('');
 	/**
@@ -116,8 +107,6 @@
 		place ? [place.city, place.country].filter(Boolean).join(', ') : t('backup.holders.noPlace');
 	/** @type {import('./archive.js').BackupChain | null} where the chain of backups stands (#454) */
 	let chain = $state(null);
-	/** The last "Jetzt sichern" found nothing new. */
-	let nothingNew = $state(false);
 	/** The chain's full backup, as this browser's history has it (another device's: not there). */
 	const chainBase = $derived(chain ? backups.find((b) => b.cid === chain?.base) : undefined);
 	/**
@@ -200,6 +189,18 @@
 	$effect(() => {
 		load(token);
 	});
+	// A run that ended – here or while this card was not open – is in the
+	// history now: read it again, and what it cost.
+	$effect(() => {
+		if (!backupRun.finished) return;
+		untrack(async () => {
+			const store = currentStore();
+			if (!store) return;
+			backups = await loadBackups(store.settings);
+			chain = await loadChain(store.settings);
+			if (owner) credits = await creditsOf({ owner, endpoints }).catch(() => credits);
+		});
+	});
 
 	/** @param {string | null} withToken */
 	async function load(withToken) {
@@ -279,19 +280,6 @@
 		return { ...(await client.alephKeep(cid, ref)), sender: status?.address };
 	}
 
-	/** @param {unknown} e */
-	const refused = (e) =>
-		e instanceof BackupRefusedError
-			? e.kind === 'credits'
-				? t('messages.bridge.alephNotKept', {
-						credits: Number(e.reason.credits).toLocaleString(intlLocale()),
-						required: Number(e.reason.required).toLocaleString(intlLocale())
-					})
-				: t('messages.bridge.alephRejected', { error: String(e.reason.errorCode ?? '') })
-			: e instanceof Error
-				? e.message
-				: String(e);
-
 	/**
 	 * A backup Aleph does not know, or refused, kept again: the same file on
 	 * Aleph's IPFS host, a new STORE for it – nothing uploaded again.
@@ -318,12 +306,7 @@
 		if (owner) credits = await creditsOf({ owner, endpoints }).catch(() => credits);
 	}
 
-	/** The answer to "Hochladen?". @param {boolean} go */
-	function decide(go) {
-		answer?.(go);
-		answer = null;
-		asking = null;
-	}
+	const decide = decideBackup;
 
 	async function setOwner() {
 		const store = currentStore();
@@ -343,147 +326,32 @@
 
 	/**
 	 * "Jetzt sichern": after a full backup, only what is new since the chain's
-	 * last backup (#454) – an increment, kept with its base's CID as `ref`.
-	 * The first backup, one whose base Aleph does not keep, and "Neues
-	 * Vollbackup" are full ones, and start a new chain.
+	 * last backup (#454); the first backup, one whose base Aleph does not keep,
+	 * and "Neues Vollbackup" are full ones (run.svelte.js).
 	 *
 	 * @param {{ full?: boolean }} [options]
 	 */
-	async function backUp({ full = false } = {}) {
-		const store = currentStore();
-		if (!store || !owner || !key) return;
+	function backUp({ full = false } = {}) {
+		if (!owner || !key) return;
 		error = null;
-		made = null;
-		nothingNew = false;
-		progress = null;
-		const continuing = !full && chainUsable && chain ? chain : null;
-		try {
-			step = 'packing';
-			const at = new Date();
-			const appVersion = releaseName() || 'dev';
-			const onProgress = (/** @type {any} */ p) => (progress = p);
-			const built = continuing
-				? await makeIncrement({ chain: continuing, appVersion, onProgress })
-				: await makeBackup({ appVersion, onProgress });
-			if (!built) {
-				nothingNew = true;
-				return;
-			}
+		const continuing = !full && chainUsable && chain ? $state.snapshot(chain) : null;
+		return runBackup({
+			continuing,
+			ingestUrl: endpoints.ingestUrl,
+			keep,
 			// A whole copy costs credits every day it is kept: when the credits
 			// would not last a month with it, ask before it goes up.
-			const perDay = creditsPerDay(built.sealed.length);
-			const days = daysFor(keptPerDay + perDay);
-			if (days < ASK_BELOW_DAYS) {
-				step = 'asking';
-				asking = { size: built.sealed.length, perDay, days };
-				const go = await new Promise((resolve) => (answer = resolve));
-				if (!go) return;
+			askFor: (bytes) => {
+				const perDay = creditsPerDay(bytes);
+				const days = daysFor(keptPerDay + perDay);
+				return days < ASK_BELOW_DAYS ? { perDay, days } : null;
 			}
-			step = 'uploading';
-			// The storage bridge's Aleph backend, in the browser: no key, no bridge.
-			const { createAlephBackend } = await import(
-				'@le-space/orbitdb-storage-bridge/backends/aleph'
-			);
-			const handle = await createAlephBackend({ ingestUrl: endpoints.ingestUrl }).putBlob(
-				built.sealed,
-				{ name: backupName(at, continuing ? continuing.sequence + 1 : 0) }
-			);
-			step = 'keeping';
-			const kept = await keep(handle.id, continuing?.base);
-			/** @type {import('./history.js').BackupRecord} */
-			const record = {
-				at: at.toISOString(),
-				provider: 'aleph',
-				cid: handle.id,
-				size: built.sealed.length,
-				status: kept.status,
-				itemHash: kept.itemHash,
-				address: kept.address,
-				...(kept.sender ? { sender: kept.sender } : {}),
-				...('heads' in built
-					? {
-							kind: /** @type {const} */ ('increment'),
-							base: continuing?.base,
-							sequence: (continuing?.sequence ?? 0) + 1,
-							entries: built.entries,
-							databases: built.databases,
-							files: built.files.length,
-							blocks: built.blocks,
-							missing: built.missing
-						}
-					: {
-							kind: /** @type {const} */ ('full'),
-							entries: databasesOf(built.manifest).reduce((n, d) => n + d.entries, 0),
-							databases: databasesOf(built.manifest),
-							files: built.manifest.files.length,
-							blocks: built.blocks,
-							missing: built.manifest.missing
-						})
-			};
-			backups = await rememberBackup(store.settings, record);
-			made = record;
-			// The books' index on Aleph names the account the backups are kept
-			// for (#406): kept current, when the vault is kept there at all.
-			if (app.vault.indexOn && !app.network.paused) {
-				publishBooksVault().catch((e) => console.warn('vault index:', e));
-			}
-			// The chain moves once Aleph has taken it. An increment the bridge
-			// kept without its `ref` (an older bridge) is not found by its chain:
-			// the next one ships everything since again.
-			if (kept.status !== 'rejected') {
-				if (!('heads' in built)) {
-					chain = await saveChain(store.settings, chainFromBase(built.manifest, handle.id));
-				} else if (continuing && kept.ref === continuing.base) {
-					chain = await saveChain(store.settings, chainAfter(continuing, built, handle.id));
-				} else {
-					error = t('backup.oldBridge');
-				}
-			}
-		} catch (e) {
-			error = refused(e);
-		} finally {
-			step = '';
-			progress = null;
-			asking = null;
-		}
-		// What a backup costs shows on the account's credits.
-		if (owner) credits = await creditsOf({ owner, endpoints }).catch(() => credits);
+		});
 	}
-
-	/**
-	 * Per database, as the app names them.
-	 *
-	 * @param {import('./archive.js').BackupManifest} manifest
-	 * @returns {{ collection: string, entries: number }[]}
-	 */
-	const databasesOf = (manifest) =>
-		manifest.metadata.databases.map((/** @type {any} */ d) => ({
-			collection: String(d.collection ?? d.name),
-			entries: Number(d.entryCount ?? 0)
-		}));
-
-	/** The packing step, with its counts. @param {import('./archive.js').BackupProgress | null} p */
-	const packing = (p) =>
-		!p
-			? t('backup.step.packing')
-			: p.stage === 'database'
-				? t('backup.progress.database', {
-						index: p.index + 1,
-						total: p.total,
-						name: t(`storage.databases.${p.name}`),
-						entries: p.entries
-					})
-				: p.stage === 'files'
-					? t('backup.progress.files', { done: p.done, total: p.total })
-					: t('backup.progress.sealing', { size: size(p.bytes) });
 
 	const button =
 		'rounded-md border border-border px-3 py-1.5 text-sm text-text hover:bg-surface-2 hover:text-heading disabled:opacity-50';
-	/** @param {number} bytes */
-	const size = (bytes) =>
-		bytes < 1e6
-			? `${new Intl.NumberFormat(intlLocale(), { maximumFractionDigits: 0 }).format(bytes / 1e3)} kB`
-			: `${new Intl.NumberFormat(intlLocale(), { maximumFractionDigits: bytes < 1e7 ? 1 : 0 }).format(bytes / 1e6)} MB`;
+	const size = sizeText;
 	/** @param {string} iso */
 	const when = (iso) =>
 		new Intl.DateTimeFormat(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(
@@ -679,18 +547,24 @@
 				disabled={Boolean(step) || checking}
 				data-testid="backup-check">{t('backup.check')}</button
 			>
-			{#if step && step !== 'asking'}
-				<span class="text-sm text-faint" role="status" data-testid="backup-step"
-					>{step === 'packing' ? packing(progress) : t(`backup.step.${step}`)}</span
-				>
+			{#if step}
+				<!-- under way: shown below, with its bar -->
 			{:else if app.network.paused}
 				<span class="text-sm text-faint">{t('backup.paused')}</span>
-			{:else if nothingNew}
+			{:else if backupRun.nothingNew}
 				<span class="text-sm text-text" role="status" data-testid="backup-nothing-new"
 					>{t('backup.nothingNew')}</span
 				>
 			{/if}
 		</div>
+		{#if step && step !== 'asking'}
+			<div class="mt-3">
+				<BackupProgress />
+				<p class="mt-1 text-xs text-faint" data-testid="backup-keep-working">
+					{t('backup.keepWorking')}
+				</p>
+			</div>
+		{/if}
 		<p class="mt-2 text-xs text-faint" data-testid="backup-chain">
 			{chainUsable && chain
 				? t('backup.chainNext', {
@@ -809,9 +683,9 @@
 			{/if}
 		</div>
 	{/if}
-	{#if error}
-		<p class="mt-2 text-sm text-danger" role="alert" data-testid="backup-error">{error}</p>
-		<WayOut message={error} />
+	{#if shownError}
+		<p class="mt-2 text-sm text-danger" role="alert" data-testid="backup-error">{shownError}</p>
+		<WayOut message={shownError} />
 	{/if}
 	{#if older.length || forgotten}
 		<h3 class="mt-4 text-sm font-semibold text-heading">{t('backup.older.title')}</h3>

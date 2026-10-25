@@ -8,6 +8,7 @@
 	import ConsentModal from '$lib/ConsentModal.svelte';
 	import BelegeMark from '$lib/BelegeMark.svelte';
 	import LocalOnlyBadge from '$lib/LocalOnlyBadge.svelte';
+	import BackupBadge from '$lib/backup/BackupBadge.svelte';
 	import PageQr from '$lib/PageQr.svelte';
 	import LanguageSwitch from '$lib/LanguageSwitch.svelte';
 	import SampleBanner from '$lib/sample/SampleBanner.svelte';
@@ -138,6 +139,7 @@
 				class="col-span-2 row-start-2 flex min-w-0 flex-wrap items-center gap-2 lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:justify-end"
 			>
 				<LocalOnlyBadge />
+				{#if ready}<BackupBadge />{/if}
 				{#if ready && app.did}
 					<span
 						class="max-w-full truncate rounded-full border border-border bg-surface px-2.5 py-1 font-mono text-xs text-text"
