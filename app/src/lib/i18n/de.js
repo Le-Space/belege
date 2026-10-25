@@ -747,7 +747,8 @@ export default {
 			title: 'Speicherung: nur in diesem Browser, immer verschlüsselt',
 			simple: [
 				'Deine Buchungen, Belege und Einstellungen liegen nur in diesem Browser auf diesem Gerät – nirgends sonst, auch nicht bei uns.',
-				'Alles ist verschlüsselt, mit einem Schlüssel, den dein Passkey bei jedem Entsperren neu erzeugt. Der Schlüssel selbst wird nie gespeichert.'
+				'Alles ist verschlüsselt, mit einem Schlüssel, den dein Passkey bei jedem Entsperren neu erzeugt. Der Schlüssel selbst wird nie gespeichert.',
+				'Was die Seite zeigt, sehen auch Browser-Erweiterungen, die hier laufen dürfen. Für Belege empfiehlt sich ein eigenes Browserprofil ohne Erweiterungen.'
 			],
 			loss: 'Verlierst du den Passkey, verlierst du den Zugang zu deinen Daten. Niemand kann sie dann wiederherstellen, auch wir nicht. Löschst du die Website-Daten dieses Browsers, sind sie ebenfalls weg.',
 			lossHeading: 'Wichtig:',

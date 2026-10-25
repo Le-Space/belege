@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **What Belege protects against, and what not.** `docs/threat-model.md` (and `.de.md`): what the sealing answers (storage and relays, a copied browser profile, devices that are not yours, the language model) and what no web app can (a device or browser not under your control – browser extensions included –, a tampered build, losing every passkey), with what to do: a browser profile of its own without extensions, Android's Chrome, the release's IPFS CID to compare, and a planned desktop app. Linked from the README and SECURITY.md; the consent screen recommends the separate profile.
+
 - **Keys and recovery, explained.** A new page, `docs/keys.md` (and `keys.de.md`), with a diagram of where every key comes from today, what is stored where, the passkey prompts, and plainly what a lost passkey means – and the vault planned in #406. Linked from the README and from the consent screen, under the note on losing the passkey ("Wie die Schlüssel funktionieren", in a new tab).
 
 ## [0.22.0] – 2026-10-25

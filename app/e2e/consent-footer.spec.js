@@ -29,6 +29,8 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	await expect(keysDoc).toBeVisible();
 	await expect(keysDoc).toHaveAttribute('href', /\/docs\/keys\.de\.md$/);
 	await expect(keysDoc).toHaveAttribute('target', '_blank');
+	// A separate browser profile without extensions, recommended (docs/threat-model.md).
+	await expect(dialog).toContainText('ein eigenes Browserprofil ohne Erweiterungen');
 	// Folded, as are the coloured sections (#431); the loss stays in view.
 	for (const id of ['consent-terms', 'consent-identity', 'consent-network', 'consent-ai']) {
 		expect(await dialog.getByTestId(id).evaluate((d) => /** @type {any} */ (d).open)).toBe(false);
