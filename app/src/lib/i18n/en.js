@@ -725,17 +725,18 @@ export default {
 			title: 'Storage: only in this browser, always encrypted',
 			simple: [
 				'Your bookings, receipts and settings are stored only in this browser on this device – nowhere else, not with us either.',
-				'Everything is encrypted, with a key that your passkey creates anew each time you unlock. The key itself is never stored.',
+				'Everything is encrypted, with keys made anew each time you unlock: your passkey opens its slot in your books’ vault for them. The keys themselves are never stored.',
 				'What the page shows, browser extensions allowed to run here see as well. For Belege, a browser profile of its own without extensions is the safe choice.'
 			],
-			loss: 'If you lose the passkey, you lose access to your data. Nobody can recover it then, not even us. If you delete this browser’s site data, it is gone as well.',
+			loss: 'If you lose every passkey of your books, you lose access to your data. Nobody can recover it then, not even us. So add a second one under Settings → Keys. If you delete this browser’s site data, the data here is gone as well.',
 			lossHeading: 'Important:',
 			keysDoc: 'How the keys work',
 			technical: [
 				'From the passkey’s PRF response, HKDF-SHA-256 derives the AES-GCM key that seals every database (info belege/db-key/v1), and the names of the databases (belege/db-name/v1:<collection>), so that no address can be guessed from the DID. None of this is stored.',
 				'No private key is kept on the device: the books write as an identity of their own, an Ed25519 key made at every unlock from a secret of the books, which comes from the same PRF response (belege/books-secret/v1). It lives only in the memory of this session. The passkey itself signs nothing for the databases; its DID is named as the author of every entry.',
 				'Stored are the OrbitDB document databases transactions, receipts, partners, accounts, settings, matches, questions, events and travel, on Helia with LevelBlockstore and LevelDatastore in IndexedDB (belege/helia-blocks, belege/helia-data, belege/orbitdb). Every entry is encrypted with AES-GCM and, as a whole, once more with a key of its own (belege/replication-key/v1): without it, neither an entry’s content nor its writer, time or links can be read, and the databases’ names do not say what they hold. Receipt files have a separate key (belege/blob-key/v1).',
-				'localStorage holds no key and nothing from the books, only public data: the passkey details (credential ID, public key, DID, PRF input) and flags of this page, such as whether the notice was read, light/dark, the language, the network and whether the books have moved. Books from earlier versions may still have the passkey’s signature over their earlier identity document there.'
+				'localStorage holds no key and nothing from the books, only public data: the passkey details (credential ID, public key, DID, PRF input) and flags of this page, such as whether the notice was read, light/dark, the language, the network and whether the books have moved. Books from earlier versions may still have the passkey’s signature over their earlier identity document there.',
+				'The books’ vault (#406) is kept in localStorage, sealed: the root of every key under a random vault key, and for each passkey a slot holding that key, sealed under a key from the passkey’s PRF response (AES-256-GCM). Whoever wants also keeps it on Aleph (Settings → Keys): sealed, at addresses derived from passkey and root, with each passkey’s credential ID and no names.'
 			]
 		},
 		network: {
@@ -1009,7 +1010,7 @@ export default {
 		gap: 'Increments of this full backup are missing ({missing}). Without them it cannot be brought back completely; nothing was changed.',
 		done: 'Restored. The page reloads – unlock with the passkey.',
 		wrongPasskey:
-			'This backup cannot be opened with this passkey: it was made with another one. A backup opens only with the passkey it was made with.',
+			'This backup cannot be opened with this passkey: it belongs to other books. A backup opens with any passkey of the books it came from.',
 		notFetched: 'Aleph’s gateway did not give the backup back. Try again in a moment.',
 		incomplete:
 			'This backup is missing a piece, and it could not be fetched either. Your books are untouched. Try another backup, or try again when you are online.',

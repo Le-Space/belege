@@ -15,7 +15,7 @@ Belege hält die Bücher eines Unternehmens im Browser, versiegelt mit Schlüsse
 
 - **Ein Gerät oder ein Browser, die nicht in deiner Hand sind.** Schadsoftware, jemand am entsperrten Gerät oder eine **Browser-Erweiterung**, die auf der Website laufen darf, sieht, was die Seite sieht: die offenen Bücher und die Antwort des Passkeys beim Entsperren – und damit die Schlüssel. Das gilt für jede Web-Anwendung, auch fürs Onlinebanking. Die daraus abgeleiteten Schlüssel lassen sich nicht wechseln, ohne die Bücher neu zu versiegeln; das ist also eher zu vermeiden als zu reparieren.
 - **Eine veränderte Version der App.** Die App kommt von belege.le-space.de; ein Build, der unterwegs verändert wurde, könnte dasselbe wie eine Erweiterung. Jedes Release nennt auf seiner Release-Seite seine IPFS-CID, so lässt sich ein ausgelieferter Build mit dem veröffentlichten vergleichen.
-- **Der Verlust aller Passkeys.** Siehe [keys.de.md](keys.de.md); ein Tresor mit zweitem Passkey ist geplant ([#406](https://github.com/Le-Space/belege/issues/406)).
+- **Der Verlust aller Passkeys.** Leg unter _Einstellungen → Schlüssel_ einen zweiten an ([keys.de.md](keys.de.md)); Wiederherstellungswörter auf Papier sind geplant ([#406](https://github.com/Le-Space/belege/issues/406)).
 
 ## Was du tun kannst
 

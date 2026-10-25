@@ -36,7 +36,7 @@ Belege decrypts a company's books in the browser and runs a bridge next to bank,
 
 **Keys**
 
-- No key and no secret on disk in the browser: keys are derived from the passkey's PRF answer at unlock and live in memory only. Nothing secret goes into localStorage, sessionStorage, IndexedDB or a cache. The storage scan in `app/e2e/passkey-books.spec.js` must keep passing.
+- No key and no secret on disk in the browser: keys are derived at unlock from the books' root, which the passkey's PRF answer opens – through its slot in the books' vault (`app/src/lib/books-vault.js`, #406) – and live in memory only. At rest there is only the sealed vault record; nothing secret goes into localStorage, sessionStorage, IndexedDB or a cache in the clear. The storage scan in `app/e2e/passkey-books.spec.js` must keep passing.
 - Tokens and grants (the bridge token, UCEP grants) are kept in the sealed `settings` collection, never in localStorage.
 - On the bridge, secrets go into the macOS keychain through a hidden prompt; never into `bridge.json`, a log, a URL in a log, an error message or an HTTP response.
 

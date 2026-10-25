@@ -2,14 +2,14 @@
 
 _Deutsch: [backup.de.md](backup.de.md)_
 
-A backup holds everything Belege keeps in this browser: the databases of the books and every receipt file, including those that came by mail. It is one file, sealed with a key from your passkey. Aleph Cloud keeps it. Only the same passkey can open it, not even Aleph.
+A backup holds everything Belege keeps in this browser: the databases of the books and every receipt file, including those that came by mail. It is one file, sealed with a key from the books' vault ([keys.md](keys.md)). Aleph Cloud keeps it. Only a passkey of these books can open it, not even Aleph.
 
 ## What you need to restore
 
 On an empty device, two things:
 
-1. **The same passkey.** The backup's key is derived from the passkey it was made with. Another passkey does not open it ("mit einem anderen gemacht").
-2. **The address of the Aleph account that pays**, or the backup's CID. Belege finds the backups through the account: it asks Aleph for that account's STORE messages on the channel `BELEGE-BACKUP`. The address is public, but on an empty device it is the only way to the backups, so write it down. `pnpm setup:aleph` shows it, and a paired bridge names it by itself.
+1. **A passkey of these books.** The backup's key is derived from the books' root, which every passkey with a slot in the vault opens – also backups made before it had one. A passkey of other books does not open it ("gehört zu anderen Büchern").
+2. **The address of the Aleph account that pays**, or the backup's CID. Belege finds the backups through the account: it asks Aleph for that account's STORE messages on the channel `BELEGE-BACKUP`. The address is public; write it down. `pnpm setup:aleph` shows it, a paired bridge names it by itself, and once the vault is kept on Aleph an empty device learns it from there.
 
 ## Set up once
 
@@ -59,7 +59,7 @@ This browser's key is made here and kept sealed in the settings, as the bridge t
 
 A full backup comes back together with all its increments: the card lists each full backup with how many there are (Aleph's `refs=`, and the history here), fetches them all, and refuses a chain with a hole – its newer heads would point at entries nobody has. An increment alone is not restored; its full backup is.
 
-_Integrationen → Backup → "Wiederherstellen"_, after unlocking with **the same passkey**. On a new device that means "Mit vorhandenem Passkey wiederherstellen".
+_Integrationen → Backup → "Wiederherstellen"_, after unlocking with **a passkey of these books**. On a new device that means "Mit vorhandenem Passkey wiederherstellen".
 
 The list shows:
 
@@ -68,7 +68,7 @@ The list shows:
 
 A CID can also be typed. After a question, the browser fetches the sealed file from Aleph's gateway, opens it with the key from the passkey and puts every database and receipt file back. It **merges**: what is in the books here stays, what the backup holds is added, nothing is deleted. The page then reloads, and the passkey opens the books again.
 
-A backup made with another passkey cannot be opened ("mit einem anderen gemacht"), and one that holds other books is refused.
+A backup of other books cannot be opened ("gehört zu anderen Büchern").
 
 ## Let another key back up
 

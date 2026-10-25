@@ -10,6 +10,7 @@ import {
 	VAULTS_STORAGE_KEY,
 	VaultStorageError,
 	addPasskey,
+	adoptNewerVault,
 	loadVaultRecords,
 	openBooksVault,
 	removePasskey,
@@ -152,5 +153,33 @@ describe('the books’ vault', () => {
 		const storage = memoryStorage();
 		await openBooksVault({ ...A, storage });
 		await expect(openBooksVault({ ...A, prfOutput: bytes(32, 9), storage })).rejects.toThrow();
+	});
+
+	it('takes a newer record of the same books, and refuses when it removed this passkey', async () => {
+		const here = memoryStorage();
+		const elsewhere = memoryStorage();
+		// The same books on two browsers: A here; elsewhere A added B, then C.
+		const openedHere = await openBooksVault({ ...A, storage: here });
+		elsewhere.setItem(VAULTS_STORAGE_KEY, here.getItem(VAULTS_STORAGE_KEY) ?? '');
+		let there = await openBooksVault({ ...A, storage: elsewhere });
+		there = await addPasskey(there, B, elsewhere);
+		const adopted = await adoptNewerVault(openedHere, there.record.vault, A, here, [
+			{ kid: there.record.slots[1].kid, label: '', credentialId: 'cred-b', addedAt: '' }
+		]);
+		expect(adopted.record.vault.slots).toHaveLength(2);
+		expect(adopted.record.slots.map((s) => s.credentialId)).toEqual(['cred-a', 'cred-b']);
+		expect(adopted.root).toEqual(A.prfOutput);
+		// Elsewhere A was taken out: the newer record says so, and A is refused here too.
+		const withoutA = removePasskey(
+			{ ...there, kid: there.record.slots[1].kid },
+			there.record.slots[0].kid,
+			elsewhere
+		);
+		await expect(adoptNewerVault(adopted, withoutA.record.vault, A, here)).rejects.toBeInstanceOf(
+			RemovedPasskeyError
+		);
+		await expect(openBooksVault({ ...A, storage: here })).rejects.toBeInstanceOf(
+			RemovedPasskeyError
+		);
 	});
 });

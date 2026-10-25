@@ -234,8 +234,11 @@ export async function startSession(
 		storage: globalThis.localStorage,
 		...(indexes ? { find: () => indexes.findVaultOnAleph({ prfOutput: passkeyPrf }) } : {})
 	});
+	/** The paying Aleph account, as the books' index names it (an empty device). */
+	let pointedOwner = '';
 	if (indexes && vault.found) {
 		const current = await indexes.readRootIndex({ root: vault.root }).catch(() => null);
+		pointedOwner = current?.pointer?.owner ?? '';
 		if (current?.vault) {
 			vault = await adoptNewerVault(
 				vault,
@@ -387,6 +390,14 @@ export async function startSession(
 		});
 		setFlag(moveFlag);
 		if (!beforeBooksIdentity) setFlag(booksFlag);
+		// An empty device that found the books through the index: the account the
+		// backups are kept for, so "Wiederherstellen" lists them at once.
+		if (pointedOwner) {
+			const { isAddress, loadOwner, saveOwner } = await import('./backup/keeper.js');
+			if (isAddress(pointedOwner) && !(await loadOwner(store.settings))) {
+				await saveOwner(store.settings, pointedOwner);
+			}
+		}
 		onStatus?.({ step: 'blobs' });
 		const blobs = await createBlobStore({ blockstore: helia.blockstore, key: blobKey, online });
 
