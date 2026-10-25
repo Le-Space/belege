@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **The vault's index on Aleph is kept, not only sent (#406).** It was broadcast once: an answer that never came (Aleph is slow at times, though it processes the message), or `pending` followed by a rejection, looked like a kept index or failed for good. Now, after a minute without an answer or on `pending`, Belege asks Aleph for the message's status for up to five minutes, sends the same signed message again while Aleph does not know it, and reports a rejection – as paperless-anywhere does.
+
 - **A full backup of several hundred MB goes through on a home uplink.** The upload gave up after two minutes (since 0.23.0: two minutes and 1 MB/s), so a 500 MB backup on a slower line ended with "Aleph ingest is unreachable: signal timed out" and was never kept. It now waits two minutes plus the time at 100 kB/s – 85 minutes for 500 MB –, and when even that runs out says so in words: how long it waited, that nothing was kept or costs, and to try again on a faster line with the tab in front.
 
 - **The header no longer shows "Backup {percent} %".** Where Aleph's IPFS host does not let the upload be counted – its real one, for every page but its console – the header took the text meant for a counted upload, without a number. It now says "Backup wird hochgeladen"; the fake Aleph in the tests refuses that preflight as the real one does, and never lets one be cached.
