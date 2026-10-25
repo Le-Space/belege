@@ -192,8 +192,22 @@ export async function openBooksVault({
 	const slotKey = await slotKeyOf(prfOutput);
 	if (record) {
 		const { payload, vaultKey } = await openVault(record.vault, { slotKey, rawCredentialId });
-		// Kept here only once it opened with this passkey.
-		if (found) saveVaultRecord(storage, record);
+		// Kept here only once it opened with this passkey – with its own name and id.
+		if (found) {
+			record = {
+				...record,
+				slots: [
+					...record.slots.filter((s) => s.kid !== kid),
+					{
+						kid,
+						label,
+						credentialId,
+						addedAt: record.slots.find((s) => s.kid === kid)?.addedAt ?? now().toISOString()
+					}
+				]
+			};
+			saveVaultRecord(storage, record);
+		}
 		return { record, vaultKey, root: decodePayload(payload), kid, created: false, found };
 	}
 	const root = Uint8Array.from(prfOutput);
@@ -314,9 +328,10 @@ export async function renewBooksVault(opened, answers, removed, storage) {
  * @param {any} vault the newer vault record
  * @param {{ prfOutput: Uint8Array, rawCredentialId: Uint8Array }} passkey this one
  * @param {Pick<Storage, 'getItem' | 'setItem'>} storage
+ * @param {SlotInfo[]} [published] slot details published with it (no names)
  * @returns {Promise<OpenedVault>}
  */
-export async function adoptNewerVault(opened, vault, passkey, storage) {
+export async function adoptNewerVault(opened, vault, passkey, storage, published = []) {
 	// The same record (a slot added keeps the vault's id, so the whole record is compared).
 	if (!vault || !Array.isArray(vault.slots)) return opened;
 	if (JSON.stringify(vault) === JSON.stringify(opened.record.vault)) return opened;
@@ -341,9 +356,13 @@ export async function adoptNewerVault(opened, vault, passkey, storage) {
 		throw new VaultStorageError('The newer vault holds other books.');
 	}
 	const kids = new Set(vault.slots.map((/** @type {any} */ s) => s.kid));
+	const here = opened.record.slots.filter((s) => kids.has(s.kid));
 	const record = {
 		vault,
-		slots: opened.record.slots.filter((s) => kids.has(s.kid)),
+		slots: [
+			...here,
+			...published.filter((s) => kids.has(s.kid) && !here.some((h) => h.kid === s.kid))
+		],
 		removed: opened.record.removed
 	};
 	const records = loadVaultRecords(storage).filter((r) => r.vault.id !== opened.record.vault.id);

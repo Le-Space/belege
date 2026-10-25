@@ -1157,12 +1157,14 @@ const VAULT_INDEX_SETTING = 'vault/index';
 async function showVault() {
 	if (!session) return;
 	const { record, kid } = session.vault;
+	// Every slot in the vault, named where this browser knows the name.
+	const known = new Map(record.slots.map((s) => [s.kid, s]));
 	app.vault = {
-		slots: record.slots.map((s) => ({
-			kid: s.kid,
-			label: s.label,
-			addedAt: s.addedAt,
-			mine: s.kid === kid
+		slots: record.vault.slots.map((/** @type {{ kid: string }} */ v) => ({
+			kid: v.kid,
+			label: known.get(v.kid)?.label ?? '',
+			addedAt: known.get(v.kid)?.addedAt ?? '',
+			mine: v.kid === kid
 		})),
 		indexOn: (await getSetting(session.store.settings, VAULT_INDEX_SETTING)) === true
 	};
@@ -1185,7 +1187,7 @@ export async function publishBooksVault(extraKeys = []) {
 	]);
 	await publishVault({
 		root: session.vault.root,
-		vault: session.vault.record.vault,
+		record: session.vault.record,
 		passkeyKeys: [session.ownIndexKey, ...extraKeys],
 		owner: await loadOwner(session.store.settings)
 	});

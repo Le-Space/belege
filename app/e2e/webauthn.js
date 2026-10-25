@@ -21,7 +21,7 @@
 export async function addVirtualAuthenticator(page) {
 	const cdp = await page.context().newCDPSession(page);
 	await cdp.send('WebAuthn.enable');
-	await cdp.send('WebAuthn.addVirtualAuthenticator', {
+	const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
 		options: {
 			protocol: 'ctap2',
 			ctap2Version: 'ctap2_1',
@@ -39,7 +39,8 @@ export async function addVirtualAuthenticator(page) {
 	await page.addInitScript(() => {
 		/** @type {any} */ (window).__belegeSkipPasskeySteps = true;
 	});
-	return cdp;
+	// Which authenticator, for a spec that deletes a passkey from it (books-vault.spec.js).
+	return Object.assign(cdp, { authenticatorId });
 }
 
 /**

@@ -16,7 +16,9 @@
 // What is published is public and sealed: the vault record holds nothing
 // secret in the clear (books-vault.js), the pointer is AES-GCM under a key
 // from the root, and the addresses carry no name, no wallet and no label – the
-// passkeys' names stay in this browser. After paperless-anywhere
+// passkeys' names stay in this browser. Beside the record, each slot's
+// credential id and date: random and public, so another device can ask each
+// passkey when the vault is renewed. After paperless-anywhere
 // (pwa/src/lib/keys/index-keys.js), by the same author. Written only when the
 // person adds a passkey or backs up, and never while the network is paused.
 
@@ -222,14 +224,33 @@ export async function findVaultOnAleph({ prfOutput, endpoints, fetch: f }) {
 		...(endpoints ? { endpoints } : {}),
 		...(f ? { fetch: f } : {})
 	});
-	return content?.vault ? { vault: content.vault, slots: [], removed: [] } : null;
+	return content?.vault
+		? { vault: content.vault, slots: slotsOf(content.slots), removed: [] }
+		: null;
+}
+
+/**
+ * Published slot details, with no name: `{ kid, credentialId, addedAt }`.
+ * @param {unknown} slots
+ * @returns {import('../books-vault.js').SlotInfo[]}
+ */
+function slotsOf(slots) {
+	if (!Array.isArray(slots)) return [];
+	return slots
+		.filter((s) => s && typeof s.kid === 'string' && typeof s.credentialId === 'string')
+		.map((s) => ({
+			kid: s.kid,
+			label: '',
+			credentialId: s.credentialId,
+			addedAt: typeof s.addedAt === 'string' ? s.addedAt : ''
+		}));
 }
 
 /**
  * Index M: the current vault record and the pointer, opened; null when there is none.
  *
  * @param {{ root: Uint8Array, endpoints?: import('./keeper.js').AlephEndpoints, fetch?: typeof fetch }} params
- * @returns {Promise<{ vault: any, pointer: { owner: string } | null } | null>}
+ * @returns {Promise<{ vault: any, slots: import('../books-vault.js').SlotInfo[], pointer: { owner: string } | null } | null>}
  */
 export async function readRootIndex({ root, endpoints, fetch: f }) {
 	const content = await readIndex({
@@ -238,7 +259,11 @@ export async function readRootIndex({ root, endpoints, fetch: f }) {
 		...(f ? { fetch: f } : {})
 	});
 	if (!content?.vault) return null;
-	return { vault: content.vault, pointer: await openPointer(root, content.pointer) };
+	return {
+		vault: content.vault,
+		slots: slotsOf(content.slots),
+		pointer: await openPointer(root, content.pointer)
+	};
 }
 
 /**
@@ -247,18 +272,25 @@ export async function readRootIndex({ root, endpoints, fetch: f }) {
  *
  * @param {object} params
  * @param {Uint8Array} params.root
- * @param {any} params.vault the current vault record
+ * @param {import('../books-vault.js').VaultRecord} params.record the current vault record
  * @param {Uint8Array[]} params.passkeyKeys from `passkeyIndexKey`
  * @param {string | null} [params.owner] the paying Aleph account
  * @param {import('./keeper.js').AlephEndpoints} [params.endpoints]
  * @param {typeof fetch} [params.fetch]
  */
-export async function publishVault({ root, vault, passkeyKeys, owner, endpoints, fetch: f }) {
+export async function publishVault({ root, record, passkeyKeys, owner, endpoints, fetch: f }) {
 	const options = { ...(endpoints ? { endpoints } : {}), ...(f ? { fetch: f } : {}) };
+	const vault = record.vault;
+	// No names: those stay in this browser.
+	const slots = record.slots.map(({ kid, credentialId, addedAt }) => ({
+		kid,
+		credentialId,
+		addedAt
+	}));
 	await publishIndex({
 		key: await rootIndexKey(root),
-		content: { vault, ...(owner ? { pointer: await sealPointer(root, { owner }) } : {}) },
+		content: { vault, slots, ...(owner ? { pointer: await sealPointer(root, { owner }) } : {}) },
 		...options
 	});
-	for (const key of passkeyKeys) await publishIndex({ key, content: { vault }, ...options });
+	for (const key of passkeyKeys) await publishIndex({ key, content: { vault, slots }, ...options });
 }

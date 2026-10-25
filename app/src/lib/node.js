@@ -241,7 +241,8 @@ export async function startSession(
 				vault,
 				current.vault,
 				{ prfOutput: passkeyPrf, rawCredentialId: credential.rawCredentialId },
-				globalThis.localStorage
+				globalThis.localStorage,
+				current.slots
 			);
 		}
 	}
