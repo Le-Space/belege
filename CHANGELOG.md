@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.23.0] – 2026-10-25
+
 ### Added
 
 - **"Nicht gesichert" in the header, and automatic increments.** When the last backup lacks something – a payment, a receipt, a link, an AI result, entries that came by sync – the header says "Nicht gesichert (n)", with the areas in its tooltip; Belege compares each database's heads with the ones the backup chain last shipped, a moment after every write and after every backup (here or on an own device). "Automatisch sichern (auf diesem Gerät)" in the backup card uploads an increment by itself five minutes after the last change – never a full backup – while the network is not paused, this browser is let in or the bridge runs, and the credits last more than 30 days; otherwise the header says why not. On for one device only (`localStorage`), so two devices do not write the same chain's next increment.
