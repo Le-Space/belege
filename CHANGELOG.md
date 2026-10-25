@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Keys and recovery, explained.** A new page, `docs/keys.md` (and `keys.de.md`), with a diagram of where every key comes from today, what is stored where, the passkey prompts, and plainly what a lost passkey means – and the vault planned in #406. Linked from the README and from the consent screen, under the note on losing the passkey ("Wie die Schlüssel funktionieren", in a new tab).
+
 ## [0.22.0] – 2026-10-25
 
 ### Changed
