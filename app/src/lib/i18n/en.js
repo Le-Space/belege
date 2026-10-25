@@ -718,7 +718,7 @@ export default {
 			technical: [
 				'A WebAuthn passkey with P-256 (ES256), stored as discoverable. Your DID (did:key:…) is its public key, formed by @le-space/orbitdb-identity-provider-webauthn-did. The private key never leaves the authenticator.',
 				'The PRF extension (CTAP hmac-secret) is mandatory. If the authenticator provides no PRF secret, start-up aborts; there is no unencrypted fallback.',
-				'Passkey prompts: creating 3, unlocking 1, restoring on a new device 4.'
+				'Passkey prompts: creating 2, unlocking 1, restoring on a new device 3.'
 			]
 		},
 		storage: {
