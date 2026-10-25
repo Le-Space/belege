@@ -495,6 +495,31 @@ export function chainFitsBooks(chain) {
 }
 
 /**
+ * The collections that changed since the chain's last backup: their heads
+ * are not the ones it shipped. Settings do not count – every backup writes
+ * them (its history, the chain), as in `buildIncrement`. Comparing heads
+ * walks nothing, so it is cheap enough to ask after every write.
+ *
+ * @param {import('./backup/archive.js').BackupChain} chain
+ * @returns {Promise<string[]>}
+ */
+export async function unsavedCollections(chain) {
+	if (!session) return [];
+	/** @type {string[]} */
+	const changed = [];
+	for (const [name, db] of Object.entries(session.store.databases())) {
+		if (name === 'settings') continue;
+		/** @type {string[]} */
+		const now = (await /** @type {any} */ (db).log.heads()).map((/** @type {any} */ h) =>
+			String(h.hash)
+		);
+		const shipped = chain.heads[String(db.address)] ?? [];
+		if (now.length !== shipped.length || now.some((h) => !shipped.includes(h))) changed.push(name);
+	}
+	return changed;
+}
+
+/**
  * Put a sealed backup back into these books (backup/archive.js, #77), with its
  * increments (#454). The books are closed for it: reload the page afterwards.
  *

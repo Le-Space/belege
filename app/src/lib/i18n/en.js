@@ -1193,7 +1193,24 @@ export default {
 		now: 'Back up now',
 		keepWorking:
 			'You can go on working in Belege: the backup carries on, and the header shows how far it is. Just do not close or reload the tab.',
+		auto: {
+			label: 'Back up automatically (on this device)',
+			hint: 'Five minutes after the last change Belege backs up what is new by itself – as an increment, never as a full backup. Only while the tab is open, the network is not paused, this browser is let in or the bridge runs, and the credits last more than 30 days. Switch it on on one device, not on several.',
+			unsaved: 'Not backed up yet: {list}.'
+		},
 		badge: {
+			unsaved: 'Not backed up ({count})',
+			unsavedTitle: 'Changed since the last backup: {list}',
+			autoIn: 'Automatic backup in {minutes} min',
+			autoShort: 'in {minutes} min',
+			byHand: 'To back up: Backup → “Jetzt sichern”, or switch on “Back up automatically” there.',
+			blocked: {
+				paused: 'The network is paused: no automatic backup.',
+				chain: 'The next backup is a full one – that only starts by hand.',
+				key: 'This browser is not let in and the bridge is not running: no automatic backup.',
+				credits: 'The credits last less than 30 days: the backup asks first – please by hand.',
+				error: 'The last automatic backup failed – details under Backup.'
+			},
 			title: 'To the backup',
 			packing: 'Backup being packed',
 			uploading: 'Backup {percent} %',

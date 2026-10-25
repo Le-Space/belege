@@ -18,6 +18,7 @@
 	import { loadChain, olderChains } from './chain.js';
 	import BackupProgress from './BackupProgress.svelte';
 	import { backupRun, decideBackup, refused, runBackup, sizeText } from './run.svelte.js';
+	import { backupDue, setAutoBackup } from './auto.svelte.js';
 	import {
 		BACKUP_CHANNEL,
 		alephEndpoints,
@@ -573,6 +574,33 @@
 					})
 				: t('backup.chainFirst')}
 		</p>
+		{#if chainUsable}
+			<div class="mt-3 text-sm" data-testid="backup-auto">
+				<label class="flex items-start gap-2 text-text">
+					<input
+						type="checkbox"
+						class="mt-0.5"
+						checked={backupDue.auto}
+						onchange={(e) => setAutoBackup(e.currentTarget.checked)}
+						data-testid="backup-auto-toggle"
+					/>
+					<span>
+						<span class="text-heading">{t('backup.auto.label')}</span>
+						<span class="block text-xs text-faint">{t('backup.auto.hint')}</span>
+					</span>
+				</label>
+				{#if backupDue.collections.length && !step}
+					<p class="mt-1 text-xs text-text" data-testid="backup-unsaved">
+						{t('backup.auto.unsaved', {
+							list: backupDue.collections.map((c) => t(`storage.databases.${c}`)).join(', ')
+						})}
+						{#if backupDue.auto && backupDue.blocked}
+							<span class="text-warning">{t(`backup.badge.blocked.${backupDue.blocked}`)}</span>
+						{/if}
+					</p>
+				{/if}
+			</div>
+		{/if}
 		{#if asking}
 			<div
 				class="mt-3 rounded-md border border-border bg-surface-2 p-3 text-sm"
