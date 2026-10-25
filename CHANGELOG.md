@@ -22,6 +22,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **The vault's index on Aleph is kept, not only sent (#406).** It was broadcast once: an answer that never came (Aleph is slow at times, though it processes the message), or `pending` followed by a rejection, looked like a kept index or failed for good. Now, after a minute without an answer or on `pending`, Belege asks Aleph for the message's status for up to five minutes, sends the same signed message again while Aleph does not know it, and reports a rejection – as paperless-anywhere does.
+
 - **"Beleg finden" starts with the payment's year.** With no suggestion, the search opened on "Alle Belege" – every receipt ever kept, so typing the provider's name showed ones from 2019 for a payment in 2025. It now opens on "Aus {year}"; when that year has none, the list says how many other years have and that they are under "Alle Belege", which still holds them all.
 
 ## [0.22.0] – 2026-10-25
