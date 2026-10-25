@@ -24,6 +24,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **A full backup of several hundred MB goes through on a home uplink.** The upload gave up after two minutes (since 0.23.0: two minutes and 1 MB/s), so a 500 MB backup on a slower line ended with "Aleph ingest is unreachable: signal timed out" and was never kept. It now waits two minutes plus the time at 100 kB/s – 85 minutes for 500 MB –, and when even that runs out says so in words: how long it waited, that nothing was kept or costs, and to try again on a faster line with the tab in front.
+
 - **"Beleg finden" starts with the payment's year.** With no suggestion, the search opened on "Alle Belege" – every receipt ever kept, so typing the provider's name showed ones from 2019 for a payment in 2025. It now opens on "Aus {year}"; when that year has none, the list says how many other years have and that they are under "Alle Belege", which still holds them all.
 
 ## [0.22.0] – 2026-10-25

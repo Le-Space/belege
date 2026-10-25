@@ -1191,6 +1191,8 @@ export default {
 			"Or in Aleph's dashboard, with the account's wallet: under Permissions, add the address above, message type STORE, channel {channel}.",
 		grantDashboardLink: 'Open Permissions',
 		now: 'Back up now',
+		uploadTimedOut:
+			'The upload to Aleph did not finish within {minutes} minutes: the line was too slow for {size}, or broke off. Nothing was kept and nothing costs. Try again, best on a faster line and with this tab in front.',
 		keepWorking:
 			'You can go on working in Belege: the backup carries on, and the header shows how far it is. Just do not close or reload the tab.',
 		auto: {

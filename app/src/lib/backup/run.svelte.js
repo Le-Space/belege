@@ -18,7 +18,7 @@ import {
 import { backupName, rememberBackup } from './history.js';
 import { chainAfter, chainFromBase, saveChain } from './chain.js';
 import { BackupRefusedError } from './keeper.js';
-import { uploadToAleph } from './upload.js';
+import { UploadTimeoutError, uploadToAleph } from './upload.js';
 
 /**
  * @typedef {'' | 'packing' | 'asking' | 'uploading' | 'keeping'} BackupStep
@@ -127,16 +127,18 @@ const holdTheTab = (e) => {
 
 /** Aleph's refusal in words. @param {unknown} e */
 export const refused = (e) =>
-	e instanceof BackupRefusedError
-		? e.kind === 'credits'
-			? t('messages.bridge.alephNotKept', {
-					credits: Number(e.reason.credits).toLocaleString(intlLocale()),
-					required: Number(e.reason.required).toLocaleString(intlLocale())
-				})
-			: t('messages.bridge.alephRejected', { error: String(e.reason.errorCode ?? '') })
-		: e instanceof Error
-			? e.message
-			: String(e);
+	e instanceof UploadTimeoutError
+		? t('backup.uploadTimedOut', { minutes: e.minutes, size: sizeText(e.size) })
+		: e instanceof BackupRefusedError
+			? e.kind === 'credits'
+				? t('messages.bridge.alephNotKept', {
+						credits: Number(e.reason.credits).toLocaleString(intlLocale()),
+						required: Number(e.reason.required).toLocaleString(intlLocale())
+					})
+				: t('messages.bridge.alephRejected', { error: String(e.reason.errorCode ?? '') })
+			: e instanceof Error
+				? e.message
+				: String(e);
 
 /**
  * Per database, as the app names them.

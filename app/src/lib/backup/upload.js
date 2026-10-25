@@ -10,10 +10,26 @@
 // progress once; refused before a byte went, sent again without, and that
 // host is not asked again in this tab.
 
-/** As the storage bridge's backend: two minutes per request, and more for a big file. */
+/** Two minutes for the host to answer, and the time the bytes take on top. */
 const TIMEOUT_MS = 120_000;
-/** At least 1 MB/s: a 500 MB backup may take its ten minutes. */
-const BYTES_PER_MS = 1_000;
+/**
+ * At least 100 kB/s: a 500 MB backup may take its 85 minutes. The storage
+ * bridge's two minutes, and 1 MB/s after them, were too little for a home
+ * uplink – a full backup never went through. Without progress (Aleph's host,
+ * above) a stalled upload cannot be told from a slow one, so the bound is wide.
+ */
+const BYTES_PER_MS = 100;
+
+/** The upload took longer than a slow line would: `minutes` allowed. */
+export class UploadTimeoutError extends Error {
+	/** @param {number} minutes @param {number} size bytes */
+	constructor(minutes, size) {
+		super(`Aleph ingest did not answer within ${minutes} minutes`);
+		this.name = 'UploadTimeoutError';
+		this.minutes = minutes;
+		this.size = size;
+	}
+}
 
 /**
  * The file's own hash from the host's `add` answer: a name with a path makes
@@ -109,7 +125,8 @@ function send({ ingestUrl, bytes, name, onProgress }) {
 					? new PreflightRefused('Aleph ingest refused the preflight')
 					: new Error('Aleph ingest is unreachable')
 			);
-		xhr.ontimeout = () => reject(new Error('Aleph ingest did not answer in time'));
+		xhr.ontimeout = () =>
+			reject(new UploadTimeoutError(Math.round(xhr.timeout / 60_000), bytes.length));
 		xhr.send(form);
 	});
 }
