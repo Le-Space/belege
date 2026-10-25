@@ -18,6 +18,10 @@ All notable changes to Le Space Belege. The format follows
 
 - **A backup goes on while you work elsewhere, and shows how far it is.** "Jetzt sichern" ran inside the backup card: leaving the page hid it, and coming back offered a second run beside the first. The run is now the app's: the header shows it on every page ("Backup 42 %", or "Backup wartet auf dich" when it asks before uploading), one click leads back to the card, and closing or reloading the tab asks first. The card shows the step out of three with a bar. The upload is counted where the host allows it; Aleph's IPFS host refuses the browser's preflight for that (its upload itself is open), so there the upload is sent as before and the bar shows that it is going and for how long.
 
+### Fixed
+
+- **"Beleg finden" starts with the payment's year.** With no suggestion, the search opened on "Alle Belege" – every receipt ever kept, so typing the provider's name showed ones from 2019 for a payment in 2025. It now opens on "Aus {year}"; when that year has none, the list says how many other years have and that they are under "Alle Belege", which still holds them all.
+
 ## [0.22.0] – 2026-10-25
 
 ### Changed

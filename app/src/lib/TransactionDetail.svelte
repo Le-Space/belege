@@ -1435,7 +1435,9 @@
 	let foundYear = $derived(
 		foundAll.filter((c) => receiptPlacedOn(c.receipt)?.slice(0, 4) === tx?.bookedOn?.slice(0, 4))
 	);
-	let tab = $derived(findTab ?? (suggestions.length ? 'passend' : 'alle'));
+	// No suggestion: the payment's own year first, not every receipt ever kept –
+	// one from 2019 is no answer for a payment in 2025.
+	let tab = $derived(findTab ?? (suggestions.length ? 'passend' : 'jahr'));
 	/** @param {string | number | null} id */
 	const pickTab = (id) => {
 		if (
@@ -1449,6 +1451,19 @@
 			findTab = id;
 	};
 	let rows = $derived(tab === 'passend' ? foundSuggestions : tab === 'jahr' ? foundYear : foundAll);
+	// An empty list says why: nothing from this year, but some from other years.
+	let emptyText = $derived(
+		tab === 'jahr' && foundAll.length
+			? t('zahlungen.detail.find.noneThisYear', {
+					year: tx?.bookedOn?.slice(0, 4) ?? '',
+					count: foundAll.length
+				})
+			: findQuery.trim()
+				? t('zahlungen.detail.find.noMatch')
+				: tab === 'passend'
+					? t('zahlungen.detail.find.noSuggestion')
+					: t('zahlungen.detail.noChoices')
+	);
 
 	/** @param {Record<string, any>} c */
 	function coverageText(c) {
@@ -3035,11 +3050,7 @@
 									</div>
 								{:else}
 									<p class="mt-2 text-sm text-faint" data-testid="tx-find-none">
-										{findQuery.trim()
-											? t('zahlungen.detail.find.noMatch')
-											: tab === 'passend'
-												? t('zahlungen.detail.find.noSuggestion')
-												: t('zahlungen.detail.noChoices')}
+										{emptyText}
 									</p>
 								{/each}
 							</div>
