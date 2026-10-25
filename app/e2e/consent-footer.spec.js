@@ -24,6 +24,8 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	await expect(highlights.nth(2)).toContainText('Bank und Belege, abgeglichen');
 	// Who offers Belege and on what terms; the imprint and privacy policy of Le Space UG linked.
 	const terms = dialog.getByTestId('consent-terms');
+	// A separate browser profile without extensions, recommended (docs/threat-model.md).
+	await expect(dialog).toContainText('ein eigenes Browserprofil ohne Erweiterungen');
 	// Folded, as are the coloured sections (#431); the loss stays in view.
 	for (const id of ['consent-terms', 'consent-identity', 'consent-network', 'consent-ai']) {
 		expect(await dialog.getByTestId(id).evaluate((d) => /** @type {any} */ (d).open)).toBe(false);

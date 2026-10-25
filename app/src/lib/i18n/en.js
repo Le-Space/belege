@@ -725,7 +725,8 @@ export default {
 			title: 'Storage: only in this browser, always encrypted',
 			simple: [
 				'Your bookings, receipts and settings are stored only in this browser on this device – nowhere else, not with us either.',
-				'Everything is encrypted, with a key that your passkey creates anew each time you unlock. The key itself is never stored.'
+				'Everything is encrypted, with a key that your passkey creates anew each time you unlock. The key itself is never stored.',
+				'What the page shows, browser extensions allowed to run here see as well. For Belege, a browser profile of its own without extensions is the safe choice.'
 			],
 			loss: 'If you lose the passkey, you lose access to your data. Nobody can recover it then, not even us. If you delete this browser’s site data, it is gone as well.',
 			lossHeading: 'Important:',

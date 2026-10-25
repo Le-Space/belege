@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **What Belege protects against, and what not.** `docs/threat-model.md` (and `.de.md`): what the sealing answers (storage and relays, a copied browser profile, devices that are not yours, the language model) and what no web app can (a device or browser not under your control – browser extensions included –, a tampered build, losing every passkey), with what to do: a browser profile of its own without extensions, Android's Chrome, the release's IPFS CID to compare, and a planned desktop app. Linked from the README and SECURITY.md; the consent screen recommends the separate profile.
+
 ## [0.22.0] – 2026-10-25
 
 ### Changed
