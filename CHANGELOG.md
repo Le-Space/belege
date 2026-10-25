@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.22.0] – 2026-10-25
+
 ### Changed
 
 - **One passkey prompt fewer when creating or restoring.** Since the books sign as themselves (#496), the passkey no longer signs an OrbitDB identity: creating a passkey asks twice instead of three times ("Passkey-Abfrage 2 von 2"), restoring one three times instead of four. The passkey's DID is still the one shown and the author of every record; unlocking still asks once. The consent screen's technical notes (version 28) and `app/README.md` say how the books sign now, and what `localStorage` holds.
