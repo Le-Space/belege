@@ -161,8 +161,9 @@ const databasesOf = (manifest) =>
  * @param {string} params.ingestUrl Aleph's IPFS host
  * @param {(cid: string, ref?: string) => Promise<{ status: string, itemHash: string, address?: string, sender?: string, ref?: string }>} params.keep the STORE: this browser's key, or the bridge
  * @param {(size: number) => { perDay: number, days: number } | null} params.askFor what a backup of this size costs, when it should be asked first
+ * @param {boolean} [params.unattended] started by itself (auto.svelte.js): what would ask stops it instead
  */
-export async function runBackup({ continuing, ingestUrl, keep, askFor }) {
+export async function runBackup({ continuing, ingestUrl, keep, askFor, unattended = false }) {
 	const store = currentStore();
 	if (!store || backupRun.step) return;
 	Object.assign(backupRun, {
@@ -193,6 +194,7 @@ export async function runBackup({ continuing, ingestUrl, keep, askFor }) {
 		// A whole copy costs credits every day it is kept: when the credits
 		// would not last a month with it, ask before it goes up.
 		const cost = askFor(built.sealed.length);
+		if (cost && unattended) return;
 		if (cost) {
 			backupRun.step = 'asking';
 			backupRun.asking = { size: built.sealed.length, ...cost };

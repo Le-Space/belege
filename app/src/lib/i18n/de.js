@@ -1218,7 +1218,24 @@ export default {
 		now: 'Jetzt sichern',
 		keepWorking:
 			'Du kannst in Belege weiterarbeiten: Das Backup läuft weiter, oben im Kopf siehst du, wie weit es ist. Nur den Tab nicht schließen oder neu laden.',
+		auto: {
+			label: 'Automatisch sichern (auf diesem Gerät)',
+			hint: 'Fünf Minuten nach der letzten Änderung sichert Belege von selbst, was neu ist – als Zuwachs, nie als Vollbackup. Nur solange der Tab offen ist, das Netz nicht pausiert, dieser Browser freigegeben ist oder die Bridge läuft und die Credits länger als 30 Tage reichen. Auf einem Gerät einschalten, nicht auf mehreren.',
+			unsaved: 'Noch nicht gesichert: {list}.'
+		},
 		badge: {
+			unsaved: 'Nicht gesichert ({count})',
+			unsavedTitle: 'Seit dem letzten Backup geändert: {list}',
+			autoIn: 'Automatisches Backup in {minutes} Min.',
+			autoShort: 'in {minutes} Min.',
+			byHand: 'Zum Sichern: Backup → „Jetzt sichern“, oder dort „Automatisch sichern“ einschalten.',
+			blocked: {
+				paused: 'Das Netz ist pausiert: kein automatisches Backup.',
+				chain: 'Das nächste Backup ist ein Vollbackup – das startet nur von Hand.',
+				key: 'Weder ist dieser Browser freigegeben noch läuft die Bridge: kein automatisches Backup.',
+				credits: 'Die Credits reichen keine 30 Tage mehr: das Backup fragt erst – bitte von Hand.',
+				error: 'Das letzte automatische Backup ist fehlgeschlagen – Details im Backup.'
+			},
 			title: 'Zum Backup',
 			packing: 'Backup wird gepackt',
 			uploading: 'Backup {percent} %',

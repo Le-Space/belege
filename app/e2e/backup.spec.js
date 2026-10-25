@@ -364,6 +364,42 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 		card.getByTestId('backup-row').filter({ hasText: 'bei Aleph gelöscht' })
 	).toHaveCount(2);
 
+	// Something new after the backup: the header says it is not backed up yet,
+	// and what changed.
+	await page.evaluate(async () => {
+		await /** @type {any} */ (window).__belegeE2E.addTransaction({
+			bookedOn: new Date().toISOString().slice(0, 10),
+			counterparty: 'Dritte Probe',
+			purpose: 'Backup-Probe',
+			amountCents: -77
+		});
+	});
+	const due = page.getByTestId('backup-badge');
+	await expect(due).toHaveAttribute('data-step', 'unsaved', { timeout: 30_000 });
+	await expect(due).toContainText('Nicht gesichert (1)');
+	await expect(due).toHaveAttribute('title', /Seit dem letzten Backup geändert: Zahlungen/);
+	await expect(card.getByTestId('backup-unsaved')).toContainText('Noch nicht gesichert: Zahlungen');
+	// "Automatisch sichern", with a short quiet time for the test: the
+	// increment goes up by itself, on the new chain, and the header clears.
+	await page.evaluate(() => {
+		/** @type {any} */ (window).__belegeBackupAutoDelayMs = 1500;
+	});
+	await card.getByTestId('backup-auto-toggle').check();
+	await expect(card.getByTestId('backup-row')).toHaveCount(4, { timeout: 30_000 });
+	await expect(due).toHaveCount(0, { timeout: 30_000 });
+	await expect(card.getByTestId('backup-made')).toContainText('Zuwachs 1 gesichert');
+	expect(aleph.stores.at(-1)).toMatchObject({
+		sender: browserKey,
+		status: 'processed',
+		ref: newFull.cid
+	});
+	// It stays on for this device, after a reload too.
+	await page.reload();
+	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible({ timeout: 30_000 });
+	await openIntegration(page, 'backup');
+	await expect(card.getByTestId('backup-auto-toggle')).toBeChecked();
+
 	// The overview says so.
 	await page.getByTestId('integration-back').click();
 	await expect(page.locator('[data-testid="integration-row"][data-id="backup"]')).toContainText(
