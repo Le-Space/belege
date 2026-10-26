@@ -73,6 +73,7 @@
 		"@orbitdb/core": "4.0.0",
 		"@pdf-lib/fontkit": "1.1.1",
 		"@scure/base": "2.4.0",
+		"@scure/bip39": "1.6.0",
 		"blockstore-core": "^6.0.0",
 		"blockstore-level": "4.0.1",
 		"datastore-core": "^11.0.0",

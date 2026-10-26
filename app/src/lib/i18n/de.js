@@ -740,7 +740,7 @@ export default {
 			technical: [
 				'Ein WebAuthn-Passkey mit P-256 (ES256), auffindbar gespeichert. Deine DID (did:key:…) ist sein öffentlicher Schlüssel, gebildet von @le-space/orbitdb-identity-provider-webauthn-did. Der private Schlüssel verlässt den Authenticator nie.',
 				'Die PRF-Erweiterung (CTAP hmac-secret) ist Pflicht. Liefert der Authenticator kein PRF-Geheimnis, bricht der Start ab; einen unverschlüsselten Ersatzweg gibt es nicht.',
-				'Passkey-Abfragen: Anlegen 2, Entsperren 1, Wiederherstellen auf einem neuen Gerät 3.'
+				'Passkey-Abfragen: Anlegen 2, Entsperren 1, Wiederherstellen auf einem neuen Gerät 3, mit Wiederherstellungswörtern öffnen 2.'
 			]
 		},
 		storage: {
@@ -750,7 +750,7 @@ export default {
 				'Alles ist verschlüsselt, mit Schlüsseln, die bei jedem Entsperren neu entstehen: Dein Passkey öffnet dafür sein Fach im Tresor deiner Bücher. Die Schlüssel selbst werden nie gespeichert.',
 				'Was die Seite zeigt, sehen auch Browser-Erweiterungen, die hier laufen dürfen. Für Belege empfiehlt sich ein eigenes Browserprofil ohne Erweiterungen.'
 			],
-			loss: 'Verlierst du alle Passkeys deiner Bücher, verlierst du den Zugang zu deinen Daten. Niemand kann sie dann wiederherstellen, auch wir nicht. Leg deshalb unter Einstellungen → Schlüssel einen zweiten an. Löschst du die Website-Daten dieses Browsers, sind die Daten hier ebenfalls weg.',
+			loss: 'Verlierst du alle Passkeys deiner Bücher und hast keine Wiederherstellungswörter, verlierst du den Zugang zu deinen Daten. Niemand kann sie dann wiederherstellen, auch wir nicht. Schreib dir deshalb unter Einstellungen → Schlüssel die 24 Wörter auf oder leg einen zweiten Passkey an. Löschst du die Website-Daten dieses Browsers, sind die Daten hier ebenfalls weg.',
 			lossHeading: 'Wichtig:',
 			keysDoc: 'Wie die Schlüssel funktionieren',
 			technical: [
@@ -930,6 +930,21 @@ export default {
 			'Du findest diesen Hinweis jederzeit unten auf der Seite unter „Datenschutz & Technik“.'
 	},
 	onboarding: {
+		words: {
+			open: 'Mit Wiederherstellungswörtern öffnen',
+			hint: 'Kein Passkey der Bücher mehr da? Mit den 24 Wörtern öffnest du sie hier und legst dabei einen neuen Passkey an (zwei Abfragen). Ist der Tresor bei Aleph hinterlegt, findet Belege ihn; sonst nur in dem Browser, in dem er liegt.',
+			label: 'Die 24 Wörter, in ihrer Reihenfolge',
+			passkeyLabel: 'Name des neuen Passkeys',
+			go: 'Neuen Passkey anlegen und Bücher öffnen',
+			unknown: 'Diese Wörter kennt die Liste nicht: Stelle {positions}.',
+			count: 'Es sind {count} Wörter – es müssen 24 sein.',
+			checksum:
+				'Die Wörter passen nicht zusammen: Ein Wort ist vermutlich falsch abgeschrieben oder vertauscht.',
+			wrong: 'Diese Wörter öffnen den Tresor nicht.',
+			notFound: 'Zu diesen Wörtern gibt es keinen Tresor – weder in diesem Browser noch bei Aleph.',
+			notHere:
+				'Zu diesen Wörtern liegt in diesem Browser kein Tresor; das Netz ist pausiert, Aleph wurde nicht gefragt.'
+		},
 		title: 'Deine Bücher aufschließen',
 		intro:
 			'Deine Buchhaltungsdaten bleiben auf diesem Gerät und werden mit einem Schlüssel aus deinem Passkey verschlüsselt. Ohne den Passkey kann niemand sie lesen – auch wir nicht.',
@@ -2072,6 +2087,40 @@ export default {
 		},
 		keys: {
 			title: 'Schlüssel',
+			words: {
+				title: 'Wiederherstellungswörter',
+				what: '24 Wörter auf Papier, die die Bücher öffnen, wenn jeder Passkey weg ist – auf einem leeren Gerät, ohne Passkey: dort wird mit ihnen ein neuer angelegt. Belege macht sie zufällig; gespeichert werden sie nirgends, nur ein Fach im Tresor, das sich mit ihnen öffnet.',
+				none: 'Noch keine Wiederherstellungswörter. Schreib sie auf und bewahr das Papier sicher auf, getrennt von deinen Geräten.',
+				has: 'Wiederherstellungswörter angelegt am {date}.',
+				start: 'Wörter anlegen',
+				new: 'Neue Wörter anlegen',
+				writeDown:
+					'Schreib diese 24 Wörter in dieser Reihenfolge auf Papier. Sie werden nur jetzt gezeigt.',
+				paper:
+					'Kein Foto, keine Notiz-App, keine Zwischenablage: Wer die Wörter hat, öffnet die Bücher.',
+				written: 'Ich habe die 24 Wörter aufgeschrieben.',
+				next: 'Weiter',
+				askBack: 'Zur Probe: Welche Wörter stehen an diesen Stellen?',
+				confirm: 'Wörter bestätigen',
+				saving: 'Wird gespeichert …',
+				back: 'Wörter noch einmal zeigen',
+				wrongBack: 'Stimmt nicht an Stelle {positions}. Sieh noch einmal auf dein Papier.',
+				added:
+					'Die Wiederherstellungswörter öffnen jetzt die Bücher. Ältere Wörter öffnen nichts mehr.',
+				remove: 'Wörter entfernen',
+				removeSure: 'Danach öffnen die Wörter die Bücher nicht mehr.',
+				removeYes: 'Ja, entfernen',
+				removed: 'Die Wiederherstellungswörter sind entfernt.',
+				publish:
+					'Tresor bei Aleph hinterlegen, damit ein leeres Gerät ihn mit den Wörtern allein findet (versiegelt, ohne Namen).',
+				equivalent:
+					'Die Wörter wiegen so viel wie alle Passkeys zusammen. Wer sie gesehen hat, kennt die Wurzel der Schlüssel – wie bei einem Passkey hilft Entfernen nur für das, was danach kommt. Beim Erneuern des Tresors (ein Passkey in fremden Händen) fallen die Wörter weg: dann neue anlegen.',
+				offerTitle: 'Bücher absichern:',
+				offer:
+					'Leg Wiederherstellungswörter an – 24 Wörter auf Papier, falls dein Passkey verloren geht.',
+				offerGo: 'Jetzt anlegen',
+				offerLater: 'Später'
+			},
 			intro:
 				'Welche Passkeys deine Bücher öffnen. Jeder hat ein eigenes Fach im Tresor der Bücher; jedes Fach öffnet dieselben Bücher und jede Sicherung.',
 			singleHeading: 'Einziger Schlüssel:',

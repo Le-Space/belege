@@ -21,6 +21,12 @@
 // passkey that stays. A slot removed here is remembered, so that passkey is
 // refused rather than given new, empty books.
 //
+// Recovery words (stage 2, recovery-words.js) are one more slot: its key
+// comes from the words' seed instead of a passkey's PRF output, and it is
+// filed under a fixed id (`WORDS_SLOT_ID`, in place of a credential id), so a
+// vault has at most one set of words. With them, an empty device opens the
+// vault and gives a new passkey its slot (`openWithWords`, `addPasskey`).
+//
 // What a vault does not do: a removed passkey has seen the root, and the root
 // cannot be renewed without sealing the books anew. Renewing the vault key
 // keeps what is added to the vault later from it (`renewBooksVault`).
@@ -36,6 +42,16 @@ import {
 /** Bumping this gives every passkey a new slot key: no slot would open any more. */
 export const VAULT_SLOT_INFO = 'belege/vault-slot/v1';
 
+/** The words' slot key, from their BIP39 seed. */
+export const WORDS_SLOT_INFO = 'belege/vault-slot/words/v1';
+
+/**
+ * What the words' slot is filed under, in place of a credential id: one set
+ * of words per vault. The package's phrase slot (#92 there) will have its own
+ * format; a vault moves to it by renewing.
+ */
+export const WORDS_SLOT_ID = new TextEncoder().encode('belege/recovery-words/v1');
+
 /** Where the vault records are kept: a JSON array, one record per set of books. */
 export const VAULTS_STORAGE_KEY = 'belege.vaults.v1';
 
@@ -43,7 +59,7 @@ const PAYLOAD_VERSION = 1;
 const ROOT_BYTES = 32;
 
 /**
- * @typedef {{ kid: string, label: string, credentialId: string, addedAt: string }} SlotInfo
+ * @typedef {{ kid: string, label: string, credentialId: string, addedAt: string, kind?: 'words' }} SlotInfo
  *   what this browser says about a slot, beside the sealed vault: public
  * @typedef {{ vault: any, slots: SlotInfo[], removed: string[] }} VaultRecord
  * @typedef {{ record: VaultRecord, vaultKey: Uint8Array, root: Uint8Array, kid: string, created: boolean, found?: boolean }} OpenedVault
@@ -369,4 +385,138 @@ export async function adoptNewerVault(opened, vault, passkey, storage, published
 	records.push(record);
 	storage.setItem(VAULTS_STORAGE_KEY, JSON.stringify(records));
 	return { ...opened, record, vaultKey };
+}
+
+/** The id of the words' slot. */
+export const wordsSlotId = () => slotIdFor(WORDS_SLOT_ID);
+
+/** Whether the vault has recovery words. @param {VaultRecord} record */
+export async function hasRecoveryWords(record) {
+	const kid = await wordsSlotId();
+	return record.vault.slots.some((/** @type {any} */ s) => s.kid === kid);
+}
+
+/** @param {Uint8Array} seed the words' BIP39 seed */
+const wordsSlotKey = (seed) => deriveAesKey(seed, WORDS_SLOT_INFO);
+
+/**
+ * Give the vault recovery words, while it is open: one more slot, sealed
+ * under a key from their seed. Words the vault had are replaced.
+ *
+ * @param {OpenedVault} opened
+ * @param {Uint8Array} seed from `seedFromWords`
+ * @param {Pick<Storage, 'getItem' | 'setItem'>} storage
+ * @param {() => Date} [now]
+ * @returns {Promise<OpenedVault>}
+ */
+export async function addRecoveryWords(opened, seed, storage, now = () => new Date()) {
+	const kid = await wordsSlotId();
+	const without = withoutSlot(opened.record, kid);
+	const vault = await addVaultSlot(without.vault, opened.vaultKey, {
+		slotKey: await wordsSlotKey(seed),
+		rawCredentialId: WORDS_SLOT_ID
+	});
+	const record = {
+		vault,
+		slots: [
+			...without.slots,
+			{
+				kid,
+				label: '',
+				credentialId: '',
+				addedAt: now().toISOString(),
+				kind: /** @type {const} */ ('words')
+			}
+		],
+		removed: opened.record.removed
+	};
+	saveVaultRecord(storage, record);
+	return { ...opened, record };
+}
+
+/**
+ * Take the recovery words out: they open nothing from this record on (but
+ * whoever has them has seen the root, as with a passkey).
+ *
+ * @param {OpenedVault} opened
+ * @param {Pick<Storage, 'getItem' | 'setItem'>} storage
+ * @returns {Promise<OpenedVault>}
+ */
+export async function removeRecoveryWords(opened, storage) {
+	const record = withoutSlot(opened.record, await wordsSlotId());
+	saveVaultRecord(storage, record);
+	return { ...opened, record };
+}
+
+/** @param {VaultRecord} record @param {string} kid @returns {VaultRecord} */
+const withoutSlot = (record, kid) => ({
+	vault: {
+		...record.vault,
+		slots: record.vault.slots.filter((/** @type {any} */ s) => s.kid !== kid)
+	},
+	slots: record.slots.filter((s) => s.kid !== kid),
+	removed: record.removed
+});
+
+/**
+ * Open the vault with recovery words, without any passkey: the record this
+ * browser keeps with a words slot, else one found elsewhere (the Aleph index
+ * of the words, on an empty device). Nothing is kept here until a passkey has
+ * its slot (`addPasskey`), so the next unlock is a passkey's as always.
+ *
+ * @param {object} params
+ * @param {Uint8Array} params.seed from `seedFromWords`
+ * @param {Pick<Storage, 'getItem'>} params.storage
+ * @param {() => Promise<VaultRecord | null>} [params.find] where else to look
+ * @returns {Promise<OpenedVault | null>} null: no vault with these words
+ */
+export async function openWithWords({ seed, storage, find }) {
+	const kid = await wordsSlotId();
+	const has = (/** @type {VaultRecord | null | undefined} */ r) =>
+		Boolean(r?.vault?.slots?.some((/** @type {any} */ s) => s.kid === kid));
+	let record = loadVaultRecords(storage).find(has) ?? null;
+	let found = false;
+	if (!record && find) {
+		const elsewhere = await find();
+		if (has(elsewhere)) {
+			record = elsewhere;
+			found = true;
+		}
+	}
+	if (!record) return null;
+	const { payload, vaultKey } = await openVault(record.vault, {
+		slotKey: await wordsSlotKey(seed),
+		rawCredentialId: WORDS_SLOT_ID
+	});
+	return { record, vaultKey, root: decodePayload(payload), kid, created: false, found };
+}
+
+/**
+ * The same books' newer record (index M), opened with the words: taken when
+ * the words still have their slot there and it gives the same root; else the
+ * one opened stays.
+ *
+ * @param {OpenedVault} opened by `openWithWords`
+ * @param {any} vault the newer vault record
+ * @param {Uint8Array} seed
+ * @param {SlotInfo[]} [published] slot details published with it
+ * @returns {Promise<OpenedVault>}
+ */
+export async function newerWithWords(opened, vault, seed, published = []) {
+	if (!vault || !Array.isArray(vault.slots)) return opened;
+	if (!vault.slots.some((/** @type {any} */ s) => s.kid === opened.kid)) return opened;
+	const { payload, vaultKey } = await openVault(vault, {
+		slotKey: await wordsSlotKey(seed),
+		rawCredentialId: WORDS_SLOT_ID
+	});
+	const root = decodePayload(payload);
+	if (root.length !== opened.root.length || root.some((b, i) => b !== opened.root[i])) {
+		throw new VaultStorageError('The newer vault holds other books.');
+	}
+	const kids = new Set(vault.slots.map((/** @type {any} */ s) => s.kid));
+	return {
+		...opened,
+		record: { vault, slots: published.filter((s) => kids.has(s.kid)), removed: [] },
+		vaultKey
+	};
 }

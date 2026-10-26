@@ -14,6 +14,7 @@
 	import { currentLocale, intlLocale, list, t } from '$lib/i18n/index.js';
 	import { docUrl } from '$lib/help/integration-help.js';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
+	import RecoveryWords from './RecoveryWords.svelte';
 
 	let label = $state('');
 	let publish = $state(true);
@@ -26,7 +27,8 @@
 	let removing = $state('');
 
 	const paused = $derived(app.network.paused);
-	const single = $derived(app.vault.slots.length < 2);
+	// One passkey and no recovery words: its loss is the books' loss.
+	const single = $derived(app.vault.slots.length < 2 && !app.vault.words);
 
 	/** @param {string} iso */
 	const when = (iso) =>
@@ -174,6 +176,8 @@
 		</label>
 		<p class="text-xs text-faint">{t('settings.keys.addHint')}</p>
 	</form>
+
+	<RecoveryWords />
 
 	{#if !app.vault.indexOn && !single && !paused}
 		<p class="mt-3 text-sm text-text" data-testid="keys-not-published">

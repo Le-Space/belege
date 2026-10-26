@@ -40,7 +40,8 @@ import {
 	configureWebAuthn,
 	createSecretSigner,
 	deriveSigningKeyBytes,
-	getWebAuthnConfig
+	getWebAuthnConfig,
+	slotIdFor
 } from '@le-space/orbitdb-identity-provider-webauthn-did';
 import * as dagCbor from '@ipld/dag-cbor';
 
@@ -56,7 +57,7 @@ import {
 	deriveReplicationKey
 } from './database-keys.js';
 import { readPrfOutput } from './passkey-identity.js';
-import { adoptNewerVault, openBooksVault } from './books-vault.js';
+import { addPasskey, adoptNewerVault, openBooksVault } from './books-vault.js';
 import { sealer } from './db-encryption.js';
 import {
 	BOOKS_IDENTITY_INFO,
@@ -203,14 +204,17 @@ async function pinnedToCredential(fn) {
  * @param {any} credential from passkey-identity.js
  * @param {{ onStatus?: (status: UnlockStatus) => void,
  *   beforePrompt?: (purpose: 'prf') => Promise<void>,
- *   lookupVault?: boolean }} [options]
+ *   lookupVault?: boolean,
+ *   recovered?: { opened: import('./books-vault.js').OpenedVault, owner: string, label: string } }} [options]
  *   `lookupVault`: an empty device – ask Aleph's index for the books' vault (#406)
+ *   `recovered`: the vault opened with recovery words (session.svelte.js
+ *   `recoverWithWords`): this new passkey gets its slot there, and opens it
  * @returns {Promise<Session>}
  * @throws {import('./passkey-identity.js').PrfUnavailableError} before anything is opened
  */
 export async function startSession(
 	credential,
-	{ onStatus, beforePrompt, lookupVault = false } = {}
+	{ onStatus, beforePrompt, lookupVault = false, recovered } = {}
 ) {
 	onStatus?.({ step: 'keys' });
 	await beforePrompt?.('prf');
@@ -225,17 +229,33 @@ export async function startSession(
 	// passkey, so its index on Aleph is asked (backup/vault-index.js), then the
 	// books' own index for the current record – which may say the passkey was
 	// removed there.
-	const indexes = lookupVault ? await import('./backup/vault-index.js') : null;
-	let vault = await openBooksVault({
-		prfOutput: passkeyPrf,
-		rawCredentialId: credential.rawCredentialId,
-		credentialId: String(credential.credentialId ?? ''),
-		label: String(credential.displayName ?? ''),
-		storage: globalThis.localStorage,
-		...(indexes ? { find: () => indexes.findVaultOnAleph({ prfOutput: passkeyPrf }) } : {})
-	});
+	const indexes = lookupVault && !recovered ? await import('./backup/vault-index.js') : null;
+	let vault = recovered
+		? // Opened with the recovery words: this passkey's slot is added, and from
+			// here on it opens the books like any other.
+			{
+				...(await addPasskey(
+					recovered.opened,
+					{
+						prfOutput: passkeyPrf,
+						rawCredentialId: credential.rawCredentialId,
+						credentialId: String(credential.credentialId ?? ''),
+						label: recovered.label
+					},
+					globalThis.localStorage
+				)),
+				kid: await slotIdFor(credential.rawCredentialId)
+			}
+		: await openBooksVault({
+				prfOutput: passkeyPrf,
+				rawCredentialId: credential.rawCredentialId,
+				credentialId: String(credential.credentialId ?? ''),
+				label: String(credential.displayName ?? ''),
+				storage: globalThis.localStorage,
+				...(indexes ? { find: () => indexes.findVaultOnAleph({ prfOutput: passkeyPrf }) } : {})
+			});
 	/** The paying Aleph account, as the books' index names it (an empty device). */
-	let pointedOwner = '';
+	let pointedOwner = recovered?.owner ?? '';
 	if (indexes && vault.found) {
 		const current = await indexes.readRootIndex({ root: vault.root }).catch(() => null);
 		pointedOwner = current?.pointer?.owner ?? '';

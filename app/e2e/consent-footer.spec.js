@@ -87,7 +87,7 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	// The four sections, in plain words.
 	await expect(dialog.getByTestId('consent-identity')).toContainText('Ohne Passkey geht nichts');
 	await expect(dialog.getByTestId('consent-loss')).toContainText(
-		'Verlierst du alle Passkeys deiner Bücher, verlierst du den Zugang zu deinen Daten'
+		'Verlierst du alle Passkeys deiner Bücher und hast keine Wiederherstellungswörter, verlierst du den Zugang zu deinen Daten'
 	);
 	await expect(dialog.getByTestId('consent-network')).toContainText('Netzwerk: aus');
 	// Collaboration has its place, off and not switchable yet.
@@ -154,7 +154,7 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	);
 	expect(Object.keys(after).filter((key) => !before.includes(key))).toEqual(['belege.consent']);
 	// CONSENT_VERSION in src/lib/consent.js.
-	expect(after['belege.consent']).toBe('29');
+	expect(after['belege.consent']).toBe('30');
 	await expect(page.getByTestId('passkey-onboarding')).toBeVisible();
 
 	await page.reload();

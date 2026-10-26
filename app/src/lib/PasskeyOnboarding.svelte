@@ -5,7 +5,13 @@
 	// and the buttons act directly instead of feeding a consent dialog — a
 	// WebAuthn call needs the click's user gesture. The look follows
 	// apps/escrow01 at f0d3df4: a card on the brand tokens, one coral action.
-	import { app, createPasskey, restorePasskey, unlockStoredPasskey } from './session.svelte.js';
+	import {
+		app,
+		createPasskey,
+		recoverWithWords,
+		restorePasskey,
+		unlockStoredPasskey
+	} from './session.svelte.js';
 	import { hasStoredPasskeyCredential } from './passkey-identity.js';
 	import { intlLocale, t } from './i18n/index.js';
 	import ResetDialog from './storage/ResetDialog.svelte';
@@ -21,6 +27,9 @@
 	let resetOpen = $state(false);
 	let label = $state('');
 	let busy = $derived(app.status === 'starting');
+	// "Mit Wiederherstellungswörtern öffnen" (#406, stage 2): the words, and the new passkey's name.
+	let wordsText = $state('');
+	let wordsLabel = $state('');
 
 	// The unlock's step while the books open (unlock-progress.js), and the time
 	// since it began, every second.
@@ -126,6 +135,47 @@
 			>
 				{t('onboarding.restore')}
 			</button>
+			<details class="text-sm" data-testid="words-recover">
+				<summary class="cursor-pointer text-text underline hover:text-heading"
+					>{t('onboarding.words.open')}</summary
+				>
+				<div class="mt-2 space-y-2">
+					<p class="text-xs text-faint">{t('onboarding.words.hint')}</p>
+					<label class="block text-sm font-medium text-heading" for="words-text"
+						>{t('onboarding.words.label')}</label
+					>
+					<textarea
+						id="words-text"
+						rows="4"
+						bind:value={wordsText}
+						autocomplete="off"
+						autocapitalize="off"
+						spellcheck="false"
+						class="w-full rounded-md border px-3 py-2 font-mono text-sm"
+						data-testid="words-recover-text"
+					></textarea>
+					<label class="block text-sm font-medium text-heading" for="words-passkey-label"
+						>{t('onboarding.words.passkeyLabel')}</label
+					>
+					<input
+						id="words-passkey-label"
+						type="text"
+						bind:value={wordsLabel}
+						placeholder={t('onboarding.labelPlaceholder')}
+						class="w-full rounded-md border px-3 py-2 text-sm"
+						data-testid="words-recover-label"
+					/>
+					<button
+						type="button"
+						class={secondary}
+						disabled={busy || !wordsText.trim()}
+						onclick={() => recoverWithWords(wordsText, wordsLabel)}
+						data-testid="words-recover-go"
+					>
+						{t('onboarding.words.go')}
+					</button>
+				</div>
+			</details>
 		</div>
 	{/if}
 
