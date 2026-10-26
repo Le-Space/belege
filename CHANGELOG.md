@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.24.1] – 2026-10-26
+
 ### Fixed
 
 - **Backups go on while Aleph's IPFS host takes no uploads.** Since 2026-10-26 `ipfs.aleph.cloud` (and Aleph's other IPFS hosts) answer `/api/v0/add` with 404, so every backup failed with "Aleph ingest answered 404". A backup up to 25 MiB – an increment, as a rule, and so "Automatisch sichern" – now goes through an API node's `/api/v0/ipfs/add_file` instead, with real percentages (that host allows the preflight), and is kept by its STORE as before; the IPFS host is not asked again in that tab. A bigger one says in words that Aleph's API takes no more without a signed order and that increments go on.
