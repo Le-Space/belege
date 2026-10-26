@@ -18,7 +18,7 @@ import {
 import { backupName, rememberBackup } from './history.js';
 import { chainAfter, chainFromBase, saveChain } from './chain.js';
 import { BackupRefusedError } from './keeper.js';
-import { UploadTimeoutError, uploadToAleph } from './upload.js';
+import { IngestGoneError, UploadTimeoutError, uploadToAleph } from './upload.js';
 
 /**
  * @typedef {'' | 'packing' | 'asking' | 'uploading' | 'keeping'} BackupStep
@@ -129,16 +129,18 @@ const holdTheTab = (e) => {
 export const refused = (e) =>
 	e instanceof UploadTimeoutError
 		? t('backup.uploadTimedOut', { minutes: e.minutes, size: sizeText(e.size) })
-		: e instanceof BackupRefusedError
-			? e.kind === 'credits'
-				? t('messages.bridge.alephNotKept', {
-						credits: Number(e.reason.credits).toLocaleString(intlLocale()),
-						required: Number(e.reason.required).toLocaleString(intlLocale())
-					})
-				: t('messages.bridge.alephRejected', { error: String(e.reason.errorCode ?? '') })
-			: e instanceof Error
-				? e.message
-				: String(e);
+		: e instanceof IngestGoneError
+			? t('backup.ingestGone', { size: sizeText(e.size), limit: sizeText(e.limit) })
+			: e instanceof BackupRefusedError
+				? e.kind === 'credits'
+					? t('messages.bridge.alephNotKept', {
+							credits: Number(e.reason.credits).toLocaleString(intlLocale()),
+							required: Number(e.reason.required).toLocaleString(intlLocale())
+						})
+					: t('messages.bridge.alephRejected', { error: String(e.reason.errorCode ?? '') })
+				: e instanceof Error
+					? e.message
+					: String(e);
 
 /**
  * Per database, as the app names them.
@@ -161,11 +163,19 @@ const databasesOf = (manifest) =>
  * @param {object} params
  * @param {import('./archive.js').BackupChain | null} params.continuing the chain to add to; null: a full backup
  * @param {string} params.ingestUrl Aleph's IPFS host
+ * @param {string} [params.apiHost] an Aleph API node, for when that host takes no uploads
  * @param {(cid: string, ref?: string) => Promise<{ status: string, itemHash: string, address?: string, sender?: string, ref?: string }>} params.keep the STORE: this browser's key, or the bridge
  * @param {(size: number) => { perDay: number, days: number } | null} params.askFor what a backup of this size costs, when it should be asked first
  * @param {boolean} [params.unattended] started by itself (auto.svelte.js): what would ask stops it instead
  */
-export async function runBackup({ continuing, ingestUrl, keep, askFor, unattended = false }) {
+export async function runBackup({
+	continuing,
+	ingestUrl,
+	apiHost,
+	keep,
+	askFor,
+	unattended = false
+}) {
 	const store = currentStore();
 	if (!store || backupRun.step) return;
 	Object.assign(backupRun, {
@@ -208,13 +218,14 @@ export async function runBackup({ continuing, ingestUrl, keep, askFor, unattende
 		backupRun.uploadStarted = Date.now();
 		const handle = await uploadToAleph({
 			ingestUrl,
+			apiHost,
 			bytes: built.sealed,
 			name: backupName(at, continuing ? continuing.sequence + 1 : 0),
 			onProgress: (sent, total) => {
 				backupRun.sent = sent;
 				if (total) backupRun.total = total;
 			},
-			onUnmeasured: () => (backupRun.measured = false)
+			onMeasured: (measured) => (backupRun.measured = measured)
 		});
 		backupRun.step = 'keeping';
 		const kept = await keep(handle.id, continuing?.base);

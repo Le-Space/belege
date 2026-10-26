@@ -383,11 +383,16 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 	await expect(card.getByTestId('backup-unsaved')).toContainText('Noch nicht gesichert: Zahlungen');
 	// "Automatisch sichern", with a short quiet time for the test: the
 	// increment goes up by itself, on the new chain, and the header clears.
+	// Aleph's IPFS host takes no uploads (404, as since 2026-10-26): the
+	// increment, small, goes through an API node's add_file instead.
+	aleph.cors.ingestGone = true;
 	await page.evaluate(() => {
 		/** @type {any} */ (window).__belegeBackupAutoDelayMs = 1500;
 	});
 	await card.getByTestId('backup-auto-toggle').check();
 	await expect(card.getByTestId('backup-row')).toHaveCount(4, { timeout: 30_000 });
+	expect(aleph.calls).toContain('/api/v0/ipfs/add_file');
+	aleph.cors.ingestGone = false;
 	await expect(due).toHaveCount(0, { timeout: 30_000 });
 	await expect(card.getByTestId('backup-made')).toContainText('Zuwachs 1 gesichert');
 	expect(aleph.stores.at(-1)).toMatchObject({

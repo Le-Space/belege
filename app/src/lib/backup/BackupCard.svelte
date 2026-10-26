@@ -339,6 +339,7 @@
 		return runBackup({
 			continuing,
 			ingestUrl: endpoints.ingestUrl,
+			apiHost: endpoints.apiHost,
 			keep,
 			// A whole copy costs credits every day it is kept: when the credits
 			// would not last a month with it, ask before it goes up.

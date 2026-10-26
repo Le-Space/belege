@@ -1205,6 +1205,8 @@ export default {
 			"Or in Aleph's dashboard, with the account's wallet: under Permissions, add the address above, message type STORE, channel {channel}.",
 		grantDashboardLink: 'Open Permissions',
 		now: 'Back up now',
+		ingestGone:
+			'Aleph’s IPFS host takes no uploads at the moment. Backups up to {limit} therefore go through Aleph’s API; this one has {size}. Increments go on – a full backup only once the host takes uploads again. Nothing was kept and nothing costs.',
 		uploadTimedOut:
 			'The upload to Aleph did not finish within {minutes} minutes: the line was too slow for {size}, or broke off. Nothing was kept and nothing costs. Try again, best on a faster line and with this tab in front.',
 		keepWorking:

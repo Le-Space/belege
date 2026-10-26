@@ -1231,6 +1231,8 @@ export default {
 			'Oder im Aleph-Dashboard, mit der Wallet des Kontos: unter Berechtigungen die Adresse oben eintragen, Nachrichtentyp STORE, Kanal {channel}.',
 		grantDashboardLink: 'Berechtigungen öffnen',
 		now: 'Jetzt sichern',
+		ingestGone:
+			'Alephs IPFS-Host nimmt gerade keine Uploads an. Backups bis {limit} gehen deshalb über Alephs API; dieses hat {size}. Zuwächse laufen weiter – ein Vollbackup erst, wenn der Host wieder Uploads annimmt. Nichts wurde aufbewahrt und nichts kostet.',
 		uploadTimedOut:
 			'Der Upload zu Aleph ist nach {minutes} Minuten nicht fertig geworden: Für {size} war die Leitung zu langsam oder unterbrochen. Nichts wurde aufbewahrt und nichts kostet. Erneut versuchen, am besten an einer schnelleren Leitung und mit diesem Tab im Vordergrund.',
 		keepWorking:
