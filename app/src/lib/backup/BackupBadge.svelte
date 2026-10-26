@@ -28,9 +28,12 @@
 			? t('backup.badge.asking')
 			: backupRun.step === 'uploading' && backupRun.measured
 				? t('backup.badge.uploading', { percent: uploadPercent() })
-				: backupRun.step
-					? t(`backup.badge.${backupRun.step}`)
-					: t('backup.badge.unsaved', { count: backupDue.collections.length })
+				: backupRun.step === 'uploading'
+					? // The host does not let it be counted (upload.js): no number to show.
+						t('backup.badge.uploadingUnmeasured')
+					: backupRun.step
+						? t(`backup.badge.${backupRun.step}`)
+						: t('backup.badge.unsaved', { count: backupDue.collections.length })
 	);
 	const unsaved = $derived(!backupRun.step && backupDue.known && backupDue.collections.length > 0);
 	const minutes = $derived(Math.max(1, Math.ceil((backupDue.at - now) / 60_000)));

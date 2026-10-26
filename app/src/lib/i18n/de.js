@@ -1241,6 +1241,7 @@ export default {
 			title: 'Zum Backup',
 			packing: 'Backup wird gepackt',
 			uploading: 'Backup {percent} %',
+			uploadingUnmeasured: 'Backup wird hochgeladen',
 			asking: 'Backup wartet auf dich',
 			keeping: 'Backup: Aleph wird beauftragt'
 		},
