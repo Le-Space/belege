@@ -191,6 +191,7 @@ async function backUpByItself() {
 	await runBackup({
 		continuing: chain,
 		ingestUrl: ctx.endpoints.ingestUrl,
+		apiHost: ctx.endpoints.apiHost,
 		keep: ctx.keep,
 		// It never asks: what would ask stops it, and the header says so.
 		askFor: (bytes) => {

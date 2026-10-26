@@ -61,6 +61,9 @@
 // IPFS host's `add` answers a preflight without allowing the origin, as
 // ipfs.aleph.cloud does for every page but its console (aleph-im/pyaleph#1280):
 // an upload that wants its progress is refused, a plain one goes through.
+// With `cors.ingestGone`, `add` answers 404, as Aleph's IPFS hosts have
+// since 2026-10-26; then `POST /api/v0/ipfs/add_file` (an API node's) takes
+// a file up to 25 MiB and answers { status, hash, name, size }.
 import http from 'node:http';
 import { createHash } from 'node:crypto';
 
@@ -153,6 +156,8 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 	/** How the IPFS host answers a preflight (see the head of this file). */
 	const cors = {
 		uploadPreflight: true,
+		/** `add` answers 404, as Aleph's IPFS hosts do since 2026-10-26 */
+		ingestGone: false,
 		/** @type {Promise<unknown> | null} answered once this settles */
 		holdUploads: /** @type {Promise<unknown> | null} */ (null)
 	};
@@ -247,7 +252,14 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 				pagination_per_page: per
 			});
 		}
-		if (req.method === 'POST' && url.pathname === '/api/v0/add') {
+		if (req.method === 'POST' && url.pathname === '/api/v0/add' && cors.ingestGone) {
+			res.writeHead(404, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+			return res.end('404 page not found');
+		}
+		if (
+			req.method === 'POST' &&
+			(url.pathname === '/api/v0/add' || url.pathname === '/api/v0/ipfs/add_file')
+		) {
 			// A test may hold the answer, to look at the page while it uploads.
 			if (cors.holdUploads) await cors.holdUploads;
 			const form = await new Request('http://x', {
@@ -261,8 +273,14 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 			const file = form?.get('file');
 			if (!file || typeof file === 'string') return reply(400, { Message: 'no file' });
 			const bytes = new Uint8Array(await file.arrayBuffer());
+			if (url.pathname === '/api/v0/ipfs/add_file' && bytes.length > 25 * 1024 * 1024) {
+				return reply(413, { error: 'File too large' });
+			}
 			const hash = cidOf(bytes);
 			added.set(hash, bytes);
+			if (url.pathname === '/api/v0/ipfs/add_file') {
+				return reply(200, { status: 'success', hash, name: file.name, size: bytes.length });
+			}
 			// As Aleph's host answers: any page may read it (the app uploads from the browser).
 			res.writeHead(200, {
 				'Content-Type': 'application/json',

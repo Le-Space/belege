@@ -3,7 +3,13 @@
 // the preflight, as Aleph's IPFS host does – the same upload without it, that
 // host not asked again. Against a stand-in XMLHttpRequest; the hashes are made up.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { UploadTimeoutError, addedHash, uploadToAleph } from './upload.js';
+import {
+	API_UPLOAD_LIMIT,
+	IngestGoneError,
+	UploadTimeoutError,
+	addedHash,
+	uploadToAleph
+} from './upload.js';
 
 /** What the stand-in host does with each request. */
 let behaviour = /** @type {(x: FakeXhr) => void} */ (() => {});
@@ -76,16 +82,16 @@ describe('uploadToAleph', () => {
 		// A listener on the upload makes the browser ask first; this host says no.
 		behaviour = (x) => (x.upload.onprogress ? x.onerror?.() : answer(x, 'QmUncounted'));
 		const ingestUrl = 'https://ipfs.refusing.test/api/v0/add';
-		const onUnmeasured = vi.fn();
+		const onMeasured = vi.fn();
 		const first = await uploadToAleph({
 			ingestUrl,
 			bytes: new Uint8Array(10),
 			name: 'backups/b.car',
 			onProgress: () => {},
-			onUnmeasured
+			onMeasured
 		});
 		expect(first).toEqual({ id: 'QmUncounted', size: 10, measured: false });
-		expect(onUnmeasured).toHaveBeenCalledOnce();
+		expect(onMeasured.mock.calls).toEqual([[true], [false]]);
 		expect(made).toHaveLength(2);
 
 		made = [];
@@ -146,5 +152,58 @@ describe('uploadToAleph', () => {
 		expect(made[0].timeout).toBe(120_000 + size / 100);
 		expect(error.minutes).toBe(85);
 		expect(error.size).toBe(size);
+	});
+
+	it('the IPFS host gone (404): a small file goes to the API node, counted, and the host is not asked again', async () => {
+		vi.stubGlobal('XMLHttpRequest', FakeXhr);
+		behaviour = (x) => {
+			if (String(x.url).endsWith('/api/v0/add')) {
+				x.status = 404;
+				x.onload?.();
+				return;
+			}
+			x.upload.onprogress?.({ loaded: 10, total: 10, lengthComputable: true });
+			x.status = 200;
+			x.responseText = JSON.stringify({ status: 'success', hash: 'QmViaApi', name: 'b', size: 10 });
+			x.onload?.();
+		};
+		const ingestUrl = 'https://ipfs.gone.test/api/v0/add';
+		const apiHost = 'https://api.example.test';
+		/** @type {number[]} */ const seen = [];
+		const onMeasured = vi.fn();
+		const r = await uploadToAleph({
+			ingestUrl,
+			apiHost,
+			bytes: new Uint8Array(10),
+			name: 'b',
+			onProgress: (sent) => seen.push(sent),
+			onMeasured
+		});
+		expect(r).toEqual({ id: 'QmViaApi', size: 10, measured: true });
+		expect(made.map((x) => x.url)).toEqual([ingestUrl, `${apiHost}/api/v0/ipfs/add_file`]);
+		expect(seen).toEqual([10]);
+		expect(onMeasured.mock.calls.at(-1)).toEqual([true]);
+
+		made = [];
+		await uploadToAleph({ ingestUrl, apiHost, bytes: new Uint8Array(10), name: 'b' });
+		expect(made.map((x) => x.url)).toEqual([`${apiHost}/api/v0/ipfs/add_file`]);
+	});
+
+	it('the IPFS host gone and the file too big for the API: said so, nothing sent there', async () => {
+		vi.stubGlobal('XMLHttpRequest', FakeXhr);
+		behaviour = (x) => {
+			x.status = 404;
+			x.onload?.();
+		};
+		const size = API_UPLOAD_LIMIT + 1;
+		const error = await uploadToAleph({
+			ingestUrl: 'https://ipfs.gone-too.test/api/v0/add',
+			apiHost: 'https://api.example.test',
+			bytes: new Uint8Array(size),
+			name: 'b'
+		}).catch((e) => e);
+		expect(error).toBeInstanceOf(IngestGoneError);
+		expect(error.size).toBe(size);
+		expect(made).toHaveLength(1);
 	});
 });
