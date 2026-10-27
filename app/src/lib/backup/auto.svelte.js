@@ -24,10 +24,10 @@ import {
 	alephEndpoints,
 	backupAddressOf,
 	creditsOf,
+	createBackupUploader,
 	creditsPerDay,
 	ensureBackupKey,
 	isGranted,
-	keepWithKey,
 	loadOwner
 } from './keeper.js';
 import { backupRun, runBackup } from './run.svelte.js';
@@ -158,13 +158,20 @@ async function context() {
 	const endpoints = alephEndpoints(status);
 	const granted = await isGranted({ owner, address, endpoints }).catch(() => null);
 	const bridgeSigns = Boolean(client && status?.configured);
-	if (granted !== true && !bridgeSigns) return { store, owner, endpoints, keep: null };
-	/** @param {string} cid @param {string} [ref] */
-	const keep = async (cid, ref) =>
-		granted === true
-			? keepWithKey({ cid, owner, key, endpoints, ref })
-			: { ...(await /** @type {any} */ (client).alephKeep(cid, ref)), sender: status?.address };
-	return { store, owner, endpoints, keep };
+	if (granted !== true && !bridgeSigns) return { store, owner, endpoints, uploader: null };
+	const uploader = await createBackupUploader({
+		owner,
+		key,
+		granted: granted === true,
+		endpoints,
+		bridge: bridgeSigns
+			? {
+					keep: (cid, ref) => /** @type {any} */ (client).alephKeep(cid, ref),
+					address: status?.address
+				}
+			: null
+	});
+	return { store, owner, endpoints, uploader };
 }
 
 /** One increment, when nothing stands in its way. */
@@ -184,15 +191,13 @@ async function backUpByItself() {
 	) {
 		return void (backupDue.blocked = 'chain');
 	}
-	if (!ctx.keep) return void (backupDue.blocked = 'key');
+	if (!ctx.uploader) return void (backupDue.blocked = 'key');
 	const credits = await creditsOf({ owner: ctx.owner, endpoints: ctx.endpoints }).catch(() => null);
 	const kept = backups.filter((b) => b.status === 'processed').reduce((n, b) => n + b.size, 0);
 	backupDue.blocked = '';
 	await runBackup({
 		continuing: chain,
-		ingestUrl: ctx.endpoints.ingestUrl,
-		apiHost: ctx.endpoints.apiHost,
-		keep: ctx.keep,
+		uploader: ctx.uploader,
 		// It never asks: what would ask stops it, and the header says so.
 		askFor: (bytes) => {
 			const perDay = creditsPerDay(kept) + creditsPerDay(bytes);

@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Backups upload through the storage bridge again, signed, up to 1 GB without Aleph's IPFS host.** 0.24.1 uploaded by itself – an own `upload.js` beside `@le-space/orbitdb-storage-bridge`, and through Aleph's API only up to 25 MiB, so a full backup failed while the IPFS host takes no uploads. The storage bridge (0.27.0) now does what both did: the IPFS host first, else an API node's `add_file`, with upload progress; with this browser's key granted the signed STORE goes beside the file and Aleph keeps it in the same call, up to 1 GiB – no second message; the bridge uploads the same way with its own key. `upload.js` is gone; `keeper.js` `createBackupUploader` builds the backend and what keeps the upload, for the card and for "Automatisch sichern" alike. A backup above what the API takes is refused before a byte is sent, and the card says to set up the grant. The fake Aleph judges a signed `add_file` as it judges a STORE.
+
 ## [0.24.1] – 2026-10-26
 
 ### Fixed

@@ -1232,7 +1232,9 @@ export default {
 		grantDashboardLink: 'Berechtigungen öffnen',
 		now: 'Jetzt sichern',
 		ingestGone:
-			'Alephs IPFS-Host nimmt gerade keine Uploads an. Backups bis {limit} gehen deshalb über Alephs API; dieses hat {size}. Zuwächse laufen weiter – ein Vollbackup erst, wenn der Host wieder Uploads annimmt. Nichts wurde aufbewahrt und nichts kostet.',
+			'Alephs IPFS-Host nimmt gerade keine Uploads an. Ohne Freigabe dieses Browsers gehen Backups nur bis {limit} über Alephs API; dieses hat {size}. Richte die Freigabe oben ein – dann gehen Backups bis 1 GB –, oder lass Zuwächse laufen. Nichts wurde aufbewahrt und nichts kostet.',
+		tooBig:
+			'Dieses Backup hat {size}; Aleph nimmt in einem Stück höchstens {limit}. Nichts wurde aufbewahrt und nichts kostet.',
 		uploadTimedOut:
 			'Der Upload zu Aleph ist nach {minutes} Minuten nicht fertig geworden: Für {size} war die Leitung zu langsam oder unterbrochen. Nichts wurde aufbewahrt und nichts kostet. Erneut versuchen, am besten an einer schnelleren Leitung und mit diesem Tab im Vordergrund.',
 		keepWorking:

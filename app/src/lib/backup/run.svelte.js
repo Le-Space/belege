@@ -18,7 +18,6 @@ import {
 import { backupName, rememberBackup } from './history.js';
 import { chainAfter, chainFromBase, saveChain } from './chain.js';
 import { BackupRefusedError } from './keeper.js';
-import { IngestGoneError, UploadTimeoutError, uploadToAleph } from './upload.js';
 
 /**
  * @typedef {'' | 'packing' | 'asking' | 'uploading' | 'keeping'} BackupStep
@@ -32,8 +31,8 @@ export const backupRun = $state({
 	/** Bytes uploaded so far, of `total` – counted only while `measured`. */
 	sent: 0,
 	total: 0,
-	/** Whether the host lets the upload be counted (upload.js); true until it says no. */
-	measured: true,
+	/** Whether the host lets the upload be counted: true once a progress event came. */
+	measured: false,
 	/** When the upload began (ms), for "seit 42 s". */
 	uploadStarted: 0,
 	/** @type {string | null} */
@@ -127,20 +126,31 @@ const holdTheTab = (e) => {
 
 /** Aleph's refusal in words. @param {unknown} e */
 export const refused = (e) =>
-	e instanceof UploadTimeoutError
-		? t('backup.uploadTimedOut', { minutes: e.minutes, size: sizeText(e.size) })
-		: e instanceof IngestGoneError
-			? t('backup.ingestGone', { size: sizeText(e.size), limit: sizeText(e.limit) })
-			: e instanceof BackupRefusedError
-				? e.kind === 'credits'
-					? t('messages.bridge.alephNotKept', {
-							credits: Number(e.reason.credits).toLocaleString(intlLocale()),
-							required: Number(e.reason.required).toLocaleString(intlLocale())
-						})
-					: t('messages.bridge.alephRejected', { error: String(e.reason.errorCode ?? '') })
-				: e instanceof Error
-					? e.message
-					: String(e);
+	/** @type {any} */ (e)?.name === 'UploadTimeoutError'
+		? t('backup.uploadTimedOut', {
+				minutes: /** @type {any} */ (e).minutes,
+				size: sizeText(/** @type {any} */ (e).size)
+			})
+		: /** @type {any} */ (e)?.reason === 'unsigned-limit'
+			? t('backup.ingestGone', {
+					size: sizeText(/** @type {any} */ (e).size),
+					limit: sizeText(/** @type {any} */ (e).limit)
+				})
+			: /** @type {any} */ (e)?.reason === 'signed-limit'
+				? t('backup.tooBig', {
+						size: sizeText(/** @type {any} */ (e).size),
+						limit: sizeText(/** @type {any} */ (e).limit)
+					})
+				: e instanceof BackupRefusedError
+					? e.kind === 'credits'
+						? t('messages.bridge.alephNotKept', {
+								credits: Number(e.reason.credits).toLocaleString(intlLocale()),
+								required: Number(e.reason.required).toLocaleString(intlLocale())
+							})
+						: t('messages.bridge.alephRejected', { error: String(e.reason.errorCode ?? '') })
+					: e instanceof Error
+						? e.message
+						: String(e);
 
 /**
  * Per database, as the app names them.
@@ -162,20 +172,11 @@ const databasesOf = (manifest) =>
  *
  * @param {object} params
  * @param {import('./archive.js').BackupChain | null} params.continuing the chain to add to; null: a full backup
- * @param {string} params.ingestUrl Aleph's IPFS host
- * @param {string} [params.apiHost] an Aleph API node, for when that host takes no uploads
- * @param {(cid: string, ref?: string) => Promise<{ status: string, itemHash: string, address?: string, sender?: string, ref?: string }>} params.keep the STORE: this browser's key, or the bridge
+ * @param {import('./keeper.js').BackupUploader} params.uploader where it goes up, and what keeps it (keeper.js)
  * @param {(size: number) => { perDay: number, days: number } | null} params.askFor what a backup of this size costs, when it should be asked first
  * @param {boolean} [params.unattended] started by itself (auto.svelte.js): what would ask stops it instead
  */
-export async function runBackup({
-	continuing,
-	ingestUrl,
-	apiHost,
-	keep,
-	askFor,
-	unattended = false
-}) {
+export async function runBackup({ continuing, uploader, askFor, unattended = false }) {
 	const store = currentStore();
 	if (!store || backupRun.step) return;
 	Object.assign(backupRun, {
@@ -185,7 +186,7 @@ export async function runBackup({
 		progress: null,
 		sent: 0,
 		total: 0,
-		measured: true,
+		measured: false,
 		uploadStarted: 0
 	});
 	window.addEventListener('beforeunload', holdTheTab);
@@ -216,19 +217,20 @@ export async function runBackup({
 		backupRun.step = 'uploading';
 		backupRun.total = built.sealed.length;
 		backupRun.uploadStarted = Date.now();
-		const handle = await uploadToAleph({
-			ingestUrl,
-			apiHost,
-			bytes: built.sealed,
+		// The storage bridge's Aleph backend: the IPFS host, else an API node;
+		// with this browser's key granted, kept in the same call (keeper.js).
+		const handle = await uploader.backend.putBlob(built.sealed, {
 			name: backupName(at, continuing ? continuing.sequence + 1 : 0),
-			onProgress: (sent, total) => {
+			contentType: 'application/octet-stream',
+			...(continuing ? { ref: continuing.base } : {}),
+			onProgress: (/** @type {number} */ sent, /** @type {number} */ total) => {
+				backupRun.measured = true;
 				backupRun.sent = sent;
 				if (total) backupRun.total = total;
-			},
-			onMeasured: (measured) => (backupRun.measured = measured)
+			}
 		});
 		backupRun.step = 'keeping';
-		const kept = await keep(handle.id, continuing?.base);
+		const kept = await uploader.keep(handle, continuing?.base);
 		/** @type {import('./history.js').BackupRecord} */
 		const record = {
 			at: at.toISOString(),

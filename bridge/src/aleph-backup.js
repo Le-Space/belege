@@ -264,24 +264,25 @@ export function createAlephBackup({
 		async put(bytes, { name }) {
 			const k = await key();
 			const sender = addressOf(k);
-			let kept = /** @type {{ itemHash: string, status: string } | null} */ (null);
-			const backend = createAlephBackend({
-				ingestUrl,
-				fetch: f,
-				pin: async (cid) => {
-					kept = await storeFor(k, cid);
-					return kept;
-				}
+			// The storage bridge's backend with the bridge's own pin: on the IPFS
+			// host an upload, then the STORE; on an API node (the host takes none
+			// since 2026-10-26) both in one call, up to 1 GiB.
+			const pin = createAlephPin({
+				sender,
+				sign: async (_address, message) => personalSign(k, message),
+				apiHost,
+				channel: BACKUP_CHANNEL,
+				fetch: f
 			});
+			const backend = createAlephBackend({ ingestUrl, apiHost, fetch: f, pin });
 			const handle = await backend.putBlob(bytes, {
 				name,
 				contentType: 'application/octet-stream'
 			});
-			await backend.pinCid?.(handle.id, { name });
-			const { itemHash, status } = await settleStore(
-				/** @type {{ itemHash: string, status: string }} */ (kept),
-				{ apiHost, fetch: f, ...settle }
-			);
+			const sent = handle.itemHash
+				? { itemHash: String(handle.itemHash), status: String(handle.status ?? 'pending') }
+				: await pin(handle.id, {});
+			const { itemHash, status } = await settleStore(sent, { apiHost, fetch: f, ...settle });
 			return { cid: handle.id, size: bytes.length, address: sender, itemHash, status };
 		}
 	};

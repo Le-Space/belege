@@ -562,12 +562,31 @@ describe('/backup', () => {
 	});
 
 	test('the backup object alone: Aleph refusing the upload is an error, not a backup', async () => {
+		// A host that answers, and says no: an error. (One that has no `add` at
+		// all, a 404, is the case below.)
+		const backup = createAlephBackup({
+			getKey: async () => KEY,
+			ingestUrl: `${aleph.url}/api/v0/messages`,
+			apiHost: aleph.url
+		});
+		await assert.rejects(backup.put(new Uint8Array([1]), { name: 'x.car' }), /422/);
+	});
+
+	test('the backup object alone: an IPFS host with no `add` (404, as since 2026-10-26) – the API node takes it, signed, in one call', async () => {
 		const backup = createAlephBackup({
 			getKey: async () => KEY,
 			ingestUrl: `${aleph.url}/nowhere`,
 			apiHost: aleph.url
 		});
-		await assert.rejects(backup.put(new Uint8Array([1]), { name: 'x.car' }), /404/);
+		const before = aleph.calls.length;
+		const done = await backup.put(new Uint8Array([1, 2, 3]), { name: 'y.car' });
+		assert.equal(done.status, 'processed');
+		assert.match(done.cid, /^Qm/);
+		const since = aleph.calls.slice(before);
+		assert.ok(since.includes('/api/v0/ipfs/add_file'));
+		// Kept in the same call: no separate STORE went to /api/v0/messages.
+		assert.ok(!since.includes('/api/v0/messages'));
+		assert.equal(aleph.stores.at(-1)?.cid, done.cid);
 	});
 });
 
