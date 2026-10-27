@@ -199,11 +199,71 @@ export class BackupRefusedError extends Error {
 }
 
 /**
+ * The pin Aleph takes beside an upload (storage bridge `createAlephBackend`,
+ * `putBlob`): the STORE message signed with this browser's key for the
+ * paying account, which Aleph's API node then keeps in the same call as the
+ * upload. Also what `keepWithKey` sends on its own.
+ *
+ * @param {{ owner: string, key: Uint8Array, endpoints?: AlephEndpoints, fetch?: typeof fetch }} params
+ */
+export async function backupPin({ owner, key, endpoints = alephEndpoints(), fetch: f }) {
+	const [{ createAlephPin }, { alephAddressOf, alephSign }] = await Promise.all([
+		import('@le-space/orbitdb-storage-bridge/backends/aleph-pin'),
+		import('./aleph-signer.js')
+	]);
+	return createAlephPin({
+		sender: alephAddressOf(key),
+		owner,
+		sign: async (_address, message) => alephSign(key, message),
+		apiHost: endpoints.apiHost,
+		channel: BACKUP_CHANNEL,
+		...(f ? { fetch: f } : {})
+	});
+}
+
+/**
+ * Aleph's final word on a STORE it was sent: followed while pending; a
+ * refusal thrown with its amounts.
+ *
+ * @param {{ itemHash: string, status: string }} sent
+ * @param {{ endpoints?: AlephEndpoints, fetch?: typeof fetch, settle?: { timeout?: number, interval?: number } }} [options]
+ * @returns {Promise<{ itemHash: string, status: string }>}
+ * @throws {BackupRefusedError} when Aleph refuses to keep it
+ */
+export async function settleKept(
+	sent,
+	{ endpoints = alephEndpoints(), fetch: f, settle = {} } = {}
+) {
+	const { waitForMessage } = await import('@le-space/orbitdb-storage-bridge/backends/aleph-pin');
+	/** @type {any} */
+	const final =
+		sent.status === 'pending'
+			? await waitForMessage(sent.itemHash, {
+					apiHost: endpoints.apiHost,
+					timeout: settle.timeout ?? 60_000,
+					interval: settle.interval ?? 2_000,
+					...(f ? { fetch: f } : {})
+				})
+			: sent;
+	if (final.status === 'rejected') {
+		const why = final.details?.errors?.[0];
+		if (why && typeof why === 'object' && why.required_credits !== undefined) {
+			throw new BackupRefusedError('credits', {
+				credits: Math.floor(Number(why.account_credits)),
+				required: Math.ceil(Number(why.required_credits))
+			});
+		}
+		throw new BackupRefusedError('rejected', { errorCode: final.errorCode ?? null });
+	}
+	return { itemHash: sent.itemHash, status: final.status };
+}
+
+/**
  * Have Aleph keep an uploaded backup: a STORE signed with this key for the
  * paying account, paid in credits, followed until Aleph has decided.
  *
  * @param {object} params
- * @param {string} params.cid what Aleph's IPFS host answered
+ * @param {string} params.cid what Aleph answered for the upload
  * @param {string} params.owner the paying account
  * @param {Uint8Array} params.key this browser's Aleph key
  * @param {AlephEndpoints} [params.endpoints]
@@ -222,46 +282,89 @@ export async function keepWithKey({
 	fetch: f,
 	settle = {}
 }) {
-	const [{ createAlephPin, waitForMessage }, { alephAddressOf, alephSign }] = await Promise.all([
-		import('@le-space/orbitdb-storage-bridge/backends/aleph-pin'),
-		import('./aleph-signer.js')
-	]);
-	const withFetch = f ? { fetch: f } : {};
-	const sender = alephAddressOf(key);
-	const sent = await createAlephPin({
-		sender,
-		owner,
-		sign: async (_address, message) => alephSign(key, message),
-		apiHost: endpoints.apiHost,
-		channel: BACKUP_CHANNEL,
-		...withFetch
-	})(cid, ref ? { ref } : {});
-	/** @type {any} */
-	const final =
-		sent.status === 'pending'
-			? await waitForMessage(sent.itemHash, {
-					apiHost: endpoints.apiHost,
-					timeout: settle.timeout ?? 60_000,
-					interval: settle.interval ?? 2_000,
-					...withFetch
-				})
-			: sent;
-	if (final.status === 'rejected') {
-		const why = final.details?.errors?.[0];
-		if (why && typeof why === 'object' && why.required_credits !== undefined) {
-			throw new BackupRefusedError('credits', {
-				credits: Math.floor(Number(why.account_credits)),
-				required: Math.ceil(Number(why.required_credits))
-			});
-		}
-		throw new BackupRefusedError('rejected', { errorCode: final.errorCode ?? null });
-	}
+	const { alephAddressOf } = await import('./aleph-signer.js');
+	const pin = await backupPin({ owner, key, endpoints, fetch: f });
+	const sent = await pin(cid, ref ? { ref } : {});
+	const final = await settleKept(sent, { endpoints, fetch: f, settle });
 	return {
 		itemHash: sent.itemHash,
 		status: final.status,
-		sender,
+		sender: alephAddressOf(key),
 		address: owner,
 		...(ref ? { ref } : {})
+	};
+}
+
+/**
+ * @typedef {{ itemHash: string, status: string, sender?: string, address?: string, ref?: string }} Kept
+ *   what keeps a backup on Aleph, as the history records it
+ * @typedef {{ backend: ReturnType<typeof import('@le-space/orbitdb-storage-bridge/backends/aleph').createAlephBackend>,
+ *   keep: (handle: any, ref?: string) => Promise<Kept> }} BackupUploader
+ */
+
+/**
+ * What a backup goes up with (backup/run.svelte.js): the storage bridge's
+ * Aleph backend – the IPFS host, else an API node (since 2026-10-26 the
+ * host takes no uploads) – and what keeps the upload afterwards.
+ *
+ * - This browser's key, granted: the backend gets the pin, Aleph's API node
+ *   keeps the file in the same call as the upload, up to 1 GiB; `keep` only
+ *   follows the message to its final status.
+ * - Else the bridge signs: an upload without a message, up to 25 MiB on the
+ *   API node, and the bridge's STORE afterwards.
+ *
+ * @param {object} params
+ * @param {string} params.owner the paying account
+ * @param {Uint8Array | null} params.key this browser's Aleph key
+ * @param {boolean} params.granted whether the account lets that key keep backups
+ * @param {AlephEndpoints} [params.endpoints]
+ * @param {{ keep: (cid: string, ref?: string) => Promise<{ itemHash: string, status: string, address?: string, ref?: string }>, address?: string } | null} [params.bridge]
+ *   the paired bridge, when it signs instead
+ * @param {typeof fetch} [params.fetch]
+ * @returns {Promise<BackupUploader>}
+ */
+export async function createBackupUploader({
+	owner,
+	key,
+	granted,
+	endpoints = alephEndpoints(),
+	bridge = null,
+	fetch: f
+}) {
+	const [{ createAlephBackend }, { alephAddressOf }] = await Promise.all([
+		import('@le-space/orbitdb-storage-bridge/backends/aleph'),
+		import('./aleph-signer.js')
+	]);
+	const signs = granted && key ? await backupPin({ owner, key, endpoints, fetch: f }) : null;
+	const backend = createAlephBackend({
+		ingestUrl: endpoints.ingestUrl,
+		apiHost: endpoints.apiHost,
+		gateways: endpoints.gateways,
+		...(signs ? { pin: signs } : {}),
+		...(f ? { fetch: f } : {})
+	});
+	return {
+		backend,
+		async keep(handle, ref) {
+			// Kept in the same call as the upload: Aleph's word on it is what is left to get.
+			if (handle?.itemHash && key) {
+				const final = await settleKept(
+					{ itemHash: String(handle.itemHash), status: String(handle.status ?? 'pending') },
+					{ endpoints, fetch: f }
+				);
+				return {
+					itemHash: final.itemHash,
+					status: final.status,
+					sender: alephAddressOf(key),
+					address: owner,
+					...(ref ? { ref } : {})
+				};
+			}
+			if (granted && key)
+				return keepWithKey({ cid: handle.id, owner, key, endpoints, ref, fetch: f });
+			if (bridge) return { ...(await bridge.keep(handle.id, ref)), sender: bridge.address };
+			throw new Error('Nothing can keep this backup: no granted key and no bridge.');
+		}
 	};
 }
 

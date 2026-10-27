@@ -1206,7 +1206,9 @@ export default {
 		grantDashboardLink: 'Open Permissions',
 		now: 'Back up now',
 		ingestGone:
-			'Aleph’s IPFS host takes no uploads at the moment. Backups up to {limit} therefore go through Aleph’s API; this one has {size}. Increments go on – a full backup only once the host takes uploads again. Nothing was kept and nothing costs.',
+			'Aleph’s IPFS host takes no uploads at the moment. Without this browser let in, backups go through Aleph’s API only up to {limit}; this one has {size}. Set up the grant above – then backups go up to 1 GB – or let the increments run. Nothing was kept and nothing costs.',
+		tooBig:
+			'This backup has {size}; Aleph takes at most {limit} in one piece. Nothing was kept and nothing costs.',
 		uploadTimedOut:
 			'The upload to Aleph did not finish within {minutes} minutes: the line was too slow for {size}, or broke off. Nothing was kept and nothing costs. Try again, best on a faster line and with this tab in front.',
 		keepWorking:

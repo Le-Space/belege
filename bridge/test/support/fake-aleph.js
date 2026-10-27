@@ -63,12 +63,18 @@
 // an upload that wants its progress is refused, a plain one goes through.
 // With `cors.ingestGone`, `add` answers 404, as Aleph's IPFS hosts have
 // since 2026-10-26; then `POST /api/v0/ipfs/add_file` (an API node's) takes
-// a file up to 25 MiB and answers { status, hash, name, size }.
+// a file and answers { status, hash, name, size } with the file's UnixFS CID
+// (computed as the storage bridge computes it before the upload): without a
+// `metadata` part up to 25 MiB, kept for nobody; with one – a signed STORE
+// whose content names that CID, else 422 – judged like a STORE sent on its
+// own (signature, grant, credits) and kept in the same call: 200 when
+// processed, 202 while pending.
 import http from 'node:http';
 import { createHash } from 'node:crypto';
 
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
+import { unixfsCid } from '@le-space/orbitdb-storage-bridge/backends/aleph-upload';
 import { base58 } from '@scure/base';
 
 import { toChecksumAddress } from '../../src/chains/evm.js';
@@ -179,6 +185,67 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 				(!a.channels?.length || a.channels.includes(channel)) &&
 				(!a.chain || a.chain === 'ETH')
 		);
+	/**
+	 * A STORE message, as Aleph judges it: its shape, the signature, the
+	 * owner's grant to the sender, the owner's credits. Kept in `stores`;
+	 * null when it is not a STORE this fake takes.
+	 *
+	 * @param {any} m @param {any} content @param {{ hashOk: boolean, signatureOk: boolean }} checks
+	 */
+	function takeStore(m, content, { hashOk, signatureOk }) {
+		const shapeOk =
+			hashOk &&
+			m.chain === 'ETH' &&
+			m.type === 'STORE' &&
+			m.item_type === 'inline' &&
+			typeof m.channel === 'string' &&
+			typeof m.time === 'number' &&
+			content?.item_type === 'ipfs' &&
+			typeof content?.address === 'string' &&
+			added.has(content?.item_hash) &&
+			(content.payment === undefined || ['credit', 'hold'].includes(content.payment?.type));
+		if (!shapeOk) return null;
+		const payment = content.payment?.type ?? null;
+		/** @type {{ status: string, errorCode?: number, details?: unknown }} */
+		let verdict = { status: 'processed' };
+		if (!signatureOk) verdict = { status: 'pending' };
+		else if (content.address !== m.sender && !allowed(content.address, m.sender, m.channel)) {
+			verdict = { status: 'rejected', errorCode: 3, details: { errors: ['not authorized'] } };
+		} else if (payment === 'credit') {
+			// The paying account is the owner, never the sender (measured 2026-10-03).
+			const credits = accounts[toChecksumAddress(content.address)]?.balance ?? 0;
+			const mib = /** @type {Uint8Array} */ (added.get(content.item_hash)).length / 1048576;
+			const required = mib * FAKE_CREDITS_PER_MIB_DAY;
+			if (credits < required) {
+				verdict = {
+					status: 'rejected',
+					errorCode: 6,
+					details: {
+						errors: [
+							{
+								account_credits: String(credits),
+								min_runtime_days: 1,
+								required_credits: required.toFixed(18)
+							}
+						]
+					}
+				};
+			}
+		}
+		stores.push({
+			sender: m.sender,
+			cid: content.item_hash,
+			channel: m.channel,
+			owner: content.address,
+			time: content.time,
+			itemHash: m.item_hash,
+			payment,
+			...(typeof content.ref === 'string' && content.ref ? { ref: content.ref } : {}),
+			...verdict
+		});
+		return verdict;
+	}
+
 	const server = http.createServer(async (req, res) => {
 		const url = new URL(String(req.url), 'http://x');
 		const origin = String(req.headers.origin ?? '*');
@@ -273,14 +340,52 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 			const file = form?.get('file');
 			if (!file || typeof file === 'string') return reply(400, { Message: 'no file' });
 			const bytes = new Uint8Array(await file.arrayBuffer());
-			if (url.pathname === '/api/v0/ipfs/add_file' && bytes.length > 25 * 1024 * 1024) {
-				return reply(413, { error: 'File too large' });
+			if (url.pathname === '/api/v0/ipfs/add_file') {
+				// An API node (measured 2026-10-27): the file's UnixFS CID, as the
+				// storage bridge computes it before the upload; a signed STORE in
+				// `metadata` kept in the same call once the CID it names is the one
+				// made, else 422; without one at most 25 MiB.
+				const metadata = form?.get('metadata');
+				if (!metadata && bytes.length > 25 * 1024 * 1024) {
+					return reply(413, { error: 'File too large' });
+				}
+				const hash = await unixfsCid(bytes);
+				added.set(hash, bytes);
+				if (typeof metadata !== 'string') {
+					return reply(200, { status: 'success', hash, name: file.name, size: bytes.length });
+				}
+				let m2;
+				let content2;
+				try {
+					m2 = JSON.parse(metadata).message;
+					content2 = JSON.parse(m2.item_content);
+				} catch {
+					return reply(422, { error: 'Could not decode metadata' });
+				}
+				if (content2?.item_hash !== hash) {
+					return reply(422, {
+						error: `File hash does not match (${hash} != ${content2?.item_hash})`
+					});
+				}
+				const verdict = takeStore(m2, content2, {
+					hashOk:
+						m2.item_hash === createHash('sha256').update(String(m2.item_content)).digest('hex'),
+					signatureOk:
+						signerOf(
+							String(m2.signature ?? ''),
+							[m2.chain, m2.sender, m2.type, m2.item_hash].join('\n')
+						) === toChecksumAddress(String(m2.sender))
+				});
+				if (!verdict) return reply(422, { error: 'not a STORE message this fake takes' });
+				return reply(verdict.status === 'processed' ? 200 : 202, {
+					status: 'success',
+					hash,
+					name: file.name,
+					size: bytes.length
+				});
 			}
 			const hash = cidOf(bytes);
 			added.set(hash, bytes);
-			if (url.pathname === '/api/v0/ipfs/add_file') {
-				return reply(200, { status: 'success', hash, name: file.name, size: bytes.length });
-			}
 			// As Aleph's host answers: any page may read it (the app uploads from the browser).
 			res.writeHead(200, {
 				'Content-Type': 'application/json',
@@ -402,56 +507,8 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 				return answer(verdict.status);
 			}
 
-			const shapeOk =
-				hashOk &&
-				m.chain === 'ETH' &&
-				m.type === 'STORE' &&
-				m.item_type === 'inline' &&
-				typeof m.channel === 'string' &&
-				typeof m.time === 'number' &&
-				content?.item_type === 'ipfs' &&
-				typeof content?.address === 'string' &&
-				added.has(content?.item_hash) &&
-				(content.payment === undefined || ['credit', 'hold'].includes(content.payment?.type));
-			if (!shapeOk) return reply(422, { error: 'not a STORE message this fake takes' });
-			const payment = content.payment?.type ?? null;
-			/** @type {{ status: string, errorCode?: number, details?: unknown }} */
-			let verdict = { status: 'processed' };
-			if (!signatureOk) verdict = { status: 'pending' };
-			else if (content.address !== m.sender && !allowed(content.address, m.sender, m.channel)) {
-				verdict = { status: 'rejected', errorCode: 3, details: { errors: ['not authorized'] } };
-			} else if (payment === 'credit') {
-				// The paying account is the owner, never the sender (measured 2026-10-03).
-				const credits = accounts[toChecksumAddress(content.address)]?.balance ?? 0;
-				const mib = /** @type {Uint8Array} */ (added.get(content.item_hash)).length / 1048576;
-				const required = mib * FAKE_CREDITS_PER_MIB_DAY;
-				if (credits < required) {
-					verdict = {
-						status: 'rejected',
-						errorCode: 6,
-						details: {
-							errors: [
-								{
-									account_credits: String(credits),
-									min_runtime_days: 1,
-									required_credits: required.toFixed(18)
-								}
-							]
-						}
-					};
-				}
-			}
-			stores.push({
-				sender: m.sender,
-				cid: content.item_hash,
-				channel: m.channel,
-				owner: content.address,
-				time: content.time,
-				itemHash: m.item_hash,
-				payment,
-				...(typeof content.ref === 'string' && content.ref ? { ref: content.ref } : {}),
-				...verdict
-			});
+			const verdict = takeStore(m, content, { hashOk, signatureOk });
+			if (!verdict) return reply(422, { error: 'not a STORE message this fake takes' });
 			return answer(verdict.status);
 		}
 		if (

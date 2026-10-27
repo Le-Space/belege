@@ -25,6 +25,7 @@
 		backupAddressOf,
 		creditsOf,
 		creditsPerDay,
+		createBackupUploader,
 		ensureBackupKey,
 		forgetChain,
 		isAddress,
@@ -332,15 +333,22 @@
 	 *
 	 * @param {{ full?: boolean }} [options]
 	 */
-	function backUp({ full = false } = {}) {
+	async function backUp({ full = false } = {}) {
 		if (!owner || !key) return;
 		error = null;
 		const continuing = !full && chainUsable && chain ? $state.snapshot(chain) : null;
+		const uploader = await createBackupUploader({
+			owner,
+			key,
+			granted: granted === true,
+			endpoints,
+			bridge: bridgeSigns
+				? { keep: (cid, ref) => client.alephKeep(cid, ref), address: status?.address }
+				: null
+		});
 		return runBackup({
 			continuing,
-			ingestUrl: endpoints.ingestUrl,
-			apiHost: endpoints.apiHost,
-			keep,
+			uploader,
 			// A whole copy costs credits every day it is kept: when the credits
 			// would not last a month with it, ask before it goes up.
 			askFor: (bytes) => {
