@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **One list of backups, by chain – and restoring from it.** The backup card showed every backup twice ("Ältere Backup-Ketten" with "Löschen", "Bisherige Backups" without), a deleted backup as large as a live one, and nothing marked the chain "Jetzt sichern" continues; the restore card listed the same backups a third time. Now one list, grouped by chain: the current chain first and marked, every chain with its increments and what it costs a day, "Wiederherstellen" on each full backup and "Löschen" on each older chain in the same line; what Aleph lists for the account is merged in, so a backup made on another device can be restored or deleted here too; chains Aleph has deleted are folded away, with "Aus der Liste nehmen" for their rows. A row is two lines; CID, the Aleph order and "Was drin ist" are under "Details". The restore card is gone: restoring runs from the list, or from "Per CID wiederherstellen" below it, with the same question, progress and result as before.
+
 ## [0.25.0] – 2026-10-27
 
 ### Changed

@@ -14,8 +14,16 @@
 	import { app, chainFitsBooks, currentStore } from '$lib/session.svelte.js';
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { card } from '$lib/ui/styles.js';
-	import { loadBackups, updateBackup } from './history.js';
-	import { loadChain, olderChains } from './chain.js';
+	import { dropBackup, loadBackups, updateBackup } from './history.js';
+	import { loadChain } from './chain.js';
+	import {
+		askRestore,
+		cancelRestore,
+		restoreBusy,
+		restoreRun,
+		restoreStepText,
+		runRestore
+	} from './restore-flow.svelte.js';
 	import BackupProgress from './BackupProgress.svelte';
 	import { backupRun, decideBackup, refused, runBackup, sizeText } from './run.svelte.js';
 	import { backupDue, setAutoBackup } from './auto.svelte.js';
@@ -27,6 +35,7 @@
 		creditsPerDay,
 		createBackupUploader,
 		ensureBackupKey,
+		findBackups,
 		forgetChain,
 		isAddress,
 		isGranted,
@@ -74,6 +83,8 @@
 	const made = $derived(backupRun.made);
 	/** The address field: open while there is no account, or to change it. */
 	let editingOwner = $state(false);
+	/** The settings and the bridge have been asked once: only then "no account" means it. */
+	let loaded = $state(false);
 	const asking = $derived(backupRun.asking);
 	/** Which history row is being kept again, by CID and time. */
 	let rekeeping = $state('');
@@ -122,9 +133,118 @@
 			chainFitsBooks(chain)
 	);
 
+	/** The backups Aleph keeps for the account, as its messages API lists them: those made elsewhere among them. */
+	let remote = $state(/** @type {Awaited<ReturnType<typeof findBackups>>} */ ([]));
+	let remoteFailed = $state(false);
+	let showForgotten = $state(false);
+	let typedCid = $state('');
+	/** Aleph keeps it, or has not decided yet. @param {import('./history.js').BackupRecord} b */
+	const held = (b) => b.status === 'processed' || b.status === 'pending';
+	/**
+	 * @typedef {import('./history.js').BackupRecord & { elsewhere?: boolean }} Row
+	 * @typedef {{ base: string, at: string, records: Row[], increments: number, bytes: number, held: boolean, gone: boolean, current: boolean, elsewhere: boolean }} Chain
+	 *   `held`: Aleph keeps something of it (it costs); `gone`: Aleph deleted all of it
+	 */
+	/**
+	 * Every backup, by chain – a full backup with the increments that build
+	 * on it: the history here, and what Aleph lists for the account (made on
+	 * another device, or before this browser forgot). The current chain
+	 * first, then by date.
+	 * @type {Chain[]}
+	 */
+	const chains = $derived.by(() => {
+		/** @type {Row[]} */
+		const rows = [...backups];
+		for (const r of remote) {
+			if (rows.some((b) => b.cid === r.cid)) continue;
+			rows.push({
+				at: new Date(r.time * 1000).toISOString(),
+				provider: 'aleph',
+				cid: r.cid,
+				size: 0,
+				status: 'processed',
+				itemHash: r.itemHash,
+				address: r.owner,
+				sender: r.sender,
+				entries: 0,
+				files: 0,
+				missing: 0,
+				kind: r.ref ? 'increment' : 'full',
+				...(r.ref ? { base: r.ref } : {}),
+				elsewhere: true
+			});
+		}
+		const isFull = (/** @type {Row} */ b) => b.kind !== 'increment';
+		/** @type {Record<string, Row[]>} */
+		const byBase = {};
+		for (const b of rows) {
+			const base = isFull(b) ? b.cid : b.base;
+			if (!base) continue;
+			(byBase[base] ??= []).push(b);
+		}
+		return Object.entries(byBase)
+			.map(([base, records]) => {
+				const full = records.filter(isFull).sort((a, b) => (a.at < b.at ? -1 : 1))[0];
+				// A backup kept again has two rows and one file: each CID once.
+				const kept = records
+					.filter(held)
+					.filter((b, i, all) => all.findIndex((o) => o.cid === b.cid) === i)
+					.map((b) => b.size);
+				return {
+					base,
+					at: full?.at ?? records[0].at,
+					records: [...records].sort((a, b) => (a.at < b.at ? 1 : -1)),
+					increments: new Set(records.filter((b) => !isFull(b)).map((b) => b.cid)).size,
+					bytes: kept.reduce((n, size) => n + size, 0),
+					held: records.some(held),
+					gone: records.every((b) => b.status === 'forgotten'),
+					current: chainUsable && chain?.base === base,
+					elsewhere: records.every((b) => Boolean(b.elsewhere))
+				};
+			})
+			.sort((a, b) => (a.current ? -1 : b.current ? 1 : a.at < b.at ? 1 : -1));
+	});
+	const liveChains = $derived(chains.filter((c) => !c.gone));
+	const goneChains = $derived(chains.filter((c) => c.gone));
 	/** The chains backups no longer go on with: they cost credits until forgotten. */
-	const currentBase = () => chain?.base;
-	const older = $derived(olderChains(backups, currentBase()));
+	const older = $derived(liveChains.filter((c) => !c.current));
+
+	/** What Aleph lists for the account: asked when the card opens, and after a change. */
+	async function listRemote() {
+		if (!owner) {
+			remote = [];
+			return;
+		}
+		try {
+			remote = await findBackups({ owner, endpoints });
+			remoteFailed = false;
+		} catch {
+			remoteFailed = true;
+		}
+	}
+
+	/** A row for a backup Aleph has deleted: out of the list here. @param {Row} b */
+	async function dropRow(b) {
+		const store = currentStore();
+		if (!store) return;
+		backups = await dropBackup(store.settings, b);
+	}
+
+	/** "Wiederherstellen" for the chosen chain: its increments as this card knows them. */
+	const doRestore = () =>
+		runRestore({
+			owner,
+			endpoints,
+			known:
+				chains
+					.find((c) => c.base === restoreRun.chosen)
+					?.records.filter((b) => b.kind === 'increment')
+					.map((b) => b.cid) ?? []
+		});
+	/** @param {HTMLElement} node */
+	function reveal(node) {
+		node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+	}
 	/** Which older chain asks "Endgültig löschen?", and which is being forgotten, by base CID. */
 	let confirming = $state('');
 	let forgetting = $state('');
@@ -139,7 +259,7 @@
 	 * "Endgültig löschen": Aleph forgets the chain (keeper.js `forgetChain`);
 	 * its rows say so, and stop counting in what the backups cost.
 	 *
-	 * @param {import('./chain.js').OlderChain} c
+	 * @param {Chain} c
 	 */
 	async function forgetOlder(c) {
 		const store = currentStore();
@@ -161,6 +281,7 @@
 				left: result.rejected.length + result.pending.length + result.failed.length
 			};
 			await settle();
+			await listRemote();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -179,9 +300,7 @@
 	);
 	// What the backups Aleph keeps cost a day, together, and how long the
 	// credits last at that rate. Every backup is a whole copy, kept until forgotten.
-	const keptBytes = $derived(
-		backups.filter((b) => b.status === 'processed').reduce((n, b) => n + b.size, 0)
-	);
+	const keptBytes = $derived(liveChains.reduce((n, c) => n + c.bytes, 0));
 	const keptPerDay = $derived(creditsPerDay(keptBytes));
 	/** Below this many days of credits, a new backup asks first. */
 	const ASK_BELOW_DAYS = 30;
@@ -228,6 +347,7 @@
 			owner = await saveOwner(store.settings, String(status.address));
 		}
 		ownerInput = owner ?? '';
+		loaded = true;
 		await check();
 	}
 
@@ -249,6 +369,7 @@
 						? (status?.credits ?? null)
 						: null;
 			await settle();
+			await listRemote();
 		} finally {
 			checking = false;
 		}
@@ -421,6 +542,212 @@
 			{/if}
 		</tfoot>
 	</table>
+{/snippet}
+
+{#snippet backupRow(/** @type {Row} */ b)}
+	<li class="flex flex-wrap items-baseline gap-x-2 gap-y-1 py-1" data-testid="backup-row">
+		<span class="text-heading"
+			>{when(b.at)}
+			<span class="text-xs text-faint" data-testid="backup-row-kind"
+				>· {b.kind === 'increment'
+					? t('backup.kindIncrement', { sequence: b.sequence ?? 0 })
+					: t('backup.kindFull')}</span
+			></span
+		>
+		<span class="text-faint">{b.size ? `${size(b.size)} · ` : ''}{kept(b.status)}</span>
+		{#if held(b)}
+			<button
+				type="button"
+				class="text-xs text-link underline disabled:opacity-50"
+				onclick={() => askWhoHolds(b.cid)}
+				disabled={holders?.busy || app.network.paused}
+				data-testid="backup-holders">{t('backup.holders.ask')}</button
+			>
+		{:else if !b.elsewhere}
+			<button
+				type="button"
+				class="text-xs text-link underline"
+				onclick={() => dropRow(b)}
+				data-testid="backup-row-drop">{t('backup.list.drop')}</button
+			>
+		{/if}
+		{#if holders?.cid === b.cid}
+			<div class="w-full text-xs" role="status" data-testid="backup-holders-result">
+				{#if holders.busy}
+					<p class="text-faint">{t('backup.holders.asking')}</p>
+				{:else if holders.error}
+					<p class="text-danger">{t('backup.holders.failed', { error: holders.error })}</p>
+				{:else if holders.result}
+					{@const r = holders.result}
+					<p class="text-text" data-testid="backup-holders-summary">
+						{r.holders.length
+							? t('backup.holders.summary', {
+									count: r.holders.length,
+									aleph: r.holders.filter((h) => h.aleph).length,
+									active: r.alephActive ?? '?'
+								})
+							: t('backup.holders.none')}
+					</p>
+					{#if r.holders.length}
+						<table class="mt-1 w-full text-left">
+							<thead class="text-faint">
+								<tr>
+									<th scope="col" class="py-0.5 pr-2 font-medium">{t('backup.holders.node')}</th>
+									<th scope="col" class="py-0.5 pr-2 font-medium">{t('backup.holders.ip')}</th>
+									<th scope="col" class="py-0.5 pr-2 font-medium">{t('backup.holders.place')}</th>
+									<th scope="col" class="py-0.5 font-medium">{t('backup.holders.network')}</th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each r.holders as h (h.peerId)}
+									<tr class="align-top" data-testid="backup-holder">
+										<td class="py-0.5 pr-2 text-heading" title={h.peerId}
+											>{h.aleph ?? t('backup.holders.notAleph')}</td
+										>
+										<td class="py-0.5 pr-2 font-mono break-all text-text"
+											>{h.ips.join(', ') || '–'}</td
+										>
+										<td class="py-0.5 pr-2 text-text">{placeText(h.place)}</td>
+										<td class="py-0.5 text-faint">{h.place?.network || '–'}</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+						{#if r.placed}
+							<p class="mt-1 text-faint" data-testid="backup-holders-spread">
+								{t('backup.holders.spread', { networks: r.networks, countries: r.countries })}
+							</p>
+						{/if}
+					{/if}
+				{/if}
+			</div>
+		{/if}
+		{#if b.status === 'unknown' || b.status === 'rejected'}
+			<span class="flex w-full flex-wrap items-center gap-2 text-xs text-text">
+				{b.status === 'unknown' ? t('backup.unknownHint') : t('backup.rejectedHint')}
+				<button
+					type="button"
+					class={button}
+					onclick={() => keepAgain(b)}
+					disabled={Boolean(step) || Boolean(rekeeping) || !canBackUp}
+					data-testid="backup-rekeep"
+					>{rekeeping === b.cid + b.at ? t('backup.step.keeping') : t('backup.rekeep')}</button
+				>
+			</span>
+		{/if}
+		<details class="w-full" data-testid="backup-row-details">
+			<summary class="cursor-pointer text-xs text-faint">{t('backup.list.details')}</summary>
+			<p class="mt-1 font-mono text-xs break-all text-faint" data-testid="backup-row-cid">
+				{b.cid}
+			</p>
+			{#if b.itemHash}
+				<p class="text-xs text-faint" data-testid="backup-row-order">
+					{t('backup.order')}
+					<a
+						class="font-mono break-all text-link underline"
+						href={`${endpoints.apiHost}/api/v0/messages/${b.itemHash}`}
+						target="_blank"
+						rel="noopener noreferrer">{b.itemHash}</a
+					>
+				</p>
+			{/if}
+			{#if b.elsewhere}
+				<p class="text-xs text-faint">{t('backup.list.elsewhereRow')}</p>
+			{/if}
+			{#if b.databases}
+				{@render contents(b)}
+			{/if}
+		</details>
+	</li>
+{/snippet}
+
+{#snippet chainGroup(/** @type {Chain} */ c)}
+	<li class="py-2" data-testid="backup-chain-group" data-base={c.base} data-current={c.current}>
+		<div
+			data-testid={c.current
+				? 'backup-chain-current'
+				: c.held
+					? 'backup-older-chain'
+					: c.gone
+						? 'backup-chain-gone'
+						: 'backup-chain-unkept'}
+		>
+			<div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+				<span class="font-medium text-heading"
+					>{c.at
+						? t('backup.older.chain', { at: when(c.at) })
+						: t('backup.older.chainUndated', { cid: `${c.base.slice(0, 12)}…` })}</span
+				>
+				<span class="text-xs text-faint"
+					>· {c.increments === 1
+						? t('backup.older.incrementsOne')
+						: t('backup.older.increments', { count: c.increments })} · {c.held
+						? c.bytes
+							? t('backup.older.cost', {
+									size: size(c.bytes),
+									perDay: perDayText(creditsPerDay(c.bytes))
+								})
+							: t('backup.list.sizeUnknown')
+						: c.gone
+							? t('backup.forgotten')
+							: t('backup.unknown')}{c.elsewhere ? ` · ${t('backup.list.elsewhere')}` : ''}</span
+				>
+				{#if c.current}
+					<span
+						class="rounded-full border border-border px-2 py-0.5 text-xs text-text"
+						data-testid="backup-chain-current-badge">{t('backup.list.current')}</span
+					>
+				{/if}
+				{#if c.held}
+					<span class="ml-auto flex flex-wrap items-center gap-2">
+						<button
+							type="button"
+							class={button}
+							onclick={() => askRestore(c.base)}
+							disabled={restoreBusy() || Boolean(step)}
+							data-testid="backup-restore">{t('restore.pick')}</button
+						>
+						{#if !c.current && forgetting !== c.base && confirming !== c.base}
+							<button
+								type="button"
+								class={button}
+								onclick={() => (confirming = c.base)}
+								disabled={!canForget}
+								data-testid="backup-older-forget">{t('backup.older.forget')}</button
+							>
+						{/if}
+					</span>
+				{/if}
+			</div>
+			{#if confirming === c.base}
+				<div class="mt-1 flex flex-wrap items-center gap-2" role="alert">
+					<span class="text-warn w-full text-xs" data-testid="backup-older-confirm"
+						>{t('backup.older.confirm')}</span
+					>
+					<button
+						type="button"
+						class="rounded-md border border-danger px-3 py-1.5 text-sm text-danger hover:bg-surface-2 disabled:opacity-50"
+						onclick={() => forgetOlder(c)}
+						disabled={!canForget}
+						data-testid="backup-older-yes">{t('backup.older.confirmYes')}</button
+					>
+					<button
+						type="button"
+						class={button}
+						onclick={() => (confirming = '')}
+						data-testid="backup-older-no">{t('backup.cancel')}</button
+					>
+				</div>
+			{:else if forgetting === c.base}
+				<p class="mt-1 text-xs text-faint" role="status">{t('backup.older.forgetting')}</p>
+			{/if}
+		</div>
+		<ul class="mt-1 border-l border-border pl-3">
+			{#each c.records as b (b.cid + b.at)}
+				{@render backupRow(b)}
+			{/each}
+		</ul>
+	</li>
 {/snippet}
 
 <section class={card} aria-labelledby="backup-h" data-testid="backup-card">
@@ -648,11 +975,11 @@
 				})}
 			</p>
 		{/if}
-	{:else}
+	{:else if loaded}
 		<p class="mt-2 text-sm text-text" data-testid="backup-no-owner">{t('backup.noOwner')}</p>
 	{/if}
 
-	{#if !owner || editingOwner}
+	{#if loaded && (!owner || editingOwner)}
 		<form
 			class="mt-3 flex flex-wrap items-end gap-2"
 			onsubmit={(e) => {
@@ -724,58 +1051,21 @@
 		<p class="mt-2 text-sm text-danger" role="alert" data-testid="backup-error">{shownError}</p>
 		<WayOut message={shownError} />
 	{/if}
-	{#if older.length || forgotten}
-		<h3 class="mt-4 text-sm font-semibold text-heading">{t('backup.older.title')}</h3>
-		<p class="mt-1 text-xs text-faint">{t('backup.older.intro')}</p>
-		<ul class="mt-1 divide-y divide-border text-sm" data-testid="backup-older">
-			{#each older as c (c.base)}
-				<li class="flex flex-wrap items-baseline gap-2 py-1.5" data-testid="backup-older-chain">
-					<span class="text-heading"
-						>{c.at
-							? t('backup.older.chain', { at: when(c.at) })
-							: t('backup.older.chainUndated', { cid: `${c.base.slice(0, 12)}…` })}</span
-					>
-					<span class="text-xs text-faint"
-						>· {c.increments === 1
-							? t('backup.older.incrementsOne')
-							: t('backup.older.increments', { count: c.increments })} · {t('backup.older.cost', {
-							size: size(c.bytes),
-							perDay: perDayText(creditsPerDay(c.bytes))
-						})}</span
-					>
-					{#if confirming === c.base}
-						<span class="flex w-full flex-wrap items-center gap-2" role="alert">
-							<span class="text-warn w-full text-xs" data-testid="backup-older-confirm"
-								>{t('backup.older.confirm')}</span
-							>
-							<button
-								type="button"
-								class="rounded-md border border-danger px-3 py-1.5 text-sm text-danger hover:bg-surface-2 disabled:opacity-50"
-								onclick={() => forgetOlder(c)}
-								disabled={!canForget}
-								data-testid="backup-older-yes">{t('backup.older.confirmYes')}</button
-							>
-							<button
-								type="button"
-								class={button}
-								onclick={() => (confirming = '')}
-								data-testid="backup-older-no">{t('backup.cancel')}</button
-							>
-						</span>
-					{:else if forgetting === c.base}
-						<span class="w-full text-xs text-faint" role="status"
-							>{t('backup.older.forgetting')}</span
-						>
-					{:else}
-						<button
-							type="button"
-							class={button}
-							onclick={() => (confirming = c.base)}
-							disabled={!canForget}
-							data-testid="backup-older-forget">{t('backup.older.forget')}</button
-						>
-					{/if}
-				</li>
+	{#if chains.length || owner}
+		<h3 class="mt-4 text-sm font-semibold text-heading">{t('backup.list.title')}</h3>
+		<p class="mt-1 text-xs text-faint">{t('backup.list.intro')}</p>
+		<p class="mt-1 text-xs text-faint">{t('restore.leaves')} {t('backup.holders.note')}</p>
+		{#if remoteFailed}
+			<p class="mt-1 text-xs text-faint" data-testid="backup-list-unlisted">
+				{t('backup.list.unlisted')}
+			</p>
+		{/if}
+		{#if !chains.length}
+			<p class="mt-2 text-sm text-faint" data-testid="backup-no-backups">{t('backup.list.none')}</p>
+		{/if}
+		<ul class="mt-1 divide-y divide-border text-sm" data-testid="backup-history">
+			{#each liveChains as c (c.base)}
+				{@render chainGroup(c)}
 			{/each}
 		</ul>
 		{#if older.length && granted !== true}
@@ -790,129 +1080,89 @@
 					: t('backup.older.done', { count: forgotten.count })}
 			</p>
 		{/if}
-	{/if}
-	{#if backups.length}
-		<h3 class="mt-4 text-sm font-semibold text-heading">{t('backup.history')}</h3>
-		<p class="mt-1 text-xs text-faint">{t('backup.holders.note')}</p>
-		<ul class="mt-1 divide-y divide-border text-sm" data-testid="backup-history">
-			{#each backups as b (b.cid + b.at)}
-				<li
-					class="flex flex-wrap items-baseline justify-between gap-2 py-1.5"
-					data-testid="backup-row"
+		{#if goneChains.length}
+			<details class="mt-2 text-sm" bind:open={showForgotten} data-testid="backup-forgotten">
+				<summary class="cursor-pointer text-xs text-faint"
+					>{goneChains.length === 1
+						? t('backup.list.showGoneOne')
+						: t('backup.list.showGone', { count: goneChains.length })}</summary
 				>
-					<span class="text-heading"
-						>{when(b.at)}
-						<span class="text-xs text-faint" data-testid="backup-row-kind"
-							>· {b.kind === 'increment'
-								? t('backup.kindIncrement', { sequence: b.sequence ?? 0 })
-								: t('backup.kindFull')}</span
-						></span
+				<ul class="divide-y divide-border" data-testid="backup-history-gone">
+					{#each goneChains as c (c.base)}
+						{@render chainGroup(c)}
+					{/each}
+				</ul>
+			</details>
+		{/if}
+		<details class="mt-3 text-sm" data-testid="backup-restore-by-cid">
+			<summary class="cursor-pointer text-xs text-faint">{t('backup.list.byCid')}</summary>
+			<form
+				class="mt-2 flex flex-wrap items-end gap-2"
+				onsubmit={(e) => {
+					e.preventDefault();
+					askRestore(typedCid);
+				}}
+			>
+				<label class="flex min-w-64 flex-1 flex-col text-sm text-faint"
+					>{t('restore.cidLabel')}
+					<input
+						class="mt-1 rounded-md border border-border bg-surface px-2 py-1.5 font-mono text-xs text-heading"
+						bind:value={typedCid}
+						autocomplete="off"
+						spellcheck="false"
+						data-testid="restore-cid"
+					/>
+				</label>
+				<button
+					type="submit"
+					class={button}
+					disabled={restoreBusy() || !typedCid.trim()}
+					data-testid="restore-typed">{t('restore.pick')}</button
+				>
+			</form>
+		</details>
+		{#if restoreRun.chosen}
+			<div
+				class="mt-3 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
+				use:reveal
+				data-testid="restore-confirm"
+			>
+				<p class="text-text">{t('restore.confirm')}</p>
+				<p class="mt-1 font-mono text-xs break-all text-faint">{restoreRun.chosen}</p>
+				<div class="mt-2 flex gap-2">
+					<button type="button" class={button} onclick={doRestore} data-testid="restore-yes"
+						>{t('restore.yes')}</button
 					>
-					<span class="text-faint">{size(b.size)} · {kept(b.status)}</span>
-					<span class="w-full font-mono text-xs break-all text-faint">{b.cid}</span>
-					<span class="w-full">
-						<button
-							type="button"
-							class="text-xs text-link underline disabled:opacity-50"
-							onclick={() => askWhoHolds(b.cid)}
-							disabled={holders?.busy || app.network.paused}
-							data-testid="backup-holders">{t('backup.holders.ask')}</button
-						>
-					</span>
-					{#if holders?.cid === b.cid}
-						<div class="w-full text-xs" role="status" data-testid="backup-holders-result">
-							{#if holders.busy}
-								<p class="text-faint">{t('backup.holders.asking')}</p>
-							{:else if holders.error}
-								<p class="text-danger">{t('backup.holders.failed', { error: holders.error })}</p>
-							{:else if holders.result}
-								{@const r = holders.result}
-								<p class="text-text" data-testid="backup-holders-summary">
-									{r.holders.length
-										? t('backup.holders.summary', {
-												count: r.holders.length,
-												aleph: r.holders.filter((h) => h.aleph).length,
-												active: r.alephActive ?? '?'
-											})
-										: t('backup.holders.none')}
-								</p>
-								{#if r.holders.length}
-									<table class="mt-1 w-full text-left">
-										<thead class="text-faint">
-											<tr>
-												<th scope="col" class="py-0.5 pr-2 font-medium"
-													>{t('backup.holders.node')}</th
-												>
-												<th scope="col" class="py-0.5 pr-2 font-medium">{t('backup.holders.ip')}</th
-												>
-												<th scope="col" class="py-0.5 pr-2 font-medium"
-													>{t('backup.holders.place')}</th
-												>
-												<th scope="col" class="py-0.5 font-medium">{t('backup.holders.network')}</th
-												>
-											</tr>
-										</thead>
-										<tbody>
-											{#each r.holders as h (h.peerId)}
-												<tr class="align-top" data-testid="backup-holder">
-													<td class="py-0.5 pr-2 text-heading" title={h.peerId}
-														>{h.aleph ?? t('backup.holders.notAleph')}</td
-													>
-													<td class="py-0.5 pr-2 font-mono break-all text-text"
-														>{h.ips.join(', ') || '–'}</td
-													>
-													<td class="py-0.5 pr-2 text-text">{placeText(h.place)}</td>
-													<td class="py-0.5 text-faint">{h.place?.network || '–'}</td>
-												</tr>
-											{/each}
-										</tbody>
-									</table>
-									{#if r.placed}
-										<p class="mt-1 text-faint" data-testid="backup-holders-spread">
-											{t('backup.holders.spread', {
-												networks: r.networks,
-												countries: r.countries
-											})}
-										</p>
-									{/if}
-								{/if}
-							{/if}
-						</div>
-					{/if}
-					{#if b.itemHash}
-						<span class="w-full text-xs text-faint" data-testid="backup-row-order"
-							>{t('backup.order')}
-							<a
-								class="font-mono break-all text-link underline"
-								href={`${endpoints.apiHost}/api/v0/messages/${b.itemHash}`}
-								target="_blank"
-								rel="noopener noreferrer">{b.itemHash}</a
-							></span
-						>
-					{/if}
-					{#if b.status === 'unknown' || b.status === 'rejected'}
-						<span class="flex w-full flex-wrap items-center gap-2 text-xs text-text">
-							{b.status === 'unknown' ? t('backup.unknownHint') : t('backup.rejectedHint')}
-							<button
-								type="button"
-								class={button}
-								onclick={() => keepAgain(b)}
-								disabled={Boolean(step) || Boolean(rekeeping) || !canBackUp}
-								data-testid="backup-rekeep"
-								>{rekeeping === b.cid + b.at
-									? t('backup.step.keeping')
-									: t('backup.rekeep')}</button
-							>
-						</span>
-					{/if}
-					{#if b.databases}
-						<details class="w-full" data-testid="backup-row-details">
-							<summary class="cursor-pointer text-xs text-faint">{t('backup.contents')}</summary>
-							{@render contents(b)}
-						</details>
-					{/if}
-				</li>
-			{/each}
-		</ul>
+					<button type="button" class={button} onclick={cancelRestore} data-testid="restore-no"
+						>{t('restore.no')}</button
+					>
+				</div>
+			</div>
+		{/if}
+		{#if restoreStepText()}
+			<p class="mt-3 text-sm text-faint" role="status" data-testid="restore-step">
+				{restoreStepText()}
+			</p>
+		{/if}
+		{#if restoreRun.phase === 'done'}
+			<div class="mt-3 text-sm" role="status" data-testid="restore-done">
+				<p class="text-heading">{t('restore.done')}</p>
+				{#if restoreRun.increments}
+					<p class="text-xs text-faint" data-testid="restore-done-increments">
+						{t('restore.doneIncrements', { count: restoreRun.increments })}
+					</p>
+				{/if}
+				<ul class="mt-1 text-xs text-faint">
+					{#each restoreRun.result.filter((d) => d.joined > 0) as d (d.collection)}
+						<li>{t(`storage.databases.${d.collection}`)}</li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
+		{#if restoreRun.error}
+			<p class="mt-2 text-sm text-danger" role="alert" data-testid="restore-error">
+				{restoreRun.error}
+			</p>
+		{/if}
 	{/if}
 </section>

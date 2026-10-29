@@ -177,22 +177,27 @@ test('a browser that lost everything gets its books back from the backup', async
 	// account's address finds the backup, straight from Aleph.
 	await stopBridge();
 	await openIntegration(page, 'backup');
-	const card = page.getByTestId('restore-card');
-	await expect(card.getByTestId('restore-none')).toBeVisible();
-	await card.getByTestId('restore-owner').fill(alephAccountOf(KEY).toLowerCase());
-	await card.getByTestId('restore-owner-list').click();
-	// One full backup, its increment with it.
-	await expect(card.getByTestId('restore-row')).toHaveCount(1);
-	await expect(card.getByTestId('restore-row-increments')).toHaveText('· + 1 Zuwächse');
-	await expect(card.getByTestId('restore-owner')).toHaveValue(alephAccountOf(KEY));
+	// Restoring lives in the backup card now: the list of backups is Aleph's
+	// for the account, and every full backup has its "Wiederherstellen".
+	const card = page.getByTestId('backup-card');
+	await expect(card.getByTestId('backup-no-owner')).toBeVisible();
+	await card.getByTestId('backup-owner').fill(alephAccountOf(KEY).toLowerCase());
+	await card.getByTestId('backup-owner-save').click();
+	// One chain: the full backup, its increment with it – both from Aleph's list.
+	await expect(card.getByTestId('backup-chain-group')).toHaveCount(1, { timeout: 30_000 });
+	await expect(card.getByTestId('backup-chain-group')).toContainText('1 Zuwachs');
+	await expect(card.getByTestId('backup-chain-group')).toContainText('von einem anderen Gerät');
+	await expect(card.getByTestId('backup-row')).toHaveCount(2);
+	await expect(card.getByTestId('backup-address')).toContainText(alephAccountOf(KEY));
 	expect(aleph.calls).toContain('/api/v0/messages.json');
 
 	// A typed CID that is none is refused before anything is fetched.
+	await card.getByTestId('backup-restore-by-cid').locator('summary').click();
 	await card.getByTestId('restore-cid').fill('keine-cid');
 	await card.getByTestId('restore-typed').click();
 	await expect(card.getByTestId('restore-error')).toContainText('keine CID');
 
-	await card.getByTestId('restore-pick').click();
+	await card.getByTestId('backup-restore').click();
 	await expect(card.getByTestId('restore-confirm')).toContainText('zusammengeführt');
 	await card.getByTestId('restore-yes').click();
 	await expect(card.getByTestId('restore-done')).toContainText('Wiederhergestellt', {

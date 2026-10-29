@@ -1020,17 +1020,9 @@ export default {
 		refresh: 'Abrufe aktualisieren'
 	},
 	restore: {
-		title: 'Wiederherstellen',
-		what: 'Ein Backup zurück in die Bücher hier. Du brauchst denselben Passkey, mit dem es gemacht wurde, und die Adresse des Aleph-Kontos, das zahlt – oder die CID des Backups. Was hier ist, bleibt; was das Backup enthält, kommt dazu – gelöscht wird nichts. Am Ende lädt die Seite neu, und der Passkey öffnet die Bücher wieder.',
 		leaves:
 			'Geht hinaus: an die Aleph-API die Adresse des Kontos, um seine Backups zu listen, und an Alephs Gateway die CID des Backups (beide sehen die IP-Adresse dieses Computers). Die Datei kommt versiegelt zurück und wird hier geöffnet.',
-		none: 'Noch kein Backup bekannt. Trag die Adresse des Aleph-Kontos ein, das zahlt (die gekoppelte Bridge nennt sie), oder gib eine CID ein.',
-		ownerLabel: 'Adresse des Aleph-Kontos, das zahlt',
-		ownerList: 'Backups suchen',
-		ownerInvalid: 'Das ist keine Adresse: 0x und 40 Hex-Zeichen.',
-		unlisted:
-			'Aleph hat die Liste der Backups gerade nicht geliefert. Versuch es gleich noch einmal, oder gib eine CID ein.',
-		cidLabel: 'Oder die CID eines Backups',
+		cidLabel: 'CID des Backups',
 		pick: 'Wiederherstellen',
 		notACid: 'Das ist keine CID.',
 		confirm:
@@ -1275,6 +1267,23 @@ export default {
 		kept: 'von Aleph aufbewahrt',
 		pending: 'Aleph hat noch nicht bestätigt',
 		forgotten: 'bei Aleph gelöscht',
+		list: {
+			title: 'Backups',
+			intro:
+				'Jede Kette beginnt mit einem Vollbackup, die Zuwächse bauen darauf auf; „Jetzt sichern“ geht auf der aktuellen weiter. Ältere Ketten kosten weiter Credits, bis du sie löschst. „Wiederherstellen“ holt ein Vollbackup samt Zuwächsen in diese Bücher: Was hier ist, bleibt, was fehlt, kommt dazu; am Ende lädt die Seite neu, und der Passkey öffnet die Bücher wieder. Du brauchst einen Passkey der Bücher, aus denen das Backup stammt.',
+			none: 'Noch kein Backup – weder hier noch bei Aleph für dieses Konto. Oben die Adresse des zahlenden Kontos eintragen, oder unten eine CID.',
+			unlisted:
+				'Aleph hat die Liste der Backups gerade nicht geliefert; gezeigt wird, was dieser Browser weiß.',
+			current: 'aktuell',
+			elsewhere: 'von einem anderen Gerät',
+			elsewhereRow: 'Von einem anderen Gerät gesichert: Was drin ist, weiß dieser Browser nicht.',
+			sizeUnknown: 'Größe unbekannt',
+			showGone: '{count} gelöschte Ketten anzeigen',
+			showGoneOne: '1 gelöschte Kette anzeigen',
+			drop: 'Aus der Liste nehmen',
+			details: 'Details',
+			byCid: 'Per CID wiederherstellen'
+		},
 		older: {
 			title: 'Ältere Backup-Ketten',
 			intro:

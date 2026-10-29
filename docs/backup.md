@@ -65,14 +65,14 @@ This browser's key is made here and kept sealed in the settings, as the bridge t
 
 A full backup comes back together with all its increments: the card lists each full backup with how many there are (Aleph's `refs=`, and the history here), fetches them all, and refuses a chain with a hole – its newer heads would point at entries nobody has. An increment alone is not restored; its full backup is.
 
-_Integrationen → Backup → "Wiederherstellen"_, after unlocking with **a passkey of these books**. On a new device that means "Mit vorhandenem Passkey wiederherstellen".
+_Integrationen → Backup_, in the "Backups" list, **"Wiederherstellen"** on a full backup, after unlocking with **a passkey of these books**. On a new device that means "Mit vorhandenem Passkey wiederherstellen", then entering the paying account's address if the card does not know it yet.
 
-The list shows:
+The list shows, grouped by chain – a full backup with its increments, the current chain first, deleted ones folded away –:
 
 - the backups kept for the account, whether the bridge or an allowed key sent them. The browser asks Aleph directly, without the bridge. The address comes from the settings or the paired bridge, or you enter it;
 - the backups made from this browser.
 
-A CID can also be typed. After a question, the browser fetches the sealed file from Aleph's gateway, opens it with the key from the passkey and puts every database and receipt file back. It **merges**: what is in the books here stays, what the backup holds is added, nothing is deleted. The page then reloads, and the passkey opens the books again.
+A CID can also be typed ("Per CID wiederherstellen"). After a question, the browser fetches the sealed file from Aleph's gateway, opens it with the key from the passkey and puts every database and receipt file back. It **merges**: what is in the books here stays, what the backup holds is added, nothing is deleted. The page then reloads, and the passkey opens the books again.
 
 A backup of other books cannot be opened ("gehört zu anderen Büchern").
 
