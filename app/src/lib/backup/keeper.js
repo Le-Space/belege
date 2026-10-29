@@ -268,6 +268,8 @@ export async function settleKept(
  * @param {Uint8Array} params.key this browser's Aleph key
  * @param {AlephEndpoints} [params.endpoints]
  * @param {string} [params.ref] an increment's: the CID of the full backup it builds on
+ * @param {number} [params.size] the file's bytes, into the STORE (`content.size`): a
+ *   restore then knows what it fetches, and refuses a download that came back short
  * @param {typeof fetch} [params.fetch]
  * @param {{ timeout?: number, interval?: number }} [params.settle]
  * @returns {Promise<{ itemHash: string, status: string, sender: string, address: string, ref?: string }>}
@@ -279,12 +281,16 @@ export async function keepWithKey({
 	key,
 	endpoints = alephEndpoints(),
 	ref,
+	size,
 	fetch: f,
 	settle = {}
 }) {
 	const { alephAddressOf } = await import('./aleph-signer.js');
 	const pin = await backupPin({ owner, key, endpoints, fetch: f });
-	const sent = await pin(cid, ref ? { ref } : {});
+	const sent = await pin(cid, {
+		...(ref ? { ref } : {}),
+		...(Number.isInteger(size) ? { size } : {})
+	});
 	const final = await settleKept(sent, { endpoints, fetch: f, settle });
 	return {
 		itemHash: sent.itemHash,
@@ -318,7 +324,7 @@ export async function keepWithKey({
  * @param {Uint8Array | null} params.key this browser's Aleph key
  * @param {boolean} params.granted whether the account lets that key keep backups
  * @param {AlephEndpoints} [params.endpoints]
- * @param {{ keep: (cid: string, ref?: string) => Promise<{ itemHash: string, status: string, address?: string, ref?: string }>, address?: string } | null} [params.bridge]
+ * @param {{ keep: (cid: string, ref?: string, size?: number) => Promise<{ itemHash: string, status: string, address?: string, ref?: string }>, address?: string } | null} [params.bridge]
  *   the paired bridge, when it signs instead
  * @param {typeof fetch} [params.fetch]
  * @returns {Promise<BackupUploader>}
@@ -360,9 +366,11 @@ export async function createBackupUploader({
 					...(ref ? { ref } : {})
 				};
 			}
+			// The size goes into the STORE, so a restore knows what it fetches.
+			const size = Number.isInteger(handle?.size) ? handle.size : undefined;
 			if (granted && key)
-				return keepWithKey({ cid: handle.id, owner, key, endpoints, ref, fetch: f });
-			if (bridge) return { ...(await bridge.keep(handle.id, ref)), sender: bridge.address };
+				return keepWithKey({ cid: handle.id, owner, key, endpoints, ref, size, fetch: f });
+			if (bridge) return { ...(await bridge.keep(handle.id, ref, size)), sender: bridge.address };
 			throw new Error('Nothing can keep this backup: no granted key and no bridge.');
 		}
 	};
@@ -375,7 +383,8 @@ export async function createBackupUploader({
  * with `ref` only that chain's increments are listed.
  *
  * @param {{ owner: string, ref?: string, endpoints?: AlephEndpoints, fetch?: typeof fetch }} params
- * @returns {Promise<{ cid: string, itemHash: string, sender: string, owner: string, time: number, ref?: string }[]>}
+ * @returns {Promise<{ cid: string, itemHash: string, sender: string, owner: string, time: number, ref?: string, size?: number }[]>}
+ *   `size`: the bytes the STORE names (absent on backups made before 0.26.2)
  */
 export async function findBackups({ owner, ref, endpoints = alephEndpoints(), fetch: f }) {
 	const { listAlephStores } = await import('@le-space/orbitdb-storage-bridge/backends/aleph-pin');

@@ -700,10 +700,10 @@ export function createBridgeServer({
 			const body = /** @type {any} */ (await readJson(req));
 			let kept;
 			try {
-				kept = await alephBackup.pin(
-					String(body?.cid ?? ''),
-					body?.ref === undefined ? {} : { ref: String(body.ref) }
-				);
+				kept = await alephBackup.pin(String(body?.cid ?? ''), {
+					...(body?.ref === undefined ? {} : { ref: String(body.ref) }),
+					...(body?.size === undefined ? {} : { size: body.size })
+				});
 			} catch (/** @type {any} */ error) {
 				if (error?.name === 'BackendError') {
 					throw Object.assign(new Error(error.message), {

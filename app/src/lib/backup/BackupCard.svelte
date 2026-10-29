@@ -161,7 +161,8 @@
 				at: new Date(r.time * 1000).toISOString(),
 				provider: 'aleph',
 				cid: r.cid,
-				size: 0,
+				// The bytes the STORE names; 0 on one made before the STORE carried them.
+				size: r.size ?? 0,
 				status: 'processed',
 				itemHash: r.itemHash,
 				address: r.owner,
@@ -230,17 +231,20 @@
 		backups = await dropBackup(store.settings, b);
 	}
 
-	/** "Wiederherstellen" for the chosen chain: its increments as this card knows them. */
-	const doRestore = () =>
-		runRestore({
+	/**
+	 * "Wiederherstellen" for the chosen chain: its increments as this card
+	 * knows them, and the size of every file it knows, so a download that
+	 * comes back short is refused at the gateway.
+	 */
+	const doRestore = () => {
+		const records = chains.find((c) => c.base === restoreRun.chosen)?.records ?? [];
+		return runRestore({
 			owner,
 			endpoints,
-			known:
-				chains
-					.find((c) => c.base === restoreRun.chosen)
-					?.records.filter((b) => b.kind === 'increment')
-					.map((b) => b.cid) ?? []
+			known: records.filter((b) => b.kind === 'increment').map((b) => b.cid),
+			sizes: Object.fromEntries(records.filter((b) => b.size > 0).map((b) => [b.cid, b.size]))
 		});
+	};
 	/** @param {HTMLElement} node */
 	function reveal(node) {
 		node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -396,11 +400,13 @@
 	 *
 	 * @param {string} cid
 	 * @param {string} [ref] an increment's: its full backup's CID
+	 * @param {number} [size] the file's bytes, into the STORE
 	 * @returns {Promise<{ status: string, itemHash: string, address?: string, sender?: string, ref?: string }>}
 	 */
-	async function keep(cid, ref) {
-		if (granted === true && owner && key) return keepWithKey({ cid, owner, key, endpoints, ref });
-		return { ...(await client.alephKeep(cid, ref)), sender: status?.address };
+	async function keep(cid, ref, size) {
+		if (granted === true && owner && key)
+			return keepWithKey({ cid, owner, key, endpoints, ref, size });
+		return { ...(await client.alephKeep(cid, ref, size)), sender: status?.address };
 	}
 
 	/**
@@ -415,7 +421,11 @@
 		error = null;
 		rekeeping = b.cid + b.at;
 		try {
-			const kept = await keep(b.cid, b.kind === 'increment' ? b.base : undefined);
+			const kept = await keep(
+				b.cid,
+				b.kind === 'increment' ? b.base : undefined,
+				b.size || undefined
+			);
 			backups = await updateBackup(store.settings, b, {
 				status: kept.status,
 				itemHash: kept.itemHash,
@@ -464,7 +474,7 @@
 			granted: granted === true,
 			endpoints,
 			bridge: bridgeSigns
-				? { keep: (cid, ref) => client.alephKeep(cid, ref), address: status?.address }
+				? { keep: (cid, ref, size) => client.alephKeep(cid, ref, size), address: status?.address }
 				: null
 		});
 		return runBackup({

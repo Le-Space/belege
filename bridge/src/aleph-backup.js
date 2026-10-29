@@ -169,14 +169,14 @@ export function createAlephBackup({
 	 *
 	 * @param {string} k @param {string} cid @param {string} [ref]
 	 */
-	function storeFor(k, cid, ref) {
+	function storeFor(k, cid, ref, size) {
 		return createAlephPin({
 			sender: addressOf(k),
 			sign: async (_address, message) => personalSign(k, message),
 			apiHost,
 			channel: BACKUP_CHANNEL,
 			fetch: f
-		})(cid, ref ? { ref } : {});
+		})(cid, { ...(ref ? { ref } : {}), ...(size != null ? { size } : {}) });
 	}
 
 	return {
@@ -231,10 +231,12 @@ export function createAlephBackup({
 		 * chain is found by Aleph's `refs=` without downloading anything.
 		 *
 		 * @param {string} cid the id Aleph's IPFS host answered
-		 * @param {{ ref?: string }} [meta]
-		 * @returns {Promise<{ cid: string, address: string, itemHash: string, status: string, ref?: string }>}
+		 * @param {{ ref?: string, size?: number }} [meta] `size`: the file's bytes, into
+		 *   the STORE (`content.size`), so a restore knows what it fetches and refuses
+		 *   a download that came back short
+		 * @returns {Promise<{ cid: string, address: string, itemHash: string, status: string, ref?: string, size?: number }>}
 		 */
-		async pin(cid, { ref } = {}) {
+		async pin(cid, { ref, size } = {}) {
 			if (!isAlephCid(cid)) {
 				throw Object.assign(new Error('not a CID'), { status: 400, code: 'ALEPH_BACKUP_CID' });
 			}
@@ -244,14 +246,27 @@ export function createAlephBackup({
 					code: 'ALEPH_BACKUP_REF'
 				});
 			}
+			if (size !== undefined && !(Number.isInteger(size) && size >= 0)) {
+				throw Object.assign(new Error('the size is not a number of bytes'), {
+					status: 400,
+					code: 'ALEPH_BACKUP_SIZE'
+				});
+			}
 			const k = await key();
 			const address = addressOf(k);
-			const { itemHash, status } = await settleStore(await storeFor(k, cid, ref), {
+			const { itemHash, status } = await settleStore(await storeFor(k, cid, ref, size), {
 				apiHost,
 				fetch: f,
 				...settle
 			});
-			return { cid, address, itemHash, status, ...(ref ? { ref } : {}) };
+			return {
+				cid,
+				address,
+				itemHash,
+				status,
+				...(ref ? { ref } : {}),
+				...(size !== undefined ? { size } : {})
+			};
 		},
 
 		/**
@@ -281,7 +296,7 @@ export function createAlephBackup({
 			});
 			const sent = handle.itemHash
 				? { itemHash: String(handle.itemHash), status: String(handle.status ?? 'pending') }
-				: await pin(handle.id, {});
+				: await pin(handle.id, { size: bytes.length });
 			const { itemHash, status } = await settleStore(sent, { apiHost, fetch: f, ...settle });
 			return { cid: handle.id, size: bytes.length, address: sender, itemHash, status };
 		}

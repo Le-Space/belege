@@ -435,23 +435,39 @@ describe('/backup', () => {
 			const res = await request(port, '/backup/aleph/pin', {
 				method: 'POST',
 				headers: auth,
-				body: { cid: id }
+				body: { cid: id, size: bytes.length }
 			});
 			assert.equal(res.status, 200, res.text);
 			assert.equal(res.json.status, 'processed');
 			assert.equal(res.json.cid, id);
+			assert.equal(res.json.size, bytes.length);
 			assert.equal(res.json.address, addressOf(KEY));
 			assert.equal(aleph.added.size, added, 'the bridge uploaded nothing');
 			const last = /** @type {any} */ (aleph.stores.at(-1));
 			assert.deepEqual(
-				{ sender: last.sender, cid: last.cid, channel: last.channel, status: last.status },
+				{
+					sender: last.sender,
+					cid: last.cid,
+					channel: last.channel,
+					status: last.status,
+					size: last.size
+				},
 				{
 					sender: addressOf(KEY),
 					cid: id,
 					channel: BACKUP_CHANNEL,
-					status: 'processed'
+					status: 'processed',
+					// The STORE names the file's size, so a restore knows what it fetches.
+					size: bytes.length
 				}
 			);
+			const badSize = await request(port, '/backup/aleph/pin', {
+				method: 'POST',
+				headers: auth,
+				body: { cid: id, size: 'big' }
+			});
+			assert.equal(badSize.status, 400);
+			assert.equal(badSize.json.code, 'ALEPH_BACKUP_SIZE');
 			assert.ok(logged.every((l) => !l.includes(id)));
 
 			const bad = await request(port, '/backup/aleph/pin', {

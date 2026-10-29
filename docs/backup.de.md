@@ -76,7 +76,9 @@ Die Liste zeigt, nach Ketten gruppiert – ein Vollbackup mit seinen Zuwächsen,
 
 Eine CID lässt sich auch eintippen („Per CID wiederherstellen“). Nach einer Rückfrage holt der Browser die versiegelte Datei von Alephs Gateway, öffnet sie mit dem Schlüssel aus dem Passkey und spielt alle Datenbanken und Belegdateien zurück. Er **führt zusammen**: Was hier in den Büchern ist, bleibt; was das Backup enthält, kommt dazu; gelöscht wird nichts. Danach lädt die Seite neu, und der Passkey öffnet die Bücher wieder.
 
-Ein Backup anderer Bücher lässt sich nicht öffnen („gehört zu anderen Büchern“).
+Was zurückkommt, wird vor dem Öffnen geprüft: gegen die Größe, die das STORE des Backups nennt (Backups seit 0.26.2 tragen sie, die Liste zeigt sie), und bei jedem Backup gegen seine CID – die Datei wird aus den Bytes so nachgebaut, wie Alephs Hosts sie gebaut haben. Ein Download, der unvollständig oder beschädigt ankam, wird am Gateway abgewiesen und neu geholt („nicht oder nicht vollständig zurückgegeben“); vorher kam so eine Datei bis zum Schlüssel und scheiterte dort, was wie der falsche Passkey aussah.
+
+Ein Backup anderer Bücher lässt sich nicht öffnen („gehört zu einem anderen Tresor“): Sein Schlüssel kommt aus der Wurzel jenes Tresors. Der Weg hinein ist ein Passkey mit einem Fach in jenem Tresor – hinzugefügt auf dem Gerät mit jenen Büchern – oder die Wiederherstellungswörter jener Bücher.
 
 ## Einen anderen Schlüssel sichern lassen
 

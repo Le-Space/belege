@@ -166,7 +166,7 @@ async function context() {
 		endpoints,
 		bridge: bridgeSigns
 			? {
-					keep: (cid, ref) => /** @type {any} */ (client).alephKeep(cid, ref),
+					keep: (cid, ref, size) => /** @type {any} */ (client).alephKeep(cid, ref, size),
 					address: status?.address
 				}
 			: null
