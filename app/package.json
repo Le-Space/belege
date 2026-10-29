@@ -17,7 +17,8 @@
 		"bench:books": "playwright test -c bench/playwright.bench.config.js",
 		"bench:resilience": "playwright test -c bench/playwright.resilience.config.js",
 		"video": "playwright test -c playwright.video.config.js",
-		"video:compose": "node e2e-video/compose.mjs"
+		"video:compose": "node e2e-video/compose.mjs",
+		"video:thumbnail": "node e2e-video/thumbnail.mjs"
 	},
 	"devDependencies": {
 		"@belege/bridge": "workspace:*",
