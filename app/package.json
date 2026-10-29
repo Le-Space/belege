@@ -15,7 +15,9 @@
 		"test:unit": "vitest --run",
 		"test:e2e": "playwright test",
 		"bench:books": "playwright test -c bench/playwright.bench.config.js",
-		"bench:resilience": "playwright test -c bench/playwright.resilience.config.js"
+		"bench:resilience": "playwright test -c bench/playwright.resilience.config.js",
+		"video": "playwright test -c playwright.video.config.js",
+		"video:compose": "node e2e-video/compose.mjs"
 	},
 	"devDependencies": {
 		"@belege/bridge": "workspace:*",
