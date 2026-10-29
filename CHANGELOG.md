@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.26.1] – 2026-10-29
+
 ### Fixed
 
 - **Restoring on a phone: the download is no longer cut off, shows how far it is, and the screen stays on.** The first restore of a real backup on a phone (722 MB) ended with "Alephs Gateway hat das Backup nicht zurückgegeben": the storage bridge aborted every gateway request after two minutes, whatever had arrived – a laptop at 10 MB/s just made it, a phone's Wi-Fi did not. With `@le-space/orbitdb-storage-bridge` 0.27.1 the two minutes are idle time (no bytes for that long), and the fetch reports its bytes: the card says "Backup wird von Aleph geholt … 412 von 722 MB – 57 %". While a backup, a restore or the move of the books after an update runs, Belege holds the screen awake (Screen Wake Lock, where the browser has it – Chrome on Android, Safari 16.4+) and takes the lock again when the tab comes back; the card says to keep the screen on and the tab in front (#512). A phone still needs the whole backup in memory – the streamed restore is #512 / orbitdb-storage-bridge#187.
