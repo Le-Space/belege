@@ -13,6 +13,9 @@ pnpm video:compose out --film e2e-video/films/words-en.json
                                  # … and the film: cards and scenes end to end
 ```
 
+`pnpm video:thumbnail out e2e-video/films/words-en.json` writes the film's
+thumbnail (its scene card, still, 1920×1080; YouTube scales it).
+
 A scene's clip is named after its spec and language (`recovery-words.en`,
 `recovery-words.de`); a film after its list (`words-en`, `words-de`).
 
