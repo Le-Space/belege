@@ -1169,12 +1169,17 @@ async function run(getCredential, nothingFound, flow, { recovered } = {}) {
 	app.error = null;
 	/** @type {ReturnType<typeof import('./unlock-progress.js').createUnlockProgress> | null} */
 	let progress = null;
+	let letSleep = () => {};
 	try {
 		const credential = await getCredential();
 		if (!credential) throw new Error(nothingFound);
 		// After the passkey answered: from here on the books open, and that is shown.
 		const { createUnlockProgress } = await import('./unlock-progress.js');
 		progress = createUnlockProgress({ onChange: (s) => (app.unlock = s) });
+		// Opening may move the books after an update, for minutes: a phone must
+		// not darken its screen meanwhile (#512).
+		const { keepAwake } = await import('./wake-lock.js');
+		letSleep = keepAwake();
 		// A restore is an empty device: its passkey's vault may be on Aleph (#406),
 		// asked unless the network is paused.
 		const opened = recovered?.();
@@ -1192,6 +1197,8 @@ async function run(getCredential, nothingFound, flow, { recovered } = {}) {
 		console.error('unlock failed:', error);
 		app.status = 'error';
 		app.error = error instanceof Error ? error.message : String(error);
+	} finally {
+		letSleep();
 	}
 }
 

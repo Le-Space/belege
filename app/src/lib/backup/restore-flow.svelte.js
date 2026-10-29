@@ -9,6 +9,7 @@ import { app, currentStore, restoreBackup } from '$lib/session.svelte.js';
 import { t } from '$lib/i18n/index.js';
 import { loadBackups } from './history.js';
 import { findBackups } from './keeper.js';
+import { keepAwake } from '$lib/wake-lock.js';
 
 export const restoreRun = $state({
 	/** @type {string | null} the CID asked about, waiting for "Ja" */
@@ -19,6 +20,8 @@ export const restoreRun = $state({
 	progress: null,
 	/** Increments fetched so far, while fetching them. */
 	fetched: /** @type {{ done: number, total: number } | null} */ (null),
+	/** Bytes of the file being fetched, of how many the gateway announced (0: unknown). */
+	bytes: /** @type {{ received: number, total: number } | null} */ (null),
 	/** @type {{ collection: string, joined: number }[]} what came back, per database */
 	result: [],
 	/** Increments restored with the full backup. */
@@ -85,17 +88,29 @@ export async function runRestore({ owner, endpoints, known = [] }) {
 	restoreRun.chosen = null;
 	restoreRun.error = null;
 	restoreRun.progress = null;
+	restoreRun.bytes = null;
+	// A phone must not darken its screen meanwhile (#512).
+	const letSleep = keepAwake();
 	try {
 		restoreRun.phase = 'fetching';
 		const { createAlephBackend } = await import('@le-space/orbitdb-storage-bridge/backends/aleph');
 		const gateway = createAlephBackend({ gateways: endpoints.gateways });
-		const sealed = await gateway.getBlob(cid);
+		/** @param {string} id */
+		const fetchBlob = (id) =>
+			gateway.getBlob(id, {
+				onProgress: (/** @type {number} */ received, /** @type {number} */ total) => {
+					restoreRun.bytes = { received, total };
+				}
+			});
+		const sealed = await fetchBlob(cid);
+		restoreRun.bytes = null;
 		const wanted = await incrementsOf(cid, { known, owner, endpoints });
 		/** @type {Uint8Array[]} */
 		const increments = [];
 		restoreRun.fetched = wanted.length ? { done: 0, total: wanted.length } : null;
 		for (const inc of wanted) {
-			increments.push(await gateway.getBlob(inc));
+			increments.push(await fetchBlob(inc));
+			restoreRun.bytes = null;
 			restoreRun.fetched = { done: increments.length, total: wanted.length };
 		}
 		restoreRun.phase = 'restoring';
@@ -142,14 +157,25 @@ export async function runRestore({ owner, endpoints, known = [] }) {
 									: e instanceof Error
 										? e.message
 										: String(e);
+	} finally {
+		letSleep();
 	}
 }
 
 /** The restore's step in words, or ''. */
 export function restoreStepText() {
-	const { phase, fetched, progress } = restoreRun;
+	const { phase, fetched, progress, bytes } = restoreRun;
 	if (phase === 'fetching') {
-		return fetched ? t('restore.fetchingIncrements', fetched) : t('restore.fetching');
+		const file = fetched ? t('restore.fetchingIncrements', fetched) : t('restore.fetching');
+		if (!bytes) return file;
+		return bytes.total
+			? t('restore.fetchingBytes', {
+					what: file,
+					received: megabytes(bytes.received),
+					total: megabytes(bytes.total),
+					percent: Math.min(100, Math.floor((bytes.received / bytes.total) * 100))
+				})
+			: t('restore.fetchingBytesUnknown', { what: file, received: megabytes(bytes.received) });
 	}
 	if (phase === 'restoring') {
 		return progress?.stage === 'database'
@@ -162,3 +188,6 @@ export function restoreStepText() {
 	}
 	return '';
 }
+
+/** Whole megabytes, as text. @param {number} n bytes */
+const megabytes = (n) => String(Math.round(n / 1e6));

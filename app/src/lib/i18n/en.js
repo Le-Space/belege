@@ -1005,6 +1005,8 @@ export default {
 		confirm: 'Restore this backup into these books? They are merged; the page reloads at the end.',
 		yes: 'Yes, restore',
 		no: 'Cancel',
+		fetchingBytes: '{what} {received} of {total} MB – {percent} %',
+		fetchingBytesUnknown: '{what} {received} MB',
 		fetching: 'Fetching the backup from Aleph …',
 		opening: 'Opening the backup …',
 		database: 'Database {index} of {total}: {name} …',
@@ -1203,6 +1205,8 @@ export default {
 			'This backup has {size}; Aleph takes at most {limit} in one piece. Nothing was kept and nothing costs.',
 		uploadTimedOut:
 			'The upload to Aleph did not finish within {minutes} minutes: the line was too slow for {size}, or broke off. Nothing was kept and nothing costs. Try again, best on a faster line and with this tab in front.',
+		keepOn:
+			'On a phone: keep the screen on and the tab in front. Belege keeps the screen awake where the browser allows it; a tab in the background is paused by the browser.',
 		keepWorking:
 			'You can go on working in Belege: the backup carries on, and the header shows how far it is. Just do not close or reload the tab.',
 		auto: {
