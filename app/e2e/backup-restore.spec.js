@@ -187,6 +187,8 @@ test('a browser that lost everything gets its books back from the backup', async
 	await expect(card.getByTestId('backup-chain-group')).toHaveCount(1, { timeout: 30_000 });
 	await expect(card.getByTestId('backup-chain-group')).toContainText('1 Zuwachs');
 	await expect(card.getByTestId('backup-chain-group')).toContainText('von einem anderen Gerät');
+	// The STOREs name their sizes, so the chain from Aleph's list has one.
+	await expect(card.getByTestId('backup-chain-group')).not.toContainText('Größe unbekannt');
 	await expect(card.getByTestId('backup-row')).toHaveCount(2);
 	await expect(card.getByTestId('backup-address')).toContainText(alephAccountOf(KEY));
 	expect(aleph.calls).toContain('/api/v0/messages.json');

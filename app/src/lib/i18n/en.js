@@ -1018,8 +1018,9 @@ export default {
 		gap: 'Increments of this full backup are missing ({missing}). Without them it cannot be brought back completely; nothing was changed.',
 		done: 'Restored. The page reloads – unlock with the passkey.',
 		wrongPasskey:
-			'This backup cannot be opened with this passkey: it belongs to other books. A backup opens with any passkey of the books it came from.',
-		notFetched: 'Aleph’s gateway did not give the backup back. Try again in a moment.',
+			'This backup cannot be opened with this passkey: it belongs to another vault, that is, to other books. A backup opens with any passkey that has a slot in the vault it came from – add this passkey there (Settings → Keys, on the device with those books), or open those books here with their recovery words.',
+		notFetched:
+			'Aleph’s gateway did not give the backup back, or not all of it; an incomplete file is not opened. Try again in a moment, on Wi-Fi if you can.',
 		incomplete:
 			'This backup is missing a piece, and it could not be fetched either. Your books are untouched. Try another backup, or try again when you are online.',
 		noSpace:

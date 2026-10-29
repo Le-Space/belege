@@ -1042,8 +1042,9 @@ export default {
 		gap: 'Zu diesem Vollbackup fehlen Zuwächse ({missing}). Ohne sie lässt es sich nicht vollständig zurückholen; nichts wurde geändert.',
 		done: 'Wiederhergestellt. Die Seite lädt neu – entsperre mit dem Passkey.',
 		wrongPasskey:
-			'Dieses Backup lässt sich mit diesem Passkey nicht öffnen: Es gehört zu anderen Büchern. Ein Backup öffnet jeder Passkey der Bücher, aus denen es stammt.',
-		notFetched: 'Alephs Gateway hat das Backup nicht zurückgegeben. Versuch es gleich noch einmal.',
+			'Dieses Backup lässt sich mit diesem Passkey nicht öffnen: Es gehört zu einem anderen Tresor, also zu anderen Büchern. Ein Backup öffnet jeder Passkey mit einem Fach in dem Tresor, aus dem es stammt – füge diesen Passkey dort hinzu (Einstellungen → Schlüssel, auf dem Gerät mit jenen Büchern), oder öffne jene Bücher hier mit ihren Wiederherstellungswörtern.',
+		notFetched:
+			'Alephs Gateway hat das Backup nicht oder nicht vollständig zurückgegeben; eine unvollständige Datei wird nicht geöffnet. Versuch es gleich noch einmal, am besten im WLAN.',
 		incomplete:
 			'Diesem Backup fehlt ein Teil, und er ließ sich auch nicht nachladen. Deine Bücher sind unberührt. Versuch ein anderes Backup, oder noch einmal, wenn du online bist.',
 		noSpace:

@@ -76,7 +76,9 @@ The list shows, grouped by chain – a full backup with its increments, the curr
 
 A CID can also be typed ("Per CID wiederherstellen"). After a question, the browser fetches the sealed file from Aleph's gateway, opens it with the key from the passkey and puts every database and receipt file back. It **merges**: what is in the books here stays, what the backup holds is added, nothing is deleted. The page then reloads, and the passkey opens the books again.
 
-A backup of other books cannot be opened ("gehört zu anderen Büchern").
+What comes back is checked before it is opened: against the size the backup's STORE names (backups since 0.26.2 carry it, the list shows it) and, for every backup, against its CID – the file is built again from the bytes the way Aleph's hosts built it. A download that came back short or damaged is refused at the gateway and asked for again ("nicht oder nicht vollständig zurückgegeben"); before, such a file reached the key and failed there, which looked like the wrong passkey.
+
+A backup of other books cannot be opened ("gehört zu einem anderen Tresor"): its key comes from that vault's root. The way in is a passkey with a slot in that vault – added on the device with those books – or those books' recovery words.
 
 ## Let another key back up
 

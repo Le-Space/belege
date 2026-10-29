@@ -612,12 +612,17 @@ export function createBridgeClient({
 		 *
 		 * @param {string} cid
 		 * @param {string} [ref]
-		 * @returns {Promise<{ cid: string, address: string, itemHash: string, status: string, ref?: string }>}
+		 * @param {number} [size] the file's bytes, into the STORE; an older bridge drops it
+		 * @returns {Promise<{ cid: string, address: string, itemHash: string, status: string, ref?: string, size?: number }>}
 		 */
-		alephKeep: (cid, ref) =>
+		alephKeep: (cid, ref, size) =>
 			call('/backup/aleph/pin', {
 				method: 'POST',
-				body: JSON.stringify(ref ? { cid, ref } : { cid })
+				body: JSON.stringify({
+					cid,
+					...(ref ? { ref } : {}),
+					...(Number.isInteger(size) ? { size } : {})
+				})
 			}),
 		/**
 		 * "Mit KI weitersuchen": the LLM suggests search words and sender domains

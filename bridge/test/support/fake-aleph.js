@@ -75,7 +75,6 @@ import { createHash } from 'node:crypto';
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
 import { unixfsCid } from '@le-space/orbitdb-storage-bridge/backends/aleph-upload';
-import { base58 } from '@scure/base';
 
 import { toChecksumAddress } from '../../src/chains/evm.js';
 import { addressOf } from '../../src/aleph-backup.js';
@@ -83,9 +82,13 @@ import { addressOf } from '../../src/aleph-backup.js';
 /** The Aleph account a backup key pays from, for a spec that funds it. */
 export const alephAccountOf = addressOf;
 
-/** A CIDv0-shaped id for bytes (sha-256 multihash, base58). @param {Uint8Array} bytes */
-const cidOf = (bytes) =>
-	base58.encode(new Uint8Array([0x12, 0x20, ...createHash('sha256').update(bytes).digest()]));
+/**
+ * The CID Aleph's IPFS host gives bytes: UnixFS with `ipfs add`'s defaults, as
+ * the storage bridge computes it – a restore builds the DAG again from what
+ * the gateway served, so a CID of another shape would be refused there.
+ * @param {Uint8Array} bytes
+ */
+const cidOf = (bytes) => unixfsCid(bytes);
 
 /** The address that signed a personal_sign message, or null. @param {string} signature @param {string} message */
 function signerOf(signature, message) {
@@ -241,6 +244,7 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 			itemHash: m.item_hash,
 			payment,
 			...(typeof content.ref === 'string' && content.ref ? { ref: content.ref } : {}),
+			...(Number.isInteger(content.size) ? { size: content.size } : {}),
 			...verdict
 		});
 		return verdict;
@@ -311,6 +315,7 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 						item_hash: s.cid,
 						...(s.payment ? { payment: { type: s.payment } } : {}),
 						...(s.ref ? { ref: s.ref } : {}),
+						...(Number.isInteger(s.size) ? { size: s.size } : {}),
 						time: s.time
 					}
 				})),
@@ -384,7 +389,7 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 					size: bytes.length
 				});
 			}
-			const hash = cidOf(bytes);
+			const hash = await cidOf(bytes);
 			added.set(hash, bytes);
 			// As Aleph's host answers: any page may read it (the app uploads from the browser).
 			res.writeHead(200, {
