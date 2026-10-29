@@ -13,7 +13,25 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'voice');
-const MODEL = process.env.ELEVENLABS_MODEL || 'eleven_multilingual_v2';
+// Eleven v4: it reads IPA between slashes, which is how "Belege" gets its
+// German sound from an English voice (multilingual_v2 has no such control).
+const MODEL = process.env.ELEVENLABS_MODEL || 'eleven_v4';
+const IPA_MODEL = /^eleven_v[34]/.test(MODEL);
+/**
+ * How the narrator says the names: IPA, used with the v3/v4 models. The
+ * captions and subtitles keep the written word; only the spoken text changes.
+ */
+const PRONOUNCE = {
+	Belege: '/beˈleːɡə/',
+	belege: '/beˈleːɡə/'
+};
+const spoken = (text) =>
+	IPA_MODEL
+		? text.replace(
+				new RegExp(`\\b(${Object.keys(PRONOUNCE).join('|')})\\b`, 'g'),
+				(w) => PRONOUNCE[w]
+			)
+		: text;
 // "George", one of ElevenLabs' premade voices: calm, British, reads a product.
 const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb';
 
@@ -59,7 +77,9 @@ export async function speak(text, { lang = 'en' } = {}) {
 	if (kind === 'none') return null;
 	mkdirSync(DIR, { recursive: true });
 	const hash = createHash('sha256')
-		.update(`${kind}:${kind === 'elevenlabs' ? `${MODEL}:${VOICE_ID}` : lang}:${text}`)
+		.update(
+			`${kind}:${kind === 'elevenlabs' ? `${MODEL}:${VOICE_ID}:${spoken(text)}` : `${lang}:${text}`}`
+		)
 		.digest('hex')
 		.slice(0, 20);
 	const file = resolve(DIR, `${hash}.mp3`);
@@ -90,14 +110,17 @@ export async function speak(text, { lang = 'en' } = {}) {
 					method: 'POST',
 					headers: { 'xi-api-key': key, 'content-type': 'application/json', accept: 'audio/mpeg' },
 					body: JSON.stringify({
-						text,
+						text: spoken(text),
 						model_id: MODEL,
-						voice_settings: {
-							stability: 0.5,
-							similarity_boost: 0.75,
-							style: 0.15,
-							use_speaker_boost: true
-						}
+						// The v2 family takes the classic settings; v3/v4 read better on their own.
+						voice_settings: IPA_MODEL
+							? undefined
+							: {
+									stability: 0.5,
+									similarity_boost: 0.75,
+									style: 0.15,
+									use_speaker_boost: true
+								}
 					})
 				}
 			);

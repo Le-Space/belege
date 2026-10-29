@@ -28,7 +28,10 @@ Playwright wipes `e2e-video/results/` on the next run, so compose at once.
   `e2e-video/voice/` (not in git: a minute of speech costs cents, and a
   recording without a key has no narrator). `DEMO_VOICE=say` uses macOS's voice for a dry run,
   `DEMO_VOICE=none` records silence. `node e2e-video/kit/voice.mjs voices`
-  lists the voices; `ELEVENLABS_VOICE_ID` picks one (default: George).
+  lists the voices; `ELEVENLABS_VOICE_ID` picks one (default: George),
+  `ELEVENLABS_MODEL` the model (default: `eleven_v4`, which reads IPA between
+  slashes: the `PRONOUNCE` table in `voice.mjs` gives "Belege" its German
+  sound; captions keep the written word).
 - `cursor.js` — a pointer the viewer can see: glides to each target with
   easing and a little overshoot, sinks on the click. Playwright still does the
   clicking; the pointer only shows where.
