@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.26.2] – 2026-10-29
+
 ### Fixed
 
 - **A restore refuses a download that came back short or damaged, instead of calling it the wrong passkey.** On a phone, a restore of a backup from the same books ended with "Dieses Backup lässt sich mit diesem Passkey nicht öffnen" – the key was right. The sealed file had come back by a dag-pb CID (every backup since 0.26.0), and nothing checked the bytes against it: a download cut short or damaged on the way reached the key, AES-GCM refused it, and that looked exactly like a wrong key. With `@le-space/orbitdb-storage-bridge` 0.27.2 every download is checked at the gateway – against the size the STORE names and against the CID, the file built again from the bytes the way Aleph's hosts built it – and asked for again when it does not match ("nicht oder nicht vollständig zurückgegeben"). The STORE now names the file's size (browser and bridge alike; `content.size`), so the list of backups from another device shows it instead of "Größe unbekannt", and the restore's progress has a total even when the gateway announces none. The "wrong passkey" text says what it means – another vault – and the two ways in: a slot for this passkey, or the recovery words.
