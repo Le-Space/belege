@@ -1029,6 +1029,8 @@ export default {
 			'Dieses Backup in diese Bücher wiederherstellen? Sie werden zusammengeführt; am Ende lädt die Seite neu.',
 		yes: 'Ja, wiederherstellen',
 		no: 'Abbrechen',
+		fetchingBytes: '{what} {received} von {total} MB – {percent} %',
+		fetchingBytesUnknown: '{what} {received} MB',
 		fetching: 'Backup wird von Aleph geholt …',
 		opening: 'Backup wird geöffnet …',
 		database: 'Datenbank {index} von {total}: {name} …',
@@ -1229,6 +1231,8 @@ export default {
 			'Dieses Backup hat {size}; Aleph nimmt in einem Stück höchstens {limit}. Nichts wurde aufbewahrt und nichts kostet.',
 		uploadTimedOut:
 			'Der Upload zu Aleph ist nach {minutes} Minuten nicht fertig geworden: Für {size} war die Leitung zu langsam oder unterbrochen. Nichts wurde aufbewahrt und nichts kostet. Erneut versuchen, am besten an einer schnelleren Leitung und mit diesem Tab im Vordergrund.',
+		keepOn:
+			'Auf einem Telefon: Bildschirm anlassen und den Tab im Vordergrund halten. Belege hält den Bildschirm wach, wo der Browser das zulässt; geht der Tab in den Hintergrund, hält der Browser an.',
 		keepWorking:
 			'Du kannst in Belege weiterarbeiten: Das Backup läuft weiter, oben im Kopf siehst du, wie weit es ist. Nur den Tab nicht schließen oder neu laden.',
 		auto: {

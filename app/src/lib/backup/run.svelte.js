@@ -17,6 +17,7 @@ import {
 } from '$lib/session.svelte.js';
 import { backupName, rememberBackup } from './history.js';
 import { chainAfter, chainFromBase, saveChain } from './chain.js';
+import { keepAwake } from '$lib/wake-lock.js';
 import { BackupRefusedError } from './keeper.js';
 
 /**
@@ -190,6 +191,8 @@ export async function runBackup({ continuing, uploader, askFor, unattended = fal
 		uploadStarted: 0
 	});
 	window.addEventListener('beforeunload', holdTheTab);
+	// A phone must not darken its screen meanwhile (#512).
+	const letSleep = keepAwake();
 	try {
 		backupRun.step = 'packing';
 		// A point in time, read and never changed: nothing to react to.
@@ -283,6 +286,7 @@ export async function runBackup({ continuing, uploader, askFor, unattended = fal
 	} catch (e) {
 		backupRun.error = refused(e);
 	} finally {
+		letSleep();
 		window.removeEventListener('beforeunload', holdTheTab);
 		answer = null;
 		Object.assign(backupRun, { step: '', progress: null, asking: null });

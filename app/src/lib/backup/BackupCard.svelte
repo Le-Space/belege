@@ -899,6 +899,7 @@
 				<BackupProgress />
 				<p class="mt-1 text-xs text-faint" data-testid="backup-keep-working">
 					{t('backup.keepWorking')}
+					{t('backup.keepOn')}
 				</p>
 			</div>
 		{/if}
@@ -1143,6 +1144,7 @@
 			<p class="mt-3 text-sm text-faint" role="status" data-testid="restore-step">
 				{restoreStepText()}
 			</p>
+			<p class="mt-1 text-xs text-faint" data-testid="restore-keep-on">{t('backup.keepOn')}</p>
 		{/if}
 		{#if restoreRun.phase === 'done'}
 			<div class="mt-3 text-sm" role="status" data-testid="restore-done">
