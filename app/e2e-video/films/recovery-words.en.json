@@ -1,0 +1,15 @@
+{
+	"lang": "en",
+	"parts": [
+		{ "card": "intro" },
+		{
+			"card": "scene",
+			"n": 1,
+			"eyebrow": "Recovery words",
+			"title": "The books survive every lost passkey",
+			"sub": "24 words on paper, made once, stored nowhere."
+		},
+		{ "scene": "recovery-words" },
+		{ "card": "outro" }
+	]
+}

@@ -1,5 +1,5 @@
 // The demo recordings (e2e-video/): the app built as for the specs, one
-// browser at 1280×720, English, and a video of every page. Not part of
+// browser at 1920×1080, English, and a video of every page. Not part of
 // `pnpm test:e2e`; run with `pnpm exec playwright test -c playwright.video.config.js`.
 import { defineConfig, devices } from '@playwright/test';
 import { relayAddr } from './e2e/relay.js';
@@ -8,7 +8,12 @@ const port = Number(process.env.E2E_PORT || 4391);
 process.env.E2E_BRIDGE_PORT ||= '4392';
 const bridgePort = Number(process.env.E2E_BRIDGE_PORT);
 const relay = await relayAddr();
-const size = { width: 1280, height: 720 };
+// A 1080p frame of a 1080p viewport. The page itself is enlarged 1.5× by the
+// scene kit (root font size, DEMO_ZOOM): Playwright records a viewport as it
+// is and never scales it up, and the app is laid out for a laptop, not for a
+// 1920-wide window.
+const viewport = { width: 1920, height: 1080 };
+const size = viewport;
 
 export default defineConfig({
 	testDir: 'e2e-video',
@@ -31,11 +36,14 @@ export default defineConfig({
 	},
 	use: {
 		baseURL: `http://localhost:${port}`,
+		// A target that never appears fails in half a minute, not after the
+		// whole scene's budget — the video would be 15 minutes of nothing.
+		actionTimeout: 30_000,
 		locale: 'en-GB',
-		viewport: size,
+		viewport,
 		video: { mode: 'on', size },
 		screenshot: 'off',
 		trace: 'off'
 	},
-	projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: size } }]
+	projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport } }]
 });
