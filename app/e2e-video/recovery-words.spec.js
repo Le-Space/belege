@@ -5,14 +5,17 @@
 // Aleph that keeps the vault's index is a fake (@belege/bridge/testing/aleph).
 //
 // A short clip (about a minute) for the Belege channel and scene 3 of the
-// Devcon 8 application video. Narrated from LINES by kit/scene.js.
+// Devcon 8 application video. Narrated from LINES by kit/scene.js, in
+// English or, with DEMO_LANG=de, in German (the app follows the locale).
 import { test, expect } from '@playwright/test';
 import { startFakeAleph } from '@belege/bridge/testing/aleph';
 import { addVirtualAuthenticator, forgetThisDevice } from '../e2e/webauthn.js';
 import { acceptConsent } from '../e2e/consent.js';
 import { startScene } from './kit/scene.js';
 
-const LINES = {
+const LANG = process.env.DEMO_LANG === 'de' ? 'de' : 'en';
+
+const EN = {
 	intro:
 		'Le Space Belege keeps your books in the browser, sealed with a passkey. But what if every passkey is gone?',
 	passkey: 'A passkey makes the books. Every key they are sealed with is derived from it.',
@@ -28,6 +31,28 @@ const LINES = {
 	outro: 'Recovery words: on paper, and the books survive every lost passkey.'
 };
 
+const DE = {
+	intro:
+		'Le Space Belege hält deine Bücher im Browser, versiegelt mit einem Passkey. Aber was, wenn jeder Passkey weg ist?',
+	passkey:
+		'Ein Passkey legt die Bücher an. Jeder Schlüssel, mit dem sie versiegelt sind, wird aus ihm abgeleitet.',
+	offer: 'Gleich nachdem die Bücher angelegt sind, bietet Belege Wiederherstellungswörter an.',
+	shown:
+		'Vierundzwanzig Wörter, zufällig gezogen, einmal gezeigt. Sie gehören auf Papier, sonst nirgendwohin.',
+	ask: 'Drei davon werden zurückgefragt, damit ein Tippfehler auf dem Papier jetzt auffällt und nicht im Notfall.',
+	slot: 'Die Wörter sind jetzt ein Fach im Tresor der Bücher, versiegelt auf Aleph. Kein einziges Wort ist irgendwo gespeichert.',
+	lost: 'Jetzt der schlimmste Fall. Der Passkey ist verloren, und dieser Browser vergisst alles, was er hatte.',
+	empty: 'Ein leeres Gerät. Kein Passkey. Nur das Papier.',
+	typed: 'Die Wörter, abgetippt wie notiert.',
+	back: 'Sie finden den Tresor auf Aleph, legen einen neuen Passkey an und öffnen dieselben Bücher: dieselbe Identität, dieselben Schlüssel.',
+	same: 'Der neue Passkey hat sein Fach neben dem alten, und die Wörter gelten weiter. Mit diesen Schlüsseln brächte ein Backup auf Aleph auch die Buchungen zurück.',
+	outro: 'Wiederherstellungswörter: auf Papier, und die Bücher überleben jeden verlorenen Passkey.'
+};
+
+const LINES = LANG === 'de' ? DE : EN;
+// The one control the scene finds by its label.
+const CREATE = LANG === 'de' ? 'Passkey anlegen' : 'Create passkey';
+
 /** @type {Awaited<ReturnType<typeof startFakeAleph>>} */ let aleph;
 test.beforeAll(async () => {
 	aleph = await startFakeAleph({ accounts: {} });
@@ -37,7 +62,7 @@ test.afterAll(async () => {
 });
 
 test('recovery words: the books survive a lost passkey', async ({ page, context }, testInfo) => {
-	const scene = await startScene(page, context, LINES);
+	const scene = await startScene(page, context, LINES, { lang: LANG });
 	await page.addInitScript((url) => localStorage.setItem('belege.e2e.alephUrl', url), aleph.url);
 	const cdp = await addVirtualAuthenticator(page);
 
@@ -50,7 +75,7 @@ test('recovery words: the books survive a lost passkey', async ({ page, context 
 
 	// A passkey, and bookings from a statement — no bridge needed.
 	await scene.type(page.getByTestId('passkey-label'), 'Laptop');
-	await scene.click(page.getByRole('button', { name: 'Create passkey' }));
+	await scene.click(page.getByRole('button', { name: CREATE }));
 	await expect(page.getByTestId('own-did')).toBeVisible();
 	await scene.say(LINES.passkey);
 

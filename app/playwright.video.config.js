@@ -39,7 +39,8 @@ export default defineConfig({
 		// A target that never appears fails in half a minute, not after the
 		// whole scene's budget — the video would be 15 minutes of nothing.
 		actionTimeout: 30_000,
-		locale: 'en-GB',
+		// DEMO_LANG=de records the German app; the scenes pick their lines by it.
+		locale: process.env.DEMO_LANG === 'de' ? 'de-DE' : 'en-GB',
 		viewport,
 		video: { mode: 'on', size },
 		screenshot: 'off',

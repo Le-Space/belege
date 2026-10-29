@@ -108,10 +108,10 @@ export async function startScene(
 		/**
 		 * Write cues.json next to the video; compose.mjs reads both.
 		 * @param {import('@playwright/test').TestInfo} testInfo
-		 * @param {{ name?: string }} [o] the clip's name in out/ (default: the spec file's)
+		 * @param {{ name?: string }} [o] the clip's name in out/ (default: the spec file's, with the language)
 		 */
 		async finish(testInfo, { name } = {}) {
-			name ??= testInfo.file.replace(/^.*\//, '').replace(/\.spec\.[cm]?js$/, '');
+			name ??= `${testInfo.file.replace(/^.*\//, '').replace(/\.spec\.[cm]?js$/, '')}.${lang}`;
 			writeFileSync(
 				testInfo.outputPath('cues.json'),
 				JSON.stringify({ name, lang, marker, start, cues }, null, 2)

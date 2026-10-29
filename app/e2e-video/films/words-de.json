@@ -1,0 +1,21 @@
+{
+	"lang": "de",
+	"parts": [
+		{
+			"card": "intro"
+		},
+		{
+			"card": "scene",
+			"n": 1,
+			"eyebrow": "Wiederherstellungswörter",
+			"title": "Die Bücher überleben jeden verlorenen Passkey",
+			"sub": "24 Wörter auf Papier, einmal gemacht, nirgends gespeichert."
+		},
+		{
+			"scene": "recovery-words.de"
+		},
+		{
+			"card": "outro"
+		}
+	]
+}

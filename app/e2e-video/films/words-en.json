@@ -1,7 +1,9 @@
 {
 	"lang": "en",
 	"parts": [
-		{ "card": "intro" },
+		{
+			"card": "intro"
+		},
 		{
 			"card": "scene",
 			"n": 1,
@@ -9,7 +11,11 @@
 			"title": "The books survive every lost passkey",
 			"sub": "24 words on paper, made once, stored nowhere."
 		},
-		{ "scene": "recovery-words" },
-		{ "card": "outro" }
+		{
+			"scene": "recovery-words.en"
+		},
+		{
+			"card": "outro"
+		}
 	]
 }

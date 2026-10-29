@@ -7,10 +7,14 @@ sample data only, re-recorded whenever the app changes. Not part of
 ```bash
 pnpm video                       # record every scene and every film's cards
 pnpm video e2e-video/recovery-words.spec.js
+DEMO_LANG=de pnpm video e2e-video/recovery-words.spec.js   # the German app, German lines
 pnpm video:compose out           # MP4 + voice + .srt per recording, into out/
-pnpm video:compose out --film e2e-video/films/recovery-words.en.json
+pnpm video:compose out --film e2e-video/films/words-en.json
                                  # … and the film: cards and scenes end to end
 ```
+
+A scene's clip is named after its spec and language (`recovery-words.en`,
+`recovery-words.de`); a film after its list (`words-en`, `words-de`).
 
 Playwright wipes `e2e-video/results/` on the next run, so compose at once.
 
@@ -63,8 +67,8 @@ layout is what scales cleanly.
 
 A film is a list of parts in order: cards (`{ "card": "intro" }`,
 `{ "card": "scene", "eyebrow", "title", "sub" }`, `{ "card": "outro" }`) and
-scenes (`{ "scene": "recovery-words" }`, the clip's name in out/), with the
-film's `lang`. `pnpm video` records its cards (`cards.spec.js`), the scenes
+scenes (`{ "scene": "recovery-words.en" }`, the clip's name in out/), with the
+film's `lang`. The scenes of a German film are recorded with `DEMO_LANG=de`. `pnpm video` records its cards (`cards.spec.js`), the scenes
 are recorded by their specs, and `compose.mjs --film` joins what is in out/:
 every part faded from and to the brand's night, silence where a part has no
 voice, one `.srt` for the whole. The intro and outro cards have their texts
