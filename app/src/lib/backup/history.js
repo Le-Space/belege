@@ -94,3 +94,18 @@ export async function updateBackup(settings, which, patch) {
 	await setSetting(settings, BACKUPS_KEY, list);
 	return list;
 }
+
+/**
+ * Take one backup out of the list here – a row for one Aleph has deleted,
+ * say. Nothing changes on Aleph.
+ *
+ * @param {import('../store/repository.js').Collection} settings
+ * @param {Pick<BackupRecord, 'at' | 'cid'>} which
+ */
+export async function dropBackup(settings, which) {
+	const list = (await loadBackups(settings)).filter(
+		(b) => !(b.at === which.at && b.cid === which.cid)
+	);
+	await setSetting(settings, BACKUPS_KEY, list);
+	return list;
+}

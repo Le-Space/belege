@@ -65,14 +65,14 @@ Der Schlüssel dieses Browsers wird hier erzeugt und versiegelt in den Einstellu
 
 Ein Vollbackup kommt mit allen seinen Zuwächsen zurück: Die Karte zeigt zu jedem Vollbackup, wie viele es gibt (Alephs `refs=` und die Liste hier), lädt sie alle und lehnt eine Kette mit Lücke ab – ihre neueren Heads zeigten auf Einträge, die niemand hat. Ein Zuwachs allein wird nicht wiederhergestellt, sondern sein Vollbackup.
 
-_Integrationen → Backup → „Wiederherstellen“_, nach dem Entsperren mit **einem Passkey dieser Bücher**. Auf einem neuen Gerät heißt das: „Mit vorhandenem Passkey wiederherstellen“.
+_Integrationen → Backup_, in der Liste „Backups“ bei einem Vollbackup **„Wiederherstellen“**, nach dem Entsperren mit **einem Passkey dieser Bücher**. Auf einem neuen Gerät heißt das: „Mit vorhandenem Passkey wiederherstellen“, dann die Adresse des zahlenden Kontos eintragen, wenn die Karte sie nicht schon kennt.
 
-Die Liste zeigt:
+Die Liste zeigt, nach Ketten gruppiert – ein Vollbackup mit seinen Zuwächsen, die aktuelle Kette zuerst, gelöschte eingeklappt –:
 
 - die Backups, die für das Konto aufbewahrt werden, egal ob die Bridge oder ein freigegebener Schlüssel sie geschickt hat. Der Browser fragt Aleph direkt danach, ohne Bridge. Die Adresse kommt aus den Einstellungen oder von der gekoppelten Bridge, oder du trägst sie ein;
 - die Backups aus diesem Browser.
 
-Eine CID lässt sich auch eintippen. Nach einer Rückfrage holt der Browser die versiegelte Datei von Alephs Gateway, öffnet sie mit dem Schlüssel aus dem Passkey und spielt alle Datenbanken und Belegdateien zurück. Er **führt zusammen**: Was hier in den Büchern ist, bleibt; was das Backup enthält, kommt dazu; gelöscht wird nichts. Danach lädt die Seite neu, und der Passkey öffnet die Bücher wieder.
+Eine CID lässt sich auch eintippen („Per CID wiederherstellen“). Nach einer Rückfrage holt der Browser die versiegelte Datei von Alephs Gateway, öffnet sie mit dem Schlüssel aus dem Passkey und spielt alle Datenbanken und Belegdateien zurück. Er **führt zusammen**: Was hier in den Büchern ist, bleibt; was das Backup enthält, kommt dazu; gelöscht wird nichts. Danach lädt die Seite neu, und der Passkey öffnet die Bücher wieder.
 
 Ein Backup anderer Bücher lässt sich nicht öffnen („gehört zu anderen Büchern“).
 

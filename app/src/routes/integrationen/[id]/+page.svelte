@@ -11,7 +11,6 @@
 	import WalletsCard from '$lib/wallets/WalletsCard.svelte';
 	import AlephCard from '$lib/aleph/AlephCard.svelte';
 	import BackupCard from '$lib/backup/BackupCard.svelte';
-	import RestoreCard from '$lib/backup/RestoreCard.svelte';
 	import MoveCard from '$lib/move/MoveCard.svelte';
 	import DevicesCard from '$lib/sync/DevicesCard.svelte';
 	import ShareCard from '$lib/share/ShareCard.svelte';
@@ -87,7 +86,6 @@
 			<DevicesCard />
 		{:else if id === 'backup'}
 			<BackupCard url={bridge.url} token={bridge.token} />
-			<RestoreCard url={bridge.url} token={bridge.token} />
 			<MoveCard />
 		{:else if id === 'assistent'}
 			<ShareCard url={bridge.url} token={bridge.token} />

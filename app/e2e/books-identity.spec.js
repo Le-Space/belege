@@ -189,14 +189,20 @@ test('books the passkey wrote move to their own identity, and their backup still
 	expect(await transactions(page)).toEqual([]);
 	await stopBridge();
 	await openIntegration(page, 'backup');
-	const card = page.getByTestId('restore-card');
-	await card.getByTestId('restore-owner').fill(alephAccountOf(KEY));
-	await card.getByTestId('restore-owner-list').click();
-	await expect(card.getByTestId('restore-row')).toHaveCount(2);
+	const card = page.getByTestId('backup-card');
+	// The account: typed, unless the books' index on Aleph already named it.
+	await expect(
+		card.getByTestId('backup-no-owner').or(card.getByTestId('backup-address'))
+	).toBeVisible({ timeout: 30_000 });
+	if (await card.getByTestId('backup-no-owner').isVisible()) {
+		await card.getByTestId('backup-owner').fill(alephAccountOf(KEY));
+		await card.getByTestId('backup-owner-save').click();
+	}
+	await expect(card.getByTestId('backup-chain-group')).toHaveCount(2, { timeout: 30_000 });
 	await card
-		.getByTestId('restore-row')
+		.getByTestId('backup-chain-group')
 		.filter({ hasText: old.cid })
-		.getByTestId('restore-pick')
+		.getByTestId('backup-restore')
 		.click();
 	await card.getByTestId('restore-yes').click();
 	await expect(card.getByTestId('restore-done')).toContainText('Wiederhergestellt', {

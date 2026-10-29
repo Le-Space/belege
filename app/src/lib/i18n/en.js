@@ -997,17 +997,9 @@ export default {
 		refresh: 'Refresh reads'
 	},
 	restore: {
-		title: 'Restore',
-		what: 'A backup, put back into the books here. You need the passkey it was made with, and the address of the Aleph account that pays – or the backup’s CID. What is here stays; what the backup holds is added – nothing is deleted. The page reloads at the end, and the passkey opens the books again.',
 		leaves:
 			'Goes out: the account’s address to the Aleph API, to list its backups, and the backup’s CID to Aleph’s gateway (both see this computer’s IP address). The file comes back sealed and is opened here.',
-		none: 'No backup known yet. Enter the address of the Aleph account that pays (the paired bridge names it), or a CID.',
-		ownerLabel: 'Address of the Aleph account that pays',
-		ownerList: 'Find backups',
-		ownerInvalid: 'That is not an address: 0x and 40 hex characters.',
-		unlisted:
-			'Aleph did not give the list of backups just now. Try again in a moment, or enter a CID.',
-		cidLabel: 'Or a backup’s CID',
+		cidLabel: 'The backup’s CID',
 		pick: 'Restore',
 		notACid: 'That is not a CID.',
 		confirm: 'Restore this backup into these books? They are merged; the page reloads at the end.',
@@ -1249,6 +1241,23 @@ export default {
 		kept: 'kept by Aleph',
 		pending: 'Aleph has not confirmed yet',
 		forgotten: 'deleted on Aleph',
+		list: {
+			title: 'Backups',
+			intro:
+				'Each chain starts with a full backup; its increments build on it, and "Jetzt sichern" continues the current one. Older chains go on costing credits until you delete them. "Wiederherstellen" brings a full backup with its increments into these books: what is here stays, what is missing is added; at the end the page reloads and the passkey opens the books again. You need a passkey of the books the backup came from.',
+			none: 'No backup yet – neither here nor on Aleph for this account. Enter the paying account’s address above, or a CID below.',
+			unlisted:
+				'Aleph did not deliver the list of backups just now; shown is what this browser knows.',
+			current: 'current',
+			elsewhere: 'from another device',
+			elsewhereRow: 'Backed up from another device: this browser does not know what is in it.',
+			sizeUnknown: 'size unknown',
+			showGone: 'Show {count} deleted chains',
+			showGoneOne: 'Show 1 deleted chain',
+			drop: 'Remove from the list',
+			details: 'Details',
+			byCid: 'Restore by CID'
+		},
 		older: {
 			title: 'Older backup chains',
 			intro:
