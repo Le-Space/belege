@@ -78,6 +78,11 @@ voice, one `.srt` for the whole. The intro and outro cards have their texts
 and narration per language in `card.js`; a card's `say` overrides them
 (`null` for a silent card).
 
+`films/devcon-en.json` joins two scenes into one film for the Devcon 8
+research submission: the backup and back (`backup.en`), then the recovery
+words (`recovery-words.en`), each after its own card. Record both scenes,
+then compose it like any other film.
+
 ## Scenes
 
 | Spec                     | Shows                                                                                                                                        | Length |
