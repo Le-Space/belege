@@ -14,7 +14,7 @@ const LANG = process.env.DEMO_LANG === 'de' ? 'de' : 'en';
 
 const EN = {
 	intro:
-		'Le Space Belege is bookkeeping before the bookkeeper: bank payments and receipts, matched in your browser. No account, no cloud, no server.',
+		'Le Space Belege is bookkeeping before the bookkeeper: bank payments and receipts, matched only on your own devices. No account, no cloud, no server.',
 	passkey: 'A passkey is the identity and the key to the books. Nothing else to sign up for.',
 	sample:
 		'To look around, Belege fills the books with made-up sample data. One click removes it again.',
@@ -26,19 +26,19 @@ const EN = {
 	questions: 'What it cannot decide, it asks. Every question points at one payment or one receipt.',
 	export:
 		'Once a month, one package for the bookkeeper: DATEV bookings, the receipts, and an overview.',
-	keys: 'Everything is sealed with keys derived from your passkey. A second passkey, recovery words and a backup on Aleph keep the books safe.',
+	keys: 'Everything stays only on your devices, sealed with keys derived from your passkey. A second passkey, recovery words and a backup on Aleph keep the books safe.',
 	outro:
-		'Open source, no subscription, no cloud. Le Space Belege runs in your browser, at belege dot le-space dot de.'
+		'Open source, no subscription, no cloud. Le Space Belege runs only on your devices, at belege dot le-space dot de.'
 };
 
 const DE = {
 	intro:
-		'Le Space Belege ist die Vorbuchhaltung vor dem Steuerbüro: Kontoumsätze und Belege, zusammengeführt in deinem Browser. Kein Konto, keine Cloud, kein Server.',
+		'Le Space Belege ist die Vorbuchhaltung vor dem Steuerbüro: Kontoumsätze und Belege, zusammengeführt nur auf deinen eigenen Geräten. Kein Konto, keine Cloud, kein Server.',
 	passkey:
-		'Ein Passkey ist die Identität und der Schlüssel zu den Büchern. Nichts sonst muss angelegt werden.',
+		'Ein Passkey ist die Identität und der Schlüssel zu den Geschäftsbüchern. Nichts sonst muss angelegt werden.',
 	sample:
 		'Zum Umsehen füllt Belege die Bücher mit erfundenen Beispieldaten. Ein Klick entfernt sie wieder.',
-	home: 'Die Startseite zeigt, was in den Büchern steht und was noch dich braucht: Abdeckung, offene Rückfragen, der Monat auf einen Blick.',
+	home: 'Die Startseite zeigt, was in den Geschäftsbüchern steht und was noch dich braucht: Abdeckung, offene Rückfragen, der Monat auf einen Blick.',
 	payments:
 		'Zahlungen kommen von der Bank. Eine Bridge auf deinem Rechner holt sie, oder du lädst einen Kontoauszug hoch. Krypto von Börse oder Wallet wird in Euro zum Tageskurs gebucht.',
 	receipts:
@@ -47,9 +47,9 @@ const DE = {
 		'Was es nicht entscheiden kann, fragt es. Jede Rückfrage zeigt auf eine Zahlung oder einen Beleg.',
 	export:
 		'Einmal im Monat ein Paket fürs Steuerbüro: DATEV-Buchungen, die Belege und eine Übersicht.',
-	keys: 'Alles ist versiegelt mit Schlüsseln aus deinem Passkey. Ein zweiter Passkey, Wiederherstellungswörter und ein Backup auf Aleph halten die Bücher sicher.',
+	keys: 'Alles bleibt nur auf deinen Geräten, versiegelt mit Schlüsseln aus deinem Passkey. Ein zweiter Passkey, Wiederherstellungswörter und ein Backup auf Aleph halten die Geschäftsbücher sicher.',
 	outro:
-		'Open Source, kein Abo, keine Cloud. Le Space Belege läuft in deinem Browser, unter belege Punkt le-space Punkt de.'
+		'Open Source, kein Abo, keine Cloud. Le Space Belege läuft nur auf deinen Geräten, unter belege Punkt le-space Punkt de.'
 };
 
 const LINES = LANG === 'de' ? DE : EN;

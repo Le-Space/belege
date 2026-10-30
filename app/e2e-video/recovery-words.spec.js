@@ -17,13 +17,13 @@ const LANG = process.env.DEMO_LANG === 'de' ? 'de' : 'en';
 
 const EN = {
 	intro:
-		'Le Space Belege keeps your books in the browser, sealed with a passkey. But what if every passkey is gone?',
+		'Le Space Belege keeps your books only on your own devices, sealed with a passkey. But what if every passkey is gone?',
 	passkey: 'A passkey makes the books. Every key they are sealed with is derived from it.',
 	offer: 'Right after the books are made, Belege offers recovery words.',
 	shown: 'Twenty-four words, drawn at random, shown once. They go on paper, nowhere else.',
 	ask: 'Three of them are asked back, so a typo on the paper is caught now, not in an emergency.',
 	slot: 'The words are a slot in the books’ vault now, kept sealed on Aleph. Not one word is stored anywhere.',
-	lost: 'Now the worst case. The passkey is lost, and this browser forgets everything it had.',
+	lost: 'Now the worst case. The passkey is lost, and this device forgets everything it had.',
 	empty: 'An empty device. No passkey. Only the paper.',
 	typed: 'The words, typed as written.',
 	back: 'They find the vault on Aleph, make a new passkey, and open the same books: the same identity, the same keys.',
@@ -33,20 +33,21 @@ const EN = {
 
 const DE = {
 	intro:
-		'Le Space Belege hält deine Bücher im Browser, versiegelt mit einem Passkey. Aber was, wenn jeder Passkey weg ist?',
+		'Le Space Belege hält deine Geschäftsbücher nur auf deinen eigenen Geräten, versiegelt mit einem Passkey. Aber was, wenn jeder Passkey weg ist?',
 	passkey:
 		'Ein Passkey legt die Bücher an. Jeder Schlüssel, mit dem sie versiegelt sind, wird aus ihm abgeleitet.',
 	offer: 'Gleich nachdem die Bücher angelegt sind, bietet Belege Wiederherstellungswörter an.',
 	shown:
 		'Vierundzwanzig Wörter, zufällig gezogen, einmal gezeigt. Sie gehören auf Papier, sonst nirgendwohin.',
 	ask: 'Drei davon werden zurückgefragt, damit ein Tippfehler auf dem Papier jetzt auffällt und nicht im Notfall.',
-	slot: 'Die Wörter sind jetzt ein Fach im Tresor der Bücher, versiegelt auf Aleph. Kein einziges Wort ist irgendwo gespeichert.',
-	lost: 'Jetzt der schlimmste Fall. Der Passkey ist verloren, und dieser Browser vergisst alles, was er hatte.',
+	slot: 'Die Wörter sind jetzt ein Fach im Tresor der Geschäftsbücher, versiegelt auf Aleph. Kein einziges Wort ist irgendwo gespeichert.',
+	lost: 'Jetzt der schlimmste Fall. Der Passkey ist verloren, und dieses Gerät vergisst alles, was es hatte.',
 	empty: 'Ein leeres Gerät. Kein Passkey. Nur das Papier.',
 	typed: 'Die Wörter, abgetippt wie notiert.',
-	back: 'Sie finden den Tresor auf Aleph, legen einen neuen Passkey an und öffnen dieselben Bücher: dieselbe Identität, dieselben Schlüssel.',
+	back: 'Sie finden den Tresor auf Aleph, legen einen neuen Passkey an und öffnen dieselben Geschäftsbücher: dieselbe Identität, dieselben Schlüssel.',
 	same: 'Der neue Passkey hat sein Fach neben dem alten, und die Wörter gelten weiter. Mit diesen Schlüsseln brächte ein Backup auf Aleph auch die Buchungen zurück.',
-	outro: 'Wiederherstellungswörter: auf Papier, und die Bücher überleben jeden verlorenen Passkey.'
+	outro:
+		'Wiederherstellungswörter: auf Papier, und die Geschäftsbücher überleben jeden verlorenen Passkey.'
 };
 
 const LINES = LANG === 'de' ? DE : EN;
