@@ -8,6 +8,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **An architecture overview** ([docs/architecture.md](docs/architecture.md), German twin): the degradation ladder from same room to no IP network, the layers from keys to archive with links to the page that describes each, and what the resilience benchmark measured. The README now links it and the resilience report; the report's list of weak spots no longer names the superlinear restore, which is gone, and names the relay stall's stopgap and #403.
 - **An invoice the invoicing app issued as XRechnung comes with its XML (#515).** With Le Space Rechnungen from invoice extension 0.4.0 on, "Rechnungen abgleichen" also fetches the XRechnung of each invoice the app names as one (`formats`, `get-xml`), checks it against the SHA-256 the app states and that it is a CII e-invoice, and keeps it beside the PDF as the original (`xmlCid`), as a ZUGFeRD invoice keeps the XML it carries. The receipt says so, and the export puts the XML beside the PDF under the same number. An XRechnung comes through the relay, where a PDF waits for a direct connection; one too large for the relay comes at a later sync, and so does the XML of an invoice taken over before. An app before 0.4.0 is not asked.
 
 ## [0.26.2] – 2026-10-29

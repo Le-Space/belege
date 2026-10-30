@@ -146,7 +146,7 @@ The same 108 232 bytes from both: the domain serves exactly the CID the release 
 
 - Measured: replication latency and throughput between two browsers on one machine, with and without a relay; the behaviour across a partition; backup and restore times by size; what the app weighs and how fast it arrives from two sources. Every run is reproducible with the commands above; the JSON files hold the raw numbers.
 - Not measured: real networks beyond one relay across the internet (above, both devices on one machine — NAT traversal between two networks, mobile links), more than two devices, receipt files (the books here hold bookings only — a year of PDFs adds megabytes to the archive), a real Aleph (the fake answers from memory), and browsers other than Chromium.
-- Honest weak spots, all measured rather than assumed: the burst stall over a default-limited relay; the 23 s reconnect after a pause; the superlinear restore.
+- Honest weak spots, all measured rather than assumed: the burst stall over a default-limited relay, which the app now notices and recovers from after about 53 s but which stays gossipsub's to fix (#393); a device that never redials a lost relay (#403); the 23 s reconnect after a pause. The superlinear restore of earlier versions is gone (above).
 
 ## Earlier: how the books behave as they grow
 
