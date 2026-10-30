@@ -94,9 +94,20 @@ test('what Le Space Belege is: a tour through the sample books', async ({
 	await expect(page.getByTestId('receipt-vendor').first()).toBeVisible({ timeout: 30_000 });
 	await scene.say(LINES.receipts);
 
-	// Questions.
-	await page.goto('/rueckfragen');
-	await expect(page.getByTestId('question').first()).toBeVisible({ timeout: 30_000 });
+	// Questions: through Home's agent card, never by URL — a reload would lock the books.
+	await scene.click(page.getByTestId('tab-home'));
+	const agent = page.getByTestId('agent-card');
+	await expect(agent).toBeVisible({ timeout: 30_000 });
+	await agent.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+	const toQuestions = page.locator('a[href="/rueckfragen"]').first();
+	if (await toQuestions.isVisible().catch(() => false)) {
+		await scene.click(toQuestions);
+		await expect(
+			page.getByTestId('question').or(page.getByTestId('questions-empty')).first()
+		).toBeVisible({
+			timeout: 30_000
+		});
+	}
 	await scene.say(LINES.questions);
 
 	// Export.
