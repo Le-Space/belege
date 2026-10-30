@@ -1,0 +1,20 @@
+{
+	"lang": "en",
+	"parts": [
+		{
+			"card": "intro"
+		},
+		{
+			"card": "scene",
+			"eyebrow": "What it is",
+			"title": "Bookkeeping before the bookkeeper, in your browser",
+			"sub": "Payments and receipts, matched. No account, no cloud, no server."
+		},
+		{
+			"scene": "intro.en"
+		},
+		{
+			"card": "outro"
+		}
+	]
+}

@@ -82,6 +82,7 @@ and narration per language in `card.js`; a card's `say` overrides them
 | `belege-demo.spec.js`    | passkey, bank, receipts, matching, backup, wipe, restore (scene 1 of the Devcon 8 video)                                                     | 2:00   |
 | `qr-pairing.spec.js`     | two devices by QR, no relay (scene 2)                                                                                                        | 0:46   |
 | `recovery-words.spec.js` | 24 words made; every passkey gone; the words open the same books on an empty device                                                          | ~1:30  |
+| `intro.spec.js`          | what Belege is: passkey, sample books, Home, Payments, Receipts, questions, export, keys                                                     | ~1:20  |
 | `backup.spec.js`         | passkey, six bookings through the bridge, one sealed backup on Aleph, the browser forgets, the address finds the backup, the books come back | ~1:30  |
 
 The two older scenes bake their captions and have no narrator yet
