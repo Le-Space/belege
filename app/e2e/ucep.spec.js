@@ -2,10 +2,12 @@
 // invitation, asks the app for an Eigenbeleg for a payment without a receipt,
 // and takes the PDF back as that payment's receipt. The app is played by a
 // node that answers as Le-Space/invoice does — the PDF only over a direct
-// (WebRTC) connection — reached through a relay on this machine.
+// (WebRTC) connection, since invoice 0.4.0 an XRechnung through the relay too
+// — reached through a relay on this machine.
 import { test, expect } from '@playwright/test';
 import { createProvider } from '@le-space/ucep';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
+import { CII_XRECHNUNG } from '../src/lib/receipts/einvoice.fixtures.js';
 
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
@@ -188,7 +190,8 @@ test('issued invoices come in, the matching links the payment, the app learns it
 	const relay = await relayAddr();
 	const node = await startProviderNode(relay);
 	const bytes = await eigenbelegPdf('RE-2026-0004');
-	/** A made-up issued invoice, as the app keeps it. */
+	const xml = new TextEncoder().encode(CII_XRECHNUNG);
+	/** A made-up issued invoice, as the app keeps it: issued as XRechnung. */
 	const inv = {
 		documentId: 'doc-4',
 		number: 'RE-2026-0004',
@@ -196,6 +199,7 @@ test('issued invoices come in, the matching links the payment, the app learns it
 		issuedOn: '2026-09-01',
 		dueOn: '2026-09-15',
 		customer: { name: 'Beispiel Kunde GmbH' },
+		formats: ['pdf', 'xrechnung'],
 		total: { value: '119.00', currency: 'EUR' },
 		paid: { value: '0.00', currency: 'EUR' },
 		/** @type {any[]} */
@@ -208,7 +212,7 @@ test('issued invoices come in, the matching links the payment, the app learns it
 		manifest: {
 			id: 'invoice',
 			name: 'Rechnungen',
-			version: '0.2.0',
+			version: '0.4.0',
 			scopes: [
 				{ name: 'invoice:eigenbeleg:create', description: 'Eigenbelege' },
 				{ name: 'invoice:document:read', description: 'Lesen' },
@@ -230,6 +234,19 @@ test('issued invoices come in, the matching links the payment, the app learns it
 						size: bytes.length,
 						sha256: await sha256(bytes),
 						...(limited ? {} : { base64: Buffer.from(bytes).toString('base64') })
+					};
+				}
+			},
+			// Small enough for the relay: inline on any connection.
+			'get-xml': {
+				scope: 'invoice:issued:read',
+				handler: async ({ argsJson }) => {
+					if (argsJson?.documentId !== inv.documentId) throw new Error('documentId');
+					return {
+						mime: 'application/xml',
+						size: xml.length,
+						sha256: await sha256(xml),
+						base64: Buffer.from(xml).toString('base64')
 					};
 				}
 			},
@@ -293,6 +310,8 @@ test('issued invoices come in, the matching links the payment, the app learns it
 			)
 			.toBeGreaterThan(0);
 		await expect(card.getByTestId('invoice-app-sync-result')).toContainText('1 bezahlt');
+		// Its XRechnung came with the PDF, as the original beside it.
+		await expect(card.getByTestId('invoice-app-sync-xml')).toContainText('1 XRechnungen');
 
 		// The app learns the day and the amount, keyed by the booking – nothing of the bank.
 		expect(recorded[0]).toMatchObject({
@@ -313,6 +332,15 @@ test('issued invoices come in, the matching links the payment, the app learns it
 		await page.getByTestId('filter-all').click();
 		await page.getByTestId('transaction').filter({ hasText: 'Beispiel Kunde GmbH' }).click();
 		await expect(page.getByRole('dialog')).toContainText('RE-2026-0004.pdf');
+
+		// The receipt says that the XML beside its PDF is the original.
+		await page.keyboard.press('Escape');
+		await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
+		await page.getByTestId('year-switch').selectOption('2026');
+		const all = page.locator('[data-month="all"]');
+		if (await all.count()) await all.first().click();
+		await page.getByTestId('receipt').filter({ hasText: 'RE-2026-0004' }).click();
+		await expect(page.getByTestId('einvoice-original')).toContainText('Das XML ist das Original');
 	} finally {
 		await provider.stop().catch(() => {});
 		await node.stop().catch(() => {});

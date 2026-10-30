@@ -1217,6 +1217,12 @@
 						{#if previewError}
 							<p class="mt-2 text-sm text-danger">{t('belege.previewFailed')}</p>
 						{/if}
+						{#if selected.xmlCid && selected.source === 'invoice-app'}
+							<!-- An invoice the invoicing app issued as XRechnung: the XML beside the PDF is the original (#515). -->
+							<p class="mt-2 text-sm text-text" data-testid="einvoice-original">
+								{t('belege.einvoice.fromInvoiceApp')}
+							</p>
+						{/if}
 						{#if selected.xmlCid && selected.eInvoice}
 							<!-- A ZUGFeRD / Factur-X PDF: its fields come from the embedded XML (#160). -->
 							<details class="mt-2 text-sm" data-testid="einvoice-embedded">

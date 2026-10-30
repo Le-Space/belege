@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **An invoice the invoicing app issued as XRechnung comes with its XML (#515).** With Le Space Rechnungen from invoice extension 0.4.0 on, "Rechnungen abgleichen" also fetches the XRechnung of each invoice the app names as one (`formats`, `get-xml`), checks it against the SHA-256 the app states and that it is a CII e-invoice, and keeps it beside the PDF as the original (`xmlCid`), as a ZUGFeRD invoice keeps the XML it carries. The receipt says so, and the export puts the XML beside the PDF under the same number. An XRechnung comes through the relay, where a PDF waits for a direct connection; one too large for the relay comes at a later sync, and so does the XML of an invoice taken over before. An app before 0.4.0 is not asked.
+
 ## [0.26.2] – 2026-10-29
 
 ### Fixed

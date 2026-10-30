@@ -367,6 +367,7 @@ export default {
 			scopeMissing:
 				'The pairing does not allow this yet: please pair the invoice app again (unpair, then connect again) so that Belege may read issued invoices and report payments.',
 			invoicePdfMismatch: 'The PDF of invoice {number} does not match what the app states.',
+			invoiceXmlMismatch: 'The XRechnung of invoice {number} does not match what the app states.',
 			notInvoiceApp: 'This invitation is not from an invoice app.',
 			peerUnreachable: 'The invoice app cannot be reached under this peer ID right now.',
 			eigenbelegPdfLater:
@@ -2587,6 +2588,8 @@ export default {
 			notEn16931:
 				'This profile (MINIMUM or BASIC WL) is no e-invoice under EN 16931; it serves as a receipt only together with a readable invoice.',
 			embedded: 'E-invoice (ZUGFeRD/Factur-X) – fields from the embedded XML, read without AI',
+			fromInvoiceApp:
+				'XRechnung from the invoicing app: the XML is the original and goes into the export beside this PDF.',
 			seller: 'Seller',
 			number: 'Invoice number',
 			issued: 'Invoice date',
@@ -2980,6 +2983,7 @@ export default {
 			noFile: 'Receipt {number} without a file (email text)',
 			mailPdf: 'Receipt {number}: a PDF made from the mail text (the mail had no attachment)',
 			zugferd: 'Receipt {number}: e-invoice (ZUGFeRD/Factur-X) – its embedded XML lies beside it',
+			xrechnung: 'Receipt {number}: e-invoice (XRechnung) – the XML original lies beside the PDF',
 			mailPdfEml:
 				'Receipt {number}: a PDF made from the mail (it had no attachment); the mail itself, as received, as .eml beside it',
 			transferLine: 'Own transfer, the counter-booking on {date} is included in this line',
@@ -3880,7 +3884,10 @@ export default {
 				result:
 					'{invoices} invoices in the app, {added} newly taken over, {paid} paid; {reported} payment notices sent to the app.',
 				pdfLater:
-					'{count} invoices have not arrived yet: their PDF only travels over a direct connection. Try again at the next sync.'
+					'{count} invoices have not arrived yet: their PDF only travels over a direct connection. Try again at the next sync.',
+				xml: '{count} XRechnungen taken over: the XML lies beside the PDF as the original.',
+				xmlLater:
+					'{count} XRechnungen have not arrived yet: they are too large for the relay and only travel over a direct connection. Try again at the next sync.'
 			},
 			offHint:
 				'Only when you click here does Belege go online: it asks api.aleph.im for the Le Space relays and connects to one; after that only while an invoice app is paired; after unpairing, Belege goes offline again. Who sees what in the process is in the privacy dialog under “Le Space relays”.',

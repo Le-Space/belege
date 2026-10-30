@@ -84,7 +84,7 @@ Was Le Space Belege heute kann, nach Kategorien. Dieselbe Liste steht kürzer au
   - ganz ohne Relay, indem sie zwei QR-Codes tauschen – direkt im Netz-Menü oben; die Einladung ist ein Link, den die Kamera des Telefons öffnet, und nach dem Entsperren zeigt das Menü dort gleich die Antwort (auf dem iPhone besser aus der App vom Home-Bildschirm, die ihre Bücher getrennt von Safari hält);
   - oder über alle, wobei ein Gerät, das die Bücher noch nicht kennen, nur per QR oder über den Relay der eigenen Bridge hereinkommt.
 - **Das Telefon nutzt die Bridge des Rechners.** Belege lässt sich als App installieren (PWA), und die App-Hülle funktioniert offline.
-- **Rechnungs-App (UCEP):** Sie erstellt Eigenbelege für Belege und erfährt, welche ihrer Rechnungen bezahlt sind.
+- **Rechnungs-App (UCEP):** Sie erstellt Eigenbelege für Belege und erfährt, welche ihrer Rechnungen bezahlt sind. Eine Rechnung, die sie als XRechnung ausgestellt hat, kommt mit ihrem XML; das XML liegt als Original neben dem PDF und geht mit in den Export ([#515](https://github.com/Le-Space/belege/issues/515)).
 - **Eine Lese-Freigabe** der Bücher für eine Assistenz, zeitlich begrenzt.
 
 ## Sprache

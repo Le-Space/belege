@@ -4,6 +4,12 @@
 // how much (Le-Space/ucep-spec, extensions/invoice.md 0.2.0: `list-issued`,
 // `get-pdf`, `record-payment`).
 //
+// An invoice the app issued as XRechnung (invoice 0.4.0: `formats`,
+// `get-xml`) keeps its XML beside the PDF as `xmlCid`, as a ZUGFeRD invoice
+// keeps the XML it carries: for an e-invoice the XML is the original, the PDF
+// a copy, and the export takes both (#515). An invoice taken over before
+// gets its XML at the next sync.
+//
 // The bank data stays here. The app is told only the day, the amount and the
 // payment's id in Belege (the reference it keys the payment by) – never the
 // account, the payer's IBAN or the purpose text. Who links a payment is the
@@ -15,7 +21,7 @@ import { setAsideReceipt } from '../matching/actions.js';
 import { importFile } from '../receipts/import.js';
 import { INVOICE_EXTENSION, decimalFromUnits, reach } from './consumer.js';
 import { t } from '../i18n/index.js';
-import { categoryOf } from '../receipts/einvoice.js';
+import { categoryOf, sniffEInvoice } from '../receipts/einvoice.js';
 import { vatIdCountry } from '../vat/vat-kind.js';
 
 /** The receipts' `source` for an issued invoice, and its `sourceRef` prefix. */
@@ -33,6 +39,7 @@ export const REFERENCE_SYSTEM = 'belege';
  * @property {string} issuedOn
  * @property {string} [dueOn]
  * @property {{ name: string, vatId?: string }} customer the VAT ID since invoice 0.3.0
+ * @property {string[]} [formats] the files the app hands over (invoice 0.4.0): `pdf`, `xrechnung`
  * @property {Money} total
  * @property {Money} [net] the total without VAT (proposed for the invoice extension, #195)
  * @property {{ rate: string, category?: string, amount: Money }[]} [vat] the VAT per rate (percent as a
@@ -57,6 +64,15 @@ export function centsOf(value) {
 
 /** @param {string} documentId */
 export const sourceRefOf = (documentId) => `${ISSUED_SOURCE}:${documentId}`;
+
+/**
+ * Whether the app hands over an XRechnung of this invoice (invoice 0.4.0).
+ * An older app names no `formats`, and is not asked.
+ *
+ * @param {IssuedInvoice} inv
+ */
+export const offersXRechnung = (inv) =>
+	Array.isArray(inv.formats) && inv.formats.includes('xrechnung');
 
 /**
  * What the receipt of an issued invoice carries: ours by where it came from,
@@ -213,10 +229,34 @@ async function sha256Hex(bytes) {
 }
 
 /**
+ * The XRechnung of an issued invoice, checked: its bytes, or null while it
+ * comes only over a direct connection. Bytes that differ from what the app
+ * states, or are no CII e-invoice, are refused.
+ *
+ * @param {any} consumer
+ * @param {import('./consumer.js').PairedApp} app
+ * @param {IssuedInvoice} inv
+ * @returns {Promise<Uint8Array | null>}
+ */
+async function fetchXRechnung(consumer, app, inv) {
+	const xml = await consumer.call(app.peerId, INVOICE_EXTENSION, 'get-xml', {
+		documentId: inv.documentId
+	});
+	if (!xml?.base64) return null;
+	const bytes = fromBase64(xml.base64);
+	if ((await sha256Hex(bytes)) !== xml.sha256 || sniffEInvoice(bytes) !== 'cii') {
+		throw new Error(t('messages.ucep.invoiceXmlMismatch', { number: inv.number }));
+	}
+	return bytes;
+}
+
+/**
  * @typedef {object} IssuedSyncResult
  * @property {number} invoices issued invoices the app listed
  * @property {number} added new receipts
  * @property {number} pdfLater invoices whose PDF comes only over a direct connection
+ * @property {number} xml XRechnungen kept beside their PDF this time
+ * @property {number} xmlLater XRechnungen too large for the relay: they come over a direct connection
  * @property {number} reported payments recorded in the app
  * @property {number} removed payments taken back in the app
  * @property {number} paid invoices the app now counts as paid
@@ -252,6 +292,8 @@ export async function syncIssuedInvoices({ consumer, app, store, blobs, match })
 		invoices: invoices.length,
 		added: 0,
 		pdfLater: 0,
+		xml: 0,
+		xmlLater: 0,
 		reported: 0,
 		removed: 0,
 		paid: 0
@@ -272,7 +314,23 @@ export async function syncIssuedInvoices({ consumer, app, store, blobs, match })
 			}
 			continue;
 		}
-		if (known) continue;
+		if (known) {
+			// Taken over before the app sent XRechnungen, or before this one came through.
+			if (!known.deleted && !known.xmlCid && offersXRechnung(inv)) {
+				const xml = await fetchXRechnung(consumer, app, inv);
+				if (xml) {
+					const xmlCid = await blobs.put(xml);
+					byRef.set(
+						sourceRefOf(inv.documentId),
+						await store.receipts.put({ id: known.id, xmlCid })
+					);
+					result.xml++;
+				} else {
+					result.xmlLater++;
+				}
+			}
+			continue;
+		}
 		const pdf = await consumer.call(app.peerId, INVOICE_EXTENSION, 'get-pdf', {
 			documentId: inv.documentId
 		});
@@ -284,6 +342,8 @@ export async function syncIssuedInvoices({ consumer, app, store, blobs, match })
 		if ((await sha256Hex(bytes)) !== pdf.sha256) {
 			throw new Error(t('messages.ucep.invoicePdfMismatch', { number: inv.number }));
 		}
+		// Before the receipt exists: an XML refused leaves nothing half taken over.
+		const xml = offersXRechnung(inv) ? await fetchXRechnung(consumer, app, inv) : null;
 		const { record } = await importFile({
 			receipts: store.receipts,
 			blobs,
@@ -294,14 +354,18 @@ export async function syncIssuedInvoices({ consumer, app, store, blobs, match })
 			fields: receiptFieldsOf(inv)
 		});
 		if (record) {
+			const xmlCid = xml ? await blobs.put(xml) : null;
 			// Read already: the app said what is on it, no model needs to (the matching takes read receipts only).
 			const read = await store.receipts.put({
 				...record,
 				extraction: extractionOf(inv),
-				status: 'ausgelesen'
+				status: 'ausgelesen',
+				...(xmlCid ? { xmlCid } : {})
 			});
 			byRef.set(sourceRefOf(inv.documentId), read);
 			result.added++;
+			if (xmlCid) result.xml++;
+			else if (offersXRechnung(inv)) result.xmlLater++;
 		}
 	}
 
