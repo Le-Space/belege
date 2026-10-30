@@ -14,7 +14,7 @@ DATEV_2026-09.zip
 └── Uebersicht_2026-09.csv                  UTF-8, for people: every booking, its account, receipt number, how the receipt was linked
 ```
 
-An e-invoice (XRechnung, #160) goes into the ZIP as the XML it came as, `Belege/<number>_<vendor>.xml`: for an e-invoice the XML is the original to keep. A ZUGFeRD / Factur-X invoice goes in as its PDF and, under the same number, its embedded XML.
+An e-invoice (XRechnung, #160) goes into the ZIP as the XML it came as, `Belege/<number>_<vendor>.xml`: for an e-invoice the XML is the original to keep. A ZUGFeRD / Factur-X invoice goes in as its PDF and, under the same number, its embedded XML. So does an invoice the invoicing app issued as XRechnung: its PDF, and its XML as the original (#515).
 
 A receipt that is a mail without an attachment (a shop's receipt written in the mail itself) is kept as the mail was received, sealed like any file (#288): `Belege/<number>_<vendor>.eml` goes into the ZIP, and beside it a PDF made from it – sender, day, subject and the mail's whole text (the plain-text part, else the HTML part turned into text; never its HTML). A receipt imported before Belege kept the original has only the excerpt taken at the fetch, at most about 2,000 characters; it gets its original when its mail is fetched again, or with _Original holen_ in the receipt, as long as the mail is still in the mailbox – the receipt says when it no longer is. Until then the PDF is made from the excerpt and says when that was cut, and the overview names the PDF as made from the mail. The bridge hands out a whole mail only when it was sent to the accounting address.
 

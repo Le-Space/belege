@@ -383,6 +383,8 @@ export default {
 				'Die Kopplung erlaubt das noch nicht: Bitte die Rechnungs-App neu koppeln (Entkoppeln, dann wieder verbinden), damit Belege ausgestellte Rechnungen lesen und Zahlungen melden darf.',
 			invoicePdfMismatch:
 				'Das PDF der Rechnung {number} stimmt nicht mit dem überein, was die App angibt.',
+			invoiceXmlMismatch:
+				'Die XRechnung der Rechnung {number} stimmt nicht mit dem überein, was die App angibt.',
 			notInvoiceApp: 'Diese Einladung ist nicht von einer Rechnungs-App.',
 			peerUnreachable: 'Die Rechnungs-App ist unter dieser Peer-ID gerade nicht erreichbar.',
 			eigenbelegPdfLater:
@@ -2630,6 +2632,8 @@ export default {
 			notEn16931:
 				'Dieses Profil (MINIMUM oder BASIC WL) ist keine E-Rechnung nach EN 16931; es reicht als Beleg nur zusammen mit einer lesbaren Rechnung.',
 			embedded: 'E-Rechnung (ZUGFeRD/Factur-X) – Felder aus dem eingebetteten XML, ohne KI gelesen',
+			fromInvoiceApp:
+				'XRechnung aus der Rechnungs-App: Das XML ist das Original und geht neben diesem PDF in den Export.',
 			seller: 'Verkäufer',
 			number: 'Rechnungsnummer',
 			issued: 'Rechnungsdatum',
@@ -3027,6 +3031,7 @@ export default {
 			noFile: 'Beleg {number} ohne Datei (E-Mail-Text)',
 			mailPdf: 'Beleg {number}: aus dem E-Mail-Text erzeugtes PDF (die E-Mail hatte keinen Anhang)',
 			zugferd: 'Beleg {number}: E-Rechnung (ZUGFeRD/Factur-X) – das eingebettete XML liegt daneben',
+			xrechnung: 'Beleg {number}: E-Rechnung (XRechnung) – das XML-Original liegt neben dem PDF',
 			mailPdfEml:
 				'Beleg {number}: aus der E-Mail erzeugtes PDF (sie hatte keinen Anhang); die E-Mail selbst, wie sie ankam, als .eml daneben',
 			transferLine: 'Umbuchung, Gegenbuchung am {date} ist in dieser Zeile enthalten',
@@ -3932,7 +3937,10 @@ export default {
 				result:
 					'{invoices} Rechnungen in der App, {added} neu übernommen, {paid} bezahlt; {reported} Zahlungsmeldungen an die App.',
 				pdfLater:
-					'{count} Rechnungen kamen noch nicht: ihr PDF geht nur über eine direkte Verbindung. Beim nächsten Abgleich noch einmal.'
+					'{count} Rechnungen kamen noch nicht: ihr PDF geht nur über eine direkte Verbindung. Beim nächsten Abgleich noch einmal.',
+				xml: '{count} XRechnungen übernommen: Das XML liegt als Original neben dem PDF.',
+				xmlLater:
+					'{count} XRechnungen kamen noch nicht: Sie sind zu groß für das Relay und gehen nur über eine direkte Verbindung. Beim nächsten Abgleich noch einmal.'
 			},
 			offHint:
 				'Erst wenn du hier klickst, geht Belege ins Netz: Es fragt api.aleph.im nach den Le-Space-Relays und verbindet sich mit einem; danach nur, solange eine Rechnungs-App gekoppelt ist; nach dem Entkoppeln geht Belege wieder vom Netz. Was dabei wer sieht, steht im Datenschutz-Dialog unter „Le-Space-Relays“.',

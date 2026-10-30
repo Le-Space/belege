@@ -6,6 +6,7 @@ import { runMatching } from '../matching/engine.js';
 import { unlinkMatch } from '../matching/actions.js';
 import { receiptFacts } from '../matching/score.js';
 import { vatCase } from '../vat/vat-kind.js';
+import { CII_XRECHNUNG, UBL_INVOICE } from '../receipts/einvoice.fixtures.js';
 import {
 	centsOf,
 	extractionOf,
@@ -37,11 +38,15 @@ const invoice = (over = {}) => ({
 	...over
 });
 
+const XML = new TextEncoder().encode(CII_XRECHNUNG);
+
 /**
  * The invoicing app as strict as the spec: scopes, cancelled invoices,
- * currency, and a PDF only over a direct connection.
+ * currency, a PDF only over a direct connection, and since 0.4.0 an
+ * XRechnung inline while it fits the relay (`options.xmlInline`).
  */
-function fakeApp({ direct = true, scopes = true } = {}) {
+function fakeApp({ direct = true, scopes = true, xmlInline = true } = {}) {
+	const options = { xmlInline };
 	/** @type {Map<string, any>} */
 	const docs = new Map();
 	/** @type {any[]} */
@@ -62,6 +67,14 @@ function fakeApp({ direct = true, scopes = true } = {}) {
 					mime: 'application/pdf',
 					sha256: await hex(d.pdf),
 					...(direct ? { base64: b64(d.pdf) } : {})
+				};
+			}
+			if (cmd === 'get-xml') {
+				if (!d.xml) throw Object.assign(new Error('no XRechnung'), { code: 'INVALID_ARGUMENTS' });
+				return {
+					mime: 'application/xml',
+					sha256: d.xmlSha256 ?? (await hex(d.xml)),
+					...(options.xmlInline ? { base64: b64(d.xml) } : {})
 				};
 			}
 			if (cmd === 'record-payment') {
@@ -102,8 +115,12 @@ function fakeApp({ direct = true, scopes = true } = {}) {
 	return {
 		consumer,
 		calls,
-		/** @param {import('./issued.js').IssuedInvoice} inv */
-		add: (inv) => docs.set(inv.documentId, { inv, pdf: PDF(inv.number) }),
+		options,
+		/**
+		 * @param {import('./issued.js').IssuedInvoice} inv
+		 * @param {{ xml?: Uint8Array, xmlSha256?: string }} [files] an XRechnung, and the hash the app states for it
+		 */
+		add: (inv, files = {}) => docs.set(inv.documentId, { inv, pdf: PDF(inv.number), ...files }),
 		/** @param {string} id */
 		get: (id) => docs.get(id).inv
 	};
@@ -337,6 +354,65 @@ describe('Rechnungen abgleichen', () => {
 		await sync(app);
 		const [receipt] = await store.receipts.list();
 		expect(receipt.setAside?.reason).toBe('not-needed');
+	});
+
+	it('an XRechnung comes beside its PDF, as the original (invoice 0.4.0)', async () => {
+		const app = fakeApp();
+		app.add(invoice({ formats: ['pdf', 'xrechnung'] }), { xml: XML });
+		expect(await sync(app)).toMatchObject({ added: 1, xml: 1, xmlLater: 0 });
+		const [receipt] = await store.receipts.list();
+		// The PDF stays the file every preview opens; the XML lies beside it.
+		expect(receipt).toMatchObject({ mime: 'application/pdf', status: 'ausgelesen' });
+		expect(await blobs.get(receipt.xmlCid)).toEqual(XML);
+		expect(new TextDecoder().decode(await blobs.get(receipt.fileCid))).toMatch(/^%PDF-/);
+		// Taken: not asked again.
+		await sync(app);
+		expect(app.calls.filter((c) => c.cmd === 'get-xml')).toHaveLength(1);
+	});
+
+	it('an app before 0.4.0 names no formats and is not asked for XML', async () => {
+		const app = fakeApp();
+		app.add(invoice(), { xml: XML });
+		expect(await sync(app)).toMatchObject({ added: 1, xml: 0, xmlLater: 0 });
+		expect(app.calls.some((c) => c.cmd === 'get-xml')).toBe(false);
+		expect((await store.receipts.list())[0].xmlCid).toBeUndefined();
+	});
+
+	it('an XRechnung too large for the relay comes at a later sync, onto the receipt taken over', async () => {
+		const app = fakeApp({ xmlInline: false });
+		app.add(invoice({ formats: ['pdf', 'xrechnung'] }), { xml: XML });
+		expect(await sync(app)).toMatchObject({ added: 1, xml: 0, xmlLater: 1 });
+		const [before] = await store.receipts.list();
+		expect(before.xmlCid).toBeUndefined();
+
+		app.options.xmlInline = true;
+		expect(await sync(app)).toMatchObject({ added: 0, xml: 1, xmlLater: 0 });
+		const [after] = await store.receipts.list();
+		expect(await blobs.get(after.xmlCid)).toEqual(XML);
+		// Nothing else of the receipt changes.
+		expect({ ...after, xmlCid: undefined, updatedAt: undefined }).toEqual({
+			...before,
+			xmlCid: undefined,
+			updatedAt: undefined
+		});
+	});
+
+	it('refuses an XRechnung that is not what the app states, or no CII e-invoice', async () => {
+		const wrongHash = fakeApp();
+		wrongHash.add(invoice({ formats: ['pdf', 'xrechnung'] }), {
+			xml: XML,
+			xmlSha256: '0'.repeat(64)
+		});
+		await expect(sync(wrongHash)).rejects.toThrow(/XRechnung der Rechnung RE-2026-0004/);
+		// Nothing half taken over: the next sync tries the whole invoice again.
+		expect(await store.receipts.list()).toHaveLength(0);
+
+		const ubl = fakeApp();
+		ubl.add(invoice({ formats: ['pdf', 'xrechnung'] }), {
+			xml: new TextEncoder().encode(UBL_INVOICE)
+		});
+		await expect(sync(ubl)).rejects.toThrow(/XRechnung der Rechnung/);
+		expect(await store.receipts.list()).toHaveLength(0);
 	});
 
 	it('a pairing from before 0.2.0 says to pair again', async () => {

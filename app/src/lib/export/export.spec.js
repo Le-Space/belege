@@ -701,6 +701,37 @@ describe('the ZIP', () => {
 		);
 	});
 
+	it('an invoice from the invoicing app goes in as its PDF and, beside it, its XRechnung (#515)', async () => {
+		const b = books();
+		const xml = new TextEncoder().encode('<rsm:CrossIndustryInvoice/>');
+		const receipts = [
+			{ ...b.receipts[0], source: 'invoice-app', xmlCid: 'cid-xml' },
+			...b.receipts.slice(1)
+		];
+		for (const r of receipts) await store.receipts.put(r);
+		const blobs = {
+			get: async (/** @type {string} */ cid) =>
+				cid === 'cid-xml' ? xml : new Uint8Array([37, 80, 68, 70, 1])
+		};
+		const plan = planMonth({ month: '2026-09', ...b, receipts: await store.receipts.list() });
+		const { zip } = await runMonthExport({
+			store,
+			blobs,
+			plan,
+			settings: SETTINGS,
+			accounts: b.accounts,
+			classifications: b.classifications,
+			now: () => CREATED
+		});
+		const unzipped = unzipSync(zip);
+		expect(unzipped['Belege/2026-09-001_Kabelnetz_Beispiel_GmbH.xml']).toEqual(xml);
+		const overview = strFromU8(unzipped['Uebersicht_2026-09.csv']);
+		// The overview is Windows-1252: compare what reads the same in it.
+		expect(overview).toContain('E-Rechnung (XRechnung)');
+		expect(overview).toContain('das XML-Original liegt neben dem PDF');
+		expect(overview).not.toContain('ZUGFeRD');
+	});
+
 	it('holds the stack in Windows-1252, the receipts, the overview; numbers stay', async () => {
 		const b = books();
 		for (const r of b.receipts) await store.receipts.put(r);

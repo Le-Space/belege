@@ -152,6 +152,16 @@
 						{t('integrationen.invoiceApp.issued.pdfLater', { count: synced.pdfLater })}
 					</p>
 				{/if}
+				{#if synced.xml}
+					<p class="mt-1 text-sm text-text" data-testid="invoice-app-sync-xml">
+						{t('integrationen.invoiceApp.issued.xml', { count: synced.xml })}
+					</p>
+				{/if}
+				{#if synced.xmlLater}
+					<p class="mt-1 text-sm text-warning" data-testid="invoice-app-sync-xml-later">
+						{t('integrationen.invoiceApp.issued.xmlLater', { count: synced.xmlLater })}
+					</p>
+				{/if}
 			{/if}
 		</div>
 		<button
