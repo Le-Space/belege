@@ -146,7 +146,7 @@ Dieselben 108 232 Bytes von beiden: Die Domain liefert genau den CID, den die Re
 
 - Gemessen: Latenz und Durchsatz der Replikation zwischen zwei Browsern auf einer Maschine, mit und ohne Relay; das Verhalten über eine Netztrennung; Sicherungs- und Wiederherstellungszeiten nach Größe; was die App wiegt und wie schnell sie aus zwei Quellen kommt. Jeder Lauf ist mit den Befehlen oben reproduzierbar; die JSON-Dateien halten die Rohzahlen.
 - Nicht gemessen: echte Netze jenseits eines Relays über das Internet (oben, beide Geräte auf einer Maschine — NAT-Traversal zwischen zwei Netzen, Mobilfunk), mehr als zwei Geräte, Belegdateien (die Bücher hier halten nur Buchungen — ein Jahr PDFs bringt Megabytes ins Archiv), ein echtes Aleph (das Fake antwortet aus dem Speicher) und andere Browser als Chromium.
-- Ehrliche Schwachstellen, alle gemessen statt vermutet: der abbrechende Schub über einen Relay mit Standardgrenzen; die 23 s Wiederverbindung nach einer Pause; die überlineare Wiederherstellung.
+- Ehrliche Schwachstellen, alle gemessen statt vermutet: der abbrechende Schub über einen Relay mit Standardgrenzen, den die App jetzt bemerkt und nach etwa 53 s auflöst, dessen Ursache aber in gossipsub liegt (#393); ein Gerät, das ein verlorenes Relay nie wieder anwählt (#403); die 23 s Wiederverbindung nach einer Pause. Die überlineare Wiederherstellung früherer Versionen gibt es nicht mehr (oben).
 
 ## Früher: wie die Bücher sich beim Wachsen verhalten
 

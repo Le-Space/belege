@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **An architecture overview** ([docs/architecture.md](docs/architecture.md), German twin): the degradation ladder from same room to no IP network, the layers from keys to archive with links to the page that describes each, and what the resilience benchmark measured. The README now links it and the resilience report; the report's list of weak spots no longer names the superlinear restore, which is gone, and names the relay stall's stopgap and #403.
+
 ## [0.26.2] – 2026-10-29
 
 ### Fixed

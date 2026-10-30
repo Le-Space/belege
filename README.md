@@ -67,6 +67,7 @@ The app is in [`app/`](app/README.md), the bridge in [`bridge/`](bridge/README.m
 
 ## Docs
 
+- [Architecture: how Belege keeps working when the network does not](docs/architecture.md) ([Deutsch](docs/architecture.de.md))
 - [Features](docs/features.md) ([Deutsch](docs/features.de.md))
 - [Matching: fiscal years, refunds, vendor accounts](docs/matching.md) ([Deutsch](docs/matching.de.md))
 - [AI](docs/ai.md) ([Deutsch](docs/ai.de.md))
@@ -81,6 +82,7 @@ The app is in [`app/`](app/README.md), the bridge in [`bridge/`](bridge/README.m
 - [Backup on Aleph Cloud, and what leaves the device](docs/backup.md) ([Deutsch](docs/backup.de.md))
 - [What Belege protects against, and what not](docs/threat-model.md) ([Deutsch](docs/threat-model.de.md))
 - [Performance](docs/performance.md) ([Deutsch](docs/performance.de.md))
+- [Resilience, measured](docs/resilience-report.md) ([Deutsch](docs/resilience.de.md))
 - [Phase 0: the feasibility spikes](docs/phase-0.md)
 
 ## License
