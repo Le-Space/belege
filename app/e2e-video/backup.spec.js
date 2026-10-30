@@ -29,17 +29,17 @@ const LANG = process.env.DEMO_LANG === 'de' ? 'de' : 'en';
 
 const EN = {
 	intro:
-		'Le Space Belege keeps your books in the browser. No server holds them. So where is the backup?',
+		'Le Space Belege keeps your books only on your own devices. No server holds them. So where is the backup?',
 	passkey: 'A passkey makes the books and seals them.',
 	bridge:
-		'A bridge on this computer does what a browser cannot: it talks to the bank. Here, a fake bank with sample data.',
-	bookings: 'Six bookings, in the books, in this browser only.',
+		'A bridge on this computer does what the app alone cannot: it talks to the bank. Here, a fake bank with sample data.',
+	bookings: 'Six bookings, in the books, on this device only.',
 	backup:
-		'Backup: one sealed file, kept on Aleph. The browser seals and signs; the account pays. Nothing on the way is readable.',
+		'Backup: one sealed file, kept on Aleph. Your device seals and signs; the account pays. Nothing on the way is readable.',
 	kept: 'Kept, under its content address. Aleph holds a file it cannot open.',
-	forget: 'Now the worst case. This browser forgets everything it had. The passkey does not.',
+	forget: 'Now the worst case. This device forgets everything it had. The passkey does not.',
 	empty:
-		'A browser that has lost everything. The passkey brings the identity back: the same DID, and empty books.',
+		'A device that has lost everything. The passkey brings the identity back: the same DID, and empty books.',
 	address:
 		'The bridge is gone, and it is not needed. The paying account’s address is all it takes: Aleph lists the backup.',
 	restore: 'Restore. The page reloads, and the passkey opens the books.',
@@ -49,22 +49,22 @@ const EN = {
 
 const DE = {
 	intro:
-		'Le Space Belege hält deine Bücher im Browser. Kein Server hat sie. Wo ist dann das Backup?',
+		'Le Space Belege hält deine Geschäftsbücher nur auf deinen eigenen Geräten. Kein Server hat sie. Wo ist dann das Backup?',
 	passkey: 'Ein Passkey legt die Bücher an und versiegelt sie.',
 	bridge:
-		'Eine Bridge auf diesem Rechner tut, was ein Browser nicht kann: Sie spricht mit der Bank. Hier eine erfundene Bank mit Beispieldaten.',
-	bookings: 'Sechs Buchungen, in den Büchern, nur in diesem Browser.',
+		'Eine Bridge auf diesem Rechner tut, was die App allein nicht kann: Sie spricht mit der Bank. Hier eine erfundene Bank mit Beispieldaten.',
+	bookings: 'Sechs Buchungen, in den Geschäftsbüchern, nur auf diesem Gerät.',
 	backup:
-		'Backup: eine versiegelte Datei, aufbewahrt auf Aleph. Der Browser versiegelt und signiert, das Konto bezahlt. Unterwegs ist nichts lesbar.',
+		'Backup: eine versiegelte Datei, aufbewahrt auf Aleph. Dein Gerät versiegelt und signiert, das Konto bezahlt. Unterwegs ist nichts lesbar.',
 	kept: 'Aufbewahrt, unter ihrer Inhaltsadresse. Aleph hält eine Datei, die es nicht öffnen kann.',
 	forget:
-		'Jetzt der schlimmste Fall. Dieser Browser vergisst alles, was er hatte. Der Passkey nicht.',
+		'Jetzt der schlimmste Fall. Dieses Gerät vergisst alles, was es hatte. Der Passkey nicht.',
 	empty:
-		'Ein Browser, der alles verloren hat. Der Passkey bringt die Identität zurück: dieselbe DID, und leere Bücher.',
+		'Ein Gerät, das alles verloren hat. Der Passkey bringt die Identität zurück: dieselbe DID, und leere Geschäftsbücher.',
 	address:
 		'Die Bridge ist weg, und sie wird nicht gebraucht. Die Adresse des zahlenden Kontos genügt: Aleph listet das Backup.',
 	restore: 'Wiederherstellen. Die Seite lädt neu, und der Passkey öffnet die Bücher.',
-	back: 'Die Buchungen sind zurück. Dieselbe Identität, dieselben Bücher, dieselbe Datei.',
+	back: 'Die Buchungen sind zurück. Dieselbe Identität, dieselben Geschäftsbücher, dieselbe Datei.',
 	outro:
 		'Backup und zurück: eine versiegelte Datei auf Aleph, und niemand außer dir kann sie öffnen.'
 };
