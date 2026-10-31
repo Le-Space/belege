@@ -3,28 +3,34 @@
 // editor has to. Survives a navigation (sessionStorage + an init script);
 // `forgetThisDevice` clears it, as it clears everything.
 
-const STYLE = {
+/** The bar, sized for a 1080p frame; `scale` is the frame's height over 1080. */
+const style = (scale = 1) => ({
 	position: 'fixed',
 	left: '0',
 	right: '0',
 	bottom: '0',
-	padding: '16px 28px',
+	padding: `${16 * scale}px ${28 * scale}px`,
 	background: 'rgba(17, 24, 39, 0.86)',
 	color: '#fff',
-	font: '600 22px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif',
+	font: `600 ${22 * scale}px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif`,
 	letterSpacing: '0.01em',
 	zIndex: '2147483647',
 	pointerEvents: 'none',
-	textAlign: 'center'
-};
+	textAlign: 'center',
+	// Room for the bar under the page, kept with the style so `say` and the init script agree.
+	room: `${96 * scale}px`
+});
 
-/** @param {import('@playwright/test').BrowserContext} context */
-export async function installCaptions(context) {
-	await context.addInitScript((style) => {
+/**
+ * @param {import('@playwright/test').BrowserContext} context
+ * @param {number} [scale] the frame's height over 1080
+ */
+export async function installCaptions(context, scale = 1) {
+	await context.addInitScript(({ room, ...style }) => {
 		const render = () => {
 			const text = sessionStorage.getItem('demo.caption');
 			if (!text || !document.body) return;
-			document.body.style.paddingBottom = '96px';
+			document.body.style.paddingBottom = room;
 			let bar = document.getElementById('demo-caption');
 			if (!bar) {
 				bar = document.createElement('div');
@@ -35,19 +41,20 @@ export async function installCaptions(context) {
 			bar.textContent = text;
 		};
 		document.addEventListener('DOMContentLoaded', render);
-	}, STYLE);
+	}, style(scale));
 }
 
 /**
  * @param {import('@playwright/test').Page} page
  * @param {string} text
  * @param {number} [hold] ms to let the viewer read it before the next step
+ * @param {number} [scale] the frame's height over 1080
  */
-export async function say(page, text, hold = 1800) {
+export async function say(page, text, hold = 1800, scale = 1) {
 	await page.evaluate(
-		({ text, style }) => {
+		({ text, style: { room, ...style } }) => {
 			sessionStorage.setItem('demo.caption', text);
-			document.body.style.paddingBottom = '96px';
+			document.body.style.paddingBottom = room;
 			let bar = document.getElementById('demo-caption');
 			if (!bar) {
 				bar = document.createElement('div');
@@ -57,7 +64,7 @@ export async function say(page, text, hold = 1800) {
 			}
 			bar.textContent = text;
 		},
-		{ text, style: STYLE }
+		{ text, style: style(scale) }
 	);
 	await page.waitForTimeout(hold);
 }

@@ -59,12 +59,19 @@ to shift the cues onto the video's clock.
 
 ## Picture
 
-A 1920×1080 viewport, recorded as it is (`playwright.video.config.js`), with
-the page enlarged 1.5× by the scene kit (root font size; `DEMO_ZOOM` changes
-it, `1` turns it off): the app's laptop layout, readable at 1080p. Playwright's
-video never scales a page up, a device scale factor does not reach the
-recording, and CSS `zoom` makes Playwright miss its targets — the rem-based
-layout is what scales cleanly.
+A 16:9 viewport, recorded as it is (`playwright.video.config.js`; `DEMO_RES`
+is its height, 1080 by default), with the page enlarged by the scene kit (root
+font size, 1.5× at 1080p and with the frame; `DEMO_ZOOM` changes it, `1` turns
+it off): the app's laptop layout, the same at every size. Playwright's video
+never scales a page up, a device scale factor does not reach the recording,
+and CSS `zoom` makes Playwright miss its targets — the rem-based layout is
+what scales cleanly; the kit's captions, pointer and cards follow the frame.
+
+Record at `DEMO_RES=2160` for YouTube: a 1080p upload gets a thin bitrate
+there and text goes soft, a 4K upload keeps it crisp at every size the viewer
+picks. Playwright's own recorder is patched for that as well
+(`patches/playwright-core@1.61.1.patch`): it caps its VP8 at 1 Mbit/s, which
+smears text before anything else gets to see it.
 
 ## Films (`films/*.json`)
 

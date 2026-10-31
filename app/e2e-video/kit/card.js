@@ -159,8 +159,11 @@ body { font-family: Sora, system-ui, sans-serif; font-weight: 400; -webkit-font-
 /**
  * The page of one card.
  * @param {ReturnType<typeof resolveCard>} c
+ * @param {number} [scale] the frame's height over 1080: the card is laid out
+ *   for 1920×1080 and drawn larger (a transform rasterises the text at the
+ *   larger size, so it stays sharp)
  */
-export function cardHtml(c) {
+export function cardHtml(c, scale = 1) {
 	let body;
 	if (c.card === 'intro') {
 		body = `<div class="card intro"><div class="stack">${SIGNET()}${WORDS}<div class="tagline fade" style="--at: 2100ms">${esc(c.sub)}</div></div></div>`;
@@ -189,5 +192,9 @@ export function cardHtml(c) {
 		c.card === 'scene'
 			? '<style>.scene .coin{stroke-dashoffset:0;animation:none}.scene .receipt{opacity:1;transform:none;animation:none}.scene .prefix,.scene .name{opacity:1;transform:none;animation:none}</style>'
 			: '';
-	return `<!doctype html><html lang="${esc(c.lang)}"><head><meta charset="utf-8"><title>Le Space Belege</title><style>${CSS}</style>${still}</head><body>${body}</body></html>`;
+	const frame =
+		scale === 1
+			? ''
+			: `<style>.card{inset:auto;left:0;top:0;width:1920px;height:1080px;transform:scale(${scale});transform-origin:0 0}</style>`;
+	return `<!doctype html><html lang="${esc(c.lang)}"><head><meta charset="utf-8"><title>Le Space Belege</title><style>${CSS}</style>${still}${frame}</head><body>${body}</body></html>`;
 }

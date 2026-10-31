@@ -8,11 +8,15 @@ const port = Number(process.env.E2E_PORT || 4391);
 process.env.E2E_BRIDGE_PORT ||= '4392';
 const bridgePort = Number(process.env.E2E_BRIDGE_PORT);
 const relay = await relayAddr();
-// A 1080p frame of a 1080p viewport. The page itself is enlarged 1.5× by the
-// scene kit (root font size, DEMO_ZOOM): Playwright records a viewport as it
-// is and never scales it up, and the app is laid out for a laptop, not for a
-// 1920-wide window.
-const viewport = { width: 1920, height: 1080 };
+// A frame of the viewport's own size: Playwright records a viewport as it is
+// and never scales it up. DEMO_RES is the frame height (1080 by default; 1440
+// or 2160 for a sharper film — YouTube gives a 1080p upload a thin bitrate,
+// text stays crisp only from 1440p up). The app is laid out for a laptop, not
+// for a wide window, so the scene kit enlarges the page (root font size,
+// 1.5× at 1080p, and with the frame: DEMO_ZOOM), and sizes its captions,
+// pointer and cards the same way.
+const height = Number(process.env.DEMO_RES || 1080);
+const viewport = { width: Math.round((height * 16) / 9), height };
 const size = viewport;
 
 export default defineConfig({
