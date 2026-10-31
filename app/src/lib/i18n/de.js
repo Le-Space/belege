@@ -3847,6 +3847,8 @@ export default {
 				bridgeOffline: 'die Bridge antwortet nicht. Läuft sie auf diesem Mac?',
 				bridgeOfflineDevices:
 					'die Bridge antwortet nicht – weder hier noch über ein eigenes Gerät. Ist dein Mac mit der Bridge an und verbunden?',
+				bridgeOfflinePhone:
+					'auf einem Telefon läuft keine Bridge. Gib die Bridge deines Rechners dort unter Geräte für eigene Geräte frei, und füge dieses Telefon als Gerät hinzu.',
 				deviceRemoved:
 					'dieses Gerät wurde auf einem anderen entfernt; die Synchronisation ist aus.',
 				deviceError: 'die Synchronisation meldet einen Fehler.',
@@ -3970,6 +3972,8 @@ export default {
 			viaDevice: 'über deinen Mac (eigenes Gerät)',
 			viaDeviceHint:
 				'Dieses Gerät nutzt die Bridge deines Macs. Koppeln, Einrichten und Entkoppeln geschehen dort; hier gehen nur lesende Abfragen und das Auslesen hinüber.',
+			onAPhone:
+				'Hier läuft keine Bridge: Sie ist ein Programm auf deinem Rechner. Dieses Telefon nutzt sie über Gerätesync – am Rechner unter Geräte „Bridge dieses Rechners für eigene Geräte freigeben“ einschalten, dieses Telefon dort als Gerät hinzufügen, und den Belege-Tab am Rechner offen und entsperrt lassen.',
 			noHibiscus: 'Hibiscus ist noch nicht eingerichtet',
 			offline: 'Bridge nicht erreichbar',
 			originRefused:
