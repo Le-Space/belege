@@ -116,6 +116,14 @@ describe('the Integrationen overview', () => {
 		);
 		expect(lost.viaDevice).toBe(false);
 		expect(lost.needs[0]).toMatchObject({ id: 'bridge', text: 'bridgeOfflineDevices' });
+		const noHost = integrationsOverview(
+			facts({ bridge: { ...facts().bridge, state: 'offline' }, hostsBridge: false })
+		);
+		expect(noHost.needs[0]).toMatchObject({
+			id: 'bridge',
+			kind: 'err',
+			text: 'bridgeOfflinePhone'
+		});
 	});
 
 	it('what the last runs left: a refused Kraken key, wallets with hints', () => {

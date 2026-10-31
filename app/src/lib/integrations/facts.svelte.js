@@ -10,6 +10,7 @@ import { loadBackups } from '$lib/backup/history.js';
 import { isWalletSource } from '$lib/wallets/chains.js';
 import { loadAlerts } from './alerts.js';
 import { bridge, loadBridge } from './bridge-state.svelte.js';
+import { hostsBridge } from './host.js';
 
 const kept = $state({
 	wallets: 0,
@@ -61,6 +62,7 @@ export const integrationFacts = () => ({
 		via: app.sync.bridgeRoute,
 		health: bridge.health
 	},
+	hostsBridge: hostsBridge(),
 	devices: {
 		flag: kept.deviceFlag,
 		online: app.sync.online,
