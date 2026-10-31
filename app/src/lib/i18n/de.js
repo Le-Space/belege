@@ -1054,14 +1054,14 @@ export default {
 			'Dieser Browser hat keinen Platz mehr für das Backup. Deine Bücher sind unberührt. Schaff Platz auf dem Gerät oder entferne Daten anderer Seiten und versuch es noch einmal.'
 	},
 	social: {
-		title: 'Le Space Belege – Zahlungen und Belege, lokal im Browser',
+		title: 'Le Space Belege – Zahlungen und Belege, nur auf deinen eigenen Geräten',
 		description:
-			'Kontoumsätze und Belege automatisch zusammengeführt – verschlüsselt im eigenen Browser, ohne Cloud-Konto. Mit DATEV-Export, Krypto-Wallets und Belegen aus dem Postfach.',
+			'Kontoumsätze und Belege automatisch zusammengeführt – verschlüsselt nur auf deinen eigenen Geräten, ohne Cloud-Konto. Mit DATEV-Export, Krypto-Wallets und Belegen aus dem Postfach.',
 		imageAlt:
-			'Le Space Belege: Zahlungen und ihre Belege, zusammengeführt und verschlüsselt im eigenen Browser',
-		tagline: 'Zahlungen und Belege, zusammengeführt – nur auf deinem Gerät.',
+			'Le Space Belege: Zahlungen und ihre Belege, zusammengeführt und verschlüsselt nur auf deinen eigenen Geräten',
+		tagline: 'Zahlungen und Belege, zusammengeführt – nur auf deinen eigenen Geräten.',
 		points: [
-			'Verschlüsselt im Browser, ohne Cloud-Konto',
+			'Verschlüsselt, ohne Cloud-Konto',
 			'DATEV-Export mit allen Belegen',
 			'Bank, Krypto-Wallets und Postfach'
 		],

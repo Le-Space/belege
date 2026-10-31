@@ -1029,14 +1029,14 @@ export default {
 			'This browser has no room left for the backup. Your books are untouched. Free some space on the device, or remove other sites’ data, and try again.'
 	},
 	social: {
-		title: 'Le Space Belege – payments and receipts, local in your browser',
+		title: 'Le Space Belege – payments and receipts, only on your own devices',
 		description:
-			'Bank transactions and receipts matched automatically – encrypted in your own browser, no cloud account. With DATEV export, crypto wallets and receipts from your mailbox.',
+			'Bank transactions and receipts matched automatically – encrypted only on your own devices, no cloud account. With DATEV export, crypto wallets and receipts from your mailbox.',
 		imageAlt:
-			'Le Space Belege: payments and their receipts, matched and encrypted in your own browser',
-		tagline: 'Payments and receipts, matched – on your device only.',
+			'Le Space Belege: payments and their receipts, matched and encrypted only on your own devices',
+		tagline: 'Payments and receipts, matched – only on your own devices.',
 		points: [
-			'Encrypted in your browser, no cloud account',
+			'Encrypted, no cloud account',
 			'DATEV export with every receipt',
 			'Bank, crypto wallets and mailbox'
 		],
