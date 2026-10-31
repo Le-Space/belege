@@ -7,6 +7,11 @@ settings:
 overrides:
   '@libp2p/gossipsub': 16.1.0
 
+patchedDependencies:
+  playwright-core@1.61.1:
+    hash: a083dc1d622051a32dba1602d5ddc0f08c46bf1680f64243117be69f979c62a9
+    path: patches/playwright-core@1.61.1.patch
+
 importers:
 
   .:
@@ -9513,11 +9518,11 @@ snapshots:
       pvutils: 1.2.0
       tslib: 2.8.1
 
-  playwright-core@1.61.1: {}
+  playwright-core@1.61.1(patch_hash=a083dc1d622051a32dba1602d5ddc0f08c46bf1680f64243117be69f979c62a9): {}
 
   playwright@1.61.1:
     dependencies:
-      playwright-core: 1.61.1
+      playwright-core: 1.61.1(patch_hash=a083dc1d622051a32dba1602d5ddc0f08c46bf1680f64243117be69f979c62a9)
     optionalDependencies:
       fsevents: 2.3.2
 

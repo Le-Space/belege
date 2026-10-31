@@ -24,7 +24,7 @@ for (const film of films) {
 				lang: film.lang,
 				captions: false
 			});
-			await page.setContent(cardHtml(card));
+			await page.setContent(cardHtml(card, scene.scale));
 			await page.evaluate(() => document.fonts.ready);
 			await page.evaluate(() => document.body.classList.add('go'));
 			scene.markStart();

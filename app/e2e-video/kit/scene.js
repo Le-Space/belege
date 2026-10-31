@@ -17,13 +17,15 @@ import { prepare, provider } from './voice.mjs';
  * The app is laid out for a laptop. A 1920×1080 recording of it would show a
  * small page in a wide frame, and Playwright's video never scales a page up,
  * so the page is enlarged instead: its root font size is raised (1.5× by
- * default: a 1280×720 layout in a 1080p frame). Tailwind sizes in rem, so
+ * default: a 1280×720 layout in a 1080p frame; a taller frame, DEMO_RES,
+ * raises it further so the layout stays the same). Tailwind sizes in rem, so
  * the whole layout follows; CSS `zoom` would do the same, but Playwright then
  * takes elements for outside the viewport and clicks nothing.
  * @param {import('@playwright/test').BrowserContext} context
+ * @param {number} scale the frame's height over 1080
  */
-async function installZoom(context) {
-	const zoom = Number(process.env.DEMO_ZOOM || 1.5);
+async function installZoom(context, scale) {
+	const zoom = Number(process.env.DEMO_ZOOM || 1.5) * scale;
 	if (!(zoom > 0) || zoom === 1) return;
 	await context.addInitScript((z) => {
 		const apply = () => {
@@ -58,9 +60,12 @@ export async function startScene(
 	const marker = Date.now() - t0;
 	const texts = Array.isArray(lines) ? lines : Object.values(lines);
 	const voice = await prepare(texts, { lang });
-	if (captions) await installCaptions(context);
-	await installZoom(context);
-	await installCursor(context);
+	// Everything the kit draws in px (captions, pointer, cards) is sized for a
+	// 1080p frame; a taller frame scales it.
+	const scale = (page.viewportSize()?.height ?? 1080) / 1080;
+	if (captions) await installCaptions(context, scale);
+	await installZoom(context, scale);
+	await installCursor(context, scale);
 	/** @type {{ t: number, text: string, durationMs: number, file: string | null }[]} */
 	const cues = [];
 	/** Video time at which the picture is ready; compose.mjs cuts what comes before. */
@@ -69,6 +74,7 @@ export async function startScene(
 	return {
 		provider: provider(),
 		cues,
+		scale,
 		/**
 		 * Say a line: caption (if on), voice (if any), and wait for the longer of
 		 * the voice and `hold` — the pause a reader needs without a voice.
@@ -90,7 +96,7 @@ export async function startScene(
 				durationMs: v?.durationMs ?? hold,
 				file: v?.file ?? null
 			});
-			if (captions) await caption(page, text, 0);
+			if (captions) await caption(page, text, 0, scale);
 			await page.waitForTimeout(v ? v.durationMs + after : hold);
 		},
 		/** Silence for a moment; the viewer looks. */

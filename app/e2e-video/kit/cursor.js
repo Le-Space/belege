@@ -7,12 +7,15 @@
 // The real input still comes from Playwright: the overlay only shows where it
 // goes, and the mouse is moved there as well so hover states look right.
 
-const ARROW = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 28" width="24" height="28">
+const ARROW = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 28" width="100%" height="100%">
   <path d="M2 2 L2 22 L7.5 17.5 L11 25.5 L14.5 24 L11 16 L18 16 Z" fill="#0F1B2D" stroke="#FFFFFF" stroke-width="1.6" stroke-linejoin="round"/>
 </svg>`;
 
-/** Runs in the page: creates the pointer and the animation API, once per document. */
-function pageScript(arrow) {
+/**
+ * Runs in the page: creates the pointer and the animation API, once per document.
+ * The arrow is 24×28 in a 1080p frame; `s` is the frame's height over 1080.
+ */
+function pageScript({ arrow, s }) {
 	const KEY = 'demo.cursor';
 	const start = () => {
 		if (!document.body || document.getElementById('demo-cursor')) return;
@@ -23,12 +26,12 @@ function pageScript(arrow) {
 			position: 'fixed',
 			left: '0',
 			top: '0',
-			width: '24px',
-			height: '28px',
+			width: `${24 * s}px`,
+			height: `${28 * s}px`,
 			zIndex: '2147483647',
 			pointerEvents: 'none',
-			filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))',
-			transformOrigin: '2px 2px',
+			filter: `drop-shadow(0 ${s}px ${2 * s}px rgba(0,0,0,0.35))`,
+			transformOrigin: `${2 * s}px ${2 * s}px`,
 			willChange: 'transform'
 		});
 		document.body.appendChild(el);
@@ -94,9 +97,12 @@ function pageScript(arrow) {
 	else start();
 }
 
-/** @param {import('@playwright/test').BrowserContext} context */
-export async function installCursor(context) {
-	await context.addInitScript(pageScript, ARROW);
+/**
+ * @param {import('@playwright/test').BrowserContext} context
+ * @param {number} [scale] the frame's height over 1080
+ */
+export async function installCursor(context, scale = 1) {
+	await context.addInitScript(pageScript, { arrow: ARROW, s: scale });
 }
 
 /**
