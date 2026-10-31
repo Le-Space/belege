@@ -32,6 +32,7 @@ import { formatDate } from '../bank/format.js';
  * @typedef {object} Facts
  * @property {{ token: string | null, state: string, via?: 'local' | 'device', health: { hibiscus: boolean, kraken: boolean, paperless?: boolean, mail: boolean, llm: boolean, backup?: boolean } }} bridge
  * @property {{ flag: boolean, online: boolean, removed: boolean, error: string | null, connected: number }} devices
+ * @property {boolean} [hostsBridge] whether a bridge can run on this device at all (host.js); a phone cannot
  * @property {Record<string, any>[]} accounts the books' accounts
  * @property {Record<string, any>[]} events newest first
  * @property {number} wallets own wallets kept
@@ -254,7 +255,12 @@ export function integrationsOverview(f) {
 		needs.push({
 			id: 'bridge',
 			kind: 'err',
-			text: f.devices.online ? 'bridgeOfflineDevices' : 'bridgeOffline'
+			text:
+				f.hostsBridge === false
+					? 'bridgeOfflinePhone'
+					: f.devices.online
+						? 'bridgeOfflineDevices'
+						: 'bridgeOffline'
 		});
 	if (f.devices.removed) needs.push({ id: 'geraete', kind: 'warn', text: 'deviceRemoved' });
 	else if (f.devices.error) needs.push({ id: 'geraete', kind: 'warn', text: 'deviceError' });

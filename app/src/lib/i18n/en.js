@@ -3805,6 +3805,8 @@ export default {
 				bridgeOffline: 'the bridge is not responding. Is it running on this Mac?',
 				bridgeOfflineDevices:
 					'the bridge is not responding – neither here nor via one of your own devices. Is your Mac with the bridge on and connected?',
+				bridgeOfflinePhone:
+					'no bridge runs on a phone. On your computer, under Devices, share its bridge with your own devices, and add this phone as a device there.',
 				deviceRemoved: 'this device was removed on another one; syncing is off.',
 				deviceError: 'syncing reports an error.',
 				consentEnded:
@@ -3925,6 +3927,8 @@ export default {
 			viaDevice: 'via your Mac (own device)',
 			viaDeviceHint:
 				'This device uses your Mac’s bridge. Pairing, setting up and unpairing happen there; only read-only queries and receipt reading go across from here.',
+			onAPhone:
+				'No bridge runs here: it is a program on your computer. This phone uses it over device sync – on the computer, under Devices, switch on “Share this computer’s bridge with your own devices”, add this phone as a device there, and keep the Belege tab on the computer open and unlocked.',
 			noHibiscus: 'Hibiscus is not set up yet',
 			offline: 'Bridge not reachable',
 			originRefused:

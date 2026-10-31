@@ -11,6 +11,7 @@
 		pairBridge,
 		unpairBridge
 	} from './bridge-state.svelte.js';
+	import { hostsBridge } from './host.js';
 
 	/** @type {{ intro?: boolean }} */
 	let { intro = true } = $props();
@@ -100,6 +101,11 @@
 					: t('integrationen.bridge.codeHintFirst')
 			})}
 		</p>
+	{:else if bridge.state === 'offline' && !hostsBridge()}
+		<!-- A phone never runs a bridge (#142): no terminal, no unpairing – the computer's bridge, over device sync. -->
+		<p class="mt-3 text-sm text-text" data-testid="bridge-on-a-phone">
+			{t('integrationen.bridge.onAPhone')}
+		</p>
 	{:else}
 		<button
 			type="button"
@@ -108,7 +114,7 @@
 			data-testid="unpair">{t('integrationen.bridge.unpair')}</button
 		>
 	{/if}
-	{#if bridge.error}
+	{#if bridge.error && (bridge.state !== 'offline' || hostsBridge())}
 		<p class="mt-3 text-sm text-danger" role="alert" data-testid="bridge-error">{bridge.error}</p>
 		<WayOut message={bridge.error} />
 	{/if}
