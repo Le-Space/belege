@@ -27,7 +27,9 @@ export const restoreRun = $state({
 	/** Increments restored with the full backup. */
 	increments: 0,
 	/** @type {string | null} */
-	error: null
+	error: null,
+	/** @type {string | null} what the failing step said, in its own words, under `error` */
+	detail: null
 });
 
 export const isCid = (/** @type {string} */ c) =>
@@ -36,6 +38,7 @@ export const isCid = (/** @type {string} */ c) =>
 /** Ask "Dieses Backup wiederherstellen?" for `cid`; a string that is no CID is refused. @param {string} cid */
 export function askRestore(cid) {
 	restoreRun.error = null;
+	restoreRun.detail = null;
 	const trimmed = String(cid ?? '').trim();
 	if (!isCid(trimmed)) {
 		restoreRun.chosen = null;
@@ -92,6 +95,7 @@ export async function runRestore({ owner, endpoints, known = [], sizes = {} }) {
 	if (!cid) return;
 	restoreRun.chosen = null;
 	restoreRun.error = null;
+	restoreRun.detail = null;
 	restoreRun.progress = null;
 	restoreRun.bytes = null;
 	// A phone must not darken its screen meanwhile (#512).
@@ -167,6 +171,10 @@ export async function runRestore({ owner, endpoints, known = [], sizes = {} }) {
 									: e instanceof Error
 										? e.message
 										: String(e);
+		// The step's own words beside the explanation: which gateway, how many
+		// bytes, which CID. What a person reports, and what a maintainer needs.
+		restoreRun.detail =
+			e instanceof Error && e.message && e.message !== restoreRun.error ? e.message : null;
 	} finally {
 		letSleep();
 	}
