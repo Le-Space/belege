@@ -22,6 +22,8 @@
 		restoreBusy,
 		restoreRun,
 		restoreStepText,
+		restoreSourceText,
+		chooseRestorePath,
 		runRestore
 	} from './restore-flow.svelte.js';
 	import BackupProgress from './BackupProgress.svelte';
@@ -1105,6 +1107,24 @@
 				</ul>
 			</details>
 		{/if}
+		<label class="mt-3 flex items-start gap-2 text-sm text-text" data-testid="restore-path">
+			<input
+				type="checkbox"
+				class="mt-1"
+				checked={restoreRun.path === 'gateway-first'}
+				disabled={restoreBusy()}
+				onchange={(e) => chooseRestorePath(e.currentTarget.checked)}
+				data-testid="restore-gateway-first"
+			/>
+			<span
+				>{t('restore.gatewayFirst')}
+				<span class="block text-xs text-faint"
+					>{restoreRun.path === 'gateway-first'
+						? t('restore.gatewayFirstOn')
+						: t('restore.gatewayFirstOff')}</span
+				></span
+			>
+		</label>
 		<details class="mt-3 text-sm" data-testid="backup-restore-by-cid">
 			<summary class="cursor-pointer text-xs text-faint">{t('backup.list.byCid')}</summary>
 			<form
@@ -1159,6 +1179,9 @@
 		{#if restoreRun.phase === 'done'}
 			<div class="mt-3 text-sm" role="status" data-testid="restore-done">
 				<p class="text-heading">{t('restore.done')}</p>
+				{#if restoreSourceText()}
+					<p class="text-xs text-faint" data-testid="restore-source">{restoreSourceText()}</p>
+				{/if}
 				{#if restoreRun.increments}
 					<p class="text-xs text-faint" data-testid="restore-done-increments">
 						{t('restore.doneIncrements', { count: restoreRun.increments })}

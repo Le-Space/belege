@@ -10,6 +10,7 @@ import { t } from '$lib/i18n/index.js';
 import { loadBackups } from './history.js';
 import { findBackups } from './keeper.js';
 import { keepAwake } from '$lib/wake-lock.js';
+import { createRestoreFetch, gatewayHost, restorePath, setRestorePath } from './restore-path.js';
 
 export const restoreRun = $state({
 	/** @type {string | null} the CID asked about, waiting for "Ja" */
@@ -29,8 +30,22 @@ export const restoreRun = $state({
 	/** @type {string | null} */
 	error: null,
 	/** @type {string | null} what the failing step said, in its own words, under `error` */
-	detail: null
+	detail: null,
+	/** Which way the backup comes back (restore-path.js), as this browser keeps it. */
+	path: /** @type {import('./restore-path.js').RestorePath} */ (
+		restorePath(globalThis.localStorage)
+	),
+	/** @type {'gateway' | 'peers' | null} the way the file being fetched is coming */
+	via: null,
+	/** @type {{ path: 'gateway' | 'peers', host: string, peers: number, ms: number } | null} what delivered the backup, for the card */
+	source: null
 });
+
+/** "Erst Alephs Gateway, dann das IPFS-Netz" on or off. @param {boolean} gatewayFirst */
+export function chooseRestorePath(gatewayFirst) {
+	restoreRun.path = gatewayFirst ? 'gateway-first' : 'peers';
+	setRestorePath(globalThis.localStorage, restoreRun.path);
+}
 
 export const isCid = (/** @type {string} */ c) =>
 	/^Qm[1-9A-HJ-NP-Za-km-z]{44}$/.test(c) || /^b[a-z2-7]{50,100}$/.test(c);
@@ -98,22 +113,50 @@ export async function runRestore({ owner, endpoints, known = [], sizes = {} }) {
 	restoreRun.detail = null;
 	restoreRun.progress = null;
 	restoreRun.bytes = null;
+	restoreRun.via = null;
+	restoreRun.source = null;
 	// A phone must not darken its screen meanwhile (#512).
 	const letSleep = keepAwake();
+	/** The peer node, once a file goes over peers. */
+	let peers = /** @type {import('./restore-peers.js').RestorePeers | null} */ (null);
 	try {
 		restoreRun.phase = 'fetching';
 		const { createAlephBackend } = await import('@le-space/orbitdb-storage-bridge/backends/aleph');
-		const gateway = createAlephBackend({ gateways: endpoints.gateways });
+		const { GATEWAY_IDLE_MS } = await import('./restore-path.js');
+		const gateway = createAlephBackend({ gateways: endpoints.gateways, timeout: GATEWAY_IDLE_MS });
+		const host = gatewayHost(endpoints.gateways);
 		/** The bytes each file has, where known: a short download is refused, not opened. */
 		const bytesOf = { ...sizes };
 		/** @param {string} id */
-		const fetchBlob = (id) =>
-			gateway.getBlob(id, {
-				...(bytesOf[id] > 0 ? { size: bytesOf[id] } : {}),
-				onProgress: (/** @type {number} */ received, /** @type {number} */ total) => {
-					restoreRun.bytes = { received, total: total || bytesOf[id] || 0 };
-				}
-			});
+		const progressOf = (id) => (/** @type {number} */ received, /** @type {number} */ total) => {
+			restoreRun.bytes = { received, total: total || bytesOf[id] || 0 };
+		};
+		// The way this browser chose (restore-path.js): the gateway, and the
+		// peers when it goes quiet – or the peers only. Either way the card
+		// learns which one delivered.
+		const fetchBlob = createRestoreFetch({
+			path: restoreRun.path,
+			viaGateway: (id) => {
+				restoreRun.via = 'gateway';
+				restoreRun.bytes = null;
+				return gateway.getBlob(id, {
+					...(bytesOf[id] > 0 ? { size: bytesOf[id] } : {}),
+					onProgress: progressOf(id)
+				});
+			},
+			viaPeers: async (id) => {
+				restoreRun.via = 'peers';
+				restoreRun.bytes = null;
+				peers ??= await (await import('./restore-peers.js')).createRestorePeers();
+				return peers.fetch(id, {
+					...(bytesOf[id] > 0 ? { size: bytesOf[id] } : {}),
+					onProgress: progressOf(id)
+				});
+			},
+			onPath: (path, info) => {
+				restoreRun.source = { path, host, peers: peers?.reached() ?? 0, ms: info.ms };
+			}
+		});
 		// The increments first, with the sizes the history and Aleph's list
 		// know for them; the full backup's size is the card's to know.
 		const wanted = await incrementsOf(cid, { known, owner, endpoints, sizes: bytesOf });
@@ -177,14 +220,21 @@ export async function runRestore({ owner, endpoints, known = [], sizes = {} }) {
 			e instanceof Error && e.message && e.message !== restoreRun.error ? e.message : null;
 	} finally {
 		letSleep();
+		// The peer node was this restore's only: gone with it.
+		const node = /** @type {import('./restore-peers.js').RestorePeers | null} */ (peers);
+		if (node) await node.stop().catch(() => {});
 	}
 }
 
 /** The restore's step in words, or ''. */
 export function restoreStepText() {
-	const { phase, fetched, progress, bytes } = restoreRun;
+	const { phase, fetched, progress, bytes, via } = restoreRun;
 	if (phase === 'fetching') {
-		const file = fetched ? t('restore.fetchingIncrements', fetched) : t('restore.fetching');
+		const file = fetched
+			? t('restore.fetchingIncrements', fetched)
+			: via === 'peers'
+				? t('restore.fetchingPeers')
+				: t('restore.fetching');
 		if (!bytes) return file;
 		return bytes.total
 			? t('restore.fetchingBytes', {
@@ -205,6 +255,16 @@ export function restoreStepText() {
 			: t('restore.opening');
 	}
 	return '';
+}
+
+/** Where the backup came from and how long it took, for the card; '' before it is known. */
+export function restoreSourceText() {
+	const { source } = restoreRun;
+	if (!source) return '';
+	const seconds = Math.max(1, Math.round(source.ms / 1000));
+	return source.path === 'peers'
+		? t('restore.sourcePeers', { peers: source.peers, seconds })
+		: t('restore.sourceGateway', { host: source.host, seconds });
 }
 
 /** Whole megabytes, as text. @param {number} n bytes */

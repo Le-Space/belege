@@ -78,6 +78,8 @@ A CID can also be typed ("Per CID wiederherstellen"). After a question, the brow
 
 What comes back is checked before it is opened: against the size the backup's STORE names (backups since 0.26.2 carry it, the list shows it) and, for every backup, against its CID – the file is built again from the bytes the way Aleph's hosts built it. A download that came back short or damaged is refused at the gateway and asked for again ("nicht oder nicht vollständig zurückgegeben"); before, such a file reached the key and failed there, which looked like the wrong passkey. Under every restore error, "Technical detail" unfolds what the failing step said in its own words – which gateway, how many bytes, which CID – for a report, or for a second try that knows why.
 
+**Which way it comes back** is the browser's choice, kept per browser ("Erst Alephs Gateway, dann das IPFS-Netz", on by default): one request to Aleph's gateway, and when it stays silent for 15 seconds, the browser fetches the backup itself over IPFS – a fetch-only node for the minute it takes, dialling Aleph's own IPFS nodes (IPv6 only, as they announce) and whoever the public routing says holds the CID (cid.contact, delegated-ipfs.dev; both see the CID and the browser's IP). Unticked, the gateway is not asked at all. Either way the card says what delivered – the gateway's host or how many peers – and how long it took. Every block over peers is checked against its CID, so a stranger's bytes are as safe as a gateway's.
+
 A backup of other books cannot be opened ("gehört zu einem anderen Tresor"): its key comes from that vault's root. The way in is a passkey with a slot in that vault – added on the device with those books – or those books' recovery words.
 
 ## Let another key back up

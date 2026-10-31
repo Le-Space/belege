@@ -57,6 +57,7 @@
 		"@helia/bitswap": "4.0.6",
 		"@helia/delegated-routing-v1-http-api-client": "9.0.2",
 		"@helia/libp2p": "1.0.6",
+		"@helia/unixfs": "8.0.9",
 		"@ipld/dag-cbor": "10.0.1",
 		"@le-space/libp2p-webrtc-qr": "0.14.0",
 		"@le-space/orbitdb-identity-provider-webauthn-did": "0.11.0",
