@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.26.4] – 2026-10-31
+
 ### Added
 
 - **A restore says where the backup came from, and can skip the gateway**: "Erst Alephs Gateway, dann das IPFS-Netz" (on by default) asks Aleph's gateway once and, when it stays silent for 15 s, fetches the backup over IPFS itself – a fetch-only Helia node dialling Aleph's nodes and the public routing's providers; unticked, the gateway is not asked at all. The card shows which one delivered, the gateway's host or how many peers, and how long it took (docs/backup.md).
