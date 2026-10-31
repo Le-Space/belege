@@ -46,6 +46,9 @@ importers:
       '@helia/libp2p':
         specifier: 1.0.6
         version: 1.0.6(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))
+      '@helia/unixfs':
+        specifier: 8.0.9
+        version: 8.0.9(encoding@0.1.13)
       '@ipld/dag-cbor':
         specifier: 10.0.1
         version: 10.0.1

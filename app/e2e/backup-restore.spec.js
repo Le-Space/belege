@@ -206,6 +206,8 @@ test('a browser that lost everything gets its books back from the backup', async
 		timeout: 30_000
 	});
 	await expect(card.getByTestId('restore-done')).toContainText('Zahlungen');
+	// Which way it came: the fake gateway, named by host.
+	await expect(card.getByTestId('restore-source')).toContainText('Gateway');
 	await expect(card.getByTestId('restore-done-increments')).toContainText('Mit 1 Zuwächsen');
 
 	// The page reloads by itself; the passkey opens the books, and the payment is back.

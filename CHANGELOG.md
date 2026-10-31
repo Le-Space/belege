@@ -6,11 +6,15 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A restore says where the backup came from, and can skip the gateway**: "Erst Alephs Gateway, dann das IPFS-Netz" (on by default) asks Aleph's gateway once and, when it stays silent for 15 s, fetches the backup over IPFS itself – a fetch-only Helia node dialling Aleph's nodes and the public routing's providers; unticked, the gateway is not asked at all. The card shows which one delivered, the gateway's host or how many peers, and how long it took (docs/backup.md).
+- **The bridge card on a phone says what is true there**: no bridge runs on a phone, so instead of "is it running on this Mac?", a terminal command and "unpair", the card and the "needs you" row say how the computer's bridge reaches the phone – shared under Devices, this phone added there (#142).
+
 ## [0.26.3] – 2026-10-31
 
 ### Added
 
-- **The bridge card on a phone says what is true there**: no bridge runs on a phone, so instead of "is it running on this Mac?", a terminal command and "unpair", the card and the "needs you" row say how the computer's bridge reaches the phone – shared under Devices, this phone added there (#142).
 - **A restore error shows its technical detail**: under the explanation, "Technical detail" unfolds what the failing step said – which gateway, how many bytes, which CID – so a failed download on a phone can be reported, and retried knowing why.
 
 - **An architecture overview** ([docs/architecture.md](docs/architecture.md), German twin): the degradation ladder from same room to no IP network, the layers from keys to archive with links to the page that describes each, and what the resilience benchmark measured. The README now links it and the resilience report; the report's list of weak spots no longer names the superlinear restore, which is gone, and names the relay stall's stopgap and #403.

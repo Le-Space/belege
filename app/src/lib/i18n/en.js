@@ -1008,7 +1008,15 @@ export default {
 		no: 'Cancel',
 		fetchingBytes: '{what} {received} of {total} MB – {percent} %',
 		fetchingBytesUnknown: '{what} {received} MB',
-		fetching: 'Fetching the backup from Aleph …',
+		fetching: 'Fetching the backup from Aleph’s gateway …',
+		fetchingPeers: 'Fetching the backup from the IPFS network …',
+		sourceGateway: 'Fetched through Aleph’s gateway ({host}) in {seconds} s.',
+		sourcePeers: 'Fetched from the IPFS network, from {peers} peers, in {seconds} s.',
+		gatewayFirst: 'Aleph’s gateway first, then the IPFS network',
+		gatewayFirstOn:
+			'One request to Aleph’s gateway; if it stays silent for 15 seconds, the browser fetches the backup itself over IPFS – from Aleph’s nodes and from whoever holds it according to the public routing.',
+		gatewayFirstOff:
+			'No gateway: the browser fetches the backup itself over IPFS, from Aleph’s nodes and from whoever holds it according to the public routing. Aleph’s nodes are reachable over IPv6 only; the routing (cid.contact, delegated-ipfs.dev) sees the CID and this IP address.',
 		opening: 'Opening the backup …',
 		database: 'Database {index} of {total}: {name} …',
 		increments: '+ {count} increments',

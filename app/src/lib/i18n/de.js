@@ -1033,7 +1033,15 @@ export default {
 		no: 'Abbrechen',
 		fetchingBytes: '{what} {received} von {total} MB – {percent} %',
 		fetchingBytesUnknown: '{what} {received} MB',
-		fetching: 'Backup wird von Aleph geholt …',
+		fetching: 'Backup wird von Alephs Gateway geholt …',
+		fetchingPeers: 'Backup wird aus dem IPFS-Netz geholt …',
+		sourceGateway: 'Geholt über Alephs Gateway ({host}) in {seconds} s.',
+		sourcePeers: 'Geholt aus dem IPFS-Netz, von {peers} Knoten, in {seconds} s.',
+		gatewayFirst: 'Erst Alephs Gateway, dann das IPFS-Netz',
+		gatewayFirstOn:
+			'Eine Anfrage an Alephs Gateway; meldet es sich 15 Sekunden lang nicht, holt der Browser das Backup selbst über IPFS – von Alephs Knoten und von jedem, der es laut öffentlichem Routing hält.',
+		gatewayFirstOff:
+			'Ohne Gateway: Der Browser holt das Backup selbst über IPFS, von Alephs Knoten und von jedem, der es laut öffentlichem Routing hält. Alephs Knoten sind nur über IPv6 erreichbar; das Routing (cid.contact, delegated-ipfs.dev) sieht die CID und diese IP-Adresse.',
 		opening: 'Backup wird geöffnet …',
 		database: 'Datenbank {index} von {total}: {name} …',
 		increments: '+ {count} Zuwächse',
