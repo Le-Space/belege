@@ -1175,6 +1175,12 @@
 			<p class="mt-2 text-sm text-danger" role="alert" data-testid="restore-error">
 				{restoreRun.error}
 			</p>
+			{#if restoreRun.detail}
+				<details class="mt-1 text-xs" data-testid="restore-error-detail">
+					<summary class="cursor-pointer text-faint">{t('restore.detail')}</summary>
+					<p class="mt-1 font-mono break-all text-faint">{restoreRun.detail}</p>
+				</details>
+			{/if}
 		{/if}
 	{/if}
 </section>
