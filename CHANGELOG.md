@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.26.3] – 2026-10-31
+
 ### Added
 
 - **A restore error shows its technical detail**: under the explanation, "Technical detail" unfolds what the failing step said – which gateway, how many bytes, which CID – so a failed download on a phone can be reported, and retried knowing why.
