@@ -95,3 +95,94 @@ export async function sealer(rawKey) {
 		}
 	};
 }
+
+/**
+ * Seal and open bytes so that the same bytes always seal the same way: what
+ * OrbitDB's `replication` layer needs. OrbitDB seals a whole entry again when
+ * it joins one it received (oplog-store.js `addHead`) and files it under the
+ * hash of the result; with a random nonce every join would file the entry
+ * under a second hash, and the block under its own hash would have to be
+ * fetched again from the device that wrote it.
+ *
+ * The nonce is not random but synthetic (SIV): HMAC-SHA-256 over the bytes,
+ * under a key of its own derived from `rawKey`, cut to 12 bytes. Two
+ * different entries get different nonces (a collision needs about 2^48
+ * entries); the same entry gets the same nonce and therefore the same
+ * ciphertext, which discloses only that two sealed entries are one. Opening
+ * checks that the nonce belongs to what came out.
+ *
+ * @param {Uint8Array} rawKey 32 bytes, its own key (database-keys.js deriveReplicationKey)
+ */
+export async function deterministicSealer(rawKey) {
+	if (!(rawKey instanceof Uint8Array) || rawKey.length !== KEY_BYTES) {
+		throw new Error(`A key must be ${KEY_BYTES} bytes.`);
+	}
+	const raw = /** @type {BufferSource} */ (Uint8Array.from(rawKey));
+	const hkdfKey = await crypto.subtle.importKey('raw', raw, 'HKDF', false, ['deriveKey']);
+	/** @param {string} info @param {any} algorithm @param {KeyUsage[]} usages */
+	const sub = (info, algorithm, usages) =>
+		crypto.subtle.deriveKey(
+			{
+				name: 'HKDF',
+				hash: 'SHA-256',
+				salt: new Uint8Array(0),
+				info: new TextEncoder().encode(info)
+			},
+			hkdfKey,
+			algorithm,
+			false,
+			usages
+		);
+	const aes = await sub('belege/siv/aes', { name: 'AES-GCM', length: 256 }, ['encrypt', 'decrypt']);
+	const mac = await sub('belege/siv/nonce', { name: 'HMAC', hash: 'SHA-256', length: 256 }, [
+		'sign'
+	]);
+
+	/** @param {Uint8Array} bytes */
+	const nonceOf = async (bytes) =>
+		new Uint8Array(
+			await crypto.subtle.sign('HMAC', mac, /** @type {BufferSource} */ (bytes))
+		).subarray(0, NONCE_BYTES);
+
+	return {
+		/**
+		 * @param {Uint8Array} bytes
+		 * @returns {Promise<Uint8Array>} nonce ‖ ciphertext
+		 */
+		async seal(bytes) {
+			const nonce = await nonceOf(bytes);
+			const sealed = new Uint8Array(
+				await crypto.subtle.encrypt(
+					{ name: 'AES-GCM', iv: /** @type {BufferSource} */ (nonce) },
+					aes,
+					/** @type {BufferSource} */ (bytes)
+				)
+			);
+			const out = new Uint8Array(nonce.length + sealed.length);
+			out.set(nonce, 0);
+			out.set(sealed, nonce.length);
+			return out;
+		},
+
+		/**
+		 * @param {Uint8Array} bytes nonce ‖ ciphertext
+		 * @returns {Promise<Uint8Array>}
+		 */
+		async open(bytes) {
+			if (!(bytes instanceof Uint8Array) || bytes.length <= NONCE_BYTES) {
+				throw new Error('Not a sealed entry.');
+			}
+			const nonce = bytes.subarray(0, NONCE_BYTES);
+			const opened = new Uint8Array(
+				await crypto.subtle.decrypt(
+					{ name: 'AES-GCM', iv: /** @type {BufferSource} */ (nonce) },
+					aes,
+					/** @type {BufferSource} */ (bytes.subarray(NONCE_BYTES))
+				)
+			);
+			const expected = await nonceOf(opened);
+			if (expected.some((b, i) => b !== nonce[i])) throw new Error('Not a sealed entry.');
+			return opened;
+		}
+	};
+}

@@ -5,16 +5,56 @@
 	// and the buttons act directly instead of feeding a consent dialog — a
 	// WebAuthn call needs the click's user gesture. The look follows
 	// apps/escrow01 at f0d3df4: a card on the brand tokens, one coral action.
-	import { app, createPasskey, restorePasskey, unlockStoredPasskey } from './session.svelte.js';
+	import {
+		app,
+		createPasskey,
+		recoverWithWords,
+		restorePasskey,
+		unlockStoredPasskey
+	} from './session.svelte.js';
 	import { hasStoredPasskeyCredential } from './passkey-identity.js';
-	import { t } from './i18n/index.js';
+	import { intlLocale, t } from './i18n/index.js';
 	import ResetDialog from './storage/ResetDialog.svelte';
+	import PasskeyStepDialog from './PasskeyStepDialog.svelte';
+	import { sharedOrigin } from './shared-origin.js';
 
-	const hasStoredPasskey = hasStoredPasskeyCredential();
+	// On a path-style gateway nothing opens (shared-origin.js): no passkey asked, no books.
+	const shared = sharedOrigin();
+
+	// Read again after each attempt: a cancelled create or restore has stored its credential (#429).
+	let hasStoredPasskey = $derived(app.status !== 'starting' && hasStoredPasskeyCredential());
 	// A way to start over without unlocking: the passkey or the store may be what is broken (#212).
 	let resetOpen = $state(false);
 	let label = $state('');
 	let busy = $derived(app.status === 'starting');
+	// "Mit Wiederherstellungswörtern öffnen" (#406, stage 2): the words, and the new passkey's name.
+	let wordsText = $state('');
+	let wordsLabel = $state('');
+
+	// The unlock's step while the books open (unlock-progress.js), and the time
+	// since it began, every second.
+	let clock = $state(Date.now());
+	$effect(() => {
+		if (!busy) return;
+		const id = setInterval(() => (clock = Date.now()), 1000);
+		return () => clearInterval(id);
+	});
+	let unlock = $derived(app.unlock);
+	/** @param {number} n */
+	const count = (n) => new Intl.NumberFormat(intlLocale()).format(n);
+	let stepText = $derived.by(() => {
+		if (!unlock) return t('onboarding.busy');
+		const collection =
+			'collection' in unlock ? t(`onboarding.progress.collection.${unlock.collection}`) : '';
+		if (unlock.step === 'move') {
+			return t('onboarding.progress.move', {
+				collection,
+				done: count(unlock.done),
+				total: count(unlock.total)
+			});
+		}
+		return t(`onboarding.progress.${unlock.step}`, { collection });
+	});
 
 	const primary =
 		'w-full rounded-md bg-coral-700 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50';
@@ -29,64 +69,150 @@
 	<h1 class="text-xl font-semibold text-heading">{t('onboarding.title')}</h1>
 	<p class="mt-2 text-sm leading-relaxed text-text">{t('onboarding.intro')}</p>
 
-	{#if hasStoredPasskey}
-		<button
-			type="button"
-			class="mt-6 {primary}"
-			disabled={busy}
-			onclick={unlockStoredPasskey}
-			data-testid="passkey-unlock"
+	{#if shared}
+		<div
+			class="mt-6 rounded-md border border-danger/40 bg-danger/10 p-3 text-sm text-heading"
+			role="alert"
+			data-testid="passkey-shared-origin"
 		>
-			{t('onboarding.unlock')}
-		</button>
+			<p>{t('onboarding.sharedOrigin')}</p>
+			<a
+				class="mt-2 inline-block font-medium underline"
+				href="https://belege.le-space.de/"
+				data-testid="passkey-shared-origin-link">belege.le-space.de</a
+			>
+		</div>
+	{:else}
+		{#if hasStoredPasskey}
+			<button
+				type="button"
+				class="mt-6 {primary}"
+				disabled={busy}
+				onclick={unlockStoredPasskey}
+				data-testid="passkey-unlock"
+			>
+				{t('onboarding.unlock')}
+			</button>
+		{/if}
+
+		<div class="mt-6 space-y-2">
+			<h2 class="text-xs font-semibold tracking-wide text-faint uppercase">
+				{t('onboarding.newHeading')}
+			</h2>
+			<label class="block text-sm font-medium text-heading" for="passkey-label"
+				>{t('onboarding.label')}</label
+			>
+			<input
+				id="passkey-label"
+				type="text"
+				bind:value={label}
+				placeholder={t('onboarding.labelPlaceholder')}
+				class="w-full rounded-md border px-3 py-2 text-sm"
+				data-testid="passkey-label"
+			/>
+			<p class="text-xs text-faint">{t('onboarding.labelHint')}</p>
+			<button
+				type="button"
+				class={hasStoredPasskey ? secondary : primary}
+				disabled={busy}
+				onclick={() => createPasskey(label)}
+				data-testid="passkey-create"
+			>
+				{t('onboarding.create')}
+			</button>
+		</div>
+
+		<div class="mt-6 space-y-2 border-t border-border pt-4">
+			<h2 class="text-xs font-semibold tracking-wide text-faint uppercase">
+				{t('onboarding.restoreHeading')}
+			</h2>
+			<button
+				type="button"
+				class={secondary}
+				disabled={busy}
+				onclick={restorePasskey}
+				data-testid="passkey-restore"
+			>
+				{t('onboarding.restore')}
+			</button>
+			<details class="text-sm" data-testid="words-recover">
+				<summary class="cursor-pointer text-text underline hover:text-heading"
+					>{t('onboarding.words.open')}</summary
+				>
+				<div class="mt-2 space-y-2">
+					<p class="text-xs text-faint">{t('onboarding.words.hint')}</p>
+					<label class="block text-sm font-medium text-heading" for="words-text"
+						>{t('onboarding.words.label')}</label
+					>
+					<textarea
+						id="words-text"
+						rows="4"
+						bind:value={wordsText}
+						autocomplete="off"
+						autocapitalize="off"
+						spellcheck="false"
+						class="w-full rounded-md border px-3 py-2 font-mono text-sm"
+						data-testid="words-recover-text"
+					></textarea>
+					<label class="block text-sm font-medium text-heading" for="words-passkey-label"
+						>{t('onboarding.words.passkeyLabel')}</label
+					>
+					<input
+						id="words-passkey-label"
+						type="text"
+						bind:value={wordsLabel}
+						placeholder={t('onboarding.labelPlaceholder')}
+						class="w-full rounded-md border px-3 py-2 text-sm"
+						data-testid="words-recover-label"
+					/>
+					<button
+						type="button"
+						class={secondary}
+						disabled={busy || !wordsText.trim()}
+						onclick={() => recoverWithWords(wordsText, wordsLabel)}
+						data-testid="words-recover-go"
+					>
+						{t('onboarding.words.go')}
+					</button>
+				</div>
+			</details>
+		</div>
 	{/if}
 
-	<div class="mt-6 space-y-2">
-		<h2 class="text-xs font-semibold tracking-wide text-faint uppercase">
-			{t('onboarding.newHeading')}
-		</h2>
-		<label class="block text-sm font-medium text-heading" for="passkey-label"
-			>{t('onboarding.label')}</label
-		>
-		<input
-			id="passkey-label"
-			type="text"
-			bind:value={label}
-			placeholder={t('onboarding.labelPlaceholder')}
-			class="w-full rounded-md border px-3 py-2 text-sm"
-			data-testid="passkey-label"
-		/>
-		<p class="text-xs text-faint">{t('onboarding.labelHint')}</p>
-		<button
-			type="button"
-			class={hasStoredPasskey ? secondary : primary}
-			disabled={busy}
-			onclick={() => createPasskey(label)}
-			data-testid="passkey-create"
-		>
-			{t('onboarding.create')}
-		</button>
-	</div>
-
-	<div class="mt-6 space-y-2 border-t border-border pt-4">
-		<h2 class="text-xs font-semibold tracking-wide text-faint uppercase">
-			{t('onboarding.restoreHeading')}
-		</h2>
-		<button
-			type="button"
-			class={secondary}
-			disabled={busy}
-			onclick={restorePasskey}
-			data-testid="passkey-restore"
-		>
-			{t('onboarding.restore')}
-		</button>
-	</div>
-
 	{#if busy}
-		<p class="mt-4 text-sm text-text" role="status" data-testid="passkey-busy">
-			{t('onboarding.busy')}
-		</p>
+		<div
+			class="mt-4 text-sm text-text"
+			role="status"
+			data-testid="passkey-busy"
+			data-step={unlock?.step}
+		>
+			<p data-testid="passkey-step">{stepText}</p>
+			{#if unlock?.step === 'move'}
+				<div
+					class="mt-2 h-1.5 overflow-hidden rounded-full bg-border"
+					role="progressbar"
+					aria-valuemin="0"
+					aria-valuemax={unlock.total}
+					aria-valuenow={unlock.done}
+					aria-label={stepText}
+				>
+					<div
+						class="h-full bg-cyan-800 dark:bg-cyan"
+						style:width="{unlock.total ? (100 * unlock.done) / unlock.total : 0}%"
+					></div>
+				</div>
+				<p class="mt-2 text-xs text-faint" data-testid="passkey-move-hint">
+					{t('onboarding.progress.moveHint')}
+				</p>
+			{/if}
+			{#if unlock}
+				<p class="mt-1 text-xs text-faint" data-testid="passkey-elapsed">
+					{t('onboarding.progress.elapsed', {
+						seconds: Math.max(0, Math.round((clock - unlock.since) / 1000))
+					})}
+				</p>
+			{/if}
+		</div>
 	{/if}
 	{#if app.status === 'error' && app.error}
 		<p
@@ -108,3 +234,4 @@
 </section>
 
 <ResetDialog bind:open={resetOpen} onclose={() => (resetOpen = false)} />
+<PasskeyStepDialog />

@@ -16,6 +16,7 @@
 // The passkey is bound to the page origin (rpId). A credential created on
 // localhost cannot be used on the deployed app or an IPFS gateway.
 import { withRestoredSigningKey } from './restored-signing-key.js';
+import { SIGNING_KEY_TYPE } from './session-identities.js';
 import {
 	WebAuthnDIDProvider,
 	storeWebAuthnCredential,
@@ -47,6 +48,18 @@ export async function createPasskeyCredential({ userId, displayName }) {
 	const credential = await WebAuthnDIDProvider.createCredential({ userId, displayName });
 	storeWebAuthnCredential(credential, CREDENTIAL_STORAGE_KEY);
 	return credential;
+}
+
+/**
+ * Register one more passkey for books that are open (#406): kept nowhere –
+ * this browser goes on unlocking with its own passkey. The provider makes the
+ * user handle at random, so no passkey on the authenticator is replaced.
+ *
+ * @param {{ displayName: string }} options
+ * @returns {Promise<any>} the WebAuthn credential
+ */
+export async function createAdditionalPasskey({ displayName }) {
+	return WebAuthnDIDProvider.createCredential({ userId: displayName, displayName });
 }
 
 /**
@@ -105,7 +118,10 @@ export function loadStoredPasskeyCredential() {
 export async function restorePasskeyCredential({ onTouch } = {}) {
 	let restored;
 	try {
-		restored = await restoreIdentityFromAuthenticator({ onTouch });
+		restored = await restoreIdentityFromAuthenticator({
+			onTouch,
+			signingKeyType: SIGNING_KEY_TYPE
+		});
 	} catch (error) {
 		if (/** @type {any} */ (error)?.name === 'PrfUnavailableError') throw new PrfUnavailableError();
 		console.warn('the authenticator could not answer for an identity:', error);
@@ -145,10 +161,13 @@ export async function readPrfOutput(credential) {
 	// Cast: the 0.8.0 declaration still says `(credential) => Uint8Array | null`;
 	// the code takes options and returns `{ seed, source }`.
 	const extract =
-		/** @type {(c: any, o: { prfInput: Uint8Array }) => Promise<{ seed: Uint8Array | null }>} */ (
+		/** @type {(c: any, o: { prfInput: Uint8Array, discoverableCredentials: boolean }) => Promise<{ seed: Uint8Array | null }>} */ (
 			/** @type {unknown} */ (extractPrfSeedFromCredential)
 		);
-	const { seed } = await extract(credential, { prfInput });
+	// Asked of this credential only (#429): under the provider's default the
+	// request names none, and another passkey of this origin on the same
+	// authenticator could answer – keys from one passkey, the DID from another.
+	const { seed } = await extract(credential, { prfInput, discoverableCredentials: false });
 	if (!(seed instanceof Uint8Array) || seed.length < 32) throw new PrfUnavailableError();
 	return seed;
 }
