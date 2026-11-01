@@ -1,0 +1,380 @@
+// Where an empty device finds the books' vault (#406): on Aleph, as an
+// aggregate under an address derived from a secret it already holds.
+//
+//   index P – one per passkey, from that passkey's PRF output. Holds the vault
+//             record as it was when the slot was made. Only that passkey leads
+//             there, and only it can sign there.
+//   index M – one per books, from the vault's root. Holds the current vault
+//             record and a pointer – the paying Aleph account the backups are
+//             kept for – sealed under a key from the root. Any device with
+//             the vault open keeps it current.
+//
+//   index W – one per set of recovery words (stage 2), from their seed: like
+//             P, the vault record as it was when the words were made.
+//
+// An empty device with passkey B: B's PRF output → index P(B) → the vault,
+// opened with B's slot → the root → index M → the current vault and the
+// account → the backups (keeper.js `findBackups`).
+//
+// What is published is public and sealed: the vault record holds nothing
+// secret in the clear (books-vault.js), the pointer is AES-GCM under a key
+// from the root, and the addresses carry no name, no wallet and no label – the
+// passkeys' names stay in this browser. Beside the record, each slot's
+// credential id and date: random and public, so another device can ask each
+// passkey when the vault is renewed. After paperless-anywhere
+// (pwa/src/lib/keys/index-keys.js), by the same author. Written only when the
+// person adds a passkey or backs up, and never while the network is paused.
+
+import { alephEndpoints } from './keeper.js';
+
+/** The aggregate key the vault is kept under, at every index address. */
+export const VAULT_INDEX_KEY = 'belege-vault';
+/** The channel the index messages are sent on. */
+export const VAULT_INDEX_CHANNEL = 'BELEGE-VAULT';
+
+const PASSKEY_INDEX_INFO = 'belege/vault-index/passkey/v1';
+const WORDS_INDEX_INFO = 'belege/vault-index/words/v1';
+const ROOT_INDEX_INFO = 'belege/vault-index/root/v1';
+const POINTER_KEY_INFO = 'belege/vault-index/pointer/v1';
+/** Bound to every sealed pointer: it opens as nothing else. */
+const POINTER_PURPOSE = 'belege/vault-pointer/v1';
+
+/** @param {Uint8Array} material @param {string} info @returns {Promise<Uint8Array>} */
+async function hkdf(material, info) {
+	const key = await crypto.subtle.importKey('raw', Uint8Array.from(material), 'HKDF', false, [
+		'deriveBits'
+	]);
+	const bits = await crypto.subtle.deriveBits(
+		{
+			name: 'HKDF',
+			hash: 'SHA-256',
+			salt: new Uint8Array(0),
+			info: new TextEncoder().encode(info)
+		},
+		key,
+		256
+	);
+	return new Uint8Array(bits);
+}
+
+/**
+ * A secp256k1 key from secret material: HKDF, and again with a counter in the
+ * vanishing case that the bytes are no valid key.
+ *
+ * @param {Uint8Array} material
+ * @param {string} info
+ */
+async function indexKey(material, info) {
+	const { isAlephKey } = await import('./aleph-key.js');
+	for (let n = 0; ; n++) {
+		const key = await hkdf(material, n ? `${info}:${n}` : info);
+		if (isAlephKey(key)) return key;
+	}
+}
+
+/** Index P's key, from a passkey's PRF output. @param {Uint8Array} prfOutput */
+export const passkeyIndexKey = (prfOutput) => indexKey(prfOutput, PASSKEY_INDEX_INFO);
+
+/** Index W's key, from the recovery words' seed. @param {Uint8Array} seed */
+export const wordsIndexKey = (seed) => indexKey(seed, WORDS_INDEX_INFO);
+
+/** Index M's key, from the vault's root. @param {Uint8Array} root */
+export const rootIndexKey = (root) => indexKey(root, ROOT_INDEX_INFO);
+
+/** @param {Uint8Array} root */
+async function pointerKey(root) {
+	return crypto.subtle.importKey(
+		'raw',
+		Uint8Array.from(await hkdf(root, POINTER_KEY_INFO)),
+		'AES-GCM',
+		false,
+		['encrypt', 'decrypt']
+	);
+}
+
+/** @param {Uint8Array} b */
+const toHex = (b) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+/** @param {string} h */
+const fromHex = (h) => Uint8Array.from(h.match(/../g) ?? [], (x) => parseInt(x, 16));
+
+/**
+ * The pointer, sealed under a key from the root: the account the backups are
+ * kept for.
+ *
+ * @param {Uint8Array} root
+ * @param {{ owner: string }} pointer
+ */
+export async function sealPointer(root, pointer) {
+	const iv = crypto.getRandomValues(new Uint8Array(12));
+	const ciphertext = await crypto.subtle.encrypt(
+		{ name: 'AES-GCM', iv, additionalData: new TextEncoder().encode(POINTER_PURPOSE) },
+		await pointerKey(root),
+		new TextEncoder().encode(JSON.stringify({ owner: pointer.owner }))
+	);
+	return { iv: toHex(iv), ciphertext: toHex(new Uint8Array(ciphertext)) };
+}
+
+/**
+ * The pointer opened, or null when it does not open with this root.
+ *
+ * @param {Uint8Array} root
+ * @param {{ iv: string, ciphertext: string } | null | undefined} sealed
+ * @returns {Promise<{ owner: string } | null>}
+ */
+export async function openPointer(root, sealed) {
+	if (!sealed || typeof sealed.iv !== 'string' || typeof sealed.ciphertext !== 'string')
+		return null;
+	try {
+		const plain = await crypto.subtle.decrypt(
+			{
+				name: 'AES-GCM',
+				iv: fromHex(sealed.iv),
+				additionalData: new TextEncoder().encode(POINTER_PURPOSE)
+			},
+			await pointerKey(root),
+			fromHex(sealed.ciphertext)
+		);
+		const parsed = JSON.parse(new TextDecoder().decode(plain));
+		return typeof parsed?.owner === 'string' ? { owner: parsed.owner } : null;
+	} catch {
+		return null;
+	}
+}
+
+/** @param {string} text @returns {Promise<string>} */
+async function sha256Hex(text) {
+	return toHex(
+		new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))
+	);
+}
+
+const sleep = (/** @type {number} */ ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Aleph's word on a message we sent. */
+const REFUSED = ['rejected', 'forgotten'];
+
+/**
+ * Publish `content` at the address of `key`: an AGGREGATE message on Aleph,
+ * signed by that key (`personal_sign`), for itself – and wait until Aleph has
+ * processed it. As paperless-anywhere learned live (2026-10-23): the
+ * synchronous broadcast may never answer while Aleph is slow, although the
+ * message gets processed; and one answered `pending` is not kept yet. So,
+ * after `answerMs` without an answer, or on `pending`, ask for its status
+ * every `pollMs`; while Aleph does not know it (404) the broadcast may not
+ * have arrived – send it again, unsynchronised. The same signed message each
+ * time: Aleph keeps it once, by its hash.
+ *
+ * @param {object} params
+ * @param {Uint8Array} params.key from `passkeyIndexKey` or `rootIndexKey`
+ * @param {Record<string, any>} params.content
+ * @param {import('./keeper.js').AlephEndpoints} [params.endpoints]
+ * @param {typeof fetch} [params.fetch]
+ * @param {() => number} [params.now] seconds
+ * @param {{ answerMs?: number, pollMs?: number, waitMs?: number }} [params.patience]
+ * @returns {Promise<{ address: string, itemHash: string }>}
+ */
+export async function publishIndex({
+	key,
+	content,
+	endpoints = alephEndpoints(),
+	fetch: f = fetch,
+	now = () => Date.now() / 1000,
+	patience: { answerMs = 60_000, pollMs = 5_000, waitMs = 5 * 60_000 } = {}
+}) {
+	const { alephAddressOf, alephSign } = await import('./aleph-signer.js');
+	const address = alephAddressOf(key);
+	const time = now();
+	const item_content = JSON.stringify({ address, key: VAULT_INDEX_KEY, content, time });
+	const unsigned = {
+		sender: address,
+		chain: 'ETH',
+		type: 'AGGREGATE',
+		item_hash: await sha256Hex(item_content),
+		item_type: 'inline',
+		item_content,
+		time,
+		channel: VAULT_INDEX_CHANNEL
+	};
+	const signature = alephSign(
+		key,
+		[unsigned.chain, unsigned.sender, unsigned.type, unsigned.item_hash].join('\n')
+	);
+	const message = { ...unsigned, signature };
+	const done = { address, itemHash: unsigned.item_hash };
+	/** @param {boolean} sync @param {number} [ms] */
+	const send = (sync, ms) =>
+		f(`${endpoints.apiHost}/api/v0/messages`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ message, sync }),
+			...(ms ? { signal: AbortSignal.timeout(ms) } : {})
+		});
+
+	try {
+		const response = await send(true, answerMs);
+		if (response.status === 422 || (!response.ok && response.status !== 202)) {
+			throw new Error(`Aleph did not take the vault index: ${response.status}`);
+		}
+		const answer = /** @type {any} */ (await response.json().catch(() => null));
+		const status = answer?.message_status;
+		if (REFUSED.includes(status)) throw new Error(`Aleph refused the vault index: ${status}`);
+		if (response.status === 200 && status !== 'pending') return done;
+	} catch (e) {
+		const name = /** @type {any} */ (e)?.name;
+		if (!['TimeoutError', 'AbortError', 'TypeError'].includes(name)) throw e;
+	}
+
+	const until = Date.now() + waitMs;
+	while (Date.now() < until) {
+		await sleep(pollMs);
+		const res = await f(`${endpoints.apiHost}/api/v0/messages/${unsigned.item_hash}`, {
+			cache: 'no-store'
+		}).catch(() => null);
+		const status = res?.ok ? (await res.json().catch(() => null))?.status : null;
+		if (status === 'processed') return done;
+		if (REFUSED.includes(status)) throw new Error(`Aleph refused the vault index: ${status}`);
+		if (res?.status === 404) await send(false, answerMs).catch(() => null);
+	}
+	throw new Error(
+		`Aleph did not keep the vault index within ${Math.round(waitMs / 60_000)} minutes`
+	);
+}
+
+/**
+ * What is published at the address of `key`, or null.
+ *
+ * @param {object} params
+ * @param {Uint8Array} params.key
+ * @param {import('./keeper.js').AlephEndpoints} [params.endpoints]
+ * @param {typeof fetch} [params.fetch]
+ * @returns {Promise<Record<string, any> | null>}
+ */
+export async function readIndex({ key, endpoints = alephEndpoints(), fetch: f = fetch }) {
+	const { alephAddressOf } = await import('./aleph-signer.js');
+	const address = alephAddressOf(key);
+	const response = await f(
+		`${endpoints.apiHost}/api/v0/aggregates/${address}.json?keys=${VAULT_INDEX_KEY}`
+	);
+	if (response.status === 404) return null;
+	if (!response.ok) throw new Error(`Aleph did not answer: ${response.status}`);
+	const body = /** @type {any} */ (await response.json());
+	const content = body?.data?.[VAULT_INDEX_KEY];
+	return content && typeof content === 'object' ? content : null;
+}
+
+/**
+ * The books' vault as index P of this passkey holds it, for an empty device;
+ * null when there is none.
+ *
+ * @param {{ prfOutput: Uint8Array, endpoints?: import('./keeper.js').AlephEndpoints, fetch?: typeof fetch }} params
+ * @returns {Promise<import('../books-vault.js').VaultRecord | null>}
+ */
+export async function findVaultOnAleph({ prfOutput, endpoints, fetch: f }) {
+	const content = await readIndex({
+		key: await passkeyIndexKey(prfOutput),
+		...(endpoints ? { endpoints } : {}),
+		...(f ? { fetch: f } : {})
+	});
+	return content?.vault
+		? { vault: content.vault, slots: slotsOf(content.slots), removed: [] }
+		: null;
+}
+
+/**
+ * The books' vault as index W of these recovery words holds it, for an empty
+ * device; null when there is none.
+ *
+ * @param {{ seed: Uint8Array, endpoints?: import('./keeper.js').AlephEndpoints, fetch?: typeof fetch }} params
+ * @returns {Promise<import('../books-vault.js').VaultRecord | null>}
+ */
+export async function findVaultWithWords({ seed, endpoints, fetch: f }) {
+	const content = await readIndex({
+		key: await wordsIndexKey(seed),
+		...(endpoints ? { endpoints } : {}),
+		...(f ? { fetch: f } : {})
+	});
+	return content?.vault
+		? { vault: content.vault, slots: slotsOf(content.slots), removed: [] }
+		: null;
+}
+
+/**
+ * Published slot details, with no name: `{ kid, credentialId, addedAt }`.
+ * @param {unknown} slots
+ * @returns {import('../books-vault.js').SlotInfo[]}
+ */
+function slotsOf(slots) {
+	if (!Array.isArray(slots)) return [];
+	return slots
+		.filter((s) => s && typeof s.kid === 'string' && typeof s.credentialId === 'string')
+		.map((s) => ({
+			kid: s.kid,
+			label: '',
+			credentialId: s.credentialId,
+			addedAt: typeof s.addedAt === 'string' ? s.addedAt : '',
+			...(s.kind === 'words' ? { kind: /** @type {const} */ ('words') } : {})
+		}));
+}
+
+/**
+ * Index M: the current vault record and the pointer, opened; null when there is none.
+ *
+ * @param {{ root: Uint8Array, endpoints?: import('./keeper.js').AlephEndpoints, fetch?: typeof fetch }} params
+ * @returns {Promise<{ vault: any, slots: import('../books-vault.js').SlotInfo[], pointer: { owner: string } | null } | null>}
+ */
+export async function readRootIndex({ root, endpoints, fetch: f }) {
+	const content = await readIndex({
+		key: await rootIndexKey(root),
+		...(endpoints ? { endpoints } : {}),
+		...(f ? { fetch: f } : {})
+	});
+	if (!content?.vault) return null;
+	return {
+		vault: content.vault,
+		slots: slotsOf(content.slots),
+		pointer: await openPointer(root, content.pointer)
+	};
+}
+
+/**
+ * Publish the vault: at index M with the pointer (when the paying account is
+ * known), and at index P of each passkey whose index key is at hand.
+ *
+ * @param {object} params
+ * @param {Uint8Array} params.root
+ * @param {import('../books-vault.js').VaultRecord} params.record the current vault record
+ * @param {Uint8Array[]} params.passkeyKeys from `passkeyIndexKey`
+ * @param {string | null} [params.owner] the paying Aleph account
+ * @param {import('./keeper.js').AlephEndpoints} [params.endpoints]
+ * @param {typeof fetch} [params.fetch]
+ * @param {{ answerMs?: number, pollMs?: number, waitMs?: number }} [params.patience] see `publishIndex`
+ */
+export async function publishVault({
+	root,
+	record,
+	passkeyKeys,
+	owner,
+	endpoints,
+	fetch: f,
+	patience
+}) {
+	const options = {
+		...(endpoints ? { endpoints } : {}),
+		...(f ? { fetch: f } : {}),
+		...(patience ? { patience } : {})
+	};
+	const vault = record.vault;
+	// No names: those stay in this browser.
+	const slots = record.slots.map(({ kid, credentialId, addedAt, kind }) => ({
+		kid,
+		credentialId,
+		addedAt,
+		...(kind ? { kind } : {})
+	}));
+	await publishIndex({
+		key: await rootIndexKey(root),
+		content: { vault, slots, ...(owner ? { pointer: await sealPointer(root, { owner }) } : {}) },
+		...options
+	});
+	for (const key of passkeyKeys) await publishIndex({ key, content: { vault, slots }, ...options });
+}

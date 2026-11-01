@@ -1,0 +1,415 @@
+// The backup on Aleph (issue #77), end to end: a fake Aleph on 127.0.0.1 (its
+// IPFS host and its API), the real bridge in test mode with a made-up backup
+// key, and the app. "Jetzt sichern" packs and seals the books in the browser
+// and uploads them from the browser to the fake's IPFS host. The bridge signs
+// the STORE message until its account allows this browser's own key
+// (`pnpm setup:aleph -- --authorize`, run here as the command runs it); from
+// then on the browser signs, for the bridge's account. Kept, and nothing
+// readable on the way. Every key, address and amount is made up
+// (@belege/bridge/testing/aleph).
+import { test, expect } from '@playwright/test';
+import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { defaultConfig, memoryKeychain, saveConfig } from '@belege/bridge';
+import { alephAccountOf, startFakeAleph } from '@belege/bridge/testing/aleph';
+import { runAlephGrants } from '../../bridge/src/setup-aleph.js';
+import { addVirtualAuthenticator } from './webauthn.js';
+import { acceptConsent } from './consent.js';
+import { openIntegration } from './integrations.js';
+
+const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
+const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
+const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
+const KEY = createHash('sha256').update('belege e2e backup key').digest('hex');
+const MARKER = 'Backupspur-Kieselweg';
+
+/** @type {Awaited<ReturnType<typeof startFakeAleph>>} */ let aleph;
+/** @type {import('node:child_process').ChildProcess} */ let bridge;
+/** @type {string} */ let dir;
+let bridgeOut = '';
+
+test.beforeAll(async () => {
+	// The fake answers the balance of the account the key pays from; the bridge
+	// names it, so it is found by asking the bridge's status below.
+	aleph = await startFakeAleph({ accounts: {} });
+	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-backup-'));
+	const configPath = join(dir, 'bridge.json');
+	await saveConfig(
+		{
+			...defaultConfig(),
+			bridge: { port: BRIDGE_PORT },
+			appOrigins: [APP_ORIGIN],
+			alephBackup: { configured: true }
+		},
+		configPath
+	);
+	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
+		env: {
+			...process.env,
+			BELEGE_BRIDGE_TEST_ALEPH_URL: aleph.url,
+			BELEGE_BRIDGE_TEST_ALEPH_BACKUP_KEY: KEY
+		},
+		stdio: ['ignore', 'pipe', 'pipe']
+	});
+	bridge.stdout?.on('data', (d) => (bridgeOut += d));
+	bridge.stderr?.on('data', (d) => (bridgeOut += d));
+	await expect.poll(() => bridgeOut, { timeout: 15_000 }).toMatch(/Pairing code/);
+});
+
+test.afterAll(async () => {
+	bridge?.kill('SIGTERM');
+	await aleph?.close();
+	if (dir) await rm(dir, { recursive: true, force: true });
+});
+
+test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the bridge’s key, then by the browser’s own', async ({
+	page
+}) => {
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('E2E');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+
+	await page.getByRole('link', { name: 'Integrationen' }).click();
+	const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
+	await page.getByTestId('pairing-code').fill(code);
+	await page.getByRole('button', { name: 'Koppeln' }).click();
+	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
+
+	// Something in the books to back up: a payment with a marker in it.
+	await page.evaluate(async (marker) => {
+		const e2e = /** @type {any} */ (window).__belegeE2E;
+		await e2e.addTransaction({
+			bookedOn: new Date().toISOString().slice(0, 10),
+			counterparty: marker,
+			purpose: 'Backup-Probe',
+			amountCents: -1234
+		});
+	}, MARKER);
+
+	await openIntegration(page, 'backup');
+	const card = page.getByTestId('backup-card');
+	// Before anything goes up: where it lies and what that is good for, what of it
+	// is public, and where to wait for the other way.
+	const notice = card.getByTestId('backup-public');
+	await expect(notice).toContainText('Wo dein Backup liegt');
+	await expect(notice).toContainText('Verteilt statt an einem Ort');
+	await expect(notice).toContainText('öffentlicher Nachrichtenverlauf');
+	await expect(notice.getByTestId('backup-public-alternative')).toHaveAttribute(
+		'href',
+		'https://github.com/Le-Space/belege/issues/459'
+	);
+	// The account that pays is the bridge's; this browser has a key of its own,
+	// not allowed yet, so the bridge signs and the page shows the command.
+	await expect(card.getByTestId('backup-address')).toContainText(alephAccountOf(KEY));
+	await expect(card.getByTestId('backup-key-address')).toContainText(/0x[0-9a-fA-F]{40}/);
+	const browserKey = /** @type {string} */ (
+		await card.getByTestId('backup-key-address-value').textContent()
+	).trim();
+	await expect(card.getByTestId('backup-not-granted')).toContainText(
+		'bis dahin unterschreibt die Bridge'
+	);
+	await expect(card.getByTestId('backup-grant-command')).toContainText(
+		`pnpm setup:aleph -- --authorize ${browserKey} --channel BELEGE-BACKUP`
+	);
+	await expect(card.getByTestId('backup-no-credits')).toBeVisible();
+	// Where credits are bought or transferred, and where the key can be let in without a terminal.
+	await expect(card.getByTestId('backup-credits-link')).toHaveAttribute(
+		'href',
+		'https://app.aleph.cloud/console/credits/'
+	);
+	await expect(card.getByTestId('backup-grant-dashboard')).toContainText('Kanal BELEGE-BACKUP');
+	await expect(card.getByTestId('backup-grant-dashboard').locator('a')).toHaveAttribute(
+		'href',
+		'https://app.aleph.cloud/console/permissions/'
+	);
+	// Without credits the page asks before it uploads a copy that costs every day.
+	await card.getByTestId('backup-now').click();
+	await expect(card.getByTestId('backup-ask')).toContainText(
+		/Credits pro Tag, solange Aleph es aufbewahrt.*reichen die Credits dann etwa 0 Tage/,
+		{ timeout: 30_000 }
+	);
+	// The run is the app's, not the card's: elsewhere in Belege the header says
+	// it is waiting, and leads back to the question.
+	await page.getByTestId('tab-zahlungen').click();
+	const badge = page.getByTestId('backup-badge');
+	await expect(badge).toHaveAttribute('data-step', 'asking');
+	await expect(badge).toContainText('Backup wartet auf dich');
+	await badge.click();
+	await expect(card.getByTestId('backup-ask')).toBeVisible();
+	// Without credits Aleph keeps nothing (a STORE is paid in credits since
+	// storage bridge 0.17.0), and the app says how many it takes.
+	await card.getByTestId('backup-upload').click();
+	await expect(card.getByTestId('backup-error')).toContainText(
+		/Aleph hat die Sicherung nicht behalten: Auf dem Konto der Bridge sind 0 Credits, für einen Tag braucht diese Sicherung \d+/,
+		{ timeout: 30_000 }
+	);
+	await expect(card.getByTestId('backup-row')).toHaveCount(0);
+	// Credits on the account, and the same button keeps it.
+	aleph.fund(alephAccountOf(KEY), 1_000_000);
+	await card.getByTestId('backup-now').click();
+	await expect(card.getByTestId('backup-made')).toContainText('von Aleph aufbewahrt', {
+		timeout: 30_000
+	});
+	await expect(card.getByTestId('backup-error')).toHaveCount(0);
+	await expect(card.getByTestId('backup-row')).toHaveCount(1);
+	// What went in, per database: the one payment, and no receipt file yet.
+	const made = card.getByTestId('backup-made');
+	await expect(
+		made.locator('[data-testid="backup-contents-row"][data-collection="transactions"] td')
+	).toHaveText('1');
+	await expect(made.getByTestId('backup-contents-row')).toHaveCount(9);
+	await expect(made.getByTestId('backup-contents-files')).toHaveText('0');
+	// The history keeps it, folded.
+	await card.getByTestId('backup-row-details').locator('summary').click();
+	await expect(
+		card.getByTestId('backup-row-details').getByTestId('backup-contents-row')
+	).toHaveCount(9);
+
+	// The browser uploaded it (the bridge only signed), sealed: nothing readable.
+	// Two uploads: the one Aleph did not keep, and the one it did.
+	expect(aleph.added.size).toBe(2);
+	const [cid, bytes] = /** @type {[string, Uint8Array]} */ ([...aleph.added].at(-1));
+	expect(Buffer.from(bytes.subarray(0, 8)).toString()).toBe('belegeB1');
+	expect(Buffer.from(bytes).toString('latin1')).not.toContain(MARKER);
+	await expect(card.getByTestId('backup-cid')).toContainText(cid);
+	const store = aleph.stores.at(-1);
+	expect(store?.cid).toBe(cid);
+	expect(store?.status).toBe('processed');
+	expect(store?.channel).toBe('BELEGE-BACKUP');
+	expect(bridgeOut).toContain('backup: kept on Aleph, processed');
+	expect(bridgeOut).not.toContain(cid);
+	expect(bridgeOut).not.toContain(KEY);
+	// "Wer hält es?": the peers announcing the backup's CID, named where they are
+	// Aleph's core nodes, and placed – all from the fake here, all made up.
+	aleph.holders({
+		nodes: [
+			{
+				name: 'Beispielknoten Nord',
+				multiaddress: '/ip4/203.0.113.7/tcp/4025/p2p/QmX',
+				status: 'active'
+			},
+			{
+				name: 'Beispielknoten Süd',
+				multiaddress: '/ip4/198.51.100.10/tcp/4025/p2p/QmY',
+				status: 'active'
+			}
+		],
+		providers: {
+			[cid]: [
+				{
+					ID: 'QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN',
+					Addrs: ['/ip4/203.0.113.7/tcp/4001']
+				},
+				{
+					ID: 'QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa',
+					Addrs: ['/ip4/198.51.100.20/tcp/4001']
+				}
+			]
+		},
+		places: {
+			'203.0.113.7': {
+				country: 'Finnland',
+				country_code: 'FI',
+				city: 'Helsinki',
+				org: 'Beispiel Hosting Oy'
+			}
+		}
+	});
+	await card.getByTestId('backup-holders').first().click();
+	const held = card.getByTestId('backup-holders-result');
+	await expect(held.getByTestId('backup-holders-summary')).toHaveText(
+		'2 IPFS-Knoten bieten dieses Backup gerade an, davon 1 Aleph-Kernknoten (Aleph hat 2 aktive).',
+		{ timeout: 30_000 }
+	);
+	await expect(held.getByTestId('backup-holder')).toHaveCount(2);
+	await expect(held.getByTestId('backup-holder').first()).toContainText('Beispielknoten Nord');
+	await expect(held.getByTestId('backup-holder').first()).toContainText('Helsinki, Finnland');
+	await expect(held.getByTestId('backup-holder').first()).toContainText('Beispiel Hosting Oy');
+	await expect(held.getByTestId('backup-holder').nth(1)).toContainText('kein Aleph-Knoten');
+	await expect(held.getByTestId('backup-holder').nth(1)).toContainText('unbekannt');
+	await expect(held.getByTestId('backup-holders-spread')).toHaveText(
+		'Nach Netz: Beispiel Hosting Oy 1. Nach Land: Finnland 1.'
+	);
+	expect(aleph.calls).toContain(`/routing/v1/providers/${cid}`);
+
+	// With credits for years, no question; what the kept backups cost a day shows.
+	await expect(card.getByTestId('backup-ask')).toHaveCount(0);
+	await expect(card.getByTestId('backup-cost')).toContainText('länger als ein Jahr');
+	// The paying account shows once; its field only to change it.
+	await expect(card.getByTestId('backup-owner')).toHaveCount(0);
+	await card.getByTestId('backup-owner-change').click();
+	await expect(card.getByTestId('backup-owner')).toHaveValue(alephAccountOf(KEY));
+	await card.getByTestId('backup-owner-cancel').click();
+	await expect(card.getByTestId('backup-owner')).toHaveCount(0);
+
+	// A STORE Aleph never took (it does not know the item hash): "Erneut
+	// prüfen" asks, says so, and the same file is kept again, not uploaded again.
+	const row = card.getByTestId('backup-row').first();
+	await expect(row.getByTestId('backup-row-order')).toContainText(/[0-9a-f]{64}/);
+	aleph.stores.splice(
+		aleph.stores.findIndex((s) => s.cid === cid),
+		1
+	);
+	await card.getByTestId('backup-check').click();
+	await expect(row).toContainText('Aleph kennt den Auftrag nicht');
+	await row.getByTestId('backup-rekeep').click();
+	await expect(row).toContainText('von Aleph aufbewahrt', { timeout: 30_000 });
+	await expect(row.getByTestId('backup-rekeep')).toHaveCount(0);
+	expect(aleph.added.size).toBe(2);
+	expect(aleph.stores.at(-1)).toMatchObject({ cid, status: 'processed' });
+
+	// The account allows this browser's key, with the command the page showed.
+	/** @type {string[]} */ const printed = [];
+	expect(
+		await runAlephGrants({
+			io: { print: (line) => printed.push(line) },
+			keychain: memoryKeychain(KEY, 'aleph-backup'),
+			action: 'authorize',
+			address: browserKey,
+			channel: 'BELEGE-BACKUP',
+			apiHost: aleph.url,
+			settle: { timeout: 5_000, interval: 50 }
+		})
+	).toBe(true);
+	await card.getByTestId('backup-check').click();
+	await expect(card.getByTestId('backup-granted')).toBeVisible();
+
+	// From now on the browser signs, for the bridge's account; the bridge only
+	// watches. Something new first: after the full backup, only that goes up,
+	// as an increment naming the full backup (#454).
+	await page.evaluate(async () => {
+		await /** @type {any} */ (window).__belegeE2E.addTransaction({
+			bookedOn: new Date().toISOString().slice(0, 10),
+			counterparty: 'Zweite Probe',
+			purpose: 'Backup-Probe',
+			amountCents: -99
+		});
+	});
+	// Aleph's IPFS host held for a moment: the upload goes on while the person
+	// is elsewhere, and the header shows it. Like Aleph's real host
+	// (aleph-im/pyaleph#1280), this one refuses the preflight an upload with
+	// progress needs: it goes up uncounted, and the header says so in words.
+	aleph.cors.uploadPreflight = false;
+	/** @type {() => void} */ let release = () => {};
+	const holding = new Promise((resolve) => (release = () => resolve(undefined)));
+	aleph.cors.holdUploads = holding;
+	await card.getByTestId('backup-now').click();
+	await page.getByTestId('tab-zahlungen').click();
+	await expect(page.getByTestId('backup-badge')).toHaveAttribute('data-step', 'uploading', {
+		timeout: 30_000
+	});
+	await expect(page.getByTestId('backup-badge')).toHaveText(/Backup wird hochgeladen/);
+	await expect(page.getByTestId('backup-badge')).not.toContainText('{');
+	release();
+	await expect(page.getByTestId('backup-badge')).toHaveCount(0, { timeout: 30_000 });
+	aleph.cors.holdUploads = null;
+	aleph.cors.uploadPreflight = true;
+	await openIntegration(page, 'backup');
+	await expect(card.getByTestId('backup-row')).toHaveCount(2, { timeout: 30_000 });
+	await expect(card.getByTestId('backup-made')).toContainText('Zuwachs 1 gesichert');
+	await expect(card.getByTestId('backup-made')).toContainText('von Aleph aufbewahrt');
+	const own = aleph.stores.at(-1);
+	expect(own).toMatchObject({
+		sender: browserKey,
+		owner: alephAccountOf(KEY),
+		channel: 'BELEGE-BACKUP',
+		payment: 'credit',
+		status: 'processed',
+		ref: cid
+	});
+	// Twice by the bridge: the backup, and keeping it again; none since the grant.
+	expect(bridgeOut.match(/backup: kept on Aleph/g)).toHaveLength(2);
+
+	// One chain so far: nothing older to delete.
+	await expect(card.getByTestId('backup-older-chain')).toHaveCount(0);
+
+	// "Neues Vollbackup" starts a new chain; the first – the bridge's full
+	// backup and the browser's increment – costs credits until it is deleted,
+	// and says so.
+	await card.getByTestId('backup-full').click();
+	await expect(card.getByTestId('backup-row')).toHaveCount(3, { timeout: 30_000 });
+	const older = card.getByTestId('backup-older-chain');
+	await expect(older).toHaveCount(1);
+	await expect(older).toContainText(/Vollbackup vom .* · 1 Zuwachs · .* Credits am Tag/);
+	const newFull = /** @type {any} */ (aleph.stores.at(-1));
+	expect(newFull).toMatchObject({ sender: browserKey, status: 'processed' });
+	expect(newFull.ref).toBeUndefined();
+	// Asked first; "Abbrechen" deletes nothing.
+	await older.getByTestId('backup-older-forget').click();
+	await expect(older.getByTestId('backup-older-confirm')).toContainText(
+		'aus ihr lässt sich danach nichts mehr wiederherstellen'
+	);
+	await older.getByTestId('backup-older-no').click();
+	expect(aleph.stores.filter((s) => s.status === 'forgotten')).toHaveLength(0);
+	// "Endgültig löschen": this browser's key forgets every STORE of that
+	// chain, the bridge's too; the new chain stays.
+	await older.getByTestId('backup-older-forget').click();
+	await older.getByTestId('backup-older-yes').click();
+	await expect(card.getByTestId('backup-older-done')).toContainText(
+		'Gelöscht: 2 Aufträge bei Aleph freigegeben',
+		{ timeout: 30_000 }
+	);
+	await expect(card.getByTestId('backup-older-chain')).toHaveCount(0);
+	const firstChain = aleph.stores.filter((s) => s.cid === cid || s.ref === cid);
+	expect(firstChain.filter((s) => s.status === 'forgotten')).toHaveLength(2);
+	expect(firstChain.filter((s) => s.status === 'processed')).toHaveLength(0);
+	expect(aleph.stores.find((s) => s.itemHash === newFull.itemHash)?.status).toBe('processed');
+	await expect(
+		card.getByTestId('backup-row').filter({ hasText: 'bei Aleph gelöscht' })
+	).toHaveCount(2);
+
+	// Something new after the backup: the header says it is not backed up yet,
+	// and what changed.
+	await page.evaluate(async () => {
+		await /** @type {any} */ (window).__belegeE2E.addTransaction({
+			bookedOn: new Date().toISOString().slice(0, 10),
+			counterparty: 'Dritte Probe',
+			purpose: 'Backup-Probe',
+			amountCents: -77
+		});
+	});
+	const due = page.getByTestId('backup-badge');
+	await expect(due).toHaveAttribute('data-step', 'unsaved', { timeout: 30_000 });
+	await expect(due).toContainText('Nicht gesichert (1)');
+	await expect(due).toHaveAttribute('title', /Seit dem letzten Backup geändert: Zahlungen/);
+	await expect(card.getByTestId('backup-unsaved')).toContainText('Noch nicht gesichert: Zahlungen');
+	// "Automatisch sichern", with a short quiet time for the test: the
+	// increment goes up by itself, on the new chain, and the header clears.
+	// Aleph's IPFS host takes no uploads (404, as since 2026-10-26): the
+	// increment, small, goes through an API node's add_file instead.
+	aleph.cors.ingestGone = true;
+	await page.evaluate(() => {
+		/** @type {any} */ (window).__belegeBackupAutoDelayMs = 1500;
+	});
+	await card.getByTestId('backup-auto-toggle').check();
+	await expect(card.getByTestId('backup-row')).toHaveCount(4, { timeout: 30_000 });
+	expect(aleph.calls).toContain('/api/v0/ipfs/add_file');
+	aleph.cors.ingestGone = false;
+	await expect(due).toHaveCount(0, { timeout: 30_000 });
+	await expect(card.getByTestId('backup-made')).toContainText('Zuwachs 1 gesichert');
+	expect(aleph.stores.at(-1)).toMatchObject({
+		sender: browserKey,
+		status: 'processed',
+		ref: newFull.cid
+	});
+	// It stays on for this device, after a reload too.
+	await page.reload();
+	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible({ timeout: 30_000 });
+	await openIntegration(page, 'backup');
+	await expect(card.getByTestId('backup-auto-toggle')).toBeChecked();
+
+	// The overview says so.
+	await page.getByTestId('integration-back').click();
+	await expect(page.locator('[data-testid="integration-row"][data-id="backup"]')).toContainText(
+		'gesichert'
+	);
+});
