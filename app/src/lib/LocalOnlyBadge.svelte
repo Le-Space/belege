@@ -23,6 +23,9 @@
 	import { t } from './i18n/index.js';
 	import { networkStatus } from './network-status.js';
 	import { NETWORK_MODES } from './sync/network-mode.js';
+	import QrExchange from './sync/QrExchange.svelte';
+	import { clearPendingInvite, iosOutsideApp } from './sync/qr-link-url.js';
+	import { deviceSyncOn } from './sync/device-sync.js';
 
 	let status = $derived(networkStatus(app));
 	let label = $derived(
@@ -40,15 +43,106 @@
 			: status.parts.length === 0
 				? t('header.localOnlyTitle')
 				: [
-						t('header.network.title'),
+						// How own devices meet, as this session's node was built; the invoice
+						// app alone always goes through a Le-Space relay.
+						status.parts.some((p) => p.id === 'devices')
+							? t(`header.network.titleBy.${app.network.mode}`)
+							: t('header.network.title'),
 						...status.parts.map((p) =>
 							t(`header.network.part.${p.id}.${p.state}`, {
 								count: p.devices ?? 0,
 								error: p.error ?? ''
 							})
-						)
+						),
+						...proof()
 					].join('\n')
 	);
+
+	/**
+	 * What is actually connected, to be checked: this node's peer id and its
+	 * place at a relay, and each own device with every connection to it – the
+	 * remote multiaddr, direct or through the relay, the last ping's round trip.
+	 */
+	function proof() {
+		const state = app.sync.state;
+		if (!state) return [];
+		const lines = ['', t('header.network.proof.self', { peerId: state.self })];
+		for (const addr of (state.addrs ?? []).filter((a) => a.includes('/p2p-circuit'))) {
+			lines.push(t('header.network.proof.relay', { addr }));
+		}
+		for (const d of state.devices.filter((x) => x.connected)) {
+			lines.push(t('header.network.proof.device', { label: d.label || '–', peerId: d.peerId }));
+			for (const l of d.links ?? []) {
+				lines.push(
+					t(l.direct ? 'header.network.proof.direct' : 'header.network.proof.relayed', {
+						addr: l.addr,
+						rtt: l.rtt ?? '?'
+					})
+				);
+			}
+		}
+		const anyConnected = state.devices.some((d) => d.connected);
+		const data = app.sync.data;
+		if (data) {
+			const device = data.peerId
+				? state.devices.find((d) => d.peerId === data.peerId)?.label || data.peerId
+				: '';
+			lines.push(
+				t(
+					data.direction === 'in'
+						? 'header.network.proof.dataIn'
+						: anyConnected
+							? 'header.network.proof.dataOut'
+							: 'header.network.proof.dataOutWaiting',
+					{
+						device,
+						book: t(`storage.databases.${data.collection}`),
+						time: new Date(data.at).toLocaleTimeString()
+					}
+				)
+			);
+		}
+		const pulse = app.sync.pulse;
+		if (pulse) {
+			const label = state.devices.find((d) => d.peerId === pulse.peerId)?.label || pulse.peerId;
+			// A ping from a device that is gone since is history, and says so.
+			const still = state.devices.some((d) => d.peerId === pulse.peerId && d.connected);
+			lines.push(
+				t(still ? 'header.network.proof.pulse' : 'header.network.proof.pulseGone', {
+					label,
+					rtt: pulse.rtt,
+					time: new Date(pulse.at).toLocaleTimeString()
+				})
+			);
+		}
+		return lines;
+	}
+
+	// An entry came from an own device, or was written here for them
+	// (sync/sync-log.js): a second light, gold for in, cyan for out.
+	/** @type {'in' | 'out' | null} */
+	let flow = $state(null);
+	/** @type {ReturnType<typeof setTimeout> | undefined} */
+	let flowTimer;
+	$effect(() => {
+		const data = app.sync.data;
+		if (!data) return;
+		flow = data.direction;
+		clearTimeout(flowTimer);
+		flowTimer = setTimeout(() => (flow = null), 700);
+	});
+
+	// An own device answered a ping (device-sync.js, the connection monitor's,
+	// every 10 s): the dot lights up in another colour for a moment.
+	let pulsing = $state(false);
+	/** @type {ReturnType<typeof setTimeout> | undefined} */
+	let pulseTimer;
+	$effect(() => {
+		if (!app.sync.pulse) return;
+		pulsing = true;
+		clearTimeout(pulseTimer);
+		pulseTimer = setTimeout(() => (pulsing = false), 700);
+	});
 	const DOT = {
 		off: 'border-2 border-faint',
 		paused: 'border-2 border-amber-500',
@@ -65,6 +159,31 @@
 	let devicesPart = $derived(status.parts.find((p) => p.id === 'devices'));
 	let appPart = $derived(status.parts.find((p) => p.id === 'invoice-app'));
 	let unlocked = $derived(app.status === 'ready');
+	/** The code exchange belongs in the menu where devices meet by QR, and sync is on. */
+	let qrHere = $derived(
+		unlocked &&
+			app.sync.online &&
+			!app.network.paused &&
+			(app.network.mode === 'qr' || app.network.mode === 'both')
+	);
+	/** Unfolded when the menu opens with no device connected in "Ohne Relay, per QR". */
+	let qrOpen = $state(false);
+	/** iOS Safari, not the app from the home screen: its books are not here. */
+	const iosOutside =
+		typeof navigator !== 'undefined' &&
+		iosOutsideApp(
+			/** @type {any} */ (navigator),
+			globalThis.matchMedia?.('(display-mode: standalone)').matches ?? false
+		);
+	// An invite came by link: once the books are open, the menu opens on it.
+	let shownInvite = '';
+	$effect(() => {
+		const code = app.network.qrInvite;
+		if (!unlocked || !code || code === shownInvite) return;
+		shownInvite = code;
+		open = true;
+		qrOpen = true;
+	});
 
 	/** A part's state as the menu's second line: the tooltip line without its name. @param {import('./network-status.js').NetworkPart | undefined} p */
 	const stateLine = (p) =>
@@ -87,7 +206,10 @@
 
 	/** @param {MouseEvent} e */
 	function outside(e) {
-		if (open && root && !root.contains(/** @type {Node} */ (e.target))) open = false;
+		// The event's path, not `contains`: a click that swaps its own button for
+		// something else (the scan button for the camera) has a target that is no
+		// longer in the menu by the time it gets here.
+		if (open && root && !e.composedPath().includes(root)) open = false;
 	}
 	/** @param {KeyboardEvent} e */
 	function escape(e) {
@@ -104,16 +226,38 @@
 <div class="relative" bind:this={root}>
 	<button
 		type="button"
-		onclick={() => (open = !open)}
+		onclick={() => {
+			open = !open;
+			if (open) qrOpen = app.network.mode === 'qr' && !(devicesPart?.devices ?? 0);
+		}}
 		{title}
 		aria-label={title}
 		aria-expanded={open}
 		aria-haspopup="dialog"
 		data-testid="local-only"
 		data-state={status.state}
+		data-pulse={pulsing ? 'on' : 'off'}
 		class="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-medium whitespace-nowrap text-text outline-none hover:text-heading focus-visible:ring-2 focus-visible:ring-cyan-500"
 	>
-		<span class="h-2 w-2 shrink-0 rounded-full {DOT[status.state]}" aria-hidden="true"></span>
+		<span
+			class="h-2 w-2 shrink-0 rounded-full transition-colors duration-300 {pulsing
+				? 'bg-infra ring-2 ring-infra/40'
+				: DOT[status.state]}"
+			aria-hidden="true"
+			data-testid="network-dot"
+		></span>
+		{#if app.sync.online && !app.network.paused}
+			<span
+				class="h-2 w-2 shrink-0 rounded-full transition-colors duration-300 {flow === 'in'
+					? 'bg-data ring-2 ring-data/40'
+					: flow === 'out'
+						? 'bg-cyan ring-2 ring-cyan/40'
+						: 'border border-border'}"
+				aria-hidden="true"
+				data-testid="network-data-dot"
+				data-flow={flow ?? 'none'}
+			></span>
+		{/if}
 		<span>{label}</span>
 	</button>
 
@@ -153,11 +297,24 @@
 					<div class={row} data-testid="network-devices">
 						<span class="min-w-0">
 							<span class="block text-heading">{t('header.network.devices')}</span>
-							<span class="block text-xs text-faint">{stateLine(devicesPart)}</span>
+							<span class="block text-xs text-faint" data-testid="network-devices-state"
+								>{app.network.reloadNeeded && !app.sync.online && !app.network.paused
+									? t('header.network.onAtNextUnlock')
+									: stateLine(devicesPart)}</span
+							>
 						</span>
 						{#if app.network.paused}
 							<span class="text-xs text-faint">{t('header.network.pausedShort')}</span>
 						{:else if app.sync.online}
+							<button
+								type="button"
+								class={small}
+								disabled={busy}
+								onclick={() => run(() => setDevicesNetwork(false))}
+								data-testid="network-devices-off">{t('header.network.switchOff')}</button
+							>
+						{:else if app.network.reloadNeeded}
+							<!-- On, waiting for the next unlock (#327): it can still be switched off. -->
 							<button
 								type="button"
 								class={small}
@@ -179,12 +336,101 @@
 								class={small}
 								onclick={() => {
 									open = false;
-									consent.reopen();
+									consent.reopen('network');
 								}}
 								data-testid="network-devices-setup">{t('header.network.switchOnFirst')}</button
 							>
 						{/if}
 					</div>
+					{#if app.network.qrInvite}
+						<!-- A QR invite that came by link (sync/qr-link-url.js). -->
+						<div class="py-2 text-xs" data-testid="network-qr-link">
+							<p class="font-medium text-heading">{t('header.network.qrLink.title')}</p>
+							{#if iosOutside}
+								<p class="mt-1 text-warning" data-testid="network-qr-link-ios">
+									{t('header.network.qrLink.ios')}
+								</p>
+							{/if}
+							{#if qrHere}
+								<p class="mt-1 text-faint">{t('header.network.qrLink.answering')}</p>
+							{:else}
+								<p class="mt-1 text-text" data-testid="network-qr-link-why">
+									{!deviceSyncOn()
+										? t('header.network.qrLink.devicesOff')
+										: t('header.network.qrLink.otherMode')}
+								</p>
+								<div class="mt-2 flex flex-wrap gap-2">
+									{#if !deviceSyncOn()}
+										<button
+											type="button"
+											class={small}
+											onclick={() => {
+												open = false;
+												consent.reopen('network');
+											}}
+											data-testid="network-qr-link-devices"
+											>{t('header.network.qrLink.devicesOn')}</button
+										>
+									{:else if app.network.mode !== 'qr' && app.network.mode !== 'both'}
+										<button
+											type="button"
+											class={small}
+											disabled={busy}
+											onclick={() =>
+												run(async () => {
+													await setNetworkMode('qr');
+													location.reload();
+												})}
+											data-testid="network-qr-link-switch"
+											>{t('header.network.qrLink.switch')}</button
+										>
+									{:else}
+										<button
+											type="button"
+											class={small}
+											onclick={() => location.reload()}
+											data-testid="network-qr-link-reload"
+											>{t('header.network.qrLink.reload')}</button
+										>
+									{/if}
+									<button
+										type="button"
+										class={small}
+										onclick={() => {
+											clearPendingInvite(sessionStorage);
+											app.network.qrInvite = null;
+										}}
+										data-testid="network-qr-link-dismiss"
+										>{t('header.network.qrLink.dismiss')}</button
+									>
+								</div>
+							{/if}
+						</div>
+					{/if}
+					{#if qrHere}
+						<!-- "Ohne Relay, per QR" (or "Beides"): the code exchange right here,
+						     needed after every reload; unfolded while no device is connected. -->
+						<div class="py-2" data-testid="network-qr">
+							<button
+								type="button"
+								class="flex w-full items-center justify-between gap-2 text-left text-heading"
+								aria-expanded={qrOpen}
+								onclick={() => (qrOpen = !qrOpen)}
+								data-testid="network-qr-toggle"
+							>
+								<span>{t('header.network.qr')}</span>
+								<span class="text-xs text-faint" aria-hidden="true">{qrOpen ? '▲' : '▼'}</span>
+							</button>
+							{#if qrOpen}
+								<QrExchange
+									compact
+									prefix="network-qr"
+									scanPrefix="network-scan"
+									pending={app.network.qrInvite}
+								/>
+							{/if}
+						</div>
+					{/if}
 					<div class={row} data-testid="network-app">
 						<span class="min-w-0">
 							<span class="block text-heading">{t('header.network.app')}</span>
@@ -264,7 +510,7 @@
 				class="mt-3 text-xs text-text underline"
 				onclick={() => {
 					open = false;
-					consent.reopen();
+					consent.reopen('network');
 				}}
 				data-testid="network-consent">{t('header.network.more')}</button
 			>

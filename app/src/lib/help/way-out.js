@@ -21,6 +21,7 @@
 const WAYS = {
 	unreachable: { command: 'pnpm bridge', href: '/integrationen/bridge' },
 	'unknown-device': { href: '/integrationen/bridge' },
+	// The command names this page's origin: see `wayOutOf`.
 	origin: { href: '/integrationen/bridge' },
 	mail: { command: 'pnpm setup:mail' },
 	llm: { command: 'pnpm setup:llm', href: '/integrationen/ki' },
@@ -69,5 +70,17 @@ export function noteWayOut(message, kind) {
  */
 export function wayOutOf(message) {
 	const kind = typeof message === 'string' ? noted.get(message) : undefined;
-	return kind ? { kind, ...WAYS[kind] } : null;
+	if (!kind) return null;
+	return kind === 'origin'
+		? { kind, ...WAYS[kind], command: originCommand() }
+		: { kind, ...WAYS[kind] };
+}
+
+/**
+ * What lets this page in, for the terminal (`pnpm setup:origins`).
+ *
+ * @param {string} [origin] this page's
+ */
+export function originCommand(origin = typeof location === 'undefined' ? '' : location.origin) {
+	return `pnpm setup:origins -- --add ${origin}`;
 }

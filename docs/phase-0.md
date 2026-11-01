@@ -2,13 +2,13 @@
 
 Before phase 1, a few spikes answered whether the plan could work at all. What became of each:
 
-| Spike                | Question                                                                    | Outcome                                                                                     |
-| -------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `spikes/hibiscus`    | Can we read accounts and transactions from a local Hibiscus over XML-RPC?   | yes: the bridge does it ([bridge/README.md](../bridge/README.md))                           |
-| Revolut → Hibiscus   | Does Revolut's CSV/CAMT export import into a Hibiscus offline account?      | not needed: CAMT.053 statements import straight into the app                                |
-| `spikes/imap`        | Can the bridge list receipt mails, and what do their attachments look like? | yes, with a Mailu auth token; many PDFs come as `application/octet-stream` (below)          |
-| `spikes/llm`         | How well does DeepSeek extract amount, date, invoice number from receipts?  | well: vendor, gross and currency right; a faster model with a stronger one as retry (below) |
-| DATEV → MonkeyOffice | Which EXTF fields and receipt links does MonkeyOffice import?               | built in phase 1 ([export.md](export.md)); not yet tried with MonkeyOffice itself           |
+| Spike               | Question                                                                    | Outcome                                                                                     |
+| ------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `spikes/hibiscus`   | Can we read accounts and transactions from a local Hibiscus over XML-RPC?   | yes: the bridge does it ([bridge/README.md](../bridge/README.md))                           |
+| Revolut → Hibiscus  | Does Revolut's CSV/CAMT export import into a Hibiscus offline account?      | not needed: CAMT.053 statements import straight into the app                                |
+| `spikes/imap`       | Can the bridge list receipt mails, and what do their attachments look like? | yes, with a Mailu auth token; many PDFs come as `application/octet-stream` (below)          |
+| `spikes/llm`        | How well does DeepSeek extract amount, date, invoice number from receipts?  | well: vendor, gross and currency right; a faster model with a stronger one as retry (below) |
+| DATEV → bookkeeping | Which EXTF fields and receipt links does a bookkeeping import take?         | built in phase 1 ([export.md](export.md)); not yet tried with a real import                 |
 
 The spikes still run (made-up values in the examples):
 

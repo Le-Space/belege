@@ -9,3 +9,11 @@ onlyBuiltDependencies:
   - esbuild
   # libp2p's WebRTC in Node (the app's unit specs); the browser build does not use it.
   - node-datachannel
+# ccxt (the bridge's exchanges, #265) lists bufferutil as optional; it would
+# become ws's optional native peer across the workspace. Nothing needs it.
+ignoredOptionalDependencies:
+  - bufferutil
+# Playwright records its videos as VP8 capped at 1 Mbit/s, too soft for text
+# on a 1080p page (the demo films, app/e2e-video). The patch raises the cap.
+patchedDependencies:
+  playwright-core@1.61.1: patches/playwright-core@1.61.1.patch

@@ -32,7 +32,7 @@ test('empty pages lead on; an integration explains itself', async ({ page }) => 
 	);
 	await expect(help.getByTestId('integration-help-doc')).toHaveAttribute(
 		'href',
-		/bridge\/README\.md#setup-macos$/
+		/docs\/banking\.de\.md$/
 	);
 
 	// The docs follow the language.

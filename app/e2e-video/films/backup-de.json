@@ -1,0 +1,21 @@
+{
+	"lang": "de",
+	"parts": [
+		{
+			"card": "intro"
+		},
+		{
+			"card": "scene",
+			"n": 1,
+			"eyebrow": "Backup und zurück",
+			"title": "Eine versiegelte Datei auf Aleph, und die Geschäftsbücher kommen zurück",
+			"sub": "Backup, ein Gerät, das alles vergisst, und der Passkey, der alles zurückholt."
+		},
+		{
+			"scene": "backup.de"
+		},
+		{
+			"card": "outro"
+		}
+	]
+}

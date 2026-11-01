@@ -105,6 +105,8 @@ jobs:
     # A release moves the domain; a manual run only when asked.
     if: github.event_name == 'release' || inputs.link_domain
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # the CID goes onto the release
     steps:
       - name: Install isolated Aleph deploy tooling
         run: npm install --prefix /tmp/le-space-deployer @le-space/node@0.9.9
@@ -114,11 +116,28 @@ jobs:
           ALEPH_SITE_ITEM_HASH: ${{ needs.publish.outputs.item_hash }}
           ALEPH_SITE_IPFS_CID: ${{ needs.publish.outputs.cid }}
           ALEPH_SITE_DOMAIN: ${{ env.SITE_DOMAIN }}
-          # A single-page app: every path serves index.html.
-          ALEPH_SITE_DOMAIN_CATCH_ALL_PATH: /index.html
+          # A single-page app: a path with no file of its own serves the SPA
+          # fallback (adapter-static, svelte.config.js). index.html is the
+          # prerendered start page, which opens under any path – also by CID
+          # from a path gateway (https://ipfs.aleph.sh/ipfs/<cid>/).
+          ALEPH_SITE_DOMAIN_CATCH_ALL_PATH: /200.html
           ALEPH_PRIVATE_KEY: ${{ secrets.ALEPH_PRIVATE_KEY }}
         run: node --input-type=module -e "import('/tmp/le-space-deployer/node_modules/@le-space/node/index.js').then((m) => m.runSiteMode())"
       - name: Summary
         run: |
           echo "**Live:** https://${SITE_DOMAIN}" >> "$GITHUB_STEP_SUMMARY"
           echo "CID: ${{ needs.publish.outputs.cid }}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Note the CID on the release
+        # The run's summary dies with the run; the release is the record that
+        # stays. A hand run has no release to write to.
+        if: github.event_name == 'release' || inputs.ref != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.ref }}
+          CID: ${{ needs.publish.outputs.cid }}
+        run: |
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json body -q .body > notes.md
+          # The domain and a subdomain gateway only: a path gateway's origin is
+          # shared by every CID on it, and the app does not open there.
+          printf '\n\n**On IPFS:** `%s`\n\nhttps://%s · https://belege-le--space-de.ipns.inbrowser.link/\n' "$CID" "$SITE_DOMAIN" >> notes.md
+          gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --notes-file notes.md

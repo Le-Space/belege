@@ -10,15 +10,20 @@
   "scripts": {
     "dev": "pnpm --filter @belege/app dev",
     "bridge": "pnpm --filter @belege/bridge start",
+    "demo": "node bridge/scripts/demo.mjs",
     "setup:hibiscus": "pnpm --filter @belege/bridge setup:hibiscus",
     "setup:mail": "pnpm --filter @belege/bridge setup:mail",
     "setup:llm": "pnpm --filter @belege/bridge setup:llm",
     "setup:portal": "pnpm --filter @belege/bridge setup:portal",
     "setup:kraken": "pnpm --filter @belege/bridge setup:kraken",
+    "setup:paperless": "pnpm --filter @belege/bridge setup:paperless",
+    "setup:enablebanking": "pnpm --filter @belege/bridge setup:enablebanking",
     "setup:coingecko": "pnpm --filter @belege/bridge setup:coingecko",
     "setup:bitcoin": "pnpm --filter @belege/bridge setup:bitcoin",
     "setup:alchemy": "pnpm --filter @belege/bridge setup:alchemy",
     "setup:relay": "pnpm --filter @belege/bridge setup:relay",
+    "setup:aleph": "pnpm --filter @belege/bridge setup:aleph",
+    "setup:origins": "pnpm --filter @belege/bridge setup:origins",
     "build": "pnpm --filter @belege/app build",
     "check": "pnpm --filter @belege/app check",
     "lint": "pnpm --filter @belege/app lint && pnpm --filter @belege/bridge lint",
@@ -38,5 +43,5 @@
     "imapflow": "^2.0.6",
     "unpdf": "^1.8.1"
   },
-  "version": "0.5.0"
+  "version": "0.26.4"
 }

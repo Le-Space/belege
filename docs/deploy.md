@@ -9,6 +9,25 @@ CI gates first.
 to the origin `https://belege.le-space.de`. Moving the app to another domain would leave
 both behind; moving the domain to another host (Aleph today) does not.
 
+## By CID, from a subdomain gateway
+
+Each release's CID is on its GitHub release. The build opens from the domain and from
+an IPFS gateway that gives every CID a subdomain of its own
+(`https://<cid>.ipfs.inbrowser.link/`): the start page (`index.html`) is prerendered,
+so SvelteKit writes its asset paths relative (`./_app/…`) and the page computes its
+base from its own address; the manifest and the service worker follow the page. Only
+the SPA fallback (`200.html`, the page a deeper route such as `/zahlungen` reloads
+into) has absolute paths – SvelteKit cannot know the depth it is served at – and the
+domain's catch-all serves it. A gateway has no catch-all: by CID, start at the root
+and navigate within the app. Passkeys and the books stay with the origin, so what was
+set up on `belege.le-space.de` is not seen on a gateway, and the other way round.
+
+**Not from a path-style gateway** (`https://<gateway>/ipfs/<cid>/`): there the origin
+is the gateway's, shared by every CID it serves – storage, caches and passkeys
+included. Under `/ipfs/` or `/ipns/` the app shows where to open it instead, asks for
+no passkey, opens no books and removes its service worker
+(`app/src/lib/shared-origin.js`).
+
 ## DNS (Cloudflare, once)
 
 | Type  | Name              | Value                                                | Proxy    |

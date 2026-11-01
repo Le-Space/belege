@@ -24,6 +24,39 @@ export default {
 			both: 'Online: devices + invoice app',
 			only: { devices: 'Online: own devices', 'invoice-app': 'Online: invoice app' },
 			title: 'Network on – via a Le-Space relay (TLS WebSocket), end-to-end encrypted:',
+			titleBy: {
+				public:
+					'Network on – own devices through a Le-Space relay (TLS WebSocket), end-to-end encrypted:',
+				qr: 'Network on – own devices directly over WebRTC, without a relay (connected by QR code), end-to-end encrypted:',
+				lan: 'Network on – own devices through your bridge’s relay, in your own network only, end-to-end encrypted:',
+				both: 'Network on – new devices by QR or through your bridge’s relay, known ones also through the Le-Space relays, end-to-end encrypted:'
+			},
+			qr: 'Connect a device by QR',
+			qrLink: {
+				title: 'A device invites you by QR',
+				answering: 'The invite came by link; the answer shows here in a moment.',
+				devicesOff: 'For that, own devices must be switched on.',
+				devicesOn: 'Switch own devices on',
+				otherMode:
+					'For that, this device must connect by QR (“Ohne Relay, per QR”). The switch applies after a reload; the invite keeps for ten minutes.',
+				switch: 'Switch to “Ohne Relay, per QR” and reload',
+				reload: 'Reload',
+				dismiss: 'Discard',
+				ios: 'On the iPhone, the Belege app from the home screen keeps its books apart from Safari: they are not here in Safari. Better open the app and scan with “QR-Code scannen” there. If you connect here, Safari syncs as a device of its own.'
+			},
+			proof: {
+				self: 'This device: {peerId}',
+				relay: '  reachable at the relay: {addr}',
+				device: '{label}: {peerId}',
+				direct: '  direct: {addr} – {rtt} ms',
+				relayed: '  through the relay: {addr} – {rtt} ms',
+				dataIn: 'Last data: from {device}, {book}, at {time}',
+				dataOut: 'Last data: written here, for the devices, {book}, at {time}',
+				dataOutWaiting:
+					'Last data: written here, {book}, at {time} – goes out at the next connection',
+				pulse: 'Last ping answer: {label}, {rtt} ms, at {time}',
+				pulseGone: 'Last ping answer: {label}, {rtt} ms, at {time} – not connected since'
+			},
 			part: {
 				devices: {
 					connecting: '• Own devices: connecting …',
@@ -51,6 +84,7 @@ export default {
 			off: 'off',
 			switchOff: 'Off',
 			switchOn: 'On',
+			onAtNextUnlock: 'on – from the next unlock',
 			switchOnFirst: 'Switch on …',
 			setUp: 'Set up …',
 			reloadNeeded:
@@ -73,13 +107,16 @@ export default {
 				'First run `pnpm setup:relay` on the computer with the bridge, restart the bridge and pair here.',
 			modePending: 'Applies to all devices of these books, here from the next unlock.'
 		},
-		localFirst: 'Le Space: the local-first stack behind this app'
+		localFirst: 'Le Space Belege: the product page for this app'
 	},
 	assets: {
 		sources: {
 			coingecko: 'CoinGecko',
 			kraken: 'Kraken',
 			ecb: 'ECB reference rate',
+			cbr: 'Bank of Russia reference rate',
+			nbk: 'National Bank of Kazakhstan reference rate',
+			'cbr-cross': 'Cross rate through RUB (Bank of Russia)',
 			trade: 'Price of the trade',
 			dex: 'DEX pool',
 			migration: 'Value of the burnt old tokens',
@@ -107,7 +144,8 @@ export default {
 			settings: 'Settings',
 			matches: 'Links',
 			questions: 'Questions',
-			events: 'History'
+			events: 'History',
+			travel: 'Travel'
 		},
 		allDatabases: 'All databases',
 		files: 'Receipt files ({count})',
@@ -203,7 +241,12 @@ export default {
 			},
 			payments: {
 				title: 'Get payments',
-				why: 'The bank through Hibiscus or as a CAMT.053 file – which works without the bridge too. Kraken and own wallets as well, if you have them.',
+				why: 'The bank through Hibiscus, through Enable Banking or as a CAMT.053 file – which works without the bridge too. Kraken and own wallets as well, if you have them.',
+				ways: [
+					'Statement file (CAMT.053): export it in your online banking and upload it under Integrationen → Bank. At once, without the bridge.',
+					'Hibiscus: banks with FinTS, through the bridge; set up once with',
+					'Enable Banking: banks in Europe via PSD2, through the bridge. Create your own application at Enable Banking (redirect URL: this app at /integrationen/bank/verbunden), then set it up with'
+				],
 				time: 'about 5 minutes'
 			},
 			receipts: {
@@ -213,7 +256,7 @@ export default {
 			},
 			ai: {
 				title: 'AI for extraction',
-				why: 'Reads vendor, amount, date and number from receipts – with your own model in the bridge, redacted first. Without AI you enter these by hand.',
+				why: 'Reads vendor, amount, date and number from receipts – with your own model in the bridge; what goes to a provider on the internet is redacted first. Without AI you enter these by hand.',
 				time: 'about 5 minutes'
 			},
 			books: {
@@ -241,7 +284,7 @@ export default {
 			found: 'Bridge found – now pair it with the code from the terminal.',
 			diagnosis: {
 				origin:
-					'The bridge runs but does not let this page ({origin}) in. Add the address to appOrigins in ~/.config/belege/bridge.json and restart the bridge.',
+					'The bridge runs but does not let this page ({origin}) in: it is not on its list of allowed pages (appOrigins). Once in the terminal, then restart the bridge:',
 				mixed:
 					'An https page may ask a plain-http address only on this computer (127.0.0.1). Start the bridge on this computer, or open the app locally (pnpm dev).',
 				'bad-url': 'That is not an address. The usual one is http://127.0.0.1:8765.',
@@ -269,6 +312,8 @@ export default {
 			createFailed: 'The passkey could not be created.',
 			notFound: 'No passkey for Belege was found on this device.',
 			notStored: 'No passkey is stored in this browser.',
+			stepCancelled:
+				'Cancelled before the books were opened. The passkey is stored in this browser: “Unlock with saved passkey” carries on.',
 			noPrf:
 				'This passkey does not provide a PRF secret. Belege encrypts all data with a key derived from this secret and opens no data without it. Please use a passkey in a browser and password manager with PRF support (e.g. current Chrome, Safari or Firefox with iCloud Keychain, Google Password Manager or 1Password).'
 		},
@@ -279,6 +324,8 @@ export default {
 			accountDigits: 'An account has 4 to 8 digits.',
 			taxKeyDigits: 'A BU key has up to 4 digits.',
 			rateFormat: 'The rate is a number from 0, e.g. 0.0042 – or 0 for a worthless token.',
+			rateAmbiguous:
+				'“{value}” can be read both ways: with a thousands separator or with three decimals – a factor of 1000 apart. Write the rate without a thousands separator (58123) or with one more decimal (2.3450).',
 			rateNoQuantity: 'This booking has no quantity that a rate belongs to.'
 		},
 		camt: {
@@ -289,12 +336,26 @@ export default {
 		},
 		bridge: {
 			unreachable:
-				'The bridge cannot be reached (is it running, and is this address allowed in appOrigins?).',
+				'The bridge cannot be reached. Is it running (pnpm bridge)? Whether it lets this page in, "Status prüfen" under Integrationen → Bridge says.',
 			unknownDevice: 'The bridge does not know this device (pair again).',
 			originNotAllowed: 'This app address is not allowed in the bridge.',
 			wrongCode: 'Wrong pairing code.',
 			noCode: 'No pairing code active: restart the bridge with --pair.',
+			alephNotKept:
+				"Aleph did not keep the backup: the bridge's account has {credits} credits, and keeping this backup for a day needs {required}. Put credits on it (app.aleph.cloud → Credits) and back up again.",
+			alephRejected: 'Aleph did not keep the backup ({error}).',
 			mailNotSetUp: 'The mailbox is not set up on the bridge (pnpm setup:mail).',
+			paperlessNotSetUp: 'Paperless is not set up on the bridge (pnpm setup:paperless).',
+			refused: {
+				LLM_NO_CREDIT:
+					'Your credit with {provider} is used up. Top it up there, then “Continue” on Home.',
+				LLM_AUTH:
+					'{provider} does not accept the API key: run pnpm setup:llm again, then restart the bridge.',
+				LLM_MODEL:
+					'{provider} does not know the configured model: pnpm setup:llm, then restart the bridge.',
+				LLM_UNREACHABLE:
+					'{provider} cannot be reached. Is the service running (for Ollama: the app)? Then “Continue” on Home.'
+			},
 			llmNotSetUp: 'Reading receipts is not set up on the bridge (pnpm setup:llm).',
 			senderUnverified: 'The sender is not confirmed (DKIM/SPF): approve first.',
 			noModel: 'No model gave a usable answer ({reasons}).'
@@ -306,6 +367,7 @@ export default {
 			scopeMissing:
 				'The pairing does not allow this yet: please pair the invoice app again (unpair, then connect again) so that Belege may read issued invoices and report payments.',
 			invoicePdfMismatch: 'The PDF of invoice {number} does not match what the app states.',
+			invoiceXmlMismatch: 'The XRechnung of invoice {number} does not match what the app states.',
 			notInvoiceApp: 'This invitation is not from an invoice app.',
 			peerUnreachable: 'The invoice app cannot be reached under this peer ID right now.',
 			eigenbelegPdfLater:
@@ -322,6 +384,12 @@ export default {
 			exists: 'This month already has usage proof {number}.',
 			nothing: 'The account moved no credits this month: no proof needed.',
 			saveFailed: 'The usage proof could not be saved.'
+		},
+		akash: {
+			exists: 'This month already has Akash usage statement {number}.',
+			nothing:
+				'The wallet had no network fees, no top-up and no usage this month: no statement needed.',
+			saveFailed: 'The Akash usage statement could not be saved.'
 		},
 		wallets: {
 			costCentre: 'Cost centre: up to 36 letters and digits, no spaces – {value}'
@@ -512,19 +580,49 @@ export default {
 		releaseExact: 'Released version – the notes are in the release on GitHub.',
 		releaseAfter: '{count} changes after version {release}, not released yet.',
 		source: 'Source code',
-		privacy: 'Privacy & technology'
+		privacy: 'Privacy & technology',
+		imprint: 'Imprint'
 	},
 	consent: {
 		title: 'Before you start',
 		intro:
-			'Le Space Belege brings your bank transactions and receipts together. This explains where your data is stored and what leaves this computer – briefly for everyone, and in detail with the “Technical” switch.',
+			'Le Space Belege brings your bank accounts, crypto wallets and exchanges together with your receipts – locally on your device, not in a cloud. This explains where your data is stored and what leaves this computer – briefly for everyone, and in detail with the “Technical” switch.',
+		highlights: {
+			local: {
+				title: 'Local, not in a cloud',
+				text: 'Your books live in this browser and on your own devices, sealed with your passkey. Le Space runs no server that holds them.'
+			},
+			crypto: {
+				title: 'Crypto included',
+				text: 'Kraken and your own wallets – Bitcoin, Ethereum and other EVM chains, Cosmos, Monero – booked in euros at the day’s rate with its source, matched like bank payments, and in the DATEV export.'
+			},
+			books: {
+				title: 'Bank and receipts, matched',
+				text: 'Bank transactions and receipts from mail, upload or portals found for each other – one DATEV package a month for your bookkeeping.'
+			}
+		},
 		earlyHeading: 'Still early.',
 		earlyBody:
 			'Le Space Belege is in development. Keep storing your bank statements and receipts somewhere else as well.',
+		terms: {
+			heading: 'Use and liability',
+			items: [
+				'Le Space Belege is provided free of charge by Le Space UG (haftungsbeschränkt), as free software (AGPL-3.0). There is no warranty that the app works without errors or stays available.',
+				'Le Space UG is liable only for intent and gross negligence. Statutory liability for injury to life, body and health and under the Product Liability Act is not affected.',
+				'Your books are only on your devices, not with us. Keeping them safe is up to you: make backups, connect a second device, and keep your bank statements and receipts elsewhere too.',
+				'Le Space Belege prepares your bookkeeping; it replaces neither bookkeeping nor tax advice. Check matches, amounts read and every export before you pass it on – the AI can be wrong too.'
+			],
+			imprint: 'Imprint',
+			privacy: 'Privacy policy of Le Space UG'
+		},
 		technicalHeading: 'Under the hood',
 		integrationNames: {
+			monero: 'Monero (the wallet’s export, read only in the browser)',
+			paperless: 'Paperless-ngx (your own archive, on this machine)',
+			'aleph-backup': 'Aleph Cloud (backup through the OrbitDB Storage Bridge)',
 			hibiscus: 'Hibiscus (banks via FinTS/HBCI)',
 			camt: 'CAMT.053 bank statements, e.g. Revolut Business',
+			enablebanking: 'Enable Banking (banks in Europe via PSD2, with your own application)',
 			alchemy: 'Alchemy (EVM, with your own key)',
 			blockscout: 'Blockscout (EVM, no key)',
 			'cosmos-nodes': 'Nym, Nodes Guru, PublicNode, Polkachu (Cosmos nodes)',
@@ -532,7 +630,9 @@ export default {
 			aleph: 'Aleph Cloud (credits of your own accounts, read only)',
 			coingecko: 'CoinGecko (rates)',
 			'kraken-rates': 'Kraken (rates)',
-			ecb: 'European Central Bank (USD rate)'
+			ecb: 'European Central Bank (currency reference rates)',
+			cbr: 'Bank of Russia (the ruble rate where the ECB has none; cross rates through the ruble)',
+			nbk: 'National Bank of Kazakhstan (the tenge rate)'
 		},
 		features: {
 			title: 'What Le Space Belege can do',
@@ -548,7 +648,7 @@ export default {
 			payments: {
 				name: 'Payments',
 				items: [
-					'Bank transactions from Hibiscus (via the bridge) and bank statements as CAMT.053, for example from Revolut or GLS.',
+					'Bank transactions from Hibiscus and through Enable Banking (both via the bridge) and bank statements as CAMT.053, for example from Revolut or GLS.',
 					'One financial year after another; related bookings are one click away.',
 					'Mark, document and settle private payments from the business account.'
 				]
@@ -566,7 +666,7 @@ export default {
 				items: [
 					'Points for amount, invoice and customer number, IBAN, vendor and date: confident pairs are linked, the rest becomes a question.',
 					'Transfers between your own accounts (also across chains and bridges), bank fees and refunds need no receipt.',
-					'Vendor accounts for prepaid balances and collective invoices; Belege learns from your links.'
+					'Vendor accounts for prepaid balances and collective invoices; Le Space Belege learns from your links.'
 				]
 			},
 			ai: {
@@ -589,7 +689,15 @@ export default {
 				name: 'Bookkeeping & export',
 				items: [
 					'Every booking with an SKR 03 account and BU key; your chart of accounts can be imported.',
-					'One ZIP per month: DATEV booking batch (EXTF) for MonkeyOffice, the receipts as PDF and a statement per account.'
+					'One ZIP per month: DATEV booking batch (EXTF) for your bookkeeping, the receipts as PDF and a statement per account.'
+				]
+			},
+			travel: {
+				name: 'Travel expenses',
+				items: [
+					'Trips with their receipts, meal allowances by times and countries, mileage (a family member’s car too) and hospitality.',
+					'Recognised from tickets, hotel invoices and calendar invitations, proposed by dates and route – made only on your click.',
+					'A monthly travel statement as a numbered PDF, booked on SKR 03 accounts, its payout linked to it.'
 				]
 			},
 			devices: {
@@ -597,7 +705,7 @@ export default {
 				items: [
 					'The same books on phone and computer; a device only gets them once it proves the passkey.',
 					'Devices meet via public relays, at the relay of your own bridge on the same network, or with no relay at all by QR code – or via all of them, in which case a new device only gets in on your own network.',
-					'The phone uses the computer’s bridge; Belege can be installed as an app.',
+					'The phone uses the computer’s bridge; Le Space Belege can be installed as an app.',
 					'Invoice app (UCEP): have Eigenbelege (self-made receipts) created and report paid invoices; read-only access for an assistant.'
 				]
 			}
@@ -611,22 +719,25 @@ export default {
 			technical: [
 				'A WebAuthn passkey with P-256 (ES256), stored as discoverable. Your DID (did:key:…) is its public key, formed by @le-space/orbitdb-identity-provider-webauthn-did. The private key never leaves the authenticator.',
 				'The PRF extension (CTAP hmac-secret) is mandatory. If the authenticator provides no PRF secret, start-up aborts; there is no unencrypted fallback.',
-				'Passkey prompts: creating 3, unlocking 1, restoring on a new device 4.'
+				'Passkey prompts: creating 2, unlocking 1, restoring on a new device 3, opening with recovery words 2.'
 			]
 		},
 		storage: {
 			title: 'Storage: only in this browser, always encrypted',
 			simple: [
 				'Your bookings, receipts and settings are stored only in this browser on this device – nowhere else, not with us either.',
-				'Everything is encrypted, with a key that your passkey creates anew each time you unlock. The key itself is never stored.'
+				'Everything is encrypted, with keys made anew each time you unlock: your passkey opens its slot in your books’ vault for them. The keys themselves are never stored.',
+				'What the page shows, browser extensions allowed to run here see as well. For Belege, a browser profile of its own without extensions is the safe choice.'
 			],
-			loss: 'If you lose the passkey, you lose access to your data. Nobody can recover it then, not even us. If you delete this browser’s site data, it is gone as well.',
+			loss: 'If you lose every passkey of your books and have no recovery words, you lose access to your data. Nobody can recover it then, not even us. So write down the 24 words under Settings → Keys, or add a second passkey. If you delete this browser’s site data, the data here is gone as well.',
 			lossHeading: 'Important:',
+			keysDoc: 'How the keys work',
 			technical: [
 				'From the passkey’s PRF response, HKDF-SHA-256 derives the AES-GCM key that seals every database (info belege/db-key/v1), and the names of the databases (belege/db-name/v1:<collection>), so that no address can be guessed from the DID. None of this is stored.',
-				'No private key is kept on the device: the identity provider derives the OrbitDB signing key (secp256k1) from the same PRF response each time you unlock. It lives only in the memory of this session.',
-				'Stored are the OrbitDB document databases transactions, receipts, partners, accounts, settings, matches, questions and events, on Helia with LevelBlockstore and LevelDatastore in IndexedDB (belege/helia-blocks, belege/helia-data, belege/orbitdb). Every entry is encrypted with AES-GCM, receipt files with a separate key (belege/blob-key/v1).',
-				'localStorage holds only public data: the passkey details (credential ID, public key, DID, PRF input), the passkey’s signature over the identity document and three flags of this page (notice read, light/dark, technical).'
+				'No private key is kept on the device: the books write as an identity of their own, an Ed25519 key made at every unlock from a secret of the books, which comes from the same PRF response (belege/books-secret/v1). It lives only in the memory of this session. The passkey itself signs nothing for the databases; its DID is named as the author of every entry.',
+				'Stored are the OrbitDB document databases transactions, receipts, partners, accounts, settings, matches, questions, events and travel, on Helia with LevelBlockstore and LevelDatastore in IndexedDB (belege/helia-blocks, belege/helia-data, belege/orbitdb). Every entry is encrypted with AES-GCM and, as a whole, once more with a key of its own (belege/replication-key/v1): without it, neither an entry’s content nor its writer, time or links can be read, and the databases’ names do not say what they hold. Receipt files have a separate key (belege/blob-key/v1).',
+				'localStorage holds no key and nothing from the books, only public data: the passkey details (credential ID, public key, DID, PRF input) and flags of this page, such as whether the notice was read, light/dark, the language, the network and whether the books have moved. Books from earlier versions may still have the passkey’s signature over their earlier identity document there.',
+				'The books’ vault (#406) is kept in localStorage, sealed: the root of every key under a random vault key, and for each passkey a slot holding that key, sealed under a key from the passkey’s PRF response (AES-256-GCM). Whoever wants also keeps it on Aleph (Settings → Keys): sealed, at addresses derived from passkey and root, with each passkey’s credential ID and no names.'
 			]
 		},
 		network: {
@@ -638,12 +749,12 @@ export default {
 			options: 'Settings',
 			devices: 'Sync own devices',
 			devicesText:
-				'Your books and receipts also on your phone or a second computer with the same passkey. The devices connect via a Le Space relay (found via Aleph, see “Le Space relays”) and, where possible, directly; everything is encrypted before it leaves the device. Or, in the network menu at the top under “Where devices meet”, without a relay by QR: two devices on the same network scan each other’s code and connect directly – then Belege asks neither Aleph nor a relay nor a STUN server, and the code shows only the device’s identifier and its addresses on the local network. Or “Only on your own network”: the devices meet at the relay of your own bridge (set up on the computer with `pnpm setup:relay`) – then Belege asks neither Aleph nor a public relay nor a STUN server, and your computer sees only the addresses on the local network and when the devices are connected. Or “Both”: all three ways at once, but a device the books don’t know yet only gets in by QR or via your bridge’s relay – only after that via the public relays as well. A device only gets the books once it proves that it has the same passkey; the relay and other peers get none of it, not even encrypted. The relay sees that two devices are talking to each other, their IP addresses and the identifiers (hash values) of the databases, never contents. Applies to this device, from the next unlock. On a computer with a bridge you can additionally share the bridge with your own devices (Integrations → Own devices): then the phone uses bank, mailbox, AI and wallets via this computer – only the shared queries, encrypted; the bridge’s credentials stay on the computer.',
+				'Your books and receipts also on your phone or a second computer with the same passkey. The devices connect via a Le Space relay (found via Aleph, see “Le Space relays”) and, where possible, directly; everything is encrypted before it leaves the device. Or, in the network menu at the top under “Where devices meet”, without a relay by QR: two devices on the same network scan each other’s code and connect directly – then Le Space Belege asks neither Aleph nor a relay nor a STUN server, and the code shows only the device’s identifier and its addresses on the local network. Or “Only on your own network”: the devices meet at the relay of your own bridge (set up on the computer with `pnpm setup:relay`) – then Le Space Belege asks neither Aleph nor a public relay nor a STUN server, and your computer sees only the addresses on the local network and when the devices are connected. Or “Both”: all three ways at once, but a device the books don’t know yet only gets in by QR or via your bridge’s relay – only after that via the public relays as well. A device only gets the books once it proves that it has the same passkey; the relay and other peers get none of it, not even encrypted. The relay sees that two devices are talking to each other, their IP addresses and the identifiers (hash values) of the databases, never contents. Applies to this device, from the next unlock. On a computer with a bridge you can additionally share the bridge with your own devices (Integrations → Own devices): then the phone uses bank, mailbox, AI and wallets via this computer – only the shared queries, encrypted; the bridge’s credentials stay on the computer.',
 			collaboration: 'Collaboration',
 			collaborationText:
 				'Shared books with colleagues or your tax advisor, chat and later video. This comes later and will then be switched on explicitly here – not before, and not by itself.',
 			technical: [
-				'A libp2p node runs in the browser because OrbitDB needs one – without transports, without a bootstrap list and without peer discovery. It cannot dial anyone and listens on no address. Only when you pair Belege with your invoice app is a second, separate node added that connects to a relay (see “Invoice app” below); it cannot reach your books.',
+				'A libp2p node runs in the browser because OrbitDB needs one – without transports, without a bootstrap list and without peer discovery. It cannot dial anyone and listens on no address. Only when you pair Le Space Belege with your invoice app is a second, separate node added that connects to a relay (see “Invoice app” below); it cannot reach your books.',
 				'Its peer key (Ed25519) is created anew in every session and stored nowhere.',
 				'With “Sync own devices” this node gets the transports of the invoice app node: WebSocket to the relay, a reservation there, WebRTC for the direct connection, plus gossipsub for OrbitDB. Its peer key then comes from the passkey and a random value of this browser, so that each device has its own stable identifier. The devices know each other through sealed entries in the settings (`device:<identifier>`). Before a device gets anything, it proves the passkey: an HMAC over both identifiers with a key that is derived from the passkey and never transmitted. Until then the node answers only identify and the relay – no gossipsub, no OrbitDB heads, no Bitswap, no bridge.',
 				'In the “Without a relay, by QR” mode the node has only the transport of @le-space/libp2p-webrtc-qr: no WebSocket, no relay address, no query to Aleph. Invitation and answer are each a WebRTC SDP with local candidates only (no STUN), signed with the device’s peer key and checked against the peer ID inside; because the SDP contains the DTLS fingerprint, the signature binds the connection to both identifiers, as Noise otherwise does. A code is valid for ten minutes. The passkey proof runs on this connection as on any other. The mode is stored sealed in the settings (`network-mode`) and as a copy in this browser.',
@@ -660,7 +771,7 @@ export default {
 			],
 			usesHeading: 'With AI',
 			uses: [
-				'Extract receipts: vendor, amount, date, invoice and customer number from the text of a receipt – and whether it is a receipt at all (sign-in emails and newsletters are not). With “Extract”, “Extract all new”, “Upload receipt”, “Use as receipt” and “Fetch invoices”.',
+				'Extract receipts: vendor, amount, date, invoice and customer number from the text of a receipt, for travel costs also their kind, route, times, hotel nights and whether breakfast is included – and whether it is a receipt at all (sign-in emails and newsletters are not). With “Extract”, “Extract all new”, “Upload receipt”, “Use as receipt” and “Fetch invoices” – and for new files in the shared folder, while “read at once” is on.',
 				'“Keep searching with AI” in the private mailbox: suggest search terms and senders, then choose the receipt among the hits – by subject, sender domain and file names, never by the text of the emails.',
 				'“AI suggestion” under “Link receipt”: name the matching one of up to 25 of your receipts for a booking – by vendor, amount, date, invoice number and short description. You do the linking.',
 				'“AI suggestion” under “Link as counter-booking …”: name, among up to 8 bookings on your other accounts, the other side of a transfer between your own accounts – by direction, amount, quantity, day, account type, counterparty and purpose, without addresses, IBANs and hashes. You do the linking.',
@@ -673,26 +784,28 @@ export default {
 				'You check what the AI delivers: the receipt shows the model and the text sent, an AI suggestion is only applied on your click, and the History lists every call.',
 			technical: [
 				'You set up the language model in the bridge (pnpm setup:llm): any interface in the OpenAI format (/chat/completions) – via https, or via http only on this computer (127.0.0.1, localhost), such as Ollama or LM Studio. The default is deepseek-flash, with deepseek-v4-pro as the second attempt.',
-				'Before every call the bridge redacts names from your list, IBANs except for the last four digits, your own email addresses, streets, postcodes and links (only the host remains). The responses are JSON and are checked (totals, date formats, candidate numbers); whatever doesn’t fit is discarded.',
+				'Before every call the bridge redacts names from its list and your company names from Settings, names after a salutation or a label (“Herr”, “Contact:”, also in other languages and scripts, such as “Пассажир:” or “Yolcu:”), passport numbers, IBANs and card numbers except for the last four digits, email addresses (of others the domain remains), phone numbers, dates of birth, tax numbers, streets, postcodes and links (only the host remains). This limits what goes out; it does not make the text anonymous: a name that is on no list and follows no label gets through, and so do the vendor, amounts, invoice numbers and what the receipt is about. With a model on this computer, and with LibertAI confidential in the attested enclave, it does not redact – unless you choose so in pnpm setup:llm. For nothing to go out, set a model on this computer (such as Ollama). The responses are JSON and are checked (totals, date formats, candidate numbers); whatever doesn’t fit is discarded.',
 				'The API key is kept in the bridge’s macOS Keychain, never in the browser. The bridge’s log records only numbers, never text. The app’s History shows the model, duration and tokens of every call.'
 			]
 		},
 		integrations: {
-			title: 'What Belege works with',
+			title: 'What Le Space Belege works with',
 			simple:
-				'Banks, exchanges and blockchains whose bookings Belege reads, and the services it asks for that – only when you set them up or use them. The logos are built into the app; this dialog loads nothing from third-party servers.',
+				'Banks, exchanges and blockchains whose bookings Le Space Belege reads, and the services it asks for that – only when you set them up or use them. The logos are built into the app; this dialog loads nothing from third-party servers.',
 			groups: {
 				banks: 'Banks and bank statements',
 				exchanges: 'Exchanges',
+				archives: 'Document archives',
 				chains: 'Blockchains (own wallets)',
 				data: 'Data and rate sources',
 				explorers: 'Block explorers (link only)',
 				ai: 'AI models (you choose one)',
+				backup: 'Backup (sealed, only on your click)',
 				portals: 'Customer portals',
 				apps: 'Connected apps'
 			},
 			marks:
-				'Trademarks and logos belong to their owners; they only show what Belege works with. Logos: Simple Icons (CC0).'
+				'Trademarks and logos belong to their owners; they only show what Le Space Belege works with. Logos: Simple Icons (CC0).'
 		},
 		services: {
 			title: 'External services',
@@ -700,9 +813,9 @@ export default {
 			leaves: 'What leaves the computer:',
 			bridge: {
 				name: 'Bridge on this computer (127.0.0.1)',
-				text: 'Fetches transactions from Hibiscus and receipts from your mailbox. The app only receives accounts you have approved on the bridge, and only emails to the bookkeeping address.',
+				text: 'Fetches transactions from Hibiscus and receipts from your mailbox or your Paperless-ngx. The app only receives accounts you have approved on the bridge, and only emails to the bookkeeping address.',
 				leaves:
-					'The bridge queries your mailbox (IMAP) and sends redacted text to the language model for extraction (see below). Hibiscus establishes the connection to GLS Bank (FinTS).',
+					'The bridge queries your mailbox (IMAP) and sends redacted text to the language model for extraction (see below). From a calendar invitation (.ics) it takes only title, place and times – no attendees, no organiser, no links. Hibiscus establishes the connection to your bank (FinTS). The bridge asks Paperless-ngx only on this machine or over https, with a token from the keychain, for new documents and their recognised text.',
 				technical:
 					'The bridge listens only on 127.0.0.1 (port 8765) and starts on no other address. Pairing uses a one-time code; the bearer token is stored encrypted in the app’s settings, and on the bridge only its hash. CORS allows only the registered app addresses; the Host header must be 127.0.0.1 or localhost. Jameica’s certificate is pinned; the Hibiscus password, IMAP token and API key are kept in the macOS Keychain. Accounts without an approved IBAN ending are not queried at all. The bridge opens mailboxes read-only.'
 			},
@@ -714,19 +827,28 @@ export default {
 					'Read with DOMParser in the browser. Of the account, the last four digits of the IBAN and a hash of it are kept.'
 			},
 			enableBanking: {
-				name: 'Enable Banking',
-				text: 'Planned for banks without Hibiscus: an account information service with an EU licence.',
-				leaves: 'Your transactions would pass through its servers.',
+				name: 'Enable Banking (banks without Hibiscus)',
+				text: 'When set up: the bridge links banks Hibiscus does not reach, through your own Enable Banking application. You give the consent on your bank’s own page.',
+				leaves:
+					'To Enable Banking: which bank you link, after your consent your accounts (IBAN, name, currency) and the transactions of the accounts you bring into the books – they pass through its servers. Also this computer’s IP address. Neither Le Space Belege nor the bridge sees your bank password.',
 				technical:
-					'An account information service (AIS) under PSD2: after your authorisation at the bank, it retrieves accounts and transactions and passes them on; in doing so they pass through its servers. So far only in an experiment (spikes/enablebanking), not built into the app.'
+					'An account information service (AIS) under PSD2. Only the bridge talks to api.enablebanking.com; every request is signed with your application’s key (RS256 JWT). The key and the sessions are sealed beside the bridge’s configuration, never in the browser and not in the books; the app gets only the last four characters of an account’s IBAN. The browser only goes to the bank and back to /integrationen/bank/verbunden. The bank’s one-time code is in that address and so also passes the gateway that serves the page; without the key it is worthless, and the page takes it out of the address at once. Only accounts whose IBAN ending is released in the bridge (pnpm setup:enablebanking -- --accounts) leave the bridge, and fetching happens only on your click. A consent lasts 180 days at most; “Unlink” ends it at Enable Banking.'
+			},
+			backup: {
+				name: 'Backup on Aleph Cloud',
+				text: 'When set up and only on your click: everything Le Space Belege keeps, sealed with a key from your passkey, as one file on Aleph Cloud.',
+				leaves:
+					'To Aleph’s IPFS host, directly from this browser: the sealed file (Aleph sees its size and this computer’s IP address, not what is in it). To the Aleph API: a signed order naming the file – by this browser’s own key once the bridge’s account has allowed it, by the bridge until then – and reads of that account’s grants, credits and backups, by its address. To restore, the browser fetches the sealed file from Aleph’s gateway by its CID.',
+				technical:
+					'The CAR of every database block (entries already sealed, manifests, access controllers, writers’ identities) and every receipt file’s sealed blocks is sealed once more with AES-256-GCM under a key derived from the passkey’s PRF (HKDF, belege/backup-key/v1). Upload: POST https://ipfs.aleph.cloud/api/v0/add, no key. The STORE message (personal_sign, channel BELEGE-BACKUP, paid in credits of the bridge’s account) is signed by a secp256k1 key this browser makes itself and keeps sealed in the settings – once the account has allowed it in its security aggregate (pnpm setup:aleph -- --authorize); until then by the bridge’s key (pnpm setup:aleph, in the keychain). Aleph keeps the file while the account has credits. The backups are listed by Aleph’s messages API (api2.aleph.im) with owners=<account>.'
 			},
 			deepseek: {
-				name: 'Language model – DeepSeek by default (extracting receipts, AI search)',
+				name: 'Language model – DeepSeek by default, or LibertAI confidential (extracting receipts, AI search)',
 				text: 'The model you set up in the bridge. Only for buttons with ✦ (see “AI” above).',
 				leaves:
-					'When extracting, the redacted text of a receipt; with “Keep searching with AI”, counterparty and payment reference as well as subject, sender domain and file names of the hits, redacted. With DeepSeek the servers are outside the EU; a local model does not leave this computer.',
+					'When extracting, the redacted text of a receipt; with “Keep searching with AI”, counterparty and payment reference as well as subject, sender domain and file names of the hits, redacted. With DeepSeek the servers are outside the EU; a local model does not leave this computer. With LibertAI confidential (TEE) the model runs in an enclave on Aleph Cloud that the bridge checks before every connection (AMD signature, pinned measurement); the text ends only in the enclave, LibertAI sees this Mac’s IP address, sizes and times, not the text. What that proves is which image runs, not what it does, and confidential GPUs on Aleph have no independent audit yet. The text goes in unredacted, unless you choose redaction in pnpm setup:llm. Our advice for now: a local model, or LibertAI confidential.',
 				technical:
-					'The bridge sends only the text layer of a PDF (or the text of an email) with subject and sender, after redacting names from its list, IBANs (except for the last four digits), your own email addresses, streets and postcodes – never the file itself. DeepSeek runs its servers in China. The API key is kept in the bridge’s macOS Keychain, never in the browser. The bridge extracts emails from senders that did not pass the DKIM/SPF check only after your approval.'
+					'The bridge sends only the text layer of a PDF (or the text of an email) with subject and sender, after redacting names from its list and your company names from Settings, names after a salutation or a label (“Herr”, “Contact:”, also in other languages and scripts, such as “Пассажир:” or “Yolcu:”), passport numbers, IBANs and card numbers except for the last four digits, email addresses (of others the domain remains), phone numbers, dates of birth, tax numbers, streets, postcodes and links (only the host remains) – never the file itself. This limits what goes out; it does not make the text anonymous: a name that is on no list and follows no label gets through, and so do the vendor, amounts, invoice numbers and what the receipt is about. For nothing to go out, set a model on this computer (such as Ollama). DeepSeek runs its servers in China. The API key is kept in the bridge’s macOS Keychain, never in the browser. The bridge extracts emails from senders that did not pass the DKIM/SPF check only after your approval.'
 			},
 			portals: {
 				name: 'Customer portals (Vodafone)',
@@ -737,28 +859,28 @@ export default {
 					'The bridge starts its own Chromium (Playwright) with one profile per portal under ~/.config/belege/portals/<portal>/profile (directory 0700), not your everyday browser. The first time (and when the session expires) it opens a visible window: you sign in, and you always enter codes (SMS, email) and security checks yourself. After that it fetches the invoices without a window. An optional password (pnpm setup:portal vodafone) is kept in the macOS Keychain and is only typed into the portal’s sign-in form. Only PDFs (by their bytes, at most 15 MB) reach the app. No language model, no screenshots; the log names only the step that failed. Anyone who can use your macOS account can also use the session in the profile: turn on FileVault; “Sign out” deletes the profile. A portal’s terms of use may restrict automated access.'
 			},
 			blockchain: {
-				name: 'Blockchain query (Nym/Cosmos, Ethereum/EVM, Bitcoin)',
+				name: 'Blockchain query (Nym/Cosmos, Ethereum/EVM, Bitcoin, Filecoin)',
 				text: 'Only for your own wallets that you enter under Integrations, and only when you press “Sync”: the bridge asks a public node for the transfers and the balance of the address.',
 				leaves:
-					'The wallet address and the IP address of this Mac – to the operator of the node: by default Nym (rpc.nymtech.net) for Nyx, PublicNode for Akash (for the older history also the Akash indexer console-api.akash.network, run by the Akash team), Blockscout for Ethereum, Base, Arbitrum, Optimism and Polygon – or Alchemy, if you have set up an Alchemy API key –, or the node you enter yourself. The operator can infer from this that this address belongs to you; Alchemy also associates the queries with your Alchemy account. If a token has no CoinGecko rate, the bridge also asks Alchemy for its Uniswap pool in the block of the booking – Alchemy then sees the token contract and the block. For Bitcoin, the bridge asks mempool.space (or your own Esplora server) about every address it derives from your account key, in quick succession from the same IP: the operator can infer from this that all these addresses belong together. For Aleph Cloud, only if you switch on “Check own Ethereum addresses at Aleph” under Integrations or enter an Aleph account: each of these addresses to Aleph (api2.aleph.im), read only – Aleph can infer from this that they belong together.',
+					'The wallet address and the IP address of this Mac – to the operator of the node: by default Nym (rpc.nymtech.net) for Nyx, PublicNode for Akash (for the older history also the Akash indexer console-api.akash.network, run by the Akash team), Blockscout for Ethereum, Base, Arbitrum, Optimism and Polygon – or Alchemy, if you have set up an Alchemy API key –, or the node you enter yourself. The operator can infer from this that this address belongs to you; Alchemy also associates the queries with your Alchemy account. If a token has no CoinGecko rate, the bridge also asks Alchemy for its Uniswap pool in the block of the booking – Alchemy then sees the token contract and the block. For Bitcoin, the bridge asks mempool.space (or your own Esplora server) about every address it derives from your account key, in quick succession from the same IP: the operator can infer from this that all these addresses belong together. For Filecoin the bridge asks Filfox (filfox.info) about the address. For Aleph Cloud, only if you switch on “Check own Ethereum addresses at Aleph” under Integrations or enter an Aleph account: each of these addresses to Aleph (api2.aleph.im), read only – Aleph can infer from this that they belong together.',
 				technical:
-					'Queries are made over HTTPS: for Cosmos chains the CometBFT RPC (tx_search by transfer.sender and transfer.recipient, header, status) and the REST API (balance), for EVM chains Blockscout’s Etherscan-compatible API (txlist, txlistinternal, tokentx, balance) or, with a key, Alchemy (alchemy_getAssetTransfers, receipts, nonce, balance; internal transactions on Arbitrum and Optimism still via Blockscout; for a token without a CoinGecko rate, eth_call to the Uniswap factories (V2, V3) and Uniswap V4’s StateView for its pools against ETH and USDC in the block of the booking; the deepest one counts if it holds at least €3,000 on the ETH or USDC side). The Alchemy key is kept in the bridge’s macOS Keychain (pnpm setup:alchemy) and appears only in the address of the requests to Alchemy – never in the browser, never in the log. The app sends the address in the body of a request to the bridge, never in a URL (to Blockscout it goes in the query URL, as its API requires); the bridge’s log records only numbers. No key, no signature: the address is public, the list of your wallets is stored encrypted in your books, not in the bridge. Only assets from the chain’s list are booked (NYM, NYX, AKT, ETH, POL, USDC with a verified contract); other tokens are counted and left out. For Bitcoin, the account key (xpub, ypub or zpub) is kept only in the bridge’s macOS Keychain; the bridge derives the addresses from it (up to 20 unused in a row) and queries their confirmed transactions (Esplora API: address, address/txs/chain). The app knows only a fingerprint of the key. Links to the block explorer only open when you click them.'
+					'Queries are made over HTTPS: for Cosmos chains the CometBFT RPC (tx_search by transfer.sender and transfer.recipient, header, status) and the REST API (balance), for EVM chains Blockscout’s Etherscan-compatible API (txlist, txlistinternal, tokentx, balance) or, with a key, Alchemy (alchemy_getAssetTransfers, receipts, nonce, balance; internal transactions on Arbitrum and Optimism still via Blockscout; for a token without a CoinGecko rate, eth_call to the Uniswap factories (V2, V3) and Uniswap V4’s StateView for its pools against ETH and USDC in the block of the booking; the deepest one counts if it holds at least €3,000 on the ETH or USDC side). The Alchemy key is kept in the bridge’s macOS Keychain (pnpm setup:alchemy) and appears only in the address of the requests to Alchemy – never in the browser, never in the log. The app sends the address in the body of a request to the bridge, never in a URL (to Blockscout it goes in the query URL, as its API requires); the bridge’s log records only numbers. No key, no signature: the address is public, the list of your wallets is stored encrypted in your books, not in the bridge. Only assets from the chain’s list are booked (NYM, NYX, AKT, ETH, POL, USDC with a verified contract); other tokens are counted and left out. For Bitcoin, the account key (xpub, ypub or zpub) is kept only in the bridge’s macOS Keychain; the bridge derives the addresses from it (up to 20 unused in a row) and queries their confirmed transactions (Esplora API: address, address/txs/chain). The app knows only a fingerprint of the key. For Filecoin, Filfox’s public API (address, address/transfers; the address is in the query URL), without a key; a message’s send, receive and fees come from there, and the message CID is the hash. Links to the block explorer only open when you click them.'
 			},
 			ucep: {
 				name: 'Invoice app (UCEP via a relay)',
-				text: 'Only if you pair Belege with your invoice app under Integrations: Belege connects to it via a relay to have an Eigenbeleg (self-made receipt) created for a payment without a receipt, and – on your click on “Sync invoices” – to fetch the invoices you have issued and tell it which ones are paid.',
+				text: 'Only if you pair Le Space Belege with your invoice app under Integrations: Le Space Belege connects to it via a relay to have an Eigenbeleg (self-made receipt) created for a payment without a receipt, and – on your click on “Sync invoices” – to fetch the invoices you have issued and tell it which ones are paid.',
 				leaves:
-					'The IP address of this device and Belege’s peer ID – to the operator of the relay (one of the Le Space relays, see below). For an Eigenbeleg, the details of this one payment (date, amount, description, reason, the counterparty as you enter it, the payment’s internal identifier in Belege, and for crypto the chain, quantity, rate with source and time, and the transaction hash). For a paid invoice only: on which day, which amount and the payment’s internal identifier – never account, IBAN or payment reference. Both to your invoice app, no one else; never the rest of your books.',
+					'The IP address of this device and Le Space Belege’s peer ID – to the operator of the relay (one of the Le Space relays, see below). For an Eigenbeleg, the details of this one payment (date, amount, description, reason, the counterparty as you enter it, the payment’s internal identifier in Le Space Belege, and for crypto the chain, quantity, rate with source and time, and the transaction hash). For a paid invoice only: on which day, which amount and the payment’s internal identifier – never account, IBAN or payment reference. Both to your invoice app, no one else; never the rest of your books.',
 				technical:
-					'libp2p with WebSocket to the relay (Circuit Relay v2) and WebRTC for the direct connection; Noise encrypts every connection end to end, the relay sees only ciphertext. The peer ID comes from a key that is derived from your passkey and never stored. The pairing (UCEP, Le-Space/ucep-spec) grants Belege only the rights “create Eigenbelege”, “read own documents”, “read issued invoices” and “report payments”. Without pairing, Belege establishes no connection.'
+					'libp2p with WebSocket to the relay (Circuit Relay v2) and WebRTC for the direct connection; Noise encrypts every connection end to end, the relay sees only ciphertext. The peer ID comes from a key that is derived from your passkey and never stored. The pairing (UCEP, Le-Space/ucep-spec) grants Le Space Belege only the rights “create Eigenbelege”, “read own documents”, “read issued invoices” and “report payments”. Without pairing, Le Space Belege establishes no connection.'
 			},
 			relays: {
 				name: 'Le Space relays (found via Aleph)',
-				text: 'Only when Belege goes online – for the invoice app or for your own devices: Belege asks api.aleph.im for the current addresses of the Le Space relays and connects to them. Only entries from the two wallets that Le Space operates for this purpose count; other entries are ignored.',
+				text: 'Only when Le Space Belege goes online – for the invoice app or for your own devices: it asks api.aleph.im for the current addresses of the Le Space relays and connects to them. Only entries from the two wallets that Le Space operates for this purpose count; other entries are ignored.',
 				leaves:
-					'To Aleph (api.aleph.im): the IP address of this device, when looking up. To the operator of the relay: the IP address, the peer ID of Belege and of the other side, when you are connected and how many bytes flow – never contents. For a direct connection (WebRTC), to public STUN servers (Google, Twilio, Cloudflare, Mozilla): the IP address.',
+					'To Aleph (api.aleph.im): the IP address of this device, when looking up. To the operator of the relay: the IP address, the peer ID of Le Space Belege and of the other side, when you are connected and how many bytes flow – never contents. Le Space Belege names to the relay neither its databases nor the protocols it speaks with your devices; a device learns those only once it has proved the passkey. For a direct connection (WebRTC), to public STUN servers (Google, Twilio, Cloudflare, Mozilla): the IP address.',
 				technical:
-					'Aleph POST messages in the channel simple-todo (ref simple-todo-bootstrap, type relay-bootstrap-v2, registration relay:orbitdb-relay:orbitdb-relay), as Le-Space/relay-button writes them; the newest entry per Le Space wallet is taken, and from it a TLS WebSocket address. If Aleph does not respond, Belege uses the last known relays. Every connection via a relay is encrypted end to end with Noise; the relay can read nothing, change nothing and cannot pose as the other side (Noise checks the peer ID). A third-party relay could at most see who is connected to whom and when, or refuse connections – hence only the Le Space wallets. The peer ID comes from your passkey and stays the same; anyone who knows it can recognise connections from Belege.'
+					'Aleph POST messages in the channel simple-todo (ref simple-todo-bootstrap, type relay-bootstrap-v2, registration relay:orbitdb-relay:orbitdb-relay), as Le-Space/relay-button writes them; the newest entry per Le Space wallet is taken, and from it a TLS WebSocket address. If Aleph does not respond, Le Space Belege uses the last known relays. Every connection via a relay is encrypted end to end with Noise; the relay can read nothing, change nothing and cannot pose as the other side (Noise checks the peer ID). A third-party relay could at most see who is connected to whom and when, or refuse connections – hence only the Le Space wallets. The peer ID comes from your passkey and stays the same; anyone who knows it can recognise connections from Le Space Belege.'
 			}
 		},
 		status: {
@@ -787,6 +909,20 @@ export default {
 			'You can find this notice at any time at the bottom of the page under “Privacy & technology”.'
 	},
 	onboarding: {
+		words: {
+			open: 'Open with recovery words',
+			hint: 'No passkey of the books left? With the 24 words you open them here and make a new passkey on the way (two prompts). If the vault is kept on Aleph, Belege finds it; otherwise only in the browser that holds it.',
+			label: 'The 24 words, in their order',
+			passkeyLabel: 'Name of the new passkey',
+			go: 'Make a new passkey and open the books',
+			unknown: 'The list does not know these words: place {positions}.',
+			count: 'These are {count} words – it takes 24.',
+			checksum: 'The words do not fit together: one is probably misspelt or swapped.',
+			wrong: 'These words do not open the vault.',
+			notFound: 'There is no vault for these words – neither in this browser nor on Aleph.',
+			notHere:
+				'This browser holds no vault for these words; the network is paused, Aleph was not asked.'
+		},
 		title: 'Unlock your books',
 		intro:
 			'Your bookkeeping data stays on this device and is encrypted with a key from your passkey. Without the passkey nobody can read it – not even us.',
@@ -799,7 +935,42 @@ export default {
 		create: 'Create passkey',
 		restoreHeading: 'Already have a passkey?',
 		restore: 'Restore with existing passkey',
-		busy: 'Please confirm the passkey …'
+		sharedOrigin:
+			'This address is on an IPFS gateway the browser shares with every other page there. Your books and your passkey would not be safe here, so Le Space Belege does not open them here. Open it at belege.le-space.de or through a gateway that gives every CID a subdomain of its own (<cid>.ipfs.…).',
+		busy: 'Please confirm the passkey …',
+		steps: {
+			count: 'Passkey prompt {n} of {of}',
+			prf: {
+				title: 'Now the key to your books',
+				why: 'Your passkey gives Belege a secret. It becomes the key your books and receipts are encrypted with; it is not stored anywhere.'
+			},
+			notALoop:
+				'Each prompt has its own purpose; it is not a repeat. With a security key: touch it and, if asked, enter the PIN.',
+			continue: 'Continue',
+			cancel: 'Cancel'
+		},
+		progress: {
+			keys: 'Deriving the keys from the passkey …',
+			network: 'Starting storage and network …',
+			identity: 'Checking the identity …',
+			open: 'Opening {collection} …',
+			move: 'Moving {collection}: {done} of {total}',
+			moveHint:
+				'Once after an update: the books move into newly sealed databases. With many entries this can take a few minutes – please keep the tab open. Stopping does no harm; it goes on at the next unlock.',
+			blobs: 'Opening the receipt store …',
+			books: 'Loading the books …',
+			elapsed: 'for {seconds} s',
+			collection: {
+				transactions: 'payments',
+				receipts: 'receipts',
+				partners: 'partners',
+				accounts: 'accounts',
+				settings: 'settings',
+				matches: 'links',
+				questions: 'questions',
+				events: 'history'
+			}
+		}
 	},
 	share: {
 		title: 'Access for an assistant',
@@ -825,6 +996,359 @@ export default {
 		reads: 'read {count}×',
 		revoke: 'Revoke',
 		refresh: 'Refresh reads'
+	},
+	restore: {
+		leaves:
+			'Goes out: the account’s address to the Aleph API, to list its backups, and the backup’s CID to Aleph’s gateway (both see this computer’s IP address). The file comes back sealed and is opened here.',
+		cidLabel: 'The backup’s CID',
+		pick: 'Restore',
+		notACid: 'That is not a CID.',
+		confirm: 'Restore this backup into these books? They are merged; the page reloads at the end.',
+		yes: 'Yes, restore',
+		no: 'Cancel',
+		fetchingBytes: '{what} {received} of {total} MB – {percent} %',
+		fetchingBytesUnknown: '{what} {received} MB',
+		fetching: 'Fetching the backup from Aleph’s gateway …',
+		fetchingPeers: 'Fetching the backup from the IPFS network …',
+		sourceGateway: 'Fetched through Aleph’s gateway ({host}) in {seconds} s.',
+		sourcePeers: 'Fetched from the IPFS network, from {peers} peers, in {seconds} s.',
+		gatewayFirst: 'Aleph’s gateway first, then the IPFS network',
+		gatewayFirstOn:
+			'One request to Aleph’s gateway; if it stays silent for 15 seconds, the browser fetches the backup itself over IPFS – from Aleph’s nodes and from whoever holds it according to the public routing.',
+		gatewayFirstOff:
+			'No gateway: the browser fetches the backup itself over IPFS, from Aleph’s nodes and from whoever holds it according to the public routing. Aleph’s nodes are reachable over IPv6 only; the routing (cid.contact, delegated-ipfs.dev) sees the CID and this IP address.',
+		opening: 'Opening the backup …',
+		database: 'Database {index} of {total}: {name} …',
+		increments: '+ {count} increments',
+		fetchingIncrements: 'Fetching increments: {done} of {total} …',
+		doneIncrements: 'With {count} increments to the full backup.',
+		isIncrement:
+			'This is an increment, not a full backup: restore the full backup it builds on – its increments come along.',
+		gap: 'Increments of this full backup are missing ({missing}). Without them it cannot be brought back completely; nothing was changed.',
+		done: 'Restored. The page reloads – unlock with the passkey.',
+		wrongPasskey:
+			'This backup cannot be opened with this passkey: it belongs to another vault, that is, to other books. A backup opens with any passkey that has a slot in the vault it came from – add this passkey there (Settings → Keys, on the device with those books), or open those books here with their recovery words.',
+		notFetched:
+			'Aleph’s gateway did not give the backup back, or not all of it; an incomplete file is not opened. Try again in a moment, on Wi-Fi if you can.',
+		detail: 'Technical detail',
+		incomplete:
+			'This backup is missing a piece, and it could not be fetched either. Your books are untouched. Try another backup, or try again when you are online.',
+		noSpace:
+			'This browser has no room left for the backup. Your books are untouched. Free some space on the device, or remove other sites’ data, and try again.'
+	},
+	social: {
+		title: 'Le Space Belege – payments and receipts, only on your own devices',
+		description:
+			'Bank transactions and receipts matched automatically – encrypted only on your own devices, no cloud account. With DATEV export, crypto wallets and receipts from your mailbox.',
+		imageAlt:
+			'Le Space Belege: payments and their receipts, matched and encrypted only on your own devices',
+		tagline: 'Payments and receipts, matched – only on your own devices.',
+		points: [
+			'Encrypted, no cloud account',
+			'DATEV export with every receipt',
+			'Bank, crypto wallets and mailbox'
+		],
+		badge: 'Receipt'
+	},
+	move: {
+		title: 'Move books',
+		intro:
+			'A passkey belongs to its address: books on localhost and on belege.le-space.de, or under an old and a new passkey, are separate books. A move takes every payment, every receipt with its file, the links and the settings into the empty books of another passkey. The file for it is sealed and opens only there.',
+		receive: 'Take books over …',
+		receiveStep1:
+			'Paste or scan this one-time key in the old books under “Move to other books …”. It is valid only while this page stays open.',
+		receiveStep2: 'Choose the move file from the old books:',
+		keyText: 'One-time key',
+		fingerprint: 'Fingerprint:',
+		takeOver: 'Take over',
+		busy: 'Working …',
+		progress: {
+			opening: 'Opening the move file …',
+			files: 'Receipt files: {done} of {total}',
+			records: '{collection}: {done} of {total}',
+			keepOpen:
+				'for {seconds} s – please keep this tab open. If it stops, the same file carries on here.',
+			collections: {
+				transactions: 'Payments',
+				receipts: 'Receipts',
+				partners: 'Partners',
+				accounts: 'Accounts',
+				settings: 'Settings',
+				matches: 'Links',
+				questions: 'Questions',
+				events: 'History',
+				travel: 'Trips'
+			}
+		},
+		interrupted:
+			'A move from {date} into these books was cut short. Pick the same move file again – or a new one from the same old books, if the one-time key no longer holds – and “Take over”: it carries on, nothing doubles.',
+		summary: 'Packed on {date}: {transactions} payments, {receipts} receipts, {files} files.',
+		leftOutNote: 'Not included, as they belong to the old passkey or device: {list}.',
+		leftOut: {
+			bridge: 'the bridge pairing',
+			'backup/owner': 'the backup account',
+			'backup/aleph-key': 'the backup key',
+			backups: 'the list of backups',
+			ucepInvoiceApp: 'the invoicing app pairing',
+			'network-mode': 'the network mode',
+			'lan-relay': 'the relay in your own network',
+			pendingJobs: 'waiting jobs',
+			devices: 'own devices'
+		},
+		done: 'Taken over: {records} records, {files} files.',
+		doneNext:
+			'Now pair the bridge here again and set up the backup again; own devices with this passkey connect as usual. The old books are unchanged – they can be deleted there under Settings → Storage.',
+		send: 'Move to other books …',
+		sendStep1:
+			'Open “Take books over …” in the new, empty books and paste or scan the one-time key here:',
+		keyInvalid: 'That is no one-time key for a move.',
+		fingerprintCheck: 'Do the new books show the same fingerprint?',
+		passphraseWay: 'The new books are not open right now? Move with a passphrase …',
+		passphraseWayHint:
+			'Belege makes a passphrase and shows it once. Write it down: without it the file opens nowhere. Whoever has the file and the passphrase can read the books – keep them apart.',
+		packPassphrase: 'Create the move file with a passphrase',
+		passphraseWrite: 'The passphrase for this file – write it down now, it is not shown again:',
+		passphraseAsk: 'This file is sealed with a passphrase. Passphrase:',
+		pack: 'Create the move file',
+		packed: 'Move file saved.',
+		untouched: 'These books stay as they are.',
+		errors: {
+			format: 'This is no Belege move file, or it is damaged.',
+			key: 'This file is sealed for another key, or it was changed.',
+			otherKey:
+				'This file was made for the one-time key {sealedFor}; this page shows {here}. A one-time key holds only while its page stays open – after a reload an older file no longer fits. Make the move file again in the old books, with the key above, then pick the new file.',
+			'not-empty': 'These books are not empty. Books are taken over only into empty ones.',
+			'missing-file': 'A receipt file is missing on this device. Let it sync first, then move.',
+			check: 'The move file does not add up. Nothing was taken over.'
+		}
+	},
+	backup: {
+		title: 'Backup',
+		what: "Everything Le Space Belege keeps in this browser – the books and every receipt file – as one file, sealed with a key from your passkey. It lies on Aleph's IPFS: whoever knows its identifier (CID) can download it, but not open it – only you can, with the same passkey. Aleph keeps it while the account has credits.",
+		public: {
+			title: 'Where your backup lies – and what that means',
+			spread:
+				"Spread out instead of in one place: the backup is not in a single data centre but on many of Aleph's IPFS nodes – according to Aleph's support, on all its nodes (this may change). When a provider or a region goes down, as in the fire at OVH's Strasbourg data centre in 2021 or in the outages that keep hitting the big clouds, it stays reachable: it can be brought back from any node that has it.",
+			sealed:
+				'Only you can read it: it is sealed with a key from your passkey before it leaves this browser.',
+			open: "What is public is the envelope and the outline: anyone who knows its CID can download the sealed file, and Aleph's public message log names each backup's CID, time, size and paying account.",
+			alternative:
+				'Whether that suits you is your choice. If you do not want your receipts on public IPFS, even encrypted: backup on Filecoin Onchain Cloud,',
+			alternativeLink: 'being planned'
+		},
+		notSetUp: 'The bridge has no backup key yet. In the terminal, in Belege’s folder:',
+		noOwner:
+			'No Aleph account that pays yet: pair the bridge after running pnpm setup:aleph there once, or enter the account’s address.',
+		ownerLabel: 'Address of the Aleph account that pays',
+		ownerSave: 'Use it',
+		ownerHint:
+			'The address is public, but on an empty device it is the only way to your backups: write it down. pnpm setup:aleph shows it.',
+		ownerInvalid: 'That is not an address: 0x and 40 hex characters.',
+		account: 'Aleph account that pays',
+		ownKey: 'This browser’s key',
+		granted:
+			'Allowed: this browser signs the order to Aleph itself, the bridge need not run for it.',
+		notGrantedBridge:
+			'The account has not allowed this browser’s key yet; until then the bridge signs. Allow it once, in the terminal in Belege’s folder:',
+		notGranted:
+			'The account has not allowed this browser’s key yet, and without a paired bridge nobody signs the order. Allow it once, in the terminal in Belege’s folder:',
+		grantUnknown:
+			'Whether the account allows this browser’s key could not be learned just now. To allow it, in the terminal in Belege’s folder:',
+		copyCommand: 'Copy command',
+		check: 'Check again',
+		copyAddress: 'Copy address',
+		credits: 'Credits',
+		creditsUnknown: 'unknown – Aleph did not answer',
+		noCredits:
+			'The account has no credits. Aleph keeps a backup only while the account can pay: put credits on it at app.aleph.cloud, or send it ALEPH.',
+		leaves:
+			'Goes out: the sealed file to Aleph’s IPFS host (it sees this computer’s IP address and the size), and to the Aleph API an order naming the file – signed by this browser’s key or, without the grant, by the bridge. To show this page, it asks Aleph for the account’s grants and credits.',
+		ownerChange: 'Change',
+		ask: 'This backup is {size} and costs about {perDay} credits a day for as long as Aleph keeps it – every backup is a whole copy. With the backups already there, the credits then last {days}. Upload?',
+		upload: 'Upload',
+		cancel: 'Cancel',
+		cost: 'Aleph keeps {size} of backups, about {perDay} credits a day – the credits last {days}. An estimate: Aleph sets the price.',
+		unknown: 'Aleph does not know the request',
+		rejected: 'Aleph refused',
+		unknownHint:
+			"The file is on Aleph's IPFS host, but Aleph knows no request to keep it. Without one, Aleph may delete it.",
+		rejectedHint: 'Aleph refused the request and does not keep the file.',
+		rekeep: 'Ask Aleph again',
+		order: 'Request at Aleph:',
+		days: { about: 'about {days} days', overYear: 'more than a year' },
+		holders: {
+			ask: 'Who holds it?',
+			note: '"Who holds it?" asks three public services: IPFS routing (delegated-ipfs.dev) for the nodes offering the CID – it sees the CID –, Aleph for its core nodes, and ipwho.is where the nodes\' IPs are. All three see this computer\'s IP address.',
+			asking: 'Asking the IPFS network …',
+			summary:
+				'{count} IPFS nodes offer this backup right now, {aleph} of them Aleph core nodes (Aleph has {active} active).',
+			none: 'No IPFS node offers this backup right now – or routing knows of none.',
+			failed: 'IPFS routing did not answer: {error}',
+			spread: 'By network: {networks}. By country: {countries}.',
+			node: 'Node',
+			ip: 'IP',
+			place: 'Place',
+			network: 'Network',
+			notAleph: 'not an Aleph node',
+			noPlace: 'unknown'
+		},
+		full: 'New full backup',
+		chainFirst:
+			'The first backup is a full one: everything this browser keeps. After it, "Jetzt sichern" backs up only what is new since.',
+		chainNext:
+			'"Jetzt sichern" backs up only what is new since the last backup – increment {sequence} to the full backup of {date}. A restore needs the full backup and all its increments; Aleph keeps each until it is forgotten.',
+		chainElsewhere: 'another device',
+		nothingNew: 'Nothing new since the last backup.',
+		madeIncrement:
+			'Increment {sequence} backed up: {size}, {entries} new entries, {files} new receipt files – {kept}.',
+		kindFull: 'Full backup',
+		kindIncrement: 'Increment {sequence}',
+		oldBridge:
+			'The bridge kept the increment on Aleph without naming its full backup – it is older than this page. Update the bridge (git pull, pnpm install, restart); the next backup ships everything since the last one again.',
+		creditsLink: 'Buy or transfer credits (Aleph dashboard)',
+		grantDashboard:
+			"Or in Aleph's dashboard, with the account's wallet: under Permissions, add the address above, message type STORE, channel {channel}.",
+		grantDashboardLink: 'Open Permissions',
+		now: 'Back up now',
+		ingestGone:
+			'Aleph’s IPFS host takes no uploads at the moment. Without this browser let in, backups go through Aleph’s API only up to {limit}; this one has {size}. Set up the grant above – then backups go up to 1 GB – or let the increments run. Nothing was kept and nothing costs.',
+		tooBig:
+			'This backup has {size}; Aleph takes at most {limit} in one piece. Nothing was kept and nothing costs.',
+		uploadTimedOut:
+			'The upload to Aleph did not finish within {minutes} minutes: the line was too slow for {size}, or broke off. Nothing was kept and nothing costs. Try again, best on a faster line and with this tab in front.',
+		keepOn:
+			'On a phone: keep the screen on and the tab in front. Belege keeps the screen awake where the browser allows it; a tab in the background is paused by the browser.',
+		keepWorking:
+			'You can go on working in Belege: the backup carries on, and the header shows how far it is. Just do not close or reload the tab.',
+		auto: {
+			label: 'Back up automatically (on this device)',
+			hint: 'Five minutes after the last change Belege backs up what is new by itself – as an increment, never as a full backup. Only while the tab is open, the network is not paused, this browser is let in or the bridge runs, and the credits last more than 30 days. Switch it on on one device, not on several.',
+			unsaved: 'Not backed up yet: {list}.'
+		},
+		badge: {
+			unsaved: 'Not backed up ({count})',
+			unsavedTitle: 'Changed since the last backup: {list}',
+			autoIn: 'Automatic backup in {minutes} min',
+			autoShort: 'in {minutes} min',
+			byHand: 'To back up: Backup → “Jetzt sichern”, or switch on “Back up automatically” there.',
+			blocked: {
+				paused: 'The network is paused: no automatic backup.',
+				chain: 'The next backup is a full one – that only starts by hand.',
+				key: 'This browser is not let in and the bridge is not running: no automatic backup.',
+				credits: 'The credits last less than 30 days: the backup asks first – please by hand.',
+				error: 'The last automatic backup failed – details under Backup.'
+			},
+			title: 'To the backup',
+			packing: 'Backup being packed',
+			uploading: 'Backup {percent} %',
+			uploadingUnmeasured: 'Backup uploading',
+			asking: 'Backup is waiting for you',
+			keeping: 'Backup: asking Aleph'
+		},
+		step: {
+			packing: 'Packing and sealing …',
+			uploading: 'Uploading to Aleph …',
+			asking: '…',
+			keeping: 'Having Aleph keep it …'
+		},
+		paused: 'The network is paused.',
+		made: 'Backed up: {size}, {entries} entries, {files} receipt files – {kept}.',
+		kept: 'kept by Aleph',
+		pending: 'Aleph has not confirmed yet',
+		forgotten: 'deleted on Aleph',
+		list: {
+			title: 'Backups',
+			intro:
+				'Each chain starts with a full backup; its increments build on it, and "Jetzt sichern" continues the current one. Older chains go on costing credits until you delete them. "Wiederherstellen" brings a full backup with its increments into these books: what is here stays, what is missing is added; at the end the page reloads and the passkey opens the books again. You need a passkey of the books the backup came from.',
+			none: 'No backup yet – neither here nor on Aleph for this account. Enter the paying account’s address above, or a CID below.',
+			unlisted:
+				'Aleph did not deliver the list of backups just now; shown is what this browser knows.',
+			current: 'current',
+			elsewhere: 'from another device',
+			elsewhereRow: 'Backed up from another device: this browser does not know what is in it.',
+			sizeUnknown: 'size unknown',
+			showGone: 'Show {count} deleted chains',
+			showGoneOne: 'Show 1 deleted chain',
+			drop: 'Remove from the list',
+			details: 'Details',
+			byCid: 'Restore by CID'
+		},
+		older: {
+			title: 'Older backup chains',
+			intro:
+				'Each chain starts with a full backup; its increments build on it. New backups continue the current chain; older ones go on costing credits for as long as Aleph keeps them.',
+			chain: 'Full backup of {at}',
+			chainUndated: 'Full backup {cid}',
+			increments: '{count} increments',
+			incrementsOne: '1 increment',
+			cost: '{size} · about {perDay} credits a day',
+			forget: 'Delete',
+			confirm:
+				'Delete for good? Aleph lets this chain go, and nothing in it can be restored afterwards – not even by its CID. The current backup stays.',
+			confirmYes: 'Delete for good',
+			forgetting: 'Asking Aleph to delete it …',
+			done: 'Deleted: {count} orders released on Aleph. They cost nothing from now on.',
+			incomplete:
+				'Not everything was deleted: Aleph did not release {count} orders, or has not confirmed yet. Try again later.',
+			needsGrant: "Only this browser's own key can delete – set up the grant above first."
+		},
+		cid: 'Get it back by:',
+		copyCid: 'Copy CID',
+		missing:
+			'{count} blocks were not in this browser and are missing from the backup. With device sync, open the books on the device that has them.',
+		progress: {
+			step: 'Step {index} of {total}',
+			upload: '{sent} of {total} uploaded – {percent} %',
+			uploadUnmeasured:
+				'Uploading {size} – for {seconds} s. Aleph’s IPFS host does not let the progress be counted.',
+			database: 'Database {index} of {total}: {name}, {entries} entries …',
+			files: 'Receipt files: {done} of {total} …',
+			sealing: 'Sealing {size} …'
+		},
+		contents: 'What is in it',
+		files: 'Receipt files',
+		blocks: 'Blocks, all told',
+		history: 'Backups so far'
+	},
+	uploadPanel: {
+		open: 'Upload receipts',
+		openShort: 'Upload',
+		title: 'Upload receipts',
+		zone: 'Upload receipts',
+		zoneHint: 'or drop files here – on any page',
+		types: 'PDF, PNG, JPEG, GIF, WebP · several at once',
+		busy: 'Uploading …',
+		goto: 'To the receipts',
+		close: 'Close',
+		drop: 'Drop to upload'
+	},
+	akash: {
+		title: 'Usage statement',
+		what: 'Akash issues no invoice. Per month, an Eigenbeleg lists the network fees, the top-up (AKT → ACT) and the deployments’ usage; it covers the month’s network fees.',
+		month: 'Month',
+		make: 'Create usage statement',
+		making: 'Creating …',
+		exists: 'Statement {number} is under Belege.',
+		made: 'Eigenbeleg {number} for {month} created: {fees} network fees linked, usage {act} ACT.',
+		act: {
+			title: 'ACT account (credit for deployments)',
+			what: 'ACT is minted by burning AKT and pays the deployments. Here: what was topped up, used and is left, valued at cost.',
+			open: 'Show ACT account',
+			loading: 'Reading balance and deployments …',
+			month: 'Month',
+			minted: 'Topped up',
+			used: 'Used',
+			balance: 'Balance',
+			cost: 'Top-up cost',
+			usedCost: 'Usage at cost',
+			summary:
+				'Topped up {minted} ACT for {cost} ({perAct} per ACT) · used {used} ACT ({usedCost}) · left {held} ACT in the wallet and {escrow} ACT in escrow ({left}).',
+			derived:
+				'For older top-ups the ACT amount is no longer on chain; it is derived from balance, escrow and usage and shared by the AKT burnt.',
+			booking:
+				'Whether the top-up is booked as a prepayment and only the usage as an expense is for the tax adviser.',
+			none: 'No top-up and no deployment yet.'
+		}
 	},
 	aleph: {
 		title: 'Aleph Cloud (hosting credits)',
@@ -892,12 +1416,25 @@ export default {
 		scanWrong: 'This QR code is not a device ID.',
 		bothMode:
 			'“Both”: a new device joins via QR code or via your bridge’s relay; after that the devices also meet via the public relays.',
+		lastData: 'last data: {time}',
+		noData: 'no data seen from this device yet',
+		log: {
+			title: 'Sync log ({count})',
+			what: 'What came and went between your devices, per entry: when, from which device, which book, what it is. On this device only, sealed, the newest 300 – never in the books, or every device would log the others’ log. “From” names the device the database last exchanged with.',
+			from: 'from {device}',
+			here: 'written here',
+			someDevice: 'a device',
+			op: { new: 'new', changed: 'changed', deleted: 'deleted' },
+			empty: 'Nothing yet – it shows once entries go between the devices.',
+			clear: 'Clear the log'
+		},
 		qrMode: {
 			what: 'Without a relay: one device shows an invitation, the other scans it and shows its answer, the first scans the answer. Then both are connected directly – no relay, no server in between.',
 			invite: 'Show invitation',
 			inviteLabel: 'QR code with this device’s invitation',
 			inviteHint:
-				'Scan with the other device, then capture its answer here with “Scan QR code”. Valid for ten minutes.',
+				'Scan it with the other device’s camera – the code is a link that opens Belege there – or in Belege there with “QR-Code scannen”. Then take its answer here with “QR-Code scannen”. Valid for ten minutes.',
+			byLink: 'The invite came by link: this is the answer to it.',
 			answerLabel: 'QR code with this device’s answer',
 			answerHint: 'Scan with the device that showed the invitation.',
 			copy: 'Copy code',
@@ -945,6 +1482,10 @@ export default {
 		explain: 'Explain inconsistencies',
 		explainTitle:
 			'Sends the timeline to your language model: dates, amounts, periods, items and the findings – redacted, without phone, customer and invoice numbers. Hints only, nothing is booked.',
+		explainTitleLocal:
+			'Gives the timeline to your language model on this computer: dates, amounts, periods, items and the findings – unredacted, as nothing leaves the computer. Hints only, nothing is booked.',
+		explainTitleEnclave:
+			'Gives the timeline to your language model in the attested enclave: dates, amounts, periods, items and the findings – unredacted – only the verified enclave can read it. Hints only, nothing is booked.',
 		explainNeedsBridge: 'This needs the bridge to be paired with a language model.',
 		notes: 'AI notes',
 		pdf: 'Download as PDF',
@@ -970,10 +1511,49 @@ export default {
 		hidden: '{count} more in other years'
 	},
 	home: {
+		safety: {
+			warn: {
+				title: 'Your books live only in this browser',
+				text: 'The browser has not promised to keep them: when the device runs low on space, it may delete them without asking. There is no second copy – no recent backup, no own device.'
+			},
+			remind: {
+				title: 'Time for a backup',
+				text: 'The browser keeps your books. A broken disk, a lost laptop or cleared site data would still take them, as long as there is no second copy.'
+			},
+			noBackup: 'No backup yet.',
+			backupToday: 'Last backup: today.',
+			backupAge: 'Last backup {days} days ago.',
+			persist: 'Keep for good',
+			backup: 'Make a backup',
+			device: 'Connect an own device',
+			snooze: 'Again in a week',
+			refused:
+				'The browser said no. Chrome is more likely to agree when Belege is installed as an app or bookmarked. Only a backup or a second device makes the books safe.'
+		},
+		ownIban: {
+			title: 'Is this an own account?',
+			what: 'Money comes from these IBANs under your company’s name – usually an own account whose statements do not name its IBAN (Wise, for example). Saved as an own IBAN, every payment to it counts as an own transfer.',
+			sends: 'sends as “{name}” ({count}×)',
+			explainsOne: 'Explains 1 payment without a receipt to this IBAN.',
+			explains: 'Explains {count} payments without a receipt to this IBAN.',
+			explainsNone: 'No payment without a receipt to this IBAN yet.',
+			open: 'See the payment',
+			yes: 'Yes, own account',
+			no: 'No, not ours'
+		},
 		integrationNeeds: 'Integrations need you',
+		wrongFees: {
+			title: '{count} payments were wrongly taken for a bank fee',
+			what: 'A learned bank fee had covered them, though they are a vendor’s invoices. They look for their receipt again; the rule behind them can go.',
+			forget: 'Forget these rules ({count})'
+		},
 		privateOpen: {
 			title: 'Paid privately, not yet settled: {count} ({amount})',
 			what: 'Private payments from the business account. Pay them back from the private account and link the repayment to the payment.'
+		},
+		outlaysOpen: {
+			title: 'Laid out privately, not yet paid back: {count} ({amount})',
+			what: 'The managing director’s outlays. Transfer them back and link the transfer with “Pays outlays back …” on the payment.'
 		},
 		transferReceipts: {
 			title: 'Transfer with receipt: {count} to check',
@@ -984,8 +1564,7 @@ export default {
 			keep: 'Receipt is correct'
 		},
 		resume: {
-			extract:
-				'{count} receipts were not fully read when the page was reloaded or locked. Continue?',
+			extract: '{count} receipts were not fully read because the run was interrupted. Continue?',
 			suggest:
 				'AI suggestions are still missing for {count} questions because the run was interrupted. Continue?',
 			go: 'Continue',
@@ -1012,6 +1591,8 @@ export default {
 			privateLine: '{paid} paid · {repaid} paid back',
 			loans: 'Loans',
 			loansLine: '{received} received · {paid} paid',
+			taxes: 'Taxes to the tax office',
+			taxesLine: '{paid} paid · {refunded} refunded',
 			unpricedOne: '1 crypto booking without a rate is not counted.',
 			unpricedMany: '{count} crypto bookings without a rate are not counted.',
 			show: 'show',
@@ -1025,8 +1606,25 @@ export default {
 		agentOpenMany: '{count} open questions',
 		agentNone: 'No open questions – everything that can be linked is linked.',
 		vat: {
-			title: 'Input VAT {year}',
-			what: 'The VAT in your receipts at 19 % and 7 %, by receipt date. As the receipts were extracted – a help for the advance return, not the return itself.',
+			title: 'VAT {year}',
+			what: 'Input VAT from your receipts at 19 % and 7 %, by receipt date; output VAT from the invoice app’s invoices, {basis}; the VAT payable is the difference (negative: a refund). As receipts and invoices say it – a help for the advance return, not the return itself.',
+			basisIst: 'when the money comes in (Ist)',
+			basisSoll: 'by invoice date (Soll)',
+			output: 'Output',
+			due: 'Payable',
+			outputOpen:
+				'Output VAT on invoices not paid yet: {amount} (invoices: {count}) – under Ist due only when the money comes in.',
+			outputMissing:
+				'Invoices whose VAT the invoice app did not send: {count} ({amount} gross) – not in the output VAT until the app sends the VAT per rate.',
+			outputNone: 'Invoices without VAT: {count} ({amount}).',
+			outputForeign:
+				'Own invoices in {currencies} with no euro amount known: {count}. They count once a payment in euros is linked – never their amount as euros.',
+			outputUndated:
+				'Own invoices without an invoice date: {count} ({amount}). Under Soll they count in no month – add the date on the receipt.',
+			turnover:
+				'Turnover {year} from your invoices: {amount}. Limit in the current year: {limit}; in the previous year at most {previous}.',
+			turnoverOver:
+				'Turnover {year} from your invoices: {amount} – over the limit of {limit}. From the turnover that exceeds it, the small-business scheme no longer applies; talk to your tax advisor.',
 			period: 'Period',
 			rate19: '19 %',
 			rate7: '7 %',
@@ -1043,8 +1641,31 @@ export default {
 			undated: 'Receipts without a date, in no period: {count}.',
 			smallBusiness:
 				'As a small business (Kleinunternehmer, §19 UStG) you deduct no input VAT. Your receipts of this year contain {amount} of VAT.',
+			special: {
+				title: 'International and special cases',
+				intraEu:
+					'Intra-EU supplies and services: {amount} net (invoices: {count}) – no German VAT, to be reported in the EC Sales List (ZM).',
+				thirdCountry:
+					'Third country (export, not taxable in Germany): {amount} net (invoices: {count}).',
+				reverseChargeDe:
+					'§13b in Germany – the customer owes the VAT: {amount} net (invoices: {count}).',
+				exempt: 'Exempt in Germany: {amount} net (invoices: {count}).',
+				intraEuAcquisition:
+					'Intra-EU acquisitions: {amount} net (receipts: {count}) – you owe the acquisition VAT and deduct it as input VAT at once.',
+				zm: 'For the EC Sales List (ZM)',
+				vatId: 'Customer’s VAT ID',
+				net: 'Net',
+				unclear: 'Not sure how to classify: {count} – please have a look:',
+				reasons: {
+					noCustomerVatId: 'EU invoice without the customer’s VAT ID',
+					noCountry: 'no VAT, country unknown',
+					noCategory: 'no VAT, reason not given',
+					currency: 'another currency, its euros not known yet'
+				},
+				note: 'As the invoices say it. Which cases are reported how is for you and your tax advisor to settle.'
+			},
 			outputLater:
-				'The output VAT from your outgoing invoices and the VAT payable follow once the invoice app sends the VAT per rate.'
+				'No invoices from the invoice app yet: output VAT and the VAT payable appear once it is paired and sends invoices with the VAT per rate.'
 		},
 		agentProgress: '{done} of {total} done',
 		agentAnswer: 'Answer questions',
@@ -1073,6 +1694,10 @@ export default {
 	},
 	matching: {
 		reason: {
+			instalment: 'instalment',
+			'remaining-amount': 'remaining amount',
+			'amount-original': 'amount (original currency)',
+			'amount-converted': 'amount (converted)',
 			amount: 'Amount',
 			'invoice-number': 'Invoice number',
 			'customer-number': 'Customer number',
@@ -1094,9 +1719,14 @@ export default {
 			'no-receipt': 'No receipt needed',
 			'private-mistake': 'Private (misdirected)',
 			'private-repayment': 'Private repayment',
+			'outlay-repayment': 'Outlays repaid',
 			'own-transfer': 'Own transfer',
 			'bank-fee': 'Bank statement',
 			loan: 'Loan',
+			wage: 'Wage',
+			'payroll-tax': 'Wage tax',
+			'social-security': 'Social security',
+			'tax-payment': 'Tax',
 			'crypto-reward': 'Exchange earnings',
 			'crypto-stake': 'Staking',
 			refund: 'Refund',
@@ -1105,6 +1735,7 @@ export default {
 			'token-burn': 'Burned by the project',
 			'token-migration': 'Token migration',
 			'crypto-dust': 'Dust',
+			'token-spam': 'Fake token',
 			'rule-ignore': 'Ignored',
 			'rule-private': 'Private'
 		},
@@ -1112,6 +1743,11 @@ export default {
 			'own-transfer': 'Own transfer (1360) – no receipt needed',
 			'bank-fee': 'Bank charge – the bank statement is the receipt',
 			loan: 'Loan – the contract is the receipt',
+			wage: 'Wage payment – the receipt is the payslip from the payroll',
+			'payroll-tax': 'Wage tax to the tax office – the receipt is the wage-tax return',
+			'social-security':
+				'Social security contributions – the receipt is the contribution statement',
+			'tax-payment': 'Tax payment – the receipt is the return or the assessment',
 			'crypto-reward': 'Staking or earn income – the exchange’s statement is the receipt',
 			'crypto-stake': 'Delegated to staking – no receipt needed, not on 1360',
 			refund: 'Charge and refund – no receipt needed',
@@ -1121,6 +1757,7 @@ export default {
 			'token-migration':
 				'Token migration – both transactions in the block explorer are the receipt',
 			'crypto-dust': 'Dust under one cent – no receipt needed',
+			'token-spam': 'Fake token (address poisoning) – nothing moved, no receipt needed',
 			'rule-ignore': 'Ignored per own instruction: {reason}',
 			'rule-private': 'Private per own instruction: {reason}',
 			'no-receipt': 'No receipt needed: {reason}'
@@ -1132,8 +1769,16 @@ export default {
 	},
 	explain: {
 		reason: {
+			instalment: 'an instalment: less than what is open',
+			'remaining-amount': 'amount equals what is still open',
 			amount: 'Amount matches',
 			amountValue: 'Amount matches ({amount})',
+			amountOriginal: "Amount matches – in the receipt's currency, as the bank says",
+			amountOriginalValue: 'Amount matches ({amount} as the bank says)',
+			amountConverted: "Amount converted at the booking day's rate",
+			ecb: 'ECB',
+			amountConvertedValue:
+				'Amount converted: {eur} is {amount} at the {source} rate of {day} (1 {currency} = {rate} EUR), {diff} % off {invoice}',
 			invoice: 'Invoice number in the payment reference',
 			invoiceValue: 'Invoice number {number} in the payment reference',
 			customer: 'Customer number in the payment reference',
@@ -1169,6 +1814,9 @@ export default {
 			noReceipt: 'Decided by you: No receipt needed – {reason}',
 			noReason: 'no reason given',
 			ownCompany: 'Own transfer: the counterparty is your company “{company}”',
+			ownCard: 'Own transfer: settles your credit card {account}',
+			ownCardSettlement:
+				'Own transfer: the credit card settled from the bank account – the debit there is its receipt',
 			ownIban: 'Own transfer: the contra account is your account {account}',
 			ownIbanFound: '– the counter-booking there on {date} is linked.',
 			ownIbanMissing:
@@ -1186,6 +1834,23 @@ export default {
 			bankFeeLearned:
 				'Bank charge: you have classified a booking with this payment reference this way before – the bank statement is the receipt',
 			loan: 'Loan: “Darlehen” (loan) in the payment reference – the contract is the receipt',
+			wageEmployee:
+				'Wage to {employee} (on your employees list){period}: the receipt is the payslip from the payroll, not this payment.',
+			wageWords:
+				'“Lohn”, “Gehalt” or “Minijob” in the payment reference{period}: the receipt is the payslip from the payroll, not this payment.',
+			payrollTax:
+				'Wage tax to the tax office{period}: the receipt is the wage-tax return from the payroll.',
+			social: 'Contributions to {counterparty}{period}: the receipt is the contribution statement.',
+			tax: '{tax} to {office}{period}: the receipt is the advance return or the tax assessment.',
+			taxName: {
+				vat: 'VAT',
+				corporate: 'Corporate tax',
+				trade: 'Trade tax',
+				other: 'Tax'
+			},
+			taxOffice: 'the tax office',
+			taxNumber: 'the tax office (tax number in the payment reference)',
+			period: ' for {period}',
 			exchangeFee:
 				'Exchange fee: Kraken charged it for this booking – the exchange’s statement is the receipt',
 			networkFee: 'Blockchain network fee: the transaction in the block explorer is the receipt',
@@ -1224,6 +1889,8 @@ export default {
 			staking:
 				'Staking: the tokens are delegated and remain yours. No receipt needed. Not on 1360 – their return after unbonding is not a transaction, so a transfer would never balance; clarify the account with your tax advisor.',
 			dust: 'Dust: worth less than a cent, received without you doing anything. No receipt needed. Often a test or advertising – or the start of address poisoning: never use the sender address as a recipient.',
+			tokenSpam:
+				'Fake token: a token without any rate that this wallet did not move, or whose name imitates a real one. A token contract can report a transfer from any address without its key – nothing moved. No receipt needed. It is meant to put an address into your history: never send to it.',
 			dustLookalike:
 				'Dust from an address that looks like {known} but is a different one – very likely address poisoning. No receipt needed.',
 			cryptoReward:
@@ -1310,6 +1977,10 @@ export default {
 		ai: {
 			button: 'AI suggestions for all open questions ({count})',
 			what: 'For {count} payments without a receipt, the bridge asks your language model which receipt fits – one request per payment with the redacted booking and up to 25 nearest receipts.',
+			whatLocal:
+				'For {count} payments without a receipt, the bridge asks your language model on this computer which receipt fits – one request per payment with the booking and up to 25 nearest receipts, unredacted, as nothing leaves the computer.',
+			whatEnclave:
+				'For {count} payments without a receipt, the bridge asks your language model in the attested enclave which receipt fits – one request per payment with the booking and up to 25 nearest receipts, unredacted – only the verified enclave can read it.',
 			tokens: 'Based on your last AI suggestions, about {tokens} tokens.',
 			tokensUnknown: 'History shows how many tokens this takes after the first run.',
 			only: 'These are only suggestions: nothing is linked until you accept one.',
@@ -1371,12 +2042,28 @@ export default {
 		mark: 'AI',
 		extract:
 			'With AI: the bridge sends the receipt’s text – redacted, never the file – to the language model you have set, and gets back vendor, amount, date and numbers.',
+		extractLocal:
+			'With AI: the bridge gives the receipt’s text – never the file – to your language model on this computer and gets back vendor, amount, date and numbers. Unredacted, as nothing leaves the computer.',
+		extractEnclave:
+			'With AI: the bridge gives the receipt’s text – never the file – to your language model in the attested enclave and gets back vendor, amount, date and numbers. Unredacted – only the verified enclave can read it.',
 		upload:
 			'With AI: after the upload the bridge extracts the receipt with your language model (text only, redacted). Linking happens without AI.',
+		uploadLocal:
+			'With AI: after the upload the bridge extracts the receipt with your language model on this computer (text only, unredacted – it does not leave the computer). Linking happens without AI.',
+		uploadEnclave:
+			'With AI: after the upload the bridge extracts the receipt with your language model in the attested enclave (text only, unredacted – only the verified enclave can read it). Linking happens without AI.',
 		import:
 			'With AI: after the import the bridge extracts the email or its attachment with your language model (text only, redacted). Linking happens without AI.',
+		importLocal:
+			'With AI: after the import the bridge extracts the email or its attachment with your language model on this computer (text only, unredacted – it does not leave the computer). Linking happens without AI.',
+		importEnclave:
+			'With AI: after the import the bridge extracts the email or its attachment with your language model in the attested enclave (text only, unredacted – only the verified enclave can read it). Linking happens without AI.',
 		portal:
-			'With AI: the bridge extracts the fetched invoices with your language model (text only, redacted). Signing in and fetching work without AI.'
+			'With AI: the bridge extracts the fetched invoices with your language model (text only, redacted). Signing in and fetching work without AI.',
+		portalLocal:
+			'With AI: the bridge extracts the fetched invoices with your language model on this computer (text only, unredacted – it does not leave the computer). Signing in and fetching work without AI.',
+		portalEnclave:
+			'With AI: the bridge extracts the fetched invoices with your language model in the attested enclave (text only, unredacted – only the verified enclave can read it). Signing in and fetching work without AI.'
 	},
 	settings: {
 		title: 'Settings',
@@ -1389,8 +2076,106 @@ export default {
 			learned: 'Learned',
 			books: 'Bookkeeping (DATEV)',
 			chart: 'Chart of accounts',
+			travellers: 'Travellers',
+			keys: 'Keys',
 			privacy: 'Privacy & technical'
+		},
+		keys: {
+			title: 'Keys',
+			words: {
+				title: 'Recovery words',
+				what: '24 words on paper that open the books when every passkey is gone – on an empty device, without a passkey: a new one is made there with them. Belege makes them at random; they are stored nowhere, only a slot in the vault that opens with them.',
+				none: 'No recovery words yet. Write them down and keep the paper safe, apart from your devices.',
+				has: 'Recovery words made on {date}.',
+				start: 'Make words',
+				new: 'Make new words',
+				writeDown: 'Write these 24 words on paper, in this order. They are shown only now.',
+				paper: 'No photo, no notes app, no clipboard: whoever has the words opens the books.',
+				written: 'I have written down the 24 words.',
+				next: 'Next',
+				askBack: 'To check: which words are at these places?',
+				confirm: 'Confirm the words',
+				saving: 'Saving …',
+				back: 'Show the words again',
+				wrongBack: 'Not right at place {positions}. Look at your paper again.',
+				added: 'The recovery words open the books now. Older words open nothing any more.',
+				remove: 'Remove the words',
+				removeSure: 'Afterwards the words no longer open the books.',
+				removeYes: 'Yes, remove',
+				removed: 'The recovery words are removed.',
+				publish:
+					'Keep the vault on Aleph, so an empty device finds it with the words alone (sealed, without names).',
+				equivalent:
+					'The words weigh as much as all passkeys together. Whoever saw them knows the root of the keys – as with a passkey, removing helps only for what comes after. Renewing the vault (a passkey in other hands) drops the words: make new ones then.',
+				offerTitle: 'Secure your books:',
+				offer: 'Make recovery words – 24 words on paper, in case your passkey is lost.',
+				offerGo: 'Make them now',
+				offerLater: 'Later'
+			},
+			intro:
+				'Which passkeys open your books. Each has a slot of its own in the books’ vault; every slot opens the same books and every backup.',
+			singleHeading: 'Only one key:',
+			single:
+				'One passkey opens these books. If it is lost, the books and the backups can no longer be read. Add a second one, such as a security key you keep somewhere safe.',
+			unnamed: 'Passkey',
+			since: 'since {date}',
+			mine: 'this passkey',
+			remove: 'Remove',
+			removeHow:
+				'Remove: this passkey no longer opens the books. With renewal: the vault also gets a new key – for a passkey that may be in other hands. For that, every passkey that stays answers once, this one too.',
+			removePlain: 'Remove',
+			removeRenew: 'Remove and renew the vault',
+			removed: 'Removed. This passkey no longer opens the books.',
+			renewed: 'Removed, and the vault is renewed.',
+			removeLimit:
+				'What removing cannot do: a passkey that has opened the books knows the root of their keys, and older backups still carry its slot.',
+			addLabel: 'Add another passkey',
+			addPlaceholder: 'e.g. security key in the safe',
+			add: 'Add passkey',
+			adding: 'Adding …',
+			addHint:
+				'Two prompts: the new passkey, then its answer. This browser goes on opening the books with its own passkey.',
+			added: 'Added. The new passkey opens the same books.',
+			publish:
+				'Keep the vault on Aleph, sealed, so an empty device finds it with any of these passkeys',
+			publishPaused: 'The network is paused: the vault is not kept on Aleph.',
+			notPublished:
+				'The vault is only in this browser. An empty device finds it with the second passkey only once it is kept on Aleph.',
+			publishNow: 'Keep it there now',
+			published: 'Kept on Aleph.',
+			paused: 'The network is paused.',
+			technical: [
+				'The vault holds the root R every key is derived from with HKDF (the PRF output of the passkey that made the books), sealed under a random vault key (AES-256-GCM). Each slot is the vault key sealed under a key from its passkey’s PRF output (belege/vault-slot/v1), bound to the vault and the passkey.',
+				'On Aleph, as aggregate belege-vault: at an address from each passkey’s PRF output, the vault record; at an address from the root, the current record and the paying account, sealed. No names of passkeys, no wallet.'
+			]
 		}
+	},
+	travellers: {
+		title: 'Travellers',
+		intro:
+			'Who travels for the company: the owner or managing shareholder, and employees. Each person gets their own monthly statement.',
+		none: 'No one yet. The owner is added with the first trip.',
+		unnamed: 'unnamed',
+		role: { owner: 'Owner/managing director', employee: 'Employee' },
+		roleLabel: 'Role',
+		name: 'Name',
+		account: 'Clearing account',
+		accountHint:
+			'Required: the statement is booked on this account (a personal account, say). Without it nothing is booked.',
+		accountHintOwner: 'Empty: the clearing account of the legal form, from “Bookkeeping”.',
+		accountShown: 'Account {account}',
+		iban: 'IBAN, last 4 digits',
+		ibanHint: 'Recognises the transfer that pays it back.',
+		noAccount: 'Clearing account missing',
+		edit: 'Edit',
+		remove: 'Remove',
+		add: 'Add a person',
+		save: 'Save',
+		cancel: 'Cancel',
+		inUse: 'This person has trips or statements, and stays.',
+		ownerExists: 'There is an owner already.',
+		adviser:
+			'Which clearing account is right for employees is for the tax adviser. Belege pays back the statutory allowances only; nothing above them.'
 	},
 	anweisungen: {
 		title: 'Company, matching and bookkeeping',
@@ -1399,6 +2184,12 @@ export default {
 		companyNames: 'Company name(s)',
 		companyHint:
 			'One name per line, e.g. “le space UG”. Payments to this name count as an own transfer (account 1360), invoices from it as your outgoing invoices.',
+		ownNames: 'Own names (owners, shareholders)',
+		ownNamesHint:
+			'One name per line, e.g. “Erika Mustermann”. When one of them is the counterparty, “Find receipt” does not search the mailbox for it, but for a word from the payment reference.',
+		employees: 'Employees (wages, mini-jobs)',
+		employeesHint:
+			'One name per line. A payment to one of them is a wage: its receipt is the payslip from the payroll, not a receipt in the mailbox.',
 		ownIbans: 'Own IBANs',
 		ownIbansHint:
 			'One IBAN per line. Payments to these accounts count as an own transfer. Matching already knows the accounts from the books: {list}.',
@@ -1435,10 +2226,10 @@ export default {
 			title: 'Chart of accounts',
 			hint: 'Import your bookkeeping’s chart of accounts: then “Account” on each payment suggests your accounts with your names instead of the general SKR 03 list.',
 			infoTitle:
-				'A file from your bookkeeping: DATEV “Kontenbeschriftungen” (account labels, e.g. MonKey Office: Import & Export → Export DATEV → Kontenbeschriftungen) or a CSV with account number and name. It stays encrypted in your books in this browser.',
+				'A file from your bookkeeping: DATEV “Kontenbeschriftungen” (account labels, in the bookkeeping usually under “Export DATEV”) or a CSV with account number and name. It stays encrypted in your books in this browser.',
 			howTitle: 'How do I get the file?',
 			how: [
-				'MonKey Office: sidebar → Import & Export → Export DATEV → “Kontenbeschriftungen” (optionally just an account range “von Konto … bis Konto”) → import the CSV file here.',
+				'In your bookkeeping, open the DATEV export of the “Kontenbeschriftungen” (optionally just a range of accounts), save the CSV file and import it here. The menus are named differently from program to program.',
 				'Other programs with a DATEV interface: choose the export “Kontenbeschriftungen” or “Kontenplan (DATEV-Format)” – the file starts with “EXTF”.',
 				'Otherwise a CSV or text file with one column for the account number (4–8 digits) and one for the name, separated by semicolon, comma or tab, will do – such as the chart of accounts export from Lexware, sevDesk or Excel.',
 				'Your program is not listed or the file is not recognised? Write to us which program you use – we will add it on request.'
@@ -1456,17 +2247,23 @@ export default {
 			tooLarge: 'The file is larger than 5 MB – is it really the chart of accounts?'
 		},
 		books: {
-			title: 'Bookkeeping (MonkeyOffice / DATEV)',
-			hint: 'What the DATEV export needs to know about your bookkeeping. Check the values in MonkeyOffice – it shows what it expects on import.',
-			ledger: 'Ledger account in MonkeyOffice',
+			title: 'Bookkeeping (DATEV export)',
+			hint: 'What the DATEV export needs to know about your bookkeeping. Check the values in your bookkeeping – it shows what it expects on import.',
+			ledger: 'Ledger account in your bookkeeping',
 			ledgerHint:
-				'The ledger account under which this bank account is kept in your bookkeeping. Suggestion per SKR 03: {suggestion} – only a placeholder, enter the number from MonkeyOffice.',
+				'The ledger account under which this bank account is kept in your bookkeeping. Suggestion per SKR 03: {suggestion} – only a placeholder, enter the number from your bookkeeping.',
 			noAccounts: 'No bank accounts in the books yet.',
 			vatPeriod: 'Advance VAT return',
 			vatPeriods: { quarter: 'quarterly', month: 'monthly' },
+			ownVatId: 'Own VAT ID',
+			vatBasis: 'Output VAT by',
+			vatBases: {
+				ist: 'payments received (Ist)',
+				soll: 'invoices issued (Soll)'
+			},
 			smallBusiness: 'Small business (Kleinunternehmer, §19 UStG)',
 			vatHint:
-				'The input VAT card on Home follows this. As a small business you charge no VAT and deduct none.',
+				'The VAT card on Home follows this. Under Ist an invoice’s output VAT counts when the money comes in, under Soll on the invoice date – whichever your tax office granted. As a small business you charge no VAT and deduct none.',
 			legalForm: 'Legal form',
 			legalFormUnset: 'not specified yet',
 			legalForms: {
@@ -1475,12 +2272,15 @@ export default {
 				corporation: 'Corporation (UG, GmbH)'
 			},
 			shareholderAccount: 'Shareholder clearing account',
+			suspenseAccount: 'Suspense account for bookings without an account',
+			suspenseHint:
+				'Optional. With an account here, the export can book bookings without a confirmed account onto it instead of waiting. Belege suggests no number: which account (in SKR 03 usually one of the transit or unclear items) and who re-books is for you and your tax advisor to agree.',
 			legalFormHint:
 				'Determines how a private payment from the business account is booked (“Private (misdirected)”): for sole proprietorships and partnerships as a private withdrawal (1800), a repayment as a private contribution (1890); UG and GmbH have no private withdrawals – the company paid for you, a claim on the shareholder clearing account that you pay back. Set the account number with your tax advisor.',
 			consultant: 'Advisor number',
 			client: 'Client number',
 			numbersHint:
-				'For your own bookkeeping without a tax advisor, MonkeyOffice usually takes 1001 and 1. Check in MonkeyOffice what it expects on DATEV import.',
+				'For your own bookkeeping without a tax advisor, 1001 and 1 are usual. Check in your bookkeeping what it expects on DATEV import.',
 			fiscalStart: 'Financial year starts in',
 			accountLength: 'Ledger account length',
 			accountLengthHint: 'Digits of your ledger accounts, usually 4 for SKR 03.',
@@ -1501,13 +2301,138 @@ export default {
 		ruleText: '{field} “{contains}” → {action}'
 	},
 	belege: {
+		payrollDoc: {
+			offer: 'Payroll or tax document …',
+			hint: 'A payroll run, a payroll journal, a wage-tax return, a contribution statement or a tax assessment is the receipt for several payments: pick its kind and period, the matching payments are ticked.',
+			kindLabel: 'Kind',
+			kind: {
+				payroll: 'Payslips / payroll journal',
+				'wage-tax-return': 'Wage-tax return',
+				contributions: 'Contribution statement',
+				'tax-assessment': 'Tax assessment / advance return'
+			},
+			period: 'Period',
+			none: 'No recognised payment of this kind for {period}. Linking keeps the document as such anyway.',
+			link: 'Link',
+			is: '{kind} {period}, the receipt for these payments:',
+			undo: 'Not a payroll or tax document',
+			badPeriod: 'Give the period as 12/2025, 2025-Q4 or 2025.'
+		},
+		travel: {
+			open: 'To a trip …',
+			looksLikeTrip: 'Read as {kind}: it probably belongs to a trip.',
+			guessed: 'Kind by its words: {kind} (“{words}”) – it may belong to a trip.',
+			looksLikeEvent: 'Read as {kind}: it may belong to a trip.',
+			kind: {
+				train: 'train ticket',
+				bus: 'bus ticket',
+				flight: 'flight',
+				public_transport: 'public transport ticket',
+				taxi: 'taxi',
+				rental_car: 'rental car',
+				fuel: 'fuel',
+				parking: 'parking',
+				hotel: 'hotel invoice',
+				restaurant: 'restaurant bill',
+				event: 'event ticket',
+				ticket: 'ticket'
+			},
+			readBack: 'back {when}',
+			readNights: 'nights: {count}',
+			readBreakfast: 'breakfast included',
+			assigned: 'Part of the trip',
+			trip: 'Trip',
+			suggested: 'At this date',
+			otherTrips: 'Other trips',
+			paidBy: 'Paid',
+			paid: { private: 'privately', company: 'by the company' },
+			assign: 'Assign',
+			newTrip: 'New trip with this receipt',
+			newFor: 'New trip for',
+			unassign: 'Take it off the trip',
+			cancel: 'Cancel',
+			euro: {
+				outlay: 'In euros: {amount} ({original}), as booked as an outlay.',
+				payment: 'In euros: {amount} ({original}), as paid.',
+				byRate: 'In euros: {amount} ({original} at {rate} {currency} per EUR).',
+				change: 'Change the rate',
+				missing:
+					'Receipt of {original}: without a rate no euro amount – the statement waits for it.',
+				rate: 'Rate: 1 EUR = … {currency}',
+				ask: 'Fetch the rate',
+				keep: 'Take the rate',
+				preview: '= {amount} ({source})',
+				noRate:
+					'The bridge knows no rate for this day: please type one, e.g. from the card statement.'
+			},
+			hospitality: {
+				looksLike: 'Read as a restaurant bill: record it as hospitality if it was a business meal.',
+				open: 'Record as hospitality …',
+				title: 'Hospitality',
+				what: 'What the tax office asks for a business meal. Participants one per line, yourself included.',
+				place: 'place',
+				participants: 'participants',
+				occasion: 'occasion',
+				tip: 'Tip (€)',
+				tipTo: 'tip recipient',
+				badTip: 'The tip is not an amount in euros.',
+				save: 'Save',
+				edit: 'Change',
+				remove: 'Not hospitality',
+				split: 'Deductible {deductible}, not deductible {rest}, input VAT {vat}.',
+				missing: 'Still missing: {what}.'
+			}
+		},
+		outlay: {
+			open: 'Paid privately …',
+			hint: 'Paid in cash or with a private card: book it as an outlay of the managing director. The receipt is then covered and waits for no bank payment.',
+			howLabel: 'Paid',
+			how: { cash: 'in cash', card: 'with a private card', other: 'otherwise' },
+			day: 'on',
+			amount: 'Amount on the receipt: {amount}',
+			rate: 'Rate: EUR per 1 {currency}',
+			ratePerEuro: 'Rate: {currency} per 1 EUR',
+			rateOther: '= {value} {unit}',
+			rateTurnToUnit: 'enter as EUR per 1 {currency}',
+			rateTurnToEuro: 'enter as {currency} per 1 EUR',
+			asking: 'Asking for the reference rate …',
+			ecb: 'ECB reference rate of {date}',
+			cbr: 'Bank of Russia reference rate of {date} (the ECB no longer publishes a ruble rate). A rate from the card statement or an exchange receipt comes first if you have one.',
+			nbk: 'National Bank of Kazakhstan reference rate of {date} (the ECB publishes no tenge rate). A rate from the card statement or an exchange receipt comes first if you have one.',
+			'cbr-cross':
+				'Cross rate through the ruble, from the Bank of Russia rates of {date} – not an official euro rate. A rate from the card statement or an exchange receipt comes first if you have one.',
+			noEcb:
+				'There is no reference rate for {currency} on this day. Enter the rate from the card statement or an exchange receipt.',
+			rateNote: 'Where the rate comes from',
+			rateNotePlaceholder: 'e.g. card statement of …, exchange receipt',
+			note: 'Note (optional)',
+			needsRate: 'The rate for the euro amount is missing.',
+			euros: 'Booked at {amount}',
+			book: 'Book as an outlay',
+			cancel: 'Cancel',
+			booked:
+				'Paid privately on {date} ({how}): {amount} on the account "Auslagen Geschäftsführung".',
+			bookedRate: '{original} {currency} at {rate} EUR ({source})',
+			bookedRatePerEuro: '{original} {currency} at {rate} {currency} per 1 EUR ({source})',
+			rateSource: {
+				ecb: 'ECB rate',
+				cbr: 'Bank of Russia rate',
+				nbk: 'National Bank of Kazakhstan rate',
+				'cbr-cross': 'cross rate through RUB, Bank of Russia',
+				manual: 'rate by hand'
+			},
+			undo: 'Undo the outlay'
+		},
+		instalments: {
+			partial: 'partly paid · {paid} of {total} ({count}×)',
+			paid: 'paid in {count} instalments',
+			overpaid: 'over-paid by {over} ({count}×)',
+			open: 'open'
+		},
 		title: 'Receipts',
 		empty:
 			'No receipts yet. Uploading files or sharing a folder works at once; the accounting mailbox needs the bridge.',
 		emptyLink: 'Set up the bridge',
-		upload: 'Upload receipts',
-		uploadHint: 'PDFs and images, drag and drop them here too.',
-		drop: 'Drop to upload',
 		folder: 'Share folder',
 		folderAgain: 'Read folder “{name}”',
 		folderForget: 'Forget folder',
@@ -1519,6 +2444,7 @@ export default {
 		mailFrom: 'From month',
 		mailTo: 'To month',
 		mailLastYear: 'All of last year',
+		uploadReadAfter: 'Read and match new receipts at once (uploads and the shared folder)',
 		mailReadAfter: 'Read new receipts right after fetching',
 		trash: {
 			button: 'Move mail to the bin',
@@ -1548,6 +2474,23 @@ export default {
 				'foreign-links': 'Links to hosts other than the sender: {detail}'
 			}
 		},
+		paperless: {
+			title: 'Fetch from Paperless',
+			intro:
+				'Fetches through the bridge what Paperless-ngx has added since the last fetch – when this page opens and on a click. The original file becomes the receipt; a scan without a text layer is read with the text Paperless recognised.',
+			fetch: 'Fetch from Paperless',
+			fetching: 'Fetching …',
+			result:
+				'{documents} documents · new: {new} · already there: {known} · duplicate: {duplicate} · left out: {skipped} · no receipt file: {unsupported}',
+			progress: 'Document {done} of {total} …',
+			failed: 'Paperless did not deliver {count} document(s) in time – the next fetch gets them.',
+			mailToo: 'Belege still fetches the mailbox itself',
+			skipTags: 'Leave out documents with these Paperless tags (comma-separated)',
+			skipTagsHint:
+				'The tag your Paperless mail rule sets: then Belege reads each email once, through the mailbox.',
+			mailOff:
+				'Paperless fetches the emails: Belege does not read the mailbox itself, or every invoice would come twice. Switch it in the Paperless card.'
+		},
 		mailFetch: 'Fetch emails',
 		mailFetching: 'Fetching …',
 		mailNoBridge: 'For emails and reading receipts, pair the bridge under ',
@@ -1557,13 +2500,20 @@ export default {
 			'The mailbox is not set up on the bridge: pnpm setup:mail, then restart the bridge.',
 		llmNotSetUp: 'Extraction is not set up on the bridge: pnpm setup:llm, then restart the bridge.',
 		mailResult: '{mails} emails · new: {new} · already there: {known} · duplicate: {duplicate}',
+		mailAppointments: ' · appointments from invitations: {count}',
 		mailVerdicts: ' · sender check updated: {count}',
 		importResult: 'New: {new} · duplicate: {duplicate} · not supported: {unsupported}',
 		sources: 'Sources',
+		months: 'Months',
+		allMonths: 'All months',
+		monthOpen: '{count} open',
+		searchAll: 'Hits from all months: {count}',
+		more: 'Show {count} more',
 		sourceAll: 'All',
 		sourceMail: 'Email {address}',
 		sourceUpload: 'Uploaded',
 		sourceFolder: 'Folder',
+		sourcePaperless: 'Paperless',
 		search: 'Search receipts',
 		searchPlaceholder: 'Search: vendor, amount, date, invoice number',
 		extractAll: 'Extract all new ({count})',
@@ -1580,6 +2530,7 @@ export default {
 			question: 'Question',
 			assigned: 'Linked',
 			ignored: 'Ignored',
+			private: 'Private',
 			prepaid: 'Prepaid account'
 		},
 		unverified: 'Check sender',
@@ -1596,7 +2547,18 @@ export default {
 				'Stays out of matching and out of the export; any link is removed. Can be taken back in.',
 			duplicate: 'Set aside as duplicate.',
 			notNeeded: 'Set aside – not a receipt.',
-			restore: 'Take back in'
+			restore: 'Take back in',
+			private: {
+				action: 'Private, not business',
+				title:
+					'A private receipt, e.g. from the private mailbox: stays out of the books, the questions and the export. Can be taken back in.',
+				note: 'Reason (optional)',
+				placeholder: 'e.g. private trip, a gift',
+				confirm: 'Set aside as private',
+				cancel: 'Cancel',
+				done: 'Private, not business.',
+				doneWith: 'Private, not business: {note}'
+			}
 		},
 		origin: {
 			label: 'How linked',
@@ -1630,7 +2592,37 @@ export default {
 		warningAfter: 'The file is only shown and read once you release it.',
 		confirm: 'Sender checked – open and release',
 		preview: 'Preview',
+		einvoice: {
+			title: 'E-invoice ({syntax}) – a view of the XML original',
+			notEn16931:
+				'This profile (MINIMUM or BASIC WL) is no e-invoice under EN 16931; it serves as a receipt only together with a readable invoice.',
+			embedded: 'E-invoice (ZUGFeRD/Factur-X) – fields from the embedded XML, read without AI',
+			fromInvoiceApp:
+				'XRechnung from the invoicing app: the XML is the original and goes into the export beside this PDF.',
+			seller: 'Seller',
+			number: 'Invoice number',
+			issued: 'Invoice date',
+			due: 'Due',
+			net: 'Net',
+			vat: 'VAT {rate} %',
+			gross: 'Total',
+			note: 'Read from the XML without AI. The XML is the original and goes into the export as it is.'
+		},
+		own: {
+			label: 'Direction',
+			yes: 'Own invoice – its VAT is output VAT',
+			no: 'Received receipt',
+			ours: 'Treat as an own invoice',
+			notOurs: 'Not an own invoice after all'
+		},
 		previewFailed: 'The preview could not be created.',
+		mailOriginal: {
+			kept: 'The email is kept as it was received (.eml); it goes into the ZIP with the export.',
+			missing: 'Only an excerpt of this email is kept.',
+			fetch: 'Fetch the original',
+			gone: 'The email is no longer in the mailbox – only this excerpt is kept.',
+			unavailable: 'The bridge could not fetch the email just now. Try again later.'
+		},
 		extract: 'Extract',
 		extractAgain: 'Extract again',
 		extractBusy: 'Extracting …',
@@ -1660,6 +2652,7 @@ export default {
 			mail: 'Email',
 			upload: 'Uploaded',
 			folder: 'Folder',
+			paperless: 'Paperless-ngx',
 			portal: 'Customer portal',
 			eigenbeleg: 'Eigenbeleg',
 			'invoice-app': 'Invoice app (own invoice)'
@@ -1677,11 +2670,11 @@ export default {
 			fallback: 'second attempt with {model}, because {reason}',
 			sent: 'Sent to the AI (redacted)',
 			sentHint:
-				'Exactly this text went from the bridge to the language model. Redacted spots are in square brackets, such as [NAME] or [IBAN …1234].',
+				'Exactly this text went from the bridge to the language model. Redacted spots are in square brackets, such as [NAME] or [IBAN …1234]. Read it: whatever still stands here, the model has seen – a name without a label that is on no list stays.',
 			sentMissing:
 				'Extracted with an older bridge: which text was sent is not stored. “Extract again” catches up on it.',
 			redactions:
-				'Redacted: {terms} names, {iban} IBANs, {email} email addresses, {street} streets, {postcode} postcodes and towns, {link} links',
+				'Redacted: {terms} names, {iban} IBANs and cards, {email} email addresses, {phone} phone numbers, {id} dates of birth and tax numbers, {street} streets, {postcode} postcodes and towns, {link} links',
 			attempts: 'Attempts: {list}',
 			tokens: 'Tokens: {prompt} sent, {completion} returned, {reasoning} of them for reasoning',
 			notAi:
@@ -1698,7 +2691,7 @@ export default {
 		},
 		technical: [
 			'Every file is sealed in the browser with AES-GCM (key via HKDF from the passkey’s PRF response, info belege/blob-key/v1) and stored in 1 MiB blocks in Helia’s blockstore. The app spots duplicates by the SHA-256 of the content, which is only kept in the sealed record.',
-			'For reading, only the PDF’s text layer goes to the bridge. The bridge redacts names, IBANs, your own email addresses, streets and postcodes and then asks the language model; the file itself never leaves the browser.'
+			'For reading, only the PDF’s text layer goes to the bridge. The bridge redacts names from its list and after labels, IBANs, email addresses, phone numbers, streets and postcodes and then asks the language model; the file itself never leaves the browser. That does not make the text anonymous – what was sent is shown on the receipt afterwards.'
 		]
 	},
 	verlauf: {
@@ -1727,6 +2720,7 @@ export default {
 			'bank-sync': 'Transactions fetched',
 			'booking-changed': 'Booking changed on fetch',
 			'mail-fetch': 'Emails fetched',
+			'paperless-fetch': 'Fetched from Paperless',
 			'file-import-upload': 'Receipts uploaded',
 			'file-import-folder': 'Folder read',
 			'sender-verdict': 'Sender check updated',
@@ -1738,7 +2732,8 @@ export default {
 			'vendor-assist': 'AI explanation of a vendor account',
 			matching: 'Matching',
 			decision: 'Decision',
-			export: 'DATEV export'
+			export: 'DATEV export',
+			'books-moved': 'Books taken over'
 		},
 		text: {
 			bookingChanged: 'before {from}, now {to}{flipped}{unconfirmed}{receipt}',
@@ -1750,6 +2745,8 @@ export default {
 			mailFetch:
 				'{from} to {to}: {mails} emails · new: {new} · already there: {skipped} · duplicate: {duplicate}',
 			fileImport: 'new: {new} · duplicate: {duplicate} · not supported: {unsupported}',
+			paperlessFetch:
+				'{documents} documents · new: {new} · already there: {known} · duplicate: {duplicate} · left out: {skipped}',
 			senderVerdict: '{vendor}: {was} → {now}',
 			senderReleased: ' – released for reading',
 			extract: '{vendor} · {model} · {seconds} s · {tokens} tokens · {redactions} spots redacted',
@@ -1762,6 +2759,9 @@ export default {
 			transferAssist: '{model} · {candidates} bookings checked · {seconds} s · {tokens} tokens',
 			vendorAssist: '{model} · {rows} rows checked · {seconds} s · {tokens} tokens',
 			export: 'DATEV export {month}: {bookings} bookings, {receipts} receipts',
+			booksMoved: 'Taken over from other books, packed on {date}: {records} records, {files} files',
+			exportSuspense:
+				'DATEV export {month}: {bookings} bookings, {suspense} of them on the suspense account, {receipts} receipts',
 			matching:
 				'{sure} linked · {created} new questions · {resolved} resolved · {classified} need no receipt · {waiting} still waiting',
 			today: 'today',
@@ -1798,8 +2798,11 @@ export default {
 			'not-refund': 'Marked as “not a refund”',
 			'transfer-receipt-kept': 'Receipt of a transfer confirmed',
 			'company-name': 'Company name adopted',
+			'own-iban': 'IBAN adopted as an own account',
+			'not-own-iban': 'IBAN marked as not ours',
 			'receipt-duplicate': 'Receipt set aside as duplicate',
 			'receipt-set-aside': 'Receipt set aside',
+			'receipt-private': 'Receipt set aside as private',
 			'receipt-restore': 'Receipt taken back in',
 			'needs-receipt': '“No receipt needed” withdrawn',
 			'confirm-sender': 'Sender released',
@@ -1816,6 +2819,8 @@ export default {
 		source: {
 			hibiscus: 'Hibiscus',
 			camt: 'CAMT import',
+			card: 'Credit card',
+			enablebanking: 'Enable Banking',
 			kraken: 'Kraken',
 			nyx: 'Wallet (Nym/Nyx)',
 			akash: 'Wallet (Akash)',
@@ -1823,7 +2828,11 @@ export default {
 			base: 'Wallet (Base)',
 			arbitrum: 'Wallet (Arbitrum)',
 			optimism: 'Wallet (Optimism)',
-			polygon: 'Wallet (Polygon)'
+			polygon: 'Wallet (Polygon)',
+			bitcoin: 'Wallet (Bitcoin)',
+			filecoin: 'Wallet (Filecoin)',
+			monero: 'Wallet (Monero)',
+			'crypto-ledger': 'crypto-ledger import'
 		},
 		technical: [
 			'Every entry is a record in the sealed OrbitDB collection events (AES-GCM like all the others): kind, time, the IDs of receipt, payment, link or question, and numbers – model, duration, tokens, redactions per kind, hits. No token, no key, no receipt text.',
@@ -1831,14 +2840,26 @@ export default {
 		]
 	},
 	booking: {
+		feeRule: {
+			apply: 'Use for all network fees',
+			applyTitle:
+				'Every network fee of your wallets takes this account, future ones too – instead of confirming each. Can be lifted.',
+			byRule: 'By the rule for all network fees: {account}.',
+			active: 'Rule on: all network fees go to {account}.',
+			lift: 'Lift the rule',
+			applied: '{count} network fees confirmed.',
+			lifted: 'Rule lifted; {count} network fees are without an account again.'
+		},
 		title: 'Account',
 		intro:
 			'Which account this payment is booked to (contra account, SKR 03) and with which BU key. The app suggests, you confirm – only what you have confirmed gets exported.',
 		suggestion: 'Suggestion',
 		source: {
+			payroll: 'by the kind of payment (wage, wage tax, contributions, tax)',
 			transfer: 'Own transfer',
 			fee: 'Bank fee',
 			private: 'Private (paid by mistake), by legal form',
+			travel: 'travel costs, by kind and legal form – check with the tax adviser',
 			learned: 'learned',
 			learnedFrom: 'learned from {vendor}',
 			confirmed: 'confirmed',
@@ -1886,7 +2907,7 @@ export default {
 	export: {
 		title: 'Export',
 		intro:
-			'Once a month: the bookings as a DATEV booking batch for MonkeyOffice and the receipts as PDF, together in one ZIP file. It is created only here in the browser and downloaded to your device – nothing goes to a server.',
+			'Once a month: the bookings as a DATEV booking batch for your bookkeeping and the receipts as PDF, together in one ZIP file. It is created only here in the browser and downloaded to your device – nothing goes to a server.',
 		empty: 'No payments yet – without them there is nothing to export.',
 		emptyLink: 'Upload a bank statement or connect the bank',
 		month: 'Month',
@@ -1895,8 +2916,20 @@ export default {
 		settings:
 			'Advisor number {consultant} · Client number {client} · Financial year from {fiscal} · Ledger account length {length}',
 		settingsLink: 'change under Settings',
+		withStatements: 'Include account statements (one PDF per account with bookings this month)',
+		collectFees:
+			'Network fees an Akash usage statement covers as one collective booking per wallet account (the statement lists each)',
+		withoutStatementsHint:
+			'Without statements, the receipt field stays empty for bookings without a receipt of their own – fees, own transfers, rewards: their receipt would be the statement.',
+		withSuspense: 'Export bookings without an account onto the suspense account {account}',
+		withSuspenseHint:
+			'The suspense account carries no input VAT and no expense account: the VAT return and the profit are right only once it is re-booked, and it must be empty by the year-end. Which account, and who re-books, is for you and your tax advisor to agree.',
+		unreconciled:
+			'Not reconciled: {accounts}. The closing balance does not match the bookings – a movement is missing, or a booking was deleted. The statement gives the difference.',
 		checks: 'Before the export',
 		check: {
+			tests:
+				'Export test bookings too ({count}) – the package is then called TEST_…, for trying the export, not for the books.',
 			sampleMixed:
 				'This month has sample data beside real bookings – no export like this. Remove the sample data at the top.',
 			sampleAll:
@@ -1905,9 +2938,11 @@ export default {
 				'{count} crypto bookings without a rate – without a euro amount nothing goes into the export. Enter the rate on the booking.',
 			unassignedOk: 'Every booking has a confirmed account.',
 			unassigned: '{count} bookings without a confirmed account – no export until they have one.',
-			autoConfirm: 'Confirm accounts for own transfers and bank fees ({count})',
+			suspense:
+				'{count} bookings go onto the suspense account {account} – they must be re-booked in the bookkeeping.',
+			autoConfirm: 'Confirm accounts for own transfers, bank fees and travel statements ({count})',
 			autoConfirmHint:
-				'Confirms 1360 for own transfers and 4970 for bank fees – the same suggestions as in the payment, with one click for all.',
+				'Confirms 1360 for own transfers, 4970 for bank fees and a travel statement’s accounts (by kind and legal form, check with the tax adviser) – the same suggestions as in the payment, with one click for all.',
 			ledgerOk: 'Every bank account has its ledger account.',
 			noLedger: 'Ledger account missing for {list} – enter it under Settings → Bookkeeping.',
 			noBankAccount: '{count} bookings belong to no bank account in the books.',
@@ -1915,7 +2950,10 @@ export default {
 			missingReceipt:
 				'{count} bookings without a receipt and without “No receipt needed” – the export works, but check them.',
 			unlinkedOk: 'No receipt from this month is left over.',
-			unlinked: '{count} receipts from this month are not linked to any payment.',
+			unlinked:
+				'{count} receipts from this month are not linked to any payment – they are not in this ZIP. Most were paid in another month (link them there) or from an account that is not in the books.',
+			copies:
+				'{count} receipts from this month are copies of receipts already linked and do not count as open – sort them out as duplicates under Belege.',
 			unverifiedOk: 'No receipt is waiting for the sender check.',
 			unverified: '{count} receipts with an unconfirmed sender – they are not included in the ZIP.',
 			more: '… and {count} more'
@@ -1926,11 +2964,42 @@ export default {
 		done: 'Downloaded: {file} – {bookings} bookings, {receipts} receipts, {statements} bank statements.',
 		blocked: 'Sort out the items marked in red first.',
 		failed: 'The export failed: {error}',
+		crypto: {
+			title: 'Crypto movements',
+			intro:
+				'Every booking of your wallets and exchange accounts in an open format (crypto-ledger, MIT licence) other programs can read and write – with quantity, euro value, rate source and transaction hash. Downloading and reading in happen here in the browser.',
+			year: 'Year',
+			allYears: 'all years',
+			json: 'Download as JSON',
+			csv: 'Download as CSV',
+			import: 'Read in a crypto-ledger file (JSON)',
+			importing: 'Reading …',
+			imported:
+				'Read in: new {new} · updated {updated} · skipped {skipped} on {accounts} accounts.',
+			unpriced:
+				'{count} without a rate – the euro amount stays open until you enter it on the booking.',
+			left: 'Not read in, as Belege does not read it yet: {list}.',
+			leftItem: '{account} ({count} movements)',
+			done: 'Downloaded: {file} – {movements} movements on {accounts} accounts.',
+			technical: [
+				'Format crypto-ledger version 1, described as a JSON Schema in schema/crypto-ledger.v1.schema.json (MIT): accounts as CAIP-10 (wallet) or a ccxt exchange id, chains as CAIP-2, assets as CAIP-19 where that is unambiguous.',
+				'One movement per booking: the quantity as signed decimal text, fees as movements of their own, the euro value with rate, source and moment as booked; without a rate it is null. Deleted bookings are left out.',
+				'The CSV has the same fields, one row per movement, comma as separator, point as decimal mark, UTF-8, CRLF; text a spreadsheet would read as a formula starts with an apostrophe.'
+			]
+		},
 		overview: {
 			noReceipt: 'no receipt',
 			noFile: 'Receipt {number} without a file (email text)',
+			mailPdf: 'Receipt {number}: a PDF made from the mail text (the mail had no attachment)',
+			zugferd: 'Receipt {number}: e-invoice (ZUGFeRD/Factur-X) – its embedded XML lies beside it',
+			xrechnung: 'Receipt {number}: e-invoice (XRechnung) – the XML original lies beside the PDF',
+			mailPdfEml:
+				'Receipt {number}: a PDF made from the mail (it had no attachment); the mail itself, as received, as .eml beside it',
 			transferLine: 'Own transfer, the counter-booking on {date} is included in this line',
-			transferSide: 'not in the booking batch: included in the counter-booking of {date} ({bank})'
+			collected:
+				'Collective booking: {count} network fees from {from} to {until}, each in the statement',
+			transferSide: 'not in the booking batch: included in the counter-booking of {date} ({bank})',
+			suspense: 'on the suspense account, to be re-booked'
 		},
 		technical: [
 			'Booking batch in DATEV format EXTF, version 700, category 21, format version 13: header line with 31 fields, column headings, one line per booking with 125 fields; separator “;”, line ending CRLF, character set Windows-1252 (ANSI).',
@@ -1944,8 +3013,7 @@ export default {
 		wayOut: {
 			unreachable: 'Start the bridge in the terminal:',
 			'unknown-device': 'The bridge no longer knows this pairing.',
-			origin:
-				'Add this page’s address to appOrigins in ~/.config/belege/bridge.json and restart the bridge.',
+			origin: 'Once in the terminal, then restart the bridge (Ctrl+C, pnpm bridge):',
 			mail: 'Set up the mailbox once in the terminal, then restart the bridge:',
 			llm: 'Set up the language model once in the terminal, then restart the bridge:',
 			hibiscus: 'Set up Hibiscus once in the terminal, then restart the bridge:',
@@ -1969,8 +3037,224 @@ export default {
 		ref: 'Copy reference'
 	},
 	monthPicker: { month: '{label}: month', year: '{label}: year' },
+	reisen: {
+		title: 'Travel',
+		untitled: 'Trip without a destination',
+		what: 'Trips with their receipts, meal allowances and mileage, and hospitality bills – per month.',
+		adviser:
+			'The rates are the German statutory ones. Have them confirmed by your tax adviser before the first real statement.',
+		month: 'Month',
+		who: 'Person',
+		new: 'New trip',
+		questions: {
+			title: 'Open points in travel: {count}',
+			receiptWithoutTrip: 'Travel receipt without a trip: {what}',
+			hospitalityIncomplete: 'Hospitality without {missing}: {what}',
+			tripWithoutTimes: 'Trip without times, no allowance can be computed: {what}',
+			statementNotPaidOut: 'Statement {number} is not paid out: {amount} open',
+			tripIncomplete: 'Trip with gaps: {what}'
+		},
+		proposals: {
+			title: 'Proposed by the receipts: {count}',
+			what: 'Tickets, hotel invoices, conference and event tickets and the receipts of their days, grouped by date and route – by rules, not by AI. You say what it was: a business trip, business without a trip, or private – then the receipts are set aside as private and a payment from the business account is marked private. Everything can be taken back.',
+			event: 'Event in {place}, {from}',
+			new: 'Trip to {destination}, {from} – {to}',
+			addTo: 'To the trip {trip}',
+			make: 'Make it a trip',
+			add: 'Add to the trip',
+			dismiss: 'Business, not a trip',
+			private: 'Private',
+			privateNote: 'Private: trip or event {destination}, {from}',
+			elsewhere: 'More proposals in other months: {count}.',
+			show: 'Show'
+		},
+		appointments: {
+			title: 'Appointments from invitations: {count}',
+			what: 'Invitations with a calendar entry to the accounting address, somewhere to go and on no trip yet. Only title, place and times are kept.',
+			make: 'Make it a trip',
+			dismiss: 'Not a trip'
+		},
+		statement: {
+			title: 'Statement {month}',
+			correctionTitle: 'Correction of {number}',
+			what: 'One statement per month: the trips with their receipts, allowances and mileage, and the hospitality bills. It becomes a numbered PDF, kept as a receipt for the payout.',
+			traveller: 'Traveller (on the PDF)',
+			private: 'Receipts paid privately',
+			advance: 'Paid as an advance already',
+			toPayOut: 'Still to pay out',
+			owedBack: 'To be paid back by the person',
+			outlay: 'Booked as outlays (paid back there)',
+			company: 'Receipts paid by the company (not paid back)',
+			noName: 'The PDF needs the traveller’s name.',
+			make: 'Make the statement',
+			makeHint:
+				'Once made, a statement is not changed: a correction is a new one that refers to it.',
+			made: '{number}, made on {date}',
+			replaced: '{number}, made on {date} – replaced',
+			booked: '{count} bookings on {account}.',
+			toConfirm: 'Confirm their accounts: {count} open',
+			paidOut: 'Paid out.',
+			partlyPaid: 'Paid out {paid}, open {open}.',
+			overPaid: 'More paid out than settled: {amount}.',
+			notPaid:
+				'Not paid out yet: {amount}. Link the transfer on the payment (“Pays out travel costs …”).',
+			closedHint: 'The PDF is a receipt now and waits for its payout.',
+			correct: 'Make a correction',
+			check: {
+				tripWithoutTimes: 'Trip without times: {what}',
+				tripWithoutDestination: 'Trip without a destination: {what}',
+				tripWithoutReason: 'Trip without a business reason: {what}',
+				hospitalityIncomplete: 'Hospitality bill with gaps: {what}',
+				receiptWithoutAmount: 'Receipt paid privately without an amount: {what}',
+				nothing: 'Nothing to settle this month.',
+				noRateAbroad: 'Day abroad without a rate, settled without an amount: {what}',
+				advanceExceeds: 'The advance is higher than the costs: the person owes the rest back.',
+				lodgingNoRate: 'Night without a rate, no overnight flat rate: {what}',
+				lodgingWithHotel:
+					'Overnight flat rate and a hotel receipt on the same trip – no night twice: {what}',
+				travellerWithoutAccount:
+					'This person’s clearing account is missing – enter it under Settings → Travellers.',
+				rateNotListed:
+					'Country not in the BMF table, Luxembourg’s rate applied – to be clarified with the tax adviser: {what}',
+				rateTerritory:
+					'Overseas or outlying territory, the mother country’s rate applied – to be clarified with the tax adviser: {what}',
+				foreignWithoutRate:
+					'Receipt in another currency without a rate – add it on the receipt: {what}',
+				familyCar: 'A family member’s car, to be clarified with the tax adviser: {what}',
+				foreignCurrency: 'Receipt in another currency, converted into euros: {what}'
+			}
+		},
+		trips: 'Trips',
+		receipts: 'receipts: {count}',
+		none: 'No trip starts in this month.',
+		untimed: 'Trips without times',
+		hospitality: 'Hospitality this month',
+		deductible: 'deductible {amount}',
+		totals: 'This month',
+		allowances: 'Meal allowances',
+		mileage: 'Mileage',
+		hospitalityDeductible: 'Hospitality, deductible part',
+		homeLine: 'This month: {trips} trips · open points: {open} · proposals: {proposals}',
+		questionsElsewhere: 'Travel has open points too: {count}'
+	},
+	reise: {
+		title: 'Trip',
+		back: '← All trips',
+		missing: 'This trip does not exist (any more).',
+		head: 'Trip',
+		destination: 'Destination',
+		reason: 'Business reason',
+		start: 'Left',
+		end: 'Back',
+		place: 'Place of activity',
+		placeHint: 'A customer or a site: for the three-month rule.',
+		overnight: 'Night away',
+		overnightAuto: 'If it spans days',
+		overnightYes: 'Yes',
+		overnightNo: 'No, back across midnight',
+		note: 'Note',
+		abroad: 'Abroad',
+		abroadHint:
+			'Each border crossed, with the time and the country code (AT, FR …). The rates come from the year’s BMF letter (from 2025 on); where a city has rates of its own, pick it.',
+		stopAt: 'From',
+		stopCountry: 'Country',
+		stopCity: 'Place',
+		stopCityRest: 'rest of the country',
+		stopUnknownCountry: 'unknown country code',
+		remove: 'Remove',
+		addStop: 'Add a border crossing',
+		meals: 'Meals provided',
+		nights: 'Nights without a hotel invoice',
+		nightsHint:
+			'Employees only: for a night without an invoice the company may pay the flat rate (20 € in Germany, abroad the BMF letter’s rate). Tick only nights there is no hotel receipt for.',
+		night: 'Night from {date}',
+		lodging: 'Overnight flat rates',
+		appointments: 'Appointments on these days, from invitations',
+		appointmentTake: 'Take it as the reason',
+		breakfastProposal: 'The hotel invoice includes breakfast on: {days}.',
+		breakfastTake: 'Mark it',
+		mealsHint:
+			'A breakfast in the hotel invoice or a meal paid by someone else cuts the day’s allowance.',
+		day: 'Day',
+		meal: { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner' },
+		mileage: 'Mileage',
+		mileageHint: 'The route is the record: date, from, to, reason and km.',
+		line: 'Mileage line',
+		lineDate: 'Date',
+		lineFrom: 'From',
+		lineTo: 'To',
+		lineReason: 'Reason',
+		lineKm: 'km (one way)',
+		lineVehicle: 'Whose vehicle',
+		vehicle: {
+			own: 'My own',
+			family: 'A family member’s',
+			rental: 'Rental',
+			company: 'Company car'
+		},
+		lineType: 'Type',
+		vehicleType: { car: 'Car', motorcycle: 'Motorcycle or moped', bicycle: 'Bicycle' },
+		lineRoundTrip: 'There and back',
+		lineOwner: 'Owner',
+		lineOwnerPlaceholder: 'e.g. spouse, parent',
+		lineCostBearer: 'Who bears its running costs',
+		refused: {
+			rental: 'No mileage for a rental: the rental and the fuel are receipts.',
+			company: 'No mileage for a company car: the company already bears its costs.',
+			noFlatRate: 'No flat rate for this vehicle: its actual costs, with receipts.',
+			noKm: 'No km yet.'
+		},
+		lineResult: '{km} km × {rate} = {amount}',
+		familyCarFlag:
+			'Someone else’s vehicle – to be clarified with the tax adviser whether the flat rate may be paid back.',
+		addLine: 'Add a mileage line',
+		save: 'Save',
+		saved: 'Saved.',
+		problems: {
+			noTraveller: 'No traveller.',
+			noDestination: 'No destination yet.',
+			noReason: 'No business reason yet.',
+			noTimes: 'No times yet: no allowance can be computed.',
+			endBeforeStart: 'Back before it left.',
+			mileage: {
+				noKm: 'A mileage line without km.',
+				noDate: 'A mileage line without a date.',
+				noReason: 'A mileage line without a reason.'
+			}
+		},
+		allowance: 'Meal allowance',
+		dayKind: { full: 'full day', partial: 'arrival, departure or > 8 h', none: 'none' },
+		dayReason: {
+			under8h: '8 hours or less',
+			countedOnOtherDay: 'counted on the other day',
+			noRate: 'no rate for this day',
+			threeMonthRule: 'three-month rule'
+		},
+		cut: 'meals provided −{amount}',
+		noRateAbroad:
+			'Days abroad without an amount: Belege has no BMF letter for these days (rates from 2025 on).',
+		receipts: 'Receipts of this trip',
+		noReceipts: 'No receipt yet. On a receipt, “To a trip …” assigns it.',
+		sum: 'What the trip comes to',
+		paidPrivately: 'Receipts paid privately',
+		paidByCompany: 'Receipts paid by the company',
+		toPayBack: 'To pay back',
+		noRate: 'rate missing',
+		ratesMissing:
+			'Receipts in another currency without a rate: {count} – not counted. Add a rate on the receipt.',
+		sumHint:
+			'Allowances, mileage and privately paid receipts. The company-paid ones are listed for completeness.',
+		delete: 'Delete this trip',
+		deleteConfirm: 'Delete this trip? Its receipts stay and are no longer assigned to it.'
+	},
 	zahlungen: {
 		title: 'Payments',
+		tests: {
+			title: '{count} test booking(s) in the books.',
+			what: 'Made with “Testbuchung anlegen” (development build only) – no real payments. They block the export of their month.',
+			remove: 'Remove test bookings',
+			removing: 'Removing …'
+		},
 		addTest: 'Create test booking',
 		emptyBefore: 'No payments yet – under ',
 		emptyLink: 'Bank',
@@ -1989,6 +3273,7 @@ export default {
 			'crypto-expenses': 'Expenses · crypto',
 			private: 'Private from the business account',
 			loan: 'Loans',
+			tax: 'Taxes to the tax office',
 			unpriced: 'Crypto without a rate'
 		},
 		receiptFilter: 'Receipt filter',
@@ -2013,6 +3298,41 @@ export default {
 		tradeOpen: 'open the other side',
 		time: '{time}',
 		detail: {
+			feeRule: {
+				forget: 'Forget this rule',
+				forgetTitle:
+					'Learned from an earlier booking with this purpose. Forgotten: this and every booking it covers ask for a receipt again.',
+				all: 'All learned bank fees'
+			},
+			instalment: {
+				offer: 'partly paid ({count}×) · {open} open',
+				choose: 'Link as one more instalment',
+				line: 'Instalment {index} of {count} · {number}',
+				open: '{open} open',
+				paid: 'paid',
+				over: 'over-paid by {over}'
+			},
+			ownIban: {
+				question:
+					'Money comes from {iban} as “{name}” – is it an own account? Then every payment to it counts as an own transfer.'
+			},
+			toAddress: 'To {address}',
+			fromAddress: 'From {address}',
+			txHashLabel: 'Transaction',
+			where: {
+				titleOut: 'Where did the money go?',
+				titleIn: 'Where did the money come from?',
+				candidate: '{account} booked {quantity} on {date} – is that the same transfer?',
+				link: 'Yes, own transfer',
+				open: 'Look',
+				sameOne: 'One more booking with this address.',
+				same: '{count} more bookings with this address.',
+				show: 'Show',
+				first: 'This address is in no other booking.',
+				nameLabel: 'Name the address',
+				namePlaceholder: 'e.g. Kraken deposit or supplier',
+				nameSave: 'Name it'
+			},
 			changedTitle: 'Changed on fetch on {date}',
 			changedText: 'The source now reports this booking differently: before {from}, now {to}.',
 			changedFlipped: ' An income became an expense or the other way round.',
@@ -2028,7 +3348,11 @@ export default {
 					done: 'Receipt ✓',
 					'none-needed': 'No receipt needed'
 				},
-				konto: { missing: 'Account missing', done: 'Account ✓' }
+				konto: {
+					missing: 'Account missing',
+					done: 'Account ✓',
+					missingHint: 'No booking account (SKR 03) taken over yet – below under “Account”.'
+				}
 			},
 			alt: { toggle: 'No third-party receipt …' },
 			next: 'Next step',
@@ -2063,20 +3387,28 @@ export default {
 				sources: 'Source',
 				tab: {
 					passend: 'Matching',
+					jahr: 'From {year}',
 					alle: 'All receipts',
 					postfach: 'Private mailbox',
+					paperless: 'Paperless',
 					portal: 'Portal'
 				},
+				unread: 'came in on {date}, not read yet',
 				other: 'Search for another receipt',
 				open: 'Search for a receipt after all',
 				sameAmount: 'Same amount',
 				otherCurrency: 'other currency',
 				days: '{days} days',
+				noneThisYear:
+					'None from {year}. {count} from other years are under “All receipts” – otherwise search the mailbox or the provider.',
 				noMatch: 'Nothing found – change the search text or pick another source.',
 				noSuggestion:
 					'No receipt scores enough points. “All receipts” lists all open ones; you can keep searching in the mailbox and at the vendor.'
 			},
 			poisonTitle: 'Warning: possible address poisoning',
+			spamText:
+				'A fake token made this booking, not your wallet: nothing moved. The address {address} was put into your history so that you copy it by mistake the next time you send. Never send to this address; always compare the recipient address in full.',
+			spamLookalike: 'It starts and ends like {known}, which you have dealt with.',
 			poisonText:
 				'The sender address {address} starts and ends like {known}, which you have dealt with, but it is a different one. An address like this is planted in your history with a tiny amount so that you copy it by mistake the next time you send. Never send to this address; always compare the recipient address in full.',
 			title: 'Payment',
@@ -2106,6 +3438,9 @@ export default {
 			txRef: 'Reference',
 			chainTxRef: 'Transaction hash',
 			address: 'Counter address',
+			explorerAt: 'View in the block explorer ({explorer})',
+			chainMethod: 'network as the exchange names it: {method}',
+			chainUnclear: 'Blockchain not clear – it is one of:',
 			explorer: 'View in block explorer',
 			explorerQr: 'QR code',
 			valueDate: 'Value date',
@@ -2121,6 +3456,12 @@ export default {
 			suggestions: 'Suggestions',
 			allReceipts: 'All other receipts',
 			choose: 'Link',
+			peek: {
+				label: 'Preview: {name}',
+				more: '+{count} more',
+				hint: 'Move the pointer over the page: the lens enlarges what is under it.',
+				open: 'Preview'
+			},
 			noChoices: 'No receipts that can be linked.',
 			noReceiptNeeded: 'No receipt needed',
 			reason: 'Reason',
@@ -2156,10 +3497,51 @@ export default {
 			linkSwapTitle:
 				'The other side of a swap that no rule recognises – say via another chain or an exchange. Neither side then needs a receipt; for tax purposes a disposal and an acquisition.',
 			linkSwapNone: 'No booking in the other direction on another account within 31 days.',
+			travelAdvance: {
+				offer: 'Advance for travel expenses …',
+				hint: 'Money before a trip: it needs no receipt of its own – the travel statement documents it and later pays out only the rest.',
+				trip: 'For the trip',
+				noTrip: 'no particular trip',
+				mark: 'Mark as an advance',
+				title: 'Advance for travel expenses: {name}',
+				taken: 'Settled with {number}: {amount}',
+				open: 'Not accounted for yet: {amount}',
+				undo: 'Not an advance'
+			},
+			travelPayout: {
+				title: 'Pays out travel costs',
+				item: '{number} · travel costs {month} · {amount}',
+				share: 'of it {amount}',
+				unlink: 'Not for this statement',
+				open: 'Still open: {amount}',
+				over: 'More paid out than settled: {amount}',
+				settled: 'Paid out.',
+				offer: 'Pays out travel costs …',
+				openOf: 'open {amount}',
+				sum: 'Chosen {picked} · payout {payout}',
+				link: 'Link'
+			},
+			outlayRepay: {
+				offer: 'Pays outlays back …',
+				offerTitle:
+					'This transfer pays back money laid out privately: it clears open outlays and needs no receipt of its own.',
+				sum: 'Picked {picked} · transfer {payout}',
+				ofOpen: 'open',
+				link: 'Link as repayment',
+				payoutTitle: 'Pays back these outlays:',
+				item: '{date} · {name} · {amount}',
+				repaidBy: 'Paid back by the transfer of {date} ({amount})',
+				unlink: 'unlink',
+				open: 'Not paid back yet.',
+				partly: 'Partly paid back, {open} open.',
+				settled: 'Paid back.',
+				groupOpen: 'Still open altogether: {amount}.',
+				over: 'Paid back, {amount} more than laid out.'
+			},
 			private: {
 				mark: 'Private (paid by mistake) …',
 				markTitle:
-					'A private payment, paid from the business account by mistake: no business expense, no business expense receipt. A short file note records the mistake; with a UG or GmbH you settle it with a repayment from the private account.',
+					'A private payment, paid from the business account by mistake – or private money that came in on the business account by mistake: no business expense or income, no receipt. A short file note records the mistake; it is settled by the repayment from, or the pass-on to, the private account.',
 				noteLabel: 'File note',
 				hint: 'Only this one payment – others to the same counterparty stay as they are. You can attach a private invoice as proof of the mistake; it does not count as a business expense.',
 				save: 'Record as private',
@@ -2172,6 +3554,13 @@ export default {
 				repay: 'Link repayment …',
 				repayPick: 'Link',
 				repayNone: 'No credit in the 180 days around this payment.',
+				titleIn: 'Private (by mistake) – no business income',
+				openIn: 'Not passed on yet: {amount} open.',
+				repaidByIn: 'Passed on on {date}: {amount}',
+				repayIn: 'Link the pass-on …',
+				repayNoneIn: 'No outgoing payment in the 180 days around this one.',
+				repaymentTitleOut: 'Pass-on of private money that came in – no business expense',
+				repaysOut: 'Passes on the private money from {date}: {amount}',
 				unlink: 'unlink',
 				undo: 'Business after all',
 				noLegalForm:
@@ -2182,7 +3571,15 @@ export default {
 			linkRefundTitle:
 				'This payment and one in the other direction – on the same or another account – are a charge and its refund. Fully refunded, neither needs a receipt; with a partial refund the charge still needs its own. Kept on every matching run.',
 			linkRefundNone: 'No booking in the other direction within 120 days.',
-			party: { from: 'From', to: 'To', own: 'own', foreign: 'third-party address' },
+			party: {
+				from: 'From',
+				to: 'To',
+				own: 'own',
+				foreign: 'third-party address',
+				ownChip: 'own wallet',
+				unknownAddress: 'unknown address',
+				explorer: 'Explorer'
+			},
 			linkTransfer: 'Link as counter-booking …',
 			twins:
 				'{count} bookings with exactly this amount in the opposite direction on your other accounts, in the days around it – and no payment reference says which is the counter-booking. Link the right one by hand.',
@@ -2193,6 +3590,10 @@ export default {
 			linkTransferAi: 'AI suggestion',
 			linkTransferAiTitle:
 				'Asks your language model which of these bookings is the other side: for each booking the direction, amount, quantity, day, account type, counterparty and reference – redacted, without addresses, IBANs and hashes. Only a suggestion: nothing is linked until you click.',
+			linkTransferAiTitleLocal:
+				'Asks your language model on this computer which of these bookings is the other side: for each booking the direction, amount, quantity, day, account type, counterparty and reference – unredacted, as nothing leaves the computer. Only a suggestion: nothing is linked until you click.',
+			linkTransferAiTitleEnclave:
+				'Asks your language model in the attested enclave which of these bookings is the other side: for each booking the direction, amount, quantity, day, account type, counterparty and reference – unredacted – only the verified enclave can read it. Only a suggestion: nothing is linked until you click.',
 			linkTransferAiPick: 'AI suggestion ({confidence}): {reason}',
 			linkTransferAiNone: 'AI suggestion: none of these bookings is the other side.',
 			linkTransferAiTake: 'Accept',
@@ -2208,6 +3609,8 @@ export default {
 			privateSearch: 'Search the private mailbox',
 			privateHint:
 				'The bridge searches the whole mailbox for “{text}” and {amount} between {from} and {to}. Only the hits are read.',
+			privateHintPurpose:
+				'The bridge searches the whole mailbox for “{text}” from the payment reference and {amount} between {from} and {to}. Only the hits are read.',
 			privateHintAmount:
 				'The bridge searches the whole mailbox for {amount} between {from} and {to}. Only the hits are read.',
 			privateHintCrypto:
@@ -2224,6 +3627,10 @@ export default {
 			aiChoiceBusy: 'AI is checking …',
 			aiChoiceTitle:
 				'The bridge sends your configured language model the booking (counterparty, payment reference, amount, day) and up to 25 matching receipts with vendor, amount, date, invoice number and short description – redacted. It names the matching receipt; the linking is up to you.',
+			aiChoiceTitleLocal:
+				'The bridge gives your language model on this computer the booking (counterparty, payment reference, amount, day) and up to 25 matching receipts with vendor, amount, date, invoice number and short description – unredacted, as nothing leaves the computer. It names the matching receipt; the linking is up to you.',
+			aiChoiceTitleEnclave:
+				'The bridge gives your language model in the attested enclave the booking (counterparty, payment reference, amount, day) and up to 25 matching receipts with vendor, amount, date, invoice number and short description – unredacted – only the verified enclave can read it. It names the matching receipt; the linking is up to you.',
 			aiChoiceNone: '{model} checked {count} receipts ({seconds} s) and considers none a match',
 			aiChoiceModel: 'The language model',
 			aiChoiceChecked: 'Which {count} receipts were checked?',
@@ -2236,6 +3643,10 @@ export default {
 			aiSearching: 'AI is searching …',
 			aiSearchTitle:
 				'The bridge asks your configured language model twice: 1. counterparty and payment reference (redacted) → search terms and sender domains. 2. subject, sender domain, attachment names and arrival day of the hits (redacted) → which email is the receipt. No email text, no full address.',
+			aiSearchTitleLocal:
+				'The bridge asks your language model on this computer twice: 1. counterparty and payment reference → search terms and sender domains. 2. subject, sender domain, attachment names and arrival day of the hits → which email is the receipt. Unredacted, as nothing leaves the computer; no email text, no full address.',
+			aiSearchTitleEnclave:
+				'The bridge asks your language model in the attested enclave twice: 1. counterparty and payment reference → search terms and sender domains. 2. subject, sender domain, attachment names and arrival day of the hits → which email is the receipt. Unredacted – only the verified enclave can read it; no email text, no full address.',
 			aiSearchHint:
 				'No clear hit? The language model suggests search terms and judges the hits – only by subject, sender domain and file names, never by the text of the emails.',
 			aiSummary: 'AI search: search terms {terms} · senders {domains} · {count} hits',
@@ -2265,6 +3676,15 @@ export default {
 			receiptAssign: 'Link to this payment',
 			receiptPoints: ' ({score} pts)',
 			noBridge: 'To search, pair the bridge under Integrations.',
+			paperless: {
+				hint: 'Searches the full text of your Paperless-ngx through the bridge – with the search text above, else the counterparty. A hit is taken over like an upload, read and linked to this payment.',
+				search: 'Search Paperless: “{query}”',
+				searching: 'Searching Paperless …',
+				none: 'Paperless finds nothing for it. Try another search text above.',
+				known: 'already among the receipts',
+				take: 'Take over and link',
+				taking: 'Taking over …'
+			},
 			vendor: {
 				title: 'Fetch from the vendor',
 				income:
@@ -2315,9 +3735,13 @@ export default {
 			folderCheck: 'Check folder now',
 			folderChecking: 'Checking the folder …',
 			folderResult: 'Folder: {count} new read in and matched.',
+			folderWaiting:
+				'{count} of them wait under Belege → Neu to be read (“read at once” is off, or the sender is still to be confirmed).',
+			folderImages: '{count} image(s) without text: check by hand.',
 			folderNothing: 'Folder: nothing new.',
 			folderDenied: 'The browser was not granted read access to the folder.',
-			folderHint: 'While the app is open, it checks the shared folder every minute.'
+			folderHint:
+				'While the app is open, it checks the shared folder every minute. It reads new files with the AI only while “read at once” is on for uploads.'
 		}
 	},
 	integrationen: {
@@ -2330,12 +3754,12 @@ export default {
 				how: 'Start it in the terminal and type the pairing code it shows in here. It listens to this computer only.'
 			},
 			bank: {
-				what: 'Payments come from Hibiscus (through the bridge) or from a bank statement file in CAMT.053 format.',
-				how: 'The file works at once, without the bridge: export it as CAMT.053 in your online banking and upload it here. For Hibiscus, run the setup once in the terminal and allow the accounts.'
+				what: 'Payments come from Hibiscus (through the bridge), through Enable Banking (banks in Europe, through the bridge) or from a bank statement file in CAMT.053 format.',
+				how: 'The file works at once, without the bridge: export it as CAMT.053 in your online banking and upload it here. For Hibiscus, run the setup once in the terminal and allow the accounts. For Enable Banking, create your own application there, run pnpm setup:enablebanking, link the bank below and release the accounts with pnpm setup:enablebanking -- --accounts.'
 			},
 			ki: {
 				what: 'A language model reads vendor, amount, date and number from receipts and helps in four more places – always only on a click (✦).',
-				how: 'You set up your own model in the bridge, such as DeepSeek or a local one with Ollama. Text is redacted before it is sent; Le Space runs no AI.'
+				how: 'You set up your own model in the bridge, such as DeepSeek or a local one with Ollama. Text is redacted before it is sent, as far as patterns and lists reach; with a local model nothing goes out – which is what we advise for now. Le Space runs no AI.'
 			},
 			kraken: {
 				what: 'Belege reads your Kraken account read-only: ledger, balances and trades, one account per asset, in euros at the day’s rate.',
@@ -2352,6 +3776,10 @@ export default {
 			geraete: {
 				what: 'The same books on phone and computer, synced directly between your devices. A device gets them only once it proves the passkey.',
 				how: 'Switch sync on, then add the second device by QR code. Optionally the devices meet only on your own network, at a relay in your bridge:'
+			},
+			backup: {
+				what: 'A backup of the books and every receipt file, sealed with a key from your passkey, on Aleph Cloud, paid by the bridge’s Aleph account. You get it back on any device with two things: the same passkey and that account’s address (or the backup’s CID).',
+				how: 'Have the bridge make its backup key once, put credits on the address it shows, then click “Back up now” here; once you allow this browser’s key (command below), it backs up without the bridge running. On an empty device: “Restore with existing passkey”, enter the address here and pick the backup.'
 			},
 			portale: {
 				what: 'Some invoices exist only in a customer portal. The bridge fetches them with a browser of its own on this computer.',
@@ -2377,8 +3805,13 @@ export default {
 				bridgeOffline: 'the bridge is not responding. Is it running on this Mac?',
 				bridgeOfflineDevices:
 					'the bridge is not responding – neither here nor via one of your own devices. Is your Mac with the bridge on and connected?',
+				bridgeOfflinePhone:
+					'no bridge runs on a phone. On your computer, under Devices, share its bridge with your own devices, and add this phone as a device there.',
 				deviceRemoved: 'this device was removed on another one; syncing is off.',
 				deviceError: 'syncing reports an error.',
+				consentEnded:
+					'the consent at {bank} (Enable Banking) has ended – consent again, or no more transactions come.',
+				consentEnding: 'the consent at {bank} (Enable Banking) ends on {date} – renew it before.',
 				neverSynced: '{name} is set up but has never been fetched.',
 				krakenRefused: 'the last fetch was refused. A new API key usually helps.',
 				walletHints: 'the last fetch left notes (wallets with a note: {count}).'
@@ -2394,16 +3827,19 @@ export default {
 				bridge: 'Bridge',
 				ki: 'AI – reading receipts',
 				geraete: 'Own devices',
+				backup: 'Backup',
 				bank: 'Bank (Hibiscus, bank statement)',
 				kraken: 'Kraken (exchange)',
 				wallets: 'Own wallets',
 				aleph: 'Aleph Cloud',
 				mail: 'Mailbox',
+				paperless: 'Paperless-ngx',
 				portale: 'Customer portals',
 				'rechnungs-app': 'Invoice app',
 				assistent: 'Access for an assistant'
 			},
 			state: {
+				backedUp: 'backed up',
 				connected: 'connected',
 				unpaired: 'not paired',
 				error: 'error',
@@ -2421,6 +3857,8 @@ export default {
 				viaDevice: 'via your Mac'
 			},
 			line: {
+				backup: 'Books and receipt files, sealed, on Aleph Cloud',
+				backupNone: 'Books and receipt files, sealed, on Aleph Cloud',
 				bridge: 'On this Mac; fetches transactions, reads receipts, queries nodes',
 				bridgeViaDevice: 'Runs on your Mac; this device uses it via device sync',
 				ki: 'Reads vendor, amount, date and number from receipts',
@@ -2434,6 +3872,7 @@ export default {
 				aleph: '{count} accounts with credits',
 				alephNone: 'Hosting credits of your own Ethereum addresses',
 				mail: 'Receipts from the bookkeeping address – under Receipts',
+				paperless: 'Documents from your Paperless archive – under Receipts (pnpm setup:paperless)',
 				portals: 'Fetch invoices directly from customer accounts',
 				invoiceApp: 'Eigenbelege with your number sequence and letterhead',
 				assistant: 'Let someone read one year, redacted, with an expiry'
@@ -2456,7 +3895,10 @@ export default {
 				result:
 					'{invoices} invoices in the app, {added} newly taken over, {paid} paid; {reported} payment notices sent to the app.',
 				pdfLater:
-					'{count} invoices have not arrived yet: their PDF only travels over a direct connection. Try again at the next sync.'
+					'{count} invoices have not arrived yet: their PDF only travels over a direct connection. Try again at the next sync.',
+				xml: '{count} XRechnungen taken over: the XML lies beside the PDF as the original.',
+				xmlLater:
+					'{count} XRechnungen have not arrived yet: they are too large for the relay and only travel over a direct connection. Try again at the next sync.'
 			},
 			offHint:
 				'Only when you click here does Belege go online: it asks api.aleph.im for the Le Space relays and connects to one; after that only while an invoice app is paired; after unpairing, Belege goes offline again. Who sees what in the process is in the privacy dialog under “Le Space relays”.',
@@ -2485,8 +3927,12 @@ export default {
 			viaDevice: 'via your Mac (own device)',
 			viaDeviceHint:
 				'This device uses your Mac’s bridge. Pairing, setting up and unpairing happen there; only read-only queries and receipt reading go across from here.',
+			onAPhone:
+				'No bridge runs here: it is a program on your computer. This phone uses it over device sync – on the computer, under Devices, switch on “Share this computer’s bridge with your own devices”, add this phone as a device there, and keep the Belege tab on the computer open and unlocked.',
 			noHibiscus: 'Hibiscus is not set up yet',
 			offline: 'Bridge not reachable',
+			originRefused:
+				'The bridge runs but does not let this page ({origin}) in: it is not on its list of allowed pages (appOrigins).',
 			unknown: 'Status unknown',
 			url: 'Bridge address',
 			code: 'Pairing code',
@@ -2511,6 +3957,115 @@ export default {
 			syncHintFrom:
 				'Fetches all transactions from this day, as far as Hibiscus has retrieved them from the bank. Existing ones are not created twice.'
 		},
+		enableBanking: {
+			title: 'Through Enable Banking',
+			intro:
+				'For banks without Hibiscus: Enable Banking, an account information service with an EU licence, reads accounts and transactions after you consent at your bank. The bridge talks to your own Enable Banking application; you enter your bank password only on the bank’s own page.',
+			needsBridge: 'Needs the paired bridge.',
+			needTitle: 'What you need:',
+			need1:
+				'An application of your own at Enable Banking (Control Panel, environment “Production”): it gives you an application id and a private key file. Link your accounts there (“Link accounts”) – then it is active in restricted mode, for exactly those accounts.',
+			need2: 'Registered as the application’s redirect URL:',
+			need3: 'In the terminal, in Belege’s folder:',
+			kind: { business: 'Business account', personal: 'Personal account' },
+			kindLabel: 'Kind of account',
+			validUntil: 'consent until {date}',
+			renew: 'Renew',
+			unlink: 'Unlink',
+			unlinkConfirm:
+				'Unlink {bank}? Enable Banking ends the consent; transactions already fetched stay in the books.',
+			leavesTitle: 'What goes out',
+			leaves: [
+				'To Enable Banking: which bank you link, your accounts there (IBAN, name, currency) and the transactions of the accounts you release and fetch. They pass through its servers; also this computer’s IP address.',
+				'To your bank: your sign-in and the consent, on its own page. Neither Belege nor the bridge sees your bank password.',
+				'Not: receipts, bookings from other sources, anything from your books. The browser never talks to Enable Banking, only the bridge does.'
+			],
+			technical: [
+				'Only the bridge talks to api.enablebanking.com. Every request is signed with your application’s private key (RS256 JWT, valid ten minutes, kid = application id); no redirect is followed, time and answer size are limited.',
+				'The key and the sessions are encrypted (AES-256-GCM) in enablebanking.sealed beside bridge.json; the key to it is held by the macOS Keychain or the Windows Credential Manager.',
+				'The bank sends the browser back to /integrationen/bank/verbunden with a one-time code. The page takes it out of the address at once; the bridge accepts it only for a consent it started itself, once and within 30 minutes. Without the key it is worthless.',
+				'Accounts leave the bridge only with a released IBAN ending; the app gets only the last four characters of the IBAN and a hash. Fetching happens only on your click. A consent lasts 180 days at most; “Unlink” ends it at Enable Banking.'
+			],
+			afterLink:
+				'On the Bank page you choose which accounts go into the books, and fetch their transactions.',
+			staysInBridge: 'Stays in the bridge: not released.',
+			continuesCamt:
+				'Continues the account from the statement file – from the day after its last booking.',
+			lastFetch: 'last fetched on {date}',
+			maybeHibiscus:
+				' A Hibiscus account ends the same – if Hibiscus fetches it already, it comes twice.',
+			fetch: 'Fetch transactions',
+			fetching: 'Fetching transactions …',
+			fetchHint:
+				'The first time the last 90 days, then from a week before the last fetch. Banks allow only a few fetches a day – fetching happens only on this click.',
+			pending: ' {count} pending transactions come once the bank books them.',
+			incomplete: ' Not all pages fetched – fetch again.',
+			noneAllowed:
+				'No account leaves the bridge yet. Which accounts may go into the books, you decide in the terminal:',
+			country: 'Country',
+			bank: 'Bank',
+			bankPlaceholder: '{count} banks – type a name',
+			start: 'Consent at the bank',
+			going: 'On to the bank …',
+			startHint:
+				'You go to your bank’s page, sign in there and allow read access for {days} days. Then you come back here and unlock Belege once more.',
+			returned: {
+				title: 'Bank linked?',
+				working: 'The bank’s answer goes to the bridge …',
+				linked: '{bank} is linked: {count} accounts.',
+				refused: 'The bank gave no consent – cancelled or refused. Nothing is linked.',
+				notOurs:
+					'This answer does not belong to the consent started in this tab. Nothing is linked; start the consent again.',
+				notPaired: 'This device is not paired with the bridge.',
+				none: 'No answer from a bank arrived here.',
+				pasteLabel:
+					'If the bank sent you to another address (when developing on localhost, say): paste the whole address from the address bar here.',
+				pasteUse: 'Use this answer',
+				pasteInvalid: 'This address holds no answer from a bank.',
+				back: 'To the Bank page'
+			}
+		},
+		cards: {
+			title: 'Company credit cards',
+			intro:
+				'Each card is an account of its own: its statement (the card issuer’s CSV) becomes payments line by line, which receipts find like any payment – paid by the company, in the euros the card charged. The file is read only here in the browser.',
+			add: 'Add a card',
+			name: 'Name of the card',
+			last4: 'Last 4 digits',
+			save: 'Add card',
+			choose: 'Read a statement (CSV) …',
+			lines: '{count} bookings',
+			previewTitle: 'Statement for {name}',
+			mappingHint:
+				'The columns are recognised by their names. Where one does not fit, pick it here; the choice holds for the next statement of this format too.',
+			field: {
+				date: 'Transaction date',
+				postingDate: 'Posting date',
+				description: 'Merchant / text',
+				amount: 'Amount (EUR)',
+				debit: 'Debit',
+				credit: 'Credit',
+				currency: 'Currency',
+				originalAmount: 'Original amount',
+				originalCurrency: 'Original currency',
+				rate: 'Rate',
+				reference: 'Reference'
+			},
+			invert: 'Charges are positive amounts in the file',
+			settlement: 'Settled from the bank account',
+			summary:
+				'{count} bookings · charges {out} · credits {in} · {skipped} rows skipped (no date, no amount or another billing currency)',
+			import: 'Import',
+			cancel: 'Cancel',
+			imported: '{name}: {new} new, {skipped} there already.',
+			error: {
+				name: 'The card needs a name.',
+				last4: 'The last 4 digits of the card, please.',
+				noTable: 'This file has no table with a date and an amount.'
+			},
+			adviser:
+				'Enter the card’s ledger account under Settings → Bookkeeping, as for a bank account; which one is for the tax adviser.'
+		},
 		camt: {
 			choose: 'Choose bank statement …',
 			reading: 'Reading bank statement …',
@@ -2525,6 +4080,19 @@ export default {
 				'The AI only reads receipts: vendor, amount, date, invoice number. Linking them to payments is done by the app itself, traceably by points.',
 			keyWhere:
 				'The API key lives only in the bridge’s keychain – change it with pnpm setup:llm. It never reaches the browser.',
+			ollama: {
+				title: 'Guide: reading locally with Ollama – then nothing leaves the computer',
+				intro:
+					'Instead of a provider on the internet, a model on your computer reads the receipts. Free, but slower: about two minutes per receipt on an Intel Mac.',
+				steps: [
+					'Install Ollama from ollama.com/download and start it.',
+					'Download a model that fits your memory – 32 GB or more: ollama pull qwen3:30b-a3b-instruct-2507-q4_K_M (18 GB); with 16 GB: qwen3:4b-instruct-2507-q4_K_M (2.5 GB).',
+					'Set a larger context and a longer keep-alive (launchctl setenv OLLAMA_CONTEXT_LENGTH 16384 and OLLAMA_KEEP_ALIVE 2h), then restart Ollama.',
+					'pnpm setup:llm: base URL http://127.0.0.1:11434/v1, the model name for both models, Enter for the API key. Then restart the bridge.',
+					'Under Statistik, set the AI requests at once to 1.'
+				],
+				doc: 'The whole guide, with measurements and help when something goes wrong'
+			},
 			noBridge: 'The bridge is not paired: settings only visible after pairing.',
 			unreachable: 'The bridge says nothing about receipt reading (older version?): {error}',
 			provider: 'Provider (host)',
@@ -2533,6 +4101,11 @@ export default {
 			key: 'API key',
 			keyOk: 'set up ✓',
 			keyMissing: 'missing – pnpm setup:llm',
+			redaction: 'Redaction',
+			redactionOn: 'on – names, IBANs and addresses are blacked out before sending',
+			redactionOff: 'off – the model runs on this computer, nothing leaves it',
+			redactionOffEnclave:
+				'off – the model runs in the attested enclave; only it can read the text',
 			terms: 'Redaction terms',
 			authServ: 'Server ID (sender check)',
 			authServNone: 'not set – pnpm setup:mail',
@@ -2544,10 +4117,19 @@ export default {
 			totals: 'So far',
 			totalsValue: '{calls} calls · {tokens} tokens',
 			totalsFailed: ' · {count} failed',
+			failedRecent: 'of them in the last 7 days: {count}. The most frequent reasons:',
+			tee: 'Confidential (TEE)',
+			teeVerified:
+				'Attestation checked, {time}: the model runs in the pinned enclave, and the request ends only there.',
+			teePinned: 'Pinned; checked before the first request.',
+			teeFailed: 'Attestation failed – nothing was sent: {error}',
+			teePin: 'Deployment {item} · measurement {measurement} · source {commit}',
+			redactionConfirm:
+				'Does the model run on this computer? Once in the terminal, Enter at “Does the model run on this machine itself”, then restart the bridge – after that nothing is blacked out:',
 			totalsFallback: ' · {count}× second attempt',
 			verlauf: 'All calls in History',
 			technical: [
-				'The bridge sends the text layer of a PDF (or the text of an email) to the provider’s OpenAI-compatible chat API (/chat/completions, JSON mode, max_tokens 6000). Beforehand it redacts names from its list, IBANs except the last four digits, own email addresses, streets and postcodes. What was sent is shown on the receipt under “Sent to the AI”.',
+				'The bridge sends the text layer of a PDF (or the text of an email) to the provider’s OpenAI-compatible chat API (/chat/completions, JSON mode, max_tokens 6000). Beforehand it redacts names from its list and your company names from Settings, names after a salutation or a label (“Herr”, “Contact:”, also in other languages and scripts, such as “Пассажир:” or “Yolcu:”), passport numbers, IBANs and card numbers except for the last four digits, email addresses (of others the domain remains), phone numbers, dates of birth, tax numbers, streets, postcodes and links (only the host remains). This limits what goes out; it does not make the text anonymous: a name that is on no list and follows no label gets through, and so do the vendor, amounts, invoice numbers and what the receipt is about. For nothing to go out, set a model on this computer (such as Ollama). What was sent is shown on the receipt under “Sent to the AI”.',
 				'The answer is checked (gross present, ISO currency, valid dates, net + VAT = gross). If it fails or breaks off, the bridge asks the second model.',
 				'Why the key is not entered here: a key in the web page is readable by every script that ever runs on it. In the bridge it lives in the macOS keychain, and no bridge response contains it – GET /llm/status only says “present” or “missing”. Models and terms are also set with pnpm setup:llm.'
 			]
@@ -2555,11 +4137,17 @@ export default {
 		books: {
 			title: 'Accounts in the books',
 			camt: 'CAMT import',
+			enablebanking: 'Enable Banking',
 			hibiscus: 'Hibiscus',
 			kraken: 'Kraken',
-			wallet: 'Own wallet'
+			wallet: 'Own wallet',
+			card: 'Credit card'
 		},
 		wallets: {
+			import: 'Import history (CSV)',
+			importing: 'Importing …',
+			moneroHint:
+				'Monero does not show amounts and senders publicly: Belege does not read the address but the history your wallet exports (Monero GUI: History → Export; CLI: export_transfers all). The file is read only here in the browser. The address names the account.',
 			title: 'Own wallets',
 			intro:
 				'Read-only, via the address: the bridge asks a public node of the chain for all transfers and fees of this address and for its balance. Never a key, never a seed phrase. Each asset gets its own account; valued at the daily rate (CoinGecko, Kraken as fallback).',
@@ -2586,6 +4174,7 @@ export default {
 					'With an Alchemy key the bridge reads via Alchemy; your own endpoint here replaces Alchemy for this wallet.'
 			},
 			addTitle: 'Add wallet',
+			addCancel: 'Cancel',
 			chain: 'Chain',
 			address: 'Address',
 			addressHint:

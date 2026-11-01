@@ -1,6 +1,6 @@
 # Security
 
-Belege keeps a company's bookkeeping: encrypted in the browser under a passkey, synced between own devices, with a local bridge next to bank, mail and keys.
+Belege keeps a company's payment and receipt records: encrypted in the browser under a passkey, synced between own devices, with a local bridge next to bank, mail and keys.
 
 ## Reporting a weakness
 
@@ -10,6 +10,10 @@ Please do **not** open a public issue or pull request for something that could b
 - Say what you found, how to reproduce it with made-up data, and what it lets someone do. Never include real bookings, receipts, mails or keys.
 
 You get an answer as soon as the maintainer has looked; a fix is published with the next release, and the advisory after it.
+
+## What Belege protects against
+
+Which risks Belege answers, which it cannot (a compromised device or browser, browser extensions included), and what you can do: [docs/threat-model.md](docs/threat-model.md).
 
 ## What is in scope
 

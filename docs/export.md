@@ -2,7 +2,7 @@
 
 _Deutsch: [export.de.md](export.de.md)_
 
-Once a month, Belege makes one ZIP for the bookkeeping: the month's bookings as a **DATEV Buchungsstapel** (EXTF CSV) for import into **MonkeyOffice**, and the receipts as files. The ZIP is made in the browser and downloaded; nothing goes to a server, and nothing goes to the language model.
+Once a month, Belege makes one ZIP for the bookkeeping: the month's bookings as a **DATEV Buchungsstapel** (EXTF CSV) for import into your **bookkeeping**, and the receipts as files. The ZIP is made in the browser and downloaded; nothing goes to a server, and nothing goes to the language model.
 
 ```
 DATEV_2026-09.zip
@@ -14,10 +14,14 @@ DATEV_2026-09.zip
 └── Uebersicht_2026-09.csv                  UTF-8, for people: every booking, its account, receipt number, how the receipt was linked
 ```
 
+An e-invoice (XRechnung, #160) goes into the ZIP as the XML it came as, `Belege/<number>_<vendor>.xml`: for an e-invoice the XML is the original to keep. A ZUGFeRD / Factur-X invoice goes in as its PDF and, under the same number, its embedded XML. So does an invoice the invoicing app issued as XRechnung: its PDF, and its XML as the original (#515).
+
+A receipt that is a mail without an attachment (a shop's receipt written in the mail itself) is kept as the mail was received, sealed like any file (#288): `Belege/<number>_<vendor>.eml` goes into the ZIP, and beside it a PDF made from it – sender, day, subject and the mail's whole text (the plain-text part, else the HTML part turned into text; never its HTML). A receipt imported before Belege kept the original has only the excerpt taken at the fetch, at most about 2,000 characters; it gets its original when its mail is fetched again, or with _Original holen_ in the receipt, as long as the mail is still in the mailbox – the receipt says when it no longer is. Until then the PDF is made from the excerpt and says when that was cut, and the overview names the PDF as made from the mail. The bridge hands out a whole mail only when it was sent to the accounting address.
+
 ## Before the export
 
-1. **Ledger accounts of the bank accounts** – _Integrationen → Eigene Anweisungen → Buchhaltung (MonkeyOffice / DATEV)_: for each bank account the number it has in MonkeyOffice ("Sachkonto"). The field shows 1200, 1210, … (SKR 03) as a placeholder only.
-2. **Header values** – same place: Beraternummer and Mandantennummer (defaults 1001 and 1, which MonkeyOffice usually takes for a company doing its own books – check what your MonkeyOffice expects), the month the fiscal year starts (January), the Sachkontenlänge (4).
+1. **Ledger accounts of the bank accounts** – _Integrationen → Eigene Anweisungen → Buchhaltung (DATEV-Export)_: for each bank account the number it has in your bookkeeping ("Sachkonto"). The field shows 1200, 1210, … (SKR 03) as a placeholder only.
+2. **Header values** – same place: Beraternummer and Mandantennummer (defaults 1001 and 1, usual for a company doing its own books – check what your bookkeeping expects), the month the fiscal year starts (January), the Sachkontenlänge (4).
 3. **An account for every booking** – in each booking under _Konto_. The app suggests, you confirm with _Übernehmen_:
    - own transfer → **1360** Geldtransit, bank fee → **4970** Nebenkosten des Geldverkehrs, both without a BU key;
    - _gelernt_: the account you gave this vendor last time (found by the receipt's vendor or the counterparty on the statement);
@@ -25,16 +29,33 @@ DATEV_2026-09.zip
 
    The BU key comes from the linked receipt: VAT 19 % → 9, 7 % → 8 on money out; 19 % → 3, 7 % → 2 on money in; `reverse_charge` → 94; no key without VAT, with several or foreign rates, or on an Automatikkonto (8400, 8300). The keys can be changed in the settings.
 
-The export page lists what is missing. **It exports only when every booking of the month has a confirmed account and every bank account its ledger account.** Fees and transfers are no exception: their suggestion is automatic, but it is confirmed – one click, _Konten aus Umbuchung und Bankgebühr übernehmen_, does all of them. (The alternative, a setting that takes automatic accounts unconfirmed, was left out: one more switch, and a wrong classification would reach the books unseen.) Bookings without a receipt, receipts linked to nothing and senders not yet confirmed are warnings: the export goes, but have a look.
+The export page lists what is missing. **It exports only when every booking of the month has a confirmed account and every bank account its ledger account.** Fees and transfers are no exception: their suggestion is automatic, but it is confirmed – one click, _Konten aus Umbuchung und Bankgebühr übernehmen_, does all of them. (The alternative, a setting that takes automatic accounts unconfirmed, was left out: one more switch, and a wrong classification would reach the books unseen.) One exception, confirmed by the person (#305): a wallet's **network fees** – the chain itself names them a fee, a cent or so for every transaction it sends – can be put on their account once for all, with _Für alle Netzwerkgebühren übernehmen_ in a fee's account block. Every network fee not confirmed yet takes the account, and so does each one a later sync brings; _Regel aufheben_ takes it off those again, while a fee confirmed by hand keeps its own. Bank and exchange fees are not covered. Bookings without a receipt, receipts linked to nothing and senders not yet confirmed are warnings: the export goes, but have a look.
 
-## Import into MonkeyOffice
+### Optional: a suspense account for bookings without an account (#323)
 
-MonkeyOffice imports DATEV Buchungsstapel through its DATEV import (menu names differ between versions; its help has it under "DATEV"). Import `DATEV/EXTF_Buchungsstapel_<month>.csv`, check the bookings in the import preview, then attach the receipts from `Belege/` by their number (the number is in _Belegfeld 1_ and at the start of the file name). The first import is a test: do it in a copy of the company, or check every line before you post.
+Pre-assignment stays the default. Where a booking is still unclear at the month's end, the export can put it on a **suspense account** instead of waiting, as is common when a batch is imported without every contra account settled:
+
+- **Setting:** _Eigene Anweisungen → Buchhaltung → Sammelkonto für Buchungen ohne Konto_, an account number, empty by default. Belege suggests none: which account (in SKR 03 usually one of the transit or unclear items) is for the tax adviser to say.
+- **Export page:** _Buchungen ohne Konto auf das Sammelkonto … exportieren_, offered only with that setting, off by default, remembered in this browser.
+- **On:**
+  - a booking without a confirmed account no longer blocks; the check list warns how many go onto the suspense account;
+  - each goes into the batch against that account, **without a BU key**, its Buchungstext starting with `Ungeklärt:`; its receipt goes into the ZIP as usual;
+  - the overview marks it _auf Sammelkonto, umbuchen_; the Verlauf counts them.
+- **Unchanged:**
+  - an own transfer whose other side is in the books goes against that bank's ledger account, as always;
+  - a bank account without its ledger account still blocks;
+  - bookings without a receipt stay a warning.
+
+The suspense account carries no input VAT and no expense account: the VAT return and the profit are right only once it is re-booked, and it must be empty by the year-end. Which account, and who re-books, is to be agreed with the tax adviser. This is no tax advice.
+
+## Import into your bookkeeping
+
+Bookkeeping programs and DATEV import a Buchungsstapel through their DATEV import (the menus are named differently from program to program; their help has it under "DATEV"). Import `DATEV/EXTF_Buchungsstapel_<month>.csv`, check the bookings in the import preview, then attach the receipts from `Belege/` by their number (the number is in _Belegfeld 1_ and at the start of the file name). The first import is a test: do it in a copy of the company, or check every line before you post.
 
 ## The format
 
 - EXTF, version 700, category 21 "Buchungsstapel", format version 13. Line 1: 31 header fields; line 2: the 125 column headings; then one line per booking with 125 fields (only the first 14 are filled).
-- `;` between fields, CRLF after each line, text in double quotes with inner quotes doubled, empty fields completely empty. Windows-1252 (ANSI); a character it lacks loses its accent or becomes `?`.
+- `;` between fields, CRLF after each line, text in double quotes with inner quotes doubled, empty fields completely empty. Windows-1252 (ANSI); a character it lacks loses its accent, Cyrillic and Greek are written in Latin letters (`Москва` → `Moskva`), and what is still missing (Arabic, Chinese) becomes `?`. The PDFs in the ZIP (receipts made from a mail, statements, Eigenbelege) carry text in any script their fonts have – Latin, Cyrillic, Greek, Arabic – with DejaVu Sans and Noto Sans Arabic embedded as subsets (`app/src/lib/pdf/fonts.js`).
 - Amount positive, decimal comma, no thousands separator. **S/H refers to _Konto_**, the bank's ledger account: money in is S, money out is H. _Gegenkonto_ is the confirmed account.
 - _Belegdatum_ `DDMM` = the booking date (DATEV takes the year from the fiscal year, and every line lies in the stack's period). _Belegfeld 1_ = the receipt number `YYYY-MM-NNN` (at most 36 characters). _Buchungstext_ = the receipt's vendor, else the counterparty, else the purpose (at most 60).
 - A booking with several receipts: the first receipt's number in _Belegfeld 1_, all of them in the ZIP.
@@ -47,15 +68,17 @@ MonkeyOffice imports DATEV Buchungsstapel through its DATEV import (menu names d
 ### What was checked against a source, and what not
 
 - **Field list, order and rules** follow the open-source Ruby gem [ledermann/datev](https://github.com/ledermann/datev) (header, booking fields, its example `EXTF_Buchungsstapel.csv` for format version 13), which follows DATEV's developer documentation. DATEV's own pages could not be read here. Two headings follow the task that asked for this export (`Basis-Umsatz`, `WKZ Basis-Umsatz`; the gem writes `Basisumsatz`); DATEV reads by position.
-- Header fields 8–10 and 18 (Herkunft, Exportiert von, Importiert von, Diktatkürzel) are left empty; 27 (SKR) too. If MonkeyOffice wants them, `headerLine` in `datev.js` is the one place.
+- Header fields 8–10 and 18 (Herkunft, Exportiert von, Importiert von, Diktatkürzel) are left empty; 27 (SKR) too. If your bookkeeping wants them, `headerLine` in `datev.js` is the one place.
 - **SKR 03 names** in the catalogue were compared with the public account pages of buchungssatz.de, not with DATEV's chart. **BU keys** 9/8/3/2 and 94 for §13b are the commonly documented SKR 03 keys (DATEV community, tax-software help pages); not checked with DATEV itself.
-- **Not tested with MonkeyOffice yet.** The first real import is the test.
+- **Not yet tried with a real import.** The first real import is the test.
 
 ## Monthly statements
 
 Every account with a booking in the month gets a statement as a PDF: bank accounts, exchange accounts and wallets alike (`app/src/lib/export/statement.js`, drawn by `statement-pdf.js`). It lists every booking of the month on that account, with its receipt number or what stands in for one (_Umbuchung_, _Gebühr_, _Ertrag_), and the totals of money in, money out and the month.
 
-A crypto account also shows the quantity and the rate of every booking, with the rate's source (K = Kraken, CG = CoinGecko, EZB = ECB, H = the price of the trade). The start and end balance in the asset is worked back from the last balance the exchange reported.
+A crypto account also shows the quantity and the rate of every booking, with the rate's source (K = Kraken, CG = CoinGecko, EZB = ECB, CBR = Bank of Russia, NBK = National Bank of Kazakhstan, CBR-X = cross rate through RUB from the Bank of Russia's rates, H = the price of the trade). The start and end balance in the asset come from the source where it has them, and say so: Kraken's ledger, where every entry carries the balance after it _(laut Kraken)_; for the native coin of an EVM wallet read through Blockscout, the explorer's own balance history, fees the transaction lists lack included _(laut Explorer)_; for another wallet read in full, its own history summed – only where that sum is exactly the balance the chain reports today – or, for Monero's CLI export, the wallet's own running balance _(laut Wallet)_. Where both of a month's balances are the source's, the month is reconciled: the start plus the month's bookings must give the end, and a gap is named in its month. Anything else is worked back from the last balance the exchange or wallet reported and marked _(errechnet)_: it is only right if every movement since is booked (#287). Kraken's balances are kept from the next sync on; for earlier months, sync again from the month's first day.
+
+The closing balance is reconciled where something independent can be compared: for Kraken, the start plus the month's bookings must give Kraken's end; for a wallet whose whole history every sync reads, all its bookings from nothing must give the end worked back from today. Where they agree, the balance says _abgestimmt_. Where not, the statement prints _Nicht abgestimmt_ with what the bookings give and the difference, and Export names the account: a movement is missing (a fee the source does not report, say), or a booking was deleted. A bank account, whose history does not start at nothing, and a pruned node's partial history stay _errechnet_, unchecked.
 
 For a bank account, the statement lists what Belege holds; it does not replace the bank's own statement.
 
@@ -73,20 +96,34 @@ The PDF is stored like an uploaded receipt and linked to the payment as your dec
 
 An Eigenbeleg is not an invoice and gives no input-tax deduction.
 
+## Crypto movements in an open format
+
+Below the DATEV export, _Kryptobewegungen_ downloads every booking of your wallets and exchange accounts – all years or one – as **JSON** or **CSV** in the open [crypto-ledger format](../schema/README.md). The schema and its examples are MIT licensed, so other tools can read and write the same files.
+
+- One account per wallet (CAIP-10, chain as CAIP-2) or exchange account (`kraken`, `kraken/earn`); Belege's accounts per asset are joined under their address.
+- One movement per booking: the quantity as signed decimal text, the fee as a movement of its own, the euro value with rate, source and moment as booked – `null` where no rate is known yet. Deleted bookings are left out.
+- The transaction hash on wallet movements and on an exchange's deposits and withdrawals, so both sides of a transfer can be paired; an exchange's own reference as `ref`.
+- The file is made in the browser and downloaded; nothing is sent anywhere.
+
+**Reading a file in.** _crypto-ledger-Datei einlesen_ takes such a file – from another tool, or from Belege on another device – and books its movements on the accounts a sync of the same wallet or Kraken account uses, so the two know each other's bookings by their ids.
+
+- Values come from the file as they are, with their rate and source; a movement without one is kept with its euro amount open ("Kurs fehlt").
+- The import only adds: a movement whose id the account already has – synced, imported before, or deleted by hand – is skipped and never rewritten. Reading the same file twice adds nothing.
+- A chain or exchange Belege does not read yet is named and left out. The file must be valued in EUR.
+
 ## To check with the tax adviser
 
 - Whether, and up to which amount, Eigenbelege are accepted for payments without a receipt (blockchain fees, lease payments).
 - The **accounts**: the catalogue is a starting point (e.g. 4964 is "Aufwendungen für die zeitlich befristete Überlassung von Rechten (Lizenzen, Konzessionen)" – right for software subscriptions?).
 - The **BU keys**, above all **§13b**: 94 is the usual key for a service from abroad at 19 %; others (e.g. for goods from the EU) exist. Which Automatikkonten your chart has (8400 and 8300 are treated as such: no key).
-- **Beraternummer, Mandantennummer**, Sachkontenlänge and fiscal year, as MonkeyOffice has them.
+- **Beraternummer, Mandantennummer**, Sachkontenlänge and fiscal year, as your bookkeeping has them.
 - Whether the booking date as _Belegdatum_ is right for you, or the receipt's date.
 
 ## Your own chart of accounts
 
 Under _Integrationen → Eigene Anweisungen → Kontenplan_ the app reads the chart of accounts of your bookkeeping program; from then on "Konto" suggests your accounts with your names instead of the built-in SKR 03 list, and marks a number that is not in your chart.
 
-- **MonKey Office:** sidebar → _Import & Export → Export DATEV → Kontenbeschriftungen_ (optionally only a range _von Konto … bis Konto_) → read the CSV file in.
-- **Other programs with a DATEV interface:** the export _Kontenbeschriftungen_ (a file that starts with `EXTF`, data category 20).
+- **A program with a DATEV interface:** its export of the _Kontenbeschriftungen_ (a file that starts with `EXTF`, data category 20; optionally only a range of accounts) → read the CSV file in. The menus are named differently from program to program.
 - **Otherwise:** any CSV or text file with a column of account numbers (4–8 digits) and a column of names, separated by semicolon, comma or tab. UTF-8 and Windows-1252 are both read.
 
 The chart is kept sealed in your books in the browser, like every record. _Entfernen_ goes back to the SKR 03 list.

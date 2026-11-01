@@ -1,0 +1,31 @@
+{
+	"lang": "en",
+	"parts": [
+		{
+			"card": "intro"
+		},
+		{
+			"card": "scene",
+			"n": 1,
+			"eyebrow": "The device is lost",
+			"title": "One sealed file on Aleph, and the books come back",
+			"sub": "The device forgets everything. The passkey and the archive bring it back."
+		},
+		{
+			"scene": "backup.en"
+		},
+		{
+			"card": "scene",
+			"n": 2,
+			"eyebrow": "Every passkey is lost",
+			"title": "The books survive every lost passkey",
+			"sub": "24 words on paper open the same books on an empty device."
+		},
+		{
+			"scene": "recovery-words.en"
+		},
+		{
+			"card": "outro"
+		}
+	]
+}

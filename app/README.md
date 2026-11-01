@@ -18,15 +18,18 @@ pnpm test:e2e     # Playwright, Chromium with a virtual passkey (PRF)
   (one prompt). HKDF-SHA-256 derives from it the AES-GCM key every database is sealed with
   (`info = belege/db-key/v1`) and the database names (`belege/db-name/v1:<collection>`), so an
   address cannot be guessed from the DID; receipt files get a key of their own
-  (`belege/blob-key/v1`). The provider's OrbitDB signing key is derived from the same answer. Nothing derived is stored. No PRF, no data: there is no plaintext fallback.
-- **No private key at rest.** The OrbitDB signing key (secp256k1, the provider's default) is
-  derived again from that same PRF answer at every unlock and lives in a session-only keystore
-  (`src/lib/session-identities.js`); the libp2p peer key is a fresh Ed25519 key per session with no
-  datastore to land in (`src/lib/network.js`). The keystore database an earlier build wrote
-  (`belege/orbitdb/keystore`) is deleted at unlock. What stays in `localStorage` is public: the
-  credential (id, public key, DID, PRF input) and the passkey's signature over the identity
-  (`webauthn-identity-proof:*`), which keeps the identity document, and so the identity, stable.
-  Passkey prompts: create 3, unlock 1, restore on a new device 4.
+  (`belege/blob-key/v1`). So is the books' secret (`belege/books-secret/v1`). Nothing derived is stored. No PRF, no data: there is no plaintext fallback.
+- **The books write as themselves (#496).** OrbitDB signs every entry as the books' own identity,
+  an Ed25519 key from the books' secret (`createSecretSigner`), the root of each collection's
+  access controller (`src/lib/store/books-access.js`). The passkey signs nothing for OrbitDB; its
+  DID is shown and is the `author` of every record.
+- **No private key at rest.** The books' key is made again at every unlock and lives in a
+  session-only keystore (`src/lib/session-identities.js`); the libp2p peer key is a fresh Ed25519
+  key per session with no datastore to land in (`src/lib/network.js`). The keystore database an
+  earlier build wrote (`belege/orbitdb/keystore`) is deleted at unlock. What stays in
+  `localStorage` is public: the credential (id, public key, DID, PRF input) and flags; books from
+  before #496 may still have the passkey's signature over their earlier identity
+  (`webauthn-identity-proof:*`). Passkey prompts: create 2, unlock 1, restore on a new device 3.
 - **Persistent storage.** Helia on `LevelBlockstore`/`LevelDatastore` (IndexedDB
   `belege/helia-blocks`, `belege/helia-data`), OrbitDB logs under `belege/orbitdb`; no keystore.
 - **Data layer** (`src/lib/store/`): sealed OrbitDB documents databases `transactions`,

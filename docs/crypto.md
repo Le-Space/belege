@@ -6,7 +6,7 @@ Belege keeps accounts on exchanges (Kraken) and own wallets on blockchains (Cosm
 
 ## One account per asset
 
-A crypto account holds exactly one asset: _Kraken BTC_, _Kraken EUR_ and _Wallet NYM_ are three accounts, each with its own ledger account in MonkeyOffice. The assets Belege knows are listed in `app/src/lib/assets/registry.js`: symbol, name, decimals and, where it is certain, the chain-agnostic CAIP-19 id.
+A crypto account holds exactly one asset: _Kraken BTC_, _Kraken EUR_ and _Wallet NYM_ are three accounts, each with its own ledger account in the bookkeeping. The assets Belege knows are listed in `app/src/lib/assets/registry.js`: symbol, name, decimals and, where it is certain, the chain-agnostic CAIP-19 id.
 
 ## A crypto transaction is booked in euros and keeps what moved
 
@@ -32,7 +32,7 @@ The bridge answers `GET /rates?asset=BTC&date=2026-09-01` (`bridge/src/rates.js`
 
    for a booking **on Kraken** (`prefer=kraken`) the order turns: Kraken's own EUR price first, CoinGecko as the fallback. Kraken then also prices assets Belege does not list yet, by their `<SYMBOL>EUR` pair;
 
-3. for **USD**: the **ECB reference rate** of the day, or the last one before it (weekends, holidays), inverted to EUR per USD.
+3. for **USD** and the other currencies the ECB publishes: the **ECB reference rate** of the day, or the last one before it (weekends, holidays), inverted to EUR per unit; for **RUB** after 1 March 2022, when the ECB stopped publishing it, the **Bank of Russia's** official rate valid on the day; for **KZT** the **National Bank of Kazakhstan's** official rate of the day; for a currency neither the ECB nor these publish against the euro but the Bank of Russia rates (UZS, GEL, AMD, KGS, AED, …) a **cross rate through the ruble** from the Bank of Russia's file of the day – marked as such (`cbr-cross`, CBR-X), not an official euro rate (#325).
 
 The request names an asset and a day, nothing about the bookings. Past days are cached in memory. With a CoinGecko demo key in the keychain (account `coingecko`), it is sent as a header.
 
@@ -44,7 +44,9 @@ The request names an asset and a day, nothing about the bookings. Past days are 
 
 **Sync**: _Integrationen → Kraken (Börse) → Kraken synchronisieren_. The bridge reads the ledger (`GET /kraken/ledgers`, paged by `ofs`, 50 entries a page, with a pause and retries on Kraken's rate limit) and the balances (`GET /kraken/balances`). The first sync starts on 1 January; later ones start a week before the last.
 
-**Accounts**: one per asset and wallet: _Kraken EUR_, _Kraken BTC_, _Kraken BTC (Earn)_ for staked or earning balances (Kraken's `.S`, `.M`, … assets). Each needs its ledger account in MonkeyOffice like a bank account (_Eigene Anweisungen_).
+**Under the hood**: the requests go through [ccxt](https://github.com/ccxt/ccxt) (MIT), which signs them and maps Kraken's error codes; the bridge uses its raw endpoints, so the entries are Kraken's own and are read as before. The nonce stays in microseconds, as the bridge has always sent it – Kraken keeps the highest nonce a key has sent and refuses a lower one. More exchanges through ccxt are planned (#265).
+
+**Accounts**: one per asset and wallet: _Kraken EUR_, _Kraken BTC_, _Kraken BTC (Earn)_ for staked or earning balances (Kraken's `.S`, `.M`, … assets). Each needs its ledger account in the bookkeeping like a bank account (_Eigene Anweisungen_).
 
 **Bookings**: one per ledger entry, plus one for each fee Kraken charged on it (so the fee is visible and booked on 4970).
 
@@ -66,6 +68,10 @@ An entry whose rate cannot be found is left out with the rest of its trade, list
 
 **Not decided here**: gains and losses when crypto is sold (acquisition cost by FIFO or average) and the year-end valuation. Every booking keeps quantity, rate and source, so the tax adviser's method can be applied to it.
 
+### Which chain a deposit's hash is on (issue #215)
+
+A deposit or withdrawal keeps Kraken's on-chain hash (`chainTxRef`) and, where Kraken names it, the network (`chainMethod`, e.g. `Filecoin`, `Ether (Arbitrum One)`). The payment's detail tells the chain from these, locally, in this order: an own wallet's booking with the same hash; Kraken's network name, where it fits the hash; the hash's form with the asset – a CID `bafy2bzace…` is Filecoin, `0x` + 64 hex an EVM chain, 64 hex Bitcoin for BTC (Nyx for NYM, Akash for AKT), base58 of 87–88 characters Solana. A clear chain gets its name and a link to its explorer (Filfox, mempool.space, Etherscan and its siblings, Nodes Guru, Mintscan, Solscan); an EVM hash with no network named lists the EVM chains it can be on, each linked. No explorer is asked: a link opens on your click (`app/src/lib/assets/hash-chain.js`).
+
 ## Own wallets
 
 Tokens withdrawn from an exchange to a wallet of our own stay the company's. _Integrationen → Eigene Wallets_ adds such a wallet by **chain and address**: read only, never a key or a seed phrase. The list of wallets is kept sealed in the books (settings key `wallets`); the bridge keeps nothing about them.
@@ -76,6 +82,17 @@ Tokens withdrawn from an exchange to a wallet of our own stay the company's. _In
 
 - **Cosmos**: CometBFT RPC `tx_search` for `transfer.sender='<address>'` and `transfer.recipient='<address>'` (a send, a fee, a reward are `transfer` events; a delegation is not – the bank keeper's `DelegateCoins` emits only `coin_spent` and `coin_received`, so such a pair without a following `transfer` is read as a movement too, and on chains before cosmos-sdk 0.44 the `delegate` event; the delegation pays its fee with a transfer, so the sender query finds it; issue #135), 100 a page, oldest first, merged by hash; `header` for each block's time; `status` for the oldest block the node still has; REST `/cosmos/bank/v1beta1/balances/<address>` for the balance; the memo from the transaction's bytes.
 - **Akash, older history** (issue #105): every public Akash node is pruned. When the node's lowest block is above 1, the bridge reads what lies before it from the Akash Console indexer (`console-api.akash.network`, run by the Akash team, open source, no key): the address's transactions (`/v1/addresses/<address>/transactions/<skip>/<limit>`), then each one by hash (`/v1/transactions/<hash>`) for its decoded messages, signers and fee. From the messages it books sends, multi-sends, IBC transfers out and back home, delegations, escrow deposits from the balance and governance deposits, plus the fee of every transaction the address signed first (`bridge/src/chains/akash-console.js`). The indexer has no events, so it has no amount that only an event carries: withdrawn rewards, the rewards a (un-/re-)delegation withdraws on the way, escrow refunds, lease payouts and authz `MsgExec`. Those transactions are counted and shown on the wallet card, and the balance check shows the gap. If the node's window moves on, a transaction first read from the node is read from the indexer later under another id; the app keeps the id it was booked under (`reconcileSourceIds`: same hash, kind and quantity). Checked on 2026-09-27: history back to March 2021 (mainnet-2); fees and sends agree with the node's events; reward amounts are 0 in the indexer.
+- **Akash burn-mint (BME, #303):** deployments are paid in ACT, which `MsgMintACT` mints by burning AKT. Such a transaction is a swap AKT → ACT (_Tausch … über Akash BME_), with no receipt needed, like a DEX swap. From the node, both sides come from the events (ACT is named, not listed). From the indexer, the AKT burnt comes from the message; the ACT minted is in the events only, so its amount is "unknown". `MsgBurnACT` (ACT back to AKT) is counted from the indexer, as its AKT is in the events only.
+- **A Kraken withdrawal the listing leaves out (#303):** the indexer's listing for an address can miss a transaction, for example the wallet's first funding from Kraken. On a sync, the app hands the bridge the on-chain hashes of its Kraken withdrawals in the chain's native asset that no wallet booking has yet. The bridge asks the indexer for each by hash and books the ones that move something of this wallet's, as an own transfer paired with the withdrawal. Only those hashes leave the app, to the indexer it already asks.
+- **Monthly usage statement (#305):** Akash has no supplier who invoices. On an Akash wallet's card, _Verbrauchsnachweis erstellen_ makes an Eigenbeleg per month (EB-YYYY-NNN, as Aleph's). It lists:
+  - the network fees with their hashes;
+  - AKT burnt for ACT;
+  - each deployment's usage. The node lists an owner's deployments with their escrow (`/akash/deployment/v1beta4/deployments/list`), and the indexer gives the blocks' times. The chain keeps only each deployment's total paid to its providers, so that total is spread evenly over the deployment's time and the month's share is counted. ACT is valued at 1 USD (Akash's burn-mint) at the ECB rate of the month's last day.
+
+  The statement becomes a receipt linked to the month's network fees. In the DATEV export, those fees go in as one collective booking per wallet account (switchable on the export page). The valuation is to be confirmed with the tax adviser.
+
+- **ACT account (#305):** _ACT-Konto anzeigen_ on an Akash wallet's card shows Akash as a vendor account, month by month: ACT topped up (burn-mint), used by the deployments, and the balance. What adds up: minted = held now (the node's `uact` balance) + left in escrow + used. An older mint's ACT is no longer on chain; the ACT those mints gave together then follows from that identity and is shared by the AKT each burnt. In euros, at cost: a top-up costs what its AKT was booked at, each ACT the average of all top-ups. Usage and what is left are valued at that cost. Whether a top-up is a prepayment and the usage the expense is for the tax adviser.
+
 - **EVM**: first Blockscout's JSON-RPC proxy (`…/api/eth-rpc`, `eth_chainId`) must name the chain (else `WALLET_WRONG_CHAIN`, or `WALLET_CHAIN_UNVERIFIED` when it cannot say); then its Etherscan-compatible API, no key: `txlist`, `txlistinternal`, `tokentx`, `balance`, `tokenbalance`. Paged by start block past Blockscout's 10 000-entry window, with retries on its rate limit. Blockscout without a key answers only a few requests per half hour and IP address (about ten were seen; a sync needs at least six), then HTTP 429.
 - **EVM with Alchemy** (when `pnpm setup:alchemy` has stored a key, and the wallet names no `api` endpoint of its own): see [Alchemy](#alchemy) below.
 
@@ -157,6 +174,33 @@ A Bitcoin wallet is read by its account's **extended public key**, not by one ad
   - some inputs ours (payjoin, coinjoin): one booking with the net change, fee included, and a note.
 - `txRef` is the txid. A Kraken BTC deposit or withdrawal carries the same txid as `chainTxRef`, so the two pair as an own transfer.
 - One account, _Wallet BTC ···<fingerprint>_, with its balance (confirmed, from the Esplora API).
+
+### Filecoin
+
+An own Filecoin wallet is added by its address: f1 (secp256k1), f3 (BLS) or f410f (delegated – also typed in its Ethereum form `0x…`, which is the same account and is kept as f410f), each checked by its blake2b checksum before anything is asked, or f0 (an ID). The bridge reads it from Filfox's public API, without a key: `address/<a>` for the balance and `address/<a>/transfers` for every movement, 100 a page (`bridge/src/chains/filecoin.js`). Per message, each send and each receipt becomes a booking with the other side's address; its miner fee and burn fee together one fee booking. The message CID (`bafy2bzace…`) is the hash – the same one Kraken reports for a deposit, so a withdrawal from the wallet and the deposit on Kraken pair as an own transfer, and the deposit's detail names Filecoin. Filfox sees the address and this Mac's IP address; an address with more than 20 000 movements is refused as too large.
+
+**Tokens on the FEVM and swaps (issue #301).** Where the address has token transfers, the bridge also reads `address/<a>/token-transfers`. Only listed tokens are booked, by contract: **USDFC** (`0x80b98d3aa09ffff255c3ba4a241111ff1262f045`, Secured Finance's FIL-backed stablecoin; checked against Secured Finance's contract list, CoinGecko and the contract itself). A token that calls itself USDFC from any other contract is counted, never booked. A token's balance is the sum of its whole history.
+
+A message in which the wallet gives one asset and gets another is a **swap**, as on the EVM chains: FIL for USDFC, or USDFC for FIL (the FIL comes back in the same message). Both legs are booked as a trade (_Tausch_) and need no receipt; the gas stays a fee of its own and names the swap. The router is named from the message's receiver (`message/<cid>`, asked for swaps only) where it is known from Sushi's own config: _SushiSwap_ (the router its app uses), _SushiSwap V2 (Router)_, _WFIL_. USDFC's euro rate comes from CoinGecko (`usdfc`), else from the swap's other side; it is never taken as 1 USD without a source. In the crypto-ledger export USDFC is `eip155:314/erc20:0x80b9…f045`.
+
+### Monero
+
+Monero hides amounts, senders and receivers on its chain, so nothing can be read by an address. Instead Belege imports the history your wallet exports, and reads it only in the browser. No view key and no file leaves the computer.
+
+1. _Integrationen → Wallets_: add a wallet, chain Monero, your primary address (`4…`) or a subaddress (`8…`). The address only names the account.
+2. Export the history from the wallet:
+   - **Monero GUI:** _History_ → _Export_ (CSV);
+   - **CLI:** `export_transfers all output=monero.csv`.
+3. "Verlauf importieren (CSV)" on the wallet reads the file:
+   - confirmed transfers only (in, out, a mined block); pool, pending and failed ones are left out;
+   - each transfer is valued at the day's rate (CoinGecko, `monero`);
+   - an outgoing transfer's fee is booked apart, as for every wallet; an incoming one's was paid by the sender.
+
+   Importing the same or a longer file again adds only what is new. The account's balance and its balances at each month's start and end: from the CLI export, the wallet's own running balance – a figure the wallet worked out, so the monthly statement reconciles against it (#287); the GUI export has none, so there they are what the file adds up to.
+
+Both formats were taken from the wallets' own source (monero-gui `TransactionHistory::writeCSV`, monero `export_transfers`). The GUI's date column follows the language, so its `epoch` column is used; the CLI's timestamps are UTC.
+
+**XMR from private holdings** (a contribution) is a received transfer like any other. It needs no third-party receipt: mark it "Kein fremder Beleg … / Kein Beleg nötig" with a reason, and take over the account your tax adviser names (sole proprietors: 1890 Privateinlagen; a UG or GmbH books it against the shareholder). A **customer's payment** in XMR is matched against our invoice like a bank payment, at the day's euro value.
 
 ### Where the defaults come from (checked 2026-09-26)
 

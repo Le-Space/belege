@@ -28,6 +28,40 @@ export default {
 			both: 'Im Netz: Geräte + Rechnungs-App',
 			only: { devices: 'Im Netz: eigene Geräte', 'invoice-app': 'Im Netz: Rechnungs-App' },
 			title: 'Netzwerk an – über ein Le-Space-Relay (TLS-WebSocket), Ende zu Ende verschlüsselt:',
+			titleBy: {
+				public:
+					'Netzwerk an – eigene Geräte über ein Le-Space-Relay (TLS-WebSocket), Ende zu Ende verschlüsselt:',
+				qr: 'Netzwerk an – eigene Geräte direkt per WebRTC, ohne Relay (per QR-Code verbunden), Ende zu Ende verschlüsselt:',
+				lan: 'Netzwerk an – eigene Geräte über das Relay deiner Bridge, nur im eigenen Netz, Ende zu Ende verschlüsselt:',
+				both: 'Netzwerk an – neue Geräte per QR oder über das Relay deiner Bridge, bekannte auch über die Le-Space-Relays, Ende zu Ende verschlüsselt:'
+			},
+			qr: 'Gerät per QR verbinden',
+			qrLink: {
+				title: 'Ein Gerät lädt dich per QR ein',
+				answering: 'Die Einladung kam per Link; die Antwort steht gleich hier.',
+				devicesOff: 'Dafür müssen eigene Geräte eingeschaltet sein.',
+				devicesOn: 'Eigene Geräte einschalten',
+				otherMode:
+					'Dafür muss dieses Gerät per QR verbinden („Ohne Relay, per QR“). Die Umstellung gilt nach einem Neuladen; die Einladung bleibt zehn Minuten.',
+				switch: 'Auf „Ohne Relay, per QR“ umstellen und neu laden',
+				reload: 'Neu laden',
+				dismiss: 'Verwerfen',
+				ios: 'Auf dem iPhone hält die Belege-App vom Home-Bildschirm ihre Bücher getrennt von Safari: Hier in Safari sind sie nicht. Öffne lieber die App und scanne dort mit „QR-Code scannen“. Verbindest du hier, synchronisiert Safari als eigenes Gerät.'
+			},
+			proof: {
+				self: 'Dieses Gerät: {peerId}',
+				relay: '  am Relay erreichbar: {addr}',
+				device: '{label}: {peerId}',
+				direct: '  direkt: {addr} – {rtt} ms',
+				relayed: '  über das Relay: {addr} – {rtt} ms',
+				dataIn: 'Letzte Daten: von {device}, {book}, um {time}',
+				dataOut: 'Letzte Daten: hier geschrieben, an die Geräte, {book}, um {time}',
+				dataOutWaiting:
+					'Letzte Daten: hier geschrieben, {book}, um {time} – geht beim nächsten Verbinden hinaus',
+				pulse: 'Letzte Ping-Antwort: {label}, {rtt} ms, um {time}',
+				pulseGone:
+					'Letzte Ping-Antwort: {label}, {rtt} ms, um {time} – seitdem nicht mehr verbunden'
+			},
 			part: {
 				devices: {
 					connecting: '• Eigene Geräte: verbindet …',
@@ -57,6 +91,7 @@ export default {
 			switchOff: 'Aus',
 			switchOn: 'Ein',
 			switchOnFirst: 'Einschalten …',
+			onAtNextUnlock: 'ein – ab dem nächsten Entsperren',
 			setUp: 'Einrichten …',
 			reloadNeeded:
 				'Geräte gehen beim nächsten Entsperren online – der Knoten war beim Entsperren offline.',
@@ -78,7 +113,7 @@ export default {
 				'Erst auf dem Rechner mit der Bridge `pnpm setup:relay` ausführen, die Bridge neu starten und hier koppeln.',
 			modePending: 'Gilt für alle Geräte dieser Bücher, hier ab dem nächsten Entsperren.'
 		},
-		localFirst: 'Le Space: der Local-First-Stack hinter dieser App'
+		localFirst: 'Le Space Belege: die Produktseite zu dieser App'
 	},
 	assets: {
 		// How a rate's source is named in the app (assets/valuation.js).
@@ -86,6 +121,9 @@ export default {
 			coingecko: 'CoinGecko',
 			kraken: 'Kraken',
 			ecb: 'EZB-Referenzkurs',
+			cbr: 'Referenzkurs der Bank of Russia',
+			nbk: 'Referenzkurs der Nationalbank Kasachstans',
+			'cbr-cross': 'Kreuzkurs über RUB (Bank of Russia)',
 			trade: 'Preis des Handels',
 			dex: 'DEX-Pool',
 			migration: 'Wert der verbrannten alten Token',
@@ -114,7 +152,8 @@ export default {
 			settings: 'Einstellungen',
 			matches: 'Zuordnungen',
 			questions: 'Rückfragen',
-			events: 'Verlauf'
+			events: 'Verlauf',
+			travel: 'Reisen'
 		},
 		allDatabases: 'Alle Datenbanken',
 		files: 'Belegdateien ({count})',
@@ -215,7 +254,12 @@ export default {
 			},
 			payments: {
 				title: 'Zahlungen holen',
-				why: 'Die Bank über Hibiscus oder als CAMT.053-Datei – die geht auch ohne Bridge. Dazu Kraken und eigene Wallets, wenn du sie hast.',
+				why: 'Die Bank über Hibiscus, über Enable Banking oder als CAMT.053-Datei – die geht auch ohne Bridge. Dazu Kraken und eigene Wallets, wenn du sie hast.',
+				ways: [
+					'Kontoauszug-Datei (CAMT.053): im Online-Banking exportieren und unter Integrationen → Bank hochladen. Sofort, ohne Bridge.',
+					'Hibiscus: Banken mit FinTS, über die Bridge; einmal einrichten mit',
+					'Enable Banking: Banken in Europa per PSD2, über die Bridge. Eine eigene Anwendung bei Enable Banking anlegen (Redirect-URL: diese App unter /integrationen/bank/verbunden), dann einrichten mit'
+				],
 				time: 'etwa 5 Minuten'
 			},
 			receipts: {
@@ -225,7 +269,7 @@ export default {
 			},
 			ai: {
 				title: 'KI zum Auslesen',
-				why: 'Liest Anbieter, Betrag, Datum und Nummer aus Belegen – mit deinem eigenen Modell in der Bridge, vorher geschwärzt. Ohne KI trägst du das von Hand ein.',
+				why: 'Liest Anbieter, Betrag, Datum und Nummer aus Belegen – mit deinem eigenen Modell in der Bridge; was an einen Anbieter im Internet geht, wird vorher geschwärzt. Ohne KI trägst du das von Hand ein.',
 				time: 'etwa 5 Minuten'
 			},
 			books: {
@@ -253,7 +297,7 @@ export default {
 			found: 'Bridge gefunden – jetzt mit dem Code aus dem Terminal koppeln.',
 			diagnosis: {
 				origin:
-					'Die Bridge läuft, lässt aber diese Seite ({origin}) nicht herein. Trag die Adresse in ~/.config/belege/bridge.json unter appOrigins ein und starte die Bridge neu.',
+					'Die Bridge läuft, lässt aber diese Seite ({origin}) nicht herein: Sie steht nicht in der Liste der erlaubten Seiten (appOrigins). Einmal im Terminal, dann die Bridge neu starten:',
 				mixed:
 					'Eine https-Seite darf eine http-Adresse nur auf diesem Rechner fragen (127.0.0.1). Starte die Bridge auf diesem Rechner oder öffne die App lokal (pnpm dev).',
 				'bad-url': 'Das ist keine Adresse. Üblich ist http://127.0.0.1:8765.',
@@ -283,6 +327,8 @@ export default {
 			createFailed: 'Der Passkey konnte nicht angelegt werden.',
 			notFound: 'Auf diesem Gerät wurde kein Passkey für Belege gefunden.',
 			notStored: 'In diesem Browser ist kein Passkey gespeichert.',
+			stepCancelled:
+				'Abgebrochen, bevor die Bücher geöffnet wurden. Der Passkey ist in diesem Browser gespeichert: „Mit gespeichertem Passkey entsperren“ macht weiter.',
 			noPrf:
 				'Dieser Passkey liefert kein PRF-Geheimnis. Belege verschlüsselt alle Daten mit einem Schlüssel aus diesem Geheimnis und öffnet ohne ihn keine Daten. Bitte einen Passkey in einem Browser und Passwort-Manager mit PRF-Unterstützung verwenden (z. B. aktuelles Chrome, Safari oder Firefox mit iCloud-Schlüsselbund, Google Passwortmanager oder 1Password).'
 		},
@@ -293,6 +339,8 @@ export default {
 			accountDigits: 'Ein Konto hat 4 bis 8 Ziffern.',
 			taxKeyDigits: 'Ein BU-Schlüssel hat bis zu 4 Ziffern.',
 			rateFormat: 'Der Kurs ist eine Zahl ab 0, z. B. 0,0042 – oder 0 für einen wertlosen Token.',
+			rateAmbiguous:
+				'„{value}“ kann beides sein: mit Tausenderpunkt oder mit drei Nachkommastellen – ein Unterschied um das Tausendfache. Schreib den Kurs ohne Tausendertrennzeichen (58123) oder mit einer Nachkommastelle mehr (2,3450).',
 			rateNoQuantity: 'Diese Buchung hat keine Menge, zu der ein Kurs gehört.'
 		},
 		camt: {
@@ -303,12 +351,26 @@ export default {
 		},
 		bridge: {
 			unreachable:
-				'Die Bridge ist nicht erreichbar (läuft sie, und ist diese Adresse in appOrigins erlaubt?).',
+				'Die Bridge ist nicht erreichbar. Läuft sie (pnpm bridge)? Ob sie diese Seite hereinlässt, sagt „Status prüfen“ unter Integrationen → Bridge.',
 			unknownDevice: 'Die Bridge kennt dieses Gerät nicht (neu koppeln).',
 			originNotAllowed: 'Diese App-Adresse ist in der Bridge nicht erlaubt.',
 			wrongCode: 'Falscher Kopplungscode.',
 			noCode: 'Kein Kopplungscode aktiv: Bridge mit --pair neu starten.',
+			alephNotKept:
+				'Aleph hat die Sicherung nicht behalten: Auf dem Konto der Bridge sind {credits} Credits, für einen Tag braucht diese Sicherung {required}. Lade Credits auf (app.aleph.cloud → Credits) und sichere noch einmal.',
+			alephRejected: 'Aleph hat die Sicherung nicht behalten ({error}).',
 			mailNotSetUp: 'Das Postfach ist auf der Bridge nicht eingerichtet (pnpm setup:mail).',
+			paperlessNotSetUp: 'Paperless ist auf der Bridge nicht eingerichtet (pnpm setup:paperless).',
+			refused: {
+				LLM_NO_CREDIT:
+					'Das Guthaben bei {provider} ist aufgebraucht. Lade es beim Anbieter auf, dann „Weitermachen“ auf Home.',
+				LLM_AUTH:
+					'{provider} nimmt den API-Schlüssel nicht an: pnpm setup:llm erneut ausführen, dann die Bridge neu starten.',
+				LLM_MODEL:
+					'{provider} kennt das eingestellte Modell nicht: pnpm setup:llm, dann die Bridge neu starten.',
+				LLM_UNREACHABLE:
+					'{provider} ist nicht erreichbar. Läuft der Dienst (bei Ollama: die App)? Dann „Weitermachen“ auf Home.'
+			},
 			llmNotSetUp: 'Das Auslesen ist auf der Bridge nicht eingerichtet (pnpm setup:llm).',
 			senderUnverified: 'Der Absender ist nicht bestätigt (DKIM/SPF): erst freigeben.',
 			noModel: 'Kein Modell lieferte eine brauchbare Antwort ({reasons}).'
@@ -321,6 +383,8 @@ export default {
 				'Die Kopplung erlaubt das noch nicht: Bitte die Rechnungs-App neu koppeln (Entkoppeln, dann wieder verbinden), damit Belege ausgestellte Rechnungen lesen und Zahlungen melden darf.',
 			invoicePdfMismatch:
 				'Das PDF der Rechnung {number} stimmt nicht mit dem überein, was die App angibt.',
+			invoiceXmlMismatch:
+				'Die XRechnung der Rechnung {number} stimmt nicht mit dem überein, was die App angibt.',
 			notInvoiceApp: 'Diese Einladung ist nicht von einer Rechnungs-App.',
 			peerUnreachable: 'Die Rechnungs-App ist unter dieser Peer-ID gerade nicht erreichbar.',
 			eigenbelegPdfLater:
@@ -338,6 +402,12 @@ export default {
 			exists: 'Für diesen Monat gibt es schon den Verbrauchsnachweis {number}.',
 			nothing: 'In diesem Monat hat das Konto keine Credits bewegt: kein Nachweis nötig.',
 			saveFailed: 'Der Verbrauchsnachweis konnte nicht gespeichert werden.'
+		},
+		akash: {
+			exists: 'Für diesen Monat gibt es schon den Akash-Verbrauchsnachweis {number}.',
+			nothing:
+				'In diesem Monat hat die Wallet keine Netzwerkgebühren, keine Aufladung und keinen Verbrauch: kein Nachweis nötig.',
+			saveFailed: 'Der Akash-Verbrauchsnachweis konnte nicht gespeichert werden.'
 		},
 		wallets: {
 			costCentre: 'Kostenstelle: bis zu 36 Buchstaben und Ziffern, ohne Leerzeichen – {value}'
@@ -531,20 +601,50 @@ export default {
 		releaseExact: 'Veröffentlichte Version – die Notizen stehen im Release auf GitHub.',
 		releaseAfter: '{count} Änderungen nach der Version {release}, noch nicht veröffentlicht.',
 		source: 'Quellcode',
-		privacy: 'Datenschutz & Technik'
+		privacy: 'Datenschutz & Technik',
+		imprint: 'Impressum'
 	},
 	consent: {
 		title: 'Bevor du anfängst',
 		intro:
-			'Le Space Belege bringt deine Kontoumsätze und Belege zusammen. Hier steht, wo deine Daten liegen und was diesen Rechner verlässt – kurz für alle, und mit dem Schalter „Technisch“ im Detail.',
+			'Le Space Belege bringt deine Bankkonten, Krypto-Wallets und Börsenkonten mit deinen Belegen zusammen – lokal auf deinem Gerät, nicht in einer Cloud. Hier steht, wo deine Daten liegen und was diesen Rechner verlässt – kurz für alle, und mit dem Schalter „Technisch“ im Detail.',
+		highlights: {
+			local: {
+				title: 'Lokal, nicht in der Cloud',
+				text: 'Deine Bücher liegen in diesem Browser und auf deinen eigenen Geräten, versiegelt mit deinem Passkey. Le Space betreibt keinen Server, der sie hält.'
+			},
+			crypto: {
+				title: 'Krypto inklusive',
+				text: 'Kraken und eigene Wallets – Bitcoin, Ethereum und andere EVM-Chains, Cosmos, Monero – in Euro zum Tageskurs samt Quelle gebucht, wie Bankzahlungen abgeglichen und im DATEV-Export.'
+			},
+			books: {
+				title: 'Bank und Belege, abgeglichen',
+				text: 'Kontoumsätze und Belege aus Mail, Upload oder Portalen finden zueinander – jeden Monat ein DATEV-Paket für die Buchhaltung.'
+			}
+		},
 		earlyHeading: 'Noch früh.',
 		earlyBody:
 			'Le Space Belege ist in Entwicklung. Bewahre Kontoauszüge und Belege weiterhin auch anderswo auf.',
+		terms: {
+			heading: 'Nutzung und Haftung',
+			items: [
+				'Le Space Belege wird von der Le Space UG (haftungsbeschränkt) kostenlos zur Verfügung gestellt, als freie Software (AGPL-3.0). Es gibt keine Gewähr, dass die App fehlerfrei arbeitet oder dauerhaft erreichbar ist.',
+				'Die Le Space UG haftet nur für Vorsatz und grobe Fahrlässigkeit. Die gesetzliche Haftung für Schäden an Leben, Körper und Gesundheit und nach dem Produkthaftungsgesetz bleibt unberührt.',
+				'Deine Bücher liegen nur auf deinen Geräten, nicht bei uns. Ihre Sicherung liegt bei dir: Mach Backups, verbinde ein zweites Gerät und bewahre Kontoauszüge und Belege auch anderswo auf.',
+				'Belege bereitet deine Buchhaltung vor; es ersetzt weder Buchführung noch Steuerberatung. Prüfe Zuordnungen, ausgelesene Beträge und jeden Export, bevor du ihn weitergibst – auch die KI kann sich irren.'
+			],
+			imprint: 'Impressum',
+			privacy: 'Datenschutzerklärung der Le Space UG'
+		},
 		technicalHeading: 'Unter der Haube',
 		// The names of what Belege works with, where they carry words (consent/integrations.js).
 		integrationNames: {
+			monero: 'Monero (Export der Wallet, nur im Browser gelesen)',
+			paperless: 'Paperless-ngx (dein eigenes Archiv, auf diesem Rechner)',
+			'aleph-backup': 'Aleph Cloud (Backup über die OrbitDB Storage Bridge)',
 			hibiscus: 'Hibiscus (Banken per FinTS/HBCI)',
 			camt: 'CAMT.053-Kontoauszüge, z. B. Revolut Business',
+			enablebanking: 'Enable Banking (Banken in Europa per PSD2, mit eigener Anwendung)',
 			alchemy: 'Alchemy (EVM, mit eigenem Schlüssel)',
 			blockscout: 'Blockscout (EVM, ohne Schlüssel)',
 			'cosmos-nodes': 'Nym, Nodes Guru, PublicNode, Polkachu (Cosmos-Knoten)',
@@ -552,7 +652,9 @@ export default {
 			aleph: 'Aleph Cloud (Credits eigener Konten, nur gelesen)',
 			coingecko: 'CoinGecko (Kurse)',
 			'kraken-rates': 'Kraken (Kurse)',
-			ecb: 'Europäische Zentralbank (USD-Kurs)'
+			ecb: 'Europäische Zentralbank (Referenzkurse von Währungen)',
+			cbr: 'Bank of Russia (Rubelkurs, wo die EZB keinen hat; Kreuzkurse über den Rubel)',
+			nbk: 'Nationalbank Kasachstans (Tengekurs)'
 		},
 		// What Belege can do, by category (docs/features.de.md says the same in more words).
 		features: {
@@ -569,7 +671,7 @@ export default {
 			payments: {
 				name: 'Zahlungen',
 				items: [
-					'Bankumsätze aus Hibiscus (über die Bridge) und Kontoauszüge als CAMT.053, etwa von Revolut oder GLS.',
+					'Bankumsätze aus Hibiscus und über Enable Banking (beides über die Bridge) und Kontoauszüge als CAMT.053, etwa von Revolut oder GLS.',
 					'Ein Geschäftsjahr nach dem anderen; zusammengehörige Buchungen sind einen Klick entfernt.',
 					'Private Zahlungen vom Geschäftskonto markieren, dokumentieren und verrechnen.'
 				]
@@ -587,7 +689,7 @@ export default {
 				items: [
 					'Punkte aus Betrag, Rechnungs- und Kundennummer, IBAN, Lieferant und Datum: sichere Paare werden verknüpft, der Rest wird eine Frage.',
 					'Umbuchungen zwischen eigenen Konten (auch über Chains und Bridges), Bankgebühren und Erstattungen brauchen keinen Beleg.',
-					'Lieferantenkonten für Guthaben- und Sammelabrechnungen; Belege lernt aus deinen Verknüpfungen.'
+					'Lieferantenkonten für Guthaben- und Sammelabrechnungen; Le Space Belege lernt aus deinen Verknüpfungen.'
 				]
 			},
 			ai: {
@@ -610,7 +712,15 @@ export default {
 				name: 'Buchhaltung & Export',
 				items: [
 					'Jede Buchung mit SKR-03-Konto und BU-Schlüssel; dein Kontenrahmen lässt sich einlesen.',
-					'Monatlich ein ZIP: DATEV-Buchungsstapel (EXTF) für MonkeyOffice, die Belege als PDF und ein Auszug je Konto.'
+					'Monatlich ein ZIP: DATEV-Buchungsstapel (EXTF) für deine Buchhaltung, die Belege als PDF und ein Auszug je Konto.'
+				]
+			},
+			travel: {
+				name: 'Reisekosten',
+				items: [
+					'Reisen mit Belegen, Verpflegungspauschalen nach Zeiten und Ländern, Kilometern (auch im Auto von Familienangehörigen) und Bewirtungen.',
+					'Erkannt aus Tickets, Hotelrechnungen und Kalendereinladungen, vorgeschlagen nach Datum und Strecke – angelegt nur auf deinen Klick.',
+					'Monatliche Reisekostenabrechnung als nummeriertes PDF, gebucht auf SKR-03-Konten, die Auszahlung ihr zugeordnet.'
 				]
 			},
 			devices: {
@@ -618,7 +728,7 @@ export default {
 				items: [
 					'Dieselben Bücher auf Telefon und Rechner; ein Gerät bekommt sie erst, wenn es den Passkey beweist.',
 					'Geräte treffen sich über öffentliche Relays, am Relay deiner eigenen Bridge im selben Netz oder ganz ohne Relay per QR-Code – oder über alle, wobei ein neues Gerät nur im eigenen Netz hereinkommt.',
-					'Das Telefon nutzt die Bridge des Rechners; Belege lässt sich als App installieren.',
+					'Das Telefon nutzt die Bridge des Rechners; Le Space Belege lässt sich als App installieren.',
 					'Rechnungs-App (UCEP): Eigenbelege erstellen lassen und bezahlte Rechnungen melden; eine Lese-Freigabe für eine Assistenz.'
 				]
 			}
@@ -632,22 +742,25 @@ export default {
 			technical: [
 				'Ein WebAuthn-Passkey mit P-256 (ES256), auffindbar gespeichert. Deine DID (did:key:…) ist sein öffentlicher Schlüssel, gebildet von @le-space/orbitdb-identity-provider-webauthn-did. Der private Schlüssel verlässt den Authenticator nie.',
 				'Die PRF-Erweiterung (CTAP hmac-secret) ist Pflicht. Liefert der Authenticator kein PRF-Geheimnis, bricht der Start ab; einen unverschlüsselten Ersatzweg gibt es nicht.',
-				'Passkey-Abfragen: Anlegen 3, Entsperren 1, Wiederherstellen auf einem neuen Gerät 4.'
+				'Passkey-Abfragen: Anlegen 2, Entsperren 1, Wiederherstellen auf einem neuen Gerät 3, mit Wiederherstellungswörtern öffnen 2.'
 			]
 		},
 		storage: {
 			title: 'Speicherung: nur in diesem Browser, immer verschlüsselt',
 			simple: [
 				'Deine Buchungen, Belege und Einstellungen liegen nur in diesem Browser auf diesem Gerät – nirgends sonst, auch nicht bei uns.',
-				'Alles ist verschlüsselt, mit einem Schlüssel, den dein Passkey bei jedem Entsperren neu erzeugt. Der Schlüssel selbst wird nie gespeichert.'
+				'Alles ist verschlüsselt, mit Schlüsseln, die bei jedem Entsperren neu entstehen: Dein Passkey öffnet dafür sein Fach im Tresor deiner Bücher. Die Schlüssel selbst werden nie gespeichert.',
+				'Was die Seite zeigt, sehen auch Browser-Erweiterungen, die hier laufen dürfen. Für Belege empfiehlt sich ein eigenes Browserprofil ohne Erweiterungen.'
 			],
-			loss: 'Verlierst du den Passkey, verlierst du den Zugang zu deinen Daten. Niemand kann sie dann wiederherstellen, auch wir nicht. Löschst du die Website-Daten dieses Browsers, sind sie ebenfalls weg.',
+			loss: 'Verlierst du alle Passkeys deiner Bücher und hast keine Wiederherstellungswörter, verlierst du den Zugang zu deinen Daten. Niemand kann sie dann wiederherstellen, auch wir nicht. Schreib dir deshalb unter Einstellungen → Schlüssel die 24 Wörter auf oder leg einen zweiten Passkey an. Löschst du die Website-Daten dieses Browsers, sind die Daten hier ebenfalls weg.',
 			lossHeading: 'Wichtig:',
+			keysDoc: 'Wie die Schlüssel funktionieren',
 			technical: [
 				'Aus der PRF-Antwort des Passkeys leitet HKDF-SHA-256 den AES-GCM-Schlüssel ab, mit dem jede Datenbank versiegelt ist (info belege/db-key/v1), und die Namen der Datenbanken (belege/db-name/v1:<Sammlung>), damit sich keine Adresse aus der DID erraten lässt. Nichts davon wird gespeichert.',
-				'Kein privater Schlüssel liegt auf dem Gerät: Den OrbitDB-Signaturschlüssel (secp256k1) leitet der Identity-Provider bei jedem Entsperren aus derselben PRF-Antwort ab. Er lebt nur im Arbeitsspeicher dieser Sitzung.',
-				'Gespeichert werden die OrbitDB-Dokumentdatenbanken transactions, receipts, partners, accounts, settings, matches, questions und events, auf Helia mit LevelBlockstore und LevelDatastore in IndexedDB (belege/helia-blocks, belege/helia-data, belege/orbitdb). Jeder Eintrag ist mit AES-GCM verschlüsselt, Belegdateien mit einem eigenen Schlüssel (belege/blob-key/v1).',
-				'Im localStorage liegt nur Öffentliches: die Angaben zum Passkey (Credential-ID, öffentlicher Schlüssel, DID, PRF-Eingabe), die Signatur des Passkeys über das Identitätsdokument und drei Merker dieser Seite (Hinweis gelesen, Hell/Dunkel, Technisch).'
+				'Kein privater Schlüssel liegt auf dem Gerät: Die Bücher schreiben als eigene Identität, ein Ed25519-Schlüssel, der bei jedem Entsperren aus einem Geheimnis der Bücher entsteht, das wiederum aus derselben PRF-Antwort kommt (belege/books-secret/v1). Er lebt nur im Arbeitsspeicher dieser Sitzung. Der Passkey selbst unterschreibt nichts für die Datenbanken; seine DID steht als Autor in jedem Eintrag.',
+				'Gespeichert werden die OrbitDB-Dokumentdatenbanken transactions, receipts, partners, accounts, settings, matches, questions, events und travel, auf Helia mit LevelBlockstore und LevelDatastore in IndexedDB (belege/helia-blocks, belege/helia-data, belege/orbitdb). Jeder Eintrag ist mit AES-GCM verschlüsselt und als Ganzes noch einmal mit einem eigenen Schlüssel (belege/replication-key/v1): Ohne ihn sind weder Inhalt noch Schreiber, Zeitpunkt oder Verweise eines Eintrags lesbar, und die Namen der Datenbanken verraten nicht, was sie enthalten. Belegdateien haben einen eigenen Schlüssel (belege/blob-key/v1).',
+				'Im localStorage liegt kein Schlüssel und nichts aus den Büchern, nur Öffentliches: die Angaben zum Passkey (Credential-ID, öffentlicher Schlüssel, DID, PRF-Eingabe) und Merker dieser Seite, etwa ob der Hinweis gelesen ist, Hell/Dunkel, die Sprache, das Netz und ob die Bücher schon umgezogen sind. Bücher aus früheren Versionen können dort noch die Signatur des Passkeys über ihr früheres Identitätsdokument haben.',
+				'Der Tresor der Bücher (#406) liegt versiegelt im localStorage: die Wurzel aller Schlüssel unter einem zufälligen Tresorschlüssel, und je Passkey ein Fach mit diesem Schlüssel, versiegelt mit einem Schlüssel aus der PRF-Antwort des Passkeys (AES-256-GCM). Wer will, legt ihn zusätzlich bei Aleph ab (Einstellungen → Schlüssel): versiegelt, unter Adressen, die aus Passkey und Wurzel abgeleitet sind, mit der Credential-ID jedes Passkeys, ohne Namen.'
 			]
 		},
 		network: {
@@ -659,12 +772,12 @@ export default {
 			options: 'Einstellungen',
 			devices: 'Eigene Geräte synchronisieren',
 			devicesText:
-				'Deine Bücher und Belege auch auf deinem Telefon oder einem zweiten Rechner mit demselben Passkey. Die Geräte verbinden sich über ein Le-Space-Relay (gefunden über Aleph, siehe „Le-Space-Relays“) und, wo möglich, direkt; alles ist verschlüsselt, bevor es das Gerät verlässt. Oder, im Netzwerk-Menü oben unter „Wo sich Geräte treffen“, ohne Relay per QR: Zwei Geräte im selben Netz scannen gegenseitig einen Code und verbinden sich direkt – dann fragt Belege weder Aleph noch ein Relay noch einen STUN-Server, und der Code zeigt nur die Kennung des Geräts und seine Adressen im lokalen Netz. Oder „Nur im eigenen Netz“: Die Geräte treffen sich am Relay deiner eigenen Bridge (auf dem Rechner mit `pnpm setup:relay` eingerichtet) – dann fragt Belege weder Aleph noch einen öffentlichen Relay noch einen STUN-Server, und dein Rechner sieht nur die Adressen im lokalen Netz und wann die Geräte verbunden sind. Oder „Beides“: alle drei Wege zugleich, aber ein Gerät, das die Bücher noch nicht kennen, kommt nur per QR oder über den Relay deiner Bridge herein – erst danach auch über die öffentlichen Relays. Ein Gerät bekommt die Bücher erst, wenn es beweist, dass es denselben Passkey hat; der Relay und andere Peers bekommen nichts davon, auch nicht verschlüsselt. Der Relay sieht, dass zwei Geräte miteinander reden, ihre IP-Adressen und die Kennungen (Hash-Werte) der Datenbanken, nie Inhalte. Gilt für dieses Gerät, ab dem nächsten Entsperren. Auf einem Rechner mit Bridge kannst du sie zusätzlich für deine eigenen Geräte freigeben (Integrationen → Eigene Geräte): Dann nutzt das Telefon Bank, Postfach, KI und Wallets über diesen Rechner – nur die freigegebenen Abfragen, verschlüsselt, der Zugang der Bridge bleibt auf dem Rechner.',
+				'Deine Bücher und Belege auch auf deinem Telefon oder einem zweiten Rechner mit demselben Passkey. Die Geräte verbinden sich über ein Le-Space-Relay (gefunden über Aleph, siehe „Le-Space-Relays“) und, wo möglich, direkt; alles ist verschlüsselt, bevor es das Gerät verlässt. Oder, im Netzwerk-Menü oben unter „Wo sich Geräte treffen“, ohne Relay per QR: Zwei Geräte im selben Netz scannen gegenseitig einen Code und verbinden sich direkt – dann fragt Le Space Belege weder Aleph noch ein Relay noch einen STUN-Server, und der Code zeigt nur die Kennung des Geräts und seine Adressen im lokalen Netz. Oder „Nur im eigenen Netz“: Die Geräte treffen sich am Relay deiner eigenen Bridge (auf dem Rechner mit `pnpm setup:relay` eingerichtet) – dann fragt Le Space Belege weder Aleph noch einen öffentlichen Relay noch einen STUN-Server, und dein Rechner sieht nur die Adressen im lokalen Netz und wann die Geräte verbunden sind. Oder „Beides“: alle drei Wege zugleich, aber ein Gerät, das die Bücher noch nicht kennen, kommt nur per QR oder über den Relay deiner Bridge herein – erst danach auch über die öffentlichen Relays. Ein Gerät bekommt die Bücher erst, wenn es beweist, dass es denselben Passkey hat; der Relay und andere Peers bekommen nichts davon, auch nicht verschlüsselt. Der Relay sieht, dass zwei Geräte miteinander reden, ihre IP-Adressen und die Kennungen (Hash-Werte) der Datenbanken, nie Inhalte. Gilt für dieses Gerät, ab dem nächsten Entsperren. Auf einem Rechner mit Bridge kannst du sie zusätzlich für deine eigenen Geräte freigeben (Integrationen → Eigene Geräte): Dann nutzt das Telefon Bank, Postfach, KI und Wallets über diesen Rechner – nur die freigegebenen Abfragen, verschlüsselt, der Zugang der Bridge bleibt auf dem Rechner.',
 			collaboration: 'Zusammenarbeit',
 			collaborationText:
 				'Gemeinsame Bücher mit Kolleginnen, Kollegen oder der Steuerberatung, Chat und später Video. Das kommt später und wird dann hier ausdrücklich eingeschaltet – nicht vorher und nicht von selbst.',
 			technical: [
-				'Im Browser läuft ein libp2p-Knoten, weil OrbitDB einen braucht – ohne Transporte, ohne Bootstrap-Liste und ohne Peer-Discovery. Er kann niemanden anwählen und hört auf keiner Adresse. Nur wenn du Belege mit deiner Rechnungs-App koppelst, kommt ein zweiter, eigener Knoten dazu, der sich mit einem Relay verbindet (siehe „Rechnungs-App“ unten); an deine Bücher kommt er nicht.',
+				'Im Browser läuft ein libp2p-Knoten, weil OrbitDB einen braucht – ohne Transporte, ohne Bootstrap-Liste und ohne Peer-Discovery. Er kann niemanden anwählen und hört auf keiner Adresse. Nur wenn du Le Space Belege mit deiner Rechnungs-App koppelst, kommt ein zweiter, eigener Knoten dazu, der sich mit einem Relay verbindet (siehe „Rechnungs-App“ unten); an deine Bücher kommt er nicht.',
 				'Sein Peer-Schlüssel (Ed25519) entsteht in jeder Sitzung neu und wird nirgends gespeichert.',
 				'Mit „Eigene Geräte synchronisieren“ bekommt dieser Knoten die Transporte des Rechnungs-App-Knotens: WebSocket zum Relay, eine Reservierung dort, WebRTC für die direkte Verbindung, dazu gossipsub für OrbitDB. Sein Peer-Schlüssel kommt dann aus dem Passkey und einem Zufallswert dieses Browsers, damit jedes Gerät seine eigene, gleichbleibende Kennung hat. Die Geräte kennen einander über versiegelte Einträge in den Einstellungen (`device:<Kennung>`). Bevor ein Gerät etwas bekommt, beweist es den Passkey: ein HMAC über beide Kennungen mit einem Schlüssel, der aus dem Passkey abgeleitet und nie übertragen wird. Bis dahin beantwortet der Knoten nur identify und den Relay – kein gossipsub, keine OrbitDB-Heads, kein Bitswap, keine Bridge.',
 				'Im Modus „Ohne Relay, per QR“ hat der Knoten nur den Transport von @le-space/libp2p-webrtc-qr: kein WebSocket, keine Relay-Adresse, keine Abfrage bei Aleph. Einladung und Antwort sind je eine WebRTC-SDP mit nur lokalen Kandidaten (kein STUN), signiert mit dem Peer-Schlüssel des Geräts und gegen die Peer-ID darin geprüft; weil die SDP den DTLS-Fingerabdruck enthält, bindet die Signatur die Verbindung an beide Kennungen, wie sonst Noise. Ein Code gilt zehn Minuten. Der Passkey-Beweis läuft auf dieser Verbindung wie auf jeder anderen. Der Modus liegt versiegelt in den Einstellungen (`network-mode`) und als Kopie in diesem Browser.',
@@ -681,7 +794,7 @@ export default {
 			],
 			usesHeading: 'Mit KI',
 			uses: [
-				'Belege auslesen: Anbieter, Betrag, Datum, Rechnungs- und Kundennummer aus dem Text eines Belegs – und ob es überhaupt ein Beleg ist (Anmelde-Mails und Newsletter nicht). Bei „Auslesen“, „Alle neuen auslesen“, „Beleg hochladen“, „Als Beleg übernehmen“ und „Rechnungen holen“.',
+				'Belege auslesen: Anbieter, Betrag, Datum, Rechnungs- und Kundennummer aus dem Text eines Belegs, bei Reisekosten auch Art, Strecke, Zeiten, Hotelnächte und ob das Frühstück inklusive ist – und ob es überhaupt ein Beleg ist (Anmelde-Mails und Newsletter nicht). Bei „Auslesen“, „Alle neuen auslesen“, „Beleg hochladen“, „Als Beleg übernehmen“ und „Rechnungen holen“ – und für neue Dateien im freigegebenen Ordner, solange „gleich auslesen“ an ist.',
 				'„Mit KI weitersuchen“ im privaten Postfach: Suchwörter und Absender vorschlagen, dann unter den Treffern den Beleg wählen – nach Betreff, Absender-Domain und Dateinamen, nie nach dem Text der E-Mails.',
 				'„KI-Vorschlag“ unter „Beleg zuordnen“: unter bis zu 25 deiner Belege den passenden zu einer Buchung nennen – nach Anbieter, Betrag, Datum, Rechnungsnummer und Kurzbeschreibung. Zuordnen tust du.',
 				'„KI-Vorschlag“ unter „Als Gegenbuchung verknüpfen …“: unter bis zu 8 Buchungen auf deinen anderen Konten die andere Seite einer eigenen Umbuchung nennen – nach Richtung, Betrag, Menge, Tag, Kontoart, Gegenpartei und Zweck, ohne Adressen, IBANs und Hashes. Verknüpfen tust du.',
@@ -694,26 +807,28 @@ export default {
 				'Was die KI liefert, prüfst du: Am Beleg stehen das Modell und der gesendete Text, ein KI-Vorschlag wird erst auf deinen Klick übernommen, und der Verlauf nennt jeden Aufruf.',
 			technical: [
 				'Das Sprachmodell stellst du in der Bridge ein (pnpm setup:llm): jede Schnittstelle im OpenAI-Format (/chat/completions) – per https, oder per http nur auf diesem Rechner (127.0.0.1, localhost), etwa Ollama oder LM Studio. Voreingestellt sind deepseek-flash, mit deepseek-v4-pro als zweitem Versuch.',
-				'Vor jedem Aufruf schwärzt die Bridge Namen aus deiner Liste, IBANs bis auf die letzten vier Stellen, eigene E-Mail-Adressen, Straßen, Postleitzahlen und Links (nur der Host bleibt). Die Antworten sind JSON und werden geprüft (Summen, Datumsformate, Kandidatennummern); was nicht passt, wird verworfen.',
+				'Vor jedem Aufruf schwärzt die Bridge Namen aus ihrer Liste und deine Firmennamen aus den Einstellungen, Namen nach einer Anrede oder einem Etikett („Herr“, „Ansprechpartner:“, auch in anderen Sprachen und Schriften, etwa „Пассажир:“ oder „Yolcu:“), Passnummern, IBANs und Kartennummern bis auf die letzten vier Stellen, E-Mail-Adressen (von fremden bleibt die Domain), Telefonnummern, Geburtsdaten, Steuernummern, Straßen, Postleitzahlen und Links (nur der Host bleibt). Das begrenzt, was hinausgeht, anonym macht es den Text nicht: Ein Name, der auf keiner Liste steht und hinter keinem Etikett, geht durch, ebenso Anbieter, Beträge, Rechnungsnummern und worum es im Beleg geht. Bei einem Modell auf diesem Rechner und bei LibertAI vertraulich, in der attestierten Enklave, schwärzt sie nicht – es sei denn, du wählst es bei pnpm setup:llm. Soll nichts hinausgehen, stell ein Modell auf diesem Rechner ein (etwa Ollama). Die Antworten sind JSON und werden geprüft (Summen, Datumsformate, Kandidatennummern); was nicht passt, wird verworfen.',
 				'Der API-Schlüssel liegt im macOS-Schlüsselbund der Bridge, nie im Browser. Das Protokoll der Bridge nennt nur Zahlen, nie Text. Im Verlauf der App stehen Modell, Dauer und Tokens jedes Aufrufs.'
 			]
 		},
 		integrations: {
-			title: 'Womit Belege arbeitet',
+			title: 'Womit Le Space Belege arbeitet',
 			simple:
-				'Banken, Börsen und Blockchains, deren Buchungen Belege liest, und die Dienste, die es dafür fragt – nur wenn du sie einrichtest oder benutzt. Die Logos sind in die App eingebaut; dieser Dialog lädt nichts von fremden Servern.',
+				'Banken, Börsen und Blockchains, deren Buchungen Le Space Belege liest, und die Dienste, die es dafür fragt – nur wenn du sie einrichtest oder benutzt. Die Logos sind in die App eingebaut; dieser Dialog lädt nichts von fremden Servern.',
 			groups: {
 				banks: 'Banken und Kontoauszüge',
 				exchanges: 'Börsen',
+				archives: 'Dokumentenarchive',
 				chains: 'Blockchains (eigene Wallets)',
 				data: 'Daten- und Kursquellen',
 				explorers: 'Block-Explorer (nur als Link)',
 				ai: 'KI-Modelle (du wählst eins)',
+				backup: 'Backup (versiegelt, nur auf deinen Klick)',
 				portals: 'Kundenportale',
 				apps: 'Verbundene Apps'
 			},
 			marks:
-				'Marken und Logos gehören ihren Inhabern; sie zeigen nur, womit Belege zusammenarbeitet. Logos: Simple Icons (CC0).'
+				'Marken und Logos gehören ihren Inhabern; sie zeigen nur, womit Le Space Belege zusammenarbeitet. Logos: Simple Icons (CC0).'
 		},
 		services: {
 			title: 'Externe Dienste',
@@ -721,9 +836,9 @@ export default {
 			leaves: 'Was den Rechner verlässt:',
 			bridge: {
 				name: 'Bridge auf diesem Rechner (127.0.0.1)',
-				text: 'Holt Umsätze aus Hibiscus und Belege aus deinem Postfach. Bei der App kommen nur Konten an, die du auf der Bridge freigegeben hast, und nur E-Mails an die Buchhaltungsadresse.',
+				text: 'Holt Umsätze aus Hibiscus und Belege aus deinem Postfach oder deinem Paperless-ngx. Bei der App kommen nur Konten an, die du auf der Bridge freigegeben hast, und nur E-Mails an die Buchhaltungsadresse.',
 				leaves:
-					'Die Bridge fragt dein Postfach (IMAP) ab und schickt zum Auslesen geschwärzten Text an das Sprachmodell (siehe unten). Die Verbindung zur GLS Bank (FinTS) baut Hibiscus auf.',
+					'Die Bridge fragt dein Postfach (IMAP) ab und schickt zum Auslesen geschwärzten Text an das Sprachmodell (siehe unten). Aus einer Kalendereinladung (.ics) übernimmt sie nur Titel, Ort und Zeiten – keine Teilnehmer, keinen Veranstalter, keine Links. Die Verbindung zu deiner Bank (FinTS) baut Hibiscus auf. Paperless-ngx fragt die Bridge nur auf diesem Rechner oder über https ab, mit einem Token aus dem Schlüsselbund; sie holt dort neue Dokumente und deren erkannten Text.',
 				technical:
 					'Die Bridge hört nur auf 127.0.0.1 (Port 8765) und startet auf keiner anderen Adresse. Gekoppelt wird mit einem Einmalcode; das Bearer-Token liegt verschlüsselt in den Einstellungen der App, auf der Bridge nur sein Hash. CORS lässt nur die eingetragenen App-Adressen zu, der Host-Header muss 127.0.0.1 oder localhost sein. Das Zertifikat von Jameica ist gepinnt; Hibiscus-Passwort, IMAP-Token und API-Schlüssel liegen im macOS-Schlüsselbund. Konten ohne freigegebene IBAN-Endung werden gar nicht erst abgefragt. Postfächer öffnet die Bridge nur lesend.'
 			},
@@ -735,19 +850,28 @@ export default {
 					'Gelesen mit DOMParser im Browser. Vom Konto bleiben die letzten vier Stellen der IBAN und ein Hash davon.'
 			},
 			enableBanking: {
-				name: 'Enable Banking',
-				text: 'Geplant für Banken ohne Hibiscus: ein Kontoinformationsdienst mit EU-Lizenz.',
-				leaves: 'Deine Umsätze würden über seine Server laufen.',
+				name: 'Enable Banking (Banken ohne Hibiscus)',
+				text: 'Wenn eingerichtet: Die Bridge verbindet über deine eigene Enable-Banking-Anwendung Banken, die Hibiscus nicht abruft. Die Freigabe gibst du auf der Seite deiner Bank.',
+				leaves:
+					'An Enable Banking: welche Bank du verbindest, nach deiner Freigabe deine Konten (IBAN, Name, Währung) und die Umsätze der Konten, die du in die Bücher holst – sie laufen über seine Server. Dazu die IP-Adresse dieses Rechners. Dein Bank-Passwort sehen weder Belege noch die Bridge.',
 				technical:
-					'Ein Kontoinformationsdienst (AIS) nach PSD2: Nach deiner Freigabe bei der Bank ruft er Konten und Umsätze ab und reicht sie weiter; sie passieren dabei seine Server. Bisher nur in einem Versuch (spikes/enablebanking), in der App nicht eingebaut.'
+					'Ein Kontoinformationsdienst (AIS) nach PSD2. Nur die Bridge spricht mit api.enablebanking.com; jede Anfrage ist mit dem Schlüssel deiner Anwendung signiert (RS256-JWT). Schlüssel und Sitzungen liegen versiegelt neben der Konfiguration der Bridge, nie im Browser und nicht in den Büchern; die App bekommt von einem Konto nur die letzten vier Stellen der IBAN. Der Browser geht nur zur Bank und zurück nach /integrationen/bank/verbunden. Der Einmal-Code der Bank steht dabei in der Adresse und geht so auch über das Gateway, das die Seite ausliefert; ohne den Schlüssel ist er wertlos, und die Seite nimmt ihn sofort aus der Adresse. Nur Konten, deren IBAN-Endung in der Bridge freigegeben ist (pnpm setup:enablebanking -- --accounts), verlassen die Bridge, und geholt wird nur auf deinen Klick. Eine Freigabe gilt höchstens 180 Tage; „Trennen“ beendet sie bei Enable Banking.'
+			},
+			backup: {
+				name: 'Backup bei Aleph Cloud',
+				text: 'Wenn eingerichtet und nur auf deinen Klick: alles, was Le Space Belege hält, versiegelt mit einem Schlüssel aus deinem Passkey, als eine Datei bei Aleph Cloud.',
+				leaves:
+					'An Alephs IPFS-Host, direkt aus diesem Browser: die versiegelte Datei (Aleph sieht ihre Größe und die IP-Adresse dieses Computers, nicht den Inhalt). An die Aleph-API: ein unterschriebener Auftrag, der die Datei nennt – vom eigenen Schlüssel dieses Browsers, sobald das Konto der Bridge ihn freigegeben hat, bis dahin von der Bridge; dazu Abfragen der Freigabe, der Credits und der Backups dieses Kontos, mit seiner Adresse. Zum Wiederherstellen holt der Browser die versiegelte Datei über ihre CID von Alephs Gateway.',
+				technical:
+					'Das CAR aller Datenbank-Blöcke (Einträge schon versiegelt, Manifeste, Access-Controller, Identitäten der Schreiber) und der versiegelten Blöcke jeder Belegdatei wird noch einmal mit AES-256-GCM versiegelt, unter einem Schlüssel aus dem PRF des Passkeys (HKDF, belege/backup-key/v1). Upload: POST https://ipfs.aleph.cloud/api/v0/add, ohne Schlüssel. Die STORE-Nachricht (personal_sign, Kanal BELEGE-BACKUP, bezahlt mit Credits des Kontos der Bridge) unterschreibt ein secp256k1-Schlüssel, den dieser Browser selbst erzeugt und versiegelt in den Einstellungen hält – sobald das Konto ihn in seinem security-Aggregat freigegeben hat (pnpm setup:aleph -- --authorize); bis dahin der Schlüssel der Bridge (pnpm setup:aleph, im Schlüsselbund). Aleph bewahrt die Datei auf, solange das Konto Credits hat. Die Backups listet die Nachrichten-API von Aleph (api2.aleph.im) über owners=<Konto>.'
 			},
 			deepseek: {
-				name: 'Sprachmodell – voreingestellt DeepSeek (Belege auslesen, KI-Suche)',
+				name: 'Sprachmodell – voreingestellt DeepSeek, oder LibertAI vertraulich (Belege auslesen, KI-Suche)',
 				text: 'Das Modell, das du in der Bridge einstellst. Nur bei Knöpfen mit ✦ (siehe „KI“ oben).',
 				leaves:
-					'Beim Auslesen der geschwärzte Text eines Belegs; bei „Mit KI weitersuchen“ Gegenpartei und Verwendungszweck sowie Betreff, Absender-Domain und Dateinamen der Treffer, geschwärzt. Bei DeepSeek stehen die Server außerhalb der EU; ein lokales Modell verlässt diesen Rechner nicht.',
+					'Beim Auslesen der geschwärzte Text eines Belegs; bei „Mit KI weitersuchen“ Gegenpartei und Verwendungszweck sowie Betreff, Absender-Domain und Dateinamen der Treffer, geschwärzt. Bei DeepSeek stehen die Server außerhalb der EU; ein lokales Modell verlässt diesen Rechner nicht. Mit LibertAI vertraulich (TEE) läuft das Modell in einer Enklave auf Aleph Cloud, die die Bridge vor jedem Verbindungsaufbau prüft (AMD-Signatur, festgenagelte Messung); der Text endet erst in der Enklave, LibertAI sieht die IP-Adresse dieses Macs, Größen und Zeiten, nicht den Text. Geprüft ist damit, welches Abbild läuft, nicht was es tut, und für vertrauliche GPUs auf Aleph gibt es noch kein unabhängiges Audit. Der Text geht ungeschwärzt hinein, es sei denn, du wählst bei pnpm setup:llm das Schwärzen. Unser Rat derzeit: ein lokales Modell, oder LibertAI vertraulich.',
 				technical:
-					'Die Bridge schickt nur die Textebene eines PDFs (oder den Text einer E-Mail) mit Betreff und Absender, nachdem sie Namen aus ihrer Liste, IBANs (bis auf die letzten vier Stellen), eigene E-Mail-Adressen, Straßen und Postleitzahlen geschwärzt hat – nie die Datei selbst. DeepSeek betreibt seine Server in China. Der API-Schlüssel liegt im macOS-Schlüsselbund der Bridge, nie im Browser. E-Mails von Absendern ohne bestandene DKIM/SPF-Prüfung liest die Bridge erst nach deiner Freigabe aus.'
+					'Die Bridge schickt nur die Textebene eines PDFs (oder den Text einer E-Mail) mit Betreff und Absender, nachdem sie Namen aus ihrer Liste und deine Firmennamen aus den Einstellungen, Namen nach einer Anrede oder einem Etikett („Herr“, „Ansprechpartner:“, auch in anderen Sprachen und Schriften, etwa „Пассажир:“ oder „Yolcu:“), Passnummern, IBANs und Kartennummern bis auf die letzten vier Stellen, E-Mail-Adressen (von fremden bleibt die Domain), Telefonnummern, Geburtsdaten, Steuernummern, Straßen, Postleitzahlen und Links (nur der Host bleibt) geschwärzt hat – nie die Datei selbst. Das begrenzt, was hinausgeht, anonym macht es den Text nicht: Ein Name, der auf keiner Liste steht und hinter keinem Etikett, geht durch, ebenso Anbieter, Beträge, Rechnungsnummern und worum es im Beleg geht. Soll nichts hinausgehen, stell ein Modell auf diesem Rechner ein (etwa Ollama). DeepSeek betreibt seine Server in China. Der API-Schlüssel liegt im macOS-Schlüsselbund der Bridge, nie im Browser. E-Mails von Absendern ohne bestandene DKIM/SPF-Prüfung liest die Bridge erst nach deiner Freigabe aus.'
 			},
 			portals: {
 				name: 'Kundenportale (Vodafone)',
@@ -758,28 +882,28 @@ export default {
 					'Die Bridge startet ein eigenes Chromium (Playwright) mit einem Profil pro Portal unter ~/.config/belege/portals/<portal>/profile (Verzeichnis 0700), nicht deinen Alltags-Browser. Beim ersten Mal (und wenn die Sitzung abläuft) öffnet es ein sichtbares Fenster: Du meldest dich an, Codes (SMS, E-Mail) und Sicherheitsprüfungen gibst immer du ein. Danach holt es die Rechnungen ohne Fenster. Ein optionales Passwort (pnpm setup:portal vodafone) liegt im macOS-Schlüsselbund und wird nur in das Anmeldeformular des Portals getippt. Nur PDFs (nach ihren Bytes, höchstens 15 MB) kommen in der App an. Kein Sprachmodell, keine Bildschirmfotos; das Protokoll nennt nur den Schritt, der scheiterte. Wer dein macOS-Konto benutzen kann, kann auch die Sitzung im Profil benutzen: FileVault einschalten, „Abmelden“ löscht das Profil. Die Nutzungsbedingungen eines Portals können automatisierten Zugriff einschränken.'
 			},
 			blockchain: {
-				name: 'Blockchain-Abfrage (Nym/Cosmos, Ethereum/EVM, Bitcoin)',
+				name: 'Blockchain-Abfrage (Nym/Cosmos, Ethereum/EVM, Bitcoin, Filecoin)',
 				text: 'Nur für eigene Wallets, die du unter Integrationen einträgst, und nur wenn du „Synchronisieren“ drückst: Die Bridge fragt einen öffentlichen Knoten nach den Überweisungen und dem Bestand der Adresse.',
 				leaves:
-					'Die Adresse der Wallet und die IP-Adresse dieses Macs – an den Betreiber des Knotens: voreingestellt Nym (rpc.nymtech.net) für Nyx, PublicNode für Akash (für die ältere Geschichte zusätzlich den Akash-Indexer console-api.akash.network, betrieben vom Akash-Team), Blockscout für Ethereum, Base, Arbitrum, Optimism und Polygon – oder Alchemy, wenn du einen Alchemy-API-Schlüssel eingerichtet hast –, oder den Knoten, den du selbst einträgst. Er kann daraus ablesen, dass diese Adresse zu dir gehört; Alchemy ordnet die Abfragen zudem deinem Alchemy-Konto zu. Hat ein Token keinen CoinGecko-Kurs, fragt die Bridge Alchemy außerdem nach seinem Uniswap-Pool im Block der Buchung – Alchemy sieht dann den Token-Vertrag und den Block. Bei Bitcoin fragt die Bridge mempool.space (oder deinen eigenen Esplora-Server) nach jeder Adresse, die sie aus deinem Kontoschlüssel ableitet, kurz nacheinander von derselben IP: Der Betreiber kann daraus schließen, dass alle diese Adressen zusammengehören. Für Aleph Cloud, nur wenn du unter Integrationen „Eigene Ethereum-Adressen bei Aleph prüfen“ einschaltest oder ein Aleph-Konto einträgst: jede dieser Adressen an Aleph (api2.aleph.im), nur gelesen – Aleph kann daraus schließen, dass sie zusammengehören.',
+					'Die Adresse der Wallet und die IP-Adresse dieses Macs – an den Betreiber des Knotens: voreingestellt Nym (rpc.nymtech.net) für Nyx, PublicNode für Akash (für die ältere Geschichte zusätzlich den Akash-Indexer console-api.akash.network, betrieben vom Akash-Team), Blockscout für Ethereum, Base, Arbitrum, Optimism und Polygon – oder Alchemy, wenn du einen Alchemy-API-Schlüssel eingerichtet hast –, oder den Knoten, den du selbst einträgst. Er kann daraus ablesen, dass diese Adresse zu dir gehört; Alchemy ordnet die Abfragen zudem deinem Alchemy-Konto zu. Hat ein Token keinen CoinGecko-Kurs, fragt die Bridge Alchemy außerdem nach seinem Uniswap-Pool im Block der Buchung – Alchemy sieht dann den Token-Vertrag und den Block. Bei Bitcoin fragt die Bridge mempool.space (oder deinen eigenen Esplora-Server) nach jeder Adresse, die sie aus deinem Kontoschlüssel ableitet, kurz nacheinander von derselben IP: Der Betreiber kann daraus schließen, dass alle diese Adressen zusammengehören. Bei Filecoin fragt die Bridge Filfox (filfox.info) nach der Adresse. Für Aleph Cloud, nur wenn du unter Integrationen „Eigene Ethereum-Adressen bei Aleph prüfen“ einschaltest oder ein Aleph-Konto einträgst: jede dieser Adressen an Aleph (api2.aleph.im), nur gelesen – Aleph kann daraus schließen, dass sie zusammengehören.',
 				technical:
-					'Gefragt wird per HTTPS: bei Cosmos-Chains die CometBFT-RPC (tx_search nach transfer.sender und transfer.recipient, header, status) und die REST-API (Bestand), bei EVM-Chains die Etherscan-kompatible API von Blockscout (txlist, txlistinternal, tokentx, balance) oder, mit Schlüssel, Alchemy (alchemy_getAssetTransfers, Quittungen, Nonce, Bestand; interne Transaktionen auf Arbitrum und Optimism weiter bei Blockscout; für einen Token ohne CoinGecko-Kurs eth_call an die Uniswap-Factories (V2, V3) und den StateView von Uniswap V4 nach seinen Pools gegen ETH und USDC im Block der Buchung; es zählt der tiefste, wenn er auf der ETH- oder USDC-Seite mindestens 3.000 € hält). Der Alchemy-Schlüssel liegt im macOS-Schlüsselbund der Bridge (pnpm setup:alchemy) und steht nur in der Adresse der Anfragen an Alchemy – nie im Browser, nie im Protokoll. Die App schickt die Adresse im Rumpf einer Anfrage an die Bridge, nie in einer URL (an Blockscout geht sie, wie dessen API es verlangt, in der Abfrage-URL); das Protokoll der Bridge nennt nur Zahlen. Kein Schlüssel, keine Signatur: die Adresse ist öffentlich, die Liste deiner Wallets liegt verschlüsselt in deinen Büchern, nicht in der Bridge. Gebucht werden nur Assets aus der Liste der Chain (NYM, NYX, AKT, ETH, POL, USDC mit geprüftem Vertrag); andere Token werden gezählt und ausgelassen. Bei Bitcoin liegt der Kontoschlüssel (xpub, ypub oder zpub) nur im macOS-Schlüsselbund der Bridge; die Bridge leitet daraus die Adressen ab (bis 20 unbenutzte in Folge) und fragt deren bestätigte Transaktionen ab (Esplora-API: address, address/txs/chain). Die App kennt nur einen Fingerabdruck des Schlüssels. Links zum Block-Explorer öffnen erst, wenn du sie anklickst.'
+					'Gefragt wird per HTTPS: bei Cosmos-Chains die CometBFT-RPC (tx_search nach transfer.sender und transfer.recipient, header, status) und die REST-API (Bestand), bei EVM-Chains die Etherscan-kompatible API von Blockscout (txlist, txlistinternal, tokentx, balance) oder, mit Schlüssel, Alchemy (alchemy_getAssetTransfers, Quittungen, Nonce, Bestand; interne Transaktionen auf Arbitrum und Optimism weiter bei Blockscout; für einen Token ohne CoinGecko-Kurs eth_call an die Uniswap-Factories (V2, V3) und den StateView von Uniswap V4 nach seinen Pools gegen ETH und USDC im Block der Buchung; es zählt der tiefste, wenn er auf der ETH- oder USDC-Seite mindestens 3.000 € hält). Der Alchemy-Schlüssel liegt im macOS-Schlüsselbund der Bridge (pnpm setup:alchemy) und steht nur in der Adresse der Anfragen an Alchemy – nie im Browser, nie im Protokoll. Die App schickt die Adresse im Rumpf einer Anfrage an die Bridge, nie in einer URL (an Blockscout geht sie, wie dessen API es verlangt, in der Abfrage-URL); das Protokoll der Bridge nennt nur Zahlen. Kein Schlüssel, keine Signatur: die Adresse ist öffentlich, die Liste deiner Wallets liegt verschlüsselt in deinen Büchern, nicht in der Bridge. Gebucht werden nur Assets aus der Liste der Chain (NYM, NYX, AKT, ETH, POL, USDC mit geprüftem Vertrag); andere Token werden gezählt und ausgelassen. Bei Bitcoin liegt der Kontoschlüssel (xpub, ypub oder zpub) nur im macOS-Schlüsselbund der Bridge; die Bridge leitet daraus die Adressen ab (bis 20 unbenutzte in Folge) und fragt deren bestätigte Transaktionen ab (Esplora-API: address, address/txs/chain). Die App kennt nur einen Fingerabdruck des Schlüssels. Bei Filecoin die öffentliche API von Filfox (address, address/transfers; die Adresse steht in der Abfrage-URL), ohne Schlüssel; Senden, Empfangen und die Gebühren einer Nachricht kommen von dort, die Nachrichten-CID ist der Hash. Links zum Block-Explorer öffnen erst, wenn du sie anklickst.'
 			},
 			ucep: {
 				name: 'Rechnungs-App (UCEP über ein Relay)',
-				text: 'Nur wenn du Belege unter Integrationen mit deiner Rechnungs-App koppelst: Belege verbindet sich über ein Relay mit ihr, um für eine Zahlung ohne Beleg einen Eigenbeleg erstellen zu lassen, und – auf deinen Klick „Rechnungen abgleichen“ – um deine ausgestellten Rechnungen zu holen und ihr zu sagen, welche bezahlt sind.',
+				text: 'Nur wenn du Belege unter Integrationen mit deiner Rechnungs-App koppelst: Le Space Belege verbindet sich über ein Relay mit ihr, um für eine Zahlung ohne Beleg einen Eigenbeleg erstellen zu lassen, und – auf deinen Klick „Rechnungen abgleichen“ – um deine ausgestellten Rechnungen zu holen und ihr zu sagen, welche bezahlt sind.',
 				leaves:
-					'Die IP-Adresse dieses Geräts und die Peer-ID von Belege – an den Betreiber des Relays (eines der Le-Space-Relays, siehe unten). Für einen Eigenbeleg die Angaben dieser einen Zahlung (Datum, Betrag, Beschreibung, Grund, die Gegenpartei, wie du sie einträgst, die interne Kennung der Zahlung in Belege, bei Krypto Chain, Menge, Kurs mit Quelle und Zeitpunkt und den Hash der Transaktion). Für eine bezahlte Rechnung nur: an welchem Tag, welcher Betrag und die interne Kennung der Zahlung – nie Konto, IBAN oder Verwendungszweck. Beides an deine Rechnungs-App, sonst niemanden; deine übrigen Bücher nie.',
+					'Die IP-Adresse dieses Geräts und die Peer-ID von Le Space Belege – an den Betreiber des Relays (eines der Le-Space-Relays, siehe unten). Für einen Eigenbeleg die Angaben dieser einen Zahlung (Datum, Betrag, Beschreibung, Grund, die Gegenpartei, wie du sie einträgst, die interne Kennung der Zahlung in Le Space Belege, bei Krypto Chain, Menge, Kurs mit Quelle und Zeitpunkt und den Hash der Transaktion). Für eine bezahlte Rechnung nur: an welchem Tag, welcher Betrag und die interne Kennung der Zahlung – nie Konto, IBAN oder Verwendungszweck. Beides an deine Rechnungs-App, sonst niemanden; deine übrigen Bücher nie.',
 				technical:
-					'libp2p mit WebSocket zum Relay (Circuit Relay v2) und WebRTC für die direkte Verbindung; Noise verschlüsselt jede Verbindung Ende zu Ende, das Relay sieht nur Chiffretext. Die Peer-ID kommt aus einem Schlüssel, der aus deinem Passkey abgeleitet und nie gespeichert wird. Die Kopplung (UCEP, Le-Space/ucep-spec) gibt Belege nur die Rechte „Eigenbelege erstellen“, „eigene Dokumente lesen“, „ausgestellte Rechnungen lesen“ und „Zahlungen melden“. Ohne Kopplung baut Belege keine Verbindung auf.'
+					'libp2p mit WebSocket zum Relay (Circuit Relay v2) und WebRTC für die direkte Verbindung; Noise verschlüsselt jede Verbindung Ende zu Ende, das Relay sieht nur Chiffretext. Die Peer-ID kommt aus einem Schlüssel, der aus deinem Passkey abgeleitet und nie gespeichert wird. Die Kopplung (UCEP, Le-Space/ucep-spec) gibt Le Space Belege nur die Rechte „Eigenbelege erstellen“, „eigene Dokumente lesen“, „ausgestellte Rechnungen lesen“ und „Zahlungen melden“. Ohne Kopplung baut Le Space Belege keine Verbindung auf.'
 			},
 			relays: {
 				name: 'Le-Space-Relays (gefunden über Aleph)',
-				text: 'Nur wenn Belege ins Netz geht – für die Rechnungs-App oder für deine eigenen Geräte: Belege fragt api.aleph.im nach den aktuellen Adressen der Le-Space-Relays und verbindet sich mit ihnen. Es zählen nur Einträge der beiden Wallets, die Le Space dafür betreibt; fremde Einträge werden ignoriert.',
+				text: 'Nur wenn Le Space Belege ins Netz geht – für die Rechnungs-App oder für deine eigenen Geräte: Es fragt api.aleph.im nach den aktuellen Adressen der Le-Space-Relays und verbindet sich mit ihnen. Es zählen nur Einträge der beiden Wallets, die Le Space dafür betreibt; fremde Einträge werden ignoriert.',
 				leaves:
-					'An Aleph (api.aleph.im): die IP-Adresse dieses Geräts, beim Nachschlagen. An den Betreiber des Relays: die IP-Adresse, die Peer-ID von Belege und der Gegenseite, wann ihr verbunden seid und wie viele Bytes fließen – nie Inhalte. Für eine direkte Verbindung (WebRTC) an öffentliche STUN-Server (Google, Twilio, Cloudflare, Mozilla): die IP-Adresse.',
+					'An Aleph (api.aleph.im): die IP-Adresse dieses Geräts, beim Nachschlagen. An den Betreiber des Relays: die IP-Adresse, die Peer-ID von Le Space Belege und der Gegenseite, wann ihr verbunden seid und wie viele Bytes fließen – nie Inhalte. Le Space Belege nennt dem Relay weder seine Datenbanken noch die Protokolle, die es mit deinen Geräten spricht; die erfährt ein Gerät erst, wenn es den Passkey bewiesen hat. Für eine direkte Verbindung (WebRTC) an öffentliche STUN-Server (Google, Twilio, Cloudflare, Mozilla): die IP-Adresse.',
 				technical:
-					'Aleph-POST-Nachrichten im Kanal simple-todo (ref simple-todo-bootstrap, Typ relay-bootstrap-v2, Registrierung relay:orbitdb-relay:orbitdb-relay), wie Le-Space/relay-button sie schreibt; genommen wird der neueste Eintrag je Le-Space-Wallet und davon eine TLS-WebSocket-Adresse. Antwortet Aleph nicht, nimmt Belege die zuletzt bekannten Relays. Jede Verbindung über ein Relay ist mit Noise Ende zu Ende verschlüsselt; das Relay kann nichts lesen, nichts verändern und sich nicht als die Gegenseite ausgeben (Noise prüft die Peer-ID). Ein fremdes Relay könnte höchstens sehen, wer wann mit wem verbunden ist, oder Verbindungen verweigern – deshalb nur die Le-Space-Wallets. Die Peer-ID kommt aus deinem Passkey und bleibt gleich; wer sie kennt, kann Verbindungen von Belege wiedererkennen.'
+					'Aleph-POST-Nachrichten im Kanal simple-todo (ref simple-todo-bootstrap, Typ relay-bootstrap-v2, Registrierung relay:orbitdb-relay:orbitdb-relay), wie Le-Space/relay-button sie schreibt; genommen wird der neueste Eintrag je Le-Space-Wallet und davon eine TLS-WebSocket-Adresse. Antwortet Aleph nicht, nimmt Le Space Belege die zuletzt bekannten Relays. Jede Verbindung über ein Relay ist mit Noise Ende zu Ende verschlüsselt; das Relay kann nichts lesen, nichts verändern und sich nicht als die Gegenseite ausgeben (Noise prüft die Peer-ID). Ein fremdes Relay könnte höchstens sehen, wer wann mit wem verbunden ist, oder Verbindungen verweigern – deshalb nur die Le-Space-Wallets. Die Peer-ID kommt aus deinem Passkey und bleibt gleich; wer sie kennt, kann Verbindungen von Belege wiedererkennen.'
 			}
 		},
 		status: {
@@ -808,6 +932,21 @@ export default {
 			'Du findest diesen Hinweis jederzeit unten auf der Seite unter „Datenschutz & Technik“.'
 	},
 	onboarding: {
+		words: {
+			open: 'Mit Wiederherstellungswörtern öffnen',
+			hint: 'Kein Passkey der Bücher mehr da? Mit den 24 Wörtern öffnest du sie hier und legst dabei einen neuen Passkey an (zwei Abfragen). Ist der Tresor bei Aleph hinterlegt, findet Belege ihn; sonst nur in dem Browser, in dem er liegt.',
+			label: 'Die 24 Wörter, in ihrer Reihenfolge',
+			passkeyLabel: 'Name des neuen Passkeys',
+			go: 'Neuen Passkey anlegen und Bücher öffnen',
+			unknown: 'Diese Wörter kennt die Liste nicht: Stelle {positions}.',
+			count: 'Es sind {count} Wörter – es müssen 24 sein.',
+			checksum:
+				'Die Wörter passen nicht zusammen: Ein Wort ist vermutlich falsch abgeschrieben oder vertauscht.',
+			wrong: 'Diese Wörter öffnen den Tresor nicht.',
+			notFound: 'Zu diesen Wörtern gibt es keinen Tresor – weder in diesem Browser noch bei Aleph.',
+			notHere:
+				'Zu diesen Wörtern liegt in diesem Browser kein Tresor; das Netz ist pausiert, Aleph wurde nicht gefragt.'
+		},
 		title: 'Deine Bücher aufschließen',
 		intro:
 			'Deine Buchhaltungsdaten bleiben auf diesem Gerät und werden mit einem Schlüssel aus deinem Passkey verschlüsselt. Ohne den Passkey kann niemand sie lesen – auch wir nicht.',
@@ -820,7 +959,42 @@ export default {
 		create: 'Passkey anlegen',
 		restoreHeading: 'Schon einen Passkey?',
 		restore: 'Mit vorhandenem Passkey wiederherstellen',
-		busy: 'Bitte den Passkey bestätigen …'
+		sharedOrigin:
+			'Diese Adresse liegt auf einem IPFS-Gateway, das sich der Browser mit allen anderen Seiten dort teilt. Deine Bücher und dein Passkey wären hier nicht geschützt, deshalb öffnet Le Space Belege sie hier nicht. Öffne es unter belege.le-space.de oder über ein Gateway, das jeder CID eine eigene Subdomain gibt (<cid>.ipfs.…).',
+		busy: 'Bitte den Passkey bestätigen …',
+		steps: {
+			count: 'Passkey-Abfrage {n} von {of}',
+			prf: {
+				title: 'Jetzt der Schlüssel für deine Bücher',
+				why: 'Dein Passkey gibt Belege ein Geheimnis. Daraus entsteht der Schlüssel, mit dem deine Bücher und Belege verschlüsselt sind; gespeichert wird er nirgends.'
+			},
+			notALoop:
+				'Jede Abfrage hat ihren eigenen Zweck, es ist keine Wiederholung. Mit einem Sicherheitsschlüssel: berühren und, falls gefragt, die PIN eingeben.',
+			continue: 'Weiter',
+			cancel: 'Abbrechen'
+		},
+		progress: {
+			keys: 'Schlüssel aus dem Passkey ableiten …',
+			network: 'Speicher und Netz starten …',
+			identity: 'Identität prüfen …',
+			open: '{collection} öffnen …',
+			move: '{collection} umziehen: {done} von {total}',
+			moveHint:
+				'Einmalig nach einem Update: die Bücher ziehen in neu versiegelte Datenbanken um. Das kann bei vielen Einträgen einige Minuten dauern – bitte den Tab offen lassen. Abbrechen schadet nicht, es geht beim nächsten Entsperren weiter.',
+			blobs: 'Belegspeicher öffnen …',
+			books: 'Bücher laden …',
+			elapsed: 'seit {seconds} s',
+			collection: {
+				transactions: 'Zahlungen',
+				receipts: 'Belege',
+				partners: 'Partner',
+				accounts: 'Konten',
+				settings: 'Einstellungen',
+				matches: 'Zuordnungen',
+				questions: 'Rückfragen',
+				events: 'Verlauf'
+			}
+		}
 	},
 	share: {
 		title: 'Einblick für einen Assistenten',
@@ -847,6 +1021,323 @@ export default {
 		revoke: 'Widerrufen',
 		refresh: 'Abrufe aktualisieren'
 	},
+	restore: {
+		leaves:
+			'Geht hinaus: an die Aleph-API die Adresse des Kontos, um seine Backups zu listen, und an Alephs Gateway die CID des Backups (beide sehen die IP-Adresse dieses Computers). Die Datei kommt versiegelt zurück und wird hier geöffnet.',
+		cidLabel: 'CID des Backups',
+		pick: 'Wiederherstellen',
+		notACid: 'Das ist keine CID.',
+		confirm:
+			'Dieses Backup in diese Bücher wiederherstellen? Sie werden zusammengeführt; am Ende lädt die Seite neu.',
+		yes: 'Ja, wiederherstellen',
+		no: 'Abbrechen',
+		fetchingBytes: '{what} {received} von {total} MB – {percent} %',
+		fetchingBytesUnknown: '{what} {received} MB',
+		fetching: 'Backup wird von Alephs Gateway geholt …',
+		fetchingPeers: 'Backup wird aus dem IPFS-Netz geholt …',
+		sourceGateway: 'Geholt über Alephs Gateway ({host}) in {seconds} s.',
+		sourcePeers: 'Geholt aus dem IPFS-Netz, von {peers} Knoten, in {seconds} s.',
+		gatewayFirst: 'Erst Alephs Gateway, dann das IPFS-Netz',
+		gatewayFirstOn:
+			'Eine Anfrage an Alephs Gateway; meldet es sich 15 Sekunden lang nicht, holt der Browser das Backup selbst über IPFS – von Alephs Knoten und von jedem, der es laut öffentlichem Routing hält.',
+		gatewayFirstOff:
+			'Ohne Gateway: Der Browser holt das Backup selbst über IPFS, von Alephs Knoten und von jedem, der es laut öffentlichem Routing hält. Alephs Knoten sind nur über IPv6 erreichbar; das Routing (cid.contact, delegated-ipfs.dev) sieht die CID und diese IP-Adresse.',
+		opening: 'Backup wird geöffnet …',
+		database: 'Datenbank {index} von {total}: {name} …',
+		increments: '+ {count} Zuwächse',
+		fetchingIncrements: 'Zuwächse werden geladen: {done} von {total} …',
+		doneIncrements: 'Mit {count} Zuwächsen zum Vollbackup.',
+		isIncrement:
+			'Das ist ein Zuwachs, kein Vollbackup: Stell das Vollbackup wieder her, auf dem er aufbaut – seine Zuwächse kommen mit.',
+		gap: 'Zu diesem Vollbackup fehlen Zuwächse ({missing}). Ohne sie lässt es sich nicht vollständig zurückholen; nichts wurde geändert.',
+		done: 'Wiederhergestellt. Die Seite lädt neu – entsperre mit dem Passkey.',
+		wrongPasskey:
+			'Dieses Backup lässt sich mit diesem Passkey nicht öffnen: Es gehört zu einem anderen Tresor, also zu anderen Büchern. Ein Backup öffnet jeder Passkey mit einem Fach in dem Tresor, aus dem es stammt – füge diesen Passkey dort hinzu (Einstellungen → Schlüssel, auf dem Gerät mit jenen Büchern), oder öffne jene Bücher hier mit ihren Wiederherstellungswörtern.',
+		notFetched:
+			'Alephs Gateway hat das Backup nicht oder nicht vollständig zurückgegeben; eine unvollständige Datei wird nicht geöffnet. Versuch es gleich noch einmal, am besten im WLAN.',
+		detail: 'Technische Einzelheit',
+		incomplete:
+			'Diesem Backup fehlt ein Teil, und er ließ sich auch nicht nachladen. Deine Bücher sind unberührt. Versuch ein anderes Backup, oder noch einmal, wenn du online bist.',
+		noSpace:
+			'Dieser Browser hat keinen Platz mehr für das Backup. Deine Bücher sind unberührt. Schaff Platz auf dem Gerät oder entferne Daten anderer Seiten und versuch es noch einmal.'
+	},
+	social: {
+		title: 'Le Space Belege – Zahlungen und Belege, nur auf deinen eigenen Geräten',
+		description:
+			'Kontoumsätze und Belege automatisch zusammengeführt – verschlüsselt nur auf deinen eigenen Geräten, ohne Cloud-Konto. Mit DATEV-Export, Krypto-Wallets und Belegen aus dem Postfach.',
+		imageAlt:
+			'Le Space Belege: Zahlungen und ihre Belege, zusammengeführt und verschlüsselt nur auf deinen eigenen Geräten',
+		tagline: 'Zahlungen und Belege, zusammengeführt – nur auf deinen eigenen Geräten.',
+		points: [
+			'Verschlüsselt, ohne Cloud-Konto',
+			'DATEV-Export mit allen Belegen',
+			'Bank, Krypto-Wallets und Postfach'
+		],
+		badge: 'Beleg'
+	},
+	move: {
+		title: 'Bücher umziehen',
+		intro:
+			'Ein Passkey gehört zu seiner Adresse: Bücher auf localhost und auf belege.le-space.de, oder unter einem alten und einem neuen Passkey, sind getrennte Bücher. Ein Umzug bringt alle Zahlungen, Belege mit ihren Dateien, Zuordnungen und Einstellungen in die leeren Bücher eines anderen Passkeys. Die Datei dafür ist versiegelt und öffnet sich nur dort.',
+		receive: 'Bücher übernehmen …',
+		receiveStep1:
+			'Diesen Einmal-Schlüssel in den alten Büchern unter „In andere Bücher umziehen …“ einfügen oder scannen. Er gilt nur, solange diese Seite offen ist.',
+		receiveStep2: 'Die Umzugsdatei aus den alten Büchern wählen:',
+		keyText: 'Einmal-Schlüssel',
+		fingerprint: 'Fingerabdruck:',
+		takeOver: 'Übernehmen',
+		busy: 'Arbeite …',
+		progress: {
+			opening: 'Umzugsdatei öffnen …',
+			files: 'Belegdateien: {done} von {total}',
+			records: '{collection}: {done} von {total}',
+			keepOpen:
+				'seit {seconds} s – bitte den Tab offen lassen. Bricht es ab, macht dieselbe Datei hier weiter.',
+			collections: {
+				transactions: 'Zahlungen',
+				receipts: 'Belege',
+				partners: 'Partner',
+				accounts: 'Konten',
+				settings: 'Einstellungen',
+				matches: 'Zuordnungen',
+				questions: 'Rückfragen',
+				events: 'Verlauf',
+				travel: 'Reisen'
+			}
+		},
+		interrupted:
+			'Ein Umzug vom {date} in diese Bücher wurde unterbrochen. Dieselbe Umzugsdatei noch einmal wählen – oder eine neue aus denselben alten Büchern, wenn der Einmal-Schlüssel nicht mehr gilt – und „Übernehmen“: Er macht weiter, nichts wird doppelt.',
+		summary: 'Gepackt am {date}: {transactions} Zahlungen, {receipts} Belege, {files} Dateien.',
+		leftOutNote: 'Nicht dabei, weil sie zum alten Passkey oder Gerät gehören: {list}.',
+		leftOut: {
+			bridge: 'Kopplung der Bridge',
+			'backup/owner': 'Backup-Konto',
+			'backup/aleph-key': 'Backup-Schlüssel',
+			backups: 'Liste der Backups',
+			ucepInvoiceApp: 'Kopplung der Rechnungs-App',
+			'network-mode': 'Netzwerkmodus',
+			'lan-relay': 'Relay im eigenen Netz',
+			pendingJobs: 'wartende Aufgaben',
+			devices: 'eigene Geräte'
+		},
+		done: 'Übernommen: {records} Einträge, {files} Dateien.',
+		doneNext:
+			'Jetzt hier die Bridge neu koppeln und das Backup neu einrichten; eigene Geräte mit diesem Passkey verbinden sich wie gewohnt. Die alten Bücher sind unverändert – löschen lassen sie sich dort unter Einstellungen → Speicher.',
+		send: 'In andere Bücher umziehen …',
+		sendStep1:
+			'In den neuen, leeren Büchern „Bücher übernehmen …“ öffnen und den Einmal-Schlüssel hier einfügen oder scannen:',
+		keyInvalid: 'Das ist kein Einmal-Schlüssel für einen Umzug.',
+		fingerprintCheck: 'Steht in den neuen Büchern derselbe Fingerabdruck?',
+		passphraseWay: 'Die neuen Bücher sind nicht gerade offen? Mit einer Passphrase umziehen …',
+		passphraseWayHint:
+			'Belege erzeugt eine Passphrase und zeigt sie einmal. Schreib sie auf: Ohne sie öffnet sich die Datei nirgends. Wer Datei und Passphrase hat, kann die Bücher lesen – bewahre beides getrennt auf.',
+		packPassphrase: 'Umzugsdatei mit Passphrase erstellen',
+		passphraseWrite:
+			'Die Passphrase für diese Datei – jetzt aufschreiben, sie wird nicht noch einmal gezeigt:',
+		passphraseAsk: 'Diese Datei ist mit einer Passphrase versiegelt. Passphrase:',
+		pack: 'Umzugsdatei erstellen',
+		packed: 'Umzugsdatei gespeichert.',
+		untouched: 'Diese Bücher bleiben, wie sie sind.',
+		errors: {
+			format: 'Das ist keine Umzugsdatei von Belege, oder sie ist beschädigt.',
+			key: 'Diese Datei ist für einen anderen Schlüssel versiegelt, oder sie wurde verändert.',
+			otherKey:
+				'Diese Datei wurde für den Einmal-Schlüssel {sealedFor} gemacht, diese Seite zeigt {here}. Ein Einmal-Schlüssel gilt nur, solange seine Seite offen ist – wurde sie neu geladen, passt eine ältere Datei nicht mehr. Erstelle die Umzugsdatei in den alten Büchern neu, mit dem Schlüssel oben, und wähle dann die neue Datei.',
+			'not-empty': 'Diese Bücher sind nicht leer. Übernommen wird nur in leere Bücher.',
+			'missing-file':
+				'Eine Belegdatei fehlt auf diesem Gerät. Erst synchronisieren lassen, dann umziehen.',
+			check: 'Die Umzugsdatei geht nicht auf. Nichts wurde übernommen.'
+		}
+	},
+	backup: {
+		title: 'Backup',
+		what: 'Alles, was Le Space Belege in diesem Browser hält – die Bücher und jede Belegdatei – als eine Datei, versiegelt mit einem Schlüssel aus deinem Passkey. Sie liegt auf Alephs IPFS: Wer ihre Kennung (CID) kennt, kann sie herunterladen, aber nicht öffnen – das kannst nur du, mit demselben Passkey. Aleph bewahrt sie auf, solange das Konto Credits hat.',
+		public: {
+			title: 'Wo dein Backup liegt – und was das bedeutet',
+			spread:
+				'Verteilt statt an einem Ort: Das Backup liegt nicht in einem einzelnen Rechenzentrum, sondern auf vielen IPFS-Knoten von Aleph – nach Auskunft des Aleph-Supports auf allen seinen Knoten (das kann sich ändern). Fällt ein Anbieter oder eine Region aus, wie beim Brand im OVH-Rechenzentrum Straßburg 2021 oder bei den immer wieder auftretenden Ausfällen großer Clouds, bleibt es erreichbar: Zurückholen lässt es sich von jedem Knoten, der es hat.',
+			sealed:
+				'Lesen kannst es nur du: Es ist mit einem Schlüssel aus deinem Passkey versiegelt, bevor es diesen Browser verlässt.',
+			open: 'Öffentlich sind die Hülle und die Eckdaten: Die versiegelte Datei kann laden, wer ihre CID kennt, und Alephs öffentlicher Nachrichtenverlauf nennt zu jedem Backup CID, Zeitpunkt, Größe und das zahlende Konto.',
+			alternative:
+				'Ob dir das passt, entscheidest du. Wer seine Belege auch verschlüsselt nicht im öffentlichen IPFS haben will: Backup auf Filecoin Onchain Cloud,',
+			alternativeLink: 'in Planung'
+		},
+		notSetUp: 'Die Bridge hat noch keinen Backup-Schlüssel. Im Terminal, im Ordner von Belege:',
+		noOwner:
+			'Noch kein Aleph-Konto, das zahlt: Koppel die Bridge, nachdem du dort einmal pnpm setup:aleph ausgeführt hast, oder trag die Adresse des Kontos ein.',
+		ownerLabel: 'Adresse des Aleph-Kontos, das zahlt',
+		ownerSave: 'Übernehmen',
+		ownerHint:
+			'Die Adresse ist öffentlich, aber auf einem leeren Gerät der einzige Weg zu deinen Backups: Schreib sie auf. pnpm setup:aleph zeigt sie.',
+		ownerInvalid: 'Das ist keine Adresse: 0x und 40 Hex-Zeichen.',
+		account: 'Aleph-Konto, das zahlt',
+		ownKey: 'Schlüssel dieses Browsers',
+		granted:
+			'Freigegeben: Dieser Browser unterschreibt den Auftrag an Aleph selbst, die Bridge muss dafür nicht laufen.',
+		notGrantedBridge:
+			'Das Konto hat den Schlüssel dieses Browsers noch nicht freigegeben; bis dahin unterschreibt die Bridge. Einmal freigeben, im Terminal im Ordner von Belege:',
+		notGranted:
+			'Das Konto hat den Schlüssel dieses Browsers noch nicht freigegeben, und ohne gekoppelte Bridge unterschreibt niemand den Auftrag. Einmal freigeben, im Terminal im Ordner von Belege:',
+		grantUnknown:
+			'Ob das Konto den Schlüssel dieses Browsers freigegeben hat, war gerade nicht zu erfahren. Freigeben, im Terminal im Ordner von Belege:',
+		copyCommand: 'Befehl kopieren',
+		check: 'Erneut prüfen',
+		copyAddress: 'Adresse kopieren',
+		credits: 'Credits',
+		creditsUnknown: 'unbekannt – Aleph hat nicht geantwortet',
+		noCredits:
+			'Das Konto hat keine Credits. Aleph bewahrt ein Backup nur auf, solange das Konto zahlen kann: lade Credits unter app.aleph.cloud auf oder schick ALEPH an die Adresse.',
+		leaves:
+			'Geht hinaus: die versiegelte Datei an Alephs IPFS-Host (er sieht die IP-Adresse dieses Computers und die Größe) und an die Aleph-API ein Auftrag, der die Datei nennt – unterschrieben vom Schlüssel dieses Browsers oder, ohne Freigabe, von der Bridge. Zum Anzeigen fragt die Seite Aleph nach Freigabe und Credits des Kontos.',
+		ownerChange: 'Ändern',
+		ask: 'Dieses Backup ist {size} groß und kostet etwa {perDay} Credits pro Tag, solange Aleph es aufbewahrt – jedes Backup ist eine ganze Kopie. Mit den Backups, die schon liegen, reichen die Credits dann {days}. Hochladen?',
+		upload: 'Hochladen',
+		cancel: 'Abbrechen',
+		cost: 'Bei Aleph liegen {size} Backups, etwa {perDay} Credits pro Tag – die Credits reichen {days}. Ein Schätzwert: Den Preis legt Aleph fest.',
+		unknown: 'Aleph kennt den Auftrag nicht',
+		rejected: 'Aleph hat abgelehnt',
+		unknownHint:
+			'Die Datei liegt auf Alephs IPFS-Host, aber einen Auftrag, sie aufzubewahren, kennt Aleph nicht. Ohne Auftrag darf Aleph sie löschen.',
+		rejectedHint: 'Aleph hat den Auftrag abgelehnt und bewahrt die Datei nicht auf.',
+		rekeep: 'Aleph erneut beauftragen',
+		order: 'Auftrag bei Aleph:',
+		days: { about: 'etwa {days} Tage', overYear: 'länger als ein Jahr' },
+		holders: {
+			ask: 'Wer hält es?',
+			note: '„Wer hält es?“ fragt drei öffentliche Dienste: das IPFS-Routing (delegated-ipfs.dev) nach den Knoten, die die CID anbieten – es sieht die CID –, Aleph nach seinen Kernknoten und ipwho.is nach dem Ort der Knoten-IPs. Alle drei sehen die IP-Adresse dieses Computers.',
+			asking: 'Frage das IPFS-Netz …',
+			summary:
+				'{count} IPFS-Knoten bieten dieses Backup gerade an, davon {aleph} Aleph-Kernknoten (Aleph hat {active} aktive).',
+			none: 'Gerade bietet kein IPFS-Knoten dieses Backup an – oder das Routing kennt keinen.',
+			failed: 'Das IPFS-Routing hat nicht geantwortet: {error}',
+			spread: 'Nach Netz: {networks}. Nach Land: {countries}.',
+			node: 'Knoten',
+			ip: 'IP',
+			place: 'Ort',
+			network: 'Netz',
+			notAleph: 'kein Aleph-Knoten',
+			noPlace: 'unbekannt'
+		},
+		full: 'Neues Vollbackup',
+		chainFirst:
+			'Das erste Backup ist ein Vollbackup: alles, was dieser Browser hält. Danach sichert „Jetzt sichern“ nur noch, was seitdem neu ist.',
+		chainNext:
+			'„Jetzt sichern“ sichert nur, was seit dem letzten Backup neu ist – Zuwachs {sequence} zum Vollbackup vom {date}. Zum Wiederherstellen braucht es das Vollbackup und alle Zuwächse; Aleph bewahrt jeden auf, bis er vergessen wird.',
+		chainElsewhere: 'einem anderen Gerät',
+		nothingNew: 'Seit dem letzten Backup ist nichts dazugekommen.',
+		madeIncrement:
+			'Zuwachs {sequence} gesichert: {size}, {entries} neue Einträge, {files} neue Belegdateien – {kept}.',
+		kindFull: 'Vollbackup',
+		kindIncrement: 'Zuwachs {sequence}',
+		oldBridge:
+			'Die Bridge hat den Zuwachs ohne Verweis auf sein Vollbackup bei Aleph abgelegt – sie ist älter als diese Seite. Bridge aktualisieren (git pull, pnpm install, neu starten); das nächste Backup sichert alles seit dem letzten noch einmal.',
+		creditsLink: 'Credits kaufen oder überweisen (Aleph-Dashboard)',
+		grantDashboard:
+			'Oder im Aleph-Dashboard, mit der Wallet des Kontos: unter Berechtigungen die Adresse oben eintragen, Nachrichtentyp STORE, Kanal {channel}.',
+		grantDashboardLink: 'Berechtigungen öffnen',
+		now: 'Jetzt sichern',
+		ingestGone:
+			'Alephs IPFS-Host nimmt gerade keine Uploads an. Ohne Freigabe dieses Browsers gehen Backups nur bis {limit} über Alephs API; dieses hat {size}. Richte die Freigabe oben ein – dann gehen Backups bis 1 GB –, oder lass Zuwächse laufen. Nichts wurde aufbewahrt und nichts kostet.',
+		tooBig:
+			'Dieses Backup hat {size}; Aleph nimmt in einem Stück höchstens {limit}. Nichts wurde aufbewahrt und nichts kostet.',
+		uploadTimedOut:
+			'Der Upload zu Aleph ist nach {minutes} Minuten nicht fertig geworden: Für {size} war die Leitung zu langsam oder unterbrochen. Nichts wurde aufbewahrt und nichts kostet. Erneut versuchen, am besten an einer schnelleren Leitung und mit diesem Tab im Vordergrund.',
+		keepOn:
+			'Auf einem Telefon: Bildschirm anlassen und den Tab im Vordergrund halten. Belege hält den Bildschirm wach, wo der Browser das zulässt; geht der Tab in den Hintergrund, hält der Browser an.',
+		keepWorking:
+			'Du kannst in Belege weiterarbeiten: Das Backup läuft weiter, oben im Kopf siehst du, wie weit es ist. Nur den Tab nicht schließen oder neu laden.',
+		auto: {
+			label: 'Automatisch sichern (auf diesem Gerät)',
+			hint: 'Fünf Minuten nach der letzten Änderung sichert Belege von selbst, was neu ist – als Zuwachs, nie als Vollbackup. Nur solange der Tab offen ist, das Netz nicht pausiert, dieser Browser freigegeben ist oder die Bridge läuft und die Credits länger als 30 Tage reichen. Auf einem Gerät einschalten, nicht auf mehreren.',
+			unsaved: 'Noch nicht gesichert: {list}.'
+		},
+		badge: {
+			unsaved: 'Nicht gesichert ({count})',
+			unsavedTitle: 'Seit dem letzten Backup geändert: {list}',
+			autoIn: 'Automatisches Backup in {minutes} Min.',
+			autoShort: 'in {minutes} Min.',
+			byHand: 'Zum Sichern: Backup → „Jetzt sichern“, oder dort „Automatisch sichern“ einschalten.',
+			blocked: {
+				paused: 'Das Netz ist pausiert: kein automatisches Backup.',
+				chain: 'Das nächste Backup ist ein Vollbackup – das startet nur von Hand.',
+				key: 'Weder ist dieser Browser freigegeben noch läuft die Bridge: kein automatisches Backup.',
+				credits: 'Die Credits reichen keine 30 Tage mehr: das Backup fragt erst – bitte von Hand.',
+				error: 'Das letzte automatische Backup ist fehlgeschlagen – Details im Backup.'
+			},
+			title: 'Zum Backup',
+			packing: 'Backup wird gepackt',
+			uploading: 'Backup {percent} %',
+			uploadingUnmeasured: 'Backup wird hochgeladen',
+			asking: 'Backup wartet auf dich',
+			keeping: 'Backup: Aleph wird beauftragt'
+		},
+		step: {
+			packing: 'Wird gepackt und versiegelt …',
+			uploading: 'Wird zu Aleph hochgeladen …',
+			asking: '…',
+			keeping: 'Aleph wird beauftragt …'
+		},
+		paused: 'Das Netz ist pausiert.',
+		made: 'Gesichert: {size}, {entries} Einträge, {files} Belegdateien – {kept}.',
+		kept: 'von Aleph aufbewahrt',
+		pending: 'Aleph hat noch nicht bestätigt',
+		forgotten: 'bei Aleph gelöscht',
+		list: {
+			title: 'Backups',
+			intro:
+				'Jede Kette beginnt mit einem Vollbackup, die Zuwächse bauen darauf auf; „Jetzt sichern“ geht auf der aktuellen weiter. Ältere Ketten kosten weiter Credits, bis du sie löschst. „Wiederherstellen“ holt ein Vollbackup samt Zuwächsen in diese Bücher: Was hier ist, bleibt, was fehlt, kommt dazu; am Ende lädt die Seite neu, und der Passkey öffnet die Bücher wieder. Du brauchst einen Passkey der Bücher, aus denen das Backup stammt.',
+			none: 'Noch kein Backup – weder hier noch bei Aleph für dieses Konto. Oben die Adresse des zahlenden Kontos eintragen, oder unten eine CID.',
+			unlisted:
+				'Aleph hat die Liste der Backups gerade nicht geliefert; gezeigt wird, was dieser Browser weiß.',
+			current: 'aktuell',
+			elsewhere: 'von einem anderen Gerät',
+			elsewhereRow: 'Von einem anderen Gerät gesichert: Was drin ist, weiß dieser Browser nicht.',
+			sizeUnknown: 'Größe unbekannt',
+			showGone: '{count} gelöschte Ketten anzeigen',
+			showGoneOne: '1 gelöschte Kette anzeigen',
+			drop: 'Aus der Liste nehmen',
+			details: 'Details',
+			byCid: 'Per CID wiederherstellen'
+		},
+		older: {
+			title: 'Ältere Backup-Ketten',
+			intro:
+				'Jede Kette beginnt mit einem Vollbackup, die Zuwächse bauen darauf auf. Neue Backups gehen auf der aktuellen Kette weiter; ältere kosten weiter Credits, solange Aleph sie aufbewahrt.',
+			chain: 'Vollbackup vom {at}',
+			chainUndated: 'Vollbackup {cid}',
+			increments: '{count} Zuwächse',
+			incrementsOne: '1 Zuwachs',
+			cost: '{size} · etwa {perDay} Credits am Tag',
+			forget: 'Löschen',
+			confirm:
+				'Endgültig löschen? Aleph gibt diese Kette frei, und aus ihr lässt sich danach nichts mehr wiederherstellen – auch nicht mit der CID. Das aktuelle Backup bleibt.',
+			confirmYes: 'Endgültig löschen',
+			forgetting: 'Aleph wird beauftragt, sie zu löschen …',
+			done: 'Gelöscht: {count} Aufträge bei Aleph freigegeben. Sie kosten ab jetzt nichts mehr.',
+			incomplete:
+				'Nicht alles wurde gelöscht: {count} Aufträge hat Aleph nicht freigegeben oder noch nicht bestätigt. Später noch einmal versuchen.',
+			needsGrant:
+				'Löschen kann nur der eigene Schlüssel dieses Browsers – erst die Freigabe oben einrichten.'
+		},
+		cid: 'Zurück bekommst du es über:',
+		copyCid: 'CID kopieren',
+		missing:
+			'{count} Blöcke waren nicht in diesem Browser und fehlen im Backup. Mit Gerätesync: öffne die Bücher auf dem Gerät, das sie hat.',
+		progress: {
+			step: 'Schritt {index} von {total}',
+			upload: '{sent} von {total} hochgeladen – {percent} %',
+			uploadUnmeasured:
+				'{size} werden hochgeladen – seit {seconds} s. Alephs IPFS-Host lässt den Fortschritt nicht mitzählen.',
+			database: 'Datenbank {index} von {total}: {name}, {entries} Einträge …',
+			files: 'Belegdateien: {done} von {total} …',
+			sealing: '{size} werden versiegelt …'
+		},
+		contents: 'Was drin ist',
+		files: 'Belegdateien',
+		blocks: 'Blöcke insgesamt',
+		history: 'Bisherige Backups'
+	},
 	aleph: {
 		title: 'Aleph Cloud (Hosting-Credits)',
 		what: 'Aleph stellt keine Rechnung aus: Hosting und Speicher werden mit Credits bezahlt. Hier entsteht pro Aleph-Konto und Monat ein Verbrauchsnachweis als Eigenbeleg – Anfangs- und Endbestand, Aufladungen, Verbrauch je Tag (Speicher gesammelt, jede Instanz einzeln) mit Euro-Wert. Nur gelesen: nichts wird signiert oder bewegt.',
@@ -867,6 +1358,46 @@ export default {
 		making: 'Erstelle …',
 		exists: 'Nachweis {number} liegt unter Belege.',
 		made: 'Eigenbeleg {number} für {month} erstellt ({eur}); er liegt unter Belege.'
+	},
+	uploadPanel: {
+		open: 'Belege hochladen',
+		openShort: 'Hochladen',
+		title: 'Belege hochladen',
+		zone: 'Belege hochladen',
+		zoneHint: 'oder Dateien hierher ziehen – auf jeder Seite',
+		types: 'PDF, PNG, JPEG, GIF, WebP · mehrere auf einmal',
+		busy: 'Lade hoch …',
+		goto: 'Zu den Belegen',
+		close: 'Schließen',
+		drop: 'Zum Hochladen loslassen'
+	},
+	akash: {
+		title: 'Verbrauchsnachweis',
+		what: 'Akash stellt keine Rechnung aus. Pro Monat entsteht ein Eigenbeleg mit den Netzwerkgebühren, der Aufladung (AKT → ACT) und dem Verbrauch der Deployments; er deckt die Netzwerkgebühren des Monats.',
+		month: 'Monat',
+		make: 'Verbrauchsnachweis erstellen',
+		making: 'Erstelle …',
+		exists: 'Nachweis {number} liegt unter Belege.',
+		made: 'Eigenbeleg {number} für {month} erstellt: {fees} Netzwerkgebühren verknüpft, Verbrauch {act} ACT.',
+		act: {
+			title: 'ACT-Konto (Guthaben für Deployments)',
+			what: 'ACT entsteht durch Verbrennen von AKT und bezahlt die Deployments. Hier: was aufgeladen, verbraucht und übrig ist, zu Anschaffungskosten bewertet.',
+			open: 'ACT-Konto anzeigen',
+			loading: 'Lese Bestand und Deployments …',
+			month: 'Monat',
+			minted: 'Aufgeladen',
+			used: 'Verbraucht',
+			balance: 'Saldo',
+			cost: 'Kosten Aufladung',
+			usedCost: 'Verbrauch zu Kosten',
+			summary:
+				'Aufgeladen {minted} ACT für {cost} ({perAct} je ACT) · verbraucht {used} ACT ({usedCost}) · übrig {held} ACT auf der Wallet und {escrow} ACT im Escrow ({left}).',
+			derived:
+				'Bei älteren Aufladungen steht die ACT-Menge nicht mehr auf der Chain; sie ist aus Bestand, Escrow und Verbrauch abgeleitet und nach verbrannten AKT verteilt.',
+			booking:
+				'Ob die Aufladung als Anzahlung und erst der Verbrauch als Aufwand gebucht wird, entscheidet die Steuerberatung.',
+			none: 'Noch keine Aufladung und kein Deployment.'
+		}
 	},
 	pwa: {
 		update: 'Eine neue Version von Belege ist da. Neu laden – danach mit dem Passkey entsperren.',
@@ -915,12 +1446,25 @@ export default {
 		scanWrong: 'Dieser QR-Code ist keine Gerätekennung.',
 		bothMode:
 			'„Beides“: Ein neues Gerät kommt per QR-Code oder über den Relay deiner Bridge dazu; danach treffen sich die Geräte auch über die öffentlichen Relays.',
+		lastData: 'zuletzt Daten: {time}',
+		noData: 'noch keine Daten von diesem Gerät gesehen',
+		log: {
+			title: 'Sync-Protokoll ({count})',
+			what: 'Was zwischen deinen Geräten kam und ging, je Eintrag: wann, von welchem Gerät, welches Buch, was es ist. Nur auf diesem Gerät, versiegelt, die neuesten 300 – nie in den Büchern, sonst protokollierte jedes Gerät das Protokoll der anderen. „Von“ nennt das Gerät, mit dem die Datenbank zuletzt abgeglichen hat.',
+			from: 'von {device}',
+			here: 'hier geschrieben',
+			someDevice: 'einem Gerät',
+			op: { new: 'neu', changed: 'geändert', deleted: 'gelöscht' },
+			empty: 'Noch nichts – es erscheint, sobald Einträge zwischen den Geräten gehen.',
+			clear: 'Protokoll leeren'
+		},
 		qrMode: {
 			what: 'Ohne Relay: Ein Gerät zeigt eine Einladung, das andere scannt sie und zeigt seine Antwort, das erste scannt die Antwort. Dann sind beide direkt verbunden – kein Relay, kein Server dazwischen.',
 			invite: 'Einladung zeigen',
 			inviteLabel: 'QR-Code mit der Einladung dieses Geräts',
 			inviteHint:
-				'Mit dem anderen Gerät scannen und dann dessen Antwort hier mit „QR-Code scannen“ erfassen. Gilt zehn Minuten.',
+				'Mit der Kamera des anderen Geräts scannen – der Code ist ein Link, der Belege dort öffnet – oder dort in Belege mit „QR-Code scannen“. Dann dessen Antwort hier mit „QR-Code scannen“ erfassen. Gilt zehn Minuten.',
+			byLink: 'Die Einladung kam per Link: Das ist die Antwort darauf.',
 			answerLabel: 'QR-Code mit der Antwort dieses Geräts',
 			answerHint: 'Mit dem Gerät scannen, das die Einladung gezeigt hat.',
 			copy: 'Code kopieren',
@@ -968,6 +1512,10 @@ export default {
 		explain: 'Ungereimtheiten erklären',
 		explainTitle:
 			'Schickt die Zeitleiste an dein Sprachmodell: Daten, Beträge, Zeiträume, Positionen und die Befunde – geschwärzt, ohne Rufnummern, Kunden- und Rechnungsnummern. Nur Hinweise, gebucht wird nichts.',
+		explainTitleLocal:
+			'Gibt die Zeitleiste deinem Sprachmodell auf diesem Rechner: Daten, Beträge, Zeiträume, Positionen und die Befunde – ungeschwärzt, weil nichts den Rechner verlässt. Nur Hinweise, gebucht wird nichts.',
+		explainTitleEnclave:
+			'Gibt die Zeitleiste deinem Sprachmodell in der attestierten Enklave: Daten, Beträge, Zeiträume, Positionen und die Befunde – ungeschwärzt – lesen kann es nur die geprüfte Enklave. Nur Hinweise, gebucht wird nichts.',
 		explainNeedsBridge: 'Dafür muss die Bridge mit einem Sprachmodell gekoppelt sein.',
 		notes: 'Hinweise der KI',
 		pdf: 'Als PDF herunterladen',
@@ -993,10 +1541,49 @@ export default {
 		hidden: '{count} weitere in anderen Jahren'
 	},
 	home: {
+		safety: {
+			warn: {
+				title: 'Deine Bücher liegen nur in diesem Browser',
+				text: 'Der Browser hat nicht zugesagt, sie dauerhaft zu behalten: Wird der Platz auf dem Gerät knapp, darf er sie ohne Rückfrage löschen. Eine zweite Kopie gibt es nicht – kein aktuelles Backup, kein eigenes Gerät.'
+			},
+			remind: {
+				title: 'Zeit für ein Backup',
+				text: 'Der Browser behält deine Bücher. Eine kaputte Platte, ein verlorener Laptop oder gelöschte Websitedaten nähmen sie trotzdem mit, solange es keine zweite Kopie gibt.'
+			},
+			noBackup: 'Noch kein Backup.',
+			backupToday: 'Letztes Backup: heute.',
+			backupAge: 'Letztes Backup vor {days} Tagen.',
+			persist: 'Dauerhaft speichern',
+			backup: 'Backup machen',
+			device: 'Eigenes Gerät verbinden',
+			snooze: 'In einer Woche wieder',
+			refused:
+				'Der Browser hat abgelehnt. Chrome sagt eher zu, wenn Belege als App installiert ist oder ein Lesezeichen hat. Sicher bist du erst mit einem Backup oder einem zweiten Gerät.'
+		},
+		ownIban: {
+			title: 'Ist das ein eigenes Konto?',
+			what: 'Von diesen IBANs kommt Geld unter eurem Firmennamen – meist ein eigenes Konto, dessen Auszüge die IBAN nicht nennen (Wise zum Beispiel). Als eigene IBAN gespeichert, gilt jede Zahlung dorthin als eigene Umbuchung.',
+			sends: 'schickt unter „{name}“ ({count}×)',
+			explainsOne: 'Erklärt 1 Zahlung ohne Beleg an diese IBAN.',
+			explains: 'Erklärt {count} Zahlungen ohne Beleg an diese IBAN.',
+			explainsNone: 'Noch keine Zahlung ohne Beleg an diese IBAN.',
+			open: 'Zahlung ansehen',
+			yes: 'Ja, eigenes Konto',
+			no: 'Nein, nicht unseres'
+		},
 		integrationNeeds: 'Integrationen brauchen dich',
+		wrongFees: {
+			title: '{count} Zahlungen waren fälschlich als Bankgebühr eingeordnet',
+			what: 'Eine gelernte Bankgebühr hatte sie abgedeckt, obwohl sie Rechnungen eines Anbieters sind. Sie suchen jetzt wieder ihren Beleg; die Regel dahinter kann weg.',
+			forget: 'Diese Regeln vergessen ({count})'
+		},
 		privateOpen: {
 			title: 'Privat bezahlt, noch nicht ausgeglichen: {count} ({amount})',
 			what: 'Private Zahlungen vom Geschäftskonto. Zahl sie vom Privatkonto zurück und verknüpfe die Rückzahlung an der Zahlung.'
+		},
+		outlaysOpen: {
+			title: 'Privat ausgelegt, noch nicht erstattet: {count} ({amount})',
+			what: 'Auslagen der Geschäftsführung. Überweise sie zurück und verknüpfe die Überweisung mit „Erstattet Auslagen …“ an der Zahlung.'
 		},
 		transferReceipts: {
 			title: 'Umbuchung mit Beleg: {count} zu prüfen',
@@ -1008,7 +1595,7 @@ export default {
 		},
 		resume: {
 			extract:
-				'{count} Belege wurden nicht fertig ausgelesen, als die Seite neu geladen oder gesperrt wurde. Weitermachen?',
+				'{count} Belege wurden nicht fertig ausgelesen, weil der Lauf unterbrochen wurde. Weitermachen?',
 			suggest:
 				'Für {count} Rückfragen fehlen noch KI-Vorschläge, weil der Lauf unterbrochen wurde. Weitermachen?',
 			go: 'Weitermachen',
@@ -1035,6 +1622,8 @@ export default {
 			privateLine: '{paid} bezahlt · {repaid} zurückgezahlt',
 			loans: 'Darlehen',
 			loansLine: '{received} erhalten · {paid} gezahlt',
+			taxes: 'Steuern ans Finanzamt',
+			taxesLine: '{paid} gezahlt · {refunded} erstattet',
 			unpricedOne: '1 Krypto-Buchung ohne Kurs ist nicht mitgezählt.',
 			unpricedMany: '{count} Krypto-Buchungen ohne Kurs sind nicht mitgezählt.',
 			show: 'ansehen',
@@ -1049,8 +1638,25 @@ export default {
 		agentOpenMany: '{count} offene Rückfragen',
 		agentNone: 'Keine offenen Rückfragen – alles zugeordnet, was sich zuordnen lässt.',
 		vat: {
-			title: 'Vorsteuer {year}',
-			what: 'Die Mehrwertsteuer aus deinen Belegen zu 19 % und 7 %, nach Belegdatum. So, wie die Belege ausgelesen wurden – eine Hilfe für die Voranmeldung, nicht die Voranmeldung selbst.',
+			title: 'Umsatzsteuer {year}',
+			what: 'Vorsteuer aus deinen Belegen zu 19 % und 7 %, nach Belegdatum; Umsatzsteuer aus den Rechnungen der Rechnungs-App, {basis}; die Zahllast ist die Differenz (negativ: Erstattung). So, wie Belege und Rechnungen es sagen – eine Hilfe für die Voranmeldung, nicht die Voranmeldung selbst.',
+			basisIst: 'wenn das Geld kommt (Ist)',
+			basisSoll: 'nach Rechnungsdatum (Soll)',
+			output: 'USt',
+			due: 'Zahllast',
+			outputOpen:
+				'Umsatzsteuer aus noch nicht bezahlten Rechnungen: {amount} (Rechnungen: {count}) – bei Ist erst fällig, wenn das Geld kommt.',
+			outputMissing:
+				'Rechnungen ohne Steuerangabe der Rechnungs-App: {count} ({amount} brutto) – nicht in der Umsatzsteuer, bis die App die Steuer je Satz liefert.',
+			outputNone: 'Rechnungen ohne Umsatzsteuer: {count} ({amount}).',
+			outputForeign:
+				'Eigene Rechnungen in {currencies} ohne bekannten Euro-Betrag: {count}. Sie zählen erst, wenn eine Zahlung in Euro verknüpft ist – nie ihr Betrag als Euro.',
+			outputUndated:
+				'Eigene Rechnungen ohne Rechnungsdatum: {count} ({amount}). Bei Soll zählen sie in keinem Monat – das Datum am Beleg nachtragen.',
+			turnover:
+				'Umsatz {year} aus deinen Rechnungen: {amount}. Grenze im laufenden Jahr: {limit}; im Vorjahr höchstens {previous}.',
+			turnoverOver:
+				'Umsatz {year} aus deinen Rechnungen: {amount} – über der Grenze von {limit}. Ab dem Umsatz, der sie überschreitet, gilt die Kleinunternehmerregelung nicht mehr; sprich mit deiner Steuerberatung.',
 			period: 'Zeitraum',
 			rate19: '19 %',
 			rate7: '7 %',
@@ -1069,8 +1675,31 @@ export default {
 			undated: 'Belege ohne Datum, keinem Zeitraum zugeordnet: {count}.',
 			smallBusiness:
 				'Als Kleinunternehmer (§19 UStG) ziehst du keine Vorsteuer ab. In deinen Belegen dieses Jahres stecken {amount} Mehrwertsteuer.',
+			special: {
+				title: 'Internationales und Sonderfälle',
+				intraEu:
+					'Innergemeinschaftliche Lieferungen und Leistungen: {amount} netto (Rechnungen: {count}) – keine deutsche Umsatzsteuer, in der Zusammenfassenden Meldung anzugeben.',
+				thirdCountry:
+					'Drittland (Ausfuhr, nicht im Inland steuerbar): {amount} netto (Rechnungen: {count}).',
+				reverseChargeDe:
+					'§13b im Inland – die Kundin oder der Kunde schuldet die Steuer: {amount} netto (Rechnungen: {count}).',
+				exempt: 'Steuerfrei im Inland: {amount} netto (Rechnungen: {count}).',
+				intraEuAcquisition:
+					'Innergemeinschaftlicher Erwerb: {amount} netto (Belege: {count}) – die Erwerbsteuer schuldest du und ziehst sie zugleich als Vorsteuer ab.',
+				zm: 'Für die Zusammenfassende Meldung',
+				vatId: 'USt-IdNr der Kundin/des Kunden',
+				net: 'Netto',
+				unclear: 'Nicht sicher einzuordnen: {count} – bitte ansehen:',
+				reasons: {
+					noCustomerVatId: 'EU-Rechnung ohne USt-IdNr der Kundin/des Kunden',
+					noCountry: 'ohne Umsatzsteuer, Land unbekannt',
+					noCategory: 'ohne Umsatzsteuer, Grund nicht genannt',
+					currency: 'andere Währung, Euro-Betrag noch nicht bekannt'
+				},
+				note: 'So, wie die Rechnungen es sagen. Welche Fälle wie zu melden sind, klärst du mit deiner Steuerberatung.'
+			},
 			outputLater:
-				'Die Umsatzsteuer aus deinen Ausgangsrechnungen und die Zahllast folgen, sobald die Rechnungs-App die Steuer je Satz liefert.'
+				'Noch keine Rechnungen aus der Rechnungs-App: Umsatzsteuer und Zahllast erscheinen, sobald sie gekoppelt ist und Rechnungen mit Steuer je Satz liefert.'
 		},
 		agentProgress: '{done} von {total} erledigt',
 		agentAnswer: 'Rückfragen beantworten',
@@ -1099,6 +1728,10 @@ export default {
 	},
 	matching: {
 		reason: {
+			instalment: 'Teilzahlung',
+			'remaining-amount': 'Restbetrag',
+			'amount-original': 'Betrag (Originalwährung)',
+			'amount-converted': 'Betrag (umgerechnet)',
 			amount: 'Betrag',
 			'invoice-number': 'Rechnungsnummer',
 			'customer-number': 'Kundennummer',
@@ -1120,9 +1753,14 @@ export default {
 			'no-receipt': 'Kein Beleg nötig',
 			'private-mistake': 'Privat (Irrläufer)',
 			'private-repayment': 'Rückzahlung privat',
+			'outlay-repayment': 'Erstattung Auslagen',
 			'own-transfer': 'Eigene Umbuchung',
 			'bank-fee': 'Kontoauszug',
 			loan: 'Darlehen',
+			wage: 'Lohn',
+			'payroll-tax': 'Lohnsteuer',
+			'social-security': 'Sozialabgaben',
+			'tax-payment': 'Steuer',
 			'crypto-reward': 'Ertrag der Börse',
 			'crypto-stake': 'Staking',
 			refund: 'Erstattung',
@@ -1131,6 +1769,7 @@ export default {
 			'token-burn': 'Vom Projekt verbrannt',
 			'token-migration': 'Token-Migration',
 			'crypto-dust': 'Staub',
+			'token-spam': 'Fake-Token',
 			'rule-ignore': 'Ignoriert',
 			'rule-private': 'Privat'
 		},
@@ -1138,6 +1777,10 @@ export default {
 			'own-transfer': 'Eigene Umbuchung (1360) – kein Beleg nötig',
 			'bank-fee': 'Bankentgelt – der Kontoauszug ist der Beleg',
 			loan: 'Darlehen – der Vertrag ist der Beleg',
+			wage: 'Lohnzahlung – der Beleg ist die Lohnabrechnung aus der Lohnbuchhaltung',
+			'payroll-tax': 'Lohnsteuer an das Finanzamt – der Beleg ist die Lohnsteuer-Anmeldung',
+			'social-security': 'Sozialabgaben – der Beleg ist der Beitragsnachweis',
+			'tax-payment': 'Steuerzahlung – der Beleg ist die Anmeldung oder der Bescheid',
 			'crypto-reward': 'Staking- oder Earn-Ertrag – der Kontoauszug der Börse ist der Beleg',
 			'crypto-stake': 'Delegiert ins Staking – kein Beleg nötig, nicht auf 1360',
 			refund: 'Belastung und Erstattung – kein Beleg nötig',
@@ -1146,6 +1789,7 @@ export default {
 			'token-burn': 'Vom Token-Projekt verbrannt – keine Zahlung, kein Beleg',
 			'token-migration': 'Token-Migration – beide Transaktionen im Block-Explorer sind der Beleg',
 			'crypto-dust': 'Staub unter einem Cent – kein Beleg nötig',
+			'token-spam': 'Fake-Token (Adressvergiftung) – nichts bewegt, kein Beleg nötig',
 			'rule-ignore': 'Ignoriert nach eigener Anweisung: {reason}',
 			'rule-private': 'Privat nach eigener Anweisung: {reason}',
 			'no-receipt': 'Kein Beleg nötig: {reason}'
@@ -1157,8 +1801,16 @@ export default {
 	},
 	explain: {
 		reason: {
+			instalment: 'eine Teilzahlung: weniger als noch offen',
+			'remaining-amount': 'Betrag gleich dem noch offenen Rest',
 			amount: 'Betrag gleich',
 			amountValue: 'Betrag gleich ({amount})',
+			amountOriginal: 'Betrag gleich – in der Währung des Belegs, laut Bank',
+			amountOriginalValue: 'Betrag gleich ({amount} laut Bank)',
+			amountConverted: 'Betrag umgerechnet zum Kurs des Buchungstags',
+			ecb: 'EZB',
+			amountConvertedValue:
+				'Betrag umgerechnet: {eur} sind {amount} zum {source}-Kurs vom {day} (1 {currency} = {rate} EUR), {diff} % neben {invoice}',
 			invoice: 'Rechnungsnummer im Verwendungszweck',
 			invoiceValue: 'Rechnungsnummer {number} im Verwendungszweck',
 			customer: 'Kundennummer im Verwendungszweck',
@@ -1195,6 +1847,9 @@ export default {
 			noReceipt: 'Von dir entschieden: Kein Beleg nötig – {reason}',
 			noReason: 'ohne Grund',
 			ownCompany: 'Eigene Umbuchung: Die Gegenpartei ist deine Firma „{company}“',
+			ownCard: 'Eigene Umbuchung: Ausgleich deiner Kreditkarte {account}',
+			ownCardSettlement:
+				'Eigene Umbuchung: Ausgleich der Kreditkarte vom Bankkonto – die Abbuchung dort ist der Beleg',
 			ownIban: 'Eigene Umbuchung: Das Gegenkonto ist dein Konto {account}',
 			ownIbanFound: '– die Gegenbuchung dort vom {date} ist verknüpft.',
 			ownIbanMissing:
@@ -1212,6 +1867,23 @@ export default {
 			bankFeeLearned:
 				'Bankentgelt: So hast du eine Buchung mit diesem Verwendungszweck schon einmal eingeordnet – der Kontoauszug ist der Beleg',
 			loan: 'Darlehen: „Darlehen“ im Verwendungszweck – der Vertrag ist der Beleg',
+			wageEmployee:
+				'Lohn an {employee} (auf deiner Mitarbeiterliste){period}: Der Beleg ist die Lohnabrechnung aus der Lohnbuchhaltung, nicht diese Zahlung.',
+			wageWords:
+				'„Lohn“, „Gehalt“ oder „Minijob“ im Verwendungszweck{period}: Der Beleg ist die Lohnabrechnung aus der Lohnbuchhaltung, nicht diese Zahlung.',
+			payrollTax:
+				'Lohnsteuer an das Finanzamt{period}: Der Beleg ist die Lohnsteuer-Anmeldung aus der Lohnbuchhaltung.',
+			social: 'Beiträge an {counterparty}{period}: Der Beleg ist der Beitragsnachweis.',
+			tax: '{tax} an {office}{period}: Der Beleg ist die Voranmeldung oder der Steuerbescheid.',
+			taxName: {
+				vat: 'Umsatzsteuer',
+				corporate: 'Körperschaftsteuer',
+				trade: 'Gewerbesteuer',
+				other: 'Steuer'
+			},
+			taxOffice: 'das Finanzamt',
+			taxNumber: 'das Finanzamt (Steuernummer im Verwendungszweck)',
+			period: ' für {period}',
 			exchangeFee:
 				'Gebühr der Börse: Kraken hat sie zu dieser Buchung berechnet – der Kontoauszug der Börse ist der Beleg',
 			networkFee: 'Netzwerkgebühr der Blockchain: die Transaktion im Block-Explorer ist der Beleg',
@@ -1252,6 +1924,8 @@ export default {
 			dust: 'Staub: weniger als ein Cent wert, empfangen, ohne dass du etwas getan hast. Kein Beleg nötig. Oft ein Test oder Werbung – oder der Anfang einer Adressvergiftung: Verwende die Absenderadresse nie als Empfänger.',
 			dustLookalike:
 				'Staub von einer Adresse, die aussieht wie {known}, aber eine andere ist – sehr wahrscheinlich Adressvergiftung. Kein Beleg nötig.',
+			tokenSpam:
+				'Fake-Token: ein Token ohne Kurs, den nicht diese Wallet bewegt hat, oder dessen Name einen echten nachahmt. Ein Token-Vertrag kann eine Überweisung von jeder Adresse melden, ohne deren Schlüssel – bewegt wurde nichts. Kein Beleg nötig. Er soll eine Adresse in deine Historie legen: nie an sie senden.',
 			cryptoReward:
 				'Staking- oder Earn-Ertrag der Börse – der Kontoauszug ist der Beleg. Auf welches Konto er gehört, klärt ihr mit dem Steuerberater.',
 			ignore: 'Eigene Anweisung: {field} enthält „{contains}“ → ignoriert ({reason})',
@@ -1336,6 +2010,10 @@ export default {
 		ai: {
 			button: 'KI-Vorschläge für alle offenen Rückfragen ({count})',
 			what: 'Für {count} Zahlungen ohne Beleg fragt die Bridge dein Sprachmodell, welcher Beleg passt – je Zahlung eine Anfrage mit der geschwärzten Buchung und den bis zu 25 nächstgelegenen Belegen.',
+			whatLocal:
+				'Für {count} Zahlungen ohne Beleg fragt die Bridge dein Sprachmodell auf diesem Rechner, welcher Beleg passt – je Zahlung eine Anfrage mit der Buchung und den bis zu 25 nächstgelegenen Belegen, ungeschwärzt, weil nichts den Rechner verlässt.',
+			whatEnclave:
+				'Für {count} Zahlungen ohne Beleg fragt die Bridge dein Sprachmodell in der attestierten Enklave, welcher Beleg passt – je Zahlung eine Anfrage mit der Buchung und den bis zu 25 nächstgelegenen Belegen, ungeschwärzt – lesen kann es nur die geprüfte Enklave.',
 			tokens: 'Nach deinen letzten KI-Vorschlägen etwa {tokens} Tokens.',
 			tokensUnknown: 'Wie viele Tokens das braucht, zeigt der Verlauf nach dem ersten Lauf.',
 			only: 'Es sind nur Vorschläge: Zugeordnet wird nichts, bis du einen übernimmst.',
@@ -1398,12 +2076,28 @@ export default {
 		mark: 'KI',
 		extract:
 			'Mit KI: Die Bridge schickt den Text des Belegs – geschwärzt, nie die Datei – an das Sprachmodell, das du eingestellt hast, und bekommt Anbieter, Betrag, Datum und Nummern zurück.',
+		extractLocal:
+			'Mit KI: Die Bridge gibt den Text des Belegs – nie die Datei – deinem Sprachmodell auf diesem Rechner und bekommt Anbieter, Betrag, Datum und Nummern zurück. Ungeschwärzt, weil nichts den Rechner verlässt.',
+		extractEnclave:
+			'Mit KI: Die Bridge gibt den Text des Belegs – nie die Datei – deinem Sprachmodell in der attestierten Enklave und bekommt Anbieter, Betrag, Datum und Nummern zurück. Ungeschwärzt – lesen kann ihn nur die geprüfte Enklave.',
 		upload:
 			'Mit KI: Nach dem Hochladen liest die Bridge den Beleg mit deinem Sprachmodell aus (nur der Text, geschwärzt). Zugeordnet wird er ohne KI.',
+		uploadLocal:
+			'Mit KI: Nach dem Hochladen liest die Bridge den Beleg mit deinem Sprachmodell auf diesem Rechner aus (nur der Text, ungeschwärzt – er verlässt den Rechner nicht). Zugeordnet wird er ohne KI.',
+		uploadEnclave:
+			'Mit KI: Nach dem Hochladen liest die Bridge den Beleg mit deinem Sprachmodell in der attestierten Enklave aus (nur der Text, ungeschwärzt – lesen kann ihn nur die geprüfte Enklave). Zugeordnet wird er ohne KI.',
 		import:
 			'Mit KI: Nach der Übernahme liest die Bridge die E-Mail oder ihren Anhang mit deinem Sprachmodell aus (nur der Text, geschwärzt). Zugeordnet wird ohne KI.',
+		importLocal:
+			'Mit KI: Nach der Übernahme liest die Bridge die E-Mail oder ihren Anhang mit deinem Sprachmodell auf diesem Rechner aus (nur der Text, ungeschwärzt – er verlässt den Rechner nicht). Zugeordnet wird ohne KI.',
+		importEnclave:
+			'Mit KI: Nach der Übernahme liest die Bridge die E-Mail oder ihren Anhang mit deinem Sprachmodell in der attestierten Enklave aus (nur der Text, ungeschwärzt – lesen kann ihn nur die geprüfte Enklave). Zugeordnet wird ohne KI.',
 		portal:
-			'Mit KI: Die geholten Rechnungen liest die Bridge mit deinem Sprachmodell aus (nur der Text, geschwärzt). Anmelden und Holen kommen ohne KI aus.'
+			'Mit KI: Die geholten Rechnungen liest die Bridge mit deinem Sprachmodell aus (nur der Text, geschwärzt). Anmelden und Holen kommen ohne KI aus.',
+		portalLocal:
+			'Mit KI: Die geholten Rechnungen liest die Bridge mit deinem Sprachmodell auf diesem Rechner aus (nur der Text, ungeschwärzt – er verlässt den Rechner nicht). Anmelden und Holen kommen ohne KI aus.',
+		portalEnclave:
+			'Mit KI: Die geholten Rechnungen liest die Bridge mit deinem Sprachmodell in der attestierten Enklave aus (nur der Text, ungeschwärzt – lesen kann ihn nur die geprüfte Enklave). Anmelden und Holen kommen ohne KI aus.'
 	},
 	settings: {
 		title: 'Einstellungen',
@@ -1416,8 +2110,110 @@ export default {
 			learned: 'Gelerntes',
 			books: 'Buchhaltung (DATEV)',
 			chart: 'Kontenplan',
+			travellers: 'Reisende',
+			keys: 'Schlüssel',
 			privacy: 'Datenschutz & Technik'
+		},
+		keys: {
+			title: 'Schlüssel',
+			words: {
+				title: 'Wiederherstellungswörter',
+				what: '24 Wörter auf Papier, die die Bücher öffnen, wenn jeder Passkey weg ist – auf einem leeren Gerät, ohne Passkey: dort wird mit ihnen ein neuer angelegt. Belege macht sie zufällig; gespeichert werden sie nirgends, nur ein Fach im Tresor, das sich mit ihnen öffnet.',
+				none: 'Noch keine Wiederherstellungswörter. Schreib sie auf und bewahr das Papier sicher auf, getrennt von deinen Geräten.',
+				has: 'Wiederherstellungswörter angelegt am {date}.',
+				start: 'Wörter anlegen',
+				new: 'Neue Wörter anlegen',
+				writeDown:
+					'Schreib diese 24 Wörter in dieser Reihenfolge auf Papier. Sie werden nur jetzt gezeigt.',
+				paper:
+					'Kein Foto, keine Notiz-App, keine Zwischenablage: Wer die Wörter hat, öffnet die Bücher.',
+				written: 'Ich habe die 24 Wörter aufgeschrieben.',
+				next: 'Weiter',
+				askBack: 'Zur Probe: Welche Wörter stehen an diesen Stellen?',
+				confirm: 'Wörter bestätigen',
+				saving: 'Wird gespeichert …',
+				back: 'Wörter noch einmal zeigen',
+				wrongBack: 'Stimmt nicht an Stelle {positions}. Sieh noch einmal auf dein Papier.',
+				added:
+					'Die Wiederherstellungswörter öffnen jetzt die Bücher. Ältere Wörter öffnen nichts mehr.',
+				remove: 'Wörter entfernen',
+				removeSure: 'Danach öffnen die Wörter die Bücher nicht mehr.',
+				removeYes: 'Ja, entfernen',
+				removed: 'Die Wiederherstellungswörter sind entfernt.',
+				publish:
+					'Tresor bei Aleph hinterlegen, damit ein leeres Gerät ihn mit den Wörtern allein findet (versiegelt, ohne Namen).',
+				equivalent:
+					'Die Wörter wiegen so viel wie alle Passkeys zusammen. Wer sie gesehen hat, kennt die Wurzel der Schlüssel – wie bei einem Passkey hilft Entfernen nur für das, was danach kommt. Beim Erneuern des Tresors (ein Passkey in fremden Händen) fallen die Wörter weg: dann neue anlegen.',
+				offerTitle: 'Bücher absichern:',
+				offer:
+					'Leg Wiederherstellungswörter an – 24 Wörter auf Papier, falls dein Passkey verloren geht.',
+				offerGo: 'Jetzt anlegen',
+				offerLater: 'Später'
+			},
+			intro:
+				'Welche Passkeys deine Bücher öffnen. Jeder hat ein eigenes Fach im Tresor der Bücher; jedes Fach öffnet dieselben Bücher und jede Sicherung.',
+			singleHeading: 'Einziger Schlüssel:',
+			single:
+				'Diese Bücher öffnet nur ein Passkey. Geht er verloren, sind Bücher und Sicherungen nicht mehr lesbar. Leg einen zweiten an, etwa einen Sicherheitsschlüssel, den du sicher aufbewahrst.',
+			unnamed: 'Passkey',
+			since: 'seit {date}',
+			mine: 'dieser Passkey',
+			remove: 'Entfernen',
+			removeHow:
+				'Einfach entfernen: Dieser Passkey öffnet die Bücher ab jetzt nicht mehr. Mit Erneuerung: Der Tresor bekommt außerdem einen neuen Schlüssel – für einen Passkey, der in fremde Hände geraten sein könnte. Dafür antwortet jeder verbleibende Passkey einmal, auch dieser.',
+			removePlain: 'Entfernen',
+			removeRenew: 'Entfernen und Tresor erneuern',
+			removed: 'Entfernt. Dieser Passkey öffnet die Bücher nicht mehr.',
+			renewed: 'Entfernt, der Tresor ist erneuert.',
+			removeLimit:
+				'Was Entfernen nicht kann: Ein Passkey, der die Bücher schon geöffnet hat, kennt die Wurzel ihrer Schlüssel, und ältere Sicherungen tragen sein Fach weiter.',
+			addLabel: 'Weiteren Passkey anlegen',
+			addPlaceholder: 'z. B. YubiKey im Safe',
+			add: 'Passkey anlegen',
+			adding: 'Wird angelegt …',
+			addHint:
+				'Zwei Abfragen: der neue Passkey, dann seine Antwort. Dieser Browser öffnet die Bücher weiter mit seinem eigenen Passkey.',
+			added: 'Angelegt. Der neue Passkey öffnet dieselben Bücher.',
+			publish:
+				'Tresor versiegelt bei Aleph hinterlegen, damit ein leeres Gerät ihn mit jedem dieser Passkeys findet',
+			publishPaused: 'Das Netz ist pausiert: Der Tresor wird nicht bei Aleph hinterlegt.',
+			notPublished:
+				'Der Tresor liegt nur in diesem Browser. Ein leeres Gerät findet ihn mit dem zweiten Passkey nur, wenn er bei Aleph hinterlegt ist.',
+			publishNow: 'Jetzt hinterlegen',
+			published: 'Bei Aleph hinterlegt.',
+			paused: 'Das Netz ist pausiert.',
+			technical: [
+				'Der Tresor hält die Wurzel R, aus der jeder Schlüssel per HKDF entsteht (die PRF-Antwort des Passkeys, der die Bücher angelegt hat), versiegelt mit einem zufälligen Tresorschlüssel (AES-256-GCM). Jedes Fach ist der Tresorschlüssel, versiegelt mit einem Schlüssel aus der PRF-Antwort seines Passkeys (belege/vault-slot/v1), gebunden an Tresor und Passkey.',
+				'Bei Aleph liegen, als Aggregat belege-vault: unter einer Adresse aus der PRF-Antwort jedes Passkeys der Tresor-Datensatz; unter einer Adresse aus der Wurzel der aktuelle Datensatz und das zahlende Konto, versiegelt. Keine Namen der Passkeys, kein Wallet.'
+			]
 		}
+	},
+	travellers: {
+		title: 'Reisende',
+		intro:
+			'Wer für die Firma reist: Inhaber bzw. Gesellschafter-Geschäftsführer und Angestellte. Jede Person bekommt ihre eigene Monatsabrechnung.',
+		none: 'Noch niemand. Der Inhaber wird mit der ersten Reise angelegt.',
+		unnamed: 'ohne Namen',
+		role: { owner: 'Inhaber/Geschäftsführung', employee: 'Angestellte/r' },
+		roleLabel: 'Rolle',
+		name: 'Name',
+		account: 'Gegenkonto',
+		accountHint:
+			'Pflicht: Auf dieses Konto wird die Abrechnung gebucht (z. B. ein Personenkonto). Ohne Konto wird nichts gebucht.',
+		accountHintOwner: 'Leer: das Verrechnungskonto der Rechtsform aus „Buchhaltung“.',
+		accountShown: 'Konto {account}',
+		iban: 'IBAN, letzte 4 Ziffern',
+		ibanHint: 'Erkennt die Überweisung der Erstattung.',
+		noAccount: 'Gegenkonto fehlt',
+		edit: 'Bearbeiten',
+		remove: 'Entfernen',
+		add: 'Person hinzufügen',
+		save: 'Speichern',
+		cancel: 'Abbrechen',
+		inUse: 'Diese Person hat Reisen oder Abrechnungen und bleibt deshalb.',
+		ownerExists: 'Es gibt schon einen Inhaber.',
+		adviser:
+			'Welches Gegenkonto für Angestellte richtig ist, klärst du mit der Steuerberatung. Belege erstattet nur die gesetzlichen Pauschalen; nichts darüber wird gezahlt.'
 	},
 	anweisungen: {
 		title: 'Firma, Abgleich und Buchhaltung',
@@ -1426,6 +2222,12 @@ export default {
 		companyNames: 'Firmenname(n)',
 		companyHint:
 			'Ein Name je Zeile, z. B. „le space UG“. Zahlungen an diesen Namen gelten als eigene Umbuchung (Konto 1360), Rechnungen von ihm als deine Ausgangsrechnungen.',
+		ownNames: 'Eigene Namen (Inhaber, Gesellschafter)',
+		ownNamesHint:
+			'Ein Name je Zeile, z. B. „Erika Mustermann“. Steht einer davon als Gegenpartei, sucht „Beleg finden“ im Postfach nicht nach ihm, sondern nach einem Wort aus dem Verwendungszweck.',
+		employees: 'Mitarbeiter (Lohn, Minijob)',
+		employeesHint:
+			'Ein Name je Zeile. Eine Zahlung an einen davon ist Lohn: Ihr Beleg ist die Lohnabrechnung aus der Lohnbuchhaltung, nicht ein Beleg im Postfach.',
 		ownIbans: 'Eigene IBANs',
 		ownIbansHint:
 			'Eine IBAN je Zeile. Zahlungen an diese Konten gelten als eigene Umbuchung. Konten aus den Büchern kennt der Abgleich schon: {list}.',
@@ -1462,10 +2264,10 @@ export default {
 			title: 'Kontenplan',
 			hint: 'Lies den Kontenplan deiner Buchhaltung ein: Dann schlägt „Konto“ an jeder Zahlung deine Konten mit deinen Bezeichnungen vor statt der allgemeinen SKR-03-Liste.',
 			infoTitle:
-				'Eine Datei aus deiner Buchhaltung: DATEV-„Kontenbeschriftungen“ (z. B. MonKey Office: Import & Export → Export DATEV → Kontenbeschriftungen) oder eine CSV mit Kontonummer und Bezeichnung. Sie bleibt verschlüsselt in deinen Büchern in diesem Browser.',
+				'Eine Datei aus deiner Buchhaltung: DATEV-„Kontenbeschriftungen“ (in der Buchhaltung meist unter „Export DATEV“) oder eine CSV mit Kontonummer und Bezeichnung. Sie bleibt verschlüsselt in deinen Büchern in diesem Browser.',
 			howTitle: 'Wie komme ich an die Datei?',
 			how: [
-				'MonKey Office: Seitenleiste → Import & Export → Export DATEV → „Kontenbeschriftungen“ (auf Wunsch nur ein Kontenbereich „von Konto … bis Konto“) → die CSV-Datei hier einlesen.',
+				'In deiner Buchhaltung den DATEV-Export der „Kontenbeschriftungen“ aufrufen (auf Wunsch nur ein Kontenbereich), die CSV-Datei speichern und hier einlesen. Die Menüs heißen je nach Programm anders.',
 				'Andere Programme mit DATEV-Schnittstelle: den Export „Kontenbeschriftungen“ bzw. „Kontenplan (DATEV-Format)“ wählen – die Datei beginnt mit „EXTF“.',
 				'Sonst reicht eine CSV oder Textdatei mit einer Spalte Kontonummer (4–8 Ziffern) und einer Spalte Bezeichnung, getrennt durch Semikolon, Komma oder Tab – etwa der Kontenplan-Export aus Lexware, sevDesk oder Excel.',
 				'Dein Programm ist nicht dabei oder die Datei wird nicht erkannt? Schreib uns, welches Programm du nutzt – wir nehmen es auf Anfrage auf.'
@@ -1483,17 +2285,23 @@ export default {
 			tooLarge: 'Die Datei ist größer als 5 MB – ist es wirklich der Kontenplan?'
 		},
 		books: {
-			title: 'Buchhaltung (MonkeyOffice / DATEV)',
-			hint: 'Was der DATEV-Export über deine Buchhaltung wissen muss. Prüfe die Werte in MonkeyOffice – dort steht, was es beim Import erwartet.',
-			ledger: 'Sachkonto in MonkeyOffice',
+			title: 'Buchhaltung (DATEV-Export)',
+			hint: 'Was der DATEV-Export über deine Buchhaltung wissen muss. Prüfe die Werte in deiner Buchhaltung – dort steht, was sie beim Import erwartet.',
+			ledger: 'Sachkonto in deiner Buchhaltung',
 			ledgerHint:
-				'Das Sachkonto, unter dem dieses Bankkonto in deiner Buchhaltung geführt wird. Vorschlag nach SKR 03: {suggestion} – nur ein Platzhalter, trag die Nummer aus MonkeyOffice ein.',
+				'Das Sachkonto, unter dem dieses Bankkonto in deiner Buchhaltung geführt wird. Vorschlag nach SKR 03: {suggestion} – nur ein Platzhalter, trag die Nummer aus deiner Buchhaltung ein.',
 			noAccounts: 'Noch keine Bankkonten in den Büchern.',
 			vatPeriod: 'Umsatzsteuer-Voranmeldung',
 			vatPeriods: { quarter: 'vierteljährlich', month: 'monatlich' },
+			ownVatId: 'Eigene USt-IdNr',
+			vatBasis: 'Umsatzsteuer nach',
+			vatBases: {
+				ist: 'vereinnahmten Entgelten (Ist)',
+				soll: 'vereinbarten Entgelten (Soll)'
+			},
 			smallBusiness: 'Kleinunternehmer (§19 UStG)',
 			vatHint:
-				'Danach richtet sich die Vorsteuer-Karte auf Home. Als Kleinunternehmer weist du keine Umsatzsteuer aus und ziehst keine Vorsteuer ab.',
+				'Danach richtet sich die Umsatzsteuer-Karte auf Home. Bei Ist zählt die Umsatzsteuer einer Rechnung, wenn das Geld kommt, bei Soll am Rechnungsdatum – was dein Finanzamt dir genehmigt hat. Als Kleinunternehmer weist du keine Umsatzsteuer aus und ziehst keine Vorsteuer ab.',
 			legalForm: 'Rechtsform',
 			legalFormUnset: 'noch nicht angegeben',
 			legalForms: {
@@ -1502,12 +2310,15 @@ export default {
 				corporation: 'Kapitalgesellschaft (UG, GmbH)'
 			},
 			shareholderAccount: 'Verrechnungskonto Gesellschafter',
+			suspenseAccount: 'Sammelkonto für Buchungen ohne Konto',
+			suspenseHint:
+				'Optional. Wenn hier ein Konto steht, kann der Export Buchungen ohne übernommenes Konto darauf buchen, statt zu warten. Belege schlägt keine Nummer vor: Welches Konto (bei SKR 03 meist eines der Durchlaufenden oder ungeklärten Posten) und wer umbucht, legt ihr mit dem Steuerberater fest.',
 			legalFormHint:
 				'Bestimmt, wie eine private Zahlung vom Geschäftskonto gebucht wird („Privat (Irrläufer)“): beim Einzelunternehmen und bei Personengesellschaften als Privatentnahme (1800), eine Rückzahlung als Privateinlage (1890); bei UG und GmbH gibt es keine Privatentnahmen – die Gesellschaft hat für dich bezahlt, eine Forderung auf dem Verrechnungskonto Gesellschafter, die du zurückzahlst. Die Kontonummer legt ihr mit dem Steuerberater fest.',
 			consultant: 'Beraternummer',
 			client: 'Mandantennummer',
 			numbersHint:
-				'Für die eigene Buchhaltung ohne Steuerberatung nimmt MonkeyOffice meist 1001 und 1. Prüfe in MonkeyOffice, was es beim DATEV-Import erwartet.',
+				'Für die eigene Buchhaltung ohne Steuerberatung sind 1001 und 1 üblich. Prüfe in deiner Buchhaltung, was sie beim DATEV-Import erwartet.',
 			fiscalStart: 'Wirtschaftsjahr beginnt im',
 			accountLength: 'Sachkontenlänge',
 			accountLengthHint: 'Stellen deiner Sachkonten, bei SKR 03 meist 4.',
@@ -1528,13 +2339,139 @@ export default {
 		ruleText: '{field} „{contains}“ → {action}'
 	},
 	belege: {
+		payrollDoc: {
+			offer: 'Lohn- oder Steuerunterlage …',
+			hint: 'Eine Lohnabrechnung, ein Lohnjournal, eine Lohnsteuer-Anmeldung, ein Beitragsnachweis oder ein Steuerbescheid ist der Beleg für mehrere Zahlungen: Wähl Art und Zeitraum, die passenden Zahlungen sind angehakt.',
+			kindLabel: 'Art',
+			kind: {
+				payroll: 'Lohnabrechnung / Lohnjournal',
+				'wage-tax-return': 'Lohnsteuer-Anmeldung',
+				contributions: 'Beitragsnachweis',
+				'tax-assessment': 'Steuerbescheid / Voranmeldung'
+			},
+			period: 'Zeitraum',
+			none: 'Keine erkannte Zahlung dieser Art für {period}. Verknüpfen hält die Unterlage trotzdem fest.',
+			link: 'Verknüpfen',
+			is: '{kind} {period}, Beleg für diese Zahlungen:',
+			undo: 'Keine Lohn- oder Steuerunterlage',
+			badPeriod: 'Den Zeitraum als 12/2025, 2025-Q4 oder 2025 angeben.'
+		},
+		travel: {
+			open: 'Zu einer Reise …',
+			looksLikeTrip: 'Als {kind} gelesen: gehört wohl zu einer Reise.',
+			guessed: 'Art nach Stichworten: {kind} („{words}“) – gehört vielleicht zu einer Reise.',
+			looksLikeEvent: 'Als {kind} gelesen: gehört vielleicht zu einer Reise.',
+			kind: {
+				train: 'Bahnticket',
+				bus: 'Busticket',
+				flight: 'Flug',
+				public_transport: 'ÖPNV-Ticket',
+				taxi: 'Taxi',
+				rental_car: 'Mietwagen',
+				fuel: 'Tankbeleg',
+				parking: 'Parken',
+				hotel: 'Hotelrechnung',
+				restaurant: 'Restaurantrechnung',
+				event: 'Eventticket',
+				ticket: 'Ticket'
+			},
+			readBack: 'zurück {when}',
+			readNights: 'Nächte: {count}',
+			readBreakfast: 'Frühstück inklusive',
+			assigned: 'Teil der Reise',
+			trip: 'Reise',
+			suggested: 'An diesem Datum',
+			otherTrips: 'Andere Reisen',
+			paidBy: 'Bezahlt',
+			paid: { private: 'privat', company: 'von der Firma' },
+			assign: 'Zuordnen',
+			newTrip: 'Neue Reise mit diesem Beleg',
+			newFor: 'Neue Reise für',
+			unassign: 'Von der Reise nehmen',
+			cancel: 'Abbrechen',
+			euro: {
+				outlay: 'In Euro: {amount} ({original}), wie als Auslage gebucht.',
+				payment: 'In Euro: {amount} ({original}), wie bezahlt.',
+				byRate: 'In Euro: {amount} ({original} zu {rate} {currency} je 1 EUR).',
+				change: 'Kurs ändern',
+				missing:
+					'Beleg über {original}: ohne Kurs kein Euro-Betrag – die Abrechnung wartet darauf.',
+				rate: 'Kurs: 1 EUR = … {currency}',
+				ask: 'Kurs holen',
+				keep: 'Kurs übernehmen',
+				preview: '= {amount} ({source})',
+				noRate:
+					'Für diesen Tag kennt die Bridge keinen Kurs: bitte von Hand eintragen, etwa vom Kontoauszug der Karte.'
+			},
+			hospitality: {
+				looksLike:
+					'Als Restaurantrechnung gelesen: als Bewirtung erfassen, wenn es ein Geschäftsessen war.',
+				open: 'Als Bewirtung erfassen …',
+				title: 'Bewirtung',
+				what: 'Was das Finanzamt für ein Geschäftsessen verlangt. Teilnehmer je eine Zeile, dich selbst eingeschlossen.',
+				place: 'Ort',
+				participants: 'Teilnehmer',
+				occasion: 'Anlass',
+				tip: 'Trinkgeld (€)',
+				tipTo: 'Empfänger des Trinkgelds',
+				badTip: 'Das Trinkgeld ist kein Betrag in Euro.',
+				save: 'Speichern',
+				edit: 'Ändern',
+				remove: 'Keine Bewirtung',
+				split: 'Abziehbar {deductible}, nicht abziehbar {rest}, Vorsteuer {vat}.',
+				missing: 'Es fehlt noch: {what}.'
+			}
+		},
+		outlay: {
+			open: 'Privat ausgelegt …',
+			hint: 'Bar oder mit einer privaten Karte bezahlt: als Auslage der Geschäftsführung buchen. Der Beleg ist dann gedeckt und wartet auf keine Bankzahlung mehr.',
+			howLabel: 'Bezahlt',
+			how: { cash: 'bar', card: 'mit privater Karte', other: 'anders' },
+			day: 'am',
+			amount: 'Betrag laut Beleg: {amount}',
+			rate: 'Kurs: EUR je 1 {currency}',
+			ratePerEuro: 'Kurs: {currency} je 1 EUR',
+			rateOther: '= {value} {unit}',
+			rateTurnToUnit: 'in EUR je 1 {currency} eingeben',
+			rateTurnToEuro: 'in {currency} je 1 EUR eingeben',
+			asking: 'Frage den Referenzkurs ab …',
+			ecb: 'EZB-Referenzkurs vom {date}',
+			cbr: 'Referenzkurs der Bank of Russia vom {date} (die EZB veröffentlicht keinen Rubelkurs mehr). Ein Kurs aus Kartenabrechnung oder Wechselbeleg geht vor, wenn du einen hast.',
+			nbk: 'Referenzkurs der Nationalbank Kasachstans vom {date} (die EZB veröffentlicht keinen Tengekurs). Ein Kurs aus Kartenabrechnung oder Wechselbeleg geht vor, wenn du einen hast.',
+			'cbr-cross':
+				'Kreuzkurs über den Rubel, aus den Kursen der Bank of Russia vom {date} – kein amtlicher Euro-Kurs. Ein Kurs aus Kartenabrechnung oder Wechselbeleg geht vor, wenn du einen hast.',
+			noEcb:
+				'Für {currency} gibt es an diesem Tag keinen Referenzkurs. Trag den Kurs aus der Kartenabrechnung oder einem Wechselbeleg ein.',
+			rateNote: 'Woher der Kurs kommt',
+			rateNotePlaceholder: 'z. B. Kartenabrechnung vom …, Wechselbeleg',
+			note: 'Notiz (optional)',
+			needsRate: 'Für den Euro-Betrag fehlt der Kurs.',
+			euros: 'Wird gebucht mit {amount}',
+			book: 'Als Auslage buchen',
+			cancel: 'Abbrechen',
+			booked:
+				'Privat ausgelegt am {date} ({how}): {amount} auf dem Konto „Auslagen Geschäftsführung“.',
+			bookedRate: '{original} {currency} zu {rate} EUR ({source})',
+			bookedRatePerEuro: '{original} {currency} zu {rate} {currency} je 1 EUR ({source})',
+			rateSource: {
+				ecb: 'EZB-Kurs',
+				cbr: 'Kurs der Bank of Russia',
+				nbk: 'Kurs der Nationalbank Kasachstans',
+				'cbr-cross': 'Kreuzkurs über RUB, Bank of Russia',
+				manual: 'Kurs von Hand'
+			},
+			undo: 'Auslage rückgängig machen'
+		},
+		instalments: {
+			partial: 'teilweise bezahlt · {paid} von {total} ({count}×)',
+			paid: 'in {count} Raten bezahlt',
+			overpaid: 'überzahlt um {over} ({count}×)',
+			open: 'offen'
+		},
 		title: 'Belege',
 		empty:
 			'Noch keine Belege. Dateien hochladen oder einen Ordner freigeben geht sofort; für das Buchhaltungs-Postfach brauchst du die Bridge.',
 		emptyLink: 'Bridge einrichten',
-		upload: 'Belege hochladen',
-		uploadHint: 'PDFs und Bilder, auch per Drag & Drop hierher.',
-		drop: 'Loslassen zum Hochladen',
 		folder: 'Ordner freigeben',
 		folderAgain: 'Ordner „{name}“ einlesen',
 		folderForget: 'Ordner vergessen',
@@ -1547,6 +2484,8 @@ export default {
 		mailFrom: 'Von Monat',
 		mailTo: 'Bis Monat',
 		mailLastYear: 'Ganzes Vorjahr',
+		uploadReadAfter:
+			'Neue Belege gleich auslesen und zuordnen (Hochladen und freigegebener Ordner)',
 		mailReadAfter: 'Neue Belege nach dem Abruf gleich auslesen',
 		trash: {
 			button: 'Mail in den Papierkorb verschieben',
@@ -1577,6 +2516,24 @@ export default {
 				'foreign-links': 'Links zu anderen Hosts als dem Absender: {detail}'
 			}
 		},
+		paperless: {
+			title: 'Aus Paperless holen',
+			intro:
+				'Holt über die Bridge, was Paperless-ngx seit dem letzten Abruf neu hat – beim Öffnen dieser Seite und auf Klick. Die Originaldatei kommt als Beleg; ein Scan ohne Textebene wird mit dem Text gelesen, den Paperless erkannt hat.',
+			fetch: 'Aus Paperless holen',
+			fetching: 'Hole …',
+			result:
+				'{documents} Dokumente · neu: {new} · schon vorhanden: {known} · doppelt: {duplicate} · ausgelassen: {skipped} · keine Belegdatei: {unsupported}',
+			progress: 'Dokument {done} von {total} …',
+			failed:
+				'{count} Dokument(e) hat Paperless diesmal nicht rechtzeitig geliefert – der nächste Abruf holt sie.',
+			mailToo: 'Belege ruft das Postfach trotzdem selbst ab',
+			skipTags: 'Dokumente mit diesen Paperless-Tags auslassen (durch Komma getrennt)',
+			skipTagsHint:
+				'Der Tag, den deine Paperless-Mailregel setzt: Dann liest Belege jede E-Mail nur einmal, über das Postfach.',
+			mailOff:
+				'Paperless holt die E-Mails: Belege ruft das Postfach nicht selbst ab, sonst käme jede Rechnung doppelt. Umschalten in der Paperless-Karte.'
+		},
 		mailFetch: 'E-Mails abrufen',
 		mailFetching: 'Rufe ab …',
 		mailNoBridge: 'Für E-Mails und das Auslesen die Bridge unter ',
@@ -1587,13 +2544,20 @@ export default {
 		llmNotSetUp:
 			'Das Auslesen ist auf der Bridge nicht eingerichtet: pnpm setup:llm, dann die Bridge neu starten.',
 		mailResult: '{mails} E-Mails · neu: {new} · schon vorhanden: {known} · doppelt: {duplicate}',
+		mailAppointments: ' · Termine aus Einladungen: {count}',
 		mailVerdicts: ' · Absenderprüfung aktualisiert: {count}',
 		importResult: 'Neu: {new} · doppelt: {duplicate} · nicht unterstützt: {unsupported}',
 		sources: 'Quellen',
+		months: 'Monate',
+		allMonths: 'Alle Monate',
+		monthOpen: '{count} offen',
+		searchAll: 'Treffer aus allen Monaten: {count}',
+		more: 'Weitere {count} anzeigen',
 		sourceAll: 'Alle',
 		sourceMail: 'E-Mail {address}',
 		sourceUpload: 'Hochgeladen',
 		sourceFolder: 'Ordner',
+		sourcePaperless: 'Paperless',
 		search: 'Belege durchsuchen',
 		searchPlaceholder: 'Suchen: Anbieter, Betrag, Datum, Rechnungsnummer',
 		extractAll: 'Alle neuen auslesen ({count})',
@@ -1610,6 +2574,7 @@ export default {
 			question: 'Rückfrage',
 			assigned: 'Zugeordnet',
 			ignored: 'Ignoriert',
+			private: 'Privat',
 			prepaid: 'Guthabenkonto'
 		},
 		unverified: 'Absender prüfen',
@@ -1626,7 +2591,18 @@ export default {
 				'Kommt nicht in den Abgleich und nicht in den Export; eine Zuordnung wird gelöst. Lässt sich wieder aufnehmen.',
 			duplicate: 'Als Duplikat aussortiert.',
 			notNeeded: 'Aussortiert – kein Beleg.',
-			restore: 'Wieder aufnehmen'
+			restore: 'Wieder aufnehmen',
+			private: {
+				action: 'Privat, nicht geschäftlich',
+				title:
+					'Ein privater Beleg, etwa aus dem privaten Postfach: kommt nicht in die Bücher, nicht in die Rückfragen und nicht in den Export. Lässt sich wieder aufnehmen.',
+				note: 'Grund (optional)',
+				placeholder: 'z. B. private Reise, Geschenk',
+				confirm: 'Als privat aussortieren',
+				cancel: 'Abbrechen',
+				done: 'Privat, nicht geschäftlich.',
+				doneWith: 'Privat, nicht geschäftlich: {note}'
+			}
 		},
 		origin: {
 			label: 'Wie zugeordnet',
@@ -1660,7 +2636,37 @@ export default {
 		warningAfter: 'Die Datei wird erst angezeigt und ausgelesen, wenn du sie freigibst.',
 		confirm: 'Absender geprüft – öffnen und freigeben',
 		preview: 'Vorschau',
+		einvoice: {
+			title: 'E-Rechnung ({syntax}) – Ansicht des XML-Originals',
+			notEn16931:
+				'Dieses Profil (MINIMUM oder BASIC WL) ist keine E-Rechnung nach EN 16931; es reicht als Beleg nur zusammen mit einer lesbaren Rechnung.',
+			embedded: 'E-Rechnung (ZUGFeRD/Factur-X) – Felder aus dem eingebetteten XML, ohne KI gelesen',
+			fromInvoiceApp:
+				'XRechnung aus der Rechnungs-App: Das XML ist das Original und geht neben diesem PDF in den Export.',
+			seller: 'Verkäufer',
+			number: 'Rechnungsnummer',
+			issued: 'Rechnungsdatum',
+			due: 'Fällig',
+			net: 'Netto',
+			vat: 'USt {rate} %',
+			gross: 'Gesamt',
+			note: 'Ohne KI aus dem XML gelesen. Das XML ist das Original und geht so in den Export.'
+		},
+		own: {
+			label: 'Richtung',
+			yes: 'Eigene Rechnung – ihre Steuer ist Umsatzsteuer',
+			no: 'Eingangsbeleg',
+			ours: 'Als eigene Rechnung führen',
+			notOurs: 'Doch kein eigener Beleg'
+		},
 		previewFailed: 'Die Vorschau ließ sich nicht erzeugen.',
+		mailOriginal: {
+			kept: 'Die E-Mail ist so gespeichert, wie sie ankam (.eml); sie geht mit dem Export ins ZIP.',
+			missing: 'Von dieser E-Mail ist nur ein Auszug gespeichert.',
+			fetch: 'Original holen',
+			gone: 'Die E-Mail ist nicht mehr im Postfach – nur dieser Auszug ist erhalten.',
+			unavailable: 'Die Bridge konnte die E-Mail gerade nicht holen. Später noch einmal versuchen.'
+		},
 		extract: 'Auslesen',
 		extractAgain: 'Erneut auslesen',
 		extractBusy: 'Lese aus …',
@@ -1690,6 +2696,7 @@ export default {
 			mail: 'E-Mail',
 			upload: 'Hochgeladen',
 			folder: 'Ordner',
+			paperless: 'Paperless-ngx',
 			portal: 'Kundenportal',
 			eigenbeleg: 'Eigenbeleg',
 			'invoice-app': 'Rechnungs-App (eigene Rechnung)'
@@ -1707,11 +2714,11 @@ export default {
 			fallback: 'zweiter Versuch mit {model}, weil {reason}',
 			sent: 'An die KI gesendet (geschwärzt)',
 			sentHint:
-				'Genau dieser Text ging von der Bridge an das Sprachmodell. Geschwärzte Stellen stehen in eckigen Klammern, etwa [NAME] oder [IBAN …1234].',
+				'Genau dieser Text ging von der Bridge an das Sprachmodell. Geschwärzte Stellen stehen in eckigen Klammern, etwa [NAME] oder [IBAN …1234]. Lies ihn: Was hier noch steht, hat das Modell gesehen – ein Name ohne Etikett, der auf keiner Liste steht, bleibt stehen.',
 			sentMissing:
 				'Mit einer älteren Bridge ausgelesen: Welcher Text gesendet wurde, ist nicht gespeichert. „Erneut auslesen“ holt es nach.',
 			redactions:
-				'Geschwärzt: {terms} Namen, {iban} IBANs, {email} E-Mail-Adressen, {street} Straßen, {postcode} PLZ und Ort, {link} Links',
+				'Geschwärzt: {terms} Namen, {iban} IBANs und Karten, {email} E-Mail-Adressen, {phone} Telefonnummern, {id} Geburtsdaten und Steuernummern, {street} Straßen, {postcode} PLZ und Ort, {link} Links',
 			attempts: 'Versuche: {list}',
 			tokens: 'Tokens: {prompt} hin, {completion} zurück, davon {reasoning} zum Nachdenken',
 			notAi:
@@ -1728,7 +2735,7 @@ export default {
 		},
 		technical: [
 			'Jede Datei wird im Browser mit AES-GCM versiegelt (Schlüssel per HKDF aus der PRF-Antwort des Passkeys, info belege/blob-key/v1) und in 1-MiB-Blöcken in Helias Blockstore abgelegt. Doppelte erkennt die App am SHA-256 des Inhalts, der nur im versiegelten Datensatz steht.',
-			'Zum Auslesen geht nur die Textebene des PDFs an die Bridge. Die Bridge schwärzt Namen, IBANs, eigene E-Mail-Adressen, Straßen und Postleitzahlen und fragt dann das Sprachmodell; die Datei selbst verlässt den Browser nicht.'
+			'Zum Auslesen geht nur die Textebene des PDFs an die Bridge. Die Bridge schwärzt Namen aus ihrer Liste und nach Etiketten, IBANs, E-Mail-Adressen, Telefonnummern, Straßen und Postleitzahlen und fragt dann das Sprachmodell; die Datei selbst verlässt den Browser nicht. Anonym ist der Text damit nicht – was gesendet wurde, steht danach am Beleg.'
 		]
 	},
 	verlauf: {
@@ -1757,6 +2764,7 @@ export default {
 			'bank-sync': 'Umsätze abgerufen',
 			'booking-changed': 'Buchung beim Abruf geändert',
 			'mail-fetch': 'E-Mails abgerufen',
+			'paperless-fetch': 'Aus Paperless geholt',
 			'file-import-upload': 'Belege hochgeladen',
 			'file-import-folder': 'Ordner eingelesen',
 			'sender-verdict': 'Absenderprüfung aktualisiert',
@@ -1768,7 +2776,8 @@ export default {
 			'vendor-assist': 'KI-Erklärung eines Lieferantenkontos',
 			matching: 'Abgleich',
 			decision: 'Entscheidung',
-			export: 'DATEV-Export'
+			export: 'DATEV-Export',
+			'books-moved': 'Bücher übernommen'
 		},
 		text: {
 			bookingChanged: 'vorher {from}, jetzt {to}{flipped}{unconfirmed}{receipt}',
@@ -1780,6 +2789,8 @@ export default {
 			mailFetch:
 				'{from} bis {to}: {mails} E-Mails · neu: {new} · schon vorhanden: {skipped} · doppelt: {duplicate}',
 			fileImport: 'neu: {new} · doppelt: {duplicate} · nicht unterstützt: {unsupported}',
+			paperlessFetch:
+				'{documents} Dokumente · neu: {new} · schon vorhanden: {known} · doppelt: {duplicate} · ausgelassen: {skipped}',
 			senderVerdict: '{vendor}: {was} → {now}',
 			senderReleased: ' – zum Auslesen freigegeben',
 			extract:
@@ -1793,6 +2804,10 @@ export default {
 			transferAssist: '{model} · {candidates} Buchungen geprüft · {seconds} s · {tokens} Tokens',
 			vendorAssist: '{model} · {rows} Zeilen geprüft · {seconds} s · {tokens} Tokens',
 			export: 'DATEV-Export {month}: {bookings} Buchungen, {receipts} Belege',
+			booksMoved:
+				'Übernommen aus anderen Büchern, gepackt am {date}: {records} Einträge, {files} Dateien',
+			exportSuspense:
+				'DATEV-Export {month}: {bookings} Buchungen, davon {suspense} auf dem Sammelkonto, {receipts} Belege',
 			matching:
 				'{sure} zugeordnet · {created} neue Rückfragen · {resolved} erledigt · {classified} ohne Beleg-Pflicht · {waiting} warten noch',
 			today: 'heute',
@@ -1829,8 +2844,11 @@ export default {
 			'not-refund': 'Als „keine Erstattung“ markiert',
 			'transfer-receipt-kept': 'Beleg einer Umbuchung bestätigt',
 			'company-name': 'Firmennamen übernommen',
+			'own-iban': 'IBAN als eigenes Konto übernommen',
+			'not-own-iban': 'IBAN als „nicht unseres“ markiert',
 			'receipt-duplicate': 'Beleg als Duplikat aussortiert',
 			'receipt-set-aside': 'Beleg aussortiert',
+			'receipt-private': 'Beleg als privat aussortiert',
 			'receipt-restore': 'Beleg wieder aufgenommen',
 			'needs-receipt': '„Kein Beleg nötig“ zurückgenommen',
 			'confirm-sender': 'Absender freigegeben',
@@ -1847,6 +2865,8 @@ export default {
 		source: {
 			hibiscus: 'Hibiscus',
 			camt: 'CAMT-Import',
+			card: 'Kreditkarte',
+			enablebanking: 'Enable Banking',
 			kraken: 'Kraken',
 			nyx: 'Wallet (Nym/Nyx)',
 			akash: 'Wallet (Akash)',
@@ -1854,7 +2874,11 @@ export default {
 			base: 'Wallet (Base)',
 			arbitrum: 'Wallet (Arbitrum)',
 			optimism: 'Wallet (Optimism)',
-			polygon: 'Wallet (Polygon)'
+			polygon: 'Wallet (Polygon)',
+			bitcoin: 'Wallet (Bitcoin)',
+			filecoin: 'Wallet (Filecoin)',
+			monero: 'Wallet (Monero)',
+			'crypto-ledger': 'crypto-ledger-Import'
 		},
 		technical: [
 			'Jeder Eintrag ist ein Datensatz der versiegelten OrbitDB-Sammlung events (AES-GCM wie alle anderen): Art, Zeitpunkt, die IDs von Beleg, Zahlung, Zuordnung oder Rückfrage und Zahlen – Modell, Dauer, Tokens, Schwärzungen je Art, Treffer. Kein Token, kein Schlüssel, kein Belegtext.',
@@ -1862,14 +2886,26 @@ export default {
 		]
 	},
 	booking: {
+		feeRule: {
+			apply: 'Für alle Netzwerkgebühren übernehmen',
+			applyTitle:
+				'Jede Netzwerkgebühr deiner Wallets bekommt dieses Konto, auch die künftigen – statt jede einzeln zu übernehmen. Lässt sich aufheben.',
+			byRule: 'Per Regel für alle Netzwerkgebühren: {account}.',
+			active: 'Regel aktiv: Alle Netzwerkgebühren gehen auf {account}.',
+			lift: 'Regel aufheben',
+			applied: '{count} Netzwerkgebühren übernommen.',
+			lifted: 'Regel aufgehoben; {count} Netzwerkgebühren sind wieder ohne Konto.'
+		},
 		title: 'Konto',
 		intro:
 			'Auf welches Konto diese Zahlung gebucht wird (Gegenkonto, SKR 03) und mit welchem BU-Schlüssel. Die App schlägt vor, du übernimmst – exportiert wird nur, was du übernommen hast.',
 		suggestion: 'Vorschlag',
 		source: {
+			payroll: 'nach der Art der Zahlung (Lohn, Lohnsteuer, Abgaben, Steuer)',
 			transfer: 'Umbuchung',
 			fee: 'Bankgebühr',
 			private: 'Privat (Irrläufer), nach der Rechtsform',
+			travel: 'Reisekosten, nach Art und Rechtsform – mit der Steuerberatung prüfen',
 			learned: 'gelernt',
 			learnedFrom: 'gelernt von {vendor}',
 			confirmed: 'übernommen',
@@ -1918,7 +2954,7 @@ export default {
 	export: {
 		title: 'Export',
 		intro:
-			'Einmal im Monat: die Buchungen als DATEV-Buchungsstapel für MonkeyOffice und die Belege als PDF, zusammen in einer ZIP-Datei. Sie entsteht nur hier im Browser und wird auf dein Gerät geladen – nichts geht an einen Server.',
+			'Einmal im Monat: die Buchungen als DATEV-Buchungsstapel für deine Buchhaltung und die Belege als PDF, zusammen in einer ZIP-Datei. Sie entsteht nur hier im Browser und wird auf dein Gerät geladen – nichts geht an einen Server.',
 		empty: 'Noch keine Zahlungen – ohne sie gibt es nichts zu exportieren.',
 		emptyLink: 'Kontoauszug hochladen oder Bank anbinden',
 		month: 'Monat',
@@ -1927,8 +2963,20 @@ export default {
 		settings:
 			'Beraternummer {consultant} · Mandantennummer {client} · Wirtschaftsjahr ab {fiscal} · Sachkontenlänge {length}',
 		settingsLink: 'ändern unter Einstellungen',
+		withStatements: 'Kontoauszüge beilegen (je Konto mit Buchungen in diesem Monat ein PDF)',
+		collectFees:
+			'Netzwerkgebühren, die ein Akash-Verbrauchsnachweis deckt, als eine Sammelbuchung je Wallet-Konto (die Einzelposten stehen im Nachweis)',
+		withoutStatementsHint:
+			'Ohne Kontoauszüge bleibt das Belegfeld bei Buchungen ohne eigenen Beleg leer – Gebühren, Umbuchungen, Erträge: Ihr Beleg wäre sonst der Kontoauszug.',
+		withSuspense: 'Buchungen ohne Konto auf das Sammelkonto {account} exportieren',
+		withSuspenseHint:
+			'Das Sammelkonto trägt keine Vorsteuer und kein Aufwandskonto: Umsatzsteuer-Voranmeldung und Gewinn stimmen erst nach dem Umbuchen, und zum Jahresende muss es leer sein. Welches Konto und wer umbucht, legt ihr mit dem Steuerberater fest.',
+		unreconciled:
+			'Nicht abgestimmt: {accounts}. Der Endbestand passt nicht zu den Buchungen – es fehlt eine Bewegung, oder eine Buchung wurde gelöscht. Der Kontoauszug nennt die Differenz.',
 		checks: 'Vor dem Export',
 		check: {
+			tests:
+				'Testbuchungen mitexportieren ({count}) – das Paket heißt dann TEST_…, zum Ausprobieren des Exports, nicht für die Buchhaltung.',
 			sampleMixed:
 				'In diesem Monat stehen Beispieldaten neben echten Buchungen – so geht kein Export. Entferne die Beispieldaten oben.',
 			sampleAll:
@@ -1937,9 +2985,12 @@ export default {
 				'{count} Krypto-Buchungen ohne Kurs – ohne Euro-Betrag geht nichts in den Export. Trag den Kurs an der Buchung ein.',
 			unassignedOk: 'Jede Buchung hat ein übernommenes Konto.',
 			unassigned: '{count} Buchungen ohne übernommenes Konto – so lange geht kein Export.',
-			autoConfirm: 'Konten aus Umbuchung und Bankgebühr übernehmen ({count})',
+			suspense:
+				'{count} Buchungen gehen auf das Sammelkonto {account} – sie müssen in der Buchhaltung umgebucht werden.',
+			autoConfirm:
+				'Konten aus Umbuchung, Bankgebühr und Reisekostenabrechnung übernehmen ({count})',
 			autoConfirmHint:
-				'Übernimmt 1360 für eigene Umbuchungen und 4970 für Bankgebühren – dieselben Vorschläge wie in der Zahlung, mit einem Klick für alle.',
+				'Übernimmt 1360 für eigene Umbuchungen, 4970 für Bankgebühren und die Konten einer Reisekostenabrechnung (nach Art und Rechtsform, mit der Steuerberatung prüfen) – dieselben Vorschläge wie in der Zahlung, mit einem Klick für alle.',
 			ledgerOk: 'Jedes Bankkonto hat sein Sachkonto.',
 			noLedger: 'Sachkonto fehlt für {list} – unter Einstellungen → Buchhaltung eintragen.',
 			noBankAccount: '{count} Buchungen gehören zu keinem Bankkonto der Bücher.',
@@ -1947,7 +2998,10 @@ export default {
 			missingReceipt:
 				'{count} Buchungen ohne Beleg und ohne „Kein Beleg nötig“ – der Export geht, prüfe sie aber.',
 			unlinkedOk: 'Kein Beleg dieses Monats ist übrig.',
-			unlinked: '{count} Belege dieses Monats sind keiner Zahlung zugeordnet.',
+			unlinked:
+				'{count} Belege dieses Monats sind keiner Zahlung zugeordnet – sie gehen nicht in dieses ZIP. Meist wurden sie in einem anderen Monat bezahlt (dort zuordnen) oder über ein Konto, das nicht in den Büchern ist.',
+			copies:
+				'{count} Belege dieses Monats sind Kopien bereits zugeordneter Belege und zählen nicht als offen – unter Belege als Duplikat aussortieren.',
 			unverifiedOk: 'Kein Beleg wartet auf die Absenderprüfung.',
 			unverified: '{count} Belege mit unbestätigtem Absender – sie kommen nicht ins ZIP.',
 			more: '… und {count} weitere'
@@ -1958,11 +3012,42 @@ export default {
 		done: 'Heruntergeladen: {file} – {bookings} Buchungen, {receipts} Belege, {statements} Kontoauszüge.',
 		blocked: 'Erst die rot markierten Punkte erledigen.',
 		failed: 'Der Export ist fehlgeschlagen: {error}',
+		crypto: {
+			title: 'Kryptobewegungen',
+			intro:
+				'Alle Buchungen deiner Wallets und Börsenkonten in einem offenen Format (crypto-ledger, MIT-Lizenz), das andere Programme lesen und schreiben können – mit Menge, Euro-Wert, Kursquelle und Transaktions-Hash. Herunterladen und Einlesen geschehen hier im Browser.',
+			year: 'Jahr',
+			allYears: 'alle Jahre',
+			json: 'Als JSON herunterladen',
+			csv: 'Als CSV herunterladen',
+			import: 'crypto-ledger-Datei einlesen (JSON)',
+			importing: 'Lese ein …',
+			imported:
+				'Eingelesen: Neu {new} · Aktualisiert {updated} · Übersprungen {skipped} auf {accounts} Konten.',
+			unpriced:
+				'{count} ohne Kurs – der Euro-Betrag bleibt offen, bis du ihn an der Buchung einträgst.',
+			left: 'Nicht eingelesen, weil Belege es noch nicht liest: {list}.',
+			leftItem: '{account} ({count} Bewegungen)',
+			done: 'Heruntergeladen: {file} – {movements} Bewegungen auf {accounts} Konten.',
+			technical: [
+				'Format crypto-ledger Version 1, beschrieben als JSON Schema in schema/crypto-ledger.v1.schema.json (MIT): Konten als CAIP-10 (Wallet) oder ccxt-Börsen-ID, Chains als CAIP-2, Assets als CAIP-19, wo das eindeutig ist.',
+				'Je Buchung eine Bewegung: Menge als Dezimaltext mit Vorzeichen, Gebühren als eigene Bewegung, Euro-Wert mit Kurs, Quelle und Zeitpunkt wie gebucht; ohne Kurs steht dort null. Gelöschte Buchungen fehlen.',
+				'Die CSV hat dieselben Felder, eine Zeile je Bewegung, Komma als Trenner, Punkt als Dezimalzeichen, UTF-8, CRLF; Text, den eine Tabelle als Formel läse, beginnt mit einem Apostroph.'
+			]
+		},
 		overview: {
 			noReceipt: 'ohne Beleg',
 			noFile: 'Beleg {number} ohne Datei (E-Mail-Text)',
+			mailPdf: 'Beleg {number}: aus dem E-Mail-Text erzeugtes PDF (die E-Mail hatte keinen Anhang)',
+			zugferd: 'Beleg {number}: E-Rechnung (ZUGFeRD/Factur-X) – das eingebettete XML liegt daneben',
+			xrechnung: 'Beleg {number}: E-Rechnung (XRechnung) – das XML-Original liegt neben dem PDF',
+			mailPdfEml:
+				'Beleg {number}: aus der E-Mail erzeugtes PDF (sie hatte keinen Anhang); die E-Mail selbst, wie sie ankam, als .eml daneben',
 			transferLine: 'Umbuchung, Gegenbuchung am {date} ist in dieser Zeile enthalten',
-			transferSide: 'nicht im Buchungsstapel: enthalten in der Gegenbuchung vom {date} ({bank})'
+			collected:
+				'Sammelbuchung: {count} Netzwerkgebühren vom {from} bis {until}, einzeln im Nachweis',
+			transferSide: 'nicht im Buchungsstapel: enthalten in der Gegenbuchung vom {date} ({bank})',
+			suspense: 'auf Sammelkonto, umbuchen'
 		},
 		technical: [
 			'Buchungsstapel im DATEV-Format EXTF, Version 700, Kategorie 21, Formatversion 13: Kopfzeile mit 31 Feldern, Spaltenüberschriften, eine Zeile je Buchung mit 125 Feldern; Trennzeichen „;“, Zeilenende CRLF, Zeichensatz Windows-1252 (ANSI).',
@@ -1978,8 +3063,7 @@ export default {
 		wayOut: {
 			unreachable: 'Starte die Bridge im Terminal:',
 			'unknown-device': 'Die Kopplung ist auf der Bridge nicht mehr bekannt.',
-			origin:
-				'Trag die Adresse dieser Seite in ~/.config/belege/bridge.json unter appOrigins ein und starte die Bridge neu.',
+			origin: 'Einmal im Terminal, dann die Bridge neu starten (Ctrl+C, pnpm bridge):',
 			mail: 'Richte das Postfach einmal im Terminal ein, dann die Bridge neu starten:',
 			llm: 'Richte das Sprachmodell einmal im Terminal ein, dann die Bridge neu starten:',
 			hibiscus: 'Richte Hibiscus einmal im Terminal ein, dann die Bridge neu starten:',
@@ -2003,8 +3087,224 @@ export default {
 		ref: 'Referenz kopieren'
 	},
 	monthPicker: { month: '{label}: Monat', year: '{label}: Jahr' },
+	reisen: {
+		title: 'Reisen',
+		untitled: 'Reise ohne Ziel',
+		what: 'Reisen mit ihren Belegen, Verpflegungspauschalen und Kilometern, dazu Bewirtungen – pro Monat.',
+		adviser:
+			'Die Sätze sind die gesetzlichen deutschen. Lass sie vor der ersten echten Abrechnung von deiner Steuerberatung bestätigen.',
+		month: 'Monat',
+		who: 'Person',
+		new: 'Neue Reise',
+		questions: {
+			title: 'Offene Punkte bei Reisen: {count}',
+			receiptWithoutTrip: 'Reisebeleg ohne Reise: {what}',
+			hospitalityIncomplete: 'Bewirtung ohne {missing}: {what}',
+			tripWithoutTimes: 'Reise ohne Zeiten, keine Pauschale berechenbar: {what}',
+			statementNotPaidOut: 'Abrechnung {number} ist nicht ausgezahlt: {amount} offen',
+			tripIncomplete: 'Reise mit Lücken: {what}'
+		},
+		proposals: {
+			title: 'Von den Belegen vorgeschlagen: {count}',
+			what: 'Tickets, Hotelrechnungen, Konferenz- und Veranstaltungstickets und die Belege ihrer Tage, nach Datum und Strecke gebündelt – nach Regeln, nicht per KI. Du sagst, was es war: Geschäftsreise, geschäftlich ohne Reise, oder privat – dann werden die Belege als privat aussortiert und eine Zahlung vom Geschäftskonto als private markiert. Alles lässt sich zurücknehmen.',
+			event: 'Veranstaltung in {place}, {from}',
+			new: 'Reise nach {destination}, {from} – {to}',
+			addTo: 'Zur Reise {trip}',
+			make: 'Als Reise anlegen',
+			add: 'Zur Reise hinzufügen',
+			dismiss: 'Geschäftlich, keine Reise',
+			private: 'Privat',
+			privateNote: 'Privat: Reise oder Veranstaltung {destination}, {from}',
+			elsewhere: 'Weitere Vorschläge in anderen Monaten: {count}.',
+			show: 'Zeigen'
+		},
+		appointments: {
+			title: 'Termine aus Einladungen: {count}',
+			what: 'Einladungen mit Kalendereintrag an die Buchhaltungsadresse, mit einem Ort und noch auf keiner Reise. Behalten werden nur Titel, Ort und Zeiten.',
+			make: 'Reise dazu anlegen',
+			dismiss: 'Keine Reise'
+		},
+		statement: {
+			title: 'Abrechnung {month}',
+			correctionTitle: 'Korrektur von {number}',
+			what: 'Eine Abrechnung pro Monat: die Reisen mit ihren Belegen, Pauschalen und Kilometern, dazu die Bewirtungen. Sie wird ein nummeriertes PDF und als Beleg für die Auszahlung abgelegt.',
+			traveller: 'Reisende(r) (auf dem PDF)',
+			private: 'Privat bezahlte Belege',
+			advance: 'Bereits als Vorschuss gezahlt',
+			toPayOut: 'Noch auszuzahlen',
+			owedBack: 'Von der Person zurückzuzahlen',
+			outlay: 'Als Auslage gebucht (dort erstattet)',
+			company: 'Von der Firma bezahlte Belege (nicht erstattet)',
+			noName: 'Das PDF braucht den Namen der/des Reisenden.',
+			make: 'Abrechnung erstellen',
+			makeHint:
+				'Eine erstellte Abrechnung wird nicht mehr geändert: Eine Korrektur ist eine neue, die auf sie verweist.',
+			made: '{number}, erstellt am {date}',
+			replaced: '{number}, erstellt am {date} – ersetzt',
+			booked: '{count} Buchungen auf {account}.',
+			toConfirm: 'Konten übernehmen: {count} offen',
+			paidOut: 'Ausgezahlt.',
+			partlyPaid: 'Ausgezahlt {paid}, offen {open}.',
+			overPaid: 'Mehr ausgezahlt als abgerechnet: {amount}.',
+			notPaid:
+				'Noch nicht ausgezahlt: {amount}. Die Überweisung ordnest du in der Zahlung zu („Zahlt Reisekosten aus …“).',
+			closedHint: 'Das PDF ist jetzt ein Beleg und wartet auf seine Auszahlung.',
+			correct: 'Korrektur erstellen',
+			check: {
+				tripWithoutTimes: 'Reise ohne Zeiten: {what}',
+				tripWithoutDestination: 'Reise ohne Ziel: {what}',
+				tripWithoutReason: 'Reise ohne geschäftlichen Anlass: {what}',
+				hospitalityIncomplete: 'Bewirtung mit Lücken: {what}',
+				receiptWithoutAmount: 'Privat bezahlter Beleg ohne Betrag: {what}',
+				nothing: 'In diesem Monat gibt es nichts abzurechnen.',
+				noRateAbroad: 'Auslandstag ohne Satz, ohne Betrag abgerechnet: {what}',
+				advanceExceeds:
+					'Der Vorschuss ist höher als die Kosten: Der Rest ist von der Person zurückzuzahlen.',
+				lodgingNoRate: 'Nacht ohne Satz, ohne Übernachtungspauschale: {what}',
+				lodgingWithHotel:
+					'Übernachtungspauschale und Hotelbeleg an derselben Reise – keine Nacht doppelt: {what}',
+				travellerWithoutAccount:
+					'Für diese Person fehlt das Gegenkonto – unter Einstellungen → Reisende eintragen.',
+				rateNotListed:
+					'Land nicht in der Übersicht des BMF, Satz für Luxemburg angesetzt – mit Steuerberatung klären: {what}',
+				rateTerritory:
+					'Übersee- oder Außengebiet, Satz des Mutterlands angesetzt – mit Steuerberatung klären: {what}',
+				foreignWithoutRate: 'Beleg in fremder Währung ohne Kurs – am Beleg eintragen: {what}',
+				familyCar: 'Fahrzeug eines Familienangehörigen, mit Steuerberatung klären: {what}',
+				foreignCurrency: 'Beleg in fremder Währung, in Euro umgerechnet: {what}'
+			}
+		},
+		trips: 'Reisen',
+		receipts: 'Belege: {count}',
+		none: 'In diesem Monat beginnt keine Reise.',
+		untimed: 'Reisen ohne Zeiten',
+		hospitality: 'Bewirtungen in diesem Monat',
+		deductible: 'abziehbar {amount}',
+		totals: 'Dieser Monat',
+		allowances: 'Verpflegungspauschalen',
+		mileage: 'Kilometer',
+		hospitalityDeductible: 'Bewirtung, abziehbarer Teil',
+		homeLine: 'Diesen Monat: {trips} Reisen · offene Punkte: {open} · Vorschläge: {proposals}',
+		questionsElsewhere: 'Auch bei den Reisen gibt es offene Punkte: {count}'
+	},
+	reise: {
+		title: 'Reise',
+		back: '← Alle Reisen',
+		missing: 'Diese Reise gibt es nicht (mehr).',
+		head: 'Reise',
+		destination: 'Ziel',
+		reason: 'Geschäftlicher Anlass',
+		start: 'Abfahrt',
+		end: 'Rückkehr',
+		place: 'Tätigkeitsstätte',
+		placeHint: 'Kunde oder Baustelle: für die Dreimonatsregel.',
+		overnight: 'Übernachtung',
+		overnightAuto: 'Wenn über mehrere Tage',
+		overnightYes: 'Ja',
+		overnightNo: 'Nein, Rückkehr nach Mitternacht',
+		note: 'Notiz',
+		abroad: 'Ausland',
+		abroadHint:
+			'Jeder Grenzübertritt mit Uhrzeit und Ländercode (AT, FR …). Die Sätze kommen aus dem BMF-Schreiben des Jahres (ab 2025); hat eine Stadt eigene Sätze, wähle sie aus.',
+		stopAt: 'Ab',
+		stopCountry: 'Land',
+		stopCity: 'Ort',
+		stopCityRest: 'übriges Land',
+		stopUnknownCountry: 'unbekannter Ländercode',
+		remove: 'Entfernen',
+		addStop: 'Grenzübertritt hinzufügen',
+		meals: 'Gestellte Mahlzeiten',
+		nights: 'Übernachtungen ohne Hotelrechnung',
+		nightsHint:
+			'Nur für Angestellte: Für eine Nacht ohne Rechnung darf die Firma die Pauschale erstatten (Inland 20 €, im Ausland der Satz des BMF-Schreibens). Kreuz nur Nächte an, für die es keinen Hotelbeleg gibt.',
+		night: 'Nacht ab {date}',
+		lodging: 'Übernachtungspauschalen',
+		appointments: 'Termine an diesen Tagen, aus Einladungen',
+		appointmentTake: 'Als Anlass übernehmen',
+		breakfastProposal: 'Die Hotelrechnung enthält Frühstück am: {days}.',
+		breakfastTake: 'Übernehmen',
+		mealsHint:
+			'Ein Frühstück in der Hotelrechnung oder ein von anderen bezahltes Essen kürzt die Pauschale des Tages.',
+		day: 'Tag',
+		meal: { breakfast: 'Frühstück', lunch: 'Mittagessen', dinner: 'Abendessen' },
+		mileage: 'Kilometer',
+		mileageHint: 'Die Strecke ist der Beleg: Datum, von, nach, Anlass und km.',
+		line: 'Fahrt',
+		lineDate: 'Datum',
+		lineFrom: 'Von',
+		lineTo: 'Nach',
+		lineReason: 'Anlass',
+		lineKm: 'km (einfach)',
+		lineVehicle: 'Wessen Fahrzeug',
+		vehicle: {
+			own: 'Mein eigenes',
+			family: 'Eines Familienangehörigen',
+			rental: 'Mietwagen',
+			company: 'Firmenwagen'
+		},
+		lineType: 'Art',
+		vehicleType: { car: 'PKW', motorcycle: 'Motorrad oder Moped', bicycle: 'Fahrrad' },
+		lineRoundTrip: 'Hin und zurück',
+		lineOwner: 'Halter',
+		lineOwnerPlaceholder: 'z. B. Ehepartner, Elternteil',
+		lineCostBearer: 'Wer trägt die laufenden Kosten',
+		refused: {
+			rental: 'Keine Kilometer beim Mietwagen: Miete und Tanken sind Belege.',
+			company: 'Keine Kilometer beim Firmenwagen: Die Firma trägt seine Kosten schon.',
+			noFlatRate: 'Keine Pauschale für dieses Fahrzeug: die tatsächlichen Kosten, mit Belegen.',
+			noKm: 'Noch keine km.'
+		},
+		lineResult: '{km} km × {rate} = {amount}',
+		familyCarFlag:
+			'Fremdes Fahrzeug – mit Steuerberatung klären, ob die Pauschale erstattet werden darf.',
+		addLine: 'Fahrt hinzufügen',
+		save: 'Speichern',
+		saved: 'Gespeichert.',
+		problems: {
+			noTraveller: 'Kein Reisender.',
+			noDestination: 'Noch kein Ziel.',
+			noReason: 'Noch kein geschäftlicher Anlass.',
+			noTimes: 'Noch keine Zeiten: keine Pauschale berechenbar.',
+			endBeforeStart: 'Rückkehr vor der Abfahrt.',
+			mileage: {
+				noKm: 'Eine Fahrt ohne km.',
+				noDate: 'Eine Fahrt ohne Datum.',
+				noReason: 'Eine Fahrt ohne Anlass.'
+			}
+		},
+		allowance: 'Verpflegungspauschale',
+		dayKind: { full: 'ganzer Tag', partial: 'An-/Abreise oder > 8 Std.', none: 'keine' },
+		dayReason: {
+			under8h: 'höchstens 8 Stunden',
+			countedOnOtherDay: 'am anderen Tag gezählt',
+			noRate: 'kein Satz für diesen Tag',
+			threeMonthRule: 'Dreimonatsregel'
+		},
+		cut: 'gestellte Mahlzeiten −{amount}',
+		noRateAbroad:
+			'Auslandstage ohne Betrag: Für diese Tage gibt es in Belege kein BMF-Schreiben (Sätze ab 2025).',
+		receipts: 'Belege dieser Reise',
+		noReceipts: 'Noch kein Beleg. Am Beleg ordnet „Zu einer Reise …“ ihn zu.',
+		sum: 'Was die Reise ergibt',
+		paidPrivately: 'Privat bezahlte Belege',
+		paidByCompany: 'Von der Firma bezahlte Belege',
+		toPayBack: 'Zu erstatten',
+		noRate: 'Kurs fehlt',
+		ratesMissing:
+			'Belege in fremder Währung ohne Kurs: {count} – nicht mitgezählt. Am Beleg einen Kurs eintragen.',
+		sumHint:
+			'Pauschalen, Kilometer und privat bezahlte Belege. Die von der Firma bezahlten stehen der Vollständigkeit halber dabei.',
+		delete: 'Diese Reise löschen',
+		deleteConfirm: 'Diese Reise löschen? Ihre Belege bleiben und sind ihr nicht mehr zugeordnet.'
+	},
 	zahlungen: {
 		title: 'Zahlungen',
+		tests: {
+			title: '{count} Testbuchung(en) in den Büchern.',
+			what: 'Angelegt mit „Testbuchung anlegen“ (nur in der Entwicklungsversion) – keine echten Zahlungen. Sie blockieren den Export ihres Monats.',
+			remove: 'Testbuchungen entfernen',
+			removing: 'Entferne …'
+		},
 		addTest: 'Testbuchung anlegen',
 		emptyBefore: 'Noch keine Zahlungen – unter ',
 		emptyLink: 'Bank',
@@ -2023,6 +3323,7 @@ export default {
 			'crypto-expenses': 'Ausgaben · Krypto',
 			private: 'Privat vom Geschäftskonto',
 			loan: 'Darlehen',
+			tax: 'Steuern ans Finanzamt',
 			unpriced: 'Krypto ohne Kurs'
 		},
 		receiptFilter: 'Belegfilter',
@@ -2047,6 +3348,41 @@ export default {
 		tradeOpen: 'andere Seite öffnen',
 		time: '{time} Uhr',
 		detail: {
+			feeRule: {
+				forget: 'Diese Regel vergessen',
+				forgetTitle:
+					'Gelernt aus einer früheren Buchung mit diesem Verwendungszweck. Vergessen: Diese und alle Buchungen, die sie abdeckt, fragen wieder nach einem Beleg.',
+				all: 'Alle gelernten Bankgebühren'
+			},
+			instalment: {
+				offer: 'teilweise bezahlt ({count}×) · {open} offen',
+				choose: 'Als weitere Teilzahlung zuordnen',
+				line: 'Teilzahlung {index} von {count} · {number}',
+				open: '{open} offen',
+				paid: 'bezahlt',
+				over: 'überzahlt um {over}'
+			},
+			ownIban: {
+				question:
+					'Von {iban} kommt Geld unter „{name}“ – ist das ein eigenes Konto? Dann gilt jede Zahlung dorthin als eigene Umbuchung.'
+			},
+			toAddress: 'An {address}',
+			fromAddress: 'Von {address}',
+			txHashLabel: 'Transaktion',
+			where: {
+				titleOut: 'Wohin ging das Geld?',
+				titleIn: 'Woher kam das Geld?',
+				candidate: '{account} hat am {date} {quantity} verbucht – ist das dieselbe Übertragung?',
+				link: 'Ja, eigene Übertragung',
+				open: 'Ansehen',
+				sameOne: 'Eine weitere Buchung mit dieser Adresse.',
+				same: '{count} weitere Buchungen mit dieser Adresse.',
+				show: 'Anzeigen',
+				first: 'Diese Adresse kommt in keiner anderen Buchung vor.',
+				nameLabel: 'Adresse benennen',
+				namePlaceholder: 'z. B. Kraken-Einzahlung oder Lieferant',
+				nameSave: 'Benennen'
+			},
 			changedTitle: 'Beim Abruf am {date} geändert',
 			changedText: 'Die Quelle meldet diese Buchung jetzt anders: vorher {from}, jetzt {to}.',
 			changedFlipped: ' Aus einer Einnahme wurde eine Ausgabe oder umgekehrt.',
@@ -2058,7 +3394,11 @@ export default {
 			detailsHide: 'Details ausblenden',
 			status: {
 				receipt: { missing: 'Beleg fehlt', done: 'Beleg ✓', 'none-needed': 'Kein Beleg nötig' },
-				konto: { missing: 'Konto fehlt', done: 'Konto ✓' }
+				konto: {
+					missing: 'Konto fehlt',
+					done: 'Konto ✓',
+					missingHint: 'Noch kein Buchungskonto (SKR 03) übernommen – unten unter „Konto“.'
+				}
 			},
 			alt: { toggle: 'Kein fremder Beleg …' },
 			next: 'Nächster Schritt',
@@ -2093,20 +3433,28 @@ export default {
 				sources: 'Quelle',
 				tab: {
 					passend: 'Passend',
+					jahr: 'Aus {year}',
 					alle: 'Alle Belege',
 					postfach: 'Privates Postfach',
+					paperless: 'Paperless',
 					portal: 'Portal'
 				},
+				unread: 'eingegangen am {date}, noch nicht ausgelesen',
 				other: 'Anderen Beleg suchen',
 				open: 'Doch einen Beleg suchen',
 				sameAmount: 'Betrag gleich',
 				otherCurrency: 'andere Währung',
 				days: '{days} Tage',
+				noneThisYear:
+					'Aus {year} keiner. {count} aus anderen Jahren stehen unter „Alle Belege“ – sonst im Postfach oder beim Anbieter weitersuchen.',
 				noMatch: 'Nichts gefunden – Suchtext ändern oder eine andere Quelle wählen.',
 				noSuggestion:
 					'Kein Beleg erreicht genug Punkte. Unter „Alle Belege“ stehen alle offenen, im Postfach und beim Anbieter lässt sich weitersuchen.'
 			},
 			poisonTitle: 'Achtung: mögliche Adressvergiftung',
+			spamText:
+				'Diese Buchung hat ein Fake-Token erzeugt, nicht deine Wallet: Bewegt wurde nichts. Die Adresse {address} wurde in deine Historie gelegt, damit du sie beim nächsten Senden versehentlich kopierst. Nie an diese Adresse senden; die Empfängeradresse immer vollständig vergleichen.',
+			spamLookalike: 'Sie beginnt und endet wie {known}, mit der du zu tun hattest.',
 			poisonText:
 				'Die Absenderadresse {address} beginnt und endet wie {known}, mit der du zu tun hattest, ist aber eine andere. So eine Adresse wird mit einem winzigen Betrag in deine Historie gelegt, damit du sie beim nächsten Senden versehentlich kopierst. Nie an diese Adresse senden; die Empfängeradresse immer vollständig vergleichen.',
 			title: 'Zahlung',
@@ -2136,6 +3484,9 @@ export default {
 			txRef: 'Referenz',
 			chainTxRef: 'Transaktions-Hash',
 			address: 'Gegenadresse',
+			explorerAt: 'Im Block-Explorer ansehen ({explorer})',
+			chainMethod: 'Netzwerk laut Börse: {method}',
+			chainUnclear: 'Blockchain nicht eindeutig – in Frage kommen:',
 			explorer: 'Im Block-Explorer ansehen',
 			explorerQr: 'QR-Code',
 			valueDate: 'Wertstellung',
@@ -2151,6 +3502,12 @@ export default {
 			suggestions: 'Vorschläge',
 			allReceipts: 'Alle anderen Belege',
 			choose: 'Zuordnen',
+			peek: {
+				label: 'Vorschau: {name}',
+				more: '+{count} weitere',
+				hint: 'Mit der Maus über die Seite: die Lupe vergrößert, was darunter steht.',
+				open: 'Vorschau'
+			},
 			noChoices: 'Keine Belege, die sich zuordnen lassen.',
 			noReceiptNeeded: 'Kein Beleg nötig',
 			reason: 'Grund',
@@ -2187,10 +3544,51 @@ export default {
 				'Die andere Seite eines Tauschs, den keine Regel erkennt – etwa über eine andere Chain oder eine Börse. Beide Seiten brauchen dann keinen Beleg; steuerlich eine Veräußerung und eine Anschaffung.',
 			linkSwapNone:
 				'Keine Buchung in die andere Richtung auf einem anderen Konto innerhalb von 31 Tagen.',
+			travelAdvance: {
+				offer: 'Vorschuss für Reisekosten …',
+				hint: 'Geld vor einer Reise: Es braucht keinen eigenen Beleg – die Reisekostenabrechnung belegt es und zahlt später nur den Rest aus.',
+				trip: 'Für die Reise',
+				noTrip: 'keine bestimmte Reise',
+				mark: 'Als Vorschuss markieren',
+				title: 'Vorschuss für Reisekosten: {name}',
+				taken: 'Verrechnet mit {number}: {amount}',
+				open: 'Noch nicht abgerechnet: {amount}',
+				undo: 'Kein Vorschuss'
+			},
+			travelPayout: {
+				title: 'Zahlt Reisekosten aus',
+				item: '{number} · Reisekosten {month} · {amount}',
+				share: 'davon {amount}',
+				unlink: 'Nicht für diese Abrechnung',
+				open: 'Noch offen: {amount}',
+				over: 'Mehr ausgezahlt als abgerechnet: {amount}',
+				settled: 'Ausgezahlt.',
+				offer: 'Zahlt Reisekosten aus …',
+				openOf: 'offen {amount}',
+				sum: 'Gewählt {picked} · Auszahlung {payout}',
+				link: 'Zuordnen'
+			},
+			outlayRepay: {
+				offer: 'Erstattet Auslagen …',
+				offerTitle:
+					'Diese Überweisung zahlt privat ausgelegtes Geld zurück: Sie gleicht offene Auslagen aus und braucht keinen eigenen Beleg.',
+				sum: 'Ausgewählt {picked} · Überweisung {payout}',
+				ofOpen: 'offen',
+				link: 'Als Erstattung verknüpfen',
+				payoutTitle: 'Erstattet diese Auslagen:',
+				item: '{date} · {name} · {amount}',
+				repaidBy: 'Erstattet durch die Überweisung vom {date} ({amount})',
+				unlink: 'lösen',
+				open: 'Noch nicht erstattet.',
+				partly: 'Teilweise erstattet, offen {open}.',
+				settled: 'Erstattet.',
+				groupOpen: 'Zusammen noch offen: {amount}.',
+				over: 'Erstattet, {amount} mehr als ausgelegt.'
+			},
 			private: {
 				mark: 'Privat (Irrläufer) …',
 				markTitle:
-					'Eine private Zahlung, versehentlich vom Geschäftskonto bezahlt: keine Betriebsausgabe, kein Betriebsausgabenbeleg. Eine kurze Aktennotiz hält den Irrtum fest; bei UG und GmbH gleichst du sie durch eine Rückzahlung vom Privatkonto aus.',
+					'Eine private Zahlung, versehentlich vom Geschäftskonto bezahlt – oder privates Geld, versehentlich auf dem Geschäftskonto eingegangen: keine Betriebsausgabe bzw. -einnahme, kein Beleg. Eine kurze Aktennotiz hält den Irrtum fest; ausgeglichen wird er durch die Rückzahlung vom bzw. die Weiterleitung aufs Privatkonto.',
 				noteLabel: 'Aktennotiz',
 				hint: 'Nur diese eine Zahlung – andere derselben Gegenpartei bleiben, wie sie sind. Eine private Rechnung kannst du als Nachweis des Irrtums anhängen; sie zählt nicht als Betriebsausgabe.',
 				save: 'Als privat festhalten',
@@ -2203,6 +3601,13 @@ export default {
 				repay: 'Rückzahlung verknüpfen …',
 				repayPick: 'Verknüpfen',
 				repayNone: 'Keine Gutschrift in den 180 Tagen um diese Zahlung.',
+				titleIn: 'Privat (Irrläufer) – keine Betriebseinnahme',
+				openIn: 'Noch nicht weitergeleitet: {amount} offen.',
+				repaidByIn: 'Weitergeleitet am {date}: {amount}',
+				repayIn: 'Weiterleitung verknüpfen …',
+				repayNoneIn: 'Keine Überweisung in den 180 Tagen um diesen Eingang.',
+				repaymentTitleOut: 'Weiterleitung eines privaten Eingangs – keine Betriebsausgabe',
+				repaysOut: 'Leitet den privaten Eingang vom {date} weiter: {amount}',
 				unlink: 'lösen',
 				undo: 'Doch geschäftlich',
 				noLegalForm:
@@ -2213,7 +3618,15 @@ export default {
 			linkRefundTitle:
 				'Diese Zahlung und eine in die andere Richtung – auf demselben oder einem anderen Konto – sind eine Belastung und ihre Erstattung. Voll erstattet braucht keine einen Beleg; bei einer Teilerstattung braucht die Belastung weiter ihren. Bleibt bei jedem Abgleich.',
 			linkRefundNone: 'Keine Buchung in die andere Richtung innerhalb von 120 Tagen.',
-			party: { from: 'Von', to: 'An', own: 'eigene', foreign: 'fremde Adresse' },
+			party: {
+				from: 'Von',
+				to: 'An',
+				own: 'eigene',
+				foreign: 'fremde Adresse',
+				ownChip: 'eigene Wallet',
+				unknownAddress: 'unbekannte Adresse',
+				explorer: 'Explorer'
+			},
 			linkTransfer: 'Als Gegenbuchung verknüpfen …',
 			twins:
 				'{count} Buchungen mit genau diesem Betrag in der Gegenrichtung auf deinen anderen Konten, in den Tagen darum – und kein Verwendungszweck sagt, welche die Gegenbuchung ist. Verknüpfe die richtige von Hand.',
@@ -2224,6 +3637,10 @@ export default {
 			linkTransferAi: 'KI-Vorschlag',
 			linkTransferAiTitle:
 				'Fragt dein Sprachmodell, welche dieser Buchungen die andere Seite ist: je Buchung Richtung, Betrag, Menge, Tag, Kontoart, Gegenpartei und Zweck – geschwärzt, ohne Adressen, IBANs und Hashes. Nur ein Vorschlag: Verknüpft wird erst mit deinem Klick.',
+			linkTransferAiTitleLocal:
+				'Fragt dein Sprachmodell auf diesem Rechner, welche dieser Buchungen die andere Seite ist: je Buchung Richtung, Betrag, Menge, Tag, Kontoart, Gegenpartei und Zweck – ungeschwärzt, weil nichts den Rechner verlässt. Nur ein Vorschlag: Verknüpft wird erst mit deinem Klick.',
+			linkTransferAiTitleEnclave:
+				'Fragt dein Sprachmodell in der attestierten Enklave, welche dieser Buchungen die andere Seite ist: je Buchung Richtung, Betrag, Menge, Tag, Kontoart, Gegenpartei und Zweck – ungeschwärzt – lesen kann es nur die geprüfte Enklave. Nur ein Vorschlag: Verknüpft wird erst mit deinem Klick.',
 			linkTransferAiPick: 'KI-Vorschlag ({confidence}): {reason}',
 			linkTransferAiNone: 'KI-Vorschlag: Keine dieser Buchungen ist die andere Seite.',
 			linkTransferAiTake: 'Übernehmen',
@@ -2240,6 +3657,8 @@ export default {
 			privateSearch: 'Im privaten Postfach suchen',
 			privateHint:
 				'Die Bridge sucht im ganzen Postfach nach „{text}“ und {amount} zwischen {from} und {to}. Gelesen werden nur die Treffer.',
+			privateHintPurpose:
+				'Die Bridge sucht im ganzen Postfach nach „{text}“ aus dem Verwendungszweck und {amount} zwischen {from} und {to}. Gelesen werden nur die Treffer.',
 			privateHintAmount:
 				'Die Bridge sucht im ganzen Postfach nach {amount} zwischen {from} und {to}. Gelesen werden nur die Treffer.',
 			privateHintCrypto:
@@ -2256,6 +3675,10 @@ export default {
 			aiChoiceBusy: 'KI prüft …',
 			aiChoiceTitle:
 				'Die Bridge schickt dein eingestelltes Sprachmodell die Buchung (Gegenpartei, Verwendungszweck, Betrag, Tag) und bis zu 25 passende Belege mit Anbieter, Betrag, Datum, Rechnungsnummer und Kurzbeschreibung – geschwärzt. Es nennt den passenden Beleg; zuordnen tust du.',
+			aiChoiceTitleLocal:
+				'Die Bridge gibt deinem Sprachmodell auf diesem Rechner die Buchung (Gegenpartei, Verwendungszweck, Betrag, Tag) und bis zu 25 passende Belege mit Anbieter, Betrag, Datum, Rechnungsnummer und Kurzbeschreibung – ungeschwärzt, weil nichts den Rechner verlässt. Es nennt den passenden Beleg; zuordnen tust du.',
+			aiChoiceTitleEnclave:
+				'Die Bridge gibt deinem Sprachmodell in der attestierten Enklave die Buchung (Gegenpartei, Verwendungszweck, Betrag, Tag) und bis zu 25 passende Belege mit Anbieter, Betrag, Datum, Rechnungsnummer und Kurzbeschreibung – ungeschwärzt – lesen kann es nur die geprüfte Enklave. Es nennt den passenden Beleg; zuordnen tust du.',
 			aiChoiceNone: '{model} hat {count} Belege geprüft ({seconds} s) und hält keinen für passend',
 			aiChoiceModel: 'Das Sprachmodell',
 			aiChoiceChecked: 'Welche {count} Belege wurden geprüft?',
@@ -2268,6 +3691,10 @@ export default {
 			aiSearching: 'KI sucht …',
 			aiSearchTitle:
 				'Die Bridge fragt dein eingestelltes Sprachmodell zweimal: 1. Gegenpartei und Verwendungszweck (geschwärzt) → Suchwörter und Absender-Domains. 2. Betreff, Absender-Domain, Anhangnamen und Eingangstag der Treffer (geschwärzt) → welche E-Mail der Beleg ist. Kein E-Mail-Text, keine vollständige Adresse.',
+			aiSearchTitleLocal:
+				'Die Bridge fragt dein Sprachmodell auf diesem Rechner zweimal: 1. Gegenpartei und Verwendungszweck → Suchwörter und Absender-Domains. 2. Betreff, Absender-Domain, Anhangnamen und Eingangstag der Treffer → welche E-Mail der Beleg ist. Ungeschwärzt, weil nichts den Rechner verlässt; kein E-Mail-Text, keine vollständige Adresse.',
+			aiSearchTitleEnclave:
+				'Die Bridge fragt dein Sprachmodell in der attestierten Enklave zweimal: 1. Gegenpartei und Verwendungszweck → Suchwörter und Absender-Domains. 2. Betreff, Absender-Domain, Anhangnamen und Eingangstag der Treffer → welche E-Mail der Beleg ist. Ungeschwärzt – lesen kann ihn nur die geprüfte Enklave; kein E-Mail-Text, keine vollständige Adresse.',
 			aiSearchHint:
 				'Kein klarer Treffer? Das Sprachmodell schlägt Suchwörter vor und beurteilt die Treffer – nur nach Betreff, Absender-Domain und Dateinamen, nie nach dem Text der E-Mails.',
 			aiSummary: 'KI-Suche: Suchwörter {terms} · Absender {domains} · {count} Treffer',
@@ -2297,6 +3724,15 @@ export default {
 			receiptAssign: 'Dieser Zahlung zuordnen',
 			receiptPoints: ' ({score} P.)',
 			noBridge: 'Für die Suche die Bridge unter Integrationen koppeln.',
+			paperless: {
+				hint: 'Sucht im Volltext deines Paperless-ngx über die Bridge – mit dem Suchtext oben, sonst mit der Gegenpartei. Ein Treffer wird wie ein Upload übernommen, ausgelesen und dieser Zahlung zugeordnet.',
+				search: 'In Paperless suchen: „{query}“',
+				searching: 'Suche in Paperless …',
+				none: 'Paperless findet dazu nichts. Anderen Suchtext oben eingeben.',
+				known: 'schon in den Belegen',
+				take: 'Übernehmen und zuordnen',
+				taking: 'Übernehme …'
+			},
 			vendor: {
 				title: 'Beim Anbieter holen',
 				income:
@@ -2349,9 +3785,13 @@ export default {
 			folderCheck: 'Ordner jetzt prüfen',
 			folderChecking: 'Prüfe den Ordner …',
 			folderResult: 'Ordner: {count} neu eingelesen und abgeglichen.',
+			folderWaiting:
+				'{count} davon warten unter Belege → Neu aufs Auslesen („gleich auslesen“ ist aus, oder der Absender ist noch zu bestätigen).',
+			folderImages: '{count} Bild(er) ohne Text: von Hand prüfen.',
 			folderNothing: 'Ordner: nichts Neues.',
 			folderDenied: 'Der Browser hat keinen Lesezugriff auf den Ordner erhalten.',
-			folderHint: 'Solange die App offen ist, prüft sie den freigegebenen Ordner jede Minute.'
+			folderHint:
+				'Solange die App offen ist, prüft sie den freigegebenen Ordner jede Minute. Neue Dateien liest sie mit der KI nur aus, wenn „gleich auslesen“ beim Hochladen an ist.'
 		}
 	},
 	integrationen: {
@@ -2364,12 +3804,12 @@ export default {
 				how: 'Starte sie im Terminal und tipp den Kopplungscode, den sie zeigt, hier ein. Sie hört nur auf diesen Rechner.'
 			},
 			bank: {
-				what: 'Zahlungen kommen aus Hibiscus (über die Bridge) oder aus einer Kontoauszug-Datei im Format CAMT.053.',
-				how: 'Die Datei geht sofort, ohne Bridge: im Online-Banking als CAMT.053 exportieren und hier hochladen. Für Hibiscus einmal das Setup im Terminal ausführen und die Konten freigeben.'
+				what: 'Zahlungen kommen aus Hibiscus (über die Bridge), über Enable Banking (Banken in Europa, über die Bridge) oder aus einer Kontoauszug-Datei im Format CAMT.053.',
+				how: 'Die Datei geht sofort, ohne Bridge: im Online-Banking als CAMT.053 exportieren und hier hochladen. Für Hibiscus einmal das Setup im Terminal ausführen und die Konten freigeben. Für Enable Banking eine eigene Anwendung dort anlegen, pnpm setup:enablebanking ausführen, die Bank hier unten verbinden und die Konten mit pnpm setup:enablebanking -- --accounts freigeben.'
 			},
 			ki: {
 				what: 'Ein Sprachmodell liest Anbieter, Betrag, Datum und Nummer aus Belegen und hilft an vier weiteren Stellen – immer nur auf Klick (✦).',
-				how: 'Du richtest dein eigenes Modell in der Bridge ein, etwa DeepSeek oder ein lokales mit Ollama. Vor dem Senden wird geschwärzt; Le Space betreibt keine KI.'
+				how: 'Du richtest dein eigenes Modell in der Bridge ein, etwa DeepSeek oder ein lokales mit Ollama. Vor dem Senden wird geschwärzt, soweit Muster und Listen reichen; mit einem lokalen Modell geht nichts hinaus – dazu raten wir derzeit. Le Space betreibt keine KI.'
 			},
 			kraken: {
 				what: 'Belege liest dein Kraken-Konto nur lesend: Ledger, Bestände und Trades, je Asset ein Konto, in Euro zum Tageskurs.',
@@ -2386,6 +3826,10 @@ export default {
 			geraete: {
 				what: 'Dieselben Bücher auf Telefon und Rechner, direkt zwischen deinen Geräten synchronisiert. Ein Gerät bekommt sie erst, wenn es den Passkey beweist.',
 				how: 'Synchronisation einschalten, dann das zweite Gerät per QR-Code hinzufügen. Optional treffen sich die Geräte nur im eigenen Netz, über einen Relay in deiner Bridge:'
+			},
+			backup: {
+				what: 'Ein Backup der Bücher und jeder Belegdatei, versiegelt mit einem Schlüssel aus deinem Passkey, bei Aleph Cloud, bezahlt vom Aleph-Konto der Bridge. Zurück bekommst du es auf jedem Gerät mit zwei Dingen: demselben Passkey und der Adresse dieses Kontos (oder der CID des Backups).',
+				how: 'Lass die Bridge einmal ihren Backup-Schlüssel erzeugen, lade Credits auf die angezeigte Adresse und klick hier auf „Jetzt sichern“; gibst du den Schlüssel dieses Browsers frei (Befehl unten), sichert er auch ohne laufende Bridge. Auf einem leeren Gerät: „Mit vorhandenem Passkey wiederherstellen“, hier die Adresse eintragen und das Backup wählen.'
 			},
 			portale: {
 				what: 'Manche Rechnungen liegen nur im Kundenportal. Die Bridge holt sie mit einem eigenen Browser auf diesem Rechner.',
@@ -2411,9 +3855,15 @@ export default {
 				bridgeOffline: 'die Bridge antwortet nicht. Läuft sie auf diesem Mac?',
 				bridgeOfflineDevices:
 					'die Bridge antwortet nicht – weder hier noch über ein eigenes Gerät. Ist dein Mac mit der Bridge an und verbunden?',
+				bridgeOfflinePhone:
+					'auf einem Telefon läuft keine Bridge. Gib die Bridge deines Rechners dort unter Geräte für eigene Geräte frei, und füge dieses Telefon als Gerät hinzu.',
 				deviceRemoved:
 					'dieses Gerät wurde auf einem anderen entfernt; die Synchronisation ist aus.',
 				deviceError: 'die Synchronisation meldet einen Fehler.',
+				consentEnded:
+					'die Freigabe bei {bank} (Enable Banking) ist abgelaufen – neu freigeben, sonst kommen keine Umsätze mehr.',
+				consentEnding:
+					'die Freigabe bei {bank} (Enable Banking) endet am {date} – vorher erneuern.',
 				neverSynced: '{name} ist eingerichtet, aber noch nie abgerufen.',
 				krakenRefused: 'der letzte Abruf wurde abgelehnt. Meist hilft ein neuer API-Schlüssel.',
 				walletHints: 'der letzte Abruf hat Hinweise hinterlassen (Wallets mit Hinweis: {count}).'
@@ -2429,16 +3879,19 @@ export default {
 				bridge: 'Bridge',
 				ki: 'KI – Beleg-Auslesen',
 				geraete: 'Eigene Geräte',
+				backup: 'Backup',
 				bank: 'Bank (Hibiscus, Kontoauszug)',
 				kraken: 'Kraken (Börse)',
 				wallets: 'Eigene Wallets',
 				aleph: 'Aleph Cloud',
 				mail: 'Postfach',
+				paperless: 'Paperless-ngx',
 				portale: 'Kundenportale',
 				'rechnungs-app': 'Rechnungs-App',
 				assistent: 'Einblick für einen Assistenten'
 			},
 			state: {
+				backedUp: 'gesichert',
 				connected: 'verbunden',
 				unpaired: 'nicht gekoppelt',
 				error: 'Fehler',
@@ -2456,6 +3909,8 @@ export default {
 				viaDevice: 'über deinen Mac'
 			},
 			line: {
+				backup: 'Bücher und Belegdateien, versiegelt, bei Aleph Cloud',
+				backupNone: 'Bücher und Belegdateien, versiegelt, bei Aleph Cloud',
 				bridge: 'Auf diesem Mac; holt Umsätze, liest Belege, fragt Knoten',
 				bridgeViaDevice:
 					'Läuft auf deinem Mac; dieses Gerät nutzt sie über die Gerätesynchronisation',
@@ -2470,6 +3925,7 @@ export default {
 				aleph: '{count} Konten mit Credits',
 				alephNone: 'Hosting-Credits eigener Ethereum-Adressen',
 				mail: 'Belege aus der Buchhaltungs-Adresse – unter Belege',
+				paperless: 'Dokumente aus deinem Paperless-Archiv – unter Belege (pnpm setup:paperless)',
 				portals: 'Rechnungen direkt aus Kundenkonten holen',
 				invoiceApp: 'Eigenbelege mit deinem Nummernkreis und Firmenkopf',
 				assistant: 'Ein Jahr lesen lassen, geschwärzt, mit Ablauf'
@@ -2492,7 +3948,10 @@ export default {
 				result:
 					'{invoices} Rechnungen in der App, {added} neu übernommen, {paid} bezahlt; {reported} Zahlungsmeldungen an die App.',
 				pdfLater:
-					'{count} Rechnungen kamen noch nicht: ihr PDF geht nur über eine direkte Verbindung. Beim nächsten Abgleich noch einmal.'
+					'{count} Rechnungen kamen noch nicht: ihr PDF geht nur über eine direkte Verbindung. Beim nächsten Abgleich noch einmal.',
+				xml: '{count} XRechnungen übernommen: Das XML liegt als Original neben dem PDF.',
+				xmlLater:
+					'{count} XRechnungen kamen noch nicht: Sie sind zu groß für das Relay und gehen nur über eine direkte Verbindung. Beim nächsten Abgleich noch einmal.'
 			},
 			offHint:
 				'Erst wenn du hier klickst, geht Belege ins Netz: Es fragt api.aleph.im nach den Le-Space-Relays und verbindet sich mit einem; danach nur, solange eine Rechnungs-App gekoppelt ist; nach dem Entkoppeln geht Belege wieder vom Netz. Was dabei wer sieht, steht im Datenschutz-Dialog unter „Le-Space-Relays“.',
@@ -2521,8 +3980,12 @@ export default {
 			viaDevice: 'über deinen Mac (eigenes Gerät)',
 			viaDeviceHint:
 				'Dieses Gerät nutzt die Bridge deines Macs. Koppeln, Einrichten und Entkoppeln geschehen dort; hier gehen nur lesende Abfragen und das Auslesen hinüber.',
+			onAPhone:
+				'Hier läuft keine Bridge: Sie ist ein Programm auf deinem Rechner. Dieses Telefon nutzt sie über Gerätesync – am Rechner unter Geräte „Bridge dieses Rechners für eigene Geräte freigeben“ einschalten, dieses Telefon dort als Gerät hinzufügen, und den Belege-Tab am Rechner offen und entsperrt lassen.',
 			noHibiscus: 'Hibiscus ist noch nicht eingerichtet',
 			offline: 'Bridge nicht erreichbar',
+			originRefused:
+				'Die Bridge läuft, lässt diese Seite ({origin}) aber nicht herein: Sie steht nicht in ihrer Liste der erlaubten Seiten (appOrigins).',
 			unknown: 'Status unbekannt',
 			url: 'Bridge-Adresse',
 			code: 'Kopplungscode',
@@ -2547,6 +4010,116 @@ export default {
 			syncHintFrom:
 				'Holt alle Umsätze ab diesem Tag, soweit Hibiscus sie von der Bank abgerufen hat. Schon vorhandene werden nicht doppelt angelegt.'
 		},
+		enableBanking: {
+			title: 'Über Enable Banking',
+			intro:
+				'Für Banken ohne Hibiscus: Enable Banking, ein Kontoinformationsdienst mit EU-Lizenz, liest nach deiner Freigabe bei der Bank Konten und Umsätze. Die Bridge spricht mit deiner eigenen Enable-Banking-Anwendung; dein Bank-Passwort gibst du nur auf der Seite der Bank ein.',
+			needsBridge: 'Braucht die gekoppelte Bridge.',
+			needTitle: 'Was du brauchst:',
+			need1:
+				'Eine eigene Anwendung bei Enable Banking (Control Panel, Umgebung „Production“): Sie gibt dir eine Application-ID und eine private Schlüsseldatei. Verbinde dort deine Konten („Link accounts“) – dann ist sie im eingeschränkten Modus aktiv, für genau diese Konten.',
+			need2: 'Als Redirect-URL der Anwendung eingetragen:',
+			need3: 'Im Terminal, im Ordner von Belege:',
+			kind: { business: 'Geschäftskonto', personal: 'Privatkonto' },
+			kindLabel: 'Kontoart',
+			validUntil: 'freigegeben bis {date}',
+			renew: 'Erneuern',
+			unlink: 'Trennen',
+			unlinkConfirm:
+				'Die Verbindung zu {bank} trennen? Enable Banking beendet die Freigabe; schon geholte Umsätze bleiben in den Büchern.',
+			leavesTitle: 'Was dabei hinausgeht',
+			leaves: [
+				'An Enable Banking: welche Bank du verbindest, deine Konten dort (IBAN, Name, Währung) und die Umsätze der Konten, die du freigibst und holst. Sie laufen über seine Server; dazu die IP-Adresse dieses Rechners.',
+				'An deine Bank: deine Anmeldung und die Freigabe, auf ihrer eigenen Seite. Dein Bank-Passwort sehen weder Belege noch die Bridge.',
+				'Nicht: Belege, Buchungen aus anderen Quellen, irgendetwas aus deinen Büchern. Der Browser spricht nie mit Enable Banking, nur die Bridge.'
+			],
+			technical: [
+				'Nur die Bridge spricht mit api.enablebanking.com. Jede Anfrage ist mit dem privaten Schlüssel deiner Anwendung signiert (RS256-JWT, zehn Minuten gültig, kid = Application-ID); umgeleitet wird nicht, Zeit und Antwortgröße sind begrenzt.',
+				'Schlüssel und Sitzungen liegen verschlüsselt (AES-256-GCM) in enablebanking.sealed neben bridge.json; den Schlüssel dazu hält der macOS-Schlüsselbund bzw. die Windows-Anmeldeinformationsverwaltung.',
+				'Die Bank schickt den Browser mit einem Einmal-Code zurück auf /integrationen/bank/verbunden. Die Seite nimmt ihn sofort aus der Adresse; die Bridge nimmt ihn nur für eine Freigabe an, die sie selbst begonnen hat, einmal und binnen 30 Minuten. Ohne den Schlüssel ist er wertlos.',
+				'Konten verlassen die Bridge nur mit freigegebener IBAN-Endung; die App bekommt von der IBAN nur die letzten vier Stellen und einen Hash. Geholt wird nur auf deinen Klick. Eine Freigabe gilt höchstens 180 Tage; „Trennen“ beendet sie bei Enable Banking.'
+			],
+			afterLink:
+				'Auf der Seite Bank legst du fest, welche Konten in die Bücher kommen, und holst ihre Umsätze.',
+			staysInBridge: 'Bleibt in der Bridge: nicht freigegeben.',
+			continuesCamt:
+				'Führt das Konto aus der Kontoauszug-Datei fort – ab dem Tag nach ihrer letzten Buchung.',
+			lastFetch: 'zuletzt geholt am {date}',
+			maybeHibiscus:
+				' Ein Hibiscus-Konto endet ebenso – holt Hibiscus es schon, entsteht es doppelt.',
+			fetch: 'Umsätze holen',
+			fetching: 'Hole Umsätze …',
+			fetchHint:
+				'Beim ersten Mal die letzten 90 Tage, danach ab einer Woche vor dem letzten Abruf. Banken erlauben nur wenige Abrufe am Tag – geholt wird nur auf diesen Klick.',
+			pending: ' {count} vorgemerkte Umsätze kommen, sobald die Bank sie bucht.',
+			incomplete: ' Nicht alle Seiten geholt – noch einmal holen.',
+			noneAllowed:
+				'Noch verlässt kein Konto die Bridge. Welche Konten in die Bücher dürfen, legst du im Terminal fest:',
+			country: 'Land',
+			bank: 'Bank',
+			bankPlaceholder: '{count} Banken – Namen tippen',
+			start: 'Bei der Bank freigeben',
+			going: 'Weiter zur Bank …',
+			startHint:
+				'Du gehst zur Seite deiner Bank, meldest dich dort an und gibst Lesezugriff für {days} Tage frei. Danach kommst du hierher zurück und entsperrst Belege noch einmal.',
+			returned: {
+				title: 'Bank verbunden?',
+				working: 'Die Antwort der Bank geht an die Bridge …',
+				linked: '{bank} ist verbunden: {count} Konten.',
+				refused:
+					'Die Bank hat keine Freigabe erteilt – abgebrochen oder abgelehnt. Nichts ist verbunden.',
+				notOurs:
+					'Diese Antwort gehört nicht zu der Freigabe, die in diesem Tab begonnen wurde. Nichts ist verbunden; starte die Freigabe noch einmal.',
+				notPaired: 'Dieses Gerät ist nicht mit der Bridge gekoppelt.',
+				none: 'Hier ist keine Antwort einer Bank angekommen.',
+				pasteLabel:
+					'Wenn die Bank dich auf eine andere Adresse geschickt hat (etwa beim Entwickeln auf localhost): die ganze Adresse aus der Adresszeile hier einfügen.',
+				pasteUse: 'Antwort übernehmen',
+				pasteInvalid: 'Diese Adresse enthält keine Antwort einer Bank.',
+				back: 'Zur Seite Bank'
+			}
+		},
+		cards: {
+			title: 'Firmenkreditkarten',
+			intro:
+				'Jede Karte ist ein eigenes Konto: Ihre Abrechnung (CSV des Kartenherausgebers) wird Zeile für Zeile zu Zahlungen, die Belege wie jede Zahlung finden – von der Firma bezahlt, in den Euro, die die Karte belastet hat. Die Datei wird nur hier im Browser gelesen.',
+			add: 'Karte hinzufügen',
+			name: 'Name der Karte',
+			last4: 'Letzte 4 Ziffern',
+			save: 'Karte anlegen',
+			choose: 'Abrechnung einlesen (CSV) …',
+			lines: '{count} Umsätze',
+			previewTitle: 'Abrechnung für {name}',
+			mappingHint:
+				'Die Spalten sind nach ihren Namen erkannt. Passt eine nicht, wähl sie hier; die Wahl gilt auch für die nächste Abrechnung dieses Formats.',
+			field: {
+				date: 'Belegdatum',
+				postingDate: 'Buchungsdatum',
+				description: 'Händler / Text',
+				amount: 'Betrag (EUR)',
+				debit: 'Belastung',
+				credit: 'Gutschrift',
+				currency: 'Währung',
+				originalAmount: 'Originalbetrag',
+				originalCurrency: 'Originalwährung',
+				rate: 'Kurs',
+				reference: 'Referenz'
+			},
+			invert: 'Belastungen stehen in der Datei als positive Beträge',
+			settlement: 'Ausgleich vom Bankkonto',
+			summary:
+				'{count} Umsätze · Belastungen {out} · Gutschriften {in} · {skipped} Zeilen übersprungen (ohne Datum, Betrag oder in anderer Abrechnungswährung)',
+			import: 'Importieren',
+			cancel: 'Abbrechen',
+			imported: '{name}: {new} neu, {skipped} schon vorhanden.',
+			error: {
+				name: 'Die Karte braucht einen Namen.',
+				last4: 'Bitte die letzten 4 Ziffern der Karte.',
+				noTable: 'In dieser Datei steht keine Tabelle mit Datum und Betrag.'
+			},
+			adviser:
+				'Das Sachkonto der Karte trägst du unter Einstellungen → Buchhaltung ein, wie bei einem Bankkonto; welches, klärst du mit der Steuerberatung.'
+		},
 		camt: {
 			choose: 'Kontoauszug wählen …',
 			reading: 'Lese Kontoauszug …',
@@ -2561,6 +4134,19 @@ export default {
 				'Die KI liest nur Belege aus: Anbieter, Betrag, Datum, Rechnungsnummer. Die Zuordnung zu Zahlungen macht die App selbst, nachvollziehbar nach Punkten.',
 			keyWhere:
 				'Der API-Key liegt nur im Schlüsselbund der Bridge – ändern mit pnpm setup:llm. Er kommt nie in den Browser.',
+			ollama: {
+				title: 'Anleitung: lokal mit Ollama lesen – dann verlässt nichts den Rechner',
+				intro:
+					'Statt eines Anbieters im Internet liest ein Modell auf deinem Rechner die Belege. Kostenlos, aber langsamer: auf einem Intel-Mac etwa zwei Minuten pro Beleg.',
+				steps: [
+					'Ollama von ollama.com/download installieren und starten.',
+					'Ein Modell laden, das in den Arbeitsspeicher passt – ab 32 GB: ollama pull qwen3:30b-a3b-instruct-2507-q4_K_M (18 GB); mit 16 GB: qwen3:4b-instruct-2507-q4_K_M (2,5 GB).',
+					'Größeren Kontext und längeres Vorhalten setzen (launchctl setenv OLLAMA_CONTEXT_LENGTH 16384 und OLLAMA_KEEP_ALIVE 2h), dann Ollama neu starten.',
+					'pnpm setup:llm: Basis-URL http://127.0.0.1:11434/v1, der Modellname für beide Modelle, beim API-Key Enter. Dann die Bridge neu starten.',
+					'Unter Statistik die gleichzeitigen KI-Anfragen auf 1 stellen.'
+				],
+				doc: 'Die ganze Anleitung, mit Messwerten und Hilfe bei Fehlern'
+			},
 			noBridge: 'Die Bridge ist nicht gekoppelt: Einstellungen erst nach dem Koppeln sichtbar.',
 			unreachable: 'Die Bridge sagt nichts über das Auslesen (ältere Version?): {error}',
 			provider: 'Anbieter (Host)',
@@ -2569,6 +4155,11 @@ export default {
 			key: 'API-Key',
 			keyOk: 'eingerichtet ✓',
 			keyMissing: 'fehlt – pnpm setup:llm',
+			redaction: 'Schwärzung',
+			redactionOn: 'an – Namen, IBANs und Adressen werden vor dem Senden geschwärzt',
+			redactionOff: 'aus – das Modell läuft auf diesem Rechner, es geht nichts hinaus',
+			redactionOffEnclave:
+				'aus – das Modell läuft in der attestierten Enklave; lesen kann den Text nur sie',
 			terms: 'Schwärzungsbegriffe',
 			authServ: 'Server-Kennung (Absenderprüfung)',
 			authServNone: 'nicht gesetzt – pnpm setup:mail',
@@ -2581,9 +4172,18 @@ export default {
 			totalsValue: '{calls} Aufrufe · {tokens} Tokens',
 			totalsFailed: ' · {count} fehlgeschlagen',
 			totalsFallback: ' · {count}× zweiter Versuch',
+			failedRecent: 'davon in den letzten 7 Tagen: {count}. Die häufigsten Gründe:',
+			tee: 'Vertraulich (TEE)',
+			teeVerified:
+				'Attestierung geprüft, {time}: Das Modell läuft in der festgenagelten Enklave, die Anfrage endet erst dort.',
+			teePinned: 'Festgenagelt; geprüft wird vor der ersten Anfrage.',
+			teeFailed: 'Attestierung fehlgeschlagen – nichts wurde gesendet: {error}',
+			teePin: 'Deployment {item} · Messung {measurement} · Quellstand {commit}',
+			redactionConfirm:
+				'Das Modell läuft auf diesem Rechner? Einmal im Terminal, bei „Does the model run on this machine itself“ Enter, dann die Bridge neu starten – danach wird nichts mehr geschwärzt:',
 			verlauf: 'Alle Aufrufe im Verlauf',
 			technical: [
-				'Die Bridge schickt die Textebene eines PDFs (oder den Text einer E-Mail) an die OpenAI-kompatible Chat-API des Anbieters (/chat/completions, JSON-Modus, max_tokens 6000). Vorher schwärzt sie Namen aus ihrer Liste, IBANs bis auf die letzten vier Stellen, eigene E-Mail-Adressen, Straßen und Postleitzahlen. Was gesendet wurde, steht beim Beleg unter „An die KI gesendet“.',
+				'Die Bridge schickt die Textebene eines PDFs (oder den Text einer E-Mail) an die OpenAI-kompatible Chat-API des Anbieters (/chat/completions, JSON-Modus, max_tokens 6000). Vorher schwärzt sie Namen aus ihrer Liste und deine Firmennamen aus den Einstellungen, Namen nach einer Anrede oder einem Etikett („Herr“, „Ansprechpartner:“, auch in anderen Sprachen und Schriften, etwa „Пассажир:“ oder „Yolcu:“), Passnummern, IBANs und Kartennummern bis auf die letzten vier Stellen, E-Mail-Adressen (von fremden bleibt die Domain), Telefonnummern, Geburtsdaten, Steuernummern, Straßen, Postleitzahlen und Links (nur der Host bleibt). Das begrenzt, was hinausgeht, anonym macht es den Text nicht: Ein Name, der auf keiner Liste steht und hinter keinem Etikett, geht durch, ebenso Anbieter, Beträge, Rechnungsnummern und worum es im Beleg geht. Soll nichts hinausgehen, stell ein Modell auf diesem Rechner ein (etwa Ollama). Was gesendet wurde, steht beim Beleg unter „An die KI gesendet“.',
 				'Die Antwort wird geprüft (Brutto da, Währung ISO, Daten gültig, Netto + USt = Brutto). Fällt sie durch oder bricht sie ab, fragt die Bridge das zweite Modell.',
 				'Warum der Key nicht hier eingetragen wird: Ein Schlüssel in der Webseite ist für jedes Skript lesbar, das je auf ihr läuft. In der Bridge liegt er im macOS-Schlüsselbund, und keine Antwort der Bridge enthält ihn – GET /llm/status sagt nur „da“ oder „fehlt“. Modelle und Begriffe stellt ebenfalls pnpm setup:llm ein.'
 			]
@@ -2591,11 +4191,17 @@ export default {
 		books: {
 			title: 'Konten in den Büchern',
 			camt: 'CAMT-Import',
+			enablebanking: 'Enable Banking',
 			hibiscus: 'Hibiscus',
 			kraken: 'Kraken',
-			wallet: 'Eigene Wallet'
+			wallet: 'Eigene Wallet',
+			card: 'Kreditkarte'
 		},
 		wallets: {
+			import: 'Verlauf importieren (CSV)',
+			importing: 'Wird importiert …',
+			moneroHint:
+				'Monero zeigt Beträge und Absender nicht öffentlich: Belege liest nicht die Adresse, sondern den Verlauf, den deine Wallet exportiert (Monero GUI: Verlauf → Exportieren; CLI: export_transfers all). Die Datei wird nur hier im Browser gelesen. Die Adresse benennt das Konto.',
 			title: 'Eigene Wallets',
 			intro:
 				'Nur lesend, über die Adresse: Die Bridge fragt einen öffentlichen Knoten der Chain nach allen Überweisungen und Gebühren dieser Adresse und nach ihrem Bestand. Nie ein Schlüssel, nie eine Seed-Phrase. Jedes Asset bekommt ein eigenes Konto; bewertet wird zum Tageskurs (CoinGecko, Kraken als Rückfall).',
@@ -2623,6 +4229,7 @@ export default {
 					'Mit Alchemy-Schlüssel liest die Bridge über Alchemy; ein eigener Endpunkt hier ersetzt Alchemy für diese Wallet.'
 			},
 			addTitle: 'Wallet hinzufügen',
+			addCancel: 'Abbrechen',
 			chain: 'Chain',
 			address: 'Adresse',
 			addressHint:

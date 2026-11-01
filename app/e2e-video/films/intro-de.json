@@ -1,0 +1,20 @@
+{
+	"lang": "de",
+	"parts": [
+		{
+			"card": "intro"
+		},
+		{
+			"card": "scene",
+			"eyebrow": "Was es ist",
+			"title": "Vorbuchhaltung vor dem Steuerbüro, auf deinen eigenen Geräten",
+			"sub": "Zahlungen und Belege, zusammengeführt. Kein Konto, keine Cloud, kein Server."
+		},
+		{
+			"scene": "intro.de"
+		},
+		{
+			"card": "outro"
+		}
+	]
+}

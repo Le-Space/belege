@@ -12,19 +12,21 @@ Was Le Space Belege heute kann, nach Kategorien. Dieselbe Liste steht kürzer au
 
 ## Zahlungen
 
-- **Bankumsätze** aus [Hibiscus](https://github.com/willuhn/hibiscus) über die Bridge (nur freigegebene Konten) und **Kontoauszüge als CAMT.053** (Revolut, GLS, …), im Browser eingelesen.
+- **Bankumsätze** aus [Hibiscus](https://github.com/willuhn/hibiscus) über die Bridge (nur freigegebene Konten) **Banken in Europa über Enable Banking** (eigene Anwendung, über die Bridge, nur freigegebene Konten; [banking.de.md](banking.de.md)) **Kontoauszüge als CAMT.053** (Revolut, GLS, …), im Browser eingelesen, und **Firmenkreditkarten** als eigene Konten, ihre Abrechnungen aus der CSV des Herausgebers.
 - **Ein Geschäftsjahr nach dem anderen**, mit Jahresumschalter. Zusammengehörige Buchungen (beide Seiten einer Umbuchung, die Seiten eines Handels, eine Gebühr) sind einen Klick entfernt.
 - **Private Zahlungen** vom Geschäftskonto werden markiert, dokumentiert und verrechnet ([#172](https://github.com/Le-Space/belege/issues/172)).
 
 ## Belege
 
 - **Von überall:**
-  - aus dem Buchhaltungs-Postfach (IMAP, nur lesend), per Upload und aus einem geteilten Ordner;
+  - aus dem Buchhaltungs-Postfach (IMAP, nur lesend), per Upload und aus einem geteilten Ordner, den die App jede Minute prüft – neue Dateien liest die KI dort nur aus, solange „gleich auslesen“ an ist;
+  - aus deinem eigenen **Paperless-ngx** ([#318](https://github.com/Le-Space/belege/issues/318)), über die Bridge (`pnpm setup:paperless`): was seit dem letzten Abruf neu ist, beim Öffnen der Belege-Seite und auf Klick. Die Originaldatei ist der Beleg; ein Mail-Anhang, der auch in Paperless landete, wird so an seinen Bytes als doppelt erkannt. Ein Scan oder Foto ohne Textebene wird mit dem Text gelesen, den Paperless erkannt hat. Solange Paperless an ist, ruft Belege das Postfach nicht selbst ab – das machen die Mailregeln von Paperless –, außer du schaltest es ein; dann bleiben Dokumente mit den genannten Tags draußen. An einer Zahlung fragt _Beleg finden → Paperless_ die Volltextsuche von Paperless (mit dem Suchtext, sonst mit der Gegenpartei) und übernimmt einen Treffer wie einen Upload: ausgelesen und dieser Zahlung zugeordnet, als aus Paperless gekennzeichnet;
   - aus Kundenportalen über einen Browser auf dem Rechner der Bridge: Vodafone MeinKabel, und eigene Portale, deren Weg du einmal aufzeichnest;
   - auf Klick aus der Suche im privaten Postfach, direkt von der Buchung aus.
 - **Geprüft.**
   - Mails ohne gültiges DKIM/SPF warten auf eine Freigabe, und Anzeichen für Betrug werden genannt.
   - Kopien einer Rechnung werden markiert, und jeder Beleg lässt sich beiseitelegen.
+- **E-Rechnungen (XRechnung)** ([#160](https://github.com/Le-Space/belege/issues/160)): eine XML-Rechnung in UBL oder CII, hochgeladen oder aus dem Postfach, wird als Original aufbewahrt und sofort ohne KI gelesen – Verkäufer, Nummer, Daten, USt, Positionen, Summe. Sie erscheint als schlichte Ansicht ihrer Felder und geht so in den Export, wie sie kam: als XML. Ein **ZUGFeRD/Factur-X**-PDF wird aus dem eingebetteten XML gelesen; das XML wird neben dem PDF aufbewahrt und mit exportiert. Ein PDF von einem nicht bestätigten Absender wird erst nach der Bestätigung geöffnet. Factur-X MINIMUM und BASIC WL werden gelesen, aber als keine E-Rechnung nach EN 16931 benannt.
 - **Eigenbeleg:** ein selbst erstellter Beleg für eine Zahlung ohne Beleg. Bei Krypto mit Hash, beiden Adressen und Gas, und mit der Transaktion als QR-Code.
 
 ## Abgleich
@@ -47,24 +49,31 @@ Was Le Space Belege heute kann, nach Kategorien. Dieselbe Liste steht kürzer au
   3. _KI-Vorschlag_ für einen Beleg;
   4. _KI-Vorschlag_ für die Gegenbuchung einer Umbuchung;
   5. _Ungereimtheiten erklären_ in einem Lieferantenkonto.
-- **Dein eigenes Modell**, eingerichtet in der Bridge (DeepSeek, Ollama, …). Alles wird vor dem Senden geschwärzt. Le Space betreibt keine KI.
+- **Dein eigenes Modell**, eingerichtet in der Bridge (DeepSeek, Ollama, …). Vor dem Senden wird geschwärzt – das begrenzt, was hinausgeht, anonym macht es den Text nicht; ein lokales Modell schickt nichts hinaus. Le Space betreibt keine KI.
 - **Verbrauch im Blick:** Tokens und Kosten je Tag, Woche, Monat und Beleg. Siehe [ai.de.md](ai.de.md).
 
 ## Krypto
 
-- **Quellen:** Kraken und eigene Wallets auf Cosmos-Chains (Nym, Akash, samt älterer Akash-Geschichte), EVM-Chains (Ethereum, Base, Arbitrum, OP Mainnet, Polygon; über Blockscout oder Alchemy) und Bitcoin (xpub/ypub/zpub).
+- **Quellen:** Kraken und eigene Wallets auf Cosmos-Chains (Nym, Akash, samt älterer Akash-Geschichte), EVM-Chains (Ethereum, Base, Arbitrum, OP Mainnet, Polygon; über Blockscout oder Alchemy) Bitcoin (xpub/ypub/zpub) und Filecoin (per Adresse, über Filfox; mit USDFC und Tausch über SushiSwap).
 - **Jede Buchung in Euro**, mit genauer Menge und dem Tageskurs samt Quelle:
-  - CoinGecko, Kraken oder EZB;
+  - CoinGecko, Kraken oder EZB (für den Rubel die Bank of Russia, für den Tenge die Nationalbank Kasachstans, sonst ein Kreuzkurs über den Rubel);
   - ein DEX-Pool im Block der Buchung (Uniswap V2, V3 und V4, gegen ETH oder USDC);
   - die andere Seite eines Handels oder die verbrannten alten Token einer Migration;
   - von Hand.
 - **Erkannt werden:** DEX-Swaps, Swaps über Chains, Token-Migrationen und Staub; Absender mit ähnlich aussehender Adresse werden benannt.
 - **Aleph-Cloud-Guthaben** als Monatsauszug je Konto. Siehe [crypto.de.md](crypto.de.md).
 
-## Buchhaltung und Export
+## Vorbereitende Buchhaltung und Export
 
 - **Jede Buchung** bekommt ein SKR-03-Konto und einen BU-Schlüssel: vorgeschlagen, von dir bestätigt. Dein eigener Kontenrahmen lässt sich einlesen.
-- **Jeden Monat ein ZIP:** ein DATEV-Buchungsstapel (EXTF) für MonkeyOffice, die Belege als PDF und ein Auszug je Konto. Siehe [export.de.md](export.de.md).
+- **Umsatzsteuer auf Home** ([#195](https://github.com/Le-Space/belege/issues/195)): je Monat oder Quartal und fürs Jahr die Vorsteuer aus den Belegen (19 % und 7 %, nach Belegdatum), die Umsatzsteuer aus den Rechnungen der Rechnungs-App – wenn das Geld kommt (Ist, voreingestellt) oder am Rechnungsdatum (Soll), wie unter Buchhaltung eingestellt – und die Zahllast oder Erstattung. Eine eigene Rechnung unter den Belegen – hochgeladen oder aus dem Postfach – wird an den Firmennamen, der Markierung `[FIRMA]` des Modells oder der eigenen USt-IdNr unter Buchhaltung erkannt ([#354](https://github.com/Le-Space/belege/issues/354)): Ihre Steuer zählt als Umsatzsteuer, nie als Vorsteuer; der Beleg sagt es und lässt sich umstellen. **Internationales und Sonderfälle** werden unterschieden und mit ihren Belegen gezeigt: innergemeinschaftliche Lieferungen mit den Zeilen für die Zusammenfassende Meldung je Zeitraum und USt-IdNr der Kundin oder des Kunden, Drittland-Umsätze, §13b im Inland, steuerfreie Umsätze und innergemeinschaftliche Erwerbe; was sich nicht ohne Raten einordnen lässt (etwa eine EU-Rechnung ohne USt-IdNr der Kundin oder des Kunden), wird mit Link genannt. Ausländische Steuer, §13b, noch nicht bezahlte Rechnungen und Rechnungen, deren Steuer die App nicht geliefert hat, stehen gesondert. Als Kleinunternehmer (§19 UStG) erscheint stattdessen der Umsatz gegen die Grenzen. Eine Hilfe für die Voranmeldung, nicht die Voranmeldung selbst.
+- **Jeden Monat ein ZIP:** ein DATEV-Buchungsstapel (EXTF) für deine Buchhaltung, die Belege als PDF und ein Auszug je Konto. Siehe [export.de.md](export.de.md).
+
+## Reisekosten
+
+- **Reisen** ([#213](https://github.com/Le-Space/belege/issues/213)) mit ihren Belegen, den gesetzlichen Verpflegungspauschalen nach Zeiten und Ländern (gestellte Mahlzeiten, Dreimonatsregel), Kilometern – das Auto von Familienangehörigen markiert für die Steuerberatung – und Bewirtungen mit ihrer Aufteilung. Ein Beleg in anderer Währung zählt in Euro, nach Zahlung, Auslage oder Kurs.
+- **Erkannt, nie von selbst zugeordnet:** Art, Strecke und Zeiten einer Reiseausgabe aus dem Auslesen; ohne KI aus ihren Wörtern in elf Sprachen; Reisen vorgeschlagen nach Datum und Strecke; Termine aus Kalendereinladungen (nur Titel, Ort und Zeiten).
+- **Eine Abrechnung pro Monat** als nummeriertes deutsches PDF, gebucht auf SKR-03-Reisekostenkonten nach Rechtsform gegen das Verrechnungskonto des Reisenden, die Auszahlung ihr zugeordnet. Siehe [travel.de.md](travel.de.md).
 
 ## Geräte und Zusammenarbeit
 
@@ -72,10 +81,10 @@ Was Le Space Belege heute kann, nach Kategorien. Dieselbe Liste steht kürzer au
 - **Wo sich Geräte treffen** ([#148](https://github.com/Le-Space/belege/issues/148)):
   - an den öffentlichen Le-Space-Relays;
   - am Relay deiner eigenen Bridge, nur im eigenen Netz (`pnpm setup:relay`, WebRTC-Direct, kein Zertifikat zu installieren);
-  - ganz ohne Relay, indem sie zwei QR-Codes tauschen;
+  - ganz ohne Relay, indem sie zwei QR-Codes tauschen – direkt im Netz-Menü oben; die Einladung ist ein Link, den die Kamera des Telefons öffnet, und nach dem Entsperren zeigt das Menü dort gleich die Antwort (auf dem iPhone besser aus der App vom Home-Bildschirm, die ihre Bücher getrennt von Safari hält);
   - oder über alle, wobei ein Gerät, das die Bücher noch nicht kennen, nur per QR oder über den Relay der eigenen Bridge hereinkommt.
 - **Das Telefon nutzt die Bridge des Rechners.** Belege lässt sich als App installieren (PWA), und die App-Hülle funktioniert offline.
-- **Rechnungs-App (UCEP):** Sie erstellt Eigenbelege für Belege und erfährt, welche ihrer Rechnungen bezahlt sind.
+- **Rechnungs-App (UCEP):** Sie erstellt Eigenbelege für Belege und erfährt, welche ihrer Rechnungen bezahlt sind. Eine Rechnung, die sie als XRechnung ausgestellt hat, kommt mit ihrem XML; das XML liegt als Original neben dem PDF und geht mit in den Export ([#515](https://github.com/Le-Space/belege/issues/515)).
 - **Eine Lese-Freigabe** der Bücher für eine Assistenz, zeitlich begrenzt.
 
 ## Sprache

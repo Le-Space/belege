@@ -6,7 +6,7 @@ Belege führt Konten bei Börsen (Kraken) und eigene Wallets auf Blockchains (Co
 
 ## Ein Konto je Asset
 
-Ein Krypto-Konto hält genau ein Asset: _Kraken BTC_, _Kraken EUR_ und _Wallet NYM_ sind drei Konten, jedes mit eigenem Sachkonto in MonkeyOffice. Welche Assets Belege kennt, steht in `app/src/lib/assets/registry.js`: Kürzel, Name, Nachkommastellen und, wo sie sicher ist, die kettenübergreifende CAIP-19-Kennung.
+Ein Krypto-Konto hält genau ein Asset: _Kraken BTC_, _Kraken EUR_ und _Wallet NYM_ sind drei Konten, jedes mit eigenem Sachkonto in der Buchhaltung. Welche Assets Belege kennt, steht in `app/src/lib/assets/registry.js`: Kürzel, Name, Nachkommastellen und, wo sie sicher ist, die kettenübergreifende CAIP-19-Kennung.
 
 ## Eine Krypto-Bewegung wird in Euro gebucht und behält, was bewegt wurde
 
@@ -32,7 +32,7 @@ Die Bridge beantwortet `GET /rates?asset=BTC&date=2026-09-01` (`bridge/src/rates
 
    für eine Buchung **bei Kraken** (`prefer=kraken`) ist es umgekehrt: zuerst der EUR-Kurs von Kraken, CoinGecko als Rückfall. Kraken bepreist dann auch Assets, die Belege noch nicht kennt, über ihr `<KÜRZEL>EUR`-Paar;
 
-3. für **USD**: der **EZB-Referenzkurs** des Tages oder der letzte davor (Wochenende, Feiertag), umgerechnet in Euro je Dollar.
+3. für **USD** und die anderen Währungen, die die EZB veröffentlicht: der **EZB-Referenzkurs** des Tages oder der letzte davor (Wochenende, Feiertag), umgerechnet in Euro je Einheit; für **RUB** nach dem 1. März 2022, seit die EZB ihn nicht mehr veröffentlicht, der amtliche Kurs der **Bank of Russia**, der an dem Tag gilt; für **KZT** der amtliche Tageskurs der **Nationalbank Kasachstans**; für eine Währung, für die weder die EZB noch diese einen Euro-Kurs veröffentlichen, die aber die Bank of Russia führt (UZS, GEL, AMD, KGS, AED, …), ein **Kreuzkurs über den Rubel** aus der Tagesdatei der Bank of Russia – als solcher markiert (`cbr-cross`, CBR-X), kein amtlicher Euro-Kurs (#325).
 
 Die Anfrage nennt nur ein Asset und einen Tag, nichts über die Buchungen. Vergangene Tage werden im Speicher gehalten. Liegt ein CoinGecko-Demo-Schlüssel im Schlüsselbund (Konto `coingecko`), geht er als Header mit.
 
@@ -44,7 +44,9 @@ Die Anfrage nennt nur ein Asset und einen Tag, nichts über die Buchungen. Verga
 
 **Synchronisieren**: _Integrationen → Kraken (Börse) → Kraken synchronisieren_. Die Bridge liest das Ledger (`GET /kraken/ledgers`, seitenweise über `ofs`, 50 Einträge je Seite, mit Pause und erneutem Versuch beim Rate-Limit) und die Bestände (`GET /kraken/balances`). Der erste Abruf beginnt am 1. Januar, jeder weitere eine Woche vor dem letzten.
 
-**Konten**: eines je Asset und Wallet: _Kraken EUR_, _Kraken BTC_, _Kraken BTC (Earn)_ für gestakte oder verzinste Bestände (die `.S`-, `.M`-, …-Assets von Kraken). Jedes braucht wie ein Bankkonto sein Sachkonto in MonkeyOffice (_Eigene Anweisungen_).
+**Technik**: Die Anfragen laufen über [ccxt](https://github.com/ccxt/ccxt) (MIT), das sie signiert und Krakens Fehlercodes zuordnet; die Bridge nutzt dessen direkte Endpunkte, die Einträge sind also Krakens eigene und werden gelesen wie bisher. Die Nonce bleibt in Mikrosekunden, wie die Bridge sie immer gesendet hat – Kraken merkt sich die höchste Nonce eines Schlüssels und lehnt eine niedrigere ab. Weitere Börsen über ccxt sind geplant (#265).
+
+**Konten**: eines je Asset und Wallet: _Kraken EUR_, _Kraken BTC_, _Kraken BTC (Earn)_ für gestakte oder verzinste Bestände (die `.S`-, `.M`-, …-Assets von Kraken). Jedes braucht wie ein Bankkonto sein Sachkonto in der Buchhaltung (_Eigene Anweisungen_).
 
 **Buchungen**: eine je Ledger-Eintrag, dazu eine für jede Gebühr, die Kraken darauf berechnet hat. So ist die Gebühr sichtbar und wird auf 4970 gebucht.
 
@@ -66,6 +68,10 @@ Ein Eintrag ohne auffindbaren Kurs bleibt samt seinem Handel draußen. Er wird n
 
 **Hier nicht entschieden**: Gewinne und Verluste beim Verkauf (Anschaffungskosten nach FIFO oder Durchschnitt) und die Bewertung zum Jahresende. Jede Buchung behält Menge, Kurs und Quelle, damit sich das Verfahren des Steuerberaters darauf anwenden lässt.
 
+### Auf welcher Blockchain der Hash einer Einzahlung liegt (Issue #215)
+
+Eine Ein- oder Auszahlung behält Krakens On-Chain-Hash (`chainTxRef`) und, wo Kraken es nennt, das Netzwerk (`chainMethod`, etwa `Filecoin`, `Ether (Arbitrum One)`). Das Detail der Zahlung bestimmt daraus die Blockchain, lokal, in dieser Reihenfolge: eine Buchung einer eigenen Wallet mit demselben Hash; Krakens Netzwerkname, wo er zur Form des Hashes passt; die Form des Hashes mit dem Asset – eine CID `bafy2bzace…` ist Filecoin, `0x` + 64 Hex eine EVM-Chain, 64 Hex Bitcoin bei BTC (Nyx bei NYM, Akash bei AKT), Base58 mit 87–88 Zeichen Solana. Eine eindeutige Chain bekommt ihren Namen und einen Link zu ihrem Explorer (Filfox, mempool.space, Etherscan und Geschwister, Nodes Guru, Mintscan, Solscan); ein EVM-Hash ohne Netzwerkangabe nennt die EVM-Chains, auf denen er liegen kann, jede verlinkt. Kein Explorer wird gefragt: Ein Link öffnet erst auf deinen Klick (`app/src/lib/assets/hash-chain.js`).
+
 ## Eigene Wallets
 
 Tokens, die von einer Börse auf eine eigene Wallet gehen, gehören weiter der Firma. _Integrationen → Eigene Wallets_ nimmt eine solche Wallet mit **Chain und Adresse** auf: nur lesend, nie ein Schlüssel oder eine Seed-Phrase. Die Liste der Wallets liegt versiegelt in den Büchern (Einstellung `wallets`); die Bridge behält nichts davon.
@@ -76,6 +82,17 @@ Tokens, die von einer Börse auf eine eigene Wallet gehen, gehören weiter der F
 
 - **Cosmos**: CometBFT-RPC `tx_search` nach `transfer.sender='<Adresse>'` und `transfer.recipient='<Adresse>'` (Überweisung, Gebühr und Reward sind `transfer`-Ereignisse; eine Delegation nicht – `DelegateCoins` meldet nur `coin_spent` und `coin_received`, darum zählt so ein Paar ohne folgendes `transfer` ebenfalls als Bewegung, auf Chains vor cosmos-sdk 0.44 das `delegate`-Ereignis; ihre Gebühr zahlt die Delegation per Transfer, darum findet die Absender-Abfrage sie; Issue #135), 100 je Seite, älteste zuerst, nach Hash zusammengeführt; `header` für die Zeit jedes Blocks; `status` für den ältesten Block, den der Knoten noch hat; REST `/cosmos/bank/v1beta1/balances/<Adresse>` für den Bestand; das Memo aus den Bytes der Transaktion.
 - **Akash, ältere Geschichte** (Issue #105): Jeder öffentliche Akash-Knoten ist gekürzt. Liegt der unterste Block des Knotens über 1, liest die Bridge alles davor aus dem Akash-Console-Indexer (`console-api.akash.network`, betrieben vom Akash-Team, quelloffen, ohne Schlüssel). Sie holt die Transaktionen der Adresse (`/v1/addresses/<Adresse>/transactions/<skip>/<limit>`) und dann jede einzeln per Hash (`/v1/transactions/<Hash>`) mit ihren dekodierten Nachrichten, Unterzeichnern und der Gebühr. Aus den Nachrichten bucht sie Überweisungen, Multi-Sends, IBC-Transfers hinaus und zurück, Delegationen, Escrow-Einzahlungen aus dem Bestand und Governance-Einlagen, dazu die Gebühr jeder Transaktion, die die Adresse als Erste unterzeichnet hat (`bridge/src/chains/akash-console.js`). Der Indexer hat keine Events und kennt darum keinen Betrag, der nur in einem Event steht: abgehobene Rewards, die Rewards, die eine (Um-/Ent-)Delegation nebenbei abhebt, Escrow-Rückzahlungen, Lease-Auszahlungen und authz-`MsgExec`. Diese Transaktionen werden gezählt und auf der Wallet-Karte genannt, der Bestandsabgleich zeigt die Lücke. Rückt das Fenster des Knotens weiter, kommt eine Transaktion, die zuerst vom Knoten kam, später unter einer anderen Kennung aus dem Indexer; die App behält die Kennung, unter der sie gebucht wurde (`reconcileSourceIds`: gleicher Hash, gleiche Art, gleiche Menge). Geprüft am 27.09.2026: Geschichte bis März 2021 (Mainnet-2); Gebühren und Überweisungen stimmen mit den Events des Knotens überein, Reward-Beträge stehen im Indexer als 0.
+- **Akash Burn-Mint (BME, #303):** Deployments werden in ACT bezahlt, das `MsgMintACT` prägt, indem es AKT verbrennt. Eine solche Transaktion ist ein Tausch AKT → ACT (_Tausch … über Akash BME_) und braucht wie ein DEX-Tausch keinen Beleg. Vom Knoten kommen beide Seiten aus den Events (ACT wird genannt, nicht gelistet). Aus dem Indexer kommen die verbrannten AKT aus der Nachricht; die geprägten ACT stehen nur in den Events, ihre Menge ist darum „unbekannt“. `MsgBurnACT` (ACT zurück zu AKT) wird aus dem Indexer nur gezählt, weil seine AKT nur in den Events stehen.
+- **Eine Kraken-Auszahlung, die die Liste auslässt (#303):** Die Liste des Indexers zu einer Adresse kann eine Transaktion auslassen, zum Beispiel die erste Einzahlung von Kraken. Beim Synchronisieren gibt die App der Bridge die On-Chain-Hashes ihrer Kraken-Auszahlungen im nativen Asset der Chain mit, zu denen noch keine Wallet-Buchung existiert. Die Bridge fragt den Indexer nach jedem per Hash und bucht die, die etwas dieser Wallet bewegen, als eigene Umbuchung zur Auszahlung. Nur diese Hashes verlassen die App, an den Indexer, den sie ohnehin fragt.
+- **Monatlicher Verbrauchsnachweis (#305):** Bei Akash stellt kein Lieferant eine Rechnung. Auf der Karte einer Akash-Wallet erstellt _Verbrauchsnachweis erstellen_ je Monat einen Eigenbeleg (EB-JJJJ-NNN, wie bei Aleph). Er führt auf:
+  - die Netzwerkgebühren mit ihren Hashes;
+  - die für ACT verbrannten AKT;
+  - den Verbrauch jedes Deployments. Der Knoten listet die Deployments eines Eigentümers mit ihrem Escrow (`/akash/deployment/v1beta4/deployments/list`), der Indexer liefert die Blockzeiten. Die Chain führt je Deployment nur die Gesamtsumme, die an die Anbieter ging. Diese wird gleichmäßig über die Laufzeit verteilt, gezählt wird der Anteil des Monats. ACT wird mit 1 USD bewertet (Akashs Burn-Mint), zum EZB-Kurs vom letzten Tag des Monats.
+
+  Der Nachweis wird ein Beleg, verknüpft mit den Netzwerkgebühren des Monats. Im DATEV-Export gehen diese Gebühren als eine Sammelbuchung je Wallet-Konto ein (abschaltbar auf der Export-Seite). Die Bewertung ist mit der Steuerberatung abzustimmen.
+
+- **ACT-Konto (#305):** _ACT-Konto anzeigen_ auf der Karte einer Akash-Wallet zeigt Akash als Lieferantenkonto, Monat für Monat: aufgeladene ACT (Burn-Mint), Verbrauch der Deployments und Saldo. Es muss aufgehen: geprägt = Bestand jetzt (`uact`-Bestand laut Knoten) + Rest im Escrow + verbraucht. Bei älteren Aufladungen steht die ACT-Menge nicht mehr auf der Chain; was sie zusammen ergaben, folgt dann aus dieser Gleichung und wird nach den verbrannten AKT verteilt. In Euro zu Anschaffungskosten: Eine Aufladung kostet, was ihre AKT gebucht wurden, jedes ACT den Durchschnitt aller Aufladungen. Verbrauch und Rest werden zu diesem Wert bewertet. Ob die Aufladung als Anzahlung und erst der Verbrauch als Aufwand gebucht wird, entscheidet die Steuerberatung.
+
 - **EVM**: zuerst muss der JSON-RPC-Proxy von Blockscout (`…/api/eth-rpc`, `eth_chainId`) die Chain nennen (sonst `WALLET_WRONG_CHAIN`, oder `WALLET_CHAIN_UNVERIFIED`, wenn er es nicht kann); dann die Etherscan-kompatible API, ohne Schlüssel: `txlist`, `txlistinternal`, `tokentx`, `balance`, `tokenbalance`. Über das 10 000-Einträge-Fenster von Blockscout hinaus wird nach Startblock weitergeblättert, bei dessen Ratenlimit wiederholt. Ohne Schlüssel beantwortet Blockscout nur wenige Abfragen je halbe Stunde und IP-Adresse (beobachtet: etwa zehn; ein Abruf braucht mindestens sechs), danach HTTP 429.
 - **EVM mit Alchemy** (wenn `pnpm setup:alchemy` einen Schlüssel abgelegt hat und die Wallet keinen eigenen `api`-Endpunkt nennt): siehe [Alchemy](#alchemy) unten.
 
@@ -157,6 +174,33 @@ Eine Bitcoin-Wallet liest Belege über den **erweiterten öffentlichen Schlüsse
   - einige Inputs von uns (Payjoin, Coinjoin): eine Buchung mit der Nettoänderung, Gebühr eingeschlossen, und ein Hinweis.
 - `txRef` ist die txid. Eine Kraken-BTC-Ein- oder -Auszahlung trägt dieselbe txid als `chainTxRef`; beide werden als eigene Umbuchung gepaart.
 - Ein Konto, _Wallet BTC ···<Fingerabdruck>_, mit Bestand (bestätigt, aus der Esplora-API).
+
+### Filecoin
+
+Eine eigene Filecoin-Wallet wird mit ihrer Adresse angelegt: f1 (secp256k1), f3 (BLS) oder f410f (delegiert – auch in der Ethereum-Form `0x…` eingebbar; das ist dasselbe Konto und wird als f410f gespeichert), jede vor der ersten Abfrage an ihrer blake2b-Prüfsumme geprüft, oder f0 (eine ID). Die Bridge liest sie über die öffentliche API von Filfox, ohne Schlüssel: `address/<a>` für den Bestand und `address/<a>/transfers` für jede Bewegung, 100 je Seite (`bridge/src/chains/filecoin.js`). Je Nachricht wird jedes Senden und jedes Empfangen eine Buchung mit der Adresse der Gegenseite; Miner-Gebühr und Burn-Gebühr zusammen eine Gebührenbuchung. Die Nachrichten-CID (`bafy2bzace…`) ist der Hash – derselbe, den Kraken für eine Einzahlung meldet: Eine Auszahlung aus der Wallet und die Einzahlung bei Kraken finden sich so als eigene Umbuchung, und das Detail der Einzahlung nennt Filecoin. Filfox sieht die Adresse und die IP-Adresse dieses Macs; eine Adresse mit mehr als 20 000 Bewegungen wird als zu groß abgelehnt.
+
+**Token auf der FEVM und Tausch (Issue #301).** Hat die Adresse Token-Überweisungen, liest die Bridge auch `address/<a>/token-transfers`. Gebucht werden nur gelistete Token, nach Vertrag: **USDFC** (`0x80b98d3aa09ffff255c3ba4a241111ff1262f045`, der mit FIL besicherte Stablecoin von Secured Finance; geprüft gegen die Vertragsliste von Secured Finance, CoinGecko und den Vertrag selbst). Ein Token, der sich USDFC nennt, aber von einem anderen Vertrag stammt, wird gezählt, nie gebucht. Der Bestand eines Tokens ist die Summe seiner ganzen Geschichte.
+
+Eine Nachricht, in der die Wallet ein Asset abgibt und ein anderes erhält, ist ein **Tausch**, wie auf den EVM-Chains: FIL gegen USDFC oder USDFC gegen FIL (die FIL kommen in derselben Nachricht zurück). Beide Seiten werden als _Tausch_ gebucht und brauchen keinen Beleg; das Gas bleibt eine eigene Gebühr und nennt den Tausch. Der Router wird nach dem Empfänger der Nachricht benannt (`message/<cid>`, nur bei einem Tausch gefragt), wo er aus Sushis eigener Konfiguration bekannt ist: _SushiSwap_ (der Router der Sushi-App), _SushiSwap V2 (Router)_, _WFIL_. Der Euro-Kurs von USDFC kommt von CoinGecko (`usdfc`), sonst aus der anderen Seite des Tauschs; nie pauschal 1 USD ohne Quelle. Im crypto-ledger-Export heißt USDFC `eip155:314/erc20:0x80b9…f045`.
+
+### Monero
+
+Monero verbirgt Beträge, Absender und Empfänger auf seiner Kette; über eine Adresse lässt sich nichts lesen. Belege importiert stattdessen den Verlauf, den deine Wallet exportiert, und liest ihn nur im Browser. Weder ein View-Key noch die Datei verlassen den Rechner.
+
+1. _Integrationen → Wallets_: Wallet hinzufügen, Chain Monero, deine Hauptadresse (`4…`) oder eine Subadresse (`8…`). Die Adresse benennt nur das Konto.
+2. Den Verlauf aus der Wallet exportieren:
+   - **Monero GUI:** _Verlauf_ → _Exportieren_ (CSV);
+   - **CLI:** `export_transfers all output=monero.csv`.
+3. „Verlauf importieren (CSV)“ an der Wallet liest die Datei:
+   - nur bestätigte Umsätze (Eingang, Ausgang, ein geminter Block); Pool, ausstehende und fehlgeschlagene bleiben draußen;
+   - jeder Umsatz wird zum Tageskurs bewertet (CoinGecko, `monero`);
+   - die Gebühr eines Ausgangs wird eigens gebucht, wie bei jeder Wallet; die eines Eingangs hat der Absender bezahlt.
+
+   Dieselbe oder eine längere Datei noch einmal zu importieren, fügt nur Neues hinzu. Der Bestand des Kontos und seine Bestände an Anfang und Ende jedes Monats: beim CLI-Export der laufende Kontostand der Wallet selbst – eine Zahl, die die Wallet errechnet hat, gegen die der Kontoauszug abstimmt (#287); der GUI-Export hat keinen, dort ist es, was die Datei ergibt.
+
+Beide Formate sind aus dem Quellcode der Wallets übernommen (monero-gui `TransactionHistory::writeCSV`, monero `export_transfers`). Die Datumsspalte der GUI folgt der Sprache, deshalb zählt ihre Spalte `epoch`; die Zeitstempel der CLI sind UTC.
+
+**XMR aus Privatbesitz** (eine Einlage) ist ein Eingang wie jeder andere. Einen fremden Beleg braucht sie nicht: Markier sie mit „Kein fremder Beleg … / Kein Beleg nötig“ samt Grund und übernimm das Konto, das dein Steuerberater nennt (Einzelunternehmen: 1890 Privateinlagen; eine UG oder GmbH bucht gegen den Gesellschafter). Eine **Kundenzahlung** in XMR wird wie eine Bankzahlung mit unserer Rechnung abgeglichen, zum Euro-Wert des Tages.
 
 ### Woher die Voreinstellungen kommen (geprüft am 26.09.2026)
 

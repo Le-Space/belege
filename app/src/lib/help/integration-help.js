@@ -13,16 +13,26 @@ const REPO = 'https://github.com/Le-Space/belege/blob/main/';
 /** @type {Record<string, IntegrationHelp>} */
 export const INTEGRATION_HELP = {
 	bridge: { command: 'pnpm bridge', doc: 'bridge/README.md' },
-	bank: { command: 'pnpm setup:hibiscus', doc: 'bridge/README.md#setup-macos' },
+	bank: { command: 'pnpm setup:hibiscus', doc: 'docs/banking{de}.md' },
 	ki: { command: 'pnpm setup:llm', doc: 'docs/ai{de}.md' },
 	kraken: { command: 'pnpm setup:kraken', doc: 'docs/crypto{de}.md' },
 	wallets: { doc: 'docs/crypto{de}.md#own-wallets' },
 	aleph: { doc: 'docs/crypto{de}.md' },
 	geraete: { command: 'pnpm setup:relay', doc: 'docs/features{de}.md' },
+	backup: { command: 'pnpm setup:aleph', doc: 'docs/backup{de}.md' },
 	portale: { command: 'pnpm setup:portal vodafone', doc: 'bridge/README.md#kundenportale' },
 	'rechnungs-app': { doc: 'docs/features{de}.md' },
 	assistent: { doc: 'docs/features{de}.md' }
 };
+
+/**
+ * A page of the docs in a language: `docs/ollama{de}.md` → the German twin in German.
+ *
+ * @param {string} path in the repository, with `{de}` where a German twin exists
+ * @param {'de' | 'en'} locale
+ */
+export const docUrl = (path, locale) =>
+	`${REPO}${path.replace('{de}', locale === 'de' ? '.de' : '')}`;
 
 /**
  * The docs link for an integration in a language.
