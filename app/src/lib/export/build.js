@@ -4,7 +4,7 @@
 // Loaded lazily by the export page, with fflate.
 //
 //   DATEV/EXTF_Buchungsstapel_<YYYY-MM>.csv
-//   Belege/<receipt number>_<vendor>.pdf
+//   Belege/<receipt number>_<vendor>.pdf            a mail without an attachment: a PDF of its text
 //   Kontoauszuege/<statement number>_<account>.pdf   one per account (statement.js)
 //   Aktennotizen/<date>_<counterparty>_<id>.txt       a private payment's note (#172)
 //   Uebersicht_<YYYY-MM>.csv
@@ -15,10 +15,22 @@ import { zipSync, strToU8 } from 'fflate';
 
 import { recordEvent } from '../activity/events.js';
 import { receiptVendor } from '../receipts/view.js';
+import { emlText } from '../receipts/eml.js';
+
+/** The mail's text, or null when it cannot be read. @param {Uint8Array} eml */
+function safeEmlText(eml) {
+	try {
+		return emlText(eml);
+	} catch {
+		return null;
+	}
+}
 import { encodeWindows1252 } from './cp1252.js';
 import { buchungsstapel } from './datev.js';
 import { overviewCsv } from './overview.js';
 import { statementPdf } from './statement-pdf.js';
+import { mailReceiptPdf } from './mail-pdf.js';
+import { isMailText } from './plan.js';
 import { t } from '../i18n/index.js';
 
 /** @typedef {Record<string, any>} Rec */
@@ -28,7 +40,9 @@ const EXTENSION = /** @type {Record<string, string>} */ ({
 	'image/png': 'png',
 	'image/jpeg': 'jpg',
 	'image/gif': 'gif',
-	'image/webp': 'webp'
+	'image/webp': 'webp',
+	// An e-invoice's original (#160).
+	'application/xml': 'xml'
 });
 
 /**
@@ -100,7 +114,25 @@ export async function buildMonthZip({ plan, settings, accounts, classifications,
 	for (const r of plan.receipts) {
 		const number = plan.numbers.get(r.id);
 		if (!number) continue;
-		files[receiptPath(number, r)] = await blobs.get(String(r.fileCid));
+		if (isMailText(r)) {
+			// The mail as received beside the PDF made from it (#288), its full text in the PDF.
+			const eml = r.emlCid ? await blobs.get(String(r.emlCid)) : null;
+			files[receiptPath(number, r)] = await mailReceiptPdf(r, {
+				number,
+				created,
+				// A mail that cannot be read as text keeps the month's export going.
+				text: eml ? safeEmlText(eml) : null
+			});
+			if (eml) files[receiptPath(number, r).replace(/\.pdf$/, '.eml')] = eml;
+		} else {
+			files[receiptPath(number, r)] = await blobs.get(String(r.fileCid));
+			// A ZUGFeRD / Factur-X invoice: its XML, the e-invoice's original, beside the PDF (#160).
+			if (r.xmlCid) {
+				files[receiptPath(number, r).replace(/\.[a-z]+$/, '.xml')] = await blobs.get(
+					String(r.xmlCid)
+				);
+			}
+		}
 	}
 	for (const s of plan.statements) {
 		files[statementPath(s)] = await statementPdf(s, { created });
@@ -115,7 +147,8 @@ export async function buildMonthZip({ plan, settings, accounts, classifications,
 	files[`Uebersicht_${plan.month}.csv`] = strToU8(overviewCsv(plan, { accounts, classifications }));
 	const zip = zipSync(files, { level: 6, mtime: created });
 	// A package of sample bookings says so in its name: it is no bookkeeping.
-	const prefix = plan.sample === 'all' ? 'BEISPIEL_' : '';
+	// With test bookings in it, it says TEST_ – for trying the export, not for the books.
+	const prefix = plan.testsIncluded ? 'TEST_' : plan.sample === 'all' ? 'BEISPIEL_' : '';
 	return { zip, fileName: `${prefix}DATEV_${plan.month}.zip`, paths: Object.keys(files), csv };
 }
 
@@ -158,7 +191,8 @@ export async function runMonthExport({
 		bookings: plan.lines.length,
 		receipts: plan.receipts.length,
 		statements: plan.statements.length,
-		skipped: plan.transferSides.length
+		skipped: plan.transferSides.length,
+		...(plan.checks.suspense.length ? { suspense: plan.checks.suspense.length } : {})
 	});
 	return built;
 }

@@ -1,5 +1,8 @@
 // "Privat (Irrläufer)" (issue #172): a private purchase paid from the business
-// account by mistake. It is no business expense and needs no business
+// account by mistake – or the other way round, private money that came in on
+// the business account (a refund, a payment meant for the private account)
+// and is passed on to it. The same mechanics with the signs turned: the
+// incoming one is marked, the outgoing pass-on settles it. It is no business expense and needs no business
 // receipt; a short note (Aktennotiz) documents the mistake. How it is booked
 // depends on the legal form (booking/settings.js `privateAccounts`): a sole
 // proprietor withdraws privately (1800); a UG or GmbH paid for its
@@ -38,6 +41,14 @@ export function privateNote(tx) {
 		DOCUMENT_LOCALE
 	);
 	const what = [tx.counterparty, tx.purpose].map((s) => String(s ?? '').trim()).filter(Boolean);
+	if (Number(tx.amountCents ?? 0) > 0) {
+		return [
+			// eslint-disable-next-line belege/no-german -- a bookkeeping note, German like the Eigenbeleg (#192)
+			`Private Einnahme, irrtümlich auf dem Geschäftskonto eingegangen: ${amount} am ${formatDate(String(tx.bookedOn ?? ''), DOCUMENT_LOCALE)}${what.length ? ` (${what.join(' – ').slice(0, 200)})` : ''}.`,
+			// eslint-disable-next-line belege/no-german -- a bookkeeping note, German like the Eigenbeleg (#192)
+			'Keine Betriebseinnahme. Ausgleich durch Weiterleitung aufs Privatkonto.'
+		].join(' ');
+	}
 	return [
 		// eslint-disable-next-line belege/no-german -- a bookkeeping note, German like the Eigenbeleg (#192)
 		`Private Zahlung, irrtümlich vom Geschäftskonto bezahlt: ${amount} am ${formatDate(String(tx.bookedOn ?? ''), DOCUMENT_LOCALE)}${what.length ? ` (${what.join(' – ').slice(0, 200)})` : ''}.`,

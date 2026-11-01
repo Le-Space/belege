@@ -1,5 +1,5 @@
 // The DATEV "Buchungsstapel" (EXTF CSV, format 700, category 21, format
-// version 13) that MonkeyOffice and DATEV import. Everything about the
+// version 13) that DATEV and bookkeeping programs import. Everything about the
 // format is in this one module, so an adjustment is one place. Pure.
 //
 // Sources: the field list and order follow the open-source Ruby gem
@@ -21,6 +21,8 @@
 // Two headings are named as in the task that asked for this export
 // ("Basis-Umsatz", "WKZ Basis-Umsatz"; the gem writes "Basisumsatz"). DATEV
 // reads the fields by position, not by heading. See docs/export.md.
+
+import { inert } from './inert.js';
 
 /* eslint-disable belege/no-german -- the DATEV format is German (#192) */
 
@@ -173,7 +175,7 @@ export function text(value, max = 255) {
 		.trim()
 		.slice(0, max)
 		.trim();
-	return s ? `"${s.replace(/"/g, '""')}"` : '';
+	return s ? `"${inert(s).replace(/"/g, '""')}"` : '';
 }
 
 /**

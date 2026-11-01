@@ -1,0 +1,129 @@
+// Which SKR 03 account a travel cost goes on (issue #213, step 6), by its
+// category and the traveller's set:
+//
+//   employee  the managing shareholder of a UG/GmbH is employed by it: travel
+//             costs of employees (4660 …), mileage paid back as such (4668)
+//   owner     a sole proprietor or partner travels as the business itself:
+//             travel costs of the owner (4670 …)
+//
+// An employee travels on the employee set, whatever the legal form (#380);
+// the owner's set follows the legal form in Buchhaltung (booking/settings.js). The
+// numbers are the usual SKR 03 ones, checked against public SKR 03 tables,
+// not DATEV's own chart: suggestions, to be confirmed with the tax adviser,
+// as every account in the catalogue (booking/skr03.js). Pure.
+
+/* eslint-disable belege/no-german -- SKR 03 account names are German by nature (#192) */
+
+import { privateAccounts } from '../booking/settings.js';
+
+/**
+ * @typedef {'fares' | 'accommodation' | 'meals' | 'mileage' | 'incidental' | 'hospitality' | 'hospitalityNonDeductible'} TravelCategory
+ * @typedef {'employee' | 'owner'} TravelSet
+ */
+
+/** @type {Readonly<Record<TravelSet, Record<TravelCategory, { number: string, name: string }>>>} */
+export const TRAVEL_ACCOUNTS = Object.freeze({
+	employee: {
+		fares: { number: '4663', name: 'Reisekosten Arbeitnehmer Fahrtkosten' },
+		accommodation: { number: '4666', name: 'Reisekosten Arbeitnehmer Übernachtungsaufwand' },
+		meals: { number: '4664', name: 'Reisekosten Arbeitnehmer Verpflegungsmehraufwand' },
+		mileage: { number: '4668', name: 'Kilometergelderstattung Arbeitnehmer' },
+		incidental: { number: '4660', name: 'Reisekosten Arbeitnehmer' },
+		hospitality: { number: '4650', name: 'Bewirtungskosten' },
+		hospitalityNonDeductible: { number: '4654', name: 'Nicht abzugsfähige Bewirtungskosten' }
+	},
+	owner: {
+		fares: { number: '4673', name: 'Reisekosten Unternehmer Fahrtkosten' },
+		accommodation: { number: '4676', name: 'Reisekosten Unternehmer Übernachtungsaufwand' },
+		meals: { number: '4674', name: 'Reisekosten Unternehmer Verpflegungsmehraufwand' },
+		mileage: { number: '4673', name: 'Reisekosten Unternehmer Fahrtkosten' },
+		incidental: { number: '4670', name: 'Reisekosten Unternehmer' },
+		hospitality: { number: '4650', name: 'Bewirtungskosten' },
+		hospitalityNonDeductible: { number: '4654', name: 'Nicht abzugsfähige Bewirtungskosten' }
+	}
+});
+
+/**
+ * The set of a traveller: an employee's is the employee set; the owner's
+ * follows the legal form – a UG/GmbH's managing shareholder is employed by
+ * it, anyone else travels as the owner. Not said yet: the owner's.
+ *
+ * @param {{ legalForm?: string }} settings cleaned
+ * @param {{ role?: string } | null} [traveller] none: the owner
+ * @returns {TravelSet}
+ */
+export const travelSet = (settings, traveller = null) =>
+	traveller?.role === 'employee' || settings?.legalForm === 'corporation' ? 'employee' : 'owner';
+
+/**
+ * The set for a receipt: that of the traveller whose trip it is on; the
+ * owner's for one on no trip (a hospitality bill of the month).
+ *
+ * @param {{ legalForm?: string }} settings cleaned
+ * @param {Record<string, any>[]} travel the travel records
+ * @returns {(receipt: Record<string, any>) => TravelSet}
+ */
+export function travelSetOf(settings, travel) {
+	const byId = new Map(travel.map((r) => [String(r.id), r]));
+	return (receipt) => {
+		const trip = byId.get(String(receipt?.travel?.tripId ?? ''));
+		return travelSet(settings, trip ? (byId.get(String(trip.travellerId)) ?? null) : null);
+	};
+}
+
+const FARES = new Set([
+	'train',
+	'bus',
+	'flight',
+	'public_transport',
+	'taxi',
+	'rental_car',
+	'fuel',
+	'parking',
+	'ticket'
+]);
+
+/**
+ * A receipt's category: a fare (fuel and parking too), a hotel, a
+ * hospitality bill, or anything else on a trip (an event's ticket, a
+ * luggage fee).
+ *
+ * @param {Record<string, any>} receipt
+ * @param {string | null} kind its travel kind (view.js travelKind)
+ * @returns {TravelCategory}
+ */
+export function receiptCategory(receipt, kind) {
+	if (receipt.hospitality) return 'hospitality';
+	if (kind === 'hotel') return 'accommodation';
+	if (kind && FARES.has(kind)) return 'fares';
+	return 'incidental';
+}
+
+/** @param {TravelSet} set @param {TravelCategory} category */
+export const travelAccount = (set, category) => TRAVEL_ACCOUNTS[set][category];
+
+/**
+ * The clearing account money to a traveller goes against – an advance
+ * (#381), a statement's payout: an employee's own (#380), none without it;
+ * the owner's own where set, else the one the legal form names for a
+ * private payment (booking/settings.js privateAccounts).
+ *
+ * @param {import('../booking/settings.js').DatevSettings} settings cleaned
+ * @param {Record<string, any>[]} travel the travel records
+ * @returns {(p: { travellerId?: string | null, receiptId?: string | null }) => string | null}
+ *   by the traveller, or by a statement's receipt
+ */
+export function clearingAccountOf(settings, travel) {
+	const byId = new Map(travel.map((r) => [String(r.id), r]));
+	const byReceipt = new Map(
+		travel.filter((r) => r.kind === 'statement' && r.receiptId).map((r) => [String(r.receiptId), r])
+	);
+	const payment = privateAccounts(settings).payment;
+	return ({ travellerId = null, receiptId = null }) => {
+		const id = travellerId ?? byReceipt.get(String(receiptId))?.travellerId ?? null;
+		const traveller = id ? byId.get(String(id)) : null;
+		const own = String(traveller?.clearingAccount ?? '').trim();
+		if (own) return own;
+		return traveller?.role === 'employee' ? null : payment;
+	};
+}

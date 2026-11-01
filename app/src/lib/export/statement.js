@@ -30,11 +30,13 @@ const STANDS_IN = /** @type {Record<string, string>} */ ({
 	'token-burn': 'Burn (Projekt)',
 	'token-migration': 'Migration',
 	'crypto-dust': 'Staub',
+	'token-spam': 'Fake-Token',
 	loan: 'Darlehen',
 	'rule-ignore': 'ignoriert',
 	'rule-private': 'privat',
 	'private-mistake': 'Privat (Irrläufer)',
 	'private-repayment': 'Rückzahlung privat',
+	'outlay-repayment': 'Erstattung Auslagen',
 	'no-receipt': 'ohne Beleg'
 });
 
@@ -62,13 +64,35 @@ const STANDS_IN = /** @type {Record<string, string>} */ ({
  * @property {string} ledger '' when none is set
  * @property {StatementLine[]} lines by date
  * @property {{ inCents: number, outCents: number, netCents: number, quantity: string | null }} totals
- * @property {{ opening: Balance, closing: Balance } | null} balances only when the account knows its balance
+ * @property {Balances | null} balances only when the account knows its balance
+ */
+
+/**
+ * @typedef {object} Balances
+ * @property {Balance} opening
+ * @property {Balance} closing
+ * @property {Reconciliation | null} check whether the bookings lead to the closing
+ *   balance; null where nothing independent can be compared
+ */
+
+/**
+ * @typedef {object} Reconciliation
+ * @property {'ok' | 'open'} status `open`: "nicht abgestimmt"
+ * @property {'month' | 'history'} by `month`: Kraken's start + the month's bookings;
+ *   `history`: every booking of a wallet read in full, from nothing
+ * @property {{ cents: number, units: string | null }} booked the closing balance the bookings give
+ * @property {{ cents: number, units: string | null }} difference closing − booked
  */
 
 /**
  * @typedef {object} Balance
  * @property {number} cents
  * @property {string | null} units crypto only
+ * @property {'kraken' | 'explorer' | 'history' | 'derived'} source `kraken`: Kraken's own
+ *   balance after the ledger entry before it; `explorer`: a wallet explorer's running
+ *   balance; `history`: a wallet's own history summed, where it adds up to the balance
+ *   the source reports (wallets/month-balances.js); `derived`: worked back from the
+ *   account's last balance
  */
 
 /** `2026-09` → `2026-09-30` @param {string} month */
@@ -160,10 +184,17 @@ export function buildStatement({
 }
 
 /**
- * The balance at the start and the end of the month, worked back from the
- * balance the account reported last (`balance`, `balanceOn`, as the Kraken
- * sync keeps them): the end of the month is today's balance minus what was
- * booked after it. Only when that balance is from after the month.
+ * The balance at the start and the end of the month.
+ *
+ * Where the source gives it, from the source (#287): Kraken's ledger carries
+ * the balance after every entry, a wallet's explorer or its own history the
+ * balance after every change, and the sync keeps the month's start and end
+ * (`monthBalances`). Exact, whatever Belege booked or left out.
+ *
+ * Else worked back from the balance the account reported last (`balance`,
+ * `balanceOn`): the end of the month is today's balance minus what was
+ * booked after it. Only when that balance is from after the month, and only
+ * right when every movement since is booked – so it says it is derived.
  *
  * For a crypto account the quantity is exact; its euro value is what the
  * bookings were worth, so it is given for the quantity only. A euro account
@@ -172,9 +203,128 @@ export function buildStatement({
  * @param {Rec} account
  * @param {Rec[]} own the account's live transactions
  * @param {string} month
- * @returns {{ opening: Balance, closing: Balance } | null}
+ * @returns {Balances | null}
  */
 export function balancesOf(account, own, month) {
+	const balances = fromSource(account, own, month) ?? derived(account, own, month);
+	return balances && { ...balances, check: reconcile(account, own, month, balances) };
+}
+
+/**
+ * Reconciled, not trusted in one direction (#287). Two comparisons are
+ * independent of the figure they check:
+ *
+ * - `month`: both of the month's balances are the source's (Kraken, a
+ *   wallet's explorer or history). Start + the month's bookings must give the
+ *   end; a gap is a movement missing in this month.
+ * - `history`: a wallet whose whole history every sync reads (not a pruned
+ *   node's part of it). Its bookings, summed from nothing to the month's end,
+ *   must give the end worked back from today; a gap is a movement missing
+ *   somewhere, or a booking deleted.
+ *
+ * Anything else – a bank account, whose history does not start at nothing –
+ * stays "errechnet", unchecked.
+ *
+ * A euro account books cents of Kraken's four decimals: up to half a cent
+ * per booking may fall away in rounding, and is no gap.
+ *
+ * @param {Rec} account
+ * @param {Rec[]} own
+ * @param {string} month
+ * @param {{ opening: Balance, closing: Balance }} balances
+ * @returns {Reconciliation | null}
+ */
+export function reconcile(account, own, month, { opening, closing }) {
+	const crypto = closing.units !== null;
+	/** @type {Rec[]} */
+	let counted;
+	/** @type {'month' | 'history'} */
+	let by;
+	let start = { cents: 0, units: '0' };
+	if (opening.source !== 'derived' && closing.source !== 'derived') {
+		by = 'month';
+		counted = own.filter((tx) => String(tx.bookedOn ?? '').slice(0, 7) === month);
+		start = { cents: opening.cents, units: opening.units ?? '0' };
+	} else if (
+		closing.source === 'derived' &&
+		account.kind === 'wallet' &&
+		account.fullHistory === true
+	) {
+		by = 'history';
+		const end = lastDay(month);
+		counted = own.filter((tx) => String(tx.bookedOn ?? '') <= end);
+	} else {
+		return null;
+	}
+	if (crypto) {
+		const booked =
+			BigInt(start.units) +
+			counted.reduce((s, tx) => s + (hasQuantity(tx) ? BigInt(tx.quantity) : 0n), 0n);
+		const difference = BigInt(/** @type {string} */ (closing.units)) - booked;
+		return {
+			status: difference === 0n ? 'ok' : 'open',
+			by,
+			booked: { cents: 0, units: booked.toString() },
+			difference: { cents: 0, units: difference.toString() }
+		};
+	}
+	const booked = start.cents + counted.reduce((s, tx) => s + Number(tx.amountCents ?? 0), 0);
+	const difference = closing.cents - booked;
+	return {
+		status: Math.abs(difference) * 2 <= counted.length ? 'ok' : 'open',
+		by,
+		booked: { cents: booked, units: null },
+		difference: { cents: difference, units: null }
+	};
+}
+
+/**
+ * The month's balances as the source gave them (Kraken where none is named);
+ * the start, where the read did not cover the whole month, as the end minus
+ * the month's bookings.
+ *
+ * @param {Rec} account
+ * @param {Rec[]} own
+ * @param {string} month
+ * @returns {{ opening: Balance, closing: Balance } | null}
+ */
+function fromSource(account, own, month) {
+	const known = account.monthBalances?.[month];
+	if (!known || !/^-?\d+$/.test(String(known.closing ?? '')) || !Number.isInteger(account.decimals))
+		return null;
+	const decimals = /** @type {number} */ (account.decimals);
+	const closing = BigInt(known.closing);
+	const during = own.filter((tx) => String(tx.bookedOn ?? '').slice(0, 7) === month);
+	const crypto = Boolean(account.asset && account.asset !== 'EUR');
+	const units = (/** @type {bigint} */ u) => (crypto ? u.toString() : null);
+	const cents = (/** @type {bigint} */ u) => (crypto ? 0 : valueCents(u.toString(), decimals, '1'));
+	/** @type {Balance['source']} */
+	const source = ['explorer', 'history'].includes(known.source) ? known.source : 'kraken';
+	/** @type {Balance} */
+	const end = { cents: cents(closing), units: units(closing), source };
+	if (/^-?\d+$/.test(String(known.opening ?? ''))) {
+		const opening = BigInt(known.opening);
+		return {
+			opening: { cents: cents(opening), units: units(opening), source },
+			closing: end
+		};
+	}
+	if (crypto) {
+		const opening =
+			closing - during.reduce((s, tx) => s + (hasQuantity(tx) ? BigInt(tx.quantity) : 0n), 0n);
+		return { opening: { cents: 0, units: opening.toString(), source: 'derived' }, closing: end };
+	}
+	const opening = end.cents - during.reduce((s, tx) => s + Number(tx.amountCents ?? 0), 0);
+	return { opening: { cents: opening, units: null, source: 'derived' }, closing: end };
+}
+
+/**
+ * @param {Rec} account
+ * @param {Rec[]} own
+ * @param {string} month
+ * @returns {{ opening: Balance, closing: Balance } | null}
+ */
+function derived(account, own, month) {
 	const end = lastDay(month);
 	if (typeof account.balance !== 'string' || !Number.isInteger(account.decimals)) return null;
 	if (!account.balanceOn || String(account.balanceOn) < end) return null;
@@ -194,16 +344,16 @@ export function balancesOf(account, own, month) {
 		const closing = current - sum(after);
 		const opening = closing - sum(during);
 		return {
-			opening: { cents: 0, units: opening.toString() },
-			closing: { cents: 0, units: closing.toString() }
+			opening: { cents: 0, units: opening.toString(), source: 'derived' },
+			closing: { cents: 0, units: closing.toString(), source: 'derived' }
 		};
 	}
 	const sumCents = (/** @type {Rec[]} */ txs) =>
 		txs.reduce((s, tx) => s + Number(tx.amountCents ?? 0), 0);
 	const closing = valueCents(current.toString(), decimals, '1') - sumCents(after);
 	return {
-		opening: { cents: closing - sumCents(during), units: null },
-		closing: { cents: closing, units: null }
+		opening: { cents: closing - sumCents(during), units: null, source: 'derived' },
+		closing: { cents: closing, units: null, source: 'derived' }
 	};
 }
 

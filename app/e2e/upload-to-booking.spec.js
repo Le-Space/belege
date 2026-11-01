@@ -147,6 +147,15 @@ test('upload a receipt onto one booking: portal link, points, contradictions, Ve
 	await expect(portal).toHaveAttribute('target', '_blank');
 	await expect(portal).toHaveAttribute('rel', 'noopener noreferrer');
 
+	// While a receipt is looked for, the upload comes before the list of receipts (#274).
+	expect(
+		await detail.getByTestId('tx-find').evaluate((c) => {
+			const x = c.querySelector('[data-testid="tx-upload"]');
+			const y = c.querySelector('[data-testid="tx-choices"]');
+			return Boolean(x && y && x.compareDocumentPosition(y) & Node.DOCUMENT_POSITION_FOLLOWING);
+		})
+	).toBe(true);
+
 	// Upload onto this booking: stored, read, linked – as the person's decision.
 	await detail
 		.getByTestId('tx-upload-input')

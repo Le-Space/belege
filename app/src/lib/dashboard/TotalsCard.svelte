@@ -111,6 +111,15 @@
 					})}
 				</li>
 			{/if}
+			{#if totals.taxes.count}
+				<li data-testid="totals-taxes">
+					<a class={link} href={href('tax')}>{t('home.totals.taxes')}</a>:
+					{t('home.totals.taxesLine', {
+						paid: money(totals.taxes.paid),
+						refunded: money(totals.taxes.refunded)
+					})}
+				</li>
+			{/if}
 			{#if totals.unpriced}
 				<li data-testid="totals-unpriced">
 					{totals.unpriced === 1

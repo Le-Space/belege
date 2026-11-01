@@ -1,0 +1,345 @@
+<script>
+	// "Privat ausgelegt …" on a receipt (issue #293): the receipt paid
+	// privately – in cash, with a private card – booked on the outlay account
+	// and linked to it (outlays.js). Another currency needs a rate: the ECB's
+	// of the day where the bridge has one, else one from a document (the card
+	// statement, an exchange receipt), entered here. Once booked: what was
+	// booked, and the way back.
+	import { app, currentStore, refreshNow } from '$lib/session.svelte.js';
+	import { cleanDatevSettings } from '$lib/booking/settings.js';
+	import { matchOfReceipt } from '$lib/matching/view.js';
+	import { needsConfirmation } from '$lib/receipts/import.js';
+	import { receiptDate } from '$lib/receipts/view.js';
+	import { formatDate, formatMoney } from '$lib/bank/format.js';
+	import { btn } from '$lib/ui/styles.js';
+	import { t } from '$lib/i18n/index.js';
+	import { HOW, bookOutlay, euroCents, isOutlay, outlayAmount, undoOutlay } from './outlays.js';
+	import { invertRate, isWeak, perEuro } from '$lib/assets/rate-display.js';
+
+	/** @type {{ receipt: Record<string, any>, client: { rate: (asset: string, date: string) => Promise<any> } | null }} */
+	let { receipt, client } = $props();
+
+	let booked = $derived(
+		app.transactions.find(
+			(tx) => isOutlay(tx) && !tx.deleted && tx.outlay?.receiptId === receipt.id
+		) ?? null
+	);
+	let amount = $derived(outlayAmount(receipt));
+	let offered = $derived(
+		!booked &&
+			Boolean(amount) &&
+			!matchOfReceipt(receipt.id, app.matches) &&
+			!needsConfirmation(receipt) &&
+			receipt.status !== 'ignoriert'
+	);
+
+	let open = $state(false);
+	/** @type {'cash' | 'card' | 'other'} */
+	let how = $state('cash');
+	let day = $state('');
+	/** EUR per unit, at full precision: what is booked. */
+	let rate = $state('');
+	/** What the field shows and the person types: EUR per unit, or units per euro (#312). */
+	let typed = $state('');
+	let perEuroMode = $state(false);
+	/** The sources the form offers a rate from (bridge/src/rates.js). */
+	const OFFERED = new Set(['ecb', 'cbr', 'nbk', 'cbr-cross']);
+	/** @type {'ecb' | 'cbr' | 'nbk' | 'cbr-cross' | 'manual'} */
+	let rateSource = $state('manual');
+	let rateAt = $state('');
+	let rateNote = $state('');
+	let note = $state('');
+	let asking = $state(false);
+	let noEcb = $state(false);
+	let busy = $state(false);
+	/** @type {string | null} */
+	let error = $state(null);
+
+	// A new receipt: the form closed and empty. By its id only: the same receipt
+	// written again in the background (a refresh after the matching, say) is a
+	// new object, and must not close the form while a rate is being typed.
+	let receiptId = $derived(String(receipt.id));
+	$effect(() => {
+		void receiptId;
+		open = false;
+		error = null;
+	});
+
+	let foreign = $derived(Boolean(amount && amount.currency !== 'EUR'));
+	let rateValue = $derived(rate);
+	/** A decimal as typed, either mark: `91,5655` → `91.5655`. @param {string} s */
+	const plain = (s) => s.trim().replace(',', '.');
+	/** Show the booked rate the way the field is set. @param {string} r */
+	const show = (r) => (perEuroMode ? (perEuro(r) ?? '') : r).replace('.', ',');
+
+	/** @param {string} value */
+	function typeRate(value) {
+		typed = value;
+		rateSource = 'manual';
+		const v = plain(value);
+		rate = perEuroMode ? (/^\d+(\.\d+)?$/.test(v) ? (invertRate(v) ?? '') : '') : v;
+	}
+
+	function turnRate() {
+		perEuroMode = !perEuroMode;
+		typed = rate ? show(rate) : '';
+	}
+	let euros = $derived.by(() => {
+		if (!amount) return null;
+		if (!foreign) return amount.amountCents;
+		try {
+			return euroCents(amount.amountCents, rateValue);
+		} catch {
+			return null;
+		}
+	});
+
+	async function start() {
+		open = true;
+		error = null;
+		day = receiptDate(/** @type {any} */ (receipt)) ?? '';
+		rate = '';
+		typed = '';
+		perEuroMode = Boolean(amount && isWeak(amount.currency));
+		rateSource = 'manual';
+		rateAt = '';
+		noEcb = false;
+		if (foreign) await askEcb();
+	}
+
+	async function askEcb() {
+		if (!client || !amount || !/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+			noEcb = true;
+			return;
+		}
+		asking = true;
+		try {
+			const r = await client.rate(amount.currency, day);
+			// A reference rate only: the ECB's, a central bank's where it has none,
+			// else a cross rate through the ruble, named as such (#325).
+			if (OFFERED.has(r?.source) && Number(r.rate) > 0) {
+				rate = String(r.rate);
+				perEuroMode = isWeak(amount.currency, rate);
+				typed = show(rate);
+				rateSource = r.source;
+				rateAt = String(r.at ?? '');
+				noEcb = false;
+			} else noEcb = true;
+		} catch {
+			noEcb = true;
+		} finally {
+			asking = false;
+		}
+	}
+
+	async function book() {
+		/** @type {any} */
+		const store = currentStore();
+		if (!store) return;
+		busy = true;
+		error = null;
+		try {
+			await bookOutlay({
+				store,
+				settings: cleanDatevSettings(app.datevSettings),
+				receipt: $state.snapshot(receipt),
+				how,
+				day,
+				rate: foreign
+					? {
+							rate: rateValue,
+							source: rateSource,
+							...(rateSource !== 'manual' && rateAt ? { at: rateAt } : {}),
+							...(rateSource === 'manual' && rateNote.trim() ? { note: rateNote.trim() } : {})
+						}
+					: null,
+				note
+			});
+			open = false;
+			await refreshNow();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function undo() {
+		/** @type {any} */
+		const store = currentStore();
+		if (!store || !booked) return;
+		busy = true;
+		error = null;
+		try {
+			await undoOutlay(store, booked.id);
+			await refreshNow();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			busy = false;
+		}
+	}
+
+	const field = 'mt-1 rounded-md border border-border bg-surface px-2 py-1 text-sm text-heading';
+</script>
+
+{#if booked}
+	<div class="mt-3 border-t border-border pt-3 text-sm" data-testid="outlay-booked">
+		<p class="text-heading">
+			{t('belege.outlay.booked', {
+				date: formatDate(booked.bookedOn),
+				how: t(`belege.outlay.how.${booked.outlay?.how ?? 'other'}`),
+				amount: formatMoney(Math.abs(booked.amountCents ?? 0), 'EUR')
+			})}
+		</p>
+		{#if booked.original}
+			<p class="text-xs text-faint" data-testid="outlay-booked-rate">
+				{isWeak(booked.original.currency, booked.original.rate)
+					? t('belege.outlay.bookedRatePerEuro', {
+							original: booked.original.amount.replace('-', ''),
+							currency: booked.original.currency,
+							rate: (perEuro(booked.original.rate) ?? '').replace('.', ','),
+							source: t(`belege.outlay.rateSource.${booked.outlay?.rateSource ?? 'manual'}`)
+						})
+					: t('belege.outlay.bookedRate', {
+							original: booked.original.amount.replace('-', ''),
+							currency: booked.original.currency,
+							rate: booked.original.rate,
+							source: t(`belege.outlay.rateSource.${booked.outlay?.rateSource ?? 'manual'}`)
+						})}{booked.outlay?.rateNote ? ` · ${booked.outlay.rateNote}` : ''}
+			</p>
+		{/if}
+		<button
+			type="button"
+			class="mt-1 {btn.link}"
+			onclick={undo}
+			disabled={busy}
+			data-testid="outlay-undo">{t('belege.outlay.undo')}</button
+		>
+		{#if error}<p class="text-danger" role="alert">{error}</p>{/if}
+	</div>
+{:else if offered}
+	<div class="mt-3 border-t border-border pt-3 text-sm" data-testid="outlay">
+		{#if !open}
+			<button type="button" class={btn.secondary} onclick={start} data-testid="outlay-open"
+				>{t('belege.outlay.open')}</button
+			>
+			<p class="mt-1 text-xs text-faint">{t('belege.outlay.hint')}</p>
+		{:else}
+			<form
+				class="flex flex-col gap-2"
+				onsubmit={(e) => {
+					e.preventDefault();
+					void book();
+				}}
+				data-testid="outlay-form"
+			>
+				<label class="text-text"
+					>{t('belege.outlay.howLabel')}
+					<select class="ml-2 {field}" bind:value={how} data-testid="outlay-how">
+						{#each HOW as h (h)}
+							<option value={h}>{t(`belege.outlay.how.${h}`)}</option>
+						{/each}
+					</select>
+				</label>
+				<label class="text-text"
+					>{t('belege.outlay.day')}
+					<input
+						type="date"
+						class="ml-2 {field}"
+						bind:value={day}
+						onchange={() => foreign && rateSource !== 'manual' && askEcb()}
+						data-testid="outlay-day"
+					/>
+				</label>
+				{#if amount}
+					<p class="text-text" data-testid="outlay-amount">
+						{t('belege.outlay.amount', {
+							amount: formatMoney(amount.amountCents, amount.currency)
+						})}
+					</p>
+				{/if}
+				{#if foreign && amount}
+					<label class="text-text"
+						>{perEuroMode
+							? t('belege.outlay.ratePerEuro', { currency: amount.currency })
+							: t('belege.outlay.rate', { currency: amount.currency })}
+						<input
+							class="ml-2 w-32 {field}"
+							inputmode="decimal"
+							value={typed}
+							oninput={(e) => typeRate(e.currentTarget.value)}
+							placeholder={perEuroMode ? '91,57' : '0,0105'}
+							data-testid="outlay-rate"
+						/>
+					</label>
+					<p class="text-xs text-faint" data-testid="outlay-rate-other">
+						{#if rate}{perEuroMode
+								? t('belege.outlay.rateOther', {
+										value: rate.replace('.', ','),
+										unit: `EUR je 1 ${amount.currency}`
+									})
+								: t('belege.outlay.rateOther', {
+										value: (perEuro(rate) ?? '').replace('.', ','),
+										unit: `${amount.currency} je 1 EUR`
+									})}{/if}
+						<button
+							type="button"
+							class="ml-1 underline"
+							onclick={turnRate}
+							data-testid="outlay-rate-turn"
+							>{perEuroMode
+								? t('belege.outlay.rateTurnToUnit', { currency: amount.currency })
+								: t('belege.outlay.rateTurnToEuro', { currency: amount.currency })}</button
+						>
+					</p>
+					{#if asking}
+						<p class="text-xs text-faint">{t('belege.outlay.asking')}</p>
+					{:else if rateSource !== 'manual'}
+						<p class="text-xs text-faint" data-testid="outlay-rate-ecb">
+							{t(`belege.outlay.${rateSource}`, {
+								date: formatDate(String(rateAt || day).slice(0, 10))
+							})}
+						</p>
+					{:else}
+						{#if noEcb}
+							<p class="text-xs text-text" data-testid="outlay-no-ecb">
+								{t('belege.outlay.noEcb', { currency: amount.currency })}
+							</p>
+						{/if}
+						<label class="text-xs text-text"
+							>{t('belege.outlay.rateNote')}
+							<input
+								class="mt-1 block w-full {field}"
+								bind:value={rateNote}
+								placeholder={t('belege.outlay.rateNotePlaceholder')}
+								data-testid="outlay-rate-note"
+							/>
+						</label>
+					{/if}
+				{/if}
+				<label class="text-xs text-text"
+					>{t('belege.outlay.note')}
+					<input class="mt-1 block w-full {field}" bind:value={note} data-testid="outlay-note" />
+				</label>
+				<p class="text-heading" data-testid="outlay-euros">
+					{euros === null
+						? t('belege.outlay.needsRate')
+						: t('belege.outlay.euros', { amount: formatMoney(euros, 'EUR') })}
+				</p>
+				<div class="flex gap-2">
+					<button
+						type="submit"
+						class={btn.primary}
+						disabled={busy || euros === null || !day}
+						data-testid="outlay-book">{t('belege.outlay.book')}</button
+					>
+					<button type="button" class={btn.link} onclick={() => (open = false)}
+						>{t('belege.outlay.cancel')}</button
+					>
+				</div>
+				{#if error}<p class="text-danger" role="alert" data-testid="outlay-error">{error}</p>{/if}
+			</form>
+		{/if}
+	</div>
+{/if}

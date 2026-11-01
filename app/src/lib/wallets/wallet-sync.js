@@ -29,6 +29,7 @@ import { toUnits } from '../assets/quantity.js';
 import { tradeRate, valuedFields } from '../assets/valuation.js';
 import { assetOf } from '../assets/registry.js';
 import { crossSwapOf } from './cross-swap.js';
+import { explorerMonthBalances, historyMonthBalances } from './month-balances.js';
 import { getSetting, setSetting } from '../store/settings.js';
 import { normalizeAddress, safeExplorerUrl, walletAccountName, walletChain } from './chains.js';
 import { isAccountNumber } from '../booking/skr03.js';
@@ -135,6 +136,9 @@ export function describeWalletEntry(e) {
 	}
 	if (e.kind === 'reward')
 		return { label: 'Staking-Ertrag', movement: /** @type {const} */ ('reward') };
+	// Stored in the books, like the labels above (see the follow-up on #192).
+	if (e.kind === 'mining')
+		return { label: 'Mining-Ertrag', movement: /** @type {const} */ ('reward') };
 	if (e.kind === 'stake') {
 		return {
 			// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
@@ -168,8 +172,13 @@ const deDecimal = (amount) => {
 export function swapText(swap) {
 	const side = (/** @type {{ asset: string, amount: string, listed: boolean }[]} */ list) =>
 		list
-			// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
-			.map((x) => `${deDecimal(x.amount)} ${x.asset}${x.listed ? '' : ' (nicht gelistet)'}`)
+			// No amount: the chain gave it in events only (ACT minted by Akash BME, #303).
+			.map((x) =>
+				x.amount
+					? // eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
+						`${deDecimal(x.amount)} ${x.asset}${x.listed ? '' : ' (nicht gelistet)'}`
+					: `${x.asset} (Menge unbekannt)`
+			)
 			.join(' + ');
 	const via = swap.via ? ` über ${swap.via}` : '';
 	const gas = swap.fee ? ` · Gas ${deDecimal(swap.fee.amount)} ${swap.fee.asset}` : '';
@@ -616,11 +625,67 @@ async function saveWallet(settings, wallet) {
 export async function syncWallet({ client, store, wallet, now = new Date() }) {
 	const chain = walletChain(wallet.chain);
 	if (!chain) throw new Error(`Unbekannte Chain: ${wallet.chain}`);
-	const today = now.toISOString().slice(0, 10);
+	const hashes =
+		chain.kind === 'cosmos' ? exchangeWithdrawalHashes(await store.transactions.list(), chain) : [];
 	const result = await client.walletHistory(chain.id, {
 		address: wallet.address,
-		endpoints: wallet.endpoints ?? {}
+		endpoints: wallet.endpoints ?? {},
+		...(hashes.length ? { hashes } : {})
 	});
+	return bookWalletHistory({ client, store, wallet, result, now });
+}
+
+/**
+ * The on-chain hashes of exchange withdrawals in a chain's native asset that
+ * no wallet booking of that chain has yet (#303): the bridge asks the chain's
+ * indexer for them by hash, where the address's own listing leaves one out –
+ * the first funding of a wallet from Kraken, say. Which wallet received it,
+ * the indexer's answer says; a hash that is not this wallet's books nothing.
+ *
+ * @param {Record<string, any>[]} transactions
+ * @param {import('./chains.js').WalletChain} chain
+ * @returns {string[]}
+ */
+export function exchangeWithdrawalHashes(transactions, chain) {
+	const booked = new Set(
+		transactions
+			.filter((t) => !t.deleted && t.source === chain.id && t.txRef)
+			.map((t) => String(t.txRef).toUpperCase())
+	);
+	return [
+		...new Set(
+			transactions
+				.filter(
+					(t) =>
+						!t.deleted &&
+						t.source === 'kraken' &&
+						t.asset === chain.nativeSymbol &&
+						Number(t.amountCents ?? 0) < 0 &&
+						/^[0-9a-f]{64}$/i.test(String(t.chainTxRef ?? ''))
+				)
+				.map((t) => String(t.chainTxRef).toUpperCase())
+				.filter((h) => !booked.has(h))
+		)
+	].slice(0, 100);
+}
+
+/**
+ * A wallet's history into the books, wherever it came from: the bridge
+ * (`syncWallet`) or the wallet's own export (Monero, monero-import.js). Every
+ * entry valued at its day's rate, one account per asset, the known ones
+ * skipped.
+ *
+ * @param {object} params
+ * @param {{ rate: (asset: string, date: string, options?: any) => Promise<any> }} params.client the bridge, for the rates
+ * @param {any} params.store
+ * @param {Wallet} params.wallet
+ * @param {Pick<import('../bridge/client.js').WalletHistory, 'entries' | 'balances'> & Partial<Omit<import('../bridge/client.js').WalletHistory, 'source'>> & { addressUrl?: string, source?: string }} params.result
+ * @param {Date} [params.now]
+ */
+export async function bookWalletHistory({ client, store, wallet, result, now = new Date() }) {
+	const chain = walletChain(wallet.chain);
+	if (!chain) throw new Error(`Unbekannte Chain: ${wallet.chain}`);
+	const today = now.toISOString().slice(0, 10);
 	const { byAsset, unpriced } = await walletTransactions(
 		result.entries,
 		(asset, date, contract, at) =>
@@ -647,6 +712,11 @@ export async function syncWallet({ client, store, wallet, now = new Date() }) {
 		}
 	}
 
+	// The whole history was read (not a pruned node's part of it): its
+	// bookings, summed from nothing, must give the balance (#287).
+	const fullHistory = !(result.history?.pruned && result.history?.completedBy !== 'indexer');
+	const thisMonth = today.slice(0, 7);
+
 	const totals = { new: 0, updated: 0, skipped: 0 };
 	/** @type {{ accountId: string, name: string, asset: string, counts: typeof totals }[]} */
 	const perAccount = [];
@@ -664,7 +734,8 @@ export async function syncWallet({ client, store, wallet, now = new Date() }) {
 		});
 		const stored = await store.transactions.list({
 			includeDeleted: true,
-			where: (r) => r.accountId === record.id && r.source === chain.id
+			where: (/** @type {Record<string, any>} */ r) =>
+				r.accountId === record.id && r.source === chain.id
 		});
 		const counts = await importTransactions({
 			transactions: store.transactions,
@@ -681,6 +752,16 @@ export async function syncWallet({ client, store, wallet, now = new Date() }) {
 			lastSyncedOn: today,
 			balance: info.balance,
 			balanceOn: info.balance === null ? null : today,
+			fullHistory,
+			// The month's opening and closing as the source has them (#287, step
+			// 3; month-balances.js): the explorer's running balance first, else
+			// the source's own history where it adds up to today's balance.
+			// Worked out again on every sync; none where neither is known.
+			monthBalances:
+				explorerMonthBalances(result.balanceHistory, asset, thisMonth) ??
+				(fullHistory
+					? historyMonthBalances(result.entries, asset, info.decimals, info.balance, thisMonth)
+					: null),
 			...(info.contract ? { tokenContract: info.contract } : {})
 		});
 		totals.new += counts.new;
@@ -706,8 +787,8 @@ export async function syncWallet({ client, store, wallet, now = new Date() }) {
 		totals,
 		perAccount,
 		unpriced,
-		unknownAssets: result.unknownAssets,
-		history: result.history,
-		endpoints: result.endpoints
+		unknownAssets: result.unknownAssets ?? 0,
+		history: result.history ?? { earliestHeight: 0, earliestTime: null, pruned: false },
+		endpoints: result.endpoints ?? {}
 	};
 }

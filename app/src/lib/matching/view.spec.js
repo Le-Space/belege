@@ -2,24 +2,25 @@ import { describe, expect, it } from 'vitest';
 
 import { receipt, tx } from './fixtures.js';
 import {
+	activeMatchesByReceipt,
+	assistCandidates,
+	assistEmptyReason,
 	coverageBadge,
-	hitCriteria,
-	isTxCovered,
-	matchOfReceipt,
-	matchesOfTx,
-	otherPayments,
 	cryptoEvidence,
 	cryptoSearchTerms,
+	hitCriteria,
+	hitScore,
+	isTxCovered,
+	likelyHit,
+	matchOfReceipt,
+	matchesOfTx,
 	memoOf,
+	otherPayments,
+	ownNameCandidate,
 	privateSearchQuery,
 	quantitySpellings,
 	questionProgress,
 	rankHits,
-	ownNameCandidate,
-	assistCandidates,
-	assistEmptyReason,
-	hitScore,
-	likelyHit,
 	receiptChoices,
 	searchAmount
 } from './view.js';
@@ -132,6 +133,58 @@ describe('private mailbox search for a crypto payment', () => {
 });
 
 describe('private mailbox search', () => {
+	it('never searches for ourselves or a payment service: the purpose’s word instead (#231)', () => {
+		const own = { ownNames: ['Beispiel UG', 'Erika Mustermann'] };
+		const q = (/** @type {Record<string, any>} */ fields) =>
+			privateSearchQuery(tx({ bookedOn: '2026-08-22', amountCents: -17060, ...fields }), [], own);
+		// The owner as counterparty: a card payment the bank names the holder for.
+		expect(
+			q({
+				counterparty: 'ERIKA MUSTERMANN',
+				purpose: 'Kartenzahlung VISA Wolkenfabrik Berlin 4711'
+			})
+		).toMatchObject({ text: 'Wolkenfabrik', textFrom: 'purpose', amount: '170,60' });
+		// The company itself.
+		expect(q({ counterparty: 'Beispiel UG', purpose: 'Stromwerk Abschlag 09/2026' })).toMatchObject(
+			{
+				text: 'Stromwerk',
+				textFrom: 'purpose'
+			}
+		);
+		// A payment service: the merchant after its star, in the purpose or in the counterparty.
+		expect(
+			q({ counterparty: 'PayPal Europe S.a.r.l.', purpose: 'PAYPAL *WOLKENFABRIK 1234' })
+		).toMatchObject({
+			text: 'WOLKENFABRIK',
+			textFrom: 'purpose'
+		});
+		expect(q({ counterparty: 'PAYPAL *STROMWERK 4029', purpose: '' })).toMatchObject({
+			text: 'STROMWERK',
+			textFrom: 'counterparty'
+		});
+		// Own names in the purpose are passed over too.
+		expect(
+			q({
+				counterparty: 'Erika Mustermann',
+				purpose: 'Erika Mustermann Lastschrift SEPA Bürobedarf'
+			})
+		).toMatchObject({ text: 'Bürobedarf' });
+		// Nothing telling: the amount alone.
+		expect(
+			q({ counterparty: 'Erika Mustermann', purpose: 'SEPA Lastschrift 2026-08-22' })
+		).toMatchObject({
+			text: null,
+			textFrom: null,
+			amount: '170,60'
+		});
+		// Without own names known, the counterparty's word as before.
+		expect(
+			privateSearchQuery(
+				tx({ bookedOn: '2026-08-22', amountCents: -100, counterparty: 'Erika Mustermann' })
+			).text
+		).toBe('Erika');
+	});
+
 	it('asks for the counterparty’s telling word, the amount and ± 14 days', () => {
 		expect(
 			privateSearchQuery(
@@ -139,6 +192,7 @@ describe('private mailbox search', () => {
 			)
 		).toEqual({
 			text: 'Stromwerk',
+			textFrom: 'counterparty',
 			amount: '52,59',
 			from: [],
 			terms: [],
@@ -440,5 +494,20 @@ describe('crypto payments: only receipts that name the payment', () => {
 		);
 		const matches = [{ id: 'M1', receiptId: 'R-ORIG', transactionId: 'OTHER', state: 'confirmed' }];
 		expect(receiptChoices(bank, [original, copy], matches).map((c) => c.receipt.id)).toEqual([]);
+	});
+});
+
+describe('activeMatchesByReceipt', () => {
+	it('each receipt’s active matches in their order, as matchOfReceipt finds the first', () => {
+		const matches = [
+			{ id: 'm1', receiptId: 'R1', transactionId: 'T1', state: 'rejected' },
+			{ id: 'm2', receiptId: 'R1', transactionId: 'T2', state: 'confirmed' },
+			{ id: 'm3', receiptId: 'R1', transactionId: 'T3', state: 'confirmed' },
+			{ id: 'm4', receiptId: 'R2', transactionId: 'T4', state: 'suggested', deleted: true }
+		];
+		const byReceipt = activeMatchesByReceipt(matches);
+		expect(byReceipt.get('R1')?.map((m) => m.id)).toEqual(['m2', 'm3']);
+		expect(byReceipt.has('R2')).toBe(false);
+		expect(byReceipt.get('R1')?.[0]).toBe(matchOfReceipt('R1', matches));
 	});
 });

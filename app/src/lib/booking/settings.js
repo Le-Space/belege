@@ -3,7 +3,7 @@
 // and client number, start of the fiscal year, length of the ledger
 // accounts) and the BU keys the tax-key suggestion uses (tax-keys.js).
 //
-// The ledger account of each bank account ("Sachkonto in MonkeyOffice") lives
+// The ledger account of each bank account ("Sachkonto" in the bookkeeping) lives
 // on its `accounts` record as `ledgerAccount`, so a new bank account starts
 // without one. Pure.
 
@@ -28,7 +28,11 @@ import { isAccountNumber } from './skr03.js';
  * @property {LegalForm} legalForm how private payments are booked (issue #172); '' not said yet
  * @property {string} shareholderAccount a UG/GmbH's shareholder clearing account, '' until set
  * @property {'month' | 'quarter'} vatPeriod how the VAT figures are grouped (issue #195)
+ * @property {string} ownVatId our own USt-IdNr (DE…), '' until set: tells our own invoices among the receipts (#354)
+ * @property {'ist' | 'soll'} vatBasis when output VAT counts: when paid (Ist, the default) or on the invoice date (Soll)
  * @property {boolean} smallBusiness Kleinunternehmer (§19 UStG): no VAT charged, none deducted
+ * @property {string} suspenseAccount where bookings without a confirmed account may go in the
+ *   export (#323), '' until set; Belege suggests none – it is the tax adviser's to name
  */
 
 /**
@@ -79,8 +83,11 @@ export function defaultDatevSettings() {
 		legalForm: /** @type {LegalForm} */ (''),
 		shareholderAccount: '',
 		vatPeriod: /** @type {'month' | 'quarter'} */ ('quarter'),
+		vatBasis: /** @type {'ist' | 'soll'} */ ('ist'),
+		ownVatId: '',
 		smallBusiness: false,
-		// A number MonkeyOffice accepts for a company of its own; check what it expects.
+		suspenseAccount: '',
+		// The usual numbers for a company doing its own books; check what the bookkeeping expects.
 		consultantNumber: '1001',
 		clientNumber: '1',
 		fiscalYearStartMonth: 1,
@@ -122,7 +129,18 @@ export function cleanDatevSettings(value) {
 			? String(value.shareholderAccount).trim()
 			: '',
 		vatPeriod: value?.vatPeriod === 'month' ? 'month' : 'quarter',
+		vatBasis: value?.vatBasis === 'soll' ? 'soll' : 'ist',
+		ownVatId: (() => {
+			const id = String(value?.ownVatId ?? '')
+				.replace(/[\s.-]+/g, '')
+				.toUpperCase();
+			// Two letters for the country, then at least one digit: a word is no VAT ID.
+			return /^[A-Z]{2}(?=[A-Z0-9]*\d)[A-Z0-9]{2,13}$/.test(id) ? id : '';
+		})(),
 		smallBusiness: value?.smallBusiness === true,
+		suspenseAccount: /^\d{4,8}$/.test(String(value?.suspenseAccount ?? '').trim())
+			? String(value.suspenseAccount).trim()
+			: '',
 		consultantNumber: String(int(value?.consultantNumber, 1001, 9999999, 1001)),
 		clientNumber: String(int(value?.clientNumber, 1, 99999, 1)),
 		fiscalYearStartMonth: int(value?.fiscalYearStartMonth, 1, 12, d.fiscalYearStartMonth),

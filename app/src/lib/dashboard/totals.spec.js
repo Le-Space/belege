@@ -97,6 +97,25 @@ describe('income and expenses of a year (#194)', () => {
 		expect(flowKey(loanIn, { kind: 'loan' })).toBe('loan');
 	});
 
+	it('taxes to the tax office have their own line; wages, wage tax and contributions are expenses (#233)', () => {
+		const vat = tx(-300_00);
+		const refund = tx(40_00);
+		const wage = tx(-533_54);
+		const wageTax = tx(-48_36);
+		const social = tx(-120_00);
+		const t = yearTotals([vat, refund, wage, wageTax, social], {
+			[vat.id]: { kind: 'tax-payment', tax: 'vat' },
+			[refund.id]: { kind: 'tax-payment', tax: 'vat' },
+			[wage.id]: { kind: 'wage' },
+			[wageTax.id]: { kind: 'payroll-tax', tax: 'wage-tax' },
+			[social.id]: { kind: 'social-security' }
+		});
+		expect(t.taxes).toEqual({ paid: 300_00, refunded: 40_00, count: 2 });
+		expect(t.bank.expenses).toBe(533_54 + 48_36 + 120_00);
+		expect(t.bank.income).toBe(0);
+		expect(flowKey(vat, { kind: 'tax-payment' })).toBe('tax');
+	});
+
 	it('a crypto booking without a rate is counted, not summed', () => {
 		const unpriced = tx(0, { source: 'ethereum', rateMissing: { reason: 'x' }, quantity: '5' });
 		const priced = tx(-20_00, { source: 'ethereum' });

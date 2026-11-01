@@ -65,3 +65,33 @@ export function isDust(tx) {
 		BigInt(tx.quantity) > 0n
 	);
 }
+
+/**
+ * A token's symbol as no real token writes it: whitespace, invisible
+ * characters, or letters from another script that look like Latin ones
+ * ("U⁯S⁯DΤ" with a Greek tau, "USDꓚ" with a Lisu letter). Only ASCII from
+ * `!` to `~` passes.
+ *
+ * @param {unknown} symbol
+ */
+export const oddSymbol = (symbol) => /[^\x21-\x7E]/.test(String(symbol ?? ''));
+
+/**
+ * A fake token's transfer on an own wallet (address poisoning): a token
+ * without any rate that someone else "moved" out of this wallet – a token
+ * contract can log a Transfer from any address without its key, and a real
+ * token leaves only with this wallet's own transaction or an approval – or
+ * one whose symbol imitates a real token's. Needs no receipt; the address it
+ * names was put there to be copied.
+ *
+ * @param {Record<string, any>} tx
+ */
+export function isSpoofedToken(tx) {
+	return (
+		walletChain(tx.source) !== null &&
+		tx.movement === 'transfer' &&
+		Boolean(tx.rateMissing) &&
+		((Boolean(tx.movedByOther) && Number(tx.amountCents ?? 0) <= 0) ||
+			oddSymbol(tx.asset ?? tx.crypto?.asset))
+	);
+}

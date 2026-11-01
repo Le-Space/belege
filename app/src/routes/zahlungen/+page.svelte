@@ -5,7 +5,10 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import TransactionDetail from '$lib/TransactionDetail.svelte';
-	import { app, currentStore } from '$lib/session.svelte.js';
+	import ReceiptPeek from '$lib/ReceiptPeek.svelte';
+	import { canPeek, createPeek, peekHandlers } from '$lib/receipts/peek.js';
+	import { receiptLine, receiptVendor } from '$lib/receipts/view.js';
+	import { app, currentStore, refreshNow, runMatchingNow } from '$lib/session.svelte.js';
 	import { t } from '$lib/i18n/index.js';
 	import {
 		accountLabel,
@@ -17,7 +20,7 @@
 		matchesSearch,
 		monthSummaries
 	} from '$lib/bank/format.js';
-	import { coverageBadge, isTxCovered } from '$lib/matching/view.js';
+	import { coverageBadge, isTxCovered, matchesOfTx } from '$lib/matching/view.js';
 	import { cleanMatchingSettings } from '$lib/matching/classify.js';
 	import { graceWait, localDay } from '$lib/matching/grace.js';
 	import { isBookingConfirmed } from '$lib/booking/suggest.js';
@@ -25,6 +28,14 @@
 	import { FLOW_KEYS, flowKey } from '$lib/dashboard/totals.js';
 	import { relatedIndex } from '$lib/matching/related.js';
 	import { tradeArrow, tradeSides, tradeSideWhat } from '$lib/exchanges/trades.js';
+	import {
+		removeTestBookings,
+		TEST_ACCOUNT,
+		TEST_COUNTERPARTY,
+		TEST_PURPOSE,
+		testBookings
+	} from '$lib/sample/test-bookings.js';
+	import { upsertAccount } from '$lib/bank/import.js';
 
 	/** @typedef {{ id: string, bookedOn: string, counterparty?: string, purpose?: string, amountCents?: number, currency?: string, accountId?: string, source?: string, receiptId?: string | null, noReceipt?: any, booking?: any, importChange?: any }} Tx */
 
@@ -133,7 +144,8 @@
 		'rule-ignore': 'border-border bg-surface-2 text-faint',
 		'rule-private': 'border-border bg-surface-2 text-faint',
 		'private-mistake': 'border-warning/40 bg-surface-2 text-warning',
-		'private-repayment': 'border-border bg-surface-2 text-text'
+		'private-repayment': 'border-border bg-surface-2 text-text',
+		'outlay-repayment': 'border-border bg-surface-2 text-text'
 	};
 
 	/** @param {Tx} tx */
@@ -141,20 +153,81 @@
 		const account = tx.accountId ? accountsById.get(tx.accountId) : null;
 		if (!account) return tx.source === 'camt' ? 'CAMT' : '';
 		if (account.source === 'kraken' || isWalletSource(account.source)) return account.name;
-		return `${account.source === 'camt' ? 'CAMT' : 'Hibiscus'} ···${account.ibanLast4}`;
+		// By the booking's own source: a statement file's account continued through Enable Banking has both.
+		const via =
+			account.source === 'test'
+				? 'Test'
+				: tx.source === 'enablebanking'
+					? 'Enable Banking'
+					: account.source === 'camt'
+						? 'CAMT'
+						: 'Hibiscus';
+		return `${via} ···${account.ibanLast4}`;
 	}
 
 	// Only in development and in the E2E build.
 	const showTestButton = import.meta.env.DEV || import.meta.env.VITE_E2E === 'true';
 
 	async function addTestTransaction() {
-		await currentStore()?.transactions.put({
+		const store = currentStore();
+		if (!store) return;
+		// On the Testkonto, so it can be exported on request (sample/test-bookings.js).
+		const account = await upsertAccount(store.accounts, { ...TEST_ACCOUNT });
+		if (!account.testAccount) await store.accounts.put({ ...account, testAccount: true });
+		await store.transactions.put({
+			accountId: account.id,
+			source: TEST_ACCOUNT.source,
 			bookedOn: new Date().toISOString().slice(0, 10),
-			counterparty: 'Testpartner GmbH',
-			purpose: 'Testbuchung',
-			amountCents: -1999
+			counterparty: TEST_COUNTERPARTY,
+			purpose: TEST_PURPOSE,
+			amountCents: -1999,
+			// Marked, so "Testbuchungen entfernen" finds it (sample/test-bookings.js).
+			testBooking: true
 		});
 	}
+
+	// Test bookings in the books – shown in every build, so real books get rid of them.
+	let tests = $derived(testBookings(app.transactions));
+	let removingTests = $state(false);
+	async function removeTests() {
+		const store = currentStore();
+		if (!store) return;
+		removingTests = true;
+		try {
+			await removeTestBookings(/** @type {any} */ (store));
+			await refreshNow();
+			await runMatchingNow();
+		} finally {
+			removingTests = false;
+		}
+	}
+
+	// Hovering a payment shows the receipt linked to it, with its lens (#273):
+	// the first one that can be shown, and how many more there are.
+	let linkedByTx = $derived.by(() => {
+		const receipts = new Map(app.receipts.map((r) => [r.id, r]));
+		return new Map(
+			app.transactions.flatMap((tx) => {
+				const shown = matchesOfTx(tx.id, app.matches)
+					.map((m) => receipts.get(m.receiptId))
+					.filter((r) => r && canPeek(r));
+				return shown.length
+					? [
+							[
+								tx.id,
+								{ receipt: /** @type {Record<string, any>} */ (shown[0]), more: shown.length - 1 }
+							]
+						]
+					: [];
+			})
+		);
+	});
+	/** @type {{ receipt: Record<string, any>, anchor: HTMLElement } | null} */
+	let peeked = $state(null);
+	const peek = createPeek({
+		onchange: (v) =>
+			(peeked = /** @type {{ receipt: Record<string, any>, anchor: HTMLElement } | null} */ (v))
+	});
 </script>
 
 <div class="flex flex-wrap items-center justify-between gap-4">
@@ -168,6 +241,27 @@
 		>
 	{/if}
 </div>
+
+{#if tests.length}
+	<div
+		class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
+		role="status"
+		data-testid="test-bookings-banner"
+	>
+		<span
+			><span class="font-semibold">{t('zahlungen.tests.title', { count: tests.length })}</span>
+			{t('zahlungen.tests.what')}</span
+		>
+		<button
+			type="button"
+			class="min-h-11 rounded-md border border-amber-400 px-3 font-medium hover:bg-amber-100 disabled:opacity-50 dark:border-amber-600 dark:hover:bg-amber-900"
+			disabled={removingTests}
+			onclick={removeTests}
+			data-testid="test-bookings-remove"
+			>{removingTests ? t('zahlungen.tests.removing') : t('zahlungen.tests.remove')}</button
+		>
+	</div>
+{/if}
 
 {#if transactions.length === 0}
 	<p
@@ -268,7 +362,7 @@
 		</div>
 	</div>
 
-	<div class="mt-4 grid gap-4 md:grid-cols-[14rem_1fr]">
+	<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-[14rem_minmax(0,1fr)]">
 		<nav aria-label={t('zahlungen.months')}>
 			<ul class="flex gap-2 overflow-x-auto pb-1 md:flex-col md:gap-1 md:overflow-visible md:pb-0">
 				{#each months as m (m.month)}
@@ -324,13 +418,17 @@
 							<li>
 								<button
 									type="button"
-									class="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface-2/60"
+									class="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-left hover:bg-surface-2/60 sm:flex-nowrap"
 									onclick={() => (openId = tx.id)}
+									{...linkedByTx.has(tx.id)
+										? peekHandlers(peek, /** @type {any} */ (linkedByTx.get(tx.id)).receipt)
+										: {}}
+									data-tx={tx.id}
 									aria-label={`${t('zahlungen.open')}: ${payee.name}`}
 									data-testid="transaction"
 									data-covered={cover ? 'true' : 'false'}
 								>
-									<span class="min-w-0 flex-1">
+									<span class="min-w-0 basis-full sm:flex-1 sm:basis-0">
 										<span
 											class="block truncate font-medium {payee.from === 'unknown'
 												? 'text-faint italic'
@@ -426,12 +524,14 @@
 									{/if}
 									{#if badge(tx)}
 										<span
-											class="shrink-0 rounded border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-text"
+											class="min-w-0 truncate rounded border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-text sm:shrink-0"
 											data-testid="account-badge">{badge(tx)}</span
 										>
 									{/if}
 									<span
-										class="shrink-0 font-mono whitespace-nowrap tabular-nums {txDirection(tx) < 0
+										class="ml-auto shrink-0 font-mono whitespace-nowrap tabular-nums {txDirection(
+											tx
+										) < 0
 											? 'text-red-700 dark:text-red-400'
 											: txDirection(tx) > 0
 												? 'text-emerald-700 dark:text-emerald-400'
@@ -456,4 +556,23 @@
 
 {#if openId}
 	<TransactionDetail txId={openId} onclose={() => (openId = null)} onopen={(id) => (openId = id)} />
+{/if}
+
+{#if peeked}
+	{@const more = linkedByTx.get(peeked.anchor.dataset.tx ?? '')?.more ?? 0}
+	<ReceiptPeek
+		receipt={peeked.receipt}
+		anchor={peeked.anchor}
+		title={receiptVendor(/** @type {any} */ (peeked.receipt))}
+		detail={[
+			receiptLine(/** @type {any} */ (peeked.receipt)),
+			more ? t('zahlungen.detail.peek.more', { count: more }) : ''
+		]
+			.filter(Boolean)
+			.join(' · ')}
+		onenter={() => peek.stay()}
+		onleave={() => peek.leave()}
+		onscrolled={() => peek.scrolled()}
+		onclose={() => peek.close()}
+	/>
 {/if}

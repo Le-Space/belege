@@ -102,6 +102,51 @@ export async function acknowledgeImportChange(store, transactionId) {
 }
 
 /**
+ * A typed rate as a plain decimal: `60.123,40`, `60,123.40` and `0,0042` all
+ * read as they are meant, whatever the app's language – a rate is often copied
+ * from somewhere else. With both marks the last one is the decimal; a mark used
+ * twice groups thousands. One mark before exactly three digits (`58.123`,
+ * `1,500`) could be either, a factor of 1000 apart, so it is refused rather
+ * than guessed.
+ *
+ * @param {unknown} text
+ * @returns {string} e.g. `60123.4`
+ */
+export function parseRateInput(text) {
+	const s = String(text ?? '').replace(/[\s\u00a0\u202f]/g, '');
+	const bad = () => new Error(t('messages.booking.rateFormat'));
+	if (!/^\d[\d.,]*$/.test(s) || /[.,]$/.test(s)) throw bad();
+	const last = Math.max(s.lastIndexOf('.'), s.lastIndexOf(','));
+	if (last < 0) return s;
+	const mark = s[last];
+	const other = mark === '.' ? ',' : '.';
+	/** @param {string} int @param {string} group */
+	const grouped = (int, group) =>
+		new RegExp(`^\\d{1,3}(\\${group}\\d{3})+$`).test(int) ? int.split(group).join('') : null;
+	let int;
+	let frac = '';
+	if (s.includes(other)) {
+		// both: the last mark is the decimal, the other groups thousands
+		if (s.indexOf(mark) !== last) throw bad();
+		int = grouped(s.slice(0, last), other);
+		frac = s.slice(last + 1);
+	} else if (s.indexOf(mark) !== last) {
+		// one mark, several times: thousands only
+		int = grouped(s, mark);
+	} else {
+		int = s.slice(0, last);
+		frac = s.slice(last + 1);
+		if (/^[1-9]\d{0,2}$/.test(int) && frac.length === 3) {
+			throw new Error(t('messages.booking.rateAmbiguous', { value: s }));
+		}
+	}
+	// 0 is a rate too: a token nobody trades any more is worth nothing.
+	const clean = frac ? `${int}.${frac}` : `${int}`;
+	if (!int || !/^\d+(\.\d{1,18})?$/.test(clean)) throw bad();
+	return clean;
+}
+
+/**
  * "Kurs von Hand" (issue #162): the euro rate of one unit, for a crypto
  * booking whose rate no source knew (or a person corrects). The euro amount
  * follows from the quantity; the rate says it came by hand, and a later sync
@@ -109,19 +154,13 @@ export async function acknowledgeImportChange(store, transactionId) {
  *
  * @param {{ transactions: import('../store/repository.js').Collection, events: import('../store/repository.js').Collection }} store
  * @param {string} transactionId
- * @param {string} rate EUR per whole unit, a decimal ("0,0042" or "0.0042")
+ * @param {string} rate EUR per whole unit, as typed (parseRateInput)
  * @param {() => Date} [now]
  */
 export async function setManualRate(store, transactionId, rate, now = () => new Date()) {
 	const tx = await store.transactions.get(transactionId);
 	if (!tx) throw new Error(`No transaction ${transactionId}`);
-	const clean = String(rate ?? '')
-		.trim()
-		.replace(',', '.');
-	// 0 is a rate too: a token nobody trades any more is worth nothing.
-	if (!/^\d+(\.\d{1,18})?$/.test(clean)) {
-		throw new Error(t('messages.booking.rateFormat'));
-	}
+	const clean = parseRateInput(rate);
 	if (!/^-?\d+$/.test(String(tx.quantity ?? '')) || !Number.isInteger(tx.decimals)) {
 		throw new Error(t('messages.booking.rateNoQuantity'));
 	}

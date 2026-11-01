@@ -19,6 +19,14 @@ import { LOOKALIKE_CHARS, addressBody, isDust, looksAlike } from './dust.js';
 
 /** A transfer between our accounts lands within this many days on the other side. */
 export const MIRROR_DAYS = 4;
+
+/**
+ * What a bank writes on a credit card's debit, besides the card's last digits
+ * (#382). The issuer's settlement line may be dated a week apart from it.
+ */
+const CARD_WORDS =
+	/kreditkarte|kartenabrechnung|karten-?abrechnung|\bvisa\b|mastercard|\bamex\b|american express|credit card|\bcard\b|\bkarte\b/i;
+const CARD_DAYS = 10;
 /** A bridge delivers within this many days of the sending (an L2 → L1 withdrawal takes 7). */
 export const BRIDGE_DAYS = 8;
 /** What a bridge may keep as its fee: the received quantity is at least 97 % of the sent. */
@@ -86,11 +94,21 @@ function timeOf(t) {
  */
 export async function buildMatchingContext({ accounts, transactions, settings, partners = [] }) {
 	const clean = cleanMatchingSettings(settings);
+	// Our credit cards (#382): their bank debits are own transfers.
+	const cards = accounts.filter(
+		(a) => a.kind === 'card' && !a.deleted && /^\d{4}$/.test(String(a.ibanLast4 ?? ''))
+	);
+	const cardIds = new Set(cards.map((a) => String(a.id)));
 	const ownIbans = new Set(clean.ownIbans);
 
 	const camtKeys = new Set(
 		accounts
-			.filter((a) => a.source === 'camt' && typeof a.sourceAccountId === 'string')
+			// Known by their IBAN key: a statement file's, and Enable Banking's (#224).
+			.filter(
+				(a) =>
+					(a.source === 'camt' || a.source === 'enablebanking') &&
+					typeof a.sourceAccountId === 'string'
+			)
 			.map((a) => a.sourceAccountId)
 	);
 	if (camtKeys.size) {
@@ -168,7 +186,7 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 			.filter(
 				(a) =>
 					!a.deleted &&
-					((a.source === 'camt' && a.sourceAccountId === key) ||
+					(((a.source === 'camt' || a.source === 'enablebanking') && a.sourceAccountId === key) ||
 						(a.source === 'hibiscus' && String(a.ibanLast4 ?? '').toUpperCase() === iban.slice(-4)))
 			)
 			.map((a) => String(a.id));
@@ -412,6 +430,7 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 			});
 		},
 		companyNames: clean.companyNames,
+		employees: clean.employees,
 		sameReference(tx) {
 			if (tx.movement === 'fee' || !tx.amountCents) return [];
 			/** @type {Map<string, Record<string, any>>} */
@@ -458,6 +477,24 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 		},
 		crossSwapOf(tx) {
 			return crossSides.get(String(tx.id)) ?? null;
+		},
+		cardOf(tx) {
+			if (Number(tx.amountCents ?? 0) >= 0 || cardIds.has(String(tx.accountId))) return null;
+			const text = `${tx.purpose ?? ''} ${tx.counterparty ?? ''}`;
+			if (!CARD_WORDS.test(text)) return null;
+			const digits = new Set(text.match(/(?<!\d)\d{4}(?!\d)/g) ?? []);
+			const hits = cards.filter((c) => digits.has(String(c.ibanLast4 ?? '')));
+			if (hits.length !== 1) return null;
+			const [account] = hits;
+			const day = dayNumber(tx.bookedOn);
+			const lines = (byAmount.get(`${-tx.amountCents}|${tx.currency ?? 'EUR'}`) ?? []).filter(
+				(o) =>
+					o.accountId === account.id &&
+					o.bookingType === 'Kartenausgleich' &&
+					day !== null &&
+					Math.abs((dayNumber(o.bookedOn) ?? Infinity) - day) <= CARD_DAYS
+			);
+			return { account, other: lines.length === 1 ? lines[0] : null };
 		},
 		counterBookings(tx) {
 			const day = dayNumber(tx.bookedOn);

@@ -8,10 +8,11 @@
 
 import { recordEvent } from '../activity/events.js';
 import { getSetting, setSetting } from '../store/settings.js';
-import { cleanMatchingSettings, feeKey, transferPairKey } from './classify.js';
+import { cleanMatchingSettings, feeKey, looksLikeBankFee, transferPairKey } from './classify.js';
 import { isActive, syncLinks } from './engine.js';
 import { refundPairKey } from './refunds.js';
 import { learnFromLink } from './partners.js';
+import { compactIban } from './normalize.js';
 
 /** @typedef {import('./engine.js').MatchingStore} MatchingStore */
 /** @typedef {{ log?: boolean }} ActionOptions `log: false` when a caller logs the decision itself */
@@ -28,17 +29,21 @@ const decided = (store, action, fields) =>
  * Link a receipt to a transaction for good. The receipt's other active match
  * (an automatic one elsewhere) is rejected: one receipt, one booking.
  *
+ * With `alongside`, the receipt's other links stay: this booking is one more
+ * instalment of the same invoice (issue #258, instalments.js).
+ *
  * @param {MatchingStore} store
- * @param {{ receiptId: string, transactionId: string, score?: number | null, reasons?: string[] }} pair
+ * @param {{ receiptId: string, transactionId: string, score?: number | null, reasons?: string[], alongside?: boolean }} pair
  * @param {ActionOptions} [options]
  */
 export async function confirmMatch(
 	store,
-	{ receiptId, transactionId, score = null, reasons },
+	{ receiptId, transactionId, score = null, reasons, alongside = false },
 	{ log = true } = {}
 ) {
 	const matches = await store.matches.list();
 	for (const m of matches) {
+		if (alongside) break;
 		if (m.receiptId === receiptId && m.transactionId !== transactionId && isActive(m)) {
 			await store.matches.put({ ...m, state: 'rejected' });
 		}
@@ -166,7 +171,9 @@ export async function setNoReceipt(store, transactionId, reason, { log = true } 
 /**
  * "Bankgebühr": this booking is a bank fee, and so is the next one on the same
  * account with the same purpose words (classify.js `feeKey`). A purpose
- * without words to learn from makes it "Kein Beleg nötig: Bankgebühr".
+ * without words to learn from, or a booking that does not look like the
+ * bank's own fee (`looksLikeBankFee`, #320), makes it this one's "Kein Beleg
+ * nötig: Bankgebühr" only.
  *
  * @param {MatchingStore} store
  * @param {string} transactionId
@@ -175,8 +182,10 @@ export async function markBankFee(store, transactionId) {
 	const tx = await store.transactions.get(transactionId);
 	if (!tx) throw new Error(`No transaction ${transactionId}`);
 	const key = feeKey(tx);
+	// Nothing to learn from, or a booking a learned fee would never cover – a
+	// vendor's debit, an invoice in its purpose (#320): this one only.
 	// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
-	if (!key) return setNoReceipt(store, transactionId, 'Bankgebühr');
+	if (!key || !looksLikeBankFee(tx)) return setNoReceipt(store, transactionId, 'Bankgebühr');
 	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
 	await setSetting(store.settings, 'matching', {
 		...current,
@@ -202,6 +211,42 @@ export async function addCompanyName(store, name) {
 		companyNames: [...current.companyNames, clean]
 	});
 	await decided(store, 'company-name', {});
+}
+
+/**
+ * "Ja, eigenes Konto" (issue #256): the IBAN joins the own IBANs (Eigene
+ * Anweisungen); every payment to or from it is an own transfer from now on.
+ *
+ * @param {MatchingStore} store
+ * @param {string} iban
+ */
+export async function addOwnIban(store, iban) {
+	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+	const clean = compactIban(iban);
+	if (!clean || current.ownIbans.includes(clean)) return;
+	await setSetting(store.settings, 'matching', {
+		...current,
+		ownIbans: [...current.ownIbans, clean],
+		notOwnIbans: current.notOwnIbans.filter((i) => i !== clean)
+	});
+	await decided(store, 'own-iban', {});
+}
+
+/**
+ * "Nein, nicht unseres" (issue #256): the IBAN is not offered as an own account again.
+ *
+ * @param {MatchingStore} store
+ * @param {string} iban
+ */
+export async function rejectOwnIban(store, iban) {
+	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+	const clean = compactIban(iban);
+	if (!clean || current.notOwnIbans.includes(clean)) return;
+	await setSetting(store.settings, 'matching', {
+		...current,
+		notOwnIbans: [...current.notOwnIbans, clean]
+	});
+	await decided(store, 'not-own-iban', {});
 }
 
 /**
@@ -450,31 +495,65 @@ export async function forgetBankFee(store, key) {
 }
 
 /**
+ * "Diese Regeln vergessen" on Home (#320): the learned bank fees that reached
+ * only bookings a fee never looks like (classify.js wrongFeeKeys).
+ *
+ * @param {MatchingStore} store
+ * @param {string[]} keys
+ */
+export async function forgetBankFees(store, keys) {
+	if (!keys.length) return;
+	const drop = new Set(keys);
+	const current = cleanMatchingSettings(await getSetting(store.settings, 'matching'));
+	await setSetting(store.settings, 'matching', {
+		...current,
+		feeKeys: current.feeKeys.filter((k) => !drop.has(k))
+	});
+	await decided(store, 'bank-fee-forget', { count: keys.length });
+}
+
+/**
  * "Aussortieren": the receipt is no receipt of ours – a copy of another
- * (`duplicateOf`) or not needed. Out of the matching; its links are undone.
- * "Wieder aufnehmen" (`restoreReceipt`) takes it back.
+ * (`duplicateOf`), not needed, or private and not business (`private`, e.g.
+ * one from the private mailbox), with the person's reason as `note`. Out of
+ * the matching, the questions and the export; its links are undone. "Wieder
+ * aufnehmen" (`restoreReceipt`) takes it back.
  *
  * @param {MatchingStore} store
  * @param {string} receiptId
- * @param {{ duplicateOf?: string | null }} [options]
+ * @param {{ duplicateOf?: string | null, private?: boolean, note?: string }} [options]
  */
-export async function setAsideReceipt(store, receiptId, { duplicateOf = null } = {}) {
+export async function setAsideReceipt(
+	store,
+	receiptId,
+	{ duplicateOf = null, private: privately = false, note = '' } = {}
+) {
 	const r = await store.receipts.get(receiptId);
 	if (!r) throw new Error(`No receipt ${receiptId}`);
 	for (const m of await store.matches.list({ where: (m) => m.receiptId === receiptId })) {
 		if (isActive(m)) await store.matches.put({ ...m, state: 'rejected' });
 	}
+	const reason = duplicateOf ? 'duplicate' : privately ? 'private' : 'not-needed';
 	await store.receipts.put({
 		...r,
 		status: 'ignoriert',
 		setAside: {
-			reason: duplicateOf ? 'duplicate' : 'not-needed',
+			reason,
 			of: duplicateOf,
+			...(note.trim() ? { note: note.trim() } : {}),
 			at: new Date().toISOString()
 		}
 	});
 	await syncLinks(store);
-	await decided(store, duplicateOf ? 'receipt-duplicate' : 'receipt-set-aside', { receiptId });
+	await decided(
+		store,
+		{
+			duplicate: 'receipt-duplicate',
+			private: 'receipt-private',
+			'not-needed': 'receipt-set-aside'
+		}[reason],
+		{ receiptId }
+	);
 }
 
 /**

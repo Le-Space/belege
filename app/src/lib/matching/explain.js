@@ -4,7 +4,7 @@
 // lines only say what it counted. Pure, so the sentences are tested.
 
 import { accountLabel, formatDate, formatMoney } from '../bank/format.js';
-import { t } from '../i18n/index.js';
+import { intlLocale, t } from '../i18n/index.js';
 import { POINTS, SURE, LEAD } from './score.js';
 
 /** @typedef {Record<string, any>} Rec */
@@ -12,6 +12,8 @@ import { POINTS, SURE, LEAD } from './score.js';
 /** Reason code → the key in POINTS (score.js). */
 const POINT_KEY = /** @type {Record<string, keyof typeof POINTS>} */ ({
 	amount: 'amount',
+	'amount-original': 'amount',
+	'amount-converted': 'amountConverted',
 	'invoice-number': 'invoiceNumber',
 	'customer-number': 'customerNumber',
 	iban: 'iban',
@@ -45,6 +47,51 @@ export function reasonPhrase(code, { tx = null, receipt = null } = {}) {
 						amount: formatMoney(tx.amountCents, tx.currency ?? 'EUR')
 					})
 				: t('explain.reason.amount');
+		case 'amount-original': {
+			const o = tx?.original;
+			const cents = /^-?\d+(?:\.\d{1,2})?$/.test(String(o?.amount ?? '').trim())
+				? Math.round(Math.abs(Number(o.amount)) * 100)
+				: null;
+			return cents !== null
+				? t('explain.reason.amountOriginalValue', {
+						amount: formatMoney(cents, String(o.currency).toUpperCase())
+					})
+				: t('explain.reason.amountOriginal');
+		}
+		case 'amount-converted': {
+			// The rate of the booking day it was counted at (fx.js), and how far off.
+			const currency = String(
+				receipt?.currency ?? receipt?.extraction?.currency ?? ''
+			).toUpperCase();
+			const kept = tx?.fx?.[currency];
+			const rate = Number(kept?.rate);
+			const gross = receipt?.extraction?.gross;
+			const open =
+				typeof receipt?.amountCents === 'number'
+					? Math.abs(receipt.amountCents)
+					: typeof gross === 'number'
+						? Math.round(Math.abs(gross) * 100)
+						: null;
+			if (!(rate > 0) || typeof tx?.amountCents !== 'number' || !open) {
+				return t('explain.reason.amountConverted');
+			}
+			const converted = Math.round(Math.abs(tx.amountCents) / rate);
+			return t('explain.reason.amountConvertedValue', {
+				eur: formatMoney(Math.abs(tx.amountCents), 'EUR'),
+				amount: formatMoney(converted, currency),
+				invoice: formatMoney(open, currency),
+				currency,
+				rate: rate.toLocaleString(intlLocale(), { maximumFractionDigits: 6 }),
+				day: formatDate(String(tx.bookedOn ?? String(kept.at ?? '').slice(0, 10))),
+				source:
+					String(kept.source ?? 'ecb').toLowerCase() === 'ecb'
+						? t('explain.reason.ecb')
+						: String(kept.source).toUpperCase(),
+				diff: ((Math.abs(converted - open) / open) * 100).toLocaleString(intlLocale(), {
+					maximumFractionDigits: 1
+				})
+			});
+		}
 		case 'invoice-number':
 			return invoice
 				? t('explain.reason.invoiceValue', { number: invoice })
@@ -67,6 +114,8 @@ export function reasonPhrase(code, { tx = null, receipt = null } = {}) {
 				? t('explain.reason.vendorInPurposeValue', { vendor })
 				: t('explain.reason.vendorInPurpose');
 		case 'iban':
+		case 'instalment':
+		case 'remaining-amount':
 		case 'date':
 		case 'far-date':
 		case 'wrong-direction':
@@ -151,6 +200,16 @@ const FIELD_KEY = /** @type {Record<string, string>} */ ({
 	any: 'explain.field.any'
 });
 
+/** `2025-12` → ` für 12/2025`, `2025-Q4` → ` für Q4/2025`, `2024` → ` für 2024`; none → ''. @param {unknown} p */
+function periodText(p) {
+	const s = String(p ?? '');
+	if (!s) return '';
+	const month = /^(\d{4})-(\d{2})$/.exec(s);
+	const quarter = /^(\d{4})-Q([1-4])$/.exec(s);
+	const shown = month ? `${month[2]}/${month[1]}` : quarter ? `Q${quarter[2]}/${quarter[1]}` : s;
+	return t('explain.rule.period', { period: shown });
+}
+
 /**
  * Why a booking needs no receipt: the rule that applied, in words.
  *
@@ -204,6 +263,17 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 			if (c.via === 'company') {
 				return t('explain.rule.ownCompany', { company: c.company ?? '' });
 			}
+			// A credit card settled from the bank (#382).
+			if (c.via === 'card') {
+				const card = accounts.find((a) => a.id === c.counterAccountId);
+				const line = t('explain.rule.ownCard', {
+					account: card ? accountLabel(card) : `···${c.ibanLast4 ?? ''}`
+				});
+				return c.counterBookingId
+					? `${line} ${t('explain.rule.ownIbanFound', { date: c.counterDay ? formatDate(c.counterDay) : '?' })}`
+					: line;
+			}
+			if (c.via === 'card-settlement') return t('explain.rule.ownCardSettlement');
 			const own = accounts.find(
 				(a) => String(a.ibanLast4 ?? '').toUpperCase() === String(c.ibanLast4 ?? '').toUpperCase()
 			);
@@ -227,6 +297,25 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 			return t('explain.rule.bankFee', { type: c.bookingType ?? '' });
 		case 'loan':
 			return t('explain.rule.loan');
+		// Wages, payroll taxes, contributions, tax payments (#233, payroll.js).
+		case 'wage':
+			return t(c.via === 'employee' ? 'explain.rule.wageEmployee' : 'explain.rule.wageWords', {
+				employee: c.employee ?? '',
+				period: periodText(c.period)
+			});
+		case 'payroll-tax':
+			return t('explain.rule.payrollTax', { period: periodText(c.period) });
+		case 'social-security':
+			return t('explain.rule.social', {
+				counterparty: c.insurer ?? '',
+				period: periodText(c.period)
+			});
+		case 'tax-payment':
+			return t('explain.rule.tax', {
+				tax: t(`explain.rule.taxName.${c.tax ?? 'other'}`),
+				office: t(c.via === 'tax-number' ? 'explain.rule.taxNumber' : 'explain.rule.taxOffice'),
+				period: periodText(c.period)
+			});
 		case 'refund': {
 			const other = accounts.find((a) => a.id === c.counterAccountId);
 			return t(c.role === 'charge' ? 'explain.rule.refunded' : 'explain.rule.refundOf', {
@@ -271,6 +360,8 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 				date: c.counterDay ? formatDate(c.counterDay) : '?'
 			});
 		}
+		case 'token-spam':
+			return t('explain.rule.tokenSpam');
 		case 'crypto-dust':
 			return c.lookalike
 				? t('explain.rule.dustLookalike', { known: c.lookalike })

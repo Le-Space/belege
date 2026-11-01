@@ -2,6 +2,7 @@
 // the receipt numbers, a transfer booked once, the check list, and the ZIP.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { strFromU8, unzipSync } from 'fflate';
+import { extractText, getDocumentProxy } from 'unpdf';
 
 import { memoryCollection } from '../bank/test-support.js';
 import { defaultDatevSettings } from '../booking/settings.js';
@@ -196,7 +197,16 @@ describe('Windows-1252', () => {
 		expect([...encodeWindows1252('–')]).toEqual([0x96]);
 	});
 	it('characters outside it: without accent, or "?"', () => {
-		expect(new TextDecoder('windows-1252').decode(encodeWindows1252('Łódź ő 😀'))).toBe('?ódz o ?');
+		expect(new TextDecoder('windows-1252').decode(encodeWindows1252('Łódź ő 😀'))).toBe('Lódz o ?');
+		// Cyrillic and Greek in Latin letters, capitals kept; Arabic stays "?" (#366).
+		const decoded = (/** @type {string} */ s) =>
+			new TextDecoder('windows-1252').decode(encodeWindows1252(s));
+		expect(decoded('Москва Казанская · Київ · ЖД билет')).toBe(
+			'Moskva Kazanskaya · Kiyiv · ZhD bilet'
+		);
+		expect(decoded('Αθήνα · Θεσσαλονίκη')).toBe('Athina · Thessaloniki');
+		expect(decoded('İstanbul Yılmaz')).toBe('Istanbul Yilmaz');
+		expect(decoded('فندق')).toBe('????');
 		// A decomposed ä is one byte, too.
 		expect([...encodeWindows1252('ä')]).toEqual([0xe4]);
 	});
@@ -343,6 +353,32 @@ describe('planMonth', () => {
 		expect([only.sample, only.blocked]).toEqual(['all', false]);
 	});
 
+	it('test bookings stay out unless asked for, and are counted either way', () => {
+		const b = books();
+		const test = {
+			id: 'T-TEST',
+			accountId: 'ACC-GLS',
+			source: 'test',
+			testBooking: true,
+			bookedOn: '2026-09-20',
+			amountCents: -1999,
+			counterparty: 'Testpartner GmbH',
+			purpose: 'Testbuchung'
+		};
+		const withTest = [...b.transactions, test];
+		const without = planMonth({ month: '2026-09', ...b, transactions: withTest });
+		expect(without.bookings.map((t) => t.id)).not.toContain('T-TEST');
+		expect([without.tests, without.testsIncluded]).toEqual([1, false]);
+		const included = planMonth({
+			month: '2026-09',
+			...b,
+			transactions: withTest,
+			includeTests: true
+		});
+		expect(included.bookings.map((t) => t.id)).toContain('T-TEST');
+		expect(included.testsIncluded).toBe(true);
+	});
+
 	it('one line per booking; the transfer once, from the lower ledger, against the other bank', () => {
 		const b = books();
 		const plan = planMonth({ month: '2026-09', ...b });
@@ -437,6 +473,43 @@ describe('planMonth', () => {
 		expect(plan.lines.find((l) => l.tx.id === 'T3')?.line.contra).toBe('1360');
 	});
 
+	it('without statements: none in the ZIP, and a booking without a receipt names none', () => {
+		const b = books();
+		const plan = planMonth({ month: '2026-09', ...b, withStatements: false });
+		expect(plan.statements).toEqual([]);
+		// The fee (T5) would carry its statement's number; without one it carries nothing.
+		const fee = plan.lines.find((l) => l.tx.id === 'T5');
+		expect(fee?.line.receiptNumber).toBe('');
+		const withThem = planMonth({ month: '2026-09', ...b });
+		expect(withThem.statements.length).toBeGreaterThan(0);
+		expect(withThem.lines.find((l) => l.tx.id === 'T5')?.line.receiptNumber).toMatch(
+			/^KA-2026-09-/
+		);
+	});
+
+	it('a copy of a linked receipt is no receipt without a payment', () => {
+		const b = books();
+		const kabel = { ...b.receipts[0], invoiceNumber: 'KN-2026-0815' };
+		// The same invoice once more, from the mail: its twin is linked to T1.
+		const copy = {
+			...kabel,
+			id: 'R-KABEL-COPY',
+			source: 'mail',
+			authVerdict: 'pass',
+			fileCid: 'cid-copy'
+		};
+		const receipts = [kabel, copy, ...b.receipts.slice(1)];
+		const plan = planMonth({ month: '2026-08', ...b, receipts });
+		expect(plan.checks.unlinkedReceipts.map((r) => r.id)).not.toContain('R-KABEL-COPY');
+		expect(plan.checks.copies.map((r) => r.id)).toEqual(['R-KABEL-COPY']);
+		// Unlinked, the twin is no help: both count as without a payment.
+		const loose = planMonth({ month: '2026-08', ...b, receipts, matches: [] });
+		expect(loose.checks.copies).toEqual([]);
+		expect(loose.checks.unlinkedReceipts.map((r) => r.id)).toEqual(
+			expect.arrayContaining(['R-KABEL', 'R-KABEL-COPY'])
+		);
+	});
+
 	it('the check list: a missing account or ledger blocks; the rest warns', () => {
 		const b = books();
 		const withOpen = [
@@ -463,6 +536,40 @@ describe('planMonth', () => {
 		expect(warningsOnly.checks.missingReceipt.length).toBeGreaterThan(0);
 		expect(planMonth({ month: '2026-07', ...b }).blocked).toBe(true);
 	});
+
+	it('a booking without an account onto the suspense account, when asked (#323)', () => {
+		const b = books();
+		const open = tx({ id: 'T7', bookedOn: '2026-09-22', amountCents: -2200, counterparty: 'Café' });
+		// Both sides of the transfer not confirmed either: still a transfer, nothing unclear.
+		const transactions = [
+			...b.transactions.map((/** @type {any} */ t) =>
+				t.id === 'T3' || t.id === 'T4' ? { ...t, booking: undefined } : t
+			),
+			open
+		];
+		const plan = planMonth({ month: '2026-09', ...b, transactions, suspenseAccount: '1590' });
+		expect(plan.blocked).toBe(false);
+		expect(plan.checks.unassigned.map((t) => t.id)).toEqual(['T3', 'T4', 'T7']);
+		expect(plan.checks.suspense.map((t) => t.id)).toEqual(['T7']);
+		const line = plan.lines.find((l) => l.tx.id === 'T7');
+		expect(line?.suspense).toBe(true);
+		expect(line?.line).toMatchObject({ contra: '1590', taxKey: '', text: 'Ungeklärt: Café' });
+		const transfer = plan.lines.find((l) => l.tx.id === 'T3');
+		expect(transfer?.suspense).toBeUndefined();
+		expect(transfer?.line.contra).toBe('1210');
+		expect(plan.transferSides.map((x) => x.tx.id)).toEqual(['T4']);
+
+		// Off: they block, as before; a bank account without its ledger account blocks either way.
+		expect(planMonth({ month: '2026-09', ...b, transactions }).blocked).toBe(true);
+		const noLedger = planMonth({
+			month: '2026-09',
+			...b,
+			transactions,
+			suspenseAccount: '1590',
+			accounts: [ACCOUNTS[0], { ...ACCOUNTS[1], ledgerAccount: null }]
+		});
+		expect(noLedger.blocked).toBe(true);
+	});
 });
 
 describe('the ZIP', () => {
@@ -480,6 +587,149 @@ describe('the ZIP', () => {
 			},
 			events: memoryCollection('events').collection
 		};
+	});
+
+	it('a mail without an attachment goes in as a PDF of its text', async () => {
+		const b = books();
+		// The second receipt of T1 is a mail without an attachment, its text kept.
+		const mail = {
+			...b.receipts[1],
+			fileCid: null,
+			fileName: null,
+			mime: 'text/plain',
+			source: 'mail',
+			authVerdict: 'pass',
+			from: 'Kabelnetz Beispiel GmbH <rechnung@kabelnetz.example>',
+			subject: 'Ihre Zahlungsbestätigung',
+			receivedAt: '2026-08-28T08:00:00Z',
+			excerpt: 'Vielen Dank, wir haben 39,99 EUR erhalten.'
+		};
+		const receipts = [b.receipts[0], mail, ...b.receipts.slice(2)];
+		for (const r of receipts) await store.receipts.put(r);
+		const blobs = { get: async () => new Uint8Array([37, 80, 68, 70, 1]) };
+		const plan = planMonth({ month: '2026-09', ...b, receipts: await store.receipts.list() });
+		expect(plan.receipts.map((r) => r.id)).toContain('R-KABEL-2');
+		const { zip, paths } = await runMonthExport({
+			store,
+			blobs,
+			plan,
+			settings: SETTINGS,
+			accounts: b.accounts,
+			classifications: b.classifications,
+			now: () => CREATED
+		});
+		expect(paths).toContain('Belege/2026-09-002_Kabelnetz_Beispiel_GmbH.pdf');
+		const unzipped = unzipSync(zip);
+		const pdf = unzipped['Belege/2026-09-002_Kabelnetz_Beispiel_GmbH.pdf'];
+		expect(new TextDecoder().decode(pdf.slice(0, 5))).toBe('%PDF-');
+		const overview = strFromU8(unzipped['Uebersicht_2026-09.csv']);
+		expect(overview).toContain('Beleg 2026-09-002: aus dem E-Mail-Text erzeugtes PDF');
+		expect(overview).not.toContain('ohne Datei');
+	});
+
+	it('a mail kept as received goes in as .eml beside its PDF, the PDF with its whole text (#288)', async () => {
+		const b = books();
+		const long = 'Position Beispiel 1,00 EUR. '.repeat(120);
+		const eml = new TextEncoder().encode(
+			`Subject: Ihre Zahlungsbestätigung\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${long}ENDE-DER-MAIL\r\n`
+		);
+		const mail = {
+			...b.receipts[1],
+			fileCid: null,
+			fileName: null,
+			mime: 'text/plain',
+			source: 'mail',
+			authVerdict: 'pass',
+			from: 'Kabelnetz Beispiel GmbH <rechnung@kabelnetz.example>',
+			subject: 'Ihre Zahlungsbestätigung',
+			receivedAt: '2026-08-28T08:00:00Z',
+			excerpt: `${long.slice(0, 1998)}…`,
+			emlCid: 'cid-eml'
+		};
+		const receipts = [b.receipts[0], mail, ...b.receipts.slice(2)];
+		for (const r of receipts) await store.receipts.put(r);
+		const blobs = {
+			get: async (/** @type {string} */ cid) =>
+				cid === 'cid-eml' ? eml : new Uint8Array([37, 80, 68, 70, 1])
+		};
+		const plan = planMonth({ month: '2026-09', ...b, receipts: await store.receipts.list() });
+		const { zip } = await runMonthExport({
+			store,
+			blobs,
+			plan,
+			settings: SETTINGS,
+			accounts: b.accounts,
+			classifications: b.classifications,
+			now: () => CREATED
+		});
+		const unzipped = unzipSync(zip);
+		expect(unzipped['Belege/2026-09-002_Kabelnetz_Beispiel_GmbH.eml']).toEqual(eml);
+		const { text } = await extractText(
+			await getDocumentProxy(unzipped['Belege/2026-09-002_Kabelnetz_Beispiel_GmbH.pdf']),
+			{ mergePages: true }
+		);
+		expect(text).toContain('ENDE-DER-MAIL');
+		expect(text).not.toContain('gekürzt');
+		const overview = strFromU8(unzipped['Uebersicht_2026-09.csv']);
+		expect(overview).toContain('als .eml daneben');
+	});
+
+	it('a ZUGFeRD invoice goes in as its PDF and, beside it, its embedded XML (#160)', async () => {
+		const b = books();
+		const xml = new TextEncoder().encode('<rsm:CrossIndustryInvoice/>');
+		const receipts = [{ ...b.receipts[0], xmlCid: 'cid-xml' }, ...b.receipts.slice(1)];
+		for (const r of receipts) await store.receipts.put(r);
+		const blobs = {
+			get: async (/** @type {string} */ cid) =>
+				cid === 'cid-xml' ? xml : new Uint8Array([37, 80, 68, 70, 1])
+		};
+		const plan = planMonth({ month: '2026-09', ...b, receipts: await store.receipts.list() });
+		const { zip } = await runMonthExport({
+			store,
+			blobs,
+			plan,
+			settings: SETTINGS,
+			accounts: b.accounts,
+			classifications: b.classifications,
+			now: () => CREATED
+		});
+		const unzipped = unzipSync(zip);
+		expect(unzipped['Belege/2026-09-001_Kabelnetz_Beispiel_GmbH.pdf']).toBeTruthy();
+		expect(unzipped['Belege/2026-09-001_Kabelnetz_Beispiel_GmbH.xml']).toEqual(xml);
+		expect(strFromU8(unzipped['Uebersicht_2026-09.csv'])).toContain(
+			'eingebettete XML liegt daneben'
+		);
+	});
+
+	it('an invoice from the invoicing app goes in as its PDF and, beside it, its XRechnung (#515)', async () => {
+		const b = books();
+		const xml = new TextEncoder().encode('<rsm:CrossIndustryInvoice/>');
+		const receipts = [
+			{ ...b.receipts[0], source: 'invoice-app', xmlCid: 'cid-xml' },
+			...b.receipts.slice(1)
+		];
+		for (const r of receipts) await store.receipts.put(r);
+		const blobs = {
+			get: async (/** @type {string} */ cid) =>
+				cid === 'cid-xml' ? xml : new Uint8Array([37, 80, 68, 70, 1])
+		};
+		const plan = planMonth({ month: '2026-09', ...b, receipts: await store.receipts.list() });
+		const { zip } = await runMonthExport({
+			store,
+			blobs,
+			plan,
+			settings: SETTINGS,
+			accounts: b.accounts,
+			classifications: b.classifications,
+			now: () => CREATED
+		});
+		const unzipped = unzipSync(zip);
+		expect(unzipped['Belege/2026-09-001_Kabelnetz_Beispiel_GmbH.xml']).toEqual(xml);
+		const overview = strFromU8(unzipped['Uebersicht_2026-09.csv']);
+		// The overview is Windows-1252: compare what reads the same in it.
+		expect(overview).toContain('E-Rechnung (XRechnung)');
+		expect(overview).toContain('das XML-Original liegt neben dem PDF');
+		expect(overview).not.toContain('ZUGFeRD');
 	});
 
 	it('holds the stack in Windows-1252, the receipts, the overview; numbers stay', async () => {

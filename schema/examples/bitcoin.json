@@ -1,0 +1,39 @@
+{
+	"format": "crypto-ledger",
+	"version": 1,
+	"createdAt": "2025-06-30T12:00:00Z",
+	"generator": "example",
+	"currency": "EUR",
+	"accounts": [
+		{
+			"id": "bip122:000000000019d6689c085ae165831e93:bc1qexampleaddressxxxxxxxxxxxxxxxxxxxxxx",
+			"type": "wallet",
+			"name": "Savings",
+			"chain": "bip122:000000000019d6689c085ae165831e93",
+			"address": "bc1qexampleaddressxxxxxxxxxxxxxxxxxxxxxx"
+		}
+	],
+	"movements": [
+		{
+			"id": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd:received",
+			"account": "bip122:000000000019d6689c085ae165831e93:bc1qexampleaddressxxxxxxxxxxxxxxxxxxxxxx",
+			"time": "2025-01-20T10:05:00Z",
+			"date": "2025-01-20",
+			"kind": "transfer",
+			"asset": {
+				"symbol": "BTC",
+				"decimals": 8,
+				"caip19": "bip122:000000000019d6689c085ae165831e93/slip44:0"
+			},
+			"amount": "0.006",
+			"value": {
+				"amount": "480.00",
+				"rate": "80000",
+				"source": "coingecko",
+				"at": "2025-01-20T00:00:00Z"
+			},
+			"txHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+			"explorerUrl": "https://mempool.space/tx/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+		}
+	]
+}

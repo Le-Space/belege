@@ -3,7 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { memoryCollection } from '../bank/test-support.js';
 import { buildMatchingContext } from '../matching/context.js';
 import { classifyTransaction } from '../matching/classify.js';
-import { describeEntry, krakenTransactions, syncKraken } from './kraken-sync.js';
+import {
+	describeEntry,
+	krakenTransactions,
+	mergeMonthBalances,
+	monthBalances,
+	syncKraken
+} from './kraken-sync.js';
 
 /** @typedef {import('../bridge/client.js').KrakenLedgerEntry} Entry */
 
@@ -209,7 +215,8 @@ describe('Kraken transfers (#52)', () => {
 					asset: 'NYM',
 					decimals: 8,
 					amount: '-10.00000000',
-					transferRef: hash
+					transferRef: hash,
+					transferMethod: 'NYM (Nyx)'
 				}),
 				entry({
 					id: 'L-EUR-OUT',
@@ -217,7 +224,8 @@ describe('Kraken transfers (#52)', () => {
 					type: 'withdrawal',
 					asset: 'EUR',
 					amount: '-5.0000',
-					transferRef: 'BANKREF-1'
+					transferRef: 'BANKREF-1',
+					transferMethod: 'SEPA'
 				})
 			],
 			async (asset, date) => ({
@@ -233,10 +241,12 @@ describe('Kraken transfers (#52)', () => {
 		expect(byAccount.get('NYM')?.[0]).toMatchObject({
 			exchangeType: 'withdrawal',
 			chainTxRef: hash,
+			chainMethod: 'NYM (Nyx)',
 			amountCents: -50
 		});
-		// a euro withdrawal's reference is the bank's, no chain hash
+		// a euro withdrawal's reference is the bank's, no chain hash and no network
 		expect(byAccount.get('EUR')?.[0]).not.toHaveProperty('chainTxRef');
+		expect(byAccount.get('EUR')?.[0]).not.toHaveProperty('chainMethod');
 	});
 
 	it('pairs a withdrawal with the wallet that received it by hash, whatever the euro amounts', async () => {
@@ -300,6 +310,87 @@ describe('Kraken transfers (#52)', () => {
 			settings: { notTransfers: ['K|W'] }
 		});
 		expect(classifyTransaction(transactions[0], refused)?.via).not.toBe('reference');
+	});
+});
+
+describe('month balances from the ledger (#287)', () => {
+	/** Made-up euro entries with Kraken's balance after each. */
+	const EUR = [
+		entry({
+			id: 'E1',
+			refid: 'R1',
+			type: 'deposit',
+			date: '2026-08-20',
+			asset: 'EUR',
+			amount: '500.0000',
+			balance: '500.0000',
+			code: 'ZEUR'
+		}),
+		entry({
+			id: 'E2',
+			refid: 'R2',
+			type: 'deposit',
+			date: '2026-09-01',
+			asset: 'EUR',
+			amount: '1000.0000',
+			balance: '1500.0000',
+			code: 'ZEUR'
+		}),
+		entry({
+			id: 'E3',
+			refid: 'R3',
+			date: '2026-09-02',
+			asset: 'EUR',
+			amount: '-600.0000',
+			fee: '1.5600',
+			balance: '898.4400',
+			code: 'ZEUR'
+		}),
+		entry({
+			id: 'E4',
+			refid: 'R4',
+			type: 'withdrawal',
+			date: '2026-09-12',
+			asset: 'EUR',
+			amount: '-300.0000',
+			fee: '0.0900',
+			balance: '598.3500',
+			code: 'ZEUR'
+		})
+	];
+
+	it('the end of a month is the balance after its last entry, the start the one before its first', () => {
+		expect(monthBalances(EUR, '2026-08-01').get('EUR')).toEqual({
+			'2026-08': { opening: '0', closing: '5000000' },
+			'2026-09': { opening: '5000000', closing: '5983500' }
+		});
+	});
+
+	it('a month read from its middle has an end but no start', () => {
+		expect(monthBalances(EUR.slice(2), '2026-09-02').get('EUR')).toEqual({
+			'2026-09': { closing: '5983500' }
+		});
+	});
+
+	it('none for an account without Kraken’s balance, or with two asset codes', () => {
+		const without = EUR.map((e) => ({ ...e, balance: '' }));
+		expect(monthBalances(without, '2026-08-01').has('EUR')).toBe(false);
+		const mixed = [EUR[0], { ...EUR[1], code: 'EUR.HOLD' }];
+		expect(monthBalances(mixed, '2026-08-01').has('EUR')).toBe(false);
+	});
+
+	it('a later read keeps the start it could not see, and takes the newer end', () => {
+		const known = {
+			'2026-08': { opening: '0', closing: '5000000' },
+			'2026-09': { opening: '5000000', closing: '1' }
+		};
+		expect(mergeMonthBalances(known, { '2026-09': { closing: '5983500' } })).toEqual({
+			'2026-08': { opening: '0', closing: '5000000' },
+			'2026-09': { opening: '5000000', closing: '5983500' }
+		});
+		expect(mergeMonthBalances(undefined, { '2026-09': { closing: '7' } })).toEqual({
+			'2026-09': { closing: '7' }
+		});
 	});
 });
 
@@ -371,10 +462,35 @@ describe('syncKraken', () => {
 			ibanLast4: ''
 		});
 
+		// The ledger gave no balances here: no month balances.
+		expect(eur?.monthBalances).toEqual({});
+
 		// Again: nothing new, and it starts a week before the last sync.
 		const again = await syncKraken({ client, store: s, now });
 		expect(again.since).toBe('2026-09-19');
 		expect(again.totals.new).toBe(0);
+	});
+
+	it('keeps Kraken’s balance at each month’s end on the account (#287)', async () => {
+		const s = store();
+		const withBalance = LEDGER.map((e) =>
+			e.asset !== 'EUR'
+				? e
+				: {
+						...e,
+						code: 'ZEUR',
+						balance: { 'L-DEP': '1000.0000', 'L-B-EUR': '398.4400', 'L-WD': '98.3500' }[e.id]
+					}
+		);
+		const { client } = fakeClient(withBalance);
+		await syncKraken({
+			client,
+			store: s,
+			now: new Date('2026-09-26T08:00:00Z'),
+			from: '2026-09-01'
+		});
+		const eur = (await s.accounts.list()).find((a) => a.name === 'Kraken EUR');
+		expect(eur?.monthBalances).toEqual({ '2026-09': { opening: '0', closing: '983500' } });
 	});
 
 	it('the legs of a trade and of a spot/earn transfer are own transfers; fees and rewards need no receipt', async () => {

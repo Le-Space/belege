@@ -130,6 +130,32 @@ export async function learnFromLink(partners, receipt, tx, { companyNames = [] }
 }
 
 /**
+ * "Adresse benennen" (issue #254): a wallet booking's other address gets a
+ * name a person chose – a partner's, or a new one. Stored as the partner's
+ * address alias, so every booking with that address is called so (bank/payee.js
+ * `addressBook`), now and after the next sync.
+ *
+ * @param {import('../store/repository.js').Collection} partners
+ * @param {Rec} tx a wallet booking with `counterpartyAddress`
+ * @param {string} name
+ * @returns {Promise<Rec | null>} null when there is no address or no name
+ */
+export async function nameAddress(partners, tx, name) {
+	const alias = txAlias(tx);
+	const label = String(name ?? '')
+		.trim()
+		.slice(0, 80);
+	if (!isAddressAlias(alias) || !label) return null;
+	const existing = findPartner(await partners.list(), label);
+	return partners.put({
+		...(existing ?? {}),
+		name: existing?.name ?? label,
+		aliases: [...new Set([...(existing?.aliases ?? []), alias])].slice(-20),
+		learnedFrom: existing?.learnedFrom ?? 'address'
+	});
+}
+
+/**
  * Learn the account a person confirmed for a booking (booking/actions.js):
  * stored on the vendor's partner record as `account` and `taxKey`, so the
  * next booking of that vendor – by the receipt's vendor or the counterparty

@@ -6,6 +6,8 @@
 
 /* eslint-disable belege/no-german -- the monthly export for German bookkeeping stays German (#192) */
 
+import { inert } from './inert.js';
+import { isMailText } from './plan.js';
 import { accountLabel, formatDate } from '../bank/format.js';
 import { DOCUMENT_LOCALE, tDocument as t } from '../i18n/index.js';
 import { coverageBadge } from '../matching/view.js';
@@ -33,7 +35,7 @@ export const OVERVIEW_COLUMNS = Object.freeze([
 
 /** @param {unknown} v */
 function cell(v) {
-	const s = String(v ?? '').replace(/[\r\n]+/g, ' ');
+	const s = inert(String(v ?? '').replace(/[\r\n]+/g, ' '));
 	return /[;"]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
@@ -73,6 +75,14 @@ export function overviewCsv(plan, { accounts, classifications }) {
 	for (const l of plan.lines) {
 		const files = l.receipts.map((r) => plan.numbers.get(r.id) ?? '').filter(Boolean);
 		const notes = [
+			l.collected?.length
+				? t('export.overview.collected', {
+						count: l.collected.length,
+						from: formatDate(String(l.collected.map((x) => x.bookedOn).sort()[0]), DOCUMENT_LOCALE),
+						until: formatDate(String(l.tx.bookedOn), DOCUMENT_LOCALE)
+					})
+				: '',
+			l.suspense ? t('export.overview.suspense') : '',
 			l.transferWith
 				? t('export.overview.transferLine', {
 						date: formatDate(l.transferWith.bookedOn, DOCUMENT_LOCALE)
@@ -80,7 +90,22 @@ export function overviewCsv(plan, { accounts, classifications }) {
 				: '',
 			...l.receipts
 				.filter((r) => !plan.receipts.some((z) => z.id === r.id))
-				.map((r) => t('export.overview.noFile', { number: plan.numbers.get(r.id) ?? '' }))
+				.map((r) => t('export.overview.noFile', { number: plan.numbers.get(r.id) ?? '' })),
+			...l.receipts
+				.filter((r) => r.xmlCid && plan.receipts.some((z) => z.id === r.id))
+				.map((r) =>
+					// An invoice from the invoicing app (ucep/issued.js): its XRechnung beside the PDF (#515).
+					t(r.source === 'invoice-app' ? 'export.overview.xrechnung' : 'export.overview.zugferd', {
+						number: plan.numbers.get(r.id) ?? ''
+					})
+				),
+			...l.receipts
+				.filter((r) => isMailText(r) && plan.receipts.some((z) => z.id === r.id))
+				.map((r) =>
+					t(r.emlCid ? 'export.overview.mailPdfEml' : 'export.overview.mailPdf', {
+						number: plan.numbers.get(r.id) ?? ''
+					})
+				)
 		].filter(Boolean);
 		rows.push([
 			formatDate(l.tx.bookedOn, DOCUMENT_LOCALE),

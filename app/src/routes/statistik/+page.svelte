@@ -61,6 +61,7 @@
 
 	async function persist() {
 		persisted = await navigator.storage.persist().catch(() => false);
+		app.persisted = persisted;
 		note = persisted ? t('statistik.persistYes') : t('statistik.persistNo');
 	}
 

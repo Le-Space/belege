@@ -29,6 +29,8 @@ export const shortAddress = (address) => {
 /** Whether a text is an address rather than a name. @param {unknown} text */
 export const looksLikeAddress = (text) =>
 	/^0x[0-9a-fA-F]{40}$/.test(String(text ?? '')) ||
+	// Filecoin: an ID (f0…), or secp256k1, actor, BLS, delegated (f1–f4…).
+	/^f0\d{1,20}$|^f[1-4][a-z0-9]{20,}$/.test(String(text ?? '')) ||
 	/^[a-z]{1,20}1[02-9ac-hj-np-z]{38,58}$/.test(String(text ?? '')) ||
 	/^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,62}$/.test(String(text ?? ''));
 
@@ -56,6 +58,25 @@ export function merchantFromPurpose(purpose) {
 		.join(' ')
 		.trim();
 	return /[a-zäöüß]/i.test(name) ? name.slice(0, 60) : '';
+}
+
+/**
+ * What a wallet booking's purpose says beyond its type and its hash: a memo, a
+ * swap, a migration. The purpose is stored as `Gesendet · Tx bafy…abcd`; the
+ * type and the hash are shown elsewhere, so this is '' for a plain transfer.
+ * For any other booking, the purpose as it is.
+ *
+ * @param {Rec} tx
+ */
+export function walletPurposeExtra(tx) {
+	const purpose = String(tx.purpose ?? '');
+	if (!walletChain(tx.source)) return purpose;
+	const type = String(tx.bookingType ?? '').trim();
+	return purpose
+		.split(' · ')
+		.map((part) => part.trim())
+		.filter((part) => part && part !== type && !/^Tx \S+$/.test(part))
+		.join(' · ');
 }
 
 /**

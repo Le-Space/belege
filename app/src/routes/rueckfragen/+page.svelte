@@ -1,4 +1,5 @@
 <script>
+	import { aiText } from '$lib/ai-text.js';
 	// Rückfragen: what the matching engine was not sure about. Every answer is
 	// a record the next run respects (matching/actions.js, engine.js).
 	import { resolve } from '$app/paths';
@@ -11,6 +12,7 @@
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { onMount } from 'svelte';
 	import AiMark from '$lib/AiMark.svelte';
+	import { openTravelQuestions } from '$lib/travel/proposals.js';
 	import { getSetting } from '$lib/store/settings.js';
 	import { refreshNow } from '$lib/session.svelte.js';
 	import {
@@ -38,6 +40,8 @@
 	);
 	let txById = $derived(new Map(app.transactions.map((x) => [x.id, x])));
 	let receiptById = $derived(new Map(app.receipts.map((r) => [r.id, r])));
+	// Travel asks on its own page (#213), worked out from the books, not stored.
+	let travelOpen = $derived(openTravelQuestions(app).length);
 	// A payment's name, never a bare dash (bank/payee.js).
 	let book = $derived(addressBook(app));
 
@@ -209,6 +213,14 @@
 	</p>
 {/if}
 
+{#if travelOpen > 0}
+	<p class="mt-1 text-sm text-text" data-testid="questions-travel">
+		<a class="underline" href={resolve('/reisen')}
+			>{t('reisen.questionsElsewhere', { count: travelOpen })}</a
+		>
+	</p>
+{/if}
+
 {#if error}
 	<p class="mt-3 text-sm text-danger" role="alert">{error}</p>
 {/if}
@@ -256,7 +268,7 @@
 		{#if aiAsk && !aiRun.progress}
 			<div class="mt-3 text-sm text-text" data-testid="ai-all-confirm">
 				<p>
-					{t('rueckfragen.ai.what', { count: estimate.requests })}
+					{aiText('rueckfragen.ai.what', { count: estimate.requests })}
 					{estimate.tokens
 						? t('rueckfragen.ai.tokens', { tokens: estimate.tokens.toLocaleString(intlLocale()) })
 						: t('rueckfragen.ai.tokensUnknown')}
@@ -288,6 +300,11 @@
 					>
 				</div>
 			</div>
+		{/if}
+		{#if aiRun.stopped && !aiRun.progress}
+			<p class="mt-2 text-sm text-danger" role="alert" data-testid="ai-all-stopped">
+				{aiRun.stopped}
+			</p>
 		{/if}
 		{#if aiRun.failed && !aiRun.progress}
 			<p class="mt-2 text-sm text-danger" data-testid="ai-all-failed">

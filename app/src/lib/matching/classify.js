@@ -24,12 +24,13 @@
 // with, it is likely address poisoning, and the classification names that one.
 // (docs/phase-0.md, "Matching"; docs/crypto.md, "Own wallets").
 
+import { payrollAccount, payrollKind } from './payroll.js';
 import { mutualTwin } from './twins.js';
 import { cleanPrepaidVendors } from './vendor-account.js';
 import { counterpartyKey } from './partners.js';
 import { compactIban, normalizeRef } from './normalize.js';
 import { cosmosChainOf, normalizeAddress, walletChain } from '../wallets/chains.js';
-import { isDust } from './dust.js';
+import { isDust, isSpoofedToken } from './dust.js';
 import { t } from '../i18n/index.js';
 
 /** Legal forms dropped before two company names are compared. */
@@ -92,7 +93,10 @@ export function isOwnName(name, company) {
 /**
  * @typedef {object} MatchingSettings stored under the settings key `matching`
  * @property {string[]} companyNames
+ * @property {string[]} ownNames the people behind the company: owners, shareholders (#231); never searched for
+ * @property {string[]} employees people the company pays wages to (#233): a payment to one is a wage
  * @property {string[]} ownIbans full IBANs the person typed in
+ * @property {string[]} notOwnIbans IBANs a person said are not an own account (own-iban.js, #256): not offered again
  * @property {Rule[]} rules
  * @property {number} graceDays a booking without a receipt is asked about only once it is older than this (0: at once)
  * @property {string[]} feeKeys bookings a person called a bank fee (`feeKey`)
@@ -104,6 +108,7 @@ export function isOwnName(name, company) {
  * @property {string[]} notRefunds pairs a person said are no refund
  * @property {{ name: string, openings: Record<string, number> }[]} prepaidVendors vendors a person keeps as a prepaid account, with opening balances per year (vendor-account.js)
  * @property {string[]} keptTransferReceipts `<transaction id>|<receipt id>`: an own transfer whose receipt a person said is right
+ * @property {string} networkFeeAccount the account every wallet network fee takes (#305); '' = none
  */
 
 /** A receipt often arrives days after the debit: no question before then. */
@@ -114,7 +119,10 @@ export const MAX_GRACE_DAYS = 90;
 export function defaultMatchingSettings() {
 	return {
 		companyNames: [],
+		ownNames: [],
+		employees: [],
 		ownIbans: [],
+		notOwnIbans: [],
 		rules: [],
 		graceDays: DEFAULT_GRACE_DAYS,
 		feeKeys: [],
@@ -125,7 +133,8 @@ export function defaultMatchingSettings() {
 		refundPairs: [],
 		notRefunds: [],
 		prepaidVendors: [],
-		keptTransferReceipts: []
+		keptTransferReceipts: [],
+		networkFeeAccount: ''
 	};
 }
 
@@ -149,9 +158,18 @@ export function cleanMatchingSettings(value) {
 	const rules = Array.isArray(value?.rules) ? value.rules : [];
 	return {
 		companyNames: strings(value?.companyNames),
+		ownNames: strings(value?.ownNames),
+		employees: strings(value?.employees),
 		ownIbans: strings(value?.ownIbans)
 			.map((s) => compactIban(s))
 			.filter(Boolean),
+		notOwnIbans: [
+			...new Set(
+				strings(value?.notOwnIbans)
+					.map((s) => compactIban(s))
+					.filter(Boolean)
+			)
+		].slice(-200),
 		rules: rules
 			.filter(
 				(/** @type {any} */ r) =>
@@ -182,7 +200,11 @@ export function cleanMatchingSettings(value) {
 		notRefunds: [...new Set(strings(value?.notRefunds))].slice(-500),
 		prepaidVendors: cleanPrepaidVendors(value?.prepaidVendors),
 		// An own transfer that keeps its receipt on purpose (Home, "Beleg ist richtig").
-		keptTransferReceipts: [...new Set(strings(value?.keptTransferReceipts))].slice(-500)
+		keptTransferReceipts: [...new Set(strings(value?.keptTransferReceipts))].slice(-500),
+		// The account every wallet network fee takes, confirmed once (#305); '' = none.
+		networkFeeAccount: /^\d{4,8}$/.test(String(value?.networkFeeAccount ?? '').trim())
+			? String(value.networkFeeAccount).trim()
+			: ''
 	};
 }
 
@@ -194,6 +216,49 @@ export function cleanMatchingSettings(value) {
  */
 export function transferPairKey(a, b) {
 	return a < b ? `${a}|${b}` : `${b}|${a}`;
+}
+
+/**
+ * Whether a booking may be a bank fee learned from another (#320): nobody but
+ * the bank on the other side, and no invoice, customer or contract in its
+ * purpose. A vendor's monthly direct debit is neither, whatever its words.
+ *
+ * @param {Record<string, any>} tx
+ */
+export function looksLikeBankFee(tx) {
+	const counterparty = String(tx.counterparty ?? '');
+	const onlyBank = !counterparty.trim() || BANK_NAME.test(counterparty);
+	return onlyBank && !INVOICE_WORDS.test(String(tx.purpose ?? ''));
+}
+
+/**
+ * Learned bank fees that went wrong (#320): keys learned before the check
+ * from a vendor's debit or an invoice, and the bookings they reach that do
+ * not look like a fee. Those bookings ask for a receipt again by themselves;
+ * a key that reaches nothing but such bookings is one to forget.
+ *
+ * @param {Record<string, any>[]} transactions
+ * @param {string[]} feeKeys
+ * @returns {{ bookings: Record<string, any>[], keys: string[] }}
+ */
+export function wrongFeeKeys(transactions, feeKeys) {
+	const learned = new Set(feeKeys);
+	/** @type {Map<string, { fee: number, other: Record<string, any>[] }>} */
+	const byKey = new Map();
+	for (const tx of transactions) {
+		if (tx.deleted) continue;
+		const key = feeKey(tx);
+		if (!key || !learned.has(key)) continue;
+		const entry = byKey.get(key) ?? { fee: 0, other: [] };
+		if (looksLikeBankFee(tx)) entry.fee++;
+		else entry.other.push(tx);
+		byKey.set(key, entry);
+	}
+	const bookings = [...byKey.values()].flatMap((e) => e.other);
+	const keys = [...byKey.entries()]
+		.filter(([, e]) => e.other.length > 0 && e.fee === 0)
+		.map(([k]) => k);
+	return { bookings, keys };
 }
 
 /**
@@ -211,6 +276,7 @@ export function feeKey(tx) {
 /**
  * @typedef {object} ClassifyContext
  * @property {string[]} companyNames
+ * @property {string[]} [employees] names on the employees list (Einstellungen, #233)
  * @property {Set<string>} ownIbans compact IBANs: typed in, or resolved from the accounts
  * @property {Map<string, string[]>} ownLast4 last four digits → ids of our accounts whose full IBAN we do not keep (Hibiscus hands out only those)
  * @property {(tx: Record<string, any>, accountIds: string[]) => boolean} [mirrored] whether one of those accounts booked the same amount the other way within a few days
@@ -218,6 +284,8 @@ export function feeKey(tx) {
  * @property {number} [graceDays] see grace.js
  * @property {Set<string>} [feeKeys] learned bank fees (feeKey)
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [counterBookings] bookings on our other accounts with the opposite amount within a few days
+ * @property {(tx: Record<string, any>) => { account: Record<string, any>, other: Record<string, any> | null } | null} [cardOf]
+ *   a bank debit that settles one of our credit cards (#382): the card's account, and its settlement line where it has one
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [sameReference] bookings on our other accounts with the same reference or transaction hash, the other way (context.js)
  * @property {Set<string>} [notTransfers] pairs a person said are no transfer (transferPairKey)
  * @property {(tx: Record<string, any>) => { other: Record<string, any>, role: 'charge' | 'refund', full: boolean, manual: boolean } | null} [refundOf] a charge's refund or a refund's charge (refunds.js)
@@ -236,9 +304,10 @@ export function feeKey(tx) {
 
 /**
  * @typedef {object} Classification
- * @property {'rule-ignore' | 'rule-private' | 'bank-fee' | 'own-transfer' | 'loan' | 'crypto-reward' | 'crypto-stake' | 'crypto-dust' | 'crypto-swap' | 'token-burn' | 'token-migration' | 'refund' | 'prepaid-topup'} kind
+ * @property {'rule-ignore' | 'rule-private' | 'bank-fee' | 'own-transfer' | 'loan' | 'wage' | 'payroll-tax' | 'social-security' | 'tax-payment' | 'crypto-reward' | 'crypto-stake' | 'crypto-dust' | 'token-spam' | 'crypto-swap' | 'token-burn' | 'token-migration' | 'refund' | 'prepaid-topup'} kind
  *   `token-burn`: tokens burned in the token project's transaction, not the person's (#162);
  *   `token-migration`: such a burn and its replacement, linked by a person
+ *   `token-spam`: a fake token's transfer on an own wallet – address poisoning (dust.js `isSpoofedToken`);
  *   `crypto-dust`: an incoming wallet transfer worth less than a cent
  *   `crypto-stake`: tokens delegated to staking (or back); no receipt, and not
  *   on 1360: the return at the end of an unbonding is no transaction, so a
@@ -248,9 +317,13 @@ export function feeKey(tx) {
  * @property {string} [ruleId]
  * @property {'counterparty' | 'purpose' | 'any'} [ruleField] what the rule looked at
  * @property {string} [ruleContains] the rule's text
- * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'bridge' | 'cross-chain' | 'manual' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee'} [via] how an own transfer or a bank fee was recognised
+ * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'bridge' | 'cross-chain' | 'manual' | 'card' | 'card-settlement' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee' | 'employee' | 'wage-words' | 'tax-office' | 'tax-number' | 'municipality' | 'insurer'} [via] how an own transfer or a bank fee was recognised
  * @property {string} [address] our own wallet's address, for via 'own-address'
  * @property {string} [vendor] the prepaid vendor, for kind 'prepaid-topup'
+ * @property {import('./payroll.js').TaxKind} [tax] which tax, for 'tax-payment' and 'payroll-tax' (#233)
+ * @property {string | null} [period] the period a wage, tax or contribution is for: `2025-12`, `2025-Q4`, `2024`
+ * @property {string} [employee] for a wage: the name on the employees list
+ * @property {string} [insurer] for contributions: who receives them
  * @property {'charge' | 'refund' | 'send' | 'arrival'} [role] which side this is: of a refund pair, or of a swap across chains
  * @property {string} [chain] the other wallet's chain: an IBC receiver's (via 'own-address'), a bridge's other side (via 'bridge')
  * @property {string} [lookalike] for dust: the known address its sender's looks like
@@ -277,6 +350,14 @@ const FEE_CODES = new Set(['CHRG', 'FEES', 'COMM']);
 const FEE_WORDS =
 	/geb(?:ü|ue)hr|entgelt|kontof(?:ü|ue|u)hrung|\bfees?\b|\bcharges?\b|\bplan fee\b|\bsubscription fee\b/i;
 /** A counterparty that is a bank, not a vendor. */
+/**
+ * A purpose that names an invoice, a customer or a contract: a vendor's
+ * bill, never the bank's own fee (#320). `Rechnung 02/2025`, `RE-123`,
+ * `K-NR. 000000001`, `Kundennummer`, `Vertrag`, `Invoice`.
+ */
+const INVOICE_WORDS =
+	/\b(rechnung|rg\.|re-?nr|re-\d|invoice|kundennr|kunden-?nr|kundennummer|k-?nr|vertrag|vertragsnr|mandat)/i;
+
 const BANK_NAME =
 	/\bbank\b|gemeinschaftsbank|revolut|sparkasse|volksbank|raiffeisen|\bgls\b|\bn26\b|qonto|commerzbank|postbank/i;
 const LOAN = /darlehen/i;
@@ -295,6 +376,8 @@ const TRANSFER_WORDS =
 function transferSign(tx, companyNames) {
 	// A deposit or withdrawal of euros on an exchange: money from or to a bank.
 	if (tx.source === 'kraken' && tx.movement === 'transfer' && !tx.quantity) return 'Kraken';
+	// A credit card's statement line that settles it from the bank (#382, bank/card-csv.js).
+	if (tx.bookingType === 'Kartenausgleich') return 'Kartenausgleich';
 	const text = `${tx.purpose ?? ''} ${tx.counterparty ?? ''}`;
 	const word = TRANSFER_WORDS.exec(text)?.[0];
 	if (word) return word;
@@ -467,9 +550,14 @@ export function classifyTransaction(tx, ctx) {
 	if (code && code.split('/').some((c) => FEE_CODES.has(c.toUpperCase()))) {
 		return { kind: 'bank-fee', via: 'bank-code', bankCode: code };
 	}
-	const key = feeKey(tx);
-	if (key && ctx.feeKeys?.has(key)) return { kind: 'bank-fee', via: 'learned' };
 	const onlyBank = !counterparty.trim() || BANK_NAME.test(counterparty);
+	// A learned fee only where the booking looks like one (#320): no vendor of
+	// its own, no invoice in its purpose. Its purpose words alone, dates and
+	// numbers dropped, made every month's invoice of one vendor a "fee".
+	const key = feeKey(tx);
+	if (key && ctx.feeKeys?.has(key) && looksLikeBankFee(tx)) {
+		return { kind: 'bank-fee', via: 'learned' };
+	}
 	const word = Number(tx.amountCents ?? 0) < 0 && onlyBank ? FEE_WORDS.exec(purpose)?.[0] : null;
 	if (word) return { kind: 'bank-fee', via: 'fee-words', feeWord: word };
 	const iban = compactIban(tx.counterpartyIban);
@@ -585,6 +673,11 @@ export function classifyTransaction(tx, ctx) {
 			chain: String(o.source ?? '')
 		};
 	}
+	// A fake token's transfer (address poisoning): no payment, and a warning.
+	if (isSpoofedToken(tx)) {
+		const lookalike = ctx.lookalikeOf?.(tx);
+		return { kind: 'token-spam', ...(lookalike ? { lookalike } : {}) };
+	}
 	if (isDust(tx)) {
 		const lookalike = ctx.lookalikeOf?.(tx);
 		return { kind: 'crypto-dust', ...(lookalike ? { lookalike } : {}) };
@@ -616,8 +709,35 @@ export function classifyTransaction(tx, ctx) {
 			sign: /** @type {string} */ (sign)
 		};
 	}
+	// The bank's debit that settles one of our credit cards (#382): the card's
+	// number ends in it, and a card word says so – its settlement line linked
+	// where the card's statement has one.
+	const card = ctx.cardOf?.(tx);
+	if (card) {
+		return {
+			kind: 'own-transfer',
+			account: '1360',
+			via: 'card',
+			ibanLast4: String(card.account.ibanLast4 ?? ''),
+			counterAccountId: String(card.account.id),
+			...(card.other
+				? { counterBookingId: String(card.other.id), counterDay: String(card.other.bookedOn ?? '') }
+				: {})
+		};
+	}
+	// A card's settlement line whose debit is not in the books: no receipt either.
+	if (tx.bookingType === 'Kartenausgleich' && Number(tx.amountCents ?? 0) > 0) {
+		return { kind: 'own-transfer', account: '1360', via: 'card-settlement' };
+	}
 	const company = ctx.companyNames.find((c) => isOwnName(counterparty, c));
 	if (company) return { kind: 'own-transfer', account: '1360', via: 'company', company };
+	// Wages, payroll taxes, contributions, tax payments (#233): the payroll's
+	// or the tax office's documents are their receipts (payroll.js).
+	const payroll = payrollKind(tx, { employees: ctx.employees ?? [] });
+	if (payroll) {
+		const account = payrollAccount(payroll, String(tx.bookedOn ?? ''));
+		return { ...payroll, ...(account ? { account } : {}) };
+	}
 	if (LOAN.test(purpose)) return { kind: 'loan' };
 	return null;
 }

@@ -22,7 +22,15 @@
 //   - every account with a booking in the month gets a statement in the ZIP
 //     (statement.js); a booking without a receipt of its own – a fee, an own
 //     transfer, a reward – carries that statement's number (KA-YYYY-MM-<ledger>)
-//     in Belegfeld 1: the statement is its receipt
+//     in Belegfeld 1: the statement is its receipt. Without statements (the
+//     export page's choice) there is none in the ZIP, and Belegfeld 1 of such
+//     a booking stays empty rather than name a document that is not there
+//   - optionally (#323), a booking without a confirmed account goes onto a
+//     suspense account named in the settings instead of blocking the export:
+//     no BU key, its Buchungstext starting with "Ungeklärt:", to be re-booked
+//     in the bookkeeping. An own transfer whose other side is in the books
+//     still goes against that bank's ledger account; nothing is unclear there.
+//     A bank account without its ledger account still blocks
 
 import { isBookingConfirmed } from '../booking/suggest.js';
 import { ledgerOf } from '../booking/settings.js';
@@ -31,11 +39,14 @@ import { isTxCovered, matchesOfTx } from '../matching/view.js';
 import { dayNumber } from '../matching/normalize.js';
 import { MIRROR_DAYS } from '../matching/context.js';
 import { needsConfirmation } from '../receipts/import.js';
+import { findDuplicates } from '../receipts/duplicates.js';
+import { payrollText } from '../matching/payroll.js';
 import { receiptDate, receiptVendor } from '../receipts/view.js';
 import { TRANSFER_ACCOUNT } from '../booking/skr03.js';
 import { quantityText } from '../assets/valuation.js';
 import { DOCUMENT_LOCALE } from '../i18n/index.js';
 import { monthStatements } from './statement.js';
+import { isTestBooking } from '../sample/test-bookings.js';
 
 /** @typedef {Record<string, any>} Rec */
 /** @typedef {import('../matching/classify.js').Classification} Classification */
@@ -51,6 +62,8 @@ export const RECEIPT_NUMBER = /^(\d{4}-\d{2})-(\d{3})$/;
  * @property {Rec | null} match the first receipt's active match
  * @property {Rec | null} transferWith the other side, for a transfer exported once
  * @property {import('./datev.js').BookingLine} line
+ * @property {Rec[]} [collected] a collective booking's bookings (#305): `tx` is the last of them
+ * @property {boolean} [suspense] on the suspense account: no confirmed account (#323)
  */
 
 /**
@@ -63,12 +76,27 @@ export const RECEIPT_NUMBER = /^(\d{4}-\d{2})-(\d{3})$/;
  * @property {{ receiptId: string, number: string }[]} newNumbers numbers given in this export
  * @property {Rec[]} receipts the receipts that go into the ZIP (with a file, released)
  * @property {import('./statement.js').Statement[]} statements one per account with a booking in the month
- * @property {{ unassigned: Rec[], noLedger: Rec[], noBankAccount: Rec[], missingReceipt: Rec[], unlinkedReceipts: Rec[], unverified: Rec[], unpriced: Rec[] }} checks
- *   unpriced: crypto bookings whose rate is missing – no euro amount to export (#162)
+ * @property {{ unassigned: Rec[], noLedger: Rec[], noBankAccount: Rec[], missingReceipt: Rec[], unlinkedReceipts: Rec[], copies: Rec[], unverified: Rec[], unpriced: Rec[], suspense: Rec[] }} checks
+ *   unpriced: crypto bookings whose rate is missing – no euro amount to export (#162);
+ *   unlinkedReceipts: the month's receipts linked to no payment – not in this ZIP;
+ *   copies: the month's receipts that copy one already linked (receipts/duplicates.js) – not counted
+ *   as unlinked, to be sorted out as duplicates;
+ *   suspense: bookings that go onto the suspense account (#323) – no blocker, to be re-booked
+ * @property {number} tests test bookings in the month, exported or not
+ * @property {boolean} testsIncluded whether they are in this package
  * @property {'none' | 'all' | 'mixed'} sample sample bookings in the month (issue #200): none, only such, or
  *   mixed with real ones – which is never exported
  * @property {boolean} blocked
  */
+
+/**
+ * A receipt that is a mail without an attachment: no file, the mail's text
+ * kept. It goes into the ZIP as a PDF made from that text (mail-pdf.js).
+ *
+ * @param {Rec} r
+ */
+export const isMailText = (r) =>
+	!r.fileCid && r.source === 'mail' && String(r.excerpt ?? '').trim().length > 0;
 
 /** @param {Rec} a @param {Rec} b */
 const byDate = (a, b) =>
@@ -171,11 +199,16 @@ export function numberReceipts(month, ordered, allReceipts) {
  * What the Buchungstext says: the receipt's vendor, else the counterparty,
  * else the purpose. A crypto movement adds what moved (`… 0,015 BTC`), in
  * front of the 60-character cut, so the quantity is never the part cut off.
+ * A wage, a payroll tax, contributions or a tax payment (#233) say what they
+ * are and for when instead: "Lohn 12/2025 Max Beispiel".
  *
  * @param {Rec} tx
  * @param {Rec | null} receipt
+ * @param {Rec | null} [classification]
  */
-export function bookingText(tx, receipt) {
+export function bookingText(tx, receipt, classification = null) {
+	const payroll = payrollText(classification, tx);
+	if (payroll) return payroll;
 	const vendor = receipt ? receiptVendor(/** @type {any} */ (receipt)) : '';
 	const base =
 		vendor && vendor !== '—'
@@ -188,6 +221,63 @@ export function bookingText(tx, receipt) {
 }
 
 /**
+ * Network fees one usage statement covers (an Akash month, akash/statement.js,
+ * #305) go into the Buchungsstapel as one collective booking per statement,
+ * account, contra account, BU key and cost centre: their sum, on the last
+ * fee's day, with the statement's receipt number. The statement lists each.
+ * One fee alone stays as it is.
+ *
+ * @param {PlannedLine[]} lines
+ * @param {string} month YYYY-MM
+ * @returns {PlannedLine[]}
+ */
+export function collectNetworkFees(lines, month) {
+	/** @type {Map<string, PlannedLine[]>} */
+	const groups = new Map();
+	/** @type {PlannedLine[]} */
+	const rest = [];
+	for (const l of lines) {
+		const statement = l.receipts.find((r) => r.selfReceipt?.kind === 'akash-statement');
+		if (l.tx.movement !== 'fee' || !statement || l.transferWith || l.suspense) {
+			rest.push(l);
+			continue;
+		}
+		const key = [
+			statement.id,
+			l.line.account,
+			l.line.contra,
+			l.line.taxKey,
+			l.line.costCentre ?? ''
+		].join('|');
+		groups.set(key, [...(groups.get(key) ?? []), l]);
+	}
+	/** @type {PlannedLine[]} */
+	const collected = [];
+	for (const group of groups.values()) {
+		if (group.length === 1) {
+			collected.push(group[0]);
+			continue;
+		}
+		const last = group.reduce((a, b) => (String(b.tx.bookedOn) > String(a.tx.bookedOn) ? b : a));
+		const [y, m] = month.split('-');
+		collected.push({
+			...last,
+			collected: group.map((l) => l.tx),
+			line: {
+				...last.line,
+				amountCents: group.reduce((n, l) => n + l.line.amountCents, 0),
+				date: String(last.tx.bookedOn),
+				// eslint-disable-next-line belege/no-german -- Buchungstext, a German document (#192)
+				text: `Netzwerkgebühren Akash ${m}/${y} (${group.length} Tx)`
+			}
+		});
+	}
+	return [...rest, ...collected].sort((a, b) =>
+		String(a.line.date).localeCompare(String(b.line.date))
+	);
+}
+
+/**
  * @param {object} params
  * @param {string} params.month YYYY-MM
  * @param {Rec[]} params.transactions
@@ -195,11 +285,31 @@ export function bookingText(tx, receipt) {
  * @param {Rec[]} params.receipts
  * @param {Rec[]} params.matches
  * @param {Record<string, any>} params.classifications
+ * @param {boolean} [params.includeTests] take test bookings too (sample/test-bookings.js); off by default
+ * @param {boolean} [params.withStatements] the accounts' monthly statements into the ZIP; on by default
+ * @param {boolean} [params.collectFees] network fees a usage statement covers as one booking (#305); on by default
+ * @param {string} [params.suspenseAccount] bookings without a confirmed account onto this account
+ *   instead of blocking (#323); '' (the default) keeps them blocking
  * @returns {MonthPlan}
  */
-export function planMonth({ month, transactions, accounts, receipts, matches, classifications }) {
+export function planMonth({
+	month,
+	transactions,
+	accounts,
+	receipts,
+	matches,
+	classifications,
+	includeTests = false,
+	withStatements = true,
+	collectFees = true,
+	suspenseAccount = ''
+}) {
+	const suspense = /^\d{4,8}$/.test(suspenseAccount) ? suspenseAccount : '';
 	const live = transactions.filter((t) => !t.deleted);
-	const bookings = live.filter((t) => String(t.bookedOn ?? '').slice(0, 7) === month).sort(byDate);
+	const ofMonth = live.filter((t) => String(t.bookedOn ?? '').slice(0, 7) === month);
+	// Test bookings (sample/test-bookings.js) only on request.
+	const tests = ofMonth.filter((t) => isTestBooking(t)).length;
+	const bookings = ofMonth.filter((t) => includeTests || !isTestBooking(t)).sort(byDate);
 	const accountOf = (/** @type {Rec} */ tx) => accounts.find((a) => a.id === tx.accountId) ?? null;
 	const receiptOf = (/** @type {string} */ id) =>
 		receipts.find((r) => r.id === id && !r.deleted) ?? null;
@@ -220,21 +330,24 @@ export function planMonth({ month, transactions, accounts, receipts, matches, cl
 		const n = first ? numbers.get(first.receipt.id) : undefined;
 		if (n) receiptNumbers.set(tx.id, n);
 	}
-	const statements = monthStatements({
-		month,
-		accounts,
-		transactions: live,
-		classifications,
-		receiptNumbers
-	});
+	const statements = withStatements
+		? monthStatements({
+				month,
+				accounts,
+				transactions: live,
+				classifications,
+				receiptNumbers
+			})
+		: [];
 	const statementOf = new Map(statements.map((s) => [s.account.id, s.number]));
 
 	/** @type {PlannedLine[]} */
-	const lines = [];
+	let lines = [];
 	/** @type {{ tx: Rec, other: Rec }[]} */
 	const transferSides = [];
 	for (const tx of bookings) {
-		if (!isBookingConfirmed(tx)) continue;
+		const confirmed = isBookingConfirmed(tx);
+		if (!confirmed && !suspense) continue;
 		const bank = accountOf(tx);
 		const ledger = ledgerOf(bank);
 		if (!ledger) continue;
@@ -253,33 +366,56 @@ export function planMonth({ month, transactions, accounts, receipts, matches, cl
 			}
 		}
 		const transferLine = Boolean(other && otherLedger && otherLedger !== ledger);
+		// No account and no transfer to pair it with: onto the suspense account (#323).
+		const unclear = !confirmed && !transferLine;
 		lines.push({
 			tx,
 			bank,
 			receipts: linked.map((x) => x.receipt),
 			match: first?.match ?? null,
 			transferWith: transferLine ? other : null,
+			...(unclear ? { suspense: true } : {}),
 			line: {
 				amountCents: Number(tx.amountCents ?? 0),
 				currency: String(tx.currency ?? 'EUR'),
 				account: ledger,
-				contra: transferLine ? /** @type {string} */ (otherLedger) : String(tx.booking.account),
-				taxKey: transferLine ? '' : String(tx.booking.taxKey ?? ''),
+				contra: transferLine
+					? /** @type {string} */ (otherLedger)
+					: unclear
+						? suspense
+						: String(tx.booking.account),
+				taxKey: transferLine || unclear ? '' : String(tx.booking.taxKey ?? ''),
 				date: String(tx.bookedOn),
 				receiptNumber: first
 					? (numbers.get(first.receipt.id) ?? '')
 					: (statementOf.get(String(tx.accountId)) ?? ''),
-				text: bookingText(tx, first?.receipt ?? null),
+				text: unclear
+					? // eslint-disable-next-line belege/no-german -- Buchungstext, a German document (#192)
+						`Ungeklärt: ${bookingText(tx, first?.receipt ?? null, classifications[tx.id] ?? null)}`.slice(
+							0,
+							60
+						)
+					: bookingText(tx, first?.receipt ?? null, classifications[tx.id] ?? null),
 				// The bank's (a wallet's) cost centre; none on a transfer between two accounts.
 				costCentre: transferLine ? '' : String(bank?.costCentre ?? '')
 			}
 		});
 	}
 
+	if (collectFees) lines = collectNetworkFees(lines, month);
+
 	const monthReceipts = receipts.filter(
 		(r) => !r.deleted && String(receiptDate(/** @type {any} */ (r)) ?? '').slice(0, 7) === month
 	);
 	const activeLinked = new Set(matches.filter((m) => isActive(m)).map((m) => m.receiptId));
+	// A copy of a receipt that is linked (the same invoice from the mail and an
+	// upload) is no receipt without a payment: its twin has one.
+	const duplicates = findDuplicates(receipts, (id) => (activeLinked.has(id) ? { id } : null));
+	/** @param {Rec} r */
+	const copiesLinked = (r) => {
+		const of = duplicates.get(r.id)?.of;
+		return Boolean(of && activeLinked.has(of));
+	};
 	const samples = bookings.filter((t) => t.sample === true).length;
 	/** @type {'none' | 'all' | 'mixed'} */
 	const sample = samples === 0 ? 'none' : samples === bookings.length ? 'all' : 'mixed';
@@ -294,12 +430,20 @@ export function planMonth({ month, transactions, accounts, receipts, matches, cl
 		missingReceipt: bookings.filter((t) => !isTxCovered(/** @type {any} */ (t), classifications)),
 		unpriced: bookings.filter((t) => Boolean(t.rateMissing)),
 		unlinkedReceipts: monthReceipts.filter(
-			(r) => !activeLinked.has(r.id) && r.status !== 'ignoriert' && !needsConfirmation(r)
+			(r) =>
+				!activeLinked.has(r.id) &&
+				r.status !== 'ignoriert' &&
+				!needsConfirmation(r) &&
+				!copiesLinked(r)
 		),
-		unverified: monthReceipts.filter((r) => needsConfirmation(r) && r.status !== 'ignoriert')
+		copies: monthReceipts.filter(
+			(r) => !activeLinked.has(r.id) && r.status !== 'ignoriert' && copiesLinked(r)
+		),
+		unverified: monthReceipts.filter((r) => needsConfirmation(r) && r.status !== 'ignoriert'),
+		suspense: lines.filter((l) => l.suspense).map((l) => l.tx)
 	};
 	const zipReceipts = [...new Map(ordered.map((r) => [r.id, r])).values()].filter(
-		(r) => r.fileCid && !needsConfirmation(r)
+		(r) => (r.fileCid || isMailText(r)) && !needsConfirmation(r)
 	);
 	return {
 		month,
@@ -312,10 +456,12 @@ export function planMonth({ month, transactions, accounts, receipts, matches, cl
 		statements,
 		checks,
 		sample,
+		tests,
+		testsIncluded: includeTests && tests > 0,
 		blocked:
 			bookings.length === 0 ||
 			sample === 'mixed' ||
-			checks.unassigned.length > 0 ||
+			(checks.unassigned.length > 0 && !suspense) ||
 			checks.noLedger.length > 0 ||
 			checks.noBankAccount.length > 0 ||
 			checks.unpriced.length > 0

@@ -1,0 +1,75 @@
+{
+	"format": "crypto-ledger",
+	"version": 1,
+	"createdAt": "2025-06-30T12:00:00Z",
+	"generator": "example",
+	"currency": "EUR",
+	"accounts": [
+		{
+			"id": "eip155:8453:0x1111111111111111111111111111111111111111",
+			"type": "wallet",
+			"name": "Project wallet",
+			"chain": "eip155:8453",
+			"address": "0x1111111111111111111111111111111111111111"
+		}
+	],
+	"movements": [
+		{
+			"id": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:erc20:0",
+			"account": "eip155:8453:0x1111111111111111111111111111111111111111",
+			"time": "2025-05-02T08:00:00Z",
+			"date": "2025-05-02",
+			"kind": "transfer",
+			"asset": {
+				"symbol": "USDC",
+				"decimals": 6,
+				"caip19": "eip155:8453/erc20:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+			},
+			"amount": "1200",
+			"value": {
+				"amount": "1056.00",
+				"rate": "0.88",
+				"source": "coingecko",
+				"at": "2025-05-02T00:00:00Z"
+			},
+			"txHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			"counterparty": { "address": "0x2222222222222222222222222222222222222222" },
+			"explorerUrl": "https://base.blockscout.com/tx/0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+		},
+		{
+			"id": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:value",
+			"account": "eip155:8453:0x1111111111111111111111111111111111111111",
+			"time": "2025-05-03T09:30:00Z",
+			"date": "2025-05-03",
+			"kind": "transfer",
+			"asset": { "symbol": "ETH", "decimals": 18, "caip19": "eip155:8453/slip44:60" },
+			"amount": "-0.05",
+			"value": {
+				"amount": "-80.00",
+				"rate": "1600",
+				"source": "coingecko",
+				"at": "2025-05-03T00:00:00Z"
+			},
+			"txHash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+			"counterparty": { "address": "0x3333333333333333333333333333333333333333" },
+			"explorerUrl": "https://base.blockscout.com/tx/0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+		},
+		{
+			"id": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:fee",
+			"account": "eip155:8453:0x1111111111111111111111111111111111111111",
+			"time": "2025-05-03T09:30:00Z",
+			"date": "2025-05-03",
+			"kind": "fee",
+			"asset": { "symbol": "ETH", "decimals": 18, "caip19": "eip155:8453/slip44:60" },
+			"amount": "-0.000021",
+			"value": {
+				"amount": "-0.03",
+				"rate": "1600",
+				"source": "coingecko",
+				"at": "2025-05-03T00:00:00Z"
+			},
+			"txHash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+			"explorerUrl": "https://base.blockscout.com/tx/0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+		}
+	]
+}

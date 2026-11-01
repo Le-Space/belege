@@ -34,6 +34,7 @@ import {
 import {
 	addWallet,
 	cleanWalletMeta,
+	exchangeWithdrawalHashes,
 	loadWallets,
 	reconcileSourceIds,
 	removeWallet,
@@ -109,6 +110,14 @@ describe('the chain table', () => {
 			const native = b.kind === 'cosmos' ? b.denoms[b.nativeDenom].symbol : b.native.symbol;
 			expect(c.nativeSymbol).toBe(native);
 			if (b.kind === 'cosmos') expect(c.bech32Prefix).toBe(b.bech32Prefix);
+			expect(c.caip2).toBe(b.caip2);
+			const tokens = Object.fromEntries(
+				Object.entries(b.tokens ?? {}).map(([contract, a]) => [
+					/** @type {any} */ (a).symbol,
+					contract
+				])
+			);
+			expect(c.tokens ?? {}).toEqual(tokens);
 		}
 	});
 
@@ -381,6 +390,15 @@ describe('syncWallet against the fake chains', () => {
 			[`Wallet NYX ···${NYX.wallet.slice(-6)}`, 'nyx', 'wallet', 'NYX', '2', '2026-09-26']
 		]);
 		expect(accounts.every((a) => a.walletAddress === NYX.wallet && a.ibanLast4 === '')).toBe(true);
+		// The whole history was read: the statement may reconcile against it (#287).
+		expect(accounts.every((a) => a.fullHistory === true)).toBe(true);
+		// The months' balances from the history only where it sums to today's
+		// balance (#287, step 3): NYX's does; NYM's comes to 138.7… against the
+		// node's 137 – something the history lacks – and gives none.
+		expect(accounts.map((a) => a.monthBalances?.['2026-09'] ?? null)).toEqual([
+			null,
+			{ opening: '0', closing: '2000000', source: 'history' }
+		]);
 		expect(accounts[0].addressUrl).toBe(`https://nym.explorers.guru/account/${NYX.wallet}`);
 		expect(first.totals).toEqual({ new: 125, updated: 0, skipped: 0 });
 		expect(first.unpriced).toEqual([]);
@@ -426,6 +444,17 @@ describe('syncWallet against the fake chains', () => {
 			[`Wallet USDC (Ethereum) ···${EVM.wallet.slice(-6)}`, '450']
 		]);
 		expect(result.totals.new).toBe(8);
+		// ETH's months from Blockscout's own balance history (#287, step 3); USDC's has none there.
+		expect(accounts[0].monthBalances?.['2026-02']).toEqual({
+			opening: '0',
+			closing: '500000000000000000',
+			source: 'explorer'
+		});
+		expect(accounts[0].monthBalances?.['2026-03']).toEqual({
+			opening: '500000000000000000',
+			closing: '310000000000000000',
+			source: 'explorer'
+		});
 		const txs = await s.transactions.list();
 		const usdcOut = txs.find((t) => t.asset === 'USDC' && t.amountCents < 0);
 		expect(usdcOut).toMatchObject({
@@ -587,6 +616,55 @@ describe('which wallet bookings need no receipt', () => {
 		});
 	});
 
+	it('a Filecoin withdrawal pairs with the Kraken deposit of the same message CID', async () => {
+		const cid = `bafy2bzace${'c'.repeat(52)}`;
+		const sent = booking({
+			id: 'f-out',
+			accountId: 'acc-fil',
+			source: 'filecoin',
+			asset: 'FIL',
+			decimals: 18,
+			amountCents: -2352,
+			quantity: '-20000000000000000000',
+			counterpartyAddress: 'f1' + 'k'.repeat(39),
+			txRef: cid
+		});
+		const deposit = {
+			id: 'k-dep',
+			accountId: 'acc-k',
+			source: 'kraken',
+			bookedOn: '2026-09-05',
+			amountCents: 2352,
+			currency: 'EUR',
+			movement: 'transfer',
+			asset: 'FIL',
+			quantity: '20000000000',
+			txRef: 'R-DEP',
+			chainTxRef: cid,
+			chainMethod: 'Filecoin'
+		};
+		const fil = [
+			...accounts,
+			{
+				id: 'acc-fil',
+				source: 'filecoin',
+				name: 'Wallet FIL ···wallet',
+				walletAddress: 'f1' + 'w'.repeat(39),
+				asset: 'FIL'
+			}
+		];
+		const ctx = await context([sent, deposit], fil);
+		expect(classifyTransaction(sent, ctx)).toMatchObject({
+			kind: 'own-transfer',
+			via: 'reference',
+			counterBookingId: 'k-dep'
+		});
+		expect(classifyTransaction(deposit, ctx)).toMatchObject({
+			via: 'reference',
+			counterBookingId: 'f-out'
+		});
+	});
+
 	it('an address that is ours on one EVM chain is not ours on another', async () => {
 		const addr = '0x' + 'ab'.repeat(20);
 		const evmAccounts = [
@@ -698,6 +776,37 @@ describe('which wallet bookings need no receipt', () => {
 			kind: 'bank-fee',
 			via: 'exchange-fee'
 		});
+	});
+});
+
+describe('exchange withdrawals asked for by hash (#303)', () => {
+	const H = (/** @type {string} */ c) => c.repeat(64);
+	const kraken = (/** @type {Record<string, any>} */ t) => ({
+		source: 'kraken',
+		asset: 'AKT',
+		amountCents: -5000,
+		movement: 'transfer',
+		...t
+	});
+	it('Kraken withdrawals of the chain’s native asset that no wallet booking has yet', () => {
+		const akash = WALLET_CHAINS.akash;
+		const hashes = exchangeWithdrawalHashes(
+			[
+				kraken({ id: 'k1', chainTxRef: H('a') }),
+				kraken({ id: 'k2', chainTxRef: H('B') }),
+				// booked already on an Akash wallet
+				{ id: 'w', source: 'akash', txRef: H('B') },
+				// a deposit, another asset, no hash, deleted, not a Cosmos hash
+				kraken({ id: 'k3', chainTxRef: H('c'), amountCents: 5000 }),
+				kraken({ id: 'k4', chainTxRef: H('d'), asset: 'NYM' }),
+				kraken({ id: 'k5' }),
+				kraken({ id: 'k6', chainTxRef: H('e'), deleted: true }),
+				kraken({ id: 'k7', chainTxRef: `bafy2bzace${'f'.repeat(52)}` }),
+				kraken({ id: 'k8', chainTxRef: H('a') })
+			],
+			akash
+		);
+		expect(hashes).toEqual([H('A')]);
 	});
 });
 

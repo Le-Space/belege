@@ -5,15 +5,31 @@
 	// without a confirmed account for every booking and a ledger account for
 	// every bank account there is no export.
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { replaceState } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import { exportChoice, monthParam } from '$lib/export/month-choice.svelte.js';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
-	import { app, currentBlobs, currentStore, refreshNow } from '$lib/session.svelte.js';
+	import ReceiptPeek from '$lib/ReceiptPeek.svelte';
+	import PeekLink from '$lib/receipts/PeekLink.svelte';
+	import { createPeek } from '$lib/receipts/peek.js';
+	import { receiptDate } from '$lib/receipts/view.js';
+	import {
+		app,
+		currentBlobs,
+		currentStore,
+		refreshNow,
+		runMatchingNow
+	} from '$lib/session.svelte.js';
 	import { planMonth } from '$lib/export/plan.js';
 	import { cleanDatevSettings } from '$lib/booking/settings.js';
 	import { confirmBookings } from '$lib/booking/actions.js';
 	import { suggestBooking } from '$lib/booking/suggest.js';
+	import { clearingAccountOf } from '$lib/travel/accounts.js';
 	import { accountLabel, formatDate, formatMoney } from '$lib/bank/format.js';
 	import { receiptVendor } from '$lib/receipts/view.js';
 	import { intlLocale, list, t } from '$lib/i18n/index.js';
+	import { releaseName } from '$lib/build-info.js';
 
 	const monthFormat = $derived(
 		new Intl.DateTimeFormat(intlLocale(), {
@@ -40,7 +56,97 @@
 	let chosen = $state(null);
 	let month = $derived(chosen && months.includes(chosen) ? chosen : (months[0] ?? null));
 
+	// The month kept (#314): from the address first, else the one chosen last
+	// in this session; written back to both on every choice.
+	onMount(() => {
+		const wanted = monthParam(page.url.searchParams.get('month')) ?? exportChoice.month;
+		if (wanted) choose(wanted);
+	});
+
+	/** @param {string} m */
+	function choose(m) {
+		chosen = m;
+		exportChoice.month = m;
+		const url = new URL(page.url);
+		if (url.searchParams.get('month') === m) return;
+		url.searchParams.set('month', m);
+		replaceState(url, page.state);
+	}
+
 	let settings = $derived(cleanDatevSettings(app.datevSettings));
+	/** Test bookings into the package too (sample/test-bookings.js) – off unless asked for. */
+	let includeTests = $state(false);
+	/**
+	 * The accounts' monthly statements into the package – on unless switched
+	 * off; this browser remembers the choice.
+	 */
+	const STATEMENTS_KEY = 'belege.export.statements';
+	const SUSPENSE_KEY = 'belege.export.suspense';
+	/**
+	 * Network fees an Akash usage statement covers as one booking (#305) – on
+	 * unless switched off; this browser remembers the choice.
+	 */
+	const COLLECT_KEY = 'belege.export.collectFees';
+	let collectFees = $state(
+		(() => {
+			try {
+				return localStorage.getItem(COLLECT_KEY) !== 'off';
+			} catch {
+				return true;
+			}
+		})()
+	);
+	$effect(() => {
+		try {
+			localStorage.setItem(COLLECT_KEY, collectFees ? 'on' : 'off');
+		} catch {
+			// Not remembered: on again next time.
+		}
+	});
+	// Only a month with an Akash usage statement has fees to collect.
+	let hasFeeStatement = $derived(
+		Boolean(month) &&
+			app.receipts.some(
+				(r) =>
+					!r.deleted &&
+					r.selfReceipt?.kind === 'akash-statement' &&
+					String(r.documentDate ?? '').startsWith(String(month))
+			)
+	);
+	let withStatements = $state(
+		(() => {
+			try {
+				return localStorage.getItem(STATEMENTS_KEY) !== 'off';
+			} catch {
+				return true;
+			}
+		})()
+	);
+	$effect(() => {
+		try {
+			localStorage.setItem(STATEMENTS_KEY, withStatements ? 'on' : 'off');
+		} catch {
+			// Not remembered: on again next time.
+		}
+	});
+	// Bookings without an account onto the suspense account (#323): only with one set, off by default.
+	let withSuspense = $state(
+		(() => {
+			try {
+				return localStorage.getItem(SUSPENSE_KEY) === 'on';
+			} catch {
+				return false;
+			}
+		})()
+	);
+	$effect(() => {
+		try {
+			localStorage.setItem(SUSPENSE_KEY, withSuspense ? 'on' : 'off');
+		} catch {
+			// Not remembered: off again next time.
+		}
+	});
+	let suspenseAccount = $derived(withSuspense ? settings.suspenseAccount : '');
 	let plan = $derived(
 		month
 			? planMonth({
@@ -49,15 +155,28 @@
 					accounts: app.accounts,
 					receipts: app.receipts,
 					matches: app.matches,
-					classifications: app.classifications
+					classifications: app.classifications,
+					includeTests,
+					withStatements,
+					collectFees,
+					suspenseAccount
 				})
 			: null
+	);
+	// Statements whose bookings do not lead to their closing balance (#287).
+	let unreconciled = $derived(
+		(plan?.statements ?? []).filter((s) => s.balances?.check?.status === 'open').map((s) => s.label)
 	);
 	// Unconfirmed bookings whose suggestion is automatic (transfer, fee).
 	let automatic = $derived(
 		(plan?.checks.unassigned ?? []).flatMap((tx) => {
-			const s = suggestBooking(tx, { classification: app.classifications[tx.id] ?? null });
-			return s.account && (s.source === 'transfer' || s.source === 'fee')
+			const s = suggestBooking(tx, {
+				classification: app.classifications[tx.id] ?? null,
+				// An advance to a traveller (#381) goes against their clearing account.
+				travelClearing: clearingAccountOf(cleanDatevSettings(app.datevSettings), app.travel)
+			});
+			// A travel statement's lines carry their account (#213): taken over as these.
+			return s.account && (s.source === 'transfer' || s.source === 'fee' || s.source === 'travel')
 				? [{ transactionId: tx.id, account: s.account, taxKey: s.taxKey }]
 				: [];
 		})
@@ -115,17 +234,7 @@
 				accounts: app.accounts,
 				classifications: app.classifications
 			});
-			// Only a download: a Blob and a click, nothing sent anywhere.
-			const url = URL.createObjectURL(
-				new Blob([/** @type {BlobPart} */ (zip)], { type: 'application/zip' })
-			);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = fileName;
-			document.body.append(a);
-			a.click();
-			a.remove();
-			setTimeout(() => URL.revokeObjectURL(url), 60_000);
+			save(new Blob([/** @type {BlobPart} */ (zip)], { type: 'application/zip' }), fileName);
 			done = t('export.done', { file: fileName, ...counts });
 			await refreshNow();
 		} catch (e) {
@@ -135,8 +244,132 @@
 		}
 	}
 
+	/** Only a download: a Blob and a click, nothing sent anywhere. @param {Blob} blob @param {string} fileName */
+	function save(blob, fileName) {
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = fileName;
+		document.body.append(a);
+		a.click();
+		a.remove();
+		setTimeout(() => URL.revokeObjectURL(url), 60_000);
+	}
+
+	let cryptoAccountIds = $derived(
+		new Set(
+			app.accounts.filter((a) => a.kind === 'wallet' || a.kind === 'exchange').map((a) => a.id)
+		)
+	);
+	let cryptoYears = $derived(
+		[
+			...new Set(
+				app.transactions
+					.filter((tx) => !tx.deleted && cryptoAccountIds.has(tx.accountId))
+					.map((tx) => String(tx.bookedOn ?? '').slice(0, 4))
+					.filter((y) => /^\d{4}$/.test(y))
+			)
+		].sort((a, b) => (a < b ? 1 : -1))
+	);
+	/** '' for all years. */
+	let cryptoYear = $state('');
+	/** @type {string | null} */
+	let cryptoDone = $state(null);
+	/** @type {string | null} */
+	let cryptoError = $state(null);
+
+	/** @param {'json' | 'csv'} kind */
+	async function downloadCrypto(kind) {
+		const store = currentStore();
+		if (!store) return;
+		cryptoDone = null;
+		cryptoError = null;
+		try {
+			const [{ cryptoLedger, cryptoLedgerCsv }, { loadWallets }] = await Promise.all([
+				import('$lib/export/crypto-ledger.js'),
+				import('$lib/wallets/wallet-sync.js')
+			]);
+			const release = releaseName();
+			const ledger = cryptoLedger({
+				accounts: $state.snapshot(app.accounts),
+				transactions: $state.snapshot(app.transactions),
+				wallets: await loadWallets(store.settings),
+				year: cryptoYear || null,
+				...(release ? { generator: `Belege ${release}` } : {})
+			});
+			const fileName = `crypto-ledger-${cryptoYear || 'all'}-${ledger.createdAt.slice(0, 10)}.${kind}`;
+			save(
+				kind === 'json'
+					? new Blob([`${JSON.stringify(ledger, null, '\t')}\n`], { type: 'application/json' })
+					: new Blob([cryptoLedgerCsv(ledger)], { type: 'text/csv;charset=utf-8' }),
+				fileName
+			);
+			cryptoDone = t('export.crypto.done', {
+				file: fileName,
+				movements: ledger.movements.length,
+				accounts: ledger.accounts.length
+			});
+		} catch (e) {
+			cryptoError = failed(e);
+		}
+	}
+
+	let importing = $state(false);
+	/** @type {string[]} */
+	let imported = $state([]);
+
+	/** A crypto-ledger file into the books. @param {File | undefined} file */
+	async function importCrypto(file) {
+		const store = currentStore();
+		if (!store || !file) return;
+		importing = true;
+		imported = [];
+		cryptoDone = null;
+		cryptoError = null;
+		try {
+			const { importCryptoLedger } = await import('$lib/export/crypto-ledger-import.js');
+			const r = await importCryptoLedger({ store, text: await file.text() });
+			imported = [
+				t('export.crypto.imported', {
+					new: r.new,
+					updated: r.updated,
+					skipped: r.skipped,
+					accounts: r.accounts.length
+				}),
+				...(r.unpriced ? [t('export.crypto.unpriced', { count: r.unpriced })] : []),
+				...(r.left.length
+					? [
+							t('export.crypto.left', {
+								list: r.left
+									.map((l) =>
+										t('export.crypto.leftItem', { account: l.account, count: l.movements })
+									)
+									.join(', ')
+							})
+						]
+					: [])
+			];
+			await refreshNow();
+			if (r.new || r.updated) await runMatchingNow();
+		} catch (e) {
+			cryptoError = failed(e);
+		} finally {
+			importing = false;
+		}
+	}
+
 	/** @param {string} id */
 	const txLink = (id) => `${resolve('/zahlungen')}?tx=${encodeURIComponent(id)}`;
+	/** @param {string} id */
+	const receiptLink = (id) => `${resolve('/belege')}?receipt=${encodeURIComponent(id)}`;
+
+	// The hover preview of a receipt in the check list (#273, receipts/peek.js).
+	/** @type {{ receipt: Record<string, any>, anchor: HTMLElement } | null} */
+	let peeked = $state(null);
+	const peek = createPeek({
+		onchange: (v) =>
+			(peeked = /** @type {{ receipt: Record<string, any>, anchor: HTMLElement } | null} */ (v))
+	});
 	/** @param {Record<string, any>} tx */
 	const txText = (tx) =>
 		`${formatDate(tx.bookedOn)} · ${tx.counterparty || '—'} · ${formatMoney(tx.amountCents ?? 0, tx.currency)}`;
@@ -158,7 +391,7 @@
 	/** @type {string} */ kind,
 	/** @type {'ok' | 'blocker' | 'warning'} */ state,
 	/** @type {string} */ text,
-	/** @type {{ id: string, text: string, href: string | null }[]} */ entries
+	/** @type {{ id: string, text: string, href: string | null, receipt?: Record<string, any> }[]} */ entries
 )}
 	<li data-testid="export-check" data-check={kind} data-state={state}>
 		<p
@@ -176,11 +409,26 @@
 			<ul class="mt-1 ml-5 flex flex-col gap-0.5 text-xs text-text">
 				{#each entries.slice(0, SHOWN) as e (e.id)}
 					<li>
-						{e.text}
-						{#if e.href}
-							· <a class="underline" href={e.href} data-testid="export-check-open"
-								>{t('export.open')}</a
+						{#if e.receipt && e.href}
+							<PeekLink
+								receipt={e.receipt}
+								href={e.href}
+								{peek}
+								open={peeked?.receipt.id === e.id}
+								class="underline"
+								testid="export-check-open"
 							>
+								{#snippet before()}<span data-testid="export-check-receipt">{e.text} ·</span
+									>{/snippet}
+								{t('export.open')}
+							</PeekLink>
+						{:else}
+							{e.text}
+							{#if e.href}
+								· <a class="underline" href={e.href} data-testid="export-check-open"
+									>{t('export.open')}</a
+								>
+							{/if}
 						{/if}
 					</li>
 				{/each}
@@ -191,6 +439,26 @@
 		{/if}
 	</li>
 {/snippet}
+
+{#if peeked}
+	<ReceiptPeek
+		receipt={peeked.receipt}
+		anchor={peeked.anchor}
+		title={receiptVendor(/** @type {any} */ (peeked.receipt))}
+		detail={[
+			peeked.receipt.amountCents != null
+				? formatMoney(Math.abs(peeked.receipt.amountCents), peeked.receipt.currency ?? 'EUR')
+				: '',
+			((d) => (d ? formatDate(d) : ''))(receiptDate(/** @type {any} */ (peeked.receipt)))
+		]
+			.filter(Boolean)
+			.join(' · ')}
+		onenter={() => peek.stay()}
+		onleave={() => peek.leave()}
+		onscrolled={() => peek.scrolled()}
+		onclose={() => peek.close()}
+	/>
+{/if}
 
 <h1 class="text-2xl font-bold text-heading">{t('export.title')}</h1>
 <p class="mt-2 text-text">{t('export.intro')}</p>
@@ -215,7 +483,7 @@
 			<select
 				class="rounded-md border px-2 py-1.5 text-sm"
 				value={month}
-				onchange={(e) => (chosen = /** @type {HTMLSelectElement} */ (e.currentTarget).value)}
+				onchange={(e) => choose(/** @type {HTMLSelectElement} */ (e.currentTarget).value)}
 				data-testid="export-month-select"
 			>
 				{#each months as m (m)}
@@ -231,6 +499,56 @@
 				statements: plan.statements.length
 			})}
 		</p>
+		<label class="mt-2 flex items-start gap-2 text-sm text-text">
+			<input
+				type="checkbox"
+				class="mt-0.5"
+				bind:checked={withStatements}
+				data-testid="export-with-statements"
+			/>
+			<span>
+				{t('export.withStatements')}
+				{#if !withStatements}
+					<span class="block text-xs text-faint" data-testid="export-without-statements-hint"
+						>{t('export.withoutStatementsHint')}</span
+					>
+				{/if}
+			</span>
+		</label>
+		{#if settings.suspenseAccount}
+			<label class="mt-2 flex items-start gap-2 text-sm text-text">
+				<input
+					type="checkbox"
+					class="mt-0.5"
+					bind:checked={withSuspense}
+					data-testid="export-with-suspense"
+				/>
+				<span>
+					{t('export.withSuspense', { account: settings.suspenseAccount })}
+					{#if withSuspense}
+						<span class="block text-xs text-faint" data-testid="export-suspense-hint"
+							>{t('export.withSuspenseHint')}</span
+						>
+					{/if}
+				</span>
+			</label>
+		{/if}
+		{#if withStatements && unreconciled.length}
+			<p class="mt-2 text-sm text-warning" role="status" data-testid="export-unreconciled">
+				{t('export.unreconciled', { accounts: unreconciled.join(', ') })}
+			</p>
+		{/if}
+		{#if hasFeeStatement}
+			<label class="mt-2 flex items-start gap-2 text-sm text-text">
+				<input
+					type="checkbox"
+					class="mt-0.5"
+					bind:checked={collectFees}
+					data-testid="export-collect-fees"
+				/>
+				<span>{t('export.collectFees')}</span>
+			</label>
+		{/if}
 		<p class="mt-1 text-xs text-faint" data-testid="export-settings">
 			{t('export.settings', {
 				consultant: settings.consultantNumber,
@@ -248,6 +566,14 @@
 	>
 		<h2 class="text-lg font-semibold text-heading">{t('export.checks')}</h2>
 		<ul class="mt-2 flex flex-col gap-3 text-sm">
+			{#if plan.tests}
+				<li data-testid="export-tests">
+					<label class="flex items-center gap-2">
+						<input type="checkbox" bind:checked={includeTests} data-testid="export-include-tests" />
+						{t('export.check.tests', { count: plan.tests })}
+					</label>
+				</li>
+			{/if}
 			{#if plan.sample !== 'none'}
 				{@render item(
 					'sample',
@@ -264,14 +590,29 @@
 					plan.checks.unpriced.map((tx) => ({ id: tx.id, text: txText(tx), href: txLink(tx.id) }))
 				)}
 			{/if}
-			{@render item(
-				'unassigned',
-				plan.checks.unassigned.length ? 'blocker' : 'ok',
-				plan.checks.unassigned.length
-					? t('export.check.unassigned', { count: plan.checks.unassigned.length })
-					: t('export.check.unassignedOk'),
-				plan.checks.unassigned.map((tx) => ({ id: tx.id, text: txText(tx), href: txLink(tx.id) }))
-			)}
+			{#if suspenseAccount && plan.checks.unassigned.length}
+				<!-- On the suspense account (#323): no blocker, but to be re-booked. -->
+				{@render item(
+					'unassigned',
+					plan.checks.suspense.length ? 'warning' : 'ok',
+					plan.checks.suspense.length
+						? t('export.check.suspense', {
+								count: plan.checks.suspense.length,
+								account: suspenseAccount
+							})
+						: t('export.check.unassignedOk'),
+					plan.checks.suspense.map((tx) => ({ id: tx.id, text: txText(tx), href: txLink(tx.id) }))
+				)}
+			{:else}
+				{@render item(
+					'unassigned',
+					plan.checks.unassigned.length ? 'blocker' : 'ok',
+					plan.checks.unassigned.length
+						? t('export.check.unassigned', { count: plan.checks.unassigned.length })
+						: t('export.check.unassignedOk'),
+					plan.checks.unassigned.map((tx) => ({ id: tx.id, text: txText(tx), href: txLink(tx.id) }))
+				)}
+			{/if}
 			{#if automatic.length}
 				<li class="ml-5">
 					<button
@@ -319,15 +660,38 @@
 				plan.checks.unlinkedReceipts.length
 					? t('export.check.unlinked', { count: plan.checks.unlinkedReceipts.length })
 					: t('export.check.unlinkedOk'),
-				plan.checks.unlinkedReceipts.map((r) => ({ id: r.id, text: receiptText(r), href: null }))
+				plan.checks.unlinkedReceipts.map((r) => ({
+					id: r.id,
+					text: receiptText(r),
+					href: receiptLink(r.id),
+					receipt: r
+				}))
 			)}
+			{#if plan.checks.copies.length}
+				{@render item(
+					'copies',
+					'warning',
+					t('export.check.copies', { count: plan.checks.copies.length }),
+					plan.checks.copies.map((r) => ({
+						id: r.id,
+						text: receiptText(r),
+						href: receiptLink(r.id),
+						receipt: r
+					}))
+				)}
+			{/if}
 			{@render item(
 				'unverified',
 				plan.checks.unverified.length ? 'warning' : 'ok',
 				plan.checks.unverified.length
 					? t('export.check.unverified', { count: plan.checks.unverified.length })
 					: t('export.check.unverifiedOk'),
-				plan.checks.unverified.map((r) => ({ id: r.id, text: receiptText(r), href: null }))
+				plan.checks.unverified.map((r) => ({
+					id: r.id,
+					text: receiptText(r),
+					href: receiptLink(r.id),
+					receipt: r
+				}))
 			)}
 		</ul>
 
@@ -350,5 +714,84 @@
 			<p class="mt-2 text-sm text-danger" role="alert" data-testid="export-error">{error}</p>
 		{/if}
 		<TechnicalNote class="mt-3" testid="export-technical" lines={list('export.technical')} />
+	</section>
+{/if}
+
+{#if currentStore()}
+	<section
+		class="mt-4 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm"
+		data-testid="export-crypto"
+	>
+		<h2 class="text-lg font-semibold text-heading">{t('export.crypto.title')}</h2>
+		<p class="mt-1 text-sm text-text">{t('export.crypto.intro')}</p>
+		{#if cryptoYears.length}
+			<div class="mt-3 flex flex-wrap items-center gap-3">
+				<label class="flex items-center gap-2 text-sm">
+					<span class="font-medium text-heading">{t('export.crypto.year')}</span>
+					<select
+						class="rounded-md border px-2 py-1.5 text-sm"
+						bind:value={cryptoYear}
+						data-testid="export-crypto-year"
+					>
+						<option value="">{t('export.crypto.allYears')}</option>
+						{#each cryptoYears as y (y)}
+							<option value={y}>{y}</option>
+						{/each}
+					</select>
+				</label>
+				<button
+					type="button"
+					class={button}
+					onclick={() => downloadCrypto('json')}
+					data-testid="export-crypto-json">{t('export.crypto.json')}</button
+				>
+				<button
+					type="button"
+					class={button}
+					onclick={() => downloadCrypto('csv')}
+					data-testid="export-crypto-csv">{t('export.crypto.csv')}</button
+				>
+			</div>
+		{/if}
+		<div class="mt-3">
+			<label
+				class="inline-block cursor-pointer {button} {importing
+					? 'pointer-events-none opacity-50'
+					: ''}"
+				data-testid="export-crypto-import"
+				>{importing ? t('export.crypto.importing') : t('export.crypto.import')}<input
+					type="file"
+					accept=".json,application/json"
+					class="sr-only"
+					disabled={importing}
+					onchange={(e) => {
+						const input = /** @type {HTMLInputElement} */ (e.currentTarget);
+						void importCrypto(input.files?.[0]);
+						input.value = '';
+					}}
+					data-testid="export-crypto-import-file"
+				/></label
+			>
+		</div>
+		{#each imported as line, i (i)}
+			<p class="mt-2 text-sm text-heading" role="status" data-testid="export-crypto-imported">
+				{line}
+			</p>
+		{/each}
+		{#if cryptoDone}
+			<p class="mt-2 text-sm text-heading" role="status" data-testid="export-crypto-done">
+				{cryptoDone}
+			</p>
+		{/if}
+		{#if cryptoError}
+			<p class="mt-2 text-sm text-danger" role="alert" data-testid="export-crypto-error">
+				{cryptoError}
+			</p>
+		{/if}
+		<TechnicalNote
+			class="mt-3"
+			testid="export-crypto-technical"
+			lines={list('export.crypto.technical')}
+		/>
 	</section>
 {/if}

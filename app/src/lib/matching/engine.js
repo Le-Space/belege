@@ -28,6 +28,7 @@ import { graceWait, localDay } from './grace.js';
 import { assign, receiptFacts, txFacts } from './score.js';
 import { cryptoEvidence } from './view.js';
 import { walletChain } from '../wallets/chains.js';
+import { settlement } from './instalments.js';
 
 /** @typedef {import('../store/repository.js').Collection} Collection */
 /** @typedef {import('../store/repository.js').StoredRecord} StoredRecord */
@@ -197,7 +198,32 @@ export async function runMatching({
 		}
 		live.push(m);
 	}
-	const active = live.filter(isActive);
+	// Two devices may link the same pair before they see each other's link
+	// (each runs the engine on its own, #473). Once both links are here, one
+	// stays – a confirmed one before an automatic one, then the oldest id – and
+	// the others go; every device picks the same, so they agree.
+	/** @type {Map<string, any[]>} */
+	const byPair = new Map();
+	for (const m of live.filter(isActive)) {
+		const key = pairKey(m.receiptId, m.transactionId);
+		byPair.set(key, [...(byPair.get(key) ?? []), m]);
+	}
+	/** @type {Set<string>} */
+	const twice = new Set();
+	for (const same of byPair.values()) {
+		if (same.length < 2) continue;
+		same.sort(
+			(a, b) =>
+				(a.state === 'confirmed' ? 0 : 1) - (b.state === 'confirmed' ? 0 : 1) ||
+				(a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+		);
+		for (const extra of same.slice(1)) {
+			await store.matches.softDelete(extra.id);
+			twice.add(extra.id);
+			writes++;
+		}
+	}
+	const active = live.filter((m) => isActive(m) && !twice.has(m.id));
 	const rejected = new Set(
 		live.filter((m) => m.state === 'rejected').map((m) => pairKey(m.receiptId, m.transactionId))
 	);
@@ -212,11 +238,22 @@ export async function runMatching({
 		}
 		return !matchedTx.has(t.id);
 	});
+	// What a linked receipt still has open (instalments.js, issue #258): an
+	// invoice paid in part stays in play for its next instalment.
+	/** @type {Map<string, number>} receipt id → cents paid so far */
+	const paid = new Map();
+	for (const r of receipts) {
+		if (!matchedReceipt.has(r.id)) continue;
+		const s = settlement(r, active, txById);
+		if (s.state === 'partial') paid.set(r.id, s.paidCents);
+	}
 	// A prepaid vendor's statements are covered by its account (vendor-account.js).
 	const openReceipts = receipts.filter(
-		(r) => matchable(r) && !matchedReceipt.has(r.id) && !ctx.prepaidReceipt?.(r)
+		(r) => matchable(r) && (!matchedReceipt.has(r.id) || paid.has(r.id)) && !ctx.prepaidReceipt?.(r)
 	);
-	const receiptFactsList = openReceipts.map((r) => receiptFacts(r, ctx)).filter((f) => f !== null);
+	const receiptFactsList = openReceipts
+		.map((r) => receiptFacts(r, ctx, paid.get(r.id) ?? 0))
+		.filter((f) => f !== null);
 	onProgress({ step: 'score', receipts: receiptFactsList.length, transactions: openTx.length });
 
 	const result = assign({

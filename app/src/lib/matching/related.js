@@ -15,8 +15,11 @@
 
 import { txRefsOf } from './context.js';
 
-/** A wallet's transaction hash is long hex; an exchange's refid is short and mixed. */
-const HASH = /^(0x)?[0-9a-f]{40,}$/i;
+/**
+ * A wallet's transaction hash is long hex, or a Filecoin message CID
+ * (`bafy2bzace…`); an exchange's refid is short and mixed.
+ */
+const HASH = /^(0x)?[0-9a-f]{40,}$|^bafy2bzace[a-z2-7]{40,}$/i;
 
 /**
  * @typedef {'transfer' | 'trade' | 'migration' | 'fee' | 'fee-of' | 'refund'} RelationKind

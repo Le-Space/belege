@@ -28,6 +28,8 @@
 	import { list, t } from './i18n/index.js';
 
 	let companyText = $state('');
+	let ownNamesText = $state('');
+	let employeesText = $state('');
 	let ibanText = $state('');
 	/** @type {import('./matching/classify.js').Rule[]} */
 	let rules = $state([]);
@@ -43,6 +45,8 @@
 
 	/** @type {Record<string, string>} bank account id → its ledger account, as typed */
 	let ledgers = $state({});
+	/** When output VAT counts (#195), as cleanDatevSettings keeps it. */
+	const VAT_BASES = /** @type {const} */ (['ist', 'soll']);
 	let datev = $state(cleanDatevSettings(null));
 	/** @type {string | null} */
 	let invalid = $state(null);
@@ -66,6 +70,8 @@
 	onMount(() => {
 		const current = cleanMatchingSettings(app.matchingSettings);
 		companyText = current.companyNames.join('\n');
+		ownNamesText = current.ownNames.join('\n');
+		employeesText = current.employees.join('\n');
 		ibanText = current.ownIbans.join('\n');
 		rules = current.rules;
 		graceDays = current.graceDays;
@@ -210,6 +216,8 @@
 				// "Beleg ist richtig" and whatever comes later – kept as they are.
 				...cleanMatchingSettings(app.matchingSettings),
 				companyNames: lines(companyText),
+				ownNames: lines(ownNamesText),
+				employees: lines(employeesText),
 				ownIbans: lines(ibanText),
 				rules: $state.snapshot(rules),
 				graceDays: String(graceDays)
@@ -257,6 +265,26 @@
 				data-testid="company-names"
 			></textarea>
 			<span class="mt-1 text-xs text-faint">{t('anweisungen.companyHint')}</span>
+		</label>
+		<label class="flex flex-col text-sm">
+			<span class="font-medium text-heading">{t('anweisungen.ownNames')}</span>
+			<textarea
+				class="{input} min-h-16 font-sans"
+				bind:value={ownNamesText}
+				placeholder="Erika Mustermann"
+				data-testid="own-names"
+			></textarea>
+			<span class="mt-1 text-xs text-faint">{t('anweisungen.ownNamesHint')}</span>
+		</label>
+		<label class="flex flex-col text-sm">
+			<span class="font-medium text-heading">{t('anweisungen.employees')}</span>
+			<textarea
+				class="{input} min-h-16 font-sans"
+				bind:value={employeesText}
+				placeholder="Max Beispiel"
+				data-testid="employees"
+			></textarea>
+			<span class="mt-1 text-xs text-faint">{t('anweisungen.employeesHint')}</span>
 		</label>
 		<label class="flex flex-col text-sm">
 			<span class="font-medium text-heading">{t('anweisungen.ownIbans')}</span>
@@ -498,12 +526,40 @@
 				{/if}
 			</div>
 			<p class="mt-1 text-xs text-faint">{t('anweisungen.books.legalFormHint')}</p>
+			<label class="mt-3 flex flex-col">
+				<span class="text-faint">{t('anweisungen.books.suspenseAccount')}</span>
+				<input
+					class="{input} w-28 font-mono"
+					inputmode="numeric"
+					bind:value={datev.suspenseAccount}
+					data-testid="datev-suspense-account"
+				/>
+			</label>
+			<p class="mt-1 text-xs text-faint">{t('anweisungen.books.suspenseHint')}</p>
 			<div class="mt-3 flex flex-wrap items-end gap-3">
 				<label class="flex flex-col">
 					<span class="text-faint">{t('anweisungen.books.vatPeriod')}</span>
 					<select class={input} bind:value={datev.vatPeriod} data-testid="datev-vat-period">
 						<option value="quarter">{t('anweisungen.books.vatPeriods.quarter')}</option>
 						<option value="month">{t('anweisungen.books.vatPeriods.month')}</option>
+					</select>
+				</label>
+				<label class="flex flex-col">
+					<span class="text-faint">{t('anweisungen.books.ownVatId')}</span>
+					<input
+						class="{input} w-40 font-mono"
+						autocomplete="off"
+						bind:value={datev.ownVatId}
+						placeholder="DE…"
+						data-testid="datev-own-vat-id"
+					/>
+				</label>
+				<label class="flex flex-col">
+					<span class="text-faint">{t('anweisungen.books.vatBasis')}</span>
+					<select class={input} bind:value={datev.vatBasis} data-testid="datev-vat-basis">
+						{#each VAT_BASES as basis (basis)}
+							<option value={basis}>{t(`anweisungen.books.vatBases.${basis}`)}</option>
+						{/each}
 					</select>
 				</label>
 				<label class="flex min-h-11 items-center gap-2">

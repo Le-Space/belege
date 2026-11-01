@@ -1,4 +1,5 @@
 <script>
+	import { aiText } from '$lib/ai-text.js';
 	// One booking in full: counterparty, date, the whole purpose, the amount;
 	// its receipt(s) with a preview; the other payments to the same
 	// counterparty; and what a person can do: link a receipt, undo a link,
@@ -11,6 +12,8 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import ReceiptPreview from './ReceiptPreview.svelte';
+	import ReceiptPeek from './ReceiptPeek.svelte';
+	import { canPeek, createPeek, peekHandlers } from './receipts/peek.js';
 	import BookingBlock from './BookingBlock.svelte';
 	import TechnicalNote from './TechnicalNote.svelte';
 	import CopyButton from './CopyButton.svelte';
@@ -18,6 +21,9 @@
 	import AiMark from './AiMark.svelte';
 	import { recordEvent } from './activity/events.js';
 	import NewPortal from './portals/NewPortal.svelte';
+	import OutlayRepayment from './outlays/OutlayRepayment.svelte';
+	import TravelPayout from './travel/TravelPayout.svelte';
+	import TravelAdvance from './travel/TravelAdvance.svelte';
 	import { createPortalClient } from './portals/client.js';
 	import {
 		fetchPortal,
@@ -31,10 +37,13 @@
 		currentBlobs,
 		currentStore,
 		refreshNow,
+		fillExchangeRates,
 		runMatchingNow
 	} from './session.svelte.js';
 	import { portalLink } from './matching/portal.js';
-	import { learnedVendors } from './matching/partners.js';
+	import { learnedVendors, nameAddress } from './matching/partners.js';
+	import { groupIban, ownIbanSuggestionFor, ownIbanSuggestions } from './matching/own-iban.js';
+	import { instalmentOf, settlement as invoiceSettlement } from './matching/instalments.js';
 	import { attachUpload, moveReceipt } from './receipts/attach.js';
 	import EigenbelegForm from './receipts/EigenbelegForm.svelte';
 	import { folderSupported, savedFolder } from './receipts/folder.js';
@@ -52,10 +61,18 @@
 	import { tradeArrow, tradeSides, tradeSideWhat } from './exchanges/trades.js';
 	import { acknowledgeImportChange, setManualRate } from './booking/actions.js';
 	import { isBookingConfirmed } from './booking/suggest.js';
-	import { quantityText, valuationText } from './assets/valuation.js';
-	import { safeExplorerUrl, walletChain } from './wallets/chains.js';
+	import { quantityText, rateInputPlaceholder, valuationText } from './assets/valuation.js';
+	import { addressExplorerUrl, safeExplorerUrl, walletChain } from './wallets/chains.js';
+	import { chainOfHash, hashUrl } from './assets/hash-chain.js';
+	import { normalizeTxRef } from './matching/context.js';
 	import { renderSVG } from 'uqr';
-	import { addressBook, payeeName, shortAddress, walletParties } from './bank/payee.js';
+	import {
+		addressBook,
+		payeeName,
+		shortAddress,
+		walletParties,
+		walletPurposeExtra
+	} from './bank/payee.js';
 	import { eventCalls } from './stats/usage.js';
 	import { relatedIndex } from './matching/related.js';
 	import { scamContext, scamSigns } from './receipts/scam.js';
@@ -64,6 +81,8 @@
 	import { extractReceipt } from './receipts/extract.js';
 	import {
 		addCompanyName,
+		addOwnIban,
+		rejectOwnIban,
 		confirmMatch,
 		markBankFee,
 		linkRefund,
@@ -75,7 +94,8 @@
 		rejectRefund,
 		rejectTransfer,
 		setNoReceipt,
-		unlinkMatch
+		unlinkMatch,
+		forgetBankFee
 	} from './matching/actions.js';
 	import {
 		coverageBadge,
@@ -93,6 +113,7 @@
 		matchOfReceipt,
 		ownNameCandidate,
 		receiptChoices,
+		receiptDay as receiptPlacedOn,
 		transferCandidates,
 		migrationCandidates
 	} from './matching/view.js';
@@ -103,7 +124,7 @@
 		pointsBreakdown,
 		thresholdsText
 	} from './matching/explain.js';
-	import { cleanMatchingSettings } from './matching/classify.js';
+	import { cleanMatchingSettings, feeKey } from './matching/classify.js';
 	import {
 		linkRepayment,
 		markPrivate,
@@ -116,6 +137,7 @@
 	import { cleanDatevSettings, privateAccounts } from './booking/settings.js';
 	import { graceWait, localDay } from './matching/grace.js';
 	import { list, t } from './i18n/index.js';
+	import { paperlessSourceRef } from './paperless/import.js';
 
 	/** @type {{ txId: string, onclose: () => void, onopen: (id: string) => void }} */
 	let { txId, onclose, onopen } = $props();
@@ -146,6 +168,13 @@
 	let privateRules = $derived(privateAccounts(cleanDatevSettings(app.datevSettings)));
 	let legalForm = $derived(cleanDatevSettings(app.datevSettings).legalForm);
 	let settlement = $derived(tx && privateKind(tx) ? privateSettlement(tx, app.transactions) : null);
+	// The other way round: private money that came in on the business account by
+	// mistake and is passed on to the private account. The same mechanics, its
+	// own words: `…In` for the incoming payment, `…Out` for its pass-on.
+	let privateIn = $derived(Boolean(tx?.privateMistake) && (tx?.amountCents ?? 0) > 0);
+	let passOn = $derived(Boolean(tx?.privateRepaymentOf?.length) && (tx?.amountCents ?? 0) < 0);
+	/** @param {string} key */
+	const pk = (key) => `zahlungen.detail.private.${key}${privateIn ? 'In' : ''}`;
 	let repayChoices = $derived(
 		repayOpen && tx?.privateMistake
 			? transferCandidates(tx, app.transactions, { days: 180, anyAccount: true }).filter(
@@ -194,6 +223,86 @@
 				)
 			: null
 	);
+	// An own transfer names the account it went to, not an address (issue #254).
+	let counterAccount = $derived.by(() => {
+		const otherId =
+			classification?.kind === 'own-transfer' ? classification.counterBookingId : null;
+		const other = otherId ? app.transactions.find((o) => o.id === otherId) : null;
+		return other ? (app.accounts.find((a) => a.id === other.accountId) ?? null) : null;
+	});
+	let heading = $derived.by(() => {
+		if (parties && counterAccount) return accountLabel(counterAccount);
+		// A bare address is no name: say which way it went.
+		const other = parties && tx ? (txDirection(tx) < 0 ? parties.to : parties.from) : null;
+		if (tx && other && !other.own && other.address && other.label === shortAddress(other.address)) {
+			return t(
+				txDirection(tx) < 0 ? 'zahlungen.detail.toAddress' : 'zahlungen.detail.fromAddress',
+				{
+					address: other.label
+				}
+			);
+		}
+		return payee?.name;
+	});
+	// "Wohin ging das Geld?" (issue #254): for a wallet transfer nothing explains yet.
+	let whereOpen = $derived(
+		Boolean(
+			tx &&
+				parties &&
+				!parties.fee &&
+				!classification &&
+				!tx.receiptId &&
+				!tx.noReceipt &&
+				tx.counterpartyAddress
+		)
+	);
+	// An own account that got (or sent) about the same quantity of the same asset that day.
+	let whereCandidate = $derived.by(() => {
+		if (!whereOpen || !tx || !/^-?\d+$/.test(String(tx.quantity ?? ''))) return null;
+		const abs = (/** @type {bigint} */ v) => (v < 0n ? -v : v);
+		const mine = abs(BigInt(tx.quantity));
+		return (
+			transferCandidates(tx, app.transactions, { days: 1, limit: 5 }).find((o) => {
+				if (o.asset !== tx?.asset || !/^-?\d+$/.test(String(o.quantity ?? ''))) return false;
+				const theirs = abs(BigInt(o.quantity));
+				// Within 3 %: an exchange may keep a fee of its own.
+				return mine > 0n && abs(mine - theirs) * 100n <= mine * 3n;
+			}) ?? null
+		);
+	});
+	// The other bookings with the same address, newest first.
+	let sameAddress = $derived(
+		whereOpen && tx
+			? app.transactions
+					.filter(
+						(o) =>
+							!o.deleted && o.id !== tx?.id && o.counterpartyAddress === tx?.counterpartyAddress
+					)
+					.sort((a, b) => String(b.bookedOn).localeCompare(String(a.bookedOn)))
+			: []
+	);
+	// The other side is a bare address: offer to name it.
+	let whereUnnamed = $derived.by(() => {
+		if (!whereOpen || !tx || !parties) return false;
+		const other = txDirection(tx) < 0 ? parties.to : parties.from;
+		return !other.own && Boolean(other.address) && other.label === shortAddress(other.address);
+	});
+	let addressName = $state('');
+	const saveAddressName = () =>
+		act(async () => {
+			const store = currentStore();
+			if (!store || !tx) return;
+			await nameAddress(store.partners, tx, addressName);
+			addressName = '';
+			await refreshNow();
+		});
+	/** @param {string} otherId */
+	const linkCandidate = (otherId) =>
+		act(async () => {
+			await linkTransfer(/** @type {any} */ (currentStore()), txId, otherId);
+			await runMatchingNow();
+		});
+
 	// "Als Gegenbuchung verknüpfen …" (issue #98): the other side of an own transfer, by hand.
 	let linkOpen = $state(false);
 	// What the other side is: an own transfer, or a charge's refund (issue #119).
@@ -244,13 +353,46 @@
 		tx
 			? receiptChoices(tx, app.receipts, app.matches, {
 					companyNames: app.matchingSettings?.companyNames ?? [],
-					learnedVendors: learnedVendors(app.partners ?? [])
+					learnedVendors: learnedVendors(app.partners ?? []),
+					// An invoice paid in part elsewhere is offered as one more instalment (#258).
+					transactions: app.transactions
 				})
 			: []
 	);
 	let suggestions = $derived(choices.filter((c) => c.suggested));
 	let others = $derived(tx ? otherPayments(tx, app.transactions) : []);
 	let othersWithout = $derived(others.filter((o) => !isTxCovered(o, app.classifications)).length);
+	// "Ist das ein eigenes Konto?" (#256): this booking came from, or went to, an
+	// IBAN that sends under the company's name.
+	let ownIbanOffer = $derived.by(() => {
+		if (!tx?.counterpartyIban) return null;
+		const settings = cleanMatchingSettings(app.matchingSettings);
+		return ownIbanSuggestionFor(
+			ownIbanSuggestions({
+				transactions: app.transactions,
+				classifications: app.classifications,
+				ownIbans: settings.ownIbans,
+				notOwnIbans: settings.notOwnIbans
+			}),
+			tx
+		);
+	});
+	const answerOwnIban = (/** @type {boolean} */ yes) =>
+		act(async () => {
+			if (!ownIbanOffer) return;
+			await (yes ? addOwnIban : rejectOwnIban)(
+				/** @type {any} */ (currentStore()),
+				ownIbanOffer.iban
+			);
+			await runMatchingNow();
+		});
+	// "Diese Regel vergessen" (#320): the learned bank fee that covers this booking.
+	const forgetFeeRule = () =>
+		act(async () => {
+			const key = feeKey(/** @type {any} */ (tx));
+			if (key) await forgetBankFee(/** @type {any} */ (currentStore()), key);
+			await runMatchingNow();
+		});
 	let ruleLine = $derived(
 		tx
 			? classificationLine(classification, { accounts: app.accounts, noReceipt: tx.noReceipt })
@@ -288,6 +430,10 @@
 	);
 
 	let assigning = $state(false);
+	/** Whether a receipt is being looked for here: the search, the tabs and the choices show. */
+	let finding = $derived(
+		Boolean(tx) && ((!linked.length && !classification && !tx?.noReceipt) || assigning)
+	);
 	let askingReason = $state(false);
 	let reason = $state('');
 	/** @type {string | null} */
@@ -385,6 +531,11 @@
 			if (!saved?.token) return;
 			client = createBridgeClient({ url: saved.url, token: saved.token });
 			bridgeAt = { url: saved.url, token: saved.token };
+			// "Paperless" among the sources only where the bridge has it set up.
+			client
+				.health()
+				.then((h) => (paperlessOn = /** @type {any} */ (h)?.paperless?.configured === true))
+				.catch(() => {});
 			void loadPortals();
 		});
 	});
@@ -402,6 +553,7 @@
 		reason = '';
 		error = null;
 		hits = null;
+		paperlessHits = null;
 		importNote = null;
 		uploadResult = null;
 		folderNote = null;
@@ -488,11 +640,87 @@
 		}
 	}
 
+	let paperlessOn = $state(false);
+	/** @type {Omit<import('$lib/paperless/import.js').PaperlessDocument, 'content'>[] | null} */
+	let paperlessHits = $state(null);
+	let paperlessSearching = $state(false);
+	/** @type {number | null} */
+	let paperlessTaking = $state(null);
+
+	/** Paperless' full-text search, for the search text – or the counterparty when there is none. */
+	async function searchPaperless() {
+		if (!client || !tx) return;
+		const query = findQuery.trim() || String(tx.counterparty ?? '').trim();
+		if (!query) return;
+		paperlessSearching = true;
+		error = null;
+		try {
+			paperlessHits = await client.paperlessSearch(query);
+		} catch (e) {
+			error = message(e);
+		} finally {
+			paperlessSearching = false;
+		}
+	}
+
+	/**
+	 * A Paperless document into the books and onto this booking: as an upload
+	 * would be, read and linked as the person's decision, kept as from Paperless
+	 * (a later Paperless fetch knows it).
+	 *
+	 * @param {Omit<import('$lib/paperless/import.js').PaperlessDocument, 'content'>} doc
+	 */
+	async function takePaperless(doc) {
+		if (!client) return;
+		paperlessTaking = doc.id;
+		error = null;
+		try {
+			const bytes = await client.paperlessDocument(doc.id);
+			await attachHere(
+				{ name: doc.originalFileName || `paperless-${doc.id}.pdf`, bytes },
+				{
+					source: 'paperless',
+					sourceRef: paperlessSourceRef(doc.id),
+					fields: {
+						from: doc.correspondent ?? null,
+						subject: doc.title || null,
+						receivedAt: doc.created ?? (doc.added ? doc.added.slice(0, 10) : null),
+						paperless: {
+							id: doc.id,
+							title: doc.title,
+							created: doc.created,
+							added: doc.added,
+							correspondent: doc.correspondent,
+							documentType: doc.documentType,
+							tags: doc.tags ?? []
+						}
+					}
+				}
+			);
+		} catch (e) {
+			error = message(e);
+		} finally {
+			paperlessTaking = null;
+		}
+	}
+
 	/** @param {File | undefined} file */
 	async function uploadHere(file) {
+		if (!file) return;
+		await attachHere({ name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) });
+	}
+
+	/**
+	 * A file into the books and onto this booking, as the person's decision: an
+	 * upload, or a document picked from Paperless (`origin`).
+	 *
+	 * @param {{ name: string, bytes: Uint8Array }} file
+	 * @param {{ source: import('./receipts/import.js').ReceiptSource, sourceRef: string, fields?: Record<string, any> }} [origin]
+	 */
+	async function attachHere(file, origin) {
 		const store = currentStore();
 		const blobs = currentBlobs();
-		if (!file || !store || !blobs || !tx) return;
+		if (!store || !blobs || !tx) return;
 		uploading = true;
 		error = null;
 		uploadResult = null;
@@ -503,8 +731,9 @@
 				blobs,
 				client,
 				tx: booking,
-				file: { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) },
-				ctx: { companyNames: app.matchingSettings?.companyNames ?? [] }
+				file,
+				ctx: { companyNames: app.matchingSettings?.companyNames ?? [] },
+				...(origin ? { origin } : {})
 			});
 			if (r.outcome === 'linked-elsewhere' && r.receipt) {
 				const other = r.elsewhere;
@@ -586,7 +815,13 @@
 			folderNote = !r?.permitted
 				? t('zahlungen.detail.folderDenied')
 				: r.created
-					? t('zahlungen.detail.folderResult', { count: r.created })
+					? [
+							t('zahlungen.detail.folderResult', { count: r.created }),
+							r.waiting ? t('zahlungen.detail.folderWaiting', { count: r.waiting }) : '',
+							r.images ? t('zahlungen.detail.folderImages', { count: r.images }) : ''
+						]
+							.filter(Boolean)
+							.join(' ')
 					: t('zahlungen.detail.folderNothing');
 		} catch (e) {
 			error = message(e);
@@ -619,16 +854,23 @@
 		}
 	}
 
-	/** @param {string} receiptId @param {number} score @param {string[]} reasons */
-	const assign = (receiptId, score, reasons) =>
+	/**
+	 * @param {string} receiptId @param {number} score @param {string[]} reasons
+	 * @param {boolean} [alongside] one more instalment: the receipt's other links stay (#258)
+	 */
+	const assign = (receiptId, score, reasons, alongside = false) =>
 		act(async () => {
 			const store = /** @type {any} */ (currentStore());
 			await confirmMatch(store, {
 				receiptId,
 				transactionId: txId,
 				score,
-				reasons: [...reasons, 'manual']
+				reasons: [...reasons, 'manual'],
+				alongside
 			});
+			// An invoice in another currency: the day's rate, so what is open shows at once.
+			await refreshNow();
+			await fillExchangeRates();
 			assigning = false;
 			if (vendorFit?.receipt.id === receiptId) {
 				vendorFit = null;
@@ -828,19 +1070,41 @@
 
 	// "Beleg finden": one search text for the lists and the private mailbox.
 	let findQuery = $state('');
-	/** @type {'passend' | 'alle' | 'postfach' | 'portal' | null} null: the default for this booking */
+	/** @type {'passend' | 'jahr' | 'alle' | 'postfach' | 'paperless' | 'portal' | null} null: the default for this booking */
 	let findTab = $state(null);
 	/** The search text, when the bridge takes it as its text (3–100 plain characters). */
 	let freeText = $derived.by(() => {
 		const q = findQuery.replace(/\s+/g, ' ').trim();
 		return q.length >= 3 && q.length <= 100 && !/["\\\r\n]/.test(q) ? q : null;
 	});
-	let baseQuery = $derived(tx ? privateSearchQuery(tx, app.partners ?? []) : null);
+	let baseQuery = $derived.by(() => {
+		if (!tx) return null;
+		// Never search for ourselves: company names and own names (#231).
+		const s = cleanMatchingSettings(app.matchingSettings);
+		return privateSearchQuery(tx, app.partners ?? [], {
+			ownNames: [...s.companyNames, ...s.ownNames]
+		});
+	});
 	// What the private mailbox is asked: the search text, when given, instead of the telling word.
 	let query = $derived(baseQuery && freeText ? { ...baseQuery, text: freeText } : baseQuery);
 	/** @param {string} iso @param {number} days */
 	const shift = (iso, days) =>
 		formatDate(new Date(Date.parse(`${iso}T00:00:00Z`) + days * 864e5).toISOString().slice(0, 10));
+	// An exchange's deposit or withdrawal: which chain its hash is on, and the
+	// explorer link (#215). An own wallet's booking of the same hash settles it.
+	let hashChain = $derived.by(() => {
+		if (!tx?.chainTxRef) return null;
+		const ref = normalizeTxRef(tx.chainTxRef);
+		const mirror = app.transactions.find(
+			(o) => !o.deleted && walletChain(o.source) && normalizeTxRef(o.txRef) === ref
+		);
+		return chainOfHash({
+			hash: tx.chainTxRef,
+			asset: tx.asset ?? '',
+			method: tx.chainMethod ?? '',
+			walletChain: mirror ? String(mirror.source) : null
+		});
+	});
 	let searchHint = $derived(
 		query && query.terms.length
 			? t('zahlungen.detail.privateHintCrypto', {
@@ -849,12 +1113,19 @@
 					text: query.text ? t('zahlungen.detail.privateHintCryptoText', { text: query.text }) : ''
 				})
 			: query
-				? t(query.text ? 'zahlungen.detail.privateHint' : 'zahlungen.detail.privateHintAmount', {
-						text: query.text ?? '',
-						amount: `${query.amount} €`,
-						from: shift(query.around, -query.days),
-						to: shift(query.around, query.days)
-					})
+				? t(
+						!query.text
+							? 'zahlungen.detail.privateHintAmount'
+							: !freeText && query.textFrom === 'purpose'
+								? 'zahlungen.detail.privateHintPurpose'
+								: 'zahlungen.detail.privateHint',
+						{
+							text: query.text ?? '',
+							amount: `${query.amount} €`,
+							from: shift(query.around, -query.days),
+							to: shift(query.around, query.days)
+						}
+					)
 				: ''
 	);
 
@@ -1067,8 +1338,32 @@
 
 	/** @param {KeyboardEvent} e */
 	function onKey(e) {
-		if (e.key === 'Escape') onclose();
+		if (e.key !== 'Escape') return;
+		// Esc closes the receipt preview first, the detail after.
+		if (peeked) {
+			peek.close();
+			return;
+		}
+		onclose();
 	}
+
+	// The hover preview of a receipt among the choices (#273, receipts/peek.js).
+	/** @typedef {import('$lib/store/repository.js').StoredRecord} Receipt */
+	/** @type {{ receipt: Receipt, anchor: HTMLElement } | null} */
+	let peeked = $state(null);
+	const peek = createPeek({
+		onchange: (v) => (peeked = /** @type {{ receipt: Receipt, anchor: HTMLElement } | null} */ (v))
+	});
+	/** The row a choice's event came from. @param {Event} e */
+	const rowOf = (e) =>
+		/** @type {HTMLElement} */ (
+			/** @type {HTMLElement} */ (e.currentTarget).closest('[data-testid="tx-choice"]')
+		);
+	// A preview belongs to the payment it was opened on.
+	$effect(() => {
+		void txId;
+		peek.close();
+	});
 
 	/** @param {import('$lib/store/repository.js').StoredRecord} r */
 	const receiptAmount = (r) =>
@@ -1078,6 +1373,12 @@
 		const d = receiptDate(r);
 		return d ? formatDate(d) : '';
 	};
+	/**
+	 * Not read yet: no amount and no date of its own – shown by when it came in, not as "—".
+	 * @param {import('$lib/store/repository.js').StoredRecord} r
+	 */
+	const unread = (r) =>
+		typeof r.amountCents !== 'number' && !receiptDate(r) && Boolean(receiptPlacedOn(r));
 	/** @param {string[]} reasons */
 	const reasonText = (reasons) => (reasons ?? []).map((x) => t(`matching.reason.${x}`)).join(' · ');
 
@@ -1130,12 +1431,39 @@
 	);
 	let foundSuggestions = $derived(suggestions.filter((c) => findsReceipt(c.receipt)));
 	let foundAll = $derived(choices.filter((c) => findsReceipt(c.receipt)));
-	let tab = $derived(findTab ?? (suggestions.length ? 'passend' : 'alle'));
+	// "Gleiches Jahr": the receipts placed in the payment's calendar year (by their date, else when they came in).
+	let foundYear = $derived(
+		foundAll.filter((c) => receiptPlacedOn(c.receipt)?.slice(0, 4) === tx?.bookedOn?.slice(0, 4))
+	);
+	// No suggestion: the payment's own year first, not every receipt ever kept –
+	// one from 2019 is no answer for a payment in 2025.
+	let tab = $derived(findTab ?? (suggestions.length ? 'passend' : 'jahr'));
 	/** @param {string | number | null} id */
 	const pickTab = (id) => {
-		if (id === 'passend' || id === 'alle' || id === 'postfach' || id === 'portal') findTab = id;
+		if (
+			id === 'passend' ||
+			id === 'jahr' ||
+			id === 'alle' ||
+			id === 'postfach' ||
+			id === 'paperless' ||
+			id === 'portal'
+		)
+			findTab = id;
 	};
-	let rows = $derived(tab === 'passend' ? foundSuggestions : foundAll);
+	let rows = $derived(tab === 'passend' ? foundSuggestions : tab === 'jahr' ? foundYear : foundAll);
+	// An empty list says why: nothing from this year, but some from other years.
+	let emptyText = $derived(
+		tab === 'jahr' && foundAll.length
+			? t('zahlungen.detail.find.noneThisYear', {
+					year: tx?.bookedOn?.slice(0, 4) ?? '',
+					count: foundAll.length
+				})
+			: findQuery.trim()
+				? t('zahlungen.detail.find.noMatch')
+				: tab === 'passend'
+					? t('zahlungen.detail.find.noSuggestion')
+					: t('zahlungen.detail.noChoices')
+	);
 
 	/** @param {Record<string, any>} c */
 	function coverageText(c) {
@@ -1148,6 +1476,72 @@
 	const primary =
 		'rounded-md bg-coral-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50';
 </script>
+
+{#snippet uploadControls()}
+	<!-- Upload a receipt and link it here: above the list of receipts while one is being
+	     chosen (#274) – below a long list it is not found –, else at the end of the part. -->
+	<label
+		class="{button} inline-flex cursor-pointer items-center gap-1.5"
+		title={aiText('ai.upload')}
+		data-testid="tx-upload-label"
+	>
+		<AiMark />
+		{uploading ? t('zahlungen.detail.uploading') : t('zahlungen.detail.upload')}
+		<input
+			type="file"
+			class="sr-only"
+			accept=".pdf,application/pdf,image/png,image/jpeg,image/gif,image/webp"
+			disabled={uploading || busy}
+			onchange={onUploadHere}
+			data-testid="tx-upload-input"
+		/>
+	</label>
+	{#if hasFolder}
+		<button
+			type="button"
+			class="ml-2 {button}"
+			onclick={checkFolder}
+			disabled={folderChecking}
+			title={t('zahlungen.detail.folderHint')}
+			data-testid="tx-folder-check"
+			>{folderChecking
+				? t('zahlungen.detail.folderChecking')
+				: t('zahlungen.detail.folderCheck')}</button
+		>
+	{/if}
+	<p class="mt-1 text-xs text-faint">{t('zahlungen.detail.uploadHint')}</p>
+	{#if uploadResult}
+		<p class="mt-2 text-sm text-heading" role="status" data-testid="tx-upload-result">
+			{uploadResult.text}
+		</p>
+		{#each uploadResult.warnings as w (w)}
+			<p class="mt-1 text-sm text-danger" data-testid="tx-upload-warning">⚠ {w}</p>
+		{/each}
+		{#if uploadResult.move}
+			{@const move = uploadResult.move}
+			<div class="mt-2 flex flex-wrap gap-2">
+				<button
+					type="button"
+					class={button}
+					onclick={() => onopen(move.fromId)}
+					data-testid="tx-upload-elsewhere-open">{t('zahlungen.detail.uploadElsewhereOpen')}</button
+				>
+				<button
+					type="button"
+					class={button}
+					onclick={moveHere}
+					disabled={busy}
+					data-testid="tx-upload-move">{t('zahlungen.detail.uploadMove')}</button
+				>
+			</div>
+		{/if}
+	{/if}
+	{#if folderNote}
+		<p class="mt-2 text-sm text-heading" role="status" data-testid="tx-folder-result">
+			{folderNote}
+		</p>
+	{/if}
+{/snippet}
 
 <!-- The backdrop closes on a click on itself only. The panel does not stop
      clicks from bubbling: SvelteKit's router hears link clicks on the document,
@@ -1184,6 +1578,24 @@
 				{t('zahlungen.detail.drop')}
 			</div>
 		{/if}
+		{#if peeked}
+			<ReceiptPeek
+				receipt={peeked.receipt}
+				anchor={peeked.anchor}
+				title={receiptVendor(peeked.receipt)}
+				detail={[
+					receiptAmount(peeked.receipt),
+					receiptDay(peeked.receipt),
+					peeked.receipt.invoiceNumber
+				]
+					.filter(Boolean)
+					.join(' · ')}
+				avoid={panel}
+				onenter={() => peek.stay()}
+				onleave={() => peek.leave()}
+				onscrolled={() => peek.scrolled()}
+			/>
+		{/if}
 		{#if !tx}
 			<p class="text-sm text-faint">{t('zahlungen.noneForSelection')}</p>
 		{:else}
@@ -1197,7 +1609,7 @@
 						class="text-xl font-bold break-words text-heading"
 						data-testid="tx-detail-counterparty"
 					>
-						{payee?.name}
+						{heading}
 					</h2>
 					{#if payee && payee.from !== 'unknown' && !parties}
 						<a
@@ -1209,28 +1621,49 @@
 					{#if parties}
 						<!-- The full address under each name (issue #114): the list keeps the short
 						     form, here it is copied into an explorer or a wallet. -->
-						<div class="mt-1 flex flex-col gap-1 text-sm text-text" data-testid="tx-parties">
+						<!-- Who sent and who received (issue #254): both sides the same way, ours
+						     marked, each address once and short – the full one on hover and copy. -->
+						<dl
+							class="mt-2 grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5 text-sm"
+							data-testid="tx-parties"
+						>
 							{#each [{ side: 'from', p: parties.from }, { side: 'to', p: parties.to }] as { side, p } (side)}
-								<div data-testid={`tx-party-${side}`}>
-									<span class="text-faint">{t(`zahlungen.detail.party.${side}`)}</span>
-									<span class="font-medium text-heading">{p.label}</span>
-									{#if p.own}<span class="text-xs text-faint"
-											>({t('zahlungen.detail.party.own')})</span
-										>{:else if p.address && p.label.includes('…')}<span class="text-xs text-faint"
-											>({t('zahlungen.detail.party.foreign')})</span
-										>{/if}
+								{@const pageUrl = addressExplorerUrl(tx.explorerUrl, tx.txRef, p.address)}
+								<dt class="text-faint">{t(`zahlungen.detail.party.${side}`)}</dt>
+								<dd class="min-w-0" data-testid={`tx-party-${side}`} data-own={p.own}>
+									{#if p.own}<span
+											class="mr-1 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-success"
+											data-testid={`tx-party-${side}-own`}
+											>{t('zahlungen.detail.party.ownChip')}</span
+										>{/if}<span class="font-medium text-heading"
+										>{p.address && p.label === shortAddress(p.address)
+											? t('zahlungen.detail.party.unknownAddress')
+											: p.label}</span
+									>
 									{#if p.address}
-										<CopyButton
-											text={p.address}
-											label={t('copy.address')}
-											testid={`tx-party-${side}-address`}
-											class="block"
-											valueClass="font-mono text-xs break-all text-faint">{p.address}</CopyButton
-										>
+										<span class="mt-0.5 flex flex-wrap items-center gap-x-2">
+											<span class="whitespace-nowrap" title={p.address}>
+												<CopyButton
+													text={p.address}
+													label={t('copy.address')}
+													testid={`tx-party-${side}-address`}
+													valueClass="font-mono text-xs text-faint"
+													>{shortAddress(p.address)}</CopyButton
+												>
+											</span>
+											{#if pageUrl}<a
+													href={pageUrl}
+													target="_blank"
+													rel="noopener noreferrer"
+													class="text-xs underline"
+													data-testid={`tx-party-${side}-explorer`}
+													>{t('zahlungen.detail.party.explorer')}</a
+												>{/if}
+										</span>
 									{/if}
-								</div>
+								</dd>
 							{/each}
-						</div>
+						</dl>
 					{/if}
 				</div>
 				<div class="flex shrink-0 items-start gap-3">
@@ -1271,12 +1704,6 @@
 						aria-expanded={explorerQrOpen}
 						onclick={() => (explorerQrOpen = !explorerQrOpen)}
 						data-testid="tx-explorer-qr-toggle">{t('zahlungen.detail.explorerQr')}</button
-					>{/if}{#if parties && tx.txRef}&nbsp;·
-					<CopyButton
-						text={tx.txRef}
-						label={t('copy.hash')}
-						testid="tx-hash"
-						valueClass="font-mono text-xs text-heading">Tx {shortAddress(tx.txRef)}</CopyButton
 					>{/if}
 			</p>
 			{#if explorerQrOpen && safeExplorerUrl(tx.explorerUrl)}
@@ -1288,9 +1715,13 @@
 					{@html renderSVG(/** @type {string} */ (safeExplorerUrl(tx.explorerUrl)), { border: 1 })}
 				</div>
 			{/if}
-			{#if tx.purpose}
-				<p class="mt-1 line-clamp-2 font-mono text-xs break-words text-text" title={tx.purpose}>
-					{displayPurpose(tx.purpose)}
+			{#if walletPurposeExtra(tx)}
+				<p
+					class="mt-1 line-clamp-2 font-mono text-xs break-words text-text"
+					title={tx.purpose}
+					data-testid="tx-detail-purpose-line"
+				>
+					{displayPurpose(walletPurposeExtra(tx))}
 				</p>
 			{/if}
 			{#if tradeOther}
@@ -1321,6 +1752,9 @@
 						? 'border-success/30 bg-success/10 text-success'
 						: 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200'}"
 					onclick={() => scrollToPart('tx-konto-part')}
+					title={isBookingConfirmed(tx)
+						? undefined
+						: t('zahlungen.detail.status.konto.missingHint')}
 					data-testid="tx-status-konto"
 					data-state={isBookingConfirmed(tx) ? 'done' : 'missing'}
 					>{isBookingConfirmed(tx)
@@ -1338,6 +1772,94 @@
 					>{showDetails ? t('zahlungen.detail.detailsHide') : t('zahlungen.detail.details')}</button
 				>
 			</div>
+			{#if whereOpen}
+				<section
+					class="mt-3 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
+					aria-labelledby="tx-where-h"
+					data-testid="tx-where"
+				>
+					<h3 id="tx-where-h" class="text-xs font-semibold tracking-wide text-faint uppercase">
+						{t(
+							txDirection(tx) < 0
+								? 'zahlungen.detail.where.titleOut'
+								: 'zahlungen.detail.where.titleIn'
+						)}
+					</h3>
+					{#if whereCandidate}
+						{@const acc = app.accounts.find((a) => a.id === whereCandidate?.accountId)}
+						<p class="mt-1 text-text" data-testid="tx-where-candidate">
+							{t('zahlungen.detail.where.candidate', {
+								account: acc ? accountLabel(acc) : '—',
+								date: formatDate(String(whereCandidate.bookedOn)),
+								quantity:
+									quantityText(whereCandidate) ||
+									formatMoney(whereCandidate.amountCents ?? 0, 'EUR')
+							})}
+						</p>
+						<div class="mt-1 flex flex-wrap gap-3">
+							<button
+								type="button"
+								class={button}
+								disabled={busy}
+								onclick={() => whereCandidate && linkCandidate(String(whereCandidate.id))}
+								data-testid="tx-where-link">{t('zahlungen.detail.where.link')}</button
+							>
+							<button
+								type="button"
+								class="text-sm underline"
+								onclick={() => whereCandidate && onopen(String(whereCandidate.id))}
+								data-testid="tx-where-candidate-open">{t('zahlungen.detail.where.open')}</button
+							>
+						</div>
+					{/if}
+					{#if sameAddress.length}
+						<p class="mt-2 text-text" data-testid="tx-where-same">
+							{sameAddress.length === 1
+								? t('zahlungen.detail.where.sameOne')
+								: t('zahlungen.detail.where.same', { count: sameAddress.length })}
+							<!-- They are listed below, under "Weitere Zahlungen an …": opened there. -->
+							<button
+								type="button"
+								class="ml-1 underline"
+								onclick={() => {
+									othersOpen = true;
+									scrollToPart('tx-others');
+								}}
+								data-testid="tx-where-same-show">{t('zahlungen.detail.where.show')}</button
+							>
+						</p>
+					{:else}
+						<p class="mt-2 text-faint" data-testid="tx-where-first">
+							{t('zahlungen.detail.where.first')}
+						</p>
+					{/if}
+					{#if whereUnnamed}
+						<form
+							class="mt-2 flex flex-wrap items-end gap-2"
+							onsubmit={(e) => {
+								e.preventDefault();
+								saveAddressName();
+							}}
+						>
+							<label class="flex min-w-48 flex-1 flex-col text-xs text-faint"
+								>{t('zahlungen.detail.where.nameLabel')}
+								<input
+									class="mt-1 rounded-md border border-border bg-surface px-2 py-1.5 text-sm text-heading"
+									bind:value={addressName}
+									placeholder={t('zahlungen.detail.where.namePlaceholder')}
+									data-testid="tx-where-name"
+								/>
+							</label>
+							<button
+								type="submit"
+								class={button}
+								disabled={busy || !addressName.trim()}
+								data-testid="tx-where-name-save">{t('zahlungen.detail.where.nameSave')}</button
+							>
+						</form>
+					{/if}
+				</section>
+			{/if}
 			{#if tx.importChange}
 				<div
 					class="mt-2 rounded-md border border-l-4 border-red-300 border-l-red-700 bg-red-50 px-3 py-2 text-sm dark:border-red-900 dark:border-l-red-400 dark:bg-red-950/40"
@@ -1377,7 +1899,9 @@
 					{#if quantityText(tx)}
 						{#if valuationText(tx)}
 							<dt class="text-faint">{t('zahlungen.detail.valuation')}</dt>
-							<dd class="text-heading" data-testid="tx-detail-valuation">{valuationText(tx)}</dd>
+							<dd class="text-heading" data-testid="tx-detail-valuation" title={valuationText(tx)}>
+								{valuationText(tx, { short: true })}
+							</dd>
 						{/if}
 					{/if}
 					{#if tx.original?.currency}
@@ -1398,7 +1922,9 @@
 						<dd class="font-mono text-xs text-heading">{tx.exchangeType}</dd>
 					{/if}
 					{#if tx.txRef}
-						<dt class="text-faint">{t('zahlungen.detail.txRef')}</dt>
+						<dt class="text-faint">
+							{t(parties ? 'zahlungen.detail.txHashLabel' : 'zahlungen.detail.txRef')}
+						</dt>
 						<dd class="font-mono text-xs break-all text-heading" data-testid="tx-detail-ref">
 							<CopyButton
 								text={tx.txRef}
@@ -1409,9 +1935,44 @@
 					{/if}
 					{#if tx.chainTxRef}
 						<dt class="text-faint">{t('zahlungen.detail.chainTxRef')}</dt>
-						<dd class="font-mono text-xs break-all text-heading">{tx.chainTxRef}</dd>
+						<dd class="text-xs text-heading" data-testid="tx-detail-chain-ref">
+							<span class="font-mono break-all">
+								<CopyButton
+									text={tx.chainTxRef}
+									label={t('copy.hash')}
+									testid="tx-detail-chain-ref-copy">{tx.chainTxRef}</CopyButton
+								>
+							</span>
+							{#if hashChain?.chains.length === 1}
+								<span class="mt-1 block" data-testid="tx-detail-chain">
+									{hashChain.chains[0].name} ·
+									<a
+										href={hashUrl(hashChain.chains[0], tx.chainTxRef)}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="underline"
+										data-testid="tx-detail-chain-explorer"
+										>{t('zahlungen.detail.explorerAt', {
+											explorer: hashChain.chains[0].explorer
+										})}</a
+									>{#if tx.chainMethod}&nbsp;· {t('zahlungen.detail.chainMethod', {
+											method: tx.chainMethod
+										})}{/if}
+								</span>
+							{:else if hashChain && hashChain.chains.length > 1}
+								<span class="mt-1 block" data-testid="tx-detail-chain-unclear">
+									{t('zahlungen.detail.chainUnclear')}
+									{#each hashChain.chains as c, i (c.id)}{i ? ' · ' : ' '}<a
+											href={hashUrl(c, tx.chainTxRef)}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="underline">{c.name}</a
+										>{/each}
+								</span>
+							{/if}
+						</dd>
 					{/if}
-					{#if tx.counterpartyAddress}
+					{#if tx.counterpartyAddress && !parties}
 						<dt class="text-faint">{t('zahlungen.detail.address')}</dt>
 						<dd class="font-mono text-xs break-all text-heading" data-testid="tx-detail-address">
 							<CopyButton
@@ -1432,7 +1993,7 @@
 						</dd>
 					{/if}
 				</dl>
-				{#if tx.purpose}
+				{#if parties ? walletPurposeExtra(tx) : tx.purpose}
 					<h3 class="mt-3 text-xs font-semibold tracking-wide text-faint uppercase">
 						{t('zahlungen.detail.purpose')}
 					</h3>
@@ -1530,7 +2091,25 @@
 						{t('zahlungen.detail.memoIn', { memo: memoIn })}
 					</p>
 				{/if}
-				{#if classification?.lookalike}
+				{#if classification?.kind === 'token-spam'}
+					<div
+						class="mt-2 rounded-md border border-l-4 border-red-300 border-l-red-700 bg-red-50 px-3 py-2 dark:border-red-900 dark:border-l-red-400 dark:bg-red-950/40"
+						role="alert"
+						data-testid="tx-spam-warning"
+					>
+						<p class="text-sm font-semibold text-red-800 dark:text-red-300">
+							{t('zahlungen.detail.poisonTitle')}
+						</p>
+						<p class="mt-0.5 text-sm break-all text-text">
+							{t('zahlungen.detail.spamText', {
+								address: String(tx.counterpartyAddress ?? '')
+							})}
+							{#if classification.lookalike}
+								{t('zahlungen.detail.spamLookalike', { known: classification.lookalike })}
+							{/if}
+						</p>
+					</div>
+				{:else if classification?.lookalike}
 					<div
 						class="mt-2 rounded-md border border-l-4 border-red-300 border-l-red-700 bg-red-50 px-3 py-2 dark:border-red-900 dark:border-l-red-400 dark:bg-red-950/40"
 						role="alert"
@@ -1559,6 +2138,22 @@
 					>
 						<p class="text-xs font-semibold text-heading">{t('explain.whyNone')}</p>
 						<p class="mt-0.5 text-sm text-text" data-testid="tx-why-rule-line">{ruleLine}</p>
+						{#if classification?.kind === 'bank-fee' && classification.via === 'learned'}
+							<!-- A rule learned from another booking (#320): seen, and dropped, where it applies. -->
+							<div class="mt-1.5 flex flex-wrap items-center gap-3 text-sm">
+								<button
+									type="button"
+									class="underline"
+									onclick={forgetFeeRule}
+									disabled={busy}
+									title={t('zahlungen.detail.feeRule.forgetTitle')}
+									data-testid="tx-fee-rule-forget">{t('zahlungen.detail.feeRule.forget')}</button
+								>
+								<a class="text-faint underline" href={resolve('/einstellungen')}
+									>{t('zahlungen.detail.feeRule.all')}</a
+								>
+							</div>
+						{/if}
 						{#if (classification?.kind === 'own-transfer' || classification?.kind === 'refund' || classification?.kind === 'crypto-swap' || classification?.kind === 'token-migration') && classification.counterBookingId && !tx.noReceipt}
 							<div class="mt-1.5 flex flex-wrap gap-3 text-sm">
 								<button
@@ -1582,6 +2177,42 @@
 									>{/if}
 							</div>
 						{/if}
+					</div>
+				{/if}
+				{#if ownIbanOffer}
+					<div
+						class="mt-2 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
+						data-testid="tx-own-iban"
+					>
+						<p class="text-text">
+							{t('zahlungen.detail.ownIban.question', {
+								iban: groupIban(ownIbanOffer.iban),
+								name: ownIbanOffer.sender
+							})}
+						</p>
+						{#if ownIbanOffer.outgoing.length}
+							<p class="mt-0.5 text-faint">
+								{ownIbanOffer.outgoing.length === 1
+									? t('home.ownIban.explainsOne')
+									: t('home.ownIban.explains', { count: ownIbanOffer.outgoing.length })}
+							</p>
+						{/if}
+						<div class="mt-1.5 flex flex-wrap gap-3">
+							<button
+								type="button"
+								class={button}
+								disabled={busy}
+								onclick={() => answerOwnIban(true)}
+								data-testid="tx-own-iban-yes">{t('home.ownIban.yes')}</button
+							>
+							<button
+								type="button"
+								class="text-sm text-faint underline hover:text-heading"
+								disabled={busy}
+								onclick={() => answerOwnIban(false)}
+								data-testid="tx-own-iban-no">{t('home.ownIban.no')}</button
+							>
+						</div>
 					</div>
 				{/if}
 				{#if ownName && !ownNameDismissed}
@@ -1660,14 +2291,15 @@
 						{/if}
 					</div>
 				{/each}
-				{#if tx.rateMissing || (showDetails && tx.quantity)}
+				<!-- A fake token has no rate to find, nor one to enter. -->
+				{#if (tx.rateMissing && classification?.kind !== 'token-spam') || (showDetails && tx.quantity)}
 					<div class="mt-2 text-sm" data-testid="tx-rate">
-						{#if tx.rateMissing}
+						{#if tx.rateMissing && classification?.kind !== 'token-spam'}
 							<p class="text-warning" data-testid="tx-rate-missing">
 								{t('zahlungen.detail.rate.missing', { reason: tx.rateMissing.reason ?? '' })}
 							</p>
 						{/if}
-						{#if rateOpen || tx.rateMissing}
+						{#if rateOpen || (tx.rateMissing && classification?.kind !== 'token-spam')}
 							<form
 								class="mt-1 flex flex-wrap items-end gap-2"
 								onsubmit={(e) => {
@@ -1681,7 +2313,7 @@
 										class="mt-1 min-h-11 w-40 rounded-md border border-border bg-surface px-2 font-mono text-sm text-heading"
 										inputmode="decimal"
 										bind:value={rateText}
-										placeholder="0,0042"
+										placeholder={rateInputPlaceholder(tx.valuation?.rate)}
 										data-testid="tx-rate-input"
 									/></label
 								>
@@ -1742,7 +2374,7 @@
 				{/if}
 				{#if tx.privateMistake}
 					<div class="mt-1 text-sm" data-testid="tx-private">
-						<p class="font-medium text-warning">{t('zahlungen.detail.private.title')}</p>
+						<p class="font-medium text-warning">{t(pk('title'))}</p>
 						<p class="mt-1 whitespace-pre-wrap text-text" data-testid="tx-private-note">
 							{tx.privateMistake.note}
 						</p>
@@ -1757,7 +2389,7 @@
 								data-testid="tx-private-state"
 							>
 								{settlement.openCents
-									? t('zahlungen.detail.private.open', {
+									? t(pk('open'), {
 											amount: formatMoney(settlement.openCents, tx.currency ?? 'EUR')
 										})
 									: t('zahlungen.detail.private.settled')}
@@ -1766,7 +2398,7 @@
 						{#each settlement?.repayments ?? [] as r (r.id)}
 							<p class="mt-1 flex flex-wrap items-center gap-2 text-xs text-text">
 								<button type="button" class="underline" onclick={() => onopen(String(r.id))}
-									>{t('zahlungen.detail.private.repaidBy', {
+									>{t(pk('repaidBy'), {
 										date: formatDate(String(r.bookedOn)),
 										amount: formatMoney(r.amountCents ?? 0, r.currency ?? 'EUR')
 									})}</button
@@ -1786,7 +2418,7 @@
 								onclick={() => (repayOpen = !repayOpen)}
 								aria-expanded={repayOpen}
 								disabled={busy}
-								data-testid="tx-private-repay">{t('zahlungen.detail.private.repay')}</button
+								data-testid="tx-private-repay">{t(pk('repay'))}</button
 							>
 							<button
 								type="button"
@@ -1819,20 +2451,25 @@
 									</li>
 								{:else}
 									<li class="px-3 py-2 text-sm text-faint" data-testid="tx-private-repay-none">
-										{t('zahlungen.detail.private.repayNone')}
+										{t(pk('repayNone'))}
 									</li>
 								{/each}
 							</ul>
 						{/if}
 					</div>
 				{/if}
+				<OutlayRepayment {tx} {onopen} />
+				<TravelPayout {tx} />
+				<TravelAdvance {tx} />
 				{#if tx.privateRepaymentOf?.length}
 					<div class="mt-1 text-sm" data-testid="tx-private-repayment">
-						<p class="font-medium text-heading">{t('zahlungen.detail.private.repaymentTitle')}</p>
+						<p class="font-medium text-heading">
+							{t(`zahlungen.detail.private.repaymentTitle${passOn ? 'Out' : ''}`)}
+						</p>
 						{#each settlement?.payments ?? [] as p (p.id)}
 							<p class="mt-1 flex flex-wrap items-center gap-2 text-xs text-text">
 								<button type="button" class="underline" onclick={() => onopen(String(p.id))}
-									>{t('zahlungen.detail.private.repays', {
+									>{t(`zahlungen.detail.private.repays${passOn ? 'Out' : ''}`, {
 										date: formatDate(String(p.bookedOn)),
 										amount: formatMoney(p.amountCents ?? 0, p.currency ?? 'EUR')
 									})}</button
@@ -1849,6 +2486,8 @@
 				{/if}
 				{#each linked as l (l.match.id)}
 					{@const r = l.receipt}
+					{@const paidOf = invoiceSettlement(r, app.matches, app.transactions)}
+					{@const part = instalmentOf(paidOf, txId)}
 					<div class="mt-2 border-t border-border pt-2" data-testid="tx-linked-receipt">
 						<div class="flex flex-wrap items-baseline justify-between gap-2">
 							<span class="font-medium text-heading" data-testid="tx-linked-vendor"
@@ -1859,6 +2498,24 @@
 						<p class="text-xs text-faint">
 							{[receiptDay(r), r.invoiceNumber, r.fileName].filter(Boolean).join(' · ')}
 						</p>
+						{#if part}
+							<p class="mt-0.5 text-sm text-heading" data-testid="tx-instalment">
+								{t('zahlungen.detail.instalment.line', {
+									index: part.index,
+									count: part.count,
+									number: r.invoiceNumber || receiptVendor(r)
+								})} ·
+								{paidOf.state === 'partial'
+									? t('zahlungen.detail.instalment.open', {
+											open: formatMoney(paidOf.openCents, r.currency ?? 'EUR')
+										})
+									: paidOf.state === 'overpaid'
+										? t('zahlungen.detail.instalment.over', {
+												over: formatMoney(paidOf.overCents, r.currency ?? 'EUR')
+											})
+										: t('zahlungen.detail.instalment.paid')}
+							</p>
+						{/if}
 						<p class="mt-0.5 text-xs text-faint" data-testid="tx-linked-state">
 							{t(`matching.state.${l.match.state}`)}{l.match.score !== null &&
 							l.match.score !== undefined
@@ -1943,7 +2600,7 @@
 									data-testid="tx-no-receipt">{t('zahlungen.detail.noReceiptNeeded')}</button
 								>
 							{/if}
-							{#if !privateKind(tx) && (tx.amountCents ?? 0) < 0}
+							{#if !privateKind(tx) && (tx.amountCents ?? 0) !== 0}
 								<button
 									type="button"
 									class={button}
@@ -2056,7 +2713,7 @@
 											class="mt-2 {button}"
 											onclick={suggestTransferByAi}
 											disabled={busy || linkAsking}
-											title={t('zahlungen.detail.linkTransferAiTitle')}
+											title={aiText('zahlungen.detail.linkTransferAiTitle')}
 											data-testid="tx-link-transfer-ai"
 											><AiMark />{t('zahlungen.detail.linkTransferAi')}</button
 										>
@@ -2175,7 +2832,7 @@
 						{importNote}
 					</p>
 				{/if}
-				{#if (!linked.length && !classification && !tx.noReceipt) || assigning}
+				{#if finding}
 					<div class="mt-3 border-t border-border pt-3" data-testid="tx-find">
 						<h4 class="text-sm font-semibold text-heading">{t('zahlungen.detail.find.title')}</h4>
 						<label class="sr-only" for="tx-find-q">{t('zahlungen.detail.find.label')}</label>
@@ -2193,7 +2850,7 @@
 							role="group"
 							aria-label={t('zahlungen.detail.find.sources')}
 						>
-							{#each [['passend', foundSuggestions.length], ['alle', foundAll.length], ['postfach', hits ? hits.length : null], ['portal', null]] as [id, count] (id)}
+							{#each [['passend', foundSuggestions.length], ['jahr', foundYear.length], ['alle', foundAll.length], ['postfach', hits ? hits.length : null], ...(paperlessOn ? [['paperless', paperlessHits ? paperlessHits.length : null]] : []), ['portal', null]] as [id, count] (id)}
 								<button
 									type="button"
 									class="rounded-full border px-3 py-1 text-sm {tab === id
@@ -2202,13 +2859,19 @@
 									aria-pressed={tab === id}
 									onclick={() => pickTab(id)}
 									data-testid={`tx-find-tab-${id}`}
-									>{t(`zahlungen.detail.find.tab.${id}`)}{#if count !== null}
+									>{t(`zahlungen.detail.find.tab.${id}`, {
+										year: tx?.bookedOn?.slice(0, 4) ?? ''
+									})}{#if count !== null}
 										<span class="ml-1 font-mono text-xs opacity-80">{count}</span>{/if}</button
 								>
 							{/each}
 						</div>
 
-						{#if tab === 'passend' || tab === 'alle'}
+						<div class="mt-3" data-testid="tx-upload">
+							{@render uploadControls()}
+						</div>
+
+						{#if tab === 'passend' || tab === 'jahr' || tab === 'alle'}
 							<div class="mt-3" data-testid="tx-choices">
 								{#if client && choices.length}
 									<div class="mb-2" data-testid="tx-ai-choice">
@@ -2217,7 +2880,7 @@
 											class="inline-flex items-center gap-1.5 {button}"
 											onclick={suggestByAi}
 											disabled={aiPicking || busy || Boolean(aiEmpty)}
-											title={t('zahlungen.detail.aiChoiceTitle')}
+											title={aiText('zahlungen.detail.aiChoiceTitle')}
 											data-testid="tx-ai-choice-ask"
 											><AiMark />{aiPicking
 												? t('zahlungen.detail.aiChoiceBusy')
@@ -2313,6 +2976,7 @@
 									{@const scam = scamSigns(c.receipt, scamCtx).suspicious}
 									<div
 										class="mt-1 flex items-center gap-2 border-t border-border py-2"
+										{...peekHandlers(peek, c.receipt, { focusAtOnce: true })}
 										data-testid="tx-choice"
 										data-suggested={c.suggested ? 'true' : 'false'}
 									>
@@ -2320,11 +2984,29 @@
 											<span class="block truncate text-sm font-medium text-heading"
 												>{receiptVendor(c.receipt)}</span
 											>
-											<span class="block truncate text-xs text-faint"
-												>{[receiptAmount(c.receipt), receiptDay(c.receipt), c.receipt.invoiceNumber]
-													.filter(Boolean)
-													.join(' · ')}</span
+											<span class="block truncate text-xs text-faint" data-testid="tx-choice-facts"
+												>{unread(c.receipt)
+													? t('zahlungen.detail.find.unread', {
+															date: formatDate(/** @type {string} */ (receiptPlacedOn(c.receipt)))
+														})
+													: [
+															receiptAmount(c.receipt),
+															receiptDay(c.receipt),
+															c.receipt.invoiceNumber
+														]
+															.filter(Boolean)
+															.join(' · ')}</span
 											>
+											{#if c.alongside}
+												<span
+													class="block truncate text-xs text-heading"
+													data-testid="tx-choice-instalment"
+													>{t('zahlungen.detail.instalment.offer', {
+														open: formatMoney(c.alongside.openCents, c.receipt.currency ?? 'EUR'),
+														count: c.alongside.payments.length
+													})}</span
+												>
+											{/if}
 											<span class="block truncate text-xs text-text" data-testid="tx-choice-diff"
 												>{[
 													receiptDiff(c.receipt),
@@ -2336,6 +3018,16 @@
 													.join(' · ')}</span
 											>
 										</span>
+										{#if canPeek(c.receipt)}
+											<!-- No hover on a touch screen: the preview on a tap. -->
+											<button
+												type="button"
+												class="hidden text-xs text-text underline pointer-coarse:inline"
+												aria-expanded={peeked?.receipt.id === c.receipt.id}
+												onclick={(e) => peek.toggle(c.receipt, rowOf(e))}
+												data-testid="tx-choice-peek">{t('zahlungen.detail.peek.open')}</button
+											>
+										{/if}
 										{#if scam}
 											<span
 												class="rounded border border-red-300 bg-red-50 px-1.5 py-0.5 text-xs font-medium text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
@@ -2345,18 +3037,20 @@
 										<button
 											type="button"
 											class={c.score >= 90 && !scam ? primary : button}
-											onclick={() => assign(c.receipt.id, c.score, c.reasons)}
+											onclick={() => {
+												peek.close();
+												assign(c.receipt.id, c.score, c.reasons, Boolean(c.alongside));
+											}}
 											disabled={busy}
-											data-testid="tx-choose">{t('zahlungen.detail.choose')}</button
+											data-testid="tx-choose"
+											>{c.alongside
+												? t('zahlungen.detail.instalment.choose')
+												: t('zahlungen.detail.choose')}</button
 										>
 									</div>
 								{:else}
 									<p class="mt-2 text-sm text-faint" data-testid="tx-find-none">
-										{findQuery.trim()
-											? t('zahlungen.detail.find.noMatch')
-											: tab === 'passend'
-												? t('zahlungen.detail.find.noSuggestion')
-												: t('zahlungen.detail.noChoices')}
+										{emptyText}
 									</p>
 								{/each}
 							</div>
@@ -2437,7 +3131,7 @@
 															class="mt-1 inline-flex items-center gap-1.5 {button}"
 															onclick={() => importHit(hit)}
 															disabled={importingId !== null}
-															title={t('ai.import')}
+															title={aiText('ai.import')}
 															data-testid="tx-private-import"
 															><AiMark />{importingId === hit.id
 																? t('zahlungen.detail.privateImporting')
@@ -2480,7 +3174,7 @@
 												class="mt-2 inline-flex items-center gap-1.5 {button}"
 												onclick={assistSearch}
 												disabled={assisting || busy}
-												title={t('zahlungen.detail.aiSearchTitle')}
+												title={aiText('zahlungen.detail.aiSearchTitle')}
 												data-testid="tx-private-ai"
 											>
 												<AiMark />
@@ -2546,6 +3240,67 @@
 									{/if}
 								{/if}
 							</div>
+						{:else if tab === 'paperless'}
+							<div class="mt-3" data-testid="tx-find-paperless">
+								<p class="text-sm text-faint">{t('zahlungen.detail.paperless.hint')}</p>
+								<button
+									type="button"
+									class="mt-2 {button}"
+									onclick={searchPaperless}
+									disabled={paperlessSearching || !client}
+									data-testid="tx-paperless-search"
+									>{paperlessSearching
+										? t('zahlungen.detail.paperless.searching')
+										: t('zahlungen.detail.paperless.search', {
+												query: findQuery.trim() || tx.counterparty || ''
+											})}</button
+								>
+								{#if paperlessHits}
+									{#if paperlessHits.length === 0}
+										<p class="mt-2 text-sm text-faint" data-testid="tx-paperless-none">
+											{t('zahlungen.detail.paperless.none')}
+										</p>
+									{:else}
+										<ul class="mt-2 divide-y divide-border text-sm">
+											{#each paperlessHits as doc (doc.id)}
+												{@const known = app.receipts.find(
+													(r) => !r.deleted && r.sourceRef === paperlessSourceRef(doc.id)
+												)}
+												<li
+													class="flex flex-wrap items-center gap-2 py-2"
+													data-testid="tx-paperless-hit"
+												>
+													<span class="min-w-0 flex-1">
+														<span class="block truncate font-medium text-heading"
+															>{doc.title || doc.originalFileName || `#${doc.id}`}</span
+														>
+														<span class="block truncate text-xs text-faint"
+															>{[
+																doc.correspondent,
+																doc.created ? formatDate(doc.created) : null,
+																doc.documentType,
+																known ? t('zahlungen.detail.paperless.known') : null
+															]
+																.filter(Boolean)
+																.join(' · ')}</span
+														>
+													</span>
+													<button
+														type="button"
+														class={button}
+														onclick={() => takePaperless(doc)}
+														disabled={paperlessTaking !== null || uploading}
+														data-testid="tx-paperless-take"
+														>{paperlessTaking === doc.id
+															? t('zahlungen.detail.paperless.taking')
+															: t('zahlungen.detail.paperless.take')}</button
+													>
+												</li>
+											{/each}
+										</ul>
+									{/if}
+								{/if}
+							</div>
 						{:else}
 							<div class="mt-3" data-testid="tx-vendor">
 								{#if (tx.amountCents ?? 0) > 0}
@@ -2578,7 +3333,7 @@
 												class="inline-flex items-center gap-1.5 {button}"
 												onclick={vendorFetch}
 												disabled={vendorBusy || busy}
-												title={t('ai.portal')}
+												title={aiText('ai.portal')}
 												data-testid="tx-vendor-fetch"
 												><AiMark />{vendorBusy
 													? t('zahlungen.detail.vendor.fetching')
@@ -2651,70 +3406,11 @@
 						{/if}
 					</div>
 				{/if}
-				<div class="mt-3 border-t border-border pt-3" data-testid="tx-upload">
-					<label
-						class="{button} inline-flex cursor-pointer items-center gap-1.5"
-						title={t('ai.upload')}
-						data-testid="tx-upload-label"
-					>
-						<AiMark />
-						{uploading ? t('zahlungen.detail.uploading') : t('zahlungen.detail.upload')}
-						<input
-							type="file"
-							class="sr-only"
-							accept=".pdf,application/pdf,image/png,image/jpeg,image/gif,image/webp"
-							disabled={uploading || busy}
-							onchange={onUploadHere}
-							data-testid="tx-upload-input"
-						/>
-					</label>
-					{#if hasFolder}
-						<button
-							type="button"
-							class="ml-2 {button}"
-							onclick={checkFolder}
-							disabled={folderChecking}
-							title={t('zahlungen.detail.folderHint')}
-							data-testid="tx-folder-check"
-							>{folderChecking
-								? t('zahlungen.detail.folderChecking')
-								: t('zahlungen.detail.folderCheck')}</button
-						>
-					{/if}
-					<p class="mt-1 text-xs text-faint">{t('zahlungen.detail.uploadHint')}</p>
-					{#if uploadResult}
-						<p class="mt-2 text-sm text-heading" role="status" data-testid="tx-upload-result">
-							{uploadResult.text}
-						</p>
-						{#each uploadResult.warnings as w (w)}
-							<p class="mt-1 text-sm text-danger" data-testid="tx-upload-warning">⚠ {w}</p>
-						{/each}
-						{#if uploadResult.move}
-							{@const move = uploadResult.move}
-							<div class="mt-2 flex flex-wrap gap-2">
-								<button
-									type="button"
-									class={button}
-									onclick={() => onopen(move.fromId)}
-									data-testid="tx-upload-elsewhere-open"
-									>{t('zahlungen.detail.uploadElsewhereOpen')}</button
-								>
-								<button
-									type="button"
-									class={button}
-									onclick={moveHere}
-									disabled={busy}
-									data-testid="tx-upload-move">{t('zahlungen.detail.uploadMove')}</button
-								>
-							</div>
-						{/if}
-					{/if}
-					{#if folderNote}
-						<p class="mt-2 text-sm text-heading" role="status" data-testid="tx-folder-result">
-							{folderNote}
-						</p>
-					{/if}
-				</div>
+				{#if !finding}
+					<div class="mt-3 border-t border-border pt-3" data-testid="tx-upload">
+						{@render uploadControls()}
+					</div>
+				{/if}
 			</section>
 
 			<div id="tx-konto-part" class="scroll-mt-4"><BookingBlock {tx} /></div>
@@ -2723,7 +3419,7 @@
 				<p class="mt-3 text-sm text-danger" role="alert" data-testid="tx-detail-error">{error}</p>
 			{/if}
 
-			<section class="mt-4" data-testid="tx-others">
+			<section class="mt-4" id="tx-others" data-testid="tx-others">
 				<button
 					type="button"
 					class="flex w-full items-center justify-between gap-2 text-left"
@@ -2737,7 +3433,8 @@
 								? 'zahlungen.detail.othersIn'
 								: 'zahlungen.detail.othersOut',
 							{
-								name: tx.counterparty || '—'
+								// A wallet's counterparty is an address: its name, or its short form.
+								name: (parties ? payee?.name : tx.counterparty) || '—'
 							}
 						)} ({others.length})
 					</h3>

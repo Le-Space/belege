@@ -46,13 +46,18 @@ export function vatDay(r) {
 	return typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d) ? d.slice(0, 10) : null;
 }
 
-/** Read, not waiting for a yes, not set aside, not one of our own invoices. @param {Rec} r */
-const counts = (r) =>
+/**
+ * Read, not waiting for a yes, not set aside, not one of our own invoices.
+ *
+ * @param {Rec} r
+ * @param {(r: Rec) => boolean} isOwn
+ */
+const counts = (r, isOwn) =>
 	!r.deleted &&
 	Boolean(r.extraction) &&
 	!needsConfirmation(r) &&
 	r.status !== 'ignoriert' &&
-	!r.ownInvoice &&
+	!isOwn(r) &&
 	!r.outgoing;
 
 /** A VAT ID of another country (`ATU…`, `IE…`); none or a German one is not. @param {unknown} id */
@@ -132,6 +137,7 @@ export function periodsOf(year, startMonth, kind) {
  * @param {number} p.year the fiscal year
  * @param {number} [p.startMonth]
  * @param {PeriodKind} [p.period]
+ * @param {(r: Rec) => boolean} [p.isOwn] which receipts are our own invoices (own-invoice.js, #354)
  * @returns {{
  *   periods: ({ key: string, months: string[] } & VatSum)[],
  *   year: VatSum,
@@ -143,7 +149,14 @@ export function periodsOf(year, startMonth, kind) {
  *   undated: number
  * }}
  */
-export function inputVat({ receipts, matches, year, startMonth = 1, period = 'quarter' }) {
+export function inputVat({
+	receipts,
+	matches,
+	year,
+	startMonth = 1,
+	period = 'quarter',
+	isOwn = (r) => r.ownInvoice === true
+}) {
 	const linked = new Set(matches.filter((m) => isActive(m)).map((m) => String(m.receiptId)));
 	const periods = periodsOf(year, startMonth, period).map((p) => ({
 		...p,
@@ -164,7 +177,7 @@ export function inputVat({ receipts, matches, year, startMonth = 1, period = 'qu
 		undated: 0
 	};
 	for (const r of receipts) {
-		if (!counts(r)) continue;
+		if (!counts(r, isOwn)) continue;
 		const day = vatDay(r);
 		if (!day) {
 			out.undated++;

@@ -92,3 +92,61 @@ test('a private payment: marked, documented, open on Home, settled by its repaym
 	await tab(page, 'Home').click();
 	await expect(page.getByTestId('home-private-open')).toHaveCount(0);
 });
+
+test('private money that came in on the business account: marked, then settled by its pass-on', async ({
+	page
+}) => {
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('E2E');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+
+	// A refund that belonged to the private account, and its pass-on there three days later.
+	await page.evaluate(async () => {
+		const e2e = /** @type {any} */ (window).__belegeE2E;
+		await e2e.addTransaction({
+			bookedOn: '2026-02-19',
+			counterparty: 'Beispiel Zahlungsdienst',
+			purpose: 'Erstattung Ihr Einkauf bei Beispiel Mode',
+			amountCents: 13888,
+			currency: 'EUR'
+		});
+		await e2e.addTransaction({
+			bookedOn: '2026-02-22',
+			counterparty: 'Max Beispiel',
+			purpose: 'Irrläufer, zurück an privat',
+			amountCents: -13888,
+			currency: 'EUR'
+		});
+	});
+
+	await tab(page, 'Zahlungen').click();
+	await page.getByTestId('filter-all').click();
+	await page.getByTestId('transaction-month').filter({ hasText: 'Februar 2026' }).click();
+	const row = (/** @type {string} */ text) =>
+		page.getByTestId('transaction').filter({ hasText: text });
+	await row('Beispiel Mode').click();
+	const detail = page.getByTestId('tx-detail');
+	await detail.getByTestId('tx-alt-toggle').click();
+	await detail.getByTestId('tx-private-mark').click();
+	await expect(detail.getByTestId('tx-private-text')).toHaveValue(/Private Einnahme, irrtümlich/);
+	await detail.getByTestId('tx-private-save').click();
+	await expect(detail.getByTestId('tx-private')).toContainText('keine Betriebseinnahme');
+	await expect(detail.getByTestId('tx-private-state')).toContainText('Noch nicht weitergeleitet');
+	await expect(detail.getByTestId('tx-private-repay')).toHaveText('Weiterleitung verknüpfen …');
+	await detail.getByTestId('tx-private-repay').click();
+	await detail.getByTestId('tx-private-repay-pick').first().click();
+	await expect(detail.getByTestId('tx-private-state')).toHaveText('Ausgeglichen.');
+	await expect(detail.getByTestId('tx-private')).toContainText('Weitergeleitet am 22.02.2026');
+	await detail.getByTestId('tx-detail-close').click();
+	await expect(row('Beispiel Mode').getByTestId('coverage-badge')).toHaveText('Privat (Irrläufer)');
+	await expect(row('zurück an privat').getByTestId('coverage-badge')).toHaveText(
+		'Rückzahlung privat'
+	);
+	await row('zurück an privat').click();
+	await expect(detail.getByTestId('tx-private-repayment')).toContainText(
+		'Weiterleitung eines privaten Eingangs'
+	);
+});

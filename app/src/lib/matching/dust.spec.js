@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { formatTxAmount } from '../bank/format.js';
 import { classifyTransaction } from './classify.js';
 import { buildMatchingContext } from './context.js';
-import { addressBody, isDust, looksAlike } from './dust.js';
+import { addressBody, isDust, isSpoofedToken, looksAlike, oddSymbol } from './dust.js';
 import { tx } from './fixtures.js';
 
 const OWN = '0x1111aaaa00000000000000000000000000002222';
@@ -114,5 +114,82 @@ describe('formatTxAmount', () => {
 		expect(formatTxAmount({ amountCents: -1234, quantity: '-5', currency: 'EUR' })).toMatch(
 			/^-12,34\sEUR$/
 		);
+	});
+});
+
+describe('fake tokens (address poisoning)', () => {
+	// A token with no rate, "sent" from this wallet in a transaction someone
+	// else sent: a contract logged a Transfer it never made.
+	const spoofOut = walletTx({
+		id: 'spoof-out',
+		asset: 'ERC',
+		amountCents: 0,
+		quantity: '-1400000000000000000000',
+		bookingType: 'Gesendet',
+		counterpartyAddress: POISON,
+		movedByOther: { by: STRANGER },
+		rateMissing: { reason: 'no rate found for ERC on 2026-10-15' }
+	});
+	// A real token pulled by a spender this wallet approved: it has a rate.
+	const pulled = walletTx({
+		id: 'pulled',
+		amountCents: -2500,
+		quantity: '-25000000',
+		bookingType: 'Gesendet',
+		counterpartyAddress: STRANGER,
+		movedByOther: { by: STRANGER }
+	});
+	// "USDT" with a Greek tau, received: the name imitates a real token.
+	const lookalikeIn = walletTx({
+		id: 'lookalike-in',
+		asset: 'USD\u03a4',
+		amountCents: 0,
+		quantity: '11500000',
+		counterpartyAddress: STRANGER,
+		rateMissing: { reason: 'no rate found' }
+	});
+	// An unlisted token this wallet sent itself: no rate, but its own doing.
+	const ownUnlisted = walletTx({
+		id: 'own-unlisted',
+		asset: 'NEWCOIN',
+		amountCents: 0,
+		quantity: '-5',
+		bookingType: 'Gesendet',
+		counterpartyAddress: STRANGER,
+		rateMissing: { reason: 'no rate found' }
+	});
+
+	it('tells a symbol no real token writes', () => {
+		expect(['USDT', 'USDC', 'ERC20', 'wstETH'].map(oddSymbol)).toEqual([
+			false,
+			false,
+			false,
+			false
+		]);
+		expect(['U\u2060SDT', 'USD\u03a4', 'USD\ua4da', 'ERC '].map(oddSymbol)).toEqual([
+			true,
+			true,
+			true,
+			true
+		]);
+	});
+
+	it('a token without a rate moved by someone else, or one imitating a name; not a priced pull, not an own send', () => {
+		expect(isSpoofedToken(spoofOut)).toBe(true);
+		expect(isSpoofedToken(lookalikeIn)).toBe(true);
+		expect(isSpoofedToken(pulled)).toBe(false);
+		expect(isSpoofedToken(ownUnlisted)).toBe(false);
+	});
+
+	it('needs no receipt, and names the address it imitates', async () => {
+		const ctx = await buildMatchingContext({
+			accounts,
+			transactions: [realIn, spoofOut, lookalikeIn, pulled, ownUnlisted],
+			settings: null
+		});
+		expect(classifyTransaction(spoofOut, ctx)).toEqual({ kind: 'token-spam', lookalike: EXCHANGE });
+		expect(classifyTransaction(lookalikeIn, ctx)).toEqual({ kind: 'token-spam' });
+		expect(classifyTransaction(pulled, ctx)?.kind).not.toBe('token-spam');
+		expect(classifyTransaction(ownUnlisted, ctx)?.kind).not.toBe('token-spam');
 	});
 });

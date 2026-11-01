@@ -77,7 +77,7 @@ describe('markBankFee and forgetBankFee', () => {
 		expect(events.map((/** @type {any} */ e) => e.action)).toContain('bank-fee');
 
 		await forgetBankFee(store, 'ACC-GLS|porto');
-		expect((await getSetting(store.settings, 'matching')).feeKeys).toEqual([]);
+		expect((await getSetting(store.settings, 'matching')).feeKeys ?? []).toEqual([]);
 		expect(await classify(oct)).toBeNull();
 	});
 
@@ -132,6 +132,117 @@ describe('addCompanyName', () => {
 	});
 });
 
+describe('a learned bank fee covers only what looks like one (#320)', () => {
+	const debit = (/** @type {string} */ month) =>
+		tx({
+			accountId: 'ACC-GLS',
+			amountCents: -5259,
+			counterparty: 'Kabel Beispiel GmbH',
+			bookingType: 'Basislastschrift',
+			purpose: `${month}/2025 K-NR. 000000001 Ihre Rechnung online bei www.beispiel.de/meinkabel`
+		});
+
+	it('a vendor’s monthly invoice debit called a fee is this one only, never a rule', async () => {
+		const feb = await addTx(debit('02'));
+		const mar = await addTx(debit('03'));
+		await markBankFee(store, feb.id);
+		expect((await getSetting(store.settings, 'matching')).feeKeys ?? []).toEqual([]);
+		expect((await store.transactions.get(feb.id)).noReceipt).toBeTruthy();
+		expect(await classify(mar)).toBeNull();
+	});
+
+	it('a key already learned from such a debit no longer covers the next month', async () => {
+		const feb = await addTx(debit('02'));
+		const mar = await addTx(debit('03'));
+		const { feeKey } = await import('./classify.js');
+		await setSetting(store.settings, 'matching', {
+			...(await getSetting(store.settings, 'matching')),
+			feeKeys: [feeKey(feb)]
+		});
+		expect(feeKey(feb)).toBe(feeKey(mar));
+		expect(await classify(mar)).toBeNull();
+	});
+
+	it('an invoice in the purpose keeps a fee from being learned, even with no counterparty', async () => {
+		const a = await addTx(
+			tx({
+				accountId: 'ACC-GLS',
+				amountCents: -1190,
+				counterparty: '',
+				purpose: 'Rechnung RE-2025-01 Hosting'
+			})
+		);
+		const b = await addTx(
+			tx({
+				accountId: 'ACC-GLS',
+				amountCents: -1190,
+				counterparty: '',
+				purpose: 'Rechnung RE-2025-02 Hosting'
+			})
+		);
+		await markBankFee(store, a.id);
+		expect(await classify(b)).toBeNull();
+	});
+
+	it('the bank’s own monthly fee still learns and covers the next month', async () => {
+		const own = (/** @type {string} */ m) =>
+			tx({
+				accountId: 'ACC-GLS',
+				amountCents: -890,
+				counterparty: 'GLS Gemeinschaftsbank',
+				purpose: `Kontoführung ${m}/2025 Paket Business`
+			});
+		const feb = await addTx(own('02'));
+		const mar = await addTx(own('03'));
+		await markBankFee(store, feb.id);
+		expect(await classify(mar)).toMatchObject({ kind: 'bank-fee' });
+	});
+});
+
+describe('wrongly learned bank fees, found and forgotten (#320)', () => {
+	it('finds the bookings a learned key reaches that do not look like a fee, and the keys to forget', async () => {
+		const { feeKey, wrongFeeKeys } = await import('./classify.js');
+		const { forgetBankFees } = await import('./actions.js');
+		const vendor = (/** @type {string} */ m) =>
+			tx({
+				id: `v${m}`,
+				accountId: 'ACC-GLS',
+				amountCents: -5259,
+				counterparty: 'Kabel Beispiel GmbH',
+				purpose: `${m}/2025 K-NR. 000000001 Ihre Rechnung online bei www.beispiel.de/meinkabel`
+			});
+		const porto = (/** @type {string} */ m) =>
+			tx({
+				id: `p${m}`,
+				accountId: 'ACC-GLS',
+				amountCents: -390,
+				counterparty: '',
+				purpose: `Porto ${m}/2025`
+			});
+		const all = [vendor('02'), vendor('03'), porto('02'), porto('03')];
+		const keys = [feeKey(all[0]), feeKey(all[2])];
+		const found = wrongFeeKeys(all, keys);
+		expect(found.bookings.map((t) => t.id)).toEqual(['v02', 'v03']);
+		expect(found.keys).toEqual([feeKey(all[0])]);
+		// A key that also reaches a real fee stays.
+		const mixed = wrongFeeKeys(
+			[...all, { ...vendor('04'), counterparty: '', purpose: 'Porto 04/2025' }],
+			keys
+		);
+		expect(mixed.keys).toEqual([feeKey(all[0])]);
+
+		await setSetting(store.settings, 'matching', {
+			...(await getSetting(store.settings, 'matching')),
+			feeKeys: keys
+		});
+		await forgetBankFees(store, found.keys);
+		expect((await getSetting(store.settings, 'matching')).feeKeys).toEqual([feeKey(all[2])]);
+		expect((await store.events.list()).map((/** @type {any} */ e) => e.action)).toContain(
+			'bank-fee-forget'
+		);
+	});
+});
+
 describe('setAsideReceipt and restoreReceipt', () => {
 	it('a copy is set aside: out of the matching, its link undone; restored it is read again', async () => {
 		const t = await addTx(tx({ amountCents: -11900, counterparty: 'Wolkenfabrik' }));
@@ -152,5 +263,27 @@ describe('setAsideReceipt and restoreReceipt', () => {
 		).toBe(true);
 		await restoreReceipt(store, r.id);
 		expect(await store.receipts.get(r.id)).toMatchObject({ status: 'ausgelesen', setAside: null });
+	});
+	it('a private receipt is set aside as private, with its reason, and logged as such', async () => {
+		const r = await store.receipts.put({
+			status: 'ausgelesen',
+			extraction: { vendor: 'Hotel Beispiel' },
+			vendor: 'Hotel Beispiel'
+		});
+		await setAsideReceipt(store, r.id, { private: true, note: '  private trip  ' });
+		expect(await store.receipts.get(r.id)).toMatchObject({
+			status: 'ignoriert',
+			setAside: { reason: 'private', of: null, note: 'private trip' }
+		});
+		const events = await store.events.list();
+		expect(events.map((/** @type {any} */ e) => e.action)).toContain('receipt-private');
+	});
+
+	it('without a reason, none is kept', async () => {
+		const r = await store.receipts.put({ status: 'ausgelesen', extraction: { vendor: 'X' } });
+		await setAsideReceipt(store, r.id, { private: true });
+		const aside = await store.receipts.get(r.id);
+		expect(aside.setAside.reason).toBe('private');
+		expect('note' in aside.setAside).toBe(false);
 	});
 });

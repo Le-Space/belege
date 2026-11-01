@@ -1,0 +1,48 @@
+{
+	"format": "crypto-ledger",
+	"version": 1,
+	"createdAt": "2025-06-30T12:00:00Z",
+	"generator": "example",
+	"currency": "EUR",
+	"accounts": [
+		{
+			"id": "monero:418015bb9ae982a1975da7d79277c270:4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+			"type": "wallet",
+			"name": "Monero",
+			"chain": "monero:418015bb9ae982a1975da7d79277c270",
+			"address": "4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+		}
+	],
+	"movements": [
+		{
+			"id": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee:received:0",
+			"account": "monero:418015bb9ae982a1975da7d79277c270:4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+			"time": "2025-04-15T12:30:00Z",
+			"date": "2025-04-15",
+			"kind": "transfer",
+			"asset": { "symbol": "XMR", "decimals": 12 },
+			"amount": "1.2",
+			"value": {
+				"amount": "180.00",
+				"rate": "150",
+				"source": "coingecko",
+				"at": "2025-04-15T00:00:00Z"
+			},
+			"txHash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+			"memo": "Invoice 2025-021",
+			"explorerUrl": "https://xmrchain.net/tx/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+		},
+		{
+			"id": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff:sent:0",
+			"account": "monero:418015bb9ae982a1975da7d79277c270:4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+			"time": "2025-05-02T08:00:00Z",
+			"date": "2025-05-02",
+			"kind": "transfer",
+			"asset": { "symbol": "XMR", "decimals": 12 },
+			"amount": "-0.7",
+			"value": null,
+			"txHash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+			"explorerUrl": "https://xmrchain.net/tx/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+		}
+	]
+}
