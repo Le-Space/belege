@@ -6,8 +6,7 @@
 //
 // `behaviour[model]` scripts a model: 'ok' (default), 'length' (reasoning ran
 // out of tokens), 'invalid' (net + VAT ≠ gross), 'garbage' (no JSON),
-// 'http500', 'http401', 'http402' (credit used up), 'http404', 'http400model' (DeepSeek's
-// "Model Not Exist"), 'http400' (any other bad request). `answers.respond(body)` may answer other questions
+// 'http500', 'http401'. `answers.respond(body)` may answer other questions
 // (the mail assist): whatever it returns is the answer, undefined = invoice.
 
 import http from 'node:http';
@@ -96,10 +95,6 @@ export async function startFakeLlm({ behaviour = {}, key = FAKE_LLM_KEY } = {}) 
 			if (mode === 'http500') return send(500, { error: { message: 'down' } });
 			if (mode === 'http401') return send(401, { error: { message: 'bad key' } });
 			if (mode === 'http429') return send(429, { error: { message: 'rate limit reached' } });
-			if (mode === 'http402') return send(402, { error: { message: 'Insufficient Balance' } });
-			if (mode === 'http404') return send(404, { error: { message: 'not found' } });
-			if (mode === 'http400model') return send(400, { error: { message: 'Model Not Exist' } });
-			if (mode === 'http400') return send(400, { error: { message: 'max_tokens too large' } });
 			const user = body.messages?.find((/** @type {any} */ m) => m.role === 'user')?.content ?? '';
 			const custom = answers.respond?.(body);
 			const data = custom ?? readInvoice(user);

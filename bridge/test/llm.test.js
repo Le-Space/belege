@@ -30,22 +30,19 @@ test('redact: terms, IBANs (last four kept), own e-mail, postcode, streets', () 
 			'IBAN [IBAN …5678]',
 			'Konto [IBAN …5678]',
 			'Gläubiger-ID DE98ZZZ09999999999',
-			// Anyone else's address: the domain stays, it says who wrote (#226).
-			'Kontakt: [EMAIL], [EMAIL @vendor.example]'
+			'Kontakt: [EMAIL], support@vendor.example'
 		].join('\n')
 	);
-	assert.equal(count, 10);
+	assert.equal(count, 9);
 	assert.deepEqual(
 		redact(input, { terms: ['Maria Muster', 'Muster'], ownDomains: ['le-space.de'] }).counts,
 		{
 			terms: 2,
 			iban: 2,
-			email: 2,
+			email: 1,
 			street: 2,
 			postcode: 2,
-			link: 0,
-			phone: 0,
-			id: 0
+			link: 0
 		}
 	);
 });

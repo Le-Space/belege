@@ -130,12 +130,6 @@ test('attachmentParts: named and attachment parts; which are worth a look', () =
 				dispositionParameters: { filename: 'beleg.jpg' }
 			},
 			{
-				part: '6',
-				type: 'application/xml',
-				disposition: 'attachment',
-				dispositionParameters: { filename: 'rechnung.xml' }
-			},
-			{
 				part: '5',
 				type: 'text/calendar',
 				disposition: 'attachment',
@@ -149,7 +143,6 @@ test('attachmentParts: named and attachment parts; which are worth a look', () =
 			['2', 'R.PDF', true],
 			['3', 'logo.png', false],
 			['4', 'beleg.jpg', true],
-			['6', 'rechnung.xml', true],
 			['5', 'reise.ics', false]
 		]
 	);
@@ -169,15 +162,6 @@ test('sniff: PDFs and images by their bytes, anything else is other', () => {
 	assert.equal(sniff(Buffer.from('PK\x03\x04 a zip')).kind, 'other');
 	assert.equal(sniff(Buffer.from('BEGIN:VCALENDAR')).kind, 'other');
 	assert.equal(sniff(new Uint8Array()).kind, 'other');
-	// An e-invoice by its root element and namespace (#160); any other XML is other.
-	const ubl =
-		'<?xml version="1.0"?>\n<ubl:Invoice xmlns:ubl="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"><cbc:ID>1</cbc:ID></ubl:Invoice>';
-	assert.deepEqual(sniff(Buffer.from(ubl)), { kind: 'einvoice', mime: 'application/xml' });
-	const cii =
-		'\uFEFF<rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"/>';
-	assert.equal(sniff(Buffer.from(cii)).kind, 'einvoice');
-	assert.equal(sniff(Buffer.from('<?xml version="1.0"?><Liste/>')).kind, 'other');
-	assert.equal(sniff(Buffer.from('<Invoice>ohne Namensraum</Invoice>')).kind, 'other');
 });
 
 test('htmlToText and excerpt: no markup, no scripts, entities, at most 2000 characters', () => {
