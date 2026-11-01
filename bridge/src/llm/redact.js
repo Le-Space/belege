@@ -280,8 +280,9 @@ export function redact(input, { terms = [], ownDomains = [], off = false } = {})
 			company.includes(term) ? COMPANY_MARK : '[NAME]'
 		);
 	}
-	t = sub('iban', t, /\b[A-Z]{2} ?\d{2}(?: ?[A-Z0-9]{4}){3,7}(?: ?[A-Z0-9]{1,3})?\b/g, (m) => {
-		if (/ZZZ/.test(m)) {
+	// Case-insensitive: a human-typed "de89 3704 …" is the same account.
+	t = sub('iban', t, /\b[A-Z]{2} ?\d{2}(?: ?[A-Z0-9]{4}){3,7}(?: ?[A-Z0-9]{1,3})?\b/gi, (m) => {
+		if (/ZZZ/i.test(m)) {
 			counts.iban--;
 			return m;
 		}
@@ -348,6 +349,16 @@ export function redact(input, { terms = [], ownDomains = [], off = false } = {})
 		(_m, label) => `${label}[STEUERNR]`
 	);
 	t = sub('id', t, /\b\d{4}([ -])\d{4}\1\d{4}\1(\d{4})\b/g, (_m, _sep, last) => `[KARTE …${last}]`);
+	// The same number without separators, as a shop's confirmation prints it.
+	// Sixteen digits in a row are also order or tracking numbers; only a
+	// sequence with a valid Luhn check digit is taken for a card.
+	t = sub('id', t, /\b\d{16}\b/g, (m) => {
+		if (!luhnValid(m)) {
+			counts.id--;
+			return m;
+		}
+		return `[KARTE …${m.slice(-4)}]`;
+	});
 	// A passport or ID document on a ticket, after its label (#366). Not a
 	// "Fahrausweis" (a ticket) or a bare "Documento" (often the invoice itself).
 	t = sub(
@@ -384,6 +395,24 @@ export function redact(input, { terms = [], ownDomains = [], off = false } = {})
 		'[STRASSE]'
 	);
 	return { text: t, count: sumCounts(counts), counts };
+}
+
+/**
+ * Luhn's check (ISO/IEC 7812) over a run of digits: what every payment card
+ * number passes, and a random order number passes one time in ten.
+ * @param {string} digits
+ */
+function luhnValid(digits) {
+	let sum = 0;
+	for (let i = 0; i < digits.length; i++) {
+		let d = digits.charCodeAt(digits.length - 1 - i) - 48;
+		if (i % 2 === 1) {
+			d *= 2;
+			if (d > 9) d -= 9;
+		}
+		sum += d;
+	}
+	return sum % 10 === 0;
 }
 
 /**
