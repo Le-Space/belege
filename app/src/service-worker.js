@@ -4,16 +4,27 @@
 // would lock the books). The rules are in lib/pwa/cache-rules.js.
 /// <reference types="@sveltejs/kit" />
 /// <reference lib="webworker" />
-import { build, files, version } from '$service-worker';
-import { SHELL, cacheDecision, shellFiles } from '$lib/pwa/cache-rules.js';
+import { base, build, files, version } from '$service-worker';
+import { FALLBACK, cacheDecision, shellFiles, shellFor } from '$lib/pwa/cache-rules.js';
 
 const sw = /** @type {ServiceWorkerGlobalScope} */ (/** @type {unknown} */ (self));
 const CACHE = `belege-${version}`;
-const ASSETS = shellFiles(build, files);
+// Where the build is served: '' at the origin's root, '/ipfs/<cid>' on a path
+// gateway – read by `$service-worker` from the worker's own address.
+const ASSETS = shellFiles(build, files, base);
 const assets = new Set(ASSETS);
 
 sw.addEventListener('install', (event) => {
-	event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));
+	event.waitUntil(
+		(async () => {
+			const cache = await caches.open(CACHE);
+			// The fallback is adapter-static's: a build served by `vite preview`
+			// (the e2e suite) has none. Its absence must not fail the install;
+			// the start page stands in for it below.
+			await cache.addAll(ASSETS.filter((a) => a !== base + FALLBACK));
+			await cache.add(base + FALLBACK).catch(() => {});
+		})()
+	);
 });
 
 sw.addEventListener('activate', (event) => {
@@ -45,11 +56,15 @@ sw.addEventListener('fetch', (event) => {
 		(async () => {
 			const cache = await caches.open(CACHE);
 			if (decision === 'asset') return (await cache.match(url.pathname)) ?? fetch(request);
-			// A page: the network first, so an update is seen; offline, the shell.
+			// A page: the network first, so an update is seen; offline, the shell
+			// (the start page at the root, the fallback for a deeper route – or
+			// the start page again where there is no fallback: right for a route
+			// one level deep, as its base is still the root).
 			try {
 				return await fetch(request);
 			} catch (error) {
-				const shell = await cache.match(SHELL);
+				const shell =
+					(await cache.match(shellFor(url.pathname, base))) ?? (await cache.match(base + '/'));
 				if (shell) return shell;
 				throw error;
 			}

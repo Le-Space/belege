@@ -6,8 +6,8 @@
 	import { onDestroy, tick } from 'svelte';
 	import { t } from '$lib/i18n/index.js';
 
-	/** @type {{ onscan: (text: string) => void, class?: string }} */
-	let { onscan, class: buttonClass = '' } = $props();
+	/** @type {{ onscan: (text: string) => void, class?: string, prefix?: string }} */
+	let { onscan, class: buttonClass = '', prefix = 'devices-scan' } = $props();
 
 	const scanSupported = () =>
 		typeof (/** @type {any} */ (globalThis).BarcodeDetector) === 'function' &&
@@ -69,7 +69,7 @@
 
 {#if scanSupported()}
 	{#if scanning}
-		<div class="mt-2" data-testid="devices-scan-view">
+		<div class="mt-2" data-testid="{prefix}-view">
 			<video
 				bind:this={video}
 				class="w-64 max-w-full rounded-md border border-border"
@@ -77,15 +77,12 @@
 				muted
 			></video>
 			<p class="mt-1 text-xs text-faint">{t('devices.scanHint')}</p>
-			<button
-				type="button"
-				class="mt-1 {buttonClass}"
-				onclick={stop}
-				data-testid="devices-scan-stop">{t('devices.scanStop')}</button
+			<button type="button" class="mt-1 {buttonClass}" onclick={stop} data-testid="{prefix}-stop"
+				>{t('devices.scanStop')}</button
 			>
 		</div>
 	{:else}
-		<button type="button" class={buttonClass} onclick={start} data-testid="devices-scan"
+		<button type="button" class={buttonClass} onclick={start} data-testid={prefix}
 			>{t('devices.scan')}</button
 		>
 	{/if}

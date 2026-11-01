@@ -54,13 +54,15 @@ test('two devices connect by QR, without a relay, and sync', async ({ browser })
 		await expect(invite.locator('svg')).toBeVisible();
 		const offer = String(await invite.getAttribute('data-code'));
 
-		// The phone scans it and shows its answer.
-		await openIntegration(phone.page, 'geraete');
-		await phone.page.getByTestId('devices-scan').click();
+		// The phone scans it and shows its answer – right in the header's network
+		// menu, unfolded there while no device is connected.
+		await phone.page.getByTestId('local-only').click();
+		await expect(phone.page.getByTestId('network-qr-mode')).toBeVisible();
+		await phone.page.getByTestId('network-scan').click();
 		await phone.page.evaluate((c) => {
 			/** @type {any} */ (globalThis).__scanValue = c;
 		}, offer);
-		const answer = phone.page.getByTestId('devices-qr-code');
+		const answer = phone.page.getByTestId('network-qr-code');
 		await expect(answer).toHaveAttribute('data-phase', 'answer', { timeout: 30_000 });
 		const reply = String(await answer.getAttribute('data-code'));
 
@@ -72,6 +74,8 @@ test('two devices connect by QR, without a relay, and sync', async ({ browser })
 			timeout: 30_000
 		});
 		// The phone added the Mac too, once the Mac proved the passkey to it.
+		await phone.page.keyboard.press('Escape');
+		await openIntegration(phone.page, 'geraete');
 		await expect(phone.page.getByTestId('devices-item-state')).toHaveText('verbunden · direkt', {
 			timeout: 60_000
 		});
@@ -85,6 +89,21 @@ test('two devices connect by QR, without a relay, and sync', async ({ browser })
 
 		// Nobody else was asked: no Aleph, no relay, no WebSocket at all (not even the local test relay).
 		expect(outside).toEqual([]);
+
+		// The badge says how they meet: directly, no relay.
+		const badge = phone.page.getByTestId('local-only');
+		await expect(badge).toHaveAttribute('title', /direkt per WebRTC, ohne Relay/);
+		await expect(badge).not.toHaveAttribute('title', /Le-Space-Relay/);
+		// The Mac goes (as a phone's tab does in the background): the last ping is
+		// history, and what is written now waits for the next connection.
+		await expect(badge).toHaveAttribute('title', /Letzte Ping-Antwort: /, { timeout: 30_000 });
+		await mac.context.close();
+		await expect(badge).toHaveAttribute('data-state', 'online', { timeout: 60_000 });
+		await expect(badge).toHaveAttribute('title', /seitdem nicht mehr verbunden/);
+		await phone.page.getByTestId('add-test-transaction').click();
+		await expect(badge).toHaveAttribute('title', /geht beim nächsten Verbinden hinaus/, {
+			timeout: 30_000
+		});
 	} finally {
 		await mac.context.close();
 		await phone.context.close();

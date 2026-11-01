@@ -6,7 +6,7 @@ import adapter from '@sveltejs/adapter-static';
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
 	kit: {
-		adapter: adapter({ fallback: 'index.html' }),
+		adapter: adapter({ fallback: '200.html' }),
 		// Registered by lib/pwa/pwa.svelte.js, so a new version waits for "Neu laden" (issue #141).
 		serviceWorker: { register: false }
 	}

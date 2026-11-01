@@ -9,11 +9,14 @@ import {
 	blocked,
 	deviceCode,
 	deviceRecords,
+	isDirectAddr,
 	isPeerId,
 	knownDevices,
 	parseDeviceCode,
 	setSyncGateClosed,
 	startDeviceSync,
+	MUTE_MS,
+	HANGUP_EVERY_MS,
 	syncLibp2pConfig
 } from './device-sync.js';
 
@@ -59,6 +62,29 @@ describe('knownDevices', () => {
 	});
 });
 
+describe('isDirectAddr', () => {
+	const RELAY = '12D3KooWNmFsNbztWUBmnaGf1xXyxABwMY1KiE41szzspFevFxqG';
+	const PEER = '12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X';
+	it('calls a connection without a circuit direct', () => {
+		expect(isDirectAddr(`/ip4/192.0.2.7/udp/4001/quic-v1/p2p/${PEER}`)).toBe(true);
+	});
+	it('calls WebRTC signalled through a relay direct', () => {
+		expect(
+			isDirectAddr(`/dns4/relay.example/tcp/443/tls/ws/p2p/${RELAY}/p2p-circuit/webrtc/p2p/${PEER}`)
+		).toBe(true);
+	});
+	it('never calls a circuit direct, also not through a relay reached over WebRTC-Direct', () => {
+		expect(
+			isDirectAddr(`/dns4/relay.example/tcp/443/tls/ws/p2p/${RELAY}/p2p-circuit/p2p/${PEER}`)
+		).toBe(false);
+		expect(
+			isDirectAddr(
+				`/ip4/192.168.10.23/udp/4990/webrtc-direct/certhash/uEiD3OphLir77I26uAdKgLdpMSBwo8PcLVg8IzkNU9XUteQ/p2p/${RELAY}/p2p-circuit/p2p/${PEER}`
+			)
+		).toBe(false);
+	});
+});
+
 describe('isPeerId', () => {
 	it('takes Ed25519 peer ids only', () => {
 		expect(isPeerId('')).toBe(false);
@@ -69,7 +95,7 @@ describe('isPeerId', () => {
 });
 
 describe('syncLibp2pConfig', () => {
-	const gate = { service: () => ({}) };
+	const gate = { service: () => ({}), isProved: () => false, onProved: () => () => {} };
 	it('listens on the relays and for WebRTC, and keeps gossipsub on limited connections', () => {
 		const relay = '/dns4/relay.example/tcp/443/wss/p2p/12D3KooWExample';
 		const config = syncLibp2pConfig({ privateKey: {}, relays: [relay], gate });
@@ -105,6 +131,7 @@ describe('syncLibp2pConfig', () => {
 			'deviceGate',
 			'identify',
 			'identifyPush',
+			'identifyPushDevices',
 			'pubsub'
 		]);
 	});
@@ -304,5 +331,105 @@ describe('removing a device', () => {
 		expect(/** @type {any} */ (stale).removed).toBe(true);
 		for (const s of [onPhone, onMac, again, stale]) await s.stop();
 		blocked.clear();
+	});
+});
+
+describe('a device that is connected while gossipsub stays silent', () => {
+	const RELAY = '/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWRelayForTheSpec';
+	const MESHSUB = '/meshsub/1.2.0';
+
+	/** A node whose connections carry whatever protocols the test gives them. */
+	function nodeWith(/** @type {string} */ self) {
+		/** @type {any[]} */
+		const connections = [];
+		/** @type {string[]} */
+		const dialled = [];
+		const node = {
+			peerId: { toString: () => self },
+			connections,
+			dialled,
+			/** @param {string} peerId @param {string[]} [protocols] */
+			connect(peerId, protocols = [MESHSUB]) {
+				/** @type {any} */
+				const c = {
+					remotePeer: { toString: () => peerId },
+					remoteAddr: { toString: () => `${RELAY}/p2p-circuit/p2p/${peerId}` },
+					limited: false,
+					streams: protocols.map((protocol) => ({ protocol })),
+					close: async () => void connections.splice(connections.indexOf(c), 1)
+				};
+				connections.push(c);
+			},
+			getConnections: () => connections,
+			getMultiaddrs: () => [],
+			/** @param {any} addr */
+			async dial(addr) {
+				dialled.push(String(addr));
+				// What a fresh circuit buys: a connection gossipsub actually uses.
+				node.connect(String(String(addr).split('/p2p/').pop()));
+			},
+			addEventListener: () => {}
+		};
+		return node;
+	}
+
+	it('is hung up and dialled again, while a talking one is left alone', async () => {
+		let ms = Date.parse('2026-03-01T10:00:00.000Z');
+		let tick = 0;
+		const settings = memorySettings(
+			() => new Date(Date.parse('2026-03-01T09:00:00.000Z') + tick++)
+		);
+		const store = { settings, resync: async () => {} };
+		const mac = await peerOf(SALT_A);
+		const phone = await peerOf(SALT_B);
+		const node = nodeWith(mac);
+		const sync = await startDeviceSync({
+			store,
+			relays: [RELAY],
+			libp2p: /** @type {any} */ (node),
+			label: 'Mac',
+			now: () => new Date(ms).toISOString()
+		});
+		const look = () => sync.addDevice(phone, 'Android');
+
+		// Talking: nothing happens to it, however long it is watched.
+		node.connect(phone, [MESHSUB]);
+		await look();
+		ms += 10 * 60_000;
+		await look();
+		expect(node.dialled).toEqual([]);
+		expect(node.connections).toHaveLength(1);
+
+		// Mute from here on: the first look only starts the clock …
+		node.connections[0].streams = [{ protocol: '/ipfs/id/1.0.0' }];
+		await look();
+		expect(node.dialled).toEqual([]);
+
+		// … and a connection that could still be settling is left alone …
+		ms += MUTE_MS - 1000;
+		await look();
+		expect(node.dialled).toEqual([]);
+		expect(node.connections).toHaveLength(1);
+
+		// … but a mute one past MUTE_MS goes, and a new one is dialled in its place.
+		ms += 2000;
+		await look();
+		expect(node.dialled).toEqual([`${RELAY}/p2p-circuit/p2p/${phone}`]);
+		expect(node.connections).toHaveLength(1);
+		expect(node.connections[0].streams).toEqual([{ protocol: MESHSUB }]);
+
+		// A second alarm right away is ignored: a wrong guess must not loop.
+		node.connections[0].streams = [{ protocol: '/ipfs/id/1.0.0' }];
+		await look();
+		ms += MUTE_MS + 1000;
+		await look();
+		expect(node.dialled).toHaveLength(1);
+
+		// Past the rate limit it fires again.
+		ms += HANGUP_EVERY_MS;
+		await look();
+		expect(node.dialled).toHaveLength(2);
+
+		await sync.stop();
 	});
 });

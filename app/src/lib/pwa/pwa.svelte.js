@@ -3,6 +3,8 @@
 // install prompt where there is one (Chromium's beforeinstallprompt).
 // Nothing here in the dev server: it would cache what Vite serves.
 import { dev } from '$app/environment';
+import { base } from '$app/paths';
+import { sharedOrigin } from '$lib/shared-origin.js';
 
 export const pwa = $state({
 	/** The browser offers to install the app. */
@@ -43,8 +45,16 @@ export async function startPwa() {
 		pwa.installable = false;
 	});
 	if (dev || !('serviceWorker' in navigator)) return;
+	if (sharedOrigin()) {
+		// No worker and no cache on an origin other CIDs share (shared-origin.js);
+		// one an earlier build registered here goes.
+		await dropWorkers().catch(() => {});
+		return;
+	}
 	try {
-		registration = await navigator.serviceWorker.register('/service-worker.js');
+		// Beside the page, at the origin's root (its own origin: the domain or a
+		// subdomain gateway).
+		registration = await navigator.serviceWorker.register(`${base}/service-worker.js`);
 		watch(registration);
 		navigator.serviceWorker.addEventListener('controllerchange', () => {
 			// Only after "Neu laden": the first install claims the page without one.
@@ -52,6 +62,17 @@ export async function startPwa() {
 		});
 	} catch {
 		// Refused (a private window, a policy): the app works as before.
+	}
+}
+
+/** This build's workers and caches on this origin, removed. */
+async function dropWorkers() {
+	const scope = new URL(`${base}/`, location.href).href;
+	for (const reg of await navigator.serviceWorker.getRegistrations()) {
+		if (reg.scope === scope) await reg.unregister();
+	}
+	for (const name of await caches.keys()) {
+		if (name.startsWith('belege-')) await caches.delete(name);
 	}
 }
 

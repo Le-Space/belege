@@ -12,10 +12,12 @@
 // scanned the other's QR code, and then a booking written on either shows on
 // the other. Last, one removes the other.
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
 import { device, samePasskey } from './devices.js';
+import { RELAY_IDENTIFY_LOG } from './relay.js';
 
 /** @param {import('@playwright/test').Page} page @param {string} name */
 const tab = (page, name) => page.getByRole('link', { name, exact: true }).click();
@@ -75,6 +77,38 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 		await expect(badge).toHaveAttribute('data-state', 'connected', { timeout: 30_000 });
 		await expect(badge).toContainText('Im Netz: eigene Geräte');
 		await expect(badge).toHaveAttribute('title', /Eigene Geräte: 1 verbunden/);
+		await expect(badge).toHaveAttribute('title', /eigene Geräte über ein Le-Space-Relay/);
+		// What is connected, to be checked: the Mac's peer id, the address it is
+		// reached over, direct or through the relay, with the round trip …
+		await expect(badge).toHaveAttribute('title', new RegExp(`: ${macId}\\n`));
+		await expect(badge).toHaveAttribute('title', /(direkt|über das Relay): \/\S+ – (\d+|\?) ms/);
+		// A circuit without WebRTC is never called direct.
+		expect(await badge.getAttribute('title')).not.toMatch(/direkt: \S*\/p2p-circuit\/p2p\//);
+		// The devices card says "direkt" exactly when the badge lists a direct
+		// address: both read the same connections the same way.
+		await expect
+			.poll(async () => {
+				const title = String(await badge.getAttribute('title'));
+				const card = String(
+					await phone.page
+						.getByTestId('devices-item')
+						.filter({ hasText: macId })
+						.getByTestId('devices-item-state')
+						.textContent()
+				);
+				return card.endsWith('· direkt') === /direkt: \//.test(title);
+			})
+			.toBe(true);
+		// … and the Mac answering the connection monitor's ping (every 10 s)
+		// lights the dot up for a moment.
+		await phone.page.waitForFunction(
+			() =>
+				/** @type {HTMLElement | null} */ (document.querySelector('[data-testid="local-only"]'))
+					?.dataset.pulse === 'on',
+			null,
+			{ polling: 'raf', timeout: 30_000 }
+		);
+		await expect(badge).toHaveAttribute('title', /Letzte Ping-Antwort: .+, \d+ ms, um /);
 		// "Alles pausieren" in the badge's menu: at once, and the Mac is no longer connected …
 		await badge.click();
 		await phone.page.getByTestId('network-pause').click();
@@ -86,8 +120,9 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 				.filter({ hasText: macId })
 				.getByTestId('devices-item-state')
 		).toHaveText('nicht verbunden', { timeout: 30_000 });
-		// … and "Fortsetzen" connects it again, in this session.
-		await badge.click();
+		// … and "Fortsetzen" connects it again, in this session. The menu stayed
+		// open: the click that swapped "Alles pausieren" for it does not close it.
+		await expect(phone.page.getByTestId('network-menu')).toBeVisible();
 		await phone.page.getByTestId('network-resume').click();
 		await expect(badge).toHaveAttribute('data-state', 'connected', { timeout: 60_000 });
 		await expect(
@@ -109,9 +144,52 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 		await expect(phone.page.getByTestId('transaction')).toHaveCount(2);
 		await tab(mac.page, 'Zahlungen');
 		await expect(mac.page.getByTestId('transaction')).toHaveCount(2, { timeout: 90_000 });
+		// … and the Mac's sync log has it: from the phone, a payment, new – with
+		// when the phone last sent something beside it in the device list.
+		await openIntegration(mac.page, 'geraete');
+		const log = mac.page.getByTestId('sync-log');
+		await log.locator('summary').click();
+		const came = log
+			.getByTestId('sync-log-line')
+			.filter({ hasText: 'Zahlungen' })
+			.filter({ hasText: 'neu' })
+			.filter({ hasText: 'von ' });
+		await expect(came.first()).toHaveAttribute('data-direction', 'in', { timeout: 30_000 });
+		await expect(mac.page.getByTestId('devices-item-last')).toContainText('zuletzt Daten');
+		await tab(mac.page, 'Zahlungen');
 
-		// … and one more on the Mac, now that both are connected, on the phone.
+		// What the relay learned from identify while all that went through it (#209):
+		// it knows the Mac, and that it speaks identify and the relay's protocols –
+		// not which databases there are, not which app this is, not even that it
+		// syncs anything. It was not offered the device proof either.
+		const told = readFileSync(RELAY_IDENTIFY_LOG, 'utf8')
+			.split('\n')
+			.filter(Boolean)
+			.map((line) => JSON.parse(line))
+			.filter((entry) => entry.peer === macId);
+		expect(told.length).toBeGreaterThan(0);
+		const protocols = [...new Set(told.flatMap((entry) => entry.protocols))];
+		expect(protocols).toContain('/ipfs/id/1.0.0');
+		expect(
+			protocols.filter((p) => !p.startsWith('/ipfs/id/') && !p.startsWith('/libp2p/circuit/relay/'))
+		).toEqual([]);
+		expect(told.filter((entry) => entry.offered)).toEqual([]);
+		// Nor which browser on which system this is.
+		const agents = [...new Set(told.map((entry) => entry.agent).filter(Boolean))];
+		expect(agents).toEqual(['js-libp2p']);
+
+		// … and one more on the Mac, now that both are connected, on the phone –
+		// whose data light flashes for what came in.
+		const flashed = phone.page.waitForFunction(
+			() =>
+				/** @type {HTMLElement | null} */ (
+					document.querySelector('[data-testid="network-data-dot"]')
+				)?.dataset.flow === 'in',
+			null,
+			{ polling: 'raf', timeout: 90_000 }
+		);
 		await mac.page.getByTestId('add-test-transaction').click();
+		await flashed;
 		await expect(phone.page.getByTestId('transaction')).toHaveCount(3, { timeout: 90_000 });
 
 		// The Mac removes the phone: the Mac lets go of it, and the phone, once

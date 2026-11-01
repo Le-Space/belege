@@ -22,7 +22,7 @@
 import { createLibp2p } from 'libp2p';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
-import { identify } from '@libp2p/identify';
+import { NODE_INFO, quietIdentify } from './sync/quiet-identify.js';
 import { gossipsub } from '@libp2p/gossipsub';
 import { generateKeyPair } from '@libp2p/crypto/keys';
 
@@ -48,6 +48,7 @@ export function createOfflineLibp2pConfig(privateKey) {
 	if (!privateKey) throw new Error('A peer key is required; see createEphemeralPeerKey.');
 	return {
 		privateKey,
+		nodeInfo: NODE_INFO,
 		// No `datastore`: libp2p keeps its peer store and keychain in memory.
 		addresses: { listen: [] },
 		transports: [],
@@ -55,7 +56,7 @@ export function createOfflineLibp2pConfig(privateKey) {
 		streamMuxers: [yamux()],
 		peerDiscovery: [],
 		services: {
-			identify: identify(),
+			identify: quietIdentify(),
 			pubsub: gossipsub({
 				emitSelf: false,
 				// OrbitDB publishes its heads whether or not anybody listens.

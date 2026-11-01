@@ -13,17 +13,23 @@ test('manifest, service worker, offline reload, install offer', async ({ page, c
 	await page.goto('/');
 	await acceptConsent(page);
 
-	// The manifest, as the browser reads it, and every icon in it.
-	const href = await page.locator('link[rel="manifest"]').getAttribute('href');
-	const manifest = await (await page.request.get(String(href))).json();
-	expect(manifest).toMatchObject({ short_name: 'Belege', display: 'standalone', start_url: '/' });
+	// The manifest, as the browser reads it, and every icon in it. Its paths
+	// are relative to the manifest, so the build also installs from under a
+	// path (an IPFS path gateway); here that resolves to the origin's root.
+	const manifestUrl = new URL(
+		String(await page.locator('link[rel="manifest"]').getAttribute('href')),
+		page.url()
+	);
+	const manifest = await (await page.request.get(manifestUrl.href)).json();
+	expect(manifest).toMatchObject({ short_name: 'Belege', display: 'standalone', start_url: './' });
+	expect(new URL(manifest.start_url, manifestUrl).href).toBe(new URL('/', page.url()).href);
 	expect(manifest.icons.map((/** @type {any} */ i) => i.purpose)).toEqual([
 		'any',
 		'any',
 		'maskable'
 	]);
 	for (const icon of manifest.icons) {
-		const r = await page.request.get(icon.src);
+		const r = await page.request.get(new URL(icon.src, manifestUrl).href);
 		expect(r.status(), icon.src).toBe(200);
 		expect(r.headers()['content-type']).toContain('image/png');
 	}

@@ -1,4 +1,4 @@
-import { t } from '../i18n/index.js';
+import { intlLocale, t } from '../i18n/index.js';
 import { noteWayOut, wayOutKind } from '../help/way-out.js';
 // The app's side of the bridge on 127.0.0.1 (see bridge/README.md).
 
@@ -17,13 +17,65 @@ import { noteWayOut, wayOutKind } from '../help/way-out.js';
 export const DEFAULT_BRIDGE_URL = import.meta.env?.VITE_BRIDGE_URL || 'http://127.0.0.1:8765';
 
 export class BridgeError extends Error {
-	/** @param {string} message @param {number} status */
-	constructor(message, status) {
+	/** @param {string} message @param {number} status @param {string | null} [code] the bridge's */
+	constructor(message, status, code = null) {
 		super(message);
 		this.name = 'BridgeError';
 		this.status = status;
+		this.code = code;
 	}
 }
+
+/** The bridge's codes for a language-model provider that refuses (bridge/src/llm/extract.js REFUSALS). */
+export const LLM_REFUSALS = new Set(['LLM_NO_CREDIT', 'LLM_AUTH', 'LLM_MODEL', 'LLM_UNREACHABLE']);
+
+/** A provider's host as people know it. @param {unknown} host */
+export function providerName(host) {
+	const h = String(host ?? '');
+	if (/(^|\.)deepseek\.com$/.test(h)) return 'DeepSeek';
+	if (/(^|\.)libertai\.io$/.test(h)) return 'LibertAI';
+	if (/:11434$/.test(h)) return 'Ollama';
+	if (/:1234$/.test(h)) return 'LM Studio';
+	return h || 'KI-Anbieter';
+}
+
+/** @type {() => string[]} what the app adds to the bridge's redaction list on every LLM call */
+let redactTerms = () => [];
+
+/**
+ * Tell the client which terms to send with every call that reaches the
+ * language model: the company's names from Einstellungen (issue #226). The
+ * bridge blacks them out beside its own list.
+ *
+ * @param {() => string[]} terms
+ */
+export function setRedactTerms(terms) {
+	redactTerms = terms;
+}
+
+/** What the bridge puts where one of those terms stood (bridge/src/llm/redact.js). */
+const COMPANY_MARK = '[FIRMA]';
+
+/**
+ * The first company name back where the model repeats the bridge's mark: an
+ * invoice of our own names us as the vendor, and is recognised by that name.
+ *
+ * @template T
+ * @param {T} result
+ * @returns {T}
+ */
+function restoreCompany(result) {
+	const [name] = redactTerms();
+	const e = /** @type {any} */ (result)?.extraction;
+	if (!name || !e) return result;
+	for (const key of ['vendor', 'summary']) {
+		if (typeof e[key] === 'string') e[key] = e[key].split(COMPANY_MARK).join(name);
+	}
+	return result;
+}
+
+/** A body for an LLM route: the caller's, and the terms to black out. @param {any} body */
+const withTerms = (body) => JSON.stringify({ ...body, redactTerms: redactTerms().slice(0, 20) });
 
 /**
  * A failed call, with its way out noted for the card that shows the message
@@ -35,7 +87,7 @@ export class BridgeError extends Error {
  */
 function failed(message, status, body) {
 	noteWayOut(message, wayOutKind(status, body));
-	return new BridgeError(message, status);
+	return new BridgeError(message, status, body?.code ?? null);
 }
 
 /**
@@ -71,6 +123,9 @@ function failed(message, status, body) {
  * @property {string} fee decimal, charged on top
  * @property {number} decimals
  * @property {string} [transferRef] a deposit's or withdrawal's txid: the on-chain hash, or the bank's reference
+ * @property {string} [transferMethod] the network as Kraken names it (`Filecoin`, `Ether (Arbitrum One)`)
+ * @property {string} [balance] the asset's balance on Kraken after this entry, decimal; '' when none (#287)
+ * @property {string} [code] Kraken's asset code (`XXBT`, `DOT.S`): whose balance `balance` is
  */
 
 /**
@@ -81,7 +136,7 @@ function failed(message, status, body) {
  * @property {string} time ISO 8601
  * @property {string} date YYYY-MM-DD (UTC)
  * @property {'sent' | 'received' | 'fee'} type
- * @property {'transfer' | 'reward' | 'stake' | 'ibc' | 'fee' | 'swap'} kind
+ * @property {'transfer' | 'reward' | 'stake' | 'ibc' | 'fee' | 'swap' | 'mining'} kind `mining`: a mined block (Monero export)
  * @property {SwapSides} [swap] EVM: what the wallet gave and got in a swap (issue #115)
  * @property {string} asset symbol
  * @property {string} amount signed decimal
@@ -99,6 +154,18 @@ function failed(message, status, body) {
  */
 
 /**
+ * @typedef {object} AkashDeployment one deployment and what it cost (bridge/src/chains/akash-deployments.js)
+ * @property {string} dseq
+ * @property {string} state active | closed
+ * @property {number} createdHeight
+ * @property {string | null} createdAt ISO
+ * @property {number} settledHeight
+ * @property {string | null} settledAt ISO, the last settlement
+ * @property {string} transferred ACT paid to the providers, decimal
+ * @property {string} funds ACT left in the escrow, decimal
+ */
+
+/**
  * @typedef {object} WalletHistory
  * @property {string} chain
  * @property {Record<string, string>} endpoints the ones asked
@@ -111,6 +178,9 @@ function failed(message, status, body) {
  *   `unknownAmounts`: older transactions whose amount only events carry, not booked
  * @property {string} addressUrl
  * @property {'alchemy' | 'blockscout'} [source] EVM: where it was read
+ * @property {{ asset: string, decimals: number, points: { time: string, value: string }[], source?: 'explorer' | 'history' }[]} [balanceHistory]
+ *   the source's balance after each change, in smallest units, oldest first (#287): Blockscout's of the
+ *   native coin (`explorer`, the default), or a wallet's own running balance (`history`, the Monero CLI export)
  */
 
 /**
@@ -203,10 +273,34 @@ export function createBridgeClient({
 						? t('messages.bridge.mailNotSetUp')
 						: body?.code === 'LLM_NOT_SET_UP'
 							? t('messages.bridge.llmNotSetUp')
-							: body?.error
+							: body?.code === 'PAPERLESS_NOT_SET_UP'
+								? t('messages.bridge.paperlessNotSetUp')
+								: body?.error
 			});
+			if (res.status === 402 && body?.code === 'ALEPH_BACKUP_REJECTED') {
+				// Aleph refused to keep a backup; with too little credit it says how much is needed.
+				const reason = body.reason;
+				throw failed(
+					reason && Number.isFinite(reason.credits) && Number.isFinite(reason.required)
+						? t('messages.bridge.alephNotKept', {
+								credits: reason.credits.toLocaleString(intlLocale()),
+								required: reason.required.toLocaleString(intlLocale())
+							})
+						: t('messages.bridge.alephRejected', { error: body?.error ?? '' }),
+					402,
+					body
+				);
+			}
 			if (res.status === 403 && body?.code === 'SENDER_UNVERIFIED') {
 				throw new BridgeError(t('messages.bridge.senderUnverified'), 403);
+			}
+			// The provider refused (#417): every further call would be refused the same way.
+			if (LLM_REFUSALS.has(body?.code)) {
+				throw failed(
+					t(`messages.bridge.refused.${body.code}`, { provider: providerName(body.provider) }),
+					res.status,
+					body
+				);
 			}
 			if (res.status === 502 && body?.code === 'EXTRACT_FAILED') {
 				const reasons = (body.attempts ?? []).map(
@@ -225,7 +319,7 @@ export function createBridgeClient({
 
 	return {
 		url: base,
-		/** @returns {Promise<{ ok: boolean, paired: boolean, pairingOpen: boolean, hibiscus: { configured: boolean }, mail?: { configured: boolean, accountingAddress: string | null }, llm?: { configured: boolean, models: string[] }, kraken?: { configured: boolean }, wallets?: { available: boolean } }>} */
+		/** @returns {Promise<{ ok: boolean, paired: boolean, pairingOpen: boolean, hibiscus: { configured: boolean }, mail?: { configured: boolean, accountingAddress: string | null }, llm?: { configured: boolean, models: string[] }, kraken?: { configured: boolean }, paperless?: { configured: boolean }, enablebanking?: { configured: boolean }, backup?: { aleph: boolean }, wallets?: { available: boolean } }>} */
 		health: () => call('/health'),
 		/** @param {string} code @returns {Promise<string>} the token */
 		async pair(code) {
@@ -271,6 +365,18 @@ export function createBridgeClient({
 			return /** @type {Promise<Uint8Array>} */ (call(`/mail/attachment?${q}`, {}, true));
 		},
 		/**
+		 * One mail as it was received (RFC 822), to keep as the original of a
+		 * receipt that is the mail itself (#288). Only a mail to the accounting
+		 * address; 404 when it is no longer in the mailbox.
+		 *
+		 * @param {string} id the mail's id
+		 * @returns {Promise<Uint8Array>}
+		 */
+		async mailRaw(id) {
+			const q = new URLSearchParams({ id });
+			return /** @type {Promise<Uint8Array>} */ (call(`/mail/raw?${q}`, {}, true));
+		},
+		/**
 		 * Move one mail to the mailbox's Trash – the bridge's only write to the
 		 * mailbox, on a person's confirmed click. Not a delete.
 		 *
@@ -312,7 +418,7 @@ export function createBridgeClient({
 		 * whether a key is in its keychain (never the key), how many terms it
 		 * blacks out, and the mail server id it trusts for the sender check.
 		 *
-		 * @returns {Promise<{ configured: boolean, provider: string | null, models: { primary: string | null, fallback: string | null }, keyConfigured: boolean, redactTerms: number, mail: { authServId: string | null } }>}
+		 * @returns {Promise<{ configured: boolean, provider: string | null, models: { primary: string | null, fallback: string | null }, keyConfigured: boolean, redactTerms: number, redaction?: { mode: 'auto' | 'on' | 'off', active: boolean }, mail: { authServId: string | null } }>}
 		 */
 		llmStatus: () => call('/llm/status'),
 		/**
@@ -335,6 +441,54 @@ export function createBridgeClient({
 		 *
 		 * @returns {Promise<{ balances: KrakenBalance[] }>}
 		 */
+		/**
+		 * Enable Banking (issue #224): the banks of a country.
+		 *
+		 * @param {string} country two letters
+		 * @returns {Promise<EnableBankingBank[]>}
+		 */
+		async enableBankingBanks(country) {
+			return (await call(`/enablebanking/banks?country=${encodeURIComponent(country)}`)).banks;
+		},
+		/**
+		 * Start a link: the bridge answers with the bank's page and the state it keeps.
+		 *
+		 * @param {{ bank: string, country: string, psuType?: 'personal' | 'business' }} body
+		 * @returns {Promise<{ url: string, state: string, validUntil: string }>}
+		 */
+		enableBankingLink: (body) =>
+			call('/enablebanking/link', { method: 'POST', body: JSON.stringify(body) }),
+		/**
+		 * Finish a link with the bank's answer.
+		 *
+		 * @param {{ code: string, state: string }} body
+		 * @returns {Promise<EnableBankingLink>}
+		 */
+		async enableBankingFinish(body) {
+			return (await call('/enablebanking/finish', { method: 'POST', body: JSON.stringify(body) }))
+				.link;
+		},
+		/** @returns {Promise<EnableBankingAccount[]>} every linked account, and whether it may leave the bridge */
+		async enableBankingAccounts() {
+			return (await call('/enablebanking/accounts')).accounts;
+		},
+		/**
+		 * An allowed account's booked transactions from a day on.
+		 *
+		 * @param {string} uid
+		 * @param {string} since YYYY-MM-DD
+		 * @returns {Promise<{ since: string, transactions: import('../bank/import.js').IncomingTransaction[], pending: number, complete: boolean }>}
+		 */
+		enableBankingTransactions: (uid, since) =>
+			call(`/enablebanking/transactions?${new URLSearchParams({ account: uid, since })}`),
+		/** @returns {Promise<EnableBankingLink[]>} */
+		async enableBankingLinks() {
+			return (await call('/enablebanking/links')).links;
+		},
+		/** @param {string} id */
+		async enableBankingUnlink(id) {
+			await call(`/enablebanking/links/${encodeURIComponent(id)}`, { method: 'DELETE' });
+		},
 		krakenBalances: () => call('/kraken/balances'),
 		/**
 		 * Kraken's ledger from the start of `since` (UTC), oldest first.
@@ -344,6 +498,35 @@ export function createBridgeClient({
 		 *   `transferRefs`: whether Kraken gave the on-chain hashes of deposits and withdrawals
 		 */
 		krakenLedgers: (since) => call(`/kraken/ledgers?since=${encodeURIComponent(since)}`),
+		/**
+		 * What Paperless-ngx added after `since`, with its OCR text (#318).
+		 *
+		 * @param {string | null} since ISO, or null for everything
+		 * @returns {Promise<import('../paperless/import.js').PaperlessDocument[]>}
+		 */
+		async paperlessDocuments(since) {
+			const q = since ? `?${new URLSearchParams({ since })}` : '';
+			return (await call(`/paperless/documents${q}`)).documents ?? [];
+		},
+		/**
+		 * Paperless' full-text search: at most 25 documents, without their OCR text.
+		 *
+		 * @param {string} query
+		 * @returns {Promise<Omit<import('../paperless/import.js').PaperlessDocument, 'content'>[]>}
+		 */
+		async paperlessSearch(query) {
+			return (await call(`/paperless/search?${new URLSearchParams({ query })}`)).documents ?? [];
+		},
+		/**
+		 * One Paperless document's bytes: the original PDF or image, else its archive PDF.
+		 *
+		 * @param {number} id
+		 * @returns {Promise<Uint8Array>}
+		 */
+		paperlessDocument: (id) =>
+			/** @type {Promise<Uint8Array>} */ (
+				call(`/paperless/document?${new URLSearchParams({ id: String(id) })}`, {}, true)
+			),
 		/**
 		 * The chains an own wallet can be on: endpoints and explorers.
 		 *
@@ -370,11 +553,21 @@ export function createBridgeClient({
 		 * public node (in the body, so the address is in no URL).
 		 *
 		 * @param {string} chain e.g. `nyx`
-		 * @param {{ address: string, endpoints?: Record<string, string> }} body
+		 * @param {{ address: string, endpoints?: Record<string, string>, hashes?: string[] }} body
+		 *   `hashes`: exchange withdrawals the indexer is asked for by hash (Akash, #303)
 		 * @returns {Promise<WalletHistory>}
 		 */
 		walletHistory: (chain, body) =>
 			call(`/${encodeURIComponent(chain)}/wallet`, { method: 'POST', body: JSON.stringify(body) }),
+		/**
+		 * An Akash wallet's deployments with what each cost (#305), for the
+		 * monthly usage statement (in the body, so the address is in no URL).
+		 *
+		 * @param {{ address: string, endpoints?: Record<string, string> }} body
+		 * @returns {Promise<{ deployments: AkashDeployment[], actBalance: string }>}
+		 */
+		akashDeployments: (body) =>
+			call('/akash/deployments', { method: 'POST', body: JSON.stringify(body) }),
 		/**
 		 * Which of these 0x addresses are Aleph accounts: their credits now and
 		 * how many credit entries they ever had (issue #113). Read only.
@@ -404,6 +597,34 @@ export function createBridgeClient({
 				`/aleph/statement?address=${encodeURIComponent(address)}&month=${encodeURIComponent(month)}${api ? `&api=${encodeURIComponent(api)}` : ''}`
 			),
 		/**
+		 * The backup on Aleph (issue #77): whether `pnpm setup:aleph` has made the
+		 * bridge's backup key, the account that pays, its credits, where the app
+		 * uploads a backup itself, fetches it back, and signs and lists for itself.
+		 *
+		 * @returns {Promise<{ aleph: { configured: boolean, address?: string, credits?: number | null, ingestUrl?: string, gateways?: string[], apiHost?: string } }>}
+		 */
+		backupStatus: () => call('/backup/status'),
+		/**
+		 * Have Aleph keep a backup the app uploaded to its IPFS host: the bridge
+		 * signs the STORE message with its backup key. An increment names the
+		 * full backup it builds on (`ref`); an older bridge drops it and
+		 * answers without `ref`.
+		 *
+		 * @param {string} cid
+		 * @param {string} [ref]
+		 * @param {number} [size] the file's bytes, into the STORE; an older bridge drops it
+		 * @returns {Promise<{ cid: string, address: string, itemHash: string, status: string, ref?: string, size?: number }>}
+		 */
+		alephKeep: (cid, ref, size) =>
+			call('/backup/aleph/pin', {
+				method: 'POST',
+				body: JSON.stringify({
+					cid,
+					...(ref ? { ref } : {}),
+					...(Number.isInteger(size) ? { size } : {})
+				})
+			}),
+		/**
 		 * "Mit KI weitersuchen": the LLM suggests search words and sender domains
 		 * from the booking (redacted by the bridge), the bridge searches, and the
 		 * LLM picks among the hits' subjects, domains and file names.
@@ -411,7 +632,7 @@ export function createBridgeClient({
 		 * @param {{ counterparty: string, purpose?: string, amount?: string | null, around?: string | null, days?: number, knownDomains?: string[] }} body
 		 * @returns {Promise<{ vendor: string | null, terms: string[], domains: string[], messages: any[], pick: { id: string, confidence: 'high' | 'medium' | 'low', reason: string } | null, llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
 		 */
-		mailAssist: (body) => call('/mail/assist', { method: 'POST', body: JSON.stringify(body) }),
+		mailAssist: (body) => call('/mail/assist', { method: 'POST', body: withTerms(body) }),
 		/**
 		 * "✦ KI-Vorschlag" under "Beleg zuordnen": the LLM picks among receipts,
 		 * from their read fields; the bridge redacts.
@@ -419,7 +640,7 @@ export function createBridgeClient({
 		 * @param {{ booking: { counterparty?: string, purpose?: string, amount?: string, day?: string }, candidates: { id: string, vendor?: string, amount?: string, currency?: string, date?: string, number?: string, summary?: string }[] }} body
 		 * @returns {Promise<{ pick: { id: string, confidence: 'high' | 'medium' | 'low', reason: string } | null, reason?: string, llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
 		 */
-		matchAssist: (body) => call('/match/assist', { method: 'POST', body: JSON.stringify(body) }),
+		matchAssist: (body) => call('/match/assist', { method: 'POST', body: withTerms(body) }),
 		/**
 		 * "✦ KI-Vorschlag" under "Als Gegenbuchung verknüpfen …": the LLM picks
 		 * the other side of an own transfer among up to 8 bookings; the bridge
@@ -428,8 +649,7 @@ export function createBridgeClient({
 		 * @param {{ booking: TransferAssistBooking, candidates: (TransferAssistBooking & { id: string })[] }} body
 		 * @returns {Promise<{ pick: { id: string, confidence: 'high' | 'medium' | 'low', reason: string } | null, llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
 		 */
-		transferAssist: (body) =>
-			call('/transfer/assist', { method: 'POST', body: JSON.stringify(body) }),
+		transferAssist: (body) => call('/transfer/assist', { method: 'POST', body: withTerms(body) }),
 		/**
 		 * "✦ Ungereimtheiten erklären" on a vendor account (#121): a few notes on
 		 * what does not add up; the bridge redacts.
@@ -437,7 +657,7 @@ export function createBridgeClient({
 		 * @param {{ vendor: string, from: string, until: string, opening: string | null, closing: string, rows: any[], findings: string[] }} body
 		 * @returns {Promise<{ notes: string[], llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
 		 */
-		vendorAssist: (body) => call('/vendor/assist', { method: 'POST', body: JSON.stringify(body) }),
+		vendorAssist: (body) => call('/vendor/assist', { method: 'POST', body: withTerms(body) }),
 		/**
 		 * A read share for an assistant (issue #124): the snapshot goes to the
 		 * bridge, which keeps it in memory and serves it by its id until it expires.
@@ -455,9 +675,42 @@ export function createBridgeClient({
 		 * @returns {Promise<{ extraction: any, model: string, usage: any, ms?: number, attempts: any[], fallback?: { used: boolean, reason: string | null }, redactions?: any, sentText?: string }>}
 		 */
 		async extract(body) {
-			return call('/extract', { method: 'POST', body: JSON.stringify(body) });
+			return restoreCompany(await call('/extract', { method: 'POST', body: withTerms(body) }));
 		}
 	};
 }
 
 /** @typedef {ReturnType<typeof createBridgeClient>} BridgeClient */
+
+/**
+ * @typedef {object} EnableBankingBank
+ * @property {string} name
+ * @property {string} country
+ * @property {('personal' | 'business')[]} psuTypes
+ * @property {number} maxConsentDays
+ * @property {boolean} beta
+ */
+
+/**
+ * @typedef {object} EnableBankingAccount a linked account, as the bridge tells it
+ * @property {string} uid
+ * @property {string} linkId
+ * @property {string} bank
+ * @property {string} ibanLast4
+ * @property {string} name
+ * @property {string} currency
+ * @property {string | null} validUntil
+ * @property {boolean} allowed whether it may leave the bridge (setup:enablebanking -- --accounts)
+ * @property {string | null} ibanKey only for an allowed one: the key the books know the account by
+ */
+
+/**
+ * @typedef {object} EnableBankingLink a linked bank, as the bridge tells it (no full IBAN)
+ * @property {string} id
+ * @property {string} bank
+ * @property {string} country
+ * @property {'personal' | 'business'} psuType
+ * @property {string | null} validUntil
+ * @property {string} linkedAt
+ * @property {{ uid: string, ibanLast4: string, name: string, currency: string }[]} accounts
+ */
