@@ -32,6 +32,7 @@ describe('mail endpoints', () => {
 	/** @type {string} */ let token;
 	let passwordReads = 0;
 	/** @type {string[]} */ const logged = [];
+	/** @type {any} */ let mailConfig;
 
 	before(async () => {
 		imap = await startFakeImap({ storage: sampleMailbox({ base: BASE, cryptoPayment: true }) });
@@ -54,6 +55,7 @@ describe('mail endpoints', () => {
 				hashes = h;
 			}
 		});
+		mailConfig = config.mail;
 		const mail = createMailClient({
 			config: config.mail,
 			getPassword: async () => {
@@ -251,6 +253,41 @@ describe('mail endpoints', () => {
 		const nofolder = encodeMailId({ folder: 'Nirgendwo', uidValidity: 1, uid: 1 });
 		assert.equal((await get(`/mail/attachment?id=${nofolder}&part=2`)).status, 404);
 		assert.equal((await get(`/mail/attachment?id=${m.id}&part=9`)).status, 404);
+	});
+
+	test('raw: a mail without an attachment as it was received (#288)', async () => {
+		const shop = listed.find((x) => x.subject === 'Ihre Bestellung 2026-555');
+		const res = await get(`/mail/raw?id=${shop.id}`);
+		assert.equal(res.status, 200);
+		assert.equal(res.headers['content-type'], 'message/rfc822');
+		assert.match(String(res.headers['content-security-policy']), /sandbox/);
+		assert.match(res.text, /^Subject: Ihre Bestellung 2026-555\r?$/m);
+		// The whole mail, not the excerpt: its HTML with the script the excerpt drops.
+		assert.ok(res.text.includes('<script>alert(1)</script>'));
+		assert.ok(logged.includes('handed out 1 mail as received'));
+	});
+
+	test('raw: only a mail to the accounting address; unknown, malformed and too large refused', async () => {
+		const found = await get(`/mail/search?amount=52.59&around=${isoDay(BASE)}&days=2`);
+		const privat = found.json.messages.find((/** @type {any} */ m) =>
+			m.subject.includes('Privatgeheimnis')
+		);
+		assert.ok(privat, 'the private mail is found by the search');
+		const refused = await get(`/mail/raw?id=${privat.id}`);
+		assert.equal(refused.status, 403);
+		assert.ok(!refused.text.includes('Planung'));
+
+		const shop = listed.find((x) => x.subject === 'Ihre Bestellung 2026-555');
+		const wrongValidity = encodeMailId({ folder: 'INBOX', uidValidity: 999, uid: shop.uid });
+		assert.equal((await get(`/mail/raw?id=${wrongValidity}`)).status, 404);
+		assert.equal((await get('/mail/raw?id=nope')).status, 400);
+
+		const small = createMailClient({
+			config: mailConfig,
+			getPassword: async () => FAKE_IMAP_PASSWORD,
+			maxRawBytes: 100
+		});
+		await assert.rejects(small.raw(shop.id), (/** @type {any} */ e) => e.status === 413);
 	});
 
 	test('search: text and every amount spelling, ± days, Junk included, Trash not; says what matched', async () => {

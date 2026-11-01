@@ -32,7 +32,8 @@ export function sampleLedger() {
 			subtype: '',
 			asset: 'ZEUR',
 			amount: '1000.0000',
-			fee: '0.0000'
+			fee: '0.0000',
+			balance: '1000.0000'
 		},
 		'L-TR1-EUR': {
 			refid: 'R-TR1',
@@ -41,7 +42,8 @@ export function sampleLedger() {
 			subtype: '',
 			asset: 'ZEUR',
 			amount: '-600.0000',
-			fee: '1.5600'
+			fee: '1.5600',
+			balance: '398.4400'
 		},
 		'L-TR1-BTC': {
 			refid: 'R-TR1',
@@ -95,7 +97,8 @@ export function sampleLedger() {
 			subtype: '',
 			asset: 'ZEUR',
 			amount: '-300.0000',
-			fee: '0.0900'
+			fee: '0.0900',
+			balance: '98.3500'
 		}
 	};
 	// Daily staking rewards, enough for more than one page.
@@ -134,9 +137,24 @@ export async function startFakeKraken({
 	},
 	rateLimitedCalls = 0,
 	transfers = {
-		deposit: [{ refid: 'R-DEP-1', asset: 'ZEUR', txid: 'BANKREF-0001', status: 'Success' }],
+		deposit: [
+			{
+				refid: 'R-DEP-1',
+				asset: 'ZEUR',
+				method: 'SEPA (Instant)',
+				txid: 'BANKREF-0001',
+				status: 'Success'
+			}
+		],
 		withdrawals: [
-			{ refid: 'R-WD-1', asset: 'ZEUR', txid: 'BANKREF-0002', status: 'Success' },
+			{
+				refid: 'R-WD-1',
+				asset: 'ZEUR',
+				network: 'SEPA',
+				method: 'Bank',
+				txid: 'BANKREF-0002',
+				status: 'Success'
+			},
 			{ refid: 'R-OTHER', asset: 'XXBT', txid: '00'.repeat(32), status: 'Success' }
 		]
 	}

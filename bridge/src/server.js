@@ -6,9 +6,12 @@
 //   GET  /hibiscus/transactions?account=<id>&since=YYYY-MM-DD   token
 //   GET  /mail/messages?since=YYYY-MM-DD[&until=YYYY-MM-DD]&scope=accounting   token
 //   GET  /mail/attachment?id=<mail id>&part=<n>                   token → the bytes
+//   GET  /mail/raw?id=<mail id>                                   token → the mail as received (message/rfc822), to the accounting address only (#288)
 //   POST /mail/trash   { id }                                     token → the one mail moved to the Trash (a person's click)
 //   GET  /mail/search?text=&amount=&from=a.example,b.example&term=…&around=YYYY-MM-DD&days=   token
 //   POST /mail/assist  { counterparty, purpose, amount, around, days, knownDomains }   token → LLM terms, hits, pick
+//   Every LLM route also takes `redactTerms`: up to 20 more terms to black out for
+//   that call (the app sends the company's names from Einstellungen; llm/redact.js).
 //   POST /match/assist { booking, candidates }                  token → the LLM's pick among receipts
 //   GET  /share/<id>                                               the snapshot of a read share (no token: the id is the capability; no Origin)
 //   POST /share { scope, redacted, minutes, data }                 token → { id, expiresAt } (issue #124)
@@ -16,17 +19,32 @@
 //   DELETE /share/<id>                                             token → revoked
 //   POST /vendor/assist { vendor, from, until, opening, closing, rows, findings }  token → a few notes on what does not add up
 //   POST /transfer/assist { booking, candidates }               token → the LLM's pick of an own transfer's other side
-//   GET  /llm/status                                              token → provider, models, key present?
+//   GET  /llm/status                                              token → provider, models, key present?, redaction on/off, the TEE pin and its last proof
 //   POST /extract      { text, hints, source, confirmedByUser }   token
 //   GET  /rates?asset=BTC&date=YYYY-MM-DD[&prefer=kraken][&contract=0x…&chain=ethereum[&block=N&decimals=D]]  token → EUR per unit, source (rates.js; the DEX pool at the block: dex-rate.js)
+//   GET  /enablebanking/banks?country=DE                          token → the banks Enable Banking offers (enablebanking-links.js)
+//   POST /enablebanking/link { bank, country, psuType? }         token → { url, state, validUntil }: the bank's page
+//   POST /enablebanking/finish { code, state }                   token → { link }: the bank's answer becomes a session
+//   GET  /enablebanking/links                                     token → { links }: linked banks, consent end, IBAN last four
+//   DELETE /enablebanking/links/<session id>                      token → closed at Enable Banking and forgotten
+//   GET  /enablebanking/accounts                                  token → linked accounts, which may leave, the allowed ones' IBAN key
+//   GET  /enablebanking/transactions?account=<uid>&since=YYYY-MM-DD token → an allowed account's booked transactions
 //   GET  /kraken/balances                                         token → non-zero balances (kraken.js)
 //   GET  /kraken/ledgers?since=YYYY-MM-DD                         token → the ledger, oldest first
+//   GET  /paperless/documents[?since=<ISO>]                       token → Paperless-ngx documents added since, with OCR text (paperless.js)
+//   GET  /paperless/search?query=<text>                           token → Paperless' full-text search, at most 25 documents, no OCR text
+//   GET  /paperless/document?id=<n>                               token → its bytes: the original PDF or image, else the archive PDF
 //   GET  /chains                                                  token → chains, endpoints, explorers, alchemy: bool (chains/)
 //   GET  /bitcoin/key                                             token → the zpub's fingerprint, never the zpub
 //   GET  /lan-relay                                               token → the relay for own devices in the own network: its address (lan-relay.js)
 //   POST /<chain>/wallet { address, endpoints? }                  token → an own wallet's transfers and balance
+//   POST /akash/deployments { address, endpoints? }               token → an Akash wallet's deployments, what each cost, and the ACT it holds (#305)
 //   POST /aleph/accounts { addresses, api? }                      token → which are Aleph accounts: credits, entries (aleph.js)
 //   GET  /aleph/statement?address=0x…&month=YYYY-MM[&api=]        token → a month's credits: balances, top-ups, usage per day
+//   GET  /backup/status                                           token → { aleph: { configured, address, credits, ingestUrl, gateways, apiHost } } (aleph-backup.js)
+//   GET  /backup/aleph/list                                       token → { backups: [{ cid, at, itemHash }] }: what this account had Aleph keep
+//   POST /backup/aleph/pin { cid, ref? }                          token → { cid, address, itemHash, status, ref? }: what the app uploaded, kept; an increment's ref is its base's CID
+//   POST /backup/aleph?name=<file name>  (the sealed bytes)       token → { cid, size, address, itemHash, status }: uploaded and kept
 //   /portals…          customer portals (portals/routes.js)            token
 //
 // Guards, in this order, on every request:
@@ -48,7 +66,10 @@ import { ibanAllowed, normalizeAccount, normalizeTransaction } from './normalize
 import { decodeMailId, isIsoDay, isPartNumber } from './mail/mime.js';
 import { handlePortalRequest } from './portals/routes.js';
 import { ALEPH_API } from './aleph.js';
+import { MAX_BACKUP_BYTES } from './aleph-backup.js';
 import { checkEndpoint } from './chains/http.js';
+import { withExtraTerms } from './llm/redact.js';
+import { redactionOff, redactionOffForEnclave } from './config.js';
 
 export const LOOPBACK = '127.0.0.1';
 
@@ -81,6 +102,7 @@ const MAX_EXTRACT_BODY = 256 * 1024;
  *   null when Hibiscus is not set up yet
  * @param {import('./mail/imap.js').MailClient | null} [options.mail] null when mail is not set up
  * @param {import('./llm/extract.js').Extractor | null} [options.llm] null when no LLM is set up
+ * @param {(() => object) | null} [options.llmTee] a confidential model's pin and last proof (#416, llm/confidential.js)
  * @param {() => Promise<boolean>} [options.llmKeyPresent] whether the keychain holds an API key;
  *   says yes or no, never hands the key out
  * @param {ReturnType<typeof import('./llm/assist.js').createMailAssist> | null} [options.assist]
@@ -93,10 +115,18 @@ const MAX_EXTRACT_BODY = 256 * 1024;
  * @param {import('./portals/manager.js').PortalManager | null} [options.portals] the portal connector
  * @param {ReturnType<typeof import('./rates.js').createRateService> | null} [options.rates] exchange rates
  * @param {ReturnType<typeof import('./kraken.js').createKrakenClient> | null} [options.kraken] null when Kraken is not set up
+ * @param {ReturnType<typeof import('./paperless.js').createPaperlessClient> | null} [options.paperless]
+ *   Paperless-ngx as a receipt source (issue #318): null when not set up
+ * @param {ReturnType<typeof import('./enablebanking.js').createEnableBankingClient> | null} [options.enablebanking]
+ *   the own Enable Banking application: null when not set up (issue #224)
+ * @param {ReturnType<typeof import('./enablebanking-links.js').createEnableBankingLinks> | null} [options.enablebankingLinks]
+ *   linking a bank through it: null when not set up
  * @param {ReturnType<typeof import('./chains/index.js').createWalletService> | null} [options.wallets] own wallets on public chains
  * @param {ReturnType<typeof import('./aleph.js').createAlephClient> | null} [options.aleph] Aleph Cloud credits, read only
  * @param {boolean} [options.alephLoopback] tests: an Aleph API on 127.0.0.1
  * @param {string} [options.alephApi] the Aleph API asked when the request names none
+ * @param {ReturnType<typeof import('./aleph-backup.js').createAlephBackup> | null} [options.alephBackup]
+ *   the backup's copy on Aleph, with the bridge's own key (issue #77)
  * @param {{ addr: string | null, stats: () => { reservations: number, connections: number } } | null} [options.lanRelay]
  *   the relay for own devices (lan-relay.js): null when not set up, `addr` null when it did not start
  * @param {(message: string) => void} [options.log] never gets a secret, bank data, mail or receipt text
@@ -108,6 +138,7 @@ export function createBridgeServer({
 	mail = null,
 	llm = null,
 	llmKeyPresent = async () => false,
+	llmTee = null,
 	assist = null,
 	matchAssist = null,
 	transferAssist = null,
@@ -116,10 +147,14 @@ export function createBridgeServer({
 	portals = null,
 	rates = null,
 	kraken = null,
+	paperless = null,
+	enablebanking = null,
+	enablebankingLinks = null,
 	wallets = null,
 	aleph = null,
 	alephLoopback = false,
 	alephApi = ALEPH_API,
+	alephBackup = null,
 	lanRelay = null,
 	log = () => {}
 }) {
@@ -208,6 +243,23 @@ export function createBridgeServer({
 		});
 	}
 
+	/** A body as bytes, up to `limit`. @param {http.IncomingMessage} req @param {number} limit */
+	function readBytes(req, limit) {
+		return new Promise((resolve, reject) => {
+			let size = 0;
+			/** @type {Buffer[]} */ const chunks = [];
+			req.on('data', (/** @type {Buffer} */ c) => {
+				size += c.length;
+				if (size > limit) {
+					reject(Object.assign(new Error('Body too large'), { status: 413 }));
+					req.destroy();
+				} else chunks.push(c);
+			});
+			req.on('end', () => resolve(Buffer.concat(chunks)));
+			req.on('error', reject);
+		});
+	}
+
 	/** Allowed accounts only; the rest never leaves this function. */
 	async function allowedAccounts() {
 		if (!hibiscus)
@@ -241,6 +293,9 @@ export function createBridgeServer({
 				llm: { configured: Boolean(llm), models: llm ? llm.models : [] },
 				portals: { available: Boolean(portals) },
 				kraken: { configured: Boolean(kraken) },
+				paperless: { configured: Boolean(paperless) },
+				enablebanking: { configured: Boolean(enablebanking) },
+				backup: { aleph: Boolean(alephBackup) },
 				wallets: { available: Boolean(wallets) },
 				lanRelay: { configured: Boolean(lanRelay), running: Boolean(lanRelay?.addr) }
 			});
@@ -373,6 +428,15 @@ export function createBridgeServer({
 			return sendBytes(res, bytes, mime);
 		}
 
+		if (path === '/mail/raw' && req.method === 'GET') {
+			const id = url.searchParams.get('id') ?? '';
+			if (!decodeMailId(id)) return send(res, 400, { error: 'id is not a mail id' });
+			if (!mail) throw notSetUp('Mail');
+			const { bytes, mime } = await mail.raw(id);
+			log('handed out 1 mail as received');
+			return sendBytes(res, bytes, mime);
+		}
+
 		if (path === '/mail/trash' && req.method === 'POST') {
 			const body = /** @type {any} */ (await readJson(req, 2000));
 			if (!decodeMailId(body?.id)) return send(res, 400, { error: 'id must be a mail id' });
@@ -443,7 +507,9 @@ export function createBridgeServer({
 				return send(res, 400, { error: 'booking and 1–25 candidates are required' });
 			}
 			if (!llm || !matchAssist) throw notSetUp('LLM');
-			const result = await matchAssist.pick({ booking: b, candidates: list });
+			const result = await withExtraTerms(body?.redactTerms, () =>
+				matchAssist.pick({ booking: b, candidates: list })
+			);
 			log(
 				`receipt pick: ${list.length} candidate(s), ${result.pick ? `pick ${result.pick.confidence}` : 'no pick'}`
 			);
@@ -475,7 +541,7 @@ export function createBridgeServer({
 				body.findings.every((/** @type {unknown} */ f) => str(f, 300));
 			if (!ok) return send(res, 400, { error: 'a vendor timeline with 1–120 rows is required' });
 			if (!llm || !vendorAssist) throw notSetUp('LLM');
-			const result = await vendorAssist.explain(body);
+			const result = await withExtraTerms(body?.redactTerms, () => vendorAssist.explain(body));
 			log(`vendor notes: ${body.rows.length} row(s), ${result.notes.length} note(s)`);
 			return send(res, 200, result);
 		}
@@ -503,7 +569,9 @@ export function createBridgeServer({
 				return send(res, 400, { error: 'booking and 1–8 candidates are required' });
 			}
 			if (!llm || !transferAssist) throw notSetUp('LLM');
-			const result = await transferAssist.pick({ booking: b, candidates: list });
+			const result = await withExtraTerms(body?.redactTerms, () =>
+				transferAssist.pick({ booking: b, candidates: list })
+			);
 			log(
 				`transfer pick: ${list.length} candidate(s), ${result.pick ? `pick ${result.pick.confidence}` : 'no pick'}`
 			);
@@ -533,14 +601,16 @@ export function createBridgeServer({
 				return send(res, 400, { error: 'knownDomains must be up to 3 mail domains' });
 			if (!mail) throw notSetUp('Mail');
 			if (!llm || !assist) throw notSetUp('LLM');
-			const result = await assist.search({
-				counterparty,
-				purpose,
-				amount,
-				around,
-				days,
-				knownDomains
-			});
+			const result = await withExtraTerms(body?.redactTerms, () =>
+				assist.search({
+					counterparty,
+					purpose,
+					amount,
+					around,
+					days,
+					knownDomains
+				})
+			);
 			log(
 				`assisted search: ${result.terms.length} term(s), ${result.domains.length} domain(s), ${result.messages.length} mail(s), ${result.pick ? `pick ${result.pick.confidence}` : 'no pick'}`
 			);
@@ -580,6 +650,95 @@ export function createBridgeServer({
 				return send(res, 200, statement);
 			}
 			return send(res, 404, { error: 'not found' });
+		}
+
+		if (path === '/backup/status' && req.method === 'GET') {
+			if (!alephBackup) return send(res, 200, { aleph: { configured: false } });
+			const address = await alephBackup.address();
+			// What the account can still pay with; unknown when Aleph does not answer.
+			const credits = aleph
+				? await aleph
+						.accounts({ addresses: [address], api: alephApi })
+						.then((list) => list[0]?.credits ?? 0)
+						.catch(() => null)
+				: null;
+			return send(res, 200, {
+				aleph: {
+					configured: true,
+					address,
+					credits,
+					ingestUrl: alephBackup.ingestUrl,
+					gateways: alephBackup.gateways,
+					// Where the app signs and lists for itself (keeper.js); tests: a fake.
+					apiHost: alephBackup.apiHost
+				}
+			});
+		}
+
+		if (path.startsWith('/backup/aleph') && req.method === 'POST' && !alephBackup) {
+			return send(res, 503, {
+				error: 'the Aleph backup is not set up: run `pnpm setup:aleph`',
+				code: 'ALEPH_BACKUP_NOT_SET_UP'
+			});
+		}
+
+		if (path === '/backup/aleph/list' && req.method === 'GET') {
+			if (!alephBackup) {
+				return send(res, 503, {
+					error: 'the Aleph backup is not set up: run `pnpm setup:aleph`',
+					code: 'ALEPH_BACKUP_NOT_SET_UP'
+				});
+			}
+			const backups = await alephBackup.list();
+			log(`backup: ${backups.length} backup(s) listed`);
+			return send(res, 200, { backups });
+		}
+
+		if (path === '/backup/aleph/pin' && req.method === 'POST' && alephBackup) {
+			// The app uploaded the sealed backup to Aleph's IPFS host itself; the
+			// bridge only signs the STORE message that has Aleph keep it.
+			const body = /** @type {any} */ (await readJson(req));
+			let kept;
+			try {
+				kept = await alephBackup.pin(String(body?.cid ?? ''), {
+					...(body?.ref === undefined ? {} : { ref: String(body.ref) }),
+					...(body?.size === undefined ? {} : { size: body.size })
+				});
+			} catch (/** @type {any} */ error) {
+				if (error?.name === 'BackendError') {
+					throw Object.assign(new Error(error.message), {
+						status: 502,
+						code: `ALEPH_BACKUP_${error.code ?? 'FAILED'}`
+					});
+				}
+				throw error;
+			}
+			log(`backup: kept on Aleph, ${kept.status}`);
+			return send(res, 200, kept);
+		}
+
+		if (path === '/backup/aleph' && req.method === 'POST' && alephBackup) {
+			const name = url.searchParams.get('name') ?? 'belege-backup';
+			if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(name)) {
+				return send(res, 400, { error: 'name: letters, digits, dot, dash and underscore only' });
+			}
+			const bytes = await readBytes(req, MAX_BACKUP_BYTES);
+			if (bytes.length === 0) return send(res, 400, { error: 'the backup is empty' });
+			let kept;
+			try {
+				kept = await alephBackup.put(new Uint8Array(bytes), { name });
+			} catch (/** @type {any} */ error) {
+				// The storage bridge's BackendError: Aleph refused or did not answer.
+				if (error?.name === 'BackendError') {
+					throw Object.assign(new Error(error.message), {
+						status: 502,
+						code: `ALEPH_BACKUP_${error.code ?? 'FAILED'}`
+					});
+				}
+				throw error;
+			}
+			log(`backup: ${bytes.length} byte(s) to Aleph, ${kept.status}`);
+			return send(res, 200, kept);
 		}
 
 		if (path === '/rates' && req.method === 'GET') {
@@ -642,6 +801,79 @@ export function createBridgeServer({
 			}
 		}
 
+		if (path.startsWith('/paperless/') && req.method === 'GET') {
+			if (!paperless) {
+				return send(res, 503, {
+					error: 'Paperless is not set up: run `pnpm setup:paperless`.',
+					code: 'PAPERLESS_NOT_SET_UP'
+				});
+			}
+			if (path === '/paperless/documents') {
+				const since = url.searchParams.get('since');
+				if (since !== null && Number.isNaN(Date.parse(since))) {
+					return send(res, 400, { error: 'since must be an ISO date or time' });
+				}
+				const documents = await paperless.documents({ since });
+				log(`paperless: ${documents.length} document(s)${since ? ' since the last import' : ''}`);
+				return send(res, 200, { documents });
+			}
+			if (path === '/paperless/search') {
+				const documents = await paperless.search(url.searchParams.get('query') ?? '');
+				// A count, never the words searched for.
+				log(`paperless: search, ${documents.length} document(s)`);
+				return send(res, 200, { documents });
+			}
+			if (path === '/paperless/document') {
+				const id = Number(url.searchParams.get('id'));
+				const { bytes, mime, variant } = await paperless.document(id);
+				log(`paperless: document ${id}, ${variant}, ${bytes.length} bytes`);
+				return sendBytes(res, bytes, mime);
+			}
+		}
+
+		if (path.startsWith('/enablebanking/')) {
+			if (!enablebankingLinks) {
+				return send(res, 503, {
+					error: 'Enable Banking is not set up: run `pnpm setup:enablebanking`.',
+					code: 'EB_NOT_SET_UP'
+				});
+			}
+			if (path === '/enablebanking/banks' && req.method === 'GET') {
+				return send(res, 200, {
+					banks: await enablebankingLinks.banks(url.searchParams.get('country') ?? '')
+				});
+			}
+			if (path === '/enablebanking/link' && req.method === 'POST') {
+				const body = /** @type {any} */ (await readJson(req));
+				return send(res, 200, await enablebankingLinks.start(body ?? {}));
+			}
+			if (path === '/enablebanking/finish' && req.method === 'POST') {
+				const body = /** @type {any} */ (await readJson(req));
+				return send(res, 200, { link: await enablebankingLinks.finish(body ?? {}) });
+			}
+			if (path === '/enablebanking/accounts' && req.method === 'GET') {
+				return send(res, 200, { accounts: await enablebankingLinks.accounts() });
+			}
+			if (path === '/enablebanking/transactions' && req.method === 'GET') {
+				return send(
+					res,
+					200,
+					await enablebankingLinks.transactions(
+						url.searchParams.get('account') ?? '',
+						url.searchParams.get('since') ?? ''
+					)
+				);
+			}
+			if (path === '/enablebanking/links' && req.method === 'GET') {
+				return send(res, 200, { links: await enablebankingLinks.list() });
+			}
+			const linkId = /^\/enablebanking\/links\/([0-9a-fA-F-]{36})$/.exec(path)?.[1];
+			if (linkId && req.method === 'DELETE') {
+				await enablebankingLinks.unlink(linkId);
+				return send(res, 200, { ok: true });
+			}
+		}
+
 		// Own wallets: GET /chains, POST /<chain>/wallet (chains/index.js).
 		if (path === '/chains' && req.method === 'GET') {
 			if (!wallets) return send(res, 503, { error: 'wallets are not available' });
@@ -661,6 +893,14 @@ export function createBridgeServer({
 			if (!wallets) return send(res, 503, { error: 'wallets are not available' });
 			const fingerprint = await wallets.bitcoinKey();
 			return send(res, 200, { configured: Boolean(fingerprint), fingerprint });
+		}
+		if (path === '/akash/deployments' && req.method === 'POST') {
+			if (!wallets) return send(res, 503, { error: 'wallets are not available' });
+			// A POST, so the address is in no URL and no access log.
+			const body = /** @type {any} */ (await readJson(req));
+			const result = await wallets.akashDeployments(body);
+			log(`akash: ${result.deployments.length} deployment(s)`);
+			return send(res, 200, result);
 		}
 		const walletPath = /^\/([a-z0-9-]{2,30})\/wallet$/.exec(path);
 		if (walletPath && req.method === 'POST' && wallets?.has(walletPath[1])) {
@@ -696,8 +936,21 @@ export function createBridgeServer({
 							: null
 				},
 				keyConfigured,
+				// The provider's last refusal since the bridge started (#417): no credit, key, …
+				lastRefusal: llm?.lastRefusal?.() ?? null,
 				redactTerms: config.llm.redactTerms.length,
-				mail: { authServId: config.mail.authServId ?? null }
+				// Whether text is blacked out before it goes to the model (#423); `local`: it
+				// goes unredacted to a model setup:llm was told runs on this machine.
+				redaction: {
+					mode: config.llm.redaction,
+					active: !redactionOff(config.llm),
+					local: redactionOff(config.llm) && !redactionOffForEnclave(config.llm),
+					// Off because the model runs in the attested enclave (#416), not here.
+					enclave: redactionOffForEnclave(config.llm)
+				},
+				mail: { authServId: config.mail.authServId ?? null },
+				// A confidential model (#416): the pinned enclave and how its last proof went.
+				tee: llmTee ? llmTee() : null
 			});
 		}
 
@@ -728,7 +981,9 @@ export function createBridgeServer({
 				}
 			}
 			if (!llm) throw notSetUp('LLM');
-			const result = await llm.extract({ text: body.text, hints });
+			const result = await withExtraTerms(body?.redactTerms, () =>
+				llm.extract({ text: body.text, hints })
+			);
 			log(
 				`extracted with ${result.model} (${result.attempts.length} attempt(s), ${result.ms} ms, ${result.redactions.total} redaction(s))`
 			);
@@ -749,7 +1004,9 @@ export function createBridgeServer({
 		const origin = req.headers.origin;
 		if (origin !== undefined) {
 			if (!allowedOrigins.has(origin)) {
-				log(`refused origin ${JSON.stringify(origin).slice(0, 80)}`);
+				log(
+					`refused origin ${JSON.stringify(origin).slice(0, 80)} – to let it in: pnpm setup:origins -- --add ${String(origin).slice(0, 80)}, then restart the bridge`
+				);
 				return send(res, 403, { error: 'origin not allowed' });
 			}
 			res.setHeader('Access-Control-Allow-Origin', origin);
@@ -784,13 +1041,18 @@ export function createBridgeServer({
 								? 502
 								: 500);
 			// Messages are the bridge's own; they carry no password, no bank data and no mail text.
-			log(`${req.method} ${url.pathname}: ${error.code ?? error.name}: ${error.message}`);
+			// A model's attempts say model, status and time – never the text (#417).
+			const tried = Array.isArray(error.attempts)
+				? ` (${error.attempts.map((/** @type {any} */ a) => `${a.model}: ${a.reason}, ${a.ms} ms`).join('; ')})`
+				: '';
+			log(`${req.method} ${url.pathname}: ${error.code ?? error.name}: ${error.message}${tried}`);
 			if (!res.headersSent) {
 				send(res, status, {
 					error: error.message,
 					code: error.code ?? null,
 					...(Array.isArray(error.attempts) ? { attempts: error.attempts } : {}),
 					...(error.step ? { step: error.step } : {}),
+					...(error.provider ? { provider: error.provider } : {}),
 					...(error.reason ? { reason: error.reason } : {})
 				});
 			}

@@ -39,10 +39,16 @@ const DAY = new Intl.DateTimeFormat('de-DE', {
 });
 const MONTH = new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
-// Inside the first sync's 90 days whenever this runs: two bookings on one day,
-// one 35 days earlier (so always in an earlier month).
-const recent = iso(new Date(Date.now() - 3 * 864e5));
-const earlier = iso(new Date(Date.now() - 38 * 864e5));
+// The app's today in this spec (page.clock). The CAMT statements and receipts
+// below are from September 2026, and a booking from Hibiscus is linked to one
+// of them (within the matching's 31 days) and looked for in that month. Dated
+// from the real today, the Hibiscus bookings left September on 2026-10-04.
+const TODAY = new Date('2026-10-01T10:00:00Z');
+
+// Inside the first sync's 90 days: two bookings on one day, one 35 days
+// earlier (so in an earlier month).
+const recent = iso(new Date(TODAY.getTime() - 3 * 864e5));
+const earlier = iso(new Date(TODAY.getTime() - 38 * 864e5));
 
 const names = {
 	debit: 'Kaffeerösterei Nordlicht GmbH',
@@ -121,6 +127,8 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	page
 }) => {
 	await addVirtualAuthenticator(page);
+	// The sync's windows, the months and the year shown count from TODAY.
+	await page.clock.install({ time: TODAY });
 	await page.goto('/');
 	await acceptConsent(page);
 	await page.getByTestId('passkey-label').fill('E2E');
@@ -287,7 +295,10 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	await expect(detail.getByTestId('tx-upload-result')).toContainText('Zugeordnet');
 	await detail.getByTestId('tx-detail-close').click();
 	await page.getByTestId('account-filter').selectOption('');
-	await page.locator('[data-testid="transaction-month"][data-month="2026-09"]').click();
+	// The Hibiscus credit is dated relative to today, the CAMT files are not: its own month.
+	await page
+		.locator(`[data-testid="transaction-month"][data-month="${recent.slice(0, 7)}"]`)
+		.click();
 	await page.getByTestId('transaction').filter({ hasText: names.credit }).click();
 	await detail.getByTestId('tx-alt-toggle').click();
 	await detail.getByTestId('tx-link-transfer').click();
@@ -415,7 +426,8 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 			`Brutto: ${gross} EUR`,
 			'Diese Rechnung stellt keine Zahlungsaufforderung dar.'
 		]);
-	await page.getByRole('link', { name: 'Belege' }).click();
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
+	await page.getByTestId('upload-open').click();
 	await page.getByTestId('receipt-upload').setInputFiles([
 		{
 			name: 'funkmobil-09-15.pdf',
@@ -429,7 +441,10 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 		}
 	]);
 	await expect(page.getByTestId('import-result')).toContainText('Neu: 2');
-	await page.getByTestId('extract-all').click();
+	// Read and matched at once (the upload's own switch, on by default): no "Alle neuen auslesen" left.
+	await expect(page.getByTestId('upload-read-after')).toBeChecked();
+	await page.getByTestId('upload-close').click();
+	await expect(page.getByTestId('extract-all')).toHaveCount(0);
 	const funkReceipts = page.getByTestId('receipt').filter({ hasText: 'Funkmobil' });
 	await expect(funkReceipts.getByTestId('receipt-status')).toHaveText([
 		'Nicht zugeordnet',
@@ -480,7 +495,7 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	await page.getByTestId('filter-all').click();
 	await page.locator('[data-testid="transaction-month"][data-month="2026-09"]').click();
 	await expect(topUps.getByTestId('coverage-badge')).toHaveText(['Guthabenkonto', 'Guthabenkonto']);
-	await page.getByRole('link', { name: 'Belege' }).click();
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
 	await expect(funkReceipts.getByTestId('receipt-status')).toHaveText([
 		'Guthabenkonto',
 		'Guthabenkonto'

@@ -7,12 +7,28 @@
 //   - a crypto asset: its price at 00:00 UTC of that day
 //       1. CoinGecko /coins/{id}/history (its daily snapshot at 00:00 UTC)
 //       2. failing that, Kraken's daily candle of that day, its open price
+//     CoinGecko's public and demo API answer for the last 365 days only. Kraken
+//     answers one call with its last 720 daily candles; the completed ones are
+//     kept per pair, so a wallet with bookings on many days costs one Kraken
+//     call per asset, not one per day – Kraken's public API refuses more than a
+//     handful in a row ("EGeneral:Too many requests"), and those days then had
+//     no rate at all.
 //     With `prefer: 'kraken'` (a booking on the Kraken exchange) the order
 //     turns: Kraken's own EUR price first, CoinGecko as the fallback; and
 //     Kraken can then price any asset it trades against EUR (`<SYMBOL>EUR`),
 //     also one Belege does not list yet.
-//   - USD: the ECB reference rate of that day, or the last one before it
-//     (weekends, holidays), inverted: EUR per USD
+//   - a currency: the ECB reference rate of that day, or the last one before
+//     it (weekends, holidays), inverted: EUR per unit
+//   - RUB: the ECB publishes none since 2022-03-01; then the Bank of Russia's
+//     official rate valid on that day (RUB per EUR, set on the working day
+//     before), inverted
+//   - KZT: the National Bank of Kazakhstan's official rate of the day (KZT per
+//     EUR), inverted (#325)
+//   - a currency neither publishes against the euro, but the Bank of Russia
+//     lists (UZS, GEL, AMD, …): a cross rate through the ruble from the same
+//     day's file, EUR per unit = (RUB per unit) / (RUB per EUR); marked
+//     `cbr-cross`, so nobody takes it for an official EUR rate
+
 // Every answer says which source it came from and for what moment, so a
 // booking can show where its euro amount came from.
 //
@@ -27,7 +43,28 @@ import { multiplyRates } from './dex-rate.js';
  * @property {string} [coingecko] CoinGecko coin id
  * @property {string} [kraken] Kraken OHLC pair against EUR
  * @property {boolean} [ecb] a currency with an ECB reference rate
+ * @property {boolean} [cbr] the Bank of Russia's official rate, where the ECB has none
+ * @property {boolean} [nbk] the National Bank of Kazakhstan's official rate against EUR
+ * @property {boolean} [cbrCross] a cross rate through the ruble, from the Bank of Russia's daily rates
  */
+
+/**
+ * The currencies with an ECB reference rate (BGN until the end of 2025, RUB
+ * until 2022-03-01; a day without one falls through to the next source).
+ */
+export const ECB_CURRENCIES = Object.freeze(
+	'USD JPY BGN CZK DKK GBP HUF PLN RON SEK CHF ISK NOK TRY AUD BRL CAD CNY HKD IDR ILS INR KRW MXN MYR NZD PHP SGD THB ZAR RUB'.split(
+		' '
+	)
+);
+
+/**
+ * The currencies the Bank of Russia rates daily and the ECB does not: priced
+ * as a cross rate through the ruble (#325). Its SDR line (XDR) is no currency.
+ */
+export const CBR_CROSS_CURRENCIES = Object.freeze(
+	'AED AMD AZN BYN EGP GEL KGS KZT MDL QAR RSD TJS TMT UAH UZS VND'.split(' ')
+);
 
 /** The assets the bridge can price, by the symbol the app uses. */
 export const RATE_SOURCES = /** @type {Readonly<Record<string, AssetSources>>} */ (
@@ -39,8 +76,15 @@ export const RATE_SOURCES = /** @type {Readonly<Record<string, AssetSources>>} *
 		NYM: { coingecko: 'nym', kraken: 'NYMEUR' },
 		AKT: { coingecko: 'akash-network', kraken: 'AKTEUR' },
 		FIL: { coingecko: 'filecoin', kraken: 'FILEUR' },
+		XMR: { coingecko: 'monero', kraken: 'XMREUR' },
 		POL: { coingecko: 'polygon-ecosystem-token', kraken: 'POLEUR' },
-		USD: { ecb: true }
+		// No EUR pair on Kraken; a swap's other side prices it where CoinGecko has no rate (#163).
+		USDFC: { coingecko: 'usdfc' },
+		...Object.fromEntries(ECB_CURRENCIES.map((c) => [c, { ecb: true }])),
+		RUB: { ecb: true, cbr: true },
+		...Object.fromEntries(CBR_CROSS_CURRENCIES.map((c) => [c, { cbrCross: true }])),
+		// The country's central bank first; the cross rate when it has no answer.
+		KZT: { nbk: true, cbrCross: true }
 	})
 );
 
@@ -93,12 +137,16 @@ const ddmmyyyy = (/** @type {string} */ day) => day.split('-').reverse().join('-
 /** @param {string} day */
 const startOfDay = (day) => Math.floor(Date.parse(`${day}T00:00:00Z`) / 1000);
 
+/** Waits before Kraken is asked again after "too many requests", in ms. */
+const KRAKEN_RETRIES = Object.freeze([1000, 2000, 4000, 8000]);
+
 /**
  * @param {object} [options]
  * @param {typeof fetch} [options.fetch]
  * @param {() => Promise<string | null>} [options.coingeckoKey] a CoinGecko demo key, if one is in the keychain
  * @param {() => Date} [options.now]
  * @param {number} [options.cacheSize]
+ * @param {(ms: number) => Promise<void>} [options.delay] the wait before Kraken is asked again after it said "too many requests"
  * @param {ReturnType<typeof import('./dex-rate.js').createDexRates> | null} [options.dex]
  *   a token's pool rate at a block, when CoinGecko has none (issue #163)
  */
@@ -119,7 +167,8 @@ export function createRateService({
 	coingeckoKey = async () => null,
 	now = () => new Date(),
 	cacheSize = 500,
-	dex = null
+	dex = null,
+	delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 } = {}) {
 	/** @type {Map<string, Rate>} */
 	const cache = new Map();
@@ -177,18 +226,74 @@ export function createRateService({
 		return id;
 	}
 
+	/**
+	 * Per Kraken pair: the open of each completed day, by its 00:00 UTC in
+	 * seconds, and the start of the day the series was asked on. Days before
+	 * its first candle Kraken has no daily candle for; days from `until` on
+	 * need a newer series.
+	 *
+	 * @type {Map<string, { until: number, opens: Map<number, string> }>}
+	 */
+	const krakenSeries = new Map();
+	/** @type {Map<string, Promise<{ until: number, opens: Map<number, string> } | null>>} one call per pair at a time */
+	const krakenAsking = new Map();
+
+	/** Kraken's daily candles of a pair; on "too many requests" it is asked again, a few times, waiting longer each time. @param {string} pair */
+	async function krakenOhlc(pair) {
+		const url = `https://api.kraken.com/0/public/OHLC?pair=${encodeURIComponent(pair)}&interval=1440`;
+		for (let attempt = 0; ; attempt++) {
+			let res;
+			try {
+				res = await f(url, { headers: { accept: 'application/json' } });
+			} catch {
+				return null;
+			}
+			const body = res.ok ? await res.json().catch(() => null) : null;
+			const errors = Array.isArray(body?.error) ? body.error.map(String) : [];
+			const throttled =
+				res.status === 429 || errors.some((e) => /too many requests|rate limit/i.test(e));
+			if (throttled && attempt < KRAKEN_RETRIES.length) {
+				await delay(KRAKEN_RETRIES[attempt]);
+				continue;
+			}
+			if (!body || errors.length) return null;
+			const key = Object.keys(body.result ?? {}).find((k) => k !== 'last');
+			const candles = key ? body.result[key] : null;
+			return Array.isArray(candles) ? /** @type {unknown[][]} */ (candles) : null;
+		}
+	}
+
+	/** @param {string} pair */
+	function loadKraken(pair) {
+		let asking = krakenAsking.get(pair);
+		if (!asking) {
+			asking = (async () => {
+				const candles = await krakenOhlc(pair);
+				if (!candles) return null;
+				const until = startOfDay(now().toISOString().slice(0, 10));
+				/** @type {Map<number, string>} */
+				const opens = new Map();
+				for (const c of candles) {
+					const time = Array.isArray(c) ? Number(c[0]) : NaN;
+					const open = Array.isArray(c) ? toDecimal(c[1]) : null;
+					if (Number.isSafeInteger(time) && open) opens.set(time, open);
+				}
+				// Today's candle is kept out, as the day's answer is (see rate()).
+				const done = new Map([...opens].filter(([time]) => time < until));
+				if (done.size) krakenSeries.set(pair, { until, opens: done });
+				return { until, opens };
+			})().finally(() => krakenAsking.delete(pair));
+			krakenAsking.set(pair, asking);
+		}
+		return asking;
+	}
+
 	/** @param {string} pair @param {string} day */
 	async function fromKraken(pair, day) {
-		const since = startOfDay(day) - 1;
-		const body = await getJson(
-			`https://api.kraken.com/0/public/OHLC?pair=${encodeURIComponent(pair)}&interval=1440&since=${since}`
-		);
-		if (!body || (Array.isArray(body.error) && body.error.length)) return null;
-		const key = Object.keys(body.result ?? {}).find((k) => k !== 'last');
-		/** @type {unknown[][]} */
-		const candles = key ? body.result[key] : [];
-		const candle = candles.find((c) => Number(c[0]) === startOfDay(day));
-		const open = candle ? toDecimal(candle[1]) : null;
+		const time = startOfDay(day);
+		const kept = krakenSeries.get(pair);
+		const series = kept && time < kept.until ? kept : await loadKraken(pair);
+		const open = series?.opens.get(time);
 		if (!open) return null;
 		return { rate: open, usdRate: null, source: 'kraken', at: `${day}T00:00:00Z` };
 	}
@@ -229,13 +334,19 @@ export function createRateService({
 		};
 	}
 
-	/** EUR per USD from the ECB reference rate of the day or the last one before it. @param {string} day */
-	async function fromEcb(day) {
+	/**
+	 * EUR per unit of a currency from the ECB reference rate of the day or the
+	 * last one before it.
+	 *
+	 * @param {string} currency
+	 * @param {string} day
+	 */
+	async function fromEcb(currency, day) {
 		const start = new Date(Date.parse(`${day}T00:00:00Z`) - 7 * 86400_000)
 			.toISOString()
 			.slice(0, 10);
 		const body = await getJson(
-			`https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A?startPeriod=${start}&endPeriod=${day}&format=jsondata`
+			`https://data-api.ecb.europa.eu/service/data/EXR/D.${currency}.EUR.SP00.A?startPeriod=${start}&endPeriod=${day}&format=jsondata`
 		);
 		const series = body?.dataSets?.[0]?.series?.['0:0:0:0:0']?.observations;
 		const dates = body?.structure?.dimensions?.observation?.[0]?.values;
@@ -251,14 +362,158 @@ export function createRateService({
 		if (!last) return null;
 		return {
 			rate: invert(last.usdPerEur),
-			usdRate: '1',
+			usdRate: currency === 'USD' ? '1' : null,
 			source: 'ecb',
 			at: `${last.date}T00:00:00Z`
 		};
 	}
 
 	/**
-	 * @typedef {{ asset: string, date: string, currency: 'EUR', rate: string, usdRate: string | null, source: 'coingecko' | 'kraken' | 'ecb' | 'dex', at: string, ref?: string }} Rate
+	 * The text of an official rates file, or null when it cannot be had.
+	 *
+	 * @param {string} url
+	 * @param {string} encoding
+	 */
+	async function getText(url, encoding) {
+		try {
+			const res = await f(url, { headers: { accept: 'application/xml' } });
+			if (!res.ok) return null;
+			return new TextDecoder(encoding).decode(await res.arrayBuffer());
+		} catch {
+			return null;
+		}
+	}
+
+	/**
+	 * @typedef {object} CbrDay
+	 * @property {string} date YYYY-MM-DD the rates are valid for
+	 * @property {Map<string, { nominal: string, value: string }>} valutes RUB per `nominal` units, by code
+	 */
+
+	/** @type {Map<string, Promise<CbrDay | null>>} one file per day, for RUB and every cross rate */
+	const cbrDays = new Map();
+
+	/**
+	 * The Bank of Russia's official rates valid on the day: `XML_daily.asp`
+	 * answers with the last rates set for it (on the working day before; none
+	 * on weekends and holidays), RUB per `Nominal` units of each currency.
+	 * Null when the file is not to be had, or is for a later day.
+	 *
+	 * @param {string} day
+	 * @returns {Promise<CbrDay | null>}
+	 */
+	function cbrDay(day) {
+		const known = cbrDays.get(day);
+		if (known) return known;
+		const loading = (async () => {
+			// windows-1251; the dates, codes and numbers read here are ASCII.
+			const text = await getText(
+				`https://www.cbr.ru/scripts/XML_daily.asp?date_req=${ddmmyyyy(day).replaceAll('-', '/')}`,
+				'latin1'
+			);
+			if (!text) return null;
+			const valid = /<ValCurs\b[^>]*\bDate="(\d{2})\.(\d{2})\.(\d{4})"/.exec(text);
+			if (!valid) return null;
+			const date = `${valid[3]}-${valid[2]}-${valid[1]}`;
+			if (date > day) return null;
+			/** @type {Map<string, { nominal: string, value: string }>} */
+			const valutes = new Map();
+			for (const [entry] of text.matchAll(/<Valute\b[^>]*>[\s\S]*?<\/Valute>/g)) {
+				const code = /<CharCode>([A-Z]{3})<\/CharCode>/.exec(entry)?.[1];
+				const nominal = /<Nominal>([1-9]\d*)<\/Nominal>/.exec(entry)?.[1];
+				const value = /<Value>(\d+),(\d+)<\/Value>/.exec(entry);
+				if (code && nominal && value && /[1-9]/.test(value[1] + value[2])) {
+					valutes.set(code, { nominal, value: `${value[1]}.${value[2]}` });
+				}
+			}
+			return { date, valutes };
+		})();
+		cbrDays.set(day, loading);
+		// A failed answer is asked again next time; only the last days are kept.
+		loading.then((d) => {
+			if (!d) cbrDays.delete(day);
+		});
+		if (cbrDays.size > 60) cbrDays.delete(/** @type {string} */ (cbrDays.keys().next().value));
+		return loading;
+	}
+
+	/**
+	 * EUR per RUB on the day: the Bank of Russia's RUB per `nominal` EUR, inverted.
+	 *
+	 * @param {CbrDay} d
+	 */
+	function eurPerRub(d) {
+		const eur = d.valutes.get('EUR');
+		if (!eur) return null;
+		const perRub = invert(eur.value);
+		return eur.nominal === '1' ? perRub : multiplyRates(perRub, eur.nominal);
+	}
+
+	/** EUR per RUB from the Bank of Russia's official rates valid on the day. @param {string} day */
+	async function fromCbr(day) {
+		const d = await cbrDay(day);
+		const rate = d && eurPerRub(d);
+		if (!d || !rate) return null;
+		return { rate, usdRate: null, source: 'cbr', at: `${d.date}T00:00:00Z` };
+	}
+
+	/**
+	 * A cross rate through the ruble, from one day's file: EUR per unit =
+	 * (RUB per unit) × (EUR per RUB). Not an official EUR rate, and named so.
+	 *
+	 * @param {string} currency
+	 * @param {string} day
+	 */
+	async function fromCbrCross(currency, day) {
+		const d = await cbrDay(day);
+		const line = d?.valutes.get(currency);
+		const perRub = d && eurPerRub(d);
+		if (!d || !line || !perRub) return null;
+		const perNominal = multiplyRates(line.value, perRub);
+		return {
+			rate: line.nominal === '1' ? perNominal : multiplyRates(perNominal, invert(line.nominal)),
+			usdRate: null,
+			source: 'cbr-cross',
+			at: `${d.date}T00:00:00Z`
+		};
+	}
+
+	/**
+	 * EUR per KZT from the National Bank of Kazakhstan's official rates of the
+	 * day (`get_rates.cfm`, KZT per `quant` units of each currency; it answers
+	 * for weekends too, with the last rate set).
+	 *
+	 * @param {string} day
+	 */
+	async function fromNbk(day) {
+		const [y, m, d] = day.split('-');
+		const text = await getText(
+			`https://nationalbank.kz/rss/get_rates.cfm?fdate=${d}.${m}.${y}`,
+			'utf-8'
+		);
+		if (!text) return null;
+		const valid = /<date>(\d{2})\.(\d{2})\.(\d{4})<\/date>/.exec(text);
+		const item =
+			/<item>(?:(?!<\/item>)[\s\S])*?<title>EUR<\/title>(?:(?!<\/item>)[\s\S])*?<\/item>/.exec(
+				text
+			)?.[0] ?? '';
+		const value = /<description>(\d+(?:\.\d+)?)<\/description>/.exec(item)?.[1];
+		const quant = /<quant>([1-9]\d*)<\/quant>/.exec(item)?.[1];
+		if (!valid || !value || !quant || !/[1-9]/.test(value)) return null;
+		const date = `${valid[3]}-${valid[2]}-${valid[1]}`;
+		if (date > day) return null;
+		// `value` KZT per `quant` EUR: EUR per KZT = quant / value.
+		const perKzt = invert(value);
+		return {
+			rate: quant === '1' ? perKzt : multiplyRates(perKzt, quant),
+			usdRate: null,
+			source: 'nbk',
+			at: `${date}T00:00:00Z`
+		};
+	}
+
+	/**
+	 * @typedef {{ asset: string, date: string, currency: 'EUR', rate: string, usdRate: string | null, source: 'coingecko' | 'kraken' | 'ecb' | 'cbr' | 'nbk' | 'cbr-cross' | 'dex', at: string, ref?: string }} Rate
 	 *   `ref` for `dex`: `uniswap-v2:<pool>@<block>`, V4 with its pool id
 	 */
 
@@ -297,7 +552,13 @@ export function createRateService({
 			byContract !== undefined
 				? byContract
 				: prefer === 'kraken' && /^[A-Z0-9]{2,10}$/.test(asset)
-					? { ...listed, kraken: listed?.ecb ? undefined : (listed?.kraken ?? `${asset}EUR`) }
+					? {
+							...listed,
+							kraken:
+								listed?.ecb || listed?.cbrCross || listed?.nbk
+									? undefined
+									: (listed?.kraken ?? `${asset}EUR`)
+						}
 					: listed;
 		const pool =
 			contract && chain && block && decimals !== null && dex
@@ -318,7 +579,10 @@ export function createRateService({
 			sources?.coingecko ? fromCoinGecko(sources.coingecko, date) : null;
 		const kraken = async () => (sources?.kraken ? fromKraken(sources.kraken, date) : null);
 		const found =
-			(sources?.ecb ? await fromEcb(date) : null) ??
+			(sources?.ecb ? await fromEcb(asset, date) : null) ??
+			(sources?.cbr ? await fromCbr(date) : null) ??
+			(sources?.nbk ? await fromNbk(date) : null) ??
+			(sources?.cbrCross ? await fromCbrCross(asset, date) : null) ??
 			(prefer === 'kraken'
 				? ((await kraken()) ?? (await coingecko()))
 				: ((await coingecko()) ?? (await kraken()))) ??

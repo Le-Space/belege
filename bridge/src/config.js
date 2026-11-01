@@ -29,6 +29,10 @@ export function defaultConfigPath() {
  * @property {LlmConfig} llm
  * @property {Record<string, import('./portals/index.js').PortalConfig>} portals customer portals, by id
  * @property {KrakenConfig} kraken
+ * @property {PaperlessConfig} paperless
+ * @property {EnableBankingConfig} enablebanking
+ * @property {{ configured: boolean }} alephBackup set by setup:aleph once the backup key is in
+ *   the keychain (aleph-backup.js, issue #77)
  * @property {LanRelayConfig} lanRelay
  */
 
@@ -42,6 +46,21 @@ export function defaultConfigPath() {
  * @typedef {object} KrakenConfig
  * @property {boolean} configured set by setup:kraken once a key is in the keychain
  * @property {string} baseUrl https://api.kraken.com; tests point it at a fake on 127.0.0.1
+ */
+
+/**
+ * @typedef {object} PaperlessConfig a Paperless-ngx as a receipt source (paperless.js, issue #318)
+ * @property {boolean} configured set by setup:paperless once the API token is in the keychain
+ * @property {string} baseUrl on this machine (http on loopback) or https; never a LAN address over http
+ */
+
+/**
+ * @typedef {object} EnableBankingConfig the own Enable Banking application (issue #224)
+ * @property {boolean} configured set by setup:enablebanking once the key is sealed
+ * @property {string | null} appId the application id; not secret
+ * @property {string} baseUrl https://api.enablebanking.com; tests point it at a fake on 127.0.0.1
+ * @property {string} redirectUrl as registered for the application: the app's page
+ * @property {string[]} ibanSuffixes accounts whose IBAN ends so may leave the bridge (setup --accounts)
  */
 
 /**
@@ -60,7 +79,12 @@ export function defaultConfigPath() {
  * @property {string} model
  * @property {string} retryModel
  * @property {string[]} redactTerms blacked out before any text leaves (own name, family names)
+ * @property {'auto' | 'on' | 'off'} redaction whether text is blacked out before it goes to the
+ *   model (#423): `off` only for a loopback base URL whose model setup:llm was told runs on this
+ *   machine; `auto` (not asked yet, e.g. a config from before #423) and `on` black out
  * @property {boolean} configured set by setup:llm once a key is in the keychain
+ * @property {import('./llm/confidential.js').TeePin | null} tee a confidential model (#416): the
+ *   enclave setup:llm pinned; every request goes to it, attested, or fails – never to the gateway
  */
 
 export const DEFAULT_ACCOUNTING_ADDRESS = 'buchhaltung@le-space.de';
@@ -84,9 +108,60 @@ export function defaultLlmConfig() {
 		model: 'deepseek-flash',
 		retryModel: 'deepseek-v4-pro',
 		redactTerms: [],
-		configured: false
+		redaction: 'auto',
+		configured: false,
+		tee: null
 	};
 }
+
+/** A pin as setup:llm writes it, or null. @param {any} raw @returns {import('./llm/confidential.js').TeePin | null} */
+function teePinOf(raw) {
+	if (!raw || raw.provider !== 'libertai') return null;
+	if (
+		!/^[0-9a-f]{64}$/.test(String(raw.itemHash)) ||
+		!/^[0-9a-f]{32,}$/i.test(String(raw.measurement))
+	)
+		return null;
+	return {
+		provider: 'libertai',
+		itemHash: String(raw.itemHash),
+		measurement: String(raw.measurement),
+		sourceCommit: typeof raw.sourceCommit === 'string' ? raw.sourceCommit : null,
+		pinnedAt: String(raw.pinnedAt ?? '')
+	};
+}
+
+/** A base URL on this machine. @param {string} baseUrl */
+export function isLoopbackUrl(baseUrl) {
+	try {
+		return ['127.0.0.1', 'localhost', '[::1]'].includes(new URL(baseUrl).hostname);
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Whether the bridge sends text as it is (#423): a model on this machine sees
+ * nothing leave it, and redaction would only cost reading quality.
+ *
+ * Only when setup:llm was told so (`off`) and one of two holds:
+ *   - the base URL is loopback – a loopback URL may also be a proxy that
+ *     forwards to a provider, so setup:llm asks whether the model runs here;
+ *   - a confidential model is pinned (`tee`, #416): every request goes to the
+ *     attested enclave and its TLS ends inside it; setup:llm asks whether to
+ *     black out anyway, and the default is not to.
+ * A config from before #423 has no answer (`auto`) and blacks out until
+ * setup:llm asks; `off` with any other URL blacks out too.
+ *
+ * @param {Pick<LlmConfig, 'baseUrl' | 'redaction'> & { tee?: LlmConfig['tee'] }} llm
+ */
+export function redactionOff(llm) {
+	return llm.redaction === 'off' && (isLoopbackUrl(llm.baseUrl) || Boolean(llm.tee));
+}
+
+/** Text unredacted because it goes into an attested enclave, not to this machine. @param {Pick<LlmConfig, 'baseUrl' | 'redaction' | 'tee'>} llm */
+export const redactionOffForEnclave = (llm) =>
+	redactionOff(llm) && Boolean(llm.tee) && !isLoopbackUrl(llm.baseUrl);
 
 /** @returns {BridgeConfig} */
 export function defaultConfig() {
@@ -99,6 +174,15 @@ export function defaultConfig() {
 		llm: defaultLlmConfig(),
 		portals: {},
 		kraken: { configured: false, baseUrl: 'https://api.kraken.com' },
+		paperless: { configured: false, baseUrl: 'http://127.0.0.1:8000' },
+		enablebanking: {
+			configured: false,
+			appId: null,
+			baseUrl: 'https://api.enablebanking.com',
+			redirectUrl: 'https://belege.le-space.de/integrationen/bank/verbunden',
+			ibanSuffixes: []
+		},
+		alephBackup: { configured: false },
 		lanRelay: { host: null, port: DEFAULT_LAN_RELAY_PORT }
 	};
 }
@@ -115,6 +199,47 @@ function krakenBaseUrl(value) {
 		const loopback = url.hostname === '127.0.0.1' || url.hostname === 'localhost';
 		return url.protocol === 'https:' || (url.protocol === 'http:' && loopback)
 			? value.replace(/\/+$/, '')
+			: null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Where Paperless-ngx answers: https, or http on this machine – never plain http
+ * to another host in the network. No credentials in it; a path prefix may stay.
+ *
+ * @param {unknown} value
+ * @returns {string | null}
+ */
+export function paperlessBaseUrl(value) {
+	if (typeof value !== 'string') return null;
+	try {
+		const url = new URL(value.trim());
+		const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
+		if (!(url.protocol === 'https:' || (url.protocol === 'http:' && loopback))) return null;
+		if (url.username || url.password || url.search || url.hash) return null;
+		return `${url.origin}${url.pathname}`.replace(/\/+$/, '');
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * A redirect URL: https, or http on this machine (a local app, tests).
+ *
+ * @param {unknown} value
+ */
+export function redirectUrlOf(value) {
+	if (typeof value !== 'string') return null;
+	try {
+		const url = new URL(value.trim());
+		const loopback = url.hostname === '127.0.0.1' || url.hostname === 'localhost';
+		return (url.protocol === 'https:' || (url.protocol === 'http:' && loopback)) &&
+			!url.username &&
+			!url.password &&
+			!url.hash
+			? url.href
 			: null;
 	} catch {
 		return null;
@@ -142,7 +267,9 @@ export function withDefaults(raw) {
 		llm: {
 			...d.llm,
 			...(raw?.llm ?? {}),
-			redactTerms: Array.isArray(raw?.llm?.redactTerms) ? raw.llm.redactTerms.map(String) : []
+			redactTerms: Array.isArray(raw?.llm?.redactTerms) ? raw.llm.redactTerms.map(String) : [],
+			redaction: ['auto', 'on', 'off'].includes(raw?.llm?.redaction) ? raw.llm.redaction : 'auto',
+			tee: teePinOf(raw?.llm?.tee)
 		},
 		portals:
 			raw?.portals && typeof raw.portals === 'object' && !Array.isArray(raw.portals)
@@ -152,6 +279,25 @@ export function withDefaults(raw) {
 			configured: raw?.kraken?.configured === true,
 			baseUrl: krakenBaseUrl(raw?.kraken?.baseUrl) ?? d.kraken.baseUrl
 		},
+		paperless: {
+			configured: raw?.paperless?.configured === true,
+			baseUrl: paperlessBaseUrl(raw?.paperless?.baseUrl) ?? d.paperless.baseUrl
+		},
+		enablebanking: {
+			configured: raw?.enablebanking?.configured === true,
+			appId:
+				typeof raw?.enablebanking?.appId === 'string' &&
+				/^[0-9a-f-]{36}$/i.test(raw.enablebanking.appId)
+					? raw.enablebanking.appId
+					: null,
+			// The same rule as Kraken's: https, or a fake on this machine.
+			baseUrl: krakenBaseUrl(raw?.enablebanking?.baseUrl) ?? d.enablebanking.baseUrl,
+			redirectUrl: redirectUrlOf(raw?.enablebanking?.redirectUrl) ?? d.enablebanking.redirectUrl,
+			ibanSuffixes: Array.isArray(raw?.enablebanking?.ibanSuffixes)
+				? raw.enablebanking.ibanSuffixes.map(String).filter((s) => /^[0-9A-Z]{4,34}$/.test(s))
+				: []
+		},
+		alephBackup: { configured: raw?.alephBackup?.configured === true },
 		lanRelay: {
 			host:
 				typeof raw?.lanRelay?.host === 'string' && /^\d{1,3}(\.\d{1,3}){3}$/.test(raw.lanRelay.host)

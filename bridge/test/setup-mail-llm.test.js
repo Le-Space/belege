@@ -150,7 +150,7 @@ test('setup:llm stores URL, models and terms, the key in the keychain; DEEPSEEK_
 		DEEPSEEK_MODEL: 'deepseek-flash',
 		REDACT_TERMS: 'Erika Beispiel; Beispiel ;x'
 	};
-	const { io, hiddenQuestions } = scripted(['', '', '', '', '']);
+	const { io, hiddenQuestions } = scripted(['', '', '', '', '', '']);
 	assert.equal(await runLlmSetup({ io, keychain, configPath, env }), true);
 	assert.equal(await keychain.read(), 'sk-env-key');
 	assert.equal(hiddenQuestions.length, 0);
@@ -163,24 +163,152 @@ test('setup:llm stores URL, models and terms, the key in the keychain; DEEPSEEK_
 		model: 'deepseek-flash',
 		retryModel: 'deepseek-v4-pro',
 		redactTerms: ['Erika Beispiel', 'Beispiel'],
-		configured: true
+		redaction: 'on',
+		configured: true,
+		tee: null
 	});
+});
+
+test('setup:llm: a model on this machine is asked about once, and then not blacked out (#423)', async () => {
+	const keychain = memoryKeychain('sk-kept', 'llm');
+	const local = scripted(['1', 'http://127.0.0.1:11434/v1', 'qwen3:8b', 'qwen3:8b', '']);
+	const localPath = join(dir, 'llm-local.json');
+	assert.equal(await runLlmSetup({ io: local.io, keychain, configPath: localPath }), true);
+	assert.equal((await loadConfig(localPath)).llm.redaction, 'off');
+	assert.ok(local.out.some((l) => /Does the model run on this machine itself/.test(l)));
+	assert.equal(
+		local.out.some((l) => /^Terms/.test(l)),
+		false,
+		'no terms asked when nothing is blacked out'
+	);
+
+	// A proxy on 127.0.0.1 that forwards to a provider: blacked out.
+	const proxy = scripted(['1', 'http://127.0.0.1:4000/v1', 'm', 'm', 'n', '-']);
+	const proxyPath = join(dir, 'llm-proxy.json');
+	assert.equal(await runLlmSetup({ io: proxy.io, keychain, configPath: proxyPath }), true);
+	assert.equal((await loadConfig(proxyPath)).llm.redaction, 'on');
+
+	// A provider elsewhere is never asked.
+	const remote = scripted(['1', 'https://api.deepseek.com', '', '', '-']);
+	const remotePath = join(dir, 'llm-remote.json');
+	assert.equal(await runLlmSetup({ io: remote.io, keychain, configPath: remotePath }), true);
+	assert.equal((await loadConfig(remotePath)).llm.redaction, 'on');
+	assert.equal(
+		remote.out.some((l) => /on this machine itself/.test(l)),
+		false
+	);
 });
 
 test('setup:llm: a key from the hidden prompt; "-" clears the terms; http is refused', async () => {
 	const configPath = join(dir, 'llm-prompt.json');
 	const keychain = memoryKeychain(null, 'llm');
-	const { io } = scripted(['', 'other-flash', 'other-pro', '-'], ['sk-typed']);
+	const { io } = scripted(['', '', 'other-flash', 'other-pro', '-'], ['sk-typed']);
 	assert.equal(await runLlmSetup({ io, keychain, configPath }), true);
 	assert.equal(await keychain.read(), 'sk-typed');
 	const { llm } = await loadConfig(configPath);
 	assert.deepEqual([llm.model, llm.retryModel, llm.redactTerms], ['other-flash', 'other-pro', []]);
 
-	const refused = scripted(['http://api.example']);
+	const refused = scripted(['', 'http://api.example']);
 	assert.equal(
 		await runLlmSetup({ io: refused.io, keychain, configPath: join(dir, 'llm-http.json') }),
 		false
 	);
 	assert.ok(refused.out.some((l) => l.includes('without https')));
 	await assert.rejects(stat(join(dir, 'llm-http.json')));
+});
+
+test('setup:llm: LibertAI confidential – the enclave verified, shown and pinned; a new one only on a yes (#416)', async () => {
+	const configPath = join(dir, 'llm-tee.json');
+	const keychain = memoryKeychain(null, 'llm');
+	const pinOf = (/** @type {string} */ hash, /** @type {string} */ measurement) => ({
+		provider: /** @type {const} */ ('libertai'),
+		itemHash: hash.repeat(64).slice(0, 64),
+		measurement: measurement.repeat(96).slice(0, 96),
+		sourceCommit: '8cd7b12',
+		pinnedAt: '2026-10-23T10:00:00.000Z'
+	});
+	/** @type {string[]} */ const asked = [];
+	// Blacking out is asked; here the person wants it anyway, with a term.
+	const first = scripted(['2', '', '', 'y', 'Erika Beispiel'], ['lt-made-up-key']);
+	assert.equal(
+		await runLlmSetup({
+			io: first.io,
+			keychain,
+			configPath,
+			findDeployment: async (model) => (asked.push(model), pinOf('a', 'b'))
+		}),
+		true
+	);
+	assert.deepEqual(asked, ['qwen3.8-27b-tee']);
+	assert.ok(first.out.some((l) => /Verified: deployment a{64}/.test(l)));
+	assert.ok(first.out.some((l) => /source commit 8cd7b12/.test(l)));
+	assert.equal(await keychain.read(), 'lt-made-up-key');
+	const { llm } = await loadConfig(configPath);
+	assert.deepEqual(llm, {
+		baseUrl: 'https://api.libertai.io/v1',
+		model: 'qwen3.8-27b-tee',
+		retryModel: 'qwen3.8-27b-tee',
+		redactTerms: ['Erika Beispiel'],
+		redaction: 'on',
+		configured: true,
+		tee: pinOf('a', 'b')
+	});
+	assert.equal((await readFile(configPath, 'utf8')).includes('lt-made-up-key'), false);
+
+	// LibertAI replaced the deployment: shown beside the old pin, and not taken without a yes.
+	const declined = scripted(['', '', '']);
+	assert.equal(
+		await runLlmSetup({
+			io: declined.io,
+			keychain,
+			configPath,
+			findDeployment: async () => pinOf('c', 'd')
+		}),
+		false
+	);
+	assert.ok(declined.out.some((l) => /The pinned deployment was a{64}/.test(l)));
+	assert.equal((await loadConfig(configPath)).llm.tee?.itemHash, 'a'.repeat(64));
+	// The default: nothing blacked out in the enclave.
+	const taken = scripted(['', '', 'y', ''], ['']);
+	assert.equal(
+		await runLlmSetup({
+			io: taken.io,
+			keychain,
+			configPath,
+			findDeployment: async () => pinOf('c', 'd')
+		}),
+		true
+	);
+	assert.equal((await loadConfig(configPath)).llm.tee?.itemHash, 'c'.repeat(64));
+	assert.equal((await loadConfig(configPath)).llm.redaction, 'off');
+	assert.deepEqual(
+		(await loadConfig(configPath)).llm.redactTerms,
+		['Erika Beispiel'],
+		'kept for later'
+	);
+	assert.ok(taken.out.some((l) => /Nothing is blacked out/.test(l)));
+
+	// An enclave that fails its proof: nothing saved.
+	const failing = scripted(['2', '']);
+	assert.equal(
+		await runLlmSetup({
+			io: failing.io,
+			keychain,
+			configPath: join(dir, 'llm-tee-failed.json'),
+			findDeployment: async () => {
+				throw Object.assign(new Error("The model's enclave could not be verified: bad report"), {
+					code: 'LLM_ATTESTATION_FAILED'
+				});
+			}
+		}),
+		false
+	);
+	await assert.rejects(stat(join(dir, 'llm-tee-failed.json')));
+	// Back to a URL: the pin goes.
+	const back = scripted(
+		['1', 'https://api.deepseek.com', 'deepseek-flash', 'deepseek-v4-pro', '-'],
+		['']
+	);
+	assert.equal(await runLlmSetup({ io: back.io, keychain, configPath }), true);
+	assert.equal((await loadConfig(configPath)).llm.tee, null);
 });

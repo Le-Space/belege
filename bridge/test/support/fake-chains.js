@@ -323,6 +323,7 @@ export function sampleNyxHistory({ filler = 110 } = {}) {
  * @param {boolean} [options.statusSaysZero] `status` claims 0 though older blocks are gone (a node restored from a snapshot)
  * @param {number} [options.failFirst] this many requests answer 503 first
  * @param {(height: number) => string} [options.time]
+ * @param {any[]} [options.deployments] Akash: deployments as the node lists them (akashDeployment)
  */
 export async function startFakeCosmos({
 	network = 'nyx',
@@ -337,7 +338,8 @@ export async function startFakeCosmos({
 	earliestHeight = 1,
 	statusSaysZero = false,
 	failFirst = 0,
-	time = blockTime
+	time = blockTime,
+	deployments = []
 } = {}) {
 	/** @type {{ method: string, params: any }[]} */
 	const calls = [];
@@ -362,6 +364,15 @@ export async function startFakeCosmos({
 				return reply(200, {
 					balances: balances[decodeURIComponent(bank[1])] ?? [],
 					pagination: { next_key: null, total: '0' }
+				});
+			}
+			// Akash: an owner's deployments with their escrow (#305).
+			if (req.method === 'GET' && url.pathname === '/akash/deployment/v1beta4/deployments/list') {
+				const owner = url.searchParams.get('filters.owner');
+				const mine = deployments.filter((/** @type {any} */ d) => d.deployment.id.owner === owner);
+				return reply(200, {
+					deployments: mine,
+					pagination: { next_key: null, total: String(mine.length) }
 				});
 			}
 			if (req.method !== 'POST') return reply(404, { code: 5, message: 'not found' });
@@ -504,7 +515,9 @@ export function consoleTx({ seed, height, signers, fee = 0, success = true, mess
 		MsgTransfer: '/ibc.applications.transfer.v1.',
 		MsgRecvPacket: '/ibc.core.channel.v1.',
 		MsgCreateDeployment: '/akash.deployment.v1beta3.',
-		MsgAccountDeposit: '/akash.escrow.v1.'
+		MsgAccountDeposit: '/akash.escrow.v1.',
+		MsgMintACT: '/akash.bme.v1.',
+		MsgBurnACT: '/akash.bme.v1.'
 	});
 	return {
 		height,
@@ -528,6 +541,35 @@ export function consoleTx({ seed, height, signers, fee = 0, success = true, mess
 }
 
 /**
+ * One Akash deployment as the node lists it (#305): its escrow with what it
+ * paid its providers, in decimal uact.
+ *
+ * @param {{ owner: string, dseq: string, created: number, settled: number, uact: string, state?: string }} d
+ */
+export function akashDeployment({ owner, dseq, created, settled, uact, state = 'closed' }) {
+	return {
+		deployment: {
+			id: { owner, dseq },
+			state,
+			hash: '',
+			created_at: String(created),
+			reclamation: null
+		},
+		escrow_account: {
+			id: { scope: 'deployment', xid: `${owner}/${dseq}` },
+			state: {
+				owner,
+				state,
+				transferred: [{ denom: 'uact', amount: `${uact}.000000000000000000` }],
+				settled_at: String(settled),
+				funds: [{ denom: 'uact', amount: '0.000000000000000000' }],
+				deposits: []
+			}
+		}
+	};
+}
+
+/**
  * The Akash Console indexer: an address's transactions, newest first, and
  * one transaction by hash. Every address named in a transaction's data or
  * signers finds it.
@@ -535,8 +577,17 @@ export function consoleTx({ seed, height, signers, fee = 0, success = true, mess
  * @param {object} [options]
  * @param {ReturnType<typeof consoleTx>[]} [options.txs]
  * @param {boolean} [options.broken] every request answers 500
+ * @param {boolean} [options.withCount] the listing as before October 2026: the total
+ *   `count` instead of `hasMore`
+ * @param {string[]} [options.unlisted] hashes found by hash only, not in any address's
+ *   listing (as the real indexer leaves some out)
  */
-export async function startFakeAkashConsole({ txs = [], broken = false } = {}) {
+export async function startFakeAkashConsole({
+	txs = [],
+	broken = false,
+	withCount = false,
+	unlisted = []
+} = {}) {
 	/** @type {string[]} */
 	const calls = [];
 	const server = http.createServer((req, res) => {
@@ -551,12 +602,14 @@ export async function startFakeAkashConsole({ txs = [], broken = false } = {}) {
 		if (list) {
 			const address = decodeURIComponent(list[1]);
 			const mine = txs
+				.filter((t) => !unlisted.includes(t.hash))
 				.filter((t) => JSON.stringify([t.signers, t.messages]).includes(address))
 				.sort((a, b) => b.height - a.height);
 			const skip = Number(list[2]);
+			const limit = Number(list[3]);
 			return reply(200, {
-				count: mine.length,
-				results: mine.slice(skip, skip + Number(list[3])).map((t) => ({
+				...(withCount ? { count: mine.length } : { hasMore: skip + limit < mine.length }),
+				results: mine.slice(skip, skip + limit).map((t) => ({
 					height: t.height,
 					datetime: t.datetime,
 					hash: t.hash,
@@ -576,6 +629,9 @@ export async function startFakeAkashConsole({ txs = [], broken = false } = {}) {
 				}))
 			});
 		}
+		const block = /^\/v1\/blocks\/(\d+)$/.exec(path);
+		if (block)
+			return reply(200, { height: Number(block[1]), datetime: blockTime(Number(block[1])) });
 		const one = /^\/v1\/transactions\/([0-9A-Fa-f]{64})$/.exec(path);
 		if (one) {
 			const tx = txs.find((t) => t.hash === one[1].toUpperCase());
@@ -728,13 +784,29 @@ export function sampleEvmHistory({ fillerTokens = 0 } = {}) {
  * @param {number} [options.rateLimitedCalls] this many answer Blockscout's "rate limit" first
  * @param {number} [options.maxOffset] page × offset beyond this is refused, as Blockscout does
  * @param {string | null} [options.chainId] what `…/api/eth-rpc` answers to eth_chainId; null: 404
+ * @param {{ block_number: number, block_timestamp: string, value: string }[] | null} [options.coinBalanceHistory]
+ *   `…/api/v2/addresses/<a>/coin-balance-history`, newest first; null: 404
  */
 export async function startFakeBlockscout({
 	history = sampleEvmHistory(),
 	balances = { native: '310000000000000000', [EVM.usdc]: '450000000' },
 	rateLimitedCalls = 0,
 	maxOffset = 10_000,
-	chainId = '0x1'
+	chainId = '0x1',
+	// The native coin's balance after each change (#287), newest first as Blockscout gives it;
+	// null: the v2 endpoint is not there.
+	coinBalanceHistory = [
+		{
+			block_number: 19_500_000,
+			block_timestamp: '2026-03-20T09:00:00.000000Z',
+			value: '310000000000000000'
+		},
+		{
+			block_number: 19_400_000,
+			block_timestamp: '2026-02-10T12:00:00.000000Z',
+			value: '500000000000000000'
+		}
+	]
 } = {}) {
 	/** @type {Record<string, string>[]} */
 	const calls = [];
@@ -755,12 +827,31 @@ export async function startFakeBlockscout({
 			});
 			return;
 		}
-		const p = Object.fromEntries(url.searchParams);
-		calls.push(p);
 		const reply = (/** @type {unknown} */ body) => {
 			res.writeHead(200, { 'Content-Type': 'application/json' });
 			res.end(JSON.stringify(body));
 		};
+		const v2 = /^\/api\/v2\/addresses\/(0x[0-9a-f]{40})\/coin-balance-history$/.exec(url.pathname);
+		if (v2) {
+			calls.push({
+				v2: 'coin-balance-history',
+				address: v2[1],
+				...Object.fromEntries(url.searchParams)
+			});
+			if (coinBalanceHistory === null) {
+				res.writeHead(404, { 'Content-Type': 'application/json' });
+				return res.end(JSON.stringify({ message: 'Not found' }));
+			}
+			// One item a page, to prove the paging.
+			const from = Number(url.searchParams.get('n') ?? 0);
+			const item = coinBalanceHistory[from];
+			return reply({
+				items: item ? [item] : [],
+				next_page_params: from + 1 < coinBalanceHistory.length ? { n: from + 1 } : null
+			});
+		}
+		const p = Object.fromEntries(url.searchParams);
+		calls.push(p);
 		if (url.pathname !== '/api')
 			return reply({ status: '0', message: 'Unknown path', result: null });
 		if (limited > 0) {

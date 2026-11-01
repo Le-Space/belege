@@ -10,6 +10,8 @@
 	import KrakenCard from '$lib/exchanges/KrakenCard.svelte';
 	import WalletsCard from '$lib/wallets/WalletsCard.svelte';
 	import AlephCard from '$lib/aleph/AlephCard.svelte';
+	import BackupCard from '$lib/backup/BackupCard.svelte';
+	import MoveCard from '$lib/move/MoveCard.svelte';
 	import DevicesCard from '$lib/sync/DevicesCard.svelte';
 	import ShareCard from '$lib/share/ShareCard.svelte';
 	import InvoiceAppCard from '$lib/ucep/InvoiceAppCard.svelte';
@@ -27,6 +29,7 @@
 		'wallets',
 		'aleph',
 		'geraete',
+		'backup',
 		'portale',
 		'rechnungs-app',
 		'assistent'
@@ -81,6 +84,9 @@
 			<AlephCard url={bridge.url} token={bridge.token} />
 		{:else if id === 'geraete'}
 			<DevicesCard />
+		{:else if id === 'backup'}
+			<BackupCard url={bridge.url} token={bridge.token} />
+			<MoveCard />
 		{:else if id === 'assistent'}
 			<ShareCard url={bridge.url} token={bridge.token} />
 		{:else if id === 'rechnungs-app'}

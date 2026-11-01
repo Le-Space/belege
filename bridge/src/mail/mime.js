@@ -37,16 +37,42 @@ export function attachmentParts(node, out = []) {
 			type === 'application/x-pdf' ||
 			lower.endsWith('.pdf');
 		const imageish = type.startsWith('image/') && node.disposition === 'attachment';
+		// An e-invoice (XRechnung, #160): its XML is the original.
+		const xmlish = type === 'application/xml' || type === 'text/xml' || lower.endsWith('.xml');
 		out.push({
 			part: String(node.part ?? '1'),
 			name: name ?? '(ohne Namen)',
 			type,
 			size: Number(node.size ?? 0),
 			disposition: node.disposition ?? null,
-			candidate: pdfish || imageish
+			candidate: pdfish || imageish || xmlish
 		});
 	}
 	for (const child of node.childNodes ?? []) attachmentParts(child, out);
+	return out;
+}
+
+/**
+ * Every calendar part of a body structure (`text/calendar`, `application/ics`,
+ * a `.ics` file): an invitation's appointment (#213), inline or attached.
+ *
+ * @param {any} node imapflow's `bodyStructure`
+ * @param {{ part: string, size: number }[]} [out]
+ * @returns {{ part: string, size: number }[]}
+ */
+export function calendarParts(node, out = []) {
+	if (!node) return out;
+	const type = String(node.type ?? '').toLowerCase();
+	const name = String(
+		node.dispositionParameters?.filename ?? node.parameters?.name ?? ''
+	).toLowerCase();
+	if (
+		!type.startsWith('multipart/') &&
+		(type === 'text/calendar' || type === 'application/ics' || name.endsWith('.ics'))
+	) {
+		out.push({ part: String(node.part ?? '1'), size: Number(node.size ?? 0) });
+	}
+	for (const child of node.childNodes ?? []) calendarParts(child, out);
 	return out;
 }
 
@@ -97,7 +123,31 @@ export function sniff(bytes) {
 	if (starts([0x52, 0x49, 0x46, 0x46]) && starts([0x57, 0x45, 0x42, 0x50], 8)) {
 		return { kind: 'image', mime: 'image/webp' };
 	}
+	if (isEInvoiceXml(head)) return { kind: 'einvoice', mime: 'application/xml' };
 	return { kind: 'other', mime: null };
+}
+
+/**
+ * An e-invoice by the root element of its XML (#160): UBL `Invoice` /
+ * `CreditNote` or CII `CrossIndustryInvoice`, with their namespace. Any other
+ * XML is no receipt and is not handed out. The same test as the app's
+ * receipts/einvoice.js `sniffEInvoice`.
+ *
+ * @param {string} head the first bytes, as latin1
+ */
+export function isEInvoiceXml(head) {
+	const s = head.replace(/^\uFEFF|^\xEF\xBB\xBF/, '');
+	if (!/^\s*</.test(s)) return false;
+	const root = /<(?![?!])(?:[\w.-]+:)?([\w.-]+)[\s>/]/.exec(
+		s.replace(/<\?[\s\S]*?\?>|<!--[\s\S]*?-->/g, '')
+	)?.[1];
+	if (root === 'Invoice' || root === 'CreditNote') {
+		return /ubl:schema:xsd:(Invoice|CreditNote)-2/.test(s);
+	}
+	return (
+		root === 'CrossIndustryInvoice' &&
+		s.includes('urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100')
+	);
 }
 
 const ENTITIES = /** @type {Record<string, string>} */ ({

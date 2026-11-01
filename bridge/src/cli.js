@@ -15,11 +15,13 @@
 // $BELEGE_BRIDGE_TEST_IMAP_PASSWORD, $BELEGE_BRIDGE_TEST_LLM_KEY,
 // $BELEGE_BRIDGE_TEST_PORTAL_PASSWORD, $BELEGE_BRIDGE_TEST_KRAKEN_KEY as the
 // keychain's JSON, $BELEGE_BRIDGE_TEST_COINGECKO_KEY,
-// $BELEGE_BRIDGE_TEST_ALCHEMY_KEY; the macOS keychain is never read), an
+// $BELEGE_BRIDGE_TEST_ALCHEMY_KEY, $BELEGE_BRIDGE_TEST_ENABLEBANKING_KEY as the
+// key to the sealed Enable Banking file; the macOS keychain is never read), an
 // Alchemy key is sent only to a fake Alchemy at $BELEGE_BRIDGE_TEST_ALCHEMY_URL
 // (http://127.0.0.1:<port>, asked as `<url>/<network>/v2/<key>`; a key
 // without it is refused), exchange rates come from
-// $BELEGE_BRIDGE_TEST_FIXED_RATES (JSON, EUR per unit by symbol) when it is
+// $BELEGE_BRIDGE_TEST_FIXED_RATES (JSON, EUR per unit by symbol, or
+// { rate, source, at }) when it is
 // set, a wallet may name a chain
 // node on http://127.0.0.1, portal browsers never open a window,
 // the portal password dialog never opens either (it answers
@@ -67,6 +69,8 @@ let keychain;
 let mailKeychain;
 let llmKeychain;
 let krakenKeychain;
+let paperlessKeychain;
+let enablebankingKeychain;
 let coingeckoKeychain;
 let bitcoinKeychain;
 let alchemyKeychain;
@@ -75,6 +79,9 @@ let alchemyBaseUrl;
 /** @type {Record<string, string> | null} */
 /** @type {string | undefined} tests: a fake Aleph API on 127.0.0.1 */
 let alephApi;
+let alephBackupKeychain;
+/** @type {string | undefined} tests: the fake's IPFS host, where the app uploads a backup */
+let alephIngestUrl;
 let fixedRates = null;
 /** @type {((id: string) => import('./keychain.js').Keychain) | undefined} */
 let portalKeychain;
@@ -95,6 +102,14 @@ if (testMode) {
 	portalKeychain = () => portalPassword;
 	portalPasswordDialog = async () => process.env.BELEGE_BRIDGE_TEST_PORTAL_DIALOG ?? null;
 	krakenKeychain = memoryKeychain(process.env.BELEGE_BRIDGE_TEST_KRAKEN_KEY ?? null, 'kraken');
+	paperlessKeychain = memoryKeychain(
+		process.env.BELEGE_BRIDGE_TEST_PAPERLESS_TOKEN ?? null,
+		'paperless'
+	);
+	enablebankingKeychain = memoryKeychain(
+		process.env.BELEGE_BRIDGE_TEST_ENABLEBANKING_KEY ?? null,
+		'enablebanking'
+	);
 	coingeckoKeychain = memoryKeychain(
 		process.env.BELEGE_BRIDGE_TEST_COINGECKO_KEY ?? null,
 		'coingecko'
@@ -119,7 +134,12 @@ if (testMode) {
 			process.exit(1);
 		}
 		alephApi = fakeAleph;
+		alephIngestUrl = `${fakeAleph}/api/v0/add`;
 	}
+	alephBackupKeychain = memoryKeychain(
+		process.env.BELEGE_BRIDGE_TEST_ALEPH_BACKUP_KEY ?? null,
+		'aleph-backup'
+	);
 	if (process.env.BELEGE_BRIDGE_TEST_FIXED_RATES) {
 		fixedRates = JSON.parse(process.env.BELEGE_BRIDGE_TEST_FIXED_RATES);
 	}
@@ -132,11 +152,15 @@ try {
 		mailKeychain,
 		llmKeychain,
 		krakenKeychain,
+		paperlessKeychain,
+		enablebankingKeychain,
 		coingeckoKeychain,
 		bitcoinKeychain,
 		alchemyKeychain,
 		alchemyBaseUrl,
 		alephApi,
+		alephBackupKeychain,
+		alephIngestUrl,
 		fixedRates,
 		walletLoopback: testMode,
 		portalKeychain,

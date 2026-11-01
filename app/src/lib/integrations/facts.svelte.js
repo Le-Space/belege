@@ -6,17 +6,21 @@ import { app, currentStore } from '$lib/session.svelte.js';
 import { getSetting } from '$lib/store/settings.js';
 import { loadWallets } from '$lib/wallets/wallet-sync.js';
 import { loadAleph } from '$lib/aleph/aleph.js';
+import { loadBackups } from '$lib/backup/history.js';
 import { isWalletSource } from '$lib/wallets/chains.js';
 import { loadAlerts } from './alerts.js';
 import { bridge, loadBridge } from './bridge-state.svelte.js';
+import { hostsBridge } from './host.js';
 
 const kept = $state({
 	wallets: 0,
 	aleph: 0,
 	invoiceApp: false,
+	/** @type {string | null} */
+	lastBackup: null,
 	deviceFlag: false,
 	/** @type {import('./alerts.js').Alerts} */
-	alerts: { kraken: null, wallets: {} }
+	alerts: { kraken: null, wallets: {}, enablebanking: [] }
 });
 
 /**
@@ -33,17 +37,21 @@ export async function loadIntegrationFacts({ recheck = false } = {}) {
 	} catch {
 		kept.deviceFlag = false;
 	}
-	const [w, a, inv, al] = await Promise.all([
+	const [w, a, inv, al, bk] = await Promise.all([
 		loadWallets(store.settings),
 		loadAleph(store.settings),
 		getSetting(store.settings, 'ucepInvoiceApp'),
-		loadAlerts(store.settings)
+		loadAlerts(store.settings),
+		loadBackups(store.settings)
 	]);
+	kept.lastBackup = bk[0]?.at ?? null;
 	kept.alerts = al;
 	kept.wallets = w.length;
 	kept.aleph = a.accounts.length;
 	kept.invoiceApp = Boolean(inv);
-	if (recheck || !bridge.loaded) await loadBridge();
+	// No token yet: read it again. On a device that reaches the bridge through
+	// another one, it comes with the books by sync, possibly after the first read.
+	if (recheck || !bridge.loaded || !bridge.token) await loadBridge();
 }
 
 /** @returns {import('./overview.js').Facts} */
@@ -54,6 +62,7 @@ export const integrationFacts = () => ({
 		via: app.sync.bridgeRoute,
 		health: bridge.health
 	},
+	hostsBridge: hostsBridge(),
 	devices: {
 		flag: kept.deviceFlag,
 		online: app.sync.online,
@@ -66,6 +75,7 @@ export const integrationFacts = () => ({
 	wallets: kept.wallets,
 	aleph: kept.aleph,
 	invoiceApp: kept.invoiceApp,
+	lastBackup: kept.lastBackup,
 	alerts: kept.alerts,
 	isWalletSource
 });

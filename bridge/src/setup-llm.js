@@ -3,6 +3,10 @@
 //
 //   pnpm setup:llm
 //
+// 0. Which kind: an OpenAI-compatible URL (DeepSeek, a model on this machine, …),
+//    or LibertAI's confidential inference (#416) – a model in an attested
+//    enclave: the deployment is looked up, verified and shown, and pinned once
+//    the person agrees; a changed one is pinned only after a yes.
 // 1. The provider's base URL (OpenAI-compatible; default https://api.deepseek.com).
 // 2. The model, and the model to retry with (deepseek-flash, deepseek-v4-pro).
 // 3. The terms to black out before any text leaves (own name, family names),
@@ -17,10 +21,16 @@
 
 import { fileURLToPath } from 'node:url';
 
-import { defaultConfigPath, loadConfig, saveConfig } from './config.js';
+import { defaultConfigPath, defaultLlmConfig, loadConfig, saveConfig } from './config.js';
 import { systemKeychain } from './keychain.js';
 import { ask, askHidden, closePrompts } from './prompt.js';
-import { loadRepoEnv, storeSecret } from './setup-secret.js';
+import { loadRepoEnv, storeSecret, yes } from './setup-secret.js';
+import { findDeployment as findLibertai } from './llm/confidential.js';
+
+/** LibertAI's API, which requests are addressed to; in TEE mode they go to the enclave instead. */
+export const LIBERTAI_BASE_URL = 'https://api.libertai.io/v1';
+/** The model LibertAI serves in an attestable enclave (checked 2026-10-23: the only one). */
+export const LIBERTAI_TEE_MODEL = 'qwen3.8-27b-tee';
 
 const MODEL = /^[A-Za-z0-9._:/-]{1,80}$/;
 
@@ -30,14 +40,29 @@ const MODEL = /^[A-Za-z0-9._:/-]{1,80}$/;
  * @param {import('./keychain.js').Keychain} deps.keychain
  * @param {string} deps.configPath
  * @param {Record<string, string | undefined>} [deps.env] DEEPSEEK_* and REDACT_TERMS from .env
+ * @param {typeof findLibertai} [deps.findDeployment] tests: a fake enclave
  * @returns {Promise<boolean>} true when the configuration was saved
  */
-export async function runLlmSetup({ io, keychain, configPath, env = {} }) {
+export async function runLlmSetup({
+	io,
+	keychain,
+	configPath,
+	env = {},
+	findDeployment = findLibertai
+}) {
 	const config = await loadConfig(configPath);
 	const l = config.llm;
 	const fresh = !l.configured;
 
-	const urlDefault = (fresh && env.DEEPSEEK_BASE_URL) || l.baseUrl;
+	const kindDefault = l.tee ? '2' : '1';
+	const kind =
+		(await io.ask(
+			`Which model? 1 = an OpenAI-compatible URL (DeepSeek, a model on this machine, …), 2 = LibertAI, confidential (an attested enclave) [${kindDefault}]: `
+		)) || kindDefault;
+	if (kind === '2') return libertaiSetup({ io, keychain, configPath, config, findDeployment });
+
+	const urlDefault =
+		(fresh && env.DEEPSEEK_BASE_URL) || (l.tee ? defaultLlmConfig().baseUrl : l.baseUrl);
 	const baseUrl = ((await io.ask(`LLM base URL [${urlDefault}]: `)) || urlDefault).replace(
 		/\/+$/,
 		''
@@ -63,14 +88,41 @@ export async function runLlmSetup({ io, keychain, configPath, env = {} }) {
 		return false;
 	}
 
+	// A model on this machine gets the text as it is (#423). A loopback URL may
+	// also be a proxy that forwards to a provider, so the person says which.
+	/** @type {'on' | 'off'} */
+	let redaction = 'on';
+	if (loopback) {
+		const local = yes(
+			(await io.ask(
+				'Does the model run on this machine itself (not a proxy that forwards to a provider)? Then nothing is blacked out. [Y/n]: '
+			)) || 'y'
+		);
+		redaction = local ? 'off' : 'on';
+	}
+
 	const termsDefault = l.redactTerms.length ? l.redactTerms.join('; ') : (env.REDACT_TERMS ?? '');
-	io.print(
-		'Terms to black out before text leaves this machine (own name, family names on tickets), separated by ";".'
-	);
-	io.print('IBANs, own e-mail addresses, streets and postcodes are blacked out anyway.');
-	const termsAnswer = await io.ask(
-		`Terms${termsDefault ? ` [${termsDefault}]` : ''} ("-" for none): `
-	);
+	if (redaction === 'off') {
+		io.print(
+			'Nothing leaves this machine, so nothing is blacked out. Your terms are kept for later.'
+		);
+	}
+	const askTerms = redaction === 'on';
+	if (askTerms)
+		io.print(
+			'Terms to black out before text leaves this machine, separated by ";": your first and family name, together and the family name alone, and the names of others on your receipts (family on tickets, staff).'
+		);
+	if (askTerms) {
+		io.print(
+			"The company names from the app's Einstellungen are added by the app. IBANs, e-mail addresses, phone numbers, streets and postcodes are blacked out anyway."
+		);
+		io.print(
+			'A name that is on no list and follows no label gets through. For nothing to leave, set a model on this machine – our advice for now, until fast models in a TEE with a checkable attestation are available.'
+		);
+	}
+	const termsAnswer = askTerms
+		? await io.ask(`Terms${termsDefault ? ` [${termsDefault}]` : ''} ("-" for none): `)
+		: '';
 	const redactTerms = (termsAnswer === '-' ? '' : termsAnswer || termsDefault)
 		.split(';')
 		.map((t) => t.trim())
@@ -86,9 +138,123 @@ export async function runLlmSetup({ io, keychain, configPath, env = {} }) {
 	});
 	if (!stored) return false;
 
-	config.llm = { baseUrl, model, retryModel, redactTerms, configured: true };
+	config.llm = { baseUrl, model, retryModel, redactTerms, redaction, configured: true, tee: null };
 	await saveConfig(config, configPath);
-	io.print(`Saved ${configPath} (${redactTerms.length} term(s) to black out).`);
+	io.print(
+		redaction === 'off'
+			? `Saved ${configPath} (a model on this machine: nothing is blacked out).`
+			: `Saved ${configPath} (${redactTerms.length} term(s) to black out).`
+	);
+	io.print('Restart the bridge (pnpm bridge) to use it.');
+	return true;
+}
+
+/**
+ * LibertAI's confidential inference (#416): the enclave looked up and proved,
+ * shown, and pinned on a yes. Whether text is blacked out before it goes into
+ * the enclave is asked; the default is not to – nobody between this machine
+ * and the attested enclave can read it. The API key from console.libertai.io
+ * goes to the keychain.
+ *
+ * @param {object} p
+ * @param {{ ask: (q: string) => Promise<string>, askHidden: (q: string) => Promise<string>, print: (line: string) => void }} p.io
+ * @param {import('./keychain.js').Keychain} p.keychain
+ * @param {string} p.configPath
+ * @param {import('./config.js').BridgeConfig} p.config
+ * @param {typeof findLibertai} p.findDeployment
+ */
+async function libertaiSetup({ io, keychain, configPath, config, findDeployment }) {
+	const l = config.llm;
+	const modelDefault = l.tee ? l.model : LIBERTAI_TEE_MODEL;
+	const model = (await io.ask(`Model [${modelDefault}]: `)) || modelDefault;
+	if (!MODEL.test(model)) {
+		io.print('A model name is letters, digits and . _ : / - only.');
+		return false;
+	}
+	io.print(
+		'Looking up the enclave and checking its attestation (AMD signature, TLS key, measurement) …'
+	);
+	let pin;
+	try {
+		pin = await findDeployment(model);
+	} catch (/** @type {any} */ error) {
+		io.print(error.message);
+		return false;
+	}
+	io.print(`Verified: deployment ${pin.itemHash}`);
+	io.print(`  measurement ${pin.measurement}`);
+	io.print(
+		`  source commit ${pin.sourceCommit ?? '(not named)'} – rebuild it to check what the image does: github.com/Libertai/confidential-inference, VERIFYING.md`
+	);
+	const changed =
+		l.tee && (l.tee.itemHash !== pin.itemHash || l.tee.measurement !== pin.measurement);
+	if (changed) {
+		io.print(`The pinned deployment was ${l.tee?.itemHash} (measurement ${l.tee?.measurement}).`);
+		if (!yes((await io.ask('Pin the new one instead? [y/N]: ')) || 'n')) {
+			io.print('Kept the old pin: requests fail until it answers again or a new one is pinned.');
+			return false;
+		}
+	} else if (
+		!yes(
+			(await io.ask(
+				'Pin this deployment? Every request goes to it, attested, or fails. [Y/n]: '
+			)) || 'y'
+		)
+	) {
+		return false;
+	}
+
+	// The enclave is attested and the TLS ends inside it: blacking out would only
+	// cost reading quality. What the attestation does not prove – what the image
+	// does – is said here, and the person may still choose to black out.
+	io.print(
+		'The text goes into the attested enclave; nobody on the way, LibertAI included, can read it. The attestation proves which image runs, not what it does.'
+	);
+	const blackOut = yes(
+		(await io.ask(
+			'Black out names, IBANs and addresses before text goes into the enclave anyway? [y/N]: '
+		)) || 'n'
+	);
+	const termsDefault = l.redactTerms.join('; ');
+	let redactTerms = l.redactTerms;
+	if (blackOut) {
+		io.print('Terms to black out, separated by ";":');
+		const termsAnswer = await io.ask(
+			`Terms${termsDefault ? ` [${termsDefault}]` : ''} ("-" for none): `
+		);
+		redactTerms = (termsAnswer === '-' ? '' : termsAnswer || termsDefault)
+			.split(';')
+			.map((t) => t.trim())
+			.filter((t) => t.length >= 2);
+	} else {
+		io.print('Nothing is blacked out. Your terms are kept for later.');
+	}
+
+	const stored = await storeSecret({
+		io,
+		keychain,
+		what: 'LibertAI API key (console.libertai.io)',
+		account: 'llm',
+		envName: 'LIBERTAI_API_KEY',
+		envValue: undefined
+	});
+	if (!stored) return false;
+
+	config.llm = {
+		baseUrl: LIBERTAI_BASE_URL,
+		model,
+		retryModel: model,
+		redactTerms,
+		redaction: blackOut ? 'on' : 'off',
+		configured: true,
+		tee: pin
+	};
+	await saveConfig(config, configPath);
+	io.print(
+		blackOut
+			? `Saved ${configPath}: ${model} in the pinned enclave, ${redactTerms.length} term(s) to black out.`
+			: `Saved ${configPath}: ${model} in the pinned enclave, nothing blacked out.`
+	);
 	io.print('Restart the bridge (pnpm bridge) to use it.');
 	return true;
 }
