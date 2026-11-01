@@ -28,6 +28,7 @@
 	} from './restore-flow.svelte.js';
 	import BackupProgress from './BackupProgress.svelte';
 	import { backupRun, decideBackup, refused, runBackup, sizeText } from './run.svelte.js';
+	import { keepAliveOffered, keepAliveWanted, setKeepAlive } from '$lib/keep-alive.js';
 	import { backupDue, setAutoBackup } from './auto.svelte.js';
 	import {
 		BACKUP_CHANNEL,
@@ -50,6 +51,8 @@
 	// left, and the header shows it.
 
 	let { url, token } = $props();
+	/** A tone while a backup or restore runs, so a phone does not freeze the tab (#525). */
+	let keepAlive = $state(keepAliveWanted(globalThis.localStorage));
 	/** Aleph's dashboard: credits bought, transferred and spent; and the keys an account lets act for it. */
 	const ALEPH_CREDITS = 'https://app.aleph.cloud/console/credits/';
 	const ALEPH_PERMISSIONS = 'https://app.aleph.cloud/console/permissions/';
@@ -1125,6 +1128,27 @@
 				></span
 			>
 		</label>
+		{#if keepAliveOffered()}
+			<label class="mt-3 flex items-start gap-2 text-sm text-text" data-testid="keep-alive">
+				<input
+					type="checkbox"
+					class="mt-1"
+					checked={keepAlive}
+					disabled={restoreBusy() || Boolean(step)}
+					onchange={(e) => {
+						keepAlive = e.currentTarget.checked;
+						setKeepAlive(globalThis.localStorage, keepAlive);
+					}}
+					data-testid="keep-alive-on"
+				/>
+				<span
+					>{t('keepAlive.label')}
+					<span class="block text-xs text-faint"
+						>{keepAlive ? t('keepAlive.on') : t('keepAlive.off')}</span
+					></span
+				>
+			</label>
+		{/if}
 		<details class="mt-3 text-sm" data-testid="backup-restore-by-cid">
 			<summary class="cursor-pointer text-xs text-faint">{t('backup.list.byCid')}</summary>
 			<form

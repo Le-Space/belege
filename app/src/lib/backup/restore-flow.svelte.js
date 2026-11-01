@@ -10,6 +10,7 @@ import { t } from '$lib/i18n/index.js';
 import { loadBackups } from './history.js';
 import { findBackups } from './keeper.js';
 import { keepAwake } from '$lib/wake-lock.js';
+import { holdAlive } from '$lib/keep-alive.js';
 import { createRestoreFetch, gatewayHost, restorePath, setRestorePath } from './restore-path.js';
 
 export const restoreRun = $state({
@@ -115,8 +116,11 @@ export async function runRestore({ owner, endpoints, known = [], sizes = {} }) {
 	restoreRun.bytes = null;
 	restoreRun.via = null;
 	restoreRun.source = null;
-	// A phone must not darken its screen meanwhile (#512).
+	// A phone must not darken its screen meanwhile (#512), nor freeze the tab
+	// when the person switches to another app (#525): a tone, started here,
+	// inside the click on "Ja, wiederherstellen".
 	const letSleep = keepAwake();
+	const letQuiet = holdAlive({ title: t('keepAlive.restoring') });
 	/** The peer node, once a file goes over peers. */
 	let peers = /** @type {import('./restore-peers.js').RestorePeers | null} */ (null);
 	try {
@@ -220,6 +224,7 @@ export async function runRestore({ owner, endpoints, known = [], sizes = {} }) {
 			e instanceof Error && e.message && e.message !== restoreRun.error ? e.message : null;
 	} finally {
 		letSleep();
+		letQuiet();
 		// The peer node was this restore's only: gone with it.
 		const node = /** @type {import('./restore-peers.js').RestorePeers | null} */ (peers);
 		if (node) await node.stop().catch(() => {});

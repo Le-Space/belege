@@ -997,6 +997,14 @@ export default {
 		revoke: 'Revoke',
 		refresh: 'Refresh reads'
 	},
+	keepAlive: {
+		label: 'A soft tone while it runs',
+		on: 'A soft note every two seconds while a backup or a restore runs. A phone otherwise puts the tab to sleep as soon as you switch to another app, and the run breaks off; a page that is audibly playing is left running. The media notification leads back into the app.',
+		off: 'No tone. Then stay in Belege until it is done: switch to another app on a phone, and it puts the tab to sleep after a few minutes, and the run breaks off.',
+		restoring: 'Belege is restoring …',
+		backingUp: 'Belege is backing up …',
+		moving: 'Belege is moving the books …'
+	},
 	restore: {
 		leaves:
 			'Goes out: the account’s address to the Aleph API, to list its backups, and the backup’s CID to Aleph’s gateway (both see this computer’s IP address). The file comes back sealed and is opened here.',

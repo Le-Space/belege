@@ -1021,6 +1021,14 @@ export default {
 		revoke: 'Widerrufen',
 		refresh: 'Abrufe aktualisieren'
 	},
+	keepAlive: {
+		label: 'Leiser Ton, solange es läuft',
+		on: 'Alle zwei Sekunden ein leiser Ton, solange ein Backup oder eine Wiederherstellung läuft. Ein Telefon legt den Tab sonst schlafen, sobald du zu einer anderen App wechselst, und der Vorgang bricht ab; eine Seite, die hörbar spielt, lässt es laufen. Die Medienanzeige führt zurück in die App.',
+		off: 'Kein Ton. Bleib dann in Belege, bis es fertig ist: Wechselst du am Telefon zu einer anderen App, legt es den Tab nach ein paar Minuten schlafen, und der Vorgang bricht ab.',
+		restoring: 'Belege stellt wieder her …',
+		backingUp: 'Belege sichert …',
+		moving: 'Belege zieht die Bücher um …'
+	},
 	restore: {
 		leaves:
 			'Geht hinaus: an die Aleph-API die Adresse des Kontos, um seine Backups zu listen, und an Alephs Gateway die CID des Backups (beide sehen die IP-Adresse dieses Computers). Die Datei kommt versiegelt zurück und wird hier geöffnet.',

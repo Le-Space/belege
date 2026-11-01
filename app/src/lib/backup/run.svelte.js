@@ -18,6 +18,7 @@ import {
 import { backupName, rememberBackup } from './history.js';
 import { chainAfter, chainFromBase, saveChain } from './chain.js';
 import { keepAwake } from '$lib/wake-lock.js';
+import { holdAlive } from '$lib/keep-alive.js';
 import { BackupRefusedError } from './keeper.js';
 
 /**
@@ -191,8 +192,12 @@ export async function runBackup({ continuing, uploader, askFor, unattended = fal
 		uploadStarted: 0
 	});
 	window.addEventListener('beforeunload', holdTheTab);
-	// A phone must not darken its screen meanwhile (#512).
+	// A phone must not darken its screen meanwhile (#512), nor freeze the tab
+	// when the person switches to another app (#525): a tone, from the click
+	// on "Jetzt sichern". Not when the backup started by itself: no gesture
+	// would let it play, and nobody asked for a sound.
 	const letSleep = keepAwake();
+	const letQuiet = unattended ? () => {} : holdAlive({ title: t('keepAlive.backingUp') });
 	try {
 		backupRun.step = 'packing';
 		// A point in time, read and never changed: nothing to react to.
@@ -287,6 +292,7 @@ export async function runBackup({ continuing, uploader, askFor, unattended = fal
 		backupRun.error = refused(e);
 	} finally {
 		letSleep();
+		letQuiet();
 		window.removeEventListener('beforeunload', holdTheTab);
 		answer = null;
 		Object.assign(backupRun, { step: '', progress: null, asking: null });

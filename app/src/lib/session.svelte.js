@@ -1170,12 +1170,27 @@ async function run(getCredential, nothingFound, flow, { recovered } = {}) {
 	/** @type {ReturnType<typeof import('./unlock-progress.js').createUnlockProgress> | null} */
 	let progress = null;
 	let letSleep = () => {};
+	let letQuiet = () => {};
 	try {
 		const credential = await getCredential();
 		if (!credential) throw new Error(nothingFound);
 		// After the passkey answered: from here on the books open, and that is shown.
 		const { createUnlockProgress } = await import('./unlock-progress.js');
-		progress = createUnlockProgress({ onChange: (s) => (app.unlock = s) });
+		const { holdAlive } = await import('./keep-alive.js');
+		const { t } = await import('./i18n/index.js');
+		let moving = false;
+		progress = createUnlockProgress({
+			onChange: (s) => {
+				app.unlock = s;
+				// A move of the books after an update takes minutes: a tone keeps
+				// the tab from being frozen when a phone switches apps (#525). Only
+				// then, not for every unlock; the click on "Öffnen" still counts.
+				if (s.step === 'move' && !moving) {
+					moving = true;
+					letQuiet = holdAlive({ title: t('keepAlive.moving') });
+				}
+			}
+		});
 		// Opening may move the books after an update, for minutes: a phone must
 		// not darken its screen meanwhile (#512).
 		const { keepAwake } = await import('./wake-lock.js');
@@ -1199,6 +1214,7 @@ async function run(getCredential, nothingFound, flow, { recovered } = {}) {
 		app.error = error instanceof Error ? error.message : String(error);
 	} finally {
 		letSleep();
+		letQuiet();
 	}
 }
 

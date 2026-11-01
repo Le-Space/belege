@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A soft tone keeps a backup or restore alive through an app switch on a phone**: "Leiser Ton, solange es läuft" on the backup card (phones and tablets only, on by default, off per browser) plays a note every two seconds while a backup, a restore or the move of the books after an update runs, with a media notification that leads back into the app – a page that is audibly playing is one Chromium does not freeze. Whether it carries a restore through a real app switch is being measured (#525, docs/backup.md).
+
 ## [0.26.4] – 2026-10-31
 
 ### Added
