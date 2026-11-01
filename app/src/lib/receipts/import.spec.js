@@ -5,7 +5,14 @@ import { MemoryBlockstore } from 'blockstore-core/memory';
 
 import { memoryCollection } from '../bank/test-support.js';
 import { createBlobStore } from './blob-store.js';
-import { importFile, importFiles, importMailMessages, needsConfirmation, sniff } from './import.js';
+import {
+	fetchMailOriginal,
+	importFile,
+	importFiles,
+	importMailMessages,
+	needsConfirmation,
+	sniff
+} from './import.js';
 
 const pdf = (/** @type {string} */ marker) =>
 	new TextEncoder().encode(`%PDF-1.4\n${marker}\n%%EOF`);
@@ -136,7 +143,14 @@ describe('receipt import', () => {
 			mail({ id: 'bWFpbC0z', attachments: [], excerpt: 'Ihre Bestellung: 23,80 EUR' })
 		];
 		const counts = await importMailMessages({ receipts, blobs, client, messages });
-		expect(counts).toEqual({ new: 3, duplicate: 0, skipped: 0, unsupported: 0, verdicts: 0 });
+		expect(counts).toEqual({
+			new: 3,
+			duplicate: 0,
+			skipped: 0,
+			unsupported: 0,
+			verdicts: 0,
+			originals: 0
+		});
 		expect(downloads).toEqual(['bWFpbC0x#2', 'bWFpbC0y#3']);
 		const all = await receipts.list();
 		const text = all.find((r) => r.sourceRef === 'bWFpbC0z#text');
@@ -156,8 +170,181 @@ describe('receipt import', () => {
 		});
 
 		const again = await importMailMessages({ receipts, blobs, client, messages });
-		expect(again).toEqual({ new: 0, duplicate: 0, skipped: 3, unsupported: 0, verdicts: 0 });
+		expect(again).toEqual({
+			new: 0,
+			duplicate: 0,
+			skipped: 3,
+			unsupported: 0,
+			verdicts: 0,
+			originals: 0
+		});
 		expect(downloads).toHaveLength(2);
+	});
+
+	it('mail without an attachment: the mail as received is kept, sealed, beside its excerpt (#288)', async () => {
+		const { receipts, blobs } = await setup();
+		const eml = new TextEncoder().encode(
+			'Subject: Ihre Bestellung\r\nContent-Type: text/plain\r\n\r\nSumme: 23,80 EUR\r\n'
+		);
+		/** @type {string[]} */
+		const asked = [];
+		const client = {
+			mailAttachment: async () => pdf('x'),
+			mailRaw: async (/** @type {string} */ id) => {
+				asked.push(id);
+				return eml;
+			}
+		};
+		const messages = [mail({ id: 'bWFpbC0z', attachments: [], excerpt: 'Summe: 23,80 EUR' })];
+		await importMailMessages({ receipts, blobs, client, messages });
+		const [text] = await receipts.list();
+		expect(text).toMatchObject({ fileCid: null, mime: 'text/plain', emlSize: eml.length });
+		expect(new TextDecoder().decode(await blobs.get(text.emlCid))).toContain('Summe: 23,80 EUR');
+		expect(text.emlSha256).toMatch(/^[0-9a-f]{64}$/);
+		// Fetched again: nothing new, not even the mail.
+		const again = await importMailMessages({ receipts, blobs, client, messages });
+		expect(again).toMatchObject({ new: 0, skipped: 1, originals: 0 });
+		expect(asked).toEqual(['bWFpbC0z']);
+	});
+
+	it('a text receipt from before gets its original on the next fetch, or by "Original holen"', async () => {
+		const { receipts, blobs } = await setup();
+		const eml = new TextEncoder().encode('Content-Type: text/plain\r\n\r\nDanke.\r\n');
+		const messages = [mail({ id: 'bWFpbC0z', attachments: [], excerpt: 'Danke.' })];
+		// Imported by a version that kept no original.
+		await importMailMessages({
+			receipts,
+			blobs,
+			client: { mailAttachment: async () => pdf('x') },
+			messages
+		});
+		expect((await receipts.list())[0].emlCid).toBeUndefined();
+
+		const client = { mailAttachment: async () => pdf('x'), mailRaw: async () => eml };
+		const counts = await importMailMessages({ receipts, blobs, client, messages });
+		expect(counts).toMatchObject({ skipped: 1, originals: 1 });
+		expect((await receipts.list())[0].emlCid).toBeTruthy();
+
+		// One outside the fetch window, by hand; a mail no longer in the mailbox says so.
+		const old = await receipts.put({
+			source: 'mail',
+			sourceRef: 'b2xk#text',
+			mailId: 'b2xk',
+			fileCid: null,
+			mime: 'text/plain',
+			excerpt: 'Alt.'
+		});
+		const gone = Object.assign(new Error('not found'), { status: 404 });
+		const missing = { mailRaw: async () => Promise.reject(gone) };
+		expect(await fetchMailOriginal({ receipts, blobs, client: missing, receipt: old })).toBe(
+			'gone'
+		);
+		expect((await receipts.get(old.id))?.emlGone).toBe(true);
+		const offline = { mailRaw: async () => Promise.reject(new Error('offline')) };
+		const later = /** @type {any} */ (await receipts.get(old.id));
+		expect(
+			await fetchMailOriginal({
+				receipts,
+				blobs,
+				client: offline,
+				receipt: { ...later, emlGone: false }
+			})
+		).toBe('unavailable');
+		expect(
+			await fetchMailOriginal({ receipts, blobs, client, receipt: { ...later, emlGone: false } })
+		).toBe('kept');
+		expect((await receipts.get(old.id))?.emlCid).toBeTruthy();
+	});
+
+	it('an e-invoice upload: the XML kept as the original and read at once, without a model (#160)', async () => {
+		const { DOMParser } = await import('@xmldom/xmldom');
+		const { UBL_INVOICE } = await import('./einvoice.fixtures.js');
+		const before = /** @type {any} */ (globalThis).DOMParser;
+		/** @type {any} */ (globalThis).DOMParser = DOMParser;
+		try {
+			const { receipts, blobs } = await setup();
+			const xml = new TextEncoder().encode(UBL_INVOICE);
+			const { outcome, record } = await importFile({
+				receipts,
+				blobs,
+				bytes: xml,
+				fileName: 'rechnung.xml',
+				source: 'upload',
+				sourceRef: 'upload:rechnung.xml'
+			});
+			expect(outcome).toBe('new');
+			expect(record).toMatchObject({
+				mime: 'application/xml',
+				status: 'ausgelesen',
+				vendor: 'Wolkenbau Beispiel GmbH',
+				amountCents: 11900,
+				documentDate: '2026-09-14',
+				invoiceNumber: 'WB-2026-0815',
+				extractionModel: 'e-invoice (UBL)',
+				eInvoice: { syntax: 'ubl', en16931: true }
+			});
+			expect(await blobs.get(String(record?.fileCid))).toEqual(xml);
+			// Any other XML is still refused.
+			const other = await importFile({
+				receipts,
+				blobs,
+				bytes: new TextEncoder().encode('<?xml version="1.0"?><Liste><Eintrag/></Liste>'),
+				fileName: 'liste.xml',
+				source: 'upload',
+				sourceRef: 'upload:liste.xml'
+			});
+			expect(other.outcome).toBe('unsupported');
+		} finally {
+			/** @type {any} */ (globalThis).DOMParser = before;
+		}
+	});
+
+	it('a ZUGFeRD PDF: read from its embedded XML, kept beside it – unless the sender is unconfirmed (#160)', async () => {
+		const { DOMParser } = await import('@xmldom/xmldom');
+		const { PDFDocument } = await import('pdf-lib');
+		const { CII_XRECHNUNG } = await import('./einvoice.fixtures.js');
+		const before = /** @type {any} */ (globalThis).DOMParser;
+		/** @type {any} */ (globalThis).DOMParser = DOMParser;
+		try {
+			const doc = await PDFDocument.create();
+			doc.addPage().drawText('Rechnung');
+			await doc.attach(new TextEncoder().encode(CII_XRECHNUNG), 'factur-x.xml', {
+				mimeType: 'text/xml'
+			});
+			const bytes = await doc.save();
+			const { receipts, blobs } = await setup();
+			const { record } = await importFile({
+				receipts,
+				blobs,
+				bytes,
+				fileName: 'rechnung.pdf',
+				source: 'upload',
+				sourceRef: 'upload:rechnung.pdf'
+			});
+			expect(record).toMatchObject({
+				mime: 'application/pdf',
+				status: 'ausgelesen',
+				amountCents: 4890,
+				extractionModel: 'e-invoice (CII, ZUGFeRD)'
+			});
+			expect(new TextDecoder().decode(await blobs.get(String(record?.xmlCid)))).toBe(CII_XRECHNUNG);
+
+			// From a mail whose sender failed DKIM/SPF: not opened until confirmed.
+			const other = await setup();
+			const held = await importFile({
+				receipts: other.receipts,
+				blobs: other.blobs,
+				bytes,
+				fileName: 'rechnung.pdf',
+				source: 'mail',
+				sourceRef: 'bWFpbC05#2',
+				fields: { authVerdict: 'fail' }
+			});
+			expect(held.record).toMatchObject({ status: 'rückfrage', extraction: null });
+			expect(held.record?.xmlCid).toBeUndefined();
+		} finally {
+			/** @type {any} */ (globalThis).DOMParser = before;
+		}
 	});
 
 	it('mail: the same PDF in two mails is one receipt', async () => {
@@ -169,7 +356,14 @@ describe('receipt import', () => {
 			client,
 			messages: [mail(), mail({ id: 'bWFpbC05' })]
 		});
-		expect(counts).toEqual({ new: 1, duplicate: 1, skipped: 0, unsupported: 0, verdicts: 0 });
+		expect(counts).toEqual({
+			new: 1,
+			duplicate: 1,
+			skipped: 0,
+			unsupported: 0,
+			verdicts: 0,
+			originals: 0
+		});
 	});
 
 	it('mail: a sender that failed DKIM/SPF is a question; our own forward (Sent) is not', async () => {

@@ -2,7 +2,7 @@
 // status, source; grouping by month; search. Pure, so it is tested without a
 // database or a browser.
 
-import { formatMonth } from '../bank/format.js';
+import { formatDate, formatMoney, formatMonth } from '../bank/format.js';
 import { intlLocale } from '../i18n/index.js';
 
 /**
@@ -20,6 +20,7 @@ import { intlLocale } from '../i18n/index.js';
  * @property {string | null} [mime]
  * @property {string} [status]
  * @property {any} [extraction]
+ * @property {{ reason?: string, note?: string } | null} [setAside]
  */
 
 /**
@@ -45,6 +46,23 @@ function senderName(/** @type {string | null | undefined} */ from) {
 /** @param {ReceiptLike} r */
 export function receiptVendor(r) {
 	return r.vendor || senderName(r.from) || r.fileName || '—';
+}
+
+/**
+ * The line under a receipt's name where it is previewed (#273): amount, day,
+ * invoice number – what is known of them.
+ *
+ * @param {ReceiptLike & { invoiceNumber?: string | null }} r
+ */
+export function receiptLine(r) {
+	const day = receiptDate(r);
+	return [
+		typeof r.amountCents === 'number' ? formatMoney(r.amountCents, r.currency ?? 'EUR') : '',
+		day ? formatDate(day) : '',
+		r.invoiceNumber ?? ''
+	]
+		.filter(Boolean)
+		.join(' · ');
 }
 
 /**
@@ -80,12 +98,18 @@ export function groupReceiptsByMonth(receipts) {
 
 /**
  * @param {ReceiptLike[]} receipts
- * @returns {{ all: number, mail: number, upload: number, folder: number }}
+ * @returns {{ all: number, mail: number, paperless: number, upload: number, folder: number }}
  */
 export function sourceCounts(receipts) {
-	const counts = { all: receipts.length, mail: 0, upload: 0, folder: 0 };
+	const counts = { all: receipts.length, mail: 0, paperless: 0, upload: 0, folder: 0 };
 	for (const r of receipts) {
-		if (r.source === 'mail' || r.source === 'upload' || r.source === 'folder') counts[r.source]++;
+		if (
+			r.source === 'mail' ||
+			r.source === 'paperless' ||
+			r.source === 'upload' ||
+			r.source === 'folder'
+		)
+			counts[r.source]++;
 	}
 	return counts;
 }
@@ -131,8 +155,12 @@ const STATUS_KEYS = /** @type {Record<string, string>} */ ({
 	ignoriert: 'ignored'
 });
 
-/** Status → the badge key under `belege.status`. Read but not matched yet: "Nicht zugeordnet". */
+/**
+ * Status → the badge key under `belege.status`. Read but not matched yet:
+ * "Nicht zugeordnet"; set aside as private: "Privat".
+ */
 export function statusKey(/** @type {ReceiptLike} */ r) {
+	if (r.status === 'ignoriert' && r.setAside?.reason === 'private') return 'private';
 	return STATUS_KEYS[r.status ?? 'neu'] ?? 'new';
 }
 

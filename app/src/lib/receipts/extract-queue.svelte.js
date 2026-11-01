@@ -10,7 +10,7 @@
 
 import { SvelteSet } from 'svelte/reactivity';
 import { extractReceipt, extractable } from './extract.js';
-import { isRateLimit, runQueue } from '../jobs/queue.js';
+import { isRateLimit, isRefusal, runQueue } from '../jobs/queue.js';
 import { savePending } from '../jobs/pending.js';
 import { loadWorkers } from '../jobs/workers.js';
 
@@ -25,7 +25,9 @@ export const extractRun = $state({
 	/** @type {Record<string, string>} the last error, by receipt id */
 	errors: {},
 	/** receipts the last run could not read */
-	failed: 0
+	failed: 0,
+	/** @type {string | null} why the last run stopped: the provider refused (#417) */
+	stopped: null
 });
 
 /**
@@ -65,7 +67,8 @@ export async function extractOne(ctx, record, { rethrowLimit = false } = {}) {
 			events: store.events
 		});
 	} catch (error) {
-		if (rethrowLimit && isRateLimit(error)) throw error;
+		// A rate limit or a refusal is the run's to handle; this receipt was not read at all.
+		if (rethrowLimit && (isRateLimit(error) || isRefusal(error))) throw error;
 		extractRun.errors = {
 			...extractRun.errors,
 			[record.id]: error instanceof Error ? error.message : String(error)
@@ -107,7 +110,9 @@ export async function extractAll(ctx, ids) {
 			}
 		},
 		onProgress: (left) => settings && savePending(settings, 'extract', left),
-		onEnd: (left, how) => settings && savePending(settings, 'extract', how === 'closed' ? left : [])
+		onEnd: (left, how) =>
+			settings &&
+			savePending(settings, 'extract', how === 'closed' || how === 'stopped' ? left : [])
 	});
 }
 

@@ -9,7 +9,9 @@
 
 import { eventCalls } from '../stats/usage.js';
 import { recordEvent, tokenCount } from '../activity/events.js';
+import { isRateLimit, isRefusal } from '../jobs/queue.js';
 import { needsConfirmation } from './import.js';
+import { eInvoiceFields, pdfEInvoice } from './einvoice.js';
 import { t } from '../i18n/index.js';
 
 /** Fewer characters than this: a scan without a text layer. */
@@ -60,7 +62,9 @@ export function extractionInfo(result) {
 					email: num(r.email),
 					street: num(r.street),
 					postcode: num(r.postcode),
-					link: num(r.link)
+					link: num(r.link),
+					phone: num(r.phone),
+					id: num(r.id)
 				}
 			: null;
 	const attempts = Array.isArray(result?.attempts) ? result.attempts : [];
@@ -93,7 +97,17 @@ export function extractionInfo(result) {
 		redactions: counts
 			? { ...counts, total: typeof r.total === 'number' ? r.total : sum(counts) }
 			: typeof r === 'number'
-				? { terms: 0, iban: 0, email: 0, street: 0, postcode: 0, link: 0, total: r }
+				? {
+						terms: 0,
+						iban: 0,
+						email: 0,
+						street: 0,
+						postcode: 0,
+						link: 0,
+						phone: 0,
+						id: 0,
+						total: r
+					}
 				: null
 	};
 }
@@ -137,17 +151,47 @@ export async function extractReceipt({
 		return receipts.put({ ...latest, ...fields(latest) });
 	}
 
-	if (record.mime?.startsWith('image/')) {
+	// An e-invoice is read from its XML, here, without the bridge or a model (#160).
+	if (record.mime === 'application/xml' && record.fileCid) {
+		const read = eInvoiceFields(await blobs.get(record.fileCid), { now });
+		return writeOnLatest((latest) =>
+			read
+				? {
+						...read,
+						status: latest.status === 'zugeordnet' ? 'zugeordnet' : 'ausgelesen'
+					}
+				: { extractionError: 'no-einvoice' }
+		);
+	}
+
+	// A scan or photo from Paperless-ngx: its OCR text stands in for the text
+	// layer the file lacks (#318). It is read like any other text, never obeyed.
+	const ocr = ocrText(record);
+	if (record.mime?.startsWith('image/') && !ocr) {
 		return writeOnLatest(() => ({ extractionError: 'image' }));
 	}
 
 	let text = '';
 	if (record.fileCid && record.mime === 'application/pdf') {
-		const read = pdfText ?? (await import('./pdf.js')).extractPdfText;
-		text = (await read(await blobs.get(record.fileCid))).text;
-		if (text.replace(/\s+/g, '').length < MIN_TEXT) {
-			return writeOnLatest(() => ({ extractionError: 'no-text' }));
+		const pdf = await blobs.get(record.fileCid);
+		// A ZUGFeRD / Factur-X PDF: its embedded XML, read without a model (#160).
+		const embedded = await pdfEInvoice(pdf, { now });
+		if (embedded) {
+			const xmlCid = record.xmlCid ?? (await blobs.put(embedded.xml));
+			return writeOnLatest((latest) => ({
+				...embedded.fields,
+				xmlCid,
+				status: latest.status === 'zugeordnet' ? 'zugeordnet' : 'ausgelesen'
+			}));
 		}
+		const read = pdfText ?? (await import('./pdf.js')).extractPdfText;
+		text = (await read(pdf)).text;
+		if (text.replace(/\s+/g, '').length < MIN_TEXT) {
+			if (!ocr) return writeOnLatest(() => ({ extractionError: 'no-text' }));
+			text = ocr;
+		}
+	} else if (ocr) {
+		text = ocr;
 	} else {
 		text = [record.subject, record.excerpt].filter(Boolean).join('\n\n');
 	}
@@ -169,6 +213,9 @@ export async function extractReceipt({
 		});
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
+		// Refused by the provider or the bridge (#417), or rate-limited: this receipt
+		// was not read at all, and stays waiting as it is.
+		if (isRefusal(error) || isRateLimit(error)) throw error;
 		await writeOnLatest(() => ({ extractionError: message }));
 		await recordEvent(events, 'extract', { receiptId: record.id, ok: false, error: message });
 		throw error;
@@ -212,7 +259,18 @@ export async function extractReceipt({
 }
 
 /**
- * The receipts "Alle neuen auslesen" takes: new, not waiting for a yes, not an image.
+ * Paperless' OCR text of a receipt, when it has enough to read (#318); else ''.
+ *
+ * @param {Record<string, any>} record
+ */
+export function ocrText(record) {
+	const text = record.source === 'paperless' ? String(record.paperlessContent ?? '') : '';
+	return text.replace(/\s+/g, '').length >= MIN_TEXT ? text : '';
+}
+
+/**
+ * The receipts "Alle neuen auslesen" takes: new, not waiting for a yes, not an
+ * image or a PDF without text – unless Paperless' OCR text stands in.
  *
  * @param {import('../store/repository.js').StoredRecord[]} records
  */
@@ -222,7 +280,7 @@ export function extractable(records) {
 			r.status === 'neu' &&
 			!r.extraction &&
 			!needsConfirmation(r) &&
-			!String(r.mime ?? '').startsWith('image/') &&
-			r.extractionError !== 'no-text'
+			((!String(r.mime ?? '').startsWith('image/') && r.extractionError !== 'no-text') ||
+				Boolean(ocrText(r)))
 	);
 }

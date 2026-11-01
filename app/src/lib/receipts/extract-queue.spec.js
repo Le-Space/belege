@@ -178,6 +178,35 @@ describe('the app-wide queue', () => {
 		expect(extractRun).toMatchObject({ progress: null, cancelling: false });
 	});
 
+	it('stops when the provider refuses, and leaves the receipts waiting (#417)', async () => {
+		const { receipts, blobs, records } = await books(3);
+		/** @type {string[]} */
+		const sent = [];
+		const client = {
+			extract: async (/** @type {any} */ body) => {
+				sent.push(body.text);
+				throw Object.assign(new Error('Das Guthaben bei DeepSeek ist aufgebraucht.'), {
+					status: 402,
+					code: 'LLM_NO_CREDIT'
+				});
+			}
+		};
+		const ctx = { client, store: () => ({ receipts }), blobs: () => blobs, workers: 1 };
+		await extractAll(
+			ctx,
+			records.map((r) => r.id)
+		);
+		expect(sent).toHaveLength(1);
+		expect(extractRun).toMatchObject({
+			progress: null,
+			failed: 0,
+			stopped: 'Das Guthaben bei DeepSeek ist aufgebraucht.'
+		});
+		const stored = await receipts.list();
+		expect(stored.every((r) => r.status === 'neu' && !r.extractionError)).toBe(true);
+		expect(records.every((r) => !extractRun.errors[r.id])).toBe(true);
+	});
+
 	it('stops when the books are locked', async () => {
 		const { receipts, blobs, records } = await books(3);
 		const slow = slowClient();

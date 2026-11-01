@@ -23,7 +23,7 @@ import { formatQuantity, groupDigits, separators, valueCents } from './quantity.
  * @property {'EUR'} currency
  * @property {string} rate EUR per whole unit, a decimal string
  * @property {string | null} usdRate USD per whole unit, when the source has it
- * @property {'coingecko' | 'kraken' | 'ecb' | 'trade' | 'dex' | 'migration' | 'manual'} source
+ * @property {'coingecko' | 'kraken' | 'ecb' | 'cbr' | 'nbk' | 'cbr-cross' | 'trade' | 'dex' | 'migration' | 'manual'} source
  *   `trade`: the price of the trade itself (what was paid for the asset);
  *   `dex`: a DEX pool's price at the booking's block (#163);
  *   `migration`: a replacement token, worth the holding burned for it (#162)
@@ -45,6 +45,10 @@ export const SOURCE_NAMES = Object.freeze({
 	coingecko: 'CoinGecko',
 	kraken: 'Kraken',
 	ecb: 'EZB-Referenzkurs',
+	cbr: 'Referenzkurs der Bank of Russia',
+	nbk: 'Referenzkurs der Nationalbank Kasachstans',
+	// eslint-disable-next-line belege/no-german -- German documents stay German (#192)
+	'cbr-cross': 'Kreuzkurs über RUB (Bank of Russia)',
 	trade: 'Preis des Handels',
 	dex: 'DEX-Pool',
 	migration: 'Wert der verbrannten alten Token',
@@ -146,6 +150,41 @@ export function formatRate(rate, locale = intlLocale()) {
 }
 
 /**
+ * A rate to read, not to calculate with: at most six significant digits, at
+ * least two decimals – `1,1138`, `60.123,40`, `0,000012346`. The full rate
+ * stays in the books and on hover.
+ *
+ * @param {string} rate
+ * @param {string} [locale]
+ */
+export function formatRateShort(rate, locale = intlLocale()) {
+	const [int, frac = ''] = String(rate).split('.');
+	const whole = int.replace(/^-?0+(?=\d)/, '');
+	const intDigits = /^-?0$/.test(int) ? 0 : whole.replace('-', '').length;
+	// Below one, count from the first digit that is not zero.
+	const lead = intDigits ? 0 : (/^0*/.exec(frac)?.[0].length ?? 0);
+	const keep = Math.max(2, intDigits ? 6 - intDigits : lead + 6);
+	const cut = frac.slice(0, keep).replace(/0+$/, '');
+	return formatRate(cut ? `${int}.${cut}` : int, locale);
+}
+
+/**
+ * The placeholder of the "EUR per unit" field: the rate the booking has, as it
+ * is typed – the locale's decimal mark, no grouping, and never `2,345`, which
+ * the field refuses as ambiguous (parseRateInput) – or nothing when it has
+ * none. Never a fixed example: one number cannot be right for BTC and for a
+ * cent token at once.
+ *
+ * @param {string | null | undefined} rate
+ * @param {string} [locale]
+ */
+export function rateInputPlaceholder(rate, locale = intlLocale()) {
+	if (typeof rate !== 'string' || !/^\d+(\.\d+)?$/.test(rate)) return '';
+	const typed = /^[1-9]\d{0,2}\.\d{3}$/.test(rate) ? `${rate}0` : rate;
+	return typed.replace('.', separators(locale).decimal);
+}
+
+/**
  * ` (Uniswap V2, Pool 0x1234…abcd, Block 123)` from a `dex` rate's ref, or ''.
  *
  * @param {unknown} ref
@@ -162,8 +201,9 @@ function poolText(ref) {
  * `60.123,40 EUR je BTC · CoinGecko, 01.09.2026 00:00 UTC`, or ''.
  *
  * @param {Record<string, any>} tx
+ * @param {{ short?: boolean }} [options] `short`: the rate in at most six significant digits
  */
-export function valuationText(tx) {
+export function valuationText(tx, { short = false } = {}) {
 	const v = tx?.valuation;
 	if (!hasQuantity(tx) || !v?.rate) return '';
 	const source = Object.hasOwn(SOURCE_NAMES, v.source)
@@ -172,7 +212,7 @@ export function valuationText(tx) {
 	const at = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(v.at ?? ''));
 	const when = at ? `${formatDate(`${at[1]}-${at[2]}-${at[3]}`)} ${at[4]}:${at[5]} UTC` : '';
 	return t('assets.valuationLine', {
-		rate: formatRate(v.rate),
+		rate: short ? formatRateShort(v.rate) : formatRate(v.rate),
 		asset: String(tx.asset ?? ''),
 		source: `${source}${poolText(v.ref)}`,
 		when: when ? `, ${when}` : ''

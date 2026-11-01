@@ -42,7 +42,7 @@ describe('receipts view', () => {
 	it('counts per source', () => {
 		expect(
 			sourceCounts([r({ source: 'mail' }), r({ source: 'mail' }), r({}), r({ source: 'folder' })])
-		).toEqual({ all: 4, mail: 2, upload: 1, folder: 1 });
+		).toEqual({ all: 4, mail: 2, paperless: 0, upload: 1, folder: 1 });
 	});
 
 	it('vendor: the extraction, else the sender name, else the file', () => {
@@ -83,6 +83,10 @@ describe('receipts view', () => {
 	it('status badges: read but not matched is "Nicht zugeordnet"', () => {
 		expect(statusKey(r({ status: 'neu' }))).toBe('new');
 		expect(statusKey(r({ status: 'ausgelesen' }))).toBe('unassigned');
+		expect(statusKey(r({ status: 'ignoriert', setAside: { reason: 'private' } }))).toBe('private');
+		expect(statusKey(r({ status: 'ignoriert', setAside: { reason: 'not-needed' } }))).toBe(
+			'ignored'
+		);
 		expect(statusKey(r({ status: 'rückfrage' }))).toBe('question');
 		expect(statusKey(r({ status: 'zugeordnet' }))).toBe('assigned');
 		expect(statusKey(r({ status: 'ignoriert' }))).toBe('ignored');

@@ -34,7 +34,7 @@ export function describeEvent(e, { receipts = [], transactions = [] } = {}) {
 				title: t('verlauf.kind.bank-sync'),
 				text: t('verlauf.text.bankSync', {
 					source: t(
-						`verlauf.source.${e.source === 'camt' || e.source === 'kraken' || isWalletSource(e.source) ? e.source : 'hibiscus'}`
+						`verlauf.source.${e.source === 'camt' || e.source === 'kraken' || e.source === 'enablebanking' || e.source === 'crypto-ledger' || isWalletSource(e.source) ? e.source : 'hibiscus'}`
 					),
 					accounts: e.accounts ?? 0,
 					new: e.new ?? 0,
@@ -67,6 +67,18 @@ export function describeEvent(e, { receipts = [], transactions = [] } = {}) {
 						skipped: e.skipped ?? 0,
 						duplicate: e.duplicate ?? 0
 					}) + (e.verdicts ? t('belege.mailVerdicts', { count: e.verdicts }) : '')
+			};
+		case 'paperless-fetch':
+			return {
+				...base,
+				title: t('verlauf.kind.paperless-fetch'),
+				text: t('verlauf.text.paperlessFetch', {
+					documents: e.documents ?? 0,
+					new: e.new ?? 0,
+					known: e.known ?? 0,
+					duplicate: e.duplicate ?? 0,
+					skipped: e.skipped ?? 0
+				})
 			};
 		case 'file-import':
 			return {
@@ -221,10 +233,21 @@ export function describeEvent(e, { receipts = [], transactions = [] } = {}) {
 			return {
 				...base,
 				title: t('verlauf.kind.export'),
-				text: t('verlauf.text.export', {
+				text: t(e.suspense ? 'verlauf.text.exportSuspense' : 'verlauf.text.export', {
 					month: String(e.month ?? '?'),
 					bookings: e.bookings ?? 0,
+					suspense: e.suspense ?? 0,
 					receipts: e.receipts ?? 0
+				})
+			};
+		case 'books-moved':
+			return {
+				...base,
+				title: t('verlauf.kind.books-moved'),
+				text: t('verlauf.text.booksMoved', {
+					date: formatDate(String(e.packedAt ?? '').slice(0, 10)),
+					records: e.records ?? 0,
+					files: e.files ?? 0
 				})
 			};
 		default:

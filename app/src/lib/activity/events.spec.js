@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { memoryCollection } from '../bank/test-support.js';
-import { extractionTotals, filterEvents, recordEvent } from './events.js';
+import { failureReason, extractionTotals, filterEvents, recordEvent } from './events.js';
 import { describeEvent } from './view.js';
 
 describe('recordEvent', () => {
@@ -87,9 +87,11 @@ describe('filterEvents and extractionTotals', () => {
 	});
 
 	it('calls, tokens (the whole call where known), failures, fallbacks, the last one', () => {
-		expect(extractionTotals(events)).toEqual({
+		expect(extractionTotals(events, { now: Date.parse('2026-09-25T00:00:00Z') })).toEqual({
 			calls: 3,
 			failed: 1,
+			failedRecent: 1,
+			failedReasons: [{ reason: 'HTTP 500', count: 1 }],
 			fallbacks: 1,
 			tokens: 962,
 			lastAt: '2026-09-24T11:00:00Z',
@@ -165,5 +167,64 @@ describe('describeEvent', () => {
 		const d = describeEvent({ kind: 'extract', ok: true, receiptId: 'GONE', ms: 10 }, books);
 		expect(d.receiptId).toBeNull();
 		expect(d.text.startsWith('— ·')).toBe(true);
+	});
+});
+
+describe('why extractions failed', () => {
+	it('the most frequent reasons, numbers folded; how many in the last 7 days', () => {
+		const at = (/** @type {string} */ day) => `${day}T10:00:00Z`;
+		const fail = (
+			/** @type {string} */ id,
+			/** @type {string} */ day,
+			/** @type {string} */ error
+		) => ({
+			id,
+			kind: 'extract',
+			ok: false,
+			error,
+			at: at(day)
+		});
+		const events = [
+			fail(
+				'1',
+				'2026-10-01',
+				"LLM_NO_CREDIT: the provider's credit is used up (deepseek-flash: HTTP 402)"
+			),
+			fail(
+				'2',
+				'2026-10-01',
+				"LLM_NO_CREDIT: the provider's credit is used up (deepseek-flash: HTTP 402)"
+			),
+			fail('3', '2026-10-20', 'no answer within 600 s (300588 ms)'),
+			fail('4', '2026-10-21', 'no answer within 600 s (301154 ms)'),
+			fail('5', '2026-10-21', 'no answer within 600 s (299001 ms)'),
+			fail('6', '2026-10-21', 'checks failed: net + VAT is not gross'),
+			fail('7', '2026-10-21', 'something else')
+		];
+		// A model's name keeps its numbers: three models are three reasons, not one.
+		expect(
+			[
+				'No model gave a usable answer (qwen3.8-27b-tee: checks failed: gross missing)',
+				'No model gave a usable answer (deepseek-v4-pro: HTTP 402)',
+				'No model gave a usable answer (qwen3:30b-a3b-instruct-2507-q4_K_M: no answer within 600 s)'
+			].map(failureReason)
+		).toEqual([
+			'No model gave a usable answer (qwen3.8-27b-tee: checks failed: gross missing)',
+			'No model gave a usable answer (deepseek-v4-pro: HTTP 402)',
+			'No model gave a usable answer (qwen3:30b-a3b-instruct-2507-q4_K_M: no answer within # s)'
+		]);
+		const totals = extractionTotals(/** @type {any} */ (events), {
+			now: Date.parse('2026-10-22T12:00:00Z')
+		});
+		expect(totals.failed).toBe(7);
+		expect(totals.failedRecent).toBe(5);
+		expect(totals.failedReasons).toEqual([
+			{ reason: 'no answer within # s (# ms)', count: 3 },
+			{
+				reason: "LLM_NO_CREDIT: the provider's credit is used up (deepseek-flash: HTTP 402)",
+				count: 2
+			},
+			{ reason: 'checks failed: net + VAT is not gross', count: 1 }
+		]);
 	});
 });

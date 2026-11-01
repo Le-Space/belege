@@ -4,7 +4,7 @@
 // cannot forget it.
 //
 // A record holds
-//   kind      bank-sync | booking-changed | mail-fetch | file-import | sender-verdict | extract | mail-assist | matching | decision | export
+//   kind      bank-sync | booking-changed | mail-fetch | paperless-fetch | file-import | sender-verdict | extract | mail-assist | matching | decision | export
 //   at        ISO 8601
 //   ids       receiptId, transactionId, matchId, questionId, where there is one
 //   summary   counts and small facts (model, tokens, redactions by kind, …)
@@ -14,7 +14,7 @@
 /** @typedef {import('../store/repository.js').Collection} Collection */
 /** @typedef {import('../store/repository.js').StoredRecord} StoredRecord */
 
-/** @typedef {'bank-sync' | 'booking-changed' | 'mail-fetch' | 'file-import' | 'sender-verdict' | 'extract' | 'mail-assist' | 'match-assist' | 'transfer-assist' | 'vendor-assist' | 'matching' | 'decision' | 'export'} EventKind */
+/** @typedef {'bank-sync' | 'booking-changed' | 'mail-fetch' | 'paperless-fetch' | 'file-import' | 'sender-verdict' | 'extract' | 'mail-assist' | 'match-assist' | 'transfer-assist' | 'vendor-assist' | 'matching' | 'decision' | 'export' | 'books-moved'} EventKind */
 /** @typedef {'auslesen' | 'abgleich' | 'abruf' | 'entscheidungen'} EventGroup */
 
 /** @type {Record<EventKind, EventGroup>} */
@@ -23,6 +23,7 @@ export const GROUP_OF = {
 	// A booking that came again changed in what it is (bank/import.js).
 	'booking-changed': 'abruf',
 	'mail-fetch': 'abruf',
+	'paperless-fetch': 'abruf',
 	'file-import': 'abruf',
 	'sender-verdict': 'abruf',
 	extract: 'auslesen',
@@ -33,7 +34,9 @@ export const GROUP_OF = {
 	matching: 'abgleich',
 	decision: 'entscheidungen',
 	// The DATEV export is the person's act too.
-	export: 'entscheidungen'
+	export: 'entscheidungen',
+	// These books were taken over from other books (#328): the person's act.
+	'books-moved': 'entscheidungen'
 };
 
 /** The filters on the Verlauf page, in this order. */
@@ -107,11 +110,16 @@ export function filterEvents(events, group = 'all') {
  * The totals the KI card shows: calls, tokens, the last extraction.
  *
  * @param {Record<string, any>[]} events
- * @returns {{ calls: number, failed: number, fallbacks: number, tokens: number, lastAt: string | null, lastModel: string | null }}
+ * @param {{ now?: number }} [options] "the last 7 days" end now
+ * @returns {{ calls: number, failed: number, failedRecent: number, failedReasons: { reason: string, count: number }[], fallbacks: number, tokens: number, lastAt: string | null, lastModel: string | null }}
  */
-export function extractionTotals(events) {
+export function extractionTotals(events, { now = Date.now() } = {}) {
 	let calls = 0;
 	let failed = 0;
+	let failedRecent = 0;
+	/** @type {Map<string, number>} */
+	const reasons = new Map();
+	const recentFrom = now - 7 * 864e5;
 	let fallbacks = 0;
 	let tokens = 0;
 	/** @type {Record<string, any> | null} */
@@ -119,7 +127,12 @@ export function extractionTotals(events) {
 	for (const e of events) {
 		if (e.deleted || e.kind !== 'extract') continue;
 		calls++;
-		if (e.ok === false) failed++;
+		if (e.ok === false) {
+			failed++;
+			if (Date.parse(String(e.at)) >= recentFrom) failedRecent++;
+			const reason = failureReason(e.error);
+			reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
+		}
 		if (e.fallback) fallbacks++;
 		tokens += typeof e.tokensTotal === 'number' ? e.tokensTotal : tokenCount(e.tokens);
 		if (!last || String(e.at) > String(last.at)) last = e;
@@ -127,11 +140,32 @@ export function extractionTotals(events) {
 	return {
 		calls,
 		failed,
+		// In the last 7 days: an old run of failures (credit used up, a slow model) apart from now.
+		failedRecent,
+		// The most frequent reasons, numbers folded so "… 300588 ms" and "… 301154 ms" are one.
+		failedReasons: [...reasons]
+			.map(([reason, count]) => ({ reason, count }))
+			.sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason))
+			.slice(0, 3),
 		fallbacks,
 		tokens,
 		lastAt: last?.at ?? null,
 		lastModel: last?.model ?? null
 	};
+}
+
+/**
+ * A failure's reason to count by: the message, at most 120 characters, its
+ * measurements as `#` – "… 300588 ms" and "… 301154 ms" are one reason. Only
+ * numbers that stand alone: those in a model's name (`qwen3.8-27b-tee`,
+ * `deepseek-v4-pro`) stay, and so does an HTTP status, which says what went
+ * wrong (402: no credit, 500: the provider).
+ *
+ * @param {unknown} error
+ */
+export function failureReason(error) {
+	const text = String(error ?? '').trim() || '?';
+	return text.replace(/(?<![\w.:-])(?<!HTTP )\d+(?:[.,]\d+)?(?![A-Za-z])/g, '#').slice(0, 120);
 }
 
 /**

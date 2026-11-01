@@ -6,6 +6,13 @@
 // The periodic check never asks for permission: a browser grants folder
 // access only from a click, so without it granted this session the timer does
 // nothing until the person clicks a button that asks.
+//
+// What is new is read with the model only while "gleich auslesen" is on – the
+// switch beside the upload (`uploadRead.readAfter`), which the folder follows
+// as the upload does (#475). Otherwise the files wait under Belege → Neu for
+// "Alle neuen auslesen". A receipt whose sender needs confirming waits for
+// that; an image without text is marked by the extraction as unreadable,
+// never sent.
 
 import { ensurePermission, listFolderFiles } from './folder.js';
 import { importFiles } from './import.js';
@@ -73,4 +80,39 @@ export function watchFolder(
 		}
 	}, intervalMs);
 	return () => clearInterval(timer);
+}
+
+/**
+ * Read what a folder check brought, as the switch says (#475).
+ *
+ * @param {object} params
+ * @param {import('../store/repository.js').StoredRecord[]} params.created
+ * @param {boolean} params.readAfter the person's "gleich auslesen"
+ * @param {boolean} params.canRead a bridge is paired
+ * @param {(record: import('../store/repository.js').StoredRecord) => boolean} params.needsConfirmation
+ * @param {(record: import('../store/repository.js').StoredRecord) => Promise<unknown>} params.read
+ * @returns {Promise<{ read: number, waiting: number, images: number }>} read: sent to the model;
+ *   waiting: left for "Auslesen" (switch off, no bridge, a sender to confirm); images: no text to send
+ */
+export async function readNewFiles({ created, readAfter, canRead, needsConfirmation, read }) {
+	let sent = 0;
+	let waiting = 0;
+	let images = 0;
+	for (const record of created) {
+		if (needsConfirmation(record) || !readAfter || !canRead) {
+			waiting++;
+			continue;
+		}
+		const image = String(record.mime ?? '').startsWith('image/');
+		try {
+			// An image is marked unreadable by the extraction itself, without a request.
+			await read(record);
+			if (image) images++;
+			else sent++;
+		} catch (error) {
+			console.error('reading a folder file failed:', error);
+			waiting++;
+		}
+	}
+	return { read: sent, waiting, images };
 }

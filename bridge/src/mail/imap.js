@@ -25,10 +25,12 @@
 import { ImapFlow } from 'imapflow';
 
 import { authVerdict, headerValues } from './auth-results.js';
+import { MAX_EVENTS, parseIcs } from './ics.js';
 import {
 	amountVariants,
 	aroundWindow,
 	attachmentParts,
+	calendarParts,
 	decodeMailId,
 	encodeMailId,
 	excerpt,
@@ -39,9 +41,13 @@ import {
 } from './mime.js';
 
 export const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
+/** A whole mail as received (#288): the receipt a mail without an attachment is. */
+export const MAX_RAW_BYTES = 10 * 1024 * 1024;
 const MAX_LISTED = 500;
 const SNIFF_BYTES = 1024;
 const TEXT_BYTES = 16 * 1024;
+/** A calendar part is read up to this many bytes; a much larger one is skipped. */
+const CALENDAR_BYTES = 64 * 1024;
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1']);
 
 const SKIP_LISTING = new Set(['\\Trash', '\\Junk', '\\Drafts']);
@@ -85,6 +91,7 @@ export class MailError extends Error {
  * @property {import('./auth-results.js').AuthResult} auth
  * @property {boolean} outgoing from the Sent folder
  * @property {MailAttachment[]} attachments
+ * @property {import('./ics.js').Appointment[]} calendar an invitation's appointments, title, place and times only
  * @property {string} excerpt up to about 2 KB of the text, HTML stripped
  * @property {'to' | 'received' | null} [addressedBy] how it reached the accounting address
  * @property {string[]} [matched] search only: which criteria matched
@@ -97,12 +104,14 @@ export class MailError extends Error {
  * @param {() => Promise<string>} options.getPassword from the keychain
  * @param {typeof ImapFlow} [options.ImapClient]
  * @param {() => Date} [options.now]
+ * @param {number} [options.maxRawBytes] the cap on a whole mail (`raw`); smaller in tests
  */
 export function createMailClient({
 	config,
 	getPassword,
 	ImapClient = ImapFlow,
-	now = () => new Date()
+	now = () => new Date(),
+	maxRawBytes = MAX_RAW_BYTES
 }) {
 	const { host, port, user, tls } = config;
 	if (!host || !user) throw new Error('Mail is not set up: run `pnpm setup:mail`.');
@@ -245,6 +254,21 @@ export function createMailClient({
 			});
 		}
 
+		// An invitation's appointments (#213): title, place and times only (ics.js).
+		/** @type {import('./ics.js').Appointment[]} */
+		const calendar = [];
+		for (const c of calendarParts(msg.bodyStructure).slice(0, 2)) {
+			if (c.size > CALENDAR_BYTES * 2) continue;
+			try {
+				const raw = (await firstBytes(client, msg.uid, c.part, CALENDAR_BYTES)).toString('utf8');
+				for (const a of parseIcs(raw)) {
+					if (calendar.length < MAX_EVENTS) calendar.push(a);
+				}
+			} catch {
+				// A calendar part the server cannot hand out: no appointment.
+			}
+		}
+
 		let text = '';
 		const tp = textPart(msg.bodyStructure);
 		if (tp) {
@@ -269,6 +293,7 @@ export function createMailClient({
 			auth,
 			outgoing: folder.sent,
 			attachments,
+			calendar,
 			excerpt: text,
 			addressedBy: addressedBy(msg.envelope, headers),
 			bulk: /^(list-unsubscribe|list-id):|^precedence:\s*(bulk|list|junk)/im.test(headers)
@@ -381,7 +406,7 @@ export function createMailClient({
 		},
 
 		/**
-		 * One attachment's bytes: PDFs and images only, up to the cap.
+		 * One attachment's bytes: PDFs, images and e-invoice XML (#160) only, up to the cap.
 		 *
 		 * @param {string} id
 		 * @param {string} part
@@ -422,9 +447,44 @@ export function createMailClient({
 				const bytes = Buffer.concat(chunks);
 				const found = sniff(bytes);
 				if (found.kind === 'other' || !found.mime) {
-					throw new MailError('only PDFs and images are handed out', 415, 'MAIL_TYPE');
+					throw new MailError('only PDFs, images and e-invoices are handed out', 415, 'MAIL_TYPE');
 				}
 				return { bytes, mime: found.mime, name: info.name };
+			});
+		},
+
+		/**
+		 * One mail as it was received (RFC 822), for a receipt that is the mail
+		 * itself (#288): kept as the original next to its excerpt. Only a mail
+		 * to the accounting address – the mailbox mixes it with private mail, and
+		 * unlike an attachment the whole mail is everything – and up to the cap.
+		 *
+		 * @param {string} id
+		 * @returns {Promise<{ bytes: Buffer, mime: 'message/rfc822' }>}
+		 */
+		async raw(id) {
+			const ref = decodeMailId(id);
+			if (!ref) throw new MailError('unknown mail', 404, 'MAIL_UNKNOWN');
+			return session(async (client) => {
+				const box = await client.mailboxOpen(ref.folder, { readOnly: true }).catch(() => null);
+				if (!box || String(box.uidValidity) !== ref.uidValidity) {
+					throw new MailError('unknown mail', 404, 'MAIL_UNKNOWN');
+				}
+				const msg = await client.fetchOne(String(ref.uid), { ...FETCH, size: true }, { uid: true });
+				if (!msg) throw new MailError('unknown mail', 404, 'MAIL_UNKNOWN');
+				if (!addressedBy(msg.envelope, msg.headers?.toString('utf8') ?? '')) {
+					throw new MailError('not a mail to the accounting address', 403, 'MAIL_SCOPE');
+				}
+				if (Number(msg.size ?? 0) > maxRawBytes) {
+					throw new MailError('mail too large', 413, 'MAIL_TOO_LARGE');
+				}
+				const full = await client.fetchOne(String(ref.uid), { source: true }, { uid: true });
+				const bytes = full?.source;
+				if (!bytes || !bytes.length) throw new MailError('unknown mail', 404, 'MAIL_UNKNOWN');
+				if (bytes.length > maxRawBytes) {
+					throw new MailError('mail too large', 413, 'MAIL_TOO_LARGE');
+				}
+				return { bytes, mime: 'message/rfc822' };
 			});
 		},
 

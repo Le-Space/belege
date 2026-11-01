@@ -5,6 +5,7 @@ import { formatQuantity, fromUnits, toUnits, valueCents } from './quantity.js';
 import {
 	formatRate,
 	quantityText,
+	rateInputPlaceholder,
 	valuationText,
 	valuedFields,
 	valueMovement
@@ -115,5 +116,14 @@ describe('valuation', () => {
 		expect(valuationText({ amountCents: 100 })).toBe('');
 		expect(formatRate('0.000012')).toBe('0,000012');
 		expect(formatRate('3')).toBe('3,00');
+	});
+
+	it("the manual rate field shows the booking's own rate as typed, or nothing", () => {
+		expect(rateInputPlaceholder('60123.4', 'de-DE')).toBe('60123,4');
+		expect(rateInputPlaceholder('60123.4', 'en-GB')).toBe('60123.4');
+		expect(rateInputPlaceholder('0.000012', 'de-DE')).toBe('0,000012');
+		expect(rateInputPlaceholder('2.345', 'de-DE')).toBe('2,3450');
+		expect(rateInputPlaceholder(undefined, 'de-DE')).toBe('');
+		expect(rateInputPlaceholder('', 'de-DE')).toBe('');
 	});
 });

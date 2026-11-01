@@ -85,6 +85,8 @@ test.beforeAll(async () => {
 				...defaultConfig().llm,
 				baseUrl: llm.url,
 				redactTerms: [SECRETS.customerName],
+				// The fake on 127.0.0.1 stands in for a provider elsewhere: text is blacked out (#423).
+				redaction: 'on',
 				configured: true
 			}
 		},
@@ -148,12 +150,21 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	const ki = page.getByTestId('ki-card');
 	await expect(ki.getByTestId('ki-simple')).toContainText('Die KI liest nur Belege aus');
 	await expect(ki.getByTestId('ki-simple')).toContainText('macht die App selbst');
+	// How to read locally with Ollama, and where the whole guide is (docs/ollama.de.md).
+	await expect(ki.getByTestId('ki-ollama')).toContainText(
+		'ollama pull qwen3:30b-a3b-instruct-2507'
+	);
+	await expect(ki.getByTestId('ki-ollama-doc')).toHaveAttribute(
+		'href',
+		'https://github.com/Le-Space/belege/blob/main/docs/ollama.de.md'
+	);
 	await expect(ki.getByTestId('ki-key')).toHaveText('eingerichtet ✓');
 	await expect(ki.getByTestId('ki-provider')).toHaveText(new URL(llm.url).host);
 	await expect(ki.getByTestId('ki-models')).toHaveText(
 		'deepseek-flash, beim zweiten Versuch deepseek-v4-pro'
 	);
 	await expect(ki.getByTestId('ki-terms')).toHaveText('1');
+	await expect(ki.getByTestId('ki-redaction')).toHaveAttribute('data-active', 'true');
 	await expect(ki.getByTestId('ki-authserv')).toContainText('nicht gesetzt – pnpm setup:mail');
 	await expect(ki.getByTestId('ki-totals')).toHaveText('0 Aufrufe · 0 Tokens');
 	expect((await page.content()).includes(FAKE_LLM_KEY)).toBe(false);
@@ -168,6 +179,8 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	await expect(page.getByTestId('mail-result')).toHaveText(
 		'6 E-Mails · neu: 6 · schon vorhanden: 0 · doppelt: 0'
 	);
+	// Belege shows one month at a time (#313): this spec looks at the whole year.
+	await page.locator('[data-testid="receipt-month-pick"][data-month="all"]').click();
 	const receipts = page.getByTestId('receipt');
 	await expect(receipts).toHaveCount(6);
 	await expect(
@@ -278,8 +291,17 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	await page.locator('[data-testid="verlauf-filter"][data-group="abruf"]').click();
 	await expect(events.filter({ hasText: 'E-Mails abgerufen' })).toHaveCount(2);
 	await page.locator('[data-testid="verlauf-filter"][data-group="auslesen"]').click();
+	// The receipt shows its preview on hover, as on Zahlungen.
+	await events.getByTestId('verlauf-open-receipt').hover();
+	const verlaufPeek = page.getByTestId('receipt-peek');
+	await expect(verlaufPeek).toBeVisible();
+	await expect(verlaufPeek).toContainText(RECEIPTS.wolkenfabrik.vendor);
+	await page.keyboard.press('Escape');
+	await expect(verlaufPeek).toHaveCount(0);
 	await events.getByTestId('verlauf-open-receipt').click();
 	await expect(detail.getByTestId('detail-vendor')).toHaveText(RECEIPTS.wolkenfabrik.vendor);
+	// A receipt opened by link shows its own month (#313); the rest of the spec looks at the year.
+	await page.locator('[data-testid="receipt-month-pick"][data-month="all"]').click();
 
 	// The phishing look-alike: a warning, no preview, no "Auslesen" – until confirmed.
 	const phish = receipts.filter({ has: page.getByTestId('receipt-unverified') }).filter({
@@ -321,13 +343,20 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	await expect(detail.getByTestId('preview-text')).toContainText(
 		`Summe: ${RECEIPTS.papierladen.gross} EUR`
 	);
+	// The mail kept as received (#288), its text read from it; the HTML's script never shown.
+	await expect(detail.getByTestId('preview-text')).toHaveAttribute('data-original', 'true');
+	await expect(detail.getByTestId('preview-text')).not.toContainText('alert');
+	await expect(detail.getByTestId('mail-original-kept')).toContainText('.eml');
 	await receipts.filter({ hasText: 'quittung.jpg' }).click();
 	await expect(detail.getByTestId('preview-image')).toBeVisible();
 	await expect(detail.getByTestId('extract-note')).toHaveText(
 		'Bild – Auslesen folgt (noch keine Texterkennung).'
 	);
 
-	// Upload a PDF; the same bytes again are a duplicate.
+	// Upload a PDF; the same bytes again are a duplicate. Not read on upload:
+	// read at once, it could be dated before the check below and leave "Ohne Datum".
+	await page.getByTestId('upload-open').click();
+	await page.getByTestId('upload-read-after').uncheck();
 	await page
 		.getByTestId('receipt-upload')
 		.setInputFiles({ name: UPLOAD.file, mimeType: 'application/pdf', buffer: uploadPdf });
@@ -340,6 +369,7 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	await expect(page.getByTestId('import-result')).toHaveText(
 		'Neu: 0 · doppelt: 1 · nicht unterstützt: 0'
 	);
+	await page.getByTestId('upload-close').click();
 	await expect(receipts).toHaveCount(7);
 	const uploaded = receipts.filter({ hasText: UPLOAD.file });
 	await expect(uploaded).toHaveAttribute('data-source', 'upload');
@@ -360,6 +390,8 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
 	await tab('Belege').click();
+	// Belege shows one month at a time (#313): this spec looks at the whole year.
+	await page.locator('[data-testid="receipt-month-pick"][data-month="all"]').click();
 	await expect(receipts).toHaveCount(7);
 	await receipts.filter({ hasText: UPLOAD.file }).click();
 	await expect(detail.getByTestId('preview-pdf')).toHaveAttribute('data-rendered', 'true');

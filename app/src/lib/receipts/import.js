@@ -7,15 +7,26 @@
 // bring it back) is skipped. A mail part already imported is skipped before
 // its bytes are even fetched (by `sourceRef`).
 //
+// A receipt that is the mail itself (no PDF, no image) keeps the mail as it
+// was received (`.eml`, #288), sealed in the blockstore like a file, as
+// `emlCid` beside its excerpt: the excerpt serves search and matching, the
+// original is the receipt. Not `fileCid` – that is a PDF or an image every
+// reader, preview and extraction may open. A receipt imported before keeps
+// its excerpt and gets its original when its mail is fetched again, or by
+// "Original holen", while the mail is still in the mailbox (`emlGone` once it
+// is not).
+//
 // A mail whose sender did not pass DKIM/SPF (and that is not our own, from
 // Sent) comes in as `rückfrage`: shown with a warning, neither previewed nor
 // sent to the LLM until someone confirms it (docs/phase-0.md: look-alike
 // phishing, PDFs as a malware vector).
 
+import { importAppointments } from '../travel/appointments.js';
 import { recordEvent } from '../activity/events.js';
 import { sha256Hex } from './blob-store.js';
+import { eInvoiceFields, pdfEInvoice, sniffEInvoice } from './einvoice.js';
 
-/** @typedef {'mail' | 'upload' | 'folder' | 'portal' | 'eigenbeleg' | 'invoice-app'} ReceiptSource portal: portals/import.js; eigenbeleg: eigenbeleg.js; invoice-app: ucep/issued.js */
+/** @typedef {'mail' | 'upload' | 'folder' | 'portal' | 'paperless' | 'eigenbeleg' | 'invoice-app'} ReceiptSource portal: portals/import.js; paperless: paperless/import.js; eigenbeleg: eigenbeleg.js; invoice-app: ucep/issued.js */
 /** @typedef {'neu' | 'ausgelesen' | 'rückfrage' | 'zugeordnet' | 'ignoriert'} ReceiptStatus */
 
 export const MAX_FILE_BYTES = 15 * 1024 * 1024;
@@ -24,7 +35,7 @@ export const MAX_FILE_BYTES = 15 * 1024 * 1024;
  * What the bytes are, whatever the name or the declared type say.
  *
  * @param {Uint8Array} bytes
- * @returns {{ kind: 'pdf' | 'image' | 'other', mime: string | null }}
+ * @returns {{ kind: 'pdf' | 'image' | 'einvoice' | 'other', mime: string | null }}
  */
 export function sniff(bytes) {
 	const b = bytes ?? new Uint8Array();
@@ -40,6 +51,8 @@ export function sniff(bytes) {
 	if (starts([0x52, 0x49, 0x46, 0x46]) && starts([0x57, 0x45, 0x42, 0x50], 8)) {
 		return { kind: 'image', mime: 'image/webp' };
 	}
+	// An e-invoice (XRechnung, #160): the XML is the original. Any other XML is not taken.
+	if (sniffEInvoice(b)) return { kind: 'einvoice', mime: 'application/xml' };
 	return { kind: 'other', mime: null };
 }
 
@@ -143,6 +156,13 @@ export async function importFile({
 		return { record: null, outcome: 'duplicate' };
 	}
 	const fileCid = await blobs.put(bytes);
+	// An e-invoice is read at once, from its XML, without a model (#160): an
+	// XRechnung itself, or the XML a ZUGFeRD / Factur-X PDF carries – kept beside
+	// the PDF as `xmlCid`. A PDF from a sender not confirmed is not opened.
+	const embedded =
+		kind === 'pdf' && !needsConfirmation({ source, ...fields }) ? await pdfEInvoice(bytes) : null;
+	const read = kind === 'einvoice' ? eInvoiceFields(bytes) : (embedded?.fields ?? null);
+	const xmlCid = embedded ? await blobs.put(embedded.xml) : null;
 	const record = await receipts.put({
 		source,
 		sourceRef,
@@ -162,7 +182,9 @@ export async function importFile({
 		extraction: null,
 		extractionModel: null,
 		extractionError: null,
-		status: needsConfirmation({ source, ...fields }) ? 'rückfrage' : 'neu'
+		...(read ?? {}),
+		...(xmlCid ? { xmlCid } : {}),
+		status: needsConfirmation({ source, ...fields }) ? 'rückfrage' : read ? 'ausgelesen' : 'neu'
 	});
 	index.sha.add(sha256);
 	index.refs.add(sourceRef);
@@ -170,9 +192,58 @@ export async function importFile({
 }
 
 /**
- * @typedef {{ new: number, duplicate: number, skipped: number, unsupported: number, verdicts: number }} MailCounts
- * `verdicts`: receipts already here whose sender verdict was brought up to date
+ * @typedef {{ new: number, duplicate: number, skipped: number, unsupported: number, verdicts: number, originals?: number }} MailCounts
+ * `verdicts`: receipts already here whose sender verdict was brought up to date;
+ * `originals`: receipts already here that got their mail as received (#288)
  */
+
+/**
+ * A mail as it was received, sealed: the fields a text receipt keeps of it.
+ * Null when the bridge cannot hand it out now; `{ emlGone: true }` when the
+ * mail is no longer in the mailbox.
+ *
+ * @param {{ mailRaw?: (id: string) => Promise<Uint8Array> }} client
+ * @param {import('./blob-store.js').BlobStore} blobs
+ * @param {string} mailId
+ * @returns {Promise<Record<string, any> | null>}
+ */
+async function keptMail(client, blobs, mailId) {
+	if (!client.mailRaw || !mailId) return null;
+	let bytes;
+	try {
+		bytes = await client.mailRaw(mailId);
+	} catch (/** @type {any} */ error) {
+		return error?.status === 404 ? { emlGone: true } : null;
+	}
+	if (!bytes?.length) return null;
+	return {
+		emlCid: await blobs.put(bytes),
+		emlSize: bytes.length,
+		emlSha256: await sha256Hex(bytes),
+		emlGone: false
+	};
+}
+
+/**
+ * "Original holen": a text receipt imported before #288 gets its mail as
+ * received, while the mail is still in the mailbox.
+ *
+ * @param {object} params
+ * @param {import('../store/repository.js').Collection} params.receipts
+ * @param {import('./blob-store.js').BlobStore} params.blobs
+ * @param {{ mailRaw: (id: string) => Promise<Uint8Array> }} params.client
+ * @param {Record<string, any>} params.receipt
+ * @returns {Promise<'kept' | 'gone' | 'unavailable' | 'none'>} `none`: no mail receipt without an original
+ */
+export async function fetchMailOriginal({ receipts, blobs, client, receipt }) {
+	if (receipt.source !== 'mail' || receipt.fileCid || receipt.emlCid || !receipt.mailId) {
+		return 'none';
+	}
+	const kept = await keptMail(client, blobs, String(receipt.mailId));
+	if (!kept) return 'unavailable';
+	await receipts.put({ ...receipt, ...kept });
+	return kept.emlGone ? 'gone' : 'kept';
+}
 
 /**
  * The accounting mails the bridge listed: every PDF or image attachment one
@@ -182,7 +253,7 @@ export async function importFile({
  * @param {object} params
  * @param {import('../store/repository.js').Collection} params.receipts
  * @param {import('./blob-store.js').BlobStore} params.blobs
- * @param {{ mailAttachment: (id: string, part: string) => Promise<Uint8Array> }} params.client
+ * @param {{ mailAttachment: (id: string, part: string) => Promise<Uint8Array>, mailRaw?: (id: string) => Promise<Uint8Array> }} params.client
  * @param {any[]} params.messages from GET /mail/messages (or hits of /mail/search)
  * @param {import('../store/repository.js').StoredRecord[]} [params.created] the new records are pushed here
  * @param {import('../store/repository.js').Collection} [params.events] for "Absenderprüfung aktualisiert"
@@ -200,7 +271,7 @@ export async function importMailMessages({
 }) {
 	const seen = await known(receipts);
 	/** @type {MailCounts} */
-	const counts = { new: 0, duplicate: 0, skipped: 0, unsupported: 0, verdicts: 0 };
+	const counts = { new: 0, duplicate: 0, skipped: 0, unsupported: 0, verdicts: 0, originals: 0 };
 	/** @param {string} sourceRef @param {{ authVerdict: string, outgoing: boolean }} fields */
 	const again = async (sourceRef, fields) => {
 		counts.skipped++;
@@ -221,12 +292,22 @@ export async function importMailMessages({
 			...(foundBy ? { foundBy } : {})
 		};
 		const files = (m.attachments ?? []).filter(
-			(/** @type {any} */ a) => a.kind === 'pdf' || a.kind === 'image'
+			(/** @type {any} */ a) => a.kind === 'pdf' || a.kind === 'image' || a.kind === 'einvoice'
 		);
 		if (files.length === 0) {
 			const sourceRef = `${m.id}#text`;
 			if (seen.refs.has(sourceRef)) {
 				await again(sourceRef, fields);
+				// Imported before its original was kept: it comes now (#288).
+				const before = seen.byRef.get(sourceRef);
+				if (before && !before.emlCid && !before.emlGone) {
+					const current = (await receipts.get(before.id)) ?? before;
+					const kept = await keptMail(client, blobs, m.id);
+					if (kept?.emlCid) {
+						await receipts.put({ ...current, ...kept });
+						counts.originals = (counts.originals ?? 0) + 1;
+					}
+				}
 				continue;
 			}
 			if (!fields.excerpt.trim()) {
@@ -242,6 +323,8 @@ export async function importMailMessages({
 				mime: 'text/plain',
 				size: fields.excerpt.length,
 				sha256: null,
+				// The mail as received, the receipt itself (#288).
+				...((await keptMail(client, blobs, m.id)) ?? {}),
 				extraction: null,
 				extractionModel: null,
 				extractionError: null,
@@ -284,15 +367,19 @@ export async function importMailMessages({
  * into the store, and one event with the counts.
  *
  * @param {object} params
- * @param {{ receipts: import('../store/repository.js').Collection, events?: import('../store/repository.js').Collection }} params.store
+ * @param {{ receipts: import('../store/repository.js').Collection, events?: import('../store/repository.js').Collection, travel?: import('../store/repository.js').Collection }} params.store
  * @param {import('./blob-store.js').BlobStore} params.blobs
  * @param {{ mailMessages: (since: string, until: string | null) => Promise<{ messages: any[] }>, mailAttachment: (id: string, part: string) => Promise<Uint8Array> }} params.client
  * @param {string} params.since YYYY-MM-DD
  * @param {string | null} params.until YYYY-MM-DD, exclusive, or open
- * @returns {Promise<{ mails: number, counts: MailCounts, createdIds: string[] }>} `createdIds`: the new receipts, to read them
+ * @returns {Promise<{ mails: number, counts: MailCounts, createdIds: string[], appointments: number }>} `createdIds`: the new receipts, to read them; `appointments`: new ones from invitations
  */
 export async function fetchAccountingMail({ store, blobs, client, since, until }) {
 	const { messages } = await client.mailMessages(since, until);
+	// An invitation's appointments (#213, step 4c), beside the receipts.
+	const appointments = store.travel
+		? await importAppointments(store.travel, messages)
+		: { new: 0, cancelled: 0 };
 	/** @type {import('../store/repository.js').StoredRecord[]} */
 	const created = [];
 	const counts = await importMailMessages({
@@ -309,7 +396,12 @@ export async function fetchAccountingMail({ store, blobs, client, since, until }
 		mails: messages.length,
 		...counts
 	});
-	return { mails: messages.length, counts, createdIds: created.map((r) => r.id) };
+	return {
+		mails: messages.length,
+		counts,
+		createdIds: created.map((r) => r.id),
+		appointments: appointments.new
+	};
 }
 
 /**

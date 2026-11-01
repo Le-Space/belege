@@ -1,4 +1,5 @@
 <script>
+	import { aiText } from '$lib/ai-text.js';
 	// Belege: sources on the left, receipts by month in the middle, the chosen
 	// one on the right with a preview and what was read from it. Receipts come
 	// from the accounting mailbox (through the bridge), from uploads, from a
@@ -6,16 +7,28 @@
 	// every file is sealed before it is stored.
 	import { onMount, tick } from 'svelte';
 	import WayOut from '$lib/help/WayOut.svelte';
+	import MailText from '$lib/receipts/MailText.svelte';
+	import EInvoiceView from '$lib/receipts/EInvoiceView.svelte';
 	import { cleanMatchingSettings } from '$lib/matching/classify.js';
+	import { cleanDatevSettings } from '$lib/booking/settings.js';
+	import { ownInvoiceTest } from '$lib/vat/own-invoice.js';
 	import { isVendorReceipt } from '$lib/matching/vendor-account.js';
 	import { addressBook, payeeName } from '$lib/bank/payee.js';
-	import { booksByYear, shownYear } from '$lib/year/year.svelte.js';
+	import { booksByYear, chooseYear, shownYear, startMonth } from '$lib/year/year.svelte.js';
+	import { fiscalYearOf, receiptDay } from '$lib/year/year.js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
 	import { scamContext, scamSigns } from '$lib/receipts/scam.js';
 	import MonthPicker from '$lib/MonthPicker.svelte';
 	import AiMark from '$lib/AiMark.svelte';
+	import PaperlessCard from '$lib/paperless/PaperlessCard.svelte';
+	import { cleanPaperlessSettings, loadPaperlessSettings } from '$lib/paperless/import.js';
+	import ReceiptPeek from '$lib/ReceiptPeek.svelte';
+	import OutlayCard from '$lib/outlays/OutlayCard.svelte';
+	import PayrollDocCard from '$lib/matching/PayrollDocCard.svelte';
+	import TravelCard from '$lib/travel/TravelCard.svelte';
+	import { createPeek, peekHandlers } from '$lib/receipts/peek.js';
 	import {
 		app,
 		currentBlobs,
@@ -23,7 +36,9 @@
 		refreshNow,
 		runMatchingNow
 	} from '$lib/session.svelte.js';
-	import { matchOfReceipt } from '$lib/matching/view.js';
+	import { activeMatchesByReceipt, matchOfReceipt } from '$lib/matching/view.js';
+	import { belegeChoice } from '$lib/receipts/month-choice.svelte.js';
+	import { settlement } from '$lib/matching/instalments.js';
 	import { matchLine } from '$lib/matching/explain.js';
 	import {
 		ORIGIN_FILTERS,
@@ -35,8 +50,10 @@
 	import { createBridgeClient } from '$lib/bridge/client.js';
 	import { getSetting, setSetting } from '$lib/store/settings.js';
 	import { formatDate, formatMoney } from '$lib/bank/format.js';
-	import { fetchAccountingMail, importFiles, needsConfirmation } from '$lib/receipts/import.js';
-	import { extractable } from '$lib/receipts/extract.js';
+	import { fetchAccountingMail, needsConfirmation } from '$lib/receipts/import.js';
+	import { extractable, ocrText } from '$lib/receipts/extract.js';
+	import { loadUpload, upload, uploadFiles } from '$lib/receipts/upload.svelte.js';
+	import { isUndated } from '$lib/year/year.js';
 	import {
 		cancelExtractAll,
 		extractAll,
@@ -59,6 +76,7 @@
 		mailWindow,
 		matchesReceiptSearch,
 		receiptDate,
+		receiptLine,
 		receiptVendor,
 		sourceCounts,
 		statusKey
@@ -82,8 +100,15 @@
 
 	/** @type {ReturnType<typeof createBridgeClient> | null} */
 	let client = $state(null);
-	/** @type {{ mail: boolean, llm: boolean, address: string } | null} */
+	/** @type {{ mail: boolean, llm: boolean, paperless: boolean, address: string } | null} */
 	let bridgeInfo = $state(null);
+	/** Paperless-ngx (#318): the last fetch, the tags left out, mail fetched here too. */
+	let paperless = $state(cleanPaperlessSettings(null));
+	/** Belege reads the mailbox itself: no Paperless, or the person wants both. */
+	let paperlessOn = $derived(
+		Boolean(/** @type {{ paperless?: boolean } | null} */ (bridgeInfo)?.paperless)
+	);
+	let ownMail = $derived(!paperlessOn || paperless.mailToo);
 
 	/** @type {string} 'all', 'mail', 'upload', 'folder' or `portal:<id>` */
 	let source = $state('all');
@@ -104,12 +129,11 @@
 	/** @type {string | null} */
 	let fetchError = $state(null);
 
-	let importing = $state(false);
-	/** @type {string | null} */
-	let importResult = $state(null);
+	// Uploads come from the panel in the app frame (receipts/upload.svelte.js, #308);
+	// the shared folder here goes through the same import.
+	let importing = $derived(upload.busy);
 	/** @type {string | null} */
 	let importError = $state(null);
-	let dragging = $state(false);
 
 	const canFolder = folderSupported();
 	/** @type {any} */
@@ -132,11 +156,24 @@
 	let yearIndex = $derived(booksByYear());
 	let year = $derived(shownYear());
 	let receipts = $derived(
-		/** @type {Receipt[]} */ (app.receipts.filter((r) => yearIndex.receiptYears(r).has(year)))
+		/** @type {Receipt[]} */ (
+			// Not yet read and without a date: in every year (year.js isUndated).
+			app.receipts.filter((r) => yearIndex.receiptYears(r).has(year) || isUndated(r))
+		)
 	);
 	let counts = $derived(sourceCounts(receipts));
-	/** @param {string} id */
-	const matchOf = (id) => matchOfReceipt(id, app.matches);
+	// Looked up for every row: built once per change of the books, not per row
+	// – with hundreds of receipts, matches and payments a scan per row made the
+	// list take seconds (#313).
+	let activeByReceipt = $derived(activeMatchesByReceipt(app.matches));
+	let txById = $derived(new Map(app.transactions.map((tx) => [tx.id, tx])));
+	/** The receipt's first active match, as matchOfReceipt finds it. @param {string} id */
+	const matchOf = (id) => activeByReceipt.get(id)?.[0] ?? null;
+	/** An invoice paid in instalments (#258): its state, when more than one payment or something open. @param {Record<string, any>} r */
+	const paidState = (r) => {
+		const s = settlement(r, activeByReceipt.get(r.id) ?? [], txById);
+		return s.state === 'partial' || s.state === 'overpaid' || s.payments.length > 1 ? s : null;
+	};
 	let bySource = $derived(
 		receipts.filter(
 			(r) => (source === 'all' || receiptSourceKey(r) === source) && matchesReceiptSearch(r, query)
@@ -150,6 +187,21 @@
 		const store = currentStore();
 		if (!store) return;
 		await setAsideReceipt(store, id, { duplicateOf: of });
+		await refreshNow();
+		await runMatchingNow();
+	}
+
+	// "Privat, nicht geschäftlich": the receipt whose reason is being asked for.
+	let privateFor = $state(/** @type {string | null} */ (null));
+	let privateNote = $state('');
+
+	/** @param {string} id */
+	async function setAsidePrivate(id) {
+		const store = currentStore();
+		if (!store) return;
+		await setAsideReceipt(store, id, { private: true, note: privateNote });
+		privateFor = null;
+		privateNote = '';
 		await refreshNow();
 		await runMatchingNow();
 	}
@@ -179,10 +231,47 @@
 	function originTitle(r) {
 		const m = matchOf(r.id);
 		if (!m) return '';
-		const tx = app.transactions.find((x) => x.id === m.transactionId) ?? null;
+		const tx = txById.get(m.transactionId) ?? null;
 		return matchLine(m, { tx, receipt: r });
 	}
 	let groups = $derived(groupReceiptsByMonth(filtered));
+
+	// One month at a time, as on Zahlungen (#313); a search shows the hits of
+	// every month. The month: the one chosen, else the one of the receipt
+	// opened by link (?receipt=), else the newest.
+	let chosenMonth = $derived(belegeChoice.month);
+	let searching = $derived(query.trim().length > 0);
+	let month = $derived.by(() => {
+		if (chosenMonth === 'all') return 'all';
+		if (chosenMonth && groups.some((g) => g.month === chosenMonth)) return chosenMonth;
+		const ofSelected = selectedId
+			? groups.find((g) => g.items.some((r) => r.id === selectedId))?.month
+			: null;
+		return ofSelected ?? groups[0]?.month ?? null;
+	});
+	let monthList = $derived(
+		groups.map((g) => ({
+			month: g.month,
+			label: g.label,
+			count: g.items.length,
+			open: originCounts(g.items, matchOf).open
+		}))
+	);
+	let shownGroups = $derived(
+		searching || month === 'all' ? groups : groups.filter((g) => g.month === month)
+	);
+	/** A month with hundreds of mails: the first rows, the rest on request. */
+	const PAGE = 100;
+	let limit = $state(PAGE);
+	$effect(() => {
+		void month;
+		void searching;
+		limit = PAGE;
+	});
+	/** @param {string} m */
+	function chooseMonth(m) {
+		belegeChoice.month = m;
+	}
 	let selected = $derived(receipts.find((r) => r.id === selectedId) ?? null);
 	let selectedDuplicate = $derived(selected ? (duplicates.get(selected.id) ?? null) : null);
 	let duplicateKeeper = $derived(
@@ -226,9 +315,21 @@
 		if (!store) return;
 		// From the Verlauf: open this receipt.
 		const wanted = page.url.searchParams.get('receipt');
-		if (wanted) selectedId = wanted;
+		if (wanted) {
+			selectedId = wanted;
+			// Its own month, not the one chosen before (#313) – and its own year.
+			belegeChoice.month = null;
+			const r = app.receipts.find((x) => x.id === wanted);
+			const day = r ? receiptDay(r) : null;
+			if (day) {
+				const y = fiscalYearOf(day, startMonth());
+				if (y !== null && y !== shownYear()) chooseYear(y);
+			}
+		}
 		folderHandle = await savedFolder();
 		readAfterFetch = (await getSetting(store.settings, 'mailFetch'))?.readAfterFetch !== false;
+		paperless = await loadPaperlessSettings(store.settings);
+		await loadUpload();
 		const saved = await getSetting(store.settings, 'bridge');
 		if (!saved?.token) return;
 		const c = createBridgeClient({ url: saved.url, token: saved.token });
@@ -243,6 +344,7 @@
 			bridgeInfo = {
 				mail: health.mail?.configured ?? false,
 				llm: health.llm?.configured ?? false,
+				paperless: health.paperless?.configured ?? false,
 				address: health.mail?.accountingAddress ?? ''
 			};
 		} catch {
@@ -256,6 +358,9 @@
 	/** On a phone the detail sits under the list: bring it into view. */
 	async function select(/** @type {string} */ id) {
 		selectedId = id;
+		// Picked from a search's hits: its month is the one to come back to.
+		if (searching)
+			belegeChoice.month = groups.find((g) => g.items.some((r) => r.id === id))?.month ?? null;
 		if (!window.matchMedia('(min-width: 1024px)').matches) {
 			await tick();
 			detailPanel?.scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -286,7 +391,8 @@
 			const {
 				mails,
 				counts: c,
-				createdIds
+				createdIds,
+				appointments
 			} = await fetchAccountingMail({
 				store,
 				blobs,
@@ -300,7 +406,9 @@
 					new: c.new,
 					known: c.skipped,
 					duplicate: c.duplicate
-				}) + (c.verdicts ? t('belege.mailVerdicts', { count: c.verdicts }) : '');
+				}) +
+				(c.verdicts ? t('belege.mailVerdicts', { count: c.verdicts }) : '') +
+				(appointments ? t('belege.mailAppointments', { count: appointments }) : '');
 			await refreshNow();
 			toRead = createdIds;
 		} catch (error) {
@@ -317,48 +425,11 @@
 		await runMatchingNow();
 	}
 
-	/** @param {{ name: string, path?: string, bytes: () => Promise<Uint8Array> }[]} files @param {'upload' | 'folder'} kind */
-	async function importSome(files, kind) {
-		const store = currentStore();
-		const blobs = currentBlobs();
-		if (!store || !blobs || files.length === 0) return;
-		importing = true;
-		importError = null;
-		importResult = null;
-		try {
-			const c = await importFiles({ receipts: store.receipts, blobs, files, source: kind });
-			importResult = t('belege.importResult', {
-				new: c.new,
-				duplicate: c.duplicate,
-				unsupported: c.unsupported
-			});
-			await refreshNow();
-		} catch (error) {
-			importError = message(error);
-		} finally {
-			importing = false;
-		}
-	}
-
-	/** @param {File[]} files */
-	const fromFiles = (files) =>
-		files.map((f) => ({
-			name: f.name,
-			bytes: async () => new Uint8Array(await f.arrayBuffer())
-		}));
-
-	/** @param {Event} event */
-	async function onUpload(event) {
-		const input = /** @type {HTMLInputElement} */ (event.currentTarget);
-		await importSome(fromFiles([...(input.files ?? [])]), 'upload');
-		input.value = '';
-	}
-
-	/** @param {DragEvent} event */
-	async function onDrop(event) {
-		event.preventDefault();
-		dragging = false;
-		await importSome(fromFiles([...(event.dataTransfer?.files ?? [])]), 'upload');
+	/** New receipts from Paperless: read them (switchable, as after a mail fetch), then match. */
+	async function paperlessNew(/** @type {string[]} */ ids) {
+		const ctx = queueContext();
+		if (readAfterFetch && ctx && ids.length) await extractAll(ctx, ids);
+		await runMatchingNow();
 	}
 
 	async function chooseFolder() {
@@ -379,7 +450,7 @@
 				importError = t('belege.folderDenied');
 				return;
 			}
-			await importSome(await listFolderFiles(folderHandle), 'folder');
+			await uploadFiles(await listFolderFiles(folderHandle), 'folder');
 		} catch (error) {
 			importError = message(error);
 		}
@@ -437,6 +508,31 @@
 		const store = currentStore();
 		if (!store) return;
 		await clearScamAction(store, record.id);
+		await refreshNow();
+		await runMatchingNow();
+	}
+
+	/** Our own invoices among the receipts (#354), by name, VAT ID or the person's word. */
+	let isOwn = $derived(
+		ownInvoiceTest({
+			companyNames: cleanMatchingSettings(app.matchingSettings).companyNames,
+			ownVatId: cleanDatevSettings(app.datevSettings).ownVatId
+		})
+	);
+
+	/**
+	 * "Als eigene Rechnung führen" / "Doch kein eigener Beleg": the person's word
+	 * decides over the name and the VAT ID.
+	 *
+	 * @param {Receipt} record
+	 * @param {boolean} ours
+	 */
+	async function setOwn(record, ours) {
+		const store = currentStore();
+		if (!store) return;
+		const latest = await store.receipts.get(record.id);
+		if (!latest) return;
+		await store.receipts.put({ ...latest, ownInvoice: ours });
 		await refreshNow();
 		await runMatchingNow();
 	}
@@ -526,6 +622,7 @@
 		question: 'border-danger/40 bg-danger/10 text-danger',
 		assigned: 'border-success/30 bg-success/10 text-success',
 		ignored: 'border-border bg-surface-2 text-faint',
+		private: 'border-border bg-surface-2 text-faint',
 		prepaid: 'border-success/30 bg-success/10 text-success'
 	};
 	// A confirmed prepaid vendor's statements are covered by its account
@@ -549,7 +646,10 @@
 	/** @param {Receipt} r */
 	function extractionNote(r) {
 		if (extractRun.errors[r.id]) return extractRun.errors[r.id];
-		if (r.extractionError === 'image' || (String(r.mime).startsWith('image/') && !r.extraction)) {
+		if (
+			r.extractionError === 'image' ||
+			(String(r.mime).startsWith('image/') && !r.extraction && !ocrText(r))
+		) {
 			return t('belege.imageGap');
 		}
 		if (r.extractionError === 'no-text') return t('belege.noText');
@@ -560,18 +660,28 @@
 	const verdictText = (r) =>
 		r.outgoing ? t('belege.verdict.outgoing') : t(`belege.verdict.${r.authVerdict ?? 'none'}`);
 
-	const sourceButtons = /** @type {const} */ (['all', 'mail', 'upload', 'folder']);
-	// A portal is listed once it has receipts.
+	// Paperless takes the mail entry's place while it is on (#318); either stays
+	// listed while it has receipts. A portal is listed once it has receipts.
+	let sourceButtons = $derived(
+		/** @type {('all' | 'mail' | 'paperless' | 'upload' | 'folder')[]} */ ([
+			'all',
+			...(ownMail || counts.mail ? /** @type {const} */ (['mail']) : []),
+			...(paperlessOn || counts.paperless ? /** @type {const} */ (['paperless']) : []),
+			'upload',
+			'folder'
+		])
+	);
 	let sourceList = $derived([
 		...sourceButtons.map((s) => ({ key: s, label: sourceLabel(s), count: counts[s] })),
 		...portalSources(receipts)
 	]);
-	/** @param {'all' | 'mail' | 'upload' | 'folder'} s */
+	/** @param {'all' | 'mail' | 'paperless' | 'upload' | 'folder'} s */
 	function sourceLabel(s) {
 		if (s === 'all') return t('belege.sourceAll');
 		if (s === 'mail') {
 			return t('belege.sourceMail', { address: bridgeInfo?.address || 'buchhaltung@' });
 		}
+		if (s === 'paperless') return t('belege.sourcePaperless');
 		if (s === 'upload') return t('belege.sourceUpload');
 		return t('belege.sourceFolder');
 	}
@@ -581,35 +691,25 @@
 	const primary =
 		'rounded-md bg-coral-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50';
 	const card = 'rounded-lg border border-border bg-surface shadow-sm';
+
+	// The hover preview of a receipt in the list, with its lens (#273).
+	/** @type {{ receipt: Record<string, any>, anchor: HTMLElement } | null} */
+	let peeked = $state(null);
+	const peek = createPeek({
+		onchange: (v) =>
+			(peeked = /** @type {{ receipt: Record<string, any>, anchor: HTMLElement } | null} */ (v))
+	});
 </script>
 
-<div
-	class="relative"
-	role="region"
-	aria-label={t('belege.title')}
-	ondragover={(e) => {
-		if (e.dataTransfer?.types?.includes('Files')) {
-			e.preventDefault();
-			dragging = true;
-		}
-	}}
-	ondragleave={(e) => {
-		if (e.currentTarget === e.target) dragging = false;
-	}}
-	ondrop={onDrop}
-	data-testid="belege-page"
->
-	{#if dragging}
-		<div
-			class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-cyan-800 bg-surface/90 text-lg font-semibold text-heading dark:border-cyan"
-		>
-			{t('belege.drop')}
-		</div>
-	{/if}
-
+<div class="relative" role="region" aria-label={t('belege.title')} data-testid="belege-page">
 	<div class="flex flex-wrap items-center justify-between gap-3">
 		<h1 class="text-2xl font-bold text-heading">{t('belege.title')}</h1>
 		<div class="flex flex-wrap items-center gap-2">
+			<a
+				href={resolve('/reisen')}
+				class="text-sm text-text underline hover:text-heading"
+				data-testid="belege-reisen">{t('reisen.title')}</a
+			>
 			{#if canFolder}
 				{#if folderHandle}
 					<button type="button" class={button} onclick={readFolder} disabled={importing}
@@ -629,87 +729,87 @@
 					>
 				{/if}
 			{/if}
-			<label class="{primary} cursor-pointer" data-testid="upload-label">
-				{t('belege.upload')}
-				<input
-					type="file"
-					class="sr-only"
-					multiple
-					accept=".pdf,application/pdf,image/png,image/jpeg,image/gif,image/webp"
-					disabled={importing}
-					onchange={onUpload}
-					data-testid="receipt-upload"
-				/>
-			</label>
 		</div>
 	</div>
-	<p class="mt-1 text-xs text-faint">{t('belege.uploadHint')}</p>
-	{#if importResult}
-		<p class="mt-2 text-sm text-heading" role="status" data-testid="import-result">
-			{importResult}
+	<!-- Uploads: the button in the header, or files dropped on any page (#308). -->
+	{#if upload.kind === 'folder' && upload.result}
+		<p class="mt-2 text-sm text-heading" role="status" data-testid="folder-result">
+			{upload.result}
 		</p>
 	{/if}
-	{#if importError}
-		<p class="mt-2 text-sm text-danger" role="alert" data-testid="import-error">{importError}</p>
+	{#if importError || (upload.kind === 'folder' && upload.error)}
+		<p class="mt-2 text-sm text-danger" role="alert" data-testid="folder-error">
+			{importError ?? upload.error}
+		</p>
 	{/if}
 
-	<section class="mt-4 {card} px-5 py-4" aria-labelledby="mail-h">
-		<h2 id="mail-h" class="text-lg font-semibold">{t('belege.mailTitle')}</h2>
-		{#if !client}
-			<p class="mt-1 text-sm text-text" data-testid="mail-no-bridge">
-				{t('belege.mailNoBridge')}<a class="underline" href={resolve('/integrationen')}
-					>{t('belege.mailNoBridgeLink')}</a
-				>{t('belege.mailNoBridgeAfter')}
-			</p>
-		{:else}
-			<p class="mt-1 text-sm text-text">
-				{t('belege.mailIntro', { address: bridgeInfo?.address || 'buchhaltung@' })}
-			</p>
-			{#if bridgeInfo && !bridgeInfo.mail}
-				<p class="mt-2 text-sm text-danger">{t('belege.mailNotSetUp')}</p>
-			{/if}
-			<div class="mt-3 flex flex-wrap items-end gap-3">
-				<MonthPicker bind:value={monthFrom} label={t('belege.mailFrom')} testid="mail-from" />
-				<MonthPicker bind:value={monthTo} label={t('belege.mailTo')} testid="mail-to" />
-				<button
-					type="button"
-					class="text-sm text-text underline hover:text-heading"
-					onclick={() => {
-						const last = new Date().getFullYear() - 1;
-						monthFrom = `${last}-01`;
-						monthTo = `${last}-12`;
-					}}
-					data-testid="mail-last-year">{t('belege.mailLastYear')}</button
-				>
-				<button
-					type="button"
-					class={primary}
-					onclick={fetchMail}
-					disabled={fetching || !monthFrom || !monthTo}
-					data-testid="mail-fetch"
-					>{fetching ? t('belege.mailFetching') : t('belege.mailFetch')}</button
-				>
-			</div>
-			<label class="mt-2 flex items-center gap-2 text-sm text-text">
-				<input
-					type="checkbox"
-					checked={readAfterFetch}
-					onchange={(e) => setReadAfterFetch(e.currentTarget.checked)}
-					data-testid="mail-read-after"
-				/>
-				<span class="inline-flex items-center gap-1"><AiMark />{t('belege.mailReadAfter')}</span>
-			</label>
-			{#if fetchResult}
-				<p class="mt-2 text-sm text-heading" role="status" data-testid="mail-result">
-					{fetchResult}
+	{#if client && paperlessOn}
+		<PaperlessCard {client} bind:settings={paperless} onNew={paperlessNew} />
+	{/if}
+
+	{#if !ownMail}
+		<p class="mt-2 text-sm text-faint" data-testid="mail-by-paperless">
+			{t('belege.paperless.mailOff')}
+		</p>
+	{:else}
+		<section class="mt-4 {card} px-5 py-4" aria-labelledby="mail-h">
+			<h2 id="mail-h" class="text-lg font-semibold">{t('belege.mailTitle')}</h2>
+			{#if !client}
+				<p class="mt-1 text-sm text-text" data-testid="mail-no-bridge">
+					{t('belege.mailNoBridge')}<a class="underline" href={resolve('/integrationen')}
+						>{t('belege.mailNoBridgeLink')}</a
+					>{t('belege.mailNoBridgeAfter')}
 				</p>
+			{:else}
+				<p class="mt-1 text-sm text-text">
+					{t('belege.mailIntro', { address: bridgeInfo?.address || 'buchhaltung@' })}
+				</p>
+				{#if bridgeInfo && !bridgeInfo.mail}
+					<p class="mt-2 text-sm text-danger">{t('belege.mailNotSetUp')}</p>
+				{/if}
+				<div class="mt-3 flex flex-wrap items-end gap-3">
+					<MonthPicker bind:value={monthFrom} label={t('belege.mailFrom')} testid="mail-from" />
+					<MonthPicker bind:value={monthTo} label={t('belege.mailTo')} testid="mail-to" />
+					<button
+						type="button"
+						class="text-sm text-text underline hover:text-heading"
+						onclick={() => {
+							const last = new Date().getFullYear() - 1;
+							monthFrom = `${last}-01`;
+							monthTo = `${last}-12`;
+						}}
+						data-testid="mail-last-year">{t('belege.mailLastYear')}</button
+					>
+					<button
+						type="button"
+						class={primary}
+						onclick={fetchMail}
+						disabled={fetching || !monthFrom || !monthTo}
+						data-testid="mail-fetch"
+						>{fetching ? t('belege.mailFetching') : t('belege.mailFetch')}</button
+					>
+				</div>
+				<label class="mt-2 flex items-center gap-2 text-sm text-text">
+					<input
+						type="checkbox"
+						checked={readAfterFetch}
+						onchange={(e) => setReadAfterFetch(e.currentTarget.checked)}
+						data-testid="mail-read-after"
+					/>
+					<span class="inline-flex items-center gap-1"><AiMark />{t('belege.mailReadAfter')}</span>
+				</label>
+				{#if fetchResult}
+					<p class="mt-2 text-sm text-heading" role="status" data-testid="mail-result">
+						{fetchResult}
+					</p>
+				{/if}
+				{#if fetchError}
+					<p class="mt-2 text-sm text-danger" role="alert" data-testid="mail-error">{fetchError}</p>
+					<WayOut message={fetchError} />
+				{/if}
 			{/if}
-			{#if fetchError}
-				<p class="mt-2 text-sm text-danger" role="alert" data-testid="mail-error">{fetchError}</p>
-				<WayOut message={fetchError} />
-			{/if}
-		{/if}
-	</section>
+		</section>
+	{/if}
 
 	{#if receipts.length === 0}
 		<p class="mt-6 {card} px-5 py-4 text-text" data-testid="receipts-empty">
@@ -745,6 +845,54 @@
 						</li>
 					{/each}
 				</ul>
+				{#if monthList.length && !searching}
+					<!-- One month at a time (#313): a list on wide screens, a select on narrow ones. -->
+					<h2
+						class="mt-4 hidden px-3 text-xs font-semibold tracking-wide text-faint uppercase lg:block"
+					>
+						{t('belege.months')}
+					</h2>
+					<ul class="mt-1 hidden flex-col gap-1 lg:flex">
+						{#each [{ month: 'all', label: t('belege.allMonths'), count: filtered.length, open: 0 }, ...monthList] as m (m.month)}
+							<li>
+								<button
+									type="button"
+									class="w-full rounded-md border px-3 py-1.5 text-left text-sm {m.month === month
+										? 'border-cyan-800 bg-surface shadow-sm dark:border-cyan'
+										: 'border-transparent hover:bg-surface/60'}"
+									aria-current={m.month === month ? 'true' : undefined}
+									onclick={() => chooseMonth(m.month)}
+									data-testid="receipt-month-pick"
+									data-month={m.month}
+								>
+									<span class="flex items-baseline justify-between gap-2">
+										<span class="min-w-0 truncate font-medium text-heading">{m.label}</span>
+										<span class="text-faint tabular-nums">{m.count}</span>
+									</span>
+									{#if m.open}
+										<span class="block text-xs text-faint"
+											>{t('belege.monthOpen', { count: m.open })}</span
+										>
+									{/if}
+								</button>
+							</li>
+						{/each}
+					</ul>
+					<label class="mt-2 flex items-center gap-2 text-sm lg:hidden">
+						<span class="text-faint">{t('belege.months')}</span>
+						<select
+							class="rounded-md border px-2 py-1 text-sm"
+							value={month}
+							onchange={(e) => chooseMonth(e.currentTarget.value)}
+							data-testid="receipt-month-select"
+						>
+							<option value="all">{t('belege.allMonths')} ({filtered.length})</option>
+							{#each monthList as m (m.month)}
+								<option value={m.month}>{m.label} ({m.count})</option>
+							{/each}
+						</select>
+					</label>
+				{/if}
 				<TechnicalNote class="mt-3 hidden lg:block" lines={list('belege.technical')} />
 			</nav>
 
@@ -765,7 +913,7 @@
 							class="inline-flex items-center gap-1.5 {button}"
 							onclick={startExtractAll}
 							disabled={extractRun.progress !== null}
-							title={t('ai.extract')}
+							title={aiText('ai.extract')}
 							data-testid="extract-all"
 							><AiMark />{extractRun.progress
 								? t('belege.extracting', {
@@ -788,6 +936,11 @@
 						{/if}
 					{/if}
 				</div>
+				{#if extractRun.stopped && !extractRun.progress}
+					<p class="mt-2 text-sm text-danger" role="alert" data-testid="extract-stopped">
+						{extractRun.stopped}
+					</p>
+				{/if}
 
 				<div
 					class="mt-3 flex flex-wrap gap-1.5 text-xs"
@@ -818,7 +971,12 @@
 					{/each}
 				</div>
 
-				{#each groups as group (group.month)}
+				{#if searching}
+					<p class="mt-3 text-xs text-faint" data-testid="receipt-search-all">
+						{t('belege.searchAll', { count: filtered.length })}
+					</p>
+				{/if}
+				{#each shownGroups as group (group.month)}
 					{@const monthCounts = originCounts(group.items, matchOf)}
 					<div class="mt-4" data-testid="receipt-month" data-month={group.month}>
 						<h2 class="text-xs font-semibold tracking-wide text-faint uppercase">{group.label}</h2>
@@ -826,7 +984,9 @@
 							{t('belege.origin.month', monthCounts)}
 						</p>
 						<ul class="mt-1.5 divide-y divide-border {card}">
-							{#each group.items as r (r.id)}
+							{#each searching ? group.items : group.items.slice(0, limit) as r (r.id)}
+								{@const match = matchOf(r.id)}
+								{@const paid = paidState(r)}
 								<li>
 									<button
 										type="button"
@@ -836,6 +996,7 @@
 											: ''}"
 										aria-current={selectedId === r.id ? 'true' : undefined}
 										onclick={() => select(r.id)}
+										{...peekHandlers(peek, r)}
 										data-testid="receipt"
 										data-source={r.source}
 										data-status={r.status}
@@ -861,8 +1022,25 @@
 														data-testid="receipt-scam">{t('belege.scam.badge')}</span
 													>
 												{/if}
-												{#if matchOrigin(matchOf(r.id))}
-													{@const o = matchOrigin(matchOf(r.id))}
+												{#if paid}
+													{@const p = paid}
+													<span
+														class="rounded border px-1.5 py-0.5 text-xs font-medium {p?.state ===
+														'paid'
+															? 'border-success/30 bg-success/10 text-success'
+															: 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200'}"
+														data-testid="receipt-instalments"
+														data-state={p?.state}
+														>{t(`belege.instalments.${p?.state}`, {
+															count: p?.payments.length ?? 0,
+															paid: formatMoney(p?.paidCents ?? 0, r.currency ?? 'EUR'),
+															total: formatMoney(p?.totalCents ?? 0, r.currency ?? 'EUR'),
+															over: formatMoney(p?.overCents ?? 0, r.currency ?? 'EUR')
+														})}</span
+													>
+												{/if}
+												{#if matchOrigin(match)}
+													{@const o = matchOrigin(match)}
 													<span
 														class="rounded border px-1.5 py-0.5 text-xs font-medium {originClass[
 															o?.kind ?? 'auto'
@@ -925,6 +1103,15 @@
 								</li>
 							{/each}
 						</ul>
+						{#if !searching && group.items.length > limit}
+							<button
+								type="button"
+								class="mt-2 text-sm text-text underline hover:text-heading"
+								onclick={() => (limit += PAGE)}
+								data-testid="receipt-more"
+								>{t('belege.more', { count: Math.min(PAGE, group.items.length - limit) })}</button
+							>
+						{/if}
 					</div>
 				{:else}
 					<p class="mt-4 {card} px-5 py-4 text-text">{t('belege.noMatches')}</p>
@@ -1013,6 +1200,8 @@
 									></canvas>
 								{/key}
 							</div>
+						{:else if selected.fileCid && selected.mime === 'application/xml'}
+							<div class="mt-3"><EInvoiceView receipt={selected} class="max-h-96" /></div>
 						{:else if selected.fileCid && imageUrl}
 							<img
 								src={imageUrl}
@@ -1021,12 +1210,25 @@
 								data-testid="preview-image"
 							/>
 						{:else if !selected.fileCid && selected.excerpt}
-							<pre
-								class="mt-3 max-h-64 overflow-auto rounded border border-border bg-surface-2 p-2 font-sans text-xs whitespace-pre-wrap text-text"
-								data-testid="preview-text">{selected.excerpt}</pre>
+							<div class="mt-3">
+								<MailText receipt={selected} {client} class="max-h-64" />
+							</div>
 						{/if}
 						{#if previewError}
 							<p class="mt-2 text-sm text-danger">{t('belege.previewFailed')}</p>
+						{/if}
+						{#if selected.xmlCid && selected.source === 'invoice-app'}
+							<!-- An invoice the invoicing app issued as XRechnung: the XML beside the PDF is the original (#515). -->
+							<p class="mt-2 text-sm text-text" data-testid="einvoice-original">
+								{t('belege.einvoice.fromInvoiceApp')}
+							</p>
+						{/if}
+						{#if selected.xmlCid && selected.eInvoice}
+							<!-- A ZUGFeRD / Factur-X PDF: its fields come from the embedded XML (#160). -->
+							<details class="mt-2 text-sm" data-testid="einvoice-embedded">
+								<summary class="cursor-pointer text-text">{t('belege.einvoice.embedded')}</summary>
+								<EInvoiceView receipt={selected} class="mt-2" />
+							</details>
 						{/if}
 
 						<dl class="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
@@ -1053,6 +1255,24 @@
 								<dd class="font-mono text-xs text-text" data-testid="field-model">
 									{selected.extractionModel}
 								</dd>
+								<!-- Ours or received (#354): an own invoice's VAT is output VAT, never input VAT. -->
+								<dt class="text-faint">{t('belege.own.label')}</dt>
+								<dd
+									class="text-text"
+									data-testid="field-own"
+									data-own={isOwn(selected) ? 'true' : 'false'}
+								>
+									{isOwn(selected) ? t('belege.own.yes') : t('belege.own.no')}
+									{#if selected.source !== 'invoice-app'}
+										<button
+											type="button"
+											class="ml-1 text-xs underline"
+											onclick={() => selected && setOwn(selected, !isOwn(selected))}
+											data-testid="own-invoice-toggle"
+											>{isOwn(selected) ? t('belege.own.notOurs') : t('belege.own.ours')}</button
+										>
+									{/if}
+								</dd>
 							{/if}
 							<dt class="text-faint">{t('belege.fields.source')}</dt>
 							<dd class="text-text" data-testid="field-source">
@@ -1077,6 +1297,10 @@
 								<dd class="text-text" data-testid="field-verdict">{verdictText(selected)}</dd>
 							{/if}
 						</dl>
+
+						<OutlayCard receipt={selected} {client} />
+						<TravelCard receipt={selected} {client} />
+						<PayrollDocCard receipt={selected} />
 
 						{#if selected.source === 'mail' && selected.mailId && client}
 							<div class="mt-3 border-t border-border pt-3 text-sm" data-testid="mail-trash">
@@ -1223,11 +1447,15 @@
 						{/if}
 						{#if selected.status === 'ignoriert' && selected.setAside}
 							<p class="mt-3 text-sm text-faint" data-testid="receipt-set-aside-note">
-								{t(
-									selected.setAside.reason === 'duplicate'
-										? 'belege.setAside.duplicate'
-										: 'belege.setAside.notNeeded'
-								)}
+								{selected.setAside.reason === 'private'
+									? selected.setAside.note
+										? t('belege.setAside.private.doneWith', { note: selected.setAside.note })
+										: t('belege.setAside.private.done')
+									: t(
+											selected.setAside.reason === 'duplicate'
+												? 'belege.setAside.duplicate'
+												: 'belege.setAside.notNeeded'
+										)}
 								<button
 									type="button"
 									class="ml-1 underline"
@@ -1235,27 +1463,67 @@
 									data-testid="receipt-restore">{t('belege.setAside.restore')}</button
 								>
 							</p>
-						{:else if selected.status !== 'ignoriert' && !selectedDuplicate}
-							<button
-								type="button"
-								class="mt-3 text-sm text-faint underline hover:text-heading"
-								onclick={() => selected && setAside(selected.id)}
-								title={t('belege.setAside.title')}
-								data-testid="receipt-set-aside">{t('belege.setAside.action')}</button
+						{:else if selected.status !== 'ignoriert' && privateFor === selected.id}
+							<form
+								class="mt-3 flex flex-wrap items-end gap-2 text-sm"
+								onsubmit={(e) => {
+									e.preventDefault();
+									if (selected) setAsidePrivate(selected.id);
+								}}
+								data-testid="receipt-private-form"
 							>
+								<label class="flex min-w-48 flex-1 flex-col gap-1">
+									<span class="text-faint">{t('belege.setAside.private.note')}</span>
+									<input
+										class="rounded-md border border-border bg-surface px-2 py-1 text-heading"
+										bind:value={privateNote}
+										placeholder={t('belege.setAside.private.placeholder')}
+										data-testid="receipt-private-note"
+									/>
+								</label>
+								<button type="submit" class={primary} data-testid="receipt-private-confirm"
+									>{t('belege.setAside.private.confirm')}</button
+								>
+								<button
+									type="button"
+									class="text-faint underline hover:text-heading"
+									onclick={() => (privateFor = null)}>{t('belege.setAside.private.cancel')}</button
+								>
+							</form>
+						{:else if selected.status !== 'ignoriert' && !selectedDuplicate}
+							<div class="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+								<button
+									type="button"
+									class="text-sm text-faint underline hover:text-heading"
+									onclick={() => selected && setAside(selected.id)}
+									title={t('belege.setAside.title')}
+									data-testid="receipt-set-aside">{t('belege.setAside.action')}</button
+								>
+								<button
+									type="button"
+									class="text-sm text-faint underline hover:text-heading"
+									onclick={() => {
+										privateNote = '';
+										privateFor = selected?.id ?? null;
+									}}
+									title={t('belege.setAside.private.title')}
+									data-testid="receipt-set-aside-private"
+									>{t('belege.setAside.private.action')}</button
+								>
+							</div>
 						{/if}
 						{#if extractionNote(selected)}
 							<p class="mt-3 text-sm text-danger" role="status" data-testid="extract-note">
 								{extractionNote(selected)}
 							</p>
 						{/if}
-						{#if client && !needsConfirmation(selected) && !String(selected.mime).startsWith('image/')}
+						{#if client && !needsConfirmation(selected) && (!String(selected.mime).startsWith('image/') || ocrText(selected))}
 							<button
 								type="button"
 								class="mt-3 inline-flex items-center gap-1.5 {primary}"
 								onclick={() => selected && extract(selected)}
 								disabled={reading.has(selected.id)}
-								title={t('ai.extract')}
+								title={aiText('ai.extract')}
 								data-testid="extract"
 								><AiMark />{reading.has(selected.id)
 									? t('belege.extractBusy')
@@ -1273,3 +1541,16 @@
 		</div>
 	{/if}
 </div>
+
+{#if peeked}
+	<ReceiptPeek
+		receipt={peeked.receipt}
+		anchor={peeked.anchor}
+		title={receiptVendor(/** @type {any} */ (peeked.receipt))}
+		detail={receiptLine(/** @type {any} */ (peeked.receipt))}
+		onenter={() => peek.stay()}
+		onleave={() => peek.leave()}
+		onscrolled={() => peek.scrolled()}
+		onclose={() => peek.close()}
+	/>
+{/if}
