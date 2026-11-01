@@ -77,6 +77,11 @@ jobs:
           ALEPH_SITE_NAME: belege
           ALEPH_SITE_RETENTION_KEEP_COUNT: '3'
           ALEPH_SITE_CHANNEL: ALEPH-CLOUDSOLUTIONS
+          # Two API nodes for the CAR upload, tried in this order. On
+          # 2026-11-01 api2 answered every upload with 502 for hours while
+          # api.aleph.im (a different machine) took them; one host is one
+          # point of failure for the whole release.
+          ALEPH_SITE_ALEPH_API_HOSTS: https://api2.aleph.im https://api.aleph.im
           # Wait up to 20 minutes for Aleph to process the STORE (default: 5).
           # On 2026-09-24 two STOREs stayed pending for more than 20 minutes;
           # every retry of this step uploads again and pays another STORE, so
