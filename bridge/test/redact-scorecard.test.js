@@ -226,6 +226,16 @@ FARE EUR 210.00 TAXES EUR 64.20 TOTAL EUR 274.20`,
 		hidden: ['BEISPIEL', 'LENA', 'C01X00T47', '1985-05-14'],
 		stays: ['HAMBURG (HAM)', 'ISTANBUL (IST)', '1234567890123', 'ZX8K4P', '274.20'],
 		knownGaps: []
+	},
+	'a shop confirmation typed by hand': {
+		text: `Bestellbestätigung Nr. 2026031500001234
+Danke für deine Bestellung, Erika Mustermann!
+Bezahlt mit Kreditkarte 4539578763621486
+Rückerstattungen gehen auf iban de89 3704 0044 0532 0130 00
+Sendungsnummer 1234567890123456 · Lieferung ab 12 Uhr`,
+		hidden: ['Erika', 'Mustermann', '4539 5787', '45395787', '0532 0130', '05320130'],
+		stays: ['2026031500001234', '…1486', '…3000', '1234567890123456', '12 Uhr'],
+		knownGaps: []
 	}
 };
 
@@ -247,9 +257,9 @@ test('the scorecard’s count: how much of what a reader would call personal is 
 		hidden += doc.hidden.length;
 		gaps += doc.knownGaps.length;
 	}
-	// 68 of 78 marked places, nine documents in other languages among them (#366);
+	// 74 of 84 marked places, nine documents in other languages among them (#366);
 	// the ten that get through are named above.
-	assert.deepEqual([hidden, gaps], [68, 10]);
+	assert.deepEqual([hidden, gaps], [74, 10]);
 });
 
 test('the app’s company names are blacked out for the call they come with, and only for it', async () => {

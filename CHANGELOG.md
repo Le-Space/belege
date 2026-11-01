@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The redaction before a model call reads an IBAN in any spelling and a card number without spaces**: a hand-typed `de89 3704 …` is blacked out like `DE89 3704 …`, and sixteen digits in a row with a valid check digit are taken for a card and hidden except the last four; order and tracking numbers of the same length, which fail that check, stay readable for the model (`bridge/src/llm/redact.js`, docs/ai.md).
+
 ## [0.26.5] – 2026-11-01
 
 ### Added
