@@ -442,7 +442,7 @@ describe('Rechnungen abgleichen', () => {
 		expect(app.get('doc-4').payments[0].reference.id).toBe(tx.id);
 		// Asked again next time, still without the receipt's XML.
 		expect((await sync(app)).xmlRefused).toBe(1);
-		expect((await store.receipts.list()).every((r) => !r.xmlCid)).toBe(true);
+		expect((await store.receipts.list()).every((/** @type {any} */ r) => !r.xmlCid)).toBe(true);
 	});
 
 	it('a pairing from before 0.2.0 says to pair again', async () => {
