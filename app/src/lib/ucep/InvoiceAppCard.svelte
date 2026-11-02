@@ -162,6 +162,11 @@
 						{t('integrationen.invoiceApp.issued.xmlLater', { count: synced.xmlLater })}
 					</p>
 				{/if}
+				{#if synced.xmlRefused}
+					<p class="mt-1 text-sm text-warning" data-testid="invoice-app-sync-xml-refused">
+						{t('integrationen.invoiceApp.issued.xmlRefused', { count: synced.xmlRefused })}
+					</p>
+				{/if}
 			{/if}
 		</div>
 		<button
