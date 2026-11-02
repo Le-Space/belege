@@ -36,6 +36,12 @@ export const DB_NAME_INFO = 'belege/db-name/v1';
 export const BLOB_KEY_INFO = 'belege/blob-key/v1';
 
 /**
+ * The key a backup is sealed with (backup/archive.js, issue #77). Bumping it
+ * makes every backup made so far unreadable.
+ */
+export const BACKUP_KEY_INFO = 'belege/backup-key/v1';
+
+/**
  * Bumping this gives Belege another libp2p peer id: every app it is paired
  * with over UCEP (ucep/) would have to pair again.
  */
@@ -46,6 +52,29 @@ export const PEER_KEY_INFO = 'belege/peer-key/v1';
  * Bumping it only means devices of different builds do not accept each other.
  */
 export const DEVICE_AUTH_INFO = 'belege/device-auth/v1';
+
+/**
+ * The key OrbitDB's `replication` layer seals whole entries with
+ * (entry-encryption.js `sealedEncryption`). Bumping it makes every sealed log
+ * unreadable.
+ */
+export const REPLICATION_KEY_INFO = 'belege/replication-key/v1';
+
+/**
+ * The names of the databases whose entries carry the replication seal. Not
+ * the collection's name: the OrbitDB manifest is not sealed, and a name there
+ * would say what a database holds.
+ */
+export const SEALED_DB_NAME_INFO = 'belege/db-name/v2';
+
+/**
+ * The books' secret (#496): what their own identity is made from
+ * (session-identities.js `BOOKS_IDENTITY_INFO`), the root writer of every
+ * collection. Derived here until the vault (#406) keeps it; the vault takes
+ * this very value. Bumping it gives the books another identity, and with it
+ * other databases.
+ */
+export const BOOKS_SECRET_INFO = 'belege/books-secret/v1';
 
 const KEY_BYTES = 32;
 const NAME_BYTES = 16;
@@ -112,7 +141,21 @@ export async function deriveBlobKey(prfOutput) {
 }
 
 /**
- * The OrbitDB name of one collection, e.g. `belege.transactions.9f3c…`.
+ * The AES-GCM key a whole backup is sealed with, before it leaves for a
+ * storage service. A key of its own: a backup is not a record or a file.
+ *
+ * @param {Uint8Array} prfOutput the passkey's PRF result
+ * @returns {Promise<Uint8Array>} 32 bytes
+ */
+export async function deriveBackupKey(prfOutput) {
+	assertPrfOutput(prfOutput);
+	return hkdf(prfOutput, BACKUP_KEY_INFO, KEY_BYTES);
+}
+
+/**
+ * The OrbitDB name of one collection's database before the replication layer
+ * (`belege.transactions.9f3c…`): where `openStore` finds the books to move
+ * (store/migrate.js).
  *
  * The collection stays readable so a person inspecting IndexedDB can tell
  * the databases apart; the suffix is what nobody without the passkey can
@@ -175,4 +218,48 @@ export async function deriveDevicePeerSeed(prfOutput, salt) {
 export async function deriveDeviceAuthKey(prfOutput) {
 	assertPrfOutput(prfOutput);
 	return hkdf(prfOutput, DEVICE_AUTH_INFO, KEY_BYTES);
+}
+
+/**
+ * The key OrbitDB's `replication` layer seals each whole entry with: the same
+ * on every device of the passkey, so own devices replicate and nobody else
+ * can decode an entry. Never written anywhere.
+ *
+ * @param {Uint8Array} prfOutput
+ * @returns {Promise<Uint8Array>} 32 bytes
+ */
+export async function deriveReplicationKey(prfOutput) {
+	assertPrfOutput(prfOutput);
+	return hkdf(prfOutput, REPLICATION_KEY_INFO, KEY_BYTES);
+}
+
+/**
+ * The books' secret (#496): made into the books' own signer with
+ * `createSecretSigner`, so the collections are written as the books, not as
+ * one passkey. Never written anywhere.
+ *
+ * @param {Uint8Array} prfOutput
+ * @returns {Promise<Uint8Array>} 32 bytes
+ */
+export async function deriveBooksSecret(prfOutput) {
+	assertPrfOutput(prfOutput);
+	return hkdf(prfOutput, BOOKS_SECRET_INFO, KEY_BYTES);
+}
+
+/**
+ * The OrbitDB name of one collection's database with the replication seal:
+ * 32 hex characters and nothing else, so the manifest says nothing of what
+ * the database holds.
+ *
+ * @param {Uint8Array} prfOutput
+ * @param {string} collection
+ * @returns {Promise<string>}
+ */
+export async function deriveSealedDatabaseName(prfOutput, collection) {
+	assertPrfOutput(prfOutput);
+	if (!/^[a-z][a-z0-9-]*$/.test(collection)) {
+		throw new Error(`Not a collection name: ${collection}`);
+	}
+	const name = await hkdf(prfOutput, `${SEALED_DB_NAME_INFO}:${collection}`, NAME_BYTES);
+	return Array.from(name, (b) => b.toString(16).padStart(2, '0')).join('');
 }

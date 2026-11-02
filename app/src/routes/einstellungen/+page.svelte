@@ -6,6 +6,8 @@
 	import MatchingSettings from '$lib/MatchingSettings.svelte';
 	import SetupChecklist from '$lib/setup/SetupChecklist.svelte';
 	import StorageCard from '$lib/storage/StorageCard.svelte';
+	import KeysCard from '$lib/keys/KeysCard.svelte';
+	import TravellersCard from '$lib/travel/TravellersCard.svelte';
 	import { consent } from '$lib/consent.js';
 	import { t } from '$lib/i18n/index.js';
 
@@ -16,6 +18,8 @@
 		['gelerntes', 'settings.nav.learned'],
 		['buchhaltung', 'settings.nav.books'],
 		['kontenplan', 'settings.nav.chart'],
+		['reisende', 'settings.nav.travellers'],
+		['schluessel', 'settings.nav.keys'],
 		['speicher', 'settings.nav.storage']
 	]);
 	const link =
@@ -45,6 +49,12 @@
 			<SetupChecklist place="settings" />
 		</div>
 		<MatchingSettings />
+		<div id="reisende" class="mt-4 scroll-mt-4">
+			<TravellersCard />
+		</div>
+		<div id="schluessel" class="mt-4 scroll-mt-4">
+			<KeysCard />
+		</div>
 		<div id="speicher" class="mt-4 scroll-mt-4">
 			<StorageCard />
 		</div>

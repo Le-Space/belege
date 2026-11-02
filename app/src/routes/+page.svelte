@@ -6,6 +6,7 @@
 		app,
 		currentStore,
 		dropPendingJob,
+		refreshNow,
 		resumeJob,
 		runMatchingNow
 	} from '$lib/session.svelte.js';
@@ -17,8 +18,15 @@
 	import { getSetting } from '$lib/store/settings.js';
 	import { DEFAULT_PRICES, aiUsage, cleanPrices, periods } from '$lib/stats/usage.js';
 	import { isTxCovered, questionProgress, transfersWithReceipt } from '$lib/matching/view.js';
-	import { cleanMatchingSettings } from '$lib/matching/classify.js';
-	import { keepTransferReceipt, unlinkMatch } from '$lib/matching/actions.js';
+	import { cleanMatchingSettings, wrongFeeKeys } from '$lib/matching/classify.js';
+	import { forgetBankFees } from '$lib/matching/actions.js';
+	import {
+		addOwnIban,
+		keepTransferReceipt,
+		rejectOwnIban,
+		unlinkMatch
+	} from '$lib/matching/actions.js';
+	import { groupIban, ownIbanSuggestions } from '$lib/matching/own-iban.js';
 	import { formatDate, formatMoney, formatTxAmount } from '$lib/bank/format.js';
 	import { addressBook, payeeName } from '$lib/bank/payee.js';
 	import { receiptVendor } from '$lib/receipts/view.js';
@@ -26,17 +34,33 @@
 	import { yearLabel } from '$lib/year/year.js';
 	import InputVatCard from '$lib/vat/InputVatCard.svelte';
 	import { openPrivatePayments } from '$lib/matching/private.js';
+	import { openOutlays } from '$lib/outlays/repayment.js';
 	import { cleanDatevSettings, privateAccounts } from '$lib/booking/settings.js';
 	import NeedsCard from '$lib/integrations/NeedsCard.svelte';
 	import SetupChecklist from '$lib/setup/SetupChecklist.svelte';
+	import SafetyCard from '$lib/storage/SafetyCard.svelte';
 	import TotalsCard from '$lib/dashboard/TotalsCard.svelte';
 	import { integrationFacts, loadIntegrationFacts } from '$lib/integrations/facts.svelte.js';
 	import { integrationsOverview } from '$lib/integrations/overview.js';
+	import { openTravelQuestions, tripProposals } from '$lib/travel/proposals.js';
+	import { tripMonth } from '$lib/travel/records.js';
 
 	const hour = new Date().getHours();
 	const greeting = t(hour < 11 ? 'home.morning' : hour < 18 ? 'home.day' : 'home.evening');
 
 	const card = 'rounded-lg border border-border bg-surface px-5 py-4 shadow-sm';
+
+	// Reisen (#213): this month's trips and what travel still asks.
+	let tripsThisMonth = $derived(
+		app.travel.filter(
+			(r) =>
+				r.kind === 'trip' && !r.deleted && tripMonth(r) === new Date().toISOString().slice(0, 7)
+		).length
+	);
+	let travelOpen = $derived(openTravelQuestions(app).length);
+	let travelProposals = $derived(
+		tripProposals({ travel: app.travel, receipts: app.receipts }).length
+	);
 
 	// Speicher und KI (stats/usage.js): two numbers here, the rest on /statistik.
 	/** @type {number | null} */
@@ -60,6 +84,31 @@
 			? openPrivatePayments(app.transactions)
 			: []
 	);
+
+	// Learned bank fees that had caught a vendor's invoice debits (#320): those
+	// bookings ask for their receipt again; the rules behind them can go.
+	let wrongFees = $derived(
+		wrongFeeKeys(
+			/** @type {any[]} */ (app.transactions),
+			cleanMatchingSettings(app.matchingSettings).feeKeys
+		)
+	);
+	let forgetting = $state(false);
+	async function forgetWrongFees() {
+		const store = currentStore();
+		if (!store) return;
+		forgetting = true;
+		try {
+			await forgetBankFees(/** @type {any} */ (store), wrongFees.keys);
+			await refreshNow();
+			await runMatchingNow();
+		} finally {
+			forgetting = false;
+		}
+	}
+
+	// Outlays laid out privately and not paid back yet (#293).
+	let outlaysOpen = $derived(openOutlays(/** @type {any[]} */ (app.transactions)));
 
 	// What an integration needs from the person (#152), here too: the day starts on Home.
 	onMount(() => loadIntegrationFacts());
@@ -160,6 +209,16 @@
 			kept: cleanMatchingSettings(app.matchingSettings).keptTransferReceipts
 		}).filter((x) => index.txYear(x.tx) === year);
 	});
+	// "Ist das ein eigenes Konto?" (#256): an IBAN that sends under the company's name.
+	let ownIbanOffers = $derived.by(() => {
+		const settings = cleanMatchingSettings(app.matchingSettings);
+		return ownIbanSuggestions({
+			transactions: app.transactions,
+			classifications: app.classifications,
+			ownIbans: settings.ownIbans,
+			notOwnIbans: settings.notOwnIbans
+		});
+	});
 	let checkBusy = $state(false);
 	/** @param {() => Promise<unknown>} fn */
 	async function check(fn) {
@@ -180,17 +239,23 @@
 
 <SetupChecklist />
 
+<SafetyCard />
+
 {#each RESUME_KINDS as kind (kind)}
 	{@const ids = kind === 'extract' ? leftToRead : leftToSuggest}
 	{#if ids.length}
+		{@const stopped = kind === 'extract' ? extractRun.stopped : aiRun.stopped}
 		<section
 			class="mt-4 flex flex-wrap items-center justify-between gap-3 {card}"
 			role="status"
 			data-testid={`resume-${kind}`}
 		>
-			<p class="min-w-0 flex-1 text-sm text-heading">
-				{t(`home.resume.${kind}`, { count: ids.length })}
-			</p>
+			<div class="min-w-0 flex-1 text-sm">
+				<p class="text-heading">{t(`home.resume.${kind}`, { count: ids.length })}</p>
+				{#if stopped}
+					<p class="mt-1 text-danger" data-testid={`resume-${kind}-why`}>{stopped}</p>
+				{/if}
+			</div>
 			<div class="flex gap-2">
 				<button
 					type="button"
@@ -210,6 +275,41 @@
 {/each}
 {#if resumeNote}
 	<p class="mt-2 text-sm text-danger" role="alert">{resumeNote}</p>
+{/if}
+
+{#if wrongFees.bookings.length}
+	<section class="mt-4 {card}" aria-labelledby="wrong-fees-h" data-testid="home-wrong-fees">
+		<h2 id="wrong-fees-h" class="text-sm font-semibold text-heading">
+			{t('home.wrongFees.title', { count: wrongFees.bookings.length })}
+		</h2>
+		<p class="mt-1 text-sm text-text">{t('home.wrongFees.what')}</p>
+		<ul class="mt-2 divide-y divide-border text-sm">
+			{#each wrongFees.bookings.slice(0, 5) as tx (tx.id)}
+				<li>
+					<a
+						class="flex min-h-11 items-center justify-between gap-2 py-1 text-heading hover:underline"
+						href={`${resolve('/zahlungen')}?tx=${encodeURIComponent(tx.id)}`}
+						data-testid="home-wrong-fee"
+						><span class="min-w-0 truncate"
+							>{formatDate(tx.bookedOn)} · {tx.counterparty || tx.purpose || '—'}</span
+						><span class="font-mono tabular-nums"
+							>{formatMoney(tx.amountCents ?? 0, tx.currency ?? 'EUR')}</span
+						></a
+					>
+				</li>
+			{/each}
+		</ul>
+		{#if wrongFees.keys.length}
+			<button
+				type="button"
+				class="mt-2 rounded-md border border-border px-3 py-1.5 text-sm text-text hover:bg-surface-2 disabled:opacity-50"
+				onclick={forgetWrongFees}
+				disabled={forgetting}
+				data-testid="home-wrong-fees-forget"
+				>{t('home.wrongFees.forget', { count: wrongFees.keys.length })}</button
+			>
+		{/if}
+	</section>
 {/if}
 
 {#if privateOpen.length}
@@ -241,6 +341,35 @@
 	</section>
 {/if}
 
+{#if outlaysOpen.length}
+	<section class="mt-4 {card}" aria-labelledby="outlays-open-h" data-testid="home-outlays-open">
+		<h2 id="outlays-open-h" class="text-sm font-semibold text-heading">
+			{t('home.outlaysOpen.title', {
+				count: outlaysOpen.length,
+				amount: formatMoney(
+					outlaysOpen.reduce((n, o) => n + o.openCents, 0),
+					'EUR'
+				)
+			})}
+		</h2>
+		<p class="mt-1 text-sm text-text">{t('home.outlaysOpen.what')}</p>
+		<ul class="mt-2 divide-y divide-border text-sm">
+			{#each outlaysOpen.slice(0, 5) as o (o.tx.id)}
+				<li>
+					<a
+						class="flex min-h-11 items-center justify-between gap-2 py-1 text-heading hover:underline"
+						href={`${resolve('/zahlungen')}?tx=${encodeURIComponent(o.tx.id)}`}
+						data-testid="home-outlays-open-item"
+						><span class="min-w-0 truncate"
+							>{formatDate(o.tx.bookedOn)} · {o.tx.counterparty || '—'}</span
+						><span class="font-mono tabular-nums">{formatMoney(o.openCents, 'EUR')}</span></a
+					>
+				</li>
+			{/each}
+		</ul>
+	</section>
+{/if}
+
 {#if integrationNeeds.length}
 	<NeedsCard
 		needs={integrationNeeds}
@@ -248,6 +377,65 @@
 		testid="home-integration-needs"
 		more
 	/>
+{/if}
+
+{#if ownIbanOffers.length}
+	<section class="mt-4 {card}" aria-labelledby="own-iban-h" data-testid="own-iban-offers">
+		<h2 id="own-iban-h" class="text-sm font-semibold text-heading">{t('home.ownIban.title')}</h2>
+		<p class="mt-1 text-sm text-text">{t('home.ownIban.what')}</p>
+		<ul class="mt-2 divide-y divide-border text-sm">
+			{#each ownIbanOffers as offer (offer.iban)}
+				<li
+					class="flex flex-wrap items-center justify-between gap-2 py-2"
+					data-testid="own-iban-offer"
+				>
+					<span class="min-w-0">
+						<span class="font-mono text-heading" data-testid="own-iban-offer-iban"
+							>{groupIban(offer.iban)}</span
+						>
+						<span class="block text-faint"
+							>{t('home.ownIban.sends', {
+								name: offer.sender,
+								count: offer.incoming.length
+							})}</span
+						>
+						<span class="block text-heading" data-testid="own-iban-offer-explains"
+							>{offer.outgoing.length === 1
+								? t('home.ownIban.explainsOne')
+								: offer.outgoing.length
+									? t('home.ownIban.explains', { count: offer.outgoing.length })
+									: t('home.ownIban.explainsNone')}</span
+						>
+					</span>
+					<span class="flex flex-wrap gap-2">
+						{#if offer.outgoing.length}
+							<a
+								class="rounded-md border border-border px-3 py-1 text-sm text-text no-underline hover:bg-surface-2"
+								href={`${resolve('/zahlungen')}?tx=${encodeURIComponent(String(offer.outgoing[0].id))}`}
+								data-testid="own-iban-offer-open">{t('home.ownIban.open')}</a
+							>
+						{/if}
+						<button
+							type="button"
+							class="rounded-md border border-border px-3 py-1 text-sm text-text hover:bg-surface-2"
+							disabled={checkBusy}
+							onclick={() =>
+								check(() => addOwnIban(/** @type {any} */ (currentStore()), offer.iban))}
+							data-testid="own-iban-offer-yes">{t('home.ownIban.yes')}</button
+						>
+						<button
+							type="button"
+							class="rounded-md border border-border px-3 py-1 text-sm text-text hover:bg-surface-2"
+							disabled={checkBusy}
+							onclick={() =>
+								check(() => rejectOwnIban(/** @type {any} */ (currentStore()), offer.iban))}
+							data-testid="own-iban-offer-no">{t('home.ownIban.no')}</button
+						>
+					</span>
+				</li>
+			{/each}
+		</ul>
+	</section>
 {/if}
 
 {#if transferReceipts.length}
@@ -433,6 +621,21 @@
 </dl>
 
 <a
+	href={resolve('/reisen')}
+	class="mt-4 flex flex-wrap items-center justify-between gap-2 {card} no-underline hover:border-cyan-800"
+	data-testid="home-reisen"
+>
+	<span class="text-sm font-medium text-faint">{t('reisen.title')}</span>
+	<span class="text-sm text-heading tabular-nums" data-testid="home-reisen-line"
+		>{t('reisen.homeLine', {
+			trips: tripsThisMonth,
+			open: travelOpen,
+			proposals: travelProposals
+		})}</span
+	>
+</a>
+
+<a
 	href={resolve('/statistik')}
 	class="mt-4 flex flex-wrap items-center justify-between gap-2 {card} no-underline hover:border-cyan-800"
 	data-testid="home-stats"
@@ -464,6 +667,10 @@
 <InputVatCard
 	receipts={app.receipts}
 	matches={app.matches}
+	transactions={app.transactions}
+	basis={vatSettings.vatBasis}
+	companyNames={cleanMatchingSettings(app.matchingSettings).companyNames}
+	ownVatId={vatSettings.ownVatId}
 	year={shownYear()}
 	{yearName}
 	startMonth={startMonth()}

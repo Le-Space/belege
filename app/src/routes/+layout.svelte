@@ -8,10 +8,13 @@
 	import ConsentModal from '$lib/ConsentModal.svelte';
 	import BelegeMark from '$lib/BelegeMark.svelte';
 	import LocalOnlyBadge from '$lib/LocalOnlyBadge.svelte';
+	import BackupBadge from '$lib/backup/BackupBadge.svelte';
 	import PageQr from '$lib/PageQr.svelte';
 	import LanguageSwitch from '$lib/LanguageSwitch.svelte';
 	import SampleBanner from '$lib/sample/SampleBanner.svelte';
+	import WordsOffer from '$lib/keys/WordsOffer.svelte';
 	import SettingsLink from '$lib/SettingsLink.svelte';
+	import UploadPanel from '$lib/receipts/UploadPanel.svelte';
 	import { page } from '$app/state';
 	import PasskeyOnboarding from '$lib/PasskeyOnboarding.svelte';
 	import PwaBar from '$lib/pwa/PwaBar.svelte';
@@ -23,6 +26,9 @@
 	import { app } from '$lib/session.svelte.js';
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
+	import { afterNavigate, replaceState } from '$app/navigation';
+	import { captureReturn } from '$lib/enablebanking/return.js';
+	import { pendingInvite, takeLinkedInvite } from '$lib/sync/qr-link-url.js';
 	import { resetPending, wipeBrowser } from '$lib/storage/reset.js';
 
 	// The language before the first word is drawn (i18n/, #192).
@@ -39,6 +45,29 @@
 	// the app is drawn or opened until this page has wiped the browser.
 	const resetting = resetPending();
 	let resetBlocked = $state(false);
+	// A bank's answer to an Enable Banking link leaves the address before the
+	// passkey is asked for (enablebanking/return.js, #224). After the first
+	// navigation, not in onMount: SvelteKit's replaceState needs the mounted root.
+	afterNavigate(() => {
+		captureReturn({
+			location,
+			replace: (path) => replaceState(path, page.state),
+			storage: sessionStorage
+		});
+		takeInvite();
+	});
+	// A QR invite opened by a phone's camera (sync/qr-link-url.js): out of the
+	// address, kept for this tab, answered in the network menu once unlocked.
+	// Also when the link is put into a tab that is open already: then only the
+	// fragment changes, and no navigation runs.
+	function takeInvite() {
+		app.network.qrInvite =
+			takeLinkedInvite({
+				location,
+				storage: sessionStorage,
+				replace: (path) => replaceState(path, page.state)
+			}) ?? pendingInvite(sessionStorage);
+	}
 	onMount(async () => {
 		if (!resetting) return;
 		const report = await wipeBrowser();
@@ -46,6 +75,8 @@
 		else resetBlocked = true;
 	});
 </script>
+
+<svelte:window onhashchange={takeInvite} />
 
 {#if resetting}
 	<main class="mx-auto max-w-xl px-4 py-16 text-center" data-testid="reset-running">
@@ -71,39 +102,45 @@
 	>
 		<!--
 		A grid, as in escrow01: on a phone the name and the switches share the
-		first row and the state takes the second; from `sm` on, one row.
+		first row and the state takes the second; from `lg` on, one row (a
+		folding phone opened, ~700 px, squeezed the name into a column of single words).
 	-->
 		<header
-			class="mb-4 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 sm:mb-6 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
+			class="mb-4 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 sm:mb-6 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_auto_auto]"
 		>
 			<div class="col-start-1 row-start-1 flex min-w-0 items-center gap-3">
 				<a
-					href="https://local-first.le-space.de"
+					href="https://le-space.de/belege/"
 					target="_blank"
 					rel="noopener noreferrer"
 					class="shrink-0 rounded-md focus-visible:ring-2 focus-visible:ring-cyan focus-visible:outline-none"
 					aria-label={t('header.localFirst')}
 					title={t('header.localFirst')}
-					data-testid="local-first-link"
+					data-testid="product-page-link"
 				>
 					<BelegeMark size={44} />
 				</a>
 				<div class="min-w-0">
-					<p class="font-bold text-heading sm:truncate sm:text-3xl" data-testid="app-name">
+					<p
+						class="font-bold text-heading sm:truncate sm:text-2xl lg:text-3xl"
+						data-testid="app-name"
+					>
 						<span
-							class="block text-xs font-semibold tracking-wide text-faint sm:inline sm:text-3xl sm:font-bold sm:tracking-normal sm:text-heading"
+							class="block text-xs font-semibold tracking-wide text-faint sm:inline sm:text-2xl sm:font-bold sm:tracking-normal sm:text-heading lg:text-3xl"
 							>{t('app.maker')}</span
 						>
-						<span class="block text-xl leading-tight sm:inline sm:text-3xl">{t('app.product')}</span
+						<span class="block text-xl leading-tight sm:inline sm:text-2xl lg:text-3xl"
+							>{t('app.product')}</span
 						>
 					</p>
 					<p class="mt-0.5 hidden text-sm text-faint sm:block">{t('app.tagline')}</p>
 				</div>
 			</div>
 			<div
-				class="col-span-2 row-start-2 flex min-w-0 flex-wrap items-center gap-2 sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:justify-end"
+				class="col-span-2 row-start-2 flex min-w-0 flex-wrap items-center gap-2 lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:justify-end"
 			>
 				<LocalOnlyBadge />
+				{#if ready}<BackupBadge />{/if}
 				{#if ready && app.did}
 					<span
 						class="max-w-full truncate rounded-full border border-border bg-surface px-2.5 py-1 font-mono text-xs text-text"
@@ -114,7 +151,7 @@
 				{/if}
 			</div>
 			<div
-				class="col-start-2 row-start-1 flex flex-wrap items-center justify-end gap-1 sm:col-start-3 sm:flex-nowrap sm:gap-2"
+				class="col-start-2 row-start-1 flex flex-wrap items-center justify-end gap-1 sm:flex-nowrap sm:gap-2 lg:col-start-3"
 			>
 				{#if ready}<SettingsLink />{/if}
 				<PageQr />
@@ -132,9 +169,16 @@
 			</main>
 		{:else}
 			<SampleBanner />
-			<SectionTabs />
+			<WordsOffer />
+			<!-- Uploading from every page (#308): right in the tab row; on a phone a "+" above the tab bar. -->
+			<div class="relative">
+				<SectionTabs />
+				<div class="absolute top-0 right-0 sm:top-1.5">
+					<UploadPanel />
+				</div>
+			</div>
 			<main>
-				{#if !['/integrationen', '/einstellungen'].some((p) => page.url.pathname.startsWith(p))}
+				{#if !['/integrationen', '/einstellungen', '/reisen'].some( (p) => page.url.pathname.startsWith(p) )}
 					<YearSwitch />
 				{/if}
 				{@render children()}
