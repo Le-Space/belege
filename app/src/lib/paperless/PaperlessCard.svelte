@@ -48,7 +48,8 @@
 			});
 			result = [
 				t('belege.paperless.result', { documents, ...counts }),
-				counts.failed ? t('belege.paperless.failed', { count: counts.failed }) : ''
+				counts.failed ? t('belege.paperless.failed', { count: counts.failed }) : '',
+				counts.refused ? t('belege.paperless.refused', { count: counts.refused }) : ''
 			]
 				.filter(Boolean)
 				.join(' ');

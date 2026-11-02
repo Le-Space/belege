@@ -83,8 +83,9 @@ export const parseTags = (text) =>
  */
 
 /**
- * @typedef {{ new: number, known: number, duplicate: number, skipped: number, unsupported: number, failed: number }} PaperlessCounts
- *   failed: documents Paperless did not deliver this time (a timeout, a broken-off answer) – fetched again next time
+ * @typedef {{ new: number, known: number, duplicate: number, skipped: number, unsupported: number, failed: number, refused: number }} PaperlessCounts
+ *   failed: documents Paperless did not deliver this time (a timeout, a broken-off answer) – fetched again next time;
+ *   refused: documents the bridge cannot deliver at all (larger than it takes, gone from Paperless) – left in Paperless, not asked again
  */
 
 /** So many documents in a row not delivered, and Paperless is taken to be down: the fetch stops. */
@@ -92,8 +93,16 @@ export const STOP_AFTER_FAILURES = 3;
 
 /** A document Paperless did not deliver this time, as opposed to one that is no receipt. @param {any} error */
 const notDelivered = (error) =>
-	['PAPERLESS_TIMEOUT', 'PAPERLESS_UNREACHABLE'].includes(error?.code) ||
+	['PAPERLESS_TIMEOUT', 'PAPERLESS_UNREACHABLE', 'PAPERLESS_HTTP'].includes(error?.code) ||
 	/timed out|TimeoutError/i.test(String(error?.message ?? ''));
+
+/**
+ * A document the bridge will never deliver: larger than it takes (15 MB), or
+ * no longer in Paperless. Asking again would end every fetch at it.
+ * @param {any} error
+ */
+const refusedForGood = (error) =>
+	['PAPERLESS_TOO_LARGE', 'PAPERLESS_NOT_FOUND'].includes(error?.code);
 
 /**
  * The documents of a list into the books.
@@ -124,7 +133,15 @@ export async function importPaperlessDocuments({
 	};
 	const skip = new Set(skipTags.map((t) => t.toLowerCase()));
 	/** @type {PaperlessCounts} */
-	const counts = { new: 0, known: 0, duplicate: 0, skipped: 0, unsupported: 0, failed: 0 };
+	const counts = {
+		new: 0,
+		known: 0,
+		duplicate: 0,
+		skipped: 0,
+		unsupported: 0,
+		failed: 0,
+		refused: 0
+	};
 	let inARow = 0;
 	let done = 0;
 	for (const doc of documents) {
@@ -145,6 +162,12 @@ export async function importPaperlessDocuments({
 			// Neither a PDF nor an image, nor an archive PDF of it: not a receipt here.
 			if (/** @type {any} */ (error)?.code === 'PAPERLESS_NOT_A_RECEIPT') {
 				counts.unsupported++;
+				continue;
+			}
+			// One the bridge cannot deliver at all stays in Paperless; the fetch
+			// goes on, and the mark moves past it – else it would end every fetch.
+			if (refusedForGood(error)) {
+				counts.refused++;
 				continue;
 			}
 			// One slow document does not end the fetch: it comes again next time.
@@ -219,7 +242,9 @@ export async function fetchPaperless({ store, blobs, client, onProgress }) {
 		blobs,
 		client,
 		documents,
-		skipTags: settings.skipTags,
+		// The tags leave out what came by mail – while Belege reads the mailbox
+		// itself. With Paperless as the only mail reader, those are the receipts.
+		skipTags: settings.mailToo ? settings.skipTags : [],
 		created,
 		onProgress
 	});

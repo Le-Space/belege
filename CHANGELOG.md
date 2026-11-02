@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **"Aus Paperless holen" gets past a document the bridge cannot deliver**: one larger than 15 MB, or gone from Paperless, ended every fetch at that document, and nothing Paperless added after it ever came in. It is counted now ("{count} Dokument(e) kann die Bridge nicht liefern …"), stays in Paperless, and the fetch goes on. And the tags that leave mail-rule documents out apply only while "Belege ruft das Postfach trotzdem selbst ab" is on – with Paperless as the only mail reader, those documents are the receipts, and they were skipped for good (`app/src/lib/paperless/import.js`).
+
 - **Recovery words that were removed or replaced no longer open the books from another device**: when the books' current vault on Aleph has no slot for the words, the words are refused with "Diese Wörter wurden aus den Büchern entfernt oder durch neue ersetzt", the way a removed passkey is – before, the record filed under the words themselves still opened (`app/src/lib/books-vault.js`).
 
 - **The redaction before a model call reads an IBAN in any spelling and a card number without spaces**: a hand-typed `de89 3704 …` is blacked out like `DE89 3704 …`, and sixteen digits in a row with a valid check digit are taken for a card and hidden except the last four; order and tracking numbers of the same length, which fail that check, stay readable for the model (`bridge/src/llm/redact.js`, docs/ai.md).
