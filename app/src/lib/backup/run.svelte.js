@@ -126,6 +126,10 @@ const holdTheTab = (e) => {
 	e.returnValue = '';
 };
 
+/** Aleph refused to keep it – by this browser's key, or by the bridge. @param {unknown} e */
+const alephRefused = (e) =>
+	e instanceof BackupRefusedError || /** @type {any} */ (e)?.code === 'ALEPH_BACKUP_REJECTED';
+
 /** Aleph's refusal in words. @param {unknown} e */
 export const refused = (e) =>
 	/** @type {any} */ (e)?.name === 'UploadTimeoutError'
@@ -238,16 +242,19 @@ export async function runBackup({ continuing, uploader, askFor, unattended = fal
 			}
 		});
 		backupRun.step = 'keeping';
-		const kept = await uploader.keep(handle, continuing?.base);
-		/** @type {import('./history.js').BackupRecord} */
-		const record = {
+		/**
+		 * The history's row: what was built and uploaded, and what keeps it.
+		 * @param {{ status: string, itemHash?: string, address?: string, sender?: string }} kept
+		 * @returns {import('./history.js').BackupRecord}
+		 */
+		const recordOf = (kept) => ({
 			at: at.toISOString(),
 			provider: 'aleph',
 			cid: handle.id,
 			size: built.sealed.length,
 			status: kept.status,
-			itemHash: kept.itemHash,
-			address: kept.address,
+			...(kept.itemHash ? { itemHash: kept.itemHash } : {}),
+			...(kept.address ? { address: kept.address } : {}),
 			...(kept.sender ? { sender: kept.sender } : {}),
 			...('heads' in built
 				? {
@@ -268,7 +275,25 @@ export async function runBackup({ continuing, uploader, askFor, unattended = fal
 						blocks: built.blocks,
 						missing: built.manifest.missing
 					})
-		};
+		});
+		let kept;
+		try {
+			kept = await uploader.keep(handle, continuing?.base);
+		} catch (e) {
+			// The file is on Aleph's host all the same. A row with its CID lets
+			// "Aleph erneut beauftragen" send a new STORE for it – refused for
+			// credits, or lost on the way – instead of packing and uploading the
+			// whole backup again.
+			await rememberBackup(
+				store.settings,
+				recordOf({
+					status: alephRefused(e) ? 'rejected' : 'unknown',
+					...(handle?.itemHash ? { itemHash: String(handle.itemHash) } : {})
+				})
+			);
+			throw e;
+		}
+		const record = recordOf(kept);
 		await rememberBackup(store.settings, record);
 		backupRun.made = record;
 		// The books' index on Aleph names the account the backups are kept
