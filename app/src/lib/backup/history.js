@@ -9,7 +9,13 @@
 import { getSetting, setSetting } from '../store/settings.js';
 
 export const BACKUPS_KEY = 'backups';
-/** The newest this many are kept in the list; older backups stay where they are. */
+/**
+ * Of the chains backups no longer go on with, the newest this many rows are
+ * kept in the list; older backups stay where they are. The chain a record
+ * continues keeps every row: a restore fetches the chain's increments by this
+ * list (and Aleph's), and a chain that backs up by itself has more than fifty
+ * within weeks.
+ */
 export const KEEP = 50;
 
 /**
@@ -39,13 +45,20 @@ export async function loadBackups(settings) {
 	return Array.isArray(list) ? list : [];
 }
 
+/** The chain a row belongs to: its full backup's CID. @param {BackupRecord} b */
+const chainOf = (b) => (b.kind === 'increment' ? b.base : b.cid);
+
 /**
- * Newest first, at most KEEP.
+ * Newest first: every row of the record's chain, and at most KEEP of the others.
  *
  * @param {BackupRecord[]} list
  * @param {BackupRecord} record
  */
-export const withBackup = (list, record) => [record, ...list].slice(0, KEEP);
+export const withBackup = (list, record) => {
+	const chain = chainOf(record);
+	let others = 0;
+	return [record, ...list].filter((b) => chainOf(b) === chain || others++ < KEEP);
+};
 
 /** @param {import('../store/repository.js').Collection} settings @param {BackupRecord} record */
 export async function rememberBackup(settings, record) {

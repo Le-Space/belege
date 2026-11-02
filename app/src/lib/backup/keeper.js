@@ -376,11 +376,21 @@ export async function createBackupUploader({
 	};
 }
 
+/** STOREs per page of Aleph's list; the pages are read until the list ends. */
+export const BACKUPS_PAGE = 50;
+/** No more pages than this: 5,000 STOREs, years of increments. */
+const BACKUPS_PAGES = 100;
+
 /**
  * The backups kept for the paying account, newest first, from Aleph's public
  * messages API: those the bridge sent and those this key sent alike. A full
  * backup carries no `ref`; an increment carries its full backup's CID, and
  * with `ref` only that chain's increments are listed.
+ *
+ * Every page: Aleph answers 50 at a time, and an account that backs up by
+ * itself passes that within weeks – a chain's older increments, and the full
+ * backups before them, are on the later pages. A host that ignores `page`
+ * answers the same STOREs again; that ends the reading too.
  *
  * @param {{ owner: string, ref?: string, endpoints?: AlephEndpoints, fetch?: typeof fetch }} params
  * @returns {Promise<{ cid: string, itemHash: string, sender: string, owner: string, time: number, ref?: string, size?: number }[]>}
@@ -388,14 +398,31 @@ export async function createBackupUploader({
  */
 export async function findBackups({ owner, ref, endpoints = alephEndpoints(), fetch: f }) {
 	const { listAlephStores } = await import('@le-space/orbitdb-storage-bridge/backends/aleph-pin');
-	const { stores } = await listAlephStores({
-		owner,
-		channel: BACKUP_CHANNEL,
-		apiHost: endpoints.apiHost,
-		...(ref ? { ref } : {}),
-		...(f ? { fetch: f } : {})
-	});
-	return stores;
+	/** @type {Awaited<ReturnType<typeof listAlephStores>>['stores']} */
+	const all = [];
+	const seen = new Set();
+	for (let page = 1; page <= BACKUPS_PAGES; page++) {
+		const { stores, total } = await listAlephStores({
+			owner,
+			channel: BACKUP_CHANNEL,
+			apiHost: endpoints.apiHost,
+			pagination: BACKUPS_PAGE,
+			page,
+			...(ref ? { ref } : {}),
+			...(f ? { fetch: f } : {})
+		});
+		let fresh = 0;
+		for (const store of stores) {
+			if (seen.has(store.itemHash)) continue;
+			seen.add(store.itemHash);
+			all.push(store);
+			fresh++;
+		}
+		if (fresh === 0 || stores.length < BACKUPS_PAGE || (total !== null && all.length >= total)) {
+			break;
+		}
+	}
+	return all;
 }
 
 /**

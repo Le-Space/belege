@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **A restore fetches only what Aleph keeps, and finds every backup of the account**: an increment Aleph refused or never took is left out (its entries went again with the next one), where before the restore waited for a file nobody holds and failed; the list of backups is read page by page (Aleph answers 50 at a time, and a chain that backs up by itself has more within weeks), so older full backups and a long chain's first increments are found on an empty device; the history keeps every row of the current chain, not the newest 50 overall; and a backup that was uploaded but not kept (credits, a lost answer) gets its row, so "Aleph erneut beauftragen" sends a new STORE instead of the whole file again (`app/src/lib/backup`).
+
 - **Recovery words that were removed or replaced no longer open the books from another device**: when the books' current vault on Aleph has no slot for the words, the words are refused with "Diese Wörter wurden aus den Büchern entfernt oder durch neue ersetzt", the way a removed passkey is – before, the record filed under the words themselves still opened (`app/src/lib/books-vault.js`).
 
 - **The redaction before a model call reads an IBAN in any spelling and a card number without spaces**: a hand-typed `de89 3704 …` is blacked out like `DE89 3704 …`, and sixteen digits in a row with a valid check digit are taken for a card and hidden except the last four; order and tracking numbers of the same length, which fail that check, stay readable for the model (`bridge/src/llm/redact.js`, docs/ai.md).

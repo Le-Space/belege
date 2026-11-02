@@ -246,7 +246,7 @@
 		return runRestore({
 			owner,
 			endpoints,
-			known: records.filter((b) => b.kind === 'increment').map((b) => b.cid),
+			known: records.filter((b) => b.kind === 'increment' && held(b)).map((b) => b.cid),
 			sizes: Object.fromEntries(records.filter((b) => b.size > 0).map((b) => [b.cid, b.size]))
 		});
 	};

@@ -12,6 +12,7 @@ import { isAlephKey } from './aleph-key.js';
 import { alephAddressOf, toChecksumAddress } from './aleph-signer.js';
 import {
 	BACKUP_CHANNEL,
+	BACKUPS_PAGE,
 	BackupRefusedError,
 	KEY_SETTING,
 	CREDITS_PER_MIB_DAY,
@@ -389,5 +390,64 @@ describe('forgetting an older chain', () => {
 		expect(JSON.parse(posted[0].item_content).address).toBe(OWNER);
 		expect(result.forgotten).toEqual(['c'.repeat(64), 'a'.repeat(64), 'b'.repeat(64)]);
 		expect(result.rejected).toEqual([]);
+	});
+});
+
+describe('the list of backups, page by page', () => {
+	/** A STORE as Aleph lists it. @param {number} i */
+	const store = (i) => ({
+		item_hash: `h${i}`,
+		sender: OWNER,
+		channel: BACKUP_CHANNEL,
+		content: { address: OWNER, item_type: 'ipfs', item_hash: `QmFile${i}`, time: 10_000 - i }
+	});
+	/**
+	 * Aleph's messages API over `all`, paged by `pagination` and `page` – or,
+	 * with `ignoresPage`, a host that answers the first page to every request.
+	 * @param {any[]} all @param {{ ignoresPage?: boolean }} [how]
+	 */
+	const alephWith = (all, { ignoresPage = false } = {}) => {
+		/** @type {string[]} */
+		const asked = [];
+		/** @type {typeof fetch} */
+		const fetchImpl = async (input) => {
+			const url = new URL(String(input));
+			asked.push(url.toString());
+			const per = Number(url.searchParams.get('pagination'));
+			const page = ignoresPage ? 1 : Number(url.searchParams.get('page'));
+			const body = {
+				messages: all.slice((page - 1) * per, page * per),
+				pagination_total: all.length
+			};
+			return /** @type {Response} */ ({ ok: true, status: 200, json: async () => body });
+		};
+		return { asked, fetchImpl };
+	};
+
+	it('reads every page: a chain that backs up by itself has more than one', async () => {
+		const aleph = alephWith(Array.from({ length: 2 * BACKUPS_PAGE + 7 }, (_, i) => store(i)));
+		const stores = await findBackups({ owner: OWNER, endpoints, fetch: aleph.fetchImpl });
+		expect(stores).toHaveLength(2 * BACKUPS_PAGE + 7);
+		expect(stores[0].cid).toBe('QmFile0');
+		expect(stores.at(-1)?.cid).toBe(`QmFile${2 * BACKUPS_PAGE + 6}`);
+		expect(aleph.asked).toHaveLength(3);
+		expect(new URL(aleph.asked[2]).searchParams.get('page')).toBe('3');
+	});
+
+	it('one page is one request', async () => {
+		const aleph = alephWith(Array.from({ length: 3 }, (_, i) => store(i)));
+		expect(await findBackups({ owner: OWNER, endpoints, fetch: aleph.fetchImpl })).toHaveLength(3);
+		expect(aleph.asked).toHaveLength(1);
+	});
+
+	it('a host that ignores the page is asked twice, and nothing is listed twice', async () => {
+		const aleph = alephWith(
+			Array.from({ length: 3 * BACKUPS_PAGE }, (_, i) => store(i)),
+			{ ignoresPage: true }
+		);
+		const stores = await findBackups({ owner: OWNER, endpoints, fetch: aleph.fetchImpl });
+		expect(stores).toHaveLength(BACKUPS_PAGE);
+		expect(new Set(stores.map((s) => s.itemHash)).size).toBe(BACKUPS_PAGE);
+		expect(aleph.asked).toHaveLength(2);
 	});
 });
