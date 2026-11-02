@@ -72,9 +72,16 @@ export function cancelRestore() {
 /** Whether a restore is under way, or nothing may start. */
 export const restoreBusy = () => Boolean(restoreRun.phase) || app.network.paused;
 
+/** Aleph keeps it, or has not decided yet: a file a restore can fetch. @param {{ status: string }} b */
+export const kept = (b) => b.status === 'processed' || b.status === 'pending';
+
 /**
  * The increments of a full backup, asked for right before the restore: those
- * the caller lists, those Aleph lists by its CID now, those made here.
+ * the caller lists, those Aleph lists by its CID now, those made here that
+ * Aleph keeps. One Aleph refused, or never took, is not fetched: the chain
+ * did not move on it, so the next increment shipped the same entries again,
+ * and the file itself is gone from Aleph's host – a fetch would wait for it
+ * for nothing and fail the whole restore.
  *
  * @param {string} base
  * @param {{ known?: string[], owner?: string | null, endpoints: import('./keeper.js').AlephEndpoints, sizes?: Record<string, number> }} params
@@ -85,7 +92,7 @@ async function incrementsOf(base, { known = [], owner, endpoints, sizes = {} }) 
 	const store = currentStore();
 	if (store) {
 		for (const b of await loadBackups(store.settings)) {
-			if (b.kind === 'increment' && b.base === base) cids.push(b.cid);
+			if (b.kind === 'increment' && b.base === base && kept(b)) cids.push(b.cid);
 			if (b.size > 0) sizes[b.cid] ??= b.size;
 		}
 	}
