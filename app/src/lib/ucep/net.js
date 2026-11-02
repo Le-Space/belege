@@ -51,23 +51,21 @@ export const RELAY_REGISTRATION = Object.freeze({
 	registrationId: 'relay:orbitdb-relay:orbitdb-relay'
 });
 export const TRUSTED_RELAY_SENDERS = Object.freeze([
-	// The orbitdb-relay VM deployed on 2026-10-14 (NiKrause/orbitdb-relay#60,
-	// 0.10.10). A guest publishes with a key made at deploy time, so every
+	// The orbitdb-relay VM deployed on 2026-10-23, which also serves
+	// paperless-anywhere's attest relay at /attest (relay-button#178): one VM
+	// for both. A guest publishes with a key made at deploy time, so every
 	// redeploy means a new wallet here — and until it lands, no relay.
-	'0x50c78C0286D1d6b465Ab96ac3313b1985854b38C',
-	// The second Le-Space relay (job-blanket-biology-typical).
-	'0x28BbF08A50eB88253cDc25Fe36eE345Dd7937cC6'
+	'0xaA4C6fd9952dA1129bfF208D0E621650273F5dE4'
 ]);
 
 /**
- * The relays as they were registered on 2026-10-14, for when Aleph cannot be
+ * The relay as it was registered on 2026-11-02, for when Aleph cannot be
  * asked. A relay moves when it is redeployed; the lookup is what keeps up.
- * The relay registered on 2026-09-28 (improve-empty-grass-tent) was forgotten
- * by the redeploy of 2026-10-14 and answers no more.
+ * Before it: the relay of 2026-10-14 (exhaust-tobacco-abuse-purchase), retired
+ * for this one, and job-blanket-biology-typical, silent since 2026-10-09.
  */
 export const FALLBACK_RELAYS = Object.freeze([
-	'/dns4/exhaust-tobacco-abuse-purchase.2n6.me/tcp/443/tls/ws/p2p/12D3KooWC9tUS4mSjada8VN4AvAfv4gpgGutnsVFtS6a3Y1mjjSq',
-	'/dns4/job-blanket-biology-typical.2n6.me/tcp/443/tls/ws/p2p/12D3KooWSEfBQ6yJ19ebpoWvx1T5yWL3UtjkN1muJJ4djyTfPtsZ'
+	'/dns4/secret-pass-wife-sentence.2n6.me/tcp/443/tls/ws/p2p/12D3KooWQt2YjDezcdMk7PpCT71xqrQhnFU7vLwWv5kAk6oFtuyP'
 ]);
 
 /**

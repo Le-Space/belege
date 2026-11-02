@@ -899,7 +899,7 @@ export default {
 			},
 			relays: {
 				name: 'Le-Space-Relays (gefunden über Aleph)',
-				text: 'Nur wenn Le Space Belege ins Netz geht – für die Rechnungs-App oder für deine eigenen Geräte: Es fragt api.aleph.im nach den aktuellen Adressen der Le-Space-Relays und verbindet sich mit ihnen. Es zählen nur Einträge der beiden Wallets, die Le Space dafür betreibt; fremde Einträge werden ignoriert.',
+				text: 'Nur wenn Le Space Belege ins Netz geht – für die Rechnungs-App oder für deine eigenen Geräte: Es fragt api.aleph.im nach den aktuellen Adressen der Le-Space-Relays und verbindet sich mit ihnen. Es zählen nur Einträge des Wallets, das Le Space dafür betreibt; fremde Einträge werden ignoriert.',
 				leaves:
 					'An Aleph (api.aleph.im): die IP-Adresse dieses Geräts, beim Nachschlagen. An den Betreiber des Relays: die IP-Adresse, die Peer-ID von Le Space Belege und der Gegenseite, wann ihr verbunden seid und wie viele Bytes fließen – nie Inhalte. Le Space Belege nennt dem Relay weder seine Datenbanken noch die Protokolle, die es mit deinen Geräten spricht; die erfährt ein Gerät erst, wenn es den Passkey bewiesen hat. Für eine direkte Verbindung (WebRTC) an öffentliche STUN-Server (Google, Twilio, Cloudflare, Mozilla): die IP-Adresse.',
 				technical:

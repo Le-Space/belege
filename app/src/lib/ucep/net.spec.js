@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	FALLBACK_RELAYS,
+	TRUSTED_RELAY_SENDERS,
 	RELAY_REGISTRATION,
 	browserDialable,
 	relayAddrs,
@@ -90,7 +91,7 @@ describe('relayAddrs', () => {
 		expect(url.searchParams.get('channels')).toBe('simple-todo');
 		expect(url.searchParams.get('refs')).toBe('simple-todo-bootstrap');
 		expect(url.searchParams.get('types')).toBe('relay-bootstrap-v2');
-		expect(url.searchParams.get('addresses')?.split(',')).toHaveLength(2);
+		expect(url.searchParams.get('addresses')?.split(',')).toEqual([...TRUSTED_RELAY_SENDERS]);
 	});
 
 	it('falls back to the relays last known when Aleph cannot be asked or knows none', async () => {
