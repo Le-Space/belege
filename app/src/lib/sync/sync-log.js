@@ -77,7 +77,17 @@ export function createSyncLog(
 	/** @type {ReturnType<typeof setTimeout> | undefined} */
 	let timer;
 
-	const b64 = (/** @type {Uint8Array} */ bytes) => btoa(String.fromCharCode(...bytes));
+	// In pieces: `String.fromCharCode(...bytes)` passes one argument per byte,
+	// and WebKit takes no more than 65,536 of them – a log of three hundred
+	// lines is past that sealed, and the RangeError was swallowed below, so no
+	// line was kept on an iPhone from then on.
+	const b64 = (/** @type {Uint8Array} */ bytes) => {
+		let text = '';
+		for (let at = 0; at < bytes.length; at += 0x8000) {
+			text += String.fromCharCode.apply(null, /** @type {any} */ (bytes.subarray(at, at + 0x8000)));
+		}
+		return btoa(text);
+	};
 	const unb64 = (/** @type {string} */ text) => Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
 
 	async function save() {

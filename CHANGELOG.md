@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **The devices' log survives on an iPhone**: once the sealed log passed 64 KiB (three hundred lines of file names and amounts), Safari refused the call that encoded it, the error was swallowed, and no line was kept on that device from then on – a reload showed the last log that still fit. The log is encoded in pieces now (`app/src/lib/sync/sync-log.js`).
+
 - **Recovery words that were removed or replaced no longer open the books from another device**: when the books' current vault on Aleph has no slot for the words, the words are refused with "Diese Wörter wurden aus den Büchern entfernt oder durch neue ersetzt", the way a removed passkey is – before, the record filed under the words themselves still opened (`app/src/lib/books-vault.js`).
 
 - **The redaction before a model call reads an IBAN in any spelling and a card number without spaces**: a hand-typed `de89 3704 …` is blacked out like `DE89 3704 …`, and sixteen digits in a row with a valid check digit are taken for a card and hidden except the last four; order and tracking numbers of the same length, which fail that check, stay readable for the model (`bridge/src/llm/redact.js`, docs/ai.md).
