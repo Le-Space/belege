@@ -146,7 +146,7 @@ describe('what the books take (#212)', () => {
 			files: { files: 2, fileBytes: 400_000 },
 			estimate: { usage: 1_000_000, quota: 5_000_000_000 }
 		});
-		expect(s.databases).toHaveLength(8);
+		expect(s.databases).toHaveLength(9);
 		expect(s.databases[0]).toEqual({
 			name: 'transactions',
 			records: 12,

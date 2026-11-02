@@ -14,9 +14,52 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	await page.goto('/');
 	const dialog = page.getByTestId('consent-modal');
 	await expect(dialog).toBeVisible();
+	// What sets Belege apart, first and unfolded: local not cloud, crypto, bank and receipts.
+	await expect(dialog).toContainText('lokal auf deinem Gerät, nicht in einer Cloud');
+	const highlights = dialog.getByTestId('consent-highlights').locator('li');
+	await expect(highlights).toHaveCount(3);
+	await expect(highlights.nth(0)).toContainText('Lokal, nicht in der Cloud');
+	await expect(highlights.nth(1)).toContainText('Krypto inklusive');
+	await expect(highlights.nth(1)).toContainText('Bitcoin, Ethereum');
+	await expect(highlights.nth(2)).toContainText('Bank und Belege, abgeglichen');
+	// Who offers Belege and on what terms; the imprint and privacy policy of Le Space UG linked.
+	const terms = dialog.getByTestId('consent-terms');
+	// What a lost passkey means, in a new tab: the keys page in the reader's language.
+	const keysDoc = dialog.getByTestId('consent-keys-doc');
+	await expect(keysDoc).toBeVisible();
+	await expect(keysDoc).toHaveAttribute('href', /\/docs\/keys\.de\.md$/);
+	await expect(keysDoc).toHaveAttribute('target', '_blank');
+	// A separate browser profile without extensions, recommended (docs/threat-model.md).
+	await expect(dialog).toContainText('ein eigenes Browserprofil ohne Erweiterungen');
+	// Folded, as are the coloured sections (#431); the loss stays in view.
+	for (const id of ['consent-terms', 'consent-identity', 'consent-network', 'consent-ai']) {
+		expect(await dialog.getByTestId(id).evaluate((d) => /** @type {any} */ (d).open)).toBe(false);
+	}
+	await expect(dialog.getByTestId('consent-loss')).toBeVisible();
+	await terms.locator('summary').click();
+	await expect(terms.getByTestId('consent-imprint')).toBeVisible();
+	await expect(terms).toContainText('kostenlos zur Verfügung gestellt');
+	await expect(terms).toContainText('nur für Vorsatz und grobe Fahrlässigkeit');
+	await expect(terms.getByTestId('consent-imprint')).toHaveAttribute(
+		'href',
+		'https://le-space.de/#impressum'
+	);
+	await expect(terms.getByTestId('consent-company-privacy')).toHaveAttribute(
+		'href',
+		'https://le-space.de/#datenschutz'
+	);
 	// What Belege works with, with logos drawn in the page: no third party is asked.
 	const integrations = dialog.getByTestId('consent-integrations');
-	await expect(integrations.getByTestId('consent-integration-group')).toHaveCount(8);
+	await integrations.locator('summary').click();
+	await expect(integrations.getByTestId('consent-integration-group')).toHaveCount(10);
+	// Every chain, Monero too, and the backup service (#77) by name.
+	await expect(integrations.locator('[data-integration="monero"]')).toContainText('Monero');
+	await expect(integrations.locator('[data-integration="paperless"]')).toContainText(
+		'Paperless-ngx'
+	);
+	await expect(integrations.locator('[data-integration="aleph-backup"]')).toContainText(
+		'OrbitDB Storage Bridge'
+	);
 	await expect(
 		integrations.locator('[data-integration="bitcoin"]').getByTestId('integration-logo')
 	).toBeVisible();
@@ -27,10 +70,12 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	expect(elsewhere).toEqual([]);
 	// What Belege can do, folded until asked for.
 	const features = dialog.getByTestId('consent-features');
-	await expect(features.locator('h4')).toHaveCount(8);
+	await expect(features.locator('h4')).toHaveCount(9);
 	await expect(features.locator('h4').first()).toBeHidden();
 	await features.locator('summary').click();
 	await expect(features.getByRole('heading', { name: 'Krypto' })).toBeVisible();
+	// Right after privacy in the list.
+	await expect(features.locator('h4').nth(1)).toHaveText('Krypto');
 	await expect(dialog.getByRole('heading', { name: 'Bevor du anfängst' })).toBeVisible();
 
 	// A decision, not something to dismiss: no close control, and Escape does
@@ -42,7 +87,7 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	// The four sections, in plain words.
 	await expect(dialog.getByTestId('consent-identity')).toContainText('Ohne Passkey geht nichts');
 	await expect(dialog.getByTestId('consent-loss')).toContainText(
-		'Verlierst du den Passkey, verlierst du den Zugang zu deinen Daten'
+		'Verlierst du alle Passkeys deiner Bücher und hast keine Wiederherstellungswörter, verlierst du den Zugang zu deinen Daten'
 	);
 	await expect(dialog.getByTestId('consent-network')).toContainText('Netzwerk: aus');
 	// Collaboration has its place, off and not switchable yet.
@@ -50,10 +95,10 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	await expect(collaboration).toContainText('geplant');
 	await expect(dialog.getByTestId('consent-collaboration-switch')).toBeDisabled();
 	await expect(dialog.getByTestId('consent-collaboration-switch')).not.toBeChecked();
-	// Planned services say so; the LLM runs only once it is set up on the bridge.
+	// Enable Banking and the LLM run only once they are set up on the bridge.
 	await expect(
 		dialog.locator('[data-service="enableBanking"]').getByTestId('consent-service-status')
-	).toHaveText('noch nicht aktiv');
+	).toHaveText('aktiv, wenn eingerichtet');
 	await expect(
 		dialog.locator('[data-service="deepseek"]').getByTestId('consent-service-status')
 	).toHaveText('aktiv, wenn eingerichtet');
@@ -77,7 +122,9 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	await expect(blockchain.getByTestId('consent-service-status')).toHaveText(
 		'aktiv, wenn eingerichtet'
 	);
-	await expect(blockchain).toContainText('Blockchain-Abfrage (Nym/Cosmos, Ethereum/EVM, Bitcoin)');
+	await expect(blockchain).toContainText(
+		'Blockchain-Abfrage (Nym/Cosmos, Ethereum/EVM, Bitcoin, Filecoin)'
+	);
 	await expect(blockchain).toContainText('IP-Adresse dieses Macs');
 	await expect(blockchain).toContainText('Synchronisieren');
 	// Alchemy, when a key is set up; the key stays on the Mac.
@@ -107,7 +154,7 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	);
 	expect(Object.keys(after).filter((key) => !before.includes(key))).toEqual(['belege.consent']);
 	// CONSENT_VERSION in src/lib/consent.js.
-	expect(after['belege.consent']).toBe('16');
+	expect(after['belege.consent']).toBe('30');
 	await expect(page.getByTestId('passkey-onboarding')).toBeVisible();
 
 	await page.reload();
@@ -120,6 +167,10 @@ test('the consent screen can be opened again, from the footer and the header', a
 	await acceptConsent(page);
 	const dialog = page.getByTestId('consent-modal');
 
+	await expect(page.getByTestId('imprint-link')).toHaveAttribute(
+		'href',
+		'https://le-space.de/#impressum'
+	);
 	await page.getByTestId('consent-reopen').click();
 	await expect(dialog).toBeVisible();
 	await dialog.getByTestId('consent-close').click();
@@ -153,7 +204,7 @@ test('the technical explanation stays hidden until "Technisch" is switched on', 
 	await expect(dialog.getByTestId('consent-technical-identity')).toContainText('PRF-Erweiterung');
 	await expect(dialog.getByTestId('consent-technical-storage')).toContainText('HKDF-SHA-256');
 	await expect(dialog.getByTestId('consent-technical-network')).toContainText('ohne Transporte');
-	await expect(dialog.getByTestId('consent-technical-service')).toHaveCount(8);
+	await expect(dialog.getByTestId('consent-technical-service')).toHaveCount(9);
 	await expect(
 		dialog.locator('[data-service="portals"]').getByTestId('consent-technical-service')
 	).toContainText('FileVault');

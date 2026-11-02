@@ -16,8 +16,11 @@
 	// flat list; this app makes no connection at all and its statement has
 	// sections, a planned option and per-service detail. The look is the
 	// element's, mapped onto the same tokens escrow01 maps it onto.
-	import { has, t, list } from './i18n/index.js';
-	import { deviceSyncOn, setDeviceSync } from './sync/device-sync.js';
+	import { currentLocale, has, t, list } from './i18n/index.js';
+	import { docUrl } from '$lib/help/integration-help.js';
+	import { IMPRINT_URL, PRIVACY_URL } from '$lib/legal.js';
+	import { deviceSyncOn } from './sync/device-sync.js';
+	import { setDevicesNetwork } from './session.svelte.js';
 	import IntegrationLogo from './consent/IntegrationLogo.svelte';
 	import { INTEGRATION_GROUPS } from './consent/integrations.js';
 	import { consent } from './consent.js';
@@ -27,24 +30,48 @@
 	import AiMark from './AiMark.svelte';
 	import { technicalView } from './technical-view.js';
 
+	// Crypto right after privacy: with "local, not cloud" what sets Belege apart.
 	const FEATURE_GROUPS = [
 		'privacy',
+		'crypto',
 		'payments',
 		'receipts',
 		'matching',
 		'ai',
-		'crypto',
 		'export',
+		'travel',
 		'devices'
 	];
 
+	const HIGHLIGHTS = ['local', 'crypto', 'books'];
+	/** Each highlight's edge, in the colours of the sections that tell it in detail. */
+	const HIGHLIGHT_EDGE = /** @type {Record<string, string>} */ ({
+		local: 'border-l-data',
+		crypto: 'border-l-coral',
+		books: 'border-l-cyan'
+	});
+
 	/** @type {HTMLDialogElement | undefined} */
 	let dialog = $state();
-	const { open, accepted } = consent;
+
+	// Device sync is this device's choice, kept in this browser (sync/device-sync.js).
+	let syncOn = $state(deviceSyncOn());
+	const { open, accepted, section } = consent;
+	/** @type {HTMLDetailsElement | undefined} */
+	let networkSection = $state();
 
 	$effect(() => {
 		if (!dialog) return;
-		if ($open && !dialog.open) dialog.showModal();
+		if ($open && !dialog.open) {
+			// The menu may have switched own devices since it was last open (#327).
+			syncOn = deviceSyncOn();
+			dialog.showModal();
+			// "Einschalten …" in the network menu: straight to the switch.
+			if ($section === 'network' && networkSection) {
+				networkSection.open = true;
+				networkSection.scrollIntoView({ block: 'start' });
+			}
+		}
 		if (!$open && dialog.open) dialog.close();
 	});
 
@@ -62,9 +89,6 @@
 		if ($open && dialog && !dialog.open) dialog.showModal();
 	}
 
-	// Device sync is this device's choice, kept in this browser (sync/device-sync.js).
-	let syncOn = $state(deviceSyncOn());
-
 	/**
 	 * @typedef {{ id: string, status: 'active' | 'whenPaired' | 'whenSetUp' | 'notYet', planned?: boolean }} Service
 	 * @type {Service[]}
@@ -72,10 +96,11 @@
 	const SERVICES = [
 		{ id: 'bridge', status: 'whenPaired' },
 		{ id: 'camt', status: 'active' },
-		{ id: 'enableBanking', status: 'notYet', planned: true },
+		{ id: 'enableBanking', status: 'whenSetUp' },
 		{ id: 'deepseek', status: 'whenSetUp' },
 		{ id: 'portals', status: 'whenSetUp' },
 		{ id: 'blockchain', status: 'whenSetUp' },
+		{ id: 'backup', status: 'whenSetUp' },
 		{ id: 'ucep', status: 'whenPaired' },
 		{ id: 'relays', status: 'whenSetUp' }
 	];
@@ -116,15 +141,67 @@
 	<div
 		class="consent-body mt-3 grid min-h-0 gap-4 overflow-auto md:grid-cols-[minmax(0,1fr)_19rem]"
 	>
-		<div class="flex min-w-0 flex-col gap-5">
+		<!-- The story and what sets Belege apart, across both columns. -->
+		<div class="flex min-w-0 flex-col gap-3 md:col-span-2">
 			<p class="text-sm leading-relaxed">{t('consent.intro')}</p>
+			<!-- What sets Belege apart, before anything else: local, crypto, bank and receipts. -->
+			<ul class="grid gap-2 sm:grid-cols-3" data-testid="consent-highlights">
+				{#each HIGHLIGHTS as id (id)}
+					<li
+						class="rounded-md border border-l-4 border-border p-3 text-sm {HIGHLIGHT_EDGE[id] ??
+							''}"
+						data-highlight={id}
+					>
+						<p class="font-semibold text-heading">{t(`consent.highlights.${id}.title`)}</p>
+						<p class="mt-1 leading-relaxed">{t(`consent.highlights.${id}.text`)}</p>
+					</li>
+				{/each}
+			</ul>
+		</div>
+		<div class="flex min-w-0 flex-col gap-5">
 			<p class="rounded-md border border-border p-3 text-sm" data-testid="consent-warning">
 				<span class="font-medium text-heading">{t('consent.earlyHeading')}</span>
 				{t('consent.earlyBody')}
 			</p>
 
+			<!-- Who offers Belege, and on what terms: free, no warranty, the books are yours to keep.
+			     Folded like the sections below (#431); the warning above stays open. -->
+			<details
+				class="rounded-md border border-l-4 border-border border-l-warning p-3 text-sm"
+				data-testid="consent-terms"
+			>
+				<summary class="cursor-pointer font-medium text-heading">
+					{t('consent.terms.heading')}
+				</summary>
+				<ul class="mt-1 list-disc space-y-1 pl-5 text-text">
+					{#each list('consent.terms.items') as item (item)}
+						<li>{item}</li>
+					{/each}
+				</ul>
+				<p class="mt-2">
+					<a
+						class="underline hover:text-heading"
+						href={IMPRINT_URL}
+						target="_blank"
+						rel="noopener noreferrer"
+						data-testid="consent-imprint">{t('consent.terms.imprint')}</a
+					>
+					<span aria-hidden="true">·</span>
+					<a
+						class="underline hover:text-heading"
+						href={PRIVACY_URL}
+						target="_blank"
+						rel="noopener noreferrer"
+						data-testid="consent-company-privacy">{t('consent.terms.privacy')}</a
+					>
+				</p>
+			</details>
+
 			<!-- What Belege can do: folded, so the consent stays about the data. -->
-			<details class="rounded-md border border-border p-3 text-sm" data-testid="consent-features">
+			<details
+				class="rounded-md border border-l-4 border-border border-l-cyan p-3 text-sm"
+				data-testid="consent-features"
+			>
 				<summary class="cursor-pointer font-medium text-heading">
 					{t('consent.features.title')}
 				</summary>
@@ -140,8 +217,10 @@
 			</details>
 
 			<!-- Identity -->
-			<section class="border-l-4 border-l-identity pl-3" data-testid="consent-identity">
-				<h3 class="text-base font-semibold">{t('consent.identity.title')}</h3>
+			<details class="border-l-4 border-l-identity pl-3" data-testid="consent-identity">
+				<summary class="cursor-pointer marker:text-faint">
+					<h3 class="inline text-base font-semibold">{t('consent.identity.title')}</h3>
+				</summary>
 				{#each list('consent.identity.simple') as line (line)}
 					<p class="mt-1.5 text-sm leading-relaxed">{line}</p>
 				{/each}
@@ -150,33 +229,52 @@
 					lines={list('consent.identity.technical')}
 					testid="consent-technical-identity"
 				/>
-			</section>
+			</details>
 
 			<!-- Storage -->
-			<section class="border-l-4 border-l-data pl-3" data-testid="consent-storage">
-				<h3 class="text-base font-semibold">{t('consent.storage.title')}</h3>
-				{#each list('consent.storage.simple') as line (line)}
-					<p class="mt-1.5 text-sm leading-relaxed">{line}</p>
-				{/each}
+			<!-- The loss stays in view when the section is folded: it is what one has to know. -->
+			<div class="border-l-4 border-l-data pl-3" data-testid="consent-storage">
+				<details>
+					<summary class="cursor-pointer marker:text-faint">
+						<h3 class="inline text-base font-semibold">{t('consent.storage.title')}</h3>
+					</summary>
+					{#each list('consent.storage.simple') as line (line)}
+						<p class="mt-1.5 text-sm leading-relaxed">{line}</p>
+					{/each}
+					<TechnicalNote
+						class="mt-3"
+						lines={list('consent.storage.technical')}
+						testid="consent-technical-storage"
+					/>
+				</details>
 				<p
 					class="mt-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-heading"
 					data-testid="consent-loss"
 				>
 					<strong class="text-danger">{t('consent.storage.lossHeading')}</strong>
 					{t('consent.storage.loss')}
+					<!-- In a new tab: the consent stays where it is. -->
+					<a
+						class="underline hover:text-heading"
+						href={docUrl('docs/keys{de}.md', currentLocale())}
+						target="_blank"
+						rel="noopener noreferrer"
+						data-testid="consent-keys-doc">{t('consent.storage.keysDoc')}</a
+					>
 				</p>
-				<TechnicalNote
-					class="mt-3"
-					lines={list('consent.storage.technical')}
-					testid="consent-technical-storage"
-				/>
-			</section>
+			</div>
 
 			<!-- Network -->
-			<section class="border-l-4 border-l-infra pl-3" data-testid="consent-network">
-				<h3 class="flex flex-wrap items-center gap-2 text-base font-semibold">
-					{syncOn ? t('consent.network.titleDevices') : t('consent.network.title')}
-				</h3>
+			<details
+				class="border-l-4 border-l-infra pl-3"
+				data-testid="consent-network"
+				bind:this={networkSection}
+			>
+				<summary class="cursor-pointer marker:text-faint">
+					<h3 class="inline text-base font-semibold">
+						{syncOn ? t('consent.network.titleDevices') : t('consent.network.title')}
+					</h3>
+				</summary>
 				{#each list('consent.network.simple') as line (line)}
 					<p class="mt-1.5 text-sm leading-relaxed">{line}</p>
 				{/each}
@@ -199,7 +297,8 @@
 								checked={syncOn}
 								onchange={(e) => {
 									syncOn = e.currentTarget.checked;
-									setDeviceSync(syncOn);
+									// The menu's own path: online at once, or the reload hint (#327).
+									setDevicesNetwork(syncOn);
 								}}
 								aria-describedby="consent-devices-text"
 								class="peer sr-only"
@@ -262,13 +361,15 @@
 					lines={list('consent.network.technical')}
 					testid="consent-technical-network"
 				/>
-			</section>
+			</details>
 
 			<!-- Where a language model helps, and whose it is -->
-			<section class="border-l-4 border-l-coral pl-3" data-testid="consent-ai">
-				<h3 class="flex items-center gap-1.5 text-base font-semibold">
-					<AiMark />{t('consent.ai.title')}
-				</h3>
+			<details class="border-l-4 border-l-coral pl-3" data-testid="consent-ai">
+				<summary class="cursor-pointer marker:text-faint">
+					<h3 class="inline-flex items-center gap-1.5 text-base font-semibold">
+						<AiMark />{t('consent.ai.title')}
+					</h3>
+				</summary>
 				{#each list('consent.ai.simple') as line (line)}
 					<p class="mt-1.5 text-sm leading-relaxed">{line}</p>
 				{/each}
@@ -288,11 +389,13 @@
 					lines={list('consent.ai.technical')}
 					testid="consent-technical-ai"
 				/>
-			</section>
+			</details>
 
 			<!-- External services -->
-			<section class="border-l-4 border-l-cyan pl-3" data-testid="consent-services">
-				<h3 class="text-base font-semibold">{t('consent.services.title')}</h3>
+			<details class="border-l-4 border-l-cyan pl-3" data-testid="consent-services">
+				<summary class="cursor-pointer marker:text-faint">
+					<h3 class="inline text-base font-semibold">{t('consent.services.title')}</h3>
+				</summary>
 				{#each list('consent.services.simple') as line (line)}
 					<p class="mt-1.5 text-sm leading-relaxed">{line}</p>
 				{/each}
@@ -331,11 +434,13 @@
 						</li>
 					{/each}
 				</ul>
-			</section>
+			</details>
 
 			<!-- What Belege works with: banks, exchanges, chains, data sources, explorers. -->
-			<section class="border-l-4 border-l-cyan pl-3" data-testid="consent-integrations">
-				<h3 class="text-base font-semibold">{t('consent.integrations.title')}</h3>
+			<details class="border-l-4 border-l-cyan pl-3" data-testid="consent-integrations">
+				<summary class="cursor-pointer marker:text-faint">
+					<h3 class="inline text-base font-semibold">{t('consent.integrations.title')}</h3>
+				</summary>
 				<p class="mt-1.5 text-sm leading-relaxed">{t('consent.integrations.simple')}</p>
 				<div class="mt-2 grid gap-3 sm:grid-cols-2">
 					{#each INTEGRATION_GROUPS as group (group.id)}
@@ -363,7 +468,7 @@
 					{/each}
 				</div>
 				<p class="mt-2 text-xs text-faint">{t('consent.integrations.marks')}</p>
-			</section>
+			</details>
 		</div>
 
 		<!-- The statement panel: what is kept where, in one look. -->

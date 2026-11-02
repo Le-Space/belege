@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { defaultConfig, saveConfig } from '@belege/bridge';
 import { acceptConsent } from './consent.js';
 import { addVirtualAuthenticator } from './webauthn.js';
+import { openIntegration } from './integrations.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -86,9 +87,14 @@ test('a fresh start: the checklist, "later", and the bridge step that guides', a
 	);
 
 	// A bridge that does not let this page in: named as such, not as "unreachable".
-	await startBridge(['http://localhost:5173']);
+	const refusing = await startBridge(['http://localhost:5173']);
 	await expect(guide).toHaveAttribute('data-diagnosis', 'origin', { timeout: 20_000 });
 	await expect(guide.getByTestId('setup-bridge-diagnosis')).toContainText(APP_ORIGIN);
+	// With the command that lets it in, ready to copy.
+	const command = `pnpm setup:origins -- --add ${APP_ORIGIN}`;
+	await expect(guide.getByTestId('setup-bridge-origin-command')).toContainText(command);
+	// The bridge's own log names it too.
+	await expect.poll(() => refusing.out()).toContain('pnpm setup:origins -- --add');
 	await stopBridge();
 
 	// One that does: noticed by itself, then paired with the code it printed.
@@ -101,6 +107,9 @@ test('a fresh start: the checklist, "later", and the bridge step that guides', a
 	await expect(step('bridge')).toHaveAttribute('data-state', 'done');
 	await expect(card.getByTestId('setup-progress')).toHaveText('1 von 5 erledigt');
 	await expect(step('payments').getByTestId('setup-step-detail')).toBeVisible();
+	await expect(step('payments').getByTestId('setup-payment-ways')).toContainText(
+		'pnpm setup:enablebanking'
+	);
 
 	// What is put off stays put off after a reload, and is taken up again.
 	await step('payments').getByTestId('setup-later').click();
@@ -150,4 +159,31 @@ test('how to start: look around, change it, then a bank statement file without t
 	await expect(card.getByTestId('setup-progress')).toHaveText('1 von 5 erledigt');
 	// The books are in use now: the way in is no longer asked.
 	await expect(card.getByTestId('setup-start-change')).toHaveCount(0);
+});
+
+test('"Status prüfen" names a bridge that does not let this page in, with the command that does', async ({
+	page
+}) => {
+	test.setTimeout(90_000);
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('E2E Origin');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+	// A bridge an earlier test left running holds the port.
+	await stopBridge();
+	await startBridge(['http://localhost:5173']);
+	try {
+		await openIntegration(page, 'bridge');
+		await page.getByRole('button', { name: 'Status prüfen' }).click();
+		await expect(page.getByTestId('bridge-error')).toContainText(
+			`Die Bridge läuft, lässt diese Seite (${APP_ORIGIN}) aber nicht herein`
+		);
+		await expect(page.getByTestId('way-out-command')).toContainText(
+			`pnpm setup:origins -- --add ${APP_ORIGIN}`
+		);
+	} finally {
+		await stopBridge();
+	}
 });

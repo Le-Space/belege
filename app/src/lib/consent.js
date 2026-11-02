@@ -34,7 +34,34 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     which were paid, when and how much (issue #8).
 // 16: a token CoinGecko does not price may be priced by its Uniswap pool at
 //     the booking's block, asked of Alchemy (issue #163).
-export const CONSENT_VERSION = '16';
+// 17: what a relay sees, said in full; no longer the databases' addresses, the
+//     browser's user agent or – since the two lists of quiet-identify.js – the
+//     protocols the node speaks with own devices (#209). That later change told
+//     a relay less, so the version stayed.
+// 18: what is blacked out before text goes to the language model, and that it
+//     limits what leaves rather than making a text anonymous (#226).
+// 19: Enable Banking is no longer planned: once set up, the bridge links banks
+//     through the own application (#224, step 2).
+// 20: the backup on Aleph Cloud: the browser uploads the sealed file to Aleph's
+//     IPFS host itself, the bridge signs the order to keep it (#77).
+// 21: restoring fetches the sealed backup from Aleph's gateway (#77).
+// 22: the browser signs the order to keep a backup itself, once the bridge's
+//     account allows its own key, and asks Aleph's API for the account's
+//     grants, credits and backups (#77).
+// 23: the bridge fetches documents from the person's own Paperless-ngx, on this
+//     machine or over https, with a token from the keychain (#318).
+// 24: who offers Belege and on what terms – free, no warranty, liability for
+//     intent and gross negligence only, the books are the user's to keep; the
+//     imprint and privacy policy of Le Space UG linked.
+// 25: the language model may be LibertAI's confidential inference: an attested
+//     enclave on Aleph Cloud, what it proves and what LibertAI still sees (#416).
+// 26: new files in the shared folder are read with the model too, but only
+//     while "gleich auslesen" is on (#475).
+// 27: text goes unredacted into LibertAI's attested enclave, unless setup:llm
+//     is told to black it out (#416).
+// 30: recovery words – losing every passkey loses the books only without
+//     them; opening with them makes a new passkey, two prompts (#406).
+export const CONSENT_VERSION = '30';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 
@@ -66,10 +93,13 @@ export function createConsent({
 
 	const accepted = writable(read());
 	const open = writable(!read());
+	/** @type {import('svelte/store').Writable<'network' | null>} the section to unfold on opening */
+	const section = writable(/** @type {'network' | null} */ (null));
 
 	return {
 		accepted: { subscribe: accepted.subscribe },
 		open: { subscribe: open.subscribe },
+		section: { subscribe: section.subscribe },
 		/** "Verstanden": remember it, and close. */
 		accept() {
 			try {
@@ -80,8 +110,14 @@ export function createConsent({
 			accepted.set(true);
 			open.set(false);
 		},
-		/** From the footer or the header, after it was accepted. */
-		reopen() {
+		/**
+		 * From the footer or the header, after it was accepted. `network` unfolds
+		 * that section, where own devices are switched on.
+		 *
+		 * @param {'network'} [at]
+		 */
+		reopen(at) {
+			section.set(at ?? null);
 			open.set(true);
 		},
 		/** Close without a decision; only once it has been accepted. */

@@ -73,21 +73,25 @@ export const INTEGRATION_GROUPS = [
 		id: 'banks',
 		items: [
 			{ id: 'hibiscus', name: 'Hibiscus', initials: 'Hi' },
-			{ id: 'camt', name: 'CAMT.053', logo: 'revolut' }
+			{ id: 'camt', name: 'CAMT.053', logo: 'revolut' },
+			{ id: 'enablebanking', name: 'Enable Banking', initials: 'EB' }
 		]
 	},
 	{ id: 'exchanges', items: [{ id: 'kraken', name: 'Kraken', initials: 'Kr' }] },
+	{ id: 'archives', items: [{ id: 'paperless', name: 'Paperless-ngx', initials: 'Pl' }] },
 	{
 		id: 'chains',
 		items: [
 			{ id: 'bitcoin', name: 'Bitcoin', logo: 'bitcoin' },
+			{ id: 'filecoin', name: 'Filecoin', initials: 'Fi' },
 			{ id: 'ethereum', name: 'Ethereum', logo: 'ethereum' },
 			{ id: 'base', name: 'Base', initials: 'Ba' },
 			{ id: 'arbitrum', name: 'Arbitrum One', initials: 'Ar' },
 			{ id: 'optimism', name: 'OP Mainnet (Optimism)', logo: 'optimism' },
 			{ id: 'polygon', name: 'Polygon PoS', logo: 'polygon' },
 			{ id: 'nyx', name: 'Nym (Nyx)', initials: 'Ny' },
-			{ id: 'akash', name: 'Akash', initials: 'Ak' }
+			{ id: 'akash', name: 'Akash', initials: 'Ak' },
+			{ id: 'monero', name: 'Monero', initials: 'XM' }
 		]
 	},
 	{
@@ -109,7 +113,9 @@ export const INTEGRATION_GROUPS = [
 			{ id: 'aleph', name: 'Aleph Cloud', initials: 'Al' },
 			{ id: 'coingecko', name: 'CoinGecko', initials: 'Cg' },
 			{ id: 'kraken-rates', name: 'Kraken', initials: 'Kr' },
-			{ id: 'ecb', name: 'ECB', initials: 'EZ' }
+			{ id: 'ecb', name: 'ECB', initials: 'EZ' },
+			{ id: 'cbr', name: 'Bank of Russia', initials: 'BR' },
+			{ id: 'nbk', name: 'National Bank of Kazakhstan', initials: 'NK' }
 		]
 	},
 	{
@@ -122,7 +128,20 @@ export const INTEGRATION_GROUPS = [
 			},
 			{ id: 'mintscan', name: 'Mintscan (Akash)', initials: 'Ms' },
 			{ id: 'nym-explorer', name: 'Nym Explorer (Nodes Guru)', initials: 'Ny' },
-			{ id: 'mempool-explorer', name: 'mempool.space (Bitcoin)', initials: 'Mp' }
+			{ id: 'mempool-explorer', name: 'mempool.space (Bitcoin)', initials: 'Mp' },
+			{ id: 'filfox', name: 'Filfox (Filecoin)', initials: 'Ff' },
+			{ id: 'solscan', name: 'Solscan (Solana)', initials: 'So' },
+			{ id: 'xmrchain', name: 'xmrchain.net (Monero)', initials: 'Xc' }
+		]
+	},
+	{
+		id: 'backup',
+		items: [
+			{
+				id: 'aleph-backup',
+				name: 'Aleph Cloud (OrbitDB Storage Bridge)',
+				initials: 'Al'
+			}
 		]
 	},
 	{

@@ -34,7 +34,7 @@ test('what the books take, and a reset that leaves nothing behind', async ({ pag
 	const card = page.getByTestId('storage-card');
 	const row = (/** @type {string} */ name) =>
 		card.locator(`[data-testid="storage-database"][data-name="${name}"] td`);
-	await expect(card.getByTestId('storage-database')).toHaveCount(8);
+	await expect(card.getByTestId('storage-database')).toHaveCount(9);
 	// Twelve sample bookings; each was written more than once (import, then the mark).
 	await expect(row('transactions').nth(0)).toHaveText('12');
 	expect(Number(await row('transactions').nth(1).textContent())).toBeGreaterThan(12);

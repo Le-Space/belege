@@ -13,7 +13,7 @@ import { Documents, Identities, KeyStore, MemoryStorage, createOrbitDB } from '@
 import * as dagCbor from '@ipld/dag-cbor';
 
 import { createOfflineLibp2p } from '../network.js';
-import { deriveDatabaseKey } from '../database-keys.js';
+import { deriveDatabaseKey, deriveReplicationKey } from '../database-keys.js';
 import { payloadEncryption } from '../entry-encryption.js';
 import { openStore } from './repository.js';
 import { isUlid } from './ids.js';
@@ -58,6 +58,7 @@ beforeAll(async () => {
 	store = await openStore({
 		orbitdb,
 		encryptionKey: await deriveDatabaseKey(prfOutput),
+		replicationKey: await deriveReplicationKey(prfOutput),
 		prfOutput,
 		openOptions: async (/** @type {string} */ name) =>
 			(storagesByCollection[name] = await memoryStorages())
@@ -265,6 +266,18 @@ describe('store (real OrbitDB + Helia, sealed)', () => {
 		});
 
 		await expect(intruder.all()).rejects.toThrow(/decrypt/i);
+		await intruder.close();
+
+		// The right content key without the replication key opens nothing either:
+		// the entry itself is sealed.
+		const halfway = await intruderOrbit.open(store.transactions.address, {
+			Database: SealedDocuments({ indexBy: 'id' }),
+			encryption: await payloadEncryption(await deriveDatabaseKey(prfOutput)),
+			headsStorage: storagesByCollection.transactions.headsStorage,
+			indexStorage: await MemoryStorage(),
+			sync: false
+		});
+		await expect(halfway.all()).rejects.toThrow();
 		await intruderOrbit.stop();
 		expect((await store.transactions.get(tx.id))?.amountCents).toBe(1);
 	});
