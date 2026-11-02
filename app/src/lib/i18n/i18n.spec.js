@@ -77,10 +77,18 @@ describe('the catalogues (#192)', () => {
 	});
 
 	it('a link that names the language wins over the stored choice and the browser', () => {
-		expect(initialLocale({ hinted: 'en', stored: 'de', languages: ['de-DE'], ready: true })).toBe('en');
-		expect(initialLocale({ hinted: 'de', stored: 'en', languages: ['en-US'], ready: true })).toBe('de');
-		expect(initialLocale({ hinted: 'xx', stored: 'de', languages: ['en-US'], ready: true })).toBe('de');
-		expect(initialLocale({ hinted: 'en', stored: null, languages: ['de-DE'], ready: false })).toBe('de');
+		expect(initialLocale({ hinted: 'en', stored: 'de', languages: ['de-DE'], ready: true })).toBe(
+			'en'
+		);
+		expect(initialLocale({ hinted: 'de', stored: 'en', languages: ['en-US'], ready: true })).toBe(
+			'de'
+		);
+		expect(initialLocale({ hinted: 'xx', stored: 'de', languages: ['en-US'], ready: true })).toBe(
+			'de'
+		);
+		expect(initialLocale({ hinted: 'en', stored: null, languages: ['de-DE'], ready: false })).toBe(
+			'de'
+		);
 		expect(readHint('#lang=en', '')).toBe('en');
 		expect(readHint('#x=1&lang=de', '')).toBe('de');
 		expect(readHint('', '?lang=en')).toBe('en');
