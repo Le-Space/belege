@@ -95,7 +95,8 @@ describe('importPaperlessDocuments', () => {
 			duplicate: 0,
 			skipped: 0,
 			unsupported: 0,
-			failed: 0
+			failed: 0,
+			refused: 0
 		});
 		const [r] = created;
 		expect(r).toMatchObject({
@@ -223,6 +224,51 @@ describe('fetchPaperless', () => {
 		const again = await fetchPaperless({ store, blobs, client });
 		expect(again.counts).toMatchObject({ new: 1, known: 1, failed: 0 });
 		expect((await loadPaperlessSettings(settings)).since).toBe(doc(4).added);
+	});
+
+	it('a document the bridge cannot deliver at all is counted, and the mark moves past it', async () => {
+		const { receipts, settings, events, blobs } = await setup();
+		const client = bridge({ 4: pdf('four'), 5: pdf('five') }, [doc(3), doc(4), doc(5)]);
+		const deliver = client.paperlessDocument;
+		client.paperlessDocument = async (id) => {
+			if (id === 3)
+				throw Object.assign(new Error('the document is larger than 15 MB'), {
+					code: 'PAPERLESS_TOO_LARGE'
+				});
+			return deliver(id);
+		};
+		const store = { receipts, settings, events };
+		const once = await fetchPaperless({ store, blobs, client });
+		// The rest came in; the mark is past the large one, which stays in Paperless.
+		expect(once.counts).toMatchObject({ new: 2, refused: 1, failed: 0 });
+		expect((await loadPaperlessSettings(settings)).since).toBe(doc(5).added);
+		// Listed again (the list is Paperless'), it is not asked for twice? It is –
+		// Paperless lists by `added`, and the mark is past it – but when it is, it
+		// is refused again and the fetch still gets through.
+		const again = await fetchPaperless({ store, blobs, client });
+		expect(again.counts).toMatchObject({ new: 0, known: 2, refused: 1 });
+	});
+
+	it('the tags leave documents out only while Belege reads the mailbox itself', async () => {
+		const { receipts, settings, events, blobs } = await setup();
+		const store = { receipts, settings, events };
+		await savePaperlessSettings(settings, { skipTags: ['aus-Mail'], mailToo: true });
+		const tagged = [doc(3, { tags: ['aus-Mail'] }), doc(4)];
+		const first = bridge({ 3: pdf('three'), 4: pdf('four') }, tagged);
+		expect((await fetchPaperless({ store, blobs, client: first })).counts).toMatchObject({
+			new: 1,
+			skipped: 1
+		});
+		expect(first.asked).toEqual([4]);
+		// Paperless is the only mail reader now: what its mail rule tagged is a receipt.
+		await savePaperlessSettings(settings, { mailToo: false, since: null });
+		const second = bridge({ 3: pdf('three'), 4: pdf('four') }, tagged);
+		expect((await fetchPaperless({ store, blobs, client: second })).counts).toMatchObject({
+			new: 1,
+			known: 1,
+			skipped: 0
+		});
+		expect(second.asked).toEqual([3]);
 	});
 
 	it('several documents in a row not delivered: Paperless is down, the fetch stops and says so', async () => {
