@@ -1434,7 +1434,14 @@ export function recoverWithWords(text, label) {
 					const current = await indexes.readRootIndex({ root: opened.root }).catch(() => null);
 					owner = current?.pointer?.owner ?? '';
 					if (current?.vault) {
-						opened = await vaultModule.newerWithWords(opened, current.vault, seed, current.slots);
+						opened = await vaultModule
+							.newerWithWords(opened, current.vault, seed, current.slots)
+							.catch((/** @type {any} */ e) => {
+								if (e instanceof vaultModule.RemovedWordsError) {
+									throw new Error(t('onboarding.words.removed'));
+								}
+								throw e;
+							});
 					}
 				}
 				recovered = { opened, owner, label: name };

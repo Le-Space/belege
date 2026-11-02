@@ -944,6 +944,8 @@ export default {
 				'Die Wörter passen nicht zusammen: Ein Wort ist vermutlich falsch abgeschrieben oder vertauscht.',
 			wrong: 'Diese Wörter öffnen den Tresor nicht.',
 			notFound: 'Zu diesen Wörtern gibt es keinen Tresor – weder in diesem Browser noch bei Aleph.',
+			removed:
+				'Diese Wörter wurden aus den Büchern entfernt oder durch neue ersetzt. Sie öffnen nichts mehr.',
 			notHere:
 				'Zu diesen Wörtern liegt in diesem Browser kein Tresor; das Netz ist pausiert, Aleph wurde nicht gefragt.'
 		},

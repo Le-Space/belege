@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
 	RemovedPasskeyError,
+	RemovedWordsError,
 	VAULTS_STORAGE_KEY,
 	VaultStorageError,
 	addPasskey,
@@ -248,10 +249,15 @@ describe('recovery words in the vault (stage 2)', () => {
 		]);
 		expect(taken.record.vault.slots).toHaveLength(3);
 		expect(taken.record.slots.map((s) => s.credentialId)).toEqual(['cred-b']);
-		// Without the words in it, the one opened stays.
+		// Without the words in it they were taken out there: refused, like a removed passkey.
 		const withoutWords = await removeRecoveryWords(newer, storage);
-		expect((await newerWithWords(older, withoutWords.record.vault, SEED)).record).toBe(
-			older.record
+		await expect(newerWithWords(older, withoutWords.record.vault, SEED)).rejects.toBeInstanceOf(
+			RemovedWordsError
+		);
+		// Replaced by new words: the old ones are refused as well.
+		const renewed = await addRecoveryWords(newer, new Uint8Array(32).fill(7), storage);
+		await expect(newerWithWords(older, renewed.record.vault, SEED)).rejects.toBeInstanceOf(
+			RemovedWordsError
 		);
 	});
 });
