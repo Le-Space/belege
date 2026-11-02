@@ -56,7 +56,17 @@ const text = (s, max) =>
  */
 export function normalizeEnableBankingTransaction(t, account) {
 	if (t?.status && t.status !== 'BOOK') return null;
-	const date = parseDate(t?.booking_date ?? t?.value_date);
+	// A date the parser does not read (another shape, an impossible day) is
+	// left null, as an unreadable amount is: the app skips that one entry and
+	// counts it, instead of the whole account's fetch failing on it.
+	const dateOf = (/** @type {unknown} */ value) => {
+		try {
+			return parseDate(value);
+		} catch {
+			return null;
+		}
+	};
+	const date = dateOf(t?.booking_date ?? t?.value_date);
 	let amount = NaN;
 	try {
 		amount = parseAmountCents(String(t?.transaction_amount?.amount ?? '').replace(/^[-+]/, ''));
@@ -70,7 +80,7 @@ export function normalizeEnableBankingTransaction(t, account) {
 	return {
 		sourceId: reference || null,
 		date,
-		valueDate: parseDate(t?.value_date) ?? date,
+		valueDate: dateOf(t?.value_date) ?? date,
 		amountCents: Number.isSafeInteger(amount) ? (out ? -amount : amount) : NaN,
 		currency: text(t?.transaction_amount?.currency, 3) || account.currency || 'EUR',
 		counterpartyName: text(other?.name, 140),
