@@ -2537,6 +2537,8 @@ export default {
 			progress: 'Dokument {done} von {total} …',
 			failed:
 				'{count} Dokument(e) hat Paperless diesmal nicht rechtzeitig geliefert – der nächste Abruf holt sie.',
+			refused:
+				'{count} Dokument(e) kann die Bridge nicht liefern (größer als 15 MB, oder nicht mehr in Paperless) – sie bleiben dort.',
 			mailToo: 'Belege ruft das Postfach trotzdem selbst ab',
 			skipTags: 'Dokumente mit diesen Paperless-Tags auslassen (durch Komma getrennt)',
 			skipTagsHint:
