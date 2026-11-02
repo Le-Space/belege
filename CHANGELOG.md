@@ -8,6 +8,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **"Rechnungen abgleichen" no longer stops at one invoice whose XRechnung the app gets wrong**: for an invoice taken over earlier, an XML the app does not deliver or delivers wrong is counted ("{count} XRechnungen … nicht oder falsch geliefert") and asked for next time, and the sync goes on to the other invoices and the payment notices – before, one such invoice ended every sync for good. A VAT line the app sends without a rate is left out instead of being kept as 0 % (`app/src/lib/ucep/issued.js`).
 - **Bridge: one odd date no longer fails an Enable Banking fetch**: an entry whose booking or value date the bridge cannot read (another shape, an impossible day) is handed to the app without a date, which skips that one entry and counts it – before, the whole account's transactions request failed on it, on every fetch (`bridge/src/enablebanking-normalize.js`).
 - **Bridge: a block time the Akash indexer did not give is asked for again**: an indexer that timed out once left those deployments' `createdAt`/`settledAt` empty until the bridge restarted (`bridge/src/chains/akash-deployments.js`).
 

@@ -226,6 +226,17 @@ describe('the VAT of an issued invoice (#195)', () => {
 		).toMatchObject({ net: 1000, vat: [{ rate: 19, amount: 190 }], gross: 1190 });
 		expect(extractionOf({ ...inv, vat: [] }).vat).toEqual([]);
 		expect('vat' in extractionOf(inv)).toBe(false);
+		// A line without a rate is not a 0 % line: it is left out.
+		expect(
+			extractionOf({
+				...inv,
+				vat: [
+					{ rate: '', amount: { value: '19.00', currency: 'EUR' } },
+					{ amount: { value: '7.00', currency: 'EUR' } },
+					{ rate: '0', amount: { value: '0.00', currency: 'EUR' } }
+				]
+			}).vat
+		).toEqual([{ rate: 0, amount: 0 }]);
 	});
 
 	it('invoice 0.3.0: the category of each line and the customer’s VAT ID, for the VAT cases (#354)', () => {
@@ -413,6 +424,25 @@ describe('Rechnungen abgleichen', () => {
 		});
 		await expect(sync(ubl)).rejects.toThrow(/XRechnung der Rechnung/);
 		expect(await store.receipts.list()).toHaveLength(0);
+	});
+
+	it('a known invoice whose XRechnung keeps failing does not stop the sync', async () => {
+		// Taken over while the app sent no XML; then the app offers one it gets wrong.
+		const app = fakeApp();
+		app.add(invoice({ formats: ['pdf'] }));
+		expect(await sync(app)).toMatchObject({ added: 1 });
+		app.add(invoice({ formats: ['pdf', 'xrechnung'] }), { xml: XML, xmlSha256: '0'.repeat(64) });
+		app.add(invoice({ documentId: 'doc-5', number: 'RE-2026-0005', formats: ['pdf'] }));
+		const tx = await incoming();
+		// No throw: the second invoice comes in, the matching runs, the app hears of the payment.
+		const result = await sync(app);
+		expect(result).toMatchObject({ added: 1, xml: 0, xmlLater: 0, xmlRefused: 1, reported: 1 });
+		expect(await store.receipts.list()).toHaveLength(2);
+		expect(app.get('doc-4').payments).toHaveLength(1);
+		expect(app.get('doc-4').payments[0].reference.id).toBe(tx.id);
+		// Asked again next time, still without the receipt's XML.
+		expect((await sync(app)).xmlRefused).toBe(1);
+		expect((await store.receipts.list()).every((/** @type {any} */ r) => !r.xmlCid)).toBe(true);
 	});
 
 	it('a pairing from before 0.2.0 says to pair again', async () => {
