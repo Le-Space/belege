@@ -82,6 +82,46 @@ test('the deployments, two pages, with ACT and the blocks’ times', async () =>
 	assert.equal(calls.filter((c) => c.startsWith('/akash/')).length, 2);
 });
 
+test('a block the indexer did not give this time is asked for again next time', async () => {
+	let indexerDown = true;
+	/** @type {string[]} */
+	const calls = [];
+	/** @type {typeof fetch} */
+	const f = async (input) => {
+		const url = new URL(String(input));
+		calls.push(url.pathname);
+		if (url.origin === REST) {
+			return Response.json({
+				deployments: [dep('10', 100, 150, '49.000000000000000000')],
+				pagination: { next_key: null }
+			});
+		}
+		if (indexerDown) return new Response('down', { status: 503 });
+		const h = Number(url.pathname.split('/').pop());
+		return Response.json({
+			height: h,
+			datetime: new Date(Date.UTC(2026, 6, 1) + h * 60_000).toISOString()
+		});
+	};
+	const client = createAkashDeploymentsClient({
+		fetch: f,
+		timeoutMs: 1_000,
+		sleep: async () => {}
+	});
+	const ask = () => client.deployments({ address: ADDRESS, rest: REST, indexer: INDEXER });
+	const [first] = await ask();
+	assert.equal(first.createdAt, null);
+	assert.equal(first.settledAt, null);
+	indexerDown = false;
+	const [second] = await ask();
+	assert.equal(second.createdAt, '2026-07-01T01:40:00.000Z');
+	assert.equal(second.settledAt, '2026-07-01T02:30:00.000Z');
+	assert.ok(
+		calls.filter((c) => c === '/v1/blocks/100').length >= 2,
+		'asked again once the indexer answers'
+	);
+});
+
 test('a node without deployments in its answer is an error', async () => {
 	const f = /** @type {typeof fetch} */ (async () => Response.json({ error: 'nope' }));
 	await assert.rejects(

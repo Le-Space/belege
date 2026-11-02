@@ -331,6 +331,20 @@ test('a transaction in the app’s shape: sign from the indicator, the other sid
 	);
 	assert.equal(odd?.sourceId, 'T-9');
 	assert.ok(Number.isNaN(odd?.amountCents), 'an unreadable amount is left for the app to skip');
+	// A date in another shape, or an impossible day, is left null the same way –
+	// one entry for the app to skip, not a fetch that fails on it.
+	const slashed = normalizeEnableBankingTransaction(
+		{ transaction_id: 'T-10', booking_date: '2026/10/02', value_date: '2026-02-30' },
+		{ currency: 'EUR' }
+	);
+	assert.equal(slashed?.date, null);
+	assert.equal(slashed?.valueDate, null);
+	const halfRead = normalizeEnableBankingTransaction(
+		{ transaction_id: 'T-11', booking_date: '2026-10-02', value_date: 'morgen' },
+		{ currency: 'EUR' }
+	);
+	assert.equal(halfRead?.date, '2026-10-02');
+	assert.equal(halfRead?.valueDate, '2026-10-02', 'the value date falls back to the booking date');
 });
 
 test('the IBAN key is the app’s (pinned on both sides)', () => {

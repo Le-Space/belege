@@ -8,6 +8,9 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **Bridge: one odd date no longer fails an Enable Banking fetch**: an entry whose booking or value date the bridge cannot read (another shape, an impossible day) is handed to the app without a date, which skips that one entry and counts it – before, the whole account's transactions request failed on it, on every fetch (`bridge/src/enablebanking-normalize.js`).
+- **Bridge: a block time the Akash indexer did not give is asked for again**: an indexer that timed out once left those deployments' `createdAt`/`settledAt` empty until the bridge restarted (`bridge/src/chains/akash-deployments.js`).
+
 - **Recovery words that were removed or replaced no longer open the books from another device**: when the books' current vault on Aleph has no slot for the words, the words are refused with "Diese Wörter wurden aus den Büchern entfernt oder durch neue ersetzt", the way a removed passkey is – before, the record filed under the words themselves still opened (`app/src/lib/books-vault.js`).
 
 - **The redaction before a model call reads an IBAN in any spelling and a card number without spaces**: a hand-typed `de89 3704 …` is blacked out like `DE89 3704 …`, and sixteen digits in a row with a valid check digit are taken for a card and hidden except the last four; order and tracking numbers of the same length, which fail that check, stay readable for the model (`bridge/src/llm/redact.js`, docs/ai.md).

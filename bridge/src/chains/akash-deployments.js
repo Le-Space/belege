@@ -73,7 +73,9 @@ export function createAkashDeploymentsClient({ fetch: f = fetch, timeoutMs, slee
 		const block = await getJson(`${indexer}/v1/blocks/${height}`).catch(() => null);
 		const ms = Date.parse(String(block?.datetime ?? ''));
 		const iso = Number.isNaN(ms) ? null : new Date(ms).toISOString();
-		times.set(key, iso);
+		// Only an answer is kept: an indexer that did not answer this time is
+		// asked again next time, not remembered as silent for the bridge's life.
+		if (iso) times.set(key, iso);
 		return iso;
 	}
 
