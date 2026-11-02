@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Le Space relays are trusted by the Aleph account that runs them, so a redeployed relay needs no new release (#564, #565).** Until now Belege counted a relay's registration on Aleph only from a wallet listed in the code. A relay makes that wallet at deploy time, so every redeploy meant a new release, and until then no relay. Now a registration also counts when three things hold: it names one of Le Space's Aleph accounts and its instance, Aleph holds that instance as a running VM of that account, and the address is the instance's own 2n6.me name. Belege computes that name from the instance's hash, so it contacts no new host. A forged entry can name the account but cannot point anywhere else. The relay Belege now uses also serves paperless-anywhere's attest relay, so one VM does both. The old relay and a second one that had gone silent are dropped from the list. The consent screen's entry on the relays says how they are trusted now; it opens once more (version 31).
+
 ### Fixed
 
 - **"Rechnungen abgleichen" no longer stops at one invoice whose XRechnung the app gets wrong**: for an invoice taken over earlier, an XML the app does not deliver or delivers wrong is counted ("{count} XRechnungen … nicht oder falsch geliefert") and asked for next time, and the sync goes on to the other invoices and the payment notices – before, one such invoice ended every sync for good. A VAT line the app sends without a rate is left out instead of being kept as 0 % (`app/src/lib/ucep/issued.js`).
