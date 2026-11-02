@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Bridge: its functions are commands, apart from the transport** (`bridge/src/commands.js`): every route is now a named command (`bank.transactions`, `mail.search`, `llm.extract`, …) with the scope a device will need once the bridge speaks UCEP over libp2p; `server.js` is the HTTP front door that checks host, origin and token and dispatches. Nothing changes for the app; the first step of #567.
+
 ## [0.26.6] – 2026-11-02
 
 ### Changed
