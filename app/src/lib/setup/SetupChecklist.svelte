@@ -5,7 +5,7 @@
 	// (BridgeGuide). Done is what the books and the bridge say (steps.js).
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
-	import { t } from '$lib/i18n/index.js';
+	import { list as listOf, t } from '$lib/i18n/index.js';
 	import { loadIntegrationFacts } from '$lib/integrations/facts.svelte.js';
 	import BridgeGuide from './BridgeGuide.svelte';
 	import StartChoice from './StartChoice.svelte';
@@ -21,6 +21,9 @@
 
 	/** @type {{ place?: 'home' | 'settings' }} */
 	let { place = 'home' } = $props();
+
+	/** The command beside each way into the payments (setup.step.payments.ways). */
+	const PAYMENT_COMMANDS = [null, 'pnpm setup:hibiscus', 'pnpm setup:enablebanking'];
 
 	onMount(() => {
 		loadSetup();
@@ -120,6 +123,20 @@
 							<p class="mt-1 text-xs text-faint">{t(`setup.step.${step.id}.time`)}</p>
 							{#if step.id === 'bridge'}
 								<BridgeGuide />
+							{:else if step.id === 'payments'}
+								<ul
+									class="mt-2 list-disc space-y-1 pl-5 text-sm text-text"
+									data-testid="setup-payment-ways"
+								>
+									{#each listOf('setup.step.payments.ways') as way, i (i)}
+										<li>
+											{way}
+											{#if PAYMENT_COMMANDS[i]}
+												<code class="font-mono text-xs text-heading">{PAYMENT_COMMANDS[i]}</code>
+											{/if}
+										</li>
+									{/each}
+								</ul>
 							{/if}
 							<div class="mt-2 flex flex-wrap gap-2">
 								{#if step.id !== 'bridge'}

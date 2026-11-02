@@ -1,6 +1,12 @@
 // Wires config, keychain, pairing, Hibiscus, mail and the LLM into a running bridge.
 
-import { loadConfig, saveConfig, defaultConfigPath } from './config.js';
+import {
+	loadConfig,
+	saveConfig,
+	defaultConfigPath,
+	isLoopbackUrl,
+	redactionOff
+} from './config.js';
 import { createHibiscusClient } from './hibiscus.js';
 import { systemKeychain } from './keychain.js';
 import { createPairing } from './pairing.js';
@@ -8,6 +14,7 @@ import { createBridgeServer } from './server.js';
 import { createMailClient } from './mail/imap.js';
 import { domainOf } from './mail/auth-results.js';
 import { createExtractor } from './llm/extract.js';
+import { createConfidentialFetch } from './llm/confidential.js';
 import { createMailAssist } from './llm/assist.js';
 import { createRateService } from './rates.js';
 import { createDexRates } from './dex-rate.js';
@@ -15,8 +22,12 @@ import { createMatchAssist } from './llm/match-assist.js';
 import { createTransferAssist } from './llm/transfer-assist.js';
 import { createVendorAssist } from './llm/vendor-assist.js';
 import { createKrakenClient, parseKrakenCredentials } from './kraken.js';
+import { createPaperlessClient } from './paperless.js';
+import { createEnableBankingClient, enableBankingSecrets } from './enablebanking.js';
+import { createEnableBankingLinks } from './enablebanking-links.js';
 import { createWalletService } from './chains/index.js';
-import { createAlephClient } from './aleph.js';
+import { ALEPH_API, createAlephClient } from './aleph.js';
+import { createAlephBackup } from './aleph-backup.js';
 import { buildRecipes, createPortalManager, keychainAccount } from './portals/index.js';
 import { macosPasswordDialog } from './portals/credentials.js';
 import { dirname, join } from 'node:path';
@@ -38,6 +49,12 @@ export { createExtractor, checkExtraction } from './llm/extract.js';
 export { redact } from './llm/redact.js';
 export { createRateService, RATE_SOURCES, RateError } from './rates.js';
 export { createKrakenClient, KrakenError, parseAsset } from './kraken.js';
+export { createPaperlessClient, PaperlessError } from './paperless.js';
+export {
+	createEnableBankingClient,
+	EnableBankingError,
+	enableBankingSecrets
+} from './enablebanking.js';
 export {
 	createWalletService,
 	CHAINS,
@@ -59,12 +76,17 @@ export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
  * @param {import('./keychain.js').Keychain} [options.llmKeychain] the LLM API key
  * @param {import('./keychain.js').Keychain} [options.coingeckoKeychain] an optional CoinGecko demo key
  * @param {import('./keychain.js').Keychain} [options.krakenKeychain] the Kraken API key, JSON { key, secret }
+ * @param {import('./keychain.js').Keychain} [options.paperlessKeychain] the Paperless-ngx API token
+ * @param {import('./keychain.js').Keychain} [options.enablebankingKeychain] the key to the sealed Enable Banking file
  * @param {import('./keychain.js').Keychain} [options.alchemyKeychain] an optional Alchemy API key (own EVM wallets)
  * @param {(network: string) => string} [options.alchemyBaseUrl] tests: a fake Alchemy on 127.0.0.1
  * @param {string} [options.alephApi] tests: a fake Aleph API on 127.0.0.1, the default for /aleph
+ * @param {import('./keychain.js').Keychain} [options.alephBackupKeychain] the backup key (setup:aleph)
+ * @param {string} [options.alephIngestUrl] tests: a fake of Aleph's IPFS host on 127.0.0.1
+ * @param {typeof fetch} [options.backupFetch] fetch for the backup's upload (tests hand in a fake)
  * @param {number} [options.krakenPageDelayMs] pause between Kraken ledger pages (tests: 0)
  * @param {typeof fetch} [options.rateFetch] fetch for the exchange-rate sources (tests hand in a fake)
- * @param {Record<string, string> | null} [options.fixedRates] tests only: EUR per unit by asset,
+ * @param {Record<string, string | { rate: string, source?: string, at?: string }> | null} [options.fixedRates] tests only: EUR per unit by asset,
  *   answered for every day instead of asking CoinGecko, Kraken or the ECB (source `manual`)
  * @param {typeof fetch} [options.walletFetch] fetch for the chain nodes (tests hand in a fake)
  * @param {import('./keychain.js').Keychain} [options.bitcoinKeychain] the Bitcoin zpub (read only)
@@ -88,9 +110,14 @@ export async function startBridge({
 	llmKeychain = systemKeychain({ account: 'llm' }),
 	coingeckoKeychain = systemKeychain({ account: 'coingecko' }),
 	krakenKeychain = systemKeychain({ account: 'kraken' }),
+	paperlessKeychain = systemKeychain({ account: 'paperless' }),
+	enablebankingKeychain = systemKeychain({ account: 'enablebanking' }),
 	alchemyKeychain = systemKeychain({ account: 'alchemy' }),
 	alchemyBaseUrl,
 	alephApi,
+	alephBackupKeychain = systemKeychain({ account: 'aleph-backup' }),
+	alephIngestUrl,
+	backupFetch = fetch,
 	krakenPageDelayMs,
 	rateFetch = fetch,
 	fixedRates = null,
@@ -146,22 +173,56 @@ export async function startBridge({
 			[domainOf(config.mail.user), domainOf(config.mail.accountingAddress)].filter(Boolean)
 		)
 	];
+	// A model on this machine gets the text as it is (#423, config.js redactionOff).
+	const off = redactionOff(config.llm);
+	if (config.llm.configured && off)
+		log(
+			config.llm.tee
+				? 'LLM in the attested enclave: text is not blacked out.'
+				: 'LLM on this machine: text is not blacked out.'
+		);
+	else if (
+		config.llm.configured &&
+		config.llm.redaction === 'auto' &&
+		isLoopbackUrl(config.llm.baseUrl)
+	)
+		log(
+			'LLM on 127.0.0.1: text is blacked out until `pnpm setup:llm` is told the model runs on this machine.'
+		);
+	// A confidential model (#416): every request to the pinned enclave, attested.
+	const tee =
+		config.llm.configured && config.llm.tee
+			? createConfidentialFetch({ pin: config.llm.tee, baseUrl: config.llm.baseUrl })
+			: null;
+	if (tee)
+		log(
+			`LLM in a confidential VM: every request goes to the attested enclave ${config.llm.tee?.itemHash.slice(0, 12)}…`
+		);
 	const llm = config.llm.configured
-		? createExtractor({ config: config.llm, getKey: () => llmKeychain.read(), ownDomains })
+		? createExtractor({
+				config: config.llm,
+				getKey: () => llmKeychain.read(),
+				ownDomains,
+				...(tee ? { fetch: tee.fetch } : {})
+			})
 		: null;
 	if (!llm) log('No LLM is set up: run `pnpm setup:llm`.');
 	const matchAssist = llm
-		? createMatchAssist({ llm, redaction: { terms: config.llm.redactTerms, ownDomains } })
+		? createMatchAssist({ llm, redaction: { terms: config.llm.redactTerms, ownDomains, off } })
 		: null;
 	const transferAssist = llm
-		? createTransferAssist({ llm, redaction: { terms: config.llm.redactTerms, ownDomains } })
+		? createTransferAssist({ llm, redaction: { terms: config.llm.redactTerms, ownDomains, off } })
 		: null;
 	const vendorAssist = llm
-		? createVendorAssist({ llm, redaction: { terms: config.llm.redactTerms, ownDomains } })
+		? createVendorAssist({ llm, redaction: { terms: config.llm.redactTerms, ownDomains, off } })
 		: null;
 	const assist =
 		llm && mail
-			? createMailAssist({ llm, mail, redaction: { terms: config.llm.redactTerms, ownDomains } })
+			? createMailAssist({
+					llm,
+					mail,
+					redaction: { terms: config.llm.redactTerms, ownDomains, off }
+				})
 			: null;
 
 	// Customer portals: a browser with a profile per portal next to bridge.json.
@@ -245,6 +306,23 @@ export async function startBridge({
 		}
 	}
 
+	const enablebankingSecrets = enableBankingSecrets({
+		configPath,
+		keychain: enablebankingKeychain
+	});
+	const enablebankingClient =
+		config.enablebanking.configured && config.enablebanking.appId
+			? createEnableBankingClient({
+					appId: config.enablebanking.appId,
+					baseUrl: config.enablebanking.baseUrl,
+					// Opened on every request, so a key set up again counts at once.
+					getPrivateKey: async () =>
+						/** @type {import('./enablebanking.js').EnableBankingSecrets} */ (
+							await enablebankingSecrets.read()
+						).privateKey
+				})
+			: null;
+
 	const bridge = createBridgeServer({
 		config,
 		lanRelay: lanRelay
@@ -261,6 +339,7 @@ export async function startBridge({
 		transferAssist,
 		vendorAssist,
 		// Reads the keychain entry to see that there is one; the value stays here.
+		llmTee: tee ? tee.status : null,
 		llmKeyPresent: async () => {
 			try {
 				return Boolean(await llmKeychain.read());
@@ -276,11 +355,35 @@ export async function startBridge({
 					getCredentials: async () => parseKrakenCredentials(await krakenKeychain.read())
 				})
 			: null,
+		paperless: config.paperless.configured
+			? createPaperlessClient({
+					baseUrl: config.paperless.baseUrl,
+					getToken: () => paperlessKeychain.read()
+				})
+			: null,
+		enablebanking: enablebankingClient,
+		enablebankingLinks: enablebankingClient
+			? createEnableBankingLinks({
+					client: enablebankingClient,
+					secrets: enablebankingSecrets,
+					redirectUrl: config.enablebanking.redirectUrl,
+					allowedSuffixes: () => config.enablebanking.ibanSuffixes,
+					log
+				})
+			: null,
 		rates,
 		// Aleph Cloud credits, read only (issue #113); valued with the same rates.
 		aleph: createAlephClient({ fetch: walletFetch, rates }),
 		alephLoopback: walletLoopback,
 		...(alephApi ? { alephApi } : {}),
+		alephBackup: config.alephBackup.configured
+			? createAlephBackup({
+					getKey: () => alephBackupKeychain.read(),
+					apiHost: alephApi ?? ALEPH_API,
+					...(alephIngestUrl ? { ingestUrl: alephIngestUrl } : {}),
+					fetch: backupFetch
+				})
+			: null,
 		wallets: createWalletService({
 			fetch: walletFetch,
 			allowLoopback: walletLoopback,
@@ -294,7 +397,9 @@ export async function startBridge({
 	});
 	const address = await bridge.listen({ port: port ?? config.bridge.port });
 	print(`belege bridge listening on http://${address.host}:${address.port}`);
-	print(`Allowed app origins: ${config.appOrigins.join(', ') || '(none)'}`);
+	print(
+		`Allowed app origins: ${config.appOrigins.join(', ') || '(none)'} (change: pnpm setup:origins)`
+	);
 	if (lanRelay) {
 		print(`LAN relay for own devices on ${config.lanRelay.host}, UDP ${config.lanRelay.port}`);
 	}
@@ -324,7 +429,9 @@ export async function startBridge({
  * The same answer for every day: for the E2E suite, which must not ask the
  * real rate sources.
  *
- * @param {Record<string, string>} rates EUR per unit, by symbol
+ * @param {Record<string, string | { rate: string, source?: string, at?: string }>} rates
+ *   EUR per unit, by symbol; with a source and its moment, to stand for a
+ *   reference rate (the ECB's, the Bank of Russia's)
  */
 function fixedRateService(rates) {
 	return {
@@ -335,18 +442,19 @@ function fixedRateService(rates) {
 		 */
 		async rate(asset, date, { contract = null } = {}) {
 			const key = contract ?? asset;
-			const rate = Object.hasOwn(rates, key) ? rates[key] : null;
-			if (!rate) {
+			const given = Object.hasOwn(rates, key) ? rates[key] : null;
+			if (!given) {
 				throw Object.assign(new Error(`no rate source for ${asset}`), { status: 400 });
 			}
+			const fixed = typeof given === 'string' ? { rate: given } : given;
 			return {
 				asset,
 				date,
 				currency: /** @type {const} */ ('EUR'),
-				rate,
+				rate: fixed.rate,
 				usdRate: null,
-				source: /** @type {const} */ ('manual'),
-				at: `${date}T00:00:00Z`
+				source: /** @type {any} */ (fixed.source ?? 'manual'),
+				at: fixed.at ?? `${date}T00:00:00Z`
 			};
 		}
 	};

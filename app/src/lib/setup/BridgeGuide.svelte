@@ -9,6 +9,7 @@
 	import { bridge, checkBridge } from '$lib/integrations/bridge-state.svelte.js';
 	import { t } from '$lib/i18n/index.js';
 	import { bridgeCommands, diagnoseBridge } from './diagnose.js';
+	import { originCommand } from '$lib/help/way-out.js';
 
 	const EVERY_MS = 3000;
 	const README = 'https://github.com/Le-Space/belege/blob/main/bridge/README.md';
@@ -54,6 +55,15 @@
 			<p class="text-danger" data-testid="setup-bridge-diagnosis">
 				{t(`setup.bridge.diagnosis.${diagnosis}`, { url: bridge.url, origin })}
 			</p>
+			{#if diagnosis === 'origin'}
+				<CopyButton
+					text={originCommand(origin)}
+					label={t('help.copyCommand')}
+					testid="setup-bridge-origin-command"
+					valueClass="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs whitespace-nowrap text-heading"
+					>{originCommand(origin)}</CopyButton
+				>
+			{/if}
 		{/if}
 		<p class="text-xs text-faint" role="status" data-testid="setup-bridge-waiting">
 			{t('setup.bridge.waiting', { url: bridge.url })}

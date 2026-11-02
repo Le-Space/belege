@@ -1,4 +1,5 @@
 <script>
+	import WayOut from '$lib/help/WayOut.svelte';
 	// The bridge: whether it answers and whether this device is paired, pairing
 	// by code, "Kopplung lösen" (issue #152: on the overview as its first row,
 	// and on its own page).
@@ -10,6 +11,7 @@
 		pairBridge,
 		unpairBridge
 	} from './bridge-state.svelte.js';
+	import { hostsBridge } from './host.js';
 
 	/** @type {{ intro?: boolean }} */
 	let { intro = true } = $props();
@@ -33,7 +35,12 @@
 	<div class="flex flex-wrap items-start justify-between gap-3">
 		<div class="min-w-0">
 			{#if intro}<p class="text-sm text-text">{t('integrationen.bridge.intro')}</p>{/if}
-			<p class="mt-1 text-sm text-text" data-testid="bridge-status" data-state={bridge.state}>
+			<p
+				class="mt-1 text-sm text-text"
+				data-testid="bridge-status"
+				data-state={bridge.state}
+				data-paired={bridge.token ? 'true' : 'false'}
+			>
 				{#if bridge.state === 'checking'}
 					{t('integrationen.bridge.checking')}
 				{:else if bridge.state === 'online'}
@@ -52,7 +59,7 @@
 				{/if}
 			</p>
 		</div>
-		<button type="button" class={secondary} onclick={checkBridge}
+		<button type="button" class={secondary} onclick={checkBridge} data-testid="bridge-check"
 			>{t('integrationen.bridge.check')}</button
 		>
 	</div>
@@ -94,6 +101,11 @@
 					: t('integrationen.bridge.codeHintFirst')
 			})}
 		</p>
+	{:else if bridge.state === 'offline' && !hostsBridge()}
+		<!-- A phone never runs a bridge (#142): no terminal, no unpairing – the computer's bridge, over device sync. -->
+		<p class="mt-3 text-sm text-text" data-testid="bridge-on-a-phone">
+			{t('integrationen.bridge.onAPhone')}
+		</p>
 	{:else}
 		<button
 			type="button"
@@ -102,7 +114,8 @@
 			data-testid="unpair">{t('integrationen.bridge.unpair')}</button
 		>
 	{/if}
-	{#if bridge.error}
+	{#if bridge.error && (bridge.state !== 'offline' || hostsBridge())}
 		<p class="mt-3 text-sm text-danger" role="alert" data-testid="bridge-error">{bridge.error}</p>
+		<WayOut message={bridge.error} />
 	{/if}
 </div>
