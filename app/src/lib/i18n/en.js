@@ -920,6 +920,8 @@ export default {
 			checksum: 'The words do not fit together: one is probably misspelt or swapped.',
 			wrong: 'These words do not open the vault.',
 			notFound: 'There is no vault for these words – neither in this browser nor on Aleph.',
+			removed:
+				'These words were removed from the books, or replaced by new ones. They no longer open anything.',
 			notHere:
 				'This browser holds no vault for these words; the network is paused, Aleph was not asked.'
 		},

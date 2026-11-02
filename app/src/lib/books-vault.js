@@ -83,6 +83,17 @@ export class RemovedPasskeyError extends Error {
 	}
 }
 
+/**
+ * Recovery words the books no longer carry: taken out, or replaced by newer
+ * ones. They open nothing, like a removed passkey.
+ */
+export class RemovedWordsError extends Error {
+	constructor() {
+		super('These recovery words were removed from these books.');
+		this.name = 'RemovedWordsError';
+	}
+}
+
 /** @param {Uint8Array} bytes */
 const toHex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 
@@ -493,8 +504,11 @@ export async function openWithWords({ seed, storage, find }) {
 
 /**
  * The same books' newer record (index M), opened with the words: taken when
- * the words still have their slot there and it gives the same root; else the
- * one opened stays.
+ * the words still have their slot there and it gives the same root. A record
+ * without the words' slot means they were taken out or replaced there; the
+ * index under the words' own seed cannot be cleared (the seed is never kept),
+ * so this is where removed words are refused, as a removed passkey is in
+ * `adoptNewerVault`.
  *
  * @param {OpenedVault} opened by `openWithWords`
  * @param {any} vault the newer vault record
@@ -504,10 +518,16 @@ export async function openWithWords({ seed, storage, find }) {
  */
 export async function newerWithWords(opened, vault, seed, published = []) {
 	if (!vault || !Array.isArray(vault.slots)) return opened;
-	if (!vault.slots.some((/** @type {any} */ s) => s.kid === opened.kid)) return opened;
+	if (!vault.slots.some((/** @type {any} */ s) => s.kid === opened.kid)) {
+		throw new RemovedWordsError();
+	}
+	// A words slot that these words do not open: newer words took their place.
 	const { payload, vaultKey } = await openVault(vault, {
 		slotKey: await wordsSlotKey(seed),
 		rawCredentialId: WORDS_SLOT_ID
+	}).catch((/** @type {any} */ e) => {
+		if (e?.code === 'VAULT_LOCKED') throw new RemovedWordsError();
+		throw e;
 	});
 	const root = decodePayload(payload);
 	if (root.length !== opened.root.length || root.some((b, i) => b !== opened.root[i])) {
