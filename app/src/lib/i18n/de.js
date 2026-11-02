@@ -3963,7 +3963,9 @@ export default {
 					'{count} Rechnungen kamen noch nicht: ihr PDF geht nur über eine direkte Verbindung. Beim nächsten Abgleich noch einmal.',
 				xml: '{count} XRechnungen übernommen: Das XML liegt als Original neben dem PDF.',
 				xmlLater:
-					'{count} XRechnungen kamen noch nicht: Sie sind zu groß für das Relay und gehen nur über eine direkte Verbindung. Beim nächsten Abgleich noch einmal.'
+					'{count} XRechnungen kamen noch nicht: Sie sind zu groß für das Relay und gehen nur über eine direkte Verbindung. Beim nächsten Abgleich noch einmal.',
+				xmlRefused:
+					'{count} XRechnungen zu früher übernommenen Rechnungen hat die App nicht oder falsch geliefert. Die Belege bleiben; beim nächsten Abgleich noch einmal.'
 			},
 			offHint:
 				'Erst wenn du hier klickst, geht Belege ins Netz: Es fragt api.aleph.im nach den Le-Space-Relays und verbindet sich mit einem; danach nur, solange eine Rechnungs-App gekoppelt ist; nach dem Entkoppeln geht Belege wieder vom Netz. Was dabei wer sieht, steht im Datenschutz-Dialog unter „Le-Space-Relays“.',

@@ -3910,7 +3910,9 @@ export default {
 					'{count} invoices have not arrived yet: their PDF only travels over a direct connection. Try again at the next sync.',
 				xml: '{count} XRechnungen taken over: the XML lies beside the PDF as the original.',
 				xmlLater:
-					'{count} XRechnungen have not arrived yet: they are too large for the relay and only travel over a direct connection. Try again at the next sync.'
+					'{count} XRechnungen have not arrived yet: they are too large for the relay and only travel over a direct connection. Try again at the next sync.',
+				xmlRefused:
+					'{count} XRechnungen for invoices taken over earlier were not delivered by the app, or delivered wrong. The receipts stay; try again at the next sync.'
 			},
 			offHint:
 				'Only when you click here does Belege go online: it asks api.aleph.im for the Le Space relays and connects to one; after that only while an invoice app is paired; after unpairing, Belege goes offline again. Who sees what in the process is in the privacy dialog under “Le Space relays”.',
