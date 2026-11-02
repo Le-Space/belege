@@ -9,6 +9,7 @@ import {
 } from './config.js';
 import { createHibiscusClient } from './hibiscus.js';
 import { systemKeychain } from './keychain.js';
+import { DEVICE_AUTH_ACCOUNT } from './node.js';
 import { createPairing } from './pairing.js';
 import { createBridgeServer } from './server.js';
 import { createMailClient } from './mail/imap.js';
@@ -99,6 +100,10 @@ export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
  *   asks for a portal's password on this Mac ("Zugangsdaten speichern"); tests hand in a fake
  * @param {boolean} [options.lanRelayLoopback] the LAN relay may listen on 127.0.0.1 (tests only)
  * @param {boolean} [options.forcePairingCode] issue a code even when already paired
+ * @param {boolean} [options.node] the bridge's own libp2p node (node.js, #573); false: HTTP only
+ * @param {import('./keychain.js').Keychain} [options.deviceAuthKeychain] the books' device auth key, from the handover
+ * @param {any[]} [options.nodeTransports] tests: the memory transport
+ * @param {string[]} [options.nodeListen] tests: listen addresses
  * @param {number} [options.port] overrides the config
  * @param {(line: string) => void} [options.print] the console; gets the pairing code
  * @param {(line: string) => void} [options.log]
@@ -131,6 +136,10 @@ export async function startBridge({
 	portalPasswordDialog = macosPasswordDialog(),
 	lanRelayLoopback = false,
 	forcePairingCode = false,
+	node: nodeWanted = true,
+	deviceAuthKeychain = systemKeychain({ account: DEVICE_AUTH_ACCOUNT }),
+	nodeTransports,
+	nodeListen,
 	port,
 	print = (line) => console.log(line),
 	log = (line) => console.error(`[bridge] ${line}`)
@@ -323,8 +332,72 @@ export async function startBridge({
 				})
 			: null;
 
+	// The bridge's own libp2p node (#573): unarmed until a device hands the
+	// books' device key over by the invitation printed below, armed after.
+	/** @type {import('./node.js').BridgeNode | null} */
+	let node = null;
+	const nodeDir = join(dirname(configPath), 'node');
+	const nodeOn = nodeWanted && config.node.enabled;
+	/** The key as the keychain holds it, or null. */
+	async function deviceAuthKey() {
+		try {
+			const hex = await deviceAuthKeychain.read();
+			return /^[0-9a-f]{64}$/.test(hex) ? Uint8Array.from(Buffer.from(hex, 'hex')) : null;
+		} catch {
+			return null;
+		}
+	}
+	async function startNode() {
+		if (!nodeOn) return;
+		const { startBridgeNode } = await import('./node.js');
+		node = await startBridgeNode({
+			dir: nodeDir,
+			authKey: await deviceAuthKey(),
+			relays: config.node.relays,
+			devices: config.node.devices,
+			wsPort: config.node.wsPort,
+			...(nodeTransports ? { transports: nodeTransports } : {}),
+			...(nodeListen ? { listen: nodeListen } : {}),
+			onHandover: async ({ authKey, relays, devices }) => {
+				await deviceAuthKeychain.write(Buffer.from(authKey).toString('hex'));
+				config.node.relays = relays;
+				config.node.devices = devices;
+				await saveConfig(config, configPath);
+				await node?.stop().catch(() => {});
+				await startNode();
+				print(`Paired with the books: the node is armed, peer ${node?.peerId ?? '?'}.`);
+			},
+			onDevices: async (devices) => {
+				config.node.devices = devices;
+				await saveConfig(config, configPath);
+			},
+			log
+		});
+	}
+	/** What the HTTP front door tells, and does, about the node. */
+	const nodeHandle = nodeOn
+		? {
+				status: () => ({
+					enabled: true,
+					armed: node?.armed ?? false,
+					peerId: node?.peerId ?? null,
+					addrs: node?.addrs() ?? [],
+					devices: node ? node.devices().size : 0
+				}),
+				// "Kopplung lösen": the books' key leaves, the node runs on unarmed.
+				disarm: async () => {
+					await deviceAuthKeychain.remove?.().catch(() => {});
+					config.node.devices = [];
+					await saveConfig(config, configPath);
+					await node?.stop().catch(() => {});
+					await startNode();
+				}
+			}
+		: null;
+
 	const bridge = createBridgeServer({
 		config,
+		node: nodeHandle,
 		lanRelay: lanRelay
 			? { addr: lanRelay.addr, stats: lanRelay.stats }
 			: config.lanRelay.host
@@ -403,6 +476,23 @@ export async function startBridge({
 	if (lanRelay) {
 		print(`LAN relay for own devices on ${config.lanRelay.host}, UDP ${config.lanRelay.port}`);
 	}
+	try {
+		await startNode();
+	} catch (/** @type {any} */ error) {
+		log(`the node did not start: ${error.message} – the bridge runs on over HTTP`);
+		node = null;
+	}
+	if (node) {
+		print(
+			`Node: peer ${node.peerId}${node.armed ? ', armed (the books know it)' : ', waiting to be paired'}`
+		);
+		if (!node.armed) {
+			print(
+				'Pair it from the app: paste this invitation under Integrationen → Bridge koppeln (valid 10 minutes):'
+			);
+			print(await node.invite());
+		}
+	}
 
 	if (forcePairingCode || !pairing.isPaired()) {
 		const code = pairing.issueCode();
@@ -417,8 +507,13 @@ export async function startBridge({
 		pairing,
 		portals,
 		lanRelay,
+		/** The bridge's own node, or null. */
+		get node() {
+			return node;
+		},
 		async close() {
 			portals.close();
+			await node?.stop().catch(() => {});
 			await lanRelay?.stop().catch(() => {});
 			return bridge.close();
 		}

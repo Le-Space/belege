@@ -34,6 +34,15 @@ export function defaultConfigPath() {
  * @property {{ configured: boolean }} alephBackup set by setup:aleph once the backup key is in
  *   the keychain (aleph-backup.js, issue #77)
  * @property {LanRelayConfig} lanRelay
+ * @property {NodeConfig} node the bridge's own libp2p node (node.js, #573)
+ */
+
+/**
+ * @typedef {object} NodeConfig
+ * @property {boolean} enabled off: no node, HTTP only
+ * @property {string[]} relays the relays the books use, from the handover
+ * @property {string[]} devices the books' devices (peer ids), from the handover and `devices`
+ * @property {number} wsPort the WebSocket on 127.0.0.1 for the browser on this machine; 0 picks one
  */
 
 /**
@@ -183,7 +192,8 @@ export function defaultConfig() {
 			ibanSuffixes: []
 		},
 		alephBackup: { configured: false },
-		lanRelay: { host: null, port: DEFAULT_LAN_RELAY_PORT }
+		lanRelay: { host: null, port: DEFAULT_LAN_RELAY_PORT },
+		node: { enabled: true, relays: [], devices: [], wsPort: 0 }
 	};
 }
 
@@ -309,6 +319,19 @@ export function withDefaults(raw) {
 				raw.lanRelay.port <= 65535
 					? raw.lanRelay.port
 					: d.lanRelay.port
+		},
+		node: {
+			enabled: raw?.node?.enabled !== false,
+			relays: Array.isArray(raw?.node?.relays)
+				? raw.node.relays.map(String).filter((r) => /\/p2p\/12D3KooW/.test(r))
+				: [],
+			devices: Array.isArray(raw?.node?.devices)
+				? raw.node.devices.map(String).filter((p) => /^12D3KooW[1-9A-HJ-NP-Za-km-z]{44}$/.test(p))
+				: [],
+			wsPort:
+				Number.isInteger(raw?.node?.wsPort) && raw.node.wsPort >= 0 && raw.node.wsPort <= 65535
+					? raw.node.wsPort
+					: 0
 		}
 	};
 }
