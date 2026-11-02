@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **"Rechnungen abgleichen" no longer stops at one invoice whose XRechnung the app gets wrong**: for an invoice taken over earlier, an XML the app does not deliver or delivers wrong is counted ("{count} XRechnungen … nicht oder falsch geliefert") and asked for next time, and the sync goes on to the other invoices and the payment notices – before, one such invoice ended every sync for good. A VAT line the app sends without a rate is left out instead of being kept as 0 % (`app/src/lib/ucep/issued.js`).
+
 - **Recovery words that were removed or replaced no longer open the books from another device**: when the books' current vault on Aleph has no slot for the words, the words are refused with "Diese Wörter wurden aus den Büchern entfernt oder durch neue ersetzt", the way a removed passkey is – before, the record filed under the words themselves still opened (`app/src/lib/books-vault.js`).
 
 - **The redaction before a model call reads an IBAN in any spelling and a card number without spaces**: a hand-typed `de89 3704 …` is blacked out like `DE89 3704 …`, and sixteen digits in a row with a valid check digit are taken for a card and hidden except the last four; order and tracking numbers of the same length, which fail that check, stay readable for the model (`bridge/src/llm/redact.js`, docs/ai.md).

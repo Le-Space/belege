@@ -137,7 +137,9 @@ export function vatOf(inv) {
 		: {};
 	if (!Array.isArray(inv.vat)) return customer;
 	const vat = inv.vat.flatMap((v) => {
-		const rate = Number(String(v?.rate ?? '').trim());
+		// A rate not said is not 0 %: `Number('')` would make it one.
+		const said = String(v?.rate ?? '').trim();
+		const rate = said ? Number(said) : NaN;
 		const amount = centsOf(v?.amount?.value);
 		if (!Number.isFinite(rate) || amount === null) return [];
 		// The category says why a line is at 0 % (reverse charge, a small business, …).
@@ -257,6 +259,7 @@ async function fetchXRechnung(consumer, app, inv) {
  * @property {number} pdfLater invoices whose PDF comes only over a direct connection
  * @property {number} xml XRechnungen kept beside their PDF this time
  * @property {number} xmlLater XRechnungen too large for the relay: they come over a direct connection
+ * @property {number} xmlRefused XRechnungen for receipts taken over earlier that the app did not deliver, or delivered wrong
  * @property {number} reported payments recorded in the app
  * @property {number} removed payments taken back in the app
  * @property {number} paid invoices the app now counts as paid
@@ -294,6 +297,7 @@ export async function syncIssuedInvoices({ consumer, app, store, blobs, match })
 		pdfLater: 0,
 		xml: 0,
 		xmlLater: 0,
+		xmlRefused: 0,
 		reported: 0,
 		removed: 0,
 		paid: 0
@@ -315,9 +319,18 @@ export async function syncIssuedInvoices({ consumer, app, store, blobs, match })
 			continue;
 		}
 		if (known) {
-			// Taken over before the app sent XRechnungen, or before this one came through.
+			// Taken over before the app sent XRechnungen, or before this one came
+			// through. The receipt is there either way: an XML the app cannot
+			// deliver, or delivers wrong, is counted and asked for next time, and
+			// the sync goes on to the other invoices and the payment notices.
 			if (!known.deleted && !known.xmlCid && offersXRechnung(inv)) {
-				const xml = await fetchXRechnung(consumer, app, inv);
+				/** @type {Uint8Array | null | undefined} */
+				let xml;
+				try {
+					xml = await fetchXRechnung(consumer, app, inv);
+				} catch {
+					result.xmlRefused++;
+				}
 				if (xml) {
 					const xmlCid = await blobs.put(xml);
 					byRef.set(
@@ -325,7 +338,7 @@ export async function syncIssuedInvoices({ consumer, app, store, blobs, match })
 						await store.receipts.put({ id: known.id, xmlCid })
 					);
 					result.xml++;
-				} else {
+				} else if (xml === null) {
 					result.xmlLater++;
 				}
 			}
