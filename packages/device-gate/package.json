@@ -1,0 +1,24 @@
+{
+	"name": "@belege/device-gate",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Only the books' own devices get anything: the device proof as a libp2p service, and an identify that tells strangers nothing. Shared by the app and the bridge.",
+	"license": "AGPL-3.0-or-later",
+	"type": "module",
+	"exports": {
+		".": "./src/index.js",
+		"./device-gate.js": "./src/device-gate.js",
+		"./quiet-identify.js": "./src/quiet-identify.js"
+	},
+	"files": ["src"],
+	"scripts": {
+		"lint": "prettier --check src"
+	},
+	"dependencies": {
+		"@libp2p/identify": "4.1.10",
+		"@libp2p/utils": "7.4.1"
+	},
+	"devDependencies": {
+		"prettier": "3.6.2"
+	}
+}

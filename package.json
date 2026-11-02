@@ -26,7 +26,7 @@
     "setup:origins": "pnpm --filter @belege/bridge setup:origins",
     "build": "pnpm --filter @belege/app build",
     "check": "pnpm --filter @belege/app check",
-    "lint": "pnpm --filter @belege/app lint && pnpm --filter @belege/bridge lint",
+    "lint": "pnpm --filter @belege/app lint && pnpm --filter @belege/bridge lint && pnpm --filter @belege/device-gate lint",
     "test:unit": "pnpm --filter @belege/app test:unit",
     "test:e2e": "pnpm --filter @belege/app test:e2e",
     "test:bridge": "pnpm --filter @belege/bridge test",

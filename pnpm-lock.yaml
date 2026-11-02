@@ -233,6 +233,9 @@ importers:
 
   bridge:
     dependencies:
+      '@belege/device-gate':
+        specifier: workspace:*
+        version: link:../packages/device-gate
       '@chainsafe/libp2p-noise':
         specifier: 17.0.0
         version: 17.0.0
@@ -297,6 +300,19 @@ importers:
       selfsigned:
         specifier: 5.5.0
         version: 5.5.0
+
+  packages/device-gate:
+    dependencies:
+      '@libp2p/identify':
+        specifier: 4.1.10
+        version: 4.1.10
+      '@libp2p/utils':
+        specifier: 7.4.1
+        version: 7.4.1
+    devDependencies:
+      prettier:
+        specifier: 3.6.2
+        version: 3.6.2
 
 packages:
 
