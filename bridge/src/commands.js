@@ -148,6 +148,7 @@ export function statusOf(error) {
  * @param {any} deps.alephBackup
  * @param {{ addr: string | null, stats: () => object } | null} deps.lanRelay
  * @param {any} [deps.portals] the portal connector, for /health only (its routes stay in portals/routes.js)
+ * @param {{ status: () => object, disarm: () => Promise<void> } | null} [deps.node] the bridge's libp2p node (node.js, #573)
  * @param {(message: string) => void} deps.log
  * @returns {Command[]}
  */
@@ -176,6 +177,7 @@ export function createCommands({
 	alephBackup,
 	lanRelay,
 	portals = null,
+	node = null,
 	log
 }) {
 	const suffixes = config.hibiscus.ibanSuffixes;
@@ -269,7 +271,9 @@ export function createCommands({
 					enablebanking: { configured: Boolean(enablebanking) },
 					backup: { aleph: Boolean(alephBackup) },
 					wallets: { available: Boolean(wallets) },
-					lanRelay: { configured: Boolean(lanRelay), running: Boolean(lanRelay?.addr) }
+					lanRelay: { configured: Boolean(lanRelay), running: Boolean(lanRelay?.addr) },
+					// The bridge's own node (#573): its peer id, whether the gate is up, where it listens.
+					node: node ? node.status() : { enabled: false }
 				})
 		},
 		{
@@ -358,6 +362,8 @@ export function createCommands({
 			body: 'none',
 			run: async ({ token }) => {
 				await pairing.revoke(token);
+				// The books' device key leaves with the pairing; the node runs on unarmed.
+				await node?.disarm();
 				log('a client unpaired itself');
 				return json(200, { ok: true });
 			}

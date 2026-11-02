@@ -103,6 +103,7 @@ export const LOOPBACK = '127.0.0.1';
  *   the backup's copy on Aleph, with the bridge's own key (issue #77)
  * @param {{ addr: string | null, stats: () => { reservations: number, connections: number } } | null} [options.lanRelay]
  *   the relay for own devices (lan-relay.js): null when not set up, `addr` null when it did not start
+ * @param {{ status: () => object, disarm: () => Promise<void> } | null} [options.node] the bridge's libp2p node (node.js, #573)
  * @param {(message: string) => void} [options.log] never gets a secret, bank data, mail or receipt text
  */
 export function createBridgeServer({
@@ -130,6 +131,7 @@ export function createBridgeServer({
 	alephApi = ALEPH_API,
 	alephBackup = null,
 	lanRelay = null,
+	node = null,
 	log = () => {}
 }) {
 	const allowedOrigins = new Set(config.appOrigins.map((o) => o.replace(/\/$/, '')));
@@ -158,6 +160,7 @@ export function createBridgeServer({
 		alephBackup,
 		lanRelay,
 		portals,
+		node,
 		log
 	});
 

@@ -171,7 +171,9 @@ try {
 		// Test mode: the LAN relay may listen on 127.0.0.1.
 		lanRelayLoopback: testMode,
 		port,
-		forcePairingCode: args.includes('--pair')
+		forcePairingCode: args.includes('--pair'),
+		// --no-node: HTTP only, no libp2p node (node.js, #573).
+		node: !args.includes('--no-node')
 	});
 	const stop = async () => {
 		await bridge.close();
