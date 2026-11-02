@@ -61,7 +61,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     is told to black it out (#416).
 // 30: recovery words – losing every passkey loses the books only without
 //     them; opening with them makes a new passkey, two prompts (#406).
-export const CONSENT_VERSION = '30';
+// 31: Le Space relays are trusted by the Aleph account that runs them, checked
+//     against the instance on Aleph, not only by a fixed wallet.
+export const CONSENT_VERSION = '31';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 
