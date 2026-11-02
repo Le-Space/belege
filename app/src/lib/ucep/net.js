@@ -29,6 +29,7 @@ import { webRTC } from '@libp2p/webrtc';
 import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { FaultTolerance } from '@libp2p/interface';
+import { wordlist } from '@scure/bip39/wordlists/english';
 
 /**
  * Where the relays come from: the Le-Space relays register their current
@@ -57,6 +58,32 @@ export const TRUSTED_RELAY_SENDERS = Object.freeze([
 	// redeploy means a new wallet here — and until it lands, no relay.
 	'0xaA4C6fd9952dA1129bfF208D0E621650273F5dE4'
 ]);
+
+/**
+ * The Aleph accounts Le Space pays its relays from. A relay deployed with
+ * relay-button names its account (`ownerAddress`) and its instance (the end of
+ * its registration id) when it registers; the app checks on Aleph that the
+ * instance is that account's, and dials only the instance's own 2n6.me name.
+ * A redeploy therefore needs no change here, unlike the guest wallets above.
+ */
+export const TRUSTED_RELAY_OWNERS = Object.freeze([
+	// relay-button
+	'0x28129bdDa64310221480d4eF903446b0cdFD4BEb',
+	// orbitdb-relay
+	'0x2bd014B41FEa490320187b5FAdf413dab88f7628'
+]);
+
+/**
+ * The 2n6.me name Aleph's gateway gives an instance: the hash's first 44 bits
+ * as four BIP39 words.
+ *
+ * @param {string} instanceHash
+ */
+export function twoN6Host(instanceHash) {
+	const bits = parseInt(String(instanceHash).slice(0, 11), 16);
+	const words = [33, 22, 11, 0].map((shift) => wordlist[Math.floor(bits / 2 ** shift) % 2048]);
+	return `${words.join('-')}.2n6.me`;
+}
 
 /**
  * The relay as it was registered on 2026-11-02, for when Aleph cannot be
@@ -117,9 +144,80 @@ export function relaysFromPosts(payload, senders = TRUSTED_RELAY_SENDERS) {
 }
 
 /**
+ * The registrations that name a trusted account and their instance, newest per
+ * instance, with the addresses on that instance's own 2n6.me name only. Still
+ * to be checked against the instance itself (`ownedInstance`).
+ *
+ * @param {any} payload the answer of `/api/v0/posts.json`
+ * @param {readonly string[]} [owners]
+ * @returns {{ instance: string, owner: string, addrs: string[] }[]}
+ */
+export function ownerRegistrations(payload, owners = TRUSTED_RELAY_OWNERS) {
+	const trusted = new Set(owners.map((o) => o.toLowerCase()));
+	/** @type {Map<string, { time: number, instance: string, owner: string, addrs: string[] }>} */
+	const newest = new Map();
+	for (const post of Array.isArray(payload?.posts) ? payload.posts : []) {
+		let content = post?.content;
+		if (!content && typeof post?.item_content === 'string') {
+			try {
+				content = JSON.parse(post.item_content)?.content;
+			} catch {
+				continue;
+			}
+		}
+		const owner = String(content?.ownerAddress ?? '').toLowerCase();
+		const instance = /^relay:orbitdb-relay:.*:([0-9a-f]{64})$/.exec(
+			String(content?.registrationId ?? '')
+		)?.[1];
+		if (!instance || !trusted.has(owner)) continue;
+		const host = twoN6Host(instance);
+		const time = Number(post?.time ?? 0);
+		const addrs = (Array.isArray(content?.multiaddrs) ? content.multiaddrs : [])
+			.map(String)
+			.filter(browserDialable)
+			.filter((/** @type {string} */ addr) => addr.split('/')[2] === host)
+			.sort(
+				(/** @type {string} */ a, /** @type {string} */ b) =>
+					Number(b.startsWith('/dns4/')) - Number(a.startsWith('/dns4/'))
+			);
+		if (addrs.length === 0) continue;
+		if ((newest.get(instance)?.time ?? -1) < time)
+			newest.set(instance, { time, instance, owner, addrs });
+	}
+	return [...newest.values()]
+		.sort((a, b) => b.time - a.time)
+		.map(({ instance, owner, addrs }) => ({ instance, owner, addrs }));
+}
+
+/**
+ * Whether Aleph holds `instance` as a running INSTANCE of `owner`.
+ *
+ * @param {string} instance @param {string} owner
+ * @param {typeof fetch} fetchImpl @param {number} timeoutMs
+ */
+export async function ownedInstance(instance, owner, fetchImpl, timeoutMs) {
+	try {
+		const response = await fetchImpl(new URL(`/api/v0/messages/${instance}`, ALEPH_API), {
+			signal: AbortSignal.timeout(timeoutMs),
+			cache: 'no-cache'
+		});
+		if (!response.ok) return false;
+		const body = await response.json();
+		return (
+			body?.status === 'processed' &&
+			body?.message?.type === 'INSTANCE' &&
+			body?.message?.item_hash === instance &&
+			String(body?.message?.content?.address ?? '').toLowerCase() === owner.toLowerCase()
+		);
+	} catch {
+		return false;
+	}
+}
+
+/**
  * The relays to use: the configured ones (VITE_RELAY_ADDRS, comma-separated;
- * the browser specs set it), else the trusted relays as Aleph knows them now,
- * else the fallback.
+ * the browser specs set it), else the relays of the trusted accounts and
+ * wallets as Aleph knows them now, else the fallback.
  *
  * @param {{ configured?: string, fetch?: typeof fetch, timeoutMs?: number }} [options]
  * @returns {Promise<string[]>}
@@ -134,25 +232,48 @@ export async function relayAddrs({
 		.map((addr) => addr.trim())
 		.filter(Boolean);
 	if (list.length > 0) return list;
-	try {
+	/** @param {Record<string, string>} params */
+	const posts = async (params) => {
 		const url = new URL('/api/v0/posts.json', ALEPH_API);
 		url.searchParams.set('channels', RELAY_REGISTRATION.channel);
 		url.searchParams.set('refs', RELAY_REGISTRATION.ref);
 		url.searchParams.set('types', RELAY_REGISTRATION.type);
-		url.searchParams.set('addresses', TRUSTED_RELAY_SENDERS.join(','));
-		url.searchParams.set('pagination', '20');
+		for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
 		const response = await fetchImpl(url, {
 			signal: AbortSignal.timeout(timeoutMs),
 			cache: 'no-cache'
 		});
-		if (response.ok) {
-			const found = relaysFromPosts(await response.json());
-			if (found.length > 0) return found;
-		}
-	} catch {
-		// Aleph not reachable: the relays as they were last known.
-	}
-	return [...FALLBACK_RELAYS];
+		if (!response.ok) throw new Error(`Aleph answered ${response.status}`);
+		return response.json();
+	};
+	const [byOwner, bySender] = await Promise.all([
+		// Anybody can post with any ownerAddress, so every candidate is checked
+		// against its instance before it counts.
+		posts({ pagination: '200' })
+			.then((payload) =>
+				Promise.all(
+					ownerRegistrations(payload).map(async (entry) =>
+						(await ownedInstance(entry.instance, entry.owner, fetchImpl, timeoutMs))
+							? entry.addrs[0]
+							: null
+					)
+				)
+			)
+			.catch(() => []),
+		posts({ addresses: TRUSTED_RELAY_SENDERS.join(','), pagination: '20' })
+			.then((payload) => relaysFromPosts(payload))
+			.catch(() => [])
+	]);
+	const found = [
+		...new Set(
+			[...byOwner, ...bySender].filter(
+				/** @returns {addr is string} */ (/** @type {string | null} */ addr) =>
+					typeof addr === 'string'
+			)
+		)
+	];
+	// Aleph not reachable or no relay registered: the relays as they were last known.
+	return found.length > 0 ? found : [...FALLBACK_RELAYS];
 }
 
 /**
