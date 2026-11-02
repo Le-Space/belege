@@ -26,6 +26,8 @@
 //              bridge.json, and the node restarts …
 //   armed    – … with the gate. From now on the proof decides, and `devices`
 //              keeps the list current when the app's device list changes.
+//              Armed, the node offers the bridge's functions: `request`
+//              dispatches onto the command table of commands.js (stream.js).
 //
 // What is kept where: the peer key on disk (not a secret: a peer id names,
 // it does not open); the auth key in the keychain (`device-auth`), never in
@@ -57,7 +59,9 @@ import {
 } from '@belege/device-gate';
 import { UcepError, createProvider } from '@le-space/ucep';
 
-/** The UCEP extension the bridge offers; its commands come from commands.js (M1.2). */
+import { answerRequest, offered } from './stream.js';
+
+/** The UCEP extension the bridge offers: pairing, the device list, and `request` onto commands.js. */
 export const EXTENSION = 'belege-bridge';
 export const EXTENSION_VERSION = '0.2.0';
 /** The scope of pairing itself: the handover, and the device list (UCEP wants `extension:resource:action`). */
@@ -192,6 +196,8 @@ const relayPeerOf = (addr) => /\/p2p\/(12D3KooW[1-9A-HJ-NP-Za-km-z]{44})/.exec(a
  * @param {Uint8Array | null} p.authKey the books' device auth key; null: unarmed, pairing only
  * @param {string[]} p.relays the relays the books use, to be reached through
  * @param {string[]} p.devices the books' devices (peer ids), the only ones admitted
+ * @param {import('./commands.js').Command[] | null} [p.commands] the bridge's command table, offered as
+ *   `request` to proved devices (stream.js); null: pairing and the device list only
  * @param {(handover: { authKey: Uint8Array, relays: string[], devices: string[] }) => Promise<void>} [p.onHandover]
  *   a device handed the key over (unarmed only): keep it, then restart armed
  * @param {(devices: string[]) => Promise<void>} [p.onDevices] the device list changed
@@ -206,6 +212,7 @@ export async function startBridgeNode({
 	authKey,
 	relays,
 	devices,
+	commands = null,
 	onHandover = async () => {},
 	onDevices = async () => {},
 	wsPort = 0,
@@ -258,6 +265,79 @@ export async function startBridgeNode({
 		}
 	});
 
+	/**
+	 * The caller is a device of the books: the node is armed, the peer proved
+	 * the key on this connection, and the books list it. The gate refuses an
+	 * unproved peer before a stream opens; this is the check a command can
+	 * read, and it holds while the node is unarmed, when there is no gate.
+	 *
+	 * @param {string} peerId
+	 */
+	function assertDevice(peerId) {
+		if (!armed) throw new UcepError('PAIRING_REQUIRED', 'pair the bridge with the books first');
+		if (!gate?.isProved(peerId) || !known.has(peerId)) throw new UcepError('PAIRING_REQUIRED');
+	}
+
+	/** @type {Record<string, { handler: (ctx: any) => unknown, scope?: string, description?: string }>} */
+	const ucepCommands = {
+		help: {
+			handler: () => ({
+				commands: Object.keys(ucepCommands),
+				armed,
+				// What `request` dispatches on, by the HTTP method and path the app knows (stream.js).
+				requests: (commands ?? []).filter(offered).map((c) => ({
+					name: c.name,
+					method: c.method,
+					path: typeof c.path === 'string' ? c.path : null
+				}))
+			})
+		},
+		handover: {
+			scope: PAIR_SCOPE,
+			description: 'The books’ device auth key, relays and devices → the node restarts armed',
+			handler: async ({ argsJson, peerId }) => {
+				if (armed) throw new UcepError('INVALID_ARGUMENTS', 'already armed: unpair first');
+				const handover = parseHandover(argsJson);
+				// The device that hands the key over is a device of the books.
+				if (!handover.devices.includes(peerId)) handover.devices.push(peerId);
+				log(
+					`handover from a device: ${handover.relays.length} relay(s), ${handover.devices.length} device(s)`
+				);
+				// Not awaited: the restart that follows would close this very stream.
+				queueMicrotask(() => {
+					onHandover(handover).catch((e) => log(`handover failed: ${e.message}`));
+				});
+				return { peerId: libp2p.peerId.toString() };
+			}
+		},
+		devices: {
+			scope: PAIR_SCOPE,
+			description: 'The books’ device list, as the app keeps it',
+			handler: async ({ argsJson, peerId }) => {
+				const list = Array.isArray(argsJson?.devices) ? argsJson.devices : [];
+				if (list.length > 64 || !list.every(isPeerId)) {
+					throw new UcepError('INVALID_ARGUMENTS', 'devices must be up to 64 peer ids');
+				}
+				if (armed) assertDevice(peerId);
+				setDevices([...new Set(list)]);
+				await onDevices([...known]);
+				return { devices: known.size };
+			}
+		},
+		...(commands
+			? {
+					request: {
+						description:
+							'One bridge call: { method, path, body? } → { status, contentType, json | base64 } (the commands of src/commands.js)',
+						handler: async ({ argsJson, peerId, limited }) => {
+							assertDevice(peerId);
+							return answerRequest({ commands, args: argsJson, limited, log });
+						}
+					}
+				}
+			: {})
+	};
+
 	/** @type {ReturnType<typeof createProvider>} */
 	let provider;
 	try {
@@ -270,41 +350,7 @@ export async function startBridgeNode({
 				description: 'The bridge of these books, for their devices.',
 				scopes: [{ name: PAIR_SCOPE, description: 'Pair this bridge with the books' }]
 			},
-			commands: {
-				help: { handler: () => ({ commands: ['help', 'handover', 'devices'], armed }) },
-				handover: {
-					scope: PAIR_SCOPE,
-					description: 'The books’ device auth key, relays and devices → the node restarts armed',
-					handler: async ({ argsJson, peerId }) => {
-						if (armed) throw new UcepError('INVALID_ARGUMENTS', 'already armed: unpair first');
-						const handover = parseHandover(argsJson);
-						// The device that hands the key over is a device of the books.
-						if (!handover.devices.includes(peerId)) handover.devices.push(peerId);
-						log(
-							`handover from a device: ${handover.relays.length} relay(s), ${handover.devices.length} device(s)`
-						);
-						// Not awaited: the restart that follows would close this very stream.
-						queueMicrotask(() => {
-							onHandover(handover).catch((e) => log(`handover failed: ${e.message}`));
-						});
-						return { peerId: libp2p.peerId.toString() };
-					}
-				},
-				devices: {
-					scope: PAIR_SCOPE,
-					description: 'The books’ device list, as the app keeps it',
-					handler: async ({ argsJson, peerId }) => {
-						const list = Array.isArray(argsJson?.devices) ? argsJson.devices : [];
-						if (list.length > 64 || !list.every(isPeerId)) {
-							throw new UcepError('INVALID_ARGUMENTS', 'devices must be up to 64 peer ids');
-						}
-						if (armed && gate && !gate.isProved(peerId)) throw new UcepError('PAIRING_REQUIRED');
-						setDevices([...new Set(list)]);
-						await onDevices([...known]);
-						return { devices: known.size };
-					}
-				}
-			},
+			commands: ucepCommands,
 			pairingModes: ['INVITATION'],
 			store: {
 				grants: fileStore(join(dir, 'grants.json')),

@@ -1,5 +1,5 @@
 // The bridge's HTTP API, on 127.0.0.1 only: one front door to the commands
-// in commands.js (the other, next, is a libp2p stream – #573).
+// in commands.js (the other is the stream of the bridge's node, stream.js).
 //
 //   GET  /health                         no token
 //   POST /pair         { code }          no token → { token }
@@ -64,7 +64,7 @@ import http from 'node:http';
 import { createShares } from './shares.js';
 import { handlePortalRequest } from './portals/routes.js';
 import { ALEPH_API } from './aleph.js';
-import { MAX_BODY, createCommands, findCommand, statusOf } from './commands.js';
+import { MAX_BODY, createCommands, errorJson, findCommand, statusOf } from './commands.js';
 
 export const LOOPBACK = '127.0.0.1';
 
@@ -344,29 +344,16 @@ export function createBridgeServer({
 		try {
 			await route(req, res, url);
 		} catch (/** @type {any} */ error) {
-			const status = statusOf(error);
 			// Messages are the bridge's own; they carry no password, no bank data and no mail text.
-			// A model's attempts say model, status and time – never the text (#417).
-			const tried = Array.isArray(error.attempts)
-				? ` (${error.attempts.map((/** @type {any} */ a) => `${a.model}: ${a.reason}, ${a.ms} ms`).join('; ')})`
-				: '';
-			log(`${req.method} ${url.pathname}: ${error.code ?? error.name}: ${error.message}${tried}`);
-			if (!res.headersSent) {
-				send(res, status, {
-					error: error.message,
-					code: error.code ?? null,
-					...(Array.isArray(error.attempts) ? { attempts: error.attempts } : {}),
-					...(error.step ? { step: error.step } : {}),
-					...(error.provider ? { provider: error.provider } : {}),
-					...(error.reason ? { reason: error.reason } : {})
-				});
-			}
+			const { json, line } = errorJson(error);
+			log(`${req.method} ${url.pathname}: ${line}`);
+			if (!res.headersSent) send(res, statusOf(error), json);
 		}
 	});
 
 	return {
 		server,
-		/** The commands this bridge serves: what the libp2p front door will offer (#573). */
+		/** The commands this bridge serves: what the node offers over the stream too (stream.js). */
 		commands,
 		/**
 		 * @param {{ host?: string, port?: number }} [options]

@@ -1,7 +1,7 @@
 // The bridge's own libp2p node (node.js, #573), on the memory transport:
 // pairing by invitation and the handover of the books' device key, the gate
-// once armed, the device list, and the peer key across restarts. Made-up
-// keys; nothing is real.
+// once armed, the device list, `request` onto the command table, and the peer
+// key across restarts. Made-up keys; nothing is real.
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -17,6 +17,7 @@ import { createDeviceGate, gatedIdentify } from '@belege/device-gate';
 import { createConsumer } from '@le-space/ucep';
 
 import { PAIR_SCOPE, fileStore, parseHandover, startBridgeNode } from '../src/node.js';
+import { emptyCommands } from './support/commands.js';
 
 const AUTH_KEY = new Uint8Array(32).fill(7);
 const OTHER_KEY = new Uint8Array(32).fill(9);
@@ -119,6 +120,7 @@ describe('the bridge’s node', () => {
 			authKey: null,
 			relays: [],
 			devices: [],
+			commands: emptyCommands(),
 			transports: [memory()],
 			listen: ['/memory/bridge-one'],
 			onHandover: async (h) => void handovers.push(h)
@@ -130,6 +132,14 @@ describe('the bridge’s node', () => {
 		const phone = await device(null);
 		try {
 			await phone.consumer.pairWithInvitation(uri);
+			// Unarmed, the bridge's functions are not offered: no books yet.
+			await assert.rejects(
+				phone.consumer.call(node.peerId, 'belege-bridge', 'request', {
+					method: 'GET',
+					path: '/health'
+				}),
+				(/** @type {any} */ e) => e.code === 'PAIRING_REQUIRED'
+			);
 			const answer = await phone.consumer.call(node.peerId, 'belege-bridge', 'handover', {
 				deviceAuth: Buffer.from(AUTH_KEY).toString('base64'),
 				relays: [],
@@ -141,7 +151,6 @@ describe('the bridge’s node', () => {
 			assert.deepEqual([...handovers[0].authKey], [...AUTH_KEY]);
 			// The device that handed over is a device of the books.
 			assert.deepEqual(handovers[0].devices, [phone.peerId]);
-			// A second handover on the same grant is one more call for the keeper to refuse later; here it is refused as already given? No: unarmed still, it is taken again.
 		} finally {
 			await phone.stop();
 		}
@@ -179,6 +188,7 @@ describe('the bridge’s node', () => {
 				authKey: AUTH_KEY,
 				relays: [],
 				devices: [own.peerId],
+				commands: emptyCommands(),
 				transports: [memory()],
 				listen: ['/memory/bridge-two']
 			});
@@ -190,7 +200,31 @@ describe('the bridge’s node', () => {
 			const provedHere = await waitFor(() => own.gate?.isProved(node.peerId) === true);
 			assert.equal(provedHere, true, 'the device proved the bridge and the bridge proved back');
 			const answer = await own.consumer.call(node.peerId, 'belege-bridge', 'help', {});
-			assert.deepEqual(answer.commands, ['help', 'handover', 'devices']);
+			assert.deepEqual(answer.commands, ['help', 'handover', 'devices', 'request']);
+			assert.ok(answer.requests.some((/** @type {any} */ r) => r.name === 'mail.search'));
+			assert.ok(!answer.requests.some((/** @type {any} */ r) => r.name === 'session.pair'));
+
+			// The bridge's functions over the stream: the same table as HTTP (stream.js).
+			const health = await own.consumer.call(node.peerId, 'belege-bridge', 'request', {
+				method: 'GET',
+				path: '/health'
+			});
+			assert.equal(health.status, 200);
+			assert.equal(health.json.service, 'belege-bridge');
+			const missing = await own.consumer.call(node.peerId, 'belege-bridge', 'request', {
+				method: 'GET',
+				path: '/paperless/documents?since=2026-01-01T00:00:00Z'
+			});
+			assert.equal(missing.status, 503);
+			assert.equal(missing.json.code, 'PAPERLESS_NOT_SET_UP');
+			await assert.rejects(
+				own.consumer.call(node.peerId, 'belege-bridge', 'request', {
+					method: 'POST',
+					path: '/pair',
+					body: { code: '000000' }
+				}),
+				(/** @type {any} */ e) => e.code === 'INVALID_ARGUMENTS'
+			);
 
 			// A stranger with another key: never proved, and the extension refuses it.
 			await stranger.libp2p.dial(

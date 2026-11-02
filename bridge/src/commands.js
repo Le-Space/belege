@@ -6,13 +6,16 @@
 // device will need for it once the bridge speaks UCEP (#579), what body it
 // takes, and `run`: parsed input in, an answer out – JSON, bytes, or a
 // JSON text already serialised. `run` never sees a request or a response
-// object, so the same command serves HTTP (server.js) and, next, a libp2p
-// stream (#573). Checks on who may call (host, origin, token; later the
-// device proof and the grant) stay with the transport; checks on what is
-// asked (shapes, limits, allowed accounts) stay here, with the command.
+// object, so the same command serves HTTP (server.js) and the libp2p stream
+// of the bridge's node (stream.js, `request { method, path, body? }`). Checks
+// on who may call (host, origin, token; the device proof) stay with the
+// transport; checks on what is asked (shapes, limits, allowed accounts) stay
+// here, with the command.
 //
-// Scopes are names only for now (HTTP's token is all of them); a stranger
-// over libp2p is refused before any of this runs (sync/device-gate.js).
+// Scopes are names only for now (HTTP's token is all of them, and so is a
+// device the node's gate let through); scopes per command follow in M2
+// (#579). A stranger over libp2p is refused before any of this runs
+// (@belege/device-gate).
 
 import { MAX_SHARE_BYTES } from './shares.js';
 import { HibiscusUnreachableError, PinMismatchError } from './hibiscus.js';
@@ -118,6 +121,32 @@ export function statusOf(error) {
 						? 502
 						: 500)
 	);
+}
+
+/**
+ * What an error answers with, over HTTP and over the stream alike: the
+ * bridge's own message and code, a model's attempts as model, status and
+ * time (#417) – never bank data, mail or receipt text. `line` is for the log.
+ *
+ * @param {any} error
+ * @returns {{ json: Record<string, unknown>, line: string }}
+ */
+export function errorJson(error) {
+	const attempts = Array.isArray(error.attempts) ? error.attempts : null;
+	const tried = attempts
+		? ` (${attempts.map((/** @type {any} */ a) => `${a.model}: ${a.reason}, ${a.ms} ms`).join('; ')})`
+		: '';
+	return {
+		json: {
+			error: error.message,
+			code: error.code ?? null,
+			...(attempts ? { attempts } : {}),
+			...(error.step ? { step: error.step } : {}),
+			...(error.provider ? { provider: error.provider } : {}),
+			...(error.reason ? { reason: error.reason } : {})
+		},
+		line: `${error.code ?? error.name}: ${error.message}${tried}`
+	};
 }
 
 /**
