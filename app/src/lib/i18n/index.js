@@ -77,18 +77,22 @@ export const intlLocale = () => (locale.current === 'en' ? 'en-GB' : 'de-DE');
 const isLocale = (v) => LOCALES.includes(/** @type {any} */ (v));
 
 /**
- * The language to start in: a stored choice, else the browser's (`de-AT` is
- * German), else English – while English is not complete, German.
+ * The language to start in: the language the link asked for (`#lang=en`, the
+ * way www.belege.le-space.de hands a reader over in the language they were
+ * reading), else a stored choice, else the browser's (`de-AT` is German),
+ * else English – while English is not complete, German.
  *
- * @param {{ stored?: string | null, languages?: readonly string[], ready?: boolean }} [env]
+ * @param {{ hinted?: string | null, stored?: string | null, languages?: readonly string[], ready?: boolean }} [env]
  * @returns {Locale}
  */
 export function initialLocale({
+	hinted = readHint(),
 	stored = readStored(),
 	languages = typeof navigator === 'undefined' ? [] : (navigator.languages ?? [navigator.language]),
 	ready = englishReady()
 } = {}) {
 	if (!ready) return 'de';
+	if (isLocale(hinted)) return hinted;
 	if (isLocale(stored)) return stored;
 	for (const tag of languages) {
 		const primary = String(tag).toLowerCase().split('-')[0];
@@ -103,6 +107,23 @@ function readStored() {
 	} catch {
 		return null;
 	}
+}
+
+/**
+ * The language a link asked for: `lang=de` in the fragment (what the site
+ * sends, invisible to servers and crawlers) or in the query.
+ * @param {string} [hash]
+ * @param {string} [search]
+ * @returns {string | null}
+ */
+export function readHint(
+	hash = typeof location === 'undefined' ? '' : location.hash,
+	search = typeof location === 'undefined' ? '' : location.search
+) {
+	for (const part of `${hash.replace(/^#/, '')}&${search.replace(/^\?/, '')}`.split('&')) {
+		if (part.startsWith('lang=')) return part.slice(5);
+	}
+	return null;
 }
 
 /**
@@ -121,9 +142,17 @@ export function setLocale(next) {
 	if (typeof document !== 'undefined') document.documentElement.lang = next;
 }
 
-/** At start: the initial language, without storing it. */
+/**
+ * At start: the initial language, without storing it – except when a link
+ * asked for one, which is a choice like clicking the switch, and is kept.
+ */
 export function startLocale() {
-	locale.current = initialLocale();
+	const hinted = readHint();
+	if (isLocale(hinted) && englishReady()) {
+		setLocale(hinted);
+		return;
+	}
+	locale.current = initialLocale({ hinted: null });
 	if (typeof document !== 'undefined') document.documentElement.lang = locale.current;
 }
 
