@@ -8,6 +8,7 @@ import {
 	DOCUMENT_LOCALE,
 	currentLocale,
 	initialLocale,
+	readHint,
 	intlLocale,
 	keysOf,
 	has,
@@ -73,6 +74,25 @@ describe('the catalogues (#192)', () => {
 		expect(initialLocale({ stored: null, languages: ['de-AT', 'en'], ready: true })).toBe('de');
 		expect(initialLocale({ stored: null, languages: ['fr-FR', 'en-US'], ready: true })).toBe('en');
 		expect(initialLocale({ stored: 'xx', languages: ['fr-FR'], ready: true })).toBe('en');
+	});
+
+	it('a link that names the language wins over the stored choice and the browser', () => {
+		expect(initialLocale({ hinted: 'en', stored: 'de', languages: ['de-DE'], ready: true })).toBe(
+			'en'
+		);
+		expect(initialLocale({ hinted: 'de', stored: 'en', languages: ['en-US'], ready: true })).toBe(
+			'de'
+		);
+		expect(initialLocale({ hinted: 'xx', stored: 'de', languages: ['en-US'], ready: true })).toBe(
+			'de'
+		);
+		expect(initialLocale({ hinted: 'en', stored: null, languages: ['de-DE'], ready: false })).toBe(
+			'de'
+		);
+		expect(readHint('#lang=en', '')).toBe('en');
+		expect(readHint('#x=1&lang=de', '')).toBe('de');
+		expect(readHint('', '?lang=en')).toBe('en');
+		expect(readHint('#open', '?q=1')).toBe(null);
 	});
 
 	it('amounts and dates follow the language; documents stay German', () => {
