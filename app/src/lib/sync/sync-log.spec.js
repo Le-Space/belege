@@ -91,6 +91,24 @@ describe('the log in this browser', () => {
 		expect(await other.load()).toEqual([]);
 	});
 
+	it('a full log of long lines comes back whole: well past 64 KiB sealed', async () => {
+		const storage = memoryStorage();
+		const log = createSyncLog(await sealer(key), { storage, saveAfter: 0 });
+		const long = (/** @type {number} */ at) => ({
+			...line(at),
+			what: { fileName: `Rechnung-${'x'.repeat(300)}-${at}.pdf`, size: at * 1000 }
+		});
+		for (let at = 1; at <= MAX; at++) log.add(long(at));
+		await log.flush();
+		const kept = String(storage.getItem(SYNC_LOG_KEY));
+		expect(kept.length).toBeGreaterThan(65_536);
+		const again = createSyncLog(await sealer(key), { storage });
+		const lines = await again.load();
+		expect(lines).toHaveLength(MAX);
+		expect(lines[0].id).toBe(String(MAX));
+		expect(lines.at(-1)?.what.fileName).toContain('-1.pdf');
+	});
+
 	it('keeps the newest, newest first', async () => {
 		const log = createSyncLog(await sealer(key), {
 			storage: memoryStorage(),
