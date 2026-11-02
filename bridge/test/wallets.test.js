@@ -124,8 +124,20 @@ describe('the chain table', () => {
 		for (const c of Object.values(CHAINS)) {
 			for (const url of Object.values(c.endpoints)) assert.match(url, /^https:\/\//);
 			assert.match(c.explorer.tx, /^https:\/\/.*\{tx\}/);
-			assert.match(c.explorer.address, /^https:\/\/.*\{address\}/);
+			// Monero's explorers have no page for an address: the chain hides them.
+			if (c.kind === 'monero') assert.equal(c.explorer.address, '');
+			else assert.match(c.explorer.address, /^https:\/\/.*\{address\}/);
 		}
+	});
+
+	test('Monero is listed, and refused for a sync by address: its export is imported in the app', async () => {
+		assert.equal(CHAINS.monero.native.symbol, 'XMR');
+		assert.equal(CHAINS.monero.native.decimals, 12);
+		const service = createWalletService({ fetch: async () => assert.fail('nothing is asked') });
+		await assert.rejects(
+			service.sync({ chain: 'monero', address: '4' + '1'.repeat(94) }),
+			(/** @type {any} */ e) => e.code === 'WALLET_IMPORT_ONLY' && e.status === 400
+		);
 	});
 
 	test('EVM tokens are keyed by lower-case contract and all USDC have 6 decimals', () => {
@@ -691,12 +703,39 @@ describe('the EVM client against a fake Blockscout', () => {
 				result.addressUrl,
 				`https://etherscan.io/address/${toChecksumAddress(EVM.wallet)}`
 			);
-			// The address travels lower case, in the query of a GET to Blockscout only.
+			// The native coin's balance after each change, oldest first, read page by page (#287).
+			assert.deepEqual(result.balanceHistory, [
+				{
+					asset: 'ETH',
+					decimals: 18,
+					points: [
+						{ time: '2026-02-10T12:00:00.000Z', value: '500000000000000000' },
+						{ time: '2026-03-20T09:00:00.000Z', value: '310000000000000000' }
+					]
+				}
+			]);
+			assert.equal(scout.calls.filter((c) => c.v2).length, 2);
+			// The address travels lower case, in a GET to Blockscout only (query, or the v2 path).
 			assert.ok(scout.calls.filter((c) => !c.rpc).every((c) => c.address === EVM.wallet));
 			assert.deepEqual(
 				scout.calls.filter((c) => c.rpc).map((c) => c.rpc),
 				['eth_chainId']
 			);
+		} finally {
+			await scout.close();
+		}
+	});
+
+	test('no balance history where the API has none: not an error (#287)', async () => {
+		const scout = await startFakeBlockscout({ coinBalanceHistory: null });
+		try {
+			const result = await createEvmClient({ sleep: noSleep }).history({
+				chain: ethereum,
+				address: toChecksumAddress(EVM.wallet),
+				endpoints: scout.endpoints
+			});
+			assert.equal(result.balanceHistory, undefined);
+			assert.ok(result.entries.length > 0);
 		} finally {
 			await scout.close();
 		}

@@ -187,6 +187,8 @@ test('Vodafone invoices from the portal become receipts and match the booking', 
 
 	// Belege: a source of its own, the paid one matched by its invoice number.
 	await tab('Belege').click();
+	// Belege shows one month at a time (#313): this spec looks at the whole year.
+	await page.locator('[data-testid="receipt-month-pick"][data-month="all"]').click();
 	const source = page.locator('[data-testid="receipt-source"][data-source="portal:vodafone"]');
 	await expect(source).toContainText('Vodafone MeinKabel');
 	await expect(source.getByTestId('source-count')).toHaveText('3');
@@ -254,6 +256,18 @@ test('Vodafone invoices from the portal become receipts and match the booking', 
 	await expect(own).toContainText('Beispiel Cloud');
 	await expect(own.getByTestId('portal-local')).toHaveText('eigenes Rezept, lokal');
 	await expect(own.getByTestId('portal-recording')).toBeVisible();
+
+	// A new portal comes before the list of portals.
+	expect(
+		await page.getByTestId('portals-card').evaluate(
+			(c, [a, b]) => {
+				const x = c.querySelector(`[data-testid="${a}"]`);
+				const y = c.querySelector(`[data-testid="${b}"]`);
+				return Boolean(x && y && x.compareDocumentPosition(y) & Node.DOCUMENT_POSITION_FOLLOWING);
+			},
+			['portals-new', 'portal']
+		)
+	).toBe(true);
 	await own.getByTestId('portal-record-stop').click();
 	await expect(own.getByTestId('portal-review')).toContainText('Kein Klick aufgezeichnet.');
 	await expect(own.getByTestId('portal-record-save')).toBeDisabled();

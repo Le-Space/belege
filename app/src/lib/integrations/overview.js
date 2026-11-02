@@ -2,6 +2,9 @@
 // state, a line and when it last ran; what needs the person; the counts on
 // top. Pure – the page gathers the facts, this decides what they mean.
 
+import { CONSENT_WARN_DAYS } from './alerts.js';
+import { formatDate } from '../bank/format.js';
+
 /** @typedef {'ok' | 'warn' | 'err' | 'off'} Kind */
 
 /**
@@ -27,14 +30,17 @@
 
 /**
  * @typedef {object} Facts
- * @property {{ token: string | null, state: string, via?: 'local' | 'device', health: { hibiscus: boolean, kraken: boolean, mail: boolean, llm: boolean } }} bridge
+ * @property {{ token: string | null, state: string, via?: 'local' | 'device', health: { hibiscus: boolean, kraken: boolean, paperless?: boolean, mail: boolean, llm: boolean, backup?: boolean } }} bridge
  * @property {{ flag: boolean, online: boolean, removed: boolean, error: string | null, connected: number }} devices
+ * @property {boolean} [hostsBridge] whether a bridge can run on this device at all (host.js); a phone cannot
  * @property {Record<string, any>[]} accounts the books' accounts
  * @property {Record<string, any>[]} events newest first
  * @property {number} wallets own wallets kept
  * @property {number} aleph Aleph accounts found
+ * @property {string | null} [lastBackup] ISO, the newest backup made (backup/history.js)
  * @property {boolean} invoiceApp paired
  * @property {import('./alerts.js').Alerts} [alerts] what the last runs left
+ * @property {Date} [now] tests: the moment the consents' ends are measured from
  * @property {(source: string) => boolean} isWalletSource
  */
 
@@ -54,8 +60,10 @@ export function integrationsOverview(f) {
 	/** Needs the bridge and something set up on it. @param {boolean} setUp */
 	const viaBridge = (setUp) => (!paired ? 'off' : !online ? 'off' : setUp ? 'ok' : 'off');
 	const hibiscus = f.accounts.filter((a) => a.source === 'hibiscus' && !a.deleted);
-	const camt = f.accounts.filter((a) => a.source === 'camt' && !a.deleted);
-	const bankWhen = lastSync(f.events, (s) => s === 'hibiscus');
+	const camt = f.accounts.filter(
+		(a) => (a.source === 'camt' || a.source === 'enablebanking') && !a.deleted
+	);
+	const bankWhen = lastSync(f.events, (s) => s === 'hibiscus' || s === 'enablebanking');
 	const krakenWhen = lastSync(f.events, (s) => s === 'kraken');
 	const walletWhen = lastSync(f.events, f.isWalletSource);
 
@@ -110,6 +118,15 @@ export function integrationsOverview(f) {
 			params: { count: f.devices.connected },
 			line: f.devices.online ? 'devicesOn' : 'devicesOff',
 			when: null
+		},
+		{
+			id: 'backup',
+			group: 'basis',
+			initials: 'Bk',
+			kind: f.lastBackup ? 'ok' : 'off',
+			state: f.lastBackup ? 'backedUp' : f.bridge.health.backup && paired ? 'setUp' : 'notSetUp',
+			line: f.lastBackup ? 'backup' : 'backupNone',
+			when: f.lastBackup ?? null
 		},
 		{
 			id: 'bank',
@@ -170,6 +187,16 @@ export function integrationsOverview(f) {
 			when: f.events.find((e) => e.kind === 'mail-fetch')?.at ?? null
 		},
 		{
+			id: 'paperless',
+			href: '/belege',
+			group: 'sources',
+			initials: 'Pl',
+			kind: viaBridge(f.bridge.health.paperless ?? false),
+			state: f.bridge.health.paperless && paired ? 'setUp' : 'notSetUp',
+			line: 'paperless',
+			when: f.events.find((e) => e.kind === 'paperless-fetch')?.at ?? null
+		},
+		{
 			id: 'portale',
 			group: 'sources',
 			initials: 'KP',
@@ -201,6 +228,21 @@ export function integrationsOverview(f) {
 	/** @type {Need[]} */
 	const needs = [];
 	if (f.alerts?.kraken) needs.push({ id: 'kraken', kind: 'err', text: 'krakenRefused' });
+	// An Enable Banking consent that has ended, or ends within two weeks (#224).
+	const now = (f.now ?? new Date()).getTime();
+	for (const c of f.alerts?.enablebanking ?? []) {
+		const left = Date.parse(c.validUntil) - now;
+		if (left <= 0) {
+			needs.push({ id: 'bank', kind: 'err', text: 'consentEnded', params: { bank: c.bank } });
+		} else if (left < CONSENT_WARN_DAYS * 86_400_000) {
+			needs.push({
+				id: 'bank',
+				kind: 'warn',
+				text: 'consentEnding',
+				params: { bank: c.bank, date: formatDate(c.validUntil.slice(0, 10)) }
+			});
+		}
+	}
 	const walletHints = Object.values(f.alerts?.wallets ?? {}).filter((n) => n > 0).length;
 	if (walletHints)
 		needs.push({
@@ -213,7 +255,12 @@ export function integrationsOverview(f) {
 		needs.push({
 			id: 'bridge',
 			kind: 'err',
-			text: f.devices.online ? 'bridgeOfflineDevices' : 'bridgeOffline'
+			text:
+				f.hostsBridge === false
+					? 'bridgeOfflinePhone'
+					: f.devices.online
+						? 'bridgeOfflineDevices'
+						: 'bridgeOffline'
 		});
 	if (f.devices.removed) needs.push({ id: 'geraete', kind: 'warn', text: 'deviceRemoved' });
 	else if (f.devices.error) needs.push({ id: 'geraete', kind: 'warn', text: 'deviceError' });

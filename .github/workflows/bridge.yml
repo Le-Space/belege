@@ -25,7 +25,7 @@ jobs:
   bridge:
     name: Bridge tests
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v6
@@ -36,8 +36,19 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile --filter @belege/bridge...
       # The portal tests drive a real headless Chromium against a fake portal.
+      # Only the browser, no `--with-deps`: its apt-get is what hung (four
+      # ten-minute hangs on 2026-10-22/23, then "Could not get lock" for every
+      # retry, as a killed pnpm left apt-get holding the dpkg lock). The runner
+      # image ships Google Chrome, so the libraries the headless shell needs are
+      # there. Three tries of three minutes for the download itself.
       - name: Install Chromium for the portal tests
-        run: pnpm --filter @belege/bridge exec playwright install --with-deps --only-shell chromium
+        timeout-minutes: 10
+        run: |
+          for try in 1 2 3; do
+            timeout 180 pnpm --filter @belege/bridge exec playwright install --only-shell chromium && exit 0
+            echo "Chromium download try $try did not finish; trying again"
+          done
+          exit 1
       - name: Format
         run: pnpm --filter @belege/bridge lint
       # release.yml's steps run only at a release: check their shell here.

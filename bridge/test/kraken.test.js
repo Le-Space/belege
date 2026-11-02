@@ -93,6 +93,20 @@ describe('Kraken client', () => {
 		assert.equal(entries.find((e) => e.id === 'L-DEP-1')?.transferRef, 'BANKREF-0001');
 		assert.equal(entries.find((e) => e.id === 'L-WD-1')?.transferRef, 'BANKREF-0002');
 		assert.equal(entries.find((e) => e.id === 'L-TR1-BTC')?.transferRef, '');
+		// The network as Kraken names it (#215): `network` where given, else `method`.
+		assert.equal(entries.find((e) => e.id === 'L-DEP-1')?.transferMethod, 'SEPA (Instant)');
+		assert.equal(entries.find((e) => e.id === 'L-WD-1')?.transferMethod, 'SEPA');
+		assert.equal(entries.find((e) => e.id === 'L-TR1-BTC')?.transferMethod, '');
+		// Kraken's balance after each entry, with its asset code (#287); '' when it gave none.
+		assert.deepEqual(
+			entries.filter((e) => e.asset === 'EUR').map((e) => [e.code, e.balance]),
+			[
+				['ZEUR', '1000.0000'],
+				['ZEUR', '398.4400'],
+				['ZEUR', '98.3500']
+			]
+		);
+		assert.equal(entries.find((e) => e.id === 'L-TR1-BTC')?.balance, '');
 		const earnIn = entries.find((e) => e.id === 'L-EARN-IN');
 		assert.equal(earnIn?.asset, 'BTC');
 		assert.equal(earnIn?.wallet, 'earn');
@@ -170,6 +184,40 @@ describe('Kraken client', () => {
 		await Promise.all([c.balances(), c.ledgers('2025-01-01'), c.balances()]);
 		assert.equal(most, 1);
 		for (let i = 1; i < arrived.length; i++) assert.ok(arrived[i] > arrived[i - 1], 'nonce order');
+	});
+
+	test('nonces stay in microseconds, as this bridge has always sent them', async () => {
+		// Kraken keeps a key's highest nonce: ccxt's own (milliseconds) would be refused for good.
+		/** @type {string[]} */
+		const nonces = [];
+		/** @type {typeof fetch} */
+		const kraken = async (input, init) => {
+			if (String(input).endsWith('/0/public/Assets'))
+				return Response.json({ error: [], result: {} });
+			nonces.push(String(new URLSearchParams(String(init?.body)).get('nonce')));
+			return Response.json({ error: [], result: {} });
+		};
+		const c = createKrakenClient({
+			getCredentials: credentials,
+			baseUrl: 'https://kraken.example',
+			fetch: kraken,
+			now: () => 1_790_000_000_000
+		});
+		await c.balances();
+		await c.balances();
+		assert.deepEqual(nonces, ['1790000000000000', '1790000000000001']);
+	});
+
+	test("an error names Kraken's code, not the whole answer", async () => {
+		await assert.rejects(
+			client({
+				getCredentials: async () => ({ key: 'wrong', secret: FAKE_KRAKEN_SECRET })
+			}).balances(),
+			(e) =>
+				e instanceof KrakenError &&
+				/^Kraken refused the API key \(EAPI:Invalid key\)/.test(e.message) &&
+				!e.message.includes('{')
+		);
 	});
 
 	test('nonces grow even within one millisecond', async () => {

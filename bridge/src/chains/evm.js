@@ -9,6 +9,9 @@
 //                                          from an exchange's hot wallet contract, say)
 //   module=account&action=tokentx          ERC-20 transfers
 //   module=account&action=balance / tokenbalance
+//   /api/v2/addresses/{address}/coin-balance-history   the native coin's
+//                                          balance after each change, for the
+//                                          month balances of a statement (#287)
 // Lists come oldest first, 1000 a page. Blockscout refuses page × offset
 // beyond 10 000, so paging goes on by `startblock`: the next request starts
 // at the last block seen, and what was seen twice is dropped.
@@ -510,6 +513,51 @@ export function createEvmClient({
 		return [...seen.values()];
 	}
 
+	/**
+	 * The native coin's balance after each change (#287), from Blockscout's own
+	 * API (`/api/v2/addresses/{address}/coin-balance-history`), newest first,
+	 * paged by `next_page_params`. A source of its own, independent of the
+	 * transaction lists: it carries what they lack, a rollup's L1 data fee
+	 * say. Where the API has no such endpoint or refuses, there is none – not
+	 * an error.
+	 *
+	 * @param {string} api the Etherscan-compatible base, `…/api`
+	 * @param {string} address lower case
+	 * @returns {Promise<{ time: string, value: string }[] | null>} oldest first; value in units
+	 */
+	async function coinBalanceHistory(api, address) {
+		/** @type {{ time: string, value: string }[]} */
+		const points = [];
+		/** @type {Record<string, string> | null} */
+		let next = {};
+		try {
+			for (let page = 0; next; page++) {
+				if (page >= maxPages) return null;
+				const query = new URLSearchParams(next).toString();
+				/** @type {any} */
+				const body = await getJson(
+					`${api.replace(/\/+$/, '')}/v2/addresses/${address}/coin-balance-history${query ? `?${query}` : ''}`
+				);
+				if (!Array.isArray(body?.items)) return null;
+				for (const item of body.items) {
+					const value = String(item?.value ?? '');
+					const time = String(item?.block_timestamp ?? '');
+					if (!/^\d+$/.test(value) || Number.isNaN(Date.parse(time))) return null;
+					points.push({ time: new Date(time).toISOString(), value });
+				}
+				next =
+					body.next_page_params && typeof body.next_page_params === 'object'
+						? Object.fromEntries(
+								Object.entries(body.next_page_params).map(([k, v]) => [k, String(v)])
+							)
+						: null;
+			}
+		} catch {
+			return null;
+		}
+		return points.sort((a, b) => a.time.localeCompare(b.time));
+	}
+
 	/** @param {any} r */
 	const internalKey = (r) =>
 		`${String(r.transactionHash ?? r.hash).toLowerCase()}:${r.index ?? r.traceId ?? ''}:${r.from}:${r.to}:${r.value}`;
@@ -622,10 +670,19 @@ export function createEvmClient({
 					});
 				}
 			}
+			const history = await coinBalanceHistory(endpoints.api, lower);
 			return {
 				source: /** @type {const} */ ('blockscout'),
 				entries,
 				balances,
+				// The native coin's balance after each change, from the explorer (#287).
+				...(history
+					? {
+							balanceHistory: [
+								{ asset: chain.native.symbol, decimals: chain.native.decimals, points: history }
+							]
+						}
+					: {}),
 				transactions: new Set(entries.map((e) => e.hash)).size,
 				unknownAssets: unknownTokens.length,
 				history: { earliestHeight: 0, earliestTime: null, pruned: false },
