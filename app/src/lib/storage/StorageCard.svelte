@@ -7,7 +7,7 @@
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { COLLECTIONS } from '$lib/store/repository.js';
 	import { booksStats } from '$lib/stats/usage.js';
-	import { bridge, bridgePaired } from '$lib/integrations/bridge-state.svelte.js';
+	import { bridgePaired } from '$lib/integrations/bridge-state.svelte.js';
 	import { integrationFacts } from '$lib/integrations/facts.svelte.js';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
 	import ResetDialog from './ResetDialog.svelte';
