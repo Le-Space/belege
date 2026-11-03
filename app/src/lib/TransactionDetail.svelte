@@ -47,7 +47,7 @@
 	import { attachUpload, moveReceipt } from './receipts/attach.js';
 	import EigenbelegForm from './receipts/EigenbelegForm.svelte';
 	import { folderSupported, savedFolder } from './receipts/folder.js';
-	import { createBridgeClient } from './bridge/client.js';
+	import { createBridgeClient, pairedWith } from './bridge/client.js';
 	import { getSetting } from './store/settings.js';
 	import {
 		accountLabel,
@@ -528,9 +528,10 @@
 		if (!store) return;
 		if (folderSupported()) savedFolder().then((h) => (hasFolder = Boolean(h)));
 		getSetting(store.settings, 'bridge').then((saved) => {
-			if (!saved?.token) return;
-			client = createBridgeClient({ url: saved.url, token: saved.token });
-			bridgeAt = { url: saved.url, token: saved.token };
+			if (!pairedWith(saved)) return;
+			client = createBridgeClient({ url: saved.url, token: saved.token ?? null });
+			// Customer portals are HTTP's only (bridge/src/stream.js): with the token alone.
+			bridgeAt = saved.token ? { url: saved.url, token: saved.token } : null;
 			// "Paperless" among the sources only where the bridge has it set up.
 			client
 				.health()

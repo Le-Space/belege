@@ -22,6 +22,7 @@ import { FAKE_PAPERLESS_TOKEN, startFakePaperless } from '@belege/bridge/testing
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
+import { pairBridge } from './bridge.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -101,9 +102,7 @@ test('documents from Paperless become receipts, scans read with its OCR text', a
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
 	await tab('Integrationen').click();
-	await page.getByTestId('pairing-code').fill(pairingCode());
-	await page.getByRole('button', { name: 'Koppeln' }).click();
-	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
+	await pairBridge(page, { code: pairingCode, out: () => bridgeOut });
 	await expect(page.getByTestId('integration-paperless')).toBeVisible();
 
 	// Its fake model is on 127.0.0.1, but setup:llm was never told it runs here (#438):

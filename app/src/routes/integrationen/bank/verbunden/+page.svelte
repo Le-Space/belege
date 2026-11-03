@@ -12,7 +12,12 @@
 	import WayOut from '$lib/help/WayOut.svelte';
 	import { formatDate } from '$lib/bank/format.js';
 	import { parseReturn, takeReturn, takeStart } from '$lib/enablebanking/return.js';
-	import { bridge, bridgeClient, loadBridge } from '$lib/integrations/bridge-state.svelte.js';
+	import {
+		bridge,
+		bridgeClient,
+		bridgePaired,
+		loadBridge
+	} from '$lib/integrations/bridge-state.svelte.js';
 	import { rememberConsents } from '$lib/integrations/alerts.js';
 	import { currentStore } from '$lib/session.svelte.js';
 
@@ -51,7 +56,7 @@
 		phase = 'working';
 		try {
 			if (!bridge.loaded) await loadBridge();
-			if (!bridge.token) throw new Error(t('integrationen.enableBanking.returned.notPaired'));
+			if (!bridgePaired()) throw new Error(t('integrationen.enableBanking.returned.notPaired'));
 			linked = await bridgeClient().enableBankingFinish({
 				code: /** @type {string} */ (answer.code),
 				state: answer.state ?? ''

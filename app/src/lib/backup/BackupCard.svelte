@@ -50,7 +50,7 @@
 	// The run itself is the app's (run.svelte.js): it goes on when this card is
 	// left, and the header shows it.
 
-	let { url, token } = $props();
+	let { url, token, paired = Boolean(token) } = $props();
 	/** A tone while a backup or restore runs, so a phone does not freeze the tab (#525). */
 	let keepAlive = $state(keepAliveWanted(globalThis.localStorage));
 	/** Aleph's dashboard: credits bought, transferred and spent; and the keys an account lets act for it. */
@@ -300,7 +300,7 @@
 	}
 
 	/** The bridge signs while this key is not granted, if it can. */
-	const bridgeSigns = $derived(Boolean(token && status?.configured));
+	const bridgeSigns = $derived(Boolean(paired && status?.configured));
 	const canBackUp = $derived(
 		Boolean(owner) && (granted === true || bridgeSigns) && !app.network.paused
 	);
@@ -317,7 +317,7 @@
 	const daysFor = (perDay) => (credits === null || perDay <= 0 ? Infinity : credits / perDay);
 
 	$effect(() => {
-		load(token);
+		load(paired);
 	});
 	// A run that ended – here or while this card was not open – is in the
 	// history now: read it again, and what it cost.
@@ -793,7 +793,7 @@
 			>
 		</p>
 	</div>
-	{#if token && status && !status.configured}
+	{#if paired && status && !status.configured}
 		<p class="mt-2 text-sm text-text" data-testid="backup-not-set-up">
 			{t('backup.notSetUp')}
 			<code class="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-heading"

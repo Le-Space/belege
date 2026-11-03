@@ -25,6 +25,7 @@ import {
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
+import { pairBridge } from './bridge.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -133,9 +134,7 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
 	await page.getByRole('link', { name: 'Integrationen' }).click();
-	await page.getByTestId('pairing-code').fill(pairingCode());
-	await page.getByRole('button', { name: 'Koppeln' }).click();
-	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
+	await pairBridge(page, { code: pairingCode, out: () => bridgeOut });
 
 	await openIntegration(page, 'wallets');
 	const card = page.getByTestId('wallets-card');

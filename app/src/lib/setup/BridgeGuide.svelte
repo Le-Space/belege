@@ -6,7 +6,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import CopyButton from '$lib/CopyButton.svelte';
 	import BridgePanel from '$lib/integrations/BridgePanel.svelte';
-	import { bridge, checkBridge } from '$lib/integrations/bridge-state.svelte.js';
+	import { bridge, bridgePaired, checkBridge } from '$lib/integrations/bridge-state.svelte.js';
 	import { t } from '$lib/i18n/index.js';
 	import { bridgeCommands, diagnoseBridge } from './diagnose.js';
 	import { originCommand } from '$lib/help/way-out.js';
@@ -68,7 +68,7 @@
 		<p class="text-xs text-faint" role="status" data-testid="setup-bridge-waiting">
 			{t('setup.bridge.waiting', { url: bridge.url })}
 		</p>
-	{:else if !bridge.token}
+	{:else if !bridgePaired()}
 		<p class="font-medium text-success" role="status" data-testid="setup-bridge-found">
 			{t('setup.bridge.found')}
 		</p>

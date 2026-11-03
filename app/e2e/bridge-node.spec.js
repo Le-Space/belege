@@ -119,8 +119,12 @@ test('a device pairs the bridge’s node by invitation and reaches it over the s
 			.toBe('online/stream');
 		await expect(status).toContainText('über ihren eigenen Knoten');
 		await expect(mac.page.getByTestId('bridge-via-stream')).toBeVisible();
-		// Nothing reached the bridge over HTTP but what was refused.
-		expect(blocked.every((p) => p === '/health' || p === '/pair')).toBe(true);
+		// Once the node is there, nothing tries HTTP any more: "Status prüfen" goes over the stream.
+		blocked.length = 0;
+		await mac.page.getByTestId('bridge-check').click();
+		await expect(status).toHaveAttribute('data-route', 'stream');
+		await expect(status).toHaveAttribute('data-state', 'online');
+		expect(blocked).toEqual([]);
 
 		// The bridge is a device of the books, connected.
 		await openIntegration(mac.page, 'geraete');

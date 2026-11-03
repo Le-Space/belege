@@ -30,7 +30,7 @@ import { formatDate } from '../bank/format.js';
 
 /**
  * @typedef {object} Facts
- * @property {{ token: string | null, state: string, via?: 'stream' | 'local' | 'device', health: { hibiscus: boolean, kraken: boolean, paperless?: boolean, mail: boolean, llm: boolean, backup?: boolean } }} bridge
+ * @property {{ token: string | null, paired?: boolean, state: string, via?: 'stream' | 'local' | 'device', health: { hibiscus: boolean, kraken: boolean, paperless?: boolean, mail: boolean, llm: boolean, backup?: boolean } }} bridge
  * @property {{ flag: boolean, online: boolean, removed: boolean, error: string | null, connected: number }} devices
  * @property {boolean} [hostsBridge] whether a bridge can run on this device at all (host.js); a phone cannot
  * @property {Record<string, any>[]} accounts the books' accounts
@@ -53,7 +53,8 @@ const lastSync = (events, test) =>
  * @returns {{ viaDevice: boolean, rows: Row[], needs: Need[], counts: { ok: number, needs: number, off: number } }}
  */
 export function integrationsOverview(f) {
-	const paired = Boolean(f.bridge.token);
+	// A token over HTTP, or the bridge's node over the stream (#575).
+	const paired = Boolean(f.bridge.paired ?? f.bridge.token);
 	const online = f.bridge.state === 'online';
 	// A phone using the Mac's bridge (#142): working, not a pairing to fix here.
 	const viaDevice = online && f.bridge.via === 'device';

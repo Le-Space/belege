@@ -9,7 +9,7 @@ import { loadAleph } from '$lib/aleph/aleph.js';
 import { loadBackups } from '$lib/backup/history.js';
 import { isWalletSource } from '$lib/wallets/chains.js';
 import { loadAlerts } from './alerts.js';
-import { bridge, loadBridge } from './bridge-state.svelte.js';
+import { bridge, bridgePaired, loadBridge } from './bridge-state.svelte.js';
 import { hostsBridge } from './host.js';
 
 const kept = $state({
@@ -51,13 +51,14 @@ export async function loadIntegrationFacts({ recheck = false } = {}) {
 	kept.invoiceApp = Boolean(inv);
 	// No token yet: read it again. On a device that reaches the bridge through
 	// another one, it comes with the books by sync, possibly after the first read.
-	if (recheck || !bridge.loaded || !bridge.token) await loadBridge();
+	if (recheck || !bridge.loaded || !bridgePaired()) await loadBridge();
 }
 
 /** @returns {import('./overview.js').Facts} */
 export const integrationFacts = () => ({
 	bridge: {
 		token: bridge.token,
+		paired: bridgePaired(),
 		state: bridge.state,
 		via: app.sync.bridgeRoute,
 		health: bridge.health

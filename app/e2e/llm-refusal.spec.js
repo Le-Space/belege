@@ -14,6 +14,7 @@ import { FAKE_PASSWORD, sampleData, startFakeHibiscus } from '@belege/bridge/tes
 import { FAKE_LLM_KEY, startFakeLlm } from '@belege/bridge/testing/llm';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
+import { pairBridge } from './bridge.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -99,9 +100,7 @@ test('no credit with the provider stops the run and says what to do', async ({ p
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
 	await tab('Integrationen').click();
-	await page.getByTestId('pairing-code').fill(pairingCode());
-	await page.getByRole('button', { name: 'Koppeln' }).click();
-	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
+	await pairBridge(page, { code: pairingCode, out: () => bridgeOut });
 
 	// Three receipts waiting to be read: mail texts without a file.
 	await page.evaluate(async () => {

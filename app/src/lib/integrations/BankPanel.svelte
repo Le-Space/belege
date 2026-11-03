@@ -13,7 +13,7 @@
 	import { accountLabel, formatDate, formatMoney } from '$lib/bank/format.js';
 	import { isWalletSource } from '$lib/wallets/chains.js';
 	import { t } from '$lib/i18n/index.js';
-	import { bridge, bridgeClient } from './bridge-state.svelte.js';
+	import { bridge, bridgeClient, bridgePaired } from './bridge-state.svelte.js';
 	import EnableBankingCard from './EnableBankingCard.svelte';
 	import CardsCard from './CardsCard.svelte';
 
@@ -36,11 +36,11 @@
 	let camtBusy = $state(false);
 
 	onMount(() => {
-		if (bridge.token && bridge.state === 'online') loadAccounts();
+		if (bridgePaired() && bridge.state === 'online') loadAccounts();
 	});
 	// Paired on this page, or the bridge came back.
 	$effect(() => {
-		if (bridge.token && bridge.state === 'online' && bridgeAccounts.length === 0) loadAccounts();
+		if (bridgePaired() && bridge.state === 'online' && bridgeAccounts.length === 0) loadAccounts();
 	});
 
 	async function loadAccounts() {
@@ -108,7 +108,7 @@
 			for (const file of files) {
 				const statements = parseCamt053(await file.text());
 				// A statement in another currency is valued at the day's rate, which the bridge has.
-				const getRate = bridge.token
+				const getRate = bridgePaired()
 					? (/** @type {string} */ asset, /** @type {string} */ date) =>
 							bridgeClient().rate(asset, date)
 					: null;
@@ -141,7 +141,7 @@
 	}
 </script>
 
-{#if bridge.token}
+{#if bridgePaired()}
 	<section
 		class="mt-6 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm"
 		aria-labelledby="hib-h"

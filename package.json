@@ -29,6 +29,7 @@
     "lint": "pnpm --filter @belege/app lint && pnpm --filter @belege/bridge lint && pnpm --filter @belege/device-gate lint",
     "test:unit": "pnpm --filter @belege/app test:unit",
     "test:e2e": "pnpm --filter @belege/app test:e2e",
+    "test:e2e:stream": "pnpm --filter @belege/app test:e2e:stream",
     "test:bridge": "pnpm --filter @belege/bridge test",
     "spike:hibiscus": "node spikes/hibiscus/probe.mjs",
     "spike:imap": "node spikes/imap/probe.mjs",

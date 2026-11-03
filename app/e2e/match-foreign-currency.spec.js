@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { defaultConfig, saveConfig } from '@belege/bridge';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
+import { pairBridge } from './bridge.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -59,9 +60,7 @@ test('invoices in dollars and pounds link to their euro card payments by themsel
 	await expect(page.getByTestId('own-did')).toBeVisible();
 	await page.getByRole('link', { name: 'Integrationen' }).click();
 	const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
-	await page.getByTestId('pairing-code').fill(code);
-	await page.getByRole('button', { name: 'Koppeln' }).click();
-	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
+	await pairBridge(page, { code: code, out: () => bridgeOut });
 
 	await page.evaluate(async () => {
 		const e2e = /** @type {any} */ (window).__belegeE2E;

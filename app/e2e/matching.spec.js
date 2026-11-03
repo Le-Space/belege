@@ -33,6 +33,7 @@ import { addVirtualAuthenticator } from './webauthn.js';
 import { everythingStoredAsText } from './storage-scan.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
+import { pairBridge, viaStream } from './bridge.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -176,9 +177,7 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 
 	// Pair, tell the matcher who we are, sync.
 	await tab('Integrationen').click();
-	await page.getByTestId('pairing-code').fill(pairingCode());
-	await page.getByRole('button', { name: 'Koppeln' }).click();
-	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
+	await pairBridge(page, { code: pairingCode, out: () => bridgeOut });
 	await page.getByTestId('settings-link').click();
 	await page.getByTestId('company-names').fill(COMPANY);
 	await page.getByTestId('rule-contains').fill('Finanzamt');
@@ -290,6 +289,7 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 			? { best: 1, confidence: 'low', reason: 'Nur ein Versuch' }
 			: undefined;
 	const requestsBefore = llm.requests.length;
+	const arrivedBefore = llm.arrived();
 	await expect(page.getByTestId('ai-all-open')).toContainText('KI-Vorschläge für alle offenen');
 	await page.getByTestId('ai-all-open').click();
 	await expect(page.getByTestId('ai-all-confirm')).toContainText('nur Vorschläge');
@@ -297,10 +297,13 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	// request leaves what is not done for "Weitermachen" on Home, which starts
 	// nothing by itself.
 	llm.setDelay(5000);
-	const inFlight = page.waitForRequest((r) => r.url().endsWith('/match/assist'));
+	// The reload comes while the first request is out: over HTTP as the page sends it, over
+	// the stream (e2e/bridge.js) as it reaches the model – not once the model has answered.
+	const inFlight = viaStream ? null : page.waitForRequest((r) => r.url().endsWith('/match/assist'));
 	await page.getByTestId('ai-all-start').click();
 	await expect(page.getByTestId('tab-suggest-progress')).toHaveText(/^[01]\/2$/);
-	await inFlight;
+	if (inFlight) await inFlight;
+	else await expect.poll(() => llm.arrived(), { intervals: [50] }).toBeGreaterThan(arrivedBefore);
 	await page.reload();
 	llm.setDelay(0);
 	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();

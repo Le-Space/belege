@@ -7,7 +7,7 @@
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { COLLECTIONS } from '$lib/store/repository.js';
 	import { booksStats } from '$lib/stats/usage.js';
-	import { bridge } from '$lib/integrations/bridge-state.svelte.js';
+	import { bridgePaired } from '$lib/integrations/bridge-state.svelte.js';
 	import { integrationFacts } from '$lib/integrations/facts.svelte.js';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
 	import ResetDialog from './ResetDialog.svelte';
@@ -83,7 +83,7 @@
 		/** @type {('export' | 'bridge' | 'invoiceApp' | 'devices')[]} */
 		const out = [];
 		if (app.transactions.length) out.push('export');
-		if (bridge.token) out.push('bridge');
+		if (bridgePaired()) out.push('bridge');
 		if (facts.invoiceApp) out.push('invoiceApp');
 		if ((app.sync.state?.devices ?? []).length) out.push('devices');
 		return out;

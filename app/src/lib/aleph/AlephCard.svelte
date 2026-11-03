@@ -19,7 +19,8 @@
 		scanAleph
 	} from './aleph.js';
 
-	let { url, token } = $props();
+	/** @type {{ url: string, token: string | null, paired?: boolean }} `paired`: a token, or the bridge's node over the stream (#575) */
+	let { url, token, paired = Boolean(token) } = $props();
 	const client = $derived(createBridgeClient({ url, token }));
 
 	/** @type {import('./aleph.js').AlephSettings} */
@@ -49,7 +50,7 @@
 	})();
 
 	$effect(() => {
-		if (!token) return;
+		if (!paired) return;
 		load();
 	});
 
@@ -142,7 +143,7 @@
 <section class={card} aria-labelledby="aleph-h" data-testid="aleph-card">
 	<h2 id="aleph-h" class="text-lg font-semibold text-heading">{t('aleph.title')}</h2>
 	<p class="mt-1 text-sm text-text">{t('aleph.what')}</p>
-	{#if !token}
+	{#if !paired}
 		<p class="mt-2 text-sm text-faint">{t('aleph.needsBridge')}</p>
 	{:else}
 		<label class="mt-3 flex items-start gap-2 text-sm">

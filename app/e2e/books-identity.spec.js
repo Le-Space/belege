@@ -20,6 +20,7 @@ import { alephAccountOf, startFakeAleph } from '@belege/bridge/testing/aleph';
 import { addVirtualAuthenticator, forgetThisDevice } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
+import { pairBridge } from './bridge.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -64,9 +65,7 @@ async function stopBridge() {
 async function pair(page) {
 	await page.getByRole('link', { name: 'Integrationen' }).click();
 	const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
-	await page.getByTestId('pairing-code').fill(code);
-	await page.getByRole('button', { name: 'Koppeln' }).click();
-	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
+	await pairBridge(page, { code: code, out: () => bridgeOut });
 }
 
 /** @param {import('@playwright/test').Page} page */

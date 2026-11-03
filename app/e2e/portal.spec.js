@@ -30,6 +30,7 @@ import {
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
+import { httpOnly, pairBridge } from './bridge.js';
 
 /**
  * A month in the app's month picker (MonthPicker.svelte): its month and year lists.
@@ -143,6 +144,7 @@ function pairingCode() {
 test('Vodafone invoices from the portal become receipts and match the booking', async ({
 	page
 }) => {
+	httpOnly('customer portals are served over HTTP only (bridge/src/stream.js)');
 	test.setTimeout(180_000);
 	/** @param {string} name */
 	const tab = (name) =>
@@ -155,9 +157,7 @@ test('Vodafone invoices from the portal become receipts and match the booking', 
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
 	await tab('Integrationen').click();
-	await page.getByTestId('pairing-code').fill(pairingCode());
-	await page.getByRole('button', { name: 'Koppeln' }).click();
-	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
+	await pairBridge(page, { code: pairingCode, out: () => bridgeOut });
 	await openIntegration(page, 'bank');
 	await page.getByRole('button', { name: 'Jetzt synchronisieren' }).click();
 	await expect(page.getByTestId('sync-result')).toHaveText(

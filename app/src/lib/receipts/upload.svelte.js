@@ -7,7 +7,7 @@
 //
 // The state is app-wide, so the panel and Belege show the same last result.
 
-import { createBridgeClient } from '../bridge/client.js';
+import { createBridgeClient, pairedWith } from '../bridge/client.js';
 import { getSetting, setSetting } from '../store/settings.js';
 import { t } from '../i18n/index.js';
 import { currentBlobs, currentStore, refreshNow, runMatchingNow } from '../session.svelte.js';
@@ -48,12 +48,12 @@ export async function loadUpload() {
 	if (!store) return;
 	upload.readAfter = (await getSetting(store.settings, 'uploadRead'))?.readAfter !== false;
 	const saved = await getSetting(store.settings, 'bridge');
-	if (!saved?.token) {
+	if (!pairedWith(saved)) {
 		client = null;
 		upload.llm = false;
 		return;
 	}
-	client = createBridgeClient({ url: saved.url, token: saved.token });
+	client = createBridgeClient({ url: saved.url, token: saved.token ?? null });
 	try {
 		upload.llm = Boolean((await client.health()).llm?.configured);
 	} catch {

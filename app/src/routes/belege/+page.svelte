@@ -47,7 +47,7 @@
 		matchOrigin,
 		originCounts
 	} from '$lib/receipts/origin.js';
-	import { createBridgeClient } from '$lib/bridge/client.js';
+	import { createBridgeClient, pairedWith } from '$lib/bridge/client.js';
 	import { getSetting, setSetting } from '$lib/store/settings.js';
 	import { formatDate, formatMoney } from '$lib/bank/format.js';
 	import { fetchAccountingMail, needsConfirmation } from '$lib/receipts/import.js';
@@ -331,14 +331,17 @@
 		paperless = await loadPaperlessSettings(store.settings);
 		await loadUpload();
 		const saved = await getSetting(store.settings, 'bridge');
-		if (!saved?.token) return;
-		const c = createBridgeClient({ url: saved.url, token: saved.token });
+		if (!pairedWith(saved)) return;
+		const c = createBridgeClient({ url: saved.url, token: saved.token ?? null });
 		client = c;
-		bridgeAt = { url: saved.url, token: saved.token };
-		createPortalClient(bridgeAt)
-			.list()
-			.then((list) => (portalHosts = list.map((p) => p.host ?? '').filter(Boolean)))
-			.catch(() => {});
+		// Customer portals are HTTP's only (bridge/src/stream.js): with the token alone.
+		bridgeAt = saved.token ? { url: saved.url, token: saved.token } : null;
+		if (bridgeAt) {
+			createPortalClient(bridgeAt)
+				.list()
+				.then((list) => (portalHosts = list.map((p) => p.host ?? '').filter(Boolean)))
+				.catch(() => {});
+		}
 		try {
 			const health = await c.health();
 			bridgeInfo = {
