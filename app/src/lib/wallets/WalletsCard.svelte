@@ -23,13 +23,17 @@
 	import { importMoneroExport } from './monero-import.js';
 	import AkashStatement from '$lib/akash/AkashStatement.svelte';
 	import AkashActAccount from '$lib/akash/AkashActAccount.svelte';
+	import { addWallet, loadWallets, removeWallet, updateWalletMeta } from './wallet-sync.js';
 	import {
-		addWallet,
-		loadWallets,
-		removeWallet,
-		syncWallet,
-		updateWalletMeta
-	} from './wallet-sync.js';
+		dismissWalletSummary,
+		syncable,
+		walletSummaryText,
+		syncAllWallets,
+		syncOneWallet,
+		walletRun
+	} from './sync-run.svelte.js';
+	import { percentOf } from './sync-turn.js';
+	import { askToNotify, canNotify } from '$lib/notify.js';
 
 	/** @type {{ url: string, token: string | null, paired?: boolean }} `paired`: a token, or the bridge's node over the stream (#575) */
 	let { url, token, paired = Boolean(token) } = $props();
@@ -62,12 +66,17 @@
 	let showAdd = $state(false);
 	/** @type {string | null} */
 	let addError = $state(null);
-	/** @type {string | null} wallet id */
-	let syncing = $state(null);
-	/** @type {Record<string, Awaited<ReturnType<typeof syncWallet>>>} */
-	let results = $state({});
-	/** @type {Record<string, string>} */
-	let errors = $state({});
+	// A sync, one wallet's or all of them, is a run of the app (sync-run.svelte.js):
+	// it goes on while the person is elsewhere, and its results are there on return.
+	const busy = $derived(walletRun.syncing !== null || walletRun.progress !== null);
+	const syncableCount = $derived(wallets.filter(syncable).length);
+	// A run that ended while this card was shown or not: the list again (its "zuletzt abgerufen").
+	$effect(() => {
+		void walletRun.summary;
+		void walletRun.syncing;
+		const store = currentStore();
+		if (store && walletRun.syncing === null) loadWallets(store.settings).then((w) => (wallets = w));
+	});
 
 	const info = $derived(chains.find((c) => c.id === chainId) ?? null);
 	const localChain = $derived(walletChain(chainId));
@@ -230,32 +239,16 @@
 
 	/** @param {import('./wallet-sync.js').Wallet} wallet */
 	async function sync(wallet) {
-		const store = currentStore();
-		if (!store) return;
-		syncing = wallet.id;
-		errors = Object.fromEntries(Object.entries(errors).filter(([id]) => id !== wallet.id));
-		let done = false;
-		try {
-			const result = await syncWallet({ client, store, wallet });
-			results = { ...results, [wallet.id]: result };
-			// What this sync leaves for the person, for "Braucht dich" (issue #152).
-			const hints =
-				result.unpriced.length +
-				(result.history.pruned && result.history.completedBy !== 'indexer' ? 1 : 0) +
-				((result.history.unknownAmounts ?? 0) ? 1 : 0);
-			await updateAlerts(store.settings, (a) => ({
-				...a,
-				wallets: { ...a.wallets, [wallet.id]: hints }
-			}));
-			wallets = await loadWallets(store.settings);
-			await refreshNow();
-			done = true;
-		} catch (e) {
-			errors = { ...errors, [wallet.id]: e instanceof Error ? e.message : String(e) };
-		} finally {
-			syncing = null;
-		}
-		if (done) await runMatchingNow();
+		await syncOneWallet(wallet, { client });
+	}
+
+	/** @param {NonNullable<typeof walletRun.summary>} s */
+	const summaryText = (s) => walletSummaryText(s);
+
+	/** "Alle Wallets synchronisieren": the permission for a notification is asked on this click. */
+	async function syncAll() {
+		if (canNotify()) await askToNotify();
+		await syncAllWallets({ client });
 	}
 
 	/**
@@ -267,12 +260,14 @@
 	async function importHistory(wallet, file) {
 		const store = currentStore();
 		if (!store || !file) return;
-		syncing = wallet.id;
-		errors = Object.fromEntries(Object.entries(errors).filter(([id]) => id !== wallet.id));
+		walletRun.syncing = wallet.id;
+		walletRun.errors = Object.fromEntries(
+			Object.entries(walletRun.errors).filter(([id]) => id !== wallet.id)
+		);
 		let done = false;
 		try {
 			const result = await importMoneroExport({ client, store, wallet, text: await file.text() });
-			results = { ...results, [wallet.id]: result };
+			walletRun.results = { ...walletRun.results, [wallet.id]: result };
 			await updateAlerts(store.settings, (a) => ({
 				...a,
 				wallets: { ...a.wallets, [wallet.id]: result.unpriced.length }
@@ -281,9 +276,12 @@
 			await refreshNow();
 			done = true;
 		} catch (e) {
-			errors = { ...errors, [wallet.id]: e instanceof Error ? e.message : String(e) };
+			walletRun.errors = {
+				...walletRun.errors,
+				[wallet.id]: e instanceof Error ? e.message : String(e)
+			};
 		} finally {
-			syncing = null;
+			walletRun.syncing = null;
 		}
 		if (done) await runMatchingNow();
 	}
@@ -520,10 +518,53 @@
 			</form>
 		{/if}
 
+		{#if syncableCount > 1}
+			<!-- All wallets, one after the other; it goes on while you are elsewhere in Belege. -->
+			<div class="mt-4" data-testid="wallets-sync-all-row">
+				<button
+					type="button"
+					class="rounded-md bg-coral-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50"
+					disabled={busy}
+					onclick={syncAll}
+					data-testid="wallets-sync-all"
+					>{t('integrationen.wallets.all.button', { count: syncableCount })}</button
+				>
+				{#if walletRun.progress}
+					<div class="mt-2" role="status" data-testid="wallets-sync-progress">
+						<progress
+							class="h-2 w-full max-w-md"
+							max="100"
+							value={percentOf(walletRun.progress)}
+							aria-label={t('integrationen.wallets.all.progressLabel')}
+						></progress>
+						<p class="mt-1 text-sm text-text tabular-nums">
+							{t('integrationen.wallets.all.progress', {
+								done: walletRun.progress.done,
+								count: walletRun.progress.count,
+								percent: percentOf(walletRun.progress)
+							})}{walletRun.progress.current ? ` · ${walletRun.progress.current}` : ''}
+						</p>
+						<p class="mt-1 text-xs text-faint">{t('integrationen.wallets.all.goesOn')}</p>
+					</div>
+				{:else if walletRun.summary}
+					<div class="mt-2 text-sm" role="status" data-testid="wallets-sync-summary">
+						<span class="text-heading">{summaryText(walletRun.summary)}</span>
+						<button
+							type="button"
+							class="ml-2 text-xs text-faint underline hover:text-heading"
+							onclick={dismissWalletSummary}
+							data-testid="wallets-sync-summary-close"
+							>{t('integrationen.wallets.all.close')}</button
+						>
+					</div>
+				{/if}
+			</div>
+		{/if}
+
 		{#if wallets.length}
 			<ul class="mt-3 divide-y divide-border" data-testid="wallets">
 				{#each wallets as wallet (wallet.id)}
-					{@const result = results[wallet.id]}
+					{@const result = walletRun.results[wallet.id]}
 					<li class="py-3" data-testid="wallet" data-chain={wallet.chain}>
 						<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
 							{#if wallet.name}
@@ -616,18 +657,17 @@
 							{#if importedChain(walletChain(wallet.chain))}
 								<!-- Monero: no sync by address; the wallet's own export, read here. -->
 								<label
-									class="cursor-pointer rounded-md bg-coral-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-coral-800 {syncing !==
-									null
+									class="cursor-pointer rounded-md bg-coral-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-coral-800 {busy
 										? 'pointer-events-none opacity-50'
 										: ''}"
 									data-testid="wallet-import"
-									>{syncing === wallet.id
+									>{walletRun.syncing === wallet.id
 										? t('integrationen.wallets.importing')
 										: t('integrationen.wallets.import')}<input
 										type="file"
 										accept=".csv,text/csv"
 										class="sr-only"
-										disabled={syncing !== null}
+										disabled={busy}
 										onchange={(e) => {
 											const input = /** @type {HTMLInputElement} */ (e.currentTarget);
 											void importHistory(wallet, input.files?.[0]);
@@ -640,10 +680,10 @@
 								<button
 									type="button"
 									class="rounded-md bg-coral-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50"
-									disabled={syncing !== null}
+									disabled={busy}
 									onclick={() => sync(wallet)}
 									data-testid="wallet-sync"
-									>{syncing === wallet.id
+									>{walletRun.syncing === wallet.id
 										? t('integrationen.wallets.syncing')
 										: t('integrationen.wallets.sync')}</button
 								>
@@ -658,7 +698,7 @@
 							<button
 								type="button"
 								class="text-sm text-faint underline hover:text-heading"
-								disabled={syncing !== null}
+								disabled={busy}
 								onclick={() => remove(wallet)}
 								data-testid="wallet-remove">{t('integrationen.wallets.remove')}</button
 							>
@@ -764,11 +804,11 @@
 								</p>
 							{/if}
 						{/if}
-						{#if errors[wallet.id]}
+						{#if walletRun.errors[wallet.id]}
 							<p class="mt-2 text-sm text-danger" role="alert" data-testid="wallet-error">
-								{errors[wallet.id]}
+								{walletRun.errors[wallet.id]}
 							</p>
-							<WayOut message={errors[wallet.id]} />
+							<WayOut message={walletRun.errors[wallet.id]} />
 						{/if}
 					</li>
 				{/each}

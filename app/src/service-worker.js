@@ -38,6 +38,25 @@ sw.addEventListener('activate', (event) => {
 });
 
 // "Neu laden" in the app: the waiting version takes over.
+// A notification of a run that ended in the background (lib/notify.js): a
+// click brings Belege to the front, on the page it names – of this origin only.
+sw.addEventListener('notificationclick', (event) => {
+	event.notification.close();
+	const path = String(event.notification.data?.url ?? '/');
+	const target = new URL(path.startsWith('/') ? path : '/', sw.location.origin);
+	event.waitUntil(
+		(async () => {
+			const open = await sw.clients.matchAll({ type: 'window', includeUncontrolled: true });
+			const tab = open.find((c) => new URL(c.url).origin === target.origin);
+			if (tab) {
+				await tab.focus();
+				return tab.navigate?.(target.href).catch(() => {});
+			}
+			return sw.clients.openWindow(target.href);
+		})()
+	);
+});
+
 sw.addEventListener('message', (event) => {
 	if (event.data === 'skip-waiting') sw.skipWaiting();
 });
