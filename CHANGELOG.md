@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.27.0] – 2026-11-03
+
 ### Added
 
 - **The bridge is a peer of the books**: it runs a libp2p node of its own (`bridge/src/node.js`), with an Ed25519 peer key kept next to `bridge.json` and the same device gate as every device – a peer proves the bridge's own key and must be on the books' device list, strangers and relays are told nothing but identify. Until a device has handed the key over, the node is unarmed and offers pairing by invitation only: `pnpm bridge` prints a `web+ucep:pair?…` invitation, the app pairs over the stream and sends the key, the relays and the device list (`handover`); the key goes to the keychain (`bridge-auth`) and leaves with "Kopplung lösen". `pnpm bridge --no-node` keeps the bridge HTTP-only (#573, milestone M1 of #567).
