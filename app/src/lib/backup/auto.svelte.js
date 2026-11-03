@@ -145,7 +145,8 @@ async function context() {
 	if (!store) return null;
 	const owner = await loadOwner(store.settings);
 	if (!owner) return null;
-	const key = await ensureBackupKey(store.settings);
+	const key = await ensureBackupKey(store.settings, { create: !app.member });
+	if (!key) return null;
 	const address = await backupAddressOf(key);
 	const client = bridgePaired() ? bridgeClient() : null;
 	/** @type {any} */

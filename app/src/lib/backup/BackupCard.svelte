@@ -11,7 +11,7 @@
 	import CopyButton from '$lib/CopyButton.svelte';
 	import WayOut from '$lib/help/WayOut.svelte';
 	import { untrack } from 'svelte';
-	import { app, chainFitsBooks, currentStore } from '$lib/session.svelte.js';
+	import { app, chainFitsBooks, currentStore, pointedOwner } from '$lib/session.svelte.js';
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { card } from '$lib/ui/styles.js';
 	import { dropBackup, loadBackups, updateBackup } from './history.js';
@@ -327,6 +327,23 @@
 	$effect(() => {
 		load(paired);
 	});
+	// The account or the key not here yet: on a member's device (#613), or a
+	// new device of the owner's, they come by sync – read again when they do.
+	$effect(() => {
+		const store = currentStore();
+		if (!store) return;
+		/** @type {ReturnType<typeof setTimeout> | undefined} */
+		let again;
+		const stop = store.settings.onChange(() => {
+			if (owner && key) return;
+			clearTimeout(again);
+			again = setTimeout(() => untrack(() => load(paired)), 500);
+		});
+		return () => {
+			clearTimeout(again);
+			stop();
+		};
+	});
 	// A run that ended – here or while this card was not open – is in the
 	// history now: read it again, and what it cost.
 	$effect(() => {
@@ -349,9 +366,9 @@
 		backups = await loadBackups(store.settings);
 		memberNames = await loadMemberNames(store.settings);
 		chain = await loadChain(store.settings);
-		key = await ensureBackupKey(store.settings);
-		address = await backupAddressOf(key);
-		owner = await loadOwner(store.settings);
+		key = await ensureBackupKey(store.settings, { create: !app.member });
+		address = key ? await backupAddressOf(key) : null;
+		owner = (await loadOwner(store.settings)) ?? pointedOwner();
 		status = null;
 		if (withToken) {
 			try {

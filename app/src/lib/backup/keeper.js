@@ -116,10 +116,14 @@ export async function saveOwner(settings, address) {
  * its books came back from a backup, or before an own device synced in, finds
  * two records; it takes the older, which the account may already allow.
  *
+ * A member's device makes none (#613): the key is the books', and the owner's
+ * device makes it; until it has come by sync, there is none here (null).
+ *
  * @param {import('../store/repository.js').Collection} settings
- * @returns {Promise<Uint8Array>}
+ * @param {{ create?: boolean }} [options]
+ * @returns {Promise<Uint8Array | null>} null only with `create: false`
  */
-export async function ensureBackupKey(settings) {
+export async function ensureBackupKey(settings, { create } = {}) {
 	// Newest first, as the collection lists them (by ULID).
 	const records = await settings.list({ where: (r) => r.key === KEY_SETTING });
 	for (const { value } of [...records].reverse()) {
@@ -127,6 +131,7 @@ export async function ensureBackupKey(settings) {
 		const key = fromHex(value);
 		if (isAlephKey(key)) return key;
 	}
+	if (create === false) return null;
 	const key = newAlephKey();
 	await settings.put({ key: KEY_SETTING, value: toHex(key) });
 	return key;

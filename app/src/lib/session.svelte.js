@@ -1560,6 +1560,12 @@ export async function publishBooksVault(extraKeys = []) {
 }
 
 /**
+ * The paying account a member's index on Aleph named (#613): what the backup
+ * card shows until the books' own settings have come by sync.
+ */
+export const pointedOwner = () => session?.pointedOwner || null;
+
+/**
  * A member's vault on Aleph (#613), with the account the books' backups are
  * kept for: an empty device with the member's passkey finds the books' keys
  * there, and with them the backups. Never while the network is paused.
@@ -1568,7 +1574,9 @@ export async function publishMemberVault() {
 	if (!session?.member) throw new Error('The books open are not a member’s.');
 	if (networkPause()) throw new Error(t('settings.keys.paused'));
 	const { loadOwner } = await import('./backup/keeper.js');
-	await session.publishMembership(await loadOwner(session.store.settings));
+	await session.publishMembership(
+		(await loadOwner(session.store.settings)) ?? (session.pointedOwner || null)
+	);
 }
 
 /**

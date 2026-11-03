@@ -131,6 +131,7 @@ export const STORAGE_PATHS = Object.freeze({
  * @property {import('./books-vault.js').OpenedVault | null} vault the books' vault, open (#406); null for a member (#612)
  * @property {{ books: { did: string, identityId: string, label: string }, writer: string, vaultId: string } | null} member a member's books (#612); null for the owner
  * @property {Uint8Array} ownIndexKey this passkey's index key on Aleph (backup/vault-index.js), in memory
+ * @property {string} pointedOwner the paying account a member's index on Aleph named (#613), in memory; '' when none
  * @property {(owner: string | null) => Promise<void>} publishMembership a member's vault on Aleph's index G (#613)
  * @property {Awaited<ReturnType<typeof openStore>>} store
  * @property {import('./receipts/blob-store.js').BlobStore} blobs receipt files, sealed with the blob key
@@ -539,7 +540,9 @@ export async function startSession(
 		}
 		// An empty device that found the books through the index: the account the
 		// backups are kept for, so "Wiederherstellen" lists them at once.
-		if (pointedOwner) {
+		// A member's device keeps it in memory only (#613): before the books'
+		// access list has come, it may not write to them.
+		if (pointedOwner && !membership) {
 			const { isAddress, loadOwner, saveOwner } = await import('./backup/keeper.js');
 			if (isAddress(pointedOwner) && !(await loadOwner(store.settings))) {
 				await saveOwner(store.settings, pointedOwner);
@@ -561,6 +564,7 @@ export async function startSession(
 				: null,
 			vault,
 			ownIndexKey,
+			pointedOwner: membership ? pointedOwner : '',
 			/**
 			 * A member's vault on Aleph's index G (#613), with the account the
 			 * books' backups are kept for: an empty device finds it there.
