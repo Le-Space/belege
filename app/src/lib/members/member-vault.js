@@ -10,10 +10,15 @@
 //             the member's devices reach the owner's bridge like the owner's
 //             own. A removed member's devices leave the books' device list,
 //             which is what the bridge admits by (bridge/src/node.js `devices`).
-//   addresses every collection's OrbitDB address, so the member opens the very
-//             databases the books write – by address, the books' access lists
-//             looked up by their type (store/books-access.js)
-//   books     the books' DID and the id of their OrbitDB identity
+//   names     every collection's sealed database name: the member opens each
+//             under that name with the books' access list, so OrbitDB makes the
+//             very address the books write locally, with nothing to fetch first
+//   addresses every collection's OrbitDB address, the check: a name that opens
+//             to another address is refused
+//   books     the books' DID, the id of their OrbitDB identity, and that
+//             identity's block (public): every entry the books write names it,
+//             and a member's device, which never made it, needs it to accept
+//             them – without it OrbitDB would have to fetch it first
 //
 // Not in it: the books' root R, the books' secret (what signs as the books),
 // the vault key. A member reads, syncs, backs up and restores; a member never
@@ -55,6 +60,7 @@ const KEY_NAMES = /** @type {const} */ ([
 	'bridgeAuth'
 ]);
 const ADDRESS = /^\/orbitdb\/zdpu[1-9A-HJ-NP-Za-km-z]{40,60}$/;
+const NAME = /^[0-9a-f]{32}$/;
 const DID = /^did:key:z[1-9A-HJ-NP-Za-km-z]{40,80}$/;
 
 export class MemberBundleError extends Error {
@@ -68,9 +74,10 @@ export class MemberBundleError extends Error {
 /**
  * @typedef {object} MemberBundle
  * @property {number} version
- * @property {{ did: string, identityId: string, label: string }} books
+ * @property {{ did: string, identityId: string, label: string, identityHash: string, identity: Uint8Array }} books
  * @property {Record<typeof KEY_NAMES[number], Uint8Array>} keys
- * @property {Record<string, string>} addresses by collection
+ * @property {Record<string, string>} names the sealed database names, by collection
+ * @property {Record<string, string>} addresses by collection, the check of each name
  */
 
 /** @param {Uint8Array} bytes */
@@ -87,11 +94,11 @@ function fromHex(hex, length, what) {
  * The bundle a member gets, from what the open books hold – checked: six
  * keys of 32 bytes, an address for every collection, the books named.
  *
- * @param {{ books: MemberBundle['books'], keys: MemberBundle['keys'], addresses: Record<string, string> }} p
+ * @param {{ books: MemberBundle['books'], keys: MemberBundle['keys'], names: Record<string, string>, addresses: Record<string, string> }} p
  * @returns {MemberBundle}
  */
-export function memberBundle({ books, keys, addresses }) {
-	const bundle = { version: BUNDLE_VERSION, books, keys, addresses };
+export function memberBundle({ books, keys, names, addresses }) {
+	const bundle = { version: BUNDLE_VERSION, books, keys, names, addresses };
 	return decodeBundle(encodeBundle(bundle));
 }
 
@@ -108,9 +115,12 @@ export function encodeBundle(bundle) {
 		books: {
 			did: bundle.books?.did,
 			identityId: bundle.books?.identityId,
-			label: String(bundle.books?.label ?? '').slice(0, 80)
+			label: String(bundle.books?.label ?? '').slice(0, 80),
+			identityHash: bundle.books?.identityHash,
+			identity: toHex(bundle.books?.identity ?? new Uint8Array())
 		},
 		keys: Object.fromEntries(KEY_NAMES.map((n) => [n, toHex(bundle.keys[n])])),
+		names: Object.fromEntries(COLLECTIONS.map((c) => [c, bundle.names?.[c]])),
 		addresses: Object.fromEntries(COLLECTIONS.map((c) => [c, bundle.addresses?.[c]]))
 	});
 }
@@ -134,25 +144,43 @@ export function decodeBundle(text) {
 	if (!DID.test(String(books.did)) || !DID.test(String(books.identityId))) {
 		throw new MemberBundleError('The bundle does not name its books.');
 	}
+	if (
+		!/^zdpu[1-9A-HJ-NP-Za-km-z]{40,60}$/.test(String(books.identityHash)) ||
+		!/^(?:[0-9a-f]{2}){16,4096}$/.test(String(books.identity))
+	) {
+		throw new MemberBundleError('The bundle does not carry the books’ identity.');
+	}
 	const keys = /** @type {MemberBundle['keys']} */ (
 		Object.fromEntries(KEY_NAMES.map((n) => [n, fromHex(parsed.keys?.[n], KEY_BYTES, `${n} key`)]))
 	);
 	/** @type {Record<string, string>} */
+	const names = {};
+	/** @type {Record<string, string>} */
 	const addresses = {};
 	for (const c of COLLECTIONS) {
+		const n = parsed.names?.[c];
+		if (!NAME.test(String(n))) throw new MemberBundleError(`The bundle has no name for ${c}.`);
+		names[c] = n;
 		const a = parsed.addresses?.[c];
 		if (!ADDRESS.test(String(a)))
 			throw new MemberBundleError(`The bundle has no address for ${c}.`);
 		addresses[c] = a;
 	}
 	const extra = Object.keys(parsed).filter(
-		(k) => !['version', 'books', 'keys', 'addresses'].includes(k)
+		(k) => !['version', 'books', 'keys', 'names', 'addresses'].includes(k)
 	);
 	if (extra.length) throw new MemberBundleError('The bundle holds more than it should.');
 	return {
 		version: BUNDLE_VERSION,
-		books: { did: books.did, identityId: books.identityId, label: String(books.label ?? '') },
+		books: {
+			did: books.did,
+			identityId: books.identityId,
+			label: String(books.label ?? ''),
+			identityHash: books.identityHash,
+			identity: fromHex(books.identity, books.identity.length / 2, 'identity')
+		},
 		keys,
+		names,
 		addresses
 	};
 }

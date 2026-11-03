@@ -130,7 +130,17 @@
 							>{t('app.product')}</span
 						>
 					</p>
-					<p class="mt-0.5 hidden text-sm text-faint sm:block">{t('app.tagline')}</p>
+					{#if app.member}
+						<!-- A member's session (#612): whose books these are. -->
+						<p
+							class="mt-0.5 text-sm font-medium text-cyan-800 dark:text-cyan"
+							data-testid="member-books"
+						>
+							{t('header.memberBooks', { books: app.member.books })}
+						</p>
+					{:else}
+						<p class="mt-0.5 hidden text-sm text-faint sm:block">{t('app.tagline')}</p>
+					{/if}
 				</div>
 			</div>
 			<div

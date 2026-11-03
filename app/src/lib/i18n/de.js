@@ -21,6 +21,7 @@ export default {
 		integrationen: 'Integrationen'
 	},
 	header: {
+		memberBooks: 'Bücher von „{books}“ – du arbeitest als Mitglied',
 		did: 'Deine DID (der öffentliche Schlüssel deines Passkeys)',
 		localOnly: 'Nur dieses Gerät',
 		localOnlyTitle: 'Netzwerk aus: kein Peer-to-Peer, kein Relay, kein Server. Mehr dazu …',
@@ -967,6 +968,9 @@ export default {
 		intro:
 			'Deine Buchhaltungsdaten bleiben auf diesem Gerät und werden mit einem Schlüssel aus deinem Passkey verschlüsselt. Ohne den Passkey kann niemand sie lesen – auch wir nicht.',
 		unlock: 'Mit gespeichertem Passkey entsperren',
+		whichBooks: 'Welche Bücher öffnen?',
+		ownBooks: 'Meine Bücher',
+		memberBooks: '{books} (als Mitglied)',
 		newHeading: 'Neu hier',
 		label: 'Name für den Passkey',
 		labelPlaceholder: 'z. B. Firma Mustermann',
@@ -1432,6 +1436,8 @@ export default {
 		later: 'Nicht jetzt'
 	},
 	members: {
+		ownerOnly:
+			'Das kann nur, wem die Bücher gehören – ein Mitglied ändert die Passkeys und Wiederherstellungswörter der Bücher nicht.',
 		title: 'Zusammenarbeit',
 		intro:
 			'Die Buchhaltung arbeitet mit ihrem eigenen Passkey in diesen Büchern: zuordnen, Eigenbelege, Export, Backup. Sie bekommt die Schlüssel zum Lesen und Sichern, nie die Wurzel deiner Bücher, und alles, was sie ändert, trägt ihren Namen.',

@@ -17,7 +17,13 @@ const BOOKS = 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK';
 const DEVICE = '12D3KooWQu5E1ZkGC5x2dSVTEWxYvsssWjXgk2Mzc8GZHN26cYzS';
 const key = (/** @type {number} */ n) => new Uint8Array(32).fill(n);
 const bundle = memberBundle({
-	books: { did: BOOKS, identityId: BOOKS, label: 'Wolkenfabrik Hosting GmbH' },
+	books: {
+		did: BOOKS,
+		identityId: BOOKS,
+		label: 'Wolkenfabrik Hosting GmbH',
+		identityHash: `zdpu${'A'.repeat(45)}`,
+		identity: new Uint8Array(40).fill(9)
+	},
 	keys: {
 		database: key(1),
 		replication: key(2),
@@ -26,6 +32,7 @@ const bundle = memberBundle({
 		backup: key(5),
 		bridgeAuth: key(6)
 	},
+	names: Object.fromEntries(COLLECTIONS.map((c, i) => [c, `${i}`.repeat(32).slice(0, 32)])),
 	addresses: Object.fromEntries(
 		COLLECTIONS.map((c, i) => [c, `/orbitdb/zdpuA${'abcdefghijk'[i]}${'b'.repeat(45)}`])
 	)

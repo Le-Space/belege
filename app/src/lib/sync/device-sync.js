@@ -414,7 +414,19 @@ export async function startDeviceSync({
 			async stop() {}
 		};
 	}
-	if (!mine || mine.removed) await writeDevice(self, label);
+	// A member's device writes its record once the books' grant has come over
+	// (#612): until then the access list refuses it, and every round tries again.
+	let selfWritten = Boolean(mine && !mine.removed);
+	async function writeSelf() {
+		if (selfWritten) return;
+		try {
+			await writeDevice(self, label);
+			selfWritten = true;
+		} catch {
+			// Not allowed yet: the grant is on its way.
+		}
+	}
+	await writeSelf();
 
 	const open = (/** @type {string} */ peerId) =>
 		libp2p.getConnections().some((/** @type {any} */ c) => c.remotePeer.toString() === peerId);
@@ -659,6 +671,7 @@ export async function startDeviceSync({
 
 	async function round() {
 		if (stopped) return;
+		await writeSelf();
 		await refreshKnown();
 		await keepRelayPlace().catch(() => {});
 		await Promise.all([...known].map(dial));

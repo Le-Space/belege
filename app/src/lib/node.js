@@ -53,6 +53,7 @@ import {
 	deriveDatabaseKey,
 	deriveBridgeAuthBase,
 	deriveDeviceAuthKey,
+	deriveSealedDatabaseName,
 	deriveDevicePeerSeed,
 	derivePeerKeySeed,
 	deriveReplicationKey
@@ -127,7 +128,8 @@ export const STORAGE_PATHS = Object.freeze({
  * @typedef {object} Session
  * @property {string} did the passkey's: shown, and what a record says wrote it
  * @property {string} booksDid the books' own identity, the root writer of every collection (#496)
- * @property {import('./books-vault.js').OpenedVault} vault the books' vault, open (#406)
+ * @property {import('./books-vault.js').OpenedVault | null} vault the books' vault, open (#406); null for a member (#612)
+ * @property {{ books: { did: string, identityId: string, label: string }, writer: string, vaultId: string } | null} member a member's books (#612); null for the owner
  * @property {Uint8Array} ownIndexKey this passkey's index key on Aleph (backup/vault-index.js), in memory
  * @property {Awaited<ReturnType<typeof openStore>>} store
  * @property {import('./receipts/blob-store.js').BlobStore} blobs receipt files, sealed with the blob key
@@ -152,7 +154,7 @@ export const STORAGE_PATHS = Object.freeze({
  * @property {(writer: string) => Promise<void>} grantWriter a member's write identity may write to every collection
  * @property {{ peerId: string | null, key: Uint8Array | null }} bridgeAuth the books' bridge and its key for this generation: the gate proves with it toward that peer only
  * @property {() => Promise<void>} stop
- * @property {{ signingKey?: Uint8Array, booksSecret: Uint8Array, databaseKey: Uint8Array, replicationKey: Uint8Array, blobKey: Uint8Array, peerKey: Uint8Array }} [secretsForE2E]
+ * @property {{ signingKey?: Uint8Array, booksSecret: Uint8Array | null, databaseKey: Uint8Array, replicationKey: Uint8Array, blobKey: Uint8Array, peerKey: Uint8Array }} [secretsForE2E]
  *   only in E2E builds
  */
 
@@ -210,22 +212,43 @@ async function pinnedToCredential(fn) {
  * @param {{ onStatus?: (status: UnlockStatus) => void,
  *   beforePrompt?: (purpose: 'prf') => Promise<void>,
  *   lookupVault?: boolean,
- *   recovered?: { opened: import('./books-vault.js').OpenedVault, owner: string, label: string } }} [options]
+ *   recovered?: { opened: import('./books-vault.js').OpenedVault, owner: string, label: string },
+ *   memberOf?: string }} [options]
  *   `lookupVault`: an empty device – ask Aleph's index for the books' vault (#406)
  *   `recovered`: the vault opened with recovery words (session.svelte.js
  *   `recoverWithWords`): this new passkey gets its slot there, and opens it
+ *   `memberOf`: a member's books (#612) – the id of the member vault this
+ *   passkey opens (members/member-vault.js); the books then open from the
+ *   member bundle, never from a root
  * @returns {Promise<Session>}
  * @throws {import('./passkey-identity.js').PrfUnavailableError} before anything is opened
  */
 export async function startSession(
 	credential,
-	{ onStatus, beforePrompt, lookupVault = false, recovered } = {}
+	{ onStatus, beforePrompt, lookupVault = false, recovered, memberOf } = {}
 ) {
 	onStatus?.({ step: 'keys' });
 	await beforePrompt?.('prf');
 	// First, and before anything is opened: without PRF there is no key, and
 	// without a key nothing is read or written. No plaintext fallback.
 	const passkeyPrf = await readPrfOutput(credential);
+	// A member's books (#612): the member vault this passkey opens, as chosen
+	// at unlock. Its bundle gives every key the books need; the member's own
+	// root gives what is this member's – the device's id, the sync log, the
+	// write identity. No root of the books, no vault of theirs.
+	const membership = memberOf
+		? await (async () => {
+				const { openMemberships } = await import('./members/member-vault.js');
+				const all = await openMemberships({
+					prfOutput: passkeyPrf,
+					rawCredentialId: credential.rawCredentialId,
+					storage: globalThis.localStorage
+				});
+				const found = all.find((m) => m.record.vault.id === memberOf);
+				if (!found) throw new Error('This passkey opens no membership of those books.');
+				return found;
+			})()
+		: null;
 	// The root every key is derived from, out of the books' vault (#406): for
 	// books made before the vault, the PRF output itself, kept there on this
 	// first unlock; for a passkey added later, the founding passkey's, through
@@ -234,34 +257,37 @@ export async function startSession(
 	// passkey, so its index on Aleph is asked (backup/vault-index.js), then the
 	// books' own index for the current record – which may say the passkey was
 	// removed there.
-	const indexes = lookupVault && !recovered ? await import('./backup/vault-index.js') : null;
-	let vault = recovered
-		? // Opened with the recovery words: this passkey's slot is added, and from
-			// here on it opens the books like any other.
-			{
-				...(await addPasskey(
-					recovered.opened,
-					{
-						prfOutput: passkeyPrf,
-						rawCredentialId: credential.rawCredentialId,
-						credentialId: String(credential.credentialId ?? ''),
-						label: recovered.label
-					},
-					globalThis.localStorage
-				)),
-				kid: await slotIdFor(credential.rawCredentialId)
-			}
-		: await openBooksVault({
-				prfOutput: passkeyPrf,
-				rawCredentialId: credential.rawCredentialId,
-				credentialId: String(credential.credentialId ?? ''),
-				label: String(credential.displayName ?? ''),
-				storage: globalThis.localStorage,
-				...(indexes ? { find: () => indexes.findVaultOnAleph({ prfOutput: passkeyPrf }) } : {})
-			});
+	const indexes =
+		lookupVault && !recovered && !membership ? await import('./backup/vault-index.js') : null;
+	let vault = membership
+		? null
+		: recovered
+			? // Opened with the recovery words: this passkey's slot is added, and from
+				// here on it opens the books like any other.
+				{
+					...(await addPasskey(
+						recovered.opened,
+						{
+							prfOutput: passkeyPrf,
+							rawCredentialId: credential.rawCredentialId,
+							credentialId: String(credential.credentialId ?? ''),
+							label: recovered.label
+						},
+						globalThis.localStorage
+					)),
+					kid: await slotIdFor(credential.rawCredentialId)
+				}
+			: await openBooksVault({
+					prfOutput: passkeyPrf,
+					rawCredentialId: credential.rawCredentialId,
+					credentialId: String(credential.credentialId ?? ''),
+					label: String(credential.displayName ?? ''),
+					storage: globalThis.localStorage,
+					...(indexes ? { find: () => indexes.findVaultOnAleph({ prfOutput: passkeyPrf }) } : {})
+				});
 	/** The paying Aleph account, as the books' index names it (an empty device). */
 	let pointedOwner = recovered?.owner ?? '';
-	if (indexes && vault.found) {
+	if (indexes && vault?.found) {
 		const current = await indexes.readRootIndex({ root: vault.root }).catch(() => null);
 		pointedOwner = current?.pointer?.owner ?? '';
 		if (current?.vault) {
@@ -278,17 +304,23 @@ export async function startSession(
 	// there later without asking the passkey again.
 	const { passkeyIndexKey } = await import('./backup/vault-index.js');
 	const ownIndexKey = await passkeyIndexKey(passkeyPrf);
-	const prfOutput = vault.root;
-	const encryptionKey = await deriveDatabaseKey(prfOutput);
-	const blobKey = await deriveBlobKey(prfOutput);
-	const backupKey = await deriveBackupKey(prfOutput);
+	// The books' root – none for a member, whose keys come from the bundle.
+	const prfOutput = vault ? vault.root : null;
+	const bundleKeys = membership?.bundle.keys ?? null;
+	/** What is this device's own: the books' root, or the member's. */
+	const ownRoot = /** @type {Uint8Array} */ (membership ? membership.memberRoot : prfOutput);
+	/** @param {(root: Uint8Array) => Promise<Uint8Array>} derive */
+	const fromRoot = (derive) => derive(/** @type {Uint8Array} */ (prfOutput));
+	const encryptionKey = bundleKeys ? bundleKeys.database : await fromRoot(deriveDatabaseKey);
+	const blobKey = bundleKeys ? bundleKeys.blob : await fromRoot(deriveBlobKey);
+	const backupKey = bundleKeys ? bundleKeys.backup : await fromRoot(deriveBackupKey);
 	// The whole entries sealed again (entry-encryption.js sealedEncryption).
-	const replicationKey = await deriveReplicationKey(prfOutput);
+	const replicationKey = bundleKeys ? bundleKeys.replication : await fromRoot(deriveReplicationKey);
 	// The UCEP node's key (ucep/net.js): the same peer id on every unlock.
-	const ucepSeed = await derivePeerKeySeed(prfOutput);
+	const ucepSeed = await derivePeerKeySeed(ownRoot);
 	// The sync log's own key (sync/sync-log.js): never the books'.
 	const { SYNC_LOG_INFO } = await import('./sync/sync-log.js');
-	const syncLogSealer = await sealer(await deriveDatabaseKey(prfOutput, SYNC_LOG_INFO));
+	const syncLogSealer = await sealer(await deriveDatabaseKey(ownRoot, SYNC_LOG_INFO));
 
 	// A PR #1 build kept the signing key in IndexedDB. Gone before anything opens.
 	await forgetLegacyKeystore();
@@ -310,7 +342,7 @@ export async function startSession(
 		[...relays, lanRelayAddr()].map((addr) => relayPeerOf(addr)).filter(Boolean)
 	);
 	const peerKey = online
-		? await generateKeyPairFromSeed('Ed25519', await deriveDevicePeerSeed(prfOutput, deviceSalt()))
+		? await generateKeyPairFromSeed('Ed25519', await deriveDevicePeerSeed(ownRoot, deviceSalt()))
 		: await createEphemeralPeerKey();
 	// Only a device that proves it holds the passkey gets the books (device-gate.js).
 	// In "Beides" a device the books do not know yet comes in over the own network only.
@@ -319,8 +351,16 @@ export async function startSession(
 	// the device key never leaves the browser. Set once the books are open.
 	/** @type {{ peerId: string | null, key: Uint8Array | null }} */
 	const bridgeAuth = { peerId: null, key: null };
-	const bridgeAuthBase = online ? await deriveBridgeAuthBase(prfOutput) : null;
-	const deviceAuthKey = online ? await deriveDeviceAuthKey(prfOutput) : null;
+	const bridgeAuthBase = !online
+		? null
+		: bundleKeys
+			? bundleKeys.bridgeAuth
+			: await fromRoot(deriveBridgeAuthBase);
+	const deviceAuthKey = !online
+		? null
+		: bundleKeys
+			? bundleKeys.deviceAuth
+			: await fromRoot(deriveDeviceAuthKey);
 	const deviceGate = deviceAuthKey
 		? createDeviceGate({
 				keyFor: (peer) =>
@@ -358,11 +398,14 @@ export async function startSession(
 		// (#496) – so no identity proof is asked for.
 		const did = credential.did ?? (await WebAuthnDIDProvider.createDID(credential));
 		// The books' own identity (#496): what OrbitDB signs every entry as.
-		const booksSecret = await deriveBooksSecret(prfOutput);
+		// A member writes as their own identity, from their own root (#612),
+		// which the books granted write access when they joined (#611).
+		const booksSecret = membership ? null : await fromRoot(deriveBooksSecret);
 		// E2E builds only: books as they were made before #496, written by the
 		// passkey's own identity (its signing key from the PRF answer, its proof
 		// one more touch), so a test can watch them move (e2e/books-identity.spec.js).
 		const beforeBooksIdentity =
+			!membership &&
 			import.meta.env.VITE_E2E === 'true' &&
 			/** @type {any} */ (globalThis).__belegeBeforeBooksIdentity === true;
 		const passkeyWriter = beforeBooksIdentity
@@ -380,7 +423,12 @@ export async function startSession(
 					return { signingKey, identities, identity };
 				})()
 			: null;
-		const books = await createSecretSigner(booksSecret, { info: BOOKS_IDENTITY_INFO });
+		const { MEMBER_IDENTITY_INFO } = await import('./members/member-vault.js');
+		const books = membership
+			? await createSecretSigner(membership.memberRoot, { info: MEMBER_IDENTITY_INFO })
+			: await createSecretSigner(/** @type {Uint8Array} */ (booksSecret), {
+					info: BOOKS_IDENTITY_INFO
+				});
 		const booksIdentities = passkeyWriter
 			? passkeyWriter.identities
 			: await createBooksIdentities(helia, books);
@@ -404,26 +452,66 @@ export async function startSession(
 		// passkey's databases, to the books' identity (#496).
 		const moveFlag = `${SEALED_BOOKS_FLAG}:${did}`;
 		const booksFlag = `${BOOKS_IDENTITY_FLAG}:${booksIdentity.id}`;
-		const store = await openStore({
-			orbitdb,
-			encryptionKey,
-			replicationKey,
-			prfOutput,
-			...(beforeBooksIdentity
-				? {}
-				: {
-						accessController: booksAccessController(booksIdentity.id),
-						author: did,
-						formerWriter: did,
-						moveFromPasskey: !flagSet(booksFlag)
-					}),
-			move: !flagSet(moveFlag),
-			onOpen: (collection) => onStatus?.({ step: 'open', collection }),
-			onMove: ({ collection, moved, total }) =>
-				onStatus?.({ step: 'move', collection, done: moved, total })
-		});
-		setFlag(moveFlag);
-		if (!beforeBooksIdentity) setFlag(booksFlag);
+		// A member's device has never made the books' identity: its block, from
+		// the bundle and checked against its hash, so every entry of the books
+		// verifies without fetching it first (#612).
+		if (membership) {
+			const { CID } = await import('multiformats/cid');
+			const { sha256 } = await import('multiformats/hashes/sha2');
+			const { base58btc } = await import('multiformats/bases/base58');
+			const bytes = membership.bundle.books.identity;
+			const cid = CID.create(1, dagCbor.code, await sha256.digest(bytes));
+			if (cid.toString(base58btc) !== membership.bundle.books.identityHash) {
+				throw new Error('The bundle carries another identity than the books name.');
+			}
+			await helia.blockstore.put(cid, bytes);
+		}
+		const store = membership
+			? await openStore({
+					orbitdb,
+					encryptionKey,
+					replicationKey,
+					names: membership.bundle.names,
+					expectAddresses: membership.bundle.addresses,
+					accessController: booksAccessController(membership.bundle.books.identityId),
+					author: did,
+					onOpen: (collection) => onStatus?.({ step: 'open', collection })
+				})
+			: await openStore({
+					orbitdb,
+					encryptionKey,
+					replicationKey,
+					prfOutput: /** @type {Uint8Array} */ (prfOutput),
+					...(beforeBooksIdentity
+						? {}
+						: {
+								accessController: booksAccessController(booksIdentity.id),
+								author: did,
+								formerWriter: did,
+								moveFromPasskey: !flagSet(booksFlag)
+							}),
+					move: !flagSet(moveFlag),
+					onOpen: (collection) => onStatus?.({ step: 'open', collection }),
+					onMove: ({ collection, moved, total }) =>
+						onStatus?.({ step: 'move', collection, done: moved, total })
+				});
+		if (!membership) {
+			setFlag(moveFlag);
+			if (!beforeBooksIdentity) setFlag(booksFlag);
+		} else {
+			// A member's device learns its grant by sync (#611): until then the
+			// access lists refuse what it would write, and OrbitDB drops heads it
+			// refused without asking again. Once an access list changes, every
+			// collection exchanges its heads once more.
+			/** @type {ReturnType<typeof setTimeout> | undefined} */
+			let again;
+			for (const db of Object.values(store.databases())) {
+				/** @type {any} */ (db).access?.events?.on?.('update', () => {
+					clearTimeout(again);
+					again = setTimeout(() => store.resync().catch(() => {}), 500);
+				});
+			}
+		}
 		// An empty device that found the books through the index: the account the
 		// backups are kept for, so "Wiederherstellen" lists them at once.
 		if (pointedOwner) {
@@ -437,7 +525,15 @@ export async function startSession(
 
 		return {
 			did,
-			booksDid: booksIdentity.id,
+			booksDid: membership ? membership.bundle.books.did : booksIdentity.id,
+			/** A member's books (#612): which books, and the member's write identity; null for the owner. */
+			member: membership
+				? {
+						books: membership.bundle.books,
+						writer: booksIdentity.id,
+						vaultId: membership.record.vault.id
+					}
+				: null,
 			vault,
 			ownIndexKey,
 			identityHash: booksIdentity.hash,
@@ -506,19 +602,22 @@ export async function startSession(
 				const oldOptions = await oldBooksOpenOptions(encryptionKey, did);
 				/** @type {Record<string, string>} */
 				const oldAddresses = {};
-				for (const [name, dbName] of Object.entries(await oldBooksNames(prfOutput))) {
-					const db = await orbitdb.open(dbName, oldOptions);
-					oldAddresses[name] = String(db.address);
-					await db.close();
+				// A member's books are the sealed ones only: the older ones need the books' root.
+				if (prfOutput) {
+					for (const [name, dbName] of Object.entries(await oldBooksNames(prfOutput))) {
+						const db = await orbitdb.open(dbName, oldOptions);
+						oldAddresses[name] = String(db.address);
+						await db.close();
+					}
 				}
 				// A backup made before the books' own identity (#496) names the
 				// passkey's databases: their addresses, from opening them likewise.
 				const passkeyOptions = await passkeyBooksOpenOptions(encryptionKey, replicationKey, did);
 				/** @type {Record<string, string>} */
 				const passkeyAddresses = {};
-				for (const name of Object.keys(addresses)) {
+				for (const name of prfOutput ? Object.keys(addresses) : []) {
 					const db = await orbitdb.open(
-						await deriveSealedDatabaseName(prfOutput, name),
+						await deriveSealedDatabaseName(/** @type {Uint8Array} */ (prfOutput), name),
 						passkeyOptions
 					);
 					passkeyAddresses[name] = String(db.address);
@@ -541,8 +640,12 @@ export async function startSession(
 								encryption: await sealedEncryption(encryptionKey, replicationKey)
 							}
 						},
-						{ name: 'passkey', addresses: passkeyAddresses, open: passkeyOptions },
-						{ name: 'old', addresses: oldAddresses, open: oldOptions }
+						...(prfOutput
+							? [
+									{ name: 'passkey', addresses: passkeyAddresses, open: passkeyOptions },
+									{ name: 'old', addresses: oldAddresses, open: oldOptions }
+								]
+							: [])
 					],
 					onProgress,
 					beforeRestore: async () => {
@@ -577,9 +680,16 @@ export async function startSession(
 			 * @param {string} label how the books are called, for the member
 			 */
 			async memberBundle(label) {
+				if (!prfOutput) throw new Error('Only the owner of the books admits members.');
 				const { memberBundle } = await import('./members/member-vault.js');
 				return memberBundle({
-					books: { did: booksIdentity.id, identityId: booksIdentity.id, label },
+					books: {
+						did: booksIdentity.id,
+						identityId: booksIdentity.id,
+						label,
+						identityHash: booksIdentity.hash,
+						identity: Uint8Array.from(booksIdentity.bytes)
+					},
 					keys: {
 						database: encryptionKey,
 						replication: replicationKey,
@@ -588,6 +698,14 @@ export async function startSession(
 						backup: backupKey,
 						bridgeAuth: bridgeAuthBase ?? (await deriveBridgeAuthBase(prfOutput))
 					},
+					names: Object.fromEntries(
+						await Promise.all(
+							Object.keys(store.databases()).map(async (name) => [
+								name,
+								await deriveSealedDatabaseName(/** @type {Uint8Array} */ (prfOutput), name)
+							])
+						)
+					),
 					addresses: Object.fromEntries(
 						Object.entries(store.databases()).map(([name, db]) => [name, String(db.address)])
 					)
@@ -600,6 +718,7 @@ export async function startSession(
 			 * @param {string} writer did:key
 			 */
 			async grantWriter(writer) {
+				if (!prfOutput) throw new Error('Only the owner of the books admits members.');
 				for (const db of Object.values(store.databases())) {
 					await /** @type {any} */ (db).access.grant('write', writer);
 				}

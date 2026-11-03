@@ -129,6 +129,8 @@ export const app = $state({
 		/** @type {string | null} a QR invite that came by link, waiting for the books to open (sync/qr-link-url.js) */
 		qrInvite: null
 	},
+	/** @type {{ books: string } | null} the books open are someone else's, as their member (#612) */
+	member: null,
 	/** Belege as a UCEP consumer (ucep/): the invoicing app it is paired with. */
 	ucep: {
 		/** @type {'off' | 'starting' | 'running' | 'failed'} */
@@ -1350,14 +1352,15 @@ export async function removeSyncDevice(peerId) {
  * @param {any} credential
  * @param {ReturnType<typeof import('./unlock-progress.js').createUnlockProgress>} [progress]
  * @param {(purpose: 'prf') => Promise<void>} [beforePrompt] what the next touch is for (#429)
- * @param {{ lookupVault?: boolean, recovered?: Recovered }} [options] `lookupVault`: an empty
- *   device – ask Aleph's index for the vault (#406); `recovered`: opened with recovery words
+ * @param {{ lookupVault?: boolean, recovered?: Recovered, memberOf?: string }} [options] `lookupVault`: an empty
+ *   device – ask Aleph's index for the vault (#406); `recovered`: opened with recovery words;
+ *   `memberOf`: a member's books, by the member vault's id (#612)
  */
 async function unlockWith(
 	credential,
 	progress,
 	beforePrompt,
-	{ lookupVault = false, recovered } = {}
+	{ lookupVault = false, recovered, memberOf } = {}
 ) {
 	// Loaded lazily: Helia, libp2p and OrbitDB are most of the bundle, and the
 	// onboarding screen needs none of them.
@@ -1366,8 +1369,10 @@ async function unlockWith(
 		onStatus: (s) => progress?.status(s),
 		beforePrompt,
 		lookupVault,
-		...(recovered ? { recovered } : {})
+		...(recovered ? { recovered } : {}),
+		...(memberOf ? { memberOf } : {})
 	});
+	app.member = session.member ? { books: session.member.books.label } : null;
 	await showVault();
 	app.network.syncCapable = Boolean(session.online);
 	app.network.reloadNeeded = false;
@@ -1467,9 +1472,13 @@ async function run(getCredential, nothingFound, flow, { recovered } = {}) {
 		// A restore is an empty device: its passkey's vault may be on Aleph (#406),
 		// asked unless the network is paused.
 		const opened = recovered?.();
+		// The books chosen on the unlock screen (#612): the own, or a member's.
+		const { chosenBooks } = await import('./members/open-choice.js');
+		const memberOf = flow === 'unlock' ? chosenBooks() : '';
 		await unlockWith(credential, progress, passkeyStepsFor(flow), {
 			lookupVault: flow === 'restore' && !networkPause(),
-			...(opened ? { recovered: opened } : {})
+			...(opened ? { recovered: opened } : {}),
+			...(memberOf ? { memberOf } : {})
 		});
 		progress.finish('ready');
 		app.unlock = null;
@@ -1487,13 +1496,23 @@ async function run(getCredential, nothingFound, flow, { recovered } = {}) {
 	}
 }
 
+/**
+ * The books' vault, open – the owner's only: a member's session has none
+ * (#612), and what changes the books' passkeys or words is the owner's.
+ */
+function ownerVault() {
+	if (!session?.vault) throw new Error(t('members.ownerOnly'));
+	return session.vault;
+}
+
 /** The setting that says the vault is published on Aleph (#406). */
 const VAULT_INDEX_SETTING = 'vault/index';
 
 /** What the keys page shows of the open vault. */
 async function showVault() {
-	if (!session) return;
-	const { record, kid } = session.vault;
+	// A member's session has no books' vault to show (#612).
+	if (!session?.vault) return;
+	const { record, kid } = ownerVault();
 	const { wordsSlotId } = await import('./books-vault.js');
 	const wordsKid = await wordsSlotId();
 	// Every slot in the vault, named where this browser knows the name.
@@ -1529,8 +1548,8 @@ export async function publishBooksVault(extraKeys = []) {
 		import('./store/settings.js')
 	]);
 	await publishVault({
-		root: session.vault.root,
-		record: session.vault.record,
+		root: ownerVault().root,
+		record: ownerVault().record,
 		passkeyKeys: [session.ownIndexKey, ...extraKeys],
 		owner: await loadOwner(session.store.settings)
 	});
@@ -1557,7 +1576,7 @@ export async function addBooksPasskey(label, { publish = false } = {}) {
 	const credential = await createAdditionalPasskey({ displayName: name });
 	const prfOutput = await readPrfOutput(credential);
 	session.vault = await addPasskey(
-		session.vault,
+		ownerVault(),
 		{
 			prfOutput,
 			rawCredentialId: credential.rawCredentialId,
@@ -1584,7 +1603,7 @@ export async function removeBooksPasskey(kid, { renew = false } = {}) {
 	if (!session) throw new Error('The books are not open.');
 	const vaultModule = await import('./books-vault.js');
 	if (!renew) {
-		session.vault = vaultModule.removePasskey(session.vault, kid, globalThis.localStorage);
+		session.vault = vaultModule.removePasskey(ownerVault(), kid, globalThis.localStorage);
 	} else {
 		const { readPrfOutput } = await import('./passkey-identity.js');
 		const { WebAuthnDIDProvider } = await import(
@@ -1594,7 +1613,7 @@ export async function removeBooksPasskey(kid, { renew = false } = {}) {
 		const answers = [];
 		const wordsKid = await vaultModule.wordsSlotId();
 		// The recovery words cannot answer here: a renewed vault has none, and says so.
-		for (const slot of session.vault.record.slots.filter(
+		for (const slot of ownerVault().record.slots.filter(
 			(s) => s.kid !== kid && s.kid !== wordsKid
 		)) {
 			const rawCredentialId = new Uint8Array(
@@ -1604,7 +1623,7 @@ export async function removeBooksPasskey(kid, { renew = false } = {}) {
 			answers.push({ prfOutput, rawCredentialId });
 		}
 		session.vault = await vaultModule.renewBooksVault(
-			session.vault,
+			ownerVault(),
 			answers,
 			[kid],
 			globalThis.localStorage
@@ -1632,7 +1651,7 @@ export async function addBooksRecoveryWords(words, { publish = false } = {}) {
 	]);
 	const seed = await seedFromWords(words);
 	try {
-		session.vault = await addRecoveryWords(session.vault, seed, globalThis.localStorage);
+		session.vault = await addRecoveryWords(ownerVault(), seed, globalThis.localStorage);
 		const key = await wordsIndexKey(seed);
 		await showVault();
 		if ((publish || app.vault.indexOn) && !networkPause()) await publishBooksVault([key]);
@@ -1645,7 +1664,7 @@ export async function addBooksRecoveryWords(words, { publish = false } = {}) {
 export async function removeBooksRecoveryWords() {
 	if (!session) throw new Error('The books are not open.');
 	const { removeRecoveryWords } = await import('./books-vault.js');
-	session.vault = await removeRecoveryWords(session.vault, globalThis.localStorage);
+	session.vault = await removeRecoveryWords(ownerVault(), globalThis.localStorage);
 	await showVault();
 	if (app.vault.indexOn && !networkPause()) await publishBooksVault();
 }
@@ -1766,7 +1785,8 @@ function installE2EHooks() {
 			return {
 				// Only books made as before #496 (an E2E switch) have a passkey signing key.
 				...(secrets.signingKey ? { signingKey: hex(secrets.signingKey) } : {}),
-				booksSecret: hex(secrets.booksSecret),
+				// A member has none (#612).
+				...(secrets.booksSecret ? { booksSecret: hex(secrets.booksSecret) } : {}),
 				databaseKey: hex(secrets.databaseKey),
 				replicationKey: hex(secrets.replicationKey),
 				blobKey: hex(secrets.blobKey),
