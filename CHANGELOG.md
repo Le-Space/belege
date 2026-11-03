@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Crypto bookings older than two years get a rate**: CoinGecko answers for the last 365 days only and Kraken's daily candles cover the last 720, so a Bitcoin booking before that stayed "Kurs fehlt". The bridge now asks Kraken's trade history for the first trade of that day after 00:00 UTC – the price the day's candle would have opened with – one call at a time and spaced; a day before Kraken listed the pair still has none (`bridge/src/rates.js`).
+
 ## [0.27.0] – 2026-11-03
 
 ### Added
@@ -21,10 +25,6 @@ All notable changes to Le Space Belege. The format follows
 
 - **The device gate and the quiet identify are a workspace package** (`packages/device-gate`, `@belege/device-gate`), shared by the app's sync node and, next, the bridge's own node (#573). The app imports it through its old paths; nothing changes in what a device or a relay sees.
 - **Bridge: its functions are commands, apart from the transport** (`bridge/src/commands.js`): every route is now a named command (`bank.transactions`, `mail.search`, `llm.extract`, …) with the scope a device will need once the bridge speaks UCEP over libp2p; `server.js` is the HTTP front door that checks host, origin and token and dispatches. Nothing changes for the app; the first step of #567.
-
-### Fixed
-
-- **Crypto bookings older than two years get a rate**: CoinGecko answers for the last 365 days only and Kraken's daily candles cover the last 720, so a Bitcoin booking before that stayed "Kurs fehlt". The bridge now asks Kraken's trade history for the first trade of that day after 00:00 UTC – the price the day's candle would have opened with – one call at a time and spaced; a day before Kraken listed the pair still has none (`bridge/src/rates.js`).
 
 ## [0.26.6] – 2026-11-02
 
