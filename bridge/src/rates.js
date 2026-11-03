@@ -7,12 +7,16 @@
 //   - a crypto asset: its price at 00:00 UTC of that day
 //       1. CoinGecko /coins/{id}/history (its daily snapshot at 00:00 UTC)
 //       2. failing that, Kraken's daily candle of that day, its open price
+//       3. a day before Kraken's daily candles: Kraken's first trade of the pair
+//          at or after 00:00 UTC of that day – the price the candle would have
+//          opened with; none on that day, no rate
 //     CoinGecko's public and demo API answer for the last 365 days only. Kraken
 //     answers one call with its last 720 daily candles; the completed ones are
 //     kept per pair, so a wallet with bookings on many days costs one Kraken
 //     call per asset, not one per day – Kraken's public API refuses more than a
 //     handful in a row ("EGeneral:Too many requests"), and those days then had
-//     no rate at all.
+//     no rate at all. A day older than the candles costs one call to Kraken's
+//     trade history, one at a time and spaced, for the same reason.
 //     With `prefer: 'kraken'` (a booking on the Kraken exchange) the order
 //     turns: Kraken's own EUR price first, CoinGecko as the fallback; and
 //     Kraken can then price any asset it trades against EUR (`<SYMBOL>EUR`),
@@ -139,6 +143,8 @@ const startOfDay = (day) => Math.floor(Date.parse(`${day}T00:00:00Z`) / 1000);
 
 /** Waits before Kraken is asked again after "too many requests", in ms. */
 const KRAKEN_RETRIES = Object.freeze([1000, 2000, 4000, 8000]);
+/** The pause between two calls to Kraken's trade history (one per day older than the candles). */
+const KRAKEN_TRADES_GAP_MS = 1100;
 
 /**
  * @param {object} [options]
@@ -294,8 +300,62 @@ export function createRateService({
 		const kept = krakenSeries.get(pair);
 		const series = kept && time < kept.until ? kept : await loadKraken(pair);
 		const open = series?.opens.get(time);
-		if (!open) return null;
-		return { rate: open, usdRate: null, source: 'kraken', at: `${day}T00:00:00Z` };
+		if (open) return { rate: open, usdRate: null, source: 'kraken', at: `${day}T00:00:00Z` };
+		// Older than the 720 candles: the first trade of that day.
+		const first = series?.opens.size ? Math.min(...series.opens.keys()) : null;
+		return first !== null && time < first ? fromKrakenTrades(pair, time) : null;
+	}
+
+	/** Calls to the trade history, one after the other, spaced (Kraken counts them). */
+	let tradesQueue = Promise.resolve();
+
+	/**
+	 * Kraken's first trade of a pair at or after `time` (00:00 UTC of a day, in
+	 * seconds), if it falls on that day: the price the day's candle would have
+	 * opened with. Before a pair was listed Kraken answers with its first trade
+	 * ever, which is not that day's.
+	 *
+	 * @param {string} pair
+	 * @param {number} time
+	 */
+	function fromKrakenTrades(pair, time) {
+		const url = `https://api.kraken.com/0/public/Trades?pair=${encodeURIComponent(pair)}&since=${time}&count=1`;
+		const ask = tradesQueue.then(async () => {
+			for (let attempt = 0; ; attempt++) {
+				let res;
+				try {
+					res = await f(url, { headers: { accept: 'application/json' } });
+				} catch {
+					return null;
+				}
+				const body = res.ok ? await res.json().catch(() => null) : null;
+				const errors = Array.isArray(body?.error) ? body.error.map(String) : [];
+				const throttled =
+					res.status === 429 || errors.some((e) => /too many requests|rate limit/i.test(e));
+				if (throttled && attempt < KRAKEN_RETRIES.length) {
+					await delay(KRAKEN_RETRIES[attempt]);
+					continue;
+				}
+				if (!body || errors.length) return null;
+				const key = Object.keys(body.result ?? {}).find((k) => k !== 'last');
+				const trade = key && Array.isArray(body.result[key]) ? body.result[key][0] : null;
+				const price = Array.isArray(trade) ? toDecimal(trade[0]) : null;
+				const at = Array.isArray(trade) ? Number(trade[2]) : NaN;
+				if (!price || !Number.isFinite(at) || at < time || at >= time + 86400) return null;
+				return /** @type {const} */ ({
+					rate: price,
+					usdRate: null,
+					source: 'kraken',
+					at: new Date(Math.floor(at * 1000)).toISOString(),
+					ref: `kraken-trade:${trade[6] ?? ''}`
+				});
+			}
+		});
+		tradesQueue = ask.then(
+			() => delay(KRAKEN_TRADES_GAP_MS),
+			() => delay(KRAKEN_TRADES_GAP_MS)
+		);
+		return ask;
 	}
 
 	/**
