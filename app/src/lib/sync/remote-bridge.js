@@ -311,14 +311,15 @@ export async function startBridgeConsumer({
 	}
 
 	/**
-	 * Pair the bridge's node by its invitation and hand the books' device key
-	 * over (bridge/src/node.js `handover`): from then on the bridge is a
-	 * device of the books. The key goes once, over the Noise channel to the
-	 * peer the invitation names; it is never kept here beyond the session.
+	 * Pair the bridge's node by its invitation and hand it its own key
+	 * (bridge/src/node.js `handover`): from then on the bridge proves itself to
+	 * the books' devices with it, as that one peer. The key goes once, over the
+	 * Noise channel to the peer the invitation names; the books' device key
+	 * never leaves the browser (database-keys.js deriveBridgeAuthBase).
 	 *
 	 * @param {object} p
 	 * @param {string} p.invitation `web+ucep:pair?…`, as the bridge printed it
-	 * @param {Uint8Array} p.authKey the books' device auth key (node.js, in memory)
+	 * @param {Uint8Array} p.authKey the bridge's own key of this generation (node.js `bridgeAuth`)
 	 * @param {string[]} p.relays the relays the books use
 	 * @param {string[]} p.devices the books' devices, this one included
 	 * @returns {Promise<{ peerId: string, addrs: string[] }>} the bridge's node, and where it listens besides the relays
@@ -328,7 +329,7 @@ export async function startBridgeConsumer({
 		if (inv.extensionId !== EXTENSION) throw new UcepError('UNKNOWN_EXTENSION');
 		await consumer.pairWithInvitation(invitation.trim());
 		await consumer.call(inv.providerPeerId, EXTENSION, 'handover', {
-			deviceAuth: toBase64(authKey),
+			bridgeAuth: toBase64(authKey),
 			relays: relays.slice(0, 16),
 			devices: [...new Set(list)].slice(0, 64)
 		});
@@ -352,8 +353,22 @@ export async function startBridgeConsumer({
 		return true;
 	}
 
+	/**
+	 * "Kopplung lösen": the bridge's node forgets its key and runs unarmed,
+	 * printing a new invitation (bridge/src/node.js `unpair`).
+	 *
+	 * @returns {Promise<boolean>} whether the bridge was reached
+	 */
+	async function forgetBridge() {
+		const peerId = streamServer();
+		if (!peerId) return false;
+		await consumer.call(peerId, EXTENSION, 'unpair', {});
+		return true;
+	}
+
 	return {
 		consumer,
+		forgetBridge,
 		server,
 		streamServer,
 		remoteFetch,

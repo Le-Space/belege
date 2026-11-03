@@ -137,7 +137,7 @@ On Windows, read "Credential Manager, `belege-bridge:<account>`" for "macOS keyc
 | The Enable Banking application key and, later, its sessions (optional; `pnpm setup:enablebanking`)                                                                                  | `~/.config/belege/enablebanking.sealed` (0600, AES-256-GCM), next to `bridge.json`; the key that opens it in the macOS keychain, account `enablebanking`. Sealed in a file because an RSA key does not fit the Windows Credential Manager (2560 bytes) |
 | The LAN relay's peer key and certificate (optional; `pnpm setup:relay`)                                                                                                             | `~/.config/belege/lan-relay/` (0700; `peer-key`, `cert-key.pem` 0600), next to `bridge.json`                                                                                                                                                           |
 | The node's peer key and UCEP grants (its own libp2p node, #573)                                                                                                                     | `~/.config/belege/node/` (0700; `peer-key` 0600, `grants.json`, `invitations.json`): a peer id names, it does not open; grants are ids and peer ids                                                                                     |
-| The books' device key (from the handover at pairing by invitation)                                                                                                                 | macOS keychain, service `belege-bridge`, account `device-auth`; leaves with `/unpair` ("Kopplung lösen")                                                                                                                                 |
+| The bridge's own key (from the handover at pairing by invitation; never the books' device key)                                                                                     | macOS keychain, service `belege-bridge`, account `bridge-auth`; leaves with "Kopplung lösen"                                                                                                                                             |
 | The bearer token                                                                                                                                                                    | the app's encrypted store (`settings`), never on the bridge's disk                                                                                                                                                                                     |
 | Own wallets (chain, address, own endpoints)                                                                                                                                         | the app's encrypted store (`settings`, key `wallets`); the bridge keeps nothing, it gets them with each `POST /<chain>/wallet`                                                                                                                         |
 
@@ -151,18 +151,24 @@ no books.
 
 - **Identity:** an Ed25519 peer key, made at the first start and kept under
   `~/.config/belege/node/`. Its peer id is the bridge's name in the books' device list.
-- **Who gets in:** the same gate as on every device (`@belege/device-gate`): a peer proves that it
-  holds the books' device key before any protocol but identify, the relay's and the proof itself
-  answers it, and only a peer the books list as a device is admitted – a device removed in the app
-  is refused here too. Strangers and relays are told identify and the relay protocols, nothing
-  else.
-- **Pairing by invitation:** until a device has handed the books' device key over, the node is
+- **Who gets in:** the same gate as on every device (`@belege/device-gate`), on a key of the
+  bridge's own: a peer proves that it holds the bridge's key before any protocol but identify, the
+  relay's and the proof itself answers it, and only a peer the books list as a device is admitted –
+  a device removed in the app is refused here too. Strangers and relays are told identify and the
+  relay protocols, nothing else.
+- **The bridge's own key:** a device derives it from the books' root for this bridge and one
+  generation of its pairing, and hands it over at pairing. The books' device key never leaves the
+  browser. Devices prove themselves with the bridge's key toward this one peer only and let it
+  reach none of their own protocols (no gossipsub, no Bitswap), so a copy of the key opens no
+  device. "Kopplung lösen" moves the books to the next generation: the old key is then worth
+  nothing (#575).
+- **Pairing by invitation:** until a device has handed the bridge's key over, the node is
   *unarmed* and offers one thing, pairing (UCEP): `pnpm bridge` prints an invitation,
   `web+ucep:pair?…`, valid ten minutes. Pasted into the app under _Integrationen → Bridge_
   ("Über Einladung koppeln", with device sync on), the device pairs over the stream (the
-  invitation's secret is the proof), then sends `handover` with the device key, the relays and
-  the device list, and adds the bridge to the books as a device. The key goes to the keychain
-  (`device-auth`), relays and devices to `bridge.json` (`node`), and the node restarts *armed*;
+  invitation's secret is the proof), then sends `handover` with the bridge's key, the relays and
+  the device list, and adds the bridge to the books as their bridge. The key goes to the keychain
+  (`bridge-auth`), relays and devices to `bridge.json` (`node`), and the node restarts *armed*;
   the WebSocket keeps its port, so the invitation's address stays good. From then on every device
   of the books reaches the bridge through the relays, with no browser open on this machine, and
   keeps the bridge's device list current (`devices`, from any proved device): a device removed in
@@ -170,9 +176,10 @@ no books.
   this machine (also when an answer is too big for the stream, e.g. a mail attachment above UCEP's
   limit), and to another device's bridge last (`app/src/lib/sync/remote-bridge.js`).
 - **Off:** `pnpm bridge --no-node`, or `"node": { "enabled": false }` in `bridge.json`; the bridge
-  then runs over HTTP only, as before. `/unpair` removes the device key and the node runs on
-  unarmed.
-- **What the stream offers:** `help`, `handover`, `devices`, and – armed – `request`: one
+  then runs over HTTP only, as before. `/unpair`, or `unpair` over the stream ("Kopplung lösen" on
+  a device), removes the bridge's key and the node runs on unarmed, with a new invitation. A key a
+  build before #575 kept under `device-auth` is removed at start.
+- **What the stream offers:** `help`, `handover`, `devices`, `unpair`, and – armed – `request`: one
   bridge call, `{ method, path, body? }` with the method and path of the API below, answered
   `{ status, contentType, json | base64 }` (`src/stream.js`). It dispatches onto the same command
   table as HTTP (`src/commands.js`), with the same body limit per command and the same answer, so
@@ -493,12 +500,14 @@ a token). `POST /portals/new` (`src/portals/local.js`):
   `bridge.json` is honoured for loopback test servers alone); a download is accepted only as a PDF
   by its bytes. The browser profile with the live session is the new asset here, see
   [Kundenportale](#kundenportale).
-- **The bridge as a peer** (its node, #573): a peer that proves the books' device key and is on the
+- **The bridge as a peer** (its node, #573): a peer that proves the bridge's key and is on the
   books' device list reaches the bridge over a stream; everybody else is told identify and the
-  relay protocols only. The bridge therefore holds the books' device key (keychain,
-  `device-auth`): a stolen bridge can prove itself as a device of the books – beside the bank and
-  mail credentials it holds anyway. "Kopplung lösen" takes the key with it. Pairing by invitation
-  is as strong as the console the invitation is printed on, like the pairing code.
+  relay protocols only. The bridge holds a key of its own for that (keychain, `bridge-auth`), not
+  the books' device key: a stolen bridge can pass as this bridge toward the books' devices, which
+  then call it and get its answers, but it reaches none of their protocols and cannot pass as a
+  device. "Kopplung lösen" moves the books to the next generation of the key, so a copy of the old
+  one opens nothing. Pairing by invitation is as strong as the console the invitation is printed
+  on, like the pairing code.
 - **Not covered**: other processes running as your user can read the config and ask the keychain
   (macOS may prompt), and can use a portal session from its profile; a stolen app token works
   until you remove its hash from `bridge.json`.

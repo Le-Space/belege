@@ -86,14 +86,28 @@ export async function checkDeviceProof(authKey, proof, prover, verifier) {
  * relay, which would learn the protocol's name – and with it the app – from
  * the stream being opened.
  *
- * @param {{ authKey: Uint8Array, waitMs?: number, admit?: (peer: string, connection: any) => boolean, offer?: (peer: string) => boolean }} p
+ * `keyFor` picks the key a proof with a peer runs on: the books' device key
+ * for own devices, the bridge's own key for the peer the books name as their
+ * bridge (#575). Each side proves and checks with the same key, so a holder
+ * of the bridge's key passes as that one peer only, never as a device.
+ *
+ * `limited` names peers that are proved but reach none of this node's gated
+ * protocols and no topology (gossipsub, Bitswap): the bridge, which this node
+ * only calls and which holds no books.
+ *
+ * @param {{ authKey?: Uint8Array, keyFor?: (peer: string) => Uint8Array, waitMs?: number, admit?: (peer: string, connection: any) => boolean, offer?: (peer: string) => boolean, limited?: (peer: string) => boolean }} p
  */
 export function createDeviceGate({
 	authKey,
+	keyFor: chosen,
 	waitMs = PROOF_WAIT_MS,
 	admit = () => true,
-	offer = () => true
+	offer = () => true,
+	limited = () => false
 }) {
+	if (!authKey && !chosen) throw new Error('A device gate needs a key.');
+	/** @type {(peer: string) => Uint8Array} */
+	const keyFor = chosen ?? (() => /** @type {Uint8Array} */ (authKey));
 	/** Peers that proved the passkey on this run. */
 	const proved = new Set();
 	/** @type {Map<string, Set<() => void>>} */
@@ -122,6 +136,9 @@ export function createDeviceGate({
 		for (const listener of listeners) listener(peer);
 	}
 
+	/** Proved, and not limited: what a gated protocol and a topology need. @param {string} peer */
+	const admitted = (peer) => proved.has(peer) && !limited(peer);
+
 	/** @param {string} peer @returns {Promise<boolean>} */
 	function waitProved(peer) {
 		if (proved.has(peer)) return Promise.resolve(true);
@@ -145,7 +162,8 @@ export function createDeviceGate({
 	 */
 	const gatedHandler =
 		(handler) => async (/** @type {any} */ stream, /** @type {any} */ connection) => {
-			if (!(await waitProved(connection.remotePeer.toString()))) {
+			const peer = connection.remotePeer.toString();
+			if (!(await waitProved(peer)) || limited(peer)) {
 				stream.abort(new Error('not an own device'));
 				return;
 			}
@@ -161,11 +179,11 @@ export function createDeviceGate({
 			onConnect: (/** @type {any} */ peerId, /** @type {any} */ connection) => {
 				const peer = peerId.toString();
 				const tell = () => {
-					if (connection.status !== 'open') return;
+					if (connection.status !== 'open' || limited(peer)) return;
 					told.add(peer);
 					return topology.onConnect?.(peerId, connection);
 				};
-				if (proved.has(peer)) return tell();
+				if (admitted(peer)) return tell();
 				if (!held.has(peer)) held.set(peer, new Set());
 				/** @type {Set<() => void>} */ (held.get(peer)).add(() => {
 					Promise.resolve(tell()).catch(() => {});
@@ -203,9 +221,10 @@ export function createDeviceGate({
 			signal
 		});
 		const lp = lpStream(stream, { maxDataLength: PROOF_BYTES });
-		await lp.write(await deviceProof(authKey, self, peer), { signal });
+		const key = keyFor(peer);
+		await lp.write(await deviceProof(key, self, peer), { signal });
 		const back = (await lp.read({ signal })).subarray();
-		if ((await checkDeviceProof(authKey, back, peer, self)) && admit(peer, connection)) {
+		if ((await checkDeviceProof(key, back, peer, self)) && admit(peer, connection)) {
 			markProved(peer);
 		}
 		await stream.close().catch(() => {});
@@ -218,7 +237,8 @@ export function createDeviceGate({
 		try {
 			const lp = lpStream(stream, { maxDataLength: PROOF_BYTES });
 			const proof = (await lp.read({ signal })).subarray();
-			if (!(await checkDeviceProof(authKey, proof, peer, self))) {
+			const key = keyFor(peer);
+			if (!(await checkDeviceProof(key, proof, peer, self))) {
 				stream.abort(new Error('not an own device'));
 				return;
 			}
@@ -227,7 +247,7 @@ export function createDeviceGate({
 				return;
 			}
 			markProved(peer);
-			await lp.write(await deviceProof(authKey, self, peer), { signal });
+			await lp.write(await deviceProof(key, self, peer), { signal });
 			await stream.close().catch(() => {});
 		} catch (error) {
 			stream.abort(error instanceof Error ? error : new Error(String(error)));

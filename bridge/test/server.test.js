@@ -43,6 +43,8 @@ describe('bridge server', () => {
 			configPath
 		);
 		bridge = await startBridge({
+			// Not the node: it would ask this machine's keychain (node.test.js covers it).
+			node: false,
 			configPath,
 			keychain,
 			port: 0,

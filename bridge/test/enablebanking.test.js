@@ -288,6 +288,8 @@ test('/health says whether Enable Banking is set up', async () => {
 	});
 
 	const bridge = await startBridge({
+		// Not the node: it would ask this machine's keychain (node.test.js covers it).
+		node: false,
 		configPath,
 		enablebankingKeychain: keychain,
 		keychain: memoryKeychain(),

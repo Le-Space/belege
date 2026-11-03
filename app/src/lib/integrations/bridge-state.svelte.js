@@ -6,6 +6,7 @@ import { createBridgeClient, DEFAULT_BRIDGE_URL } from '$lib/bridge/client.js';
 import {
 	app,
 	currentStore,
+	forgetBridgeNode,
 	pairBridgeNode,
 	refreshLlmRedaction,
 	removeSyncDevice
@@ -210,8 +211,9 @@ export async function pairBridgeByInvitation(invitation) {
 
 /**
  * "Kopplung lösen": the bridge forgets the token too, so a copy of it is
- * worthless; its node leaves the books' device list, so every device refuses
- * it from now on (the bridge itself disarms with `/unpair`).
+ * worthless. Its node is asked to forget its key and leaves the books'
+ * devices, and the books move to the next generation of the bridge's key
+ * (#575): a copy of the old key opens nothing, on any device.
  */
 export async function unpairBridge() {
 	const store = currentStore();
@@ -226,8 +228,21 @@ export async function unpairBridge() {
 			bridge.error = t('integrationen.bridge.unpairOffline');
 		}
 	}
-	if (bridge.peerId) await removeSyncDevice(bridge.peerId).catch(() => {});
-	await setSetting(store.settings, 'bridge', { url: bridge.url, token: null });
+	if (bridge.peerId) {
+		await forgetBridgeNode().catch(() => {});
+		await removeSyncDevice(bridge.peerId).catch(() => {});
+	}
+	const saved = /** @type {any} */ (await getSetting(store.settings, 'bridge'));
+	const generation = Number.isSafeInteger(saved?.keyGeneration) ? saved.keyGeneration : 1;
+	await setSetting(store.settings, 'bridge', {
+		url: bridge.url,
+		token: null,
+		...(saved?.peerId
+			? { keyGeneration: generation + 1 }
+			: saved?.keyGeneration
+				? { keyGeneration: generation }
+				: {})
+	});
 	bridge.token = null;
 	bridge.peerId = null;
 }

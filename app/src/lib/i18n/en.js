@@ -3948,7 +3948,7 @@ export default {
 			invitation: 'The bridge’s invitation',
 			pairInvitation: 'Pair by invitation',
 			invitationHint:
-				'The bridge shows the invitation (web+ucep:pair?…) in the terminal on start-up, as long as it is not a device of the books yet. This device hands it the books’ device key; from then on every device of yours reaches it through the relays.',
+				'The bridge shows the invitation (web+ucep:pair?…) in the terminal on start-up, as long as it is not a device of the books yet. This device hands it a key of its own (never the books’ device key); from then on every device of yours reaches it through the relays.',
 			viaDeviceHint:
 				'This device uses your Mac’s bridge. Pairing, setting up and unpairing happen there; only read-only queries and receipt reading go across from here.',
 			onAPhone:

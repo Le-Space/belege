@@ -54,6 +54,14 @@ export const PEER_KEY_INFO = 'belege/peer-key/v1';
 export const DEVICE_AUTH_INFO = 'belege/device-auth/v1';
 
 /**
+ * The base of the bridge's own key (#575): the bridge's node proves itself to
+ * the books' devices with a key of its own, never with DEVICE_AUTH_INFO's.
+ * The key for one pairing is derived from this base and a generation the
+ * books keep (`bridgeAuthKeyOf`), so "Kopplung lösen" makes it worthless.
+ */
+export const BRIDGE_AUTH_INFO = 'belege/bridge-auth/v1';
+
+/**
  * The key OrbitDB's `replication` layer seals whole entries with
  * (entry-encryption.js `sealedEncryption`). Bumping it makes every sealed log
  * unreadable.
@@ -210,7 +218,8 @@ export async function deriveDevicePeerSeed(prfOutput, salt) {
 
 /**
  * The key own devices prove to each other with that they hold the passkey
- * (sync/device-gate.js): the same on every device of it, never sent.
+ * (sync/device-gate.js): the same on every device of it, never sent – the
+ * bridge gets a key of its own (deriveBridgeAuthBase).
  *
  * @param {Uint8Array} prfOutput
  * @returns {Promise<Uint8Array>} 32 bytes
@@ -218,6 +227,38 @@ export async function deriveDevicePeerSeed(prfOutput, salt) {
 export async function deriveDeviceAuthKey(prfOutput) {
 	assertPrfOutput(prfOutput);
 	return hkdf(prfOutput, DEVICE_AUTH_INFO, KEY_BYTES);
+}
+
+/**
+ * The base of the bridge's own key (BRIDGE_AUTH_INFO). Kept in memory for the
+ * session, never written; only `bridgeAuthKeyOf` of it leaves the browser,
+ * once, to the bridge at its pairing.
+ *
+ * @param {Uint8Array} prfOutput
+ * @returns {Promise<Uint8Array>} 32 bytes
+ */
+export async function deriveBridgeAuthBase(prfOutput) {
+	assertPrfOutput(prfOutput);
+	return hkdf(prfOutput, BRIDGE_AUTH_INFO, KEY_BYTES);
+}
+
+/**
+ * The bridge's key for one generation of its pairing: what the bridge keeps
+ * in its keychain and proves with. A new generation (after "Kopplung lösen")
+ * gives a new key; the old one opens nothing any more.
+ *
+ * @param {Uint8Array} base from deriveBridgeAuthBase
+ * @param {number} generation 1, 2, …
+ * @returns {Promise<Uint8Array>} 32 bytes
+ */
+export async function bridgeAuthKeyOf(base, generation) {
+	if (!(base instanceof Uint8Array) || base.length !== KEY_BYTES) {
+		throw new Error('The bridge key base is 32 bytes.');
+	}
+	if (!Number.isSafeInteger(generation) || generation < 1) {
+		throw new Error('A bridge key generation is a whole number from 1.');
+	}
+	return hkdf(base, `${BRIDGE_AUTH_INFO}:${generation}`, KEY_BYTES);
 }
 
 /**

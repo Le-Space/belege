@@ -43,7 +43,11 @@ export const ACCOUNTS = /** @type {const} */ ({
 	alchemy: { what: 'Alchemy API key', setup: 'setup:alchemy' },
 	enablebanking: { what: 'Enable Banking key', setup: 'setup:enablebanking' },
 	'aleph-backup': { what: 'Aleph backup key', setup: 'setup:aleph' },
-	'device-auth': { what: 'the books’ device key', setup: 'bridge (pairing by invitation)' },
+	'bridge-auth': { what: 'the bridge’s own key', setup: 'bridge (pairing by invitation)' },
+	'device-auth': {
+		what: 'the books’ device key (before #575)',
+		setup: 'bridge (pairing by invitation)'
+	},
 	'portal:vodafone': { what: 'Vodafone password', setup: 'setup:portal vodafone' }
 });
 

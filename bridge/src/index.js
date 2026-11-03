@@ -9,7 +9,7 @@ import {
 } from './config.js';
 import { createHibiscusClient } from './hibiscus.js';
 import { systemKeychain } from './keychain.js';
-import { DEVICE_AUTH_ACCOUNT } from './node.js';
+import { BRIDGE_AUTH_ACCOUNT, LEGACY_DEVICE_AUTH_ACCOUNT } from './node.js';
 import { createPairing } from './pairing.js';
 import { createBridgeServer } from './server.js';
 import { createMailClient } from './mail/imap.js';
@@ -101,7 +101,8 @@ export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
  * @param {boolean} [options.lanRelayLoopback] the LAN relay may listen on 127.0.0.1 (tests only)
  * @param {boolean} [options.forcePairingCode] issue a code even when already paired
  * @param {boolean} [options.node] the bridge's own libp2p node (node.js, #573); false: HTTP only
- * @param {import('./keychain.js').Keychain} [options.deviceAuthKeychain] the books' device auth key, from the handover
+ * @param {import('./keychain.js').Keychain} [options.bridgeAuthKeychain] the bridge's own key, from the handover (#575)
+ * @param {import('./keychain.js').Keychain | null} [options.legacyDeviceAuthKeychain] where a build before #575 kept the books' device key: removed at start
  * @param {any[]} [options.nodeTransports] tests: the memory transport
  * @param {string[]} [options.nodeListen] tests: listen addresses
  * @param {number} [options.port] overrides the config
@@ -137,7 +138,8 @@ export async function startBridge({
 	lanRelayLoopback = false,
 	forcePairingCode = false,
 	node: nodeWanted = true,
-	deviceAuthKeychain = systemKeychain({ account: DEVICE_AUTH_ACCOUNT }),
+	bridgeAuthKeychain = systemKeychain({ account: BRIDGE_AUTH_ACCOUNT }),
+	legacyDeviceAuthKeychain = systemKeychain({ account: LEGACY_DEVICE_AUTH_ACCOUNT }),
 	nodeTransports,
 	nodeListen,
 	port,
@@ -333,15 +335,17 @@ export async function startBridge({
 			: null;
 
 	// The bridge's own libp2p node (#573): unarmed until a device hands the
-	// books' device key over by the invitation printed below, armed after.
+	// bridge's own key over by the invitation printed below, armed after.
 	/** @type {import('./node.js').BridgeNode | null} */
 	let node = null;
 	const nodeDir = join(dirname(configPath), 'node');
 	const nodeOn = nodeWanted && config.node.enabled;
+	// A build before #575 kept the books' device key here: it goes, unread.
+	if (nodeOn) await legacyDeviceAuthKeychain?.remove?.().catch(() => {});
 	/** The key as the keychain holds it, or null. */
-	async function deviceAuthKey() {
+	async function bridgeAuthKey() {
 		try {
-			const hex = await deviceAuthKeychain.read();
+			const hex = await bridgeAuthKeychain.read();
 			return /^[0-9a-f]{64}$/.test(hex) ? Uint8Array.from(Buffer.from(hex, 'hex')) : null;
 		} catch {
 			return null;
@@ -354,7 +358,7 @@ export async function startBridge({
 		const { startBridgeNode } = await import('./node.js');
 		node = await startBridgeNode({
 			dir: nodeDir,
-			authKey: await deviceAuthKey(),
+			authKey: await bridgeAuthKey(),
 			relays: config.node.relays,
 			devices: config.node.devices,
 			// The same table as HTTP: `request { method, path, body? }` over the stream (stream.js).
@@ -363,7 +367,7 @@ export async function startBridge({
 			...(nodeTransports ? { transports: nodeTransports } : {}),
 			...(nodeListen ? { listen: nodeListen } : {}),
 			onHandover: async ({ authKey, relays, devices }) => {
-				await deviceAuthKeychain.write(Buffer.from(authKey).toString('hex'));
+				await bridgeAuthKeychain.write(Buffer.from(authKey).toString('hex'));
 				config.node.relays = relays;
 				config.node.devices = devices;
 				await saveConfig(config, configPath);
@@ -375,10 +379,23 @@ export async function startBridge({
 				config.node.devices = devices;
 				await saveConfig(config, configPath);
 			},
+			onUnpair: async () => {
+				await disarmNode();
+				print('Unpaired by a device of the books: the node waits to be paired again.');
+				if (node && !node.armed) print(await node.invite());
+			},
 			log
 		});
 		const ws = node.addrs().find((a) => /^\/ip4\/127\.0\.0\.1\/tcp\/\d+\/ws/.test(a));
 		if (ws) wsPort = Number(/\/tcp\/(\d+)\//.exec(ws)?.[1] ?? wsPort);
+	}
+	/** "Kopplung lösen": the bridge's key leaves, the node runs on unarmed. */
+	async function disarmNode() {
+		await bridgeAuthKeychain.remove?.().catch(() => {});
+		config.node.devices = [];
+		await saveConfig(config, configPath);
+		await node?.stop().catch(() => {});
+		await startNode();
 	}
 	/** What the HTTP front door tells, and does, about the node. */
 	const nodeHandle = nodeOn
@@ -390,14 +407,7 @@ export async function startBridge({
 					addrs: node?.addrs() ?? [],
 					devices: node ? node.devices().size : 0
 				}),
-				// "Kopplung lösen": the books' key leaves, the node runs on unarmed.
-				disarm: async () => {
-					await deviceAuthKeychain.remove?.().catch(() => {});
-					config.node.devices = [];
-					await saveConfig(config, configPath);
-					await node?.stop().catch(() => {});
-					await startNode();
-				}
+				disarm: () => disarmNode()
 			}
 		: null;
 

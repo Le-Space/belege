@@ -130,6 +130,19 @@ test('a device pairs the bridge’s node by invitation and reaches it over the s
 				.filter({ hasText: 'Bridge' })
 				.getByTestId('devices-item-state')
 		).toContainText('verbunden', { timeout: 60_000 });
+
+		// "Kopplung lösen": the bridge forgets its key over the stream and offers a new invitation;
+		// the books move on to the next generation of the bridge's key.
+		const invitationsBefore = (bridgeOut.match(/web\+ucep:pair\?/g) ?? []).length;
+		await openIntegration(mac.page, 'bridge');
+		await mac.page.getByTestId('unpair').click();
+		await expect(mac.page.getByTestId('bridge-invitation')).toBeVisible();
+		await expect.poll(() => bridgeOut, { timeout: 30_000 }).toMatch(/Unpaired by a device/);
+		await expect
+			.poll(() => (bridgeOut.match(/web\+ucep:pair\?/g) ?? []).length, { timeout: 30_000 })
+			.toBeGreaterThan(invitationsBefore);
+		await openIntegration(mac.page, 'geraete');
+		await expect(mac.page.getByTestId('devices-item').filter({ hasText: 'Bridge' })).toHaveCount(0);
 	} catch (error) {
 		console.length && test.info().attach('console', { body: console.join('\n') });
 		throw error;

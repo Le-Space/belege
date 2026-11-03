@@ -72,29 +72,29 @@ describe('the bridge’s node', () => {
 			'/ip4/127.0.0.1/tcp/4001/ws/p2p/12D3KooWGzN9EoHWJ3u4ZyiDpm7DVpNcwRVaUPfYzCgxGmnpHsGp';
 		const peer = '12D3KooWGzN9EoHWJ3u4ZyiDpm7DVpNcwRVaUPfYzCgxGmnpHsGp';
 		const ok = parseHandover({
-			deviceAuth: Buffer.from(AUTH_KEY).toString('base64'),
+			bridgeAuth: Buffer.from(AUTH_KEY).toString('base64'),
 			relays: [relay, relay],
 			devices: [peer]
 		});
 		assert.deepEqual([...ok.authKey], [...AUTH_KEY]);
 		assert.deepEqual(ok.relays, [relay]);
 		assert.deepEqual(ok.devices, [peer]);
-		assert.throws(() => parseHandover({ deviceAuth: 'AAAA' }), /32 bytes/);
+		assert.throws(() => parseHandover({ bridgeAuth: 'AAAA' }), /32 bytes/);
 		assert.throws(
-			() => parseHandover({ deviceAuth: Buffer.alloc(32).toString('base64') }),
+			() => parseHandover({ bridgeAuth: Buffer.alloc(32).toString('base64') }),
 			/32 bytes/
 		);
 		assert.throws(
 			() =>
 				parseHandover({
-					deviceAuth: Buffer.from(AUTH_KEY).toString('base64'),
+					bridgeAuth: Buffer.from(AUTH_KEY).toString('base64'),
 					relays: ['/ip4/1.2.3.4/tcp/1']
 				}),
 			/relays/
 		);
 		assert.throws(
 			() =>
-				parseHandover({ deviceAuth: Buffer.from(AUTH_KEY).toString('base64'), devices: ['nope'] }),
+				parseHandover({ bridgeAuth: Buffer.from(AUTH_KEY).toString('base64'), devices: ['nope'] }),
 			/devices/
 		);
 	});
@@ -141,7 +141,7 @@ describe('the bridge’s node', () => {
 				(/** @type {any} */ e) => e.code === 'PAIRING_REQUIRED'
 			);
 			const answer = await phone.consumer.call(node.peerId, 'belege-bridge', 'handover', {
-				deviceAuth: Buffer.from(AUTH_KEY).toString('base64'),
+				bridgeAuth: Buffer.from(AUTH_KEY).toString('base64'),
 				relays: [],
 				devices: []
 			});
@@ -182,6 +182,7 @@ describe('the bridge’s node', () => {
 		const stranger = await device(OTHER_KEY);
 		/** @type {Awaited<ReturnType<typeof startBridgeNode>> | null} */
 		let node = null;
+		let unpaired = 0;
 		try {
 			node = await startBridgeNode({
 				dir: nodeDir,
@@ -190,7 +191,8 @@ describe('the bridge’s node', () => {
 				devices: [own.peerId],
 				commands: emptyCommands(),
 				transports: [memory()],
-				listen: ['/memory/bridge-two']
+				listen: ['/memory/bridge-two'],
+				onUnpair: async () => void unpaired++
 			});
 			const addr = `/memory/bridge-two/p2p/${node.peerId}`;
 			// The own device: proved, and told the extension.
@@ -200,7 +202,7 @@ describe('the bridge’s node', () => {
 			const provedHere = await waitFor(() => own.gate?.isProved(node.peerId) === true);
 			assert.equal(provedHere, true, 'the device proved the bridge and the bridge proved back');
 			const answer = await own.consumer.call(node.peerId, 'belege-bridge', 'help', {});
-			assert.deepEqual(answer.commands, ['help', 'handover', 'devices', 'request']);
+			assert.deepEqual(answer.commands, ['help', 'handover', 'devices', 'unpair', 'request']);
 			assert.ok(answer.requests.some((/** @type {any} */ r) => r.name === 'mail.search'));
 			assert.ok(!answer.requests.some((/** @type {any} */ r) => r.name === 'session.pair'));
 
@@ -246,6 +248,12 @@ describe('the bridge’s node', () => {
 			});
 			assert.equal(kept.devices, 2);
 			assert.equal(node.devices().size, 2);
+
+			// "Kopplung lösen" on a device: the bridge is told to forget its key, a moment later.
+			const gone = await own.consumer.call(node.peerId, 'belege-bridge', 'unpair', {});
+			assert.equal(gone.unpaired, true);
+			assert.equal(unpaired, 0, 'the answer goes out before the restart');
+			assert.equal(await waitFor(() => unpaired === 1), true);
 		} finally {
 			await node?.stop();
 			await own.stop();

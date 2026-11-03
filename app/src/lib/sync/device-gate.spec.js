@@ -192,6 +192,52 @@ describe('device gate', () => {
 	});
 });
 
+describe('the bridge’s own key (#575)', () => {
+	it('proves the bridge as that one peer, with no books and no gossipsub; opens no device', async () => {
+		const deviceKey = await deriveDeviceAuthKey(new Uint8Array(32).fill(7));
+		const bridgeKey = new Uint8Array(32).fill(5);
+		const bridgeGate = createDeviceGate({ authKey: bridgeKey, waitMs: 800 });
+		const thiefGate = createDeviceGate({ authKey: bridgeKey, waitMs: 800 });
+		const bridge = await node('gate-bridge', bridgeGate);
+		const thief = await node('gate-thief', thiefGate);
+		const bridgePeer = bridge.peerId.toString();
+		// A device that knows its bridge: the bridge's key with that peer, the device key with all others.
+		const deviceGate = createDeviceGate({
+			keyFor: (peer) => (peer === bridgePeer ? bridgeKey : deviceKey),
+			limited: (peer) => peer === bridgePeer,
+			waitMs: 800
+		});
+		const d = await node('gate-d', deviceGate);
+		const plain = createDeviceGate({ authKey: deviceKey, waitMs: 800 });
+		const e = await node('gate-e', plain);
+		try {
+			// The device dials its bridge: both proved, with the bridge's key.
+			await d.dial(multiaddr('/memory/gate-bridge'));
+			await until(
+				() => deviceGate.isProved(bridgePeer) && bridgeGate.isProved(d.peerId.toString())
+			);
+			// Proved, but limited: no books from the device, and not in its gossipsub.
+			await expect(askBooks(bridge, d)).rejects.toThrow();
+			await wait(1000);
+			expect(
+				d.services.pubsub.getPeers().some((/** @type {any} */ p) => p.equals(bridge.peerId))
+			).toBe(false);
+			// The bridge's key under another peer id: nothing.
+			await thief.dial(multiaddr('/memory/gate-d'));
+			await expect(askBooks(thief, d)).rejects.toThrow();
+			await wait(1000);
+			expect(deviceGate.isProved(thief.peerId.toString())).toBe(false);
+			// The bridge's key on a device that does not name this bridge: nothing either.
+			await bridge.dial(multiaddr('/memory/gate-e'));
+			await expect(askBooks(bridge, e)).rejects.toThrow();
+			await wait(1000);
+			expect(plain.isProved(bridgePeer)).toBe(false);
+		} finally {
+			await Promise.all([bridge, thief, d, e].map((n) => n.stop()));
+		}
+	});
+});
+
 describe('whom the proof is offered to', () => {
 	it('not to a relay the node dials: the relay never sees the protocol’s name', async () => {
 		const key = await deriveDeviceAuthKey(new Uint8Array(32).fill(9));
