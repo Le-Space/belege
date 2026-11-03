@@ -10,6 +10,7 @@ Belege hält die Bücher eines Unternehmens im Browser, versiegelt mit Schlüsse
 - **Gegen eine Kopie des Browserprofils oder der Festplatte.** Kein Schlüssel wird gespeichert. Ohne den Passkey bleibt versiegelt, was gespeichert ist.
 - **Gegen fremde Geräte.** Die Bücher bekommt nur ein Gerät, das nachweist, dass es den Passkey hat.
 - **Gegenüber dem Sprachmodell.** Text für ein gehostetes Modell wird vorher geschwärzt, und ein Modell in einer attestierten Enklave liest ihn nur dort ([ai.de.md](ai.de.md)).
+- **Gegen eine gestohlene Bridge, was die Bücher angeht.** Die Bridge hält die Zugänge zu Bank, Postfach und Sprachmodell, nicht die Schlüssel der Bücher. Per Einladung gekoppelt hält sie einen eigenen Schlüssel: Er zeigt, dass sie deine Bridge ist, und öffnet keine Bücher und kein Gerät. „Kopplung lösen“ macht ihn wertlos ([keys.de.md](keys.de.md#was-die-bridge-hält-und-warum)).
 
 ## Wogegen Belege nicht schützen kann
 

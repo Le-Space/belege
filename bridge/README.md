@@ -189,6 +189,75 @@ no books.
   a direct connection, 64 KiB relayed – and are refused `TOO_LARGE` above it. Scopes per command
   follow in M2 (#579); until then a device the gate let through is what the token's owner is.
 
+### Commands and scopes
+
+Every function of the bridge is a command (`src/commands.js`). Over HTTP the token is all of
+them. Over the stream (`request`) a device the gate let through is what the token's owner is:
+the scope column names the grant each command will need once scopes are checked per command
+(milestone M2, #579). Until then the scope is a name only. `test/readme.test.js` keeps this
+table complete.
+
+| Command | HTTP | Scope | Over the stream |
+|---|---|---|---|
+| `bridge.health` | `GET /health` | public | yes |
+| `session.pair` | `POST /pair` | public | no: HTTP only |
+| `share.read` | `GET /share/<id>` | public | no: HTTP only |
+| `share.create` | `POST /share` | `bridge:share` | no: HTTP only |
+| `share.list` | `GET /share` | `bridge:share` | no: HTTP only |
+| `share.revoke` | `DELETE /share/<id>` | `bridge:share` | no: HTTP only |
+| `session.unpair` | `POST /unpair` | the token | no: HTTP only |
+| `bank.accounts` | `GET /hibiscus/accounts` | `bridge:bank:read` | yes |
+| `bank.transactions` | `GET /hibiscus/transactions` | `bridge:bank:read` | yes |
+| `mail.messages` | `GET /mail/messages` | `bridge:mail:read` | yes |
+| `mail.attachment` | `GET /mail/attachment` | `bridge:mail:read` | yes |
+| `mail.raw` | `GET /mail/raw` | `bridge:mail:read` | yes |
+| `mail.trash` | `POST /mail/trash` | `bridge:mail:write` | yes |
+| `mail.search` | `GET /mail/search` | `bridge:mail:read` | yes |
+| `llm.match` | `POST /match/assist` | `bridge:llm` | yes |
+| `llm.vendor` | `POST /vendor/assist` | `bridge:llm` | yes |
+| `llm.transfer` | `POST /transfer/assist` | `bridge:llm` | yes |
+| `llm.mail` | `POST /mail/assist` | `bridge:llm` | yes |
+| `aleph.accounts` | `POST /aleph/accounts` | `bridge:chains:read` | yes |
+| `aleph.statement` | `GET /aleph/statement` | `bridge:chains:read` | yes |
+| `backup.status` | `GET /backup/status` | `bridge:backup` | yes |
+| `backup.list` | `GET /backup/aleph/list` | `bridge:backup` | yes |
+| `backup.keep` | `POST /backup/aleph/pin` | `bridge:backup` | yes |
+| `backup.put` | `POST /backup/aleph` | `bridge:backup` | no: bytes in (a block in M2) |
+| `rates.rate` | `GET /rates` | `bridge:chains:read` | yes |
+| `kraken.balances` | `GET /kraken/balances` | `bridge:chains:read` | yes |
+| `kraken.ledgers` | `GET /kraken/ledgers` | `bridge:chains:read` | yes |
+| `paperless.documents` | `GET /paperless/documents` | `bridge:paperless:read` | yes |
+| `paperless.search` | `GET /paperless/search` | `bridge:paperless:read` | yes |
+| `paperless.document` | `GET /paperless/document` | `bridge:paperless:read` | yes |
+| `enablebanking.banks` | `GET /enablebanking/banks` | `bridge:bank:read` | yes |
+| `enablebanking.link` | `POST /enablebanking/link` | `bridge:bank:link` | yes |
+| `enablebanking.finish` | `POST /enablebanking/finish` | `bridge:bank:link` | yes |
+| `enablebanking.accounts` | `GET /enablebanking/accounts` | `bridge:bank:read` | yes |
+| `enablebanking.transactions` | `GET /enablebanking/transactions` | `bridge:bank:read` | yes |
+| `enablebanking.links` | `GET /enablebanking/links` | `bridge:bank:read` | yes |
+| `enablebanking.unlink` | `DELETE /enablebanking/links/<session id>` | `bridge:bank:link` | yes |
+| `chains.list` | `GET /chains` | `bridge:chains:read` | yes |
+| `lanRelay.status` | `GET /lan-relay` | `bridge:chains:read` | yes |
+| `chains.bitcoinKey` | `GET /bitcoin/key` | `bridge:chains:read` | yes |
+| `chains.akashDeployments` | `POST /akash/deployments` | `bridge:chains:read` | yes |
+| `chains.wallet` | `POST /<chain>/wallet` | `bridge:chains:read` | yes |
+| `llm.status` | `GET /llm/status` | `bridge:llm` | yes |
+| `llm.extract` | `POST /extract` | `bridge:llm` | yes |
+
+The node's own commands, outside `request`:
+
+| Command | Who may call | What it does |
+|---|---|---|
+| `help` | any peer that reaches the extension | the commands, armed or not, and the requests offered |
+| `handover` | the device that paired by invitation (UCEP scope `belege-bridge:pairing:manage`), unarmed only | the bridge's key, relays and devices; the node restarts armed |
+| `devices` | a proved device of the books | the books' device list |
+| `unpair` | a proved device of the books | the key leaves the keychain; the node runs unarmed with a new invitation |
+| `request` | a proved device of the books, armed only | one command of the table above |
+
+**What a relay sees** of the bridge: its peer id, the peer ids of the devices that call it,
+when and how much – never content. Noise encrypts every connection end to end, and the relay
+is never offered the proof, so it does not learn which app is behind the peer ids.
+
 ## API
 
 All JSON, `127.0.0.1:8765` by default. Everything except `/health` and `/pair` needs
