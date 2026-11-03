@@ -90,7 +90,9 @@ describe('relayAddrs', () => {
 				return new Response(JSON.stringify({ posts: [] }));
 			}
 		);
-		await relayAddrs({ configured: '', fetch });
+		// Made up: a guest wallet trusted one by one (none is, today).
+		const senders = ['0x0000000000000000000000000000000000000001'];
+		await relayAddrs({ configured: '', fetch, senders });
 		expect(asked).toHaveLength(2);
 		for (const url of asked) {
 			expect(url.searchParams.get('channels')).toBe('simple-todo');
@@ -99,12 +101,19 @@ describe('relayAddrs', () => {
 		}
 		expect(asked.map((url) => url.searchParams.get('addresses')?.split(',') ?? null)).toEqual([
 			null,
-			[...TRUSTED_RELAY_SENDERS]
+			senders
 		]);
+		// No guest wallet trusted: only the accounts are asked.
+		asked.length = 0;
+		await relayAddrs({ configured: '', fetch });
+		expect(TRUSTED_RELAY_SENDERS).toEqual([]);
+		expect(asked).toHaveLength(1);
+		expect(asked[0].searchParams.get('addresses')).toBeNull();
 	});
 
 	it('puts a relay of a trusted account first, once Aleph confirms its instance', async () => {
 		const owner = TRUSTED_RELAY_OWNERS[0];
+		const sender = '0x0000000000000000000000000000000000000001';
 		const relay = `/dns4/${HOST}/tcp/443/tls/ws/p2p/${PEER_B}`;
 		const wallet = `/dns4/a.example.com/tcp/443/tls/ws/p2p/${PEER_A}`;
 		const fetchWith = (/** @type {string} */ instanceOwner) =>
@@ -122,14 +131,18 @@ describe('relayAddrs', () => {
 							})
 						);
 					if (url.searchParams.get('addresses'))
-						return new Response(
-							JSON.stringify({ posts: [post(TRUSTED_RELAY_SENDERS[0], 1, [wallet])] })
-						);
+						return new Response(JSON.stringify({ posts: [post(sender, 1, [wallet])] }));
 					return new Response(JSON.stringify({ posts: [ownerPost(owner, INSTANCE, 2, [relay])] }));
 				}
 			);
-		expect(await relayAddrs({ configured: '', fetch: fetchWith(owner) })).toEqual([relay, wallet]);
-		expect(await relayAddrs({ configured: '', fetch: fetchWith(STRANGER) })).toEqual([wallet]);
+		const senders = [sender];
+		expect(await relayAddrs({ configured: '', fetch: fetchWith(owner), senders })).toEqual([
+			relay,
+			wallet
+		]);
+		expect(await relayAddrs({ configured: '', fetch: fetchWith(STRANGER), senders })).toEqual([
+			wallet
+		]);
 	});
 
 	it('falls back to the relays last known when Aleph cannot be asked or knows none', async () => {
