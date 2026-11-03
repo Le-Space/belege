@@ -279,7 +279,10 @@ export async function oldBooksNames(prfOutput) {
  * @param {any} params.orbitdb a started OrbitDB instance
  * @param {Uint8Array} params.encryptionKey 32 bytes from `deriveDatabaseKey`
  * @param {Uint8Array} params.replicationKey 32 bytes from `deriveReplicationKey`
- * @param {Uint8Array} params.prfOutput names the databases, see `deriveSealedDatabaseName`
+ * @param {Uint8Array} [params.prfOutput] names the databases, see `deriveSealedDatabaseName`
+ * @param {Record<string, string>} [params.names] a member's books (#612): every collection's sealed
+ *   name from the member bundle, instead of deriving it from the root – no moves
+ * @param {Record<string, string>} [params.expectAddresses] the address each name must open to
  * @param {boolean} [params.move] move the books before the replication layer in
  * @param {(progress: { collection: string, moved: number, total: number }) => void} [params.onMove]
  * @param {(name: string) => void} [params.onOpen] before each collection is opened (its index is
@@ -298,6 +301,8 @@ export async function openStore({
 	encryptionKey,
 	replicationKey,
 	prfOutput,
+	names,
+	expectAddresses,
 	move = false,
 	onOpen,
 	onMove,
@@ -312,6 +317,12 @@ export async function openStore({
 	}
 	if (!(replicationKey instanceof Uint8Array) || replicationKey.length !== 32) {
 		throw new Error('The store cannot be opened without its 32-byte replication key.');
+	}
+	if (names && (move || moveFromPasskey)) {
+		throw new Error('A member’s books move nothing in.');
+	}
+	if (!names && !(prfOutput instanceof Uint8Array)) {
+		throw new Error('The store needs the books’ root, or every collection’s name.');
 	}
 	if (moveFromPasskey && !formerWriter) {
 		throw new Error('Moving the passkey’s databases needs the DID they were written by.');
@@ -328,20 +339,27 @@ export async function openStore({
 	const collections = {};
 	for (const name of COLLECTIONS) {
 		onOpen?.(name);
-		dbs[name] = await orbitdb.open(await deriveSealedDatabaseName(prfOutput, name), {
+		const where = names
+			? names[name]
+			: await deriveSealedDatabaseName(/** @type {Uint8Array} */ (prfOutput), name);
+		if (!where) throw new Error(`No name for ${name}.`);
+		dbs[name] = await orbitdb.open(where, {
 			type: SealedDocuments.type,
 			Database: SealedDocuments({ indexBy: 'id' }),
 			encryption,
 			...(accessController ? { AccessController: accessController } : {}),
 			...(await extra(name))
 		});
+		if (expectAddresses && String(dbs[name].address) !== expectAddresses[name]) {
+			throw new Error(`${name} opened to another address than the books’: not these books.`);
+		}
 		collections[name] = createCollection(dbs[name], name, { author });
 	}
 
 	/** @type {Record<string, { total: number, moved: number }>} */
 	const moved = {};
 	if (move) {
-		const names = await oldBooksNames(prfOutput);
+		const names = await oldBooksNames(/** @type {Uint8Array} */ (prfOutput));
 		const options = await oldBooksOpenOptions(encryptionKey, formerWriter);
 		for (const name of OLD_COLLECTIONS) {
 			const from = await orbitdb.open(names[name], { ...options, ...(await extra(name)) });
@@ -364,10 +382,13 @@ export async function openStore({
 	if (moveFromPasskey && formerWriter) {
 		const options = await passkeyBooksOpenOptions(encryptionKey, replicationKey, formerWriter);
 		for (const name of COLLECTIONS) {
-			const from = await orbitdb.open(await deriveSealedDatabaseName(prfOutput, name), {
-				...options,
-				...(await extra(name))
-			});
+			const from = await orbitdb.open(
+				await deriveSealedDatabaseName(/** @type {Uint8Array} */ (prfOutput), name),
+				{
+					...options,
+					...(await extra(name))
+				}
+			);
 			try {
 				// The same database (an identity that is the passkey's): nothing to move.
 				if (String(from.address) === String(dbs[name].address)) continue;

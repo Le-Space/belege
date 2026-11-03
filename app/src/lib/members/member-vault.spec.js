@@ -18,9 +18,16 @@ const DID_BOOKS = 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK';
 const DID_WRITER = 'did:key:z6MkjchhfUsD6mmvni8mCdXHw216Xrm9bQe2mBH1P5RDjVJG';
 const address = (/** @type {number} */ i) => `/orbitdb/zdpuA${'abcdefghijk'[i]}${'b'.repeat(45)}`;
 const addresses = Object.fromEntries(COLLECTIONS.map((c, i) => [c, address(i)]));
+const names = Object.fromEntries(COLLECTIONS.map((c, i) => [c, `${i}`.repeat(32).slice(0, 32)]));
 const bundle = () =>
 	memberBundle({
-		books: { did: DID_BOOKS, identityId: DID_WRITER, label: 'Wolkenfabrik Hosting GmbH' },
+		books: {
+			did: DID_BOOKS,
+			identityId: DID_WRITER,
+			label: 'Wolkenfabrik Hosting GmbH',
+			identityHash: `zdpu${'A'.repeat(45)}`,
+			identity: new Uint8Array(40).fill(9)
+		},
 		keys: {
 			database: key(1),
 			replication: key(2),
@@ -29,6 +36,7 @@ const bundle = () =>
 			backup: key(5),
 			bridgeAuth: key(6)
 		},
+		names,
 		addresses
 	});
 
@@ -63,6 +71,7 @@ describe('the member bundle', () => {
 			'replication'
 		]);
 		expect(Object.keys(again.addresses)).toEqual([...COLLECTIONS]);
+		expect(Object.keys(again.names)).toEqual([...COLLECTIONS]);
 		const text = encodeBundle(b);
 		for (const word of ['root', 'secret', 'vaultKey', 'booksSecret']) {
 			expect(text).not.toContain(word);
@@ -74,12 +83,13 @@ describe('the member bundle', () => {
 			memberBundle({
 				books: bundle().books,
 				keys: { ...bundle().keys, backup: new Uint8Array(16) },
+				names,
 				addresses
 			})
 		).toThrow(MemberBundleError);
 		const short = Object.fromEntries(Object.entries(addresses).filter(([c]) => c !== 'travel'));
 		expect(() =>
-			memberBundle({ books: bundle().books, keys: bundle().keys, addresses: short })
+			memberBundle({ books: bundle().books, keys: bundle().keys, names, addresses: short })
 		).toThrow(/address for travel/);
 		const parsed = JSON.parse(encodeBundle(bundle()));
 		expect(() => decodeBundle(JSON.stringify({ ...parsed, root: 'ab' }))).toThrow(

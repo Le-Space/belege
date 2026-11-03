@@ -17,6 +17,7 @@
 	import ResetDialog from './storage/ResetDialog.svelte';
 	import PasskeyStepDialog from './PasskeyStepDialog.svelte';
 	import { sharedOrigin } from './shared-origin.js';
+	import { chooseBooks, chosenBooks, membershipChoices } from './members/open-choice.js';
 
 	// On a path-style gateway nothing opens (shared-origin.js): no passkey asked, no books.
 	const shared = sharedOrigin();
@@ -25,6 +26,9 @@
 	let hasStoredPasskey = $derived(app.status !== 'starting' && hasStoredPasskeyCredential());
 	// A way to start over without unlocking: the passkey or the store may be what is broken (#212).
 	let resetOpen = $state(false);
+	// The books this unlock opens, when this browser keeps memberships (#612).
+	const choices = membershipChoices();
+	let openBooks = $state(chosenBooks());
 	let label = $state('');
 	let busy = $derived(app.status === 'starting');
 	// "Mit Wiederherstellungswörtern öffnen" (#406, stage 2): the words, and the new passkey's name.
@@ -83,6 +87,29 @@
 			>
 		</div>
 	{:else}
+		{#if hasStoredPasskey && choices.length}
+			<fieldset class="mt-6 text-sm" data-testid="open-books">
+				<legend class="text-xs font-semibold tracking-wide text-faint uppercase">
+					{t('onboarding.whichBooks')}
+				</legend>
+				{#each [{ id: '', label: t('onboarding.ownBooks') }, ...choices.map( (c) => ({ id: c.id, label: t( 'onboarding.memberBooks', { books: c.label } ) }) )] as choice (choice.id)}
+					<label class="mt-1 flex items-center gap-2 text-heading">
+						<input
+							type="radio"
+							name="open-books"
+							value={choice.id}
+							checked={openBooks === choice.id}
+							onchange={() => {
+								openBooks = choice.id;
+								chooseBooks(choice.id);
+							}}
+							data-testid="open-books-{choice.id ? 'member' : 'own'}"
+						/>
+						{choice.label}
+					</label>
+				{/each}
+			</fieldset>
+		{/if}
 		{#if hasStoredPasskey}
 			<button
 				type="button"

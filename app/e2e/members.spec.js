@@ -73,3 +73,89 @@ test('the bookkeeping joins by a join code, and the owner lists them', async ({ 
 		await keeper.context.close();
 	}
 });
+
+/**
+ * A person with their own passkey and device sync on, at the local test relay.
+ * The PRF answer is set per person (the E2E hook), so the two never share keys.
+ *
+ * @param {import('@playwright/test').Browser} browser
+ * @param {string} label
+ * @param {number} seed
+ */
+async function online(browser, label, seed) {
+	const context = await browser.newContext();
+	await context.addInitScript(
+		({ prf }) => {
+			/** @type {any} */ (globalThis).__belegeTestPrf = prf;
+			/** @type {any} */ (globalThis).__belegeSkipPasskeySteps = true;
+			localStorage.setItem('belege.device-sync', 'on');
+		},
+		{ prf: Array.from({ length: 32 }, (_, i) => (i * 13 + seed) % 256) }
+	);
+	const page = await context.newPage();
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill(label);
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+	return { context, page };
+}
+
+/** @param {import('@playwright/test').Page} page */
+const transactions = (page) =>
+	page.evaluate(async () => /** @type {any} */ (window).__belegeE2E.transactions());
+
+test('a member opens the owner’s books and writes as themselves', async ({ browser }) => {
+	test.setTimeout(300_000);
+	const owner = await online(browser, 'E2E Inhaber', 7);
+	const keeper = await online(browser, 'E2E Buchhaltung', 91);
+	try {
+		// The owner's books hold a booking before the bookkeeping joins.
+		await owner.page.getByRole('link', { name: 'Zahlungen', exact: true }).click();
+		await owner.page.getByTestId('add-test-transaction').click();
+		await expect(owner.page.getByTestId('transaction')).toHaveCount(1);
+		const keeperDid = String(await keeper.page.getByTestId('own-did').getAttribute('data-did'));
+
+		// Joining, as in the test above.
+		await openIntegration(keeper.page, 'zusammenarbeit');
+		await keeper.page.getByTestId('member-join-name').fill('Buchhaltung Test');
+		await keeper.page.getByTestId('member-join-button').click();
+		const code = await keeper.page.getByTestId('member-join-code').inputValue();
+		await openIntegration(owner.page, 'zusammenarbeit');
+		await owner.page.getByTestId('member-admit-name').fill('Buchhaltung Test');
+		await owner.page.getByTestId('member-admit-books').fill('Wolkenfabrik Hosting GmbH');
+		await owner.page.getByTestId('member-admit-code').fill(code);
+		await owner.page.getByTestId('member-admit-button').click();
+		const answer = await owner.page.getByTestId('member-answer').inputValue();
+		await keeper.page.getByTestId('member-join-answer').fill(answer);
+		await keeper.page.getByTestId('member-join-finish').click();
+		await expect(keeper.page.getByTestId('member-joined')).toBeVisible();
+
+		// The bookkeeping opens the owner's books: chosen on the unlock screen.
+		await keeper.page.reload();
+		await keeper.page.getByTestId('open-books-member').check();
+		await keeper.page.getByTestId('passkey-unlock').click();
+		await expect(keeper.page.getByTestId('member-books')).toContainText(
+			'Wolkenfabrik Hosting GmbH'
+		);
+		// The owner's booking comes over.
+		await expect
+			.poll(async () => (await transactions(keeper.page))?.length ?? 0, { timeout: 120_000 })
+			.toBe(1);
+
+		// The bookkeeping writes; it shows on the owner's device, with the member as its author.
+		await keeper.page.getByRole('link', { name: 'Zahlungen', exact: true }).click();
+		await keeper.page.getByTestId('add-test-transaction').click();
+		await expect
+			.poll(async () => (await transactions(owner.page))?.length ?? 0, { timeout: 120_000 })
+			.toBe(2);
+		const theirs = (await transactions(owner.page)).find(
+			(/** @type {any} */ t) => t.author === keeperDid
+		);
+		expect(theirs, 'the member’s booking, written under their name').toBeTruthy();
+	} finally {
+		await owner.context.close();
+		await keeper.context.close();
+	}
+});

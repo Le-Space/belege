@@ -17,6 +17,7 @@ export default {
 		integrationen: 'Integrations'
 	},
 	header: {
+		memberBooks: 'The books of “{books}” – you work as a member',
 		did: 'Your DID (the public key of your passkey)',
 		localOnly: 'This device only',
 		localOnlyTitle: 'Network off: no peer-to-peer, no relay, no server. More …',
@@ -943,6 +944,9 @@ export default {
 		intro:
 			'Your bookkeeping data stays on this device and is encrypted with a key from your passkey. Without the passkey nobody can read it – not even us.',
 		unlock: 'Unlock with saved passkey',
+		whichBooks: 'Which books to open?',
+		ownBooks: 'My books',
+		memberBooks: '{books} (as a member)',
 		newHeading: 'New here',
 		label: 'Name for the passkey',
 		labelPlaceholder: 'e.g. Smith Ltd',
@@ -1404,6 +1408,8 @@ export default {
 		later: 'Not now'
 	},
 	members: {
+		ownerOnly:
+			'Only the owner of the books can do this – a member does not change the books’ passkeys or recovery words.',
 		title: 'Collaboration',
 		intro:
 			'The bookkeeping works in these books with their own passkey: matching, own receipts, export, backup. They get the keys to read and back up, never the root of your books, and everything they change carries their name.',
