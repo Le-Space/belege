@@ -4,9 +4,14 @@
 // owner's. Made-up names; nothing goes over the network for the joining.
 import { test, expect } from '@playwright/test';
 
+import { createHash } from 'node:crypto';
+
+import { memoryKeychain } from '@belege/bridge';
+import { alephAccountOf, startFakeAleph } from '@belege/bridge/testing/aleph';
+import { runAlephGrants } from '../../bridge/src/setup-aleph.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
-import { addVirtualAuthenticator } from './webauthn.js';
+import { addVirtualAuthenticator, forgetThisDevice } from './webauthn.js';
 
 /** @param {import('@playwright/test').Browser} browser @param {string} label */
 async function person(browser, label) {
@@ -81,16 +86,18 @@ test('the bookkeeping joins by a join code, and the owner lists them', async ({ 
  * @param {import('@playwright/test').Browser} browser
  * @param {string} label
  * @param {number} seed
+ * @param {string} [alephUrl] a fake Aleph in place of the real one (E2E builds only)
  */
-async function online(browser, label, seed) {
+async function online(browser, label, seed, alephUrl = '') {
 	const context = await browser.newContext();
 	await context.addInitScript(
-		({ prf }) => {
+		({ prf, alephUrl }) => {
 			/** @type {any} */ (globalThis).__belegeTestPrf = prf;
 			/** @type {any} */ (globalThis).__belegeSkipPasskeySteps = true;
 			localStorage.setItem('belege.device-sync', 'on');
+			if (alephUrl) localStorage.setItem('belege.e2e.alephUrl', alephUrl);
 		},
-		{ prf: Array.from({ length: 32 }, (_, i) => (i * 13 + seed) % 256) }
+		{ prf: Array.from({ length: 32 }, (_, i) => (i * 13 + seed) % 256), alephUrl }
 	);
 	const page = await context.newPage();
 	await addVirtualAuthenticator(page);
@@ -157,5 +164,128 @@ test('a member opens the owner’s books and writes as themselves', async ({ bro
 	} finally {
 		await owner.context.close();
 		await keeper.context.close();
+	}
+});
+
+/** Joins `keeper` to the owner's books and opens them there, as in the test above. @param {{ page: import('@playwright/test').Page }} owner @param {{ page: import('@playwright/test').Page }} keeper */
+async function joinAndOpen(owner, keeper) {
+	await openIntegration(keeper.page, 'zusammenarbeit');
+	await keeper.page.getByTestId('member-join-name').fill('Buchhaltung Test');
+	await keeper.page.getByTestId('member-join-button').click();
+	const code = await keeper.page.getByTestId('member-join-code').inputValue();
+	await openIntegration(owner.page, 'zusammenarbeit');
+	await owner.page.getByTestId('member-admit-name').fill('Buchhaltung Test');
+	await owner.page.getByTestId('member-admit-books').fill('Wolkenfabrik Hosting GmbH');
+	await owner.page.getByTestId('member-admit-code').fill(code);
+	await owner.page.getByTestId('member-admit-button').click();
+	const answer = await owner.page.getByTestId('member-answer').inputValue();
+	await keeper.page.getByTestId('member-join-answer').fill(answer);
+	await keeper.page.getByTestId('member-join-finish').click();
+	await expect(keeper.page.getByTestId('member-joined')).toBeVisible();
+	await openMemberBooks(keeper.page);
+}
+
+/** The unlock screen, the member's books chosen. @param {import('@playwright/test').Page} page */
+async function openMemberBooks(page) {
+	await page.reload();
+	await page.getByTestId('open-books-member').check();
+	await page.getByTestId('passkey-unlock').click();
+	await expect(page.getByTestId('member-books')).toContainText('Wolkenfabrik Hosting GmbH');
+}
+
+test('the bookkeeping backs up, and an empty browser with their passkey restores the books', async ({
+	browser
+}) => {
+	test.setTimeout(420_000);
+	const KEY = createHash('sha256').update('belege e2e member backup key').digest('hex');
+	const aleph = await startFakeAleph({
+		accounts: { [alephAccountOf(KEY)]: { balance: 1_000_000, rows: [] } }
+	});
+	const owner = await online(browser, 'E2E Inhaber', 7, aleph.url);
+	const keeper = await online(browser, 'E2E Buchhaltung', 91, aleph.url);
+	try {
+		// The owner's books: a booking, and the account their backups are kept for,
+		// with this browser's key allowed there.
+		await owner.page.getByRole('link', { name: 'Zahlungen', exact: true }).click();
+		await owner.page.getByTestId('add-test-transaction').click();
+		await expect(owner.page.getByTestId('transaction')).toHaveCount(1);
+		await openIntegration(owner.page, 'backup');
+		const ownerCard = owner.page.getByTestId('backup-card');
+		await ownerCard.getByTestId('backup-owner').fill(alephAccountOf(KEY));
+		await ownerCard.getByTestId('backup-owner-save').click();
+		const browserKey = /** @type {string} */ (
+			await ownerCard.getByTestId('backup-key-address-value').textContent()
+		).trim();
+		expect(
+			await runAlephGrants({
+				io: { print: () => {} },
+				keychain: memoryKeychain(KEY, 'aleph-backup'),
+				action: 'authorize',
+				address: browserKey,
+				channel: 'BELEGE-BACKUP',
+				apiHost: aleph.url,
+				settle: { timeout: 5_000, interval: 50 }
+			})
+		).toBe(true);
+
+		await joinAndOpen(owner, keeper);
+		await expect
+			.poll(async () => (await transactions(keeper.page))?.length ?? 0, { timeout: 120_000 })
+			.toBe(1);
+
+		// The bookkeeping backs up: the books' account, the books' browser key, the books' backup key.
+		await openIntegration(keeper.page, 'backup');
+		const card = keeper.page.getByTestId('backup-card');
+		await expect(card.getByTestId('backup-address')).toContainText(alephAccountOf(KEY), {
+			timeout: 60_000
+		});
+		await expect(card.getByTestId('backup-granted')).toBeVisible({ timeout: 30_000 });
+		const indexesBefore = aleph.kept.size;
+		await card.getByTestId('backup-now').click();
+		await expect(card.getByTestId('backup-made')).toContainText('von Aleph aufbewahrt', {
+			timeout: 60_000
+		});
+		// The history says who made it.
+		await expect(card.getByTestId('backup-row-by').first()).toContainText('Buchhaltung Test');
+		// The member vault went to Aleph's index, with no name of the books in the clear.
+		await expect.poll(() => aleph.kept.size, { timeout: 60_000 }).toBeGreaterThan(indexesBefore);
+		expect(JSON.stringify([...aleph.kept.values()])).not.toContain('Wolkenfabrik');
+
+		// The owner is gone; the bookkeeping's browser loses everything.
+		await owner.context.close();
+		await forgetThisDevice(keeper.page);
+		await keeper.page.goto('/');
+		await acceptConsent(keeper.page);
+		await keeper.page.getByTestId('passkey-restore').click();
+		await expect(keeper.page.getByTestId('own-did')).toBeVisible({ timeout: 60_000 });
+
+		// Aleph's index gave the membership back: the member's books open, still empty.
+		await openMemberBooks(keeper.page);
+		expect((await transactions(keeper.page))?.length ?? 0).toBe(0);
+
+		// The pointer named the account: the backup is listed, and comes back.
+		await openIntegration(keeper.page, 'backup');
+		await expect(card.getByTestId('backup-address')).toContainText(alephAccountOf(KEY), {
+			timeout: 30_000
+		});
+		await expect(card.getByTestId('backup-chain-group')).toHaveCount(1, { timeout: 30_000 });
+		await card.getByTestId('backup-restore').click();
+		await card.getByTestId('restore-yes').click();
+		await expect(card.getByTestId('restore-done')).toContainText('Wiederhergestellt', {
+			timeout: 60_000
+		});
+		await expect(keeper.page.getByTestId('passkey-unlock')).toBeVisible({ timeout: 30_000 });
+		await keeper.page.getByTestId('open-books-member').check();
+		await keeper.page.getByTestId('passkey-unlock').click();
+		await expect(keeper.page.getByTestId('member-books')).toContainText(
+			'Wolkenfabrik Hosting GmbH'
+		);
+		await expect
+			.poll(async () => (await transactions(keeper.page))?.length ?? 0, { timeout: 30_000 })
+			.toBe(1);
+	} finally {
+		await owner.context.close().catch(() => {});
+		await keeper.context.close();
+		await aleph.close();
 	}
 });

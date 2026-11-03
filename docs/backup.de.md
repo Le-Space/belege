@@ -84,6 +84,20 @@ Was zurückkommt, wird vor dem Öffnen geprüft: gegen die Größe, die das STOR
 
 Ein Backup anderer Bücher lässt sich nicht öffnen („gehört zu einem anderen Tresor“): Sein Schlüssel kommt aus der Wurzel jenes Tresors. Der Weg hinein ist ein Passkey mit einem Fach in jenem Tresor – hinzugefügt auf dem Gerät mit jenen Büchern – oder die Wiederherstellungswörter jener Bücher.
 
+## Mitglieder sichern und stellen wieder her
+
+Ein Mitglied der Bücher – zum Beispiel die Buchhaltung – sichert und stellt wieder her wie der Inhaber ([#613](https://github.com/Le-Space/belege/issues/613)). In seinem Schlüsselbund steckt der Backup-Schlüssel der Bücher. Das Backup ist also genauso versiegelt und geht an dasselbe Aleph-Konto, unterschrieben mit dem Browser-Schlüssel, den die Bücher erlaubt haben. In der Liste der Backups steht, wer es gemacht hat („von Buchhaltung“).
+
+Mit jedem Backup geht auch der Tresor des Mitglieds zu Aleph: an eine eigene Adresse, abgeleitet vom Passkey des Mitglieds und getrennt von dessen eigenen Büchern. Veröffentlicht werden der versiegelte Tresor, seine Fächer ohne Namen und das zahlende Konto, versiegelt mit einem Schlüssel, den nur der Tresor des Mitglieds öffnet. Kein Name der Bücher, kein Name des Mitglieds.
+
+Auf einem leeren Gerät, mit dem Passkey des Mitglieds:
+
+1. „Passkey wiederherstellen“ öffnet die eigenen Bücher des Mitglieds und findet die Mitgliedschaft bei Aleph.
+2. Beim nächsten Entsperren die Bücher wählen, in denen du Mitglied bist. Der Tresor öffnet den Schlüsselbund.
+3. Die Backup-Karte kennt das zahlende Konto schon und zeigt die Backups. „Wiederherstellen“ holt die Bücher zurück.
+
+Ein Mitglied bekommt nie die Wurzel der Bücher, ihre Passkeys oder ihre Wiederherstellungswörter. Einen Passkey hinzufügen, die Bücher umziehen und weitere Mitglieder einladen bleibt beim Inhaber.
+
 ## Einen anderen Schlüssel sichern lassen
 
 Eine Anwendung kann aus dem Browser sichern, ohne dass die Bridge läuft. Sie hat einen eigenen Schlüssel, und das Konto der Bridge erlaubt diesem Schlüssel, auf seine Kosten Backups aufbewahren zu lassen. So macht es Belege selbst (Kanal `BELEGE-BACKUP`, siehe oben), und so macht es Le Space Invoice (Kanal `INVOICE-BACKUP`, Le-Space/invoice#28). Beide zeigen die Adresse ihres Schlüssels und den Befehl.

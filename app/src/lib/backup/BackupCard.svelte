@@ -15,6 +15,7 @@
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { card } from '$lib/ui/styles.js';
 	import { dropBackup, loadBackups, updateBackup } from './history.js';
+	import { membersOf } from '$lib/members/members.js';
 	import { loadChain } from './chain.js';
 	import {
 		askRestore,
@@ -80,6 +81,13 @@
 	let checking = $state(false);
 	/** @type {import('./history.js').BackupRecord[]} */
 	let backups = $state([]);
+	/** @type {Record<string, string>} the members' names, by write identity: who made a backup (#613) */
+	let memberNames = $state({});
+	/** @param {import('$lib/store/repository.js').Collection} settings */
+	const loadMemberNames = async (settings) =>
+		Object.fromEntries(
+			membersOf(await settings.list({ includeDeleted: true })).map((m) => [m.writer, m.label])
+		);
 	const step = $derived(backupRun.step);
 	/** @type {string | null} what this card did last that failed */
 	let error = $state(null);
@@ -327,6 +335,7 @@
 			const store = currentStore();
 			if (!store) return;
 			backups = await loadBackups(store.settings);
+			memberNames = await loadMemberNames(store.settings);
 			chain = await loadChain(store.settings);
 			if (owner) credits = await creditsOf({ owner, endpoints }).catch(() => credits);
 		});
@@ -338,6 +347,7 @@
 		const store = currentStore();
 		if (!store) return;
 		backups = await loadBackups(store.settings);
+		memberNames = await loadMemberNames(store.settings);
 		chain = await loadChain(store.settings);
 		key = await ensureBackupKey(store.settings);
 		address = await backupAddressOf(key);
@@ -567,7 +577,11 @@
 				>· {b.kind === 'increment'
 					? t('backup.kindIncrement', { sequence: b.sequence ?? 0 })
 					: t('backup.kindFull')}</span
-			></span
+			>{#if b.by}<span class="text-xs text-faint" data-testid="backup-row-by"
+					>· {memberNames[b.by]
+						? t('backup.byMember', { name: memberNames[b.by] })
+						: t('backup.byAMember')}</span
+				>{/if}</span
 		>
 		<span class="text-faint">{b.size ? `${size(b.size)} · ` : ''}{kept(b.status)}</span>
 		{#if held(b)}

@@ -1231,6 +1231,8 @@ export default {
 			'Increment {sequence} backed up: {size}, {entries} new entries, {files} new receipt files – {kept}.',
 		kindFull: 'Full backup',
 		kindIncrement: 'Increment {sequence}',
+		byMember: 'by {name}',
+		byAMember: 'by a member',
 		oldBridge:
 			'The bridge kept the increment on Aleph without naming its full backup – it is older than this page. Update the bridge (git pull, pnpm install, restart); the next backup ships everything since the last one again.',
 		creditsLink: 'Buy or transfer credits (Aleph dashboard)',

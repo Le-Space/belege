@@ -13,7 +13,8 @@ import {
 	currentStore,
 	makeBackup,
 	makeIncrement,
-	publishBooksVault
+	publishBooksVault,
+	publishMemberVault
 } from '$lib/session.svelte.js';
 import { backupName, rememberBackup } from './history.js';
 import { chainAfter, chainFromBase, saveChain } from './chain.js';
@@ -256,6 +257,8 @@ export async function runBackup({ continuing, uploader, askFor, unattended = fal
 			...(kept.itemHash ? { itemHash: kept.itemHash } : {}),
 			...(kept.address ? { address: kept.address } : {}),
 			...(kept.sender ? { sender: kept.sender } : {}),
+			// Made by a member (#613): their write identity names them in the history.
+			...(app.member ? { by: app.member.writer } : {}),
 			...('heads' in built
 				? {
 						kind: /** @type {const} */ ('increment'),
@@ -300,6 +303,11 @@ export async function runBackup({ continuing, uploader, askFor, unattended = fal
 		// for (#406): kept current, when the vault is kept there at all.
 		if (app.vault.indexOn && !app.network.paused) {
 			publishBooksVault().catch((e) => console.warn('vault index:', e));
+		}
+		// A member's vault, so that an empty device with their passkey finds
+		// the books' keys, and with them this backup (#613).
+		if (app.member && !app.network.paused) {
+			publishMemberVault().catch((e) => console.warn('member index:', e));
 		}
 		// The chain moves once Aleph has taken it. An increment the bridge
 		// kept without its `ref` (an older bridge) is not found by its chain:

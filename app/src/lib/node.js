@@ -131,6 +131,7 @@ export const STORAGE_PATHS = Object.freeze({
  * @property {import('./books-vault.js').OpenedVault | null} vault the books' vault, open (#406); null for a member (#612)
  * @property {{ books: { did: string, identityId: string, label: string }, writer: string, vaultId: string } | null} member a member's books (#612); null for the owner
  * @property {Uint8Array} ownIndexKey this passkey's index key on Aleph (backup/vault-index.js), in memory
+ * @property {(owner: string | null) => Promise<void>} publishMembership a member's vault on Aleph's index G (#613)
  * @property {Awaited<ReturnType<typeof openStore>>} store
  * @property {import('./receipts/blob-store.js').BlobStore} blobs receipt files, sealed with the blob key
  * @property {(meta: { appVersion: string, onProgress?: (p: import('./backup/archive.js').BackupProgress) => void }) => Promise<Awaited<ReturnType<typeof import('./backup/archive.js').buildBackup>>>} makeBackup
@@ -287,6 +288,28 @@ export async function startSession(
 				});
 	/** The paying Aleph account, as the books' index names it (an empty device). */
 	let pointedOwner = recovered?.owner ?? '';
+	// An empty device: the memberships of this passkey, on Aleph's index G
+	// (#613), kept here and offered at the next unlock.
+	if (indexes) {
+		const { adoptMemberships } = await import('./members/member-vault.js');
+		await indexes
+			.findMembershipsOnAleph({ prfOutput: passkeyPrf })
+			.then((found) =>
+				adoptMemberships({
+					found,
+					prfOutput: passkeyPrf,
+					rawCredentialId: credential.rawCredentialId,
+					storage: globalThis.localStorage
+				})
+			)
+			.catch((e) => console.warn('memberships on Aleph:', e));
+	}
+	// A membership an empty device found there: the pointer, sealed under the member's root.
+	if (membership?.record.pointer) {
+		const { openPointer } = await import('./backup/vault-index.js');
+		pointedOwner =
+			(await openPointer(membership.memberRoot, membership.record.pointer))?.owner ?? '';
+	}
 	if (indexes && vault?.found) {
 		const current = await indexes.readRootIndex({ root: vault.root }).catch(() => null);
 		pointedOwner = current?.pointer?.owner ?? '';
@@ -302,8 +325,10 @@ export async function startSession(
 	}
 	// This passkey's index key: kept in memory, so the vault can be published
 	// there later without asking the passkey again.
-	const { passkeyIndexKey } = await import('./backup/vault-index.js');
+	const { memberIndexKey, passkeyIndexKey } = await import('./backup/vault-index.js');
 	const ownIndexKey = await passkeyIndexKey(passkeyPrf);
+	/** This passkey's index G key (#613), for a member: kept like `ownIndexKey`. */
+	const membershipIndexKey = membership ? await memberIndexKey(passkeyPrf) : null;
 	// The books' root – none for a member, whose keys come from the bundle.
 	const prfOutput = vault ? vault.root : null;
 	const bundleKeys = membership?.bundle.keys ?? null;
@@ -536,6 +561,22 @@ export async function startSession(
 				: null,
 			vault,
 			ownIndexKey,
+			/**
+			 * A member's vault on Aleph's index G (#613), with the account the
+			 * books' backups are kept for: an empty device finds it there.
+			 *
+			 * @param {string | null} owner
+			 */
+			async publishMembership(owner) {
+				if (!membership || !membershipIndexKey) throw new Error('Not a member’s books.');
+				const { publishMembership } = await import('./backup/vault-index.js');
+				await publishMembership({
+					key: membershipIndexKey,
+					memberRoot: membership.memberRoot,
+					record: membership.record,
+					owner
+				});
+			},
 			identityHash: booksIdentity.hash,
 			peerId: libp2p.peerId.toString(),
 			store,

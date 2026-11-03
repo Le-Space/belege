@@ -7,10 +7,13 @@ import { describe, expect, it } from 'vitest';
 
 import { alephAddressOf } from './aleph-signer.js';
 import {
+	findMembershipsOnAleph,
 	findVaultOnAleph,
+	memberIndexKey,
 	openPointer,
 	passkeyIndexKey,
 	publishIndex,
+	publishMembership,
 	publishVault,
 	readIndex,
 	readRootIndex,
@@ -43,9 +46,11 @@ function fakeAleph() {
 			const { message } = JSON.parse(init.body);
 			posted.push(message);
 			const content = JSON.parse(message.item_content);
+			// Aleph merges an aggregate's content at its first level.
+			const all = kept.get(content.address) ?? {};
 			kept.set(content.address, {
-				...(kept.get(content.address) ?? {}),
-				[content.key]: content.content
+				...all,
+				[content.key]: { ...(all[content.key] ?? {}), ...content.content }
 			});
 			return reply(200, { message_status: 'processed' });
 		}
@@ -183,6 +188,77 @@ function moodyAleph(mode) {
 	};
 	return { ...aleph, status, fetch: /** @type {any} */ (fetchImpl) };
 }
+
+describe('the memberships’ index (#613)', () => {
+	/** @param {string} id @param {string} kid */
+	const membership = (id, kid) => ({
+		vault: { version: 1, id, slots: [{ kid }] },
+		slots: [
+			{
+				kid,
+				label: 'Laptop Buchhaltung',
+				credentialId: `cred-${kid}`,
+				addedAt: '2026-11-03T08:00:00Z'
+			}
+		],
+		books: { did: 'did:key:z6MkBooks', label: 'Wolkenfabrik Hosting GmbH' }
+	});
+
+	it('lies apart from the passkey’s own index, and holds every membership of the passkey', async () => {
+		const aleph = fakeAleph();
+		const prf = bytes(9);
+		const key = await memberIndexKey(prf);
+		expect(alephAddressOf(key)).not.toBe(alephAddressOf(await passkeyIndexKey(prf)));
+		const owner = '0x' + 'ab'.repeat(20);
+		await publishMembership({
+			key,
+			memberRoot: bytes(4),
+			record: membership('m1', 'k1'),
+			owner,
+			endpoints,
+			fetch: aleph.fetch
+		});
+		await publishMembership({
+			key,
+			memberRoot: bytes(5),
+			record: membership('m2', 'k1'),
+			owner: null,
+			endpoints,
+			fetch: aleph.fetch
+		});
+
+		const found = await findMembershipsOnAleph({ prfOutput: prf, endpoints, fetch: aleph.fetch });
+		expect(found.map((f) => f.vault.id).sort()).toEqual(['m1', 'm2']);
+		const m1 = /** @type {any} */ (found.find((f) => f.vault.id === 'm1'));
+		expect(m1.slots).toEqual([
+			{ kid: 'k1', label: '', credentialId: 'cred-k1', addedAt: '2026-11-03T08:00:00Z' }
+		]);
+		// The pointer opens with that member's root only.
+		expect(await openPointer(bytes(4), m1.pointer)).toEqual({ owner });
+		expect(await openPointer(bytes(5), m1.pointer)).toBeNull();
+		expect(found.find((f) => f.vault.id === 'm2')?.pointer).toBeNull();
+		// No names, no books, no account in the clear.
+		const published = JSON.stringify(aleph.posted);
+		expect(published).not.toContain('Laptop');
+		expect(published).not.toContain('Wolkenfabrik');
+		expect(published).not.toContain('did:key');
+		expect(published).not.toContain('ab'.repeat(20));
+	});
+
+	it('another passkey finds nothing there', async () => {
+		const aleph = fakeAleph();
+		await publishMembership({
+			key: await memberIndexKey(bytes(9)),
+			memberRoot: bytes(4),
+			record: membership('m1', 'k1'),
+			endpoints,
+			fetch: aleph.fetch
+		});
+		expect(
+			await findMembershipsOnAleph({ prfOutput: bytes(8), endpoints, fetch: aleph.fetch })
+		).toEqual([]);
+	});
+});
 
 describe('publishing the index waits until Aleph has it', () => {
 	const patience = { answerMs: 50, pollMs: 5, waitMs: 2_000 };
