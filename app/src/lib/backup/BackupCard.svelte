@@ -388,11 +388,13 @@
 	}
 
 	async function check() {
-		if (!owner || !address) return;
+		if (!owner) return;
 		checking = true;
 		try {
+			// No key here yet (a member's device before the books' settings came,
+			// #613): not granted, but the account's backups are listed all the same.
 			const [g, c] = await Promise.allSettled([
-				isGranted({ owner, address, endpoints }),
+				address ? isGranted({ owner, address, endpoints }) : Promise.resolve(null),
 				creditsOf({ owner, endpoints })
 			]);
 			granted = g.status === 'fulfilled' ? g.value : null;
