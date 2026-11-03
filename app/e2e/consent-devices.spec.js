@@ -1,7 +1,8 @@
 // "Eigene Geräte" switched on in the consent screen does what the menu's own
 // switch does (#327): where the node went offline at unlock, the menu says
 // the devices are on from the next unlock and offers the reload – not "aus"
-// and "Einschalten …" again, as if the switch had done nothing.
+// and "Einschalten …" again, as if the switch had done nothing. Once online,
+// the chosen mode's light says the device is at the relay.
 import { test, expect } from '@playwright/test';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
@@ -57,4 +58,18 @@ test('own devices switched on in the consent screen: the menu says what is missi
 	await page.getByTestId('local-only').click();
 	await expect(menu.getByTestId('network-devices-setup')).toHaveCount(0);
 	await expect(menu.getByTestId('network-reload')).toHaveCount(0);
+
+	// At the relay (the local test relay stands for the Le Space ones): the
+	// light of the chosen mode is green, and only that mode has one.
+	const light = menu.getByTestId('relay-light-public');
+	await expect(light).toHaveAttribute('data-state', 'up', { timeout: 30_000 });
+	await expect(light).toContainText('verbunden mit einem Le-Space-Relay');
+	await expect(menu.getByTestId('relay-light-lan')).toHaveCount(0);
+
+	// The relay drops this device (sleep, another network): the light turns red,
+	// and the next round of device sync takes the place at the relay again.
+	await page.evaluate(() => /** @type {any} */ (window).__belegeE2E.hangUpRelays());
+	await expect(light).toHaveAttribute('data-state', 'down', { timeout: 15_000 });
+	await expect(light).toContainText('kein Le-Space-Relay erreichbar');
+	await expect(light).toHaveAttribute('data-state', 'up', { timeout: 60_000 });
 });

@@ -52,6 +52,9 @@ export const REDIAL_MS = 30_000;
 export const MUTE_MS = 45_000;
 /** No device is hung up for being mute more often than this: a wrong guess must not loop. */
 export const HANGUP_EVERY_MS = 5 * 60_000;
+/** The first wait before a lost place at a relay is asked for again; it doubles up to RELAY_RETRY_MAX_MS. */
+export const RELAY_RETRY_MS = 30_000;
+export const RELAY_RETRY_MAX_MS = 10 * 60_000;
 /** What OrbitDB's heads ride on. A connection without it carries no replication. */
 const MESHSUB = '/meshsub/';
 /** A settings record per device: one record each, so two devices never overwrite each other. */
@@ -621,9 +624,43 @@ export async function startDeviceSync({
 		}
 	}
 
+	/** When the place at a relay may be asked for again, and how long the wait after that is. */
+	let relayRetryAt = 0;
+	let relayRetryMs = RELAY_RETRY_MS;
+
+	/**
+	 * Keep a place at a relay. libp2p reserves one at each configured relay once,
+	 * at start (circuit-relay-v2's listener); when the relay connection goes – a
+	 * laptop asleep, another network, a redeployed relay – the address goes with
+	 * it and is never asked for again, so this device stays reachable by nobody
+	 * until a reload. Without any place, listen on the relays once more; after a
+	 * failure wait longer each time, up to ten minutes.
+	 */
+	async function keepRelayPlace() {
+		if (!relays.length || gateClosed) return;
+		const placed = libp2p
+			.getMultiaddrs()
+			.some((/** @type {any} */ a) => String(a).includes('/p2p-circuit'));
+		if (placed) {
+			relayRetryMs = RELAY_RETRY_MS;
+			return;
+		}
+		const at = Date.parse(now());
+		if (at < relayRetryAt) return;
+		relayRetryAt = at + relayRetryMs;
+		relayRetryMs = Math.min(relayRetryMs * 2, RELAY_RETRY_MAX_MS);
+		const transports = libp2p.components?.transportManager;
+		if (!transports?.listen) return;
+		const { multiaddr } = await import('@multiformats/multiaddr');
+		await transports
+			.listen(relays.map((relay) => multiaddr(`${relay}/p2p-circuit`)))
+			.catch(() => {});
+	}
+
 	async function round() {
 		if (stopped) return;
 		await refreshKnown();
+		await keepRelayPlace().catch(() => {});
 		await Promise.all([...known].map(dial));
 		report();
 	}
@@ -644,6 +681,11 @@ export async function startDeviceSync({
 		const peerId = e.detail.remotePeer.toString();
 		if (!connected(peerId)) resynced.delete(peerId);
 		report();
+		// A relay's connection takes this node's place there with it, a moment
+		// after the close: told again, so the relay light does not stay green.
+		setTimeout(() => {
+			if (!stopped) report();
+		}, 500);
 	});
 	libp2p.addEventListener('self:peer:update', report);
 	const unproved = gate.onProved?.(report) ?? (() => {});

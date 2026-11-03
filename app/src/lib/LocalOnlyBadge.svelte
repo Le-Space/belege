@@ -23,6 +23,7 @@
 	import { t } from './i18n/index.js';
 	import { networkStatus } from './network-status.js';
 	import { NETWORK_MODES } from './sync/network-mode.js';
+	import { relayLights } from './sync/relay-light.js';
 	import QrExchange from './sync/QrExchange.svelte';
 	import { clearPendingInvite, iosOutsideApp } from './sync/qr-link-url.js';
 	import { deviceSyncOn } from './sync/device-sync.js';
@@ -154,6 +155,28 @@
 
 	let open = $state(false);
 	let busy = $state(false);
+
+	// Whether this device is reachable at a relay right now (sync/relay-light.js):
+	// green with a place there, red without; for the mode the node runs in.
+	const lights = $derived(
+		relayLights({
+			mode: app.network.mode,
+			online: app.sync.online && !app.network.paused,
+			addrs: app.sync.state?.addrs ?? [],
+			lanRelay: app.network.lanRelay
+		})
+	);
+	/** The lights a mode's row shows: its own kinds of relay, while it is the mode the node runs in. @param {string} mode */
+	const lightsOf = (mode) =>
+		mode !== app.network.mode
+			? []
+			: /** @type {const} */ (['public', 'lan'])
+					.filter((kind) => lights[kind] !== null)
+					.map((kind) => ({
+						kind,
+						up: lights[kind] === 'up',
+						peers: lights.relays[kind]
+					}));
 	/** @type {HTMLElement | undefined} */
 	let root = $state();
 	let devicesPart = $derived(status.parts.find((p) => p.id === 'devices'));
@@ -492,6 +515,25 @@
 										? t('header.network.lanUnavailable')
 										: t(`header.network.modeHints.${mode}`)}</span
 								>
+								{#each lightsOf(mode) as light (light.kind)}
+									<span
+										class="mt-0.5 flex items-center gap-1.5 text-xs {light.up
+											? 'text-success'
+											: 'text-danger'}"
+										role="status"
+										title={light.up ? light.peers.join(', ') : ''}
+										data-testid="relay-light-{light.kind}"
+										data-state={light.up ? 'up' : 'down'}
+									>
+										<span
+											class="inline-block h-2 w-2 rounded-full {light.up
+												? 'bg-success'
+												: 'bg-danger'}"
+											aria-hidden="true"
+										></span>
+										{t(`header.network.light.${light.kind}.${light.up ? 'up' : 'down'}`)}
+									</span>
+								{/each}
 							</span>
 						</label>
 					{/each}

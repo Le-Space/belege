@@ -103,6 +103,16 @@ export default {
 				lan: 'Nur im eigenen Netz (Relay in deiner Bridge)',
 				both: 'Beides: neue Geräte nur im eigenen Netz oder per QR, danach überall'
 			},
+			light: {
+				public: {
+					up: 'verbunden mit einem Le-Space-Relay',
+					down: 'kein Le-Space-Relay erreichbar'
+				},
+				lan: {
+					up: 'verbunden mit dem Relay deiner Bridge',
+					down: 'Relay deiner Bridge nicht erreichbar'
+				}
+			},
 			modeHints: {
 				public: 'Überall; der Relay sieht IP-Adressen und Zeitpunkte, nie den Inhalt.',
 				qr: 'Kein Relay, kein Server: beide Geräte im selben Netz, und nach jedem Neuladen einmal Codes tauschen.',

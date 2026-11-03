@@ -270,6 +270,57 @@ function fakeLibp2p(/** @type {string} */ self) {
 	};
 }
 
+describe('a place at the relay', () => {
+	it('lost with its connection, it is asked for again – waiting longer after each failure', async () => {
+		let clock = Date.parse('2026-03-01T10:00:00.000Z');
+		const now = () => new Date(clock).toISOString();
+		const settings = memorySettings(() => new Date((clock += 1)));
+		const relay = '/dns4/relay.example/tcp/443/tls/ws/p2p/12D3KooWExampleRelay';
+		const node = /** @type {any} */ (fakeLibp2p(await peerOf(SALT_A)));
+		/** @type {string[][]} */
+		const listened = [];
+		/** @type {string[]} */
+		let addrs = [];
+		node.getMultiaddrs = () => addrs;
+		node.components = {
+			transportManager: {
+				listen: async (/** @type {any[]} */ mas) => {
+					listened.push(mas.map(String));
+					throw new Error('the relay does not answer');
+				}
+			}
+		};
+		await startDeviceSync({
+			libp2p: node,
+			store: { settings, resync: async () => {} },
+			relays: [relay],
+			label: 'Mac',
+			now
+		});
+		// At start: no place, so it listens on the relay again.
+		expect(listened).toEqual([[`${relay}/p2p-circuit`]]);
+		const nextRound = async () => {
+			await settings.put({ key: 'x', value: clock });
+			await new Promise((r) => setTimeout(r, 20));
+		};
+		// Right after a failure: it waits.
+		await nextRound();
+		expect(listened).toHaveLength(1);
+		// After the wait: again, then a longer wait.
+		clock += 31_000;
+		await nextRound();
+		expect(listened).toHaveLength(2);
+		clock += 31_000;
+		await nextRound();
+		expect(listened).toHaveLength(2);
+		// With a place at the relay: nothing to do.
+		addrs = [`${relay}/p2p-circuit/p2p/12D3KooWSelf`];
+		clock += 10 * 60_000;
+		await nextRound();
+		expect(listened).toHaveLength(2);
+	});
+});
+
 describe('removing a device', () => {
 	it('deletes its record, hangs up and refuses it; the removed one switches itself off', async () => {
 		let clock = Date.parse('2026-03-01T10:00:00.000Z');
