@@ -4223,6 +4223,23 @@ export default {
 			card: 'Kreditkarte'
 		},
 		wallets: {
+			all: {
+				button: 'Alle {count} Wallets synchronisieren',
+				progressLabel: 'Fortschritt beim Synchronisieren der Wallets',
+				progress: '{done} von {count} · {percent} %',
+				goesOn: 'Läuft weiter, wenn du woanders hinklickst. Nur Neuladen bricht ab.',
+				summaryNew: 'Neue Buchungen: {count} (aus {wallets} Wallets)',
+				summaryNone: 'Keine neuen Buchungen ({wallets} Wallets abgerufen)',
+				summaryUpdated: 'aktualisiert: {count}',
+				summaryUnpriced: 'ohne Kurs: {count}',
+				summaryFailed: 'nicht abrufbar: {count} Wallets',
+				close: 'Schließen',
+				tab: 'Wallets werden synchronisiert: {percent} %',
+				notifyTitle: 'Belege: Wallets synchronisiert',
+				notifyNew: '{count} neue Buchungen aus {wallets} Wallets.',
+				notifyNone: 'Keine neuen Buchungen.',
+				notifyFailed: '{count} Wallets waren nicht abrufbar.'
+			},
 			import: 'Verlauf importieren (CSV)',
 			importing: 'Wird importiert …',
 			moneroHint:

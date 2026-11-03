@@ -13,6 +13,8 @@
 	import SectionIcon from './SectionIcon.svelte';
 	import { extractRun } from './receipts/extract-queue.svelte.js';
 	import { aiRun } from './matching/ai-suggest.svelte.js';
+	import { walletRun } from './wallets/sync-run.svelte.js';
+	import { percentOf } from './wallets/sync-turn.js';
 
 	const TABS = /** @type {const} */ ([
 		{ href: '/', icon: 'home', label: 'nav.home' },
@@ -53,6 +55,13 @@
 							})}
 							data-testid="tab-extract-progress"
 							>{extractRun.progress.done}/{extractRun.progress.count}</span
+						>
+					{/if}
+					{#if tab.icon === 'integrationen' && walletRun.progress}
+						<span
+							class="rounded bg-surface-2 px-1 font-mono text-[10px] text-text tabular-nums sm:text-xs"
+							title={t('integrationen.wallets.all.tab', { percent: percentOf(walletRun.progress) })}
+							data-testid="tab-wallets-progress">{percentOf(walletRun.progress)}%</span
 						>
 					{/if}
 					{#if tab.icon === 'home' && aiRun.progress}

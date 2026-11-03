@@ -4169,6 +4169,23 @@ export default {
 			card: 'Credit card'
 		},
 		wallets: {
+			all: {
+				button: 'Sync all {count} wallets',
+				progressLabel: 'Progress of syncing the wallets',
+				progress: '{done} of {count} · {percent} %',
+				goesOn: 'Keeps going when you click elsewhere. Only a reload stops it.',
+				summaryNew: 'New bookings: {count} (from {wallets} wallets)',
+				summaryNone: 'No new bookings ({wallets} wallets fetched)',
+				summaryUpdated: 'updated: {count}',
+				summaryUnpriced: 'without a rate: {count}',
+				summaryFailed: 'could not be fetched: {count} wallets',
+				close: 'Close',
+				tab: 'Syncing wallets: {percent} %',
+				notifyTitle: 'Belege: wallets synced',
+				notifyNew: '{count} new bookings from {wallets} wallets.',
+				notifyNone: 'No new bookings.',
+				notifyFailed: '{count} wallets could not be fetched.'
+			},
 			import: 'Import history (CSV)',
 			importing: 'Importing …',
 			moneroHint:

@@ -215,6 +215,23 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 		'Neu: 0 · Aktualisiert: 0 · Übersprungen: 3'
 	);
 
+	// "Alle Wallets synchronisieren": both in turn, and it goes on while you are
+	// elsewhere in Belege; back on the card, the note says what came.
+	await expect(card.getByTestId('wallets-sync-all')).toHaveText('Alle 2 Wallets synchronisieren');
+	await card.getByTestId('wallets-sync-all').click();
+	await page.getByTestId('tab-zahlungen').click();
+	await expect(page).toHaveURL(/\/zahlungen\/?$/);
+	await expect(page.getByTestId('tab-wallets-progress')).toHaveCount(0, { timeout: 60_000 });
+	await openIntegration(page, 'wallets');
+	await expect(card.getByTestId('wallets-sync-summary')).toContainText(
+		'Keine neuen Buchungen (2 Wallets abgerufen)'
+	);
+	await expect(walletB.getByTestId('wallet-result')).toHaveText(
+		'Neu: 0 · Aktualisiert: 0 · Übersprungen: 1'
+	);
+	await card.getByTestId('wallets-sync-summary-close').click();
+	await expect(card.getByTestId('wallets-sync-summary')).toHaveCount(0);
+
 	// Where the bookings add up to the balance, nothing is said.
 	await expect(walletA.getByTestId('wallet-balance-gap')).toHaveCount(0);
 	await expect(walletB.getByTestId('wallet-balance-gap')).toHaveCount(0);
