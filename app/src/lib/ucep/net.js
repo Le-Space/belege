@@ -51,13 +51,16 @@ export const RELAY_REGISTRATION = Object.freeze({
 	type: 'relay-bootstrap-v2',
 	registrationId: 'relay:orbitdb-relay:orbitdb-relay'
 });
-export const TRUSTED_RELAY_SENDERS = Object.freeze([
-	// The orbitdb-relay VM deployed on 2026-10-23, which also serves
-	// paperless-anywhere's attest relay at /attest (relay-button#178): one VM
-	// for both. A guest publishes with a key made at deploy time, so every
-	// redeploy means a new wallet here — and until it lands, no relay.
-	'0xaA4C6fd9952dA1129bfF208D0E621650273F5dE4'
-]);
+/**
+ * Guest wallets of single relay VMs, trusted one by one. A guest publishes
+ * with a key made at deploy time, so every redeploy meant a new wallet here.
+ * None any more: the relay Belege uses is found by its account
+ * (TRUSTED_RELAY_OWNERS). The last one, the orbitdb-relay VM of 2026-10-23
+ * (secret-pass-wife-sentence), was retired for relay-main-ekb.
+ *
+ * @type {readonly string[]}
+ */
+export const TRUSTED_RELAY_SENDERS = Object.freeze([]);
 
 /**
  * The Aleph accounts Le Space pays its relays from. A relay deployed with
@@ -86,13 +89,16 @@ export function twoN6Host(instanceHash) {
 }
 
 /**
- * The relay as it was registered on 2026-11-02, for when Aleph cannot be
- * asked. A relay moves when it is redeployed; the lookup is what keeps up.
- * Before it: the relay of 2026-10-14 (exhaust-tobacco-abuse-purchase), retired
- * for this one, and job-blanket-biology-typical, silent since 2026-10-09.
+ * The relay as it was registered on 2026-11-03, for when Aleph cannot be
+ * asked: relay-main-ekb, deployed from the relay-button account, which serves
+ * UCEP and paperless-anywhere's attest relay at /attest. A relay moves when it
+ * is redeployed; the lookup is what keeps up. Before it:
+ * secret-pass-wife-sentence (2026-11-02) and exhaust-tobacco-abuse-purchase
+ * (2026-10-14), retired for this one, and job-blanket-biology-typical, silent
+ * since 2026-10-09.
  */
 export const FALLBACK_RELAYS = Object.freeze([
-	'/dns4/secret-pass-wife-sentence.2n6.me/tcp/443/tls/ws/p2p/12D3KooWQt2YjDezcdMk7PpCT71xqrQhnFU7vLwWv5kAk6oFtuyP'
+	'/dns4/crazy-pluck-uncle-device.2n6.me/tcp/443/tls/ws/p2p/12D3KooWQu5E1ZkGC5x2dSVTEWxYvsssWjXgk2Mzc8GZHN26cYzS'
 ]);
 
 /**
@@ -219,13 +225,15 @@ export async function ownedInstance(instance, owner, fetchImpl, timeoutMs) {
  * the browser specs set it), else the relays of the trusted accounts and
  * wallets as Aleph knows them now, else the fallback.
  *
- * @param {{ configured?: string, fetch?: typeof fetch, timeoutMs?: number }} [options]
+ * @param {{ configured?: string, fetch?: typeof fetch, timeoutMs?: number, senders?: readonly string[] }} [options]
+ *   `senders`: the guest wallets trusted one by one (TRUSTED_RELAY_SENDERS); none: not asked
  * @returns {Promise<string[]>}
  */
 export async function relayAddrs({
 	configured = import.meta.env?.VITE_RELAY_ADDRS,
 	fetch: fetchImpl = globalThis.fetch,
-	timeoutMs = 5000
+	timeoutMs = 5000,
+	senders = TRUSTED_RELAY_SENDERS
 } = {}) {
 	const list = String(configured ?? '')
 		.split(',')
@@ -260,9 +268,11 @@ export async function relayAddrs({
 				)
 			)
 			.catch(() => []),
-		posts({ addresses: TRUSTED_RELAY_SENDERS.join(','), pagination: '20' })
-			.then((payload) => relaysFromPosts(payload))
-			.catch(() => [])
+		senders.length
+			? posts({ addresses: senders.join(','), pagination: '20' })
+					.then((payload) => relaysFromPosts(payload, senders))
+					.catch(() => [])
+			: []
 	]);
 	const found = [
 		...new Set(

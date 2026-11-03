@@ -15,6 +15,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Changed
 
+- **The relay Belege falls back to is relay-main-ekb**, the relay of the relay-button account that also serves paperless-anywhere's attest relay: when Aleph cannot be asked, devices meet there. The orbitdb-relay of 2026-11-02 is retired, and with it the last guest wallet Belege trusted one by one; a relay now counts only when it runs on one of Le Space's Aleph accounts, checked on Aleph. The consent text on relays says so (`app/src/lib/ucep/net.js`).
+
 - **The device gate and the quiet identify are a workspace package** (`packages/device-gate`, `@belege/device-gate`), shared by the app's sync node and, next, the bridge's own node (#573). The app imports it through its old paths; nothing changes in what a device or a relay sees.
 - **Bridge: its functions are commands, apart from the transport** (`bridge/src/commands.js`): every route is now a named command (`bank.transactions`, `mail.search`, `llm.extract`, …) with the scope a device will need once the bridge speaks UCEP over libp2p; `server.js` is the HTTP front door that checks host, origin and token and dispatches. Nothing changes for the app; the first step of #567.
 
