@@ -5,7 +5,7 @@ import {
 	loadStoredPasskeyCredential,
 	restorePasskeyCredential
 } from './passkey-identity.js';
-import { getSetting } from './store/settings.js';
+import { getSetting, setSetting } from './store/settings.js';
 import { passkeyStepsFor } from './passkey-steps.svelte.js';
 import { sharedOrigin } from './shared-origin.js';
 import { redactionFromStatus } from './llm-redaction.js';
@@ -76,8 +76,9 @@ export const app = $state({
 		/** This desktop serves its bridge to own devices (#142). */
 		bridgeServed: false,
 		/**
-		 * How the bridge answered last: here, or through an own device's (#142).
-		 * @type {'local' | 'device'}
+		 * How the bridge answered last: over the stream to its own node (#573),
+		 * here over HTTP, or through an own device's (#142).
+		 * @type {'stream' | 'local' | 'device'}
 		 */
 		bridgeRoute: 'local'
 	},
@@ -973,29 +974,63 @@ async function startDeviceSyncIfOn() {
 	}
 }
 
+/** @type {Awaited<ReturnType<typeof import('./sync/remote-bridge.js').startBridgeConsumer>> | null} */
+let bridgeConsumer = null;
+
 /**
- * The bridge between own devices (issue #142): this device may use a desktop's
- * bridge when its own cannot be reached, and a desktop that switched "Bridge
- * für eigene Geräte freigeben" on serves its own to the devices the books know.
+ * The bridge over the stream (#573, #575): the bridge's own node, a device of
+ * the books, first; the bridge between own devices (issue #142) after – this
+ * device may use a desktop's bridge when its own cannot be reached, and a
+ * desktop that switched "Bridge für eigene Geräte freigeben" on serves its own
+ * to the devices the books know.
  */
 async function startBridgeForDevices() {
 	if (!session?.online) return;
-	const { startBridgeConsumer, startBridgeProvider, bridgeFetch, bridgeShareOn } = await import(
-		'./sync/remote-bridge.js'
-	);
+	const { startBridgeConsumer, startBridgeProvider, bridgeFetch, bridgeShareOn, setBridgeNode } =
+		await import('./sync/remote-bridge.js');
 	const { knownDevices } = await import('./sync/device-sync.js');
 	const { setBridgeTransport } = await import('./bridge/client.js');
 	const libp2p = session.libp2p;
 	const settings = session.store.settings;
-	const { remoteFetch } = await startBridgeConsumer({
+	// The bridge's node, as the books know it (settings `bridge.peerId`, written at its pairing).
+	const readNode = async () => {
+		const saved = /** @type {any} */ (await getSetting(settings, 'bridge'));
+		setBridgeNode(saved?.peerId ? { peerId: saved.peerId } : null);
+	};
+	await readNode();
+	const consumer = await startBridgeConsumer({
 		libp2p,
 		label: deviceLabel(),
 		// `connected` only once the device proved the passkey (device-gate.js).
-		devices: () => (app.sync.state?.devices ?? []).filter((d) => d.connected).map((d) => d.peerId)
+		devices: () => (app.sync.state?.devices ?? []).filter((d) => d.connected).map((d) => d.peerId),
+		isProved: (peerId) => Boolean(session?.deviceGate?.isProved(peerId))
 	});
+	bridgeConsumer = consumer;
 	setBridgeTransport(
-		bridgeFetch({ remote: () => remoteFetch, onRoute: (r) => (app.sync.bridgeRoute = r) })
+		bridgeFetch({
+			stream: () => consumer.streamFetch,
+			remote: () => consumer.remoteFetch,
+			onRoute: (r) => (app.sync.bridgeRoute = r)
+		})
 	);
+	// The books' device list to the bridge's node whenever it changes, from any
+	// device that is connected to it: a device removed here is refused there.
+	let toldDevices = '';
+	/** @type {ReturnType<typeof setTimeout> | undefined} */
+	let tellTimer;
+	const tellDevices = async () => {
+		const list = knownDevices(await settings.list({ includeDeleted: true }))
+			.map((d) => d.peerId)
+			.sort();
+		const key = list.join(',');
+		if (key === toldDevices) return;
+		if (await consumer.tellDevices(list).catch(() => false)) toldDevices = key;
+	};
+	settings.onChange(() => {
+		readNode().catch(() => {});
+		clearTimeout(tellTimer);
+		tellTimer = setTimeout(() => tellDevices().catch(() => {}), 1500);
+	});
 	app.sync.bridgeServed = false;
 	if (!bridgeShareOn()) return;
 	/** @type {{ url: string, token: string } | null} */
@@ -1019,6 +1054,55 @@ async function startBridgeForDevices() {
 	});
 	app.sync.bridgeServed = true;
 }
+
+/**
+ * "Über Einladung koppeln" (Integrationen → Bridge, #575): pair the bridge's
+ * own node by the invitation `pnpm bridge` printed, hand it the books' device
+ * key, relays and devices, and add it to the books as a device. Then wait for
+ * it to come back armed and proved, so the next call goes over the stream.
+ *
+ * @param {string} invitation `web+ucep:pair?…`
+ * @returns {Promise<{ peerId: string }>} the bridge's node
+ */
+export async function pairBridgeNode(invitation) {
+	if (!session?.online || !session.deviceAuthKey || !deviceSync || !bridgeConsumer) {
+		throw new Error(t('messages.bridge.needsSync'));
+	}
+	const { knownDevices } = await import('./sync/device-sync.js');
+	const { setBridgeNode } = await import('./sync/remote-bridge.js');
+	const own = knownDevices(await session.store.settings.list({ includeDeleted: true })).map(
+		(d) => d.peerId
+	);
+	const { peerId, addrs } = await bridgeConsumer.pairBridge({
+		invitation,
+		authKey: session.deviceAuthKey,
+		relays: session.relays,
+		devices: [session.peerId, ...own]
+	});
+	// Known as the bridge's node at once, here and in the books (settings `bridge.peerId`).
+	setBridgeNode({ peerId });
+	const saved = /** @type {any} */ ((await getSetting(session.store.settings, 'bridge')) ?? {});
+	await setSetting(session.store.settings, 'bridge', {
+		token: null,
+		...saved,
+		peerId,
+		nodePairedAt: isoNow()
+	});
+	// A device of the books from now on; dialled where it listens, and through the relays.
+	const label = t('messages.bridge.deviceLabel');
+	const until = Date.now() + 45_000;
+	await new Promise((r) => setTimeout(r, 1500)); // the node restarts armed
+	await deviceSync.addDevice(peerId, label, { bridge: true, addrs });
+	while (!bridgeConsumer.streamServer() && Date.now() < until) {
+		await new Promise((r) => setTimeout(r, 2000));
+		if (!bridgeConsumer.streamServer())
+			await deviceSync.addDevice(peerId, label, { bridge: true, addrs });
+	}
+	return { peerId };
+}
+
+/** A timestamp for a stored record, not reactive state. */
+const isoNow = () => new Date().toISOString();
 
 /** How this device calls itself in the list: the browser and system, as it says. */
 function deviceLabel() {

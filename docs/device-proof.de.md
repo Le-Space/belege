@@ -43,6 +43,7 @@ Bis ein Peer den Nachweis erbracht hat, antwortet ihm der Knoten nur mit identif
 - **„Beides“** (öffentliche Relays und eigenes Netz): Ein Gerät, das die Bücher noch nicht kennen, kommt nur über das eigene Netz herein – über eine Verbindung aus zwei gescannten QR-Codes oder über das Relay der Bridge. Sobald sein Eintrag repliziert ist, darf es auch über die öffentlichen Relays kommen. Wer mit einem geleakten Passkey aus der Ferne ein Gerät hinzufügt, bekommt nichts ([`first-contact.js`](../app/src/lib/sync/first-contact.js)).
 - In den anderen Modi kommt jedes Gerät herein, das den Passkey beweist.
 - **Die Bridge zwischen eigenen Geräten** (`belege-bridge`) antwortet einem Peer nur, wenn die Bücher ihn als eigenes Gerät kennen _und_ er auf dieser Verbindung den Passkey bewiesen hat; ein Telefon ruft nur Geräte an, die ihn bewiesen haben.
+- **Der eigene Knoten der Bridge** (`bridge/src/node.js`) läuft mit demselben Tor: Beim Koppeln per Einladung übergibt ihm ein Gerät den Geräteschlüssel der Bücher (er liegt im Schlüsselbund der Bridge) und trägt die Bridge als Gerät in die Bücher ein. Von da an beweist die Bridge sich den Geräten und prüft sie wie jedes Gerät, lässt nur Peers auf der Geräteliste der Bücher zu und bietet ihre Funktionen über den Stream nur bewiesenen Geräten an.
 - **Ein Gerät entfernen** löscht seinen Eintrag; jedes Gerät legt auf und lässt es von da an nicht mehr herein.
 
 ## Warum das sicher ist

@@ -119,7 +119,7 @@ test('the phone reaches the bridge through the desktop', async ({ browser }) => 
 		await tab(mac.page, 'Integrationen');
 		const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
 		await mac.page.getByTestId('pairing-code').fill(code);
-		await mac.page.getByRole('button', { name: 'Koppeln' }).click();
+		await mac.page.getByRole('button', { name: 'Koppeln', exact: true }).click();
 		await expect(mac.page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
 		await openIntegration(mac.page, 'geraete');
 		await expect(mac.page.getByTestId('devices-bridge-served')).toBeVisible({ timeout: 30_000 });

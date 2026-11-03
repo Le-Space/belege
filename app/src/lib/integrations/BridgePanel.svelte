@@ -4,11 +4,15 @@
 	// by code, "Kopplung lösen" (issue #152: on the overview as its first row,
 	// and on its own page).
 	import { t } from '$lib/i18n/index.js';
+	import { app } from '$lib/session.svelte.js';
 	import {
 		bridge,
+		bridgePaired,
 		bridgeViaDevice,
+		bridgeViaStream,
 		checkBridge,
 		pairBridge,
+		pairBridgeByInvitation,
 		unpairBridge
 	} from './bridge-state.svelte.js';
 	import { hostsBridge } from './host.js';
@@ -17,6 +21,7 @@
 	let { intro = true } = $props();
 
 	let code = $state('');
+	let invitation = $state('');
 	let pairing = $state(false);
 
 	/** @param {SubmitEvent} event */
@@ -24,6 +29,15 @@
 		event.preventDefault();
 		pairing = true;
 		if (await pairBridge(code)) code = '';
+		pairing = false;
+	}
+
+	/** "Über Einladung koppeln" (#575): the bridge's own node becomes a device of the books. */
+	/** @param {SubmitEvent} event */
+	async function pairByInvitation(event) {
+		event.preventDefault();
+		pairing = true;
+		if (await pairBridgeByInvitation(invitation)) invitation = '';
 		pairing = false;
 	}
 
@@ -39,18 +53,21 @@
 				class="mt-1 text-sm text-text"
 				data-testid="bridge-status"
 				data-state={bridge.state}
-				data-paired={bridge.token ? 'true' : 'false'}
+				data-paired={bridgePaired() ? 'true' : 'false'}
+				data-route={app.sync.bridgeRoute}
 			>
 				{#if bridge.state === 'checking'}
 					{t('integrationen.bridge.checking')}
 				{:else if bridge.state === 'online'}
 					<span class="font-medium text-success">{t('integrationen.bridge.online')}</span>
 					·
-					{bridgeViaDevice()
-						? t('integrationen.bridge.viaDevice')
-						: bridge.token
-							? t('integrationen.bridge.paired')
-							: t('integrationen.bridge.unpaired')}
+					{bridgeViaStream()
+						? t('integrationen.bridge.viaStream')
+						: bridgeViaDevice()
+							? t('integrationen.bridge.viaDevice')
+							: bridgePaired()
+								? t('integrationen.bridge.paired')
+								: t('integrationen.bridge.unpaired')}
 					{#if !bridge.health.hibiscus}· {t('integrationen.bridge.noHibiscus')}{/if}
 				{:else if bridge.state === 'offline'}
 					<span class="font-medium text-danger">{t('integrationen.bridge.offline')}</span>
@@ -68,7 +85,29 @@
 		<p class="mt-3 text-sm text-text" data-testid="bridge-via-device">
 			{t('integrationen.bridge.viaDeviceHint')}
 		</p>
-	{:else if !bridge.token}
+	{:else if !bridgePaired()}
+		{#if app.sync.online}
+			<!-- The bridge's own node (#573): paired by the invitation it printed, a device of the books from then on. -->
+			<form class="mt-4 flex flex-wrap items-end gap-3" onsubmit={pairByInvitation}>
+				<label class="flex min-w-0 flex-1 flex-col text-sm">
+					<span class="text-faint">{t('integrationen.bridge.invitation')}</span>
+					<input
+						class="mt-1 min-h-11 w-full rounded-md border px-2 font-mono text-sm"
+						bind:value={invitation}
+						placeholder="web+ucep:pair?…"
+						autocomplete="off"
+						data-testid="bridge-invitation"
+					/>
+				</label>
+				<button
+					type="submit"
+					class="min-h-11 rounded-md bg-coral-700 px-4 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50"
+					disabled={pairing || !invitation.trim().startsWith('web+ucep:pair')}
+					data-testid="bridge-pair-invitation">{t('integrationen.bridge.pairInvitation')}</button
+				>
+			</form>
+			<p class="mt-2 text-xs text-faint">{t('integrationen.bridge.invitationHint')}</p>
+		{/if}
 		<form class="mt-4 flex flex-wrap items-end gap-3" onsubmit={pair}>
 			<label class="flex flex-col text-sm">
 				<span class="text-faint">{t('integrationen.bridge.url')}</span>
@@ -101,6 +140,16 @@
 					: t('integrationen.bridge.codeHintFirst')
 			})}
 		</p>
+	{:else if bridgeViaStream()}
+		<p class="mt-3 text-sm text-text" data-testid="bridge-via-stream">
+			{t('integrationen.bridge.viaStreamHint')}
+		</p>
+		<button
+			type="button"
+			class="mt-3 min-h-11 text-sm text-text underline hover:text-heading"
+			onclick={unpairBridge}
+			data-testid="unpair">{t('integrationen.bridge.unpair')}</button
+		>
 	{:else if bridge.state === 'offline' && !hostsBridge()}
 		<!-- A phone never runs a bridge (#142): no terminal, no unpairing – the computer's bridge, over device sync. -->
 		<p class="mt-3 text-sm text-text" data-testid="bridge-on-a-phone">

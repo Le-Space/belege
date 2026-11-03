@@ -32,6 +32,7 @@
 // runs over the direct connection.
 
 import { FaultTolerance } from '@libp2p/interface';
+import { isLoopback, isPrivate } from '@libp2p/utils';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { NODE_INFO, gatedIdentify } from './quiet-identify.js';
@@ -109,6 +110,17 @@ export const blocked = new Set();
 
 /** The devices the books know (not removed), for the device gate's first-contact rule. */
 export const knownPeers = new Set();
+
+/** A device's record as it would come from the books, before the books have it. @param {string} peerId @param {string} label @returns {Device} */
+const deviceOf = (peerId, label) => ({
+	peerId,
+	label,
+	addedAt: '',
+	removed: false,
+	changedAt: '',
+	bridge: false,
+	addrs: []
+});
 
 const QR_PREFIX = 'belege-device:';
 
@@ -225,8 +237,16 @@ export function syncLibp2pConfig({ privateKey, relays, gate, mode = 'public' }) 
 		connectionManager: { inboundConnectionThreshold: 100 },
 		connectionGater: {
 			// A relay in the own network (or the test relay) has a private address,
-			// which libp2p refuses to dial by default.
-			...(lan || both || relays.some(isLocal) ? { denyDialMultiaddr: () => gateClosed } : {}),
+			// which libp2p refuses to dial by default – and so has the bridge's own
+			// node on this machine (127.0.0.1, remote-bridge.js), in every mode.
+			denyDialMultiaddr:
+				lan || both || relays.some(isLocal)
+					? () => gateClosed
+					: // libp2p's own rule for a browser (private addresses, insecure
+						// WebSockets), with this machine let through.
+						(/** @type {any} */ addr) =>
+							gateClosed ||
+							(!isLoopback(addr) && (isPrivate(addr) || /\/ws(\/|$)/.test(addr.toString()))),
 			// A device removed from the books is neither dialled nor let in; with
 			// the network switched off in the header, nobody is.
 			denyDialPeer: (/** @type {any} */ peerId) => gateClosed || blocked.has(String(peerId)),
@@ -255,7 +275,10 @@ export function syncLibp2pConfig({ privateKey, relays, gate, mode = 'public' }) 
 export const isPeerId = (id) => /^12D3KooW[1-9A-HJ-NP-Za-km-z]{44}$/.test(String(id ?? ''));
 
 /**
- * @typedef {{ peerId: string, label: string, addedAt: string, removed: boolean, changedAt: string }} Device
+ * @typedef {{ peerId: string, label: string, addedAt: string, removed: boolean, changedAt: string, bridge: boolean, addrs: string[] }} Device
+ *   `bridge`: the bridge's own node (remote-bridge.js, #573) – a device of the books that holds no books,
+ *   so no replication is expected of it; `addrs`: where it listens besides the relays (its WebSocket on the
+ *   machine it runs on), from its invitation
  */
 
 /**
@@ -287,7 +310,9 @@ export function deviceRecords(settingsRecords) {
 			label: names.get(String(r.key))?.label ?? '',
 			addedAt: String(r.value?.addedAt ?? ''),
 			removed: Boolean(r.deleted),
-			changedAt: String(r.updatedAt ?? '')
+			changedAt: String(r.updatedAt ?? ''),
+			bridge: Boolean(r.value?.bridge),
+			addrs: Array.isArray(r.value?.addrs) ? r.value.addrs.map(String).slice(0, 8) : []
 		}))
 		.filter((d) => isPeerId(d.peerId));
 }
@@ -350,8 +375,9 @@ export async function startDeviceSync({
 	 *
 	 * @param {string} peerId
 	 * @param {string} name
+	 * @param {{ bridge?: boolean, addrs?: string[] }} [how] the bridge's node (no books on it), and where it listens
 	 */
-	async function writeDevice(peerId, name) {
+	async function writeDevice(peerId, name, { bridge = false, addrs = [] } = {}) {
 		const key = `${DEVICE_PREFIX}${peerId}`;
 		const latest = (await all())
 			.filter((r) => r.key === key)
@@ -360,7 +386,11 @@ export async function startDeviceSync({
 		await store.settings.put({
 			...(latest ? { id: latest.id } : {}),
 			key,
-			value: { label: name || latest?.value?.label || '', addedAt: now() },
+			value: {
+				label: name || latest?.value?.label || '',
+				addedAt: now(),
+				...(bridge ? { bridge: true, addrs: addrs.slice(0, 8) } : {})
+			},
 			deleted: false
 		});
 	}
@@ -556,10 +586,14 @@ export async function startDeviceSync({
 				connected: connected(peerId),
 				direct: direct(peerId),
 				gossiping: gossiping(peerId),
-				links: links(peerId)
+				links: links(peerId),
+				...(isBridge(peerId) ? { bridge: true } : {})
 			}))
 		});
 	}
+
+	/** The bridge's node holds no books: gossipsub stays silent to it by design. @param {string} peerId */
+	const isBridge = (peerId) => Boolean(records.get(peerId)?.bridge);
 
 	/** @param {string} peerId */
 	async function dial(peerId) {
@@ -569,14 +603,17 @@ export async function startDeviceSync({
 			await gate.proveTo?.(peerId);
 			// Open is not the same as replicating: a mute one is hung up, and
 			// then dialled below as if it had never been connected (#393, #403).
-			if (!(await hangUpIfMute(peerId))) return;
+			if (isBridge(peerId) || !(await hangUpIfMute(peerId))) return;
 		}
 		const { multiaddr } = await import('@multiformats/multiaddr');
-		for (const relay of relays) {
+		// Through the relays; the bridge's node also where it listens itself (on this machine).
+		const addrs = [
+			...relays.map((relay) => `${relay}/p2p-circuit/p2p/${peerId}`),
+			...(records.get(peerId)?.addrs ?? [])
+		];
+		for (const addr of addrs) {
 			try {
-				await libp2p.dial(multiaddr(`${relay}/p2p-circuit/p2p/${peerId}`), {
-					signal: AbortSignal.timeout(15_000)
-				});
+				await libp2p.dial(multiaddr(addr), { signal: AbortSignal.timeout(15_000) });
 				return;
 			} catch {
 				// Not there, or not yet: tried again on the next round.
@@ -596,7 +633,7 @@ export async function startDeviceSync({
 	libp2p.addEventListener('connection:open', (/** @type {any} */ e) => {
 		const peerId = e.detail.remotePeer.toString();
 		report();
-		if (!known.has(peerId) || e.detail.limited || resynced.has(peerId)) return;
+		if (!known.has(peerId) || isBridge(peerId) || e.detail.limited || resynced.has(peerId)) return;
 		resynced.add(peerId);
 		clearTimeout(resyncTimer);
 		resyncTimer = setTimeout(() => {
@@ -631,13 +668,22 @@ export async function startDeviceSync({
 		 *
 		 * @param {string} peerId
 		 * @param {string} [otherLabel]
+		 * @param {{ bridge?: boolean, addrs?: string[] }} [how] the bridge's node, and where it listens besides the relays
 		 */
-		async addDevice(peerId, otherLabel = '') {
+		async addDevice(peerId, otherLabel = '', { bridge = false, addrs = [] } = {}) {
 			if (!isPeerId(peerId) || peerId === self) throw new Error(t('messages.sync.notDeviceId'));
-			await writeDevice(peerId, otherLabel);
+			await writeDevice(peerId, otherLabel, { bridge, addrs });
 			blocked.delete(peerId);
 			known.add(peerId);
 			knownPeers.add(peerId);
+			// Known as the bridge before the books' record comes back: the dial below uses its addresses.
+			if (bridge) {
+				records.set(peerId, {
+					...(records.get(peerId) ?? deviceOf(peerId, otherLabel)),
+					bridge: true,
+					addrs
+				});
+			}
 			await dial(peerId);
 			report();
 		},
@@ -665,7 +711,8 @@ export async function startDeviceSync({
 }
 
 /**
- * @typedef {{ self: string, reachable: boolean, hangUps?: number, addrs?: string[], devices: { peerId: string, label: string, connected: boolean, direct: boolean, gossiping?: boolean, links?: { addr: string, direct: boolean, rtt: number | null }[] }[] }} SyncState
+ * @typedef {{ self: string, reachable: boolean, hangUps?: number, addrs?: string[], devices: { peerId: string, label: string, connected: boolean, direct: boolean, gossiping?: boolean, bridge?: boolean, links?: { addr: string, direct: boolean, rtt: number | null }[] }[] }} SyncState
+ *   a device's `bridge`: the bridge's own node (#573), reached for the bridge's functions, replicating nothing;
  *   `addrs`: this node's own addresses (a `/p2p-circuit` one is its place at a relay);
  *   a device's `links`: each connection to it, by remote address, direct or relayed, with the last round trip in ms
  *   `gossiping`: a `/meshsub/` stream is open to it, so replication can actually move (#393);

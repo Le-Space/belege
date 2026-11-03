@@ -83,6 +83,8 @@ let alephBackupKeychain;
 /** @type {string | undefined} tests: the fake's IPFS host, where the app uploads a backup */
 let alephIngestUrl;
 let fixedRates = null;
+/** @type {import('./keychain.js').Keychain | undefined} */
+let deviceAuthKeychain;
 /** @type {((id: string) => import('./keychain.js').Keychain) | undefined} */
 let portalKeychain;
 /** @type {import('./portals/credentials.js').AskPassword | undefined} */
@@ -140,6 +142,8 @@ if (testMode) {
 		process.env.BELEGE_BRIDGE_TEST_ALEPH_BACKUP_KEY ?? null,
 		'aleph-backup'
 	);
+	// The books' device key a test device hands over (node.js): in memory, never the real keychain.
+	deviceAuthKeychain = memoryKeychain(null, 'device-auth');
 	if (process.env.BELEGE_BRIDGE_TEST_FIXED_RATES) {
 		fixedRates = JSON.parse(process.env.BELEGE_BRIDGE_TEST_FIXED_RATES);
 	}
@@ -161,6 +165,7 @@ try {
 		alephApi,
 		alephBackupKeychain,
 		alephIngestUrl,
+		deviceAuthKeychain,
 		fixedRates,
 		walletLoopback: testMode,
 		portalKeychain,

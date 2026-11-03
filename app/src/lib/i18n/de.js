@@ -353,6 +353,9 @@ export default {
 			unreachable:
 				'Die Bridge ist nicht erreichbar. Läuft sie (pnpm bridge)? Ob sie diese Seite hereinlässt, sagt „Status prüfen“ unter Integrationen → Bridge.',
 			unknownDevice: 'Die Bridge kennt dieses Gerät nicht (neu koppeln).',
+			needsSync:
+				'Zum Koppeln über Einladung muss die Gerätesynchronisation auf diesem Gerät an sein (Integrationen → Eigene Geräte).',
+			deviceLabel: 'Bridge',
 			originNotAllowed: 'Diese App-Adresse ist in der Bridge nicht erlaubt.',
 			wrongCode: 'Falscher Kopplungscode.',
 			noCode: 'Kein Kopplungscode aktiv: Bridge mit --pair neu starten.',
@@ -3992,6 +3995,13 @@ export default {
 			paired: 'dieses Gerät ist gekoppelt',
 			unpaired: 'nicht gekoppelt',
 			viaDevice: 'über deinen Mac (eigenes Gerät)',
+			viaStream: 'über ihren eigenen Knoten (Gerät dieser Bücher)',
+			viaStreamHint:
+				'Die Bridge ist ein Gerät dieser Bücher: Jedes deiner Geräte erreicht sie über die Relays, auch ohne offenen Browser am Rechner. Koppeln und Einrichten geschehen am Rechner.',
+			invitation: 'Einladung der Bridge',
+			pairInvitation: 'Über Einladung koppeln',
+			invitationHint:
+				'Die Einladung (web+ucep:pair?…) zeigt die Bridge beim Start im Terminal, solange sie noch kein Gerät der Bücher ist. Dieses Gerät übergibt ihr den Geräteschlüssel der Bücher; danach erreicht sie jedes deiner Geräte über die Relays.',
 			viaDeviceHint:
 				'Dieses Gerät nutzt die Bridge deines Macs. Koppeln, Einrichten und Entkoppeln geschehen dort; hier gehen nur lesende Abfragen und das Auslesen hinüber.',
 			onAPhone:

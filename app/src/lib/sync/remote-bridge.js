@@ -16,17 +16,60 @@
 // answered. The connection is Noise-encrypted end to end; a relay in between
 // sees ciphertext. Nothing is redacted between own devices.
 //
-// On the other device, `bridgeFetch` stands in for fetch in the bridge
-// client (bridge/client.js): the bridge on this machine first, and when it
-// cannot be reached, a connected own device that serves the extension.
+// Since #573 the bridge has a node of its own that serves the same extension
+// with the same `request` (bridge/src/stream.js): a peer of the books, gated
+// like a device. It is paired by its invitation (`web+ucep:pair?…`, printed
+// by `pnpm bridge`): this device pairs over the stream, hands the books'
+// device key, relays and device list over (`handover`), and adds the bridge
+// to the books as a device – from then on every device of the books reaches
+// it through the relays, with no desktop browser open, and keeps its device
+// list current (`devices`). The desktop forwarding above stays as the last
+// resort for a bridge that runs with `--no-node`.
+//
+// On a device, `bridgeFetch` stands in for fetch in the bridge client
+// (bridge/client.js): the bridge's own node first when it is connected and
+// proved, then the bridge on this machine over HTTP, then a connected own
+// device that serves the extension. Pairing and unpairing over HTTP stay
+// with HTTP.
 //
 // UCEP's limits hold: a request up to 64 KiB, an answer up to 1 MiB over a
-// direct connection (64 KiB while relayed), 60 s to answer.
+// direct connection (64 KiB while relayed), 60 s to answer. A stream answer
+// that is too large falls back to HTTP on this machine, when there is one.
 
-import { UcepError, createConsumer, createProvider } from '@le-space/ucep';
+import { UcepError, createConsumer, createProvider, parseInvitation } from '@le-space/ucep';
 
 export const EXTENSION = 'belege-bridge';
 export const SHARE_FLAG_KEY = 'belege.bridge-share';
+/** The bridge's own pairing and unpairing, over HTTP only (bridge/src/stream.js HTTP_ONLY). */
+const HTTP_ONLY_PATH = /^\/(pair|unpair)$/;
+const PEER_ID = /^12D3KooW[1-9A-HJ-NP-Za-km-z]{44}$/;
+
+/**
+ * The bridge's own node, as the books keep it (settings `bridge.peerId`, the
+ * device record for its addresses): module state, read on every call.
+ *
+ * @type {{ peerId: string } | null}
+ */
+let bridgeNode = null;
+
+/** @param {{ peerId?: unknown } | null} node */
+export function setBridgeNode(node) {
+	const peerId = String(node?.peerId ?? '');
+	bridgeNode = PEER_ID.test(peerId) ? { peerId } : null;
+}
+
+/** The bridge's node's peer id, when the books know one. */
+export const bridgeNodePeer = () => bridgeNode?.peerId ?? null;
+
+/** @param {Uint8Array} bytes */
+const toBase64 = (bytes) => {
+	let s = '';
+	for (let i = 0; i < bytes.length; i += 0x8000)
+		s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+	return btoa(s);
+};
+/** @param {string} b64 */
+const fromBase64 = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 
 /**
  * The bridge routes another device may use: reading and asking, never
@@ -84,16 +127,6 @@ export function setBridgeShare(on) {
 		// Blocked: stays off.
 	}
 }
-
-/** @param {Uint8Array} bytes */
-const toBase64 = (bytes) => {
-	let s = '';
-	for (let i = 0; i < bytes.length; i += 0x8000)
-		s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-	return btoa(s);
-};
-/** @param {string} b64 */
-const fromBase64 = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 
 /**
  * The command's work, apart from libp2p: check the caller and the call, ask
@@ -179,15 +212,22 @@ export async function startBridgeProvider({ libp2p, isOwnDevice, bridge, log = (
 }
 
 /**
- * The consumer on another device: which connected own devices serve the
- * extension, and a fetch that calls through one of them.
+ * The consumer on a device: the bridge's own node when it is connected and
+ * proved, else which connected own devices serve the extension, and a fetch
+ * that calls through either.
  *
  * @param {object} p
  * @param {any} p.libp2p the device-sync node
  * @param {() => string[]} p.devices the own devices connected now
+ * @param {(peerId: string) => boolean} [p.isProved] the device gate's word on a peer (device-gate.js)
  * @param {string} [p.label]
  */
-export async function startBridgeConsumer({ libp2p, devices, label = 'Belege' }) {
+export async function startBridgeConsumer({
+	libp2p,
+	devices,
+	isProved = () => true,
+	label = 'Belege'
+}) {
 	const consumer = createConsumer({ libp2p, label });
 	await consumer.start?.();
 
@@ -211,16 +251,26 @@ export async function startBridgeConsumer({ libp2p, devices, label = 'Belege' })
 		return null;
 	}
 
+	/** The bridge's own node, when the books know it and it is connected and proved on this run. */
+	function streamServer() {
+		const peerId = bridgeNode?.peerId;
+		if (!peerId || !isProved(peerId)) return null;
+		const open = libp2p
+			.getConnections()
+			.some((/** @type {any} */ c) => c.remotePeer.toString() === peerId && c.status === 'open');
+		return open ? peerId : null;
+	}
+
 	/**
-	 * fetch, through a desktop: the same Request in, a Response out.
+	 * One bridge call through a peer that serves the extension: the same
+	 * Request in, a Response out.
 	 *
+	 * @param {string} peerId
 	 * @param {string | URL | Request} input
 	 * @param {RequestInit} [init]
 	 */
-	async function remoteFetch(input, init = {}) {
+	async function callThrough(peerId, input, init = {}) {
 		const url = new URL(String(input instanceof Request ? input.url : input));
-		const peerId = await server();
-		if (!peerId) throw new TypeError('no own device serves a bridge');
 		const body = typeof init.body === 'string' && init.body ? JSON.parse(init.body) : undefined;
 		/** @type {any} */
 		const answer = await consumer.call(peerId, EXTENSION, 'request', {
@@ -236,22 +286,113 @@ export async function startBridgeConsumer({ libp2p, devices, label = 'Belege' })
 		});
 	}
 
-	return { consumer, server, remoteFetch, stop: () => consumer.stop?.() };
+	/**
+	 * fetch, through a desktop that serves its bridge.
+	 *
+	 * @param {string | URL | Request} input
+	 * @param {RequestInit} [init]
+	 */
+	async function remoteFetch(input, init = {}) {
+		const peerId = await server();
+		if (!peerId) throw new TypeError('no own device serves a bridge');
+		return callThrough(peerId, input, init);
+	}
+
+	/**
+	 * fetch, over the stream to the bridge's own node.
+	 *
+	 * @param {string | URL | Request} input
+	 * @param {RequestInit} [init]
+	 */
+	async function streamFetch(input, init = {}) {
+		const peerId = streamServer();
+		if (!peerId) throw new TypeError('the bridge’s node is not connected');
+		return callThrough(peerId, input, init);
+	}
+
+	/**
+	 * Pair the bridge's node by its invitation and hand the books' device key
+	 * over (bridge/src/node.js `handover`): from then on the bridge is a
+	 * device of the books. The key goes once, over the Noise channel to the
+	 * peer the invitation names; it is never kept here beyond the session.
+	 *
+	 * @param {object} p
+	 * @param {string} p.invitation `web+ucep:pair?…`, as the bridge printed it
+	 * @param {Uint8Array} p.authKey the books' device auth key (node.js, in memory)
+	 * @param {string[]} p.relays the relays the books use
+	 * @param {string[]} p.devices the books' devices, this one included
+	 * @returns {Promise<{ peerId: string, addrs: string[] }>} the bridge's node, and where it listens besides the relays
+	 */
+	async function pairBridge({ invitation, authKey, relays, devices: list }) {
+		const inv = parseInvitation(invitation.trim());
+		if (inv.extensionId !== EXTENSION) throw new UcepError('UNKNOWN_EXTENSION');
+		await consumer.pairWithInvitation(invitation.trim());
+		await consumer.call(inv.providerPeerId, EXTENSION, 'handover', {
+			deviceAuth: toBase64(authKey),
+			relays: relays.slice(0, 16),
+			devices: [...new Set(list)].slice(0, 64)
+		});
+		return {
+			peerId: inv.providerPeerId,
+			addrs: inv.addrs.filter((a) => !a.includes('/p2p-circuit'))
+		};
+	}
+
+	/**
+	 * The books' device list to the bridge's node, when it is connected: a
+	 * device removed in the app is refused there too.
+	 *
+	 * @param {string[]} list peer ids
+	 * @returns {Promise<boolean>} whether the bridge took it
+	 */
+	async function tellDevices(list) {
+		const peerId = streamServer();
+		if (!peerId) return false;
+		await consumer.call(peerId, EXTENSION, 'devices', { devices: [...new Set(list)].slice(0, 64) });
+		return true;
+	}
+
+	return {
+		consumer,
+		server,
+		streamServer,
+		remoteFetch,
+		streamFetch,
+		pairBridge,
+		tellDevices,
+		stop: () => consumer.stop?.()
+	};
 }
 
 /**
- * The bridge on this machine first; when it cannot be reached (a phone: no
- * bridge, or a page that may not call 127.0.0.1), an own device's.
+ * The bridge's own node first, over the stream, when `stream` has it; then the
+ * bridge on this machine over HTTP; when that cannot be reached either (a
+ * phone: no bridge, or a page that may not call 127.0.0.1), an own device's.
+ * Pairing and unpairing over HTTP go to HTTP only.
  *
- * `onRoute` hears which way a call went: 'local', or 'device' through an own
- * device's bridge.
+ * `onRoute` hears which way a call went: 'stream' to the bridge's node,
+ * 'local' over HTTP here, or 'device' through an own device's bridge.
  *
- * @param {{ local?: typeof fetch, remote: () => ((input: any, init?: RequestInit) => Promise<Response>) | null, onRoute?: (route: 'local' | 'device') => void }} p
+ * @param {{ local?: typeof fetch, stream?: () => ((input: any, init?: RequestInit) => Promise<Response>) | null, remote: () => ((input: any, init?: RequestInit) => Promise<Response>) | null, onRoute?: (route: 'stream' | 'local' | 'device') => void }} p
  * @returns {typeof fetch}
  */
-export function bridgeFetch({ local = fetch, remote, onRoute = () => {} }) {
+export function bridgeFetch({ local = fetch, stream = () => null, remote, onRoute = () => {} }) {
 	return /** @type {typeof fetch} */ (
 		async (input, init) => {
+			// The token is HTTP's: a peer over the stream is known by its proof.
+			const headers = { .../** @type {Record<string, string>} */ (init?.headers ?? {}) };
+			delete headers.Authorization;
+			const path = new URL(String(input instanceof Request ? input.url : input)).pathname;
+			const over = HTTP_ONLY_PATH.test(path) ? null : stream();
+			if (over) {
+				try {
+					const res = await over(input, { ...init, headers });
+					onRoute('stream');
+					return res;
+				} catch {
+					// Not connected, or the answer too big for the stream: HTTP, when there is one.
+				}
+			}
 			try {
 				const res = await local(input, init);
 				onRoute('local');
@@ -259,9 +400,6 @@ export function bridgeFetch({ local = fetch, remote, onRoute = () => {} }) {
 			} catch (error) {
 				const through = remote();
 				if (!through) throw error;
-				// The own device's bridge answers with the desktop's token; this one's stays here.
-				const headers = { .../** @type {Record<string, string>} */ (init?.headers ?? {}) };
-				delete headers.Authorization;
 				const res = await through(input, { ...init, headers });
 				onRoute('device');
 				return res;

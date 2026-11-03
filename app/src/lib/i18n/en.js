@@ -338,6 +338,9 @@ export default {
 			unreachable:
 				'The bridge cannot be reached. Is it running (pnpm bridge)? Whether it lets this page in, "Status prüfen" under Integrationen → Bridge says.',
 			unknownDevice: 'The bridge does not know this device (pair again).',
+			needsSync:
+				'Pairing by invitation needs device sync switched on on this device (Integrations → Own devices).',
+			deviceLabel: 'Bridge',
 			originNotAllowed: 'This app address is not allowed in the bridge.',
 			wrongCode: 'Wrong pairing code.',
 			noCode: 'No pairing code active: restart the bridge with --pair.',
@@ -3939,6 +3942,13 @@ export default {
 			paired: 'this device is paired',
 			unpaired: 'not paired',
 			viaDevice: 'via your Mac (own device)',
+			viaStream: 'via its own node (a device of these books)',
+			viaStreamHint:
+				'The bridge is a device of these books: every device of yours reaches it through the relays, with no browser open on the computer. Pairing and setting up happen on the computer.',
+			invitation: 'The bridge’s invitation',
+			pairInvitation: 'Pair by invitation',
+			invitationHint:
+				'The bridge shows the invitation (web+ucep:pair?…) in the terminal on start-up, as long as it is not a device of the books yet. This device hands it the books’ device key; from then on every device of yours reaches it through the relays.',
 			viaDeviceHint:
 				'This device uses your Mac’s bridge. Pairing, setting up and unpairing happen there; only read-only queries and receipt reading go across from here.',
 			onAPhone:

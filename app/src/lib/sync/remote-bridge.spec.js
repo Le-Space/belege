@@ -3,7 +3,13 @@
 // that falls back to it. No libp2p here; made-up values only.
 import { describe, expect, it } from 'vitest';
 
-import { allowed, bridgeFetch, serveRequest } from './remote-bridge.js';
+import {
+	allowed,
+	bridgeFetch,
+	bridgeNodePeer,
+	serveRequest,
+	setBridgeNode
+} from './remote-bridge.js';
 
 const OWN = '12D3KooWown';
 const STRANGER = '12D3KooWstranger';
@@ -159,5 +165,53 @@ describe('the phone’s fetch', () => {
 		localUp = false;
 		await f('http://127.0.0.1:8765/health');
 		expect(routes).toEqual(['local', 'device']);
+	});
+});
+
+describe('the bridge’s own node (#575)', () => {
+	it('the stream first when it is there; HTTP when the stream fails; pairing stays with HTTP', async () => {
+		/** @type {string[]} */
+		const routes = [];
+		/** @type {any[]} */
+		const streamCalls = [];
+		let streamUp = true;
+		const stream = async (/** @type {any} */ input, /** @type {any} */ init) => {
+			streamCalls.push({ input: String(input), init });
+			if (!streamUp) throw new Error('TOO_LARGE');
+			return json({ stream: true });
+		};
+		const f = bridgeFetch({
+			local: async () => json({ local: true }),
+			stream: () => stream,
+			remote: () => null,
+			onRoute: (r) => routes.push(r)
+		});
+		expect(
+			await (
+				await f('http://127.0.0.1:8765/health', { headers: { Authorization: 'Bearer phone' } })
+			).json()
+		).toEqual({ stream: true });
+		expect(streamCalls[0].init.headers.Authorization).toBeUndefined();
+		// Too big for the stream: HTTP on this machine answers.
+		streamUp = false;
+		expect(await (await f('http://127.0.0.1:8765/mail/raw?id=x')).json()).toEqual({ local: true });
+		// Pairing and unpairing never go over the stream.
+		streamUp = true;
+		await f('http://127.0.0.1:8765/pair', { method: 'POST' });
+		await f('http://127.0.0.1:8765/unpair', { method: 'POST' });
+		expect(streamCalls).toHaveLength(2);
+		expect(routes).toEqual(['stream', 'local', 'local', 'local']);
+		// No node known: HTTP as before.
+		const plain = bridgeFetch({ local: async () => json({ local: true }), remote: () => null });
+		expect(await (await plain('http://127.0.0.1:8765/health')).json()).toEqual({ local: true });
+	});
+
+	it('knows the bridge’s node only by a peer id', () => {
+		setBridgeNode({ peerId: 'nope' });
+		expect(bridgeNodePeer()).toBeNull();
+		setBridgeNode({ peerId: '12D3KooWGzN9EoHWJ3u4ZyiDpm7DVpNcwRVaUPfYzCgxGmnpHsGp' });
+		expect(bridgeNodePeer()).toBe('12D3KooWGzN9EoHWJ3u4ZyiDpm7DVpNcwRVaUPfYzCgxGmnpHsGp');
+		setBridgeNode(null);
+		expect(bridgeNodePeer()).toBeNull();
 	});
 });
