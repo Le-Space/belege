@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **"Alle Wallets synchronisieren"**: every wallet read by its address, one after the other, with the progress in percent on the card and on the tab _Integrationen_. The run goes on while you click elsewhere in Belege; only a reload ends it. At the end the card says what came – new bookings, without a rate, not fetched – and, with Belege in the background, a system notification says it too: asked for once on the click, with counts only, never an amount, a name or an address (`app/src/lib/wallets/sync-run.svelte.js`, `app/src/lib/notify.js`).
+
 ## [0.27.0] – 2026-11-03
 
 ### Added
