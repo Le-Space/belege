@@ -26,7 +26,8 @@ const bundle = () =>
 			replication: key(2),
 			blob: key(3),
 			deviceAuth: key(4),
-			backup: key(5)
+			backup: key(5),
+			bridgeAuth: key(6)
 		},
 		addresses
 	});
@@ -49,13 +50,14 @@ const passkey = (/** @type {number} */ n) => ({
 });
 
 describe('the member bundle', () => {
-	it('round-trips, and carries the five keys and every collection’s address – nothing else', () => {
+	it('round-trips, and carries the six keys and every collection’s address – nothing else', () => {
 		const b = bundle();
 		const again = decodeBundle(encodeBundle(b));
 		expect(again).toEqual(b);
 		expect(Object.keys(again.keys).sort()).toEqual([
 			'backup',
 			'blob',
+			'bridgeAuth',
 			'database',
 			'deviceAuth',
 			'replication'
