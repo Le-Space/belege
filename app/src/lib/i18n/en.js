@@ -97,6 +97,16 @@ export default {
 				lan: 'Only on your own network (relay in your bridge)',
 				both: 'Both: new devices only on your own network or by QR, then anywhere'
 			},
+			light: {
+				public: {
+					up: 'connected to a Le Space relay',
+					down: 'no Le Space relay reachable'
+				},
+				lan: {
+					up: 'connected to your bridge’s relay',
+					down: 'your bridge’s relay not reachable'
+				}
+			},
 			modeHints: {
 				public: 'Anywhere; the relay sees IP addresses and times, never the content.',
 				qr: 'No relay, no server: both devices on the same network, and swap codes once after every reload.',

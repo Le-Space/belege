@@ -1647,6 +1647,19 @@ function installE2EHooks() {
 					)
 				: null,
 		transactions: () => session?.store.transactions.list(),
+		// A relay that dropped this device (sleep, another network): every connection to the relays hung up.
+		hangUpRelays: async () => {
+			const { relayPeerOf } = await import('./sync/first-contact.js');
+			const peers = new Set((session?.relays ?? []).map((r) => relayPeerOf(r)).filter(Boolean));
+			let closed = 0;
+			for (const c of session?.libp2p?.getConnections?.() ?? []) {
+				if (peers.has(c.remotePeer.toString())) {
+					closed++;
+					await c.close().catch(() => {});
+				}
+			}
+			return { closed, relays: [...peers] };
+		},
 		// A made-up receipt, as reading one would leave it (instalments spec, #258).
 		addReceipt: (/** @type {Record<string, any>} */ r) => session?.store.receipts.put(r),
 		// …and one with its file in the sealed blob store (the receipt preview, #273).

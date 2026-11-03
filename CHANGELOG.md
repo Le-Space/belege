@@ -8,9 +8,12 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **A light for the relay in the network menu**: under the chosen way to meet, green while this device holds a place at a relay of that kind (a Le Space relay, or your bridge's), red when not – so "no device connected" and "not reachable at all" look different (`app/src/lib/sync/relay-light.js`).
 - **"Alle Wallets synchronisieren"**: every wallet read by its address, one after the other, with the progress in percent on the card and on the tab _Integrationen_. The run goes on while you click elsewhere in Belege; only a reload ends it. At the end the card says what came – new bookings, without a rate, not fetched – and, with Belege in the background, a system notification says it too: asked for once on the click, with counts only, never an amount, a name or an address (`app/src/lib/wallets/sync-run.svelte.js`, `app/src/lib/notify.js`).
+
 ### Fixed
 
+- **A device that lost its place at the relay takes it again**: libp2p reserves a place at each configured relay once, at start; when the relay connection went (a laptop asleep, another network, a redeployed relay), the device stayed unreachable for its other devices until a reload. Device sync now notices it in its 30-second round and listens on the relays again, waiting longer after each failure, up to ten minutes (`app/src/lib/sync/device-sync.js`).
 - **Crypto bookings older than two years get a rate**: CoinGecko answers for the last 365 days only and Kraken's daily candles cover the last 720, so a Bitcoin booking before that stayed "Kurs fehlt". The bridge now asks Kraken's trade history for the first trade of that day after 00:00 UTC – the price the day's candle would have opened with – one call at a time and spaced; a day before Kraken listed the pair still has none (`bridge/src/rates.js`).
 
 ## [0.27.0] – 2026-11-03
