@@ -324,6 +324,12 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await expect(page.getByTestId('ai-all-progress')).toHaveCount(0);
 	const asked = await suggestions.count();
 	expect(llm.requests.length - requestsBefore).toBeGreaterThanOrEqual(asked);
+	// How many requests the interrupted run took depends on the moment of the reload, over HTTP
+	// and over the stream alike: one that reached the model before it is answered into nothing,
+	// and the resume asks again. Counted once every request of the run has its answer; the rest
+	// of the spec is counted exactly.
+	await expect.poll(() => llm.requests.length - llm.arrived()).toBe(0);
+	const ofTheRun = llm.requests.length - requestsBefore;
 	await expect(questions).toHaveCount(4);
 	await expect(page.getByTestId('ai-all-open')).toHaveCount(0);
 	// One at a time: a second click right after the first can land on the one
@@ -495,8 +501,8 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 		'Diesen Beleg gibt es schon in deinen Büchern. Er ist dieser Zahlung zugeordnet.'
 	);
 	await expect(detail.getByTestId('tx-private-receipt-here')).toBeVisible();
-	// 7 (with the KI-Vorschlag that found none), plus the two suggestions the run on the Rückfragen page asked for.
-	expect(llm.requests.length).toBe(9);
+	// 7 (with the KI-Vorschlag that found none), plus what the run on the Rückfragen page took.
+	expect(llm.requests.length).toBe(7 + ofTheRun);
 	await page.screenshot({ path: test.info().outputPath('zahlung-detail.png') });
 	// On a phone the panel fills the screen, without sideways scrolling.
 	await page.setViewportSize({ width: 375, height: 812 });
