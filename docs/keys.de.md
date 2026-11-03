@@ -50,15 +50,16 @@ Beides ist versiegelt, unterschrieben von Schlüsseln, zu denen nur der Passkey 
 
 HKDF-SHA-256 leitet jeden Schlüssel unter einem eigenen Label aus R ab (`app/src/lib/database-keys.js`), die wichtigsten:
 
-| Schlüssel             | Label                       | Wofür                                                                                                         |
-| --------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Datenbankschlüssel    | `belege/db-key/v1`          | versiegelt jeden Datensatz                                                                                    |
-| Replikationsschlüssel | `belege/replication-key/v1` | versiegelt jeden Log-Eintrag als Ganzes                                                                       |
-| Datenbanknamen        | `belege/db-name/v2`         | benennt die Datenbanken, ohne zu verraten, was darin ist                                                      |
-| Belegdatei-Schlüssel  | `belege/blob-key/v1`        | versiegelt Belegdateien und Mails                                                                             |
-| Sicherungsschlüssel   | `belege/backup-key/v1`      | versiegelt eine Sicherung, bevor sie das Gerät verlässt                                                       |
-| Geheimnis der Bücher  | `belege/books-secret/v1`    | die eigene Identität der Bücher, Schreiber jeder Sammlung (#496)                                              |
-| Geräte-Nachweis       | `belege/device-auth/v1`     | eigene Geräte weisen nach, dass sie die Schlüssel der Bücher haben ([device-proof.de.md](device-proof.de.md)) |
+| Schlüssel             | Label                                       | Wofür                                                                                                         |
+| --------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Datenbankschlüssel    | `belege/db-key/v1`                          | versiegelt jeden Datensatz                                                                                    |
+| Replikationsschlüssel | `belege/replication-key/v1`                 | versiegelt jeden Log-Eintrag als Ganzes                                                                       |
+| Datenbanknamen        | `belege/db-name/v2`                         | benennt die Datenbanken, ohne zu verraten, was darin ist                                                      |
+| Belegdatei-Schlüssel  | `belege/blob-key/v1`                        | versiegelt Belegdateien und Mails                                                                             |
+| Sicherungsschlüssel   | `belege/backup-key/v1`                      | versiegelt eine Sicherung, bevor sie das Gerät verlässt                                                       |
+| Geheimnis der Bücher  | `belege/books-secret/v1`                    | die eigene Identität der Bücher, Schreiber jeder Sammlung (#496)                                              |
+| Geräte-Nachweis       | `belege/device-auth/v1`                     | eigene Geräte weisen nach, dass sie die Schlüssel der Bücher haben ([device-proof.de.md](device-proof.de.md)) |
+| Bridge-Schlüssel      | `belege/bridge-auth/v1` und eine Generation | der einzige Schlüssel, der den Browser verlässt: Damit weist sich die Bridge aus (unten)                      |
 
 Ein Schlüssel verrät nichts über einen anderen.
 
@@ -73,6 +74,25 @@ Ein Schlüssel verrät nichts über einen anderen.
 | Angaben zum Passkey, Merker                    | `localStorage` dieser Website                          | öffentlich: Credential-ID, öffentlicher Schlüssel, DID, PRF-Eingabe   |
 | Sicherungen                                    | Aleph Cloud                                            | mit dem Sicherungsschlüssel versiegelt ([backup.de.md](backup.de.md)) |
 | der private Schlüssel des Passkeys             | der Authenticator                                      | verlässt ihn nie                                                      |
+| der Bridge-Schlüssel                           | Schlüsselbund der Bridge (`bridge-auth`)               | nur, wenn die Bridge per Einladung gekoppelt ist                      |
+
+## Was die Bridge hält, und warum
+
+Die Bridge ist ein kleines Programm auf deinem Rechner. Sie macht, was ein Browser nicht darf:
+Sie fragt deine Bank, dein Postfach und ein Sprachmodell, und sie läuft weiter, wenn der Tab zu
+ist. Dafür braucht sie deren Passwörter und Schlüssel. Die bleiben auf diesem Rechner, im
+Schlüsselbund, und gehen nie an den Browser
+([bridge/README.md](../bridge/README.md#where-things-are-kept)).
+
+Einen Schlüssel deiner Bücher bekommt sie nie. Die Schlüssel oben bleiben im Browser, mit einer
+Ausnahme: Koppelst du die Bridge per Einladung, damit dein Telefon sie über ein Relay erreicht,
+gibt ihr ein Gerät einen eigenen Schlüssel. Damit zeigt die Bridge deinen Geräten, dass sie
+deine Bridge ist. Mehr öffnet er nicht, keine Bücher und kein anderes Gerät. „Kopplung lösen“
+schaltet die Bücher auf eine neue Generation dieses Schlüssels; der alte ist dann wertlos.
+
+Wer also deinen Rechner mit der Bridge mitnimmt, bekommt, was die Bridge hält – Bank, Postfach,
+Modell –, aber nicht deine Bücher. Deshalb braucht ein Backup der Bücher den Passkey oder die
+Wiederherstellungswörter, nicht die Bridge.
 
 ## Passkey-Abfragen
 

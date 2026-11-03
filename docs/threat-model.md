@@ -10,6 +10,7 @@ Belege keeps a company's books in the browser, sealed under keys from a passkey 
 - **A copy of the browser profile or the disk.** No key is kept at rest. Without the passkey, what is stored stays sealed.
 - **Devices that are not yours.** Only a device that proves it holds the passkey gets the books.
 - **The language model.** Text for a hosted model is redacted first, and a model in an attested enclave reads only there ([ai.md](ai.md)).
+- **A stolen bridge, for the books.** The bridge holds bank, mail and model credentials, not the books' keys. Paired by invitation it holds a key of its own that proves it is your bridge and opens no books and no device; "Kopplung lösen" makes it worthless ([keys.md](keys.md#what-the-bridge-holds-and-why)).
 
 ## What Belege cannot protect against
 

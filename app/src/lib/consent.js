@@ -63,7 +63,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     them; opening with them makes a new passkey, two prompts (#406).
 // 31: Le Space relays are trusted by the Aleph account that runs them, checked
 //     against the instance on Aleph, not only by a fixed wallet.
-export const CONSENT_VERSION = '31';
+// 32: the bridge as a peer – paired by invitation, it connects to the books'
+//     relays itself, with a key of its own; what the relay sees (#576).
+export const CONSENT_VERSION = '32';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

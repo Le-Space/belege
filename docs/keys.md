@@ -50,15 +50,16 @@ Both are sealed, signed by keys only the passkey or R lead to, and carry no name
 
 HKDF-SHA-256 derives each key from R under a label of its own (`app/src/lib/database-keys.js`); the main ones:
 
-| Key              | Label                       | Used for                                                                           |
-| ---------------- | --------------------------- | ---------------------------------------------------------------------------------- |
-| Database key     | `belege/db-key/v1`          | sealing every record                                                               |
-| Replication key  | `belege/replication-key/v1` | sealing every log entry as a whole                                                 |
-| Database names   | `belege/db-name/v2`         | naming the databases, so no name says what they hold                               |
-| Receipt-file key | `belege/blob-key/v1`        | sealing receipt files and mails                                                    |
-| Backup key       | `belege/backup-key/v1`      | sealing a backup before it leaves                                                  |
-| Books' secret    | `belege/books-secret/v1`    | the books' own identity, the writer of every collection (#496)                     |
-| Device proof     | `belege/device-auth/v1`     | own devices proving they hold the books' keys ([device-proof.md](device-proof.md)) |
+| Key              | Label                                    | Used for                                                                           |
+| ---------------- | ---------------------------------------- | ---------------------------------------------------------------------------------- |
+| Database key     | `belege/db-key/v1`                       | sealing every record                                                               |
+| Replication key  | `belege/replication-key/v1`              | sealing every log entry as a whole                                                 |
+| Database names   | `belege/db-name/v2`                      | naming the databases, so no name says what they hold                               |
+| Receipt-file key | `belege/blob-key/v1`                     | sealing receipt files and mails                                                    |
+| Backup key       | `belege/backup-key/v1`                   | sealing a backup before it leaves                                                  |
+| Books' secret    | `belege/books-secret/v1`                 | the books' own identity, the writer of every collection (#496)                     |
+| Device proof     | `belege/device-auth/v1`                  | own devices proving they hold the books' keys ([device-proof.md](device-proof.md)) |
+| Bridge key       | `belege/bridge-auth/v1` and a generation | the one key that leaves the browser: the bridge proves itself with it (below)      |
 
 One key reveals nothing about another.
 
@@ -73,6 +74,24 @@ One key reveals nothing about another.
 | passkey details, flags              | `localStorage` of this site                     | public: credential id, public key, DID, PRF input     |
 | backups                             | Aleph Cloud                                     | sealed with the backup key ([backup.md](backup.md))   |
 | the passkey's private key           | the authenticator                               | never leaves it                                       |
+| the bridge's key                    | the bridge's keychain (`bridge-auth`)           | only if the bridge was paired by invitation           |
+
+## What the bridge holds, and why
+
+The bridge is a small program on your computer. It does what a browser may not: ask your bank,
+your mailbox and a language model, and keep running when the tab is closed. For that it needs
+their passwords and keys. They stay on that computer, in its keychain, and never go to the
+browser ([bridge/README.md](../bridge/README.md#where-things-are-kept)).
+
+It never gets a key of your books. The keys above stay in the browser, with one exception: if you
+pair the bridge by invitation, so your phone reaches it through a relay, a device gives it a key
+of its own. With that key the bridge proves to your devices that it is your bridge. It opens
+nothing else: no books, no other device. "Kopplung lösen" moves the books to a new generation of
+that key, and the old one is then worth nothing.
+
+So whoever takes your computer with the bridge gets what the bridge holds – bank, mail, model –
+but not your books. That is why a backup of the books needs the passkey or the recovery words,
+not the bridge.
 
 ## Passkey prompts
 
