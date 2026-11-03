@@ -1,44 +1,10 @@
-// The command table (commands.js, #574): what the HTTP front door and, next,
-// the libp2p front door dispatch on. Made-up config; nothing is called.
+// The command table (commands.js, #574): what the HTTP front door (server.js)
+// and the stream (stream.js) dispatch on. Made-up config; nothing is called.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { createCommands, findCommand } from '../src/commands.js';
-
-/** The bridge with nothing set up: every optional dependency null. */
-function commandsOf() {
-	return createCommands({
-		config: /** @type {any} */ ({
-			appOrigins: [],
-			hibiscus: { ibanSuffixes: [] },
-			mail: { accountingAddress: null, authServId: null },
-			llm: { baseUrl: '', model: '', retryModel: '', redactTerms: [], redaction: 'on' }
-		}),
-		pairing: /** @type {any} */ ({ isPaired: () => false, hasPendingCode: () => false }),
-		hibiscus: null,
-		mail: null,
-		llm: null,
-		llmKeyPresent: async () => false,
-		llmTee: null,
-		assist: null,
-		matchAssist: null,
-		transferAssist: null,
-		vendorAssist: null,
-		shares: /** @type {any} */ ({ read: () => null, list: () => [], revoke: () => false }),
-		rates: null,
-		kraken: null,
-		paperless: null,
-		enablebanking: null,
-		enablebankingLinks: null,
-		wallets: null,
-		aleph: null,
-		alephLoopback: false,
-		alephApi: 'https://api2.aleph.im',
-		alephBackup: null,
-		lanRelay: null,
-		log: () => {}
-	});
-}
+import { findCommand } from '../src/commands.js';
+import { emptyCommands as commandsOf } from './support/commands.js';
 
 test('every command has a unique name, a method, a path and a scope or is public', () => {
 	const commands = commandsOf();

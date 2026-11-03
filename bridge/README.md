@@ -166,8 +166,15 @@ no books.
 - **Off:** `pnpm bridge --no-node`, or `"node": { "enabled": false }` in `bridge.json`; the bridge
   then runs over HTTP only, as before. `/unpair` removes the device key and the node runs on
   unarmed.
-- **What the stream offers:** for now `help`, `handover` and `devices`; the bridge's functions
-  as commands follow (milestone M1 of #567), on the table in `src/commands.js`.
+- **What the stream offers:** `help`, `handover`, `devices`, and – armed – `request`: one
+  bridge call, `{ method, path, body? }` with the method and path of the API below, answered
+  `{ status, contentType, json | base64 }` (`src/stream.js`). It dispatches onto the same command
+  table as HTTP (`src/commands.js`), with the same body limit per command and the same answer, so
+  a device sees over the stream what it would see over HTTP. Not over the stream: `/pair`,
+  `/unpair` and `/share…` (HTTP's own), and `POST /backup/aleph` (bytes in: a block in M2). Bytes
+  out (a mail attachment, a Paperless original) go base64 while they fit UCEP's limit – 1 MiB on
+  a direct connection, 64 KiB relayed – and are refused `TOO_LARGE` above it. Scopes per command
+  follow in M2 (#579); until then a device the gate let through is what the token's owner is.
 
 ## API
 
