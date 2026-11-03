@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Crypto bookings older than two years get a rate**: CoinGecko answers for the last 365 days only and Kraken's daily candles cover the last 720, so a Bitcoin booking before that stayed "Kurs fehlt". The bridge now asks Kraken's trade history for the first trade of that day after 00:00 UTC – the price the day's candle would have opened with – one call at a time and spaced; a day before Kraken listed the pair still has none (`bridge/src/rates.js`).
+
 ## [0.27.0] – 2026-11-03
 
 ### Added

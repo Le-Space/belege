@@ -370,6 +370,8 @@ describe('Kraken: one daily series per pair', () => {
 		return [t, `${40000 + i}.5`, '0', '0', '0', '0', '0', 0];
 	});
 	const openOf = (/** @type {string} */ d) => candles.find((c) => c[0] === day(d))?.[1];
+	/** Kraken's first XBTEUR trade (2013-09-10), in seconds. */
+	const LISTED = 1378856827.16;
 
 	/**
 	 * Kraken as it behaves: CoinGecko refuses days older than 365 (401), and
@@ -380,6 +382,8 @@ describe('Kraken: one daily series per pair', () => {
 	function throttlingKraken({ allowed = 1, throttleFirst = 0 } = {}) {
 		/** @type {string[]} */
 		const calls = [];
+		/** @type {string[]} */
+		const trades = [];
 		let kraken = 0;
 		/** @type {typeof fetch} */
 		const f = async (input) => {
@@ -389,6 +393,19 @@ describe('Kraken: one daily series per pair', () => {
 				return new Response(JSON.stringify({ error: { status: { error_code: 10012 } } }), {
 					status: 401
 				});
+			}
+			if (url.startsWith('https://api.kraken.com/0/public/Trades')) {
+				trades.push(url);
+				const since = Number(new URL(url).searchParams.get('since'));
+				// Listed on 2013-09-10: before that, the first trade ever (not that day's).
+				const at = Math.max(since + 3600.25, LISTED);
+				return new Response(
+					JSON.stringify({
+						error: [],
+						result: { XXBTZEUR: [['12345.6', '0.1', at, 's', 'l', '', 4711]], last: String(at) }
+					}),
+					{ status: 200 }
+				);
 			}
 			kraken++;
 			if (kraken <= throttleFirst || kraken > throttleFirst + allowed) {
@@ -405,7 +422,7 @@ describe('Kraken: one daily series per pair', () => {
 				{ status: 200 }
 			);
 		};
-		return { fetch: f, calls, krakenCalls: () => kraken };
+		return { fetch: f, calls, trades, krakenCalls: () => kraken };
 	}
 
 	test('CoinGecko refuses a day older than a year (401): Kraken answers', async () => {
@@ -477,12 +494,49 @@ describe('Kraken: one daily series per pair', () => {
 		assert.equal(krakenCalls(), 2 * tries);
 	});
 
-	test('a day before the series has no Kraken rate, without asking again', async () => {
-		const { fetch, krakenCalls } = throttlingKraken({ allowed: 1 });
+	test('a day before the candles: the first trade of that day, from the trade history', async () => {
+		const { fetch, krakenCalls, trades } = throttlingKraken({ allowed: 1 });
 		const rates = createRateService({ fetch, now: NOW, delay: async () => {} });
 		await rates.rate('BTC', '2025-08-25');
-		await assert.rejects(rates.rate('BTC', '2024-01-01'), /no rate found/);
-		assert.equal(krakenCalls(), 1);
+		const old = await rates.rate('BTC', '2024-01-01');
+		assert.equal(old.source, 'kraken');
+		assert.equal(old.rate, '12345.6');
+		assert.equal(old.at, '2024-01-01T01:00:00.250Z');
+		assert.equal(old.ref, 'kraken-trade:4711');
+		assert.equal(krakenCalls(), 1, 'the candles are not asked again');
+		assert.deepEqual(trades, [
+			`https://api.kraken.com/0/public/Trades?pair=XBTEUR&since=${day('2024-01-01')}&count=1`
+		]);
+		// Asked again, the day is kept.
+		await rates.rate('BTC', '2024-01-01');
+		assert.equal(trades.length, 1);
+	});
+
+	test('a day before the pair was listed: no rate (the first trade ever is not that day)', async () => {
+		const { fetch } = throttlingKraken({ allowed: 1 });
+		const rates = createRateService({ fetch, now: NOW, delay: async () => {} });
+		await assert.rejects(rates.rate('BTC', '2012-05-01'), /no rate found/);
+	});
+
+	test('old days ask the trade history one after the other, spaced', async () => {
+		const { fetch, trades } = throttlingKraken({ allowed: 1 });
+		/** @type {number[]} */
+		const waited = [];
+		const rates = createRateService({
+			fetch,
+			now: NOW,
+			delay: async (ms) => {
+				waited.push(ms);
+			}
+		});
+		const days = ['2023-01-02', '2023-02-03', '2023-03-04'];
+		const found = await Promise.all(days.map((d) => rates.rate('BTC', d)));
+		assert.deepEqual(
+			found.map((r) => r.at.slice(0, 10)),
+			days
+		);
+		assert.equal(trades.length, 3);
+		assert.ok(waited.filter((ms) => ms >= 1000).length >= 2, `${waited}`);
 	});
 
 	test("today is not kept: today's rate asks again, past days do not", async () => {

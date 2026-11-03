@@ -28,7 +28,7 @@ Belege books in EUR cents, as it does for the bank accounts: `amountCents` is wh
 The bridge answers `GET /rates?asset=BTC&date=2026-09-01` (`bridge/src/rates.js`). The browser cannot ask the sources itself (CORS), and an optional CoinGecko key stays in the keychain. The rate is always the value of one unit **at 00:00 UTC of that day**:
 
 1. **CoinGecko**, its daily snapshot (`/coins/{id}/history`);
-2. failing that, **Kraken**, the open price of the day's daily candle;
+2. failing that, **Kraken**, the open price of the day's daily candle. CoinGecko answers for the last 365 days only, and Kraken's daily candles cover the last 720. For an older day the bridge asks Kraken's trade history for the first trade of that day after 00:00 UTC: the price the candle would have opened with. A day before Kraken listed the pair has no rate;
 
    for a booking **on Kraken** (`prefer=kraken`) the order turns: Kraken's own EUR price first, CoinGecko as the fallback. Kraken then also prices assets Belege does not list yet, by their `<SYMBOL>EUR` pair;
 

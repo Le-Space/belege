@@ -28,7 +28,7 @@ Aus `quantity` × `rate` ergibt sich `amountCents`. Gerechnet wird mit ganzen Za
 Die Bridge beantwortet `GET /rates?asset=BTC&date=2026-09-01` (`bridge/src/rates.js`). Der Browser kann die Quellen nicht selbst fragen (CORS), und ein optionaler CoinGecko-Schlüssel bleibt im Schlüsselbund. Der Kurs ist immer der Wert einer Einheit **um 00:00 UTC des Tages**:
 
 1. **CoinGecko**, dessen Tagesstand (`/coins/{id}/history`);
-2. sonst **Kraken**, der Eröffnungskurs der Tageskerze;
+2. sonst **Kraken**, der Eröffnungskurs der Tageskerze. CoinGecko antwortet nur für die letzten 365 Tage, Krakens Tageskerzen reichen 720 Tage zurück. Für einen älteren Tag fragt die Bridge Krakens Handelshistorie nach dem ersten Handel dieses Tages nach 00:00 UTC – dem Kurs, mit dem die Kerze eröffnet hätte. Vor dem Tag, an dem Kraken das Paar aufnahm, gibt es keinen Kurs;
 
    für eine Buchung **bei Kraken** (`prefer=kraken`) ist es umgekehrt: zuerst der EUR-Kurs von Kraken, CoinGecko als Rückfall. Kraken bepreist dann auch Assets, die Belege noch nicht kennt, über ihr `<KÜRZEL>EUR`-Paar;
 
