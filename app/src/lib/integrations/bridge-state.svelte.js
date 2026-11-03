@@ -3,7 +3,13 @@
 // and what is set up on it. Shared by the overview and every integration's
 // own page, so pairing on one shows on the others.
 import { createBridgeClient, DEFAULT_BRIDGE_URL } from '$lib/bridge/client.js';
-import { app, currentStore, refreshLlmRedaction } from '$lib/session.svelte.js';
+import {
+	app,
+	currentStore,
+	pairBridgeNode,
+	refreshLlmRedaction,
+	removeSyncDevice
+} from '$lib/session.svelte.js';
 import { getSetting, setSetting } from '$lib/store/settings.js';
 import { t } from '$lib/i18n/index.js';
 import { noteWayOut } from '$lib/help/way-out.js';
@@ -26,6 +32,8 @@ export const bridge = $state({
 	url: DEFAULT_BRIDGE_URL,
 	/** @type {string | null} */
 	token: null,
+	/** @type {string | null} the bridge's own node, paired by invitation (#575): a device of the books */
+	peerId: null,
 	/** @type {'unknown' | 'checking' | 'online' | 'offline'} */
 	state: 'unknown',
 	/** the bridge has paired some device (not necessarily this one) */
@@ -51,6 +59,12 @@ export const bridge = $state({
  * #142): pairing, setup and unpairing belong to that device.
  */
 export const bridgeViaDevice = () => bridge.state === 'online' && app.sync.bridgeRoute === 'device';
+
+/** The bridge answers over the stream, from its own node (#573): a device of the books. */
+export const bridgeViaStream = () => bridge.state === 'online' && app.sync.bridgeRoute === 'stream';
+
+/** This device may use the bridge: by the token over HTTP, or as a device of the books over the stream. */
+export const bridgePaired = () => Boolean(bridge.token || bridge.peerId);
 
 /** A client with this device's token. */
 export const bridgeClient = () => createBridgeClient({ url: bridge.url, token: bridge.token });
@@ -107,6 +121,7 @@ export async function loadBridge() {
 	if (read === reads) {
 		if (saved?.url) bridge.url = saved.url;
 		bridge.token = saved?.token ?? null;
+		bridge.peerId = saved?.peerId ?? null;
 	}
 	bridge.loaded = true;
 	await checkBridge();
@@ -170,18 +185,49 @@ export async function pairBridge(code) {
 	}
 }
 
-/** "Kopplung lösen": the bridge forgets the token too, so a copy of it is worthless. */
+/**
+ * "Über Einladung koppeln": the bridge's own node pairs over the stream and
+ * becomes a device of the books (session.svelte.js pairBridgeNode, which keeps
+ * its peer id in the sealed store beside the token, never localStorage).
+ *
+ * @param {string} invitation
+ */
+export async function pairBridgeByInvitation(invitation) {
+	const store = currentStore();
+	if (!store) return false;
+	bridge.error = null;
+	try {
+		const { peerId } = await pairBridgeNode(invitation.trim());
+		bridge.peerId = peerId;
+		await checkBridge();
+		refreshLlmRedaction();
+		return true;
+	} catch (error) {
+		bridge.error = error instanceof Error ? error.message : String(error);
+		return false;
+	}
+}
+
+/**
+ * "Kopplung lösen": the bridge forgets the token too, so a copy of it is
+ * worthless; its node leaves the books' device list, so every device refuses
+ * it from now on (the bridge itself disarms with `/unpair`).
+ */
 export async function unpairBridge() {
 	const store = currentStore();
 	if (!store) return;
 	// The pairing is in the books, which own devices share: dropping it here would unpair the Mac.
 	if (bridgeViaDevice()) return;
 	bridge.error = null;
-	try {
-		await bridgeClient().unpair();
-	} catch {
-		bridge.error = t('integrationen.bridge.unpairOffline');
+	if (bridge.token) {
+		try {
+			await bridgeClient().unpair();
+		} catch {
+			bridge.error = t('integrationen.bridge.unpairOffline');
+		}
 	}
+	if (bridge.peerId) await removeSyncDevice(bridge.peerId).catch(() => {});
 	await setSetting(store.settings, 'bridge', { url: bridge.url, token: null });
 	bridge.token = null;
+	bridge.peerId = null;
 }

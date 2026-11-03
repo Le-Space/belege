@@ -89,7 +89,7 @@ test('two devices meet at the relay in the own bridge, and sync', async ({ brows
 		await tab(mac.page, 'Integrationen');
 		const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
 		await mac.page.getByTestId('pairing-code').fill(code);
-		await mac.page.getByRole('button', { name: 'Koppeln' }).click();
+		await mac.page.getByRole('button', { name: 'Koppeln', exact: true }).click();
 		await expect(mac.page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
 
 		// The relay's address came from the bridge: "Nur im eigenen Netz" can be chosen.

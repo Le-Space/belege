@@ -43,6 +43,7 @@ Until a peer has proved it, the node answers it only with identify, the circuit 
 - **"Beides"** (public relays and the own network): a device the books do not know yet is let in only over the own network — a connection built by two scanned QR codes, or one through the bridge's relay. Once its record has replicated, it may come over the public relays too. A device someone adds from far away with a passkey that leaked gets nothing ([`first-contact.js`](../app/src/lib/sync/first-contact.js)).
 - In the other modes, any device that proves the passkey is let in.
 - **The bridge between own devices** (`belege-bridge`) answers a peer only if the books know it as an own device _and_ it proved the passkey on this connection; a phone calls only devices that proved.
+- **The bridge's own node** (`bridge/src/node.js`) runs the same gate: at its pairing by invitation a device hands it the books' device auth key (kept in the bridge's keychain), and adds the bridge to the books as a device. From then on the bridge proves to devices and checks them like any device, admits only peers on the books' device list, and serves its functions over the stream to proved devices only.
 - **Removing a device** deletes its record; every device hangs up on it and refuses it from then on.
 
 ## Why it is sound

@@ -30,7 +30,7 @@ import { formatDate } from '../bank/format.js';
 
 /**
  * @typedef {object} Facts
- * @property {{ token: string | null, state: string, via?: 'local' | 'device', health: { hibiscus: boolean, kraken: boolean, paperless?: boolean, mail: boolean, llm: boolean, backup?: boolean } }} bridge
+ * @property {{ token: string | null, state: string, via?: 'stream' | 'local' | 'device', health: { hibiscus: boolean, kraken: boolean, paperless?: boolean, mail: boolean, llm: boolean, backup?: boolean } }} bridge
  * @property {{ flag: boolean, online: boolean, removed: boolean, error: string | null, connected: number }} devices
  * @property {boolean} [hostsBridge] whether a bridge can run on this device at all (host.js); a phone cannot
  * @property {Record<string, any>[]} accounts the books' accounts

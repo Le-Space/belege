@@ -64,10 +64,12 @@ import { answerRequest, offered } from './stream.js';
 /** The UCEP extension the bridge offers: pairing, the device list, and `request` onto commands.js. */
 export const EXTENSION = 'belege-bridge';
 export const EXTENSION_VERSION = '0.2.0';
-/** The scope of pairing itself: the handover, and the device list (UCEP wants `extension:resource:action`). */
+/** The scope of pairing itself: the handover (UCEP wants `extension:resource:action`). */
 export const PAIR_SCOPE = 'belege-bridge:pairing:manage';
 /** The keychain account the books' device auth key is kept under. */
 export const DEVICE_AUTH_ACCOUNT = 'device-auth';
+/** The answer to `handover` goes first; the restart armed follows this much later. */
+export const HANDOVER_RESTART_MS = 1000;
 /** How long an invitation printed at start may be used. */
 export const INVITATION_TTL_S = 10 * 60;
 const AUTH_KEY_BYTES = 32;
@@ -303,22 +305,24 @@ export async function startBridgeNode({
 				log(
 					`handover from a device: ${handover.relays.length} relay(s), ${handover.devices.length} device(s)`
 				);
-				// Not awaited: the restart that follows would close this very stream.
-				queueMicrotask(() => {
+				// Not awaited, and not at once: the restart that follows closes this
+				// very stream, and the answer must be on its way before (#575).
+				setTimeout(() => {
 					onHandover(handover).catch((e) => log(`handover failed: ${e.message}`));
-				});
+				}, HANDOVER_RESTART_MS);
 				return { peerId: libp2p.peerId.toString() };
 			}
 		},
 		devices: {
-			scope: PAIR_SCOPE,
+			// No UCEP scope: armed, any proved device of the books keeps the list
+			// current (the gate is the check); unarmed, the handover brings it.
 			description: 'The books’ device list, as the app keeps it',
 			handler: async ({ argsJson, peerId }) => {
 				const list = Array.isArray(argsJson?.devices) ? argsJson.devices : [];
 				if (list.length > 64 || !list.every(isPeerId)) {
 					throw new UcepError('INVALID_ARGUMENTS', 'devices must be up to 64 peer ids');
 				}
-				if (armed) assertDevice(peerId);
+				assertDevice(peerId);
 				setDevices([...new Set(list)]);
 				await onDevices([...known]);
 				return { devices: known.size };

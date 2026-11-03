@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { multiaddr } from '@multiformats/multiaddr';
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { peerIdFromPrivateKey } from '@libp2p/peer-id';
 
@@ -101,8 +102,14 @@ describe('syncLibp2pConfig', () => {
 		const config = syncLibp2pConfig({ privateKey: {}, relays: [relay], gate });
 		expect(config.addresses?.listen).toEqual([`${relay}/p2p-circuit`, '/webrtc']);
 		expect(config.transports).toHaveLength(3);
-		// No local relay: the gater does not open loopback addresses …
-		expect(config.connectionGater?.denyDialMultiaddr).toBeUndefined();
+		// No local relay: libp2p's rule for a browser holds – private addresses and
+		// insecure WebSockets are not dialled – except on this machine, where the
+		// bridge's own node listens (#575) …
+		const deny = /** @type {any} */ (config.connectionGater?.denyDialMultiaddr);
+		expect(deny(multiaddr('/ip4/192.168.1.5/tcp/4001/ws'))).toBe(true);
+		expect(deny(multiaddr('/dns4/relay.example/tcp/443/ws'))).toBe(true);
+		expect(deny(multiaddr(relay))).toBe(false);
+		expect(deny(multiaddr('/ip4/127.0.0.1/tcp/4002/ws/p2p/12D3KooWExample'))).toBe(false);
 		// … and refuses a removed device either way.
 		blocked.add('12D3KooWremoved');
 		expect(config.connectionGater?.denyDialPeer?.(/** @type {any} */ ('12D3KooWremoved'))).toBe(

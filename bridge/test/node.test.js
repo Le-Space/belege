@@ -146,7 +146,7 @@ describe('the bridge’s node', () => {
 				devices: []
 			});
 			assert.equal(answer.peerId, node.peerId);
-			await new Promise((r) => setTimeout(r, 50));
+			await new Promise((r) => setTimeout(r, 1200));
 			assert.equal(handovers.length, 1);
 			assert.deepEqual([...handovers[0].authKey], [...AUTH_KEY]);
 			// The device that handed over is a device of the books.
@@ -240,8 +240,11 @@ describe('the bridge’s node', () => {
 			);
 			await new Promise((r) => setTimeout(r, 200));
 			await assert.rejects(unlisted.consumer.call(node.peerId, 'belege-bridge', 'help', {}));
-			// Listed afterwards: admitted on the next proof.
-			node.setDevices([own.peerId, unlisted.peerId]);
+			// The own device keeps the list current, with no UCEP grant: the gate is the check.
+			const kept = await own.consumer.call(node.peerId, 'belege-bridge', 'devices', {
+				devices: [own.peerId, unlisted.peerId]
+			});
+			assert.equal(kept.devices, 2);
 			assert.equal(node.devices().size, 2);
 		} finally {
 			await node?.stop();

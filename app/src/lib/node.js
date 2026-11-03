@@ -146,6 +146,7 @@ export const STORAGE_PATHS = Object.freeze({
  * @property {import('./sync/network-mode.js').NetworkMode} mode where devices meet, as the node was built (#148)
  * @property {any} libp2p the node under Helia and OrbitDB
  * @property {ReturnType<typeof createDeviceGate> | null} deviceGate which peers proved the passkey (online only)
+ * @property {Uint8Array | null} deviceAuthKey the key the gate proves with (online only); handed to the bridge at its pairing, in memory only
  * @property {() => Promise<void>} stop
  * @property {{ signingKey?: Uint8Array, booksSecret: Uint8Array, databaseKey: Uint8Array, replicationKey: Uint8Array, blobKey: Uint8Array, peerKey: Uint8Array }} [secretsForE2E]
  *   only in E2E builds
@@ -309,9 +310,12 @@ export async function startSession(
 		: await createEphemeralPeerKey();
 	// Only a device that proves it holds the passkey gets the books (device-gate.js).
 	// In "Beides" a device the books do not know yet comes in over the own network only.
-	const deviceGate = online
+	// The same key the gate proves with: handed to the bridge once, at its
+	// pairing by invitation (sync/remote-bridge.js), so it is a device of the books.
+	const deviceAuthKey = online ? await deriveDeviceAuthKey(prfOutput) : null;
+	const deviceGate = deviceAuthKey
 		? createDeviceGate({
-				authKey: await deriveDeviceAuthKey(prfOutput),
+				authKey: deviceAuthKey,
 				// The proof is offered to devices, never to a relay this node dials.
 				offer: (peer) => !relayPeers.has(peer),
 				admit: firstContactPolicy({
@@ -551,6 +555,7 @@ export async function startSession(
 			mode,
 			libp2p,
 			deviceGate,
+			deviceAuthKey,
 			// Only in E2E builds, so the test can look for these bytes on disk.
 			// Written inline so every other build drops it, not just skips it.
 			...(import.meta.env.VITE_E2E === 'true'

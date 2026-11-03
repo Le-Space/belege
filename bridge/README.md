@@ -158,11 +158,17 @@ no books.
   else.
 - **Pairing by invitation:** until a device has handed the books' device key over, the node is
   *unarmed* and offers one thing, pairing (UCEP): `pnpm bridge` prints an invitation,
-  `web+ucep:pair?…`, valid ten minutes. Pasted into the app under _Integrationen → Bridge
-  koppeln_, the device pairs over the stream (the invitation's secret is the proof), then sends
-  `handover` with the device key, the relays and the device list. The key goes to the keychain
-  (`device-auth`), relays and devices to `bridge.json` (`node`), and the node restarts *armed*.
-  The `devices` command keeps the list current when the app's device list changes.
+  `web+ucep:pair?…`, valid ten minutes. Pasted into the app under _Integrationen → Bridge_
+  ("Über Einladung koppeln", with device sync on), the device pairs over the stream (the
+  invitation's secret is the proof), then sends `handover` with the device key, the relays and
+  the device list, and adds the bridge to the books as a device. The key goes to the keychain
+  (`device-auth`), relays and devices to `bridge.json` (`node`), and the node restarts *armed*;
+  the WebSocket keeps its port, so the invitation's address stays good. From then on every device
+  of the books reaches the bridge through the relays, with no browser open on this machine, and
+  keeps the bridge's device list current (`devices`, from any proved device): a device removed in
+  the app is refused here too. The app's bridge client prefers the stream, falls back to HTTP on
+  this machine (also when an answer is too big for the stream, e.g. a mail attachment above UCEP's
+  limit), and to another device's bridge last (`app/src/lib/sync/remote-bridge.js`).
 - **Off:** `pnpm bridge --no-node`, or `"node": { "enabled": false }` in `bridge.json`; the bridge
   then runs over HTTP only, as before. `/unpair` removes the device key and the node runs on
   unarmed.

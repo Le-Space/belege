@@ -347,6 +347,8 @@ export async function startBridge({
 			return null;
 		}
 	}
+	/** The WebSocket port the node took: the same again after the restart at the handover, so the invitation's address stays good. */
+	let wsPort = config.node.wsPort;
 	async function startNode() {
 		if (!nodeOn) return;
 		const { startBridgeNode } = await import('./node.js');
@@ -357,7 +359,7 @@ export async function startBridge({
 			devices: config.node.devices,
 			// The same table as HTTP: `request { method, path, body? }` over the stream (stream.js).
 			commands: bridge.commands,
-			wsPort: config.node.wsPort,
+			wsPort,
 			...(nodeTransports ? { transports: nodeTransports } : {}),
 			...(nodeListen ? { listen: nodeListen } : {}),
 			onHandover: async ({ authKey, relays, devices }) => {
@@ -375,6 +377,8 @@ export async function startBridge({
 			},
 			log
 		});
+		const ws = node.addrs().find((a) => /^\/ip4\/127\.0\.0\.1\/tcp\/\d+\/ws/.test(a));
+		if (ws) wsPort = Number(/\/tcp\/(\d+)\//.exec(ws)?.[1] ?? wsPort);
 	}
 	/** What the HTTP front door tells, and does, about the node. */
 	const nodeHandle = nodeOn
