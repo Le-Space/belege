@@ -289,6 +289,7 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 			? { best: 1, confidence: 'low', reason: 'Nur ein Versuch' }
 			: undefined;
 	const requestsBefore = llm.requests.length;
+	const arrivedBefore = llm.arrived();
 	await expect(page.getByTestId('ai-all-open')).toContainText('KI-Vorschläge für alle offenen');
 	await page.getByTestId('ai-all-open').click();
 	await expect(page.getByTestId('ai-all-confirm')).toContainText('nur Vorschläge');
@@ -296,12 +297,13 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	// request leaves what is not done for "Weitermachen" on Home, which starts
 	// nothing by itself.
 	llm.setDelay(5000);
-	// Over HTTP the page's request shows; over the stream (e2e/bridge.js) the model's.
+	// The reload comes while the first request is out: over HTTP as the page sends it, over
+	// the stream (e2e/bridge.js) as it reaches the model – not once the model has answered.
 	const inFlight = viaStream ? null : page.waitForRequest((r) => r.url().endsWith('/match/assist'));
 	await page.getByTestId('ai-all-start').click();
 	await expect(page.getByTestId('tab-suggest-progress')).toHaveText(/^[01]\/2$/);
 	if (inFlight) await inFlight;
-	else await expect.poll(() => llm.requests.length).toBeGreaterThan(requestsBefore);
+	else await expect.poll(() => llm.arrived(), { intervals: [50] }).toBeGreaterThan(arrivedBefore);
 	await page.reload();
 	llm.setDelay(0);
 	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();

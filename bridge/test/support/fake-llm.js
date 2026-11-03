@@ -71,11 +71,14 @@ export async function startFakeLlm({ behaviour = {}, key = FAKE_LLM_KEY } = {}) 
 	const answers = {};
 	/** How long each answer waits, as a slow model does (`setDelay`). */
 	let delayMs = 0;
+	/** Requests as they arrive, before the delay: one in flight counts here first. */
+	let arrived = 0;
 	const server = http.createServer((req, res) => {
 		let raw = '';
 		req.setEncoding('utf8');
 		req.on('data', (d) => (raw += d));
 		req.on('end', async () => {
+			arrived += 1;
 			if (delayMs) await new Promise((resolve) => setTimeout(resolve, delayMs));
 			/** @param {number} status @param {unknown} body */
 			const send = (status, body) => {
@@ -141,6 +144,8 @@ export async function startFakeLlm({ behaviour = {}, key = FAKE_LLM_KEY } = {}) 
 		requests,
 		behaviour,
 		answers,
+		/** How many requests have arrived, answered or still waiting out the delay. */
+		arrived: () => arrived,
 		/** @param {number} ms each answer waits this long from now on */
 		setDelay: (ms) => {
 			delayMs = ms;
