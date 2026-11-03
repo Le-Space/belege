@@ -4001,7 +4001,7 @@ export default {
 			invitation: 'Einladung der Bridge',
 			pairInvitation: 'Über Einladung koppeln',
 			invitationHint:
-				'Die Einladung (web+ucep:pair?…) zeigt die Bridge beim Start im Terminal, solange sie noch kein Gerät der Bücher ist. Dieses Gerät übergibt ihr den Geräteschlüssel der Bücher; danach erreicht sie jedes deiner Geräte über die Relays.',
+				'Die Einladung (web+ucep:pair?…) zeigt die Bridge beim Start im Terminal, solange sie noch kein Gerät der Bücher ist. Dieses Gerät gibt ihr einen eigenen Schlüssel, nie den Geräteschlüssel der Bücher. Danach erreicht sie jedes deiner Geräte über die Relays.',
 			viaDeviceHint:
 				'Dieses Gerät nutzt die Bridge deines Macs. Koppeln, Einrichten und Entkoppeln geschehen dort; hier gehen nur lesende Abfragen und das Auslesen hinüber.',
 			onAPhone:

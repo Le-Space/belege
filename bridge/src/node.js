@@ -8,12 +8,15 @@
 // `<config dir>/node/peer-key` (0600), the way the LAN relay keeps its own.
 // Its peer id is this bridge's name in the books' device list.
 //
-// Who gets in. The same gate as on every device (@belege/device-gate): a
-// peer proves that it holds the books' device auth key before any protocol
-// but identify, the relay's and the proof itself answers it; and only a peer
-// the books list as a device is admitted, so a device removed in the app is
-// refused here too. The auth key is the books' (derived from the passkey on
-// a device), and the bridge has none until a device hands it over:
+// Who gets in. The same gate as on every device (@belege/device-gate), on a
+// key of the bridge's own: a peer proves that it holds the bridge's key before
+// any protocol but identify, the relay's and the proof itself answers it; and
+// only a peer the books list as a device is admitted, so a device removed in
+// the app is refused here too. The key is derived on a device from the books'
+// root, for this bridge and one generation of its pairing – never the books'
+// device key, which stays in the browser (#575). A device proves with it
+// toward this peer only, so a copy of it opens no device. The bridge has none
+// until a device hands it over:
 //
 //   unarmed  – no auth key yet. The node runs without the gate and offers one
 //              thing: pairing by invitation (UCEP), printed on the console as
@@ -21,16 +24,19 @@
 //              secret, so whoever can read the console may pair, as with the
 //              pairing code today.
 //   handover – under the grant that pairing gave, the device sends `handover`
-//              with the auth key, the relays the books use and the devices the
-//              books know. The key goes to the keychain, the rest to
+//              with the bridge's key, the relays the books use and the devices
+//              the books know. The key goes to the keychain, the rest to
 //              bridge.json, and the node restarts …
 //   armed    – … with the gate. From now on the proof decides, and `devices`
 //              keeps the list current when the app's device list changes.
 //              Armed, the node offers the bridge's functions: `request`
 //              dispatches onto the command table of commands.js (stream.js).
+//              `unpair` ("Kopplung lösen" on a device): the key leaves the
+//              keychain and the node runs unarmed again; the books move on to
+//              the next generation of the key, so the old one is worth nothing.
 //
 // What is kept where: the peer key on disk (not a secret: a peer id names,
-// it does not open); the auth key in the keychain (`device-auth`), never in
+// it does not open); the bridge's key in the keychain (`bridge-auth`), never in
 // bridge.json, never logged; UCEP's grants in `<config dir>/node/grants.json`
 // (grant ids and peer ids, no secrets); relays and devices in bridge.json.
 //
@@ -66,8 +72,10 @@ export const EXTENSION = 'belege-bridge';
 export const EXTENSION_VERSION = '0.2.0';
 /** The scope of pairing itself: the handover (UCEP wants `extension:resource:action`). */
 export const PAIR_SCOPE = 'belege-bridge:pairing:manage';
-/** The keychain account the books' device auth key is kept under. */
-export const DEVICE_AUTH_ACCOUNT = 'device-auth';
+/** The keychain account the bridge's own key is kept under (#575). */
+export const BRIDGE_AUTH_ACCOUNT = 'bridge-auth';
+/** Where a build before #575 kept the books' device key: removed at start. */
+export const LEGACY_DEVICE_AUTH_ACCOUNT = 'device-auth';
 /** The answer to `handover` goes first; the restart armed follows this much later. */
 export const HANDOVER_RESTART_MS = 1000;
 /** How long an invitation printed at start may be used. */
@@ -151,7 +159,7 @@ export const isPeerId = (value) => typeof value === 'string' && PEER_ID.test(val
  * @returns {{ authKey: Uint8Array, relays: string[], devices: string[] }}
  */
 export function parseHandover(args) {
-	const raw = typeof args?.deviceAuth === 'string' ? args.deviceAuth : '';
+	const raw = typeof args?.bridgeAuth === 'string' ? args.bridgeAuth : '';
 	let authKey;
 	try {
 		authKey = Uint8Array.from(Buffer.from(raw, 'base64'));
@@ -159,7 +167,7 @@ export function parseHandover(args) {
 		authKey = new Uint8Array();
 	}
 	if (authKey.length !== AUTH_KEY_BYTES || authKey.every((b) => b === 0)) {
-		throw new UcepError('INVALID_ARGUMENTS', 'deviceAuth must be 32 bytes, base64');
+		throw new UcepError('INVALID_ARGUMENTS', 'bridgeAuth must be 32 bytes, base64');
 	}
 	const relays = Array.isArray(args?.relays) ? args.relays : [];
 	if (
@@ -195,7 +203,7 @@ const relayPeerOf = (addr) => /\/p2p\/(12D3KooW[1-9A-HJ-NP-Za-km-z]{44})/.exec(a
  *
  * @param {object} p
  * @param {string} p.dir where the peer key and the grants live (`<config dir>/node`)
- * @param {Uint8Array | null} p.authKey the books' device auth key; null: unarmed, pairing only
+ * @param {Uint8Array | null} p.authKey the bridge's own key, from the handover; null: unarmed, pairing only
  * @param {string[]} p.relays the relays the books use, to be reached through
  * @param {string[]} p.devices the books' devices (peer ids), the only ones admitted
  * @param {import('./commands.js').Command[] | null} [p.commands] the bridge's command table, offered as
@@ -203,6 +211,7 @@ const relayPeerOf = (addr) => /\/p2p\/(12D3KooW[1-9A-HJ-NP-Za-km-z]{44})/.exec(a
  * @param {(handover: { authKey: Uint8Array, relays: string[], devices: string[] }) => Promise<void>} [p.onHandover]
  *   a device handed the key over (unarmed only): keep it, then restart armed
  * @param {(devices: string[]) => Promise<void>} [p.onDevices] the device list changed
+ * @param {() => Promise<void>} [p.onUnpair] a device unpaired the bridge (armed only): forget the key, restart unarmed
  * @param {number} [p.wsPort] a WebSocket on 127.0.0.1 for the browser on this machine; 0 picks one
  * @param {any[]} [p.transports] tests: the memory transport
  * @param {string[]} [p.listen] tests: listen addresses instead of the relays and the WebSocket
@@ -217,6 +226,7 @@ export async function startBridgeNode({
 	commands = null,
 	onHandover = async () => {},
 	onDevices = async () => {},
+	onUnpair = async () => {},
 	wsPort = 0,
 	transports,
 	listen,
@@ -296,7 +306,7 @@ export async function startBridgeNode({
 		},
 		handover: {
 			scope: PAIR_SCOPE,
-			description: 'The books’ device auth key, relays and devices → the node restarts armed',
+			description: 'The bridge’s own key, relays and devices → the node restarts armed',
 			handler: async ({ argsJson, peerId }) => {
 				if (armed) throw new UcepError('INVALID_ARGUMENTS', 'already armed: unpair first');
 				const handover = parseHandover(argsJson);
@@ -326,6 +336,19 @@ export async function startBridgeNode({
 				setDevices([...new Set(list)]);
 				await onDevices([...known]);
 				return { devices: known.size };
+			}
+		},
+		unpair: {
+			// "Kopplung lösen" on a device of the books: the key leaves, the node
+			// runs unarmed and offers pairing again. The gate is the check.
+			description: 'Forget the bridge’s key → the node restarts unarmed',
+			handler: async ({ peerId }) => {
+				assertDevice(peerId);
+				log('unpaired by a device: the key leaves the keychain');
+				setTimeout(() => {
+					onUnpair().catch((e) => log(`unpair failed: ${e.message}`));
+				}, HANDOVER_RESTART_MS);
+				return { unpaired: true };
 			}
 		},
 		...(commands

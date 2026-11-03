@@ -949,6 +949,8 @@ async function startDeviceSyncIfOn() {
 		const { startDeviceSync, deviceSyncSince, setDeviceSync } = await import(
 			'./sync/device-sync.js'
 		);
+		// Before anyone is dialled: the books' bridge proves with its own key (#575).
+		await loadBridgeAuth().catch(() => {});
 		deviceSync = await startDeviceSync({
 			libp2p: session.libp2p,
 			store: session.store,
@@ -996,6 +998,7 @@ async function startBridgeForDevices() {
 	const readNode = async () => {
 		const saved = /** @type {any} */ (await getSetting(settings, 'bridge'));
 		setBridgeNode(saved?.peerId ? { peerId: saved.peerId } : null);
+		await loadBridgeAuth();
 	};
 	await readNode();
 	const consumer = await startBridgeConsumer({
@@ -1020,6 +1023,7 @@ async function startBridgeForDevices() {
 	let tellTimer;
 	const tellDevices = async () => {
 		const list = knownDevices(await settings.list({ includeDeleted: true }))
+			.filter((d) => !d.bridge)
 			.map((d) => d.peerId)
 			.sort();
 		const key = list.join(',');
@@ -1050,42 +1054,72 @@ async function startBridgeForDevices() {
 		// an id typed in by mistake is known, and still gets nothing.
 		isOwnDevice: async (peerId) =>
 			Boolean(session?.deviceGate?.isProved(peerId)) &&
-			knownDevices(await settings.list()).some((d) => d.peerId === peerId)
+			// The bridge's own node is no device that may use this one's bridge.
+			knownDevices(await settings.list()).some((d) => d.peerId === peerId && !d.bridge)
 	});
 	app.sync.bridgeServed = true;
 }
 
+/** The generation of the bridge's key the books keep (settings `bridge.keyGeneration`), from 1. @param {any} saved */
+const keyGenerationOf = (saved) =>
+	Number.isSafeInteger(saved?.keyGeneration) && saved.keyGeneration >= 1 ? saved.keyGeneration : 1;
+
+/**
+ * The bridge's key for this session's gate (node.js `bridgeAuth`): the peer
+ * the books name as their bridge and its key of the current generation. Read
+ * before device sync dials anyone, and again when the settings change.
+ */
+async function loadBridgeAuth() {
+	if (!session?.online || !session.bridgeAuthBase) return;
+	const saved = /** @type {any} */ (await getSetting(session.store.settings, 'bridge'));
+	const { bridgeAuthKeyOf } = await import('./database-keys.js');
+	const peerId = typeof saved?.peerId === 'string' ? saved.peerId : null;
+	session.bridgeAuth.key = peerId
+		? await bridgeAuthKeyOf(session.bridgeAuthBase, keyGenerationOf(saved))
+		: null;
+	session.bridgeAuth.peerId = peerId;
+}
+
 /**
  * "Über Einladung koppeln" (Integrationen → Bridge, #575): pair the bridge's
- * own node by the invitation `pnpm bridge` printed, hand it the books' device
- * key, relays and devices, and add it to the books as a device. Then wait for
- * it to come back armed and proved, so the next call goes over the stream.
+ * own node by the invitation `pnpm bridge` printed, hand it the bridge's own
+ * key (never the books' device key), the relays and the devices, and add it to
+ * the books as their bridge. Then wait for it to come back armed and proved,
+ * so the next call goes over the stream.
  *
  * @param {string} invitation `web+ucep:pair?…`
  * @returns {Promise<{ peerId: string }>} the bridge's node
  */
 export async function pairBridgeNode(invitation) {
-	if (!session?.online || !session.deviceAuthKey || !deviceSync || !bridgeConsumer) {
+	if (!session?.online || !session.bridgeAuthBase || !deviceSync || !bridgeConsumer) {
 		throw new Error(t('messages.bridge.needsSync'));
 	}
 	const { knownDevices } = await import('./sync/device-sync.js');
 	const { setBridgeNode } = await import('./sync/remote-bridge.js');
-	const own = knownDevices(await session.store.settings.list({ includeDeleted: true })).map(
-		(d) => d.peerId
-	);
+	const { bridgeAuthKeyOf } = await import('./database-keys.js');
+	const settings = session.store.settings;
+	const saved = /** @type {any} */ ((await getSetting(settings, 'bridge')) ?? {});
+	const keyGeneration = keyGenerationOf(saved);
+	const key = await bridgeAuthKeyOf(session.bridgeAuthBase, keyGeneration);
+	const own = knownDevices(await settings.list({ includeDeleted: true }))
+		.filter((d) => !d.bridge)
+		.map((d) => d.peerId);
 	const { peerId, addrs } = await bridgeConsumer.pairBridge({
 		invitation,
-		authKey: session.deviceAuthKey,
+		authKey: key,
 		relays: session.relays,
 		devices: [session.peerId, ...own]
 	});
-	// Known as the bridge's node at once, here and in the books (settings `bridge.peerId`).
+	// Known as the books' bridge at once – the gate proves with its key toward it –
+	// and in the books (settings `bridge`), for the other devices.
+	session.bridgeAuth.peerId = peerId;
+	session.bridgeAuth.key = key;
 	setBridgeNode({ peerId });
-	const saved = /** @type {any} */ ((await getSetting(session.store.settings, 'bridge')) ?? {});
-	await setSetting(session.store.settings, 'bridge', {
+	await setSetting(settings, 'bridge', {
 		token: null,
 		...saved,
 		peerId,
+		keyGeneration,
 		nodePairedAt: isoNow()
 	});
 	// A device of the books from now on; dialled where it listens, and through the relays.
@@ -1099,6 +1133,11 @@ export async function pairBridgeNode(invitation) {
 			await deviceSync.addDevice(peerId, label, { bridge: true, addrs });
 	}
 	return { peerId };
+}
+
+/** "Kopplung lösen" over the stream: the bridge's node forgets its key and offers pairing again. */
+export async function forgetBridgeNode() {
+	await bridgeConsumer?.forgetBridge();
 }
 
 /** A timestamp for a stored record, not reactive state. */

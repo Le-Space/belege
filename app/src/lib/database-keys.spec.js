@@ -5,9 +5,12 @@ import { describe, expect, it } from 'vitest';
 import { newKey, sealer } from './db-encryption.js';
 import {
 	DB_KEY_INFO,
+	bridgeAuthKeyOf,
 	deriveBlobKey,
+	deriveBridgeAuthBase,
 	deriveDatabaseKey,
-	deriveDatabaseName
+	deriveDatabaseName,
+	deriveDeviceAuthKey
 } from './database-keys.js';
 
 const prf = () => crypto.getRandomValues(new Uint8Array(32));
@@ -71,6 +74,20 @@ describe('database-keys', () => {
 		expect(again).toBe(transactions);
 		expect(receipts).not.toBe(transactions);
 		expect(key).not.toContain(transactions.split('.')[2]);
+	});
+
+	it('gives the bridge a key of its own: not the device key, new with each generation', async () => {
+		const output = prf();
+		const base = await deriveBridgeAuthBase(output);
+		const one = await bridgeAuthKeyOf(base, 1);
+		const again = await bridgeAuthKeyOf(await deriveBridgeAuthBase(Uint8Array.from(output)), 1);
+		const two = await bridgeAuthKeyOf(base, 2);
+		expect(hex(again)).toBe(hex(one));
+		expect(hex(two)).not.toBe(hex(one));
+		expect(hex(one)).not.toBe(hex(await deriveDeviceAuthKey(output)));
+		expect(hex(base)).not.toBe(hex(one));
+		await expect(bridgeAuthKeyOf(base, 0)).rejects.toThrow(/generation/);
+		await expect(bridgeAuthKeyOf(new Uint8Array(3), 1)).rejects.toThrow(/32 bytes/);
 	});
 
 	it('derives the receipt-file key under its own info string: fixed, and not the database key', async () => {

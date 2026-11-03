@@ -398,6 +398,8 @@ describe('recording endpoints', () => {
 			configPath
 		);
 		bridge = await startBridge({
+			// Not the node: it would ask this machine's keychain (node.test.js covers it).
+			node: false,
 			configPath,
 			keychain: memoryKeychain(null),
 			portalKeychain: () => memoryKeychain(null),

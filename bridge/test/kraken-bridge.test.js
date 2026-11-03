@@ -139,6 +139,8 @@ describe('/kraken routes', () => {
 		/** @type {string[]} */ const printed = [];
 		/** @type {string[]} */ const logged = [];
 		const bridge = await startBridge({
+			// Not the node: it would ask this machine's keychain (node.test.js covers it).
+			node: false,
 			configPath,
 			keychain: memoryKeychain(null),
 			krakenKeychain: memoryKeychain(
@@ -195,6 +197,8 @@ describe('/kraken routes', () => {
 		await saveConfig({ ...defaultConfig(), appOrigins: [APP] }, configPath);
 		/** @type {string[]} */ const printed = [];
 		const bridge = await startBridge({
+			// Not the node: it would ask this machine's keychain (node.test.js covers it).
+			node: false,
 			configPath,
 			keychain: memoryKeychain(null),
 			krakenKeychain: memoryKeychain(null, 'kraken'),
