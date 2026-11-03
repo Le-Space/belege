@@ -16,6 +16,15 @@ import { noteWayOut, wayOutKind } from '../help/way-out.js';
 
 export const DEFAULT_BRIDGE_URL = import.meta.env?.VITE_BRIDGE_URL || 'http://127.0.0.1:8765';
 
+/**
+ * Whether a saved pairing (settings `bridge`) lets this device call the
+ * bridge: a token over HTTP, or the bridge's own node, a device of the books,
+ * over the stream (#575). Only HTTP knows a token; `token` stays null then.
+ *
+ * @param {{ token?: string | null, peerId?: string | null } | null | undefined} saved
+ */
+export const pairedWith = (saved) => Boolean(saved?.token || saved?.peerId);
+
 export class BridgeError extends Error {
 	/** @param {string} message @param {number} status @param {string | null} [code] the bridge's */
 	constructor(message, status, code = null) {
@@ -231,13 +240,39 @@ export function setBridgeTransport(fetchLike) {
 	transport = fetchLike;
 }
 
+/** Resolved while no transport is being set up; calls wait on it. */
+let transportReady = Promise.resolve();
+
+/**
+ * Calls wait while the session sets the transport up after an unlock (device
+ * sync, the bridge's node): a page that calls the bridge at once – the bank's
+ * return page – would otherwise go past the stream to HTTP (#575). At most
+ * `maxMs`; the returned function ends the wait sooner.
+ *
+ * @param {number} [maxMs]
+ * @returns {() => void}
+ */
+export function holdBridgeTransport(maxMs = 30_000) {
+	/** @type {() => void} */
+	let done = () => {};
+	transportReady = new Promise((resolve) => (done = () => resolve(undefined)));
+	const timer = setTimeout(done, maxMs);
+	return () => {
+		clearTimeout(timer);
+		done();
+	};
+}
+
 /**
  * @param {{ url?: string, token?: string | null, fetch?: typeof fetch }} [options]
  */
 export function createBridgeClient({
 	url = DEFAULT_BRIDGE_URL,
 	token = null,
-	fetch: f = (input, init) => (transport ?? fetch)(input, init)
+	fetch: f = async (input, init) => {
+		await transportReady;
+		return (transport ?? fetch)(input, init);
+	}
 } = {}) {
 	const base = url.replace(/\/+$/, '');
 

@@ -296,8 +296,10 @@ let lanRelayAskedWith = '';
 async function learnLanRelay() {
 	if (!session) return;
 	const saved = /** @type {any} */ (await getSetting(session.store.settings, 'bridge'));
-	if (!saved?.token || saved.token === lanRelayAskedWith) return;
-	lanRelayAskedWith = saved.token;
+	// A token over HTTP, or the bridge's node over the stream (#575).
+	const pairing = saved?.token ?? saved?.peerId ?? null;
+	if (!pairing || pairing === lanRelayAskedWith) return;
+	lanRelayAskedWith = pairing;
 	const client = await pairedClient();
 	const relay = await client?.lanRelay().catch(() => null);
 	const { LAN_RELAY_SETTING, isLanRelayAddr } = await import('./sync/network-mode.js');
@@ -767,11 +769,11 @@ export async function refreshLlmRedaction() {
 async function pairedClient() {
 	if (!session) return null;
 	const saved = await getSetting(session.store.settings, 'bridge');
-	if (!saved?.token) return null;
-	const { createBridgeClient, setRedactTerms } = await import('./bridge/client.js');
+	const { createBridgeClient, pairedWith, setRedactTerms } = await import('./bridge/client.js');
+	if (!pairedWith(saved)) return null;
 	// The company's names are blacked out in whatever goes to the language model (#226).
 	setRedactTerms(() => cleanMatchingSettings(app.matchingSettings).companyNames);
-	return createBridgeClient({ url: saved.url, token: saved.token });
+	return createBridgeClient({ url: saved.url, token: saved.token ?? null });
 }
 
 /**
@@ -1270,7 +1272,12 @@ async function unlockWith(
 	refreshLlmRedaction();
 	// Not awaited: the books are open, whatever the relay does.
 	startUcepIfPaired();
-	startDeviceSyncIfOn().then(watchQrConnections);
+	{
+		// The bridge's calls wait until device sync has set up the stream to its node (#575).
+		const { holdBridgeTransport } = await import('./bridge/client.js');
+		const release = session?.online ? holdBridgeTransport() : () => {};
+		startDeviceSyncIfOn().finally(release).then(watchQrConnections);
+	}
 	const { folderSupported } = await import('./receipts/folder.js');
 	if (folderSupported() && !stopFolderWatch) {
 		const { watchFolder } = await import('./receipts/folder-watch.js');

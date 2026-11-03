@@ -20,6 +20,7 @@ import {
 } from '@belege/bridge/testing/imap';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
+import { pairBridge } from './bridge.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -84,9 +85,7 @@ test('an invitation’s appointment becomes a trip, with nobody’s name in the 
 
 	const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
 	await tab('Integrationen').click();
-	await page.getByTestId('pairing-code').fill(code);
-	await page.getByRole('button', { name: 'Koppeln' }).click();
-	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
+	await pairBridge(page, { code: code, out: () => bridgeOut });
 
 	await tab('Belege').click();
 	await page.getByTestId('mail-read-after').uncheck();

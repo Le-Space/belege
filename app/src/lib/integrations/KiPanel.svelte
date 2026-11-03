@@ -12,7 +12,7 @@
 	import { redactionFromStatus } from '$lib/llm-redaction.js';
 	import { currentLocale, list, t } from '$lib/i18n/index.js';
 	import { docUrl } from '$lib/help/integration-help.js';
-	import { bridge, bridgeClient } from './bridge-state.svelte.js';
+	import { bridge, bridgeClient, bridgePaired } from './bridge-state.svelte.js';
 
 	/** @type {Awaited<ReturnType<ReturnType<typeof bridgeClient>['llmStatus']>> | null} */
 	let llmStatus = $state(null);
@@ -30,7 +30,7 @@
 	let lastMoment = $derived(totals.lastAt ? describeMoment(totals.lastAt) : null);
 	/** A confidential model's pin and last proof (#416), as /llm/status says. */
 	let tee = $derived(/** @type {any} */ (llmStatus)?.tee ?? null);
-	let token = $derived(bridge.token);
+	let token = $derived(bridgePaired());
 
 	async function loadLlmStatus() {
 		llmError = null;
@@ -44,7 +44,7 @@
 		}
 	}
 	$effect(() => {
-		if (bridge.token && bridge.state === 'online') loadLlmStatus();
+		if (bridgePaired() && bridge.state === 'online') loadLlmStatus();
 	});
 </script>
 

@@ -21,6 +21,7 @@ import { runAlephGrants } from '../../bridge/src/setup-aleph.js';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
+import { pairBridge } from './bridge.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -79,9 +80,7 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 
 	await page.getByRole('link', { name: 'Integrationen' }).click();
 	const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
-	await page.getByTestId('pairing-code').fill(code);
-	await page.getByRole('button', { name: 'Koppeln' }).click();
-	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
+	await pairBridge(page, { code: code, out: () => bridgeOut });
 
 	// Something in the books to back up: a payment with a marker in it.
 	await page.evaluate(async (marker) => {

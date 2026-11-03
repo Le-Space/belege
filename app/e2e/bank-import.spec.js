@@ -20,6 +20,7 @@ import { addVirtualAuthenticator } from './webauthn.js';
 import { everythingStoredAsText } from './storage-scan.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
+import { expectPaired, pairBridge, viaStream } from './bridge.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -139,12 +140,19 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	await page.getByRole('link', { name: 'Integrationen' }).click();
 	await expect(page.getByTestId('bridge-status')).toContainText('Bridge erreichbar');
 	await expect(page.getByTestId('bridge-status')).toContainText('nicht gekoppelt');
-	await page.getByTestId('pairing-code').fill(pairingCode());
-	const pairResponse = page.waitForResponse((r) => r.url().endsWith('/pair'));
-	await page.getByRole('button', { name: 'Koppeln' }).click();
-	const token = (await (await pairResponse).json()).token;
-	expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
-	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
+	// Over the stream (E2E_BRIDGE_VIA=stream) there is no token: the bridge's node knows the device by its proof.
+	/** @type {string | null} */
+	let token = null;
+	if (viaStream) {
+		await pairBridge(page, { code: pairingCode, out: () => bridgeOut });
+	} else {
+		await page.getByTestId('pairing-code').fill(pairingCode());
+		const pairResponse = page.waitForResponse((r) => r.url().endsWith('/pair'));
+		await page.getByRole('button', { name: 'Koppeln', exact: true }).click();
+		token = String((await (await pairResponse).json()).token);
+		expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+		await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
+	}
 
 	// Only the allowed account shows, masked; the private one never reaches the page.
 	await openIntegration(page, 'bank');
@@ -208,7 +216,7 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
 	await page.getByRole('link', { name: 'Integrationen' }).click();
-	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
+	await expectPaired(page);
 	await openIntegration(page, 'bank');
 	await expect(page.getByTestId('hibiscus-account')).toHaveCount(1);
 	// It asks from a week before the last sync: the two recent bookings come
@@ -502,36 +510,41 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	]);
 	await page.getByRole('link', { name: 'Zahlungen' }).click();
 
-	// Einblick für einen Assistenten (issue #124): a redacted share of this
-	// year's payments and receipts, read by a plain HTTP request, refused to a
-	// web page, gone when revoked.
-	await openIntegration(page, 'assistent');
-	const shareCard = page.getByTestId('share-card');
-	await expect(shareCard.getByTestId('share-redacted')).toBeChecked();
-	await shareCard.getByTestId('share-create').click();
-	const shareCommand = await shareCard.getByTestId('share-command-value').textContent();
-	const shareUrl = /curl -s (\S+)/.exec(String(shareCommand))?.[1] ?? '';
-	expect(shareUrl).toMatch(
-		new RegExp(`^http://127\\.0\\.0\\.1:${BRIDGE_PORT}/share/[A-Za-z0-9_-]{22}$`)
-	);
-	const shared = await page.request.get(shareUrl);
-	expect(shared.status()).toBe(200);
-	const snapshot = await shared.json();
-	expect(snapshot.redacted).toBe(true);
-	expect(snapshot.transactions.some((/** @type {any} */ t) => t.payee === names.debit)).toBe(true);
-	expect(JSON.stringify(snapshot)).not.toMatch(/DE0{16}9999|@/);
-	await expect(shareCard.getByTestId('share-item')).toContainText('Zahlungen, Belege');
-	const fromPage = await page.evaluate(async (u) => {
-		try {
-			return (await fetch(u)).status;
-		} catch {
-			return 'blocked';
-		}
-	}, shareUrl);
-	expect(fromPage).not.toBe(200);
-	await shareCard.getByTestId('share-revoke').click();
-	await expect(shareCard.getByTestId('share-item')).toHaveCount(0);
-	expect((await page.request.get(shareUrl)).status()).toBe(404);
+	// Shares are HTTP's only (bridge/src/stream.js): over the stream the card waits for a token.
+	if (!viaStream) {
+		// Einblick für einen Assistenten (issue #124): a redacted share of this
+		// year's payments and receipts, read by a plain HTTP request, refused to a
+		// web page, gone when revoked.
+		await openIntegration(page, 'assistent');
+		const shareCard = page.getByTestId('share-card');
+		await expect(shareCard.getByTestId('share-redacted')).toBeChecked();
+		await shareCard.getByTestId('share-create').click();
+		const shareCommand = await shareCard.getByTestId('share-command-value').textContent();
+		const shareUrl = /curl -s (\S+)/.exec(String(shareCommand))?.[1] ?? '';
+		expect(shareUrl).toMatch(
+			new RegExp(`^http://127\\.0\\.0\\.1:${BRIDGE_PORT}/share/[A-Za-z0-9_-]{22}$`)
+		);
+		const shared = await page.request.get(shareUrl);
+		expect(shared.status()).toBe(200);
+		const snapshot = await shared.json();
+		expect(snapshot.redacted).toBe(true);
+		expect(snapshot.transactions.some((/** @type {any} */ t) => t.payee === names.debit)).toBe(
+			true
+		);
+		expect(JSON.stringify(snapshot)).not.toMatch(/DE0{16}9999|@/);
+		await expect(shareCard.getByTestId('share-item')).toContainText('Zahlungen, Belege');
+		const fromPage = await page.evaluate(async (u) => {
+			try {
+				return (await fetch(u)).status;
+			} catch {
+				return 'blocked';
+			}
+		}, shareUrl);
+		expect(fromPage).not.toBe(200);
+		await shareCard.getByTestId('share-revoke').click();
+		await expect(shareCard.getByTestId('share-item')).toHaveCount(0);
+		expect((await page.request.get(shareUrl)).status()).toBe(404);
+	}
 	await page.getByRole('link', { name: 'Zahlungen', exact: true }).click();
 
 	// At rest: the bookings are there (the scan finds data) but no counterparty,
@@ -543,21 +556,26 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 		'Rechnung KR-2026-0917',
 		'Kartenzahlung Wolkenspeicher Abo',
 		'LT000000000000000001',
-		token
+		...(token ? [token] : [])
 	]) {
 		expect(text.includes(secret), `${secret} readable at rest`).toBe(false);
 	}
 	const local = await page.evaluate(() => JSON.stringify({ ...localStorage }));
-	expect(local.includes(token)).toBe(false);
-	expect(local.includes(token.slice(0, 16))).toBe(false);
+	if (token) {
+		expect(local.includes(token)).toBe(false);
+		expect(local.includes(token.slice(0, 16))).toBe(false);
+	}
 
-	// "Kopplung lösen" also kills the token on the bridge, not just in the browser.
+	// "Kopplung lösen" also kills the token on the bridge, not just in the browser;
+	// over the stream it takes the bridge off the books' devices.
 	await page.getByRole('link', { name: 'Integrationen' }).click();
 	await page.getByTestId('unpair').click();
 	await expect(page.getByTestId('pairing-code')).toBeVisible();
 	await expect(page.getByTestId('bridge-error')).toHaveCount(0);
-	const stale = await page.request.get(`http://127.0.0.1:${BRIDGE_PORT}/hibiscus/accounts`, {
-		headers: { authorization: `Bearer ${token}` }
-	});
-	expect(stale.status()).toBe(401);
+	if (token) {
+		const stale = await page.request.get(`http://127.0.0.1:${BRIDGE_PORT}/hibiscus/accounts`, {
+			headers: { authorization: `Bearer ${token}` }
+		});
+		expect(stale.status()).toBe(401);
+	}
 });

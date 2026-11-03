@@ -16,7 +16,7 @@
 	import ShareCard from '$lib/share/ShareCard.svelte';
 	import InvoiceAppCard from '$lib/ucep/InvoiceAppCard.svelte';
 	import PortalsCard from '$lib/portals/PortalsCard.svelte';
-	import { bridge, loadBridge } from '$lib/integrations/bridge-state.svelte.js';
+	import { bridge, bridgePaired, loadBridge } from '$lib/integrations/bridge-state.svelte.js';
 	import IntegrationHelp from '$lib/help/IntegrationHelp.svelte';
 	import { integrationFacts, loadIntegrationFacts } from '$lib/integrations/facts.svelte.js';
 	import { integrationsOverview } from '$lib/integrations/overview.js';
@@ -77,15 +77,20 @@
 			<KiPanel />
 		{/if}
 		{#if id === 'kraken'}
-			<KrakenCard url={bridge.url} token={bridge.token} configured={bridge.health.kraken} />
+			<KrakenCard
+				url={bridge.url}
+				token={bridge.token}
+				paired={bridgePaired()}
+				configured={bridge.health.kraken}
+			/>
 		{:else if id === 'wallets'}
-			<WalletsCard url={bridge.url} token={bridge.token} />
+			<WalletsCard url={bridge.url} token={bridge.token} paired={bridgePaired()} />
 		{:else if id === 'aleph'}
-			<AlephCard url={bridge.url} token={bridge.token} />
+			<AlephCard url={bridge.url} token={bridge.token} paired={bridgePaired()} />
 		{:else if id === 'geraete'}
 			<DevicesCard />
 		{:else if id === 'backup'}
-			<BackupCard url={bridge.url} token={bridge.token} />
+			<BackupCard url={bridge.url} token={bridge.token} paired={bridgePaired()} />
 			<MoveCard />
 		{:else if id === 'assistent'}
 			<ShareCard url={bridge.url} token={bridge.token} />

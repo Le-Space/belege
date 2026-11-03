@@ -31,8 +31,8 @@
 		updateWalletMeta
 	} from './wallet-sync.js';
 
-	/** @type {{ url: string, token: string | null }} */
-	let { url, token } = $props();
+	/** @type {{ url: string, token: string | null, paired?: boolean }} `paired`: a token, or the bridge's node over the stream (#575) */
+	let { url, token, paired = Boolean(token) } = $props();
 
 	const client = $derived(createBridgeClient({ url, token }));
 
@@ -73,7 +73,7 @@
 	const localChain = $derived(walletChain(chainId));
 
 	$effect(() => {
-		if (!token) return;
+		if (!paired) return;
 		load();
 	});
 
@@ -335,7 +335,7 @@
 	<p class="text-xs text-faint">{t('integrationen.wallets.meta.hint')}</p>
 {/snippet}
 
-{#if token}
+{#if paired}
 	<section
 		class="mt-6 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm"
 		aria-labelledby="wallets-h"

@@ -4,7 +4,7 @@
 import { app, currentStore } from '$lib/session.svelte.js';
 import { getSetting, setSetting } from '$lib/store/settings.js';
 import { deviceSyncOn } from '$lib/sync/device-sync.js';
-import { bridge, bridgeViaDevice } from '$lib/integrations/bridge-state.svelte.js';
+import { bridge, bridgePaired, bridgeViaDevice } from '$lib/integrations/bridge-state.svelte.js';
 import { integrationFacts } from '$lib/integrations/facts.svelte.js';
 import { asksForStart, cleanSetup, setupSteps, withStart } from './steps.js';
 import { isSample } from '$lib/sample/sample.js';
@@ -63,7 +63,7 @@ export function setupFacts() {
 	const f = integrationFacts();
 	return {
 		bridge: {
-			paired: Boolean(bridge.token),
+			paired: bridgePaired(),
 			online: bridge.state === 'online',
 			viaDevice: bridgeViaDevice(),
 			llm: bridge.health.llm

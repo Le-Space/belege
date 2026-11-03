@@ -17,7 +17,7 @@
 // both write its next increment.
 
 import { app, chainFitsBooks, currentStore, unsavedCollections } from '$lib/session.svelte.js';
-import { bridge, bridgeClient } from '$lib/integrations/bridge-state.svelte.js';
+import { bridgeClient, bridgePaired } from '$lib/integrations/bridge-state.svelte.js';
 import { loadBackups } from './history.js';
 import { loadChain } from './chain.js';
 import {
@@ -147,7 +147,7 @@ async function context() {
 	if (!owner) return null;
 	const key = await ensureBackupKey(store.settings);
 	const address = await backupAddressOf(key);
-	const client = bridge.token ? bridgeClient() : null;
+	const client = bridgePaired() ? bridgeClient() : null;
 	/** @type {any} */
 	const status = client
 		? await client.backupStatus().then(

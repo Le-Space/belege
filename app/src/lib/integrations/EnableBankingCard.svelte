@@ -11,7 +11,7 @@
 	import { formatDate } from '$lib/bank/format.js';
 	import { intlLocale, list, t } from '$lib/i18n/index.js';
 	import { rememberStart, RETURN_PATH } from '$lib/enablebanking/return.js';
-	import { bridge, bridgeClient } from './bridge-state.svelte.js';
+	import { bridge, bridgeClient, bridgePaired } from './bridge-state.svelte.js';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { app, currentStore, refreshNow, runMatchingNow } from '$lib/session.svelte.js';
 	import { syncEnableBanking } from '$lib/bank/enablebanking-sync.js';
@@ -68,7 +68,7 @@
 		)
 	);
 
-	let ready = $derived(Boolean(bridge.token) && bridge.state === 'online');
+	let ready = $derived(bridgePaired() && bridge.state === 'online');
 	let configured = $derived(bridge.health.enablebanking);
 
 	/** @type {Link[]} */

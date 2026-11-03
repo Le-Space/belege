@@ -7,6 +7,7 @@
 // for the invoicing-app spec; the app is built with its address.
 import { defineConfig, devices } from '@playwright/test';
 import { relayAddr } from './e2e/relay.js';
+import { BRIDGE_SPECS, viaStream } from './e2e/bridge.js';
 
 const port = Number(process.env.E2E_PORT || 4391);
 // The bridge the bank-import spec starts (in test mode, against a fake
@@ -17,8 +18,27 @@ const bridgePort = Number(process.env.E2E_BRIDGE_PORT);
 // built to reach paired apps through it.
 const relay = await relayAddr();
 
+// E2E_BRIDGE_VIA=stream (#575): the specs that pair a bridge, with device sync
+// on from the start, pairing by invitation, and every later call over the
+// stream to the bridge's own node – HTTP to the bridge refused (e2e/bridge.js).
+const streamOnly = viaStream
+	? {
+			testMatch: BRIDGE_SPECS.map((name) => `${name}.spec.js`),
+			storageState: {
+				cookies: [],
+				origins: [
+					{
+						origin: `http://localhost:${port}`,
+						localStorage: [{ name: 'belege.device-sync', value: 'on' }]
+					}
+				]
+			}
+		}
+	: null;
+
 export default defineConfig({
 	testDir: 'e2e',
+	...(streamOnly ? { testMatch: streamOnly.testMatch } : {}),
 	globalSetup: './e2e/global-setup.js',
 	retries: process.env.CI ? 1 : 0,
 	workers: 1,
@@ -41,7 +61,8 @@ export default defineConfig({
 		locale: 'de-DE',
 		screenshot: 'only-on-failure',
 		video: 'retain-on-failure',
-		trace: 'on-first-retry'
+		trace: 'on-first-retry',
+		...(streamOnly ? { storageState: streamOnly.storageState } : {})
 	},
 	projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }]
 });

@@ -206,6 +206,23 @@ describe('the bridge’s own node (#575)', () => {
 		expect(await (await plain('http://127.0.0.1:8765/health')).json()).toEqual({ local: true });
 	});
 
+	it('waits for the node without a token, not with one', async () => {
+		/** @type {(number | undefined)[]} */
+		const waits = [];
+		const f = bridgeFetch({
+			local: async () => json({ local: true }),
+			stream: () => async (_i, _init, options) => {
+				waits.push(options?.waitMs);
+				return json({ stream: true });
+			},
+			remote: () => null,
+			waitMs: 1234
+		});
+		await f('http://127.0.0.1:8765/health');
+		await f('http://127.0.0.1:8765/health', { headers: { Authorization: 'Bearer t' } });
+		expect(waits).toEqual([1234, 0]);
+	});
+
 	it('knows the bridge’s node only by a peer id', () => {
 		setBridgeNode({ peerId: 'nope' });
 		expect(bridgeNodePeer()).toBeNull();

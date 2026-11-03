@@ -42,6 +42,8 @@ export const EXTENSION = 'belege-bridge';
 export const SHARE_FLAG_KEY = 'belege.bridge-share';
 /** The bridge's own pairing and unpairing, over HTTP only (bridge/src/stream.js HTTP_ONLY). */
 const HTTP_ONLY_PATH = /^\/(pair|unpair)$/;
+/** How long a call without a token waits for the bridge's node after an unlock. */
+export const STREAM_WAIT_MS = 20_000;
 const PEER_ID = /^12D3KooW[1-9A-HJ-NP-Za-km-z]{44}$/;
 
 /**
@@ -299,13 +301,23 @@ export async function startBridgeConsumer({
 	}
 
 	/**
-	 * fetch, over the stream to the bridge's own node.
+	 * fetch, over the stream to the bridge's own node. `waitMs`: how long to
+	 * wait for the node to be connected and proved – right after an unlock the
+	 * first calls come before that, and a device paired by invitation only has
+	 * no token to fall back to HTTP with.
 	 *
 	 * @param {string | URL | Request} input
 	 * @param {RequestInit} [init]
+	 * @param {{ waitMs?: number }} [options]
 	 */
-	async function streamFetch(input, init = {}) {
-		const peerId = streamServer();
+	async function streamFetch(input, init = {}, { waitMs = 0 } = {}) {
+		if (!bridgeNode) throw new TypeError('no bridge node is known');
+		const until = Date.now() + waitMs;
+		let peerId = streamServer();
+		while (!peerId && Date.now() < until) {
+			await new Promise((r) => setTimeout(r, 250));
+			peerId = streamServer();
+		}
 		if (!peerId) throw new TypeError('the bridge’s node is not connected');
 		return callThrough(peerId, input, init);
 	}
@@ -388,20 +400,30 @@ export async function startBridgeConsumer({
  * `onRoute` hears which way a call went: 'stream' to the bridge's node,
  * 'local' over HTTP here, or 'device' through an own device's bridge.
  *
- * @param {{ local?: typeof fetch, stream?: () => ((input: any, init?: RequestInit) => Promise<Response>) | null, remote: () => ((input: any, init?: RequestInit) => Promise<Response>) | null, onRoute?: (route: 'stream' | 'local' | 'device') => void }} p
+ * A call without a token (a device paired by invitation only) waits a while
+ * for the node: HTTP would only answer 401.
+ *
+ * @param {{ local?: typeof fetch, stream?: () => ((input: any, init?: RequestInit, options?: { waitMs?: number }) => Promise<Response>) | null, remote: () => ((input: any, init?: RequestInit) => Promise<Response>) | null, onRoute?: (route: 'stream' | 'local' | 'device') => void, waitMs?: number }} p
  * @returns {typeof fetch}
  */
-export function bridgeFetch({ local = fetch, stream = () => null, remote, onRoute = () => {} }) {
+export function bridgeFetch({
+	local = fetch,
+	stream = () => null,
+	remote,
+	onRoute = () => {},
+	waitMs = STREAM_WAIT_MS
+}) {
 	return /** @type {typeof fetch} */ (
 		async (input, init) => {
 			// The token is HTTP's: a peer over the stream is known by its proof.
 			const headers = { .../** @type {Record<string, string>} */ (init?.headers ?? {}) };
+			const hasToken = Boolean(headers.Authorization);
 			delete headers.Authorization;
 			const path = new URL(String(input instanceof Request ? input.url : input)).pathname;
 			const over = HTTP_ONLY_PATH.test(path) ? null : stream();
 			if (over) {
 				try {
-					const res = await over(input, { ...init, headers });
+					const res = await over(input, { ...init, headers }, { waitMs: hasToken ? 0 : waitMs });
 					onRoute('stream');
 					return res;
 				} catch {

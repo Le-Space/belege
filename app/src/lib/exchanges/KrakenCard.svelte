@@ -10,8 +10,8 @@
 	import { t } from '$lib/i18n/index.js';
 	import { syncKraken } from './kraken-sync.js';
 
-	/** @type {{ url: string, token: string | null, configured: boolean }} */
-	let { url, token, configured } = $props();
+	/** @type {{ url: string, token: string | null, paired?: boolean, configured: boolean }} `paired`: a token, or the bridge's node over the stream (#575) */
+	let { url, token, paired = Boolean(token), configured } = $props();
 
 	const client = $derived(createBridgeClient({ url, token }));
 	const accounts = $derived(
@@ -66,7 +66,7 @@
 	}
 </script>
 
-{#if token}
+{#if paired}
 	<section
 		class="mt-6 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm"
 		aria-labelledby="kraken-h"

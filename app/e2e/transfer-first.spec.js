@@ -16,6 +16,7 @@ import { defaultConfig, saveConfig } from '@belege/bridge';
 import { FAKE_LLM_KEY, startFakeLlm } from '@belege/bridge/testing/llm';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
+import { pairBridge } from './bridge.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -64,9 +65,7 @@ test('a run asks "own transfer?" first, and the pair is linked on the click', as
 
 	await page.getByRole('link', { name: 'Integrationen' }).click();
 	const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
-	await page.getByTestId('pairing-code').fill(code);
-	await page.getByRole('button', { name: 'Koppeln' }).click();
-	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
+	await pairBridge(page, { code: code, out: () => bridgeOut });
 
 	await page.evaluate(async () => {
 		const e2e = /** @type {any} */ (window).__belegeE2E;

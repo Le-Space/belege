@@ -56,3 +56,36 @@ jobs:
           name: test-results
           path: app/test-results/
           retention-days: 7
+
+  # The specs that pair a bridge once more, the other way (#575): device sync
+  # on, pairing by the invitation of the bridge's own node, every HTTP request
+  # from the page to the bridge refused but /pair – so each call has to go over
+  # the stream (app/e2e/bridge.js).
+  e2e-stream:
+    name: E2E tests, bridge over the stream
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.1-noble
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - name: Let git read the checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm run build
+      - name: Bridge specs over the stream
+        run: pnpm run test:e2e:stream
+      - name: Keep the evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-stream
+          path: app/test-results/
+          retention-days: 7

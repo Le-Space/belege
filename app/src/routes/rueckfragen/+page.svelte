@@ -53,9 +53,9 @@
 		const store = currentStore();
 		if (store) transferFirst = await loadTransferFirst(store.settings);
 		const saved = store ? await getSetting(store.settings, 'bridge') : null;
-		if (!saved?.token) return;
-		const { createBridgeClient } = await import('$lib/bridge/client.js');
-		client = createBridgeClient({ url: saved.url, token: saved.token });
+		const { createBridgeClient, pairedWith } = await import('$lib/bridge/client.js');
+		if (!pairedWith(saved)) return;
+		client = createBridgeClient({ url: saved.url, token: saved.token ?? null });
 	});
 
 	// "✦ KI-Vorschläge für alle offenen Rückfragen" (matching/ai-suggest.svelte.js).
