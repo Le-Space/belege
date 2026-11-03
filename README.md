@@ -67,6 +67,7 @@ The app is in [`app/`](app/README.md), the bridge in [`bridge/`](bridge/README.m
 
 ## Docs
 
+- [Ways to use Belege: only the browser, with the bridge, several devices, the phone](docs/use-cases.md) ([Deutsch](docs/use-cases.de.md))
 - [Architecture: how Belege keeps working when the network does not](docs/architecture.md) ([Deutsch](docs/architecture.de.md))
 - [Features](docs/features.md) ([Deutsch](docs/features.de.md))
 - [Matching: fiscal years, refunds, vendor accounts](docs/matching.md) ([Deutsch](docs/matching.de.md))
