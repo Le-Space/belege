@@ -1142,6 +1142,145 @@ export async function forgetBridgeNode() {
 	await bridgeConsumer?.forgetBridge();
 }
 
+/**
+ * A join code being answered (#611): its one-time key, the member's new root
+ * and this passkey's PRF answer, in memory only until the answer comes.
+ *
+ * @type {{ key: { secretKey: Uint8Array, publicKey: Uint8Array }, memberRoot: Uint8Array, prfOutput: Uint8Array, credential: any, label: string } | null}
+ */
+let joining = null;
+
+/** The pending join, wiped. */
+function forgetJoining() {
+	if (!joining) return;
+	joining.key.secretKey.fill(0);
+	joining.memberRoot.fill(0);
+	joining.prfOutput.fill(0);
+	joining = null;
+}
+
+/**
+ * "Einer Buchhaltung beitreten" (#611), on the joining device: a join code to
+ * send to the owner. The passkey this browser unlocks with answers once; its
+ * PRF answer and the member's new root stay in memory until the answer is in.
+ *
+ * @param {string} label how the member calls themselves
+ * @returns {Promise<{ text: string, fingerprint: string }>}
+ */
+export async function startJoining(label) {
+	forgetJoining();
+	const [
+		{ loadStoredPasskeyCredential, readPrfOutput },
+		{ createSecretSigner },
+		join,
+		vault,
+		keys,
+		sync
+	] = await Promise.all([
+		import('./passkey-identity.js'),
+		import('@le-space/orbitdb-identity-provider-webauthn-did'),
+		import('./members/join.js'),
+		import('./members/member-vault.js'),
+		import('./database-keys.js'),
+		import('./sync/device-sync.js')
+	]);
+	const credential = loadStoredPasskeyCredential();
+	if (!credential) throw new Error(t('members.join.noPasskey'));
+	const prfOutput = await readPrfOutput(credential);
+	const memberRoot = crypto.getRandomValues(new Uint8Array(32));
+	const writer = (await createSecretSigner(memberRoot, { info: vault.MEMBER_IDENTITY_INFO })).did;
+	const { generateKeyPairFromSeed } = await import('@libp2p/crypto/keys');
+	const { peerIdFromPrivateKey } = await import('@libp2p/peer-id');
+	const device = peerIdFromPrivateKey(
+		await generateKeyPairFromSeed(
+			'Ed25519',
+			await keys.deriveDevicePeerSeed(memberRoot, sync.deviceSalt())
+		)
+	).toString();
+	const request = join.createJoinRequest({ writer, device, label: label.trim() });
+	joining = {
+		key: { secretKey: request.secretKey, publicKey: request.publicKey },
+		memberRoot,
+		prfOutput,
+		credential,
+		label: label.trim()
+	};
+	return { text: request.text, fingerprint: request.fingerprint };
+}
+
+/**
+ * The owner's answer to this device's join code (#611): the member vault made,
+ * under this passkey. From the next unlock this passkey opens those books too.
+ *
+ * @param {string} answer `belege-member:…`
+ * @returns {Promise<{ books: string }>} the books' name
+ */
+export async function finishJoining(answer) {
+	if (!joining) throw new Error(t('members.join.noCode'));
+	const [{ openJoinAnswer }, { createMemberVault }] = await Promise.all([
+		import('./members/join.js'),
+		import('./members/member-vault.js')
+	]);
+	const bundle = await openJoinAnswer(answer, joining.key).catch((/** @type {any} */ e) => {
+		throw new Error(t(`members.error.${e?.code === 'otherCode' ? 'otherCode' : 'answer'}`));
+	});
+	await createMemberVault({
+		bundle,
+		passkey: {
+			prfOutput: joining.prfOutput,
+			rawCredentialId: joining.credential.rawCredentialId,
+			credentialId: String(joining.credential.credentialId ?? ''),
+			label: joining.label
+		},
+		storage: globalThis.localStorage,
+		memberRoot: Uint8Array.from(joining.memberRoot)
+	});
+	forgetJoining();
+	return { books: bundle.books.label };
+}
+
+/** The join code shown, given up. */
+export function cancelJoining() {
+	forgetJoining();
+}
+
+/**
+ * "Mitglied aufnehmen" (#611), on the owner's device: the join code read, the
+ * member written into the books, its write identity granted, its device
+ * listed – and the answer to send back, sealed to the code's one-time key.
+ *
+ * @param {{ code: string, label: string, booksLabel: string }} p
+ * @returns {Promise<{ answer: string, fingerprint: string }>}
+ */
+export async function admitMember({ code, label, booksLabel }) {
+	if (!session) throw new Error(t('messages.sync.off'));
+	const [{ parseJoinRequest, sealJoinAnswer }, { addMemberRecord }] = await Promise.all([
+		import('./members/join.js'),
+		import('./members/members.js')
+	]);
+	/** @type {ReturnType<typeof parseJoinRequest>} */
+	let request;
+	try {
+		request = parseJoinRequest(code);
+	} catch {
+		throw new Error(t('members.error.code'));
+	}
+	const name = label.trim() || request.label;
+	const bundle = await session.memberBundle(booksLabel);
+	await session.grantWriter(request.writer);
+	await addMemberRecord(session.store.settings, {
+		writer: request.writer,
+		label: name,
+		role: 'bookkeeping',
+		devices: [request.device],
+		invitedBy: app.did ?? '',
+		at: isoNow()
+	});
+	if (deviceSync) await deviceSync.addDevice(request.device, name).catch(() => {});
+	const answer = await sealJoinAnswer({ request, bundle });
+	return { answer, fingerprint: request.fingerprint };
+}
+
 /** A timestamp for a stored record, not reactive state. */
 const isoNow = () => new Date().toISOString();
 

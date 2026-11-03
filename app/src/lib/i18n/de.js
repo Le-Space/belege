@@ -1431,6 +1431,46 @@ export default {
 		install: 'Als App installieren',
 		later: 'Nicht jetzt'
 	},
+	members: {
+		title: 'Zusammenarbeit',
+		intro:
+			'Die Buchhaltung arbeitet mit ihrem eigenen Passkey in diesen Büchern: zuordnen, Eigenbelege, Export, Backup. Sie bekommt die Schlüssel zum Lesen und Sichern, nie die Wurzel deiner Bücher, und alles, was sie ändert, trägt ihren Namen.',
+		list: 'Mitglieder',
+		none: 'Noch kein Mitglied.',
+		role: { bookkeeping: 'Buchhaltung' },
+		admit: {
+			title: 'Mitglied aufnehmen',
+			hint: 'Füge den Beitrittscode ein, den die Buchhaltung auf ihrem Gerät erzeugt hat.',
+			name: 'Name',
+			books: 'Wie die Bücher für sie heißen',
+			code: 'Beitrittscode',
+			button: 'Aufnehmen',
+			check: 'Prüfzeichen: {fingerprint} – muss auf ihrem Gerät gleich sein.',
+			answer: 'Antwort für die Buchhaltung',
+			answerHint:
+				'Schick ihr diese Antwort, per Mail oder Chat. Nur das Gerät, das den Beitrittscode erzeugt hat, kann sie öffnen.'
+		},
+		error: {
+			code: 'Das ist kein Beitrittscode, oder er ist beschädigt. Lass die Buchhaltung einen neuen erzeugen.',
+			answer: 'Das ist keine Antwort auf einen Beitrittscode, oder sie wurde verändert.',
+			otherCode:
+				'Diese Antwort gehört zu einem anderen Beitrittscode. Sie öffnet sich nur auf dem Gerät, das ihn erzeugt hat.'
+		},
+		join: {
+			title: 'Einer Buchhaltung beitreten',
+			hint: 'Für die Buchhaltung: Erzeuge hier einen Beitrittscode und schick ihn an die Person, deren Bücher du führst. Lass diese Seite offen, bis ihre Antwort da ist.',
+			name: 'Dein Name',
+			button: 'Beitrittscode erzeugen',
+			code: 'Dein Beitrittscode',
+			check: 'Prüfzeichen: {fingerprint}',
+			answer: 'Antwort einfügen',
+			finish: 'Beitreten',
+			cancel: 'Abbrechen',
+			done: 'Du bist Mitglied der Bücher „{books}“. Sie öffnen sich mit deinem Passkey beim nächsten Entsperren.',
+			noPasskey: 'Dieser Browser kennt keinen Passkey für Belege.',
+			noCode: 'Erst einen Beitrittscode erzeugen – die Antwort passt nur zu ihm.'
+		}
+	},
 	devices: {
 		title: 'Eigene Geräte',
 		what: 'Dieselben Bücher auf deinem Telefon oder einem zweiten Rechner: Beide Geräte brauchen denselben Passkey (über den Schlüsselbund synchronisiert) und die eingeschaltete Synchronisation.',
@@ -3865,6 +3905,10 @@ export default {
 				what: 'Die Rechnungs-App von Le Space erstellt Eigenbelege für Belege und erfährt, welche ihrer Rechnungen bezahlt sind.',
 				how: 'Hier einschalten und mit der Rechnungs-App koppeln: per Einladung oder mit einem Vergleichscode auf beiden Seiten.'
 			},
+			zusammenarbeit: {
+				what: 'Eine Person mit eigenem Passkey arbeitet in denselben Büchern, zuerst die Buchhaltung: zuordnen, Eigenbelege, Export, Backup. Sie bekommt die Schlüssel zum Lesen und Sichern, nie die Wurzel deiner Bücher, und schreibt unter ihrem eigenen Namen.',
+				how: 'Die Buchhaltung erzeugt auf ihrem Gerät einen Beitrittscode und schickt ihn dir. Du fügst ihn hier ein und schickst die Antwort zurück; nur ihr Gerät kann sie öffnen.'
+			},
 			assistent: {
 				what: 'Eine Lese-Freigabe der Bücher für eine Assistenz: ein Jahr, geschwärzt, mit Ablaufzeit.',
 				how: 'Jahr und Dauer wählen, Freigabe erstellen und den gezeigten Befehl weitergeben. Dafür muss die Bridge laufen; die Freigabe lässt sich jederzeit beenden.'
@@ -3914,6 +3958,7 @@ export default {
 				paperless: 'Paperless-ngx',
 				portale: 'Kundenportale',
 				'rechnungs-app': 'Rechnungs-App',
+				zusammenarbeit: 'Zusammenarbeit',
 				assistent: 'Einblick für einen Assistenten'
 			},
 			state: {
@@ -3954,6 +3999,7 @@ export default {
 				paperless: 'Dokumente aus deinem Paperless-Archiv – unter Belege (pnpm setup:paperless)',
 				portals: 'Rechnungen direkt aus Kundenkonten holen',
 				invoiceApp: 'Eigenbelege mit deinem Nummernkreis und Firmenkopf',
+				members: 'Die Buchhaltung arbeitet in denselben Büchern',
 				assistant: 'Ein Jahr lesen lassen, geschwärzt, mit Ablauf'
 			},
 			when: 'zuletzt {when}',

@@ -22,7 +22,8 @@ export const INTEGRATION_HELP = {
 	backup: { command: 'pnpm setup:aleph', doc: 'docs/backup{de}.md' },
 	portale: { command: 'pnpm setup:portal vodafone', doc: 'bridge/README.md#kundenportale' },
 	'rechnungs-app': { doc: 'docs/features{de}.md' },
-	assistent: { doc: 'docs/features{de}.md' }
+	assistent: { doc: 'docs/features{de}.md' },
+	zusammenarbeit: { doc: 'docs/use-cases{de}.md' }
 };
 
 /**

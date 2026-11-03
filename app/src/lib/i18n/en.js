@@ -1403,6 +1403,46 @@ export default {
 		install: 'Install as app',
 		later: 'Not now'
 	},
+	members: {
+		title: 'Collaboration',
+		intro:
+			'The bookkeeping works in these books with their own passkey: matching, own receipts, export, backup. They get the keys to read and back up, never the root of your books, and everything they change carries their name.',
+		list: 'Members',
+		none: 'No member yet.',
+		role: { bookkeeping: 'Bookkeeping' },
+		admit: {
+			title: 'Admit a member',
+			hint: 'Paste the join code the bookkeeping made on their device.',
+			name: 'Name',
+			books: 'What the books are called for them',
+			code: 'Join code',
+			button: 'Admit',
+			check: 'Check: {fingerprint} – must be the same on their device.',
+			answer: 'Answer for the bookkeeping',
+			answerHint:
+				'Send them this answer, by mail or chat. Only the device that made the join code can open it.'
+		},
+		error: {
+			code: 'That is no join code, or it is damaged. Ask the bookkeeping for a new one.',
+			answer: 'That is no answer to a join code, or it was changed.',
+			otherCode:
+				'This answer belongs to another join code. It opens only on the device that made it.'
+		},
+		join: {
+			title: 'Join as the bookkeeping',
+			hint: 'For the bookkeeping: make a join code here and send it to the person whose books you keep. Keep this page open until their answer is in.',
+			name: 'Your name',
+			button: 'Make a join code',
+			code: 'Your join code',
+			check: 'Check: {fingerprint}',
+			answer: 'Paste the answer',
+			finish: 'Join',
+			cancel: 'Cancel',
+			done: 'You are a member of the books “{books}”. They open with your passkey at the next unlock.',
+			noPasskey: 'This browser knows no passkey for Belege.',
+			noCode: 'Make a join code first – the answer fits only that one.'
+		}
+	},
 	devices: {
 		title: 'Own devices',
 		what: 'The same books on your phone or a second computer: both devices need the same passkey (synced via the keychain) and sync switched on.',
@@ -3815,6 +3855,10 @@ export default {
 				what: 'The Le Space invoice app creates Eigenbelege for Belege and learns which of its invoices are paid.',
 				how: 'Switch it on here and pair with the invoice app: by invitation or with a comparison code on both sides.'
 			},
+			zusammenarbeit: {
+				what: 'A person with a passkey of their own works in the same books, first the bookkeeping: matching, own receipts, export, backup. They get the keys to read and back up, never the root of your books, and write under their own name.',
+				how: 'The bookkeeping makes a join code on their device and sends it to you. You paste it here and send the answer back; only their device can open it.'
+			},
 			assistent: {
 				what: 'A read share of the books for an assistant: one year, redacted, with an expiry.',
 				how: 'Choose year and duration, create the share and pass on the command shown. The bridge has to run for it; the share can be ended at any time.'
@@ -3862,6 +3906,7 @@ export default {
 				paperless: 'Paperless-ngx',
 				portale: 'Customer portals',
 				'rechnungs-app': 'Invoice app',
+				zusammenarbeit: 'Collaboration',
 				assistent: 'Access for an assistant'
 			},
 			state: {
@@ -3901,6 +3946,7 @@ export default {
 				paperless: 'Documents from your Paperless archive – under Receipts (pnpm setup:paperless)',
 				portals: 'Fetch invoices directly from customer accounts',
 				invoiceApp: 'Eigenbelege with your number sequence and letterhead',
+				members: 'The bookkeeping works in the same books',
 				assistant: 'Let someone read one year, redacted, with an expiry'
 			},
 			when: 'last {when}',

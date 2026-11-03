@@ -17,6 +17,7 @@
 	import InvoiceAppCard from '$lib/ucep/InvoiceAppCard.svelte';
 	import PortalsCard from '$lib/portals/PortalsCard.svelte';
 	import { bridge, bridgePaired, loadBridge } from '$lib/integrations/bridge-state.svelte.js';
+	import MembersCard from '$lib/members/MembersCard.svelte';
 	import IntegrationHelp from '$lib/help/IntegrationHelp.svelte';
 	import { integrationFacts, loadIntegrationFacts } from '$lib/integrations/facts.svelte.js';
 	import { integrationsOverview } from '$lib/integrations/overview.js';
@@ -32,6 +33,7 @@
 		'backup',
 		'portale',
 		'rechnungs-app',
+		'zusammenarbeit',
 		'assistent'
 	];
 	let id = $derived(page.params.id ?? '');
@@ -96,6 +98,8 @@
 			<ShareCard url={bridge.url} token={bridge.token} />
 		{:else if id === 'rechnungs-app'}
 			<InvoiceAppCard />
+		{:else if id === 'zusammenarbeit'}
+			<MembersCard />
 		{:else if id === 'portale'}
 			<PortalsCard url={bridge.url} token={bridge.token} />
 		{/if}

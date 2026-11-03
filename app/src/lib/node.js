@@ -148,6 +148,8 @@ export const STORAGE_PATHS = Object.freeze({
  * @property {any} libp2p the node under Helia and OrbitDB
  * @property {ReturnType<typeof createDeviceGate> | null} deviceGate which peers proved the passkey (online only)
  * @property {Uint8Array | null} bridgeAuthBase the base of the bridge's own key (online only), in memory only (database-keys.js)
+ * @property {(label: string) => Promise<import('./members/member-vault.js').MemberBundle>} memberBundle what a member gets (#611)
+ * @property {(writer: string) => Promise<void>} grantWriter a member's write identity may write to every collection
  * @property {{ peerId: string | null, key: Uint8Array | null }} bridgeAuth the books' bridge and its key for this generation: the gate proves with it toward that peer only
  * @property {() => Promise<void>} stop
  * @property {{ signingKey?: Uint8Array, booksSecret: Uint8Array, databaseKey: Uint8Array, replicationKey: Uint8Array, blobKey: Uint8Array, peerKey: Uint8Array }} [secretsForE2E]
@@ -565,6 +567,43 @@ export async function startSession(
 			deviceGate,
 			bridgeAuthBase,
 			bridgeAuth,
+			/**
+			 * What a member of these books gets (#610, #611): the keys to read,
+			 * sync, back up and reach the bridge, and every collection's address –
+			 * never R, the books' secret or the vault key. Made from what this
+			 * session holds; the device and bridge keys derived here when the
+			 * node went online without them.
+			 *
+			 * @param {string} label how the books are called, for the member
+			 */
+			async memberBundle(label) {
+				const { memberBundle } = await import('./members/member-vault.js');
+				return memberBundle({
+					books: { did: booksIdentity.id, identityId: booksIdentity.id, label },
+					keys: {
+						database: encryptionKey,
+						replication: replicationKey,
+						blob: blobKey,
+						deviceAuth: deviceAuthKey ?? (await deriveDeviceAuthKey(prfOutput)),
+						backup: backupKey,
+						bridgeAuth: bridgeAuthBase ?? (await deriveBridgeAuthBase(prfOutput))
+					},
+					addresses: Object.fromEntries(
+						Object.entries(store.databases()).map(([name, db]) => [name, String(db.address)])
+					)
+				});
+			},
+			/**
+			 * Let a member's write identity write to every collection (#611): the
+			 * books, as the admin of each access list, grant it.
+			 *
+			 * @param {string} writer did:key
+			 */
+			async grantWriter(writer) {
+				for (const db of Object.values(store.databases())) {
+					await /** @type {any} */ (db).access.grant('write', writer);
+				}
+			},
 			// Only in E2E builds, so the test can look for these bytes on disk.
 			// Written inline so every other build drops it, not just skips it.
 			...(import.meta.env.VITE_E2E === 'true'

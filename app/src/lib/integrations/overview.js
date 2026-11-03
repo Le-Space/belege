@@ -216,6 +216,15 @@ export function integrationsOverview(f) {
 			when: null
 		},
 		{
+			id: 'zusammenarbeit',
+			group: 'together',
+			initials: 'Zu',
+			kind: 'off',
+			state: 'onDemand',
+			line: 'members',
+			when: null
+		},
+		{
 			id: 'assistent',
 			group: 'together',
 			initials: 'As',

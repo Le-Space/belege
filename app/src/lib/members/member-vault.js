@@ -39,6 +39,8 @@ import {
 import { COLLECTIONS } from '../store/repository.js';
 
 export const MEMBERSHIPS_STORAGE_KEY = 'belege.memberships.v1';
+/** The `info` a member's write identity is derived under from the member's root (`createSecretSigner`). */
+export const MEMBER_IDENTITY_INFO = 'belege/member-identity/v1';
 /** The member vault's slot key: never the books' vault's (VAULT_SLOT_INFO). */
 export const MEMBER_SLOT_INFO = 'belege/member-slot/v1';
 export const BUNDLE_VERSION = 1;
@@ -217,7 +219,7 @@ function decodePayload(bytes) {
  * @param {{ prfOutput: Uint8Array, rawCredentialId: Uint8Array, credentialId: string, label: string }} p.passkey
  * @param {Pick<Storage, 'getItem' | 'setItem'>} p.storage
  * @param {() => Date} [p.now]
- * @param {Uint8Array} [p.memberRoot] tests only
+ * @param {Uint8Array} [p.memberRoot] the root the join code's write identity came from (join.js)
  */
 export async function createMemberVault({
 	bundle,
