@@ -121,10 +121,7 @@
 					<BelegeMark size={44} />
 				</a>
 				<div class="min-w-0">
-					<p
-						class="font-bold text-heading sm:text-2xl lg:text-3xl"
-						data-testid="app-name"
-					>
+					<p class="font-bold text-heading sm:text-2xl lg:text-3xl" data-testid="app-name">
 						<span
 							class="block text-xs font-semibold tracking-wide text-faint sm:inline sm:text-2xl sm:font-bold sm:tracking-normal sm:text-heading lg:text-3xl"
 							>{t('app.maker')}</span
