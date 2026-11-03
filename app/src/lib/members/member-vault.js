@@ -4,8 +4,12 @@
 // What a member gets is a key bundle, never a slot in the books' vault:
 //
 //   keys      the database key, the replication key, the blob key, the device
-//             auth key (the member's devices pass the device gate) and the
-//             backup key (the bookkeeping backs up and restores)
+//             auth key (the member's devices pass the device gate), the
+//             backup key (the bookkeeping backs up and restores) and the base
+//             of the bridge's key (database-keys.js `deriveBridgeAuthBase`):
+//             the member's devices reach the owner's bridge like the owner's
+//             own. A removed member's devices leave the books' device list,
+//             which is what the bridge admits by (bridge/src/node.js `devices`).
 //   addresses every collection's OrbitDB address, so the member opens the very
 //             databases the books write – by address, the books' access lists
 //             looked up by their type (store/books-access.js)
@@ -45,7 +49,8 @@ const KEY_NAMES = /** @type {const} */ ([
 	'replication',
 	'blob',
 	'deviceAuth',
-	'backup'
+	'backup',
+	'bridgeAuth'
 ]);
 const ADDRESS = /^\/orbitdb\/zdpu[1-9A-HJ-NP-Za-km-z]{40,60}$/;
 const DID = /^did:key:z[1-9A-HJ-NP-Za-km-z]{40,80}$/;
@@ -77,7 +82,7 @@ function fromHex(hex, length, what) {
 }
 
 /**
- * The bundle a member gets, from what the open books hold – checked: five
+ * The bundle a member gets, from what the open books hold – checked: six
  * keys of 32 bytes, an address for every collection, the books named.
  *
  * @param {{ books: MemberBundle['books'], keys: MemberBundle['keys'], addresses: Record<string, string> }} p
