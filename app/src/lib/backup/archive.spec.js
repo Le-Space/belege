@@ -98,6 +98,7 @@ async function node(keystore, restore) {
 	return {
 		helia,
 		orbitdb,
+		identities,
 		store,
 		blobs,
 		async stop() {
@@ -501,6 +502,33 @@ describe('a backup made before new keys (#628)', () => {
 		expect(earlier.files.get(pdf?.fileCid)).toEqual(file);
 		const mail = earlier.records.receipts.find((r) => r.source === 'mail');
 		expect(earlier.files.get(mail?.emlCid)).toEqual(EML);
+	});
+
+	it('passes over every entry the given check refuses – a writer not the books’', async () => {
+		const { Entry } = await import('@orbitdb/core');
+		const keys = {
+			key: backupKey,
+			dataKey: await deriveDatabaseKey(prfOutput),
+			replicationKey: await deriveReplicationKey(prfOutput),
+			blobKey: await deriveBlobKey(prfOutput)
+		};
+		const books = a.orbitdb.identity.id;
+		/** @param {string} writer */
+		const only = (writer) => async (/** @type {any} */ entry, /** @type {any} */ identity) =>
+			identity.id === writer &&
+			identity.hash === entry.identity &&
+			identity.publicKey === entry.key &&
+			(await a.identities.verifyIdentity(identity)) &&
+			(await Entry.verify(a.identities, entry));
+		const signed = await readEarlierBackup({ sealed: backup.sealed, ...keys, accept: only(books) });
+		expect(signed.records.transactions.map((t) => t.counterparty)).toEqual([MARKER]);
+		const none = await readEarlierBackup({
+			sealed: backup.sealed,
+			...keys,
+			accept: only('did:key:z6MkSomebodyElse')
+		});
+		expect(none.records.transactions).toEqual([]);
+		expect(none.files.size).toBe(0);
 	});
 
 	it('another root’s keys do not open it', async () => {

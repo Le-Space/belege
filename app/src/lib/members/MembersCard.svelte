@@ -28,8 +28,10 @@
 	let removed = $state([]);
 	/** The member whose "Herausnehmen" asks first. */
 	let removing = $state('');
-	/** Just taken out: new keys are offered (#627). */
+	/** Just taken out: new keys are offered (#627), and what was put back is said. */
 	let removedNow = $state(false);
+	/** @type {{ reset: string[], changed: string[] } | null} */
+	let removal = $state(null);
 	let busy = $state(false);
 	/** @type {string | null} */
 	let error = $state(null);
@@ -104,7 +106,7 @@
 	/** @param {string} writer */
 	const takeOut = (writer) =>
 		run(async () => {
-			await removeMember(writer);
+			removal = await removeMember(writer);
 			removing = '';
 			removedNow = true;
 			await load();
@@ -187,6 +189,16 @@
 	{/if}
 	{#if removedNow}
 		<p class="mt-2 text-sm text-text" role="status" data-testid="member-removed-next">
+			{#if removal?.reset.length}
+				<span class="block" data-testid="member-removed-reset"
+					>{t('members.remove.reset', { keys: removal.reset.join(', ') })}</span
+				>
+			{/if}
+			{#if removal?.changed.length}
+				<span class="block" data-testid="member-removed-changed"
+					>{t('members.remove.changed', { keys: removal.changed.join(', ') })}</span
+				>
+			{/if}
 			{t('settings.keys.rekey.afterRemoval')}
 			<a
 				class="text-link underline"

@@ -107,7 +107,7 @@
 	{#if state?.asking?.length}
 		<!-- Proved the books' key, not on their list: only the person lets it in. -->
 		<ul
-			class="border-warning/40 bg-warning/10 mt-4 rounded-md border p-2 text-sm"
+			class="mt-4 rounded-md border border-warning/40 bg-warning/10 p-2 text-sm"
 			data-testid="devices-asking"
 		>
 			{#each state.asking as peerId (peerId)}

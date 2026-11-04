@@ -162,7 +162,8 @@ export const STORAGE_PATHS = Object.freeze({
  * @property {Uint8Array | null} bridgeAuthBase the base of the bridge's own key (online only), in memory only (database-keys.js)
  * @property {(label: string) => Promise<import('./members/member-vault.js').MemberBundle>} memberBundle what a member gets (#611)
  * @property {(writer: string) => Promise<void>} grantWriter a member's write identity may write to every collection
- * @property {(writer: string) => Promise<string[]>} removeWriter a member taken out of every collection's access list (#614); the devices their settings named
+ * @property {(writer: string) => Promise<{ devices: string[], settings: string[] }>} removeWriter a member taken out of every collection's access list (#614): the devices only they wrote, the settings whose newest value is theirs
+ * @property {(keys: string[]) => Promise<string[]>} settingsByOthers the settings among these whose newest value a member wrote
  * @property {{ peerId: string | null, key: Uint8Array | null }} bridgeAuth the books' bridge and its key for this generation: the gate proves with it toward that peer only
  * @property {() => Promise<void>} stop
  * @property {{ signingKey?: Uint8Array, booksSecret: Uint8Array | null, databaseKey: Uint8Array, replicationKey: Uint8Array, blobKey: Uint8Array, peerKey: Uint8Array }} [secretsForE2E]
@@ -615,25 +616,30 @@ export async function startSession(
 
 		/**
 		 * A backup made before new keys (#628): read with the keys of an earlier
-		 * root the vault keeps (backup/archive.js `readEarlierBackup`), and taken
-		 * into these books record by record – one of them only where these books
-		 * have no newer version, settings only where they have none at all –,
-		 * its receipt files sealed anew. Nothing here is closed or replaced.
+		 * root the vault keeps (backup/archive.js `readEarlierBackup`). Only
+		 * entries the books of that root signed count – their identity verified,
+		 * the signature checked. What they hold is added where these books have
+		 * no such record at all; nothing here is overwritten, no setting is taken,
+		 * and a receipt keeps a file only when the backup carries it.
 		 *
 		 * @param {Uint8Array} sealed
 		 * @param {{ increments?: Uint8Array[], base?: string } | undefined} chain
 		 * @param {Error} refused what the current key said
 		 */
 		async function restoreEarlier(sealed, chain, refused) {
-			const [{ readEarlierBackup, WrongPasskeyError }, { LEFT_OUT_SETTINGS }, rekey] =
+			const [{ readEarlierBackup, WrongPasskeyError }, { Entry }, { createSecretSigner }] =
 				await Promise.all([
 					import('./backup/archive.js'),
-					import('./move/book-move.js'),
-					import('./move/rekey.js')
+					import('@orbitdb/core'),
+					import('@le-space/orbitdb-identity-provider-webauthn-did')
 				]);
 			/** @type {Awaited<ReturnType<typeof readEarlierBackup>> | null} */
 			let earlier = null;
 			for (const root of vault?.previous ?? []) {
+				// The books of that root: the only writer whose entries count.
+				const then = (
+					await createSecretSigner(await deriveBooksSecret(root), { info: BOOKS_IDENTITY_INFO })
+				).did;
 				try {
 					earlier = await readEarlierBackup({
 						sealed,
@@ -641,7 +647,13 @@ export async function startSession(
 						key: await deriveBackupKey(root),
 						dataKey: await deriveDatabaseKey(root),
 						replicationKey: await deriveReplicationKey(root),
-						blobKey: await deriveBlobKey(root)
+						blobKey: await deriveBlobKey(root),
+						accept: async (entry, identity) =>
+							identity.id === then &&
+							identity.hash === entry.identity &&
+							identity.publicKey === entry.key &&
+							(await booksIdentities.verifyIdentity(identity)) &&
+							(await Entry.verify(booksIdentities, entry))
 					});
 					break;
 				} catch (e) {
@@ -652,37 +664,26 @@ export async function startSession(
 			/** @type {Map<string, string>} the backup's file CIDs → these books' */
 			const cids = new Map();
 			for (const [cid, bytes] of earlier.files) cids.set(cid, await blobs.put(bytes));
-			const skipped = (/** @type {string} */ key) =>
-				LEFT_OUT_SETTINGS.includes(key) ||
-				[...rekey.DROPPED, 'device:', 'move-in'].some((p) => key.startsWith(p));
+			/** @param {unknown} cid */
+			const file = (cid) => (typeof cid === 'string' && cids.get(cid)) || null;
 			const databases = [];
 			for (const [collection, list] of Object.entries(earlier.records)) {
 				const target = /** @type {any} */ (store)[collection];
-				if (!target?.restore) continue;
-				const here = new Map(
-					(await target.list({ includeDeleted: true })).map((/** @type {any} */ r) => [
-						collection === 'settings' ? String(r.key) : String(r.id),
-						r
-					])
+				// Settings are this browser's books' own: none from a backup of before.
+				if (!target?.restore || collection === 'settings') continue;
+				const here = new Set(
+					(await target.list({ includeDeleted: true })).map((/** @type {any} */ r) => String(r.id))
 				);
 				let joined = 0;
 				for (const record of list) {
-					const now = here.get(collection === 'settings' ? String(record.key) : String(record.id));
-					if (
-						collection === 'settings'
-							? now || skipped(String(record.key))
-							: now && String(now.updatedAt ?? '') >= String(record.updatedAt ?? '')
-					)
-						continue;
+					if (here.has(String(record.id))) continue;
 					const moved =
 						collection === 'receipts'
 							? {
 									...record,
-									...(record.fileCid
-										? { fileCid: cids.get(record.fileCid) ?? record.fileCid }
-										: {}),
-									...(record.emlCid ? { emlCid: cids.get(record.emlCid) ?? record.emlCid } : {}),
-									...(record.xmlCid ? { xmlCid: cids.get(record.xmlCid) ?? record.xmlCid } : {})
+									...('fileCid' in record ? { fileCid: file(record.fileCid) } : {}),
+									...('emlCid' in record ? { emlCid: file(record.emlCid) } : {}),
+									...('xmlCid' in record ? { xmlCid: file(record.xmlCid) } : {})
 								}
 							: record;
 					await target.restore(moved);
@@ -923,29 +924,62 @@ export async function startSession(
 			/**
 			 * Take a member out (#614): in every collection's access list, what
 			 * they wrote by now still counts and nothing after (store/books-access.js).
-			 * Returns the devices their entries in the settings name.
+			 * Returns the devices only they ever wrote into the settings – not one
+			 * the books wrote too –, and the settings whose newest value is theirs.
 			 *
 			 * @param {string} writer
 			 */
 			async removeWriter(writer) {
 				if (!prfOutput) throw new Error('Only the owner of the books takes members out.');
-				/** @type {Set<string>} */
-				const devices = new Set();
+				/** @type {Map<string, Set<string>>} a setting → everyone who wrote it */
+				const writersOf = new Map();
+				/** @type {Map<string, string>} a setting → who wrote its newest value */
+				const newest = new Map();
 				for (const [name, db] of Object.entries(store.databases())) {
 					const access = /** @type {any} */ (db).access;
 					/** @type {string[]} */
 					const theirs = [];
 					for await (const entry of /** @type {any} */ (db).log.iterator()) {
-						if ((await access.writerOf(entry)) !== writer) continue;
-						theirs.push(entry.hash);
-						const key = String(entry.payload?.key ?? '');
-						if (name === 'settings' && key.startsWith('device:')) {
-							devices.add(key.slice('device:'.length));
+						const by = await access.writerOf(entry);
+						const key = String(entry.payload?.value?.key ?? '');
+						if (name === 'settings' && key) {
+							if (!newest.has(key)) newest.set(key, by);
+							writersOf.set(key, (writersOf.get(key) ?? new Set()).add(by));
 						}
+						if (by === writer) theirs.push(entry.hash);
 					}
 					await access.removeWriter(writer, theirs);
 				}
-				return [...devices];
+				const onlyTheirs = (/** @type {string} */ key) =>
+					[...(writersOf.get(key) ?? [])].every((w) => w === writer);
+				return {
+					devices: [...writersOf.keys()]
+						.filter((k) => k.startsWith('device:') && onlyTheirs(k))
+						.map((k) => k.slice('device:'.length)),
+					settings: [...newest]
+						.filter(([k, by]) => by === writer && !/^(device|member):/.test(k))
+						.map(([k]) => k)
+				};
+			},
+			/**
+			 * The settings among `keys` whose newest value the books did not write
+			 * themselves – a member did (#627: not carried over to new keys).
+			 *
+			 * @param {string[]} keys
+			 */
+			async settingsByOthers(keys) {
+				const db = /** @type {any} */ (store.databases().settings);
+				/** @type {Set<string>} */
+				const seen = new Set();
+				/** @type {string[]} */
+				const others = [];
+				for await (const entry of db.log.iterator()) {
+					const key = String(entry.payload?.value?.key ?? '');
+					if (!keys.includes(key) || seen.has(key)) continue;
+					seen.add(key);
+					if ((await db.access.writerOf(entry)) !== booksIdentity.id) others.push(key);
+				}
+				return others;
 			},
 			// Only in E2E builds, so the test can look for these bytes on disk.
 			// Written inline so every other build drops it, not just skips it.
