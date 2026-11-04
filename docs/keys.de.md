@@ -120,7 +120,9 @@ sequenceDiagram
 
 **Der Mitglieds-Tresor** funktioniert wie der Tresor der Bücher: Schlüsselbund und Wurzel des Mitglieds, versiegelt mit einem Tresorschlüssel, mit einem Fach für den Passkey des Mitglieds. Er liegt im Browser des Mitglieds (`belege.memberships.v1`) und nach seiner ersten Sicherung am Index seiner Mitgliedschaften bei Aleph – versiegelt, ohne Namen. Auf einem leeren Gerät findet der Passkey des Mitglieds ihn dort ([backup.de.md](backup.de.md#mitglieder-sichern-und-stellen-wieder-her)).
 
-**Was sich nicht zurücknehmen lässt:** Wer den Schlüsselbund hatte, kann lesen, was damals in den Büchern stand, solange er eine Kopie hat. Ein Mitglied wieder herausnehmen kommt als Nächstes ([#614](https://github.com/Le-Space/belege/issues/614)); neue Schlüssel für die Bücher folgen später.
+**Ein Mitglied herausnehmen** (_Integrationen → Zusammenarbeit_, [#614](https://github.com/Le-Space/belege/issues/614)): Was es bis dahin geschrieben hat, bleibt; was es danach schreibt, lehnt jedes Gerät der Bücher ab; seine bisherigen Geräte kommen von der Geräteliste und werden abgewiesen. Das Schreibrecht wird in OrbitDB nicht entzogen – OrbitDB prüft auch alte Einträge gegen die aktuelle Liste, und die früheren Einträge des Mitglieds ließen sich nicht mehr abgleichen. Stattdessen bekommt die Zugriffsliste jeder Sammlung `removed:<seine DID>` mit den Hashes seiner bisherigen Einträge, und ein Eintrag von ihm gilt nur, wenn er einer davon ist (`app/src/lib/store/books-access.js`).
+
+**Was sich nicht zurücknehmen lässt:** was das Mitglied gelesen hat. Mit den Schlüsseln aus seinem Schlüsselbund könnte es auch spätere Einträge lesen, wenn es an sie kommt, bis die Bücher neue Schlüssel bekommen – geplant als nächster Schritt.
 
 ## Passkey-Abfragen
 

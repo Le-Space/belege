@@ -67,6 +67,8 @@ const SealedDocuments =
 		/** Hashes the database reported that no own write has claimed yet: from elsewhere. */
 		const unclaimed = new Set();
 		events.on('update', (/** @type {any} */ entry) => unclaimed.add(entry.hash));
+		// The access list changed – a member taken out, say: walk the log again.
+		database.access?.events?.on?.('update', () => (index = null));
 
 		/** Walk the log once: newest first, the first sight of a key wins. */
 		async function build() {
@@ -75,6 +77,9 @@ const SealedDocuments =
 			/** @type {Set<string>} */
 			const seen = new Set();
 			for await (const entry of log.iterator()) {
+				// A member taken out (#614): what they wrote after does not count,
+				// even if it came in before the access list said so.
+				if (database.access?.admits && !(await database.access.admits(entry))) continue;
 				const { op, key, value } = entry.payload;
 				if (seen.has(key)) continue;
 				seen.add(key);
