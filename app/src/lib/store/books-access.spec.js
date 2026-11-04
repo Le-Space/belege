@@ -43,8 +43,8 @@ beforeAll(async () => {
 	).start();
 	const keystore = await KeyStore({ storage: await MemoryStorage() });
 	identities = await Identities({ ipfs: helia, keystore });
-	// @ts-expect-error `identities` is a documented option the bundled types omit
 	directory = await mkdtemp(join(tmpdir(), 'belege-books-access-'));
+	// @ts-expect-error `identities` is a documented option the bundled types omit
 	orbitdb = await createOrbitDB({ ipfs: helia, identities, id: 'books-access-spec', directory });
 	member = await identities.createIdentity({ id: 'member' });
 	const key = crypto.getRandomValues(new Uint8Array(32));
