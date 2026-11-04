@@ -15,6 +15,7 @@ export const ROLES = /** @type {const} */ (['bookkeeping']);
  * @property {string} invitedBy the owner's passkey DID
  * @property {string} at when they joined
  * @property {boolean} removed
+ * @property {string} [removedAt] when they were taken out (#614)
  */
 
 /**
@@ -41,6 +42,25 @@ export async function addMemberRecord(settings, member) {
 }
 
 /**
+ * A member taken out (#614): the record stays, marked deleted, with when.
+ *
+ * @param {import('../store/repository.js').Collection} settings
+ * @param {string} writer
+ * @param {{ at: string, by: string }} when
+ */
+export async function removeMemberRecord(settings, writer, { at, by }) {
+	const key = `${PREFIX}${writer}`;
+	const [kept] = await settings.list({ where: (r) => r.key === key });
+	if (!kept) throw new Error('No such member.');
+	await settings.put({
+		id: kept.id,
+		key,
+		value: { ...kept.value, removedAt: at, removedBy: by },
+		deleted: true
+	});
+}
+
+/**
  * Every member the books know, removed ones marked.
  *
  * @param {Record<string, any>[]} settingsRecords with the deleted ones
@@ -56,7 +76,8 @@ export function membersOf(settingsRecords) {
 			devices: Array.isArray(r.value?.devices) ? r.value.devices.map(String) : [],
 			invitedBy: String(r.value?.invitedBy ?? ''),
 			at: String(r.value?.at ?? ''),
-			removed: Boolean(r.deleted)
+			removed: Boolean(r.deleted),
+			...(r.value?.removedAt ? { removedAt: String(r.value.removedAt) } : {})
 		}))
 		.filter((m) => DID.test(m.writer));
 }

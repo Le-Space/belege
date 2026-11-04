@@ -9,15 +9,22 @@
 	import CopyButton from '$lib/CopyButton.svelte';
 	import {
 		admitMember,
+		app,
 		cancelJoining,
 		currentStore,
 		finishJoining,
+		removeMember,
 		startJoining
 	} from '$lib/session.svelte.js';
+	import { intlLocale } from '$lib/i18n/index.js';
 	import { membersOf } from './members.js';
 
 	/** @type {import('./members.js').Member[]} */
 	let members = $state([]);
+	/** @type {import('./members.js').Member[]} taken out (#614) */
+	let removed = $state([]);
+	/** The member whose "Herausnehmen" asks first. */
+	let removing = $state('');
 	let busy = $state(false);
 	/** @type {string | null} */
 	let error = $state(null);
@@ -40,9 +47,9 @@
 	async function load() {
 		const store = currentStore();
 		if (!store) return;
-		members = membersOf(await store.settings.list({ includeDeleted: true })).filter(
-			(m) => !m.removed
-		);
+		const all = membersOf(await store.settings.list({ includeDeleted: true }));
+		members = all.filter((m) => !m.removed);
+		removed = all.filter((m) => m.removed);
 	}
 	onMount(() => {
 		load();
@@ -68,6 +75,16 @@
 			code = '';
 			await load();
 		});
+	/** @param {string} writer */
+	const takeOut = (writer) =>
+		run(async () => {
+			await removeMember(writer);
+			removing = '';
+			await load();
+		});
+	/** @param {string} iso */
+	const day = (iso) =>
+		iso ? new Intl.DateTimeFormat(intlLocale(), { dateStyle: 'medium' }).format(new Date(iso)) : '';
 	const makeCode = () => run(async () => void (joinCode = await startJoining(joinName)));
 	const join = () =>
 		run(async () => {
@@ -88,12 +105,71 @@
 				<li class="py-2" data-testid="member">
 					<span class="text-heading">{m.label}</span>
 					<span class="text-faint"> · {t(`members.role.${m.role}`)}</span>
+					<span class="text-faint" data-testid="member-devices">
+						· {t('members.devices', { count: m.devices.length })}</span
+					>
+					<span class="block text-xs text-faint">{t('members.since', { day: day(m.at) })}</span>
 					<span class="block font-mono text-xs break-all text-faint">{m.writer}</span>
+					{#if !app.member}
+						{#if removing === m.writer}
+							<div
+								class="mt-2 rounded-md border border-border p-2 text-xs"
+								role="alertdialog"
+								aria-labelledby="member-remove-h"
+								data-testid="member-remove-confirm"
+							>
+								<p id="member-remove-h" class="font-medium text-heading">
+									{t('members.remove.title', { name: m.label })}
+								</p>
+								<ul class="mt-1 list-disc pl-4 text-text">
+									<li>{t('members.remove.writes')}</li>
+									<li>{t('members.remove.devices')}</li>
+									<li>{t('members.remove.stays')}</li>
+								</ul>
+								<div class="mt-2 flex gap-3">
+									<button
+										type="button"
+										class={btn.secondary}
+										disabled={busy}
+										onclick={() => takeOut(m.writer)}
+										data-testid="member-remove-yes">{t('members.remove.yes')}</button
+									>
+									<button
+										type="button"
+										class={btn.link}
+										onclick={() => (removing = '')}
+										data-testid="member-remove-no">{t('members.remove.no')}</button
+									>
+								</div>
+							</div>
+						{:else}
+							<button
+								type="button"
+								class="mt-1 text-xs text-link underline"
+								onclick={() => (removing = m.writer)}
+								data-testid="member-remove">{t('members.remove.button')}</button
+							>
+						{/if}
+					{/if}
 				</li>
 			{/each}
 		</ul>
 	{:else}
 		<p class="mt-1 text-sm text-faint" data-testid="members-none">{t('members.none')}</p>
+	{/if}
+	{#if removed.length}
+		<details class="mt-2 text-sm" data-testid="members-removed">
+			<summary class="cursor-pointer text-faint"
+				>{t('members.removedList', { count: removed.length })}</summary
+			>
+			<ul class="mt-1 divide-y divide-border">
+				{#each removed as m (m.writer)}
+					<li class="py-1 text-faint" data-testid="member-removed">
+						{m.label} · {t('members.removedOn', { day: day(m.removedAt ?? '') })}
+					</li>
+				{/each}
+			</ul>
+		</details>
 	{/if}
 
 	<form

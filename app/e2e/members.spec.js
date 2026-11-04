@@ -289,3 +289,56 @@ test('the bookkeeping backs up, and an empty browser with their passkey restores
 		await aleph.close();
 	}
 });
+
+test('a member taken out: their devices leave the list, and what they write after does not arrive', async ({
+	browser
+}) => {
+	test.setTimeout(300_000);
+	const owner = await online(browser, 'E2E Inhaber', 7);
+	const keeper = await online(browser, 'E2E Buchhaltung', 91);
+	try {
+		await owner.page.getByRole('link', { name: 'Zahlungen', exact: true }).click();
+		await owner.page.getByTestId('add-test-transaction').click();
+		await expect(owner.page.getByTestId('transaction')).toHaveCount(1);
+		await joinAndOpen(owner, keeper);
+		await expect
+			.poll(async () => (await transactions(keeper.page))?.length ?? 0, { timeout: 120_000 })
+			.toBe(1);
+		// Before: what the bookkeeping writes arrives.
+		await keeper.page.getByRole('link', { name: 'Zahlungen', exact: true }).click();
+		await keeper.page.getByTestId('add-test-transaction').click();
+		await expect
+			.poll(async () => (await transactions(owner.page))?.length ?? 0, { timeout: 120_000 })
+			.toBe(2);
+
+		// The bookkeeping's device is on the owner's list.
+		await openIntegration(owner.page, 'geraete');
+		await expect(owner.page.getByTestId('devices-item')).not.toHaveCount(0);
+		const devicesBefore = await owner.page.getByTestId('devices-item').count();
+
+		// The owner takes the member out; the card says what that does and does not do.
+		await openIntegration(owner.page, 'zusammenarbeit');
+		const card = owner.page.getByTestId('members-card');
+		await card.getByTestId('member-remove').click();
+		const confirm = card.getByTestId('member-remove-confirm');
+		await expect(confirm).toContainText('bis jetzt geschrieben hat, bleibt');
+		await expect(confirm).toContainText('bis die Bücher neue Schlüssel bekommen');
+		await confirm.getByTestId('member-remove-yes').click();
+		await expect(card.getByTestId('member')).toHaveCount(0);
+		await expect(card.getByTestId('members-removed')).toContainText('1 herausgenommen');
+		// What they wrote before stays.
+		expect((await transactions(owner.page))?.length).toBe(2);
+		// Their device is off the owner's list.
+		await openIntegration(owner.page, 'geraete');
+		await expect(owner.page.getByTestId('devices-item')).toHaveCount(devicesBefore - 1);
+
+		// What the bookkeeping writes now does not arrive.
+		await keeper.page.getByRole('link', { name: 'Zahlungen', exact: true }).click();
+		await keeper.page.getByTestId('add-test-transaction').click();
+		await owner.page.waitForTimeout(20_000);
+		expect((await transactions(owner.page))?.length).toBe(2);
+	} finally {
+		await owner.context.close();
+		await keeper.context.close();
+	}
+});

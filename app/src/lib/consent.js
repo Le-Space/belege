@@ -68,7 +68,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 33: members (#6): what a member gets and never gets, that they write under
 //     their own name, that what they saw cannot be taken back; the member
 //     vault in this browser and on Aleph.
-export const CONSENT_VERSION = '33';
+// 34: taking a member out (#614): what it stops at once, and what only new
+//     keys stop.
+export const CONSENT_VERSION = '34';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

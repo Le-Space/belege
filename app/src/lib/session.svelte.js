@@ -1283,6 +1283,35 @@ export async function admitMember({ code, label, booksLabel }) {
 	return { answer, fingerprint: request.fingerprint };
 }
 
+/**
+ * Take a member out (#614), on the owner's device: what they wrote by now
+ * stays, anything after is refused by every device (store/books-access.js);
+ * their devices are taken off the list and refused. What they have read stays
+ * with them: the keys change only with a move of the books.
+ *
+ * @param {string} writer the member's write identity
+ */
+export async function removeMember(writer) {
+	if (!session) throw new Error(t('messages.sync.off'));
+	ownerVault();
+	const { membersOf, removeMemberRecord } = await import('./members/members.js');
+	const settings = session.store.settings;
+	const member = membersOf(await settings.list({ includeDeleted: true })).find(
+		(m) => m.writer === writer && !m.removed
+	);
+	if (!member) throw new Error(t('members.error.unknown'));
+	const devices = [...member.devices, ...(await session.removeWriter(writer))];
+	for (const peerId of devices.filter((d, i) => devices.indexOf(d) === i)) {
+		if (deviceSync) {
+			await deviceSync.removeDevice(peerId).catch(() => {});
+		} else {
+			for (const r of await settings.list({ where: (x) => x.key === `device:${peerId}` }))
+				await settings.softDelete(r.id);
+		}
+	}
+	await removeMemberRecord(settings, writer, { at: isoNow(), by: app.did ?? '' });
+}
+
 /** A timestamp for a stored record, not reactive state. */
 const isoNow = () => new Date().toISOString();
 
