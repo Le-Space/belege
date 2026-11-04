@@ -173,3 +173,13 @@ export async function openJoinAnswer(text, key) {
 	}
 	return decodeBundle(new TextDecoder().decode(bytes));
 }
+
+/**
+ * The books' fingerprint: four groups of four from their identity, shown on
+ * the owner's screen with the answer and on the member's before it is kept –
+ * so an answer from other books than the owner's is seen.
+ *
+ * @param {{ did: string, identityHash: string }} books
+ */
+export const booksFingerprint = (books) =>
+	keyFingerprint(new TextEncoder().encode(`${books.did}\n${books.identityHash}`));

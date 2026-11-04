@@ -1499,7 +1499,12 @@ export default {
 			books: 'What the books are called for them',
 			code: 'Join code',
 			button: 'Admit',
-			check: 'Check: {fingerprint} – must be the same on their device.',
+			read: 'Check the join code',
+			compare:
+				'Check: {fingerprint}. Does the bookkeeping’s device show the same? Admit only then – another one means the code was swapped on the way.',
+			matches: 'Matches their device',
+			booksCheck:
+				'Check of your books: {fingerprint}. The bookkeeping sees it before joining and compares it with this one.',
 			answer: 'Answer for the bookkeeping',
 			answerHint:
 				'Send them this answer, by mail or chat. Only the device that made the join code can open it.'
@@ -1519,6 +1524,10 @@ export default {
 			code: 'Your join code',
 			check: 'Check: {fingerprint}',
 			answer: 'Paste the answer',
+			read: 'Check the answer',
+			booksCompare:
+				'The answer opens the books “{books}”, check {fingerprint}. Does the owner’s screen show the same? If not, it did not come from them.',
+			matches: 'Matches the owner’s device',
 			finish: 'Join',
 			cancel: 'Cancel',
 			done: 'You are a member of the books “{books}”. They open with your passkey at the next unlock.',
