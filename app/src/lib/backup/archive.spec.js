@@ -32,6 +32,7 @@ import {
 	buildBackup,
 	buildIncrement,
 	openBackup,
+	readEarlierBackup,
 	restoreBackup
 } from './archive.js';
 import { chainAfter, chainFromBase } from './chain.js';
@@ -480,5 +481,38 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 				await b.stop();
 			}
 		}, 120_000);
+	});
+});
+
+describe('a backup made before new keys (#628)', () => {
+	it('reads its records – the newest version of each – and its files with that root’s keys', async () => {
+		const earlier = await readEarlierBackup({
+			sealed: backup.sealed,
+			key: backupKey,
+			dataKey: await deriveDatabaseKey(prfOutput),
+			replicationKey: await deriveReplicationKey(prfOutput),
+			blobKey: await deriveBlobKey(prfOutput)
+		});
+		expect(earlier.records.transactions.map((t) => t.counterparty)).toEqual([MARKER]);
+		// The partner was renamed: the newer name is the one that counts.
+		expect(earlier.records.partners.map((p) => p.name)).toEqual(['Wolkenfabrik AG']);
+		expect(earlier.records.receipts).toHaveLength(3);
+		const pdf = earlier.records.receipts.find((r) => r.fileName === 'beleg.pdf');
+		expect(earlier.files.get(pdf?.fileCid)).toEqual(file);
+		const mail = earlier.records.receipts.find((r) => r.source === 'mail');
+		expect(earlier.files.get(mail?.emlCid)).toEqual(EML);
+	});
+
+	it('another root’s keys do not open it', async () => {
+		const other = crypto.getRandomValues(new Uint8Array(32));
+		await expect(
+			readEarlierBackup({
+				sealed: backup.sealed,
+				key: await deriveBackupKey(other),
+				dataKey: await deriveDatabaseKey(other),
+				replicationKey: await deriveReplicationKey(other),
+				blobKey: await deriveBlobKey(other)
+			})
+		).rejects.toBeInstanceOf(WrongPasskeyError);
 	});
 });

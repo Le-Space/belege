@@ -418,6 +418,50 @@ export class WrongPasskeyError extends Error {
  */
 
 /**
+ * A full backup opened with `key`, its increments merged into it (see
+ * `restoreBackup`): the manifest, every block, and the databases' metadata.
+ *
+ * @param {{ sealed: Uint8Array, increments?: Uint8Array[], base?: string, key: Uint8Array }} params
+ */
+async function openChain({ sealed, increments = [], base, key }) {
+	/** @param {Uint8Array} bytes */
+	const unseal = async (bytes) => {
+		try {
+			return await openBackup(bytes, key);
+		} catch (error) {
+			// AES-GCM refuses a wrong key as an OperationError; a foreign file is "Not a belege backup."
+			if (error instanceof Error && error.name === 'OperationError') throw new WrongPasskeyError();
+			throw error;
+		}
+	};
+	const opened = await unseal(sealed);
+	if (/** @type {any} */ (opened.manifest).kind === 'increment')
+		throw new IncrementWithoutBaseError();
+	const manifest = opened.manifest;
+	let blocks = opened.blocks;
+	let metadata = /** @type {any} */ (manifest.metadata);
+	if (increments.length) {
+		const chain = [];
+		for (const bytes of increments) {
+			const inc = /** @type {any} */ (await unseal(bytes));
+			if (inc.manifest.kind !== 'increment' || (base && inc.manifest.base !== base)) continue;
+			chain.push(inc);
+		}
+		const { mergeIncrements } = await import('@le-space/orbitdb-storage-bridge/live-backup');
+		const merged = /** @type {any} */ (
+			mergeIncrements({ base: { metadata, blocks }, increments: chain })
+		);
+		const missing = [...merged.gaps];
+		const first = merged.sequences[0];
+		if (first !== undefined) for (let s = 1; s < first; s++) missing.push(s);
+		if (missing.length) throw new ChainGapError(missing.sort((a, b) => a - b));
+		blocks = merged.blocks;
+		metadata = merged.metadata;
+	}
+	return { manifest, blocks, metadata };
+}
+
+/**
  * Put a backup back into this browser's books.
  *
  * The databases go back through the storage bridge's `restoreFromBlocks`: every
@@ -468,40 +512,7 @@ export async function restoreBackup({
 	fetchBytes
 }) {
 	onProgress?.({ stage: 'opening' });
-	/** @param {Uint8Array} bytes */
-	const unseal = async (bytes) => {
-		try {
-			return await openBackup(bytes, key);
-		} catch (error) {
-			// AES-GCM refuses a wrong key as an OperationError; a foreign file is "Not a belege backup."
-			if (error instanceof Error && error.name === 'OperationError') throw new WrongPasskeyError();
-			throw error;
-		}
-	};
-	const opened = await unseal(sealed);
-	if (/** @type {any} */ (opened.manifest).kind === 'increment')
-		throw new IncrementWithoutBaseError();
-	const manifest = opened.manifest;
-	let blocks = opened.blocks;
-	let metadata = /** @type {any} */ (manifest.metadata);
-	if (increments.length) {
-		const chain = [];
-		for (const bytes of increments) {
-			const inc = /** @type {any} */ (await unseal(bytes));
-			if (inc.manifest.kind !== 'increment' || (base && inc.manifest.base !== base)) continue;
-			chain.push(inc);
-		}
-		const { mergeIncrements } = await import('@le-space/orbitdb-storage-bridge/live-backup');
-		const merged = /** @type {any} */ (
-			mergeIncrements({ base: { metadata, blocks }, increments: chain })
-		);
-		const missing = [...merged.gaps];
-		const first = merged.sequences[0];
-		if (first !== undefined) for (let s = 1; s < first; s++) missing.push(s);
-		if (missing.length) throw new ChainGapError(missing.sort((a, b) => a - b));
-		blocks = merged.blocks;
-		metadata = merged.metadata;
-	}
+	const { manifest, blocks, metadata } = await openChain({ sealed, increments, base, key });
 	const target = targets.find((t) => {
 		const ours = new Set(Object.values(t.addresses).map(String));
 		return metadata.databases.every((/** @type {any} */ d) => ours.has(String(d.address)));
@@ -552,4 +563,106 @@ export async function restoreBackup({
 			entries: d.entries
 		}))
 	};
+}
+
+/**
+ * A backup made before the books got new keys (#628), read without OrbitDB:
+ * opened with the backup key of that earlier root, each database's entries
+ * walked from its heads and opened with that root's keys, the newest version
+ * of each record kept, as the books showed it then; and the receipt files it
+ * holds, opened with that root's file key. What comes back is plain records
+ * and file bytes, for the books of today to take in (session.svelte.js).
+ *
+ * @param {object} params
+ * @param {Uint8Array} params.sealed the full backup
+ * @param {Uint8Array[]} [params.increments]
+ * @param {string} [params.base]
+ * @param {Uint8Array} params.key the earlier root's backup key
+ * @param {Uint8Array} params.dataKey the earlier root's database key
+ * @param {Uint8Array} params.replicationKey the earlier root's replication key
+ * @param {Uint8Array} params.blobKey the earlier root's file key
+ * @returns {Promise<{ manifest: BackupManifest, records: Record<string, Record<string, any>[]>, files: Map<string, Uint8Array> }>}
+ */
+export async function readEarlierBackup({
+	sealed,
+	increments = [],
+	base,
+	key,
+	dataKey,
+	replicationKey,
+	blobKey
+}) {
+	const { manifest, blocks, metadata } = await openChain({ sealed, increments, base, key });
+	const [{ Entry }, { sealedEncryption }, { createBlobStore }] = await Promise.all([
+		import('@orbitdb/core'),
+		import('../entry-encryption.js'),
+		import('../receipts/blob-store.js')
+	]);
+	const encryption = await sealedEncryption(dataKey, replicationKey);
+	/** @type {Map<string, Uint8Array>} every block, by its CID however written */
+	const byCid = new Map();
+	for (const [name, { bytes }] of /** @type {any} */ (blocks)) {
+		byCid.set(CID.parse(String(name)).toString(), bytes);
+	}
+	/** @param {string} hash */
+	const bytesOf = (hash) => byCid.get(CID.parse(String(hash)).toString());
+
+	/** @type {Record<string, Record<string, any>[]>} */
+	const records = {};
+	for (const d of metadata.databases) {
+		const collection = String(d.collection ?? d.name);
+		/** @type {Map<string, any>} */
+		const entries = new Map();
+		const stack = [...(d.heads ?? [])].map(String);
+		while (stack.length) {
+			const hash = /** @type {string} */ (stack.pop());
+			if (entries.has(hash)) continue;
+			const bytes = bytesOf(hash);
+			// An entry the backup does not carry: older than what it shipped.
+			if (!bytes) continue;
+			const entry = await Entry.decode(
+				bytes,
+				encryption.replication.decrypt,
+				encryption.data.decrypt
+			);
+			entries.set(hash, entry);
+			stack.push(...(entry.next ?? []).map(String), ...(entry.refs ?? []).map(String));
+		}
+		// Newest first, as OrbitDB orders a log: by clock, then by writer.
+		const newestFirst = [...entries.values()].sort(
+			(a, b) => b.clock.time - a.clock.time || (String(b.clock.id) > String(a.clock.id) ? 1 : -1)
+		);
+		/** @type {Set<string>} */
+		const seen = new Set();
+		/** @type {Record<string, any>[]} */
+		const kept = [];
+		for (const entry of newestFirst) {
+			const { op, key: id, value } = entry.payload ?? {};
+			if (seen.has(id)) continue;
+			seen.add(id);
+			if (op === 'PUT' && value && typeof value === 'object') kept.push(value);
+		}
+		records[collection] = kept;
+	}
+	// The receipt files, read from the backup's own blocks.
+	const blockstore = {
+		/** @param {any} cid */
+		get: async (cid) => {
+			const bytes = bytesOf(cid.toString());
+			if (!bytes) throw new Error('A receipt file is not in this backup.');
+			return bytes;
+		}
+	};
+	const blobs = await createBlobStore({ blockstore, key: blobKey });
+	/** @type {Map<string, Uint8Array>} */
+	const files = new Map();
+	for (const r of records.receipts ?? []) {
+		for (const cid of [r.fileCid, r.emlCid, r.xmlCid]) {
+			if (typeof cid !== 'string' || !cid || files.has(cid)) continue;
+			// A file the backup counted as missing stays missing.
+			const bytes = await blobs.get(cid).catch(() => null);
+			if (bytes) files.set(cid, bytes);
+		}
+	}
+	return { manifest, records, files };
 }

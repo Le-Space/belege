@@ -82,6 +82,8 @@ Was zurückkommt, wird vor dem Öffnen geprüft: gegen die Größe, die das STOR
 
 **Auf welchem Weg es zurückkommt,** wählt der Browser, je Browser gemerkt („Erst Alephs Gateway, dann das IPFS-Netz“, standardmäßig an): eine Anfrage an Alephs Gateway, und meldet es sich 15 Sekunden lang nicht, holt der Browser das Backup selbst über IPFS – ein reiner Abhol-Knoten für die Minute, die es dauert, der Alephs eigene IPFS-Knoten anwählt (nur IPv6, wie sie es ankündigen) und jeden, der es laut öffentlichem Routing hält (cid.contact, delegated-ipfs.dev; beide sehen die CID und die IP des Browsers). Ohne Häkchen wird das Gateway gar nicht gefragt. So oder so sagt die Karte, was geliefert hat – der Host des Gateways oder wie viele Knoten – und wie lange es dauerte. Jeder Block über Peers wird gegen seine CID geprüft, die Bytes eines Fremden sind so sicher wie die eines Gateways.
 
+**Ein Backup von vor neuen Schlüsseln** ([keys.de.md](keys.de.md#neue-schlüssel-für-die-bücher), #628) öffnet sich mit der früheren Wurzel, die der Tresor behält. Es ersetzt die Bücher nicht: Seine Datensätze kommen einzeln in die heutigen Bücher, nur wo diese keine neuere Fassung haben, und seine Belegdateien werden neu versiegelt. Einstellungen, die die Bücher jetzt haben, bleiben, wie sie sind.
+
 Ein Backup anderer Bücher lässt sich nicht öffnen („gehört zu einem anderen Tresor“): Sein Schlüssel kommt aus der Wurzel jenes Tresors. Der Weg hinein ist ein Passkey mit einem Fach in jenem Tresor – hinzugefügt auf dem Gerät mit jenen Büchern – oder die Wiederherstellungswörter jener Bücher.
 
 ## Mitglieder sichern und stellen wieder her

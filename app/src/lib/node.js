@@ -589,6 +589,91 @@ export async function startSession(
 		onStatus?.({ step: 'blobs' });
 		const blobs = await createBlobStore({ blockstore: helia.blockstore, key: blobKey, online });
 
+		/**
+		 * A backup made before new keys (#628): read with the keys of an earlier
+		 * root the vault keeps (backup/archive.js `readEarlierBackup`), and taken
+		 * into these books record by record – one of them only where these books
+		 * have no newer version, settings only where they have none at all –,
+		 * its receipt files sealed anew. Nothing here is closed or replaced.
+		 *
+		 * @param {Uint8Array} sealed
+		 * @param {{ increments?: Uint8Array[], base?: string } | undefined} chain
+		 * @param {Error} refused what the current key said
+		 */
+		async function restoreEarlier(sealed, chain, refused) {
+			const [{ readEarlierBackup, WrongPasskeyError }, { LEFT_OUT_SETTINGS }, rekey] =
+				await Promise.all([
+					import('./backup/archive.js'),
+					import('./move/book-move.js'),
+					import('./move/rekey.js')
+				]);
+			/** @type {Awaited<ReturnType<typeof readEarlierBackup>> | null} */
+			let earlier = null;
+			for (const root of vault?.previous ?? []) {
+				try {
+					earlier = await readEarlierBackup({
+						sealed,
+						...(chain?.increments ? { increments: chain.increments, base: chain.base } : {}),
+						key: await deriveBackupKey(root),
+						dataKey: await deriveDatabaseKey(root),
+						replicationKey: await deriveReplicationKey(root),
+						blobKey: await deriveBlobKey(root)
+					});
+					break;
+				} catch (e) {
+					if (!(e instanceof WrongPasskeyError)) throw e;
+				}
+			}
+			if (!earlier) throw refused;
+			/** @type {Map<string, string>} the backup's file CIDs → these books' */
+			const cids = new Map();
+			for (const [cid, bytes] of earlier.files) cids.set(cid, await blobs.put(bytes));
+			const skipped = (/** @type {string} */ key) =>
+				LEFT_OUT_SETTINGS.includes(key) ||
+				[...rekey.DROPPED, 'device:', 'move-in'].some((p) => key.startsWith(p));
+			const databases = [];
+			for (const [collection, list] of Object.entries(earlier.records)) {
+				const target = /** @type {any} */ (store)[collection];
+				if (!target?.restore) continue;
+				const here = new Map(
+					(await target.list({ includeDeleted: true })).map((/** @type {any} */ r) => [
+						collection === 'settings' ? String(r.key) : String(r.id),
+						r
+					])
+				);
+				let joined = 0;
+				for (const record of list) {
+					const now = here.get(collection === 'settings' ? String(record.key) : String(record.id));
+					if (
+						collection === 'settings'
+							? now || skipped(String(record.key))
+							: now && String(now.updatedAt ?? '') >= String(record.updatedAt ?? '')
+					)
+						continue;
+					const moved =
+						collection === 'receipts'
+							? {
+									...record,
+									...(record.fileCid
+										? { fileCid: cids.get(record.fileCid) ?? record.fileCid }
+										: {}),
+									...(record.emlCid ? { emlCid: cids.get(record.emlCid) ?? record.emlCid } : {}),
+									...(record.xmlCid ? { xmlCid: cids.get(record.xmlCid) ?? record.xmlCid } : {})
+								}
+							: record;
+					await target.restore(moved);
+					joined++;
+				}
+				databases.push({ collection, joined, entries: list.length });
+			}
+			return {
+				manifest: earlier.manifest,
+				target: 'earlier',
+				increments: chain?.increments?.length ?? 0,
+				databases
+			};
+		}
+
 		return {
 			did,
 			booksDid: membership ? membership.bundle.books.did : booksIdentity.id,
@@ -736,8 +821,12 @@ export async function startSession(
 						await store.close();
 						closed = true;
 					}
-				}).catch((/** @type {any} */ error) => {
+				}).catch(async (/** @type {any} */ error) => {
 					if (closed && error && typeof error === 'object') error.booksClosed = true;
+					// Made before the books got new keys (#628): opened with an earlier root.
+					if (error?.name === 'WrongPasskeyError' && !closed && vault?.previous?.length) {
+						return restoreEarlier(sealed, chain, error);
+					}
 					throw error;
 				});
 				// Back into the old databases: they move in on the next unlock.

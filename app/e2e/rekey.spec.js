@@ -56,6 +56,18 @@ test('new keys: the same books, in new databases under other keys', async ({ pag
 	);
 	const before = await state(page);
 	expect(before.transactions).toEqual([MARKER]);
+	// A backup now, before the new keys (#628).
+	const earlier = await page.evaluate(() => /** @type {any} */ (window).__belegeE2E.backupBytes());
+	expect(earlier?.length).toBeGreaterThan(0);
+	// … and a payment after it.
+	await page.evaluate(() =>
+		/** @type {any} */ (window).__belegeE2E.addTransaction({
+			bookedOn: '2026-10-02',
+			counterparty: 'Nach dem Backup',
+			purpose: 'Probe',
+			amountCents: -1
+		})
+	);
 
 	await page.getByTestId('settings-link').click();
 	const keys = page.getByTestId('keys-card');
@@ -77,8 +89,8 @@ test('new keys: the same books, in new databases under other keys', async ({ pag
 	});
 	await expect(page.getByTestId('own-did')).toBeVisible({ timeout: 60_000 });
 	await expect
-		.poll(async () => (await state(page)).transactions, { timeout: 60_000 })
-		.toEqual([MARKER]);
+		.poll(async () => (await state(page)).transactions.sort(), { timeout: 60_000 })
+		.toEqual(['Nach dem Backup', MARKER].sort());
 	const after = await state(page);
 	expect(after.booksDid).not.toBe(before.booksDid);
 	expect(after.databaseKey).not.toBe(before.databaseKey);
@@ -92,6 +104,17 @@ test('new keys: the same books, in new databases under other keys', async ({ pag
 
 	await page.getByTestId('settings-link').click();
 	await expect(page.getByTestId('keys-rekey-done')).toContainText('neue Schlüssel');
+	// The backup from before opens with the root the vault kept, and takes
+	// nothing back that the books have newer (#628).
+	const restored = await page.evaluate(
+		(bytes) => /** @type {any} */ (window).__belegeE2E.restoreBytes(bytes),
+		earlier
+	);
+	expect(restored.target).toBe('earlier');
+	expect(
+		restored.databases.find((/** @type {any} */ d) => d.collection === 'transactions')
+	).toMatchObject({ entries: 1, joined: 0 });
+	expect((await state(page)).transactions.sort()).toEqual(['Nach dem Backup', MARKER].sort());
 	// The packed books are gone from this browser.
 	expect(
 		await page.evaluate(
