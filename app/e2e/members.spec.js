@@ -48,16 +48,35 @@ test('the bookkeeping joins by a join code, and the owner lists them', async ({ 
 		await owner.page.getByTestId('member-admit-name').fill('Buchhaltung Test');
 		await owner.page.getByTestId('member-admit-books').fill('Wolkenfabrik Hosting GmbH');
 		await owner.page.getByTestId('member-admit-code').fill(await code.inputValue());
+		// Nothing written before the check is compared: the same on both screens.
+		await owner.page.getByTestId('member-admit-read').click();
+		const fingerprint = /[0-9A-F]{4}(-[0-9A-F]{4}){3}/.exec(check)?.[0] ?? 'none';
+		await expect(owner.page.getByTestId('member-admit-preview')).toContainText(fingerprint);
+		await expect(owner.page.getByTestId('member-admit-button')).toBeDisabled();
+		await expect(owner.page.getByTestId('members-none')).toBeVisible();
+		await owner.page.getByTestId('member-admit-match').check();
 		await owner.page.getByTestId('member-admit-button').click();
 		const answer = owner.page.getByTestId('member-answer');
 		await expect(answer).toHaveValue(/^belege-member:/);
-		const fingerprint = /[0-9A-F]{4}(-[0-9A-F]{4}){3}/.exec(check)?.[0] ?? 'none';
-		await expect(owner.page.getByTestId('member-admitted')).toContainText(fingerprint);
+		const booksCheck = String(
+			await owner.page.getByTestId('member-admit-books-check').textContent()
+		);
+		const booksPrint = /[0-9A-F]{4}(-[0-9A-F]{4}){3}/.exec(booksCheck)?.[0] ?? 'none';
 		await expect(owner.page.getByTestId('member')).toContainText('Buchhaltung Test');
 		await expect(owner.page.getByTestId('member')).toContainText('Buchhaltung');
 
-		// The bookkeeping: the answer opens here, and names the books.
+		// The bookkeeping: the answer opens here, names the books and shows their
+		// check – the owner's – before anything is kept.
 		await keeper.page.getByTestId('member-join-answer').fill(await answer.inputValue());
+		await keeper.page.getByTestId('member-join-read').click();
+		await expect(keeper.page.getByTestId('member-join-books')).toContainText(booksPrint);
+		await expect(keeper.page.getByTestId('member-join-books')).toContainText(
+			'Wolkenfabrik Hosting GmbH'
+		);
+		expect(
+			await keeper.page.evaluate(() => localStorage.getItem('belege.memberships.v1'))
+		).toBeNull();
+		await keeper.page.getByTestId('member-join-match').check();
 		await keeper.page.getByTestId('member-join-finish').click();
 		await expect(keeper.page.getByTestId('member-joined')).toContainText(
 			'Wolkenfabrik Hosting GmbH'
@@ -71,7 +90,7 @@ test('the bookkeeping joins by a join code, and the owner lists them', async ({ 
 		const sent = await answer.inputValue();
 		await owner.page.getByTestId('member-join-button').click();
 		await owner.page.getByTestId('member-join-answer').fill(sent);
-		await owner.page.getByTestId('member-join-finish').click();
+		await owner.page.getByTestId('member-join-read').click();
 		await expect(owner.page.getByTestId('members-error')).toContainText('anderen Beitrittscode');
 	} finally {
 		await owner.context.close();
@@ -133,9 +152,13 @@ test('a member opens the owner’s books and writes as themselves', async ({ bro
 		await owner.page.getByTestId('member-admit-name').fill('Buchhaltung Test');
 		await owner.page.getByTestId('member-admit-books').fill('Wolkenfabrik Hosting GmbH');
 		await owner.page.getByTestId('member-admit-code').fill(code);
+		await owner.page.getByTestId('member-admit-read').click();
+		await owner.page.getByTestId('member-admit-match').check();
 		await owner.page.getByTestId('member-admit-button').click();
 		const answer = await owner.page.getByTestId('member-answer').inputValue();
 		await keeper.page.getByTestId('member-join-answer').fill(answer);
+		await keeper.page.getByTestId('member-join-read').click();
+		await keeper.page.getByTestId('member-join-match').check();
 		await keeper.page.getByTestId('member-join-finish').click();
 		await expect(keeper.page.getByTestId('member-joined')).toBeVisible();
 
@@ -177,9 +200,13 @@ async function joinAndOpen(owner, keeper) {
 	await owner.page.getByTestId('member-admit-name').fill('Buchhaltung Test');
 	await owner.page.getByTestId('member-admit-books').fill('Wolkenfabrik Hosting GmbH');
 	await owner.page.getByTestId('member-admit-code').fill(code);
+	await owner.page.getByTestId('member-admit-read').click();
+	await owner.page.getByTestId('member-admit-match').check();
 	await owner.page.getByTestId('member-admit-button').click();
 	const answer = await owner.page.getByTestId('member-answer').inputValue();
 	await keeper.page.getByTestId('member-join-answer').fill(answer);
+	await keeper.page.getByTestId('member-join-read').click();
+	await keeper.page.getByTestId('member-join-match').check();
 	await keeper.page.getByTestId('member-join-finish').click();
 	await expect(keeper.page.getByTestId('member-joined')).toBeVisible();
 	await openMemberBooks(keeper.page);

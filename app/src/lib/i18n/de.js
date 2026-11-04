@@ -1527,7 +1527,12 @@ export default {
 			books: 'Wie die Bücher für sie heißen',
 			code: 'Beitrittscode',
 			button: 'Aufnehmen',
-			check: 'Prüfzeichen: {fingerprint} – muss auf ihrem Gerät gleich sein.',
+			read: 'Beitrittscode prüfen',
+			compare:
+				'Prüfzeichen: {fingerprint}. Steht auf dem Gerät der Buchhaltung dasselbe? Erst dann aufnehmen – ein anderes heißt, der Code wurde unterwegs getauscht.',
+			matches: 'Stimmt mit ihrem Gerät überein',
+			booksCheck:
+				'Prüfzeichen deiner Bücher: {fingerprint}. Die Buchhaltung sieht es, bevor sie beitritt, und vergleicht es mit diesem.',
 			answer: 'Antwort für die Buchhaltung',
 			answerHint:
 				'Schick ihr diese Antwort, per Mail oder Chat. Nur das Gerät, das den Beitrittscode erzeugt hat, kann sie öffnen.'
@@ -1547,6 +1552,10 @@ export default {
 			code: 'Dein Beitrittscode',
 			check: 'Prüfzeichen: {fingerprint}',
 			answer: 'Antwort einfügen',
+			read: 'Antwort prüfen',
+			booksCompare:
+				'Die Antwort öffnet die Bücher „{books}“, Prüfzeichen {fingerprint}. Steht beim Inhaber dasselbe? Sonst kommt sie nicht von ihm.',
+			matches: 'Stimmt mit dem Gerät des Inhabers überein',
 			finish: 'Beitreten',
 			cancel: 'Abbrechen',
 			done: 'Du bist Mitglied der Bücher „{books}“. Sie öffnen sich mit deinem Passkey beim nächsten Entsperren.',

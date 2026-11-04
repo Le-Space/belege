@@ -1225,14 +1225,9 @@ export async function startJoining(label) {
  * @returns {Promise<{ books: string }>} the books' name
  */
 export async function finishJoining(answer) {
+	const bundle = await openAnswer(answer);
 	if (!joining) throw new Error(t('members.join.noCode'));
-	const [{ openJoinAnswer }, { createMemberVault }] = await Promise.all([
-		import('./members/join.js'),
-		import('./members/member-vault.js')
-	]);
-	const bundle = await openJoinAnswer(answer, joining.key).catch((/** @type {any} */ e) => {
-		throw new Error(t(`members.error.${e?.code === 'otherCode' ? 'otherCode' : 'answer'}`));
-	});
+	const { createMemberVault } = await import('./members/member-vault.js');
 	await createMemberVault({
 		bundle,
 		passkey: {
@@ -1248,6 +1243,47 @@ export async function finishJoining(answer) {
 	return { books: bundle.books.label };
 }
 
+/** @param {string} answer */
+async function openAnswer(answer) {
+	if (!joining) throw new Error(t('members.join.noCode'));
+	const { openJoinAnswer } = await import('./members/join.js');
+	return openJoinAnswer(answer, joining.key).catch((/** @type {any} */ e) => {
+		throw new Error(t(`members.error.${e?.code === 'otherCode' ? 'otherCode' : 'answer'}`));
+	});
+}
+
+/**
+ * The owner's answer read, nothing kept yet (#614 audit): which books it
+ * opens, and their fingerprint – to compare with the owner's screen before
+ * "Beitreten".
+ *
+ * @param {string} answer `belege-member:…`
+ * @returns {Promise<{ books: string, fingerprint: string }>}
+ */
+export async function readJoinAnswer(answer) {
+	const bundle = await openAnswer(answer);
+	const { booksFingerprint } = await import('./members/join.js');
+	return { books: bundle.books.label, fingerprint: booksFingerprint(bundle.books) };
+}
+
+/**
+ * A join code read on the owner's device, nothing written yet: its
+ * fingerprint and the name it gives – to compare with the bookkeeping's
+ * screen before "Aufnehmen".
+ *
+ * @param {string} code `belege-join:…`
+ * @returns {Promise<{ fingerprint: string, label: string }>}
+ */
+export async function readJoinCode(code) {
+	const { parseJoinRequest } = await import('./members/join.js');
+	try {
+		const request = parseJoinRequest(code);
+		return { fingerprint: request.fingerprint, label: request.label };
+	} catch {
+		throw new Error(t('members.error.code'));
+	}
+}
+
 /** The join code shown, given up. */
 export function cancelJoining() {
 	forgetJoining();
@@ -1259,7 +1295,7 @@ export function cancelJoining() {
  * listed – and the answer to send back, sealed to the code's one-time key.
  *
  * @param {{ code: string, label: string, booksLabel: string }} p
- * @returns {Promise<{ answer: string, fingerprint: string }>}
+ * @returns {Promise<{ answer: string, fingerprint: string, books: string }>} `books`: the books' fingerprint
  */
 export async function admitMember({ code, label, booksLabel }) {
 	if (!session) throw new Error(t('messages.sync.off'));
@@ -1287,7 +1323,8 @@ export async function admitMember({ code, label, booksLabel }) {
 	});
 	if (deviceSync) await deviceSync.addDevice(request.device, name).catch(() => {});
 	const answer = await sealJoinAnswer({ request, bundle });
-	return { answer, fingerprint: request.fingerprint };
+	const { booksFingerprint } = await import('./members/join.js');
+	return { answer, fingerprint: request.fingerprint, books: booksFingerprint(bundle.books) };
 }
 
 /**

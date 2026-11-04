@@ -14,6 +14,8 @@
 		cancelJoining,
 		currentStore,
 		finishJoining,
+		readJoinAnswer,
+		readJoinCode,
 		removeMember,
 		startJoining
 	} from '$lib/session.svelte.js';
@@ -36,8 +38,12 @@
 	let admitName = $state('');
 	let booksName = $state('');
 	let code = $state('');
-	/** @type {{ answer: string, fingerprint: string } | null} */
+	/** @type {{ answer: string, fingerprint: string, books: string } | null} */
 	let admitted = $state(null);
+	/** The code read, nothing written yet: compared on both screens first. */
+	/** @type {{ fingerprint: string, label: string } | null} */
+	let codeRead = $state(null);
+	let codeMatches = $state(false);
 
 	// Joining (the bookkeeping).
 	let joinName = $state('');
@@ -72,11 +78,28 @@
 		}
 	}
 
+	const readCode = () =>
+		run(async () => {
+			codeRead = await readJoinCode(code);
+			codeMatches = false;
+			if (!admitName.trim()) admitName = codeRead.label;
+		});
 	const admit = () =>
 		run(async () => {
 			admitted = await admitMember({ code, label: admitName, booksLabel: booksName });
 			code = '';
+			codeRead = null;
+			codeMatches = false;
 			await load();
+		});
+	/** The answer read, nothing kept yet: the books' fingerprint compared first. */
+	/** @type {{ books: string, fingerprint: string } | null} */
+	let answerRead = $state(null);
+	let answerMatches = $state(false);
+	const readAnswer = () =>
+		run(async () => {
+			answerRead = await readJoinAnswer(answer);
+			answerMatches = false;
 		});
 	/** @param {string} writer */
 	const takeOut = (writer) =>
@@ -95,6 +118,7 @@
 			joinedBooks = (await finishJoining(answer)).books;
 			joinCode = null;
 			answer = '';
+			answerRead = null;
 		});
 </script>
 
@@ -220,19 +244,40 @@
 				class="mt-1 rounded-md border px-2 py-1 font-mono text-xs"
 				rows="3"
 				bind:value={code}
+				oninput={() => {
+					codeRead = null;
+					codeMatches = false;
+				}}
 				data-testid="member-admit-code"
 			></textarea></label
 		>
-		<button
-			type="submit"
-			class="self-start {btn.primary}"
-			disabled={busy || !code.trim()}
-			data-testid="member-admit-button">{t('members.admit.button')}</button
-		>
+		{#if !codeRead}
+			<button
+				type="button"
+				class="self-start {btn.secondary}"
+				disabled={busy || !code.trim()}
+				onclick={readCode}
+				data-testid="member-admit-read">{t('members.admit.read')}</button
+			>
+		{:else}
+			<p class="text-xs text-text" data-testid="member-admit-preview">
+				{t('members.admit.compare', { fingerprint: codeRead.fingerprint })}
+			</p>
+			<label class="flex items-center gap-2 text-sm">
+				<input type="checkbox" bind:checked={codeMatches} data-testid="member-admit-match" />
+				{t('members.admit.matches')}
+			</label>
+			<button
+				type="submit"
+				class="self-start {btn.primary}"
+				disabled={busy || !codeMatches}
+				data-testid="member-admit-button">{t('members.admit.button')}</button
+			>
+		{/if}
 		{#if admitted}
 			<div class="mt-2" role="status" data-testid="member-admitted">
-				<p class="text-xs text-text">
-					{t('members.admit.check', { fingerprint: admitted.fingerprint })}
+				<p class="text-xs text-text" data-testid="member-admit-books-check">
+					{t('members.admit.booksCheck', { fingerprint: admitted.books })}
 				</p>
 				<p class="mt-2 font-medium text-heading">{t('members.admit.answer')}</p>
 				<textarea
@@ -297,17 +342,43 @@
 					class="mt-1 rounded-md border px-2 py-1 font-mono text-xs"
 					rows="3"
 					bind:value={answer}
+					oninput={() => {
+						answerRead = null;
+						answerMatches = false;
+					}}
 					data-testid="member-join-answer"
 				></textarea></label
 			>
+			{#if answerRead}
+				<p class="text-xs text-text" data-testid="member-join-books">
+					{t('members.join.booksCompare', {
+						books: answerRead.books,
+						fingerprint: answerRead.fingerprint
+					})}
+				</p>
+				<label class="flex items-center gap-2 text-sm">
+					<input type="checkbox" bind:checked={answerMatches} data-testid="member-join-match" />
+					{t('members.join.matches')}
+				</label>
+			{/if}
 			<div class="flex gap-3">
-				<button
-					type="button"
-					class={btn.primary}
-					disabled={busy || !answer.trim()}
-					onclick={join}
-					data-testid="member-join-finish">{t('members.join.finish')}</button
-				>
+				{#if !answerRead}
+					<button
+						type="button"
+						class={btn.secondary}
+						disabled={busy || !answer.trim()}
+						onclick={readAnswer}
+						data-testid="member-join-read">{t('members.join.read')}</button
+					>
+				{:else}
+					<button
+						type="button"
+						class={btn.primary}
+						disabled={busy || !answerMatches}
+						onclick={join}
+						data-testid="member-join-finish">{t('members.join.finish')}</button
+					>
+				{/if}
 				<button
 					type="button"
 					class={btn.link}

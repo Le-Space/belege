@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+	booksFingerprint,
 	JoinError,
 	createJoinRequest,
 	openJoinAnswer,
@@ -81,6 +82,17 @@ describe('joining as a member', () => {
 		);
 		expect(() => createJoinRequest({ writer: WRITER, device: 'nope', label: '' })).toThrow(
 			/no peer id/
+		);
+	});
+});
+
+describe('the books’ fingerprint', () => {
+	it('is the same for the same books, and another for other books', () => {
+		const books = { did: 'did:key:z6MkBooks', identityHash: `zdpu${'A'.repeat(45)}` };
+		expect(booksFingerprint(books)).toMatch(/^[0-9A-F]{4}(-[0-9A-F]{4}){3}$/);
+		expect(booksFingerprint({ ...books })).toBe(booksFingerprint(books));
+		expect(booksFingerprint({ ...books, identityHash: `zdpu${'B'.repeat(45)}` })).not.toBe(
+			booksFingerprint(books)
 		);
 	});
 });
