@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.28.2] – 2026-11-04
+
 ### Changed
 
 - **Wallet bookings in the app's language** (#637): what wallet sync writes into the books itself – the network fee, sent and received, staking and mining, a swap's purpose and its numbers – follows the language at the time of the import. Bookings already imported keep theirs.
