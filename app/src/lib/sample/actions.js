@@ -2,6 +2,7 @@
 // matching run over them so questions and links are there to look at.
 import { currentStore, runMatchingNow } from '$lib/session.svelte.js';
 import { addSample, removeSample } from './sample.js';
+import { currentLocale } from '$lib/i18n/index.js';
 
 /** Today in local time, YYYY-MM-DD. */
 const today = () => {
@@ -12,7 +13,7 @@ const today = () => {
 export async function loadSampleData() {
 	const store = currentStore();
 	if (!store) return;
-	await addSample(store, today());
+	await addSample(store, today(), currentLocale());
 	await runMatchingNow();
 }
 

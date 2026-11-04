@@ -93,3 +93,36 @@ describe('sample books (#200, step 3)', () => {
 		expect((await store.questions.list()).map((/** @type {any} */ q) => q.id)).toEqual([keep.id]);
 	});
 });
+
+describe('the sample books in English', () => {
+	it('say nothing in German that a person reads – the bank’s booking codes aside', () => {
+		const books = sampleBooks('2026-11-04', 'en');
+		const read = JSON.stringify({
+			accounts: books.accounts.map((a) => ({
+				name: a.input.name,
+				incoming: a.incoming.map(({ counterpartyName, purpose }) => ({ counterpartyName, purpose }))
+			})),
+			receipts: books.receipts.map((r) => ({
+				fileName: r.fileName,
+				excerpt: r.excerpt,
+				summary: r.extraction?.summary
+			}))
+		});
+		for (const word of [
+			'Beispiel',
+			'Rechnung',
+			'Bestellung',
+			'Umbuchung',
+			'Kontoführung',
+			'Auszahlung',
+			'Netzwerkgebühr',
+			'Abschlag',
+			'netto',
+			'brutto'
+		]) {
+			expect(read, word).not.toContain(word);
+		}
+		// The German default is unchanged.
+		expect(JSON.stringify(sampleBooks('2026-11-04'))).toContain('Kontoführung');
+	});
+});
