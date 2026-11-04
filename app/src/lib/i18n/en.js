@@ -347,7 +347,7 @@ export default {
 		},
 		bridge: {
 			unreachable:
-				'The bridge cannot be reached. Is it running (pnpm bridge)? Whether it lets this page in, "Status prüfen" under Integrationen → Bridge says.',
+				'The bridge cannot be reached. Is it running (pnpm bridge)? Whether it lets this page in, "Check status" under Integrations → Bridge says.',
 			unknownDevice: 'The bridge does not know this device (pair again).',
 			needsSync:
 				'Pairing by invitation needs device sync switched on on this device (Integrations → Own devices).',

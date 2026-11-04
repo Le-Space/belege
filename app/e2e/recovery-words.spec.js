@@ -85,8 +85,10 @@ test('recovery words open the same books when every passkey is gone', async ({ p
 	await expect(keys.getByTestId('keys-slot')).toHaveCount(1);
 	// Index M of the books, P of A and W of the words; no word on Aleph, nor in this browser.
 	expect(aleph.kept.size).toBe(3);
-	const onAleph = JSON.stringify([...aleph.kept.values()]);
-	const kept = await page.evaluate(() => JSON.stringify({ ...localStorage }));
+	// Field names out first: some BIP39 words ("label", "version") are field names too.
+	const values = (/** @type {string} */ json) => json.replace(/\\*"[A-Za-z]+\\*"\s*:/g, '');
+	const onAleph = values(JSON.stringify([...aleph.kept.values()]));
+	const kept = values(await page.evaluate(() => JSON.stringify({ ...localStorage })));
 	for (const w of words) {
 		expect(onAleph).not.toMatch(new RegExp(`\\b${w}\\b`));
 		expect(kept).not.toMatch(new RegExp(`\\b${w}\\b`));
