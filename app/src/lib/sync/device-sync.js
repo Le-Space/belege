@@ -117,6 +117,17 @@ export const blocked = new Set();
 /** The devices the books know (not removed), for the device gate's first-contact rule. */
 export const knownPeers = new Set();
 
+/**
+ * What the device gate needs besides `knownPeers` (first-contact.js): whether
+ * the books' device list has been read yet, and whether it ever named another
+ * device – removed ones count. Books that never knew another device let their
+ * first one in (a new own device, a member who just joined).
+ */
+export const knownState = { loaded: false, ever: false };
+
+/** Devices that proved the books' key but are not on their list: asking to be let in. */
+export const asking = new Set();
+
 /** A device's record as it would come from the books, before the books have it. @param {string} peerId @param {string} label @returns {Device} */
 const deviceOf = (peerId, label) => ({
 	peerId,
@@ -477,6 +488,8 @@ export async function startDeviceSync({
 		}
 		known.clear();
 		knownPeers.clear();
+		knownState.ever = [...records.keys()].some((p) => p !== self);
+		knownState.loaded = true;
 		for (const d of records.values()) {
 			if (d.peerId === self) continue;
 			if (d.removed) {
@@ -489,6 +502,7 @@ export async function startDeviceSync({
 				blocked.delete(d.peerId);
 				known.add(d.peerId);
 				knownPeers.add(d.peerId);
+				asking.delete(d.peerId);
 			}
 		}
 	}
@@ -600,6 +614,7 @@ export async function startDeviceSync({
 			reachable: addrs.some((a) => a.includes('/p2p-circuit')),
 			hangUps,
 			addrs,
+			asking: [...asking].filter((p) => !blocked.has(p)),
 			devices: [...known].map((peerId) => ({
 				peerId,
 				label: records.get(peerId)?.label ?? '',
@@ -771,7 +786,7 @@ export async function startDeviceSync({
 }
 
 /**
- * @typedef {{ self: string, reachable: boolean, hangUps?: number, addrs?: string[], devices: { peerId: string, label: string, connected: boolean, direct: boolean, gossiping?: boolean, bridge?: boolean, links?: { addr: string, direct: boolean, rtt: number | null }[] }[] }} SyncState
+ * @typedef {{ self: string, reachable: boolean, hangUps?: number, addrs?: string[], asking?: string[], devices: { peerId: string, label: string, connected: boolean, direct: boolean, gossiping?: boolean, bridge?: boolean, links?: { addr: string, direct: boolean, rtt: number | null }[] }[] }} SyncState
  *   a device's `bridge`: the bridge's own node (#573), reached for the bridge's functions, replicating nothing;
  *   `addrs`: this node's own addresses (a `/p2p-circuit` one is its place at a relay);
  *   a device's `links`: each connection to it, by remote address, direct or relayed, with the last round trip in ms

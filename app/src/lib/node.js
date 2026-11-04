@@ -22,7 +22,14 @@
 import { networkPause } from './network-pause.js';
 import { createLibp2p } from 'libp2p';
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
-import { deviceSalt, deviceSyncOn, knownPeers, syncLibp2pConfig } from './sync/device-sync.js';
+import {
+	asking,
+	deviceSalt,
+	deviceSyncOn,
+	knownPeers,
+	knownState,
+	syncLibp2pConfig
+} from './sync/device-sync.js';
 import { firstContactPolicy, relayPeerOf } from './sync/first-contact.js';
 import { createDeviceGate } from './sync/device-gate.js';
 import { lanRelayAddr, networkMode, relaysFor } from './sync/network-mode.js';
@@ -399,8 +406,10 @@ export async function startSession(
 				admit: firstContactPolicy({
 					mode,
 					knownPeers,
+					state: knownState,
 					lanRelayPeer: relayPeerOf(lanRelayAddr()),
-					qrPeers
+					qrPeers,
+					onUnknown: (peer) => asking.add(peer)
 				})
 			})
 		: null;

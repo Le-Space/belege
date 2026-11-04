@@ -16,7 +16,7 @@ const overPublic = (/** @type {string} */ peer) =>
 const overLan = (/** @type {string} */ peer) => conn(peer, `${LAN_RELAY}/p2p-circuit/p2p/${peer}`);
 const direct = (/** @type {string} */ peer) => conn(peer, `/webrtc/p2p/${peer}`);
 
-describe('first contact in "Beides" (#148)', () => {
+describe('first contact (#148; only known devices, audit of C1)', () => {
 	it("a relay's peer id is the end of its address", () => {
 		expect(relayPeerOf(LAN_RELAY)).toBe(LAN_PEER);
 		expect(relayPeerOf(null)).toBeNull();
@@ -32,29 +32,50 @@ describe('first contact in "Beides" (#148)', () => {
 		expect(isLocalPath(overLan(KNOWN), { lanRelayPeer: null, qrPeers: new Set() })).toBe(false);
 	});
 
-	it('a new device over the own network only; a known one over any path', () => {
-		const admit = firstContactPolicy({
-			mode: 'both',
-			knownPeers: new Set([KNOWN]),
-			lanRelayPeer: LAN_PEER,
-			qrPeers: new Set()
-		});
-		expect(admit(NEW, overPublic(NEW))).toBe(false);
-		expect(admit(NEW, direct(NEW))).toBe(false);
-		expect(admit(NEW, overLan(NEW))).toBe(true);
-		expect(admit(KNOWN, overPublic(KNOWN))).toBe(true);
-		expect(admit(KNOWN, direct(KNOWN))).toBe(true);
-	});
-
-	it('in every other mode, the proof is enough', () => {
-		for (const mode of /** @type {const} */ (['public', 'qr', 'lan'])) {
+	it('a new device over the own network only; a known one over any path – in every mode', () => {
+		for (const mode of /** @type {const} */ (['both', 'public', 'qr', 'lan'])) {
 			const admit = firstContactPolicy({
 				mode,
-				knownPeers: new Set(),
-				lanRelayPeer: null,
+				knownPeers: new Set([KNOWN]),
+				state: { loaded: true, ever: true },
+				lanRelayPeer: LAN_PEER,
 				qrPeers: new Set()
 			});
-			expect(admit(NEW, overPublic(NEW))).toBe(true);
+			expect(admit(NEW, overPublic(NEW))).toBe(false);
+			expect(admit(NEW, direct(NEW))).toBe(false);
+			expect(admit(NEW, overLan(NEW))).toBe(true);
+			expect(admit(KNOWN, overPublic(KNOWN))).toBe(true);
+			expect(admit(KNOWN, direct(KNOWN))).toBe(true);
 		}
+	});
+
+	it('books that never knew another device let their first one in', () => {
+		const admit = firstContactPolicy({
+			knownPeers: new Set(),
+			state: { loaded: true, ever: false },
+			lanRelayPeer: null,
+			qrPeers: new Set()
+		});
+		expect(admit(NEW, overPublic(NEW))).toBe(true);
+	});
+
+	it('not before the list is read, and not once it named a device – a removed one too', () => {
+		/** @type {string[]} */
+		const askedBy = [];
+		for (const state of [
+			{ loaded: false, ever: false },
+			{ loaded: true, ever: true }
+		]) {
+			const admit = firstContactPolicy({
+				knownPeers: new Set(),
+				state,
+				lanRelayPeer: null,
+				qrPeers: new Set(),
+				onUnknown: (peer) => askedBy.push(peer)
+			});
+			expect(admit(NEW, overPublic(NEW))).toBe(false);
+		}
+		// Named, for the person to let in.
+		expect(askedBy).toEqual([NEW, NEW]);
 	});
 });
