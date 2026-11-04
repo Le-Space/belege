@@ -3,6 +3,9 @@
 // hash, so a backdated entry does not either – and the owner's are untouched.
 // Identities and payloads are made up.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { createHeliaLight } from 'helia';
 import { withLibp2p } from '@helia/libp2p';
@@ -18,6 +21,7 @@ import { booksAccessController, sealAccessLists } from './books-access.js';
 /** @type {any} */ let identities;
 /** @type {any} */ let member;
 /** @type {any} */ let db;
+/** OrbitDB's own files, outside the repository. @type {string} */ let directory;
 
 /** An entry as the log would hand it over: encoded, with its hash. @param {any} identity @param {number} [time] */
 async function entryBy(identity, time) {
@@ -40,7 +44,8 @@ beforeAll(async () => {
 	const keystore = await KeyStore({ storage: await MemoryStorage() });
 	identities = await Identities({ ipfs: helia, keystore });
 	// @ts-expect-error `identities` is a documented option the bundled types omit
-	orbitdb = await createOrbitDB({ ipfs: helia, identities, id: 'books-access-spec' });
+	directory = await mkdtemp(join(tmpdir(), 'belege-books-access-'));
+	orbitdb = await createOrbitDB({ ipfs: helia, identities, id: 'books-access-spec', directory });
 	member = await identities.createIdentity({ id: 'member' });
 	const key = crypto.getRandomValues(new Uint8Array(32));
 	const encryption = await sealedEncryption(key, crypto.getRandomValues(new Uint8Array(32)));
@@ -56,6 +61,7 @@ afterAll(async () => {
 	await orbitdb?.stop();
 	await helia?.stop();
 	sealAccessLists(null);
+	if (directory) await rm(directory, { recursive: true, force: true });
 });
 
 describe('a member taken out', () => {
