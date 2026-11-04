@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.28.0] – 2026-11-04
+
 ### Added
 
 - **Members: the bookkeeping works in your books with their own passkey** (milestone C1, #6):
