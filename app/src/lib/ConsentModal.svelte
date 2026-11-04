@@ -101,6 +101,7 @@
 		{ id: 'portals', status: 'whenSetUp' },
 		{ id: 'blockchain', status: 'whenSetUp' },
 		{ id: 'backup', status: 'whenSetUp' },
+		{ id: 'credits', status: 'whenSetUp' },
 		{ id: 'ucep', status: 'whenPaired' },
 		{ id: 'relays', status: 'whenSetUp' }
 	];

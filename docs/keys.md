@@ -66,17 +66,18 @@ One key reveals nothing about another.
 
 ## What is stored where
 
-| What                                | Where                                                                    | In what form                                          |
-| ----------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------- |
-| PRF output, R and every derived key | memory, while the books are open                                         | plain, gone when the tab closes                       |
-| the vault                           | `localStorage` of this site; on Aleph if chosen                          | sealed; with the passkeys' names only in this browser |
-| the books                           | IndexedDB of this site                                                   | sealed per record and per entry                       |
-| receipt files                       | IndexedDB of this site                                                   | sealed                                                |
-| passkey details, flags              | `localStorage` of this site                                              | public: credential id, public key, DID, PRF input     |
-| backups                             | Aleph Cloud                                                              | sealed with the backup key ([backup.md](backup.md))   |
-| the passkey's private key           | the authenticator                                                        | never leaves it                                       |
-| the bridge's key                    | the bridge's keychain (`bridge-auth`)                                    | only if the bridge was paired by invitation           |
-| a member vault                      | `localStorage` of the member's browser; on Aleph after a member's backup | sealed under the member's passkey                     |
+| What                                | Where                                                                    | In what form                                                                                                                                    |
+| ----------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| PRF output, R and every derived key | memory, while the books are open                                         | plain, gone when the tab closes                                                                                                                 |
+| the vault                           | `localStorage` of this site; on Aleph if chosen                          | sealed; with the passkeys' names only in this browser                                                                                           |
+| the books                           | IndexedDB of this site                                                   | sealed per record and per entry                                                                                                                 |
+| receipt files                       | IndexedDB of this site                                                   | sealed                                                                                                                                          |
+| passkey details, flags              | `localStorage` of this site                                              | public: credential id, public key, DID, PRF input                                                                                               |
+| backups                             | Aleph Cloud                                                              | sealed with the backup key ([backup.md](backup.md))                                                                                             |
+| the books' Aleph key                | the sealed settings of the books                                         | sealed; signs backup orders and, when switched on, Le Space Credits requests – its address is the Credits account, the same on every own device |
+| the passkey's private key           | the authenticator                                                        | never leaves it                                                                                                                                 |
+| the bridge's key                    | the bridge's keychain (`bridge-auth`)                                    | only if the bridge was paired by invitation                                                                                                     |
+| a member vault                      | `localStorage` of the member's browser; on Aleph after a member's backup | sealed under the member's passkey                                                                                                               |
 
 ## What the bridge holds, and why
 
