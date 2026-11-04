@@ -130,6 +130,7 @@ export const STORAGE_PATHS = Object.freeze({
  * @property {string} booksDid the books' own identity, the root writer of every collection (#496)
  * @property {import('./books-vault.js').OpenedVault | null} vault the books' vault, open (#406); null for a member (#612)
  * @property {{ books: { did: string, identityId: string, label: string }, writer: string, vaultId: string } | null} member a member's books (#612); null for the owner
+ * @property {{ peers: string[] } | { left: true } | null} moved the books have new keys (#627): this passkey took the new vault (`peers`: whom to dial there), or has no slot in it (`left`)
  * @property {Uint8Array} ownIndexKey this passkey's index key on Aleph (backup/vault-index.js), in memory
  * @property {string} pointedOwner the paying account a member's index on Aleph named (#613), in memory; '' when none
  * @property {(owner: string | null) => Promise<void>} publishMembership a member's vault on Aleph's index G (#613)
@@ -539,6 +540,42 @@ export async function startSession(
 				});
 			}
 		}
+		// The books got new keys on another device, or on this one before a
+		// reload (#627): their successor is in the settings. This passkey takes
+		// the new vault when it has a slot there; the session says so, and the
+		// page opens the new books at the next unlock.
+		/** @type {{ peers: string[] } | { left: true } | null} */
+		let moved = null;
+		if (vault && !membership) {
+			const [{ getSetting }, { SUCCESSOR_SETTING }, { adoptSuccessorVault, RemovedPasskeyError }] =
+				await Promise.all([
+					import('./store/settings.js'),
+					import('./move/rekey.js'),
+					import('./books-vault.js')
+				]);
+			let next = /** @type {any} */ (await getSetting(store.settings, SUCCESSOR_SETTING));
+			// Not here yet – this device was offline when the new keys were made:
+			// the books' index on Aleph names it too, when the vault is kept there.
+			if (!next?.vault && online && (await getSetting(store.settings, 'vault/index')) === true) {
+				const { readRootSuccessor } = await import('./backup/vault-index.js');
+				next = await readRootSuccessor({ root: vault.root }).catch(() => null);
+			}
+			if (next?.vault) {
+				try {
+					await adoptSuccessorVault(
+						vault,
+						next.vault,
+						{ prfOutput: passkeyPrf, rawCredentialId: credential.rawCredentialId },
+						globalThis.localStorage,
+						Array.isArray(next.removed) ? next.removed : []
+					);
+					moved = { peers: Array.isArray(next.peers) ? next.peers.map(String) : [] };
+				} catch (e) {
+					if (!(e instanceof RemovedPasskeyError)) throw e;
+					moved = { left: true };
+				}
+			}
+		}
 		// An empty device that found the books through the index: the account the
 		// backups are kept for, so "Wiederherstellen" lists them at once.
 		// A member's device keeps it in memory only (#613): before the books'
@@ -564,6 +601,7 @@ export async function startSession(
 					}
 				: null,
 			vault,
+			moved,
 			ownIndexKey,
 			pointedOwner: membership ? pointedOwner : '',
 			/**

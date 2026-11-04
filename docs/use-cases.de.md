@@ -109,5 +109,4 @@ Wiederherstellungswörter und weitere Personen einladen bleiben bei dir.
 Noch nicht fertig, aber geplant: die Bridge als eigene Maschine in der Cloud, geprüft und
 gekoppelt wie auf deinem Rechner. Ein KI-Dienst von Le Space. Bezahlen mit Le Space Credits.
 Weitere Rollen in
-gemeinsamen Büchern – etwa die Steuerberatung nur lesend – und neue Schlüssel, nachdem ein
-Mitglied herausgenommen wurde.
+gemeinsamen Büchern – etwa die Steuerberatung nur lesend.

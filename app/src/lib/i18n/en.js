@@ -752,7 +752,7 @@ export default {
 				'No private key is kept on the device: the books write as an identity of their own, an Ed25519 key made at every unlock from a secret of the books, which comes from the same PRF response (belege/books-secret/v1). It lives only in the memory of this session. The passkey itself signs nothing for the databases; its DID is named as the author of every entry.',
 				'Stored are the OrbitDB document databases transactions, receipts, partners, accounts, settings, matches, questions, events and travel, on Helia with LevelBlockstore and LevelDatastore in IndexedDB (belege/helia-blocks, belege/helia-data, belege/orbitdb). Every entry is encrypted with AES-GCM and, as a whole, once more with a key of its own (belege/replication-key/v1): without it, neither an entry’s content nor its writer, time or links can be read, and the databases’ names do not say what they hold. Receipt files have a separate key (belege/blob-key/v1).',
 				'localStorage holds no key and nothing from the books, only public data: the passkey details (credential ID, public key, DID, PRF input) and flags of this page, such as whether the notice was read, light/dark, the language, the network and whether the books have moved. Books from earlier versions may still have the passkey’s signature over their earlier identity document there.',
-				'The books’ vault (#406) is kept in localStorage, sealed: the root of every key under a random vault key, and for each passkey a slot holding that key, sealed under a key from the passkey’s PRF response (AES-256-GCM). Whoever wants also keeps it on Aleph (Settings → Keys): sealed, at addresses derived from passkey and root, with each passkey’s credential ID and no names.',
+				'The books’ vault (#406) is kept in localStorage, sealed: the root of every key under a random vault key, and for each passkey a slot holding that key, sealed under a key from the passkey’s PRF response (AES-256-GCM). Whoever wants also keeps it on Aleph (Settings → Keys): sealed, at addresses derived from passkey and root, with each passkey’s credential ID and no names. “New keys for the books” (#627) makes a new root and a new vault with the earlier roots inside; the books are packed in the browser, sealed (a key from the new root, IndexedDB belege-rekey), taken over into new databases, and the pack is deleted after. The new vault goes into the old books (books/successor), so other devices with a passkey in it switch.',
 				'If this browser is a member of someone else’s books, it also keeps a member vault there (belege.memberships.v1): the key bundle and the member’s own root, sealed like the books’ vault, with a slot for the member’s passkey. After each of the member’s backups it is kept on Aleph too, at an address from this passkey’s PRF response (belege/vault-index/member/v1): sealed, without names, with the paying account sealed under the member’s root.'
 			]
 		},
@@ -768,7 +768,7 @@ export default {
 				'Your books and receipts also on your phone or a second computer with the same passkey. The devices connect via a Le Space relay (found via Aleph, see “Le Space relays”) and, where possible, directly; everything is encrypted before it leaves the device. Or, in the network menu at the top under “Where devices meet”, without a relay by QR: two devices on the same network scan each other’s code and connect directly – then Le Space Belege asks neither Aleph nor a relay nor a STUN server, and the code shows only the device’s identifier and its addresses on the local network. Or “Only on your own network”: the devices meet at the relay of your own bridge (set up on the computer with `pnpm setup:relay`) – then Le Space Belege asks neither Aleph nor a public relay nor a STUN server, and your computer sees only the addresses on the local network and when the devices are connected. Or “Both”: all three ways at once, but a device the books don’t know yet only gets in by QR or via your bridge’s relay – only after that via the public relays as well. A device only gets the books once it proves that it has the same passkey; the relay and other peers get none of it, not even encrypted. The relay sees that two devices are talking to each other, their IP addresses and the identifiers (hash values) of the databases, never contents. Applies to this device, from the next unlock. On a computer with a bridge you can additionally share the bridge with your own devices (Integrations → Own devices): then the phone uses bank, mailbox, AI and wallets via this computer – only the shared queries, encrypted; the bridge’s credentials stay on the computer. Or you pair the bridge by invitation (Integrations → Bridge): then it connects to the same relays itself, and your devices reach it there, even with no browser open on the computer. The relay sees only its id and encrypted data. The bridge gets a key of its own for this, never your devices’ key, and reaches none of your books.',
 			collaboration: 'Collaboration',
 			collaborationText:
-				'Members in your books, the bookkeeping first. Under Integrations → Collaboration the person makes a join code, and you admit them. They get the keys to read your books, write in them and back them up – never their root, never your passkeys or recovery words. They write under their own name, and their devices sync through device sync like yours. Take a member out, and no device of the books accepts what they write after, and their devices so far are refused. What they have seen cannot be taken back, and with their keys they could read later entries until the books get new keys. Chat and video come later.',
+				'Members in your books, the bookkeeping first. Under Integrations → Collaboration the person makes a join code, and you admit them. They get the keys to read your books, write in them and back them up – never their root, never your passkeys or recovery words. They write under their own name, and their devices sync through device sync like yours. Take a member out, and no device of the books accepts what they write after, and their devices so far are refused. What they have seen cannot be taken back, and with their keys they could read later entries until you give the books new keys (Settings → Keys). Chat and video come later.',
 			technical: [
 				'A libp2p node runs in the browser because OrbitDB needs one – without transports, without a bootstrap list and without peer discovery. It cannot dial anyone and listens on no address. Only when you pair Le Space Belege with your invoice app is a second, separate node added that connects to a relay (see “Invoice app” below); it cannot reach your books.',
 				'Its peer key (Ed25519) is created anew in every session and stored nowhere.',
@@ -2221,6 +2221,30 @@ export default {
 			renewed: 'Removed, and the vault is renewed.',
 			removeLimit:
 				'What removing cannot do: a passkey that has opened the books knows the root of their keys, and older backups still carry its slot.',
+			rekey: {
+				title: 'New keys for the books',
+				intro:
+					'After a member was taken out, or when a passkey may be in other hands: the books get a new root and move into new databases, in this browser. What goes into the books after that cannot be read by anyone who holds only the old keys.',
+				stay: 'These passkeys stay – each answers once:',
+				button: 'New keys …',
+				confirmTitle: 'What to do after',
+				words: 'The recovery words no longer apply: write down new ones.',
+				members: 'Members join again with a new join code.',
+				bridge: 'The bridge is paired again.',
+				others:
+					'Other devices switch by themselves when their passkey is ticked above. A passkey that is not opens only the old books.',
+				backups:
+					'Back up again right after. Older backups stay on Aleph; restoring them comes with one of the next versions.',
+				time: 'With many receipts this takes a few minutes. Then the page reloads, and you unlock once.',
+				yes: 'Make new keys',
+				no: 'Cancel',
+				thisOne: 'This browser’s passkey has to stay.',
+				taking: 'The books are moving under the new keys …',
+				done: 'The books have new keys. Write down new recovery words, let members join again and pair the bridge again.',
+				left: 'These books got new keys, and this passkey is not among them. What you see here is the old state; nothing new comes in.',
+				afterRemoval:
+					'Member taken out. So that they cannot read later entries either: Settings → Keys → New keys for the books.'
+			},
 			addLabel: 'Add another passkey',
 			addPlaceholder: 'e.g. security key in the safe',
 			add: 'Add passkey',

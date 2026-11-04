@@ -465,3 +465,46 @@ export async function findMembershipsOnAleph({ prfOutput, endpoints, fetch: f })
 					: null
 		}));
 }
+
+/**
+ * New keys for the books (#627): their successor at the old books' index M –
+ * the new vault (nothing secret in the clear), the passkeys that did not
+ * answer, and whom to dial – for a device that was offline when they were
+ * made. Beside what index M holds; nothing else there changes.
+ *
+ * @param {object} params
+ * @param {Uint8Array} params.root the old root
+ * @param {{ vault: any, removed: string[], peers: string[] }} params.successor
+ * @param {import('./keeper.js').AlephEndpoints} [params.endpoints]
+ * @param {typeof fetch} [params.fetch]
+ */
+export async function publishRootSuccessor({ root, successor, endpoints, fetch: f }) {
+	return publishIndex({
+		key: await rootIndexKey(root),
+		content: { successor },
+		...(endpoints ? { endpoints } : {}),
+		...(f ? { fetch: f } : {})
+	});
+}
+
+/**
+ * The successor index M of these books names, or null.
+ *
+ * @param {{ root: Uint8Array, endpoints?: import('./keeper.js').AlephEndpoints, fetch?: typeof fetch }} params
+ * @returns {Promise<{ vault: any, removed: string[], peers: string[] } | null>}
+ */
+export async function readRootSuccessor({ root, endpoints, fetch: f }) {
+	const content = await readIndex({
+		key: await rootIndexKey(root),
+		...(endpoints ? { endpoints } : {}),
+		...(f ? { fetch: f } : {})
+	});
+	const next = content?.successor;
+	return next?.vault && Array.isArray(next.vault.slots)
+		? {
+				vault: next.vault,
+				removed: Array.isArray(next.removed) ? next.removed.map(String) : [],
+				peers: Array.isArray(next.peers) ? next.peers.map(String) : []
+			}
+		: null;
+}

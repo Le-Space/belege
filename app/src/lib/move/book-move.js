@@ -93,10 +93,18 @@ const b64url = (bytes) => b64(bytes).replace(/\+/g, '-').replace(/\//g, '_').rep
 /** @param {string} text */
 const unb64url = (text) => unb64(text.replace(/-/g, '+').replace(/_/g, '/'));
 
-/** @param {Record<string, any>} r */
-const leftOut = (r) =>
+/**
+ * Whether a setting stays behind.
+ *
+ * @param {Record<string, any>} r
+ * @param {{ kept?: string[], dropped?: string[] }} [which]
+ */
+const leftOut = (r, { kept = [], dropped = [] } = {}) =>
 	typeof r.key === 'string' &&
-	(LEFT_OUT_SETTINGS.includes(r.key) || r.key.startsWith(DEVICE_PREFIX));
+	!kept.includes(r.key) &&
+	(LEFT_OUT_SETTINGS.includes(r.key) ||
+		r.key.startsWith(DEVICE_PREFIX) ||
+		dropped.some((p) => r.key.startsWith(p)));
 
 // ── The target's one-time key ────────────────────────────────────────────
 
@@ -180,6 +188,8 @@ const passphraseKey = (passphrase, salt, params) =>
  * @property {string} appVersion
  * @property {Record<string, number>} counts records per collection, and `files`
  * @property {string[]} leftOut the settings left out, by key ("device:…" for the device list)
+ * @property {string[]} [kept] settings a move leaves out that this one keeps: new keys in the same browser (#627)
+ * @property {string[]} [dropped] key prefixes left out besides (#627: "member:")
  * @property {{ kind: 'x25519', ephemeral: string, to: string } | { kind: 'passphrase', kdf: 'scrypt', N: number, r: number, p: number, salt: string }} seal
  */
 
@@ -188,8 +198,9 @@ const passphraseKey = (passphrase, salt, params) =>
  *
  * @param {Record<string, import('../store/repository.js').Collection>} store
  * @param {{ get: (cid: string) => Promise<Uint8Array> }} blobs
+ * @param {{ kept?: string[], dropped?: string[] }} [which] see `MoveHeader`
  */
-async function collect(store, blobs) {
+async function collect(store, blobs, which = {}) {
 	/** @type {Record<string, Record<string, any>[]>} */
 	const records = {};
 	const left = new Set();
@@ -198,8 +209,11 @@ async function collect(store, blobs) {
 		records[name] =
 			name === 'settings'
 				? all.filter((r) => {
-						if (!leftOut(r)) return true;
-						left.add(r.key.startsWith(DEVICE_PREFIX) ? `${DEVICE_PREFIX}…` : r.key);
+						if (!leftOut(r, which)) return true;
+						const prefix = [DEVICE_PREFIX, ...(which.dropped ?? [])].find((p) =>
+							r.key.startsWith(p)
+						);
+						left.add(prefix ? `${prefix}…` : r.key);
 						return false;
 					})
 				: all;
@@ -330,6 +344,8 @@ export function readMoveHeader(file) {
  * @param {string} params.appVersion
  * @param {() => Date} [params.now]
  * @param {{ N: number, r: number, p: number }} [params.scrypt] smaller in tests
+ * @param {string[]} [params.kept] settings a move leaves out that this one keeps (#627)
+ * @param {string[]} [params.dropped] key prefixes left out besides (#627)
  * @returns {Promise<{ file: Uint8Array, header: MoveHeader }>}
  */
 export async function packBooks({
@@ -338,9 +354,11 @@ export async function packBooks({
 	seal,
 	appVersion,
 	now = () => new Date(),
-	scrypt = SCRYPT
+	scrypt = SCRYPT,
+	kept = [],
+	dropped = []
 }) {
-	const { records, files, leftOut: left } = await collect(store, blobs);
+	const { records, files, leftOut: left } = await collect(store, blobs, { kept, dropped });
 	/** @type {Record<string, number>} */
 	const counts = Object.fromEntries(COLLECTIONS.map((name) => [name, records[name].length]));
 	counts.files = files.size;
@@ -350,7 +368,9 @@ export async function packBooks({
 		packedAt: now().toISOString(),
 		appVersion,
 		counts,
-		leftOut: left
+		leftOut: left,
+		...(kept.length ? { kept } : {}),
+		...(dropped.length ? { dropped } : {})
 	};
 	const payload = encodePayload(records, files, base);
 
@@ -434,6 +454,8 @@ function check(header, body) {
 		throw new MoveError(`The move file does not add up: ${what}.`, 'check');
 	};
 	if (JSON.stringify(body.header?.counts) !== JSON.stringify(header.counts)) fail('counts');
+	if (JSON.stringify(body.header?.kept) !== JSON.stringify(header.kept)) fail('header');
+	if (JSON.stringify(body.header?.dropped) !== JSON.stringify(header.dropped)) fail('header');
 	if (body.header?.packedAt !== header.packedAt) fail('header');
 	for (const name of COLLECTIONS) {
 		const list = body.records?.[name];
@@ -442,7 +464,8 @@ function check(header, body) {
 		for (const r of list) {
 			if (!r || typeof r !== 'object' || !isUlid(String(r.id ?? '')) || ids.has(r.id)) fail(name);
 			ids.add(r.id);
-			if (name === 'settings' && leftOut(r)) fail('a setting that is left out');
+			if (name === 'settings' && leftOut(r, { kept: header.kept, dropped: header.dropped }))
+				fail('a setting that is left out');
 		}
 	}
 	if (body.files.size !== header.counts.files) fail('files');

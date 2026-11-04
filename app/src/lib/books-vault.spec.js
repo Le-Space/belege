@@ -13,6 +13,7 @@ import {
 	addPasskey,
 	addRecoveryWords,
 	adoptNewerVault,
+	adoptSuccessorVault,
 	hasRecoveryWords,
 	newerWithWords,
 	openWithWords,
@@ -20,6 +21,7 @@ import {
 	loadVaultRecords,
 	openBooksVault,
 	removePasskey,
+	rekeyBooksVault,
 	renewBooksVault
 } from './books-vault.js';
 
@@ -258,6 +260,84 @@ describe('recovery words in the vault (stage 2)', () => {
 		const renewed = await addRecoveryWords(newer, new Uint8Array(32).fill(7), storage);
 		await expect(newerWithWords(older, renewed.record.vault, SEED)).rejects.toBeInstanceOf(
 			RemovedWordsError
+		);
+	});
+});
+
+describe('new keys for the books (#627)', () => {
+	/** Books opened with A, with B and C added. */
+	async function books() {
+		const storage = memoryStorage();
+		let opened = await openBooksVault({ ...A, storage });
+		opened = await addPasskey(opened, B, storage);
+		opened = await addPasskey(opened, C, storage);
+		return { storage, opened };
+	}
+	const same = (/** @type {Uint8Array} */ a, /** @type {Uint8Array} */ b) =>
+		a.length === b.length && a.every((x, i) => x === b[i]);
+
+	it('a new root, the old one kept before it, a slot for each passkey that answered', async () => {
+		const { storage, opened } = await books();
+		const rekeyed = await rekeyBooksVault(opened, [A, B], storage);
+		expect(same(rekeyed.root, opened.root)).toBe(false);
+		expect(rekeyed.previous?.map((r) => same(r, opened.root))).toEqual([true]);
+		expect(rekeyed.record.vault.id).not.toBe(opened.record.vault.id);
+		// This browser keeps the new record only.
+		expect(loadVaultRecords(storage).map((r) => r.vault.id)).toEqual([rekeyed.record.vault.id]);
+		// A and B open it, with the same new root and the old one before it.
+		const withB = await openBooksVault({ ...B, storage });
+		expect(same(withB.root, rekeyed.root)).toBe(true);
+		expect(withB.previous?.map((r) => same(r, opened.root))).toEqual([true]);
+		// C did not answer: refused here, not given books of its own.
+		await expect(openBooksVault({ ...C, storage })).rejects.toBeInstanceOf(RemovedPasskeyError);
+	});
+
+	it('a renewal later keeps the roots before', async () => {
+		const { storage, opened } = await books();
+		const rekeyed = await rekeyBooksVault(opened, [A, B], storage);
+		const renewed = await renewBooksVault(
+			rekeyed,
+			[A],
+			[rekeyed.record.slots[1]?.kid ?? ''],
+			storage
+		);
+		const again = await openBooksVault({ ...A, storage });
+		expect(same(again.root, renewed.root)).toBe(true);
+		expect(again.previous?.map((r) => same(r, opened.root))).toEqual([true]);
+	});
+
+	it('another device of the owner takes the successor when its passkey has a slot there', async () => {
+		const { storage, opened } = await books();
+		// The other device: its own browser, the same books, opened with B.
+		const there = memoryStorage();
+		there.setItem(VAULTS_STORAGE_KEY, String(storage.getItem(VAULTS_STORAGE_KEY)));
+		const onB = await openBooksVault({ ...B, storage: there });
+		const rekeyed = await rekeyBooksVault(opened, [A, B], storage);
+
+		const switched = await adoptSuccessorVault(onB, rekeyed.record.vault, B, there);
+		expect(same(switched.root, rekeyed.root)).toBe(true);
+		expect(loadVaultRecords(there).map((r) => r.vault.id)).toEqual([rekeyed.record.vault.id]);
+
+		// C has no slot in the new vault: refused.
+		const elsewhere = memoryStorage();
+		elsewhere.setItem(VAULTS_STORAGE_KEY, JSON.stringify([opened.record]));
+		const onC = await openBooksVault({ ...C, storage: elsewhere });
+		await expect(
+			adoptSuccessorVault(onC, rekeyed.record.vault, C, elsewhere)
+		).rejects.toBeInstanceOf(RemovedPasskeyError);
+	});
+
+	it('a new vault of other books is refused', async () => {
+		const { storage, opened } = await books();
+		// Other books, made with C, that A was added to.
+		const otherStorage = memoryStorage();
+		let other = await openBooksVault({ ...C, storage: otherStorage });
+		other = await addPasskey(other, A, otherStorage);
+		const theirs = await rekeyBooksVault(other, [C, A], otherStorage);
+		const onA = await openBooksVault({ ...A, storage });
+		expect(same(onA.root, opened.root)).toBe(true);
+		await expect(adoptSuccessorVault(onA, theirs.record.vault, A, storage)).rejects.toBeInstanceOf(
+			VaultStorageError
 		);
 	});
 });

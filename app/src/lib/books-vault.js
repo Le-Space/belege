@@ -56,14 +56,17 @@ export const WORDS_SLOT_ID = new TextEncoder().encode('belege/recovery-words/v1'
 export const VAULTS_STORAGE_KEY = 'belege.vaults.v1';
 
 const PAYLOAD_VERSION = 1;
+/** With the roots the books had before new keys (#627). */
+const PAYLOAD_VERSION_PREVIOUS = 2;
 const ROOT_BYTES = 32;
 
 /**
  * @typedef {{ kid: string, label: string, credentialId: string, addedAt: string, kind?: 'words' }} SlotInfo
  *   what this browser says about a slot, beside the sealed vault: public
  * @typedef {{ vault: any, slots: SlotInfo[], removed: string[] }} VaultRecord
- * @typedef {{ record: VaultRecord, vaultKey: Uint8Array, root: Uint8Array, kid: string, created: boolean, found?: boolean }} OpenedVault
- *   `found`: the record came from elsewhere (the index), not this browser
+ * @typedef {{ record: VaultRecord, vaultKey: Uint8Array, root: Uint8Array, previous?: Uint8Array[], kid: string, created: boolean, found?: boolean }} OpenedVault
+ *   `found`: the record came from elsewhere (the index), not this browser;
+ *   `previous`: the roots before new keys (#627), newest first – for backups made then
  */
 
 /** A vault record that cannot be read: never a reason to make new books. */
@@ -107,12 +110,26 @@ function fromHex(hex, length) {
 	return bytes;
 }
 
-/** The payload: the root, as bytes. @param {Uint8Array} root */
-const encodePayload = (root) =>
-	new TextEncoder().encode(JSON.stringify({ version: PAYLOAD_VERSION, root: toHex(root) }));
+/**
+ * The payload: the root, and the roots before new keys (#627).
+ *
+ * @param {Uint8Array} root
+ * @param {Uint8Array[]} [previous]
+ */
+const encodePayload = (root, previous = []) =>
+	new TextEncoder().encode(
+		JSON.stringify(
+			previous.length
+				? { version: PAYLOAD_VERSION_PREVIOUS, root: toHex(root), previous: previous.map(toHex) }
+				: { version: PAYLOAD_VERSION, root: toHex(root) }
+		)
+	);
 
 /** @param {Uint8Array} bytes @returns {Uint8Array} the root */
-function decodePayload(bytes) {
+const decodePayload = (bytes) => decodeRoots(bytes).root;
+
+/** @param {Uint8Array} bytes @returns {{ root: Uint8Array, previous: Uint8Array[] }} */
+function decodeRoots(bytes) {
 	/** @type {any} */
 	let parsed;
 	try {
@@ -120,10 +137,16 @@ function decodePayload(bytes) {
 	} catch {
 		throw new VaultStorageError('The vault opened, but what it holds is not readable.');
 	}
-	if (parsed?.version !== PAYLOAD_VERSION) {
+	if (parsed?.version !== PAYLOAD_VERSION && parsed?.version !== PAYLOAD_VERSION_PREVIOUS) {
 		throw new VaultStorageError('The vault holds a version this page does not know.');
 	}
-	return fromHex(parsed.root, ROOT_BYTES);
+	const previous = parsed.version === PAYLOAD_VERSION_PREVIOUS ? parsed.previous : [];
+	if (!Array.isArray(previous))
+		throw new VaultStorageError('The vault holds a value of the wrong shape.');
+	return {
+		root: fromHex(parsed.root, ROOT_BYTES),
+		previous: previous.map((/** @type {string} */ h) => fromHex(h, ROOT_BYTES))
+	};
 }
 
 /**
@@ -235,7 +258,7 @@ export async function openBooksVault({
 			};
 			saveVaultRecord(storage, record);
 		}
-		return { record, vaultKey, root: decodePayload(payload), kid, created: false, found };
+		return { record, vaultKey, ...decodeRoots(payload), kid, created: false, found };
 	}
 	const root = Uint8Array.from(prfOutput);
 	const { vault, vaultKey } = await createVault(encodePayload(root), { slotKey, rawCredentialId });
@@ -324,7 +347,7 @@ export async function renewBooksVault(opened, answers, removed, storage) {
 	const kids = await Promise.all(answers.map((a) => slotIdFor(a.rawCredentialId)));
 	if (!kids.includes(opened.kid)) throw new Error('The passkey that opened the books has to stay.');
 	const [first, ...rest] = answers;
-	let { vault, vaultKey } = await createVault(encodePayload(opened.root), {
+	let { vault, vaultKey } = await createVault(encodePayload(opened.root, opened.previous), {
 		slotKey: await slotKeyOf(first.prfOutput),
 		rawCredentialId: first.rawCredentialId
 	});
@@ -499,7 +522,7 @@ export async function openWithWords({ seed, storage, find }) {
 		slotKey: await wordsSlotKey(seed),
 		rawCredentialId: WORDS_SLOT_ID
 	});
-	return { record, vaultKey, root: decodePayload(payload), kid, created: false, found };
+	return { record, vaultKey, ...decodeRoots(payload), kid, created: false, found };
 }
 
 /**
@@ -539,4 +562,117 @@ export async function newerWithWords(opened, vault, seed, published = []) {
 		record: { vault, slots: published.filter((s) => kids.has(s.kid)), removed: [] },
 		vaultKey
 	};
+}
+
+/**
+ * New keys for the books (#627): a new random root, sealed in a new vault with
+ * the roots before it (so backups made then still open), and a slot for every
+ * passkey that answered. The recovery words are not carried over; the old
+ * record goes from this browser. What the books hold moves separately
+ * (move/rekey.js).
+ *
+ * @param {OpenedVault} opened
+ * @param {{ prfOutput: Uint8Array, rawCredentialId: Uint8Array }[]} answers every passkey that stays
+ * @param {Pick<Storage, 'getItem' | 'setItem'>} storage
+ * @returns {Promise<OpenedVault>}
+ */
+export async function rekeyBooksVault(opened, answers, storage) {
+	const next = await newBooksVault(opened, answers);
+	const records = loadVaultRecords(storage).filter((r) => r.vault.id !== opened.record.vault.id);
+	records.push(next.record);
+	storage.setItem(VAULTS_STORAGE_KEY, JSON.stringify(records));
+	return next;
+}
+
+/**
+ * The new vault of `rekeyBooksVault`, made but not kept: the device that
+ * makes it takes it as its successor like every other (move/rekey.js).
+ *
+ * @param {OpenedVault} opened
+ * @param {{ prfOutput: Uint8Array, rawCredentialId: Uint8Array }[]} answers every passkey that stays
+ * @param {Uint8Array} [root] the new root; random when not given
+ * @returns {Promise<OpenedVault>}
+ */
+export async function newBooksVault(
+	opened,
+	answers,
+	root = crypto.getRandomValues(new Uint8Array(ROOT_BYTES))
+) {
+	if (!answers.length) throw new Error('At least one passkey has to stay.');
+	const kids = await Promise.all(answers.map((a) => slotIdFor(a.rawCredentialId)));
+	if (!kids.includes(opened.kid)) throw new Error('The passkey that opened the books has to stay.');
+	const previous = [opened.root, ...(opened.previous ?? [])];
+	const [first, ...rest] = answers;
+	let { vault, vaultKey } = await createVault(encodePayload(root, previous), {
+		slotKey: await slotKeyOf(first.prfOutput),
+		rawCredentialId: first.rawCredentialId
+	});
+	for (const a of rest) {
+		vault = await addVaultSlot(vault, vaultKey, {
+			slotKey: await slotKeyOf(a.prfOutput),
+			rawCredentialId: a.rawCredentialId
+		});
+	}
+	// A passkey that did not answer is told so here, rather than given books of its own.
+	const left = opened.record.vault.slots
+		.map((/** @type {any} */ s) => String(s.kid))
+		.filter((/** @type {string} */ kid) => !kids.includes(kid));
+	const record = {
+		vault,
+		slots: opened.record.slots.filter((s) => kids.includes(s.kid)),
+		removed: [...new Set([...opened.record.removed, ...left])]
+	};
+	return { ...opened, record, vaultKey, root, previous, created: false, found: false };
+}
+
+/**
+ * The books' successor, as another device of the owner finds it in the old
+ * books (#627): the new vault, taken when this passkey's slot opens it and
+ * its roots before name the root opened here. The old record goes from this
+ * browser; the device opens the new books at the next unlock.
+ *
+ * @param {OpenedVault} opened
+ * @param {any} vault the new vault record
+ * @param {{ prfOutput: Uint8Array, rawCredentialId: Uint8Array }} passkey this one
+ * @param {Pick<Storage, 'getItem' | 'setItem'>} storage
+ * @param {string[]} [removed] the passkeys that did not answer there
+ * @returns {Promise<OpenedVault>}
+ */
+export async function adoptSuccessorVault(opened, vault, passkey, storage, removed = []) {
+	if (!vault || !Array.isArray(vault.slots)) throw new VaultStorageError('No new vault.');
+	if (!vault.slots.some((/** @type {any} */ s) => s.kid === opened.kid)) {
+		throw new RemovedPasskeyError();
+	}
+	const { payload, vaultKey } = await openVault(vault, {
+		slotKey: await slotKeyOf(passkey.prfOutput),
+		rawCredentialId: passkey.rawCredentialId
+	});
+	const { root, previous } = decodeRoots(payload);
+	const same = (/** @type {Uint8Array} */ a) =>
+		a.length === opened.root.length && a.every((b, i) => b === opened.root[i]);
+	if (!previous.some(same)) throw new VaultStorageError('The new vault holds other books.');
+	const kids = new Set(vault.slots.map((/** @type {any} */ s) => s.kid));
+	const record = {
+		vault,
+		slots: opened.record.slots.filter((s) => kids.has(s.kid)),
+		removed: removed.map(String)
+	};
+	const records = loadVaultRecords(storage).filter((r) => r.vault.id !== opened.record.vault.id);
+	records.push(record);
+	storage.setItem(VAULTS_STORAGE_KEY, JSON.stringify(records));
+	return { ...opened, record, vaultKey, root, previous, created: false, found: false };
+}
+
+/**
+ * Keep `record` in place of the record with `oldId` (#627: the new vault, on
+ * the device that made it).
+ *
+ * @param {string} oldId
+ * @param {VaultRecord} record
+ * @param {Pick<Storage, 'getItem' | 'setItem'>} storage
+ */
+export function replaceVaultRecord(oldId, record, storage) {
+	const records = loadVaultRecords(storage).filter((r) => r.vault.id !== oldId);
+	records.push(record);
+	storage.setItem(VAULTS_STORAGE_KEY, JSON.stringify(records));
 }

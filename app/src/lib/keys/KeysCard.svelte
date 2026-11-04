@@ -9,7 +9,8 @@
 		addBooksPasskey,
 		app,
 		publishBooksVault,
-		removeBooksPasskey
+		removeBooksPasskey,
+		renewBooksKeys
 	} from '$lib/session.svelte.js';
 	import { currentLocale, intlLocale, list, t } from '$lib/i18n/index.js';
 	import { docUrl } from '$lib/help/integration-help.js';
@@ -25,6 +26,22 @@
 	let done = $state(null);
 	/** Which slot asks how to remove it. */
 	let removing = $state('');
+	/** New keys (#627): the passkeys that stay, by slot id; asked before it runs. */
+	/** @type {string[] | null} */
+	let staying = $state(null);
+	let confirmRekey = $state(false);
+	const startRekey = () => {
+		staying = app.vault.slots.map((s) => s.kid);
+		confirmRekey = false;
+	};
+	const rekey = () =>
+		act(
+			'rekey',
+			async () => {
+				await renewBooksKeys(staying ?? []);
+			},
+			''
+		);
 
 	const paused = $derived(app.network.paused);
 	// One passkey and no recovery words: its loss is the books' loss.
@@ -191,6 +208,90 @@
 			>
 		</p>
 	{/if}
+
+	<div class="mt-4 border-t border-border pt-3" id="rekey" data-testid="keys-rekey">
+		<h3 class="text-sm font-semibold text-heading">{t('settings.keys.rekey.title')}</h3>
+		<p class="mt-1 text-sm text-text">{t('settings.keys.rekey.intro')}</p>
+		{#if app.rekey === 'taking'}
+			<p class="mt-2 text-sm text-text" role="status" data-testid="keys-rekey-taking">
+				{t('settings.keys.rekey.taking')}
+			</p>
+		{:else if app.rekey === 'done'}
+			<p class="mt-2 text-sm text-success" role="status" data-testid="keys-rekey-done">
+				{t('settings.keys.rekey.done')}
+			</p>
+		{/if}
+		{#if staying}
+			<fieldset class="mt-2 text-sm" data-testid="keys-rekey-stay">
+				<legend class="text-text">{t('settings.keys.rekey.stay')}</legend>
+				{#each app.vault.slots as slot (slot.kid)}
+					<label class="mt-1 flex items-center gap-2">
+						<input
+							type="checkbox"
+							checked={staying.includes(slot.kid)}
+							disabled={slot.mine}
+							onchange={(e) =>
+								(staying = e.currentTarget.checked
+									? [...(staying ?? []), slot.kid]
+									: (staying ?? []).filter((k) => k !== slot.kid))}
+							data-testid="keys-rekey-slot"
+						/>
+						{slot.label || t('settings.keys.unnamed')}
+					</label>
+				{/each}
+			</fieldset>
+			{#if confirmRekey}
+				<div
+					class="mt-2 rounded-md border border-border p-2 text-sm"
+					role="alertdialog"
+					aria-labelledby="keys-rekey-h"
+					data-testid="keys-rekey-confirm"
+				>
+					<p id="keys-rekey-h" class="font-medium text-heading">
+						{t('settings.keys.rekey.confirmTitle')}
+					</p>
+					<ul class="mt-1 list-disc pl-4 text-text">
+						<li>{t('settings.keys.rekey.words')}</li>
+						<li>{t('settings.keys.rekey.members')}</li>
+						<li>{t('settings.keys.rekey.bridge')}</li>
+						<li>{t('settings.keys.rekey.others')}</li>
+						<li>{t('settings.keys.rekey.backups')}</li>
+						<li>{t('settings.keys.rekey.time')}</li>
+					</ul>
+					<div class="mt-2 flex gap-3">
+						<button
+							type="button"
+							class={button}
+							disabled={Boolean(busy)}
+							onclick={rekey}
+							data-testid="keys-rekey-yes">{t('settings.keys.rekey.yes')}</button
+						>
+						<button
+							type="button"
+							class="text-sm text-text underline"
+							onclick={() => (staying = null)}
+							data-testid="keys-rekey-no">{t('settings.keys.rekey.no')}</button
+						>
+					</div>
+				</div>
+			{:else}
+				<button
+					type="button"
+					class="mt-2 {button}"
+					onclick={() => (confirmRekey = true)}
+					data-testid="keys-rekey-next">{t('settings.keys.rekey.button')}</button
+				>
+			{/if}
+		{:else}
+			<button
+				type="button"
+				class="mt-2 {button}"
+				disabled={Boolean(busy) || app.rekey === 'taking'}
+				onclick={startRekey}
+				data-testid="keys-rekey-start">{t('settings.keys.rekey.button')}</button
+			>
+		{/if}
+	</div>
 
 	{#if done}
 		<p class="mt-3 text-sm text-text" role="status" data-testid="keys-done">{done}</p>

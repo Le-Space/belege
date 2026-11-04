@@ -122,7 +122,19 @@ sequenceDiagram
 
 **Ein Mitglied herausnehmen** (_Integrationen → Zusammenarbeit_, [#614](https://github.com/Le-Space/belege/issues/614)): Was es bis dahin geschrieben hat, bleibt; was es danach schreibt, lehnt jedes Gerät der Bücher ab; seine bisherigen Geräte kommen von der Geräteliste und werden abgewiesen. Das Schreibrecht wird in OrbitDB nicht entzogen – OrbitDB prüft auch alte Einträge gegen die aktuelle Liste, und die früheren Einträge des Mitglieds ließen sich nicht mehr abgleichen. Stattdessen bekommt die Zugriffsliste jeder Sammlung `removed:<seine DID>` mit den Hashes seiner bisherigen Einträge, und ein Eintrag von ihm gilt nur, wenn er einer davon ist (`app/src/lib/store/books-access.js`).
 
-**Was sich nicht zurücknehmen lässt:** was das Mitglied gelesen hat. Mit den Schlüsseln aus seinem Schlüsselbund könnte es auch spätere Einträge lesen, wenn es an sie kommt, bis die Bücher neue Schlüssel bekommen – geplant als nächster Schritt.
+**Was sich nicht zurücknehmen lässt:** was das Mitglied gelesen hat. Mit den Schlüsseln aus seinem Schlüsselbund könnte es auch spätere Einträge lesen, wenn es an sie kommt, bis die Bücher [neue Schlüssel](#neue-schlüssel-für-die-bücher) bekommen.
+
+## Neue Schlüssel für die Bücher
+
+_Einstellungen → Schlüssel → Neue Schlüssel für die Bücher_ ([#627](https://github.com/Le-Space/belege/issues/627)) – nachdem ein Mitglied herausgenommen wurde, oder wenn ein Passkey in fremde Hände geraten sein könnte:
+
+1. Eine neue zufällige Wurzel R′, in einem neuen Tresor mit einem Fach für jeden Passkey, den du ankreuzt (jeder antwortet einmal). Die früheren Wurzeln bleiben darin, versiegelt.
+2. Die Bücher werden in diesem Browser gepackt wie bei einem Umzug, versiegelt mit einem Schlüssel aus R′, und liegen in IndexedDB, bis sie übernommen sind.
+3. Der neue Tresor kommt in die alten Bücher. Er enthält nichts Geheimes im Klartext; öffnen kann ihn nur ein Passkey mit Fach.
+4. Die Seite lädt neu; einmal entsperren öffnet neue Datenbanken unter R′ – neue Namen, neue Schlüssel, eine neue Identität der Bücher –, und sie übernehmen die gepackten Bücher. Das Paket wird gelöscht.
+5. Ein anderes Gerät von dir findet den neuen Tresor in den alten Büchern und wechselt, wenn sein Passkey ein Fach hat; dann wählt es dieses Gerät an.
+
+Was nicht mitkommt: die Wiederherstellungswörter (schreib neue auf), Mitglieder (sie treten mit einem neuen Beitrittscode wieder bei), die Kopplung der Bridge (neu koppeln), die Backup-Kette (die nächste Sicherung ist eine vollständige). Ältere Sicherungen bleiben bei Aleph; sie unter den neuen Schlüsseln wiederherzustellen kommt mit [#628](https://github.com/Le-Space/belege/issues/628). Ein Passkey, den du nicht ankreuzt, und ein herausgenommenes Mitglied behalten nur die alten Bücher, in die nichts Neues mehr kommt.
 
 ## Passkey-Abfragen
 

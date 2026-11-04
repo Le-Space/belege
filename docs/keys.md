@@ -121,7 +121,19 @@ sequenceDiagram
 
 **Taking a member out** (_Integrationen → Zusammenarbeit_, [#614](https://github.com/Le-Space/belege/issues/614)): what they wrote so far stays; anything they write after is refused by every device of the books; their devices so far leave the device list and are refused. The write access is not revoked in OrbitDB – it checks old entries against the current list too, and the member's earlier entries would no longer replicate. Instead every collection's access list gets `removed:<their DID>` with the hashes of their entries so far, and an entry of theirs counts only if it is one of those (`app/src/lib/store/books-access.js`).
 
-**What cannot be taken back:** what the member has read. With the keys in their bundle they could also read later entries, if they got hold of them, until the books get new keys – planned as the next step.
+**What cannot be taken back:** what the member has read. With the keys in their bundle they could also read later entries, if they got hold of them, until the books get [new keys](#new-keys-for-the-books).
+
+## New keys for the books
+
+_Einstellungen → Schlüssel → Neue Schlüssel für die Bücher_ ([#627](https://github.com/Le-Space/belege/issues/627)) – after a member was taken out, or when a passkey may be in other hands:
+
+1. A new random root R′, in a new vault with a slot for every passkey you tick (each answers once). The earlier roots stay inside, sealed.
+2. The books are packed in this browser as a move does, sealed under a key from R′, and kept in IndexedDB until they are taken over.
+3. The new vault goes into the old books. It holds nothing secret in the clear; only a passkey with a slot opens it.
+4. The page reloads; one unlock opens new databases under R′ – new names, new keys, a new identity of the books – and they take the packed books over. The pack is deleted.
+5. Another device of yours finds the new vault in the old books and switches, if its passkey has a slot; it then dials this device.
+
+What does not come along: the recovery words (write down new ones), members (they join again with a new join code), the bridge pairing (pair again), the backup chain (the next backup is a full one). Backups made before stay on Aleph; restoring them under the new keys comes with [#628](https://github.com/Le-Space/belege/issues/628). A passkey you did not tick, and a member taken out, keep only the old books, which get nothing new.
 
 ## Passkey prompts
 

@@ -70,7 +70,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     vault in this browser and on Aleph.
 // 34: taking a member out (#614): what it stops at once, and what only new
 //     keys stop.
-export const CONSENT_VERSION = '34';
+// 35: new keys for the books (#627): a new root, the books moved into new
+//     databases, the new vault left in the old books for other devices.
+export const CONSENT_VERSION = '35';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

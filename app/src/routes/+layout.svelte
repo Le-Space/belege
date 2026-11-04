@@ -138,6 +138,11 @@
 						>
 							{t('header.memberBooks', { books: app.member.books })}
 						</p>
+					{:else if app.rekey === 'left'}
+						<!-- The books got new keys this passkey has no slot for (#627). -->
+						<p class="mt-0.5 text-sm font-medium text-danger" data-testid="rekey-left">
+							{t('settings.keys.rekey.left')}
+						</p>
 					{:else}
 						<p class="mt-0.5 hidden text-sm text-faint sm:block">{t('app.tagline')}</p>
 					{/if}
