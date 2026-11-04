@@ -60,6 +60,9 @@ const MESHSUB = '/meshsub/';
 /** A settings record per device: one record each, so two devices never overwrite each other. */
 export const DEVICE_PREFIX = 'device:';
 
+/** A WebSocket address without TLS. @param {string} addr */
+const insecureWebSocket = (addr) => /\/ws(\/|$)/.test(addr) && !/\/tls(\/|$)/.test(addr);
+
 /** @returns {Storage | null} */
 function storage() {
 	try {
@@ -246,10 +249,12 @@ export function syncLibp2pConfig({ privateKey, relays, gate, mode = 'public' }) 
 				lan || both || relays.some(isLocal)
 					? () => gateClosed
 					: // libp2p's own rule for a browser (private addresses, insecure
-						// WebSockets), with this machine let through.
+						// WebSockets), with this machine let through. WebSockets over TLS
+						// are secure however written: the Le Space relays announce
+						// `/tls/ws` (or `/tls/sni/<host>/ws`), not `/wss`.
 						(/** @type {any} */ addr) =>
 							gateClosed ||
-							(!isLoopback(addr) && (isPrivate(addr) || /\/ws(\/|$)/.test(addr.toString()))),
+							(!isLoopback(addr) && (isPrivate(addr) || insecureWebSocket(addr.toString()))),
 			// A device removed from the books is neither dialled nor let in; with
 			// the network switched off in the header, nobody is.
 			denyDialPeer: (/** @type {any} */ peerId) => gateClosed || blocked.has(String(peerId)),
