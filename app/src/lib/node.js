@@ -547,19 +547,33 @@ export async function startSession(
 		/** @type {{ peers: string[] } | { left: true } | null} */
 		let moved = null;
 		if (vault && !membership) {
-			const [{ getSetting }, { SUCCESSOR_SETTING }, { adoptSuccessorVault, RemovedPasskeyError }] =
-				await Promise.all([
-					import('./store/settings.js'),
-					import('./move/rekey.js'),
-					import('./books-vault.js')
-				]);
-			let next = /** @type {any} */ (await getSetting(store.settings, SUCCESSOR_SETTING));
+			const [
+				{ getSetting },
+				{ SUCCESSOR_SETTING, successorWrittenBy },
+				{ adoptSuccessorVault, RemovedPasskeyError }
+			] = await Promise.all([
+				import('./store/settings.js'),
+				import('./move/rekey.js'),
+				import('./books-vault.js')
+			]);
+			// Written by the books themselves, never by a member: the newest such
+			// entry of the setting counts, any other writer's is passed over.
+			let next = (await getSetting(store.settings, SUCCESSOR_SETTING))
+				? await successorWrittenBy(
+						/** @type {any} */ (store.databases().settings),
+						SUCCESSOR_SETTING,
+						booksIdentity.id
+					)
+				: null;
+			let fromIndex = false;
 			// Not here yet – this device was offline when the new keys were made:
 			// the books' index on Aleph names it too, when the vault is kept there.
 			if (!next?.vault && online && (await getSetting(store.settings, 'vault/index')) === true) {
 				const { readRootSuccessor } = await import('./backup/vault-index.js');
 				next = await readRootSuccessor({ root: vault.root }).catch(() => null);
+				fromIndex = Boolean(next);
 			}
+			// A successor that does not open as one is no reason to keep the books shut.
 			if (next?.vault) {
 				try {
 					await adoptSuccessorVault(
@@ -567,12 +581,13 @@ export async function startSession(
 						next.vault,
 						{ prfOutput: passkeyPrf, rawCredentialId: credential.rawCredentialId },
 						globalThis.localStorage,
-						Array.isArray(next.removed) ? next.removed : []
+						Array.isArray(next.removed) ? next.removed.map(String) : []
 					);
 					moved = { peers: Array.isArray(next.peers) ? next.peers.map(String) : [] };
 				} catch (e) {
-					if (!(e instanceof RemovedPasskeyError)) throw e;
-					moved = { left: true };
+					// Without this passkey's slot: said so only when the books wrote it.
+					if (e instanceof RemovedPasskeyError && !fromIndex) moved = { left: true };
+					else console.warn('new keys: a successor that does not open', e);
 				}
 			}
 		}

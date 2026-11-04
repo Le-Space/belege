@@ -96,3 +96,22 @@ export const dropRekeyFile = () => withStore('readwrite', (s) => s.delete(KEY));
 
 /** Where another device learns whom to dial in the new books, until it has. */
 export const DIAL_STORAGE_KEY = 'belege.rekey.dial';
+
+/**
+ * A setting's newest value as the books' own identity wrote it (#627): the
+ * settings log walked newest first, entries by any other writer – a member –
+ * passed over. Null when the books never wrote it.
+ *
+ * @param {any} db the settings database
+ * @param {string} key the setting
+ * @param {string} writer the books' identity id
+ */
+export async function successorWrittenBy(db, key, writer) {
+	for await (const entry of db.log.iterator()) {
+		const record = entry.payload?.value;
+		if (entry.payload?.op !== 'PUT' || record?.key !== key) continue;
+		if ((await db.access.writerOf(entry)) !== writer) continue;
+		return record.deleted ? null : (record.value ?? null);
+	}
+	return null;
+}
