@@ -73,7 +73,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 35: new keys for the books (#627): a new root, the books moved into new
 //     databases, the new vault left in the old books for other devices.
 // 36: a backup made before new keys restores into today's books (#628).
-export const CONSENT_VERSION = '36';
+// 37: Le Space Credits (#593): a balance at credits.le-space.de, signed by the
+//     books' Aleph key, topped up through Stripe on the service's own page.
+export const CONSENT_VERSION = '37';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

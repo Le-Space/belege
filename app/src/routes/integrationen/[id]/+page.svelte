@@ -10,6 +10,7 @@
 	import KrakenCard from '$lib/exchanges/KrakenCard.svelte';
 	import WalletsCard from '$lib/wallets/WalletsCard.svelte';
 	import AlephCard from '$lib/aleph/AlephCard.svelte';
+	import CreditsCard from '$lib/credits/CreditsCard.svelte';
 	import BackupCard from '$lib/backup/BackupCard.svelte';
 	import MoveCard from '$lib/move/MoveCard.svelte';
 	import DevicesCard from '$lib/sync/DevicesCard.svelte';
@@ -88,6 +89,7 @@
 		{:else if id === 'wallets'}
 			<WalletsCard url={bridge.url} token={bridge.token} paired={bridgePaired()} />
 		{:else if id === 'aleph'}
+			<CreditsCard />
 			<AlephCard url={bridge.url} token={bridge.token} paired={bridgePaired()} />
 		{:else if id === 'geraete'}
 			<DevicesCard />

@@ -860,6 +860,14 @@ export default {
 				technical:
 					'The CAR of every database block (entries already sealed, manifests, access controllers, writers’ identities) and every receipt file’s sealed blocks is sealed once more with AES-256-GCM under a key derived from the passkey’s PRF (HKDF, belege/backup-key/v1). Upload: POST https://ipfs.aleph.cloud/api/v0/add, no key. The STORE message (personal_sign, channel BELEGE-BACKUP, paid in credits of the bridge’s account) is signed by a secp256k1 key this browser makes itself and keeps sealed in the settings – once the account has allowed it in its security aggregate (pnpm setup:aleph -- --authorize); until then by the bridge’s key (pnpm setup:aleph, in the keychain). Aleph keeps the file while the account has credits. The backups are listed by Aleph’s messages API (api2.aleph.im) with owners=<account>.'
 			},
+			credits: {
+				name: 'Le Space Credits (credits.le-space.de, Stripe)',
+				text: 'Only once you switch it on under Integrations → Aleph: a balance for the services Le Space runs for Belege, topped up by card.',
+				leaves:
+					'To credits.le-space.de (Le Space): the address of your books’ Aleph key, signed with every request, and this device’s IP address – for the balance, purchases and refunds. When topping up, to Stripe, in a frame of credits.le-space.de: card, e-mail and billing country, as Stripe needs them for the payment and the invoice. Never your books, never a receipt.',
+				technical:
+					'Every request carries X-LS-Address, X-LS-Timestamp and a personal_sign signature (EIP-191) over ls-credits/v1, method, path, product belege, address and time; the service accepts each time once and for five minutes only. The key is the secp256k1 key Belege makes for the backup and keeps sealed in the settings; it does not leave the browser. Stripe’s script does not run on belege.le-space.de: the payment page is on credits.le-space.de (/pay) and only framed here; the client secret is in the address’s fragment and reaches no server log. The page reports “paid” by postMessage; Belege believes only the balance it reads back, signed, afterwards. Paid credits do not expire; Le Space refunds the remaining balance on request.'
+			},
 			deepseek: {
 				name: 'Language model – DeepSeek by default, or LibertAI confidential (extracting receipts, AI search)',
 				text: 'The model you set up in the bridge. Only for buttons with ✦ (see “AI” above).',
@@ -1383,6 +1391,36 @@ export default {
 				'Whether the top-up is booked as a prepayment and only the usage as an expense is for the tax adviser.',
 			none: 'No top-up and no deployment yet.'
 		}
+	},
+	credits: {
+		title: 'Le Space Credits',
+		what: 'A balance in euro for the services Le Space runs for Belege: the AI service and a hosted bridge. Topped up by card through Stripe, with no account and no subscription. The balance belongs to the books: every own device sees the same.',
+		offNote: 'Off. Belege asks credits.le-space.de for the balance only once it is switched on.',
+		switchOn: 'Switch on Le Space Credits',
+		switchOff: 'Switch off',
+		paused: 'The network is paused: balance and top-ups wait.',
+		reserved: 'of which held for calls in progress: {amount}',
+		lineKi: 'AI this month',
+		lineVm: 'Hosted bridge this month',
+		package: 'Package {id}: about {hours} hours left this period',
+		topUp: 'Top up {amount}',
+		payTitle: 'Top up with Stripe',
+		withdrawal:
+			'I want Le Space to start the service right away. I know that I lose my right of withdrawal once the service has been provided in full; until then, Le Space refunds the unused balance if I withdraw.',
+		toPayment: 'Continue to payment',
+		cancel: 'Cancel',
+		ownWindow: 'Open the payment in its own window',
+		paidElsewhere: 'I have paid',
+		waiting: 'Waiting for the payment to be booked …',
+		booked: 'Topped up.',
+		notYet: 'The payment is not booked yet. The balance shows it as soon as Stripe reports it.',
+		refund: 'Refund the remaining balance',
+		refundConfirm:
+			'The whole free balance back to the card? A running package ends with its period.',
+		refundYes: 'Yes, refund',
+		refundAsked: 'Refund requested. Le Space checks it and pays it back through Stripe.',
+		refundPending: 'A refund is requested.',
+		account: 'Account at {host}:'
 	},
 	aleph: {
 		title: 'Aleph Cloud (hosting credits)',

@@ -883,6 +883,14 @@ export default {
 				technical:
 					'Das CAR aller Datenbank-Blöcke (Einträge schon versiegelt, Manifeste, Access-Controller, Identitäten der Schreiber) und der versiegelten Blöcke jeder Belegdatei wird noch einmal mit AES-256-GCM versiegelt, unter einem Schlüssel aus dem PRF des Passkeys (HKDF, belege/backup-key/v1). Upload: POST https://ipfs.aleph.cloud/api/v0/add, ohne Schlüssel. Die STORE-Nachricht (personal_sign, Kanal BELEGE-BACKUP, bezahlt mit Credits des Kontos der Bridge) unterschreibt ein secp256k1-Schlüssel, den dieser Browser selbst erzeugt und versiegelt in den Einstellungen hält – sobald das Konto ihn in seinem security-Aggregat freigegeben hat (pnpm setup:aleph -- --authorize); bis dahin der Schlüssel der Bridge (pnpm setup:aleph, im Schlüsselbund). Aleph bewahrt die Datei auf, solange das Konto Credits hat. Die Backups listet die Nachrichten-API von Aleph (api2.aleph.im) über owners=<Konto>.'
 			},
+			credits: {
+				name: 'Le Space Credits (credits.le-space.de, Stripe)',
+				text: 'Erst wenn du es unter Integrationen → Aleph einschaltest: Guthaben für die Dienste, die Le Space für Belege betreibt, aufgeladen mit Karte.',
+				leaves:
+					'An credits.le-space.de (Le Space): die Adresse des Aleph-Schlüssels deiner Bücher, mit jeder Anfrage unterschrieben, und die IP-Adresse dieses Geräts – für Guthaben, Käufe und Erstattungen. Beim Aufladen an Stripe, in einem Fenster von credits.le-space.de: Karte, E-Mail und Rechnungsland, wie Stripe sie für die Zahlung und die Rechnung braucht. Nie deine Bücher, nie ein Beleg.',
+				technical:
+					'Jede Anfrage trägt X-LS-Address, X-LS-Timestamp und eine personal_sign-Signatur (EIP-191) über ls-credits/v1, Methode, Pfad, Produkt belege, Adresse und Zeit; der Dienst nimmt jede Zeit nur einmal und nur fünf Minuten lang an. Der Schlüssel ist der secp256k1-Schlüssel, den Belege für das Backup macht und versiegelt in den Einstellungen hält; er verlässt den Browser nicht. Stripes Skript läuft nicht auf belege.le-space.de: Die Zahlungsseite liegt auf credits.le-space.de (/pay) und wird hier nur eingerahmt; das Client-Secret steht im Fragment der Adresse und erreicht kein Server-Log. Die Seite meldet „bezahlt“ per postMessage; Belege glaubt nur dem Guthaben, das es danach signiert abfragt. Bezahltes Guthaben verfällt nicht; das Restguthaben erstattet Le Space auf Anfrage.'
+			},
 			deepseek: {
 				name: 'Sprachmodell – voreingestellt DeepSeek, oder LibertAI vertraulich (Belege auslesen, KI-Suche)',
 				text: 'Das Modell, das du in der Bridge einstellst. Nur bei Knöpfen mit ✦ (siehe „KI“ oben).',
@@ -1371,6 +1379,36 @@ export default {
 		files: 'Belegdateien',
 		blocks: 'Blöcke insgesamt',
 		history: 'Bisherige Backups'
+	},
+	credits: {
+		title: 'Le Space Credits',
+		what: 'Guthaben in Euro für die Dienste, die Le Space für Belege betreibt: den KI-Dienst und eine gehostete Bridge. Aufgeladen mit Karte über Stripe, ohne Konto und ohne Abo. Das Guthaben gehört zu den Büchern: Jedes eigene Gerät sieht dasselbe.',
+		offNote: 'Aus. Erst nach dem Einschalten fragt Belege credits.le-space.de nach dem Guthaben.',
+		switchOn: 'Le Space Credits einschalten',
+		switchOff: 'Ausschalten',
+		paused: 'Das Netz ist pausiert: Guthaben und Aufladen ruhen.',
+		reserved: 'davon für laufende Aufrufe vorgemerkt: {amount}',
+		lineKi: 'KI diesen Monat',
+		lineVm: 'Gehostete Bridge diesen Monat',
+		package: 'Paket {id}: noch etwa {hours} Stunden in dieser Periode',
+		topUp: '{amount} aufladen',
+		payTitle: 'Aufladen mit Stripe',
+		withdrawal:
+			'Ich möchte, dass Le Space sofort mit der Leistung beginnt. Mir ist bekannt, dass ich mein Widerrufsrecht verliere, sobald die Leistung vollständig erbracht ist; bis dahin erstattet Le Space bei einem Widerruf das nicht genutzte Guthaben.',
+		toPayment: 'Weiter zur Zahlung',
+		cancel: 'Abbrechen',
+		ownWindow: 'Zahlung im eigenen Fenster öffnen',
+		paidElsewhere: 'Ich habe bezahlt',
+		waiting: 'Warte, bis die Zahlung gebucht ist …',
+		booked: 'Aufgeladen.',
+		notYet: 'Die Zahlung ist noch nicht gebucht. Das Guthaben erscheint, sobald Stripe sie meldet.',
+		refund: 'Restguthaben erstatten lassen',
+		refundConfirm:
+			'Das ganze freie Guthaben zurück auf die Karte? Ein laufendes Paket endet mit seiner Periode.',
+		refundYes: 'Ja, erstatten',
+		refundAsked: 'Erstattung angefragt. Le Space prüft sie und zahlt über Stripe zurück.',
+		refundPending: 'Eine Erstattung ist angefragt.',
+		account: 'Konto bei {host}:'
 	},
 	aleph: {
 		title: 'Aleph Cloud (Hosting-Credits)',
