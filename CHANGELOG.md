@@ -6,9 +6,24 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Wallet bookings in the app's language** (#637): what wallet sync writes into the books itself – the network fee, sent and received, staking and mining, a swap's purpose and its numbers – follows the language at the time of the import. Bookings already imported keep theirs.
+
+### Fixed
+
+- **New keys for the books: the successor counts only as the books wrote it** (#638): a device switches to new keys only on an entry the books' own identity wrote, and a successor that does not open never keeps the books from opening.
+- In English, the "bridge not reachable" message named the German button; a test of the recovery words no longer mistakes a field name for a word.
+
 ## [0.28.1] – 2026-11-04
 
 What 0.28.0 brought, now on belege.le-space.de: 0.28.0 was tagged, but its deploy stopped at its own tests and never went out.
+
+### Added
+
+- **The sample books in the app's language** (#636): in English, accounts, counterparties, purposes, receipt excerpts and file names are English; the banks' booking codes stay.
+- **The Le Space Credits balance card** under _Integrationen → Aleph_ (#593).
+- **A test of collaboration over the internet** (#625): after each release, the owner on a GitHub runner and the bookkeeping on an Aleph VM, against belege.le-space.de through the public relays.
 
 ### Fixed
 
