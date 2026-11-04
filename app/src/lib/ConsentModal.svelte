@@ -279,10 +279,9 @@
 					<p class="mt-1.5 text-sm leading-relaxed">{line}</p>
 				{/each}
 				<!--
-					The options the network section will have. One so far, and not
-					switchable: collaboration is planned, and when it comes it is
-					switched on here, explicitly. A disabled row rather than none, so
-					the place is visible and nobody wonders whether it is on.
+					The options of the network section: own devices, switched here;
+					collaboration (#6), which needs device sync and starts under
+					Integrationen → Zusammenarbeit, not here.
 				-->
 				<ul
 					class="mt-3 divide-y divide-border rounded-md border border-border"
@@ -322,38 +321,20 @@
 							</span>
 						</label>
 					</li>
-					<li data-testid="consent-collaboration" data-state="planned">
-						<label class="flex cursor-not-allowed items-start gap-3 px-3 py-2.5">
-							<!-- A real switch, off and disabled: the place where it will be turned on. -->
-							<input
-								type="checkbox"
-								role="switch"
-								disabled
-								checked={false}
-								aria-describedby="consent-collaboration-text"
-								class="sr-only"
-								data-testid="consent-collaboration-switch"
-							/>
-							<span
-								class="mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full border border-border bg-surface-2 p-0.5"
-								aria-hidden="true"
-							>
-								<span class="h-3.5 w-3.5 rounded-full bg-faint/60"></span>
-							</span>
-							<span class="min-w-0 flex-1">
-								<span class="flex flex-wrap items-center gap-2">
-									<span class="text-sm font-medium text-heading"
-										>{t('consent.network.collaboration')}</span
-									>
-									<span class="rounded-md border px-1.5 py-0.5 text-xs font-medium {chip.planned}"
-										>{t('consent.status.planned')}</span
-									>
-								</span>
-								<span id="consent-collaboration-text" class="mt-0.5 block text-sm"
-									>{t('consent.network.collaborationText')}</span
+					<li data-testid="consent-collaboration" data-state={syncOn ? 'on' : 'off'}>
+						<div class="px-3 py-2.5 pl-15">
+							<span class="flex flex-wrap items-center gap-2">
+								<span class="text-sm font-medium text-heading"
+									>{t('consent.network.collaboration')}</span
+								>
+								<span class="rounded-md border px-1.5 py-0.5 text-xs font-medium {chip.planned}"
+									>{t('consent.status.withDevices')}</span
 								>
 							</span>
-						</label>
+							<span id="consent-collaboration-text" class="mt-0.5 block text-sm"
+								>{t('consent.network.collaborationText')}</span
+							>
+						</div>
 					</li>
 				</ul>
 				<TechnicalNote

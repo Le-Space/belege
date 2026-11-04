@@ -82,8 +82,22 @@ gone. You can add a second passkey as a spare.
   time. The bridge must be running for this.
 - **Le Space invoicing app:** it delivers own receipts and learns which of its invoices are paid.
 
+## 7. The bookkeeping works in your books
+
+Your bookkeeping gets into your books with their own passkey (_Integrationen → Zusammenarbeit_).
+They make a join code, you admit it and send the answer back. From then on they open your books
+next to their own, assign receipts, make own receipts, export and back up. They write under their
+own name. Passkeys, recovery words and inviting others stay with you.
+
+- **You need:** device sync on both sides; both devices online at the same time, so that the books
+  replicate.
+- **What leaves:** the same as with several own devices – sealed, through a relay or
+  directly. The join code and its answer go the way you send them; the answer is sealed for the
+  device that made the code.
+- **More:** [keys.md](keys.md#members), [backup.md](backup.md#members-back-up-and-restore).
+
 ## Coming later
 
 Not ready yet, but planned: the bridge as a machine of its own in the cloud, attested and paired
-like on your computer. An AI service from Le Space. Paying with Le Space Credits. And shared books
-with colleagues or the tax adviser.
+like on your computer. An AI service from Le Space. Paying with Le Space Credits. More roles in shared
+books – the tax adviser reading only, say –, taking a member out, and new keys after that.

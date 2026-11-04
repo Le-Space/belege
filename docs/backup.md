@@ -96,6 +96,19 @@ On an empty device, with the member's passkey:
 2. On the next unlock, choose the books you are a member of. The vault opens the key bundle.
 3. The backup card already knows the paying account and lists the backups. "Wiederherstellen" brings the books back.
 
+```mermaid
+flowchart LR
+    P[member's passkey] -->|PRF| G[memberships' index on Aleph]
+    G --> V[member vault]
+    P -->|its slot| V
+    V --> B[key bundle + member root]
+    G --> A[paying account, sealed]
+    B -->|member root| A
+    A --> L[the books' backups on Aleph]
+    B -->|backup key| L
+    L --> R[books restored, as the member's]
+```
+
 A member never gets the books' root, their passkeys or their recovery words. Adding a passkey to the books, moving them or inviting another member stays with the owner.
 
 ## Let another key back up

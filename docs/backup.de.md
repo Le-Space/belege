@@ -96,6 +96,19 @@ Auf einem leeren Gerät, mit dem Passkey des Mitglieds:
 2. Beim nächsten Entsperren die Bücher wählen, in denen du Mitglied bist. Der Tresor öffnet den Schlüsselbund.
 3. Die Backup-Karte kennt das zahlende Konto schon und zeigt die Backups. „Wiederherstellen“ holt die Bücher zurück.
 
+```mermaid
+flowchart LR
+    P[Passkey des Mitglieds] -->|PRF| G[Index der Mitgliedschaften bei Aleph]
+    G --> V[Mitglieds-Tresor]
+    P -->|sein Fach| V
+    V --> B[Schlüsselbund + Wurzel des Mitglieds]
+    G --> A[zahlendes Konto, versiegelt]
+    B -->|Wurzel des Mitglieds| A
+    A --> L[Backups der Bücher bei Aleph]
+    B -->|Backup-Schlüssel| L
+    L --> R[Bücher wiederhergestellt, als die des Mitglieds]
+```
+
 Ein Mitglied bekommt nie die Wurzel der Bücher, ihre Passkeys oder ihre Wiederherstellungswörter. Einen Passkey hinzufügen, die Bücher umziehen und weitere Mitglieder einladen bleibt beim Inhaber.
 
 ## Einen anderen Schlüssel sichern lassen

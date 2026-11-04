@@ -44,6 +44,7 @@ Until a peer has proved it, the node answers it only with identify, the circuit 
 - In the other modes, any device that proves the passkey is let in.
 - **The bridge between own devices** (`belege-bridge`) answers a peer only if the books know it as an own device _and_ it proved the passkey on this connection; a phone calls only devices that proved.
 - **The bridge's own node** (`bridge/src/node.js`) runs the same gate, on a key of its own. At its pairing by invitation a device derives that key from the books' root, for this bridge and one generation of the pairing, and hands it over; the bridge keeps it in its keychain. The books' device key never leaves the browser. Devices prove themselves with the bridge's key toward that one peer only, and let it reach none of their own protocols (no gossipsub, no Bitswap): a copy of the key opens no device. "Kopplung lösen" moves the books to the next generation, so the old key is worth nothing. The bridge admits only peers on the books' device list and serves its functions over the stream to them only.
+- **A member's devices** ([keys.md](keys.md#members)) prove themselves like own devices: the member's key bundle carries the device-proof key. Their peer id comes from the member's own root, not from the books' root. Admitting a member puts the device that joined on the device list; another device of the member comes in like a new own device (in "Beides", over the own network first).
 - **Removing a device** deletes its record; every device hangs up on it and refuses it from then on.
 
 ## Why it is sound
