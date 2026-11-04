@@ -775,7 +775,7 @@ export default {
 				'Kein privater Schlüssel liegt auf dem Gerät: Die Bücher schreiben als eigene Identität, ein Ed25519-Schlüssel, der bei jedem Entsperren aus einem Geheimnis der Bücher entsteht, das wiederum aus derselben PRF-Antwort kommt (belege/books-secret/v1). Er lebt nur im Arbeitsspeicher dieser Sitzung. Der Passkey selbst unterschreibt nichts für die Datenbanken; seine DID steht als Autor in jedem Eintrag.',
 				'Gespeichert werden die OrbitDB-Dokumentdatenbanken transactions, receipts, partners, accounts, settings, matches, questions, events und travel, auf Helia mit LevelBlockstore und LevelDatastore in IndexedDB (belege/helia-blocks, belege/helia-data, belege/orbitdb). Jeder Eintrag ist mit AES-GCM verschlüsselt und als Ganzes noch einmal mit einem eigenen Schlüssel (belege/replication-key/v1): Ohne ihn sind weder Inhalt noch Schreiber, Zeitpunkt oder Verweise eines Eintrags lesbar, und die Namen der Datenbanken verraten nicht, was sie enthalten. Belegdateien haben einen eigenen Schlüssel (belege/blob-key/v1).',
 				'Im localStorage liegt kein Schlüssel und nichts aus den Büchern, nur Öffentliches: die Angaben zum Passkey (Credential-ID, öffentlicher Schlüssel, DID, PRF-Eingabe) und Merker dieser Seite, etwa ob der Hinweis gelesen ist, Hell/Dunkel, die Sprache, das Netz und ob die Bücher schon umgezogen sind. Bücher aus früheren Versionen können dort noch die Signatur des Passkeys über ihr früheres Identitätsdokument haben.',
-				'Der Tresor der Bücher (#406) liegt versiegelt im localStorage: die Wurzel aller Schlüssel unter einem zufälligen Tresorschlüssel, und je Passkey ein Fach mit diesem Schlüssel, versiegelt mit einem Schlüssel aus der PRF-Antwort des Passkeys (AES-256-GCM). Wer will, legt ihn zusätzlich bei Aleph ab (Einstellungen → Schlüssel): versiegelt, unter Adressen, die aus Passkey und Wurzel abgeleitet sind, mit der Credential-ID jedes Passkeys, ohne Namen.',
+				'Der Tresor der Bücher (#406) liegt versiegelt im localStorage: die Wurzel aller Schlüssel unter einem zufälligen Tresorschlüssel, und je Passkey ein Fach mit diesem Schlüssel, versiegelt mit einem Schlüssel aus der PRF-Antwort des Passkeys (AES-256-GCM). Wer will, legt ihn zusätzlich bei Aleph ab (Einstellungen → Schlüssel): versiegelt, unter Adressen, die aus Passkey und Wurzel abgeleitet sind, mit der Credential-ID jedes Passkeys, ohne Namen. „Neue Schlüssel für die Bücher“ (#627) macht eine neue Wurzel und einen neuen Tresor mit den früheren Wurzeln darin; die Bücher werden im Browser versiegelt gepackt (Schlüssel aus der neuen Wurzel, IndexedDB belege-rekey), in neue Datenbanken übernommen und das Paket danach gelöscht. In die alten Bücher kommt der neue Tresor (books/successor), damit andere Geräte mit einem Passkey darin wechseln.',
 				'Ist dieser Browser Mitglied fremder Bücher, liegt dort zusätzlich ein Mitglieds-Tresor (belege.memberships.v1): der Schlüsselbund und die eigene Wurzel des Mitglieds, versiegelt wie der Tresor der Bücher, mit einem Fach für den Passkey des Mitglieds. Nach jeder Sicherung des Mitglieds liegt er auch bei Aleph, unter einer Adresse aus der PRF-Antwort dieses Passkeys (belege/vault-index/member/v1): versiegelt, ohne Namen, mit dem zahlenden Konto versiegelt unter der Wurzel des Mitglieds.'
 			]
 		},
@@ -791,7 +791,7 @@ export default {
 				'Deine Bücher und Belege auch auf deinem Telefon oder einem zweiten Rechner mit demselben Passkey. Die Geräte verbinden sich über ein Le-Space-Relay (gefunden über Aleph, siehe „Le-Space-Relays“) und, wo möglich, direkt; alles ist verschlüsselt, bevor es das Gerät verlässt. Oder, im Netzwerk-Menü oben unter „Wo sich Geräte treffen“, ohne Relay per QR: Zwei Geräte im selben Netz scannen gegenseitig einen Code und verbinden sich direkt – dann fragt Le Space Belege weder Aleph noch ein Relay noch einen STUN-Server, und der Code zeigt nur die Kennung des Geräts und seine Adressen im lokalen Netz. Oder „Nur im eigenen Netz“: Die Geräte treffen sich am Relay deiner eigenen Bridge (auf dem Rechner mit `pnpm setup:relay` eingerichtet) – dann fragt Le Space Belege weder Aleph noch einen öffentlichen Relay noch einen STUN-Server, und dein Rechner sieht nur die Adressen im lokalen Netz und wann die Geräte verbunden sind. Oder „Beides“: alle drei Wege zugleich, aber ein Gerät, das die Bücher noch nicht kennen, kommt nur per QR oder über den Relay deiner Bridge herein – erst danach auch über die öffentlichen Relays. Ein Gerät bekommt die Bücher erst, wenn es beweist, dass es denselben Passkey hat; der Relay und andere Peers bekommen nichts davon, auch nicht verschlüsselt. Der Relay sieht, dass zwei Geräte miteinander reden, ihre IP-Adressen und die Kennungen (Hash-Werte) der Datenbanken, nie Inhalte. Gilt für dieses Gerät, ab dem nächsten Entsperren. Auf einem Rechner mit Bridge kannst du sie zusätzlich für deine eigenen Geräte freigeben (Integrationen → Eigene Geräte): Dann nutzt das Telefon Bank, Postfach, KI und Wallets über diesen Rechner – nur die freigegebenen Abfragen, verschlüsselt, der Zugang der Bridge bleibt auf dem Rechner. Oder du koppelst die Bridge per Einladung (Integrationen → Bridge): Dann verbindet sie sich selbst mit denselben Relays, und deine Geräte erreichen sie dort, auch wenn am Rechner kein Browser offen ist. Der Relay sieht dabei nur ihre Kennung und verschlüsselte Daten. Die Bridge bekommt dafür einen eigenen Schlüssel, nie den Schlüssel deiner Geräte, und kommt an keine deiner Bücher.',
 			collaboration: 'Zusammenarbeit',
 			collaborationText:
-				'Mitglieder in deinen Büchern, zuerst die Buchhaltung. Unter Integrationen → Zusammenarbeit macht die Person einen Beitrittscode, und du nimmst sie auf. Sie bekommt die Schlüssel, um deine Bücher zu lesen, darin zu schreiben und sie zu sichern – nie ihre Wurzel, nie deine Passkeys oder Wiederherstellungswörter. Sie schreibt unter eigenem Namen, und ihre Geräte gleichen sich über den Geräte-Sync ab wie deine. Nimmst du ein Mitglied heraus, nimmt kein Gerät der Bücher mehr an, was es danach schreibt, und seine bisherigen Geräte werden abgewiesen. Was es gesehen hat, lässt sich nicht zurücknehmen, und mit seinen Schlüsseln könnte es Späteres lesen, bis die Bücher neue Schlüssel bekommen. Chat und Video kommen später.',
+				'Mitglieder in deinen Büchern, zuerst die Buchhaltung. Unter Integrationen → Zusammenarbeit macht die Person einen Beitrittscode, und du nimmst sie auf. Sie bekommt die Schlüssel, um deine Bücher zu lesen, darin zu schreiben und sie zu sichern – nie ihre Wurzel, nie deine Passkeys oder Wiederherstellungswörter. Sie schreibt unter eigenem Namen, und ihre Geräte gleichen sich über den Geräte-Sync ab wie deine. Nimmst du ein Mitglied heraus, nimmt kein Gerät der Bücher mehr an, was es danach schreibt, und seine bisherigen Geräte werden abgewiesen. Was es gesehen hat, lässt sich nicht zurücknehmen, und mit seinen Schlüsseln könnte es Späteres lesen, bis du den Büchern neue Schlüssel gibst (Einstellungen → Schlüssel). Chat und Video kommen später.',
 			technical: [
 				'Im Browser läuft ein libp2p-Knoten, weil OrbitDB einen braucht – ohne Transporte, ohne Bootstrap-Liste und ohne Peer-Discovery. Er kann niemanden anwählen und hört auf keiner Adresse. Nur wenn du Le Space Belege mit deiner Rechnungs-App koppelst, kommt ein zweiter, eigener Knoten dazu, der sich mit einem Relay verbindet (siehe „Rechnungs-App“ unten); an deine Bücher kommt er nicht.',
 				'Sein Peer-Schlüssel (Ed25519) entsteht in jeder Sitzung neu und wird nirgends gespeichert.',
@@ -2259,6 +2259,30 @@ export default {
 			renewed: 'Entfernt, der Tresor ist erneuert.',
 			removeLimit:
 				'Was Entfernen nicht kann: Ein Passkey, der die Bücher schon geöffnet hat, kennt die Wurzel ihrer Schlüssel, und ältere Sicherungen tragen sein Fach weiter.',
+			rekey: {
+				title: 'Neue Schlüssel für die Bücher',
+				intro:
+					'Nach dem Herausnehmen eines Mitglieds, oder wenn ein Passkey in fremde Hände geraten sein könnte: Die Bücher bekommen eine neue Wurzel und ziehen in neue Datenbanken um, in diesem Browser. Was danach in die Bücher kommt, kann niemand lesen, der nur die alten Schlüssel hat.',
+				stay: 'Diese Passkeys bleiben – jeder antwortet einmal:',
+				button: 'Neue Schlüssel …',
+				confirmTitle: 'Was danach zu tun ist',
+				words: 'Die Wiederherstellungswörter gelten nicht mehr: Schreib neue auf.',
+				members: 'Mitglieder treten mit einem neuen Beitrittscode wieder bei.',
+				bridge: 'Die Bridge wird neu gekoppelt.',
+				others:
+					'Andere Geräte wechseln von selbst, wenn ihr Passkey oben dabei ist. Ein Passkey, der nicht dabei ist, öffnet nur noch die alten Bücher.',
+				backups:
+					'Sichere danach gleich neu. Ältere Backups bleiben bei Aleph; sie wiederherzustellen kommt mit einer der nächsten Versionen.',
+				time: 'Das dauert bei vielen Belegen ein paar Minuten. Danach lädt die Seite neu, und du entsperrst einmal.',
+				yes: 'Neue Schlüssel erzeugen',
+				no: 'Abbrechen',
+				thisOne: 'Der Passkey dieses Browsers muss bleiben.',
+				taking: 'Die Bücher ziehen unter die neuen Schlüssel um …',
+				done: 'Die Bücher haben neue Schlüssel. Schreib neue Wiederherstellungswörter auf, lass Mitglieder neu beitreten und kopple die Bridge neu.',
+				left: 'Diese Bücher haben neue Schlüssel bekommen, und dieser Passkey ist dort nicht dabei. Was du hier siehst, ist der alte Stand; Neues kommt nicht mehr dazu.',
+				afterRemoval:
+					'Mitglied herausgenommen. Damit es auch Späteres nicht lesen kann: Einstellungen → Schlüssel → Neue Schlüssel für die Bücher.'
+			},
 			addLabel: 'Weiteren Passkey anlegen',
 			addPlaceholder: 'z. B. YubiKey im Safe',
 			add: 'Passkey anlegen',

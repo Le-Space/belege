@@ -100,4 +100,4 @@ own name. Passkeys, recovery words and inviting others stay with you.
 
 Not ready yet, but planned: the bridge as a machine of its own in the cloud, attested and paired
 like on your computer. An AI service from Le Space. Paying with Le Space Credits. More roles in shared
-books – the tax adviser reading only, say –, and new keys after taking a member out.
+books – the tax adviser reading only, say.

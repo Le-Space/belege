@@ -4,6 +4,7 @@
 	// and taking the answer. Nothing here goes over the network: the two texts
 	// travel however the people like; the answer opens on the joining device only.
 	import { onMount } from 'svelte';
+	import { resolve } from '$app/paths';
 	import { btn, card } from '$lib/ui/styles.js';
 	import { t } from '$lib/i18n/index.js';
 	import CopyButton from '$lib/CopyButton.svelte';
@@ -25,6 +26,8 @@
 	let removed = $state([]);
 	/** The member whose "Herausnehmen" asks first. */
 	let removing = $state('');
+	/** Just taken out: new keys are offered (#627). */
+	let removedNow = $state(false);
 	let busy = $state(false);
 	/** @type {string | null} */
 	let error = $state(null);
@@ -80,6 +83,7 @@
 		run(async () => {
 			await removeMember(writer);
 			removing = '';
+			removedNow = true;
 			await load();
 		});
 	/** @param {string} iso */
@@ -156,6 +160,16 @@
 		</ul>
 	{:else}
 		<p class="mt-1 text-sm text-faint" data-testid="members-none">{t('members.none')}</p>
+	{/if}
+	{#if removedNow}
+		<p class="mt-2 text-sm text-text" role="status" data-testid="member-removed-next">
+			{t('settings.keys.rekey.afterRemoval')}
+			<a
+				class="text-link underline"
+				href={`${resolve('/einstellungen')}#rekey`}
+				data-testid="member-rekey-link">{t('settings.keys.rekey.title')}</a
+			>
+		</p>
 	{/if}
 	{#if removed.length}
 		<details class="mt-2 text-sm" data-testid="members-removed">

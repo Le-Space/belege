@@ -56,6 +56,13 @@ export const app = $state({
 	vault: { slots: [], indexOn: false, words: null },
 	/** Books just made: recovery words are offered once (keys/WordsOffer.svelte). */
 	offerWords: false,
+	/**
+	 * New keys for the books (#627): `left` – this passkey has no slot in the
+	 * new vault, these are the old books; `done` – the books were taken over
+	 * under the new keys; `taking` – that is going on now.
+	 * @type {'' | 'left' | 'done' | 'taking'}
+	 */
+	rekey: '',
 	/** Device sync (#123): off, or this device's id and the devices it knows. */
 	sync: {
 		online: false,
@@ -1401,6 +1408,18 @@ async function unlockWith(
 		...(recovered ? { recovered } : {}),
 		...(memberOf ? { memberOf } : {})
 	});
+	// The books have new keys (#627): this passkey took the new vault – the
+	// page opens it at once, with one more answer of the passkey – or has no
+	// slot in it, and stays in the old books, which say so.
+	if (session.moved && 'peers' in session.moved) {
+		const { DIAL_STORAGE_KEY } = await import('./move/rekey.js');
+		globalThis.localStorage.setItem(DIAL_STORAGE_KEY, JSON.stringify(session.moved.peers));
+		await session.stop().catch(() => {});
+		session = null;
+		location.reload();
+		return new Promise(() => {});
+	}
+	app.rekey = session.moved ? 'left' : '';
 	app.member = session.member
 		? { books: session.member.books.label, writer: session.member.writer }
 		: null;
@@ -1432,6 +1451,8 @@ async function unlockWith(
 	progress?.status({ step: 'books' });
 	await refresh();
 	installE2EHooks();
+	// New keys made on this device (#627): the books packed before the reload come in.
+	await takeOverAfterNewKeys().catch((e) => console.error('new keys:', e));
 	// Changed elsewhere while this device was locked: one run, in the background (#473).
 	{
 		const { fingerprint, lastRunOf } = await import('./matching/catch-up.js');
@@ -1451,7 +1472,11 @@ async function unlockWith(
 		// The bridge's calls wait until device sync has set up the stream to its node (#575).
 		const { holdBridgeTransport } = await import('./bridge/client.js');
 		const release = session?.online ? holdBridgeTransport() : () => {};
-		startDeviceSyncIfOn().finally(release).then(watchQrConnections);
+		startDeviceSyncIfOn()
+			.finally(release)
+			.then(watchQrConnections)
+			.then(dialAfterNewKeys)
+			.catch((e) => console.warn('device sync:', e));
 	}
 	const { folderSupported } = await import('./receipts/folder.js');
 	if (folderSupported() && !stopFolderWatch) {
@@ -1593,6 +1618,146 @@ export async function publishBooksVault(extraKeys = []) {
  * card shows until the books' own settings have come by sync.
  */
 export const pointedOwner = () => session?.pointedOwner || null;
+
+/**
+ * "Neue Schlüssel für die Bücher" (#627), on the owner's device: a new root
+ * and a new vault for the passkeys in `stay` – each answers once –, the books
+ * packed for it and kept in this browser, their successor written into the
+ * old books, and the page reloaded into the new books (move/rekey.js).
+ *
+ * @param {string[]} stay the slot ids of the passkeys that stay; this one among them
+ */
+export async function renewBooksKeys(stay) {
+	if (!session) throw new Error('The books are not open.');
+	const opened = ownerVault();
+	if (!stay.includes(opened.kid)) throw new Error(t('settings.keys.rekey.thisOne'));
+	const [
+		vaultModule,
+		{ readPrfOutput },
+		{ WebAuthnDIDProvider },
+		{ packBooks },
+		rekey,
+		keys,
+		sync,
+		{ releaseName }
+	] = await Promise.all([
+		import('./books-vault.js'),
+		import('./passkey-identity.js'),
+		import('@le-space/orbitdb-identity-provider-webauthn-did'),
+		import('./move/book-move.js'),
+		import('./move/rekey.js'),
+		import('./database-keys.js'),
+		import('./sync/device-sync.js'),
+		import('./build-info.js')
+	]);
+	const wordsKid = await vaultModule.wordsSlotId();
+	/** @type {{ prfOutput: Uint8Array, rawCredentialId: Uint8Array }[]} */
+	const answers = [];
+	for (const slot of opened.record.slots.filter(
+		(x) => stay.includes(x.kid) && x.kid !== wordsKid
+	)) {
+		const rawCredentialId = new Uint8Array(
+			WebAuthnDIDProvider.base64urlToArrayBuffer(slot.credentialId)
+		);
+		answers.push({
+			prfOutput: await readPrfOutput({ credentialId: slot.credentialId, rawCredentialId }),
+			rawCredentialId
+		});
+	}
+	const root = crypto.getRandomValues(new Uint8Array(32));
+	try {
+		const next = await vaultModule.newBooksVault(opened, answers, root);
+		const blobs = currentBlobs();
+		if (!blobs) throw new Error('The books are not open.');
+		const { file } = await packBooks({
+			store: /** @type {any} */ (session.store),
+			blobs,
+			seal: { to: rekey.rekeyMoveKey(root).publicKey },
+			appVersion: releaseName() || 'dev',
+			kept: [...rekey.KEPT],
+			dropped: [...rekey.DROPPED]
+		});
+		await rekey.keepRekeyFile(file);
+		// Whom another device dials in the new books: this one, under its new id.
+		const { generateKeyPairFromSeed } = await import('@libp2p/crypto/keys');
+		const { peerIdFromPrivateKey } = await import('@libp2p/peer-id');
+		const peer = peerIdFromPrivateKey(
+			await generateKeyPairFromSeed(
+				'Ed25519',
+				await keys.deriveDevicePeerSeed(root, sync.deviceSalt())
+			)
+		).toString();
+		const successor = { vault: next.record.vault, removed: next.record.removed, peers: [peer] };
+		await setSetting(session.store.settings, rekey.SUCCESSOR_SETTING, successor);
+		// For a device offline now: the old books' index on Aleph names it too,
+		// when the vault is kept there.
+		if (app.vault.indexOn && !networkPause()) {
+			const { publishRootSuccessor } = await import('./backup/vault-index.js');
+			await publishRootSuccessor({ root: opened.root, successor }).catch((e) =>
+				console.warn('vault index:', e)
+			);
+		}
+		// Devices connected now get it through the old books: a moment for that.
+		if ((app.sync.state?.devices ?? []).some((d) => d.connected)) {
+			await session.store.resync().catch(() => {});
+			await new Promise((resolve) => setTimeout(resolve, 10_000));
+		}
+		// This browser takes the new vault now, so the reload opens the new books.
+		vaultModule.replaceVaultRecord(opened.record.vault.id, next.record, globalThis.localStorage);
+	} finally {
+		root.fill(0);
+		for (const a of answers) a.prfOutput.fill(0);
+	}
+	await session.stop().catch(() => {});
+	session = null;
+	location.reload();
+}
+
+/** The books packed for new keys (#627), taken over into the new books once. */
+async function takeOverAfterNewKeys() {
+	if (!session?.vault) return;
+	const rekey = await import('./move/rekey.js');
+	const file = await rekey.rekeyFile();
+	if (!file) return;
+	const { MoveError, openMoveFile, takeOverBooks } = await import('./move/book-move.js');
+	/** @type {Awaited<ReturnType<typeof openMoveFile>>} */
+	let opened;
+	try {
+		opened = await openMoveFile(file, rekey.rekeyMoveKey(session.vault.root));
+	} catch (e) {
+		// Sealed for other books: not for these, and kept for the ones it is for.
+		if (e instanceof MoveError && e.code === 'key') return;
+		throw e;
+	}
+	const blobs = currentBlobs();
+	if (!blobs) return;
+	app.rekey = 'taking';
+	await takeOverBooks({ store: /** @type {any} */ (session.store), blobs, opened });
+	await rekey.dropRekeyFile();
+	app.rekey = 'done';
+	await refresh();
+	if (app.vault.indexOn && !networkPause()) {
+		publishBooksVault().catch((e) => console.warn('vault index:', e));
+	}
+}
+
+/** Another device of the owner, in the new books (#627): it dials the one that made them. */
+async function dialAfterNewKeys() {
+	const { DIAL_STORAGE_KEY } = await import('./move/rekey.js');
+	const raw = globalThis.localStorage.getItem(DIAL_STORAGE_KEY);
+	if (!raw || !deviceSync) return;
+	/** @type {unknown} */
+	let peers;
+	try {
+		peers = JSON.parse(raw);
+	} catch {
+		peers = [];
+	}
+	for (const peer of Array.isArray(peers) ? peers : []) {
+		if (typeof peer === 'string' && peer) await deviceSync.addDevice(peer).catch(() => {});
+	}
+	globalThis.localStorage.removeItem(DIAL_STORAGE_KEY);
+}
 
 /**
  * A member's vault on Aleph (#613), with the account the books' backups are
