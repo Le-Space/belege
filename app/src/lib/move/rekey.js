@@ -28,13 +28,9 @@ import { sha256 } from '@noble/hashes/sha2.js';
 export const SUCCESSOR_SETTING = 'books/successor';
 
 /** Settings a move leaves out that new keys in the same browser keep. */
-export const KEPT = Object.freeze([
-	'backup/owner',
-	'backup/aleph-key',
-	'backups',
-	'network-mode',
-	'lan-relay'
-]);
+// Not the browser's Aleph key: every member had it to back up; the new books
+// make one of their own, which the account then lets in.
+export const KEPT = Object.freeze(['backup/owner', 'backups', 'network-mode', 'lan-relay']);
 /** Left out besides: members join again; the backup chain names the old databases. */
 export const DROPPED = Object.freeze(['member:', 'backup/chain', SUCCESSOR_SETTING]);
 

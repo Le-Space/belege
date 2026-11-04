@@ -1344,7 +1344,8 @@ export async function removeMember(writer) {
 		(m) => m.writer === writer && !m.removed
 	);
 	if (!member) throw new Error(t('members.error.unknown'));
-	const devices = [...member.devices, ...(await session.removeWriter(writer))];
+	const theirs = await session.removeWriter(writer);
+	const devices = [...member.devices, ...theirs.devices];
 	for (const peerId of devices.filter((d, i) => devices.indexOf(d) === i)) {
 		if (deviceSync) {
 			await deviceSync.removeDevice(peerId).catch(() => {});
@@ -1353,7 +1354,15 @@ export async function removeMember(writer) {
 				await settings.softDelete(r.id);
 		}
 	}
+	// What only the owner sets, as the member last set it: put back to unset.
+	const { OWNER_SETTINGS } = await import('./members/members.js');
+	const reset = theirs.settings.filter((k) => OWNER_SETTINGS.includes(k));
+	for (const key of reset) {
+		for (const r of await settings.list({ where: (x) => x.key === key }))
+			await settings.softDelete(r.id);
+	}
 	await removeMemberRecord(settings, writer, { at: isoNow(), by: app.did ?? '' });
+	return { reset, changed: theirs.settings.filter((k) => !OWNER_SETTINGS.includes(k)) };
 }
 
 /** A timestamp for a stored record, not reactive state. */
@@ -1704,6 +1713,7 @@ export async function renewBooksKeys(stay) {
 	const root = crypto.getRandomValues(new Uint8Array(32));
 	try {
 		const next = await vaultModule.newBooksVault(opened, answers, root);
+		const byOthers = await session.settingsByOthers([...rekey.KEPT]);
 		const blobs = currentBlobs();
 		if (!blobs) throw new Error('The books are not open.');
 		const { file } = await packBooks({
@@ -1711,7 +1721,8 @@ export async function renewBooksKeys(stay) {
 			blobs,
 			seal: { to: rekey.rekeyMoveKey(root).publicKey },
 			appVersion: releaseName() || 'dev',
-			kept: [...rekey.KEPT],
+			// What only the owner sets comes along only as the owner set it.
+			kept: [...rekey.KEPT].filter((k) => !byOthers.includes(k)),
 			dropped: [...rekey.DROPPED]
 		});
 		await rekey.keepRekeyFile(file);

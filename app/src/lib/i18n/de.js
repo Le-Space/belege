@@ -1518,7 +1518,11 @@ export default {
 			stays:
 				'Was das Mitglied gelesen hat, behält es. Mit den Schlüsseln, die es hat, könnte es auch Späteres lesen, bis die Bücher neue Schlüssel bekommen.',
 			yes: 'Herausnehmen',
-			no: 'Abbrechen'
+			no: 'Abbrechen',
+			reset:
+				'Zurückgesetzt, was nur du einstellst und das Mitglied zuletzt eingestellt hatte: {keys}.',
+			changed:
+				'Das Mitglied hat zuletzt auch diese Einstellungen geändert – sieh sie dir an: {keys}.'
 		},
 		admit: {
 			title: 'Mitglied aufnehmen',
@@ -2332,7 +2336,8 @@ export default {
 				confirmTitle: 'Was danach zu tun ist',
 				words: 'Die Wiederherstellungswörter gelten nicht mehr: Schreib neue auf.',
 				members: 'Mitglieder treten mit einem neuen Beitrittscode wieder bei.',
-				bridge: 'Die Bridge wird neu gekoppelt.',
+				bridge:
+					'Die Bridge wird neu gekoppelt, und das Aleph-Konto erlaubt den neuen Backup-Schlüssel dieses Browsers neu; den alten nimmst du dort zurück.',
 				others:
 					'Andere Geräte wechseln von selbst, wenn ihr Passkey oben dabei ist. Ein Passkey, der nicht dabei ist, öffnet nur noch die alten Bücher.',
 				backups:

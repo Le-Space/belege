@@ -42,6 +42,23 @@ export async function addMemberRecord(settings, member) {
 }
 
 /**
+ * Settings only the owner sets (#614 audit): where the backups are kept and
+ * signed, the bridge, how devices meet, the vault on Aleph, the books'
+ * successor, the invoicing app. A member's value for one of them is put back
+ * when the member is taken out, and not carried over to new keys.
+ */
+export const OWNER_SETTINGS = Object.freeze([
+	'backup/owner',
+	'backup/aleph-key',
+	'bridge',
+	'network-mode',
+	'lan-relay',
+	'vault/index',
+	'books/successor',
+	'ucepInvoiceApp'
+]);
+
+/**
  * A member taken out (#614): the record stays, marked deleted, with when.
  *
  * @param {import('../store/repository.js').Collection} settings

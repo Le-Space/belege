@@ -155,7 +155,8 @@ export const STORAGE_PATHS = Object.freeze({
  * @property {Uint8Array | null} bridgeAuthBase the base of the bridge's own key (online only), in memory only (database-keys.js)
  * @property {(label: string) => Promise<import('./members/member-vault.js').MemberBundle>} memberBundle what a member gets (#611)
  * @property {(writer: string) => Promise<void>} grantWriter a member's write identity may write to every collection
- * @property {(writer: string) => Promise<string[]>} removeWriter a member taken out of every collection's access list (#614); the devices their settings named
+ * @property {(writer: string) => Promise<{ devices: string[], settings: string[] }>} removeWriter a member taken out of every collection's access list (#614): the devices only they wrote, the settings whose newest value is theirs
+ * @property {(keys: string[]) => Promise<string[]>} settingsByOthers the settings among these whose newest value a member wrote
  * @property {{ peerId: string | null, key: Uint8Array | null }} bridgeAuth the books' bridge and its key for this generation: the gate proves with it toward that peer only
  * @property {() => Promise<void>} stop
  * @property {{ signingKey?: Uint8Array, booksSecret: Uint8Array | null, databaseKey: Uint8Array, replicationKey: Uint8Array, blobKey: Uint8Array, peerKey: Uint8Array }} [secretsForE2E]
@@ -914,29 +915,62 @@ export async function startSession(
 			/**
 			 * Take a member out (#614): in every collection's access list, what
 			 * they wrote by now still counts and nothing after (store/books-access.js).
-			 * Returns the devices their entries in the settings name.
+			 * Returns the devices only they ever wrote into the settings – not one
+			 * the books wrote too –, and the settings whose newest value is theirs.
 			 *
 			 * @param {string} writer
 			 */
 			async removeWriter(writer) {
 				if (!prfOutput) throw new Error('Only the owner of the books takes members out.');
-				/** @type {Set<string>} */
-				const devices = new Set();
+				/** @type {Map<string, Set<string>>} a setting → everyone who wrote it */
+				const writersOf = new Map();
+				/** @type {Map<string, string>} a setting → who wrote its newest value */
+				const newest = new Map();
 				for (const [name, db] of Object.entries(store.databases())) {
 					const access = /** @type {any} */ (db).access;
 					/** @type {string[]} */
 					const theirs = [];
 					for await (const entry of /** @type {any} */ (db).log.iterator()) {
-						if ((await access.writerOf(entry)) !== writer) continue;
-						theirs.push(entry.hash);
-						const key = String(entry.payload?.key ?? '');
-						if (name === 'settings' && key.startsWith('device:')) {
-							devices.add(key.slice('device:'.length));
+						const by = await access.writerOf(entry);
+						const key = String(entry.payload?.value?.key ?? '');
+						if (name === 'settings' && key) {
+							if (!newest.has(key)) newest.set(key, by);
+							writersOf.set(key, (writersOf.get(key) ?? new Set()).add(by));
 						}
+						if (by === writer) theirs.push(entry.hash);
 					}
 					await access.removeWriter(writer, theirs);
 				}
-				return [...devices];
+				const onlyTheirs = (/** @type {string} */ key) =>
+					[...(writersOf.get(key) ?? [])].every((w) => w === writer);
+				return {
+					devices: [...writersOf.keys()]
+						.filter((k) => k.startsWith('device:') && onlyTheirs(k))
+						.map((k) => k.slice('device:'.length)),
+					settings: [...newest]
+						.filter(([k, by]) => by === writer && !/^(device|member):/.test(k))
+						.map(([k]) => k)
+				};
+			},
+			/**
+			 * The settings among `keys` whose newest value the books did not write
+			 * themselves – a member did (#627: not carried over to new keys).
+			 *
+			 * @param {string[]} keys
+			 */
+			async settingsByOthers(keys) {
+				const db = /** @type {any} */ (store.databases().settings);
+				/** @type {Set<string>} */
+				const seen = new Set();
+				/** @type {string[]} */
+				const others = [];
+				for await (const entry of db.log.iterator()) {
+					const key = String(entry.payload?.value?.key ?? '');
+					if (!keys.includes(key) || seen.has(key)) continue;
+					seen.add(key);
+					if ((await db.access.writerOf(entry)) !== booksIdentity.id) others.push(key);
+				}
+				return others;
 			},
 			// Only in E2E builds, so the test can look for these bytes on disk.
 			// Written inline so every other build drops it, not just skips it.
