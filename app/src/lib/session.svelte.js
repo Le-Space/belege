@@ -2035,6 +2035,15 @@ function installE2EHooks() {
 			}
 			return { closed, relays: [...peers] };
 		},
+		// A backup's bytes, and putting them back, without Aleph (#628).
+		backupBytes: async () => {
+			const built = await session?.makeBackup({ appVersion: 'e2e' });
+			return built ? Array.from(built.sealed) : null;
+		},
+		restoreBytes: async (/** @type {number[]} */ bytes) => {
+			const done = await session?.restoreBackup(new Uint8Array(bytes));
+			return done ? { target: done.target, databases: done.databases } : null;
+		},
 		// A made-up receipt, as reading one would leave it (instalments spec, #258).
 		addReceipt: (/** @type {Record<string, any>} */ r) => session?.store.receipts.put(r),
 		// …and one with its file in the sealed blob store (the receipt preview, #273).

@@ -72,7 +72,8 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     keys stop.
 // 35: new keys for the books (#627): a new root, the books moved into new
 //     databases, the new vault left in the old books for other devices.
-export const CONSENT_VERSION = '35';
+// 36: a backup made before new keys restores into today's books (#628).
+export const CONSENT_VERSION = '36';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

@@ -133,7 +133,7 @@ _Einstellungen → Schlüssel → Neue Schlüssel für die Bücher_ ([#627](http
 4. The page reloads; one unlock opens new databases under R′ – new names, new keys, a new identity of the books – and they take the packed books over. The pack is deleted.
 5. Another device of yours finds the new vault in the old books and switches, if its passkey has a slot; it then dials this device.
 
-What does not come along: the recovery words (write down new ones), members (they join again with a new join code), the bridge pairing (pair again), the backup chain (the next backup is a full one). Backups made before stay on Aleph; restoring them under the new keys comes with [#628](https://github.com/Le-Space/belege/issues/628). A passkey you did not tick, and a member taken out, keep only the old books, which get nothing new.
+What does not come along: the recovery words (write down new ones), members (they join again with a new join code), the bridge pairing (pair again), the backup chain (the next backup is a full one). Backups made before still restore ([#628](https://github.com/Le-Space/belege/issues/628)): the backup opens with the earlier root kept in the vault, and its records come into today's books one by one – only where these have no newer version –, the receipt files sealed anew. A passkey you did not tick, and a member taken out, keep only the old books, which get nothing new.
 
 ## Passkey prompts
 
