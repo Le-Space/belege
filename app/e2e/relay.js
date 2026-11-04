@@ -87,7 +87,11 @@ async function createRelay() {
 			identifyPush: identifyPush(),
 			relay: circuitRelayServer({
 				reservations: {
-					maxReservations: 32,
+					// The relay keeps a reservation until it expires, not until its peer
+					// leaves, and every browser of the suite is a peer of its own: with
+					// the specs of several devices (members, new keys) 32 ran out
+					// before the UCEP spec asked for its place.
+					maxReservations: 1024,
 					...circuitLimits()
 				}
 			})

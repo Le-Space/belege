@@ -6,7 +6,13 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
-## [0.28.0] – 2026-11-04
+What 0.28.0 brought, now on belege.le-space.de: 0.28.0 was tagged, but its deploy stopped at its own tests and never went out.
+
+### Fixed
+
+- **The E2E suite's local relay has room for every browser** (#634): it keeps a reservation until it expires, not until its peer leaves, and with the specs of several devices its 32 places ran out before the UCEP spec asked for one – which stopped 0.28.0's deploy. Test code only.
+
+## [0.28.0] – 2026-11-04 (not deployed)
 
 ### Added
 
