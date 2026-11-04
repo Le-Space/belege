@@ -1490,7 +1490,9 @@ export default {
 			stays:
 				'What the member has read stays with them. With the keys they have, they could also read later entries until the books get new keys.',
 			yes: 'Take out',
-			no: 'Cancel'
+			no: 'Cancel',
+			reset: 'Put back what only you set and the member had set last: {keys}.',
+			changed: 'The member also changed these settings last – have a look: {keys}.'
 		},
 		admit: {
 			title: 'Admit a member',
@@ -2294,7 +2296,8 @@ export default {
 				confirmTitle: 'What to do after',
 				words: 'The recovery words no longer apply: write down new ones.',
 				members: 'Members join again with a new join code.',
-				bridge: 'The bridge is paired again.',
+				bridge:
+					'The bridge is paired again, and the Aleph account lets this browser’s new backup key in; take the old one back there.',
 				others:
 					'Other devices switch by themselves when their passkey is ticked above. A passkey that is not opens only the old books.',
 				backups:
