@@ -29,6 +29,7 @@ export const KEEP = 50;
  * @property {string} [itemHash] the STORE message
  * @property {string} [address] the Aleph account that pays
  * @property {string} [sender] who signed the STORE: this browser's key, or the bridge's
+ * @property {string} [by] made by a member (#613): their write identity; absent: by the owner
  * @property {number} entries log entries in it, all databases (an increment's: the new ones)
  * @property {{ collection: string, entries: number }[]} [databases] per database
  * @property {number} files receipt files in it

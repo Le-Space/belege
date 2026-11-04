@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	MEMBERSHIPS_STORAGE_KEY,
 	MemberBundleError,
+	adoptMemberships,
 	createMemberVault,
 	decodeBundle,
 	encodeBundle,
@@ -134,5 +135,74 @@ describe('the member vault', () => {
 		await createMemberVault({ bundle: bundle(), passkey: passkey(3), storage });
 		expect(await openMemberships({ ...passkey(1), storage })).toHaveLength(2);
 		expect(await openMemberships({ ...passkey(3), storage })).toHaveLength(1);
+	});
+});
+
+describe('memberships an empty device found on Aleph (#613)', () => {
+	/** As index G holds one: no names, no books. @param {import('./member-vault.js').MemberRecord} r */
+	const published = (r) => ({
+		vault: r.vault,
+		slots: r.slots.map(({ kid, credentialId, addedAt }) => ({
+			kid,
+			label: '',
+			credentialId,
+			addedAt
+		})),
+		pointer: { iv: 'aa', ciphertext: 'bb' }
+	});
+
+	it('keeps the ones this passkey opens, named by their books, and leaves out the others', async () => {
+		const elsewhere = memoryStorage();
+		const mine = await createMemberVault({
+			bundle: bundle(),
+			passkey: passkey(1),
+			storage: elsewhere
+		});
+		const theirs = await createMemberVault({
+			bundle: bundle(),
+			passkey: passkey(2),
+			storage: elsewhere
+		});
+		const empty = memoryStorage();
+		const kept = await adoptMemberships({
+			found: [published(mine.record), published(theirs.record)],
+			...passkey(1),
+			storage: empty
+		});
+		expect(kept).toHaveLength(1);
+		expect(kept[0].books).toEqual({ did: DID_BOOKS, label: 'Wolkenfabrik Hosting GmbH' });
+		expect(kept[0].pointer).toEqual({ iv: 'aa', ciphertext: 'bb' });
+		const [opened] = await openMemberships({ ...passkey(1), storage: empty });
+		expect(opened.bundle).toEqual(bundle());
+		expect([...opened.memberRoot]).toEqual([...mine.memberRoot]);
+	});
+
+	it('one kept here already stays as it is, with its passkeys’ names', async () => {
+		const storage = memoryStorage();
+		const mine = await createMemberVault({ bundle: bundle(), passkey: passkey(1), storage });
+		expect(
+			await adoptMemberships({ found: [published(mine.record)], ...passkey(1), storage })
+		).toEqual([]);
+		const [opened] = await openMemberships({ ...passkey(1), storage });
+		expect(opened.record.slots[0].label).toBe('Passkey 1');
+	});
+
+	it('a vault that does not open with this passkey’s slot is left out', async () => {
+		const elsewhere = memoryStorage();
+		const mine = await createMemberVault({
+			bundle: bundle(),
+			passkey: passkey(1),
+			storage: elsewhere
+		});
+		const empty = memoryStorage();
+		expect(
+			await adoptMemberships({
+				found: [published(mine.record)],
+				...passkey(1),
+				prfOutput: key(77),
+				storage: empty
+			})
+		).toEqual([]);
+		expect(await openMemberships({ ...passkey(1), storage: empty })).toEqual([]);
 	});
 });

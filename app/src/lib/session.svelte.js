@@ -129,7 +129,7 @@ export const app = $state({
 		/** @type {string | null} a QR invite that came by link, waiting for the books to open (sync/qr-link-url.js) */
 		qrInvite: null
 	},
-	/** @type {{ books: string } | null} the books open are someone else's, as their member (#612) */
+	/** @type {{ books: string, writer: string } | null} the books open are someone else's, as their member (#612), who writes as `writer` */
 	member: null,
 	/** Belege as a UCEP consumer (ucep/): the invoicing app it is paired with. */
 	ucep: {
@@ -1372,7 +1372,9 @@ async function unlockWith(
 		...(recovered ? { recovered } : {}),
 		...(memberOf ? { memberOf } : {})
 	});
-	app.member = session.member ? { books: session.member.books.label } : null;
+	app.member = session.member
+		? { books: session.member.books.label, writer: session.member.writer }
+		: null;
 	await showVault();
 	app.network.syncCapable = Boolean(session.online);
 	app.network.reloadNeeded = false;
@@ -1555,6 +1557,26 @@ export async function publishBooksVault(extraKeys = []) {
 	});
 	await setSetting(session.store.settings, VAULT_INDEX_SETTING, true);
 	await showVault();
+}
+
+/**
+ * The paying account a member's index on Aleph named (#613): what the backup
+ * card shows until the books' own settings have come by sync.
+ */
+export const pointedOwner = () => session?.pointedOwner || null;
+
+/**
+ * A member's vault on Aleph (#613), with the account the books' backups are
+ * kept for: an empty device with the member's passkey finds the books' keys
+ * there, and with them the backups. Never while the network is paused.
+ */
+export async function publishMemberVault() {
+	if (!session?.member) throw new Error('The books open are not a member’s.');
+	if (networkPause()) throw new Error(t('settings.keys.paused'));
+	const { loadOwner } = await import('./backup/keeper.js');
+	await session.publishMembership(
+		(await loadOwner(session.store.settings)) ?? (session.pointedOwner || null)
+	);
 }
 
 /**

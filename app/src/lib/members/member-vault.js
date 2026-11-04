@@ -187,8 +187,10 @@ export function decodeBundle(text) {
 
 /**
  * @typedef {{ kid: string, label: string, credentialId: string, addedAt: string }} MemberSlotInfo
- * @typedef {{ vault: any, slots: MemberSlotInfo[], books: { did: string, label: string } }} MemberRecord
- *   `books`: which books this membership opens – public, so the unlock can say it
+ * @typedef {{ vault: any, slots: MemberSlotInfo[], books: { did: string, label: string }, pointer?: { iv: string, ciphertext: string } }} MemberRecord
+ *   `books`: which books this membership opens – public, so the unlock can say it;
+ *   `pointer`: the account the books' backups are kept for, sealed under the
+ *   member's root, as an empty device found it on Aleph (#613)
  */
 
 /** @param {Pick<Storage, 'getItem'>} storage @returns {MemberRecord[]} */
@@ -298,4 +300,51 @@ export async function openMemberships({ prfOutput, rawCredentialId, storage }) {
 		opened.push({ record, vaultKey, kid, ...decodePayload(payload) });
 	}
 	return opened;
+}
+
+/**
+ * Memberships an empty device found on Aleph (#613, backup/vault-index.js):
+ * each one this passkey's slot opens is kept here, named by the books its
+ * bundle opens, and from then on offered at unlock. One that does not open
+ * with this passkey is left out.
+ *
+ * @param {object} p
+ * @param {{ vault: any, slots: { kid: string, credentialId: string, addedAt: string }[], pointer: { iv: string, ciphertext: string } | null }[]} p.found
+ * @param {Uint8Array} p.prfOutput
+ * @param {Uint8Array} p.rawCredentialId
+ * @param {Pick<Storage, 'getItem' | 'setItem'>} p.storage
+ * @returns {Promise<MemberRecord[]>} the memberships kept
+ */
+export async function adoptMemberships({ found, prfOutput, rawCredentialId, storage }) {
+	const kid = await slotIdFor(rawCredentialId);
+	const slotKey = await slotKeyOf(prfOutput);
+	const here = new Set(loadMemberships(storage).map((r) => r.vault.id));
+	const kept = [];
+	for (const f of found) {
+		// One kept here already knows its passkeys' names: it stays as it is.
+		if (here.has(f.vault.id)) continue;
+		if (!f.vault.slots.some((/** @type {any} */ s) => s.kid === kid)) continue;
+		let bundle;
+		try {
+			const { payload } = await openVault(f.vault, { slotKey, rawCredentialId });
+			bundle = decodePayload(payload).bundle;
+		} catch {
+			continue;
+		}
+		/** @type {MemberRecord} */
+		const record = {
+			vault: f.vault,
+			slots: f.slots.map(({ kid, credentialId, addedAt }) => ({
+				kid,
+				label: '',
+				credentialId,
+				addedAt
+			})),
+			books: { did: bundle.books.did, label: bundle.books.label },
+			...(f.pointer ? { pointer: f.pointer } : {})
+		};
+		saveMembership(storage, record);
+		kept.push(record);
+	}
+	return kept;
 }

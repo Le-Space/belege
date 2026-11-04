@@ -1258,6 +1258,8 @@ export default {
 			'Zuwachs {sequence} gesichert: {size}, {entries} neue Einträge, {files} neue Belegdateien – {kept}.',
 		kindFull: 'Vollbackup',
 		kindIncrement: 'Zuwachs {sequence}',
+		byMember: 'von {name}',
+		byAMember: 'von einem Mitglied',
 		oldBridge:
 			'Die Bridge hat den Zuwachs ohne Verweis auf sein Vollbackup bei Aleph abgelegt – sie ist älter als diese Seite. Bridge aktualisieren (git pull, pnpm install, neu starten); das nächste Backup sichert alles seit dem letzten noch einmal.',
 		creditsLink: 'Credits kaufen oder überweisen (Aleph-Dashboard)',

@@ -84,6 +84,20 @@ What comes back is checked before it is opened: against the size the backup's ST
 
 A backup of other books cannot be opened ("gehört zu einem anderen Tresor"): its key comes from that vault's root. The way in is a passkey with a slot in that vault – added on the device with those books – or those books' recovery words.
 
+## Members back up and restore
+
+A member of the books – the bookkeeping, say – backs up and restores like the owner ([#613](https://github.com/Le-Space/belege/issues/613)). Their key bundle holds the books' backup key, so the backup is sealed the same way and goes to the same Aleph account, signed with the browser key the books allowed. The list of backups says who made each one ("von Buchhaltung").
+
+With each backup, the member's vault goes to Aleph too: at an address of its own, derived from the member's passkey, apart from the passkey's own books. Published are the sealed vault, its slots without names, and the paying account, sealed under a key only the member's vault opens. No name of the books, no member's name.
+
+On an empty device, with the member's passkey:
+
+1. "Passkey wiederherstellen" opens the member's own books and finds the membership on Aleph.
+2. On the next unlock, choose the books you are a member of. The vault opens the key bundle.
+3. The backup card already knows the paying account and lists the backups. "Wiederherstellen" brings the books back.
+
+A member never gets the books' root, their passkeys or their recovery words. Adding a passkey to the books, moving them or inviting another member stays with the owner.
+
 ## Let another key back up
 
 An application can back up from the browser without the bridge running. It holds a key of its own, and the bridge's account lets that key keep backups at its expense. Belege itself does this (channel `BELEGE-BACKUP`, above), and so does Le Space Invoice (channel `INVOICE-BACKUP`, Le-Space/invoice#28). Both show their key's address and the command.

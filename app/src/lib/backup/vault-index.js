@@ -12,6 +12,11 @@
 //   index W – one per set of recovery words (stage 2), from their seed: like
 //             P, the vault record as it was when the words were made.
 //
+//   index G – one per passkey, from its PRF output (#613): the member vaults
+//             this passkey opens, each under its own content key, with the
+//             pointer sealed under a key from the member's root. Written when
+//             a member backs up.
+//
 // An empty device with passkey B: B's PRF output → index P(B) → the vault,
 // opened with B's slot → the root → index M → the current vault and the
 // account → the backups (keeper.js `findBackups`).
@@ -35,6 +40,9 @@ export const VAULT_INDEX_CHANNEL = 'BELEGE-VAULT';
 const PASSKEY_INDEX_INFO = 'belege/vault-index/passkey/v1';
 const WORDS_INDEX_INFO = 'belege/vault-index/words/v1';
 const ROOT_INDEX_INFO = 'belege/vault-index/root/v1';
+const MEMBER_INDEX_INFO = 'belege/vault-index/member/v1';
+/** Each membership's content key at index G, before the member vault's id. */
+const MEMBERSHIP_PREFIX = 'member:';
 const POINTER_KEY_INFO = 'belege/vault-index/pointer/v1';
 /** Bound to every sealed pointer: it opens as nothing else. */
 const POINTER_PURPOSE = 'belege/vault-pointer/v1';
@@ -74,6 +82,9 @@ async function indexKey(material, info) {
 
 /** Index P's key, from a passkey's PRF output. @param {Uint8Array} prfOutput */
 export const passkeyIndexKey = (prfOutput) => indexKey(prfOutput, PASSKEY_INDEX_INFO);
+
+/** Index G's key, from a passkey's PRF output (#613). @param {Uint8Array} prfOutput */
+export const memberIndexKey = (prfOutput) => indexKey(prfOutput, MEMBER_INDEX_INFO);
 
 /** Index W's key, from the recovery words' seed. @param {Uint8Array} seed */
 export const wordsIndexKey = (seed) => indexKey(seed, WORDS_INDEX_INFO);
@@ -377,4 +388,80 @@ export async function publishVault({
 		...options
 	});
 	for (const key of passkeyKeys) await publishIndex({ key, content: { vault, slots }, ...options });
+}
+
+/**
+ * Publish a membership at index G (#613): the member vault with its slots, no
+ * names and no books, and the pointer to the account the books' backups are
+ * kept for, sealed under a key from the member's root. Other memberships at
+ * the same index stay: each has a content key of its own.
+ *
+ * @param {object} params
+ * @param {Uint8Array} params.key from `memberIndexKey`
+ * @param {Uint8Array} params.memberRoot
+ * @param {{ vault: any, slots: { kid: string, credentialId: string, addedAt: string }[] }} params.record the member vault record
+ * @param {string | null} [params.owner] the paying Aleph account
+ * @param {import('./keeper.js').AlephEndpoints} [params.endpoints]
+ * @param {typeof fetch} [params.fetch]
+ * @param {{ answerMs?: number, pollMs?: number, waitMs?: number }} [params.patience] see `publishIndex`
+ */
+export async function publishMembership({
+	key,
+	memberRoot,
+	record,
+	owner,
+	endpoints,
+	fetch: f,
+	patience
+}) {
+	const slots = record.slots.map(({ kid, credentialId, addedAt }) => ({
+		kid,
+		credentialId,
+		addedAt
+	}));
+	return publishIndex({
+		key,
+		content: {
+			[`${MEMBERSHIP_PREFIX}${record.vault.id}`]: {
+				vault: record.vault,
+				slots,
+				...(owner ? { pointer: await sealPointer(memberRoot, { owner }) } : {})
+			}
+		},
+		...(endpoints ? { endpoints } : {}),
+		...(f ? { fetch: f } : {}),
+		...(patience ? { patience } : {})
+	});
+}
+
+/**
+ * The memberships index G of this passkey holds, for an empty device: each
+ * vault with its slots and the pointer still sealed; none when there is no
+ * index.
+ *
+ * @param {{ prfOutput: Uint8Array, endpoints?: import('./keeper.js').AlephEndpoints, fetch?: typeof fetch }} params
+ * @returns {Promise<{ vault: any, slots: import('../books-vault.js').SlotInfo[], pointer: { iv: string, ciphertext: string } | null }[]>}
+ */
+export async function findMembershipsOnAleph({ prfOutput, endpoints, fetch: f }) {
+	const content = await readIndex({
+		key: await memberIndexKey(prfOutput),
+		...(endpoints ? { endpoints } : {}),
+		...(f ? { fetch: f } : {})
+	});
+	return Object.entries(content ?? {})
+		.filter(
+			([k, v]) =>
+				k.startsWith(MEMBERSHIP_PREFIX) &&
+				v?.vault &&
+				v.vault.id === k.slice(MEMBERSHIP_PREFIX.length) &&
+				Array.isArray(v.vault.slots)
+		)
+		.map(([, v]) => ({
+			vault: v.vault,
+			slots: slotsOf(v.slots),
+			pointer:
+				v.pointer && typeof v.pointer.iv === 'string' && typeof v.pointer.ciphertext === 'string'
+					? { iv: v.pointer.iv, ciphertext: v.pointer.ciphertext }
+					: null
+		}));
 }

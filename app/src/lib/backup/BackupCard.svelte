@@ -11,10 +11,11 @@
 	import CopyButton from '$lib/CopyButton.svelte';
 	import WayOut from '$lib/help/WayOut.svelte';
 	import { untrack } from 'svelte';
-	import { app, chainFitsBooks, currentStore } from '$lib/session.svelte.js';
+	import { app, chainFitsBooks, currentStore, pointedOwner } from '$lib/session.svelte.js';
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { card } from '$lib/ui/styles.js';
 	import { dropBackup, loadBackups, updateBackup } from './history.js';
+	import { membersOf } from '$lib/members/members.js';
 	import { loadChain } from './chain.js';
 	import {
 		askRestore,
@@ -80,6 +81,13 @@
 	let checking = $state(false);
 	/** @type {import('./history.js').BackupRecord[]} */
 	let backups = $state([]);
+	/** @type {Record<string, string>} the members' names, by write identity: who made a backup (#613) */
+	let memberNames = $state({});
+	/** @param {import('$lib/store/repository.js').Collection} settings */
+	const loadMemberNames = async (settings) =>
+		Object.fromEntries(
+			membersOf(await settings.list({ includeDeleted: true })).map((m) => [m.writer, m.label])
+		);
 	const step = $derived(backupRun.step);
 	/** @type {string | null} what this card did last that failed */
 	let error = $state(null);
@@ -319,6 +327,23 @@
 	$effect(() => {
 		load(paired);
 	});
+	// The account or the key not here yet: on a member's device (#613), or a
+	// new device of the owner's, they come by sync – read again when they do.
+	$effect(() => {
+		const store = currentStore();
+		if (!store) return;
+		/** @type {ReturnType<typeof setTimeout> | undefined} */
+		let again;
+		const stop = store.settings.onChange(() => {
+			if (owner && key) return;
+			clearTimeout(again);
+			again = setTimeout(() => untrack(() => load(paired)), 500);
+		});
+		return () => {
+			clearTimeout(again);
+			stop();
+		};
+	});
 	// A run that ended – here or while this card was not open – is in the
 	// history now: read it again, and what it cost.
 	$effect(() => {
@@ -327,6 +352,7 @@
 			const store = currentStore();
 			if (!store) return;
 			backups = await loadBackups(store.settings);
+			memberNames = await loadMemberNames(store.settings);
 			chain = await loadChain(store.settings);
 			if (owner) credits = await creditsOf({ owner, endpoints }).catch(() => credits);
 		});
@@ -338,10 +364,11 @@
 		const store = currentStore();
 		if (!store) return;
 		backups = await loadBackups(store.settings);
+		memberNames = await loadMemberNames(store.settings);
 		chain = await loadChain(store.settings);
-		key = await ensureBackupKey(store.settings);
-		address = await backupAddressOf(key);
-		owner = await loadOwner(store.settings);
+		key = await ensureBackupKey(store.settings, { create: !app.member });
+		address = key ? await backupAddressOf(key) : null;
+		owner = (await loadOwner(store.settings)) ?? pointedOwner();
 		status = null;
 		if (withToken) {
 			try {
@@ -361,11 +388,13 @@
 	}
 
 	async function check() {
-		if (!owner || !address) return;
+		if (!owner) return;
 		checking = true;
 		try {
+			// No key here yet (a member's device before the books' settings came,
+			// #613): not granted, but the account's backups are listed all the same.
 			const [g, c] = await Promise.allSettled([
-				isGranted({ owner, address, endpoints }),
+				address ? isGranted({ owner, address, endpoints }) : Promise.resolve(null),
 				creditsOf({ owner, endpoints })
 			]);
 			granted = g.status === 'fulfilled' ? g.value : null;
@@ -567,7 +596,11 @@
 				>· {b.kind === 'increment'
 					? t('backup.kindIncrement', { sequence: b.sequence ?? 0 })
 					: t('backup.kindFull')}</span
-			></span
+			>{#if b.by}<span class="text-xs text-faint" data-testid="backup-row-by"
+					>· {memberNames[b.by]
+						? t('backup.byMember', { name: memberNames[b.by] })
+						: t('backup.byAMember')}</span
+				>{/if}</span
 		>
 		<span class="text-faint">{b.size ? `${size(b.size)} · ` : ''}{kept(b.status)}</span>
 		{#if held(b)}
