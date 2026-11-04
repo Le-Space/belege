@@ -1,0 +1,23 @@
+# Every 6 hours: erase and forget Playwright runner VMs of this repository
+# that a cancelled or crashed remote-collaboration.yml run left behind
+# (relay-button's janitor, as in Le-Space/simple-todo). Only VMs named for
+# Le-Space/belege and older than an hour; the same wallet also pays for other
+# VMs, so a VM it cannot sweep is reported, not failed on.
+name: Aleph Playwright runner janitor
+
+on:
+  schedule:
+    - cron: '47 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    uses: NiKrause/relay-button/.github/workflows/playwright-runner-janitor.yml@main
+    with:
+      repository_scope: Le-Space/belege
+      ttl_ms: 3600000
+    secrets:
+      ALEPH_PRIVATE_KEY: ${{ secrets.ALEPH_PLAYWRIGHT_PRIVATE_KEY }}

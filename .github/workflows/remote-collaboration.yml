@@ -1,0 +1,265 @@
+# Collaboration over the internet (#625): the owner in a local Chromium on
+# this runner, the bookkeeping in Chromium on a short-lived Aleph VM, both on
+# the deployed app, meeting through the public Le Space relays. The scenario
+# is e2e-remote/ (README there); the VM part is modelled on
+# Le-Space/simple-todo's remote-replication.yml.
+#
+# Runs after every release (when release.yml, which deploys through
+# deploy.yml, has finished) and by hand. Never on a pull request: it tests
+# what belege.le-space.de serves, and it spends Aleph credits.
+#
+# Needs the repository secret ALEPH_PLAYWRIGHT_PRIVATE_KEY (the wallet that
+# pays for the VM; only the deploy and the cleanup steps see it). The browser
+# secret, the SSH key and the TLS certificate are made per run. The VM is
+# erased and forgotten at the end, whatever happened;
+# aleph-playwright-janitor.yml removes what a cancelled run left behind.
+name: Remote collaboration
+
+on:
+  workflow_run:
+    workflows: [Release, Deploy to Aleph]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: The deployed app
+        required: true
+        default: https://belege.le-space.de
+      provider:
+        description: Where the bookkeeping's browser runs
+        required: true
+        type: choice
+        options:
+          - aleph
+          - local
+        default: aleph
+      expect_release:
+        description: Wait until the app serves this release first, e.g. v0.28.0 (empty = do not wait)
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: belege-remote-collaboration
+  cancel-in-progress: false
+
+jobs:
+  collaboration:
+    # A finished release (release.yml deploys through deploy.yml), or a deploy
+    # for a release published by hand; never a test publish or a failed run.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       (github.event.workflow_run.name == 'Release' || github.event.workflow_run.event == 'release'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      REMOTE_APP_URL: ${{ inputs.app_url || 'https://belege.le-space.de' }}
+      REMOTE_PROVIDER: ${{ inputs.provider || 'aleph' }}
+      REMOTE_OUTPUT_DIR: ${{ github.workspace }}/test-results/remote-collab
+      REQUIRE_PUBLIC_RELAY: 'true'
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+          cache: pnpm
+          cache-dependency-path: e2e-remote/pnpm-lock.yaml
+
+      # Its own lockfile, outside the workspace: none of this reaches the app.
+      - run: pnpm install --dir e2e-remote --ignore-workspace --frozen-lockfile
+
+      - name: Install local Chromium
+        run: pnpm --dir e2e-remote exec playwright install --with-deps chromium
+
+      - name: Which release to expect
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED: ${{ inputs.expect_release }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_run ]; then
+            EXPECTED="$(gh release view -R "$GITHUB_REPOSITORY" --json tagName -q .tagName)"
+          fi
+          echo "tag=$EXPECTED" >> "$GITHUB_OUTPUT"
+
+      # Before any VM is paid for: the domain can serve the previous build for
+      # some minutes after deploy.yml linked it.
+      - name: Wait until the app serves the release
+        if: steps.release.outputs.tag != ''
+        env:
+          EXPECT_RELEASE: ${{ steps.release.outputs.tag }}
+        run: pnpm --dir e2e-remote run wait-release
+
+      - name: Create per-run SSH identity and browser secret
+        if: env.REMOTE_PROVIDER == 'aleph'
+        id: credentials
+        run: |
+          secret="$(openssl rand -hex 32)"
+          echo "::add-mask::$secret"
+          echo "secret=$secret" >> "$GITHUB_OUTPUT"
+          ssh-keygen -q -t ed25519 -N '' -f "$RUNNER_TEMP/aleph-playwright-id"
+          echo "ALEPH_PLAYWRIGHT_SSH_KEY=$RUNNER_TEMP/aleph-playwright-id" >> "$GITHUB_ENV"
+          echo "ssh_public_key=$(cat "$RUNNER_TEMP/aleph-playwright-id.pub")" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy Aleph VM with the playwright-runner RootFS
+        if: env.REMOTE_PROVIDER == 'aleph'
+        id: aleph-deploy
+        uses: NiKrause/relay-button/.github/actions/aleph-vm-deploy@main
+        with:
+          profile: playwright-runner
+          aleph_private_key: ${{ secrets.ALEPH_PLAYWRIGHT_PRIVATE_KEY }}
+          api_hosts: https://api2.aleph.im,https://api.aleph.im
+          name: belege-${{ github.run_id }}-${{ github.run_attempt }}
+          ssh_public_key: ${{ steps.credentials.outputs.ssh_public_key }}
+          # The same RootFS as simple-todo's remote-replication.yml (Playwright 1.61.1).
+          rootfs_item_hash: 'b41c7fe9fe687a22f37f52b52d008a9a924280faec04591ecf47976038f065be'
+          rootfs_version: playwright-1.61.1
+          rootfs_size_mib: '20480'
+          # Manual placement gives CRN failover; no preferred country, so the
+          # ranker shuffles its top pool instead of always picking one node.
+          placement_strategy: manual
+          max_crn_attempts: '8'
+          vcpus: '2'
+          memory_mib: '4096'
+          auto_configure: 'false'
+          verify_reachability: 'false'
+          publish_port_forwards: 'true'
+          required_ports_json: '[{"port":22,"tcp":true,"udp":false,"purpose":"SSH bootstrap and diagnostics"},{"port":443,"tcp":true,"udp":false,"purpose":"Authenticated Playwright WSS and version endpoint"}]'
+
+      - name: Resolve runtime ports
+        if: env.REMOTE_PROVIDER == 'aleph'
+        id: runtime
+        shell: bash
+        env:
+          RUNNER_HOST: ${{ steps.aleph-deploy.outputs.host_ipv4 }}
+          MAPPED_PORTS_JSON: ${{ steps.aleph-deploy.outputs.mapped_ports_json }}
+          CA_CERT_PATH: ${{ runner.temp }}/aleph-playwright-${{ github.run_id }}-${{ github.run_attempt }}.crt
+        run: |
+          host="$RUNNER_HOST"
+          mapped="$MAPPED_PORTS_JSON"
+          ssh_port="$(echo "$mapped" | python3 -c 'import json,sys; p=json.load(sys.stdin); print(p["22"]["host"])')"
+          tls_port="$(echo "$mapped" | python3 -c 'import json,sys; p=json.load(sys.stdin); print(p["443"]["host"])')"
+          if [[ -z "$host" || -z "$ssh_port" || -z "$tls_port" || -z "$CA_CERT_PATH" ]]; then
+            echo "Deployment must return host IPv4 plus exact SSH and TLS port mappings" >&2
+            exit 1
+          fi
+          origin="https://${host}:${tls_port}"
+          echo "ssh_port=${ssh_port}" >> "$GITHUB_OUTPUT"
+          echo "tls_port=${tls_port}" >> "$GITHUB_OUTPUT"
+          echo "ws_endpoint=${origin/https:/wss:}" >> "$GITHUB_OUTPUT"
+          echo "version_url=${origin}/version" >> "$GITHUB_OUTPUT"
+          echo "ca_cert_path=${CA_CERT_PATH}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate per-run TLS certificate
+        if: env.REMOTE_PROVIDER == 'aleph'
+        shell: bash
+        env:
+          RUNNER_HOST: ${{ steps.aleph-deploy.outputs.host_ipv4 }}
+          CA_CERT_PATH: ${{ steps.runtime.outputs.ca_cert_path }}
+        run: |
+          openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 1 \
+            -subj '/CN=aleph-playwright-runner' \
+            -addext "subjectAltName=IP:${RUNNER_HOST}" \
+            -keyout "${CA_CERT_PATH}.key" \
+            -out "${CA_CERT_PATH}" 2>/dev/null
+          chmod 600 "${CA_CERT_PATH}.key"
+          echo "ALEPH_PLAYWRIGHT_TLS_CERT=${CA_CERT_PATH}" >> "$GITHUB_ENV"
+          echo "ALEPH_PLAYWRIGHT_TLS_KEY=${CA_CERT_PATH}.key" >> "$GITHUB_ENV"
+
+      - name: Inject runner configuration via SSH
+        if: env.REMOTE_PROVIDER == 'aleph'
+        shell: bash
+        env:
+          RUNNER_HOST: ${{ steps.aleph-deploy.outputs.host_ipv4 }}
+          RUNNER_SSH_PORT: ${{ steps.runtime.outputs.ssh_port }}
+          RUNNER_SECRET: ${{ steps.credentials.outputs.secret }}
+        run: |
+          ssh_opts=(-i "$ALEPH_PLAYWRIGHT_SSH_KEY" -p "$RUNNER_SSH_PORT" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20)
+          scp_opts=(-i "$ALEPH_PLAYWRIGHT_SSH_KEY" -P "$RUNNER_SSH_PORT" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20)
+          ready=false
+          for _ in $(seq 1 60); do
+            if ssh "${ssh_opts[@]}" "root@$RUNNER_HOST" true 2>/dev/null; then ready=true; break; fi
+            sleep 5
+          done
+          if [ "$ready" != true ]; then echo 'SSH endpoint did not become ready.' >&2; exit 1; fi
+
+          env_file="$(mktemp)"
+          trap 'rm -f "$env_file"' EXIT
+          chmod 600 "$env_file"
+          printf 'PLAYWRIGHT_VERSION=1.61.1\nPLAYWRIGHT_RUNNER_SECRET=%s\n' "$RUNNER_SECRET" >"$env_file"
+          scp "${scp_opts[@]}" "$env_file" "root@$RUNNER_HOST:/etc/default/playwright-runner"
+          scp "${scp_opts[@]}" "$ALEPH_PLAYWRIGHT_TLS_CERT" "root@$RUNNER_HOST:/etc/playwright-runner/tls.crt"
+          scp "${scp_opts[@]}" "$ALEPH_PLAYWRIGHT_TLS_KEY" "root@$RUNNER_HOST:/etc/playwright-runner/tls.key"
+
+          if ! ssh "${ssh_opts[@]}" "root@$RUNNER_HOST" \
+            'chmod 0600 /etc/default/playwright-runner /etc/playwright-runner/tls.key; systemctl start playwright-runner-bootstrap.service; sleep 3; systemctl is-active --quiet playwright-runner.service playwright-runner-proxy.service; set -a; . /etc/default/playwright-runner; set +a; test "$(curl --fail --silent --show-error --insecure -H "Authorization: Bearer ${PLAYWRIGHT_RUNNER_SECRET}" https://127.0.0.1/version)" = "{\"playwrightVersion\":\"1.61.1\"}"'; then
+            echo 'Playwright runner services did not become active.' >&2
+            ssh "${ssh_opts[@]}" "root@$RUNNER_HOST" \
+              'systemctl status --no-pager --full playwright-runner-bootstrap.service playwright-runner.service playwright-runner-proxy.service >&2 || true; journalctl --no-pager --lines=120 -u playwright-runner-bootstrap.service -u playwright-runner.service -u playwright-runner-proxy.service >&2 || true' || true
+            exit 1
+          fi
+
+      - name: Export Aleph runtime env vars
+        if: env.REMOTE_PROVIDER == 'aleph'
+        env:
+          RUNNER_SECRET: ${{ steps.credentials.outputs.secret }}
+          WS_ENDPOINT: ${{ steps.runtime.outputs.ws_endpoint }}
+          VERSION_URL: ${{ steps.runtime.outputs.version_url }}
+          INSTANCE_HASH: ${{ steps.aleph-deploy.outputs.instance_item_hash }}
+          CRN_HASH: ${{ steps.aleph-deploy.outputs.crn_hash }}
+          CRN_NAME: ${{ steps.aleph-deploy.outputs.crn_name }}
+          CA_CERT_PATH: ${{ steps.runtime.outputs.ca_cert_path }}
+        run: |
+          {
+            echo "ALEPH_PLAYWRIGHT_SECRET=$RUNNER_SECRET"
+            echo "ALEPH_PLAYWRIGHT_WS_ENDPOINT=$WS_ENDPOINT"
+            echo "ALEPH_PLAYWRIGHT_VERSION_URL=$VERSION_URL"
+            echo "ALEPH_PLAYWRIGHT_INSTANCE_HASH=$INSTANCE_HASH"
+            echo "ALEPH_PLAYWRIGHT_CRN_HASH=$CRN_HASH"
+            echo "ALEPH_PLAYWRIGHT_CRN_NAME=$CRN_NAME"
+            echo "NODE_EXTRA_CA_CERTS=$CA_CERT_PATH"
+          } >> "$GITHUB_ENV"
+
+      - name: Owner and bookkeeping, over the internet
+        run: pnpm --dir e2e-remote run remote
+
+      - name: Collect Aleph guest logs on failure
+        if: failure() && env.REMOTE_PROVIDER == 'aleph' && steps.runtime.outputs.ssh_port != ''
+        env:
+          RUNNER_HOST: ${{ steps.aleph-deploy.outputs.host_ipv4 }}
+          RUNNER_SSH_PORT: ${{ steps.runtime.outputs.ssh_port }}
+        run: |
+          ssh -i "$ALEPH_PLAYWRIGHT_SSH_KEY" \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=20 \
+            -p "$RUNNER_SSH_PORT" \
+            "root@$RUNNER_HOST" \
+            'journalctl --no-pager --lines=200 -u playwright-runner-bootstrap.service -u playwright-runner.service -u playwright-runner-proxy.service' \
+            > "$RUNNER_TEMP/aleph-guest-logs.txt" 2>&1 || true
+
+      # Whatever happened above: erase the VM on its CRN, FORGET the INSTANCE,
+      # and wait until Aleph no longer lists it (@le-space/playwright's CLI).
+      - name: Erase and forget the Aleph INSTANCE
+        if: always() && env.REMOTE_PROVIDER == 'aleph' && steps.aleph-deploy.outputs.instance_item_hash != ''
+        env:
+          ALEPH_PRIVATE_KEY: ${{ secrets.ALEPH_PLAYWRIGHT_PRIVATE_KEY }}
+          ALEPH_PLAYWRIGHT_INSTANCE_HASH: ${{ steps.aleph-deploy.outputs.instance_item_hash }}
+          EVIDENCE_PATH: ${{ github.workspace }}/test-results/remote-collab/aleph-cleanup.json
+        run: pnpm --dir e2e-remote exec playwright-runner-cleanup
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: remote-collaboration-${{ github.run_id }}
+          path: |
+            test-results/remote-collab
+            ${{ runner.temp }}/aleph-guest-logs.txt
+          if-no-files-found: warn
+          retention-days: 14
