@@ -90,11 +90,11 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 		'Verlierst du alle Passkeys deiner Bücher und hast keine Wiederherstellungswörter, verlierst du den Zugang zu deinen Daten'
 	);
 	await expect(dialog.getByTestId('consent-network')).toContainText('Netzwerk: aus');
-	// Collaboration has its place, off and not switchable yet.
+	// Collaboration (#6): with device sync, started under Integrationen, not switched here.
 	const collaboration = dialog.getByTestId('consent-collaboration');
-	await expect(collaboration).toContainText('geplant');
-	await expect(dialog.getByTestId('consent-collaboration-switch')).toBeDisabled();
-	await expect(dialog.getByTestId('consent-collaboration-switch')).not.toBeChecked();
+	await expect(collaboration).toContainText('mit Geräte-Sync');
+	await expect(collaboration).toContainText('nie ihre Wurzel');
+	await expect(dialog.getByTestId('consent-collaboration-switch')).toHaveCount(0);
 	// Enable Banking and the LLM run only once they are set up on the bridge.
 	await expect(
 		dialog.locator('[data-service="enableBanking"]').getByTestId('consent-service-status')
@@ -154,7 +154,7 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	);
 	expect(Object.keys(after).filter((key) => !before.includes(key))).toEqual(['belege.consent']);
 	// CONSENT_VERSION in src/lib/consent.js.
-	expect(after['belege.consent']).toBe('32');
+	expect(after['belege.consent']).toBe('33');
 	await expect(page.getByTestId('passkey-onboarding')).toBeVisible();
 
 	await page.reload();

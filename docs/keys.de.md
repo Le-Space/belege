@@ -42,7 +42,8 @@ In diesem Browser liegt der Tresor-Datensatz im `localStorage`. Auf einem leeren
 
 - **an seinem eigenen Index** – einer Adresse aus der PRF-Antwort dieses Passkeys, wo der Tresor abgelegt wurde, als der Passkey sein Fach bekam;
 - **am Index der Wörter** – einer Adresse aus dem Seed der Wiederherstellungswörter, ebenso;
-- **am Index der Bücher** – einer Adresse aus R, mit dem aktuellen Tresor und, versiegelt, dem Aleph-Konto, für das die Sicherungen aufbewahrt werden.
+- **am Index der Bücher** – einer Adresse aus R, mit dem aktuellen Tresor und, versiegelt, dem Aleph-Konto, für das die Sicherungen aufbewahrt werden;
+- **am Index seiner Mitgliedschaften** – für ein Mitglied ([unten](#mitglieder)): einer Adresse aus der PRF-Antwort dieses Passkeys unter einem anderen Label, mit jedem Mitglieds-Tresor, den der Passkey öffnet, und, versiegelt mit der Wurzel des Mitglieds, dem Konto, für das die Sicherungen der Bücher aufbewahrt werden. Geschrieben, wenn das Mitglied sichert.
 
 Beides ist versiegelt, unterschrieben von Schlüsseln, zu denen nur der Passkey oder R führen, und trägt keine Namen, kein Wallet: neben dem Tresor nur die Credential-ID und das Datum jedes Fachs (`app/src/lib/backup/vault-index.js`). „Mit vorhandenem Passkey wiederherstellen“ fragt dort, außer das Netz ist pausiert; dann öffnen sich die Bücher mit ihren Schlüsseln, und „Wiederherstellen“ listet die Sicherungen.
 
@@ -65,16 +66,17 @@ Ein Schlüssel verrät nichts über einen anderen.
 
 ## Was wo liegt
 
-| Was                                            | Wo                                                     | In welcher Form                                                       |
-| ---------------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------------- |
-| PRF-Antwort, R und alle abgeleiteten Schlüssel | Arbeitsspeicher, solange die Bücher offen sind         | im Klartext, weg, wenn der Tab zugeht                                 |
-| der Tresor                                     | `localStorage` dieser Website; bei Aleph, wenn gewählt | versiegelt; die Namen der Passkeys nur in diesem Browser              |
-| die Bücher                                     | IndexedDB dieser Website                               | versiegelt, je Datensatz und je Eintrag                               |
-| Belegdateien                                   | IndexedDB dieser Website                               | versiegelt                                                            |
-| Angaben zum Passkey, Merker                    | `localStorage` dieser Website                          | öffentlich: Credential-ID, öffentlicher Schlüssel, DID, PRF-Eingabe   |
-| Sicherungen                                    | Aleph Cloud                                            | mit dem Sicherungsschlüssel versiegelt ([backup.de.md](backup.de.md)) |
-| der private Schlüssel des Passkeys             | der Authenticator                                      | verlässt ihn nie                                                      |
-| der Bridge-Schlüssel                           | Schlüsselbund der Bridge (`bridge-auth`)               | nur, wenn die Bridge per Einladung gekoppelt ist                      |
+| Was                                            | Wo                                                                                    | In welcher Form                                                       |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| PRF-Antwort, R und alle abgeleiteten Schlüssel | Arbeitsspeicher, solange die Bücher offen sind                                        | im Klartext, weg, wenn der Tab zugeht                                 |
+| der Tresor                                     | `localStorage` dieser Website; bei Aleph, wenn gewählt                                | versiegelt; die Namen der Passkeys nur in diesem Browser              |
+| die Bücher                                     | IndexedDB dieser Website                                                              | versiegelt, je Datensatz und je Eintrag                               |
+| Belegdateien                                   | IndexedDB dieser Website                                                              | versiegelt                                                            |
+| Angaben zum Passkey, Merker                    | `localStorage` dieser Website                                                         | öffentlich: Credential-ID, öffentlicher Schlüssel, DID, PRF-Eingabe   |
+| Sicherungen                                    | Aleph Cloud                                                                           | mit dem Sicherungsschlüssel versiegelt ([backup.de.md](backup.de.md)) |
+| der private Schlüssel des Passkeys             | der Authenticator                                                                     | verlässt ihn nie                                                      |
+| der Bridge-Schlüssel                           | Schlüsselbund der Bridge (`bridge-auth`)                                              | nur, wenn die Bridge per Einladung gekoppelt ist                      |
+| ein Mitglieds-Tresor                           | `localStorage` im Browser des Mitglieds; bei Aleph nach einer Sicherung des Mitglieds | versiegelt mit dem Passkey des Mitglieds                              |
 
 ## Was die Bridge hält, und warum
 
@@ -93,6 +95,32 @@ schaltet die Bücher auf eine neue Generation dieses Schlüssels; der alte ist d
 Wer also deinen Rechner mit der Bridge mitnimmt, bekommt, was die Bridge hält – Bank, Postfach,
 Modell –, aber nicht deine Bücher. Deshalb braucht ein Backup der Bücher den Passkey oder die
 Wiederherstellungswörter, nicht die Bridge.
+
+## Mitglieder
+
+Die Bücher können eine zweite Person hereinlassen, zum Beispiel die Buchhaltung ([#6](https://github.com/Le-Space/belege/issues/6)). Sie behält ihren eigenen Passkey und ihre eigenen Bücher; für deine bekommt sie einen **Schlüsselbund**.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant M as Gerät der Buchhaltung
+    participant O as Gerät des Inhabers
+    M->>M: neue Wurzel des Mitglieds, einmaliger x25519-Schlüssel
+    M-->>O: Beitrittscode (per Mail, Chat oder QR): einmaliger öffentlicher Schlüssel, DID des Mitglieds, Gerätekennung
+    Note over M,O: beide Bildschirme zeigen denselben Fingerabdruck – vergleichen
+    O->>O: Schreibrecht für die DID des Mitglieds, Mitglied und Gerät in die Bücher
+    O-->>M: Antwort: der Schlüsselbund, versiegelt für den einmaligen Schlüssel
+    M->>M: Mitglieds-Tresor: Schlüsselbund + Wurzel des Mitglieds, versiegelt mit seinem Passkey
+    Note over M,O: ab dem nächsten Entsperren: „Bücher, in denen ich Mitglied bin“
+```
+
+**Was im Schlüsselbund steckt:** der Datenbank-Schlüssel, der Replikationsschlüssel, der Schlüssel für Belegdateien, der Sicherungsschlüssel, der Schlüssel für den Gerätenachweis und die Grundlage des Bridge-Schlüssels, die Namen und Adressen der Datenbanken und die öffentliche Identität der Bücher. **Was nie darin steckt:** R, das Geheimnis der Bücher, der Tresorschlüssel, ein Passkey-Fach oder die Wiederherstellungswörter.
+
+**Was ein Mitglied kann:** die Bücher lesen, schreiben – unter eigenem Namen, einer DID aus seiner eigenen Wurzel, die die Zugriffslisten der Bücher erlauben –, sichern und wiederherstellen und die Bridge des Inhabers nutzen. **Was beim Inhaber bleibt:** Passkeys und Wiederherstellungswörter der Bücher, der Umzug der Bücher und Mitglieder aufnehmen.
+
+**Der Mitglieds-Tresor** funktioniert wie der Tresor der Bücher: Schlüsselbund und Wurzel des Mitglieds, versiegelt mit einem Tresorschlüssel, mit einem Fach für den Passkey des Mitglieds. Er liegt im Browser des Mitglieds (`belege.memberships.v1`) und nach seiner ersten Sicherung am Index seiner Mitgliedschaften bei Aleph – versiegelt, ohne Namen. Auf einem leeren Gerät findet der Passkey des Mitglieds ihn dort ([backup.de.md](backup.de.md#mitglieder-sichern-und-stellen-wieder-her)).
+
+**Was sich nicht zurücknehmen lässt:** Wer den Schlüsselbund hatte, kann lesen, was damals in den Büchern stand, solange er eine Kopie hat. Ein Mitglied wieder herausnehmen kommt als Nächstes ([#614](https://github.com/Le-Space/belege/issues/614)); neue Schlüssel für die Bücher folgen später.
 
 ## Passkey-Abfragen
 

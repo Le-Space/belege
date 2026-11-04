@@ -65,7 +65,10 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     against the instance on Aleph, not only by a fixed wallet.
 // 32: the bridge as a peer – paired by invitation, it connects to the books'
 //     relays itself, with a key of its own; what the relay sees (#576).
-export const CONSENT_VERSION = '32';
+// 33: members (#6): what a member gets and never gets, that they write under
+//     their own name, that what they saw cannot be taken back; the member
+//     vault in this browser and on Aleph.
+export const CONSENT_VERSION = '33';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

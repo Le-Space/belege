@@ -88,8 +88,26 @@ anlegen.
 - **Rechnungs-App von Le Space:** Sie liefert Eigenbelege und erfährt, welche ihrer Rechnungen
   bezahlt sind.
 
+## 7. Die Buchhaltung arbeitet in deinen Büchern
+
+Deine Buchhaltung kommt mit ihrem eigenen Passkey in deine Bücher (_Integrationen →
+Zusammenarbeit_). Sie macht einen Beitrittscode, du nimmst sie auf und schickst die Antwort
+zurück. Ab dann öffnet sie deine Bücher neben ihren eigenen, ordnet Belege zu, erstellt
+Eigenbelege, exportiert und sichert. Sie schreibt unter eigenem Namen. Passkeys,
+Wiederherstellungswörter und weitere Personen einladen bleiben bei dir.
+
+- **Du brauchst:** Geräte-Sync auf beiden Seiten; beide Geräte gleichzeitig online, damit sich die
+  Bücher abgleichen.
+- **Was hinausgeht:** dasselbe wie bei mehreren eigenen Geräten – versiegelt, über ein
+  Relay oder direkt. Beitrittscode und Antwort gehen den Weg, auf dem du sie schickst; die Antwort
+  ist für das Gerät versiegelt, das den Code gemacht hat.
+- **Mehr:** [keys.de.md](keys.de.md#mitglieder),
+  [backup.de.md](backup.de.md#mitglieder-sichern-und-stellen-wieder-her).
+
 ## Was noch kommt
 
 Noch nicht fertig, aber geplant: die Bridge als eigene Maschine in der Cloud, geprüft und
 gekoppelt wie auf deinem Rechner. Ein KI-Dienst von Le Space. Bezahlen mit Le Space Credits.
-Und gemeinsame Bücher mit Kolleginnen, Kollegen oder der Steuerberatung.
+Weitere Rollen in
+gemeinsamen Büchern – etwa die Steuerberatung nur lesend –, ein Mitglied wieder herausnehmen und
+danach neue Schlüssel.

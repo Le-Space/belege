@@ -16,6 +16,7 @@ Belege keeps a company's books in the browser, sealed under keys from a passkey 
 
 - **A device or browser that is not under your control.** Malware, someone using the unlocked device, or a **browser extension** allowed on the site sees what the page sees: the open books, and the passkey's answer at unlock – and with it the keys. That holds for any web app, online banking included. Keys derived from that answer cannot be changed without sealing the books anew, so this is worth avoiding rather than repairing.
 - **A tampered version of the app.** The app comes from belege.le-space.de; a build that was changed on the way could do what an extension could. Each release names its IPFS CID on its release page, so a served build can be compared with the published one.
+- **A member who copies what they could read.** A member of the books – the bookkeeping, say – holds the keys to read them and writes under their own name ([keys.md](keys.md#members)). What they have read, or copied, cannot be taken back. Taking a member out ([#614](https://github.com/Le-Space/belege/issues/614)) will stop their writes at once; reading what comes later stops only with new keys for the books, planned for a later step. Let in only people you would also hand the folder of receipts.
 - **Losing every passkey.** Add a second one under _Einstellungen → Schlüssel_, or write down recovery words on paper there ([keys.md](keys.md)).
 
 ## What you can do

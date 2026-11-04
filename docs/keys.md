@@ -42,7 +42,8 @@ In this browser the vault record is in `localStorage`. On an empty device, a pas
 
 - **at its own index** – an address derived from that passkey's PRF output, where the vault was put when the passkey got its slot;
 - **at the words' index** – an address derived from the recovery words' seed, likewise;
-- **at the books' index** – an address derived from R, with the current vault and, sealed, the Aleph account the backups are kept for.
+- **at the books' index** – an address derived from R, with the current vault and, sealed, the Aleph account the backups are kept for;
+- **at its memberships' index** – for a member ([below](#members)): an address derived from that passkey's PRF output under another label, with each member vault the passkey opens and, sealed under the member's root, the account the books' backups are kept for. Written when the member backs up.
 
 Both are sealed, signed by keys only the passkey or R lead to, and carry no names, no wallet: beside the vault only each slot's credential id and date (`app/src/lib/backup/vault-index.js`). "Mit vorhandenem Passkey wiederherstellen" asks there, unless the network is paused; then the books open with their keys, and "Wiederherstellen" lists the backups.
 
@@ -65,16 +66,17 @@ One key reveals nothing about another.
 
 ## What is stored where
 
-| What                                | Where                                           | In what form                                          |
-| ----------------------------------- | ----------------------------------------------- | ----------------------------------------------------- |
-| PRF output, R and every derived key | memory, while the books are open                | plain, gone when the tab closes                       |
-| the vault                           | `localStorage` of this site; on Aleph if chosen | sealed; with the passkeys' names only in this browser |
-| the books                           | IndexedDB of this site                          | sealed per record and per entry                       |
-| receipt files                       | IndexedDB of this site                          | sealed                                                |
-| passkey details, flags              | `localStorage` of this site                     | public: credential id, public key, DID, PRF input     |
-| backups                             | Aleph Cloud                                     | sealed with the backup key ([backup.md](backup.md))   |
-| the passkey's private key           | the authenticator                               | never leaves it                                       |
-| the bridge's key                    | the bridge's keychain (`bridge-auth`)           | only if the bridge was paired by invitation           |
+| What                                | Where                                                                    | In what form                                          |
+| ----------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------- |
+| PRF output, R and every derived key | memory, while the books are open                                         | plain, gone when the tab closes                       |
+| the vault                           | `localStorage` of this site; on Aleph if chosen                          | sealed; with the passkeys' names only in this browser |
+| the books                           | IndexedDB of this site                                                   | sealed per record and per entry                       |
+| receipt files                       | IndexedDB of this site                                                   | sealed                                                |
+| passkey details, flags              | `localStorage` of this site                                              | public: credential id, public key, DID, PRF input     |
+| backups                             | Aleph Cloud                                                              | sealed with the backup key ([backup.md](backup.md))   |
+| the passkey's private key           | the authenticator                                                        | never leaves it                                       |
+| the bridge's key                    | the bridge's keychain (`bridge-auth`)                                    | only if the bridge was paired by invitation           |
+| a member vault                      | `localStorage` of the member's browser; on Aleph after a member's backup | sealed under the member's passkey                     |
 
 ## What the bridge holds, and why
 
@@ -92,6 +94,32 @@ that key, and the old one is then worth nothing.
 So whoever takes your computer with the bridge gets what the bridge holds – bank, mail, model –
 but not your books. That is why a backup of the books needs the passkey or the recovery words,
 not the bridge.
+
+## Members
+
+The books can let a second person in – the bookkeeping, say ([#6](https://github.com/Le-Space/belege/issues/6)). That person keeps their own passkey and their own books; they get a **key bundle** for yours.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant M as Bookkeeping's device
+    participant O as Owner's device
+    M->>M: new member root, one-time x25519 key
+    M-->>O: join code (by mail, chat or QR): one-time public key, member's DID, device id
+    Note over M,O: both screens show the same fingerprint – compare it
+    O->>O: write access for the member's DID, member and device in the books
+    O-->>M: answer: the key bundle, sealed to the one-time key
+    M->>M: member vault: bundle + member root, sealed under the member's passkey
+    Note over M,O: from the next unlock: "Bücher, in denen ich Mitglied bin"
+```
+
+**What the bundle holds:** the database key, the replication key, the receipt-file key, the backup key, the device-proof key and the bridge key's base, the databases' names and addresses, and the books' public identity. **What it never holds:** R, the books' secret, the vault key, a passkey slot or the recovery words.
+
+**What a member can do:** read the books, write – under their own name, a DID from their own root, which the books' access lists allow –, back up and restore, and reach the owner's bridge. **What stays with the owner:** passkeys and recovery words of the books, moving the books, letting members in.
+
+**The member vault** works like the books' vault: the bundle and the member's own root, sealed under a vault key, with a slot for the member's passkey. It lies in the member's browser (`belege.memberships.v1`) and, after the member's first backup, at the memberships' index on Aleph – sealed, without names. On an empty device the member's passkey finds it there ([backup.md](backup.md#members-back-up-and-restore)).
+
+**What cannot be taken back:** a member who held the bundle can read what the books held then, as long as they keep a copy. Taking a member out is coming next ([#614](https://github.com/Le-Space/belege/issues/614)); new keys for the books follow later.
 
 ## Passkey prompts
 
