@@ -1546,7 +1546,9 @@ export default {
 			answer: 'Das ist keine Antwort auf einen Beitrittscode, oder sie wurde verändert.',
 			otherCode:
 				'Diese Antwort gehört zu einem anderen Beitrittscode. Sie öffnet sich nur auf dem Gerät, das ihn erzeugt hat.',
-			unknown: 'Dieses Mitglied kennen die Bücher nicht, oder es ist schon herausgenommen.'
+			unknown: 'Dieses Mitglied kennen die Bücher nicht, oder es ist schon herausgenommen.',
+			removedBefore:
+				'Dieser Beitrittscode gehört zu einem Mitglied, das herausgenommen wurde. Für einen neuen Beitritt erzeugt die Person auf ihrem Gerät einen neuen Code.'
 		},
 		join: {
 			title: 'Einer Buchhaltung beitreten',

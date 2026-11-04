@@ -1299,7 +1299,7 @@ export function cancelJoining() {
  */
 export async function admitMember({ code, label, booksLabel }) {
 	if (!session) throw new Error(t('messages.sync.off'));
-	const [{ parseJoinRequest, sealJoinAnswer }, { addMemberRecord }] = await Promise.all([
+	const [{ parseJoinRequest, sealJoinAnswer }, { addMemberRecord, membersOf }] = await Promise.all([
 		import('./members/join.js'),
 		import('./members/members.js')
 	]);
@@ -1309,6 +1309,12 @@ export async function admitMember({ code, label, booksLabel }) {
 		request = parseJoinRequest(code);
 	} catch {
 		throw new Error(t('members.error.code'));
+	}
+	// A write identity taken out stays refused by every access list: it would
+	// show as a member who can write nothing. A new join code brings a new one.
+	const before = membersOf(await session.store.settings.list({ includeDeleted: true }));
+	if (before.some((m) => m.writer === request.writer && m.removed)) {
+		throw new Error(t('members.error.removedBefore'));
 	}
 	const name = label.trim() || request.label;
 	const bundle = await session.memberBundle(booksLabel);
@@ -2030,11 +2036,11 @@ export function unlockStoredPasskey() {
 }
 
 /**
- * A dev/E2E-only hook: tests add records through the real store, the way the
- * bank import does.
+ * An E2E-only hook: tests add records through the real store, the way the
+ * bank import does. Only in an E2E build (AGENTS.md), not in `vite dev`.
  */
 function installE2EHooks() {
-	if (!(import.meta.env.DEV || import.meta.env.VITE_E2E === 'true')) return;
+	if (import.meta.env.VITE_E2E !== 'true') return;
 	/** @param {Uint8Array} bytes */
 	const hex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 	/** @type {any} */ (window).__belegeE2E = {
