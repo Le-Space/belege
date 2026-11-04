@@ -33,7 +33,7 @@ import { explorerMonthBalances, historyMonthBalances } from './month-balances.js
 import { getSetting, setSetting } from '../store/settings.js';
 import { normalizeAddress, safeExplorerUrl, walletAccountName, walletChain } from './chains.js';
 import { isAccountNumber } from '../booking/skr03.js';
-import { t } from '../i18n/index.js';
+import { currentLocale, t } from '../i18n/index.js';
 
 /**
  * @typedef {object} Wallet an entry of the settings key `wallets`
@@ -123,43 +123,48 @@ export function describeWalletEntry(e) {
 	// Moved out in someone else's transaction (#162): a project burning holdings, or a spender.
 	if (e.byOther && e.type === 'sent') {
 		return {
-			label: isBurnAddress(e.counterparty) ? 'Vom Projekt verbrannt' : 'Von Dritten bewegt',
+			label: t(isBurnAddress(e.counterparty) ? 'walletBooks.burned' : 'walletBooks.byOther'),
 			movement: /** @type {const} */ ('transfer')
 		};
 	}
 	if (e.type === 'fee') {
 		return {
-			// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
-			label: e.success ? 'Netzwerkgebühr' : 'Netzwerkgebühr (fehlgeschlagene Transaktion)',
+			label: t(e.success ? 'walletBooks.fee' : 'walletBooks.feeFailed'),
 			movement: /** @type {const} */ ('fee')
 		};
 	}
 	if (e.kind === 'reward')
-		return { label: 'Staking-Ertrag', movement: /** @type {const} */ ('reward') };
+		return { label: t('walletBooks.stakingReward'), movement: /** @type {const} */ ('reward') };
 	// Stored in the books, like the labels above (see the follow-up on #192).
 	if (e.kind === 'mining')
-		return { label: 'Mining-Ertrag', movement: /** @type {const} */ ('reward') };
+		return { label: t('walletBooks.miningReward'), movement: /** @type {const} */ ('reward') };
 	if (e.kind === 'stake') {
 		return {
-			// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
-			label: e.type === 'sent' ? 'Delegation (Staking)' : 'Rückfluss aus Staking',
+			label: t(e.type === 'sent' ? 'walletBooks.delegation' : 'walletBooks.undelegation'),
 			movement: /** @type {const} */ ('stake')
 		};
 	}
-	if (e.kind === 'swap') return { label: 'Tausch', movement: /** @type {const} */ ('trade') };
+	if (e.kind === 'swap')
+		return { label: t('walletBooks.swap'), movement: /** @type {const} */ ('trade') };
 	if (e.kind === 'ibc')
-		return { label: 'IBC-Transfer', movement: /** @type {const} */ ('transfer') };
+		return { label: t('walletBooks.ibc'), movement: /** @type {const} */ ('transfer') };
 	return {
-		label: e.type === 'sent' ? 'Gesendet' : 'Empfangen',
+		label: t(e.type === 'sent' ? 'walletBooks.sent' : 'walletBooks.received'),
 		movement: /** @type {const} */ ('transfer')
 	};
 }
 
-/** `1234.5` → `1.234,5`: a decimal from the bridge as a German reads it. @param {string} amount */
+/**
+ * `1234.5` → `1.234,5` in German, `1,234.5` in English: a decimal from the
+ * bridge as the person reads it, every digit kept.
+ *
+ * @param {string} amount
+ */
 const deDecimal = (amount) => {
 	const [int, frac] = String(amount).split('.');
-	const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-	return frac ? `${grouped},${frac}` : grouped;
+	const [group, point] = currentLocale() === 'en' ? [',', '.'] : ['.', ','];
+	const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, group);
+	return frac ? `${grouped}${point}${frac}` : grouped;
 };
 
 /**
@@ -175,14 +180,13 @@ export function swapText(swap) {
 			// No amount: the chain gave it in events only (ACT minted by Akash BME, #303).
 			.map((x) =>
 				x.amount
-					? // eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
-						`${deDecimal(x.amount)} ${x.asset}${x.listed ? '' : ' (nicht gelistet)'}`
-					: `${x.asset} (Menge unbekannt)`
+					? `${deDecimal(x.amount)} ${x.asset}${x.listed ? '' : ` (${t('walletBooks.unlisted')})`}`
+					: `${x.asset} (${t('walletBooks.amountUnknown')})`
 			)
 			.join(' + ');
-	const via = swap.via ? ` über ${swap.via}` : '';
+	const via = swap.via ? ` ${t('walletBooks.via', { via: swap.via })}` : '';
 	const gas = swap.fee ? ` · Gas ${deDecimal(swap.fee.amount)} ${swap.fee.asset}` : '';
-	return `Tausch: ${side(swap.gave)} → ${side(swap.got)}${via}${gas}`;
+	return `${t('walletBooks.swap')}: ${side(swap.gave)} → ${side(swap.got)}${via}${gas}`;
 }
 
 /** `AB12…9F3C`: a hash short enough for a purpose. @param {string} hash */
@@ -368,8 +372,7 @@ export async function walletTransactions(entries, getRate) {
 				valueDate: e.date,
 				amountCents: value.amountCents,
 				currency: 'EUR',
-				// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
-				counterpartyName: e.type === 'fee' ? 'Netzwerkgebühr' : other,
+				counterpartyName: e.type === 'fee' ? t('walletBooks.fee') : other,
 				counterpartyAddress: e.counterparty,
 				purpose,
 				bookingType: label,

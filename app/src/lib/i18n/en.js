@@ -347,7 +347,7 @@ export default {
 		},
 		bridge: {
 			unreachable:
-				'The bridge cannot be reached. Is it running (pnpm bridge)? Whether it lets this page in, "Status prüfen" under Integrationen → Bridge says.',
+				'The bridge cannot be reached. Is it running (pnpm bridge)? Whether it lets this page in, "Check status" under Integrations → Bridge says.',
 			unknownDevice: 'The bridge does not know this device (pair again).',
 			needsSync:
 				'Pairing by invitation needs device sync switched on on this device (Integrations → Own devices).',
@@ -1450,6 +1450,23 @@ export default {
 			'Belege can be installed as an app: its own window and icon, starts offline too. The books stay on this device.',
 		install: 'Install as app',
 		later: 'Not now'
+	},
+	walletBooks: {
+		fee: 'Network fee',
+		feeFailed: 'Network fee (failed transaction)',
+		burned: 'Burned by the project',
+		byOther: 'Moved by a third party',
+		stakingReward: 'Staking reward',
+		miningReward: 'Mining reward',
+		delegation: 'Delegation (staking)',
+		undelegation: 'Returned from staking',
+		swap: 'Swap',
+		ibc: 'IBC transfer',
+		sent: 'Sent',
+		received: 'Received',
+		unlisted: 'not listed',
+		amountUnknown: 'amount unknown',
+		via: 'via {via}'
 	},
 	members: {
 		ownerOnly:

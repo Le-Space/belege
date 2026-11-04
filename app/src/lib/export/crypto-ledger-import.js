@@ -35,6 +35,7 @@ import {
 	walletAccountName
 } from '../wallets/chains.js';
 import { FORMAT, VERSION } from './crypto-ledger.js';
+import { t } from '../i18n/index.js';
 
 /** A file larger than this is refused before it is parsed. */
 export const MAX_BYTES = 50 * 1024 * 1024;
@@ -388,8 +389,7 @@ function incomingOf(m, account, kind, currency) {
 	return {
 		...base,
 		...value,
-		// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
-		counterpartyName: m.kind === 'fee' ? 'Netzwerkgebühr' : (m.counterparty?.name ?? address),
+		counterpartyName: m.kind === 'fee' ? t('walletBooks.fee') : (m.counterparty?.name ?? address),
 		...(address ? { counterpartyAddress: address } : {}),
 		purpose: [label, m.memo ? `Memo: ${m.memo}` : '', m.txHash ? `Tx ${shortHash(m.txHash)}` : '']
 			.filter(Boolean)
