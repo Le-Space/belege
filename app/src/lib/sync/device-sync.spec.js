@@ -109,6 +109,9 @@ describe('syncLibp2pConfig', () => {
 		expect(deny(multiaddr('/ip4/192.168.1.5/tcp/4001/ws'))).toBe(true);
 		expect(deny(multiaddr('/dns4/relay.example/tcp/443/ws'))).toBe(true);
 		expect(deny(multiaddr(relay))).toBe(false);
+		// `/tls/ws` is WebSockets over TLS, as the Le Space relays announce it.
+		expect(deny(multiaddr('/dns4/relay.example/tcp/443/tls/ws/p2p/12D3KooWExample'))).toBe(false);
+		expect(deny(multiaddr('/dns4/relay.example/tcp/443/tls/sni/relay.example/ws'))).toBe(false);
 		expect(deny(multiaddr('/ip4/127.0.0.1/tcp/4002/ws/p2p/12D3KooWExample'))).toBe(false);
 		// … and refuses a removed device either way.
 		blocked.add('12D3KooWremoved');
