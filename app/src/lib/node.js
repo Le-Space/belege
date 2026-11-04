@@ -606,25 +606,30 @@ export async function startSession(
 
 		/**
 		 * A backup made before new keys (#628): read with the keys of an earlier
-		 * root the vault keeps (backup/archive.js `readEarlierBackup`), and taken
-		 * into these books record by record – one of them only where these books
-		 * have no newer version, settings only where they have none at all –,
-		 * its receipt files sealed anew. Nothing here is closed or replaced.
+		 * root the vault keeps (backup/archive.js `readEarlierBackup`). Only
+		 * entries the books of that root signed count – their identity verified,
+		 * the signature checked. What they hold is added where these books have
+		 * no such record at all; nothing here is overwritten, no setting is taken,
+		 * and a receipt keeps a file only when the backup carries it.
 		 *
 		 * @param {Uint8Array} sealed
 		 * @param {{ increments?: Uint8Array[], base?: string } | undefined} chain
 		 * @param {Error} refused what the current key said
 		 */
 		async function restoreEarlier(sealed, chain, refused) {
-			const [{ readEarlierBackup, WrongPasskeyError }, { LEFT_OUT_SETTINGS }, rekey] =
+			const [{ readEarlierBackup, WrongPasskeyError }, { Entry }, { createSecretSigner }] =
 				await Promise.all([
 					import('./backup/archive.js'),
-					import('./move/book-move.js'),
-					import('./move/rekey.js')
+					import('@orbitdb/core'),
+					import('@le-space/orbitdb-identity-provider-webauthn-did')
 				]);
 			/** @type {Awaited<ReturnType<typeof readEarlierBackup>> | null} */
 			let earlier = null;
 			for (const root of vault?.previous ?? []) {
+				// The books of that root: the only writer whose entries count.
+				const then = (
+					await createSecretSigner(await deriveBooksSecret(root), { info: BOOKS_IDENTITY_INFO })
+				).did;
 				try {
 					earlier = await readEarlierBackup({
 						sealed,
@@ -632,7 +637,13 @@ export async function startSession(
 						key: await deriveBackupKey(root),
 						dataKey: await deriveDatabaseKey(root),
 						replicationKey: await deriveReplicationKey(root),
-						blobKey: await deriveBlobKey(root)
+						blobKey: await deriveBlobKey(root),
+						accept: async (entry, identity) =>
+							identity.id === then &&
+							identity.hash === entry.identity &&
+							identity.publicKey === entry.key &&
+							(await booksIdentities.verifyIdentity(identity)) &&
+							(await Entry.verify(booksIdentities, entry))
 					});
 					break;
 				} catch (e) {
@@ -643,37 +654,26 @@ export async function startSession(
 			/** @type {Map<string, string>} the backup's file CIDs → these books' */
 			const cids = new Map();
 			for (const [cid, bytes] of earlier.files) cids.set(cid, await blobs.put(bytes));
-			const skipped = (/** @type {string} */ key) =>
-				LEFT_OUT_SETTINGS.includes(key) ||
-				[...rekey.DROPPED, 'device:', 'move-in'].some((p) => key.startsWith(p));
+			/** @param {unknown} cid */
+			const file = (cid) => (typeof cid === 'string' && cids.get(cid)) || null;
 			const databases = [];
 			for (const [collection, list] of Object.entries(earlier.records)) {
 				const target = /** @type {any} */ (store)[collection];
-				if (!target?.restore) continue;
-				const here = new Map(
-					(await target.list({ includeDeleted: true })).map((/** @type {any} */ r) => [
-						collection === 'settings' ? String(r.key) : String(r.id),
-						r
-					])
+				// Settings are this browser's books' own: none from a backup of before.
+				if (!target?.restore || collection === 'settings') continue;
+				const here = new Set(
+					(await target.list({ includeDeleted: true })).map((/** @type {any} */ r) => String(r.id))
 				);
 				let joined = 0;
 				for (const record of list) {
-					const now = here.get(collection === 'settings' ? String(record.key) : String(record.id));
-					if (
-						collection === 'settings'
-							? now || skipped(String(record.key))
-							: now && String(now.updatedAt ?? '') >= String(record.updatedAt ?? '')
-					)
-						continue;
+					if (here.has(String(record.id))) continue;
 					const moved =
 						collection === 'receipts'
 							? {
 									...record,
-									...(record.fileCid
-										? { fileCid: cids.get(record.fileCid) ?? record.fileCid }
-										: {}),
-									...(record.emlCid ? { emlCid: cids.get(record.emlCid) ?? record.emlCid } : {}),
-									...(record.xmlCid ? { xmlCid: cids.get(record.xmlCid) ?? record.xmlCid } : {})
+									...('fileCid' in record ? { fileCid: file(record.fileCid) } : {}),
+									...('emlCid' in record ? { emlCid: file(record.emlCid) } : {}),
+									...('xmlCid' in record ? { xmlCid: file(record.xmlCid) } : {})
 								}
 							: record;
 					await target.restore(moved);

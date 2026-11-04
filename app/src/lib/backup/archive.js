@@ -581,6 +581,9 @@ export async function restoreBackup({
  * @param {Uint8Array} params.dataKey the earlier root's database key
  * @param {Uint8Array} params.replicationKey the earlier root's replication key
  * @param {Uint8Array} params.blobKey the earlier root's file key
+ * @param {(entry: any, identity: any) => Promise<boolean>} [params.accept] whether an
+ *   entry counts, given its writer's identity as the backup carries it; one that
+ *   does not is passed over (its links still followed)
  * @returns {Promise<{ manifest: BackupManifest, records: Record<string, Record<string, any>[]>, files: Map<string, Uint8Array> }>}
  */
 export async function readEarlierBackup({
@@ -590,14 +593,18 @@ export async function readEarlierBackup({
 	key,
 	dataKey,
 	replicationKey,
-	blobKey
+	blobKey,
+	accept
 }) {
 	const { manifest, blocks, metadata } = await openChain({ sealed, increments, base, key });
-	const [{ Entry }, { sealedEncryption }, { createBlobStore }] = await Promise.all([
-		import('@orbitdb/core'),
-		import('../entry-encryption.js'),
-		import('../receipts/blob-store.js')
-	]);
+	const [{ Entry }, { decodeIdentity }, { sealedEncryption }, { createBlobStore }] =
+		await Promise.all([
+			import('@orbitdb/core'),
+			// Not exported at the package's root; the package has no exports map.
+			import('@orbitdb/core/src/identities/identity.js'),
+			import('../entry-encryption.js'),
+			import('../receipts/blob-store.js')
+		]);
 	const encryption = await sealedEncryption(dataKey, replicationKey);
 	/** @type {Map<string, Uint8Array>} every block, by its CID however written */
 	const byCid = new Map();
@@ -613,10 +620,13 @@ export async function readEarlierBackup({
 		const collection = String(d.collection ?? d.name);
 		/** @type {Map<string, any>} */
 		const entries = new Map();
+		/** @type {Set<string>} */
+		const walked = new Set();
 		const stack = [...(d.heads ?? [])].map(String);
 		while (stack.length) {
 			const hash = /** @type {string} */ (stack.pop());
-			if (entries.has(hash)) continue;
+			if (walked.has(hash)) continue;
+			walked.add(hash);
 			const bytes = bytesOf(hash);
 			// An entry the backup does not carry: older than what it shipped.
 			if (!bytes) continue;
@@ -625,8 +635,15 @@ export async function readEarlierBackup({
 				encryption.replication.decrypt,
 				encryption.data.decrypt
 			);
-			entries.set(hash, entry);
 			stack.push(...(entry.next ?? []).map(String), ...(entry.refs ?? []).map(String));
+			if (accept) {
+				const identityBytes = bytesOf(String(entry.identity));
+				const identity = identityBytes
+					? await decodeIdentity(identityBytes).catch(() => null)
+					: null;
+				if (!identity || !(await accept(entry, identity).catch(() => false))) continue;
+			}
+			entries.set(hash, entry);
 		}
 		// Newest first, as OrbitDB orders a log: by clock, then by writer.
 		const newestFirst = [...entries.values()].sort(
