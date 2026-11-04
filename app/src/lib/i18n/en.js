@@ -1451,6 +1451,23 @@ export default {
 		install: 'Install as app',
 		later: 'Not now'
 	},
+	walletBooks: {
+		fee: 'Network fee',
+		feeFailed: 'Network fee (failed transaction)',
+		burned: 'Burned by the project',
+		byOther: 'Moved by a third party',
+		stakingReward: 'Staking reward',
+		miningReward: 'Mining reward',
+		delegation: 'Delegation (staking)',
+		undelegation: 'Returned from staking',
+		swap: 'Swap',
+		ibc: 'IBC transfer',
+		sent: 'Sent',
+		received: 'Received',
+		unlisted: 'not listed',
+		amountUnknown: 'amount unknown',
+		via: 'via {via}'
+	},
 	members: {
 		ownerOnly:
 			'Only the owner of the books can do this – a member does not change the books’ passkeys or recovery words.',
