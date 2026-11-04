@@ -43,15 +43,82 @@ const hash = (/** @type {string} */ byte) => `0x${byte.repeat(32)}`;
 const RATE = '2500.00';
 
 /**
+ * What the sample books say, in the app's language: a person trying Belege in
+ * English sees English names and purposes. Booking types (`Abschluss`,
+ * `Basislastschrift`) stay: they are a German bank's codes, and the bank fee is
+ * recognised by them.
+ */
+const WORDS = {
+	de: {
+		bank: 'Beispielkonto',
+		savings: 'Beispiel-Tagesgeld',
+		krakenAccount: 'Kraken ETH (Beispiel)',
+		walletAccount: 'Wallet Ethereum ETH (Beispiel)',
+		customer: 'Kundin Beispiel AG',
+		invoice2026: 'Rechnung 2026-001',
+		re1001: 'RE-1001 Kundennummer 4711',
+		office: 'Büromaterial Muster GmbH',
+		order778899: 'Bestellung 778899',
+		own: 'Beispiel GmbH',
+		toSavings: 'Umbuchung Tagesgeld',
+		tools: 'Werkzeugladen Test',
+		order5566: 'Bestellung 5566',
+		refund5566: 'Rückerstattung Bestellung 5566',
+		accountFee: 'Kontoführung',
+		withdrawal: 'Auszahlung',
+		node: 'Nodebetrieb Beispiel',
+		networkFee: 'Netzwerkgebühr',
+		hostingM: 'Hosting Paket M',
+		fileHosting: 'beispiel-wolkenfabrik-RE-1001.pdf',
+		filePower: 'beispiel-stromwerk-2026-77.pdf',
+		electricity: 'Abschlag Strom Büro',
+		excerptHosting:
+			'BEISPIEL – Wolkenfabrik Hosting GmbH · Rechnung RE-1001 · Kundennummer 4711 · Hosting Paket M · netto 100,00 EUR · USt 19 % 19,00 EUR · brutto 119,00 EUR · wird per Lastschrift eingezogen',
+		excerptPower:
+			'BEISPIEL – Stromwerk Test AG · Rechnung 2026-77 · Abschlag Büro · netto 37,82 EUR · USt 19 % 7,18 EUR · brutto 45,00 EUR · zahlbar per Überweisung'
+	},
+	en: {
+		bank: 'Sample account',
+		savings: 'Sample savings',
+		krakenAccount: 'Kraken ETH (sample)',
+		walletAccount: 'Wallet Ethereum ETH (sample)',
+		customer: 'Sample Customer Ltd',
+		invoice2026: 'Invoice 2026-001',
+		re1001: 'RE-1001 customer no. 4711',
+		office: 'Sample Office Supplies Ltd',
+		order778899: 'Order 778899',
+		own: 'Sample Ltd',
+		toSavings: 'Transfer to savings',
+		tools: 'Test Tool Shop',
+		order5566: 'Order 5566',
+		refund5566: 'Refund order 5566',
+		accountFee: 'Account fee',
+		withdrawal: 'Withdrawal',
+		node: 'Sample Node Operations',
+		networkFee: 'Network fee',
+		hostingM: 'Hosting package M',
+		fileHosting: 'sample-wolkenfabrik-RE-1001.pdf',
+		filePower: 'sample-stromwerk-2026-77.pdf',
+		electricity: 'Electricity instalment, office',
+		excerptHosting:
+			'SAMPLE – Wolkenfabrik Hosting GmbH · Invoice RE-1001 · Customer no. 4711 · Hosting package M · net 100.00 EUR · VAT 19 % 19.00 EUR · gross 119.00 EUR · collected by direct debit',
+		excerptPower:
+			'SAMPLE – Stromwerk Test AG · Invoice 2026-77 · Instalment office · net 37.82 EUR · VAT 19 % 7.18 EUR · gross 45.00 EUR · payable by bank transfer'
+	}
+};
+
+/**
  * The sample books, as the imports would bring them.
  *
  * @param {string} today YYYY-MM-DD
+ * @param {string} [lang] the app's language: `en` for English, German otherwise
  * @returns {{
  *   accounts: { input: Rec, ledgerAccount: string, fingerprintAccount: string, incoming: Rec[] }[],
  *   receipts: Rec[]
  * }}
  */
-export function sampleBooks(today) {
+export function sampleBooks(today, lang = 'de') {
+	const w = lang === 'en' ? WORDS.en : WORDS.de;
 	// The month before today's, so its export can be tried.
 	const [y, m] = today.split('-').map(Number);
 	const month = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
@@ -73,7 +140,7 @@ export function sampleBooks(today) {
 					source: 'camt',
 					sourceAccountId: 'sample-bank-1',
 					ibanLast4: '0000',
-					name: 'Beispielkonto',
+					name: w.bank,
 					currency: 'EUR'
 				},
 				ledgerAccount: '1200',
@@ -83,9 +150,9 @@ export function sampleBooks(today) {
 						sourceId: 'sample-1',
 						date: day(3),
 						amountCents: 2380_00,
-						counterpartyName: 'Kundin Beispiel AG',
+						counterpartyName: w.customer,
 						counterpartyIban: 'DE00000000000000001111',
-						purpose: 'Rechnung 2026-001'
+						purpose: w.invoice2026
 					},
 					{
 						sourceId: 'sample-2',
@@ -93,47 +160,47 @@ export function sampleBooks(today) {
 						amountCents: -119_00,
 						counterpartyName: 'Wolkenfabrik Hosting GmbH',
 						counterpartyIban: 'DE00000000000000002222',
-						purpose: 'RE-1001 Kundennummer 4711',
+						purpose: w.re1001,
 						bookingType: 'Basislastschrift'
 					},
 					{
 						sourceId: 'sample-3',
 						date: day(8),
 						amountCents: -59_50,
-						counterpartyName: 'Büromaterial Muster GmbH',
+						counterpartyName: w.office,
 						counterpartyIban: 'DE00000000000000003333',
-						purpose: 'Bestellung 778899'
+						purpose: w.order778899
 					},
 					{
 						sourceId: 'sample-4',
 						date: day(10),
 						amountCents: -500_00,
-						counterpartyName: 'Beispiel GmbH',
+						counterpartyName: w.own,
 						counterpartyIban: 'DE00000000000000000001',
-						purpose: 'Umbuchung Tagesgeld'
+						purpose: w.toSavings
 					},
 					{
 						sourceId: 'sample-5',
 						date: day(12),
 						amountCents: -80_00,
-						counterpartyName: 'Werkzeugladen Test',
+						counterpartyName: w.tools,
 						counterpartyIban: 'DE00000000000000004444',
-						purpose: 'Bestellung 5566'
+						purpose: w.order5566
 					},
 					{
 						sourceId: 'sample-6',
 						date: day(16),
 						amountCents: 80_00,
-						counterpartyName: 'Werkzeugladen Test',
+						counterpartyName: w.tools,
 						counterpartyIban: 'DE00000000000000004444',
-						purpose: 'Rückerstattung Bestellung 5566'
+						purpose: w.refund5566
 					},
 					{
 						sourceId: 'sample-7',
 						date: day(28),
 						amountCents: -4_90,
 						counterpartyName: '',
-						purpose: 'Kontoführung',
+						purpose: w.accountFee,
 						bookingType: 'Abschluss'
 					}
 				]
@@ -143,7 +210,7 @@ export function sampleBooks(today) {
 					source: 'camt',
 					sourceAccountId: 'sample-bank-2',
 					ibanLast4: '0001',
-					name: 'Beispiel-Tagesgeld',
+					name: w.savings,
 					currency: 'EUR'
 				},
 				ledgerAccount: '1210',
@@ -153,9 +220,9 @@ export function sampleBooks(today) {
 						sourceId: 'sample-8',
 						date: day(10),
 						amountCents: 500_00,
-						counterpartyName: 'Beispiel GmbH',
+						counterpartyName: w.own,
 						counterpartyIban: 'DE00000000000000000000',
-						purpose: 'Umbuchung Tagesgeld'
+						purpose: w.toSavings
 					}
 				]
 			},
@@ -164,7 +231,7 @@ export function sampleBooks(today) {
 					source: 'kraken',
 					sourceAccountId: 'sample:ETH',
 					ibanLast4: '',
-					name: 'Kraken ETH (Beispiel)',
+					name: w.krakenAccount,
 					currency: 'EUR',
 					kind: 'exchange',
 					asset: 'ETH',
@@ -177,7 +244,7 @@ export function sampleBooks(today) {
 						sourceId: 'sample-9',
 						date: day(18),
 						counterpartyName: 'Kraken',
-						purpose: 'Auszahlung',
+						purpose: w.withdrawal,
 						movement: 'transfer',
 						txRef: 'SAMPLE-WITHDRAWAL',
 						chainTxRef: hash('a1'),
@@ -190,7 +257,7 @@ export function sampleBooks(today) {
 					source: 'ethereum',
 					sourceAccountId: `sample:ETH:${WALLET}`,
 					ibanLast4: '',
-					name: 'Wallet Ethereum ETH (Beispiel)',
+					name: w.walletAccount,
 					currency: 'EUR',
 					kind: 'wallet',
 					asset: 'ETH',
@@ -211,7 +278,7 @@ export function sampleBooks(today) {
 					{
 						sourceId: 'sample-11',
 						date: day(20),
-						counterpartyName: 'Nodebetrieb Beispiel',
+						counterpartyName: w.node,
 						counterpartyAddress: VENDOR_WALLET,
 						purpose: `Tx ${hash('b2').slice(0, 10)}…`,
 						movement: 'transfer',
@@ -222,7 +289,7 @@ export function sampleBooks(today) {
 						sourceId: 'sample-11:fee',
 						date: day(20),
 						counterpartyName: '',
-						purpose: `Netzwerkgebühr · Tx ${hash('b2').slice(0, 10)}…`,
+						purpose: `${w.networkFee} · Tx ${hash('b2').slice(0, 10)}…`,
 						movement: 'fee',
 						txRef: hash('b2'),
 						...crypto('-0.0005', 20)
@@ -233,15 +300,14 @@ export function sampleBooks(today) {
 		receipts: [
 			{
 				source: 'upload',
-				fileName: 'beispiel-wolkenfabrik-RE-1001.pdf',
+				fileName: w.fileHosting,
 				status: 'ausgelesen',
 				vendor: 'Wolkenfabrik Hosting GmbH',
 				amountCents: 119_00,
 				currency: 'EUR',
 				documentDate: day(2),
 				invoiceNumber: 'RE-1001',
-				excerpt:
-					'BEISPIEL – Wolkenfabrik Hosting GmbH · Rechnung RE-1001 · Kundennummer 4711 · Hosting Paket M · netto 100,00 EUR · USt 19 % 19,00 EUR · brutto 119,00 EUR · wird per Lastschrift eingezogen',
+				excerpt: w.excerptHosting,
 				extraction: {
 					document_type: 'invoice',
 					vendor: 'Wolkenfabrik Hosting GmbH',
@@ -255,20 +321,19 @@ export function sampleBooks(today) {
 					gross: 119,
 					payment: 'direct_debit',
 					reverse_charge: false,
-					summary: 'Hosting Paket M'
+					summary: w.hostingM
 				}
 			},
 			{
 				source: 'upload',
-				fileName: 'beispiel-stromwerk-2026-77.pdf',
+				fileName: w.filePower,
 				status: 'ausgelesen',
 				vendor: 'Stromwerk Test AG',
 				amountCents: 45_00,
 				currency: 'EUR',
 				documentDate: day(22),
 				invoiceNumber: '2026-77',
-				excerpt:
-					'BEISPIEL – Stromwerk Test AG · Rechnung 2026-77 · Abschlag Büro · netto 37,82 EUR · USt 19 % 7,18 EUR · brutto 45,00 EUR · zahlbar per Überweisung',
+				excerpt: w.excerptPower,
 				extraction: {
 					document_type: 'invoice',
 					vendor: 'Stromwerk Test AG',
@@ -282,7 +347,7 @@ export function sampleBooks(today) {
 					gross: 45,
 					payment: 'bank_transfer',
 					reverse_charge: false,
-					summary: 'Abschlag Strom Büro'
+					summary: w.electricity
 				}
 			}
 		]
@@ -294,10 +359,11 @@ export function sampleBooks(today) {
  *
  * @param {{ accounts: any, transactions: any, receipts: any, events: any }} store
  * @param {string} today YYYY-MM-DD
+ * @param {string} [lang] the app's language (`sampleBooks`)
  * @returns {Promise<{ accounts: number, transactions: number, receipts: number }>}
  */
-export async function addSample(store, today) {
-	const books = sampleBooks(today);
+export async function addSample(store, today, lang = 'de') {
+	const books = sampleBooks(today, lang);
 	let transactions = 0;
 	for (const a of books.accounts) {
 		const record = await upsertAccount(store.accounts, /** @type {any} */ (a.input));
