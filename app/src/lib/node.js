@@ -526,7 +526,9 @@ export async function startSession(
 					names: membership.bundle.names,
 					expectAddresses: membership.bundle.addresses,
 					accessController: booksAccessController(membership.bundle.books.identityId),
-					author: did,
+					// What a member writes names them by their write identity – the one
+					// the owner's member list knows them by (#614).
+					author: booksIdentity.id,
 					onOpen: (collection) => onStatus?.({ step: 'open', collection })
 				})
 			: await openStore({

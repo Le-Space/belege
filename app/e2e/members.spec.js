@@ -141,7 +141,6 @@ test('a member opens the owner’s books and writes as themselves', async ({ bro
 		await owner.page.getByRole('link', { name: 'Zahlungen', exact: true }).click();
 		await owner.page.getByTestId('add-test-transaction').click();
 		await expect(owner.page.getByTestId('transaction')).toHaveCount(1);
-		const keeperDid = String(await keeper.page.getByTestId('own-did').getAttribute('data-did'));
 
 		// Joining, as in the test above.
 		await openIntegration(keeper.page, 'zusammenarbeit');
@@ -180,10 +179,23 @@ test('a member opens the owner’s books and writes as themselves', async ({ bro
 		await expect
 			.poll(async () => (await transactions(owner.page))?.length ?? 0, { timeout: 120_000 })
 			.toBe(2);
+		// Written under their write identity, the one the owner's member list shows.
+		const writer = /did:key:z[1-9A-HJ-NP-Za-km-z]+/.exec(
+			String(await owner.page.getByTestId('member').first().textContent())
+		)?.[0];
+		expect(writer).toBeTruthy();
 		const theirs = (await transactions(owner.page)).find(
-			(/** @type {any} */ t) => t.author === keeperDid
+			(/** @type {any} */ t) => t.author === writer
 		);
 		expect(theirs, 'the member’s booking, written under their name').toBeTruthy();
+		// The card says when the member was last seen; the device list whose device it is.
+		await expect(owner.page.getByTestId('member-last-seen').first()).toContainText(
+			'zuletzt gesehen'
+		);
+		await openIntegration(owner.page, 'geraete');
+		await expect(owner.page.getByTestId('devices-item-member').first()).toContainText(
+			'Buchhaltung Test'
+		);
 	} finally {
 		await owner.context.close();
 		await keeper.context.close();

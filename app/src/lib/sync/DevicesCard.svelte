@@ -12,8 +12,10 @@
 		addSyncDevice,
 		answerAskingDevice,
 		clearSyncLog,
+		currentStore,
 		removeSyncDevice
 	} from '$lib/session.svelte.js';
+	import { whose } from '$lib/members/whose.js';
 	import { consent } from '$lib/consent.js';
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import CopyButton from '$lib/CopyButton.svelte';
@@ -54,6 +56,19 @@
 	/** @type {string | null} */
 	let error = $state(null);
 	let flagOn = $state(deviceSyncOn());
+	/** Whose a device is (#614): a member's name, or '' for an own one. */
+	/** @type {(peerId: string) => string} */
+	let ownerOf = $state(() => '');
+	$effect(() => {
+		// Read again whenever the device list changes.
+		void app.sync.state?.devices.length;
+		const store = currentStore();
+		if (!store) return;
+		store.settings
+			.list({ includeDeleted: true })
+			.then((records) => (ownerOf = whose(records).deviceOwner))
+			.catch(() => {});
+	});
 
 	async function add() {
 		busy = true;
@@ -141,7 +156,14 @@
 					data-testid="devices-item"
 				>
 					<span class="min-w-0">
-						<span class="block text-heading">{d.label || t('devices.unnamed')}</span>
+						<span class="block text-heading"
+							>{d.label || t('devices.unnamed')}{#if ownerOf(d.peerId)}<span
+									class="text-faint"
+									data-testid="devices-item-member"
+								>
+									· {t('devices.memberOf', { name: ownerOf(d.peerId) })}</span
+								>{/if}</span
+						>
 						<span class="block font-mono text-xs break-all text-faint">{d.peerId}</span>
 						<span class="block text-xs text-faint" data-testid="devices-item-last"
 							>{app.sync.lastIn[d.peerId]

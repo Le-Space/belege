@@ -1481,6 +1481,8 @@ export default {
 		readOnly: 'These books are open to you for reading only.',
 		devices: '{count} device(s)',
 		since: 'Member since {day}',
+		lastSeen: 'last seen {time}',
+		notSeen: 'not seen yet',
 		removedList: '{count} taken out',
 		removedOn: 'taken out on {day}',
 		remove: {
@@ -1561,6 +1563,7 @@ export default {
 		addLabel: 'ID of the other device',
 		addButton: 'Connect',
 		list: 'Known devices',
+		memberOf: 'device of {name}',
 		asking:
 			'A device with these books’ key asks to come in. Let it in only if it is yours or a member’s – a member taken out still holds the key.',
 		askingYes: 'Let in',
@@ -2893,6 +2896,7 @@ export default {
 		]
 	},
 	verlauf: {
+		by: 'by {name}',
 		title: 'History',
 		intro:
 			'What the app did and what you decided, newest first. The entries are sealed in your books, like everything else.',

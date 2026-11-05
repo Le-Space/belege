@@ -1509,6 +1509,8 @@ export default {
 		readOnly: 'Diese Bücher sind für dich nur zum Lesen offen.',
 		devices: '{count} Gerät(e)',
 		since: 'Mitglied seit {day}',
+		lastSeen: 'zuletzt gesehen {time}',
+		notSeen: 'noch nicht gesehen',
 		removedList: '{count} herausgenommen',
 		removedOn: 'herausgenommen am {day}',
 		remove: {
@@ -1591,6 +1593,7 @@ export default {
 		addLabel: 'Kennung des anderen Geräts',
 		addButton: 'Verbinden',
 		list: 'Bekannte Geräte',
+		memberOf: 'Gerät von {name}',
 		asking:
 			'Ein Gerät mit dem Schlüssel dieser Bücher möchte dazukommen. Lass es nur herein, wenn es deins oder das eines Mitglieds ist – ein herausgenommenes Mitglied hat den Schlüssel noch.',
 		askingYes: 'Zulassen',
@@ -2939,6 +2942,7 @@ export default {
 		]
 	},
 	verlauf: {
+		by: 'von {name}',
 		title: 'Verlauf',
 		intro:
 			'Was die App getan hat und was du entschieden hast, neueste zuerst. Die Einträge liegen versiegelt in deinen Büchern, wie alles andere.',

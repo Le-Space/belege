@@ -21,9 +21,21 @@
 	} from '$lib/session.svelte.js';
 	import { intlLocale } from '$lib/i18n/index.js';
 	import { membersOf } from './members.js';
+	import { whose } from './whose.js';
 
 	/** @type {import('./members.js').Member[]} */
 	let members = $state([]);
+	/** A member's devices, the one they joined with and those they wrote (#614). */
+	/** @type {(writer: string) => string[]} */
+	let devicesOf = $state(() => []);
+	/** When anything last came from one of a member's devices (ms; 0: never). @param {string} writer */
+	const lastSeen = (writer) =>
+		Math.max(0, ...devicesOf(writer).map((p) => Number(app.sync.lastIn[p] ?? 0)));
+	/** @param {number} at */
+	const moment = (at) =>
+		new Intl.DateTimeFormat(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(
+			new Date(at)
+		);
 	/** @type {import('./members.js').Member[]} taken out (#614) */
 	let removed = $state([]);
 	/** The member whose "Herausnehmen" asks first. */
@@ -62,7 +74,9 @@
 	async function load() {
 		const store = currentStore();
 		if (!store) return;
-		const all = membersOf(await store.settings.list({ includeDeleted: true }));
+		const records = await store.settings.list({ includeDeleted: true });
+		devicesOf = whose(records).devicesOf;
+		const all = membersOf(records);
 		members = all.filter((m) => !m.removed);
 		removed = all.filter((m) => m.removed);
 	}
@@ -143,6 +157,11 @@
 						· {t('members.devices', { count: m.devices.length })}</span
 					>
 					<span class="block text-xs text-faint">{t('members.since', { day: day(m.at) })}</span>
+					<span class="block text-xs text-faint" data-testid="member-last-seen"
+						>{lastSeen(m.writer)
+							? t('members.lastSeen', { time: moment(lastSeen(m.writer)) })
+							: t('members.notSeen')}</span
+					>
 					<span class="block font-mono text-xs break-all text-faint">{m.writer}</span>
 					{#if !app.member}
 						{#if removing === m.writer}
