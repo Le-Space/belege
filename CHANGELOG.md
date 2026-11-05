@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.29.0] – 2026-11-05
+
 ### Added
 
 - **Members who write along or read along** (_Integrationen → Zusammenarbeit_, milestone C2, #641): when admitting, the owner chooses. "Schreibt mit" – the bookkeeping, or an assistant who works in the books – writes under their own name and backs up; your bridge only if you tick it. "Liest mit" – an assistant who follows the books from belege.le-space.de, wherever they sit – gets the keys to read and sync only: no write access, no backup, no bridge. A reader's session opens the books read-only and runs nothing that writes. Members admitted before keep what they had.
