@@ -39,6 +39,10 @@
 	// Admitting (the owner).
 	let admitName = $state('');
 	let booksName = $state('');
+	/** @type {'bookkeeping' | 'reader'} */
+	let role = $state('bookkeeping');
+	/** A writing member may use the bridge: on unless the owner takes it off. */
+	let bridge = $state(true);
 	let code = $state('');
 	/** @type {{ answer: string, fingerprint: string, books: string } | null} */
 	let admitted = $state(null);
@@ -88,7 +92,7 @@
 		});
 	const admit = () =>
 		run(async () => {
-			admitted = await admitMember({ code, label: admitName, booksLabel: booksName });
+			admitted = await admitMember({ code, label: admitName, booksLabel: booksName, role, bridge });
 			code = '';
 			codeRead = null;
 			codeMatches = false;
@@ -250,6 +254,34 @@
 				data-testid="member-admit-books"
 			/></label
 		>
+		<fieldset class="flex flex-col gap-1" data-testid="member-admit-role">
+			<legend>{t('members.admit.role')}</legend>
+			<label class="flex items-start gap-2">
+				<input
+					type="radio"
+					bind:group={role}
+					value="bookkeeping"
+					data-testid="member-role-bookkeeping"
+				/>
+				<span
+					>{t('members.role.bookkeeping')} –
+					<span class="text-faint">{t('members.admit.roleBookkeeping')}</span></span
+				>
+			</label>
+			{#if role === 'bookkeeping'}
+				<label class="ml-6 flex items-center gap-2 text-xs">
+					<input type="checkbox" bind:checked={bridge} data-testid="member-admit-bridge" />
+					{t('members.admit.bridge')}
+				</label>
+			{/if}
+			<label class="flex items-start gap-2">
+				<input type="radio" bind:group={role} value="reader" data-testid="member-role-reader" />
+				<span
+					>{t('members.role.reader')} –
+					<span class="text-faint">{t('members.admit.roleReader')}</span></span
+				>
+			</label>
+		</fieldset>
 		<label class="flex flex-col"
 			>{t('members.admit.code')}
 			<textarea

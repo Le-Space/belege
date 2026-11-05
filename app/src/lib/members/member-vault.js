@@ -59,6 +59,14 @@ const KEY_NAMES = /** @type {const} */ ([
 	'backup',
 	'bridgeAuth'
 ]);
+/** What a member who only reads gets (#641): no backup key, no bridge key. */
+const READER_KEY_NAMES = /** @type {const} */ (['database', 'replication', 'blob', 'deviceAuth']);
+/** The roles a bundle names; one without a role is the bookkeeping's (#611). */
+const BUNDLE_ROLES = /** @type {const} */ (['bookkeeping', 'reader']);
+/** @param {unknown} role */
+const keyNamesFor = (role) => (role === 'reader' ? READER_KEY_NAMES : KEY_NAMES);
+/** Left out of a writing member's bundle when they may not use the bridge (#641). */
+const OPTIONAL_KEY_NAMES = /** @type {const} */ (['bridgeAuth']);
 const ADDRESS = /^\/orbitdb\/zdpu[1-9A-HJ-NP-Za-km-z]{40,60}$/;
 const NAME = /^[0-9a-f]{32}$/;
 const DID = /^did:key:z[1-9A-HJ-NP-Za-km-z]{40,80}$/;
@@ -75,7 +83,9 @@ export class MemberBundleError extends Error {
  * @typedef {object} MemberBundle
  * @property {number} version
  * @property {{ did: string, identityId: string, label: string, identityHash: string, identity: Uint8Array }} books
- * @property {Record<typeof KEY_NAMES[number], Uint8Array>} keys
+ * @property {'bookkeeping' | 'reader'} role what the member may do: `reader` reads only (#641)
+ * @property {Record<typeof READER_KEY_NAMES[number], Uint8Array> & Partial<Record<'backup' | 'bridgeAuth', Uint8Array>>} keys
+ *   a reader's has no backup and no bridge key
  * @property {Record<string, string>} names the sealed database names, by collection
  * @property {Record<string, string>} addresses by collection, the check of each name
  */
@@ -94,17 +104,23 @@ function fromHex(hex, length, what) {
  * The bundle a member gets, from what the open books hold – checked: six
  * keys of 32 bytes, an address for every collection, the books named.
  *
- * @param {{ books: MemberBundle['books'], keys: MemberBundle['keys'], names: Record<string, string>, addresses: Record<string, string> }} p
+ * @param {{ books: MemberBundle['books'], keys: MemberBundle['keys'], names: Record<string, string>, addresses: Record<string, string>, role?: MemberBundle['role'] }} p
  * @returns {MemberBundle}
  */
-export function memberBundle({ books, keys, names, addresses }) {
-	const bundle = { version: BUNDLE_VERSION, books, keys, names, addresses };
+export function memberBundle({ books, keys, names, addresses, role = 'bookkeeping' }) {
+	/** @type {MemberBundle} */
+	const bundle = { version: BUNDLE_VERSION, role, books, keys, names, addresses };
 	return decodeBundle(encodeBundle(bundle));
 }
 
 /** @param {MemberBundle} bundle @returns {string} */
 export function encodeBundle(bundle) {
-	for (const name of KEY_NAMES) {
+	const role = bundle.role ?? 'bookkeeping';
+	if (!BUNDLE_ROLES.includes(role)) throw new MemberBundleError(`Unknown role: ${role}`);
+	const names = keyNamesFor(role).filter(
+		(n) => !(OPTIONAL_KEY_NAMES.includes(/** @type {any} */ (n)) && !bundle.keys?.[n])
+	);
+	for (const name of names) {
 		const key = bundle.keys?.[name];
 		if (!(key instanceof Uint8Array) || key.length !== KEY_BYTES) {
 			throw new MemberBundleError(`The bundle needs the ${name} key, 32 bytes.`);
@@ -112,6 +128,7 @@ export function encodeBundle(bundle) {
 	}
 	return JSON.stringify({
 		version: bundle.version,
+		...(role === 'bookkeeping' ? {} : { role }),
 		books: {
 			did: bundle.books?.did,
 			identityId: bundle.books?.identityId,
@@ -119,7 +136,9 @@ export function encodeBundle(bundle) {
 			identityHash: bundle.books?.identityHash,
 			identity: toHex(bundle.books?.identity ?? new Uint8Array())
 		},
-		keys: Object.fromEntries(KEY_NAMES.map((n) => [n, toHex(bundle.keys[n])])),
+		keys: Object.fromEntries(
+			names.map((n) => [n, toHex(/** @type {Uint8Array} */ (bundle.keys[n]))])
+		),
 		names: Object.fromEntries(COLLECTIONS.map((c) => [c, bundle.names?.[c]])),
 		addresses: Object.fromEntries(COLLECTIONS.map((c) => [c, bundle.addresses?.[c]]))
 	});
@@ -150,8 +169,17 @@ export function decodeBundle(text) {
 	) {
 		throw new MemberBundleError('The bundle does not carry the books’ identity.');
 	}
+	const role = parsed.role ?? 'bookkeeping';
+	if (!BUNDLE_ROLES.includes(role))
+		throw new MemberBundleError('The bundle names an unknown role.');
+	const wanted = keyNamesFor(role).filter(
+		(n) => !OPTIONAL_KEY_NAMES.includes(/** @type {any} */ (n)) || parsed.keys?.[n] !== undefined
+	);
+	if (Object.keys(parsed.keys ?? {}).some((k) => !wanted.includes(/** @type {any} */ (k)))) {
+		throw new MemberBundleError('The bundle holds more keys than its role gets.');
+	}
 	const keys = /** @type {MemberBundle['keys']} */ (
-		Object.fromEntries(KEY_NAMES.map((n) => [n, fromHex(parsed.keys?.[n], KEY_BYTES, `${n} key`)]))
+		Object.fromEntries(wanted.map((n) => [n, fromHex(parsed.keys?.[n], KEY_BYTES, `${n} key`)]))
 	);
 	/** @type {Record<string, string>} */
 	const names = {};
@@ -167,11 +195,12 @@ export function decodeBundle(text) {
 		addresses[c] = a;
 	}
 	const extra = Object.keys(parsed).filter(
-		(k) => !['version', 'books', 'keys', 'names', 'addresses'].includes(k)
+		(k) => !['version', 'role', 'books', 'keys', 'names', 'addresses'].includes(k)
 	);
 	if (extra.length) throw new MemberBundleError('The bundle holds more than it should.');
 	return {
 		version: BUNDLE_VERSION,
+		role,
 		books: {
 			did: books.did,
 			identityId: books.identityId,

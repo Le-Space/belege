@@ -128,6 +128,8 @@ function plan() {
 	autoTimer = null;
 	backupDue.at = 0;
 	if (!backupDue.auto || !backupDue.collections.length || backupRun.step) return;
+	// Who only reads backs nothing up (#641).
+	if (app.member?.role === 'reader') return;
 	backupDue.at = Date.now() + delay();
 	autoTimer = setTimeout(() => {
 		autoTimer = null;

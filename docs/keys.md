@@ -114,9 +114,13 @@ sequenceDiagram
     Note over M,O: from the next unlock: "Bücher, in denen ich Mitglied bin"
 ```
 
-**What the bundle holds:** the database key, the replication key, the receipt-file key, the backup key, the device-proof key and the bridge key's base, the databases' names and addresses, and the books' public identity. **What it never holds:** R, the books' secret, the vault key, a passkey slot or the recovery words.
+**What the bundle holds:** the database key, the replication key, the receipt-file key, the device-proof key – and for a member who writes the backup key, and if they may use the bridge the bridge key's base –, the databases' names and addresses, and the books' public identity. **What it never holds:** R, the books' secret, the vault key, a passkey slot or the recovery words.
 
-**What a member can do:** read the books, write – under their own name, a DID from their own root, which the books' access lists allow –, back up and restore, and reach the owner's bridge. **What stays with the owner:** passkeys and recovery words of the books, moving the books, letting members in.
+**Two roles** ([#641](https://github.com/Le-Space/belege/issues/641)), chosen when admitting:
+
+- **Writes along** – the bookkeeping, or an assistant who works in the books: reads, writes under their own name (a DID from their own root, which the books' access lists allow), backs up and restores. Reaching the owner's bridge (bank, mailbox, AI) is a tick when admitting; without it the bundle holds no bridge key.
+- **Reads along** – an assistant who follows the books: the keys to read and sync only – no write access in any access list, no backup key, no bridge key. Their session opens the books read-only; every write is refused there, and by every device.
+  **What stays with the owner:** passkeys and recovery words of the books, moving the books, letting members in.
 
 **The member vault** works like the books' vault: the bundle and the member's own root, sealed under a vault key, with a slot for the member's passkey. It lies in the member's browser (`belege.memberships.v1`) and, after the member's first backup, at the memberships' index on Aleph – sealed, without names. On an empty device the member's passkey finds it there ([backup.md](backup.md#members-back-up-and-restore)).
 
