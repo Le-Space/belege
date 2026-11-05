@@ -1517,7 +1517,9 @@ export default {
 			answer: 'That is no answer to a join code, or it was changed.',
 			otherCode:
 				'This answer belongs to another join code. It opens only on the device that made it.',
-			unknown: 'The books know no such member, or they were taken out already.'
+			unknown: 'The books know no such member, or they were taken out already.',
+			removedBefore:
+				'This join code belongs to a member who was taken out. To join again, the person makes a new code on their device.'
 		},
 		join: {
 			title: 'Join as the bookkeeping',
