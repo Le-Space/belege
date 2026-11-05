@@ -230,7 +230,9 @@ async function openMemberBooks(page) {
 test('the bookkeeping backs up, and an empty browser with their passkey restores the books', async ({
 	browser
 }) => {
-	test.setTimeout(420_000);
+	// Two browsers, a fake Aleph, a backup and a restore: on a busy runner the
+	// waits for sync and for the restore are generous, not the ones of one device.
+	test.setTimeout(720_000);
 	const KEY = createHash('sha256').update('belege e2e member backup key').digest('hex');
 	const aleph = await startFakeAleph({
 		accounts: { [alephAccountOf(KEY)]: { balance: 1_000_000, rows: [] } }
@@ -270,19 +272,20 @@ test('the bookkeeping backs up, and an empty browser with their passkey restores
 		// The bookkeeping backs up: the books' account, the books' browser key, the books' backup key.
 		await openIntegration(keeper.page, 'backup');
 		const card = keeper.page.getByTestId('backup-card');
+		// The books' account and key come with the settings, which may sync after the bookings.
 		await expect(card.getByTestId('backup-address')).toContainText(alephAccountOf(KEY), {
-			timeout: 60_000
+			timeout: 180_000
 		});
-		await expect(card.getByTestId('backup-granted')).toBeVisible({ timeout: 30_000 });
+		await expect(card.getByTestId('backup-granted')).toBeVisible({ timeout: 60_000 });
 		const indexesBefore = aleph.kept.size;
 		await card.getByTestId('backup-now').click();
 		await expect(card.getByTestId('backup-made')).toContainText('von Aleph aufbewahrt', {
-			timeout: 60_000
+			timeout: 120_000
 		});
 		// The history says who made it.
 		await expect(card.getByTestId('backup-row-by').first()).toContainText('Buchhaltung Test');
 		// The member vault went to Aleph's index, with no name of the books in the clear.
-		await expect.poll(() => aleph.kept.size, { timeout: 60_000 }).toBeGreaterThan(indexesBefore);
+		await expect.poll(() => aleph.kept.size, { timeout: 120_000 }).toBeGreaterThan(indexesBefore);
 		expect(JSON.stringify([...aleph.kept.values()])).not.toContain('Wolkenfabrik');
 
 		// The owner is gone; the bookkeeping's browser loses everything.
@@ -300,22 +303,23 @@ test('the bookkeeping backs up, and an empty browser with their passkey restores
 		// The pointer named the account: the backup is listed, and comes back.
 		await openIntegration(keeper.page, 'backup');
 		await expect(card.getByTestId('backup-address')).toContainText(alephAccountOf(KEY), {
-			timeout: 30_000
-		});
-		await expect(card.getByTestId('backup-chain-group')).toHaveCount(1, { timeout: 30_000 });
-		await card.getByTestId('backup-restore').click();
-		await card.getByTestId('restore-yes').click();
-		await expect(card.getByTestId('restore-done')).toContainText('Wiederhergestellt', {
 			timeout: 60_000
 		});
-		await expect(keeper.page.getByTestId('passkey-unlock')).toBeVisible({ timeout: 30_000 });
+		await expect(card.getByTestId('backup-chain-group')).toHaveCount(1, { timeout: 60_000 });
+		await card.getByTestId('backup-restore').click();
+		await card.getByTestId('restore-yes').click();
+		// The download may fall back from the gateway to IPFS after 15 seconds of silence.
+		await expect(card.getByTestId('restore-done')).toContainText('Wiederhergestellt', {
+			timeout: 180_000
+		});
+		await expect(keeper.page.getByTestId('passkey-unlock')).toBeVisible({ timeout: 60_000 });
 		await keeper.page.getByTestId('open-books-member').check();
 		await keeper.page.getByTestId('passkey-unlock').click();
 		await expect(keeper.page.getByTestId('member-books')).toContainText(
 			'Wolkenfabrik Hosting GmbH'
 		);
 		await expect
-			.poll(async () => (await transactions(keeper.page))?.length ?? 0, { timeout: 30_000 })
+			.poll(async () => (await transactions(keeper.page))?.length ?? 0, { timeout: 60_000 })
 			.toBe(1);
 	} finally {
 		await owner.context.close().catch(() => {});
