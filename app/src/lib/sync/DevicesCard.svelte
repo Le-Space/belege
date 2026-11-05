@@ -7,7 +7,13 @@
 	// device shows an invite, the other scans it and shows its answer, the
 	// first scans that back (sync/qr-link.js).
 	import { renderSVG } from 'uqr';
-	import { app, addSyncDevice, clearSyncLog, removeSyncDevice } from '$lib/session.svelte.js';
+	import {
+		app,
+		addSyncDevice,
+		answerAskingDevice,
+		clearSyncLog,
+		removeSyncDevice
+	} from '$lib/session.svelte.js';
 	import { consent } from '$lib/consent.js';
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import CopyButton from '$lib/CopyButton.svelte';
@@ -98,6 +104,34 @@
 </script>
 
 {#snippet deviceList(/** @type {import('./device-sync.js').SyncState | null} */ state)}
+	{#if state?.asking?.length}
+		<!-- Proved the books' key, not on their list: only the person lets it in. -->
+		<ul
+			class="mt-4 rounded-md border border-warning/40 bg-warning/10 p-2 text-sm"
+			data-testid="devices-asking"
+		>
+			{#each state.asking as peerId (peerId)}
+				<li class="flex flex-wrap items-center gap-2 py-1" data-testid="devices-asking-item">
+					<span class="min-w-0 flex-1">
+						{t('devices.asking')}
+						<span class="block font-mono text-xs break-all text-faint">{peerId}</span>
+					</span>
+					<button
+						type="button"
+						class={button}
+						onclick={() => answerAskingDevice(peerId, true)}
+						data-testid="devices-asking-yes">{t('devices.askingYes')}</button
+					>
+					<button
+						type="button"
+						class="text-sm text-text underline"
+						onclick={() => answerAskingDevice(peerId, false)}
+						data-testid="devices-asking-no">{t('devices.askingNo')}</button
+					>
+				</li>
+			{/each}
+		</ul>
+	{/if}
 	<h3 class="mt-4 text-sm font-semibold text-heading">{t('devices.list')}</h3>
 	{#if state?.devices.length}
 		<ul class="mt-1 divide-y divide-border text-sm" data-testid="devices-list">

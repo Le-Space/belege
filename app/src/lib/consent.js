@@ -77,7 +77,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     books' Aleph key, topped up through Stripe on the service's own page.
 // 38: a backup made before new keys counts only with the old books' signature,
 //     and adds only what the books do not have (#628).
-export const CONSENT_VERSION = '38';
+// 39: only known devices get in, in every mode; an unknown one is let in by
+//     the person (audit of C1).
+export const CONSENT_VERSION = '39';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

@@ -32,19 +32,30 @@ export function isLocalPath(connection, { lanRelayPeer, qrPeers }) {
 }
 
 /**
- * The gate's `admit` for a mode: in "Beides" a known device over any path,
- * an unknown one over the own network only; in every other mode anyone who
- * proves the passkey.
+ * The gate's `admit`, in every mode: a device the books know over any path.
+ * An unknown one only over the own network – two scanned codes, or the
+ * bridge's relay, so someone is there with both devices –, or when these books
+ * never knew another device (`state.ever`, removed ones count): a new own
+ * device or a member who just joined meets its first device that way. Any
+ * other unknown device that proved the key is named in `onUnknown`, for the
+ * person to let in – never let in by itself: a member taken out still holds
+ * the key.
  *
  * @param {object} p
- * @param {import('./network-mode.js').NetworkMode} p.mode
+ * @param {import('./network-mode.js').NetworkMode} [p.mode] how devices meet: the rule is the same in every one
  * @param {Set<string>} p.knownPeers the devices the books know (device-sync.js)
+ * @param {{ loaded: boolean, ever: boolean }} p.state whether the list is read, and ever named another device
  * @param {string | null} p.lanRelayPeer
  * @param {Set<string>} p.qrPeers
+ * @param {(peer: string) => void} [p.onUnknown]
  * @returns {(peer: string, connection: any) => boolean}
  */
-export function firstContactPolicy({ mode, knownPeers, lanRelayPeer, qrPeers }) {
-	if (mode !== 'both') return () => true;
-	return (peer, connection) =>
-		knownPeers.has(peer) || isLocalPath(connection, { lanRelayPeer, qrPeers });
+export function firstContactPolicy({ knownPeers, state, lanRelayPeer, qrPeers, onUnknown }) {
+	return (peer, connection) => {
+		if (knownPeers.has(peer)) return true;
+		if (isLocalPath(connection, { lanRelayPeer, qrPeers })) return true;
+		if (state.loaded && !state.ever) return true;
+		onUnknown?.(peer);
+		return false;
+	};
 }

@@ -1419,6 +1419,21 @@ export async function addSyncDevice(peerId) {
 	await addWhenProved(id);
 }
 
+/**
+ * A device that proved the books' key but is not on their list (first-contact.js):
+ * let in by the person – it goes on the list and is dialled – or turned away.
+ *
+ * @param {string} peerId
+ * @param {boolean} letIn
+ */
+export async function answerAskingDevice(peerId, letIn) {
+	if (!deviceSync) throw new Error(t('messages.sync.off'));
+	const { asking } = await import('./sync/device-sync.js');
+	asking.delete(peerId);
+	if (letIn) await deviceSync.addDevice(peerId);
+	else deviceSync.refresh();
+}
+
 /** "Entfernen" in Integrationen → Eigene Geräte. @param {string} peerId */
 export async function removeSyncDevice(peerId) {
 	if (!deviceSync) throw new Error(t('messages.sync.off'));
