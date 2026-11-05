@@ -6,6 +6,16 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Security
+
+Hardening from a review of members (C1) and new keys (C3):
+
+- **Joining: both sides compare before anything is written or kept** (#640). The owner compares the join code's check with the bookkeeping's screen before the books grant anything; the bookkeeping compares a check of the books with the owner's screen before the member vault is kept.
+- **Taking a member out puts back what only the owner sets** (#642) – where backups are kept and signed, the bridge, how devices meet, the vault on Aleph, the invoicing app – when the member set it last, and names their other last changes. Only devices the member alone wrote leave the list. New keys carry such settings only as the owner set them, and make a new browser key for Aleph.
+- **A backup made before new keys counts only as the books of then signed it** (#643): every entry's identity and signature are checked, and it only adds records the books do not have – nothing overwritten, no settings.
+- **Only devices the books know get in, in every mode** (#644). An unknown device that proves the key asks to come in under _Eigene Geräte_ ("Zulassen" / "Ablehnen"); books that never knew another device let their first one in.
+- Test hooks only in E2E builds; a join code of a member taken out is refused – they join with a new one (#645).
+
 ## [0.28.2] – 2026-11-04
 
 ### Changed
