@@ -206,3 +206,52 @@ describe('memberships an empty device found on Aleph (#613)', () => {
 		expect(await openMemberships({ ...passkey(1), storage: empty })).toEqual([]);
 	});
 });
+
+describe('a member who only reads (#641)', () => {
+	const readerBundle = () => {
+		const full = bundle();
+		const { database, replication, blob, deviceAuth } = full.keys;
+		return memberBundle({
+			...full,
+			role: 'reader',
+			keys: { database, replication, blob, deviceAuth }
+		});
+	};
+
+	it('carries the keys to read and sync – no backup key, no bridge key', () => {
+		const reader = readerBundle();
+		expect(reader.role).toBe('reader');
+		expect(Object.keys(reader.keys).sort()).toEqual([
+			'blob',
+			'database',
+			'deviceAuth',
+			'replication'
+		]);
+		expect(decodeBundle(encodeBundle(reader))).toEqual(reader);
+	});
+
+	it('a reader’s bundle with a backup key in it is refused', () => {
+		const text = JSON.parse(encodeBundle(readerBundle()));
+		text.keys.backup = '05'.repeat(32);
+		expect(() => decodeBundle(JSON.stringify(text))).toThrow(MemberBundleError);
+	});
+
+	it('a bundle without a role is the bookkeeping’s, as before', () => {
+		const text = JSON.parse(encodeBundle(bundle()));
+		expect(text.role).toBeUndefined();
+		expect(decodeBundle(JSON.stringify(text)).role).toBe('bookkeeping');
+	});
+});
+
+describe('a member who writes, without the bridge (#641)', () => {
+	it('gets the backup key, and no bridge key', () => {
+		const full = bundle();
+		const { bridgeAuth, ...keys } = full.keys;
+		expect(bridgeAuth).toBeInstanceOf(Uint8Array);
+		const writer = memberBundle({ ...full, keys });
+		expect(writer.role).toBe('bookkeeping');
+		expect(writer.keys.backup).toBeInstanceOf(Uint8Array);
+		expect(writer.keys.bridgeAuth).toBeUndefined();
+		expect(decodeBundle(encodeBundle(writer))).toEqual(writer);
+	});
+});

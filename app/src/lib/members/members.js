@@ -4,7 +4,7 @@
 
 const PREFIX = 'member:';
 const DID = /^did:key:z[1-9A-HJ-NP-Za-km-z]{40,80}$/;
-export const ROLES = /** @type {const} */ (['bookkeeping']);
+export const ROLES = /** @type {const} */ (['bookkeeping', 'reader']);
 
 /**
  * @typedef {object} Member

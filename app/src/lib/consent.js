@@ -79,7 +79,10 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     and adds only what the books do not have (#628).
 // 39: only known devices get in, in every mode; an unknown one is let in by
 //     the person (audit of C1).
-export const CONSENT_VERSION = '39';
+// 40: two roles for members (#641): one who writes along (backups, the
+//     bridge only if ticked) and one who reads along (no write, no backup,
+//     no bridge).
+export const CONSENT_VERSION = '40';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

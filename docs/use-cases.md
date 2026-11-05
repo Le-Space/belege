@@ -78,8 +78,7 @@ gone. You can add a second passkey as a spare.
 ## 6. Working with others
 
 - **Tax adviser:** the DATEV package with the receipts, every month.
-- **Assistant:** a read-only share of one year, redacted and with an end. You can end it at any
-  time. The bridge must be running for this.
+- **Assistant:** admitted as a member (_Integrationen → Zusammenarbeit_, [#641](https://github.com/Le-Space/belege/issues/641)) with their own passkey, on belege.le-space.de from anywhere: "Liest mit" to follow the books, or "Schreibt mit" to work in them, with backups and – if you tick it – your bridge. A read-only share of one year, redacted and with an end, is there too; for it the bridge must be running and the assistant must reach this computer.
 - **Le Space invoicing app:** it delivers own receipts and learns which of its invoices are paid.
 
 ## 7. The bookkeeping works in your books

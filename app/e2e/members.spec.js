@@ -190,8 +190,14 @@ test('a member opens the owner’s books and writes as themselves', async ({ bro
 	}
 });
 
-/** Joins `keeper` to the owner's books and opens them there, as in the test above. @param {{ page: import('@playwright/test').Page }} owner @param {{ page: import('@playwright/test').Page }} keeper */
-async function joinAndOpen(owner, keeper) {
+/**
+ * Joins `keeper` to the owner's books and opens them there, as in the test above.
+ *
+ * @param {{ page: import('@playwright/test').Page }} owner
+ * @param {{ page: import('@playwright/test').Page }} keeper
+ * @param {'bookkeeping' | 'reader'} [role]
+ */
+async function joinAndOpen(owner, keeper, role = 'bookkeeping') {
 	await openIntegration(keeper.page, 'zusammenarbeit');
 	await keeper.page.getByTestId('member-join-name').fill('Buchhaltung Test');
 	await keeper.page.getByTestId('member-join-button').click();
@@ -200,6 +206,7 @@ async function joinAndOpen(owner, keeper) {
 	await owner.page.getByTestId('member-admit-name').fill('Buchhaltung Test');
 	await owner.page.getByTestId('member-admit-books').fill('Wolkenfabrik Hosting GmbH');
 	await owner.page.getByTestId('member-admit-code').fill(code);
+	await owner.page.getByTestId(`member-role-${role}`).check();
 	await owner.page.getByTestId('member-admit-read').click();
 	await owner.page.getByTestId('member-admit-match').check();
 	await owner.page.getByTestId('member-admit-button').click();
@@ -367,5 +374,45 @@ test('a member taken out: their devices leave the list, and what they write afte
 	} finally {
 		await owner.context.close();
 		await keeper.context.close();
+	}
+});
+
+test('an assistant who only reads sees the owner’s books and writes nothing', async ({
+	browser
+}) => {
+	test.setTimeout(300_000);
+	const owner = await online(browser, 'E2E Inhaber', 7);
+	const reader = await online(browser, 'E2E Assistenz', 53);
+	try {
+		await owner.page.getByRole('link', { name: 'Zahlungen', exact: true }).click();
+		await owner.page.getByTestId('add-test-transaction').click();
+		await expect(owner.page.getByTestId('transaction')).toHaveCount(1);
+		await joinAndOpen(owner, reader, 'reader');
+		await expect(reader.page.getByTestId('member-books')).toContainText('du liest mit');
+		await expect(owner.page.getByTestId('member')).toContainText('Liest mit');
+		// The owner's booking comes over …
+		await expect
+			.poll(async () => (await transactions(reader.page))?.length ?? 0, { timeout: 120_000 })
+			.toBe(1);
+		// … and writing is refused, with words the person reads.
+		const refused = await reader.page.evaluate(() =>
+			/** @type {any} */ (window).__belegeE2E
+				.addTransaction({
+					bookedOn: '2026-10-03',
+					counterparty: 'Stromwerk Test AG',
+					purpose: 'Probe',
+					amountCents: -1
+				})
+				.then(
+					() => '',
+					(/** @type {any} */ e) => String(e?.message ?? e)
+				)
+		);
+		expect(refused).toContain('nur zum Lesen');
+		await owner.page.waitForTimeout(10_000);
+		expect((await transactions(owner.page))?.length).toBe(1);
+	} finally {
+		await owner.context.close();
+		await reader.context.close();
 	}
 });

@@ -115,9 +115,13 @@ sequenceDiagram
     Note over M,O: ab dem nächsten Entsperren: „Bücher, in denen ich Mitglied bin“
 ```
 
-**Was im Schlüsselbund steckt:** der Datenbank-Schlüssel, der Replikationsschlüssel, der Schlüssel für Belegdateien, der Sicherungsschlüssel, der Schlüssel für den Gerätenachweis und die Grundlage des Bridge-Schlüssels, die Namen und Adressen der Datenbanken und die öffentliche Identität der Bücher. **Was nie darin steckt:** R, das Geheimnis der Bücher, der Tresorschlüssel, ein Passkey-Fach oder die Wiederherstellungswörter.
+**Was im Schlüsselbund steckt:** der Datenbank-Schlüssel, der Replikationsschlüssel, der Schlüssel für Belegdateien, der Schlüssel für den Gerätenachweis – und bei einem Mitglied, das schreibt, der Sicherungsschlüssel, und wenn es die Bridge nutzen darf, die Grundlage des Bridge-Schlüssels –, die Namen und Adressen der Datenbanken und die öffentliche Identität der Bücher. **Was nie darin steckt:** R, das Geheimnis der Bücher, der Tresorschlüssel, ein Passkey-Fach oder die Wiederherstellungswörter.
 
-**Was ein Mitglied kann:** die Bücher lesen, schreiben – unter eigenem Namen, einer DID aus seiner eigenen Wurzel, die die Zugriffslisten der Bücher erlauben –, sichern und wiederherstellen und die Bridge des Inhabers nutzen. **Was beim Inhaber bleibt:** Passkeys und Wiederherstellungswörter der Bücher, der Umzug der Bücher und Mitglieder aufnehmen.
+**Zwei Rollen** ([#641](https://github.com/Le-Space/belege/issues/641)), gewählt beim Aufnehmen:
+
+- **Schreibt mit** – die Buchhaltung oder eine Assistenz, die in den Büchern arbeitet: liest, schreibt unter eigenem Namen (einer DID aus seiner eigenen Wurzel, die die Zugriffslisten der Bücher erlauben), sichert und stellt wieder her. Die Bridge des Inhabers (Bank, Postfach, KI) zu nutzen ist ein Häkchen beim Aufnehmen; ohne es steckt kein Bridge-Schlüssel im Schlüsselbund.
+- **Liest mit** – eine Assistenz, die die Bücher verfolgt: nur die Schlüssel zum Lesen und Abgleichen – kein Schreibrecht in irgendeiner Zugriffsliste, kein Sicherungsschlüssel, kein Bridge-Schlüssel. Ihre Sitzung öffnet die Bücher nur zum Lesen; jedes Schreiben wird dort abgelehnt, und von jedem Gerät.
+  **Was beim Inhaber bleibt:** Passkeys und Wiederherstellungswörter der Bücher, der Umzug der Bücher und Mitglieder aufnehmen.
 
 **Der Mitglieds-Tresor** funktioniert wie der Tresor der Bücher: Schlüsselbund und Wurzel des Mitglieds, versiegelt mit einem Tresorschlüssel, mit einem Fach für den Passkey des Mitglieds. Er liegt im Browser des Mitglieds (`belege.memberships.v1`) und nach seiner ersten Sicherung am Index seiner Mitgliedschaften bei Aleph – versiegelt, ohne Namen. Auf einem leeren Gerät findet der Passkey des Mitglieds ihn dort ([backup.de.md](backup.de.md#mitglieder-sichern-und-stellen-wieder-her)).
 

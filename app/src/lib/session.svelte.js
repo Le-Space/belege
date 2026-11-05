@@ -136,7 +136,7 @@ export const app = $state({
 		/** @type {string | null} a QR invite that came by link, waiting for the books to open (sync/qr-link-url.js) */
 		qrInvite: null
 	},
-	/** @type {{ books: string, writer: string } | null} the books open are someone else's, as their member (#612), who writes as `writer` */
+	/** @type {{ books: string, writer: string, role: 'bookkeeping' | 'reader' } | null} the books open are someone else's, as their member (#612), who writes as `writer` – or reads only (#641) */
 	member: null,
 	/** Belege as a UCEP consumer (ucep/): the invoicing app it is paired with. */
 	ucep: {
@@ -161,7 +161,7 @@ export function currentUcep() {
 
 /** Only when a paired app exists; see `startUcep`. */
 async function startUcepIfPaired() {
-	if (!session) return;
+	if (!session || readOnly()) return;
 	if (networkPause()) return;
 	const { pairedApp } = await import('./ucep/consumer.js');
 	if (await pairedApp(session.store.settings)) await startUcep();
@@ -641,7 +641,8 @@ let matchingQueue = Promise.resolve();
  */
 export function runMatchingNow(trigger = 'auto') {
 	const next = matchingQueue.then(async () => {
-		if (!session) return null;
+		// A member who only reads (#641) writes no matches: the owner's devices do.
+		if (!session || readOnly()) return null;
 		app.matching = true;
 		app.matchingProgress = null;
 		try {
@@ -726,7 +727,7 @@ let fxQueue = Promise.resolve(0);
 export function fillExchangeRates() {
 	const next = fxQueue
 		.then(async () => {
-			if (!session) return 0;
+			if (!session || readOnly()) return 0;
 			const { fxGaps, fxCandidateGaps, fillFx } = await import('./matching/fx.js');
 			const books = {
 				receipts: app.receipts,
@@ -1294,10 +1295,17 @@ export function cancelJoining() {
  * member written into the books, its write identity granted, its device
  * listed – and the answer to send back, sealed to the code's one-time key.
  *
- * @param {{ code: string, label: string, booksLabel: string }} p
+ * @param {{ code: string, label: string, booksLabel: string, role?: 'bookkeeping' | 'reader', bridge?: boolean }} p
+ *   `bridge`: a writing member may use the owner's bridge (#641)
  * @returns {Promise<{ answer: string, fingerprint: string, books: string }>} `books`: the books' fingerprint
  */
-export async function admitMember({ code, label, booksLabel }) {
+export async function admitMember({
+	code,
+	label,
+	booksLabel,
+	role = 'bookkeeping',
+	bridge = true
+}) {
 	if (!session) throw new Error(t('messages.sync.off'));
 	const [{ parseJoinRequest, sealJoinAnswer }, { addMemberRecord, membersOf }] = await Promise.all([
 		import('./members/join.js'),
@@ -1317,12 +1325,15 @@ export async function admitMember({ code, label, booksLabel }) {
 		throw new Error(t('members.error.removedBefore'));
 	}
 	const name = label.trim() || request.label;
-	const bundle = await session.memberBundle(booksLabel);
-	await session.grantWriter(request.writer);
+	const bundle = await session.memberBundle(booksLabel, role, {
+		bridge: role !== 'reader' && bridge
+	});
+	// Who only reads gets no write access in any access list (#641).
+	if (role !== 'reader') await session.grantWriter(request.writer);
 	await addMemberRecord(session.store.settings, {
 		writer: request.writer,
 		label: name,
-		role: 'bookkeeping',
+		role,
 		devices: [request.device],
 		invitedBy: app.did ?? '',
 		at: isoNow()
@@ -1370,6 +1381,9 @@ export async function removeMember(writer) {
 	await removeMemberRecord(settings, writer, { at: isoNow(), by: app.did ?? '' });
 	return { reset, changed: theirs.settings.filter((k) => !OWNER_SETTINGS.includes(k)) };
 }
+
+/** The books are open to read only: a member in the role `reader` (#641). */
+export const readOnly = () => session?.member?.role === 'reader';
 
 /** A timestamp for a stored record, not reactive state. */
 const isoNow = () => new Date().toISOString();
@@ -1488,7 +1502,11 @@ async function unlockWith(
 	}
 	app.rekey = session.moved ? 'left' : '';
 	app.member = session.member
-		? { books: session.member.books.label, writer: session.member.writer }
+		? {
+				books: session.member.books.label,
+				writer: session.member.writer,
+				role: session.member.role
+			}
 		: null;
 	await showVault();
 	app.network.syncCapable = Boolean(session.online);

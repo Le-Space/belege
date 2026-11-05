@@ -131,12 +131,21 @@ export const STORAGE_PATHS = Object.freeze({
 	orbitdb: 'belege/orbitdb'
 });
 
+/** A write in a session of a member who only reads (#641). */
+export class ReadOnlyError extends Error {
+	/** @param {string} [message] in the person's language */
+	constructor(message = 'These books are open to read only.') {
+		super(message);
+		this.name = 'ReadOnlyError';
+	}
+}
+
 /**
  * @typedef {object} Session
  * @property {string} did the passkey's: shown, and what a record says wrote it
  * @property {string} booksDid the books' own identity, the root writer of every collection (#496)
  * @property {import('./books-vault.js').OpenedVault | null} vault the books' vault, open (#406); null for a member (#612)
- * @property {{ books: { did: string, identityId: string, label: string }, writer: string, vaultId: string } | null} member a member's books (#612); null for the owner
+ * @property {{ books: { did: string, identityId: string, label: string }, role: 'bookkeeping' | 'reader', writer: string, vaultId: string } | null} member a member's books (#612), and what they may do (#641); null for the owner
  * @property {{ peers: string[] } | { left: true } | null} moved the books have new keys (#627): this passkey took the new vault (`peers`: whom to dial there), or has no slot in it (`left`)
  * @property {Uint8Array} ownIndexKey this passkey's index key on Aleph (backup/vault-index.js), in memory
  * @property {string} pointedOwner the paying account a member's index on Aleph named (#613), in memory; '' when none
@@ -160,7 +169,7 @@ export const STORAGE_PATHS = Object.freeze({
  * @property {any} libp2p the node under Helia and OrbitDB
  * @property {ReturnType<typeof createDeviceGate> | null} deviceGate which peers proved the passkey (online only)
  * @property {Uint8Array | null} bridgeAuthBase the base of the bridge's own key (online only), in memory only (database-keys.js)
- * @property {(label: string) => Promise<import('./members/member-vault.js').MemberBundle>} memberBundle what a member gets (#611)
+ * @property {(label: string, role?: 'bookkeeping' | 'reader', options?: { bridge?: boolean }) => Promise<import('./members/member-vault.js').MemberBundle>} memberBundle what a member gets (#611), by role and whether they may use the bridge (#641)
  * @property {(writer: string) => Promise<void>} grantWriter a member's write identity may write to every collection
  * @property {(writer: string) => Promise<{ devices: string[], settings: string[] }>} removeWriter a member taken out of every collection's access list (#614): the devices only they wrote, the settings whose newest value is theirs
  * @property {(keys: string[]) => Promise<string[]>} settingsByOthers the settings among these whose newest value a member wrote
@@ -349,7 +358,12 @@ export async function startSession(
 	const fromRoot = (derive) => derive(/** @type {Uint8Array} */ (prfOutput));
 	const encryptionKey = bundleKeys ? bundleKeys.database : await fromRoot(deriveDatabaseKey);
 	const blobKey = bundleKeys ? bundleKeys.blob : await fromRoot(deriveBlobKey);
-	const backupKey = bundleKeys ? bundleKeys.backup : await fromRoot(deriveBackupKey);
+	/** None for a member who only reads (#641): they do not back up. */
+	const backupKey = bundleKeys ? (bundleKeys.backup ?? null) : await fromRoot(deriveBackupKey);
+	const backupKeyOrRefuse = () => {
+		if (!backupKey) throw new Error('A member who only reads does not back up.');
+		return backupKey;
+	};
 	// The whole entries sealed again (entry-encryption.js sealedEncryption).
 	const replicationKey = bundleKeys ? bundleKeys.replication : await fromRoot(deriveReplicationKey);
 	// The UCEP node's key (ucep/net.js): the same peer id on every unlock.
@@ -390,7 +404,7 @@ export async function startSession(
 	const bridgeAuthBase = !online
 		? null
 		: bundleKeys
-			? bundleKeys.bridgeAuth
+			? (bundleKeys.bridgeAuth ?? null)
 			: await fromRoot(deriveBridgeAuthBase);
 	const deviceAuthKey = !online
 		? null
@@ -533,6 +547,22 @@ export async function startSession(
 					onMove: ({ collection, moved, total }) =>
 						onStatus?.({ step: 'move', collection, done: moved, total })
 				});
+		// A member who only reads (#641): every write refused here, before any
+		// device's access list would refuse it – with words the person reads.
+		if (membership?.bundle.role === 'reader') {
+			const { COLLECTIONS } = await import('./store/repository.js');
+			const { t } = await import('./i18n/index.js');
+			const refuse = async () => {
+				throw new ReadOnlyError(t('members.readOnly'));
+			};
+			for (const name of COLLECTIONS) {
+				Object.assign(/** @type {any} */ (store)[name], {
+					put: refuse,
+					softDelete: refuse,
+					restore: refuse
+				});
+			}
+		}
 		if (!membership) {
 			setFlag(moveFlag);
 			if (!beforeBooksIdentity) setFlag(booksFlag);
@@ -706,6 +736,7 @@ export async function startSession(
 			member: membership
 				? {
 						books: membership.bundle.books,
+						role: membership.bundle.role,
 						writer: booksIdentity.id,
 						vaultId: membership.record.vault.id
 					}
@@ -746,7 +777,7 @@ export async function startSession(
 					databases: store.databases(),
 					blockstore: helia.blockstore,
 					receipts: store.receipts,
-					key: backupKey,
+					key: backupKeyOrRefuse(),
 					appVersion,
 					onProgress
 				});
@@ -762,7 +793,7 @@ export async function startSession(
 					databases: store.databases(),
 					blockstore: helia.blockstore,
 					receipts: store.receipts,
-					key: backupKey,
+					key: backupKeyOrRefuse(),
 					chain,
 					appVersion,
 					onProgress
@@ -823,7 +854,7 @@ export async function startSession(
 					sealed,
 					...(chain ? { increments: chain.increments, base: chain.base } : {}),
 					...(chain?.fetchBytes ? { fetchBytes: chain.fetchBytes } : {}),
-					key: backupKey,
+					key: backupKeyOrRefuse(),
 					targets: [
 						{
 							name: 'sealed',
@@ -877,10 +908,11 @@ export async function startSession(
 			 *
 			 * @param {string} label how the books are called, for the member
 			 */
-			async memberBundle(label) {
+			async memberBundle(label, role = 'bookkeeping', { bridge = true } = {}) {
 				if (!prfOutput) throw new Error('Only the owner of the books admits members.');
 				const { memberBundle } = await import('./members/member-vault.js');
 				return memberBundle({
+					role,
 					books: {
 						did: booksIdentity.id,
 						identityId: booksIdentity.id,
@@ -893,8 +925,16 @@ export async function startSession(
 						replication: replicationKey,
 						blob: blobKey,
 						deviceAuth: deviceAuthKey ?? (await deriveDeviceAuthKey(prfOutput)),
-						backup: backupKey,
-						bridgeAuth: bridgeAuthBase ?? (await deriveBridgeAuthBase(prfOutput))
+						// Who only reads backs nothing up and reaches no bridge (#641).
+						...(role === 'reader'
+							? {}
+							: {
+									backup: backupKeyOrRefuse(),
+									// Without the bridge: no key to prove itself to it.
+									...(bridge
+										? { bridgeAuth: bridgeAuthBase ?? (await deriveBridgeAuthBase(prfOutput)) }
+										: {})
+								})
 					},
 					names: Object.fromEntries(
 						await Promise.all(

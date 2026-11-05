@@ -136,7 +136,9 @@
 							class="mt-0.5 text-sm font-medium text-cyan-800 dark:text-cyan"
 							data-testid="member-books"
 						>
-							{t('header.memberBooks', { books: app.member.books })}
+							{t(app.member.role === 'reader' ? 'header.readerBooks' : 'header.memberBooks', {
+								books: app.member.books
+							})}
 						</p>
 					{:else if app.rekey === 'left'}
 						<!-- The books got new keys this passkey has no slot for (#627). -->

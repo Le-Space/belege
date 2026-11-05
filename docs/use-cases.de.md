@@ -83,8 +83,7 @@ anlegen.
 ## 6. Mit anderen arbeiten
 
 - **Steuerberatung:** jeden Monat das DATEV-Paket mit den Belegen.
-- **Assistenz:** eine Lese-Freigabe für ein Jahr, geschwärzt und mit Ablaufzeit. Du kannst sie
-  jederzeit beenden. Dafür muss die Bridge laufen.
+- **Assistenz:** als Mitglied aufgenommen (_Integrationen → Zusammenarbeit_, [#641](https://github.com/Le-Space/belege/issues/641)), mit eigenem Passkey, auf belege.le-space.de von überall: „Liest mit“, um die Bücher zu verfolgen, oder „Schreibt mit“, um darin zu arbeiten, mit Sicherungen und – wenn du es ankreuzt – deiner Bridge. Eine Lese-Freigabe für ein Jahr, geschwärzt und mit Ablaufzeit, gibt es weiterhin; dafür muss die Bridge laufen und die Assistenz diesen Rechner erreichen.
 - **Rechnungs-App von Le Space:** Sie liefert Eigenbelege und erfährt, welche ihrer Rechnungen
   bezahlt sind.
 
