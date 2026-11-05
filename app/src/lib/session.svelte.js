@@ -63,6 +63,12 @@ export const app = $state({
 	 * @type {'' | 'left' | 'done' | 'taking'}
 	 */
 	rekey: '',
+	/**
+	 * How long the Aleph account's credits keep the backups (backup/credits-watch.js):
+	 * days left at what the kept backups cost; null when it cannot be told.
+	 * @type {{ days: number, credits: number } | null}
+	 */
+	backupCredits: null,
 	/** Device sync (#123): off, or this device's id and the devices it knows. */
 	sync: {
 		online: false,
@@ -1553,6 +1559,10 @@ async function unlockWith(
 	refreshLlmRedaction();
 	// Not awaited: the books are open, whatever the relay does.
 	startUcepIfPaired();
+	// Not awaited: how long the credits keep the backups, for the header.
+	import('./backup/credits-watch.js')
+		.then(({ checkBackupCredits }) => checkBackupCredits())
+		.catch(() => {});
 	{
 		// The bridge's calls wait until device sync has set up the stream to its node (#575).
 		const { holdBridgeTransport } = await import('./bridge/client.js');

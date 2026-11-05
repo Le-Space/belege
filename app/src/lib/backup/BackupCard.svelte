@@ -91,6 +91,8 @@
 	const step = $derived(backupRun.step);
 	/** @type {string | null} what this card did last that failed */
 	let error = $state(null);
+	/** @type {string | null} the bridge did not answer – an error only when a backup needs it */
+	let bridgeError = $state(null);
 	/** A failure of this card's, else of the last backup run. */
 	const shownError = $derived(error ?? backupRun.error);
 	const made = $derived(backupRun.made);
@@ -355,6 +357,8 @@
 			memberNames = await loadMemberNames(store.settings);
 			chain = await loadChain(store.settings);
 			if (owner) credits = await creditsOf({ owner, endpoints }).catch(() => credits);
+			const { checkBackupCredits } = await import('./credits-watch.js');
+			await checkBackupCredits().catch(() => {});
 		});
 	});
 
@@ -373,8 +377,9 @@
 		if (withToken) {
 			try {
 				status = (await client.backupStatus()).aleph;
+				bridgeError = null;
 			} catch (e) {
-				error = e instanceof Error ? e.message : String(e);
+				bridgeError = e instanceof Error ? e.message : String(e);
 			}
 		}
 		// The bridge's account is the one that pays: kept, so that this browser
@@ -516,7 +521,10 @@
 			uploader,
 			// A whole copy costs credits every day it is kept: when the credits
 			// would not last a month with it, ask before it goes up.
+			// An increment is small: it goes up without asking (the header warns
+			// when the credits run low). A full backup still asks first.
 			askFor: (bytes) => {
+				if (continuing) return null;
 				const perDay = creditsPerDay(bytes);
 				const days = daysFor(keptPerDay + perDay);
 				return days < ASK_BELOW_DAYS ? { perDay, days } : null;
@@ -1095,6 +1103,16 @@
 				</p>
 			{/if}
 		</div>
+	{/if}
+	{#if bridgeError && granted === true}
+		<p class="mt-2 text-xs text-faint" data-testid="backup-bridge-not-needed">
+			{t('backup.bridgeNotNeeded')}
+		</p>
+	{:else if bridgeError}
+		<p class="mt-2 text-sm text-danger" role="alert" data-testid="backup-bridge-error">
+			{bridgeError}
+		</p>
+		<WayOut message={bridgeError} />
 	{/if}
 	{#if shownError}
 		<p class="mt-2 text-sm text-danger" role="alert" data-testid="backup-error">{shownError}</p>

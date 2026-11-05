@@ -24,6 +24,7 @@
 	import ThemeToggle from '$lib/ThemeToggle.svelte';
 	import { startLocale, t } from '$lib/i18n/index.js';
 	import { app } from '$lib/session.svelte.js';
+	import { WARN_BELOW_DAYS } from '$lib/backup/credits-watch.js';
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { afterNavigate, replaceState } from '$app/navigation';
@@ -174,6 +175,18 @@
 				<TechnicalToggle />
 			</div>
 		</header>
+		{#if ready && app.backupCredits && app.backupCredits.days < WARN_BELOW_DAYS}
+			<!-- Everyone who opens the books sees it, members too: the backups go when the credits do. -->
+			<p
+				class="mx-auto mt-2 max-w-6xl rounded-md border border-danger/40 bg-danger/10 px-4 py-2 text-sm text-heading"
+				role="alert"
+				data-testid="backup-credits-low"
+			>
+				{t('backup.creditsLow', { days: Math.max(0, Math.floor(app.backupCredits.days)) })}
+				<a class="underline" href={resolve('/integrationen/backup')}>{t('backup.creditsLowLink')}</a
+				>
+			</p>
+		{/if}
 
 		<PwaBar />
 
