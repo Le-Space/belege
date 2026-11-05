@@ -12,7 +12,8 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
-	import { app } from '$lib/session.svelte.js';
+	import { app, currentStore } from '$lib/session.svelte.js';
+	import { whose } from '$lib/members/whose.js';
 	import { describeMoment } from '$lib/moment.js';
 	import { GROUPS, eventGroup, filterEvents } from '$lib/activity/events.js';
 	import { describeEvent } from '$lib/activity/view.js';
@@ -24,7 +25,14 @@
 	let group = $state('all');
 	let shown = $state(PAGE);
 
+	/** A member's name by their write identity (#614): who did what. */
+	/** @type {(writer: string) => string} */
+	let memberName = $state(() => '');
 	onMount(() => {
+		currentStore()
+			?.settings.list({ includeDeleted: true })
+			.then((records) => (memberName = whose(records).name))
+			.catch(() => {});
 		const wanted = page.url.searchParams.get('group');
 		const known = /** @type {readonly string[]} */ (GROUPS);
 		if (wanted && known.includes(wanted)) {
@@ -147,6 +155,11 @@
 							class="font-medium {d.failed ? 'text-danger' : 'text-heading'}"
 							data-testid="verlauf-title">{d.title}</span
 						>
+						{#if memberName(String(e.author ?? ''))}
+							<span class="text-xs text-faint" data-testid="verlauf-by"
+								>{t('verlauf.by', { name: memberName(String(e.author)) })}</span
+							>
+						{/if}
 					</p>
 					{#if d.text}
 						<p class="mt-0.5 text-sm break-words text-text" data-testid="verlauf-text">{d.text}</p>
