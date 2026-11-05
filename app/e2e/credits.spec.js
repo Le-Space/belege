@@ -35,6 +35,8 @@ async function startFakeCredits() {
 	const balances = new Map();
 	/** @type {Map<string, { address: string, cents: number }>} */
 	const sessions = new Map();
+	/** @type {Map<string, { id: string, product: string, package: string, amount_cents: number, credits: number, stripe_invoice_url: string | null, created_at: string }[]>} */
+	const purchases = new Map();
 	/** @type {string[]} */
 	const calls = [];
 	const cors = {
@@ -67,7 +69,20 @@ async function startFakeCredits() {
 		}
 		if (url.pathname === '/test/pay') {
 			const s = sessions.get(url.searchParams.get('cs') ?? '');
-			if (s) balances.set(s.address, (balances.get(s.address) ?? 0) + s.cents);
+			if (s) {
+				balances.set(s.address, (balances.get(s.address) ?? 0) + s.cents);
+				const list = purchases.get(s.address) ?? [];
+				list.unshift({
+					id: `p${list.length + 1}`,
+					product: 'belege',
+					package: `topup-${s.cents / 100}`,
+					amount_cents: s.cents,
+					credits: s.cents,
+					stripe_invoice_url: 'https://invoice.stripe.com/i/acct_test/test_made_up',
+					created_at: new Date().toISOString()
+				});
+				purchases.set(s.address, list);
+			}
 			return send(200, { ok: Boolean(s) });
 		}
 		const address = String(req.headers['x-ls-address'] ?? '');
@@ -86,6 +101,8 @@ async function startFakeCredits() {
 				package: null,
 				refund: null
 			});
+		if (url.pathname === '/v1/purchases')
+			return send(200, { purchases: purchases.get(address) ?? [] });
 		if (url.pathname === '/v1/checkout') {
 			const body = JSON.parse(raw);
 			const cs = `cs_test_${sessions.size + 1}`;
@@ -153,4 +170,14 @@ test('a top-up through the service’s own payment page shows as balance', async
 	await expect(card.getByTestId('credits-balance')).toHaveText(/25,00\s€/);
 	await expect(card.getByTestId('credits-note')).toHaveText('Aufgeladen.');
 	expect(credits.calls).toContain('POST /v1/checkout');
+
+	// The top-up with its invoice: Stripe's hosted page, opened in a tab of its own.
+	const invoice = card.getByTestId('credits-purchases').getByTestId('credits-invoice');
+	await expect(invoice).toHaveAttribute(
+		'href',
+		'https://invoice.stripe.com/i/acct_test/test_made_up'
+	);
+	await expect(invoice).toHaveAttribute('target', '_blank');
+	await expect(invoice).toHaveAttribute('rel', /noopener/);
+	await expect(card.getByTestId('credits-purchases')).toContainText('25,00');
 });

@@ -1409,6 +1409,10 @@ export default {
 		refundYes: 'Ja, erstatten',
 		refundAsked: 'Erstattung angefragt. Le Space prüft sie und zahlt über Stripe zurück.',
 		refundPending: 'Eine Erstattung ist angefragt.',
+		refundDone: '{amount} am {date} erstattet.',
+		purchasesTitle: 'Aufladungen',
+		invoice: 'Rechnung',
+		invoicePending: 'Rechnung folgt',
 		account: 'Konto bei {host}:'
 	},
 	aleph: {
