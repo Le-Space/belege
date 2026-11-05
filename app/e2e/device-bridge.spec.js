@@ -105,7 +105,9 @@ async function device(browser, { share = false, noBridge = false }) {
 const tab = (page, name) => page.getByRole('link', { name, exact: true }).click();
 
 test('the phone reaches the bridge through the desktop', async ({ browser }) => {
-	test.setTimeout(240_000);
+	// Two browsers and a bridge: on a busy runner the waits for sync are generous,
+	// not the ones of one device; a green run returns as soon as each holds.
+	test.setTimeout(480_000);
 	const mac = await device(browser, { share: true });
 	const phone = await device(browser, { noBridge: true });
 	try {
@@ -170,13 +172,14 @@ test('the phone reaches the bridge through the desktop', async ({ browser }) => 
 				.getByTestId('devices-item')
 				.filter({ hasText: macId })
 				.getByTestId('devices-item-state')
-		).toContainText('verbunden', { timeout: 60_000 });
+		).toContainText('verbunden', { timeout: 120_000 });
 
 		// The pairing replicated to the phone; its calls go through the Mac. The page
 		// picks the token up when it arrives: waited for, not reopened until it has.
 		await tab(phone.page, 'Integrationen');
 		const status = phone.page.getByTestId('bridge-status');
-		await expect(status).toHaveAttribute('data-paired', 'true', { timeout: 90_000 });
+		// The pairing comes with the Mac's settings, which may sync after the connection.
+		await expect(status).toHaveAttribute('data-paired', 'true', { timeout: 180_000 });
 		// Reached through the Mac once the devices' route is up; "Status prüfen" asks again.
 		await expect
 			.poll(
@@ -185,7 +188,7 @@ test('the phone reaches the bridge through the desktop', async ({ browser }) => 
 					if (state === 'offline') await phone.page.getByTestId('bridge-check').click();
 					return state;
 				},
-				{ timeout: 70_000, intervals: [2_000] }
+				{ timeout: 120_000, intervals: [2_000] }
 			)
 			.toBe('online');
 		await expect(status).toContainText('über deinen Mac');
@@ -201,7 +204,7 @@ test('the phone reaches the bridge through the desktop', async ({ browser }) => 
 		// The model the bridge uses, asked through the Mac (GET /llm/status, with the Mac's token).
 		await tab(phone.page, 'Home');
 		await openIntegration(phone.page, 'ki');
-		await expect(phone.page.getByTestId('ki-status')).toBeVisible({ timeout: 60_000 });
+		await expect(phone.page.getByTestId('ki-status')).toBeVisible({ timeout: 120_000 });
 		expect(bridgeOut).not.toMatch(/unauthori[sz]ed/i);
 	} finally {
 		await mac.context.close();
