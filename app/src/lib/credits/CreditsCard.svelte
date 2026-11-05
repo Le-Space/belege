@@ -8,12 +8,14 @@
 	import WayOut from '$lib/help/WayOut.svelte';
 	import { app, currentStore } from '$lib/session.svelte.js';
 	import { intlLocale, t } from '$lib/i18n/index.js';
+	import { formatDate } from '$lib/bank/format.js';
 	import { locale } from '$lib/i18n/locale.svelte.js';
 	import {
 		TOPUPS,
 		createCreditsClient,
 		creditsUrl,
 		euro,
+		isInvoiceUrl,
 		isPaidMessage,
 		loadCredits,
 		payUrl,
@@ -25,6 +27,8 @@
 	let client = $state(null);
 	/** @type {import('./credits.js').Balance | null} */
 	let balance = $state(null);
+	/** @type {import('./credits.js').Purchase[]} */
+	let purchases = $state([]);
 	let busy = $state(false);
 	/** @type {string | null} */
 	let error = $state(null);
@@ -58,6 +62,7 @@
 		error = null;
 		try {
 			balance = await client.balance();
+			purchases = await client.purchases();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		}
@@ -200,6 +205,36 @@
 				<p class="mt-2 text-sm text-text" data-testid="credits-refund-state">
 					{t('credits.refundPending')}
 				</p>
+			{:else if balance.refund?.state === 'done' && balance.refund.credits}
+				<p class="mt-2 text-sm text-text" data-testid="credits-refund-state">
+					{t('credits.refundDone', {
+						amount: money(balance.refund.credits),
+						date: formatDate((balance.refund.done_at ?? balance.refund.created_at).slice(0, 10))
+					})}
+				</p>
+			{/if}
+			{#if purchases.length}
+				<h3 class="mt-4 text-sm font-semibold text-heading">{t('credits.purchasesTitle')}</h3>
+				<ul class="mt-1 divide-y divide-border text-sm" data-testid="credits-purchases">
+					{#each purchases as p (p.id)}
+						<li class="flex flex-wrap items-baseline justify-between gap-2 py-1.5">
+							<span class="text-text">
+								{formatDate(p.created_at.slice(0, 10))} · {money(p.amount_cents)}
+							</span>
+							{#if isInvoiceUrl(p.stripe_invoice_url)}
+								<a
+									href={p.stripe_invoice_url}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="text-heading underline"
+									data-testid="credits-invoice">{t('credits.invoice')}</a
+								>
+							{:else}
+								<span class="text-xs text-faint">{t('credits.invoicePending')}</span>
+							{/if}
+						</li>
+					{/each}
+				</ul>
 			{/if}
 		{/if}
 

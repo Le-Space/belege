@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
 
-import { canonical, createCreditsClient, isPaidMessage, payUrl } from './credits.js';
+import { canonical, createCreditsClient, isInvoiceUrl, isPaidMessage, payUrl } from './credits.js';
 
 const KEY = Uint8Array.from({ length: 32 }, (_, i) => i + 1);
 const BASE = 'https://credits.example.com';
@@ -91,5 +91,28 @@ describe('Le Space Credits client', () => {
 			isPaidMessage({ origin: 'https://evil.example.com', data: { type: 'ls-credits:paid' } }, BASE)
 		).toBe(false);
 		expect(isPaidMessage({ origin: BASE, data: { type: 'other' } }, BASE)).toBe(false);
+	});
+
+	it('opens only Stripe’s hosted invoice pages', () => {
+		expect(isInvoiceUrl('https://invoice.stripe.com/i/acct_test/test_abc')).toBe(true);
+		expect(isInvoiceUrl('http://invoice.stripe.com/i/x')).toBe(false);
+		expect(isInvoiceUrl('https://invoice.stripe.com.example.com/i/x')).toBe(false);
+		expect(isInvoiceUrl('https://user@invoice.stripe.com/i/x')).toBe(false);
+		expect(isInvoiceUrl('javascript:alert(1)')).toBe(false);
+		expect(isInvoiceUrl(null)).toBe(false);
+	});
+
+	it('reads the purchase list out of the service’s answer', async () => {
+		/** @type {typeof fetch} */
+		const f = async () =>
+			new Response(JSON.stringify({ purchases: [{ id: 'p1', amount_cents: 1000 }] }));
+		const client = await createCreditsClient({ key: KEY, base: BASE, fetch: f });
+		expect(await client.purchases()).toEqual([{ id: 'p1', amount_cents: 1000 }]);
+		const empty = await createCreditsClient({
+			key: KEY,
+			base: BASE,
+			fetch: async () => new Response('{}')
+		});
+		expect(await empty.purchases()).toEqual([]);
 	});
 });

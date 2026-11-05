@@ -108,8 +108,11 @@ export async function createCreditsClient({
 		address,
 		/** @returns {Promise<Balance>} */
 		balance: () => call('GET', '/v1/balance'),
-		/** @returns {Promise<any[]>} */
-		purchases: () => call('GET', '/v1/purchases'),
+		/** @returns {Promise<Purchase[]>} the newest first */
+		purchases: async () => {
+			const out = await call('GET', '/v1/purchases');
+			return Array.isArray(out?.purchases) ? out.purchases : [];
+		},
 		/** @param {string} packageId @param {string} [locale] @returns {Promise<{ client_secret: string }>} */
 		checkout: (packageId, locale) =>
 			call('POST', '/v1/checkout', { package: packageId, ...(locale ? { locale } : {}) }),
@@ -126,9 +129,38 @@ export async function createCreditsClient({
  *   reserved: number,
  *   lines_this_month: { ki: number, vm: number, transfer: number, refund?: number },
  *   package?: { id: string, state: string, period_start: string | null, period_end: string | null, hours_left: number | null } | null,
- *   refund?: { id: string, state: string, credits: number | null, created_at: string } | null
+ *   refund?: { id: string, state: string, credits: number | null, created_at: string, done_at?: string | null } | null
  * }} Balance
  */
+
+/**
+ * @typedef {{
+ *   id: string,
+ *   product: string,
+ *   package: string,
+ *   amount_cents: number,
+ *   credits: number,
+ *   stripe_invoice_url: string | null,
+ *   created_at: string
+ * }} Purchase
+ */
+
+/**
+ * An invoice link the card may open: only Stripe's hosted invoice pages. The
+ * link comes from the service, but a link is opened only when it is one.
+ *
+ * @param {unknown} url
+ * @returns {url is string}
+ */
+export function isInvoiceUrl(url) {
+	if (typeof url !== 'string') return false;
+	try {
+		const u = new URL(url);
+		return u.protocol === 'https:' && u.hostname === 'invoice.stripe.com' && !u.username;
+	} catch {
+		return false;
+	}
+}
 
 /**
  * The payment page for a Checkout: on the service's origin, the secret and
