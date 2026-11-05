@@ -1234,6 +1234,11 @@ export default {
 		ownerChange: 'Ändern',
 		ask: 'Dieses Backup ist {size} groß und kostet etwa {perDay} Credits pro Tag, solange Aleph es aufbewahrt – jedes Backup ist eine ganze Kopie. Mit den Backups, die schon liegen, reichen die Credits dann {days}. Hochladen?',
 		upload: 'Hochladen',
+		creditsLow:
+			'Die Credits für die Backups reichen nur noch etwa {days} Tage. Danach bewahrt Aleph die Backups nicht mehr auf.',
+		creditsLowLink: 'Credits aufladen',
+		bridgeNotNeeded:
+			'Die Bridge ist gerade nicht erreichbar – für Backups wird sie nicht gebraucht: Dieser Browser unterschreibt selbst.',
 		cancel: 'Abbrechen',
 		cost: 'Bei Aleph liegen {size} Backups, etwa {perDay} Credits pro Tag – die Credits reichen {days}. Ein Schätzwert: Den Preis legt Aleph fest.',
 		unknown: 'Aleph kennt den Auftrag nicht',

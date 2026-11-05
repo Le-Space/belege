@@ -1207,6 +1207,11 @@ export default {
 		ownerChange: 'Change',
 		ask: 'This backup is {size} and costs about {perDay} credits a day for as long as Aleph keeps it – every backup is a whole copy. With the backups already there, the credits then last {days}. Upload?',
 		upload: 'Upload',
+		creditsLow:
+			'The credits for the backups last only about {days} more days. After that, Aleph no longer keeps the backups.',
+		creditsLowLink: 'Top up credits',
+		bridgeNotNeeded:
+			'The bridge cannot be reached right now – backups do not need it: this browser signs itself.',
 		cancel: 'Cancel',
 		cost: 'Aleph keeps {size} of backups, about {perDay} credits a day – the credits last {days}. An estimate: Aleph sets the price.',
 		unknown: 'Aleph does not know the request',
