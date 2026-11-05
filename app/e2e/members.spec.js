@@ -389,7 +389,7 @@ test('an assistant who only reads sees the owner’s books and writes nothing', 
 		await expect(owner.page.getByTestId('transaction')).toHaveCount(1);
 		await joinAndOpen(owner, reader, 'reader');
 		await expect(reader.page.getByTestId('member-books')).toContainText('du liest mit');
-		await expect(owner.page.getByTestId('member')).toContainText('Assistenz (nur lesen)');
+		await expect(owner.page.getByTestId('member')).toContainText('Liest mit');
 		// The owner's booking comes over …
 		await expect
 			.poll(async () => (await transactions(reader.page))?.length ?? 0, { timeout: 120_000 })
