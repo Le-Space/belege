@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.28.3] – 2026-11-05
+
 ### Security
 
 Hardening from a review of members (C1) and new keys (C3):
