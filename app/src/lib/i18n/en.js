@@ -378,9 +378,19 @@ export default {
 				LLM_MODEL:
 					'{provider} does not know the configured model: pnpm setup:llm, then restart the bridge.',
 				LLM_UNREACHABLE:
-					'{provider} cannot be reached. Is the service running (for Ollama: the app)? Then “Continue” on Home.'
+					'{provider} cannot be reached. Is the service running (for Ollama: the app)? Then “Continue” on Home.',
+				BRIDGE_LLM_DAY:
+					'This device has used as many of the language model’s tokens today as the bridge allows one device a day. It goes on tomorrow; the limit is in bridge.json (node.limits).'
 			},
 			llmNotSetUp: 'Reading receipts is not set up on the bridge (pnpm setup:llm).',
+			grant: {
+				BRIDGE_SCOPE_MISSING:
+					'This device may not do that with the bridge. The device that paired the bridge decides what it may do.',
+				BRIDGE_GRANT_EXPIRED:
+					'This device’s access to the bridge has lapsed because it did not use it for 90 days. On the device that paired the bridge: Integrationen → Eigene Geräte → Erweitert → Renew.',
+				BRIDGE_BACKUP_HOUR:
+					'This device has started as many backups in the last hour as the bridge allows. Try again later.'
+			},
 			senderUnverified: 'The sender is not confirmed (DKIM/SPF): approve first.',
 			noModel: 'No model gave a usable answer ({reasons}).'
 		},
@@ -1622,6 +1632,18 @@ export default {
 		bridgeShareText:
 			'Only on the computer where the bridge runs and is paired: your other devices (the same books, in the list below) use bank, mailbox, AI, rates and wallets through it. Only reading and querying requests, no setup, nothing is deleted; access to the bridge stays here. Applies from the next unlock, as long as this tab is open and unlocked.',
 		bridgeServed: 'This computer’s bridge is available to your devices.',
+		bridgeAccess: {
+			title: 'Access to the bridge',
+			text: 'Each of your own devices may do with the bridge what it could do before. One that does not use it for 90 days loses access until the device that paired the bridge renews it here. A member has access only if you allowed it when admitting them.',
+			thisDevice: 'This device',
+			holder: 'paired the bridge, does not lapse',
+			until: 'Access until {date}',
+			lapsed: 'Access lapsed',
+			lastUsed: 'last used on {date}',
+			narrowed: 'limited to {count} areas',
+			renew: 'Renew',
+			askHolder: 'renew it on the device that paired the bridge'
+		},
 		bridgePending: 'Shared – applies from the next unlock (reload the page).',
 		notConnected: 'not connected',
 		unnamed: 'Unnamed device',

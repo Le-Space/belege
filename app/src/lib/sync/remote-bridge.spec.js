@@ -1,12 +1,14 @@
 // The desktop's bridge for own devices (issue #142): who may call, what may
 // be called, the desktop's token and not the caller's, and the phone's fetch
 // that falls back to it. No libp2p here; made-up values only.
+import { UcepError } from '@le-space/ucep';
 import { describe, expect, it } from 'vitest';
 
 import {
 	allowed,
 	bridgeFetch,
 	bridgeNodePeer,
+	grantRefusal,
 	serveRequest,
 	setBridgeNode
 } from './remote-bridge.js';
@@ -230,5 +232,28 @@ describe('the bridge’s own node (#575)', () => {
 		expect(bridgeNodePeer()).toBe('12D3KooWGzN9EoHWJ3u4ZyiDpm7DVpNcwRVaUPfYzCgxGmnpHsGp');
 		setBridgeNode(null);
 		expect(bridgeNodePeer()).toBeNull();
+	});
+});
+
+describe('what the bridge’s node refuses a device (#579)', () => {
+	it('as the answer the bridge client knows, never as a way that failed', () => {
+		expect(grantRefusal(new UcepError('SCOPE_MISSING', 'bridge:llm'))).toEqual({
+			status: 403,
+			json: { error: 'bridge:llm', code: 'BRIDGE_SCOPE_MISSING' }
+		});
+		expect(grantRefusal(new UcepError('GRANT_EXPIRED'))?.json.code).toBe('BRIDGE_GRANT_EXPIRED');
+		// The model's per-minute limit is a provider's 429: a run waits and goes on.
+		expect(grantRefusal(new UcepError('RATE_LIMITED', 'llm-per-minute'))).toMatchObject({
+			status: 429,
+			json: { code: 'LLM_RATE_LIMIT' }
+		});
+		expect(grantRefusal(new UcepError('RATE_LIMITED', 'llm-tokens-per-day'))?.json.code).toBe(
+			'BRIDGE_LLM_DAY'
+		);
+		expect(grantRefusal(new UcepError('RATE_LIMITED', 'backup-per-hour'))?.status).toBe(429);
+		// Anything else is a way that failed: the fetch may try the next.
+		expect(grantRefusal(new UcepError('TOO_LARGE'))).toBeNull();
+		expect(grantRefusal(new UcepError('RATE_LIMITED', 'relayed'))).toBeNull();
+		expect(grantRefusal(new TypeError('not connected'))).toBeNull();
 	});
 });

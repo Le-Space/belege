@@ -11,6 +11,7 @@ import { chmod, mkdir, readFile, rename, stat, writeFile } from 'node:fs/promise
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import { DEFAULT_LIMITS, limitsOf } from './grants.js';
 import { DEFAULT_LAN_RELAY_PORT } from './lan-relay-port.js';
 
 export const DEFAULT_PORT = 8765;
@@ -43,6 +44,7 @@ export function defaultConfigPath() {
  * @property {string[]} relays the relays the books use, from the handover
  * @property {string[]} devices the books' devices (peer ids), from the handover and `devices`
  * @property {number} wsPort the WebSocket on 127.0.0.1 for the browser on this machine; 0 picks one
+ * @property {import('./grants.js').Limits} limits per device: the model's calls and tokens, backups, and when unused scopes lapse (grants.js)
  */
 
 /**
@@ -193,7 +195,7 @@ export function defaultConfig() {
 		},
 		alephBackup: { configured: false },
 		lanRelay: { host: null, port: DEFAULT_LAN_RELAY_PORT },
-		node: { enabled: true, relays: [], devices: [], wsPort: 0 }
+		node: { enabled: true, relays: [], devices: [], wsPort: 0, limits: { ...DEFAULT_LIMITS } }
 	};
 }
 
@@ -331,7 +333,8 @@ export function withDefaults(raw) {
 			wsPort:
 				Number.isInteger(raw?.node?.wsPort) && raw.node.wsPort >= 0 && raw.node.wsPort <= 65535
 					? raw.node.wsPort
-					: 0
+					: 0,
+			limits: limitsOf(raw?.node?.limits)
 		}
 	};
 }

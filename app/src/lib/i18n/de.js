@@ -394,9 +394,19 @@ export default {
 				LLM_MODEL:
 					'{provider} kennt das eingestellte Modell nicht: pnpm setup:llm, dann die Bridge neu starten.',
 				LLM_UNREACHABLE:
-					'{provider} ist nicht erreichbar. Läuft der Dienst (bei Ollama: die App)? Dann „Weitermachen“ auf Home.'
+					'{provider} ist nicht erreichbar. Läuft der Dienst (bei Ollama: die App)? Dann „Weitermachen“ auf Home.',
+				BRIDGE_LLM_DAY:
+					'Dieses Gerät hat heute so viele Tokens des Sprachmodells verbraucht, wie die Bridge einem Gerät am Tag erlaubt. Morgen geht es weiter; die Grenze steht in bridge.json (node.limits).'
 			},
 			llmNotSetUp: 'Das Auslesen ist auf der Bridge nicht eingerichtet (pnpm setup:llm).',
+			grant: {
+				BRIDGE_SCOPE_MISSING:
+					'Dieses Gerät darf das an der Bridge nicht. Das Gerät, das die Bridge gekoppelt hat, legt fest, was es darf.',
+				BRIDGE_GRANT_EXPIRED:
+					'Der Zugang dieses Geräts zur Bridge ist abgelaufen, weil es sie 90 Tage nicht genutzt hat. Auf dem Gerät, das die Bridge gekoppelt hat: Integrationen → Eigene Geräte → Erweitert → Erneuern.',
+				BRIDGE_BACKUP_HOUR:
+					'Dieses Gerät hat in der letzten Stunde so viele Sicherungen angestoßen, wie die Bridge erlaubt. Versuch es später noch einmal.'
+			},
 			senderUnverified: 'Der Absender ist nicht bestätigt (DKIM/SPF): erst freigeben.',
 			noModel: 'Kein Modell lieferte eine brauchbare Antwort ({reasons}).'
 		},
@@ -1653,6 +1663,18 @@ export default {
 		bridgeShareText:
 			'Nur auf dem Rechner, auf dem die Bridge läuft und gekoppelt ist: Deine anderen Geräte (dasselbe Buch, in der Liste unten) nutzen Bank, Postfach, KI, Kurse und Wallets über ihn. Nur lesende und fragende Abfragen, keine Einrichtung, nichts wird gelöscht; der Zugang zur Bridge bleibt hier. Gilt ab dem nächsten Entsperren, solange dieser Tab offen und entsperrt ist.',
 		bridgeServed: 'Die Bridge dieses Rechners steht deinen Geräten zur Verfügung.',
+		bridgeAccess: {
+			title: 'Zugang zur Bridge',
+			text: 'Jedes eigene Gerät darf an der Bridge, was es bisher durfte. Wer sie 90 Tage nicht nutzt, verliert den Zugang, bis das Gerät, das die Bridge gekoppelt hat, ihn hier erneuert. Ein Mitglied hat Zugang nur, wenn du es beim Aufnehmen erlaubt hast.',
+			thisDevice: 'Dieses Gerät',
+			holder: 'hat die Bridge gekoppelt, läuft nicht ab',
+			until: 'Zugang bis {date}',
+			lapsed: 'Zugang abgelaufen',
+			lastUsed: 'zuletzt genutzt am {date}',
+			narrowed: 'eingeschränkt auf {count} Bereiche',
+			renew: 'Erneuern',
+			askHolder: 'auf dem Gerät erneuern, das die Bridge gekoppelt hat'
+		},
 		bridgePending: 'Freigegeben – gilt ab dem nächsten Entsperren (Seite neu laden).',
 		notConnected: 'nicht verbunden',
 		unnamed: 'Gerät ohne Namen',

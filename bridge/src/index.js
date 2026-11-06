@@ -361,6 +361,7 @@ export async function startBridge({
 			authKey: await bridgeAuthKey(),
 			relays: config.node.relays,
 			devices: config.node.devices,
+			limits: config.node.limits,
 			// The same table as HTTP: `request { method, path, body? }` over the stream (stream.js).
 			commands: bridge.commands,
 			wsPort,

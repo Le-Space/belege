@@ -26,7 +26,14 @@ const MAX_PAUSE_MS = 30_000;
 export const isRateLimit = (error) => error?.status === 429;
 
 /** The bridge's codes for a provider that refuses (bridge/src/llm/extract.js REFUSALS). */
-const REFUSED = new Set(['LLM_NO_CREDIT', 'LLM_AUTH', 'LLM_MODEL', 'LLM_UNREACHABLE']);
+const REFUSED = new Set([
+	'LLM_NO_CREDIT',
+	'LLM_AUTH',
+	'LLM_MODEL',
+	'LLM_UNREACHABLE',
+	// The bridge's limit for this device: the model's tokens for today (#579).
+	'BRIDGE_LLM_DAY'
+]);
 
 /**
  * Whether an error says: nothing more will go through – the provider refuses,

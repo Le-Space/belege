@@ -136,7 +136,7 @@ On Windows, read "Credential Manager, `belege-bridge:<account>`" for "macOS keyc
 | Host, port, pinned SHA-256, IBAN suffixes, app origins, hashes of paired tokens; IMAP host/port/user, accounting address; LLM URL, models, terms to black out; a portal's user name | `~/.config/belege/bridge.json` (0600; `BELEGE_BRIDGE_CONFIG` overrides)                                                                                                                                                                                |
 | The Enable Banking application key and, later, its sessions (optional; `pnpm setup:enablebanking`)                                                                                  | `~/.config/belege/enablebanking.sealed` (0600, AES-256-GCM), next to `bridge.json`; the key that opens it in the macOS keychain, account `enablebanking`. Sealed in a file because an RSA key does not fit the Windows Credential Manager (2560 bytes) |
 | The LAN relay's peer key and certificate (optional; `pnpm setup:relay`)                                                                                                             | `~/.config/belege/lan-relay/` (0700; `peer-key`, `cert-key.pem` 0600), next to `bridge.json`                                                                                                                                                           |
-| The node's peer key and UCEP grants (its own libp2p node, #573)                                                                                                                     | `~/.config/belege/node/` (0700; `peer-key` 0600, `grants.json`, `invitations.json`): a peer id names, it does not open; grants are ids and peer ids                                                                                     |
+| The node's peer key and UCEP grants (its own libp2p node, #573)                                                                                                                     | `~/.config/belege/node/` (0700; `peer-key` 0600, `grants.json`, `invitations.json`, `device-grants.json` 0600): a peer id names, it does not open; grants are ids and peer ids; `device-grants.json` holds each device's scopes and when it was granted and last used, nothing else |
 | The bridge's own key (from the handover at pairing by invitation; never the books' device key)                                                                                     | macOS keychain, service `belege-bridge`, account `bridge-auth`; leaves with "Kopplung lösen"                                                                                                                                             |
 | The bearer token                                                                                                                                                                    | the app's encrypted store (`settings`), never on the bridge's disk                                                                                                                                                                                     |
 | Own wallets (chain, address, own endpoints)                                                                                                                                         | the app's encrypted store (`settings`, key `wallets`); the bridge keeps nothing, it gets them with each `POST /<chain>/wallet`                                                                                                                         |
@@ -186,16 +186,29 @@ no books.
   a device sees over the stream what it would see over HTTP. Not over the stream: `/pair`,
   `/unpair` and `/share…` (HTTP's own), and `POST /backup/aleph` (bytes in: a block in M2). Bytes
   out (a mail attachment, a Paperless original) go base64 while they fit UCEP's limit – 1 MiB on
-  a direct connection, 64 KiB relayed – and are refused `TOO_LARGE` above it. Scopes per command
-  follow in M2 (#579); until then a device the gate let through is what the token's owner is.
+  a direct connection, 64 KiB relayed – and are refused `TOO_LARGE` above it. Each command needs
+  its scope (below).
+- **What a device may call (#579):** getting through the gate is not all. Each device holds a set
+  of scopes (`src/grants.js`, kept in `~/.config/belege/node/device-grants.json`), and `request`
+  refuses a command whose scope the device does not hold (`SCOPE_MISSING`). A device the books
+  list by its peer id alone holds every scope – every device paired before #579, and every device
+  the app lists today – so what it could do before, it can do now; the device that paired the
+  bridge can narrow a device's scopes by listing it as `{ peerId, scopes }`. A device that has not
+  used the bridge for 90 days is refused `GRANT_EXPIRED` until the device that paired the bridge
+  renews it (`renew`, _Integrationen → Eigene Geräte → Erweitert_); that device's own scopes do
+  not lapse. What costs money is counted per device: calls to the language model a minute (30),
+  its tokens a day (2,000,000, UTC) and backup calls an hour (10); above a limit a call is refused
+  `RATE_LIMITED`. The counters live in memory, so a restart starts them again. All four numbers
+  can be set in `bridge.json`: `"node": { "limits": { "llmPerMinute": 30, "llmTokensPerDay":
+  2000000, "backupPerHour": 10, "idleDays": 90 } }`. A member's device is on the list the app
+  sends only if the owner let the member use the bridge when admitting them (#641); a member who
+  only reads never is. Over HTTP, the token still is every command: only this machine has it.
 
 ### Commands and scopes
 
 Every function of the bridge is a command (`src/commands.js`). Over HTTP the token is all of
-them. Over the stream (`request`) a device the gate let through is what the token's owner is:
-the scope column names the grant each command will need once scopes are checked per command
-(milestone M2, #579). Until then the scope is a name only. `test/readme.test.js` keeps this
-table complete.
+them. Over the stream (`request`) a device needs the command's scope (#579, above); a public
+command needs none. `test/readme.test.js` keeps this table complete.
 
 | Command | HTTP | Scope | Over the stream |
 |---|---|---|---|
@@ -248,11 +261,13 @@ The node's own commands, outside `request`:
 
 | Command | Who may call | What it does |
 |---|---|---|
-| `help` | any peer that reaches the extension | the commands, armed or not, and the requests offered |
+| `help` | any peer that reaches the extension | the commands, armed or not, the requests offered with their scopes, and the scopes |
 | `handover` | the device that paired by invitation (UCEP scope `belege-bridge:pairing:manage`), unarmed only | the bridge's key, relays and devices; the node restarts armed |
-| `devices` | the device that paired by invitation; any other proved device of the books only to take devices off (never the one that paired) | the books' device list |
+| `devices` | the device that paired by invitation; any other proved device of the books only to take devices off (never the one that paired) | the books' device list: each a peer id (every scope) or `{ peerId, scopes }` |
+| `grants` | a proved device of the books | per device its scopes, last use and when they lapse – every device's for the device that paired the bridge, its own for any other |
+| `renew` | the device that paired by invitation (UCEP scope `belege-bridge:pairing:manage`), proved | a device whose scopes lapsed counts from now again |
 | `unpair` | the device that paired by invitation (UCEP scope `belege-bridge:pairing:manage`), proved | the key leaves the keychain; the node runs unarmed with a new invitation |
-| `request` | a proved device of the books, armed only | one command of the table above |
+| `request` | a proved device of the books, armed only, holding the command's scope, within the limits | one command of the table above |
 
 **What a relay sees** of the bridge: its peer id, the peer ids of the devices that call it,
 when and how much – never content. Noise encrypts every connection end to end, and the relay
