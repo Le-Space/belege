@@ -103,11 +103,12 @@
 	>
 		<!--
 		A grid, as in escrow01: on a phone the name and the switches share the
-		first row and the state takes the second; from `lg` on, one row (a
-		folding phone opened, ~700 px, squeezed the name into a column of single words).
+		first row and the state takes the second, at every width. One row squeezed
+		the name into a column of single words: on a folding phone opened (~700 px),
+		and on a desktop once a few more badges showed (the page is at most 1024 px).
 	-->
 		<header
-			class="mb-4 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 sm:mb-6 sm:grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,1fr)_auto_auto]"
+			class="mb-4 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 sm:mb-6 sm:grid-cols-[minmax(0,1fr)_auto]"
 		>
 			<div class="col-start-1 row-start-1 flex min-w-0 items-center gap-3">
 				<a
@@ -152,7 +153,7 @@
 				</div>
 			</div>
 			<div
-				class="col-span-2 row-start-2 flex min-w-0 flex-wrap items-center gap-2 xl:col-span-1 xl:col-start-2 xl:row-start-1 xl:justify-end"
+				class="col-span-2 row-start-2 flex min-w-0 flex-wrap items-center gap-2"
 			>
 				<LocalOnlyBadge />
 				{#if ready}<BackupBadge />{/if}
@@ -166,7 +167,7 @@
 				{/if}
 			</div>
 			<div
-				class="col-start-2 row-start-1 flex flex-wrap items-center justify-end gap-1 sm:flex-nowrap sm:gap-2 xl:col-start-3"
+				class="col-start-2 row-start-1 flex flex-wrap items-center justify-end gap-1 sm:flex-nowrap sm:gap-2"
 			>
 				{#if ready}<SettingsLink />{/if}
 				<PageQr />
