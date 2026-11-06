@@ -256,6 +256,14 @@ export async function travelStatementPdf(doc) {
 	field('Kilometer', euro(s.totals.mileageCents));
 	if (s.totals.lodgingCents) field('Übernachtungspauschalen', euro(s.totals.lodgingCents));
 	field('Belege privat bezahlt', euro(s.totals.privateCents));
+	if (s.totals.tipCents)
+		field(
+			'Trinkgeld privat bezahlt',
+			s.tips
+				.filter((x) => x.paidBy === 'private')
+				.map((x) => `${x.date ? formatDate(x.date, 'de-DE') : '—'} ${x.vendor} ${euro(x.cents)}`)
+				.join(' · ')
+		);
 	if (s.totals.outlayCents)
 		field(
 			'Als Auslage gebucht',

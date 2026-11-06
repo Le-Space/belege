@@ -6,6 +6,7 @@ import {
 	paidByGuess,
 	receiptsOfTrip,
 	suggestTrips,
+	tipOf,
 	travelQuestions
 } from './view.js';
 
@@ -291,5 +292,39 @@ describe('a receipt on a trip in euros (#213)', async () => {
 			travel: { ...ticket.travel, euro: { cents: 15740, rate: '0.0105', source: 'cbr' } }
 		};
 		expect(euroOf(kept)).toMatchObject({ cents: 15740, via: 'rate', rate: '0.0105' });
+	});
+});
+
+describe('a hospitality bill’s tip: who paid it (#213)', () => {
+	const bill = (/** @type {Record<string, any>} */ over = {}) =>
+		receipt('H', {
+			amountCents: 11900,
+			hospitality: { place: 'Gasthaus Beispiel', tipCents: 500, tipTo: 'Service' },
+			...over
+		});
+	const paidWith = (/** @type {number} */ cents) => ({
+		transactions: [{ id: 'X', amountCents: -cents, currency: 'EUR' }],
+		matches: [{ receiptId: 'H', transactionId: 'X', state: 'confirmed' }]
+	});
+
+	it('no tip: nothing', () => {
+		expect(tipOf(bill({ hospitality: { tipCents: 0 } }))).toEqual({ cents: 0, paidBy: null });
+	});
+	it('a bill paid privately: its tip too', () => {
+		expect(tipOf(bill())).toEqual({ cents: 500, paidBy: 'private' });
+	});
+	it('a bill paid from the business account for its amount only: the tip in cash, privately', () => {
+		expect(tipOf(bill(), paidWith(11900))).toEqual({ cents: 500, paidBy: 'private' });
+	});
+	it('a payment that covers bill and tip: the tip on the card, the company’s', () => {
+		expect(tipOf(bill(), paidWith(12400))).toEqual({ cents: 500, paidBy: 'company' });
+	});
+	it('a booked outlay is paid back for the bill only: the tip still privately', () => {
+		expect(
+			tipOf(bill(), {
+				transactions: [{ id: 'X', source: 'outlay', amountCents: -12400 }],
+				matches: [{ receiptId: 'H', transactionId: 'X', state: 'confirmed' }]
+			})
+		).toEqual({ cents: 500, paidBy: 'private' });
 	});
 });

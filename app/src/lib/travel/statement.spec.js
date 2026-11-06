@@ -139,6 +139,7 @@ describe('the travel statement (#213, step 5)', () => {
 			mileageCents: 24 * 30,
 			lodgingCents: 0,
 			privateCents: 8990 + 11900,
+			tipCents: 0,
 			outlayCents: 1900,
 			companyCents: 11200,
 			vatByRate: { 7: 588 + 733, 19: 1900 },
@@ -155,6 +156,62 @@ describe('the travel statement (#213, step 5)', () => {
 		expect(s.hospitality[0].line).toMatchObject({ receiptId: 'H1', paidBy: 'private' });
 		expect(s.checks).toEqual([{ level: 'warning', code: 'familyCar', tripId: 'T1' }]);
 		expect(s.rates.map((r) => r.kind).sort()).toEqual(['hospitality', 'meal', 'mileage']);
+	});
+
+	it('a tip the traveller paid is paid back and printed; one on the company card is not (#213)', async () => {
+		const withTip = RECEIPTS.map((r) =>
+			r.id === 'H1'
+				? { ...r, hospitality: { ...r.hospitality, tipCents: 500, tipTo: 'Service' } }
+				: r
+		);
+		const s = statementOf({ ...base, receipts: withTip });
+		expect(s.ready).toBe(true);
+		expect(s.tips).toEqual([
+			{
+				receiptId: 'H1',
+				date: '2026-05-20',
+				vendor: 'Gasthaus Beispiel',
+				cents: 500,
+				paidBy: 'private'
+			}
+		]);
+		expect(s.totals.tipCents).toBe(500);
+		expect(s.totals.toPayBackCents).toBe(2240 + 720 + 8990 + 11900 + 500);
+		// The split shown counts the tip as before: 70 % of (100,00 + 5,00).
+		expect(s.totals.hospitalityDeductibleCents).toBe(7350);
+
+		const { travelStatementPdf } = await import('./statement-pdf.js');
+		const bytes = await travelStatementPdf({
+			number: 'RK-2026-010',
+			issuer: 'Beispiel GmbH',
+			traveller: 'Inhaberin Beispiel',
+			role: 'owner',
+			month: '2026-05',
+			createdAt: '2026-06-02T10:00:00.000Z',
+			corrects: null,
+			statement: s
+		});
+		const { text } = await extractText(await getDocumentProxy(bytes), { mergePages: true });
+		expect(text.replace(/\s+/g, ' ')).toContain('Trinkgeld privat bezahlt');
+
+		// Paid from the business account with the tip on the card: not paid back.
+		const card = statementOf({
+			...base,
+			receipts: withTip,
+			transactions: [...TRANSACTIONS, { id: 'C', amountCents: -12400, currency: 'EUR' }],
+			matches: [{ receiptId: 'H1', transactionId: 'C', state: 'confirmed' }]
+		});
+		expect(card.tips[0].paidBy).toBe('company');
+		expect(card.totals.tipCents).toBe(0);
+	});
+
+	it('a trip without a night away over more than one midnight blocks the statement (#539)', () => {
+		const s = statementOf({
+			...base,
+			travel: [{ ...TRIP, overnight: false, end: '2026-05-06T09:00' }]
+		});
+		expect(s.ready).toBe(false);
+		expect(s.checks).toContainEqual({ level: 'error', code: 'dayTripTooLong', tripId: 'T1' });
 	});
 
 	it('refuses with what is missing; warns where it can be made', () => {

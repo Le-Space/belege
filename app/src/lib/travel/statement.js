@@ -4,14 +4,16 @@
 // trip, and what is to be paid back. Pure: what the preview shows, what the
 // checks say, and what the PDF prints come from here.
 //
-// To pay back: the allowances, the mileage, and the receipts paid privately
-// (hospitality bills without a trip included, as they were paid). Receipts
+// To pay back: the allowances, the mileage, the receipts paid privately
+// (hospitality bills without a trip included, as they were paid), and the
+// tips of hospitality bills the traveller paid (view.js tipOf). Receipts
 // the company paid are listed for completeness and not paid back, and so are
 // receipts booked as private outlays (#293): those are paid back through the
 // outlay account, never twice.
 //
 // The checks:
-//   errors    a trip without times or destination or reason, a hospitality
+//   errors    a trip without times or destination or reason, a trip without
+//             a night away over more than one midnight, a hospitality
 //             bill without what the law asks for, a privately paid receipt
 //             without an amount, an employee without a clearing account
 //             (#380), nothing to settle – no statement then
@@ -23,7 +25,7 @@
 import { formatDate } from '../bank/format.js';
 import { receiptDate, receiptVendor } from '../receipts/view.js';
 import { cleanTrip, tripFigures, tripsOf } from './records.js';
-import { euroOf, hospitalityOf, paidByGuess, receiptsOfTrip, travelKind } from './view.js';
+import { euroOf, hospitalityOf, paidByGuess, receiptsOfTrip, tipOf, travelKind } from './view.js';
 import { advancesOf, allocateAdvances } from './advances.js';
 import { statementChains } from './payout.js';
 
@@ -128,6 +130,8 @@ export function statementOf({
 		const { problems } = cleanTrip(trip);
 		if (problems.includes('noTimes') || problems.includes('endBeforeStart'))
 			checks.push({ level: 'error', code: 'tripWithoutTimes', tripId: trip.id });
+		if (problems.includes('dayTripTooLong'))
+			checks.push({ level: 'error', code: 'dayTripTooLong', tripId: trip.id });
 		if (problems.includes('noDestination'))
 			checks.push({ level: 'error', code: 'tripWithoutDestination', tripId: trip.id });
 		if (problems.includes('noReason'))
@@ -203,14 +207,41 @@ export function statementOf({
 				transactions,
 				matches
 			}),
-			split: hospitalityOf(r, { transactions, matches })
+			split: hospitalityOf(r, { transactions, matches }),
+			tip: tipOf(r, { transactions, matches })
 		}));
 	// …and the hospitality bills on the trips.
 	const tripHospitality = trips.flatMap((x) =>
 		receiptsOfTrip(receipts, x.trip.id)
 			.filter((r) => r.hospitality)
-			.map((r) => ({ receiptId: String(r.id), split: hospitalityOf(r, { transactions, matches }) }))
+			.map((r) => ({
+				receiptId: String(r.id),
+				date: receiptDate(/** @type {any} */ (r)) ?? '',
+				vendor: receiptVendor(/** @type {any} */ (r)),
+				split: hospitalityOf(r, { transactions, matches }),
+				tip: tipOf(r, { transactions, matches })
+			}))
 	);
+	// A tip has no receipt of its own: what the traveller paid of it is paid back
+	// here, booked 70/30 with the bill (view.js tipOf).
+	/** @type {{ receiptId: string, date: string, vendor: string, cents: number, paidBy: 'private' | 'company' }[]} */
+	const tips = [
+		...hospitality.map((x) => ({
+			receiptId: x.line.receiptId,
+			date: x.line.date,
+			vendor: x.line.vendor,
+			tip: x.tip
+		})),
+		...tripHospitality
+	]
+		.filter((x) => x.tip.paidBy)
+		.map((x) => ({
+			receiptId: x.receiptId,
+			date: x.date,
+			vendor: x.vendor,
+			cents: x.tip.cents,
+			paidBy: /** @type {'private' | 'company'} */ (x.tip.paidBy)
+		}));
 	for (const h of [
 		...hospitality.map((x) => ({ receiptId: x.line.receiptId, split: x.split })),
 		...tripHospitality
@@ -257,7 +288,8 @@ export function statementOf({
 		for (const v of l.vat) vatByRate[v.rate] = (vatByRate[v.rate] ?? 0) + v.cents;
 	const splits = [...hospitality.map((x) => x.split), ...tripHospitality.map((x) => x.split)];
 
-	const toPayBackCents = allowanceCents + mileageCents + lodgingCents + privateCents;
+	const tipCents = sum(tips.filter((x) => x.paidBy === 'private').map((x) => x.cents));
+	const toPayBackCents = allowanceCents + mileageCents + lodgingCents + privateCents + tipCents;
 	// Advances paid before (#381): those for its trips, and of the others what the
 	// traveller's earlier statements leave – as the settlement will count them.
 	const chains = statementChains(travel).filter(
@@ -289,6 +321,7 @@ export function statementOf({
 		month,
 		trips,
 		hospitality,
+		tips,
 		advances,
 		checks,
 		ready: !checks.some((c) => c.level === 'error'),
@@ -298,6 +331,7 @@ export function statementOf({
 			mileageCents,
 			lodgingCents,
 			privateCents,
+			tipCents,
 			outlayCents,
 			companyCents,
 			vatByRate,
@@ -357,6 +391,7 @@ export function snapshotOf(s) {
 			...h.line,
 			split: { ...h.split, share: h.split.share ?? null }
 		})),
+		tips: s.tips,
 		advances: s.advances,
 		totals: s.totals,
 		rates: s.rates,

@@ -6,6 +6,11 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **A tip on a hospitality bill is paid back and booked.** It was shown in the split but left out of what the statement pays back and of its bookings. A tip the traveller paid now counts in _Zu erstatten_, on the trip and the PDF, and is booked 70/30 onto 4650/4654 without a tax key. A tip is the company's only where a payment from the business account linked to the bill covers bill and tip together. All amounts in the tests are made up.
+- **A trip without a night away across more than one midnight no longer breaks the travel pages** (#539, point 3). Its allowance could not be computed and threw; now the trip names the problem and the statement waits until the times or the night away are fixed.
+
 ## [0.29.5] – 2026-11-06
 
 ### Security

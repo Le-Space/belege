@@ -284,6 +284,34 @@ export function hospitalityOf(receipt, books = {}) {
 }
 
 /**
+ * A hospitality bill's tip (#213): it has no receipt and no bank line of its
+ * own, so the host paid it – in cash, or on the card with the bill. It is the
+ * company's only where a payment from the business account linked to the bill
+ * covers the bill and the tip; otherwise the traveller paid it, and the
+ * statement pays it back.
+ *
+ * @param {Rec} receipt with `hospitality`
+ * @param {{ transactions?: Rec[], matches?: Rec[] }} [books]
+ * @returns {{ cents: number, paidBy: 'private' | 'company' | null }} null: no tip
+ */
+export function tipOf(receipt, { transactions = [], matches = [] } = {}) {
+	const tip = receipt.hospitality?.tipCents;
+	if (!Number.isSafeInteger(tip) || tip <= 0) return { cents: 0, paidBy: null };
+	const match = matchOfReceipt(receipt.id, matches);
+	const tx = match ? transactions.find((t) => t.id === match.transactionId && !t.deleted) : null;
+	const bill = receiptCurrency(receipt) === 'EUR' ? euroOf(receipt).cents : null;
+	const onTheCard =
+		tx &&
+		!isOutlay(tx) &&
+		tx.source !== 'travel' &&
+		String(tx.currency ?? 'EUR').toUpperCase() === 'EUR' &&
+		Number.isSafeInteger(tx.amountCents) &&
+		bill !== null &&
+		Math.abs(tx.amountCents) >= bill + tip;
+	return { cents: tip, paidBy: onTheCard ? 'company' : 'private' };
+}
+
+/**
  * @typedef {{ kind: 'receiptWithoutTrip', receiptId: string }
  *   | { kind: 'tripWithoutTimes', tripId: string }
  *   | { kind: 'tripIncomplete', tripId: string, problems: string[] }

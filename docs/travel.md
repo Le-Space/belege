@@ -49,7 +49,7 @@ By the trip's times, per calendar day (§ 9 Abs. 4a EStG; 14 € and 28 € sinc
 On a receipt, **"Zu einer Reise …"** assigns it to a trip (trips around its date first) with who paid it – the company where a bank payment covers it, else privately; or starts a new trip from it with its destination and times as read.
 
 - **Another currency:** a receipt counts in euros, never its amount as euros: by the outlay it was booked as ([outlays.md](outlays.md)), the payment it is linked to, or a rate kept on the receipt – fetched from the bridge (ECB; for the ruble the Bank of Russia; for the tenge the National Bank of Kazakhstan; for some other currencies a cross rate through the ruble from the Bank of Russia's rates) or typed as people say it, "1 EUR = 95,23 RUB". Without one it counts for nothing and the statement waits for it. Foreign VAT is no German input VAT.
-- **Hospitality:** **"Als Bewirtung erfassen …"** on a restaurant bill, with or without a trip: place, participants, occasion, a tip and who received it. The net costs and the tip are split 70 % deductible, the rest not; the VAT counts in full. What the law asks for and is missing is named.
+- **Hospitality:** **"Als Bewirtung erfassen …"** on a restaurant bill, with or without a trip: place, participants, occasion, a tip and who received it. The net costs and the tip are split 70 % deductible, the rest not; the VAT counts in full. What the law asks for and is missing is named. The tip has no receipt of its own: Belege takes it as paid by the traveller and pays it back with the statement, unless a payment from the business account linked to the bill covers bill and tip together (the tip was on the company card).
 
 ## Recognising travel
 
@@ -64,7 +64,7 @@ Nothing is assigned or created by itself; everything below proposes, a click dec
 
 One statement per traveller and month, on Reisen:
 
-- **Before:** the totals – allowances, mileage, receipts paid privately, those booked as outlays (paid back there), those paid by the company (listed, not paid back) – and **checks**: a trip without times, destination or reason, a hospitality bill with gaps, a private receipt without an amount or without a rate block it; a day abroad without a rate or with another country's, a family member's car or another currency are warnings printed on it.
+- **Before:** the totals – allowances, mileage, receipts paid privately, tips paid privately, those booked as outlays (paid back there), those paid by the company (listed, not paid back) – and **checks**: a trip without times, destination or reason, a trip without a night away across more than one midnight (its times or the night are wrong), a hospitality bill with gaps, a private receipt without an amount or without a rate block it; a day abroad without a rate or with another country's, a family member's car or another currency are warnings printed on it.
 - **"Abrechnung erstellen"** numbers it (`RK-2026-001`), draws a German A4 PDF in the look of the Eigenbelege – trips with times, allowance per day, mileage, receipts, hospitality, totals, input VAT by rate, the rates used with their sources, the warnings, a line to sign – and keeps it as a receipt for the payout.
 - A made statement keeps everything it printed, the rates included, and is **not changed**. A correction is a new statement with a new number that refers to it; the old one stays, marked replaced.
 
@@ -83,6 +83,7 @@ The statement is booked on the traveller's account **"Reisekosten <name>"**, an 
 
 - A receipt paid privately is booked with its gross and the BU key of its German VAT, linked to it; allowances and mileage are linked to the statement.
 - A hospitality bill is split per VAT rate: 70 % of the gross onto 4650, 30 % onto 4654, **both with the input VAT key**. DATEV works the VAT out of each line, so the whole input VAT is claimed (§ 15 UStG); only the expense is limited (§ 4 Abs. 5 Nr. 2 EStG). A bill at 7 % for food and 19 % for drinks gives four lines.
+- A tip paid privately: 70 % onto 4650, 30 % onto 4654, without a tax key, linked to the bill.
 - Receipts booked as outlays and those paid by the company are not booked again. A receipt on a trip paid from a business account is suggested its travel account too.
 - Each line is suggested its account; **"Konten … übernehmen"** in the export confirms them with the other automatic suggestions. A correction reverses the lines of the statement it replaces, then books its own.
 - The lines go into the month's DATEV Buchungsstapel, the statement and its receipts into the ZIP ([export.md](export.md)).

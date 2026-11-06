@@ -3403,6 +3403,7 @@ export default {
 			what: 'Eine Abrechnung pro Monat: die Reisen mit ihren Belegen, Pauschalen und Kilometern, dazu die Bewirtungen. Sie wird ein nummeriertes PDF und als Beleg für die Auszahlung abgelegt.',
 			traveller: 'Reisende(r) (auf dem PDF)',
 			private: 'Privat bezahlte Belege',
+			tip: 'Trinkgeld, privat bezahlt',
 			advance: 'Bereits als Vorschuss gezahlt',
 			toPayOut: 'Noch auszuzahlen',
 			owedBack: 'Von der Person zurückzuzahlen',
@@ -3425,6 +3426,8 @@ export default {
 			correct: 'Korrektur erstellen',
 			check: {
 				tripWithoutTimes: 'Reise ohne Zeiten: {what}',
+				dayTripTooLong:
+					'Reise ohne Übernachtung über mehr als eine Mitternacht – Zeiten oder Übernachtung prüfen: {what}',
 				tripWithoutDestination: 'Reise ohne Ziel: {what}',
 				tripWithoutReason: 'Reise ohne geschäftlichen Anlass: {what}',
 				hospitalityIncomplete: 'Bewirtung mit Lücken: {what}',
@@ -3539,6 +3542,8 @@ export default {
 			noReason: 'Noch kein geschäftlicher Anlass.',
 			noTimes: 'Noch keine Zeiten: keine Pauschale berechenbar.',
 			endBeforeStart: 'Rückkehr vor der Abfahrt.',
+			dayTripTooLong:
+				'Ohne Übernachtung, aber über mehr als eine Mitternacht: keine Pauschale berechenbar. Zeiten oder Übernachtung prüfen.',
 			mileage: {
 				noKm: 'Eine Fahrt ohne km.',
 				noDate: 'Eine Fahrt ohne Datum.',
