@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.29.1] – 2026-11-06
+
 ### Added
 
 - **Whose a device or a change is** (#650): the device list says which member a device belongs to, the history who made a change, and the members card when a member was last seen. What a member writes now names their write identity, the one the owner's member list shows.
