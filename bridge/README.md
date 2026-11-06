@@ -171,13 +171,13 @@ no books.
   (`bridge-auth`), relays and devices to `bridge.json` (`node`), and the node restarts *armed*;
   the WebSocket keeps its port, so the invitation's address stays good. From then on every device
   of the books reaches the bridge through the relays, with no browser open on this machine, and
-  keeps the bridge's device list current (`devices`, from any proved device): a device removed in
-  the app is refused here too. The app's bridge client prefers the stream, falls back to HTTP on
+  the device that paired it keeps the bridge's device list current (`devices`); any other proved
+  device may only take devices off it, so a device removed in the app is refused here too. The app's bridge client prefers the stream, falls back to HTTP on
   this machine (also when an answer is too big for the stream, e.g. a mail attachment above UCEP's
   limit), and to another device's bridge last (`app/src/lib/sync/remote-bridge.js`).
 - **Off:** `pnpm bridge --no-node`, or `"node": { "enabled": false }` in `bridge.json`; the bridge
   then runs over HTTP only, as before. `/unpair`, or `unpair` over the stream ("Kopplung lösen" on
-  a device), removes the bridge's key and the node runs on unarmed, with a new invitation. A key a
+  the device that paired it), removes the bridge's key and the node runs on unarmed, with a new invitation. A key a
   build before #575 kept under `device-auth` is removed at start.
 - **What the stream offers:** `help`, `handover`, `devices`, `unpair`, and – armed – `request`: one
   bridge call, `{ method, path, body? }` with the method and path of the API below, answered
@@ -250,8 +250,8 @@ The node's own commands, outside `request`:
 |---|---|---|
 | `help` | any peer that reaches the extension | the commands, armed or not, and the requests offered |
 | `handover` | the device that paired by invitation (UCEP scope `belege-bridge:pairing:manage`), unarmed only | the bridge's key, relays and devices; the node restarts armed |
-| `devices` | a proved device of the books | the books' device list |
-| `unpair` | a proved device of the books | the key leaves the keychain; the node runs unarmed with a new invitation |
+| `devices` | the device that paired by invitation; any other proved device of the books only to take devices off (never the one that paired) | the books' device list |
+| `unpair` | the device that paired by invitation (UCEP scope `belege-bridge:pairing:manage`), proved | the key leaves the keychain; the node runs unarmed with a new invitation |
 | `request` | a proved device of the books, armed only | one command of the table above |
 
 **What a relay sees** of the bridge: its peer id, the peer ids of the devices that call it,

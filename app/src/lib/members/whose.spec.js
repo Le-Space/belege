@@ -26,4 +26,21 @@ describe('whose', () => {
 		expect(w.deviceOwner('12D3KooWowners')).toBe('');
 		expect(w.devicesOf(W).sort()).toEqual(['12D3KooWjoined', '12D3KooWsecond']);
 	});
+
+	it('tells a device of a member from an own one, also for a reader, named or not', () => {
+		const reader = 'did:key:z6MkrHKzgsahxBLyNAbLQyB1pcWNYC9GmywiWPgkrvntAZcj';
+		const w = whose([
+			...records,
+			{
+				key: `member:${reader}`,
+				value: { label: '', role: 'reader', devices: ['12D3KooWreader'] },
+				author: OWNER
+			}
+		]);
+		expect(w.isMemberDevice('12D3KooWjoined')).toBe(true);
+		expect(w.isMemberDevice('12D3KooWsecond')).toBe(true);
+		expect(w.isMemberDevice('12D3KooWreader')).toBe(true);
+		expect(w.isMemberDevice('12D3KooWowners')).toBe(false);
+		expect(w.isMemberDevice('12D3KooWunknown')).toBe(false);
+	});
 });

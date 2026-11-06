@@ -1070,10 +1070,18 @@ async function startBridgeForDevices() {
 		bridge: () => own,
 		// A device the books know and that proved the passkey on this connection:
 		// an id typed in by mistake is known, and still gets nothing.
-		isOwnDevice: async (peerId) =>
-			Boolean(session?.deviceGate?.isProved(peerId)) &&
+		isOwnDevice: async (peerId) => {
+			if (!session?.deviceGate?.isProved(peerId)) return false;
 			// The bridge's own node is no device that may use this one's bridge.
-			knownDevices(await settings.list()).some((d) => d.peerId === peerId && !d.bridge)
+			if (!knownDevices(await settings.list()).some((d) => d.peerId === peerId && !d.bridge)) {
+				return false;
+			}
+			// A member's device proves the same key, and is not one of these: the
+			// share is for the owner's own devices (members reach a bridge only as
+			// the owner admitted them).
+			const { whose } = await import('./members/whose.js');
+			return !whose(await settings.list({ includeDeleted: true })).isMemberDevice(peerId);
+		}
 	});
 	app.sync.bridgeServed = true;
 }

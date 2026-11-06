@@ -4198,7 +4198,9 @@ export default {
 			codeHintFirst: 'one-time, valid for 10 minutes',
 			unpair: 'Remove pairing',
 			unpairOffline:
-				'The bridge was not reachable: the pairing is only removed on this device. On the bridge, `pnpm bridge -- --revoke-all` removes all pairings.'
+				'The bridge was not reachable: the pairing is only removed on this device. On the bridge, `pnpm bridge -- --revoke-all` removes all pairings.',
+			unpairElsewhere:
+				'Only the device that paired the bridge, or the computer the bridge runs on, removes this pairing. Nothing was changed here.'
 		},
 		hibiscus: {
 			title: 'Hibiscus',

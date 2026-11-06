@@ -290,6 +290,24 @@ export async function startBridgeNode({
 		if (!gate?.isProved(peerId) || !known.has(peerId)) throw new UcepError('PAIRING_REQUIRED');
 	}
 
+	const grants = fileStore(join(dir, 'grants.json'));
+	/**
+	 * The device that paired this bridge by invitation: it holds the pairing
+	 * scope. Every device of the books proves the same key, a member's too,
+	 * so the proof alone does not say who may manage the pairing.
+	 *
+	 * @param {string} peerId
+	 */
+	async function pairedBy(peerId) {
+		return (await grants.values()).some(
+			(/** @type {any} */ g) =>
+				g?.consumerPeerId === peerId &&
+				Array.isArray(g.scopes) &&
+				g.scopes.includes(PAIR_SCOPE) &&
+				!(g.expiresAt && g.expiresAt < Date.now())
+		);
+	}
+
 	/** @type {Record<string, { handler: (ctx: any) => unknown, scope?: string, description?: string }>} */
 	const ucepCommands = {
 		help: {
@@ -324,8 +342,10 @@ export async function startBridgeNode({
 			}
 		},
 		devices: {
-			// No UCEP scope: armed, any proved device of the books keeps the list
-			// current (the gate is the check); unarmed, the handover brings it.
+			// Armed: the device that paired the bridge keeps the list current. Any
+			// other proved device of the books may only take devices off it – a
+			// removal reaches the bridge from wherever it was made – and never the
+			// device that paired it. Unarmed, the handover brings the list.
 			description: 'The books’ device list, as the app keeps it',
 			handler: async ({ argsJson, peerId }) => {
 				const list = Array.isArray(argsJson?.devices) ? argsJson.devices : [];
@@ -333,14 +353,26 @@ export async function startBridgeNode({
 					throw new UcepError('INVALID_ARGUMENTS', 'devices must be up to 64 peer ids');
 				}
 				assertDevice(peerId);
-				setDevices([...new Set(list)]);
+				const wanted = new Set(list);
+				if (await pairedBy(peerId)) {
+					setDevices([...wanted]);
+				} else {
+					/** @type {string[]} */
+					const next = [];
+					for (const peer of known) {
+						if (wanted.has(peer) || (await pairedBy(peer))) next.push(peer);
+					}
+					setDevices(next);
+				}
 				await onDevices([...known]);
 				return { devices: known.size };
 			}
 		},
 		unpair: {
-			// "Kopplung lösen" on a device of the books: the key leaves, the node
-			// runs unarmed and offers pairing again. The gate is the check.
+			// "Kopplung lösen" on the device that paired the bridge: the key leaves,
+			// the node runs unarmed and offers pairing again. On the bridge's own
+			// machine, the HTTP route does the same with the token.
+			scope: PAIR_SCOPE,
 			description: 'Forget the bridge’s key → the node restarts unarmed',
 			handler: async ({ peerId }) => {
 				assertDevice(peerId);
@@ -380,7 +412,7 @@ export async function startBridgeNode({
 			commands: ucepCommands,
 			pairingModes: ['INVITATION'],
 			store: {
-				grants: fileStore(join(dir, 'grants.json')),
+				grants,
 				invitations: fileStore(join(dir, 'invitations.json'))
 			}
 		});
