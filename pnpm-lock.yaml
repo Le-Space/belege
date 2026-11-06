@@ -346,6 +346,9 @@ importers:
       '@le-space/ledger':
         specifier: workspace:^
         version: link:../ledger
+      '@le-space/rates':
+        specifier: workspace:^
+        version: link:../rates
       '@noble/hashes':
         specifier: 2.4.0
         version: 2.4.0
