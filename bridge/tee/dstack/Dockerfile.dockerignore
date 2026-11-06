@@ -1,0 +1,17 @@
+# Only what deploy-bridge.sh needs: the workspace's manifests, the bridge and
+# the packages it uses. Never .env, never node_modules, never the app.
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!.npmrc
+!patches
+!bridge
+!packages
+!app/package.json
+bridge/node_modules
+bridge/test
+bridge/rootfs/test
+packages/*/node_modules
+**/.env
+**/.env.*

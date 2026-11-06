@@ -1,0 +1,104 @@
+name: Bridge image (dstack)
+
+# The hosted bridge as a container for a TEE that runs Docker Compose:
+# dstack on Phala Cloud, Intel TDX (#696). The same bridge as the Aleph image
+# (bridge-image.yml, #583): bridge/rootfs/deploy-bridge.sh makes it in both.
+#
+# A pull request builds the image and runs it once without secrets. By hand
+# (workflow_dispatch) the image is pushed to GHCR, pinned by its digest, and
+# bridge-image-dstack.json names it: the image digest and, when the
+# PHALA_API_KEY secret is set, the compose hash Phala provisions for it – the
+# hash the NEAR contract approves (#696, step 4). Provisioning starts nothing.
+
+on:
+  pull_request:
+    paths:
+      - 'bridge/tee/dstack/**'
+      - 'bridge/rootfs/deploy-bridge.sh'
+      - '.github/workflows/bridge-dstack-image.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: bridge-dstack-image
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/le-space/belege-bridge-dstack
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build
+        run: docker build -f bridge/tee/dstack/Dockerfile -t belege-bridge-dstack:ci .
+
+      - name: Runs without secrets, as its own user, with nothing in its environment
+        run: |
+          set -euo pipefail
+          docker run -d --name bridge --read-only --cap-drop ALL --security-opt no-new-privileges:true \
+            --tmpfs /run/belege-bridge:mode=0700,uid=10001,gid=10001,size=64m,noexec,nosuid,nodev \
+            --tmpfs /tmp:size=16m,noexec,nosuid,nodev \
+            -e BELEGE_BRIDGE_SECRETS='{"imap":"ci-not-a-secret","nonsense":"x"}' belege-bridge-dstack:ci
+          for i in $(seq 1 30); do
+            docker exec bridge test -s /run/belege-bridge/node/public-key.sha256 && break
+            sleep 1
+          done
+          docker exec bridge test -s /run/belege-bridge/node/public-key.sha256
+          docker exec bridge sh -c 'test "$(id -u)" = 10001'
+          docker exec bridge sh -c 'test "$(ls /run/belege-bridge/secrets)" = imap'
+          ! docker exec bridge sh -c 'tr "\0" "\n" < /proc/1/environ' | grep -q BELEGE_BRIDGE_SECRETS=
+          docker logs bridge 2>&1 | grep -q 'HOSTED: secrets from the unlock'
+          docker rm -f bridge
+
+      - name: Push to GHCR
+        if: github.event_name == 'workflow_dispatch'
+        id: push
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker tag belege-bridge-dstack:ci "$IMAGE:${GITHUB_SHA}"
+          docker push "$IMAGE:${GITHUB_SHA}"
+          digest=$(docker image inspect "$IMAGE:${GITHUB_SHA}" --format '{{index .RepoDigests 0}}')
+          echo "pinned=$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Provision on Phala (the compose hash)
+        if: github.event_name == 'workflow_dispatch'
+        id: provision
+        env:
+          PHALA_API_KEY: ${{ secrets.PHALA_API_KEY }}
+          PINNED: ${{ steps.push.outputs.pinned }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PHALA_API_KEY" ]; then echo '{}' > provision.json; echo "::notice::no PHALA_API_KEY: no compose hash"; exit 0; fi
+          node bridge/tee/dstack/provision.mjs "$PINNED" > provision.json
+
+      - name: bridge-image-dstack.json
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          PINNED: ${{ steps.push.outputs.pinned }}
+        run: |
+          node -e '
+            const p = JSON.parse(require("fs").readFileSync("provision.json", "utf8"));
+            const out = {
+              schema: 1,
+              commit: process.env.GITHUB_SHA,
+              container: { image: process.env.PINNED, digest: process.env.PINNED.split("@")[1], composeHash: p.composeHash ?? null, appId: p.appId ?? null }
+            };
+            require("fs").writeFileSync("bridge-image-dstack.json", JSON.stringify(out, null, 2) + "\n");
+            console.log(JSON.stringify(out, null, 2));
+          '
+
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          name: bridge-image-dstack
+          path: bridge-image-dstack.json

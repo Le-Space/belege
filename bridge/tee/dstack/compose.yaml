@@ -1,0 +1,20 @@
+# The hosted bridge on dstack (Phala Cloud, Intel TDX), #696.
+#
+# The release replaces IMAGE with the image pinned by digest; this file's
+# hash, as Phala provisions it, is what the NEAR contract approves.
+# No ports: the bridge dials out to the books' relays; nothing listens
+# beyond 127.0.0.1 inside the container.
+services:
+  bridge:
+    image: ${BELEGE_BRIDGE_IMAGE:?set to ghcr.io/le-space/belege-bridge-dstack@sha256:…}
+    restart: unless-stopped
+    read_only: true
+    user: '10001:10001'
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /run/belege-bridge:mode=0700,uid=10001,gid=10001,size=64m,noexec,nosuid,nodev
+      - /tmp:mode=1777,size=16m,noexec,nosuid,nodev
+    environment:
+      # Decrypted by dstack inside the TEE from the start's encrypted env.
+      BELEGE_BRIDGE_SECRETS: ${BELEGE_BRIDGE_SECRETS:-}
