@@ -79,6 +79,37 @@ test('the unlocked keychain says what is missing, and refuses what is no secret'
 	});
 });
 
+test('the unlocked keychain takes no account whose file another could share, and follows no link', async () => {
+	const secrets = join(dir, 'secrets-c');
+	const fs = await import('node:fs/promises');
+	await fs.mkdir(secrets, { recursive: true });
+	await writeFile(join(secrets, 'portal_local_shop'), 'made-up');
+	await writeFile(join(dir, 'outside'), 'made-up');
+	await fs.symlink(join(dir, 'outside'), join(secrets, 'imap'));
+
+	assert.equal(
+		await unlockedKeychain({ dir: secrets, account: 'portal:local-shop' }).read(),
+		'made-up'
+	);
+	for (const account of [
+		'portal:local_shop',
+		'Imap',
+		'portal-local:shop',
+		'portal_x',
+		'a__b',
+		''
+	]) {
+		assert.throws(
+			() => unlockedKeychain({ dir: secrets, account }),
+			{ code: 'KEYCHAIN_DENIED' },
+			account
+		);
+	}
+	await assert.rejects(unlockedKeychain({ dir: secrets, account: 'imap' }).read(), {
+		code: 'KEYCHAIN_DENIED'
+	});
+});
+
 test('only a public TLS WebSocket name is announced', async () => {
 	for (const ok of [
 		'/dns4/abc123.2n6.me/tcp/443/tls/ws',

@@ -26,7 +26,7 @@
 // and `write()`, so tests hand in a fake (`memoryKeychain`).
 
 import { execFile, spawn } from 'node:child_process';
-import { readFile, stat } from 'node:fs/promises';
+import { lstat, readFile } from 'node:fs/promises';
 
 import { windowsKeychain } from './windows-keychain.js';
 
@@ -207,6 +207,15 @@ export function macosKeychain({
  */
 export const secretFileOf = (account) => account.toLowerCase().replace(/[^a-z0-9_]/g, '_');
 
+/**
+ * The accounts a hosted bridge takes from the unlock: a name of its own
+ * (`imap`, `aleph-backup`) or `portal:<id>`, in lower case, words joined by
+ * `-`, never `_`. So `secretFileOf` is one to one on them: no two accounts
+ * share a file, and one portal never reads another's password.
+ */
+const HOSTED_ACCOUNT =
+	/^(?!portal(?:$|-))[a-z0-9]+(?:-[a-z0-9]+)*$|^portal:[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
 /** A secret larger than this is not one the bridge keeps (the sealed Enable Banking file is apart). */
 const MAX_SECRET_BYTES = 64 * 1024;
 
@@ -227,6 +236,12 @@ const hostedOverlay = new Map();
  */
 export function unlockedKeychain({ dir, account = ACCOUNT }) {
 	const { what, setup } = describeAccount(account);
+	if (!HOSTED_ACCOUNT.test(account)) {
+		throw new KeychainError(
+			`The hosted bridge keeps no ${what} under that name.`,
+			'KEYCHAIN_DENIED'
+		);
+	}
 	const key = `${dir}\0${account}`;
 	const file = `${dir.replace(/\/+$/, '')}/${secretFileOf(account)}`;
 	return {
@@ -238,7 +253,8 @@ export function unlockedKeychain({ dir, account = ACCOUNT }) {
 			}
 			let text;
 			try {
-				const info = await stat(file);
+				// One plain file per secret: a link is refused, not followed.
+				const info = await lstat(file);
 				if (!info.isFile() || info.size > MAX_SECRET_BYTES) {
 					throw new KeychainError(
 						`The ${what} that came with the unlock is not one secret.`,
