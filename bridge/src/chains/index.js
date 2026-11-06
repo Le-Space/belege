@@ -17,14 +17,14 @@ import { createAkashDeploymentsClient } from './akash-deployments.js';
 import { isCosmosAddress } from './bech32.js';
 import { createEvmClient } from './evm.js';
 import { createBitcoinClient } from './bitcoin.js';
-import { createFilecoinClient } from './filecoin.js';
+import { createFilecoinClient } from '@belege/chain-filecoin';
 import { checkEndpoint, WalletError } from './http.js';
 
 export { CHAINS, chainOf, publicChains } from './registry.js';
 export { WalletError, checkEndpoint } from './http.js';
 export { isCosmosAddress, bech32Encode, bech32Decode, moduleAddress } from './bech32.js';
 export { isEvmAddress, toChecksumAddress } from './evm.js';
-export { isFilecoinAddress, normalizeFilecoin, toFilecoinAddress } from './filecoin.js';
+export { isFilecoinAddress, normalizeFilecoin, toFilecoinAddress } from '@belege/chain-filecoin';
 export {
 	ADDRESS_TYPES,
 	deriveAddress,

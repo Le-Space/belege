@@ -48,6 +48,7 @@
 import { isCosmosAddress, moduleAddress } from './bech32.js';
 import { decodeTx } from './protobuf.js';
 import { addressUrl, txUrl } from './registry.js';
+import { unitsToDecimal } from '@belege/chain-core';
 import { createJsonFetcher, WalletError } from './http.js';
 
 /** Module accounts a transfer may go to or come from, and how they are named. */
@@ -109,30 +110,7 @@ export function markBmeSwap(entries, unlisted, via) {
 const PER_PAGE = 100;
 const COIN = /^(\d+)([a-zA-Z][a-zA-Z0-9/:._-]{1,127})$/;
 
-/**
- * @typedef {object} WalletEntry
- * @property {string} id unique and stable: `<hash>:m<msg_index>:e<event>.<triple>:<asset>`, the fee `<hash>:fee`
- * @property {string} hash
- * @property {number} height
- * @property {string} time ISO 8601
- * @property {string} date YYYY-MM-DD (UTC)
- * @property {'sent' | 'received' | 'fee'} type
- * @property {'transfer' | 'reward' | 'stake' | 'ibc' | 'fee' | 'swap'} kind
- * @property {{ gave: { asset: string, amount: string, listed: boolean }[], got: { asset: string, amount: string, listed: boolean }[], via: string, fee?: { asset: string, amount: string } }} [swap] EVM: what the wallet gave and got in a swap, and its gas (evm.js markSwaps)
- * @property {string} asset symbol
- * @property {string} amount signed decimal: negative when it left the wallet
- * @property {number} decimals
- * @property {string} counterparty the other address ('' for a fee)
- * @property {string} counterpartyLabel a module's name, or ''
- * @property {string} memo
- * @property {boolean} success false for the fee of a failed transaction
- * @property {string} [ibcMemo] Cosmos: an IBC transfer's own memo (MsgTransfer.memo), e.g. a swap's plan (#170)
- * @property {boolean} [byOther] EVM: sent out in a transaction this address did not send (#162)
- * @property {string} [txFrom] EVM: who sent that transaction, where known
- * @property {string} explorerUrl
- * @property {string} [contract] EVM: a token not in the chain's list, by its contract (issue #115)
- * @property {boolean} [listed] false for such a token: its symbol is its own claim
- */
+/** @typedef {import('@belege/chain-core/entry').WalletEntry} WalletEntry */
 
 /**
  * `1500unym,20unyx` → coins; null when it does not parse.
@@ -153,14 +131,7 @@ export function parseCoins(text) {
 	return coins;
 }
 
-/** Units → a signed decimal string. @param {bigint} units @param {number} decimals */
-export function unitsToDecimal(units, decimals) {
-	const negative = units < 0n;
-	const digits = (negative ? -units : units).toString().padStart(decimals + 1, '0');
-	const int = digits.slice(0, digits.length - decimals);
-	const frac = digits.slice(digits.length - decimals).replace(/0+$/, '');
-	return `${negative ? '-' : ''}${int}${frac ? `.${frac}` : ''}`;
-}
+export { unitsToDecimal };
 
 /**
  * CometBFT 0.34 hands out event keys and values in base64; 0.37 and later
