@@ -33,6 +33,7 @@
 		receiptsOfTrip,
 		tripTotals
 	} from '$lib/travel/view.js';
+	import { countryHints, newStops, routeOf } from '$lib/travel/route.js';
 	import { lodgingFlat, nightsOf } from '$lib/travel/lodging.js';
 	import { appointmentsOn } from '$lib/travel/appointments.js';
 	import ReceiptPeek from '$lib/ReceiptPeek.svelte';
@@ -139,6 +140,40 @@
 		const m = { breakfast: false, lunch: false, dinner: false, ...(draft.meals?.[date] ?? {}) };
 		m[meal] = on;
 		draft.meals = { ...(draft.meals ?? {}), [date]: m };
+		touch();
+	}
+
+	// The crossings the trip's tickets make and the receipts no crossing explains (#693).
+	let route = $derived.by(() => {
+		const d = /** @type {Record<string, any> | null} */ (draft);
+		if (!d) return { kept: [], fromTickets: [], hints: [] };
+		const home = d.country || 'DE';
+		/** @type {{ at: string, country: string }[]} */
+		const kept = (d.stops ?? [])
+			.filter((/** @type {any} */ s) => s.at && /^[A-Za-z]{2}$/.test(String(s.country ?? '')))
+			.map((/** @type {any} */ s) => ({ at: s.at, country: String(s.country).toUpperCase() }))
+			.sort((/** @type {any} */ a, /** @type {any} */ b) => a.at.localeCompare(b.at));
+		return {
+			kept,
+			fromTickets: newStops(routeOf(receipts, home).stops, kept),
+			hints: countryHints(receipts, home, kept)
+		};
+	});
+	let stopsFromTickets = $derived(route.fromTickets);
+	let receiptHints = $derived(route.hints);
+	/** A crossing's time as a line. @param {string} at */
+	const stopWhen = (at) => `${formatDate(at.slice(0, 10))} ${at.slice(11, 16)}`;
+
+	function takeStops() {
+		if (!draft) return;
+		draft.stops = [
+			...(draft.stops ?? []),
+			...stopsFromTickets.map((s) => ({
+				at: s.at,
+				country: s.country,
+				...(s.city ? { city: s.city } : {})
+			}))
+		].sort((a, b) => String(a.at).localeCompare(String(b.at)));
 		touch();
 	}
 
@@ -411,6 +446,33 @@
 		<section class={card} aria-labelledby="reise-abroad-h">
 			<h2 id="reise-abroad-h" class="text-sm font-semibold text-heading">{t('reise.abroad')}</h2>
 			<p class="mt-1 text-xs text-faint">{t('reise.abroadHint')}</p>
+			{#if stopsFromTickets.length}
+				<div class="mt-2 flex flex-wrap items-center gap-2" data-testid="reise-route-proposal">
+					<span class="text-sm text-heading"
+						>{t('reise.routeFromTickets', {
+							route: stopsFromTickets
+								.map((s) => `${s.country}${s.city ? ` ${s.city}` : ''} ${stopWhen(s.at)}`)
+								.join(' · ')
+						})}</span
+					>
+					<button
+						type="button"
+						class={btn.secondary}
+						onclick={takeStops}
+						data-testid="reise-route-take">{t('reise.routeTake')}</button
+					>
+				</div>
+			{/if}
+			{#each receiptHints as h (h.receiptId)}
+				{@const r = receipts.find((x) => String(x.id) === h.receiptId)}
+				<p class="mt-2 text-sm text-warning" data-testid="reise-country-hint">
+					{t('reise.countryHint', {
+						receipt: r ? receiptVendor(/** @type {any} */ (r)) : '—',
+						country: countryName(h.country) ?? h.country,
+						date: formatDate(h.date)
+					})}
+				</p>
+			{/each}
 			{#each draft.stops ?? [] as stop, i (i)}
 				<div class="mt-2 flex flex-wrap items-end gap-2" data-testid="reise-stop">
 					<label class="flex flex-col text-sm text-text"

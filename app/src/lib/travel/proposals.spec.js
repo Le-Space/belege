@@ -113,6 +113,92 @@ describe('trip proposals (#213, step 4b)', () => {
 		expect(both.map((p) => p.destination)).toEqual(['Musterstadt', 'B-Dorf']);
 	});
 
+	it('a flight on from the airport it landed at: one trip, however the town is written (#693)', () => {
+		const fly = (
+			/** @type {string} */ from,
+			/** @type {string} */ to,
+			/** @type {string} */ fromIata,
+			/** @type {string} */ toIata,
+			/** @type {string} */ dep,
+			/** @type {string} */ arr
+		) =>
+			read({
+				kind: 'flight',
+				from,
+				to,
+				from_iata: fromIata,
+				to_iata: toIata,
+				departure: dep,
+				arrival: arr
+			});
+		// Days between, and the town in another script on the second ticket.
+		const there = fly('A-Stadt', 'Weitweg', 'QAS', 'QWW', '2026-04-06T07:00', '2026-04-06T11:00');
+		const on = fly('Вейтвег', 'Endhausen', 'QWW', 'QEH', '2026-04-09T09:00', '2026-04-09T12:00');
+		expect(tripProposals({ receipts: [there, on], travel: [] })).toHaveLength(1);
+		// Without the codes the names do not match: two proposals, as before.
+		const plain = [there, on].map((r) => ({
+			...r,
+			extraction: {
+				...r.extraction,
+				travel: { ...r.extraction.travel, from_iata: null, to_iata: null }
+			}
+		}));
+		expect(tripProposals({ receipts: plain, travel: [] })).toHaveLength(2);
+	});
+
+	it('a proposal abroad carries its crossings, and the trip made from it keeps them (#693)', async () => {
+		const store = {
+			travel: memoryCollection('travel').collection,
+			receipts: memoryCollection('receipts').collection
+		};
+		const leg = (/** @type {Record<string, any>} */ t) =>
+			store.receipts.put({ ...read(t), id: undefined });
+		await leg({
+			kind: 'bus',
+			from: 'A-Stadt',
+			to: 'Ortshausen',
+			from_country: 'DE',
+			to_country: 'AT',
+			departure: '2026-04-06T08:00',
+			arrival: '2026-04-06T13:00'
+		});
+		await leg({
+			kind: 'hotel',
+			place: 'Ortshausen',
+			place_country: 'AT',
+			check_in: '2026-04-06',
+			check_out: '2026-04-07'
+		});
+		await leg({
+			kind: 'bus',
+			from: 'Ortshausen',
+			to: 'A-Stadt',
+			from_country: 'AT',
+			to_country: 'DE',
+			departure: '2026-04-07T15:00',
+			arrival: '2026-04-07T20:00'
+		});
+		const [p] = tripProposals({ receipts: await store.receipts.list(), travel: [] });
+		expect(p.country).toBe('DE');
+		expect(p.stops.map((s) => [s.at, s.country])).toEqual([
+			['2026-04-06T13:00', 'AT'],
+			['2026-04-07T20:00', 'DE']
+		]);
+		expect(p.hints).toEqual([]);
+		const tripId = await acceptProposal({
+			store,
+			proposal: p,
+			settings: defaultDatevSettings(),
+			books: { transactions: [], matches: [] }
+		});
+		const trip = await store.travel.get(tripId);
+		expect(trip?.country).toBe('DE');
+		expect(trip?.stops).toEqual([
+			{ at: '2026-04-06T13:00', country: 'AT' },
+			{ at: '2026-04-07T20:00', country: 'DE' }
+		]);
+	});
+
 	it('days of an existing trip: added to it; receipts on a trip already: nothing', () => {
 		const trip = { id: 'T', kind: 'trip', start: '2026-04-08T07:00', end: '2026-04-09T21:00' };
 		const stay = hotel('Musterstadt', '2026-04-08', '2026-04-09');

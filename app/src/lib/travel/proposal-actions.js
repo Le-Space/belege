@@ -29,7 +29,10 @@ export async function acceptProposal({ store, proposal, settings, books, travell
 			destination: proposal.destination,
 			reason: proposal.reason ?? '',
 			start: proposal.start,
-			end: proposal.end
+			end: proposal.end,
+			// The crossings its tickets make (route.js, #693); the trip page shows the hints.
+			country: proposal.country ?? 'DE',
+			stops: proposal.stops ?? []
 		});
 		tripId = String(trip.id);
 	}

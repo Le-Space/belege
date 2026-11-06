@@ -33,6 +33,7 @@
 		tripMonth
 	} from '$lib/travel/records.js';
 	import { openTravelQuestions, tripProposals } from '$lib/travel/proposals.js';
+	import { routeLine } from '$lib/travel/route.js';
 	import {
 		acceptProposal,
 		dismissProposal,
@@ -497,6 +498,21 @@
 										to: when(p.end)
 									})}
 					</p>
+					{#if p.stops?.length}
+						<p class="mt-1 text-xs text-text" data-testid="reisen-proposal-route">
+							{t('reisen.proposals.route', { route: routeLine(p.country, p.stops, when) })}
+						</p>
+					{/if}
+					{#each p.hints ?? [] as h (h.receiptId)}
+						{@const r = receiptById.get(h.receiptId)}
+						<p class="mt-1 text-xs text-warning" data-testid="reisen-proposal-country-hint">
+							{t('reisen.proposals.countryHint', {
+								receipt: r ? receiptVendor(/** @type {any} */ (r)) : '—',
+								country: h.country,
+								date: formatDate(h.date)
+							})}
+						</p>
+					{/each}
 					<ul class="mt-1 text-xs text-text">
 						{#each p.receiptIds as id (id)}
 							{@const r = receiptById.get(id)}

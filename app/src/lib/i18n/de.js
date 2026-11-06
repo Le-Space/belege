@@ -833,7 +833,7 @@ export default {
 			],
 			usesHeading: 'Mit KI',
 			uses: [
-				'Belege auslesen: Anbieter, Betrag, Datum, Rechnungs- und Kundennummer aus dem Text eines Belegs, bei Reisekosten auch Art, Strecke, Zeiten, Hotelnächte und ob das Frühstück inklusive ist – und ob es überhaupt ein Beleg ist (Anmelde-Mails und Newsletter nicht). Bei „Auslesen“, „Alle neuen auslesen“, „Beleg hochladen“, „Als Beleg übernehmen“ und „Rechnungen holen“ – und für neue Dateien im freigegebenen Ordner, solange „gleich auslesen“ an ist.',
+				'Belege auslesen: Anbieter, Betrag, Datum, Rechnungs- und Kundennummer aus dem Text eines Belegs, bei Reisekosten auch Art, Strecke, Länder, Flughafencodes, Zeiten, Hotelnächte und ob das Frühstück inklusive ist – und ob es überhaupt ein Beleg ist (Anmelde-Mails und Newsletter nicht). Bei „Auslesen“, „Alle neuen auslesen“, „Beleg hochladen“, „Als Beleg übernehmen“ und „Rechnungen holen“ – und für neue Dateien im freigegebenen Ordner, solange „gleich auslesen“ an ist.',
 				'„Mit KI weitersuchen“ im privaten Postfach: Suchwörter und Absender vorschlagen, dann unter den Treffern den Beleg wählen – nach Betreff, Absender-Domain und Dateinamen, nie nach dem Text der E-Mails.',
 				'„KI-Vorschlag“ unter „Beleg zuordnen“: unter bis zu 25 deiner Belege den passenden zu einer Buchung nennen – nach Anbieter, Betrag, Datum, Rechnungsnummer und Kurzbeschreibung. Zuordnen tust du.',
 				'„KI-Vorschlag“ unter „Als Gegenbuchung verknüpfen …“: unter bis zu 8 Buchungen auf deinen anderen Konten die andere Seite einer eigenen Umbuchung nennen – nach Richtung, Betrag, Menge, Tag, Kontoart, Gegenpartei und Zweck, ohne Adressen, IBANs und Hashes. Verknüpfen tust du.',
@@ -3384,6 +3384,9 @@ export default {
 			event: 'Veranstaltung in {place}, {from}',
 			new: 'Reise nach {destination}, {from} – {to}',
 			addTo: 'Zur Reise {trip}',
+			route: 'Grenzübertritte aus den Fahrkarten: {route}',
+			countryHint:
+				'{receipt}: aus {country} am {date}, aber keine Fahrkarte führt dorthin. Mit dem Auto oder zu Fuß über die Grenze? Den Übertritt mit Uhrzeit trägst du an der Reise ein.',
 			make: 'Als Reise anlegen',
 			add: 'Zur Reise hinzufügen',
 			dismiss: 'Geschäftlich, keine Reise',
@@ -3497,6 +3500,10 @@ export default {
 		stopUnknownCountry: 'unbekannter Ländercode',
 		remove: 'Entfernen',
 		addStop: 'Grenzübertritt hinzufügen',
+		routeFromTickets: 'Aus den Fahrkarten: {route}',
+		routeTake: 'Übernehmen',
+		countryHint:
+			'{receipt} ist aus {country} vom {date}, aber laut den Grenzübertritten warst du da nicht dort. Mit dem Auto oder zu Fuß über die Grenze? Trag den Übertritt mit Uhrzeit ein.',
 		meals: 'Gestellte Mahlzeiten',
 		nights: 'Übernachtungen ohne Hotelrechnung',
 		nightsHint:

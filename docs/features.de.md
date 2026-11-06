@@ -119,7 +119,7 @@ Was Le Space Belege heute kann, nach Themen geordnet. Eine kürzere Fassung dies
 
   Ein Beleg in anderer Währung zählt in Euro, nach Zahlung, Auslage oder Kurs.
 
-- **Erkannt, nie von selbst zugeordnet:** Art, Strecke und Zeiten einer Reiseausgabe aus dem Auslesen, ohne KI aus ihren Wörtern in elf Sprachen. Reisen schlägt Belege nach Datum und Strecke vor. Termine kommen aus Kalendereinladungen (nur Titel, Ort und Zeiten).
+- **Erkannt, nie von selbst zugeordnet:** Art, Strecke, Länder und Zeiten einer Reiseausgabe aus dem Auslesen, ohne KI aus ihren Wörtern in elf Sprachen. Grenzübertritte kommen aus den Fahrkarten. Reisen schlägt Belege nach Datum und Strecke vor. Termine kommen aus Kalendereinladungen (nur Titel, Ort und Zeiten).
 - **Eine Abrechnung pro Monat** als nummeriertes deutsches PDF. Sie wird auf SKR-03-Reisekostenkonten nach Rechtsform gegen das Verrechnungskonto des Reisenden gebucht, und die Auszahlung wird ihr zugeordnet. Siehe [travel.de.md](travel.de.md).
 
 ## Geräte und Zusammenarbeit
