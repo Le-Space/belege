@@ -7,6 +7,7 @@
 	// every file is sealed before it is stored.
 	import { onMount, tick } from 'svelte';
 	import WayOut from '$lib/help/WayOut.svelte';
+	import FirstSyncHint from '$lib/sync/FirstSyncHint.svelte';
 	import MailText from '$lib/receipts/MailText.svelte';
 	import EInvoiceView from '$lib/receipts/EInvoiceView.svelte';
 	import { cleanMatchingSettings } from '$lib/matching/classify.js';
@@ -815,6 +816,7 @@
 	{/if}
 
 	{#if receipts.length === 0}
+		<FirstSyncHint />
 		<p class="mt-6 {card} px-5 py-4 text-text" data-testid="receipts-empty">
 			{t('belege.empty')}
 			<a class="underline" href={resolve('/integrationen/bridge')} data-testid="receipts-empty-link"

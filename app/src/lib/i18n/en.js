@@ -308,6 +308,15 @@ export default {
 	},
 	messages: {
 		sync: {
+			first: {
+				member: 'The books of “{books}” are coming from the owner’s devices.',
+				own: 'Your books are coming from your other devices.',
+				connected:
+					'Connected to {count} device(s). The first time it can take a few minutes until everything is here – the lists then fill at once. Keep the page open.',
+				waiting:
+					'No other device of these books is connected right now. Things come as soon as one is online – both sides need to be open.',
+				lastIn: 'Something last came in at {time}.'
+			},
 			off: 'Sync is not on on this device.',
 			notProved: 'The other device did not prove the passkey – it does not belong to these books.',
 			noQrSession: 'Connecting without a relay only works after unlocking in this mode.',
