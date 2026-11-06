@@ -5,7 +5,7 @@
 // string, next to the euro amount they are booked with (valuation.js).
 //
 // `symbol` is the key Belege uses everywhere, also towards the bridge's rate
-// sources (bridge/src/rates.js RATE_SOURCES). `caip19` names the asset in a
+// sources (packages/rates/src/rates.js RATE_SOURCES). `caip19` names the asset in a
 // chain-agnostic way (CAIP-19) where it is certain; the others get theirs
 // when their connector is built.
 

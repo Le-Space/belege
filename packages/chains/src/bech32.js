@@ -6,7 +6,8 @@
 // Cosmos addresses are bech32, not bech32m, and their data part is 20 bytes
 // (an account) or 32 bytes (a contract or a derived account).
 
-import { createHash } from 'node:crypto';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { utf8 } from '@le-space/ledger/bytes';
 
 const CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
 const GENERATOR = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
@@ -121,5 +122,5 @@ export function isCosmosAddress(address, prefix) {
  * @param {string} name `fee_collector`, `distribution`, `bonded_tokens_pool`, …
  */
 export function moduleAddress(prefix, name) {
-	return bech32Encode(prefix, createHash('sha256').update(name).digest().subarray(0, 20));
+	return bech32Encode(prefix, sha256(utf8(name)).subarray(0, 20));
 }

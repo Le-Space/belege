@@ -12,11 +12,11 @@
  * @property {string} caip2
  * @property {string} bech32Prefix
  * @property {string} nativeDenom
- * @property {Record<string, import('@belege/chain-core/entry').ChainAsset>} denoms base denom → asset
+ * @property {Record<string, import('@le-space/ledger/wallet-entry').ChainAsset>} denoms base denom → asset
  * @property {{ rpc: string, rest: string, indexer?: string }} endpoints the defaults; `indexer`: the
  *   Akash Console indexer, read for what the pruned node no longer knows (akash-console.js)
  * @property {{ rpc: string[], rest: string[] }} alternatives also public, e.g. an archive node
- * @property {import('@belege/chain-core/explorer').Explorer} explorer
+ * @property {import('./explorer.js').Explorer} explorer
  */
 
 /** @type {CosmosChain} */

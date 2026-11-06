@@ -33,6 +33,7 @@ import { HDKey } from '@scure/bip32';
 import { bech32, createBase58check } from '@scure/base';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { ripemd160 } from '@noble/hashes/legacy.js';
+import { toHex, utf8 } from '@le-space/ledger/bytes';
 
 import { txUrl } from './registry.js';
 import { createJsonFetcher, WalletError } from './http.js';
@@ -58,9 +59,7 @@ const MAX_ADDRESSES = 2000;
  * @param {string} key
  */
 export function keyFingerprint(key) {
-	return `btc-${Buffer.from(sha256(new TextEncoder().encode(key.trim())))
-		.toString('hex')
-		.slice(0, 8)}`;
+	return `btc-${toHex(sha256(utf8(key.trim()))).slice(0, 8)}`;
 }
 
 /**

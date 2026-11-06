@@ -1,9 +1,12 @@
 name: Package tests
 
 # The open building blocks under packages/ (#264), each with its own tests
-# and format check. A pull request tests the packages it changes and the
-# packages that depend on them (pnpm's `...[since]` filter); a push to
-# main, a release (ci.yml) and a run by hand test every package. The bridge
+# and format check. The @le-space/* packages (Le-Space/eigenbeleg-agent#6)
+# also run a scenario in Chromium and compare it with Node
+# (packages/browser-test): a Node-only import or Buffer fails them. A pull
+# request tests the packages it changes and the packages that depend on
+# them (pnpm's `...[since]` filter); a push to main, a release (ci.yml) and
+# a run by hand test every package. The bridge
 # and the app, which use the packages, have their own workflows.
 
 permissions:
@@ -25,7 +28,7 @@ jobs:
   packages:
     name: Package tests
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
         with:
@@ -48,6 +51,16 @@ jobs:
           fi
       - name: Install
         run: pnpm install --frozen-lockfile --filter "./packages/*..."
+      # The headless shell is enough for the scenarios; CI set makes a missing
+      # browser fail the tests instead of skipping them.
+      - name: Chromium for the browser scenarios
+        timeout-minutes: 10
+        run: |
+          for try in 1 2 3; do
+            timeout 180 pnpm --filter @le-space/browser-test exec playwright install --only-shell chromium && exit 0
+            echo "Chromium download try $try did not finish; trying again"
+          done
+          exit 1
       # Only the packages: the root, the bridge and the app have workflows
       # of their own, and the dependents' filter would pick them too.
       - name: Format

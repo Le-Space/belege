@@ -1,22 +1,56 @@
 {
-	"name": "@belege/chain-core",
+	"name": "@le-space/chains",
 	"version": "0.1.0",
-	"private": true,
-	"description": "What every chain reader shares: JSON over HTTPS with coded errors, amounts from units, explorer links, swap detection, and the neutral WalletEntry they hand out (#264).",
+	"description": "Own wallets on public chains, read only, by their address – Cosmos (Nyx, Akash), EVM (Blockscout, Alchemy), Bitcoin (Esplora, zpub), Filecoin (Filfox), NEAR (NearBlocks) – as @le-space/ledger entries. Browser and Node; fetch, endpoints and keys handed in.",
 	"license": "AGPL-3.0-or-later",
 	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Le-Space/belege.git",
+		"directory": "packages/chains"
+	},
+	"homepage": "https://github.com/Le-Space/belege/tree/main/packages/chains#readme",
+	"sideEffects": false,
 	"exports": {
 		".": "./src/index.js",
+		"./core": "./src/core.js",
 		"./http": "./src/http.js",
-		"./entry": "./src/entry.js",
-		"./explorer": "./src/explorer.js"
+		"./registry": "./src/registry.js",
+		"./wallets": "./src/wallets.js",
+		"./cosmos": "./src/cosmos.js",
+		"./cosmos-chains": "./src/cosmos-chains.js",
+		"./bech32": "./src/bech32.js",
+		"./protobuf": "./src/protobuf.js",
+		"./akash-console": "./src/akash-console.js",
+		"./akash-deployments": "./src/akash-deployments.js",
+		"./evm": "./src/evm.js",
+		"./alchemy": "./src/alchemy.js",
+		"./bitcoin": "./src/bitcoin.js",
+		"./filecoin": "./src/filecoin.js",
+		"./near": "./src/near.js",
+		"./testing/cosmos": "./test/support/fake-cosmos.js",
+		"./testing/filfox": "./test/support/fake-filfox.js"
 	},
-	"files": ["src"],
+	"files": ["src", "test/support"],
+	"engines": {
+		"node": ">=22"
+	},
+	"publishConfig": {
+		"access": "public",
+		"provenance": true
+	},
 	"scripts": {
 		"test": "node --test --test-reporter=spec \"test/*.test.js\"",
 		"lint": "prettier --check src test"
 	},
+	"dependencies": {
+		"@le-space/ledger": "workspace:^",
+		"@noble/hashes": "2.4.0",
+		"@scure/base": "2.4.0",
+		"@scure/bip32": "2.4.0"
+	},
 	"devDependencies": {
+		"@le-space/browser-test": "workspace:*",
 		"prettier": "3.6.2"
 	}
 }

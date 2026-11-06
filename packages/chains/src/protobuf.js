@@ -10,6 +10,8 @@
 // Unknown fields are skipped by wire type; anything malformed yields null
 // rather than a half-read value.
 
+import { fromBase64, toBase64 } from '@le-space/ledger/bytes';
+
 /**
  * @param {Uint8Array} bytes
  * @returns {Map<number, Uint8Array[]> | null} length-delimited fields by number; varints are skipped
@@ -60,7 +62,7 @@ const text = (/** @type {Uint8Array | undefined} */ b) =>
  */
 export function decodeTx(base64) {
 	if (typeof base64 !== 'string' || !base64) return null;
-	const raw = fields(Buffer.from(base64, 'base64'));
+	const raw = fields(fromBase64(base64));
 	const bodyBytes = raw?.get(1)?.[0];
 	const authBytes = raw?.get(2)?.[0];
 	if (!raw || !bodyBytes) return null;
@@ -124,7 +126,5 @@ export function encodeTx({ memo = '', messageTypes = [], fee = [] }) {
 		)
 	);
 	const auth = lengthDelimited(2, feeBytes);
-	return Buffer.from(concat([lengthDelimited(1, body), lengthDelimited(2, auth)])).toString(
-		'base64'
-	);
+	return toBase64(concat([lengthDelimited(1, body), lengthDelimited(2, auth)]));
 }

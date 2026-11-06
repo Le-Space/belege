@@ -13,8 +13,8 @@ import {
 	normalizeBitcoin,
 	parseExtendedKey,
 	parseStoredKey
-} from '../src/chains/index.js';
-import { CHAINS } from '../src/chains/registry.js';
+} from '@le-space/chains';
+import { CHAINS } from '@le-space/chains/registry';
 import { runBitcoinSetup } from '../src/setup-bitcoin.js';
 import { memoryKeychain } from '../src/keychain.js';
 
@@ -32,7 +32,7 @@ const ZPUB = accountKey("m/84'/0'/0'", { private: 0x04b2430c, public: 0x04b24746
 const YPUB = accountKey("m/49'/0'/0'", { private: 0x049d7878, public: 0x049d7cb2 });
 const XPUB44 = accountKey("m/44'/0'/0'", { private: 0x0488ade4, public: 0x0488b21e });
 
-const BTC = /** @type {import('../src/chains/registry.js').BitcoinChain} */ (CHAINS.bitcoin);
+const BTC = /** @type {import('@le-space/chains/registry').BitcoinChain} */ (CHAINS.bitcoin);
 
 describe('keys and addresses', () => {
 	test('each kind of key gives the address its BIP names', () => {

@@ -1,6 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // A token's rate from a DEX pool at the block of its booking (issue #163), for
 // tokens CoinGecko does not price on that day. Read on chain through the
-// Alchemy key (`pnpm setup:alchemy`), so it needs no further service; without
+// caller's Alchemy key (Belege: `pnpm setup:alchemy`), so it needs no further service; without
 // a key there is no pool rate.
 //
 // How:
@@ -29,6 +30,7 @@
 // 2026-09-29 (the ETH/USDC pools at 0.05 % and 0.3 % give ~2,700 USDC per ETH).
 
 import { keccak_256 } from '@noble/hashes/sha3.js';
+import { fromHex, toHex, utf8 } from '@le-space/ledger/bytes';
 
 /**
  * @typedef {object} DexChain
@@ -73,10 +75,7 @@ const V4_TIERS = [
 export const MIN_POOL_EUR = 3000;
 
 /** @param {string} signature */
-const selectorOf = (signature) =>
-	`0x${Buffer.from(keccak_256(new TextEncoder().encode(signature)))
-		.toString('hex')
-		.slice(0, 8)}`;
+const selectorOf = (signature) => `0x${toHex(keccak_256(utf8(signature))).slice(0, 8)}`;
 
 const SELECTOR = {
 	getPair: '0xe6a43905',
@@ -115,7 +114,7 @@ const addressOf = (hex) => `0x${hex.replace(/^0x/, '').slice(24, 64)}`.toLowerCa
 export function v4PoolId(a, b, fee, tickSpacing, hooks = ZERO) {
 	const [c0, c1] = BigInt(a) < BigInt(b) ? [a, b] : [b, a];
 	const key = word(c0) + word(c1) + uint(BigInt(fee)) + uint(BigInt(tickSpacing)) + word(hooks);
-	return `0x${Buffer.from(keccak_256(Buffer.from(key, 'hex'))).toString('hex')}`;
+	return `0x${toHex(keccak_256(fromHex(key)))}`;
 }
 
 /**

@@ -45,15 +45,10 @@
 //
 // The log gets counts, never an address.
 
+import { fromBase64, fromUtf8 } from '@le-space/ledger/bytes';
 import { isCosmosAddress, moduleAddress } from './bech32.js';
 import { decodeTx } from './protobuf.js';
-import {
-	addressUrl,
-	createJsonFetcher,
-	txUrl,
-	unitsToDecimal,
-	WalletError
-} from '@belege/chain-core';
+import { addressUrl, createJsonFetcher, txUrl, unitsToDecimal, WalletError } from './core.js';
 
 /** Module accounts a transfer may go to or come from, and how they are named. */
 const MODULES = /** @type {const} */ ({
@@ -114,7 +109,7 @@ export function markBmeSwap(entries, unlisted, via) {
 const PER_PAGE = 100;
 const COIN = /^(\d+)([a-zA-Z][a-zA-Z0-9/:._-]{1,127})$/;
 
-/** @typedef {import('@belege/chain-core/entry').WalletEntry} WalletEntry */
+/** @typedef {import('@le-space/ledger/wallet-entry').WalletEntry} WalletEntry */
 
 /**
  * `1500unym,20unyx` → coins; null when it does not parse.
@@ -149,7 +144,7 @@ export function readEvents(events) {
 	const keys = list.flatMap((e) => (Array.isArray(e?.attributes) ? e.attributes : []));
 	const plain = keys.every((a) => typeof a?.key === 'string' && /^[a-z_.]+$/.test(a.key));
 	const read = (/** @type {unknown} */ v) =>
-		typeof v !== 'string' ? '' : plain ? v : Buffer.from(v, 'base64').toString('utf8');
+		typeof v !== 'string' ? '' : plain ? v : fromUtf8(fromBase64(v));
 	return list.map((e) => ({
 		type: String(e?.type ?? ''),
 		attributes: (Array.isArray(e?.attributes) ? e.attributes : []).map((/** @type {any} */ a) => ({
@@ -260,7 +255,7 @@ export function untransferredOf(events, { nativeDenom, bonded }) {
  * @param {any} raw an item of `result.txs`
  * @param {object} context
  * @param {string} context.address
- * @param {import('./chains.js').CosmosChain} context.chain
+ * @param {import('./cosmos-chains.js').CosmosChain} context.chain
  * @param {string} context.time ISO 8601 of its block
  * @returns {{ entries: WalletEntry[], unknownDenoms: string[] }}
  */
@@ -452,7 +447,7 @@ export function createCosmosClient({ fetch: f = fetch, timeoutMs, maxPages = 200
 	return {
 		/**
 		 * @param {object} params
-		 * @param {import('./chains.js').CosmosChain} params.chain
+		 * @param {import('./cosmos-chains.js').CosmosChain} params.chain
 		 * @param {string} params.address
 		 * @param {{ rpc: string, rest: string }} params.endpoints already checked
 		 */

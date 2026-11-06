@@ -1,7 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Exchange rates for the day of a booking: how many euros one unit of an
-// asset was worth. The browser cannot ask CoinGecko, Kraken or the ECB
-// itself (CORS, and the CoinGecko key stays in the keychain), so it asks
-// the bridge.
+// asset was worth. The one definition of "the rate of a day" for Le Space's
+// tools (Belege, the Eigenbeleg API and web UI; Le-Space/eigenbeleg-agent#6,
+// decided 2026-11-06: the price at 00:00 UTC).
+//
+// It runs wherever `fetch` reaches the sources. Belege's browser cannot ask
+// CoinGecko, Kraken or the ECB itself (CORS, and the CoinGecko key stays in
+// the keychain), so there the bridge runs it; the caller hands in `fetch` and
+// the keys (`coingeckoKey`, and the Alchemy key for dex-rate.js).
 //
 // What "the rate of a day" means, the same for every source:
 //   - a crypto asset: its price at 00:00 UTC of that day
@@ -149,7 +155,7 @@ const KRAKEN_TRADES_GAP_MS = 1100;
 /**
  * @param {object} [options]
  * @param {typeof fetch} [options.fetch]
- * @param {() => Promise<string | null>} [options.coingeckoKey] a CoinGecko demo key, if one is in the keychain
+ * @param {() => Promise<string | null>} [options.coingeckoKey] a CoinGecko demo key, if the caller has one
  * @param {() => Date} [options.now]
  * @param {number} [options.cacheSize]
  * @param {(ms: number) => Promise<void>} [options.delay] the wait before Kraken is asked again after it said "too many requests"

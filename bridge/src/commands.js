@@ -23,7 +23,7 @@ import { ibanAllowed, normalizeAccount, normalizeTransaction } from './normalize
 import { decodeMailId, isIsoDay, isPartNumber } from './mail/mime.js';
 import { ALEPH_API } from './aleph.js';
 import { MAX_BACKUP_BYTES } from './aleph-backup.js';
-import { checkEndpoint } from './chains/http.js';
+import { checkEndpoint } from '@le-space/chains/http';
 import { withExtraTerms } from './llm/redact.js';
 import { redactionOff, redactionOffForEnclave } from './config.js';
 

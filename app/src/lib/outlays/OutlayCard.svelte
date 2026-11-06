@@ -42,7 +42,7 @@
 	/** What the field shows and the person types: EUR per unit, or units per euro (#312). */
 	let typed = $state('');
 	let perEuroMode = $state(false);
-	/** The sources the form offers a rate from (bridge/src/rates.js). */
+	/** The sources the form offers a rate from (packages/rates/src/rates.js). */
 	const OFFERED = new Set(['ecb', 'cbr', 'nbk', 'cbr-cross']);
 	/** @type {'ecb' | 'cbr' | 'nbk' | 'cbr-cross' | 'manual'} */
 	let rateSource = $state('manual');

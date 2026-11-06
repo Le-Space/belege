@@ -11,30 +11,14 @@
 // is one.
 
 import { chainOf, publicChains } from './registry.js';
-import {
-	createAkashConsoleClient,
-	createAkashDeploymentsClient,
-	createCosmosClient,
-	isCosmosAddress
-} from '@belege/chain-cosmos';
+import { createCosmosClient } from './cosmos.js';
+import { createAkashConsoleClient } from './akash-console.js';
+import { createAkashDeploymentsClient } from './akash-deployments.js';
+import { isCosmosAddress } from './bech32.js';
 import { createEvmClient } from './evm.js';
 import { createBitcoinClient } from './bitcoin.js';
-import { createFilecoinClient } from '@belege/chain-filecoin';
+import { createFilecoinClient } from './filecoin.js';
 import { checkEndpoint, WalletError } from './http.js';
-
-export { CHAINS, chainOf, publicChains } from './registry.js';
-export { WalletError, checkEndpoint } from './http.js';
-export { isCosmosAddress, bech32Encode, bech32Decode, moduleAddress } from '@belege/chain-cosmos';
-export { isEvmAddress, toChecksumAddress } from './evm.js';
-export { isFilecoinAddress, normalizeFilecoin, toFilecoinAddress } from '@belege/chain-filecoin';
-export {
-	ADDRESS_TYPES,
-	deriveAddress,
-	keyFingerprint,
-	normalizeBitcoin,
-	parseExtendedKey,
-	parseStoredKey
-} from './bitcoin.js';
 
 /**
  * @param {object} [options]
@@ -42,7 +26,7 @@ export {
  * @param {boolean} [options.allowLoopback] endpoints on http://127.0.0.1 (tests only)
  * @param {number} [options.timeoutMs]
  * @param {(ms: number) => Promise<void>} [options.sleep]
- * @param {() => Promise<string | null>} [options.getZpub] the Bitcoin key's keychain entry
+ * @param {() => Promise<string | null>} [options.getZpub] the Bitcoin key (the bridge: from its keychain)
  * @param {number} [options.bitcoinPauseMs] between Esplora requests (tests: 0)
  * @param {() => Promise<string | null>} [options.alchemyKey] the Alchemy API key, or null
  * @param {(network: string) => string} [options.alchemyBaseUrl] tests: a fake Alchemy

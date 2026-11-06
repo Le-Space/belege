@@ -1,4 +1,4 @@
-// Own EVM wallets read through Alchemy (chains/alchemy.js) against a fake
+// Own EVM wallets read through Alchemy (@le-space/chains alchemy.js) against a fake
 // Alchemy as strict as the real one, the same made-up chain read through a
 // fake Blockscout for the ids, and the setup CLI. Every address, hash, key
 // and amount is made up.
@@ -10,9 +10,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { CHAINS, publicChains } from '../src/chains/registry.js';
-import { createEvmClient } from '../src/chains/evm.js';
-import { createWalletService } from '../src/chains/index.js';
+import { CHAINS, publicChains } from '@le-space/chains/registry';
+import { createEvmClient } from '@le-space/chains/evm';
+import { createWalletService } from '@le-space/chains';
 import { createBridgeServer } from '../src/server.js';
 import { createPairing } from '../src/pairing.js';
 import { defaultConfig, saveConfig } from '../src/config.js';
@@ -28,8 +28,8 @@ import {
 } from './support/fake-alchemy.js';
 import { request } from './support/http.js';
 
-const ethereum = /** @type {import('../src/chains/registry.js').EvmChain} */ (CHAINS.ethereum);
-const arbitrum = /** @type {import('../src/chains/registry.js').EvmChain} */ (CHAINS.arbitrum);
+const ethereum = /** @type {import('@le-space/chains/registry').EvmChain} */ (CHAINS.ethereum);
+const arbitrum = /** @type {import('@le-space/chains/registry').EvmChain} */ (CHAINS.arbitrum);
 const noSleep = async () => {};
 const hashOf = (/** @type {string} */ seed) => fakeHash(seed, true);
 

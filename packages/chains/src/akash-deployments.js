@@ -21,7 +21,7 @@
 //
 // The log gets counts, never an address.
 
-import { createJsonFetcher, WalletError } from '@belege/chain-core';
+import { createJsonFetcher, WalletError } from './core.js';
 import { unitsToDecimal } from './cosmos.js';
 
 const LIMIT = 1000;

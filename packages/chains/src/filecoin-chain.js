@@ -8,12 +8,12 @@
  * @property {string} name
  * @property {string} shortName
  * @property {string} caip2
- * @property {import('@belege/chain-core/entry').ChainAsset} native
- * @property {Record<string, import('@belege/chain-core/entry').ChainAsset>} tokens FEVM ERC-20s booked here: lower-case `0x` contract → asset
+ * @property {import('@le-space/ledger/wallet-entry').ChainAsset} native
+ * @property {Record<string, import('@le-space/ledger/wallet-entry').ChainAsset>} tokens FEVM ERC-20s booked here: lower-case `0x` contract → asset
  * @property {Record<string, string>} contracts FEVM contracts a swap is named after: lower-case `0x` → name
  * @property {{ api: string }} endpoints Filfox's API, …/api/v1
  * @property {{ api: string[] }} alternatives
- * @property {import('@belege/chain-core/explorer').Explorer} explorer
+ * @property {import('./explorer.js').Explorer} explorer
  */
 
 /** @type {FilecoinChain} */

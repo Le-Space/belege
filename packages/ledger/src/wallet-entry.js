@@ -1,6 +1,7 @@
-// The neutral shape a chain reader hands out (#264): one entry per value
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// The neutral shape a chain reader hands out (Le-Space/belege#264): one entry per value
 // movement of a wallet, signed from the wallet's side, with the fee as an
-// entry of its own. The bridge's chain clients all return it; the app books
+// entry of its own. The readers in @le-space/chains return it; Belege books
 // from it (wallet-sync.js) and a CSV import can produce it too (Monero, #262).
 
 /**

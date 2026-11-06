@@ -1,6 +1,6 @@
 // Own wallets: address checks, the EVM (Blockscout) client against a fake
 // node on 127.0.0.1, and the /chains and /<chain>/wallet routes; the Cosmos
-// client's own tests are in @belege/chain-cosmos (#264). All
+// client's own tests are in @le-space/chains. All
 // addresses, hashes and amounts are made up (support/fake-chains.js).
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,16 +10,16 @@ import {
 	bech32Encode,
 	isCosmosAddress,
 	moduleAddress
-} from '../src/chains/bech32.js';
-import { CHAINS, publicChains } from '../src/chains/registry.js';
+} from '@le-space/chains/bech32';
+import { CHAINS, publicChains } from '@le-space/chains/registry';
 import {
 	createEvmClient,
 	isEvmAddress,
 	normalizeEvm,
 	toChecksumAddress
-} from '../src/chains/evm.js';
-import { checkEndpoint } from '../src/chains/http.js';
-import { createWalletService } from '../src/chains/index.js';
+} from '@le-space/chains/evm';
+import { checkEndpoint } from '@le-space/chains/http';
+import { createWalletService } from '@le-space/chains';
 import { createBridgeServer } from '../src/server.js';
 import { createPairing } from '../src/pairing.js';
 import { defaultConfig } from '../src/config.js';
@@ -33,8 +33,8 @@ import {
 } from './support/fake-chains.js';
 import { request } from './support/http.js';
 
-const nyx = /** @type {import('../src/chains/registry.js').CosmosChain} */ (CHAINS.nyx);
-const ethereum = /** @type {import('../src/chains/registry.js').EvmChain} */ (CHAINS.ethereum);
+const nyx = /** @type {import('@le-space/chains/registry').CosmosChain} */ (CHAINS.nyx);
+const ethereum = /** @type {import('@le-space/chains/registry').EvmChain} */ (CHAINS.ethereum);
 const noSleep = async () => {};
 
 describe('addresses', () => {

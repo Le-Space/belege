@@ -30,8 +30,9 @@
 //
 // The log gets counts, never an address.
 
+import { fromBase64, fromUtf8 } from '@le-space/ledger/bytes';
 import { moduleAddress } from './bech32.js';
-import { createJsonFetcher, txUrl, WalletError } from '@belege/chain-core';
+import { createJsonFetcher, txUrl, WalletError } from './core.js';
 import { unitsToDecimal } from './cosmos.js';
 
 const PER_PAGE = 100;
@@ -79,7 +80,7 @@ const coins = (list) => (Array.isArray(list) ? list : [list]).map(coin).filter((
  */
 function packetTransfer(packet) {
 	try {
-		const data = JSON.parse(Buffer.from(str(packet?.data), 'base64').toString('utf8'));
+		const data = JSON.parse(fromUtf8(fromBase64(str(packet?.data))));
 		const prefix = `${str(packet?.sourcePort ?? packet?.source_port)}/${str(packet?.sourceChannel ?? packet?.source_channel)}/`;
 		const denom = str(data?.denom);
 		const amount = str(data?.amount);
@@ -100,7 +101,7 @@ function packetTransfer(packet) {
  * `address`.
  *
  * @param {any} tx
- * @param {{ address: string, chain: import('./chains.js').CosmosChain }} context
+ * @param {{ address: string, chain: import('./cosmos-chains.js').CosmosChain }} context
  * @returns {{ entries: import('./cosmos.js').WalletEntry[], unknownDenoms: string[], unknownAmount: boolean }}
  */
 export function normalizeConsoleTx(tx, { address, chain }) {
@@ -358,7 +359,7 @@ export function createAkashConsoleClient({
 		 * The address's transactions below `beforeHeight`, as entries.
 		 *
 		 * @param {object} p
-		 * @param {import('./chains.js').CosmosChain} p.chain
+		 * @param {import('./cosmos-chains.js').CosmosChain} p.chain
 		 * @param {string} p.address checked by cosmos.js already
 		 * @param {string} p.indexer base URL, checked
 		 * @param {number} p.beforeHeight the node's lowest height
@@ -426,7 +427,7 @@ export function createAkashConsoleClient({
 		 * address's count; the others are left out.
 		 *
 		 * @param {object} p
-		 * @param {import('./chains.js').CosmosChain} p.chain
+		 * @param {import('./cosmos-chains.js').CosmosChain} p.chain
 		 * @param {string} p.address
 		 * @param {string} p.indexer base URL, checked
 		 * @param {string[]} p.hashes upper-case, checked

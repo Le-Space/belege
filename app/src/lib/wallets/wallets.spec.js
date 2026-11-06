@@ -4,7 +4,7 @@
 // (@belege/bridge/testing/chains); every address, hash and amount is made up.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { CHAINS, createWalletService } from '@belege/bridge/chains';
+import { CHAINS, createWalletService } from '@le-space/chains';
 import {
 	EVM,
 	fakeHash,

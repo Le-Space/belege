@@ -1,0 +1,735 @@
+{
+	"account": "relay.aurora",
+	"network": "mainnet",
+	"from": "2024-05-13",
+	"to": "2024-05-13",
+	"txns": [
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "GcGBq1xCeu1xu7cKiisWsZFFYBsbnbzevSZxYY1URFQX",
+				"block_height": "118867841",
+				"block_timestamp": "1715644798687903916"
+			},
+			"block_timestamp": "1715644798687903916",
+			"index_in_chunk": 14,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "326746890126500000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "9kLJuufRkZ7TJDzgFYEeLd3VYv6KynqV254GbASi4nVn"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "GcGBq1xCeu1xu7cKiisWsZFFYBsbnbzevSZxYY1URFQX",
+				"block_height": "118867841",
+				"block_timestamp": "1715644798687903916"
+			},
+			"block_timestamp": "1715644798687903916",
+			"index_in_chunk": 11,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "333141907908200000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "DLDEZgkePK7njPrb6BKnEsZJvX8Cp5v1pFftmymbjZga"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "9ioY4t2pxR6U3iq9dKcdQuVnGMLnSh4z4gqCxRaY4q6F",
+				"block_height": "118867840",
+				"block_timestamp": "1715644796731795409"
+			},
+			"block_timestamp": "1715644796731795409",
+			"index_in_chunk": 11,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "326746890126500000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "Fqu5K93um6icvyEXdrMPNqMmZ9SCP1PQmczNz1Fo3s2p"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "9ioY4t2pxR6U3iq9dKcdQuVnGMLnSh4z4gqCxRaY4q6F",
+				"block_height": "118867840",
+				"block_timestamp": "1715644796731795409"
+			},
+			"block_timestamp": "1715644796731795409",
+			"index_in_chunk": 6,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "326746890126500000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "6jdM8EDnFjkQpXYP5YAMsvS6CyvgTox4CUNazVyCP9ng"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "9ioY4t2pxR6U3iq9dKcdQuVnGMLnSh4z4gqCxRaY4q6F",
+				"block_height": "118867840",
+				"block_timestamp": "1715644796731795409"
+			},
+			"block_timestamp": "1715644796731795409",
+			"index_in_chunk": 3,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "326746890126500000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "5foh7ew6fDcvbzCYekaujefJn66m4WJzxZLSNiwv3fQF"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "8fS4fnJPtCU2xXADF7vB71Y7UicSiYTz6zZj1hEVbX1s",
+				"block_height": "118867839",
+				"block_timestamp": "1715644795389077522"
+			},
+			"block_timestamp": "1715644795389077522",
+			"index_in_chunk": 0,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "333141907908200000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "7ttGU8HXMQpQi14jGDoi8kmmcE7ibaHHsFgXwodKJoTt"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "HLnQKQyYY8v6rGmjWb7JAEx87CPy1zCKgmRGhU5Zs8e",
+				"block_height": "118867830",
+				"block_timestamp": "1715644783520389031"
+			},
+			"block_timestamp": "1715644783520389031",
+			"index_in_chunk": 18,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "340109526569600000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "EGSKVw3rKGiLxGebuQ66KrbGhwEX1SNfJJovhbtjT4TW"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "HLnQKQyYY8v6rGmjWb7JAEx87CPy1zCKgmRGhU5Zs8e",
+				"block_height": "118867830",
+				"block_timestamp": "1715644783520389031"
+			},
+			"block_timestamp": "1715644783520389031",
+			"index_in_chunk": 6,
+			"outcomes": {
+				"status": true
+			},
+			"outcomes_agg": {
+				"transaction_fee": "1000385881877900000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "DJSfGNcWGrA9b9GjAat7rfstQqu3vbaWGFc9ci1wNAv5"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "6CWRS1QXBRGX1ydEid4TdEjkURXK5reqQHcb65F7fjFa",
+				"block_height": "118867821",
+				"block_timestamp": "1715644771572395309"
+			},
+			"block_timestamp": "1715644771572395309",
+			"index_in_chunk": 0,
+			"outcomes": {
+				"status": true
+			},
+			"outcomes_agg": {
+				"transaction_fee": "793020208277900000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "5DEU9jYzfgf2TvaTzh1hU5snuuDMSnZUFXCAmeYo9FNY"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "2TCWYsNjXzcsrsmE6ek7ex2pnMVHdGpTjLs2FdEposPE",
+				"block_height": "118867819",
+				"block_timestamp": "1715644769045539907"
+			},
+			"block_timestamp": "1715644769045539907",
+			"index_in_chunk": 11,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "326746890126500000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "GjrcVqogNFpbtDnPBRo2oKibtudtX4V6Gicp5aUGiw54"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "8oqEwUuUpvoLs4AfbuMgXmo9Ras42NTLKnUhzMGkTDjo",
+				"block_height": "118867818",
+				"block_timestamp": "1715644767745750676"
+			},
+			"block_timestamp": "1715644767745750676",
+			"index_in_chunk": 17,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "333141907908200000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "Cgz9btxY8PHTALGMJuwkS8357x8N4XvPjfvxWL8NuiEz"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "CyZjh1yfT1kiAcSQksbKuS63T5CDbQ4W8PBDGVaiTqZZ",
+				"block_height": "118867817",
+				"block_timestamp": "1715644766398376646"
+			},
+			"block_timestamp": "1715644766398376646",
+			"index_in_chunk": 26,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "326746890126500000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "BJQdUaoPN947ua5robgQXEMAyJwVQMMAVLi6vb4TvwyC"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "CyZjh1yfT1kiAcSQksbKuS63T5CDbQ4W8PBDGVaiTqZZ",
+				"block_height": "118867817",
+				"block_timestamp": "1715644766398376646"
+			},
+			"block_timestamp": "1715644766398376646",
+			"index_in_chunk": 22,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "326746890126500000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "Cg7j8jgVKVaHXuwfQYqkRgEnzY2zGwW8TkWyfzbU9wTT"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "CyZjh1yfT1kiAcSQksbKuS63T5CDbQ4W8PBDGVaiTqZZ",
+				"block_height": "118867817",
+				"block_timestamp": "1715644766398376646"
+			},
+			"block_timestamp": "1715644766398376646",
+			"index_in_chunk": 20,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "326746890126500000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "8u1y4w5F5r7kKtazsdLhfkJojfskaAKPEGfD94JKHbcJ"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "CyZjh1yfT1kiAcSQksbKuS63T5CDbQ4W8PBDGVaiTqZZ",
+				"block_height": "118867817",
+				"block_timestamp": "1715644766398376646"
+			},
+			"block_timestamp": "1715644766398376646",
+			"index_in_chunk": 0,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "333141907908200000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "HrWTKALwVwCX49Vb8qAvydbKBmGjYe7MGQWkHHQJ58yV"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "CgRgiZo4H3gXrAmwR39szWkuceqJvS3R71MKPE5h8vn6",
+				"block_height": "118867809",
+				"block_timestamp": "1715644755550484665"
+			},
+			"block_timestamp": "1715644755550484665",
+			"index_in_chunk": 16,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "330394300165400000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "3dYqLfAUQGyYDdoNaiFDDDNsMdND2YaDqBUaf3fnQyVc"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "FTL3r4YGWdtat5cJH2XXQtRiGEofJQfYt9bew83kbme6",
+				"block_height": "118867807",
+				"block_timestamp": "1715644752968823923"
+			},
+			"block_timestamp": "1715644752968823923",
+			"index_in_chunk": 36,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "330394300165400000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "3cD9NrdSTUDn1iJVx4NeZ3d74bpkbN6ofMpug61XdNrS"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "FTL3r4YGWdtat5cJH2XXQtRiGEofJQfYt9bew83kbme6",
+				"block_height": "118867807",
+				"block_timestamp": "1715644752968823923"
+			},
+			"block_timestamp": "1715644752968823923",
+			"index_in_chunk": 20,
+			"outcomes": {
+				"status": true
+			},
+			"outcomes_agg": {
+				"transaction_fee": "665458613072600000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "3JDh5MA8B9YEDeJW5jDrropd1VpuijzaL31qD5pFCgkB"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "5q7RbK6JwD1RE8yefXjjofu5H1e8T91JJTwSwJtepVVH",
+				"block_height": "118867798",
+				"block_timestamp": "1715644741704768774"
+			},
+			"block_timestamp": "1715644741704768774",
+			"index_in_chunk": 9,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "330394300165400000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "12iezAT1HacAHvgGWNndDY6226Wn9o7jZdEW26b3LAsG"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "948fuDYoWTxHwvffYyvyTCD5oS2hokULV9tqTvyoMurH",
+				"block_height": "118867796",
+				"block_timestamp": "1715644739362600527"
+			},
+			"block_timestamp": "1715644739362600527",
+			"index_in_chunk": 14,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "333141907908200000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "DmsTmMHgVxJDs8yEyP1KdtnQG4joSiHvkbFGCqjY3VYz"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "948fuDYoWTxHwvffYyvyTCD5oS2hokULV9tqTvyoMurH",
+				"block_height": "118867796",
+				"block_timestamp": "1715644739362600527"
+			},
+			"block_timestamp": "1715644739362600527",
+			"index_in_chunk": 5,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "326746890126500000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "5a9WQEVqDfBtViZnxoJwTbzGDb1Xo1Y2WEJXH29BMvf9"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "DJeXYgL1yQRa2hvxX5K75hJzXjFAoQqkqcoqznLj2Csv",
+				"block_height": "118867795",
+				"block_timestamp": "1715644738113143883"
+			},
+			"block_timestamp": "1715644738113143883",
+			"index_in_chunk": 12,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "326746890126500000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "5H3PiA7WFrXkZgTyk6MLCQXR8GEHUGsHGKjNDj2oBYgi"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "4DeCDg3j6ctrM41Cu61gHmw3db3EFHfdKD42aE566HDq",
+				"block_height": "118867793",
+				"block_timestamp": "1715644735431984934"
+			},
+			"block_timestamp": "1715644735431984934",
+			"index_in_chunk": 21,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "326746890126500000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "Fo81xVQD5psZ3aphupRAUdnjM9LhDDEhz4VQkV5KbvCM"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "4DeCDg3j6ctrM41Cu61gHmw3db3EFHfdKD42aE566HDq",
+				"block_height": "118867793",
+				"block_timestamp": "1715644735431984934"
+			},
+			"block_timestamp": "1715644735431984934",
+			"index_in_chunk": 14,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "333141907908200000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "2z94fEwnRHvre2gjZFU9MLPDtJeTeJhVLBSPTpmYzD9t"
+		},
+		{
+			"actions": [
+				{
+					"action": "FUNCTION_CALL",
+					"method": "submit"
+				}
+			],
+			"actions_agg": {
+				"deposit": "0"
+			},
+			"block": {
+				"block_hash": "4DeCDg3j6ctrM41Cu61gHmw3db3EFHfdKD42aE566HDq",
+				"block_height": "118867793",
+				"block_timestamp": "1715644735431984934"
+			},
+			"block_timestamp": "1715644735431984934",
+			"index_in_chunk": 0,
+			"outcomes": {
+				"status": false
+			},
+			"outcomes_agg": {
+				"transaction_fee": "326746890126500000000"
+			},
+			"receiver_account_id": "aurora",
+			"shard_id": 4,
+			"signer_account_id": "relay.aurora",
+			"transaction_hash": "BSu99BaDYVJx16DiJSVHrHS1cYZknsqaxU4ZZhfYEte"
+		}
+	],
+	"ftTxns": [
+		{
+			"affected_account_id": "relay.aurora",
+			"block": {
+				"block_hash": "9uoVUYr2JZNKGTNjUmjojtXsJSDXGrPikhs4wzhv4R4V",
+				"block_height": "118842567",
+				"block_timestamp": "1715611264238932339"
+			},
+			"block_timestamp": "1715611264238932339",
+			"cause": "TRANSFER",
+			"contract_account_id": "nearrewards.near",
+			"delta_amount": "10000000000000000000",
+			"event_index": 29,
+			"event_type": 1,
+			"involved_account_id": "nearrewards.near",
+			"meta": {
+				"contract": "nearrewards.near",
+				"decimals": 17,
+				"name": "$NEAR rewards at https://nearrewards.com",
+				"reference": null,
+				"symbol": "NearRewards.com"
+			},
+			"receipt_id": "Sijbn61qhvMUEJsSx4Q989YUeGhmsoXvgRxvZYErMGV",
+			"shard_id": 4,
+			"transaction_hash": "2U97XiDyoN6Sq8UWTKGbnY4QN8dN1D1wG2vhMPNFg8eH"
+		}
+	]
+}

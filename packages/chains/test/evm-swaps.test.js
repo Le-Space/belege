@@ -4,8 +4,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { normalizeEvm } from '../src/chains/evm.js';
-import { CHAINS, KNOWN_EVM_CONTRACTS } from '../src/chains/registry.js';
+import { normalizeEvm } from '../src/evm.js';
+import { CHAINS, KNOWN_EVM_CONTRACTS } from '../src/registry.js';
 
 const ME = `0x${'a1'.repeat(20)}`;
 const ROUTER = '0x881d40237659c251811cec9c364ef91dc08d300c';

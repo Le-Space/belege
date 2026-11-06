@@ -1,13 +1,10 @@
-// Exchange rates: which source answers, what "the rate of a day" is, and the
-// /rates route. The sources are faked; nothing goes to the network.
+// Exchange rates: which source answers, and what "the rate of a day" is. The
+// sources are faked; nothing goes to the network. The bridge's /rates route
+// has its own test there (bridge/test/rates-route.test.js).
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createRateService, invert, toDecimal, RateError } from '../src/rates.js';
-import { createBridgeServer } from '../src/server.js';
-import { createPairing, hashToken } from '../src/pairing.js';
-import { defaultConfig } from '../src/config.js';
-import { request } from './support/http.js';
 
 const NOW = () => new Date('2026-09-26T10:00:00Z');
 const DAY_START = Date.parse('2026-09-01T00:00:00Z') / 1000;
@@ -547,43 +544,6 @@ describe('Kraken: one daily series per pair', () => {
 		assert.equal(krakenCalls(), 2);
 		await rates.rate('BTC', '2026-09-25');
 		assert.equal(krakenCalls(), 2);
-	});
-});
-
-describe('GET /rates', () => {
-	test('needs the token, checks the asset, answers with the rate', async () => {
-		const token = 'paired-token-for-the-rates-test';
-		const { fetch } = fakeFetch({ 'https://api.coingecko.com/': coingecko(3.5, 4) });
-		const bridge = createBridgeServer({
-			config: { ...defaultConfig(), appOrigins: [] },
-			pairing: createPairing({
-				getHashes: () => [{ hash: hashToken(token), createdAt: '2026-09-01T00:00:00Z' }],
-				saveHashes: async () => {}
-			}),
-			hibiscus: null,
-			rates: createRateService({ fetch, now: NOW })
-		});
-		const { port } = await bridge.listen({ port: 0 });
-		try {
-			const auth = { authorization: `Bearer ${token}` };
-			assert.equal((await request(port, '/rates?asset=AKT&date=2026-09-01')).status, 401);
-			assert.equal(
-				(await request(port, '/rates?asset=akt;rm&date=2026-09-01', { headers: auth })).status,
-				400
-			);
-			const ok = await request(port, '/rates?asset=AKT&date=2026-09-01', { headers: auth });
-			assert.equal(ok.status, 200);
-			assert.equal(ok.json.rate, '3.5');
-			assert.equal(ok.json.source, 'coingecko');
-			const bad = await request(port, '/rates?asset=AKT&date=2026-09-01&prefer=binance', {
-				headers: auth
-			});
-			assert.equal(bad.status, 400);
-			const future = await request(port, '/rates?asset=AKT&date=2027-01-01', { headers: auth });
-			assert.equal(future.status, 400);
-		} finally {
-			await new Promise((resolve) => bridge.server.close(resolve));
-		}
 	});
 });
 

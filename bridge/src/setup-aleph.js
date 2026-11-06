@@ -33,7 +33,7 @@ import {
 } from '@le-space/orbitdb-storage-bridge/backends/aleph-pin';
 
 import { addressOf, isBackupKey, newBackupKey, personalSign } from './aleph-backup.js';
-import { toChecksumAddress } from './chains/evm.js';
+import { toChecksumAddress } from '@le-space/chains/evm';
 import { defaultConfigPath, loadConfig, saveConfig } from './config.js';
 import { systemKeychain } from './keychain.js';
 import { ask, closePrompts } from './prompt.js';

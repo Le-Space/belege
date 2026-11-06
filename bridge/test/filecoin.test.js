@@ -1,9 +1,9 @@
-// Filecoin in the bridge: the reader is @belege/chain-filecoin (its own tests
+// Filecoin in the bridge: the reader is in @le-space/chains (its own tests
 // are there, #264); here that the wallet service lists it and reads through it.
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createWalletService } from '../src/chains/index.js';
+import { createWalletService } from '@le-space/chains';
 import { fakeFilecoinAddress, startFakeFilfox } from './support/fake-filfox.js';
 
 const OURS = fakeFilecoinAddress('own wallet');

@@ -1,0 +1,63 @@
+name: Publish a package
+
+# Publishes one of the shared @le-space/* packages under packages/ to npm
+# (Le-Space/eigenbeleg-agent#6), by hand only: its tests (Node and
+# Chromium) first, then `pnpm publish` with provenance. pnpm writes the
+# version of a `workspace:^` dependency into the published package.json, so
+# @le-space/ledger goes first, then @le-space/chains and @le-space/rates.
+# Needs the NPM_TOKEN secret in the `npm` environment.
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: The package to publish
+        required: true
+        type: choice
+        options: [ledger, chains, rates]
+
+concurrency:
+  group: packages-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish @le-space/${{ inputs.package }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: npm
+    permissions:
+      contents: read
+      # npm's provenance statement is signed with the workflow's identity.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+      - name: Install
+        run: pnpm install --frozen-lockfile --filter "./packages/*..."
+      - name: Chromium for the browser scenarios
+        timeout-minutes: 10
+        run: |
+          for try in 1 2 3; do
+            timeout 180 pnpm --filter @le-space/browser-test exec playwright install --only-shell chromium && exit 0
+            echo "Chromium download try $try did not finish; trying again"
+          done
+          exit 1
+      - name: Tests
+        env:
+          PACKAGE: '@le-space/${{ inputs.package }}'
+        run: pnpm --filter "$PACKAGE" run lint && pnpm --filter "$PACKAGE" run test
+      - name: Publish
+        env:
+          PACKAGE: '@le-space/${{ inputs.package }}'
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
+        run: pnpm --filter "$PACKAGE" publish --access public --no-git-checks

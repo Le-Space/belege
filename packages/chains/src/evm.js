@@ -44,9 +44,10 @@
 // and become entries here in the same way.
 
 import { keccak_256 } from '@noble/hashes/sha3.js';
+import { toHex, utf8 } from '@le-space/ledger/bytes';
 
 import { KNOWN_EVM_CONTRACTS, addressUrl, txUrl } from './registry.js';
-import { markSwaps } from '@belege/chain-core';
+import { markSwaps } from './core.js';
 import { createJsonFetcher, WalletError } from './http.js';
 import { unitsToDecimal } from './cosmos.js';
 import { alchemyBaseUrl, createAlchemyReader } from './alchemy.js';
@@ -74,7 +75,7 @@ const PAGE = 1000;
  */
 export function toChecksumAddress(address) {
 	const hex = address.slice(2).toLowerCase();
-	const hash = Buffer.from(keccak_256(new TextEncoder().encode(hex))).toString('hex');
+	const hash = toHex(keccak_256(utf8(hex)));
 	let out = '0x';
 	for (let i = 0; i < 40; i++) {
 		out += parseInt(hash[i], 16) >= 8 ? hex[i].toUpperCase() : hex[i];

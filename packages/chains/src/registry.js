@@ -11,7 +11,7 @@
 //            (chains/alchemy.js); the network names are below.
 //   bitcoin  an Esplora API (mempool.space), read by the addresses derived
 //            from a zpub kept in the bridge's keychain (bitcoin.js).
-//   filecoin Filfox's public API, by the address (@belege/chain-filecoin); FIL and the
+//   filecoin Filfox's public API, by the address (filecoin.js); FIL and the
 //            FEVM tokens listed for it.
 //
 // Only assets listed here are booked. A Cosmos denom or an ERC-20 contract
@@ -21,9 +21,9 @@
 // Where each value comes from, and what was checked on 2026-09-26, is in
 // docs/crypto.md ("Own wallets").
 
-import { addressUrl, txUrl } from '@belege/chain-core';
-import { AKASH_CHAIN, NYX_CHAIN } from '@belege/chain-cosmos';
-import { FILECOIN } from '@belege/chain-filecoin';
+import { addressUrl, txUrl } from './explorer.js';
+import { AKASH_CHAIN, NYX_CHAIN } from './cosmos-chains.js';
+import { FILECOIN } from './filecoin-chain.js';
 
 /**
  * @typedef {object} ChainAsset
@@ -38,7 +38,7 @@ import { FILECOIN } from '@belege/chain-filecoin';
  * @property {string} address URL with `{address}`
  */
 
-/** @typedef {import('@belege/chain-cosmos').CosmosChain} CosmosChain */
+/** @typedef {import('./cosmos-chains.js').CosmosChain} CosmosChain */
 
 /**
  * @typedef {object} EvmChain
@@ -76,7 +76,7 @@ import { FILECOIN } from '@belege/chain-filecoin';
  * @property {Explorer} explorer
  */
 
-/** @typedef {import('@belege/chain-filecoin').FilecoinChain} FilecoinChain */
+/** @typedef {import('./filecoin-chain.js').FilecoinChain} FilecoinChain */
 
 /**
  * @typedef {object} MoneroChain imported from the wallet's export in the app, never read here
@@ -217,7 +217,7 @@ export const CHAINS = Object.freeze({
 		}
 	},
 	// Read through Filfox, by address; a message CID is the hash
-	// (@belege/chain-filecoin, which also holds this description).
+	// (filecoin-chain.js holds this description).
 	filecoin: FILECOIN,
 	// Not read here: Monero hides amounts and parties on its chain. The app
 	// imports the wallet's own export (app/src/lib/wallets/monero-import.js);

@@ -6,7 +6,7 @@
  * legs become kind `swap` and carry both sides and the router's name.
  * Changes the entries in place.
  *
- * @param {(import('./entry.js').WalletEntry & { order: string })[]} entries
+ * @param {(import('@le-space/ledger/wallet-entry').WalletEntry & { order: string })[]} entries
  * @param {{ hash: string, asset: string, amount: string, listed: false }[]} unlisted
  * @param {(hash: string) => string} viaOf
  */
