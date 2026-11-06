@@ -6,6 +6,16 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Whose a device or a change is** (#650): the device list says which member a device belongs to, the history who made a change, and the members card when a member was last seen. What a member writes now names their write identity, the one the owner's member list shows.
+- **A warning in the header when the backups' credits run low** (#653): everyone who opens the books, members too, sees when the Aleph account's credits keep the backups for less than 30 days.
+
+### Changed
+
+- **Backups ask "Hochladen?" only for a full backup** (#653); an increment goes up without asking. When this browser signs itself, a bridge that cannot be reached is a note, not an error.
+- Steadier E2E specs where two devices sync (#649, #652).
+
 ## [0.29.0] – 2026-11-05
 
 ### Added
