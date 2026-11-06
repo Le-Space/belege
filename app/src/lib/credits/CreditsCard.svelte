@@ -238,18 +238,24 @@
 			{/if}
 		{/if}
 
-		<div class="mt-3 flex flex-wrap gap-2">
-			{#each TOPUPS as topup (topup.id)}
-				<button
-					type="button"
-					class={button}
-					disabled={paused || busy || !client}
-					onclick={() => startTopUp(topup.id)}
-					data-testid="credits-topup-{topup.cents / 100}"
-					>{t('credits.topUp', { amount: money(topup.cents) })}</button
-				>
-			{/each}
-		</div>
+		{#if balance && balance.mode !== 'live'}
+			<!-- The service takes no real money yet (Stripe in test mode, or it does not
+			     say): no top-up is offered until it does. -->
+			<p class="mt-3 text-sm text-faint" data-testid="credits-test-mode">{t('credits.testMode')}</p>
+		{:else if balance}
+			<div class="mt-3 flex flex-wrap gap-2">
+				{#each TOPUPS as topup (topup.id)}
+					<button
+						type="button"
+						class={button}
+						disabled={paused || busy || !client}
+						onclick={() => startTopUp(topup.id)}
+						data-testid="credits-topup-{topup.cents / 100}"
+						>{t('credits.topUp', { amount: money(topup.cents) })}</button
+					>
+				{/each}
+			</div>
+		{/if}
 
 		{#if paying}
 			<div

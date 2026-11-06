@@ -1439,6 +1439,8 @@ export default {
 		purchasesTitle: 'Top-ups',
 		invoice: 'Invoice',
 		invoicePending: 'Invoice to follow',
+		testMode:
+			'Still in test operation: topping up will be possible soon. Nothing is charged until then.',
 		account: 'Account at {host}:'
 	},
 	aleph: {
