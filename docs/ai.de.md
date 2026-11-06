@@ -90,7 +90,7 @@ An diesen Stellen fragt Belege das Modell. Jede Stelle nennt, was sie auslöst, 
 
 - Anbieter, USt-IdNr., Rechnungs- und Kundennummer, Daten;
 - Netto, USt und Brutto, Zahlweg;
-- bei Reisen: Art, Strecke, Zeiten, Hotelnächte, Frühstück inklusive;
+- bei Reisen: Art, Strecke, Länder, Flughafencodes, Zeiten, Hotelnächte, Frühstück inklusive;
 - oder `document_type: "none"` für eine E-Mail, die kein Beleg ist, zum Beispiel ein Anmelde-Link oder ein Newsletter.
 
 Eine E-Rechnung (XRechnung, ZUGFeRD, Factur-X) braucht kein Modell. Belege liest ihr XML direkt im Browser (siehe [Ohne KI](#ohne-ki-feste-regeln)). Eine Mail, deren Absender die Prüfung nicht bestanden hat, liest die Bridge erst aus, wenn du den Absender bestätigt hast.

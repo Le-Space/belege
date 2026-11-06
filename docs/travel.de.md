@@ -40,6 +40,15 @@ Du öffnest **Reisen** über Belege oder von Home aus. Die Seite zeigt einen Mon
 
 **Ausland.** Du trägst jeden Grenzübertritt mit Uhrzeit und Ländercode ein. Daneben steht der Name des Landes, damit dir ein Tippfehler auffällt.
 
+Die meisten Grenzübertritte schlägt Belege aus den Fahrkarten vor ([#693](https://github.com/Le-Space/belege/issues/693)):
+
+- Kommt eine Fahrt mit Zug, Bus, Flugzeug, Nahverkehr oder Taxi in einem anderen Land an, ist das ein Grenzübertritt zur Ankunftszeit. Beim Flug zählt das Land ab der Landung. Bei Zug und Bus liegt die Grenze vor der Ankunft; die Ankunft ist der späteste Zeitpunkt, und du kannst ihn ändern.
+- Ein Inlandsflug ist kein Grenzübertritt. Die Rückfahrt einer Rückfahrkarte schon.
+- **„Übernehmen“** trägt die vorgeschlagenen Grenzübertritte an der Reise ein. Eine Reise aus einem Vorschlag hat sie schon.
+- Über die Grenze mit dem Auto, dem Fahrrad oder zu Fuß gibt es keine Fahrkarte. Ist ein Beleg aus einem Land, in dem du laut den Grenzübertritten an diesem Tag nicht warst, etwa Tanken, Parken, Hotel oder Restaurant, sagt Belege das. Die Uhrzeit trägst du selbst ein; Belege rät sie nicht.
+- Ohne einen Beleg aus dem Ausland erkennt Belege einen Grenzübertritt nicht.
+- Belege, die vor dieser Änderung ausgelesen wurden, kennen ihr Land nicht. „Erneut auslesen“ holt es nach.
+
 - Ein Tag im Ausland bekommt den Satz des Landes, das du vor Mitternacht zuletzt erreicht hast.
 - Der Tag der Rückreise bekommt den Satz des letzten Orts im Ausland.
 - Manche Länder haben Städte mit eigenen Sätzen, etwa Moskau, Paris oder New York City. Dann wählst du beim Grenzübertritt eine dieser Städte. Jeder andere Ort gilt als „übriges Land“.
@@ -116,6 +125,7 @@ Belege ordnet nichts von selbst zu und legt nichts von selbst an. Alles hier ist
 
 - die Art, etwa Bahn, Bus, Flug, Hotel, Restaurant, Tanken, Taxi, Parken oder Event;
 - Strecke und Zeiten für Hin- und Rückweg;
+- das Land jedes Orts und bei Flügen die Flughafencodes. Daran erkennt Belege denselben Ort in anderer Schreibweise oder Schrift;
 - die Nächte einer Hotelrechnung, und ob das Frühstück inklusive ist.
 
 Siehe [ai.de.md](ai.de.md).
