@@ -225,7 +225,7 @@ Both formats were taken from the wallets' own source (monero-gui `TransactionHis
 
 ## Aleph Cloud credits (issue #113)
 
-Aleph issues no invoice: hosting and storage are paid in credits. Under Integrationen → Aleph Cloud, the own EVM wallets (when "Eigene Ethereum-Adressen bei Aleph prüfen" is on) and any Aleph account typed in are asked at Aleph's public API, read only (`POST /aleph/accounts`, `bridge/src/aleph.js`). For an account and a month, "Verbrauchsnachweis erstellen" makes an Eigenbeleg (`app/src/lib/aleph/`):
+Aleph issues no invoice: hosting and storage are paid in credits. Under Integrationen → Aleph Cloud, the own EVM wallets (when "Eigene Ethereum-Adressen bei Aleph prüfen" is on) and any Aleph account typed in are asked at Aleph's public API, read only (`POST /aleph/accounts`, `packages/chains/src/aleph.js`). For an account and a month, "Verbrauchsnachweis erstellen" makes an Eigenbeleg (`app/src/lib/aleph/`):
 
 - **Balances:** opening and closing balance are the balance now, less the net of `credit_history/summary` since the month began or ended. Opening + in − out = closing is checked and printed.
 - **Lines:** top-ups (purchases with their price and transaction, transfers in), transfers out, and consumption per UTC day. Storage is one line, since Aleph bills all stores together with their number and size; each instance or program gets its own line, named from its message.
