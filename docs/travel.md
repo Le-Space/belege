@@ -21,7 +21,7 @@ A trip's page holds:
 - **Head:** destination, business reason, departure and return (date and time), the place of activity (a customer, a site: for the three-month rule), whether there was a night away.
 - **Abroad:** each border crossed, with the time and the country code; the country's name shows next to it, to catch a typo. A day abroad gets the rate of the country reached last before midnight; the day home, the last country abroad. Where a country has cities with rates of their own (Moskau, Paris, New York City …), the crossing picks one; anywhere else is the rest of the country.
   - **Rates:** the per-country table of the BMF letter for the year (from 2025 on), exactly as printed, with the letter as its source. Meals provided cut a day by the full-day rate of its country.
-  - **Countries the letter does not list:** Micronesia gets the Philippines', the states of Trinidad and Tobago's district its rates (as the letter says); an overseas territory its mother country's (Guadeloupe → France, Hong Kong is China's); any other Luxembourg's. The last two are warnings, for the tax adviser.
+  - **Countries the letter does not list:** Micronesia gets the Philippines', the states of Trinidad and Tobago's district its rates (as the letter says); an overseas territory its mother country's (Guadeloupe → France, Macao → China); any other Luxembourg's. The last two are warnings, for the tax adviser. Hong Kong the letter lists as a city of China, with rates of its own: it takes those, without a warning.
   - A day before 2025 has no letter in Belege: it stays without an amount, named.
   - The overnight rates abroad apply to an employer's refund only, not to the owner: see the nights below.
 - **Nights without a hotel invoice** (employees only, #380): each night is ticked on its own, with the flat rate it gets – 20 € in Germany (R 9.7 Abs. 3 LStR), abroad the BMF letter's overnight rate of the place at midnight (a city's where the crossing names one). Never ticked by itself, never for the owner. Booked with the month's statement on the accommodation account (4666), without VAT; a hotel receipt on the same trip is a warning, so no night is paid twice.
@@ -48,7 +48,7 @@ By the trip's times, per calendar day (§ 9 Abs. 4a EStG; 14 € and 28 € sinc
 
 On a receipt, **"Zu einer Reise …"** assigns it to a trip (trips around its date first) with who paid it – the company where a bank payment covers it, else privately; or starts a new trip from it with its destination and times as read.
 
-- **Another currency:** a receipt counts in euros, never its amount as euros: by the outlay it was booked as ([outlays.md](outlays.md)), the payment it is linked to, or a rate kept on the receipt – fetched from the bridge (ECB, for the ruble the Bank of Russia) or typed as people say it, "1 EUR = 95,23 RUB". Without one it counts for nothing and the statement waits for it. Foreign VAT is no German input VAT.
+- **Another currency:** a receipt counts in euros, never its amount as euros: by the outlay it was booked as ([outlays.md](outlays.md)), the payment it is linked to, or a rate kept on the receipt – fetched from the bridge (ECB; for the ruble the Bank of Russia; for the tenge the National Bank of Kazakhstan; for some other currencies a cross rate through the ruble from the Bank of Russia's rates) or typed as people say it, "1 EUR = 95,23 RUB". Without one it counts for nothing and the statement waits for it. Foreign VAT is no German input VAT.
 - **Hospitality:** **"Als Bewirtung erfassen …"** on a restaurant bill, with or without a trip: place, participants, occasion, a tip and who received it. The net costs and the tip are split 70 % deductible, the rest not; the VAT counts in full. What the law asks for and is missing is named.
 
 ## Recognising travel
@@ -57,7 +57,7 @@ Nothing is assigned or created by itself; everything below proposes, a click dec
 
 - **Reading a receipt** (with AI, in the extraction that runs anyway) gives a travel cost's kind (train, bus, flight, hotel, restaurant, fuel, taxi, parking, event …), the route and times there and back, a hotel's nights and whether breakfast is included. See [ai.md](ai.md).
 - **Without AI,** words that tickets and bills print in German, English, Russian, Ukrainian, Polish, Czech, Turkish, Arabic, Spanish, Italian and French give a receipt its kind – from its file name, subject, sender, and the text of an unread PDF, read in the browser. A hint only: no route, no times, no question.
-- **Trip proposals,** by rules: fares and hotels that fit together by days and route become one proposal ("Reise nach Musterstadt, 08.04. 07:12 – 09.04. 20:41"), with the taxi, fuel, parking, restaurant and event receipts of those days. Monday there and Wednesday back is one trip; two day trips in one week are two. Each proposal is answered by a person, one of three ways ([#425](https://github.com/Le-Space/belege/issues/425)): **"Als Reise anlegen"** makes the trip, or adds the receipts to a trip already there; **"Geschäftlich, keine Reise"** keeps them as business expenses and dismisses the proposal for good; **"Privat"** sets each receipt aside as private (as "Privat, nicht geschäftlich", #293) and marks a payment from the business account that paid one as private ("Privat (Irrläufer)", #172) – both can be taken back. A **conference or event ticket alone** is a proposal of its own ("Veranstaltung in Musterstadt, 15.04. 09:00"), with the same three answers; a restaurant bill alone still asks nothing.
+- **Trip proposals,** by rules: fares and hotels that fit together by days and route become one proposal ("Reise nach Musterstadt, 08.04. 07:12 – 09.04. 20:41"), with the taxi, fuel, parking, rental car, public transport, restaurant and event receipts of those days. Monday there and Wednesday back is one trip; two day trips in one week are two. Each proposal is answered by a person, one of three ways ([#425](https://github.com/Le-Space/belege/issues/425)): **"Als Reise anlegen"** makes the trip, or adds the receipts to a trip already there; **"Geschäftlich, keine Reise"** keeps them as business expenses and dismisses the proposal for good; **"Privat"** sets each receipt aside as private (as "Privat, nicht geschäftlich", #293) and marks a payment from the business account that paid one as private ("Privat (Irrläufer)", #172) – both can be taken back. A **conference or event ticket alone** is a proposal of its own ("Veranstaltung in Musterstadt, 15.04. 09:00"), with the same three answers; a restaurant bill alone still asks nothing.
 - **Appointments from invitations:** a calendar part (`.ics`) of a mail to the accounting address becomes an appointment – title, place and times only, never attendees, organiser or links. It gives a proposal on its days its occasion; on Reisen, one somewhere else is offered as **"Reise dazu anlegen"**. Online appointments and those without a place never hint at a trip. Invitations reach Belege by being sent or forwarded to the accounting address.
 
 ## The statement
@@ -89,7 +89,7 @@ The statement is booked on the traveller's account **"Reisekosten <name>"**, an 
 
 ## The payout
 
-The bank transfer to the traveller is linked to the statement's PDF, as any payment to its receipt. On the transfer, **"Zahlt Reisekosten aus …"** offers the open statements, the one its purpose names (`RK-…`) ticked, else those whose amounts add up to it – only the traveller's whose IBAN digits the receiving account ends in, where it does.
+The bank transfer to the traveller is linked to the statement's PDF, as any payment to its receipt. On the transfer, **"Zahlt Reisekosten aus …"** offers the open statements, the one its purpose names (`RK-…`) ticked, else those whose amounts add up to it, else the oldest until it is used up – only the traveller's whose IBAN digits the receiving account ends in, where it does.
 
 - Several transfers pay one statement in parts; one transfer can pay several, the oldest first; too much is said as such. A correction takes over what was paid on the statement it replaces.
 - The payout is booked against the traveller's clearing account: an employee's own; the owner's own where set, else by the money's way, as a private repayment.
@@ -108,7 +108,7 @@ Money paid to a traveller before a trip ([#381](https://github.com/Le-Space/bele
 
 On Reisen, and counted on Home and Rückfragen:
 
-- a ticket, flight or hotel read as such without a trip (not one a proposal covers or that was dismissed);
+- a train, bus or flight ticket, a hotel, a rental car or another ticket read as such without a trip (not one a proposal covers or that was dismissed);
 - a trip without times, or with gaps;
 - a hospitality bill without what the law asks for;
 - a statement not paid out two weeks after it was made.
