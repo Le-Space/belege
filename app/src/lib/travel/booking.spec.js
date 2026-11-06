@@ -157,6 +157,34 @@ describe('travel bookings (#213, step 6)', () => {
 		expect(travelSet({})).toBe('owner');
 	});
 
+	it('a tip the traveller paid: 70/30 onto 4650/4654 without a key, linked to the bill (#213)', async () => {
+		const b = await books(defaultDatevSettings());
+		const h1 = /** @type {Record<string, any>} */ (await b.store.receipts.get(b.ids.H1));
+		await b.store.receipts.put({
+			...h1,
+			hospitality: { ...h1.hospitality, tipCents: 500, tipTo: 'Service' }
+		});
+		const receipts = await b.store.receipts.list();
+		const s = statementOf({
+			travellerId: b.traveller.id,
+			month: '2026-05',
+			travel: await b.store.travel.list(),
+			receipts,
+			transactions: await b.store.transactions.list()
+		});
+		const lines = statementLines(s, {
+			set: 'owner',
+			receipts: new Map(receipts.map((r) => [String(r.id), r]))
+		});
+		const tips = lines.filter((l) => l.key.includes(':tip'));
+		expect(tips.map((l) => [l.account, l.cents, l.taxKey, l.receiptId, l.text])).toEqual([
+			['4650', 350, '', b.ids.H1, 'Trinkgeld Gasthaus Beispiel (abziehbar)'],
+			['4654', 150, '', b.ids.H1, 'Trinkgeld Gasthaus Beispiel (nicht abziehbar)']
+		]);
+		// Lines add up to what is paid back, the tip included.
+		expect(lines.reduce((n, l) => n + l.cents, 0)).toBe(s.totals.toPayBackCents);
+	});
+
 	it('booked with the statement: on the traveller’s account, its ledger the clearing account; linked; suggested; exported', async () => {
 		const settings = {
 			...defaultDatevSettings(),

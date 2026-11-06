@@ -142,6 +142,19 @@ describe('trips (#213)', () => {
 		).toBe(2240);
 		expect(tripFigures({ ...trip, end: '' }, []).allowance).toBeNull();
 	});
+
+	it('a trip without a night away over more than one midnight: named, no allowance, no throw (#539)', () => {
+		const long = { ...TRIP, overnight: false, start: '2026-05-04T07:00', end: '2026-05-06T09:00' };
+		expect(cleanTrip(long).problems).toContain('dayTripTooLong');
+		expect(() => tripFigures({ ...long, id: 'x', kind: 'trip' }, [])).not.toThrow();
+		expect(tripFigures({ ...long, id: 'x', kind: 'trip' }, []).allowance).toBeNull();
+		// Across one midnight it is a day trip as before; with a night away, a trip.
+		const oneNight = { ...long, end: '2026-05-05T03:00' };
+		expect(cleanTrip(oneNight).problems).not.toContain('dayTripTooLong');
+		expect(tripFigures({ ...oneNight, id: 'x', kind: 'trip' }, []).allowanceCents).toBe(1400);
+		expect(cleanTrip({ ...long, overnight: true }).problems).not.toContain('dayTripTooLong');
+		expect(cleanTrip({ ...long, overnight: null }).problems).not.toContain('dayTripTooLong');
+	});
 });
 
 describe('receipts on a trip (#213)', () => {

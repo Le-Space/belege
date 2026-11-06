@@ -794,6 +794,12 @@
 			<dd class="text-right font-mono tabular-nums">
 				{formatMoney(preview.totals.privateCents, 'EUR')}
 			</dd>
+			{#if preview.totals.tipCents}
+				<dt class="text-text">{t('reisen.statement.tip')}</dt>
+				<dd class="text-right font-mono tabular-nums" data-testid="reisen-statement-tip">
+					{formatMoney(preview.totals.tipCents, 'EUR')}
+				</dd>
+			{/if}
 			{#if preview.totals.outlayCents}
 				<dt class="text-text">{t('reisen.statement.outlay')}</dt>
 				<dd class="text-right font-mono text-faint tabular-nums">

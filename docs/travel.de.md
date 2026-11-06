@@ -104,6 +104,7 @@ Den Kurs holt die Bridge, das Hilfsprogramm auf deinem Rechner. Quellen sind die
 **Bewirtung.** An einer Restaurantrechnung wählst du **„Als Bewirtung erfassen …“**, mit oder ohne Reise. Du trägst Ort, Teilnehmer und Anlass ein, dazu ein Trinkgeld und wer es bekam.
 
 - Netto und Trinkgeld werden aufgeteilt: 70 % sind abziehbar, der Rest nicht.
+- Das Trinkgeld hat keinen eigenen Beleg. Belege nimmt an, dass du es selbst bezahlt hast, und erstattet es mit der Abrechnung. Nur wenn eine Zahlung vom Geschäftskonto am Beleg Rechnung und Trinkgeld zusammen deckt, war es auf der Firmenkarte und wird nicht erstattet.
 - Die Umsatzsteuer zählt voll.
 - Fehlt etwas, was das Gesetz verlangt, sagt Belege das.
 
@@ -152,12 +153,14 @@ Es gibt eine Abrechnung pro Person und Monat. Du findest sie auf Reisen.
 - Pauschalen;
 - Kilometer;
 - privat bezahlte Belege;
+- Trinkgeld, das du privat bezahlt hast;
 - Belege, die als Auslage gebucht sind (sie werden dort erstattet);
 - Belege, die die Firma bezahlt hat (sie stehen drin, werden aber nicht erstattet).
 
 Dazu kommen **Prüfungen**. Diese Punkte sperren die Abrechnung:
 
 - eine Reise ohne Zeiten, ohne Ziel oder ohne Anlass;
+- eine Reise ohne Übernachtung, die über mehr als eine Mitternacht geht: Dann stimmen die Zeiten oder die Angabe zur Übernachtung nicht;
 - eine Bewirtung mit Lücken;
 - ein privater Beleg ohne Betrag oder ohne Kurs.
 
@@ -206,6 +209,7 @@ So wird gebucht:
 
 - **Privat bezahlter Beleg:** mit seinem Brutto und dem BU-Schlüssel seiner deutschen Umsatzsteuer. Der BU-Schlüssel ist der Steuerschlüssel, an dem DATEV den Steuersatz erkennt. Die Buchung ist mit dem Beleg verknüpft. Pauschalen und Kilometer sind mit der Abrechnung verknüpft.
 - **Bewirtung:** Sie wird je Steuersatz geteilt. 70 % des Bruttos gehen auf 4650, 30 % auf 4654, **beide mit dem Vorsteuer-Schlüssel**. DATEV rechnet die Steuer aus jeder Zeile heraus. So wird die ganze Vorsteuer abgezogen (§ 15 UStG). Begrenzt ist nur der Aufwand (§ 4 Abs. 5 Nr. 2 EStG). Eine Rechnung mit 7 % für Speisen und 19 % für Getränke ergibt deshalb vier Zeilen.
+- **Trinkgeld, privat bezahlt:** 70 % auf 4650, 30 % auf 4654, ohne Steuerschlüssel, mit der Rechnung verknüpft.
 - **Auslagen und Firmenzahlungen:** Belege, die als Auslage gebucht sind oder die die Firma bezahlt hat, werden nicht noch einmal gebucht. Ein Beleg auf einer Reise, den das Geschäftskonto bezahlt hat, bekommt sein Reisekostenkonto aber ebenfalls vorgeschlagen.
 - **Vorschläge bestätigen:** Jede Zeile bekommt ihr Konto vorgeschlagen. Im Export bestätigst du sie mit **„Konten … übernehmen“**, zusammen mit den anderen automatischen Vorschlägen.
 - **Korrektur:** Sie storniert die Zeilen der ersetzten Abrechnung und bucht dann ihre eigenen.

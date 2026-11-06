@@ -26,6 +26,7 @@ import { HOSPITALITY, rateOn } from './rates.js';
  *   deductibleCents: number,
  *   nonDeductibleCents: number,
  *   inputVatCents: number,
+ *   tipCents: number,
  *   share: { from: string, deductible: number, source: string } | null,
  *   missing: ('place' | 'participants' | 'occasion' | 'tipTo')[]
  * }}
@@ -46,6 +47,7 @@ export function hospitality(h) {
 		deductibleCents,
 		nonDeductibleCents: netCents - deductibleCents,
 		inputVatCents: h.vatCents,
+		tipCents: tip,
 		share: share ? { ...share } : null,
 		missing
 	};

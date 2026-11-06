@@ -3350,6 +3350,7 @@ export default {
 			what: 'One statement per month: the trips with their receipts, allowances and mileage, and the hospitality bills. It becomes a numbered PDF, kept as a receipt for the payout.',
 			traveller: 'Traveller (on the PDF)',
 			private: 'Receipts paid privately',
+			tip: 'Tips, paid privately',
 			advance: 'Paid as an advance already',
 			toPayOut: 'Still to pay out',
 			owedBack: 'To be paid back by the person',
@@ -3372,6 +3373,8 @@ export default {
 			correct: 'Make a correction',
 			check: {
 				tripWithoutTimes: 'Trip without times: {what}',
+				dayTripTooLong:
+					'Trip without a night away across more than one midnight – check the times or the night away: {what}',
 				tripWithoutDestination: 'Trip without a destination: {what}',
 				tripWithoutReason: 'Trip without a business reason: {what}',
 				hospitalityIncomplete: 'Hospitality bill with gaps: {what}',
@@ -3486,6 +3489,8 @@ export default {
 			noReason: 'No business reason yet.',
 			noTimes: 'No times yet: no allowance can be computed.',
 			endBeforeStart: 'Back before it left.',
+			dayTripTooLong:
+				'No night away, but across more than one midnight: no allowance can be computed. Check the times or the night away.',
 			mileage: {
 				noKm: 'A mileage line without km.',
 				noDate: 'A mileage line without a date.',

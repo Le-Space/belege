@@ -13,9 +13,11 @@
 //   overnight flat rates       an employee's nights without an invoice (#380):
 //                              the month's total on the accommodation account,
 //                              no VAT, linked to the statement
-//   a hospitality bill         split: net × 70 % plus the whole VAT on 4650
-//                              with its key, the rest on 4654 without one,
-//                              both linked to the bill
+//   a hospitality bill         per VAT rate, its gross 70/30 onto 4650 and
+//                              4654, both with the input VAT key (#437),
+//                              linked to the bill (hospitalitySplit)
+//   a tip the traveller paid   70/30 onto 4650 and 4654, no VAT, linked to
+//                              the bill (view.js tipOf)
 //
 // So the clearing account owes the traveller what the statement says, and
 // the payout (step 7) clears it. Receipts booked as private outlays (#293)
@@ -204,6 +206,36 @@ export function statementLines(s, { set, receipts, keys }) {
 			receiptId: l.receiptId,
 			text: l.vendor
 		});
+	}
+	// A tip the traveller paid: no receipt and no VAT of its own, split as its bill.
+	for (const tip of s.tips ?? []) {
+		if (tip.paidBy !== 'private' || !(tip.cents > 0)) continue;
+		const r = receipts.get(tip.receiptId);
+		if (!r) continue;
+		const share = hospitalityOf(r).share?.deductible ?? 0;
+		const deductibleCents = Math.round(tip.cents * share);
+		if (deductibleCents > 0)
+			out.push({
+				key: `${tip.receiptId}:tip`,
+				cents: deductibleCents,
+				account: travelAccount(set, 'hospitality').number,
+				taxKey: '',
+				taxVia: 'no-vat',
+				category: 'hospitality',
+				receiptId: tip.receiptId,
+				text: `Trinkgeld ${tip.vendor} (abziehbar)`
+			});
+		if (tip.cents > deductibleCents)
+			out.push({
+				key: `${tip.receiptId}:tipNonDeductible`,
+				cents: tip.cents - deductibleCents,
+				account: travelAccount(set, 'hospitalityNonDeductible').number,
+				taxKey: '',
+				taxVia: 'no-vat',
+				category: 'hospitalityNonDeductible',
+				receiptId: tip.receiptId,
+				text: `Trinkgeld ${tip.vendor} (nicht abziehbar)`
+			});
 	}
 	if (s.totals.allowanceCents)
 		out.push({

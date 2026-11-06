@@ -22,7 +22,7 @@
 		tripDates,
 		tripFigures
 	} from '$lib/travel/records.js';
-	import { allTrips, breakfastProposals, euroOf, receiptsOfTrip } from '$lib/travel/view.js';
+	import { allTrips, breakfastProposals, euroOf, receiptsOfTrip, tipOf } from '$lib/travel/view.js';
 	import { lodgingFlat, nightsOf } from '$lib/travel/lodging.js';
 	import { appointmentsOn } from '$lib/travel/appointments.js';
 	import ReceiptPeek from '$lib/ReceiptPeek.svelte';
@@ -95,7 +95,13 @@
 		company: receipts
 			.filter((r) => r.travel?.paidBy === 'company')
 			.reduce((s, r) => s + (euros.get(r.id)?.cents ?? 0), 0),
-		withoutRate: receipts.filter((r) => euros.get(r.id)?.cents === null).length
+		withoutRate: receipts.filter((r) => euros.get(r.id)?.cents === null).length,
+		// A hospitality bill's tip the traveller paid (tipOf): paid back with the statement.
+		tip: receipts
+			.filter((r) => r.hospitality)
+			.map((r) => tipOf(r, app))
+			.filter((x) => x.paidBy === 'private')
+			.reduce((s, x) => s + x.cents, 0)
 	});
 
 	/** The trip's dates, for the meals provided; three months at most. */
@@ -732,6 +738,12 @@
 			<dd class="text-right font-mono tabular-nums" data-testid="reise-sum-private">
 				{formatMoney(paid.private, 'EUR')}
 			</dd>
+			{#if paid.tip}
+				<dt class="text-text">{t('reisen.statement.tip')}</dt>
+				<dd class="text-right font-mono tabular-nums" data-testid="reise-sum-tip">
+					{formatMoney(paid.tip, 'EUR')}
+				</dd>
+			{/if}
 			<dt class="text-text">{t('reise.paidByCompany')}</dt>
 			<dd class="text-right font-mono tabular-nums" data-testid="reise-sum-company">
 				{formatMoney(paid.company, 'EUR')}
@@ -742,7 +754,8 @@
 					(figures?.allowanceCents ?? 0) +
 						(figures?.mileageCents ?? 0) +
 						(figures?.lodgingCents ?? 0) +
-						paid.private,
+						paid.private +
+						paid.tip,
 					'EUR'
 				)}
 			</dd>

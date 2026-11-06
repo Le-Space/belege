@@ -230,6 +230,9 @@ export function cleanTrip(input) {
 	if (!trip.reason) problems.push('noReason');
 	if (!start || !end) problems.push('noTimes');
 	else if (end <= start) problems.push('endBeforeStart');
+	// Without a night away the hours count for one day (allowance.js): more than
+	// one midnight cannot be, the times or the night are wrong (#539).
+	else if (trip.overnight === false && tooLongForADay(trip)) problems.push('dayTripTooLong');
 	for (const line of trip.mileage) {
 		if (!line.km) problems.push(`mileage:${line.id}:noKm`);
 		if (!line.date) problems.push(`mileage:${line.id}:noDate`);
@@ -379,6 +382,9 @@ export function tripsOf(records, { month, travellerId }) {
 		.sort((a, b) => String(a.start).localeCompare(String(b.start)));
 }
 
+/** Whether a trip touches more than two dates, i.e. crosses more than one midnight. @param {Rec} trip */
+const tooLongForADay = (trip) => tripDates(trip).length > 2;
+
 /** Each date a trip spans; none without valid times. @param {Rec} trip */
 export function tripDates(trip) {
 	if (!TIME.test(trip.start) || !TIME.test(trip.end) || trip.end <= trip.start) return [];
@@ -404,7 +410,13 @@ export function tripDates(trip) {
  * @param {{ familyCar?: import('./mileage.js').FamilyCarRule, traveller?: Rec | null }} [settings]
  */
 export function tripFigures(trip, trips, settings = {}) {
-	const timed = TIME.test(trip.start) && TIME.test(trip.end) && trip.end > trip.start;
+	// A trip without a night away over more than one midnight has no allowance
+	// to compute (cleanTrip names it, dayTripTooLong): none rather than a throw.
+	const timed =
+		TIME.test(trip.start) &&
+		TIME.test(trip.end) &&
+		trip.end > trip.start &&
+		!(trip.overnight === false && tooLongForADay(trip));
 	let cut;
 	if (trip.place && timed) {
 		const visits = [trip, ...trips.filter((t) => t.id !== trip.id)]
