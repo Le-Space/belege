@@ -36,6 +36,11 @@ export class BelegeAgent {
 		this.log = [];
 		/** @type {Record<string, unknown>} */
 		this.facts = {};
+		/** Unlocked as a member (the books of another), for an unlock after a reload. */
+		this.member = false;
+		/** A page's code failed to load since the last reload (see waitForBooking). */
+		this.routeFailed = false;
+		this.routeReloads = 0;
 	}
 
 	/** A fresh profile, a virtual authenticator with PRF, the app opened. */
@@ -52,6 +57,10 @@ export class BelegeAgent {
 			if (type !== 'error' && type !== 'warning' && !/relay|dial|sync|libp2p/i.test(text)) return;
 			this.log.push(`[${type}] ${text.slice(0, 500)}`);
 			if (this.log.length > 200) this.log.shift();
+			// The gateway answers 429 now and then; a page whose code was refused
+			// stays broken in this document, however often it is opened again.
+			if (/Failed to fetch dynamically imported module|Importing a module script failed/.test(text))
+				this.routeFailed = true;
 			// The app looks for a bridge on this machine; there is none here.
 			const bridgeProbe = /127\.0\.0\.1:8765|net::ERR_FAILED|status of 404/.test(text);
 			if (type === 'error' && !bridgeProbe) {
@@ -154,6 +163,8 @@ export class BelegeAgent {
 	 */
 	async reloadAndUnlock({ member = false } = {}) {
 		const page = /** @type {import('playwright').Page} */ (this.page);
+		this.member = member;
+		this.routeFailed = false;
 		await page.reload({ waitUntil: 'domcontentloaded' });
 		await page.getByTestId('passkey-unlock').waitFor({ state: 'visible', timeout: this.timeout });
 		if (member) await page.getByTestId('open-books-member').check();
@@ -263,6 +274,18 @@ export class BelegeAgent {
 					.catch(() => false)
 			)
 				return;
+			// Zahlungen's code was refused (a 429 from the gateway): only a reload
+			// brings it back, and with it the unlock. Not the sync's fault.
+			if (this.routeFailed && this.routeReloads < 3) {
+				this.routeReloads += 1;
+				this.facts.routeReloads = this.routeReloads;
+				progress(`[${this.name}] a page's code did not load; reloading (${this.routeReloads}/3)`);
+				await sleep(10_000);
+				await this.reloadAndUnlock({ member: this.member });
+				await this.openPayments();
+				reopened = Date.now();
+				continue;
+			}
 			// The first payment brings the filter along.
 			await this.showAllPayments();
 			// The list follows the books live; opening it again now and then
