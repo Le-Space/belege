@@ -43,7 +43,7 @@ The backup never passes through the bridge. The page shows the backup's CID; kee
 
 **Full backups and increments.** The first backup is a full one: everything this browser keeps. After it, "Jetzt sichern" uploads only what is new since the last backup of the chain – an increment: the new log entries (with each changed database's manifest and its writers' identities) and the receipt files the chain has not got yet, sealed the same way. Aleph keeps it with a STORE whose `ref` is the full backup's CID, so a restore finds the chain without downloading anything. "Neues Vollbackup" starts a new chain; so does the next backup when Aleph does not keep the full one. Settings alone – every backup writes its own history there – make no increment; they go with the next one. Where the chain stands (the full backup, the last increment, the heads shipped, the receipt files shipped) is kept in the sealed settings, so another own device continues it.
 
-**What it costs.** Every backup is a whole copy, kept – and paid for every day – until it is forgotten. Under "Erweitert" the card shows what the backups Aleph keeps cost a day together, and how long the credits last. When a new backup would leave less than 30 days of credits, the page asks before it uploads. The rate is an estimate (about 54 credits per MiB and day, as Aleph asked on 2026-10-03); Aleph sets the price.
+**What it costs.** Every backup is a whole copy, kept – and paid for every day – until it is forgotten. Under "Erweitert" the card shows what the backups Aleph keeps cost a day together, and how long the credits last. When a new full backup would leave less than 30 days of credits, the page asks before it uploads; an increment goes up without asking. The rate is an estimate (about 54 credits per MiB and day, as Aleph asked on 2026-10-03); Aleph sets the price.
 
 **While it runs.** The backup runs for the whole app: you can go on working in Belege, and the header shows how far it is ("Backup 42 %", or "Backup wartet auf dich" when it asks before uploading); one click leads back. Closing or reloading the tab asks first – that ends the upload. Upload percentages appear only where the host allows them; Aleph's IPFS host so far allows that for its own console only ([aleph-im/pyaleph#1280](https://github.com/aleph-im/pyaleph/issues/1280)), so there the bar moves without a number and says for how long.
 
@@ -90,7 +90,7 @@ A backup of other books cannot be opened ("gehört zu einem anderen Tresor"): it
 
 ## Members back up and restore
 
-A member of the books – the bookkeeping, say – backs up and restores like the owner ([#613](https://github.com/Le-Space/belege/issues/613)). Their key bundle holds the books' backup key, so the backup is sealed the same way and goes to the same Aleph account, signed with the browser key the books allowed. The list of backups says who made each one ("von Buchhaltung").
+A member of the books who writes along – the bookkeeping, say – backs up and restores like the owner ([#613](https://github.com/Le-Space/belege/issues/613)); a member who only reads along does not back up. Their key bundle holds the books' backup key, so the backup is sealed the same way and goes to the same Aleph account, signed with the browser key the books allowed. The list of backups says who made each one ("von Buchhaltung").
 
 With each backup, the member's vault goes to Aleph too: at an address of its own, derived from the member's passkey, apart from the passkey's own books. Published are the sealed vault, its slots without names, and the paying account, sealed under a key only the member's vault opens. No name of the books, no member's name.
 
@@ -129,7 +129,7 @@ A grant is an entry in the account's `security` aggregate on Aleph, signed with 
 
 ## Move books to another passkey
 
-A backup restores only with the passkey that made it, and a passkey belongs to its address: books on `localhost` and on belege.le-space.de, or under an old and a new passkey, are separate books with separate DIDs. _Bücher umziehen_ on this page takes books from one into the **empty** books of another (#328):
+A backup restores only with a passkey of the books that made it, and a passkey belongs to its address: books on `localhost` and on belege.le-space.de, or under an old and a new passkey, are separate books with separate DIDs. _Bücher umziehen_ on this page takes books from one into the **empty** books of another (#328):
 
 1. In the new books: _Bücher übernehmen …_. They show a one-time key as a QR code and as text (`belege-move:…`), with a fingerprint. The key exists only while that page stays open.
 2. In the old books: _In andere Bücher umziehen …_, paste or scan the key, check that the fingerprint is the same, _Umzugsdatei erstellen_. A file `Belege-Umzug_<date>.belege` is saved.
