@@ -13,7 +13,7 @@ online banking, receipts as PDFs or photos, or let Belege read a folder on your 
 matches payments and receipts and makes a DATEV package every month. Travel expenses work too.
 
 - **You need:** a browser and a passkey.
-- **What leaves:** nothing. Your books stay in this browser, sealed with your passkey.
+- **What leaves:** nothing. Your books stay in this browser, sealed; only your passkey opens them.
 
 ## 2. One computer with the bridge
 
@@ -32,7 +32,8 @@ reads Kraken, your own wallets and Aleph accounts, read-only.
 ## 3. Several devices of your own
 
 The same books on computer and phone, or on two computers. A device gets the books only once it
-proves it holds your passkey. You choose where the devices meet:
+proves it holds your books' key, and only when your books already know it or you let it in. You
+choose where the devices meet:
 
 - through a Le Space relay (works on the road too),
 - through the relay in your bridge (only in your own network),
@@ -59,7 +60,7 @@ books.
 `pnpm bridge --no-node`. On the computer, switch on "Bridge dieses Rechners für eigene Geräte
 freigeben" under Eigene Geräte → Erweitert. Your phone then asks the Belege tab on the computer, and that tab
 asks the bridge. This works only while that tab is open and unlocked, and the phone may only read
-and ask, never set up or delete.
+and ask, never set up or delete. Only your own devices use this way, not the devices of members.
 
 - **What leaves:** the bridge talks to your computer only. Phone and computer exchange encrypted
   data, as in sync.
@@ -78,13 +79,22 @@ gone. You can add a second passkey as a spare.
 ## 6. Working with others
 
 - **Tax adviser:** the DATEV package with the receipts, every month.
-- **Assistant:** admitted as a member (_Integrationen → Zusammenarbeit_, [#641](https://github.com/Le-Space/belege/issues/641)) with their own passkey, on belege.le-space.de from anywhere: "Liest mit" to follow the books, or "Schreibt mit" to work in them, with backups and – if you tick it – your bridge. A read-only share of one year, redacted and with an end, is there too; for it the bridge must be running and the assistant must reach this computer.
+- **Assistant:** you admit them as a member (_Integrationen → Zusammenarbeit_,
+  [#641](https://github.com/Le-Space/belege/issues/641)). They have their own passkey and work on
+  belege.le-space.de, from anywhere. You choose:
+  - "Liest mit" (reads along): they follow the books and write nothing.
+  - "Schreibt mit" (writes along): they work in the books and back up; your bridge only if you
+    tick it.
+- **An AI assistant on your computer** (Claude Code, say): it gets a view of a year's payments,
+  receipts and questions, with an end. For it the bridge must be running. What it reads goes to its
+  provider.
 - **Le Space invoicing app:** it delivers own receipts and learns which of its invoices are paid.
 
 ## 7. The bookkeeping works in your books
 
 Your bookkeeping gets into your books with their own passkey (_Integrationen → Zusammenarbeit_).
-They make a join code, you admit it and send the answer back. From then on they open your books
+They make a join code, you admit it and send the answer back, and you both compare a check shown
+on your screens; if it differs, you stop. From then on they open your books
 next to their own, assign receipts, make own receipts, export and back up. They write under their
 own name. Passkeys, recovery words and inviting others stay with you.
 
@@ -98,5 +108,5 @@ own name. Passkeys, recovery words and inviting others stay with you.
 ## Coming later
 
 Not ready yet, but planned: the bridge as a machine of its own in the cloud, attested and paired
-like on your computer. An AI service from Le Space. Paying with Le Space Credits. More roles in shared
-books – the tax adviser reading only, say.
+like on your computer. An AI service from Le Space. Paying with Le Space Credits (the card is in the
+app, still in test operation).

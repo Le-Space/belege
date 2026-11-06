@@ -15,8 +15,8 @@ Ordner auf deinem Rechner. Belege ordnet Zahlungen und Belege einander zu und ma
 ein DATEV-Paket. Reisekosten gehen auch.
 
 - **Du brauchst:** einen Browser und einen Passkey.
-- **Was hinausgeht:** nichts. Deine Bücher liegen nur in diesem Browser, verschlüsselt mit
-  deinem Passkey.
+- **Was hinausgeht:** nichts. Deine Bücher liegen nur in diesem Browser, verschlüsselt. Öffnen
+  kann sie nur dein Passkey.
 
 ## 2. Ein Rechner mit Bridge
 
@@ -35,7 +35,8 @@ macht. Und sie liest Kraken, eigene Wallets und Aleph-Konten, nur lesend.
 ## 3. Mehrere eigene Geräte
 
 Dieselben Bücher auf Rechner und Telefon, oder auf zwei Rechnern. Ein Gerät bekommt die Bücher
-erst, wenn es zeigt, dass es deinen Passkey hat. Wo sich die Geräte treffen, wählst du:
+erst, wenn es zeigt, dass es den Schlüssel deiner Bücher hat. Und auch dann nur, wenn deine
+Bücher es schon kennen oder du es zulässt. Wo sich die Geräte treffen, wählst du:
 
 - über ein Relay von Le Space (dann klappt es auch unterwegs),
 - über das Relay in deiner Bridge (nur in deinem eigenen Netz),
@@ -62,8 +63,9 @@ Bridge ist, und öffnet keine Bücher.
 **Über den offenen Rechner.** Du willst, dass die Bridge nie selbst ins Netz geht? Dann startest
 du sie mit `pnpm bridge --no-node`. Am Rechner schaltest du unter Eigene Geräte → Erweitert „Bridge dieses
 Rechners für eigene Geräte freigeben“ ein. Dein Telefon fragt dann den Belege-Tab am Rechner, und
-der fragt die Bridge. Das geht nur, solange dieser Tab offen und entsperrt ist, und das Telefon
-darf nur lesen und fragen, nichts einrichten oder löschen.
+der fragt die Bridge. Das geht nur, solange dieser Tab offen und entsperrt ist. Das Telefon
+darf nur lesen und fragen, nichts einrichten oder löschen. Diesen Weg nutzen nur deine eigenen
+Geräte, nicht die Geräte von Mitgliedern.
 
 - **Was hinausgeht:** Die Bridge spricht nur mit deinem Rechner. Telefon und Rechner tauschen
   sich verschlüsselt aus, wie bei der Synchronisation.
@@ -83,16 +85,29 @@ anlegen.
 ## 6. Mit anderen arbeiten
 
 - **Steuerberatung:** jeden Monat das DATEV-Paket mit den Belegen.
-- **Assistenz:** als Mitglied aufgenommen (_Integrationen → Zusammenarbeit_, [#641](https://github.com/Le-Space/belege/issues/641)), mit eigenem Passkey, auf belege.le-space.de von überall: „Liest mit“, um die Bücher zu verfolgen, oder „Schreibt mit“, um darin zu arbeiten, mit Sicherungen und – wenn du es ankreuzt – deiner Bridge. Eine Lese-Freigabe für ein Jahr, geschwärzt und mit Ablaufzeit, gibt es weiterhin; dafür muss die Bridge laufen und die Assistenz diesen Rechner erreichen.
+- **Assistenz:** Du nimmst sie als Mitglied auf (_Integrationen → Zusammenarbeit_,
+  [#641](https://github.com/Le-Space/belege/issues/641)). Sie hat ihren eigenen Passkey und
+  arbeitet auf belege.le-space.de, von überall. Du wählst:
+  - „Liest mit“: Sie verfolgt die Bücher, schreibt aber nichts.
+  - „Schreibt mit“: Sie arbeitet in den Büchern und macht Backups. Deine Bridge nutzt sie nur,
+    wenn du das ankreuzt.
+- **KI-Assistent auf deinem Rechner** (zum Beispiel Claude Code): Er bekommt einen Einblick in
+  Zahlungen, Belege und Rückfragen eines Jahres, mit Ablaufzeit. Dafür muss die Bridge laufen.
+  Was er liest, geht an seinen Anbieter.
 - **Rechnungs-App von Le Space:** Sie liefert Eigenbelege und erfährt, welche ihrer Rechnungen
   bezahlt sind.
 
 ## 7. Die Buchhaltung arbeitet in deinen Büchern
 
 Deine Buchhaltung kommt mit ihrem eigenen Passkey in deine Bücher (_Integrationen →
-Zusammenarbeit_). Sie macht einen Beitrittscode, du nimmst sie auf und schickst die Antwort
-zurück. Ab dann öffnet sie deine Bücher neben ihren eigenen, ordnet Belege zu, erstellt
-Eigenbelege, exportiert und sichert. Sie schreibt unter eigenem Namen. Passkeys,
+Zusammenarbeit_). So geht es:
+
+1. Sie macht einen Beitrittscode und schickt ihn dir.
+2. Du nimmst sie auf und schickst die Antwort zurück.
+3. Ihr vergleicht beide ein Prüfzeichen auf euren Bildschirmen. Stimmt es nicht, brecht ihr ab.
+
+Ab dann öffnet sie deine Bücher neben ihren eigenen. Sie ordnet Belege zu, erstellt Eigenbelege,
+exportiert und macht Backups, und sie schreibt unter eigenem Namen. Passkeys,
 Wiederherstellungswörter und weitere Personen einladen bleiben bei dir.
 
 - **Du brauchst:** Geräte-Sync auf beiden Seiten; beide Geräte gleichzeitig online, damit sich die
@@ -105,7 +120,8 @@ Wiederherstellungswörter und weitere Personen einladen bleiben bei dir.
 
 ## Was noch kommt
 
-Noch nicht fertig, aber geplant: die Bridge als eigene Maschine in der Cloud, geprüft und
-gekoppelt wie auf deinem Rechner. Ein KI-Dienst von Le Space. Bezahlen mit Le Space Credits.
-Weitere Rollen in
-gemeinsamen Büchern – etwa die Steuerberatung nur lesend.
+Noch nicht fertig, aber geplant:
+
+- die Bridge als eigene Maschine in der Cloud, geprüft und gekoppelt wie auf deinem Rechner;
+- ein KI-Dienst von Le Space;
+- Bezahlen mit Le Space Credits (die Karte dafür ist in der App, noch im Testbetrieb).
