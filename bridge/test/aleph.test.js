@@ -4,7 +4,7 @@ import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createAlephClient, monthWindow, summarise } from '../src/aleph.js';
-import { toChecksumAddress } from '../src/chains/evm.js';
+import { toChecksumAddress } from '@le-space/chains/evm';
 import { createBridgeServer } from '../src/server.js';
 import { createPairing } from '../src/pairing.js';
 import { defaultConfig } from '../src/config.js';

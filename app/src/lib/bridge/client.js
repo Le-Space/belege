@@ -151,7 +151,7 @@ function failed(message, status, body) {
  */
 
 /**
- * @typedef {object} WalletEntry what the bridge reads from an own wallet (bridge/src/chains/)
+ * @typedef {object} WalletEntry what the bridge reads from an own wallet (packages/chains/)
  * @property {string} id stable: Cosmos `<hash>:m<msg>:e<event>.<n>:<asset>`, EVM `<hash>:value` / `:erc20:…` or `:log:<i>` / `:internal:<i>` (Alchemy: `:internal:trace:<address>`); the fee `<hash>:fee`
  * @property {string} hash as the chain gives it
  * @property {number} height
@@ -176,7 +176,7 @@ function failed(message, status, body) {
  */
 
 /**
- * @typedef {object} AkashDeployment one deployment and what it cost (packages/chain-cosmos/src/akash-deployments.js)
+ * @typedef {object} AkashDeployment one deployment and what it cost (packages/chains/src/akash-deployments.js)
  * @property {string} dseq
  * @property {string} state active | closed
  * @property {number} createdHeight
@@ -474,7 +474,7 @@ export function createBridgeClient({
 		llmStatus: () => call('/llm/status'),
 		/**
 		 * What one unit of an asset was worth in EUR on a day, and where that
-		 * number comes from (bridge/src/rates.js).
+		 * number comes from (packages/rates/src/rates.js).
 		 *
 		 * @param {string} asset a symbol from assets/registry.js, e.g. `BTC`
 		 * @param {string} date YYYY-MM-DD

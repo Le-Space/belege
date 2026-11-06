@@ -1,14 +1,14 @@
 // Fake chain nodes on 127.0.0.1 for tests: a Blockscout (the
 // Etherscan-compatible `/api`) here, and the Cosmos node and the Akash Console
-// indexer from @belege/chain-cosmos/testing (re-exported, #264). Every
+// indexer from @le-space/chains/testing/cosmos (re-exported). Every
 // address, hash and amount here is made up: addresses are derived from test
 // phrases, hashes from counters.
 import http from 'node:http';
 import { createHash } from 'node:crypto';
 
-import { fakeHash } from '@belege/chain-cosmos/testing';
+import { fakeHash } from '@le-space/chains/testing/cosmos';
 
-export * from '@belege/chain-cosmos/testing';
+export * from '@le-space/chains/testing/cosmos';
 
 /** A synthetic EVM address, lower case. */
 export const fakeEvmAddress = (/** @type {string} */ phrase) =>

@@ -39,8 +39,8 @@
 // Times are UTC; the month is the UTC month. The log gets counts, never an
 // address.
 
-import { createJsonFetcher, WalletError } from './chains/http.js';
-import { toChecksumAddress } from './chains/evm.js';
+import { createJsonFetcher, WalletError } from '@le-space/chains/http';
+import { toChecksumAddress } from '@le-space/chains/evm';
 
 export const ALEPH_API = 'https://api2.aleph.im';
 /** Aleph's list price, USD per credit. */

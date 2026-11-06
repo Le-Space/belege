@@ -44,7 +44,7 @@ import {
 	waitForMessage
 } from '@le-space/orbitdb-storage-bridge/backends/aleph-pin';
 
-import { toChecksumAddress } from './chains/evm.js';
+import { toChecksumAddress } from '@le-space/chains/evm';
 
 export const ALEPH_INGEST = 'https://ipfs.aleph.cloud/api/v0/add';
 /** The channel the STORE messages go to: belege's own, so they can be found again. */

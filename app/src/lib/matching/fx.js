@@ -7,7 +7,7 @@
 // open in it.
 //
 // Kept as `fx: { USD: { rate, source, at } }` on the transaction: EUR per
-// unit, from the bridge's /rates (bridge/src/rates.js, the ECB reference rate
+// unit, from the bridge's /rates (packages/rates/src/rates.js, the ECB reference rate
 // of the day or the last before it). An import does not own the field
 // (bank/import.js FIELDS), so a sync keeps it. For what is linked: the active
 // links of receipts in a currency other than the payment's, where the bank

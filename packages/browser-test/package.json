@@ -1,0 +1,22 @@
+{
+	"name": "@le-space/browser-test",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Runs a test scenario in Node and in Chromium and compares the two: the @le-space/* packages run the same in both. Bundled by Vite with the browser condition; a Node-only import fails the build.",
+	"license": "AGPL-3.0-or-later",
+	"type": "module",
+	"exports": {
+		".": "./src/index.js"
+	},
+	"scripts": {
+		"test": "node --test --test-reporter=spec \"test/*.test.js\"",
+		"lint": "prettier --check src test"
+	},
+	"dependencies": {
+		"playwright": "1.61.1",
+		"vite": "7.0.6"
+	},
+	"devDependencies": {
+		"prettier": "3.6.2"
+	}
+}

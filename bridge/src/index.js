@@ -17,8 +17,7 @@ import { domainOf } from './mail/auth-results.js';
 import { createExtractor } from './llm/extract.js';
 import { createConfidentialFetch } from './llm/confidential.js';
 import { createMailAssist } from './llm/assist.js';
-import { createRateService } from './rates.js';
-import { createDexRates } from './dex-rate.js';
+import { createDexRates, createRateService } from '@le-space/rates';
 import { createMatchAssist } from './llm/match-assist.js';
 import { createTransferAssist } from './llm/transfer-assist.js';
 import { createVendorAssist } from './llm/vendor-assist.js';
@@ -26,7 +25,7 @@ import { createKrakenClient, parseKrakenCredentials } from './kraken.js';
 import { createPaperlessClient } from './paperless.js';
 import { createEnableBankingClient, enableBankingSecrets } from './enablebanking.js';
 import { createEnableBankingLinks } from './enablebanking-links.js';
-import { createWalletService } from './chains/index.js';
+import { createWalletService } from '@le-space/chains';
 import { ALEPH_API, createAlephClient } from './aleph.js';
 import { createAlephBackup } from './aleph-backup.js';
 import { buildRecipes, createPortalManager, keychainAccount } from './portals/index.js';
@@ -48,7 +47,7 @@ export * from './normalize.js';
 export { createMailClient } from './mail/imap.js';
 export { createExtractor, checkExtraction } from './llm/extract.js';
 export { redact } from './llm/redact.js';
-export { createRateService, RATE_SOURCES, RateError } from './rates.js';
+export { createRateService, RATE_SOURCES, RateError } from '@le-space/rates';
 export { createKrakenClient, KrakenError, parseAsset } from './kraken.js';
 export { createPaperlessClient, PaperlessError } from './paperless.js';
 export {
@@ -66,7 +65,7 @@ export {
 	bech32Encode,
 	moduleAddress,
 	toChecksumAddress
-} from './chains/index.js';
+} from '@le-space/chains';
 export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
 
 /**

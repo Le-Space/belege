@@ -4,11 +4,11 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createAkashConsoleClient, normalizeConsoleTx } from '../src/chains/akash-console.js';
-import { normalizeCosmosTx } from '../src/chains/cosmos.js';
-import { moduleAddress } from '../src/chains/bech32.js';
-import { CHAINS } from '../src/chains/registry.js';
-import { createWalletService } from '../src/chains/index.js';
+import { createAkashConsoleClient, normalizeConsoleTx } from '@le-space/chains/akash-console';
+import { normalizeCosmosTx } from '@le-space/chains/cosmos';
+import { moduleAddress } from '@le-space/chains/bech32';
+import { CHAINS } from '@le-space/chains/registry';
+import { createWalletService } from '@le-space/chains';
 import {
 	consoleTx,
 	cosmosTx,
@@ -18,7 +18,7 @@ import {
 	startFakeCosmos
 } from './support/fake-chains.js';
 
-const akash = /** @type {import('../src/chains/registry.js').CosmosChain} */ (CHAINS.akash);
+const akash = /** @type {import('@le-space/chains/registry').CosmosChain} */ (CHAINS.akash);
 const wallet = fakeCosmosAddress('akash history wallet', 'akash');
 const other = fakeCosmosAddress('akash history other', 'akash');
 const noSleep = async () => {};

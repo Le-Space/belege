@@ -17,7 +17,7 @@
 import { fileURLToPath } from 'node:url';
 
 import { systemKeychain } from './keychain.js';
-import { deriveAddress, keyFingerprint, parseExtendedKey } from './chains/bitcoin.js';
+import { deriveAddress, keyFingerprint, parseExtendedKey } from '@le-space/chains/bitcoin';
 import { ask, askHidden, closePrompts } from './prompt.js';
 import { loadRepoEnv, yes } from './setup-secret.js';
 

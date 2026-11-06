@@ -76,7 +76,7 @@ import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
 import { unixfsCid } from '@le-space/orbitdb-storage-bridge/backends/aleph-upload';
 
-import { toChecksumAddress } from '../../src/chains/evm.js';
+import { toChecksumAddress } from '@le-space/chains/evm';
 import { addressOf } from '../../src/aleph-backup.js';
 
 /** The Aleph account a backup key pays from, for a spec that funds it. */

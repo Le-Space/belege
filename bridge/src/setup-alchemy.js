@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// An optional Alchemy API key for own EVM wallets (chains/alchemy.js):
+// An optional Alchemy API key for own EVM wallets (@le-space/chains alchemy.js):
 //
 //   pnpm setup:alchemy
 //
@@ -20,8 +20,8 @@
 
 import { fileURLToPath } from 'node:url';
 
-import { CHAINS } from './chains/registry.js';
-import { alchemyBaseUrl, isAlchemyKey } from './chains/alchemy.js';
+import { CHAINS } from '@le-space/chains/registry';
+import { alchemyBaseUrl, isAlchemyKey } from '@le-space/chains/alchemy';
 import { systemKeychain } from './keychain.js';
 import { ask, askHidden, closePrompts } from './prompt.js';
 import { yes } from './setup-secret.js';

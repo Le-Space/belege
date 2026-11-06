@@ -1,7 +1,7 @@
 // The chains an own wallet can be on, as the app needs them without asking
 // the bridge: names for accounts and the Verlauf, the kind of address, the
 // native asset. Endpoints and explorers come from the bridge (GET /chains,
-// bridge/src/chains/registry.js); wallets.spec.js checks both tables agree.
+// packages/chains/src/registry.js); wallets.spec.js checks both tables agree.
 //
 // A wallet's accounts carry the chain's id as their `source` (`nyx`,
 // `ethereum`, …), one account per asset.
@@ -97,7 +97,7 @@ export const WALLET_CHAINS = Object.freeze({
 		tokens: { USDC: '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359' }
 	},
 	// The key stays in the bridge's keychain; the app knows the wallet by the
-	// key's fingerprint (`btc-…`), taken from the bridge (bridge/src/chains/bitcoin.js).
+	// key's fingerprint (`btc-…`), taken from the bridge (packages/chains/src/bitcoin.js).
 	bitcoin: {
 		id: 'bitcoin',
 		kind: 'bitcoin',
@@ -108,7 +108,7 @@ export const WALLET_CHAINS = Object.freeze({
 		nativeSlip44: 0
 	},
 	// Read by address through Filfox; a message CID is the hash, the same an
-	// exchange reports for a deposit (packages/chain-filecoin/src/filecoin.js).
+	// exchange reports for a deposit (packages/chains/src/filecoin.js).
 	filecoin: {
 		id: 'filecoin',
 		kind: 'filecoin',

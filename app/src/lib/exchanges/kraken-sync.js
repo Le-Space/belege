@@ -15,7 +15,7 @@
 //     the day's rate, the leg that comes in at the same euro amount
 //   - everything else (deposits, withdrawals, staking, earn, transfers
 //     between spot and earn): the day's rate, Kraken's own EUR price first,
-//     CoinGecko as the fallback (bridge/src/rates.js, prefer=kraken)
+//     CoinGecko as the fallback (packages/rates/src/rates.js, prefer=kraken)
 // Both legs of a trade and of a spot/earn transfer thus carry the same euro
 // amount the other way and the same reference (`txRef` = Kraken's refid):
 // matching books them as an own transfer.

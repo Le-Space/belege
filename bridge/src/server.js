@@ -35,7 +35,7 @@
 //   GET  /paperless/documents[?since=<ISO>]                       token → Paperless-ngx documents added since, with OCR text (paperless.js)
 //   GET  /paperless/search?query=<text>                           token → Paperless' full-text search, at most 25 documents, no OCR text
 //   GET  /paperless/document?id=<n>                               token → its bytes: the original PDF or image, else the archive PDF
-//   GET  /chains                                                  token → chains, endpoints, explorers, alchemy: bool (chains/)
+//   GET  /chains                                                  token → chains, endpoints, explorers, alchemy: bool (@le-space/chains)
 //   GET  /bitcoin/key                                             token → the zpub's fingerprint, never the zpub
 //   GET  /lan-relay                                               token → the relay for own devices in the own network: its address (lan-relay.js)
 //   POST /<chain>/wallet { address, endpoints? }                  token → an own wallet's transfers and balance
@@ -87,7 +87,7 @@ export const LOOPBACK = '127.0.0.1';
  * @param {ReturnType<typeof createShares>} [options.shares] read shares for an assistant, in memory
  *   "✦ KI-Vorschlag" under "Beleg zuordnen": null without an LLM
  * @param {import('./portals/manager.js').PortalManager | null} [options.portals] the portal connector
- * @param {ReturnType<typeof import('./rates.js').createRateService> | null} [options.rates] exchange rates
+ * @param {ReturnType<typeof import('@le-space/rates').createRateService> | null} [options.rates] exchange rates
  * @param {ReturnType<typeof import('./kraken.js').createKrakenClient> | null} [options.kraken] null when Kraken is not set up
  * @param {ReturnType<typeof import('./paperless.js').createPaperlessClient> | null} [options.paperless]
  *   Paperless-ngx as a receipt source (issue #318): null when not set up
@@ -95,7 +95,7 @@ export const LOOPBACK = '127.0.0.1';
  *   the own Enable Banking application: null when not set up (issue #224)
  * @param {ReturnType<typeof import('./enablebanking-links.js').createEnableBankingLinks> | null} [options.enablebankingLinks]
  *   linking a bank through it: null when not set up
- * @param {ReturnType<typeof import('./chains/index.js').createWalletService> | null} [options.wallets] own wallets on public chains
+ * @param {ReturnType<typeof import('@le-space/chains').createWalletService> | null} [options.wallets] own wallets on public chains
  * @param {ReturnType<typeof import('./aleph.js').createAlephClient> | null} [options.aleph] Aleph Cloud credits, read only
  * @param {boolean} [options.alephLoopback] tests: an Aleph API on 127.0.0.1
  * @param {string} [options.alephApi] the Aleph API asked when the request names none

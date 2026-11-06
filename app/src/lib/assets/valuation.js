@@ -9,7 +9,7 @@
 //   quantity   integer of the smallest unit, signed, as a string (quantity.js)
 //   decimals   the asset's decimals, kept so the record explains itself
 //   valuation  { rate, currency: 'EUR', source, at }: EUR per whole unit,
-//              from which source, for which moment (bridge/src/rates.js)
+//              from which source, for which moment (packages/rates/src/rates.js)
 
 import { intlLocale, t } from '../i18n/index.js';
 import { formatDate } from '../bank/format.js';

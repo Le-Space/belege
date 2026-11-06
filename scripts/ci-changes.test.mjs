@@ -27,7 +27,7 @@ test('docs only: the unit tests (they read the docs), no browser, no bridge', ()
 });
 
 test('the bridge only: its tests, the unit tests and the specs that pair a bridge', () => {
-	assert.deepEqual(pr('bridge/src/chains/filecoin.js', 'bridge/test/filecoin.test.js'), {
+	assert.deepEqual(pr('bridge/src/commands.js', 'bridge/test/filecoin.test.js'), {
 		unit: true,
 		bridge: true,
 		e2e: 'bridge'
@@ -60,6 +60,8 @@ test('packages, the lockfile and unknown files: everything', () => {
 	for (const file of [
 		'packages/device-gate/src/index.js',
 		'packages/chain-new',
+		'packages/chains/src/filecoin.js',
+		'packages/ledger/src/bytes.js',
 		'pnpm-lock.yaml',
 		'package.json',
 		'new-thing.txt',
@@ -95,24 +97,22 @@ test('outside the workspace: nothing', () => {
 	});
 });
 
-test('a chain package: its tests, the bridge, the unit tests and the specs that pair a bridge', () => {
-	for (const file of [
-		'packages/chain-cosmos/src/cosmos.js',
-		'packages/chain-core/src/http.js',
-		'packages/chain-filecoin/test/support/fake-filfox.js'
-	]) {
+test('the rate package: its tests, the bridge, the unit tests and the specs that pair a bridge', () => {
+	for (const file of ['packages/rates/src/rates.js', 'packages/rates/test/dex-rate.test.js']) {
 		assert.deepEqual(pr(file), { unit: true, bridge: true, e2e: 'bridge' }, file);
 	}
-	assert.deepEqual(pr('packages/chain-cosmos/README.md'), {
-		unit: false,
-		bridge: false,
-		e2e: 'none'
-	});
+	for (const file of [
+		'packages/rates/README.md',
+		'packages/chains/README.md',
+		'packages/browser-test/src/index.js'
+	]) {
+		assert.deepEqual(pr(file), { unit: false, bridge: false, e2e: 'none' }, file);
+	}
 });
 
-// The narrowing above holds only while the app reaches the chain packages
+// The narrowing above holds only while the app reaches the rate package
 // through its unit specs and the specs that pair a bridge, nowhere else.
-test('in the app, only unit specs and the bridge specs use the chain packages', () => {
+test('in the app, only unit specs and the bridge specs use the rate package', () => {
 	const repo = join(import.meta.dirname, '..');
 	const bridgeSpecs = new Set(
 		[
@@ -120,7 +120,7 @@ test('in the app, only unit specs and the bridge specs use the chain packages', 
 		].map((m) => `${m[1]}.spec.js`)
 	);
 	assert.ok(bridgeSpecs.size > 10, 'BRIDGE_SPECS read from app/e2e/bridge.js');
-	const USES = /@belege\/chain-|@belege\/bridge\/(chains|testing\/(chains|filfox|alchemy))\b/;
+	const USES = /@le-space\/rates\b/;
 	/** @param {string} dir @returns {string[]} */
 	const files = (dir) =>
 		readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
@@ -141,6 +141,6 @@ test('in the app, only unit specs and the bridge specs use the chain packages', 
 	assert.deepEqual(
 		offenders.map((p) => p.slice(repo.length + 1)),
 		[],
-		'these use a chain package: give them e2e full in ci-changes.mjs, or add them to BRIDGE_SPECS'
+		'these use the rate package: give it e2e full in ci-changes.mjs, or add them to BRIDGE_SPECS'
 	);
 });

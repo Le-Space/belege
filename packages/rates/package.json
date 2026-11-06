@@ -1,0 +1,39 @@
+{
+	"name": "@le-space/rates",
+	"version": "0.1.0",
+	"description": "The euro rate of a day for Le Space's tools: the price at 00:00 UTC (CoinGecko, Kraken), the ECB reference rate (Bank of Russia, National Bank of Kazakhstan where it has none), a token's DEX pool at a block. Every answer names its source. Browser and Node; fetch and keys handed in.",
+	"license": "AGPL-3.0-or-later",
+	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Le-Space/belege.git",
+		"directory": "packages/rates"
+	},
+	"homepage": "https://github.com/Le-Space/belege/tree/main/packages/rates#readme",
+	"sideEffects": false,
+	"exports": {
+		".": "./src/index.js",
+		"./rates": "./src/rates.js",
+		"./dex-rate": "./src/dex-rate.js"
+	},
+	"files": ["src"],
+	"engines": {
+		"node": ">=22"
+	},
+	"publishConfig": {
+		"access": "public",
+		"provenance": true
+	},
+	"scripts": {
+		"test": "node --test --test-reporter=spec \"test/*.test.js\"",
+		"lint": "prettier --check src test"
+	},
+	"dependencies": {
+		"@le-space/ledger": "workspace:^",
+		"@noble/hashes": "2.4.0"
+	},
+	"devDependencies": {
+		"@le-space/browser-test": "workspace:*",
+		"prettier": "3.6.2"
+	}
+}

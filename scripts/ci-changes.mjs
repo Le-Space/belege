@@ -46,20 +46,21 @@ export function needsOf(file) {
 		// The fakes the browser specs start (@belege/bridge/testing/*, in
 		// test/support), and the exports the app imports.
 		if (/^bridge\/test\/support\//.test(file) || file === 'bridge/package.json') return FULL;
-		// The app's unit tests import the chain readers (@belege/bridge/chains),
-		// and the specs that pair a bridge run it.
+		// The specs that pair a bridge run it.
 		return { unit: true, bridge: true, e2e: 'bridge' };
 	}
 
 	if (/^app\//.test(file)) return { unit: true, e2e: 'full' };
 
-	// The chain readers (#264): the bridge runs them, the app's unit tests and
-	// the specs that pair a bridge use them (through @belege/bridge's exports);
-	// nothing else in the app does – ci-changes.test.mjs checks that.
-	if (/^packages\/chain-[^/]+\//.test(file)) {
-		if (/\.md$/.test(file)) return {};
-		return { unit: true, bridge: true, e2e: 'bridge' };
-	}
+	// The shared packages (Le-Space/eigenbeleg-agent#6). The chain readers and
+	// the ledger ship in the app too (wallets/filecoin-address.js), so they
+	// run everything. The day's rate runs in the bridge only: its tests, the
+	// unit tests and the specs that pair a bridge – ci-changes.test.mjs checks
+	// that nothing else in the app imports it. The browser-test helper is
+	// only for the packages' own tests (packages.yml).
+	if (/^packages\/(chains|ledger|rates|browser-test)\/.*\.md$/.test(file)) return {};
+	if (/^packages\/rates\//.test(file)) return { unit: true, bridge: true, e2e: 'bridge' };
+	if (/^packages\/browser-test\//.test(file)) return {};
 
 	// The other packages (device-gate: the app's sync uses it too), schema/,
 	// the lockfile, the root package.json, patches/, this script, and

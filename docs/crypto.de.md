@@ -44,7 +44,7 @@ Der Euro-Betrag ist Menge mal Kurs. Gerechnet wird mit ganzen Zahlen. Gerundet w
 
 ## Der Kurs eines Tages
 
-Den Kurs fragt die App bei der Bridge ab (`GET /rates?asset=BTC&date=2026-09-01`, `bridge/src/rates.js`). Der Browser kann die Kursquellen nicht selbst fragen, das verhindern die Browser-Regeln (CORS). Außerdem bleibt ein optionaler CoinGecko-Schlüssel so im Schlüsselbund.
+Den Kurs fragt die App bei der Bridge ab (`GET /rates?asset=BTC&date=2026-09-01`, `packages/rates/src/rates.js`). Der Browser kann die Kursquellen nicht selbst fragen, das verhindern die Browser-Regeln (CORS). Außerdem bleibt ein optionaler CoinGecko-Schlüssel so im Schlüsselbund.
 
 Der Kurs ist immer der Wert einer Einheit **um 00:00 UTC des Tages**. Die Bridge fragt in dieser Reihenfolge:
 
@@ -59,7 +59,7 @@ Der Kurs ist immer der Wert einer Einheit **um 00:00 UTC des Tages**. Die Bridge
    - **RUB** nach dem 1. März 2022: Seitdem veröffentlicht die EZB keinen Kurs mehr. Es gilt der amtliche Kurs der **Bank of Russia**, der an dem Tag gilt.
    - **KZT**: der amtliche Tageskurs der **Nationalbank Kasachstans**.
    - Eine Währung, für die weder die EZB noch diese Banken einen Euro-Kurs veröffentlichen, die aber die Bank of Russia führt (UZS, GEL, AMD, KGS, AED, …): ein **Kreuzkurs über den Rubel** aus der Tagesdatei der Bank of Russia. Er ist als solcher markiert (`cbr-cross`, CBR-X). Ein amtlicher Euro-Kurs ist er nicht (#325).
-4. Für einen **Token, der nicht in der Liste steht**, auf Ethereum oder Base: Kennt CoinGecko seinen Vertrag nicht, fragt die Bridge seinen **Uniswap-Pool** im Block der Buchung (Uniswap V2, V3 und V4, gegen ETH oder USDC). Ein Pool ist ein Topf, in dem zwei Tokens gegeneinander getauscht werden; sein Verhältnis ergibt den Preis. Gezählt wird der tiefste Pool, und nur, wenn er mindestens 3.000 Euro hält. Das braucht einen Alchemy-Schlüssel (siehe [Alchemy](#alchemy)); ohne ihn gibt es keinen Pool-Kurs (#163, `bridge/src/dex-rate.js`).
+4. Für einen **Token, der nicht in der Liste steht**, auf Ethereum oder Base: Kennt CoinGecko seinen Vertrag nicht, fragt die Bridge seinen **Uniswap-Pool** im Block der Buchung (Uniswap V2, V3 und V4, gegen ETH oder USDC). Ein Pool ist ein Topf, in dem zwei Tokens gegeneinander getauscht werden; sein Verhältnis ergibt den Preis. Gezählt wird der tiefste Pool, und nur, wenn er mindestens 3.000 Euro hält. Das braucht einen Alchemy-Schlüssel (siehe [Alchemy](#alchemy)); ohne ihn gibt es keinen Pool-Kurs (#163, `packages/rates/src/dex-rate.js`).
 
 Die Anfrage nennt nur ein Asset und einen Tag, nichts über deine Buchungen. Vergangene Tage behält die Bridge im Speicher. Liegt ein CoinGecko-Demo-Schlüssel im Schlüsselbund (Konto `coingecko`), schickt die Bridge ihn als Header mit.
 
@@ -162,7 +162,7 @@ Tokens, die von einer Börse auf eine eigene Wallet gehen, gehören weiter der F
 - Filecoin (siehe [Filecoin](#filecoin));
 - Monero, als importierte Datei (siehe [Monero](#monero)).
 
-Die Tabelle der Chains steht in `bridge/src/chains/registry.js`, die Namen in der App in `app/src/lib/wallets/chains.js`.
+Die Tabelle der Chains steht in `packages/chains/src/registry.js`, die Namen in der App in `app/src/lib/wallets/chains.js`.
 
 ### Abrufen
 
@@ -198,7 +198,7 @@ So geht die Bridge vor:
 1. Sie holt die Transaktionen der Adresse (`/v1/addresses/<Adresse>/transactions/<skip>/<limit>`).
 2. Dann holt sie jede einzeln per Hash (`/v1/transactions/<Hash>`), mit ihren dekodierten Nachrichten, Unterzeichnern und der Gebühr.
 3. Aus den Nachrichten bucht sie: Überweisungen, Multi-Sends, IBC-Transfers hinaus und zurück, Delegationen, Escrow-Einzahlungen aus dem Bestand und Governance-Einlagen.
-4. Dazu bucht sie die Gebühr jeder Transaktion, die die Adresse als Erste unterzeichnet hat (`packages/chain-cosmos/src/akash-console.js`).
+4. Dazu bucht sie die Gebühr jeder Transaktion, die die Adresse als Erste unterzeichnet hat (`packages/chains/src/akash-console.js`).
 
 **Was fehlt:** Der Indexer hat keine Events. Er kennt darum keinen Betrag, der nur in einem Event steht. Das betrifft:
 
@@ -353,7 +353,7 @@ Ein Tausch sieht so aus: In einer Transaktion gibt eine eigene EVM-Wallet ein As
 - Der Verwendungszweck nennt beide Seiten und den Router. Beispiel: „Tausch: 30.000 XYZ (nicht gelistet) → 0,143 ETH über MetaMask Swap (Router) · Gas 0,00018 ETH“.
 - Die Gasgebühr bleibt eine eigene Buchung (Netzwerkgebühr, kein Beleg). Sie nennt den Tausch, für den sie bezahlt wurde.
 - Zwei gebuchte Seiten gehören über den Hash als _Tausch_ zusammen.
-- Bekannte Router und WETH werden benannt (`KNOWN_EVM_CONTRACTS` in `bridge/src/chains/registry.js`). Andere Verträge bleiben „Vertrag“.
+- Bekannte Router und WETH werden benannt (`KNOWN_EVM_CONTRACTS` in `packages/chains/src/registry.js`). Andere Verträge bleiben „Vertrag“.
 
 **Ein Token, der nicht in der Liste der Chain steht:**
 
@@ -541,7 +541,7 @@ Es gibt ein Konto, _Wallet BTC ···<Fingerabdruck>_. Sein Bestand ist der best
 
 f1-, f3- und f410f-Adressen prüft Belege vor der ersten Abfrage an ihrer blake2b-Prüfsumme.
 
-**Abruf:** Die Bridge liest die Wallet über die öffentliche API von Filfox, ohne Schlüssel (`packages/chain-filecoin/src/filecoin.js`):
+**Abruf:** Die Bridge liest die Wallet über die öffentliche API von Filfox, ohne Schlüssel (`packages/chains/src/filecoin.js`):
 
 - `address/<a>` für den Bestand,
 - `address/<a>/transfers` für jede Bewegung, 100 je Seite.

@@ -13,7 +13,6 @@
 	},
 	"exports": {
 		".": "./src/index.js",
-		"./chains": "./src/chains/index.js",
 		"./testing": "./test/support/fake-hibiscus.js",
 		"./testing/imap": "./test/support/fake-imap.js",
 		"./testing/llm": "./test/support/fake-llm.js",
@@ -47,12 +46,11 @@
 		"format": "prettier --write src test"
 	},
 	"dependencies": {
-		"@belege/chain-core": "workspace:*",
-		"@belege/chain-cosmos": "workspace:*",
-		"@belege/chain-filecoin": "workspace:*",
 		"@belege/device-gate": "workspace:*",
 		"@chainsafe/libp2p-noise": "17.0.0",
 		"@chainsafe/libp2p-yamux": "8.0.1",
+		"@le-space/chains": "workspace:^",
+		"@le-space/rates": "workspace:^",
 		"@le-space/orbitdb-storage-bridge": "0.27.2",
 		"@le-space/ucep": "0.2.0-draft.4",
 		"@libertai/confidential-inference": "0.1.0",
