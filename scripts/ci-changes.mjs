@@ -53,8 +53,17 @@ export function needsOf(file) {
 
 	if (/^app\//.test(file)) return { unit: true, e2e: 'full' };
 
-	// packages/*, schema/, the lockfile, the root package.json, patches/, this
-	// script, and whatever is new.
+	// The chain readers (#264): the bridge runs them, the app's unit tests and
+	// the specs that pair a bridge use them (through @belege/bridge's exports);
+	// nothing else in the app does – ci-changes.test.mjs checks that.
+	if (/^packages\/chain-[^/]+\//.test(file)) {
+		if (/\.md$/.test(file)) return {};
+		return { unit: true, bridge: true, e2e: 'bridge' };
+	}
+
+	// The other packages (device-gate: the app's sync uses it too), schema/,
+	// the lockfile, the root package.json, patches/, this script, and
+	// whatever is new.
 	return FULL;
 }
 

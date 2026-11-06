@@ -1,5 +1,7 @@
 // node --test scripts/ci-changes.test.mjs – runs in each workflow's `changes` job.
 import assert from 'node:assert/strict';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { test } from 'node:test';
 import { needs } from './ci-changes.mjs';
 
@@ -57,6 +59,7 @@ test('app and bridge together: everything', () => {
 test('packages, the lockfile and unknown files: everything', () => {
 	for (const file of [
 		'packages/device-gate/src/index.js',
+		'packages/chain-new',
 		'pnpm-lock.yaml',
 		'package.json',
 		'new-thing.txt',
@@ -90,4 +93,54 @@ test('outside the workspace: nothing', () => {
 		bridge: false,
 		e2e: 'none'
 	});
+});
+
+test('a chain package: its tests, the bridge, the unit tests and the specs that pair a bridge', () => {
+	for (const file of [
+		'packages/chain-cosmos/src/cosmos.js',
+		'packages/chain-core/src/http.js',
+		'packages/chain-filecoin/test/support/fake-filfox.js'
+	]) {
+		assert.deepEqual(pr(file), { unit: true, bridge: true, e2e: 'bridge' }, file);
+	}
+	assert.deepEqual(pr('packages/chain-cosmos/README.md'), {
+		unit: false,
+		bridge: false,
+		e2e: 'none'
+	});
+});
+
+// The narrowing above holds only while the app reaches the chain packages
+// through its unit specs and the specs that pair a bridge, nowhere else.
+test('in the app, only unit specs and the bridge specs use the chain packages', () => {
+	const repo = join(import.meta.dirname, '..');
+	const bridgeSpecs = new Set(
+		[
+			...readFileSync(join(repo, 'app/e2e/bridge.js'), 'utf8').matchAll(/^\t'([a-z0-9-]+)',?$/gm)
+		].map((m) => `${m[1]}.spec.js`)
+	);
+	assert.ok(bridgeSpecs.size > 10, 'BRIDGE_SPECS read from app/e2e/bridge.js');
+	const USES = /@belege\/chain-|@belege\/bridge\/(chains|testing\/(chains|filfox|alchemy))\b/;
+	/** @param {string} dir @returns {string[]} */
+	const files = (dir) =>
+		readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+			e.isDirectory()
+				? files(join(dir, e.name))
+				: /\.(js|svelte)$/.test(e.name)
+					? [join(dir, e.name)]
+					: []
+		);
+	const offenders = [...files(join(repo, 'app/src')), ...files(join(repo, 'app/e2e'))].filter(
+		(path) => {
+			if (!USES.test(readFileSync(path, 'utf8'))) return false;
+			if (path.includes('/app/src/') && path.endsWith('.spec.js')) return false;
+			if (path.includes('/app/e2e/') && bridgeSpecs.has(path.split('/').pop() ?? '')) return false;
+			return true;
+		}
+	);
+	assert.deepEqual(
+		offenders.map((p) => p.slice(repo.length + 1)),
+		[],
+		'these use a chain package: give them e2e full in ci-changes.mjs, or add them to BRIDGE_SPECS'
+	);
 });
