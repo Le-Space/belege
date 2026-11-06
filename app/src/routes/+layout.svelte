@@ -152,9 +152,7 @@
 					{/if}
 				</div>
 			</div>
-			<div
-				class="col-span-2 row-start-2 flex min-w-0 flex-wrap items-center gap-2"
-			>
+			<div class="col-span-2 row-start-2 flex min-w-0 flex-wrap items-center gap-2">
 				<LocalOnlyBadge />
 				{#if ready}<BackupBadge />{/if}
 				{#if ready && app.did}
