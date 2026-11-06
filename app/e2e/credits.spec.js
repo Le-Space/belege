@@ -30,7 +30,7 @@ function signer(message, signature) {
 }
 
 /** A fake credits service: one balance per address, top-ups booked by its pay page. */
-async function startFakeCredits() {
+async function startFakeCredits({ mode = 'live' } = {}) {
 	/** @type {Map<string, number>} */
 	const balances = new Map();
 	/** @type {Map<string, { address: string, cents: number }>} */
@@ -99,7 +99,8 @@ async function startFakeCredits() {
 				reserved: 0,
 				lines_this_month: { ki: 0, vm: 0, transfer: 0, refund: 0 },
 				package: null,
-				refund: null
+				refund: null,
+				mode
 			});
 		if (url.pathname === '/v1/purchases')
 			return send(200, { purchases: purchases.get(address) ?? [] });
@@ -130,20 +131,41 @@ test.afterAll(async () => {
 	await credits?.close();
 });
 
-test('a top-up through the service’s own payment page shows as balance', async ({ page }) => {
-	await page.addInitScript(
-		(url) => localStorage.setItem('belege.e2e.creditsUrl', url),
-		credits.url
-	);
+/**
+ * New books pointed at a fake service, on Integrationen → Aleph.
+ *
+ * @param {import('@playwright/test').Page} page @param {string} url
+ */
+async function openCreditsCard(page, url) {
+	await page.addInitScript((u) => localStorage.setItem('belege.e2e.creditsUrl', u), url);
 	await addVirtualAuthenticator(page);
 	await page.goto('/');
 	await acceptConsent(page);
 	await page.getByTestId('passkey-label').fill('E2E');
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
-
 	await openIntegration(page, 'aleph');
-	const card = page.getByTestId('credits-card');
+	return page.getByTestId('credits-card');
+}
+
+test('while the service runs in test mode, the card says so and offers no top-up', async ({
+	page
+}) => {
+	const testing = await startFakeCredits({ mode: 'test' });
+	try {
+		const card = await openCreditsCard(page, testing.url);
+		await card.getByTestId('credits-on').click();
+		await expect(card.getByTestId('credits-balance')).toHaveText(/0,00\s€/);
+		await expect(card.getByTestId('credits-test-mode')).toContainText('Testbetrieb');
+		await expect(card.getByTestId('credits-topup-10')).toHaveCount(0);
+		expect(testing.calls).not.toContain('POST /v1/checkout');
+	} finally {
+		await testing.close();
+	}
+});
+
+test('a top-up through the service’s own payment page shows as balance', async ({ page }) => {
+	const card = await openCreditsCard(page, credits.url);
 	await expect(card).toBeVisible();
 	// Off until switched on: nothing has been asked of the service.
 	expect(credits.calls).toEqual([]);

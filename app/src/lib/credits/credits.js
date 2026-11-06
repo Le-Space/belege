@@ -129,7 +129,8 @@ export async function createCreditsClient({
  *   reserved: number,
  *   lines_this_month: { ki: number, vm: number, transfer: number, refund?: number },
  *   package?: { id: string, state: string, period_start: string | null, period_end: string | null, hours_left: number | null } | null,
- *   refund?: { id: string, state: string, credits: number | null, created_at: string, done_at?: string | null } | null
+ *   refund?: { id: string, state: string, credits: number | null, created_at: string, done_at?: string | null } | null,
+ *   mode?: 'test' | 'live' | null
  * }} Balance
  */
 

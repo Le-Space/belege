@@ -1418,6 +1418,7 @@ export default {
 		purchasesTitle: 'Aufladungen',
 		invoice: 'Rechnung',
 		invoicePending: 'Rechnung folgt',
+		testMode: 'Noch im Testbetrieb: Aufladen ist bald möglich. Bis dahin wird nichts berechnet.',
 		account: 'Konto bei {host}:'
 	},
 	aleph: {
