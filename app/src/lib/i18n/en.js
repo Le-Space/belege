@@ -3415,6 +3415,11 @@ export default {
 		questionsElsewhere: 'Travel has open points too: {count}'
 	},
 	reise: {
+		headFromTickets: 'From the tickets: {what}',
+		headDestination: 'destination {place}',
+		headStart: 'departure {at}',
+		headEnd: 'back {at}',
+		paidWith: 'by the company (payment of {date})',
 		reread: 'Read the trip’s receipts again ({count})',
 		rereading: 'Reading … {done}/{count}',
 		rereadResult: {

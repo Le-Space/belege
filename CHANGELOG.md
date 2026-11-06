@@ -8,6 +8,15 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **Destination and times from the tickets** (#693). A trip made before its receipts were read kept an empty head. Where destination, departure or return are empty and the trip's tickets and hotels know them, the trip offers them with _Übernehmen_: the first printed departure, the last arrival, a return only where a ticket leads back home, never the day a ticket was bought.
+- **Why "von der Firma"**: a receipt on a trip paid from a business account names the payment's day.
+
+### Fixed
+
+- A receipt without a date no longer shows a lone "·" at the start of its line on the trip.
+
+### Added
+
 - **Border crossings from the tickets** (#693, part a). Reading a travel receipt also names the country of each station, airport and town and a flight's airport codes, in the call that runs anyway. A train, bus, flight, local transport or taxi that arrives in another country becomes a border crossing at its arrival. A trip proposal carries them, a trip made from it keeps them, and on a trip _Übernehmen_ adds those it lacks. The allowance abroad then counts each day by country without typing.
   - A border crossed by car, bicycle or on foot leaves no ticket. A receipt from a country the trip was not in on its day (fuel, parking, a hotel's nights, a restaurant) is named with its day, on the proposal and on the trip. The time is entered by hand and never guessed.
   - Two flights where one leaves from the airport the other landed at belong to one trip, however the town is written.

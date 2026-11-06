@@ -1078,4 +1078,18 @@ test('border crossings from the tickets: a proposal abroad becomes a trip with i
 	await page.getByTestId('reise-route-take').click();
 	await expect(page.getByTestId('reise-stop')).toHaveCount(3);
 	await expect(page.getByTestId('reise-route-proposal')).toHaveCount(0);
+
+	// Destination and return emptied: the tickets offer them again, only those (#693).
+	await expect(page.getByTestId('reise-head-proposal')).toHaveCount(0);
+	await page.getByTestId('reise-destination').fill('');
+	await page.getByTestId('reise-end').fill('');
+	await expect(page.getByTestId('reise-head-proposal')).toHaveText(
+		'Aus den Fahrkarten: Ziel Ortshausen · Rückkehr 07.05.2026 14:00 Übernehmen'
+	);
+	await page.getByTestId('reise-head-take').click();
+	await expect(page.getByTestId('reise-destination')).toHaveValue('Ortshausen');
+	await expect(page.getByTestId('reise-end')).toHaveValue('2026-05-07T14:00');
+	await expect(page.getByTestId('reise-head-proposal')).toHaveCount(0);
+	// Paid privately here: no payment to name, no lone separator before a missing date.
+	await expect(page.getByTestId('reise-receipt').first()).not.toContainText(/^ ?·/);
 });

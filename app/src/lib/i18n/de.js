@@ -3468,6 +3468,11 @@ export default {
 		questionsElsewhere: 'Auch bei den Reisen gibt es offene Punkte: {count}'
 	},
 	reise: {
+		headFromTickets: 'Aus den Fahrkarten: {what}',
+		headDestination: 'Ziel {place}',
+		headStart: 'Abfahrt {at}',
+		headEnd: 'Rückkehr {at}',
+		paidWith: 'von der Firma (Zahlung vom {date})',
 		reread: 'Belege der Reise neu auslesen ({count})',
 		rereading: 'Lese aus … {done}/{count}',
 		rereadResult: {
