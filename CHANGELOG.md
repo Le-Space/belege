@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.29.5] – 2026-11-06
+
 ### Security
 
 - **What a device may do with the bridge, limited** (#689, #579). Over the stream each call now needs its scope, and a device holds a set of them. Your own devices keep every scope they had. A member's devices reach the bridge only if you allowed it when admitting them; a member who only reads never does. A device that does not use the bridge for 90 days loses access until the device that paired the bridge renews it under _Integrationen → Eigene Geräte → Erweitert_, where each device's access is shown. What costs money is limited per device: calls to the language model a minute, its tokens a day and backups an hour, set in `bridge.json`. A refusal is the bridge's answer: the app tries no other way to the bridge instead.
