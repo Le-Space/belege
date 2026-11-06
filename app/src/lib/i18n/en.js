@@ -1586,6 +1586,11 @@ export default {
 	devices: {
 		title: 'Own devices',
 		what: 'The same books on your phone or a second computer: both devices need the same passkey (synced via the keychain) and sync switched on.',
+		status: {
+			connected: 'Other devices connected: {connected} of {count}',
+			none: 'No other device yet – add one under “Advanced”.'
+		},
+		advanced: 'Advanced',
 		off: 'Sync is off on this device. Switch it on in the “Privacy & technology” notice under “Sync own devices”; it applies from the next unlock.',
 		openConsent: 'Open notice',
 		pending: 'Switched on – applies from the next unlock (reload the page).',
@@ -1603,7 +1608,6 @@ export default {
 			'A device with these books’ key asks to come in. Let it in only if it is yours or a member’s – a member taken out still holds the key.',
 		askingYes: 'Let in',
 		askingNo: 'Turn away',
-		none: 'No other device yet.',
 		connected: 'connected',
 		direct: 'direct',
 		viaRelay: 'via the relay',

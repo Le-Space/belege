@@ -113,6 +113,44 @@
 		return parts.join(' · ');
 	};
 
+	/** When any device last sent something here (sync/sync-log.js), or 0. */
+	const lastAny = $derived(Math.max(0, ...Object.values(app.sync.lastIn ?? {})));
+
+	// The simple view, as the backup card's (#656): a status line, the devices
+	// and who asks to come in; the id, the QR code, adding a device, the bridge
+	// and the log under "Erweitert". Open while no other device is known yet,
+	// decided once per visit so it does not close under a pairing, and
+	// otherwise as this browser last left it.
+	const ADVANCED_KEY = 'belege.devices.advanced';
+	/** @type {boolean | null} */
+	let advanced = $state(
+		(() => {
+			try {
+				const v = globalThis.localStorage?.getItem(ADVANCED_KEY);
+				return v === null || v === undefined ? null : v === '1';
+			} catch {
+				return null;
+			}
+		})()
+	);
+	/** @type {boolean | null} no other device when this card first saw the list */
+	let firstEmpty = $state(null);
+	$effect(() => {
+		const state = app.sync.state;
+		if (firstEmpty === null && state) firstEmpty = state.devices.length === 0;
+	});
+	const advancedOpen = $derived(advanced ?? firstEmpty ?? !app.sync.state);
+	/** @param {boolean} open */
+	function keepAdvanced(open) {
+		if (open === advancedOpen) return;
+		advanced = open;
+		try {
+			globalThis.localStorage?.setItem(ADVANCED_KEY, open ? '1' : '0');
+		} catch {
+			// Blocked: this page only.
+		}
+	}
+
 	const card = 'mt-6 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm';
 	const button =
 		'rounded-md border border-border px-3 py-1.5 text-sm text-text hover:bg-surface-2 hover:text-heading disabled:opacity-50';
@@ -147,8 +185,8 @@
 			{/each}
 		</ul>
 	{/if}
-	<h3 class="mt-4 text-sm font-semibold text-heading">{t('devices.list')}</h3>
 	{#if state?.devices.length}
+		<h3 class="mt-4 text-sm font-semibold text-heading">{t('devices.list')}</h3>
 		<ul class="mt-1 divide-y divide-border text-sm" data-testid="devices-list">
 			{#each state.devices as d (d.peerId)}
 				<li
@@ -206,10 +244,7 @@
 				</li>
 			{/each}
 		</ul>
-	{:else}
-		<p class="mt-1 text-sm text-faint">{t('devices.none')}</p>
 	{/if}
-	{@render syncLogBlock()}
 {/snippet}
 
 {#snippet syncLogBlock()}
@@ -276,105 +311,127 @@
 				data-testid="devices-open-consent">{t('devices.openConsent')}</button
 			>
 		{/if}
-	{:else if app.network.mode === 'qr'}
-		<QrExchange />
-		{@render deviceList(app.sync.state)}
 	{:else}
 		{@const state = app.sync.state}
-		{#if app.network.mode === 'both'}
-			<!-- "Beides": a new device by QR, or by its id through the bridge's relay. -->
-			<p class="mt-2 text-sm text-text" data-testid="devices-both">{t('devices.bothMode')}</p>
-			<QrExchange />
-		{/if}
-		<div class="mt-3 text-sm">
-			<p class="text-faint">{t('devices.self')}</p>
-			{#if state}
-				<CopyButton
-					text={state.self}
-					label={t('devices.copy')}
-					testid="devices-self"
-					valueClass="font-mono text-xs break-all text-heading">{state.self}</CopyButton
-				>
-				<p class="mt-0.5 text-xs text-faint" data-testid="devices-reachable">
-					{t('devices.selfHint')} · {state.reachable
-						? t('devices.reachable')
-						: t('devices.notReachable')}
-				</p>
-				<button
-					type="button"
-					class="mt-2 block {button}"
-					aria-expanded={showQr}
-					onclick={() => (showQr = !showQr)}
-					data-testid="devices-qr-toggle"
-					>{showQr ? t('devices.hideQr') : t('devices.showQr')}</button
-				>
-				{#if showQr}
-					<!-- A white plaque in both themes: a camera reads it, not the theme. -->
-					<div
-						class="mt-2 w-fit rounded-md bg-white p-2 [&_svg]:size-48"
-						role="img"
-						aria-label={t('devices.qrLabel')}
-						data-testid="devices-qr"
-						data-code={deviceCode(state.self)}
-					>
-						<!-- eslint-disable-next-line svelte/no-at-html-tags -- uqr's own SVG of a checked peer id -->
-						{@html renderSVG(deviceCode(state.self), { border: 2 })}
-					</div>
-					<p class="mt-1 text-xs text-faint">{t('devices.qrHint')}</p>
-				{/if}
+		{@const devices = state?.devices ?? []}
+		<p class="mt-3 text-sm text-heading" role="status" data-testid="devices-status">
+			{#if devices.length}
+				{t('devices.status.connected', {
+					connected: devices.filter((d) => d.connected).length,
+					count: devices.length
+				})}{#if lastAny}
+					· {t('devices.lastData', { time: when(lastAny) })}{/if}
+			{:else}
+				{t('devices.status.none')}
 			{/if}
-		</div>
-		<form
-			class="mt-3 flex flex-wrap items-end gap-2"
-			onsubmit={(e) => {
-				e.preventDefault();
-				add();
-			}}
-		>
-			<label class="flex min-w-64 flex-1 flex-col text-sm text-faint"
-				>{t('devices.addLabel')}
-				<input
-					class="mt-1 rounded-md border border-border bg-surface px-2 py-1.5 font-mono text-xs text-heading"
-					bind:value={other}
-					autocomplete="off"
-					spellcheck="false"
-					data-testid="devices-add-input"
-				/></label
-			>
-			<button
-				type="submit"
-				class={button}
-				disabled={busy || !other.trim()}
-				data-testid="devices-add">{t('devices.addButton')}</button
-			>
-			<QrScan onscan={scanned} class={button} />
-		</form>
+		</p>
 		{#if error || app.sync.error}
 			<p class="mt-2 text-sm text-danger" role="alert">{error ?? app.sync.error}</p>
 		{/if}
-		<label class="mt-4 flex items-start gap-2 text-sm">
-			<input
-				type="checkbox"
-				class="mt-0.5"
-				checked={shareOn}
-				onchange={(e) => {
-					shareOn = e.currentTarget.checked;
-					setBridgeShare(shareOn);
-				}}
-				data-testid="devices-bridge-share"
-			/>
-			<span>
-				<span class="text-heading">{t('devices.bridgeShare')}</span>
-				<span class="block text-xs text-faint">{t('devices.bridgeShareText')}</span>
-				{#if app.sync.bridgeServed}
-					<span class="block text-xs text-success" data-testid="devices-bridge-served"
-						>{t('devices.bridgeServed')}</span
-					>
-				{:else if shareOn}
-					<span class="block text-xs text-faint">{t('devices.bridgePending')}</span>
-				{/if}
-			</span>
-		</label>
 		{@render deviceList(state)}
+		<details
+			class="mt-4 border-t border-border pt-3 text-sm"
+			open={advancedOpen}
+			ontoggle={(e) => keepAdvanced(e.currentTarget.open)}
+			data-testid="devices-advanced"
+		>
+			<summary class="cursor-pointer font-medium text-heading">{t('devices.advanced')}</summary>
+			{#if app.network.mode === 'qr'}
+				<QrExchange />
+			{:else}
+				{#if app.network.mode === 'both'}
+					<!-- "Beides": a new device by QR, or by its id through the bridge's relay. -->
+					<p class="mt-2 text-sm text-text" data-testid="devices-both">{t('devices.bothMode')}</p>
+					<QrExchange />
+				{/if}
+				<div class="mt-3 text-sm">
+					<p class="text-faint">{t('devices.self')}</p>
+					{#if state}
+						<CopyButton
+							text={state.self}
+							label={t('devices.copy')}
+							testid="devices-self"
+							valueClass="font-mono text-xs break-all text-heading">{state.self}</CopyButton
+						>
+						<p class="mt-0.5 text-xs text-faint" data-testid="devices-reachable">
+							{t('devices.selfHint')} · {state.reachable
+								? t('devices.reachable')
+								: t('devices.notReachable')}
+						</p>
+						<button
+							type="button"
+							class="mt-2 block {button}"
+							aria-expanded={showQr}
+							onclick={() => (showQr = !showQr)}
+							data-testid="devices-qr-toggle"
+							>{showQr ? t('devices.hideQr') : t('devices.showQr')}</button
+						>
+						{#if showQr}
+							<!-- A white plaque in both themes: a camera reads it, not the theme. -->
+							<div
+								class="mt-2 w-fit rounded-md bg-white p-2 [&_svg]:size-48"
+								role="img"
+								aria-label={t('devices.qrLabel')}
+								data-testid="devices-qr"
+								data-code={deviceCode(state.self)}
+							>
+								<!-- eslint-disable-next-line svelte/no-at-html-tags -- uqr's own SVG of a checked peer id -->
+								{@html renderSVG(deviceCode(state.self), { border: 2 })}
+							</div>
+							<p class="mt-1 text-xs text-faint">{t('devices.qrHint')}</p>
+						{/if}
+					{/if}
+				</div>
+				<form
+					class="mt-3 flex flex-wrap items-end gap-2"
+					onsubmit={(e) => {
+						e.preventDefault();
+						add();
+					}}
+				>
+					<label class="flex min-w-64 flex-1 flex-col text-sm text-faint"
+						>{t('devices.addLabel')}
+						<input
+							class="mt-1 rounded-md border border-border bg-surface px-2 py-1.5 font-mono text-xs text-heading"
+							bind:value={other}
+							autocomplete="off"
+							spellcheck="false"
+							data-testid="devices-add-input"
+						/></label
+					>
+					<button
+						type="submit"
+						class={button}
+						disabled={busy || !other.trim()}
+						data-testid="devices-add">{t('devices.addButton')}</button
+					>
+					<QrScan onscan={scanned} class={button} />
+				</form>
+				<label class="mt-4 flex items-start gap-2 text-sm">
+					<input
+						type="checkbox"
+						class="mt-0.5"
+						checked={shareOn}
+						onchange={(e) => {
+							shareOn = e.currentTarget.checked;
+							setBridgeShare(shareOn);
+						}}
+						data-testid="devices-bridge-share"
+					/>
+					<span>
+						<span class="text-heading">{t('devices.bridgeShare')}</span>
+						<span class="block text-xs text-faint">{t('devices.bridgeShareText')}</span>
+						{#if app.sync.bridgeServed}
+							<span class="block text-xs text-success" data-testid="devices-bridge-served"
+								>{t('devices.bridgeServed')}</span
+							>
+						{:else if shareOn}
+							<span class="block text-xs text-faint">{t('devices.bridgePending')}</span>
+						{/if}
+					</span>
+				</label>
+			{/if}
+			{@render syncLogBlock()}
+		</details>
 	{/if}
 </section>
