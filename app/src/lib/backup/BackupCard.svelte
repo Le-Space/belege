@@ -753,8 +753,13 @@
 			</div>
 		{/if}
 		{#if b.status === 'unknown' || b.status === 'rejected'}
-			<span class="flex w-full flex-wrap items-center gap-2 text-xs text-text">
-				{b.status === 'unknown' ? t('backup.unknownHint') : t('backup.rejectedHint')}
+			<!-- "Aleph hat abgelehnt" stands in the row already; only "unknown" needs a word. -->
+			<span
+				class="flex flex-wrap items-center gap-2 text-xs text-text {b.status === 'unknown'
+					? 'w-full'
+					: ''}"
+			>
+				{#if b.status === 'unknown'}{t('backup.unknownHint')}{/if}
 				<button
 					type="button"
 					class={button}
@@ -1077,7 +1082,6 @@
 	{#if (restoreOpen || advancedOpen) && (chains.length || owner)}
 		<h3 class="mt-4 text-sm font-semibold text-heading">{t('backup.list.title')}</h3>
 		<p class="mt-1 text-xs text-faint">{t('backup.list.intro')}</p>
-		<p class="mt-1 text-xs text-faint">{t('restore.leaves')} {t('backup.holders.note')}</p>
 		{#if remoteFailed}
 			<p class="mt-1 text-xs text-faint" data-testid="backup-list-unlisted">
 				{t('backup.list.unlisted')}
@@ -1117,6 +1121,11 @@
 				</ul>
 			</details>
 		{/if}
+		<details class="mt-2 text-xs" data-testid="backup-list-leaves">
+			<summary class="cursor-pointer text-faint">{t('backup.list.leavesTitle')}</summary>
+			<p class="mt-1 text-faint">{t('restore.leaves')}</p>
+			<p class="mt-1 text-faint">{t('backup.holders.note')}</p>
+		</details>
 	{/if}
 	{#if restoreRun.chosen}
 		<div
@@ -1172,14 +1181,7 @@
 		{/if}
 	{/if}
 
-	<details
-		class="mt-4 border-t border-border pt-3 text-sm"
-		open={advancedOpen}
-		ontoggle={(e) => keepAdvanced(e.currentTarget.open)}
-		data-testid="backup-advanced"
-	>
-		<summary class="cursor-pointer font-medium text-heading">{t('backup.advanced')}</summary>
-		<p class="mt-1 text-sm text-text">{t('backup.what')}</p>
+	{#snippet publicNote()}
 		<!-- Said before anything goes up, not in a footnote: where it lies, what that
 	     is good for, what of it is public – and that the choice is the user's. -->
 		<div
@@ -1189,6 +1191,7 @@
 			data-testid="backup-public"
 		>
 			<p id="backup-public-h" class="font-semibold text-heading">{t('backup.public.title')}</p>
+			<p class="mt-1">{t('backup.what')}</p>
 			<ul class="mt-1 list-disc space-y-1 pl-5">
 				<li>{t('backup.public.spread')}</li>
 				<li>{t('backup.public.sealed')}</li>
@@ -1204,7 +1207,20 @@
 					data-testid="backup-public-alternative">{t('backup.public.alternativeLink')}</a
 				>
 			</p>
+			<p class="mt-2 text-xs text-faint">{t('backup.leaves')}</p>
 		</div>
+	{/snippet}
+
+	<details
+		class="mt-4 border-t border-border pt-3 text-sm"
+		open={advancedOpen}
+		ontoggle={(e) => keepAdvanced(e.currentTarget.open)}
+		data-testid="backup-advanced"
+	>
+		<summary class="cursor-pointer font-medium text-heading">{t('backup.advanced')}</summary>
+		<!-- Before anything is set up, where a backup lies comes first: it is said
+		     before anything goes up. Once set up, the settings come first. -->
+		{#if !owner}{@render publicNote()}{/if}
 		{#if paired && status && !status.configured}
 			<p class="mt-2 text-sm text-text" data-testid="backup-not-set-up">
 				{t('backup.notSetUp')}
@@ -1214,7 +1230,8 @@
 			</p>
 		{/if}
 		{#if owner}
-			<dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+			<h3 class="mt-5 text-sm font-semibold text-heading">{t('backup.section.account')}</h3>
+			<dl class="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
 				<dt class="text-faint">{t('backup.account')}</dt>
 				<dd class="flex min-w-0 flex-wrap items-center gap-x-2">
 					<CopyButton
@@ -1244,6 +1261,23 @@
 						data-testid="backup-credits-link">{t('backup.creditsLink')}</a
 					>
 				</dd>
+			</dl>
+			{#if credits === 0}
+				<p class="text-warn mt-2 text-sm" data-testid="backup-no-credits">
+					{t('backup.noCredits')}
+				</p>
+			{/if}
+			{#if keptBytes > 0}
+				<p class="mt-2 text-xs text-faint" data-testid="backup-cost">
+					{t('backup.cost', {
+						size: size(keptBytes),
+						perDay: perDayText(keptPerDay),
+						days: daysText(daysFor(keptPerDay))
+					})}
+				</p>
+			{/if}
+			<h3 class="mt-5 text-sm font-semibold text-heading">{t('backup.section.browser')}</h3>
+			<dl class="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
 				<dt class="text-faint">{t('backup.ownKey')}</dt>
 				<dd class="min-w-0">
 					<CopyButton
@@ -1254,11 +1288,6 @@
 					>
 				</dd>
 			</dl>
-			{#if credits === 0}
-				<p class="text-warn mt-2 text-sm" data-testid="backup-no-credits">
-					{t('backup.noCredits')}
-				</p>
-			{/if}
 			{#if granted === true}
 				<p class="mt-2 text-sm text-text" data-testid="backup-granted">{t('backup.granted')}</p>
 			{:else}
@@ -1287,7 +1316,15 @@
 					</p>
 				</div>
 			{/if}
-			<p class="mt-3 text-xs text-faint">{t('backup.leaves')}</p>
+			<h3 class="mt-5 text-sm font-semibold text-heading">{t('backup.section.chain')}</h3>
+			<p class="mt-2 text-xs text-faint" data-testid="backup-chain">
+				{chainUsable && chain
+					? t('backup.chainNext', {
+							sequence: chain.sequence + 1,
+							date: chainBase ? when(chainBase.at) : t('backup.chainElsewhere')
+						})
+					: t('backup.chainFirst')}
+			</p>
 			<div class="mt-3 flex flex-wrap items-center gap-3">
 				{#if chainUsable}
 					<button
@@ -1306,25 +1343,9 @@
 					data-testid="backup-check">{t('backup.check')}</button
 				>
 			</div>
-			<p class="mt-2 text-xs text-faint" data-testid="backup-chain">
-				{chainUsable && chain
-					? t('backup.chainNext', {
-							sequence: chain.sequence + 1,
-							date: chainBase ? when(chainBase.at) : t('backup.chainElsewhere')
-						})
-					: t('backup.chainFirst')}
-			</p>
-			{#if keptBytes > 0}
-				<p class="mt-2 text-xs text-faint" data-testid="backup-cost">
-					{t('backup.cost', {
-						size: size(keptBytes),
-						perDay: perDayText(keptPerDay),
-						days: daysText(daysFor(keptPerDay))
-					})}
-				</p>
-			{/if}
 		{/if}
 		{#if chains.length || owner}
+			<h3 class="mt-5 text-sm font-semibold text-heading">{t('backup.section.restore')}</h3>
 			<label class="mt-3 flex items-start gap-2 text-sm text-text" data-testid="restore-path">
 				<input
 					type="checkbox"
@@ -1392,5 +1413,6 @@
 				</form>
 			</details>
 		{/if}
+		{#if owner}{@render publicNote()}{/if}
 	</details>
 </section>

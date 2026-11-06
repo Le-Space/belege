@@ -1174,13 +1174,19 @@ export default {
 	},
 	backup: {
 		title: 'Backup',
-		what: "Everything Le Space Belege keeps in this browser – the books and every receipt file – as one file, sealed with a key from your passkey. It lies on Aleph's IPFS: whoever knows its identifier (CID) can download it, but not open it – only you can, with the same passkey. Aleph keeps it while the account has credits.",
+		what: "A backup is everything Le Space Belege keeps in this browser, the books and every receipt file, as one file. It is sealed with a key of the books and lies on Aleph's IPFS. Whoever knows its identifier (CID) can download it, but not open it. Only a passkey of these books, or their recovery words, opens it. Aleph keeps it while the account has credits.",
+		section: {
+			account: 'Account and credits',
+			browser: 'This browser',
+			chain: 'Full backup and increments',
+			restore: 'Restoring'
+		},
 		public: {
 			title: 'Where your backup lies – and what that means',
 			spread:
 				"Spread out instead of in one place: the backup is not in a single data centre but on many of Aleph's IPFS nodes – according to Aleph's support, on all its nodes (this may change). When a provider or a region goes down, as in the fire at OVH's Strasbourg data centre in 2021 or in the outages that keep hitting the big clouds, it stays reachable: it can be brought back from any node that has it.",
 			sealed:
-				'Only you can read it: it is sealed with a key from your passkey before it leaves this browser.',
+				'Only these books can read it: it is sealed with one of their keys before it leaves this browser.',
 			open: "What is public is the envelope and the outline: anyone who knows its CID can download the sealed file, and Aleph's public message log names each backup's CID, time, size and paying account.",
 			alternative:
 				'Whether that suits you is your choice. If you do not want your receipts on public IPFS, even encrypted: backup on Filecoin Onchain Cloud,',
@@ -1242,7 +1248,6 @@ export default {
 		rejected: 'Aleph refused',
 		unknownHint:
 			"The file is on Aleph's IPFS host, but Aleph knows no request to keep it. Without one, Aleph may delete it.",
-		rejectedHint: 'Aleph refused the request and does not keep the file.',
 		rekeep: 'Ask Aleph again',
 		order: 'Request at Aleph:',
 		days: { about: 'about {days} days', overYear: 'more than a year' },
@@ -1264,9 +1269,9 @@ export default {
 		},
 		full: 'New full backup',
 		chainFirst:
-			'The first backup is a full one: everything this browser keeps. After it, "Jetzt sichern" backs up only what is new since.',
+			'The first backup is a full one: everything this browser keeps. After it, "Back up now" backs up only what is new since.',
 		chainNext:
-			'"Jetzt sichern" backs up only what is new since the last backup – increment {sequence} to the full backup of {date}. A restore needs the full backup and all its increments; Aleph keeps each until it is forgotten.',
+			'"Back up now" backs up only what is new since the last backup – increment {sequence} to the full backup of {date}. A restore needs the full backup and all its increments; Aleph keeps each until it is forgotten.',
 		chainElsewhere: 'another device',
 		nothingNew: 'Nothing new since the last backup.',
 		madeIncrement:
@@ -1302,12 +1307,13 @@ export default {
 			unsavedTitle: 'Changed since the last backup: {list}',
 			autoIn: 'Automatic backup in {minutes} min',
 			autoShort: 'in {minutes} min',
-			byHand: 'To back up: Backup → “Jetzt sichern”, or switch on “Back up automatically” there.',
+			byHand: 'To back up: Backup → “Back up now”, or switch on “Back up automatically” there.',
 			blocked: {
 				paused: 'The network is paused: no automatic backup.',
 				chain: 'The next backup is a full one – that only starts by hand.',
 				key: 'This browser is not let in and the bridge is not running: no automatic backup.',
-				credits: 'The credits last less than 30 days: the backup asks first – please by hand.',
+				credits:
+					'The credits last less than 30 days: no automatic backup. "Back up now" still works.',
 				error: 'The last automatic backup failed – details under Backup.'
 			},
 			title: 'To the backup',
@@ -1331,7 +1337,8 @@ export default {
 		list: {
 			title: 'Backups',
 			intro:
-				'Each chain starts with a full backup; its increments build on it, and "Jetzt sichern" continues the current one. Older chains go on costing credits until you delete them. "Wiederherstellen" brings a full backup with its increments into these books: what is here stays, what is missing is added; at the end the page reloads and the passkey opens the books again. You need a passkey of the books the backup came from.',
+				'A full backup and its increments form a chain. "Restore" brings a chain into these books: what is here stays, what is missing is added. Older chains cost credits until you delete them.',
+			leavesTitle: 'What goes out when restoring and with "Who holds it?"',
 			none: 'No backup yet – neither here nor on Aleph for this account. Enter the paying account’s address above, or a CID below.',
 			unlisted:
 				'Aleph did not deliver the list of backups just now; shown is what this browser knows.',

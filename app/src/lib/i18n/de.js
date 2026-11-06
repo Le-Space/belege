@@ -1202,13 +1202,19 @@ export default {
 	},
 	backup: {
 		title: 'Backup',
-		what: 'Alles, was Le Space Belege in diesem Browser hält – die Bücher und jede Belegdatei – als eine Datei, versiegelt mit einem Schlüssel aus deinem Passkey. Sie liegt auf Alephs IPFS: Wer ihre Kennung (CID) kennt, kann sie herunterladen, aber nicht öffnen – das kannst nur du, mit demselben Passkey. Aleph bewahrt sie auf, solange das Konto Credits hat.',
+		what: 'Ein Backup ist alles, was Le Space Belege in diesem Browser hält, die Bücher und jede Belegdatei, als eine Datei. Sie ist mit einem Schlüssel der Bücher versiegelt und liegt auf Alephs IPFS. Wer ihre Kennung (CID) kennt, kann sie herunterladen, aber nicht öffnen. Öffnen kann sie nur ein Passkey dieser Bücher oder ihre Wiederherstellungswörter. Aleph bewahrt sie auf, solange das Konto Credits hat.',
+		section: {
+			account: 'Konto und Credits',
+			browser: 'Dieser Browser',
+			chain: 'Vollbackup und Zuwächse',
+			restore: 'Wiederherstellen'
+		},
 		public: {
 			title: 'Wo dein Backup liegt – und was das bedeutet',
 			spread:
 				'Verteilt statt an einem Ort: Das Backup liegt nicht in einem einzelnen Rechenzentrum, sondern auf vielen IPFS-Knoten von Aleph – nach Auskunft des Aleph-Supports auf allen seinen Knoten (das kann sich ändern). Fällt ein Anbieter oder eine Region aus, wie beim Brand im OVH-Rechenzentrum Straßburg 2021 oder bei den immer wieder auftretenden Ausfällen großer Clouds, bleibt es erreichbar: Zurückholen lässt es sich von jedem Knoten, der es hat.',
 			sealed:
-				'Lesen kannst es nur du: Es ist mit einem Schlüssel aus deinem Passkey versiegelt, bevor es diesen Browser verlässt.',
+				'Lesen können es nur diese Bücher: Es ist mit einem ihrer Schlüssel versiegelt, bevor es diesen Browser verlässt.',
 			open: 'Öffentlich sind die Hülle und die Eckdaten: Die versiegelte Datei kann laden, wer ihre CID kennt, und Alephs öffentlicher Nachrichtenverlauf nennt zu jedem Backup CID, Zeitpunkt, Größe und das zahlende Konto.',
 			alternative:
 				'Ob dir das passt, entscheidest du. Wer seine Belege auch verschlüsselt nicht im öffentlichen IPFS haben will: Backup auf Filecoin Onchain Cloud,',
@@ -1271,7 +1277,6 @@ export default {
 		rejected: 'Aleph hat abgelehnt',
 		unknownHint:
 			'Die Datei liegt auf Alephs IPFS-Host, aber einen Auftrag, sie aufzubewahren, kennt Aleph nicht. Ohne Auftrag darf Aleph sie löschen.',
-		rejectedHint: 'Aleph hat den Auftrag abgelehnt und bewahrt die Datei nicht auf.',
 		rekeep: 'Aleph erneut beauftragen',
 		order: 'Auftrag bei Aleph:',
 		days: { about: 'etwa {days} Tage', overYear: 'länger als ein Jahr' },
@@ -1336,7 +1341,8 @@ export default {
 				paused: 'Das Netz ist pausiert: kein automatisches Backup.',
 				chain: 'Das nächste Backup ist ein Vollbackup – das startet nur von Hand.',
 				key: 'Weder ist dieser Browser freigegeben noch läuft die Bridge: kein automatisches Backup.',
-				credits: 'Die Credits reichen keine 30 Tage mehr: das Backup fragt erst – bitte von Hand.',
+				credits:
+					'Die Credits reichen keine 30 Tage mehr: kein automatisches Backup. „Jetzt sichern“ geht weiter.',
 				error: 'Das letzte automatische Backup ist fehlgeschlagen – Details im Backup.'
 			},
 			title: 'Zum Backup',
@@ -1360,7 +1366,8 @@ export default {
 		list: {
 			title: 'Backups',
 			intro:
-				'Jede Kette beginnt mit einem Vollbackup, die Zuwächse bauen darauf auf; „Jetzt sichern“ geht auf der aktuellen weiter. Ältere Ketten kosten weiter Credits, bis du sie löschst. „Wiederherstellen“ holt ein Vollbackup samt Zuwächsen in diese Bücher: Was hier ist, bleibt, was fehlt, kommt dazu; am Ende lädt die Seite neu, und der Passkey öffnet die Bücher wieder. Du brauchst einen Passkey der Bücher, aus denen das Backup stammt.',
+				'Ein Vollbackup und seine Zuwächse bilden eine Kette. „Wiederherstellen“ holt eine Kette in diese Bücher: Was hier ist, bleibt, was fehlt, kommt dazu. Ältere Ketten kosten Credits, bis du sie löschst.',
+			leavesTitle: 'Was beim Wiederherstellen und bei „Wer hält es?“ hinausgeht',
 			none: 'Noch kein Backup – weder hier noch bei Aleph für dieses Konto. Oben die Adresse des zahlenden Kontos eintragen, oder unten eine CID.',
 			unlisted:
 				'Aleph hat die Liste der Backups gerade nicht geliefert; gezeigt wird, was dieser Browser weiß.',
