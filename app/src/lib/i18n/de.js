@@ -1243,6 +1243,22 @@ export default {
 			'Geht hinaus: die versiegelte Datei an Alephs IPFS-Host (er sieht die IP-Adresse dieses Computers und die Größe) und an die Aleph-API ein Auftrag, der die Datei nennt – unterschrieben vom Schlüssel dieses Browsers oder, ohne Freigabe, von der Bridge. Zum Anzeigen fragt die Seite Aleph nach Freigabe und Credits des Kontos.',
 		ownerChange: 'Ändern',
 		ask: 'Dieses Backup ist {size} groß und kostet etwa {perDay} Credits pro Tag, solange Aleph es aufbewahrt – jedes Backup ist eine ganze Kopie. Mit den Backups, die schon liegen, reichen die Credits dann {days}. Hochladen?',
+		advanced: 'Erweitert',
+		restoreOpen: 'Wiederherstellen …',
+		status: {
+			loading: 'Wird geprüft …',
+			noAccount:
+				'Noch nicht eingerichtet: Unter „Erweitert“ das Aleph-Konto eintragen, das die Backups bezahlt.',
+			notLetIn:
+				'Dieser Browser darf noch nicht sichern: Unter „Erweitert“ steht, wie das Aleph-Konto ihn freigibt.',
+			creditsShort:
+				'Die Credits reichen nur noch etwa {days} Tage – danach bewahrt Aleph die Backups nicht mehr auf. Unter „Erweitert“ aufladen.',
+			refused:
+				'Aleph hat das letzte Backup abgelehnt. Unter „Erweitert“ steht, warum, und wie du es erneut beauftragst.',
+			none: 'Noch kein Backup. „Jetzt sichern“ macht das erste.',
+			unsaved: 'Zuletzt gesichert: {when}. Noch nicht gesichert: {list}.',
+			ok: 'Alles gesichert – zuletzt {when}.'
+		},
 		upload: 'Hochladen',
 		creditsLow:
 			'Die Credits für die Backups reichen nur noch etwa {days} Tage. Danach bewahrt Aleph die Backups nicht mehr auf.',

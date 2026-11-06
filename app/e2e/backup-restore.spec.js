@@ -20,7 +20,7 @@ import { defaultConfig, saveConfig } from '@belege/bridge';
 import { alephAccountOf, startFakeAleph } from '@belege/bridge/testing/aleph';
 import { addVirtualAuthenticator, forgetThisDevice } from './webauthn.js';
 import { acceptConsent } from './consent.js';
-import { openIntegration } from './integrations.js';
+import { openBackupAdvanced, openIntegration } from './integrations.js';
 import { pairBridge } from './bridge.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
@@ -133,6 +133,7 @@ test('a browser that lost everything gets its books back from the backup', async
 	// After the full backup, only what is new (#454): nothing yet – the backup's
 	// own bookkeeping in the settings does not count – then one payment.
 	const backups = page.getByTestId('backup-card');
+	await openBackupAdvanced(backups);
 	await expect(backups.getByTestId('backup-chain')).toContainText('Zuwachs 1 zum Vollbackup');
 	await backups.getByTestId('backup-now').click();
 	await expect(backups.getByTestId('backup-nothing-new')).toBeVisible({ timeout: 30_000 });
@@ -179,6 +180,7 @@ test('a browser that lost everything gets its books back from the backup', async
 	// Restoring lives in the backup card now: the list of backups is Aleph's
 	// for the account, and every full backup has its "Wiederherstellen".
 	const card = page.getByTestId('backup-card');
+	await openBackupAdvanced(card);
 	await expect(card.getByTestId('backup-no-owner')).toBeVisible();
 	await card.getByTestId('backup-owner').fill(alephAccountOf(KEY).toLowerCase());
 	await card.getByTestId('backup-owner-save').click();

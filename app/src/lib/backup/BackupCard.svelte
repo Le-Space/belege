@@ -323,6 +323,80 @@
 	const keptPerDay = $derived(creditsPerDay(keptBytes));
 	/** Below this many days of credits, a new backup asks first. */
 	const ASK_BELOW_DAYS = 30;
+
+	// The simple view (#656): a status line and what most people need; the
+	// rest under "Erweitert", open while something is still to set up, and
+	// otherwise as this browser last left it.
+	const ADVANCED_KEY = 'belege.backup.advanced';
+	/** @type {boolean | null} */
+	let advanced = $state(
+		(() => {
+			try {
+				const v = globalThis.localStorage?.getItem(ADVANCED_KEY);
+				return v === null || v === undefined ? null : v === '1';
+			} catch {
+				return null;
+			}
+		})()
+	);
+	/** Something to set up: no account yet, or this browser not let in and no bridge to sign. */
+	const setupNeeded = $derived(loaded && (!owner || (granted === false && !bridgeSigns)));
+	const advancedOpen = $derived(advanced ?? setupNeeded);
+	/** @param {boolean} open */
+	function keepAdvanced(open) {
+		if (open === advancedOpen) return;
+		advanced = open;
+		try {
+			globalThis.localStorage?.setItem(ADVANCED_KEY, open ? '1' : '0');
+		} catch {
+			// Blocked: this page only.
+		}
+	}
+	/** "Wiederherstellen …": the list of backups, opened on purpose. */
+	let restoreOpen = $state(false);
+	/** The newest backup Aleph took, and whether the newest of all was refused. */
+	const lastKept = $derived(
+		backups.find((b) => b.status === 'processed' || b.status === 'pending')
+	);
+	const lastRefused = $derived(backups[0]?.status === 'rejected');
+	/** @type {{ level: 'ok' | 'warn' | 'danger' | 'setup', text: string }} */
+	const backupStatus = $derived.by(() => {
+		if (!loaded) return { level: 'setup', text: t('backup.status.loading') };
+		if (!owner) return { level: 'setup', text: t('backup.status.noAccount') };
+		if (granted === false && !bridgeSigns)
+			return { level: 'setup', text: t('backup.status.notLetIn') };
+		const days = daysFor(keptPerDay);
+		if (credits !== null && days < ASK_BELOW_DAYS) {
+			return {
+				level: 'danger',
+				text: t('backup.status.creditsShort', { days: Math.max(0, Math.floor(days)) })
+			};
+		}
+		if (lastRefused) return { level: 'danger', text: t('backup.status.refused') };
+		if (!lastKept) return { level: 'warn', text: t('backup.status.none') };
+		if (backupDue.collections.length) {
+			return {
+				level: 'warn',
+				text: t('backup.status.unsaved', {
+					when: when(lastKept.at),
+					list: backupDue.collections.map((c) => t(`storage.databases.${c}`)).join(', ')
+				})
+			};
+		}
+		return { level: 'ok', text: t('backup.status.ok', { when: when(lastKept.at) }) };
+	});
+	const statusClass = {
+		ok: 'text-heading',
+		warn: 'text-heading',
+		danger: 'text-danger',
+		setup: 'text-text'
+	};
+	const dotClass = {
+		ok: 'bg-success',
+		warn: 'bg-warning',
+		danger: 'bg-danger',
+		setup: 'bg-faint'
+	};
 	/** @param {number} perDay */
 	const daysFor = (perDay) => (credits === null || perDay <= 0 ? Infinity : credits / perDay);
 
@@ -808,114 +882,21 @@
 
 <section class={card} aria-labelledby="backup-h" data-testid="backup-card">
 	<h2 id="backup-h" class="text-lg font-semibold text-heading">{t('backup.title')}</h2>
-	<p class="mt-1 text-sm text-text">{t('backup.what')}</p>
-	<!-- Said before anything goes up, not in a footnote: where it lies, what that
-	     is good for, what of it is public – and that the choice is the user's. -->
-	<div
-		class="mt-3 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm text-text"
-		role="note"
-		aria-labelledby="backup-public-h"
-		data-testid="backup-public"
+	<!-- At a glance: is everything backed up, and is there anything to do (#656). -->
+	<p
+		class="mt-2 flex items-start gap-2 text-sm {statusClass[backupStatus.level]}"
+		role="status"
+		data-testid="backup-status"
+		data-level={backupStatus.level}
 	>
-		<p id="backup-public-h" class="font-semibold text-heading">{t('backup.public.title')}</p>
-		<ul class="mt-1 list-disc space-y-1 pl-5">
-			<li>{t('backup.public.spread')}</li>
-			<li>{t('backup.public.sealed')}</li>
-			<li>{t('backup.public.open')}</li>
-		</ul>
-		<p class="mt-2">
-			{t('backup.public.alternative')}
-			<a
-				class="underline"
-				href={FILECOIN_ISSUE}
-				target="_blank"
-				rel="noopener noreferrer"
-				data-testid="backup-public-alternative">{t('backup.public.alternativeLink')}</a
-			>
-		</p>
-	</div>
-	{#if paired && status && !status.configured}
-		<p class="mt-2 text-sm text-text" data-testid="backup-not-set-up">
-			{t('backup.notSetUp')}
-			<code class="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-heading"
-				>pnpm setup:aleph</code
-			>
-		</p>
-	{/if}
+		<span
+			class="mt-1.5 inline-block size-2 shrink-0 rounded-full {dotClass[backupStatus.level]}"
+			aria-hidden="true"
+		></span>
+		<span>{backupStatus.text}</span>
+	</p>
 
 	{#if owner}
-		<dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-			<dt class="text-faint">{t('backup.account')}</dt>
-			<dd class="flex min-w-0 flex-wrap items-center gap-x-2">
-				<CopyButton
-					text={owner}
-					label={t('backup.copyAddress')}
-					testid="backup-address"
-					valueClass="font-mono text-xs break-all text-heading">{owner}</CopyButton
-				>
-				{#if !editingOwner}
-					<button
-						type="button"
-						class="text-xs text-link underline"
-						onclick={() => (editingOwner = true)}
-						disabled={Boolean(step)}
-						data-testid="backup-owner-change">{t('backup.ownerChange')}</button
-					>
-				{/if}
-			</dd>
-			<dt class="text-faint">{t('backup.credits')}</dt>
-			<dd class="flex flex-wrap items-baseline gap-x-2 text-heading" data-testid="backup-credits">
-				{credits === null ? t('backup.creditsUnknown') : creditsText(credits)}
-				<a
-					class="text-xs text-link underline"
-					href={ALEPH_CREDITS}
-					target="_blank"
-					rel="noopener noreferrer"
-					data-testid="backup-credits-link">{t('backup.creditsLink')}</a
-				>
-			</dd>
-			<dt class="text-faint">{t('backup.ownKey')}</dt>
-			<dd class="min-w-0">
-				<CopyButton
-					text={address ?? ''}
-					label={t('backup.copyAddress')}
-					testid="backup-key-address"
-					valueClass="font-mono text-xs break-all text-heading">{address}</CopyButton
-				>
-			</dd>
-		</dl>
-		{#if credits === 0}
-			<p class="text-warn mt-2 text-sm" data-testid="backup-no-credits">{t('backup.noCredits')}</p>
-		{/if}
-		{#if granted === true}
-			<p class="mt-2 text-sm text-text" data-testid="backup-granted">{t('backup.granted')}</p>
-		{:else}
-			<div class="mt-2 text-sm text-text" data-testid="backup-not-granted">
-				<p>
-					{granted === false
-						? bridgeSigns
-							? t('backup.notGrantedBridge')
-							: t('backup.notGranted')
-						: t('backup.grantUnknown')}
-				</p>
-				<CopyButton
-					text={command}
-					label={t('backup.copyCommand')}
-					testid="backup-grant-command"
-					valueClass="font-mono text-xs break-all text-heading">{command}</CopyButton
-				>
-				<p class="mt-1 text-xs text-faint" data-testid="backup-grant-dashboard">
-					{t('backup.grantDashboard', { channel: BACKUP_CHANNEL })}
-					<a
-						class="text-link underline"
-						href={ALEPH_PERMISSIONS}
-						target="_blank"
-						rel="noopener noreferrer">{t('backup.grantDashboardLink')}</a
-					>
-				</p>
-			</div>
-		{/if}
-		<p class="mt-3 text-xs text-faint">{t('backup.leaves')}</p>
 		<div class="mt-3 flex flex-wrap items-center gap-3">
 			<button
 				type="button"
@@ -924,22 +905,14 @@
 				disabled={Boolean(step) || !canBackUp}
 				data-testid="backup-now">{t('backup.now')}</button
 			>
-			{#if chainUsable}
+			{#if !restoreOpen && liveChains.length}
 				<button
 					type="button"
 					class={button}
-					onclick={() => backUp({ full: true })}
-					disabled={Boolean(step) || !canBackUp}
-					data-testid="backup-full">{t('backup.full')}</button
+					onclick={() => (restoreOpen = true)}
+					data-testid="backup-restore-open">{t('backup.restoreOpen')}</button
 				>
 			{/if}
-			<button
-				type="button"
-				class={button}
-				onclick={check}
-				disabled={Boolean(step) || checking}
-				data-testid="backup-check">{t('backup.check')}</button
-			>
 			{#if step}
 				<!-- under way: shown below, with its bar -->
 			{:else if app.network.paused}
@@ -959,14 +932,6 @@
 				</p>
 			</div>
 		{/if}
-		<p class="mt-2 text-xs text-faint" data-testid="backup-chain">
-			{chainUsable && chain
-				? t('backup.chainNext', {
-						sequence: chain.sequence + 1,
-						date: chainBase ? when(chainBase.at) : t('backup.chainElsewhere')
-					})
-				: t('backup.chainFirst')}
-		</p>
 		{#if chainUsable}
 			<div class="mt-3 text-sm" data-testid="backup-auto">
 				<label class="flex items-start gap-2 text-text">
@@ -1023,19 +988,11 @@
 					>
 				</div>
 			</div>
-		{:else if keptBytes > 0}
-			<p class="mt-2 text-xs text-faint" data-testid="backup-cost">
-				{t('backup.cost', {
-					size: size(keptBytes),
-					perDay: perDayText(keptPerDay),
-					days: daysText(daysFor(keptPerDay))
-				})}
-			</p>
 		{/if}
-	{:else if loaded}
+	{/if}
+	{#if !owner && loaded}
 		<p class="mt-2 text-sm text-text" data-testid="backup-no-owner">{t('backup.noOwner')}</p>
 	{/if}
-
 	{#if loaded && (!owner || editingOwner)}
 		<form
 			class="mt-3 flex flex-wrap items-end gap-2"
@@ -1075,7 +1032,6 @@
 		</form>
 		<p class="mt-1 text-xs text-faint">{t('backup.ownerHint')}</p>
 	{/if}
-
 	{#if made}
 		<div class="mt-3 text-sm" role="status" data-testid="backup-made">
 			<p class="text-heading">
@@ -1118,7 +1074,7 @@
 		<p class="mt-2 text-sm text-danger" role="alert" data-testid="backup-error">{shownError}</p>
 		<WayOut message={shownError} />
 	{/if}
-	{#if chains.length || owner}
+	{#if (restoreOpen || advancedOpen) && (chains.length || owner)}
 		<h3 class="mt-4 text-sm font-semibold text-heading">{t('backup.list.title')}</h3>
 		<p class="mt-1 text-xs text-faint">{t('backup.list.intro')}</p>
 		<p class="mt-1 text-xs text-faint">{t('restore.leaves')} {t('backup.holders.note')}</p>
@@ -1161,124 +1117,280 @@
 				</ul>
 			</details>
 		{/if}
-		<label class="mt-3 flex items-start gap-2 text-sm text-text" data-testid="restore-path">
-			<input
-				type="checkbox"
-				class="mt-1"
-				checked={restoreRun.path === 'gateway-first'}
-				disabled={restoreBusy()}
-				onchange={(e) => chooseRestorePath(e.currentTarget.checked)}
-				data-testid="restore-gateway-first"
-			/>
-			<span
-				>{t('restore.gatewayFirst')}
-				<span class="block text-xs text-faint"
-					>{restoreRun.path === 'gateway-first'
-						? t('restore.gatewayFirstOn')
-						: t('restore.gatewayFirstOff')}</span
-				></span
-			>
-		</label>
-		{#if keepAliveOffered()}
-			<label class="mt-3 flex items-start gap-2 text-sm text-text" data-testid="keep-alive">
+	{/if}
+	{#if restoreRun.chosen}
+		<div
+			class="mt-3 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
+			use:reveal
+			data-testid="restore-confirm"
+		>
+			<p class="text-text">{t('restore.confirm')}</p>
+			<p class="mt-1 font-mono text-xs break-all text-faint">{restoreRun.chosen}</p>
+			<div class="mt-2 flex gap-2">
+				<button type="button" class={button} onclick={doRestore} data-testid="restore-yes"
+					>{t('restore.yes')}</button
+				>
+				<button type="button" class={button} onclick={cancelRestore} data-testid="restore-no"
+					>{t('restore.no')}</button
+				>
+			</div>
+		</div>
+	{/if}
+	{#if restoreStepText()}
+		<p class="mt-3 text-sm text-faint" role="status" data-testid="restore-step">
+			{restoreStepText()}
+		</p>
+		<p class="mt-1 text-xs text-faint" data-testid="restore-keep-on">{t('backup.keepOn')}</p>
+	{/if}
+	{#if restoreRun.phase === 'done'}
+		<div class="mt-3 text-sm" role="status" data-testid="restore-done">
+			<p class="text-heading">{t('restore.done')}</p>
+			{#if restoreSourceText()}
+				<p class="text-xs text-faint" data-testid="restore-source">{restoreSourceText()}</p>
+			{/if}
+			{#if restoreRun.increments}
+				<p class="text-xs text-faint" data-testid="restore-done-increments">
+					{t('restore.doneIncrements', { count: restoreRun.increments })}
+				</p>
+			{/if}
+			<ul class="mt-1 text-xs text-faint">
+				{#each restoreRun.result.filter((d) => d.joined > 0) as d (d.collection)}
+					<li>{t(`storage.databases.${d.collection}`)}</li>
+				{/each}
+			</ul>
+		</div>
+	{/if}
+	{#if restoreRun.error}
+		<p class="mt-2 text-sm text-danger" role="alert" data-testid="restore-error">
+			{restoreRun.error}
+		</p>
+		{#if restoreRun.detail}
+			<details class="mt-1 text-xs" data-testid="restore-error-detail">
+				<summary class="cursor-pointer text-faint">{t('restore.detail')}</summary>
+				<p class="mt-1 font-mono break-all text-faint">{restoreRun.detail}</p>
+			</details>
+		{/if}
+	{/if}
+
+	<details
+		class="mt-4 border-t border-border pt-3 text-sm"
+		open={advancedOpen}
+		ontoggle={(e) => keepAdvanced(e.currentTarget.open)}
+		data-testid="backup-advanced"
+	>
+		<summary class="cursor-pointer font-medium text-heading">{t('backup.advanced')}</summary>
+		<p class="mt-1 text-sm text-text">{t('backup.what')}</p>
+		<!-- Said before anything goes up, not in a footnote: where it lies, what that
+	     is good for, what of it is public – and that the choice is the user's. -->
+		<div
+			class="mt-3 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm text-text"
+			role="note"
+			aria-labelledby="backup-public-h"
+			data-testid="backup-public"
+		>
+			<p id="backup-public-h" class="font-semibold text-heading">{t('backup.public.title')}</p>
+			<ul class="mt-1 list-disc space-y-1 pl-5">
+				<li>{t('backup.public.spread')}</li>
+				<li>{t('backup.public.sealed')}</li>
+				<li>{t('backup.public.open')}</li>
+			</ul>
+			<p class="mt-2">
+				{t('backup.public.alternative')}
+				<a
+					class="underline"
+					href={FILECOIN_ISSUE}
+					target="_blank"
+					rel="noopener noreferrer"
+					data-testid="backup-public-alternative">{t('backup.public.alternativeLink')}</a
+				>
+			</p>
+		</div>
+		{#if paired && status && !status.configured}
+			<p class="mt-2 text-sm text-text" data-testid="backup-not-set-up">
+				{t('backup.notSetUp')}
+				<code class="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-heading"
+					>pnpm setup:aleph</code
+				>
+			</p>
+		{/if}
+		{#if owner}
+			<dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+				<dt class="text-faint">{t('backup.account')}</dt>
+				<dd class="flex min-w-0 flex-wrap items-center gap-x-2">
+					<CopyButton
+						text={owner}
+						label={t('backup.copyAddress')}
+						testid="backup-address"
+						valueClass="font-mono text-xs break-all text-heading">{owner}</CopyButton
+					>
+					{#if !editingOwner}
+						<button
+							type="button"
+							class="text-xs text-link underline"
+							onclick={() => (editingOwner = true)}
+							disabled={Boolean(step)}
+							data-testid="backup-owner-change">{t('backup.ownerChange')}</button
+						>
+					{/if}
+				</dd>
+				<dt class="text-faint">{t('backup.credits')}</dt>
+				<dd class="flex flex-wrap items-baseline gap-x-2 text-heading" data-testid="backup-credits">
+					{credits === null ? t('backup.creditsUnknown') : creditsText(credits)}
+					<a
+						class="text-xs text-link underline"
+						href={ALEPH_CREDITS}
+						target="_blank"
+						rel="noopener noreferrer"
+						data-testid="backup-credits-link">{t('backup.creditsLink')}</a
+					>
+				</dd>
+				<dt class="text-faint">{t('backup.ownKey')}</dt>
+				<dd class="min-w-0">
+					<CopyButton
+						text={address ?? ''}
+						label={t('backup.copyAddress')}
+						testid="backup-key-address"
+						valueClass="font-mono text-xs break-all text-heading">{address}</CopyButton
+					>
+				</dd>
+			</dl>
+			{#if credits === 0}
+				<p class="text-warn mt-2 text-sm" data-testid="backup-no-credits">
+					{t('backup.noCredits')}
+				</p>
+			{/if}
+			{#if granted === true}
+				<p class="mt-2 text-sm text-text" data-testid="backup-granted">{t('backup.granted')}</p>
+			{:else}
+				<div class="mt-2 text-sm text-text" data-testid="backup-not-granted">
+					<p>
+						{granted === false
+							? bridgeSigns
+								? t('backup.notGrantedBridge')
+								: t('backup.notGranted')
+							: t('backup.grantUnknown')}
+					</p>
+					<CopyButton
+						text={command}
+						label={t('backup.copyCommand')}
+						testid="backup-grant-command"
+						valueClass="font-mono text-xs break-all text-heading">{command}</CopyButton
+					>
+					<p class="mt-1 text-xs text-faint" data-testid="backup-grant-dashboard">
+						{t('backup.grantDashboard', { channel: BACKUP_CHANNEL })}
+						<a
+							class="text-link underline"
+							href={ALEPH_PERMISSIONS}
+							target="_blank"
+							rel="noopener noreferrer">{t('backup.grantDashboardLink')}</a
+						>
+					</p>
+				</div>
+			{/if}
+			<p class="mt-3 text-xs text-faint">{t('backup.leaves')}</p>
+			<div class="mt-3 flex flex-wrap items-center gap-3">
+				{#if chainUsable}
+					<button
+						type="button"
+						class={button}
+						onclick={() => backUp({ full: true })}
+						disabled={Boolean(step) || !canBackUp}
+						data-testid="backup-full">{t('backup.full')}</button
+					>
+				{/if}
+				<button
+					type="button"
+					class={button}
+					onclick={check}
+					disabled={Boolean(step) || checking}
+					data-testid="backup-check">{t('backup.check')}</button
+				>
+			</div>
+			<p class="mt-2 text-xs text-faint" data-testid="backup-chain">
+				{chainUsable && chain
+					? t('backup.chainNext', {
+							sequence: chain.sequence + 1,
+							date: chainBase ? when(chainBase.at) : t('backup.chainElsewhere')
+						})
+					: t('backup.chainFirst')}
+			</p>
+			{#if keptBytes > 0}
+				<p class="mt-2 text-xs text-faint" data-testid="backup-cost">
+					{t('backup.cost', {
+						size: size(keptBytes),
+						perDay: perDayText(keptPerDay),
+						days: daysText(daysFor(keptPerDay))
+					})}
+				</p>
+			{/if}
+		{/if}
+		{#if chains.length || owner}
+			<label class="mt-3 flex items-start gap-2 text-sm text-text" data-testid="restore-path">
 				<input
 					type="checkbox"
 					class="mt-1"
-					checked={keepAlive}
-					disabled={restoreBusy() || Boolean(step)}
-					onchange={(e) => {
-						keepAlive = e.currentTarget.checked;
-						setKeepAlive(globalThis.localStorage, keepAlive);
-					}}
-					data-testid="keep-alive-on"
+					checked={restoreRun.path === 'gateway-first'}
+					disabled={restoreBusy()}
+					onchange={(e) => chooseRestorePath(e.currentTarget.checked)}
+					data-testid="restore-gateway-first"
 				/>
 				<span
-					>{t('keepAlive.label')}
+					>{t('restore.gatewayFirst')}
 					<span class="block text-xs text-faint"
-						>{keepAlive ? t('keepAlive.on') : t('keepAlive.off')}</span
+						>{restoreRun.path === 'gateway-first'
+							? t('restore.gatewayFirstOn')
+							: t('restore.gatewayFirstOff')}</span
 					></span
 				>
 			</label>
-		{/if}
-		<details class="mt-3 text-sm" data-testid="backup-restore-by-cid">
-			<summary class="cursor-pointer text-xs text-faint">{t('backup.list.byCid')}</summary>
-			<form
-				class="mt-2 flex flex-wrap items-end gap-2"
-				onsubmit={(e) => {
-					e.preventDefault();
-					askRestore(typedCid);
-				}}
-			>
-				<label class="flex min-w-64 flex-1 flex-col text-sm text-faint"
-					>{t('restore.cidLabel')}
+			{#if keepAliveOffered()}
+				<label class="mt-3 flex items-start gap-2 text-sm text-text" data-testid="keep-alive">
 					<input
-						class="mt-1 rounded-md border border-border bg-surface px-2 py-1.5 font-mono text-xs text-heading"
-						bind:value={typedCid}
-						autocomplete="off"
-						spellcheck="false"
-						data-testid="restore-cid"
+						type="checkbox"
+						class="mt-1"
+						checked={keepAlive}
+						disabled={restoreBusy() || Boolean(step)}
+						onchange={(e) => {
+							keepAlive = e.currentTarget.checked;
+							setKeepAlive(globalThis.localStorage, keepAlive);
+						}}
+						data-testid="keep-alive-on"
 					/>
+					<span
+						>{t('keepAlive.label')}
+						<span class="block text-xs text-faint"
+							>{keepAlive ? t('keepAlive.on') : t('keepAlive.off')}</span
+						></span
+					>
 				</label>
-				<button
-					type="submit"
-					class={button}
-					disabled={restoreBusy() || !typedCid.trim()}
-					data-testid="restore-typed">{t('restore.pick')}</button
-				>
-			</form>
-		</details>
-		{#if restoreRun.chosen}
-			<div
-				class="mt-3 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
-				use:reveal
-				data-testid="restore-confirm"
-			>
-				<p class="text-text">{t('restore.confirm')}</p>
-				<p class="mt-1 font-mono text-xs break-all text-faint">{restoreRun.chosen}</p>
-				<div class="mt-2 flex gap-2">
-					<button type="button" class={button} onclick={doRestore} data-testid="restore-yes"
-						>{t('restore.yes')}</button
-					>
-					<button type="button" class={button} onclick={cancelRestore} data-testid="restore-no"
-						>{t('restore.no')}</button
-					>
-				</div>
-			</div>
-		{/if}
-		{#if restoreStepText()}
-			<p class="mt-3 text-sm text-faint" role="status" data-testid="restore-step">
-				{restoreStepText()}
-			</p>
-			<p class="mt-1 text-xs text-faint" data-testid="restore-keep-on">{t('backup.keepOn')}</p>
-		{/if}
-		{#if restoreRun.phase === 'done'}
-			<div class="mt-3 text-sm" role="status" data-testid="restore-done">
-				<p class="text-heading">{t('restore.done')}</p>
-				{#if restoreSourceText()}
-					<p class="text-xs text-faint" data-testid="restore-source">{restoreSourceText()}</p>
-				{/if}
-				{#if restoreRun.increments}
-					<p class="text-xs text-faint" data-testid="restore-done-increments">
-						{t('restore.doneIncrements', { count: restoreRun.increments })}
-					</p>
-				{/if}
-				<ul class="mt-1 text-xs text-faint">
-					{#each restoreRun.result.filter((d) => d.joined > 0) as d (d.collection)}
-						<li>{t(`storage.databases.${d.collection}`)}</li>
-					{/each}
-				</ul>
-			</div>
-		{/if}
-		{#if restoreRun.error}
-			<p class="mt-2 text-sm text-danger" role="alert" data-testid="restore-error">
-				{restoreRun.error}
-			</p>
-			{#if restoreRun.detail}
-				<details class="mt-1 text-xs" data-testid="restore-error-detail">
-					<summary class="cursor-pointer text-faint">{t('restore.detail')}</summary>
-					<p class="mt-1 font-mono break-all text-faint">{restoreRun.detail}</p>
-				</details>
 			{/if}
+			<details class="mt-3 text-sm" data-testid="backup-restore-by-cid">
+				<summary class="cursor-pointer text-xs text-faint">{t('backup.list.byCid')}</summary>
+				<form
+					class="mt-2 flex flex-wrap items-end gap-2"
+					onsubmit={(e) => {
+						e.preventDefault();
+						askRestore(typedCid);
+					}}
+				>
+					<label class="flex min-w-64 flex-1 flex-col text-sm text-faint"
+						>{t('restore.cidLabel')}
+						<input
+							class="mt-1 rounded-md border border-border bg-surface px-2 py-1.5 font-mono text-xs text-heading"
+							bind:value={typedCid}
+							autocomplete="off"
+							spellcheck="false"
+							data-testid="restore-cid"
+						/>
+					</label>
+					<button
+						type="submit"
+						class={button}
+						disabled={restoreBusy() || !typedCid.trim()}
+						data-testid="restore-typed">{t('restore.pick')}</button
+					>
+				</form>
+			</details>
 		{/if}
-	{/if}
+	</details>
 </section>
