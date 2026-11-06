@@ -15,7 +15,7 @@ import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
 import { acceptConsent } from './consent.js';
-import { openIntegration } from './integrations.js';
+import { openDevicesAdvanced, openIntegration } from './integrations.js';
 import { device, samePasskey } from './devices.js';
 import { RELAY_IDENTIFY_LOG } from './relay.js';
 
@@ -147,6 +147,9 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 		// … and the Mac's sync log has it: from the phone, a payment, new – with
 		// when the phone last sent something beside it in the device list.
 		await openIntegration(mac.page, 'geraete');
+		// Known devices now: "Erweitert", where the log lives, starts closed.
+		await expect(mac.page.getByTestId('devices-advanced')).not.toHaveAttribute('open');
+		await openDevicesAdvanced(mac.page);
 		const log = mac.page.getByTestId('sync-log');
 		await log.locator('summary').click();
 		const came = log

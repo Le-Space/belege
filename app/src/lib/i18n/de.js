@@ -1617,6 +1617,11 @@ export default {
 	devices: {
 		title: 'Eigene Geräte',
 		what: 'Dieselben Bücher auf deinem Telefon oder einem zweiten Rechner: Beide Geräte brauchen denselben Passkey (über den Schlüsselbund synchronisiert) und die eingeschaltete Synchronisation.',
+		status: {
+			connected: 'Andere Geräte verbunden: {connected} von {count}',
+			none: 'Noch kein anderes Gerät – eins kommt unter „Erweitert“ dazu.'
+		},
+		advanced: 'Erweitert',
 		off: 'Auf diesem Gerät ist die Synchronisation aus. Einschalten im Hinweis „Datenschutz & Technik“ unter „Eigene Geräte synchronisieren“; sie gilt ab dem nächsten Entsperren.',
 		openConsent: 'Hinweis öffnen',
 		pending: 'Eingeschaltet – gilt ab dem nächsten Entsperren (Seite neu laden).',
@@ -1634,7 +1639,6 @@ export default {
 			'Ein Gerät mit dem Schlüssel dieser Bücher möchte dazukommen. Lass es nur herein, wenn es deins oder das eines Mitglieds ist – ein herausgenommenes Mitglied hat den Schlüssel noch.',
 		askingYes: 'Zulassen',
 		askingNo: 'Ablehnen',
-		none: 'Noch kein anderes Gerät.',
 		connected: 'verbunden',
 		direct: 'direkt',
 		viaRelay: 'über den Relay',
