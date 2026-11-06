@@ -3,7 +3,7 @@
 // Ethereum address manager). The app keeps the f410f form, so a wallet is one
 // whichever way it was typed, and its own address matches the Filecoin
 // addresses Filfox names in its bookings. The same conversion as the
-// bridge's (bridge/src/chains/filecoin.js `toFilecoinAddress`); both tests
+// bridge's (packages/chain-filecoin/src/filecoin.js `toFilecoinAddress`); both tests
 // pin one value.
 
 import { blake2b } from '@noble/hashes/blake2.js';

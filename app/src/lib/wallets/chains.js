@@ -108,7 +108,7 @@ export const WALLET_CHAINS = Object.freeze({
 		nativeSlip44: 0
 	},
 	// Read by address through Filfox; a message CID is the hash, the same an
-	// exchange reports for a deposit (bridge/src/chains/filecoin.js).
+	// exchange reports for a deposit (packages/chain-filecoin/src/filecoin.js).
 	filecoin: {
 		id: 'filecoin',
 		kind: 'filecoin',

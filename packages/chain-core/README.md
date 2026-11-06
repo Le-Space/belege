@@ -8,7 +8,7 @@ What every chain reader in Belege shares (#264):
 - `markSwaps` – a transaction that gives one asset and gets another becomes a swap.
 - `WalletEntry` (`@belege/chain-core/entry`) – the neutral record a reader hands out: one per value movement, signed from the wallet's side, the fee as an entry of its own.
 
-The bridge's readers (`bridge/src/chains/`) and `@belege/chain-cosmos` use it. It has no dependency.
+The bridge's readers (`bridge/src/chains/`), `@belege/chain-cosmos` and `@belege/chain-filecoin` use it. It has no dependency.
 
 ```bash
 pnpm --filter @belege/chain-core test

@@ -27,20 +27,24 @@
 //   GET /address/<a>/token-transfers?pageSize=100&page=<n>
 //
 // gives them, by message too. Only the tokens listed for the chain are
-// booked (registry.js `tokens`, by contract – a token's symbol is its own
+// booked (chain.js `tokens`, by contract – a token's symbol is its own
 // claim); their balance is the sum of the whole history. A message in which
 // the wallet gives one asset and gets another is a swap, as on the EVM
-// chains (evm.js markSwaps): a FIL → USDFC swap on SushiSwap, say. Its router
+// chains (@belege/chain-core markSwaps): a FIL → USDFC swap on SushiSwap, say. Its router
 // is named from the message's receiver (`GET /message/<cid>`, asked for swaps
-// only) where it is a known contract (registry.js `contracts`).
+// only) where it is a known contract (chain.js `contracts`).
 
 import { base32nopad } from '@scure/base';
 import { blake2b } from '@noble/hashes/blake2.js';
 
-import { txUrl, addressUrl } from './registry.js';
-import { createJsonFetcher, WalletError } from './http.js';
-import { unitsToDecimal } from './cosmos.js';
-import { markSwaps } from './evm.js';
+import {
+	addressUrl,
+	createJsonFetcher,
+	markSwaps,
+	txUrl,
+	unitsToDecimal,
+	WalletError
+} from '@belege/chain-core';
 
 const PAGE = 100;
 
@@ -118,8 +122,8 @@ export function isFilecoinAddress(address) {
  * Filfox's transfers of one address → wallet entries.
  *
  * @param {FilfoxTransfer[]} transfers
- * @param {import('./registry.js').FilecoinChain} chain
- * @returns {import('./cosmos.js').WalletEntry[]}
+ * @param {import('./chain.js').FilecoinChain} chain
+ * @returns {import('@belege/chain-core/entry').WalletEntry[]}
  */
 export function normalizeFilecoin(transfers, chain) {
 	const { symbol, decimals } = chain.native;
@@ -131,7 +135,7 @@ export function normalizeFilecoin(transfers, chain) {
 		list.push(t);
 		byMessage.set(t.message, list);
 	}
-	/** @type {import('./cosmos.js').WalletEntry[]} */
+	/** @type {import('@belege/chain-core/entry').WalletEntry[]} */
 	const entries = [];
 	for (const [cid, list] of byMessage) {
 		const first = list[0];
@@ -207,16 +211,16 @@ export function normalizeFilecoin(transfers, chain) {
  * tokens, and the moves of other tokens (they only name a swap's side).
  *
  * @param {FilfoxTokenTransfer[]} transfers
- * @param {import('./registry.js').FilecoinChain} chain
+ * @param {import('./chain.js').FilecoinChain} chain
  * @param {string} address the wallet, as f410f… (or f1/f3/f0)
- * @returns {{ entries: import('./cosmos.js').WalletEntry[], unlisted: { hash: string, asset: string, amount: string, listed: false }[], unknownTokens: string[] }}
+ * @returns {{ entries: import('@belege/chain-core/entry').WalletEntry[], unlisted: { hash: string, asset: string, amount: string, listed: false }[], unknownTokens: string[] }}
  */
 export function normalizeFilecoinTokens(transfers, chain, address) {
-	/** @type {Map<string, import('./registry.js').ChainAsset>} f410f contract → asset */
+	/** @type {Map<string, import('@belege/chain-core/entry').ChainAsset>} f410f contract → asset */
 	const listed = new Map(
 		Object.entries(chain.tokens ?? {}).map(([contract, a]) => [toFilecoinAddress(contract), a])
 	);
-	/** @type {import('./cosmos.js').WalletEntry[]} */
+	/** @type {import('@belege/chain-core/entry').WalletEntry[]} */
 	const entries = [];
 	/** @type {{ hash: string, asset: string, amount: string, listed: false }[]} */
 	const unlisted = [];
@@ -284,7 +288,7 @@ export function createFilecoinClient({ fetch: f, timeoutMs, sleep }) {
 
 	return {
 		/**
-		 * @param {{ chain: import('./registry.js').FilecoinChain, address: string, endpoints: { api: string } }} params
+		 * @param {{ chain: import('./chain.js').FilecoinChain, address: string, endpoints: { api: string } }} params
 		 */
 		async history({ chain, address, endpoints }) {
 			// A `0x…` address is read as its f410f form (toFilecoinAddress).
