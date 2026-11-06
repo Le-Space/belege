@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The threat model in plain German, and the use cases brought up to date** (#680). In both languages: the books' keys come from the books' root, which the passkey opens; a device needs the books' key and to be known or let in; after a compromised browser, new keys for the books help. The use cases name the bridge share as for own devices only, list the two roles of an assistant, call the AI assistant's view by its name, and show the check both sides compare when joining.
+
 ## [0.29.4] – 2026-11-06
 
 ### Fixed
