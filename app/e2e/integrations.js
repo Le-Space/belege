@@ -29,14 +29,31 @@ export async function openDevicesAdvanced(page) {
 }
 
 /**
- * The backup card's "Erweitert", opened if it is not (#656): account, key,
- * grant, the full backup, the list and its options live there.
+ * The backup card's "Erweitert", opened so that it stays open (#656): account,
+ * key, grant, the full backup, the list and its options live there.
+ *
+ * It opens by itself while something is still to set up – and closes by
+ * itself once that is done, e.g. when the books' account arrives by sync. A
+ * spec that found it open that way would lose it halfway. So it is opened the
+ * way a person keeps it open: chosen, which this browser remembers. Each
+ * click waits for the card to take it (toggle events of two quick clicks may
+ * merge into one).
  *
  * @param {import('@playwright/test').Locator} card the backup card
  */
 export async function openBackupAdvanced(card) {
 	const advanced = card.getByTestId('backup-advanced');
-	if (!(await advanced.evaluate((d) => /** @type {HTMLDetailsElement} */ (d).open))) {
-		await advanced.locator('summary').first().click();
+	const summary = advanced.locator('summary').first();
+	const isOpen = () => advanced.evaluate((d) => /** @type {HTMLDetailsElement} */ (d).open);
+	const chosen = () =>
+		card.page().evaluate(() => globalThis.localStorage.getItem('belege.backup.advanced'));
+	if ((await chosen()) === '1' && (await isOpen())) return;
+	if (await isOpen()) {
+		// Open only because something is still to set up: closed first, then chosen.
+		await summary.click();
+		await expect.poll(chosen).toBe('0');
 	}
+	await summary.click();
+	await expect.poll(chosen).toBe('1');
+	await expect.poll(isOpen).toBe(true);
 }
