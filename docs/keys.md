@@ -107,12 +107,15 @@ sequenceDiagram
     participant O as Owner's device
     M->>M: new member root, one-time x25519 key
     M-->>O: join code (by mail, chat or QR): one-time public key, member's DID, device id
-    Note over M,O: both screens show the same fingerprint – compare it
+    Note over M,O: the owner compares the code's check with the bookkeeping's screen
     O->>O: write access for the member's DID, member and device in the books
     O-->>M: answer: the key bundle, sealed to the one-time key
+    Note over M,O: the bookkeeping compares the books' check with the owner's screen
     M->>M: member vault: bundle + member root, sealed under the member's passkey
     Note over M,O: from the next unlock: "Bücher, in denen ich Mitglied bin"
 ```
+
+So both sides compare a check before anything is written or kept ([#640](https://github.com/Le-Space/belege/issues/640)). If it differs, the code or the answer was swapped on the way, and you stop.
 
 **What the bundle holds:** the database key, the replication key, the receipt-file key, the device-proof key – and for a member who writes the backup key, and if they may use the bridge the bridge key's base –, the databases' names and addresses, and the books' public identity. **What it never holds:** R, the books' secret, the vault key, a passkey slot or the recovery words.
 
@@ -120,11 +123,12 @@ sequenceDiagram
 
 - **Writes along** – the bookkeeping, or an assistant who works in the books: reads, writes under their own name (a DID from their own root, which the books' access lists allow), backs up and restores. Reaching the owner's bridge (bank, mailbox, AI) is a tick when admitting; without it the bundle holds no bridge key.
 - **Reads along** – an assistant who follows the books: the keys to read and sync only – no write access in any access list, no backup key, no bridge key. Their session opens the books read-only; every write is refused there, and by every device.
-  **What stays with the owner:** passkeys and recovery words of the books, moving the books, letting members in.
+
+**What stays with the owner:** passkeys and recovery words of the books, moving the books, letting members in and taking them out.
 
 **The member vault** works like the books' vault: the bundle and the member's own root, sealed under a vault key, with a slot for the member's passkey. It lies in the member's browser (`belege.memberships.v1`) and, after the member's first backup, at the memberships' index on Aleph – sealed, without names. On an empty device the member's passkey finds it there ([backup.md](backup.md#members-back-up-and-restore)).
 
-**Taking a member out** (_Integrationen → Zusammenarbeit_, [#614](https://github.com/Le-Space/belege/issues/614)): what they wrote so far stays; anything they write after is refused by every device of the books; their devices so far leave the device list and are refused. The write access is not revoked in OrbitDB – it checks old entries against the current list too, and the member's earlier entries would no longer replicate. Instead every collection's access list gets `removed:<their DID>` with the hashes of their entries so far, and an entry of theirs counts only if it is one of those (`app/src/lib/store/books-access.js`).
+**Taking a member out** (_Integrationen → Zusammenarbeit_, [#614](https://github.com/Le-Space/belege/issues/614)): what they wrote so far stays; anything they write after is refused by every device of the books; their devices so far leave the device list and are refused, and their old join code no longer works. A setting only the owner sets (where the backups are kept and who signs them, the bridge, how devices meet, the vault on Aleph, the invoicing app) is put back if they changed it. The write access is not revoked in OrbitDB – it checks old entries against the current list too, and the member's earlier entries would no longer replicate. Instead every collection's access list gets `removed:<their DID>` with the hashes of their entries so far, and an entry of theirs counts only if it is one of those (`app/src/lib/store/books-access.js`).
 
 **What cannot be taken back:** what the member has read. With the keys in their bundle they could also read later entries, if they got hold of them, until the books get [new keys](#new-keys-for-the-books).
 
@@ -136,7 +140,7 @@ _Einstellungen → Schlüssel → Neue Schlüssel für die Bücher_ ([#627](http
 2. The books are packed in this browser as a move does, sealed under a key from R′, and kept in IndexedDB until they are taken over.
 3. The new vault goes into the old books. It holds nothing secret in the clear; only a passkey with a slot opens it.
 4. The page reloads; one unlock opens new databases under R′ – new names, new keys, a new identity of the books – and they take the packed books over. The pack is deleted.
-5. Another device of yours finds the new vault in the old books and switches, if its passkey has a slot; it then dials this device.
+5. Another device of yours finds the new vault in the old books and switches, if its passkey has a slot; it then dials this device. A device follows that note only when the books themselves wrote it, not a member ([#638](https://github.com/Le-Space/belege/issues/638)).
 
 What does not come along: the recovery words (write down new ones), members (they join again with a new join code), the bridge pairing (pair again), the backup chain (the next backup is a full one). Backups made before still restore ([#628](https://github.com/Le-Space/belege/issues/628)): the backup opens with the earlier root kept in the vault, only entries the books of that time signed count, and they add only records today's books do not have – no settings –, the receipt files sealed anew. A passkey you did not tick, and a member taken out, keep only the old books, which get nothing new.
 

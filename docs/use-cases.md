@@ -57,7 +57,7 @@ books.
 
 **Through the open computer.** You want the bridge never to go online itself? Start it with
 `pnpm bridge --no-node`. On the computer, switch on "Bridge dieses Rechners für eigene Geräte
-freigeben" under Eigene Geräte. Your phone then asks the Belege tab on the computer, and that tab
+freigeben" under Eigene Geräte → Erweitert. Your phone then asks the Belege tab on the computer, and that tab
 asks the bridge. This works only while that tab is open and unlocked, and the phone may only read
 and ask, never set up or delete.
 
