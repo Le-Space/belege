@@ -7,7 +7,8 @@ import {
 	receiptsOfTrip,
 	suggestTrips,
 	tipOf,
-	travelQuestions
+	travelQuestions,
+	tripTotals
 } from './view.js';
 
 // All trips, receipts and places here are made up.
@@ -326,5 +327,47 @@ describe('a hospitality bill’s tip: who paid it (#213)', () => {
 				matches: [{ receiptId: 'H', transactionId: 'X', state: 'confirmed' }]
 			})
 		).toEqual({ cents: 500, paidBy: 'private' });
+	});
+});
+
+describe('what a trip costs in all (#693)', () => {
+	const figures = { allowanceCents: 2800, mileageCents: 7200, lodgingCents: 0 };
+	const onTrip = (/** @type {string} */ id, /** @type {Record<string, any>} */ over) =>
+		receipt(id, { travel: { tripId: 'T', paidBy: 'private' }, ...over });
+
+	it('receipts by who paid, tips, allowances and mileage; what is paid back apart', () => {
+		const receipts = [
+			onTrip('ticket', { amountCents: 4990 }),
+			onTrip('hotel', { amountCents: 11200, travel: { tripId: 'T', paidBy: 'company' } }),
+			onTrip('bus', { amountCents: 1900 }),
+			onTrip('dinner', {
+				amountCents: 11900,
+				hospitality: { place: 'Gasthaus Beispiel', tipCents: 500, tipTo: 'Service' }
+			}),
+			onTrip('rubles', { amountCents: 150000, currency: 'RUB' })
+		];
+		const books = {
+			// The bus was booked as an outlay (#293).
+			transactions: [
+				{ id: 'O', source: 'outlay', outlay: { receiptId: 'bus' }, amountCents: -1900 }
+			],
+			matches: []
+		};
+		const totals = tripTotals(receipts, figures, books);
+		expect(totals).toEqual({
+			privateCents: 4990 + 11900,
+			outlayCents: 1900,
+			companyCents: 11200,
+			tipPrivateCents: 500,
+			tipCents: 500,
+			withoutRate: 1,
+			toPayBackCents: 2800 + 7200 + 4990 + 11900 + 500,
+			totalCents: 2800 + 7200 + 4990 + 11900 + 1900 + 11200 + 500
+		});
+	});
+
+	it('no receipts: the allowances and mileage alone', () => {
+		expect(tripTotals([], figures).totalCents).toBe(10000);
+		expect(tripTotals([], null).totalCents).toBe(0);
 	});
 });

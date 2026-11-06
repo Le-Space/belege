@@ -9,7 +9,7 @@
 // skips one that was deleted or read meanwhile.
 
 import { SvelteSet } from 'svelte/reactivity';
-import { extractReceipt, extractable } from './extract.js';
+import { extractReceipt, extractable, rereadable } from './extract.js';
 import { isRateLimit, isRefusal, runQueue } from '../jobs/queue.js';
 import { savePending } from '../jobs/pending.js';
 import { loadWorkers } from '../jobs/workers.js';
@@ -85,11 +85,16 @@ export async function extractOne(ctx, record, { rethrowLimit = false } = {}) {
  * "Alle neuen auslesen": the given receipts, a few at a time (jobs/queue.js). Refused (false)
  * while a run is going.
  *
+ * With `again`, receipts read before are read once more (a trip's receipts,
+ * #693): such a run is not kept for "Weitermachen" after a reload, since
+ * that takes up only receipts not read yet.
+ *
  * @param {Context} ctx
  * @param {string[]} ids the receipts to read, in order
+ * @param {{ again?: boolean }} [options]
  * @returns {Promise<boolean>} whether this run started (it has ended when this resolves)
  */
-export async function extractAll(ctx, ids) {
+export async function extractAll(ctx, ids, { again = false } = {}) {
 	const books = ctx.store();
 	if (!books) return false;
 	const settings = ctx.settings ?? books.settings ?? null;
@@ -105,13 +110,14 @@ export async function extractAll(ctx, ids) {
 			if (!store) return;
 			const record = await store.receipts.get(id);
 			// Deleted, read or no longer waiting meanwhile: skip it.
-			if (record && extractable([record]).length) {
+			if (record && (again ? rereadable([record]) : extractable([record])).length) {
 				await extractOne(ctx, record, { rethrowLimit: true });
 			}
 		},
-		onProgress: (left) => settings && savePending(settings, 'extract', left),
+		onProgress: (left) => settings && !again && savePending(settings, 'extract', left),
 		onEnd: (left, how) =>
 			settings &&
+			!again &&
 			savePending(settings, 'extract', how === 'closed' || how === 'stopped' ? left : [])
 	});
 }

@@ -50,7 +50,8 @@
 		hospitalityOf,
 		receiptsOfTrip,
 		travelKind,
-		tripDays
+		tripDays,
+		tripTotals
 	} from '$lib/travel/view.js';
 
 	const thisMonth = new Date().toISOString().slice(0, 7);
@@ -75,15 +76,21 @@
 	let shown = $derived(
 		theirs
 			.filter((x) => tripMonth(x) === month)
-			.map((trip) => ({
-				trip,
-				figures: tripFigures(
+			.map((trip) => {
+				const figures = tripFigures(
 					trip,
 					trips.filter((o) => o.travellerId === trip.travellerId),
 					{ traveller: travellers.find((p) => p.id === trip.travellerId) ?? null }
-				),
-				receipts: receiptsOfTrip(app.receipts, trip.id).length
-			}))
+				);
+				const ofTrip = receiptsOfTrip(app.receipts, trip.id);
+				// What it costs in all, receipts included (#693), not the allowances alone.
+				return {
+					trip,
+					figures,
+					receipts: ofTrip.length,
+					totals: tripTotals(ofTrip, figures, app)
+				};
+			})
 	);
 	let untimed = $derived(theirs.filter((x) => !tripMonth(x)));
 	// Hospitality bills of no trip are the owner's (statement.js).
@@ -650,12 +657,16 @@
 								>{x.trip.reason || '—'} · {t('reisen.receipts', { count: x.receipts })}</span
 							>
 						</span>
-						<span class="font-mono tabular-nums" data-testid="reisen-trip-sum"
-							>{formatMoney(
-								x.figures.allowanceCents + x.figures.mileageCents + x.figures.lodgingCents,
-								'EUR'
-							)}</span
-						>
+						<span class="text-right" data-testid="reisen-trip-sum">
+							<span class="block font-mono tabular-nums" data-testid="reisen-trip-total"
+								>{formatMoney(x.totals.totalCents, 'EUR')}</span
+							>
+							<span class="block text-xs text-faint" data-testid="reisen-trip-back"
+								>{t('reisen.tripBack', {
+									amount: formatMoney(x.totals.toPayBackCents, 'EUR')
+								})}</span
+							>
+						</span>
 					</a>
 				</li>
 			{/each}

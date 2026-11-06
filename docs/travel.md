@@ -32,7 +32,8 @@ A trip's page holds:
   - Own car 0,30 €/km, motorcycle or moped 0,20 €/km; a bicycle has no flat rate.
   - **A family member's car:** the flat rate, flagged _Fremdes Fahrzeug – mit Steuerberatung klären_, with its owner and who bears its running costs.
   - A company car or a rental gets no mileage (fuel and rental are receipts).
-- **Receipts** of the trip with who paid them, the allowance per day, and **what the trip comes to**: allowances + mileage + overnight flat rates + receipts paid privately.
+- **Receipts** of the trip with who paid them, the allowance per day, and **what the trip comes to**: _Zu erstatten_ – allowances + mileage + overnight flat rates + receipts and tips paid privately – and the **total cost of the trip**, which adds the receipts booked as outlays (paid back through the outlay account) and those the company paid. A receipt in another currency without a rate counts nothing, and is named. On Reisen each trip shows its total, and below it what is paid back.
+- **"✦ Belege der Reise neu auslesen"** sends all the trip's receipts to your language model once more, for instance after the reading learned something new. It runs on the app's queue like "Alle neuen auslesen"; what you changed on a receipt stays. A reload stops the run and "Weitermachen" does not offer it: click again.
 
 What a trip lacks (times, a reason, km) is named, and the trip is saved all the same.
 

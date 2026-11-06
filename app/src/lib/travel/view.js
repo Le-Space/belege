@@ -312,6 +312,56 @@ export function tipOf(receipt, { transactions = [], matches = [] } = {}) {
 }
 
 /**
+ * What a trip costs in all, and what of it is paid back (#693): its receipts
+ * by who paid them (privately, booked as an outlay, by the company), the tips
+ * of its hospitality bills, the allowances, mileage and overnight flat rates.
+ * Receipts whose euros are not known yet count nothing and are counted apart.
+ *
+ * @param {Rec[]} receipts the trip's (receiptsOfTrip)
+ * @param {{ allowanceCents: number, mileageCents: number, lodgingCents: number } | null} figures records.js tripFigures
+ * @param {{ transactions?: Rec[], matches?: Rec[] }} [books]
+ */
+export function tripTotals(receipts, figures, books = {}) {
+	// Booked as private outlays (#293): paid back through the outlay account, as the statement counts them.
+	const outlays = new Set(
+		(books.transactions ?? [])
+			.filter((t) => !t.deleted && isOutlay(t) && t.outlay?.receiptId)
+			.map((t) => String(t.outlay.receiptId))
+	);
+	let privateCents = 0;
+	let outlayCents = 0;
+	let companyCents = 0;
+	let tipPrivateCents = 0;
+	let tipCompanyCents = 0;
+	let withoutRate = 0;
+	for (const r of receipts) {
+		const euro = euroOf(r, books);
+		if (euro.cents === null) withoutRate += 1;
+		const cents = euro.cents ?? 0;
+		if (r.travel?.paidBy === 'company') companyCents += cents;
+		else if (outlays.has(String(r.id))) outlayCents += cents;
+		else if (r.travel?.paidBy === 'private') privateCents += cents;
+		if (r.hospitality) {
+			const tip = tipOf(r, books);
+			if (tip.paidBy === 'private') tipPrivateCents += tip.cents;
+			if (tip.paidBy === 'company') tipCompanyCents += tip.cents;
+		}
+	}
+	const flat =
+		(figures?.allowanceCents ?? 0) + (figures?.mileageCents ?? 0) + (figures?.lodgingCents ?? 0);
+	return {
+		privateCents,
+		outlayCents,
+		companyCents,
+		tipPrivateCents,
+		tipCents: tipPrivateCents + tipCompanyCents,
+		withoutRate,
+		toPayBackCents: flat + privateCents + tipPrivateCents,
+		totalCents: flat + privateCents + outlayCents + companyCents + tipPrivateCents + tipCompanyCents
+	};
+}
+
+/**
  * @typedef {{ kind: 'receiptWithoutTrip', receiptId: string }
  *   | { kind: 'tripWithoutTimes', tripId: string }
  *   | { kind: 'tripIncomplete', tripId: string, problems: string[] }

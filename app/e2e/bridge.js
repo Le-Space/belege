@@ -41,6 +41,7 @@ export const BRIDGE_SPECS = [
 	'portal',
 	'receipts',
 	'transfer-first',
+	'travel-reread',
 	'upload-to-booking',
 	'wallets',
 	'wallets-alchemy'

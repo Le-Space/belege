@@ -6,7 +6,11 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { app, currentStore, refreshNow } from '$lib/session.svelte.js';
+	import { app, currentStore, extractAgain, refreshNow } from '$lib/session.svelte.js';
+	import AiMark from '$lib/AiMark.svelte';
+	import { aiText } from '$lib/ai-text.js';
+	import { extractRun } from '$lib/receipts/extract-queue.svelte.js';
+	import { rereadable } from '$lib/receipts/extract.js';
 	import { formatDate, formatMoney } from '$lib/bank/format.js';
 	import { receiptDate, receiptVendor } from '$lib/receipts/view.js';
 	import { btn, card } from '$lib/ui/styles.js';
@@ -22,7 +26,13 @@
 		tripDates,
 		tripFigures
 	} from '$lib/travel/records.js';
-	import { allTrips, breakfastProposals, euroOf, receiptsOfTrip, tipOf } from '$lib/travel/view.js';
+	import {
+		allTrips,
+		breakfastProposals,
+		euroOf,
+		receiptsOfTrip,
+		tripTotals
+	} from '$lib/travel/view.js';
 	import { countryHints, newStops, routeOf } from '$lib/travel/route.js';
 	import { lodgingFlat, nightsOf } from '$lib/travel/lodging.js';
 	import { appointmentsOn } from '$lib/travel/appointments.js';
@@ -88,22 +98,19 @@
 	let receipts = $derived(receiptsOfTrip(app.receipts, id));
 	// In euros (euroOf): a receipt in another currency by its payment, its outlay or a rate.
 	let euros = $derived(new Map(receipts.map((r) => [r.id, euroOf(r, app)])));
-	let paid = $derived({
-		// Booked as outlays (#293): paid back through the outlay account, not here.
-		private: receipts
-			.filter((r) => r.travel?.paidBy === 'private' && euros.get(r.id)?.via !== 'outlay')
-			.reduce((s, r) => s + (euros.get(r.id)?.cents ?? 0), 0),
-		company: receipts
-			.filter((r) => r.travel?.paidBy === 'company')
-			.reduce((s, r) => s + (euros.get(r.id)?.cents ?? 0), 0),
-		withoutRate: receipts.filter((r) => euros.get(r.id)?.cents === null).length,
-		// A hospitality bill's tip the traveller paid (tipOf): paid back with the statement.
-		tip: receipts
-			.filter((r) => r.hospitality)
-			.map((r) => tipOf(r, app))
-			.filter((x) => x.paidBy === 'private')
-			.reduce((s, x) => s + x.cents, 0)
-	});
+	// "✦ Belege der Reise neu auslesen" (#693): after the reading learned something
+	// new (the countries), the trip's receipts once more, on the app-wide queue.
+	let rereadIds = $derived(rereadable(/** @type {any[]} */ (receipts)).map((r) => String(r.id)));
+	/** @type {'noBridge' | 'busy' | 'done' | null} */
+	let rereadResult = $state(null);
+	async function rereadTrip() {
+		rereadResult = null;
+		const how = await extractAgain(rereadIds);
+		rereadResult = how === 'started' ? 'done' : how;
+	}
+
+	// What the trip costs in all and what of it is paid back (view.js tripTotals, #693).
+	let totals = $derived(tripTotals(receipts, figures, app));
 
 	/** The trip's dates, for the meals provided; three months at most. */
 	let dates = $derived(draft ? tripDates(draft).slice(0, 92) : []);
@@ -746,7 +753,37 @@
 	{/if}
 
 	<section class={card} aria-labelledby="reise-receipts-h" data-testid="reise-receipts">
-		<h2 id="reise-receipts-h" class="text-sm font-semibold text-heading">{t('reise.receipts')}</h2>
+		<div class="flex flex-wrap items-center justify-between gap-2">
+			<h2 id="reise-receipts-h" class="text-sm font-semibold text-heading">
+				{t('reise.receipts')}
+			</h2>
+			{#if rereadIds.length}
+				<button
+					type="button"
+					class="inline-flex items-center gap-1.5 {btn.secondary}"
+					onclick={rereadTrip}
+					disabled={extractRun.progress !== null}
+					title={aiText('ai.extract')}
+					data-testid="reise-reread"
+					><AiMark />{extractRun.progress
+						? t('reise.rereading', {
+								done: extractRun.progress.done,
+								count: extractRun.progress.count
+							})
+						: t('reise.reread', { count: rereadIds.length })}</button
+				>
+			{/if}
+		</div>
+		{#if rereadResult}
+			<p
+				class="mt-1 text-xs {rereadResult === 'done' ? 'text-faint' : 'text-danger'}"
+				data-testid="reise-reread-result"
+			>
+				{t(`reise.rereadResult.${rereadResult}`, {
+					failed: extractRun.failed
+				})}
+			</p>
+		{/if}
 		{#if receipts.length}
 			<ul class="mt-2 divide-y divide-border text-sm">
 				{#each receipts as r (r.id)}
@@ -798,34 +835,40 @@
 			{/if}
 			<dt class="text-text">{t('reise.paidPrivately')}</dt>
 			<dd class="text-right font-mono tabular-nums" data-testid="reise-sum-private">
-				{formatMoney(paid.private, 'EUR')}
+				{formatMoney(totals.privateCents, 'EUR')}
 			</dd>
-			{#if paid.tip}
+			{#if totals.tipPrivateCents}
 				<dt class="text-text">{t('reisen.statement.tip')}</dt>
 				<dd class="text-right font-mono tabular-nums" data-testid="reise-sum-tip">
-					{formatMoney(paid.tip, 'EUR')}
+					{formatMoney(totals.tipPrivateCents, 'EUR')}
+				</dd>
+			{/if}
+			{#if totals.outlayCents}
+				<dt class="text-text">{t('reisen.statement.outlay')}</dt>
+				<dd class="text-right font-mono tabular-nums" data-testid="reise-sum-outlay">
+					{formatMoney(totals.outlayCents, 'EUR')}
 				</dd>
 			{/if}
 			<dt class="text-text">{t('reise.paidByCompany')}</dt>
 			<dd class="text-right font-mono tabular-nums" data-testid="reise-sum-company">
-				{formatMoney(paid.company, 'EUR')}
+				{formatMoney(totals.companyCents, 'EUR')}
 			</dd>
 			<dt class="font-medium text-heading">{t('reise.toPayBack')}</dt>
 			<dd class="text-right font-mono font-medium tabular-nums" data-testid="reise-sum-back">
-				{formatMoney(
-					(figures?.allowanceCents ?? 0) +
-						(figures?.mileageCents ?? 0) +
-						(figures?.lodgingCents ?? 0) +
-						paid.private +
-						paid.tip,
-					'EUR'
-				)}
+				{formatMoney(totals.toPayBackCents, 'EUR')}
+			</dd>
+			<dt class="border-t border-border pt-1 font-medium text-heading">{t('reise.total')}</dt>
+			<dd
+				class="border-t border-border pt-1 text-right font-mono font-medium tabular-nums"
+				data-testid="reise-sum-total"
+			>
+				{formatMoney(totals.totalCents, 'EUR')}
 			</dd>
 		</dl>
 		<p class="mt-2 text-xs text-faint">{t('reise.sumHint')}</p>
-		{#if paid.withoutRate}
+		{#if totals.withoutRate}
 			<p class="mt-1 text-xs text-danger" data-testid="reise-sum-norate">
-				{t('reise.ratesMissing', { count: paid.withoutRate })}
+				{t('reise.ratesMissing', { count: totals.withoutRate })}
 			</p>
 		{/if}
 	</section>

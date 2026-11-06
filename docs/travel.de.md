@@ -84,7 +84,13 @@ Länder, die das Schreiben nicht nennt:
 - **Auto eines Familienangehörigen:** Es gibt die Pauschale. Sie ist aber markiert mit _Fremdes Fahrzeug – mit Steuerberatung klären_. Du gibst an, wem das Auto gehört und wer die laufenden Kosten trägt.
 - Firmenwagen und Mietwagen bekommen keine Kilometer. Tanken und Miete sind dort normale Belege.
 
-**Belege.** Die Reise listet ihre Belege und wer sie bezahlt hat. Dazu kommen die Pauschale pro Tag und **was die Reise ergibt**: Pauschalen + Kilometer + Übernachtungspauschalen + privat bezahlte Belege.
+**Belege.** Die Reise listet ihre Belege und wer sie bezahlt hat. Dazu kommen die Pauschale pro Tag und **was die Reise ergibt**:
+
+- **Zu erstatten:** Pauschalen + Kilometer + Übernachtungspauschalen + privat bezahlte Belege + privat bezahltes Trinkgeld.
+- **Gesamtkosten der Reise:** dazu die als Auslage gebuchten Belege (sie werden über das Auslagenkonto erstattet) und die von der Firma bezahlten. Ein Beleg in fremder Währung ohne Kurs zählt nicht mit; Belege sagt das.
+- Auf **Reisen** steht neben jeder Reise ihr Gesamtbetrag und darunter, was davon zu erstatten ist.
+
+**Neu auslesen.** **„✦ Belege der Reise neu auslesen“** schickt alle Belege der Reise noch einmal an dein Sprachmodell, etwa nachdem das Auslesen etwas Neues gelernt hat. Es läuft wie „Alle neuen auslesen“ in der Warteschlange der App; was du am Beleg selbst geändert hast, bleibt. Ein Neuladen der Seite bricht den Lauf ab, und „Weitermachen“ bietet ihn nicht an: Dann klickst du noch einmal.
 
 Fehlt einer Reise etwas, etwa Zeiten, ein Anlass oder Kilometer, sagt Belege das. Gespeichert wird die Reise trotzdem.
 

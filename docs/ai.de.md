@@ -76,7 +76,7 @@ An diesen Stellen fragt Belege das Modell. Jede Stelle nennt, was sie auslöst, 
 
 **Ausgelöst durch:**
 
-- _Auslesen_, _Erneut auslesen_ und _Alle neuen auslesen_;
+- _Auslesen_, _Erneut auslesen_, _Alle neuen auslesen_ und _Belege der Reise neu auslesen_ (#693);
 - _E-Mails abrufen_: neue Belege werden gleich danach gelesen, das lässt sich abschalten;
 - Hochladen auf der Seite _Belege_ und neue Dateien im freigegebenen Ordner, solange „gleich auslesen“ an ist;
 - _Beleg hochladen und dieser Zahlung zuordnen_;

@@ -3361,6 +3361,7 @@ export default {
 	},
 	monthPicker: { month: '{label}: Monat', year: '{label}: Jahr' },
 	reisen: {
+		tripBack: 'davon zu erstatten {amount}',
 		title: 'Reisen',
 		untitled: 'Reise ohne Ziel',
 		what: 'Reisen mit ihren Belegen, Verpflegungspauschalen und Kilometern, dazu Bewirtungen – pro Monat.',
@@ -3467,6 +3468,13 @@ export default {
 		questionsElsewhere: 'Auch bei den Reisen gibt es offene Punkte: {count}'
 	},
 	reise: {
+		reread: 'Belege der Reise neu auslesen ({count})',
+		rereading: 'Lese aus … {done}/{count}',
+		rereadResult: {
+			done: 'Neu ausgelesen. Nicht lesbar: {failed}. Grenzübertritte aus den Fahrkarten stehen unter Ausland.',
+			noBridge: 'Keine Bridge gekoppelt: Unter Integrationen koppeln, dann noch einmal.',
+			busy: 'Es läuft schon ein Auslesen. Wenn es fertig ist, noch einmal.'
+		},
 		title: 'Reise',
 		back: '← Alle Reisen',
 		missing: 'Diese Reise gibt es nicht (mehr).',
@@ -3577,8 +3585,9 @@ export default {
 		noRate: 'Kurs fehlt',
 		ratesMissing:
 			'Belege in fremder Währung ohne Kurs: {count} – nicht mitgezählt. Am Beleg einen Kurs eintragen.',
+		total: 'Gesamtkosten der Reise',
 		sumHint:
-			'Pauschalen, Kilometer und privat bezahlte Belege. Die von der Firma bezahlten stehen der Vollständigkeit halber dabei.',
+			'Zu erstatten sind Pauschalen, Kilometer und privat bezahlte Belege mit Trinkgeld. Die Gesamtkosten zählen dazu die als Auslage gebuchten und die von der Firma bezahlten Belege.',
 		delete: 'Diese Reise löschen',
 		deleteConfirm: 'Diese Reise löschen? Ihre Belege bleiben und sind ihr nicht mehr zugeordnet.'
 	},

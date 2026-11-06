@@ -269,6 +269,25 @@ export function ocrText(record) {
 }
 
 /**
+ * The receipts that can be read again ("Erneut auslesen", a trip's receipts at
+ * once): not deleted, not waiting for a yes, not one Belege made itself (an
+ * Eigenbeleg, a travel statement), and with something to read – a text layer,
+ * a mail's text, an e-invoice's XML or Paperless' OCR text.
+ *
+ * @param {import('../store/repository.js').StoredRecord[]} records
+ */
+export function rereadable(records) {
+	return records.filter(
+		(r) =>
+			!r.deleted &&
+			r.source !== 'eigenbeleg' &&
+			!needsConfirmation(r) &&
+			((!String(r.mime ?? '').startsWith('image/') && r.extractionError !== 'no-text') ||
+				Boolean(ocrText(r)))
+	);
+}
+
+/**
  * The receipts "Alle neuen auslesen" takes: new, not waiting for a yes, not an
  * image or a PDF without text – unless Paperless' OCR text stands in.
  *
