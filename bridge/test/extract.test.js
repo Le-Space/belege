@@ -627,11 +627,16 @@ test('travel fields made exact: a kind, times, days, nights; what does not fit i
 		kind: 'train',
 		from: 'Beispielstadt Hbf',
 		to: 'Musterstadt Hbf',
+		from_country: null,
+		to_country: null,
+		from_iata: null,
+		to_iata: null,
 		departure: '2026-03-04T07:12',
 		arrival: '2026-03-04T10:48',
 		return_departure: '2026-03-05T17:10',
 		return_arrival: null,
 		place: null,
+		place_country: null,
 		check_in: null,
 		check_out: null,
 		nights: null,
@@ -660,6 +665,27 @@ test('travel fields made exact: a kind, times, days, nights; what does not fit i
 	}).travel;
 	assert.equal(old.kind, null);
 	assert.equal(old.departure, '2025-11-02T06:30');
+	// Countries and airports as codes (#693): a name or a longer word is none.
+	const flight = normalizeTravelFields({
+		travel: {
+			kind: 'flight',
+			from_country: ' at ',
+			to_country: 'Türkei',
+			from_iata: 'xyz',
+			to_iata: 'ABCD',
+			place_country: 'GE'
+		}
+	}).travel;
+	assert.deepEqual(
+		[
+			flight.from_country,
+			flight.to_country,
+			flight.from_iata,
+			flight.to_iata,
+			flight.place_country
+		],
+		['AT', null, 'XYZ', null, 'GE']
+	);
 	assert.equal(normalizeTravelFields({ travel: 'Bahn' }).travel, null);
 	assert.equal(normalizeTravelFields({}).travel, null);
 });

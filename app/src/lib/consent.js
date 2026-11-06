@@ -82,7 +82,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 40: two roles for members (#641): one who writes along (backups, the
 //     bridge only if ticked) and one who reads along (no write, no backup,
 //     no bridge).
-export const CONSENT_VERSION = '40';
+// 41: the reading names the countries of a trip's places and a flight's
+//     airport codes (#693).
+export const CONSENT_VERSION = '41';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

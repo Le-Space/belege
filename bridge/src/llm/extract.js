@@ -54,11 +54,16 @@ Answer with one JSON object and nothing else, using exactly these keys (null whe
     "kind": "train" | "bus" | "flight" | "public_transport" | "taxi" | "rental_car" | "fuel" | "parking" | "hotel" | "restaurant" | "event",
     "from": string | null,           // where the journey starts
     "to": string | null,             // where it goes
+    "from_country": "XX" | null,     // ISO 3166 country of "from"
+    "to_country": "XX" | null,       // ISO 3166 country of "to"
+    "from_iata": "XXX" | null,       // a flight's airport codes, as printed
+    "to_iata": "XXX" | null,
     "departure": "YYYY-MM-DDTHH:MM" | null,
     "arrival": "YYYY-MM-DDTHH:MM" | null,
     "return_departure": "YYYY-MM-DDTHH:MM" | null,  // a return ticket's way back
     "return_arrival": "YYYY-MM-DDTHH:MM" | null,
     "place": string | null,          // the town of a hotel, a restaurant or an event
+    "place_country": "XX" | null,    // ISO 3166 country of "place", or where any other receipt was issued
     "check_in": "YYYY-MM-DD" | null, // a hotel's first night
     "check_out": "YYYY-MM-DD" | null,
     "nights": number | null,
@@ -79,7 +84,9 @@ A VAT line's category follows what the invoice prints: "Steuerschuldnerschaft de
 Inland steuerbar", "not subject to German VAT" → not_taxable; "steuerfrei nach § 4" → exempt; 0 % without
 such a reason → zero; the normal rate → standard; a reduced rate → reduced. Such an invoice often has a VAT
 line with amount 0: keep it, with its category.
-"travel" is null for anything else; times are local times as printed, never made up.
+"travel" is null for anything else; times are local times as printed, never made up. A country is the one
+of that station, airport, town or address, only where it is certain (a known city, an address, an airport
+code); else null.
 Use "none" when the text is no bookkeeping document at all (a sign-in link, a newsletter, a
 shipping or account notice without an amount to pay); then gross and currency are null and the
 summary says what it is.`;
@@ -229,7 +236,8 @@ export const TRAVEL_KINDS = Object.freeze([
 /**
  * The travel fields of an answer made exact, in place (#213): a kind from
  * TRAVEL_KINDS, times as `YYYY-MM-DDTHH:MM`, days as `YYYY-MM-DD`, nights a
- * whole number, places as trimmed text. What does not fit is null, not a
+ * whole number, places as trimmed text, countries as ISO 3166 alpha-2 and
+ * airports as IATA codes (#693). What does not fit is null, not a
  * failed reading; an answer of an older shape keeps what it has.
  *
  * @param {any} data
@@ -248,16 +256,28 @@ export function normalizeTravelFields(data) {
 	const day = (/** @type {unknown} */ v) => (isDay(v) ? /** @type {string} */ (v) : null);
 	const text = (/** @type {unknown} */ v) =>
 		typeof v === 'string' && v.trim() ? v.trim().slice(0, 120) : null;
+	// Codes as ISO and IATA write them; a name or anything longer is no code (#693).
+	const code = (/** @type {unknown} */ v, /** @type {number} */ n) => {
+		const c = typeof v === 'string' ? v.trim().toUpperCase() : '';
+		return new RegExp(`^[A-Z]{${n}}$`).test(c) ? c : null;
+	};
+	const country = (/** @type {unknown} */ v) => code(v, 2);
+	const iata = (/** @type {unknown} */ v) => code(v, 3);
 	const nights = Number(t.nights);
 	data.travel = {
 		kind: TRAVEL_KINDS.includes(t.kind) ? t.kind : null,
 		from: text(t.from),
 		to: text(t.to),
+		from_country: country(t.from_country),
+		to_country: country(t.to_country),
+		from_iata: iata(t.from_iata),
+		to_iata: iata(t.to_iata),
 		departure: time(t.departure),
 		arrival: time(t.arrival),
 		return_departure: time(t.return_departure),
 		return_arrival: time(t.return_arrival),
 		place: text(t.place),
+		place_country: country(t.place_country),
 		check_in: day(t.check_in),
 		check_out: day(t.check_out),
 		nights: Number.isInteger(nights) && nights > 0 && nights <= 366 ? nights : null,

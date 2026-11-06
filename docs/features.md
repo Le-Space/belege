@@ -80,7 +80,7 @@ What Le Space Belege does today, by category. The app shows the same list, short
 ## Travel expenses
 
 - **Trips** ([#213](https://github.com/Le-Space/belege/issues/213)) with their receipts, the statutory meal allowances by times and countries (meals provided, the three-month rule), mileage – a family member's car flagged for the tax adviser – and hospitality bills with their split. A receipt in another currency counts in euros, by its payment, its outlay or a rate.
-- **Recognised, never assigned by itself:** a travel cost's kind, route and times from the reading; without AI, from its words in eleven languages; trips proposed by dates and route; appointments from calendar invitations (title, place and times only).
+- **Recognised, never assigned by itself:** a travel cost's kind, route, countries and times from the reading, border crossings from the tickets; without AI, from its words in eleven languages; trips proposed by dates and route; appointments from calendar invitations (title, place and times only).
 - **A monthly statement** as a numbered German PDF, booked on SKR 03 travel accounts by the legal form against the traveller's clearing account, its payout linked to it. See [travel.md](travel.md).
 
 ## Devices and working together

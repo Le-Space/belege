@@ -6,6 +6,13 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Border crossings from the tickets** (#693, part a). Reading a travel receipt also names the country of each station, airport and town and a flight's airport codes, in the call that runs anyway. A train, bus, flight, local transport or taxi that arrives in another country becomes a border crossing at its arrival. A trip proposal carries them, a trip made from it keeps them, and on a trip _Übernehmen_ adds those it lacks. The allowance abroad then counts each day by country without typing.
+  - A border crossed by car, bicycle or on foot leaves no ticket. A receipt from a country the trip was not in on its day (fuel, parking, a hotel's nights, a restaurant) is named with its day, on the proposal and on the trip. The time is entered by hand and never guessed.
+  - Two flights where one leaves from the airport the other landed at belong to one trip, however the town is written.
+  - Receipts read before know no country; _Erneut auslesen_ adds it. The consent screen names the new fields (version 41).
+
 ### Fixed
 
 - **A tip on a hospitality bill is paid back and booked.** It was shown in the split but left out of what the statement pays back and of its bookings. A tip the traveller paid now counts in _Zu erstatten_, on the trip and the PDF, and is booked 70/30 onto 4650/4654 without a tax key. A tip is the company's only where a payment from the business account linked to the bill covers bill and tip together. All amounts in the tests are made up.

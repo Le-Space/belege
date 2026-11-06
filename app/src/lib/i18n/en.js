@@ -809,7 +809,7 @@ export default {
 			],
 			usesHeading: 'With AI',
 			uses: [
-				'Extract receipts: vendor, amount, date, invoice and customer number from the text of a receipt, for travel costs also their kind, route, times, hotel nights and whether breakfast is included – and whether it is a receipt at all (sign-in emails and newsletters are not). With “Extract”, “Extract all new”, “Upload receipt”, “Use as receipt” and “Fetch invoices” – and for new files in the shared folder, while “read at once” is on.',
+				'Extract receipts: vendor, amount, date, invoice and customer number from the text of a receipt, for travel costs also their kind, route, countries, airport codes, times, hotel nights and whether breakfast is included – and whether it is a receipt at all (sign-in emails and newsletters are not). With “Extract”, “Extract all new”, “Upload receipt”, “Use as receipt” and “Fetch invoices” – and for new files in the shared folder, while “read at once” is on.',
 				'“Keep searching with AI” in the private mailbox: suggest search terms and senders, then choose the receipt among the hits – by subject, sender domain and file names, never by the text of the emails.',
 				'“AI suggestion” under “Link receipt”: name the matching one of up to 25 of your receipts for a booking – by vendor, amount, date, invoice number and short description. You do the linking.',
 				'“AI suggestion” under “Link as counter-booking …”: name, among up to 8 bookings on your other accounts, the other side of a transfer between your own accounts – by direction, amount, quantity, day, account type, counterparty and purpose, without addresses, IBANs and hashes. You do the linking.',
@@ -3330,6 +3330,9 @@ export default {
 			event: 'Event in {place}, {from}',
 			new: 'Trip to {destination}, {from} – {to}',
 			addTo: 'To the trip {trip}',
+			route: 'Border crossings from the tickets: {route}',
+			countryHint:
+				'{receipt}: from {country} on {date}, but no ticket leads there. Across the border by car or on foot? Enter the crossing with its time on the trip.',
 			make: 'Make it a trip',
 			add: 'Add to the trip',
 			dismiss: 'Business, not a trip',
@@ -3436,6 +3439,10 @@ export default {
 		stopUnknownCountry: 'unknown country code',
 		remove: 'Remove',
 		addStop: 'Add a border crossing',
+		routeFromTickets: 'From the tickets: {route}',
+		routeTake: 'Take them',
+		countryHint:
+			'{receipt} is from {country} on {date}, but by the border crossings you were not there then. Across the border by car or on foot? Enter the crossing with its time.',
 		meals: 'Meals provided',
 		nights: 'Nights without a hotel invoice',
 		nightsHint:

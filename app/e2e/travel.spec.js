@@ -958,3 +958,120 @@ test('an advance before a trip: marked on the payment, the statement pays out on
 	await expect(statement.getByTestId('reisen-statement-advance')).toHaveText('−20,00 EUR');
 	await expect(statement.getByTestId('reisen-statement-payout-rest')).toHaveText('8,00 EUR');
 });
+
+test('border crossings from the tickets: a proposal abroad becomes a trip with its countries; a receipt no ticket explains is named (#693)', async ({
+	page
+}) => {
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('E2E');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+
+	// A made-up trip: by bus to Ortshausen (AT), a hostel, a night flight to
+	// Weitweg (TR), a hotel, a flight home; a restaurant bill from CZ that no
+	// ticket leads to. Towns, vendors and airport codes are invented.
+	await page.evaluate(async () => {
+		const e2e = /** @type {any} */ (window).__belegeE2E;
+		/** @param {string} vendor @param {string} day @param {Record<string, any>} travel */
+		const add = (vendor, day, travel) =>
+			e2e.addReceipt({
+				source: 'upload',
+				status: 'ausgelesen',
+				currency: 'EUR',
+				fileName: `${vendor}.pdf`,
+				vendor,
+				amountCents: 5000,
+				documentDate: day,
+				extraction: { document_type: 'invoice', gross: 50, vat: [], travel }
+			});
+		await add('Bus Beispiel', '2026-05-01', {
+			kind: 'bus',
+			from: 'A-Stadt',
+			to: 'Ortshausen',
+			from_country: 'DE',
+			to_country: 'AT',
+			departure: '2026-05-04T08:00',
+			arrival: '2026-05-04T13:00'
+		});
+		await add('Hostel Beispiel', '2026-05-05', {
+			kind: 'hotel',
+			place: 'Ortshausen',
+			place_country: 'AT',
+			check_in: '2026-05-04',
+			check_out: '2026-05-05',
+			nights: 1
+		});
+		await add('Flug Hin Beispiel', '2026-05-01', {
+			kind: 'flight',
+			from: 'Ortshausen',
+			to: 'Weitweg',
+			from_country: 'AT',
+			to_country: 'TR',
+			from_iata: 'QOA',
+			to_iata: 'QWW',
+			departure: '2026-05-05T22:00',
+			arrival: '2026-05-06T03:30'
+		});
+		await add('Hotel Beispiel', '2026-05-07', {
+			kind: 'hotel',
+			place: 'Weitweg',
+			place_country: 'TR',
+			check_in: '2026-05-06',
+			check_out: '2026-05-07',
+			nights: 1
+		});
+		await add('Restaurant Beispiel', '2026-05-06', {
+			kind: 'restaurant',
+			place: 'Nebenort',
+			place_country: 'CZ'
+		});
+		await add('Flug Zurück Beispiel', '2026-05-01', {
+			kind: 'flight',
+			from: 'Weitweg',
+			to: 'A-Stadt',
+			from_country: 'TR',
+			to_country: 'DE',
+			from_iata: 'QWW',
+			to_iata: 'QAS',
+			departure: '2026-05-07T10:00',
+			arrival: '2026-05-07T14:00'
+		});
+	});
+
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
+	await page.getByTestId('belege-reisen').click();
+	const picker = page.getByTestId('reisen-month');
+	await picker.getByLabel('Monat: Jahr').selectOption('2026');
+	await picker.getByLabel('Monat: Monat').selectOption('05');
+
+	const proposal = page.getByTestId('reisen-proposal');
+	await expect(proposal).toHaveCount(1);
+	await expect(proposal.getByTestId('reisen-proposal-route')).toHaveText(
+		'Grenzübertritte aus den Fahrkarten: DE → AT 04.05.2026 13:00 → TR 06.05.2026 03:30 → DE 07.05.2026 14:00'
+	);
+	await expect(proposal.getByTestId('reisen-proposal-country-hint')).toContainText(
+		'Restaurant Beispiel: aus CZ am 06.05.2026'
+	);
+
+	await proposal.getByTestId('reisen-proposal-accept').click();
+	await expect(page.getByTestId('reise-stop')).toHaveCount(3);
+	await expect(page.getByTestId('reise-stop-country-name')).toHaveText([
+		'Österreich',
+		'Türkei',
+		'Deutschland'
+	]);
+	await expect(page.getByTestId('reise-route-proposal')).toHaveCount(0);
+	await expect(page.getByTestId('reise-country-hint')).toContainText('Restaurant Beispiel');
+	// Each day has its country's rate: none is missing.
+	await expect(page.getByTestId('reise-allowance-day')).toHaveCount(4);
+	await expect(page.getByTestId('reise-allowance-missing')).toHaveCount(0);
+
+	// A crossing removed: the tickets offer it again, one click puts it back.
+	await page.getByTestId('reise-stop').nth(1).getByRole('button', { name: 'Entfernen' }).click();
+	await expect(page.getByTestId('reise-route-proposal')).toContainText('TR 06.05.2026 03:30');
+	await page.getByTestId('reise-route-take').click();
+	await expect(page.getByTestId('reise-stop')).toHaveCount(3);
+	await expect(page.getByTestId('reise-route-proposal')).toHaveCount(0);
+});

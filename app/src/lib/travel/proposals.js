@@ -25,6 +25,7 @@ import { receiptDate } from '../receipts/view.js';
 import { allTrips, travelQuestions } from './view.js';
 import { appointmentsOn } from './appointments.js';
 import { statementSettlements } from './payout.js';
+import { placeKey, routeOf } from './route.js';
 
 /** @typedef {Record<string, any>} Rec */
 
@@ -47,15 +48,6 @@ const shift = (day, n) => {
 	d.setUTCDate(d.getUTCDate() + n);
 	return d.toISOString().slice(0, 10);
 };
-/** A place to compare: no case, no accents, no "Hbf". @param {unknown} s */
-const placeKey = (s) =>
-	String(s ?? '')
-		.normalize('NFKD')
-		.replace(/\p{M}/gu, '')
-		.toLowerCase()
-		.replace(/\b(hbf|hauptbahnhof|central|centrale|station|airport|flughafen)\b/g, '')
-		.replace(/[^\p{L}\p{N}]+/gu, ' ')
-		.trim();
 
 /**
  * @typedef {object} Piece
@@ -67,6 +59,8 @@ const placeKey = (s) =>
  * @property {string | null} end
  * @property {string} from where a fare starts
  * @property {string} to where it goes, or the hotel's town
+ * @property {string | null} fromIata a flight's airport codes (#693)
+ * @property {string | null} toIata
  */
 
 /**
@@ -91,7 +85,9 @@ export function pieceOf(r) {
 			start: null,
 			end: null,
 			from: '',
-			to: String(t.place ?? '').trim()
+			to: String(t.place ?? '').trim(),
+			fromIata: null,
+			toIata: null
 		};
 	}
 	const times = [t.departure, t.arrival, t.return_departure, t.return_arrival].filter(
@@ -109,7 +105,9 @@ export function pieceOf(r) {
 		start,
 		end,
 		from: String(t.from ?? '').trim(),
-		to: String(t.to ?? t.place ?? '').trim()
+		to: String(t.to ?? t.place ?? '').trim(),
+		fromIata: t.from_iata ?? null,
+		toIata: t.to_iata ?? null
 	};
 }
 
@@ -123,10 +121,21 @@ export function pieceOf(r) {
  * @property {string} end a printed time or the last day's 18:00
  * @property {string | null} tripId an existing trip these days fall into: added to it, not a new one
  * @property {string} reason the title of an appointment on these days (appointments.js), else ''
+ * @property {string} country where it starts: the first leg's country, else Germany (#693)
+ * @property {import('./route.js').Stop[]} stops the border crossings its tickets make (route.js)
+ * @property {import('./route.js').CountryHint[]} hints receipts from a country no crossing leads to
  */
 
-/** Whether `b` starts where `a` ended: the journey goes on. @param {Piece} a @param {Piece} b */
-const continues = (a, b) => Boolean(placeKey(a.to)) && placeKey(a.to) === placeKey(b.from);
+/**
+ * Whether `b` starts where `a` ended: the journey goes on. The same airport
+ * code is the same place, however its town is written (#693).
+ *
+ * @param {Piece} a
+ * @param {Piece} b
+ */
+const continues = (a, b) =>
+	(Boolean(a.toIata) && a.toIata === b.fromIata) ||
+	(Boolean(placeKey(a.to)) && placeKey(a.to) === placeKey(b.from));
 
 /**
  * Whether a group is still away: its last piece did not lead back to where
@@ -213,6 +222,7 @@ export function tripProposals({ receipts, travel }) {
 		const lastEnd = ends[ends.length - 1];
 		const end = lastEnd && lastEnd.slice(0, 10) === g.toDay ? lastEnd : `${g.toDay}T18:00`;
 		const existing = tripOn(trips, g.fromDay, g.toDay);
+		const route = routeOf(g.pieces.map((p) => p.receipt));
 		out.push({
 			key,
 			receiptIds: ids,
@@ -221,7 +231,10 @@ export function tripProposals({ receipts, travel }) {
 			start,
 			end: end > start ? end : `${g.toDay}T23:59`,
 			tripId: existing?.id ?? null,
-			reason: appointmentsOn(travel, g.fromDay, g.toDay)[0]?.summary ?? ''
+			reason: appointmentsOn(travel, g.fromDay, g.toDay)[0]?.summary ?? '',
+			country: route.country,
+			stops: route.stops,
+			hints: route.hints
 		});
 	}
 	return out;
