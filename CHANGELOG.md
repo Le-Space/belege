@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.29.2] – 2026-11-06
+
 ### Changed
 
 - **The Filecoin reader is a package of its own** (#264): `@belege/chain-filecoin`, on `@belege/chain-core`, with its own tests in _Package tests_. Nothing changes in what Belege reads or books.
