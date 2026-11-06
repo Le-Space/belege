@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createAkashDeploymentsClient, decUnits } from '../src/chains/akash-deployments.js';
+import { createAkashDeploymentsClient, decUnits } from '../src/akash-deployments.js';
 
 const ADDRESS = `akash1${'q'.repeat(38)}`;
 const REST = 'https://rest.example';

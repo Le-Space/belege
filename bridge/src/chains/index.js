@@ -11,10 +11,12 @@
 // is one.
 
 import { chainOf, publicChains } from './registry.js';
-import { createCosmosClient } from './cosmos.js';
-import { createAkashConsoleClient } from './akash-console.js';
-import { createAkashDeploymentsClient } from './akash-deployments.js';
-import { isCosmosAddress } from './bech32.js';
+import {
+	createAkashConsoleClient,
+	createAkashDeploymentsClient,
+	createCosmosClient,
+	isCosmosAddress
+} from '@belege/chain-cosmos';
 import { createEvmClient } from './evm.js';
 import { createBitcoinClient } from './bitcoin.js';
 import { createFilecoinClient } from './filecoin.js';
@@ -22,7 +24,7 @@ import { checkEndpoint, WalletError } from './http.js';
 
 export { CHAINS, chainOf, publicChains } from './registry.js';
 export { WalletError, checkEndpoint } from './http.js';
-export { isCosmosAddress, bech32Encode, bech32Decode, moduleAddress } from './bech32.js';
+export { isCosmosAddress, bech32Encode, bech32Decode, moduleAddress } from '@belege/chain-cosmos';
 export { isEvmAddress, toChecksumAddress } from './evm.js';
 export { isFilecoinAddress, normalizeFilecoin, toFilecoinAddress } from './filecoin.js';
 export {

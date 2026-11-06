@@ -1,0 +1,22 @@
+{
+	"name": "@belege/chain-core",
+	"version": "0.1.0",
+	"private": true,
+	"description": "What every chain reader shares: JSON over HTTPS with coded errors, amounts from units, explorer links, swap detection, and the neutral WalletEntry they hand out (#264).",
+	"license": "AGPL-3.0-or-later",
+	"type": "module",
+	"exports": {
+		".": "./src/index.js",
+		"./http": "./src/http.js",
+		"./entry": "./src/entry.js",
+		"./explorer": "./src/explorer.js"
+	},
+	"files": ["src"],
+	"scripts": {
+		"test": "node --test --test-reporter=spec \"test/*.test.js\"",
+		"lint": "prettier --check src test"
+	},
+	"devDependencies": {
+		"prettier": "3.6.2"
+	}
+}

@@ -1,0 +1,60 @@
+name: Package tests
+
+# The open building blocks under packages/ (#264), each with its own tests
+# and format check. A pull request tests the packages it changes and the
+# packages that depend on them (pnpm's `...[since]` filter); a push to
+# main, a release (ci.yml) and a run by hand test every package. The bridge
+# and the app, which use the packages, have their own workflows.
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  # ci.yml calls this for a release and a deploy.
+  workflow_call:
+
+concurrency:
+  group: packages-${{ github.workflow }}-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  packages:
+    name: Package tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # A pull request's checkout is its merge commit: HEAD^1 is the base.
+          fetch-depth: 2
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: pnpm
+      - name: Which packages
+        id: which
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            echo 'filter=...[HEAD^1]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'filter=./packages/*' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install
+        run: pnpm install --frozen-lockfile --filter "./packages/*..."
+      # Only the packages: the root, the bridge and the app have workflows
+      # of their own, and the dependents' filter would pick them too.
+      - name: Format
+        env:
+          FILTER: ${{ steps.which.outputs.filter }}
+        run: pnpm --filter "$FILTER" --filter '!belege' --filter '!@belege/bridge' --filter '!@belege/app' --if-present run lint
+      - name: Tests
+        env:
+          FILTER: ${{ steps.which.outputs.filter }}
+        run: pnpm --filter "$FILTER" --filter '!belege' --filter '!@belege/bridge' --filter '!@belege/app' --if-present run test
