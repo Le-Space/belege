@@ -7,10 +7,11 @@ Runs in a browser and in Node. The caller hands in `fetch`, the endpoints (a nod
 | Chain | Source | Module |
 | --- | --- | --- |
 | Nym (Nyx), Akash (Cosmos SDK) | CometBFT RPC + REST; Akash's older history from the Akash Console indexer; Akash deployments | `cosmos`, `akash-console`, `akash-deployments`, `bech32`, `protobuf` |
-| Ethereum, Base, Arbitrum One, OP Mainnet, Polygon PoS | Blockscout, or Alchemy with a key | `evm`, `alchemy` |
+| Ethereum, Base, Arbitrum One, OP Mainnet, Polygon PoS (USDC listed; ALEPH on Ethereum and Base) | Blockscout, or Alchemy with a key | `evm`, `alchemy` |
 | Bitcoin | Esplora; addresses derived from a zpub/ypub/xpub | `bitcoin` |
 | Filecoin | Filfox | `filecoin` |
 | NEAR | NearBlocks + an archival RPC (from Eigenbeleg); gives `LedgerEntry` | `near` |
+| Aleph Cloud credits (no chain: Aleph's own network, by the Ethereum address) | Aleph's API, CORS open; a month's statement, `alephEntries` gives `LedgerEntry` (`usage` for consumption, with its USD price per credit) | `aleph` |
 
 - `createWalletService({ fetch, getZpub, alchemyKey, … })` – every chain behind one `history({ chain, address, endpoints })`, as Belege's bridge serves it.
 - `CHAINS`, `chainOf`, `publicChains` – the chains, their assets, default endpoints and explorers (`registry`).

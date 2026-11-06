@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { sameInChromium } from '@le-space/browser-test';
 
-test('addresses, transactions and a NEAR read are the same in Chromium and in Node', async (t) => {
+test('addresses, transactions, a NEAR read and an Aleph statement are the same in Chromium and in Node', async (t) => {
 	const r = await sameInChromium(t, new URL('./browser/scenario.js', import.meta.url));
 	if (!r) return;
 	assert.equal(r.tx.memo, 'Rechnung 2026-001 Wolkenfabrik');
@@ -14,4 +14,6 @@ test('addresses, transactions and a NEAR read are the same in Chromium and in No
 	assert.match(r.btc[1], /^bc1q/);
 	assert.ok(r.near.count > 0 && r.near.explorer);
 	assert.equal(r.near.first.schema, 'le-space.ledger/1');
+	assert.equal(r.aleph.statement.difference, 0);
+	assert.ok(r.aleph.entries.some((/** @type {any} */ e) => e.kind === 'usage'));
 });

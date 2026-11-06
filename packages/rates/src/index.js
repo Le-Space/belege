@@ -4,7 +4,8 @@
 // trade at or after midnight), the ECB reference rate for currencies (Bank of
 // Russia, National Bank of Kazakhstan where the ECB has none), and a token's
 // DEX pool at the booking's block where nobody prices it. Every answer names
-// its source and moment. `fetch` and the keys are handed in.
+// its source and moment. `fetch` and the keys are handed in. Aleph Cloud
+// credits, priced in USD by Aleph, have their own rule (aleph-credits.js).
 export {
 	CBR_CROSS_CURRENCIES,
 	COINGECKO_PLATFORMS,
@@ -26,3 +27,9 @@ export {
 	v4PoolId,
 	virtualReserve
 } from './dex-rate.js';
+export {
+	ALEPH_LIST_PRICE_USD,
+	alephCreditPrice,
+	alephCreditsInEur,
+	plain
+} from './aleph-credits.js';

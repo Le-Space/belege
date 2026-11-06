@@ -14,7 +14,8 @@
 	"exports": {
 		".": "./src/index.js",
 		"./rates": "./src/rates.js",
-		"./dex-rate": "./src/dex-rate.js"
+		"./dex-rate": "./src/dex-rate.js",
+		"./aleph-credits": "./src/aleph-credits.js"
 	},
 	"files": ["src"],
 	"engines": {

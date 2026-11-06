@@ -177,7 +177,9 @@ describe('the EVM client against a fake Blockscout', () => {
 			assert.equal(new Set(result.entries.map((e) => e.id)).size, result.entries.length);
 			assert.deepEqual(result.balances, [
 				{ asset: 'ETH', amount: '0.31', decimals: 18 },
-				{ asset: 'USDC', amount: '450', decimals: 6 }
+				{ asset: 'USDC', amount: '450', decimals: 6 },
+				// Listed, never held: a zero balance.
+				{ asset: 'ALEPH', amount: '0', decimals: 18 }
 			]);
 			assert.equal(
 				result.addressUrl,

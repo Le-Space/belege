@@ -21,7 +21,7 @@ import { MAX_SHARE_BYTES } from './shares.js';
 import { HibiscusUnreachableError, PinMismatchError } from './hibiscus.js';
 import { ibanAllowed, normalizeAccount, normalizeTransaction } from './normalize.js';
 import { decodeMailId, isIsoDay, isPartNumber } from './mail/mime.js';
-import { ALEPH_API } from './aleph.js';
+import { ALEPH_API } from '@le-space/chains/aleph';
 import { MAX_BACKUP_BYTES } from './aleph-backup.js';
 import { checkEndpoint } from '@le-space/chains/http';
 import { withExtraTerms } from './llm/redact.js';
