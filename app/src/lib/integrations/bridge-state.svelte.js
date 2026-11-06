@@ -229,7 +229,18 @@ export async function unpairBridge() {
 		}
 	}
 	if (bridge.peerId) {
-		await forgetBridgeNode().catch(() => {});
+		try {
+			await forgetBridgeNode();
+		} catch (error) {
+			// Only the device that paired the bridge unpairs it over the stream, or
+			// its own machine over HTTP. Changing the books here would leave the
+			// bridge holding a key that no device of the books could take off it.
+			const code = /** @type {any} */ (error)?.code;
+			if (!bridge.token && (code === 'PAIRING_REQUIRED' || code === 'SCOPE_MISSING')) {
+				bridge.error = t('integrationen.bridge.unpairElsewhere');
+				return;
+			}
+		}
 		await removeSyncDevice(bridge.peerId).catch(() => {});
 	}
 	const saved = /** @type {any} */ (await getSetting(store.settings, 'bridge'));

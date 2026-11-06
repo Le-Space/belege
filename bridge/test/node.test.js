@@ -178,17 +178,30 @@ describe('the bridge’s node', () => {
 	test('armed: a listed device with the key gets in, a stranger and an unlisted device do not', async () => {
 		const nodeDir = join(dir, 'two');
 		const own = await device(AUTH_KEY);
+		const other = await device(AUTH_KEY);
 		const unlisted = await device(AUTH_KEY);
 		const stranger = await device(OTHER_KEY);
 		/** @type {Awaited<ReturnType<typeof startBridgeNode>> | null} */
 		let node = null;
 		let unpaired = 0;
 		try {
+			// The own device paired the bridge by invitation: it holds the pairing grant.
+			await fileStore(join(nodeDir, 'grants.json')).set('paired', {
+				grantId: 'paired',
+				extensionId: 'belege-bridge',
+				consumerPeerId: own.peerId,
+				scopes: [PAIR_SCOPE],
+				label: 'test',
+				did: '',
+				createdAt: Date.now(),
+				expiresAt: 0,
+				lastUsedAt: Date.now()
+			});
 			node = await startBridgeNode({
 				dir: nodeDir,
 				authKey: AUTH_KEY,
 				relays: [],
-				devices: [own.peerId],
+				devices: [own.peerId, other.peerId],
 				commands: emptyCommands(),
 				transports: [memory()],
 				listen: ['/memory/bridge-two'],
@@ -242,14 +255,36 @@ describe('the bridge’s node', () => {
 			);
 			await new Promise((r) => setTimeout(r, 200));
 			await assert.rejects(unlisted.consumer.call(node.peerId, 'belege-bridge', 'help', {}));
-			// The own device keeps the list current, with no UCEP grant: the gate is the check.
+			// The device that paired the bridge keeps the list current.
 			const kept = await own.consumer.call(node.peerId, 'belege-bridge', 'devices', {
-				devices: [own.peerId, unlisted.peerId]
+				devices: [own.peerId, other.peerId, unlisted.peerId]
 			});
-			assert.equal(kept.devices, 2);
-			assert.equal(node.devices().size, 2);
+			assert.equal(kept.devices, 3);
+			assert.equal(node.devices().size, 3);
 
-			// "Kopplung lösen" on a device: the bridge is told to forget its key, a moment later.
+			// Another device of the books, proved too, only takes devices off –
+			// and never the one that paired the bridge.
+			await other.libp2p.dial(
+				/** @type {any} */ (await import('@multiformats/multiaddr')).multiaddr(addr)
+			);
+			assert.equal(await waitFor(() => other.gate?.isProved(node.peerId) === true), true);
+			const fewer = await other.consumer.call(node.peerId, 'belege-bridge', 'devices', {
+				devices: [other.peerId]
+			});
+			assert.equal(fewer.devices, 2);
+			assert.deepEqual([...node.devices()].sort(), [own.peerId, other.peerId].sort());
+			const more = await other.consumer.call(node.peerId, 'belege-bridge', 'devices', {
+				devices: [own.peerId, other.peerId, stranger.peerId]
+			});
+			assert.equal(more.devices, 2, 'adding is for the device that paired the bridge');
+			// … and cannot unpair it.
+			await assert.rejects(
+				other.consumer.call(node.peerId, 'belege-bridge', 'unpair', {}),
+				(/** @type {any} */ e) => ['PAIRING_REQUIRED', 'SCOPE_MISSING'].includes(e.code)
+			);
+			assert.equal(unpaired, 0);
+
+			// "Kopplung lösen" on the device that paired it: the bridge forgets its key, a moment later.
 			const gone = await own.consumer.call(node.peerId, 'belege-bridge', 'unpair', {});
 			assert.equal(gone.unpaired, true);
 			assert.equal(unpaired, 0, 'the answer goes out before the restart');
@@ -257,6 +292,7 @@ describe('the bridge’s node', () => {
 		} finally {
 			await node?.stop();
 			await own.stop();
+			await other.stop();
 			await unlisted.stop();
 			await stranger.stop();
 		}

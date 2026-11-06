@@ -4254,7 +4254,9 @@ export default {
 			codeHintFirst: 'einmalig, 10 Minuten gültig',
 			unpair: 'Kopplung lösen',
 			unpairOffline:
-				'Die Bridge war nicht erreichbar: Die Kopplung ist nur auf diesem Gerät gelöst. Auf der Bridge entfernt `pnpm bridge -- --revoke-all` alle Kopplungen.'
+				'Die Bridge war nicht erreichbar: Die Kopplung ist nur auf diesem Gerät gelöst. Auf der Bridge entfernt `pnpm bridge -- --revoke-all` alle Kopplungen.',
+			unpairElsewhere:
+				'Diese Kopplung löst nur das Gerät, das die Bridge gekoppelt hat, oder der Rechner, auf dem die Bridge läuft. Hier wurde nichts geändert.'
 		},
 		hibiscus: {
 			title: 'Hibiscus',

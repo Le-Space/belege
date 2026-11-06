@@ -8,9 +8,10 @@ const DEVICE = 'device:';
 
 /**
  * @param {Record<string, any>[]} settingsRecords with the deleted ones
- * @returns {{ name: (writer: string) => string, deviceOwner: (peerId: string) => string, devicesOf: (writer: string) => string[] }}
+ * @returns {{ name: (writer: string) => string, deviceOwner: (peerId: string) => string, isMemberDevice: (peerId: string) => boolean, devicesOf: (writer: string) => string[] }}
  *   `name`: a member's name by their write identity ('' for anyone else);
- *   `deviceOwner`: the member a device belongs to, by name ('' for the owner's own)
+ *   `deviceOwner`: the member a device belongs to, by name ('' for the owner's own);
+ *   `isMemberDevice`: whether a device is a member's, named or not
  */
 export function whose(settingsRecords) {
 	const members = membersOf(settingsRecords);
@@ -28,6 +29,7 @@ export function whose(settingsRecords) {
 	return {
 		name: (writer) => byWriter.get(writer)?.label ?? '',
 		deviceOwner: (peerId) => byWriter.get(owners.get(peerId) ?? '')?.label ?? '',
+		isMemberDevice: (peerId) => byWriter.has(owners.get(peerId) ?? ''),
 		devicesOf: (writer) => [...owners].filter(([, w]) => w === writer).map(([peerId]) => peerId)
 	};
 }
