@@ -12,6 +12,12 @@ All notable changes to Le Space Belege. The format follows
 
 - **The threat model in plain German, and the use cases brought up to date** (#680). In both languages: the books' keys come from the books' root, which the passkey opens; a device needs the books' key and to be known or let in; after a compromised browser, new keys for the books help. The use cases name the bridge share as for own devices only, list the two roles of an assistant, call the AI assistant's view by its name, and show the check both sides compare when joining.
 
+- **The pages on AI, bank accounts, export, crypto and travel in plain German** (#683–#687), and their facts brought up to date in both languages:
+  - AI: redaction stays on by default and goes off only when `setup:llm` stored "off", for a model on this computer or a pinned enclave; uploads, the shared folder and Paperless hits start reading too; e-invoices are read without a model.
+  - Export: the settings paths (_Einstellungen → Buchhaltung (DATEV)_, _Kontenplan_), what holds the export back and what stays out of the ZIP, Akash network fees as one collective booking.
+  - Crypto: Bitcoin, Filecoin and Monero are imported today; a token CoinGecko cannot price takes the rate of its Uniswap pool.
+  - Travel: rates from the National Bank of Kazakhstan and cross rates through the ruble, Hong Kong with rates of its own, rental cars and public transport in trip proposals.
+
 ## [0.29.4] – 2026-11-06
 
 ### Fixed
