@@ -2,119 +2,267 @@
 
 _English: [travel.md](travel.md)_
 
-Reise- und Bewirtungsbelege passen nicht zu „eine Zahlung, ein Beleg“. Eine Reise hat viele Belege, oft privat bezahlt; Verpflegungspauschalen und Kilometer haben gar keinen Beleg; eine Bewirtung braucht Angaben, bevor sie zählt; und was die Firma erstattet, ist eine Überweisung für einen ganzen Monat. **Reisen** sammelt die Reisen eines Monats, rechnet aus, was sie ergeben, erstellt die Reisekostenabrechnung und bucht sie ([#213](https://github.com/Le-Space/belege/issues/213)).
+Reise- und Bewirtungsbelege passen nicht zur Regel „eine Zahlung, ein Beleg“:
 
-Wer reist, steht unter **Einstellungen → Reisende** ([#380](https://github.com/Le-Space/belege/issues/380)):
+- Eine Reise hat viele Belege. Oft hast du sie privat bezahlt.
+- Verpflegungspauschalen und Kilometer haben gar keinen Beleg.
+- Eine Bewirtung braucht erst bestimmte Angaben, bevor sie zählt.
+- Was die Firma dir erstattet, kommt als eine Überweisung für einen ganzen Monat.
 
-- **Der Inhaber** bzw. Gesellschafter-Geschäftsführer: angelegt mit der ersten Reise oder mit der ersten angestellten Person.
-- **Angestellte:** jede mit ihrem eigenen **Gegenkonto**, auf das ihre Abrechnungen gebucht werden. Es wird mit der Steuerberatung festgelegt, etwa ein Personenkonto. Ohne Gegenkonto lässt sich für sie keine Abrechnung erstellen.
-- **Die letzten vier Ziffern der IBAN** jeder Person erkennen die Überweisung der Erstattung.
+Dafür gibt es **Reisen**. Die Seite sammelt die Reisen eines Monats und rechnet aus, was sie ergeben. Sie erstellt die Reisekostenabrechnung und bucht sie ([#213](https://github.com/Le-Space/belege/issues/213)).
 
-Bei mehr als einer Person sagen die Reisen-Seite, die Reise und am Beleg „Zu einer Reise …“, wessen Reise es ist. Die Pauschalen sind die gesetzlichen, im Ausland die des jährlichen BMF-Schreibens.
+## Wer reist
+
+Wer reist, trägst du unter **Einstellungen → Reisende** ein ([#380](https://github.com/Le-Space/belege/issues/380)):
+
+- **Der Inhaber** oder der Gesellschafter-Geschäftsführer. Belege legt ihn mit der ersten Reise an, oder wenn du die erste angestellte Person einträgst.
+- **Angestellte.** Jede angestellte Person hat ihr eigenes **Gegenkonto**. Das ist das Konto, auf das ihre Abrechnungen gebucht werden, zum Beispiel ein Personenkonto. Welches es ist, legst du mit der Steuerberatung fest. Ohne Gegenkonto kannst du für diese Person keine Abrechnung erstellen.
+- **Die letzten vier Ziffern der IBAN** jeder Person. Daran erkennt Belege die Überweisung, mit der du ihr die Kosten erstattest.
+
+Reisen mehrere Personen, zeigt Belege an drei Stellen, wessen Reise es ist: auf der Seite Reisen, auf der Reise selbst und am Beleg unter „Zu einer Reise …“.
+
+Die Pauschalen sind die gesetzlichen. Für das Ausland gelten die Sätze aus dem jährlichen Schreiben des Bundesfinanzministeriums (kurz: BMF-Schreiben).
 
 ## Reisen
 
-**Reisen** (aus Belege und von Home) zeigt einen Monat: seine Reisen mit dem, was sie ergeben, die Bewirtungen, die von den Belegen vorgeschlagenen Reisen, Termine aus Einladungen, die offenen Punkte und die Abrechnung des Monats.
+Du öffnest **Reisen** über Belege oder von Home aus. Die Seite zeigt einen Monat:
 
-Die Seite einer Reise enthält:
+- seine Reisen, jede mit dem, was sie ergibt;
+- die Bewirtungen;
+- Reisen, die Belege aus deinen Belegen vorschlägt;
+- Termine aus Einladungen;
+- die offenen Punkte;
+- die Abrechnung des Monats.
 
-- **Kopf:** Ziel, geschäftlicher Anlass, Abfahrt und Rückkehr (Datum und Uhrzeit), die Tätigkeitsstätte (ein Kunde, eine Baustelle: für die Dreimonatsregel), ob übernachtet wurde.
-- **Ausland:** jeder Grenzübertritt mit Uhrzeit und Ländercode; daneben steht der Name des Landes, damit ein Tippfehler auffällt. Ein Auslandstag bekommt den Satz des Landes, das vor Mitternacht zuletzt erreicht wurde; der Rückreisetag den des letzten Auslandsorts. Hat ein Land Städte mit eigenen Sätzen (Moskau, Paris, New York City …), wählt der Grenzübertritt eine davon; jeder andere Ort ist das übrige Land.
-  - **Sätze:** die Ländertabelle des BMF-Schreibens für das Jahr (ab 2025), genau wie gedruckt, mit dem Schreiben als Quelle. Gestellte Mahlzeiten kürzen einen Tag um den Satz für einen vollen Tag in seinem Land.
-  - **Länder, die das Schreiben nicht nennt:** Mikronesien bekommt die Sätze der Philippinen, die Staaten im Amtsbezirk von Trinidad und Tobago dessen Sätze (so steht es im Schreiben); ein Übersee- oder Außengebiet die des Mutterlands (Guadeloupe → Frankreich, Hongkong gehört zu China); jedes andere Land die von Luxemburg. Die letzten beiden sind Hinweise für die Steuerberatung.
-  - Ein Tag vor 2025 hat in Belege kein Schreiben: Er bleibt ohne Betrag und wird genannt.
-  - Die Übernachtungspauschalen im Ausland gelten nur für die Erstattung durch einen Arbeitgeber, nicht für den Inhaber: siehe die Nächte unten.
-- **Nächte ohne Hotelrechnung** (nur Angestellte, #380): Jede Nacht wird einzeln angekreuzt, mit der Pauschale, die sie bekommt – 20 € im Inland (R 9.7 Abs. 3 LStR), im Ausland der Übernachtungssatz des BMF-Schreibens für den Ort um Mitternacht (der einer Stadt, wenn der Grenzübertritt sie nennt). Nie von selbst, nie für den Inhaber. Gebucht mit der Monatsabrechnung auf das Übernachtungskonto (4666), ohne Vorsteuer; ein Hotelbeleg an derselben Reise gibt einen Hinweis, damit keine Nacht doppelt erstattet wird.
-- **Gestellte Mahlzeiten:** pro Tag. Ein Frühstück in der Hotelrechnung wird aus der Rechnung vorgeschlagen („Übernehmen“).
-- **Kilometer:** Datum, von, nach, Anlass, km, hin und zurück. Die Strecke ist der Beleg.
-  - Eigener PKW 0,30 €/km, Motorrad oder Moped 0,20 €/km; ein Fahrrad hat keine Pauschale.
-  - **Auto eines Familienangehörigen:** die Pauschale, markiert mit _Fremdes Fahrzeug – mit Steuerberatung klären_, mit Halter und wer die laufenden Kosten trägt.
-  - Firmenwagen und Mietwagen bekommen keine Kilometer (Tanken und Miete sind Belege).
-- **Belege** der Reise mit wer bezahlt hat, die Pauschale pro Tag und **was die Reise ergibt**: Pauschalen + Kilometer + Übernachtungspauschalen + privat bezahlte Belege.
+### Die Seite einer Reise
 
-Was einer Reise fehlt (Zeiten, ein Anlass, km), wird genannt; gespeichert wird sie trotzdem.
+**Kopf.** Hier stehen Ziel, geschäftlicher Anlass, Abfahrt und Rückkehr mit Datum und Uhrzeit. Dazu kommt die Tätigkeitsstätte, also der Ort, an dem du arbeitest, zum Beispiel ein Kunde oder eine Baustelle. Sie zählt für die Dreimonatsregel (siehe unten). Und du hältst fest, ob du übernachtet hast.
+
+**Ausland.** Du trägst jeden Grenzübertritt mit Uhrzeit und Ländercode ein. Daneben steht der Name des Landes, damit dir ein Tippfehler auffällt.
+
+- Ein Tag im Ausland bekommt den Satz des Landes, das du vor Mitternacht zuletzt erreicht hast.
+- Der Tag der Rückreise bekommt den Satz des letzten Orts im Ausland.
+- Manche Länder haben Städte mit eigenen Sätzen, etwa Moskau, Paris oder New York City. Dann wählst du beim Grenzübertritt eine dieser Städte. Jeder andere Ort gilt als „übriges Land“.
+
+Woher die Sätze kommen:
+
+- Belege nutzt die Ländertabelle des BMF-Schreibens für das jeweilige Jahr, ab 2025. Die Sätze stehen genau so drin wie gedruckt, mit dem Schreiben als Quelle.
+- Gestellte Mahlzeiten kürzen einen Tag. Gerechnet wird mit dem Satz für einen vollen Tag in diesem Land.
+- Ein Tag vor 2025 hat in Belege kein Schreiben. Er bleibt ohne Betrag, und Belege weist darauf hin.
+- Die Übernachtungspauschalen im Ausland gelten nur, wenn ein Arbeitgeber erstattet. Für den Inhaber gelten sie nicht. Mehr dazu unter „Nächte ohne Hotelrechnung“.
+
+Länder, die das Schreiben nicht nennt:
+
+- Mikronesien bekommt die Sätze der Philippinen. So steht es im Schreiben.
+- Die Staaten im Amtsbezirk von Trinidad und Tobago bekommen dessen Sätze. Auch das steht im Schreiben.
+- Ein Übersee- oder Außengebiet bekommt die Sätze seines Mutterlands, zum Beispiel Guadeloupe die von Frankreich und Macao die von China.
+- Jedes andere Land bekommt die Sätze von Luxemburg.
+- Die letzten beiden Fälle sind Hinweise für die Steuerberatung.
+- Hongkong führt das Schreiben als Stadt Chinas, mit eigenen Sätzen. Belege nimmt diese Sätze, ohne Hinweis.
+
+**Nächte ohne Hotelrechnung.** Das gilt nur für Angestellte (#380).
+
+- Du kreuzt jede Nacht einzeln an. Belege kreuzt nie von selbst an und nie für den Inhaber.
+- Jede Nacht bekommt eine Pauschale: im Inland 20 € (R 9.7 Abs. 3 LStR). Im Ausland gilt der Übernachtungssatz des BMF-Schreibens für den Ort, an dem du um Mitternacht bist. Nennt der Grenzübertritt eine Stadt, gilt deren Satz.
+- Gebucht wird mit der Monatsabrechnung, auf das Übernachtungskonto (4666), ohne Vorsteuer.
+- Hängt an derselben Reise auch eine Hotelrechnung, zeigt Belege einen Hinweis. So wird keine Nacht doppelt erstattet.
+
+**Gestellte Mahlzeiten.** Du trägst sie pro Tag ein. Steht ein Frühstück in der Hotelrechnung, schlägt Belege es vor. Mit „Übernehmen“ trägst du es ein.
+
+**Kilometer.** Du trägst Datum, Start, Ziel, Anlass und Kilometer ein, und ob du hin und zurück gefahren bist. Die Strecke selbst ist der Beleg.
+
+- Eigenes Auto: 0,30 € pro km. Motorrad oder Moped: 0,20 € pro km. Ein Fahrrad hat keine Pauschale.
+- **Auto eines Familienangehörigen:** Es gibt die Pauschale. Sie ist aber markiert mit _Fremdes Fahrzeug – mit Steuerberatung klären_. Du gibst an, wem das Auto gehört und wer die laufenden Kosten trägt.
+- Firmenwagen und Mietwagen bekommen keine Kilometer. Tanken und Miete sind dort normale Belege.
+
+**Belege.** Die Reise listet ihre Belege und wer sie bezahlt hat. Dazu kommen die Pauschale pro Tag und **was die Reise ergibt**: Pauschalen + Kilometer + Übernachtungspauschalen + privat bezahlte Belege.
+
+Fehlt einer Reise etwas, etwa Zeiten, ein Anlass oder Kilometer, sagt Belege das. Gespeichert wird die Reise trotzdem.
 
 ## Verpflegungspauschalen
 
-Nach den Zeiten der Reise, pro Kalendertag (§ 9 Abs. 4a EStG; 14 € und 28 € seit 2020, davor 12 € und 24 €):
+Belege rechnet sie pro Kalendertag aus den Zeiten der Reise aus (§ 9 Abs. 4a EStG). Seit 2020 sind es 14 € und 28 €, davor 12 € und 24 €.
 
-- ein Tag ohne Übernachtung: mehr als 8 Stunden, der Teilsatz;
-- über Mitternacht ohne Übernachtung: die Stunden beider Tage zählen zusammen, für den Tag mit den meisten davon;
-- mit Übernachtungen: An- und Abreisetag der Teilsatz, jeder Tag dazwischen der volle;
-- eine gestellte Mahlzeit kürzt den Tag um 20 % (Frühstück) oder 40 % (Mittag-, Abendessen) des vollen Tagessatzes, höchstens auf null;
-- **Dreimonatsregel:** an derselben Tätigkeitsstätte endet die Pauschale drei Monate nach dem ersten Tag dort; vier Wochen Abwesenheit lassen die Zählung neu beginnen. Ob die Stätte an drei Tagen pro Woche oder öfter aufgesucht wird, prüft Belege nicht: die gekürzten Tage tragen ihren Grund, für die Steuerberatung.
+- **Ein Tag ohne Übernachtung:** Bei mehr als 8 Stunden gibt es den Teilsatz.
+- **Über Mitternacht ohne Übernachtung:** Die Stunden beider Tage zählen zusammen. Sie gelten für den Tag mit den meisten Stunden.
+- **Mit Übernachtungen:** Am Tag der Anreise und am Tag der Abreise gibt es den Teilsatz. Jeder Tag dazwischen bekommt den vollen Satz.
+- **Gestellte Mahlzeit:** Ein Frühstück kürzt den Tag um 20 % des vollen Tagessatzes. Ein Mittag- oder Abendessen kürzt um 40 %. Weiter als auf null geht es nicht.
+- **Dreimonatsregel:** An derselben Tätigkeitsstätte endet die Pauschale drei Monate nach dem ersten Tag dort. Bist du vier Wochen nicht dort, beginnt die Zählung neu. Ob du die Stätte an drei oder mehr Tagen pro Woche aufsuchst, prüft Belege nicht. Die gekürzten Tage nennen deshalb ihren Grund, für die Steuerberatung.
 
 ## Belege auf einer Reise
 
-Am Beleg ordnet **„Zu einer Reise …“** ihn einer Reise zu (Reisen um sein Datum zuerst), mit wer bezahlt hat – die Firma, wo eine Bankzahlung ihn deckt, sonst privat; oder legt aus ihm eine neue Reise an, mit Ziel und Zeiten wie gelesen.
+Am Beleg ordnest du ihn mit **„Zu einer Reise …“** einer Reise zu. Reisen um sein Datum stehen dabei oben. Du gibst an, wer bezahlt hat. Belege schlägt „die Firma“ vor, wenn eine Bankzahlung den Beleg deckt, sonst „privat“. Du kannst aus dem Beleg auch eine neue Reise anlegen. Ziel und Zeiten übernimmt Belege dann so, wie es sie gelesen hat.
 
-- **Andere Währung:** ein Beleg zählt in Euro, nie sein Betrag als Euro: nach der Auslage, als die er gebucht ist ([outlays.de.md](outlays.de.md)), nach der verknüpften Zahlung oder nach einem Kurs am Beleg – von der Bridge geholt (EZB, für den Rubel die Bank of Russia) oder eingetragen, wie man ihn sagt: „1 EUR = 95,23 RUB“. Ohne Kurs zählt er nichts, und die Abrechnung wartet darauf. Ausländische Umsatzsteuer ist keine deutsche Vorsteuer.
-- **Bewirtung:** **„Als Bewirtung erfassen …“** an einer Restaurantrechnung, mit oder ohne Reise: Ort, Teilnehmer, Anlass, Trinkgeld und wer es bekam. Netto und Trinkgeld werden zu 70 % abziehbar aufgeteilt, der Rest nicht; die Umsatzsteuer zählt voll. Was das Gesetz verlangt und fehlt, wird genannt.
+**Andere Währung.** Ein Beleg zählt immer in Euro. Belege nimmt nie seinen Betrag einfach als Euro. Den Euro-Betrag nimmt es aus einer dieser Quellen:
+
+- aus der Auslage, als die du ihn gebucht hast ([outlays.de.md](outlays.de.md));
+- aus der verknüpften Zahlung;
+- aus einem Kurs, den du am Beleg festhältst.
+
+Den Kurs holt die Bridge, das Hilfsprogramm auf deinem Rechner. Quellen sind die Europäische Zentralbank (EZB), für den Rubel die Bank of Russia, für den Tenge die Nationalbank Kasachstans. Für einige weitere Währungen ist es ein Kreuzkurs über den Rubel, aus den Kursen der Bank of Russia. Du kannst den Kurs auch selbst eintragen, so wie man ihn sagt: „1 EUR = 95,23 RUB“. Ohne Kurs zählt der Beleg nichts, und die Abrechnung wartet darauf. Ausländische Umsatzsteuer ist keine deutsche Vorsteuer.
+
+**Bewirtung.** An einer Restaurantrechnung wählst du **„Als Bewirtung erfassen …“**, mit oder ohne Reise. Du trägst Ort, Teilnehmer und Anlass ein, dazu ein Trinkgeld und wer es bekam.
+
+- Netto und Trinkgeld werden aufgeteilt: 70 % sind abziehbar, der Rest nicht.
+- Die Umsatzsteuer zählt voll.
+- Fehlt etwas, was das Gesetz verlangt, sagt Belege das.
 
 ## Reisen erkennen
 
-Nichts wird von selbst zugeordnet oder angelegt; alles hier schlägt vor, ein Klick entscheidet.
+Belege ordnet nichts von selbst zu und legt nichts von selbst an. Alles hier ist ein Vorschlag. Ein Klick von dir entscheidet.
 
-- **Das Auslesen** (mit KI, im ohnehin laufenden Auslesen) liefert die Art einer Reiseausgabe (Bahn, Bus, Flug, Hotel, Restaurant, Tanken, Taxi, Parken, Event …), Strecke und Zeiten hin und zurück, die Nächte einer Hotelrechnung und ob das Frühstück inklusive ist. Siehe [ai.de.md](ai.de.md).
-- **Ohne KI** geben Wörter, die Tickets und Rechnungen drucken, auf Deutsch, Englisch, Russisch, Ukrainisch, Polnisch, Tschechisch, Türkisch, Arabisch, Spanisch, Italienisch und Französisch, einem Beleg seine Art – aus Dateiname, Betreff, Absender und dem Text eines nicht ausgelesenen PDFs, gelesen im Browser. Nur ein Hinweis: keine Strecke, keine Zeiten, keine Rückfrage.
-- **Reisevorschläge,** nach Regeln: Fahrten und Hotels, die nach Tagen und Strecke zusammenpassen, werden ein Vorschlag („Reise nach Musterstadt, 08.04. 07:12 – 09.04. 20:41“), mit den Taxi-, Tank-, Park-, Restaurant- und Eventbelegen dieser Tage. Montag hin und Mittwoch zurück ist eine Reise; zwei Tagesreisen in einer Woche sind zwei. Jeder Vorschlag wird von einem Menschen beantwortet, auf eine von drei Arten ([#425](https://github.com/Le-Space/belege/issues/425)): **„Als Reise anlegen“** legt die Reise an oder fügt die Belege einer bestehenden hinzu; **„Geschäftlich, keine Reise“** behält sie als Betriebsausgaben und lehnt den Vorschlag dauerhaft ab; **„Privat“** sortiert jeden Beleg als privat aus (wie „Privat, nicht geschäftlich“, #293) und markiert eine Zahlung vom Geschäftskonto, die einen davon bezahlt hat, als privat („Privat (Irrläufer)“, #172) – beides lässt sich zurücknehmen. Ein **Konferenz- oder Veranstaltungsticket allein** ist ein eigener Vorschlag („Veranstaltung in Musterstadt, 15.04. 09:00“) mit denselben drei Antworten; eine Restaurantrechnung allein fragt weiterhin nichts.
-- **Termine aus Einladungen:** ein Kalenderteil (`.ics`) einer Mail an die Buchhaltungsadresse wird ein Termin – nur Titel, Ort und Zeiten, nie Teilnehmer, Veranstalter oder Links. Er gibt einem Vorschlag an seinen Tagen den Anlass; auf Reisen wird einer an einem anderen Ort als **„Reise dazu anlegen“** angeboten. Online-Termine und solche ohne Ort weisen nie auf eine Reise hin. Einladungen erreichen Belege, indem sie an die Buchhaltungsadresse gehen oder dorthin weitergeleitet werden.
+**Das Auslesen mit KI.** Es läuft ohnehin für jeden Beleg. Bei einer Reiseausgabe liefert es zusätzlich:
+
+- die Art, etwa Bahn, Bus, Flug, Hotel, Restaurant, Tanken, Taxi, Parken oder Event;
+- Strecke und Zeiten für Hin- und Rückweg;
+- die Nächte einer Hotelrechnung, und ob das Frühstück inklusive ist.
+
+Siehe [ai.de.md](ai.de.md).
+
+**Ohne KI.** Tickets und Rechnungen drucken typische Wörter. Belege kennt solche Wörter auf Deutsch, Englisch, Russisch, Ukrainisch, Polnisch, Tschechisch, Türkisch, Arabisch, Spanisch, Italienisch und Französisch. Es sucht sie in Dateiname, Betreff und Absender und im Text eines PDFs, das nicht ausgelesen wurde. Das geschieht im Browser. Daraus bekommt der Beleg seine Art, aber nur als Hinweis: keine Strecke, keine Zeiten, keine Rückfrage.
+
+**Reisevorschläge.** Belege bildet sie nach festen Regeln:
+
+- Fahrten und Hotels, die nach Tagen und Strecke zusammenpassen, werden ein Vorschlag, etwa „Reise nach Musterstadt, 08.04. 07:12 – 09.04. 20:41“.
+- Dazu kommen die Belege dieser Tage für Taxi, Tanken, Parken, Mietwagen, Nahverkehr, Restaurant und Events.
+- Montag hin und Mittwoch zurück ist eine Reise. Zwei Tagesreisen in einer Woche sind zwei Reisen.
+- Ein **Konferenz- oder Veranstaltungsticket allein** ist ein eigener Vorschlag, etwa „Veranstaltung in Musterstadt, 15.04. 09:00“.
+- Eine Restaurantrechnung allein löst keine Frage aus.
+
+Jeden Vorschlag beantwortest du selbst, auf eine von drei Arten ([#425](https://github.com/Le-Space/belege/issues/425)):
+
+- **„Als Reise anlegen“** legt die Reise an. Oder es fügt die Belege einer Reise hinzu, die es schon gibt.
+- **„Geschäftlich, keine Reise“** behält die Belege als Betriebsausgaben. Der Vorschlag kommt nicht wieder.
+- **„Privat“** sortiert jeden Beleg als privat aus, wie „Privat, nicht geschäftlich“ (#293). Hat eine Zahlung vom Geschäftskonto einen dieser Belege bezahlt, wird sie als privat markiert („Privat (Irrläufer)“, #172). Beides kannst du zurücknehmen.
+
+**Termine aus Einladungen.** Eine Einladung enthält oft einen Kalenderteil (eine `.ics`-Datei). Kommt so eine Mail an die Buchhaltungsadresse, wird daraus ein Termin.
+
+- Belege übernimmt nur Titel, Ort und Zeiten. Teilnehmer, Veranstalter und Links übernimmt es nie.
+- Fällt ein Termin auf die Tage eines Vorschlags, gibt er ihm den Anlass.
+- Liegt ein Termin an einem anderen Ort, bietet Reisen **„Reise dazu anlegen“** an.
+- Online-Termine und Termine ohne Ort weisen nie auf eine Reise hin.
+- Damit Belege eine Einladung sieht, schickst du sie an die Buchhaltungsadresse oder leitest sie dorthin weiter.
 
 ## Die Abrechnung
 
-Eine Abrechnung pro Reisender und Monat, auf Reisen:
+Es gibt eine Abrechnung pro Person und Monat. Du findest sie auf Reisen.
 
-- **Vorher:** die Summen – Pauschalen, Kilometer, privat bezahlte Belege, als Auslage gebuchte (dort erstattet), von der Firma bezahlte (aufgeführt, nicht erstattet) – und **Prüfungen**: eine Reise ohne Zeiten, Ziel oder Anlass, eine Bewirtung mit Lücken, ein privater Beleg ohne Betrag oder ohne Kurs sperren sie; ein Auslandstag ohne Satz oder mit dem eines anderen Landes, das Auto eines Familienangehörigen oder eine andere Währung sind Hinweise, die mit aufs PDF kommen.
-- **„Abrechnung erstellen“** nummeriert sie (`RK-2026-001`), zeichnet ein deutsches A4-PDF im Stil der Eigenbelege – Reisen mit Zeiten, Pauschale pro Tag, Kilometer, Belege, Bewirtungen, Summen, Vorsteuer nach Satz, die angewandten Sätze mit Rechtsquelle, die Hinweise, eine Unterschriftslinie – und legt es als Beleg für die Auszahlung ab.
-- Eine erstellte Abrechnung behält alles, was sie gedruckt hat, auch die Sätze, und wird **nicht geändert**. Eine Korrektur ist eine neue Abrechnung mit neuer Nummer, die auf sie verweist; die alte bleibt, als ersetzt markiert.
+**Vorher** zeigt Belege die Summen:
+
+- Pauschalen;
+- Kilometer;
+- privat bezahlte Belege;
+- Belege, die als Auslage gebucht sind (sie werden dort erstattet);
+- Belege, die die Firma bezahlt hat (sie stehen drin, werden aber nicht erstattet).
+
+Dazu kommen **Prüfungen**. Diese Punkte sperren die Abrechnung:
+
+- eine Reise ohne Zeiten, ohne Ziel oder ohne Anlass;
+- eine Bewirtung mit Lücken;
+- ein privater Beleg ohne Betrag oder ohne Kurs.
+
+Diese Punkte sind nur Hinweise. Sie werden mit aufs PDF gedruckt:
+
+- ein Tag im Ausland ohne Satz oder mit dem Satz eines anderen Landes;
+- das Auto eines Familienangehörigen;
+- ein Beleg in anderer Währung.
+
+**„Abrechnung erstellen“** gibt der Abrechnung eine Nummer, etwa `RK-2026-001`. Belege zeichnet daraus ein deutsches A4-PDF im Stil der Eigenbelege. Darauf stehen:
+
+- die Reisen mit Zeiten, die Pauschale pro Tag, die Kilometer;
+- die Belege und die Bewirtungen;
+- die Summen und die Vorsteuer nach Steuersatz;
+- die angewandten Sätze mit ihrer Rechtsquelle;
+- die Hinweise;
+- eine Linie für die Unterschrift.
+
+Das PDF legt Belege als Beleg für die Auszahlung ab.
+
+Eine erstellte Abrechnung behält alles, was sie gedruckt hat, auch die Sätze. Sie wird **nicht mehr geändert**. Eine Korrektur ist eine neue Abrechnung mit neuer Nummer. Sie verweist auf die alte. Die alte bleibt erhalten und ist als ersetzt markiert.
 
 ## Buchhaltung
 
-Die Abrechnung wird auf dem Konto des Reisenden gebucht, **„Reisekosten <Name>“**, einem Konto ohne Import. Sein Sachkonto ist das Gegenkonto der Person: bei Angestellten ihr eigenes, beim Inhaber, wenn keins eingetragen ist, das der Rechtsform (Buchhaltung): das Gesellschafter-Verrechnungskonto einer UG/GmbH, 1890 für Einzelunternehmen und Personengesellschaften. Die Abrechnung einer angestellten Person nutzt die Arbeitnehmer-Konten (466x), gleich welche Rechtsform. Bewirtungen ohne Reise stehen nur in der Abrechnung des Inhabers. Jede Zeile ein Abgang am Monatsletzten, in Euro:
+Belege bucht die Abrechnung auf das Konto der reisenden Person: **„Reisekosten <Name>“**. Es ist ein Konto ohne Import.
 
-|                                                | UG/GmbH (der Gesellschafter-Geschäftsführer ist angestellt) | Einzelunternehmen, Personengesellschaft |
-| ---------------------------------------------- | ----------------------------------------------------------- | --------------------------------------- |
-| Fahrt, Tanken, Parken, Taxi                    | 4663                                                        | 4673                                    |
-| Übernachtung (auch Pauschalen Angestellter)    | 4666                                                        | 4676                                    |
-| Verpflegungspauschalen (Monatssumme, ohne USt) | 4664                                                        | 4674                                    |
-| Kilometer (Monatssumme, ohne USt)              | 4668                                                        | 4673                                    |
-| Sonstiges auf einer Reise                      | 4660                                                        | 4670                                    |
-| Bewirtung: 70 % / 30 % des Bruttos, je mit USt | 4650 / 4654                                                 | 4650 / 4654                             |
+Sein Sachkonto ist das Gegenkonto der Person:
 
-- Ein privat bezahlter Beleg wird mit seinem Brutto und dem BU-Schlüssel seiner deutschen Umsatzsteuer gebucht und mit ihm verknüpft; Pauschalen und Kilometer mit der Abrechnung.
-- Eine Bewirtung wird je Steuersatz geteilt: 70 % des Bruttos auf 4650, 30 % auf 4654, **beide mit dem Vorsteuer-Schlüssel**. DATEV rechnet die Steuer aus jeder Zeile heraus, so wird die ganze Vorsteuer abgezogen (§ 15 UStG); begrenzt ist nur der Aufwand (§ 4 Abs. 5 Nr. 2 EStG). Eine Rechnung mit 7 % für Speisen und 19 % für Getränke ergibt vier Zeilen.
-- Als Auslage gebuchte und von der Firma bezahlte Belege werden nicht noch einmal gebucht. Ein Beleg auf einer Reise, vom Geschäftskonto bezahlt, bekommt sein Reisekostenkonto ebenfalls vorgeschlagen.
-- Jede Zeile bekommt ihr Konto vorgeschlagen; **„Konten … übernehmen“** im Export bestätigt sie mit den anderen automatischen Vorschlägen. Eine Korrektur storniert die Zeilen der ersetzten Abrechnung und bucht dann ihre eigenen.
-- Die Zeilen gehen in den DATEV-Buchungsstapel des Monats, die Abrechnung und ihre Belege ins ZIP ([export.de.md](export.de.md)).
+- Bei Angestellten ist es ihr eigenes.
+- Beim Inhaber gilt, wenn keins eingetragen ist, das Konto aus der Rechtsform unter Buchhaltung. Bei einer UG oder GmbH ist das das Gesellschafter-Verrechnungskonto. Bei Einzelunternehmen und Personengesellschaften ist es 1890.
+
+Die Abrechnung einer angestellten Person nutzt immer die Arbeitnehmer-Konten (466x), egal welche Rechtsform. Bewirtungen ohne Reise stehen nur in der Abrechnung des Inhabers.
+
+Jede Zeile ist ein Abgang am letzten Tag des Monats, in Euro. Die Konten (SKR 03):
+
+| Was                                                 | UG/GmbH (Gesellschafter-Geschäftsführer ist angestellt) | Einzelunternehmen, Personengesellschaft |
+| --------------------------------------------------- | ------------------------------------------------------- | --------------------------------------- |
+| Fahrt, Tanken, Parken, Taxi                         | 4663                                                    | 4673                                    |
+| Übernachtung (auch Pauschalen von Angestellten)     | 4666                                                    | 4676                                    |
+| Verpflegungspauschalen (Monatssumme, ohne USt)      | 4664                                                    | 4674                                    |
+| Kilometer (Monatssumme, ohne USt)                   | 4668                                                    | 4673                                    |
+| Sonstiges auf einer Reise                           | 4660                                                    | 4670                                    |
+| Bewirtung: 70 % / 30 % des Bruttos, jeweils mit USt | 4650 / 4654                                             | 4650 / 4654                             |
+
+So wird gebucht:
+
+- **Privat bezahlter Beleg:** mit seinem Brutto und dem BU-Schlüssel seiner deutschen Umsatzsteuer. Der BU-Schlüssel ist der Steuerschlüssel, an dem DATEV den Steuersatz erkennt. Die Buchung ist mit dem Beleg verknüpft. Pauschalen und Kilometer sind mit der Abrechnung verknüpft.
+- **Bewirtung:** Sie wird je Steuersatz geteilt. 70 % des Bruttos gehen auf 4650, 30 % auf 4654, **beide mit dem Vorsteuer-Schlüssel**. DATEV rechnet die Steuer aus jeder Zeile heraus. So wird die ganze Vorsteuer abgezogen (§ 15 UStG). Begrenzt ist nur der Aufwand (§ 4 Abs. 5 Nr. 2 EStG). Eine Rechnung mit 7 % für Speisen und 19 % für Getränke ergibt deshalb vier Zeilen.
+- **Auslagen und Firmenzahlungen:** Belege, die als Auslage gebucht sind oder die die Firma bezahlt hat, werden nicht noch einmal gebucht. Ein Beleg auf einer Reise, den das Geschäftskonto bezahlt hat, bekommt sein Reisekostenkonto aber ebenfalls vorgeschlagen.
+- **Vorschläge bestätigen:** Jede Zeile bekommt ihr Konto vorgeschlagen. Im Export bestätigst du sie mit **„Konten … übernehmen“**, zusammen mit den anderen automatischen Vorschlägen.
+- **Korrektur:** Sie storniert die Zeilen der ersetzten Abrechnung und bucht dann ihre eigenen.
+- **Export:** Die Zeilen gehen in den DATEV-Buchungsstapel des Monats. Die Abrechnung und ihre Belege gehen ins ZIP ([export.de.md](export.de.md)).
 
 ## Die Auszahlung
 
-Die Überweisung an den Reisenden wird mit dem PDF der Abrechnung verknüpft, wie jede Zahlung mit ihrem Beleg. An der Überweisung bietet **„Zahlt Reisekosten aus …“** die offenen Abrechnungen an, angehakt die, deren Nummer (`RK-…`) der Verwendungszweck nennt, sonst die, deren Beträge aufgehen – nur die der Person, auf deren IBAN-Endziffern das Empfängerkonto endet, wo es das tut.
+Die Überweisung an die reisende Person wird mit dem PDF der Abrechnung verknüpft. Das funktioniert wie bei jeder Zahlung mit ihrem Beleg.
 
-- Mehrere Überweisungen zahlen eine Abrechnung in Teilen; eine Überweisung kann mehrere zahlen, die ältesten zuerst; zu viel wird so genannt. Eine Korrektur übernimmt, was auf die ersetzte Abrechnung gezahlt wurde.
-- Die Auszahlung wird gegen das Gegenkonto der Person gebucht: bei Angestellten ihr eigenes; beim Inhaber das eingetragene, sonst nach dem Weg des Geldes, wie eine private Rückzahlung.
-- Reisen sagt, ob die Abrechnung ausgezahlt ist, teilweise oder zu viel.
+An der Überweisung bietet **„Zahlt Reisekosten aus …“** die offenen Abrechnungen an. Angehakt ist:
+
+- die Abrechnung, deren Nummer (`RK-…`) im Verwendungszweck steht;
+- sonst die Abrechnungen, deren Beträge genau aufgehen;
+- sonst die ältesten, bis der Betrag verbraucht ist.
+
+Endet das Empfängerkonto auf die IBAN-Ziffern einer Person, bietet Belege nur deren Abrechnungen an.
+
+- Mehrere Überweisungen können eine Abrechnung in Teilen zahlen.
+- Eine Überweisung kann mehrere Abrechnungen zahlen, die ältesten zuerst.
+- Ist es zu viel, sagt Belege das.
+- Eine Korrektur übernimmt, was auf die ersetzte Abrechnung schon gezahlt wurde.
+- Gebucht wird die Auszahlung gegen das Gegenkonto der Person. Bei Angestellten ist das ihr eigenes. Beim Inhaber ist es das eingetragene. Ist keins eingetragen, richtet es sich nach dem Weg des Geldes, wie bei einer privaten Rückzahlung.
+- Reisen zeigt, ob die Abrechnung ausgezahlt ist, nur teilweise oder zu viel.
 
 ## Vorschüsse
 
-Geld, das eine Person vor einer Reise bekommt ([#381](https://github.com/Le-Space/belege/issues/381)). An der Zahlung markiert **„Vorschuss für Reisekosten …“** es, für eine Person (über die IBAN-Endziffern, wo sie passen) und, wenn bekannt, für eine Reise.
+Ein Vorschuss ist Geld, das eine Person vor einer Reise bekommt ([#381](https://github.com/Le-Space/belege/issues/381)). An der Zahlung markierst du es mit **„Vorschuss für Reisekosten …“**. Du wählst die Person. Passen die IBAN-Ziffern, schlägt Belege sie vor. Wenn du sie kennst, wählst du auch die Reise.
 
-- Es braucht keinen eigenen Beleg: Die Abrechnung belegt es. Gebucht wird es gegen das Gegenkonto der Person, wie die Auszahlung.
-- **Verrechnet mit den Abrechnungen:** Ein Vorschuss für eine Reise geht ganz auf die Abrechnung, die diese Reise enthält; einer ohne Reise auf die Abrechnungen der Person, die älteste zuerst, so weit deren Kosten reichen. Was noch keine Abrechnung nimmt, steht an der Zahlung als noch nicht abgerechnet.
-- **Die Abrechnung** zeigt „Bereits als Vorschuss gezahlt“ und was noch auszuzahlen ist; das PDF listet die Vorschüsse. Ist der Vorschuss höher als die Kosten, bleibt eine Forderung an die Person, und die Abrechnung sagt das. Eine Korrektur übernimmt die Vorschüsse der Abrechnung, die sie ersetzt.
-- „Kein Vorschuss“ nimmt die Markierung zurück; die Zahlung wartet dann wieder auf einen Beleg.
+- Ein Vorschuss braucht keinen eigenen Beleg. Die Abrechnung belegt ihn.
+- Gebucht wird er gegen das Gegenkonto der Person, wie die Auszahlung.
+
+**Verrechnung mit den Abrechnungen:**
+
+- Ein Vorschuss für eine Reise geht ganz auf die Abrechnung, die diese Reise enthält.
+- Ein Vorschuss ohne Reise geht auf die Abrechnungen der Person, die älteste zuerst, so weit deren Kosten reichen.
+- Was noch keine Abrechnung aufnimmt, steht an der Zahlung als „noch nicht abgerechnet“.
+
+**In der Abrechnung:**
+
+- Sie zeigt „Bereits als Vorschuss gezahlt“ und was noch auszuzahlen ist.
+- Das PDF listet die Vorschüsse.
+- Ist der Vorschuss höher als die Kosten, bleibt eine Forderung an die Person. Die Abrechnung sagt das.
+- Eine Korrektur übernimmt die Vorschüsse der Abrechnung, die sie ersetzt.
+
+„Kein Vorschuss“ nimmt die Markierung zurück. Die Zahlung wartet dann wieder auf einen Beleg.
 
 ## Offene Punkte
 
-Auf Reisen, gezählt auf Home und unter Rückfragen:
+Sie stehen auf Reisen. Auf Home und unter Rückfragen werden sie mitgezählt.
 
-- ein als Ticket, Flug oder Hotel gelesener Beleg ohne Reise (nicht einer, den ein Vorschlag abdeckt oder der abgelehnt wurde);
-- eine Reise ohne Zeiten oder mit Lücken;
-- eine Bewirtung ohne das, was das Gesetz verlangt;
-- eine Abrechnung, zwei Wochen nach dem Erstellen nicht ausgezahlt.
+- Ein Beleg ohne Reise, der als Fahrkarte für Bahn, Bus oder Flug, als Hotel, als Mietwagen oder als anderes Ticket gelesen wurde. Ausgenommen sind Belege, die ein Vorschlag schon abdeckt oder die du abgelehnt hast.
+- Eine Reise ohne Zeiten oder mit Lücken.
+- Eine Bewirtung ohne die Angaben, die das Gesetz verlangt.
+- Eine Abrechnung, die zwei Wochen nach dem Erstellen noch nicht ausgezahlt ist.
 
 ## Noch nicht
 
-- Erstattungen über den gesetzlichen Pauschalen: Belege erstattet genau diese und Belege in ihrer Höhe, nennt also nichts als lohnsteuerpflichtig; das bestätigt die Steuerberatung.
+- Erstattungen über den gesetzlichen Pauschalen. Belege erstattet genau diese Pauschalen und Belege in ihrer Höhe. Es nennt deshalb nichts als lohnsteuerpflichtig. Das bestätigt die Steuerberatung.
 
-Sätze, Konten und die Behandlung des Autos von Familienangehörigen sind mit der Steuerberatung abzustimmen; das beschreibt, was Belege tut, keine Steuerberatung.
+Sätze, Konten und die Behandlung des Autos von Familienangehörigen stimmst du mit der Steuerberatung ab. Diese Seite beschreibt, was Belege tut. Sie ist keine Steuerberatung.
