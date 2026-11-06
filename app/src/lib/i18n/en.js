@@ -1215,6 +1215,21 @@ export default {
 			'Goes out: the sealed file to Aleph’s IPFS host (it sees this computer’s IP address and the size), and to the Aleph API an order naming the file – signed by this browser’s key or, without the grant, by the bridge. To show this page, it asks Aleph for the account’s grants and credits.',
 		ownerChange: 'Change',
 		ask: 'This backup is {size} and costs about {perDay} credits a day for as long as Aleph keeps it – every backup is a whole copy. With the backups already there, the credits then last {days}. Upload?',
+		advanced: 'Advanced',
+		restoreOpen: 'Restore …',
+		status: {
+			loading: 'Checking …',
+			noAccount:
+				'Not set up yet: under “Advanced”, enter the Aleph account that pays for the backups.',
+			notLetIn:
+				'This browser may not back up yet: “Advanced” says how the Aleph account lets it in.',
+			creditsShort:
+				'The credits last only about {days} more days – after that Aleph no longer keeps the backups. Top up under “Advanced”.',
+			refused: 'Aleph refused the last backup. “Advanced” says why, and how to ask again.',
+			none: 'No backup yet. “Back up now” makes the first.',
+			unsaved: 'Last backed up: {when}. Not backed up yet: {list}.',
+			ok: 'Everything backed up – last {when}.'
+		},
 		upload: 'Upload',
 		creditsLow:
 			'The credits for the backups last only about {days} more days. After that, Aleph no longer keeps the backups.',

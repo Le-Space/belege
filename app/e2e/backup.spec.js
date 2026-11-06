@@ -20,7 +20,7 @@ import { alephAccountOf, startFakeAleph } from '@belege/bridge/testing/aleph';
 import { runAlephGrants } from '../../bridge/src/setup-aleph.js';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
-import { openIntegration } from './integrations.js';
+import { openBackupAdvanced, openIntegration } from './integrations.js';
 import { pairBridge } from './bridge.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
@@ -95,6 +95,7 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 
 	await openIntegration(page, 'backup');
 	const card = page.getByTestId('backup-card');
+	await openBackupAdvanced(card);
 	// Before anything goes up: where it lies and what that is good for, what of it
 	// is public, and where to wait for the other way.
 	const notice = card.getByTestId('backup-public');

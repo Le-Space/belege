@@ -10,7 +10,7 @@ import { memoryKeychain } from '@belege/bridge';
 import { alephAccountOf, startFakeAleph } from '@belege/bridge/testing/aleph';
 import { runAlephGrants } from '../../bridge/src/setup-aleph.js';
 import { acceptConsent } from './consent.js';
-import { openIntegration } from './integrations.js';
+import { openBackupAdvanced, openIntegration } from './integrations.js';
 import { addVirtualAuthenticator, forgetThisDevice } from './webauthn.js';
 
 /** @param {import('@playwright/test').Browser} browser @param {string} label */
@@ -284,6 +284,7 @@ test('the bookkeeping backs up, and an empty browser with their passkey restores
 		// The bookkeeping backs up: the books' account, the books' browser key, the books' backup key.
 		await openIntegration(keeper.page, 'backup');
 		const card = keeper.page.getByTestId('backup-card');
+		await openBackupAdvanced(card);
 		// The books' account and key come with the settings, which may sync after the bookings.
 		await expect(card.getByTestId('backup-address')).toContainText(alephAccountOf(KEY), {
 			timeout: 180_000
@@ -314,6 +315,7 @@ test('the bookkeeping backs up, and an empty browser with their passkey restores
 
 		// The pointer named the account: the backup is listed, and comes back.
 		await openIntegration(keeper.page, 'backup');
+		await openBackupAdvanced(card);
 		await expect(card.getByTestId('backup-address')).toContainText(alephAccountOf(KEY), {
 			timeout: 60_000
 		});
