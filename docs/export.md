@@ -14,28 +14,31 @@ DATEV_2026-09.zip
 └── Uebersicht_2026-09.csv                  UTF-8, for people: every booking, its account, receipt number, how the receipt was linked
 ```
 
+The statements can be left out on the export page; they are in by default. A private payment from the business account adds its note as `Aktennotizen/<date>_<counterparty>_<id>.txt`, its document (#172). A package with test bookings in it is named `TEST_DATEV_…`, one of sample bookings only `BEISPIEL_DATEV_…`: neither is for the books.
+
 An e-invoice (XRechnung, #160) goes into the ZIP as the XML it came as, `Belege/<number>_<vendor>.xml`: for an e-invoice the XML is the original to keep. A ZUGFeRD / Factur-X invoice goes in as its PDF and, under the same number, its embedded XML. So does an invoice the invoicing app issued as XRechnung: its PDF, and its XML as the original (#515).
 
 A receipt that is a mail without an attachment (a shop's receipt written in the mail itself) is kept as the mail was received, sealed like any file (#288): `Belege/<number>_<vendor>.eml` goes into the ZIP, and beside it a PDF made from it – sender, day, subject and the mail's whole text (the plain-text part, else the HTML part turned into text; never its HTML). A receipt imported before Belege kept the original has only the excerpt taken at the fetch, at most about 2,000 characters; it gets its original when its mail is fetched again, or with _Original holen_ in the receipt, as long as the mail is still in the mailbox – the receipt says when it no longer is. Until then the PDF is made from the excerpt and says when that was cut, and the overview names the PDF as made from the mail. The bridge hands out a whole mail only when it was sent to the accounting address.
 
 ## Before the export
 
-1. **Ledger accounts of the bank accounts** – _Integrationen → Eigene Anweisungen → Buchhaltung (DATEV-Export)_: for each bank account the number it has in your bookkeeping ("Sachkonto"). The field shows 1200, 1210, … (SKR 03) as a placeholder only.
+1. **Ledger accounts of the bank accounts** – _Einstellungen → Buchhaltung (DATEV)_: for each bank account the number it has in your bookkeeping ("Sachkonto"). The field shows 1200, 1210, … (SKR 03) as a placeholder only.
 2. **Header values** – same place: Beraternummer and Mandantennummer (defaults 1001 and 1, usual for a company doing its own books – check what your bookkeeping expects), the month the fiscal year starts (January), the Sachkontenlänge (4).
 3. **An account for every booking** – in each booking under _Konto_. The app suggests, you confirm with _Übernehmen_:
    - own transfer → **1360** Geldtransit, bank fee → **4970** Nebenkosten des Geldverkehrs, both without a BU key;
+   - a private payment from the business account or its repayment → the account of the legal form (#172); wages, payroll tax, contributions and tax payments → their account where one is known (#233); a travel statement's line → its account (#213);
    - _gelernt_: the account you gave this vendor last time (found by the receipt's vendor or the counterparty on the statement);
    - otherwise nothing: pick from the SKR 03 list (search by number or name) or type any 4–8 digit number.
 
-   The BU key comes from the linked receipt: VAT 19 % → 9, 7 % → 8 on money out; 19 % → 3, 7 % → 2 on money in; `reverse_charge` → 94; no key without VAT, with several or foreign rates, or on an Automatikkonto (8400, 8300). The keys can be changed in the settings.
+   The BU key comes from the linked receipt: VAT 19 % → 9, 7 % → 8 on money out; 19 % → 3, 7 % → 2 on money in; `reverse_charge` → 94 on money out, none on money in; no key without VAT, with several or foreign rates, or on an Automatikkonto (8400, 8300). Without a receipt, the key learned for the vendor. The keys can be changed in the settings.
 
-The export page lists what is missing. **It exports only when every booking of the month has a confirmed account and every bank account its ledger account.** Fees and transfers are no exception: their suggestion is automatic, but it is confirmed – one click, _Konten aus Umbuchung und Bankgebühr übernehmen_, does all of them. (The alternative, a setting that takes automatic accounts unconfirmed, was left out: one more switch, and a wrong classification would reach the books unseen.) One exception, confirmed by the person (#305): a wallet's **network fees** – the chain itself names them a fee, a cent or so for every transaction it sends – can be put on their account once for all, with _Für alle Netzwerkgebühren übernehmen_ in a fee's account block. Every network fee not confirmed yet takes the account, and so does each one a later sync brings; _Regel aufheben_ takes it off those again, while a fee confirmed by hand keeps its own. Bank and exchange fees are not covered. Bookings without a receipt, receipts linked to nothing and senders not yet confirmed are warnings: the export goes, but have a look.
+The export page lists what is missing. **It exports only when every booking of the month has a confirmed account and every bank account its ledger account.** It also waits for a rate on every crypto booking (no euro amount without one, #162), for every booking to belong to a bank account of the books, and for a month that does not mix sample data with real bookings. Fees and transfers are no exception: their suggestion is automatic, but it is confirmed – one click, _Konten aus Umbuchung, Bankgebühr und Reisekostenabrechnung übernehmen_, does all of them, travel statements' accounts included. (The alternative, a setting that takes automatic accounts unconfirmed, was left out: one more switch, and a wrong classification would reach the books unseen.) One exception, confirmed by the person (#305): a wallet's **network fees** – the chain itself names them a fee, a cent or so for every transaction it sends – can be put on their account once for all, with _Für alle Netzwerkgebühren übernehmen_ in a fee's account block. Every network fee not confirmed yet takes the account, and so does each one a later sync brings; _Regel aufheben_ takes it off those again, while a fee confirmed by hand keeps its own. Bank and exchange fees are not covered. Bookings without a receipt, receipts linked to nothing (not in the ZIP), copies of receipts already linked, and receipts whose sender is not yet confirmed (not in the ZIP) are warnings: the export goes, but have a look.
 
 ### Optional: a suspense account for bookings without an account (#323)
 
 Pre-assignment stays the default. Where a booking is still unclear at the month's end, the export can put it on a **suspense account** instead of waiting, as is common when a batch is imported without every contra account settled:
 
-- **Setting:** _Eigene Anweisungen → Buchhaltung → Sammelkonto für Buchungen ohne Konto_, an account number, empty by default. Belege suggests none: which account (in SKR 03 usually one of the transit or unclear items) is for the tax adviser to say.
+- **Setting:** _Einstellungen → Buchhaltung (DATEV) → Sammelkonto für Buchungen ohne Konto_, an account number, empty by default. Belege suggests none: which account (in SKR 03 usually one of the transit or unclear items) is for the tax adviser to say.
 - **Export page:** _Buchungen ohne Konto auf das Sammelkonto … exportieren_, offered only with that setting, off by default, remembered in this browser.
 - **On:**
   - a booking without a confirmed account no longer blocks; the check list warns how many go onto the suspense account;
@@ -54,14 +57,15 @@ Bookkeeping programs and DATEV import a Buchungsstapel through their DATEV impor
 
 ## The format
 
-- EXTF, version 700, category 21 "Buchungsstapel", format version 13. Line 1: 31 header fields; line 2: the 125 column headings; then one line per booking with 125 fields (only the first 14 are filled).
+- EXTF, version 700, category 21 "Buchungsstapel", format version 13. Line 1: 31 header fields; line 2: the 125 column headings; then one line per booking with 125 fields (the first 14 are filled, and KOST1 where there is a cost centre).
 - `;` between fields, CRLF after each line, text in double quotes with inner quotes doubled, empty fields completely empty. Windows-1252 (ANSI); a character it lacks loses its accent, Cyrillic and Greek are written in Latin letters (`Москва` → `Moskva`), and what is still missing (Arabic, Chinese) becomes `?`. The PDFs in the ZIP (receipts made from a mail, statements, Eigenbelege) carry text in any script their fonts have – Latin, Cyrillic, Greek, Arabic – with DejaVu Sans and Noto Sans Arabic embedded as subsets (`app/src/lib/pdf/fonts.js`).
-- Amount positive, decimal comma, no thousands separator. **S/H refers to _Konto_**, the bank's ledger account: money in is S, money out is H. _Gegenkonto_ is the confirmed account.
-- _Belegdatum_ `DDMM` = the booking date (DATEV takes the year from the fiscal year, and every line lies in the stack's period). _Belegfeld 1_ = the receipt number `YYYY-MM-NNN` (at most 36 characters). _Buchungstext_ = the receipt's vendor, else the counterparty, else the purpose (at most 60).
+- Amount positive, decimal comma, no thousands separator; a booking not in euros carries its currency in _WKZ Umsatz_. **S/H refers to _Konto_**, the bank's ledger account: money in is S, money out is H. _Gegenkonto_ is the confirmed account.
+- _Belegdatum_ `DDMM` = the booking date (DATEV takes the year from the fiscal year, and every line lies in the stack's period). _Belegfeld 1_ = the receipt number `YYYY-MM-NNN` (at most 36 characters). _Buchungstext_ = the receipt's vendor, else the counterparty, else the purpose (at most 60). A crypto booking adds the quantity (`… 0,015 BTC`), cut in front of it so it is never lost; wages, payroll tax, contributions and tax payments say what they are and for when instead (#233).
 - A booking with several receipts: the first receipt's number in _Belegfeld 1_, all of them in the ZIP.
 - _KOST1_ (Kostenstelle): the cost centre of the booking's account, given per own wallet under _Integrationen → Eigene Wallets_ (letters and digits, at most 36). None on a transfer exported once between two banks.
-- A booking without a receipt of its own (a bank or exchange fee, an own transfer, a staking reward, an income without an invoice yet): its account's statement number `KA-YYYY-MM-<ledger account>` in _Belegfeld 1_. The statement is in `Kontoauszuege/`.
-- **An own transfer** whose other side is in the books is exported **once**, from the bank account with the lower ledger number, against the other bank's ledger account (1200 → 1210, not via 1360: with one line, 1360 would stay open). The other side is listed in the overview as "nicht im Buchungsstapel". A transfer whose other side is not in the books keeps 1360.
+- A booking without a receipt of its own (a bank or exchange fee, an own transfer, a staking reward, an income without an invoice yet): its account's statement number `KA-YYYY-MM-<ledger account>` in _Belegfeld 1_. The statement is in `Kontoauszuege/`. With the statements left out, _Belegfeld 1_ of such a booking stays empty rather than name a document that is not there.
+- **An own transfer** whose other side is in the books is exported **once**, from the bank account with the lower ledger number, against the other bank's ledger account (1200 → 1210, not via 1360: with one line, 1360 would stay open). The other side is listed in the overview as "nicht im Buchungsstapel". A transfer whose other side is not in the books keeps 1360; so do both sides when they carry different euro amounts (an exchange and a wallet valued on different days), so the difference stays visible there.
+- Network fees an Akash usage statement covers (#305, [crypto.md](crypto.md)) go in as one collective booking per statement, account, contra account, BU key and cost centre: their sum, on the last fee's day, with the statement's receipt number, as _Netzwerkgebühren Akash MM/YYYY (n Tx)_. The statement lists each; a single fee stays as it is. It can be switched off on the export page; it is on by default.
 - Receipt numbers are given in booking order and kept on the receipt once exported: a second export of the month gives the same numbers, a receipt added later gets the next one.
 - Code: `app/src/lib/export/datev.js` (all of the format, one module), `plan.js` (what goes in, the check list), `build.js` (the ZIP, with [fflate](https://github.com/101arrowz/fflate), loaded only on the export page), `cp1252.js`; accounts in `app/src/lib/booking/`.
 
@@ -76,7 +80,7 @@ Bookkeeping programs and DATEV import a Buchungsstapel through their DATEV impor
 
 Every account with a booking in the month gets a statement as a PDF: bank accounts, exchange accounts and wallets alike (`app/src/lib/export/statement.js`, drawn by `statement-pdf.js`). It lists every booking of the month on that account, with its receipt number or what stands in for one (_Umbuchung_, _Gebühr_, _Ertrag_), and the totals of money in, money out and the month.
 
-A crypto account also shows the quantity and the rate of every booking, with the rate's source (K = Kraken, CG = CoinGecko, EZB = ECB, CBR = Bank of Russia, NBK = National Bank of Kazakhstan, CBR-X = cross rate through RUB from the Bank of Russia's rates, H = the price of the trade). The start and end balance in the asset come from the source where it has them, and say so: Kraken's ledger, where every entry carries the balance after it _(laut Kraken)_; for the native coin of an EVM wallet read through Blockscout, the explorer's own balance history, fees the transaction lists lack included _(laut Explorer)_; for another wallet read in full, its own history summed – only where that sum is exactly the balance the chain reports today – or, for Monero's CLI export, the wallet's own running balance _(laut Wallet)_. Where both of a month's balances are the source's, the month is reconciled: the start plus the month's bookings must give the end, and a gap is named in its month. Anything else is worked back from the last balance the exchange or wallet reported and marked _(errechnet)_: it is only right if every movement since is booked (#287). Kraken's balances are kept from the next sync on; for earlier months, sync again from the month's first day.
+A crypto account also shows the quantity and the rate of every booking, with the rate's source (K = Kraken, CG = CoinGecko, EZB = ECB, CBR = Bank of Russia, NBK = National Bank of Kazakhstan, CBR-X = cross rate through RUB from the Bank of Russia's rates, H = the price of the trade, DEX = the price of a DEX pool (Uniswap) in the booking's block, MIG = the value of the old tokens burned for a migration, M = entered by hand). The start and end balance in the asset come from the source where it has them, and say so: Kraken's ledger, where every entry carries the balance after it _(laut Kraken)_; for the native coin of an EVM wallet read through Blockscout, the explorer's own balance history, fees the transaction lists lack included _(laut Explorer)_; for another wallet read in full, its own history summed – only where that sum is exactly the balance the chain reports today – or, for Monero's CLI export, the wallet's own running balance _(laut Wallet)_. Where both of a month's balances are the source's, the month is reconciled: the start plus the month's bookings must give the end, and a gap is named in its month. Anything else is worked back from the last balance the exchange or wallet reported and marked _(errechnet)_: it is only right if every movement since is booked (#287). Kraken's balances are kept from the next sync on; for earlier months, sync again from the month's first day.
 
 The closing balance is reconciled where something independent can be compared: for Kraken, the start plus the month's bookings must give Kraken's end; for a wallet whose whole history every sync reads, all its bookings from nothing must give the end worked back from today. Where they agree, the balance says _abgestimmt_. Where not, the statement prints _Nicht abgestimmt_ with what the bookings give and the difference, and Export names the account: a movement is missing (a fee the source does not report, say), or a booking was deleted. A bank account, whose history does not start at nothing, and a pruned node's partial history stay _errechnet_, unchecked.
 
@@ -88,11 +92,13 @@ For a payment that has no receipt from the other side, for example fees paid on 
 
 - its own number range (`EB-YYYY-NNN`), date, amount and account;
 - the recipient or payer;
-- for a crypto payment: quantity, rate with its source, and the transaction reference;
+- for a crypto payment: quantity, rate with its source, and the transaction reference; for an own wallet's booking the whole transaction: the full hash, sender and receiver with their full addresses, and every movement of it the books know, the fee included (#126);
 - what was paid and why no receipt exists;
 - who wrote it and when, with a line to sign.
 
 The PDF is stored like an uploaded receipt and linked to the payment as your decision. The export numbers it like any other receipt and puts it into `Belege/`.
+
+With the invoicing app paired under _Integrationen_, _Über die Rechnungs-App erstellen_ has the invoicing app write the Eigenbeleg instead, with its number range and your letterhead; Belege links it to the payment.
 
 An Eigenbeleg is not an invoice and gives no input-tax deduction.
 
@@ -105,7 +111,7 @@ Below the DATEV export, _Kryptobewegungen_ downloads every booking of your walle
 - The transaction hash on wallet movements and on an exchange's deposits and withdrawals, so both sides of a transfer can be paired; an exchange's own reference as `ref`.
 - The file is made in the browser and downloaded; nothing is sent anywhere.
 
-**Reading a file in.** _crypto-ledger-Datei einlesen_ takes such a file – from another tool, or from Belege on another device – and books its movements on the accounts a sync of the same wallet or Kraken account uses, so the two know each other's bookings by their ids.
+**Reading a file in.** _crypto-ledger-Datei einlesen_ takes such a file as JSON, at most 50 MB – from another tool, or from Belege on another device – and books its movements on the accounts a sync of the same wallet or Kraken account uses, so the two know each other's bookings by their ids.
 
 - Values come from the file as they are, with their rate and source; a movement without one is kept with its euro amount open ("Kurs fehlt").
 - The import only adds: a movement whose id the account already has – synced, imported before, or deleted by hand – is skipped and never rewritten. Reading the same file twice adds nothing.
@@ -121,7 +127,7 @@ Below the DATEV export, _Kryptobewegungen_ downloads every booking of your walle
 
 ## Your own chart of accounts
 
-Under _Integrationen → Eigene Anweisungen → Kontenplan_ the app reads the chart of accounts of your bookkeeping program; from then on "Konto" suggests your accounts with your names instead of the built-in SKR 03 list, and marks a number that is not in your chart.
+Under _Einstellungen → Kontenplan_ the app reads the chart of accounts of your bookkeeping program; from then on "Konto" suggests your accounts with your names instead of the built-in SKR 03 list, and marks a number that is not in your chart.
 
 - **A program with a DATEV interface:** its export of the _Kontenbeschriftungen_ (a file that starts with `EXTF`, data category 20; optionally only a range of accounts) → read the CSV file in. The menus are named differently from program to program.
 - **Otherwise:** any CSV or text file with a column of account numbers (4–8 digits) and a column of names, separated by semicolon, comma or tab. UTF-8 and Windows-1252 are both read.
