@@ -6,6 +6,14 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The app's name in the header no longer breaks into single words** (#675). With a few more badges in the header (an unsaved backup, the DID) the name was squeezed under the logo, and back when a badge went. The badges now always take a row of their own.
+
+### Changed
+
+- **The features page of the docs in plain German** (#674), and in both languages it now lists keys and backup, members with their two roles and the bridge's own node. The view for an AI assistant on this computer is named as such.
+
 ## [0.29.3] – 2026-11-06
 
 ### Security
