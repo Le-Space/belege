@@ -138,17 +138,22 @@ export function formatMonth(/** @type {string} */ month) {
 
 /**
  * `31.08.2026`; in English `31/08/2026`. Documents pass DOCUMENT_LOCALE.
+ * No date (a receipt whose date was not read, `''`) is '' – never a thrown
+ * RangeError that stops the page from updating.
  *
  * @param {string} isoDate
  * @param {string} [locale]
  */
 export function formatDate(isoDate, locale = intlLocale()) {
+	if (typeof isoDate !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(isoDate)) return '';
+	const day = new Date(`${isoDate.slice(0, 10)}T00:00:00Z`);
+	if (Number.isNaN(day.getTime())) return '';
 	return formatter('date', locale, {
 		day: '2-digit',
 		month: '2-digit',
 		year: 'numeric',
 		timeZone: 'UTC'
-	}).format(new Date(`${isoDate}T00:00:00Z`));
+	}).format(day);
 }
 
 /** @param {{ receiptId?: string | null }} tx */

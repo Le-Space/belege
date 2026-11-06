@@ -6,7 +6,7 @@ import { MemoryBlockstore } from 'blockstore-core/memory';
 
 import { memoryCollection } from '../bank/test-support.js';
 import { createBlobStore } from './blob-store.js';
-import { extractReceipt } from './extract.js';
+import { extractReceipt, rereadable } from './extract.js';
 import {
 	cancelExtractAll,
 	extractAll,
@@ -222,5 +222,64 @@ describe('the app-wide queue', () => {
 		slow.release();
 		await run;
 		expect(slow.sent).toEqual(['Rechnung 0']);
+	});
+});
+
+describe('a trip’s receipts read again (#693)', () => {
+	/** A bridge that answers at once and counts what it was sent. */
+	const quick = () => {
+		/** @type {string[]} */
+		const sent = [];
+		return {
+			sent,
+			client: {
+				extract: async (/** @type {any} */ body) => {
+					sent.push(body.hints.subject);
+					return { extraction: ANSWER, model: 'fake', usage: {}, attempts: [] };
+				}
+			}
+		};
+	};
+
+	it('receipts read before are skipped by "Alle neuen auslesen" and read with `again`', async () => {
+		const { receipts, blobs, records } = await books(2);
+		const first = quick();
+		const ctx = {
+			client: first.client,
+			store: () => ({ receipts }),
+			blobs: () => blobs,
+			workers: 1
+		};
+		const ids = records.map((r) => r.id);
+		expect(await extractAll(ctx, ids)).toBe(true);
+		expect(first.sent).toHaveLength(2);
+
+		const second = quick();
+		const ctx2 = { ...ctx, client: second.client };
+		expect(await extractAll(ctx2, ids)).toBe(true);
+		expect(second.sent).toHaveLength(0);
+		expect(await extractAll(ctx2, ids, { again: true })).toBe(true);
+		expect(second.sent).toEqual(['Rechnung 0', 'Rechnung 1']);
+	});
+
+	it('what can be read again: not deleted, not waiting for a yes, not Belege’s own, with text', () => {
+		/** @param {any[]} xs */
+		const rr = (xs) => rereadable(xs);
+		const base = { id: 'x', status: 'ausgelesen', mime: 'application/pdf', fileCid: 'c' };
+		expect(rr([base])).toHaveLength(1);
+		expect(rr([{ ...base, deleted: true }])).toHaveLength(0);
+		expect(rr([{ ...base, source: 'eigenbeleg' }])).toHaveLength(0);
+		expect(rr([{ ...base, extractionError: 'no-text' }])).toHaveLength(0);
+		expect(rr([{ ...base, mime: 'image/jpeg' }])).toHaveLength(0);
+		expect(
+			rr([
+				{
+					...base,
+					mime: 'image/jpeg',
+					source: 'paperless',
+					paperlessContent: 'Fahrkarte '.repeat(10)
+				}
+			])
+		).toHaveLength(1);
 	});
 });

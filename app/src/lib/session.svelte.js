@@ -793,6 +793,25 @@ async function pairedClient() {
 }
 
 /**
+ * "✦ Belege der Reise neu auslesen" (#693): receipts read before, once more,
+ * on the app-wide queue (receipts/extract-queue.svelte.js), then matching.
+ * Only on a click.
+ *
+ * @param {string[]} ids
+ * @returns {Promise<'started' | 'noBridge' | 'busy'>}
+ */
+export async function extractAgain(ids) {
+	if (!session) return 'noBridge';
+	const client = await pairedClient();
+	if (!client) return 'noBridge';
+	const { extractAll } = await import('./receipts/extract-queue.svelte.js');
+	const ctx = { client, store: currentStore, blobs: currentBlobs, refresh };
+	if (!(await extractAll(ctx, ids, { again: true }))) return 'busy';
+	await runMatchingNow();
+	return 'started';
+}
+
+/**
  * "Weitermachen" (Home): an AI run the page left behind (a reload, the books
  * locked) takes up the ids it had not done yet (jobs/pending.js). Only on a
  * click; nothing starts by itself after an unlock.

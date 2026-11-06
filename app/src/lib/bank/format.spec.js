@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
 	displayPurpose,
+	formatDate,
 	formatDayHeading,
 	formatMoney,
 	groupByDay,
@@ -137,5 +138,15 @@ describe('displayPurpose', () => {
 
 	it('falls back to the raw text when only tags are there', () => {
 		expect(displayPurpose('EREF: 123 MREF: 456')).toBe('EREF: 123 MREF: 456');
+	});
+});
+
+describe('a date', () => {
+	it('as the locale writes it; no date or a broken one is empty, never a thrown error', () => {
+		expect(formatDate('2026-05-04', 'de-DE')).toBe('04.05.2026');
+		expect(formatDate('2026-05-04T08:00', 'de-DE')).toBe('04.05.2026');
+		expect(formatDate('', 'de-DE')).toBe('');
+		expect(formatDate(/** @type {any} */ (null), 'de-DE')).toBe('');
+		expect(formatDate('2026-13-45', 'de-DE')).toBe('');
 	});
 });

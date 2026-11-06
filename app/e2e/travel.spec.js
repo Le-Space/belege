@@ -117,11 +117,15 @@ test('a trip with its allowance, mileage, a ticket paid privately, and a hospita
 	await expect(page.getByTestId('reise-receipt')).toHaveCount(1);
 	await expect(page.getByTestId('reise-sum-private')).toHaveText('89,90 EUR');
 	await expect(page.getByTestId('reise-sum-back')).toHaveText('184,30 EUR');
+	// Nothing paid by the company or as an outlay: the total is what is paid back.
+	await expect(page.getByTestId('reise-sum-total')).toHaveText('184,30 EUR');
 
 	// The month: the trip, the hospitality bill, and nothing left to ask.
 	await toMarch();
 	await expect(page.getByTestId('reisen-trip')).toHaveCount(1);
-	await expect(page.getByTestId('reisen-trip-sum')).toHaveText('94,40 EUR');
+	// The list shows what the trip costs in all, receipts included (#693).
+	await expect(page.getByTestId('reisen-trip-total')).toHaveText('184,30 EUR');
+	await expect(page.getByTestId('reisen-trip-back')).toHaveText('davon zu erstatten 184,30 EUR');
 	await expect(page.getByTestId('reisen-hospitality-item')).toContainText('abziehbar 70,00 EUR');
 	await expect(page.getByTestId('reisen-total-hospitality')).toHaveText('70,00 EUR');
 	await expect(page.getByTestId('reisen-questions')).toHaveCount(0);

@@ -3308,6 +3308,7 @@ export default {
 	},
 	monthPicker: { month: '{label}: month', year: '{label}: year' },
 	reisen: {
+		tripBack: '{amount} to pay back',
 		title: 'Travel',
 		untitled: 'Trip without a destination',
 		what: 'Trips with their receipts, meal allowances and mileage, and hospitality bills – per month.',
@@ -3411,6 +3412,13 @@ export default {
 		questionsElsewhere: 'Travel has open points too: {count}'
 	},
 	reise: {
+		reread: 'Read the trip’s receipts again ({count})',
+		rereading: 'Reading … {done}/{count}',
+		rereadResult: {
+			done: 'Read again. Could not be read: {failed}. Border crossings from the tickets are under Abroad.',
+			noBridge: 'No bridge paired: pair one under Integrationen, then try again.',
+			busy: 'A reading is running already. Try again when it is done.'
+		},
 		title: 'Trip',
 		back: '← All trips',
 		missing: 'This trip does not exist (any more).',
@@ -3517,8 +3525,9 @@ export default {
 		noRate: 'rate missing',
 		ratesMissing:
 			'Receipts in another currency without a rate: {count} – not counted. Add a rate on the receipt.',
+		total: 'Total cost of the trip',
 		sumHint:
-			'Allowances, mileage and privately paid receipts. The company-paid ones are listed for completeness.',
+			'To pay back: allowances, mileage and privately paid receipts with tips. The total adds the receipts booked as outlays and those the company paid.',
 		delete: 'Delete this trip',
 		deleteConfirm: 'Delete this trip? Its receipts stay and are no longer assigned to it.'
 	},
