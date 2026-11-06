@@ -131,6 +131,9 @@ test('a booking written on one device shows on the other, both ways', async ({ b
 				.filter({ hasText: macId })
 				.getByTestId('devices-item-state')
 		).toHaveText(/^verbunden/, { timeout: 60_000 });
+		// Closed again: below the header's first row, the open menu lies over the tabs.
+		await phone.page.keyboard.press('Escape');
+		await expect(phone.page.getByTestId('network-menu')).toBeHidden();
 		// The phone's own record replicated to the Mac, which now knows it too.
 		await expect(mac.page.getByTestId('devices-item')).toHaveCount(1, { timeout: 60_000 });
 
