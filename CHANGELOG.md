@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Faster CI for pull requests** (#264): the browser specs run in shards side by side (five over HTTP, two over the stream), and a pull request runs only what its files can affect – docs skip the browser specs and the bridge's tests, a change to the bridge alone runs only the specs that pair a bridge. A push to `main` and a release still run every test.
+
 ## [0.29.1] – 2026-11-06
 
 ### Added
