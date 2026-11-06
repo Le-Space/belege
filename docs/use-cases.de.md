@@ -60,7 +60,7 @@ Bridge ist, und öffnet keine Bücher.
   deinen Geräten austauscht, ist verschlüsselt.
 
 **Über den offenen Rechner.** Du willst, dass die Bridge nie selbst ins Netz geht? Dann startest
-du sie mit `pnpm bridge --no-node`. Am Rechner schaltest du unter Eigene Geräte „Bridge dieses
+du sie mit `pnpm bridge --no-node`. Am Rechner schaltest du unter Eigene Geräte → Erweitert „Bridge dieses
 Rechners für eigene Geräte freigeben“ ein. Dein Telefon fragt dann den Belege-Tab am Rechner, und
 der fragt die Bridge. Das geht nur, solange dieser Tab offen und entsperrt ist, und das Telefon
 darf nur lesen und fragen, nichts einrichten oder löschen.
