@@ -6,9 +6,17 @@ What Le Space Belege does today, by category. The app shows the same list, short
 
 ## Privacy and storage
 
-- **Passkey instead of a password.** Every record and every receipt file is sealed (AES-GCM) with keys derived from the passkey's PRF answer; no private key is stored on the device.
+- **Passkey instead of a password.** Every record and every receipt file is sealed (AES-GCM) with keys derived from the books' root, which your passkey opens through the vault; no private key is stored on the device. See [keys.md](keys.md).
 - **Local-first.** The books live in this browser (OrbitDB and Helia on IndexedDB). Le Space runs no server for them.
 - **The network under your hand.** The badge in the header shows what is online. One click pauses everything; own devices and the invoicing app switch on and off one by one ([#180](https://github.com/Le-Space/belege/issues/180)).
+
+## Keys and backup
+
+- **More than one way in.** Add further passkeys – a security key, say – and write down 24 recovery words. Every passkey and the words open the same books, also on an empty device.
+- **Backup to Aleph Cloud,** sealed before it leaves the device. After the first full backup only what is new goes up; on request Belege backs up by itself, five minutes after the last change. The card shows whether everything is backed up and how long the credits last; when they last less than 30 days, the app's header warns. See [backup.md](backup.md).
+- **Restore** with a passkey or the words of these books. Belege merges and deletes nothing.
+- **New keys for the books,** after a member left, say. Older backups still restore afterwards.
+- **Move** into the books of another passkey, with a sealed move file.
 
 ## Payments
 
@@ -77,15 +85,21 @@ What Le Space Belege does today, by category. The app shows the same list, short
 
 ## Devices and working together
 
-- **The same books on phone and computer.** A device gets them only after it proves the passkey. Devices are added by QR code and removed with one click.
+- **The same books on phone and computer.** A device gets them only after it proves the books' key, and only when the books know it or someone lets it in. Devices are added by QR code and removed with one click. See [device-proof.md](device-proof.md).
 - **Where devices meet** ([#148](https://github.com/Le-Space/belege/issues/148)):
   - at the public Le-Space relays;
   - at a relay in your own bridge, in your own network only (`pnpm setup:relay`, WebRTC-Direct, no certificate to install);
   - without any relay, by scanning two QR codes – right in the network menu at the top; the invite is a link the phone's camera opens, and once unlocked the menu there shows the answer (on an iPhone better from the home-screen app, which keeps its books apart from Safari);
   - or all of them, with a device the books do not know yet let in only by QR or through the own bridge's relay.
-- **A phone uses the computer's bridge.** Belege installs as an app (PWA), and the app shell works offline.
+- **The bridge from the phone too.** The bridge has a node of its own and is reached through the relays, also with no browser open on the computer; or an open tab on the computer passes it on to the own devices. Belege installs as an app (PWA), and the app shell works offline.
+- **Members** ([#641](https://github.com/Le-Space/belege/issues/641)): a second person joins your books with their own passkey. You choose when admitting:
+  - **Schreibt mit** (writes along), the bookkeeping, say: reads, writes under their own name and backs up; your bridge only if you tick it.
+  - **Liest mit** (reads along), an assistant, say: reads and syncs, nothing else.
+
+  You can take a member out at any time. See [keys.md](keys.md#members).
+
 - **Invoicing app (UCEP):** it makes Eigenbelege for Belege and learns which of its invoices were paid. An invoice it issued as XRechnung comes with its XML, kept beside the PDF as the original and exported with it ([#515](https://github.com/Le-Space/belege/issues/515)).
-- **A read share** of the books for an assistant, for a limited time.
+- **A view for an AI assistant** on this computer, Claude Code say: it sees a year's payments, receipts and questions instead of working from screenshots. You choose what it sees and for how long; the bridge keeps the share in memory only and counts every read. What it reads goes to its provider as conversation content.
 
 ## Language
 
