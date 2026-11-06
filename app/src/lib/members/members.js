@@ -12,6 +12,8 @@ export const ROLES = /** @type {const} */ (['bookkeeping', 'reader']);
  * @property {string} label
  * @property {typeof ROLES[number]} role
  * @property {string[]} devices their devices' peer ids
+ * @property {boolean} [bridge] a writing member may use the owner's bridge (#641); a record
+ *   from before #579 has none, and counts as the default the owner saw then: yes
  * @property {string} invitedBy the owner's passkey DID
  * @property {string} at when they joined
  * @property {boolean} removed
@@ -34,6 +36,8 @@ export async function addMemberRecord(settings, member) {
 			label: String(member.label).slice(0, 60),
 			role: member.role,
 			devices: member.devices.slice(0, 16),
+			// Who only reads never reaches the bridge (#641); the bridge's device list reads this (#579).
+			bridge: member.role !== 'reader' && member.bridge !== false,
 			invitedBy: member.invitedBy,
 			at: member.at
 		},
@@ -91,6 +95,7 @@ export function membersOf(settingsRecords) {
 			label: String(r.value?.label ?? ''),
 			role: /** @type {Member['role']} */ (r.value?.role ?? 'bookkeeping'),
 			devices: Array.isArray(r.value?.devices) ? r.value.devices.map(String) : [],
+			bridge: (r.value?.role ?? 'bookkeeping') !== 'reader' && r.value?.bridge !== false,
 			invitedBy: String(r.value?.invitedBy ?? ''),
 			at: String(r.value?.at ?? ''),
 			removed: Boolean(r.deleted),

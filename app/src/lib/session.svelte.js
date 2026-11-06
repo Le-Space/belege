@@ -1040,8 +1040,12 @@ async function startBridgeForDevices() {
 	/** @type {ReturnType<typeof setTimeout> | undefined} */
 	let tellTimer;
 	const tellDevices = async () => {
-		const list = knownDevices(await settings.list({ includeDeleted: true }))
-			.filter((d) => !d.bridge)
+		const records = await settings.list({ includeDeleted: true });
+		const { whose } = await import('./members/whose.js');
+		const members = whose(records);
+		// Own devices, and a writing member's the owner let use the bridge (#641, #579).
+		const list = knownDevices(records)
+			.filter((d) => !d.bridge && members.mayUseBridge(d.peerId))
 			.map((d) => d.peerId)
 			.sort();
 		const key = list.join(',');
@@ -1127,8 +1131,12 @@ export async function pairBridgeNode(invitation) {
 	const saved = /** @type {any} */ ((await getSetting(settings, 'bridge')) ?? {});
 	const keyGeneration = keyGenerationOf(saved);
 	const key = await bridgeAuthKeyOf(session.bridgeAuthBase, keyGeneration);
-	const own = knownDevices(await settings.list({ includeDeleted: true }))
-		.filter((d) => !d.bridge)
+	const records = await settings.list({ includeDeleted: true });
+	const { whose } = await import('./members/whose.js');
+	const members = whose(records);
+	// Own devices, and a writing member's the owner let use the bridge (#641, #579).
+	const own = knownDevices(records)
+		.filter((d) => !d.bridge && members.mayUseBridge(d.peerId))
 		.map((d) => d.peerId);
 	const { peerId, addrs } = await bridgeConsumer.pairBridge({
 		invitation,
@@ -1164,6 +1172,16 @@ export async function pairBridgeNode(invitation) {
 /** "Kopplung lösen" over the stream: the bridge's node forgets its key and offers pairing again. */
 export async function forgetBridgeNode() {
 	await bridgeConsumer?.forgetBridge();
+}
+
+/** What each device may do with the bridge's node, or null when it is not connected (#579). */
+export async function bridgeGrants() {
+	return (await bridgeConsumer?.bridgeGrants()) ?? null;
+}
+
+/** The device that paired the bridge lets a device whose access lapsed in again. @param {string} peerId */
+export async function renewBridgeDevice(peerId) {
+	return (await bridgeConsumer?.renewDevice(peerId)) ?? false;
 }
 
 /**
@@ -1342,6 +1360,7 @@ export async function admitMember({
 	const bundle = await session.memberBundle(booksLabel, role, {
 		bridge: role !== 'reader' && bridge
 	});
+	const mayBridge = role !== 'reader' && bridge;
 	// Who only reads gets no write access in any access list (#641).
 	if (role !== 'reader') await session.grantWriter(request.writer);
 	await addMemberRecord(session.store.settings, {
@@ -1349,6 +1368,7 @@ export async function admitMember({
 		label: name,
 		role,
 		devices: [request.device],
+		bridge: mayBridge,
 		invitedBy: app.did ?? '',
 		at: isoNow()
 	});

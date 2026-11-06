@@ -96,6 +96,13 @@ So whoever takes your computer with the bridge gets what the bridge holds – ba
 but not your books. That is why a backup of the books needs the passkey or the recovery words,
 not the bridge.
 
+The other way round, the bridge limits what a device may do with it ([#579](https://github.com/Le-Space/belege/issues/579)):
+
+- Each command belongs to an area, such as reading the bank, reading the mailbox or the language model. A device may only use the areas it holds.
+- Your own devices hold all areas, as before. A member has access only if you allowed it when admitting them.
+- A device that does not use the bridge for 90 days loses access. The device that paired the bridge renews it under _Integrationen → Eigene Geräte → Erweitert_.
+- What costs money is limited per device: calls to the language model a minute, its tokens a day and backups an hour. So a stolen phone cannot run down your credit before you remove it.
+
 ## Members
 
 The books can let a second person in – the bookkeeping, say ([#6](https://github.com/Le-Space/belege/issues/6)). That person keeps their own passkey and their own books; they get a **key bundle** for yours.

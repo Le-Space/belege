@@ -21,6 +21,7 @@
 	import CopyButton from '$lib/CopyButton.svelte';
 	import QrExchange from './QrExchange.svelte';
 	import QrScan from './QrScan.svelte';
+	import BridgeAccess from './BridgeAccess.svelte';
 	import { deviceCode, deviceSyncOn, parseDeviceCode } from './device-sync.js';
 	import { bridgeShareOn, setBridgeShare } from './remote-bridge.js';
 
@@ -431,6 +432,7 @@
 					</span>
 				</label>
 			{/if}
+			<BridgeAccess />
 			{@render syncLogBlock()}
 		</details>
 	{/if}

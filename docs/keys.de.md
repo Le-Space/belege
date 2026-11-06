@@ -98,6 +98,13 @@ Wer also deinen Rechner mit der Bridge mitnimmt, bekommt, was die Bridge hält: 
 und Modell. Deine Bücher bekommt er nicht. Darum braucht ein Backup der Bücher den Passkey oder
 die Wiederherstellungswörter, nicht die Bridge.
 
+Umgekehrt begrenzt die Bridge, was ein Gerät bei ihr darf ([#579](https://github.com/Le-Space/belege/issues/579)):
+
+- Jeder Befehl gehört zu einem Bereich, etwa Bank lesen, Postfach lesen oder Sprachmodell. Ein Gerät darf nur die Bereiche, die es hat.
+- Deine eigenen Geräte haben alle Bereiche, wie bisher. Ein Mitglied hat Zugang nur, wenn du es beim Aufnehmen erlaubt hast.
+- Nutzt ein Gerät die Bridge 90 Tage nicht, verliert es den Zugang. Das Gerät, das die Bridge gekoppelt hat, erneuert ihn unter _Integrationen → Eigene Geräte → Erweitert_.
+- Was Geld kostet, ist pro Gerät begrenzt: Aufrufe des Sprachmodells pro Minute, seine Tokens pro Tag und Backups pro Stunde. Ein gestohlenes Telefon kann so nicht dein Guthaben leeren, bevor du es entfernst.
+
 ## Mitglieder
 
 Du kannst eine zweite Person in die Bücher lassen, zum Beispiel die Buchhaltung ([#6](https://github.com/Le-Space/belege/issues/6)). Sie behält ihren eigenen Passkey und ihre eigenen Bücher. Für deine Bücher bekommt sie einen **Schlüsselbund**.

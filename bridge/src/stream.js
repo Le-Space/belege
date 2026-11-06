@@ -13,10 +13,10 @@
 // shape the desktop's forwarding of #142 has used (sync/remote-bridge.js).
 //
 // Who may call is settled before this runs: the node's gate lets a device of
-// the books through (it proved the books' device key and is on the device
-// list), and nobody else reaches the extension (node.js). Scopes per command
-// follow in M2 (#579); until then a device over the stream is what the
-// token's owner is over HTTP.
+// the books through (it proved the bridge's key and is on the device list),
+// and nobody else reaches the extension (node.js). What it may call is
+// settled here, once the command is known: `authorize` checks the device's
+// scopes, their expiry and the limits on what costs (grants.js, #579).
 //
 // Not over the stream: pairing and unpairing (`session.*`: HTTP has its own,
 // the node its own), shares (`share.*`: read by an assistant over HTTP), and
@@ -65,10 +65,21 @@ export const offered = (command) => !HTTP_ONLY.has(command.name) && command.body
  * @param {import('./commands.js').Command[]} p.commands the table (commands.js)
  * @param {Record<string, unknown> | null} p.args `{ method, path, body? }` as the device sent them
  * @param {boolean} p.limited the connection is relayed: UCEP allows 64 KiB, not 1 MiB
+ * @param {(command: import('./commands.js').Command) => Promise<void>} [p.authorize] may the caller run
+ *   this command? Throws the UCEP error that says why not (grants.js)
+ * @param {(command: import('./commands.js').Command, json: unknown) => void} [p.spent] the command's
+ *   JSON answer, for what it cost (the model's tokens)
  * @param {(line: string) => void} [p.log] the command's name and the error's code; never the arguments
  * @returns {Promise<StreamAnswer>}
  */
-export async function answerRequest({ commands, args, limited, log = () => {} }) {
+export async function answerRequest({
+	commands,
+	args,
+	limited,
+	authorize = async () => {},
+	spent = () => {},
+	log = () => {}
+}) {
 	const method = String(args?.method ?? '');
 	if (!METHODS.has(method)) throw new UcepError('INVALID_ARGUMENTS', 'method');
 	const target = typeof args?.path === 'string' ? args.path : '';
@@ -90,6 +101,12 @@ export async function answerRequest({ commands, args, limited, log = () => {} })
 				? `${command.name} takes bytes: not over the stream`
 				: `${command.name} is not offered over the stream`
 		);
+	}
+	try {
+		await authorize(command);
+	} catch (/** @type {any} */ error) {
+		if (error instanceof UcepError) log(`${command.name} over the stream: refused ${error.code}`);
+		throw error;
 	}
 
 	try {
@@ -124,6 +141,7 @@ export async function answerRequest({ commands, args, limited, log = () => {} })
 				base64: Buffer.from(answer.text, 'utf8').toString('base64')
 			};
 		}
+		spent(command, answer.json);
 		return { status: answer.status, contentType: JSON_TYPE, json: answer.json };
 	} catch (/** @type {any} */ error) {
 		if (error instanceof UcepError) throw error;

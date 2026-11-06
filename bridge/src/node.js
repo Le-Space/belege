@@ -35,10 +35,19 @@
 //              keychain and the node runs unarmed again; the books move on to
 //              the next generation of the key, so the old one is worth nothing.
 //
+// What a device may call (#579). Getting in is not everything: each command
+// needs a scope, and each device holds a set (grants.js). A device the books
+// list holds all scopes unless the device that paired the bridge says
+// otherwise; a device unused for 90 days is refused until that device renews
+// it; and the model's calls and tokens and the backups are counted per device.
+// A member's device is on the list the app sends only if the owner let the
+// member use the bridge when admitting them (#641); otherwise it holds none.
+//
 // What is kept where: the peer key on disk (not a secret: a peer id names,
 // it does not open); the bridge's key in the keychain (`bridge-auth`), never in
 // bridge.json, never logged; UCEP's grants in `<config dir>/node/grants.json`
-// (grant ids and peer ids, no secrets); relays and devices in bridge.json.
+// (grant ids and peer ids, no secrets); each device's scopes and last use in
+// `device-grants.json` beside it; relays and devices in bridge.json.
 //
 // What the node does not do: no DHT, no discovery, no provide, no gossipsub,
 // no OrbitDB – the bridge holds no books. identify names the extension to
@@ -65,11 +74,12 @@ import {
 } from '@belege/device-gate';
 import { UcepError, createProvider } from '@le-space/ucep';
 
+import { createGrants, limitsOf, parseDevices, scopesOf } from './grants.js';
 import { answerRequest, offered } from './stream.js';
 
 /** The UCEP extension the bridge offers: pairing, the device list, and `request` onto commands.js. */
 export const EXTENSION = 'belege-bridge';
-export const EXTENSION_VERSION = '0.2.0';
+export const EXTENSION_VERSION = '0.3.0';
 /** The scope of pairing itself: the handover (UCEP wants `extension:resource:action`). */
 export const PAIR_SCOPE = 'belege-bridge:pairing:manage';
 /** The keychain account the bridge's own key is kept under (#575). */
@@ -211,6 +221,7 @@ const relayPeerOf = (addr) => /\/p2p\/(12D3KooW[1-9A-HJ-NP-Za-km-z]{44})/.exec(a
  * @param {(handover: { authKey: Uint8Array, relays: string[], devices: string[] }) => Promise<void>} [p.onHandover]
  *   a device handed the key over (unarmed only): keep it, then restart armed
  * @param {(devices: string[]) => Promise<void>} [p.onDevices] the device list changed
+ * @param {Partial<import('./grants.js').Limits>} [p.limits] bridge.json `node.limits` (grants.js)
  * @param {() => Promise<void>} [p.onUnpair] a device unpaired the bridge (armed only): forget the key, restart unarmed
  * @param {number} [p.wsPort] a WebSocket on 127.0.0.1 for the browser on this machine; 0 picks one
  * @param {any[]} [p.transports] tests: the memory transport
@@ -226,6 +237,7 @@ export async function startBridgeNode({
 	commands = null,
 	onHandover = async () => {},
 	onDevices = async () => {},
+	limits,
 	onUnpair = async () => {},
 	wsPort = 0,
 	transports,
@@ -237,6 +249,14 @@ export async function startBridgeNode({
 	/** @type {Set<string>} */
 	const known = new Set(devices);
 	const armed = authKey !== null;
+	const offeredCommands = (commands ?? []).filter(offered);
+	const allScopes = scopesOf(offeredCommands);
+	const deviceGrants = createGrants({
+		file: join(dir, 'device-grants.json'),
+		scopes: allScopes,
+		limits: limitsOf(limits)
+	});
+	if (armed) await deviceGrants.adopt([...known]);
 
 	const gate = armed
 		? createDeviceGate({
@@ -315,11 +335,13 @@ export async function startBridgeNode({
 				commands: Object.keys(ucepCommands),
 				armed,
 				// What `request` dispatches on, by the HTTP method and path the app knows (stream.js).
-				requests: (commands ?? []).filter(offered).map((c) => ({
+				requests: offeredCommands.map((c) => ({
 					name: c.name,
 					method: c.method,
-					path: typeof c.path === 'string' ? c.path : null
-				}))
+					path: typeof c.path === 'string' ? c.path : null,
+					scope: c.scope
+				})),
+				scopes: allScopes
 			})
 		},
 		handover: {
@@ -347,25 +369,57 @@ export async function startBridgeNode({
 			// removal reaches the bridge from wherever it was made – and never the
 			// device that paired it. Unarmed, the handover brings the list.
 			description: 'The books’ device list, as the app keeps it',
+			// Each entry a peer id (all scopes) or `{ peerId, scopes }` (grants.js).
 			handler: async ({ argsJson, peerId }) => {
-				const list = Array.isArray(argsJson?.devices) ? argsJson.devices : [];
-				if (list.length > 64 || !list.every(isPeerId)) {
-					throw new UcepError('INVALID_ARGUMENTS', 'devices must be up to 64 peer ids');
-				}
+				const wanted = parseDevices(argsJson?.devices ?? [], allScopes);
 				assertDevice(peerId);
-				const wanted = new Set(list);
 				if (await pairedBy(peerId)) {
-					setDevices([...wanted]);
+					setDevices([...wanted.keys()]);
+					await deviceGrants.set(wanted);
 				} else {
-					/** @type {string[]} */
-					const next = [];
+					// Only off the list: the others keep their scopes and their times.
+					const held = new Map((await deviceGrants.list()).map((g) => [g.peerId, g.scopes]));
+					/** @type {Map<string, string[]>} */
+					const next = new Map();
 					for (const peer of known) {
-						if (wanted.has(peer) || (await pairedBy(peer))) next.push(peer);
+						if (wanted.has(peer) || (await pairedBy(peer))) {
+							next.set(peer, held.get(peer) ?? [...allScopes]);
+						}
 					}
-					setDevices(next);
+					setDevices([...next.keys()]);
+					await deviceGrants.set(next);
 				}
 				await onDevices([...known]);
 				return { devices: known.size };
+			}
+		},
+		grants: {
+			// What each device may call, for the Geräte card: the device that paired
+			// the bridge sees every device's, any other its own. No content.
+			description: 'Per device: scopes, last use, when they lapse',
+			handler: async ({ peerId }) => {
+				assertDevice(peerId);
+				const holder = await pairedBy(peerId);
+				const holders = new Set();
+				for (const peer of known) if (await pairedBy(peer)) holders.add(peer);
+				const list = (await deviceGrants.list((p) => holders.has(p))).filter(
+					(g) => known.has(g.peerId) && (holder || g.peerId === peerId)
+				);
+				return { holder, scopes: allScopes, devices: list };
+			}
+		},
+		renew: {
+			// A device's scopes lapsed after 90 days unused: the device that paired
+			// the bridge lets it in again.
+			scope: PAIR_SCOPE,
+			description: 'Renew a device whose scopes lapsed',
+			handler: async ({ argsJson, peerId }) => {
+				assertDevice(peerId);
+				const peer = argsJson?.peerId;
+				if (!isPeerId(peer) || !known.has(peer)) {
+					throw new UcepError('INVALID_ARGUMENTS', 'peerId must be a device of the books');
+				}
+				return { renewed: await deviceGrants.renew(peer) };
 			}
 		},
 		unpair: {
@@ -390,7 +444,19 @@ export async function startBridgeNode({
 							'One bridge call: { method, path, body? } → { status, contentType, json | base64 } (the commands of src/commands.js)',
 						handler: async ({ argsJson, peerId, limited }) => {
 							assertDevice(peerId);
-							return answerRequest({ commands, args: argsJson, limited, log });
+							return answerRequest({
+								commands,
+								args: argsJson,
+								limited,
+								authorize: async (command) =>
+									deviceGrants.authorize(peerId, command.scope, {
+										holder: await pairedBy(peerId)
+									}),
+								spent: (command, json) => {
+									if (command.scope === 'bridge:llm') deviceGrants.spent(peerId, json);
+								},
+								log
+							});
 						}
 					}
 				}

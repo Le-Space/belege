@@ -36,7 +36,20 @@ export class BridgeError extends Error {
 }
 
 /** The bridge's codes for a language-model provider that refuses (bridge/src/llm/extract.js REFUSALS). */
-export const LLM_REFUSALS = new Set(['LLM_NO_CREDIT', 'LLM_AUTH', 'LLM_MODEL', 'LLM_UNREACHABLE']);
+export const LLM_REFUSALS = new Set([
+	'LLM_NO_CREDIT',
+	'LLM_AUTH',
+	'LLM_MODEL',
+	'LLM_UNREACHABLE',
+	// The bridge's own limit for this device: the model's tokens for today (#579).
+	'BRIDGE_LLM_DAY'
+]);
+/** What the bridge's node refuses this device (bridge grants.js, #579): said as such. */
+const GRANT_REFUSALS = new Set([
+	'BRIDGE_SCOPE_MISSING',
+	'BRIDGE_GRANT_EXPIRED',
+	'BRIDGE_BACKUP_HOUR'
+]);
 
 /** A provider's host as people know it. @param {unknown} host */
 export function providerName(host) {
@@ -325,6 +338,9 @@ export function createBridgeClient({
 					402,
 					body
 				);
+			}
+			if (GRANT_REFUSALS.has(body?.code)) {
+				throw failed(t(`messages.bridge.grant.${body.code}`), res.status, body);
 			}
 			if (res.status === 403 && body?.code === 'SENDER_UNVERIFIED') {
 				throw new BridgeError(t('messages.bridge.senderUnverified'), 403);

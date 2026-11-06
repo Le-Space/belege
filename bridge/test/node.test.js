@@ -215,7 +215,17 @@ describe('the bridge’s node', () => {
 			const provedHere = await waitFor(() => own.gate?.isProved(node.peerId) === true);
 			assert.equal(provedHere, true, 'the device proved the bridge and the bridge proved back');
 			const answer = await own.consumer.call(node.peerId, 'belege-bridge', 'help', {});
-			assert.deepEqual(answer.commands, ['help', 'handover', 'devices', 'unpair', 'request']);
+			assert.deepEqual(answer.commands, [
+				'help',
+				'handover',
+				'devices',
+				'grants',
+				'renew',
+				'unpair',
+				'request'
+			]);
+			assert.ok(answer.scopes.includes('bridge:llm'));
+			assert.ok(!answer.scopes.includes('bridge:share'), 'shares stay on HTTP');
 			assert.ok(answer.requests.some((/** @type {any} */ r) => r.name === 'mail.search'));
 			assert.ok(!answer.requests.some((/** @type {any} */ r) => r.name === 'session.pair'));
 
@@ -277,6 +287,54 @@ describe('the bridge’s node', () => {
 				devices: [own.peerId, other.peerId, stranger.peerId]
 			});
 			assert.equal(more.devices, 2, 'adding is for the device that paired the bridge');
+
+			// Scopes (#579): listed by its peer id alone, a device holds them all …
+			const before = await other.consumer.call(node.peerId, 'belege-bridge', 'request', {
+				method: 'GET',
+				path: '/paperless/documents?since=2026-01-01T00:00:00Z'
+			});
+			assert.equal(before.status, 503, 'let through to the command');
+			// … and the device that paired the bridge can narrow them.
+			await own.consumer.call(node.peerId, 'belege-bridge', 'devices', {
+				devices: [own.peerId, { peerId: other.peerId, scopes: ['bridge:bank:read', 'bridge:nope'] }]
+			});
+			await assert.rejects(
+				other.consumer.call(node.peerId, 'belege-bridge', 'request', {
+					method: 'GET',
+					path: '/paperless/documents?since=2026-01-01T00:00:00Z'
+				}),
+				(/** @type {any} */ e) => e.code === 'SCOPE_MISSING'
+			);
+			const open = await other.consumer.call(node.peerId, 'belege-bridge', 'request', {
+				method: 'GET',
+				path: '/health'
+			});
+			assert.equal(open.status, 200, 'a command without a scope needs none');
+			// Each device sees its own scopes; the one that paired the bridge sees all.
+			const mine = await other.consumer.call(node.peerId, 'belege-bridge', 'grants', {});
+			assert.equal(mine.holder, false);
+			assert.deepEqual(
+				mine.devices.map((/** @type {any} */ g) => [g.peerId, g.scopes]),
+				[[other.peerId, ['bridge:bank:read']]]
+			);
+			assert.equal(typeof mine.devices[0].expiresAt, 'number');
+			const all = await own.consumer.call(node.peerId, 'belege-bridge', 'grants', {});
+			assert.equal(all.holder, true);
+			assert.equal(all.devices.length, 2);
+			assert.equal(
+				all.devices.find((/** @type {any} */ g) => g.peerId === own.peerId).expiresAt,
+				null,
+				'the device that paired the bridge does not lapse'
+			);
+			// Renewing is for the device that paired the bridge.
+			await assert.rejects(
+				other.consumer.call(node.peerId, 'belege-bridge', 'renew', { peerId: other.peerId }),
+				(/** @type {any} */ e) => ['PAIRING_REQUIRED', 'SCOPE_MISSING'].includes(e.code)
+			);
+			const renewed = await own.consumer.call(node.peerId, 'belege-bridge', 'renew', {
+				peerId: other.peerId
+			});
+			assert.equal(renewed.renewed, true);
 			// … and cannot unpair it.
 			await assert.rejects(
 				other.consumer.call(node.peerId, 'belege-bridge', 'unpair', {}),

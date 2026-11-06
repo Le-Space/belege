@@ -275,11 +275,23 @@ export async function startBridgeConsumer({
 		const url = new URL(String(input instanceof Request ? input.url : input));
 		const body = typeof init.body === 'string' && init.body ? JSON.parse(init.body) : undefined;
 		/** @type {any} */
-		const answer = await consumer.call(peerId, EXTENSION, 'request', {
-			method: String(init.method ?? 'GET').toUpperCase(),
-			path: `${url.pathname}${url.search}`,
-			...(body !== undefined ? { body } : {})
-		});
+		let answer;
+		try {
+			answer = await consumer.call(peerId, EXTENSION, 'request', {
+				method: String(init.method ?? 'GET').toUpperCase(),
+				path: `${url.pathname}${url.search}`,
+				...(body !== undefined ? { body } : {})
+			});
+		} catch (error) {
+			// The bridge said no to this device: an answer, not a way that failed –
+			// no other way to the bridge may say yes instead (#579).
+			const refusal = grantRefusal(error);
+			if (!refusal) throw error;
+			return new Response(JSON.stringify(refusal.json), {
+				status: refusal.status,
+				headers: { 'content-type': 'application/json' }
+			});
+		}
 		const payload =
 			answer.base64 !== undefined ? fromBase64(answer.base64) : JSON.stringify(answer.json ?? {});
 		return new Response(payload, {
@@ -378,9 +390,37 @@ export async function startBridgeConsumer({
 		return true;
 	}
 
+	/**
+	 * What each device may do with the bridge (bridge/src/node.js `grants`):
+	 * the device that paired it sees every device's, another its own.
+	 *
+	 * @returns {Promise<{ holder: boolean, scopes: string[], devices: { peerId: string, scopes: string[], lastUsedAt: number | null, expiresAt: number | null }[] } | null>}
+	 *   null: the bridge's node is not connected
+	 */
+	async function bridgeGrants() {
+		const peerId = streamServer();
+		if (!peerId) return null;
+		return /** @type {any} */ (await consumer.call(peerId, EXTENSION, 'grants', {}));
+	}
+
+	/**
+	 * Let a device whose access lapsed in again (bridge/src/node.js `renew`):
+	 * only the device that paired the bridge may.
+	 *
+	 * @param {string} device peer id
+	 */
+	async function renewDevice(device) {
+		const peerId = streamServer();
+		if (!peerId) return false;
+		await consumer.call(peerId, EXTENSION, 'renew', { peerId: device });
+		return true;
+	}
+
 	return {
 		consumer,
 		forgetBridge,
+		bridgeGrants,
+		renewDevice,
 		server,
 		streamServer,
 		remoteFetch,
@@ -389,6 +429,40 @@ export async function startBridgeConsumer({
 		tellDevices,
 		stop: () => consumer.stop?.()
 	};
+}
+
+/**
+ * What the bridge's node answers when a device may not make a call (bridge
+ * grants.js, #579), as the HTTP answer the bridge client knows: a scope the
+ * device does not hold, scopes that lapsed, or a limit on what costs. The
+ * per-minute limit on the model is the 429 a provider's limit is
+ * (`LLM_RATE_LIMIT`), so a run waits and goes on; the day's tokens stop it.
+ *
+ * @param {any} error
+ * @returns {{ status: number, json: { error: string, code: string } } | null}
+ */
+export function grantRefusal(error) {
+	if (!(error instanceof UcepError) && typeof error?.code !== 'string') return null;
+	const reason = String(error.message ?? '');
+	switch (error.code) {
+		case 'SCOPE_MISSING':
+			return { status: 403, json: { error: reason, code: 'BRIDGE_SCOPE_MISSING' } };
+		case 'GRANT_EXPIRED':
+			return { status: 403, json: { error: reason, code: 'BRIDGE_GRANT_EXPIRED' } };
+		case 'RATE_LIMITED':
+			if (reason === 'llm-per-minute') {
+				return { status: 429, json: { error: reason, code: 'LLM_RATE_LIMIT' } };
+			}
+			if (reason === 'llm-tokens-per-day') {
+				return { status: 403, json: { error: reason, code: 'BRIDGE_LLM_DAY' } };
+			}
+			if (reason === 'backup-per-hour') {
+				return { status: 429, json: { error: reason, code: 'BRIDGE_BACKUP_HOUR' } };
+			}
+			return null;
+		default:
+			return null;
+	}
 }
 
 /**
