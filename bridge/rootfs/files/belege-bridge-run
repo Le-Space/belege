@@ -35,7 +35,9 @@ if [ -s "$in/https_hostname" ]; then
   /usr/local/sbin/belege-bridge-https "$host" || host=""
 fi
 
-# The keychain's accounts, and nothing else (keychain.js secretFileOf).
+# The keychain's accounts, and nothing else (keychain.js secretFileOf). The
+# dstack variant (#696) keeps the same list in bridge/tee/dstack/sort-secrets.mjs:
+# change both together.
 if [ -d "$in" ]; then
   for f in "$in"/*; do
     # One plain file per secret: a link is skipped, not followed.
