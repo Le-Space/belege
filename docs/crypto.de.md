@@ -683,7 +683,7 @@ Filecoin und Monero waren bei dieser Prüfung noch nicht dabei. Filecoin liest �
 
 Aleph stellt keine Rechnungen aus. Hosting und Speicher werden mit Credits bezahlt.
 
-Unter _Integrationen → Aleph Cloud_ fragt die Bridge die öffentliche Aleph-API, nur lesend (`POST /aleph/accounts`, `bridge/src/aleph.js`). Gefragt werden:
+Unter _Integrationen → Aleph Cloud_ fragt die Bridge die öffentliche Aleph-API, nur lesend (`POST /aleph/accounts`, `packages/chains/src/aleph.js`). Gefragt werden:
 
 - die eigenen EVM-Wallets, wenn „Eigene Ethereum-Adressen bei Aleph prüfen“ an ist,
 - jedes eingetragene Aleph-Konto.
