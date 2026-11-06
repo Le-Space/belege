@@ -6,6 +6,18 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **The bridge on the books' devices, narrowed** (#670), a step towards scopes per bridge command (#579):
+  - The bridge share through an open desktop tab answers the owner's own devices only, not the devices of members.
+  - On the bridge's node, the device that paired it keeps its device list and unpairs it. Any other device of the books may only take devices off the list.
+  - "Kopplung lösen" on another device says where it can be done, and changes nothing.
+
+### Changed
+
+- **The backup page of the docs in plain German** (#669), with three corrections in both languages: any passkey of the books opens a backup, only a full backup asks before upload when credits run low, and a member who only reads along does not back up.
+- A steadier E2E spec for the member backup (#668).
+
 ## [0.29.2] – 2026-11-06
 
 ### Changed
