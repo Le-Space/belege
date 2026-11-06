@@ -36,9 +36,16 @@ const streamOnly = viaStream
 		}
 	: null;
 
+// E2E_SPECS=bridge: only the specs that pair a bridge, over HTTP – what CI
+// runs for a pull request that changes the bridge and not the app
+// (scripts/ci-changes.mjs). A push to main and a release run every spec.
+const bridgeSpecsOnly = process.env.E2E_SPECS === 'bridge';
+const testMatch =
+	streamOnly?.testMatch ?? (bridgeSpecsOnly ? BRIDGE_SPECS.map((name) => `${name}.spec.js`) : null);
+
 export default defineConfig({
 	testDir: 'e2e',
-	...(streamOnly ? { testMatch: streamOnly.testMatch } : {}),
+	...(testMatch ? { testMatch } : {}),
 	globalSetup: './e2e/global-setup.js',
 	retries: process.env.CI ? 1 : 0,
 	workers: 1,

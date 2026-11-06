@@ -61,7 +61,7 @@ pnpm dev               # the app on http://localhost:5173
 pnpm lint && pnpm check && pnpm test:unit && pnpm test:bridge && pnpm test:e2e
 ```
 
-Every push and pull request runs them as three workflows (unit, E2E, bridge), the badges above; a release runs all three again before anything is published.
+Every push and pull request runs them as three workflows (unit, E2E, bridge), the badges above. A pull request runs only what its files can affect ([`scripts/ci-changes.mjs`](scripts/ci-changes.mjs): docs skip the browser specs, the bridge alone runs only the specs that pair a bridge), and the browser specs run in shards side by side; a push to `main` runs everything, and a release runs all three again, in full, before anything is published.
 
 The app is in [`app/`](app/README.md), the bridge in [`bridge/`](bridge/README.md). A release deploys to belege.le-space.de ([docs/deploy.md](docs/deploy.md)).
 

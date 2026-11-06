@@ -22,8 +22,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # What this pull request needs (scripts/ci-changes.mjs): a push to main, a
+  # release (ci.yml) and a run by hand always run everything.
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      bridge: ${{ steps.needs.outputs.bridge }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # A pull request's checkout is its merge commit: HEAD^1 is the base.
+          fetch-depth: 2
+      - name: Which tests
+        id: needs
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -eo pipefail
+          if [ "$EVENT" = pull_request ]; then
+            git diff --name-only HEAD^1 HEAD > changed.txt
+          else
+            : > changed.txt
+          fi
+          node scripts/ci-changes.mjs "$EVENT" < changed.txt | tee -a "$GITHUB_OUTPUT"
+
   bridge:
     name: Bridge tests
+    needs: changes
+    if: needs.changes.outputs.bridge == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -62,6 +90,8 @@ jobs:
   # dependency, so nothing is installed.
   windows-keychain:
     name: Windows Credential Manager
+    needs: changes
+    if: needs.changes.outputs.bridge == 'true'
     runs-on: windows-latest
     timeout-minutes: 10
     steps:

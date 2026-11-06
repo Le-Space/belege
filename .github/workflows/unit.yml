@@ -1,8 +1,8 @@
 name: Unit tests
 
-# The app's lint (formatting, ESLint with the German guard), types and unit
-# tests. A workflow of its own, so the README can show its state (the badge is
-# per workflow).
+# The app's lint (formatting, ESLint with the German guard), types, unit
+# tests and production build. A workflow of its own, so the README can show
+# its state (the badge is per workflow).
 
 permissions:
   contents: read
@@ -22,8 +22,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # What this pull request needs (scripts/ci-changes.mjs): a push to main, a
+  # release (ci.yml) and a run by hand always run everything.
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      unit: ${{ steps.needs.outputs.unit }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # A pull request's checkout is its merge commit: HEAD^1 is the base.
+          fetch-depth: 2
+      - name: Which tests
+        id: needs
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -eo pipefail
+          if [ "$EVENT" = pull_request ]; then
+            git diff --name-only HEAD^1 HEAD > changed.txt
+          else
+            : > changed.txt
+          fi
+          node scripts/ci-changes.mjs "$EVENT" < changed.txt | tee -a "$GITHUB_OUTPUT"
+
   unit:
     name: Unit tests
+    needs: changes
+    if: needs.changes.outputs.unit == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -42,3 +70,7 @@ jobs:
         run: pnpm run check
       - name: Unit tests
         run: pnpm run test:unit
+      # A production build, as deploy.yml makes it: no test hooks. Once here,
+      # not in every E2E shard (those build the app with VITE_E2E themselves).
+      - name: Build
+        run: pnpm run build

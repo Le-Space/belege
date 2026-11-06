@@ -23,13 +23,50 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # What this pull request needs (scripts/ci-changes.mjs): a push to main, a
+  # release (ci.yml) and a run by hand always get every spec.
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      e2e: ${{ steps.needs.outputs.e2e }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # A pull request's checkout is its merge commit: HEAD^1 is the base.
+          fetch-depth: 2
+      - name: The classifier's own tests
+        run: node --test scripts/ci-changes.test.mjs
+      - name: Which specs
+        id: needs
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -eo pipefail
+          if [ "$EVENT" = pull_request ]; then
+            git diff --name-only HEAD^1 HEAD > changed.txt
+          else
+            : > changed.txt
+          fi
+          node scripts/ci-changes.mjs "$EVENT" < changed.txt | tee -a "$GITHUB_OUTPUT"
+
+  # Every spec over HTTP, in five shards on five runners: the specs share the
+  # bridge's and the relay's ports, so one runner runs one spec at a time
+  # (workers: 1), and the runners do the rest side by side.
   e2e:
-    name: E2E tests
+    name: E2E tests (${{ matrix.shard }}/5)
+    needs: changes
+    if: needs.changes.outputs.e2e != 'none'
     runs-on: ubuntu-latest
     # Same Playwright version as app/package.json, so the browsers are there.
     container:
       image: mcr.microsoft.com/playwright:v1.61.1-noble
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@v6
       # The Playwright image runs as root, and git refuses a checkout owned by
@@ -45,28 +82,38 @@ jobs:
           cache: pnpm
       - name: Install
         run: pnpm install --frozen-lockfile
-      - name: Build
-        run: pnpm run build
+      # The suite builds the app it tests (VITE_E2E, playwright.config.js);
+      # the production build is checked once, in unit.yml.
       - name: Browser specs
-        run: pnpm run test:e2e
+        env:
+          # A pull request that changes the bridge and not the app: only the
+          # specs that pair a bridge (app/e2e/bridge.js).
+          E2E_SPECS: ${{ needs.changes.outputs.e2e == 'bridge' && 'bridge' || '' }}
+        run: pnpm --filter @belege/app exec playwright test --shard=${{ matrix.shard }}/5 --pass-with-no-tests
       - name: Keep the evidence
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: test-results-${{ matrix.shard }}
           path: app/test-results/
           retention-days: 7
 
   # The specs that pair a bridge once more, the other way (#575): device sync
   # on, pairing by the invitation of the bridge's own node, every HTTP request
   # from the page to the bridge refused but /pair – so each call has to go over
-  # the stream (app/e2e/bridge.js).
+  # the stream (app/e2e/bridge.js). Two shards.
   e2e-stream:
-    name: E2E tests, bridge over the stream
+    name: E2E tests, bridge over the stream (${{ matrix.shard }}/2)
+    needs: changes
+    if: needs.changes.outputs.e2e != 'none'
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.61.1-noble
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v6
       - name: Let git read the checkout
@@ -78,14 +125,35 @@ jobs:
           cache: pnpm
       - name: Install
         run: pnpm install --frozen-lockfile
-      - name: Build
-        run: pnpm run build
       - name: Bridge specs over the stream
-        run: pnpm run test:e2e:stream
+        env:
+          E2E_BRIDGE_VIA: stream
+        run: pnpm --filter @belege/app exec playwright test --shard=${{ matrix.shard }}/2 --pass-with-no-tests
       - name: Keep the evidence
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-stream
+          name: test-results-stream-${{ matrix.shard }}
           path: app/test-results/
           retention-days: 7
+
+  # One result for the whole workflow, under the name the shards replaced:
+  # green when every shard passed, or when the pull request needs no spec.
+  done:
+    name: E2E tests
+    needs: [changes, e2e, e2e-stream]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every shard passed (or none was needed)
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          E2E: ${{ needs.e2e.result }}
+          STREAM: ${{ needs.e2e-stream.result }}
+        run: |
+          echo "changes=$CHANGES e2e=$E2E stream=$STREAM"
+          [ "$CHANGES" = success ] || exit 1
+          for r in "$E2E" "$STREAM"; do
+            case "$r" in success | skipped) ;; *) exit 1 ;; esac
+          done
