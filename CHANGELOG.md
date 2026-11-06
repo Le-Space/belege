@@ -12,6 +12,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Changed
 
+- **The backup card's "Erweitert" in sections** (#677): account and credits, this browser, full backup and increments, restoring, and where a backup lies. The list of backups keeps one short sentence; what goes out folds open below it. A refused backup says so once, with "Aleph erneut beauftragen" in its row. Texts corrected: any passkey of the books, or their recovery words, opens a backup; with credits for less than 30 days the automatic backup stops while "Jetzt sichern" still works.
 - **The features page of the docs in plain German** (#674), and in both languages it now lists keys and backup, members with their two roles and the bridge's own node. The view for an AI assistant on this computer is named as such.
 
 ## [0.29.3] – 2026-11-06
