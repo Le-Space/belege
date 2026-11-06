@@ -233,6 +233,12 @@ importers:
 
   bridge:
     dependencies:
+      '@belege/chain-core':
+        specifier: workspace:*
+        version: link:../packages/chain-core
+      '@belege/chain-cosmos':
+        specifier: workspace:*
+        version: link:../packages/chain-cosmos
       '@belege/device-gate':
         specifier: workspace:*
         version: link:../packages/device-gate
@@ -318,6 +324,22 @@ importers:
       selfsigned:
         specifier: 5.5.0
         version: 5.5.0
+
+  packages/chain-core:
+    devDependencies:
+      prettier:
+        specifier: 3.6.2
+        version: 3.6.2
+
+  packages/chain-cosmos:
+    dependencies:
+      '@belege/chain-core':
+        specifier: workspace:*
+        version: link:../chain-core
+    devDependencies:
+      prettier:
+        specifier: 3.6.2
+        version: 3.6.2
 
   packages/device-gate:
     dependencies:

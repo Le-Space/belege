@@ -8,6 +8,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Changed
 
+- **The Cosmos reader is a package of its own** (#264): `@belege/chain-cosmos` (Nym's Nyx and Akash, with the Akash Console history and the deployments), on the shared `@belege/chain-core` (fetcher, units, explorer links, swap detection, `WalletEntry`), each with its own tests in a new workflow, _Package tests_. The first step towards open building blocks; nothing changes in what Belege reads or books.
 - **The backup card at a glance** (#656): a status line says whether everything is backed up and what needs doing; below it "Jetzt sichern", "Wiederherstellen …" and the automatic switch. Account, key, grant, the full backup, the chain and the explanations sit under "Erweitert", open by itself while something is still to set up.
 - **Faster CI for pull requests** (#264): the browser specs run in shards side by side (five over HTTP, two over the stream), and a pull request runs only what its files can affect – docs skip the browser specs and the bridge's tests, a change to the bridge alone runs only the specs that pair a bridge. A push to `main` and a release still run every test.
 

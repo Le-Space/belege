@@ -163,7 +163,7 @@ function failed(message, status, body) {
  */
 
 /**
- * @typedef {object} AkashDeployment one deployment and what it cost (bridge/src/chains/akash-deployments.js)
+ * @typedef {object} AkashDeployment one deployment and what it cost (packages/chain-cosmos/src/akash-deployments.js)
  * @property {string} dseq
  * @property {string} state active | closed
  * @property {number} createdHeight

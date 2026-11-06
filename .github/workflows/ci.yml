@@ -1,7 +1,7 @@
 name: CI
 
 # Every gate at once, for release.yml and deploy.yml: the app's unit tests and
-# browser specs and the bridge's tests. A push and a pull request run the three
+# browser specs, the bridge's tests and the packages' tests. A push and a pull request run the three
 # workflows themselves (unit.yml, e2e.yml, bridge.yml), each with its badge in
 # the README; this one only gathers them for a caller. Called, they always run
 # in full: only a pull request is narrowed to what it changes
@@ -21,3 +21,5 @@ jobs:
     uses: ./.github/workflows/e2e.yml
   bridge:
     uses: ./.github/workflows/bridge.yml
+  packages:
+    uses: ./.github/workflows/packages.yml
