@@ -322,6 +322,16 @@ export default {
 	// Messages the code throws or shows, moved here from the modules (#192).
 	messages: {
 		sync: {
+			first: {
+				member:
+					'Die Bücher von „{books}“ kommen gerade von den Geräten der Inhaberin oder des Inhabers.',
+				own: 'Deine Bücher kommen gerade von deinen anderen Geräten.',
+				connected:
+					'Verbunden mit {count} Gerät(en). Beim ersten Mal kann es ein paar Minuten dauern, bis alles da ist – die Listen füllen sich dann auf einmal. Lass die Seite offen.',
+				waiting:
+					'Gerade ist kein anderes Gerät dieser Bücher verbunden. Es kommt etwas, sobald eines online ist – beide Seiten müssen dafür offen sein.',
+				lastIn: 'Zuletzt kam etwas um {time}.'
+			},
 			off: 'Die Synchronisation ist auf diesem Gerät nicht an.',
 			notProved:
 				'Das andere Gerät hat den Passkey nicht bewiesen – es gehört nicht zu diesen Büchern.',

@@ -1,5 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
+	import FirstSyncHint from '$lib/sync/FirstSyncHint.svelte';
 	import { addressBook, payeeName, walletParties } from '$lib/bank/payee.js';
 	import { booksByYear, shownYear } from '$lib/year/year.svelte.js';
 	import { resolve } from '$app/paths';
@@ -264,6 +265,7 @@
 {/if}
 
 {#if transactions.length === 0}
+	<FirstSyncHint />
 	<p
 		class="mt-6 rounded-lg border border-border bg-surface px-5 py-4 text-text shadow-sm"
 		data-testid="transactions-empty"
