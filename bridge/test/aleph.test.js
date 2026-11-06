@@ -3,7 +3,7 @@
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createAlephClient, monthWindow, summarise } from '../src/aleph.js';
+import { createAlephClient, monthWindow, summarise } from '@le-space/chains/aleph';
 import { toChecksumAddress } from '@le-space/chains/evm';
 import { createBridgeServer } from '../src/server.js';
 import { createPairing } from '../src/pairing.js';

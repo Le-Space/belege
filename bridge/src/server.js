@@ -63,7 +63,7 @@ import http from 'node:http';
 
 import { createShares } from './shares.js';
 import { handlePortalRequest } from './portals/routes.js';
-import { ALEPH_API } from './aleph.js';
+import { ALEPH_API } from '@le-space/chains/aleph';
 import { MAX_BODY, createCommands, errorJson, findCommand, statusOf } from './commands.js';
 
 export const LOOPBACK = '127.0.0.1';
@@ -96,7 +96,7 @@ export const LOOPBACK = '127.0.0.1';
  * @param {ReturnType<typeof import('./enablebanking-links.js').createEnableBankingLinks> | null} [options.enablebankingLinks]
  *   linking a bank through it: null when not set up
  * @param {ReturnType<typeof import('@le-space/chains').createWalletService> | null} [options.wallets] own wallets on public chains
- * @param {ReturnType<typeof import('./aleph.js').createAlephClient> | null} [options.aleph] Aleph Cloud credits, read only
+ * @param {ReturnType<typeof import('@le-space/chains/aleph').createAlephClient> | null} [options.aleph] Aleph Cloud credits, read only
  * @param {boolean} [options.alephLoopback] tests: an Aleph API on 127.0.0.1
  * @param {string} [options.alephApi] the Aleph API asked when the request names none
  * @param {ReturnType<typeof import('./aleph-backup.js').createAlephBackup> | null} [options.alephBackup]

@@ -96,7 +96,9 @@ describe('reading an EVM wallet through Alchemy', () => {
 		assert.ok(r.entries.filter((e) => e.asset === 'USDC').every((e) => e.decimals === 6));
 		assert.deepEqual(r.balances, [
 			{ asset: 'ETH', amount: '0.31', decimals: 18 },
-			{ asset: 'USDC', amount: '450', decimals: 6 }
+			{ asset: 'USDC', amount: '450', decimals: 6 },
+			// Listed, never held: a zero balance.
+			{ asset: 'ALEPH', amount: '0', decimals: 18 }
 		]);
 		// Oldest first.
 		const heights = r.entries.map((e) => e.height);

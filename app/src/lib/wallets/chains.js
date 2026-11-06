@@ -54,7 +54,10 @@ export const WALLET_CHAINS = Object.freeze({
 		nativeSymbol: 'ETH',
 		caip2: 'eip155:1',
 		nativeSlip44: 60,
-		tokens: { USDC: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48' }
+		tokens: {
+			USDC: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+			ALEPH: '0x27702a26126e0b3702af63ee09ac4d1a084ef628'
+		}
 	},
 	base: {
 		id: 'base',
@@ -64,7 +67,10 @@ export const WALLET_CHAINS = Object.freeze({
 		nativeSymbol: 'ETH',
 		caip2: 'eip155:8453',
 		nativeSlip44: 60,
-		tokens: { USDC: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913' }
+		tokens: {
+			USDC: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
+			ALEPH: '0xc0fbc4967259786c743361a5885ef49380473dcf'
+		}
 	},
 	arbitrum: {
 		id: 'arbitrum',

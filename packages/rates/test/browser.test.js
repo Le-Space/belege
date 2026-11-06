@@ -12,5 +12,6 @@ test('rates from every kind of source are the same in Chromium and in Node', asy
 		['3.5', 'coingecko', '51000.1', 'kraken', '0.8', '0.01', 'cbr']
 	);
 	assert.deepEqual(r.keys, ['demo-key-for-tests']);
+	assert.equal(r.alephEur, '0');
 	assert.match(r.pool, /^0x[0-9a-f]{64}$/);
 });

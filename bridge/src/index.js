@@ -26,7 +26,7 @@ import { createPaperlessClient } from './paperless.js';
 import { createEnableBankingClient, enableBankingSecrets } from './enablebanking.js';
 import { createEnableBankingLinks } from './enablebanking-links.js';
 import { createWalletService } from '@le-space/chains';
-import { ALEPH_API, createAlephClient } from './aleph.js';
+import { ALEPH_API, createAlephClient } from '@le-space/chains/aleph';
 import { createAlephBackup } from './aleph-backup.js';
 import { buildRecipes, createPortalManager, keychainAccount } from './portals/index.js';
 import { macosPasswordDialog } from './portals/credentials.js';

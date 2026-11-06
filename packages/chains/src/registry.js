@@ -95,6 +95,11 @@ import { FILECOIN } from './filecoin-chain.js';
 
 const USDC = { symbol: 'USDC', decimals: 6 };
 const ETH = { symbol: 'ETH', decimals: 18 };
+// Aleph Cloud's token (ALEPH), what Aleph's credits and storage are paid
+// with: on Ethereum and Base. Checked 2026-11-06: CoinGecko's platform list
+// for `aleph`, Blockscout's token page (Ethereum) and the contract's own
+// symbol() and decimals() (Base).
+const ALEPH = { symbol: 'ALEPH', decimals: 18 };
 
 /** @param {string} base e.g. https://etherscan.io */
 const etherscanLike = (/** @type {string} */ name, /** @type {string} */ base) => ({
@@ -139,7 +144,10 @@ export const CHAINS = Object.freeze({
 		chainId: 1,
 		caip2: 'eip155:1',
 		native: ETH,
-		tokens: { '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': USDC },
+		tokens: {
+			'0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': USDC,
+			'0x27702a26126e0b3702af63ee09ac4d1a084ef628': ALEPH
+		},
 		endpoints: { api: 'https://eth.blockscout.com/api' },
 		alternatives: { api: [] },
 		explorer: etherscanLike('Etherscan', 'https://etherscan.io'),
@@ -153,7 +161,10 @@ export const CHAINS = Object.freeze({
 		chainId: 8453,
 		caip2: 'eip155:8453',
 		native: ETH,
-		tokens: { '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': USDC },
+		tokens: {
+			'0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': USDC,
+			'0xc0fbc4967259786c743361a5885ef49380473dcf': ALEPH
+		},
 		endpoints: { api: 'https://base.blockscout.com/api' },
 		alternatives: { api: [] },
 		explorer: etherscanLike('Basescan', 'https://basescan.org'),
