@@ -167,8 +167,9 @@ test('--hosted starts unarmed with no secrets, and announces the VM’s name', a
 			),
 			JSON.stringify(health.json.node.addrs)
 		);
-		// Unarmed: an invitation, for the device that pairs it over the attested path (#585).
-		await waitFor(bridge.out, /web\+ucep:pair\?/);
+		// Unarmed, but neither an invitation nor a pairing code goes into the host's log (#585).
+		await waitFor(bridge.out, /no invitation in the log/);
+		assert.doesNotMatch(bridge.out(), /web\+ucep:pair\?|Pairing code/);
 		// The node key's hash, for a TEE quote: SHA-256 of the key the peer id carries.
 		// An Ed25519 peer id is an identity multihash: 0x00, length, the key's protobuf.
 		const multihash = base58.decode(health.json.node.peerId);

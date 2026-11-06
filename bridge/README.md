@@ -133,7 +133,8 @@ runs as `cli.js --hosted`:
   WebSocket on to the node on 127.0.0.1, so a device dials it directly besides the relays. The
   device gate is the same as on any machine. The HTTP API stays on 127.0.0.1 and is not proxied.
 - Pairing a hosted bridge from the browser, after attestation, is #585; starting and stopping it
-  from Belege is #587. Until then the hosted bridge starts unpaired.
+  from Belege is #587. Until then the hosted bridge starts unpaired. Its log is the host's, so
+  it prints neither the invitation nor a pairing code there.
 
 ## Where things are kept
 

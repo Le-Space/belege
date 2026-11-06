@@ -209,7 +209,9 @@ try {
 		// --no-node: HTTP only, no libp2p node (node.js, #573).
 		node: !args.includes('--no-node'),
 		// For a TEE quote's report data (#696): the node key's hash next to it.
-		publishKeyHash: hosted
+		publishKeyHash: hosted,
+		// Hosted, the log is the host's: no invitation, no pairing code in it (#585 pairs after attestation).
+		logPairing: !hosted
 	});
 	const stop = async () => {
 		await bridge.close();

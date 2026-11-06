@@ -104,6 +104,8 @@ export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
  * @param {import('./keychain.js').Keychain | null} [options.legacyDeviceAuthKeychain] where a build before #575 kept the books' device key: removed at start
  * @param {any[]} [options.nodeTransports] tests: the memory transport
  * @param {string[]} [options.nodeListen] tests: listen addresses
+ * @param {boolean} [options.logPairing] print the pairing invitation and code (default); the hosted
+ *   bridge does not: its log is the host's, and it is paired after attestation (#585)
  * @param {boolean} [options.publishKeyHash] the hosted bridge (#583, #696): write the SHA-256 of the
  *   node's public key (its protobuf encoding, as the peer id carries it) as hex to
  *   `<config dir>/node/public-key.sha256`, for a TEE quote's report data to bind
@@ -145,6 +147,7 @@ export async function startBridge({
 	nodeTransports,
 	nodeListen,
 	publishKeyHash = false,
+	logPairing = true,
 	port,
 	print = (line) => console.log(line),
 	log = (line) => console.error(`[bridge] ${line}`)
@@ -387,7 +390,7 @@ export async function startBridge({
 			onUnpair: async () => {
 				await disarmNode();
 				print('Unpaired by a device of the books: the node waits to be paired again.');
-				if (node && !node.armed) print(await node.invite());
+				if (node && !node.armed && logPairing) print(await node.invite());
 			},
 			log
 		});
@@ -508,15 +511,17 @@ export async function startBridge({
 		print(
 			`Node: peer ${node.peerId}${node.armed ? ', armed (the books know it)' : ', waiting to be paired'}`
 		);
-		if (!node.armed) {
+		if (!node.armed && logPairing) {
 			print(
 				'Pair it from the app: paste this invitation under Integrationen → Bridge koppeln (valid 10 minutes):'
 			);
 			print(await node.invite());
+		} else if (!node.armed) {
+			print('Hosted: no invitation in the log; a device pairs after attesting this VM (#585).');
 		}
 	}
 
-	if (forcePairingCode || !pairing.isPaired()) {
+	if (logPairing && (forcePairingCode || !pairing.isPaired())) {
 		const code = pairing.issueCode();
 		print(`Pairing code (valid 10 minutes, once): ${code}`);
 		print('Enter it in the app under Integrationen → Bridge koppeln.');
