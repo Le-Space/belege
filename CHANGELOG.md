@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.29.4] – 2026-11-06
+
 ### Fixed
 
 - **The app's name in the header no longer breaks into single words** (#675). With a few more badges in the header (an unsaved backup, the DID) the name was squeezed under the logo, and back when a badge went. The badges now always take a row of their own.
