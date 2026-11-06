@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.29.3] – 2026-11-06
+
 ### Security
 
 - **The bridge on the books' devices, narrowed** (#670), a step towards scopes per bridge command (#579):
