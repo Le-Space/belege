@@ -1,0 +1,21 @@
+#!/bin/sh
+# belege-bridge-net-hardening: interim protection against CVE-2026-98432 until
+# Aleph's confidential runtime ships a fixed kernel (the guest runs Aleph's
+# measured kernel, not one from this image), as on Le Space's own servers and
+# in paperless-anywhere: MPTCP off, and IPv4 TCP packets that carry IP options
+# dropped when the kernel has netfilter. Best effort: what the kernel lacks is
+# reported, not fatal. Result in /run/belege-bridge-status/net-hardening.json.
+set -u
+state=/run/belege-bridge-status
+mkdir -p "$state"
+mptcp=absent; filter=absent
+if [ -e /proc/sys/net/mptcp/enabled ]; then
+  echo 0 > /proc/sys/net/mptcp/enabled 2>/dev/null && mptcp=off || mptcp=failed
+fi
+if command -v nft >/dev/null 2>&1 && nft add table inet cve_2026_98432 2>/dev/null; then
+  nft add chain inet cve_2026_98432 input '{ type filter hook prerouting priority -300; policy accept; }' 2>/dev/null \
+    && nft add rule inet cve_2026_98432 input 'ip protocol tcp ip hdrlength > 5 drop' 2>/dev/null \
+    && filter=nft || filter=failed
+fi
+printf '{"mptcp":"%s","ipOptionsFilter":"%s","kernel":"%s"}\n' "$mptcp" "$filter" "$(uname -r)" > "$state/net-hardening.json"
+echo "belege-bridge-net-hardening: mptcp $mptcp, ip options filter $filter"

@@ -115,7 +115,25 @@ The bridge runs on Windows 10 and 11 too (issue #205). Where this page says "key
 - Not there yet on Windows: the native password dialog for a portal ("Zugangsdaten speichern" in the app). Use `pnpm setup:portal <id>` in the terminal instead.
 - A Windows runner in CI does a real round trip through the Credential Manager on every change. The rest of the bridge is tested on Linux and macOS; reports from Windows are welcome.
 
-Linux has no secret store in the bridge yet.
+Linux has no secret store in the bridge yet, except in the hosted VM below.
+
+## Hosted, in a confidential VM
+
+The bridge can also run in an Aleph confidential VM (AMD SEV-SNP), started when needed (#251,
+#583). Its image is built from this directory: [`rootfs/README.md`](rootfs/README.md). There it
+runs as `cli.js --hosted`:
+
+- **No keychain, nothing secret on disk.** Every secret comes with the unlock, after the owner's
+  browser has checked the VM's attestation, and is read from `$BELEGE_BRIDGE_SECRETS_DIR` (one
+  file per keychain account, in a tmpfs; `unlockedKeychain` in `src/keychain.js`). What the bridge
+  writes – a handover's key – stays in memory and is gone at the next start.
+- **No language model** (#251): the LLM key is never read, and `llm` is removed from `bridge.json`.
+- **Its node is announced under the VM's name** (`node.announce` in `bridge.json`, only a
+  `/dns4/<name>/tcp/<port>/tls/ws` address): Caddy in the VM ends TLS on 443 and passes the
+  WebSocket on to the node on 127.0.0.1, so a device dials it directly besides the relays. The
+  device gate is the same as on any machine. The HTTP API stays on 127.0.0.1 and is not proxied.
+- Pairing a hosted bridge from the browser, after attestation, is #585; starting and stopping it
+  from Belege is #587. Until then the hosted bridge starts unpaired.
 
 ## Where things are kept
 

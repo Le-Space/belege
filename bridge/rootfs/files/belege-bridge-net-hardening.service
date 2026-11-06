@@ -1,0 +1,10 @@
+[Unit]
+Description=belege-bridge-net-hardening (see /usr/local/sbin/belege-bridge-net-hardening)
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/belege-bridge-net-hardening
+
+[Install]
+WantedBy=multi-user.target

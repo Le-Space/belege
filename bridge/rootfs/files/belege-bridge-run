@@ -1,0 +1,85 @@
+#!/bin/sh
+# belege-bridge-run: start the hosted bridge (#583) with what came with the
+# unlock (#584), then drop to its own user.
+#
+# Aleph's attestation agent writes every secret the owner's browser sent, after
+# it checked this VM's attestation, to /tmp/secrets/<name>. Here they are
+# sorted, as root, into a tmpfs only the bridge's user can read:
+#
+#   /run/belege-bridge/secrets/<account>  the keychain's accounts the bridge
+#                                         knows (keychain.js, unlockedKeychain);
+#                                         never the disk passphrase
+#   /run/belege-bridge/bridge.json        from `bridge_config` (JSON), with the
+#                                         node's WebSocket behind Caddy and the
+#                                         VM's public name to announce
+#   /run/belege-bridge/node/peer-key      from `bridge_peer_key` (base64), so the
+#                                         peer id is the one the books know
+#   /run/belege-bridge/enablebanking.sealed from `enablebanking_sealed`
+#
+# Nothing of it goes onto the rootfs; at the next start it comes again.
+set -eu
+in=/tmp/secrets
+run=/run/belege-bridge
+mkdir -p "$run"
+mountpoint -q "$run" || mount -t tmpfs -o mode=0700,size=64m,nosuid,nodev,noexec tmpfs "$run"
+chown belege-bridge:belege-bridge "$run"
+chmod 700 "$run"
+umask 077
+install -d -o belege-bridge -g belege-bridge -m 700 "$run/secrets" "$run/node"
+
+# The HTTPS name came with the unlock: Caddy serves /attest, the status and
+# the node's WebSocket on it before the bridge starts.
+host=""
+if [ -s "$in/https_hostname" ]; then
+  host="$(head -c 253 "$in/https_hostname" | tr -d '\r\n')"
+  /usr/local/sbin/belege-bridge-https "$host" || host=""
+fi
+
+# The keychain's accounts, and nothing else (keychain.js secretFileOf).
+if [ -d "$in" ]; then
+  for f in "$in"/*; do
+    [ -f "$f" ] || continue
+    name="$(basename "$f")"
+    case "$name" in
+      hibiscus|imap|kraken|paperless|enablebanking|coingecko|bitcoin|alchemy|aleph_backup|bridge_auth|portal_[a-z0-9_]*)
+        install -o belege-bridge -g belege-bridge -m 600 "$f" "$run/secrets/$name" ;;
+    esac
+  done
+fi
+if [ -s "$in/bridge_peer_key" ]; then
+  base64 -d "$in/bridge_peer_key" > "$run/node/peer-key" 2>/dev/null || rm -f "$run/node/peer-key"
+fi
+if [ -s "$in/enablebanking_sealed" ]; then
+  install -m 600 "$in/enablebanking_sealed" "$run/enablebanking.sealed"
+fi
+
+# bridge.json: what the owner's browser sent, with the hosted settings on top.
+python3 - "$in/bridge_config" "$run/bridge.json" "$host" <<'PY'
+import json, sys
+src, dst, host = sys.argv[1], sys.argv[2], sys.argv[3]
+try:
+    with open(src) as f:
+        config = json.load(f)
+    if not isinstance(config, dict):
+        config = {}
+except Exception:
+    config = {}
+config.setdefault("bridge", {})["port"] = 8765
+node = config.setdefault("node", {})
+if not isinstance(node, dict):
+    node = config["node"] = {}
+node["enabled"] = True
+# Caddy passes wss://<host>/ on to this WebSocket (belege-bridge-https).
+node["wsPort"] = 9097
+node["announce"] = [f"/dns4/{host}/tcp/443/tls/ws"] if host else []
+# No language model in the hosted bridge (#251).
+config.pop("llm", None)
+with open(dst, "w") as f:
+    json.dump(config, f)
+PY
+chown -R belege-bridge:belege-bridge "$run/bridge.json" "$run/node"
+[ -f "$run/enablebanking.sealed" ] && chown belege-bridge:belege-bridge "$run/enablebanking.sealed"
+
+exec setpriv --reuid belege-bridge --regid belege-bridge --init-groups --no-new-privs \
+  env -i PATH=/usr/bin:/bin HOME="$run" NODE_ENV=production BELEGE_BRIDGE_SECRETS_DIR="$run/secrets" \
+  /usr/bin/node /opt/belege-bridge/src/cli.js --hosted --config "$run/bridge.json"

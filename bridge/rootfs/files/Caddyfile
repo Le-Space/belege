@@ -1,0 +1,6 @@
+# Replaced by belege-bridge-https <hostname> once the name came with the unlock.
+# Until then Caddy serves nothing.
+{
+  admin off
+  auto_https off
+}

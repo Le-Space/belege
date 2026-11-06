@@ -1,0 +1,51 @@
+#!/bin/sh
+# belege-bridge-status: every five seconds, how far the start is, in
+# /run/belege-bridge-public/status.json (Caddy serves it at
+# /bridge/status.json): whether the bridge answers, its peer id and public
+# addresses, whether a relay holds a reservation for it, and when each step
+# was first seen. No secrets: the bridge's /health is public, and a peer id
+# names, it does not open.
+set -u
+dir=/run/belege-bridge-status
+pub=/run/belege-bridge-public
+mkdir -p "$dir" "$pub"
+chmod 755 "$pub"
+# When this script first ran: the disk is open and the services are starting.
+[ -s "$dir/timeline.json" ] || printf '{"unlocked":%s}\n' "$(date +%s)" > "$dir/timeline.json"
+while :; do
+  health="$(curl -fsS --max-time 5 http://127.0.0.1:8765/health 2>/dev/null || true)"
+  cert=false
+  [ -n "$(find /run/caddy -name '*.crt' 2>/dev/null | head -1)" ] && cert=true
+  python3 - "$dir" "$cert" "$health" > "$pub/status.json.tmp" <<'PY' && mv "$pub/status.json.tmp" "$pub/status.json"
+import json, os, sys, time
+d, cert, raw = sys.argv[1], sys.argv[2] == "true", sys.argv[3]
+now = int(time.time())
+try:
+    health = json.loads(raw) if raw else None
+except Exception:
+    health = None
+node = (health or {}).get("node") or {}
+addrs = [a for a in node.get("addrs") or [] if isinstance(a, str)]
+public = [a for a in addrs if a.startswith("/dns") or "/p2p-circuit" in a]
+relayed = any("/p2p-circuit" in a for a in addrs)
+try:
+    timeline = json.load(open(os.path.join(d, "timeline.json")))
+except Exception:
+    timeline = {}
+for step, done in (("bridge", health is not None), ("node", bool(node.get("peerId"))), ("relay", relayed), ("cert", cert)):
+    if done and step not in timeline:
+        timeline[step] = now
+json.dump(timeline, open(os.path.join(d, "timeline.json.tmp"), "w"))
+os.replace(os.path.join(d, "timeline.json.tmp"), os.path.join(d, "timeline.json"))
+phase = "ready" if health is not None and node.get("peerId") else "starting"
+print(json.dumps({
+    "v": 1,
+    "phase": phase,
+    "node": {"peerId": node.get("peerId"), "armed": bool(node.get("armed")), "addrs": public, "relayed": relayed},
+    "timeline": timeline,
+    "at": now,
+}))
+PY
+  chmod 644 "$pub/status.json" 2>/dev/null
+  sleep 5
+done

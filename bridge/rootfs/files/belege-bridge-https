@@ -1,0 +1,67 @@
+#!/bin/sh
+# belege-bridge-https <hostname>: Caddy on 443 for https://<hostname> (the
+# VM's *.2n6.me name, which passes TLS through to this VM):
+#
+#   /attest               the attest relay (attest-relay.service), as on
+#                         orbitdb-relay: a browser's RA-TLS records to a
+#                         confidential VM's attestation agent
+#   /bridge/status.json   the start's phase, no secrets (belege-bridge-status)
+#   everything else       the bridge node's WebSocket on 127.0.0.1:9097, so a
+#                         device dials /dns4/<hostname>/tcp/443/tls/ws/p2p/<id>;
+#                         the device gate decides who gets past identify
+#
+# The bridge's HTTP API (127.0.0.1:8765) is not proxied. Caddy keeps its
+# certificate in /run/caddy (tmpfs): nothing of it on the rootfs. Certificate
+# over TLS-ALPN on 443, Let's Encrypt first and ZeroSSL when it fails, as
+# Le-Space/paperless-anywhere's paperless-https does.
+set -eu
+host="${1:?usage: belege-bridge-https <hostname>}"
+case "$host" in *[!a-z0-9.-]*|"") echo "not a hostname: $host" >&2; exit 1 ;; esac
+email="$(head -c 254 /tmp/secrets/acme_email 2>/dev/null | tr -d '\r\n')"
+case "$email" in *@*.*) ;; *) email="belege-bridge@le-space.de" ;; esac
+case "$email" in *[!A-Za-z0-9.@_+-]*) email="belege-bridge@le-space.de" ;; esac
+install -d -o caddy -g caddy -m 700 /run/caddy
+install -d -m 755 /run/belege-bridge-public
+new="$(mktemp)"
+cat > "$new" <<CADDY
+{
+  admin off
+  auto_https disable_redirects
+  storage file_system {
+    root /run/caddy
+  }
+}
+
+https://${host} {
+  tls {
+    issuer acme {
+      disable_http_challenge
+    }
+    issuer zerossl {
+      email ${email}
+      disable_http_challenge
+    }
+  }
+  handle /attest {
+    reverse_proxy 127.0.0.1:8787
+  }
+  handle /bridge/status.json {
+    header Access-Control-Allow-Origin "*"
+    header Cache-Control "no-store"
+    root * /run/belege-bridge-public
+    rewrite * /status.json
+    file_server
+  }
+  handle {
+    reverse_proxy 127.0.0.1:9097
+  }
+}
+CADDY
+# Restart Caddy only when its configuration changed: a restart cancels a
+# certificate order in flight.
+if ! cmp -s "$new" /etc/caddy/Caddyfile || ! systemctl is-active --quiet caddy.service; then
+  install -m 644 "$new" /etc/caddy/Caddyfile
+  systemctl restart caddy.service
+fi
+rm -f "$new"
+printf '%s\n' "$host" > /run/belege-bridge-public/hostname

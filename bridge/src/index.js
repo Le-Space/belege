@@ -104,6 +104,9 @@ export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
  * @param {import('./keychain.js').Keychain | null} [options.legacyDeviceAuthKeychain] where a build before #575 kept the books' device key: removed at start
  * @param {any[]} [options.nodeTransports] tests: the memory transport
  * @param {string[]} [options.nodeListen] tests: listen addresses
+ * @param {boolean} [options.publishKeyHash] the hosted bridge (#583, #696): write the SHA-256 of the
+ *   node's public key (its protobuf encoding, as the peer id carries it) as hex to
+ *   `<config dir>/node/public-key.sha256`, for a TEE quote's report data to bind
  * @param {number} [options.port] overrides the config
  * @param {(line: string) => void} [options.print] the console; gets the pairing code
  * @param {(line: string) => void} [options.log]
@@ -141,6 +144,7 @@ export async function startBridge({
 	legacyDeviceAuthKeychain = systemKeychain({ account: LEGACY_DEVICE_AUTH_ACCOUNT }),
 	nodeTransports,
 	nodeListen,
+	publishKeyHash = false,
 	port,
 	print = (line) => console.log(line),
 	log = (line) => console.error(`[bridge] ${line}`)
@@ -364,6 +368,7 @@ export async function startBridge({
 			// The same table as HTTP: `request { method, path, body? }` over the stream (stream.js).
 			commands: bridge.commands,
 			wsPort,
+			announce: config.node.announce,
 			...(nodeTransports ? { transports: nodeTransports } : {}),
 			...(nodeListen ? { listen: nodeListen } : {}),
 			onHandover: async ({ authKey, relays, devices }) => {
@@ -386,6 +391,7 @@ export async function startBridge({
 			},
 			log
 		});
+		if (publishKeyHash) await writePublicKeyHash(nodeDir, node.libp2p.peerId);
 		const ws = node.addrs().find((a) => /^\/ip4\/127\.0\.0\.1\/tcp\/\d+\/ws/.test(a));
 		if (ws) wsPort = Number(/\/tcp\/(\d+)\//.exec(ws)?.[1] ?? wsPort);
 	}
@@ -569,4 +575,20 @@ function fixedRateService(rates) {
 			};
 		}
 	};
+}
+
+/**
+ * The hosted bridge's node key, for a TEE quote (#583, #696): SHA-256 over
+ * the public key's protobuf encoding – the bytes an Ed25519 peer id carries –
+ * as hex, in `<dir>/public-key.sha256`. Not a secret: the peer id names it.
+ *
+ * @param {string} dir
+ * @param {any} peerId
+ */
+async function writePublicKeyHash(dir, peerId) {
+	const { publicKeyToProtobuf } = await import('@libp2p/crypto/keys');
+	const { createHash } = await import('node:crypto');
+	const { writeFile } = await import('node:fs/promises');
+	const hash = createHash('sha256').update(publicKeyToProtobuf(peerId.publicKey)).digest('hex');
+	await writeFile(join(dir, 'public-key.sha256'), `${hash}\n`, { mode: 0o644 });
 }

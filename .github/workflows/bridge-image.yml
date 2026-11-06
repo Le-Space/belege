@@ -1,0 +1,147 @@
+name: Bridge image
+
+# The hosted bridge's image for an Aleph confidential VM (#583): Debian with
+# Node, Caddy, relay-button's attest relay and the bridge from this checkout
+# baked in (bridge/rootfs/build-image.sh), made confidential and encrypted by
+# relay-button's aleph-confidential-rootfs action, and published as an Aleph
+# STORE (paid in credits by ALEPH_PRIVATE_KEY). Made as
+# Le-Space/paperless-anywhere's "Paperless rootfs" workflow makes its image.
+#
+# bridge-image.json (an artifact, and a release asset when run for a tag)
+# names what an instance boots from and what it was made of: the STORE hash,
+# the sha256 of the plain image, and the pinned inputs. The launch
+# measurement is computed from Aleph's SEV-SNP runtime and the owner's
+# address (bridge/rootfs/README.md), so it is the same for every image.
+#
+# Secrets: ALEPH_PRIVATE_KEY (pays the STORE), BRIDGE_LUKS_PASSPHRASE (the disk key).
+
+on:
+  # A pull request that changes the image builds it, unencrypted and unpublished.
+  pull_request:
+    paths:
+      - 'bridge/rootfs/**'
+      - '.github/workflows/bridge-image.yml'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Encrypt and publish on Aleph (costs credits); off builds the plain image only
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bridge-image
+  cancel-in-progress: false
+
+env:
+  # relay-button v0.12.4: the confidential conversion and the attest relay.
+  RELAY_BUTTON_COMMIT: f05e14bfbbd42b75dd06e5e87dab57d09deff283
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: pnpm
+
+      - name: Check the secrets
+        if: inputs.publish
+        env:
+          ALEPH_PRIVATE_KEY: ${{ secrets.ALEPH_PRIVATE_KEY }}
+          LUKS: ${{ secrets.BRIDGE_LUKS_PASSPHRASE }}
+        run: |
+          [ -n "$ALEPH_PRIVATE_KEY" ] || { echo "::error::set the ALEPH_PRIVATE_KEY secret"; exit 1; }
+          [ -n "$LUKS" ] || { echo "::error::set the BRIDGE_LUKS_PASSPHRASE secret"; exit 1; }
+
+      - name: Shell
+        run: shellcheck -S warning bridge/rootfs/build-image.sh bridge/rootfs/deploy-bridge.sh bridge/rootfs/files/belege-bridge-*[!e]
+
+      - name: The bridge, production dependencies only
+        run: |
+          ./bridge/rootfs/deploy-bridge.sh "$RUNNER_TEMP/bridge"
+
+      - name: The attest relay, one file
+        run: |
+          git clone -q https://github.com/NiKrause/relay-button.git "$RUNNER_TEMP/relay-button"
+          git -C "$RUNNER_TEMP/relay-button" checkout -q "$RELAY_BUTTON_COMMIT"
+          cd "$RUNNER_TEMP/relay-button/packages/attest-relay"
+          npm install --no-package-lock --no-audit --no-fund --loglevel=error
+          node scripts/bundle.mjs "$RUNNER_TEMP/attest-relay.cjs"
+          ls -l "$RUNNER_TEMP/attest-relay.cjs"
+
+      - name: Build the plain image
+        timeout-minutes: 20
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq debootstrap debian-archive-keyring >/dev/null
+          start=$(date +%s)
+          sudo ./bridge/rootfs/build-image.sh "$RUNNER_TEMP/bridge.ext4" "$RUNNER_TEMP/bridge" "$RUNNER_TEMP/attest-relay.cjs"
+          sudo chown "$(id -u):$(id -g)" "$RUNNER_TEMP/bridge.ext4"
+          echo "BUILD_SECONDS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+          echo "PLAIN_BYTES=$(stat -c %s "$RUNNER_TEMP/bridge.ext4")" >> "$GITHUB_ENV"
+          echo "PLAIN_SHA256=$(sha256sum "$RUNNER_TEMP/bridge.ext4" | cut -d' ' -f1)" >> "$GITHUB_ENV"
+
+      - name: Confidential, encrypted, published
+        id: rootfs
+        if: inputs.publish
+        uses: NiKrause/relay-button/.github/actions/aleph-confidential-rootfs@f05e14bfbbd42b75dd06e5e87dab57d09deff283 # v0.12.4
+        with:
+          image_path: ${{ runner.temp }}/bridge.ext4
+          # No key in the image: a test sends its own with the unlock; the app never does.
+          ssh_public_key: '# no key in the image: a test sends its own with the unlock'
+          luks_passphrase: ${{ secrets.BRIDGE_LUKS_PASSPHRASE }}
+          aleph_private_key: ${{ secrets.ALEPH_PRIVATE_KEY }}
+
+      - name: bridge-image.json
+        env:
+          STORE: ${{ steps.rootfs.outputs.rootfs_item_hash }}
+          SIZE_MIB: ${{ steps.rootfs.outputs.rootfs_size_mib }}
+        run: |
+          node --input-type=module > "$RUNNER_TEMP/bridge-image.json" <<'EOF'
+          import { readFileSync } from 'node:fs'
+          const pkg = JSON.parse(readFileSync('bridge/package.json', 'utf8'))
+          const build = readFileSync('bridge/rootfs/build-image.sh', 'utf8')
+          const pin = (name) => (new RegExp(`^${name}=(\\S+)`, 'm').exec(build) ?? [])[1] ?? null
+          console.log(JSON.stringify({
+            schema: 1,
+            bridge: pkg.version,
+            commit: process.env.GITHUB_SHA,
+            store: process.env.STORE || null,
+            plain: { sha256: process.env.PLAIN_SHA256, bytes: Number(process.env.PLAIN_BYTES) },
+            encryptedMiB: process.env.SIZE_MIB ? Number(process.env.SIZE_MIB) : null,
+            inputs: {
+              debian: 'bookworm',
+              node: pin('NODE_VERSION'),
+              nodeSha256: pin('NODE_SHA256'),
+              relayButton: process.env.RELAY_BUTTON_COMMIT
+            },
+            measurement: 'Aleph SEV-SNP runtime and the owner address (@le-space/attest-wasm confidentialTrustedExecution); see bridge/rootfs/README.md'
+          }, null, 2))
+          EOF
+          cat "$RUNNER_TEMP/bridge-image.json"
+          {
+            echo "## Bridge image"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Encrypted rootfs (STORE) | \`${STORE:-not published}\` |"
+            echo "| Plain image | $(( ${PLAIN_BYTES:-0} / 1048576 )) MiB, sha256 \`${PLAIN_SHA256}\`, built in ${BUILD_SECONDS:-?} s |"
+            echo "| Encrypted image | ${SIZE_MIB:-–} MiB |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bridge-image
+          path: ${{ runner.temp }}/bridge-image.json
+
+      - name: Attach to the release
+        if: inputs.publish && startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${GITHUB_REF_NAME}" "$RUNNER_TEMP/bridge-image.json" --clobber

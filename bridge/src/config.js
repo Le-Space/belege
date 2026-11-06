@@ -16,6 +16,10 @@ import { DEFAULT_LAN_RELAY_PORT } from './lan-relay-port.js';
 
 export const DEFAULT_PORT = 8765;
 
+/** A public name with a TLS WebSocket in front of the node's own: nothing else may be announced. */
+export const ANNOUNCE =
+	/^\/dns[46]?\/(?=.{1,253}\/)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+\/tcp\/([1-9]\d{0,4})\/tls\/ws$/;
+
 export function defaultConfigPath() {
 	return process.env.BELEGE_BRIDGE_CONFIG || join(homedir(), '.config', 'belege', 'bridge.json');
 }
@@ -44,6 +48,8 @@ export function defaultConfigPath() {
  * @property {string[]} relays the relays the books use, from the handover
  * @property {string[]} devices the books' devices (peer ids), from the handover and `devices`
  * @property {number} wsPort the WebSocket on 127.0.0.1 for the browser on this machine; 0 picks one
+ * @property {string[]} announce public WebSocket addresses a proxy in front of that WebSocket
+ *   serves, `/dns4/<host>/tcp/443/tls/ws` (the hosted VM's Caddy, #583); announced besides the relays
  * @property {import('./grants.js').Limits} limits per device: the model's calls and tokens, backups, and when unused scopes lapse (grants.js)
  */
 
@@ -195,7 +201,14 @@ export function defaultConfig() {
 		},
 		alephBackup: { configured: false },
 		lanRelay: { host: null, port: DEFAULT_LAN_RELAY_PORT },
-		node: { enabled: true, relays: [], devices: [], wsPort: 0, limits: { ...DEFAULT_LIMITS } }
+		node: {
+			enabled: true,
+			relays: [],
+			devices: [],
+			wsPort: 0,
+			announce: [],
+			limits: { ...DEFAULT_LIMITS }
+		}
 	};
 }
 
@@ -334,6 +347,9 @@ export function withDefaults(raw) {
 				Number.isInteger(raw?.node?.wsPort) && raw.node.wsPort >= 0 && raw.node.wsPort <= 65535
 					? raw.node.wsPort
 					: 0,
+			announce: Array.isArray(raw?.node?.announce)
+				? raw.node.announce.map(String).filter((a) => ANNOUNCE.test(a))
+				: [],
 			limits: limitsOf(raw?.node?.limits)
 		}
 	};
