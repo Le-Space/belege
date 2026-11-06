@@ -49,6 +49,7 @@
 	"dependencies": {
 		"@belege/chain-core": "workspace:*",
 		"@belege/chain-cosmos": "workspace:*",
+		"@belege/chain-filecoin": "workspace:*",
 		"@belege/device-gate": "workspace:*",
 		"@chainsafe/libp2p-noise": "17.0.0",
 		"@chainsafe/libp2p-yamux": "8.0.1",
