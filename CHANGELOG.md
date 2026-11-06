@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Changed
 
+- **The remote collaboration run checks the Aleph credits first.** Aleph takes the test VM only while the paying wallet holds credits for a day of it, and otherwise refuses it with a bare "error 6" on every node. The run now compares balance and price before anything else and fails in seconds, saying how many credits are missing. When the IPFS gateway refuses a page's code (429) while the bookkeeping waits for a payment, the run reloads and unlocks again instead of waiting on a broken page.
+
 - **The threat model in plain German, and the use cases brought up to date** (#680). In both languages: the books' keys come from the books' root, which the passkey opens; a device needs the books' key and to be known or let in; after a compromised browser, new keys for the books help. The use cases name the bridge share as for own devices only, list the two roles of an assistant, call the AI assistant's view by its name, and show the check both sides compare when joining.
 
 ## [0.29.4] – 2026-11-06

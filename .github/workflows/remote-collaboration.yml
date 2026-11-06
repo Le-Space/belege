@@ -9,8 +9,9 @@
 # what belege.le-space.de serves, and it spends Aleph credits.
 #
 # Needs the repository secret ALEPH_PLAYWRIGHT_PRIVATE_KEY (the wallet that
-# pays for the VM; only the deploy and the cleanup steps see it). The browser
-# secret, the SSH key and the TLS certificate are made per run. The VM is
+# pays for the VM; only the credit check, the deploy and the cleanup steps
+# see it). The browser secret, the SSH key and the TLS certificate are made
+# per run. The VM is
 # erased and forgotten at the end, whatever happened;
 # aleph-playwright-janitor.yml removes what a cancelled run left behind.
 name: Remote collaboration
@@ -60,6 +61,9 @@ jobs:
       REMOTE_PROVIDER: ${{ inputs.provider || 'aleph' }}
       REMOTE_OUTPUT_DIR: ${{ github.workspace }}/test-results/remote-collab
       REQUIRE_PUBLIC_RELAY: 'true'
+      # The VM's size: the deploy uses it, and the credit check prices it.
+      ALEPH_VM_VCPUS: '2'
+      ALEPH_VM_MEMORY_MIB: '4096'
     steps:
       - uses: actions/checkout@v6
 
@@ -73,6 +77,15 @@ jobs:
 
       # Its own lockfile, outside the workspace: none of this reaches the app.
       - run: pnpm install --dir e2e-remote --ignore-workspace --frozen-lockfile
+
+      # Aleph takes an INSTANCE only while the wallet holds credits for a day
+      # of it; without them every CRN answers a bare "error 6". Checked first,
+      # so a short wallet fails in seconds and says how much is missing.
+      - name: Enough Aleph credits for the VM
+        if: env.REMOTE_PROVIDER == 'aleph'
+        env:
+          ALEPH_PRIVATE_KEY: ${{ secrets.ALEPH_PLAYWRIGHT_PRIVATE_KEY }}
+        run: node e2e-remote/credit-check.mjs
 
       - name: Install local Chromium
         run: pnpm --dir e2e-remote exec playwright install --with-deps chromium
@@ -125,8 +138,8 @@ jobs:
           # ranker shuffles its top pool instead of always picking one node.
           placement_strategy: manual
           max_crn_attempts: '8'
-          vcpus: '2'
-          memory_mib: '4096'
+          vcpus: ${{ env.ALEPH_VM_VCPUS }}
+          memory_mib: ${{ env.ALEPH_VM_MEMORY_MIB }}
           auto_configure: 'false'
           verify_reachability: 'false'
           publish_port_forwards: 'true'

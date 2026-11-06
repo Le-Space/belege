@@ -38,8 +38,9 @@ the network menu shows no public relay (builds before the relay light, #609, hav
 
 `.github/workflows/remote-collaboration.yml` runs after each release (when `release.yml`, which
 deploys through `deploy.yml`, finished) and by hand (`app_url`, `provider: aleph | local`,
-`expect_release`). It first waits until the domain serves the new release (`wait-release.mjs`),
-then deploys a Playwright runner VM with relay-button's `aleph-vm-deploy` action (the RootFS
+`expect_release`). It first checks that the paying wallet holds Aleph credits for a day of the VM
+(`credit-check.mjs`; without them Aleph refuses the VM with a bare "error 6"), waits until the
+domain serves the new release (`wait-release.mjs`), then deploys a Playwright runner VM with relay-button's `aleph-vm-deploy` action (the RootFS
 with Playwright 1.61.1, as in Le-Space/simple-todo), connects with `connectAlephChromium` from
 `@le-space/playwright`, runs the scenario, and always erases and forgets the VM
 (`playwright-runner-cleanup`). `aleph-playwright-janitor.yml` sweeps VMs of this repository that a
