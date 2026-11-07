@@ -23,3 +23,22 @@ test('@le-space/chains/evm-address is keccak and bytes only', async () => {
 	assert.match(code, /function toChecksumAddress/);
 	assert.doesNotMatch(code, /alchemy\.com|blockscout|filfox/i);
 });
+
+test('@le-space/chains/filecoin-chain carries Filecoin only', async () => {
+	const code = await bundleForBrowser([import.meta.resolve('@le-space/chains/filecoin-chain')], {
+		treeshake: false
+	});
+	assert.match(code, /filfox\.info/);
+	assert.doesNotMatch(code, /blockscout|mempool\.space|xmrchain/i);
+});
+
+// The readers take their chain as an argument; only registry.js (every
+// chain, Monero's explorer among them) and wallets.js need the whole table.
+for (const reader of ['evm', 'bitcoin', 'filecoin', 'cosmos', 'near', 'evm-contracts']) {
+	test(`@le-space/chains/${reader} does not bundle the registry`, async () => {
+		const code = await bundleForBrowser([import.meta.resolve(`@le-space/chains/${reader}`)], {
+			treeshake: false
+		});
+		assert.doesNotMatch(code, /xmrchain/);
+	});
+}

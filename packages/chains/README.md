@@ -14,7 +14,7 @@ Runs in a browser and in Node. The caller hands in `fetch`, the endpoints (a nod
 | Aleph Cloud credits (no chain: Aleph's own network, by the Ethereum address) | Aleph's API, CORS open; a month's statement, `alephEntries` gives `LedgerEntry` (`usage` for consumption, with its USD price per credit) | `aleph` |
 
 - `createWalletService({ fetch, getZpub, alchemyKey, … })` – every chain behind one `history({ chain, address, endpoints })`, as Belege's bridge serves it.
-- `CHAINS`, `chainOf`, `publicChains` – the chains, their assets, default endpoints and explorers (`registry`).
+- `CHAINS`, `chainOf`, `publicChains` – the chains, their assets, default endpoints and explorers (`registry`). One chain's data without the others: `FILECOIN` (`filecoin-chain`), `NYX_CHAIN`, `AKASH_CHAIN` (`cosmos-chains`), `KNOWN_EVM_CONTRACTS` (`evm-contracts`). The readers take their chain as an argument and do not import the registry.
 - `toChecksumAddress`, `isEvmAddress` – an EVM address's EIP-55 checksum and form (`evm-address`: keccak and bytes only, so `aleph` and a browser form do not bundle the EVM reader or Alchemy; `evm` re-exports them).
 - `createJsonFetcher`, `WalletError`, `checkEndpoint`, `txUrl`, `addressUrl`, `markSwaps` – what every reader shares (`core`). Error messages name a host at most, never a path or a query (they carry addresses).
 - `@le-space/chains/testing/cosmos`, `@le-space/chains/testing/filfox` – fake nodes for tests (Node), with made-up addresses.

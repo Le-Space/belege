@@ -35,7 +35,7 @@
 //     token is a listed one – an unlisted symbol is the token's own claim)
 //     and the router it went through, and the gas it cost (the gas entry
 //     stays a fee of its own and names the swap). Known routers and WETH are named
-//     (registry.js KNOWN_EVM_CONTRACTS).
+//     (evm-contracts.js, re-exported by registry.js).
 //
 // The log gets counts, never an address.
 //
@@ -44,7 +44,8 @@
 // and become entries here in the same way.
 
 import { isEvmAddress, toChecksumAddress } from './evm-address.js';
-import { KNOWN_EVM_CONTRACTS, addressUrl, txUrl } from './registry.js';
+import { KNOWN_EVM_CONTRACTS } from './evm-contracts.js';
+import { addressUrl, txUrl } from './explorer.js';
 import { markSwaps } from './core.js';
 import { createJsonFetcher, WalletError } from './http.js';
 import { unitsToDecimal } from './cosmos.js';
