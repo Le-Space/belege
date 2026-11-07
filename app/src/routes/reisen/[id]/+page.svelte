@@ -44,7 +44,7 @@
 		tripTotals
 	} from '$lib/travel/view.js';
 	import { countryHints, newStops, routeOf } from '$lib/travel/route.js';
-	import { headOf } from '$lib/travel/proposals.js';
+	import { headOffer } from '$lib/travel/proposals.js';
 	import { matchOfReceipt } from '$lib/matching/view.js';
 	import { lodgingFlat, nightsOf } from '$lib/travel/lodging.js';
 	import { appointmentsOn } from '$lib/travel/appointments.js';
@@ -112,16 +112,10 @@
 	let euros = $derived(new Map(receipts.map((r) => [r.id, euroOf(r, app)])));
 	// Destination and times from the trip's tickets (#693), for fields still empty:
 	// a trip made before its receipts were read, or read again. Taken on a click.
+	// An earlier departure or a later return than entered too: a ticket added later.
 	let headFromTickets = $derived.by(() => {
 		const d = /** @type {Record<string, any> | null} */ (draft);
-		if (!d) return null;
-		const h = headOf(receipts);
-		const offer = {
-			destination: !String(d.destination ?? '').trim() && h.destination ? h.destination : null,
-			start: !d.start && h.start ? h.start : null,
-			end: !d.end && h.end ? h.end : null
-		};
-		return offer.destination || offer.start || offer.end ? offer : null;
+		return d ? headOffer(d, receipts) : null;
 	});
 	function takeHead() {
 		if (!draft || !headFromTickets) return;
@@ -471,9 +465,21 @@
 									? t('reise.headDestination', { place: headFromTickets.destination })
 									: null,
 								headFromTickets.start
-									? t('reise.headStart', { at: atLine(headFromTickets.start) })
+									? headFromTickets.was.start
+										? t('reise.headStartEarlier', {
+												at: atLine(headFromTickets.start),
+												was: atLine(headFromTickets.was.start)
+											})
+										: t('reise.headStart', { at: atLine(headFromTickets.start) })
 									: null,
-								headFromTickets.end ? t('reise.headEnd', { at: atLine(headFromTickets.end) }) : null
+								headFromTickets.end
+									? headFromTickets.was.end
+										? t('reise.headEndLater', {
+												at: atLine(headFromTickets.end),
+												was: atLine(headFromTickets.was.end)
+											})
+										: t('reise.headEnd', { at: atLine(headFromTickets.end) })
+									: null
 							]
 								.filter(Boolean)
 								.join(' · ')

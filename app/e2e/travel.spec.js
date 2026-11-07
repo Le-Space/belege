@@ -1096,6 +1096,14 @@ test('border crossings from the tickets: a proposal abroad becomes a trip with i
 	await expect(page.getByTestId('reise-destination')).toHaveValue('Ortshausen');
 	await expect(page.getByTestId('reise-end')).toHaveValue('2026-05-07T14:00');
 	await expect(page.getByTestId('reise-head-proposal')).toHaveCount(0);
+	// A departure later than the first ticket's (one added afterwards): the earlier one offered.
+	await page.getByTestId('reise-start').fill('2026-05-05T00:00');
+	await expect(page.getByTestId('reise-head-proposal')).toContainText(
+		'Abfahrt 04.05.2026 08:00 statt 05.05.2026 00:00'
+	);
+	await page.getByTestId('reise-head-take').click();
+	await expect(page.getByTestId('reise-start')).toHaveValue('2026-05-04T08:00');
+	await expect(page.getByTestId('reise-head-proposal')).toHaveCount(0);
 	// Paid privately here: no payment to name, no lone separator before a missing date.
 	await expect(page.getByTestId('reise-receipt').first()).not.toContainText(/^ ?·/);
 });
