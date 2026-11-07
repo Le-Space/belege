@@ -3422,7 +3422,7 @@ export default {
 			advance: 'Bereits als Vorschuss gezahlt',
 			toPayOut: 'Noch auszuzahlen',
 			owedBack: 'Von der Person zurückzuzahlen',
-			outlay: 'Als Auslage gebucht (dort erstattet)',
+			outlay: 'Als Auslage gebucht – über das Auslagenkonto erstattet, nicht hier',
 			company: 'Von der Firma bezahlte Belege (nicht erstattet)',
 			noName: 'Das PDF braucht den Namen der/des Reisenden.',
 			make: 'Abrechnung erstellen',
@@ -3479,6 +3479,9 @@ export default {
 		questionsElsewhere: 'Auch bei den Reisen gibt es offene Punkte: {count}'
 	},
 	reise: {
+		outlayHint:
+			'Als Auslage gebuchte Belege schuldet die Firma dir auf dem Konto „Auslagen Geschäftsführung“: Eine Überweisung an dich wird dort als Erstattung zugeordnet. Soll ein Beleg mit dieser Reise erstattet werden, mach am Beleg die Auslage rückgängig („Auslage rückgängig machen“) – dann steht er unter „Zu erstatten“.',
+		paidOutlay: 'als Auslage gebucht',
 		ratesWanted: 'Belege in fremder Währung ohne Kurs: {count}',
 		ratesFetch: 'Kurse holen',
 		ratesFetching: 'Hole Kurse …',
