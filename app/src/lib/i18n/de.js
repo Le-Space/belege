@@ -3832,7 +3832,9 @@ export default {
 				label: 'Vorschau: {name}',
 				more: '+{count} weitere',
 				hint: 'Mit der Maus über die Seite: die Lupe vergrößert, was darunter steht.',
-				open: 'Vorschau'
+				open: 'Vorschau',
+				download: 'Beleg herunterladen',
+				downloadFailed: 'Die Datei ließ sich nicht öffnen und wurde nicht gespeichert.'
 			},
 			noChoices: 'Keine Belege, die sich zuordnen lassen.',
 			noReceiptNeeded: 'Kein Beleg nötig',

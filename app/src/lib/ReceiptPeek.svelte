@@ -6,9 +6,11 @@
 	// below the row or above it, whichever has the room (else the larger side,
 	// the popover scrolling) – never over the row. A scroll anywhere, or Esc,
 	// is passed on (`onscrolled`, `onclose`). When it opens and closes is
-	// receipts/peek.js.
+	// receipts/peek.js. A download icon in the page's corner saves the file (#709).
 	import ReceiptPreview from './ReceiptPreview.svelte';
 	import { t } from './i18n/index.js';
+	import { currentBlobs } from './session.svelte.js';
+	import { canDownload, downloadReceipt } from './receipts/download.js';
 
 	/**
 	 * @type {{
@@ -75,6 +77,25 @@
 		place = { left, top, width, maxHeight, side };
 	}
 
+	let saving = $state(false);
+	let saveFailed = $state(false);
+
+	// The file saved (#709): decrypted here, handed to the browser's download.
+	async function save() {
+		const blobs = currentBlobs();
+		if (!blobs || saving) return;
+		saving = true;
+		saveFailed = false;
+		try {
+			await downloadReceipt(receipt, blobs);
+		} catch (error) {
+			console.error('download failed:', error);
+			saveFailed = true;
+		} finally {
+			saving = false;
+		}
+	}
+
 	// A scroll anywhere moves the row away from the popover; Esc closes it.
 	$effect(() => {
 		const scrolled = () => onscrolled?.();
@@ -124,8 +145,40 @@
 	{#if detail}
 		<p class="truncate text-xs text-faint">{detail}</p>
 	{/if}
-	<div class="mt-2">
+	<div class="group relative mt-2">
 		<ReceiptPreview {receipt} width={place.width - 26} magnifier />
+		{#if canDownload(receipt)}
+			<!-- In the page's top-right corner: shown on hover, on focus and on a touch screen. -->
+			<button
+				type="button"
+				class="absolute top-1.5 right-1.5 z-10 rounded-md border border-border bg-surface/90 p-1.5 text-heading opacity-0 shadow transition-opacity group-hover:opacity-100 hover:bg-surface focus-visible:opacity-100 disabled:opacity-60 [@media(hover:none)]:opacity-100"
+				onclick={(e) => {
+					e.stopPropagation();
+					save();
+				}}
+				disabled={saving}
+				aria-label={t('zahlungen.detail.peek.download')}
+				title={t('zahlungen.detail.peek.download')}
+				data-testid="receipt-peek-download"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 0 20 20"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.6"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					class="size-4"
+					aria-hidden="true"
+				>
+					<path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M4 16.5h12" />
+				</svg>
+			</button>
+		{/if}
 	</div>
+	{#if saveFailed}
+		<p class="mt-1 text-xs text-danger" role="alert">{t('zahlungen.detail.peek.downloadFailed')}</p>
+	{/if}
 	<p class="mt-1 text-xs text-faint">{t('zahlungen.detail.peek.hint')}</p>
 </div>
