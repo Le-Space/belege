@@ -33,7 +33,10 @@
 		"./near": "./src/near.js",
 		"./aleph": "./src/aleph.js",
 		"./testing/cosmos": "./test/support/fake-cosmos.js",
-		"./testing/filfox": "./test/support/fake-filfox.js"
+		"./testing/filfox": "./test/support/fake-filfox.js",
+		"./testing/blockscout": "./test/support/fake-blockscout.js",
+		"./testing/alchemy": "./test/support/fake-alchemy.js",
+		"./testing/aleph": "./test/support/aleph.js"
 	},
 	"files": ["src", "test/support"],
 	"engines": {

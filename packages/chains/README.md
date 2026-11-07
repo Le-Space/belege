@@ -17,7 +17,9 @@ Runs in a browser and in Node. The caller hands in `fetch`, the endpoints (a nod
 - `CHAINS`, `chainOf`, `publicChains` – the chains, their assets, default endpoints and explorers (`registry`). One chain's data without the others: `FILECOIN` (`filecoin-chain`), `NYX_CHAIN`, `AKASH_CHAIN` (`cosmos-chains`), `KNOWN_EVM_CONTRACTS` (`evm-contracts`). The readers take their chain as an argument and do not import the registry.
 - `toChecksumAddress`, `isEvmAddress` – an EVM address's EIP-55 checksum and form (`evm-address`: keccak and bytes only, so `aleph` and a browser form do not bundle the EVM reader or Alchemy; `evm` re-exports them).
 - `createJsonFetcher`, `WalletError`, `checkEndpoint`, `txUrl`, `addressUrl`, `markSwaps` – what every reader shares (`core`). Error messages name a host at most, never a path or a query (they carry addresses).
-- `@le-space/chains/testing/cosmos`, `@le-space/chains/testing/filfox` – fake nodes for tests (Node), with made-up addresses.
+- Fakes for tests, with made-up addresses, hashes, keys and amounts:
+  - `@le-space/chains/testing/cosmos`, `testing/filfox`, `testing/blockscout`, `testing/alchemy` – fake nodes on 127.0.0.1 (Node). The fake Alchemy is as strict as the real one about what it is asked; `blockscoutView` turns its made-up chain into what the fake Blockscout serves, so one history reads through both.
+  - `@le-space/chains/testing/aleph` – a fake Aleph API as a `fetch` function (Node and browser), and a made-up account and month (`ACCOUNT`, `sampleRows`, `sampleBalance`, `flatUsd`).
 
 Each source sees the address and the IP address of the machine that asks; Belege's consent screen says so.
 
