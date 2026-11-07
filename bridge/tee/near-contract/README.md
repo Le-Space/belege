@@ -22,6 +22,10 @@ A browser pairs with the bridge only when `get_books` shows a `valid` bridge and
 cargo test
 ```
 
+## On testnet
+
+`belege-bridge-5db9bb.testnet` (deployed 2026-11-07 from `belege_bridge_agent.wasm`, SHA-256 `871d5589…189d3f`; `requires_tee: true`, attestation valid 24 h; the owner is the contract's own account for now). Checked there: `get_info`, `request_start` (the `start_requested` event the launcher reads), `get_books`. A real `register_bridge` needs a quote from a Phala VM and comes with the launcher.
+
 The wasm: `./build-wasm.sh` (Docker, Debian with clang for `ring`'s wasm32 build, cargo-near 0.19) → `target/near/belege_bridge_agent.wasm`, about 730 KB. It builds with rustc **1.86**: nearcore does not run wasm from 1.87 or newer yet, so `Cargo.lock` keeps dependencies that build with it, as NEAR's Shade Agent template locks them (`near-sys` 0.2.9, not 0.2.14, which wants 1.93). Do not `cargo update` without building the wasm again.
 
 Made after NEAR's Shade Agent template (NearDeFi/shade-agent-template, Apache-2.0); the attestation check is its `shade-attestation` crate (MIT), used as it is.
