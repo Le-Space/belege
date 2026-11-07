@@ -3783,7 +3783,9 @@ export default {
 				label: 'Preview: {name}',
 				more: '+{count} more',
 				hint: 'Move the pointer over the page: the lens enlarges what is under it.',
-				open: 'Preview'
+				open: 'Preview',
+				download: 'Download receipt',
+				downloadFailed: 'The file could not be opened and was not saved.'
 			},
 			noChoices: 'No receipts that can be linked.',
 			noReceiptNeeded: 'No receipt needed',

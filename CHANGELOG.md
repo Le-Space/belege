@@ -8,6 +8,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **Save a receipt from its preview** (#709). The preview that opens on hover has a download icon in the page's top-right corner: it shows on hover, on keyboard focus and always on a touch screen, and saves the receipt's file (PDF, image or e-invoice XML) under its own name, made safe for a file system, or the day and vendor. The file is decrypted in the browser; nothing goes over the network. A mail's text without a file has no icon.
 - **Reisen as a tab** (#693), with a suitcase, between Belege and Export. It appears once there is a trip, a traveller or a trip the receipts propose, so who never travels keeps five tabs; its number counts the proposals and questions waiting there. Before, Reisen was a link on Belege and Home only, and a proposed trip went unnoticed.
 - **"Kurse holen" on a trip** (#693). Receipts of a trip in another currency still without euros get their day's rate from the bridge in one go (ECB, Bank of Russia, National Bank of Kazakhstan, a cross rate), each shown with its euros, rate and source; _Übernehmen_ keeps them. Before, each rate was fetched on its receipt, one by one.
 - **Destination and times from the tickets** (#693). A trip made before its receipts were read kept an empty head. Where destination, departure or return are empty and the trip's tickets and hotels know them, the trip offers them with _Übernehmen_: the first printed departure, the last arrival, a return only where a ticket leads back home, never the day a ticket was bought.

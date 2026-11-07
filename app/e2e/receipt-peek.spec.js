@@ -3,6 +3,7 @@
 // it and Esc closes it before the detail; a receipt from an unconfirmed sender
 // shows none; on a narrow screen it sits by the row. In the lists: a payment
 // shows the receipt linked to it, and the Belege list each receipt.
+// The download icon in its corner saves the file (#709).
 // Every name, number and amount is made up.
 import { test, expect } from '@playwright/test';
 import { makePdf } from '@belege/bridge/testing/pdf';
@@ -190,4 +191,61 @@ test('in the lists: a payment shows its receipt, the Belege list each receipt', 
 	await receipt('Absender Ungeprüft Ltd').hover();
 	await page.waitForTimeout(700);
 	await expect(peek).toHaveCount(0);
+});
+
+test('the preview saves the receipt’s file from its corner; a text without a file has no icon (#709)', async ({
+	page
+}) => {
+	await books(page);
+	await page.evaluate(async () => {
+		const e2e = /** @type {any} */ (window).__belegeE2E;
+		// A mail's text alone, no file: previewed, nothing to save.
+		await e2e.addReceipt({
+			source: 'upload',
+			status: 'ausgelesen',
+			fileCid: null,
+			mime: 'text/plain',
+			subject: 'Ihre Rechnung',
+			excerpt: 'Stromwerk Test AG\nRechnung ST-7\nSumme: 12,34 EUR',
+			vendor: 'Stromwerk Test AG',
+			amountCents: 1234,
+			currency: 'EUR',
+			documentDate: '2026-09-10'
+		});
+	});
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
+	const receipt = (/** @type {string} */ name) =>
+		page.getByTestId('receipt').filter({ hasText: name });
+	const peek = page.getByTestId('receipt-peek');
+
+	await receipt('Papierwerk Beispiel GmbH').hover();
+	await expect(peek).toBeVisible();
+	await expect(peek.getByTestId('tx-receipt-preview')).toHaveAttribute('data-rendered', 'true');
+	const save = peek.getByTestId('receipt-peek-download');
+	await expect(save).toHaveAccessibleName('Beleg herunterladen');
+	// Into the preview: the icon shows, in the page's top-right corner.
+	await peek.hover();
+	await expect(save).toHaveCSS('opacity', '1');
+	const page1 = await peek.getByTestId('tx-receipt-preview').boundingBox();
+	const icon = await save.boundingBox();
+	if (!page1 || !icon) throw new Error('no page or icon');
+	expect(icon.x + icon.width).toBeLessThanOrEqual(page1.x + page1.width + 1);
+	expect(icon.x).toBeGreaterThan(page1.x + page1.width / 2);
+	expect(icon.y).toBeLessThan(page1.y + page1.height / 4);
+
+	const [download] = await Promise.all([page.waitForEvent('download'), save.click()]);
+	expect(download.suggestedFilename()).toBe('papierwerk.pdf');
+	const path = await download.path();
+	const { readFile } = await import('node:fs/promises');
+	const bytes = await readFile(path);
+	expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
+	// Saving does not close the preview.
+	await expect(peek).toBeVisible();
+
+	await page.mouse.move(5, 5);
+	await expect(peek).toHaveCount(0);
+	await receipt('Stromwerk Test AG').hover();
+	await expect(peek).toBeVisible();
+	await expect(peek).toContainText('Stromwerk Test AG');
+	await expect(peek.getByTestId('receipt-peek-download')).toHaveCount(0);
 });
