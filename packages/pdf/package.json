@@ -1,0 +1,51 @@
+{
+	"name": "@le-space/pdf",
+	"version": "0.1.0",
+	"description": "PDF/A-2b for Le Space's tools: text in any script the books hold (Latin, Cyrillic, Greek, Arabic; DejaVu and Noto, embedded as subsets), XMP metadata that matches the document info, an sRGB output intent, a document id from its content. On pdf-lib; browser and Node.",
+	"license": "AGPL-3.0-or-later",
+	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Le-Space/belege.git",
+		"directory": "packages/pdf"
+	},
+	"homepage": "https://github.com/Le-Space/belege/tree/main/packages/pdf#readme",
+	"sideEffects": false,
+	"exports": {
+		".": "./src/index.js",
+		"./fonts": "./src/fonts.js",
+		"./pdfa": "./src/pdfa.js",
+		"./assets": "./src/assets.js",
+		"./testing/pdfa-structure": "./test/support/pdfa-structure.js"
+	},
+	"imports": {
+		"#load-asset": {
+			"browser": "./src/assets-browser.js",
+			"default": "./src/assets-node.js"
+		}
+	},
+	"files": ["src", "assets", "test/support"],
+	"engines": {
+		"node": ">=22"
+	},
+	"publishConfig": {
+		"access": "public",
+		"provenance": true
+	},
+	"scripts": {
+		"test": "node --test --test-reporter=spec \"test/*.test.js\"",
+		"lint": "prettier --check src test"
+	},
+	"dependencies": {
+		"@expo-google-fonts/noto-sans-arabic": "0.4.3",
+		"@noble/hashes": "2.4.0",
+		"@pdf-lib/fontkit": "1.1.1",
+		"dejavu-fonts-ttf": "2.37.3",
+		"pdf-lib": "1.17.1"
+	},
+	"devDependencies": {
+		"@le-space/browser-test": "workspace:*",
+		"prettier": "3.6.2",
+		"unpdf": "1.8.1"
+	}
+}
