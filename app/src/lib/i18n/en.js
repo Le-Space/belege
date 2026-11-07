@@ -3443,6 +3443,8 @@ export default {
 		headDestination: 'destination {place}',
 		headStart: 'departure {at}',
 		headEnd: 'back {at}',
+		headStartEarlier: 'departure {at} instead of {was}',
+		headEndLater: 'back {at} instead of {was}',
 		paidWith: 'by the company (payment of {date})',
 		reread: 'Read the trip’s receipts again ({count})',
 		rereading: 'Reading … {done}/{count}',

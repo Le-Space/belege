@@ -3496,6 +3496,8 @@ export default {
 		headDestination: 'Ziel {place}',
 		headStart: 'Abfahrt {at}',
 		headEnd: 'Rückkehr {at}',
+		headStartEarlier: 'Abfahrt {at} statt {was}',
+		headEndLater: 'Rückkehr {at} statt {was}',
 		paidWith: 'von der Firma (Zahlung vom {date})',
 		reread: 'Belege der Reise neu auslesen ({count})',
 		rereading: 'Lese aus … {done}/{count}',

@@ -253,8 +253,11 @@ const tripOn = (trips, fromDay, toDay) =>
 	) ?? null;
 
 /**
- * Where a group of pieces goes: the town a hotel names, else the place the
- * fares reach most often that is not where the first one left from.
+ * Where a group of pieces goes: the town a hotel names; else, where the fares
+ * have times, the place the traveller stays longest between arriving and
+ * leaving again – not a town passed through on the way to the airport (#693);
+ * else the place the fares reach most often that is not where the first one
+ * left from.
  *
  * @param {Piece[]} pieces
  */
@@ -263,6 +266,20 @@ function destinationOf(pieces) {
 	if (hotel) return hotel.to;
 	const fares = pieces.filter((p) => FARES.has(p.kind));
 	const home = placeKey(fares[0]?.from);
+	const timed = fares
+		.filter((p) => p.start && p.end)
+		.sort((a, b) => String(a.start).localeCompare(String(b.start)));
+	/** @type {{ name: string, minutes: number } | null} */
+	let longest = null;
+	for (let i = 0; i < timed.length - 1; i++) {
+		const here = timed[i];
+		if (!placeKey(here.to) || placeKey(here.to) === home) continue;
+		const minutes =
+			(Date.parse(`${timed[i + 1].start}:00Z`) - Date.parse(`${here.end}:00Z`)) / 60000;
+		if (minutes > 0 && (!longest || minutes > longest.minutes))
+			longest = { name: here.to, minutes };
+	}
+	if (longest) return longest.name;
 	/** @type {Map<string, { name: string, n: number }>} */
 	const count = new Map();
 	for (const p of fares) {
@@ -388,4 +405,30 @@ export function travelNav(books, now = new Date()) {
 		proposals > 0 ||
 		books.travel.some((r) => !r.deleted && (r.kind === 'trip' || r.kind === 'traveller'));
 	return { show: any, open: any ? proposals + openTravelQuestions(books, now).length : 0 };
+}
+
+/**
+ * What a trip's head can take from its tickets (#693): a destination where it
+ * has none; a departure where it has none or a ticket leaves earlier (a ticket
+ * added later, for the way to the airport); a return where it has none or a
+ * ticket arrives later. What the trip has and the tickets confirm is left as
+ * it is.
+ *
+ * @param {Rec} trip its head as it is now (the form)
+ * @param {Rec[]} receipts the trip's
+ * @returns {{ destination: string | null, start: string | null, end: string | null, was: { start: string | null, end: string | null } } | null}
+ */
+export function headOffer(trip, receipts) {
+	const h = headOf(receipts);
+	const start = h.start && (!trip.start || h.start < trip.start) ? h.start : null;
+	const end = h.end && (!trip.end || h.end > trip.end) ? h.end : null;
+	const destination =
+		!String(trip.destination ?? '').trim() && h.destination ? h.destination : null;
+	if (!destination && !start && !end) return null;
+	return {
+		destination,
+		start,
+		end,
+		was: { start: start && trip.start ? trip.start : null, end: end && trip.end ? trip.end : null }
+	};
 }

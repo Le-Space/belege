@@ -3,7 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { memoryCollection } from '../bank/test-support.js';
 import { defaultDatevSettings } from '../booking/settings.js';
 import { acceptProposal, dismissProposal, privateProposal } from './proposal-actions.js';
-import { headOf, openTravelQuestions, pieceOf, travelNav, tripProposals } from './proposals.js';
+import {
+	headOf,
+	headOffer,
+	openTravelQuestions,
+	pieceOf,
+	travelNav,
+	tripProposals
+} from './proposals.js';
 
 // Made-up tickets, hotels and bills; no real vendor, person or booking.
 
@@ -459,5 +466,59 @@ describe('the Reisen tab (#693)', () => {
 		expect(travelNav({ receipts: [], travel: [{ id: 'p', kind: 'traveller' }] }).show).toBe(true);
 		// A trip without times is a question: counted.
 		expect(travelNav({ receipts: [], travel: [{ ...trip, start: '', end: '' }] }).open).toBe(1);
+	});
+});
+
+describe('what a trip’s head takes from its tickets (#693)', () => {
+	const out = read({
+		kind: 'flight',
+		from: 'Mittelstadt',
+		to: 'Weitweg',
+		departure: '2026-10-27T18:25',
+		arrival: '2026-10-28T05:10'
+	});
+	// The train to the airport, added later: it leaves the day before.
+	const train = read({
+		kind: 'train',
+		from: 'A-Stadt',
+		to: 'Mittelstadt',
+		departure: '2026-10-26T09:00',
+		arrival: '2026-10-26T12:00'
+	});
+	const trip = { destination: 'Weitweg', start: '2026-10-27T18:25', end: '' };
+
+	it('an earlier departure is offered, naming the one it replaces; a later one is not', () => {
+		expect(headOffer(trip, [out])).toBeNull();
+		expect(headOffer(trip, [out, train])).toEqual({
+			destination: null,
+			start: '2026-10-26T09:00',
+			end: null,
+			was: { start: '2026-10-27T18:25', end: null }
+		});
+		expect(headOffer({ ...trip, start: '2026-10-25T08:00' }, [out, train])).toBeNull();
+	});
+
+	it('empty fields as before; a later return than entered', () => {
+		const back = read({
+			kind: 'flight',
+			from: 'Weitweg',
+			to: 'A-Stadt',
+			departure: '2026-11-02T10:00',
+			arrival: '2026-11-02T16:00'
+		});
+		expect(headOffer({ destination: '', start: '', end: '' }, [train, out, back])).toEqual({
+			destination: 'Weitweg',
+			start: '2026-10-26T09:00',
+			end: '2026-11-02T16:00',
+			was: { start: null, end: null }
+		});
+		expect(
+			headOffer({ ...trip, start: '2026-10-26T09:00', end: '2026-11-01T20:00' }, [train, out, back])
+		).toEqual({
+			destination: null,
+			start: null,
+			end: '2026-11-02T16:00',
+			was: { start: null, end: '2026-11-01T20:00' }
+		});
 	});
 });
