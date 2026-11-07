@@ -93,6 +93,13 @@ export function createJsonFetcher({
 				continue;
 			}
 			const body = await res.json().catch(() => undefined);
+			// A refusal in plain text (Aleph's 404 for an empty window): asking
+			// again changes nothing, and the caller may tell it apart by its status.
+			if (body === undefined && res.status >= 400 && res.status < 500 && res.status !== 429) {
+				const error = new WalletError(`${host} answered ${res.status} without JSON`, 'WALLET_NODE');
+				error.httpStatus = res.status;
+				throw error;
+			}
 			if (res.status === 429 || res.status >= 500 || body === undefined) {
 				last = new WalletError(
 					res.status === 429
