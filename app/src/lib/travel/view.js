@@ -384,6 +384,8 @@ export function tripTotals(receipts, figures, books = {}) {
 		tipCents: tipPrivateCents + tipCompanyCents,
 		withoutRate,
 		toPayBackCents: flat + privateCents + tipPrivateCents,
+		// What the person gets back in all: this statement and the outlay account together.
+		toYouCents: flat + privateCents + tipPrivateCents + outlayCents,
 		totalCents: flat + privateCents + outlayCents + companyCents + tipPrivateCents + tipCompanyCents
 	};
 }

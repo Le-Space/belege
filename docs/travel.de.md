@@ -88,6 +88,7 @@ Länder, die das Schreiben nicht nennt:
 
 - **Zu erstatten:** Pauschalen + Kilometer + Übernachtungspauschalen + privat bezahlte Belege + privat bezahltes Trinkgeld.
 - **Gesamtkosten der Reise:** dazu die als Auslage gebuchten Belege (sie werden über das Auslagenkonto erstattet) und die von der Firma bezahlten. Ein Beleg in fremder Währung ohne Kurs zählt nicht mit; Belege sagt das.
+- **An dich insgesamt:** gibt es Auslagen, „Zu erstatten“ und die Auslagen zusammen – was du aus Abrechnung und Auslagenkonto zurückbekommst.
 - Auf **Reisen** steht neben jeder Reise ihr Gesamtbetrag und darunter, was davon zu erstatten ist.
 
 **Neu auslesen.** **„✦ Belege der Reise neu auslesen“** schickt alle Belege der Reise noch einmal an dein Sprachmodell, etwa nachdem das Auslesen etwas Neues gelernt hat. Es läuft wie „Alle neuen auslesen“ in der Warteschlange der App; was du am Beleg selbst geändert hast, bleibt. Ein Neuladen der Seite bricht den Lauf ab, und „Weitermachen“ bietet ihn nicht an: Dann klickst du noch einmal.

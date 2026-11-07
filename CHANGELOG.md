@@ -16,7 +16,7 @@ All notable changes to Le Space Belege. The format follows
   - A border crossed by car, bicycle or on foot leaves no ticket. A receipt from a country the trip was not in on its day (fuel, parking, a hotel's nights, a restaurant) is named with its day, on the proposal and on the trip. The time is entered by hand and never guessed.
   - Two flights where one leaves from the airport the other landed at belong to one trip, however the town is written.
   - Receipts read before know no country; _Erneut auslesen_ adds it. The consent screen names the new fields (version 41).
-- **What a trip costs in all** (#693). The trip shows _Gesamtkosten der Reise_ beside _Zu erstatten_: the receipts paid privately, booked as outlays and paid by the company, tips, allowances, mileage and overnight flat rates. On Reisen each trip shows its total and what of it is paid back; before, the list showed the allowances and mileage alone.
+- **What a trip costs in all** (#693). The trip shows _Gesamtkosten der Reise_ beside _Zu erstatten_: the receipts paid privately, booked as outlays and paid by the company, tips, allowances, mileage and overnight flat rates. On Reisen each trip shows its total and what of it is paid back; before, the list showed the allowances and mileage alone. With receipts booked as outlays, _An dich insgesamt_ adds them to _Zu erstatten_, so what comes back from the statement and the outlay account together is one number.
 - **"✦ Belege der Reise neu auslesen"** (#693): all of a trip's receipts read once more with one click, on the app's queue, for instance after the reading learned the countries of a trip. Only on the click; a reload stops it.
 
 ### Changed
