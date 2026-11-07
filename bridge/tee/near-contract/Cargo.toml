@@ -1,0 +1,30 @@
+[package]
+name = "belege-bridge-agent"
+version = "0.1.0"
+edition = "2024"
+description = "Which bridge code is approved, which TDX VM runs it for which books, and the books' start and stop requests (#696)"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Le-Space/belege"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hex = { version = "=0.4.3", default-features = false, features = ["alloc"] }
+near-sdk = "=5.26.1"
+serde = { version = "=1.0.228", features = ["derive"] }
+# NEAR's Shade Agent attestation check (MIT): dcap-qvl on the quote, RTMR3
+# replay, compose hash, PPID.
+shade-attestation = "=0.2.0"
+
+[dev-dependencies]
+near-sdk = { version = "=5.26.1", features = ["unit-testing"] }
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true

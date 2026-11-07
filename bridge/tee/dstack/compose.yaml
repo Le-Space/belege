@@ -8,6 +8,8 @@ services:
   bridge:
     image: ${BELEGE_BRIDGE_IMAGE:?set to ghcr.io/le-space/belege-bridge-dstack@sha256:…}
     restart: unless-stopped
+    # No `init: true`: an init as PID 1 would keep the start's environment, secrets
+    # included. The registrar, once done, stays a zombie until the VM stops.
     read_only: true
     user: '10001:10001'
     cap_drop: [ALL]
@@ -15,6 +17,11 @@ services:
     tmpfs:
       - /run/belege-bridge:mode=0700,uid=10001,gid=10001,size=64m,noexec,nosuid,nodev
       - /tmp:mode=1777,size=16m,noexec,nosuid,nodev
+    volumes:
+      # dstack's guest API: the TDX quote for the NEAR contract (registrar.mjs).
+      - /var/run/dstack.sock:/var/run/dstack.sock
     environment:
+      # Fixed here, so it is part of the measured compose: where the quote goes.
+      BELEGE_LAUNCHER_URL: https://bridge-launcher.le-space.de
       # Decrypted by dstack inside the TEE from the start's encrypted env.
       BELEGE_BRIDGE_SECRETS: ${BELEGE_BRIDGE_SECRETS:-}

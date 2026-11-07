@@ -23,6 +23,7 @@ COPY --from=build /usr/local/bin/node /usr/local/bin/node
 COPY --from=build /out /opt/belege-bridge
 COPY bridge/tee/dstack/entrypoint.sh /usr/local/bin/belege-bridge-entrypoint
 COPY bridge/tee/dstack/sort-secrets.mjs /opt/belege-bridge-tee/sort-secrets.mjs
+COPY bridge/tee/dstack/registrar.mjs /opt/belege-bridge-tee/registrar.mjs
 RUN groupadd --system --gid 10001 belege-bridge \
  && useradd --system --uid 10001 --gid 10001 --home-dir /run/belege-bridge --shell /usr/sbin/nologin belege-bridge \
  && rm -rf /var/lib/apt/lists/* /var/cache/apt/*

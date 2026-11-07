@@ -8,6 +8,8 @@
 //   <run>/bridge.json           from bridge_config, with the hosted settings on top
 //   <run>/node/peer-key         from bridge_peer_key (base64), so the peer id stays
 //   <run>/enablebanking.sealed  from enablebanking_sealed
+//   <run>/start.json            from bridge_start: the books and the start this VM answers
+//                               (not secret; registrar.mjs binds the quote to it)
 //
 // Input: BELEGE_BRIDGE_SECRETS, a JSON object name → string. Unknown names
 // are dropped. Nothing is printed but names and counts.
@@ -19,7 +21,7 @@ import { join } from 'node:path';
 // change both together.
 const ACCOUNT =
 	/^(hibiscus|imap|kraken|paperless|enablebanking|coingecko|bitcoin|alchemy|aleph_backup|bridge_auth|portal_[a-z0-9]+(_[a-z0-9]+)*)$/;
-const FILES = ['bridge_config', 'bridge_peer_key', 'enablebanking_sealed'];
+const FILES = ['bridge_config', 'bridge_peer_key', 'enablebanking_sealed', 'bridge_start'];
 /** An account's secret: the keychain's own limit (keychain.js). */
 const MAX = 64 * 1024;
 /** bridge.json with many devices, a sealed file with its sessions. */
@@ -61,6 +63,24 @@ export function parseSecrets(raw) {
 			out[name] = value;
 	}
 	return out;
+}
+
+/**
+ * The start this VM answers, from `bridge_start` ({ books, at_ms }), or null.
+ *
+ * @param {string | undefined} raw
+ */
+export function startFrom(raw) {
+	if (!raw) return null;
+	try {
+		const s = JSON.parse(raw);
+		const books = String(s?.books ?? '');
+		const at = String(s?.at_ms ?? '');
+		if (/^[a-z0-9._-]{2,64}$/.test(books) && /^\d{1,16}$/.test(at)) return { books, at_ms: at };
+	} catch {
+		// not JSON: no start
+	}
+	return null;
 }
 
 /**
@@ -113,13 +133,16 @@ export function sortSecrets(run, env) {
 	if (key) writeFileSync(join(run, 'node', 'peer-key'), key, { mode: 0o600 });
 	if (secrets.enablebanking_sealed)
 		writeFileSync(join(run, 'enablebanking.sealed'), secrets.enablebanking_sealed, { mode: 0o600 });
+	const start = startFrom(secrets.bridge_start);
+	if (start) writeFileSync(join(run, 'start.json'), JSON.stringify(start), { mode: 0o644 });
 	writeFileSync(join(run, 'bridge.json'), JSON.stringify(hostedConfig(secrets.bridge_config)), {
 		mode: 0o600
 	});
 	return {
 		accounts,
 		peerKey: Boolean(key),
-		config: Boolean(secrets.bridge_config)
+		config: Boolean(secrets.bridge_config),
+		start: Boolean(start)
 	};
 }
 
@@ -132,7 +155,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 	try {
 		const r = sortSecrets(run, process.env);
 		console.error(
-			`[tee] secrets: ${r.accounts} accounts, peer key ${r.peerKey ? 'yes' : 'no'}, config ${r.config ? 'yes' : 'no'}`
+			`[tee] secrets: ${r.accounts} accounts, peer key ${r.peerKey ? 'yes' : 'no'}, config ${r.config ? 'yes' : 'no'}, start ${r.start ? 'yes' : 'no'}`
 		);
 	} catch (e) {
 		console.error(`[tee] ${/** @type {Error} */ (e).message}; starting unarmed`);

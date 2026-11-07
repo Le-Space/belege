@@ -15,6 +15,10 @@ set -eu
 run=/run/belege-bridge
 umask 077
 node /opt/belege-bridge-tee/sort-secrets.mjs "$run"
+# The quote for the NEAR contract, beside the bridge, with nothing secret in
+# its environment (registrar.mjs).
+env -i PATH=/usr/local/bin:/usr/bin:/bin BELEGE_LAUNCHER_URL="${BELEGE_LAUNCHER_URL:-}" \
+  node /opt/belege-bridge-tee/registrar.mjs "$run" &
 exec env -i PATH=/usr/local/bin:/usr/bin:/bin HOME="$run" NODE_ENV=production \
   BELEGE_BRIDGE_SECRETS_DIR="$run/secrets" \
   node /opt/belege-bridge/src/cli.js --hosted --config "$run/bridge.json"

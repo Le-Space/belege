@@ -3,7 +3,8 @@
 // settings win over the owner's config.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -11,8 +12,10 @@ import {
 	hostedConfig,
 	parseSecrets,
 	peerKeyFrom,
-	sortSecrets
+	sortSecrets,
+	startFrom
 } from '../tee/dstack/sort-secrets.mjs';
+import { register, reportData } from '../tee/dstack/registrar.mjs';
 
 test('only the names the hosted bridge knows are kept', () => {
 	const got = parseSecrets(
@@ -92,7 +95,7 @@ test('sorted into the run directory, readable by the owner only', async () => {
 				bridge_config: '{"node":{}}'
 			})
 		});
-		assert.deepEqual(r, { accounts: 1, peerKey: true, config: true });
+		assert.deepEqual(r, { accounts: 1, peerKey: true, config: true, start: false });
 		assert.deepEqual(await readdir(join(run, 'secrets')), ['imap']);
 		assert.equal(await readFile(join(run, 'secrets', 'imap'), 'utf8'), 'pw');
 		assert.deepEqual([...(await readFile(join(run, 'node', 'peer-key')))], [8, 1, 18, 64]);
@@ -107,6 +110,104 @@ test('sorted into the run directory, readable by the owner only', async () => {
 		);
 		assert.deepEqual(await readdir(join(broken, 'node')), []);
 		await rm(broken, { recursive: true, force: true });
+	} finally {
+		await rm(run, { recursive: true, force: true });
+	}
+});
+
+test('the start this VM answers comes with the secrets, checked', () => {
+	assert.deepEqual(startFrom('{"books":"books-a.testnet","at_ms":"2000"}'), {
+		books: 'books-a.testnet',
+		at_ms: '2000'
+	});
+	assert.deepEqual(startFrom('{"books":"books-a.testnet","at_ms":2000}'), {
+		books: 'books-a.testnet',
+		at_ms: '2000'
+	});
+	assert.equal(startFrom('{"books":"Books A","at_ms":"2000"}'), null);
+	assert.equal(startFrom('{"books":"books-a.testnet","at_ms":"soon"}'), null);
+	assert.equal(startFrom('nonsense'), null);
+	assert.equal(startFrom(undefined), null);
+});
+
+test('the report data binds the start and the node key, as the NEAR contract expects', () => {
+	// The same vector as bridge/tee/near-contract/src/tests.rs.
+	assert.equal(
+		reportData('books-a.testnet', 2000, '09'.repeat(32)).toString('hex'),
+		'243ffdb70c9e7f9fd91e12cc544d57e50bbcc66a37c954cf12bd70a2a2d0a8a2' + '09'.repeat(32)
+	);
+	assert.throws(() => reportData('books-a.testnet', '2000; x', '09'.repeat(32)), /start time/);
+	assert.throws(() => reportData('books-a.testnet', 2000, 'xyz'), /key hash/);
+});
+
+test('the registrar asks dstack for the quote and hands it to the launcher', async () => {
+	const run = await mkdtemp(join(tmpdir(), 'belege-tee-'));
+	const socketPath = join(run, 'dstack.sock');
+	/** @type {any[]} */
+	const asked = [];
+	const server = createServer((req, res) => {
+		let body = '';
+		req.on('data', (c) => (body += c));
+		req.on('end', () => {
+			asked.push([req.url, JSON.parse(body)]);
+			res.setHeader('content-type', 'application/json');
+			res.end(
+				req.url === '/GetQuote'
+					? JSON.stringify({ quote: 'aa', event_log: '[]' })
+					: JSON.stringify({ tcb_info: '{"mrtd":"00"}' })
+			);
+		});
+	});
+	await new Promise((r) => server.listen(socketPath, () => r(undefined)));
+	try {
+		sortSecrets(run, {
+			BELEGE_BRIDGE_SECRETS: JSON.stringify({
+				bridge_start: '{"books":"books-a.testnet","at_ms":"2000"}'
+			})
+		});
+		await writeFile(join(run, 'node', 'public-key.sha256'), '09'.repeat(32) + '\n');
+		/** @type {any[]} */
+		const sent = [];
+		const body = await register({
+			run,
+			launcher: 'https://launcher.example.com',
+			socketPath,
+			fetchImpl: /** @type {any} */ (
+				async (/** @type {URL} */ url, /** @type {any} */ init) => {
+					sent.push([String(url), JSON.parse(init.body)]);
+					return new Response('{}', { status: 200 });
+				}
+			),
+			log: () => {}
+		});
+		assert.equal(asked[0][0], '/GetQuote');
+		assert.equal(
+			asked[0][1].report_data,
+			'243ffdb70c9e7f9fd91e12cc544d57e50bbcc66a37c954cf12bd70a2a2d0a8a2' + '09'.repeat(32)
+		);
+		assert.equal(sent[0][0], 'https://launcher.example.com/v1/bridge-quote');
+		assert.deepEqual(sent[0][1], body);
+		assert.deepEqual(
+			{ books: body?.books, start_at_ms: body?.start_at_ms, quote: body?.quote },
+			{ books: 'books-a.testnet', start_at_ms: '2000', quote: 'aa' }
+		);
+	} finally {
+		server.close();
+		await rm(run, { recursive: true, force: true });
+	}
+});
+
+test('no start, no registration; a launcher on plain http is refused', async () => {
+	const run = await mkdtemp(join(tmpdir(), 'belege-tee-'));
+	try {
+		assert.equal(
+			await register({ run, launcher: 'https://launcher.example.com', log: () => {} }),
+			null
+		);
+		await assert.rejects(
+			register({ run, launcher: 'http://launcher.example.com', log: () => {} }),
+			/https/
+		);
 	} finally {
 		await rm(run, { recursive: true, force: true });
 	}
