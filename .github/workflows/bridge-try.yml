@@ -165,15 +165,40 @@ jobs:
           echo "T_UNLOCK=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
           echo "UNLOCKED_AT=$(date +%s)" >> "$GITHUB_ENV"
 
-      - name: The bridge comes up
+      - name: SSH, then the bridge inside the VM
         id: up
         env:
           HASH: ${{ steps.create.outputs.item_hash }}
-          HOST: ${{ steps.net.outputs.hostname }}
         run: |
+          for i in $(seq 1 30); do
+            entry="$(curl -fsS --max-time 15 "$CRN_URL/v2/about/executions/list" | jq -c --arg h "$HASH" '.[$h] // {}' || echo '{}')"
+            ssh_host="$(jq -r '.networking.host_ipv4 // empty' <<<"$entry")"
+            ssh_port="$(jq -r '.networking.mapped_ports["22"].host // empty' <<<"$entry")"
+            [ -n "$ssh_host" ] && [ -n "$ssh_port" ] && break
+            sleep 10
+          done
+          [ -n "$ssh_host" ] && [ -n "$ssh_port" ] || { echo "::error::no host address or mapped SSH port"; exit 1; }
+          # GITHUB_ENV applies from the next step on; this step needs it too.
+          SSH_ARGS="-i $RUNNER_TEMP/try_ed25519 -p $ssh_port -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=30 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@$ssh_host"
+          echo "SSH_ARGS=$SSH_ARGS" >> "$GITHUB_ENV"
+          ssh_up=""
+          for i in $(seq 1 30); do
+            # shellcheck disable=SC2086
+            ssh $SSH_ARGS true 2>/dev/null && { ssh_up=1; break; }
+            # A restart after the unlock leaves the disk locked again: unlock once more (as paperless-anywhere does).
+            if [ "$i" = 9 ]; then
+              echo "no SSH after 90 s; unlocking again"
+              PASSPHRASE_FILE="$RUNNER_TEMP/luks.pass" SECRETS_FILE="$RUNNER_TEMP/secrets.json" \
+                node "$RUNNER_TEMP/attest/attest-live.mjs" unlock "$HASH" "$CRN_HASH" "wss://$RELAY/attest" > /dev/null 2> "$RUNNER_TEMP/unlock2.log" || tail -3 "$RUNNER_TEMP/unlock2.log"
+            fi
+            sleep 10
+          done
+          [ -n "$ssh_up" ] || { echo "::error::SSH did not come up after the unlock"; exit 1; }
+          echo "T_SSH=$(( $(date +%s) - UNLOCKED_AT ))" >> "$GITHUB_ENV"
           ready=""
-          for i in $(seq 1 90); do
-            status="$(curl -fsS --max-time 10 "https://$HOST/bridge/status.json" 2>/dev/null || true)"
+          for i in $(seq 1 60); do
+            # shellcheck disable=SC2086
+            status="$(ssh $SSH_ARGS cat /run/belege-bridge-public/status.json 2>/dev/null || true)"
             if [ "$(jq -r '.phase // empty' <<<"$status" 2>/dev/null)" = ready ] && [ "$(jq -r '.node.relayed' <<<"$status")" = true ]; then
               ready=1; break
             fi
@@ -184,6 +209,21 @@ jobs:
           [ -n "$ready" ] || { echo "::error::the bridge did not report ready with a relay reservation"; exit 1; }
           echo "$status" > "$RUNNER_TEMP/status.json"
           echo "peer=$(jq -r .node.peerId <<<"$status")" >> "$GITHUB_OUTPUT"
+
+      - name: HTTPS through the 2n6 name (Caddy's certificate)
+        env:
+          HOST: ${{ steps.net.outputs.hostname }}
+        run: |
+          ok=""
+          # Let's Encrypt, then ZeroSSL; all 2n6 names share Let's Encrypt's weekly limit for 2n6.me.
+          for i in $(seq 1 90); do
+            status="$(curl -fsS --max-time 10 "https://$HOST/bridge/status.json" 2>/dev/null || true)"
+            [ "$(jq -r '.phase // empty' <<<"$status" 2>/dev/null)" = ready ] && { ok=1; break; }
+            sleep 10
+          done
+          echo "T_HTTPS=$(( $(date +%s) - UNLOCKED_AT ))" >> "$GITHUB_ENV"
+          [ -n "$ok" ] || { echo "::error::https://$HOST/bridge/status.json did not answer"; exit 1; }
+          echo "$status" > "$RUNNER_TEMP/status.json"
 
       - name: Over the stream, directly and through the relay
         env:
@@ -206,16 +246,19 @@ jobs:
           echo "T_ATTEST_MS=$(jq -r .timings.attested "$RUNNER_TEMP/attest.json")" >> "$GITHUB_ENV"
 
       - name: What faces the network, memory, size
-        env:
-          HASH: ${{ steps.create.outputs.item_hash }}
         run: |
-          entry="$(curl -fsS --max-time 15 "$CRN_URL/v2/about/executions/list" | jq -c --arg h "$HASH" '.[$h] // {}')"
-          ssh_host="$(jq -r '.networking.host_ipv4 // empty' <<<"$entry")"
-          ssh_port="$(jq -r '.networking.mapped_ports["22"].host // empty' <<<"$entry")"
-          ssh_args=(-i "$RUNNER_TEMP/try_ed25519" -p "$ssh_port" -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "root@$ssh_host")
-          ssh "${ssh_args[@]}" 'belege-bridge-check; echo; free -m | sed -n 2p; df -h / | tail -1; cat /run/belege-bridge-status/net-hardening.json; ls /run/belege-bridge/secrets' | tee "$RUNNER_TEMP/guest.txt"
+          # shellcheck disable=SC2086
+          ssh $SSH_ARGS 'belege-bridge-check; echo; free -m | sed -n 2p; df -h / | tail -1; cat /run/belege-bridge-status/net-hardening.json; ls /run/belege-bridge/secrets' | tee "$RUNNER_TEMP/guest.txt"
           echo "MEM_USED_MB=$(awk '/^Mem:/ {print $3; exit}' "$RUNNER_TEMP/guest.txt")" >> "$GITHUB_ENV"
           echo "MEM_TOTAL_MB=$(awk '/^Mem:/ {print $2; exit}' "$RUNNER_TEMP/guest.txt")" >> "$GITHUB_ENV"
+
+      - name: What the guest says, when something failed
+        if: failure() && env.SSH_ARGS != ''
+        run: |
+          # Unit states and the last lines of their journals: names, phases and errors, no secrets
+          # (the bridge logs no secret, and hosted no invitation either).
+          # shellcheck disable=SC2086
+          ssh $SSH_ARGS 'for u in belege-bridge caddy attest-relay belege-bridge-status; do echo "== $u: $(systemctl is-active $u.service)"; journalctl -u $u.service --no-pager 2>/dev/null | tail -25; done; echo "== status"; cat /run/belege-bridge-public/status.json; echo; echo "== health"; curl -s --max-time 5 http://127.0.0.1:8765/health | head -c 1500; echo; echo "== listening"; ss -Hltn; echo "== caddy data"; find /run/caddy -maxdepth 4 | head -20; echo "== Caddyfile"; cat /etc/caddy/Caddyfile' || true
 
       - name: Summary
         if: always()
@@ -229,7 +272,8 @@ jobs:
             echo "| | Measured |"
             echo "|---|---|"
             echo "| Boot | INSTANCE until running ${T_CREATE:-?} s; 443 mapped and named ${T_NET:-?} s; attest and unlock ${T_UNLOCK:-?} s |"
-            echo "| Bridge | ready with a relay reservation ${T_READY:-?} s after the unlock (timeline \`$timeline\`) |"
+            echo "| Bridge | SSH ${T_SSH:-?} s after the unlock; ready with a relay reservation ${T_READY:-?} s after the unlock (timeline \`$timeline\`) |"
+            echo "| HTTPS | \`/bridge/status.json\` through Caddy and the 2n6 name ${T_HTTPS:-?} s after the unlock |"
             echo "| Stream | dial + identify directly through Caddy ${T_DIAL_DIRECT_MS:-?} ms, through the relay ${T_DIAL_RELAY_MS:-?} ms |"
             echo "| Attestation | again through the VM's own \`/attest\`, measurement as published: ${T_ATTEST_MS:-?} ms |"
             echo "| Memory | ${MEM_USED_MB:-?} MB of ${MEM_TOTAL_MB:-?} MB in use |"
