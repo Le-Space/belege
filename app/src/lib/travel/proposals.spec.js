@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { memoryCollection } from '../bank/test-support.js';
 import { defaultDatevSettings } from '../booking/settings.js';
 import { acceptProposal, dismissProposal, privateProposal } from './proposal-actions.js';
-import { headOf, openTravelQuestions, pieceOf, tripProposals } from './proposals.js';
+import { headOf, openTravelQuestions, pieceOf, travelNav, tripProposals } from './proposals.js';
 
 // Made-up tickets, hotels and bills; no real vendor, person or booking.
 
@@ -432,5 +432,32 @@ describe('a trip’s head from its tickets (#693)', () => {
 			start: null,
 			end: null
 		});
+	});
+});
+
+describe('the Reisen tab (#693)', () => {
+	it('hidden without travel; shown for a proposal, a trip or a traveller, with what waits', () => {
+		const dinner = read({ kind: 'restaurant' });
+		expect(travelNav({ receipts: [dinner], travel: [] })).toEqual({ show: false, open: 0 });
+
+		const there = train('A-Stadt', 'Musterstadt', '2026-04-08T07:00', '2026-04-08T10:00');
+		const back = train('Musterstadt', 'A-Stadt', '2026-04-08T17:00', '2026-04-08T20:00');
+		expect(travelNav({ receipts: [there, back], travel: [] })).toEqual({ show: true, open: 1 });
+
+		const trip = {
+			id: 't',
+			kind: 'trip',
+			travellerId: 'T',
+			destination: 'Musterstadt',
+			reason: 'Workshop',
+			start: '2026-04-08T07:00',
+			end: '2026-04-08T20:00',
+			mileage: []
+		};
+		expect(travelNav({ receipts: [], travel: [trip] })).toEqual({ show: true, open: 0 });
+		expect(travelNav({ receipts: [], travel: [{ ...trip, deleted: true }] }).show).toBe(false);
+		expect(travelNav({ receipts: [], travel: [{ id: 'p', kind: 'traveller' }] }).show).toBe(true);
+		// A trip without times is a question: counted.
+		expect(travelNav({ receipts: [], travel: [{ ...trip, start: '', end: '' }] }).open).toBe(1);
 	});
 });

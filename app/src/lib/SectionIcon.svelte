@@ -1,10 +1,10 @@
 <script>
 	// One icon per tab. Drawn here rather than taken from a library, in the
 	// style of Le-Space/simple-todo apps/escrow01 (src/lib/SectionIcon.svelte):
-	// 24-unit grid, 1.8 stroke, round caps and joins, no fill. Five shapes do
+	// 24-unit grid, 1.8 stroke, round caps and joins, no fill. Six shapes do
 	// not justify a dependency.
 
-	/** @type {{ name: 'home' | 'zahlungen' | 'belege' | 'export' | 'integrationen' }} */
+	/** @type {{ name: 'home' | 'zahlungen' | 'belege' | 'reisen' | 'export' | 'integrationen' }} */
 	let { name } = $props();
 </script>
 
@@ -32,6 +32,11 @@
 		<!-- A till receipt: lines of text, a torn edge. -->
 		<path d="M6 3.5h12v17l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4-2 1.4z" />
 		<path d="M9 8h6M9 11.5h6M9 15h3.5" />
+	{:else if name === 'reisen'}
+		<!-- A suitcase: a handle, a body, two straps. -->
+		<path d="M9 7V5.5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5.5V7" />
+		<rect x="4" y="7" width="16" height="12.5" rx="2" />
+		<path d="M8.5 7v12.5M15.5 7v12.5" />
 	{:else if name === 'export'}
 		<!-- Out of the tray: the month's package leaving. -->
 		<path d="M12 14.5V4M8 7.5l4-4 4 4" />

@@ -25,7 +25,7 @@ Die Pauschalen sind die gesetzlichen. Für das Ausland gelten die Sätze aus dem
 
 ## Reisen
 
-Du öffnest **Reisen** über Belege oder von Home aus. Die Seite zeigt einen Monat:
+Du öffnest **Reisen** über den Tab **Reisen** (mit Koffer) zwischen Belege und Export. Der Tab erscheint, sobald es eine Reise, eine reisende Person oder einen Reisevorschlag gibt. Wer nie reist, sieht ihn nicht. Seine Zahl sagt, wie viele Vorschläge und Rückfragen dort warten ([#693](https://github.com/Le-Space/belege/issues/693)). Auch von Belege und Home aus führt ein Link hin. Die Seite zeigt einen Monat:
 
 - seine Reisen, jede mit dem, was sie ergibt;
 - die Bewirtungen;
