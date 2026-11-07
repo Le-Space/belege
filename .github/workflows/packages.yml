@@ -6,8 +6,10 @@ name: Package tests
 # (packages/browser-test): a Node-only import or Buffer fails them. A pull
 # request tests the packages it changes and the packages that depend on
 # them (pnpm's `...[since]` filter); a push to main, a release (ci.yml) and
-# a run by hand test every package. The bridge
-# and the app, which use the packages, have their own workflows.
+# a run by hand test every package. Where @le-space/eigenbeleg is among them,
+# veraPDF checks one of each document it draws (on @le-space/pdf) against
+# PDF/A-2b. The bridge and the app, which use the packages, have their own
+# workflows.
 
 permissions:
   contents: read
@@ -71,3 +73,19 @@ jobs:
         env:
           FILTER: ${{ steps.which.outputs.filter }}
         run: pnpm --filter "$FILTER" --filter '!belege' --filter '!@belege/bridge' --filter '!@belege/bridge-launcher' --filter '!@belege/app' --if-present run test
+      # PDF/A-2b: one of each document @le-space/eigenbeleg draws, from made-up
+      # data (packages/eigenbeleg/scripts/pdfa-samples.js), through veraPDF.
+      # Its image pinned by digest; a document that is not PDF/A-2b fails.
+      - name: PDF/A (veraPDF)
+        timeout-minutes: 5
+        env:
+          FILTER: ${{ steps.which.outputs.filter }}
+          VERAPDF: verapdf/cli:v1.30.3@sha256:d74b7026c18a0f171e73c153b617fe6520e1511feb24ca98a348b2bb897669fb
+        run: |
+          if ! pnpm --filter "$FILTER" ls --depth -1 --json | grep -q '"name": "@le-space/eigenbeleg"'; then
+            echo "@le-space/eigenbeleg is not in this run: no PDF/A to check"
+            exit 0
+          fi
+          out="$RUNNER_TEMP/pdfa"
+          pnpm --filter @le-space/eigenbeleg run pdfa-samples "$out"
+          docker run --rm -v "$out:/data:ro" "$VERAPDF" --flavour 2b --format text /data/

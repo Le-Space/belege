@@ -27,7 +27,8 @@ This holds when a person pastes a screenshot or a log into a chat with an agent:
 - Stage files by path (`git add <path>`), never `git add -A` / `git add .`: a stray copy of `.env` once nearly went public.
 - Never print or commit secrets: `.env`, tokens, keys, `~/.config/belege/*`, keychain entries.
 - A pull request always against `main`, never stacked on another branch; check that a PR is still open before pushing to its branch.
-- The chain readers, the booking format and the day's rate live in `packages/` as `@le-space/chains`, `@le-space/ledger` and `@le-space/rates`, shared with Eigenbeleg ([eigenbeleg-agent#6](https://github.com/Le-Space/eigenbeleg-agent/issues/6)). Change them there; never copy them into the app or the bridge. They run in a browser and in Node: no `Buffer`, no `node:` import, `fetch`, endpoints and keys handed in (each package's Chromium test fails otherwise).
+- The chain readers, the booking format, the day's rate, the PDF/A fonts and the Eigenbeleg live in `packages/` as `@le-space/chains`, `@le-space/ledger`, `@le-space/rates`, `@le-space/pdf` and `@le-space/eigenbeleg`, shared with Eigenbeleg ([eigenbeleg-agent#6](https://github.com/Le-Space/eigenbeleg-agent/issues/6)). Change them there; never copy them into the app or the bridge (`scripts/ci-changes.test.mjs` fails when an old path comes back). They run in a browser and in Node: no `Buffer`, no `node:` import, `fetch`, endpoints and keys handed in (each package's Chromium test fails otherwise).
+- A new building block another tool could use goes to `packages/` as a package of its own, and must run in a browser: with a scenario that runs the same in Chromium as in Node (`@le-space/browser-test`).
 
 ## Security: what must stay true
 
