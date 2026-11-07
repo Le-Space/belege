@@ -51,7 +51,7 @@ By the trip's times, per calendar day (§ 9 Abs. 4a EStG; 14 € and 28 € sinc
 
 On a receipt, **"Zu einer Reise …"** assigns it to a trip (trips around its date first) with who paid it – the company where a bank payment covers it, else privately; or starts a new trip from it with its destination and times as read.
 
-- **Another currency:** a receipt counts in euros, never its amount as euros: by the outlay it was booked as ([outlays.md](outlays.md)), the payment it is linked to, or a rate kept on the receipt – fetched from the bridge (ECB; for the ruble the Bank of Russia; for the tenge the National Bank of Kazakhstan; for some other currencies a cross rate through the ruble from the Bank of Russia's rates) or typed as people say it, "1 EUR = 95,23 RUB". Without one it counts for nothing and the statement waits for it. Foreign VAT is no German input VAT.
+- **Another currency:** a receipt counts in euros, never its amount as euros: by the outlay it was booked as ([outlays.md](outlays.md)), the payment it is linked to, or a rate kept on the receipt – fetched from the bridge (ECB; for the ruble the Bank of Russia; for the tenge the National Bank of Kazakhstan; for some other currencies a cross rate through the ruble from the Bank of Russia's rates) or typed as people say it, "1 EUR = 95,23 RUB". Without one it counts for nothing and the statement waits for it. Foreign VAT is no German input VAT. On a trip, **"Kurse holen"** asks the bridge for each such receipt's rate of its day in one go and shows each with its euros, rate and source; **"Übernehmen"** keeps them (#693). A day the bridge has no rate for is named, to be typed on the receipt.
 - **Hospitality:** **"Als Bewirtung erfassen …"** on a restaurant bill, with or without a trip: place, participants, occasion, a tip and who received it. The net costs and the tip are split 70 % deductible, the rest not; the VAT counts in full. What the law asks for and is missing is named. The tip has no receipt of its own: Belege takes it as paid by the traveller and pays it back with the statement, unless a payment from the business account linked to the bill covers bill and tip together (the tip was on the company card).
 
 ## Recognising travel
@@ -113,7 +113,7 @@ Money paid to a traveller before a trip ([#381](https://github.com/Le-Space/bele
 On Reisen, and counted on Home and Rückfragen:
 
 - a train, bus or flight ticket, a hotel, a rental car or another ticket read as such without a trip (not one a proposal covers or that was dismissed);
-- a trip without times, or with gaps;
+- a trip without times, or with gaps – one point per trip, naming what it lacks ("Reise ohne Rückkehr, geschäftlichen Anlass");
 - a hospitality bill without what the law asks for;
 - a statement not paid out two weeks after it was made.
 

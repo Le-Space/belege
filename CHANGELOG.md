@@ -9,18 +9,9 @@ All notable changes to Le Space Belege. The format follows
 ### Added
 
 - **Reisen as a tab** (#693), with a suitcase, between Belege and Export. It appears once there is a trip, a traveller or a trip the receipts propose, so who never travels keeps five tabs; its number counts the proposals and questions waiting there. Before, Reisen was a link on Belege and Home only, and a proposed trip went unnoticed.
-
-### Added
-
+- **"Kurse holen" on a trip** (#693). Receipts of a trip in another currency still without euros get their day's rate from the bridge in one go (ECB, Bank of Russia, National Bank of Kazakhstan, a cross rate), each shown with its euros, rate and source; _Übernehmen_ keeps them. Before, each rate was fetched on its receipt, one by one.
 - **Destination and times from the tickets** (#693). A trip made before its receipts were read kept an empty head. Where destination, departure or return are empty and the trip's tickets and hotels know them, the trip offers them with _Übernehmen_: the first printed departure, the last arrival, a return only where a ticket leads back home, never the day a ticket was bought.
 - **Why "von der Firma"**: a receipt on a trip paid from a business account names the payment's day.
-
-### Fixed
-
-- A receipt without a date no longer shows a lone "·" at the start of its line on the trip.
-
-### Added
-
 - **Border crossings from the tickets** (#693, part a). Reading a travel receipt also names the country of each station, airport and town and a flight's airport codes, in the call that runs anyway. A train, bus, flight, local transport or taxi that arrives in another country becomes a border crossing at its arrival. A trip proposal carries them, a trip made from it keeps them, and on a trip _Übernehmen_ adds those it lacks. The allowance abroad then counts each day by country without typing.
   - A border crossed by car, bicycle or on foot leaves no ticket. A receipt from a country the trip was not in on its day (fuel, parking, a hotel's nights, a restaurant) is named with its day, on the proposal and on the trip. The time is entered by hand and never guessed.
   - Two flights where one leaves from the airport the other landed at belong to one trip, however the town is written.
@@ -28,8 +19,13 @@ All notable changes to Le Space Belege. The format follows
 - **What a trip costs in all** (#693). The trip shows _Gesamtkosten der Reise_ beside _Zu erstatten_: the receipts paid privately, booked as outlays and paid by the company, tips, allowances, mileage and overnight flat rates. On Reisen each trip shows its total and what of it is paid back; before, the list showed the allowances and mileage alone.
 - **"✦ Belege der Reise neu auslesen"** (#693): all of a trip's receipts read once more with one click, on the app's queue, for instance after the reading learned the countries of a trip. Only on the click; a reload stops it.
 
+### Changed
+
+- **One open point per trip.** A trip without a return and without a reason showed as two points with the same link. It is one now, naming what it lacks: "Reise ohne Rückkehr, geschäftlichen Anlass – keine Pauschale berechenbar".
+
 ### Fixed
 
+- A receipt without a date no longer shows a lone "·" at the start of its line on the trip.
 - **A receipt without a date no longer stops a page.** A date that was not read (a ticket that prints only its day of travel) made the date formatting throw, and the trip page and Reisen stopped updating. It now shows no date.
 - **A receipt in euros booked as an outlay** counted on the trip page as paid privately and in _Zu erstatten_, unlike in the statement, which pays it back through the outlay account. It is now listed apart.
 - **A tip on a hospitality bill is paid back and booked.** It was shown in the split but left out of what the statement pays back and of its bookings. A tip the traveller paid now counts in _Zu erstatten_, on the trip and the PDF, and is booked 70/30 onto 4650/4654 without a tax key. A tip is the company's only where a payment from the business account linked to the bill covers bill and tip together. All amounts in the tests are made up.

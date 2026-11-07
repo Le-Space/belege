@@ -116,6 +116,8 @@ Am Beleg ordnest du ihn mit **„Zu einer Reise …“** einer Reise zu. Reisen 
 
 Den Kurs holt die Bridge, das Hilfsprogramm auf deinem Rechner. Quellen sind die Europäische Zentralbank (EZB), für den Rubel die Bank of Russia, für den Tenge die Nationalbank Kasachstans. Für einige weitere Währungen ist es ein Kreuzkurs über den Rubel, aus den Kursen der Bank of Russia. Du kannst den Kurs auch selbst eintragen, so wie man ihn sagt: „1 EUR = 95,23 RUB“. Ohne Kurs zählt der Beleg nichts, und die Abrechnung wartet darauf. Ausländische Umsatzsteuer ist keine deutsche Vorsteuer.
 
+**Kurse für die ganze Reise** ([#693](https://github.com/Le-Space/belege/issues/693)). Haben Belege einer Reise noch keinen Euro-Betrag, zeigt die Reise **„Kurse holen“**. Die Bridge holt für jeden den Kurs seines Tages. Belege zeigt jeden mit Euro-Betrag, Kurs und Quelle. Gespeichert wird erst mit **„Übernehmen“**. Hat die Bridge für einen Tag keinen Kurs, steht das dort, und du trägst ihn am Beleg von Hand ein.
+
 **Bewirtung.** An einer Restaurantrechnung wählst du **„Als Bewirtung erfassen …“**, mit oder ohne Reise. Du trägst Ort, Teilnehmer und Anlass ein, dazu ein Trinkgeld und wer es bekam.
 
 - Netto und Trinkgeld werden aufgeteilt: 70 % sind abziehbar, der Rest nicht.
@@ -277,7 +279,7 @@ Ein Vorschuss ist Geld, das eine Person vor einer Reise bekommt ([#381](https://
 Sie stehen auf Reisen. Auf Home und unter Rückfragen werden sie mitgezählt.
 
 - Ein Beleg ohne Reise, der als Fahrkarte für Bahn, Bus oder Flug, als Hotel, als Mietwagen oder als anderes Ticket gelesen wurde. Ausgenommen sind Belege, die ein Vorschlag schon abdeckt oder die du abgelehnt hast.
-- Eine Reise ohne Zeiten oder mit Lücken.
+- Eine Reise ohne Zeiten oder mit Lücken. Jede Reise ist ein Punkt, der nennt, was fehlt, etwa „Reise ohne Rückkehr, geschäftlichen Anlass“.
 - Eine Bewirtung ohne die Angaben, die das Gesetz verlangt.
 - Eine Abrechnung, die zwei Wochen nach dem Erstellen noch nicht ausgezahlt ist.
 

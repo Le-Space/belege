@@ -401,9 +401,25 @@
 		}
 		const trip = tripById.get(q.tripId);
 		const what = trip ? tripLine(trip) : '—';
+		// What it lacks, in a few words: departure and return apart, then the rest (#693).
+		const lacks = [
+			...(q.kind === 'tripWithoutTimes'
+				? trip && trip.start && trip.end
+					? [t('reisen.questions.lack.times')]
+					: [
+							...(!trip?.start ? [t('reisen.questions.lack.start')] : []),
+							...(!trip?.end ? [t('reisen.questions.lack.end')] : [])
+						]
+				: []),
+			...new Set(
+				q.problems.map((p) =>
+					t(`reisen.questions.lack.${p.startsWith('mileage:') ? 'mileage' : p}`)
+				)
+			)
+		].join(', ');
 		return q.kind === 'tripWithoutTimes'
-			? t('reisen.questions.tripWithoutTimes', { what })
-			: t('reisen.questions.tripIncomplete', { what });
+			? t('reisen.questions.tripWithoutTimes', { what, lacks })
+			: t('reisen.questions.tripIncomplete', { what, lacks });
 	}
 
 	/** @param {import('$lib/travel/view.js').TravelQuestion} q */

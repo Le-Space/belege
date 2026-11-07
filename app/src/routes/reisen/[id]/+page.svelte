@@ -6,7 +6,15 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { app, currentStore, extractAgain, refreshNow } from '$lib/session.svelte.js';
+	import {
+		app,
+		currentStore,
+		extractAgain,
+		pairedClient,
+		refreshNow
+	} from '$lib/session.svelte.js';
+	import { euroCents } from '$lib/outlays/outlays.js';
+	import { perEuro } from '$lib/assets/rate-display.js';
 	import AiMark from '$lib/AiMark.svelte';
 	import { aiText } from '$lib/ai-text.js';
 	import { extractRun } from '$lib/receipts/extract-queue.svelte.js';
@@ -22,6 +30,7 @@
 		cleanTrip,
 		deleteTrip,
 		saveTrip,
+		setTravelEuro,
 		travellersOf,
 		tripDates,
 		tripFigures
@@ -30,6 +39,7 @@
 		allTrips,
 		breakfastProposals,
 		euroOf,
+		ratesWanted,
 		receiptsOfTrip,
 		tripTotals
 	} from '$lib/travel/view.js';
@@ -132,6 +142,64 @@
 		const tx = m ? app.transactions.find((x) => x.id === m.transactionId) : null;
 		return tx?.bookedOn ? String(tx.bookedOn) : null;
 	};
+
+	// "Kurse holen" (#693): the rate of its day for each receipt in another currency
+	// still without euros, from the bridge (ECB, Bank of Russia, National Bank of
+	// Kazakhstan, a cross rate), shown with its euros and taken only on a click.
+	let wanted = $derived(ratesWanted(receipts, app));
+	const RATE_SOURCES = new Set(['ecb', 'cbr', 'nbk', 'cbr-cross']);
+	/** @type {{ receiptId: string, currency: string, day: string, originalCents: number, rate: string | null, source: string, at: string, cents: number | null }[]} */
+	let rateOffers = $state([]);
+	let fetchingRates = $state(false);
+	/** @type {'noBridge' | null} */
+	let ratesError = $state(null);
+	async function fetchRates() {
+		ratesError = null;
+		rateOffers = [];
+		const client = await pairedClient();
+		if (!client) {
+			ratesError = 'noBridge';
+			return;
+		}
+		fetchingRates = true;
+		try {
+			const out = [];
+			for (const w of wanted) {
+				/** @type {any} */
+				let r = null;
+				try {
+					r = await client.rate(w.currency, w.day);
+				} catch {
+					r = null;
+				}
+				const ok = r && RATE_SOURCES.has(r.source) && Number(r.rate) > 0;
+				out.push({
+					...w,
+					rate: ok ? String(r.rate) : null,
+					source: ok ? String(r.source) : '',
+					at: ok ? String(r.at ?? '') : '',
+					cents: ok ? euroCents(w.originalCents, String(r.rate)) : null
+				});
+			}
+			rateOffers = out;
+		} finally {
+			fetchingRates = false;
+		}
+	}
+	async function takeRates() {
+		const store = currentStore();
+		if (!store) return;
+		for (const o of rateOffers) {
+			if (!o.rate) continue;
+			await setTravelEuro(/** @type {any} */ (store), o.receiptId, {
+				rate: o.rate,
+				source: o.source,
+				...(o.at ? { at: o.at } : {})
+			});
+		}
+		rateOffers = [];
+		await refreshNow();
+	}
 
 	// "✦ Belege der Reise neu auslesen" (#693): after the reading learned something
 	// new (the countries), the trip's receipts once more, on the app-wide queue.
@@ -843,6 +911,60 @@
 					failed: extractRun.failed
 				})}
 			</p>
+		{/if}
+		{#if wanted.length && !rateOffers.length}
+			<div class="mt-2 flex flex-wrap items-center gap-2" data-testid="reise-rates">
+				<span class="text-sm text-text">{t('reise.ratesWanted', { count: wanted.length })}</span>
+				<button
+					type="button"
+					class={btn.secondary}
+					onclick={fetchRates}
+					disabled={fetchingRates}
+					data-testid="reise-rates-fetch"
+					>{fetchingRates ? t('reise.ratesFetching') : t('reise.ratesFetch')}</button
+				>
+			</div>
+			{#if ratesError}
+				<p class="mt-1 text-xs text-danger" data-testid="reise-rates-error">
+					{t('reise.ratesNoBridge')}
+				</p>
+			{/if}
+		{/if}
+		{#if rateOffers.length}
+			<ul class="mt-2 flex flex-col gap-1 text-sm" data-testid="reise-rates-offers">
+				{#each rateOffers as o (o.receiptId)}
+					{@const r = receipts.find((x) => String(x.id) === o.receiptId)}
+					<li data-testid="reise-rate-offer" class={o.rate ? 'text-heading' : 'text-danger'}>
+						{r ? receiptVendor(/** @type {any} */ (r)) : '—'}:
+						{#if o.rate && o.cents !== null}
+							{t('reise.rateOffer', {
+								original: formatMoney(o.originalCents, o.currency),
+								amount: formatMoney(o.cents, 'EUR'),
+								rate: (perEuro(o.rate) ?? '').replace('.', ','),
+								currency: o.currency,
+								source: t(`belege.outlay.rateSource.${o.source}`),
+								day: formatDate(o.day)
+							})}
+						{:else}
+							{t('reise.rateNone', { currency: o.currency, day: formatDate(o.day) })}
+						{/if}
+					</li>
+				{/each}
+			</ul>
+			<div class="mt-2 flex flex-wrap gap-2">
+				{#if rateOffers.some((o) => o.rate)}
+					<button
+						type="button"
+						class={btn.primary}
+						onclick={takeRates}
+						data-testid="reise-rates-take"
+						>{t('reise.ratesTake', { count: rateOffers.filter((o) => o.rate).length })}</button
+					>
+				{/if}
+				<button type="button" class={btn.link} onclick={() => (rateOffers = [])}
+					>{t('reise.ratesCancel')}</button
+				>
+			</div>
 		{/if}
 		{#if receipts.length}
 			<ul class="mt-2 divide-y divide-border text-sm">

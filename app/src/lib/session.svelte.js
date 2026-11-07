@@ -782,7 +782,7 @@ export async function refreshLlmRedaction() {
 }
 
 /** Bridge client from the sealed settings, or null when none is paired. */
-async function pairedClient() {
+export async function pairedClient() {
 	if (!session) return null;
 	const saved = await getSetting(session.store.settings, 'bridge');
 	const { createBridgeClient, pairedWith, setRedactTerms } = await import('./bridge/client.js');

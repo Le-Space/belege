@@ -4,6 +4,7 @@ import {
 	allTrips,
 	hospitalityOf,
 	paidByGuess,
+	ratesWanted,
 	receiptsOfTrip,
 	suggestTrips,
 	tipOf,
@@ -106,6 +107,8 @@ describe('travel on screen (#213)', () => {
 		const travel = [
 			trip('A'),
 			trip('B', { start: '', end: '' }),
+			// No return and no reason: one question naming both (#693).
+			trip('D', { end: '', reason: '' }),
 			trip('C', { reason: '', mileage: [{ id: 'm', date: '2026-05-04', km: 0, vehicle: 'own' }] })
 		];
 		const receipts = [
@@ -119,7 +122,8 @@ describe('travel on screen (#213)', () => {
 			})
 		];
 		expect(travelQuestions({ travel, receipts })).toEqual([
-			{ kind: 'tripWithoutTimes', tripId: 'B' },
+			{ kind: 'tripWithoutTimes', tripId: 'B', problems: [] },
+			{ kind: 'tripWithoutTimes', tripId: 'D', problems: ['noReason'] },
 			{
 				kind: 'tripIncomplete',
 				tripId: 'C',
@@ -369,5 +373,30 @@ describe('what a trip costs in all (#693)', () => {
 	it('no receipts: the allowances and mileage alone', () => {
 		expect(tripTotals([], figures).totalCents).toBe(10000);
 		expect(tripTotals([], null).totalCents).toBe(0);
+	});
+});
+
+describe('receipts that still need a rate (#693)', () => {
+	it('another currency, an amount and a day, no euros yet; euros, outlays, payments and kept rates do not', () => {
+		const on = (/** @type {string} */ id, /** @type {Record<string, any>} */ over) =>
+			receipt(id, { travel: { tripId: 'T', paidBy: 'private' }, ...over });
+		const receipts = [
+			on('eur', {}),
+			on('czk', { currency: 'CZK', amountCents: 74120, documentDate: '2026-10-27' }),
+			on('kept', {
+				currency: 'CZK',
+				amountCents: 1000,
+				travel: { tripId: 'T', paidBy: 'private', euro: { cents: 40, rate: '0.04', source: 'ecb' } }
+			}),
+			on('paid', { currency: 'KZT', amountCents: 500000 }),
+			on('noday', { currency: 'KZT', amountCents: 500000, documentDate: null })
+		];
+		const books = {
+			transactions: [{ id: 'X', amountCents: -1000, currency: 'EUR' }],
+			matches: [{ receiptId: 'paid', transactionId: 'X', state: 'confirmed' }]
+		};
+		expect(ratesWanted(receipts, books)).toEqual([
+			{ receiptId: 'czk', currency: 'CZK', day: '2026-10-27', originalCents: 74120 }
+		]);
 	});
 });
