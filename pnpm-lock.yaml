@@ -34,9 +34,6 @@ importers:
       '@chainsafe/libp2p-yamux':
         specifier: 8.0.1
         version: 8.0.1
-      '@expo-google-fonts/noto-sans-arabic':
-        specifier: 0.4.3
-        version: 0.4.3
       '@helia/bitswap':
         specifier: 4.0.6
         version: 4.0.6(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))
@@ -55,6 +52,9 @@ importers:
       '@le-space/chains':
         specifier: workspace:^
         version: link:../packages/chains
+      '@le-space/eigenbeleg':
+        specifier: workspace:^
+        version: link:../packages/eigenbeleg
       '@le-space/libp2p-webrtc-qr':
         specifier: 0.14.0
         version: 0.14.0(@multiformats/multiaddr@13.0.3)(libp2p@3.3.7)
@@ -64,6 +64,9 @@ importers:
       '@le-space/orbitdb-storage-bridge':
         specifier: 0.27.2
         version: 0.27.2(@storacha/client@2.1.4(encoding@0.1.13))(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)
+      '@le-space/pdf':
+        specifier: workspace:^
+        version: link:../packages/pdf
       '@le-space/ucep':
         specifier: 0.2.0-draft.4
         version: 0.2.0-draft.4
@@ -103,9 +106,6 @@ importers:
       '@orbitdb/core':
         specifier: 4.0.0
         version: 4.0.0
-      '@pdf-lib/fontkit':
-        specifier: 1.1.1
-        version: 1.1.1
       '@scure/base':
         specifier: 2.4.0
         version: 2.4.0
@@ -124,9 +124,6 @@ importers:
       datastore-level:
         specifier: 13.0.1
         version: 13.0.1
-      dejavu-fonts-ttf:
-        specifier: 2.37.3
-        version: 2.37.3
       fflate:
         specifier: 0.8.2
         version: 0.8.2

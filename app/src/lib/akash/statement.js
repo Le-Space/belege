@@ -14,7 +14,7 @@ import { recordEvent } from '../activity/events.js';
 import { lastDay } from '../aleph/aleph.js';
 import { confirmMatch } from '../matching/actions.js';
 import { isActive } from '../matching/engine.js';
-import { nextSelfNumber } from '../receipts/eigenbeleg.js';
+import { nextSelfNumber } from '@le-space/eigenbeleg/booking';
 import { importFile } from '../receipts/import.js';
 import { t } from '../i18n/index.js';
 import { akashMonth } from './usage.js';

@@ -58,7 +58,7 @@ Bookkeeping programs and DATEV import a Buchungsstapel through their DATEV impor
 ## The format
 
 - EXTF, version 700, category 21 "Buchungsstapel", format version 13. Line 1: 31 header fields; line 2: the 125 column headings; then one line per booking with 125 fields (the first 14 are filled, and KOST1 where there is a cost centre).
-- `;` between fields, CRLF after each line, text in double quotes with inner quotes doubled, empty fields completely empty. Windows-1252 (ANSI); a character it lacks loses its accent, Cyrillic and Greek are written in Latin letters (`Москва` → `Moskva`), and what is still missing (Arabic, Chinese) becomes `?`. The PDFs in the ZIP (receipts made from a mail, statements, Eigenbelege) carry text in any script their fonts have – Latin, Cyrillic, Greek, Arabic – with DejaVu Sans and Noto Sans Arabic embedded as subsets (`app/src/lib/pdf/fonts.js`).
+- `;` between fields, CRLF after each line, text in double quotes with inner quotes doubled, empty fields completely empty. Windows-1252 (ANSI); a character it lacks loses its accent, Cyrillic and Greek are written in Latin letters (`Москва` → `Moskva`), and what is still missing (Arabic, Chinese) becomes `?`. The PDFs in the ZIP (receipts made from a mail, statements, Eigenbelege) carry text in any script their fonts have – Latin, Cyrillic, Greek, Arabic – with DejaVu Sans and Noto Sans Arabic embedded as subsets (`packages/pdf`, `@le-space/pdf`). The Eigenbelege are PDF/A-2b.
 - Amount positive, decimal comma, no thousands separator; a booking not in euros carries its currency in _WKZ Umsatz_. **S/H refers to _Konto_**, the bank's ledger account: money in is S, money out is H. _Gegenkonto_ is the confirmed account.
 - _Belegdatum_ `DDMM` = the booking date (DATEV takes the year from the fiscal year, and every line lies in the stack's period). _Belegfeld 1_ = the receipt number `YYYY-MM-NNN` (at most 36 characters). _Buchungstext_ = the receipt's vendor, else the counterparty, else the purpose (at most 60). A crypto booking adds the quantity (`… 0,015 BTC`), cut in front of it so it is never lost; wages, payroll tax, contributions and tax payments say what they are and for when instead (#233).
 - A booking with several receipts: the first receipt's number in _Belegfeld 1_, all of them in the ZIP.
@@ -88,11 +88,11 @@ For a bank account, the statement lists what Belege holds; it does not replace t
 
 ## Eigenbeleg
 
-For a payment that has no receipt from the other side, for example fees paid on a blockchain that issues no invoices, the detail of the payment offers **Eigenbeleg erstellen** (`app/src/lib/receipts/eigenbeleg.js`). You write what was paid and why there is no receipt; a crypto payment starts with a reason filled in. Belege then draws a PDF with:
+For a payment that has no receipt from the other side, for example fees paid on a blockchain that issues no invoices, the detail of the payment offers **Eigenbeleg erstellen** (`app/src/lib/receipts/self-receipt.js`; the document and its PDF from `packages/eigenbeleg`, `@le-space/eigenbeleg`). You write what was paid and why there is no receipt; a crypto payment starts with a reason filled in. Belege then draws a PDF/A-2b, in the layout of the Eigenbeleg service's documents, with:
 
 - its own number range (`EB-YYYY-NNN`), date, amount and account;
 - the recipient or payer;
-- for a crypto payment: quantity, rate with its source, and the transaction reference; for an own wallet's booking the whole transaction: the full hash, sender and receiver with their full addresses, and every movement of it the books know, the fee included (#126);
+- for a crypto payment: quantity, rate with its source, and the transaction reference; for an own wallet's booking the whole transaction: the full hash, sender and receiver with their full addresses, and every movement of it the books know, the fee included (#126), and the explorer link as a QR code;
 - what was paid and why no receipt exists;
 - who wrote it and when, with a line to sign.
 

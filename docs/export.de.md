@@ -194,7 +194,7 @@ Dieser Teil ist für alle, die den Buchungsstapel prüfen oder anpassen wollen.
 - Leere Felder bleiben ganz leer.
 - Text, den eine Tabellenkalkulation als Formel lesen würde, bekommt vorn ein Apostroph. Das gilt auch für die Übersicht.
 - Die Datei ist in Windows-1252 (ANSI) geschrieben. Ein Zeichen, das es dort nicht gibt, verliert seinen Akzent. Kyrillisch und Griechisch werden in lateinischen Buchstaben geschrieben (`Москва` → `Moskva`). Was dann noch fehlt, etwa Arabisch oder Chinesisch, wird `?`.
-- Die PDFs im ZIP können mehr. Das sind die aus einer Mail gemachten Belege, die Kontoauszüge und die Eigenbelege. Sie zeigen Text in Latein, Kyrillisch, Griechisch und Arabisch. Dafür sind die Schriften DejaVu Sans und Noto Sans Arabic als Teilmengen eingebettet (`app/src/lib/pdf/fonts.js`).
+- Die PDFs im ZIP können mehr. Das sind die aus einer Mail gemachten Belege, die Kontoauszüge und die Eigenbelege. Sie zeigen Text in Latein, Kyrillisch, Griechisch und Arabisch. Dafür sind die Schriften DejaVu Sans und Noto Sans Arabic als Teilmengen eingebettet (`packages/pdf`, `@le-space/pdf`). Die Eigenbelege sind PDF/A-2b.
 
 ### Betrag und Soll/Haben
 
@@ -328,14 +328,14 @@ Ungeprüft und _errechnet_ bleiben:
 Manche Zahlungen haben keinen Beleg der Gegenseite. Ein Beispiel sind Gebühren auf einer Blockchain, denn sie stellt keine Rechnungen aus. Für so eine Zahlung bietet die Detailansicht der Zahlung **Eigenbeleg erstellen** an.
 
 1. Du schreibst, was bezahlt wurde und warum es keinen Beleg gibt. Bei einer Krypto-Zahlung ist der Grund schon vorbelegt.
-2. Belege macht daraus ein PDF.
+2. Belege macht daraus ein PDF. Es ist ein PDF/A-2b, das Format für die Archivierung, im Layout der Eigenbelege des Eigenbeleg-Dienstes.
 
 Das PDF enthält:
 
 - eine Nummer aus einem eigenen Nummernkreis (`EB-JJJJ-NNN`), Datum, Betrag und Konto;
 - den Empfänger oder die zahlende Seite;
 - bei Krypto: Menge, Kurs mit Quelle und die Transaktionsreferenz;
-- bei einer Buchung einer eigenen Wallet außerdem die ganze Transaktion: den vollständigen Hash (die Kennung der Transaktion), Absender und Empfänger mit ihren vollständigen Adressen und jede Bewegung der Transaktion, die die Bücher kennen, samt Gebühr (#126);
+- bei einer Buchung einer eigenen Wallet außerdem die ganze Transaktion: den vollständigen Hash (die Kennung der Transaktion), Absender und Empfänger mit ihren vollständigen Adressen und jede Bewegung der Transaktion, die die Bücher kennen, samt Gebühr (#126), und den Link in den Block-Explorer als QR-Code;
 - was bezahlt wurde und warum es keinen Beleg der Gegenseite gibt;
 - wer ihn wann erstellt hat, mit einer Zeile für die Unterschrift.
 
@@ -343,7 +343,7 @@ Das PDF wird gespeichert wie ein hochgeladener Beleg. Es wird der Zahlung als de
 
 Hast du Belege unter _Integrationen_ mit deiner Rechnungs-App gekoppelt, gibt es noch einen Weg: _Über die Rechnungs-App erstellen_. Dann erstellt die Rechnungs-App den Eigenbeleg, mit ihrem Nummernkreis und deinem Firmenkopf. Belege ordnet ihn der Zahlung zu.
 
-Code: `app/src/lib/receipts/eigenbeleg.js`.
+Code: `app/src/lib/receipts/self-receipt.js`, das PDF aus `packages/eigenbeleg` (`@le-space/eigenbeleg`).
 
 **Ein Eigenbeleg ist keine Rechnung.** Er berechtigt nicht zum Vorsteuerabzug.
 

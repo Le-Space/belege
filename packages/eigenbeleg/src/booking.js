@@ -22,7 +22,7 @@ const NUMBER = /^EB-(\d{4})-(\d{3,})$/;
 /**
  * The next number in the Eigenbeleg range of a year: EB-2026-001, EB-2026-002, …
  *
- * @param {{ selfNumber?: unknown }[]} receipts all of them, set aside ones too
+ * @param {Record<string, any>[]} receipts all of them, set aside ones too
  * @param {string} year YYYY
  */
 export function nextSelfNumber(receipts, year) {

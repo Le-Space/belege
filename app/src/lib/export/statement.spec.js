@@ -10,7 +10,7 @@ import {
 } from './statement.js';
 import { statementPdf } from './statement-pdf.js';
 import { PDFDocument } from 'pdf-lib';
-import { pdfFonts, pdfText } from '../pdf/fonts.js';
+import { pdfFonts, pdfText } from '@le-space/pdf';
 
 /** A made-up exchange account holding one crypto asset. */
 const BTC = {
@@ -382,7 +382,7 @@ describe('statement PDF', () => {
 		expect(text.at(-1)).toContain(`Seite ${pdf.numPages} von ${pdf.numPages}`);
 	});
 
-	it('draws text in other scripts, not as "?" (pdf/fonts.js)', async () => {
+	it('draws text in other scripts, not as "?" (@le-space/pdf)', async () => {
 		const pdf = await PDFDocument.create();
 		const { regular } = await pdfFonts(pdf);
 		regular.draw(pdf.addPage(), 'Перевод · Ödeme · Grüße € – Straße\u00a0·', {

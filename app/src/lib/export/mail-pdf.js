@@ -14,7 +14,7 @@ import { PDFDocument, rgb } from 'pdf-lib';
 
 import { formatDate } from '../bank/format.js';
 import { DOCUMENT_LOCALE } from '../i18n/index.js';
-import { pdfFonts, pdfText } from '../pdf/fonts.js';
+import { pdfFonts, pdfText } from '@le-space/pdf';
 
 const A4 = /** @type {[number, number]} */ ([595.28, 841.89]);
 const MARGIN = 56;

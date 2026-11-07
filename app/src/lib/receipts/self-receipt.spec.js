@@ -1,11 +1,14 @@
-// "Eigenbeleg erstellen": numbers, the document, the PDF, the link. All made up.
+// "Eigenbeleg erstellen": numbers, the document, the PDF (PDF/A-2b, from
+// @le-space/eigenbeleg), the link. All made up.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { MemoryBlockstore } from 'blockstore-core/memory';
 import { extractText, getDocumentProxy } from 'unpdf';
 
 import { memoryCollection } from '../bank/test-support.js';
 import { createBlobStore } from './blob-store.js';
-import { chainDetails, createEigenbeleg, eigenbelegDraft, nextSelfNumber } from './eigenbeleg.js';
+import { nextSelfNumber } from '@le-space/eigenbeleg/booking';
+import { pdfaStructure } from '@le-space/pdf/testing/pdfa-structure';
+import { chainDetails, createEigenbeleg, eigenbelegDraft } from './self-receipt.js';
 
 /** @type {any} */
 let store;
@@ -67,7 +70,7 @@ async function leasePayment() {
 }
 
 const pdfText = async (/** @type {Uint8Array} */ bytes) =>
-	(await extractText(await getDocumentProxy(bytes), { mergePages: true })).text.replace(
+	(await extractText(await getDocumentProxy(bytes.slice()), { mergePages: true })).text.replace(
 		/\s+/g,
 		' '
 	);
@@ -139,7 +142,7 @@ describe('Eigenbeleg', () => {
 			'EB-2026-001',
 			'Wolkenfabrik Hosting GmbH',
 			'Datum der Zahlung 01.09.2026',
-			'Betrag -12,34 EUR',
+			'Betrag -12,34 €',
 			'Empfänger Stromwerk Test AG',
 			'Konto Wallet AKT',
 			'Menge -4,2 AKT',
@@ -260,8 +263,8 @@ describe('Eigenbeleg for a wallet transaction in full (#126)', () => {
 	});
 
 	it('the PDF prints the hash and the addresses whole', async () => {
-		const { eigenbelegPdf } = await import('./eigenbeleg-pdf.js');
-		const { eigenbelegDocument } = await import('./eigenbeleg.js');
+		const { bookingPdf } = await import('@le-space/eigenbeleg/booking-pdf');
+		const { eigenbelegDocument } = await import('./self-receipt.js');
 		const doc = eigenbelegDocument({
 			tx: got,
 			account: accounts[0],
@@ -276,15 +279,15 @@ describe('Eigenbeleg for a wallet transaction in full (#126)', () => {
 			now: new Date('2026-09-27T10:00:00Z'),
 			books: { accounts, transactions: [got, gas] }
 		});
-		const text = (await pdfText(await eigenbelegPdf(doc))).replace(/\s/g, '');
-		for (const whole of [
-			HASH,
-			ROUTER,
-			ME,
-			'Gas(Netzwerkgebühr):-0,00018ETH',
-			'TransaktionimBlock-Explorer'
-		]) {
+		const bytes = await bookingPdf(doc);
+		const text = (await pdfText(bytes)).replace(/\s/g, '');
+		for (const whole of [HASH, ROUTER, ME, 'Gas(Netzwerkgebühr)-0,00018ETH', 'Block-Explorer']) {
 			expect(text, whole).toContain(whole);
 		}
+		// PDF/A-2b, made by Belege.
+		const pdfa = pdfaStructure(bytes);
+		expect(pdfa.pdfaid).toEqual({ part: '2', conformance: 'B' });
+		expect(pdfa.xmp.creatorTool).toBe('Belege');
+		expect(pdfa.standardFonts).toEqual([]);
 	});
 });
