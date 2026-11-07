@@ -1,18 +1,21 @@
-// The layout of a statement Eigenbeleg (Aleph's, Akash's): an A4 page in the
-// look of receipts/eigenbeleg-pdf.js – a head with the number, labelled
-// fields, rules, headings, tables whose header repeats on a new page, and a
-// line to sign. Pages as long as the content needs; text in any script the
-// fonts have (fonts.js).
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// The layout of a statement Eigenbeleg (Belege's for Aleph and Akash, its
+// travel statement): an A4 PDF/A-2b in Eigenbeleg's look (layout.js) – a head
+// with the title, number, issuer and date, labelled fields, rules, headings,
+// tables whose header repeats on a new page, and a line to sign; a running
+// head on every further page and the page numbers at the foot. Pages as long
+// as the content needs; text in any script (@le-space/pdf).
+//
+// Moved from Belege's app/src/lib/pdf/statement-layout.js; the same calls,
+// now in Eigenbeleg's look and PDF/A.
 
-import { PDFDocument, rgb } from 'pdf-lib';
+import { createPdfA, savePdfA } from '@le-space/pdf';
 
-import { pdfFonts, pdfText } from './fonts.js';
+import { deDate } from './document.js';
+import { A4, BLACK, GREY, pageLayout } from './layout.js';
 
-const A4 = /** @type {[number, number]} */ ([595.28, 841.89]);
-const MARGIN = 48;
-const LABEL = 150;
-const GREY = rgb(0.4, 0.4, 0.4);
-const RULE = rgb(0.75, 0.75, 0.75);
+/** The label column of a field: wide enough for "Übernachtungspauschalen". */
+const LABEL = 120;
 
 /**
  * A new document and the means to fill it.
@@ -21,162 +24,141 @@ const RULE = rgb(0.75, 0.75, 0.75);
  * @param {string} p.title the PDF's title
  * @param {Date} p.created
  * @param {string} p.continuation printed on top of every further page
+ * @param {string} [p.subject]
+ * @param {string} [p.creator] what made it: `Belege` when not given
  */
-export async function statementLayout({ title, created, continuation }) {
-	const pdf = await PDFDocument.create();
-	pdf.setTitle(pdfText(title));
-	pdf.setCreator('Belege');
-	pdf.setProducer('Belege');
-	pdf.setCreationDate(created);
-	pdf.setModificationDate(created);
-	const { regular, bold, mono } = await pdfFonts(pdf);
-	const width = A4[0] - 2 * MARGIN;
-	let page = pdf.addPage(A4);
-	let y = A4[1] - MARGIN;
-
-	/** A new page when fewer than `need` points are left. @param {number} need */
-	function room(need) {
-		if (y - need >= MARGIN + 20) return;
-		page = pdf.addPage(A4);
-		y = A4[1] - MARGIN;
-		regular.draw(page, continuation, { x: MARGIN, y, size: 8, color: GREY });
-		y -= 20;
-	}
+export async function statementLayout({
+	title,
+	created,
+	continuation,
+	subject = '',
+	creator = 'Belege'
+}) {
+	const { pdf, fonts } = await createPdfA();
+	const { regular, bold, mono } = fonts;
+	const M = 48;
+	let number = '';
+	let issuer = '';
+	const l = pageLayout(pdf, fonts, {
+		margin: M,
+		enterPage: (p) => {
+			p.at(continuation, M, 8, regular, GREY);
+			p.y -= 20;
+		}
+	});
+	const width = l.width;
 
 	/**
-	 * @param {string} text
-	 * @param {import('./fonts.js').Face} font
-	 * @param {number} size
-	 * @param {number} max
+	 * The title ("Eigenbeleg" unless another), its number, the issuer and the
+	 * day it was made, a line under them.
+	 *
+	 * @param {string} no
+	 * @param {string} by the issuer, '' when none is set
+	 * @param {string} subtitle
+	 * @param {string} [heading]
 	 */
-	function wrap(text, font, size, max) {
-		/** @type {string[]} */
-		const lines = [];
-		for (const paragraph of String(text).split(/\r?\n/).map(pdfText)) {
-			let line = '';
-			for (const word of paragraph.split(/\s+/).filter(Boolean)) {
-				const next = line ? `${line} ${word}` : word;
-				if (font.width(next, size) <= max) line = next;
-				else {
-					if (line) lines.push(line);
-					line = word;
-					while (font.width(line, size) > max) {
-						let n = line.length - 1;
-						while (n > 1 && font.width(line.slice(0, n), size) > max) n--;
-						lines.push(line.slice(0, n));
-						line = line.slice(n);
-					}
-				}
-			}
-			lines.push(line);
-		}
-		return lines;
+	function head(no, by, subtitle, heading = 'Eigenbeleg') {
+		number = no;
+		issuer = by;
+		l.text(heading, { face: bold, size: 20 });
+		l.text(`Nr. ${no}`, { face: bold, size: 12 });
+		l.gap(2);
+		l.text(subtitle, { size: 10 });
+		l.gap(10);
+		const top = l.y;
+		const half = width / 2 - 10;
+		l.text('Aussteller', { face: bold, size: 8.5, color: GREY, max: half });
+		l.text(by || '—', { face: bold, size: 10, max: half });
+		const leftEnd = l.y;
+		l.y = top;
+		const rx = M + width / 2 + 10;
+		l.text('Erstellt am', { x: rx, face: bold, size: 8.5, color: GREY });
+		l.text(`${deDate(created.toISOString())}, ${created.toISOString().slice(11, 16)} UTC`, {
+			x: rx
+		});
+		l.y = Math.min(l.y, leftEnd);
+		l.gap(8);
+		rule();
 	}
 
 	/** @param {string} label @param {string} value @param {boolean | 'mono'} [style] */
 	function field(label, value, style = false) {
-		const font = style === 'mono' ? mono : style ? bold : regular;
-		const size = style === 'mono' ? 9 : 10;
-		const lines = wrap(value || '—', font, size, width - LABEL);
-		room(lines.length * 13 + 7);
-		regular.draw(page, label, { x: MARGIN, y, size: 9, color: GREY });
-		lines.forEach((line, i) => font.draw(page, line, { x: MARGIN + LABEL, y: y - i * 13, size }));
-		y -= lines.length * 13 + 7;
+		l.field(label, value, {
+			face: style === 'mono' ? mono : style ? bold : regular,
+			size: style === 'mono' ? 7.5 : 8.5,
+			labelWidth: LABEL
+		});
+		l.gap(3);
 	}
 
 	function rule() {
-		room(20);
-		y += 2;
-		page.drawLine({
-			start: { x: MARGIN, y },
-			end: { x: A4[0] - MARGIN, y },
-			thickness: 0.5,
-			color: RULE
-		});
-		y -= 14;
+		l.ensure(20);
+		l.gap(2);
+		l.rule();
+		l.gap(10);
 	}
 
-	/** @param {string} title */
-	function heading(title) {
-		room(40);
-		bold.draw(page, title, { x: MARGIN, y, size: 11 });
-		y -= 16;
+	/** @param {string} t */
+	function heading(t) {
+		l.ensure(40);
+		l.text(t, { face: bold, size: 10 });
+		l.gap(3);
 	}
 
 	/**
 	 * A table: columns by width and alignment; the header repeats on a new page.
 	 *
-	 * @param {{ title: string, width: number, right?: boolean, mono?: boolean }[]} columns
+	 * @param {import('./layout.js').Column[]} columns
 	 * @param {string[][]} rows
 	 */
 	function table(columns, rows) {
-		const header = () => {
-			let x = MARGIN;
-			for (const c of columns) {
-				const w = bold.width(c.title, 8);
-				// Right-aligned as its cells, off the next column.
-				bold.draw(page, c.title, { x: c.right ? x + c.width - 6 - w : x, y, size: 8 });
-				x += c.width;
-			}
-			y -= 12;
-		};
-		room(30);
-		header();
-		for (const row of rows) {
-			const cells = row.map((text, i) =>
-				wrap(text, columns[i].mono ? mono : regular, 8, columns[i].width - 6)
+		const header = () =>
+			l.row(
+				columns.map((c) => ({ ...c, mono: false })),
+				columns.map((c) => c.title),
+				{ face: bold, color: GREY }
 			);
-			const height = Math.max(...cells.map((c) => c.length)) * 10 + 2;
-			if (y - height < MARGIN + 20) {
-				room(Infinity);
-				header();
-			}
-			let x = MARGIN;
-			cells.forEach((lines, i) => {
-				const c = columns[i];
-				const font = c.mono ? mono : regular;
-				lines.forEach((line, n) => {
-					const w = font.width(line, 8);
-					font.draw(page, line, { x: c.right ? x + c.width - 6 - w : x, y: y - n * 10, size: 8 });
-				});
-				x += c.width;
-			});
-			y -= height;
-		}
-		y -= 8;
-	}
-
-	/**
-	 * "Eigenbeleg" (or another title), the number on the right, the issuer, a grey line.
-	 *
-	 * @param {string} number
-	 * @param {string} issuer
-	 * @param {string} subtitle
-	 * @param {string} [title]
-	 */
-	function head(number, issuer, subtitle, title = 'Eigenbeleg') {
-		bold.draw(page, title, { x: MARGIN, y: y - 18, size: 22 });
-		bold.draw(page, number, { x: A4[0] - MARGIN - bold.width(number, 12), y: y - 14, size: 12 });
-		y -= 36;
-		if (issuer) {
-			regular.draw(page, issuer, { x: MARGIN, y, size: 11 });
-			y -= 16;
-		}
-		regular.draw(page, subtitle, { x: MARGIN, y, size: 9, color: GREY });
-		y -= 22;
-		rule();
+		l.ensure(30);
+		header();
+		for (const row of rows) l.row(columns, row, { header });
+		l.gap(8);
 	}
 
 	function signature() {
-		room(60);
-		y -= 36;
-		page.drawLine({
-			start: { x: MARGIN + LABEL, y },
-			end: { x: MARGIN + LABEL + 220, y },
-			thickness: 0.5
+		l.gap(24);
+		l.ensure(40);
+		l.page.drawLine({
+			start: { x: M, y: l.y },
+			end: { x: M + 230, y: l.y },
+			thickness: 0.6,
+			color: BLACK
 		});
-		regular.draw(page, 'Unterschrift', { x: MARGIN + LABEL, y: y - 11, size: 8, color: GREY });
+		l.y -= 4;
+		l.text('Ort, Datum, Unterschrift', { size: 8, color: GREY });
 	}
 
-	return { width, head, field, rule, heading, table, signature, save: () => pdf.save() };
+	async function save() {
+		const n = l.pages.length;
+		l.pages.forEach((p, i) => {
+			const foot = `${number ? `${number} · ` : ''}Seite ${i + 1} von ${n}`;
+			regular.draw(p, foot, { x: M, y: M / 2, size: 7, color: GREY });
+			const made = `Erstellt mit ${creator}`;
+			regular.draw(p, made, {
+				x: A4[0] - M - regular.width(made, 7),
+				y: M / 2,
+				size: 7,
+				color: GREY
+			});
+		});
+		return savePdfA(pdf, {
+			title,
+			author: issuer,
+			subject,
+			creator,
+			created,
+			seed: `${number}|${created.toISOString()}|${title}`
+		});
+	}
+
+	return { width, head, field, rule, heading, table, signature, save };
 }

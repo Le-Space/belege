@@ -35,20 +35,30 @@ import { multiply } from '@le-space/ledger';
 export async function valueEntries(entries, rates) {
 	const out = [];
 	for (const e of entries) {
-		const unit = /** @type {{ currency?: string, amount?: string, source?: string } | undefined} */ (/** @type {any} */ (e).unitPrice);
+		const unit =
+			/** @type {{ currency?: string, amount?: string, source?: string } | undefined} */ (
+				/** @type {any} */ (e).unitPrice
+			);
 		if (!e.priceAs && e.success && unit?.currency === 'USD' && unit.amount) {
 			const usd = await rates.rateFor('USD', e.date);
 			const how = unit.source === 'purchase' ? 'Kaufpreis' : 'Listenpreis';
 			out.push({
 				...e,
 				eur: usd
-					? { value: multiply(multiply(e.amount, unit.amount, 12), usd.rate, 8), rate: multiply(unit.amount, usd.rate, 14), source: `Aleph ${how} ${unit.amount} USD je Credit × ${usd.source}` }
+					? {
+							value: multiply(multiply(e.amount, unit.amount, 12), usd.rate, 8),
+							rate: multiply(unit.amount, usd.rate, 14),
+							source: `Aleph ${how} ${unit.amount} USD je Credit × ${usd.source}`
+						}
 					: null
 			});
 			continue;
 		}
 		const r = e.priceAs && e.success ? await rates.rateFor(e.priceAs, e.date) : null;
-		out.push({ ...e, eur: r ? { value: multiply(e.amount, r.rate, 8), rate: r.rate, source: r.source } : null });
+		out.push({
+			...e,
+			eur: r ? { value: multiply(e.amount, r.rate, 8), rate: r.rate, source: r.source } : null
+		});
 	}
 	return out;
 }

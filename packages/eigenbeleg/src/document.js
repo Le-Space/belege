@@ -30,7 +30,8 @@ export const NOTE =
 	'Eigenbeleg. Für diese Zahlung gibt es keinen Fremdbeleg: Empfänger ist ein Peer-to-Peer-Netzwerk ohne rechnungsstellende Organisation. ' +
 	'Ausgestellt vom Zahlenden auf Grundlage der öffentlichen Transaktion; jede Position ist über ihren Transaktions-Hash in einem öffentlichen Block-Explorer nachprüfbar.';
 
-export const NOT_AN_INVOICE = 'Dies ist keine Rechnung und kein Beleg eines Dritten. Le Space stellt keine Rechnungen für andere aus.';
+export const NOT_AN_INVOICE =
+	'Dies ist keine Rechnung und kein Beleg eines Dritten. Le Space stellt keine Rechnungen für andere aus.';
 
 /** Kinds that go on the Eigenbeleg unless the payer chooses otherwise. */
 export const DEFAULT_KINDS = ['fee', 'storage'];
@@ -48,7 +49,20 @@ export const KIND_TEXT = {
 	usage: 'Verbrauch (aus Guthaben abgerechnet)'
 };
 
-export const CHAIN_NAMES = { near: 'NEAR Protocol', akash: 'Akash', filecoin: 'Filecoin', aleph: 'Aleph Cloud (Credits)' };
+export const CHAIN_NAMES = {
+	near: 'NEAR Protocol',
+	akash: 'Akash',
+	filecoin: 'Filecoin',
+	aleph: 'Aleph Cloud (Credits)'
+};
+
+/** Where a chain's data comes from, named in the footer of its documents. */
+export const DATA_SOURCES = /** @type {Record<string, string>} */ ({
+	near: 'NearBlocks.io APIs, NEAR-Archiv-RPC',
+	filecoin: 'Filfox',
+	akash: 'Akash-RPC, Akash Console',
+	aleph: 'Aleph-API (api2.aleph.im)'
+});
 
 /**
  * @typedef {object} Payer who pays and issues the Eigenbeleg
@@ -98,8 +112,19 @@ export const CHAIN_NAMES = { near: 'NEAR Protocol', akash: 'Akash', filecoin: 'F
  * @param {string} [p.issuedAt] ISO; now when not given
  * @param {'collective' | 'single'} [p.layout]
  */
-export function buildDocument({ payer, chain, network, period, entries, number, includeKinds = DEFAULT_KINDS, issuedAt, layout = 'collective' }) {
-	if (layout !== 'collective' && layout !== 'single') throw new Error('layout: collective or single');
+export function buildDocument({
+	payer,
+	chain,
+	network,
+	period,
+	entries,
+	number,
+	includeKinds = DEFAULT_KINDS,
+	issuedAt,
+	layout = 'collective'
+}) {
+	if (layout !== 'collective' && layout !== 'single')
+		throw new Error('layout: collective or single');
 	checkPayer(payer);
 	const kinds = new Set(includeKinds);
 	const own = new Set(payer.addresses);
@@ -154,7 +179,12 @@ export function buildDocument({ payer, chain, network, period, entries, number, 
 				to: { address: main.counterparty, label: main.counterpartyLabel },
 				movements: all.map((e) => {
 					const x = excluded.find((y) => y.entry === e);
-					return { entry: e, what: KIND_TEXT[/** @type {keyof typeof KIND_TEXT} */ (e.kind)] ?? e.kind, onIt: !x, why: x?.why ?? '' };
+					return {
+						entry: e,
+						what: KIND_TEXT[/** @type {keyof typeof KIND_TEXT} */ (e.kind)] ?? e.kind,
+						onIt: !x,
+						why: x?.why ?? ''
+					};
 				}),
 				eurExact: '0'
 			};
@@ -163,18 +193,34 @@ export function buildDocument({ payer, chain, network, period, entries, number, 
 		p.pos = t.pos;
 	}
 	for (const t of transactions)
-		t.eurExact = sum(t.movements.filter((m) => m.onIt).map((m) => /** @type {any} */ (m.entry.eur).value)).replace(/^-/, '');
+		t.eurExact = sum(
+			t.movements.filter((m) => m.onIt).map((m) => /** @type {any} */ (m.entry.eur).value)
+		).replace(/^-/, '');
 	/** @type {Record<string, string>} */
 	const quantities = {};
 	for (const asset of new Set(positions.map((p) => p.entry.asset)))
-		quantities[asset] = normalize(sum(positions.filter((p) => p.entry.asset === asset).map((p) => p.entry.amount)).replace(/^-/, ''));
-	const eurExact = positions.length ? sum(positions.map((p) => /** @type {any} */ (p.entry.eur).value)) : '0';
+		quantities[asset] = normalize(
+			sum(positions.filter((p) => p.entry.asset === asset).map((p) => p.entry.amount)).replace(
+				/^-/,
+				''
+			)
+		);
+	const eurExact = positions.length
+		? sum(positions.map((p) => /** @type {any} */ (p.entry.eur).value))
+		: '0';
 	return {
-		number: layout === 'single' && transactions.length > 1 ? `${first} – ${transactions.at(-1)?.number}` : first,
+		number:
+			layout === 'single' && transactions.length > 1
+				? `${first} – ${transactions.at(-1)?.number}`
+				: first,
 		layout,
 		transactions,
 		issuedAt: issuedAt ?? new Date().toISOString(),
-		payer: { name: payer.name.trim(), address: payer.address.trim(), addresses: [...payer.addresses] },
+		payer: {
+			name: payer.name.trim(),
+			address: payer.address.trim(),
+			addresses: [...payer.addresses]
+		},
 		chain,
 		chainName: CHAIN_NAMES[/** @type {keyof typeof CHAIN_NAMES} */ (chain)] ?? chain,
 		network,
@@ -188,7 +234,13 @@ export function buildDocument({ payer, chain, network, period, entries, number, 
 			eur: round(eurExact.replace(/^-/, ''), 2),
 			eurExact: eurExact.replace(/^-/, '')
 		},
-		sources: [...new Set(positions.map((p) => /** @type {any} */ (p.entry.eur).source.replace(/ \d{4}-\d{2}-\d{2}.*$/, '')))],
+		sources: [
+			...new Set(
+				positions.map((p) =>
+					/** @type {any} */ (p.entry.eur).source.replace(/ \d{4}-\d{2}-\d{2}.*$/, '')
+				)
+			)
+		],
 		note: NOTE,
 		notInvoice: NOT_AN_INVOICE
 	};
@@ -212,9 +264,20 @@ export function nthNumber(first, n) {
 /** @param {Payer} payer */
 function checkPayer(payer) {
 	if (!payer || typeof payer !== 'object') throw new Error('payer is required');
-	if (typeof payer.name !== 'string' || payer.name.trim().length < 2 || payer.name.length > 200) throw new Error('payer.name is required');
-	if (typeof payer.address !== 'string' || payer.address.trim().length < 5 || payer.address.length > 500) throw new Error('payer.address (postal) is required');
-	if (!Array.isArray(payer.addresses) || payer.addresses.length === 0 || payer.addresses.length > 20) throw new Error('payer.addresses: one to twenty own addresses');
+	if (typeof payer.name !== 'string' || payer.name.trim().length < 2 || payer.name.length > 200)
+		throw new Error('payer.name is required');
+	if (
+		typeof payer.address !== 'string' ||
+		payer.address.trim().length < 5 ||
+		payer.address.length > 500
+	)
+		throw new Error('payer.address (postal) is required');
+	if (
+		!Array.isArray(payer.addresses) ||
+		payer.addresses.length === 0 ||
+		payer.addresses.length > 20
+	)
+		throw new Error('payer.addresses: one to twenty own addresses');
 }
 
 // ---- German formats ---------------------------------------------------------

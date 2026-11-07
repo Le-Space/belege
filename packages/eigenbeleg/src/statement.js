@@ -61,9 +61,25 @@ export const STATEMENT_NOTE =
  * @param {string} [p.number]
  * @param {string} [p.issuedAt]
  */
-export function buildStatement({ payer, account, chain, network, period, entries, opening, closing, method, at = null, belege = new Map(), number, issuedAt }) {
+export function buildStatement({
+	payer,
+	account,
+	chain,
+	network,
+	period,
+	entries,
+	opening,
+	closing,
+	method,
+	at = null,
+	belege = new Map(),
+	number,
+	issuedAt
+}) {
 	const own = entries.filter((e) => e.account === account && e.success !== false);
-	const assets = [...new Set([...Object.keys(opening), ...own.filter((e) => e.priceAs).map((e) => e.asset)])];
+	const assets = [
+		...new Set([...Object.keys(opening), ...own.filter((e) => e.priceAs).map((e) => e.asset)])
+	];
 	const sections = assets.map((asset) => {
 		let balance = normalize(opening[asset] ?? '0');
 		/** @type {StatementRow[]} */
@@ -75,7 +91,9 @@ export function buildStatement({ payer, account, chain, network, period, entries
 				date: e.date,
 				time: e.time.slice(11, 19),
 				text: `${KIND_TEXT[/** @type {keyof typeof KIND_TEXT} */ (e.kind)] ?? e.kind}${e.type === 'received' ? ' (Eingang)' : ''}`,
-				counterparty: e.counterpartyLabel ? `${e.counterpartyLabel} · ${e.counterparty}` : e.counterparty,
+				counterparty: e.counterpartyLabel
+					? `${e.counterpartyLabel} · ${e.counterparty}`
+					: e.counterparty,
 				hash: e.hash,
 				explorerUrl: e.explorerUrl,
 				debit: out ? e.amount.slice(1) : '',
@@ -96,7 +114,10 @@ export function buildStatement({ payer, account, chain, network, period, entries
 			opening: normalize(opening[asset] ?? '0'),
 			closing: balance,
 			reported: reported === undefined ? null : normalize(reported),
-			difference: reported === undefined ? null : sum([reported, balance.startsWith('-') ? balance.slice(1) : `-${balance}`]),
+			difference:
+				reported === undefined
+					? null
+					: sum([reported, balance.startsWith('-') ? balance.slice(1) : `-${balance}`]),
 			debit,
 			credit,
 			rows,
@@ -124,7 +145,9 @@ export function buildStatement({ payer, account, chain, network, period, entries
 		method,
 		at,
 		sections,
-		unlisted: entries.filter((e) => e.account === account && !e.priceAs && !assets.includes(e.asset)).length,
+		unlisted: entries.filter(
+			(e) => e.account === account && !e.priceAs && !assets.includes(e.asset)
+		).length,
 		note: usage ? USAGE_NOTE : STATEMENT_NOTE
 	};
 }

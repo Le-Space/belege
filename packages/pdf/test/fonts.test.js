@@ -22,7 +22,7 @@ const LINES = [
 
 /** @param {Uint8Array} bytes */
 const textOf = async (bytes) =>
-	(await extractText(await getDocumentProxy(bytes), { mergePages: true })).text;
+	(await extractText(await getDocumentProxy(bytes.slice()), { mergePages: true })).text;
 
 test('draws Latin, Cyrillic, Greek, Polish, Czech, Turkish and Arabic; a letter no font has is a ?', async () => {
 	const pdf = await PDFDocument.create();

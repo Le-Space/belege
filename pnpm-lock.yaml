@@ -413,6 +413,37 @@ importers:
         specifier: 3.6.2
         version: 3.6.2
 
+  packages/eigenbeleg:
+    dependencies:
+      '@le-space/ledger':
+        specifier: workspace:^
+        version: link:../ledger
+      '@le-space/pdf':
+        specifier: workspace:^
+        version: link:../pdf
+      pdf-lib:
+        specifier: 1.17.1
+        version: 1.17.1
+      uqr:
+        specifier: 0.1.3
+        version: 0.1.3
+    devDependencies:
+      '@le-space/browser-test':
+        specifier: workspace:*
+        version: link:../browser-test
+      '@le-space/chains':
+        specifier: workspace:^
+        version: link:../chains
+      '@noble/hashes':
+        specifier: 2.4.0
+        version: 2.4.0
+      prettier:
+        specifier: 3.6.2
+        version: 3.6.2
+      unpdf:
+        specifier: 1.8.1
+        version: 1.8.1
+
   packages/ledger:
     devDependencies:
       '@le-space/browser-test':

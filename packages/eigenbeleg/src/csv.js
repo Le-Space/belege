@@ -52,7 +52,8 @@ function cell(v) {
 export function eigenbelegCsv(doc) {
 	/** @type {unknown[][]} */
 	const rows = [HEADER];
-	const numberOf = (/** @type {number | string} */ pos) => (doc.layout === 'single' ? doc.transactions[Number(pos) - 1]?.number ?? '' : doc.number);
+	const numberOf = (/** @type {number | string} */ pos) =>
+		doc.layout === 'single' ? (doc.transactions[Number(pos) - 1]?.number ?? '') : doc.number;
 	/** @param {import('./value.js').ValuedEntry} e @param {string | number} pos @param {boolean} on @param {string} why */
 	const line = (e, pos, on, why) => [
 		on ? numberOf(pos) : '',
@@ -79,6 +80,27 @@ export function eigenbelegCsv(doc) {
 	for (const p of doc.positions) rows.push(line(p.entry, p.pos, true, ''));
 	for (const x of doc.excluded) rows.push(line(x.entry, '', false, x.why));
 	rows.push([]);
-	rows.push([doc.layout === 'single' ? '' : doc.number, 'Summe', '', '', doc.chain, doc.network, '', '', '', '', '', '', '', '', num(round(`-${doc.totals.eurExact}`, 2)), `gerundet auf Cent, ungerundet ${doc.totals.eurExact === "0" ? "0" : "-" + num(doc.totals.eurExact)}`, '', '', 'ja', '']);
+	rows.push([
+		doc.layout === 'single' ? '' : doc.number,
+		'Summe',
+		'',
+		'',
+		doc.chain,
+		doc.network,
+		'',
+		'',
+		'',
+		'',
+		'',
+		'',
+		'',
+		'',
+		num(round(`-${doc.totals.eurExact}`, 2)),
+		`gerundet auf Cent, ungerundet ${doc.totals.eurExact === '0' ? '0' : '-' + num(doc.totals.eurExact)}`,
+		'',
+		'',
+		'ja',
+		''
+	]);
 	return '\uFEFF' + rows.map((r) => r.map(cell).join(';')).join('\r\n') + '\r\n';
 }
