@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// Phala Cloud's API, as far as the launcher needs it: provision the bridge's
+// compose, create the VM from it with the browser's encrypted env, delete it,
+// and fetch the collateral a quote is verified with. The API key never leaves
+// this module and is never logged.
+
+export const API = 'https://cloud-api.phala.com/api/v1';
+/** Phala's quote verifier; the NEAR Shade Agent SDK fetches collateral from it too. */
+export const VERIFY = 'https://cloud-api.phala.network/api/v1/attestations/verify';
+
+/**
+ * @param {{ apiKey: string, fetchImpl?: typeof fetch }} o
+ */
+export function phalaClient({ apiKey, fetchImpl = fetch }) {
+	if (!apiKey) throw new Error('no Phala API key');
+	/** @param {string} path @param {any} [body] @param {string} [method] */
+	async function call(path, body, method = body ? 'POST' : 'GET') {
+		const res = await fetchImpl(`${API}${path}`, {
+			method,
+			headers: {
+				'X-API-Key': apiKey,
+				'user-agent': 'belege-bridge-launcher',
+				...(body ? { 'content-type': 'application/json' } : {})
+			},
+			body: body ? JSON.stringify(body) : undefined,
+			redirect: 'error'
+		});
+		if (!res.ok)
+			throw new Error(
+				`Phala ${method} ${path.split('/').slice(0, 3).join('/')}: HTTP ${res.status}`
+			);
+		return res.status === 204 ? null : res.json();
+	}
+	return {
+		/** @param {any} body the provision request (provision.mjs's provisionBody) */
+		async provision(body) {
+			const d = await call('/cvms/provision', body);
+			return {
+				appId: d.app_id,
+				composeHash: d.compose_hash,
+				envPublicKey: d.app_env_encrypt_pubkey
+			};
+		},
+		/** @param {{ appId: string, composeHash: string, encryptedEnv: string }} o */
+		async create({ appId, composeHash, encryptedEnv }) {
+			const d = await call('/cvms', {
+				app_id: appId,
+				compose_hash: composeHash,
+				encrypted_env: encryptedEnv
+			});
+			return { id: d.id, status: d.status };
+		},
+		/** @param {string} id */
+		async remove(id) {
+			if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) throw new Error('not a VM id');
+			await call(`/cvms/${id}`, undefined, 'DELETE');
+		},
+		/**
+		 * The collateral for a quote, as the contract's `DstackAttestation` takes it.
+		 *
+		 * @param {string} quoteHex
+		 */
+		async collateral(quoteHex) {
+			const form = new FormData();
+			form.append('hex', quoteHex.replace(/^0x/, ''));
+			const res = await fetchImpl(VERIFY, { method: 'POST', body: form, redirect: 'error' });
+			if (!res.ok) throw new Error(`Phala verify: HTTP ${res.status}`);
+			const c = (await res.json()).quote_collateral;
+			if (!c) throw new Error('Phala verify: no collateral');
+			return {
+				pck_crl_issuer_chain: c.pck_crl_issuer_chain || '',
+				root_ca_crl: c.root_ca_crl || '',
+				pck_crl: c.pck_crl || '',
+				tcb_info_issuer_chain: c.tcb_info_issuer_chain || '',
+				tcb_info: c.tcb_info || '',
+				tcb_info_signature: c.tcb_info_signature || '',
+				qe_identity_issuer_chain: c.qe_identity_issuer_chain || '',
+				qe_identity: c.qe_identity || '',
+				qe_identity_signature: c.qe_identity_signature || ''
+			};
+		}
+	};
+}
