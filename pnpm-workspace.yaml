@@ -2,6 +2,7 @@ nodeLinker: isolated
 packages:
   - app
   - bridge
+  - bridge/tee/launcher
   - packages/*
 # Same pin as Le-Space/simple-todo: OrbitDB's sync needs gossipsub on libp2p v3.
 overrides:

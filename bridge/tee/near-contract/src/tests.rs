@@ -196,3 +196,41 @@ fn the_report_data_binds_the_start_and_the_node_key() {
     assert_ne!(data, expected_report_data(&acc("books-a.testnet"), 2_001, &key_hash(9)));
     assert_ne!(data, expected_report_data(&acc("books-b.testnet"), 2_000, &key_hash(9)));
 }
+
+#[test]
+fn the_launcher_lists_open_requests_and_answers_a_stop() {
+    let mut c = contract();
+    ctx("le-space.testnet", none(), 1_500);
+    c.add_launcher(acc(LAUNCHER));
+    started(&mut c);
+    let open = c.get_requests(None, None);
+    assert_eq!(open.len(), 1);
+    assert_eq!(open[0]["books"], "books-a.testnet");
+    assert_eq!(open[0]["request"]["kind"], "Start");
+    ctx("books-a.testnet", none(), 2_000 + REQUEST_GAP_MS);
+    let at = c.request_stop(None);
+    ctx(LAUNCHER, none(), 40_000);
+    c.ack_request(acc("books-a.testnet"), at, "stopped".into());
+    assert!(c.get_requests(None, None).is_empty());
+    assert!(get_logs().join("\n").contains(r#""event":"request_answered""#));
+}
+
+#[test]
+#[should_panic(expected = "No such request")]
+fn an_ack_must_name_the_open_request() {
+    let mut c = contract();
+    ctx("le-space.testnet", none(), 1_500);
+    c.add_launcher(acc(LAUNCHER));
+    started(&mut c);
+    ctx(LAUNCHER, none(), 3_000);
+    c.ack_request(acc("books-a.testnet"), U64(1_999), "stopped".into());
+}
+
+#[test]
+#[should_panic(expected = "Only a launcher")]
+fn only_a_launcher_answers_requests() {
+    let mut c = contract();
+    started(&mut c);
+    ctx("someone.testnet", none(), 3_000);
+    c.ack_request(acc("books-a.testnet"), U64(2_000), "stopped".into());
+}

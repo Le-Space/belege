@@ -1,0 +1,28 @@
+{
+  "name": "@belege/bridge-launcher",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Starts and stops the hosted bridge on Phala Cloud when its books ask on NEAR, and submits the bridge's quote to the contract (#696)",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/cli.js",
+    "test": "node --test --test-reporter=spec \"test/*.test.js\"",
+    "lint": "prettier --check src test scripts",
+    "format": "prettier --write src test scripts"
+  },
+  "dependencies": {
+    "@near-js/accounts": "2.5.1",
+    "@near-js/crypto": "2.5.1",
+    "@near-js/providers": "2.5.1",
+    "@near-js/signers": "2.5.1",
+    "@near-js/transactions": "2.5.1",
+    "@near-js/types": "2.5.1",
+    "@near-js/utils": "2.5.1",
+    "@scure/base": "1.2.6"
+  },
+  "devDependencies": {
+    "prettier": "3.6.2"
+  }
+}

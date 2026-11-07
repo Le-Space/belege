@@ -212,3 +212,17 @@ test('no start, no registration; a launcher on plain http is refused', async () 
 		await rm(run, { recursive: true, force: true });
 	}
 });
+
+test('the compose pins the image and names where the quote goes', async () => {
+	const { composeFor, LAUNCHER_URL } = await import('../tee/dstack/provision.mjs');
+	const image = `ghcr.io/le-space/belege-bridge-dstack@sha256:${'a'.repeat(64)}`;
+	const released = composeFor(image);
+	assert.match(released, new RegExp(`image: ${image.replace(/[.]/g, '\\.')}\\n`));
+	assert.ok(released.includes(`BELEGE_LAUNCHER_URL: ${LAUNCHER_URL}\n`));
+	const test = composeFor(image, { launcherUrl: 'https://launcher.example.com' });
+	assert.ok(test.includes('BELEGE_LAUNCHER_URL: https://launcher.example.com\n'));
+	assert.notEqual(test, released, 'another launcher, another compose to approve');
+	assert.throws(() => composeFor(image, { launcherUrl: 'http://launcher.example.com' }));
+	assert.throws(() => composeFor(image, { launcherUrl: 'https://launcher.example.com/x' }));
+	assert.throws(() => composeFor('ghcr.io/le-space/belege-bridge-dstack:latest'));
+});

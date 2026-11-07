@@ -113,6 +113,7 @@ enum StorageKey {
     Ppids,
     Books,
     TestSubmitters,
+    Launchers,
 }
 
 #[near(contract_state)]
@@ -126,6 +127,8 @@ pub struct Contract {
     pub approved_ppids: IterableSet<Ppid>,
     pub books: IterableMap<AccountId, Books>,
     pub test_submitters: IterableSet<AccountId>,
+    /// who may answer a request that did not end in a registered bridge (a stop, a failed start)
+    pub launchers: IterableSet<AccountId>,
 }
 
 fn emit(event: &str, data: near_sdk::serde_json::Value) {
@@ -157,6 +160,7 @@ impl Contract {
             approved_ppids: IterableSet::new(StorageKey::Ppids),
             books: IterableMap::new(StorageKey::Books),
             test_submitters: IterableSet::new(StorageKey::TestSubmitters),
+            launchers: IterableSet::new(StorageKey::Launchers),
         }
     }
 
@@ -233,7 +237,34 @@ impl Contract {
         view
     }
 
+    /// The launcher answers a request that ends without a registration: a stop it carried out,
+    /// or a start it could not carry out (`outcome` says why, for the books to read in the event).
+    pub fn ack_request(&mut self, books: AccountId, at_ms: U64, outcome: String) {
+        require!(self.launchers.contains(&env::predecessor_account_id()), "Only a launcher");
+        require!(outcome.len() <= 200, "Outcome too long");
+        let b = self.books.get_mut(&books).expect("No such books");
+        let kind = match &b.request {
+            Some(r) if r.at_ms == at_ms => r.kind,
+            _ => env::panic_str("No such request"),
+        };
+        b.request = None;
+        emit(
+            "request_answered",
+            json!({ "books": books, "at_ms": at_ms, "kind": kind, "outcome": outcome }),
+        );
+    }
+
     // ── The owner ───────────────────────────────────────────────────────────
+
+    pub fn add_launcher(&mut self, account_id: AccountId) {
+        self.require_owner();
+        self.launchers.insert(account_id);
+    }
+
+    pub fn remove_launcher(&mut self, account_id: AccountId) {
+        self.require_owner();
+        self.launchers.remove(&account_id);
+    }
 
     pub fn approve_measurements(&mut self, measurements: FullMeasurementsHex) {
         self.require_owner();
@@ -289,6 +320,20 @@ impl Contract {
             request: b.request.clone(),
             bridge: b.bridge.as_ref().map(|br| self.view_of(br)),
         })
+    }
+
+    /// The open requests, for the launcher: books, kind, by, time.
+    pub fn get_requests(&self, from_index: Option<u32>, limit: Option<u32>) -> Vec<serde_json::Value> {
+        self.books
+            .iter()
+            .filter_map(|(id, b)| b.request.as_ref().map(|r| json!({ "books": id, "request": r })))
+            .skip(from_index.unwrap_or(0) as usize)
+            .take(limit.unwrap_or(100).min(100) as usize)
+            .collect()
+    }
+
+    pub fn get_launchers(&self) -> Vec<AccountId> {
+        self.launchers.iter().cloned().collect()
     }
 
     pub fn get_approved_measurements(&self) -> Vec<FullMeasurementsHex> {

@@ -62,7 +62,7 @@ jobs:
           node-version: '22.x'
           cache: pnpm
       - name: Install
-        run: pnpm install --frozen-lockfile --filter @belege/bridge...
+        run: pnpm install --frozen-lockfile --filter @belege/bridge... --filter @belege/bridge-launcher...
       # The portal tests drive a real headless Chromium against a fake portal.
       # Only the browser, no `--with-deps`: its apt-get is what hung (four
       # ten-minute hangs on 2026-10-22/23, then "Could not get lock" for every
@@ -78,12 +78,15 @@ jobs:
           done
           exit 1
       - name: Format
-        run: pnpm --filter @belege/bridge lint
+        run: pnpm --filter @belege/bridge --filter @belege/bridge-launcher lint
       # release.yml's steps run only at a release: check their shell here.
       - name: Workflow shell syntax
         run: ruby scripts/check-workflow-shell.rb
       - name: Tests
         run: pnpm run test:bridge
+      # The hosted bridge's launcher (bridge/tee/launcher, #696).
+      - name: Launcher tests
+        run: pnpm --filter @belege/bridge-launcher test
 
   # The Credential Manager store (issue #205) cannot be tried on a Mac or on
   # Linux: a round trip through the real one, on Windows. The test needs no
