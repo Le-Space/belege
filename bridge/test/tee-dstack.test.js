@@ -1,9 +1,11 @@
 // The hosted bridge on dstack (#696): what the start sends is sorted into the
 // same layout as on Aleph (#583), unknown names are dropped, the hosted
-// settings win over the owner's config.
+// settings win over the owner's config; the secrets reach only the VM whose
+// own key is in its quote.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -16,6 +18,7 @@ import {
 	startFrom
 } from '../tee/dstack/sort-secrets.mjs';
 import { register, reportData } from '../tee/dstack/registrar.mjs';
+import { intakeKey, intakeKeyFromSeed, openSecrets, sealSecrets } from '../tee/dstack/intake.mjs';
 
 test('only the names the hosted bridge knows are kept', () => {
 	const got = parseSecrets(
@@ -130,7 +133,7 @@ test('the start this VM answers comes with the secrets, checked', () => {
 	assert.equal(startFrom(undefined), null);
 });
 
-test('the report data binds the start and the node key, as the NEAR contract expects', () => {
+test('the report data binds the start and the intake key, as the NEAR contract expects', () => {
 	// The same vector as bridge/tee/near-contract/src/tests.rs.
 	assert.equal(
 		reportData('books-a.testnet', 2000, '09'.repeat(32)).toString('hex'),
@@ -140,7 +143,26 @@ test('the report data binds the start and the node key, as the NEAR contract exp
 	assert.throws(() => reportData('books-a.testnet', 2000, 'xyz'), /key hash/);
 });
 
-test('the registrar asks dstack for the quote and hands it to the launcher', async () => {
+// The same vector as the start page's secrets.spec.js (Le-Space/belege-bridge-near).
+const SEALED_VECTOR =
+	'0faa684ed28867b97f4a6a2dee5df8ce974e76b7018e3f22a1c4cf2678570f20333333333333333333333333381b10c951a9a43ddfb212d3be4fc963a927aa976c0faf24cc1054704d';
+
+test('secrets are sealed to the intake key, for one start of one set of books', () => {
+	const key = intakeKeyFromSeed(Buffer.alloc(32, 0x11));
+	assert.equal(key.publicKey, '7b4e909bbe7ffe44c465a220037d608ee35897d31ef972f07f74892cb0f73f13');
+	const sealed = sealSecrets('{"imap":"pw"}', key.publicKey, 'books-a.testnet', '2000', {
+		ephemeralSeed: Buffer.alloc(32, 0x22),
+		iv: Buffer.alloc(12, 0x33)
+	});
+	assert.equal(sealed, SEALED_VECTOR);
+	assert.equal(openSecrets(sealed, key, 'books-a.testnet', '2000'), '{"imap":"pw"}');
+	assert.throws(() => openSecrets(sealed, key, 'books-a.testnet', '2001'));
+	assert.throws(() => openSecrets(sealed, key, 'books-b.testnet', '2000'));
+	assert.throws(() => openSecrets(sealed, intakeKey(), 'books-a.testnet', '2000'));
+	assert.throws(() => openSecrets('zz', key, 'books-a.testnet', '2000'), /not sealed/);
+});
+
+test('the registrar proves its own key, then takes the secrets sealed to it', async () => {
 	const run = await mkdtemp(join(tmpdir(), 'belege-tee-'));
 	const socketPath = join(run, 'dstack.sock');
 	/** @type {any[]} */
@@ -165,32 +187,83 @@ test('the registrar asks dstack for the quote and hands it to the launcher', asy
 				bridge_start: '{"books":"books-a.testnet","at_ms":"2000"}'
 			})
 		});
-		await writeFile(join(run, 'node', 'public-key.sha256'), '09'.repeat(32) + '\n');
 		/** @type {any[]} */
 		const sent = [];
-		const body = await register({
+		let polls = 0;
+		const r = await register({
 			run,
 			launcher: 'https://launcher.example.com',
 			socketPath,
+			pollMs: 1,
 			fetchImpl: /** @type {any} */ (
 				async (/** @type {URL} */ url, /** @type {any} */ init) => {
-					sent.push([String(url), JSON.parse(init.body)]);
-					return new Response('{}', { status: 200 });
+					sent.push([String(url), init?.body ? JSON.parse(init.body) : null]);
+					if (String(url).endsWith('/v1/bridge-quote')) return new Response('{}', { status: 200 });
+					if (++polls < 3) return new Response('{}', { status: 404 });
+					const intake = sent[0][1].intake_key;
+					const secrets = JSON.stringify({
+						imap: 'imap-secret',
+						bridge_config: JSON.stringify({ devices: [] })
+					});
+					return Response.json({
+						sealed: sealSecrets(secrets, intake, 'books-a.testnet', '2000')
+					});
 				}
 			),
 			log: () => {}
 		});
-		assert.equal(asked[0][0], '/GetQuote');
+		assert.deepEqual(r, { quoted: true, secrets: true });
+		const quoteBody = sent[0][1];
+		assert.equal(sent[0][0], 'https://launcher.example.com/v1/bridge-quote');
+		assert.match(quoteBody.intake_key, /^[0-9a-f]{64}$/);
+		const keyHash = createHash('sha256')
+			.update(Buffer.from(quoteBody.intake_key, 'hex'))
+			.digest('hex');
 		assert.equal(
 			asked[0][1].report_data,
-			'243ffdb70c9e7f9fd91e12cc544d57e50bbcc66a37c954cf12bd70a2a2d0a8a2' + '09'.repeat(32)
+			'243ffdb70c9e7f9fd91e12cc544d57e50bbcc66a37c954cf12bd70a2a2d0a8a2' + keyHash
 		);
-		assert.equal(sent[0][0], 'https://launcher.example.com/v1/bridge-quote');
-		assert.deepEqual(sent[0][1], body);
-		assert.deepEqual(
-			{ books: body?.books, start_at_ms: body?.start_at_ms, quote: body?.quote },
-			{ books: 'books-a.testnet', start_at_ms: '2000', quote: 'aa' }
-		);
+		assert.equal(sent[1][0], 'https://launcher.example.com/v1/bridge-secrets/books-a.testnet/2000');
+		assert.equal(await readFile(join(run, 'secrets', 'imap'), 'utf8'), 'imap-secret');
+		assert.deepEqual(JSON.parse(await readFile(join(run, 'start.json'), 'utf8')), {
+			books: 'books-a.testnet',
+			at_ms: '2000'
+		});
+	} finally {
+		server.close();
+		await rm(run, { recursive: true, force: true });
+	}
+});
+
+test('without secrets in time, the registrar gives up and the bridge starts unarmed', async () => {
+	const run = await mkdtemp(join(tmpdir(), 'belege-tee-'));
+	const socketPath = join(run, 'dstack.sock');
+	const server = createServer((req, res) => {
+		req.resume();
+		req.on('end', () => res.end(JSON.stringify({ quote: 'aa', tcb_info: '{}' })));
+	});
+	await new Promise((r) => server.listen(socketPath, () => r(undefined)));
+	try {
+		sortSecrets(run, {
+			BELEGE_BRIDGE_SECRETS: JSON.stringify({
+				bridge_start: '{"books":"books-a.testnet","at_ms":"2000"}'
+			})
+		});
+		const r = await register({
+			run,
+			launcher: 'https://launcher.example.com',
+			socketPath,
+			pollMs: 1,
+			timeoutMs: 20,
+			fetchImpl: /** @type {any} */ (
+				async (/** @type {URL} */ url) =>
+					String(url).endsWith('/v1/bridge-quote')
+						? new Response('{}', { status: 200 })
+						: Response.json({ sealed: 'ab'.repeat(80) })
+			),
+			log: () => {}
+		});
+		assert.deepEqual(r, { quoted: true, secrets: false }, 'a sealed box it cannot open is ignored');
 	} finally {
 		server.close();
 		await rm(run, { recursive: true, force: true });
