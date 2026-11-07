@@ -8,7 +8,7 @@ One booking format for Le Space's tools – [Belege](https://github.com/Le-Space
 - **Periods** – `sortEntries` (oldest first, a fee after its payment), `inPeriod`, `monthPeriod`, `derivedStatement` (balances before and after a period from today's balance less every movement since).
 - **Bytes without Buffer** (`@le-space/ledger/bytes`) – `fromBase64` (as lenient as `Buffer.from`), `toBase64`, `fromHex`, `toHex`, `utf8`, `fromUtf8`.
 
-Kinds: `transfer`, `fee`, `reward`, `stake`, `unstake`, `ibc`, `swap`, `call`, `storage`, `escrow`. A change to the meaning of a field bumps the schema version.
+Kinds: `transfer`, `fee`, `reward`, `stake`, `unstake`, `ibc`, `swap`, `call`, `storage`, `escrow`, `usage` (consumption from a prepaid balance, e.g. Aleph Cloud credits). An entry may carry a `unitPrice` where it has no market rate. A change to the meaning of a field bumps the schema version.
 
 ```bash
 pnpm --filter @le-space/ledger test   # Node, and the same scenario in Chromium

@@ -1,7 +1,7 @@
 {
 	"name": "@le-space/chains",
-	"version": "0.1.0",
-	"description": "Own wallets on public chains, read only, by their address – Cosmos (Nyx, Akash), EVM (Blockscout, Alchemy), Bitcoin (Esplora, zpub), Filecoin (Filfox), NEAR (NearBlocks) – as @le-space/ledger entries. Browser and Node; fetch, endpoints and keys handed in.",
+	"version": "0.2.0",
+	"description": "Own wallets on public chains, read only, by their address – Cosmos (Nyx, Akash), EVM (Blockscout, Alchemy), Bitcoin (Esplora, zpub), Filecoin (Filfox), NEAR (NearBlocks), Aleph Cloud credits – as @le-space/ledger entries. Browser and Node; fetch, endpoints and keys handed in.",
 	"license": "AGPL-3.0-or-later",
 	"type": "module",
 	"repository": {
@@ -28,6 +28,7 @@
 		"./bitcoin": "./src/bitcoin.js",
 		"./filecoin": "./src/filecoin.js",
 		"./near": "./src/near.js",
+		"./aleph": "./src/aleph.js",
 		"./testing/cosmos": "./test/support/fake-cosmos.js",
 		"./testing/filfox": "./test/support/fake-filfox.js"
 	},
@@ -45,6 +46,7 @@
 	},
 	"dependencies": {
 		"@le-space/ledger": "workspace:^",
+		"@le-space/rates": "workspace:^",
 		"@noble/hashes": "2.4.0",
 		"@scure/base": "2.4.0",
 		"@scure/bip32": "2.4.0"

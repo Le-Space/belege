@@ -222,7 +222,7 @@ function failed(message, status, body) {
  */
 
 /**
- * @typedef {object} AlephStatement bridge/src/aleph.js `statement`
+ * @typedef {object} AlephStatement packages/chains/src/aleph.js `statement`
  * @property {string} address
  * @property {string} month YYYY-MM
  * @property {string} from ISO, UTC
@@ -636,7 +636,7 @@ export function createBridgeClient({
 			).accounts,
 		/**
 		 * One Aleph account's credits in one month: balances, top-ups, consumption
-		 * per day and resource, valued in EUR (bridge/src/aleph.js).
+		 * per day and resource, valued in EUR (packages/chains/src/aleph.js).
 		 *
 		 * @param {string} address
 		 * @param {string} month YYYY-MM

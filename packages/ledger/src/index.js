@@ -34,9 +34,10 @@ import { normalize } from './decimal.js';
 /**
  * What a movement is. `ibc` (Cosmos: across chains) comes from Belege's
  * readers; `call`, `unstake`, `storage`, `escrow` from Eigenbeleg's NEAR and
- * Akash readers.
+ * Akash readers; `usage` is consumption billed from a prepaid balance (Aleph
+ * Cloud credits).
  *
- * @typedef {'transfer' | 'fee' | 'reward' | 'stake' | 'unstake' | 'ibc' | 'swap' | 'call' | 'storage' | 'escrow'} EntryKind
+ * @typedef {'transfer' | 'fee' | 'reward' | 'stake' | 'unstake' | 'ibc' | 'swap' | 'call' | 'storage' | 'escrow' | 'usage'} EntryKind
  */
 
 export const TYPES = Object.freeze(['sent', 'received', 'fee']);
@@ -50,7 +51,8 @@ export const KINDS = Object.freeze([
 	'swap',
 	'call',
 	'storage',
-	'escrow'
+	'escrow',
+	'usage'
 ]);
 
 /**
@@ -83,10 +85,19 @@ export const KINDS = Object.freeze([
  * @property {boolean} [byOther] EVM: sent out in a transaction this address did not send
  * @property {string} [txFrom] EVM: who sent that transaction
  * @property {boolean} [listed] false for a token not in the chain's list: its symbol is its own claim
+ * @property {{ currency: string, amount: string, source: string }} [unitPrice] what one unit cost, where
+ *   it is no market asset with a rate of the day (Aleph credits: USD per credit, `purchase` or `list`)
  */
 
 const DECIMAL = /^-?\d+(\.\d+)?$/;
-const OPTIONAL = /** @type {const} */ (['swap', 'ibcMemo', 'byOther', 'txFrom', 'listed']);
+const OPTIONAL = /** @type {const} */ ([
+	'swap',
+	'ibcMemo',
+	'byOther',
+	'txFrom',
+	'listed',
+	'unitPrice'
+]);
 
 /**
  * A checked entry; throws on a field that breaks the format.

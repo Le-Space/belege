@@ -315,7 +315,7 @@ Jede Buchung hat eine Kennung (`sourceId`), damit sie nicht doppelt gebucht wird
 
 **Ausgelassen, und Belege sagt es:**
 
-- Denoms und Token, die nicht in der Liste der Chain stehen. Dazu gehören IBC-Gutscheine `ibc/…`, Factory-Denoms und jedes ERC-20 außer dem gelisteten USDC. Ein Vertrag kann sich nämlich „USDC“ nennen, ohne es zu sein.
+- Denoms und Token, die nicht in der Liste der Chain stehen. Dazu gehören IBC-Gutscheine `ibc/…`, Factory-Denoms und jedes ERC-20 außer dem gelisteten USDC und, auf Ethereum und Base, ALEPH. Ein Vertrag kann sich nämlich „USDC“ nennen, ohne es zu sein.
 - Einträge ohne Kurs. NYX zum Beispiel hat bei CoinGecko und Kraken keinen. Sie werden beim nächsten Abruf erneut versucht.
 - Die ältere Geschichte eines gekürzten Knotens. Der Abruf sagt, ab welchem Tag der Knoten die Chain kennt. Belege ermittelt das, indem es nach Block 1 fragt. Ein Knoten, der aus einem Snapshot gestartet wurde, meldet in `/status` nämlich 0. Trag dann einen Archivknoten ein.
 
@@ -662,6 +662,7 @@ Filecoin und Monero waren bei dieser Prüfung noch nicht dabei. Filecoin liest �
 - Für Nyx und Akash: Chain-ID, Bech32-Präfix, Denoms, Exponenten, RPC/REST und Explorer-Muster, an der Cosmos Chain Registry (`nyx/`, `akash/`: `chain.json`, `assetlist.json`).
 - Nyx' Knoten meldet Chain `nyx`, CometBFT 0.38 und cosmos-sdk 0.53. Ereignisse kommen also als Text, die Gebühr steht im `tx`-Ereignis.
 - Die USDC-Verträge an Circles Liste der USDC-Vertragsadressen. Ihre 6 Nachkommastellen am Blockscout jeder Chain.
+- ALEPH (der Token von Aleph Cloud, auf Ethereum und Base) am 2026-11-06 an CoinGeckos Plattformliste, am Blockscout von Ethereum und an `symbol()` und `decimals()` des Vertrags auf Base (18 Stellen).
 - Die Blockscout-API antwortet auf jedem Host und meldet die Chain-IDs 1, 42161, 10 und 137. Der Host von Optimism ist nach `explorer.optimism.io` umgezogen.
 
 **Durch Ausprobieren geprüft:**
@@ -682,7 +683,7 @@ Filecoin und Monero waren bei dieser Prüfung noch nicht dabei. Filecoin liest �
 
 Aleph stellt keine Rechnungen aus. Hosting und Speicher werden mit Credits bezahlt.
 
-Unter _Integrationen → Aleph Cloud_ fragt die Bridge die öffentliche Aleph-API, nur lesend (`POST /aleph/accounts`, `bridge/src/aleph.js`). Gefragt werden:
+Unter _Integrationen → Aleph Cloud_ fragt die Bridge die öffentliche Aleph-API, nur lesend (`POST /aleph/accounts`, `packages/chains/src/aleph.js`). Gefragt werden:
 
 - die eigenen EVM-Wallets, wenn „Eigene Ethereum-Adressen bei Aleph prüfen“ an ist,
 - jedes eingetragene Aleph-Konto.

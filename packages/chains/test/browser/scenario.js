@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The chain readers in a browser: every place that used Node's Buffer or
-// node:crypto before the move, and a NEAR read through a fetch that is handed
-// in (served from a fixture of public data). browser.test.js runs this in
-// Node and in Chromium and compares. Made-up keys and addresses otherwise.
+// node:crypto before the move, a NEAR read (a fixture of public data) and an
+// Aleph credit statement, each through a fetch that is handed in.
+// browser.test.js runs this in Node and in Chromium and compares. Made-up keys and addresses otherwise.
 import { HDKey } from '@scure/bip32';
 
 import {
@@ -18,6 +18,9 @@ import {
 	toFilecoinAddress
 } from '../../src/index.js';
 import { fetchRaw, mapRaw } from '../../src/near.js';
+import { alephEntries, createAlephClient } from '../../src/aleph.js';
+import { alephFetch } from '../support/aleph-fetch.js';
+import { ACCOUNT, VM, flatUsd, sampleBalance, sampleRows } from '../support/aleph-sample.js';
 import day from '../fixtures/relay-aurora-2026-11-01.json' with { type: 'json' };
 
 /** A fetch that answers NearBlocks' two lists from the fixture, one page each. */
@@ -54,7 +57,17 @@ export default async function scenario() {
 		endpoints: { api: 'https://nearblocks.example' }
 	});
 	const near = mapRaw({ ...raw, explorer: 'https://explorer.example/txns/' });
+	const aleph = await createAlephClient({
+		fetch: alephFetch({
+			accounts: { [ACCOUNT]: { balance: sampleBalance(), rows: sampleRows() } },
+			messages: { [VM]: { type: 'INSTANCE', name: 'test-relay' } }
+		}),
+		sleep: async () => {},
+		rates: flatUsd,
+		now: () => new Date('2026-09-10T00:00:00Z')
+	}).statement({ address: ACCOUNT, month: '2026-08' });
 	return {
+		aleph: { statement: aleph, entries: alephEntries(aleph) },
 		feeCollector: moduleAddress('akash', 'fee_collector'),
 		isCosmos: isCosmosAddress(moduleAddress('n', 'distribution'), 'n'),
 		tx: decodeTx(tx),

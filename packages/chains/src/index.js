@@ -13,6 +13,8 @@
 //   filecoin              Filfox
 //   near                  NearBlocks + an archival RPC (from Eigenbeleg);
 //                         `near` here, or `@le-space/chains/near`
+//   aleph                 Aleph Cloud credits (no chain: Aleph's API, by the
+//                         Ethereum address); `aleph` here, or `/aleph`
 
 export * from './core.js';
 export { CHAINS, KNOWN_EVM_CONTRACTS, chainOf, publicChains } from './registry.js';
@@ -61,3 +63,4 @@ export {
 /** @typedef {import('./registry.js').Chain} Chain */
 /** @typedef {import('@le-space/ledger/wallet-entry').WalletEntry} WalletEntry */
 export * as near from './near.js';
+export * as aleph from './aleph.js';

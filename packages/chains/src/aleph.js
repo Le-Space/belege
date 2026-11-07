@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Aleph Cloud, read only: what an account's credits did in one month – the
 // source of the monthly consumption statement (issue #113). No key, no
 // signing, no transfer or forget: only the public API that the official
@@ -30,7 +31,16 @@
 // price of the last purchase on or before that day, or Aleph's list price of
 // 1 USD per 1,000,000 credits when the account never bought any (credits
 // moved in from another account), then converted at that day's ECB
-// reference rate (rates.js).
+// reference rate – the rule is @le-space/rates' (aleph-credits.js).
+//
+// Aleph is no blockchain: the credits live in Aleph's own network, keyed by
+// the account's Ethereum address. `alephEntries` gives a statement's lines as
+// @le-space/ledger entries (`chain: 'aleph'`): purchases and transfers in,
+// transfers out, and a day's consumption per resource as `usage`. The ALEPH
+// token itself is an ERC-20 on Ethereum and Base, read by the EVM reader.
+//
+// In a browser: Aleph's API answers with CORS headers for the origins that
+// read it (checked 2026-11-06 for eigenbelege.le-space.de), so no proxy.
 //
 // Aleph keys accounts by their EIP-55 checksummed address: asked in lower
 // case, it answers a balance of 0 and no history. Every address is
@@ -39,12 +49,21 @@
 // Times are UTC; the month is the UTC month. The log gets counts, never an
 // address.
 
-import { createJsonFetcher, WalletError } from '@le-space/chains/http';
-import { toChecksumAddress } from '@le-space/chains/evm';
+import { entry, sortEntries } from '@le-space/ledger';
+import {
+	ALEPH_LIST_PRICE_USD,
+	alephCreditPrice,
+	alephCreditsInEur,
+	plain
+} from '@le-space/rates/aleph-credits';
+import { createJsonFetcher, WalletError } from './http.js';
+import { toChecksumAddress } from './evm.js';
 
 export const ALEPH_API = 'https://api2.aleph.im';
-/** Aleph's list price, USD per credit. */
-export const LIST_PRICE_USD = '0.000001';
+/** Aleph's list price, USD per credit (@le-space/rates). */
+export const LIST_PRICE_USD = ALEPH_LIST_PRICE_USD;
+/** Where an Aleph message (an instance, a program, a purchase) can be looked at. */
+export const ALEPH_EXPLORER = 'https://explorer.aleph.cloud/address/ETH/';
 const PER_PAGE = 100;
 
 /** @param {unknown} v */
@@ -105,16 +124,9 @@ export function summarise({ rows, purchases }) {
 	const transfersOut = [];
 	/** @type {Map<string, UsageLine>} */
 	const days = new Map();
-	const priced = purchases
-		.filter((p) => p?.price && Number(p.price) > 0)
-		.map((p) => ({ time: String(p.message_timestamp), price: String(p.price) }))
-		.sort((a, b) => (a.time < b.time ? -1 : 1));
-	/** The per-credit price in force at the end of a day. @param {string} date */
-	const priceOn = (date) => {
-		let found = null;
-		for (const p of priced) if (p.time.slice(0, 10) <= date) found = p.price;
-		return found;
-	};
+	const priceOn = alephCreditPrice(
+		purchases.map((p) => ({ time: String(p?.message_timestamp), price: p?.price }))
+	);
 
 	for (const r of rows) {
 		const amount = num(r?.amount);
@@ -152,10 +164,8 @@ export function summarise({ rows, purchases }) {
 			entries: 0,
 			resources: 0,
 			sizeMib: null,
-			usdPerCredit: priceOn(date) ?? LIST_PRICE_USD,
-			priceSource: priceOn(date)
-				? /** @type {const} */ ('purchase')
-				: /** @type {const} */ ('list'),
+			usdPerCredit: priceOn(date).usdPerCredit,
+			priceSource: priceOn(date).source,
 			eurPerUsd: null,
 			eurCents: null
 		};
@@ -319,7 +329,7 @@ export function createAlephClient({
 					line.eurCents =
 						rate === null
 							? null
-							: Math.round(line.credits * Number(line.usdPerCredit) * Number(rate) * 100);
+							: Math.round(Number(alephCreditsInEur(line.credits, line.usdPerCredit, rate)) * 100);
 				}
 			}
 
@@ -351,4 +361,88 @@ export function createAlephClient({
 			};
 		}
 	};
+}
+
+/** A credit amount as a decimal string. @param {number} credits */
+const credits = (credits) => plain(credits);
+
+/**
+ * A statement's lines as ledger entries, seen from the account: purchases and
+ * transfers in (`received`), transfers out (`sent`), and each day's
+ * consumption per resource (`sent`, kind `usage`, with the USD price per
+ * credit it is valued at). Asset `ALEPH-CREDIT`, no market price.
+ *
+ * @param {Awaited<ReturnType<ReturnType<typeof createAlephClient>['statement']>>} statement
+ * @returns {import('@le-space/ledger').LedgerEntry[]}
+ */
+export function alephEntries(statement) {
+	const { address, topUps, transfersOut, usage, resources } = statement;
+	const common = {
+		chain: 'aleph',
+		network: 'mainnet',
+		account: address,
+		height: 0,
+		asset: 'ALEPH-CREDIT',
+		contract: 'native',
+		decimals: 0,
+		method: '',
+		memo: '',
+		success: true,
+		priceAs: ''
+	};
+	const explorerUrl = `${ALEPH_EXPLORER}${address}`;
+	const out = [
+		...topUps.map((t, i) =>
+			entry({
+				...common,
+				id: `aleph:${address}:in:${t.time}:${i}`,
+				hash: t.txHash ?? '',
+				time: t.time,
+				type: 'received',
+				kind: 'transfer',
+				amount: credits(t.credits),
+				counterparty: t.how === 'purchase' ? 'aleph' : t.from,
+				counterpartyLabel:
+					t.how === 'purchase'
+						? `Aleph Cloud (Kauf${t.token ? ` mit ${t.token}` : ''}${t.chain ? ` auf ${t.chain}` : ''})`
+						: '',
+				explorerUrl,
+				...(t.price
+					? { unitPrice: { currency: 'USD', amount: plain(t.price), source: 'purchase' } }
+					: {})
+			})
+		),
+		...transfersOut.map((t, i) =>
+			entry({
+				...common,
+				id: `aleph:${address}:out:${t.time}:${i}`,
+				hash: '',
+				time: t.time,
+				type: 'sent',
+				kind: 'transfer',
+				amount: `-${credits(t.credits)}`,
+				counterparty: t.to,
+				counterpartyLabel: '',
+				explorerUrl
+			})
+		),
+		...usage.map((u) => {
+			const what = u.resource ? resources?.[u.resource] : null;
+			return entry({
+				...common,
+				id: `aleph:${address}:usage:${u.date}:${u.kind}:${u.resource ?? ''}`,
+				hash: u.resource ?? '',
+				time: `${u.date}T00:00:00Z`,
+				type: 'sent',
+				kind: 'usage',
+				amount: `-${credits(u.credits)}`,
+				counterparty: 'aleph',
+				counterpartyLabel: `Aleph Cloud (${what?.name || u.kind})`,
+				memo: `${u.entries} Abrechnungen`,
+				explorerUrl,
+				unitPrice: { currency: 'USD', amount: u.usdPerCredit, source: u.priceSource }
+			});
+		})
+	];
+	return sortEntries(out);
 }

@@ -54,7 +54,7 @@ export const ASSETS = Object.freeze({
 		decimals: 18,
 		kind: 'crypto',
 		chain: 'eip155:1',
-		caip19: null
+		caip19: 'eip155:1/erc20:0x27702a26126e0b3702af63ee09ac4d1a084ef628'
 	},
 	NYM: {
 		symbol: 'NYM',

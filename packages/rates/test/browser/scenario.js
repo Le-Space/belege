@@ -4,7 +4,12 @@
 // windows-1251 file, and a Uniswap V4 pool id (keccak over hex, no Buffer).
 // browser.test.js runs it in Node and in Chromium and compares. The sources
 // are faked with made-up numbers; nothing goes to the network.
-import { createRateService, v4PoolId } from '../../src/index.js';
+import {
+	alephCreditPrice,
+	alephCreditsInEur,
+	createRateService,
+	v4PoolId
+} from '../../src/index.js';
 
 const DAY_START = Date.parse('2026-09-01T00:00:00Z') / 1000;
 /** `Евро` in windows-1251, as the Bank of Russia sends it. */
@@ -71,6 +76,12 @@ export default async function scenario() {
 		usd: await rates.rate('USD', '2026-08-30'),
 		rub: await rates.rate('RUB', '2026-08-31'),
 		keys: [...new Set(keys)],
+		alephEur: alephCreditsInEur(
+			2778,
+			alephCreditPrice([{ time: '2026-07-20T08:00:00Z', price: '0.000002' }])('2026-08-01')
+				.usdPerCredit,
+			(await rates.rate('USD', '2026-08-30')).rate
+		),
 		pool: v4PoolId(`0x${'5e'.repeat(20)}`, `0x${'00'.repeat(20)}`, 3000, 60)
 	};
 }

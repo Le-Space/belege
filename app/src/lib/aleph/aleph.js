@@ -14,7 +14,8 @@
 // on – Aleph then learns that these addresses belong together – and any
 // Aleph account typed in on its own. Kept in the sealed settings (`aleph`).
 //
-// The data comes from the bridge (bridge/src/aleph.js), read only, and is
+// The data comes from the bridge, which reads it with @le-space/chains
+// (packages/chains/src/aleph.js), read only, and is
 // kept in neutral form on the receipt (`selfReceipt.aleph`), so the invoice
 // app can later issue a proper invoice from the same numbers.
 
