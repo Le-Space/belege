@@ -57,9 +57,15 @@ again and gets everything again. The disk passphrase never reaches the bridge.
 As for paperless-anywhere: the launch measurement covers Aleph's SEV-SNP runtime (firmware,
 kernel, initrd) and a boot command line that names the owner's address. The browser computes it
 with `@le-space/attest-wasm` (`confidentialTrustedExecution`) from Aleph's published runtime and
-pins it in the INSTANCE, and `test/attest-live.mjs` refuses to send anything when the INSTANCE
-pins another one. The image itself is named by its STORE hash in the INSTANCE and opens only with
-the image passphrase. `bridge-image.json` (from the workflow) records the STORE hash, the sha256
+pins it in the INSTANCE. The image itself is named by its STORE hash in the INSTANCE and opens
+only with the image passphrase.
+
+So the unlock (`test/release.mjs`, which `test/attest-live.mjs` runs) sends nothing unless the
+INSTANCE is the owner's, boots the published STORE and pins the measurement computed on the
+unlocking side; the guest must then prove that measurement in the RA-TLS handshake before the
+injection. `bridge/test/unlock.test.js` shows it with a stand-in for the guest's attestation agent:
+a VM with a changed runtime, another image, other pins or another owner gets no secret.
+`bridge-image.json` (from the workflow) records the STORE hash, the sha256
 of the plain image and the pinned inputs.
 
 The plain image is not yet byte-for-byte reproducible (Debian's packages at build time, file

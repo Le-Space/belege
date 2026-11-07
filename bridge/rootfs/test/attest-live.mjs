@@ -6,12 +6,16 @@
 // runtime and the owner's address – not read from the node.
 //
 //   node attest-live.mjs unlock <instance hash> <node hash> <relay wss url>
-//     env: ALEPH_PRIVATE_KEY (the owner), PASSPHRASE_FILE, SECRETS_FILE (JSON, optional), VCPUS
+//     env: ALEPH_PRIVATE_KEY (the owner), IMAGE, PASSPHRASE_FILE, SECRETS_FILE (JSON, optional), VCPUS
 //   node attest-live.mjs attest <instance hash> <node hash> <relay wss url>
-//     env: ALEPH_PRIVATE_KEY (only its address is used), VCPUS
+//     env: ALEPH_PRIVATE_KEY (only its address is used), IMAGE, VCPUS
 //
-// Needs @le-space/attest-wasm and ethers next to it (the workflow installs
-// them into the directory it copies this script to). Prints JSON on stdout:
+// IMAGE is the published rootfs STORE: an INSTANCE that boots another one, or
+// pins another measurement, gets nothing (release.mjs, tested in
+// bridge/test/unlock.test.js with a stand-in for the guest's agent).
+//
+// Needs release.mjs, @le-space/attest-wasm and ethers next to it (the
+// workflow copies and installs them into one directory). Prints JSON on stdout:
 // whether the measurement the INSTANCE pins is the one computed here, the
 // measurement the guest reported, and the phase timings in ms. Secrets are
 // never printed.
@@ -20,12 +24,10 @@ import { createRequire } from 'node:module';
 
 import { Wallet } from 'ethers';
 import * as wasm from '@le-space/attest-wasm/pkg/relay_button_attest.js';
-import {
-	confidentialTrustedExecution,
-	pinsOf,
-	unlockInstance
-} from '@le-space/attest-wasm/instance';
+import { confidentialTrustedExecution, pinsOf } from '@le-space/attest-wasm/instance';
 import { attestGuest, websocketTransport } from '@le-space/attest-wasm/ratls';
+
+import { releaseCheck, unlockHosted } from './release.mjs';
 
 const API = process.env.ALEPH_API_HOST ?? 'https://api2.aleph.im';
 const [mode, vm, crn, relay] = process.argv.slice(2);
@@ -63,16 +65,26 @@ const published = await confidentialTrustedExecution({
 mark('measured');
 const message = await (await fetch(`${API}/api/v0/messages/${vm}`)).json();
 const content = message.message?.content ?? message.content;
-const pinned = content?.environment?.trusted_execution;
-const ours = pinsOf(published);
-const theirs = pinsOf(pinned);
-const same =
-	ours.expectedPolicy === theirs.expectedPolicy &&
-	ours.expectedMeasurements.length === theirs.expectedMeasurements.length &&
-	ours.expectedMeasurements.every((m) => theirs.expectedMeasurements.includes(m));
-if (!same) {
-	console.log(JSON.stringify({ mode, published: false, ours, theirs, timings }));
-	console.error('the INSTANCE pins a measurement other than the published one: no secret goes out');
+/** @type {{ expectedMeasurements: string[], expectedPolicy: number | undefined }} */
+let ours;
+try {
+	ours = releaseCheck({
+		instance: content,
+		published,
+		image: /** @type {string} */ (process.env.IMAGE),
+		owner: owner.address
+	});
+} catch (error) {
+	console.log(
+		JSON.stringify({
+			mode,
+			published: false,
+			ours: pinsOf(published),
+			image: content?.rootfs?.parent?.ref ?? null,
+			timings
+		})
+	);
+	console.error(error instanceof Error ? error.message : String(error));
 	process.exit(1);
 }
 const url = `${relay}?crn=${crn}&vm=${vm}`;
@@ -84,13 +96,15 @@ if (mode === 'unlock') {
 	const secrets = process.env.SECRETS_FILE
 		? JSON.parse(await readFile(process.env.SECRETS_FILE, 'utf8'))
 		: {};
-	const result = await unlockInstance({
+	const result = await unlockHosted({
+		instance: content,
+		published,
+		image: /** @type {string} */ (process.env.IMAGE),
+		owner: owner.address,
 		wasm,
 		relayUrl: relay,
 		crnHash: crn,
 		instanceItemHash: vm,
-		// What this script computed, not what the message says: the same pins, checked above.
-		trustedExecution: published,
 		passphrase,
 		secrets,
 		sign: (payload) => owner.signMessage(payload),
