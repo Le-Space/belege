@@ -188,7 +188,12 @@ test('--hosted starts unarmed with no secrets, and announces the VM’s name', a
 	try {
 		await waitFor(bridge.err, /HOSTED: secrets from the unlock/);
 		const [, port] = await waitFor(bridge.out, /listening on http:\/\/127\.0\.0\.1:(\d+)/);
-		const health = await request(Number(port), '/health');
+		// The HTTP API listens before the node has started: wait for its addresses.
+		let health = await request(Number(port), '/health');
+		for (let i = 0; i < 100 && !health.json?.node?.addrs?.length; i += 1) {
+			await new Promise((r) => setTimeout(r, 50));
+			health = await request(Number(port), '/health');
+		}
 		assert.equal(health.status, 200);
 		assert.equal(health.json.node.enabled, true);
 		assert.equal(health.json.node.armed, false);

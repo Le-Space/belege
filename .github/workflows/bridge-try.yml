@@ -45,6 +45,8 @@ concurrency:
 env:
   ALEPH_PRIVATE_KEY: ${{ secrets.ALEPH_PRIVATE_KEY }}
   ITEM: ${{ inputs.rootfs_item_hash }}
+  # The unlock gives nothing to an INSTANCE that boots another image (release.mjs).
+  IMAGE: ${{ inputs.rootfs_item_hash }}
   CRN: ${{ inputs.crn }}
   RELAY: ${{ inputs.relay }}
   NAME: belege-bridge-try-${{ github.run_id }}
@@ -77,7 +79,7 @@ jobs:
           echo "41b8ced717d9962683ce2d4409725774e826643be0bae1bfc623f6c0c7fb19d7  $RUNNER_TEMP/aleph" | sha256sum -c -
           sudo install -m 755 "$RUNNER_TEMP/aleph" /usr/local/bin/aleph
           # The browser's attestation code, run in Node.
-          mkdir -p "$RUNNER_TEMP/attest" && cp bridge/rootfs/test/attest-live.mjs "$RUNNER_TEMP/attest/"
+          mkdir -p "$RUNNER_TEMP/attest" && cp bridge/rootfs/test/attest-live.mjs bridge/rootfs/test/release.mjs "$RUNNER_TEMP/attest/"
           (cd "$RUNNER_TEMP/attest" && npm init -y >/dev/null && npm install --no-audit --no-fund --loglevel=error @le-space/attest-wasm@0.12.4 ethers@6.16.0)
           # The stream test uses the bridge's own libp2p.
           pnpm install --frozen-lockfile --filter @belege/bridge...
