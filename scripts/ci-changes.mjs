@@ -52,13 +52,14 @@ export function needsOf(file) {
 
 	if (/^app\//.test(file)) return { unit: true, e2e: 'full' };
 
-	// The shared packages (Le-Space/eigenbeleg-agent#6). The chain readers and
-	// the ledger ship in the app too (wallets/filecoin-address.js), so they
-	// run everything. The day's rate runs in the bridge only: its tests, the
+	// The shared packages (Le-Space/eigenbeleg-agent#6). The chain readers,
+	// the ledger, the PDF/A fonts and the Eigenbeleg ship in the app too
+	// (wallets/filecoin-address.js, receipts/self-receipt.js), so they run
+	// everything. The day's rate runs in the bridge only: its tests, the
 	// unit tests and the specs that pair a bridge – ci-changes.test.mjs checks
 	// that nothing else in the app imports it. The browser-test helper is
 	// only for the packages' own tests (packages.yml).
-	if (/^packages\/(chains|ledger|rates|browser-test)\/.*\.md$/.test(file)) return {};
+	if (/^packages\/(chains|ledger|rates|pdf|eigenbeleg|browser-test)\/.*\.md$/.test(file)) return {};
 	if (/^packages\/rates\//.test(file)) return { unit: true, bridge: true, e2e: 'bridge' };
 	if (/^packages\/browser-test\//.test(file)) return {};
 

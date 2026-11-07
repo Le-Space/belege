@@ -1,5 +1,6 @@
 // node --test scripts/ci-changes.test.mjs – runs in each workflow's `changes` job.
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -62,6 +63,8 @@ test('packages, the lockfile and unknown files: everything', () => {
 		'packages/chain-new',
 		'packages/chains/src/filecoin.js',
 		'packages/ledger/src/bytes.js',
+		'packages/pdf/src/fonts.js',
+		'packages/eigenbeleg/src/booking-pdf.js',
 		'pnpm-lock.yaml',
 		'package.json',
 		'new-thing.txt',
@@ -104,6 +107,8 @@ test('the rate package: its tests, the bridge, the unit tests and the specs that
 	for (const file of [
 		'packages/rates/README.md',
 		'packages/chains/README.md',
+		'packages/pdf/README.md',
+		'packages/eigenbeleg/README.md',
 		'packages/browser-test/src/index.js'
 	]) {
 		assert.deepEqual(pr(file), { unit: false, bridge: false, e2e: 'none' }, file);
@@ -142,5 +147,27 @@ test('in the app, only unit specs and the bridge specs use the rate package', ()
 		offenders.map((p) => p.slice(repo.length + 1)),
 		[],
 		'these use the rate package: give it e2e full in ci-changes.mjs, or add them to BRIDGE_SPECS'
+	);
+});
+
+// The building blocks moved to packages/ (Le-Space/eigenbeleg-agent#6) and run
+// in a browser there; a copy under an old path would drift from them.
+test('the shared building blocks stay in packages/: none of the old paths come back', () => {
+	const repo = join(import.meta.dirname, '..');
+	const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: repo, encoding: 'utf8' })
+		.split('\0')
+		.filter(Boolean);
+	assert.ok(tracked.length > 100, 'git ls-files lists the repository');
+	const OLD = [
+		/^bridge\/src\/chains\//,
+		/^bridge\/src\/(rates|dex-rate)\.js$/,
+		/^packages\/chain-[^/]+\//,
+		/^app\/src\/lib\/receipts\/eigenbeleg[^/]*\.js$/,
+		/^app\/src\/lib\/pdf\//
+	];
+	assert.deepEqual(
+		tracked.filter((file) => OLD.some((re) => re.test(file))),
+		[],
+		'these belong in packages/ (@le-space/chains, rates, ledger, pdf, eigenbeleg): change them there'
 	);
 });

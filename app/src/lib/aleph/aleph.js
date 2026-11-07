@@ -22,7 +22,7 @@
 import { recordEvent } from '../activity/events.js';
 import { getSetting, setSetting } from '../store/settings.js';
 import { walletChain } from '../wallets/chains.js';
-import { nextSelfNumber } from '../receipts/eigenbeleg.js';
+import { nextSelfNumber } from '@le-space/eigenbeleg/booking';
 import { importFile } from '../receipts/import.js';
 import { t } from '../i18n/index.js';
 

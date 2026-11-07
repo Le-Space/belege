@@ -1,15 +1,15 @@
-// Draws a travel expense statement (statement.js) as an A4 PDF in the look
-// of the other Eigenbelege (pdf/statement-layout.js): the traveller and the
-// month, each trip with its times, allowance per day, mileage and receipts,
-// the hospitality bills, the totals and what is paid back, the rates used
-// with their sources, the warnings, and a line to sign. German, as a
-// document for German bookkeeping. Loaded on first use.
+// Draws a travel expense statement (statement.js) as an A4 PDF/A-2b in the
+// look of the other Eigenbelege (@le-space/eigenbeleg's statement-layout): the
+// traveller and the month, each trip with its times, allowance per day,
+// mileage and receipts, the hospitality bills, the totals and what is paid
+// back, the rates used with their sources, the warnings, and a line to sign.
+// German, as a document for German bookkeeping. Loaded on first use.
 
 /* eslint-disable belege/no-german -- a PDF for German bookkeeping stays German (#192) */
 
 import { formatDate } from '../bank/format.js';
 import { amount } from '../export/datev.js';
-import { statementLayout } from '../pdf/statement-layout.js';
+import { statementLayout } from '@le-space/eigenbeleg/statement-layout';
 import { tripTimes } from './statement.js';
 
 /** @param {number | null} cents */

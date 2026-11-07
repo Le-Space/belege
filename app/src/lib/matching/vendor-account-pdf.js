@@ -8,7 +8,7 @@ import { PDFDocument, rgb } from 'pdf-lib';
 
 import { formatDate, formatMoney } from '../bank/format.js';
 import { DOCUMENT_LOCALE } from '../i18n/index.js';
-import { pdfFonts, pdfText } from '../pdf/fonts.js';
+import { pdfFonts, pdfText } from '@le-space/pdf';
 
 const A4 = /** @type {[number, number]} */ ([595.28, 841.89]);
 const MARGIN = 48;
@@ -53,7 +53,7 @@ export async function vendorAccountPdf({
 	/**
 	 * @param {string} text
 	 * @param {number} x
-	 * @param {{ size?: number, font?: import('../pdf/fonts.js').Face, color?: ReturnType<typeof rgb>, right?: boolean }} [o]
+	 * @param {{ size?: number, font?: import('@le-space/pdf').Face, color?: ReturnType<typeof rgb>, right?: boolean }} [o]
 	 */
 	const draw = (
 		text,

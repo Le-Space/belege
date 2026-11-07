@@ -1,9 +1,9 @@
 <script>
 	// "Eigenbeleg erstellen" in the detail of a booking without a receipt
-	// (eigenbeleg.js) — here, or by the paired invoicing app (ucep/consumer.js).
+	// (self-receipt.js) — here, or by the paired invoicing app (ucep/consumer.js).
 	import { app, currentBlobs, currentStore, currentUcep, refreshNow } from '$lib/session.svelte.js';
 	import { t } from '$lib/i18n/index.js';
-	import { attachRemoteEigenbeleg, createEigenbeleg, eigenbelegDraft } from './eigenbeleg.js';
+	import { attachRemoteEigenbeleg, createEigenbeleg, eigenbelegDraft } from './self-receipt.js';
 
 	/** @type {{ tx: Record<string, any>, account: Record<string, any> | null }} */
 	let { tx, account } = $props();

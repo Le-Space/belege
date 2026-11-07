@@ -10,9 +10,13 @@
 // whole hash, sender and receiver with their full addresses, and every
 // movement of the transaction the books know, the gas included (#126).
 //
-// It becomes an ordinary receipt: stored sealed like an upload (source
-// `eigenbeleg`), linked to its booking as the person's decision, numbered by
-// the export and put into the ZIP like any other receipt.
+// The document and its PDF (PDF/A-2b, in Eigenbeleg's layout) come from
+// @le-space/eigenbeleg; here is what only the books know – the booking's
+// account, its parties from the address book, the other legs of its
+// transaction – and what becomes of the PDF: an ordinary receipt, stored
+// sealed like an upload (source `eigenbeleg`), linked to its booking as the
+// person's decision, numbered by the export and put into the ZIP like any
+// other receipt.
 //
 // Whether an Eigenbeleg is accepted, and up to which amount, is the tax
 // adviser's call (docs/export.md).
@@ -24,41 +28,14 @@ import { addressBook, walletParties } from '../bank/payee.js';
 import { formatQuantity } from '../assets/quantity.js';
 import { walletChain } from '../wallets/chains.js';
 import { swapText } from '../wallets/wallet-sync.js';
-import { hasQuantity } from '../assets/valuation.js';
+import { hasQuantity, SOURCE_NAMES } from '../assets/valuation.js';
 import { confirmMatch } from '../matching/actions.js';
 import { importFile } from './import.js';
+import { nextSelfNumber } from '@le-space/eigenbeleg/booking';
 
 /** @typedef {import('../store/repository.js').StoredRecord} StoredRecord */
 
-const NUMBER = /^EB-(\d{4})-(\d{3,})$/;
-
-/**
- * The next number in the Eigenbeleg range of a year: EB-2026-001, EB-2026-002, …
- *
- * @param {Record<string, any>[]} receipts all of them, set aside ones too
- * @param {string} year YYYY
- */
-export function nextSelfNumber(receipts, year) {
-	let highest = 0;
-	for (const r of receipts) {
-		const m = NUMBER.exec(String(r.selfNumber ?? ''));
-		if (m && m[1] === year) highest = Math.max(highest, Number(m[2]));
-	}
-	return `EB-${year}-${String(highest + 1).padStart(3, '0')}`;
-}
-
-/**
- * @typedef {object} ChainDetails an own wallet's transaction, in full (issue #126)
- * @property {string} chain the chain's name
- * @property {string} hash the whole transaction hash, never shortened
- * @property {string} explorerUrl
- * @property {string} at ISO 8601, when the block was made ('' when not known)
- * @property {{ label: string, address: string, own: boolean }} from
- * @property {{ label: string, address: string, own: boolean }} to
- * @property {{ what: string, quantity: string, euro: string, booked: boolean }[]} movements
- *   every movement of the transaction the books know: its legs, the gas, and a
- *   swap's side that is not booked (a token not in the chain's list)
- */
+/** @typedef {import('@le-space/eigenbeleg').ChainDetails} ChainDetails */
 
 /**
  * @typedef {{ accounts?: Record<string, any>[], partners?: Record<string, any>[], transactions?: Record<string, any>[] }} Books
@@ -171,23 +148,7 @@ export function eigenbelegDraft(tx, books = {}) {
 	};
 }
 
-/**
- * @typedef {object} EigenbelegDocument what the PDF shows
- * @property {string} number
- * @property {string} issuer our company, '' when none is set
- * @property {string} date YYYY-MM-DD, of the payment
- * @property {number} amountCents signed, from the account's view
- * @property {string} account
- * @property {string} counterparty
- * @property {string} purpose the bank's purpose, as the booking has it
- * @property {string} description what was paid for
- * @property {string} reason why there is no receipt from the other side
- * @property {string} txRef '' when none
- * @property {{ asset: string, quantity: string, decimals: number, rate: string, source: string, at: string } | null} crypto
- * @property {ChainDetails | null} [chain] an own wallet's transaction in full
- * @property {string} createdAt ISO 8601
- * @property {string} createdBy who wrote it (a name, or the identity's DID)
- */
+/** @typedef {import('@le-space/eigenbeleg').BookingEigenbeleg} EigenbelegDocument */
 
 /**
  * The document for a booking and what the person wrote.
@@ -223,7 +184,10 @@ export function eigenbelegDocument({ tx, account, input, number, issuer, created
 						quantity: String(tx.quantity),
 						decimals: Number(tx.decimals),
 						rate: String(v.rate),
-						source: String(v.source ?? ''),
+						// As it is printed: CoinGecko, EZB-Referenzkurs, …
+						source: Object.hasOwn(SOURCE_NAMES, String(v.source))
+							? /** @type {Record<string, string>} */ (SOURCE_NAMES)[String(v.source)]
+							: String(v.source ?? ''),
 						at: String(v.at ?? '')
 					}
 				: null,
@@ -277,8 +241,8 @@ export async function createEigenbeleg({
 		now: created,
 		books
 	});
-	const { eigenbelegPdf } = await import('./eigenbeleg-pdf.js');
-	const bytes = await eigenbelegPdf(doc);
+	const { bookingPdf } = await import('@le-space/eigenbeleg/booking-pdf');
+	const bytes = await bookingPdf(doc);
 
 	return storeEigenbeleg({
 		store,

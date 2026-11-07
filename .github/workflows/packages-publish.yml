@@ -4,8 +4,9 @@ name: Publish a package
 # (Le-Space/eigenbeleg-agent#6), by hand only: its tests (Node and
 # Chromium) first, then `pnpm publish` with provenance. pnpm writes the
 # version of a `workspace:^` dependency into the published package.json, so
-# @le-space/ledger goes first, then @le-space/chains and @le-space/rates.
-# Needs the NPM_TOKEN secret in the `npm` environment.
+# a package goes after the ones it depends on: ledger → rates → chains →
+# pdf → eigenbeleg (@le-space/eigenbeleg needs ledger and pdf; its tests use
+# chains). Needs the NPM_TOKEN secret in the `npm` environment.
 
 permissions:
   contents: read
@@ -17,7 +18,7 @@ on:
         description: The package to publish
         required: true
         type: choice
-        options: [ledger, chains, rates]
+        options: [ledger, rates, chains, pdf, eigenbeleg]
 
 concurrency:
   group: packages-publish

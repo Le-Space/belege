@@ -1,7 +1,7 @@
 // Belege as a UCEP consumer of the invoice extension (Le-Space/ucep-spec,
 // extensions/invoice.md): paired once with the invoicing app, it asks that app
 // for a self-issued receipt (Eigenbeleg) for a booking without a receipt, and
-// takes the PDF back as the booking's receipt (receipts/eigenbeleg.js).
+// takes the PDF back as the booking's receipt (receipts/self-receipt.js).
 //
 // What Belege keeps of the pairing — the grant and the provider's addresses —
 // is in the sealed settings collection. The catalogue of what peers serve

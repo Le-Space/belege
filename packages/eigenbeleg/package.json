@@ -1,0 +1,50 @@
+{
+	"name": "@le-space/eigenbeleg",
+	"version": "0.1.0",
+	"description": "The Eigenbeleg and the Kontoauszug of Le Space's tools: a payer's own receipt for payments without one from the other side (a period's network fees, one booking in any script), a blockchain account's statement (Aleph credits as a Verbrauchsauszug), as PDF/A-2b and CSV. Browser and Node; the rates handed in.",
+	"license": "AGPL-3.0-or-later",
+	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Le-Space/belege.git",
+		"directory": "packages/eigenbeleg"
+	},
+	"homepage": "https://github.com/Le-Space/belege/tree/main/packages/eigenbeleg#readme",
+	"sideEffects": false,
+	"exports": {
+		".": "./src/index.js",
+		"./document": "./src/document.js",
+		"./value": "./src/value.js",
+		"./csv": "./src/csv.js",
+		"./statement": "./src/statement.js",
+		"./booking": "./src/booking.js",
+		"./booking-pdf": "./src/booking-pdf.js",
+		"./statement-layout": "./src/statement-layout.js"
+	},
+	"files": ["src"],
+	"engines": {
+		"node": ">=22"
+	},
+	"publishConfig": {
+		"access": "public",
+		"provenance": true
+	},
+	"scripts": {
+		"test": "node --test --test-reporter=spec \"test/*.test.js\"",
+		"lint": "prettier --check src test scripts",
+		"pdfa-samples": "node scripts/pdfa-samples.js"
+	},
+	"dependencies": {
+		"@le-space/ledger": "workspace:^",
+		"@le-space/pdf": "workspace:^",
+		"pdf-lib": "1.17.1",
+		"uqr": "0.1.3"
+	},
+	"devDependencies": {
+		"@le-space/browser-test": "workspace:*",
+		"@le-space/chains": "workspace:^",
+		"@noble/hashes": "2.4.0",
+		"prettier": "3.6.2",
+		"unpdf": "1.8.1"
+	}
+}

@@ -1,8 +1,9 @@
-// Draws an Aleph consumption statement (aleph.js) as an A4 PDF: an
-// Eigenbeleg in the look of receipts/eigenbeleg-pdf.js, with the balances,
-// the top-ups, the consumption per day and resource, the resources with
-// their full hashes, how the euro value was reached, and a line to sign.
-// Pages as long as the month needs; text in any script (pdf/fonts.js).
+// Draws an Aleph consumption statement (aleph.js) as an A4 PDF/A-2b: an
+// Eigenbeleg in the layout of every statement Eigenbeleg (@le-space/eigenbeleg's
+// statement-layout, in Eigenbeleg's look), with the balances, the top-ups,
+// the consumption per day and resource, the resources with their full
+// hashes, how the euro value was reached, and a line to sign.
+// Pages as long as the month needs; text in any script (@le-space/pdf).
 // Loaded on first use.
 
 /* eslint-disable belege/no-german -- a PDF for German bookkeeping stays German (#192) */
@@ -10,7 +11,7 @@
 import { formatDate } from '../bank/format.js';
 import { DOCUMENT_LOCALE } from '../i18n/index.js';
 import { amount } from '../export/datev.js';
-import { statementLayout } from '../pdf/statement-layout.js';
+import { statementLayout } from '@le-space/eigenbeleg/statement-layout';
 
 /** 1234567 → "1.234.567". @param {number} n */
 const credits = (n) => Math.round(n).toLocaleString('de-DE');

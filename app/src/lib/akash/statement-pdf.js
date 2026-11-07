@@ -1,7 +1,8 @@
-// Draws the monthly Akash usage statement (statement.js) as an A4 PDF in the
-// layout of every statement Eigenbeleg (pdf/statement-layout.js): the wallet,
-// the month's totals, the network fees with their hashes, AKT burnt for ACT,
-// the deployments' usage, how amounts were reached, and a line to sign.
+// Draws the monthly Akash usage statement (statement.js) as an A4 PDF/A-2b
+// in the layout of every statement Eigenbeleg (@le-space/eigenbeleg's
+// statement-layout, in Eigenbeleg's look): the wallet, the month's totals,
+// the network fees with their hashes, AKT burnt for ACT, the deployments'
+// usage, how amounts were reached, and a line to sign.
 // Loaded on first use.
 
 /* eslint-disable belege/no-german -- a PDF for German bookkeeping stays German (#192) */
@@ -9,7 +10,7 @@
 import { formatDate } from '../bank/format.js';
 import { DOCUMENT_LOCALE } from '../i18n/index.js';
 import { amount } from '../export/datev.js';
-import { statementLayout } from '../pdf/statement-layout.js';
+import { statementLayout } from '@le-space/eigenbeleg/statement-layout';
 
 /** `0.123456` → `0,123456`. @param {string} d */
 const num = (d) => String(d).replace('.', ',');

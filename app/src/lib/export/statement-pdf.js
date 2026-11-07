@@ -1,6 +1,6 @@
 // Draws a monthly statement (statement.js) as an A4 PDF, in the browser, with
 // pdf-lib. Loaded lazily by build.js. Text in any script the fonts have
-// (pdf/fonts.js): a Russian counterparty, a Turkish purpose.
+// (@le-space/pdf): a Russian counterparty, a Turkish purpose.
 
 /* eslint-disable belege/no-german -- a PDF for German bookkeeping stays German (#192) */
 
@@ -12,7 +12,7 @@ import { formatQuantity } from '../assets/quantity.js';
 import { formatRate } from '../assets/valuation.js';
 import { amount } from './datev.js';
 import { lastDay } from './statement.js';
-import { pdfFonts, pdfText } from '../pdf/fonts.js';
+import { pdfFonts, pdfText } from '@le-space/pdf';
 
 const A4 = /** @type {[number, number]} */ ([595.28, 841.89]);
 const MARGIN = 42;
@@ -109,7 +109,7 @@ export async function statementPdf(statement, { created }) {
 	 * @param {number} x
 	 * @param {number} width
 	 * @param {'left' | 'right'} align
-	 * @param {import('../pdf/fonts.js').Face} [font]
+	 * @param {import('@le-space/pdf').Face} [font]
 	 * @param {number} [size]
 	 */
 	function cell(text, x, width, align, font = regular, size = SIZE) {
@@ -147,7 +147,7 @@ export async function statementPdf(statement, { created }) {
 		tableHeader();
 	}
 
-	/** @param {Record<string, string>} values @param {import('../pdf/fonts.js').Face} [font] */
+	/** @param {Record<string, string>} values @param {import('@le-space/pdf').Face} [font] */
 	function row(values, font = regular) {
 		newPageIfNeeded();
 		let x = MARGIN;
