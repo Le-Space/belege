@@ -5,8 +5,9 @@
 // Questions are worked out from the books each time, not stored: they go
 // away as soon as what they ask for is there.
 //   receiptWithoutTrip     a ticket not assigned to any trip
-//   tripWithoutTimes       no allowance can be computed
+//   tripWithoutTimes       no allowance can be computed (and whatever else it lacks)
 //   tripIncomplete         no destination, no reason, a mileage line without km or date
+// A trip asks one question, naming all it lacks.
 //   hospitalityIncomplete  a hospitality bill without place, participants, occasion or tip recipient
 
 import { matchOfReceipt } from '../matching/view.js';
@@ -312,6 +313,32 @@ export function tipOf(receipt, { transactions = [], matches = [] } = {}) {
 }
 
 /**
+ * The receipts of a trip still without euros (#693): in another currency,
+ * with an amount and a day, and no outlay, payment or rate that gives them
+ * euros. "Kurse holen" asks the bridge for each one's rate of its day.
+ *
+ * @param {Rec[]} receipts the trip's
+ * @param {{ transactions?: Rec[], matches?: Rec[] }} [books]
+ * @returns {{ receiptId: string, currency: string, day: string, originalCents: number }[]}
+ */
+export function ratesWanted(receipts, books = {}) {
+	const out = [];
+	for (const r of receipts) {
+		const euro = euroOf(r, books);
+		const day = receiptDate(/** @type {any} */ (r));
+		if (euro.currency === 'EUR' || euro.cents !== null || euro.originalCents === null || !day)
+			continue;
+		out.push({
+			receiptId: String(r.id),
+			currency: euro.currency,
+			day,
+			originalCents: euro.originalCents
+		});
+	}
+	return out;
+}
+
+/**
  * What a trip costs in all, and what of it is paid back (#693): its receipts
  * by who paid them (privately, booked as an outlay, by the company), the tips
  * of its hospitality bills, the allowances, mileage and overnight flat rates.
@@ -363,7 +390,7 @@ export function tripTotals(receipts, figures, books = {}) {
 
 /**
  * @typedef {{ kind: 'receiptWithoutTrip', receiptId: string }
- *   | { kind: 'tripWithoutTimes', tripId: string }
+ *   | { kind: 'tripWithoutTimes', tripId: string, problems: string[] }
  *   | { kind: 'tripIncomplete', tripId: string, problems: string[] }
  *   | { kind: 'hospitalityIncomplete', receiptId: string, missing: string[] }
  *   | { kind: 'statementNotPaidOut', statementId: string, number: string, month: string, openCents: number }} TravelQuestion
@@ -378,12 +405,14 @@ export function travelQuestions({ travel, receipts }) {
 	const out = [];
 	for (const trip of allTrips(travel)) {
 		const { problems } = cleanTrip(trip);
-		if (problems.includes('noTimes') || problems.includes('endBeforeStart'))
-			out.push({ kind: 'tripWithoutTimes', tripId: trip.id });
+		// One question per trip (#693), naming all it lacks: times first, as no
+		// allowance can be computed without them.
 		const rest = problems.filter(
 			(p) => p !== 'noTimes' && p !== 'endBeforeStart' && p !== 'noTraveller'
 		);
-		if (rest.length) out.push({ kind: 'tripIncomplete', tripId: trip.id, problems: rest });
+		if (problems.includes('noTimes') || problems.includes('endBeforeStart'))
+			out.push({ kind: 'tripWithoutTimes', tripId: trip.id, problems: rest });
+		else if (rest.length) out.push({ kind: 'tripIncomplete', tripId: trip.id, problems: rest });
 	}
 	const trips = new Set(allTrips(travel).map((t) => t.id));
 	for (const r of receipts) {

@@ -3374,9 +3374,18 @@ export default {
 			title: 'Offene Punkte bei Reisen: {count}',
 			receiptWithoutTrip: 'Reisebeleg ohne Reise: {what}',
 			hospitalityIncomplete: 'Bewirtung ohne {missing}: {what}',
-			tripWithoutTimes: 'Reise ohne Zeiten, keine Pauschale berechenbar: {what}',
+			tripWithoutTimes: 'Reise ohne {lacks} – keine Pauschale berechenbar: {what}',
 			statementNotPaidOut: 'Abrechnung {number} ist nicht ausgezahlt: {amount} offen',
-			tripIncomplete: 'Reise mit Lücken: {what}'
+			tripIncomplete: 'Reise ohne {lacks}: {what}',
+			lack: {
+				start: 'Abfahrt',
+				end: 'Rückkehr',
+				times: 'stimmige Zeiten',
+				noDestination: 'Ziel',
+				noReason: 'geschäftlichen Anlass',
+				dayTripTooLong: 'passende Übernachtung',
+				mileage: 'vollständige Kilometer'
+			}
 		},
 		proposals: {
 			title: 'Von den Belegen vorgeschlagen: {count}',
@@ -3468,6 +3477,16 @@ export default {
 		questionsElsewhere: 'Auch bei den Reisen gibt es offene Punkte: {count}'
 	},
 	reise: {
+		ratesWanted: 'Belege in fremder Währung ohne Kurs: {count}',
+		ratesFetch: 'Kurse holen',
+		ratesFetching: 'Hole Kurse …',
+		ratesNoBridge:
+			'Keine Bridge gekoppelt: Unter Integrationen koppeln, oder den Kurs am Beleg von Hand eintragen.',
+		rateOffer: '{original} → {amount} (1 EUR = {rate} {currency}, {source}, {day})',
+		rateNone:
+			'kein Kurs für {currency} am {day} – am Beleg von Hand eintragen, etwa vom Kontoauszug.',
+		ratesTake: 'Übernehmen ({count})',
+		ratesCancel: 'Verwerfen',
 		headFromTickets: 'Aus den Fahrkarten: {what}',
 		headDestination: 'Ziel {place}',
 		headStart: 'Abfahrt {at}',

@@ -8,6 +8,14 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **"Kurse holen" on a trip** (#693). Receipts of a trip in another currency still without euros get their day's rate from the bridge in one go (ECB, Bank of Russia, National Bank of Kazakhstan, a cross rate), each shown with its euros, rate and source; _Übernehmen_ keeps them. Before, each rate was fetched on its receipt, one by one.
+
+### Changed
+
+- **One open point per trip.** A trip without a return and without a reason showed as two points with the same link. It is one now, naming what it lacks: "Reise ohne Rückkehr, geschäftlichen Anlass – keine Pauschale berechenbar".
+
+### Added
+
 - **Destination and times from the tickets** (#693). A trip made before its receipts were read kept an empty head. Where destination, departure or return are empty and the trip's tickets and hotels know them, the trip offers them with _Übernehmen_: the first printed departure, the last arrival, a return only where a ticket leads back home, never the day a ticket was bought.
 - **Why "von der Firma"**: a receipt on a trip paid from a business account names the payment's day.
 

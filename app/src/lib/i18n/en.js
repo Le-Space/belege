@@ -3321,9 +3321,18 @@ export default {
 			title: 'Open points in travel: {count}',
 			receiptWithoutTrip: 'Travel receipt without a trip: {what}',
 			hospitalityIncomplete: 'Hospitality without {missing}: {what}',
-			tripWithoutTimes: 'Trip without times, no allowance can be computed: {what}',
+			tripWithoutTimes: 'Trip without {lacks} – no allowance can be computed: {what}',
 			statementNotPaidOut: 'Statement {number} is not paid out: {amount} open',
-			tripIncomplete: 'Trip with gaps: {what}'
+			tripIncomplete: 'Trip without {lacks}: {what}',
+			lack: {
+				start: 'departure',
+				end: 'return',
+				times: 'times that fit',
+				noDestination: 'destination',
+				noReason: 'business reason',
+				dayTripTooLong: 'a fitting night away',
+				mileage: 'complete mileage'
+			}
 		},
 		proposals: {
 			title: 'Proposed by the receipts: {count}',
@@ -3415,6 +3424,16 @@ export default {
 		questionsElsewhere: 'Travel has open points too: {count}'
 	},
 	reise: {
+		ratesWanted: 'Receipts in another currency without a rate: {count}',
+		ratesFetching: 'Fetching rates …',
+		ratesFetch: 'Fetch rates',
+		ratesNoBridge:
+			'No bridge paired: pair one under Integrationen, or enter the rate on the receipt by hand.',
+		rateOffer: '{original} → {amount} (1 EUR = {rate} {currency}, {source}, {day})',
+		rateNone:
+			'no rate for {currency} on {day} – enter it on the receipt by hand, for instance from the statement.',
+		ratesTake: 'Take them ({count})',
+		ratesCancel: 'Discard',
 		headFromTickets: 'From the tickets: {what}',
 		headDestination: 'destination {place}',
 		headStart: 'departure {at}',
