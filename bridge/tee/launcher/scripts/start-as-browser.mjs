@@ -2,19 +2,23 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // start-as-browser.mjs: what the start screen will do, from a terminal, for a
-// test run on testnet (#696). The books ask the contract for a start, wait
-// for the launcher's env key, encrypt the secrets to it as Phala expects
-// (x25519, AES-256-GCM: hex of ephemeral key ‖ iv ‖ ciphertext and tag), sign
-// the upload with a key of the books, then wait until the contract shows an
-// attested bridge.
+// test run on testnet (#696), in two phases:
+//
+// 1. The books ask the contract for a start, wait for the launcher's env key,
+//    encrypt the start (bridge_start, nothing secret) to it as Phala expects
+//    (x25519, AES-256-GCM: hex of ephemeral key ‖ iv ‖ ciphertext and tag),
+//    sign the upload with a key of the books.
+// 2. Once the contract shows the VM attested, they take the VM's intake key
+//    from the launcher, check its hash against the contract, seal the
+//    secrets to it (dstack/intake.mjs) and upload them, signed.
 //
 //   BOOKS_ACCOUNT_ID   the books' NEAR account (testnet), its key in ~/.near-credentials
 //   BRIDGE_CONTRACT_ID the contract
 //   LAUNCHER_URL       default http://127.0.0.1:8790
 //   NEAR_RPC_URL       default https://rpc.testnet.fastnear.com
 //
-// Test secrets only: this sends bridge_start and nothing else. Keys are read,
-// never printed.
+// Test secrets only: a made-up config and account. Keys are read, never
+// printed. (The start page also checks the KMS's signature over the env key.)
 
 import {
 	createCipheriv,
@@ -35,7 +39,8 @@ import { JsonRpcProvider } from '@near-js/providers';
 import { KeyPairSigner } from '@near-js/signers';
 import { base58 } from '@scure/base';
 
-import { envMessage } from '../src/launcher.js';
+import { envMessage, secretsMessage } from '../src/launcher.js';
+import { sealSecrets } from '../../dstack/intake.mjs';
 
 const env = process.env;
 const books = env.BOOKS_ACCOUNT_ID ?? '';
@@ -150,8 +155,9 @@ for (;;) {
 	const b = /** @type {any} */ (await provider.callFunction(contractId, 'get_books', { books }));
 	if (b?.bridge?.start_at_ms === atMs && b.bridge.valid) {
 		say(
-			`attested bridge on NEAR: compose ${b.bridge.compose_hash.slice(0, 12)}…, node key hash ${b.bridge.peer_key_hash.slice(0, 12)}…`
+			`attested VM on NEAR: compose ${b.bridge.compose_hash.slice(0, 12)}…, intake key hash ${b.bridge.intake_key_hash.slice(0, 12)}…`
 		);
+		info = b.bridge;
 		break;
 	}
 	if (b?.request == null && !b?.bridge) {
@@ -160,3 +166,29 @@ for (;;) {
 	}
 	await wait(3000);
 }
+
+const shown = await (await fetch(`${launcher}/v1/starts/${books}`)).json();
+const hash = createHash('sha256')
+	.update(Buffer.from(String(shown.intake_key), 'hex'))
+	.digest('hex');
+if (shown.at_ms !== atMs || hash !== info.intake_key_hash) {
+	say('the launcher shows another intake key than the contract: nothing sent');
+	process.exit(1);
+}
+const sealed = sealSecrets(
+	JSON.stringify({ bridge_config: JSON.stringify({ devices: [] }), coingecko: 'test-not-a-key' }),
+	shown.intake_key,
+	books,
+	atMs
+);
+const sent = await fetch(`${launcher}/v1/starts/${books}/secrets`, {
+	method: 'POST',
+	headers: { 'content-type': 'application/json' },
+	body: JSON.stringify({
+		at_ms: atMs,
+		sealed,
+		public_key: cred.public_key,
+		signature: signAsBooks(secretsMessage(books, atMs, sealed))
+	})
+});
+say(`secrets sealed to the attested VM: HTTP ${sent.status} ${JSON.stringify(await sent.json())}`);

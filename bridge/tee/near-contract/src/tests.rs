@@ -109,7 +109,7 @@ fn a_bridge_answers_the_start_and_the_browser_reads_its_key() {
     started(&mut c);
     let view = register(&mut c, 3_000);
     assert!(view.valid);
-    assert_eq!(view.peer_key_hash, "07".repeat(32));
+    assert_eq!(view.intake_key_hash, "07".repeat(32));
     assert_eq!(view.start_at_ms, U64(2_000));
     let books = c.get_books(acc("books-a.testnet")).unwrap();
     assert!(books.request.is_none(), "the start was answered");

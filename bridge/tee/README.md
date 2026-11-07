@@ -29,11 +29,13 @@ flowchart LR
   L -- "reads open requests" --> C
   L -- "provision · create · delete" --> P
   P --- V
-  B -- "secrets, encrypted to the VM, signed" --> L
+  B -- "1: the start, encrypted to the app's KMS key, signed" --> L
   L -- "encrypted env, unread" --> P
   V -- "quote" --> L
   L -- "register_bridge" --> C
-  B -- "reads the attested bridge" --> C
+  B -- "reads the attested VM and its key hash" --> C
+  B -- "2: secrets, sealed to the attested VM's key, signed" --> L
+  L -- "sealed secrets, unread" --> V
   V -- "dials out" --> R
   B -- "pairs over the relay, after checking the peer id" --> R
 ```
@@ -55,21 +57,25 @@ sequenceDiagram
   L->>P: provision(compose of the released image)
   P-->>L: app id, compose hash, env key
   B->>L: GET /v1/starts/<books>
-  L-->>B: env key, compose hash
-  B->>B: encrypt secrets + bridge_start {books, at_ms} to the env key (x25519, AES-GCM)
+  L-->>B: env key with the KMS's signature, compose hash
+  B->>B: check the KMS signature; encrypt bridge_start {books, at_ms} to the env key
   B->>L: POST /v1/starts/<books> encrypted env, signed by a key of the books
   L->>C: is this key one of the books'? (view_access_key)
   L->>P: create VM (encrypted env)
-  P->>V: boot; dstack decrypts the env inside the TEE
-  V->>V: sort secrets into tmpfs, start the bridge (empty environment)
-  V->>V: bridge writes node/public-key.sha256
-  V->>V: quote from dstack: report data = H(books ‖ at_ms) ‖ H(node key)
-  V->>L: POST /v1/bridge-quote
+  P->>V: boot; dstack decrypts the env inside the TEE (no secrets in it)
+  V->>V: registrar: an X25519 intake key of its own
+  V->>V: quote from dstack: report data = H(books ‖ at_ms) ‖ H(intake key)
+  V->>L: POST /v1/bridge-quote (with the intake key)
   L->>P: collateral for the quote
-  L->>C: register_bridge(books, attestation, key hash)
+  L->>C: register_bridge(books, attestation, H(intake key))
   C-->>C: DCAP, RTMR3, compose hash, PPID ok and answers the open start → store
-  B->>C: get_books(): bridge valid, peer_key_hash
-  B->>V: dial over the books' relay, check H(peer id) = peer_key_hash, pair (#585)
+  B->>C: get_books(): VM valid, intake_key_hash
+  B->>L: GET /v1/starts/<books>: the intake key
+  B->>B: check H(intake key) = intake_key_hash; seal the secrets to it
+  B->>L: POST /v1/starts/<books>/secrets, signed by a key of the books
+  V->>L: GET /v1/bridge-secrets/<books>/<at_ms>
+  V->>V: open, sort into tmpfs, start the bridge (empty environment)
+  B->>V: dial over the books' relay; the node key came with the secrets, so the peer id is known (#585)
 ```
 
 ## A stop
@@ -88,7 +94,9 @@ sequenceDiagram
   L->>C: ack_request(books, at_ms, "stopped")
 ```
 
-A start that nobody finishes (no env, or no quote, within 10 minutes) is given up the same way: the launcher deletes the VM and answers the start with its reason.
+A start that nobody finishes (no env, no quote, or no secrets within 10 minutes) is given up the same way: the launcher deletes the VM and answers the start with its reason.
+
+The secrets go only to a VM the contract has attested: the VM boots without them, and the browser seals them to the key in that VM's quote. The bridge's node key is one of them, so the peer id the browser dials belongs to that VM alone.
 
 ## What each party can and cannot do
 
@@ -96,20 +104,20 @@ A start that nobody finishes (no env, or no quote, within 10 minutes) is given u
 |---|---|---|
 | **Belege (the books)** | start and stop its bridge; grant another agent the right to (at most 8, revocable) | start the bridge of other books |
 | **Another agent** | start and stop, if the books granted it | see the secrets: only the browser with the open vault has them |
-| **Launcher (Le Space)** | create and delete VMs, pay gas, submit quotes | read the secrets (they are encrypted to the VM); register a bridge the quote does not prove; answer a start with a VM it made for another start |
-| **Phala** | run, stop, delete the VM; see the image, run times, an encrypted env | read the env or the VM's memory (TDX); change the code without changing the compose hash |
-| **The VM** | decrypt its env, run the bridge, prove what runs | act on NEAR (it has no key and no money); answer an old start (the quote binds `at_ms`) |
+| **Launcher (Le Space)** | create and delete VMs, pay gas, submit quotes | read the secrets (they are sealed to the attested VM); hand the browser an env key the KMS did not sign or an intake key the contract does not show; register a bridge the quote does not prove; answer a start with a VM it made for another start |
+| **Phala** | run, stop, delete the VM; see the image, run times, an encrypted env | read the secrets or the VM's memory (TDX); change the code without changing the compose hash |
+| **The VM** | open the secrets sealed to its key, run the bridge, prove what runs | act on NEAR (it has no key and no money); answer an old start (the quote binds `at_ms`) |
 | **The contract owner (Le Space)** | approve and withdraw code (measurements) and Phala machines (PPIDs) | — a withdrawn release makes its bridges invalid at once |
 
 ## What is public
 
-- **On NEAR:** the books' NEAR account, when it asked for a start or stop, whom it granted, the attested bridge's compose hash and node key hash.
+- **On NEAR:** the books' NEAR account, when it asked for a start or stop, whom it granted, the attested VM's compose hash and the hash of its intake key.
 - **At Phala:** the image (it is public anyway), a hash instead of the books' name as the VM name, and the run times.
 - **Never outside the VM and the browser:** the secrets and the bridge's data.
 
 ## Measured on testnet
 
-A first full run on 2026-11-07: Phala `tdx.small` in US-WEST-1, the contract on NEAR testnet, the launcher on a laptop. The script `launcher/scripts/start-as-browser.mjs` played the browser.
+A first full run on 2026-11-07, still in one phase (the secrets came with the env): Phala `tdx.small` in US-WEST-1, the contract on NEAR testnet, the launcher on a laptop. The script `launcher/scripts/start-as-browser.mjs` played the browser. The second phase adds the hand-over after `register_bridge`: the browser's read of the contract, one upload, and the registrar's next poll (every 3 s).
 
 | Step | Time |
 |---|---|

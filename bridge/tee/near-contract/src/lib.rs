@@ -10,15 +10,18 @@
 // 2. Who asked to start or stop the bridge of some books? The books' own NEAR
 //    account, or an account it granted (another agent). The Le Space launcher
 //    acts on the events; nothing secret is stored here.
-// 3. Which bridge answered that start, with which node key? The VM makes a
+// 3. Which VM answered that start, and under which key does it take its
+//    secrets? The VM boots without them, makes an X25519 key of its own and a
 //    dstack quote whose report data is
 //      SHA-256("belege-bridge/start/1" ‖ books ‖ ":" ‖ the request's time)
-//      ‖ SHA-256 of the bridge's libp2p public key
+//      ‖ SHA-256 of that X25519 public key
 //    and hands it out (it has no NEAR key and no money); anyone may submit it,
 //    the launcher does. The contract checks the quote (NEAR's
 //    shade-attestation: DCAP, RTMR3 replay, compose hash, PPID) against the
-//    pending start of those books, so a quote answers one start only. A
-//    browser that pairs with the bridge checks the peer id against it.
+//    pending start of those books, so a quote answers one start only. Only
+//    then does the browser encrypt the bridge's secrets to that key: they
+//    reach this attested VM and no other. The bridge's node key is one of
+//    those secrets, so its peer id, which the browser knows, proves the VM.
 //
 // Made after NEAR's Shade Agent template (NearDeFi/shade-agent-template,
 // Apache-2.0); the attestation check is its crate, used as it is.
@@ -68,7 +71,7 @@ pub struct Request {
 #[near(serializers = [borsh])]
 #[derive(Clone)]
 pub struct Bridge {
-    pub peer_key_hash: KeyHash,
+    pub intake_key_hash: KeyHash,
     pub measurements: FullMeasurementsHex,
     pub ppid: Ppid,
     /// the start it answered
@@ -87,8 +90,8 @@ pub struct Books {
 #[near(serializers = [json])]
 #[derive(Debug, PartialEq, Eq)]
 pub struct BridgeView {
-    /// hex SHA-256 of the bridge's libp2p public key (protobuf), as the peer id carries it
-    pub peer_key_hash: String,
+    /// hex SHA-256 of the X25519 key the VM takes the bridge's secrets under
+    pub intake_key_hash: String,
     /// hex compose hash the VM runs, as Phala provisioned it
     pub compose_hash: String,
     pub start_at_ms: U64,
@@ -139,11 +142,11 @@ fn emit(event: &str, data: near_sdk::serde_json::Value) {
 }
 
 /// The 64 bytes a bridge's quote must carry to answer the start of `books` at `start_at_ms`.
-pub fn expected_report_data(books: &AccountId, start_at_ms: u64, peer_key_hash: &KeyHash) -> [u8; 64] {
+pub fn expected_report_data(books: &AccountId, start_at_ms: u64, intake_key_hash: &KeyHash) -> [u8; 64] {
     let binding = format!("{START_DOMAIN}{books}:{start_at_ms}");
     let mut data = [0u8; 64];
     data[..32].copy_from_slice(&env::sha256_array(binding.as_bytes()));
-    data[32..].copy_from_slice(peer_key_hash.as_ref());
+    data[32..].copy_from_slice(intake_key_hash.as_ref());
     data
 }
 
@@ -207,7 +210,7 @@ impl Contract {
         &mut self,
         books: AccountId,
         attestation: DstackAttestation,
-        peer_key_hash: KeyHash,
+        intake_key_hash: KeyHash,
     ) -> BridgeView {
         let start_at_ms = {
             let b = self.books.get(&books).expect("No such books");
@@ -216,10 +219,10 @@ impl Contract {
                 _ => env::panic_str("These books did not ask for a start"),
             }
         };
-        let (measurements, ppid) = self.verify(&books, start_at_ms, &peer_key_hash, attestation);
+        let (measurements, ppid) = self.verify(&books, start_at_ms, &intake_key_hash, attestation);
         let now = block_timestamp_ms();
         let bridge = Bridge {
-            peer_key_hash,
+            intake_key_hash,
             measurements,
             ppid,
             start_at_ms,
@@ -232,7 +235,7 @@ impl Contract {
         b.bridge = Some(bridge);
         emit(
             "bridge_registered",
-            json!({ "books": books, "peer_key_hash": view.peer_key_hash, "compose_hash": view.compose_hash }),
+            json!({ "books": books, "intake_key_hash": view.intake_key_hash, "compose_hash": view.compose_hash }),
         );
         view
     }
@@ -402,7 +405,7 @@ impl Contract {
         &self,
         books: &AccountId,
         start_at_ms: u64,
-        peer_key_hash: &KeyHash,
+        intake_key_hash: &KeyHash,
         attestation: DstackAttestation,
     ) -> (FullMeasurementsHex, Ppid) {
         if !self.requires_tee {
@@ -412,7 +415,7 @@ impl Contract {
             );
             return (create_mock_full_measurements_hex(), Ppid::default());
         }
-        let report_data = ReportData::from(expected_report_data(books, start_at_ms, peer_key_hash));
+        let report_data = ReportData::from(expected_report_data(books, start_at_ms, intake_key_hash));
         let accepted: Vec<FullMeasurements> =
             self.approved_measurements.iter().cloned().map(Into::into).collect();
         let ppids: Vec<Ppid> = self.approved_ppids.iter().cloned().collect();
@@ -427,7 +430,7 @@ impl Contract {
             && self.approved_measurements.contains(&b.measurements)
             && self.approved_ppids.contains(&b.ppid);
         BridgeView {
-            peer_key_hash: hex::encode(b.peer_key_hash.as_ref()),
+            intake_key_hash: hex::encode(b.intake_key_hash.as_ref()),
             compose_hash: hex::encode(b.measurements.app_compose_hash_payload.as_ref()),
             start_at_ms: U64(b.start_at_ms),
             registered_ms: U64(b.registered_ms),

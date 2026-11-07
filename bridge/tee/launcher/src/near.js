@@ -48,12 +48,12 @@ export function nearClient({ rpcUrl, contractId, accountId, secretKey }) {
 				return false;
 			}
 		},
-		/** @param {{ books: string, attestation: any, peerKeyHash: string }} o */
-		async registerBridge({ books, attestation, peerKeyHash }) {
+		/** @param {{ books: string, attestation: any, intakeKeyHash: string }} o */
+		async registerBridge({ books, attestation, intakeKeyHash }) {
 			return account.callFunction({
 				contractId,
 				methodName: 'register_bridge',
-				args: { books, attestation, peer_key_hash: peerKeyHash },
+				args: { books, attestation, intake_key_hash: intakeKeyHash },
 				gas: 300n * TGAS
 			});
 		},

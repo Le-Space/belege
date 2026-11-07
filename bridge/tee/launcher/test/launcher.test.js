@@ -1,13 +1,19 @@
 // The launcher against a fake contract and a fake Phala: a start is
 // provisioned, the env is taken only when signed by a key of the books, the
-// quote becomes register_bridge, a stop deletes the VM, a start nobody
-// finishes is given up.
+// quote becomes register_bridge, the secrets sealed to the attested VM are
+// held for it, a stop deletes the VM, a start nobody finishes is given up.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { generateKeyPairSync, sign } from 'node:crypto';
+import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { base58 } from '@scure/base';
 
-import { START_TIMEOUT_MS, createLauncher, envMessage, verifyEd25519 } from '../src/launcher.js';
+import {
+	START_TIMEOUT_MS,
+	createLauncher,
+	envMessage,
+	secretsMessage,
+	verifyEd25519
+} from '../src/launcher.js';
 import { launcherServer } from '../src/server.js';
 
 function keypair() {
@@ -43,7 +49,13 @@ function world() {
 	const phala = /** @type {any} */ ({
 		provision: async (/** @type {any} */ body) => {
 			calls.push(['provision', body.name]);
-			return { appId: 'app1', composeHash: 'c'.repeat(64), envPublicKey: 'e'.repeat(64) };
+			return {
+				appId: 'app1',
+				composeHash: 'c'.repeat(64),
+				envPublicKey: 'e'.repeat(64),
+				kms: 'pha1-prod3',
+				envKeySignature: 'f'.repeat(130)
+			};
 		},
 		create: async (/** @type {any} */ a) => {
 			calls.push(['create', a]);
@@ -83,7 +95,9 @@ test('the books sign what they hand over; ed25519 as NEAR keys are', () => {
 	assert.equal(verifyEd25519('ed25519:nope', m, k.sign(m)), false);
 });
 
-test('a start: provision, signed env, VM, quote, register_bridge', async () => {
+const INTAKE = '0a'.repeat(32);
+
+test('a start: provision, signed env, VM, quote, register_bridge, sealed secrets', async () => {
 	const w = world();
 	w.open.push(start);
 	await w.launcher.tick();
@@ -92,6 +106,8 @@ test('a start: provision, signed env, VM, quote, register_bridge', async () => {
 		app_id: 'app1',
 		compose_hash: 'c'.repeat(64),
 		env_public_key: 'e'.repeat(64),
+		kms: 'pha1-prod3',
+		env_key_signature: 'f'.repeat(130),
 		phase: 'waiting for env'
 	});
 	await w.launcher.tick();
@@ -128,7 +144,7 @@ test('a start: provision, signed env, VM, quote, register_bridge', async () => {
 	const q = await w.launcher.quote({
 		books: 'books-a.testnet',
 		start_at_ms: '2000',
-		peer_key_hash: '09'.repeat(32),
+		intake_key: INTAKE,
 		quote: '0x0102',
 		tcb_info: JSON.stringify({
 			mrtd: 'aa',
@@ -138,12 +154,58 @@ test('a start: provision, signed env, VM, quote, register_bridge', async () => {
 	assert.equal(q.status, 200);
 	const reg = w.calls.find((c) => c[0] === 'register')?.[1];
 	assert.equal(reg.books, 'books-a.testnet');
-	assert.equal(reg.peerKeyHash, '09'.repeat(32));
+	assert.equal(
+		reg.intakeKeyHash,
+		createHash('sha256').update(Buffer.from(INTAKE, 'hex')).digest('hex'),
+		'the contract gets the hash of the key the VM showed'
+	);
 	assert.deepEqual(reg.attestation.quote, [1, 2]);
 	assert.deepEqual(reg.attestation.tcb_info.event_log, [
 		{ imr: 3, event_type: 1, digest: 'd', event: 'e', event_payload: 'p' }
 	]);
 	assert.deepEqual(w.launcher.state().running, { 'books-a.testnet': 'cvm_1' });
+
+	// Phase 2: the browser sees the VM attested and seals the secrets to its key.
+	assert.deepEqual(w.launcher.startInfo('books-a.testnet'), {
+		at_ms: '2000',
+		phase: 'attested',
+		intake_key: INTAKE
+	});
+	assert.equal(w.launcher.secretsFor('books-a.testnet', '2000'), null, 'nothing yet');
+	const sealed = '5e'.repeat(60);
+	/** @param {any} who @param {string} message */
+	const upload = (who, message) =>
+		w.launcher.uploadSecrets('books-a.testnet', {
+			at_ms: '2000',
+			sealed,
+			public_key: who.publicKey,
+			signature: who.sign(message)
+		});
+	const right = secretsMessage('books-a.testnet', '2000', sealed);
+	assert.equal((await upload(keypair(), right)).status, 403, 'a key that is not the books’');
+	assert.equal(
+		(await upload(w.books, envMessage('books-a.testnet', '2000', sealed))).status,
+		403,
+		'an env signature is not a secrets signature'
+	);
+	assert.equal((await upload(w.books, right)).status, 202);
+	assert.deepEqual(w.launcher.secretsFor('books-a.testnet', '2000'), { sealed });
+	assert.equal(w.launcher.secretsFor('books-a.testnet', '1999'), null, 'only for its start');
+	assert.equal((await upload(w.books, right)).status, 409, 'once');
+});
+
+test('secrets before the VM is attested are refused', async () => {
+	const w = world();
+	w.open.push(start);
+	await w.launcher.tick();
+	const sealed = '5e'.repeat(60);
+	const r = await w.launcher.uploadSecrets('books-a.testnet', {
+		at_ms: '2000',
+		sealed,
+		public_key: w.books.publicKey,
+		signature: w.books.sign(secretsMessage('books-a.testnet', '2000', sealed))
+	});
+	assert.equal(r.status, 409);
 });
 
 test('a quote for another start is refused', async () => {
@@ -153,7 +215,7 @@ test('a quote for another start is refused', async () => {
 	const r = await w.launcher.quote({
 		books: 'books-a.testnet',
 		start_at_ms: '2000',
-		peer_key_hash: '09'.repeat(32),
+		intake_key: INTAKE,
 		quote: 'aa',
 		tcb_info: {}
 	});
@@ -224,7 +286,7 @@ test('the HTTP API: CORS for the app only, a body limit, accounts checked', asyn
 		assert.equal((await fetch(`${base}/v1/starts/books-b.testnet`)).status, 404);
 		const big = await fetch(`${base}/v1/bridge-quote`, {
 			method: 'POST',
-			body: 'x'.repeat(2 * 1024 * 1024)
+			body: 'x'.repeat(5 * 1024 * 1024)
 		}).catch(() => null);
 		assert.ok(!big || big.status === 413);
 	} finally {

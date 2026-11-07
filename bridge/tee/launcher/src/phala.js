@@ -36,10 +36,20 @@ export function phalaClient({ apiKey, fetchImpl = fetch }) {
 		/** @param {any} body the provision request (provision.mjs's provisionBody) */
 		async provision(body) {
 			const d = await call('/cvms/provision', body);
+			const kms = String(d.kms_info?.slug ?? '');
+			if (!/^[a-z0-9-]{1,64}$/.test(kms) || !/^[0-9a-f]{40}$/.test(String(d.app_id)))
+				throw new Error('Phala provision: no KMS or app id');
+			// The KMS's signature over the env key, so the browser need not take
+			// the key on the launcher's word (env-key.js on the start page).
+			const k = await call(`/kms/${kms}/pubkey/${d.app_id}`);
+			if (k?.public_key !== d.app_env_encrypt_pubkey)
+				throw new Error('Phala: the KMS names another env key');
 			return {
 				appId: d.app_id,
 				composeHash: d.compose_hash,
-				envPublicKey: d.app_env_encrypt_pubkey
+				envPublicKey: d.app_env_encrypt_pubkey,
+				kms,
+				envKeySignature: String(k.signature ?? '')
 			};
 		},
 		/** @param {{ appId: string, composeHash: string, encryptedEnv: string }} o */

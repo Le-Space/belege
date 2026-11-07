@@ -3,17 +3,19 @@
 // The launcher's HTTP API, behind the Le Space reverse proxy:
 //
 //   GET  /v1/starts/<books>   the open start's env key, for the browser   (CORS)
-//   POST /v1/starts/<books>   the browser's encrypted env, signed          (CORS)
+//   POST /v1/starts/<books>   the browser's encrypted start, signed        (CORS)
+//   POST /v1/starts/<books>/secrets  the secrets, sealed to the attested VM (CORS)
 //   POST /v1/bridge-quote     the VM's quote (registrar.mjs)
+//   GET  /v1/bridge-secrets/<books>/<start ms>  the VM fetches its sealed secrets
 //   GET  /healthz
 //
-// Bodies are limited; nothing secret is logged (the env is encrypted to the
-// VM, the quote is public).
+// Bodies are limited; nothing secret is logged (the env and the secrets are
+// encrypted to the VM, the quote is public).
 
 import { createServer } from 'node:http';
 
 const ACCOUNT = /^(?=.{2,64}$)([a-z\d]+[-_])*[a-z\d]+(\.([a-z\d]+[-_])*[a-z\d]+)*$/;
-const MAX_BODY = 1024 * 1024;
+const MAX_BODY = 4 * 1024 * 1024;
 
 /**
  * @param {ReturnType<typeof import('./launcher.js').createLauncher>} launcher
@@ -76,6 +78,20 @@ export function launcherServer(
 					const r = await launcher.uploadEnv(books, await json());
 					return send(r.status, r.body ?? { error: r.error });
 				}
+			}
+			const sec = /^\/v1\/starts\/([^/]+)\/secrets$/.exec(url.pathname);
+			if (sec && req.method === 'POST') {
+				const books = decodeURIComponent(sec[1]);
+				if (!ACCOUNT.test(books)) return send(400, { error: 'not a NEAR account' });
+				const r = await launcher.uploadSecrets(books, await json());
+				return send(r.status, r.body ?? { error: r.error });
+			}
+			const fetchSecrets = /^\/v1\/bridge-secrets\/([^/]+)\/(\d{1,16})$/.exec(url.pathname);
+			if (fetchSecrets && req.method === 'GET') {
+				const books = decodeURIComponent(fetchSecrets[1]);
+				if (!ACCOUNT.test(books)) return send(400, { error: 'not a NEAR account' });
+				const r = launcher.secretsFor(books, fetchSecrets[2]);
+				return r ? send(200, r) : send(404, { error: 'not yet' });
 			}
 			if (url.pathname === '/v1/bridge-quote' && req.method === 'POST') {
 				const r = await launcher.quote(await json());
