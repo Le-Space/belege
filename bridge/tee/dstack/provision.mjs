@@ -19,15 +19,28 @@ import { fileURLToPath } from 'node:url';
 export const API = 'https://cloud-api.phala.com/api/v1';
 const IMAGE = /^[a-z0-9./_-]+@sha256:[0-9a-f]{64}$/;
 
-/** @param {string} image pinned by digest */
-export function composeFor(image) {
+export const LAUNCHER_URL = 'https://bridge-launcher.le-space.de';
+const HTTPS_ORIGIN = /^https:\/\/[a-z0-9.-]+$/;
+
+/**
+ * @param {string} image pinned by digest
+ * @param {{ launcherUrl?: string }} [o] where the quote goes; another launcher
+ *   (a test one) makes another compose, and so another hash to approve
+ */
+export function composeFor(image, { launcherUrl = LAUNCHER_URL } = {}) {
 	if (!IMAGE.test(image)) throw new Error('the image must be pinned: <name>@sha256:<64 hex>');
+	if (!HTTPS_ORIGIN.test(launcherUrl)) throw new Error('the launcher must be an https origin');
 	const template = readFileSync(fileURLToPath(new URL('./compose.yaml', import.meta.url)), 'utf8');
-	return template.replace(/\$\{BELEGE_BRIDGE_IMAGE:\?[^}]*\}/, image);
+	return template
+		.replace(/\$\{BELEGE_BRIDGE_IMAGE:\?[^}]*\}/, image)
+		.replace(`BELEGE_LAUNCHER_URL: ${LAUNCHER_URL}`, `BELEGE_LAUNCHER_URL: ${launcherUrl}`);
 }
 
 /** @param {string} image */
-export function provisionBody(image, { name = 'belege-bridge', instanceType = 'tdx.small' } = {}) {
+export function provisionBody(
+	image,
+	{ name = 'belege-bridge', instanceType = 'tdx.small', launcherUrl = LAUNCHER_URL } = {}
+) {
 	return {
 		name,
 		instance_type: instanceType,
@@ -35,7 +48,7 @@ export function provisionBody(image, { name = 'belege-bridge', instanceType = 't
 		env_keys: ['BELEGE_BRIDGE_SECRETS'],
 		compose_file: {
 			name,
-			docker_compose_file: composeFor(image),
+			docker_compose_file: composeFor(image, { launcherUrl }),
 			allowed_envs: ['BELEGE_BRIDGE_SECRETS'],
 			// The log is the operator's to see otherwise; keep it to ourselves.
 			public_logs: false,
