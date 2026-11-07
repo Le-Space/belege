@@ -17,6 +17,8 @@ export default {
 		home: 'Home',
 		zahlungen: 'Zahlungen',
 		belege: 'Belege',
+		reisen: 'Reisen',
+		reisenOpen: 'Offen auf Reisen: {count} (Vorschläge und Rückfragen)',
 		export: 'Export',
 		integrationen: 'Integrationen'
 	},

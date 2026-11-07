@@ -13,6 +13,8 @@ export default {
 		home: 'Home',
 		zahlungen: 'Payments',
 		belege: 'Receipts',
+		reisen: 'Travel',
+		reisenOpen: 'Open on Travel: {count} (proposals and questions)',
 		export: 'Export',
 		integrationen: 'Integrations'
 	},

@@ -14,7 +14,7 @@ With more than one person, Reisen, a trip and a receipt's "Zu einer Reise …" s
 
 ## Trips
 
-**Reisen** (from Belege and from Home) shows a month: its trips with what they come to, its hospitality bills, the trips proposed by the receipts, appointments from invitations, the open points and the month's statement.
+**Reisen** – a tab with a suitcase between Belege and Export, shown once there is a trip, a traveller or a proposed trip, its number counting the proposals and questions waiting there (#693); also linked from Belege and Home – shows a month: its trips with what they come to, its hospitality bills, the trips proposed by the receipts, appointments from invitations, the open points and the month's statement.
 
 A trip's page holds:
 
