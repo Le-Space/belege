@@ -57,7 +57,7 @@ import {
 	plain
 } from '@le-space/rates/aleph-credits';
 import { createJsonFetcher, WalletError } from './http.js';
-import { toChecksumAddress } from './evm.js';
+import { toChecksumAddress } from './evm-address.js';
 
 export const ALEPH_API = 'https://api2.aleph.im';
 /** Aleph's list price, USD per credit (@le-space/rates). */

@@ -4,7 +4,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { runInChromium, sameInChromium } from '../src/index.js';
+import { fileURLToPath } from 'node:url';
+
+import { bundleForBrowser, runInChromium, sameInChromium } from '../src/index.js';
 
 const fixture = (/** @type {string} */ name) => new URL(`./fixtures/${name}`, import.meta.url);
 
@@ -34,4 +36,13 @@ test('Buffer fails in the page', async (t) => {
 	const message = await failure('buffer.js');
 	if (message === null) return t.skip('no Chromium');
 	assert.match(message, /Buffer is not defined/);
+});
+
+test('bundleForBrowser gives the code a browser app would ship', async () => {
+	const code = await bundleForBrowser([fileURLToPath(fixture('plain.js'))]);
+	assert.match(code, /export/);
+	await assert.rejects(
+		bundleForBrowser([fileURLToPath(fixture('node-import.js'))]),
+		/Node-only import/
+	);
 });

@@ -24,6 +24,7 @@
 		"./akash-console": "./src/akash-console.js",
 		"./akash-deployments": "./src/akash-deployments.js",
 		"./evm": "./src/evm.js",
+		"./evm-address": "./src/evm-address.js",
 		"./alchemy": "./src/alchemy.js",
 		"./bitcoin": "./src/bitcoin.js",
 		"./filecoin": "./src/filecoin.js",

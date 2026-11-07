@@ -43,9 +43,7 @@
 // own, the lists come from Alchemy instead (alchemy.js), in the same shape,
 // and become entries here in the same way.
 
-import { keccak_256 } from '@noble/hashes/sha3.js';
-import { toHex, utf8 } from '@le-space/ledger/bytes';
-
+import { isEvmAddress, toChecksumAddress } from './evm-address.js';
 import { KNOWN_EVM_CONTRACTS, addressUrl, txUrl } from './registry.js';
 import { markSwaps } from './core.js';
 import { createJsonFetcher, WalletError } from './http.js';
@@ -67,34 +65,6 @@ const LOOKALIKE_GUARD = [
 ];
 
 const PAGE = 1000;
-
-/**
- * EIP-55: the mixed-case checksum of an address.
- *
- * @param {string} address 0x + 40 hex
- */
-export function toChecksumAddress(address) {
-	const hex = address.slice(2).toLowerCase();
-	const hash = toHex(keccak_256(utf8(hex)));
-	let out = '0x';
-	for (let i = 0; i < 40; i++) {
-		out += parseInt(hash[i], 16) >= 8 ? hex[i].toUpperCase() : hex[i];
-	}
-	return out;
-}
-
-/**
- * 0x + 40 hex; when it mixes cases, the EIP-55 checksum must hold (a typo
- * then shows). All lower or all upper case carries no checksum.
- *
- * @param {string} address
- */
-export function isEvmAddress(address) {
-	if (typeof address !== 'string' || !/^0x[0-9a-fA-F]{40}$/.test(address)) return false;
-	const body = address.slice(2);
-	if (body === body.toLowerCase() || body === body.toUpperCase()) return true;
-	return toChecksumAddress(address) === address;
-}
 
 /** @param {unknown} v */
 const bigintOf = (v) => (typeof v === 'string' && /^\d+$/.test(v) ? BigInt(v) : null);
@@ -695,3 +665,5 @@ export function createEvmClient({
 }
 
 export { markSwaps };
+// The address helpers live in evm-address.js (no reader, no Alchemy); here as before.
+export { isEvmAddress, toChecksumAddress };

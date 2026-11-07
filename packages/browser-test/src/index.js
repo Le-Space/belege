@@ -127,6 +127,53 @@ export async function runInChromium(scenario, { timeoutMs = 60_000 } = {}) {
 }
 
 /**
+ * Bundles modules for a browser as `runInChromium` does (Vite, the `browser`
+ * condition, no Node built-ins) and returns the code: what a web app that
+ * imports them would ship. Everything they export is kept, the default too.
+ * With `treeshake: false` every module they import is in it whole: the
+ * module graph, as a dev server or a bundler that cannot shake loads it.
+ *
+ * @param {string[]} modules absolute paths or file URLs
+ * @param {{ treeshake?: boolean }} [options]
+ * @returns {Promise<string>}
+ */
+export async function bundleForBrowser(modules, { treeshake = true } = {}) {
+	const { build } = await import('vite');
+	const root = await realpath(await mkdtemp(join(tmpdir(), 'le-space-bundle-')));
+	try {
+		const entry = join(root, 'entry.js');
+		const paths = modules.map((m) => (m.startsWith('file:') ? fileURLToPath(m) : m));
+		await writeFile(
+			entry,
+			[
+				...paths.map((p, i) => `import * as m${i} from ${JSON.stringify(p)};`),
+				`export { ${paths.map((_, i) => `m${i}`).join(', ')} };`
+			].join('\n')
+		);
+		const out = await build({
+			root,
+			logLevel: 'silent',
+			configFile: false,
+			plugins: [noNodeBuiltins],
+			build: {
+				write: false,
+				minify: false,
+				target: 'es2022',
+				lib: { entry, formats: ['es'], fileName: 'bundle' },
+				rollupOptions: { treeshake }
+			}
+		});
+		const results = /** @type {any[]} */ (Array.isArray(out) ? out : [out]);
+		return results
+			.flatMap((r) => r.output)
+			.map((/** @type {any} */ c) => (c.type === 'chunk' ? c.code : String(c.source)))
+			.join('\n');
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+}
+
+/**
  * Runs the scenario in Node and in Chromium; both must give the same.
  *
  * @param {import('node:test').TestContext} t
