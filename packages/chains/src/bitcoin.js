@@ -35,7 +35,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { ripemd160 } from '@noble/hashes/legacy.js';
 import { toHex, utf8 } from '@le-space/ledger/bytes';
 
-import { txUrl } from './registry.js';
+import { txUrl } from './explorer.js';
 import { createJsonFetcher, WalletError } from './http.js';
 import { unitsToDecimal } from './cosmos.js';
 

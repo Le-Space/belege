@@ -1,6 +1,6 @@
 {
 	"name": "@le-space/ledger",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"description": "One booking format for Le Space's tools: the WalletEntry a chain reader hands out, the versioned LedgerEntry (le-space.ledger/1), decimal amounts without floats, and base64/hex/UTF-8 without Node's Buffer. Browser and Node.",
 	"license": "AGPL-3.0-or-later",
 	"type": "module",

@@ -57,7 +57,7 @@ import {
 	plain
 } from '@le-space/rates/aleph-credits';
 import { createJsonFetcher, WalletError } from './http.js';
-import { toChecksumAddress } from './evm.js';
+import { toChecksumAddress } from './evm-address.js';
 
 export const ALEPH_API = 'https://api2.aleph.im';
 /** Aleph's list price, USD per credit (@le-space/rates). */
@@ -286,9 +286,15 @@ export function createAlephClient({
 							'ALEPH_TOO_MANY'
 						);
 					}
+					// A window without rows: Aleph answers 404 in plain text (the same
+					// address without the window answers 200) – an empty page, as the
+					// balance's 404 is nothing there.
 					const body = await getJson(
 						`${base}/credit_history?page=${page}&pagination=${PER_PAGE}${query}`
-					);
+					).catch((/** @type {any} */ e) => {
+						if (e?.httpStatus === 404) return { credit_history: [], pagination_total: 0 };
+						throw e;
+					});
 					const batch = Array.isArray(body?.credit_history) ? body.credit_history : null;
 					if (!batch) throw new WalletError('Aleph answered without a history', 'ALEPH_DATA');
 					rows.push(...batch);

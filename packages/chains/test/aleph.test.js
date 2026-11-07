@@ -74,3 +74,35 @@ test('a purchase in the month is an entry with its price and paying transaction'
 		]
 	);
 });
+
+test('a month without credit rows: Aleph answers 404 in plain text, the statement is empty', async () => {
+	const account = `0x${'e5'.repeat(20)}`;
+	/** @type {string[]} */
+	const asked = [];
+	const json = (/** @type {unknown} */ body) =>
+		new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
+	const aleph = createAlephClient({
+		fetch: async (input) => {
+			const url = new URL(String(input));
+			asked.push(url.pathname + url.search);
+			if (url.pathname.endsWith('/balance')) return json({ credit_balance: 1234 });
+			if (url.pathname.endsWith('/credit_history/summary'))
+				return json({ total_amount: 0, entry_count: 0 });
+			// As Aleph answers a window that holds no rows.
+			return new Response('No credit history found for this address', {
+				status: 404,
+				headers: { 'content-type': 'text/plain' }
+			});
+		},
+		sleep: async () => {},
+		rates: flatUsd,
+		now: () => new Date('2026-09-10T00:00:00Z')
+	});
+	const s = await aleph.statement({ address: account, month: '2026-08' });
+	assert.equal(s.opening, 1234);
+	assert.equal(s.closing, 1234);
+	assert.equal(s.difference, 0);
+	assert.deepEqual(s.usage, []);
+	assert.ok(asked.some((u) => /\/credit_history\?page=1&pagination=\d+&startDate=/.test(u)));
+	assert.deepEqual(alephEntries(s), []);
+});
