@@ -366,6 +366,7 @@ describe('what a trip costs in all (#693)', () => {
 			tipCents: 500,
 			withoutRate: 1,
 			toPayBackCents: 2800 + 7200 + 4990 + 11900 + 500,
+			toYouCents: 2800 + 7200 + 4990 + 11900 + 500 + 1900,
 			totalCents: 2800 + 7200 + 4990 + 11900 + 1900 + 11200 + 500
 		});
 	});

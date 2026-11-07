@@ -1172,5 +1172,7 @@ test('a receipt on a trip booked as an outlay: named so, paid back through the o
 	);
 	// Two days with a night between: 14 + 14 EUR, and the ticket back paid privately.
 	await expect(page.getByTestId('reise-sum-back')).toHaveText('128,00 EUR');
+	// The statement and the outlay account together: all of it, as nobody else paid.
+	await expect(page.getByTestId('reise-sum-to-you')).toHaveText('228,00 EUR');
 	await expect(page.getByTestId('reise-sum-total')).toHaveText('228,00 EUR');
 });

@@ -3560,12 +3560,13 @@ export default {
 		paidPrivately: 'Receipts paid privately',
 		paidByCompany: 'Receipts paid by the company',
 		toPayBack: 'To pay back',
+		toYou: 'To you in all – with the outlays',
 		noRate: 'rate missing',
 		ratesMissing:
 			'Receipts in another currency without a rate: {count} – not counted. Add a rate on the receipt.',
 		total: 'Total cost of the trip',
 		sumHint:
-			'To pay back: allowances, mileage and privately paid receipts with tips. The total adds the receipts booked as outlays and those the company paid.',
+			'To pay back: allowances, mileage and privately paid receipts with tips. The total adds the receipts booked as outlays and those the company paid. “To you in all” is “To pay back” and the outlays together: what you get back from the statement and the outlay account.',
 		delete: 'Delete this trip',
 		deleteConfirm: 'Delete this trip? Its receipts stay and are no longer assigned to it.'
 	},

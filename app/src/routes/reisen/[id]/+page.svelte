@@ -1064,6 +1064,12 @@
 			<dd class="text-right font-mono font-medium tabular-nums" data-testid="reise-sum-back">
 				{formatMoney(totals.toPayBackCents, 'EUR')}
 			</dd>
+			{#if totals.outlayCents}
+				<dt class="text-text">{t('reise.toYou')}</dt>
+				<dd class="text-right font-mono tabular-nums" data-testid="reise-sum-to-you">
+					{formatMoney(totals.toYouCents, 'EUR')}
+				</dd>
+			{/if}
 			<dt class="border-t border-border pt-1 font-medium text-heading">{t('reise.total')}</dt>
 			<dd
 				class="border-t border-border pt-1 text-right font-mono font-medium tabular-nums"

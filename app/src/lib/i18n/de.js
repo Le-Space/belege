@@ -3613,12 +3613,13 @@ export default {
 		paidPrivately: 'Privat bezahlte Belege',
 		paidByCompany: 'Von der Firma bezahlte Belege',
 		toPayBack: 'Zu erstatten',
+		toYou: 'An dich insgesamt – mit den Auslagen',
 		noRate: 'Kurs fehlt',
 		ratesMissing:
 			'Belege in fremder Währung ohne Kurs: {count} – nicht mitgezählt. Am Beleg einen Kurs eintragen.',
 		total: 'Gesamtkosten der Reise',
 		sumHint:
-			'Zu erstatten sind Pauschalen, Kilometer und privat bezahlte Belege mit Trinkgeld. Die Gesamtkosten zählen dazu die als Auslage gebuchten und die von der Firma bezahlten Belege.',
+			'Zu erstatten sind Pauschalen, Kilometer und privat bezahlte Belege mit Trinkgeld. Die Gesamtkosten zählen dazu die als Auslage gebuchten und die von der Firma bezahlten Belege. „An dich insgesamt“ ist „Zu erstatten“ und die Auslagen zusammen: was du aus Abrechnung und Auslagenkonto zurückbekommst.',
 		delete: 'Diese Reise löschen',
 		deleteConfirm: 'Diese Reise löschen? Ihre Belege bleiben und sind ihr nicht mehr zugeordnet.'
 	},
