@@ -172,7 +172,7 @@ Es gibt eine Abrechnung pro Person und Monat. Du findest sie auf Reisen.
 - Kilometer;
 - privat bezahlte Belege;
 - Trinkgeld, das du privat bezahlt hast;
-- Belege, die als Auslage gebucht sind (sie werden dort erstattet);
+- Belege, die als Auslage gebucht sind. Sie werden über das Auslagenkonto erstattet, nicht mit dieser Abrechnung. Soll ein Beleg mit der Reise erstattet werden, machst du am Beleg die Auslage rückgängig;
 - Belege, die die Firma bezahlt hat (sie stehen drin, werden aber nicht erstattet).
 
 Dazu kommen **Prüfungen**. Diese Punkte sperren die Abrechnung:

@@ -3369,7 +3369,7 @@ export default {
 			advance: 'Paid as an advance already',
 			toPayOut: 'Still to pay out',
 			owedBack: 'To be paid back by the person',
-			outlay: 'Booked as outlays (paid back there)',
+			outlay: 'Booked as outlays – paid back through the outlay account, not here',
 			company: 'Receipts paid by the company (not paid back)',
 			noName: 'The PDF needs the traveller’s name.',
 			make: 'Make the statement',
@@ -3426,6 +3426,9 @@ export default {
 		questionsElsewhere: 'Travel has open points too: {count}'
 	},
 	reise: {
+		outlayHint:
+			'Receipts booked as outlays are owed to you on the account “Auslagen Geschäftsführung”: a transfer to you is linked there as their repayment. For a receipt to be paid back with this trip, undo the outlay on the receipt (“Auslage rückgängig machen”) – it then counts in “Zu erstatten”.',
+		paidOutlay: 'booked as an outlay',
 		ratesWanted: 'Receipts in another currency without a rate: {count}',
 		ratesFetching: 'Fetching rates …',
 		ratesFetch: 'Fetch rates',

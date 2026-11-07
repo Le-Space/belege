@@ -134,6 +134,15 @@
 	/** A time as a line: `28.10.2026 05:10`. @param {string} at */
 	const atLine = (at) => `${formatDate(at)} ${at.slice(11, 16)}`;
 
+	// Booked as private outlays (#293): paid back through the outlay account, named on their row.
+	let outlayIds = $derived(
+		new Set(
+			app.transactions
+				.filter((x) => !x.deleted && x.source === 'outlay' && x.outlay?.receiptId)
+				.map((x) => String(x.outlay.receiptId))
+		)
+	);
+
 	// "Von der Firma": the payment from a bank account that suggested it (view.js paidByGuess).
 	/** @param {Record<string, any>} r */
 	const paidWith = (r) => {
@@ -982,9 +991,13 @@
 								>{[
 									formatDate(receiptDate(/** @type {any} */ (r)) ?? ''),
 									receiptVendor(/** @type {any} */ (r)),
-									paidWith(r)
-										? t('reise.paidWith', { date: formatDate(/** @type {string} */ (paidWith(r))) })
-										: t(`belege.travel.paid.${r.travel.paidBy}`)
+									outlayIds.has(String(r.id))
+										? t('reise.paidOutlay')
+										: paidWith(r)
+											? t('reise.paidWith', {
+													date: formatDate(/** @type {string} */ (paidWith(r)))
+												})
+											: t(`belege.travel.paid.${r.travel.paidBy}`)
 								]
 									.filter(Boolean)
 									.join(' · ')}</span
@@ -1054,6 +1067,11 @@
 			</dd>
 		</dl>
 		<p class="mt-2 text-xs text-faint">{t('reise.sumHint')}</p>
+		{#if totals.outlayCents}
+			<p class="mt-1 text-xs text-text" data-testid="reise-sum-outlay-hint">
+				{t('reise.outlayHint')}
+			</p>
+		{/if}
 		{#if totals.withoutRate}
 			<p class="mt-1 text-xs text-danger" data-testid="reise-sum-norate">
 				{t('reise.ratesMissing', { count: totals.withoutRate })}

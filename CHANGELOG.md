@@ -21,6 +21,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Changed
 
+- **What "Als Auslage gebucht" means, on a trip** (#693). The line read "(dort erstattet)", as if paid back already. It now says the receipts are paid back through the outlay account, not with this statement; the trip explains how to have one paid back with the trip instead (undo its outlay on the receipt), and names such a receipt "als Auslage gebucht" on its row.
 - **One open point per trip.** A trip without a return and without a reason showed as two points with the same link. It is one now, naming what it lacks: "Reise ohne Rückkehr, geschäftlichen Anlass – keine Pauschale berechenbar".
 
 ### Fixed

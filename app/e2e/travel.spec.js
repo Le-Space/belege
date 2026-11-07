@@ -1099,3 +1099,70 @@ test('border crossings from the tickets: a proposal abroad becomes a trip with i
 	// Paid privately here: no payment to name, no lone separator before a missing date.
 	await expect(page.getByTestId('reise-receipt').first()).not.toContainText(/^ ?·/);
 });
+
+test('a receipt on a trip booked as an outlay: named so, paid back through the outlay account, not here (#693)', async ({
+	page
+}) => {
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('E2E');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+
+	// A made-up flight there and back, the first booked as a private outlay.
+	await page.evaluate(async () => {
+		const e2e = /** @type {any} */ (window).__belegeE2E;
+		/** @param {string} vendor @param {Record<string, any>} travel */
+		const add = (vendor, travel) =>
+			e2e.addReceipt({
+				source: 'upload',
+				status: 'ausgelesen',
+				currency: 'EUR',
+				fileName: `${vendor}.pdf`,
+				vendor,
+				amountCents: 10_000,
+				documentDate: '2026-05-01',
+				extraction: { document_type: 'invoice', gross: 100, vat: [], travel }
+			});
+		const out = await add('Flug Hin Beispiel', {
+			kind: 'flight',
+			from: 'A-Stadt',
+			to: 'Weitweg',
+			departure: '2026-05-04T08:00',
+			arrival: '2026-05-04T11:00'
+		});
+		await add('Flug Zurück Beispiel', {
+			kind: 'flight',
+			from: 'Weitweg',
+			to: 'A-Stadt',
+			departure: '2026-05-05T17:00',
+			arrival: '2026-05-05T20:00'
+		});
+		await e2e.addTransaction({
+			source: 'outlay',
+			outlay: { receiptId: out.id },
+			amountCents: -10_000,
+			currency: 'EUR',
+			bookedOn: '2026-05-01'
+		});
+	});
+
+	await page.getByTestId('tab-reisen').click();
+	const picker = page.getByTestId('reisen-month');
+	await picker.getByLabel('Monat: Jahr').selectOption('2026');
+	await picker.getByLabel('Monat: Monat').selectOption('05');
+	await page.getByTestId('reisen-proposal-accept').click();
+	await expect(page.getByTestId('reise-receipt')).toHaveCount(2);
+
+	const rows = page.getByTestId('reise-receipt');
+	await expect(rows.filter({ hasText: 'Flug Hin Beispiel' })).toContainText('als Auslage gebucht');
+	await expect(rows.filter({ hasText: 'Flug Zurück Beispiel' })).toContainText('privat');
+	await expect(page.getByTestId('reise-sum-outlay')).toHaveText('100,00 EUR');
+	await expect(page.getByTestId('reise-sum-outlay-hint')).toContainText(
+		'Auslage rückgängig machen'
+	);
+	// Two days with a night between: 14 + 14 EUR, and the ticket back paid privately.
+	await expect(page.getByTestId('reise-sum-back')).toHaveText('128,00 EUR');
+	await expect(page.getByTestId('reise-sum-total')).toHaveText('228,00 EUR');
+});
