@@ -61,13 +61,13 @@ jobs:
             echo "Chromium download try $try did not finish; trying again"
           done
           exit 1
-      # Only the packages: the root, the bridge and the app have workflows
-      # of their own, and the dependents' filter would pick them too.
+      # Only the packages: the root, the bridge (with its launcher) and the app
+      # have workflows of their own, and the dependents' filter would pick them too.
       - name: Format
         env:
           FILTER: ${{ steps.which.outputs.filter }}
-        run: pnpm --filter "$FILTER" --filter '!belege' --filter '!@belege/bridge' --filter '!@belege/app' --if-present run lint
+        run: pnpm --filter "$FILTER" --filter '!belege' --filter '!@belege/bridge' --filter '!@belege/bridge-launcher' --filter '!@belege/app' --if-present run lint
       - name: Tests
         env:
           FILTER: ${{ steps.which.outputs.filter }}
-        run: pnpm --filter "$FILTER" --filter '!belege' --filter '!@belege/bridge' --filter '!@belege/app' --if-present run test
+        run: pnpm --filter "$FILTER" --filter '!belege' --filter '!@belege/bridge' --filter '!@belege/bridge-launcher' --filter '!@belege/app' --if-present run test
