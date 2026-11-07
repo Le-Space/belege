@@ -107,6 +107,23 @@ A start that nobody finishes (no env, or no quote, within 10 minutes) is given u
 - **At Phala:** the image (it is public anyway), a hash instead of the books' name as the VM name, and the run times.
 - **Never outside the VM and the browser:** the secrets and the bridge's data.
 
+## Measured on testnet
+
+A first full run on 2026-11-07: Phala `tdx.small` in US-WEST-1, the contract on NEAR testnet, the launcher on a laptop. The script `launcher/scripts/start-as-browser.mjs` played the browser.
+
+| Step | Time |
+|---|---|
+| `request_start` until the transaction is final | 11 s |
+| request until the VM is created (provision, env, create) | 20 s |
+| VM created until its quote reaches the launcher | 56 s |
+| quote until `register_bridge` is final (collateral, contract check) | 8 s |
+| **start, request to attested bridge** | **about 85 s** |
+| `request_stop` until the VM is deleted and the stop answered | 27 s |
+
+The first quote of a new release is refused until the owner approves its measurements and the machine's PPID (`approve_measurements`, `approve_ppids`); the registrar retries meanwhile. The measurements are read from that quote's TCB info: MRTD, RTMR0–2, the digest of the `key-provider` event and the payload of the `compose-hash` event.
+
+A test launcher at another URL sets `LAUNCHER_PUBLIC_URL`: the URL is part of the measured compose, so it is another compose hash to approve. `LAUNCHER_QUOTE_DIR` keeps the quotes it receives.
+
 ## Open points
 
 - Phala offered this account US-WEST-1 only: test data only until there is an EU host.
