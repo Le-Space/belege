@@ -317,6 +317,49 @@ describe('rate service', () => {
 		);
 	});
 
+	test('NEAR and USDT are listed: CoinGecko at 00:00 UTC, then their Kraken EUR pair', async () => {
+		// Made-up prices.
+		const { fetch, calls } = fakeFetch({
+			'https://api.coingecko.com/api/v3/coins/near/history': coingecko(2.5, 2.75),
+			'https://api.coingecko.com/api/v3/coins/tether/': 429,
+			'https://api.kraken.com/0/public/OHLC?pair=USDTEUR': {
+				error: [],
+				result: {
+					USDTZEUR: [
+						[DAY_START - 86400, '0.91', '0', '0', '0', '0', '0', 0],
+						[DAY_START, '0.92', '0', '0', '0', '0', '0', 0]
+					],
+					last: DAY_START
+				}
+			}
+		});
+		const rates = createRateService({ fetch, now: NOW });
+		const near = await rates.rate('NEAR', '2026-09-01');
+		assert.deepEqual(
+			[near.rate, near.usdRate, near.source, near.at],
+			['2.5', '2.75', 'coingecko', '2026-09-01T00:00:00Z']
+		);
+		const usdt = await rates.rate('USDT', '2026-09-01');
+		assert.deepEqual([usdt.rate, usdt.source, usdt.at], ['0.92', 'kraken', '2026-09-01T00:00:00Z']);
+		assert.ok(calls.some((c) => /coins\/tether\/history\?date=01-09-2026/.test(c)));
+		assert.ok(calls.some((c) => /pair=USDTEUR/.test(c)));
+	});
+
+	test('prefer kraken: NEAR by NEAREUR', async () => {
+		const { fetch, calls } = fakeFetch({
+			'https://api.kraken.com/0/public/OHLC': {
+				error: [],
+				result: { NEAREUR: [[DAY_START, '2.4', '0', '0', '0', '0', '0', 0]], last: DAY_START }
+			}
+		});
+		const rate = await createRateService({ fetch, now: NOW }).rate('NEAR', '2026-09-01', {
+			prefer: 'kraken'
+		});
+		assert.equal(rate.rate, '2.4');
+		assert.equal(rate.source, 'kraken');
+		assert.match(calls[0], /pair=NEAREUR/);
+	});
+
 	test('no source answers: 502', async () => {
 		const { fetch } = fakeFetch({});
 		await assert.rejects(
