@@ -22,6 +22,6 @@ A browser pairs with the bridge only when `get_books` shows a `valid` bridge and
 cargo test
 ```
 
-The wasm build needs a clang with the wasm32 target (`ring`, via dcap-qvl): Homebrew's `llvm`, or cargo-near's reproducible image.
+The wasm: `./build-wasm.sh` (Docker, Debian with clang for `ring`'s wasm32 build, cargo-near 0.19) → `target/near/belege_bridge_agent.wasm`, about 730 KB. It builds with rustc **1.86**: nearcore does not run wasm from 1.87 or newer yet, so `Cargo.lock` keeps dependencies that build with it, as NEAR's Shade Agent template locks them (`near-sys` 0.2.9, not 0.2.14, which wants 1.93). Do not `cargo update` without building the wasm again.
 
 Made after NEAR's Shade Agent template (NearDeFi/shade-agent-template, Apache-2.0); the attestation check is its `shade-attestation` crate (MIT), used as it is.
