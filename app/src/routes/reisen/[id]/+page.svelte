@@ -34,6 +34,8 @@
 		tripTotals
 	} from '$lib/travel/view.js';
 	import { countryHints, newStops, routeOf } from '$lib/travel/route.js';
+	import { headOf } from '$lib/travel/proposals.js';
+	import { matchOfReceipt } from '$lib/matching/view.js';
 	import { lodgingFlat, nightsOf } from '$lib/travel/lodging.js';
 	import { appointmentsOn } from '$lib/travel/appointments.js';
 	import ReceiptPeek from '$lib/ReceiptPeek.svelte';
@@ -98,6 +100,39 @@
 	let receipts = $derived(receiptsOfTrip(app.receipts, id));
 	// In euros (euroOf): a receipt in another currency by its payment, its outlay or a rate.
 	let euros = $derived(new Map(receipts.map((r) => [r.id, euroOf(r, app)])));
+	// Destination and times from the trip's tickets (#693), for fields still empty:
+	// a trip made before its receipts were read, or read again. Taken on a click.
+	let headFromTickets = $derived.by(() => {
+		const d = /** @type {Record<string, any> | null} */ (draft);
+		if (!d) return null;
+		const h = headOf(receipts);
+		const offer = {
+			destination: !String(d.destination ?? '').trim() && h.destination ? h.destination : null,
+			start: !d.start && h.start ? h.start : null,
+			end: !d.end && h.end ? h.end : null
+		};
+		return offer.destination || offer.start || offer.end ? offer : null;
+	});
+	function takeHead() {
+		if (!draft || !headFromTickets) return;
+		const h = headFromTickets;
+		if (h.destination) draft.destination = h.destination;
+		if (h.start) draft.start = h.start;
+		if (h.end) draft.end = h.end;
+		touch();
+	}
+	/** A time as a line: `28.10.2026 05:10`. @param {string} at */
+	const atLine = (at) => `${formatDate(at)} ${at.slice(11, 16)}`;
+
+	// "Von der Firma": the payment from a bank account that suggested it (view.js paidByGuess).
+	/** @param {Record<string, any>} r */
+	const paidWith = (r) => {
+		if (r.travel?.paidBy !== 'company') return null;
+		const m = matchOfReceipt(r.id, app.matches);
+		const tx = m ? app.transactions.find((x) => x.id === m.transactionId) : null;
+		return tx?.bookedOn ? String(tx.bookedOn) : null;
+	};
+
 	// "✦ Belege der Reise neu auslesen" (#693): after the reading learned something
 	// new (the countries), the trip's receipts once more, on the app-wide queue.
 	let rereadIds = $derived(rereadable(/** @type {any[]} */ (receipts)).map((r) => String(r.id)));
@@ -350,6 +385,31 @@
 	>
 		<section class={card} aria-labelledby="reise-head-h">
 			<h2 id="reise-head-h" class="text-sm font-semibold text-heading">{t('reise.head')}</h2>
+			{#if headFromTickets}
+				<div class="mt-2 flex flex-wrap items-center gap-2" data-testid="reise-head-proposal">
+					<span class="text-sm text-heading"
+						>{t('reise.headFromTickets', {
+							what: [
+								headFromTickets.destination
+									? t('reise.headDestination', { place: headFromTickets.destination })
+									: null,
+								headFromTickets.start
+									? t('reise.headStart', { at: atLine(headFromTickets.start) })
+									: null,
+								headFromTickets.end ? t('reise.headEnd', { at: atLine(headFromTickets.end) }) : null
+							]
+								.filter(Boolean)
+								.join(' · ')
+						})}</span
+					>
+					<button
+						type="button"
+						class={btn.secondary}
+						onclick={takeHead}
+						data-testid="reise-head-take">{t('reise.routeTake')}</button
+					>
+				</div>
+			{/if}
 			<div class="mt-2 grid gap-3 sm:grid-cols-2">
 				{#if travellers.length > 1}
 					<label class="flex flex-col text-sm text-text"
@@ -797,9 +857,15 @@
 							class="flex min-h-11 w-full flex-wrap items-center justify-between gap-2 py-1 text-heading hover:underline"
 							testid="reise-receipt"
 							><span class="min-w-0 truncate"
-								>{formatDate(receiptDate(/** @type {any} */ (r)) ?? '')} · {receiptVendor(
-									/** @type {any} */ (r)
-								)} · {t(`belege.travel.paid.${r.travel.paidBy}`)}</span
+								>{[
+									formatDate(receiptDate(/** @type {any} */ (r)) ?? ''),
+									receiptVendor(/** @type {any} */ (r)),
+									paidWith(r)
+										? t('reise.paidWith', { date: formatDate(/** @type {string} */ (paidWith(r))) })
+										: t(`belege.travel.paid.${r.travel.paidBy}`)
+								]
+									.filter(Boolean)
+									.join(' · ')}</span
 							><span class="font-mono tabular-nums" data-testid="reise-receipt-amount"
 								>{#if e && e.currency !== 'EUR'}<span class="text-xs text-faint"
 										>{`${formatMoney(e.originalCents ?? 0, e.currency)} → `}</span

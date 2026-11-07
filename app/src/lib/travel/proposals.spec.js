@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { memoryCollection } from '../bank/test-support.js';
 import { defaultDatevSettings } from '../booking/settings.js';
 import { acceptProposal, dismissProposal, privateProposal } from './proposal-actions.js';
-import { openTravelQuestions, pieceOf, tripProposals } from './proposals.js';
+import { headOf, openTravelQuestions, pieceOf, tripProposals } from './proposals.js';
 
 // Made-up tickets, hotels and bills; no real vendor, person or booking.
 
@@ -371,5 +371,66 @@ describe('trip proposals (#213, step 4b)', () => {
 		expect(
 			tripProposals({ receipts: await store.receipts.list(), travel: await store.travel.list() })
 		).toEqual([]);
+	});
+});
+
+describe('a trip’s head from its tickets (#693)', () => {
+	const fly = (
+		/** @type {string} */ from,
+		/** @type {string} */ to,
+		/** @type {string | null} */ dep,
+		/** @type {string | null} */ arr,
+		over = {}
+	) => read({ kind: 'flight', from, to, departure: dep, arrival: arr }, over);
+
+	it('there only: destination and departure, no end until the way home is known', () => {
+		// Bought days before: the day of purchase is never the start.
+		const out = fly('A-Stadt', 'Weitweg', '2026-10-27T22:00', '2026-10-28T05:10', {
+			documentDate: '2026-10-25'
+		});
+		expect(headOf([out])).toEqual({
+			destination: 'Weitweg',
+			start: '2026-10-27T22:00',
+			end: null
+		});
+	});
+
+	it('there and back: first departure, last arrival', () => {
+		const out = fly('A-Stadt', 'Weitweg', '2026-10-27T22:00', '2026-10-28T05:10');
+		const back = fly('Weitweg', 'A-Stadt', '2026-10-31T09:00', '2026-10-31T13:30');
+		const stay = hotel('Weitweg', '2026-10-28', '2026-10-31');
+		expect(headOf([back, stay, out])).toEqual({
+			destination: 'Weitweg',
+			start: '2026-10-27T22:00',
+			end: '2026-10-31T13:30'
+		});
+	});
+
+	it('a return ticket is the way home', () => {
+		const ret = read({
+			kind: 'train',
+			from: 'A-Stadt',
+			to: 'Musterstadt',
+			departure: '2026-04-08T07:00',
+			arrival: '2026-04-08T10:00',
+			return_departure: '2026-04-09T17:00',
+			return_arrival: '2026-04-09T20:00'
+		});
+		expect(headOf([ret])).toEqual({
+			destination: 'Musterstadt',
+			start: '2026-04-08T07:00',
+			end: '2026-04-09T20:00'
+		});
+	});
+
+	it('a ticket read without its times: the destination only; nothing read: nothing', () => {
+		expect(headOf([fly('A-Stadt', 'Weitweg', null, null, { documentDate: '2026-10-25' })])).toEqual(
+			{ destination: 'Weitweg', start: null, end: null }
+		);
+		expect(headOf([read({ kind: 'restaurant' })])).toEqual({
+			destination: '',
+			start: null,
+			end: null
+		});
 	});
 });

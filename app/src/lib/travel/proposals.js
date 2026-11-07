@@ -322,3 +322,53 @@ export function openTravelQuestions(books, now = new Date()) {
 		...unpaid
 	];
 }
+
+/**
+ * What a trip's tickets and accommodation say of its head (#693): where it
+ * goes, when it leaves and when it is back – for a trip made before its
+ * receipts were read, or read again. Only what is printed: the first
+ * departure, the last arrival, and a hotel's days where no time is printed.
+ * No end while the last leg does not lead back to where the first one left
+ * (the way home is not known yet), and never a day taken from when a ticket
+ * was bought.
+ *
+ * @param {Rec[]} receipts the trip's
+ * @returns {{ destination: string, start: string | null, end: string | null }}
+ */
+export function headOf(receipts) {
+	const pieces = receipts
+		.map(pieceOf)
+		.filter((p) => p !== null && (FARES.has(p.kind) || p.kind === 'hotel'))
+		.sort(
+			(a, b) =>
+				/** @type {Piece} */ (a).fromDay.localeCompare(/** @type {Piece} */ (b).fromDay) ||
+				String(/** @type {Piece} */ (a).start).localeCompare(String(/** @type {Piece} */ (b).start))
+		);
+	const list = /** @type {Piece[]} */ (pieces);
+	if (!list.length) return { destination: '', start: null, end: null };
+	const fares = list.filter((p) => FARES.has(p.kind) && p.start);
+	const starts = fares.map((p) => /** @type {string} */ (p.start)).sort();
+	const ends = list
+		.map((p) => p.end)
+		.filter((x) => x !== null)
+		.sort();
+	const hotels = list.filter((p) => p.kind === 'hotel');
+	const start =
+		starts[0] ?? (hotels.length ? `${hotels.map((h) => h.fromDay).sort()[0]}T08:00` : null);
+	// Back home: a return ticket, or the last leg ends where the first began.
+	const returns = receipts.some((r) => TIME.test(r.extraction?.travel?.return_arrival ?? ''));
+	const back = fares.length > 0 && (returns || !away(fares));
+	const lastEnd =
+		ends[ends.length - 1] ??
+		(hotels.length
+			? `${hotels
+					.map((h) => h.toDay)
+					.sort()
+					.at(-1)}T18:00`
+			: null);
+	return {
+		destination: destinationOf(list) ?? '',
+		start,
+		end: back && lastEnd && (!start || lastEnd > start) ? lastEnd : null
+	};
+}

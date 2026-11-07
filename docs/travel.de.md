@@ -36,7 +36,7 @@ Du öffnest **Reisen** über Belege oder von Home aus. Die Seite zeigt einen Mon
 
 ### Die Seite einer Reise
 
-**Kopf.** Hier stehen Ziel, geschäftlicher Anlass, Abfahrt und Rückkehr mit Datum und Uhrzeit. Dazu kommt die Tätigkeitsstätte, also der Ort, an dem du arbeitest, zum Beispiel ein Kunde oder eine Baustelle. Sie zählt für die Dreimonatsregel (siehe unten). Und du hältst fest, ob du übernachtet hast.
+**Kopf.** Hier stehen Ziel, geschäftlicher Anlass, Abfahrt und Rückkehr mit Datum und Uhrzeit. Sind Ziel, Abfahrt oder Rückkehr leer und wissen die Belege der Reise mehr, zeigt Belege **„Aus den Fahrkarten: …“** mit **„Übernehmen“** ([#693](https://github.com/Le-Space/belege/issues/693)). Das passiert etwa bei einer Reise, die angelegt wurde, bevor ihre Belege ausgelesen waren. Abfahrt ist die erste gedruckte Abfahrt, Rückkehr die letzte Ankunft. Eine Rückkehr schlägt Belege nur vor, wenn eine Fahrkarte zurück zum Ausgangsort führt. Das Kaufdatum eines Tickets ist nie die Abfahrt. Dazu kommt die Tätigkeitsstätte, also der Ort, an dem du arbeitest, zum Beispiel ein Kunde oder eine Baustelle. Sie zählt für die Dreimonatsregel (siehe unten). Und du hältst fest, ob du übernachtet hast.
 
 **Ausland.** Du trägst jeden Grenzübertritt mit Uhrzeit und Ländercode ein. Daneben steht der Name des Landes, damit dir ein Tippfehler auffällt.
 
