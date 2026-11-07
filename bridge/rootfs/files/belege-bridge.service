@@ -1,0 +1,17 @@
+[Unit]
+Description=Belege bridge, hosted (secrets from the unlock, see /usr/local/sbin/belege-bridge-run)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Starts as root to sort the unlock's secrets into a tmpfs, then drops to
+# the belege-bridge user (setpriv) before Node runs.
+ExecStart=/usr/local/sbin/belege-bridge-run
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

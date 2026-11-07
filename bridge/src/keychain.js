@@ -1,6 +1,7 @@
 // The bridge's secrets, in the operating system's own store: the macOS
 // keychain here, the Windows Credential Manager in windows-keychain.js
-// (`systemKeychain` picks). One entry per account:
+// (`systemKeychain` picks). In a confidential VM (`--hosted`) they come with
+// the unlock instead and stay in memory (`unlockedKeychain`). One entry per account:
 //
 //   service `belege-bridge`, account `hibiscus`  the Jameica master password
 //                            account `imap`      the mail password or auth token
@@ -25,6 +26,7 @@
 // and `write()`, so tests hand in a fake (`memoryKeychain`).
 
 import { execFile, spawn } from 'node:child_process';
+import { lstat, readFile } from 'node:fs/promises';
 
 import { windowsKeychain } from './windows-keychain.js';
 
@@ -191,6 +193,98 @@ export function macosKeychain({
 					}
 				);
 			});
+		}
+	};
+}
+
+/**
+ * A secret's file name in the hosted VM's secrets directory: the account with
+ * everything but `a-z0-9_` as `_` (`aleph-backup` → `aleph_backup`,
+ * `portal:vodafone` → `portal_vodafone`), since the attestation agent stores
+ * each secret under its name and takes plain names only.
+ *
+ * @param {string} account
+ */
+export const secretFileOf = (account) => account.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+
+/**
+ * The accounts a hosted bridge takes from the unlock: a name of its own
+ * (`imap`, `aleph-backup`) or `portal:<id>`, in lower case, words joined by
+ * `-`, never `_`. So `secretFileOf` is one to one on them: no two accounts
+ * share a file, and one portal never reads another's password.
+ */
+const HOSTED_ACCOUNT =
+	/^(?!portal(?:$|-))[a-z0-9]+(?:-[a-z0-9]+)*$|^portal:[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/** A secret larger than this is not one the bridge keeps (the sealed Enable Banking file is apart). */
+const MAX_SECRET_BYTES = 64 * 1024;
+
+/** What the bridge wrote or removed while it runs in the VM: in memory only, per directory and account. */
+const hostedOverlay = new Map();
+
+/**
+ * The secret store of the bridge in a confidential VM (#583, #584): there is
+ * no keychain there, and nothing secret goes onto a disk. The secrets come
+ * with the unlock, after the owner's browser has checked the VM's attestation:
+ * Aleph's attestation agent writes each one to `<dir>/<name>` (`/tmp/secrets`,
+ * a tmpfs in the measured init). This reads them from there; what the bridge
+ * writes (a handover's key) or removes stays in memory and is gone at the next
+ * start, when the owner's browser hands everything over again.
+ *
+ * @param {{ dir: string, account?: string }} options
+ * @returns {Keychain}
+ */
+export function unlockedKeychain({ dir, account = ACCOUNT }) {
+	const { what, setup } = describeAccount(account);
+	if (!HOSTED_ACCOUNT.test(account)) {
+		throw new KeychainError(
+			`The hosted bridge keeps no ${what} under that name.`,
+			'KEYCHAIN_DENIED'
+		);
+	}
+	const key = `${dir}\0${account}`;
+	const file = `${dir.replace(/\/+$/, '')}/${secretFileOf(account)}`;
+	return {
+		async read() {
+			if (hostedOverlay.has(key)) {
+				const value = hostedOverlay.get(key);
+				if (value) return value;
+				throw new KeychainError(`No ${what} came with the unlock.`, 'KEYCHAIN_MISSING');
+			}
+			let text;
+			try {
+				// One plain file per secret: a link is refused, not followed.
+				const info = await lstat(file);
+				if (!info.isFile() || info.size > MAX_SECRET_BYTES) {
+					throw new KeychainError(
+						`The ${what} that came with the unlock is not one secret.`,
+						'KEYCHAIN_DENIED'
+					);
+				}
+				text = await readFile(file, 'utf8');
+			} catch (/** @type {any} */ error) {
+				if (error instanceof KeychainError) throw error;
+				throw new KeychainError(
+					`No ${what} came with the unlock (it is set in the app, not with \`pnpm ${setup}\` in the VM).`,
+					'KEYCHAIN_MISSING'
+				);
+			}
+			const password = text.replace(/\r?\n$/, '');
+			if (!password)
+				throw new KeychainError(
+					`The ${what} that came with the unlock is empty.`,
+					'KEYCHAIN_MISSING'
+				);
+			return password;
+		},
+		/** @param {string} password */
+		async write(password) {
+			if (!password)
+				throw new KeychainError('Refusing to store an empty password.', 'KEYCHAIN_EMPTY');
+			hostedOverlay.set(key, password);
+		},
+		async remove() {
+			hostedOverlay.set(key, null);
 		}
 	};
 }

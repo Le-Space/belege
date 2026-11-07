@@ -1,0 +1,252 @@
+name: Bridge on a confidential node
+
+# Boots the hosted bridge's image (#583) on an SEV-SNP node with Aleph's CLI,
+# attests and unlocks it the way the browser does (bridge/rootfs/test/
+# attest-live.mjs: @le-space/attest-wasm through a relay's /attest, the
+# measurement computed from Aleph's published runtime and the owner), waits
+# for the bridge, dials its node over a stream (directly and through a relay),
+# attests it again through its own /attest, and measures each step, in the
+# form of Le-Space/paperless-anywhere#1. Then it forgets the VM. Made after
+# paperless-anywhere's try.yml. No secret of a person: the bridge starts
+# unpaired with nothing but its relays.
+#
+# Secrets: ALEPH_PRIVATE_KEY (pays and owns the VM), BRIDGE_LUKS_PASSPHRASE.
+
+on:
+  workflow_dispatch:
+    inputs:
+      rootfs_item_hash:
+        description: Encrypted bridge rootfs (the STORE from "Bridge image")
+        required: true
+        type: string
+      crn:
+        description: SEV-SNP node (hash or unique prefix)
+        required: true
+        default: bb0aa1a9fc75
+        type: string
+      relay:
+        description: An orbitdb-relay with /attest and libp2p WebSockets (host name)
+        required: true
+        default: crazy-pluck-uncle-device.2n6.me
+        type: string
+      keep_minutes:
+        description: Minutes to keep it running after the checks
+        required: false
+        default: '5'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bridge-try
+  cancel-in-progress: false
+
+env:
+  ALEPH_PRIVATE_KEY: ${{ secrets.ALEPH_PRIVATE_KEY }}
+  ITEM: ${{ inputs.rootfs_item_hash }}
+  CRN: ${{ inputs.crn }}
+  RELAY: ${{ inputs.relay }}
+  NAME: belege-bridge-try-${{ github.run_id }}
+  VCPUS: '2'
+
+jobs:
+  try:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Check inputs
+        run: |
+          [[ "$ITEM" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::rootfs_item_hash is not an item hash"; exit 1; }
+          [[ "$CRN" =~ ^[0-9a-f]{6,64}$ ]] || { echo "::error::crn is not a hash or prefix"; exit 1; }
+          [[ "$RELAY" =~ ^[a-z0-9.-]+$ ]] || { echo "::error::relay is not a host name"; exit 1; }
+          [[ "${{ inputs.keep_minutes }}" =~ ^[0-9]{1,2}$ ]] || { echo "::error::keep_minutes must be a number up to 99"; exit 1; }
+
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: pnpm
+
+      - name: Tools
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/aleph" https://github.com/aleph-im/aleph-rs/releases/download/v0.22.0/aleph-cli-linux-x86_64
+          echo "41b8ced717d9962683ce2d4409725774e826643be0bae1bfc623f6c0c7fb19d7  $RUNNER_TEMP/aleph" | sha256sum -c -
+          sudo install -m 755 "$RUNNER_TEMP/aleph" /usr/local/bin/aleph
+          # The browser's attestation code, run in Node.
+          mkdir -p "$RUNNER_TEMP/attest" && cp bridge/rootfs/test/attest-live.mjs "$RUNNER_TEMP/attest/"
+          (cd "$RUNNER_TEMP/attest" && npm init -y >/dev/null && npm install --no-audit --no-fund --loglevel=error @le-space/attest-wasm@0.12.4 ethers@6.16.0)
+          # The stream test uses the bridge's own libp2p.
+          pnpm install --frozen-lockfile --filter @belege/bridge...
+
+      - name: The passphrase, a key for this run, the relay's addresses
+        env:
+          LUKS: ${{ secrets.BRIDGE_LUKS_PASSPHRASE }}
+        run: |
+          umask 077
+          printf '%s' "$LUKS" | tr -d '\r\n' > "$RUNNER_TEMP/luks.pass"
+          ssh-keygen -q -t ed25519 -N '' -C bridge-try -f "$RUNNER_TEMP/try_ed25519"
+          curl -fsS --max-time 20 "https://$RELAY/multiaddrs" \
+            | jq -c '[.byTransport.websocket[] | select(test("^/dns4/.*/tcp/443/tls/ws/p2p/"))]' > "$RUNNER_TEMP/relays.json"
+          [ "$(jq length "$RUNNER_TEMP/relays.json")" -gt 0 ] || { echo "::error::$RELAY names no /dns4 …/tls/ws address"; exit 1; }
+          cat "$RUNNER_TEMP/relays.json"
+
+      - name: Create the confidential instance
+        id: create
+        run: |
+          set -o pipefail
+          start=$(date +%s)
+          aleph instance create "$NAME" --confidential --image "$ITEM" \
+            --vcpus "$VCPUS" --memory 2GB --disk-size 10GB --crn "$CRN" \
+            --ssh-pubkey-file "$RUNNER_TEMP/try_ed25519.pub" --chain eth --wait 600 2>&1 | tee "$RUNNER_TEMP/create.log" || status=$?
+          hash="$(grep -oE 'Item hash: +[0-9a-f]{64}' "$RUNNER_TEMP/create.log" | grep -oE '[0-9a-f]{64}' | head -1 || true)"
+          echo "item_hash=$hash" >> "$GITHUB_OUTPUT"
+          echo "T_CREATE=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+          [ -n "$hash" ] || { echo "::error::no INSTANCE item hash in the CLI output"; exit 1; }
+          exit "${status:-0}"
+
+      - name: Forward 443, the node's address and the 2n6 name
+        id: net
+        env:
+          HASH: ${{ steps.create.outputs.item_hash }}
+        run: |
+          start=$(date +%s)
+          aleph instance port-forward create "$HASH" 443 --tcp true --chain eth
+          aleph instance port-forward refresh "$HASH" --chain eth || true
+          crn_row="$(curl -fsS 'https://api2.aleph.im/api/v0/aggregates/0xa1B3bb7d2332383D96b7796B908fB7f7F3c2Be10.json?keys=corechannel' \
+            | jq -c --arg p "$CRN" '[.data.corechannel.resource_nodes[] | select(.hash | startswith($p))][0]')"
+          crn_url="$(jq -r '.address' <<<"$crn_row")"; crn_url="${crn_url%/}"
+          echo "CRN_URL=$crn_url" >> "$GITHUB_ENV"
+          echo "CRN_HASH=$(jq -r '.hash' <<<"$crn_row")" >> "$GITHUB_ENV"
+          # The node restarts the VM to apply a new mapping; an unlock before that is lost.
+          for i in $(seq 1 30); do
+            mapped="$(curl -fsS --max-time 15 "$crn_url/v2/about/executions/list" | jq -r --arg h "$HASH" '.[$h].networking.mapped_ports["443"].host // empty' || true)"
+            [ -n "$mapped" ] && { echo "443 mapped to $mapped"; break; }
+            sleep 10
+          done
+          [ -n "$mapped" ] || { echo "::error::the node did not map 443"; exit 1; }
+          host=""
+          for i in $(seq 1 30); do
+            host="$(curl -fsS "https://api.2n6.me/api/hash/$HASH" | jq -r '.subdomain // .url // empty' | sed -E 's#^https?://##; s#/.*##')" || true
+            [ -n "$host" ] && break
+            sleep 10
+          done
+          [ -n "$host" ] || { echo "::error::no 2n6 hostname for $HASH"; exit 1; }
+          case "$host" in *.*) ;; *) host="$host.2n6.me" ;; esac
+          echo "hostname=$host" >> "$GITHUB_OUTPUT"
+          echo "T_NET=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+          sleep 15
+
+      - name: Attest and unlock, as the browser does
+        env:
+          HASH: ${{ steps.create.outputs.item_hash }}
+          HOST: ${{ steps.net.outputs.hostname }}
+        run: |
+          umask 077
+          jq -n --arg host "$HOST" --arg keys "$(cat "$RUNNER_TEMP/try_ed25519.pub")" --slurpfile relays "$RUNNER_TEMP/relays.json" \
+            '{https_hostname: $host, authorized_keys: $keys, bridge_config: ({node: {relays: $relays[0]}} | tojson)}' > "$RUNNER_TEMP/secrets.json"
+          start=$(date +%s)
+          ok=""
+          for i in $(seq 1 12); do
+            if PASSPHRASE_FILE="$RUNNER_TEMP/luks.pass" SECRETS_FILE="$RUNNER_TEMP/secrets.json" \
+                node "$RUNNER_TEMP/attest/attest-live.mjs" unlock "$HASH" "$CRN_HASH" "wss://$RELAY/attest" > "$RUNNER_TEMP/unlock.json" 2> "$RUNNER_TEMP/unlock.log"; then
+              ok=1; break
+            fi
+            tail -3 "$RUNNER_TEMP/unlock.log"
+            # A wrong measurement is a verdict, not a node that is not up yet.
+            grep -q '"published":false' "$RUNNER_TEMP/unlock.json" 2>/dev/null && { cat "$RUNNER_TEMP/unlock.json"; exit 1; }
+            sleep 20
+          done
+          [ -n "$ok" ] || { cat "$RUNNER_TEMP/unlock.log"; exit 1; }
+          cat "$RUNNER_TEMP/unlock.json"
+          echo "T_UNLOCK=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+          echo "UNLOCKED_AT=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: The bridge comes up
+        id: up
+        env:
+          HASH: ${{ steps.create.outputs.item_hash }}
+          HOST: ${{ steps.net.outputs.hostname }}
+        run: |
+          ready=""
+          for i in $(seq 1 90); do
+            status="$(curl -fsS --max-time 10 "https://$HOST/bridge/status.json" 2>/dev/null || true)"
+            if [ "$(jq -r '.phase // empty' <<<"$status" 2>/dev/null)" = ready ] && [ "$(jq -r '.node.relayed' <<<"$status")" = true ]; then
+              ready=1; break
+            fi
+            sleep 5
+          done
+          echo "T_READY=$(( $(date +%s) - UNLOCKED_AT ))" >> "$GITHUB_ENV"
+          echo "$status" | jq . || true
+          [ -n "$ready" ] || { echo "::error::the bridge did not report ready with a relay reservation"; exit 1; }
+          echo "$status" > "$RUNNER_TEMP/status.json"
+          echo "peer=$(jq -r .node.peerId <<<"$status")" >> "$GITHUB_OUTPUT"
+
+      - name: Over the stream, directly and through the relay
+        env:
+          HOST: ${{ steps.net.outputs.hostname }}
+          PEER: ${{ steps.up.outputs.peer }}
+        run: |
+          relay="$(jq -r '.[0]' "$RUNNER_TEMP/relays.json")"
+          node bridge/rootfs/test/dial.mjs \
+            "/dns4/$HOST/tcp/443/tls/ws/p2p/$PEER" \
+            "$relay/p2p-circuit/p2p/$PEER" | tee "$RUNNER_TEMP/dial.jsonl"
+          echo "T_DIAL_DIRECT_MS=$(sed -n 1p "$RUNNER_TEMP/dial.jsonl" | jq -r .ms)" >> "$GITHUB_ENV"
+          echo "T_DIAL_RELAY_MS=$(sed -n 2p "$RUNNER_TEMP/dial.jsonl" | jq -r .ms)" >> "$GITHUB_ENV"
+
+      - name: Attested again through the bridge VM's own /attest
+        env:
+          HASH: ${{ steps.create.outputs.item_hash }}
+          HOST: ${{ steps.net.outputs.hostname }}
+        run: |
+          node "$RUNNER_TEMP/attest/attest-live.mjs" attest "$HASH" "$CRN_HASH" "wss://$HOST/attest" | tee "$RUNNER_TEMP/attest.json"
+          echo "T_ATTEST_MS=$(jq -r .timings.attested "$RUNNER_TEMP/attest.json")" >> "$GITHUB_ENV"
+
+      - name: What faces the network, memory, size
+        env:
+          HASH: ${{ steps.create.outputs.item_hash }}
+        run: |
+          entry="$(curl -fsS --max-time 15 "$CRN_URL/v2/about/executions/list" | jq -c --arg h "$HASH" '.[$h] // {}')"
+          ssh_host="$(jq -r '.networking.host_ipv4 // empty' <<<"$entry")"
+          ssh_port="$(jq -r '.networking.mapped_ports["22"].host // empty' <<<"$entry")"
+          ssh_args=(-i "$RUNNER_TEMP/try_ed25519" -p "$ssh_port" -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "root@$ssh_host")
+          ssh "${ssh_args[@]}" 'belege-bridge-check; echo; free -m | sed -n 2p; df -h / | tail -1; cat /run/belege-bridge-status/net-hardening.json; ls /run/belege-bridge/secrets' | tee "$RUNNER_TEMP/guest.txt"
+          echo "MEM_USED_MB=$(awk '/^Mem:/ {print $3; exit}' "$RUNNER_TEMP/guest.txt")" >> "$GITHUB_ENV"
+          echo "MEM_TOTAL_MB=$(awk '/^Mem:/ {print $2; exit}' "$RUNNER_TEMP/guest.txt")" >> "$GITHUB_ENV"
+
+      - name: Summary
+        if: always()
+        env:
+          HOST: ${{ steps.net.outputs.hostname }}
+        run: |
+          timeline="$(jq -c '.timeline // {}' "$RUNNER_TEMP/status.json" 2>/dev/null || echo '{}')"
+          {
+            echo "## Bridge on a confidential node"
+            echo
+            echo "| | Measured |"
+            echo "|---|---|"
+            echo "| Boot | INSTANCE until running ${T_CREATE:-?} s; 443 mapped and named ${T_NET:-?} s; attest and unlock ${T_UNLOCK:-?} s |"
+            echo "| Bridge | ready with a relay reservation ${T_READY:-?} s after the unlock (timeline \`$timeline\`) |"
+            echo "| Stream | dial + identify directly through Caddy ${T_DIAL_DIRECT_MS:-?} ms, through the relay ${T_DIAL_RELAY_MS:-?} ms |"
+            echo "| Attestation | again through the VM's own \`/attest\`, measurement as published: ${T_ATTEST_MS:-?} ms |"
+            echo "| Memory | ${MEM_USED_MB:-?} MB of ${MEM_TOTAL_MB:-?} MB in use |"
+            echo "| Exposure | \`belege-bridge-check\`: see the step's log |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep it running
+        if: success() && inputs.keep_minutes != '0'
+        run: sleep $(( ${{ inputs.keep_minutes }} * 60 ))
+
+      - name: Forget the instance
+        if: always()
+        env:
+          HASH: ${{ steps.create.outputs.item_hash }}
+        run: |
+          hashes="$HASH $(aleph instance list --json --chain eth 2>/dev/null | jq -r --arg n "$NAME" '.[] | select((.name // .metadata.name // "") == $n) | (.item_hash // .hash)' || true)"
+          for h in $(printf '%s\n' $hashes | sort -u); do
+            echo y | aleph instance delete "$h" --reason "belege bridge try ${GITHUB_RUN_ID}" --chain eth || true
+            aleph instance port-forward delete "$h" --chain eth --yes 2>/dev/null || true
+          done

@@ -224,6 +224,7 @@ const relayPeerOf = (addr) => /\/p2p\/(12D3KooW[1-9A-HJ-NP-Za-km-z]{44})/.exec(a
  * @param {Partial<import('./grants.js').Limits>} [p.limits] bridge.json `node.limits` (grants.js)
  * @param {() => Promise<void>} [p.onUnpair] a device unpaired the bridge (armed only): forget the key, restart unarmed
  * @param {number} [p.wsPort] a WebSocket on 127.0.0.1 for the browser on this machine; 0 picks one
+ * @param {string[]} [p.announce] public addresses of a TLS proxy in front of that WebSocket (the hosted VM's Caddy)
  * @param {any[]} [p.transports] tests: the memory transport
  * @param {string[]} [p.listen] tests: listen addresses instead of the relays and the WebSocket
  * @param {(line: string) => void} [p.log] counts and peer ids, never a key
@@ -240,6 +241,7 @@ export async function startBridgeNode({
 	limits,
 	onUnpair = async () => {},
 	wsPort = 0,
+	announce = [],
 	transports,
 	listen,
 	log = () => {}
@@ -276,7 +278,9 @@ export async function startBridgeNode({
 			listen: listen ?? [
 				...relays.map((relay) => `${relay}/p2p-circuit`),
 				`/ip4/127.0.0.1/tcp/${wsPort}/ws`
-			]
+			],
+			// The hosted VM (#583): Caddy ends TLS on 443 and passes the WebSocket on to the one above.
+			...(announce.length ? { appendAnnounce: announce } : {})
 		},
 		transports: transports ?? [tcp(), webSockets(), circuitRelayTransport()],
 		// A relay that is down must not keep the node from starting on the others.

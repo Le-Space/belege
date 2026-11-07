@@ -1,0 +1,11 @@
+[Unit]
+Description=belege-bridge-forget-passphrase (see /usr/local/sbin/belege-bridge-forget-passphrase)
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/belege-bridge-forget-passphrase
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

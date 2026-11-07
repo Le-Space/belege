@@ -34,7 +34,7 @@ import { join } from 'node:path';
 
 import { startBridge } from './index.js';
 import { defaultConfigPath } from './config.js';
-import { memoryKeychain } from './keychain.js';
+import { memoryKeychain, unlockedKeychain } from './keychain.js';
 import { managePairings } from './pairings.js';
 
 const args = process.argv.slice(2);
@@ -45,6 +45,11 @@ const value = (name) => {
 };
 
 const testMode = args.includes('--test-mode');
+const hosted = args.includes('--hosted');
+if (hosted && testMode) {
+	console.error('--hosted and --test-mode exclude each other.');
+	process.exit(1);
+}
 const configPath = resolve(value('--config') ?? defaultConfigPath());
 const port = value('--port') ? Number(value('--port')) : undefined;
 
@@ -149,6 +154,28 @@ if (testMode) {
 	}
 }
 
+if (hosted) {
+	const dir = process.env.BELEGE_BRIDGE_SECRETS_DIR || '/tmp/secrets';
+	console.error(`[bridge] HOSTED: secrets from the unlock (${dir}), kept in memory.`);
+	/** @param {string} account */
+	const fromUnlock = (account) => unlockedKeychain({ dir, account });
+	keychain = fromUnlock('hibiscus');
+	mailKeychain = fromUnlock('imap');
+	// No language model in the hosted bridge (#251).
+	llmKeychain = memoryKeychain(null, 'llm');
+	krakenKeychain = fromUnlock('kraken');
+	paperlessKeychain = fromUnlock('paperless');
+	enablebankingKeychain = fromUnlock('enablebanking');
+	coingeckoKeychain = fromUnlock('coingecko');
+	bitcoinKeychain = fromUnlock('bitcoin');
+	alchemyKeychain = fromUnlock('alchemy');
+	alephBackupKeychain = fromUnlock('aleph-backup');
+	bridgeAuthKeychain = fromUnlock('bridge-auth');
+	portalKeychain = (id) => fromUnlock(`portal:${id}`);
+	// Nobody sits at the VM: a portal never asks for a password there.
+	portalPasswordDialog = async () => null;
+}
+
 try {
 	const bridge = await startBridge({
 		configPath,
@@ -167,7 +194,7 @@ try {
 		alephIngestUrl,
 		bridgeAuthKeychain,
 		// Test mode never touches this machine's keychain, not even to clean up.
-		...(testMode ? { legacyDeviceAuthKeychain: null } : {}),
+		...(testMode || hosted ? { legacyDeviceAuthKeychain: null } : {}),
 		fixedRates,
 		walletLoopback: testMode,
 		portalKeychain,
@@ -180,7 +207,11 @@ try {
 		port,
 		forcePairingCode: args.includes('--pair'),
 		// --no-node: HTTP only, no libp2p node (node.js, #573).
-		node: !args.includes('--no-node')
+		node: !args.includes('--no-node'),
+		// For a TEE quote's report data (#696): the node key's hash next to it.
+		publishKeyHash: hosted,
+		// Hosted, the log is the host's: no invitation, no pairing code in it (#585 pairs after attestation).
+		logPairing: !hosted
 	});
 	const stop = async () => {
 		await bridge.close();

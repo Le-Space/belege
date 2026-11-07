@@ -1,0 +1,11 @@
+[Unit]
+Description=belege-bridge-status (see /usr/local/sbin/belege-bridge-status)
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/belege-bridge-status
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

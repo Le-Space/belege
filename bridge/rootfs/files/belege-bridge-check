@@ -1,0 +1,16 @@
+#!/bin/sh
+# What faces the network: every TCP/UDP listener not bound to loopback.
+# Exits 1 if anything other than sshd (22, only with a key a test sent with
+# the unlock), Caddy (443) or Aleph's attestation agent (8443, run by the
+# measured init before this rootfs is even unlocked) does. The bridge's HTTP
+# API, its node's WebSocket and the attest relay listen on 127.0.0.1 only.
+bad=$(ss -Hltnu 2>/dev/null | awk '{print $5}' \
+  | grep -vE '^(127\.[0-9.]+|\[::1\]|::1|\[::ffff:127\.[0-9.]+\]):' \
+  | grep -vE ':(22|443|8443)$' || true)
+echo "listening (not loopback):"
+ss -Hltnup 2>/dev/null | grep -vE ' (127\.[0-9.]+|\[::1\]|\[::ffff:127\.[0-9.]+\]):' || true
+if [ -n "$bad" ]; then
+  echo "FAIL: reachable from the network: $(echo $bad)" >&2
+  exit 1
+fi
+echo "OK: only sshd, Caddy and the attestation agent face the network"
