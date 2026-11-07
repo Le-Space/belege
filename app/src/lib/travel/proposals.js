@@ -372,3 +372,20 @@ export function headOf(receipts) {
 		end: back && lastEnd && (!start || lastEnd > start) ? lastEnd : null
 	};
 }
+
+/**
+ * The Reisen tab (#693): shown once there is anything of travel – a trip, a
+ * traveller, or a trip the receipts propose – so who never travels keeps five
+ * tabs; and what waits there, proposals and open questions, as its count.
+ *
+ * @param {{ receipts: Rec[], travel: Rec[], matches?: Rec[], transactions?: Rec[] }} books
+ * @param {Date} [now]
+ * @returns {{ show: boolean, open: number }}
+ */
+export function travelNav(books, now = new Date()) {
+	const proposals = tripProposals(books).length;
+	const any =
+		proposals > 0 ||
+		books.travel.some((r) => !r.deleted && (r.kind === 'trip' || r.kind === 'traveller'));
+	return { show: any, open: any ? proposals + openTravelQuestions(books, now).length : 0 };
+}

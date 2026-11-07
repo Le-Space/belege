@@ -6,7 +6,7 @@
 	//
 	// Changed: real routes rather than fragments — belege's pages are routes,
 	// and the session lives in a module, so a navigation keeps it — and five
-	// tabs.
+	// tabs; a sixth, Reisen, once there is anything of travel (#693).
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { t } from './i18n/index.js';
@@ -15,14 +15,20 @@
 	import { aiRun } from './matching/ai-suggest.svelte.js';
 	import { walletRun } from './wallets/sync-run.svelte.js';
 	import { percentOf } from './wallets/sync-turn.js';
+	import { app } from './session.svelte.js';
+	import { travelNav } from './travel/proposals.js';
 
-	const TABS = /** @type {const} */ ([
+	const ALL = /** @type {const} */ ([
 		{ href: '/', icon: 'home', label: 'nav.home' },
 		{ href: '/zahlungen', icon: 'zahlungen', label: 'nav.zahlungen' },
 		{ href: '/belege', icon: 'belege', label: 'nav.belege' },
+		{ href: '/reisen', icon: 'reisen', label: 'nav.reisen' },
 		{ href: '/export', icon: 'export', label: 'nav.export' },
 		{ href: '/integrationen', icon: 'integrationen', label: 'nav.integrationen' }
 	]);
+	// Reisen only for who travels: a trip, a traveller or a proposal (travelNav).
+	let travel = $derived(travelNav(app));
+	let TABS = $derived(ALL.filter((tab) => tab.icon !== 'reisen' || travel.show));
 </script>
 
 <nav
@@ -30,7 +36,11 @@
 	data-testid="section-tabs"
 	class="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] sm:static sm:z-auto sm:mb-6 sm:border-t-0 sm:border-b sm:bg-transparent sm:pb-0"
 >
-	<ul class="mx-auto grid max-w-5xl grid-cols-5 sm:flex sm:gap-1">
+	<ul
+		class="mx-auto grid max-w-5xl {TABS.length === 6
+			? 'grid-cols-6'
+			: 'grid-cols-5'} sm:flex sm:gap-1"
+	>
 		{#each TABS as tab (tab.href)}
 			{@const active =
 				tab.href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(tab.href)}
@@ -55,6 +65,13 @@
 							})}
 							data-testid="tab-extract-progress"
 							>{extractRun.progress.done}/{extractRun.progress.count}</span
+						>
+					{/if}
+					{#if tab.icon === 'reisen' && travel.open > 0}
+						<span
+							class="rounded bg-surface-2 px-1 font-mono text-[10px] text-text tabular-nums sm:text-xs"
+							title={t('nav.reisenOpen', { count: travel.open })}
+							data-testid="tab-reisen-open">{travel.open}</span
 						>
 					{/if}
 					{#if tab.icon === 'integrationen' && walletRun.progress}

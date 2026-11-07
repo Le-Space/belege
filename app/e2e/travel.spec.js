@@ -301,6 +301,9 @@ test('trips proposed by the receipts: one made with a click, one dismissed for g
 	await page.getByTestId('passkey-label').fill('E2E');
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
+	// No travel yet: five tabs, no Reisen (#693).
+	await expect(page.getByTestId('tab-home')).toBeVisible();
+	await expect(page.getByTestId('tab-reisen')).toHaveCount(0);
 
 	await page.evaluate(async () => {
 		const e2e = /** @type {any} */ (window).__belegeE2E;
@@ -364,8 +367,11 @@ test('trips proposed by the receipts: one made with a click, one dismissed for g
 		});
 	});
 
-	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
-	await page.getByTestId('belege-reisen').click();
+	// Travel proposed: the Reisen tab appears, counting what waits there (#693).
+	await expect(page.getByTestId('tab-reisen')).toBeVisible();
+	await expect(page.getByTestId('tab-reisen-open')).toHaveText('4');
+	await page.getByTestId('tab-reisen').click();
+	await expect(page.getByTestId('tab-reisen')).toHaveAttribute('aria-current', 'page');
 	const picker = page.getByTestId('reisen-month');
 	await picker.getByLabel('Monat: Jahr').selectOption('2025');
 	await picker.getByLabel('Monat: Monat').selectOption('04');

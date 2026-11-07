@@ -8,6 +8,10 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **Reisen as a tab** (#693), with a suitcase, between Belege and Export. It appears once there is a trip, a traveller or a trip the receipts propose, so who never travels keeps five tabs; its number counts the proposals and questions waiting there. Before, Reisen was a link on Belege and Home only, and a proposed trip went unnoticed.
+
+### Added
+
 - **Destination and times from the tickets** (#693). A trip made before its receipts were read kept an empty head. Where destination, departure or return are empty and the trip's tickets and hotels know them, the trip offers them with _Übernehmen_: the first printed departure, the last arrival, a return only where a ticket leads back home, never the day a ticket was bought.
 - **Why "von der Firma"**: a receipt on a trip paid from a business account names the payment's day.
 
