@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
-import { createPdfA, savePdfA } from '../src/index.js';
+import { asset, createPdfA, LOGOS, savePdfA } from '../src/index.js';
 import { pdfaStructure } from './support/pdfa-structure.js';
 
 const meta = {
@@ -71,4 +71,27 @@ test('an empty author or subject is left out of the info and the XMP alike', asy
 	assert.equal(s.xmp.description, null);
 	assert.equal(s.info.Author, undefined);
 	assert.equal(s.info.Subject, undefined);
+});
+
+test("the chains' marks: 192 × 192 PNG on white, embedded as an opaque RGB image", async () => {
+	assert.deepEqual(Object.keys(LOGOS), ['near', 'akash', 'filecoin', 'aleph']);
+	for (const [chain, name] of Object.entries(LOGOS)) {
+		const png = await asset(name);
+		const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
+		// IHDR: width, height, bit depth 8, colour type 2 (RGB, no alpha channel).
+		assert.deepEqual(
+			[view.getUint32(16), view.getUint32(20), png[24], png[25]],
+			[192, 192, 8, 2],
+			chain
+		);
+		assert.ok(!new TextDecoder('latin1').decode(png).includes('tRNS'), `${chain}: no transparency`);
+		const { pdf } = await createPdfA();
+		const page = pdf.addPage();
+		page.drawImage(await pdf.embedPng(png), { x: 48, y: 700, width: 22, height: 22 });
+		const s = pdfaStructure(await savePdfA(pdf, meta));
+		assert.deepEqual(s.images, [
+			{ width: 192, height: 192, colorSpace: 'DeviceRGB', softMask: false }
+		]);
+	}
+	assert.deepEqual(pdfaStructure(await sample()).images, [], 'no image unless one is drawn');
 });

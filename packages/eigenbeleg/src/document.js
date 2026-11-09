@@ -49,19 +49,28 @@ export const KIND_TEXT = {
 	usage: 'Verbrauch (aus Guthaben abgerechnet)'
 };
 
+/** The chains Eigenbeleg makes documents for, by id (as @le-space/chains names them). */
 export const CHAIN_NAMES = {
 	near: 'NEAR Protocol',
 	akash: 'Akash',
 	filecoin: 'Filecoin',
-	aleph: 'Aleph Cloud (Credits)'
+	aleph: 'Aleph Cloud (Credits)',
+	ethereum: 'Ethereum',
+	base: 'Base'
 };
 
-/** Where a chain's data comes from, named in the footer of its documents. */
+/**
+ * Where a chain's data comes from, named in the footer of its documents.
+ * Ethereum and Base: Eigenbeleg reads them through Alchemy (@le-space/chains'
+ * EVM reader, with the server's key).
+ */
 export const DATA_SOURCES = /** @type {Record<string, string>} */ ({
 	near: 'NearBlocks.io APIs, NEAR-Archiv-RPC',
 	filecoin: 'Filfox',
 	akash: 'Akash-RPC, Akash Console',
-	aleph: 'Aleph-API (api2.aleph.im)'
+	aleph: 'Aleph-API (api2.aleph.im)',
+	ethereum: 'Alchemy APIs (Ethereum Mainnet)',
+	base: 'Alchemy APIs (Base Mainnet)'
 });
 
 /**

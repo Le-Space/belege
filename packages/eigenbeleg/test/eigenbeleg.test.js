@@ -4,8 +4,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { extractText, getDocumentProxy } from 'unpdf';
 
 import { entry } from '@le-space/ledger';
+import { pdfaStructure } from '@le-space/pdf/testing/pdfa-structure';
 import { mapRaw } from '@le-space/chains/near';
 import { fixedRates, valueEntries } from '../src/value.js';
 import {
@@ -91,7 +93,7 @@ const entries = await valueEntries(
 	],
 	fixedRates({ NEAR: '3.8' })
 );
-const doc = buildDocument({
+const docArgs = {
 	payer,
 	chain: 'near',
 	network: 'testnet',
@@ -99,7 +101,8 @@ const doc = buildDocument({
 	entries,
 	number: 'EB-2026-007',
 	issuedAt: '2026-11-06T10:00:00.000Z'
-});
+};
+const doc = buildDocument(docArgs);
 
 test('only payments to the network are on it; everything else says why not', () => {
 	assert.deepEqual(
@@ -239,6 +242,57 @@ test('a real relayer day (public data) gives one position per fee', async () => 
 	assert.ok((await eigenbelegPdf(d)).length > 10_000);
 });
 
+test("the chain's mark beside the title, only with logo: true", async () => {
+	const { buildStatement, statementPdf } = await import('../src/index.js');
+	const st = buildStatement({
+		payer,
+		account: 'wolkenfabrik.testnet',
+		chain: 'near',
+		network: 'testnet',
+		period: { from: '2026-10-01', to: '2026-10-31' },
+		entries,
+		opening: { NEAR: '10' },
+		closing: { NEAR: '11.998303634875' },
+		method: 'archive'
+	});
+	const mark = { width: 192, height: 192, colorSpace: 'DeviceRGB', softMask: false };
+	for (const draw of [(o) => eigenbelegPdf(doc, o), (o) => statementPdf(st, o)]) {
+		const plain = await draw();
+		const marked = await draw({ logo: true });
+		assert.deepEqual(pdfaStructure(plain).images, [], 'no image without logo');
+		assert.deepEqual(pdfaStructure(marked).images, [mark], 'the mark, opaque RGB');
+		assert.deepEqual(pdfaStructure(marked).pdfaid, { part: '2', conformance: 'B' });
+		assert.deepEqual(await draw({ logo: true }), marked, 'the same bytes every time');
+	}
+	// One mark for all the Eigenbelege of a period, however many pages.
+	const single = buildDocument({ ...docArgs, layout: 'single' });
+	assert.equal(pdfaStructure(await eigenbelegPdf(single, { logo: true })).images.length, 1);
+	// A chain without a mark: none, and no error.
+	const other = { ...doc, chain: 'ethereum' };
+	assert.deepEqual(pdfaStructure(await eigenbelegPdf(other, { logo: true })).images, []);
+});
+
+test('every chain Eigenbeleg serves has its name and data source on the documents', async () => {
+	const { CHAIN_NAMES, DATA_SOURCES } = await import('../src/index.js');
+	const { CHAINS } = await import('@le-space/chains/registry');
+	const served = ['near', 'akash', 'filecoin', 'aleph', 'ethereum', 'base'];
+	assert.deepEqual(Object.keys(CHAIN_NAMES).sort(), [...served].sort());
+	assert.deepEqual(Object.keys(DATA_SOURCES).sort(), [...served].sort());
+	// The EVM chains by the registry's names, their data from Alchemy.
+	for (const id of ['ethereum', 'base']) {
+		assert.equal(CHAIN_NAMES[/** @type {'ethereum' | 'base'} */ (id)], CHAINS[id].name);
+		assert.match(DATA_SOURCES[id], /^Alchemy APIs/);
+	}
+	const base = buildDocument({ ...docArgs, chain: 'base', network: 'mainnet', entries: [] });
+	assert.equal(base.chainName, 'Base');
+	const text = (
+		await extractText(await getDocumentProxy(await eigenbelegPdf(base)), { mergePages: true })
+	).text.replace(/\s+/g, ' ');
+	assert.match(text, /Sammel-Eigenbeleg für Zahlungen auf Base \(mainnet\)/);
+	assert.match(text, /Daten: Alchemy APIs \(Base Mainnet\)/);
+	assert.doesNotMatch(text, /Daten: base/);
+});
+
 test('letters the fonts lack and bidi or control characters do not break the PDF (veraPDF rule 6.2.11.8)', async () => {
 	const odd = buildDocument({
 		payer: {
@@ -347,6 +401,35 @@ test('the Kontoauszug: running balance, sums, and the check against the chain', 
 	assert.equal(near.closing, '11.998303634875');
 	assert.equal(near.difference, '-0.000000004875', 'off by what the chain says');
 	assert.equal(st('11.998303634875').sections[0].difference, '0');
+	// Reconciled: exactly, or below the twelve decimals the documents print (the 1 yoctoNEAR
+	// security deposit of a token transfer, which the reader leaves out). Not: 4.875 nanoNEAR.
+	const { isDust, reconciled } = await import('../src/index.js');
+	assert.deepEqual(
+		[
+			reconciled('0'),
+			reconciled('-0.000000000000000000000003'),
+			reconciled('-0.000000004875'),
+			reconciled(null)
+		],
+		[true, true, false, null]
+	);
+	assert.deepEqual(
+		[isDust('-0.000000000000000000000003'), isDust('0.000000000001'), isDust('0')],
+		[true, false, false]
+	);
+	const said = async (/** @type {any} */ statement) =>
+		(
+			await extractText(await getDocumentProxy(await statementPdf(statement)), {
+				mergePages: true
+			})
+		).text.replace(/\s+/g, ' ');
+	const dust = st('11.998303634874999999999997');
+	assert.equal(dust.sections[0].difference, '-0.000000000000000000000003');
+	const dustText = await said(dust);
+	assert.match(dustText, /Abgestimmt: .*unter der dargestellten Genauigkeit/);
+	assert.doesNotMatch(dustText, /Nicht abgestimmt/);
+	assert.match(await said(st('11.998303634875')), /Abgestimmt: .*stimmt mit Anfangsstand/);
+	assert.match(await said(ok), /Nicht abgestimmt/);
 	assert.equal(ok.unlisted, 1, 'the spam token is not a section');
 	assert.ok((await statementPdf(ok)).length > 10_000);
 });

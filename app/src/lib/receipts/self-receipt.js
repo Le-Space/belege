@@ -48,6 +48,9 @@ const deDecimal = (amount) => {
 	return frac ? `${grouped},${frac}` : grouped;
 };
 
+/** A negative amount with the minus sign (U+2212), as the rest of the Eigenbeleg prints it. @param {string} s */
+const minus = (s) => s.replace(/^-/, '\u2212');
+
 /**
  * An own wallet's transaction in full, for the Eigenbeleg; null for a bank booking.
  *
@@ -81,9 +84,11 @@ export function chainDetails(tx, { accounts = [], partners = [], transactions = 
 		what: what(t),
 		quantity:
 			typeof t.quantity === 'string' && Number.isInteger(t.decimals)
-				? `${formatQuantity(t.quantity, t.decimals, '', { locale: DOCUMENT_LOCALE })} ${t.asset ?? ''}`.trim()
+				? minus(
+						`${formatQuantity(t.quantity, t.decimals, '', { locale: DOCUMENT_LOCALE })} ${t.asset ?? ''}`.trim()
+					)
 				: '',
-		euro: formatMoney(Number(t.amountCents ?? 0), t.currency ?? 'EUR', DOCUMENT_LOCALE),
+		euro: minus(formatMoney(Number(t.amountCents ?? 0), t.currency ?? 'EUR', DOCUMENT_LOCALE)),
 		booked: true
 	}));
 	// A swap's side the books do not hold as a leg (a token never booked).

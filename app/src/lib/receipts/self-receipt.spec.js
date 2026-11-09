@@ -142,10 +142,11 @@ describe('Eigenbeleg', () => {
 			'EB-2026-001',
 			'Wolkenfabrik Hosting GmbH',
 			'Datum der Zahlung 01.09.2026',
-			'Betrag -12,34 €',
+			'Betrag −12,34 €',
 			'Empfänger Stromwerk Test AG',
 			'Konto Wallet AKT',
-			'Menge -4,2 AKT',
+			'Menge −4,2 AKT',
+			'Gesendet −4,2 AKT −12,34 EUR',
 			'Kurs 2,938095 EUR je AKT · CoinGecko, 01.09.2026',
 			'Transaktion ABC123',
 			'Was wurde bezahlt Rechenzeit für einen Monat (Lease)',
@@ -238,7 +239,7 @@ describe('Eigenbeleg for a wallet transaction in full (#126)', () => {
 			'Gas (Netzwerkgebühr)',
 			'Tausch – gegeben (nicht gebucht)'
 		]);
-		expect(c?.movements[1].quantity).toBe('-0,00018 ETH');
+		expect(c?.movements[1].quantity).toBe('−0,00018 ETH');
 		const draft = eigenbelegDraft(got, { accounts, transactions: [got, gas] });
 		expect(draft.counterparty).toBe(`MetaMask Swap (Spender) · ${ROUTER}`);
 		expect(draft.description).toContain('Tausch: 30.000 XYZ (nicht gelistet) → 0,143 ETH');
@@ -281,7 +282,7 @@ describe('Eigenbeleg for a wallet transaction in full (#126)', () => {
 		});
 		const bytes = await bookingPdf(doc);
 		const text = (await pdfText(bytes)).replace(/\s/g, '');
-		for (const whole of [HASH, ROUTER, ME, 'Gas(Netzwerkgebühr)-0,00018ETH', 'Block-Explorer']) {
+		for (const whole of [HASH, ROUTER, ME, 'Gas(Netzwerkgebühr)−0,00018ETH', 'Block-Explorer']) {
 			expect(text, whole).toContain(whole);
 		}
 		// PDF/A-2b, made by Belege.

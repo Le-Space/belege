@@ -110,6 +110,26 @@ export function pageLayout(pdf, fonts, { margin = 48, bottom = 14, leavePage, en
 			face.draw(l.page, pdfText(t), { x, y: l.y - size, size, color });
 		},
 
+		/**
+		 * A one-line title and, when given, an image beside it, a little higher
+		 * than the letters: the chain's mark (`logo`).
+		 *
+		 * @param {string} t
+		 * @param {{ face: Face, size: number }} o
+		 * @param {import('pdf-lib').PDFImage | null} [image]
+		 */
+		title(t, { face, size }, image = null) {
+			l.text(t, { face, size });
+			if (!image) return;
+			const top = l.y + size * 1.35;
+			l.page.drawImage(image, {
+				x: margin + face.width(t, size) + 10,
+				y: top - size - 2,
+				width: size + 2,
+				height: size + 2
+			});
+		},
+
 		/** @param {number} [thickness] @param {Color} [color] */
 		rule(thickness = 0.6, color = RULE) {
 			l.page.drawLine({

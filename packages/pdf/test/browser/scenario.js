@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// A PDF/A page in every script the fonts have, in a browser: the fonts come
-// by fetch there (assets-browser.js), from disk in Node; browser.test.js
-// compares the two, byte for byte. Made-up text only.
+// A PDF/A page in every script the fonts have, with a chain's mark, in a
+// browser: the fonts and the mark come by fetch there (assets-browser.js),
+// from disk in Node; browser.test.js compares the two, byte for byte. Made-up text only.
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 
-import { createPdfA, pdfText, savePdfA, wrapText } from '../../src/index.js';
+import { asset, createPdfA, LOGOS, pdfText, savePdfA, wrapText } from '../../src/index.js';
 import { pdfaStructure } from '../support/pdfa-structure.js';
 
 export default async function scenario() {
@@ -27,6 +27,8 @@ export default async function scenario() {
 		y -= 11;
 	}
 	fonts.bold.draw(page, 'Eigenbeleg', { x: 48, y, size: 20 });
+	// A chain's mark, fetched there too.
+	page.drawImage(await pdf.embedPng(await asset(LOGOS.near)), { x: 170, y, width: 22, height: 22 });
 	const bytes = await savePdfA(pdf, {
 		title: 'Eigenbeleg EB-2026-001',
 		author: 'Wolkenfabrik Hosting GmbH',

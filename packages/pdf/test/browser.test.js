@@ -14,4 +14,5 @@ test('a PDF/A page in any script is the same file in Chromium and in Node', asyn
 	assert.deepEqual(r.structure.pdfaid, { part: '2', conformance: 'B' });
 	assert.ok(r.structure.embeddedFonts >= 3);
 	assert.deepEqual(r.structure.standardFonts, []);
+	assert.equal(r.structure.images.length, 1, "the chain's mark");
 });

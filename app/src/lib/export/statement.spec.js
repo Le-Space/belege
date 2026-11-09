@@ -394,6 +394,6 @@ describe('statement PDF', () => {
 			mergePages: true
 		});
 		expect(text).toContain('Перевод · Ödeme · Grüße € – Straße');
-		expect(pdfText('\u22121 日本')).toBe('-1 日本');
+		expect(pdfText('\u22121 日本')).toBe('\u22121 日本');
 	});
 });

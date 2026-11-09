@@ -6,7 +6,7 @@
 //
 // The text is German: the document is for German bookkeeping.
 
-import { createPdfA, savePdfA } from '@le-space/pdf';
+import { asset, createPdfA, LOGOS, savePdfA } from '@le-space/pdf';
 import { round } from '@le-space/ledger';
 
 import { DATA_SOURCES, deDate, deEuro, deNumber } from './document.js';
@@ -18,15 +18,23 @@ export const PRODUCER = 'eigenbeleg (Le Space UG), pdf-lib';
 
 /**
  * @param {import('./document.js').EigenbelegDocument} doc
- * @param {{ creator?: string, producer?: string }} [o]
+ * @param {{ creator?: string, producer?: string, logo?: boolean }} [o] logo: the chain's
+ *   mark, small, beside the title (off unless asked for; @le-space/pdf's LOGOS)
  * @returns {Promise<Uint8Array>}
  */
-export async function eigenbelegPdf(doc, { creator = CREATOR, producer = PRODUCER } = {}) {
+export async function eigenbelegPdf(
+	doc,
+	{ creator = CREATOR, producer = PRODUCER, logo = false } = {}
+) {
 	const created = new Date(doc.issuedAt);
 	const title = `Eigenbeleg ${doc.number}`;
 	const subject = `${doc.layout === 'single' ? 'Eigenbelege' : 'Sammel-Eigenbeleg'} ${doc.chainName}, ${deDate(doc.period.from)} – ${deDate(doc.period.to)}`;
 	const { pdf, fonts } = await createPdfA();
 	const { regular, bold, mono } = fonts;
+	const mark =
+		logo && Object.hasOwn(LOGOS, doc.chain)
+			? await pdf.embedPng(await asset(LOGOS[doc.chain]))
+			: null;
 	const M = 48;
 	let pageNo = 1;
 	let current = doc.number;
@@ -49,7 +57,7 @@ export async function eigenbelegPdf(doc, { creator = CREATOR, producer = PRODUCE
 			pageNo++;
 		}
 	});
-	const { text, gap, field } = l;
+	const { text, gap, field, title: heading } = l;
 	const width = l.width;
 
 	/** @param {string} number @param {string} subtitle */
@@ -62,7 +70,7 @@ export async function eigenbelegPdf(doc, { creator = CREATOR, producer = PRODUCE
 			);
 			gap(4);
 		}
-		text('Eigenbeleg', { face: bold, size: 20 });
+		heading('Eigenbeleg', { face: bold, size: 20 }, mark);
 		text(`Nr. ${number}`, { face: bold, size: 12 });
 		gap(2);
 		text(subtitle, { size: 10 });
