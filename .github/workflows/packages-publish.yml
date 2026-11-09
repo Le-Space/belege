@@ -2,11 +2,14 @@ name: Publish a package
 
 # Publishes one of the shared @le-space/* packages under packages/ to npm
 # (Le-Space/eigenbeleg-agent#6), by hand only: its tests (Node and
-# Chromium) first, then `pnpm publish` with provenance. pnpm writes the
-# version of a `workspace:^` dependency into the published package.json, so
-# a package goes after the ones it depends on: ledger → rates → chains →
-# pdf → eigenbeleg (@le-space/eigenbeleg needs ledger and pdf; its tests use
-# chains). Needs the NPM_TOKEN secret in the `npm` environment.
+# Chromium) first, then `pnpm pack` (it writes the version of a
+# `workspace:^` dependency into the packed package.json) and `npm publish`
+# of that tarball through npm's trusted publishing: npm checks this
+# workflow's OIDC identity (repository, `packages-publish.yml`, environment
+# `npm`) instead of a token, and signs the provenance statement itself.
+# Each package on npmjs.com names this workflow as its trusted publisher.
+# Approve a package on npmjs.com after the ones it depends on, so nobody can
+# install it before them: ledger → rates → chains → pdf → eigenbeleg.
 
 permissions:
   contents: read
@@ -20,8 +23,10 @@ on:
         type: choice
         options: [ledger, rates, chains, pdf, eigenbeleg]
 
+# One queue per package: GitHub keeps only one pending run per group, so a
+# shared group dropped a package that was started while another one ran.
 concurrency:
-  group: packages-publish
+  group: packages-publish-${{ inputs.package }}
   cancel-in-progress: false
 
 jobs:
@@ -32,7 +37,8 @@ jobs:
     environment: npm
     permissions:
       contents: read
-      # npm's provenance statement is signed with the workflow's identity.
+      # Trusted publishing and the provenance statement use the workflow's
+      # OIDC identity.
       id-token: write
     steps:
       - uses: actions/checkout@v6
@@ -56,9 +62,12 @@ jobs:
         env:
           PACKAGE: '@le-space/${{ inputs.package }}'
         run: pnpm --filter "$PACKAGE" run lint && pnpm --filter "$PACKAGE" run test
-      - name: Publish
+      - name: Pack
         env:
           PACKAGE: '@le-space/${{ inputs.package }}'
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: 'true'
-        run: pnpm --filter "$PACKAGE" publish --access public --no-git-checks
+        run: pnpm --filter "$PACKAGE" pack --pack-destination "$RUNNER_TEMP/pack"
+      # Trusted publishing needs npm 11.5.1 or newer; Node 22 ships npm 10.
+      - name: npm for trusted publishing
+        run: npm install --global npm@11.6.2
+      - name: Publish
+        run: npm publish "$RUNNER_TEMP"/pack/*.tgz --access public
