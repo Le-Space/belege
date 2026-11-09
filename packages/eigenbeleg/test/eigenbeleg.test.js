@@ -272,6 +272,27 @@ test("the chain's mark beside the title, only with logo: true", async () => {
 	assert.deepEqual(pdfaStructure(await eigenbelegPdf(other, { logo: true })).images, []);
 });
 
+test('every chain Eigenbeleg serves has its name and data source on the documents', async () => {
+	const { CHAIN_NAMES, DATA_SOURCES } = await import('../src/index.js');
+	const { CHAINS } = await import('@le-space/chains/registry');
+	const served = ['near', 'akash', 'filecoin', 'aleph', 'ethereum', 'base'];
+	assert.deepEqual(Object.keys(CHAIN_NAMES).sort(), [...served].sort());
+	assert.deepEqual(Object.keys(DATA_SOURCES).sort(), [...served].sort());
+	// The EVM chains by the registry's names, their data from Alchemy.
+	for (const id of ['ethereum', 'base']) {
+		assert.equal(CHAIN_NAMES[/** @type {'ethereum' | 'base'} */ (id)], CHAINS[id].name);
+		assert.match(DATA_SOURCES[id], /^Alchemy APIs/);
+	}
+	const base = buildDocument({ ...docArgs, chain: 'base', network: 'mainnet', entries: [] });
+	assert.equal(base.chainName, 'Base');
+	const text = (
+		await extractText(await getDocumentProxy(await eigenbelegPdf(base)), { mergePages: true })
+	).text.replace(/\s+/g, ' ');
+	assert.match(text, /Sammel-Eigenbeleg für Zahlungen auf Base \(mainnet\)/);
+	assert.match(text, /Daten: Alchemy APIs \(Base Mainnet\)/);
+	assert.doesNotMatch(text, /Daten: base/);
+});
+
 test('letters the fonts lack and bidi or control characters do not break the PDF (veraPDF rule 6.2.11.8)', async () => {
 	const odd = buildDocument({
 		payer: {
