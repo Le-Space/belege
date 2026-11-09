@@ -9,6 +9,9 @@ export {
 	NOT_AN_INVOICE,
 	DEFAULT_KINDS,
 	KIND_TEXT,
+	kindText,
+	ALEPH_NOTE,
+	noInvoice,
 	CHAIN_NAMES,
 	DATA_SOURCES,
 	deNumber,
@@ -17,7 +20,15 @@ export {
 } from './document.js';
 export { eigenbelegCsv } from './csv.js';
 export { eigenbelegPdf, CREATOR, PRODUCER } from './pdf.js';
-export { buildStatement, isDust, reconciled, STATEMENT_NOTE, USAGE_NOTE } from './statement.js';
+export {
+	buildStatement,
+	isDust,
+	monthly,
+	reconciled,
+	STATEMENT_NOTE,
+	USAGE_NOTE
+} from './statement.js';
+/** @typedef {import('./statement.js').MonthlyLine} MonthlyLine */
 export { statementPdf } from './statement-pdf.js';
 export { valueEntries, fixedRates } from './value.js';
 export { nextSelfNumber, bookingNote, bookingNotInvoice } from './booking.js';

@@ -108,6 +108,35 @@ export async function statementPdf(
 		l.page.drawRectangle({ x: M, y: l.y - 18, width, height: 18, color: BAND });
 		bold.draw(l.page, `${s.asset} · ${st.account}`, { x: M + 6, y: l.y - 12.5, size: 9.5 });
 		l.y -= 24;
+		// The month in sums, first (#24): what the books take as one booking each; the rows below are the proof.
+		if (aleph) {
+			const m = s.monthly;
+			const lines = [m.usage, m.usageTotal, m.purchases, m.transfersIn, m.transfersOut]
+				.flat()
+				.filter((x) => x !== null);
+			if (lines.length) {
+				l.ensure(14 + lines.length * 11 + 8);
+				l.at('Monatsübersicht', M, 8, bold, GREY);
+				l.right('Credits', M + 371 - 4, 7.5, bold, GREY);
+				l.right('Wert EUR', M + 507 - 4, 7.5, bold, GREY);
+				l.y -= 12;
+				for (const ml of lines) {
+					const total = ml === m.usageTotal;
+					const f = total ? bold : regular;
+					l.at(ml.label, M + (total ? 0 : 8), 8, f);
+					l.right(qty(ml.amount), M + 371 - 4, 8, f);
+					l.right(
+						ml.eur ? deEuro(ml.eur, 4).replace(' €', '') : '—',
+						M + 507 - 4,
+						8,
+						f,
+						ml.eur ? BLACK : GREY
+					);
+					l.y -= 11;
+				}
+				l.y -= 8;
+			}
+		}
 		const head = () => {
 			let x = M;
 			for (const c of COLS) {
