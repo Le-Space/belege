@@ -5,7 +5,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { alephEntries, createAlephClient } from '../src/aleph.js';
+import {
+	alephEntries,
+	createAlephClient,
+	PURCHASE_EXPLORERS,
+	purchaseEntries
+} from '../src/aleph.js';
+import { CHAINS } from '../src/registry.js';
 import { toChecksumAddress } from '../src/evm.js';
 import { alephFetch } from './support/aleph-fetch.js';
 import { ACCOUNT, OTHER, VM, flatUsd, sampleBalance, sampleRows } from './support/aleph-sample.js';
@@ -72,6 +78,44 @@ test('a purchase in the month is an entry with its price and paying transaction'
 			'Aleph Cloud (Kauf mit ALEPH auf ETH)',
 			'0.000002'
 		]
+	);
+});
+
+test('the payment behind a purchase: a swap in USD, credits × price, linked on the chain it was paid on', async () => {
+	const july = await client().statement({ address: ACCOUNT, month: '2026-07' });
+	const [paid] = purchaseEntries(july);
+	assert.deepEqual(
+		[paid.chain, paid.type, paid.kind, paid.asset, paid.decimals, paid.amount, paid.priceAs],
+		['aleph', 'sent', 'swap', 'USD', 6, '-2', 'USD'],
+		'1,000,000 credits × 0.000002 USD'
+	);
+	assert.equal(paid.counterparty, 'aleph');
+	assert.equal(paid.counterpartyLabel, 'Aleph Cloud (Kauf von 1000000 Credits mit ALEPH auf ETH)');
+	assert.equal(paid.memo, '1000000 Credits × 0.000002 USD');
+	assert.equal(paid.hash, `0x${'ab'.repeat(32)}`);
+	assert.equal(paid.explorerUrl, `https://etherscan.io/tx/0x${'ab'.repeat(32)}`);
+	const [bought] = alephEntries(july);
+	assert.equal(bought.hash, paid.hash, 'the credits bought and their payment share the hash');
+	assert.notEqual(bought.id, paid.id);
+	// August has no purchase: transfers in are not payments.
+	assert.deepEqual(
+		purchaseEntries(await client().statement({ address: ACCOUNT, month: '2026-08' })),
+		[]
+	);
+	// The explorers spelled out for the browser bundle are the registry's.
+	assert.deepEqual(PURCHASE_EXPLORERS, {
+		ETH: CHAINS.ethereum.explorer,
+		BASE: CHAINS.base.explorer
+	});
+	// A purchase paid on a chain the table does not know, or without a hash, links the Aleph explorer page.
+	const [unknown] = purchaseEntries({
+		...july,
+		topUps: [{ ...july.topUps[0], chain: 'SOL', txHash: null }]
+	});
+	assert.equal(unknown.explorerUrl, `https://explorer.aleph.cloud/address/ETH/${july.address}`);
+	assert.equal(
+		unknown.counterpartyLabel,
+		'Aleph Cloud (Kauf von 1000000 Credits mit ALEPH auf SOL)'
 	);
 });
 
