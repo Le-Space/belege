@@ -8,7 +8,7 @@
 // where anyone can write anything.
 
 import { round } from '@le-space/ledger';
-import { KIND_TEXT } from './document.js';
+import { kindText } from './document.js';
 
 const HEADER = [
 	'Belegnummer',
@@ -63,7 +63,7 @@ export function eigenbelegCsv(doc) {
 		e.chain,
 		e.network,
 		e.account,
-		KIND_TEXT[/** @type {keyof typeof KIND_TEXT} */ (e.kind)] ?? e.kind,
+		kindText(e),
 		DIRECTION[e.type],
 		e.counterpartyLabel ? `${e.counterpartyLabel} (${e.counterparty})` : e.counterparty,
 		e.asset,

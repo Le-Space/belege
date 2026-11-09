@@ -7,13 +7,16 @@ import { extractText, getDocumentProxy } from 'unpdf';
 import { pdfaStructure } from '@le-space/pdf/testing/pdfa-structure';
 
 import {
+	ALEPH_NOTE,
 	USAGE_NOTE,
 	buildStatement,
 	eigenbelegCsv,
+	eigenbelegPdf,
 	buildDocument,
+	monthly,
 	statementPdf
 } from '../src/index.js';
-import { alephEntries, payer, sheet } from './support/samples.js';
+import { alephEntries, alephPurchaseEntries, payer, sheet } from './support/samples.js';
 
 /** @param {Uint8Array} bytes */
 const pages = async (bytes) =>
@@ -74,6 +77,139 @@ test('Aleph credits: a Verbrauchsauszug, valued at the purchase price and the da
 	});
 	assert.equal(doc.positions.length, 0);
 	assert.match(eigenbelegCsv(doc), /Verbrauch aus Guthaben: steht im Verbrauchsauszug/);
+});
+
+test('Aleph: a purchase of credits is credits in on the statement; its payment has an Eigenbeleg of its own (#23)', async () => {
+	const entries = await alephPurchaseEntries();
+	const args = {
+		payer,
+		account: entries[0].account,
+		chain: 'aleph',
+		network: 'mainnet',
+		period: { from: '2026-08-01', to: '2026-08-31' }
+	};
+	const st = buildStatement({
+		...args,
+		entries,
+		opening: { 'ALEPH-CREDIT': '2000000' },
+		closing: { 'ALEPH-CREDIT': '3547800' },
+		method: 'derived',
+		number: 'VA-2026-08-01',
+		issuedAt: '2026-09-01T08:00:00.000Z'
+	});
+	// The USD side of the purchase is not on the Verbrauchsauszug: no USD section, no unlisted movement.
+	assert.deepEqual(
+		st.sections.map((s) => s.asset),
+		['ALEPH-CREDIT']
+	);
+	assert.equal(st.unlisted, 0);
+	const [s] = st.sections;
+	assert.equal(s.closing, '3547800');
+	assert.deepEqual(
+		s.rows.map((r) => [r.text, r.purchase, r.label]),
+		[
+			['Überweisung (Eingang)', true, 'Aleph Cloud (Kauf mit ALEPH auf ETH)'],
+			['Verbrauch (aus Guthaben abgerechnet)', false, 'Aleph Cloud (storage)'],
+			['Verbrauch (aus Guthaben abgerechnet)', false, 'Aleph Cloud (wolkenfabrik-web)'],
+			['Überweisung (Eingang)', true, 'Aleph Cloud (Kauf mit ALEPH auf BASE)'],
+			['Überweisung (Eingang)', false, '']
+		]
+	);
+	// The month in sums (#24): per resource, in all, bought (both purchases), in; the transfer in has no rate.
+	const m = s.monthly;
+	assert.deepEqual(
+		m.usage.map((l) => [l.label, l.amount, l.eur, l.rows]),
+		[
+			['Verbrauch Speicher (storage)', '200', '0.00032', 1],
+			['Verbrauch wolkenfabrik-web', '2000', '0.0032', 1]
+		]
+	);
+	assert.deepEqual(m.usageTotal, {
+		label: 'Verbrauch gesamt (Aufwand)',
+		amount: '2200',
+		eur: '0.00352',
+		rows: 2
+	});
+	assert.deepEqual(m.purchases, {
+		label: 'Käufe von Guthaben (Vorauszahlung; Eigenbeleg je Kauf)',
+		amount: '1500000',
+		eur: '2.6',
+		rows: 2
+	});
+	assert.deepEqual(
+		[m.transfersIn?.amount, m.transfersIn?.eur, m.transfersIn?.rows],
+		['50000', '', 1]
+	);
+	assert.equal(m.transfersOut, null);
+	assert.equal(m.fees, null);
+	assert.deepEqual(monthly([]), {
+		usage: [],
+		usageTotal: null,
+		purchases: null,
+		transfersIn: null,
+		transfersOut: null,
+		fees: null
+	});
+	const text = (await pages(await statementPdf(st))).join('\n').replace(/\s+/g, ' ');
+	for (const expected of [
+		'Monatsübersicht',
+		'Verbrauch Speicher (storage) 200 0,0003',
+		'Verbrauch wolkenfabrik-web 2.000 0,0032',
+		'Verbrauch gesamt (Aufwand) 2.200 0,0035',
+		'Käufe von Guthaben (Vorauszahlung; Eigenbeleg je Kauf) 1.500.000 2,6000',
+		'Eingänge von anderen Konten 50.000 —'
+	])
+		assert.ok(text.includes(expected), expected);
+
+	// The Eigenbeleg of the payment: a swap, included by the payer, called a purchase of a balance.
+	const doc = buildDocument({
+		...args,
+		payer: { ...payer, addresses: [entries[0].account] },
+		entries,
+		includeKinds: ['swap'],
+		layout: 'single',
+		number: 'EB-2026-001',
+		issuedAt: '2026-09-01T08:00:00.000Z'
+	});
+	assert.equal(doc.positions.length, 1);
+	assert.equal(doc.positions[0].what, 'Kauf von Guthaben (Credits)');
+	assert.equal(doc.note, ALEPH_NOTE);
+	assert.deepEqual(doc.totals, { quantities: { USD: '1.25' }, eur: '1', eurExact: '1' });
+	assert.deepEqual(
+		doc.sources,
+		['EZB-Referenzkurs USD/EUR'],
+		'the day and its » vom« are stripped'
+	);
+	const [t] = doc.transactions;
+	assert.deepEqual(
+		t.movements.map((mv) => [mv.what, mv.onIt, mv.why]),
+		[
+			['Überweisung', false, 'Eingang, keine Zahlung'],
+			['Kauf von Guthaben (Credits)', true, '']
+		],
+		'both sides of the transaction, the credits bought as the incoming movement'
+	);
+	const csv = eigenbelegCsv(doc);
+	assert.match(
+		csv,
+		/;Kauf von Guthaben \(Credits\);Ausgang;Aleph Cloud \(Kauf von 500000 Credits mit ALEPH auf BASE\) \(aleph\);USD;native;-1,25;0,8;-1;EZB-Referenzkurs USD\/EUR vom 2026-08-10;/
+	);
+	assert.match(
+		csv,
+		/;Verbrauch \(aus Guthaben abgerechnet\);Ausgang;.*;nein;Verbrauch aus Guthaben: steht im Verbrauchsauszug/
+	);
+	const eb = (await pages(await eigenbelegPdf(doc))).join('\n').replace(/\s+/g, ' ');
+	for (const expected of [
+		'Eigenbeleg für eine Zahlung auf Aleph Cloud (Credits) (mainnet) am 10.08.2026',
+		'Aleph Cloud (Credits): Kauf von Guthaben per Token-Zahlung an das Netzwerk, ohne Rechnung',
+		'Aleph-Cloud-Guthaben (Credits) wird per Token-Zahlung an das Aleph-Netzwerk gekauft; Aleph stellt dafür keine Rechnung aus.',
+		'Kauf von Guthaben (Credits) an Aleph Cloud (Kauf von 500000 Credits mit ALEPH auf BASE)',
+		'Daten: Aleph-API (api2.aleph.im)',
+		'EZB-Referenzkurs USD/EUR'
+	])
+		assert.ok(eb.includes(expected), expected);
+	assert.doesNotMatch(eb, /Peer-to-Peer-Netzwerk/);
+	assert.doesNotMatch(eb, /EZB-Referenzkurs USD\/EUR vom/);
 });
 
 test('the statement layout: head, fields, a table whose header repeats, page numbers, PDF/A', async () => {

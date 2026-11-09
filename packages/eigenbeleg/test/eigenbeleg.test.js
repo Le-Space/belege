@@ -293,6 +293,28 @@ test('every chain Eigenbeleg serves has its name and data source on the document
 	assert.doesNotMatch(text, /Daten: base/);
 });
 
+test('what a kind is called, and why there is no invoice, per chain', async () => {
+	const { kindText, KIND_TEXT, noInvoice, NOTE, ALEPH_NOTE } = await import('../src/index.js');
+	assert.equal(kindText({ chain: 'near', kind: 'fee' }), KIND_TEXT.fee);
+	assert.equal(kindText({ chain: 'base', kind: 'swap' }), 'Tausch');
+	assert.equal(kindText({ chain: 'aleph', kind: 'swap' }), 'Kauf von Guthaben (Credits)');
+	assert.equal(kindText({ chain: 'aleph', kind: 'unheard-of' }), 'unheard-of');
+	const near = noInvoice('near', 'NEAR Protocol');
+	assert.equal(
+		near.recipient,
+		'NEAR Protocol: Peer-to-Peer-Netzwerk ohne rechnungsstellende Organisation'
+	);
+	assert.equal(near.note, NOTE);
+	assert.match(near.why, /^Der Empfänger ist ein Peer-to-Peer-Netzwerk/);
+	const aleph = noInvoice('aleph', 'Aleph Cloud (Credits)');
+	assert.equal(
+		aleph.recipient,
+		'Aleph Cloud (Credits): Kauf von Guthaben per Token-Zahlung an das Netzwerk, ohne Rechnung'
+	);
+	assert.equal(aleph.note, ALEPH_NOTE);
+	assert.match(aleph.why, /Aleph stellt dafür keine Rechnung aus\.$/);
+});
+
 test('letters the fonts lack and bidi or control characters do not break the PDF (veraPDF rule 6.2.11.8)', async () => {
 	const odd = buildDocument({
 		payer: {

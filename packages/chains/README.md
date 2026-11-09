@@ -7,14 +7,16 @@ Runs in a browser and in Node. The caller hands in `fetch`, the endpoints (a nod
 | Chain | Source | Module |
 | --- | --- | --- |
 | Nym (Nyx), Akash (Cosmos SDK) | CometBFT RPC + REST; Akash's older history from the Akash Console indexer; Akash deployments | `cosmos`, `akash-console`, `akash-deployments`, `bech32`, `protobuf` |
-| Ethereum, Base, Arbitrum One, OP Mainnet, Polygon PoS (USDC listed; ALEPH on Ethereum and Base) | Blockscout, or Alchemy with a key | `evm`, `alchemy` |
+| Akash as `LedgerEntry` (`readAkash`, `statementAkash`: the fee to the network, escrow its own kind) | the Cosmos reader and the Akash Console indexer | `akash` |
+| Ethereum, Base, Arbitrum One, OP Mainnet, Polygon PoS (USDC listed; ALEPH on Ethereum and Base) | Blockscout, or Alchemy with a key; `evmReader(chain)` gives `LedgerEntry` through Alchemy (the key handed to each read) | `evm`, `alchemy` |
 | Bitcoin | Esplora; addresses derived from a zpub/ypub/xpub | `bitcoin` |
-| Filecoin | Filfox | `filecoin` |
+| Filecoin | Filfox; `readFilecoin`/`statementFilecoin` give `LedgerEntry` | `filecoin` |
 | NEAR | NearBlocks + an archival RPC (from Eigenbeleg); gives `LedgerEntry` | `near` |
 | Aleph Cloud credits (no chain: Aleph's own network, by the Ethereum address) | Aleph's API, CORS open; a month's statement, `alephEntries` gives `LedgerEntry` (`usage` for consumption, with its USD price per credit) | `aleph` |
 
 - `createWalletService({ fetch, getZpub, alchemyKey, … })` – every chain behind one `history({ chain, address, endpoints })`, as Belege's bridge serves it.
 - `CHAINS`, `chainOf`, `publicChains` – the chains, their assets, default endpoints and explorers (`registry`). One chain's data without the others: `FILECOIN` (`filecoin-chain`), `NYX_CHAIN`, `AKASH_CHAIN` (`cosmos-chains`), `KNOWN_EVM_CONTRACTS` (`evm-contracts`). The readers take their chain as an argument and do not import the registry.
+- The `LedgerEntry` readers (`near`, `akash`, `filecoin`, `evmReader`, `aleph`) each give `read…`/`statement…` for a period (`statement`: the entries and the balances before and after, `method: 'archive'` on NEAR, `'derived'` from today's balance elsewhere), `probe` as a live check against public data, `isAddress`, and for Aleph `purchaseEntries`: the payment behind each credit purchase. From the Eigenbeleg agent's pipeline readers; its blocks are built on them.
 - `toChecksumAddress`, `isEvmAddress` – an EVM address's EIP-55 checksum and form (`evm-address`: keccak and bytes only, so `aleph` and a browser form do not bundle the EVM reader or Alchemy; `evm` re-exports them).
 - `createJsonFetcher`, `WalletError`, `checkEndpoint`, `txUrl`, `addressUrl`, `markSwaps` – what every reader shares (`core`). Error messages name a host at most, never a path or a query (they carry addresses).
 - Fakes for tests, with made-up addresses, hashes, keys and amounts:

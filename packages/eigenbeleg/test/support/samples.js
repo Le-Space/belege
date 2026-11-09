@@ -107,7 +107,8 @@ export async function alephEntries() {
 				type: 'received',
 				kind: 'transfer',
 				amount: '1000000',
-				counterparty: 'Aleph Cloud',
+				counterparty: 'aleph',
+				counterpartyLabel: 'Aleph Cloud (Kauf mit ALEPH auf ETH)',
 				unitPrice
 			}),
 			entry({
@@ -118,7 +119,8 @@ export async function alephEntries() {
 				type: 'sent',
 				kind: 'usage',
 				amount: '-200',
-				counterparty: 'Aleph Cloud (storage)',
+				counterparty: 'aleph',
+				counterpartyLabel: 'Aleph Cloud (storage)',
 				unitPrice
 			}),
 			entry({
@@ -129,12 +131,95 @@ export async function alephEntries() {
 				type: 'sent',
 				kind: 'usage',
 				amount: '-2000',
-				counterparty: 'Aleph Cloud (wolkenfabrik-web)',
+				counterparty: 'aleph',
+				counterpartyLabel: 'Aleph Cloud (wolkenfabrik-web)',
 				unitPrice
 			})
 		],
 		fixedRates({ USD: '0.8' })
 	);
+}
+
+/**
+ * The same month with a purchase of credits in it (#23): the credits in, from Aleph, and the
+ * payment behind them – a swap in USD on Base, with the rate's day in its source, as the
+ * pipeline names the ECB rate. One usage row without a rate, so a monthly EUR sum stays open.
+ */
+export async function alephPurchaseEntries() {
+	const base = await alephEntries();
+	const hash = `0x${'cd'.repeat(32)}`;
+	const common = {
+		chain: 'aleph',
+		network: 'mainnet',
+		account: ACCOUNT,
+		height: 0,
+		method: '',
+		success: true
+	};
+	const ecb = {
+		/** @param {string} asset @param {string} date */
+		async rateFor(asset, date) {
+			return { rate: '0.8', source: `EZB-Referenzkurs ${asset}/EUR vom ${date}`, date };
+		}
+	};
+	const [bought, paid, transferIn] = await valueEntries(
+		[
+			entry({
+				...common,
+				id: 'p2',
+				hash,
+				time: '2026-08-10T09:00:00Z',
+				type: 'received',
+				kind: 'transfer',
+				asset: 'ALEPH-CREDIT',
+				contract: 'credit',
+				decimals: 0,
+				amount: '500000',
+				counterparty: 'aleph',
+				counterpartyLabel: 'Aleph Cloud (Kauf mit ALEPH auf BASE)',
+				memo: '',
+				explorerUrl: '',
+				priceAs: '',
+				unitPrice: { currency: 'USD', amount: '0.0000025', source: 'purchase' }
+			}),
+			entry({
+				...common,
+				id: 'p2-paid',
+				hash,
+				time: '2026-08-10T09:00:00Z',
+				type: 'sent',
+				kind: 'swap',
+				asset: 'USD',
+				contract: 'native',
+				decimals: 6,
+				amount: '-1.25',
+				counterparty: 'aleph',
+				counterpartyLabel: 'Aleph Cloud (Kauf von 500000 Credits mit ALEPH auf BASE)',
+				memo: '500000 Credits × 0.0000025 USD',
+				explorerUrl: `https://basescan.org/tx/${hash}`,
+				priceAs: 'USD'
+			}),
+			entry({
+				...common,
+				id: 't1',
+				hash: '',
+				time: '2026-08-15T12:00:00Z',
+				type: 'received',
+				kind: 'transfer',
+				asset: 'ALEPH-CREDIT',
+				contract: 'credit',
+				decimals: 0,
+				amount: '50000',
+				counterparty: `0x${'b2'.repeat(20)}`,
+				counterpartyLabel: '',
+				memo: '',
+				explorerUrl: '',
+				priceAs: ''
+			})
+		],
+		ecb
+	);
+	return [...base, bought, paid, transferIn];
 }
 
 const HASH = `0x${'9f'.repeat(32)}`;

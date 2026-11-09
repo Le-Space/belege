@@ -10,7 +10,10 @@
 //                         Console indexer, deployments)
 //   evm                   Ethereum, Base, Polygon, … (Blockscout, Alchemy)
 //   bitcoin               Esplora, addresses from a zpub/xpub
-//   filecoin              Filfox
+//   filecoin              Filfox; `readFilecoin`/`statementFilecoin` give
+//                         LedgerEntry for the documents
+//   akash                 Akash as LedgerEntry (`akash` here, or `/akash`);
+//                         `evmReader(chain)` the same for Ethereum and Base
 //   near                  NearBlocks + an archival RPC (from Eigenbeleg);
 //                         `near` here, or `@le-space/chains/near`
 //   aleph                 Aleph Cloud credits (no chain: Aleph's API, by the
@@ -35,8 +38,15 @@ export { bech32Decode, bech32Encode, isCosmosAddress, moduleAddress } from './be
 export { decodeTx, encodeTx } from './protobuf.js';
 export { createAkashConsoleClient, normalizeConsoleTx } from './akash-console.js';
 export { createAkashDeploymentsClient, decUnits } from './akash-deployments.js';
+export * as akash from './akash.js';
 
-export { createEvmClient, isEvmAddress, normalizeEvm, toChecksumAddress } from './evm.js';
+export {
+	createEvmClient,
+	evmReader,
+	isEvmAddress,
+	normalizeEvm,
+	toChecksumAddress
+} from './evm.js';
 export { alchemyBaseUrl, computeUnitsOf, createAlchemyReader, isAlchemyKey } from './alchemy.js';
 
 export {
@@ -55,6 +65,8 @@ export {
 	isFilecoinAddress,
 	normalizeFilecoin,
 	normalizeFilecoinTokens,
+	readFilecoin,
+	statementFilecoin,
 	toFilecoinAddress
 } from './filecoin.js';
 

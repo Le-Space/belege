@@ -10,7 +10,9 @@
 // storage deposit to a protocol contract is the same. A transfer to another
 // account may well be to a company that does invoice; it goes on the
 // Eigenbeleg only when the payer says so (`includeKinds`), and is always in
-// the CSV.
+// the CSV. Buying Aleph Cloud credits with a token is a payment of its own
+// (kind `swap` on chain `aleph`, issue #23): its Eigenbeleg says *Kauf von
+// Guthaben*; the credits it brought appear on it as the incoming movement.
 //
 // Two layouts, the same content:
 //   collective  one Eigenbeleg for the period (Sammel-Eigenbeleg), one
@@ -30,6 +32,31 @@ export const NOTE =
 	'Eigenbeleg. Für diese Zahlung gibt es keinen Fremdbeleg: Empfänger ist ein Peer-to-Peer-Netzwerk ohne rechnungsstellende Organisation. ' +
 	'Ausgestellt vom Zahlenden auf Grundlage der öffentlichen Transaktion; jede Position ist über ihren Transaktions-Hash in einem öffentlichen Block-Explorer nachprüfbar.';
 
+/** Aleph Cloud is an organisation, but the purchase of credits is a token payment on chain that gets no invoice (#23). */
+export const ALEPH_NOTE =
+	'Eigenbeleg. Für diese Zahlung gibt es keinen Fremdbeleg: Aleph-Cloud-Guthaben (Credits) wird per Token-Zahlung an das Aleph-Netzwerk gekauft; Aleph stellt dafür keine Rechnung aus. ' +
+	'Ausgestellt vom Zahlenden auf Grundlage der öffentlichen Transaktion; jede Position ist über ihren Transaktions-Hash in einem öffentlichen Block-Explorer nachprüfbar.';
+
+/**
+ * Why there is no invoice for a payment on this chain: the recipient line and the reason, as the Eigenbeleg prints them.
+ *
+ * @param {string} chain
+ * @param {string} chainName
+ */
+export function noInvoice(chain, chainName) {
+	if (chain === 'aleph')
+		return {
+			recipient: `${chainName}: Kauf von Guthaben per Token-Zahlung an das Netzwerk, ohne Rechnung`,
+			why: 'Aleph-Cloud-Guthaben (Credits) wird per Token-Zahlung an das Aleph-Netzwerk gekauft; Aleph stellt dafür keine Rechnung aus.',
+			note: ALEPH_NOTE
+		};
+	return {
+		recipient: `${chainName}: Peer-to-Peer-Netzwerk ohne rechnungsstellende Organisation`,
+		why: 'Der Empfänger ist ein Peer-to-Peer-Netzwerk ohne rechnungsstellende Organisation; es stellt keine Rechnung aus.',
+		note: NOTE
+	};
+}
+
 export const NOT_AN_INVOICE =
 	'Dies ist keine Rechnung und kein Beleg eines Dritten. Le Space stellt keine Rechnungen für andere aus.';
 
@@ -48,6 +75,17 @@ export const KIND_TEXT = {
 	escrow: 'Hinterlegung für ein Deployment (Escrow)',
 	usage: 'Verbrauch (aus Guthaben abgerechnet)'
 };
+
+/**
+ * What an entry's kind is called on the documents. An Aleph credit purchase is a swap
+ * of a token for credits in the ledger; for the books it is the purchase of a balance.
+ *
+ * @param {{ chain: string, kind: string }} e
+ */
+export const kindText = (e) =>
+	e.chain === 'aleph' && e.kind === 'swap'
+		? 'Kauf von Guthaben (Credits)'
+		: (KIND_TEXT[/** @type {keyof typeof KIND_TEXT} */ (e.kind)] ?? e.kind);
 
 /** The chains Eigenbeleg makes documents for, by id (as @le-space/chains names them). */
 export const CHAIN_NAMES = {
@@ -165,11 +203,12 @@ export function buildDocument({
 			positions.push({
 				pos: 0,
 				entry: e,
-				what: KIND_TEXT[/** @type {keyof typeof KIND_TEXT} */ (e.kind)] ?? e.kind,
+				what: kindText(e),
 				recipient: e.counterpartyLabel || e.counterparty
 			});
 	}
 	const first = number || `EB-${period.to.slice(0, 4)}-001`;
+	const chainName = CHAIN_NAMES[/** @type {keyof typeof CHAIN_NAMES} */ (chain)] ?? chain;
 	/** @type {Transaction[]} */
 	const transactions = [];
 	for (const p of positions) {
@@ -190,7 +229,7 @@ export function buildDocument({
 					const x = excluded.find((y) => y.entry === e);
 					return {
 						entry: e,
-						what: KIND_TEXT[/** @type {keyof typeof KIND_TEXT} */ (e.kind)] ?? e.kind,
+						what: kindText(e),
 						onIt: !x,
 						why: x?.why ?? ''
 					};
@@ -231,7 +270,7 @@ export function buildDocument({
 			addresses: [...payer.addresses]
 		},
 		chain,
-		chainName: CHAIN_NAMES[/** @type {keyof typeof CHAIN_NAMES} */ (chain)] ?? chain,
+		chainName,
 		network,
 		testnet: network !== 'mainnet',
 		period,
@@ -243,14 +282,17 @@ export function buildDocument({
 			eur: round(eurExact.replace(/^-/, ''), 2),
 			eurExact: eurExact.replace(/^-/, '')
 		},
+		// The rate's name without its day (`… vom 2026-08-10`): the day is each position's.
 		sources: [
 			...new Set(
 				positions.map((p) =>
-					/** @type {any} */ (p.entry.eur).source.replace(/ \d{4}-\d{2}-\d{2}.*$/, '')
+					/** @type {any} */ (p.entry.eur).source
+						.replace(/ \d{4}-\d{2}-\d{2}.*$/, '')
+						.replace(/ vom$/, '')
 				)
 			)
 		],
-		note: NOTE,
+		note: noInvoice(chain, chainName).note,
 		notInvoice: NOT_AN_INVOICE
 	};
 }

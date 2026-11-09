@@ -49,7 +49,7 @@
 // Times are UTC; the month is the UTC month. The log gets counts, never an
 // address.
 
-import { entry, sortEntries } from '@le-space/ledger';
+import { entry, multiply, normalize, sortEntries } from '@le-space/ledger';
 import {
 	ALEPH_LIST_PRICE_USD,
 	alephCreditPrice,
@@ -58,6 +58,7 @@ import {
 } from '@le-space/rates/aleph-credits';
 import { createJsonFetcher, WalletError } from './http.js';
 import { toChecksumAddress } from './evm-address.js';
+import { txUrl } from './explorer.js';
 
 export const ALEPH_API = 'https://api2.aleph.im';
 /** Aleph's list price, USD per credit (@le-space/rates). */
@@ -451,4 +452,69 @@ export function alephEntries(statement) {
 		})
 	];
 	return sortEntries(out);
+}
+
+/**
+ * Aleph's name for the chain a purchase was paid on → the explorer's transaction
+ * link there. The same templates as the registry's `ethereum` and `base`
+ * (the test checks); spelled out here so that `/aleph` bundles without the
+ * registry.
+ */
+export const PURCHASE_EXPLORERS = /** @type {Record<string, import('./explorer.js').Explorer>} */ ({
+	ETH: {
+		name: 'Etherscan',
+		tx: 'https://etherscan.io/tx/{tx}',
+		address: 'https://etherscan.io/address/{address}'
+	},
+	BASE: {
+		name: 'Basescan',
+		tx: 'https://basescan.org/tx/{tx}',
+		address: 'https://basescan.org/address/{address}'
+	}
+});
+
+/**
+ * The payments behind a month's credit purchases: one `sent` entry per
+ * purchase, in USD (credits × the purchase's USD price per credit), of kind
+ * `swap` – a token for credits; the ledger has no `purchase` kind. The token
+ * amount paid is not in Aleph's data; it is checked through the paying
+ * transaction's hash, whose explorer link is on the chain it was paid on
+ * (Ethereum or Base), else Aleph's explorer page of the account. The credits
+ * bought stay the `received` row of `alephEntries`, with the same hash, so an
+ * Eigenbeleg shows both sides.
+ *
+ * @param {Awaited<ReturnType<ReturnType<typeof createAlephClient>['statement']>>} statement
+ * @param {{ explorers?: Record<string, import('./explorer.js').Explorer> }} [o] by Aleph's chain code (`ETH`, `BASE`)
+ * @returns {import('@le-space/ledger').LedgerEntry[]}
+ */
+export function purchaseEntries(statement, { explorers = PURCHASE_EXPLORERS } = {}) {
+	const { address, topUps } = statement;
+	return topUps
+		.filter((t) => t.how === 'purchase' && t.price)
+		.map((t, i) => {
+			const explorer = t.chain ? explorers[t.chain.toUpperCase()] : undefined;
+			return entry({
+				id: `aleph:${address}:purchase:${t.time}:${i}`,
+				chain: 'aleph',
+				network: 'mainnet',
+				account: address,
+				hash: t.txHash ?? '',
+				height: 0,
+				time: t.time,
+				type: 'sent',
+				kind: 'swap',
+				asset: 'USD',
+				contract: 'native',
+				decimals: 6,
+				amount: `-${normalize(multiply(credits(t.credits), /** @type {string} */ (t.price), 8))}`,
+				counterparty: 'aleph',
+				method: '',
+				counterpartyLabel: `Aleph Cloud (Kauf von ${credits(t.credits)} Credits${t.token ? ` mit ${t.token}` : ''}${t.chain ? ` auf ${t.chain}` : ''})`,
+				memo: `${credits(t.credits)} Credits × ${t.price} USD`,
+				success: true,
+				explorerUrl:
+					explorer && t.txHash ? txUrl(explorer, t.txHash) : `${ALEPH_EXPLORER}${address}`,
+				priceAs: 'USD'
+			});
+		});
 }
