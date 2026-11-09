@@ -13,9 +13,27 @@
 // node). A difference is shown, not hidden. Where a chain keeps no old
 // balances (Akash, Filecoin), the balances are derived from today's balance
 // less the movements since, and the statement says that instead.
+//
+// A difference below what the documents print (twelve decimals) still
+// counts as reconciled, and is still shown: the NEAR reader leaves out the
+// 1 yoctoNEAR a token transfer attaches as its security deposit (no payment,
+// 10⁻²⁴ NEAR), so an account that moved tokens is off by a few yocto.
 
 import { normalize, sum } from '@le-space/ledger';
 import { CHAIN_NAMES, KIND_TEXT } from './document.js';
+
+/** Smaller than the twelve decimals the documents print (and not zero). @param {string} difference */
+export const isDust = (difference) => /^-?0\.0{12}\d*$/.test(difference);
+
+/**
+ * Whether opening balance plus bookings meet the chain's balance: exactly,
+ * or but for dust (isDust). null: the chain names no balance.
+ *
+ * @param {string | null} difference
+ * @returns {boolean | null}
+ */
+export const reconciled = (difference) =>
+	difference === null ? null : /^-?0(\.0+)?$/.test(difference) || isDust(difference);
 
 /** Aleph Cloud credits: the same layout, as a monthly Verbrauchsauszug. */
 export const USAGE_NOTE =

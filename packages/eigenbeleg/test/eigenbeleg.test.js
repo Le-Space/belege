@@ -4,6 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { extractText, getDocumentProxy } from 'unpdf';
 
 import { entry } from '@le-space/ledger';
 import { pdfaStructure } from '@le-space/pdf/testing/pdfa-structure';
@@ -379,6 +380,35 @@ test('the Kontoauszug: running balance, sums, and the check against the chain', 
 	assert.equal(near.closing, '11.998303634875');
 	assert.equal(near.difference, '-0.000000004875', 'off by what the chain says');
 	assert.equal(st('11.998303634875').sections[0].difference, '0');
+	// Reconciled: exactly, or below the twelve decimals the documents print (the 1 yoctoNEAR
+	// security deposit of a token transfer, which the reader leaves out). Not: 4.875 nanoNEAR.
+	const { isDust, reconciled } = await import('../src/index.js');
+	assert.deepEqual(
+		[
+			reconciled('0'),
+			reconciled('-0.000000000000000000000003'),
+			reconciled('-0.000000004875'),
+			reconciled(null)
+		],
+		[true, true, false, null]
+	);
+	assert.deepEqual(
+		[isDust('-0.000000000000000000000003'), isDust('0.000000000001'), isDust('0')],
+		[true, false, false]
+	);
+	const said = async (/** @type {any} */ statement) =>
+		(
+			await extractText(await getDocumentProxy(await statementPdf(statement)), {
+				mergePages: true
+			})
+		).text.replace(/\s+/g, ' ');
+	const dust = st('11.998303634874999999999997');
+	assert.equal(dust.sections[0].difference, '-0.000000000000000000000003');
+	const dustText = await said(dust);
+	assert.match(dustText, /Abgestimmt: .*unter der dargestellten Genauigkeit/);
+	assert.doesNotMatch(dustText, /Nicht abgestimmt/);
+	assert.match(await said(st('11.998303634875')), /Abgestimmt: .*stimmt mit Anfangsstand/);
+	assert.match(await said(ok), /Nicht abgestimmt/);
 	assert.equal(ok.unlisted, 1, 'the spam token is not a section');
 	assert.ok((await statementPdf(ok)).length > 10_000);
 });

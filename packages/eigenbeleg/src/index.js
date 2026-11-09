@@ -17,7 +17,7 @@ export {
 } from './document.js';
 export { eigenbelegCsv } from './csv.js';
 export { eigenbelegPdf, CREATOR, PRODUCER } from './pdf.js';
-export { buildStatement, STATEMENT_NOTE, USAGE_NOTE } from './statement.js';
+export { buildStatement, isDust, reconciled, STATEMENT_NOTE, USAGE_NOTE } from './statement.js';
 export { statementPdf } from './statement-pdf.js';
 export { valueEntries, fixedRates } from './value.js';
 export { nextSelfNumber, bookingNote, bookingNotInvoice } from './booking.js';
