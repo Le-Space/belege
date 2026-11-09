@@ -37,6 +37,8 @@
 import { base32nopad } from '@scure/base';
 import { blake2b } from '@noble/hashes/blake2.js';
 import { fromHex } from '@le-space/ledger/bytes';
+import { derivedStatement, fromWalletEntry, sortEntries } from '@le-space/ledger';
+import { FILECOIN } from './filecoin-chain.js';
 
 import {
 	addressUrl,
@@ -395,4 +397,77 @@ export function createFilecoinClient({ fetch: f, timeoutMs, sleep }) {
 			};
 		}
 	};
+}
+
+// ---- as ledger entries, for an Eigenbeleg or a Kontoauszug (from the
+// Eigenbeleg agent's readers/filecoin.js): the fee goes to the network, FIL
+// and USDFC are priced; and the period.
+
+const PRICE_AS = { FIL: 'FIL', USDFC: 'USDC' };
+
+/**
+ * A WalletEntry → the ledger entry a document books.
+ *
+ * @param {import('@le-space/ledger/wallet-entry').WalletEntry} e
+ * @param {string} account
+ */
+export function toLedger(e, account) {
+	const fee = e.type === 'fee';
+	return fromWalletEntry(
+		e,
+		{
+			chain: 'filecoin',
+			network: 'mainnet',
+			account,
+			priceAs: PRICE_AS[/** @type {keyof typeof PRICE_AS} */ (e.asset)] ?? ''
+		},
+		{
+			kind: fee ? 'fee' : e.kind === 'swap' ? 'swap' : 'transfer',
+			contract: e.contract ?? 'native',
+			counterparty: fee ? 'filecoin' : String(e.counterparty ?? ''),
+			counterpartyLabel: fee
+				? 'Filecoin-Netzwerk (Miner-Tip und verbrannte Gebühr)'
+				: String(e.counterpartyLabel ?? ''),
+			memo: '',
+			success: fee ? true : e.success !== false
+		}
+	);
+}
+
+/**
+ * @param {object} p
+ * @param {string} p.account f0/f1/f3/f410f or 0x
+ * @param {typeof fetch} [p.fetch]
+ * @param {{ api?: string }} [p.endpoints] instead of Filfox, e.g. behind a proxy
+ */
+async function ledgerHistory({ account, fetch = globalThis.fetch, endpoints }) {
+	if (!isFilecoinAddress(account)) throw new Error('not a valid Filecoin address');
+	const address = toFilecoinAddress(account) ?? account;
+	const { entries, balances } = await createFilecoinClient({ fetch }).history({
+		chain: FILECOIN,
+		address,
+		endpoints: { ...FILECOIN.endpoints, ...endpoints }
+	});
+	return { all: sortEntries(entries.map((e) => toLedger(e, address))), balances };
+}
+
+/** Ledger entries for an account and period. @param {Parameters<typeof ledgerHistory>[0] & { from: string, to: string }} p */
+export async function readFilecoin(p) {
+	const { all } = await ledgerHistory(p);
+	return all.filter((e) => e.date >= p.from && e.date <= p.to);
+}
+
+/** For a Kontoauszug: balances derived from today's balance less the movements since (as for Akash). @param {Parameters<typeof readFilecoin>[0]} p */
+export async function statementFilecoin(p) {
+	const { all, balances } = await ledgerHistory(p);
+	return derivedStatement(all, balances, p.from, p.to);
+}
+
+/** The storage market actor always exists: Filfox answers for it when the source is up. @param {{ fetch?: typeof fetch, endpoints?: { api?: string } }} [o] */
+export async function probe({ fetch = globalThis.fetch, endpoints } = {}) {
+	const res = await fetch(`${endpoints?.api ?? FILECOIN.endpoints.api}/address/f05`);
+	if (!res.ok) throw new Error(`Filfox answered ${res.status}`);
+	const body = await res.json();
+	if (!body?.balance) throw new Error('Filfox answered without a balance');
+	return { sample: 'Filfox f05 (storage market actor)', entries: 1 };
 }

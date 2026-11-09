@@ -21,6 +21,7 @@
 		"./cosmos-chains": "./src/cosmos-chains.js",
 		"./bech32": "./src/bech32.js",
 		"./protobuf": "./src/protobuf.js",
+		"./akash": "./src/akash.js",
 		"./akash-console": "./src/akash-console.js",
 		"./akash-deployments": "./src/akash-deployments.js",
 		"./evm": "./src/evm.js",
@@ -38,7 +39,10 @@
 		"./testing/alchemy": "./test/support/fake-alchemy.js",
 		"./testing/aleph": "./test/support/aleph.js"
 	},
-	"files": ["src", "test/support"],
+	"files": [
+		"src",
+		"test/support"
+	],
 	"engines": {
 		"node": ">=22"
 	},

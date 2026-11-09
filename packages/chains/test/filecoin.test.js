@@ -9,9 +9,12 @@ import {
 	createFilecoinClient,
 	isFilecoinAddress,
 	normalizeFilecoin,
+	readFilecoin,
+	statementFilecoin,
 	toFilecoinAddress
 } from '../src/index.js';
 import { fakeFilecoinAddress, fakeMessageCid, startFakeFilfox } from './support/fake-filfox.js';
+import { toLedger } from '../src/filecoin.js';
 
 const OURS = fakeFilecoinAddress('own wallet');
 const KRAKEN = fakeFilecoinAddress('exchange deposit address');
@@ -331,4 +334,115 @@ test('an address without token transfers is not asked for them', async () => {
 	const before = filfox.state.tokenPages;
 	await client.history({ chain, address: OURS, endpoints: { api: filfox.url } });
 	assert.equal(filfox.state.tokenPages, before);
+});
+
+// ---- as ledger entries, for the documents
+
+test('ledger: a send and its fee (miner tip + burnt) as one entry each; the fee to the network', () => {
+	const cid = fakeMessageCid('a payment out');
+	const own = 'f0123456';
+	const rows = [
+		{
+			message: cid,
+			height: 1000,
+			timestamp: 1791000000,
+			from: own,
+			to: 'f0999999',
+			value: '-1500000000000000000',
+			type: 'send'
+		},
+		{
+			message: cid,
+			height: 1000,
+			timestamp: 1791000000,
+			from: own,
+			to: 'f099',
+			value: '-100000000000000',
+			type: 'burn-fee'
+		},
+		{
+			message: cid,
+			height: 1000,
+			timestamp: 1791000000,
+			from: own,
+			to: 'f0777',
+			value: '-20000000000000',
+			type: 'miner-fee'
+		}
+	];
+	const entries = normalizeFilecoin(/** @type {any} */ (rows), chain).map((e) => toLedger(e, own));
+	const byType = Object.fromEntries(entries.map((e) => [e.type, e]));
+	assert.deepEqual(
+		[byType.sent.amount, byType.sent.priceAs, byType.sent.kind],
+		['-1.5', 'FIL', 'transfer']
+	);
+	assert.deepEqual(
+		[byType.fee.amount, byType.fee.counterparty, byType.fee.counterpartyLabel, byType.fee.success],
+		['-0.00012', 'filecoin', 'Filecoin-Netzwerk (Miner-Tip und verbrannte Gebühr)', true]
+	);
+	assert.match(byType.fee.explorerUrl, /filfox\.info\/en\/message\//);
+	assert.equal(byType.sent.id, `filecoin:${own}:${byType.sent.id.split(':').slice(2).join(':')}`);
+});
+
+test('ledger: a bad address is refused before anything is fetched', async () => {
+	const before = filfox.state.requests;
+	await assert.rejects(
+		readFilecoin({
+			account: 'f1notarealaddressatall',
+			from: '2026-10-01',
+			to: '2026-10-31',
+			endpoints: { api: filfox.url }
+		}),
+		/not a valid Filecoin address/
+	);
+	assert.equal(filfox.state.requests, before);
+});
+
+test('ledger: the period’s entries, and a statement whose balances are derived from today’s', async () => {
+	const all = await readFilecoin({
+		account: OURS,
+		from: '2020-01-01',
+		to: '2030-12-31',
+		endpoints: { api: filfox.url }
+	});
+	assert.equal(all.length, 253);
+	assert.ok(
+		all.every(
+			(e) => e.chain === 'filecoin' && e.account === OURS && e.schema === 'le-space.ledger/1'
+		)
+	);
+	assert.ok(all.some((e) => e.type === 'fee' && e.counterparty === 'filecoin'));
+	const day = all[0].date;
+	const some = await readFilecoin({
+		account: OURS,
+		from: day,
+		to: day,
+		endpoints: { api: filfox.url }
+	});
+	assert.deepEqual(
+		some.map((e) => e.id),
+		all.filter((e) => e.date === day).map((e) => e.id),
+		'the period filters by day'
+	);
+	assert.ok(some.length > 0);
+	const st = await statementFilecoin({
+		account: OURS,
+		from: '2020-01-01',
+		to: '2030-12-31',
+		endpoints: { api: filfox.url }
+	});
+	assert.equal(st.method, 'derived');
+	assert.equal(
+		st.closing.FIL,
+		'4.99',
+		'the period ends after every movement: closing is the balance now'
+	);
+	assert.equal(st.entries.length, 253);
+	const none = await statementFilecoin({
+		account: OURS,
+		from: '2031-01-01',
+		to: '2031-01-31',
+		endpoints: { api: filfox.url }
+	});
+	assert.deepEqual([none.entries.length, none.opening.FIL, none.closing.FIL], [0, '4.99', '4.99']);
 });

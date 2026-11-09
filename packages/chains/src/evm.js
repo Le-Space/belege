@@ -49,7 +49,8 @@ import { addressUrl, txUrl } from './explorer.js';
 import { markSwaps } from './core.js';
 import { createJsonFetcher, WalletError } from './http.js';
 import { unitsToDecimal } from './cosmos.js';
-import { alchemyBaseUrl, createAlchemyReader } from './alchemy.js';
+import { alchemyBaseUrl, createAlchemyReader, isAlchemyKey } from './alchemy.js';
+import { derivedStatement, fromWalletEntry, sortEntries } from '@le-space/ledger';
 
 /** Symbols an unlisted token may never be booked under: the big ones a fake would copy. */
 const LOOKALIKE_GUARD = [
@@ -668,3 +669,107 @@ export function createEvmClient({
 export { markSwaps };
 // The address helpers live in evm-address.js (no reader, no Alchemy); here as before.
 export { isEvmAddress, toChecksumAddress };
+
+// ---- as ledger entries, for an Eigenbeleg or a Kontoauszug (from the
+// Eigenbeleg agent's readers/evm.js): what an own address paid and received
+// – the native coin and the tokens the chain lists – and the gas of every
+// transaction it sent, also a failed one's; and the period. Through Alchemy
+// only: the key is handed to each read (never kept, never in an answer or a
+// log). Without a key the client would fall back to Blockscout, which answers
+// only a few requests per half hour and IP; the reader refuses instead.
+
+/** Market prices for the assets the chains list (ETH, USDC, ALEPH). */
+const LEDGER_PRICE_AS = /** @type {Record<string, string>} */ ({
+	ETH: 'ETH',
+	USDC: 'USDC',
+	ALEPH: 'ALEPH'
+});
+
+/** @param {unknown} key @returns {string} */
+function needKey(key) {
+	if (!isAlchemyKey(key)) throw new Error('this reader needs an Alchemy key');
+	return /** @type {string} */ (key);
+}
+
+/**
+ * The ledger reader for one EVM chain of the registry that Alchemy serves
+ * (`CHAINS.ethereum`, `CHAINS.base`). The chain is handed in, so this module
+ * stays free of the registry.
+ *
+ * @param {import('./registry.js').EvmChain} chain
+ * @param {{ baseUrl?: (network: string) => string }} [o] tests: a fake Alchemy on 127.0.0.1
+ */
+export function evmReader(chain, { baseUrl } = {}) {
+	if (chain?.kind !== 'evm' || !chain.alchemy)
+		throw new Error(`no EVM chain ${chain?.id} with Alchemy`);
+	const network = `${chain.name}-Netzwerk (Gas)`;
+
+	/**
+	 * A WalletEntry → the ledger entry a document books; the gas goes to the network,
+	 * and is paid also when the transaction failed.
+	 *
+	 * @param {import('@le-space/ledger/wallet-entry').WalletEntry} e
+	 * @param {string} account
+	 */
+	const toLedger = (e, account) => {
+		const fee = e.type === 'fee';
+		return fromWalletEntry(
+			e,
+			{ chain: chain.id, network: 'mainnet', account, priceAs: LEDGER_PRICE_AS[e.asset] ?? '' },
+			{
+				counterparty: fee ? chain.id : String(e.counterparty ?? ''),
+				counterpartyLabel: fee ? network : String(e.counterpartyLabel ?? ''),
+				success: fee ? true : e.success !== false
+			}
+		);
+	};
+
+	/** @param {{ account: string, fetch?: typeof fetch, alchemyKey?: string }} p */
+	const history = async ({ account, fetch: f = globalThis.fetch, alchemyKey }) => {
+		if (!isEvmAddress(account))
+			throw new Error(`not an ${chain.name} address (0x and 40 hex digits)`);
+		const key = needKey(alchemyKey);
+		const client = createEvmClient({
+			fetch: f,
+			alchemy: { key: async () => key, ...(baseUrl ? { baseUrl } : {}) }
+		});
+		const r = await client.history({ chain, address: account, endpoints: chain.endpoints });
+		return { all: sortEntries(r.entries.map((e) => toLedger(e, account))), balances: r.balances };
+	};
+
+	return {
+		chain,
+		toLedger,
+		/** Ledger entries for an account and period. @param {{ account: string, from: string, to: string, fetch?: typeof fetch, alchemyKey?: string }} p */
+		read: async (p) => (await history(p)).all.filter((e) => e.date >= p.from && e.date <= p.to),
+		/** For a Kontoauszug: balances derived from today's balance less the movements since, as for Akash. @param {{ account: string, from: string, to: string, fetch?: typeof fetch, alchemyKey?: string }} p */
+		statement: async (p) => {
+			const { all, balances } = await history(p);
+			return derivedStatement(all, balances, p.from, p.to);
+		},
+		/** Alchemy answers for the chain with this key. @param {{ fetch?: typeof fetch, alchemyKey?: string }} [p] */
+		probe: async ({ fetch: f = globalThis.fetch, alchemyKey } = {}) => {
+			const key = needKey(alchemyKey);
+			const alchemyNetwork = /** @type {import('./registry.js').AlchemyNetwork} */ (chain.alchemy);
+			// The key is in the URL: no message here names the URL or passes on fetch's own.
+			const res = await f(`${(baseUrl ?? alchemyBaseUrl)(alchemyNetwork.network)}/${key}`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_chainId', params: [] })
+			}).catch(() => null);
+			if (!res) throw new Error('Alchemy is not reachable');
+			if (!res.ok) throw new Error(`Alchemy answered ${res.status}`);
+			const body = await res.json().catch(() => null);
+			const served =
+				typeof body?.result === 'string' && /^0x[0-9a-f]+$/i.test(body.result)
+					? Number(BigInt(body.result))
+					: null;
+			if (served !== chain.chainId)
+				throw new Error(`Alchemy does not serve ${chain.name} (${chain.chainId}) here`);
+			return { sample: `${alchemyNetwork.network} eth_chainId`, entries: 1 };
+		},
+		isAddress: isEvmAddress,
+		/** One spelling per account: the EIP-55 checksum. @param {string} a */
+		canonical: (a) => toChecksumAddress(a)
+	};
+}
