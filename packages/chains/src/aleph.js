@@ -508,6 +508,7 @@ export function purchaseEntries(statement, { explorers = PURCHASE_EXPLORERS } = 
 				decimals: 6,
 				amount: `-${normalize(multiply(credits(t.credits), /** @type {string} */ (t.price), 8))}`,
 				counterparty: 'aleph',
+				method: '',
 				counterpartyLabel: `Aleph Cloud (Kauf von ${credits(t.credits)} Credits${t.token ? ` mit ${t.token}` : ''}${t.chain ? ` auf ${t.chain}` : ''})`,
 				memo: `${credits(t.credits)} Credits × ${t.price} USD`,
 				success: true,
