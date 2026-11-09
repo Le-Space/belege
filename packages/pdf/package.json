@@ -1,6 +1,6 @@
 {
 	"name": "@le-space/pdf",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "PDF/A-2b for Le Space's tools: text in any script the books hold (Latin, Cyrillic, Greek, Arabic; DejaVu and Noto, embedded as subsets), XMP metadata that matches the document info, an sRGB output intent, a document id from its content. On pdf-lib; browser and Node.",
 	"license": "AGPL-3.0-or-later",
 	"type": "module",
