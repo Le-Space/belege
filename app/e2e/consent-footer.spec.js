@@ -204,7 +204,7 @@ test('the technical explanation stays hidden until "Technisch" is switched on', 
 	await expect(dialog.getByTestId('consent-technical-identity')).toContainText('PRF-Erweiterung');
 	await expect(dialog.getByTestId('consent-technical-storage')).toContainText('HKDF-SHA-256');
 	await expect(dialog.getByTestId('consent-technical-network')).toContainText('ohne Transporte');
-	await expect(dialog.getByTestId('consent-technical-service')).toHaveCount(10);
+	await expect(dialog.getByTestId('consent-technical-service')).toHaveCount(11);
 	await expect(
 		dialog.locator('[data-service="portals"]').getByTestId('consent-technical-service')
 	).toContainText('FileVault');
