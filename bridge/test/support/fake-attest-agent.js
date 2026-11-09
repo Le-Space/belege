@@ -197,12 +197,12 @@ export async function startFakeAttestRelay(agent) {
 	const http = await import('node:http');
 	const server = http.createServer((_req, res) => res.writeHead(404).end());
 	const wss = new WebSocketServer({ server, path: '/attest' });
-	wss.on('connection', (ws) => {
+	wss.on('connection', (/** @type {any} */ ws) => {
 		const socket = net.connect(agent.port, '127.0.0.1');
 		socket.on('data', (chunk) => ws.send(chunk));
 		socket.on('close', () => ws.close());
 		socket.on('error', () => ws.close());
-		ws.on('message', (data) => socket.write(/** @type {Buffer} */ (data)));
+		ws.on('message', (/** @type {unknown} */ data) => socket.write(/** @type {Buffer} */ (data)));
 		ws.on('close', () => socket.destroy());
 	});
 	await new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(undefined)));
