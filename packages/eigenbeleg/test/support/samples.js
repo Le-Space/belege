@@ -286,9 +286,10 @@ export async function samples() {
 	return {
 		/** @type {Record<string, Uint8Array>} */
 		pdfs: {
-			'eigenbeleg-collective.pdf': await eigenbelegPdf(collective),
+			// With the chain's mark: the browser and veraPDF see it too.
+			'eigenbeleg-collective.pdf': await eigenbelegPdf(collective, { logo: true }),
 			'eigenbeleg-single.pdf': await eigenbelegPdf(single),
-			'kontoauszug.pdf': await statementPdf(kontoauszug),
+			'kontoauszug.pdf': await statementPdf(kontoauszug, { logo: true }),
 			'verbrauchsauszug.pdf': await statementPdf(verbrauch),
 			'booking-wallet.pdf': await bookingPdf(walletBooking),
 			'booking-bank.pdf': await bookingPdf(bankBooking),

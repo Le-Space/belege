@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // What a PDF/A-2b file shows of itself, read without a PDF library: the
 // header, the XMP packet and its PDF/A id, the info dictionary (its strings
-// decoded), the output intent, the document id, and the fonts – embedded or
-// standard. For tests (@le-space/pdf/testing/pdfa-structure); veraPDF checks
-// the rest. Works on pdf-lib's output without object streams.
+// decoded), the output intent, the document id, the fonts – embedded or
+// standard – and the images. For tests (@le-space/pdf/testing/pdfa-structure);
+// veraPDF checks the rest. Works on pdf-lib's output without object streams.
 
 /** @param {string} s @param {string} tag */
 const xmpValue = (s, tag) => {
@@ -30,7 +30,7 @@ function pdfString(raw) {
 
 /**
  * @param {Uint8Array} bytes
- * @returns {{ header: string, pdfaid: { part: string | null, conformance: string | null }, xmp: Record<string, string | null>, info: Record<string, string>, outputIntent: boolean, id: string | null, embeddedFonts: number, standardFonts: string[], language: string | null }}
+ * @returns {{ header: string, pdfaid: { part: string | null, conformance: string | null }, xmp: Record<string, string | null>, info: Record<string, string>, outputIntent: boolean, id: string | null, embeddedFonts: number, standardFonts: string[], images: { width: number, height: number, colorSpace: string | null, softMask: boolean }[], language: string | null }}
  */
 export function pdfaStructure(bytes) {
 	const s = new TextDecoder('latin1').decode(bytes);
@@ -67,6 +67,13 @@ export function pdfaStructure(bytes) {
 		standardFonts: [
 			...s.matchAll(/\/BaseFont \/(Helvetica|Courier|Times|Symbol|ZapfDingbats)[\w-]*/g)
 		].map((m) => m[0]),
+		// Image XObjects: their size, colour space and whether one has a soft mask (transparency).
+		images: [...s.matchAll(/<<([^>]*\/Subtype \/Image[^>]*)>>/g)].map((m) => ({
+			width: Number(/\/Width (\d+)/.exec(m[1])?.[1] ?? 0),
+			height: Number(/\/Height (\d+)/.exec(m[1])?.[1] ?? 0),
+			colorSpace: /\/ColorSpace \/(\w+)/.exec(m[1])?.[1] ?? null,
+			softMask: /\/SMask /.test(m[1])
+		})),
 		language: /\/Lang \(([^)]*)\)/.exec(s)?.[1] ?? null
 	};
 }

@@ -8,7 +8,7 @@
 // the same layout titled »Verbrauchsauszug« (`st.title`).
 
 import { rgb } from 'pdf-lib';
-import { createPdfA, savePdfA, wrapText } from '@le-space/pdf';
+import { asset, createPdfA, LOGOS, savePdfA, wrapText } from '@le-space/pdf';
 import { round } from '@le-space/ledger';
 
 import { DATA_SOURCES, deDate, deEuro, deNumber } from './document.js';
@@ -32,10 +32,14 @@ const qty = (q) => (q ? deNumber(round(q, 12)) : '');
 
 /**
  * @param {import('./statement.js').Statement} st
- * @param {{ creator?: string, producer?: string }} [o]
+ * @param {{ creator?: string, producer?: string, logo?: boolean }} [o] logo: the chain's
+ *   mark, small, beside the title (off unless asked for; @le-space/pdf's LOGOS)
  * @returns {Promise<Uint8Array>}
  */
-export async function statementPdf(st, { creator = CREATOR, producer = PRODUCER } = {}) {
+export async function statementPdf(
+	st,
+	{ creator = CREATOR, producer = PRODUCER, logo = false } = {}
+) {
 	const created = new Date(st.issuedAt);
 	// Aleph credits: a Verbrauchsauszug in the same layout, valued by its own rule.
 	const aleph = st.chain === 'aleph';
@@ -43,6 +47,10 @@ export async function statementPdf(st, { creator = CREATOR, producer = PRODUCER 
 	const subject = `${st.title} ${st.chainName} ${st.account}, ${deDate(st.period.from)} – ${deDate(st.period.to)}`;
 	const { pdf, fonts } = await createPdfA();
 	const { regular, bold, mono } = fonts;
+	const mark =
+		logo && Object.hasOwn(LOGOS, st.chain)
+			? await pdf.embedPng(await asset(LOGOS[st.chain]))
+			: null;
 	const l = pageLayout(pdf, fonts, {
 		margin: M,
 		bottom: 16,
@@ -86,7 +94,7 @@ export async function statementPdf(st, { creator = CREATOR, producer = PRODUCER 
 		l.y -= 12;
 	}
 	l.y = Math.min(l.y, leftEnd) - 14;
-	text(st.title, { face: bold, size: 18 });
+	l.title(st.title, { face: bold, size: 18 }, mark);
 	text('Konto', { face: bold, size: 7.5, color: GREY });
 	text(st.account, { face: mono, size: 9 });
 	l.y -= 6;

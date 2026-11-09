@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 import { entry } from '@le-space/ledger';
+import { pdfaStructure } from '@le-space/pdf/testing/pdfa-structure';
 import { mapRaw } from '@le-space/chains/near';
 import { fixedRates, valueEntries } from '../src/value.js';
 import {
@@ -91,7 +92,7 @@ const entries = await valueEntries(
 	],
 	fixedRates({ NEAR: '3.8' })
 );
-const doc = buildDocument({
+const docArgs = {
 	payer,
 	chain: 'near',
 	network: 'testnet',
@@ -99,7 +100,8 @@ const doc = buildDocument({
 	entries,
 	number: 'EB-2026-007',
 	issuedAt: '2026-11-06T10:00:00.000Z'
-});
+};
+const doc = buildDocument(docArgs);
 
 test('only payments to the network are on it; everything else says why not', () => {
 	assert.deepEqual(
@@ -237,6 +239,36 @@ test('a real relayer day (public data) gives one position per fee', async () => 
 	assert.equal(d.positions.length, raw.txns.length);
 	assert.equal(d.excluded.length, 0);
 	assert.ok((await eigenbelegPdf(d)).length > 10_000);
+});
+
+test("the chain's mark beside the title, only with logo: true", async () => {
+	const { buildStatement, statementPdf } = await import('../src/index.js');
+	const st = buildStatement({
+		payer,
+		account: 'wolkenfabrik.testnet',
+		chain: 'near',
+		network: 'testnet',
+		period: { from: '2026-10-01', to: '2026-10-31' },
+		entries,
+		opening: { NEAR: '10' },
+		closing: { NEAR: '11.998303634875' },
+		method: 'archive'
+	});
+	const mark = { width: 192, height: 192, colorSpace: 'DeviceRGB', softMask: false };
+	for (const draw of [(o) => eigenbelegPdf(doc, o), (o) => statementPdf(st, o)]) {
+		const plain = await draw();
+		const marked = await draw({ logo: true });
+		assert.deepEqual(pdfaStructure(plain).images, [], 'no image without logo');
+		assert.deepEqual(pdfaStructure(marked).images, [mark], 'the mark, opaque RGB');
+		assert.deepEqual(pdfaStructure(marked).pdfaid, { part: '2', conformance: 'B' });
+		assert.deepEqual(await draw({ logo: true }), marked, 'the same bytes every time');
+	}
+	// One mark for all the Eigenbelege of a period, however many pages.
+	const single = buildDocument({ ...docArgs, layout: 'single' });
+	assert.equal(pdfaStructure(await eigenbelegPdf(single, { logo: true })).images.length, 1);
+	// A chain without a mark: none, and no error.
+	const other = { ...doc, chain: 'ethereum' };
+	assert.deepEqual(pdfaStructure(await eigenbelegPdf(other, { logo: true })).images, []);
 });
 
 test('letters the fonts lack and bidi or control characters do not break the PDF (veraPDF rule 6.2.11.8)', async () => {
