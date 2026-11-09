@@ -62,6 +62,19 @@ test('draws Latin, Cyrillic, Greek, Polish, Czech, Turkish and Arabic; a letter 
 	);
 });
 
+test('the minus sign (U+2212) is drawn as itself in every face, not as a hyphen', async () => {
+	const pdf = await PDFDocument.create();
+	const { regular, bold, mono } = await pdfFonts(pdf);
+	const page = pdf.addPage([595, 842]);
+	regular.draw(page, 'Betrag −12,34 €', { x: 40, y: 800, size: 12 });
+	bold.draw(page, 'Summe −0,01 €', { x: 40, y: 780, size: 12 });
+	mono.draw(page, 'Menge −4,2 AKT', { x: 40, y: 760, size: 10 });
+	const text = await textOf(await pdf.save());
+	for (const line of ['−12,34 €', '−0,01 €', '−4,2 AKT'])
+		assert.ok(text.includes(line), `${line} in ${text}`);
+	assert.ok(!/-\d/.test(text), 'no hyphen-minus before a number');
+});
+
 test('measures a mixed line as the sum of its runs; mono is fixed width', async () => {
 	const pdf = await PDFDocument.create();
 	const { regular, mono } = await pdfFonts(pdf);
@@ -72,7 +85,7 @@ test('measures a mixed line as the sum of its runs; mono is fixed width', async 
 });
 
 test('plain text: one line, no control or format characters', () => {
-	assert.equal(pdfText('1 000 − 5\nzwei'), '1 000 - 5 zwei');
+	assert.equal(pdfText('1 000 − 5\nzwei'), '1 000 − 5 zwei', 'the minus sign (U+2212) stays');
 	// A right-to-left override would turn the text around; a NUL breaks a viewer.
 	assert.equal(pdfText('Konto‮A\u0000B​'), 'KontoAB');
 	assert.equal(pdfText(undefined), '');

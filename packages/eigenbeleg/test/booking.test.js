@@ -39,7 +39,7 @@ test('a bank booking: number, amount, counterparty, what and why, a line to sign
 		'Konto A',
 		'25.09.2026',
 		'Barauslage Beispielzweck',
-		'-12,34 €',
+		'−12,34 €',
 		'Parkgebühr am Automaten',
 		'Der Automat gibt keine Quittung aus.',
 		'berechtigt nicht zum Vorsteuerabzug',
@@ -50,6 +50,7 @@ test('a bank booking: number, amount, counterparty, what and why, a line to sign
 		assert.ok(text.includes(expected), expected);
 	}
 	assert.ok(!text.includes('Block-Explorer'), 'no chain, no explorer');
+	assert.ok(!text.includes('-12,34'), 'the minus sign (U+2212), not a hyphen');
 });
 
 test('an own wallet’s booking: the whole hash, both addresses, every movement, the explorer link', async () => {
@@ -60,9 +61,9 @@ test('an own wallet’s booking: the whole hash, both addresses, every movement,
 	for (const whole of [c.hash, c.from.address, c.to.address, c.explorerUrl])
 		assert.ok(flat.includes(whole), whole);
 	for (const expected of [
-		'Gas(Netzwerkgebühr)-0,00018ETH-0,42€ja',
+		'Gas(Netzwerkgebühr)−0,00018ETH−0,42€ja',
 		'Tausch–erhalten(nichtgebucht)30.000XYZ—nein',
-		'-0,143ETH',
+		'−0,143ETH',
 		'2.345,67EURjeETH·CoinGecko,26.09.2026',
 		'ZahlungaufEthereum·26.09.202609:12:34UTC',
 		'eigeneWallet'

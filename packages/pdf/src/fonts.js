@@ -50,19 +50,20 @@ const ARABIC = /\p{Script=Arabic}/u;
 /** A number, which reads left to right inside Arabic text too. */
 const NUMBER = /(\p{Nd}+(?:[.,:/-]\p{Nd}+)*)/u;
 const NUMBER_ONLY = /^\p{Nd}+(?:[.,:/-]\p{Nd}+)*$/u;
-/** Spaces, punctuation and digits: they take the font of what stands around them. */
-const NEUTRAL = /[\s\p{P}\p{N}]/u;
+/** Spaces, punctuation, digits and the minus sign: they take the font of what stands around them. */
+const NEUTRAL = /[\s\p{P}\p{N}−]/u;
 
 /**
- * What any face draws: one line, no-break spaces as spaces, a minus as a
- * hyphen-minus, no control or format characters.
+ * What any face draws: one line, no-break spaces as spaces, no control or
+ * format characters. Every other letter stays as it is – the minus sign
+ * (U+2212) of a German amount too, which every font here has; a letter no
+ * font has becomes "?" when it is drawn.
  *
  * @param {unknown} text
  */
 export const pdfText = (text) =>
 	String(text ?? '')
 		.replace(/[  ]/g, ' ')
-		.replace(/−/g, '-')
 		.replace(/[\r\n\t]+/g, ' ')
 		.replace(/[\p{Cc}\p{Cf}]/gu, '');
 

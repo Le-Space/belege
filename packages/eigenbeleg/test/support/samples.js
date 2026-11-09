@@ -169,8 +169,8 @@ export const walletBooking = /** @type {import('../../src/booking.js').BookingEi
 		from: { label: 'Wallet ETH', address: ME, own: true },
 		to: { label: 'MetaMask Swap (Spender)', address: ROUTER, own: false },
 		movements: [
-			{ what: 'Tausch – gegeben', quantity: '-0,143 ETH', euro: '-12,34 €', booked: true },
-			{ what: 'Gas (Netzwerkgebühr)', quantity: '-0,00018 ETH', euro: '-0,42 €', booked: true },
+			{ what: 'Tausch – gegeben', quantity: '−0,143 ETH', euro: '−12,34 €', booked: true },
+			{ what: 'Gas (Netzwerkgebühr)', quantity: '−0,00018 ETH', euro: '−0,42 €', booked: true },
 			{
 				what: 'Tausch – erhalten (nicht gebucht)',
 				quantity: '30.000 XYZ',
