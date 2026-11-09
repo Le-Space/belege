@@ -79,6 +79,7 @@
 		"@multiformats/multiaddr": "13.0.3",
 		"hoodiecrow-imap": "2.1.0",
 		"prettier": "3.6.2",
-		"selfsigned": "5.5.0"
+		"selfsigned": "5.5.0",
+		"ws": "8.21.3"
 	}
 }

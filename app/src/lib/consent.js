@@ -84,7 +84,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     no bridge).
 // 41: the reading names the countries of a trip's places and a flight's
 //     airport codes (#693).
-export const CONSENT_VERSION = '41';
+// 42: the hosted bridge (#585): Aleph's API and IPFS, AMD's key service, the
+//     relay's /attest and the VM at 2n6.me, attested before it gets a secret.
+export const CONSENT_VERSION = '42';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

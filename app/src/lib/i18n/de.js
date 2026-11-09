@@ -373,6 +373,14 @@ export default {
 			noIban: 'Der Kontoauszug nennt keine IBAN (Acct/Id/IBAN).',
 			noAmount: 'Buchung ohne Betrag am {date}'
 		},
+		hostedBridge: {
+			notInstance: 'Das ist kein INSTANCE-Hash (64 Hex-Zeichen).',
+			noPassphrase: 'Ohne die Passphrase des Images lässt sich die VM nicht entsperren.',
+			noAlephKey:
+				'Diese Bücher haben noch keinen eigenen Aleph-Schlüssel (Integrationen → Aleph): Er ist der Besitzer der VM.',
+			noRelay: 'Keiner der Relays dieser Bücher bietet /attest an.',
+			deviceLabel: 'Gehostete Bridge'
+		},
 		bridge: {
 			unreachable:
 				'Die Bridge ist nicht erreichbar. Läuft sie (pnpm bridge)? Ob sie diese Seite hereinlässt, sagt „Status prüfen“ unter Integrationen → Bridge.',
@@ -913,6 +921,14 @@ export default {
 					'An credits.le-space.de (Le Space): die Adresse des Aleph-Schlüssels deiner Bücher, mit jeder Anfrage unterschrieben, und die IP-Adresse dieses Geräts – für Guthaben, Käufe und Erstattungen. Beim Aufladen an Stripe, in einem Fenster von credits.le-space.de: Karte, E-Mail und Rechnungsland, wie Stripe sie für die Zahlung und die Rechnung braucht. Nie deine Bücher, nie ein Beleg.',
 				technical:
 					'Jede Anfrage trägt X-LS-Address, X-LS-Timestamp und eine personal_sign-Signatur (EIP-191) über ls-credits/v1, Methode, Pfad, Produkt belege, Adresse und Zeit; der Dienst nimmt jede Zeit nur einmal und nur fünf Minuten lang an. Der Schlüssel ist der secp256k1-Schlüssel, den Belege für das Backup macht und versiegelt in den Einstellungen hält; er verlässt den Browser nicht. Stripes Skript läuft nicht auf belege.le-space.de: Die Zahlungsseite liegt auf credits.le-space.de (/pay) und wird hier nur eingerahmt; das Client-Secret steht im Fragment der Adresse und erreicht kein Server-Log. Die Seite meldet „bezahlt“ per postMessage; Belege glaubt nur dem Guthaben, das es danach signiert abfragt. Bezahltes Guthaben verfällt nicht; das Restguthaben erstattet Le Space auf Anfrage.'
+			},
+			hostedBridge: {
+				name: 'Gehostete Bridge (Aleph Cloud, vertrauliche VM, AMD)',
+				text: 'Erst wenn du unter Integrationen → Bridge eine gehostete Bridge entsperrst: die Bridge in einer vertraulichen VM (AMD SEV-SNP) bei Aleph, die dein Browser vorher attestiert.',
+				leaves:
+					'An Alephs API (api2.aleph.im) und IPFS (ipfs.aleph.im): Abfragen nach der INSTANCE und nach Alephs SEV-SNP-Laufzeit. An AMDs Schlüsseldienst (kdsintf.amd.com): Abfragen nach dem Zertifikat des Prozessors. An den Relay mit /attest: die verschlüsselte Verbindung zur VM, der Relay sieht nur Größen und Zeiten. An die VM selbst, erst nach bestandener Attestierung: die Passphrase des Images, der Schlüssel der Bridge, ihre Peer-ID, die Relays und die Geräte dieser Bücher, unterschrieben mit dem Aleph-Schlüssel der Bücher. Danach erreichen deine Geräte die Bridge über die Relays und unter dem Namen der VM bei 2n6.me. Le Space sieht dabei keinen Schlüssel.',
+				technical:
+					'Vor dem Senden prüft der Browser: Die INSTANCE gehört dem Aleph-Schlüssel der Bücher, startet das veröffentlichte Image (sein STORE) und nagelt die Messung fest, die der Browser selbst aus Alephs veröffentlichter Laufzeit und der Adresse des Besitzers berechnet. Dann beweist die VM diese Messung im RA-TLS-Handshake (AMD-Signatur, an ihren TLS-Schlüssel gebunden) und mit einem frischen Bericht zu einer Zufallszahl des Browsers (@le-space/attest-wasm). Die Secrets landen im Speicher der VM, nicht auf ihrer Platte; nach einem Neustart attestiert der Browser wieder. Geprüft ist damit, welches Abbild läuft, nicht was es tut; ein unabhängiges Audit gibt es noch nicht.'
 			},
 			deepseek: {
 				name: 'Sprachmodell – voreingestellt DeepSeek, oder LibertAI vertraulich (Belege auslesen, KI-Suche)',
@@ -1661,6 +1677,7 @@ export default {
 		connected: 'verbunden',
 		direct: 'direkt',
 		viaRelay: 'über den Relay',
+		hosted: 'gehostet, attestiert',
 		bridgeShare: 'Bridge dieses Rechners für eigene Geräte freigeben',
 		bridgeShareText:
 			'Nur auf dem Rechner, auf dem die Bridge läuft und gekoppelt ist: Deine anderen Geräte (dasselbe Buch, in der Liste unten) nutzen Bank, Postfach, KI, Kurse und Wallets über ihn. Nur lesende und fragende Abfragen, keine Einrichtung, nichts wird gelöscht; der Zugang zur Bridge bleibt hier. Gilt ab dem nächsten Entsperren, solange dieser Tab offen und entsperrt ist.',
@@ -4341,6 +4358,33 @@ export default {
 				'Die Bridge war nicht erreichbar: Die Kopplung ist nur auf diesem Gerät gelöst. Auf der Bridge entfernt `pnpm bridge -- --revoke-all` alle Kopplungen.',
 			unpairElsewhere:
 				'Diese Kopplung löst nur das Gerät, das die Bridge gekoppelt hat, oder der Rechner, auf dem die Bridge läuft. Hier wurde nichts geändert.'
+		},
+		hostedBridge: {
+			title: 'Gehostete Bridge',
+			intro:
+				'Die Bridge in einer vertraulichen VM bei Aleph (AMD SEV-SNP). Dieser Browser prüft die Attestierung der VM: dass sie das veröffentlichte Image auf Alephs veröffentlichter Laufzeit startet und den Bücher-Schlüssel als Besitzer hat. Erst dann bekommt sie die Passphrase und ihren Schlüssel, und sie ist mit diesen Büchern gekoppelt. Le Space sieht dabei keinen Schlüssel.',
+			instance: 'Hash der INSTANCE',
+			passphrase: 'Passphrase des Images',
+			unlock: 'Attestieren und entsperren',
+			hint: 'Die Passphrase wird nirgends gespeichert. Nach einem Neustart der VM wieder hier entsperren.',
+			attested: 'Gehostet, attestiert',
+			attestedAt: 'zuletzt attestiert {date}',
+			measurement: 'Messung:',
+			phase: {
+				instance: 'Frage Aleph nach der INSTANCE …',
+				runtime: 'Lade Alephs SEV-SNP-Laufzeit …',
+				bundle: 'Lade Alephs SEV-SNP-Laufzeit …',
+				measure: 'Berechne die erwartete Messung …',
+				attest: 'Prüfe die Attestierung der VM …',
+				wait: 'Die VM antwortet noch nicht, warte …',
+				unlock: 'Entsperre und kopple …'
+			},
+			band: {
+				title: 'NEAR Hackathon 2026',
+				text: 'Dieses Projekt ist während des Hackathons entstanden.',
+				small: 'PROTOTYP · NOCH NICHT AUDITIERT · AGPL-3.0',
+				close: 'Hinweis schließen'
+			}
 		},
 		hibiscus: {
 			title: 'Hibiscus',

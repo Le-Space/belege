@@ -1188,6 +1188,160 @@ export async function pairBridgeNode(invitation) {
 	return { peerId };
 }
 
+/**
+ * The hosted bridge the books know (settings `bridge/hosted`): which VM, its
+ * name, its peer id and when it was last attested; never the peer key.
+ *
+ * @returns {Promise<{ instance: string, host: string, peerId: string, measurement: string, attestedAt: string } | null>}
+ */
+export async function hostedBridgeRecord() {
+	if (!session?.store) return null;
+	const { HOSTED_SETTING } = await import('./integrations/hosted-bridge.js');
+	const kept = /** @type {any} */ (await getSetting(session.store.settings, HOSTED_SETTING));
+	if (typeof kept?.instance !== 'string') return null;
+	const { instance, host, peerId, measurement, attestedAt } = kept;
+	return { instance, host, peerId, measurement, attestedAt };
+}
+
+/**
+ * "Gehostete Bridge" (Integrationen → Bridge, #585): attest the bridge's VM
+ * from this browser and unlock it, paired in the same step
+ * (integrations/hosted-bridge.js). The VM is the books' Aleph key's; the
+ * passphrase is the image's, typed here and kept nowhere. The bridge's peer
+ * key is made here once per VM and kept in the sealed settings, so a restart
+ * unlocks the same bridge again.
+ *
+ * @param {{ instance: string, passphrase: string, onProgress?: (p: { phase: string, detail: string }) => void }} p
+ * @returns {Promise<{ peerId: string, host: string, measurement: string }>}
+ */
+export async function unlockHostedBridge({ instance, passphrase, onProgress = () => {} }) {
+	if (!session?.online || !session.bridgeAuthBase || !deviceSync || !bridgeConsumer) {
+		throw new Error(t('messages.bridge.needsSync'));
+	}
+	const hosted = await import('./integrations/hosted-bridge.js');
+	const { ensureBackupKey, alephEndpoints } = await import('./backup/keeper.js');
+	const { alephAddressOf, alephSign } = await import('./backup/aleph-signer.js');
+	const { twoN6Host } = await import('./ucep/net.js');
+	const { knownDevices } = await import('./sync/device-sync.js');
+	const { setBridgeNode } = await import('./sync/remote-bridge.js');
+	const { bridgeAuthKeyOf } = await import('./database-keys.js');
+	const { generateKeyPair, privateKeyFromProtobuf, privateKeyToProtobuf } = await import(
+		'@libp2p/crypto/keys'
+	);
+	const { peerIdFromPrivateKey } = await import('@libp2p/peer-id');
+
+	const hash = instance.trim();
+	if (!hosted.isInstanceHash(hash)) throw new Error(t('messages.hostedBridge.notInstance'));
+	if (!passphrase) throw new Error(t('messages.hostedBridge.noPassphrase'));
+	const settings = session.store.settings;
+	// The books' key, made on the owner's device as for the backup; a member's device waits for it (#613).
+	const ownerKey = await ensureBackupKey(settings, { create: !app.member });
+	if (!ownerKey) throw new Error(t('messages.hostedBridge.noAlephKey'));
+	const owner = alephAddressOf(ownerKey);
+	const { apiHost } = alephEndpoints();
+	const relayUrl = hosted.attestUrlOf(session.relays ?? []);
+	if (!relayUrl) throw new Error(t('messages.hostedBridge.noRelay'));
+
+	onProgress({ phase: 'instance', detail: hash });
+	const { content, crn, vcpus } = await hosted.fetchInstance(hash, { apiHost });
+	const wasm = await import('@le-space/attest-wasm/pkg/relay_button_attest.js');
+	await wasm.default();
+	/** @type {any} */
+	let published = null;
+	/** @type {any} */
+	let verify;
+	if (import.meta.env.VITE_E2E === 'true') {
+		// The fake agent's reports carry no AMD signature: the test names the
+		// measurement, and only it is checked (as in bridge/test/support/fake-attest-agent.js).
+		const pins = globalThis.localStorage?.getItem(hosted.E2E_HOSTED_PINS_KEY);
+		if (pins) {
+			published = JSON.parse(pins);
+			verify = async (/** @type {any} */ { report, expectedMeasurements }) => {
+				const m = Array.from(report.subarray(0x90, 0xc0), (/** @type {number} */ b) =>
+					b.toString(16).padStart(2, '0')
+				).join('');
+				if (!expectedMeasurements.includes(m)) throw new Error('measurement not pinned');
+				return { verified: true, measurement: m, policy: '0x30000', launchTcb: {} };
+			};
+		}
+	}
+	if (!published) {
+		const { confidentialTrustedExecution } = await import('@le-space/attest-wasm/instance');
+		published = await confidentialTrustedExecution({ wasm, owner, vcpus, apiHost, onProgress });
+	}
+
+	// The bridge's own peer key: the one made for this VM before, or a new one.
+	const kept = /** @type {any} */ (await getSetting(settings, hosted.HOSTED_SETTING));
+	const peerKey =
+		kept?.instance === hash && typeof kept?.peerKey === 'string'
+			? privateKeyFromProtobuf(Uint8Array.from(atob(kept.peerKey), (c) => c.charCodeAt(0)))
+			: await generateKeyPair('Ed25519');
+	const peerKeyBytes = privateKeyToProtobuf(peerKey);
+	const peerId = peerIdFromPrivateKey(peerKey).toString();
+
+	const saved = /** @type {any} */ ((await getSetting(settings, 'bridge')) ?? {});
+	const keyGeneration = keyGenerationOf(saved);
+	const authKey = await bridgeAuthKeyOf(session.bridgeAuthBase, keyGeneration);
+	const records = await settings.list({ includeDeleted: true });
+	const { whose } = await import('./members/whose.js');
+	const members = whose(records);
+	// Own devices, and a writing member's the owner let use the bridge (#641, #579): as at a handover.
+	const own = knownDevices(records)
+		.filter((d) => !d.bridge && members.mayUseBridge(d.peerId))
+		.map((d) => d.peerId);
+	const host = twoN6Host(hash);
+	const secrets = hosted.hostedSecrets({
+		host,
+		authKey,
+		peerKey: peerKeyBytes,
+		relays: session.relays ?? [],
+		devices: [session.peerId, ...own]
+	});
+
+	const result = await hosted.unlockHosted({
+		instance: content,
+		published,
+		image: hosted.HOSTED_IMAGE,
+		owner,
+		wasm,
+		relayUrl,
+		crnHash: crn,
+		instanceItemHash: hash,
+		passphrase,
+		secrets,
+		sign: async (/** @type {string} */ payload) => alephSign(ownerKey, payload),
+		onProgress,
+		...(verify ? { verify } : {})
+	});
+	const attestedAt = isoNow();
+	await setSetting(settings, hosted.HOSTED_SETTING, {
+		instance: hash,
+		host,
+		peerId,
+		peerKey: btoa(String.fromCharCode(...peerKeyBytes)),
+		measurement: result.measurement,
+		attestedAt
+	});
+	// The books' bridge from now on, as after a handover.
+	session.bridgeAuth.peerId = peerId;
+	session.bridgeAuth.key = authKey;
+	setBridgeNode({ peerId });
+	await setSetting(settings, 'bridge', {
+		token: null,
+		...saved,
+		peerId,
+		keyGeneration,
+		nodePairedAt: attestedAt
+	});
+	const addrs = [`/dns4/${host}/tcp/443/tls/ws/p2p/${peerId}`];
+	await deviceSync.addDevice(peerId, t('messages.hostedBridge.deviceLabel'), {
+		bridge: true,
+		addrs,
+		hosted: { host }
+	});
+	return { peerId, host, measurement: result.measurement };
+}
+
 /** "Kopplung lösen" over the stream: the bridge's node forgets its key and offers pairing again. */
 export async function forgetBridgeNode() {
 	await bridgeConsumer?.forgetBridge();
@@ -2154,6 +2308,14 @@ function installE2EHooks() {
 			};
 		},
 		addTransaction: (/** @type {Record<string, any>} */ tx) => session?.store.transactions.put(tx),
+		// The books' Aleph key's address (made if there is none yet), for a fake INSTANCE it owns (#585).
+		alephAddress: async () => {
+			if (!session?.store) return null;
+			const { ensureBackupKey } = await import('./backup/keeper.js');
+			const { alephAddressOf } = await import('./backup/aleph-signer.js');
+			const key = await ensureBackupKey(session.store.settings);
+			return key ? alephAddressOf(key) : null;
+		},
 		// The books' own identity and where their databases are (#496).
 		booksDid: () => session?.booksDid,
 		addresses: () =>

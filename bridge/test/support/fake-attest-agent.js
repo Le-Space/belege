@@ -120,7 +120,7 @@ export async function startFakeAttestAgent({ measurement, owner }) {
 	const server = tls.createServer({ cert: cert.toString('pem'), key }, (socket) => {
 		let buffer = Buffer.alloc(0);
 		socket.on('data', (chunk) => {
-			buffer = Buffer.concat([buffer, chunk]);
+			buffer = Buffer.concat([buffer, /** @type {Buffer} */ (chunk)]);
 			const request = parse(buffer);
 			if (!request) return;
 			buffer = Buffer.alloc(0);
@@ -165,7 +165,7 @@ export async function startFakeAttestAgent({ measurement, owner }) {
 				),
 				send: (/** @type {Uint8Array} */ bytes) => socket.write(bytes),
 				onData: (/** @type {(b: Uint8Array) => void} */ callback) =>
-					socket.on('data', (chunk) => callback(new Uint8Array(chunk))),
+					socket.on('data', (chunk) => callback(new Uint8Array(/** @type {Buffer} */ (chunk)))),
 				onClose: (/** @type {() => void} */ callback) => socket.on('close', callback),
 				close: () => socket.destroy()
 			};
@@ -182,3 +182,38 @@ export const fakeVerify = async (/** @type {any} */ { report: r, expectedMeasure
 	if (!expectedMeasurements.includes(measurement)) throw new Error('measurement not pinned');
 	return { verified: true, measurement, policy: `0x${POLICY.toString(16)}`, launchTcb: {} };
 };
+
+/**
+ * An attest relay in front of `agent`, as orbitdb-relay's /attest is in front
+ * of a VM's agent: a WebSocket at `ws://127.0.0.1:<port>/attest?crn=…&vm=…`
+ * whose binary frames are the TLS bytes to and from the agent. The browser's
+ * websocketTransport dials it.
+ *
+ * @param {{ port: number }} agent
+ * @returns {Promise<{ url: string, close: () => Promise<void> }>}
+ */
+export async function startFakeAttestRelay(agent) {
+	const { WebSocketServer } = await import('ws');
+	const http = await import('node:http');
+	const server = http.createServer((_req, res) => res.writeHead(404).end());
+	const wss = new WebSocketServer({ server, path: '/attest' });
+	wss.on('connection', (ws) => {
+		const socket = net.connect(agent.port, '127.0.0.1');
+		socket.on('data', (chunk) => ws.send(chunk));
+		socket.on('close', () => ws.close());
+		socket.on('error', () => ws.close());
+		ws.on('message', (data) => socket.write(/** @type {Buffer} */ (data)));
+		ws.on('close', () => socket.destroy());
+	});
+	await new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(undefined)));
+	const port = /** @type {import('node:net').AddressInfo} */ (server.address()).port;
+	return {
+		url: `ws://127.0.0.1:${port}/attest`,
+		close: () =>
+			new Promise((resolve) => {
+				for (const c of wss.clients) c.terminate();
+				wss.close();
+				server.close(() => resolve(undefined));
+			})
+	};
+}

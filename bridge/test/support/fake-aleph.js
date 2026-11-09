@@ -141,7 +141,9 @@ export const FAKE_CREDITS_PER_MIB_DAY = 107.8049341837565856 / 2;
  * @param {Record<string, { balance: number, rows: FakeRow[] }>} options.accounts by address, in any
  *   case; answered only when asked in the EIP-55 checksummed form, as Aleph does (a lower-case
  *   address gets a balance of 0 and no history)
- * @param {Record<string, { type: string, name: string }>} [options.messages] by item hash
+ * @param {Record<string, { type: string, name?: string, content?: any }>} [options.messages] by item
+ *   hash; `content` is answered as it is (an INSTANCE's, #585), else a name in the metadata. The
+ *   object is read at each request, so a test may add to it later.
  */
 export async function startFakeAleph({ accounts: given, messages = {} }) {
 	const accounts = Object.fromEntries(
@@ -656,10 +658,10 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 			});
 		}
 		if (msg && messages[msg[1]]) {
-			const { type, name } = messages[msg[1]];
+			const { type, name, content } = messages[msg[1]];
 			return reply(200, {
 				status: 'processed',
-				message: { type, item_hash: msg[1], content: { metadata: { name } } }
+				message: { type, item_hash: msg[1], content: content ?? { metadata: { name } } }
 			});
 		}
 		return reply(404, { error: 'not found' });
