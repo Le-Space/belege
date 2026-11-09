@@ -203,6 +203,9 @@
 									· {t('devices.memberOf', { name: ownerOf(d.peerId) })}</span
 								>{/if}</span
 						>
+						{#if d.hosted}<span class="block text-xs text-success" data-testid="devices-item-hosted"
+								>{t('devices.hosted')} · <span class="font-mono">{d.hosted.host}</span></span
+							>{/if}
 						<span class="block font-mono text-xs break-all text-faint">{d.peerId}</span>
 						<span class="block text-xs text-faint" data-testid="devices-item-last"
 							>{app.sync.lastIn[d.peerId]

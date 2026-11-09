@@ -49,6 +49,9 @@ importers:
       '@ipld/dag-cbor':
         specifier: 10.0.1
         version: 10.0.1
+      '@le-space/attest-wasm':
+        specifier: 0.12.4
+        version: 0.12.4
       '@le-space/chains':
         specifier: workspace:^
         version: link:../packages/chains
@@ -327,6 +330,9 @@ importers:
       selfsigned:
         specifier: 5.5.0
         version: 5.5.0
+      ws:
+        specifier: 8.21.3
+        version: 8.21.3
 
   bridge/tee/launcher:
     dependencies:

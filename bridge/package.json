@@ -24,7 +24,8 @@
 		"./testing/filfox": "./test/support/fake-filfox.js",
 		"./testing/chains": "./test/support/fake-chains.js",
 		"./testing/alchemy": "./test/support/fake-alchemy.js",
-		"./testing/aleph": "./test/support/fake-aleph.js"
+		"./testing/aleph": "./test/support/fake-aleph.js",
+		"./testing/attest-agent": "./test/support/fake-attest-agent.js"
 	},
 	"scripts": {
 		"start": "node src/cli.js",
@@ -78,6 +79,7 @@
 		"@multiformats/multiaddr": "13.0.3",
 		"hoodiecrow-imap": "2.1.0",
 		"prettier": "3.6.2",
-		"selfsigned": "5.5.0"
+		"selfsigned": "5.5.0",
+		"ws": "8.21.3"
 	}
 }

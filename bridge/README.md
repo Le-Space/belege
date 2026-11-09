@@ -132,9 +132,12 @@ runs as `cli.js --hosted`:
   `/dns4/<name>/tcp/<port>/tls/ws` address): Caddy in the VM ends TLS on 443 and passes the
   WebSocket on to the node on 127.0.0.1, so a device dials it directly besides the relays. The
   device gate is the same as on any machine. The HTTP API stays on 127.0.0.1 and is not proxied.
-- Pairing a hosted bridge from the browser, after attestation, is #585; starting and stopping it
-  from Belege is #587. Until then the hosted bridge starts unpaired. Its log is the host's, so
-  it prints neither the invitation nor a pairing code there.
+- **Paired with the unlock** (#585): under Integrationen → Bridge, "Gehostete Bridge", the
+  browser attests the VM and, in the same signed injection, sends the bridge its own peer key
+  (made in the browser, kept sealed per VM), its key of the books (`bridge_auth`) and the books'
+  devices. The bridge starts armed and paired, with no invitation. Started without them (as by
+  the try workflow) it starts unpaired. Its log is the host's, so it prints neither an
+  invitation nor a pairing code there. Starting and stopping it from Belege is #587.
 
 ## Where things are kept
 

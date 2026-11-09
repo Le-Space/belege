@@ -357,6 +357,14 @@ export default {
 			noIban: 'The bank statement names no IBAN (Acct/Id/IBAN).',
 			noAmount: 'A booking without an amount on {date}'
 		},
+		hostedBridge: {
+			notInstance: 'That is not an INSTANCE hash (64 hex digits).',
+			noPassphrase: 'Without the image’s passphrase the VM cannot be unlocked.',
+			noAlephKey:
+				'These books have no Aleph key of their own yet (Integrations → Aleph): it is the VM’s owner.',
+			noRelay: 'None of these books’ relays offers /attest.',
+			deviceLabel: 'Hosted bridge'
+		},
 		bridge: {
 			unreachable:
 				'The bridge cannot be reached. Is it running (pnpm bridge)? Whether it lets this page in, "Check status" under Integrations → Bridge says.',
@@ -889,6 +897,14 @@ export default {
 					'To credits.le-space.de (Le Space): the address of your books’ Aleph key, signed with every request, and this device’s IP address – for the balance, purchases and refunds. When topping up, to Stripe, in a frame of credits.le-space.de: card, e-mail and billing country, as Stripe needs them for the payment and the invoice. Never your books, never a receipt.',
 				technical:
 					'Every request carries X-LS-Address, X-LS-Timestamp and a personal_sign signature (EIP-191) over ls-credits/v1, method, path, product belege, address and time; the service accepts each time once and for five minutes only. The key is the secp256k1 key Belege makes for the backup and keeps sealed in the settings; it does not leave the browser. Stripe’s script does not run on belege.le-space.de: the payment page is on credits.le-space.de (/pay) and only framed here; the client secret is in the address’s fragment and reaches no server log. The page reports “paid” by postMessage; Belege believes only the balance it reads back, signed, afterwards. Paid credits do not expire; Le Space refunds the remaining balance on request.'
+			},
+			hostedBridge: {
+				name: 'Hosted bridge (Aleph Cloud, confidential VM, AMD)',
+				text: 'Only once you unlock a hosted bridge under Integrations → Bridge: the bridge in a confidential VM (AMD SEV-SNP) on Aleph, which your browser attests first.',
+				leaves:
+					'To Aleph’s API (api2.aleph.im) and IPFS (ipfs.aleph.im): requests for the INSTANCE and for Aleph’s SEV-SNP runtime. To AMD’s key service (kdsintf.amd.com): requests for the processor’s certificate. To the relay with /attest: the encrypted connection to the VM; the relay sees only sizes and times. To the VM itself, only after the attestation holds: the image’s passphrase, the bridge’s key, its peer id, these books’ relays and devices, signed with the books’ Aleph key. After that your devices reach the bridge through the relays and under the VM’s name at 2n6.me. Le Space sees no key.',
+				technical:
+					'Before anything is sent the browser checks: the INSTANCE belongs to the books’ Aleph key, boots the published image (its STORE) and pins the measurement the browser computes itself from Aleph’s published runtime and the owner’s address. Then the VM proves that measurement in the RA-TLS handshake (AMD signature, bound to its TLS key) and with a fresh report on a nonce of the browser’s (@le-space/attest-wasm). The secrets land in the VM’s memory, not on its disk; after a restart the browser attests again. What that proves is which image runs, not what it does; there is no independent audit yet.'
 			},
 			deepseek: {
 				name: 'Language model – DeepSeek by default, or LibertAI confidential (extracting receipts, AI search)',
@@ -1630,6 +1646,7 @@ export default {
 		connected: 'connected',
 		direct: 'direct',
 		viaRelay: 'via the relay',
+		hosted: 'hosted, attested',
 		bridgeShare: 'Share this computer’s bridge with own devices',
 		bridgeShareText:
 			'Only on the computer where the bridge runs and is paired: your other devices (the same books, in the list below) use bank, mailbox, AI, rates and wallets through it. Only reading and querying requests, no setup, nothing is deleted; access to the bridge stays here. Applies from the next unlock, as long as this tab is open and unlocked.',
@@ -4285,6 +4302,33 @@ export default {
 				'The bridge was not reachable: the pairing is only removed on this device. On the bridge, `pnpm bridge -- --revoke-all` removes all pairings.',
 			unpairElsewhere:
 				'Only the device that paired the bridge, or the computer the bridge runs on, removes this pairing. Nothing was changed here.'
+		},
+		hostedBridge: {
+			title: 'Hosted bridge',
+			intro:
+				'The bridge in a confidential VM on Aleph (AMD SEV-SNP). This browser checks the VM’s attestation: that it boots the published image on Aleph’s published runtime and has the books’ key as its owner. Only then does it get the passphrase and its key, and it is paired with these books. Le Space sees no key.',
+			instance: 'INSTANCE hash',
+			passphrase: 'Image passphrase',
+			unlock: 'Attest and unlock',
+			hint: 'The passphrase is stored nowhere. After the VM restarts, unlock it here again.',
+			attested: 'Hosted, attested',
+			attestedAt: 'last attested {date}',
+			measurement: 'Measurement:',
+			phase: {
+				instance: 'Asking Aleph for the INSTANCE …',
+				runtime: 'Loading Aleph’s SEV-SNP runtime …',
+				bundle: 'Loading Aleph’s SEV-SNP runtime …',
+				measure: 'Computing the expected measurement …',
+				attest: 'Checking the VM’s attestation …',
+				wait: 'The VM is not answering yet, waiting …',
+				unlock: 'Unlocking and pairing …'
+			},
+			band: {
+				title: 'NEAR Hackathon 2026',
+				text: 'This project was built during the hackathon.',
+				small: 'PROTOTYPE · NOT AUDITED YET · AGPL-3.0',
+				close: 'Close this note'
+			}
 		},
 		hibiscus: {
 			title: 'Hibiscus',

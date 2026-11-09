@@ -78,7 +78,7 @@ forwards 443, attests and unlocks it through a relay's `/attest` with `test/atte
 (the browser's code, in Node), waits for `/bridge/status.json` to say ready with a relay
 reservation, dials the node directly and through the relay (`test/dial.mjs`), attests it again
 through the VM's own `/attest`, checks what faces the network, and forgets the VM. The bridge
-starts unpaired, with nothing but the relay's address; pairing a hosted bridge from the browser
-is #585.
+starts unpaired, with nothing but the relay's address; the browser pairs it with the unlock
+("Gehostete Bridge" in the app, #585).
 
 Both workflows need the `ALEPH_PRIVATE_KEY` and `BRIDGE_LUKS_PASSPHRASE` secrets.
