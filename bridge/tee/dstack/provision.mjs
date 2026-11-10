@@ -47,7 +47,9 @@ export function provisionBody(
 		listed: false,
 		env_keys: ['BELEGE_BRIDGE_SECRETS'],
 		compose_file: {
-			name,
+			// Not the VM's name: that one is per books, and the compose is
+			// measured, so a name in it would make a hash to approve per books.
+			name: 'belege-bridge',
 			docker_compose_file: composeFor(image, { launcherUrl }),
 			allowed_envs: ['BELEGE_BRIDGE_SECRETS'],
 			// The log is the operator's to see otherwise; keep it to ourselves.

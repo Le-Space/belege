@@ -3,7 +3,9 @@
 //
 // The launcher, as it runs at Le Space. Configuration from the environment:
 //
-//   LAUNCHER_PORT              default 8790, on 127.0.0.1 (the reverse proxy is in front)
+//   LAUNCHER_PORT              default 8790
+//   LAUNCHER_HOST              default 127.0.0.1 (the reverse proxy is in front); in a container
+//                              0.0.0.0, with the port published to the proxy's network only
 //   LAUNCHER_ORIGINS           browser origins, comma-separated (default the hosted app and localhost:5173)
 //   NEAR_RPC_URL               default https://rpc.testnet.fastnear.com
 //   BRIDGE_CONTRACT_ID         the contract (bridge/tee/near-contract)
@@ -87,8 +89,9 @@ const origins = (env.LAUNCHER_ORIGINS || 'https://belege.le-space.de,http://loca
 	','
 );
 const port = Number(env.LAUNCHER_PORT || 8790);
-launcherServer(launcher, { origins }).listen(port, '127.0.0.1', () =>
-	console.error(`[launcher] on 127.0.0.1:${port}, contract ${contractId}, as ${accountId}`)
+const host = env.LAUNCHER_HOST || '127.0.0.1';
+launcherServer(launcher, { origins }).listen(port, host, () =>
+	console.error(`[launcher] on ${host}:${port}, contract ${contractId}, as ${accountId}`)
 );
 
 const tick = () =>

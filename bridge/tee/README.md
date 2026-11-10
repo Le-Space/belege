@@ -132,6 +132,12 @@ The first quote of a new release is refused until the owner approves its measure
 
 A test launcher at another URL sets `LAUNCHER_PUBLIC_URL`: the URL is part of the measured compose, so it is another compose hash to approve. `LAUNCHER_QUOTE_DIR` keeps the quotes it receives.
 
+The compose is the same for every books: the VM's name, which is per books, is not in it. So one release and one launcher URL make one compose hash to approve.
+
+## Hosting the launcher
+
+At Le Space the launcher runs as a container (`launcher/Dockerfile`, `launcher/deploy/compose.yaml`) behind the host's reverse proxy, at `https://bridge-launcher.le-space.de`. The image holds no secret: the Phala key and the launcher's NEAR key are mounted at run time, readable by the launcher only. It runs read-only, without capabilities and as its own user; no port is published on the host. Neither key opens a books' secret: the env is encrypted to the VM and the secrets are sealed to the VM's intake key.
+
 ## Open points
 
 - Phala offered this account US-WEST-1 only: test data only until there is an EU host.
