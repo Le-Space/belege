@@ -128,6 +128,18 @@ A first full run on 2026-11-07, still in one phase (the secrets came with the en
 | **start, request to attested bridge** | **about 85 s** |
 | `request_stop` until the VM is deleted and the stop answered | 27 s |
 
+A run on 2026-11-10 in two phases, from the hosted start page with a passkey vault, through the hosted launcher (same region, same instance type):
+
+| Step | Time |
+|---|---|
+| request until the VM is provisioned | 6 s |
+| provisioned until the VM is created | 2 s |
+| VM created until `register_bridge` (boot, quote, contract check) | 56 s |
+| attested until the sealed secrets are with the launcher | 1 s |
+| **start, request to attested bridge with its secrets** | **about 65 s** |
+
+The compose hash the contract checked was the one approved for the hosted launcher's URL, the same for every books.
+
 The first quote of a new release is refused until the owner approves its measurements and the machine's PPID (`approve_measurements`, `approve_ppids`); the registrar retries meanwhile. The measurements are read from that quote's TCB info: MRTD, RTMR0–2, the digest of the `key-provider` event and the payload of the `compose-hash` event.
 
 A test launcher at another URL sets `LAUNCHER_PUBLIC_URL`: the URL is part of the measured compose, so it is another compose hash to approve. `LAUNCHER_QUOTE_DIR` keeps the quotes it receives.
