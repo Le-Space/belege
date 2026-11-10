@@ -136,7 +136,7 @@ The compose is the same for every books: the VM's name, which is per books, is n
 
 ## Hosting the launcher
 
-At Le Space the launcher runs as a container (`launcher/Dockerfile`, `launcher/deploy/compose.yaml`) behind the host's reverse proxy, at `https://bridge-launcher.le-space.de`. The image holds no secret: the Phala key and the launcher's NEAR key are mounted at run time, readable by the launcher only. It runs read-only, without capabilities and as its own user; no port is published on the host. Neither key opens a books' secret: the env is encrypted to the VM and the secrets are sealed to the VM's intake key.
+At Le Space the launcher runs as a container (`launcher/Dockerfile`, `launcher/deploy/compose.yaml`) behind the host's reverse proxy, at `https://bridge-launcher.le-space.de`. The image holds no secret: the Phala key and the launcher's NEAR key are mounted at run time, readable by the launcher only. It runs read-only, without capabilities and as its own user; no port is published on the host. The start page (Le-Space/belege-bridge-near) is served from the same origin by a second, static container in that compose; the proxy sends `/v1/*` and `/healthz` to the launcher and everything else to the page. Neither key opens a books' secret: the env is encrypted to the VM and the secrets are sealed to the VM's intake key.
 
 ## Open points
 
