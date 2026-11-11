@@ -6,6 +6,7 @@
 	import { t } from '$lib/i18n/index.js';
 	import BridgePanel from '$lib/integrations/BridgePanel.svelte';
 	import HostedBridgeCard from '$lib/integrations/HostedBridgeCard.svelte';
+	import NearBridgeCard from '$lib/integrations/NearBridgeCard.svelte';
 	import BankPanel from '$lib/integrations/BankPanel.svelte';
 	import KiPanel from '$lib/integrations/KiPanel.svelte';
 	import KrakenCard from '$lib/exchanges/KrakenCard.svelte';
@@ -76,6 +77,7 @@
 				<BridgePanel />
 			</section>
 			<HostedBridgeCard />
+			<NearBridgeCard />
 		{:else if id === 'bank'}
 			<BankPanel />
 		{:else if id === 'ki'}

@@ -1203,6 +1203,130 @@ export async function hostedBridgeRecord() {
 	return { instance, host, peerId, measurement, attestedAt };
 }
 
+/** The sealed settings record of the bridge on Phala, started through NEAR (#696). */
+const NEAR_HOSTED_SETTING = 'bridge/hosted-near';
+
+/**
+ * The books on NEAR for the hosted bridge on Phala: their account (made on
+ * the owner's device), its balance, the contract's view and the bridge this
+ * browser last started.
+ *
+ * @returns {Promise<{ accountId: string, balance: bigint | null, contract: any, kept: any } | null>}
+ */
+export async function nearBridgeStatus() {
+	if (!session?.store) return null;
+	const nb = await import('./integrations/near-bridge.js');
+	const settings = session.store.settings;
+	const seed = await nb.ensureNearKey(settings, { create: !app.member });
+	if (!seed) return null;
+	const near = nb.nearBooks({ seed });
+	const [balance, contract] = await Promise.all([near.balance(), near.view().catch(() => null)]);
+	const kept = /** @type {any} */ (await getSetting(settings, NEAR_HOSTED_SETTING)) ?? null;
+	return { accountId: near.books.accountId, balance, contract, kept };
+}
+
+/**
+ * "Gehostete Bridge auf Phala, über NEAR" (#696): start the bridge in a TDX
+ * VM through the NEAR contract and Le Space's launcher, and pair it in the
+ * same step – what goes in is what goes into an Aleph VM (`hostedSecrets`):
+ * its key of the books, its own peer key (made here, so its peer id is known
+ * before it runs), the books' relays and devices. It goes only to the VM
+ * whose quote the contract checked, sealed to that VM's key. The bridge
+ * dials out to the relays; there is no inbound route to the VM.
+ *
+ * @param {{ onPhase?: (phase: string, detail?: any) => void }} [p]
+ * @returns {Promise<{ peerId: string, composeHash: string }>}
+ */
+export async function startNearHostedBridge({ onPhase = () => {} } = {}) {
+	if (!session?.online || !session.bridgeAuthBase || !deviceSync || !bridgeConsumer) {
+		throw new Error(t('messages.bridge.needsSync'));
+	}
+	const nb = await import('./integrations/near-bridge.js');
+	const hosted = await import('./integrations/hosted-bridge.js');
+	const { knownDevices } = await import('./sync/device-sync.js');
+	const { setBridgeNode } = await import('./sync/remote-bridge.js');
+	const { bridgeAuthKeyOf } = await import('./database-keys.js');
+	const { generateKeyPair, privateKeyFromProtobuf, privateKeyToProtobuf } = await import(
+		'@libp2p/crypto/keys'
+	);
+	const { peerIdFromPrivateKey } = await import('@libp2p/peer-id');
+
+	const settings = session.store.settings;
+	const seed = await nb.ensureNearKey(settings, { create: !app.member });
+	if (!seed) throw new Error(t('messages.nearBridge.noKey'));
+	const near = nb.nearBooks({ seed });
+	if ((await near.balance()) === null) throw new Error(t('messages.nearBridge.notFunded'));
+	if (!(session.relays ?? []).length) throw new Error(t('messages.nearBridge.noRelay'));
+
+	// The bridge's own peer key: the one these books' NEAR bridge had, or a new one.
+	const kept = /** @type {any} */ (await getSetting(settings, NEAR_HOSTED_SETTING));
+	const peerKey =
+		kept?.books === near.books.accountId && typeof kept?.peerKey === 'string'
+			? privateKeyFromProtobuf(Uint8Array.from(atob(kept.peerKey), (c) => c.charCodeAt(0)))
+			: await generateKeyPair('Ed25519');
+	const peerKeyBytes = privateKeyToProtobuf(peerKey);
+	const peerId = peerIdFromPrivateKey(peerKey).toString();
+
+	const saved = /** @type {any} */ ((await getSetting(settings, 'bridge')) ?? {});
+	const keyGeneration = keyGenerationOf(saved);
+	const authKey = await bridgeAuthKeyOf(session.bridgeAuthBase, keyGeneration);
+
+	// Made only once the contract shows the VM attested.
+	const secrets = async () => {
+		const records = await settings.list({ includeDeleted: true });
+		const { whose } = await import('./members/whose.js');
+		const members = whose(records);
+		const own = knownDevices(records)
+			.filter((d) => !d.bridge && members.mayUseBridge(d.peerId))
+			.map((d) => d.peerId);
+		const all = hosted.hostedSecrets({
+			host: '',
+			authKey,
+			peerKey: peerKeyBytes,
+			relays: session?.relays ?? [],
+			devices: [session?.peerId ?? '', ...own].filter(Boolean)
+		});
+		// No HTTPS name: the VM on Phala has no inbound route.
+		delete all.https_hostname;
+		return all;
+	};
+
+	const launcher = nb.launcherClient({ books: near.books });
+	const { atMs, composeHash } = await nb.startNearBridge({ near, launcher, secrets, onPhase });
+
+	const attestedAt = isoNow();
+	await setSetting(settings, NEAR_HOSTED_SETTING, {
+		books: near.books.accountId,
+		peerId,
+		peerKey: btoa(String.fromCharCode(...peerKeyBytes)),
+		composeHash,
+		atMs,
+		attestedAt
+	});
+	// The books' bridge from now on, as after a handover.
+	session.bridgeAuth.peerId = peerId;
+	session.bridgeAuth.key = authKey;
+	setBridgeNode({ peerId });
+	await setSetting(settings, 'bridge', {
+		token: null,
+		...saved,
+		peerId,
+		keyGeneration,
+		nodePairedAt: attestedAt
+	});
+	await deviceSync.addDevice(peerId, t('messages.nearBridge.deviceLabel'), { bridge: true });
+	return { peerId, composeHash };
+}
+
+/** Stop the bridge on Phala: the contract forgets the VM at once, the launcher deletes it. */
+export async function stopNearHostedBridge() {
+	if (!session?.store) throw new Error(t('messages.bridge.needsSync'));
+	const nb = await import('./integrations/near-bridge.js');
+	const seed = await nb.ensureNearKey(session.store.settings, { create: false });
+	if (!seed) throw new Error(t('messages.nearBridge.noKey'));
+	return nb.stopNearBridge({ near: nb.nearBooks({ seed }) });
+}
+
 /**
  * "Gehostete Bridge" (Integrationen → Bridge, #585): attest the bridge's VM
  * from this browser and unlock it, paired in the same step

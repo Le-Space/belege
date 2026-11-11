@@ -103,6 +103,7 @@
 		{ id: 'backup', status: 'whenSetUp' },
 		{ id: 'credits', status: 'whenSetUp' },
 		{ id: 'hostedBridge', status: 'whenSetUp' },
+		{ id: 'nearBridge', status: 'whenSetUp' },
 		{ id: 'ucep', status: 'whenPaired' },
 		{ id: 'relays', status: 'whenSetUp' }
 	];
