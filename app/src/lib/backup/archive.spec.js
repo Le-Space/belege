@@ -410,7 +410,7 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 
 			// A second one after it: only what came since. Settings alone – every
 			// backup writes its history there – make none.
-			const after = chainAfter(
+			const after = await chainAfter(
 				chain,
 				one,
 				'bafkreioneoneoneoneoneoneoneoneoneoneoneoneoneoneoneoneon'

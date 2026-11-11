@@ -37,9 +37,6 @@ importers:
       '@helia/bitswap':
         specifier: 4.0.6
         version: 4.0.6(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))
-      '@helia/delegated-routing-v1-http-api-client':
-        specifier: 9.0.2
-        version: 9.0.2
       '@helia/libp2p':
         specifier: 1.0.6
         version: 1.0.6(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))
@@ -65,8 +62,8 @@ importers:
         specifier: 0.11.0
         version: 0.11.0(@orbitdb/core@4.0.0)
       '@le-space/orbitdb-storage-bridge':
-        specifier: 0.27.2
-        version: 0.27.2(@storacha/client@2.1.4(encoding@0.1.13))(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)
+        specifier: 0.28.0
+        version: 0.28.0(@storacha/client@2.1.4(encoding@0.1.13))(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)
       '@le-space/pdf':
         specifier: workspace:^
         version: link:../packages/pdf
@@ -249,8 +246,8 @@ importers:
         specifier: workspace:^
         version: link:../packages/chains
       '@le-space/orbitdb-storage-bridge':
-        specifier: 0.27.2
-        version: 0.27.2(@storacha/client@2.1.4(encoding@0.1.13))(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)
+        specifier: 0.28.0
+        version: 0.28.0(@storacha/client@2.1.4(encoding@0.1.13))(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)
       '@le-space/rates':
         specifier: workspace:^
         version: link:../packages/rates
@@ -1035,8 +1032,8 @@ packages:
     peerDependencies:
       '@orbitdb/core': ^4.0.0
 
-  '@le-space/orbitdb-storage-bridge@0.27.2':
-    resolution: {integrity: sha512-eqZV0MDiSWcYo1tWxKsEBXyLN80TVMfXHaHGOPr/489yCH+4TgmxCLKm7+/aT/taFGgLVyxwq85ySnY8sPHP5Q==}
+  '@le-space/orbitdb-storage-bridge@0.28.0':
+    resolution: {integrity: sha512-igS5c0QdeMNqVEkxORwPSWVHRG4WtFD9SySE1x0wOHGoFzlk0wAMzHoxLpDZ2PgQJx6hiASKQ3+h4WGBwxYZTQ==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
       '@storacha/client': ^2.0.0
@@ -5416,7 +5413,7 @@ snapshots:
       '@helia/libp2p': 2.1.5(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))
       '@helia/utils': 3.0.6
       '@libp2p/interface': 3.3.0
-      '@libp2p/logger': 6.2.13
+      '@libp2p/logger': 6.2.16
       '@libp2p/peer-collections': 7.0.28
       '@libp2p/peer-id': 6.0.15
       '@libp2p/utils': 7.4.1
@@ -5982,7 +5979,7 @@ snapshots:
       iso-webauthn-varsig: '@le-space/iso-webauthn-varsig@0.3.0'
       multiformats: 14.0.5
 
-  '@le-space/orbitdb-storage-bridge@0.27.2(@storacha/client@2.1.4(encoding@0.1.13))(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)':
+  '@le-space/orbitdb-storage-bridge@0.28.0(@storacha/client@2.1.4(encoding@0.1.13))(encoding@0.1.13)(lucide-svelte@0.577.0(svelte@5.37.2))(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))(svelte@5.37.2)':
     dependencies:
       '@chainsafe/libp2p-noise': 17.0.0
       '@chainsafe/libp2p-yamux': 8.0.1
@@ -5995,7 +5992,7 @@ snapshots:
       '@libp2p/gossipsub': 16.1.0
       '@libp2p/identify': 4.1.10
       '@libp2p/kad-dht': 16.4.5
-      '@libp2p/logger': 6.2.13
+      '@libp2p/logger': 6.2.16
       '@libp2p/ping': 3.1.13
       '@libp2p/tcp': 11.0.32
       '@orbitdb/core': 4.0.0
@@ -8928,7 +8925,7 @@ snapshots:
     dependencies:
       '@libp2p/crypto': 5.1.23
       '@libp2p/interface': 3.3.0
-      '@libp2p/logger': 6.2.13
+      '@libp2p/logger': 6.2.16
       cborg: 5.1.11
       interface-datastore: 9.0.3
       multiformats: 13.4.2

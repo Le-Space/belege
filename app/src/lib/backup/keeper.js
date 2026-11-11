@@ -179,13 +179,9 @@ export async function isGranted({ owner, address, endpoints = alephEndpoints(), 
  * @param {{ owner: string, endpoints?: AlephEndpoints, fetch?: typeof fetch }} params
  * @returns {Promise<number | null>}
  */
-export async function creditsOf({ owner, endpoints = alephEndpoints(), fetch: f = fetch }) {
-	const response = await f(`${endpoints.apiHost}/api/v0/addresses/${owner}/balance`).catch(
-		() => null
-	);
-	if (!response?.ok) return null;
-	const body = await response.json().catch(() => ({}));
-	return Number.isFinite(body?.credit_balance) ? body.credit_balance : null;
+export async function creditsOf({ owner, endpoints = alephEndpoints(), fetch: f }) {
+	const { alephCredits } = await import('@le-space/orbitdb-storage-bridge/backends/aleph-pin');
+	return alephCredits(owner, { apiHost: endpoints.apiHost, ...(f ? { fetch: f } : {}) });
 }
 
 /** Aleph did not keep a backup; `reason` says why, when Aleph said. */
@@ -348,12 +344,10 @@ export async function createBackupUploader({
 	]);
 	const signs = granted && key ? await backupPin({ owner, key, endpoints, fetch: f }) : null;
 	const backend = createAlephBackend({
-		// With a key that may sign, the file goes to Aleph's API node with its
-		// STORE in the same request, and the node keeps it at once. Through the
-		// IPFS host, Aleph's nodes have to fetch it from there afterwards; since
-		// November 2026 that has failed ("File not found", error code 4) and the
-		// host has dropped the file, so the STORE was refused.
-		ingestUrl: signs ? null : endpoints.ingestUrl,
+		// With a pin that signs, the storage bridge sends the file to Aleph's API
+		// node with its STORE in the same request (0.28.0), and the node keeps it
+		// at once; the IPFS host is for an upload nothing here can sign for.
+		ingestUrl: endpoints.ingestUrl,
 		apiHost: endpoints.apiHost,
 		gateways: endpoints.gateways,
 		...(signs ? { pin: signs } : {}),
@@ -520,10 +514,11 @@ export const creditsPerDay = (bytes) => (bytes / 1048576) * CREDITS_PER_MIB_DAY;
  * @param {{ itemHash: string, endpoints?: AlephEndpoints, fetch?: typeof fetch }} params
  * @returns {Promise<string>}
  */
-export async function storeStatus({ itemHash, endpoints = alephEndpoints(), fetch: f = fetch }) {
-	const response = await f(`${endpoints.apiHost}/api/v0/messages/${encodeURIComponent(itemHash)}`);
-	if (response.status === 404) return 'unknown';
-	if (!response.ok) throw new Error(`Aleph did not answer: ${response.status}`);
-	const body = /** @type {any} */ (await response.json());
-	return typeof body?.status === 'string' ? body.status : 'unknown';
+export async function storeStatus({ itemHash, endpoints = alephEndpoints(), fetch: f }) {
+	const { messageStatus } = await import('@le-space/orbitdb-storage-bridge/backends/aleph-pin');
+	const { status } = await messageStatus(itemHash, {
+		apiHost: endpoints.apiHost,
+		...(f ? { fetch: f } : {})
+	});
+	return status;
 }
