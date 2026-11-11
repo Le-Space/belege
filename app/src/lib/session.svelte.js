@@ -1328,6 +1328,60 @@ export async function stopNearHostedBridge() {
 }
 
 /**
+ * The settings a hosted bridge starts with besides its pairing (#728),
+ * from the books' sealed settings; empty when none are kept.
+ *
+ * @returns {Promise<import('./integrations/hosted-settings.js').HostedSettings>}
+ */
+async function keptHostedSettings() {
+	const hs = await import('./integrations/hosted-settings.js');
+	if (!session?.store) return hs.emptySettings();
+	return hs.cleanSettings(await getSetting(session.store.settings, hs.HOSTED_SETTINGS_KEY));
+}
+
+/**
+ * What is kept for a hosted bridge, by name only (never a value): for the cards.
+ *
+ * @returns {Promise<{ accounts: string[], sections: string[] }>}
+ */
+export async function hostedSettingsNames() {
+	const hs = await import('./integrations/hosted-settings.js');
+	return hs.keptNames(await keptHostedSettings());
+}
+
+/**
+ * Keep settings for a hosted bridge, sealed in the books: over what is kept,
+ * a section or an account replacing the one before. Only an owner's device.
+ *
+ * @param {unknown} settings `{ config, secrets }`
+ */
+export async function keepHostedSettings(settings) {
+	if (!session?.store || app.member) throw new Error(t('messages.hostedSettings.ownerOnly'));
+	const hs = await import('./integrations/hosted-settings.js');
+	const merged = hs.mergeSettings(await keptHostedSettings(), hs.cleanSettings(settings));
+	await setSetting(session.store.settings, hs.HOSTED_SETTINGS_KEY, merged);
+	return hs.keptNames(merged);
+}
+
+/** Forget what is kept for a hosted bridge. */
+export async function forgetHostedSettings() {
+	if (!session?.store || app.member) throw new Error(t('messages.hostedSettings.ownerOnly'));
+	const hs = await import('./integrations/hosted-settings.js');
+	await setSetting(session.store.settings, hs.HOSTED_SETTINGS_KEY, hs.emptySettings());
+}
+
+/**
+ * Take over the settings of the bridge on a computer (#728): it hands them
+ * over the stream to the device that paired it, and they are kept sealed as
+ * if typed in. The bridge on the computer keeps them and keeps working.
+ */
+export async function takeOverBridgeSettings() {
+	const { createBridgeClient } = await import('./bridge/client.js');
+	const exported = await createBridgeClient().settingsExport();
+	return keepHostedSettings(exported);
+}
+
+/**
  * "Gehostete Bridge" (Integrationen → Bridge, #585): attest the bridge's VM
  * from this browser and unlock it, paired in the same step
  * (integrations/hosted-bridge.js). The VM is the books' Aleph key's; the
@@ -1421,6 +1475,9 @@ export async function unlockHostedBridge({ instance, passphrase, onProgress = ()
 		relays: session.relays ?? [],
 		devices: [session.peerId, ...own]
 	});
+	// What else it starts with (#728): the accounts and settings kept for a hosted bridge.
+	const { withHostedSettings } = await import('./integrations/hosted-settings.js');
+	const startWith = withHostedSettings(secrets, await keptHostedSettings());
 
 	const result = await hosted.unlockHosted({
 		instance: content,
@@ -1432,7 +1489,7 @@ export async function unlockHostedBridge({ instance, passphrase, onProgress = ()
 		crnHash: crn,
 		instanceItemHash: hash,
 		passphrase,
-		secrets,
+		secrets: startWith,
 		sign: async (/** @type {string} */ payload) => alephSign(ownerKey, payload),
 		onProgress,
 		...(verify ? { verify } : {})

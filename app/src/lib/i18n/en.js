@@ -379,6 +379,9 @@ export default {
 			noRelay: 'These books use no relay yet: the bridge on Phala is reached only through one.',
 			deviceLabel: 'Hosted bridge (Phala, NEAR)'
 		},
+		hostedSettings: {
+			ownerOnly: 'Only a device of the books’ owner keeps settings for a hosted bridge.'
+		},
 		bridge: {
 			unreachable:
 				'The bridge cannot be reached. Is it running (pnpm bridge)? Whether it lets this page in, "Check status" under Integrations → Bridge says.',
@@ -4406,6 +4409,33 @@ export default {
 				attested: 'attested',
 				secretsHandedOver: 'paired'
 			}
+		},
+		hostedSettings: {
+			title: 'Settings for the hosted bridge',
+			intro:
+				'What a hosted bridge – on Aleph or on Phala through NEAR – starts with besides its pairing: mail, Kraken, Paperless, Alchemy, Enable Banking, portals. Kept sealed in these books and handed only to a VM whose attestation holds, at each start. The bridge on this computer keeps its own and keeps working. Not here: Hibiscus (it stays on your computer) and the language model (a hosted bridge runs without one).',
+			kept: 'Kept for the hosted bridge: {names}.',
+			none: 'Nothing kept for the hosted bridge yet: it starts paired, without accounts.',
+			takeOver: 'Take over from the bridge on this computer',
+			takeOverHint:
+				'The bridge you paired hands its accounts and settings to this device over the stream – only to the device that paired it – and they are kept here, sealed. Do this before a hosted bridge becomes the books’ bridge.',
+			forget: 'Forget',
+			forgetConfirm:
+				'Forget the settings kept for the hosted bridge? The bridge on your computer keeps its own.',
+			mail: 'Mail (IMAP)',
+			mailHost: 'IMAP server',
+			mailPort: 'Port',
+			mailUser: 'User',
+			mailAccounting: 'Accounting address (optional)',
+			password: 'Password',
+			apiKey: 'API key',
+			apiSecret: 'API secret',
+			apiToken: 'API token',
+			paperlessUrl: 'Paperless address (https://…)',
+			keep: 'Keep for the hosted bridge',
+			saved: 'Kept, sealed. It goes along at the next start.',
+			othersHint:
+				'Enable Banking, portals, CoinGecko and a Bitcoin zpub come along when taken over from the bridge on this computer.'
 		},
 		hibiscus: {
 			title: 'Hibiscus',

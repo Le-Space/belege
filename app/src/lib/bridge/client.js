@@ -385,6 +385,13 @@ export function createBridgeClient({
 		url: base,
 		/** @returns {Promise<{ ok: boolean, paired: boolean, pairingOpen: boolean, hibiscus: { configured: boolean }, mail?: { configured: boolean, accountingAddress: string | null }, llm?: { configured: boolean, models: string[] }, kraken?: { configured: boolean }, paperless?: { configured: boolean }, enablebanking?: { configured: boolean }, backup?: { aleph: boolean }, wallets?: { available: boolean } }>} */
 		health: () => call('/health'),
+		/**
+		 * What a hosted bridge may take over from this bridge (#728): the accounts
+		 * it reads and the integrations' settings. Over the stream only, and only
+		 * for the device that paired the bridge; over HTTP it is not there.
+		 * @returns {Promise<{ config: Record<string, any>, secrets: Record<string, string> }>}
+		 */
+		settingsExport: () => call('/settings/export'),
 		/** @param {string} code @returns {Promise<string>} the token */
 		async pair(code) {
 			const { token } = await call('/pair', { method: 'POST', body: JSON.stringify({ code }) });

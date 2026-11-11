@@ -7,6 +7,7 @@
 	import BridgePanel from '$lib/integrations/BridgePanel.svelte';
 	import HostedBridgeCard from '$lib/integrations/HostedBridgeCard.svelte';
 	import NearBridgeCard from '$lib/integrations/NearBridgeCard.svelte';
+	import HostedSettingsCard from '$lib/integrations/HostedSettingsCard.svelte';
 	import BankPanel from '$lib/integrations/BankPanel.svelte';
 	import KiPanel from '$lib/integrations/KiPanel.svelte';
 	import KrakenCard from '$lib/exchanges/KrakenCard.svelte';
@@ -76,6 +77,7 @@
 			<section class="mt-4 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm">
 				<BridgePanel />
 			</section>
+			<HostedSettingsCard />
 			<HostedBridgeCard />
 			<NearBridgeCard />
 		{:else if id === 'bank'}

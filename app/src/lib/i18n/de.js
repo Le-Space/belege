@@ -397,6 +397,10 @@ export default {
 				'Diese Bücher nutzen noch keinen Relay: Die Bridge auf Phala ist nur über einen erreichbar.',
 			deviceLabel: 'Gehostete Bridge (Phala, NEAR)'
 		},
+		hostedSettings: {
+			ownerOnly:
+				'Nur ein Gerät des Besitzers der Bücher hält Einstellungen für eine gehostete Bridge.'
+		},
 		bridge: {
 			unreachable:
 				'Die Bridge ist nicht erreichbar. Läuft sie (pnpm bridge)? Ob sie diese Seite hereinlässt, sagt „Status prüfen“ unter Integrationen → Bridge.',
@@ -4465,6 +4469,33 @@ export default {
 				attested: 'attestiert',
 				secretsHandedOver: 'gekoppelt'
 			}
+		},
+		hostedSettings: {
+			title: 'Einstellungen für die gehostete Bridge',
+			intro:
+				'Womit eine gehostete Bridge – bei Aleph oder bei Phala über NEAR – neben ihrer Kopplung startet: Mail, Kraken, Paperless, Alchemy, Enable Banking, Portale. Versiegelt in diesen Büchern gehalten und bei jedem Start nur an eine VM übergeben, deren Attestierung hält. Die Bridge auf diesem Rechner behält ihre eigenen und läuft weiter. Nicht hier: Hibiscus (bleibt auf deinem Rechner) und das Sprachmodell (eine gehostete Bridge läuft ohne).',
+			kept: 'Für die gehostete Bridge gehalten: {names}.',
+			none: 'Noch nichts für die gehostete Bridge gehalten: Sie startet gekoppelt, ohne Konten.',
+			takeOver: 'Von der Bridge auf diesem Rechner übernehmen',
+			takeOverHint:
+				'Die gekoppelte Bridge gibt ihre Konten und Einstellungen über den Stream an dieses Gerät – nur an das Gerät, das sie gekoppelt hat –, und sie werden hier versiegelt gehalten. Mach das, bevor eine gehostete Bridge die Bridge der Bücher wird.',
+			forget: 'Vergessen',
+			forgetConfirm:
+				'Die für die gehostete Bridge gehaltenen Einstellungen vergessen? Die Bridge auf deinem Rechner behält ihre eigenen.',
+			mail: 'Mail (IMAP)',
+			mailHost: 'IMAP-Server',
+			mailPort: 'Port',
+			mailUser: 'Benutzer',
+			mailAccounting: 'Adresse der Buchhaltung (optional)',
+			password: 'Passwort',
+			apiKey: 'API-Schlüssel',
+			apiSecret: 'API-Secret',
+			apiToken: 'API-Token',
+			paperlessUrl: 'Adresse von Paperless (https://…)',
+			keep: 'Für die gehostete Bridge halten',
+			saved: 'Versiegelt gehalten. Es geht beim nächsten Start mit.',
+			othersHint:
+				'Enable Banking, Portale, CoinGecko und eine Bitcoin-zpub kommen mit, wenn du von der Bridge auf diesem Rechner übernimmst.'
 		},
 		hibiscus: {
 			title: 'Hibiscus',
