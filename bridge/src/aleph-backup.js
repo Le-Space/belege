@@ -3,8 +3,10 @@
 //
 // Two steps, both through @le-space/orbitdb-storage-bridge. The app does the
 // first itself, from the browser (no key needed), and asks the bridge only for
-// the second (`pin`); `put` does both here, for a browser that cannot reach
-// Aleph:
+// the second (`pin`). `put`, for a browser that cannot reach Aleph, sends
+// the bytes to the API node with the signed STORE in the same request
+// (`POST /api/v0/ipfs/add_file`, storage bridge 0.28.0), so the node keeps
+// them at once and has nothing to fetch. The two steps:
 //   1. `backends/aleph` uploads the bytes to Aleph's IPFS host, without a key
 //      (`POST https://ipfs.aleph.cloud/api/v0/add`); the answer is the file's
 //      CID. Uploaded is not kept: Aleph drops what nobody pays for.
@@ -30,7 +32,8 @@
 // this account once it is allowed to (`pnpm setup:aleph -- --authorize`).
 //
 // What leaves: the sealed bytes (the app seals them before they get here –
-// the bridge never sees a book in the clear) to Aleph's IPFS host, and the
+// the bridge never sees a book in the clear) to Aleph – its IPFS host when
+// the app uploads, its API node when the bridge does (`put`) – and the
 // signed message with the address and the CID to the Aleph API. The log gets
 // sizes, never a CID or the address.
 

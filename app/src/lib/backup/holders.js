@@ -1,12 +1,11 @@
 // "Wer hält es?" – which IPFS nodes offer a backup, and where they are.
 //
 // Asked only on a click, from three public services, each named on the card:
-//   1. IPFS delegated routing (`/routing/v1/providers/<cid>`, through Helia's
-//      client `@helia/delegated-routing-v1-http-api-client`): the peers that
-//      announce the backup's CID, with their addresses. It sees the CID and
-//      this computer's IP address. The client is used on its own here, not
-//      wired into this browser's Helia node: there it would be asked for every
-//      block the app looks up.
+//   1. IPFS delegated routing (`/routing/v1/providers/<cid>`, asked with the
+//      storage bridge's `providersFor`): the peers that announce the backup's
+//      CID, with their addresses. It sees the CID and this computer's IP
+//      address. It is asked on its own here, not wired into this browser's
+//      Helia node: there it would be asked for every block the app looks up.
 //   2. Aleph's `corechannel` aggregate: Aleph's core channel nodes with their
 //      names and addresses, to name the peers that are Aleph's (by IP).
 //   3. ipwho.is: the country, city and network of each peer's IP. It sees
@@ -70,35 +69,24 @@ export function publicIps(addrs) {
 	return ips;
 }
 
-/** A logger that says nothing: the client wants one. */
-const quiet = () => Object.assign(() => {}, { error() {}, trace() {}, enabled: false });
-const logger = { forComponent: quiet };
-
 /**
- * The peers that announce a CID, through Helia's delegated routing client.
+ * The peers that announce a CID, asked of a delegated routing endpoint (the
+ * storage bridge's `providersFor`).
  *
  * @param {string} cid
  * @param {{ url: string, limit?: number, signal?: AbortSignal }} options
  * @returns {Promise<{ peerId: string, addrs: string[] }[]>}
  */
 export async function routingProviders(cid, { url, limit = MAX_HOLDERS, signal }) {
-	const { delegatedRoutingV1HttpApiClient } = await import(
-		'@helia/delegated-routing-v1-http-api-client'
-	);
-	const client = delegatedRoutingV1HttpApiClient({ url, cacheTTL: 0, timeout: 30_000 })({
-		logger: /** @type {any} */ (logger)
+	const { providersFor } = await import('@le-space/orbitdb-storage-bridge/peer-fetch');
+	// Parsed first: only a CID goes into the request's path.
+	const found = await providersFor(String(CID.parse(cid)), {
+		routers: [url],
+		// Every address, not only what a page can dial: this asks where, not how.
+		dialableOnly: false,
+		...(signal ? { signal } : {})
 	});
-	/** @type {{ peerId: string, addrs: string[] }[]} */
-	const found = [];
-	try {
-		for await (const record of client.getProviders(CID.parse(cid), signal ? { signal } : {})) {
-			found.push({ peerId: String(record.ID), addrs: record.Addrs.map(String) });
-			if (found.length >= limit) break;
-		}
-	} finally {
-		await /** @type {any} */ (client).stop?.();
-	}
-	return found;
+	return found.slice(0, limit).map((p) => ({ peerId: p.id, addrs: p.addrs }));
 }
 
 /**

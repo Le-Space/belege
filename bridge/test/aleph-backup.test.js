@@ -579,15 +579,21 @@ describe('/backup', () => {
 		}
 	});
 
-	test('the backup object alone: Aleph refusing the upload is an error, not a backup', async () => {
-		// A host that answers, and says no: an error. (One that has no `add` at
-		// all, a 404, is the case below.)
+	test('the backup object alone: with its key, the IPFS host is not asked – one that would refuse changes nothing', async () => {
+		// Since the storage bridge 0.28.0 a pin that signs sends the file to the
+		// API node with its STORE; the IPFS host (here one that answers 422) is
+		// for uploads nothing can sign for.
 		const backup = createAlephBackup({
 			getKey: async () => KEY,
 			ingestUrl: `${aleph.url}/api/v0/messages`,
 			apiHost: aleph.url
 		});
-		await assert.rejects(backup.put(new Uint8Array([1]), { name: 'x.car' }), /422/);
+		const before = aleph.calls.length;
+		const done = await backup.put(new Uint8Array([1]), { name: 'x.car' });
+		assert.equal(done.status, 'processed');
+		const since = aleph.calls.slice(before);
+		assert.ok(since.includes('/api/v0/ipfs/add_file'));
+		assert.ok(!since.includes('/api/v0/messages'));
 	});
 
 	test('the backup object alone: an IPFS host with no `add` (404, as since 2026-10-26) – the API node takes it, signed, in one call', async () => {

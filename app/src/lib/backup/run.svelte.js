@@ -325,7 +325,10 @@ export async function runBackup({ continuing, uploader, askFor, unattended = fal
 			if (!('heads' in built)) {
 				await saveChain(store.settings, chainFromBase(built.manifest, handle.id));
 			} else if (continuing && kept.ref === continuing.base) {
-				await saveChain(store.settings, chainAfter(continuing, built, handle.id, kept.status));
+				await saveChain(
+					store.settings,
+					await chainAfter(continuing, built, handle.id, kept.status)
+				);
 			} else {
 				backupRun.error = t('backup.oldBridge');
 			}
