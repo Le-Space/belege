@@ -4341,7 +4341,7 @@ export default {
 			band: {
 				title: 'NEAR Hackathon 2026',
 				text: 'This project was built during the hackathon.',
-				small: 'PROTOTYPE · NOT AUDITED YET · AGPL-3.0',
+				small: 'PILOT · AGPL-3.0',
 				close: 'Close this note'
 			}
 		},

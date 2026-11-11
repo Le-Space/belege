@@ -4398,7 +4398,7 @@ export default {
 			band: {
 				title: 'NEAR Hackathon 2026',
 				text: 'Dieses Projekt ist während des Hackathons entstanden.',
-				small: 'PROTOTYP · NOCH NICHT AUDITIERT · AGPL-3.0',
+				small: 'PILOTBETRIEB · AGPL-3.0',
 				close: 'Hinweis schließen'
 			}
 		},
