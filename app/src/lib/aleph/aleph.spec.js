@@ -16,6 +16,7 @@ import {
 	saveAleph,
 	scanAleph
 } from './aleph.js';
+import { monthlyLines } from './statement-pdf.js';
 
 const A = '0x' + '1a'.repeat(20);
 const B = '0x' + '2b'.repeat(20);
@@ -202,7 +203,13 @@ describe('the statement as an Eigenbeleg', () => {
 			VM,
 			'Speicher (alle Stores): 12 Stores, 1500,3 MiB',
 			'0,06 EUR',
-			'Aleph Cloud stellt keine Rechnung aus'
+			'Aleph Cloud stellt keine Rechnung aus',
+			// The month in sums, in the words of @le-space/eigenbeleg's `monthly`.
+			'Monatsübersicht',
+			'Verbrauch test-relay (ababababab…) 1 60.000 0,05',
+			'Verbrauch Speicher (storage) 1 10.000 0,01',
+			'Verbrauch gesamt (Aufwand) 2 70.000 0,06',
+			'Käufe von Guthaben (Vorauszahlung; Eigenbeleg je Kauf) 1 20.000 —'
 		])
 			expect(text).toContain(expected);
 
@@ -215,6 +222,38 @@ describe('the statement as an Eigenbeleg', () => {
 			'aleph-statement',
 			'EB-2026-001'
 		]);
+	});
+
+	it('the month in sums: per resource over the days, transfers apart, no euro where a day has no rate', () => {
+		const day = statement().usage;
+		const s = statement({
+			usage: [
+				...day,
+				{ ...day[0], date: '2026-08-02', credits: 40_000, eurCents: 4 },
+				{ ...day[1], date: '2026-08-02', eurCents: null }
+			],
+			topUps: [
+				...statement().topUps,
+				{
+					...statement().topUps[0],
+					how: 'transfer',
+					credits: 5_000,
+					bonus: 0,
+					price: null,
+					from: B
+				}
+			],
+			transfersOut: [{ time: '2026-08-20T12:00:00.000Z', credits: 3_000, to: C }]
+		});
+		expect(monthlyLines(s).lines.map((l) => [l.label, l.rows, l.amount, l.eur])).toEqual([
+			['Verbrauch test-relay (ababababab…)', 2, '100000', '0.09'],
+			['Verbrauch Speicher (storage)', 2, '20000', ''],
+			['Verbrauch gesamt (Aufwand)', 4, '120000', ''],
+			['Käufe von Guthaben (Vorauszahlung; Eigenbeleg je Kauf)', 1, '20000', ''],
+			['Eingänge von anderen Konten', 1, '5000', ''],
+			['Ausgänge an andere Konten', 1, '3000', '']
+		]);
+		expect(monthlyLines(statement({ usage: [], topUps: [] })).lines).toEqual([]);
 	});
 
 	it('a month in which nothing moved makes none', async () => {
