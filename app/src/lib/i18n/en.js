@@ -3498,6 +3498,24 @@ export default {
 		questionsElsewhere: 'Travel has open points too: {count}'
 	},
 	reise: {
+		split: {
+			title: 'Split or join',
+			hint: 'Between {end} and {start} you were at home by the tickets: split into two trips?',
+			end: 'First trip ends',
+			start: 'Second trip starts',
+			do: 'Split into two trips',
+			what: 'Receipts, border crossings, meals, nights and mileage go by their time: before the second starts to the first, from then on to the second. The days between belong to neither.',
+			done: 'Split.',
+			open: 'To the second trip',
+			joinWith: 'Join with',
+			join: 'Join into one trip',
+			joinWhat:
+				'One trip from the earlier start to the later end, with all receipts, border crossings, meals, nights and mileage of both. The other is deleted. Offered: trips of the same person, at most a week apart.',
+			joinConfirm:
+				'Join this trip with “{trip}”? The other trip is deleted, its receipts come here.',
+			saveFirst: 'Save first: the trip is split and joined as saved.',
+			locked: 'This trip is on the statement {number}: it is no longer split or joined.'
+		},
 		outlayHint:
 			'Receipts booked as outlays are owed to you on the account “Auslagen Geschäftsführung”: a transfer to you is linked there as their repayment. For a receipt to be paid back with this trip, undo the outlay on the receipt (“Auslage rückgängig machen”) – it then counts in “Zu erstatten”.',
 		paidOutlay: 'booked as an outlay',

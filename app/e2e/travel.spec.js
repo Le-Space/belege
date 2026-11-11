@@ -1176,3 +1176,111 @@ test('a receipt on a trip booked as an outlay: named so, paid back through the o
 	await expect(page.getByTestId('reise-sum-to-you')).toHaveText('228,00 EUR');
 	await expect(page.getByTestId('reise-sum-total')).toHaveText('228,00 EUR');
 });
+
+test('two trips a few days apart joined into one, and split again where the tickets came home (#693 b)', async ({
+	page
+}) => {
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('E2E');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+
+	// Made up: by bus to Ortshausen (AT) and back, two days at home, then a
+	// flight to Weitweg (TR) and back. Towns, vendors and codes are invented.
+	await page.evaluate(async () => {
+		const e2e = /** @type {any} */ (window).__belegeE2E;
+		/** @param {string} vendor @param {Record<string, any>} travel */
+		const add = (vendor, travel) =>
+			e2e.addReceipt({
+				source: 'upload',
+				status: 'ausgelesen',
+				currency: 'EUR',
+				fileName: `${vendor}.pdf`,
+				vendor,
+				amountCents: 3000,
+				documentDate: '2026-05-01',
+				extraction: { document_type: 'invoice', gross: 30, vat: [], travel }
+			});
+		await add('Bus Hin Beispiel', {
+			kind: 'bus',
+			from: 'A-Stadt',
+			to: 'Ortshausen',
+			from_country: 'DE',
+			to_country: 'AT',
+			departure: '2026-05-04T08:00',
+			arrival: '2026-05-04T13:00'
+		});
+		await add('Hostel Beispiel', {
+			kind: 'hotel',
+			place: 'Ortshausen',
+			place_country: 'AT',
+			check_in: '2026-05-04',
+			check_out: '2026-05-05',
+			nights: 1
+		});
+		await add('Bus Zurück Beispiel', {
+			kind: 'bus',
+			from: 'Ortshausen',
+			to: 'A-Stadt',
+			from_country: 'AT',
+			to_country: 'DE',
+			departure: '2026-05-05T09:00',
+			arrival: '2026-05-05T14:00'
+		});
+		await add('Flug Beispiel', {
+			kind: 'flight',
+			from: 'A-Stadt',
+			to: 'Weitweg',
+			from_country: 'DE',
+			to_country: 'TR',
+			from_iata: 'QAS',
+			to_iata: 'QWW',
+			departure: '2026-05-08T07:00',
+			arrival: '2026-05-08T12:00',
+			return_departure: '2026-05-09T15:00',
+			return_arrival: '2026-05-09T18:00'
+		});
+	});
+
+	const toMay = async () => {
+		await page.getByRole('navigation').getByRole('link', { name: 'Reisen' }).click();
+		const picker = page.getByTestId('reisen-month');
+		await picker.getByLabel('Monat: Jahr').selectOption('2026');
+		await picker.getByLabel('Monat: Monat').selectOption('05');
+	};
+	await toMay();
+	// Two proposals, days apart: both made into trips.
+	await expect(page.getByTestId('reisen-proposal')).toHaveCount(2);
+	await page.getByTestId('reisen-proposal-accept').first().click();
+	await expect(page.getByTestId('reise-receipt')).toHaveCount(3);
+	await toMay();
+	await page.getByTestId('reisen-proposal-accept').click();
+	await expect(page.getByTestId('reise-receipt')).toHaveCount(1);
+
+	// The other trip, three days before, is offered to join.
+	const split = page.getByTestId('reise-split');
+	await expect(split.getByTestId('reise-join-with').locator('option')).toHaveCount(1);
+	page.once('dialog', (d) => d.accept());
+	await split.getByTestId('reise-join-do').click();
+	await expect(page.getByTestId('reise-receipt')).toHaveCount(4);
+	await expect(page.getByTestId('reise-start')).toHaveValue('2026-05-04T08:00');
+	await expect(page.getByTestId('reise-end')).toHaveValue('2026-05-09T18:00');
+	await expect(split.getByTestId('reise-join')).toHaveCount(0);
+
+	// One trip that came home between: split there, as the tickets say.
+	await expect(split.getByTestId('reise-split-hint')).toContainText(
+		'Zwischen 05.05.2026 14:00 und 08.05.2026 07:00 warst du nach den Fahrkarten zu Hause'
+	);
+	await expect(split.getByTestId('reise-split-end')).toHaveValue('2026-05-05T14:00');
+	await expect(split.getByTestId('reise-split-start')).toHaveValue('2026-05-08T07:00');
+	await split.getByTestId('reise-split-do').click();
+	await expect(page.getByTestId('reise-receipt')).toHaveCount(3);
+	await expect(page.getByTestId('reise-end')).toHaveValue('2026-05-05T14:00');
+	await split.getByTestId('reise-split-done').getByRole('link').click();
+	await expect(page.getByTestId('reise-receipt')).toHaveCount(1);
+	await expect(page.getByTestId('reise-receipt')).toContainText('Flug Beispiel');
+	await expect(page.getByTestId('reise-start')).toHaveValue('2026-05-08T07:00');
+	await expect(page.getByTestId('reise-end')).toHaveValue('2026-05-09T18:00');
+});

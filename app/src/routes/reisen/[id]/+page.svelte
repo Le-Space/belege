@@ -41,9 +41,17 @@
 		euroOf,
 		ratesWanted,
 		receiptsOfTrip,
+		tripDays,
 		tripTotals
 	} from '$lib/travel/view.js';
 	import { countryHints, newStops, routeOf } from '$lib/travel/route.js';
+	import {
+		joinCandidates,
+		joinStoredTrips,
+		lockedBy,
+		splitStoredTrip,
+		suggestSplit
+	} from '$lib/travel/split.js';
 	import { headOffer } from '$lib/travel/proposals.js';
 	import { matchOfReceipt } from '$lib/matching/view.js';
 	import { lodgingFlat, nightsOf } from '$lib/travel/lodging.js';
@@ -399,6 +407,68 @@
 			await goto(resolve('/reisen'));
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
+			busy = false;
+		}
+	}
+
+	// Split in two, or joined with another (#693 b): on the trip as stored –
+	// what is being typed is saved first – and never on a closed statement.
+	let locked = $derived(stored ? lockedBy(app.travel, id) : null);
+	let splitHint = $derived(stored ? suggestSplit(stored, receipts) : null);
+	let joinable = $derived(stored ? joinCandidates(app.travel, stored) : []);
+	let splitEnd = $state('');
+	let splitStart = $state('');
+	let joinWith = $state('');
+	// The suggestion as where a split falls by default; set again only when it changes.
+	let hintKey = $derived(splitHint ? `${splitHint.end}|${splitHint.start}` : '');
+	$effect(() => {
+		void id;
+		const [end = '', start = ''] = hintKey ? hintKey.split('|') : [];
+		splitEnd = end;
+		splitStart = start;
+	});
+	$effect(() => {
+		if (!joinable.some((x) => x.id === joinWith)) joinWith = joinable[0]?.id ?? '';
+	});
+	/** A trip as an option: its destination and days. @param {Record<string, any>} x */
+	const tripOption = (x) =>
+		[x.destination || t('reisen.untitled'), tripDays(x, formatDate)].filter(Boolean).join(' · ');
+
+	async function split() {
+		const store = currentStore();
+		if (!store || dirty) return;
+		busy = true;
+		error = null;
+		try {
+			const { second } = await splitStoredTrip(store, id, { end: splitEnd, start: splitStart });
+			await refreshNow();
+			splitDone = String(second.id);
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			busy = false;
+		}
+	}
+	/** @type {string | null} the trip a split made, to link to */
+	let splitDone = $state(null);
+	$effect(() => {
+		void id;
+		splitDone = null;
+	});
+
+	async function join() {
+		const store = currentStore();
+		if (!store || dirty || !joinWith) return;
+		const other = joinable.find((x) => x.id === joinWith);
+		if (!other || !confirm(t('reise.split.joinConfirm', { trip: tripOption(other) }))) return;
+		busy = true;
+		error = null;
+		try {
+			await joinStoredTrips(store, id, joinWith);
+			await refreshNow();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
 			busy = false;
 		}
 	}
@@ -1088,6 +1158,82 @@
 			<p class="mt-1 text-xs text-danger" data-testid="reise-sum-norate">
 				{t('reise.ratesMissing', { count: totals.withoutRate })}
 			</p>
+		{/if}
+	</section>
+
+	<section class={card} aria-labelledby="reise-split-h" data-testid="reise-split">
+		<h2 id="reise-split-h" class="text-sm font-semibold text-heading">{t('reise.split.title')}</h2>
+		{#if locked}
+			<p class="mt-1 text-sm text-text" data-testid="reise-split-locked">
+				{t('reise.split.locked', { number: locked })}
+			</p>
+		{:else}
+			{#if dirty}
+				<p class="mt-1 text-xs text-danger" data-testid="reise-split-save-first">
+					{t('reise.split.saveFirst')}
+				</p>
+			{/if}
+			{#if splitHint}
+				<p class="mt-2 text-sm text-text" data-testid="reise-split-hint">
+					{t('reise.split.hint', { end: atLine(splitHint.end), start: atLine(splitHint.start) })}
+				</p>
+			{/if}
+			<div class="mt-2 flex flex-wrap items-end gap-3">
+				<label class="flex flex-col text-sm text-text"
+					>{t('reise.split.end')}
+					<input
+						type="datetime-local"
+						class={field}
+						bind:value={splitEnd}
+						data-testid="reise-split-end"
+					/>
+				</label>
+				<label class="flex flex-col text-sm text-text"
+					>{t('reise.split.start')}
+					<input
+						type="datetime-local"
+						class={field}
+						bind:value={splitStart}
+						data-testid="reise-split-start"
+					/>
+				</label>
+				<button
+					type="button"
+					class={btn.secondary}
+					onclick={split}
+					disabled={busy || dirty || !splitEnd || !splitStart}
+					data-testid="reise-split-do">{t('reise.split.do')}</button
+				>
+			</div>
+			<p class="mt-1 text-xs text-faint">{t('reise.split.what')}</p>
+			{#if splitDone}
+				<p class="mt-2 text-sm text-text" data-testid="reise-split-done">
+					{t('reise.split.done')}
+					<a class="underline" href={resolve('/reisen/[id]', { id: splitDone })}
+						>{t('reise.split.open')}</a
+					>
+				</p>
+			{/if}
+			{#if joinable.length}
+				<div class="mt-4 flex flex-wrap items-end gap-3" data-testid="reise-join">
+					<label class="flex flex-col text-sm text-text"
+						>{t('reise.split.joinWith')}
+						<select class={field} bind:value={joinWith} data-testid="reise-join-with">
+							{#each joinable as x (x.id)}
+								<option value={x.id}>{tripOption(x)}</option>
+							{/each}
+						</select>
+					</label>
+					<button
+						type="button"
+						class={btn.secondary}
+						onclick={join}
+						disabled={busy || dirty || !joinWith}
+						data-testid="reise-join-do">{t('reise.split.join')}</button
+					>
+				</div>
+				<p class="mt-1 text-xs text-faint">{t('reise.split.joinWhat')}</p>
+			{/if}
 		{/if}
 	</section>
 

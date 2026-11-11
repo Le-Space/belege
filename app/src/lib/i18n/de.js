@@ -3555,6 +3555,25 @@ export default {
 		questionsElsewhere: 'Auch bei den Reisen gibt es offene Punkte: {count}'
 	},
 	reise: {
+		split: {
+			title: 'Teilen oder zusammenführen',
+			hint: 'Zwischen {end} und {start} warst du nach den Fahrkarten zu Hause: In zwei Reisen teilen?',
+			end: 'Erste Reise endet',
+			start: 'Zweite Reise beginnt',
+			do: 'In zwei Reisen teilen',
+			what: 'Belege, Grenzübertritte, Mahlzeiten, Nächte und Kilometer gehen nach ihrer Zeit mit: vor dem Beginn der zweiten zur ersten, ab dann zur zweiten. Die Tage dazwischen gehören zu keiner.',
+			done: 'Geteilt.',
+			open: 'Zur zweiten Reise',
+			joinWith: 'Zusammenführen mit',
+			join: 'Zu einer Reise zusammenführen',
+			joinWhat:
+				'Eine Reise vom früheren Beginn bis zum späteren Ende, mit allen Belegen, Grenzübertritten, Mahlzeiten, Nächten und Kilometern beider. Die andere wird gelöscht. Angeboten werden Reisen derselben Person, höchstens eine Woche entfernt.',
+			joinConfirm:
+				'Diese Reise mit „{trip}“ zusammenführen? Die andere Reise wird gelöscht, ihre Belege kommen hierher.',
+			saveFirst: 'Erst speichern: Geteilt und zusammengeführt wird die gespeicherte Reise.',
+			locked:
+				'Diese Reise steht in der Abrechnung {number}: Sie wird nicht mehr geteilt oder zusammengeführt.'
+		},
 		outlayHint:
 			'Als Auslage gebuchte Belege schuldet die Firma dir auf dem Konto „Auslagen Geschäftsführung“: Eine Überweisung an dich wird dort als Erstattung zugeordnet. Soll ein Beleg mit dieser Reise erstattet werden, mach am Beleg die Auslage rückgängig („Auslage rückgängig machen“) – dann steht er unter „Zu erstatten“.',
 		paidOutlay: 'als Auslage gebucht',
