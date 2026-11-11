@@ -2577,6 +2577,8 @@ export default {
 			ledger: 'Ledger account in your bookkeeping',
 			ledgerHint:
 				'The ledger account under which this bank account is kept in your bookkeeping. Suggestion per SKR 03: {suggestion} – only a placeholder, enter the number from your bookkeeping.',
+			ledgerHintChart:
+				'The ledger account under which this bank account is kept in your bookkeeping. Type its number or name – the suggestions come from your chart of accounts ({count} accounts).',
 			noAccounts: 'No bank accounts in the books yet.',
 			vatPeriod: 'Advance VAT return',
 			vatPeriods: { quarter: 'quarterly', month: 'monthly' },

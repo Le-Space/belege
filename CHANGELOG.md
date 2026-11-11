@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **"Sachkonto in deiner Buchhaltung" offers your chart of accounts.** With a chart read in, the ledger account of each bank account suggests your own accounts as you type, names the one you entered or says it is not in your chart, and no longer shows the SKR 03 placeholder 1200, 1210, … which named other accounts there. Without a chart nothing changes.
+
 ## [0.29.7] – 2026-11-11
 
 ### Changed
