@@ -43,10 +43,10 @@ if [ -d "$in" ]; then
     # One plain file per secret: a link is skipped, not followed.
     [ -f "$f" ] && [ ! -L "$f" ] || continue
     name="$(basename "$f")"
-    case "$name" in
-      hibiscus|imap|kraken|paperless|enablebanking|coingecko|bitcoin|alchemy|aleph_backup|bridge_auth|portal_[a-z0-9_]*)
-        install -o belege-bridge -g belege-bridge -m 600 "$f" "$run/secrets/$name" ;;
-    esac
+    # A whole-name match, as sort-secrets.mjs's ACCOUNT: a case glob's `*`
+    # would take any character after `portal_`.
+    printf '%s\n' "$name" | grep -Eqx 'hibiscus|imap|kraken|paperless|enablebanking|coingecko|bitcoin|alchemy|aleph_backup|bridge_auth|portal_[a-z0-9]+(_[a-z0-9]+)*' || continue
+    install -o belege-bridge -g belege-bridge -m 600 "$f" "$run/secrets/$name"
   done
 fi
 if [ -s "$in/bridge_peer_key" ]; then
@@ -79,6 +79,11 @@ node["wsPort"] = 9097
 node["announce"] = [f"/dns4/{host}/tcp/443/tls/ws"] if host else []
 # No language model in the hosted bridge (#251).
 config.pop("llm", None)
+# Settings taken over from a bridge on a computer (#728) may name its own
+# network: the relay for devices in the LAN and the old HTTP tokens. Neither
+# belongs in the VM, where nothing but Caddy listens beyond loopback.
+config.pop("lanRelay", None)
+config.pop("pairedTokens", None)
 with open(dst, "w") as f:
     json.dump(config, f)
 PY
