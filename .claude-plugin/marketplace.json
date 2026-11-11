@@ -1,0 +1,27 @@
+{
+	"$schema": "https://www.schemastore.org/claude-code-marketplace.json",
+	"name": "le-space-belege",
+	"description": "Le Space's skills for agents around Belege: wallets read by address, the bridge set up on the person's own machine, the exports read for the bookkeeping.",
+	"owner": { "name": "Le Space UG", "url": "https://le-space.de" },
+	"plugins": [
+		{
+			"name": "belege",
+			"source": "./",
+			"description": "Own wallets as ledger entries with @le-space/chains, @le-space/ledger and @le-space/rates (no key); the Belege bridge installed, paired and configured on the person's own machine (secrets only through its hidden prompts); the DATEV package and the crypto-ledger files Belege exports, read for the bookkeeping.",
+			"category": "finance",
+			"tags": [
+				"belege",
+				"bookkeeping",
+				"datev",
+				"crypto-ledger",
+				"wallets",
+				"near",
+				"akash",
+				"filecoin",
+				"aleph",
+				"hibiscus",
+				"bridge"
+			]
+		}
+	]
+}

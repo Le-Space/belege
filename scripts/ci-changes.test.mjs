@@ -27,6 +27,16 @@ test('docs only: the unit tests (they read the docs), no browser, no bridge', ()
 	});
 });
 
+test('the skills and the plugin manifests: the unit workflow runs their test', () => {
+	for (const file of [
+		'skills/le-space-chains/SKILL.md',
+		'skills/test/skills.test.js',
+		'.claude-plugin/marketplace.json'
+	]) {
+		assert.deepEqual(pr(file), { unit: true, bridge: false, e2e: 'none' }, file);
+	}
+});
+
 test('the bridge only: its tests, the unit tests and the specs that pair a bridge', () => {
 	assert.deepEqual(pr('bridge/src/commands.js', 'bridge/test/filecoin.test.js'), {
 		unit: true,

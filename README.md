@@ -54,6 +54,20 @@ Own Cosmos and EVM wallets are added in the app (_Integrationen → Eigene Walle
 
 **To try it, or for a demo, without any real data:** `pnpm demo` starts the bridge with a made-up bank account, a made-up mailbox with invoices as PDFs, and your local Ollama if it runs (else a fake model; `-- --fake-llm` forces it). Stop your own bridge first; the demo takes its port, keeps its configuration in a temporary folder and deletes it on Ctrl+C. Use a fresh browser profile and a new passkey for it.
 
+## As a skill
+
+Belege's integrations are also [Agent Skills](https://agentskills.io) for Claude Code, Codex, Gemini CLI and other agents that read `SKILL.md` ([eigenbeleg-agent#29](https://github.com/Le-Space/eigenbeleg-agent/issues/29)): [`skills/le-space-chains`](skills/le-space-chains/SKILL.md) reads own wallets by address with the shared `@le-space/*` packages, no key; [`skills/belege-bridge-setup`](skills/belege-bridge-setup/SKILL.md) installs, pairs and configures the bridge on the user's own machine, every secret through the bridge's hidden prompts and never through the chat; [`skills/belege-export`](skills/belege-export/SKILL.md) reads the DATEV package and the crypto-ledger files for the bookkeeping. In Claude Code, this repository is a plugin marketplace:
+
+```bash
+claude plugin marketplace add Le-Space/belege
+```
+
+```bash
+claude plugin install belege@le-space-belege
+```
+
+Any other agent takes the folders under `skills/` into its skills directory. Each skill names every host it talks to and says what leaves the machine; `pnpm test:skills` holds every skill to the format, to the hosts the code itself asks, and to no key, token, mail address or real data.
+
 ## Development
 
 ```bash
