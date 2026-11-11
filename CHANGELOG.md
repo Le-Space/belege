@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.29.7] – 2026-11-11
+
 ### Changed
 
 - **The backup takes more from the storage bridge** (#729). With `@le-space/orbitdb-storage-bridge` 0.28.0, asking Aleph about an order and about the credits, confirming a chain of backups and going back when Aleph refuses later, and uploading a backup together with its order all come from that package instead of Belege's own code. "Wer hält es?" asks through it too. A bridge that uploads a backup itself now sends it with its order in one request, as the browser does since 0.29.6. Nothing changes in how a backup is made or restored.
