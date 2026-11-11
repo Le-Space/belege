@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.29.6] – 2026-11-11
+
 ### Added
 
 - **Save a receipt from its preview** (#709). The preview that opens on hover has a download icon in the page's top-right corner: it shows on hover, on keyboard focus and always on a touch screen, and saves the receipt's file (PDF, image or e-invoice XML) under its own name, made safe for a file system, or the day and vendor. The file is decrypted in the browser; nothing goes over the network. A mail's text without a file has no icon.
