@@ -49,6 +49,28 @@ test('a chart of accounts is read, previewed, taken, suggested and removed', asy
 		'4 Konten aus „EXTF_Kontenbeschriftungen.csv“'
 	);
 
+	// "Sachkonto in deiner Buchhaltung" offers the chart, not the SKR 03 placeholder.
+	await page.evaluate(() =>
+		/** @type {any} */ (window).__belegeE2E.addAccount({
+			source: 'hibiscus',
+			sourceAccountId: '0011',
+			ibanLast4: '0011',
+			name: 'Konto A Test',
+			currency: 'EUR'
+		})
+	);
+	const ledger = page.locator('[data-testid="ledger-account"][data-account="0011"]');
+	await expect(ledger).toHaveAttribute('list', 'ledger-chart');
+	await expect(ledger).toHaveAttribute('placeholder', '');
+	await expect(page.getByTestId('books-settings')).toContainText(
+		'eingelesenen Kontenplan (4 Konten)'
+	);
+	await ledger.fill('1200');
+	await expect(page.getByTestId('ledger-account-name')).toHaveText('Bank Konto A');
+	await ledger.fill('1210');
+	await expect(page.getByTestId('ledger-account-name')).toContainText('Nicht in deinem Kontenplan');
+	await ledger.fill('');
+
 	// "Konto" on a booking suggests from the chart now.
 	await page.evaluate(() =>
 		/** @type {any} */ (window).__belegeE2E.addTransaction({
