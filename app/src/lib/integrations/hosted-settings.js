@@ -22,12 +22,16 @@ export const SECTIONS = /** @type {const} */ (['mail', 'kraken', 'paperless', 'e
 /** The bridge's own limit for one secret (keychain.js). */
 const MAX_SECRET = 64 * 1024;
 
+/** Files a hosted bridge reads beside bridge.json, sealed already (sort-secrets.mjs, belege-bridge-run). */
+const FILES = /** @type {const} */ (['enablebanking_sealed']);
+const MAX_FILE = 1024 * 1024;
+
 /**
- * @typedef {{ config: Record<string, Record<string, any>>, secrets: Record<string, string> }} HostedSettings
+ * @typedef {{ config: Record<string, Record<string, any>>, secrets: Record<string, string>, files: Record<string, string> }} HostedSettings
  */
 
 /** @returns {HostedSettings} */
-export const emptySettings = () => ({ config: {}, secrets: {} });
+export const emptySettings = () => ({ config: {}, secrets: {}, files: {} });
 
 /** @param {unknown} v */
 const isObject = (v) => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
@@ -49,6 +53,12 @@ export function cleanSettings(raw) {
 			out.secrets[account] = value;
 		}
 	}
+	if (isObject(r?.files)) {
+		for (const name of FILES) {
+			const value = r.files[name];
+			if (typeof value === 'string' && value && value.length <= MAX_FILE) out.files[name] = value;
+		}
+	}
 	if (isObject(r?.config)) {
 		for (const section of SECTIONS) {
 			const value = r.config[section];
@@ -67,7 +77,8 @@ export function cleanSettings(raw) {
 export const mergeSettings = (a, b) =>
 	cleanSettings({
 		config: { ...a.config, ...b.config },
-		secrets: { ...a.secrets, ...b.secrets }
+		secrets: { ...a.secrets, ...b.secrets },
+		files: { ...a.files, ...b.files }
 	});
 
 /** The file a hosted bridge reads an account from (keychain.js `secretFileOf`). @param {string} account */
@@ -89,6 +100,7 @@ export function withHostedSettings(secrets, kept) {
 	for (const [account, value] of Object.entries(clean.secrets)) {
 		out[secretFileOf(account)] = value;
 	}
+	for (const [name, value] of Object.entries(clean.files)) out[name] = value;
 	let config = {};
 	try {
 		const parsed = JSON.parse(secrets.bridge_config ?? '{}');

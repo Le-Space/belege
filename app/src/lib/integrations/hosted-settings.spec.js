@@ -43,12 +43,17 @@ describe('the hosted bridge’s settings', () => {
 			})
 		};
 		const out = withHostedSettings(pairing, {
-			secrets: { imap: 'pw', kraken: '{"key":"k","secret":"s"}' },
+			secrets: { imap: 'pw', kraken: '{"key":"k","secret":"s"}', enablebanking: 'aa' },
+			files: { enablebanking_sealed: 'sealed-text', other: 'no' },
 			config: { mail: { host: 'imap.example.com' }, node: { relays: [] } }
 		});
 		expect(out.bridge_auth).toBe('aa');
 		expect(out.imap).toBe('pw');
 		expect(out.kraken).toBe('{"key":"k","secret":"s"}');
+		// Enable Banking's sealed file goes as it is, beside its key.
+		expect(out.enablebanking).toBe('aa');
+		expect(out.enablebanking_sealed).toBe('sealed-text');
+		expect(out.other).toBeUndefined();
 		expect(JSON.parse(out.bridge_config)).toEqual({
 			mail: { host: 'imap.example.com' },
 			node: { relays: ['/dns4/relay.example/p2p/x'], devices: [] }
@@ -62,8 +67,16 @@ describe('the hosted bridge’s settings', () => {
 
 	it('take a newer value over an older one, and show names only', () => {
 		const merged = mergeSettings(
-			{ secrets: { imap: 'old', kraken: 'k' }, config: { mail: { host: 'a.example.com' } } },
-			{ secrets: { imap: 'new' }, config: { paperless: { url: 'https://p.example.com' } } }
+			{
+				secrets: { imap: 'old', kraken: 'k' },
+				config: { mail: { host: 'a.example.com' } },
+				files: {}
+			},
+			{
+				secrets: { imap: 'new' },
+				config: { paperless: { url: 'https://p.example.com' } },
+				files: {}
+			}
 		);
 		expect(merged.secrets).toEqual({ imap: 'new', kraken: 'k' });
 		expect(keptNames(merged)).toEqual({

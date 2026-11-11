@@ -220,7 +220,8 @@ no books.
   its scope (below).
 - **Taking the settings to a hosted bridge (#728):** `settings.export` answers the accounts a
   hosted bridge reads (mail, Kraken, Paperless, Enable Banking, CoinGecko, a Bitcoin zpub,
-  Alchemy) and the integrations' non-secret settings – not Hibiscus, not the language model, not
+  Alchemy; Enable Banking with its file `enablebanking.sealed`, as it is) and the integrations'
+  non-secret settings – not Hibiscus, not the language model, not
   portal passwords (a hosted image has no browser), not the bridge's own keys, origins or paired
   tokens. Only over the stream, and
   only to the device that paired this bridge; never over HTTP to a page. The app keeps them

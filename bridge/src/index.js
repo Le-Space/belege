@@ -450,8 +450,23 @@ export async function startBridge({
 				// Not set up here.
 			}
 		}
+		// Enable Banking's application key and sessions are in a file sealed with
+		// the `enablebanking` key (enablebanking.js): it goes as it is, sealed.
+		/** @type {Record<string, string>} */
+		const files = {};
+		if (secrets.enablebanking) {
+			try {
+				const { readFile } = await import('node:fs/promises');
+				files.enablebanking_sealed = await readFile(
+					join(dirname(configPath), 'enablebanking.sealed'),
+					'utf8'
+				);
+			} catch {
+				// Not set up here.
+			}
+		}
 		const { mail, kraken, paperless, enablebanking } = config;
-		return { config: { mail, kraken, paperless, enablebanking }, secrets };
+		return { config: { mail, kraken, paperless, enablebanking }, secrets, files };
 	}
 
 	const bridge = createBridgeServer({
