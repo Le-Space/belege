@@ -28,6 +28,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **Backups Aleph refused because it could not fetch the file** (#725). Since early November Aleph refused every increment with "File not found": the file went to Aleph's IPFS host, and Aleph's nodes could not fetch it from there. With this browser's key allowed to sign, a backup now goes to Aleph's API with its order in the same request, and Aleph keeps it at once. The chain also remembers how far Aleph has confirmed it: an increment Aleph refuses later sends it back there, so the next "Jetzt sichern" ships everything since again instead of saying nothing is new. Books whose increments were refused show "Nicht gesichert" after the update; no new full backup is needed.
+- **Paperless errors in the app's language** (#724). An unreachable Paperless showed the bridge's English text; now each of the bridge's Paperless errors has its own message in German and English, with what to do.
 - A receipt without a date no longer shows a lone "·" at the start of its line on the trip.
 - **A receipt without a date no longer stops a page.** A date that was not read (a ticket that prints only its day of travel) made the date formatting throw, and the trip page and Reisen stopped updating. It now shows no date.
 - **A receipt in euros booked as an outlay** counted on the trip page as paid privately and in _Zu erstatten_, unlike in the statement, which pays it back through the outlay account. It is now listed apart.
