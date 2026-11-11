@@ -37,6 +37,13 @@ import { UcepError } from '@le-space/ucep';
  * @property {number} idleDays a device's scopes lapse after this many days unused
  */
 
+/**
+ * Scopes only the device that paired the bridge holds, whatever the list
+ * says: handing the bridge's settings to a hosted bridge (#728) gives away
+ * its accounts' secrets, so a member's device or any other device may not.
+ */
+export const HOLDER_ONLY = new Set(['bridge:settings:export']);
+
 /** @type {Limits} */
 export const DEFAULT_LIMITS = Object.freeze({
 	llmPerMinute: 30,
@@ -301,6 +308,7 @@ export function createGrants({ file, scopes: all, limits = DEFAULT_LIMITS, now =
 				);
 			}
 			if (scope && !g.scopes.includes(scope)) throw new UcepError('SCOPE_MISSING', scope);
+			if (HOLDER_ONLY.has(scope) && !holder) throw new UcepError('SCOPE_MISSING', scope);
 			if (scope === 'bridge:llm') {
 				const used = tokens.get(peer);
 				if (used && used.day === today() && used.tokens >= limits.llmTokensPerDay) {

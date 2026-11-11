@@ -397,6 +397,10 @@ export default {
 				'Diese Bücher nutzen noch keinen Relay: Die Bridge auf Phala ist nur über einen erreichbar.',
 			deviceLabel: 'Gehostete Bridge (Phala, NEAR)'
 		},
+		hostedSettings: {
+			ownerOnly:
+				'Nur ein Gerät des Besitzers der Bücher hält Einstellungen für eine gehostete Bridge.'
+		},
 		bridge: {
 			unreachable:
 				'Die Bridge ist nicht erreichbar. Läuft sie (pnpm bridge)? Ob sie diese Seite hereinlässt, sagt „Status prüfen“ unter Integrationen → Bridge.',
@@ -953,7 +957,7 @@ export default {
 				name: 'Gehostete Bridge (Aleph Cloud, vertrauliche VM, AMD)',
 				text: 'Erst wenn du unter Integrationen → Bridge eine gehostete Bridge startest oder entsperrst: die Bridge in einer vertraulichen VM (AMD SEV-SNP) bei Aleph, die dein Browser vorher attestiert.',
 				leaves:
-					'An Alephs Knotenliste (crns-list.aleph.sh): die Abfrage, welche Knoten eine vertrauliche VM starten können. An Alephs API (api2.aleph.im): beim Starten die INSTANCE und die Freigabe von Port 443, beim Stoppen ein FORGET, alle signiert mit dem Aleph-Schlüssel der Bücher und bezahlt aus seinen Credits – bei Aleph öffentlich, wie jede Aleph-Nachricht, ohne Inhalt deiner Bücher. An den Knoten, den du wählst (die Adresse seines Betreibers in Alephs Liste): dass er die VM starten soll, und Abfragen nach ihrem Stand. An Alephs API und IPFS (ipfs.aleph.im): Abfragen nach der INSTANCE und nach Alephs SEV-SNP-Laufzeit. An AMDs Schlüsseldienst (kdsintf.amd.com): Abfragen nach dem Zertifikat des Prozessors. An den Relay mit /attest: die verschlüsselte Verbindung zur VM, der Relay sieht nur Größen und Zeiten. An die VM selbst, erst nach bestandener Attestierung: die Passphrase des Images, der Schlüssel der Bridge, ihre Peer-ID, die Relays und die Geräte dieser Bücher, unterschrieben mit dem Aleph-Schlüssel der Bücher. Danach erreichen deine Geräte die Bridge über die Relays und unter dem Namen der VM bei 2n6.me. Le Space sieht dabei keinen Schlüssel.',
+					'An Alephs Knotenliste (crns-list.aleph.sh): die Abfrage, welche Knoten eine vertrauliche VM starten können. An Alephs API (api2.aleph.im): beim Starten die INSTANCE und die Freigabe von Port 443, beim Stoppen ein FORGET, alle signiert mit dem Aleph-Schlüssel der Bücher und bezahlt aus seinen Credits – bei Aleph öffentlich, wie jede Aleph-Nachricht, ohne Inhalt deiner Bücher. An den Knoten, den du wählst (die Adresse seines Betreibers in Alephs Liste): dass er die VM starten soll, und Abfragen nach ihrem Stand. An Alephs API und IPFS (ipfs.aleph.im): Abfragen nach der INSTANCE und nach Alephs SEV-SNP-Laufzeit. An AMDs Schlüsseldienst (kdsintf.amd.com): Abfragen nach dem Zertifikat des Prozessors. An den Relay mit /attest: die verschlüsselte Verbindung zur VM, der Relay sieht nur Größen und Zeiten. An die VM selbst, erst nach bestandener Attestierung: die Passphrase des Images, der Schlüssel der Bridge, ihre Peer-ID, die Relays und die Geräte dieser Bücher sowie die Konten und Einstellungen, die du für die gehostete Bridge hältst (Mail, Kraken, Paperless, Alchemy, Enable Banking; Integrationen → Bridge), unterschrieben mit dem Aleph-Schlüssel der Bücher. Danach erreichen deine Geräte die Bridge über die Relays und unter dem Namen der VM bei 2n6.me. Le Space sieht dabei keinen Schlüssel.',
 				technical:
 					'Vor dem Senden prüft der Browser: Die INSTANCE gehört dem Aleph-Schlüssel der Bücher, startet das veröffentlichte Image (sein STORE) und nagelt die Messung fest, die der Browser selbst aus Alephs veröffentlichter Laufzeit und der Adresse des Besitzers berechnet. Dann beweist die VM diese Messung im RA-TLS-Handshake (AMD-Signatur, an ihren TLS-Schlüssel gebunden) und mit einem frischen Bericht zu einer Zufallszahl des Browsers (@le-space/attest-wasm). Die Secrets landen im Speicher der VM, nicht auf ihrer Platte; nach einem Neustart attestiert der Browser wieder. Geprüft ist damit, welches Abbild läuft, nicht was es tut; ein unabhängiges Audit gibt es noch nicht.'
 			},
@@ -961,7 +965,7 @@ export default {
 				name: 'Gehostete Bridge auf Phala (Intel TDX), über NEAR – Testnet',
 				text: 'Erst wenn du sie unter Integrationen → Bridge startest: die Bridge in einer vertraulichen VM bei Phala, gestartet über einen Vertrag auf dem NEAR-Testnet, der die Attestierung der VM prüft, bevor dein Browser ihr etwas schickt.',
 				leaves:
-					'An einen NEAR-RPC (rpc.testnet.fastnear.com): das NEAR-Konto deiner Bücher (eigens für sie angelegt, nicht deine Wallet), sein Guthaben, die Ansicht des Vertrags sowie Start und Stopp, signiert mit dem Schlüssel dieses Kontos – auf NEAR öffentlich, wie jede Transaktion. An den Launcher von Le Space (bridge-launcher.le-space.de): der Start, an die VM verschlüsselt, sodass der Launcher ihn nicht lesen kann, und nach der Attestierung, womit die Bridge startet – ihr Schlüssel dieser Bücher, ihr eigener Peer-Schlüssel, die Relays und deine Geräte –, versiegelt an den eigenen Schlüssel der VM; beides signiert mit dem NEAR-Schlüssel der Bücher. Der Launcher legt die VM bei Phala mit dem Konto von Le Space an und löscht sie wieder; er sieht keinen Schlüssel. Danach erreichen deine Geräte die Bridge über die Relays.',
+					'An einen NEAR-RPC (rpc.testnet.fastnear.com): das NEAR-Konto deiner Bücher (eigens für sie angelegt, nicht deine Wallet), sein Guthaben, die Ansicht des Vertrags sowie Start und Stopp, signiert mit dem Schlüssel dieses Kontos – auf NEAR öffentlich, wie jede Transaktion. An den Launcher von Le Space (bridge-launcher.le-space.de): der Start, an die VM verschlüsselt, sodass der Launcher ihn nicht lesen kann, und nach der Attestierung, womit die Bridge startet – ihr Schlüssel dieser Bücher, ihr eigener Peer-Schlüssel, die Relays und deine Geräte sowie die Konten und Einstellungen, die du für die gehostete Bridge hältst –, versiegelt an den eigenen Schlüssel der VM; beides signiert mit dem NEAR-Schlüssel der Bücher. Der Launcher legt die VM bei Phala mit dem Konto von Le Space an und löscht sie wieder; er sieht keinen Schlüssel. Danach erreichen deine Geräte die Bridge über die Relays.',
 				technical:
 					'Vor dem Start prüft der Browser die Signatur von Phalas Schlüsseldienst (KMS, sein Schlüssel hier festgenagelt) über den Env-Schlüssel der VM. Der Vertrag prüft das TDX-Quote der VM (Intel DCAP), die Messungen und den Compose-Hash, die der Besitzer freigegeben hat, die Maschine und den Hash des Intake-Schlüssels der VM in den Berichtsdaten des Quotes; nur für diesen Schlüssel versiegelt der Browser die Secrets (X25519, HKDF-SHA256, AES-256-GCM, gebunden an die Bücher und den Start). Die VM steht vorerst in Phalas Region US-West. Geprüft ist damit, welches Abbild läuft, nicht was es tut; ein unabhängiges Audit gibt es noch nicht.'
 			},
@@ -4465,6 +4469,33 @@ export default {
 				attested: 'attestiert',
 				secretsHandedOver: 'gekoppelt'
 			}
+		},
+		hostedSettings: {
+			title: 'Einstellungen für die gehostete Bridge',
+			intro:
+				'Womit eine gehostete Bridge – bei Aleph oder bei Phala über NEAR – neben ihrer Kopplung startet: Mail, Kraken, Paperless, Alchemy, Enable Banking. Versiegelt in diesen Büchern gehalten und bei jedem Start nur an eine VM übergeben, deren Attestierung hält. Die Bridge auf diesem Rechner behält ihre eigenen und läuft weiter. Nicht hier: Hibiscus (bleibt auf deinem Rechner), das Sprachmodell (eine gehostete Bridge läuft ohne) und Portale (eine gehostete Bridge hat keinen Browser zum Anmelden).',
+			kept: 'Für die gehostete Bridge gehalten: {names}.',
+			none: 'Noch nichts für die gehostete Bridge gehalten: Sie startet gekoppelt, ohne Konten.',
+			takeOver: 'Von der Bridge auf diesem Rechner übernehmen',
+			takeOverHint:
+				'Die gekoppelte Bridge gibt ihre Konten und Einstellungen über den Stream an dieses Gerät – nur an das Gerät, das sie gekoppelt hat –, und sie werden hier versiegelt gehalten. Mach das, bevor eine gehostete Bridge die Bridge der Bücher wird.',
+			forget: 'Vergessen',
+			forgetConfirm:
+				'Die für die gehostete Bridge gehaltenen Einstellungen vergessen? Die Bridge auf deinem Rechner behält ihre eigenen.',
+			mail: 'Mail (IMAP)',
+			mailHost: 'IMAP-Server',
+			mailPort: 'Port',
+			mailUser: 'Benutzer',
+			mailAccounting: 'Adresse der Buchhaltung (optional)',
+			password: 'Passwort',
+			apiKey: 'API-Schlüssel',
+			apiSecret: 'API-Secret',
+			apiToken: 'API-Token',
+			paperlessUrl: 'Adresse von Paperless (https://…)',
+			keep: 'Für die gehostete Bridge halten',
+			saved: 'Versiegelt gehalten. Es geht beim nächsten Start mit.',
+			othersHint:
+				'Enable Banking, CoinGecko und eine Bitcoin-zpub kommen mit, wenn du von der Bridge auf diesem Rechner übernimmst.'
 		},
 		hibiscus: {
 			title: 'Hibiscus',

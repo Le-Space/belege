@@ -81,6 +81,7 @@ export function domainList(raw) {
  * @property {boolean} [unauthenticatedOnly] only matches a request without a token (a share's read)
  * @property {'json' | 'bytes' | 'none'} [body] what to read before `run` (GET: none)
  * @property {number} [bodyLimit] bytes; the default is MAX_BODY for JSON
+ * @property {boolean} [streamOnly] never over HTTP: only a proved device over the stream (server.js refuses it)
  * @property {(input: Input) => Promise<Answer> | Answer} run
  */
 
@@ -178,6 +179,8 @@ export function errorJson(error) {
  * @param {{ addr: string | null, stats: () => object } | null} deps.lanRelay
  * @param {any} [deps.portals] the portal connector, for /health only (its routes stay in portals/routes.js)
  * @param {{ status: () => object, disarm: () => Promise<void> } | null} [deps.node] the bridge's libp2p node (node.js, #573)
+ * @param {(() => Promise<{ config: object, secrets: Record<string, string> }>) | null} [deps.settingsExport]
+ *   what a hosted bridge may take over (#728)
  * @param {(message: string) => void} deps.log
  * @returns {Command[]}
  */
@@ -207,6 +210,7 @@ export function createCommands({
 	lanRelay,
 	portals = null,
 	node = null,
+	settingsExport = null,
 	log
 }) {
 	const suffixes = config.hibiscus.ibanSuffixes;
@@ -1174,7 +1178,28 @@ export function createCommands({
 				);
 				return json(200, result);
 			}
-		}
+		},
+		// What a hosted bridge may take over from this one (#728): the accounts
+		// it reads and the integrations' non-secret settings. Over the stream
+		// only, and only for the device that paired this bridge
+		// (grants.js HOLDER_ONLY); never over HTTP to a page.
+		...(settingsExport
+			? [
+					/** @type {Command} */ ({
+						name: 'settings.export',
+						method: 'GET',
+						path: '/settings/export',
+						scope: 'bridge:settings:export',
+						streamOnly: true,
+						run: async () => {
+							log(
+								'settings.export: the settings were handed to the device that paired this bridge'
+							);
+							return json(200, await settingsExport());
+						}
+					})
+				]
+			: [])
 	];
 
 	return commands;

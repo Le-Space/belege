@@ -91,7 +91,10 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 44: the hosted bridge started and stopped from the app (#587): Aleph's node
 //     list, the INSTANCE, port forward and FORGET signed by the books' key,
 //     and the node chosen.
-export const CONSENT_VERSION = '44';
+// 45: what a hosted bridge starts with besides its pairing (#728): the
+//     accounts and settings kept for it, sealed in the books, handed only
+//     to the attested VM; taken over from the bridge on a computer.
+export const CONSENT_VERSION = '45';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

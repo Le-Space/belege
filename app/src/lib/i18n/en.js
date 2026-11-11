@@ -379,6 +379,9 @@ export default {
 			noRelay: 'These books use no relay yet: the bridge on Phala is reached only through one.',
 			deviceLabel: 'Hosted bridge (Phala, NEAR)'
 		},
+		hostedSettings: {
+			ownerOnly: 'Only a device of the books’ owner keeps settings for a hosted bridge.'
+		},
 		bridge: {
 			unreachable:
 				'The bridge cannot be reached. Is it running (pnpm bridge)? Whether it lets this page in, "Check status" under Integrations → Bridge says.',
@@ -926,7 +929,7 @@ export default {
 				name: 'Hosted bridge (Aleph Cloud, confidential VM, AMD)',
 				text: 'Only once you start or unlock a hosted bridge under Integrations → Bridge: the bridge in a confidential VM (AMD SEV-SNP) on Aleph, which your browser attests first.',
 				leaves:
-					'To Aleph’s node list (crns-list.aleph.sh): the request for which nodes can start a confidential VM. To Aleph’s API (api2.aleph.im): on start the INSTANCE and the forward of port 443, on stop a FORGET, all signed with the books’ Aleph key and paid from its credits – public on Aleph, as every Aleph message is, with nothing of your books in them. To the node you choose (its operator’s address in Aleph’s list): that it should start the VM, and requests for its state. To Aleph’s API and IPFS (ipfs.aleph.im): requests for the INSTANCE and for Aleph’s SEV-SNP runtime. To AMD’s key service (kdsintf.amd.com): requests for the processor’s certificate. To the relay with /attest: the encrypted connection to the VM; the relay sees only sizes and times. To the VM itself, only after the attestation holds: the image’s passphrase, the bridge’s key, its peer id, these books’ relays and devices, signed with the books’ Aleph key. After that your devices reach the bridge through the relays and under the VM’s name at 2n6.me. Le Space sees no key.',
+					'To Aleph’s node list (crns-list.aleph.sh): the request for which nodes can start a confidential VM. To Aleph’s API (api2.aleph.im): on start the INSTANCE and the forward of port 443, on stop a FORGET, all signed with the books’ Aleph key and paid from its credits – public on Aleph, as every Aleph message is, with nothing of your books in them. To the node you choose (its operator’s address in Aleph’s list): that it should start the VM, and requests for its state. To Aleph’s API and IPFS (ipfs.aleph.im): requests for the INSTANCE and for Aleph’s SEV-SNP runtime. To AMD’s key service (kdsintf.amd.com): requests for the processor’s certificate. To the relay with /attest: the encrypted connection to the VM; the relay sees only sizes and times. To the VM itself, only after the attestation holds: the image’s passphrase, the bridge’s key, its peer id, these books’ relays and devices, and the accounts and settings you keep for the hosted bridge (mail, Kraken, Paperless, Alchemy, Enable Banking; Integrations → Bridge), signed with the books’ Aleph key. After that your devices reach the bridge through the relays and under the VM’s name at 2n6.me. Le Space sees no key.',
 				technical:
 					'Before anything is sent the browser checks: the INSTANCE belongs to the books’ Aleph key, boots the published image (its STORE) and pins the measurement the browser computes itself from Aleph’s published runtime and the owner’s address. Then the VM proves that measurement in the RA-TLS handshake (AMD signature, bound to its TLS key) and with a fresh report on a nonce of the browser’s (@le-space/attest-wasm). The secrets land in the VM’s memory, not on its disk; after a restart the browser attests again. What that proves is which image runs, not what it does; there is no independent audit yet.'
 			},
@@ -934,7 +937,7 @@ export default {
 				name: 'Hosted bridge on Phala (Intel TDX), through NEAR – testnet',
 				text: 'Only once you start it under Integrations → Bridge: the bridge in a confidential VM on Phala, started through a contract on NEAR testnet, which checks the VM’s attestation before your browser sends it anything.',
 				leaves:
-					'To a NEAR RPC (rpc.testnet.fastnear.com): your books’ NEAR account (made for them, not your wallet), its balance, the contract’s view, and the start and stop, signed with that account’s key – public on NEAR, as every transaction. To Le Space’s launcher (bridge-launcher.le-space.de): the start, encrypted to the VM so the launcher cannot read it, and after the attestation what the bridge starts with – its key of these books, its own peer key, the relays and your devices – sealed to the VM’s own key; both signed with the books’ NEAR key. The launcher creates and deletes the VM at Phala with Le Space’s account and sees no key. Afterwards your devices reach the bridge through the relays.',
+					'To a NEAR RPC (rpc.testnet.fastnear.com): your books’ NEAR account (made for them, not your wallet), its balance, the contract’s view, and the start and stop, signed with that account’s key – public on NEAR, as every transaction. To Le Space’s launcher (bridge-launcher.le-space.de): the start, encrypted to the VM so the launcher cannot read it, and after the attestation what the bridge starts with – its key of these books, its own peer key, the relays and your devices, and the accounts and settings you keep for the hosted bridge – sealed to the VM’s own key; both signed with the books’ NEAR key. The launcher creates and deletes the VM at Phala with Le Space’s account and sees no key. Afterwards your devices reach the bridge through the relays.',
 				technical:
 					'Before the start the browser checks the signature of Phala’s key service (KMS, its key pinned here) over the VM’s env key. The contract checks the VM’s TDX quote (Intel DCAP), the measurements and the compose hash the owner approved, the machine, and the hash of the VM’s intake key in the quote’s report data; only for that key does the browser seal the secrets (X25519, HKDF-SHA256, AES-256-GCM, bound to the books and the start). The VM is in Phala’s US-West region for now. What that proves is which image runs, not what it does; there is no independent audit yet.'
 			},
@@ -4406,6 +4409,33 @@ export default {
 				attested: 'attested',
 				secretsHandedOver: 'paired'
 			}
+		},
+		hostedSettings: {
+			title: 'Settings for the hosted bridge',
+			intro:
+				'What a hosted bridge – on Aleph or on Phala through NEAR – starts with besides its pairing: mail, Kraken, Paperless, Alchemy, Enable Banking. Kept sealed in these books and handed only to a VM whose attestation holds, at each start. The bridge on this computer keeps its own and keeps working. Not here: Hibiscus (it stays on your computer), the language model (a hosted bridge runs without one) and portals (a hosted bridge has no browser to log in with).',
+			kept: 'Kept for the hosted bridge: {names}.',
+			none: 'Nothing kept for the hosted bridge yet: it starts paired, without accounts.',
+			takeOver: 'Take over from the bridge on this computer',
+			takeOverHint:
+				'The bridge you paired hands its accounts and settings to this device over the stream – only to the device that paired it – and they are kept here, sealed. Do this before a hosted bridge becomes the books’ bridge.',
+			forget: 'Forget',
+			forgetConfirm:
+				'Forget the settings kept for the hosted bridge? The bridge on your computer keeps its own.',
+			mail: 'Mail (IMAP)',
+			mailHost: 'IMAP server',
+			mailPort: 'Port',
+			mailUser: 'User',
+			mailAccounting: 'Accounting address (optional)',
+			password: 'Password',
+			apiKey: 'API key',
+			apiSecret: 'API secret',
+			apiToken: 'API token',
+			paperlessUrl: 'Paperless address (https://…)',
+			keep: 'Keep for the hosted bridge',
+			saved: 'Kept, sealed. It goes along at the next start.',
+			othersHint:
+				'Enable Banking, CoinGecko and a Bitcoin zpub come along when taken over from the bridge on this computer.'
 		},
 		hibiscus: {
 			title: 'Hibiscus',

@@ -218,6 +218,14 @@ no books.
   out (a mail attachment, a Paperless original) go base64 while they fit UCEP's limit – 1 MiB on
   a direct connection, 64 KiB relayed – and are refused `TOO_LARGE` above it. Each command needs
   its scope (below).
+- **Taking the settings to a hosted bridge (#728):** `settings.export` answers the accounts a
+  hosted bridge reads (mail, Kraken, Paperless, Enable Banking with its file
+  `enablebanking.sealed` as it is, CoinGecko, a Bitcoin zpub, Alchemy) and the integrations'
+  non-secret settings – not Hibiscus, not the language model, not portal passwords (a hosted
+  image has no browser), not the bridge's own keys, origins or paired tokens. Only over the
+  stream, and only to the device that paired this bridge; never over HTTP to a page. The app
+  keeps them sealed in the books and hands them only to an attested VM at its start. This
+  bridge keeps its own.
 - **What a device may call (#579):** getting through the gate is not all. Each device holds a set
   of scopes (`src/grants.js`, kept in `~/.config/belege/node/device-grants.json`), and `request`
   refuses a command whose scope the device does not hold (`SCOPE_MISSING`). A device the books
@@ -249,6 +257,7 @@ command needs none. `test/readme.test.js` keeps this table complete.
 | `share.list` | `GET /share` | `bridge:share` | no: HTTP only |
 | `share.revoke` | `DELETE /share/<id>` | `bridge:share` | no: HTTP only |
 | `session.unpair` | `POST /unpair` | the token | no: HTTP only |
+| `settings.export` | `GET /settings/export` | `bridge:settings:export` | **only** over the stream, and only for the device that paired the bridge; over HTTP it is not there (404) |
 | `bank.accounts` | `GET /hibiscus/accounts` | `bridge:bank:read` | yes |
 | `bank.transactions` | `GET /hibiscus/transactions` | `bridge:bank:read` | yes |
 | `mail.messages` | `GET /mail/messages` | `bridge:mail:read` | yes |

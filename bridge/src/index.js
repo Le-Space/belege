@@ -420,8 +420,58 @@ export async function startBridge({
 			}
 		: null;
 
+	/**
+	 * What a hosted bridge may take over from this one (#728): the accounts it
+	 * reads in hosted mode and the non-secret settings of the integrations.
+	 * Not Hibiscus (it stays on this computer), not the language model (a
+	 * hosted bridge runs without one), not portal passwords (a hosted image has
+	 * no browser to log in with), not this bridge's own keys, origins or
+	 * paired tokens. Asked for only over the stream, by the device that paired
+	 * this bridge (commands.js `settings.export`, grants.js).
+	 */
+	async function settingsExport() {
+		/** @type {Record<string, import('./keychain.js').Keychain>} */
+		const accounts = {
+			imap: mailKeychain,
+			kraken: krakenKeychain,
+			paperless: paperlessKeychain,
+			enablebanking: enablebankingKeychain,
+			coingecko: coingeckoKeychain,
+			bitcoin: bitcoinKeychain,
+			alchemy: alchemyKeychain
+		};
+		/** @type {Record<string, string>} */
+		const secrets = {};
+		for (const [account, kc] of Object.entries(accounts)) {
+			try {
+				const value = await kc.read();
+				if (value) secrets[account] = value;
+			} catch {
+				// Not set up here.
+			}
+		}
+		// Enable Banking's application key and sessions are in a file sealed with
+		// the `enablebanking` key (enablebanking.js): it goes as it is, sealed.
+		/** @type {Record<string, string>} */
+		const files = {};
+		if (secrets.enablebanking) {
+			try {
+				const { readFile } = await import('node:fs/promises');
+				files.enablebanking_sealed = await readFile(
+					join(dirname(configPath), 'enablebanking.sealed'),
+					'utf8'
+				);
+			} catch {
+				// Not set up here.
+			}
+		}
+		const { mail, kraken, paperless, enablebanking } = config;
+		return { config: { mail, kraken, paperless, enablebanking }, secrets, files };
+	}
+
 	const bridge = createBridgeServer({
 		config,
+		settingsExport,
 		node: nodeHandle,
 		lanRelay: lanRelay
 			? { addr: lanRelay.addr, stats: lanRelay.stats }

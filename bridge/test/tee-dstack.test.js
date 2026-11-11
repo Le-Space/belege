@@ -77,11 +77,17 @@ test('the hosted settings win: fixed ports, nothing announced, no language model
 	const config = hostedConfig(
 		JSON.stringify({
 			llm: { provider: 'x' },
+			lanRelay: { enabled: true },
+			pairedTokens: ['00'],
+			mail: { host: 'imap.example.com' },
 			bridge: { port: 1, origins: ['https://example.com'] },
 			node: { wsPort: 1, announce: ['/dns4/example.com/tcp/443/tls/ws'], relays: ['r'] }
 		})
 	);
 	assert.equal(config.llm, undefined);
+	assert.equal(config.lanRelay, undefined);
+	assert.equal(config.pairedTokens, undefined);
+	assert.deepEqual(config.mail, { host: 'imap.example.com' });
 	assert.deepEqual(config.bridge, { port: 8765, origins: ['https://example.com'] });
 	assert.deepEqual(config.node, { wsPort: 9097, announce: [], relays: ['r'], enabled: true });
 	assert.deepEqual(hostedConfig('not json').node, { enabled: true, wsPort: 9097, announce: [] });
