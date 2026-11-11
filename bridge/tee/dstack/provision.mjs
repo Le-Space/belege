@@ -36,14 +36,28 @@ export function composeFor(image, { launcherUrl = LAUNCHER_URL } = {}) {
 		.replace(`BELEGE_LAUNCHER_URL: ${LAUNCHER_URL}`, `BELEGE_LAUNCHER_URL: ${launcherUrl}`);
 }
 
+/**
+ * The dstack OS image the VM boots. Its measurements (MRTD, RTMR0–2) and the
+ * compose Phala builds around ours depend on it, so it is pinned; a new one
+ * is a release, with its measurements approved in the contract first.
+ */
+export const OS_IMAGE = 'dstack-0.5.12';
+
 /** @param {string} image */
 export function provisionBody(
 	image,
-	{ name = 'belege-bridge', instanceType = 'tdx.small', launcherUrl = LAUNCHER_URL } = {}
+	{
+		name = 'belege-bridge',
+		instanceType = 'tdx.small',
+		launcherUrl = LAUNCHER_URL,
+		osImage = OS_IMAGE
+	} = {}
 ) {
 	return {
 		name,
 		instance_type: instanceType,
+		// Pinned: Phala's default OS image changes its measurements under us.
+		image: osImage,
 		listed: false,
 		env_keys: ['BELEGE_BRIDGE_SECRETS'],
 		compose_file: {
