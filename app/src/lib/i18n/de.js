@@ -1348,6 +1348,8 @@ export default {
 		kindIncrement: 'Zuwachs {sequence}',
 		byMember: 'von {name}',
 		byAMember: 'von einem Mitglied',
+		chainGap:
+			'Aleph hat einen Zuwachs dieser Kette abgelehnt, einen späteren aber behalten. Damit lässt sich die Kette nicht mehr lückenlos wiederherstellen: Mach ein neues Vollbackup (Erweitert → Neues Vollbackup).',
 		oldBridge:
 			'Die Bridge hat den Zuwachs ohne Verweis auf sein Vollbackup bei Aleph abgelegt – sie ist älter als diese Seite. Bridge aktualisieren (git pull, pnpm install, neu starten); das nächste Backup sichert alles seit dem letzten noch einmal.',
 		creditsLink: 'Credits kaufen oder überweisen (Aleph-Dashboard)',

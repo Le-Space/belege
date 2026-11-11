@@ -1318,6 +1318,8 @@ export default {
 		kindIncrement: 'Increment {sequence}',
 		byMember: 'by {name}',
 		byAMember: 'by a member',
+		chainGap:
+			'Aleph refused an increment of this chain but kept a later one, so the chain can no longer be restored without a gap: make a new full backup (Erweitert → Neues Vollbackup).',
 		oldBridge:
 			'The bridge kept the increment on Aleph without naming its full backup – it is older than this page. Update the bridge (git pull, pnpm install, restart); the next backup ships everything since the last one again.',
 		creditsLink: 'Buy or transfer credits (Aleph dashboard)',
