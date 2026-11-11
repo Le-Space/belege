@@ -16,11 +16,11 @@ import {
 	publishBooksVault,
 	publishMemberVault
 } from '$lib/session.svelte.js';
-import { backupName, rememberBackup } from './history.js';
-import { chainAfter, chainFromBase, saveChain } from './chain.js';
+import { backupName, loadBackups, rememberBackup, updateBackup } from './history.js';
+import { chainAfter, chainFromBase, loadChain, saveChain } from './chain.js';
 import { keepAwake } from '$lib/wake-lock.js';
 import { holdAlive } from '$lib/keep-alive.js';
-import { BackupRefusedError } from './keeper.js';
+import { BackupRefusedError, storeStatus } from './keeper.js';
 
 /**
  * @typedef {'' | 'packing' | 'asking' | 'uploading' | 'keeping'} BackupStep
@@ -210,6 +210,15 @@ export async function runBackup({ continuing, uploader, askFor, unattended = fal
 		const at = new Date();
 		const appVersion = releaseName() || 'dev';
 		const onProgress = (/** @type {any} */ p) => (backupRun.progress = p);
+		// Increments Aleph had not decided on: asked again, so a refused one
+		// sends the chain back before the next ships (chain.js reconcileChain).
+		if (continuing?.pending?.length) {
+			continuing = await settleChain(store.settings, continuing, uploader.endpoints);
+			if (!continuing) {
+				backupRun.error = t('backup.chainGap');
+				return;
+			}
+		}
 		const built = continuing
 			? await makeIncrement({ chain: continuing, appVersion, onProgress })
 			: await makeBackup({ appVersion, onProgress });
@@ -316,7 +325,7 @@ export async function runBackup({ continuing, uploader, askFor, unattended = fal
 			if (!('heads' in built)) {
 				await saveChain(store.settings, chainFromBase(built.manifest, handle.id));
 			} else if (continuing && kept.ref === continuing.base) {
-				await saveChain(store.settings, chainAfter(continuing, built, handle.id));
+				await saveChain(store.settings, chainAfter(continuing, built, handle.id, kept.status));
 			} else {
 				backupRun.error = t('backup.oldBridge');
 			}
@@ -331,4 +340,24 @@ export async function runBackup({ continuing, uploader, askFor, unattended = fal
 		Object.assign(backupRun, { step: '', progress: null, asking: null });
 		backupRun.finished += 1;
 	}
+}
+
+/**
+ * Ask Aleph again about the chain's increments it had not decided on, and
+ * the chain as far as Aleph keeps it then: null when it has a gap a restore
+ * cannot cross.
+ *
+ * @param {import('../store/repository.js').Collection} settings
+ * @param {import('./archive.js').BackupChain} chain
+ * @param {import('./keeper.js').AlephEndpoints} endpoints
+ */
+async function settleChain(settings, chain, endpoints) {
+	const backups = await loadBackups(settings);
+	for (const p of chain.pending ?? []) {
+		const record = backups.find((b) => b.cid === p.cid);
+		if (!record?.itemHash || record.status !== 'pending') continue;
+		const now = await storeStatus({ itemHash: record.itemHash, endpoints }).catch(() => null);
+		if (now && now !== record.status) await updateBackup(settings, record, { status: now });
+	}
+	return loadChain(settings);
 }

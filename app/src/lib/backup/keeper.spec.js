@@ -17,6 +17,7 @@ import {
 	KEY_SETTING,
 	CREDITS_PER_MIB_DAY,
 	alephEndpoints,
+	createBackupUploader,
 	creditsOf,
 	creditsPerDay,
 	ensureBackupKey,
@@ -449,5 +450,59 @@ describe('the list of backups, page by page', () => {
 		expect(stores).toHaveLength(BACKUPS_PAGE);
 		expect(new Set(stores.map((s) => s.itemHash)).size).toBe(BACKUPS_PAGE);
 		expect(aleph.asked).toHaveLength(2);
+	});
+});
+
+describe('where a backup goes up', () => {
+	/** A fetch that records each URL and answers an upload. */
+	function recorder() {
+		/** @type {string[]} */ const urls = [];
+		const fetchImpl = /** @type {typeof fetch} */ (
+			async (input) => {
+				const url = String(input);
+				urls.push(url);
+				if (url.endsWith('/api/v0/add')) {
+					return new Response(JSON.stringify({ Hash: 'QmViaHost', Size: '10' }), { status: 200 });
+				}
+				if (url.endsWith('/api/v0/ipfs/add_file')) {
+					return new Response(JSON.stringify({ status: 'success', hash: 'QmViaApi' }), {
+						status: 200
+					});
+				}
+				return new Response('{}', { status: 404 });
+			}
+		);
+		return { urls, fetchImpl };
+	}
+
+	it('with a key that may sign: to the API node, with its STORE – not through the IPFS host', async () => {
+		const { urls, fetchImpl } = recorder();
+		const uploader = await createBackupUploader({
+			owner: OWNER,
+			key: secp256k1.utils.randomSecretKey(),
+			granted: true,
+			endpoints,
+			fetch: fetchImpl
+		});
+		const handle = await uploader.backend.putBlob(text('sealed backup'), { name: 'b' });
+		expect(urls.some((u) => u.endsWith('/api/v0/add'))).toBe(false);
+		expect(urls).toContain('https://aleph.test/api/v0/ipfs/add_file');
+		// Kept in the same call: the STORE's hash comes back with the upload.
+		expect(handle.itemHash).toMatch(/^[0-9a-f]{64}$/);
+		expect(handle.status).toBe('processed');
+	});
+
+	it('without one (the bridge keeps it): through the IPFS host, as before', async () => {
+		const { urls, fetchImpl } = recorder();
+		const uploader = await createBackupUploader({
+			owner: OWNER,
+			key: null,
+			granted: false,
+			endpoints,
+			bridge: { keep: async () => ({ itemHash: 'x', status: 'processed' }) },
+			fetch: fetchImpl
+		});
+		await uploader.backend.putBlob(text('sealed backup'), { name: 'b' });
+		expect(urls[0]).toBe('https://aleph.test/api/v0/add');
 	});
 });

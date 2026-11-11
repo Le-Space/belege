@@ -3,10 +3,16 @@
 // receipt files shipped so far. Kept in the sealed settings, so it travels
 // with the books to own devices: the next backup there continues the chain.
 //
-// It moves only once Aleph has taken a backup (not refused it): an increment
-// Aleph refused is shipped again, in full, by the next one.
+// It moves once Aleph has taken a backup (not refused it). Aleph may answer
+// "pending" first and refuse later – a file it could not fetch, for one – so
+// the chain also remembers how far Aleph has *confirmed* it (`kept`) and the
+// increments shipped since (`pending`). When one of those turns out refused
+// or unknown, the chain goes back to `kept` (`reconcileChain`): the next
+// increment ships everything since again, under the next number after the
+// last one Aleph keeps, so a restore finds no gap.
 
 import { getSetting, setSetting } from '../store/settings.js';
+import { loadBackups } from './history.js';
 
 /** The settings record with the chain. */
 export const CHAIN_SETTING = 'backup/chain';
@@ -26,7 +32,16 @@ export function chainFromBase(manifest, cid) {
 	for (const d of /** @type {any} */ (manifest.metadata).databases ?? []) {
 		heads[String(d.address)] = Array.isArray(d.heads) ? d.heads.map(String) : [];
 	}
-	return { base: cid, sequence: 0, previous: null, heads, files: [...manifest.files] };
+	const files = [...manifest.files];
+	return {
+		base: cid,
+		sequence: 0,
+		previous: null,
+		heads,
+		files,
+		kept: { sequence: 0, previous: null, heads, files: files.length },
+		pending: []
+	};
 }
 
 /**
@@ -37,20 +52,119 @@ export function chainFromBase(manifest, cid) {
  * @param {string} cid the increment's
  * @returns {BackupChain}
  */
-export const chainAfter = (chain, increment, cid) => ({
-	base: chain.base,
-	sequence: chain.sequence + 1,
-	previous: cid,
-	heads: increment.heads,
-	files: [...new Set([...chain.files, ...increment.files])]
-});
+export function chainAfter(chain, increment, cid, status = 'processed') {
+	const files = [...new Set([...chain.files, ...increment.files])];
+	const point = {
+		sequence: chain.sequence + 1,
+		previous: cid,
+		heads: increment.heads,
+		files: files.length
+	};
+	const pending = chain.pending ?? [];
+	// Confirmed, with nothing before it still open: the chain is kept up to here.
+	const confirmed = status === 'processed' && !pending.length;
+	return {
+		base: chain.base,
+		sequence: point.sequence,
+		previous: cid,
+		heads: increment.heads,
+		files,
+		kept: confirmed ? point : (chain.kept ?? point),
+		pending: confirmed ? [] : [...pending, { ...point, cid }]
+	};
+}
+
+/** What Aleph does not keep. */
+const NOT_KEPT = new Set(['rejected', 'unknown', 'forgotten']);
+
+/**
+ * The chain as far as Aleph keeps it, from what the history says now:
+ * increments Aleph has since confirmed move `kept` on; one it refused, or
+ * does not know, sends the chain back to `kept`. Returns the same chain when
+ * nothing changed.
+ *
+ * A chain from before `kept` existed: when every increment of it Aleph
+ * holds, it is kept as it stands. When one is refused, the chain goes back
+ * to just before the first refused one, with no heads – the next increment
+ * ships every entry again, which a restore merges – and with the receipt
+ * files shipped up to there; when a refused one carried receipt files that
+ * cannot be told apart, all of them go again. If an increment after a
+ * refused one is kept, the chain has a gap a restore cannot cross: null,
+ * so the next backup is a full one.
+ *
+ * @param {BackupChain} chain
+ * @param {import('./history.js').BackupRecord[]} backups
+ * @returns {BackupChain | null}
+ */
+export function reconcileChain(chain, backups) {
+	const byCid = new Map(backups.map((b) => [b.cid, b]));
+	if (!chain.kept) {
+		const ours = backups
+			.filter((b) => b.kind === 'increment' && b.base === chain.base)
+			.filter((b) => (b.sequence ?? 0) >= 1 && (b.sequence ?? 0) <= chain.sequence)
+			.sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+		const firstBad = ours.find((b) => NOT_KEPT.has(b.status));
+		// Aleph has not decided on one yet: wait, so a refusal can still send the chain back.
+		if (!firstBad && ours.some((b) => b.status === 'pending')) return chain;
+		if (!firstBad) {
+			const point = {
+				sequence: chain.sequence,
+				previous: chain.previous,
+				heads: chain.heads,
+				files: chain.files.length
+			};
+			return { ...chain, kept: point, pending: [] };
+		}
+		const back = (firstBad.sequence ?? 1) - 1;
+		if (ours.some((b) => (b.sequence ?? 0) > back + 1 && b.status === 'processed')) return null;
+		const lost = ours.filter((b) => (b.sequence ?? 0) > back);
+		const shipped = lost.reduce((n, b) => n + (b.files ?? 0), 0);
+		// Files are appended in order: the last `shipped` ones came with what is lost.
+		const files = shipped
+			? chain.files.slice(0, Math.max(0, chain.files.length - shipped))
+			: chain.files;
+		const previous = back ? (ours.find((b) => b.sequence === back)?.cid ?? null) : null;
+		const point = { sequence: back, previous, heads: {}, files: files.length };
+		return { ...chain, sequence: back, previous, heads: {}, files, kept: point, pending: [] };
+	}
+	let kept = chain.kept;
+	const pending = [...(chain.pending ?? [])];
+	let changed = false;
+	while (pending.length) {
+		const status = byCid.get(pending[0].cid)?.status;
+		if (status === 'processed') {
+			const p = /** @type {(typeof pending)[number]} */ (pending.shift());
+			kept = { sequence: p.sequence, previous: p.previous, heads: p.heads, files: p.files };
+			changed = true;
+			continue;
+		}
+		if (status && NOT_KEPT.has(status)) {
+			if (pending.slice(1).some((p) => byCid.get(p.cid)?.status === 'processed')) return null;
+			return {
+				...chain,
+				sequence: kept.sequence,
+				previous: kept.previous,
+				heads: kept.heads,
+				files: chain.files.slice(0, kept.files),
+				kept,
+				pending: []
+			};
+		}
+		break;
+	}
+	return changed ? { ...chain, kept, pending } : chain;
+}
 
 /** @param {import('../store/repository.js').Collection} settings @returns {Promise<BackupChain | null>} */
 export async function loadChain(settings) {
 	const chain = /** @type {any} */ (await getSetting(settings, CHAIN_SETTING));
-	return chain && typeof chain.base === 'string' && chain.heads && Array.isArray(chain.files)
-		? chain
-		: null;
+	if (!(chain && typeof chain.base === 'string' && chain.heads && Array.isArray(chain.files))) {
+		return null;
+	}
+	// As far as Aleph keeps it, by what the history says now (reconcileChain).
+	const now = reconcileChain(chain, await loadBackups(settings));
+	if (now !== chain) await setSetting(settings, CHAIN_SETTING, now);
+	return now;
 }
 
 /** @param {import('../store/repository.js').Collection} settings @param {BackupChain | null} chain */

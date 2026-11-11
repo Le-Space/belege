@@ -235,7 +235,21 @@ export async function buildBackup({
  * @property {number} sequence of the last increment; 0 right after the base
  * @property {string | null} previous the last increment's CID
  * @property {Record<string, string[]>} heads by database address
- * @property {string[]} files receipt files' root CIDs in the chain
+ * @property {string[]} files receipt files' root CIDs in the chain, in the order shipped
+ * @property {ChainPoint} [kept] how far Aleph has confirmed it keeps the chain (chain.js);
+ *   absent in a chain from before
+ * @property {(ChainPoint & { cid: string })[]} [pending] increments shipped after `kept` that
+ *   Aleph has not confirmed yet, oldest first
+ */
+
+/**
+ * A point of a chain to go back to: what had been shipped up to an increment.
+ *
+ * @typedef {object} ChainPoint
+ * @property {number} sequence
+ * @property {string | null} previous that increment's CID; null at the full backup
+ * @property {Record<string, string[]>} heads
+ * @property {number} files how many of the chain's `files` had been shipped
  */
 
 /**

@@ -310,7 +310,7 @@ export async function keepWithKey({
  * @typedef {{ itemHash: string, status: string, sender?: string, address?: string, ref?: string }} Kept
  *   what keeps a backup on Aleph, as the history records it
  * @typedef {{ backend: ReturnType<typeof import('@le-space/orbitdb-storage-bridge/backends/aleph').createAlephBackend>,
- *   keep: (handle: any, ref?: string) => Promise<Kept> }} BackupUploader
+ *   endpoints: AlephEndpoints, keep: (handle: any, ref?: string) => Promise<Kept> }} BackupUploader
  */
 
 /**
@@ -348,7 +348,12 @@ export async function createBackupUploader({
 	]);
 	const signs = granted && key ? await backupPin({ owner, key, endpoints, fetch: f }) : null;
 	const backend = createAlephBackend({
-		ingestUrl: endpoints.ingestUrl,
+		// With a key that may sign, the file goes to Aleph's API node with its
+		// STORE in the same request, and the node keeps it at once. Through the
+		// IPFS host, Aleph's nodes have to fetch it from there afterwards; since
+		// November 2026 that has failed ("File not found", error code 4) and the
+		// host has dropped the file, so the STORE was refused.
+		ingestUrl: signs ? null : endpoints.ingestUrl,
 		apiHost: endpoints.apiHost,
 		gateways: endpoints.gateways,
 		...(signs ? { pin: signs } : {}),
@@ -356,6 +361,7 @@ export async function createBackupUploader({
 	});
 	return {
 		backend,
+		endpoints,
 		async keep(handle, ref) {
 			// Kept in the same call as the upload: Aleph's word on it is what is left to get.
 			if (handle?.itemHash && key) {
