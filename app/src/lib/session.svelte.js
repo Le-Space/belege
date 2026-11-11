@@ -12,7 +12,7 @@ import { redactionFromStatus } from './llm-redaction.js';
 import { classifyTransaction, cleanMatchingSettings } from './matching/classify.js';
 import { buildMatchingContext } from './matching/context.js';
 import { cleanChart } from './booking/chart.js';
-import { t } from './i18n/index.js';
+import { intlLocale, t } from './i18n/index.js';
 import { requestPersistence } from './storage/safety.js';
 
 /** @typedef {import('./node.js').Session} Session */
@@ -1479,6 +1479,234 @@ export async function bridgeGrants() {
 /** The device that paired the bridge lets a device whose access lapsed in again. @param {string} peerId */
 export async function renewBridgeDevice(peerId) {
 	return (await bridgeConsumer?.renewDevice(peerId)) ?? false;
+}
+
+/**
+ * The hosted bridge's VM as the books last recorded it (#587): which
+ * instance, on which node, since when, at what price; null when none.
+ */
+export async function hostedVmRecord() {
+	if (!session?.store) return null;
+	const { VM_SETTING } = await import('./integrations/hosted-vm.js');
+	const kept = /** @type {any} */ (await getSetting(session.store.settings, VM_SETTING));
+	return typeof kept?.instance === 'string' ? kept : null;
+}
+
+/** Where Aleph's node list is read: Aleph's, or in an E2E build the fake Aleph's. */
+async function hostedNodeList() {
+	const vm = await import('./integrations/hosted-vm.js');
+	if (import.meta.env.VITE_E2E === 'true') {
+		const { E2E_ALEPH_URL_KEY } = await import('./backup/keeper.js');
+		const base = globalThis.localStorage?.getItem(E2E_ALEPH_URL_KEY);
+		if (base) return { url: `${base}/crns.json`, loopback: true };
+	}
+	return { url: vm.CRN_LIST, loopback: false };
+}
+
+/** The confidential nodes a hosted bridge can start on, best first (#587). */
+export async function hostedNodes() {
+	const { loadNodes } = await import('./integrations/hosted-vm.js');
+	return loadNodes(await hostedNodeList());
+}
+
+/**
+ * The books' Aleph key and its address, on a device that may start a VM.
+ * @returns {Promise<{ key: Uint8Array, owner: string }>}
+ */
+async function hostedOwner() {
+	if (!session?.store) throw new Error(t('messages.bridge.needsSync'));
+	const { ensureBackupKey } = await import('./backup/keeper.js');
+	const { alephAddressOf } = await import('./backup/aleph-signer.js');
+	const key = await ensureBackupKey(session.store.settings, { create: !app.member });
+	if (!key) throw new Error(t('messages.hostedBridge.noAlephKey'));
+	return { key, owner: alephAddressOf(key) };
+}
+
+/**
+ * "Starten" on the "Gehostete Bridge" card (#587): ask Aleph for a
+ * confidential VM of the published bridge image, owned and paid by the books'
+ * Aleph key, then bring it up and unlock and pair it (`continueHostedStart`).
+ * The VM is recorded, sealed, as soon as Aleph has it, so a start that is
+ * interrupted carries on from there.
+ *
+ * @param {{ crn: string, passphrase: string, onProgress?: (p: { phase: string, detail: string }) => void }} p
+ */
+export async function startHostedBridge({ crn, passphrase, onProgress = () => {} }) {
+	if (!session?.online || !session.bridgeAuthBase || !deviceSync) {
+		throw new Error(t('messages.bridge.needsSync'));
+	}
+	if (!passphrase) throw new Error(t('messages.hostedBridge.noPassphrase'));
+	const vm = await import('./integrations/hosted-vm.js');
+	const hosted = await import('./integrations/hosted-bridge.js');
+	const { alephEndpoints } = await import('./backup/keeper.js');
+	const { alephSign } = await import('./backup/aleph-signer.js');
+	const { key, owner } = await hostedOwner();
+	const { apiHost } = alephEndpoints();
+	const running = await hostedVmRecord();
+	if (running && !running.stoppedAt) throw new Error(t('messages.hostedBridge.alreadyRunning'));
+
+	onProgress({ phase: 'node', detail: crn });
+	const node = (await hostedNodes()).find((n) => n.hash === crn);
+	if (!node) throw new Error(t('messages.hostedBridge.noNode'));
+
+	onProgress({ phase: 'measure', detail: '' });
+	/** @type {any} */
+	let trustedExecution = null;
+	if (import.meta.env.VITE_E2E === 'true') {
+		const pins = globalThis.localStorage?.getItem(hosted.E2E_HOSTED_PINS_KEY);
+		if (pins) trustedExecution = JSON.parse(pins);
+	}
+	if (!trustedExecution) {
+		const wasm = await import('@le-space/attest-wasm/pkg/relay_button_attest.js');
+		await wasm.default();
+		const { confidentialTrustedExecution } = await import('@le-space/attest-wasm/instance');
+		trustedExecution = await confidentialTrustedExecution({
+			wasm,
+			owner,
+			vcpus: vm.HOSTED_VM.vcpus,
+			apiHost,
+			onProgress
+		});
+	}
+
+	const content = vm.instanceContent({
+		owner,
+		image: hosted.HOSTED_IMAGE,
+		crn,
+		trustedExecution,
+		name: `belege-bridge-${isoNow().slice(0, 16)}`
+	});
+	const sign = async (/** @type {string} */ payload) => alephSign(key, payload);
+	const message = await vm.signedMessage({ type: 'INSTANCE', content, sign });
+	// Aleph takes the VM only with a day of its price in reserve: said here, before it refuses.
+	const [perHour, credits] = await Promise.all([
+		vm.creditsPerHour(message, { apiHost }),
+		vm.creditsOf(owner, { apiHost })
+	]);
+	if (perHour && credits < vm.RESERVE_HOURS * perHour) {
+		throw new Error(
+			t('messages.hostedBridge.fewCredits', {
+				needed: (vm.RESERVE_HOURS * perHour).toLocaleString(intlLocale()),
+				credits: Math.floor(credits).toLocaleString(intlLocale()),
+				perHour: perHour.toLocaleString(intlLocale())
+			})
+		);
+	}
+
+	onProgress({ phase: 'requested', detail: message.item_hash });
+	const instance = await vm.sendMessage(message, { apiHost });
+	await setSetting(session.store.settings, vm.VM_SETTING, {
+		instance,
+		crn,
+		nodeUrl: node.url,
+		startedAt: isoNow(),
+		creditsPerHour: perHour
+	});
+	return continueHostedStart({ passphrase, onProgress });
+}
+
+/**
+ * From a VM Aleph has to a paired bridge: the node told, 443 forwarded, then
+ * the attestation and unlock of #585. The VM boots meanwhile; until its agent
+ * answers, the unlock is tried again. An answer that refuses the VM (another
+ * measurement, image or owner) ends it: no secret went out.
+ *
+ * @param {{ passphrase: string, onProgress?: (p: { phase: string, detail: string }) => void, patience?: { tries?: number, delayMs?: number } }} p
+ */
+export async function continueHostedStart({ passphrase, onProgress = () => {}, patience = {} }) {
+	if (!passphrase) throw new Error(t('messages.hostedBridge.noPassphrase'));
+	const vm = await import('./integrations/hosted-vm.js');
+	const { alephEndpoints } = await import('./backup/keeper.js');
+	const { alephSign } = await import('./backup/aleph-signer.js');
+	const record = await hostedVmRecord();
+	if (!record || record.stoppedAt || !session?.store)
+		throw new Error(t('messages.hostedBridge.noVm'));
+	const settings = session.store.settings;
+	const { key, owner } = await hostedOwner();
+	const { apiHost } = alephEndpoints();
+	const { loopback } = await hostedNodeList();
+	const nodeUrl = vm.nodeUrlOf(record.nodeUrl, { loopback });
+	if (!nodeUrl) throw new Error(t('messages.hostedBridge.noNode'));
+	const { tries = 60, delayMs = 10_000 } = patience;
+	const pause = (/** @type {number} */ ms) => new Promise((r) => setTimeout(r, ms));
+
+	onProgress({ phase: 'network', detail: record.instance });
+	let placed = await vm.onNode(nodeUrl, record.instance);
+	if (!placed) {
+		await vm.notifyNode(nodeUrl, record.instance);
+		placed = await vm.onNode(nodeUrl, record.instance);
+	}
+	if (!placed?.port443) {
+		const sign = async (/** @type {string} */ payload) => alephSign(key, payload);
+		await vm.sendMessage(
+			await vm.signedMessage({
+				type: 'AGGREGATE',
+				content: vm.forward443Content(owner, record.instance),
+				sign
+			}),
+			{ apiHost }
+		);
+		for (let i = 0; i < tries && !placed?.port443; i++) {
+			await pause(delayMs);
+			placed = await vm.onNode(nodeUrl, record.instance);
+		}
+		if (!placed?.port443) throw new Error(t('messages.hostedBridge.noPort'));
+	}
+
+	// The VM boots, and its agent answers only then.
+	/** @type {unknown} */
+	let last = null;
+	for (let i = 0; i < tries; i++) {
+		if (i) await pause(delayMs);
+		try {
+			const done = await unlockHostedBridge({ instance: record.instance, passphrase, onProgress });
+			await setSetting(settings, vm.VM_SETTING, {
+				...record,
+				unlockedAt: isoNow()
+			});
+			return done;
+		} catch (e) {
+			last = e;
+			const why = String(/** @type {any} */ (e)?.message ?? e);
+			// Refused, not "not yet": the VM is not the one to trust.
+			if (/no secret goes out|measurement|not pinned/i.test(why)) throw e;
+			onProgress({ phase: 'boot', detail: why });
+		}
+	}
+	throw last;
+}
+
+/**
+ * "Stoppen" (#587): FORGET the VM; its node stops and drops it, and the VM
+ * keeps nothing. The books keep when it ran, for the hours used; the hosted
+ * bridge leaves the devices.
+ */
+export async function stopHostedBridge() {
+	const vm = await import('./integrations/hosted-vm.js');
+	const { alephEndpoints } = await import('./backup/keeper.js');
+	const { alephSign } = await import('./backup/aleph-signer.js');
+	const record = await hostedVmRecord();
+	if (!record || record.stoppedAt || !session?.store)
+		throw new Error(t('messages.hostedBridge.noVm'));
+	const settings = session.store.settings;
+	const { key, owner } = await hostedOwner();
+	const { apiHost } = alephEndpoints();
+	const sign = async (/** @type {string} */ payload) => alephSign(key, payload);
+	await vm.sendMessage(
+		await vm.signedMessage({
+			type: 'FORGET',
+			content: vm.forgetContent(owner, record.instance),
+			sign
+		}),
+		{ apiHost }
+	);
+	const stoppedAt = isoNow();
+	await setSetting(settings, vm.VM_SETTING, { ...record, stoppedAt });
+	const paired = await hostedBridgeRecord();
+	if (paired && paired.instance === record.instance && paired.peerId && deviceSync) {
+		await deviceSync.removeDevice(paired.peerId).catch(() => {});
+	}
+	return { stoppedAt };
 }
 
 /**

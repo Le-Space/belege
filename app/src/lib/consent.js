@@ -88,7 +88,10 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     relay's /attest and the VM at 2n6.me, attested before it gets a secret.
 // 43: the hosted bridge on Phala through NEAR (#696): a NEAR RPC and Le
 //     Space's launcher, the secrets sealed to the VM the contract attested.
-export const CONSENT_VERSION = '43';
+// 44: the hosted bridge started and stopped from the app (#587): Aleph's node
+//     list, the INSTANCE, port forward and FORGET signed by the books' key,
+//     and the node chosen.
+export const CONSENT_VERSION = '44';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 
