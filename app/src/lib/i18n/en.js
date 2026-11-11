@@ -4413,7 +4413,7 @@ export default {
 		hostedSettings: {
 			title: 'Settings for the hosted bridge',
 			intro:
-				'What a hosted bridge – on Aleph or on Phala through NEAR – starts with besides its pairing: mail, Kraken, Paperless, Alchemy, Enable Banking, portals. Kept sealed in these books and handed only to a VM whose attestation holds, at each start. The bridge on this computer keeps its own and keeps working. Not here: Hibiscus (it stays on your computer) and the language model (a hosted bridge runs without one).',
+				'What a hosted bridge – on Aleph or on Phala through NEAR – starts with besides its pairing: mail, Kraken, Paperless, Alchemy, Enable Banking. Kept sealed in these books and handed only to a VM whose attestation holds, at each start. The bridge on this computer keeps its own and keeps working. Not here: Hibiscus (it stays on your computer), the language model (a hosted bridge runs without one) and portals (a hosted bridge has no browser to log in with).',
 			kept: 'Kept for the hosted bridge: {names}.',
 			none: 'Nothing kept for the hosted bridge yet: it starts paired, without accounts.',
 			takeOver: 'Take over from the bridge on this computer',
@@ -4435,7 +4435,7 @@ export default {
 			keep: 'Keep for the hosted bridge',
 			saved: 'Kept, sealed. It goes along at the next start.',
 			othersHint:
-				'Enable Banking, portals, CoinGecko and a Bitcoin zpub come along when taken over from the bridge on this computer.'
+				'Enable Banking, CoinGecko and a Bitcoin zpub come along when taken over from the bridge on this computer.'
 		},
 		hibiscus: {
 			title: 'Hibiscus',

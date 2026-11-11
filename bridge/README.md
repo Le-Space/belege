@@ -151,25 +151,25 @@ runs as `cli.js --hosted`:
 
 On Windows, read "Credential Manager, `belege-bridge:<account>`" for "macOS keychain, service `belege-bridge`, account `<account>`".
 
-| What                                                                                                                                                                                | Where                                                                                                                                                                                                                                                  |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Hibiscus master password                                                                                                                                                            | macOS keychain, service `belege-bridge`, account `hibiscus`                                                                                                                                                                                            |
-| IMAP password or auth token                                                                                                                                                         | macOS keychain, service `belege-bridge`, account `imap`                                                                                                                                                                                                |
-| LLM API key                                                                                                                                                                         | macOS keychain, service `belege-bridge`, account `llm`                                                                                                                                                                                                 |
-| Paperless-ngx API token (optional; `pnpm setup:paperless`)                                                                                                                          | macOS keychain, service `belege-bridge`, account `paperless`; only ever in the Authorization header to the configured Paperless, which gets no redirect followed                                                                                       |
-| Alchemy API key (optional; `pnpm setup:alchemy`)                                                                                                                                    | macOS keychain, service `belege-bridge`, account `alchemy`; only ever in the URL of the bridge's requests to Alchemy                                                                                                                                   |
-| Aleph backup key (optional; `pnpm setup:aleph`, made on this machine)                                                                                                               | macOS keychain, service `belege-bridge`, account `aleph-backup`; only its signature leaves, on the STORE messages for the backups; the setup prints the address, never the key                                                                         |
-| A portal password (optional; `pnpm setup:portal` or "Zugangsdaten speichern")                                                                                                       | macOS keychain, service `belege-bridge`, account `portal:<portal>`                                                                                                                                                                                     |
-| A portal's browser profile (cookies, the live session) and `state.json` (last login, last run)                                                                                      | `~/.config/belege/portals/<portal>/` (0700), next to `bridge.json`                                                                                                                                                                                     |
-| A recorded recipe ("Portal aufzeichnen"): route, download control, confirmed other hosts, review                                                                                    | `~/.config/belege/recipes/<portal>.json` (0600, directory 0700)                                                                                                                                                                                        |
-| A portal of your own ("Neues Portal aufzeichnen"): name, start page, route, …                                                                                                       | `~/.config/belege/recipes/local-<slug>.json` (0600)                                                                                                                                                                                                    |
-| Host, port, pinned SHA-256, IBAN suffixes, app origins, hashes of paired tokens; IMAP host/port/user, accounting address; LLM URL, models, terms to black out; a portal's user name | `~/.config/belege/bridge.json` (0600; `BELEGE_BRIDGE_CONFIG` overrides)                                                                                                                                                                                |
-| The Enable Banking application key and, later, its sessions (optional; `pnpm setup:enablebanking`)                                                                                  | `~/.config/belege/enablebanking.sealed` (0600, AES-256-GCM), next to `bridge.json`; the key that opens it in the macOS keychain, account `enablebanking`. Sealed in a file because an RSA key does not fit the Windows Credential Manager (2560 bytes) |
-| The LAN relay's peer key and certificate (optional; `pnpm setup:relay`)                                                                                                             | `~/.config/belege/lan-relay/` (0700; `peer-key`, `cert-key.pem` 0600), next to `bridge.json`                                                                                                                                                           |
+| What                                                                                                                                                                                | Where                                                                                                                                                                                                                                                                               |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Hibiscus master password                                                                                                                                                            | macOS keychain, service `belege-bridge`, account `hibiscus`                                                                                                                                                                                                                         |
+| IMAP password or auth token                                                                                                                                                         | macOS keychain, service `belege-bridge`, account `imap`                                                                                                                                                                                                                             |
+| LLM API key                                                                                                                                                                         | macOS keychain, service `belege-bridge`, account `llm`                                                                                                                                                                                                                              |
+| Paperless-ngx API token (optional; `pnpm setup:paperless`)                                                                                                                          | macOS keychain, service `belege-bridge`, account `paperless`; only ever in the Authorization header to the configured Paperless, which gets no redirect followed                                                                                                                    |
+| Alchemy API key (optional; `pnpm setup:alchemy`)                                                                                                                                    | macOS keychain, service `belege-bridge`, account `alchemy`; only ever in the URL of the bridge's requests to Alchemy                                                                                                                                                                |
+| Aleph backup key (optional; `pnpm setup:aleph`, made on this machine)                                                                                                               | macOS keychain, service `belege-bridge`, account `aleph-backup`; only its signature leaves, on the STORE messages for the backups; the setup prints the address, never the key                                                                                                      |
+| A portal password (optional; `pnpm setup:portal` or "Zugangsdaten speichern")                                                                                                       | macOS keychain, service `belege-bridge`, account `portal:<portal>`                                                                                                                                                                                                                  |
+| A portal's browser profile (cookies, the live session) and `state.json` (last login, last run)                                                                                      | `~/.config/belege/portals/<portal>/` (0700), next to `bridge.json`                                                                                                                                                                                                                  |
+| A recorded recipe ("Portal aufzeichnen"): route, download control, confirmed other hosts, review                                                                                    | `~/.config/belege/recipes/<portal>.json` (0600, directory 0700)                                                                                                                                                                                                                     |
+| A portal of your own ("Neues Portal aufzeichnen"): name, start page, route, …                                                                                                       | `~/.config/belege/recipes/local-<slug>.json` (0600)                                                                                                                                                                                                                                 |
+| Host, port, pinned SHA-256, IBAN suffixes, app origins, hashes of paired tokens; IMAP host/port/user, accounting address; LLM URL, models, terms to black out; a portal's user name | `~/.config/belege/bridge.json` (0600; `BELEGE_BRIDGE_CONFIG` overrides)                                                                                                                                                                                                             |
+| The Enable Banking application key and, later, its sessions (optional; `pnpm setup:enablebanking`)                                                                                  | `~/.config/belege/enablebanking.sealed` (0600, AES-256-GCM), next to `bridge.json`; the key that opens it in the macOS keychain, account `enablebanking`. Sealed in a file because an RSA key does not fit the Windows Credential Manager (2560 bytes)                              |
+| The LAN relay's peer key and certificate (optional; `pnpm setup:relay`)                                                                                                             | `~/.config/belege/lan-relay/` (0700; `peer-key`, `cert-key.pem` 0600), next to `bridge.json`                                                                                                                                                                                        |
 | The node's peer key and UCEP grants (its own libp2p node, #573)                                                                                                                     | `~/.config/belege/node/` (0700; `peer-key` 0600, `grants.json`, `invitations.json`, `device-grants.json` 0600): a peer id names, it does not open; grants are ids and peer ids; `device-grants.json` holds each device's scopes and when it was granted and last used, nothing else |
-| The bridge's own key (from the handover at pairing by invitation; never the books' device key)                                                                                     | macOS keychain, service `belege-bridge`, account `bridge-auth`; leaves with "Kopplung lösen"                                                                                                                                             |
-| The bearer token                                                                                                                                                                    | the app's encrypted store (`settings`), never on the bridge's disk                                                                                                                                                                                     |
-| Own wallets (chain, address, own endpoints)                                                                                                                                         | the app's encrypted store (`settings`, key `wallets`); the bridge keeps nothing, it gets them with each `POST /<chain>/wallet`                                                                                                                         |
+| The bridge's own key (from the handover at pairing by invitation; never the books' device key)                                                                                      | macOS keychain, service `belege-bridge`, account `bridge-auth`; leaves with "Kopplung lösen"                                                                                                                                                                                        |
+| The bearer token                                                                                                                                                                    | the app's encrypted store (`settings`), never on the bridge's disk                                                                                                                                                                                                                  |
+| Own wallets (chain, address, own endpoints)                                                                                                                                         | the app's encrypted store (`settings`, key `wallets`); the bridge keeps nothing, it gets them with each `POST /<chain>/wallet`                                                                                                                                                      |
 
 ## The bridge's node
 
@@ -193,12 +193,12 @@ no books.
   device. "Kopplung lösen" moves the books to the next generation: the old key is then worth
   nothing (#575).
 - **Pairing by invitation:** until a device has handed the bridge's key over, the node is
-  *unarmed* and offers one thing, pairing (UCEP): `pnpm bridge` prints an invitation,
+  _unarmed_ and offers one thing, pairing (UCEP): `pnpm bridge` prints an invitation,
   `web+ucep:pair?…`, valid ten minutes. Pasted into the app under _Integrationen → Bridge_
   ("Über Einladung koppeln", with device sync on), the device pairs over the stream (the
   invitation's secret is the proof), then sends `handover` with the bridge's key, the relays and
   the device list, and adds the bridge to the books as their bridge. The key goes to the keychain
-  (`bridge-auth`), relays and devices to `bridge.json` (`node`), and the node restarts *armed*;
+  (`bridge-auth`), relays and devices to `bridge.json` (`node`), and the node restarts _armed_;
   the WebSocket keeps its port, so the invitation's address stays good. From then on every device
   of the books reaches the bridge through the relays, with no browser open on this machine, and
   the device that paired it keeps the bridge's device list current (`devices`); any other proved
@@ -220,8 +220,9 @@ no books.
   its scope (below).
 - **Taking the settings to a hosted bridge (#728):** `settings.export` answers the accounts a
   hosted bridge reads (mail, Kraken, Paperless, Enable Banking, CoinGecko, a Bitcoin zpub,
-  Alchemy, portal passwords) and the integrations' non-secret settings – not Hibiscus, not the
-  language model, not the bridge's own keys, origins or paired tokens. Only over the stream, and
+  Alchemy) and the integrations' non-secret settings – not Hibiscus, not the language model, not
+  portal passwords (a hosted image has no browser), not the bridge's own keys, origins or paired
+  tokens. Only over the stream, and
   only to the device that paired this bridge; never over HTTP to a page. The app keeps them
   sealed in the books and hands them only to an attested VM at its start. This bridge keeps
   its own.
@@ -237,7 +238,7 @@ no books.
   its tokens a day (2,000,000, UTC) and backup calls an hour (10); above a limit a call is refused
   `RATE_LIMITED`. The counters live in memory, so a restart starts them again. All four numbers
   can be set in `bridge.json`: `"node": { "limits": { "llmPerMinute": 30, "llmTokensPerDay":
-  2000000, "backupPerHour": 10, "idleDays": 90 } }`. A member's device is on the list the app
+2000000, "backupPerHour": 10, "idleDays": 90 } }`. A member's device is on the list the app
   sends only if the owner let the member use the bridge when admitting them (#641); a member who
   only reads never is. Over HTTP, the token still is every command: only this machine has it.
 
@@ -247,65 +248,65 @@ Every function of the bridge is a command (`src/commands.js`). Over HTTP the tok
 them. Over the stream (`request`) a device needs the command's scope (#579, above); a public
 command needs none. `test/readme.test.js` keeps this table complete.
 
-| Command | HTTP | Scope | Over the stream |
-|---|---|---|---|
-| `bridge.health` | `GET /health` | public | yes |
-| `session.pair` | `POST /pair` | public | no: HTTP only |
-| `share.read` | `GET /share/<id>` | public | no: HTTP only |
-| `share.create` | `POST /share` | `bridge:share` | no: HTTP only |
-| `share.list` | `GET /share` | `bridge:share` | no: HTTP only |
-| `share.revoke` | `DELETE /share/<id>` | `bridge:share` | no: HTTP only |
-| `session.unpair` | `POST /unpair` | the token | no: HTTP only |
-| `settings.export` | `GET /settings/export` | `bridge:settings:export`, held only by the device that paired the bridge | **only** over the stream: over HTTP it is not there (404) |
-| `bank.accounts` | `GET /hibiscus/accounts` | `bridge:bank:read` | yes |
-| `bank.transactions` | `GET /hibiscus/transactions` | `bridge:bank:read` | yes |
-| `mail.messages` | `GET /mail/messages` | `bridge:mail:read` | yes |
-| `mail.attachment` | `GET /mail/attachment` | `bridge:mail:read` | yes |
-| `mail.raw` | `GET /mail/raw` | `bridge:mail:read` | yes |
-| `mail.trash` | `POST /mail/trash` | `bridge:mail:write` | yes |
-| `mail.search` | `GET /mail/search` | `bridge:mail:read` | yes |
-| `llm.match` | `POST /match/assist` | `bridge:llm` | yes |
-| `llm.vendor` | `POST /vendor/assist` | `bridge:llm` | yes |
-| `llm.transfer` | `POST /transfer/assist` | `bridge:llm` | yes |
-| `llm.mail` | `POST /mail/assist` | `bridge:llm` | yes |
-| `aleph.accounts` | `POST /aleph/accounts` | `bridge:chains:read` | yes |
-| `aleph.statement` | `GET /aleph/statement` | `bridge:chains:read` | yes |
-| `backup.status` | `GET /backup/status` | `bridge:backup` | yes |
-| `backup.list` | `GET /backup/aleph/list` | `bridge:backup` | yes |
-| `backup.keep` | `POST /backup/aleph/pin` | `bridge:backup` | yes |
-| `backup.put` | `POST /backup/aleph` | `bridge:backup` | no: bytes in (a block in M2) |
-| `rates.rate` | `GET /rates` | `bridge:chains:read` | yes |
-| `kraken.balances` | `GET /kraken/balances` | `bridge:chains:read` | yes |
-| `kraken.ledgers` | `GET /kraken/ledgers` | `bridge:chains:read` | yes |
-| `paperless.documents` | `GET /paperless/documents` | `bridge:paperless:read` | yes |
-| `paperless.search` | `GET /paperless/search` | `bridge:paperless:read` | yes |
-| `paperless.document` | `GET /paperless/document` | `bridge:paperless:read` | yes |
-| `enablebanking.banks` | `GET /enablebanking/banks` | `bridge:bank:read` | yes |
-| `enablebanking.link` | `POST /enablebanking/link` | `bridge:bank:link` | yes |
-| `enablebanking.finish` | `POST /enablebanking/finish` | `bridge:bank:link` | yes |
-| `enablebanking.accounts` | `GET /enablebanking/accounts` | `bridge:bank:read` | yes |
-| `enablebanking.transactions` | `GET /enablebanking/transactions` | `bridge:bank:read` | yes |
-| `enablebanking.links` | `GET /enablebanking/links` | `bridge:bank:read` | yes |
-| `enablebanking.unlink` | `DELETE /enablebanking/links/<session id>` | `bridge:bank:link` | yes |
-| `chains.list` | `GET /chains` | `bridge:chains:read` | yes |
-| `lanRelay.status` | `GET /lan-relay` | `bridge:chains:read` | yes |
-| `chains.bitcoinKey` | `GET /bitcoin/key` | `bridge:chains:read` | yes |
-| `chains.akashDeployments` | `POST /akash/deployments` | `bridge:chains:read` | yes |
-| `chains.wallet` | `POST /<chain>/wallet` | `bridge:chains:read` | yes |
-| `llm.status` | `GET /llm/status` | `bridge:llm` | yes |
-| `llm.extract` | `POST /extract` | `bridge:llm` | yes |
+| Command                      | HTTP                                       | Scope                                                                    | Over the stream                                           |
+| ---------------------------- | ------------------------------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------- |
+| `bridge.health`              | `GET /health`                              | public                                                                   | yes                                                       |
+| `session.pair`               | `POST /pair`                               | public                                                                   | no: HTTP only                                             |
+| `share.read`                 | `GET /share/<id>`                          | public                                                                   | no: HTTP only                                             |
+| `share.create`               | `POST /share`                              | `bridge:share`                                                           | no: HTTP only                                             |
+| `share.list`                 | `GET /share`                               | `bridge:share`                                                           | no: HTTP only                                             |
+| `share.revoke`               | `DELETE /share/<id>`                       | `bridge:share`                                                           | no: HTTP only                                             |
+| `session.unpair`             | `POST /unpair`                             | the token                                                                | no: HTTP only                                             |
+| `settings.export`            | `GET /settings/export`                     | `bridge:settings:export`, held only by the device that paired the bridge | **only** over the stream: over HTTP it is not there (404) |
+| `bank.accounts`              | `GET /hibiscus/accounts`                   | `bridge:bank:read`                                                       | yes                                                       |
+| `bank.transactions`          | `GET /hibiscus/transactions`               | `bridge:bank:read`                                                       | yes                                                       |
+| `mail.messages`              | `GET /mail/messages`                       | `bridge:mail:read`                                                       | yes                                                       |
+| `mail.attachment`            | `GET /mail/attachment`                     | `bridge:mail:read`                                                       | yes                                                       |
+| `mail.raw`                   | `GET /mail/raw`                            | `bridge:mail:read`                                                       | yes                                                       |
+| `mail.trash`                 | `POST /mail/trash`                         | `bridge:mail:write`                                                      | yes                                                       |
+| `mail.search`                | `GET /mail/search`                         | `bridge:mail:read`                                                       | yes                                                       |
+| `llm.match`                  | `POST /match/assist`                       | `bridge:llm`                                                             | yes                                                       |
+| `llm.vendor`                 | `POST /vendor/assist`                      | `bridge:llm`                                                             | yes                                                       |
+| `llm.transfer`               | `POST /transfer/assist`                    | `bridge:llm`                                                             | yes                                                       |
+| `llm.mail`                   | `POST /mail/assist`                        | `bridge:llm`                                                             | yes                                                       |
+| `aleph.accounts`             | `POST /aleph/accounts`                     | `bridge:chains:read`                                                     | yes                                                       |
+| `aleph.statement`            | `GET /aleph/statement`                     | `bridge:chains:read`                                                     | yes                                                       |
+| `backup.status`              | `GET /backup/status`                       | `bridge:backup`                                                          | yes                                                       |
+| `backup.list`                | `GET /backup/aleph/list`                   | `bridge:backup`                                                          | yes                                                       |
+| `backup.keep`                | `POST /backup/aleph/pin`                   | `bridge:backup`                                                          | yes                                                       |
+| `backup.put`                 | `POST /backup/aleph`                       | `bridge:backup`                                                          | no: bytes in (a block in M2)                              |
+| `rates.rate`                 | `GET /rates`                               | `bridge:chains:read`                                                     | yes                                                       |
+| `kraken.balances`            | `GET /kraken/balances`                     | `bridge:chains:read`                                                     | yes                                                       |
+| `kraken.ledgers`             | `GET /kraken/ledgers`                      | `bridge:chains:read`                                                     | yes                                                       |
+| `paperless.documents`        | `GET /paperless/documents`                 | `bridge:paperless:read`                                                  | yes                                                       |
+| `paperless.search`           | `GET /paperless/search`                    | `bridge:paperless:read`                                                  | yes                                                       |
+| `paperless.document`         | `GET /paperless/document`                  | `bridge:paperless:read`                                                  | yes                                                       |
+| `enablebanking.banks`        | `GET /enablebanking/banks`                 | `bridge:bank:read`                                                       | yes                                                       |
+| `enablebanking.link`         | `POST /enablebanking/link`                 | `bridge:bank:link`                                                       | yes                                                       |
+| `enablebanking.finish`       | `POST /enablebanking/finish`               | `bridge:bank:link`                                                       | yes                                                       |
+| `enablebanking.accounts`     | `GET /enablebanking/accounts`              | `bridge:bank:read`                                                       | yes                                                       |
+| `enablebanking.transactions` | `GET /enablebanking/transactions`          | `bridge:bank:read`                                                       | yes                                                       |
+| `enablebanking.links`        | `GET /enablebanking/links`                 | `bridge:bank:read`                                                       | yes                                                       |
+| `enablebanking.unlink`       | `DELETE /enablebanking/links/<session id>` | `bridge:bank:link`                                                       | yes                                                       |
+| `chains.list`                | `GET /chains`                              | `bridge:chains:read`                                                     | yes                                                       |
+| `lanRelay.status`            | `GET /lan-relay`                           | `bridge:chains:read`                                                     | yes                                                       |
+| `chains.bitcoinKey`          | `GET /bitcoin/key`                         | `bridge:chains:read`                                                     | yes                                                       |
+| `chains.akashDeployments`    | `POST /akash/deployments`                  | `bridge:chains:read`                                                     | yes                                                       |
+| `chains.wallet`              | `POST /<chain>/wallet`                     | `bridge:chains:read`                                                     | yes                                                       |
+| `llm.status`                 | `GET /llm/status`                          | `bridge:llm`                                                             | yes                                                       |
+| `llm.extract`                | `POST /extract`                            | `bridge:llm`                                                             | yes                                                       |
 
 The node's own commands, outside `request`:
 
-| Command | Who may call | What it does |
-|---|---|---|
-| `help` | any peer that reaches the extension | the commands, armed or not, the requests offered with their scopes, and the scopes |
-| `handover` | the device that paired by invitation (UCEP scope `belege-bridge:pairing:manage`), unarmed only | the bridge's key, relays and devices; the node restarts armed |
-| `devices` | the device that paired by invitation; any other proved device of the books only to take devices off (never the one that paired) | the books' device list: each a peer id (every scope) or `{ peerId, scopes }` |
-| `grants` | a proved device of the books | per device its scopes, last use and when they lapse – every device's for the device that paired the bridge, its own for any other |
-| `renew` | the device that paired by invitation (UCEP scope `belege-bridge:pairing:manage`), proved | a device whose scopes lapsed counts from now again |
-| `unpair` | the device that paired by invitation (UCEP scope `belege-bridge:pairing:manage`), proved | the key leaves the keychain; the node runs unarmed with a new invitation |
-| `request` | a proved device of the books, armed only, holding the command's scope, within the limits | one command of the table above |
+| Command    | Who may call                                                                                                                    | What it does                                                                                                                      |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `help`     | any peer that reaches the extension                                                                                             | the commands, armed or not, the requests offered with their scopes, and the scopes                                                |
+| `handover` | the device that paired by invitation (UCEP scope `belege-bridge:pairing:manage`), unarmed only                                  | the bridge's key, relays and devices; the node restarts armed                                                                     |
+| `devices`  | the device that paired by invitation; any other proved device of the books only to take devices off (never the one that paired) | the books' device list: each a peer id (every scope) or `{ peerId, scopes }`                                                      |
+| `grants`   | a proved device of the books                                                                                                    | per device its scopes, last use and when they lapse – every device's for the device that paired the bridge, its own for any other |
+| `renew`    | the device that paired by invitation (UCEP scope `belege-bridge:pairing:manage`), proved                                        | a device whose scopes lapsed counts from now again                                                                                |
+| `unpair`   | the device that paired by invitation (UCEP scope `belege-bridge:pairing:manage`), proved                                        | the key leaves the keychain; the node runs unarmed with a new invitation                                                          |
+| `request`  | a proved device of the books, armed only, holding the command's scope, within the limits                                        | one command of the table above                                                                                                    |
 
 **What a relay sees** of the bridge: its peer id, the peer ids of the devices that call it,
 when and how much – never content. Noise encrypts every connection end to end, and the relay

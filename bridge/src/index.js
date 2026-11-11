@@ -424,7 +424,8 @@ export async function startBridge({
 	 * What a hosted bridge may take over from this one (#728): the accounts it
 	 * reads in hosted mode and the non-secret settings of the integrations.
 	 * Not Hibiscus (it stays on this computer), not the language model (a
-	 * hosted bridge runs without one), not this bridge's own keys, origins or
+	 * hosted bridge runs without one), not portal passwords (a hosted image has
+	 * no browser to log in with), not this bridge's own keys, origins or
 	 * paired tokens. Asked for only over the stream, by the device that paired
 	 * this bridge (commands.js `settings.export`, grants.js).
 	 */
@@ -449,17 +450,8 @@ export async function startBridge({
 				// Not set up here.
 			}
 		}
-		for (const [id, p] of Object.entries(config.portals ?? {})) {
-			if (!(/** @type {any} */ (p)?.passwordStored)) continue;
-			try {
-				const value = await portalKeychain(id).read();
-				if (value) secrets[`portal:${id}`] = value;
-			} catch {
-				// No password here.
-			}
-		}
-		const { mail, portals, kraken, paperless, enablebanking } = config;
-		return { config: { mail, portals, kraken, paperless, enablebanking }, secrets };
+		const { mail, kraken, paperless, enablebanking } = config;
+		return { config: { mail, kraken, paperless, enablebanking }, secrets };
 	}
 
 	const bridge = createBridgeServer({

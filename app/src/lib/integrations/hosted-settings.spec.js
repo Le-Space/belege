@@ -27,7 +27,8 @@ describe('the hosted bridge’s settings', () => {
 				kraken: 'not an object'
 			}
 		});
-		expect(kept.secrets).toEqual({ imap: 'pw', 'portal:stromwerk-test': 'pw2' });
+		// A portal password stays home: a hosted image has no browser to log in with.
+		expect(kept.secrets).toEqual({ imap: 'pw' });
 		expect(kept.config).toEqual({
 			mail: { host: 'imap.example.com', user: 'belege@example.com' }
 		});
@@ -42,12 +43,12 @@ describe('the hosted bridge’s settings', () => {
 			})
 		};
 		const out = withHostedSettings(pairing, {
-			secrets: { imap: 'pw', 'portal:stromwerk-test': 'pw2' },
+			secrets: { imap: 'pw', kraken: '{"key":"k","secret":"s"}' },
 			config: { mail: { host: 'imap.example.com' }, node: { relays: [] } }
 		});
 		expect(out.bridge_auth).toBe('aa');
 		expect(out.imap).toBe('pw');
-		expect(out.portal_stromwerk_test).toBe('pw2');
+		expect(out.kraken).toBe('{"key":"k","secret":"s"}');
 		expect(JSON.parse(out.bridge_config)).toEqual({
 			mail: { host: 'imap.example.com' },
 			node: { relays: ['/dns4/relay.example/p2p/x'], devices: [] }

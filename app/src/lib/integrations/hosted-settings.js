@@ -1,29 +1,23 @@
 // What a hosted bridge starts with besides its pairing (#728): the accounts
 // it reads (mail, Enable Banking, Kraken, Alchemy, Paperless, CoinGecko, a
-// Bitcoin zpub, portal passwords) and the integrations' non-secret settings.
+// Bitcoin zpub) and the integrations' non-secret settings.
 // Kept in the books' sealed settings – typed in a card or taken over from the
 // bridge on a computer – and handed only to an attested VM at its start,
 // next to what pairing needs (hosted-bridge.js `hostedSecrets`).
 //
 // Not here: Hibiscus (it stays on the computer, a VM cannot reach it), the
-// language model (a hosted bridge runs without one), and the bridge's own
-// keys, origins and tokens.
+// language model (a hosted bridge runs without one), portal passwords (a
+// hosted image has no browser to log in with), and the bridge's own keys,
+// origins and tokens.
 
 /** The sealed settings record. */
 export const HOSTED_SETTINGS_KEY = 'bridge/hosted-settings';
 
 /** The accounts a hosted bridge reads (bridge/src/keychain.js, sort-secrets.mjs). */
-const ACCOUNT =
-	/^(?:imap|kraken|paperless|enablebanking|coingecko|bitcoin|alchemy|portal:[a-z0-9]+(?:-[a-z0-9]+)*)$/;
+const ACCOUNT = /^(?:imap|kraken|paperless|enablebanking|coingecko|bitcoin|alchemy)$/;
 
 /** The parts of bridge.json that belong to these integrations. */
-export const SECTIONS = /** @type {const} */ ([
-	'mail',
-	'portals',
-	'kraken',
-	'paperless',
-	'enablebanking'
-]);
+export const SECTIONS = /** @type {const} */ (['mail', 'kraken', 'paperless', 'enablebanking']);
 
 /** The bridge's own limit for one secret (keychain.js). */
 const MAX_SECRET = 64 * 1024;

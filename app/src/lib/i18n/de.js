@@ -4473,7 +4473,7 @@ export default {
 		hostedSettings: {
 			title: 'Einstellungen für die gehostete Bridge',
 			intro:
-				'Womit eine gehostete Bridge – bei Aleph oder bei Phala über NEAR – neben ihrer Kopplung startet: Mail, Kraken, Paperless, Alchemy, Enable Banking, Portale. Versiegelt in diesen Büchern gehalten und bei jedem Start nur an eine VM übergeben, deren Attestierung hält. Die Bridge auf diesem Rechner behält ihre eigenen und läuft weiter. Nicht hier: Hibiscus (bleibt auf deinem Rechner) und das Sprachmodell (eine gehostete Bridge läuft ohne).',
+				'Womit eine gehostete Bridge – bei Aleph oder bei Phala über NEAR – neben ihrer Kopplung startet: Mail, Kraken, Paperless, Alchemy, Enable Banking. Versiegelt in diesen Büchern gehalten und bei jedem Start nur an eine VM übergeben, deren Attestierung hält. Die Bridge auf diesem Rechner behält ihre eigenen und läuft weiter. Nicht hier: Hibiscus (bleibt auf deinem Rechner), das Sprachmodell (eine gehostete Bridge läuft ohne) und Portale (eine gehostete Bridge hat keinen Browser zum Anmelden).',
 			kept: 'Für die gehostete Bridge gehalten: {names}.',
 			none: 'Noch nichts für die gehostete Bridge gehalten: Sie startet gekoppelt, ohne Konten.',
 			takeOver: 'Von der Bridge auf diesem Rechner übernehmen',
@@ -4495,7 +4495,7 @@ export default {
 			keep: 'Für die gehostete Bridge halten',
 			saved: 'Versiegelt gehalten. Es geht beim nächsten Start mit.',
 			othersHint:
-				'Enable Banking, Portale, CoinGecko und eine Bitcoin-zpub kommen mit, wenn du von der Bridge auf diesem Rechner übernimmst.'
+				'Enable Banking, CoinGecko und eine Bitcoin-zpub kommen mit, wenn du von der Bridge auf diesem Rechner übernimmst.'
 		},
 		hibiscus: {
 			title: 'Hibiscus',
