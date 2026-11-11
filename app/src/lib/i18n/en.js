@@ -363,6 +363,13 @@ export default {
 			noAlephKey:
 				'These books have no Aleph key of their own yet (Integrations → Aleph): it is the VM’s owner.',
 			noRelay: 'None of these books’ relays offers /attest.',
+			alreadyRunning:
+				'A hosted bridge of these books is already running. Stop it first, then start again.',
+			noNode: 'This node cannot start a confidential VM right now. Please choose another.',
+			fewCredits:
+				'Credits are short for the start: Aleph takes the VM only with {needed} credits in reserve (a day at {perHour} credits/h), the books’ Aleph key holds {credits}. Top up under Integrations → Aleph.',
+			noVm: 'These books have no hosted VM running.',
+			noPort: 'The node did not open the VM’s port 443.',
 			deviceLabel: 'Hosted bridge'
 		},
 		nearBridge: {
@@ -917,9 +924,9 @@ export default {
 			},
 			hostedBridge: {
 				name: 'Hosted bridge (Aleph Cloud, confidential VM, AMD)',
-				text: 'Only once you unlock a hosted bridge under Integrations → Bridge: the bridge in a confidential VM (AMD SEV-SNP) on Aleph, which your browser attests first.',
+				text: 'Only once you start or unlock a hosted bridge under Integrations → Bridge: the bridge in a confidential VM (AMD SEV-SNP) on Aleph, which your browser attests first.',
 				leaves:
-					'To Aleph’s API (api2.aleph.im) and IPFS (ipfs.aleph.im): requests for the INSTANCE and for Aleph’s SEV-SNP runtime. To AMD’s key service (kdsintf.amd.com): requests for the processor’s certificate. To the relay with /attest: the encrypted connection to the VM; the relay sees only sizes and times. To the VM itself, only after the attestation holds: the image’s passphrase, the bridge’s key, its peer id, these books’ relays and devices, signed with the books’ Aleph key. After that your devices reach the bridge through the relays and under the VM’s name at 2n6.me. Le Space sees no key.',
+					'To Aleph’s node list (crns-list.aleph.sh): the request for which nodes can start a confidential VM. To Aleph’s API (api2.aleph.im): on start the INSTANCE and the forward of port 443, on stop a FORGET, all signed with the books’ Aleph key and paid from its credits – public on Aleph, as every Aleph message is, with nothing of your books in them. To the node you choose (its operator’s address in Aleph’s list): that it should start the VM, and requests for its state. To Aleph’s API and IPFS (ipfs.aleph.im): requests for the INSTANCE and for Aleph’s SEV-SNP runtime. To AMD’s key service (kdsintf.amd.com): requests for the processor’s certificate. To the relay with /attest: the encrypted connection to the VM; the relay sees only sizes and times. To the VM itself, only after the attestation holds: the image’s passphrase, the bridge’s key, its peer id, these books’ relays and devices, signed with the books’ Aleph key. After that your devices reach the bridge through the relays and under the VM’s name at 2n6.me. Le Space sees no key.',
 				technical:
 					'Before anything is sent the browser checks: the INSTANCE belongs to the books’ Aleph key, boots the published image (its STORE) and pins the measurement the browser computes itself from Aleph’s published runtime and the owner’s address. Then the VM proves that measurement in the RA-TLS handshake (AMD signature, bound to its TLS key) and with a fresh report on a nonce of the browser’s (@le-space/attest-wasm). The secrets land in the VM’s memory, not on its disk; after a restart the browser attests again. What that proves is which image runs, not what it does; there is no independent audit yet.'
 			},
@@ -4341,7 +4348,26 @@ export default {
 			attested: 'Hosted, attested',
 			attestedAt: 'last attested {date}',
 			measurement: 'Measurement:',
+			startTitle: 'Start a new VM',
+			startHint:
+				'The VM belongs to the books’ Aleph key and is paid from its credits. Aleph takes it only with a day in reserve.',
+			node: 'Node',
+			nodesLoading: 'Loading Aleph’s confidential nodes …',
+			nodesNone: 'No node on Aleph offers a confidential VM right now.',
+			nodeTight: '{name} (little room)',
+			start: 'Start',
+			running: 'VM running since {date}',
+			usage: '{hours} h, about {credits} credits ({perHour} credits/h)',
+			usageHours: '{hours} h',
+			stop: 'Stop',
+			stopped: 'Stopped {date}',
+			resume: 'Carry on starting',
+			existing: 'Unlock a VM that is already running',
 			phase: {
+				node: 'Checking the node …',
+				requested: 'Aleph is taking the VM …',
+				network: 'The node is starting the VM, port 443 …',
+				boot: 'The VM is still booting, trying again shortly …',
 				instance: 'Asking Aleph for the INSTANCE …',
 				runtime: 'Loading Aleph’s SEV-SNP runtime …',
 				bundle: 'Loading Aleph’s SEV-SNP runtime …',

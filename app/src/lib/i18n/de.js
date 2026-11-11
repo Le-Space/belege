@@ -379,6 +379,14 @@ export default {
 			noAlephKey:
 				'Diese Bücher haben noch keinen eigenen Aleph-Schlüssel (Integrationen → Aleph): Er ist der Besitzer der VM.',
 			noRelay: 'Keiner der Relays dieser Bücher bietet /attest an.',
+			alreadyRunning:
+				'Es läuft schon eine gehostete Bridge dieser Bücher. Erst stoppen, dann neu starten.',
+			noNode:
+				'Dieser Knoten kann gerade keine vertrauliche VM starten. Bitte einen anderen wählen.',
+			fewCredits:
+				'Für den Start fehlen Credits: Aleph nimmt die VM erst mit {needed} Credits Reserve an (ein Tag zu {perHour} Credits/h), der Aleph-Schlüssel der Bücher hat {credits}. Aufladen unter Integrationen → Aleph.',
+			noVm: 'Diese Bücher haben keine laufende gehostete VM.',
+			noPort: 'Der Knoten hat Port 443 der VM nicht freigegeben.',
 			deviceLabel: 'Gehostete Bridge'
 		},
 		nearBridge: {
@@ -943,9 +951,9 @@ export default {
 			},
 			hostedBridge: {
 				name: 'Gehostete Bridge (Aleph Cloud, vertrauliche VM, AMD)',
-				text: 'Erst wenn du unter Integrationen → Bridge eine gehostete Bridge entsperrst: die Bridge in einer vertraulichen VM (AMD SEV-SNP) bei Aleph, die dein Browser vorher attestiert.',
+				text: 'Erst wenn du unter Integrationen → Bridge eine gehostete Bridge startest oder entsperrst: die Bridge in einer vertraulichen VM (AMD SEV-SNP) bei Aleph, die dein Browser vorher attestiert.',
 				leaves:
-					'An Alephs API (api2.aleph.im) und IPFS (ipfs.aleph.im): Abfragen nach der INSTANCE und nach Alephs SEV-SNP-Laufzeit. An AMDs Schlüsseldienst (kdsintf.amd.com): Abfragen nach dem Zertifikat des Prozessors. An den Relay mit /attest: die verschlüsselte Verbindung zur VM, der Relay sieht nur Größen und Zeiten. An die VM selbst, erst nach bestandener Attestierung: die Passphrase des Images, der Schlüssel der Bridge, ihre Peer-ID, die Relays und die Geräte dieser Bücher, unterschrieben mit dem Aleph-Schlüssel der Bücher. Danach erreichen deine Geräte die Bridge über die Relays und unter dem Namen der VM bei 2n6.me. Le Space sieht dabei keinen Schlüssel.',
+					'An Alephs Knotenliste (crns-list.aleph.sh): die Abfrage, welche Knoten eine vertrauliche VM starten können. An Alephs API (api2.aleph.im): beim Starten die INSTANCE und die Freigabe von Port 443, beim Stoppen ein FORGET, alle signiert mit dem Aleph-Schlüssel der Bücher und bezahlt aus seinen Credits – bei Aleph öffentlich, wie jede Aleph-Nachricht, ohne Inhalt deiner Bücher. An den Knoten, den du wählst (die Adresse seines Betreibers in Alephs Liste): dass er die VM starten soll, und Abfragen nach ihrem Stand. An Alephs API und IPFS (ipfs.aleph.im): Abfragen nach der INSTANCE und nach Alephs SEV-SNP-Laufzeit. An AMDs Schlüsseldienst (kdsintf.amd.com): Abfragen nach dem Zertifikat des Prozessors. An den Relay mit /attest: die verschlüsselte Verbindung zur VM, der Relay sieht nur Größen und Zeiten. An die VM selbst, erst nach bestandener Attestierung: die Passphrase des Images, der Schlüssel der Bridge, ihre Peer-ID, die Relays und die Geräte dieser Bücher, unterschrieben mit dem Aleph-Schlüssel der Bücher. Danach erreichen deine Geräte die Bridge über die Relays und unter dem Namen der VM bei 2n6.me. Le Space sieht dabei keinen Schlüssel.',
 				technical:
 					'Vor dem Senden prüft der Browser: Die INSTANCE gehört dem Aleph-Schlüssel der Bücher, startet das veröffentlichte Image (sein STORE) und nagelt die Messung fest, die der Browser selbst aus Alephs veröffentlichter Laufzeit und der Adresse des Besitzers berechnet. Dann beweist die VM diese Messung im RA-TLS-Handshake (AMD-Signatur, an ihren TLS-Schlüssel gebunden) und mit einem frischen Bericht zu einer Zufallszahl des Browsers (@le-space/attest-wasm). Die Secrets landen im Speicher der VM, nicht auf ihrer Platte; nach einem Neustart attestiert der Browser wieder. Geprüft ist damit, welches Abbild läuft, nicht was es tut; ein unabhängiges Audit gibt es noch nicht.'
 			},
@@ -4399,7 +4407,26 @@ export default {
 			attested: 'Gehostet, attestiert',
 			attestedAt: 'zuletzt attestiert {date}',
 			measurement: 'Messung:',
+			startTitle: 'Neue VM starten',
+			startHint:
+				'Die VM gehört dem Aleph-Schlüssel der Bücher und wird aus seinen Credits bezahlt. Aleph nimmt sie erst mit einem Tag Reserve an.',
+			node: 'Knoten',
+			nodesLoading: 'Lade Alephs vertrauliche Knoten …',
+			nodesNone: 'Gerade bietet kein Knoten bei Aleph eine vertrauliche VM an.',
+			nodeTight: '{name} (wenig frei)',
+			start: 'Starten',
+			running: 'VM läuft seit {date}',
+			usage: '{hours} h, etwa {credits} Credits ({perHour} Credits/h)',
+			usageHours: '{hours} h',
+			stop: 'Stoppen',
+			stopped: 'Gestoppt {date}',
+			resume: 'Weiter starten',
+			existing: 'Eine schon laufende VM entsperren',
 			phase: {
+				node: 'Prüfe den Knoten …',
+				requested: 'Aleph nimmt die VM an …',
+				network: 'Der Knoten startet die VM, Port 443 …',
+				boot: 'Die VM startet noch, versuche es gleich wieder …',
 				instance: 'Frage Aleph nach der INSTANCE …',
 				runtime: 'Lade Alephs SEV-SNP-Laufzeit …',
 				bundle: 'Lade Alephs SEV-SNP-Laufzeit …',

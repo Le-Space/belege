@@ -16,7 +16,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { startFakeAleph } from '@belege/bridge/testing/aleph';
+import {
+	FAKE_CRN,
+	FAKE_INSTANCE_CREDITS_PER_HOUR,
+	startFakeAleph
+} from '@belege/bridge/testing/aleph';
 import {
 	FAKE_POLICY,
 	startFakeAttestAgent,
@@ -107,6 +111,7 @@ test('a device attests and unlocks the hosted bridge, which comes up paired: hos
 	const card = mac.page.getByTestId('hosted-bridge');
 	await expect(card).toBeVisible();
 	await expect(mac.page.getByTestId('hackathon-band')).toContainText('NEAR Hackathon 2026');
+	await mac.page.getByTestId('hosted-bridge-existing').locator('summary').click();
 	await mac.page.getByTestId('hosted-bridge-instance').fill(VM);
 	await mac.page.getByTestId('hosted-bridge-passphrase').fill('not-the-real-passphrase');
 	await mac.page.getByTestId('hosted-bridge-unlock').click();
@@ -227,6 +232,7 @@ test('a VM on another runtime gets nothing, and the card says why', async ({ bro
 			[changedRelay.url, JSON.stringify(published)]
 		);
 		await openIntegration(mac.page, 'bridge');
+		await mac.page.getByTestId('hosted-bridge-existing').locator('summary').click();
 		await mac.page.getByTestId('hosted-bridge-instance').fill(other);
 		await mac.page.getByTestId('hosted-bridge-passphrase').fill('not-the-real-passphrase');
 		await mac.page.getByTestId('hosted-bridge-unlock').click();
@@ -238,5 +244,149 @@ test('a VM on another runtime gets nothing, and the card says why', async ({ bro
 	} finally {
 		await changedRelay.close();
 		await changed.close();
+	}
+});
+
+test('a device starts the hosted bridge on Aleph, short of credits first, and stops it again (#587)', async ({
+	browser
+}) => {
+	test.setTimeout(240_000);
+	const mac = await device(browser);
+	await mac.page.addInitScript(
+		(url) => localStorage.setItem('belege.e2e.alephUrl', url),
+		aleph.url
+	);
+	await mac.page.goto('/');
+	await acceptConsent(mac.page);
+	await mac.page.getByTestId('passkey-label').fill('E2E VM starten');
+	await mac.page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(mac.page.getByTestId('own-did')).toBeVisible();
+	await openIntegration(mac.page, 'geraete');
+	await expect(mac.page.getByTestId('devices-reachable')).toContainText(
+		'über den Relay erreichbar',
+		{ timeout: 30_000 }
+	);
+	const owner = await mac.page.evaluate(() =>
+		/** @type {any} */ (window).__belegeE2E.alephAddress()
+	);
+	const vmAgent = await startFakeAttestAgent({ measurement: PUBLISHED, owner });
+	const vmRelay = await startFakeAttestRelay(vmAgent);
+	/** @type {import('node:child_process').ChildProcess | undefined} */
+	let hostedBridge;
+	let out = '';
+	try {
+		await mac.page.evaluate(
+			([url, pins]) => {
+				localStorage.setItem('belege.e2e.attestUrl', url);
+				localStorage.setItem('belege.e2e.hostedPins', pins);
+			},
+			[vmRelay.url, JSON.stringify(published)]
+		);
+		await openIntegration(mac.page, 'bridge');
+		const node = mac.page.getByTestId('hosted-bridge-node');
+		await expect(node).toHaveValue(FAKE_CRN);
+		await expect(node).toContainText('Fake TEE node');
+
+		// Without a day of credits Aleph would refuse the VM: the card says so, and nothing is asked for.
+		await mac.page.getByTestId('hosted-bridge-start-passphrase').fill('not-the-real-passphrase');
+		await mac.page.getByTestId('hosted-bridge-start').click();
+		await expect(mac.page.getByTestId('hosted-bridge-error')).toContainText('fehlen Credits', {
+			timeout: 30_000
+		});
+		expect(aleph.instances.size).toBe(0);
+		await expect(mac.page.getByTestId('hosted-bridge-start-passphrase')).toHaveValue('');
+
+		aleph.fund(owner, 30 * FAKE_INSTANCE_CREDITS_PER_HOUR);
+		await mac.page.getByTestId('hosted-bridge-start-passphrase').fill('not-the-real-passphrase');
+		await mac.page.getByTestId('hosted-bridge-start').click();
+		await expect
+			.poll(
+				async () => {
+					const error = mac.page.getByTestId('hosted-bridge-error');
+					if (await error.isVisible())
+						throw new Error(`start failed: ${await error.textContent()}`);
+					return mac.page.getByTestId('hosted-bridge-state').isVisible();
+				},
+				{ timeout: 90_000, intervals: [500] }
+			)
+			.toBe(true);
+
+		// The VM Aleph has: the books' key's, the published image and pins, on the chosen node, placed, 443 open.
+		expect(aleph.instances.size).toBe(1);
+		const [[instance, vm]] = [...aleph.instances];
+		expect(vm.status).toBe('processed');
+		expect(vm.placed).toBe(true);
+		expect(vm.content.address.toLowerCase()).toBe(owner.toLowerCase());
+		expect(vm.content.rootfs.parent.ref).toBe(IMAGE);
+		expect(vm.content.requirements.node.node_hash).toBe(FAKE_CRN);
+		expect(vm.content.environment.trusted_execution).toEqual(published);
+		expect(aleph.kept.get(vm.sender)?.['port-forwarding']?.[instance]?.ports?.['443']?.tcp).toBe(
+			true
+		);
+		await expect(mac.page.getByTestId('hosted-bridge-vm')).toContainText('VM läuft seit');
+		await expect(mac.page.getByTestId('hosted-bridge-vm')).toContainText(instance.slice(0, 12));
+		await expect(mac.page.getByTestId('hosted-bridge-usage')).toContainText(
+			`${FAKE_INSTANCE_CREDITS_PER_HOUR.toLocaleString('de-DE')} Credits/h`
+		);
+
+		// Only after the attestation: the passphrase and what pairing needs.
+		expect(vmAgent.received.luks_passphrase).toBe('not-the-real-passphrase');
+		const config = JSON.parse(vmAgent.received.bridge_config);
+		const hostedDir = await mkdtemp(join(tmpdir(), 'belege-e2e-hosted-vm-'));
+		const secretsDir = join(hostedDir, 'secrets');
+		await mkdir(join(hostedDir, 'node'), { recursive: true });
+		await mkdir(secretsDir, { recursive: true });
+		await writeFile(join(secretsDir, 'bridge_auth'), vmAgent.received.bridge_auth);
+		await writeFile(
+			join(hostedDir, 'node', 'peer-key'),
+			Buffer.from(vmAgent.received.bridge_peer_key, 'base64')
+		);
+		await writeFile(
+			join(hostedDir, 'bridge.json'),
+			JSON.stringify({ bridge: { port: 0 }, node: { ...config.node, enabled: true, wsPort: 0 } })
+		);
+		hostedBridge = spawn(
+			process.execPath,
+			[CLI, '--hosted', '--config', join(hostedDir, 'bridge.json')],
+			{
+				env: { ...process.env, BELEGE_BRIDGE_SECRETS_DIR: secretsDir },
+				stdio: ['ignore', 'pipe', 'pipe']
+			}
+		);
+		hostedBridge.stdout?.on('data', (d) => (out += d));
+		hostedBridge.stderr?.on('data', (d) => (out += d));
+
+		// Online: its status comes over the stream.
+		const status = mac.page.getByTestId('bridge-status');
+		await expect
+			.poll(
+				async () => {
+					const route = `${await status.getAttribute('data-state')}/${await status.getAttribute('data-route')}`;
+					if (route !== 'online/stream') await mac.page.getByTestId('bridge-check').click();
+					return route;
+				},
+				{ timeout: 90_000, intervals: [2_000] }
+			)
+			.toBe('online/stream');
+
+		// Stop: Aleph forgets the VM, the card says when, the bridge leaves the devices.
+		await mac.page.getByTestId('hosted-bridge-stop').click();
+		await expect(mac.page.getByTestId('hosted-bridge-vm')).toContainText('Gestoppt', {
+			timeout: 60_000
+		});
+		expect(aleph.instances.get(instance)?.status).toBe('forgotten');
+		await expect(mac.page.getByTestId('hosted-bridge-start')).toBeVisible();
+		await openIntegration(mac.page, 'geraete');
+		await expect(
+			mac.page.getByTestId('devices-item').filter({ hasText: 'Gehostete Bridge' })
+		).toHaveCount(0);
+		await rm(hostedDir, { recursive: true, force: true });
+	} catch (e) {
+		if (out) console.log(out);
+		throw e;
+	} finally {
+		hostedBridge?.kill('SIGTERM');
+		await vmRelay.close();
+		await vmAgent.close();
 	}
 });
