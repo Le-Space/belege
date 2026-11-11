@@ -10,7 +10,9 @@
 //   - any CSV with an account number column (4–8 digits) and a name column,
 //     separated by ; , or tab, with or without a heading line.
 // The bytes are UTF-8 when they decode as such, else Windows-1252 (what DATEV
-// files use). Pure; the result is kept sealed in the settings under `chart`.
+// files use) or Mac Roman (what older Mac programs write), whichever gives
+// more German letters. Pure; the result is kept sealed in the settings under
+// `chart`.
 
 /**
  * @typedef {{ number: string, name: string }} ChartAccount
@@ -28,8 +30,18 @@ export function decodeChartBytes(bytes) {
 	try {
 		return new TextDecoder('utf-8', { fatal: true }).decode(bytes).replace(/^\uFEFF/, '');
 	} catch {
-		return new TextDecoder('windows-1252').decode(bytes);
+		const windows = new TextDecoder('windows-1252').decode(bytes);
+		const mac = new TextDecoder('macintosh').decode(bytes);
+		// Mac Roman read as Windows-1252 turns ä ö ü ß into Š š Ÿ §, and the
+		// other way round they become ‰ ˆ ¸ ﬂ: the right reading is
+		// the one with more umlauts.
+		return germanLetters(mac) > germanLetters(windows) ? mac : windows;
 	}
+}
+
+/** @param {string} text */
+function germanLetters(text) {
+	return (text.match(/[äöüÄÖÜß]/g) ?? []).length;
 }
 
 /**
@@ -124,7 +136,12 @@ export function parseChart(text) {
 	let skipped = 0;
 	for (const r of data) {
 		const number = (r[numberCol] ?? '').replace(/\s/g, '');
-		const name = (r[nameCol] ?? '').replace(/\s+/g, ' ').trim().slice(0, 120);
+		// Some programs repeat the number at the start of the name.
+		let name = (r[nameCol] ?? '').replace(/\s+/g, ' ').trim();
+		if (name.startsWith(`${number} `) || name.startsWith(`${number}-`)) {
+			name = name.slice(number.length).replace(/^\s*[-–:]?\s*/, '');
+		}
+		name = name.slice(0, 120);
 		if (numberCol === -1 || !NUMBER.test(number) || !name) {
 			skipped++;
 			continue;

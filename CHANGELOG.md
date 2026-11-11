@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **A chart of accounts from an older Mac program keeps its umlauts.** "Kontenplan einlesen" read a Mac Roman file as Windows-1252, so ä, ö and ü turned into Š, š and Ÿ. It now takes the reading that gives more umlauts. A name that repeats its account number at the start ("1200 1200 Bank") shows it once. Read the chart in again to correct names already taken.
+
 ## [0.29.7] – 2026-11-11
 
 ### Changed
