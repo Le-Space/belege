@@ -1288,7 +1288,9 @@ export async function startNearHostedBridge({ onPhase = () => {} } = {}) {
 		});
 		// No HTTPS name: the VM on Phala has no inbound route.
 		delete all.https_hostname;
-		return all;
+		// What else it starts with (#728): the accounts and settings kept for a hosted bridge.
+		const { withHostedSettings } = await import('./integrations/hosted-settings.js');
+		return withHostedSettings(all, await keptHostedSettings());
 	};
 
 	const launcher = nb.launcherClient({ books: near.books });
