@@ -115,6 +115,7 @@ On Reisen, and counted on Home and Rückfragen:
 - a train, bus or flight ticket, a hotel, a rental car or another ticket read as such without a trip (not one a proposal covers or that was dismissed);
 - a trip without times, or with gaps – one point per trip, naming what it lacks ("Reise ohne Rückkehr, geschäftlichen Anlass");
 - a hospitality bill without what the law asks for;
+- a trip that does not add up by its receipts (#693): a night without lodging, flat rate or a leg running through it; a ride missing between two legs (one arrives in one place, the next leaves from another); a last leg that ends abroad without a way back ("Wo endet die Geschäftsreise?"); a leg before the departure or after the return. Rules, not AI, on long-distance legs only (train, bus, flight). The trip page names each under _Rückfragen zur Reise_; _Reise endet dort_ sets the return at the last arrival, _Passt so_ keeps the answer on the trip and asks no more. A trip without receipts read as travel is not asked about its nights;
 - a statement not paid out two weeks after it was made.
 
 ## Not yet

@@ -14,6 +14,7 @@ import { matchOfReceipt } from '../matching/view.js';
 import { isOutlay } from '../outlays/outlays.js';
 import { receiptDate } from '../receipts/view.js';
 import { hospitality } from './hospitality.js';
+import { tripChecks } from './checks.js';
 import { cleanTrip } from './records.js';
 import { guessTravel, receiptWords } from './words.js';
 
@@ -409,9 +410,11 @@ export function travelQuestions({ travel, receipts }) {
 		const { problems } = cleanTrip(trip);
 		// One question per trip (#693), naming all it lacks: times first, as no
 		// allowance can be computed without them.
-		const rest = problems.filter(
-			(p) => p !== 'noTimes' && p !== 'endBeforeStart' && p !== 'noTraveller'
-		);
+		const rest = [
+			...problems.filter((p) => p !== 'noTimes' && p !== 'endBeforeStart' && p !== 'noTraveller'),
+			// Where it does not add up (checks.js, #693 b), each kind named once.
+			...new Set(tripChecks(trip, receiptsOfTrip(receipts, trip.id)).map((c) => `check:${c.kind}`))
+		];
 		if (problems.includes('noTimes') || problems.includes('endBeforeStart'))
 			out.push({ kind: 'tripWithoutTimes', tripId: trip.id, problems: rest });
 		else if (rest.length) out.push({ kind: 'tripIncomplete', tripId: trip.id, problems: rest });

@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Questions where a trip does not add up** (#693, part b). By rules on its tickets and hotels, a trip asks about a night without lodging (no hotel, no flat rate, no leg through it), a ride missing between two legs, a last leg ending abroad without a way back ("Wo endet die Geschäftsreise?"), and a leg before the departure or after the return. The trip page lists them under _Rückfragen zur Reise_: _Reise endet dort_ sets the return at the last arrival, _Passt so_ keeps the answer on the trip. On Reisen they join the trip's one open point. Nothing is changed by itself.
+
 ### Changed
 
 - **"Sachkonto in deiner Buchhaltung" offers your chart of accounts.** With a chart read in, the ledger account of each bank account suggests your own accounts as you type, names the one you entered or says it is not in your chart, and no longer shows the SKR 03 placeholder 1200, 1210, … which named other accounts there. Without a chart nothing changes.

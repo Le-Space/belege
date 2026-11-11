@@ -3391,7 +3391,11 @@ export default {
 				noDestination: 'destination',
 				noReason: 'business reason',
 				dayTripTooLong: 'a fitting night away',
-				mileage: 'complete mileage'
+				mileage: 'complete mileage',
+				night: 'lodging for every night',
+				gap: 'a ride between all legs',
+				endsAbroad: 'a settled end abroad',
+				outside: 'all rides within its times'
 			}
 		},
 		proposals: {
@@ -3484,6 +3488,19 @@ export default {
 		questionsElsewhere: 'Travel has open points too: {count}'
 	},
 	reise: {
+		checks: {
+			title: 'Questions about this trip',
+			hint: 'What does not add up by the receipts – by rules, not by AI. Nothing changes by itself; “Passt so” asks no more and holds once saved.',
+			night:
+				'Night of {date} without lodging: is a receipt missing, or was it a night on a train or plane?',
+			gap: 'Between {to} (arrived {at}) and {from} (left {dep}) a ride is missing – by car, on foot, or a ticket missing?',
+			endsAbroad:
+				'The last ride ends in {place} ({at}). Where does the business trip end? What comes after is private.',
+			before: 'The ride of {vendor} on {at} lies before the trip’s departure.',
+			after: 'The ride of {vendor} on {at} lies after the trip’s return.',
+			endHere: 'Trip ends there',
+			ok: 'Passt so'
+		},
 		outlayHint:
 			'Receipts booked as outlays are owed to you on the account “Auslagen Geschäftsführung”: a transfer to you is linked there as their repayment. For a receipt to be paid back with this trip, undo the outlay on the receipt (“Auslage rückgängig machen”) – it then counts in “Zu erstatten”.',
 		paidOutlay: 'booked as an outlay',

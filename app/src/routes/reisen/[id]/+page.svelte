@@ -45,6 +45,7 @@
 	} from '$lib/travel/view.js';
 	import { countryHints, newStops, routeOf } from '$lib/travel/route.js';
 	import { headOffer } from '$lib/travel/proposals.js';
+	import { tripChecks } from '$lib/travel/checks.js';
 	import { matchOfReceipt } from '$lib/matching/view.js';
 	import { lodgingFlat, nightsOf } from '$lib/travel/lodging.js';
 	import { appointmentsOn } from '$lib/travel/appointments.js';
@@ -127,6 +128,26 @@
 	}
 	/** A time as a line: `28.10.2026 05:10`. @param {string} at */
 	const atLine = (at) => `${formatDate(at)} ${at.slice(11, 16)}`;
+
+	// Where the trip does not add up (#693 b): questions, never changes.
+	let checks = $derived.by(() => {
+		const d = /** @type {Record<string, any> | null} */ (draft);
+		return d ? tripChecks(d, receipts) : [];
+	});
+	/** A receipt's vendor, for a question. @param {string} rid */
+	const vendorOf = (rid) => receipts.find((r) => r.id === rid)?.vendor ?? '—';
+	/** "Passt so": this question is asked no more. @param {string} key */
+	function checkOk(key) {
+		if (!draft) return;
+		draft.checked = [...new Set([...(draft.checked ?? []), key])];
+		touch();
+	}
+	/** The business trip ends where the last leg arrives. @param {string} at @param {string} key */
+	function endHere(at, key) {
+		if (!draft) return;
+		draft.end = at;
+		checkOk(key);
+	}
 
 	// Booked as private outlays (#293): paid back through the outlay account, named on their row.
 	let outlayIds = $derived(
@@ -585,6 +606,63 @@
 				></textarea>
 			</label>
 		</section>
+
+		{#if checks.length}
+			<section class={card} aria-labelledby="reise-checks-h" data-testid="reise-checks">
+				<h2 id="reise-checks-h" class="text-sm font-semibold text-heading">
+					{t('reise.checks.title')}
+				</h2>
+				<p class="mt-1 text-xs text-faint">{t('reise.checks.hint')}</p>
+				<ul class="mt-2 space-y-2">
+					{#each checks as c (c.key)}
+						<li
+							class="flex flex-wrap items-center gap-2 text-sm text-text"
+							data-testid="reise-check"
+							data-kind={c.kind}
+						>
+							<span class="min-w-0 flex-1">
+								{#if c.kind === 'night'}
+									{t('reise.checks.night', { date: formatDate(c.date) })}
+								{:else if c.kind === 'gap'}
+									{t('reise.checks.gap', {
+										to: c.after.to.name || '—',
+										at: atLine(c.after.arr),
+										from: c.before.from.name || '—',
+										dep: atLine(c.before.dep)
+									})}
+								{:else if c.kind === 'endsAbroad'}
+									{t('reise.checks.endsAbroad', {
+										place: [c.place, countryName(c.country) ?? c.country]
+											.filter(Boolean)
+											.join(', '),
+										at: atLine(c.at)
+									})}
+								{:else}
+									{t(c.side === 'before' ? 'reise.checks.before' : 'reise.checks.after', {
+										vendor: vendorOf(c.receiptId),
+										at: atLine(c.at)
+									})}
+								{/if}
+							</span>
+							{#if c.kind === 'endsAbroad'}
+								<button
+									type="button"
+									class={btn.secondary}
+									onclick={() => endHere(c.at, c.key)}
+									data-testid="reise-check-end">{t('reise.checks.endHere')}</button
+								>
+							{/if}
+							<button
+								type="button"
+								class={btn.secondary}
+								onclick={() => checkOk(c.key)}
+								data-testid="reise-check-ok">{t('reise.checks.ok')}</button
+							>
+						</li>
+					{/each}
+				</ul>
+			</section>
+		{/if}
 
 		<section class={card} aria-labelledby="reise-abroad-h">
 			<h2 id="reise-abroad-h" class="text-sm font-semibold text-heading">{t('reise.abroad')}</h2>

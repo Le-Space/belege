@@ -3448,7 +3448,11 @@ export default {
 				noDestination: 'Ziel',
 				noReason: 'geschäftlichen Anlass',
 				dayTripTooLong: 'passende Übernachtung',
-				mileage: 'vollständige Kilometer'
+				mileage: 'vollständige Kilometer',
+				night: 'Unterkunft für jede Nacht',
+				gap: 'lückenlose Fahrten',
+				endsAbroad: 'geklärtes Ende im Ausland',
+				outside: 'Fahrten innerhalb der Reisezeit'
 			}
 		},
 		proposals: {
@@ -3541,6 +3545,19 @@ export default {
 		questionsElsewhere: 'Auch bei den Reisen gibt es offene Punkte: {count}'
 	},
 	reise: {
+		checks: {
+			title: 'Rückfragen zur Reise',
+			hint: 'Was nach den Belegen nicht zusammenpasst – nach Regeln, nicht per KI. Nichts wird von selbst geändert; „Passt so“ fragt nicht mehr und gilt nach dem Speichern.',
+			night:
+				'Nacht vom {date} ohne Unterkunft: Fehlt ein Beleg, oder war es eine Nacht im Zug oder Flugzeug?',
+			gap: 'Zwischen {to} (an {at}) und {from} (ab {dep}) fehlt eine Fahrt – mit dem Auto, zu Fuß, oder ein Ticket fehlt?',
+			endsAbroad:
+				'Die letzte Fahrt endet in {place} ({at}). Wo endet die Geschäftsreise? Was danach kommt, ist privat.',
+			before: 'Die Fahrt von {vendor} am {at} liegt vor der Abfahrt der Reise.',
+			after: 'Die Fahrt von {vendor} am {at} liegt nach der Rückkehr der Reise.',
+			endHere: 'Reise endet dort',
+			ok: 'Passt so'
+		},
 		outlayHint:
 			'Als Auslage gebuchte Belege schuldet die Firma dir auf dem Konto „Auslagen Geschäftsführung“: Eine Überweisung an dich wird dort als Erstattung zugeordnet. Soll ein Beleg mit dieser Reise erstattet werden, mach am Beleg die Auslage rückgängig („Auslage rückgängig machen“) – dann steht er unter „Zu erstatten“.',
 		paidOutlay: 'als Auslage gebucht',

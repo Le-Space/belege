@@ -413,7 +413,9 @@
 				: []),
 			...new Set(
 				q.problems.map((p) =>
-					t(`reisen.questions.lack.${p.startsWith('mileage:') ? 'mileage' : p}`)
+					t(
+						`reisen.questions.lack.${p.startsWith('mileage:') ? 'mileage' : p.startsWith('check:') ? p.slice(6) : p}`
+					)
 				)
 			)
 		].join(', ');

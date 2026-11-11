@@ -1106,6 +1106,8 @@ test('border crossings from the tickets: a proposal abroad becomes a trip with i
 	await expect(page.getByTestId('reise-head-proposal')).toHaveCount(0);
 	// Paid privately here: no payment to name, no lone separator before a missing date.
 	await expect(page.getByTestId('reise-receipt').first()).not.toContainText(/^ ?·/);
+	// Every night has its lodging or its flight, every leg leaves where the last arrived, and it ends at home.
+	await expect(page.getByTestId('reise-checks')).toHaveCount(0);
 });
 
 test('a receipt on a trip booked as an outlay: named so, paid back through the outlay account, not here (#693)', async ({
@@ -1175,4 +1177,112 @@ test('a receipt on a trip booked as an outlay: named so, paid back through the o
 	// The statement and the outlay account together: all of it, as nobody else paid.
 	await expect(page.getByTestId('reise-sum-to-you')).toHaveText('228,00 EUR');
 	await expect(page.getByTestId('reise-sum-total')).toHaveText('228,00 EUR');
+});
+
+test('a trip that does not add up asks: a ride missing, the end abroad, a night without lodging – answered with a click (#693 b)', async ({
+	page
+}) => {
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('E2E');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+
+	// A made-up trip: a train to Beispielburg, then a bus from A-Stadt (the ride
+	// between is missing) to Ortshausen (AT), no lodging there, a flight on to
+	// Endhausen (GE), and nothing back. Towns, vendors and codes are invented.
+	await page.evaluate(async () => {
+		const e2e = /** @type {any} */ (window).__belegeE2E;
+		/** @param {string} vendor @param {Record<string, any>} travel */
+		const add = (vendor, travel) =>
+			e2e.addReceipt({
+				source: 'upload',
+				status: 'ausgelesen',
+				currency: 'EUR',
+				fileName: `${vendor}.pdf`,
+				vendor,
+				amountCents: 3000,
+				documentDate: '2026-05-01',
+				extraction: { document_type: 'invoice', gross: 30, vat: [], travel }
+			});
+		await add('Bahn Beispiel', {
+			kind: 'train',
+			from: 'Musterstadt',
+			to: 'Beispielburg',
+			from_country: 'DE',
+			to_country: 'DE',
+			departure: '2026-05-04T06:00',
+			arrival: '2026-05-04T07:00'
+		});
+		await add('Bus Beispiel', {
+			kind: 'bus',
+			from: 'A-Stadt',
+			to: 'Ortshausen',
+			from_country: 'DE',
+			to_country: 'AT',
+			departure: '2026-05-04T08:00',
+			arrival: '2026-05-04T13:00'
+		});
+		await add('Flug Beispiel', {
+			kind: 'flight',
+			from: 'Ortshausen',
+			to: 'Endhausen',
+			from_country: 'AT',
+			to_country: 'GE',
+			from_iata: 'QOA',
+			to_iata: 'QEH',
+			departure: '2026-05-05T10:00',
+			arrival: '2026-05-05T16:00'
+		});
+	});
+
+	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
+	await page.getByTestId('belege-reisen').click();
+	const picker = page.getByTestId('reisen-month');
+	await picker.getByLabel('Monat: Jahr').selectOption('2026');
+	await picker.getByLabel('Monat: Monat').selectOption('05');
+	await page.getByTestId('reisen-proposal-accept').click();
+
+	const checks = page.getByTestId('reise-check');
+	await expect(page.getByTestId('reise-checks')).toBeVisible();
+	await expect(checks).toHaveCount(3);
+	await expect(page.locator('[data-testid="reise-check"][data-kind="gap"]')).toContainText(
+		'Zwischen Beispielburg (an 04.05.2026 07:00) und A-Stadt (ab 04.05.2026 08:00) fehlt eine Fahrt'
+	);
+	const end = page.locator('[data-testid="reise-check"][data-kind="endsAbroad"]');
+	await expect(end).toContainText(
+		'Die letzte Fahrt endet in Endhausen, Georgien (05.05.2026 16:00)'
+	);
+	// The proposal ends the trip with the last arrival: its night is asked.
+	const night = page.locator('[data-testid="reise-check"][data-kind="night"]');
+	await expect(night).toContainText('Nacht vom 04.05.2026 ohne Unterkunft');
+
+	// The business trip ends where the flight lands: the return set there, asked no more.
+	await page.getByTestId('reise-end').fill('');
+	await expect(night).toHaveCount(0);
+	await end.getByTestId('reise-check-end').click();
+	await expect(page.getByTestId('reise-end')).toHaveValue('2026-05-05T16:00');
+	await expect(end).toHaveCount(0);
+	await expect(night).toHaveCount(1);
+
+	// The ride by car, the night with friends: "Passt so", kept once saved.
+	await page
+		.locator('[data-testid="reise-check"][data-kind="gap"]')
+		.getByTestId('reise-check-ok')
+		.click();
+	await night.getByTestId('reise-check-ok').click();
+	await expect(page.getByTestId('reise-checks')).toHaveCount(0);
+	await page.getByTestId('reise-reason').fill('Projekttreffen Beispiel');
+	await page.getByTestId('reise-save').click();
+	await expect(page.getByTestId('reise-saved')).toBeVisible();
+
+	// Away and back: the answers are kept on the trip; Reisen asks nothing of it.
+	await page.getByRole('navigation').getByRole('link', { name: 'Reisen' }).click();
+	await expect(page.getByTestId('reisen-questions')).toHaveCount(0);
+	await picker.getByLabel('Monat: Jahr').selectOption('2026');
+	await picker.getByLabel('Monat: Monat').selectOption('05');
+	await page.getByTestId('reisen-trip').first().click();
+	await expect(page.getByTestId('reise-end')).toHaveValue('2026-05-05T16:00');
+	await expect(page.getByTestId('reise-checks')).toHaveCount(0);
 });
