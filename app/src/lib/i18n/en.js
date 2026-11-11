@@ -393,6 +393,16 @@ export default {
 					'This device has used as many of the language model’s tokens today as the bridge allows one device a day. It goes on tomorrow; the limit is in bridge.json (node.limits).'
 			},
 			llmNotSetUp: 'Reading receipts is not set up on the bridge (pnpm setup:llm).',
+			paperless: {
+				PAPERLESS_UNREACHABLE:
+					'Paperless does not answer ({cause}). Is it running, and is the bridge’s address right? Change it with pnpm setup:paperless on the bridge’s computer.',
+				PAPERLESS_TIMEOUT: 'Paperless did not answer in time. Is it still running? Then try again.',
+				PAPERLESS_AUTH:
+					'Paperless does not accept the API token: run pnpm setup:paperless again on the bridge’s computer.',
+				PAPERLESS_TOO_LARGE: 'The document is larger than 15 MB and is not taken over.',
+				PAPERLESS_NOT_A_RECEIPT:
+					'The document is neither a PDF nor an image, and Paperless has no archive PDF of it.'
+			},
 			grant: {
 				BRIDGE_SCOPE_MISSING:
 					'This device may not do that with the bridge. The device that paired the bridge decides what it may do.',
