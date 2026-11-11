@@ -100,6 +100,16 @@ describe('bridge server', () => {
 		assert.equal(keychain.reads, 0, 'the keychain was not asked');
 	});
 
+	test('the settings export is not there over HTTP, not even with a token (#728)', async () => {
+		for (const headers of [
+			{ origin: APP },
+			{ origin: APP, authorization: 'Bearer ' + 'A'.repeat(43) }
+		]) {
+			const res = await request(port(), '/settings/export', { headers });
+			assert.equal(res.status, 404);
+		}
+	});
+
 	test('pairing: wrong code refused, right code gives a token once, only its hash is stored', async () => {
 		const code = printed.map((l) => /Pairing code[^:]*: (\S+)/.exec(l)?.[1]).find(Boolean);
 		assert.match(String(code), /^[2-9A-Z]{4}-[2-9A-Z]{4}$/);

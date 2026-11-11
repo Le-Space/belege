@@ -420,8 +420,51 @@ export async function startBridge({
 			}
 		: null;
 
+	/**
+	 * What a hosted bridge may take over from this one (#728): the accounts it
+	 * reads in hosted mode and the non-secret settings of the integrations.
+	 * Not Hibiscus (it stays on this computer), not the language model (a
+	 * hosted bridge runs without one), not this bridge's own keys, origins or
+	 * paired tokens. Asked for only over the stream, by the device that paired
+	 * this bridge (commands.js `settings.export`, grants.js).
+	 */
+	async function settingsExport() {
+		/** @type {Record<string, import('./keychain.js').Keychain>} */
+		const accounts = {
+			imap: mailKeychain,
+			kraken: krakenKeychain,
+			paperless: paperlessKeychain,
+			enablebanking: enablebankingKeychain,
+			coingecko: coingeckoKeychain,
+			bitcoin: bitcoinKeychain,
+			alchemy: alchemyKeychain
+		};
+		/** @type {Record<string, string>} */
+		const secrets = {};
+		for (const [account, kc] of Object.entries(accounts)) {
+			try {
+				const value = await kc.read();
+				if (value) secrets[account] = value;
+			} catch {
+				// Not set up here.
+			}
+		}
+		for (const [id, p] of Object.entries(config.portals ?? {})) {
+			if (!(/** @type {any} */ (p)?.passwordStored)) continue;
+			try {
+				const value = await portalKeychain(id).read();
+				if (value) secrets[`portal:${id}`] = value;
+			} catch {
+				// No password here.
+			}
+		}
+		const { mail, portals, kraken, paperless, enablebanking } = config;
+		return { config: { mail, portals, kraken, paperless, enablebanking }, secrets };
+	}
+
 	const bridge = createBridgeServer({
 		config,
+		settingsExport,
 		node: nodeHandle,
 		lanRelay: lanRelay
 			? { addr: lanRelay.addr, stats: lanRelay.stats }

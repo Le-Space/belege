@@ -142,6 +142,22 @@ describe('grants', () => {
 		assert.equal(list.find((g) => g.peerId === A)?.expiresAt, now + 90 * DAY);
 	});
 
+	test('the settings export is for the device that paired the bridge only (#728)', async () => {
+		const grants = createGrants({
+			file: join(dir, 'export.json'),
+			scopes: [...ALL, 'bridge:settings:export']
+		});
+		await grants.adopt([A, B]);
+		await grants.authorize(A, 'bridge:settings:export', { holder: true });
+		await assert.rejects(grants.authorize(B, 'bridge:settings:export'), refused('SCOPE_MISSING'));
+		// Listing the scope for a device does not give it either.
+		await grants.set(new Map([[B, ['bridge:settings:export']]]));
+		await assert.rejects(
+			grants.authorize(B, 'bridge:settings:export', {}),
+			refused('SCOPE_MISSING')
+		);
+	});
+
 	test('limits per device: model calls a minute, tokens a day, backups an hour', async () => {
 		let now = Date.UTC(2026, 0, 1, 12);
 		const grants = createGrants({

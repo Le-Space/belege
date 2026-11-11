@@ -104,6 +104,8 @@ export const LOOPBACK = '127.0.0.1';
  * @param {{ addr: string | null, stats: () => { reservations: number, connections: number } } | null} [options.lanRelay]
  *   the relay for own devices (lan-relay.js): null when not set up, `addr` null when it did not start
  * @param {{ status: () => object, disarm: () => Promise<void> } | null} [options.node] the bridge's libp2p node (node.js, #573)
+ * @param {(() => Promise<{ config: object, secrets: Record<string, string> }>) | null} [options.settingsExport]
+ *   what a hosted bridge may take over (#728); over the stream only, to the device that paired
  * @param {(message: string) => void} [options.log] never gets a secret, bank data, mail or receipt text
  */
 export function createBridgeServer({
@@ -132,6 +134,7 @@ export function createBridgeServer({
 	alephBackup = null,
 	lanRelay = null,
 	node = null,
+	settingsExport = null,
 	log = () => {}
 }) {
 	const allowedOrigins = new Set(config.appOrigins.map((o) => o.replace(/\/$/, '')));
@@ -161,6 +164,7 @@ export function createBridgeServer({
 		lanRelay,
 		portals,
 		node,
+		settingsExport,
 		log
 	});
 
@@ -283,6 +287,8 @@ export function createBridgeServer({
 
 		if (found) {
 			const { command, params } = found;
+			// Only over the stream, to a proved device (stream.js): never to a page.
+			if (command.streamOnly) return send(res, 404, { error: 'not found' });
 			if (command.noOrigin && req.headers.origin !== undefined) {
 				return send(res, 403, { error: 'a share is not for a web page' });
 			}
