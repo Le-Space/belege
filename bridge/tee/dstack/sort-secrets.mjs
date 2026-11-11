@@ -107,7 +107,10 @@ export function hostedConfig(raw) {
 		config.node && typeof config.node === 'object' && !Array.isArray(config.node)
 			? config.node
 			: {};
-	const { llm: _llm, ...rest } = config;
+	// No model in a hosted bridge (#251); no LAN relay and no paired tokens of
+	// a computer's bridge (settings taken over, #728). Change both together
+	// with bridge/rootfs/files/belege-bridge-run.
+	const { llm: _llm, lanRelay: _lanRelay, pairedTokens: _pairedTokens, ...rest } = config;
 	return {
 		...rest,
 		bridge: { ...bridge, port: 8765 },
