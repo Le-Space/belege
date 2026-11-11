@@ -409,6 +409,17 @@ export default {
 					'Dieses Gerät hat heute so viele Tokens des Sprachmodells verbraucht, wie die Bridge einem Gerät am Tag erlaubt. Morgen geht es weiter; die Grenze steht in bridge.json (node.limits).'
 			},
 			llmNotSetUp: 'Das Auslesen ist auf der Bridge nicht eingerichtet (pnpm setup:llm).',
+			paperless: {
+				PAPERLESS_UNREACHABLE:
+					'Paperless antwortet nicht ({cause}). Läuft es, und stimmt die Adresse der Bridge? Ändern mit pnpm setup:paperless auf dem Rechner der Bridge.',
+				PAPERLESS_TIMEOUT:
+					'Paperless hat nicht rechtzeitig geantwortet. Läuft es noch? Dann noch einmal versuchen.',
+				PAPERLESS_AUTH:
+					'Paperless nimmt den API-Token nicht an: pnpm setup:paperless auf dem Rechner der Bridge erneut ausführen.',
+				PAPERLESS_TOO_LARGE: 'Das Dokument ist größer als 15 MB und wird nicht übernommen.',
+				PAPERLESS_NOT_A_RECEIPT:
+					'Das Dokument ist weder PDF noch Bild, und Paperless hat kein Archiv-PDF davon.'
+			},
 			grant: {
 				BRIDGE_SCOPE_MISSING:
 					'Dieses Gerät darf das an der Bridge nicht. Das Gerät, das die Bridge gekoppelt hat, legt fest, was es darf.',

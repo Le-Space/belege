@@ -44,6 +44,14 @@ export const LLM_REFUSALS = new Set([
 	// The bridge's own limit for this device: the model's tokens for today (#579).
 	'BRIDGE_LLM_DAY'
 ]);
+/** The bridge's codes for a Paperless that cannot be used (bridge/src/paperless.js), each with its own message. */
+const PAPERLESS_ERRORS = new Set([
+	'PAPERLESS_UNREACHABLE',
+	'PAPERLESS_TIMEOUT',
+	'PAPERLESS_AUTH',
+	'PAPERLESS_TOO_LARGE',
+	'PAPERLESS_NOT_A_RECEIPT'
+]);
 /** What the bridge's node refuses this device (bridge grants.js, #579): said as such. */
 const GRANT_REFUSALS = new Set([
 	'BRIDGE_SCOPE_MISSING',
@@ -338,6 +346,11 @@ export function createBridgeClient({
 					402,
 					body
 				);
+			}
+			// Paperless behind the bridge (bridge/src/paperless.js): said in the app's language.
+			if (PAPERLESS_ERRORS.has(body?.code)) {
+				const cause = /\(([A-Z_]+)\)/.exec(String(body?.error ?? ''))?.[1] ?? '';
+				throw failed(t(`messages.bridge.paperless.${body.code}`, { cause }), res.status, body);
 			}
 			if (GRANT_REFUSALS.has(body?.code)) {
 				throw failed(t(`messages.bridge.grant.${body.code}`), res.status, body);
