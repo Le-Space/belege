@@ -21,6 +21,7 @@ import { createDexRates, createRateService } from '@le-space/rates';
 import { createMatchAssist } from './llm/match-assist.js';
 import { createTransferAssist } from './llm/transfer-assist.js';
 import { createVendorAssist } from './llm/vendor-assist.js';
+import { createBookingAssist } from './llm/booking-assist.js';
 import { createKrakenClient, parseKrakenCredentials } from './kraken.js';
 import { createPaperlessClient } from './paperless.js';
 import { createEnableBankingClient, enableBankingSecrets } from './enablebanking.js';
@@ -232,6 +233,9 @@ export async function startBridge({
 		: null;
 	const vendorAssist = llm
 		? createVendorAssist({ llm, redaction: { terms: config.llm.redactTerms, ownDomains, off } })
+		: null;
+	const bookingAssist = llm
+		? createBookingAssist({ llm, redaction: { terms: config.llm.redactTerms, ownDomains, off } })
 		: null;
 	const assist =
 		llm && mail
@@ -486,6 +490,7 @@ export async function startBridge({
 		matchAssist,
 		transferAssist,
 		vendorAssist,
+		bookingAssist,
 		// Reads the keychain entry to see that there is one; the value stays here.
 		llmTee: tee ? tee.status : null,
 		llmKeyPresent: async () => {

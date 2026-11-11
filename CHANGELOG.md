@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **„✦ Konto vorschlagen“ under a payment's „Konto“.** With a bridge paired, the language model reads the payment, its receipt, the accounts Belege has learned for vendors and your chart of accounts (or the SKR 03 list), and suggests up to two accounts from that list with a reason. „Einsetzen“ puts one in the field; nothing is booked until you take it. The text is redacted unless the model runs on your computer or in an attested enclave and `setup:llm` was told not to (bridge `POST /booking/assist`). Docs: [docs/ai.md](docs/ai.md).
+
 ## [0.29.7] – 2026-11-11
 
 ### Changed

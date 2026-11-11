@@ -165,6 +165,7 @@ export function errorJson(error) {
  * @param {any} deps.matchAssist
  * @param {any} deps.transferAssist
  * @param {any} deps.vendorAssist
+ * @param {any} [deps.bookingAssist]
  * @param {ReturnType<typeof import('./shares.js').createShares>} deps.shares
  * @param {any} deps.rates
  * @param {any} deps.kraken
@@ -196,6 +197,7 @@ export function createCommands({
 	matchAssist,
 	transferAssist,
 	vendorAssist,
+	bookingAssist = null,
 	shares,
 	rates,
 	kraken,
@@ -619,6 +621,65 @@ export function createCommands({
 				if (!llm || !vendorAssist) throw notSetUp('LLM');
 				const result = await withExtraTerms(body?.redactTerms, () => vendorAssist.explain(body));
 				log(`vendor notes: ${body.rows.length} row(s), ${result.notes.length} note(s)`);
+				return json(200, result);
+			}
+		},
+		{
+			name: 'llm.booking',
+			method: 'POST',
+			path: '/booking/assist',
+			scope: 'bridge:llm',
+			body: 'json',
+			bodyLimit: MAX_EXTRACT_BODY,
+			run: async ({ body }) => {
+				const b = body?.booking;
+				const r = body?.receipt ?? null;
+				const learned = body?.learned ?? [];
+				const accounts = body?.accounts;
+				/** @param {unknown} x @param {number} max */
+				const opt = (x, max) => x === undefined || x === null || str(x, max);
+				const ok =
+					b &&
+					typeof b === 'object' &&
+					(b.direction === 'in' || b.direction === 'out') &&
+					str(b.amount, 30) &&
+					str(b.day, 10) &&
+					opt(b.account, 200) &&
+					opt(b.counterparty, 200) &&
+					opt(b.purpose, 1000) &&
+					(r === null ||
+						(typeof r === 'object' &&
+							opt(r.vendor, 200) &&
+							opt(r.kind, 60) &&
+							opt(r.vat, 60) &&
+							(r.items === undefined ||
+								(Array.isArray(r.items) &&
+									r.items.length <= 20 &&
+									r.items.every((/** @type {unknown} */ i) => str(i, 200)))))) &&
+					Array.isArray(learned) &&
+					learned.length <= 200 &&
+					learned.every(
+						(/** @type {any} */ l) =>
+							l &&
+							str(l.vendor, 200) &&
+							typeof l.account === 'string' &&
+							/^\d{4,8}$/.test(l.account)
+					) &&
+					Array.isArray(accounts) &&
+					accounts.length >= 1 &&
+					accounts.length <= 600 &&
+					accounts.every(
+						(/** @type {any} */ a) =>
+							a && typeof a.number === 'string' && /^\d{4,8}$/.test(a.number) && str(a.name, 120)
+					);
+				if (!ok) {
+					return json(400, { error: 'a booking and 1–600 accounts are required' });
+				}
+				if (!llm || !bookingAssist) throw notSetUp('LLM');
+				const result = await withExtraTerms(body?.redactTerms, () =>
+					bookingAssist.suggest({ booking: b, receipt: r, learned, accounts })
+				);
+				log(`booking accounts: ${accounts.length} account(s), ${result.picks.length} pick(s)`);
 				return json(200, result);
 			}
 		},

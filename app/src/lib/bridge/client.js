@@ -747,6 +747,15 @@ export function createBridgeClient({
 		 */
 		vendorAssist: (body) => call('/vendor/assist', { method: 'POST', body: withTerms(body) }),
 		/**
+		 * "✦ Konto vorschlagen" on a payment's "Konto": up to two accounts of the
+		 * chart sent, with a reason; the bridge redacts unless the model is local
+		 * or attested.
+		 *
+		 * @param {{ booking: Record<string, any>, receipt: Record<string, any> | null, learned: { vendor: string, account: string }[], accounts: { number: string, name: string }[] }} body
+		 * @returns {Promise<{ picks: { account: string, confidence: 'high' | 'medium' | 'low', reason: string }[], llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
+		 */
+		bookingAssist: (body) => call('/booking/assist', { method: 'POST', body: withTerms(body) }),
+		/**
 		 * A read share for an assistant (issue #124): the snapshot goes to the
 		 * bridge, which keeps it in memory and serves it by its id until it expires.
 		 *

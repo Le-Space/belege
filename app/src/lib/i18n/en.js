@@ -2248,6 +2248,7 @@ export default {
 			'match-assist': 'AI suggestion',
 			'transfer-assist': 'AI counter-booking',
 			'vendor-assist': 'AI vendor account',
+			'booking-assist': 'AI account',
 			'mail-assist': 'Mailbox search'
 		},
 		perReceipt: 'About {tokens} tokens per extracted receipt this month.',
@@ -3058,6 +3059,7 @@ export default {
 			'match-assist': 'AI suggestion for a link',
 			'transfer-assist': 'AI suggestion for a counter-booking',
 			'vendor-assist': 'AI explanation of a vendor account',
+			'booking-assist': 'AI suggestion for an account',
 			matching: 'Matching',
 			decision: 'Decision',
 			export: 'DATEV export',
@@ -3086,6 +3088,7 @@ export default {
 			matchAssist: '{model} · {candidates} receipts checked · {seconds} s · {tokens} tokens',
 			transferAssist: '{model} · {candidates} bookings checked · {seconds} s · {tokens} tokens',
 			vendorAssist: '{model} · {rows} rows checked · {seconds} s · {tokens} tokens',
+			bookingAssist: '{model} · {picks} accounts suggested · {seconds} s · {tokens} tokens',
 			export: 'DATEV export {month}: {bookings} bookings, {receipts} receipts',
 			booksMoved: 'Taken over from other books, packed on {date}: {records} records, {files} files',
 			exportSuspense:
@@ -3168,6 +3171,17 @@ export default {
 		]
 	},
 	booking: {
+		ai: {
+			ask: 'Suggest an account',
+			asking: 'Asking the language model …',
+			hint: "Your bridge's language model reads the payment, the receipt, the accounts you have taught and {chart}, and suggests up to two accounts from it. Nothing is taken until you take it.",
+			chart: 'your chart of accounts',
+			skr03: 'the SKR 03 list',
+			none: 'The language model found no fitting account.',
+			take: 'Use',
+			confidence: { high: 'sure', medium: 'likely', low: 'unsure' },
+			sent: 'Sent to the language model'
+		},
 		feeRule: {
 			apply: 'Use for all network fees',
 			applyTitle:
@@ -3229,7 +3243,7 @@ export default {
 		technical: [
 			'The confirmation is stored on the payment itself: booking = { account, taxKey, confirmedAt }, sealed like every record.',
 			'Suggestions in this order: own transfer → 1360, bank fee → 4970 (both without a key), otherwise the account you last gave this vendor (partners: account, taxKey – via the vendor on the receipt or the counterparty on the bank statement).',
-			'The BU key comes from the read receipt: VAT 19 % → 9 (income 3), 7 % → 8 (income 2), reverse_charge → 94; the keys can be changed under Settings → Bookkeeping. None of this asks a language model.'
+			'The BU key comes from the read receipt: VAT 19 % → 9 (income 3), 7 % → 8 (income 2), reverse_charge → 94; the keys can be changed under Settings → Bookkeeping. None of this asks a language model – only "✦ Suggest an account" asks your bridge\'s language model, on your click (POST /booking/assist); the text is redacted unless the model runs on your computer or in an attested enclave (TEE).'
 		]
 	},
 	export: {
