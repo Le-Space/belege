@@ -381,6 +381,14 @@ export default {
 			noRelay: 'Keiner der Relays dieser Bücher bietet /attest an.',
 			deviceLabel: 'Gehostete Bridge'
 		},
+		nearBridge: {
+			noKey: 'Diese Bücher haben noch kein NEAR-Konto: Das Gerät des Besitzers legt es an.',
+			notFunded:
+				'Das NEAR-Konto der Bücher hat noch kein NEAR. Schick ihm zuerst etwas Testnet-NEAR (0,1 reicht).',
+			noRelay:
+				'Diese Bücher nutzen noch keinen Relay: Die Bridge auf Phala ist nur über einen erreichbar.',
+			deviceLabel: 'Gehostete Bridge (Phala, NEAR)'
+		},
 		bridge: {
 			unreachable:
 				'Die Bridge ist nicht erreichbar. Läuft sie (pnpm bridge)? Ob sie diese Seite hereinlässt, sagt „Status prüfen“ unter Integrationen → Bridge.',
@@ -940,6 +948,14 @@ export default {
 					'An Alephs API (api2.aleph.im) und IPFS (ipfs.aleph.im): Abfragen nach der INSTANCE und nach Alephs SEV-SNP-Laufzeit. An AMDs Schlüsseldienst (kdsintf.amd.com): Abfragen nach dem Zertifikat des Prozessors. An den Relay mit /attest: die verschlüsselte Verbindung zur VM, der Relay sieht nur Größen und Zeiten. An die VM selbst, erst nach bestandener Attestierung: die Passphrase des Images, der Schlüssel der Bridge, ihre Peer-ID, die Relays und die Geräte dieser Bücher, unterschrieben mit dem Aleph-Schlüssel der Bücher. Danach erreichen deine Geräte die Bridge über die Relays und unter dem Namen der VM bei 2n6.me. Le Space sieht dabei keinen Schlüssel.',
 				technical:
 					'Vor dem Senden prüft der Browser: Die INSTANCE gehört dem Aleph-Schlüssel der Bücher, startet das veröffentlichte Image (sein STORE) und nagelt die Messung fest, die der Browser selbst aus Alephs veröffentlichter Laufzeit und der Adresse des Besitzers berechnet. Dann beweist die VM diese Messung im RA-TLS-Handshake (AMD-Signatur, an ihren TLS-Schlüssel gebunden) und mit einem frischen Bericht zu einer Zufallszahl des Browsers (@le-space/attest-wasm). Die Secrets landen im Speicher der VM, nicht auf ihrer Platte; nach einem Neustart attestiert der Browser wieder. Geprüft ist damit, welches Abbild läuft, nicht was es tut; ein unabhängiges Audit gibt es noch nicht.'
+			},
+			nearBridge: {
+				name: 'Gehostete Bridge auf Phala (Intel TDX), über NEAR – Testnet',
+				text: 'Erst wenn du sie unter Integrationen → Bridge startest: die Bridge in einer vertraulichen VM bei Phala, gestartet über einen Vertrag auf dem NEAR-Testnet, der die Attestierung der VM prüft, bevor dein Browser ihr etwas schickt.',
+				leaves:
+					'An einen NEAR-RPC (rpc.testnet.fastnear.com): das NEAR-Konto deiner Bücher (eigens für sie angelegt, nicht deine Wallet), sein Guthaben, die Ansicht des Vertrags sowie Start und Stopp, signiert mit dem Schlüssel dieses Kontos – auf NEAR öffentlich, wie jede Transaktion. An den Launcher von Le Space (bridge-launcher.le-space.de): der Start, an die VM verschlüsselt, sodass der Launcher ihn nicht lesen kann, und nach der Attestierung, womit die Bridge startet – ihr Schlüssel dieser Bücher, ihr eigener Peer-Schlüssel, die Relays und deine Geräte –, versiegelt an den eigenen Schlüssel der VM; beides signiert mit dem NEAR-Schlüssel der Bücher. Der Launcher legt die VM bei Phala mit dem Konto von Le Space an und löscht sie wieder; er sieht keinen Schlüssel. Danach erreichen deine Geräte die Bridge über die Relays.',
+				technical:
+					'Vor dem Start prüft der Browser die Signatur von Phalas Schlüsseldienst (KMS, sein Schlüssel hier festgenagelt) über den Env-Schlüssel der VM. Der Vertrag prüft das TDX-Quote der VM (Intel DCAP), die Messungen und den Compose-Hash, die der Besitzer freigegeben hat, die Maschine und den Hash des Intake-Schlüssels der VM in den Berichtsdaten des Quotes; nur für diesen Schlüssel versiegelt der Browser die Secrets (X25519, HKDF-SHA256, AES-256-GCM, gebunden an die Bücher und den Start). Die VM steht vorerst in Phalas Region US-West. Geprüft ist damit, welches Abbild läuft, nicht was es tut; ein unabhängiges Audit gibt es noch nicht.'
 			},
 			deepseek: {
 				name: 'Sprachmodell – voreingestellt DeepSeek, oder LibertAI vertraulich (Belege auslesen, KI-Suche)',
@@ -4395,8 +4411,32 @@ export default {
 			band: {
 				title: 'NEAR Hackathon 2026',
 				text: 'Dieses Projekt ist während des Hackathons entstanden.',
-				small: 'PROTOTYP · NOCH NICHT AUDITIERT · AGPL-3.0',
+				small: 'PILOTBETRIEB · AGPL-3.0',
 				close: 'Hinweis schließen'
+			}
+		},
+		nearBridge: {
+			title: 'Gehostete Bridge auf Phala, über NEAR',
+			intro:
+				'Die Bridge in einer vertraulichen VM (Intel TDX) bei Phala, gestartet und gestoppt über einen Vertrag auf NEAR. Der Vertrag prüft die Attestierung der VM – die Signatur der Hardware, das gemessene Image und die Maschine –, und erst dann versiegelt dieser Browser, womit die Bridge startet, an den eigenen Schlüssel der VM: ihren Schlüssel dieser Bücher, ihren eigenen Peer-Schlüssel, die Relays und deine Geräte. Im selben Schritt ist sie mit diesen Büchern gekoppelt. Le Space startet die VM und sieht keinen Schlüssel.',
+			testnet: 'NEAR-Testnet, ein Prototyp für den NEAR-Hackathon: nur Testdaten.',
+			account: 'NEAR-Konto der Bücher',
+			balance: 'Guthaben',
+			notFunded: 'noch nicht aufgeladen',
+			fund: 'Schick diesem Konto etwas Testnet-NEAR (0,1 reicht). Es bezahlt das Gas und einmalig 0,01 NEAR Speicher beim Vertrag.',
+			state: 'Bridge',
+			attested: 'läuft, attestiert',
+			pending: 'Anfrage offen: {kind}',
+			start: 'Starten und koppeln',
+			stop: 'Stoppen',
+			stopping: 'Wird gestoppt: Der Vertrag vergisst die VM, Le Space löscht sie …',
+			refresh: 'Aktualisieren',
+			phase: {
+				requested: 'auf NEAR angefragt',
+				provisioned: 'VM bereitgestellt',
+				booting: 'startet',
+				attested: 'attestiert',
+				secretsHandedOver: 'gekoppelt'
 			}
 		},
 		hibiscus: {

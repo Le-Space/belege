@@ -86,7 +86,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     airport codes (#693).
 // 42: the hosted bridge (#585): Aleph's API and IPFS, AMD's key service, the
 //     relay's /attest and the VM at 2n6.me, attested before it gets a secret.
-export const CONSENT_VERSION = '42';
+// 43: the hosted bridge on Phala through NEAR (#696): a NEAR RPC and Le
+//     Space's launcher, the secrets sealed to the VM the contract attested.
+export const CONSENT_VERSION = '43';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 
