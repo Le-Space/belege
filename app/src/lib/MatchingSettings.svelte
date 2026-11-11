@@ -23,7 +23,7 @@
 		LEGAL_FORMS,
 		suggestedLedgerAccount
 	} from './booking/settings.js';
-	import { isAccountNumber } from './booking/skr03.js';
+	import { catalogueAccount, isAccountNumber } from './booking/skr03.js';
 	import { aliasLabel } from './matching/partners.js';
 	import { list, t } from './i18n/index.js';
 
@@ -444,18 +444,31 @@
 								>{t('anweisungen.books.ledger')}:
 								<span class="font-medium text-heading">{accountLabel(a)}</span></span
 							>
+							<!-- With a chart read in, the person's own accounts are offered and
+							     the SKR 03 placeholder is left out: it named other accounts. -->
 							<input
 								class="{input} w-32 font-mono"
 								inputmode="numeric"
+								autocomplete="off"
+								list={chart ? 'ledger-chart' : undefined}
 								bind:value={ledgers[a.id]}
-								placeholder={suggestedLedgerAccount(i)}
+								placeholder={chart ? '' : suggestedLedgerAccount(i)}
 								data-testid="ledger-account"
 								data-account={a.ibanLast4}
 							/>
+							{#if chart && isAccountNumber(ledgers[a.id] ?? '')}
+								{@const own = catalogueAccount(ledgers[a.id], chart)}
+								<span
+									class="mt-1 text-xs {own ? 'text-text' : 'text-danger'}"
+									data-testid="ledger-account-name">{own ? own.name : t('booking.notInChart')}</span
+								>
+							{/if}
 							<span class="mt-1 text-xs text-faint"
-								>{t('anweisungen.books.ledgerHint', {
-									suggestion: suggestedLedgerAccount(i)
-								})}</span
+								>{chart
+									? t('anweisungen.books.ledgerHintChart', { count: chart.accounts.length })
+									: t('anweisungen.books.ledgerHint', {
+											suggestion: suggestedLedgerAccount(i)
+										})}</span
 							>
 						</label>
 					</li>
@@ -463,6 +476,13 @@
 					<li class="text-faint">{t('anweisungen.books.noAccounts')}</li>
 				{/each}
 			</ul>
+			{#if chart}
+				<datalist id="ledger-chart">
+					{#each chart.accounts as c (c.number)}
+						<option value={c.number}>{c.number} {c.name}</option>
+					{/each}
+				</datalist>
+			{/if}
 			<div class="mt-3 flex flex-wrap items-end gap-3">
 				<label class="flex flex-col">
 					<span class="text-faint">{t('anweisungen.books.consultant')}</span>

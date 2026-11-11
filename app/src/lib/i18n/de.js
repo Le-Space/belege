@@ -2622,6 +2622,8 @@ export default {
 			ledger: 'Sachkonto in deiner Buchhaltung',
 			ledgerHint:
 				'Das Sachkonto, unter dem dieses Bankkonto in deiner Buchhaltung geführt wird. Vorschlag nach SKR 03: {suggestion} – nur ein Platzhalter, trag die Nummer aus deiner Buchhaltung ein.',
+			ledgerHintChart:
+				'Das Sachkonto, unter dem dieses Bankkonto in deiner Buchhaltung geführt wird. Tipp Nummer oder Bezeichnung – die Vorschläge kommen aus deinem eingelesenen Kontenplan ({count} Konten).',
 			noAccounts: 'Noch keine Bankkonten in den Büchern.',
 			vatPeriod: 'Umsatzsteuer-Voranmeldung',
 			vatPeriods: { quarter: 'vierteljährlich', month: 'monatlich' },
