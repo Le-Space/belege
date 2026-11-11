@@ -10,6 +10,10 @@ All notable changes to Le Space Belege. The format follows
 
 - **„✦ Konto vorschlagen“ under a payment's „Konto“.** With a bridge paired, the language model reads the payment, its receipt, the accounts Belege has learned for vendors and your chart of accounts (or the SKR 03 list), and suggests up to two accounts from that list with a reason. „Einsetzen“ puts one in the field; nothing is booked until you take it. The text is redacted unless the model runs on your computer or in an attested enclave and `setup:llm` was told not to (bridge `POST /booking/assist`). Docs: [docs/ai.md](docs/ai.md).
 
+### Changed
+
+- **"Sachkonto in deiner Buchhaltung" offers your chart of accounts.** With a chart read in, the ledger account of each bank account suggests your own accounts as you type, names the one you entered or says it is not in your chart, and no longer shows the SKR 03 placeholder 1200, 1210, … which named other accounts there. Without a chart nothing changes.
+
 ## [0.29.7] – 2026-11-11
 
 ### Changed
