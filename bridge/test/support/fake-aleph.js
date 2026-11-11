@@ -44,6 +44,22 @@
 //   GET  /api/v0/aggregates/<address>.json?keys=corechannel  Aleph's core channel
 //                          nodes, as `holders()` set them
 //
+// For the hosted bridge's VM (#587), Aleph as far as a start and a stop need it,
+// with one confidential node served from the same port:
+//   POST /api/v0/messages  an INSTANCE signed by its `address`, paid in credits:
+//                          processed when the account holds a day of the VM
+//                          (FAKE_INSTANCE_CREDITS_PER_HOUR), otherwise
+//                          `rejected` with error 6. A FORGET of it by the same
+//                          address makes it `forgotten`, and the node drops it.
+//   GET  /api/v0/messages/<item hash>   the INSTANCE with its content and status
+//   POST /api/v0/price/estimate   the VM's price, per second
+//   GET  /crns.json        Aleph's node list: the fake node (FAKE_CRN), at this
+//                          server's address, confidential, with room
+//   POST /control/allocation/notify   the node places a processed INSTANCE;
+//                          503 for one it does not know yet
+//   GET  /v2/about/executions/list   what the node runs, with 443 mapped once
+//                          the owner's `port-forwarding` aggregate names it
+//
 // And, for "Wer hält es?" (app backup/holders.js), what the public services
 // beside Aleph answer, as `holders()` set them:
 //   GET  /routing/v1/providers/<cid>   the peers announcing a CID, as NDJSON
@@ -78,6 +94,15 @@ import { unixfsCid } from '@le-space/orbitdb-storage-bridge/backends/aleph-uploa
 
 import { toChecksumAddress } from '@le-space/chains/evm';
 import { addressOf } from '../../src/aleph-backup.js';
+
+/** The fake confidential node's hash. */
+export const FAKE_CRN = 'c'.repeat(64);
+
+/** What the fake charges for a hosted bridge's VM, per hour. */
+export const FAKE_INSTANCE_CREDITS_PER_HOUR = 1800;
+
+/** The host port the fake node maps the VM's 443 to. */
+export const FAKE_MAPPED_443 = 24443;
 
 /** The Aleph account a backup key pays from, for a spec that funds it. */
 export const alephAccountOf = addressOf;
@@ -164,6 +189,13 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 	const kept = new Map();
 	/** The FORGET messages taken, by item hash. @type {Map<string, { status: string, errorCode?: number }>} */
 	const forgets = new Map();
+	/**
+	 * The INSTANCE messages taken, by item hash; `placed` once the node was told.
+	 * @type {Map<string, { status: string, errorCode?: number, content: any, sender: string, time: number, placed: boolean }>}
+	 */
+	const instances = new Map();
+	/** This server's own address, the fake node's too; set once it listens. */
+	let self = '';
 	/** How the IPFS host answers a preflight (see the head of this file). */
 	const cors = {
 		uploadPreflight: true,
@@ -473,6 +505,60 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 				return answer(status);
 			}
 
+			if (m?.type === 'INSTANCE') {
+				const shapeOk =
+					hashOk &&
+					m.chain === 'ETH' &&
+					m.item_type === 'inline' &&
+					typeof m.channel === 'string' &&
+					content?.address === m.sender &&
+					content?.payment?.type === 'credit' &&
+					/^[0-9a-f]{64}$/.test(content?.rootfs?.parent?.ref ?? '') &&
+					Array.isArray(content?.environment?.trusted_execution?.measurements);
+				if (!shapeOk) return reply(422, { error: 'not an INSTANCE this fake takes' });
+				/** @type {{ status: string, errorCode?: number }} */
+				let verdict = { status: 'processed' };
+				if (!signatureOk) verdict = { status: 'rejected', errorCode: 0 };
+				else {
+					const credits = accounts[toChecksumAddress(m.sender)]?.balance ?? 0;
+					if (credits < 24 * FAKE_INSTANCE_CREDITS_PER_HOUR) {
+						verdict = { status: 'rejected', errorCode: 6 };
+					}
+				}
+				instances.set(m.item_hash, {
+					...verdict,
+					content,
+					sender: m.sender,
+					time: m.time,
+					placed: false
+				});
+				return answer(verdict.status);
+			}
+			if (
+				m?.type === 'FORGET' &&
+				content?.hashes?.some((/** @type {string} */ h) => instances.has(h))
+			) {
+				const own =
+					hashOk &&
+					signatureOk &&
+					content.address === m.sender &&
+					content.hashes.every(
+						(/** @type {string} */ h) =>
+							toChecksumAddress(
+								instances.get(h)?.sender ?? '0x0000000000000000000000000000000000000000'
+							) === toChecksumAddress(m.sender)
+					);
+				const verdict = own ? { status: 'processed' } : { status: 'rejected', errorCode: 3 };
+				if (own) {
+					for (const h of content.hashes) {
+						const vm = instances.get(h);
+						if (vm) Object.assign(vm, { status: 'forgotten', placed: false });
+					}
+				}
+				forgets.set(m.item_hash, verdict);
+				return answer(verdict.status);
+			}
+
 			if (m?.type === 'FORGET') {
 				const shapeOk =
 					hashOk &&
@@ -517,6 +603,60 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 			const verdict = takeStore(m, content, { hashOk, signatureOk });
 			if (!verdict) return reply(422, { error: 'not a STORE message this fake takes' });
 			return answer(verdict.status);
+		}
+		if (req.method === 'POST' && url.pathname === '/api/v0/price/estimate') {
+			return reply(200, { cost: String(FAKE_INSTANCE_CREDITS_PER_HOUR / 3600) });
+		}
+		if (req.method === 'GET' && url.pathname === '/crns.json') {
+			return reply(200, {
+				crns: [
+					{
+						hash: FAKE_CRN,
+						name: 'Fake TEE node',
+						address: self,
+						score: 0.9,
+						confidential_support: true,
+						system_usage: {
+							active: true,
+							cpu: { count: 8, load_average: { load1: 0.5 } },
+							mem: { available_kB: 8 * 1024 * 1024 },
+							disk: { available_kB: 100 * 1024 * 1024 }
+						}
+					}
+				]
+			});
+		}
+		if (req.method === 'POST' && url.pathname === '/control/allocation/notify') {
+			/** @type {Buffer[]} */ const chunks = [];
+			for await (const c of req) chunks.push(c);
+			let asked = '';
+			try {
+				asked = String(JSON.parse(Buffer.concat(chunks).toString('utf8'))?.instance ?? '');
+			} catch {
+				return reply(400, { error: 'not JSON' });
+			}
+			const vm = instances.get(asked);
+			if (!vm || vm.status !== 'processed')
+				return reply(503, { error: 'Node hash not yet discovered' });
+			if (vm.content?.requirements?.node?.node_hash !== FAKE_CRN) {
+				return reply(400, { error: 'not for this node' });
+			}
+			vm.placed = true;
+			return reply(200, { success: true });
+		}
+		if (req.method === 'GET' && url.pathname === '/v2/about/executions/list') {
+			/** @type {Record<string, any>} */
+			const list = {};
+			for (const [hash, vm] of instances) {
+				if (!vm.placed) continue;
+				const forwards = kept.get(toChecksumAddress(vm.sender))?.['port-forwarding'];
+				const open = forwards?.[hash]?.ports?.['443']?.tcp === true;
+				list[hash] = {
+					running: true,
+					networking: { mapped_ports: open ? { 443: { host: FAKE_MAPPED_443, tcp: true } } : {} }
+				};
+			}
+			return reply(200, list);
 		}
 		if (
 			req.method === 'GET' &&
@@ -649,6 +789,21 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 		}
 		const aggregate = msg && aggregates.get(msg[1]);
 		if (aggregate) return reply(200, { status: aggregate.status, item_hash: msg[1] });
+		const vm = msg && instances.get(msg[1]);
+		if (vm) {
+			return reply(200, {
+				status: vm.status,
+				item_hash: msg[1],
+				...(vm.errorCode !== undefined ? { error_code: vm.errorCode } : {}),
+				message: {
+					type: 'INSTANCE',
+					item_hash: msg[1],
+					sender: vm.sender,
+					time: vm.time,
+					content: vm.content
+				}
+			});
+		}
 		const forget = msg && forgets.get(msg[1]);
 		if (forget) {
 			return reply(200, {
@@ -668,8 +823,11 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 	});
 	await new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(undefined)));
 	const { port } = /** @type {import('node:net').AddressInfo} */ (server.address());
+	self = `http://127.0.0.1:${port}`;
 	return {
-		url: `http://127.0.0.1:${port}`,
+		url: self,
+		/** The VMs asked for, by item hash (#587). */
+		instances,
 		calls,
 		added,
 		stores,
