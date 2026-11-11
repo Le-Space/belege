@@ -137,7 +137,15 @@ runs as `cli.js --hosted`:
   (made in the browser, kept sealed per VM), its key of the books (`bridge_auth`) and the books'
   devices. The bridge starts armed and paired, with no invitation. Started without them (as by
   the try workflow) it starts unpaired. Its log is the host's, so it prints neither an
-  invitation nor a pairing code there. Starting and stopping it from Belege is #587.
+  invitation nor a pairing code there.
+- **Started and stopped from Belege** (#587): on the same card, "Starten" picks a confidential
+  node from Aleph's node list (crns-list.aleph.sh) and sends the INSTANCE – the published
+  image, the launch measurement computed in the browser for the books' Aleph key – signed by
+  that key, which owns the VM and pays for it from its credits (a day in reserve, as Aleph
+  wants). The browser tells the node, forwards 443, then attests, unlocks and pairs as above;
+  a start that is interrupted carries on from the sealed record. "Stoppen" sends a FORGET, and
+  the node drops the VM. The card shows how long it ran and about what it cost. No Le Space
+  service is involved.
 
 ## Where things are kept
 
