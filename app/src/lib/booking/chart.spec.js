@@ -44,6 +44,17 @@ describe('parseChart', () => {
 		]);
 	});
 
+	it('a name that repeats its number: the number is left out of the name', () => {
+		const chart = parseChart(
+			'Konto;Bezeichnung\n1200;1200 Bank Konto A\n4930;4930 - Bürobedarf\n4000;40 Jahre'
+		);
+		expect(chart.accounts).toEqual([
+			{ number: '1200', name: 'Bank Konto A' },
+			{ number: '4000', name: '40 Jahre' },
+			{ number: '4930', name: 'Bürobedarf' }
+		]);
+	});
+
 	it('nothing to read: no accounts', () => {
 		expect(parseChart('').accounts).toEqual([]);
 		expect(parseChart('Name;Ort\nAnna;Berlin').accounts).toEqual([]);
@@ -58,6 +69,18 @@ describe('decodeChartBytes', () => {
 			0x38, 0x34, 0x30, 0x30, 0x3b, 0x45, 0x72, 0x6c, 0xf6, 0x73, 0x65
 		]);
 		expect(decodeChartBytes(cp1252)).toBe('8400;Erlöse');
+	});
+
+	it('Mac Roman, as older Mac programs write it: the umlauts come out right', () => {
+		// "Saldenvorträge Rückstellungen" in Mac Roman: ä = 0x8A, ü = 0x9F.
+		const mac = Uint8Array.from([
+			...Buffer.from('0860;Saldenvortr'),
+			0x8a,
+			...Buffer.from('ge R'),
+			0x9f,
+			...Buffer.from('ckstellungen')
+		]);
+		expect(decodeChartBytes(mac)).toBe('0860;Saldenvorträge Rückstellungen');
 	});
 });
 
