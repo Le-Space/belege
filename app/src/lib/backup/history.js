@@ -27,6 +27,7 @@ export const KEEP = 50;
  * @property {string} status Aleph's: `processed` is kept, `pending` not yet,
  *   `rejected`, or `unknown` when Aleph does not know the STORE (keeper.js `storeStatus`)
  * @property {string} [itemHash] the STORE message
+ * @property {number} [errorCode] Aleph's, for a refused STORE (4: it could not fetch the file)
  * @property {string} [address] the Aleph account that pays
  * @property {string} [sender] who signed the STORE: this browser's key, or the bridge's
  * @property {string} [by] made by a member (#613): their write identity; absent: by the owner

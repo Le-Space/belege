@@ -764,7 +764,9 @@ export function createCommands({
 						ingestUrl: alephBackup.ingestUrl,
 						gateways: alephBackup.gateways,
 						// Where the app signs and lists for itself (keeper.js); tests: a fake.
-						apiHost: alephBackup.apiHost
+						apiHost: alephBackup.apiHost,
+						// `POST /backup/aleph` takes an increment's `ref`: the app may upload through it.
+						putRef: true
 					}
 				});
 			}
@@ -819,9 +821,11 @@ export function createCommands({
 				}
 				const sealed = /** @type {Uint8Array} */ (body);
 				if (sealed.length === 0) return json(400, { error: 'the backup is empty' });
+				// An increment names its full backup: into the STORE, so the chain is found by `refs=`.
+				const ref = query.get('ref') ?? undefined;
 				let kept;
 				try {
-					kept = await alephBackup.put(new Uint8Array(sealed), { name });
+					kept = await alephBackup.put(new Uint8Array(sealed), { name, ...(ref ? { ref } : {}) });
 				} catch (error) {
 					throw alephBackupError(error);
 				}

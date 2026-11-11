@@ -39,6 +39,7 @@
 		creditsPerDay,
 		createBackupUploader,
 		ensureBackupKey,
+		FILE_NOT_FOUND,
 		findBackups,
 		forgetChain,
 		isAddress,
@@ -46,7 +47,7 @@
 		keepWithKey,
 		loadOwner,
 		saveOwner,
-		storeStatus
+		storeAnswer
 	} from './keeper.js';
 	// The run itself is the app's (run.svelte.js): it goes on when this card is
 	// left, and the header shows it.
@@ -62,7 +63,7 @@
 	const client = $derived(createBridgeClient({ url, token }));
 
 	let status = $state(
-		/** @type {{ configured: boolean, address?: string, credits?: number | null, ingestUrl?: string, gateways?: string[], apiHost?: string } | null} */ (
+		/** @type {{ configured: boolean, address?: string, credits?: number | null, ingestUrl?: string, gateways?: string[], apiHost?: string, putRef?: boolean } | null} */ (
 			null
 		)
 	);
@@ -502,8 +503,14 @@
 		if (!store) return;
 		for (const b of backups) {
 			if (!b.itemHash || b.status === 'forgotten') continue;
-			const now = await storeStatus({ itemHash: b.itemHash, endpoints }).catch(() => null);
-			if (now && now !== b.status) backups = await updateBackup(store.settings, b, { status: now });
+			const now = await storeAnswer({ itemHash: b.itemHash, endpoints }).catch(() => null);
+			// Why Aleph refused it is kept too: a file it could not fetch cannot be kept again.
+			if (now && (now.status !== b.status || (now.errorCode ?? null) !== (b.errorCode ?? null))) {
+				backups = await updateBackup(store.settings, b, {
+					status: now.status,
+					...(now.errorCode !== undefined ? { errorCode: now.errorCode } : {})
+				});
+			}
 		}
 	}
 
@@ -587,7 +594,14 @@
 			granted: granted === true,
 			endpoints,
 			bridge: bridgeSigns
-				? { keep: (cid, ref, size) => client.alephKeep(cid, ref, size), address: status?.address }
+				? {
+						keep: (cid, ref, size) => client.alephKeep(cid, ref, size),
+						// A bridge that takes an increment's ref uploads too (keeper.js).
+						...(status?.putRef
+							? { put: (bytes, name, ref) => client.alephPut(bytes, name, ref) }
+							: {}),
+						address: status?.address
+					}
 				: null
 		});
 		return runBackup({
@@ -760,14 +774,19 @@
 					: ''}"
 			>
 				{#if b.status === 'unknown'}{t('backup.unknownHint')}{/if}
-				<button
-					type="button"
-					class={button}
-					onclick={() => keepAgain(b)}
-					disabled={Boolean(step) || Boolean(rekeeping) || !canBackUp}
-					data-testid="backup-rekeep"
-					>{rekeeping === b.cid + b.at ? t('backup.step.keeping') : t('backup.rekeep')}</button
-				>
+				{#if b.status === 'rejected' && b.errorCode === FILE_NOT_FOUND}
+					<!-- Aleph never got the file: a new order for it would be refused again. -->
+					<span class="w-full" data-testid="backup-file-gone">{t('backup.fileGone')}</span>
+				{:else}
+					<button
+						type="button"
+						class={button}
+						onclick={() => keepAgain(b)}
+						disabled={Boolean(step) || Boolean(rekeeping) || !canBackUp}
+						data-testid="backup-rekeep"
+						>{rekeeping === b.cid + b.at ? t('backup.step.keeping') : t('backup.rekeep')}</button
+					>
+				{/if}
 			</span>
 		{/if}
 		<details class="w-full" data-testid="backup-row-details">

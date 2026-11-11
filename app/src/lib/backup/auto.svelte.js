@@ -170,6 +170,15 @@ async function context() {
 		bridge: bridgeSigns
 			? {
 					keep: (cid, ref, size) => /** @type {any} */ (client).alephKeep(cid, ref, size),
+					...(status?.putRef
+						? {
+								put: (
+									/** @type {Uint8Array} */ bytes,
+									/** @type {string} */ name,
+									/** @type {string | undefined} */ ref
+								) => /** @type {any} */ (client).alephPut(bytes, name, ref)
+							}
+						: {}),
 					address: status?.address
 				}
 			: null

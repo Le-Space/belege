@@ -672,9 +672,26 @@ export function createBridgeClient({
 		 * bridge's backup key, the account that pays, its credits, where the app
 		 * uploads a backup itself, fetches it back, and signs and lists for itself.
 		 *
-		 * @returns {Promise<{ aleph: { configured: boolean, address?: string, credits?: number | null, ingestUrl?: string, gateways?: string[], apiHost?: string } }>}
+		 * @returns {Promise<{ aleph: { configured: boolean, address?: string, credits?: number | null, ingestUrl?: string, gateways?: string[], apiHost?: string, putRef?: boolean } }>}
 		 */
 		backupStatus: () => call('/backup/status'),
+		/**
+		 * Upload a sealed backup through the bridge: it sends the bytes to Aleph
+		 * with the STORE signed by its backup key in the same request, so Aleph
+		 * keeps them at once. On this computer's bridge only (bytes do not go
+		 * over the stream), up to 256 MiB.
+		 *
+		 * @param {Uint8Array} bytes sealed
+		 * @param {string} name letters, digits, dot, dash, underscore
+		 * @param {string} [ref] an increment's: its full backup's CID
+		 * @returns {Promise<{ cid: string, size: number, address: string, itemHash: string, status: string, ref?: string }>}
+		 */
+		alephPut: (bytes, name, ref) =>
+			call(`/backup/aleph?${new URLSearchParams({ name, ...(ref ? { ref } : {}) })}`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/octet-stream' },
+				body: /** @type {any} */ (bytes)
+			}),
 		/**
 		 * Have Aleph keep a backup the app uploaded to its IPFS host: the bridge
 		 * signs the STORE message with its backup key. An increment names the

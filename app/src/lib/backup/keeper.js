@@ -325,8 +325,8 @@ export async function keepWithKey({
  * @param {Uint8Array | null} params.key this browser's Aleph key
  * @param {boolean} params.granted whether the account lets that key keep backups
  * @param {AlephEndpoints} [params.endpoints]
- * @param {{ keep: (cid: string, ref?: string, size?: number) => Promise<{ itemHash: string, status: string, address?: string, ref?: string }>, address?: string } | null} [params.bridge]
- *   the paired bridge, when it signs instead
+ * @param {{ keep: (cid: string, ref?: string, size?: number) => Promise<{ itemHash: string, status: string, address?: string, ref?: string }>, put?: (bytes: Uint8Array, name: string, ref?: string) => Promise<{ cid: string, itemHash: string, status: string, address: string, ref?: string }>, address?: string } | null} [params.bridge]
+ *   the paired bridge, when it signs instead; with `put`, it uploads too
  * @param {typeof fetch} [params.fetch]
  * @returns {Promise<BackupUploader>}
  */
@@ -343,7 +343,7 @@ export async function createBackupUploader({
 		import('./aleph-signer.js')
 	]);
 	const signs = granted && key ? await backupPin({ owner, key, endpoints, fetch: f }) : null;
-	const backend = createAlephBackend({
+	let backend = createAlephBackend({
 		// With a pin that signs, the storage bridge sends the file to Aleph's API
 		// node with its STORE in the same request (0.28.0), and the node keeps it
 		// at once; the IPFS host is for an upload nothing here can sign for.
@@ -353,10 +353,55 @@ export async function createBackupUploader({
 		...(signs ? { pin: signs } : {}),
 		...(f ? { fetch: f } : {})
 	});
+	// The bridge signs, and can take the bytes: through it, the file goes to
+	// Aleph with its STORE in one request. Uploaded to the IPFS host by the app
+	// and kept by a STORE afterwards, Aleph's nodes have to fetch the file from
+	// the host, which has failed since November 2026 ("File not found"). A
+	// bridge that cannot be given the bytes (another device's, an older one, a
+	// backup above its limit) leaves the two steps.
+	if (!signs && typeof bridge?.put === 'function') {
+		const put = bridge.put;
+		const inner = backend;
+		const direct = inner.putBlob.bind(inner);
+		/** @param {Uint8Array} bytes @param {any} [meta] */
+		const putBlob = async (bytes, meta = {}) => {
+			if (bytes.length <= BRIDGE_PUT_LIMIT) {
+				try {
+					const kept = await put(bytes, String(meta.name ?? 'belege-backup'), meta.ref);
+					return {
+						backend: 'aleph',
+						id: kept.cid,
+						size: bytes.length,
+						...(meta.name ? { name: meta.name } : {}),
+						retained: kept.status === 'processed',
+						status: kept.status,
+						itemHash: kept.itemHash,
+						viaBridge: { address: kept.address, ...(kept.ref ? { ref: kept.ref } : {}) }
+					};
+				} catch (/** @type {any} */ e) {
+					// Not reachable for bytes, or does not know the route: the two steps.
+					if (![0, 401, 403, 404, 405, 413].includes(e?.status)) throw e;
+				}
+			}
+			return direct(bytes, meta);
+		};
+		// The backend is frozen: the same one, with this upload in front.
+		backend = Object.create(inner, { putBlob: { value: putBlob, enumerable: true } });
+	}
 	return {
 		backend,
 		endpoints,
 		async keep(handle, ref) {
+			// The bridge uploaded and kept it in one go: its answer is Aleph's word.
+			if (handle?.viaBridge) {
+				return {
+					itemHash: String(handle.itemHash),
+					status: String(handle.status),
+					sender: handle.viaBridge.address,
+					address: handle.viaBridge.address,
+					...(handle.viaBridge.ref ? { ref: handle.viaBridge.ref } : {})
+				};
+			}
 			// Kept in the same call as the upload: Aleph's word on it is what is left to get.
 			if (handle?.itemHash && key) {
 				const final = await settleKept(
@@ -380,6 +425,9 @@ export async function createBackupUploader({
 		}
 	};
 }
+
+/** What the bridge takes in one upload (bridge/src/aleph-backup.js MAX_BACKUP_BYTES). */
+export const BRIDGE_PUT_LIMIT = 256 * 1024 * 1024;
 
 /** STOREs per page of Aleph's list; the pages are read until the list ends. */
 export const BACKUPS_PAGE = 50;
@@ -515,10 +563,23 @@ export const creditsPerDay = (bytes) => (bytes / 1048576) * CREDITS_PER_MIB_DAY;
  * @returns {Promise<string>}
  */
 export async function storeStatus({ itemHash, endpoints = alephEndpoints(), fetch: f }) {
+	return (await storeAnswer({ itemHash, endpoints, ...(f ? { fetch: f } : {}) })).status;
+}
+
+/** Aleph's error code for a STORE whose file it could not fetch ("File not found"). */
+export const FILE_NOT_FOUND = 4;
+
+/**
+ * The same, with why Aleph refused it (its error code), when it did.
+ *
+ * @param {{ itemHash: string, endpoints?: AlephEndpoints, fetch?: typeof fetch }} params
+ * @returns {Promise<{ status: string, errorCode?: number }>}
+ */
+export async function storeAnswer({ itemHash, endpoints = alephEndpoints(), fetch: f }) {
 	const { messageStatus } = await import('@le-space/orbitdb-storage-bridge/backends/aleph-pin');
-	const { status } = await messageStatus(itemHash, {
+	const { status, errorCode } = await messageStatus(itemHash, {
 		apiHost: endpoints.apiHost,
 		...(f ? { fetch: f } : {})
 	});
-	return status;
+	return { status, ...(Number.isInteger(errorCode) ? { errorCode: Number(errorCode) } : {}) };
 }

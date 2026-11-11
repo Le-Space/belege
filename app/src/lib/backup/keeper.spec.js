@@ -492,6 +492,80 @@ describe('where a backup goes up', () => {
 		expect(handle.status).toBe('processed');
 	});
 
+	it('the bridge signs and takes the bytes: it uploads, with the increment’s ref, and its answer is the keeping', async () => {
+		const { urls, fetchImpl } = recorder();
+		/** @type {any[]} */ const put = [];
+		const uploader = await createBackupUploader({
+			owner: OWNER,
+			key: null,
+			granted: false,
+			endpoints,
+			bridge: {
+				keep: async () => {
+					throw new Error('not asked: the bridge kept it with the upload');
+				},
+				put: async (bytes, name, ref) => {
+					put.push({ size: bytes.length, name, ref });
+					return {
+						cid: 'QmViaBridge',
+						itemHash: 'f'.repeat(64),
+						status: 'processed',
+						address: OWNER,
+						ref
+					};
+				}
+			},
+			fetch: fetchImpl
+		});
+		const handle = await uploader.backend.putBlob(text('sealed'), { name: 'inc-1', ref: 'QmBase' });
+		expect(put).toEqual([{ size: 6, name: 'inc-1', ref: 'QmBase' }]);
+		expect(urls).toEqual([]);
+		expect(await uploader.keep(handle, 'QmBase')).toEqual({
+			itemHash: 'f'.repeat(64),
+			status: 'processed',
+			sender: OWNER,
+			address: OWNER,
+			ref: 'QmBase'
+		});
+	});
+
+	it('a bridge that cannot be given the bytes (not on this computer): the two steps, as before', async () => {
+		const { urls, fetchImpl } = recorder();
+		const uploader = await createBackupUploader({
+			owner: OWNER,
+			key: null,
+			granted: false,
+			endpoints,
+			bridge: {
+				keep: async () => ({ itemHash: 'x', status: 'processed' }),
+				put: async () => {
+					throw Object.assign(new Error('unreachable'), { status: 0 });
+				}
+			},
+			fetch: fetchImpl
+		});
+		const handle = await uploader.backend.putBlob(text('sealed'), { name: 'b' });
+		expect(urls[0]).toBe('https://aleph.test/api/v0/add');
+		expect(/** @type {any} */ (handle).viaBridge).toBeUndefined();
+		// A refusal that is Aleph's, not the way's, is not hidden behind a second try.
+		const refusing = await createBackupUploader({
+			owner: OWNER,
+			key: null,
+			granted: false,
+			endpoints,
+			bridge: {
+				keep: async () => ({ itemHash: 'x', status: 'processed' }),
+				put: async () => {
+					throw Object.assign(new Error('refused'), { status: 402 });
+				}
+			},
+			fetch: fetchImpl
+		});
+		await expect(refusing.backend.putBlob(text('sealed'), { name: 'b' })).rejects.toThrow(
+			'refused'
+		);
+	});
+
 	it('without one (the bridge keeps it): through the IPFS host, as before', async () => {
 		const { urls, fetchImpl } = recorder();
 		const uploader = await createBackupUploader({

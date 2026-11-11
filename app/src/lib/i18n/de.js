@@ -941,7 +941,7 @@ export default {
 				name: 'Backup bei Aleph Cloud',
 				text: 'Wenn eingerichtet und nur auf deinen Klick: alles, was Le Space Belege hält, versiegelt mit einem Schlüssel aus deinem Passkey, als eine Datei bei Aleph Cloud.',
 				leaves:
-					'An Alephs IPFS-Host, direkt aus diesem Browser: die versiegelte Datei (Aleph sieht ihre Größe und die IP-Adresse dieses Computers, nicht den Inhalt). An die Aleph-API: ein unterschriebener Auftrag, der die Datei nennt – vom eigenen Schlüssel dieses Browsers, sobald das Konto der Bridge ihn freigegeben hat, bis dahin von der Bridge; dazu Abfragen der Freigabe, der Credits und der Backups dieses Kontos, mit seiner Adresse. Zum Wiederherstellen holt der Browser die versiegelte Datei über ihre CID von Alephs Gateway.',
+					'An Aleph, direkt aus diesem Browser: die versiegelte Datei, an die Aleph-API zusammen mit dem Auftrag. Unterschreibt die Bridge, geht die Datei über die Bridge auf diesem Rechner an Aleph, oder aus dem Browser an Alephs IPFS-Host, wenn die Bridge sie nicht annehmen kann (Aleph sieht ihre Größe und die IP-Adresse dieses Computers, nicht den Inhalt). An die Aleph-API: ein unterschriebener Auftrag, der die Datei nennt – vom eigenen Schlüssel dieses Browsers, sobald das Konto der Bridge ihn freigegeben hat, bis dahin von der Bridge; dazu Abfragen der Freigabe, der Credits und der Backups dieses Kontos, mit seiner Adresse. Zum Wiederherstellen holt der Browser die versiegelte Datei über ihre CID von Alephs Gateway.',
 				technical:
 					'Das CAR aller Datenbank-Blöcke (Einträge schon versiegelt, Manifeste, Access-Controller, Identitäten der Schreiber) und der versiegelten Blöcke jeder Belegdatei wird noch einmal mit AES-256-GCM versiegelt, unter einem Schlüssel aus dem PRF des Passkeys (HKDF, belege/backup-key/v1). Upload: POST https://ipfs.aleph.cloud/api/v0/add, ohne Schlüssel. Die STORE-Nachricht (personal_sign, Kanal BELEGE-BACKUP, bezahlt mit Credits des Kontos der Bridge) unterschreibt ein secp256k1-Schlüssel, den dieser Browser selbst erzeugt und versiegelt in den Einstellungen hält – sobald das Konto ihn in seinem security-Aggregat freigegeben hat (pnpm setup:aleph -- --authorize); bis dahin der Schlüssel der Bridge (pnpm setup:aleph, im Schlüsselbund). Aleph bewahrt die Datei auf, solange das Konto Credits hat. Die Backups listet die Nachrichten-API von Aleph (api2.aleph.im) über owners=<Konto>.'
 			},
@@ -1313,7 +1313,7 @@ export default {
 		noCredits:
 			'Das Konto hat keine Credits. Aleph bewahrt ein Backup nur auf, solange das Konto zahlen kann: lade Credits unter app.aleph.cloud auf oder schick ALEPH an die Adresse.',
 		leaves:
-			'Geht hinaus: die versiegelte Datei an Alephs IPFS-Host (er sieht die IP-Adresse dieses Computers und die Größe) und an die Aleph-API ein Auftrag, der die Datei nennt – unterschrieben vom Schlüssel dieses Browsers oder, ohne Freigabe, von der Bridge. Zum Anzeigen fragt die Seite Aleph nach Freigabe und Credits des Kontos.',
+			'Geht hinaus: die versiegelte Datei an Aleph (es sieht die IP-Adresse dieses Computers und die Größe) und an die Aleph-API ein Auftrag, der die Datei nennt – unterschrieben vom Schlüssel dieses Browsers oder, ohne Freigabe, von der Bridge. Zum Anzeigen fragt die Seite Aleph nach Freigabe und Credits des Kontos.',
 		ownerChange: 'Ändern',
 		ask: 'Dieses Backup ist {size} groß und kostet etwa {perDay} Credits pro Tag, solange Aleph es aufbewahrt – jedes Backup ist eine ganze Kopie. Mit den Backups, die schon liegen, reichen die Credits dann {days}. Hochladen?',
 		advanced: 'Erweitert',
@@ -1344,6 +1344,8 @@ export default {
 		rejected: 'Aleph hat abgelehnt',
 		unknownHint:
 			'Die Datei liegt auf Alephs IPFS-Host, aber einen Auftrag, sie aufzubewahren, kennt Aleph nicht. Ohne Auftrag darf Aleph sie löschen.',
+		fileGone:
+			'Aleph konnte die Datei nicht holen, deshalb hilft ein neuer Auftrag nicht. Ihr Inhalt geht mit dem nächsten „Jetzt sichern“ erneut hoch. Diese Zeile kannst du aus der Liste nehmen.',
 		rekeep: 'Aleph erneut beauftragen',
 		order: 'Auftrag bei Aleph:',
 		days: { about: 'etwa {days} Tage', overYear: 'länger als ein Jahr' },

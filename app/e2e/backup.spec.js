@@ -68,6 +68,13 @@ test.afterAll(async () => {
 	if (dir) await rm(dir, { recursive: true, force: true });
 });
 
+/**
+ * 1 when the bridge is reached over the stream (the second E2E job): it takes
+ * no bytes there, so the app uploads to Aleph's host and the bridge signs the
+ * STORE afterwards – the two steps. 0 over HTTP: the bridge uploads with it.
+ */
+const TWO_STEPS = process.env.E2E_BRIDGE_VIA === 'stream' ? 1 : 0;
+
 test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the bridge’s key, then by the browser’s own', async ({
 	page
 }) => {
@@ -151,20 +158,20 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 		/Aleph hat die Sicherung nicht behalten: Auf dem Konto der Bridge sind 0 Credits, für einen Tag braucht diese Sicherung \d+/,
 		{ timeout: 30_000 }
 	);
-	// The file went up all the same: its row stays, refused, with the button
-	// that asks Aleph again without uploading it again.
-	await expect(card.getByTestId('backup-row')).toHaveCount(1);
-	await expect(card.getByTestId('backup-row')).toContainText('abgelehnt');
-	await expect(card.getByTestId('backup-rekeep')).toHaveCount(1);
-	await expect(card.getByTestId('backup-chain-unkept')).toHaveCount(1);
-	// Credits on the account, and the same button keeps a new one.
+	// Over HTTP the bridge sends the file to Aleph with its order in one
+	// request, and Aleph took neither: nothing is listed that could be "kept
+	// again". Over the stream the bridge takes no bytes: the app uploads to
+	// Aleph's host itself, the bridge only signs, and the refused row stays.
+	await expect(card.getByTestId('backup-row')).toHaveCount(TWO_STEPS);
+	await expect(card.getByTestId('backup-rekeep')).toHaveCount(TWO_STEPS);
+	// Credits on the account, and the same button makes the backup.
 	aleph.fund(alephAccountOf(KEY), 1_000_000);
 	await card.getByTestId('backup-now').click();
 	await expect(card.getByTestId('backup-made')).toContainText('von Aleph aufbewahrt', {
 		timeout: 30_000
 	});
 	await expect(card.getByTestId('backup-error')).toHaveCount(0);
-	await expect(card.getByTestId('backup-row')).toHaveCount(2);
+	await expect(card.getByTestId('backup-row')).toHaveCount(1 + TWO_STEPS);
 	// What went in, per database: the one payment, and no receipt file yet.
 	const made = card.getByTestId('backup-made');
 	await expect(
@@ -178,7 +185,7 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 		card.getByTestId('backup-row-details').first().getByTestId('backup-contents-row')
 	).toHaveCount(9);
 
-	// The browser uploaded it (the bridge only signed), sealed: nothing readable.
+	// It went up through the bridge, sealed in the browser: nothing readable.
 	// Two uploads: the one Aleph did not keep, and the one it did.
 	expect(aleph.added.size).toBe(2);
 	const [cid, bytes] = /** @type {[string, Uint8Array]} */ ([...aleph.added].at(-1));
@@ -189,7 +196,10 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 	expect(store?.cid).toBe(cid);
 	expect(store?.status).toBe('processed');
 	expect(store?.channel).toBe('BELEGE-BACKUP');
-	expect(bridgeOut).toContain('backup: kept on Aleph, processed');
+	// Through the bridge, with its order: the log has the size, never the CID.
+	expect(bridgeOut).toMatch(
+		TWO_STEPS ? /backup: kept on Aleph, processed/ : /backup: \d+ byte\(s\) to Aleph, processed/
+	);
 	expect(bridgeOut).not.toContain(cid);
 	expect(bridgeOut).not.toContain(KEY);
 	// "Wer hält es?": the peers announcing the backup's CID, named where they are
@@ -318,7 +328,7 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 	aleph.cors.holdUploads = null;
 	aleph.cors.uploadPreflight = true;
 	await openIntegration(page, 'backup');
-	await expect(card.getByTestId('backup-row')).toHaveCount(3, { timeout: 30_000 });
+	await expect(card.getByTestId('backup-row')).toHaveCount(2 + TWO_STEPS, { timeout: 30_000 });
 	await expect(card.getByTestId('backup-made')).toContainText('Zuwachs 1 gesichert');
 	await expect(card.getByTestId('backup-made')).toContainText('von Aleph aufbewahrt');
 	const own = aleph.stores.at(-1);
@@ -330,8 +340,11 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 		status: 'processed',
 		ref: cid
 	});
-	// Twice by the bridge: the backup, and keeping it again; none since the grant.
-	expect(bridgeOut.match(/backup: kept on Aleph/g)).toHaveLength(2);
+	// By the bridge: the backup it uploaded, and keeping it again; none since the grant.
+	expect(bridgeOut.match(/backup: \d+ byte\(s\) to Aleph, processed/g) ?? []).toHaveLength(
+		1 - TWO_STEPS
+	);
+	expect(bridgeOut.match(/backup: kept on Aleph/g)).toHaveLength(1 + TWO_STEPS);
 
 	// One chain so far: nothing older to delete.
 	await expect(card.getByTestId('backup-older-chain')).toHaveCount(0);
@@ -340,7 +353,7 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 	// backup and the browser's increment – costs credits until it is deleted,
 	// and says so.
 	await card.getByTestId('backup-full').click();
-	await expect(card.getByTestId('backup-row')).toHaveCount(4, { timeout: 30_000 });
+	await expect(card.getByTestId('backup-row')).toHaveCount(3 + TWO_STEPS, { timeout: 30_000 });
 	const older = card.getByTestId('backup-older-chain');
 	await expect(older).toHaveCount(1);
 	await expect(older).toContainText(/Vollbackup vom .* · 1 Zuwachs · .* Credits am Tag/);
@@ -395,7 +408,7 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 		/** @type {any} */ (window).__belegeBackupAutoDelayMs = 1500;
 	});
 	await card.getByTestId('backup-auto-toggle').check();
-	await expect(card.getByTestId('backup-row')).toHaveCount(5, { timeout: 30_000 });
+	await expect(card.getByTestId('backup-row')).toHaveCount(4 + TWO_STEPS, { timeout: 30_000 });
 	expect(aleph.calls).toContain('/api/v0/ipfs/add_file');
 	aleph.cors.ingestGone = false;
 	await expect(due).toHaveCount(0, { timeout: 30_000 });
