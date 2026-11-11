@@ -43,7 +43,7 @@ the bridge's user can read:
 | Secret | Becomes |
 |---|---|
 | `imap`, `enablebanking`, `paperless`, `aleph_backup`, `bridge_auth`, … (an account of `keychain.js`, with everything but `a-z0-9_` as `_`) | `/run/belege-bridge/secrets/<name>`, read by `unlockedKeychain` |
-| `bridge_config` (JSON) | `/run/belege-bridge/bridge.json`, with the node's WebSocket port and the VM's public name set, `llm` removed |
+| `bridge_config` (JSON) | `/run/belege-bridge/bridge.json`, with the node's WebSocket port and the VM's public name set; `llm`, `lanRelay` and `pairedTokens` removed |
 | `bridge_peer_key` (base64 protobuf) | the node's peer key, so the peer id is the one the books know |
 | `enablebanking_sealed` | the sealed Enable Banking file |
 | `https_hostname`, `acme_email` | Caddy's site and the ZeroSSL contact |
