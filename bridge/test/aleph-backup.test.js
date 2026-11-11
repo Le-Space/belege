@@ -262,7 +262,8 @@ describe('/backup', () => {
 					credits: 1_500_000,
 					ingestUrl: `${aleph.url}/api/v0/add`,
 					gateways: [`${aleph.url}/ipfs`],
-					apiHost: aleph.url
+					apiHost: aleph.url,
+					putRef: true
 				}
 			});
 
@@ -594,6 +595,22 @@ describe('/backup', () => {
 		const since = aleph.calls.slice(before);
 		assert.ok(since.includes('/api/v0/ipfs/add_file'));
 		assert.ok(!since.includes('/api/v0/messages'));
+	});
+
+	test('the backup object alone: an increment’s ref goes into the STORE; a ref that is no CID is refused', async () => {
+		const backup = createAlephBackup({
+			getKey: async () => KEY,
+			ingestUrl: `${aleph.url}/api/v0/add`,
+			apiHost: aleph.url
+		});
+		const base = await backup.put(new Uint8Array([7, 7, 7]), { name: 'full.car' });
+		const inc = await backup.put(new Uint8Array([8, 8]), { name: 'inc.car', ref: base.cid });
+		assert.equal(inc.ref, base.cid);
+		assert.equal(/** @type {any} */ (aleph.stores.at(-1)).ref, base.cid);
+		await assert.rejects(
+			backup.put(new Uint8Array([9]), { name: 'bad.car', ref: 'no cid' }),
+			(/** @type {any} */ e) => e.code === 'ALEPH_BACKUP_REF'
+		);
 	});
 
 	test('the backup object alone: an IPFS host with no `add` (404, as since 2026-10-26) – the API node takes it, signed, in one call', async () => {

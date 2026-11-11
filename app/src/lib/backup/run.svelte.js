@@ -20,7 +20,7 @@ import { backupName, loadBackups, rememberBackup, updateBackup } from './history
 import { chainAfter, chainFromBase, loadChain, saveChain } from './chain.js';
 import { keepAwake } from '$lib/wake-lock.js';
 import { holdAlive } from '$lib/keep-alive.js';
-import { BackupRefusedError, storeStatus } from './keeper.js';
+import { BackupRefusedError, storeAnswer } from './keeper.js';
 
 /**
  * @typedef {'' | 'packing' | 'asking' | 'uploading' | 'keeping'} BackupStep
@@ -254,7 +254,7 @@ export async function runBackup({ continuing, uploader, askFor, unattended = fal
 		backupRun.step = 'keeping';
 		/**
 		 * The history's row: what was built and uploaded, and what keeps it.
-		 * @param {{ status: string, itemHash?: string, address?: string, sender?: string }} kept
+		 * @param {{ status: string, itemHash?: string, errorCode?: number, address?: string, sender?: string }} kept
 		 * @returns {import('./history.js').BackupRecord}
 		 */
 		const recordOf = (kept) => ({
@@ -264,6 +264,7 @@ export async function runBackup({ continuing, uploader, askFor, unattended = fal
 			size: built.sealed.length,
 			status: kept.status,
 			...(kept.itemHash ? { itemHash: kept.itemHash } : {}),
+			...(kept.errorCode !== undefined ? { errorCode: kept.errorCode } : {}),
 			...(kept.address ? { address: kept.address } : {}),
 			...(kept.sender ? { sender: kept.sender } : {}),
 			// Made by a member (#613): their write identity names them in the history.
@@ -300,6 +301,9 @@ export async function runBackup({ continuing, uploader, askFor, unattended = fal
 				store.settings,
 				recordOf({
 					status: alephRefused(e) ? 'rejected' : 'unknown',
+					...(Number.isInteger(/** @type {any} */ (e)?.reason?.errorCode)
+						? { errorCode: Number(/** @type {any} */ (e).reason.errorCode) }
+						: {}),
 					...(handle?.itemHash ? { itemHash: String(handle.itemHash) } : {})
 				})
 			);
@@ -359,8 +363,13 @@ async function settleChain(settings, chain, endpoints) {
 	for (const p of chain.pending ?? []) {
 		const record = backups.find((b) => b.cid === p.cid);
 		if (!record?.itemHash || record.status !== 'pending') continue;
-		const now = await storeStatus({ itemHash: record.itemHash, endpoints }).catch(() => null);
-		if (now && now !== record.status) await updateBackup(settings, record, { status: now });
+		const now = await storeAnswer({ itemHash: record.itemHash, endpoints }).catch(() => null);
+		if (now && now.status !== record.status) {
+			await updateBackup(settings, record, {
+				status: now.status,
+				...(now.errorCode !== undefined ? { errorCode: now.errorCode } : {})
+			});
+		}
 	}
 	return loadChain(settings);
 }

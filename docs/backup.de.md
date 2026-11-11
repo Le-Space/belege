@@ -38,10 +38,15 @@ Oben auf der Karte steht in einer Zeile, ob alles gesichert ist und was zu tun i
 So läuft ein Backup ab:
 
 1. Der Browser packt und versiegelt das Backup.
-2. Er lädt es direkt zu Alephs IPFS-Host hoch.
-3. Er beauftragt Aleph, die Datei aufzubewahren: mit einer STORE-Nachricht für das Konto, bezahlt mit Credits. Diese Nachricht unterschreibt der Schlüssel dieses Browsers, wenn das Konto ihn freigegeben hat. Sonst unterschreibt die Bridge mit ihrem Backup-Schlüssel.
+2. Er schickt es an einen API-Knoten von Aleph, zusammen mit dem Auftrag, es aufzubewahren. Der Auftrag ist eine STORE-Nachricht für das Konto, bezahlt mit Credits. Aleph bewahrt die Datei im selben Schritt auf.
+3. Den Auftrag unterschreibt der Schlüssel dieses Browsers, wenn das Konto ihn freigegeben hat.
 
-Das Backup selbst läuft nie über die Bridge. Die Seite zeigt die CID des Backups. Heb sie irgendwo auf.
+Hat das Konto den Schlüssel dieses Browsers nicht freigegeben, unterschreibt die Bridge mit ihrem Backup-Schlüssel:
+
+- Läuft die Bridge auf diesem Rechner, gibt der Browser ihr die versiegelte Datei (bis 256 MiB). Die Bridge schickt sie zusammen mit dem Auftrag an Aleph. Sie sieht dabei nur die versiegelte Datei, nie die Bücher.
+- Erreicht der Browser die Bridge nur über ein anderes Gerät oder ist das Backup größer, lädt er die Datei selbst zu Alephs IPFS-Host hoch, und die Bridge schickt den Auftrag danach. Aleph muss sich die Datei dann vom Host holen. Gelingt das nicht, lehnt Aleph den Auftrag ab.
+
+Die Seite zeigt die CID des Backups. Heb sie irgendwo auf.
 
 **Vollbackups und Zuwächse.** Das erste Backup ist ein Vollbackup: alles, was dieser Browser hält. Danach lädt „Jetzt sichern“ nur hoch, was seit dem letzten Backup neu ist. Das nennt Belege einen Zuwachs. Er enthält die neuen Log-Einträge (mit Manifest und den Identitäten der Schreiber jeder geänderten Datenbank) und die Belegdateien, die noch fehlen, genauso versiegelt. Ein Vollbackup und seine Zuwächse bilden eine Kette.
 
@@ -83,7 +88,7 @@ Mit „Automatisch sichern (auf diesem Gerät)“ lädt Belege fünf Minuten nac
 
 Sonst sagt der Kopf, warum es nicht geht. Schalte es auf einem Gerät ein, nicht auf mehreren: Zwei Geräte, die gleichzeitig dieselbe Kette fortsetzen, schrieben beide ihren nächsten Zuwachs.
 
-**Ob Aleph es aufbewahrt.** Aleph antwortet auf eine STORE-Nachricht zuerst mit `pending` und entscheidet später. „Erneut prüfen“ fragt Aleph zu jedem Backup der Liste noch einmal, über seinen Auftrag (den Item-Hash der STORE-Nachricht, mit Link). Kennt Aleph einen Auftrag nicht oder hat ihn abgelehnt, steht das in der Zeile. „Aleph erneut beauftragen“ schickt dann eine neue STORE-Nachricht für dieselbe Datei. Hochgeladen wird nichts noch einmal.
+**Ob Aleph es aufbewahrt.** Aleph antwortet auf eine STORE-Nachricht zuerst mit `pending` und entscheidet später. „Erneut prüfen“ fragt Aleph zu jedem Backup der Liste noch einmal, über seinen Auftrag (den Item-Hash der STORE-Nachricht, mit Link). Kennt Aleph einen Auftrag nicht oder hat ihn abgelehnt, steht das in der Zeile. „Aleph erneut beauftragen“ schickt dann eine neue STORE-Nachricht für dieselbe Datei. Hochgeladen wird nichts noch einmal. Hat Aleph abgelehnt, weil es die Datei nicht holen konnte, hilft ein neuer Auftrag nicht. Die Zeile sagt das, und der Inhalt geht mit dem nächsten „Jetzt sichern“ erneut hoch: Die Kette springt auf den letzten Stand zurück, den Aleph bestätigt hat.
 
 **Wo es liegt: verteilt, verschlüsselt, mit öffentlicher Hülle.** Die Karte sagt das unter „Erweitert“ in einem eigenen Kasten. Beim Einrichten ist „Erweitert“ offen, du liest es also, bevor etwas hinausgeht:
 
@@ -201,7 +206,7 @@ Einträge behalten ihre IDs, Verknüpfungen und Zeiten. Belegdateien werden mit 
 
 _Alles links der Linie verlässt das Gerät nie; was sie überquert, ist Chiffretext. Der Datenschlüssel wird aus dem Passkey abgeleitet und existiert nirgends sonst — wie ein privater SSH-Schlüssel._
 
-- **An Alephs IPFS-Host, aus dem Browser:** die versiegelte Datei. Aleph sieht ihre Größe und die IP-Adresse dieses Computers, nicht den Inhalt. Wer die CID kennt, kann die versiegelte Datei über IPFS laden.
+- **An Aleph, aus dem Browser:** die versiegelte Datei, an einen API-Knoten zusammen mit dem Auftrag. Unterschreibt die Bridge, geht die Datei über die Bridge dorthin oder aus dem Browser an Alephs IPFS-Host. Aleph sieht ihre Größe und die IP-Adresse dieses Computers, nicht den Inhalt. Wer die CID kennt, kann die versiegelte Datei über IPFS laden.
 - **An die Aleph-API, aus dem Browser:**
   - die STORE-Nachricht mit der Adresse des Schlüssels dieses Browsers, der Adresse des Kontos und der CID der Datei;
   - Abfragen der Freigabe und der Credits des Kontos und der Liste seiner Backups, mit seiner Adresse;

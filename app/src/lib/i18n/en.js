@@ -903,7 +903,7 @@ export default {
 				name: 'Backup on Aleph Cloud',
 				text: 'When set up and only on your click: everything Le Space Belege keeps, sealed with a key from your passkey, as one file on Aleph Cloud.',
 				leaves:
-					'To Aleph’s IPFS host, directly from this browser: the sealed file (Aleph sees its size and this computer’s IP address, not what is in it). To the Aleph API: a signed order naming the file – by this browser’s own key once the bridge’s account has allowed it, by the bridge until then – and reads of that account’s grants, credits and backups, by its address. To restore, the browser fetches the sealed file from Aleph’s gateway by its CID.',
+					'To Aleph, directly from this browser: the sealed file, to the Aleph API together with the order. Where the bridge signs, the file goes to Aleph through the bridge on this computer, or from the browser to Aleph’s IPFS host when the bridge cannot take it (Aleph sees its size and this computer’s IP address, not what is in it). To the Aleph API: a signed order naming the file – by this browser’s own key once the bridge’s account has allowed it, by the bridge until then – and reads of that account’s grants, credits and backups, by its address. To restore, the browser fetches the sealed file from Aleph’s gateway by its CID.',
 				technical:
 					'The CAR of every database block (entries already sealed, manifests, access controllers, writers’ identities) and every receipt file’s sealed blocks is sealed once more with AES-256-GCM under a key derived from the passkey’s PRF (HKDF, belege/backup-key/v1). Upload: POST https://ipfs.aleph.cloud/api/v0/add, no key. The STORE message (personal_sign, channel BELEGE-BACKUP, paid in credits of the bridge’s account) is signed by a secp256k1 key this browser makes itself and keeps sealed in the settings – once the account has allowed it in its security aggregate (pnpm setup:aleph -- --authorize); until then by the bridge’s key (pnpm setup:aleph, in the keychain). Aleph keeps the file while the account has credits. The backups are listed by Aleph’s messages API (api2.aleph.im) with owners=<account>.'
 			},
@@ -1271,7 +1271,7 @@ export default {
 		noCredits:
 			'The account has no credits. Aleph keeps a backup only while the account can pay: put credits on it at app.aleph.cloud, or send it ALEPH.',
 		leaves:
-			'Goes out: the sealed file to Aleph’s IPFS host (it sees this computer’s IP address and the size), and to the Aleph API an order naming the file – signed by this browser’s key or, without the grant, by the bridge. To show this page, it asks Aleph for the account’s grants and credits.',
+			'Goes out: the sealed file to Aleph (it sees this computer’s IP address and the size), and to the Aleph API an order naming the file – signed by this browser’s key or, without the grant, by the bridge. To show this page, it asks Aleph for the account’s grants and credits.',
 		ownerChange: 'Change',
 		ask: 'This backup is {size} and costs about {perDay} credits a day for as long as Aleph keeps it – every backup is a whole copy. With the backups already there, the credits then last {days}. Upload?',
 		advanced: 'Advanced',
@@ -1301,6 +1301,8 @@ export default {
 		rejected: 'Aleph refused',
 		unknownHint:
 			"The file is on Aleph's IPFS host, but Aleph knows no request to keep it. Without one, Aleph may delete it.",
+		fileGone:
+			'Aleph could not fetch the file, so a new order does not help. Its content goes up again with the next “Back up now”. You can take this row off the list.',
 		rekeep: 'Ask Aleph again',
 		order: 'Request at Aleph:',
 		days: { about: 'about {days} days', overYear: 'more than a year' },

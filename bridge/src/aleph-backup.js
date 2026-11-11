@@ -276,10 +276,16 @@ export function createAlephBackup({
 		 * Upload one sealed backup and ask Aleph to keep it.
 		 *
 		 * @param {Uint8Array} bytes
-		 * @param {{ name: string }} meta
-		 * @returns {Promise<{ cid: string, size: number, address: string, itemHash: string, status: string }>}
+		 * @param {{ name: string, ref?: string }} meta `ref`: an increment's full backup, into the STORE
+		 * @returns {Promise<{ cid: string, size: number, address: string, itemHash: string, status: string, ref?: string }>}
 		 */
-		async put(bytes, { name }) {
+		async put(bytes, { name, ref }) {
+			if (ref !== undefined && !isAlephCid(ref)) {
+				throw Object.assign(new Error('the ref is not a CID'), {
+					status: 400,
+					code: 'ALEPH_BACKUP_REF'
+				});
+			}
 			const k = await key();
 			const sender = addressOf(k);
 			// The storage bridge's backend with the bridge's own pin: on the IPFS
@@ -295,13 +301,21 @@ export function createAlephBackup({
 			const backend = createAlephBackend({ ingestUrl, apiHost, fetch: f, pin });
 			const handle = await backend.putBlob(bytes, {
 				name,
-				contentType: 'application/octet-stream'
+				contentType: 'application/octet-stream',
+				...(ref ? { ref } : {})
 			});
 			const sent = handle.itemHash
 				? { itemHash: String(handle.itemHash), status: String(handle.status ?? 'pending') }
-				: await pin(handle.id, { size: bytes.length });
+				: await pin(handle.id, { size: bytes.length, ...(ref ? { ref } : {}) });
 			const { itemHash, status } = await settleStore(sent, { apiHost, fetch: f, ...settle });
-			return { cid: handle.id, size: bytes.length, address: sender, itemHash, status };
+			return {
+				cid: handle.id,
+				size: bytes.length,
+				address: sender,
+				itemHash,
+				status,
+				...(ref ? { ref } : {})
+			};
 		}
 	};
 }

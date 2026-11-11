@@ -36,10 +36,15 @@ _Integrationen → Backup → "Jetzt sichern"_.
 At the top, one line on the card says whether everything is backed up and what needs doing. Below it are "Jetzt sichern", "Wiederherstellen …" and "Automatisch sichern". Everything else sits under "Erweitert": the account, this browser's key and its grant, "Neues Vollbackup", the list of backups, the cost and the box "Wo es liegt". "Erweitert" is open by itself while something is still to set up; otherwise it stays as you last left it.
 
 1. The browser packs and seals the backup.
-2. It uploads the file directly to Aleph's IPFS host.
-3. Aleph is asked to keep the file, with a STORE message for the account, paid in credits. This browser's key signs that message once the account has allowed it; otherwise the bridge signs it with its backup key.
+2. It sends the file to one of Aleph's API nodes together with the order to keep it: a STORE message for the account, paid in credits. Aleph keeps the file in the same step.
+3. This browser's key signs that order once the account has allowed it.
 
-The backup never passes through the bridge. The page shows the backup's CID; keep it somewhere.
+Where the account has not allowed this browser's key, the bridge signs with its backup key:
+
+- With the bridge on this computer, the browser hands it the sealed file (up to 256 MiB), and the bridge sends it to Aleph with the order. It only ever sees the sealed file, never the books.
+- Where the browser reaches the bridge only through another device, or the backup is bigger, it uploads the file to Aleph's IPFS host itself and the bridge sends the order afterwards. Aleph then has to fetch the file from the host, and refuses the order when it cannot.
+
+The page shows the backup's CID; keep it somewhere.
 
 **Full backups and increments.** The first backup is a full one: everything this browser keeps. After it, "Jetzt sichern" uploads only what is new since the last backup of the chain – an increment: the new log entries (with each changed database's manifest and its writers' identities) and the receipt files the chain has not got yet, sealed the same way. Aleph keeps it with a STORE whose `ref` is the full backup's CID, so a restore finds the chain without downloading anything. "Neues Vollbackup" starts a new chain; so does the next backup when Aleph does not keep the full one. Settings alone – every backup writes its own history there – make no increment; they go with the next one. Where the chain stands (the full backup, the last increment, the heads shipped, the receipt files shipped) is kept in the sealed settings, so another own device continues it.
 
@@ -55,7 +60,7 @@ The backup never passes through the bridge. The page shows the backup's CID; kee
 
 **Not backed up, and automatic.** When the last backup lacks something – a payment, a receipt, a link, an AI result, entries from another device – the header says "Nicht gesichert", with the areas in its tooltip. Belege compares each database's heads with the ones the chain last shipped; that costs next to nothing. With "Automatisch sichern (auf diesem Gerät)" Belege uploads an increment by itself five minutes after the last change – never a full backup. Only while the tab is open, the network is not paused, this browser is let in or the bridge runs, and the credits last more than 30 days; otherwise the header says why not. Switch it on on one device, not several: two devices continuing the same chain at once would both write its next increment.
 
-**Whether Aleph kept it.** Aleph answers a STORE with `pending` first and decides later. "Erneut prüfen" asks Aleph about every backup in the list again, by its request (the STORE's item hash, shown with a link). If Aleph does not know a request, or refused it, the row says so, and "Aleph erneut beauftragen" sends a new STORE for the same file – nothing is uploaded again.
+**Whether Aleph kept it.** Aleph answers a STORE with `pending` first and decides later. "Erneut prüfen" asks Aleph about every backup in the list again, by its request (the STORE's item hash, shown with a link). If Aleph does not know a request, or refused it, the row says so, and "Aleph erneut beauftragen" sends a new STORE for the same file – nothing is uploaded again. Where Aleph refused because it could not fetch the file, a new order does not help: the row says so, and its content goes up again with the next "Jetzt sichern", because the chain goes back to the last point Aleph confirmed.
 
 **Where it lies – spread out, encrypted, with a public envelope.** The card says this under "Erweitert", in a box of its own. While you set up, "Erweitert" is open, so you read it before anything goes up:
 
@@ -147,7 +152,7 @@ Records keep their ids, links and times; receipt files are sealed anew with the 
 
 _Everything left of the line never leaves the device; what crosses it is ciphertext. The data key is derived from the passkey and exists nowhere else — like an SSH private key._
 
-- **To Aleph's IPFS host, from the browser:** the sealed file. Aleph sees its size and this computer's IP address, not what is in it. Anyone who knows the CID can fetch the sealed file from IPFS.
+- **To Aleph, from the browser:** the sealed file, to an API node together with the order. Where the bridge signs, the file goes there through the bridge, or from the browser to Aleph's IPFS host. Aleph sees its size and this computer's IP address, not what is in it. Anyone who knows the CID can fetch the sealed file from IPFS.
 - **To the Aleph API, from the browser:**
   - the STORE message, with the address of this browser's key, the account's and the file's CID;
   - reads of the account's grants, its credits and its list of backups, by its address;
