@@ -19,11 +19,17 @@
 		searchAccounts
 	} from './booking/skr03.js';
 	import { matchesOfTx } from './matching/view.js';
-	import { formatDate } from './bank/format.js';
+	import { formatDate, formatMoney } from './bank/format.js';
+	import AiMark from './AiMark.svelte';
+	import { recordEvent } from './activity/events.js';
+	import { eventCalls } from './stats/usage.js';
 	import { list, t } from './i18n/index.js';
 
-	/** @type {{ tx: import('./store/repository.js').StoredRecord }} */
-	let { tx } = $props();
+	/**
+	 * @type {{ tx: import('./store/repository.js').StoredRecord, client?: { bookingAssist: (body: any) => Promise<any> } | null }}
+	 * `client`: the paired bridge, for "✦ Konto vorschlagen"; without it the button is not shown.
+	 */
+	let { tx, client = null } = $props();
 
 	let keys = $derived(cleanDatevSettings(app.datevSettings).taxKeys);
 	let privateAccountsNow = $derived(privateAccounts(cleanDatevSettings(app.datevSettings)));
@@ -92,6 +98,93 @@
 			)
 		})
 	);
+
+	// "✦ Konto vorschlagen" (bridge POST /booking/assist): the model picks up to
+	// two accounts of the list the "Konto" field offers – the person's chart, or
+	// SKR 03 – from the payment, its receipt and the accounts learned so far.
+	// Only on a click; nothing is taken until the person takes it.
+	/** @type {{ picks: { account: string, confidence: string, reason: string }[], sent: string[] } | null} */
+	let aiResult = $state(null);
+	let aiBusy = $state(false);
+
+	/** @param {number} cents */
+	const plainMoney = (cents) => formatMoney(Math.abs(cents), 'EUR').replace(/\s*EUR$/, '');
+
+	async function suggestByAi() {
+		if (!client) return;
+		aiBusy = true;
+		error = null;
+		aiResult = null;
+		try {
+			const receipt = receipts[0] ?? null;
+			const ex = /** @type {Record<string, any>} */ (receipt?.extraction ?? {});
+			const own = app.accounts.find((a) => a.id === tx.accountId);
+			const r = await client.bookingAssist({
+				booking: {
+					direction: income ? 'in' : 'out',
+					amount: plainMoney(tx.amountCents ?? 0),
+					day: String(tx.bookedOn ?? '').slice(0, 10),
+					account: own ? String(own.name ?? '').slice(0, 200) : null,
+					counterparty: String(tx.counterparty ?? '').slice(0, 200),
+					purpose: String(tx.purpose ?? '').slice(0, 1000)
+				},
+				receipt: receipt
+					? {
+							vendor: String(receipt.vendor ?? ex.vendor ?? '').slice(0, 200) || null,
+							kind: typeof ex.document_type === 'string' ? ex.document_type.slice(0, 60) : null,
+							vat:
+								(Array.isArray(ex.vat) ? ex.vat : [])
+									.map((/** @type {any} */ v) => v?.rate)
+									.filter((/** @type {unknown} */ x) => typeof x === 'number')
+									.map((/** @type {number} */ x) => `${x} %`)
+									.join(', ')
+									.slice(0, 60) || null,
+							items: (Array.isArray(ex.line_items) ? ex.line_items : [])
+								.map((/** @type {any} */ i) => String(i?.description ?? '').slice(0, 200))
+								.filter(Boolean)
+								.slice(0, 20)
+						}
+					: null,
+				learned: (app.partners ?? [])
+					.filter((p) => isAccountNumber(p.account) && String(p.name ?? '').trim())
+					.slice(0, 80)
+					.map((p) => ({ vendor: String(p.name).slice(0, 200), account: String(p.account) })),
+				accounts: catalogue
+					.slice(0, 600)
+					.map((a) => ({ number: a.number, name: a.name.slice(0, 120) }))
+			});
+			aiResult = { picks: r.picks ?? [], sent: r.llm?.sent ?? [] };
+			await recordEvent(currentStore()?.events, 'booking-assist', {
+				transactionId: tx.id,
+				picks: aiResult.picks.length,
+				model: r.llm?.calls?.at(-1)?.model ?? null,
+				calls: eventCalls(r.llm?.calls ?? []),
+				ms: (r.llm?.calls ?? []).reduce(
+					(/** @type {number} */ n, /** @type {any} */ c) => n + (c.ms ?? 0),
+					0
+				),
+				tokensTotal: (r.llm?.calls ?? []).reduce(
+					(/** @type {number} */ n, /** @type {any} */ c) =>
+						n + (c.usage?.prompt ?? 0) + (c.usage?.completion ?? 0),
+					0
+				)
+			});
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			aiBusy = false;
+		}
+	}
+
+	// Another booking: its own suggestion. By id only – the record is read
+	// again after every write, and that must not drop what the model said.
+	let txId = $derived(tx.id);
+	$effect(() => {
+		void txId;
+		untrack(() => {
+			aiResult = null;
+		});
+	});
 
 	// A network fee: its account for all of them at once (#305).
 	let networkFee = $derived(isNetworkFee(tx));
@@ -252,6 +345,54 @@
 	</form>
 	{#if !confirmed}
 		<p class="text-xs text-faint" data-testid="tx-booking-tax-via">{taxText}</p>
+	{/if}
+	{#if client}
+		<div class="mt-2 text-sm" data-testid="tx-booking-ai">
+			<button
+				type="button"
+				class="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-text hover:bg-surface-2 disabled:opacity-50"
+				onclick={suggestByAi}
+				disabled={aiBusy || busy || !catalogue.length}
+				title={t('booking.ai.hint', {
+					chart: chart ? t('booking.ai.chart') : t('booking.ai.skr03')
+				})}
+				data-testid="tx-booking-ai-ask"
+				><AiMark />{aiBusy ? t('booking.ai.asking') : t('booking.ai.ask')}</button
+			>
+			{#if aiResult}
+				{#if aiResult.picks.length}
+					<ul class="mt-2 flex flex-col gap-1" data-testid="tx-booking-ai-picks">
+						{#each aiResult.picks as p (p.account)}
+							<li class="flex flex-wrap items-baseline gap-x-2" data-account={p.account}>
+								<span class="font-mono text-heading">{accountLabel(p.account, chart)}</span>
+								<span class="text-xs text-faint"
+									>{t(`booking.ai.confidence.${p.confidence}`)} – {p.reason}</span
+								>
+								<button
+									type="button"
+									class="text-xs text-text underline hover:text-heading"
+									onclick={() => (accountText = p.account)}
+									data-testid="tx-booking-ai-take">{t('booking.ai.take')}</button
+								>
+							</li>
+						{/each}
+					</ul>
+				{:else}
+					<p class="mt-2 text-xs text-faint" data-testid="tx-booking-ai-none">
+						{t('booking.ai.none')}
+					</p>
+				{/if}
+				{#if aiResult.sent.length}
+					<details class="mt-1 text-xs text-faint" data-testid="tx-booking-ai-sent">
+						<summary class="cursor-pointer">{t('booking.ai.sent')}</summary>
+						{#each aiResult.sent as sent, i (i)}
+							<pre
+								class="mt-1 max-h-40 overflow-auto rounded border border-border bg-surface-2 p-2 font-mono break-words whitespace-pre-wrap">{sent}</pre>
+						{/each}
+					</details>
+				{/if}
+			{/if}
+		</div>
 	{/if}
 	{#if networkFee}
 		<div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" data-testid="tx-fee-rule">

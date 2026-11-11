@@ -2288,6 +2288,7 @@ export default {
 			'match-assist': 'KI-Vorschlag',
 			'transfer-assist': 'KI-Gegenbuchung',
 			'vendor-assist': 'KI-Lieferantenkonto',
+			'booking-assist': 'KI-Konto',
 			'mail-assist': 'Postfach-Suche'
 		},
 		perReceipt: 'Pro ausgelesenem Beleg in diesem Monat etwa {tokens} Tokens.',
@@ -3111,6 +3112,7 @@ export default {
 			'match-assist': 'KI-Vorschlag für eine Zuordnung',
 			'transfer-assist': 'KI-Vorschlag für eine Gegenbuchung',
 			'vendor-assist': 'KI-Erklärung eines Lieferantenkontos',
+			'booking-assist': 'KI-Vorschlag für ein Konto',
 			matching: 'Abgleich',
 			decision: 'Entscheidung',
 			export: 'DATEV-Export',
@@ -3140,6 +3142,7 @@ export default {
 			matchAssist: '{model} · {candidates} Belege geprüft · {seconds} s · {tokens} Tokens',
 			transferAssist: '{model} · {candidates} Buchungen geprüft · {seconds} s · {tokens} Tokens',
 			vendorAssist: '{model} · {rows} Zeilen geprüft · {seconds} s · {tokens} Tokens',
+			bookingAssist: '{model} · {picks} Konten vorgeschlagen · {seconds} s · {tokens} Tokens',
 			export: 'DATEV-Export {month}: {bookings} Buchungen, {receipts} Belege',
 			booksMoved:
 				'Übernommen aus anderen Büchern, gepackt am {date}: {records} Einträge, {files} Dateien',
@@ -3223,6 +3226,17 @@ export default {
 		]
 	},
 	booking: {
+		ai: {
+			ask: 'Konto vorschlagen',
+			asking: 'Fragt das Sprachmodell …',
+			hint: 'Das Sprachmodell deiner Bridge liest Zahlung, Beleg, deine gelernten Konten und {chart} und schlägt bis zu zwei Konten daraus vor. Übernommen wird erst, wenn du es übernimmst.',
+			chart: 'deinen Kontenplan',
+			skr03: 'die SKR-03-Liste',
+			none: 'Das Sprachmodell hat kein passendes Konto gefunden.',
+			take: 'Einsetzen',
+			confidence: { high: 'sicher', medium: 'wahrscheinlich', low: 'unsicher' },
+			sent: 'Gesendet an das Sprachmodell'
+		},
 		feeRule: {
 			apply: 'Für alle Netzwerkgebühren übernehmen',
 			applyTitle:
@@ -3285,7 +3299,7 @@ export default {
 		technical: [
 			'Übernommen wird auf der Zahlung selbst: booking = { account, taxKey, confirmedAt }, versiegelt wie jeder Datensatz.',
 			'Vorschläge in dieser Reihenfolge: eigene Umbuchung → 1360, Bankgebühr → 4970 (beide ohne Schlüssel), sonst das Konto, das du diesem Anbieter zuletzt gegeben hast (partners: account, taxKey – über den Anbieter des Belegs oder die Gegenpartei auf dem Kontoauszug).',
-			'Der BU-Schlüssel kommt aus dem ausgelesenen Beleg: USt 19 % → 9 (Einnahme 3), 7 % → 8 (Einnahme 2), reverse_charge → 94; die Schlüssel lassen sich unter Einstellungen → Buchhaltung ändern. Nichts davon fragt ein Sprachmodell.'
+			'Der BU-Schlüssel kommt aus dem ausgelesenen Beleg: USt 19 % → 9 (Einnahme 3), 7 % → 8 (Einnahme 2), reverse_charge → 94; die Schlüssel lassen sich unter Einstellungen → Buchhaltung ändern. Nichts davon fragt ein Sprachmodell – nur „✦ Konto vorschlagen“ fragt das Sprachmodell deiner Bridge, auf deinen Klick (POST /booking/assist); geschwärzt wird, außer das Modell läuft auf deinem Rechner oder in einer bestätigten Enklave (TEE).'
 		]
 	},
 	export: {

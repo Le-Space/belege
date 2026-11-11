@@ -157,6 +157,16 @@ Der Code: `bridge/src/llm/transfer-assist.js`, `POST /transfer/assist`.
 
 Der Code: `bridge/src/llm/vendor-assist.js`, `POST /vendor/assist`.
 
+### „Konto vorschlagen“ unter „Konto“ einer Zahlung
+
+**Ausgelöst durch:** den Knopf unter „Konto“ einer Zahlung, nur wenn eine Bridge gekoppelt ist.
+
+**Was an das Modell geht:** die Zahlung (Richtung, Betrag, Tag, eigenes Konto, Gegenpartei, Verwendungszweck), ihr Beleg, falls einer zugeordnet ist (Aussteller, Art, Steuersätze, bis zu 20 Positionen), die Konten, die Belege für Lieferanten schon gelernt hat (Lieferant → Konto), und die Kontenliste aus dem Feld „Konto“: dein eingelesener Kontenplan oder sonst die SKR-03-Liste, bis zu 600 Konten. Geschwärzt wird wie bei jedem Aufruf. Nur wenn das Modell auf deinem Rechner oder in einer bestätigten Enklave (TEE) läuft und du `setup:llm` gesagt hast, nicht zu schwärzen, geht der Text ungeschwärzt.
+
+**Was zurückkommt:** bis zu zwei Konten aus der gesendeten Liste, wie sicher und warum. Ein Konto, das nicht in der Liste stand, verwirft die Bridge. „Einsetzen“ trägt es ins Feld ein; übernommen wird es erst mit „Übernehmen“, und erst dann lernt Belege den Lieferanten.
+
+Der Code: `bridge/src/llm/booking-assist.js`, `POST /booking/assist`.
+
 ### Die Sammelläufe
 
 Zwei Knöpfe arbeiten viele Einträge nacheinander ab: _Alle neuen auslesen_ und _✦ KI-Vorschläge für alle offenen Rückfragen_. Beide laufen in der App über eine gemeinsame Warteschlange, nicht auf der Seite selbst.
