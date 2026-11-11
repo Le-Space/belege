@@ -370,7 +370,7 @@ export default {
 				'Credits are short for the start: Aleph takes the VM only with {needed} credits in reserve (a day at {perHour} credits/h), the books’ Aleph key holds {credits}. Top up under Integrations → Aleph.',
 			noVm: 'These books have no hosted VM running.',
 			noPort: 'The node did not open the VM’s port 443.',
-			deviceLabel: 'Hosted bridge'
+			deviceLabel: 'Hosted bridge (Aleph)'
 		},
 		nearBridge: {
 			noKey: 'These books have no NEAR account yet: the owner’s device makes it.',
@@ -4377,7 +4377,7 @@ export default {
 				'Only the device that paired the bridge, or the computer the bridge runs on, removes this pairing. Nothing was changed here.'
 		},
 		hostedBridge: {
-			title: 'Hosted bridge',
+			title: 'Hosted bridge on Aleph',
 			intro:
 				'The bridge in a confidential VM on Aleph (AMD SEV-SNP). This browser checks the VM’s attestation: that it boots the published image on Aleph’s published runtime and has the books’ key as its owner. Only then does it get the passphrase and its key, and it is paired with these books. Le Space sees no key.',
 			instance: 'INSTANCE hash',

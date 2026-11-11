@@ -387,7 +387,7 @@ export default {
 				'Für den Start fehlen Credits: Aleph nimmt die VM erst mit {needed} Credits Reserve an (ein Tag zu {perHour} Credits/h), der Aleph-Schlüssel der Bücher hat {credits}. Aufladen unter Integrationen → Aleph.',
 			noVm: 'Diese Bücher haben keine laufende gehostete VM.',
 			noPort: 'Der Knoten hat Port 443 der VM nicht freigegeben.',
-			deviceLabel: 'Gehostete Bridge'
+			deviceLabel: 'Gehostete Bridge (Aleph)'
 		},
 		nearBridge: {
 			noKey: 'Diese Bücher haben noch kein NEAR-Konto: Das Gerät des Besitzers legt es an.',
@@ -4438,7 +4438,7 @@ export default {
 				'Diese Kopplung löst nur das Gerät, das die Bridge gekoppelt hat, oder der Rechner, auf dem die Bridge läuft. Hier wurde nichts geändert.'
 		},
 		hostedBridge: {
-			title: 'Gehostete Bridge',
+			title: 'Gehostete Bridge auf Aleph',
 			intro:
 				'Die Bridge in einer vertraulichen VM bei Aleph (AMD SEV-SNP). Dieser Browser prüft die Attestierung der VM: dass sie das veröffentlichte Image auf Alephs veröffentlichter Laufzeit startet und den Bücher-Schlüssel als Besitzer hat. Erst dann bekommt sie die Passphrase und ihren Schlüssel, und sie ist mit diesen Büchern gekoppelt. Le Space sieht dabei keinen Schlüssel.',
 			instance: 'Hash der INSTANCE',
