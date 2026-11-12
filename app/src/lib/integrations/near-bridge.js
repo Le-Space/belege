@@ -280,9 +280,14 @@ export function nearBooks({
 /**
  * The KMS this app trusts, by Phala Cloud's slug: its secp256k1 key as Phala
  * publishes it (`kms_info.k256_pubkey`), pinned here, not taken from the launcher.
+ * One cluster ("Phala KMS 2026-11"), one key: Phala names its nodes by
+ * several slugs and provisions on whichever has room.
  */
+const PHALA_KMS_2026_11 = '0221797a507c4240f318dede4829d0a2f84d01331e82f3f43c8f5746451c9d5e20';
 export const KNOWN_KMS = Object.freeze({
-	'pha1-prod3': '0221797a507c4240f318dede4829d0a2f84d01331e82f3f43c8f5746451c9d5e20'
+	'pha1-prod3': PHALA_KMS_2026_11,
+	'pha1-prod4': PHALA_KMS_2026_11,
+	phala: PHALA_KMS_2026_11
 });
 
 const ENV_KEY_PREFIX = encoder.encode('dstack-env-encrypt-pubkey:');
