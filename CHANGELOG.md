@@ -25,6 +25,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **Where the bridge signs a backup, the bridge uploads it** (#734). With this browser's key not allowed by the account, the app uploaded to Aleph's IPFS host and the bridge sent the order afterwards, which Aleph has refused with "File not found" since November. The app now hands the sealed file to the bridge on this computer, which sends it to Aleph with the order in one request; the bridge only ever sees the sealed file. Where the bridge cannot take the file (reached over the stream or another device, more than 256 MiB, an older bridge), the two steps stay.
+- **A refused backup says when asking again cannot help** (#734). A row Aleph refused because it could not fetch the file no longer offers "Aleph erneut beauftragen": it says that its content goes up again with the next "Jetzt sichern". The consent text, the card and the backup docs now say where the sealed file goes: to the Aleph API with its order, and to the IPFS host only as a fallback.
 - **A chart of accounts from an older Mac program keeps its umlauts.** "Kontenplan einlesen" read a Mac Roman file as Windows-1252, so ä, ö and ü turned into Š, š and Ÿ. It now takes the reading that gives more umlauts. A name that repeats its account number at the start ("1200 1200 Bank") shows it once. Read the chart in again to correct names already taken.
 
 ## [0.29.7] – 2026-11-11
