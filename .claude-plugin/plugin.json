@@ -1,0 +1,22 @@
+{
+	"name": "belege",
+	"description": "Belege's integrations as skills: own wallets read by address with the shared @le-space packages, the bridge set up on the person's own machine without a secret in the chat, and the DATEV and crypto-ledger exports read for the bookkeeping.",
+	"version": "0.1.0",
+	"author": { "name": "Le Space UG", "url": "https://le-space.de" },
+	"homepage": "https://belege.le-space.de",
+	"repository": "https://github.com/Le-Space/belege",
+	"license": "AGPL-3.0-or-later",
+	"keywords": [
+		"belege",
+		"bookkeeping",
+		"datev",
+		"crypto-ledger",
+		"wallets",
+		"near",
+		"akash",
+		"filecoin",
+		"aleph",
+		"hibiscus",
+		"bridge"
+	]
+}

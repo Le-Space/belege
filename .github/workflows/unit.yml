@@ -70,6 +70,10 @@ jobs:
         run: pnpm run check
       - name: Unit tests
         run: pnpm run test:unit
+      # The Agent Skills under skills/ and the plugin manifests
+      # (Le-Space/eigenbeleg-agent#29): format, hosts, no secret, no real data.
+      - name: Skills
+        run: pnpm run test:skills
       # A production build, as deploy.yml makes it: no test hooks. Once here,
       # not in every E2E shard (those build the app with VITE_E2E themselves).
       - name: Build

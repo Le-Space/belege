@@ -32,6 +32,7 @@
     "test:e2e": "pnpm --filter @belege/app test:e2e",
     "test:e2e:stream": "pnpm --filter @belege/app test:e2e:stream",
     "test:bridge": "pnpm --filter @belege/bridge test",
+    "test:skills": "node --test --test-reporter=spec skills/test/skills.test.js",
     "spike:hibiscus": "node spikes/hibiscus/probe.mjs",
     "spike:imap": "node spikes/imap/probe.mjs",
     "spike:llm-key": "node spikes/llm/check-key.mjs",
