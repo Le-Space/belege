@@ -26,6 +26,13 @@ import {
 	startFakeAttestAgent,
 	startFakeAttestRelay
 } from '@belege/bridge/testing/attest-agent';
+import {
+	ACCOUNTING,
+	FAKE_IMAP_PASSWORD,
+	FAKE_IMAP_USER,
+	sampleMailbox,
+	startFakeImap
+} from '@belege/bridge/testing/imap';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
 import { device } from './devices.js';
@@ -247,7 +254,7 @@ test('a VM on another runtime gets nothing, and the card says why', async ({ bro
 	}
 });
 
-test('a device starts the hosted bridge on Aleph, short of credits first, and stops it again (#587)', async ({
+test('a device starts the hosted bridge on Aleph, short of credits first, fetches mail through it, and stops it again (#587, #728)', async ({
 	browser
 }) => {
 	test.setTimeout(240_000);
@@ -271,6 +278,7 @@ test('a device starts the hosted bridge on Aleph, short of credits first, and st
 	);
 	const vmAgent = await startFakeAttestAgent({ measurement: PUBLISHED, owner });
 	const vmRelay = await startFakeAttestRelay(vmAgent);
+	const imap = await startFakeImap({ storage: sampleMailbox() });
 	/** @type {import('node:child_process').ChildProcess | undefined} */
 	let hostedBridge;
 	let out = '';
@@ -283,6 +291,19 @@ test('a device starts the hosted bridge on Aleph, short of credits first, and st
 			[vmRelay.url, JSON.stringify(published)]
 		);
 		await openIntegration(mac.page, 'bridge');
+
+		// The mailbox the hosted bridge reads, typed in for it (#728): kept sealed, never shown again.
+		const settings = mac.page.getByTestId('hosted-settings');
+		await settings.getByText('Mail (IMAP)').click();
+		await settings.getByLabel('IMAP-Server').fill(imap.host);
+		await settings.getByLabel('Port').fill(String(imap.port));
+		await settings.getByLabel('Benutzer').fill(FAKE_IMAP_USER);
+		await settings.getByLabel('Passwort').first().fill(FAKE_IMAP_PASSWORD);
+		await settings.getByLabel('Adresse der Buchhaltung (optional)').fill(ACCOUNTING);
+		await settings.getByRole('button', { name: 'Für die gehostete Bridge halten' }).first().click();
+		await expect(settings.getByTestId('hosted-settings-kept')).toContainText('imap');
+		expect((await mac.page.content()).includes(FAKE_IMAP_PASSWORD)).toBe(false);
+
 		const node = mac.page.getByTestId('hosted-bridge-node');
 		await expect(node).toHaveValue(FAKE_CRN);
 		await expect(node).toContainText('Fake TEE node');
@@ -332,18 +353,32 @@ test('a device starts the hosted bridge on Aleph, short of credits first, and st
 		// Only after the attestation: the passphrase and what pairing needs.
 		expect(vmAgent.received.luks_passphrase).toBe('not-the-real-passphrase');
 		const config = JSON.parse(vmAgent.received.bridge_config);
+		// …and the mailbox, as the image takes it: the password as `imap`, the rest in bridge.json.
+		expect(vmAgent.received.imap).toBe(FAKE_IMAP_PASSWORD);
+		expect(config.mail).toMatchObject({
+			host: imap.host,
+			port: imap.port,
+			user: FAKE_IMAP_USER,
+			accountingAddress: ACCOUNTING
+		});
 		const hostedDir = await mkdtemp(join(tmpdir(), 'belege-e2e-hosted-vm-'));
 		const secretsDir = join(hostedDir, 'secrets');
 		await mkdir(join(hostedDir, 'node'), { recursive: true });
 		await mkdir(secretsDir, { recursive: true });
 		await writeFile(join(secretsDir, 'bridge_auth'), vmAgent.received.bridge_auth);
+		await writeFile(join(secretsDir, 'imap'), vmAgent.received.imap);
 		await writeFile(
 			join(hostedDir, 'node', 'peer-key'),
 			Buffer.from(vmAgent.received.bridge_peer_key, 'base64')
 		);
 		await writeFile(
 			join(hostedDir, 'bridge.json'),
-			JSON.stringify({ bridge: { port: 0 }, node: { ...config.node, enabled: true, wsPort: 0 } })
+			JSON.stringify({
+				bridge: { port: 0 },
+				// The fake mail server speaks plain IMAP; the VM would use TLS on 993.
+				mail: { ...config.mail, tls: 'none' },
+				node: { ...config.node, enabled: true, wsPort: 0 }
+			})
 		);
 		hostedBridge = spawn(
 			process.execPath,
@@ -369,7 +404,24 @@ test('a device starts the hosted bridge on Aleph, short of credits first, and st
 			)
 			.toBe('online/stream');
 
+		// Mail through the hosted bridge: this month's and last month's accounting mails.
+		await mac.page
+			.getByRole('navigation', { name: 'Hauptnavigation' })
+			.getByRole('link', { name: 'Belege' })
+			.click();
+		await expect(mac.page.getByTestId('mail-fetch')).toBeEnabled({ timeout: 30_000 });
+		// The hosted bridge has no language model (#251): fetch only.
+		await mac.page.getByTestId('mail-read-after').uncheck();
+		await mac.page.getByTestId('mail-fetch').click();
+		await expect(mac.page.getByTestId('mail-result')).toHaveText(
+			'6 E-Mails · neu: 6 · schon vorhanden: 0 · doppelt: 0',
+			{ timeout: 60_000 }
+		);
+		await mac.page.locator('[data-testid="receipt-month-pick"][data-month="all"]').click();
+		await expect(mac.page.getByTestId('receipt')).toHaveCount(6);
+
 		// Stop: Aleph forgets the VM, the card says when, the bridge leaves the devices.
+		await openIntegration(mac.page, 'bridge');
 		await mac.page.getByTestId('hosted-bridge-stop').click();
 		await expect(mac.page.getByTestId('hosted-bridge-vm')).toContainText('Gestoppt', {
 			timeout: 60_000
@@ -386,6 +438,7 @@ test('a device starts the hosted bridge on Aleph, short of credits first, and st
 		throw e;
 	} finally {
 		hostedBridge?.kill('SIGTERM');
+		await imap.close();
 		await vmRelay.close();
 		await vmAgent.close();
 	}
