@@ -104,6 +104,71 @@ function notSetUp(what) {
 /** @param {unknown} v @param {number} max */
 const str = (v, max) => typeof v === 'string' && v.length <= max;
 
+/** Each of `keys` absent, null or a string up to `max`; no other key. @param {any} o @param {string[]} keys @param {number} [max] */
+const onlyStrings = (o, keys, max = 200) =>
+	o &&
+	typeof o === 'object' &&
+	!Array.isArray(o) &&
+	Object.keys(o).every((k) => keys.includes(k)) &&
+	keys.every((k) => o[k] === undefined || o[k] === null || str(o[k], max));
+
+/** The body of /travel/assist (#693 d). @param {any} b */
+function travelReviewOk(b) {
+	const t = b?.trip;
+	const ref = (/** @type {unknown} */ x, /** @type {string} */ p) =>
+		typeof x === 'string' && new RegExp(`^${p}\\d{1,3}$`).test(x);
+	return (
+		(b?.lang === 'de' || b?.lang === 'en') &&
+		t &&
+		typeof t === 'object' &&
+		onlyStrings(
+			{ ...t, overnight: undefined, stops: undefined, flatNights: undefined },
+			['start', 'end', 'destination', 'country', 'overnight', 'stops', 'flatNights'],
+			200
+		) &&
+		(t.overnight === undefined || t.overnight === null || typeof t.overnight === 'boolean') &&
+		(t.stops === undefined ||
+			(Array.isArray(t.stops) &&
+				t.stops.length <= 40 &&
+				t.stops.every((/** @type {any} */ s) => onlyStrings(s, ['at', 'country', 'city'])))) &&
+		(t.flatNights === undefined ||
+			(Array.isArray(t.flatNights) &&
+				t.flatNights.length <= 92 &&
+				t.flatNights.every((/** @type {unknown} */ d) => isIsoDay(d)))) &&
+		Array.isArray(b.legs) &&
+		b.legs.length <= 60 &&
+		b.legs.every(
+			(/** @type {any} */ l) =>
+				onlyStrings(l, ['ref', 'receipt', 'kind', 'from', 'to', 'dep', 'arr']) &&
+				ref(l.ref, 'L') &&
+				ref(l.receipt, 'R') &&
+				str(l.dep, 20) &&
+				str(l.arr, 20)
+		) &&
+		Array.isArray(b.receipts) &&
+		b.receipts.length <= 60 &&
+		b.receipts.every(
+			(/** @type {any} */ r) =>
+				onlyStrings(r, [
+					'ref',
+					'kind',
+					'vendor',
+					'date',
+					'place',
+					'country',
+					'checkIn',
+					'checkOut',
+					'from',
+					'to'
+				]) && ref(r.ref, 'R')
+		) &&
+		Array.isArray(b.questions) &&
+		b.questions.length <= 20 &&
+		b.questions.every((/** @type {unknown} */ q) => str(q, 300)) &&
+		Object.keys(b).every((k) => ['lang', 'trip', 'legs', 'receipts', 'questions'].includes(k))
+	);
+}
+
 /**
  * The status an error answers with, when it names none.
  *
@@ -165,6 +230,7 @@ export function errorJson(error) {
  * @param {any} deps.matchAssist
  * @param {any} deps.transferAssist
  * @param {any} deps.vendorAssist
+ * @param {any} [deps.travelAssist]
  * @param {any} [deps.bookingAssist]
  * @param {ReturnType<typeof import('./shares.js').createShares>} deps.shares
  * @param {any} deps.rates
@@ -197,6 +263,7 @@ export function createCommands({
 	matchAssist,
 	transferAssist,
 	vendorAssist,
+	travelAssist = null,
 	bookingAssist = null,
 	shares,
 	rates,
@@ -621,6 +688,34 @@ export function createCommands({
 				if (!llm || !vendorAssist) throw notSetUp('LLM');
 				const result = await withExtraTerms(body?.redactTerms, () => vendorAssist.explain(body));
 				log(`vendor notes: ${body.rows.length} row(s), ${result.notes.length} note(s)`);
+				return json(200, result);
+			}
+		},
+		{
+			// "✦ Reise prüfen" (#693 d): unredacted, so only for a model on this
+			// machine or in the attested enclave with redaction off.
+			name: 'llm.travel',
+			method: 'POST',
+			path: '/travel/assist',
+			scope: 'bridge:llm',
+			body: 'json',
+			bodyLimit: MAX_EXTRACT_BODY,
+			run: async ({ body }) => {
+				if (!llm || !travelAssist) throw notSetUp('LLM');
+				if (!redactionOff(config.llm))
+					return json(403, {
+						error:
+							'Reise prüfen sends the trip unredacted: only to a model on this machine or in the attested enclave, with redaction off (pnpm setup:llm).',
+						code: 'REDACTION_ON'
+					});
+				if (!travelReviewOk(body))
+					return json(400, {
+						error: 'a trip with up to 60 legs, 60 receipts and 20 questions is required'
+					});
+				const result = await travelAssist.review(body);
+				log(
+					`trip notes: ${body.legs.length} leg(s), ${body.receipts.length} receipt(s), ${result.notes.length} note(s)`
+				);
 				return json(200, result);
 			}
 		},

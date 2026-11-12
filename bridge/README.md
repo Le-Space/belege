@@ -267,6 +267,7 @@ command needs none. `test/readme.test.js` keeps this table complete.
 | `mail.search` | `GET /mail/search` | `bridge:mail:read` | yes |
 | `llm.match` | `POST /match/assist` | `bridge:llm` | yes |
 | `llm.vendor` | `POST /vendor/assist` | `bridge:llm` | yes |
+| `llm.travel` | `POST /travel/assist` | `bridge:llm` | yes |
 | `llm.booking` | `POST /booking/assist` | `bridge:llm` | yes |
 | `llm.transfer` | `POST /transfer/assist` | `bridge:llm` | yes |
 | `llm.mail` | `POST /mail/assist` | `bridge:llm` | yes |

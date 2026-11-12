@@ -94,7 +94,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 45: what a hosted bridge starts with besides its pairing (#728): the
 //     accounts and settings kept for it, sealed in the books, handed only
 //     to the attested VM; taken over from the bridge on a computer.
-export const CONSENT_VERSION = '45';
+// 46: "Reise prüfen" (#693 d): a trip unredacted to the model, only one on
+//     this computer or in the attested enclave.
+export const CONSENT_VERSION = '46';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

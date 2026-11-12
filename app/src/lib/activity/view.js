@@ -176,6 +176,19 @@ export function describeEvent(e, { receipts = [], transactions = [] } = {}) {
 					tokens: integer(e.tokensTotal ?? 0)
 				})
 			};
+		case 'travel-assist':
+			return {
+				...base,
+				title: t('verlauf.kind.travel-assist'),
+				text: t('verlauf.text.travelAssist', {
+					model: e.model ?? '?',
+					legs: e.legs ?? 0,
+					receipts: e.receipts ?? 0,
+					notes: e.notes ?? 0,
+					seconds: typeof e.ms === 'number' ? seconds(e.ms) : '?',
+					tokens: integer(e.tokensTotal ?? 0)
+				})
+			};
 		case 'booking-assist':
 			return {
 				...base,

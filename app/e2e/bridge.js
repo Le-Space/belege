@@ -42,6 +42,7 @@ export const BRIDGE_SPECS = [
 	'receipts',
 	'transfer-first',
 	'travel-mail',
+	'travel-review',
 	'travel-rates',
 	'travel-reread',
 	'upload-to-booking',

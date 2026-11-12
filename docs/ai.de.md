@@ -157,6 +157,16 @@ Der Code: `bridge/src/llm/transfer-assist.js`, `POST /transfer/assist`.
 
 Der Code: `bridge/src/llm/vendor-assist.js`, `POST /vendor/assist`.
 
+### „Reise prüfen“ auf einer Reise
+
+**Ausgelöst durch:** den Knopf auf der Seite einer Reise (#693 d). Es gibt ihn nur, wenn das Modell auf dem Rechner der Bridge oder in einer attestierten Enklave läuft und nicht geschwärzt wird. Sonst lehnt die Bridge ab.
+
+**Was an das Modell geht:** Zeiten, Ziel, Heimatland, Grenzübertritte und als Pauschale angehakte Nächte der Reise, ihre Fahrten (Art, von, nach, Zeiten), die ausgelesenen Felder ihrer Belege (Art, Anbieter, Tag, Ort, An- und Abreise, von, nach) und die offenen Rückfragen der Regeln. Das geht **ungeschwärzt** hin, denn eine ganze Reise ist ein Bewegungsprofil, das Schwärzen nicht verbirgt. Beträge, Nummern, Grund und Notiz gehen nicht mit.
+
+**Was zurückkommt:** höchstens sechs Hinweise, was nicht passt oder fehlt, jeder mit den Fahrten oder Belegen, die er meint. Ein Name, der nicht gesendet wurde, fällt weg. Geändert, zugeordnet oder gebucht wird nichts.
+
+Der Code: `bridge/src/llm/travel-assist.js`, `POST /travel/assist`.
+
 ### „Konto vorschlagen“ unter „Konto“ einer Zahlung
 
 **Ausgelöst durch:** den Knopf unter „Konto“ einer Zahlung, nur wenn eine Bridge gekoppelt ist.

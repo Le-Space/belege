@@ -60,6 +60,9 @@
 	import { headOffer } from '$lib/travel/proposals.js';
 	import { tripChecks } from '$lib/travel/checks.js';
 	import { gapQuery, hitFound, rankGapHits } from '$lib/travel/mail-search.js';
+	import { reviewOffered, reviewRequest } from '$lib/travel/review.js';
+	import { recordEvent } from '$lib/activity/events.js';
+	import { eventCalls } from '$lib/stats/usage.js';
 	import { matchOfReceipt } from '$lib/matching/view.js';
 	import { lodgingFlat, nightsOf } from '$lib/travel/lodging.js';
 	import { appointmentsOn } from '$lib/travel/appointments.js';
@@ -264,6 +267,69 @@
 		} finally {
 			takingId = null;
 		}
+	}
+
+	// "✦ Reise prüfen" (#693 d): the trip unredacted to the model, so only with
+	// one on the bridge's computer or in the attested enclave. Notes only, each
+	// naming its legs and receipts; nothing is changed. A note can be dismissed.
+	let reviewShown = $derived(reviewOffered(app.llmRedaction) && receipts.length > 0);
+	/** @typedef {{ tripId: string, notes: (import('$lib/travel/review.js').ReviewNote & { gone?: boolean })[], receiptOf: Map<string, string> }} Review */
+	let review = $state(/** @type {Review | null} */ (null));
+	let reviewing = $state(false);
+	/** @type {string | null} */
+	let reviewError = $state(null);
+	let reviewNotes = $derived(review?.tripId === id ? review.notes.filter((n) => !n.gone) : []);
+	async function reviewTrip() {
+		if (!draft) return;
+		reviewError = null;
+		review = null;
+		const client = await pairedClient();
+		if (!client) {
+			reviewError = t('reise.mail.noBridge');
+			return;
+		}
+		const { body, receiptOf } = reviewRequest(
+			cleanTrip(draft).trip,
+			receipts,
+			checks,
+			currentLocale() === 'en' ? 'en' : 'de'
+		);
+		reviewing = true;
+		try {
+			const r = await client.travelAssist(body);
+			review = { tripId: id, notes: r.notes, receiptOf };
+			await recordEvent(currentStore()?.events, 'travel-assist', {
+				legs: body.legs.length,
+				receipts: body.receipts.length,
+				notes: r.notes.length,
+				model: r.llm.calls.at(-1)?.model ?? null,
+				calls: eventCalls(r.llm.calls),
+				ms: r.llm.calls.reduce(
+					(/** @type {number} */ n, /** @type {any} */ c) => n + (c.ms ?? 0),
+					0
+				),
+				tokensTotal: r.llm.calls.reduce(
+					(/** @type {number} */ n, /** @type {any} */ c) =>
+						n + (c.usage?.prompt ?? 0) + (c.usage?.completion ?? 0),
+					0
+				)
+			});
+		} catch (e) {
+			reviewError = e instanceof Error ? e.message : String(e);
+		} finally {
+			reviewing = false;
+		}
+	}
+	/** The receipts a note names, by vendor and day. @param {string[]} refs */
+	function namedIn(refs) {
+		const ids = [...new Set(refs.map((x) => review?.receiptOf.get(x)).filter(Boolean))];
+		return ids
+			.map((rid) => receipts.find((r) => String(r.id) === rid))
+			.filter(Boolean)
+			.map((r) => {
+				const d = receiptDate(/** @type {any} */ (r));
+				return `${receiptVendor(/** @type {any} */ (r))}${d ? ` (${formatDate(d)})` : ''}`;
+			});
 	}
 
 	// Booked as private outlays (#293): paid back through the outlay account, named on their row.
@@ -952,6 +1018,63 @@
 						</li>
 					{/each}
 				</ul>
+			</section>
+		{/if}
+
+		{#if reviewShown}
+			<section class={card} aria-labelledby="reise-review-h" data-testid="reise-review">
+				<div class="flex flex-wrap items-center justify-between gap-2">
+					<h2 id="reise-review-h" class="text-sm font-semibold text-heading">
+						{t('reise.review.title')}
+					</h2>
+					<button
+						type="button"
+						class={btn.secondary}
+						disabled={reviewing}
+						title={aiText('reise.review.hint')}
+						onclick={reviewTrip}
+						data-testid="reise-review-run"
+						><AiMark />{reviewing ? t('reise.review.running') : t('reise.review.run')}</button
+					>
+				</div>
+				<p class="mt-1 text-xs text-faint">{aiText('reise.review.hint')}</p>
+				{#if reviewError}
+					<p class="mt-2 text-sm text-danger" role="alert" data-testid="reise-review-error">
+						{reviewError}
+					</p>
+				{/if}
+				{#if review?.tripId === id}
+					<div
+						class="mt-3 rounded-md border border-cyan-800/40 bg-surface-2 px-3 py-2 text-sm dark:border-cyan/40"
+						role="status"
+						data-testid="reise-review-notes"
+					>
+						<p class="font-medium text-heading"><AiMark />{t('reise.review.notes')}</p>
+						{#if reviewNotes.length}
+							<ul class="mt-1 space-y-1">
+								{#each reviewNotes as note, i (i)}
+									{@const named = namedIn(note.refs)}
+									<li class="flex flex-wrap items-baseline gap-2" data-testid="reise-review-note">
+										<span class="text-text">{note.text}</span>
+										{#if named.length}
+											<span class="text-xs text-faint" data-testid="reise-review-about"
+												>{t('reise.review.about', { list: named.join(', ') })}</span
+											>
+										{/if}
+										<button
+											type="button"
+											class={btn.link}
+											onclick={() => (note.gone = true)}
+											data-testid="reise-review-dismiss">{t('reise.review.dismiss')}</button
+										>
+									</li>
+								{/each}
+							</ul>
+						{:else}
+							<p class="mt-1 text-xs text-faint">{t('reise.review.none')}</p>
+						{/if}
+					</div>
+				{/if}
 			</section>
 		{/if}
 
