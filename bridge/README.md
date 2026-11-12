@@ -389,6 +389,8 @@ All portal calls answer 409 `PORTAL_BUSY` while another run of the same portal i
   YOUNGER/OLDER, and Dovecot rejects `OLDER 0`).
 - `/mail/search` is for one missing receipt (step 4 uses it): vendor text and every spelling of
   an amount (`52,59`, `52.59`, `1.190,00`, `1,190.00`) within ± days; only the hits are read.
+  A trip's gap uses it too (#693 c): the place as text and a few words of a booking or a ticket
+  as terms, ± 30 days.
 
 ### LLM
 

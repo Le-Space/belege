@@ -253,3 +253,15 @@ export const receiptWords = (r) =>
 	[r.fileName, r.subject, r.from, r.excerpt, r.vendor]
 		.filter((x) => typeof x === 'string')
 		.join('\n');
+
+/**
+ * Words for the mailbox search of a trip's gap (#693 c): plain ASCII, as the
+ * bridge's `/mail/search` takes a term, and found as part of a longer word
+ * (IMAP searches substrings, without regard to case): "ticket" finds
+ * "E-Ticket" and "Bahnticket", "hotel" finds "Hotelrechnung". A night
+ * without lodging looks for a booking, a missing ride for a ticket.
+ */
+export const MAIL_WORDS = /** @type {const} */ ({
+	lodging: ['hotel', 'hostel', 'booking', 'reservation', 'Unterkunft'],
+	ride: ['ticket', 'boarding', 'flight', 'Fahrkarte', 'itinerary']
+});

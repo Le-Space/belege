@@ -3520,6 +3520,22 @@ export default {
 			saveFirst: 'Save first: the trip is split and joined as saved.',
 			locked: 'This trip is on the statement {number}: it is no longer split or joined.'
 		},
+		mail: {
+			search: 'Search the mailbox',
+			searching: 'Searching …',
+			hint: 'Searches the whole mailbox from {from} to {to} for mails with one of: {words}. Only the hits are read; nothing is taken over before your click.',
+			noBridge: 'To search the mailbox, pair a bridge with email (Settings).',
+			none: 'Nothing found. Perhaps the receipt came on paper, or in other words.',
+			found: 'matches: {what}',
+			take: 'Take over as a receipt',
+			taken: '{count} receipt(s) taken over and assigned to this trip.',
+			elsewhere: '{count} receipt(s) of it are on another trip already and stay there.',
+			unread:
+				'Not read yet: its sender waits for your confirmation under Belege, or it is an image.',
+			nothing: 'No receipt could be taken from this mail.',
+			here: 'on this trip',
+			inBooks: 'in Belege already'
+		},
 		checks: {
 			title: 'Questions about this trip',
 			hint: 'What does not add up by the receipts – by rules, not by AI. Nothing changes by itself; “Passt so” asks no more and holds once saved.',

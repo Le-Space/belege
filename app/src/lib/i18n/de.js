@@ -3578,6 +3578,22 @@ export default {
 			locked:
 				'Diese Reise steht in der Abrechnung {number}: Sie wird nicht mehr geteilt oder zusammengeführt.'
 		},
+		mail: {
+			search: 'Im Postfach suchen',
+			searching: 'Suche …',
+			hint: 'Sucht im ganzen Postfach vom {from} bis {to} nach Mails mit einem von: {words}. Nur die Treffer werden gelesen; übernommen wird erst auf deinen Klick.',
+			noBridge: 'Für die Suche im Postfach eine Bridge mit E-Mail verbinden (Einstellungen).',
+			none: 'Nichts gefunden. Vielleicht kam der Beleg auf Papier, oder mit anderen Worten.',
+			found: 'passt: {what}',
+			take: 'Als Beleg übernehmen',
+			taken: '{count} Beleg(e) übernommen und dieser Reise zugeordnet.',
+			elsewhere: '{count} Beleg(e) davon stehen schon bei einer anderen Reise und bleiben dort.',
+			unread:
+				'Noch nicht ausgelesen: Der Absender wartet auf deine Bestätigung unter Belege, oder es ist ein Bild.',
+			nothing: 'Aus dieser Mail ließ sich kein Beleg übernehmen.',
+			here: 'bei dieser Reise',
+			inBooks: 'schon in Belege'
+		},
 		checks: {
 			title: 'Rückfragen zur Reise',
 			hint: 'Was nach den Belegen nicht zusammenpasst – nach Regeln, nicht per KI. Nichts wird von selbst geändert; „Passt so“ fragt nicht mehr und gilt nach dem Speichern.',

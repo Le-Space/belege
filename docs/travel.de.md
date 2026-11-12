@@ -297,6 +297,8 @@ Sie stehen auf Reisen. Auf Home und unter Rückfragen werden sie mitgezählt.
 
   Die Seite der Reise nennt jede unter „Rückfragen zur Reise“. „Reise endet dort“ setzt die Rückkehr auf die letzte Ankunft. „Passt so“ merkt sich die Antwort an der Reise und fragt nicht mehr. Eine Reise ohne gelesene Reisebelege wird nicht nach ihren Nächten gefragt.
 
+  Bei einer Nacht ohne Unterkunft und einer fehlenden Fahrt steht „Im Postfach suchen“ (#693 c). Mit verbundener Bridge durchsucht Belege das ganze Postfach ± 30 Tage um die Lücke, denn eine Buchung kommt oft Wochen vorher. Gesucht wird nach dem Ort (wo die letzte Fahrt ankam, sonst das Ziel) oder einem Wort einer Buchung („hotel“, „hostel“, „booking“ …) oder eines Tickets („ticket“, „boarding“ …). Was gesucht wird, steht vor dem Klick da; gelesen werden nur die Treffer. Jeder Treffer nennt, was er davon hat; die mit Ort, Wort und Anhang stehen oben. „Als Beleg übernehmen“ übernimmt die Mail wie „Beleg finden“, ordnet sie der Reise zu und liest sie aus. Ein Beleg, der schon bei einer anderen Reise steht, bleibt dort und wird genannt.
+
 - Eine Abrechnung, die zwei Wochen nach dem Erstellen noch nicht ausgezahlt ist.
 
 ## Noch nicht
