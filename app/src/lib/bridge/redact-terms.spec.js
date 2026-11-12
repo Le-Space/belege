@@ -36,6 +36,7 @@ describe('the company names go with every call to the language model (#226)', ()
 		await client.transferAssist({ booking: {} });
 		await client.vendorAssist({ vendor: 'x' });
 		await client.bookingAssist({ booking: {} });
+		await client.travelAssist({ lang: 'de' });
 		await client.extract({ text: 'x' });
 		await client.createShare({ year: 2026 });
 		expect(calls.map((c) => [new URL(c.url).pathname, c.body.redactTerms])).toEqual([
@@ -44,6 +45,8 @@ describe('the company names go with every call to the language model (#226)', ()
 			['/transfer/assist', ['Beispiel GmbH', 'Muster UG']],
 			['/vendor/assist', ['Beispiel GmbH', 'Muster UG']],
 			['/booking/assist', ['Beispiel GmbH', 'Muster UG']],
+			// Unredacted (#693 d): only to a model here or in the enclave, nothing to black out.
+			['/travel/assist', undefined],
 			['/extract', ['Beispiel GmbH', 'Muster UG']],
 			['/share', undefined]
 		]);

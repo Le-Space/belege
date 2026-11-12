@@ -299,6 +299,8 @@ Sie stehen auf Reisen. Auf Home und unter Rückfragen werden sie mitgezählt.
 
   Bei einer Nacht ohne Unterkunft und einer fehlenden Fahrt steht „Im Postfach suchen“ (#693 c). Mit verbundener Bridge durchsucht Belege das ganze Postfach ± 30 Tage um die Lücke, denn eine Buchung kommt oft Wochen vorher. Gesucht wird nach dem Ort (wo die letzte Fahrt ankam, sonst das Ziel) oder einem Wort einer Buchung („hotel“, „hostel“, „booking“ …) oder eines Tickets („ticket“, „boarding“ …). Was gesucht wird, steht vor dem Klick da; gelesen werden nur die Treffer. Jeder Treffer nennt, was er davon hat; die mit Ort, Wort und Anhang stehen oben. „Als Beleg übernehmen“ übernimmt die Mail wie „Beleg finden“, ordnet sie der Reise zu und liest sie aus. Ein Beleg, der schon bei einer anderen Reise steht, bleibt dort und wird genannt.
 
+  „✦ Reise prüfen“ (#693 d) gibt es nur mit einem Modell auf dem Rechner der Bridge oder in der attestierten Enklave. Die Reise geht ungeschwärzt hin, denn eine ganze Reise ist ein Bewegungsprofil, das Schwärzen nicht verbirgt; bei einem öffentlichen Modell fehlt der Knopf. Das Modell bekommt die Fahrten, Nächte, Grenzübertritte, die ausgelesenen Felder der Belege (Art, Anbieter, Tag, Ort – keine Beträge, Nummern, Grund oder Notiz) und diese Rückfragen. Zurück kommen höchstens sechs Hinweise, was nicht passt oder fehlt, jeder mit den Belegen, die er meint. Ein Hinweis lässt sich ausblenden; geändert wird nichts.
+
 - Eine Abrechnung, die zwei Wochen nach dem Erstellen noch nicht ausgezahlt ist.
 
 ## Noch nicht

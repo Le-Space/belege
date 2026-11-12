@@ -747,6 +747,16 @@ export function createBridgeClient({
 		 */
 		vendorAssist: (body) => call('/vendor/assist', { method: 'POST', body: withTerms(body) }),
 		/**
+		 * "✦ Reise prüfen" on a trip (#693 d): up to six notes, each naming the
+		 * legs (L1 …) or receipts (R1 …) it is about. Unredacted, so the bridge
+		 * answers only with a model on its computer or in the attested enclave;
+		 * no company names go along, there is nothing to black out.
+		 *
+		 * @param {import('$lib/travel/review.js').TripReview} body
+		 * @returns {Promise<{ notes: { text: string, refs: string[] }[], llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
+		 */
+		travelAssist: (body) => call('/travel/assist', { method: 'POST', body: JSON.stringify(body) }),
+		/**
 		 * "✦ Konto vorschlagen" on a payment's "Konto": up to two accounts of the
 		 * chart sent, with a reason; the bridge redacts unless the model is local
 		 * or attested.

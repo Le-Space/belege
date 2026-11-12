@@ -771,7 +771,7 @@ export default {
 			ai: {
 				name: 'KI – nur auf Klick (✦)',
 				items: [
-					'Belege auslesen, im privaten Postfach weitersuchen, einen Beleg oder eine Gegenbuchung vorschlagen, Ungereimtheiten erklären.',
+					'Belege auslesen, im privaten Postfach weitersuchen, einen Beleg oder eine Gegenbuchung vorschlagen, Ungereimtheiten erklären, eine Reise prüfen.',
 					'Mit deinem eigenen Modell in der Bridge, nach Schwärzung; Le Space betreibt keine KI.',
 					'Verbrauch an Tokens und Kosten im Blick.'
 				]
@@ -878,7 +878,8 @@ export default {
 				'„Mit KI weitersuchen“ im privaten Postfach: Suchwörter und Absender vorschlagen, dann unter den Treffern den Beleg wählen – nach Betreff, Absender-Domain und Dateinamen, nie nach dem Text der E-Mails.',
 				'„KI-Vorschlag“ unter „Beleg zuordnen“: unter bis zu 25 deiner Belege den passenden zu einer Buchung nennen – nach Anbieter, Betrag, Datum, Rechnungsnummer und Kurzbeschreibung. Zuordnen tust du.',
 				'„KI-Vorschlag“ unter „Als Gegenbuchung verknüpfen …“: unter bis zu 8 Buchungen auf deinen anderen Konten die andere Seite einer eigenen Umbuchung nennen – nach Richtung, Betrag, Menge, Tag, Kontoart, Gegenpartei und Zweck, ohne Adressen, IBANs und Hashes. Verknüpfen tust du.',
-				'„Ungereimtheiten erklären“ im Lieferantenkonto: in wenigen Sätzen sagen, was bei einem Lieferanten nicht aufgeht – nach Daten, Beträgen, Zeiträumen und Positionen, ohne Rufnummern, Kunden- und Rechnungsnummern. Gebucht wird nichts.'
+				'„Ungereimtheiten erklären“ im Lieferantenkonto: in wenigen Sätzen sagen, was bei einem Lieferanten nicht aufgeht – nach Daten, Beträgen, Zeiträumen und Positionen, ohne Rufnummern, Kunden- und Rechnungsnummern. Gebucht wird nichts.',
+				'„Reise prüfen“ auf einer Reise: bis zu sechs Hinweise, was nicht passt oder fehlt – nach Fahrten, Nächten, Grenzübertritten, den ausgelesenen Feldern der Belege (Art, Anbieter, Tag, Ort) und den Rückfragen, ohne Beträge, Nummern, Grund und Notiz. Ungeschwärzt, weil eine ganze Reise ein Bewegungsprofil ist, das Schwärzen nicht verbirgt – daher nur mit einem Modell auf deinem Rechner oder in der attestierten Enklave; bei einem öffentlichen Modell gibt es den Knopf nicht. Geändert, zugeordnet oder gebucht wird nichts.'
 			],
 			withoutHeading: 'Ohne KI, nach festen Regeln',
 			without:
@@ -2288,6 +2289,7 @@ export default {
 			'match-assist': 'KI-Vorschlag',
 			'transfer-assist': 'KI-Gegenbuchung',
 			'vendor-assist': 'KI-Lieferantenkonto',
+			'travel-assist': 'KI-Reiseprüfung',
 			'booking-assist': 'KI-Konto',
 			'mail-assist': 'Postfach-Suche'
 		},
@@ -3112,6 +3114,7 @@ export default {
 			'match-assist': 'KI-Vorschlag für eine Zuordnung',
 			'transfer-assist': 'KI-Vorschlag für eine Gegenbuchung',
 			'vendor-assist': 'KI-Erklärung eines Lieferantenkontos',
+			'travel-assist': 'KI-Prüfung einer Reise',
 			'booking-assist': 'KI-Vorschlag für ein Konto',
 			matching: 'Abgleich',
 			decision: 'Entscheidung',
@@ -3142,6 +3145,8 @@ export default {
 			matchAssist: '{model} · {candidates} Belege geprüft · {seconds} s · {tokens} Tokens',
 			transferAssist: '{model} · {candidates} Buchungen geprüft · {seconds} s · {tokens} Tokens',
 			vendorAssist: '{model} · {rows} Zeilen geprüft · {seconds} s · {tokens} Tokens',
+			travelAssist:
+				'{model} · {legs} Fahrten, {receipts} Belege geprüft, {notes} Hinweise · {seconds} s · {tokens} Tokens',
 			bookingAssist: '{model} · {picks} Konten vorgeschlagen · {seconds} s · {tokens} Tokens',
 			export: 'DATEV-Export {month}: {bookings} Buchungen, {receipts} Belege',
 			booksMoved:
@@ -3593,6 +3598,20 @@ export default {
 			nothing: 'Aus dieser Mail ließ sich kein Beleg übernehmen.',
 			here: 'bei dieser Reise',
 			inBooks: 'schon in Belege'
+		},
+		review: {
+			title: 'Reise prüfen',
+			run: 'Reise prüfen',
+			running: 'Prüft …',
+			hint: 'Gibt die Reise deinem Sprachmodell: Fahrten, Nächte, Grenzübertritte, die ausgelesenen Felder der Belege (Art, Anbieter, Tag, Ort) und die Rückfragen – ohne Beträge, Nummern, Grund und Notiz. Nur Hinweise; geändert, zugeordnet oder gebucht wird nichts.',
+			hintLocal:
+				'Gibt die Reise deinem Sprachmodell auf diesem Rechner: Fahrten, Nächte, Grenzübertritte, die ausgelesenen Felder der Belege (Art, Anbieter, Tag, Ort) und die Rückfragen – ungeschwärzt, weil nichts den Rechner verlässt; ohne Beträge, Nummern, Grund und Notiz. Nur Hinweise; geändert, zugeordnet oder gebucht wird nichts.',
+			hintEnclave:
+				'Gibt die Reise deinem Sprachmodell in der attestierten Enklave: Fahrten, Nächte, Grenzübertritte, die ausgelesenen Felder der Belege (Art, Anbieter, Tag, Ort) und die Rückfragen – ungeschwärzt, lesen kann es nur die geprüfte Enklave; ohne Beträge, Nummern, Grund und Notiz. Nur Hinweise; geändert, zugeordnet oder gebucht wird nichts.',
+			notes: 'Hinweise der KI',
+			none: 'Die KI hat nichts gefunden, das nicht passt.',
+			about: 'betrifft: {list}',
+			dismiss: 'Ausblenden'
 		},
 		checks: {
 			title: 'Rückfragen zur Reise',

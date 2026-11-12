@@ -743,7 +743,7 @@ export default {
 			ai: {
 				name: 'AI – only on click (✦)',
 				items: [
-					'Extract receipts, keep searching in the private mailbox, suggest a receipt or a counter-booking, explain inconsistencies.',
+					'Extract receipts, keep searching in the private mailbox, suggest a receipt or a counter-booking, explain inconsistencies, check a trip.',
 					'With your own model in the bridge, after redaction; Le Space runs no AI.',
 					'Token usage and costs in view.'
 				]
@@ -850,7 +850,8 @@ export default {
 				'“Keep searching with AI” in the private mailbox: suggest search terms and senders, then choose the receipt among the hits – by subject, sender domain and file names, never by the text of the emails.',
 				'“AI suggestion” under “Link receipt”: name the matching one of up to 25 of your receipts for a booking – by vendor, amount, date, invoice number and short description. You do the linking.',
 				'“AI suggestion” under “Link as counter-booking …”: name, among up to 8 bookings on your other accounts, the other side of a transfer between your own accounts – by direction, amount, quantity, day, account type, counterparty and purpose, without addresses, IBANs and hashes. You do the linking.',
-				'“Explain inconsistencies” in the vendor account: say in a few sentences what doesn’t add up with a vendor – by dates, amounts, periods and line items, without phone numbers, customer and invoice numbers. Nothing is booked.'
+				'“Explain inconsistencies” in the vendor account: say in a few sentences what doesn’t add up with a vendor – by dates, amounts, periods and line items, without phone numbers, customer and invoice numbers. Nothing is booked.',
+				'“Check the trip” on a trip: up to six notes on what does not fit or is missing – by rides, nights, border crossings, the receipts’ read fields (kind, vendor, day, place) and the open questions, without amounts, numbers, reason and note. Unredacted, because a whole trip is a movement profile that redaction would not hide – so only with a model on your computer or in the attested enclave; with a public model there is no button. Nothing is changed, assigned or booked.'
 			],
 			withoutHeading: 'Without AI, by fixed rules',
 			without:
@@ -2248,6 +2249,7 @@ export default {
 			'match-assist': 'AI suggestion',
 			'transfer-assist': 'AI counter-booking',
 			'vendor-assist': 'AI vendor account',
+			'travel-assist': 'AI trip check',
 			'booking-assist': 'AI account',
 			'mail-assist': 'Mailbox search'
 		},
@@ -3061,6 +3063,7 @@ export default {
 			'match-assist': 'AI suggestion for a link',
 			'transfer-assist': 'AI suggestion for a counter-booking',
 			'vendor-assist': 'AI explanation of a vendor account',
+			'travel-assist': 'AI check of a trip',
 			'booking-assist': 'AI suggestion for an account',
 			matching: 'Matching',
 			decision: 'Decision',
@@ -3090,6 +3093,8 @@ export default {
 			matchAssist: '{model} · {candidates} receipts checked · {seconds} s · {tokens} tokens',
 			transferAssist: '{model} · {candidates} bookings checked · {seconds} s · {tokens} tokens',
 			vendorAssist: '{model} · {rows} rows checked · {seconds} s · {tokens} tokens',
+			travelAssist:
+				'{model} · {legs} rides, {receipts} receipts checked, {notes} notes · {seconds} s · {tokens} tokens',
 			bookingAssist: '{model} · {picks} accounts suggested · {seconds} s · {tokens} tokens',
 			export: 'DATEV export {month}: {bookings} bookings, {receipts} receipts',
 			booksMoved: 'Taken over from other books, packed on {date}: {records} records, {files} files',
@@ -3535,6 +3540,20 @@ export default {
 			nothing: 'No receipt could be taken from this mail.',
 			here: 'on this trip',
 			inBooks: 'in Belege already'
+		},
+		review: {
+			title: 'Check the trip',
+			run: 'Check the trip',
+			running: 'Checking …',
+			hint: 'Gives the trip to your language model: rides, nights, border crossings, the receipts’ read fields (kind, vendor, day, place) and the open questions – without amounts, numbers, reason and note. Notes only; nothing is changed, assigned or booked.',
+			hintLocal:
+				'Gives the trip to your language model on this computer: rides, nights, border crossings, the receipts’ read fields (kind, vendor, day, place) and the open questions – unredacted, as nothing leaves the computer; without amounts, numbers, reason and note. Notes only; nothing is changed, assigned or booked.',
+			hintEnclave:
+				'Gives the trip to your language model in the attested enclave: rides, nights, border crossings, the receipts’ read fields (kind, vendor, day, place) and the open questions – unredacted, only the verified enclave can read it; without amounts, numbers, reason and note. Notes only; nothing is changed, assigned or booked.',
+			notes: 'Notes from the AI',
+			none: 'The AI found nothing that does not fit.',
+			about: 'about: {list}',
+			dismiss: 'Dismiss'
 		},
 		checks: {
 			title: 'Questions about this trip',

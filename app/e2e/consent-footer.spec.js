@@ -107,7 +107,7 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	const ai = dialog.getByTestId('consent-ai');
 	await expect(ai).toContainText('Le Space betreibt keine KI');
 	await expect(ai).toContainText('lokales auf deinem eigenen Rechner');
-	await expect(ai.getByTestId('consent-ai-uses').locator('li')).toHaveCount(5);
+	await expect(ai.getByTestId('consent-ai-uses').locator('li')).toHaveCount(6);
 	await expect(ai).toContainText('Ohne KI, nach festen Regeln');
 	// The customer portals: a browser on this Mac, only once set up.
 	await expect(
@@ -154,7 +154,7 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	);
 	expect(Object.keys(after).filter((key) => !before.includes(key))).toEqual(['belege.consent']);
 	// CONSENT_VERSION in src/lib/consent.js.
-	expect(after['belege.consent']).toBe('45');
+	expect(after['belege.consent']).toBe('46');
 	await expect(page.getByTestId('passkey-onboarding')).toBeVisible();
 
 	await page.reload();

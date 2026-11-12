@@ -21,6 +21,7 @@ import { createDexRates, createRateService } from '@le-space/rates';
 import { createMatchAssist } from './llm/match-assist.js';
 import { createTransferAssist } from './llm/transfer-assist.js';
 import { createVendorAssist } from './llm/vendor-assist.js';
+import { createTravelAssist } from './llm/travel-assist.js';
 import { createBookingAssist } from './llm/booking-assist.js';
 import { createKrakenClient, parseKrakenCredentials } from './kraken.js';
 import { createPaperlessClient } from './paperless.js';
@@ -234,6 +235,8 @@ export async function startBridge({
 	const vendorAssist = llm
 		? createVendorAssist({ llm, redaction: { terms: config.llm.redactTerms, ownDomains, off } })
 		: null;
+	// Unredacted (#693 d): refused unless the model is here or in the enclave.
+	const travelAssist = llm ? createTravelAssist({ llm, unredacted: () => off }) : null;
 	const bookingAssist = llm
 		? createBookingAssist({ llm, redaction: { terms: config.llm.redactTerms, ownDomains, off } })
 		: null;
@@ -490,6 +493,7 @@ export async function startBridge({
 		matchAssist,
 		transferAssist,
 		vendorAssist,
+		travelAssist,
 		bookingAssist,
 		// Reads the keychain entry to see that there is one; the value stays here.
 		llmTee: tee ? tee.status : null,
