@@ -19,6 +19,13 @@ export const ACCOUNTING = 'buchhaltung@le-space.de';
 export const PERSONAL = 'person@le-space.de';
 
 /** A made-up crypto payment, confirmed by mail (`cryptoPayment: true`). */
+/** The made-up booking of `sampleMailbox({ hostelBooking: true })` (#693 c): received weeks before its night. */
+export const HOSTEL_BOOKING = {
+	vendor: 'Hostel Beispiel',
+	place: 'Ortshausen',
+	receivedAt: new Date('2026-04-20T10:00:00Z')
+};
+
 /** The made-up invitation of `sampleMailbox({ invitation: true })`. */
 export const INVITATION = {
 	organizer: 'veranstalterin@events.example',
@@ -219,13 +226,18 @@ const authResults = (domain, result = 'pass') =>
  * calendar attachment (INVITATION): a made-up conference, its organiser and
  * attendees, which must not come out of the bridge (#213, step 4c).
  *
- * @param {{ base?: Date, privateReceipt?: boolean, cryptoPayment?: boolean, invitation?: boolean }} [options]
+ * `hostelBooking: true` adds a hostel's booking for one night in a made-up
+ * town, sent to the personal address weeks before (HOSTEL_BOOKING): found
+ * by a trip's "Im Postfach suchen" (#693 c).
+ *
+ * @param {{ base?: Date, privateReceipt?: boolean, cryptoPayment?: boolean, invitation?: boolean, hostelBooking?: boolean }} [options]
  */
 export function sampleMailbox({
 	base = new Date(Date.now() - 3 * 864e5),
 	privateReceipt = false,
 	cryptoPayment = false,
-	invitation = false
+	invitation = false,
+	hostelBooking = false
 } = {}) {
 	const day = (/** @type {number} */ offset) => new Date(base.getTime() - offset * 864e5);
 	const w = RECEIPTS.wolkenfabrik;
@@ -429,6 +441,31 @@ export function sampleMailbox({
 							bytes: Buffer.from(INVITATION.ics, 'utf8')
 						}
 					]
+				})
+			)
+		);
+	}
+
+	if (hostelBooking) {
+		const h = HOSTEL_BOOKING;
+		const pdfH = makePdf([
+			h.vendor,
+			`${h.place}, Beispielweg 1`,
+			'Buchungsbestaetigung',
+			'Check-in 04.05.2026, Check-out 05.05.2026, 1 Nacht',
+			'Summe: 30,00 EUR'
+		]);
+		inbox.push(
+			msg(
+				h.receivedAt,
+				mime({
+					headers: [authResults('hostel.example'), received(PERSONAL, h.receivedAt)],
+					from: `"${h.vendor}" <buchung@hostel.example>`,
+					to: PERSONAL,
+					subject: `Ihre Buchung im ${h.vendor}, ${h.place}`,
+					date: h.receivedAt,
+					text: 'Vielen Dank fuer Ihre Buchung. Die Bestaetigung liegt bei.',
+					attachments: [{ name: 'Buchung.pdf', type: 'application/pdf', bytes: pdfH }]
 				})
 			)
 		);

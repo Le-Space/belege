@@ -8,17 +8,20 @@
 	import { page } from '$app/state';
 	import {
 		app,
+		currentBlobs,
 		currentStore,
 		extractAgain,
 		pairedClient,
-		refreshNow
+		refreshNow,
+		runMatchingNow
 	} from '$lib/session.svelte.js';
 	import { euroCents } from '$lib/outlays/outlays.js';
 	import { perEuro } from '$lib/assets/rate-display.js';
 	import AiMark from '$lib/AiMark.svelte';
 	import { aiText } from '$lib/ai-text.js';
-	import { extractRun } from '$lib/receipts/extract-queue.svelte.js';
-	import { rereadable } from '$lib/receipts/extract.js';
+	import { extractOne, extractRun } from '$lib/receipts/extract-queue.svelte.js';
+	import { extractable, rereadable } from '$lib/receipts/extract.js';
+	import { importMailMessages } from '$lib/receipts/import.js';
 	import { formatDate, formatMoney } from '$lib/bank/format.js';
 	import { receiptDate, receiptVendor } from '$lib/receipts/view.js';
 	import { btn, card } from '$lib/ui/styles.js';
@@ -27,6 +30,7 @@
 	import {
 		VEHICLES,
 		VEHICLE_TYPES,
+		assignReceipt,
 		cleanTrip,
 		deleteTrip,
 		saveTrip,
@@ -39,6 +43,7 @@
 		allTrips,
 		breakfastProposals,
 		euroOf,
+		paidByGuess,
 		ratesWanted,
 		receiptsOfTrip,
 		tripDays,
@@ -54,6 +59,7 @@
 	} from '$lib/travel/split.js';
 	import { headOffer } from '$lib/travel/proposals.js';
 	import { tripChecks } from '$lib/travel/checks.js';
+	import { gapQuery, hitFound, rankGapHits } from '$lib/travel/mail-search.js';
 	import { matchOfReceipt } from '$lib/matching/view.js';
 	import { lodgingFlat, nightsOf } from '$lib/travel/lodging.js';
 	import { appointmentsOn } from '$lib/travel/appointments.js';
@@ -155,6 +161,109 @@
 		if (!draft) return;
 		draft.end = at;
 		checkOk(key);
+	}
+
+	// "Im Postfach suchen" on a night without lodging or a ride missing (#693 c):
+	// one search at a time, its hits under its question; only the hits are read.
+	/** @typedef {{ key: string, query: import('$lib/travel/mail-search.js').GapQuery, hits: any[] | null, all: boolean, error: string | null, note: string | null }} MailSearch */
+	/** @type {MailSearch | null} */
+	let mail = $state(null);
+	let mailBusy = $state(false);
+	/** @type {string | null} the hit being taken over */
+	let takingId = $state(null);
+	/** The first and last day searched, as dates. @param {{ around: string, days: number }} q */
+	const searchSpan = (q) => {
+		const day = (/** @type {number} */ n) =>
+			formatDate(new Date(Date.parse(`${q.around}T00:00:00Z`) + n * 864e5).toISOString());
+		return { from: day(-q.days), to: day(q.days) };
+	};
+	/** @param {import('$lib/travel/checks.js').TripCheck} c */
+	async function searchMail(c) {
+		const query = gapQuery(c, draft ?? {}, receipts);
+		if (!query) return;
+		mail = { key: c.key, query, hits: null, all: false, error: null, note: null };
+		const client = await pairedClient();
+		if (!client) {
+			mail.error = t('reise.mail.noBridge');
+			return;
+		}
+		mailBusy = true;
+		try {
+			const { messages } = await client.mailSearch(query);
+			if (mail?.key === c.key) mail.hits = rankGapHits(messages, query);
+		} catch (e) {
+			if (mail?.key === c.key) mail.error = e instanceof Error ? e.message : String(e);
+		} finally {
+			mailBusy = false;
+		}
+	}
+	/** A hit already in Belege: its receipts. @param {string} mailId */
+	const receiptsOfMail = (mailId) => app.receipts.filter((r) => !r.deleted && r.mailId === mailId);
+	/**
+	 * "Als Beleg übernehmen": the mail's files become receipts as from "Beleg
+	 * finden", are assigned to this trip, and are read. One already on another
+	 * trip stays there and is named.
+	 *
+	 * @param {any} hit
+	 */
+	async function takeHit(hit) {
+		const store = currentStore();
+		const blobs = currentBlobs();
+		const client = await pairedClient();
+		if (!store || !blobs || !client || !mail) return;
+		takingId = hit.id;
+		mail.error = null;
+		mail.note = null;
+		try {
+			/** @type {any[]} */
+			const created = [];
+			await importMailMessages({
+				receipts: store.receipts,
+				blobs,
+				client,
+				messages: [hit],
+				created,
+				events: store.events,
+				foundBy: { kind: 'mail-search' }
+			});
+			await refreshNow();
+			const records = created.length ? created : receiptsOfMail(hit.id);
+			// Not read here: waiting for a yes on its sender, or an image.
+			const unread = records.some((r) => !r.extraction && extractable([r]).length === 0);
+			let elsewhere = 0;
+			for (const r of records) {
+				const on = r.travel?.tripId;
+				if (on && on !== id) {
+					elsewhere++;
+					continue;
+				}
+				if (on !== id)
+					await assignReceipt(store, {
+						receiptId: String(r.id),
+						tripId: id,
+						paidBy: paidByGuess(r, app)
+					});
+			}
+			// Read what is new (the sender checked); one waiting for a yes is named.
+			const ctx = { client, store: currentStore, blobs: currentBlobs, refresh: refreshNow };
+			for (const r of extractable(records)) await extractOne(ctx, r);
+			await runMatchingNow();
+			await refreshNow();
+			const here = records.length - elsewhere;
+			mail.note = !records.length
+				? t('reise.mail.nothing')
+				: [
+						here ? t('reise.mail.taken', { count: here }) : '',
+						elsewhere ? t('reise.mail.elsewhere', { count: elsewhere }) : '',
+						unread ? t('reise.mail.unread') : ''
+					]
+						.filter(Boolean)
+						.join(' ');
+		} catch (e) {
+			mail.error = e instanceof Error ? e.message : String(e);
+		} finally {
+			takingId = null;
+		}
 	}
 
 	// Booked as private outlays (#293): paid back through the outlay account, named on their row.
@@ -722,12 +831,124 @@
 									data-testid="reise-check-end">{t('reise.checks.endHere')}</button
 								>
 							{/if}
+							{#if c.kind === 'night' || c.kind === 'gap'}
+								<button
+									type="button"
+									class={btn.secondary}
+									onclick={() => searchMail(c)}
+									disabled={mailBusy || takingId !== null}
+									data-testid="reise-check-mail"
+									>{mailBusy && mail?.key === c.key
+										? t('reise.mail.searching')
+										: t('reise.mail.search')}</button
+								>
+							{/if}
 							<button
 								type="button"
 								class={btn.secondary}
 								onclick={() => checkOk(c.key)}
 								data-testid="reise-check-ok">{t('reise.checks.ok')}</button
 							>
+							{#if mail && mail.key === c.key}
+								{@const m = mail}
+								{@const span = searchSpan(m.query)}
+								<div class="basis-full" data-testid="reise-mail">
+									<p class="text-xs text-faint" data-testid="reise-mail-hint">
+										{t('reise.mail.hint', {
+											from: span.from,
+											to: span.to,
+											words: [m.query.text, ...m.query.terms]
+												.filter(Boolean)
+												.map((w) => t('language.quoted', { text: String(w) }))
+												.join(', ')
+										})}
+									</p>
+									{#if m.error}
+										<p class="mt-1 text-sm text-danger" role="alert" data-testid="reise-mail-error">
+											{m.error}
+										</p>
+									{/if}
+									{#if m.note}
+										<p
+											class="mt-1 text-sm text-success"
+											role="status"
+											data-testid="reise-mail-note"
+										>
+											{m.note}
+										</p>
+									{/if}
+									{#if m.hits && m.hits.length === 0}
+										<p class="mt-1 text-sm text-faint" data-testid="reise-mail-none">
+											{t('reise.mail.none')}
+										</p>
+									{:else if m.hits}
+										<ul class="mt-1 divide-y divide-border">
+											{#each m.all ? m.hits : m.hits.slice(0, 5) as hit (hit.id)}
+												{@const found = hitFound(hit, m.query)}
+												{@const files = (hit.attachments ?? []).filter(
+													(/** @type {any} */ a) => a.kind === 'pdf' || a.kind === 'image'
+												)}
+												{@const inBooks = receiptsOfMail(hit.id)}
+												<li class="py-2" data-testid="reise-mail-hit">
+													<p class="text-sm font-medium break-words text-heading">{hit.subject}</p>
+													<p class="text-xs break-all text-faint">
+														{hit.from?.name ?? ''} &lt;{hit.from?.address ?? ''}&gt; · {hit.receivedAt
+															? formatDate(String(hit.receivedAt).slice(0, 10))
+															: ''}
+													</p>
+													<p class="text-xs text-text" data-testid="reise-mail-found">
+														{t('reise.mail.found', {
+															what:
+																[
+																	found.place && m.query.text
+																		? t('language.quoted', { text: m.query.text })
+																		: '',
+																	...found.words.map((w) => t('language.quoted', { text: w }))
+																]
+																	.filter(Boolean)
+																	.join(' + ') || '—'
+														})} · {files.length
+															? t('zahlungen.detail.privateAttachments', {
+																	names: files.map((/** @type {any} */ a) => a.name).join(', ')
+																})
+															: t('zahlungen.detail.privateNoAttachment')}
+														{#if hit.auth?.verdict !== 'pass' && !hit.outgoing}
+															· <span class="text-danger">⚠ {t('belege.unverified')}</span>
+														{/if}
+														{#if inBooks.some((r) => r.travel?.tripId === id)}
+															· <span data-testid="reise-mail-here">{t('reise.mail.here')}</span>
+														{:else if inBooks.length}
+															· {t('reise.mail.inBooks')}
+														{/if}
+													</p>
+													{#if !inBooks.some((r) => r.travel?.tripId === id)}
+														<button
+															type="button"
+															class="mt-1 inline-flex items-center gap-1.5 {btn.secondary}"
+															onclick={() => takeHit(hit)}
+															disabled={takingId !== null}
+															title={aiText('ai.import')}
+															data-testid="reise-mail-take"
+															><AiMark />{takingId === hit.id
+																? t('zahlungen.detail.privateImporting')
+																: t('reise.mail.take')}</button
+														>
+													{/if}
+												</li>
+											{/each}
+										</ul>
+										{#if !m.all && m.hits.length > 5}
+											<button
+												type="button"
+												class="mt-1 text-sm underline"
+												onclick={() => (m.all = true)}
+												data-testid="reise-mail-more"
+												>{t('zahlungen.detail.privateMore', { count: m.hits.length - 5 })}</button
+											>
+										{/if}
+									{/if}
+								</div>
+							{/if}
 						</li>
 					{/each}
 				</ul>

@@ -41,6 +41,7 @@ export const BRIDGE_SPECS = [
 	'portal',
 	'receipts',
 	'transfer-first',
+	'travel-mail',
 	'travel-rates',
 	'travel-reread',
 	'upload-to-booking',
