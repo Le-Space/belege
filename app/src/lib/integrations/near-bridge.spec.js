@@ -41,6 +41,8 @@ describe('the NEAR bridge', () => {
 		expect(() => checkEnvKey({ ...signedKey, appId: '00'.repeat(20) })).toThrow(/not signed/);
 		expect(() => checkEnvKey({ ...signedKey, publicKey: 'ee'.repeat(32) })).toThrow(/not signed/);
 		expect(() => checkEnvKey({ ...signedKey, kms: 'toString' })).toThrow(/unknown KMS/);
+		// Another node of the same cluster signs with the same key.
+		expect(() => checkEnvKey({ ...signedKey, kms: 'pha1-prod4' })).not.toThrow();
 		expect(envKeySigner({ ...signedKey, signature: 'zz' })).toBeNull();
 		expect(envKeySigner({ ...signedKey, timestamp: 1 })).not.toBe(KNOWN_KMS['pha1-prod3']);
 	});
