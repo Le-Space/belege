@@ -108,3 +108,9 @@ must publish their changes too.
 
 The portal recipes in [`bridge/src/portals/recipes/`](bridge/src/portals/recipes/) are
 [MIT-licensed](bridge/src/portals/recipes/LICENSE), so they can be reused in any tool, open or not.
+
+**The skill texts** ([`skills/*/SKILL.md`](skills/)) are prose, not software, and are under
+[CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) instead: copy them, change them, put them
+into your own skills or directories, as long as you name Le Space as the source
+([`skills/LICENSE.md`](skills/LICENSE.md)). Each one says so in its `license` line. The tests under
+`skills/test` and everything the skills point at stay under the AGPL.

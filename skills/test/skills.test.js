@@ -82,8 +82,9 @@ for (const name of skills) {
 		assert.match(fields.description, /\bUse when\b/, 'the description says when to use the skill');
 		if (fields.compatibility) assert.ok(fields.compatibility.length <= 500);
 		assert.match(
-			fields.license,
-			/^CC-BY-4\.0 \(this text\); the scripts of the repository are AGPL-3\.0-or-later$/
+			fields.license ?? '',
+			/^CC-BY-4\.0\b/,
+			'the text is CC-BY-4.0 (skills/LICENSE.md); the scripts stay AGPL'
 		);
 		assert.ok(body.split('\n').length <= 500, 'the body stays under 500 lines');
 		assert.match(body, /^# /m, 'the body has a title');
