@@ -40,6 +40,10 @@ export function needsOf(file) {
 	// The docs: the unit tests read them (neutral wording, app/src/lib/neutral-wording.spec.js).
 	if (/^docs\//.test(file) || /^[^/]+\.md$/.test(file)) return { unit: true };
 
+	// The Agent Skills and the plugin manifests: their test runs in the unit
+	// workflow (skills/test/skills.test.js, Le-Space/eigenbeleg-agent#29).
+	if (/^skills\//.test(file) || /^\.claude-plugin\//.test(file)) return { unit: true };
+
 	if (/^bridge\//.test(file)) {
 		// The README's command table is a bridge test (bridge/test/readme.test.js).
 		if (/\.md$/.test(file)) return { bridge: true };

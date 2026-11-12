@@ -49,6 +49,13 @@ Die meisten Grenzübertritte schlägt Belege aus den Fahrkarten vor ([#693](http
 - Ohne einen Beleg aus dem Ausland erkennt Belege einen Grenzübertritt nicht.
 - Belege, die vor dieser Änderung ausgelesen wurden, kennen ihr Land nicht. „Erneut auslesen“ holt es nach.
 
+**Teilen oder zusammenführen** ([#693](https://github.com/Le-Space/belege/issues/693)). Unten auf der Seite einer Reise:
+
+- **In zwei Reisen teilen:** Du gibst an, wann die erste Reise endet und wann die zweite beginnt. Kommt eine Fahrkarte nach Hause und fährt die nächste erst einen Tag oder später wieder ab, schlägt Belege genau diese Zeiten vor. Belege, Grenzübertritte, Mahlzeiten, Nächte und Kilometer gehen nach ihrer Zeit mit: vor dem Beginn der zweiten zur ersten, ab dann zur zweiten. Ein Beleg zählt mit seiner Abfahrt, ein Hotel mit dem Check-in, sonst mit seinem Tag.
+- **Zusammenführen:** Angeboten werden Reisen derselben Person, höchstens eine Woche entfernt. Daraus wird eine Reise vom früheren Beginn bis zum späteren Ende, mit allem von beiden. Die andere Reise wird gelöscht.
+- Geteilt und zusammengeführt wird die gespeicherte Reise. Was du gerade tippst, speicherst du vorher.
+- Eine Reise in einer erstellten Abrechnung wird weder geteilt noch zusammengeführt.
+
 - Ein Tag im Ausland bekommt den Satz des Landes, das du vor Mitternacht zuletzt erreicht hast.
 - Der Tag der Rückreise bekommt den Satz des letzten Orts im Ausland.
 - Manche Länder haben Städte mit eigenen Sätzen, etwa Moskau, Paris oder New York City. Dann wählst du beim Grenzübertritt eine dieser Städte. Jeder andere Ort gilt als „übriges Land“.

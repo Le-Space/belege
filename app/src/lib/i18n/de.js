@@ -387,7 +387,7 @@ export default {
 				'Für den Start fehlen Credits: Aleph nimmt die VM erst mit {needed} Credits Reserve an (ein Tag zu {perHour} Credits/h), der Aleph-Schlüssel der Bücher hat {credits}. Aufladen unter Integrationen → Aleph.',
 			noVm: 'Diese Bücher haben keine laufende gehostete VM.',
 			noPort: 'Der Knoten hat Port 443 der VM nicht freigegeben.',
-			deviceLabel: 'Gehostete Bridge'
+			deviceLabel: 'Gehostete Bridge (Aleph)'
 		},
 		nearBridge: {
 			noKey: 'Diese Bücher haben noch kein NEAR-Konto: Das Gerät des Besitzers legt es an.',
@@ -2288,6 +2288,7 @@ export default {
 			'match-assist': 'KI-Vorschlag',
 			'transfer-assist': 'KI-Gegenbuchung',
 			'vendor-assist': 'KI-Lieferantenkonto',
+			'booking-assist': 'KI-Konto',
 			'mail-assist': 'Postfach-Suche'
 		},
 		perReceipt: 'Pro ausgelesenem Beleg in diesem Monat etwa {tokens} Tokens.',
@@ -3111,6 +3112,7 @@ export default {
 			'match-assist': 'KI-Vorschlag für eine Zuordnung',
 			'transfer-assist': 'KI-Vorschlag für eine Gegenbuchung',
 			'vendor-assist': 'KI-Erklärung eines Lieferantenkontos',
+			'booking-assist': 'KI-Vorschlag für ein Konto',
 			matching: 'Abgleich',
 			decision: 'Entscheidung',
 			export: 'DATEV-Export',
@@ -3140,6 +3142,7 @@ export default {
 			matchAssist: '{model} · {candidates} Belege geprüft · {seconds} s · {tokens} Tokens',
 			transferAssist: '{model} · {candidates} Buchungen geprüft · {seconds} s · {tokens} Tokens',
 			vendorAssist: '{model} · {rows} Zeilen geprüft · {seconds} s · {tokens} Tokens',
+			bookingAssist: '{model} · {picks} Konten vorgeschlagen · {seconds} s · {tokens} Tokens',
 			export: 'DATEV-Export {month}: {bookings} Buchungen, {receipts} Belege',
 			booksMoved:
 				'Übernommen aus anderen Büchern, gepackt am {date}: {records} Einträge, {files} Dateien',
@@ -3223,6 +3226,17 @@ export default {
 		]
 	},
 	booking: {
+		ai: {
+			ask: 'Konto vorschlagen',
+			asking: 'Fragt das Sprachmodell …',
+			hint: 'Das Sprachmodell deiner Bridge liest Zahlung, Beleg, deine gelernten Konten und {chart} und schlägt bis zu zwei Konten daraus vor. Übernommen wird erst, wenn du es übernimmst.',
+			chart: 'deinen Kontenplan',
+			skr03: 'die SKR-03-Liste',
+			none: 'Das Sprachmodell hat kein passendes Konto gefunden.',
+			take: 'Einsetzen',
+			confidence: { high: 'sicher', medium: 'wahrscheinlich', low: 'unsicher' },
+			sent: 'Gesendet an das Sprachmodell'
+		},
 		feeRule: {
 			apply: 'Für alle Netzwerkgebühren übernehmen',
 			applyTitle:
@@ -3285,7 +3299,7 @@ export default {
 		technical: [
 			'Übernommen wird auf der Zahlung selbst: booking = { account, taxKey, confirmedAt }, versiegelt wie jeder Datensatz.',
 			'Vorschläge in dieser Reihenfolge: eigene Umbuchung → 1360, Bankgebühr → 4970 (beide ohne Schlüssel), sonst das Konto, das du diesem Anbieter zuletzt gegeben hast (partners: account, taxKey – über den Anbieter des Belegs oder die Gegenpartei auf dem Kontoauszug).',
-			'Der BU-Schlüssel kommt aus dem ausgelesenen Beleg: USt 19 % → 9 (Einnahme 3), 7 % → 8 (Einnahme 2), reverse_charge → 94; die Schlüssel lassen sich unter Einstellungen → Buchhaltung ändern. Nichts davon fragt ein Sprachmodell.'
+			'Der BU-Schlüssel kommt aus dem ausgelesenen Beleg: USt 19 % → 9 (Einnahme 3), 7 % → 8 (Einnahme 2), reverse_charge → 94; die Schlüssel lassen sich unter Einstellungen → Buchhaltung ändern. Nichts davon fragt ein Sprachmodell – nur „✦ Konto vorschlagen“ fragt das Sprachmodell deiner Bridge, auf deinen Klick (POST /booking/assist); geschwärzt wird, außer das Modell läuft auf deinem Rechner oder in einer bestätigten Enklave (TEE).'
 		]
 	},
 	export: {
@@ -3545,6 +3559,25 @@ export default {
 		questionsElsewhere: 'Auch bei den Reisen gibt es offene Punkte: {count}'
 	},
 	reise: {
+		split: {
+			title: 'Teilen oder zusammenführen',
+			hint: 'Zwischen {end} und {start} warst du nach den Fahrkarten zu Hause: In zwei Reisen teilen?',
+			end: 'Erste Reise endet',
+			start: 'Zweite Reise beginnt',
+			do: 'In zwei Reisen teilen',
+			what: 'Belege, Grenzübertritte, Mahlzeiten, Nächte und Kilometer gehen nach ihrer Zeit mit: vor dem Beginn der zweiten zur ersten, ab dann zur zweiten. Die Tage dazwischen gehören zu keiner.',
+			done: 'Geteilt.',
+			open: 'Zur zweiten Reise',
+			joinWith: 'Zusammenführen mit',
+			join: 'Zu einer Reise zusammenführen',
+			joinWhat:
+				'Eine Reise vom früheren Beginn bis zum späteren Ende, mit allen Belegen, Grenzübertritten, Mahlzeiten, Nächten und Kilometern beider. Die andere wird gelöscht. Angeboten werden Reisen derselben Person, höchstens eine Woche entfernt.',
+			joinConfirm:
+				'Diese Reise mit „{trip}“ zusammenführen? Die andere Reise wird gelöscht, ihre Belege kommen hierher.',
+			saveFirst: 'Erst speichern: Geteilt und zusammengeführt wird die gespeicherte Reise.',
+			locked:
+				'Diese Reise steht in der Abrechnung {number}: Sie wird nicht mehr geteilt oder zusammengeführt.'
+		},
 		checks: {
 			title: 'Rückfragen zur Reise',
 			hint: 'Was nach den Belegen nicht zusammenpasst – nach Regeln, nicht per KI. Nichts wird von selbst geändert; „Passt so“ fragt nicht mehr und gilt nach dem Speichern.',
@@ -4422,7 +4455,7 @@ export default {
 				'Diese Kopplung löst nur das Gerät, das die Bridge gekoppelt hat, oder der Rechner, auf dem die Bridge läuft. Hier wurde nichts geändert.'
 		},
 		hostedBridge: {
-			title: 'Gehostete Bridge',
+			title: 'Gehostete Bridge auf Aleph',
 			intro:
 				'Die Bridge in einer vertraulichen VM bei Aleph (AMD SEV-SNP). Dieser Browser prüft die Attestierung der VM: dass sie das veröffentlichte Image auf Alephs veröffentlichter Laufzeit startet und den Bücher-Schlüssel als Besitzer hat. Erst dann bekommt sie die Passphrase und ihren Schlüssel, und sie ist mit diesen Büchern gekoppelt. Le Space sieht dabei keinen Schlüssel.',
 			instance: 'Hash der INSTANCE',

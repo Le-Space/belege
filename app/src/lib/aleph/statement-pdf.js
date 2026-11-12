@@ -1,8 +1,10 @@
 // Draws an Aleph consumption statement (aleph.js) as an A4 PDF/A-2b: an
 // Eigenbeleg in the layout of every statement Eigenbeleg (@le-space/eigenbeleg's
 // statement-layout, in Eigenbeleg's look), with the balances, the top-ups,
-// the consumption per day and resource, the resources with their full
-// hashes, how the euro value was reached, and a line to sign.
+// the month in sums (per resource, bought, in and out: what the books take as
+// one booking each, in the words of @le-space/eigenbeleg's `monthly`), the
+// consumption per day and resource, the resources with their full hashes,
+// how the euro value was reached, and a line to sign.
 // Pages as long as the month needs; text in any script (@le-space/pdf).
 // Loaded on first use.
 
@@ -11,6 +13,7 @@
 import { formatDate } from '../bank/format.js';
 import { DOCUMENT_LOCALE } from '../i18n/index.js';
 import { amount } from '../export/datev.js';
+import { monthly } from '@le-space/eigenbeleg/statement';
 import { statementLayout } from '@le-space/eigenbeleg/statement-layout';
 
 /** 1234567 → "1.234.567". @param {number} n */
@@ -23,6 +26,63 @@ const KIND = /** @type {Record<string, string>} */ ({
 	storage: 'Speicher (alle Stores)',
 	execution: 'Instanz'
 });
+
+/** A resource by its name and the start of its hash. @param {import('../bridge/client.js').AlephStatement} s @param {string | null} hash */
+function nameOf(s, hash) {
+	if (!hash) return '';
+	const r = s.resources[hash];
+	return r?.name ? `${r.name} (${hash.slice(0, 10)}…)` : `${hash.slice(0, 10)}…`;
+}
+
+/**
+ * The month in sums, as the Verbrauchsauszug of the Eigenbeleg API has it
+ * (`monthly`, the same lines and words): consumption per resource and in all,
+ * credits bought, transfers in and out. A top-up has no euro value here: its
+ * payment is a booking of the wallet that paid it.
+ *
+ * @param {import('../bridge/client.js').AlephStatement} s
+ */
+export function monthlyLines(s) {
+	/** @param {Partial<import('@le-space/eigenbeleg/statement').StatementRow>} over */
+	const row = (over) => ({
+		date: '',
+		time: '',
+		text: '',
+		counterparty: '',
+		hash: '',
+		explorerUrl: '',
+		debit: '',
+		credit: '',
+		balance: '',
+		eur: '',
+		beleg: '',
+		fee: false,
+		usage: false,
+		purchase: false,
+		label: '',
+		hashLabel: 'Tx',
+		...over
+	});
+	const m = monthly([
+		...s.usage.map((u) =>
+			row({
+				usage: true,
+				debit: String(u.credits),
+				eur: u.eurCents === null ? '' : (u.eurCents / 100).toFixed(2),
+				label: `Aleph Cloud (${u.kind === 'storage' ? 'storage' : nameOf(s, u.resource) || u.kind})`
+			})
+		),
+		...s.topUps.map((t) =>
+			row({ credit: String(t.credits + t.bonus), purchase: t.how === 'purchase' })
+		),
+		...s.transfersOut.map((t) => row({ debit: String(t.credits) }))
+	]);
+	return {
+		lines: [...m.usage, m.usageTotal, m.purchases, m.transfersIn, m.transfersOut].filter(
+			(l) => l !== null
+		)
+	};
+}
 
 /**
  * @param {import('./aleph.js').StatementDocument} doc
@@ -61,6 +121,26 @@ export async function statementPdf(doc) {
 			: `Differenz ${credits(s.difference)} Credits: Aleph hat nicht alle Einträge geliefert.`
 	);
 
+	const month = monthlyLines(s);
+	if (month.lines.length) {
+		rule();
+		heading('Monatsübersicht');
+		table(
+			[
+				{ title: 'Posten', width: width - 60 - 80 - 80 },
+				{ title: 'Zeilen', width: 60, right: true },
+				{ title: 'Credits', width: 80, right: true },
+				{ title: 'EUR', width: 80, right: true }
+			],
+			month.lines.map((l) => [
+				l.label,
+				String(l.rows),
+				credits(Number(l.amount)),
+				l.eur ? amount(Math.round(Number(l.eur) * 100)) : '—'
+			])
+		);
+	}
+
 	if (s.topUps.length || s.transfersOut.length) {
 		rule();
 		heading('Aufladungen und Überträge');
@@ -95,11 +175,6 @@ export async function statementPdf(doc) {
 
 	rule();
 	heading('Verbrauch je Tag');
-	const nameOf = (/** @type {string | null} */ hash) => {
-		if (!hash) return '';
-		const r = s.resources[hash];
-		return r?.name ? `${r.name} (${hash.slice(0, 10)}…)` : `${hash.slice(0, 10)}…`;
-	};
 	table(
 		[
 			{ title: 'Tag (UTC)', width: 62 },
@@ -113,7 +188,7 @@ export async function statementPdf(doc) {
 			formatDate(u.date, DOCUMENT_LOCALE),
 			u.kind === 'storage'
 				? `${KIND.storage}${u.resources ? `: ${u.resources} Stores` : ''}${u.sizeMib !== null ? `, ${u.sizeMib.toFixed(1).replace('.', ',')} MiB` : ''}`
-				: `${KIND[u.kind] ?? u.kind}${u.resource ? ` ${nameOf(u.resource)}` : ''}`,
+				: `${KIND[u.kind] ?? u.kind}${u.resource ? ` ${nameOf(s, u.resource)}` : ''}`,
 			credits(u.credits),
 			u.usdPerCredit,
 			u.eurPerUsd ?? '—',

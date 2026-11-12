@@ -14,7 +14,7 @@
 /** @typedef {import('../store/repository.js').Collection} Collection */
 /** @typedef {import('../store/repository.js').StoredRecord} StoredRecord */
 
-/** @typedef {'bank-sync' | 'booking-changed' | 'mail-fetch' | 'paperless-fetch' | 'file-import' | 'sender-verdict' | 'extract' | 'mail-assist' | 'match-assist' | 'transfer-assist' | 'vendor-assist' | 'matching' | 'decision' | 'export' | 'books-moved'} EventKind */
+/** @typedef {'bank-sync' | 'booking-changed' | 'mail-fetch' | 'paperless-fetch' | 'file-import' | 'sender-verdict' | 'extract' | 'mail-assist' | 'match-assist' | 'transfer-assist' | 'vendor-assist' | 'booking-assist' | 'matching' | 'decision' | 'export' | 'books-moved'} EventKind */
 /** @typedef {'auslesen' | 'abgleich' | 'abruf' | 'entscheidungen'} EventGroup */
 
 /** @type {Record<EventKind, EventGroup>} */
@@ -31,6 +31,7 @@ export const GROUP_OF = {
 	'match-assist': 'abgleich',
 	'transfer-assist': 'abgleich',
 	'vendor-assist': 'abgleich',
+	'booking-assist': 'abgleich',
 	matching: 'abgleich',
 	decision: 'entscheidungen',
 	// The DATEV export is the person's act too.

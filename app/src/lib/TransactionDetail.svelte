@@ -3414,7 +3414,7 @@
 				{/if}
 			</section>
 
-			<div id="tx-konto-part" class="scroll-mt-4"><BookingBlock {tx} /></div>
+			<div id="tx-konto-part" class="scroll-mt-4"><BookingBlock {tx} {client} /></div>
 
 			{#if error}
 				<p class="mt-3 text-sm text-danger" role="alert" data-testid="tx-detail-error">{error}</p>

@@ -52,6 +52,7 @@ export const AI_KINDS = /** @type {const} */ ([
 	'match-assist',
 	'transfer-assist',
 	'vendor-assist',
+	'booking-assist',
 	'mail-assist'
 ]);
 

@@ -8,11 +8,22 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **Split a trip, or join two** (#693, part b). At the bottom of a trip: _In zwei Reisen teilen_ at an end and a start – suggested where the tickets come home and leave again a day or more later – with its receipts, border crossings, meals, nights and mileage going by their time; _Zu einer Reise zusammenführen_ with a trip of the same traveller at most a week apart, from the earlier start to the later end, the other deleted. Never for a trip on a closed statement.
 - **Questions where a trip does not add up** (#693, part b). By rules on its tickets and hotels, a trip asks about a night without lodging (no hotel, no flat rate, no leg through it), a ride missing between two legs, a last leg ending abroad without a way back ("Wo endet die Geschäftsreise?"), and a leg before the departure or after the return. The trip page lists them under _Rückfragen zur Reise_: _Reise endet dort_ sets the return at the last arrival, _Passt so_ keeps the answer on the trip. On Reisen they join the trip's one open point. Nothing is changed by itself.
+
+## [0.29.8] – 2026-11-11
+
+### Added
+
+- **„✦ Konto vorschlagen“ under a payment's „Konto“.** With a bridge paired, the language model reads the payment, its receipt, the accounts Belege has learned for vendors and your chart of accounts (or the SKR 03 list), and suggests up to two accounts from that list with a reason. „Einsetzen“ puts one in the field; nothing is booked until you take it. The text is redacted unless the model runs on your computer or in an attested enclave and `setup:llm` was told not to (bridge `POST /booking/assist`). Docs: [docs/ai.md](docs/ai.md).
 
 ### Changed
 
 - **"Sachkonto in deiner Buchhaltung" offers your chart of accounts.** With a chart read in, the ledger account of each bank account suggests your own accounts as you type, names the one you entered or says it is not in your chart, and no longer shows the SKR 03 placeholder 1200, 1210, … which named other accounts there. Without a chart nothing changes.
+
+### Fixed
+
+- **A chart of accounts from an older Mac program keeps its umlauts.** "Kontenplan einlesen" read a Mac Roman file as Windows-1252, so ä, ö and ü turned into Š, š and Ÿ. It now takes the reading that gives more umlauts. A name that repeats its account number at the start ("1200 1200 Bank") shows it once. Read the chart in again to correct names already taken.
 
 ## [0.29.7] – 2026-11-11
 

@@ -10,7 +10,7 @@ import { memoryKeychain } from '@belege/bridge';
 import { alephAccountOf, startFakeAleph } from '@belege/bridge/testing/aleph';
 import { runAlephGrants } from '../../bridge/src/setup-aleph.js';
 import { acceptConsent } from './consent.js';
-import { openBackupAdvanced, openIntegration } from './integrations.js';
+import { openBackupAdvanced, openIntegration, watchRestore } from './integrations.js';
 import { addVirtualAuthenticator, forgetThisDevice } from './webauthn.js';
 
 /** @param {import('@playwright/test').Browser} browser @param {string} label */
@@ -321,11 +321,11 @@ test('the bookkeeping backs up, and an empty browser with their passkey restores
 		});
 		await expect(card.getByTestId('backup-chain-group')).toHaveCount(1, { timeout: 60_000 });
 		await card.getByTestId('backup-restore').click();
+		const restored = await watchRestore(keeper.page);
 		await card.getByTestId('restore-yes').click();
 		// The download may fall back from the gateway to IPFS after 15 seconds of silence.
-		await expect(card.getByTestId('restore-done')).toContainText('Wiederhergestellt', {
-			timeout: 180_000
-		});
+		const outcome = await restored();
+		expect(outcome.text).toContain('Wiederhergestellt');
 		await expect(keeper.page.getByTestId('passkey-unlock')).toBeVisible({ timeout: 60_000 });
 		await keeper.page.getByTestId('open-books-member').check();
 		await keeper.page.getByTestId('passkey-unlock').click();

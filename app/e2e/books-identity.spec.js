@@ -19,7 +19,7 @@ import { defaultConfig, saveConfig } from '@belege/bridge';
 import { alephAccountOf, startFakeAleph } from '@belege/bridge/testing/aleph';
 import { addVirtualAuthenticator, forgetThisDevice } from './webauthn.js';
 import { acceptConsent } from './consent.js';
-import { openIntegration } from './integrations.js';
+import { openIntegration, watchRestore } from './integrations.js';
 import { pairBridge } from './bridge.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
@@ -203,10 +203,9 @@ test('books the passkey wrote move to their own identity, and their backup still
 		.filter({ hasText: old.cid })
 		.getByTestId('backup-restore')
 		.click();
+	const restored = await watchRestore(page);
 	await card.getByTestId('restore-yes').click();
-	await expect(card.getByTestId('restore-done')).toContainText('Wiederhergestellt', {
-		timeout: 30_000
-	});
+	expect((await restored()).text).toContain('Wiederhergestellt');
 	await expect(page.getByTestId('passkey-unlock')).toBeVisible({ timeout: 30_000 });
 	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();
 	await expect(page.getByTestId('own-did')).toHaveAttribute('data-did', before.did);

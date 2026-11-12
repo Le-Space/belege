@@ -370,7 +370,7 @@ export default {
 				'Credits are short for the start: Aleph takes the VM only with {needed} credits in reserve (a day at {perHour} credits/h), the books’ Aleph key holds {credits}. Top up under Integrations → Aleph.',
 			noVm: 'These books have no hosted VM running.',
 			noPort: 'The node did not open the VM’s port 443.',
-			deviceLabel: 'Hosted bridge'
+			deviceLabel: 'Hosted bridge (Aleph)'
 		},
 		nearBridge: {
 			noKey: 'These books have no NEAR account yet: the owner’s device makes it.',
@@ -2248,6 +2248,7 @@ export default {
 			'match-assist': 'AI suggestion',
 			'transfer-assist': 'AI counter-booking',
 			'vendor-assist': 'AI vendor account',
+			'booking-assist': 'AI account',
 			'mail-assist': 'Mailbox search'
 		},
 		perReceipt: 'About {tokens} tokens per extracted receipt this month.',
@@ -3060,6 +3061,7 @@ export default {
 			'match-assist': 'AI suggestion for a link',
 			'transfer-assist': 'AI suggestion for a counter-booking',
 			'vendor-assist': 'AI explanation of a vendor account',
+			'booking-assist': 'AI suggestion for an account',
 			matching: 'Matching',
 			decision: 'Decision',
 			export: 'DATEV export',
@@ -3088,6 +3090,7 @@ export default {
 			matchAssist: '{model} · {candidates} receipts checked · {seconds} s · {tokens} tokens',
 			transferAssist: '{model} · {candidates} bookings checked · {seconds} s · {tokens} tokens',
 			vendorAssist: '{model} · {rows} rows checked · {seconds} s · {tokens} tokens',
+			bookingAssist: '{model} · {picks} accounts suggested · {seconds} s · {tokens} tokens',
 			export: 'DATEV export {month}: {bookings} bookings, {receipts} receipts',
 			booksMoved: 'Taken over from other books, packed on {date}: {records} records, {files} files',
 			exportSuspense:
@@ -3170,6 +3173,17 @@ export default {
 		]
 	},
 	booking: {
+		ai: {
+			ask: 'Suggest an account',
+			asking: 'Asking the language model …',
+			hint: "Your bridge's language model reads the payment, the receipt, the accounts you have taught and {chart}, and suggests up to two accounts from it. Nothing is taken until you take it.",
+			chart: 'your chart of accounts',
+			skr03: 'the SKR 03 list',
+			none: 'The language model found no fitting account.',
+			take: 'Use',
+			confidence: { high: 'sure', medium: 'likely', low: 'unsure' },
+			sent: 'Sent to the language model'
+		},
 		feeRule: {
 			apply: 'Use for all network fees',
 			applyTitle:
@@ -3231,7 +3245,7 @@ export default {
 		technical: [
 			'The confirmation is stored on the payment itself: booking = { account, taxKey, confirmedAt }, sealed like every record.',
 			'Suggestions in this order: own transfer → 1360, bank fee → 4970 (both without a key), otherwise the account you last gave this vendor (partners: account, taxKey – via the vendor on the receipt or the counterparty on the bank statement).',
-			'The BU key comes from the read receipt: VAT 19 % → 9 (income 3), 7 % → 8 (income 2), reverse_charge → 94; the keys can be changed under Settings → Bookkeeping. None of this asks a language model.'
+			'The BU key comes from the read receipt: VAT 19 % → 9 (income 3), 7 % → 8 (income 2), reverse_charge → 94; the keys can be changed under Settings → Bookkeeping. None of this asks a language model – only "✦ Suggest an account" asks your bridge\'s language model, on your click (POST /booking/assist); the text is redacted unless the model runs on your computer or in an attested enclave (TEE).'
 		]
 	},
 	export: {
@@ -3488,6 +3502,24 @@ export default {
 		questionsElsewhere: 'Travel has open points too: {count}'
 	},
 	reise: {
+		split: {
+			title: 'Split or join',
+			hint: 'Between {end} and {start} you were at home by the tickets: split into two trips?',
+			end: 'First trip ends',
+			start: 'Second trip starts',
+			do: 'Split into two trips',
+			what: 'Receipts, border crossings, meals, nights and mileage go by their time: before the second starts to the first, from then on to the second. The days between belong to neither.',
+			done: 'Split.',
+			open: 'To the second trip',
+			joinWith: 'Join with',
+			join: 'Join into one trip',
+			joinWhat:
+				'One trip from the earlier start to the later end, with all receipts, border crossings, meals, nights and mileage of both. The other is deleted. Offered: trips of the same person, at most a week apart.',
+			joinConfirm:
+				'Join this trip with “{trip}”? The other trip is deleted, its receipts come here.',
+			saveFirst: 'Save first: the trip is split and joined as saved.',
+			locked: 'This trip is on the statement {number}: it is no longer split or joined.'
+		},
 		checks: {
 			title: 'Questions about this trip',
 			hint: 'What does not add up by the receipts – by rules, not by AI. Nothing changes by itself; “Passt so” asks no more and holds once saved.',
@@ -4362,7 +4394,7 @@ export default {
 				'Only the device that paired the bridge, or the computer the bridge runs on, removes this pairing. Nothing was changed here.'
 		},
 		hostedBridge: {
-			title: 'Hosted bridge',
+			title: 'Hosted bridge on Aleph',
 			intro:
 				'The bridge in a confidential VM on Aleph (AMD SEV-SNP). This browser checks the VM’s attestation: that it boots the published image on Aleph’s published runtime and has the books’ key as its owner. Only then does it get the passphrase and its key, and it is paired with these books. Le Space sees no key.',
 			instance: 'INSTANCE hash',

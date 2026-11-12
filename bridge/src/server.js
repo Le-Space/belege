@@ -19,6 +19,7 @@
 //   GET  /share                                                    token → the active shares, without their data
 //   DELETE /share/<id>                                             token → revoked
 //   POST /vendor/assist { vendor, from, until, opening, closing, rows, findings }  token → a few notes on what does not add up
+//   POST /booking/assist { booking, receipt, learned, accounts }  token → up to two accounts of the chart for a payment's "Konto"
 //   POST /transfer/assist { booking, candidates }               token → the LLM's pick of an own transfer's other side
 //   GET  /llm/status                                              token → provider, models, key present?, redaction on/off, the TEE pin and its last proof
 //   POST /extract      { text, hints, source, confirmedByUser }   token
@@ -84,6 +85,7 @@ export const LOOPBACK = '127.0.0.1';
  * @param {ReturnType<typeof import('./llm/match-assist.js').createMatchAssist> | null} [options.matchAssist]
  * @param {ReturnType<typeof import('./llm/transfer-assist.js').createTransferAssist> | null} [options.transferAssist]
  * @param {ReturnType<typeof import('./llm/vendor-assist.js').createVendorAssist> | null} [options.vendorAssist]
+ * @param {ReturnType<typeof import('./llm/booking-assist.js').createBookingAssist> | null} [options.bookingAssist]
  * @param {ReturnType<typeof createShares>} [options.shares] read shares for an assistant, in memory
  *   "✦ KI-Vorschlag" under "Beleg zuordnen": null without an LLM
  * @param {import('./portals/manager.js').PortalManager | null} [options.portals] the portal connector
@@ -120,6 +122,7 @@ export function createBridgeServer({
 	matchAssist = null,
 	transferAssist = null,
 	vendorAssist = null,
+	bookingAssist = null,
 	shares = createShares(),
 	portals = null,
 	rates = null,
@@ -150,6 +153,7 @@ export function createBridgeServer({
 		matchAssist,
 		transferAssist,
 		vendorAssist,
+		bookingAssist,
 		shares,
 		rates,
 		kraken,
