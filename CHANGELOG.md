@@ -9,6 +9,7 @@ All notable changes to Le Space Belege. The format follows
 ### Added
 
 - **Split a trip, or join two** (#693, part b). At the bottom of a trip: _In zwei Reisen teilen_ at an end and a start – suggested where the tickets come home and leave again a day or more later – with its receipts, border crossings, meals, nights and mileage going by their time; _Zu einer Reise zusammenführen_ with a trip of the same traveller at most a week apart, from the earlier start to the later end, the other deleted. Never for a trip on a closed statement.
+- **Questions where a trip does not add up** (#693, part b). By rules on its tickets and hotels, a trip asks about a night without lodging (no hotel, no flat rate, no leg through it), a ride missing between two legs, a last leg ending abroad without a way back ("Wo endet die Geschäftsreise?"), and a leg before the departure or after the return. The trip page lists them under _Rückfragen zur Reise_: _Reise endet dort_ sets the return at the last arrival, _Passt so_ keeps the answer on the trip. On Reisen they join the trip's one open point. Nothing is changed by itself.
 
 ## [0.29.8] – 2026-11-11
 

@@ -199,6 +199,14 @@ export function cleanTrip(input) {
 		};
 		if (meal.breakfast || meal.lunch || meal.dinner) meals[date] = meal;
 	}
+	const checked = [
+		...new Set(
+			(Array.isArray(input?.checked) ? input.checked : []).filter(
+				(/** @type {any} */ k) =>
+					typeof k === 'string' && k.length <= 120 && /^(night|gap|endsAbroad|outside)\b/.test(k)
+			)
+		)
+	].slice(0, 200);
 	const trip = {
 		...(input?.id ? { id: input.id } : {}),
 		kind: 'trip',
@@ -222,7 +230,9 @@ export function cleanTrip(input) {
 			)
 		].sort(),
 		mileage: (Array.isArray(input?.mileage) ? input.mileage : []).map(cleanMileageLine),
-		note: text(input?.note)
+		note: text(input?.note),
+		// What the person answered "Passt so" to (checks.js, #693 b): asked no more.
+		...(checked.length ? { checked } : {})
 	};
 	const problems = [];
 	if (!trip.travellerId) problems.push('noTraveller');

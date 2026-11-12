@@ -289,6 +289,14 @@ Sie stehen auf Reisen. Auf Home und unter Rückfragen werden sie mitgezählt.
 - Ein Beleg ohne Reise, der als Fahrkarte für Bahn, Bus oder Flug, als Hotel, als Mietwagen oder als anderes Ticket gelesen wurde. Ausgenommen sind Belege, die ein Vorschlag schon abdeckt oder die du abgelehnt hast.
 - Eine Reise ohne Zeiten oder mit Lücken. Jede Reise ist ein Punkt, der nennt, was fehlt, etwa „Reise ohne Rückkehr, geschäftlichen Anlass“.
 - Eine Bewirtung ohne die Angaben, die das Gesetz verlangt.
+- Eine Reise, die nach ihren Belegen nicht zusammenpasst (#693). Das prüft Belege nach Regeln, nicht per KI, und nur an Bahn, Bus und Flug:
+  - eine Nacht ohne Unterkunft, ohne Übernachtungspauschale und ohne Fahrt, die durch sie hindurchgeht;
+  - eine fehlende Fahrt: Eine Fahrt kommt an einem Ort an, die nächste fährt woanders ab;
+  - eine letzte Fahrt, die im Ausland endet, ohne Rückweg („Wo endet die Geschäftsreise?“);
+  - eine Fahrt vor der Abfahrt oder nach der Rückkehr.
+
+  Die Seite der Reise nennt jede unter „Rückfragen zur Reise“. „Reise endet dort“ setzt die Rückkehr auf die letzte Ankunft. „Passt so“ merkt sich die Antwort an der Reise und fragt nicht mehr. Eine Reise ohne gelesene Reisebelege wird nicht nach ihren Nächten gefragt.
+
 - Eine Abrechnung, die zwei Wochen nach dem Erstellen noch nicht ausgezahlt ist.
 
 ## Noch nicht
