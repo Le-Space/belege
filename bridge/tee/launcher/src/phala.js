@@ -9,6 +9,63 @@ export const API = 'https://cloud-api.phala.com/api/v1';
 /** Phala's quote verifier; the NEAR Shade Agent SDK fetches collateral from it too. */
 export const VERIFY = 'https://cloud-api.phala.network/api/v1/attestations/verify';
 
+const printable = (/** @type {unknown} */ v, /** @type {number} */ max) =>
+	String(v ?? '')
+		.replace(/[^\x20-\x7e]+/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim()
+		.slice(0, max);
+
+/**
+ * Why Phala refused, for the operator's log: its error code, its message and
+ * the fields it names (`kms_id=…`), never our request. A bare status said
+ * nothing when a KMS stopped answering (`ERR-02-009`); this does.
+ *
+ * @param {Response} res
+ */
+export async function phalaReason(res) {
+	const text = await res.text().catch(() => '');
+	/** @type {any} */
+	let d = null;
+	try {
+		d = JSON.parse(text);
+	} catch {
+		// not JSON: a proxy's page, say
+	}
+	if (!d || typeof d !== 'object') {
+		const t = printable(text.replace(/<[^>]*>/g, ' '), 160);
+		return t ? ` (${t})` : '';
+	}
+	const code = /^[A-Z0-9-]{1,32}$/.test(String(d.error_code)) ? String(d.error_code) : '';
+	const said = d.message ?? d.detail ?? d.error;
+	// FastAPI's 422: [{ loc: ['body', 'image'], msg: '…' }, …]
+	const message = printable(
+		Array.isArray(said)
+			? said
+					.slice(0, 3)
+					.map((/** @type {any} */ x) =>
+						[Array.isArray(x?.loc) ? x.loc.join('.') : '', x?.msg].filter(Boolean).join(': ')
+					)
+					.join('; ')
+			: typeof said === 'string'
+				? said
+				: '',
+		240
+	);
+	const fields = (Array.isArray(d.details) ? d.details : [])
+		.filter(
+			(/** @type {any} */ x) =>
+				typeof x?.field === 'string' &&
+				typeof x?.value === 'string' &&
+				/^[a-z_]{1,32}$/.test(x.field) &&
+				/^[\w.:-]{1,64}$/.test(x.value)
+		)
+		.slice(0, 3)
+		.map((/** @type {any} */ x) => `${x.field}=${x.value}`);
+	const parts = [code, message, ...fields].filter(Boolean);
+	return parts.length ? ` (${parts.join(', ')})` : '';
+}
+
 /**
  * @param {{ apiKey: string, fetchImpl?: typeof fetch }} o
  */
@@ -28,7 +85,8 @@ export function phalaClient({ apiKey, fetchImpl = fetch }) {
 		});
 		if (!res.ok)
 			throw new Error(
-				`Phala ${method} ${path.split('/').slice(0, 3).join('/')}: HTTP ${res.status}`
+				`Phala ${method} ${path.split('/').slice(0, 3).join('/')}: HTTP ${res.status}` +
+					(await phalaReason(res))
 			);
 		return res.status === 204 ? null : res.json();
 	}
