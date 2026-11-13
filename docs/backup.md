@@ -165,10 +165,11 @@ _Everything left of the line never leaves the device; what crosses it is ciphert
 
 - **Content:** every block exactly as it is stored. A restore therefore brings back the same CIDs, the same signed entries and the same writer:
   - each database's log entries (already sealed with the database key), its manifest and access controller, and every writer's identity;
+  - each database's access list – its own database, which names the members allowed to write – with its entries, so that a restore on a device that never saw the books knows a member's grant before it joins what the member wrote;
   - each receipt file's root and 1 MiB chunks (already sealed with the blob key);
   - a dag-cbor manifest: the storage bridge's metadata (each database with address, manifest and heads, from `bundleDatabases`), the receipt files, the app version and the date.
 - **Restore:**
-  - the storage bridge's `restoreFromBlocks` puts the databases back from the opened backup;
+  - the access lists first, then the storage bridge's `restoreFromBlocks` puts the databases back from the opened backup;
   - if a head cannot be joined, the restore stops with the reason instead of reporting success.
 - **Writer ([#496](https://github.com/Le-Space/belege/issues/496)):**
   - the books write as an identity of their own, an Ed25519 key derived from the books' secret (`belege/books-secret/v1`, from the passkey's PRF result until the vault of [#406](https://github.com/Le-Space/belege/issues/406) keeps it). It is the root of every collection's access controller (`OrbitDBAccessController`, its own list database sealed like the others). The passkey's DID is still the one shown, and what a record names as its author;

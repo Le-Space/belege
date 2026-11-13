@@ -875,6 +875,8 @@ export async function startSession(
 							: [])
 					],
 					onProgress,
+					// The access lists' sealing (books-access.js): a backup carries them.
+					listEncryption: encryption,
 					beforeRestore: async () => {
 						await store.close();
 						closed = true;

@@ -219,10 +219,11 @@ _Alles links der Linie verlässt das Gerät nie; was sie überquert, ist Chiffre
 
 - **Inhalt:** jeder Block genau so, wie er gespeichert ist. Eine Wiederherstellung bringt also dieselben CIDs, dieselben signierten Einträge und denselben Schreiber zurück:
   - die Log-Einträge jeder Datenbank (schon mit dem Datenbankschlüssel versiegelt), ihr Manifest und ihr Access-Controller sowie die Identität jedes Schreibers;
+  - die Zugriffsliste jeder Datenbank – eine eigene Datenbank, die die Mitglieder mit Schreibrecht nennt – mit ihren Einträgen. So kennt eine Wiederherstellung auf einem Gerät, das die Bücher nie gesehen hat, die Freigabe eines Mitglieds, bevor sie einhängt, was das Mitglied geschrieben hat;
   - Wurzel und 1-MiB-Stücke jeder Belegdatei (schon mit dem Blob-Schlüssel versiegelt);
   - ein dag-cbor-Manifest: die Metadaten der Storage-Bridge (jede Datenbank mit Adresse, Manifest und Heads, aus `bundleDatabases`), die Belegdateien, die App-Version und das Datum.
 - **Wiederherstellen:**
-  - `restoreFromBlocks` der Storage-Bridge spielt die Datenbanken aus dem geöffneten Backup zurück.
+  - Zuerst die Zugriffslisten, dann spielt `restoreFromBlocks` der Storage-Bridge die Datenbanken aus dem geöffneten Backup zurück.
   - Lässt sich ein Head nicht einhängen, bricht die Wiederherstellung mit dem Grund ab, statt Erfolg zu melden.
 - **Schreiber ([#496](https://github.com/Le-Space/belege/issues/496)):**
   - Die Bücher schreiben als eigene Identität: ein Ed25519-Schlüssel aus dem Geheimnis der Bücher (`belege/books-secret/v1`, aus dem PRF-Ergebnis des Passkeys, bis der Tresor aus [#406](https://github.com/Le-Space/belege/issues/406) es hält). Sie ist die Wurzel des Access-Controllers jeder Sammlung (`OrbitDBAccessController`, dessen eigene Listen-Datenbank wie die anderen versiegelt ist). Angezeigt wird weiter die DID des Passkeys, und sie steht als Autor in jedem Datensatz.
