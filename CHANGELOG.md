@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The demo films' kit is a package of its own, `@le-space/video-kit`** (`packages/video-kit`). The scenes, the narrator, the pointer, the captions, the title cards and compose moved there with their history, so Le Space's other apps record their films with it; what makes a card Belege's (the signet, Sora, the colours, the texts) stays in `app/e2e-video/belege.js`. Belege's films record as before: every card of every film list was compared frame by frame against the old kit.
+
 ## [0.31.0] – 2026-11-13
 
 ### Added

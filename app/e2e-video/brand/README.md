@@ -6,5 +6,5 @@
   a data URI: Chromium does not load a font file next to a page set with
   `setContent`.
 
-The signet (coin and receipt) and the colours are in `../card.js`, drawn as in
+The signet (coin and receipt) and the colours are in `../belege.js`, drawn as in
 the marketing site's `BelegeLogo.svelte` (landing repo, `sites/belege`).

@@ -1,0 +1,46 @@
+{
+	"name": "@le-space/video-kit",
+	"version": "0.1.0",
+	"description": "Narrated demo films of a web app, recorded by Playwright: scenes with captions, a visible pointer and a narrator (ElevenLabs, or macOS's voice for a dry run), title cards in the caller's brand, and ffmpeg laying voice, cards and scenes into one film with subtitles. The cards and subtitles run in a browser too.",
+	"license": "AGPL-3.0-or-later",
+	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Le-Space/belege.git",
+		"directory": "packages/video-kit"
+	},
+	"homepage": "https://github.com/Le-Space/belege/tree/main/packages/video-kit#readme",
+	"sideEffects": false,
+	"exports": {
+		".": "./src/index.js",
+		"./card": "./src/card.js",
+		"./subtitles": "./src/subtitles.js",
+		"./captions": "./src/captions.js",
+		"./cursor": "./src/cursor.js",
+		"./scene": "./src/scene.js",
+		"./voice": "./src/voice.js",
+		"./compose": "./src/compose.js",
+		"./qr": "./src/qr.js",
+		"./record-cards": "./src/record-cards.js",
+		"./thumbnail": "./src/thumbnail.js"
+	},
+	"files": ["src"],
+	"engines": {
+		"node": ">=22"
+	},
+	"publishConfig": {
+		"access": "public",
+		"provenance": true
+	},
+	"scripts": {
+		"test": "node --test --test-reporter=spec \"test/*.test.js\"",
+		"lint": "prettier --check src test"
+	},
+	"peerDependencies": {
+		"@playwright/test": ">=1.50"
+	},
+	"devDependencies": {
+		"@le-space/browser-test": "workspace:*",
+		"prettier": "3.6.2"
+	}
+}

@@ -66,6 +66,8 @@ export function needsOf(file) {
 	if (/^packages\/(chains|ledger|rates|pdf|eigenbeleg|browser-test)\/.*\.md$/.test(file)) return {};
 	if (/^packages\/rates\//.test(file)) return { unit: true, bridge: true, e2e: 'bridge' };
 	if (/^packages\/browser-test\//.test(file)) return {};
+	// The demo films' kit: used by app/e2e-video, which no workflow records.
+	if (/^packages\/video-kit\//.test(file)) return {};
 
 	// The other packages (device-gate: the app's sync uses it too), schema/,
 	// the lockfile, the root package.json, patches/, this script, and

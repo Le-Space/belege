@@ -6,7 +6,7 @@
 // (compose.sh). The camera and the QR detector are fed by the test, as in
 // e2e/device-qr.spec.js, from which the steps come.
 import { test, expect } from '@playwright/test';
-import { installCaptions, say } from './captions.js';
+import { installCaptions, say } from '@le-space/video-kit/captions';
 
 const SIZE = { width: 960, height: 720 };
 const AUTHENTICATOR = {

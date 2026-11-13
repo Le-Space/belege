@@ -30,7 +30,7 @@ import { FAKE_LLM_KEY, startFakeLlm } from '@belege/bridge/testing/llm';
 import { addVirtualAuthenticator, forgetThisDevice } from '../e2e/webauthn.js';
 import { acceptConsent } from '../e2e/consent.js';
 import { openIntegration } from '../e2e/integrations.js';
-import { installCaptions, say } from './captions.js';
+import { installCaptions, say } from '@le-space/video-kit/captions';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;

@@ -160,6 +160,14 @@ test('in the app, only unit specs and the bridge specs use the rate package', ()
 	);
 });
 
+test('the demo films’ kit: only the package tests', () => {
+	assert.deepEqual(pr('packages/video-kit/src/card.js', 'packages/video-kit/README.md'), {
+		unit: false,
+		bridge: false,
+		e2e: 'none'
+	});
+});
+
 // The building blocks moved to packages/ (Le-Space/eigenbeleg-agent#6) and run
 // in a browser there; a copy under an old path would drift from them.
 test('the shared building blocks stay in packages/: none of the old paths come back', () => {
@@ -173,11 +181,13 @@ test('the shared building blocks stay in packages/: none of the old paths come b
 		/^bridge\/src\/(rates|dex-rate)\.js$/,
 		/^packages\/chain-[^/]+\//,
 		/^app\/src\/lib\/receipts\/eigenbeleg[^/]*\.js$/,
-		/^app\/src\/lib\/pdf\//
+		/^app\/src\/lib\/pdf\//,
+		/^app\/e2e-video\/kit\//,
+		/^app\/e2e-video\/captions\.js$/
 	];
 	assert.deepEqual(
 		tracked.filter((file) => OLD.some((re) => re.test(file))),
 		[],
-		'these belong in packages/ (@le-space/chains, rates, ledger, pdf, eigenbeleg): change them there'
+		'these belong in packages/ (@le-space/chains, rates, ledger, pdf, eigenbeleg, video-kit): change them there'
 	);
 });
