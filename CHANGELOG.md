@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.32.0] – 2026-11-13
+
 ### Added
 
 - **The bridge's commands by name, with schemas: `@le-space/bridge-protocol`** (`packages/bridge-protocol`, #577, M2.1 of #567). One catalogue of the bridge's 47 commands – name, version, scope, how HTTP carries it, and a schema for the arguments and the answer's shape – that the bridge and every client import, in a browser and in Node. The bridge's node now offers every command under its own name (`bank.transactions`, `mail.search`, protocol version 2): the arguments are checked against the command's schema before it runs, an unknown name answers `UNKNOWN_COMMAND`. `request` with a method and a path stays for the app until it calls by name too.
