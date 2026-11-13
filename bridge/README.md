@@ -145,11 +145,19 @@ runs as `cli.js --hosted`:
 - **Started and stopped from Belege** (#587): on the same card, "Starten" picks a confidential
   node from Aleph's node list (crns-list.aleph.sh) and sends the INSTANCE – the published
   image, the launch measurement computed in the browser for the books' Aleph key – signed by
-  that key, which owns the VM and pays for it from its credits (a day in reserve, as Aleph
-  wants). The browser tells the node, forwards 443, then attests, unlocks and pairs as above;
-  a start that is interrupted carries on from the sealed record. "Stoppen" sends a FORGET, and
-  the node drops the VM. The card shows how long it ran and about what it cost. No Le Space
-  service is involved.
+  that key. "Wer zahlt die VM?" picks who pays, a day in reserve as Aleph wants:
+  - **Le Space, from the books' plan** (Le Space Credits, bought with the balance on the same
+    card): the browser asks credits.le-space.de to authorize the books' key on Le Space's
+    sub-account for these books (`POST /v1/vm/authorize`). That sub-account is the INSTANCE's
+    `address` and pays; the books' key sends the INSTANCE, the port forward and the FORGET as
+    its delegate. Le Space could stop the VM, but the measurement names the books' key and only
+    it unlocks: no secret passes through Le Space.
+  - **The books' Aleph key itself**, from credits on its own address. No Le Space service is
+    involved.
+
+  The browser tells the node, forwards 443, then attests, unlocks and pairs as above; a start
+  that is interrupted carries on from the sealed record. "Stoppen" sends a FORGET, and the node
+  drops the VM. The card shows how long it ran and about what it cost.
 
 ## Where things are kept
 

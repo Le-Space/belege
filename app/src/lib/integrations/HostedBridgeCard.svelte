@@ -1,14 +1,17 @@
 <script>
 	// "Gehostete Bridge" (#585, #587): start the bridge's confidential VM from
-	// this browser (hosted-vm.js), owned and paid by the books' Aleph key,
-	// attest and unlock it, paired in the same step (hosted-bridge.js), see how
-	// long it runs, and stop it. A VM that runs already can be unlocked by its
-	// hash. The passphrase is the image's, typed here and kept nowhere.
+	// this browser (hosted-vm.js), owned by the books' Aleph key and paid by Le
+	// Space from the books' plan or by that key itself, attest and unlock it,
+	// paired in the same step (hosted-bridge.js), see how long it runs, and
+	// stop it. A VM that runs already can be unlocked by its hash. The
+	// passphrase is the image's, typed here and kept nowhere.
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import {
 		app,
+		chooseHostedPlan,
 		continueHostedStart,
 		hostedBridgeRecord,
+		hostedCredits,
 		hostedNodes,
 		hostedVmRecord,
 		startHostedBridge,
@@ -18,6 +21,7 @@
 	import HackathonBand from './HackathonBand.svelte';
 	import { bridge, checkBridge } from './bridge-state.svelte.js';
 	import { usage } from './hosted-vm.js';
+	import { BRIDGE_PLANS, euro } from '$lib/credits/credits.js';
 
 	let instance = $state('');
 	let passphrase = $state('');
@@ -35,6 +39,10 @@
 	/** @type {Awaited<ReturnType<typeof hostedNodes>> | null} */
 	let nodes = $state(null);
 	let now = $state(Date.now());
+	/** Who pays the VM: Le Space from the books' plan, or the books' key. @type {'lespace' | 'books'} */
+	let paidBy = $state('lespace');
+	/** @type {Awaited<ReturnType<typeof hostedCredits>> | null} */
+	let credits = $state(null);
 
 	const running = $derived(Boolean(vm && !vm.stoppedAt));
 	/** A start Aleph has, not yet unlocked from here. */
@@ -59,6 +67,18 @@
 				if (!crn) crn = list.find((n) => n.fits)?.hash ?? list[0]?.hash ?? '';
 			})
 			.catch((e) => (error = e instanceof Error ? e.message : String(e)));
+	});
+	$effect(() => {
+		if (!app.sync.online || running || credits) return;
+		hostedCredits()
+			.then((c) => {
+				credits = c;
+				if (!c.on) paidBy = 'books';
+			})
+			.catch(() => {
+				credits = { on: false, credits: null, plan: null, hoursLeft: null, periodEnd: null };
+				paidBy = 'books';
+			});
 	});
 	$effect(() => {
 		if (!running) return;
@@ -101,8 +121,15 @@
 		step(() =>
 			halfway
 				? continueHostedStart({ passphrase: typed, onProgress })
-				: startHostedBridge({ crn, passphrase: typed, onProgress })
+				: startHostedBridge({ crn, passphrase: typed, paidBy, onProgress })
 		);
+	}
+
+	/** @param {string} planId */
+	function choosePlan(planId) {
+		step(async () => {
+			credits = await chooseHostedPlan(planId);
+		});
 	}
 
 	function stop() {
@@ -178,6 +205,69 @@
 				data-testid="hosted-bridge-stop">{t('integrationen.hostedBridge.stop')}</button
 			>
 		{:else}
+			{#if !halfway}
+				<fieldset class="mt-4 text-sm" data-testid="hosted-bridge-payer">
+					<legend class="text-faint">{t('integrationen.hostedBridge.payer.title')}</legend>
+					<label class="mt-1 flex items-start gap-2">
+						<input
+							type="radio"
+							name="hosted-payer"
+							value="lespace"
+							bind:group={paidBy}
+							disabled={!credits?.on}
+							data-testid="hosted-bridge-pays-lespace"
+						/>
+						<span>{t('integrationen.hostedBridge.payer.lespace')}</span>
+					</label>
+					<label class="mt-1 flex items-start gap-2">
+						<input
+							type="radio"
+							name="hosted-payer"
+							value="books"
+							bind:group={paidBy}
+							data-testid="hosted-bridge-pays-books"
+						/>
+						<span>{t('integrationen.hostedBridge.payer.books')}</span>
+					</label>
+					{#if credits && !credits.on}
+						<p class="mt-1 text-xs text-faint">
+							{t('integrationen.hostedBridge.payer.creditsOff')}
+						</p>
+					{/if}
+				</fieldset>
+				{#if paidBy === 'lespace' && credits?.on}
+					<div class="mt-2 text-sm text-text" data-testid="hosted-bridge-plan">
+						{#if credits.plan}
+							{t('integrationen.hostedBridge.payer.plan', {
+								plan: t(`integrationen.hostedBridge.plans.${credits.plan}`),
+								hours: credits.hoursLeft ?? '–'
+							})}
+						{:else}
+							<p>
+								{t('integrationen.hostedBridge.payer.noPlan', {
+									balance: euro(credits.credits ?? 0, intlLocale())
+								})}
+							</p>
+							<div class="mt-2 flex flex-wrap gap-2">
+								{#each BRIDGE_PLANS as plan (plan.id)}
+									<button
+										type="button"
+										class="hover:bg-surface-muted min-h-11 rounded-md border border-border px-3 text-sm text-text disabled:opacity-50"
+										disabled={busy || (credits.credits ?? 0) < plan.credits}
+										onclick={() => choosePlan(plan.id)}
+										data-testid="hosted-bridge-plan-{plan.id}"
+										>{t('integrationen.hostedBridge.payer.choose', {
+											plan: t(`integrationen.hostedBridge.plans.${plan.id}`),
+											hours: plan.hours,
+											price: euro(plan.credits, intlLocale())
+										})}</button
+									>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				{/if}
+			{/if}
 			<form class="mt-4 flex flex-wrap items-end gap-3" onsubmit={start}>
 				{#if !halfway}
 					<label class="flex min-w-0 flex-1 flex-col text-sm">
@@ -215,7 +305,10 @@
 				<button
 					type="submit"
 					class={primary}
-					disabled={busy || !startPassphrase || (!halfway && !crn)}
+					disabled={busy ||
+						!startPassphrase ||
+						(!halfway && !crn) ||
+						(!halfway && paidBy === 'lespace' && !credits?.plan)}
 					data-testid="hosted-bridge-start"
 					>{halfway
 						? t('integrationen.hostedBridge.resume')

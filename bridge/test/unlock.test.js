@@ -136,7 +136,7 @@ test('an INSTANCE of someone else gets no secret', async () => {
 	const vm = await started(PUBLISHED);
 	await assert.rejects(
 		unlock(vm, instance({ address: addressOf(newBackupKey()) })),
-		/not the owner’s/
+		/not paid by the owner or its payer/
 	);
 	assert.equal(vm.connections(), 0);
 	assert.deepEqual(vm.received, {});

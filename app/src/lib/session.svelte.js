@@ -1386,15 +1386,17 @@ export async function takeOverBridgeSettings() {
 /**
  * "Gehostete Bridge" (Integrationen → Bridge, #585): attest the bridge's VM
  * from this browser and unlock it, paired in the same step
- * (integrations/hosted-bridge.js). The VM is the books' Aleph key's; the
- * passphrase is the image's, typed here and kept nowhere. The bridge's peer
- * key is made here once per VM and kept in the sealed settings, so a restart
- * unlocks the same bridge again.
+ * (integrations/hosted-bridge.js). The VM is the books' Aleph key's: the
+ * measurement names it and it signs the unlock. It is paid by that key or by
+ * `payer` (Le Space's sub-account for these books; asked of Le Space Credits
+ * when not given and they are switched on). The passphrase is the image's,
+ * typed here and kept nowhere. The bridge's peer key is made here once per VM
+ * and kept in the sealed settings, so a restart unlocks the same bridge again.
  *
- * @param {{ instance: string, passphrase: string, onProgress?: (p: { phase: string, detail: string }) => void }} p
+ * @param {{ instance: string, passphrase: string, payer?: string, onProgress?: (p: { phase: string, detail: string }) => void }} p
  * @returns {Promise<{ peerId: string, host: string, measurement: string }>}
  */
-export async function unlockHostedBridge({ instance, passphrase, onProgress = () => {} }) {
+export async function unlockHostedBridge({ instance, passphrase, payer, onProgress = () => {} }) {
 	if (!session?.online || !session.bridgeAuthBase || !deviceSync || !bridgeConsumer) {
 		throw new Error(t('messages.bridge.needsSync'));
 	}
@@ -1424,6 +1426,13 @@ export async function unlockHostedBridge({ instance, passphrase, onProgress = ()
 
 	onProgress({ phase: 'instance', detail: hash });
 	const { content, crn, vcpus } = await hosted.fetchInstance(hash, { apiHost });
+	// Paid by another account than the books' key: Le Space's sub-account for these books, or none.
+	const payers = [owner];
+	if (payer) payers.push(payer);
+	else if (String(content?.address ?? '').toLowerCase() !== owner.toLowerCase()) {
+		const sub = await leSpaceVmAccount(ownerKey).catch(() => null);
+		if (sub) payers.push(sub);
+	}
 	const wasm = await import('@le-space/attest-wasm/pkg/relay_button_attest.js');
 	await wasm.default();
 	/** @type {any} */
@@ -1486,6 +1495,7 @@ export async function unlockHostedBridge({ instance, passphrase, onProgress = ()
 		published,
 		image: hosted.HOSTED_IMAGE,
 		owner,
+		payers,
 		wasm,
 		relayUrl,
 		crnHash: crn,
@@ -1581,16 +1591,103 @@ async function hostedOwner() {
 	return { key, owner: alephAddressOf(key) };
 }
 
+/** A Le Space Credits client for the books, or null while the person has not switched them on. */
+async function creditsClientOf(/** @type {Uint8Array} */ key) {
+	if (!session?.store) return null;
+	const { ON_SETTING, createCreditsClient } = await import('./credits/credits.js');
+	if ((await getSetting(session.store.settings, ON_SETTING)) !== true) return null;
+	return createCreditsClient({ key });
+}
+
+/**
+ * Le Space's sub-account that pays these books' VM, as Le Space Credits name
+ * it; null when Credits are off or name none.
+ *
+ * @param {Uint8Array} key the books' Aleph key
+ */
+async function leSpaceVmAccount(key) {
+	const client = await creditsClientOf(key);
+	const owner = client ? (await client.balance())?.vm?.owner : null;
+	return typeof owner === 'string' && /^0x[0-9a-fA-F]{40}$/.test(owner) ? owner : null;
+}
+
+/**
+ * What the hosted bridge card shows of Le Space Credits (#587): whether they
+ * are on, the balance in credits, the plan and the hours it holds. Null
+ * fields when Credits are off.
+ */
+export async function hostedCredits() {
+	const { key } = await hostedOwner();
+	const client = await creditsClientOf(key);
+	if (!client) return { on: false, credits: null, plan: null, hoursLeft: null, periodEnd: null };
+	const balance = await client.balance();
+	const plan = balance?.package ?? null;
+	return {
+		on: true,
+		credits: Number(balance?.credits ?? 0) - Number(balance?.reserved ?? 0),
+		plan: plan?.id ?? null,
+		hoursLeft: plan?.hours_left ?? null,
+		periodEnd: plan?.period_end ?? null
+	};
+}
+
+/**
+ * "Paket wählen" on the hosted bridge card: a plan of the hosted bridge, paid
+ * from the books' balance at Le Space Credits; its first period opens now.
+ *
+ * @param {string} planId one of credits.js BRIDGE_PLANS
+ */
+export async function chooseHostedPlan(planId) {
+	const { BRIDGE_PLANS } = await import('./credits/credits.js');
+	if (!BRIDGE_PLANS.some((p) => p.id === planId))
+		throw new Error('not a plan of the hosted bridge');
+	const { key } = await hostedOwner();
+	const client = await creditsClientOf(key);
+	if (!client) throw new Error(t('messages.hostedBridge.creditsOff'));
+	await client.choosePlan(planId);
+	return hostedCredits();
+}
+
+/**
+ * Le Space's sub-account for these books, with the books' key authorized to
+ * start, forget and forward its VM (Le Space Credits' model A).
+ *
+ * @param {Uint8Array} key @param {string} owner the books' key's address
+ * @returns {Promise<{ payer: string, hoursLeft: number | null }>}
+ */
+async function authorizeLeSpacePayer(key, owner) {
+	const client = await creditsClientOf(key);
+	if (!client) throw new Error(t('messages.hostedBridge.creditsOff'));
+	let answer;
+	try {
+		answer = await client.vmAuthorize(owner);
+	} catch (e) {
+		if (/** @type {any} */ (e)?.code === 'NO_PLAN')
+			throw new Error(t('messages.hostedBridge.noPlan'));
+		throw e;
+	}
+	if (!/^0x[0-9a-fA-F]{40}$/.test(String(answer?.owner ?? ''))) {
+		throw new Error(t('messages.hostedBridge.noPayer'));
+	}
+	return { payer: answer.owner, hoursLeft: answer.hours_left ?? null };
+}
+
 /**
  * "Starten" on the "Gehostete Bridge" card (#587): ask Aleph for a
- * confidential VM of the published bridge image, owned and paid by the books'
- * Aleph key, then bring it up and unlock and pair it (`continueHostedStart`).
- * The VM is recorded, sealed, as soon as Aleph has it, so a start that is
- * interrupted carries on from there.
+ * confidential VM of the published bridge image, owned by the books' Aleph
+ * key and paid by `paidBy` – Le Space from the books' plan (its sub-account,
+ * the books' key as delegate) or the books' key itself – then bring it up and
+ * unlock and pair it (`continueHostedStart`). The VM is recorded, sealed, as
+ * soon as Aleph has it, so a start that is interrupted carries on from there.
  *
- * @param {{ crn: string, passphrase: string, onProgress?: (p: { phase: string, detail: string }) => void }} p
+ * @param {{ crn: string, passphrase: string, paidBy?: 'lespace' | 'books', onProgress?: (p: { phase: string, detail: string }) => void }} p
  */
-export async function startHostedBridge({ crn, passphrase, onProgress = () => {} }) {
+export async function startHostedBridge({
+	crn,
+	passphrase,
+	paidBy = 'books',
+	onProgress = () => {}
+}) {
 	if (!session?.online || !session.bridgeAuthBase || !deviceSync) {
 		throw new Error(t('messages.bridge.needsSync'));
 	}
@@ -1607,6 +1704,13 @@ export async function startHostedBridge({ crn, passphrase, onProgress = () => {}
 	onProgress({ phase: 'node', detail: crn });
 	const node = (await hostedNodes()).find((n) => n.hash === crn);
 	if (!node) throw new Error(t('messages.hostedBridge.noNode'));
+
+	// Who pays: Le Space's sub-account for these books, or the books' key.
+	let payer = owner;
+	if (paidBy === 'lespace') {
+		onProgress({ phase: 'payer', detail: '' });
+		({ payer } = await authorizeLeSpacePayer(key, owner));
+	}
 
 	onProgress({ phase: 'measure', detail: '' });
 	/** @type {any} */
@@ -1629,26 +1733,31 @@ export async function startHostedBridge({ crn, passphrase, onProgress = () => {}
 	}
 
 	const content = vm.instanceContent({
-		owner,
+		payer,
 		image: hosted.HOSTED_IMAGE,
 		crn,
 		trustedExecution,
 		name: `belege-bridge-${isoNow().slice(0, 16)}`
 	});
 	const sign = async (/** @type {string} */ payload) => alephSign(key, payload);
-	const message = await vm.signedMessage({ type: 'INSTANCE', content, sign });
+	const message = await vm.signedMessage({ type: 'INSTANCE', content, sign, sender: owner });
 	// Aleph takes the VM only with a day of its price in reserve: said here, before it refuses.
 	const [perHour, credits] = await Promise.all([
 		vm.creditsPerHour(message, { apiHost }),
-		vm.creditsOf(owner, { apiHost })
+		vm.creditsOf(payer, { apiHost })
 	]);
 	if (perHour && credits < vm.RESERVE_HOURS * perHour) {
 		throw new Error(
-			t('messages.hostedBridge.fewCredits', {
-				needed: (vm.RESERVE_HOURS * perHour).toLocaleString(intlLocale()),
-				credits: Math.floor(credits).toLocaleString(intlLocale()),
-				perHour: perHour.toLocaleString(intlLocale())
-			})
+			t(
+				paidBy === 'lespace'
+					? 'messages.hostedBridge.fewHours'
+					: 'messages.hostedBridge.fewCredits',
+				{
+					needed: (vm.RESERVE_HOURS * perHour).toLocaleString(intlLocale()),
+					credits: Math.floor(credits).toLocaleString(intlLocale()),
+					perHour: perHour.toLocaleString(intlLocale())
+				}
+			)
 		);
 	}
 
@@ -1658,6 +1767,8 @@ export async function startHostedBridge({ crn, passphrase, onProgress = () => {}
 		instance,
 		crn,
 		nodeUrl: node.url,
+		payer,
+		paidBy,
 		startedAt: isoNow(),
 		creditsPerHour: perHour
 	});
@@ -1695,13 +1806,16 @@ export async function continueHostedStart({ passphrase, onProgress = () => {}, p
 		await vm.notifyNode(nodeUrl, record.instance);
 		placed = await vm.onNode(nodeUrl, record.instance);
 	}
+	// The account that pays the VM holds its port forwards; the books' key sends for it.
+	const payer = typeof record.payer === 'string' ? record.payer : owner;
 	if (!placed?.port443) {
 		const sign = async (/** @type {string} */ payload) => alephSign(key, payload);
 		await vm.sendMessage(
 			await vm.signedMessage({
 				type: 'AGGREGATE',
-				content: vm.forward443Content(owner, record.instance),
-				sign
+				content: vm.forward443Content(payer, record.instance),
+				sign,
+				sender: owner
 			}),
 			{ apiHost }
 		);
@@ -1718,7 +1832,12 @@ export async function continueHostedStart({ passphrase, onProgress = () => {}, p
 	for (let i = 0; i < tries; i++) {
 		if (i) await pause(delayMs);
 		try {
-			const done = await unlockHostedBridge({ instance: record.instance, passphrase, onProgress });
+			const done = await unlockHostedBridge({
+				instance: record.instance,
+				passphrase,
+				payer,
+				onProgress
+			});
 			await setSetting(settings, vm.VM_SETTING, {
 				...record,
 				unlockedAt: isoNow()
@@ -1751,11 +1870,13 @@ export async function stopHostedBridge() {
 	const { key, owner } = await hostedOwner();
 	const { apiHost } = alephEndpoints();
 	const sign = async (/** @type {string} */ payload) => alephSign(key, payload);
+	const payer = typeof record.payer === 'string' ? record.payer : owner;
 	await vm.sendMessage(
 		await vm.signedMessage({
 			type: 'FORGET',
-			content: vm.forgetContent(owner, record.instance),
-			sign
+			content: vm.forgetContent(payer, record.instance),
+			sign,
+			sender: owner
 		}),
 		{ apiHost }
 	);

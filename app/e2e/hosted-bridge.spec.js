@@ -11,6 +11,7 @@
 // passphrase and VM; nothing is real.
 import { test, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
+import { createServer } from 'node:http';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -441,5 +442,194 @@ test('a device starts the hosted bridge on Aleph, short of credits first, fetche
 		await imap.close();
 		await vmRelay.close();
 		await vmAgent.close();
+	}
+});
+
+/**
+ * A fake Le Space Credits service for the hosted bridge: a balance in cents,
+ * the bridge's plans, and the authorization of the books' key on the
+ * sub-account, which it writes into the fake Aleph and funds there, as the
+ * service's treasury would. Signatures are not checked here (credits.spec.js
+ * covers them); the address is taken from the header.
+ *
+ * @param {{ sub: string, cents: number }} p
+ */
+async function startFakeCredits({ sub, cents }) {
+	/** @type {{ id: string, hours: number, price: number } | null} */
+	let plan = null;
+	let balance = cents;
+	/** @type {string[]} */
+	const delegates = [];
+	const plans = { 'bridge-s': { hours: 60, price: 700 } };
+	const origin = `http://localhost:${process.env.E2E_PORT || 4391}`;
+	const cors = {
+		'access-control-allow-origin': origin,
+		'access-control-allow-methods': 'GET, POST, PUT',
+		'access-control-allow-headers': 'content-type, x-ls-address, x-ls-timestamp, x-ls-signature'
+	};
+	const server = createServer(async (req, res) => {
+		const url = new URL(req.url ?? '/', 'http://127.0.0.1');
+		const send = (/** @type {number} */ status, /** @type {unknown} */ body) => {
+			res.writeHead(status, { 'content-type': 'application/json', ...cors });
+			res.end(JSON.stringify(body));
+		};
+		if (req.method === 'OPTIONS') {
+			res.writeHead(204, cors);
+			return res.end();
+		}
+		let raw = '';
+		for await (const chunk of req) raw += chunk;
+		const body = raw ? JSON.parse(raw) : {};
+		const address = String(req.headers['x-ls-address'] ?? '');
+		const pkg = () =>
+			plan
+				? {
+						id: plan.id,
+						state: 'active',
+						period_start: new Date().toISOString(),
+						period_end: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+						hours_left: plan.hours
+					}
+				: null;
+		if (url.pathname === '/v1/balance' && req.method === 'GET')
+			return send(200, {
+				product: 'belege',
+				address,
+				credits: balance,
+				reserved: 0,
+				lines_this_month: { ki: 0, vm: 0, transfer: 0 },
+				package: pkg(),
+				vm: { owner: sub, delegates },
+				mode: 'live'
+			});
+		if (url.pathname === '/v1/purchases') return send(200, { purchases: [] });
+		if (url.pathname === '/v1/package' && req.method === 'PUT') {
+			const chosen = plans[/** @type {'bridge-s'} */ (body.package)];
+			if (!chosen) return send(400, { error: 'no such plan', code: 'PLAN' });
+			if (balance < chosen.price) return send(402, { error: 'balance too low', code: 'FUNDS' });
+			balance -= chosen.price;
+			plan = { id: body.package, ...chosen };
+			// The period's grant: the plan's hours and a day in reserve, on the sub-account.
+			aleph.fund(sub, (chosen.hours + 24) * FAKE_INSTANCE_CREDITS_PER_HOUR);
+			return send(200, { package: pkg() });
+		}
+		if (url.pathname === '/v1/vm/authorize' && req.method === 'POST') {
+			if (!plan) return send(409, { error: 'no plan with a running period', code: 'NO_PLAN' });
+			const delegate = body.delegate ?? address;
+			aleph.authorize(sub, delegate, ['INSTANCE', 'FORGET', 'AGGREGATE'], ['port-forwarding']);
+			if (!delegates.includes(delegate)) delegates.push(delegate);
+			return send(200, {
+				owner: sub,
+				delegate,
+				types: ['INSTANCE', 'FORGET', 'AGGREGATE'],
+				aggregate_keys: ['port-forwarding'],
+				hours_left: plan.hours,
+				period_end: pkg()?.period_end,
+				revoke_at: null
+			});
+		}
+		return send(404, { error: 'not found' });
+	});
+	await new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(undefined)));
+	const { port } = /** @type {import('node:net').AddressInfo} */ (server.address());
+	return {
+		url: `http://127.0.0.1:${port}`,
+		delegates,
+		close: () => new Promise((resolve) => server.close(() => resolve(undefined)))
+	};
+}
+
+test('Le Space pays the hosted bridge from a plan: its sub-account is the payer, the books’ key its delegate and still the owner (#587)', async ({
+	browser
+}) => {
+	test.setTimeout(180_000);
+	const SUB = '0x5555555555555555555555555555555555555555';
+	const credits = await startFakeCredits({ sub: SUB, cents: 1000 });
+	const mac = await device(browser);
+	await mac.page.addInitScript(
+		([alephUrl, creditsUrl]) => {
+			localStorage.setItem('belege.e2e.alephUrl', alephUrl);
+			localStorage.setItem('belege.e2e.creditsUrl', creditsUrl);
+		},
+		[aleph.url, credits.url]
+	);
+	await mac.page.goto('/');
+	await acceptConsent(mac.page);
+	await mac.page.getByTestId('passkey-label').fill('E2E Le Space zahlt');
+	await mac.page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(mac.page.getByTestId('own-did')).toBeVisible();
+	await openIntegration(mac.page, 'geraete');
+	await expect(mac.page.getByTestId('devices-reachable')).toContainText(
+		'über den Relay erreichbar',
+		{ timeout: 30_000 }
+	);
+	const owner = await mac.page.evaluate(() =>
+		/** @type {any} */ (window).__belegeE2E.alephAddress()
+	);
+	const vmAgent = await startFakeAttestAgent({ measurement: PUBLISHED, owner });
+	const vmRelay = await startFakeAttestRelay(vmAgent);
+	try {
+		await mac.page.evaluate(
+			([url, pins]) => {
+				localStorage.setItem('belege.e2e.attestUrl', url);
+				localStorage.setItem('belege.e2e.hostedPins', pins);
+			},
+			[vmRelay.url, JSON.stringify(published)]
+		);
+		// Le Space Credits on, with 10 € on the books.
+		await openIntegration(mac.page, 'aleph');
+		const creditsCard = mac.page.getByTestId('credits-card');
+		await creditsCard.getByTestId('credits-on').click();
+		await expect(creditsCard.getByTestId('credits-balance')).toHaveText(/10,00\s€/);
+
+		await openIntegration(mac.page, 'bridge');
+		await expect(mac.page.getByTestId('hosted-bridge-pays-lespace')).toBeChecked();
+		const plan = mac.page.getByTestId('hosted-bridge-plan');
+		await expect(plan).toContainText('Noch kein Paket');
+		// No plan, no start.
+		await mac.page.getByTestId('hosted-bridge-start-passphrase').fill('not-the-real-passphrase');
+		await expect(mac.page.getByTestId('hosted-bridge-start')).toBeDisabled();
+		// 10 € buy the smallest plan only.
+		await expect(mac.page.getByTestId('hosted-bridge-plan-bridge-m')).toBeDisabled();
+		await mac.page.getByTestId('hosted-bridge-plan-bridge-s').click();
+		await expect(plan).toContainText('Paket Ab und zu: noch 60 h.');
+
+		await mac.page.getByTestId('hosted-bridge-start-passphrase').fill('not-the-real-passphrase');
+		await mac.page.getByTestId('hosted-bridge-start').click();
+		await expect
+			.poll(
+				async () => {
+					const error = mac.page.getByTestId('hosted-bridge-error');
+					if (await error.isVisible())
+						throw new Error(`start failed: ${await error.textContent()}`);
+					return mac.page.getByTestId('hosted-bridge-state').isVisible();
+				},
+				{ timeout: 90_000, intervals: [500] }
+			)
+			.toBe(true);
+
+		// Paid by the sub-account, sent by the books' key, measured for the books' key.
+		expect(credits.delegates.map((d) => d.toLowerCase())).toEqual([owner.toLowerCase()]);
+		const [instance, vm] = [...aleph.instances].find(
+			([, v]) => v.address.toLowerCase() === SUB.toLowerCase()
+		) ?? [null, null];
+		expect(instance).toBeTruthy();
+		expect(vm.status).toBe('processed');
+		expect(vm.sender.toLowerCase()).toBe(owner.toLowerCase());
+		expect(vm.content.environment.trusted_execution).toEqual(published);
+		expect(aleph.kept.get(SUB)?.['port-forwarding']?.[instance]?.ports?.['443']?.tcp).toBe(true);
+		// Only after the attestation, and only for the books' key: the passphrase.
+		expect(vmAgent.received.luks_passphrase).toBe('not-the-real-passphrase');
+
+		// Stopped by the books' key for the sub-account.
+		await mac.page.getByTestId('hosted-bridge-stop').click();
+		await expect(mac.page.getByTestId('hosted-bridge-vm')).toContainText('Gestoppt', {
+			timeout: 60_000
+		});
+		expect(aleph.instances.get(instance)?.status).toBe('forgotten');
+	} finally {
+		await vmRelay.close();
+		await vmAgent.close();
+		await credits.close();
 	}
 });

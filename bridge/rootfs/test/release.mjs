@@ -17,24 +17,28 @@ import { pinsOf, unlockInstance } from '@le-space/attest-wasm/instance';
 const HASH = /^[0-9a-f]{64}$/;
 
 /**
- * Throws, naming what differs, unless the INSTANCE boots `image` for `owner`
- * and pins exactly the measurements of `published`.
+ * Throws, naming what differs, unless the INSTANCE is paid by `owner` or one
+ * of `payers`, boots `image` and pins exactly the measurements of `published`.
  *
  * @param {{
  *   instance: any,
  *   published: any,
  *   image: string,
- *   owner: string
+ *   owner: string,
+ *   payers?: string[]
  * }} options `instance` is the INSTANCE message's content
  * @returns {{ expectedMeasurements: string[], expectedPolicy: number | undefined }} the pins to attest with
  */
-export function releaseCheck({ instance, published, image, owner }) {
+export function releaseCheck({ instance, published, image, owner, payers }) {
 	if (!HASH.test(image ?? '')) throw new Error('the published image is not a STORE hash');
 	const refuse = (/** @type {string} */ why) => {
 		throw new Error(`${why}: no secret goes out`);
 	};
-	if (String(instance?.address ?? '').toLowerCase() !== String(owner ?? '').toLowerCase()) {
-		refuse('the INSTANCE is not the owner’s');
+	// Who pays: the owner itself, or an account that pays for it (Le Space's
+	// sub-account for these books). The measurement names the owner either way.
+	const accepted = (payers?.length ? payers : [owner]).map((a) => String(a ?? '').toLowerCase());
+	if (!accepted.includes(String(instance?.address ?? '').toLowerCase())) {
+		refuse('the INSTANCE is not paid by the owner or its payer');
 	}
 	if (instance?.rootfs?.parent?.ref !== image) {
 		refuse('the INSTANCE boots another image than the published one');
@@ -59,10 +63,10 @@ export function releaseCheck({ instance, published, image, owner }) {
  * `unlockInstance` with the pins computed here (`published`), so the guest's
  * report is held against them and not against what the message says.
  *
- * @param {{ instance: any, published: any, image: string, owner: string } & Record<string, any>} options
+ * @param {{ instance: any, published: any, image: string, owner: string, payers?: string[] } & Record<string, any>} options
  *   the rest goes to `unlockInstance` (wasm, relayUrl, crnHash, instanceItemHash, passphrase, secrets, sign, …)
  */
-export async function unlockHosted({ instance, published, image, owner, ...rest }) {
-	releaseCheck({ instance, published, image, owner });
+export async function unlockHosted({ instance, published, image, owner, payers, ...rest }) {
+	releaseCheck({ instance, published, image, owner, payers });
 	return unlockInstance(/** @type {any} */ ({ ...rest, trustedExecution: published }));
 }

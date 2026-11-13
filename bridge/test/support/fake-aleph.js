@@ -46,11 +46,17 @@
 //
 // For the hosted bridge's VM (#587), Aleph as far as a start and a stop need it,
 // with one confidential node served from the same port:
-//   POST /api/v0/messages  an INSTANCE signed by its `address`, paid in credits:
-//                          processed when the account holds a day of the VM
+//   POST /api/v0/messages  an INSTANCE sent by its `address` or by a delegate
+//                          the address's `security` aggregate lets send
+//                          INSTANCE (Le Space's sub-account and the books'
+//                          key), paid in credits by the address: processed
+//                          when it holds a day of the VM
 //                          (FAKE_INSTANCE_CREDITS_PER_HOUR), otherwise
-//                          `rejected` with error 6. A FORGET of it by the same
-//                          address makes it `forgotten`, and the node drops it.
+//                          `rejected` with error 6. A FORGET of it by the
+//                          address or a delegate allowed FORGET makes it
+//                          `forgotten`, and the node drops it. The
+//                          `port-forwarding` AGGREGATE likewise, by the
+//                          address or a delegate allowed that key.
 //   GET  /api/v0/messages/<item hash>   the INSTANCE with its content and status
 //   POST /api/v0/price/estimate   the VM's price, per second
 //   GET  /crns.json        Aleph's node list: the fake node (FAKE_CRN), at this
@@ -191,7 +197,7 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 	const forgets = new Map();
 	/**
 	 * The INSTANCE messages taken, by item hash; `placed` once the node was told.
-	 * @type {Map<string, { status: string, errorCode?: number, content: any, sender: string, time: number, placed: boolean }>}
+	 * @type {Map<string, { status: string, errorCode?: number, content: any, sender: string, address: string, time: number, placed: boolean }>}
 	 */
 	const instances = new Map();
 	/** This server's own address, the fake node's too; set once it listens. */
@@ -220,6 +226,22 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 				String(a?.address).toLowerCase() === sender.toLowerCase() &&
 				(!a.types?.length || a.types.includes('STORE')) &&
 				(!a.channels?.length || a.channels.includes(channel)) &&
+				(!a.chain || a.chain === 'ETH')
+		);
+	/**
+	 * May `sender` send a message of `type` for `address`: it is the address,
+	 * or the address's `security` aggregate lets it (for an AGGREGATE, also
+	 * that key).
+	 *
+	 * @param {string} address @param {string} sender @param {string} type @param {string} [key]
+	 */
+	const mayActFor = (address, sender, type, key) =>
+		String(address).toLowerCase() === String(sender).toLowerCase() ||
+		(authorizations.get(toChecksumAddress(String(address))) ?? []).some(
+			(a) =>
+				String(a?.address).toLowerCase() === String(sender).toLowerCase() &&
+				(!a.types?.length || a.types.includes(type)) &&
+				(!key || !a.aggregate_keys?.length || a.aggregate_keys.includes(key)) &&
 				(!a.chain || a.chain === 'ETH')
 		);
 	/**
@@ -473,14 +495,17 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 					m.item_type === 'inline' &&
 					typeof m.channel === 'string' &&
 					typeof content?.key === 'string' &&
-					content?.address === m.sender &&
+					typeof content?.address === 'string' &&
 					content?.content &&
 					typeof content.content === 'object';
 				if (!shapeOk) return reply(422, { error: 'not an AGGREGATE this fake takes' });
-				const status = signatureOk ? 'processed' : 'rejected';
+				const status =
+					signatureOk && mayActFor(content.address, m.sender, 'AGGREGATE', content.key)
+						? 'processed'
+						: 'rejected';
 				aggregates.set(m.item_hash, { status });
 				if (status === 'processed') {
-					const address = toChecksumAddress(m.sender);
+					const address = toChecksumAddress(content.address);
 					const all = kept.get(address) ?? {};
 					all[content.key] = { ...(all[content.key] ?? {}), ...content.content };
 					kept.set(address, all);
@@ -511,7 +536,7 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 					m.chain === 'ETH' &&
 					m.item_type === 'inline' &&
 					typeof m.channel === 'string' &&
-					content?.address === m.sender &&
+					typeof content?.address === 'string' &&
 					content?.payment?.type === 'credit' &&
 					/^[0-9a-f]{64}$/.test(content?.rootfs?.parent?.ref ?? '') &&
 					Array.isArray(content?.environment?.trusted_execution?.measurements);
@@ -519,8 +544,10 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 				/** @type {{ status: string, errorCode?: number }} */
 				let verdict = { status: 'processed' };
 				if (!signatureOk) verdict = { status: 'rejected', errorCode: 0 };
+				else if (!mayActFor(content.address, m.sender, 'INSTANCE'))
+					verdict = { status: 'rejected', errorCode: 3 };
 				else {
-					const credits = accounts[toChecksumAddress(m.sender)]?.balance ?? 0;
+					const credits = accounts[toChecksumAddress(content.address)]?.balance ?? 0;
 					if (credits < 24 * FAKE_INSTANCE_CREDITS_PER_HOUR) {
 						verdict = { status: 'rejected', errorCode: 6 };
 					}
@@ -529,6 +556,7 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 					...verdict,
 					content,
 					sender: m.sender,
+					address: content.address,
 					time: m.time,
 					placed: false
 				});
@@ -541,13 +569,14 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 				const own =
 					hashOk &&
 					signatureOk &&
-					content.address === m.sender &&
-					content.hashes.every(
-						(/** @type {string} */ h) =>
-							toChecksumAddress(
-								instances.get(h)?.sender ?? '0x0000000000000000000000000000000000000000'
-							) === toChecksumAddress(m.sender)
-					);
+					content.hashes.every((/** @type {string} */ h) => {
+						const vm = instances.get(h);
+						return (
+							vm &&
+							String(vm.address).toLowerCase() === String(content.address).toLowerCase() &&
+							mayActFor(vm.address, m.sender, 'FORGET')
+						);
+					});
 				const verdict = own ? { status: 'processed' } : { status: 'rejected', errorCode: 3 };
 				if (own) {
 					for (const h of content.hashes) {
@@ -649,7 +678,7 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 			const list = {};
 			for (const [hash, vm] of instances) {
 				if (!vm.placed) continue;
-				const forwards = kept.get(toChecksumAddress(vm.sender))?.['port-forwarding'];
+				const forwards = kept.get(toChecksumAddress(vm.address))?.['port-forwarding'];
 				const open = forwards?.[hash]?.ports?.['443']?.tcp === true;
 				list[hash] = {
 					running: true,
@@ -841,6 +870,23 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 		 */
 		holders(told) {
 			Object.assign(network, told);
+		},
+		/**
+		 * Let `delegate` send `types` (and AGGREGATE `aggregateKeys`) for
+		 * `address`, as an AGGREGATE of its `security` key would: what Le Space
+		 * Credits do for the books' key on their sub-account.
+		 *
+		 * @param {string} address @param {string} delegate @param {string[]} types @param {string[]} [aggregateKeys]
+		 */
+		authorize(address, delegate, types, aggregateKeys = []) {
+			const key = toChecksumAddress(address);
+			const rest = (authorizations.get(key) ?? []).filter(
+				(a) => String(a?.address).toLowerCase() !== delegate.toLowerCase()
+			);
+			authorizations.set(key, [
+				...rest,
+				{ address: delegate, types, aggregate_keys: aggregateKeys, chain: 'ETH' }
+			]);
 		},
 		/** Put credits on an account, as a transfer would. @param {string} address @param {number} credits */
 		fund(address, credits) {
