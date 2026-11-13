@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.30.0] – 2026-11-13
+
 ### Added
 
 - **Split a trip, or join two** (#693, part b). At the bottom of a trip: _In zwei Reisen teilen_ at an end and a start – suggested where the tickets come home and leave again a day or more later – with its receipts, border crossings, meals, nights and mileage going by their time; _Zu einer Reise zusammenführen_ with a trip of the same traveller at most a week apart, from the earlier start to the later end, the other deleted. Never for a trip on a closed statement.
