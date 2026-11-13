@@ -222,6 +222,12 @@ export async function backupPin({ owner, key, endpoints = alephEndpoints(), fetc
 	});
 }
 
+/** How long a STORE is followed until Aleph decides; shorter in the end-to-end tests (only in a build for them). */
+const followFor = () =>
+	(import.meta.env?.VITE_E2E === 'true' &&
+		Number(/** @type {any} */ (globalThis).__belegeBackupSettleMs)) ||
+	60_000;
+
 /**
  * Aleph's final word on a STORE it was sent: followed while pending; a
  * refusal thrown with its amounts.
@@ -241,7 +247,7 @@ export async function settleKept(
 		sent.status === 'pending'
 			? await waitForMessage(sent.itemHash, {
 					apiHost: endpoints.apiHost,
-					timeout: settle.timeout ?? 60_000,
+					timeout: settle.timeout ?? followFor(),
 					interval: settle.interval ?? 2_000,
 					...(f ? { fetch: f } : {})
 				})

@@ -17,6 +17,7 @@
 	import { dropBackup, loadBackups, updateBackup } from './history.js';
 	import { membersOf } from '$lib/members/members.js';
 	import { loadChain } from './chain.js';
+	import { anyPending, recheckPending, recheckSchedule, settlePending } from './recheck.js';
 	import {
 		askRestore,
 		cancelRestore,
@@ -360,7 +361,12 @@
 		backups.find((b) => b.status === 'processed' || b.status === 'pending')
 	);
 	const lastRefused = $derived(backups[0]?.status === 'rejected');
-	/** @type {{ level: 'ok' | 'warn' | 'danger' | 'setup', text: string }} */
+	/** Saved, but Aleph has not said yet whether it keeps it: the newest, or an increment of the chain. */
+	const unconfirmed = $derived(
+		lastKept?.status === 'pending' ||
+			Boolean(/** @type {import('./archive.js').BackupChain | null} */ (chain)?.pending?.length)
+	);
+	/** @type {{ level: 'ok' | 'pending' | 'warn' | 'danger' | 'setup', text: string }} */
 	const backupStatus = $derived.by(() => {
 		if (!loaded) return { level: 'setup', text: t('backup.status.loading') };
 		if (!owner) return { level: 'setup', text: t('backup.status.noAccount') };
@@ -384,16 +390,21 @@
 				})
 			};
 		}
+		if (unconfirmed) {
+			return { level: 'pending', text: t('backup.status.pending', { when: when(lastKept.at) }) };
+		}
 		return { level: 'ok', text: t('backup.status.ok', { when: when(lastKept.at) }) };
 	});
 	const statusClass = {
 		ok: 'text-heading',
+		pending: 'text-heading',
 		warn: 'text-heading',
 		danger: 'text-danger',
 		setup: 'text-text'
 	};
 	const dotClass = {
 		ok: 'bg-success',
+		pending: 'bg-warning',
 		warn: 'bg-warning',
 		danger: 'bg-danger',
 		setup: 'bg-faint'
@@ -435,6 +446,34 @@
 			const { checkBackupCredits } = await import('./credits-watch.js');
 			await checkBackupCredits().catch(() => {});
 		});
+	});
+
+	// A run that left a backup pending: Aleph asked again a few times
+	// (recheck.js), so the card shows its decision without a reload. Not
+	// while the network is paused, nor during a run (it asks itself); the
+	// card left, it stops. On whether anything is pending, not on the
+	// history itself: each answer rewrites it, which must not start over.
+	const awaitingAleph = $derived(anyPending(backups));
+	$effect(() => {
+		if (!backupRun.finished || step || app.network.paused || !awaitingAleph) return;
+		return untrack(() =>
+			recheckPending({
+				after: recheckSchedule(),
+				stopped: () => app.network.paused,
+				ask: async () => {
+					const store = currentStore();
+					if (!store) return false;
+					const now = await settlePending(store.settings, endpoints);
+					backups = now;
+					chain = await loadChain(store.settings);
+					// The last run's line, with Aleph's answer now.
+					const made = backupRun.made;
+					const row = made && now.find((b) => b.cid === made.cid && b.at === made.at);
+					if (row && row.status !== made?.status) backupRun.made = row;
+					return anyPending(now);
+				}
+			})
+		);
 	});
 
 	/** @param {string | null} withToken */
@@ -501,7 +540,8 @@
 	async function settle() {
 		const store = currentStore();
 		if (!store) return;
-		for (const b of backups) {
+		const before = backups;
+		for (const b of before) {
 			if (!b.itemHash || b.status === 'forgotten') continue;
 			const now = await storeAnswer({ itemHash: b.itemHash, endpoints }).catch(() => null);
 			// Why Aleph refused it is kept too: a file it could not fetch cannot be kept again.
@@ -512,6 +552,8 @@
 				});
 			}
 		}
+		// The chain as far as Aleph keeps it, by these answers (chain.js reconcileChain).
+		if (backups !== before) chain = await loadChain(store.settings);
 	}
 
 	/**

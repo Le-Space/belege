@@ -1336,7 +1336,8 @@ export default {
 				'Aleph hat das letzte Backup abgelehnt. Unter „Erweitert“ steht, warum, und wie du es erneut beauftragst.',
 			none: 'Noch kein Backup. „Jetzt sichern“ macht das erste.',
 			unsaved: 'Zuletzt gesichert: {when}. Noch nicht gesichert: {list}.',
-			ok: 'Alles gesichert – zuletzt {when}.'
+			ok: 'Alles gesichert – zuletzt {when}.',
+			pending: 'Gesichert – Aleph bestätigt noch (zuletzt {when}).'
 		},
 		upload: 'Hochladen',
 		creditsLow:

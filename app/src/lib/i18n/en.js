@@ -1303,7 +1303,8 @@ export default {
 			refused: 'Aleph refused the last backup. “Advanced” says why, and how to ask again.',
 			none: 'No backup yet. “Back up now” makes the first.',
 			unsaved: 'Last backed up: {when}. Not backed up yet: {list}.',
-			ok: 'Everything backed up – last {when}.'
+			ok: 'Everything backed up – last {when}.',
+			pending: 'Backed up – Aleph is still confirming (last {when}).'
 		},
 		upload: 'Upload',
 		creditsLow:
