@@ -23,8 +23,10 @@
 // a command whose body is bytes (`backup.put`, up to 256 MiB): that goes as a
 // block over the proved connection in M2 (#578). An answer of bytes (a mail
 // attachment, a Paperless original) goes base64 while it fits UCEP's limit –
-// 1 MiB on a direct connection, 64 KiB relayed – and is refused `TOO_LARGE`
-// above it, before it is encoded; bigger files become blocks in M2 too.
+// 1 MiB on a direct connection or through a relay that grants at least 32 MiB
+// (the books' own), 64 KiB through one that grants less (js-libp2p's default
+// 128 KiB) – and is refused `TOO_LARGE` above it, before it is encoded; bigger
+// files become blocks in M2 too.
 
 import { LIMITS, UcepError } from '@le-space/ucep';
 
@@ -64,7 +66,7 @@ export const offered = (command) => !HTTP_ONLY.has(command.name) && command.body
  * @param {object} p
  * @param {import('./commands.js').Command[]} p.commands the table (commands.js)
  * @param {Record<string, unknown> | null} p.args `{ method, path, body? }` as the device sent them
- * @param {boolean} p.limited the connection is relayed: UCEP allows 64 KiB, not 1 MiB
+ * @param {boolean} p.limited the connection is relayed with a data limit below 32 MiB: UCEP allows 64 KiB, not 1 MiB
  * @param {(command: import('./commands.js').Command) => Promise<void>} [p.authorize] may the caller run
  *   this command? Throws the UCEP error that says why not (grants.js)
  * @param {(command: import('./commands.js').Command, json: unknown) => void} [p.spent] the command's
