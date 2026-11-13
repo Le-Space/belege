@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A hosted bridge reads with a model in LibertAI's attested enclave** (#754). A hosted bridge (Aleph, Phala through NEAR) used no language model; now it may use one, and only one in LibertAI's confidential enclave, pinned: the key, model and pin come with its settings – taken over from the bridge on a computer bound to it by `pnpm setup:llm`, or entered on _Einstellungen für die gehostete Bridge_ – and the VM checks the enclave before every request as the Mac does. Any other model is dropped at the VM's start. Reading receipts and the account suggestions then work from anywhere. Consent screen version 47.
+
 ## [0.30.0] – 2026-11-13
 
 ### Added

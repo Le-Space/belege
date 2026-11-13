@@ -26,6 +26,12 @@
 	let kraken = $state({ key: '', secret: '' });
 	let paperless = $state({ baseUrl: '', token: '' });
 	let alchemy = $state({ key: '' });
+	let llm = $state({ key: '', model: '', itemHash: '', measurement: '' });
+	let llmReady = $derived(
+		Boolean(llm.key.trim() && llm.model.trim()) &&
+			/^[0-9a-f]{64}$/.test(llm.itemHash.trim()) &&
+			/^[0-9a-f]{32,}$/i.test(llm.measurement.trim())
+	);
 
 	async function refresh() {
 		kept = await hostedSettingsNames().catch(() => ({ accounts: [], sections: [] }));
@@ -107,6 +113,36 @@
 		run('alchemy', async () => {
 			await keepHostedSettings({ secrets: { alchemy: alchemy.key.trim() } });
 			alchemy.key = '';
+		});
+	}
+
+	/** @param {SubmitEvent} event */
+	function saveLlm(event) {
+		event.preventDefault();
+		run('llm', async () => {
+			const model = llm.model.trim();
+			await keepHostedSettings({
+				// Only LibertAI's enclave, pinned (#754): the VM checks it before every request.
+				config: {
+					llm: {
+						baseUrl: 'https://api.libertai.io/v1',
+						model,
+						retryModel: model,
+						redactTerms: [],
+						redaction: 'off',
+						configured: true,
+						tee: {
+							provider: 'libertai',
+							itemHash: llm.itemHash.trim(),
+							measurement: llm.measurement.trim(),
+							sourceCommit: null,
+							pinnedAt: new Date().toISOString()
+						}
+					}
+				},
+				secrets: { llm: llm.key.trim() }
+			});
+			llm = { key: '', model: '', itemHash: '', measurement: '' };
 		});
 	}
 
@@ -200,6 +236,49 @@
 						type="submit"
 						class={save}
 						disabled={Boolean(busy) || !mail.host.trim() || !mail.user.trim() || !mail.password}
+						>{t('integrationen.hostedSettings.keep')}</button
+					>
+				</form>
+			</details>
+
+			<details class="mt-2">
+				<summary class="cursor-pointer text-sm font-medium"
+					>{t('integrationen.hostedSettings.llm')}</summary
+				>
+				<p class="mt-2 text-xs text-faint">{t('integrationen.hostedSettings.llmHint')}</p>
+				<form class="mt-2 grid gap-2 sm:grid-cols-2" onsubmit={saveLlm}>
+					<label class="text-sm"
+						><span class="text-faint">{t('integrationen.hostedSettings.apiKey')}</span>
+						<input class={input} type="password" bind:value={llm.key} autocomplete="off" /></label
+					>
+					<label class="text-sm"
+						><span class="text-faint">{t('integrationen.hostedSettings.llmModel')}</span>
+						<input
+							class={input}
+							bind:value={llm.model}
+							autocomplete="off"
+							spellcheck="false"
+						/></label
+					>
+					<label class="text-sm"
+						><span class="text-faint">{t('integrationen.hostedSettings.llmItemHash')}</span>
+						<input
+							class={input}
+							bind:value={llm.itemHash}
+							autocomplete="off"
+							spellcheck="false"
+						/></label
+					>
+					<label class="text-sm"
+						><span class="text-faint">{t('integrationen.hostedSettings.llmMeasurement')}</span>
+						<input
+							class={input}
+							bind:value={llm.measurement}
+							autocomplete="off"
+							spellcheck="false"
+						/></label
+					>
+					<button type="submit" class={save} disabled={Boolean(busy) || !llmReady}
 						>{t('integrationen.hostedSettings.keep')}</button
 					>
 				</form>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	cleanSettings,
+	isEnclaveLlm,
 	keptNames,
 	mergeSettings,
 	secretFileOf,
@@ -83,5 +84,30 @@ describe('the hosted bridge’s settings', () => {
 			accounts: ['imap', 'kraken'],
 			sections: ['mail', 'paperless']
 		});
+	});
+
+	it('take a model only in LibertAI’s attested enclave, and its key only beside it', () => {
+		const pinned = {
+			baseUrl: 'https://api.libertai.io/v1',
+			model: 'test-model-tee',
+			tee: { provider: 'libertai', itemHash: 'ab'.repeat(32), measurement: 'cd'.repeat(48) }
+		};
+		expect(isEnclaveLlm(pinned)).toBe(true);
+		const kept = cleanSettings({ config: { llm: pinned }, secrets: { llm: 'key' } });
+		expect(kept.config.llm).toEqual(pinned);
+		expect(kept.secrets.llm).toBe('key');
+		const out = withHostedSettings({}, kept);
+		expect(out.llm).toBe('key');
+		expect(JSON.parse(out.bridge_config).llm.tee.provider).toBe('libertai');
+		for (const llm of [
+			{ ...pinned, tee: null },
+			{ ...pinned, baseUrl: 'https://api.deepseek.com' },
+			{ ...pinned, tee: { ...pinned.tee, itemHash: 'nope' } }
+		]) {
+			expect(isEnclaveLlm(llm)).toBe(false);
+			const dropped = cleanSettings({ config: { llm }, secrets: { llm: 'key' } });
+			expect(dropped.config.llm).toBeUndefined();
+			expect(dropped.secrets.llm).toBeUndefined();
+		}
 	});
 });

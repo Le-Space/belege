@@ -108,6 +108,8 @@ export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
  * @param {string[]} [options.nodeListen] tests: listen addresses
  * @param {boolean} [options.logPairing] print the pairing invitation and code (default); the hosted
  *   bridge does not: its log is the host's, and it is paired after attestation (#585)
+ * @param {boolean} [options.llmEnclaveOnly] the hosted bridge (#754): a language model only in an
+ *   attested enclave (`llm.tee`); any other model counts as not set up
  * @param {boolean} [options.publishKeyHash] the hosted bridge (#583, #696): write the SHA-256 of the
  *   node's public key (its protobuf encoding, as the peer id carries it) as hex to
  *   `<config dir>/node/public-key.sha256`, for a TEE quote's report data to bind
@@ -149,12 +151,19 @@ export async function startBridge({
 	nodeTransports,
 	nodeListen,
 	publishKeyHash = false,
+	llmEnclaveOnly = false,
 	logPairing = true,
 	port,
 	print = (line) => console.log(line),
 	log = (line) => console.error(`[bridge] ${line}`)
 } = {}) {
 	const config = await loadConfig(configPath);
+	// Hosted, a model only in LibertAI's attested enclave (#754): never a
+	// public one, whatever the config says.
+	if (llmEnclaveOnly && config.llm.configured && !config.llm.tee) {
+		config.llm.configured = false;
+		log('LLM not in an attested enclave: a hosted bridge runs without it.');
+	}
 
 	const pairing = createPairing({
 		getHashes: () => config.pairedTokens,
@@ -430,11 +439,12 @@ export async function startBridge({
 	/**
 	 * What a hosted bridge may take over from this one (#728): the accounts it
 	 * reads in hosted mode and the non-secret settings of the integrations.
-	 * Not Hibiscus (it stays on this computer), not the language model (a
-	 * hosted bridge runs without one), not portal passwords (a hosted image has
-	 * no browser to log in with), not this bridge's own keys, origins or
-	 * paired tokens. Asked for only over the stream, by the device that paired
-	 * this bridge (commands.js `settings.export`, grants.js).
+	 * The language model only when it is pinned to LibertAI's attested
+	 * enclave (#754): a hosted bridge uses no other. Not Hibiscus (it stays on
+	 * this computer), not portal passwords (a hosted image has no browser to
+	 * log in with), not this bridge's own keys, origins or paired tokens.
+	 * Asked for only over the stream, by the device that paired this bridge
+	 * (commands.js `settings.export`, grants.js).
 	 */
 	async function settingsExport() {
 		/** @type {Record<string, import('./keychain.js').Keychain>} */
@@ -473,7 +483,29 @@ export async function startBridge({
 			}
 		}
 		const { mail, kraken, paperless, enablebanking } = config;
-		return { config: { mail, kraken, paperless, enablebanking }, secrets, files };
+		/** @type {Record<string, unknown>} */
+		const sections = { mail, kraken, paperless, enablebanking };
+		if (config.llm.configured && config.llm.tee) {
+			try {
+				const key = await llmKeychain.read();
+				if (key) {
+					secrets.llm = key;
+					const { baseUrl, model, retryModel, redactTerms, redaction, tee } = config.llm;
+					sections.llm = {
+						baseUrl,
+						model,
+						retryModel,
+						redactTerms,
+						redaction,
+						configured: true,
+						tee
+					};
+				}
+			} catch {
+				// No key here: no model to take over.
+			}
+		}
+		return { config: sections, secrets, files };
 	}
 
 	const bridge = createBridgeServer({

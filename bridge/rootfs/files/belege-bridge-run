@@ -45,7 +45,7 @@ if [ -d "$in" ]; then
     name="$(basename "$f")"
     # A whole-name match, as sort-secrets.mjs's ACCOUNT: a case glob's `*`
     # would take any character after `portal_`.
-    printf '%s\n' "$name" | grep -Eqx 'hibiscus|imap|kraken|paperless|enablebanking|coingecko|bitcoin|alchemy|aleph_backup|bridge_auth|portal_[a-z0-9]+(_[a-z0-9]+)*' || continue
+    printf '%s\n' "$name" | grep -Eqx 'hibiscus|imap|llm|kraken|paperless|enablebanking|coingecko|bitcoin|alchemy|aleph_backup|bridge_auth|portal_[a-z0-9]+(_[a-z0-9]+)*' || continue
     install -o belege-bridge -g belege-bridge -m 600 "$f" "$run/secrets/$name"
   done
 fi
@@ -57,9 +57,10 @@ if [ -s "$in/enablebanking_sealed" ]; then
 fi
 
 # bridge.json: what the owner's browser sent, with the hosted settings on top.
-python3 - "$in/bridge_config" "$run/bridge.json" "$host" <<'PY'
-import json, sys
-src, dst, host = sys.argv[1], sys.argv[2], sys.argv[3]
+python3 - "$in/bridge_config" "$run/bridge.json" "$host" "$run/secrets/llm" <<'PY'
+import json, os, re, sys
+from urllib.parse import urlparse
+src, dst, host, llm_key = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 try:
     with open(src) as f:
         config = json.load(f)
@@ -77,8 +78,51 @@ node["enabled"] = True
 # Caddy passes wss://<host>/ on to this WebSocket (belege-bridge-https).
 node["wsPort"] = 9097
 node["announce"] = [f"/dns4/{host}/tcp/443/tls/ws"] if host else []
-# No language model in the hosted bridge (#251).
-config.pop("llm", None)
+# A language model only in LibertAI's attested enclave, pinned by setup:llm
+# (#754; before it none, #251): sort-secrets.mjs `enclaveLlm` decides the same.
+def enclave_llm(llm):
+    if not isinstance(llm, dict):
+        return None
+    tee = llm.get("tee")
+    if not isinstance(tee, dict) or tee.get("provider") != "libertai":
+        return None
+    if not re.fullmatch(r"[0-9a-f]{64}", str(tee.get("itemHash", ""))):
+        return None
+    if not re.fullmatch(r"[0-9a-fA-F]{32,}", str(tee.get("measurement", ""))):
+        return None
+    try:
+        base = urlparse(str(llm.get("baseUrl", "")))
+    except Exception:
+        return None
+    if base.scheme != "https" or base.hostname != "api.libertai.io":
+        return None
+    def text(v):
+        return v if isinstance(v, str) and len(v) <= 200 else None
+    model = text(llm.get("model"))
+    if not model:
+        return None
+    terms = llm.get("redactTerms")
+    return {
+        "baseUrl": str(llm["baseUrl"]).rstrip("/"),
+        "model": model,
+        "retryModel": text(llm.get("retryModel")) or model,
+        "redactTerms": [t for t in terms if isinstance(t, str)][:500] if isinstance(terms, list) else [],
+        "redaction": llm.get("redaction") if llm.get("redaction") in ("auto", "on", "off") else "auto",
+        "configured": True,
+        "tee": {
+            "provider": "libertai",
+            "itemHash": str(tee["itemHash"]),
+            "measurement": str(tee["measurement"]),
+            "sourceCommit": tee.get("sourceCommit") if isinstance(tee.get("sourceCommit"), str) else None,
+            "pinnedAt": str(tee.get("pinnedAt", "")),
+        },
+    }
+llm = enclave_llm(config.pop("llm", None))
+if llm:
+    config["llm"] = llm
+elif os.path.exists(llm_key):
+    # The model's key only beside a model in the enclave.
+    os.remove(llm_key)
 # Settings taken over from a bridge on a computer (#728) may name its own
 # network: the relay for devices in the LAN and the old HTTP tokens. Neither
 # belongs in the VM, where nothing but Caddy listens beyond loopback.

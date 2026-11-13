@@ -5,19 +5,27 @@
 // bridge on a computer – and handed only to an attested VM at its start,
 // next to what pairing needs (hosted-bridge.js `hostedSecrets`).
 //
-// Not here: Hibiscus (it stays on the computer, a VM cannot reach it), the
-// language model (a hosted bridge runs without one), portal passwords (a
-// hosted image has no browser to log in with), and the bridge's own keys,
-// origins and tokens.
+// The language model only in LibertAI's attested enclave, pinned by
+// setup:llm on the computer (#754): taken over, never typed in here.
+//
+// Not here: Hibiscus (it stays on the computer, a VM cannot reach it), any
+// other language model, portal passwords (a hosted image has no browser to
+// log in with), and the bridge's own keys, origins and tokens.
 
 /** The sealed settings record. */
 export const HOSTED_SETTINGS_KEY = 'bridge/hosted-settings';
 
 /** The accounts a hosted bridge reads (bridge/src/keychain.js, sort-secrets.mjs). */
-const ACCOUNT = /^(?:imap|kraken|paperless|enablebanking|coingecko|bitcoin|alchemy)$/;
+const ACCOUNT = /^(?:imap|llm|kraken|paperless|enablebanking|coingecko|bitcoin|alchemy)$/;
 
 /** The parts of bridge.json that belong to these integrations. */
-export const SECTIONS = /** @type {const} */ (['mail', 'kraken', 'paperless', 'enablebanking']);
+export const SECTIONS = /** @type {const} */ ([
+	'mail',
+	'llm',
+	'kraken',
+	'paperless',
+	'enablebanking'
+]);
 
 /** The bridge's own limit for one secret (keychain.js). */
 const MAX_SECRET = 64 * 1024;
@@ -35,6 +43,25 @@ export const emptySettings = () => ({ config: {}, secrets: {}, files: {} });
 
 /** @param {unknown} v */
 const isObject = (v) => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
+
+/**
+ * A model in LibertAI's attested enclave, pinned (bridge/src/config.js
+ * `teePinOf`; the VM checks the same in sort-secrets.mjs `enclaveLlm`).
+ *
+ * @param {any} llm
+ */
+export function isEnclaveLlm(llm) {
+	const tee = llm?.tee;
+	if (!tee || tee.provider !== 'libertai') return false;
+	if (!/^[0-9a-f]{64}$/.test(String(tee.itemHash))) return false;
+	if (!/^[0-9a-f]{32,}$/i.test(String(tee.measurement))) return false;
+	try {
+		const base = new URL(String(llm.baseUrl));
+		return base.protocol === 'https:' && base.hostname === 'api.libertai.io';
+	} catch {
+		return false;
+	}
+}
 
 /**
  * Only what a hosted bridge reads, checked: known accounts with text of a
@@ -65,6 +92,9 @@ export function cleanSettings(raw) {
 			if (isObject(value)) out.config[section] = JSON.parse(JSON.stringify(value));
 		}
 	}
+	// A model only in the attested enclave, and its key only beside it (#754).
+	if (out.config.llm && !isEnclaveLlm(out.config.llm)) delete out.config.llm;
+	if (!out.config.llm) delete out.secrets.llm;
 	return out;
 }
 

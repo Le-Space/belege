@@ -49,6 +49,8 @@ Danach geht jede Anfrage an genau diese Enklave. Die verschlüsselte TLS-Verbind
 
 Ersetzt LibertAI das Deployment, folgt die Bridge nicht von selbst. Anfragen schlagen dann mit `LLM_ATTESTATION_FAILED` fehl. Das bleibt so, bis du mit `setup:llm` das neue Deployment prüfst und auf ein Ja festnagelst. Die KI-Karte in der App zeigt die Festlegung und die letzte Prüfung.
 
+Eine gehostete Bridge (Aleph, Phala über NEAR) nutzt ein Modell nur auf diesem Weg (#754). Schlüssel und Festlegung kommen mit ihren Einstellungen: von der Bridge auf einem Rechner übernommen oder mit der Festlegung eingetragen. Die VM prüft die Enklave vor jeder Anfrage so wie der Mac.
+
 **Modell:** `qwen3.8-27b-tee`. Es ist das einzige, das LibertAI für attestierte Nutzung veröffentlicht (geprüft am 23.10.2026). Den API-Schlüssel bekommst du auf console.libertai.io. Dort meldest du dich mit einer Wallet wie MetaMask oder per E-Mail an. Der Schlüssel kommt in den Schlüsselbund der Bridge. Ohne ihn antwortet die Enklave mit 401. Bezahlen pro Anfrage gibt es in der Enklave nicht.
 
 **Was die Prüfung beweist und was nicht:**

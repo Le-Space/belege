@@ -161,8 +161,9 @@ if (hosted) {
 	const fromUnlock = (account) => unlockedKeychain({ dir, account });
 	keychain = fromUnlock('hibiscus');
 	mailKeychain = fromUnlock('imap');
-	// No language model in the hosted bridge (#251).
-	llmKeychain = memoryKeychain(null, 'llm');
+	// A language model only in LibertAI's attested enclave (#754, startBridge
+	// `llmEnclaveOnly`); its key came with the unlock like the others.
+	llmKeychain = fromUnlock('llm');
 	krakenKeychain = fromUnlock('kraken');
 	paperlessKeychain = fromUnlock('paperless');
 	enablebankingKeychain = fromUnlock('enablebanking');
@@ -210,6 +211,7 @@ try {
 		node: !args.includes('--no-node'),
 		// For a TEE quote's report data (#696): the node key's hash next to it.
 		publishKeyHash: hosted,
+		llmEnclaveOnly: hosted,
 		// Hosted, the log is the host's: no invitation, no pairing code in it (#585 pairs after attestation).
 		logPairing: !hosted
 	});
