@@ -1,12 +1,21 @@
 // Start and stop the hosted bridge's VM from this browser (#587): the books'
 // Aleph key asks Aleph for a confidential instance of the published bridge
-// image and pays for it from its own credits (paperless-anywhere#7, pattern
-// B), and forgets it again to stop it. The unlock and pairing in between are
-// hosted-bridge.js's (#585).
+// image, and forgets it again to stop it. The unlock and pairing in between
+// are hosted-bridge.js's (#585).
+//
+// Who pays (as Paperless anywhere's "Wer zahlt die VM?"):
+//   - Le Space, from the books' package: Le Space Credits' sub-account
+//     for these books holds the Aleph credits and is the INSTANCE's address;
+//     the books' key sends the messages as its authorized delegate
+//     (POST /v1/vm/authorize). Le Space pays and could stop the VM, nothing
+//     more: the launch measurement still names the books' key, and only it
+//     unlocks.
+//   - the books' key itself (paperless-anywhere#7, pattern B): it is address
+//     and sender, and pays from its own credits.
 //
 //   start: a confidential node from Aleph's node list → the INSTANCE (signed
-//          here, owner and payer the books' key, the launch measurement
-//          computed here pinned in it) → the node told → 443 forwarded
+//          here by the books' key, the launch measurement computed here for
+//          the books' key pinned in it) → the node told → 443 forwarded
 //   stop:  FORGET; the node stops the VM and drops it
 //
 // Every message is signed in this browser, as the backup's vault index is
@@ -119,20 +128,24 @@ export async function loadNodes({ url = CRN_LIST, fetch: f = fetch, loopback = f
 	return confidentialNodes(await res.json(), { loopback });
 }
 
+/** Who pays the VM: Le Space from the books' package, or the books' key itself. */
+export const PAYERS = Object.freeze(['lespace', 'books']);
+
 /**
  * The INSTANCE's content: the published image, confidential with the pins
- * computed for this owner, on this node, paid in credits by the owner.
+ * computed for the books' key, on this node, paid in credits by `payer`.
  *
- * @param {{ owner: string, image: string, crn: string, trustedExecution: any, name: string, now?: number }} p
+ * @param {{ payer: string, image: string, crn: string, trustedExecution: any, name: string, now?: number }} p
  */
-export function instanceContent({ owner, image, crn, trustedExecution, name, now }) {
+export function instanceContent({ payer, image, crn, trustedExecution, name, now }) {
+	if (!/^0x[0-9a-fA-F]{40}$/.test(String(payer ?? ''))) throw new Error('no payer address');
 	if (!HASH.test(image)) throw new Error('the image is not a STORE hash');
 	if (!HASH.test(crn)) throw new Error('the node is not a node hash');
 	if (!Array.isArray(trustedExecution?.measurements) || !trustedExecution.measurements.length) {
 		throw new Error('no launch measurement to pin');
 	}
 	return {
-		address: owner,
+		address: payer,
 		time: now ?? Date.now() / 1000,
 		allow_amend: false,
 		metadata: { name },
@@ -157,17 +170,17 @@ export function instanceContent({ owner, image, crn, trustedExecution, name, now
 	};
 }
 
-/** The port forward that lets Caddy answer on 443. @param {string} owner @param {string} instance @param {number} [now] */
-export const forward443Content = (owner, instance, now) => ({
-	address: owner,
+/** The port forward that lets Caddy answer on 443, in the payer's aggregate. @param {string} payer @param {string} instance @param {number} [now] */
+export const forward443Content = (payer, instance, now) => ({
+	address: payer,
 	key: 'port-forwarding',
 	content: { [instance]: { ports: { 443: { tcp: true, udp: false } } } },
 	time: now ?? Date.now() / 1000
 });
 
-/** The FORGET that stops the VM. @param {string} owner @param {string} instance @param {number} [now] */
-export const forgetContent = (owner, instance, now) => ({
-	address: owner,
+/** The FORGET that stops the VM. @param {string} payer @param {string} instance @param {number} [now] */
+export const forgetContent = (payer, instance, now) => ({
+	address: payer,
 	time: now ?? Date.now() / 1000,
 	hashes: [instance],
 	aggregates: [],
@@ -176,14 +189,15 @@ export const forgetContent = (owner, instance, now) => ({
 
 /**
  * A message signed by `sign` (personal_sign over Aleph's verification
- * buffer), as Aleph takes it.
+ * buffer), as Aleph takes it. The sender is the content's address, or a
+ * delegate the address's `security` aggregate lets send this type.
  *
- * @param {{ type: 'INSTANCE' | 'AGGREGATE' | 'FORGET', content: any, sign: (payload: string) => string | Promise<string>, now?: number }} p
+ * @param {{ type: 'INSTANCE' | 'AGGREGATE' | 'FORGET', content: any, sign: (payload: string) => string | Promise<string>, sender?: string, now?: number }} p
  */
-export async function signedMessage({ type, content, sign, now }) {
+export async function signedMessage({ type, content, sign, sender, now }) {
 	const item_content = JSON.stringify(content);
 	const unsigned = {
-		sender: content.address,
+		sender: sender ?? content.address,
 		chain: 'ETH',
 		type,
 		item_hash: await sha256Hex(item_content),

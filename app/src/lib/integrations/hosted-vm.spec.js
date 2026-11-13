@@ -114,7 +114,7 @@ describe('a VM of the books’ key', () => {
 		expect(node.hash).toBe(FAKE_CRN);
 
 		const content = instanceContent({
-			owner,
+			payer: owner,
 			image: HOSTED_IMAGE,
 			crn: node.hash,
 			trustedExecution: pins,
@@ -164,7 +164,7 @@ describe('a VM of the books’ key', () => {
 			await signedMessage({
 				type: 'INSTANCE',
 				content: instanceContent({
-					owner,
+					payer: owner,
 					image: HOSTED_IMAGE,
 					crn: FAKE_CRN,
 					trustedExecution: pins,
@@ -185,10 +185,42 @@ describe('a VM of the books’ key', () => {
 		expect(aleph.instances.get(hash)?.status).toBe('processed');
 	});
 
+	it('is paid by Le Space’s sub-account once it lets the books’ key act for it', async () => {
+		const sub = alephAddressOf(newAlephKey());
+		aleph.fund(sub, 30 * FAKE_INSTANCE_CREDITS_PER_HOUR);
+		const endpoints = { apiHost: aleph.url, ...patience };
+		const content = instanceContent({
+			payer: sub,
+			image: HOSTED_IMAGE,
+			crn: FAKE_CRN,
+			trustedExecution: pins,
+			name: 'belege-bridge-lespace'
+		});
+		expect(content.address).toBe(sub);
+		const send = async (/** @type {any} */ type, /** @type {any} */ c) =>
+			sendMessage(await signedMessage({ type, content: c, sign, sender: owner }), endpoints);
+
+		// Not yet authorized: Aleph refuses the books' key sending for the sub-account.
+		await expect(send('INSTANCE', content)).rejects.toThrow(/refused/);
+
+		aleph.authorize(sub, owner, ['INSTANCE', 'FORGET', 'AGGREGATE'], ['port-forwarding']);
+		const hash = await send('INSTANCE', { ...content, time: content.time + 1 });
+		const held = aleph.instances.get(hash);
+		expect(held.sender).toBe(owner);
+		expect(held.address).toBe(sub);
+
+		await notifyNode(aleph.url, hash, { delayMs: 10 });
+		await send('AGGREGATE', forward443Content(sub, hash));
+		expect(await onNode(aleph.url, hash)).toEqual({ running: true, port443: FAKE_MAPPED_443 });
+
+		await send('FORGET', forgetContent(sub, hash));
+		expect(aleph.instances.get(hash)?.status).toBe('forgotten');
+	});
+
 	it('pins a measurement, or nothing is asked for', () => {
 		expect(() =>
 			instanceContent({
-				owner,
+				payer: owner,
 				image: HOSTED_IMAGE,
 				crn: FAKE_CRN,
 				trustedExecution: {},

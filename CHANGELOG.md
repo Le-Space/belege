@@ -9,6 +9,7 @@ All notable changes to Le Space Belege. The format follows
 ### Added
 
 - **The bridge's commands by name, with schemas: `@le-space/bridge-protocol`** (`packages/bridge-protocol`, #577, M2.1 of #567). One catalogue of the bridge's 47 commands – name, version, scope, how HTTP carries it, and a schema for the arguments and the answer's shape – that the bridge and every client import, in a browser and in Node. The bridge's node now offers every command under its own name (`bank.transactions`, `mail.search`, protocol version 2): the arguments are checked against the command's schema before it runs, an unknown name answers `UNKNOWN_COMMAND`. `request` with a method and a path stays for the app until it calls by name too.
+- **Le Space can pay the hosted bridge on Aleph, from a plan** (#587). Integrationen → Bridge → _Gehostete Bridge auf Aleph_ → _Wer zahlt die VM?_: _Le Space, aus dem Paket der Bücher_ or _Der Aleph-Schlüssel der Bücher selbst_, as Paperless anywhere offers it. With a plan (Ab und zu 60 h, Täglich 176 h, Immer an 730 h, paid from the Le Space Credits balance on the card), Le Space's sub-account for these books pays the VM, and the books' key starts, forwards and stops it as its delegate. The launch measurement still names the books' key, and only it unlocks; Le Space could stop the VM, but sees no secret. Consent screen version 48.
 
 ### Changed
 

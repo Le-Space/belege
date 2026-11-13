@@ -126,7 +126,7 @@ describe('the hosted bridge, unlocked from the browser', () => {
 				instance({ environment: { trusted_execution: { ...published, measurements: [other] } } }),
 				/a measurement other than the published one/
 			],
-			[instance({ address: alephAddressOf(newAlephKey()) }), /not the owner’s/]
+			[instance({ address: alephAddressOf(newAlephKey()) }), /not paid by the owner or its payer/]
 		])) {
 			await expect(unlock(vm, content, { x: 'y' })).rejects.toThrow(why);
 		}
@@ -135,6 +135,17 @@ describe('the hosted bridge, unlocked from the browser', () => {
 		expect(() => releaseCheck({ instance: instance(), published, image: 'x', owner })).toThrow(
 			/not a STORE hash/
 		);
+	});
+
+	it('takes the INSTANCE when the owner’s payer pays, and only that payer', () => {
+		const sub = alephAddressOf(newAlephKey());
+		const paid = instance({ address: sub });
+		expect(() => releaseCheck({ instance: paid, published, image: HOSTED_IMAGE, owner })).toThrow(
+			/not paid by the owner or its payer/
+		);
+		expect(
+			releaseCheck({ instance: paid, published, image: HOSTED_IMAGE, owner, payers: [owner, sub] })
+		).toEqual(releaseCheck({ instance: instance(), published, image: HOSTED_IMAGE, owner }));
 	});
 
 	it('the INSTANCE as Aleph holds it, and the node it runs on', async () => {

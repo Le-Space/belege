@@ -2,12 +2,14 @@
 // (AMD SEV-SNP), attested and unlocked from this browser, and paired in the
 // same step.
 //
-// The VM belongs to the books' own Aleph key (backup/keeper.js), the account
-// Le Space Credits top up (paperless-anywhere#7, pattern B). So this browser
-// signs the unlock itself, and no secret passes through Le Space:
+// The VM belongs to the books' own Aleph key (backup/keeper.js): the launch
+// measurement names it, and only it signs the unlock. It is paid by that key
+// itself or by Le Space Credits' sub-account for these books, with the books'
+// key as its delegate (hosted-vm.js). So this browser signs the unlock
+// itself, and no secret passes through Le Space:
 //
-//   1. the INSTANCE is the books' key's, boots the published image (its
-//      STORE) and pins the measurement computed here from Aleph's published
+//   1. the INSTANCE is paid by the books' key or its payer, boots the
+//      published image (its STORE) and pins the measurement computed here from Aleph's published
 //      SEV-SNP runtime and the owner's address (`releaseCheck`);
 //   2. the guest proves that measurement in the RA-TLS handshake, through an
 //      attest relay's /attest, and a fresh report proves it is live
@@ -43,21 +45,24 @@ const HASH = /^[0-9a-f]{64}$/;
 export const isInstanceHash = (value) => typeof value === 'string' && HASH.test(value.trim());
 
 /**
- * Throws, naming what differs, unless the INSTANCE boots `image` for `owner`
- * and pins exactly the measurements of `published`. Whatever fails, no
+ * Throws, naming what differs, unless the INSTANCE is paid by `owner` or one
+ * of `payers`, boots `image` and pins exactly the measurements of `published`. Whatever fails, no
  * secret goes out.
  *
- * @param {{ instance: any, published: any, image: string, owner: string }} options
+ * @param {{ instance: any, published: any, image: string, owner: string, payers?: string[] }} options
  *   `instance` is the INSTANCE message's content
  * @returns {{ expectedMeasurements: string[], expectedPolicy: number | undefined }} the pins to attest with
  */
-export function releaseCheck({ instance, published, image, owner }) {
+export function releaseCheck({ instance, published, image, owner, payers }) {
 	if (!HASH.test(image ?? '')) throw new Error('the published image is not a STORE hash');
 	const refuse = (/** @type {string} */ why) => {
 		throw new Error(`${why}: no secret goes out`);
 	};
-	if (String(instance?.address ?? '').toLowerCase() !== String(owner ?? '').toLowerCase()) {
-		refuse('the INSTANCE is not the owner’s');
+	// Who pays: the owner itself, or an account that pays for it (Le Space's
+	// sub-account for these books). The measurement names the owner either way.
+	const accepted = (payers?.length ? payers : [owner]).map((a) => String(a ?? '').toLowerCase());
+	if (!accepted.includes(String(instance?.address ?? '').toLowerCase())) {
+		refuse('the INSTANCE is not paid by the owner or its payer');
 	}
 	if (instance?.rootfs?.parent?.ref !== image) {
 		refuse('the INSTANCE boots another image than the published one');
@@ -152,11 +157,11 @@ export function hostedSecrets({ host, authKey, peerKey, relays, devices }) {
  * here (`published`), so the guest's report is held against them and not
  * against what the message says.
  *
- * @param {{ instance: any, published: any, image: string, owner: string } & Record<string, any>} options
+ * @param {{ instance: any, published: any, image: string, owner: string, payers?: string[] } & Record<string, any>} options
  *   the rest goes to `unlockInstance` (wasm, relayUrl, crnHash, instanceItemHash, passphrase, secrets, sign, …)
  * @returns {Promise<{ injected: string[], measurement: string, policy: string }>}
  */
-export async function unlockHosted({ instance, published, image, owner, ...rest }) {
-	releaseCheck({ instance, published, image, owner });
+export async function unlockHosted({ instance, published, image, owner, payers, ...rest }) {
+	releaseCheck({ instance, published, image, owner, payers });
 	return unlockInstance(/** @type {any} */ ({ ...rest, trustedExecution: published }));
 }

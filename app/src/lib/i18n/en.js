@@ -367,7 +367,12 @@ export default {
 				'A hosted bridge of these books is already running. Stop it first, then start again.',
 			noNode: 'This node cannot start a confidential VM right now. Please choose another.',
 			fewCredits:
-				'Credits are short for the start: Aleph takes the VM only with {needed} credits in reserve (a day at {perHour} credits/h), the books’ Aleph key holds {credits}. Top up under Integrations → Aleph.',
+				'Credits are short for the start: Aleph takes the VM only with {needed} credits in reserve (a day at {perHour} credits/h), the books’ Aleph key holds {credits}. Or let Le Space pay from a plan.',
+			fewHours:
+				'The plan is short for the start: Aleph takes the VM only with {needed} credits in reserve (a day at {perHour} credits/h), Le Space’s account for these books holds {credits}. Choose a bigger plan or extra hours.',
+			noPlan: 'These books have no plan of the hosted bridge. Choose a plan first.',
+			noPayer: 'Le Space Credits named no account for the VM.',
+			creditsOff: 'Le Space Credits are off. Switch them on under Integrations → Aleph.',
 			noVm: 'These books have no hosted VM running.',
 			noPort: 'The node did not open the VM’s port 443.',
 			deviceLabel: 'Hosted bridge (Aleph)'
@@ -930,9 +935,9 @@ export default {
 				name: 'Hosted bridge (Aleph Cloud, confidential VM, AMD)',
 				text: 'Only once you start or unlock a hosted bridge under Integrations → Bridge: the bridge in a confidential VM (AMD SEV-SNP) on Aleph, which your browser attests first.',
 				leaves:
-					'To Aleph’s node list (crns-list.aleph.sh): the request for which nodes can start a confidential VM. To Aleph’s API (api2.aleph.im): on start the INSTANCE and the forward of port 443, on stop a FORGET, all signed with the books’ Aleph key and paid from its credits – public on Aleph, as every Aleph message is, with nothing of your books in them. To the node you choose (its operator’s address in Aleph’s list): that it should start the VM, and requests for its state. To Aleph’s API and IPFS (ipfs.aleph.im): requests for the INSTANCE and for Aleph’s SEV-SNP runtime. To AMD’s key service (kdsintf.amd.com): requests for the processor’s certificate. To the relay with /attest: the encrypted connection to the VM; the relay sees only sizes and times. To the VM itself, only after the attestation holds: the image’s passphrase, the bridge’s key, its peer id, these books’ relays and devices, and the accounts and settings you keep for the hosted bridge (mail, Kraken, Paperless, Alchemy, Enable Banking and, only when it runs in LibertAI’s attested enclave, the language model with its key; Integrations → Bridge), signed with the books’ Aleph key. After that your devices reach the bridge through the relays and under the VM’s name at 2n6.me. Le Space sees no key.',
+					'To Aleph’s node list (crns-list.aleph.sh): the request for which nodes can start a confidential VM. To Aleph’s API (api2.aleph.im): on start the INSTANCE and the forward of port 443, on stop a FORGET, all signed with the books’ Aleph key and paid from its credits or, with a plan, by Le Space’s account for these books only – public on Aleph, as every Aleph message is, with nothing of your books in them. With a plan, to credits.le-space.de (Le Space): the signed request to authorize the books’ key on that account, and the choice of plan, paid from the balance. To the node you choose (its operator’s address in Aleph’s list): that it should start the VM, and requests for its state. To Aleph’s API and IPFS (ipfs.aleph.im): requests for the INSTANCE and for Aleph’s SEV-SNP runtime. To AMD’s key service (kdsintf.amd.com): requests for the processor’s certificate. To the relay with /attest: the encrypted connection to the VM; the relay sees only sizes and times. To the VM itself, only after the attestation holds: the image’s passphrase, the bridge’s key, its peer id, these books’ relays and devices, and the accounts and settings you keep for the hosted bridge (mail, Kraken, Paperless, Alchemy, Enable Banking and, only when it runs in LibertAI’s attested enclave, the language model with its key; Integrations → Bridge), signed with the books’ Aleph key. After that your devices reach the bridge through the relays and under the VM’s name at 2n6.me. Le Space sees no key.',
 				technical:
-					'Before anything is sent the browser checks: the INSTANCE belongs to the books’ Aleph key, boots the published image (its STORE) and pins the measurement the browser computes itself from Aleph’s published runtime and the owner’s address. Then the VM proves that measurement in the RA-TLS handshake (AMD signature, bound to its TLS key) and with a fresh report on a nonce of the browser’s (@le-space/attest-wasm). The secrets land in the VM’s memory, not on its disk; after a restart the browser attests again. What that proves is which image runs, not what it does; there is no independent audit yet.'
+					'Before anything is sent the browser checks: the INSTANCE is paid by the books’ Aleph key or by Le Space’s account for these books (on which the books’ key is authorized in its security aggregate), boots the published image (its STORE) and pins the measurement the browser computes itself from Aleph’s published runtime and the books’ key’s address – when Le Space pays too, the measurement names that key, and only it unlocks. Then the VM proves that measurement in the RA-TLS handshake (AMD signature, bound to its TLS key) and with a fresh report on a nonce of the browser’s (@le-space/attest-wasm). The secrets land in the VM’s memory, not on its disk; after a restart the browser attests again. What that proves is which image runs, not what it does; there is no independent audit yet.'
 			},
 			nearBridge: {
 				name: 'Hosted bridge on Phala (Intel TDX), through NEAR – testnet',
@@ -4441,7 +4446,23 @@ export default {
 			measurement: 'Measurement:',
 			startTitle: 'Start a new VM',
 			startHint:
-				'The VM belongs to the books’ Aleph key and is paid from its credits. Aleph takes it only with a day in reserve.',
+				'The VM belongs to the books’ Aleph key: the measurement names it, and only it unlocks the VM. Aleph takes it only with a day in reserve.',
+			payer: {
+				title: 'Who pays the VM?',
+				lespace:
+					'Le Space, from the books’ plan: no wallet, no crypto. An account of Le Space for these books only pays the VM; the books’ key starts and stops it on its behalf. Le Space could stop it too, but not unlock it.',
+				books:
+					'The books’ Aleph key itself: Aleph credits sit on its address. Then Le Space charges nothing.',
+				creditsOff: 'For a plan, switch on Le Space Credits (Integrations → Aleph).',
+				plan: 'Plan {plan}: {hours} h left.',
+				noPlan: 'No plan yet. Balance: {balance}. A plan is paid from the balance:',
+				choose: '{plan} · {hours} h · {price}'
+			},
+			plans: {
+				'bridge-s': 'Now and then',
+				'bridge-m': 'Daily',
+				'bridge-always': 'Always on'
+			},
 			node: 'Node',
 			nodesLoading: 'Loading Aleph’s confidential nodes …',
 			nodesNone: 'No node on Aleph offers a confidential VM right now.',
@@ -4456,6 +4477,7 @@ export default {
 			existing: 'Unlock a VM that is already running',
 			phase: {
 				node: 'Checking the node …',
+				payer: 'Asking Le Space Credits for the authorization …',
 				requested: 'Aleph is taking the VM …',
 				network: 'The node is starting the VM, port 443 …',
 				boot: 'The VM is still booting, trying again shortly …',

@@ -31,6 +31,17 @@ export const TOPUPS = Object.freeze([
 	{ id: 'topup-50', cents: 5000 }
 ]);
 
+/**
+ * The hosted bridge's plans (le-space-credits products.js, PLANS.belege): hours
+ * of the VM a period pays, at Aleph's price for a confidential VM of 2 compute
+ * units; the price in credits (1 credit = 1 cent).
+ */
+export const BRIDGE_PLANS = Object.freeze([
+	{ id: 'bridge-s', hours: 60, credits: 700 },
+	{ id: 'bridge-m', hours: 176, credits: 1600 },
+	{ id: 'bridge-always', hours: 730, credits: 5900 }
+]);
+
 /** @returns {string} */
 export function creditsUrl() {
 	// Written inline so every other build drops it.
@@ -117,7 +128,21 @@ export async function createCreditsClient({
 		checkout: (packageId, locale) =>
 			call('POST', '/v1/checkout', { package: packageId, ...(locale ? { locale } : {}) }),
 		/** @returns {Promise<{ refund_id: string, state: string }>} */
-		refund: () => call('POST', '/v1/refund', {})
+		refund: () => call('POST', '/v1/refund', {}),
+		/**
+		 * Choose a plan, paid from the balance; its first period opens right away.
+		 * @param {string} planId @returns {Promise<{ package: Balance['package'] }>}
+		 */
+		choosePlan: (planId) => call('PUT', '/v1/package', { package: planId }),
+		/**
+		 * Let `delegate` start, forget and forward the VM that Le Space's
+		 * sub-account for these books pays (Aleph's `security` aggregate).
+		 * 409 NO_PLAN without a running period.
+		 *
+		 * @param {string} delegate
+		 * @returns {Promise<VmAuthorization>}
+		 */
+		vmAuthorize: (delegate) => call('POST', '/v1/vm/authorize', { delegate })
 	};
 }
 
@@ -130,8 +155,21 @@ export async function createCreditsClient({
  *   lines_this_month: { ki: number, vm: number, transfer: number, refund?: number },
  *   package?: { id: string, state: string, period_start: string | null, period_end: string | null, hours_left: number | null } | null,
  *   refund?: { id: string, state: string, credits: number | null, created_at: string, done_at?: string | null } | null,
- *   mode?: 'test' | 'live' | null
+ *   mode?: 'test' | 'live' | null,
+ *   vm?: { owner: string, delegates: string[] } | null
  * }} Balance
+ */
+
+/**
+ * @typedef {{
+ *   owner: string,
+ *   delegate: string,
+ *   types: string[],
+ *   aggregate_keys: string[],
+ *   hours_left: number | null,
+ *   period_end: string | null,
+ *   revoke_at: string | null
+ * }} VmAuthorization
  */
 
 /**
