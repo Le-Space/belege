@@ -147,6 +147,32 @@ async function receiptFiles(receipts) {
 	];
 }
 
+/** What the collection of a collection's access list is called in a backup. */
+export const ACCESS_LIST = 'access:';
+
+/**
+ * The collections with their access lists in front (store/books-access.js):
+ * who may write is in a database of its own, which a backup has to carry –
+ * without it, a restore on a device that never saw the list refuses every
+ * entry a member wrote ("not allowed to write to the log"). In front, so a
+ * restore reads them first. A list two collections share goes once.
+ *
+ * @param {Record<string, any>} databases
+ * @returns {Record<string, any>}
+ */
+export function withAccessLists(databases) {
+	/** @type {Record<string, any>} */
+	const lists = {};
+	const seen = new Set();
+	for (const [collection, database] of Object.entries(databases)) {
+		const list = database?.access?.listDatabase?.();
+		if (!list || seen.has(String(list.address))) continue;
+		seen.add(String(list.address));
+		lists[`${ACCESS_LIST}${collection}`] = list;
+	}
+	return { ...lists, ...databases };
+}
+
 /**
  * Build and seal a backup.
  *
@@ -170,6 +196,7 @@ export async function buildBackup({
 	onProgress
 }) {
 	const at = now();
+	databases = withAccessLists(databases);
 	// Loaded here, not at the top: only the page that backs up needs this code.
 	const { bundleDatabases } = await import('@le-space/orbitdb-storage-bridge/extract-blocks');
 	const { createCARFromBlocks } = await import('@le-space/orbitdb-storage-bridge/backup-car');
@@ -300,6 +327,8 @@ export async function buildIncrement({
 }) {
 	const { collectIncrement } = await import('@le-space/orbitdb-storage-bridge/live-backup');
 	const { createCARFromBlocks } = await import('@le-space/orbitdb-storage-bridge/backup-car');
+	// A chain begun before the lists went along ships them whole with its next increment.
+	databases = withAccessLists(databases);
 
 	/** @type {Map<string, { database: any, shipped: Set<string>, collection: string }>} */
 	const watched = new Map();
@@ -356,12 +385,13 @@ export async function buildIncrement({
 		heads,
 		files,
 		entries: increment.entries,
-		databases: /** @type {any} */ (increment.manifest.metadata).databases.map(
-			(/** @type {any} */ d) => ({
+		databases: /** @type {any} */ (increment.manifest.metadata).databases
+			.map((/** @type {any} */ d) => ({
 				collection: String(d.collection ?? d.name),
 				entries: Number(d.entries ?? 0)
-			})
-		),
+			}))
+			// The access lists go along, but are not what the person backed up.
+			.filter((/** @type {{ collection: string }} */ d) => !d.collection.startsWith(ACCESS_LIST)),
 		blocks: increment.blocks.size,
 		missing,
 		carBytes: car.length
@@ -476,6 +506,46 @@ async function openChain({ sealed, increments = [], base, key }) {
 }
 
 /**
+ * The access lists of a backup into this browser, before the collections:
+ * each opened (sealed like the books, store/books-access.js) and joined at
+ * the heads the backup names. Their entries are already in the blockstore,
+ * which the log reads through. The list's own controller lets only the books'
+ * identity write to it, so a joined grant is the books' own word.
+ *
+ * @param {any} orbitdb
+ * @param {any[]} lists the backup's metadata of the lists
+ * @param {any} encryption the books' sealing
+ * @param {(message: string) => void} warn
+ */
+async function joinAccessLists(orbitdb, lists, encryption, warn) {
+	for (const list of lists) {
+		const db = await orbitdb.open(String(list.address), {
+			type: list.type ?? 'keyvalue',
+			encryption
+		});
+		try {
+			for (const head of Array.isArray(list.heads) ? list.heads : []) {
+				const hash = String(head);
+				// Sealed, its entry hides which database it is of: the log reads it
+				// through the blockstore, where the backup's blocks already are.
+				const entry = await db.log.get(hash).catch(() => undefined);
+				if (!entry) {
+					warn(`could not join head ${hash.slice(0, 12)}…: the access list's entry is missing`);
+					continue;
+				}
+				await db.log
+					.joinEntry(entry)
+					.catch((/** @type {any} */ error) =>
+						warn(`could not join head ${hash.slice(0, 12)}…: ${error.message}`)
+					);
+			}
+		} finally {
+			await db.close();
+		}
+	}
+}
+
+/**
  * Put a backup back into this browser's books.
  *
  * The databases go back through the storage bridge's `restoreFromBlocks`: every
@@ -508,6 +578,8 @@ async function openChain({ sealed, increments = [], base, key }) {
  *   the backup does not carry may still be found – Aleph's gateway, as the card
  *   already uses it for the archive itself
  * @param {(progress: RestoreProgress) => void} [params.onProgress]
+ * @param {any} [params.listEncryption] how the books' access lists are sealed
+ *   (store/books-access.js); the target's sealing when not given
  * @param {() => Promise<void>} [params.beforeRestore] runs once the backup opened
  *   with this key, fits these books and is wholly in the blockstore – where the
  *   caller closes its databases. A backup that does not fit, or that the browser
@@ -523,10 +595,19 @@ export async function restoreBackup({
 	targets,
 	onProgress,
 	beforeRestore,
+	listEncryption,
 	fetchBytes
 }) {
 	onProgress?.({ stage: 'opening' });
-	const { manifest, blocks, metadata } = await openChain({ sealed, increments, base, key });
+	const { manifest, blocks, metadata: all } = await openChain({ sealed, increments, base, key });
+	// The access lists go back first and on their own (withAccessLists); the
+	// collections are what has to fit these books.
+	const isList = (/** @type {any} */ d) => String(d.collection ?? '').startsWith(ACCESS_LIST);
+	const lists = all.databases.filter(isList);
+	const metadata = {
+		...all,
+		databases: all.databases.filter((/** @type {any} */ d) => !isList(d))
+	};
 	const target = targets.find((t) => {
 		const ours = new Set(Object.values(t.addresses).map(String));
 		return metadata.databases.every((/** @type {any} */ d) => ours.has(String(d.address)));
@@ -554,7 +635,15 @@ export async function restoreBackup({
 		// first, and a browser whose storage is spent refuses them. Closed before
 		// that, the books would be shut for a restore that never starts – which is
 		// how an out-of-space device ends up on its lock screen with nothing in it.
-		beforeJoin: beforeRestore,
+		// Then, before any collection is opened, the access lists: a member's
+		// grant must be known before what the member wrote is joined.
+		beforeJoin: async () => {
+			await beforeRestore?.();
+			const sealing = listEncryption ?? open.encryption;
+			if (lists.length && sealing) {
+				await joinAccessLists(orbitdb, lists, sealing, (m) => warnings.push(m));
+			}
+		},
 		log: { info() {}, debug() {}, warn: (/** @type {string} */ m) => warnings.push(String(m)) },
 		onProgress: (p) =>
 			onProgress?.({

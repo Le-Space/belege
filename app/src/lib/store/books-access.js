@@ -111,6 +111,12 @@ const SealedOrbitDBAccessController = ({ write } = {}) => {
 			admits,
 			writerOf,
 			/**
+			 * The list's own database: a backup carries it, so that a restore
+			 * knows the members' grants before it joins what they wrote
+			 * (backup/archive.js).
+			 */
+			listDatabase: () => list,
+			/**
 			 * Take a writer out: what they wrote by now still counts, nothing after.
 			 *
 			 * @param {string} writer their write identity
