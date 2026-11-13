@@ -67,7 +67,7 @@ jobs:
       # A production build: no test hooks, no "Testbuchung anlegen".
       - run: pnpm run build
       - name: Install isolated Aleph deploy tooling
-        run: npm install --prefix /tmp/le-space-deployer @le-space/node@0.9.9
+        run: npm install --prefix /tmp/le-space-deployer @le-space/node@0.12.4
       - name: Publish to Aleph IPFS
         id: publish
         env:
@@ -77,12 +77,14 @@ jobs:
           ALEPH_SITE_NAME: belege
           ALEPH_SITE_RETENTION_KEEP_COUNT: '3'
           ALEPH_SITE_CHANNEL: ALEPH-CLOUDSOLUTIONS
-          # Two API nodes for the CAR upload, each with its gateway, tried in
-          # this order (the same pairs relay-button publishes with). On
+          # Three API nodes for the CAR upload, each with its gateway, tried in
+          # this order (relay-button's default hosts since 0.12.3). On
           # 2026-11-01 api2 answered every upload with 502 for hours while
-          # api.aleph.im (a different machine) took them; one host is one
-          # point of failure for the whole release.
-          ALEPH_SITE_ENDPOINT_PAIRS: '[{"ipfsGateway":"https://ipfs-2.aleph.im","apiHost":"https://api2.aleph.im"},{"ipfsGateway":"https://ipfs.aleph.cloud","apiHost":"https://api.aleph.im"}]'
+          # api.aleph.im took them; on 2026-11-13 both failed for hours
+          # because their IPFS backend was unreachable. api3.aleph.im is a
+          # core channel node with its own backend; @le-space/node accepts it
+          # again from 0.12.3. One host is one point of failure for the whole release.
+          ALEPH_SITE_ENDPOINT_PAIRS: '[{"ipfsGateway":"https://ipfs-2.aleph.im","apiHost":"https://api2.aleph.im"},{"ipfsGateway":"https://ipfs.aleph.cloud","apiHost":"https://api.aleph.im"},{"ipfsGateway":"https://ipfs-2.aleph.im","apiHost":"https://api3.aleph.im"}]'
           # Wait up to 20 minutes for Aleph to process the STORE (default: 5).
           # On 2026-09-24 two STOREs stayed pending for more than 20 minutes;
           # every retry of this step uploads again and pays another STORE, so
@@ -115,7 +117,7 @@ jobs:
       contents: write # the CID goes onto the release
     steps:
       - name: Install isolated Aleph deploy tooling
-        run: npm install --prefix /tmp/le-space-deployer @le-space/node@0.9.9
+        run: npm install --prefix /tmp/le-space-deployer @le-space/node@0.12.4
       - name: Link the custom domain
         env:
           ALEPH_VM_MODE: site-domain-link
