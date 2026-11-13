@@ -7,7 +7,7 @@
 // machine.
 //
 // A clip (about a minute) for the Belege channel and scene 1 of the Devcon 8
-// film. Narrated from LINES by kit/scene.js, in English or, with
+// film. Narrated from LINES by the kit (belege.js), in English or, with
 // DEMO_LANG=de, in German (the app follows the locale).
 import { test, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
@@ -23,7 +23,7 @@ import { alephAccountOf, startFakeAleph } from '@belege/bridge/testing/aleph';
 import { addVirtualAuthenticator, forgetThisDevice } from '../e2e/webauthn.js';
 import { acceptConsent } from '../e2e/consent.js';
 import { openIntegration } from '../e2e/integrations.js';
-import { startScene } from './kit/scene.js';
+import { startScene } from './belege.js';
 
 const LANG = process.env.DEMO_LANG === 'de' ? 'de' : 'en';
 

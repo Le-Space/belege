@@ -4,11 +4,11 @@
 // bridge, no network: everything the sample set has is in the browser.
 //
 // The channel's introduction (about 80 s). Narrated from LINES by
-// kit/scene.js, in English or, with DEMO_LANG=de, in German.
+// the kit (belege.js), in English or, with DEMO_LANG=de, in German.
 import { test, expect } from '@playwright/test';
 import { addVirtualAuthenticator } from '../e2e/webauthn.js';
 import { acceptConsent } from '../e2e/consent.js';
-import { startScene } from './kit/scene.js';
+import { startScene } from './belege.js';
 
 const LANG = process.env.DEMO_LANG === 'de' ? 'de' : 'en';
 

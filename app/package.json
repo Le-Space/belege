@@ -25,6 +25,7 @@
 		"@belege/bridge": "workspace:*",
 		"@eslint/compat": "^1.2.5",
 		"@eslint/js": "9.32.0",
+		"@le-space/video-kit": "workspace:*",
 		"@libp2p/memory": "2.0.28",
 		"@libp2p/peer-id": "6.0.15",
 		"@playwright/test": "1.61.1",

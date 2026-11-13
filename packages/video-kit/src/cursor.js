@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // A mouse pointer the viewer can see. Playwright draws none, so a recording
 // shows buttons reacting to nothing. This overlay is an arrow in the page that
 // glides to each target with easing and a little overshoot, sinks on the
@@ -41,7 +42,11 @@ function pageScript({ arrow, s }) {
 		} catch {
 			pos = null;
 		}
-		if (!pos) pos = { x: Math.round(innerWidth * 0.62), y: Math.round(innerHeight * 0.55) };
+		if (!pos)
+			pos = {
+				x: Math.round(innerWidth * 0.62),
+				y: Math.round(innerHeight * 0.55)
+			};
 		let scale = 1;
 		const paint = () => {
 			el.style.transform = `translate(${pos.x}px, ${pos.y}px) scale(${scale})`;
@@ -55,7 +60,10 @@ function pageScript({ arrow, s }) {
 					const from = { ...pos };
 					const t0 = performance.now();
 					// A hand overshoots a little and settles; 6 % past the target, then back.
-					const over = { x: x + (x - from.x) * 0.06, y: y + (y - from.y) * 0.06 };
+					const over = {
+						x: x + (x - from.x) * 0.06,
+						y: y + (y - from.y) * 0.06
+					};
 					const step = (now) => {
 						const t = Math.min(1, (now - t0) / ms);
 						const k = ease(t);

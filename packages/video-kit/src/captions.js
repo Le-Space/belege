@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // A caption bar at the bottom of the page, baked into the recording: the
 // test says what the viewer is looking at, in the page itself, so no video
 // editor has to. Survives a navigation (sessionStorage + an init script);
