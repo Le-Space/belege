@@ -1493,7 +1493,7 @@ export default {
 	},
 	credits: {
 		title: 'Le Space Credits',
-		what: 'Guthaben in Euro für die Dienste, die Le Space für Belege betreibt: den KI-Dienst und eine gehostete Bridge. Aufgeladen mit Karte über Stripe, ohne Konto und ohne Abo. Das Guthaben gehört zu den Büchern: Jedes eigene Gerät sieht dasselbe.',
+		what: 'Ein Guthaben in Euro bei Le Space, wie ein Gutschein. Damit bezahlst du die Dienste, die Le Space für Belege betreibt: den KI-Dienst und eine gehostete Bridge. Le Space Credits sind keine Kryptowährung, und es wird nichts für dich oder in eine Wallet gekauft: Le Space bezahlt mit deinem Guthaben selbst die Rechenzeit bei Aleph Cloud. Aufgeladen mit Karte über Stripe, ohne Konto und ohne Abo. Das Guthaben gehört zu den Büchern: Jedes eigene Gerät sieht dasselbe.',
 		offNote: 'Aus. Erst nach dem Einschalten fragt Belege credits.le-space.de nach dem Guthaben.',
 		switchOn: 'Le Space Credits einschalten',
 		switchOff: 'Ausschalten',
@@ -1524,7 +1524,7 @@ export default {
 		invoice: 'Rechnung',
 		invoicePending: 'Rechnung folgt',
 		testMode: 'Noch im Testbetrieb: Aufladen ist bald möglich. Bis dahin wird nichts berechnet.',
-		account: 'Konto bei {host}:'
+		account: 'Kennung deiner Bücher bei {host} (Le Space überträgt an diese Adresse nichts):'
 	},
 	aleph: {
 		title: 'Aleph Cloud (Hosting-Credits)',
