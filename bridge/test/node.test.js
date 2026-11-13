@@ -215,7 +215,7 @@ describe('the bridge’s node', () => {
 			const provedHere = await waitFor(() => own.gate?.isProved(node.peerId) === true);
 			assert.equal(provedHere, true, 'the device proved the bridge and the bridge proved back');
 			const answer = await own.consumer.call(node.peerId, 'belege-bridge', 'help', {});
-			assert.deepEqual(answer.commands, [
+			assert.deepEqual(answer.commands.slice(0, 7), [
 				'help',
 				'handover',
 				'devices',
@@ -224,6 +224,12 @@ describe('the bridge’s node', () => {
 				'unpair',
 				'request'
 			]);
+			// From protocol 2 on, every command offered by its own name (#577).
+			assert.equal(answer.protocol, 2);
+			assert.ok(answer.commands.includes('mail.search'));
+			assert.ok(answer.commands.includes('bridge.health'));
+			assert.ok(!answer.commands.includes('session.pair'), 'pairing stays on HTTP');
+			assert.ok(!answer.commands.includes('backup.put'), 'bytes stay on HTTP until #578');
 			assert.ok(answer.scopes.includes('bridge:llm'));
 			assert.ok(!answer.scopes.includes('bridge:share'), 'shares stay on HTTP');
 			assert.ok(answer.requests.some((/** @type {any} */ r) => r.name === 'mail.search'));
@@ -242,6 +248,20 @@ describe('the bridge’s node', () => {
 			});
 			assert.equal(missing.status, 503);
 			assert.equal(missing.json.code, 'PAPERLESS_NOT_SET_UP');
+			// The same by name: arguments checked against the catalogue's schema.
+			const named = await own.consumer.call(node.peerId, 'belege-bridge', 'paperless.documents', {
+				since: '2026-01-01T00:00:00Z'
+			});
+			assert.equal(named.status, 503);
+			assert.equal(named.json.code, 'PAPERLESS_NOT_SET_UP');
+			await assert.rejects(
+				own.consumer.call(node.peerId, 'belege-bridge', 'paperless.documents', { nope: 1 }),
+				(/** @type {any} */ e) => e.code === 'INVALID_ARGUMENTS'
+			);
+			await assert.rejects(
+				own.consumer.call(node.peerId, 'belege-bridge', 'paperless.everything', {}),
+				(/** @type {any} */ e) => e.code === 'UNKNOWN_COMMAND'
+			);
 			await assert.rejects(
 				own.consumer.call(node.peerId, 'belege-bridge', 'request', {
 					method: 'POST',

@@ -1,0 +1,33 @@
+{
+	"name": "@le-space/bridge-protocol",
+	"version": "0.1.0",
+	"description": "The Belege bridge's commands: names, scopes, argument and answer schemas, and how HTTP carries them. One catalogue for the bridge and every client, in a browser and in Node.",
+	"license": "AGPL-3.0-or-later",
+	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Le-Space/belege.git",
+		"directory": "packages/bridge-protocol"
+	},
+	"homepage": "https://github.com/Le-Space/belege/tree/main/packages/bridge-protocol#readme",
+	"sideEffects": false,
+	"exports": {
+		".": "./src/index.js"
+	},
+	"files": ["src"],
+	"engines": {
+		"node": ">=22"
+	},
+	"publishConfig": {
+		"access": "public",
+		"provenance": true
+	},
+	"scripts": {
+		"test": "node --test --test-reporter=spec \"test/*.test.js\"",
+		"lint": "prettier --check src test"
+	},
+	"devDependencies": {
+		"@le-space/browser-test": "workspace:*",
+		"prettier": "3.6.2"
+	}
+}
