@@ -38,7 +38,7 @@ import { openIntegration } from './integrations.js';
 import { device } from './devices.js';
 
 const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
-const IMAGE = 'c9b39dcebd0ee3f0fc009be5da21ba2219c26bb646f8554c5535a794ff6fddea';
+const IMAGE = '4ee0ab57bb64da3b516b3ed6494275356119089241ef6ab533d3ab60ae08a526';
 const VM = 'a'.repeat(64);
 const CRN = 'e'.repeat(64);
 const PUBLISHED = '11'.repeat(48);
