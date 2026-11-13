@@ -166,10 +166,13 @@ export const refused = (e) =>
  * @returns {{ collection: string, entries: number }[]}
  */
 const databasesOf = (manifest) =>
-	manifest.metadata.databases.map((/** @type {any} */ d) => ({
-		collection: String(d.collection ?? d.name),
-		entries: Number(d.entryCount ?? 0)
-	}));
+	manifest.metadata.databases
+		.map((/** @type {any} */ d) => ({
+			collection: String(d.collection ?? d.name),
+			entries: Number(d.entryCount ?? 0)
+		}))
+		// The collections' access lists go along (archive.js ACCESS_LIST), but are not what was backed up.
+		.filter((/** @type {{ collection: string }} */ d) => !d.collection.startsWith('access:'));
 
 /**
  * One backup: after a full backup, only what is new since the chain's last

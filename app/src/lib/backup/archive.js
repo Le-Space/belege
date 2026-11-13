@@ -385,12 +385,13 @@ export async function buildIncrement({
 		heads,
 		files,
 		entries: increment.entries,
-		databases: /** @type {any} */ (increment.manifest.metadata).databases.map(
-			(/** @type {any} */ d) => ({
+		databases: /** @type {any} */ (increment.manifest.metadata).databases
+			.map((/** @type {any} */ d) => ({
 				collection: String(d.collection ?? d.name),
 				entries: Number(d.entries ?? 0)
-			})
-		),
+			}))
+			// The access lists go along, but are not what the person backed up.
+			.filter((/** @type {{ collection: string }} */ d) => !d.collection.startsWith(ACCESS_LIST)),
 		blocks: increment.blocks.size,
 		missing,
 		carBytes: car.length
