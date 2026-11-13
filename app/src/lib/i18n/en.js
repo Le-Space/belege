@@ -1499,7 +1499,7 @@ export default {
 	},
 	credits: {
 		title: 'Le Space Credits',
-		what: 'A balance in euro with Le Space, like a voucher. It pays for the services Le Space runs for Belege: the AI service and a hosted bridge. Le Space Credits are not a cryptocurrency, and nothing is bought for you or into a wallet: Le Space itself pays for the computing time at Aleph Cloud with your balance. Topped up by card through Stripe, with no account and no subscription. The balance belongs to the books: every own device sees the same.',
+		what: 'A balance in euro with Le Space, like a voucher. It pays for the services Le Space runs for Belege: the AI service and a hosted bridge. Le Space Credits are not a cryptocurrency, and nothing is bought for you or into a wallet: Le Space itself pays its providers with your balance: the VM's computing time at Aleph Cloud and the AI. Topped up by card through Stripe, with no account and no subscription. The balance belongs to the books: every own device sees the same.',
 		offNote: 'Off. Belege asks credits.le-space.de for the balance only once it is switched on.',
 		switchOn: 'Switch on Le Space Credits',
 		switchOff: 'Switch off',
