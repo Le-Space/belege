@@ -64,7 +64,10 @@
 //   POST /control/allocation/notify   the node places a processed INSTANCE;
 //                          503 for one it does not know yet
 //   GET  /v2/about/executions/list   what the node runs, with 443 mapped once
-//                          the owner's `port-forwarding` aggregate names it
+//                          the owner's `port-forwarding` aggregate names it;
+//                          after `failStarts(true)` a VM it placed is listed
+//                          as Aleph's nodes list one they could not bring up
+//                          (allocation `failed`, `startup_failed`)
 //
 // And, for "Wer hält es?" (app backup/holders.js), what the public services
 // beside Aleph answer, as `holders()` set them:
@@ -197,7 +200,7 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 	const forgets = new Map();
 	/**
 	 * The INSTANCE messages taken, by item hash; `placed` once the node was told.
-	 * @type {Map<string, { status: string, errorCode?: number, content: any, sender: string, address: string, time: number, placed: boolean }>}
+	 * @type {Map<string, { status: string, errorCode?: number, content: any, sender: string, address: string, time: number, placed: boolean, failed?: boolean }>}
 	 */
 	const instances = new Map();
 	/** This server's own address, the fake node's too; set once it listens. */
@@ -221,6 +224,8 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 		/** @type {Record<string, { country: string, country_code: string, city: string, org: string }>} by IP */
 		places: {}
 	};
+	/** Whether the node fails every VM it places (`failStarts()`). */
+	let failStarts = false;
 	/** Does `owner` let `sender` send a STORE on `channel`? @param {string} owner @param {string} sender @param {string} channel */
 	const allowed = (owner, sender, channel) =>
 		(authorizations.get(toChecksumAddress(owner)) ?? []).some(
@@ -673,6 +678,7 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 				return reply(400, { error: 'not for this node' });
 			}
 			vm.placed = true;
+			if (failStarts) vm.failed = true;
 			return reply(200, { success: true });
 		}
 		if (req.method === 'GET' && url.pathname === '/v2/about/executions/list') {
@@ -680,6 +686,22 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 			const list = {};
 			for (const [hash, vm] of instances) {
 				if (!vm.placed) continue;
+				if (vm.failed) {
+					// As a node answered on 2026-11-13 for a VM it could not bring up.
+					list[hash] = {
+						networking: {},
+						running: false,
+						allocation: {
+							state: 'failed',
+							attempts: 5,
+							error: {
+								code: 'startup_failed',
+								message: 'The VM was created but did not reach the running state'
+							}
+						}
+					};
+					continue;
+				}
 				const forwards = kept.get(toChecksumAddress(vm.address))?.['port-forwarding'];
 				const open = forwards?.[hash]?.ports?.['443']?.tcp === true;
 				list[hash] = {
@@ -891,6 +913,10 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 				...rest,
 				{ address: delegate, types, aggregate_keys: aggregateKeys, chain: 'ETH' }
 			]);
+		},
+		/** From now on the node fails to bring up every VM it places, or again does not. @param {boolean} fail */
+		failStarts(fail) {
+			failStarts = fail;
 		},
 		/** Put credits on an account, as a transfer would. @param {string} address @param {number} credits */
 		fund(address, credits) {

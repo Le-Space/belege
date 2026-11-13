@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- A hosted bridge on Aleph that the node could not bring up can be stopped from its card. The card now says when the node gave up (`startup_failed` after several tries) instead of waiting for port 443 (#587).
+
 ## [0.32.0] – 2026-11-13
 
 ### Added

@@ -327,11 +327,12 @@ export async function notifyNode(
 }
 
 /**
- * The VM on its node: its state and the host port 443 is mapped to; null
- * while the node does not list it.
+ * The VM on its node: its state, the host port 443 is mapped to, and why the
+ * node gave up starting it (its allocation `failed`, e.g. `startup_failed`);
+ * null while the node does not list it.
  *
  * @param {string} nodeUrl @param {string} instance @param {{ fetch?: typeof fetch }} [p]
- * @returns {Promise<{ running: boolean, port443: number | null } | null>}
+ * @returns {Promise<{ running: boolean, port443: number | null, failed?: { code: string, attempts: number } } | null>}
  */
 export async function onNode(nodeUrl, instance, { fetch: f = fetch } = {}) {
 	const res = await f(`${nodeUrl}/v2/about/executions/list`, { cache: 'no-store' }).catch(
@@ -341,9 +342,19 @@ export async function onNode(nodeUrl, instance, { fetch: f = fetch } = {}) {
 	const entry = /** @type {any} */ (await res.json().catch(() => null))?.[instance];
 	if (!entry) return null;
 	const port = Number(entry.networking?.mapped_ports?.['443']?.host);
+	const allocation = entry.allocation;
+	const running = entry.running !== false && entry.status?.stopped_at == null;
 	return {
-		running: entry.running !== false && entry.status?.stopped_at == null,
-		port443: Number.isInteger(port) && port > 0 && port < 65536 ? port : null
+		running,
+		port443: Number.isInteger(port) && port > 0 && port < 65536 ? port : null,
+		...(!running && allocation?.state === 'failed'
+			? {
+					failed: {
+						code: String(allocation.error?.code ?? 'failed').slice(0, 40),
+						attempts: Number(allocation.attempts) || 0
+					}
+				}
+			: {})
 	};
 }
 

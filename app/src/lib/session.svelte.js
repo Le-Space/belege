@@ -1799,6 +1799,8 @@ export async function continueHostedStart({ passphrase, onProgress = () => {}, p
 	if (!nodeUrl) throw new Error(t('messages.hostedBridge.noNode'));
 	const { tries = 60, delayMs = 10_000 } = patience;
 	const pause = (/** @type {number} */ ms) => new Promise((r) => setTimeout(r, ms));
+	/** A node retries a failed start a few times; after three it is not going to work there. */
+	const gaveUp = (/** @type {any} */ p) => Boolean(p?.failed && p.failed.attempts >= 3);
 
 	onProgress({ phase: 'network', detail: record.instance });
 	let placed = await vm.onNode(nodeUrl, record.instance);
@@ -1820,8 +1822,18 @@ export async function continueHostedStart({ passphrase, onProgress = () => {}, p
 			{ apiHost }
 		);
 		for (let i = 0; i < tries && !placed?.port443; i++) {
+			// The node gave up starting it: waiting longer will not help (#587).
+			if (gaveUp(placed)) break;
 			await pause(delayMs);
 			placed = await vm.onNode(nodeUrl, record.instance);
+		}
+		if (gaveUp(placed)) {
+			throw new Error(
+				t('messages.hostedBridge.startupFailed', {
+					code: placed?.failed?.code ?? '',
+					attempts: placed?.failed?.attempts ?? 0
+				})
+			);
 		}
 		if (!placed?.port443) throw new Error(t('messages.hostedBridge.noPort'));
 	}

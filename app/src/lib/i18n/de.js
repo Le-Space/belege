@@ -392,6 +392,8 @@ export default {
 			creditsOff: 'Le Space Credits sind aus. Unter Integrationen → Aleph einschalten.',
 			noVm: 'Diese Bücher haben keine laufende gehostete VM.',
 			noPort: 'Der Knoten hat Port 443 der VM nicht freigegeben.',
+			startupFailed:
+				'Der Knoten hat die VM {attempts}-mal nicht hochbekommen ({code}). Bitte „Stoppen“ und auf einem anderen Knoten neu starten.',
 			deviceLabel: 'Gehostete Bridge (Aleph)'
 		},
 		nearBridge: {

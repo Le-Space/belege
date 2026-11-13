@@ -316,6 +316,16 @@
 				>
 			</form>
 			<p class="mt-2 text-xs text-faint">{t('integrationen.hostedBridge.startHint')}</p>
+			{#if halfway}
+				<!-- A start Aleph has but that never came up (the node failed it, or the tab closed): stop it here. -->
+				<button
+					type="button"
+					class="hover:bg-surface-muted mt-3 min-h-11 rounded-md border border-border px-4 text-sm font-medium text-text disabled:opacity-50"
+					disabled={busy}
+					onclick={stop}
+					data-testid="hosted-bridge-stop">{t('integrationen.hostedBridge.stop')}</button
+				>
+			{/if}
 		{/if}
 		{#if busy && progress}
 			<p class="mt-2 text-sm text-text" data-testid="hosted-bridge-progress">{progress}</p>

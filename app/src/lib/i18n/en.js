@@ -375,6 +375,8 @@ export default {
 			creditsOff: 'Le Space Credits are off. Switch them on under Integrations → Aleph.',
 			noVm: 'These books have no hosted VM running.',
 			noPort: 'The node did not open the VM’s port 443.',
+			startupFailed:
+				'The node failed to bring the VM up {attempts} times ({code}). Please “Stop” it and start again on another node.',
 			deviceLabel: 'Hosted bridge (Aleph)'
 		},
 		nearBridge: {
