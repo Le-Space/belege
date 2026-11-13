@@ -210,6 +210,8 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 		/** @type {Promise<unknown> | null} answered once this settles */
 		holdUploads: /** @type {Promise<unknown> | null} */ (null)
 	};
+	/** How STORE messages are judged: `pending` holds every new one at pending, as Aleph does before it decides. */
+	const judge = { pending: false };
 	/** What "Wer hält es?" is told. */
 	const network = {
 		/** @type {{ name: string, multiaddress: string, status: string }[] | null} */
@@ -267,7 +269,7 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 		const payment = content.payment?.type ?? null;
 		/** @type {{ status: string, errorCode?: number, details?: unknown }} */
 		let verdict = { status: 'processed' };
-		if (!signatureOk) verdict = { status: 'pending' };
+		if (!signatureOk || judge.pending) verdict = { status: 'pending' };
 		else if (content.address !== m.sender && !allowed(content.address, m.sender, m.channel)) {
 			verdict = { status: 'rejected', errorCode: 3, details: { errors: ['not authorized'] } };
 		} else if (payment === 'credit') {
@@ -860,6 +862,8 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 		calls,
 		added,
 		stores,
+		/** How STOREs are judged; a test decides a held one by setting its `status` in `stores`. */
+		judge,
 		/** Other aggregates kept, by address and key (the vault index, #406). */
 		kept,
 		cors,

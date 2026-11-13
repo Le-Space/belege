@@ -418,6 +418,38 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 		status: 'processed',
 		ref: newFull.cid
 	});
+	// Aleph answers "pending" first and decides later: the headline says so,
+	// not "Alles gesichert", and the page asks Aleph again by itself (on a
+	// short schedule here) – its decision shows without a reload.
+	const headline = card.getByTestId('backup-status');
+	await expect(headline).toHaveAttribute('data-level', 'ok');
+	await page.evaluate(() => {
+		// Not followed for a minute while it is pending, as with Aleph.
+		/** @type {any} */ (window).__belegeBackupSettleMs = 1_000;
+		/** @type {any} */ (window).__belegeBackupRecheckMs = [2_000, 4_000, 60_000];
+	});
+	aleph.judge.pending = true;
+	await page.evaluate(async () => {
+		await /** @type {any} */ (window).__belegeE2E.addTransaction({
+			bookedOn: new Date().toISOString().slice(0, 10),
+			counterparty: 'Vierte Probe',
+			purpose: 'Backup-Probe',
+			amountCents: -55
+		});
+	});
+	await expect(card.getByTestId('backup-row')).toHaveCount(5 + TWO_STEPS, { timeout: 30_000 });
+	aleph.judge.pending = false;
+	const waiting = /** @type {any} */ (aleph.stores.at(-1));
+	expect(waiting).toMatchObject({ sender: browserKey, status: 'pending', ref: newFull.cid });
+	await expect(headline).toHaveAttribute('data-level', 'pending');
+	await expect(headline).toContainText('Gesichert – Aleph bestätigt noch');
+	await expect(card.getByTestId('backup-made')).toContainText('Aleph hat noch nicht bestätigt');
+	// Aleph decides: kept.
+	waiting.status = 'processed';
+	await expect(headline).toHaveAttribute('data-level', 'ok');
+	await expect(headline).toContainText('Alles gesichert');
+	await expect(card.getByTestId('backup-made')).toContainText('von Aleph aufbewahrt');
+
 	// It stays on for this device, after a reload too.
 	await page.reload();
 	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();
