@@ -96,7 +96,10 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     to the attested VM; taken over from the bridge on a computer.
 // 46: "Reise prüfen" (#693 d): a trip unredacted to the model, only one on
 //     this computer or in the attested enclave.
-export const CONSENT_VERSION = '46';
+// 47: a hosted bridge may use a language model, only in LibertAI's attested
+//     enclave (#754): its key and pin among the settings kept for it, and
+//     LibertAI sees the VM's address instead of this Mac's.
+export const CONSENT_VERSION = '47';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+	enclaveLlm,
 	hostedConfig,
 	parseSecrets,
 	peerKeyFrom,
@@ -28,7 +29,8 @@ test('only the names the hosted bridge knows are kept', () => {
 			bridge_config: '{}',
 			bridge_peer_key: 'AA==',
 			enablebanking_sealed: 's',
-			llm: 'not for a hosted bridge',
+			// Kept here; written only beside a model in the enclave (sortSecrets).
+			llm: 'key',
 			'../etc/passwd': 'x',
 			PORTAL_X: 'upper case is not a name',
 			portal__x: 'not a name keychain.js takes',
@@ -42,6 +44,7 @@ test('only the names the hosted bridge knows are kept', () => {
 		'bridge_peer_key',
 		'enablebanking_sealed',
 		'imap',
+		'llm',
 		'portal_local_shop',
 		'portal_wolkenfabrik'
 	]);
@@ -104,7 +107,7 @@ test('sorted into the run directory, readable by the owner only', async () => {
 				bridge_config: '{"node":{}}'
 			})
 		});
-		assert.deepEqual(r, { accounts: 1, peerKey: true, config: true, start: false });
+		assert.deepEqual(r, { accounts: 1, peerKey: true, config: true, start: false, llm: false });
 		assert.deepEqual(await readdir(join(run, 'secrets')), ['imap']);
 		assert.equal(await readFile(join(run, 'secrets', 'imap'), 'utf8'), 'pw');
 		assert.deepEqual([...(await readFile(join(run, 'node', 'peer-key')))], [8, 1, 18, 64]);
@@ -121,6 +124,70 @@ test('sorted into the run directory, readable by the owner only', async () => {
 		await rm(broken, { recursive: true, force: true });
 	} finally {
 		await rm(run, { recursive: true, force: true });
+	}
+});
+
+// A pin as setup:llm writes it (#416), made up.
+const PIN = {
+	provider: 'libertai',
+	itemHash: 'ab'.repeat(32),
+	measurement: 'cd'.repeat(48),
+	sourceCommit: null,
+	pinnedAt: '2026-11-01T00:00:00.000Z'
+};
+const ENCLAVE = {
+	baseUrl: 'https://api.libertai.io/v1',
+	model: 'test-model-tee',
+	retryModel: 'test-model-tee',
+	redactTerms: ['Erika Mustermann'],
+	redaction: 'off',
+	configured: true,
+	tee: PIN
+};
+
+test('a model only in LibertAI’s attested enclave, pinned (#754)', () => {
+	assert.deepEqual(enclaveLlm(ENCLAVE), ENCLAVE);
+	assert.equal(hostedConfig(JSON.stringify({ llm: ENCLAVE })).llm?.tee.itemHash, PIN.itemHash);
+	// No pin, another provider, a broken pin, another host, plain http: no model.
+	for (const llm of [
+		{ ...ENCLAVE, tee: null },
+		{ ...ENCLAVE, tee: { ...PIN, provider: 'other' } },
+		{ ...ENCLAVE, tee: { ...PIN, itemHash: 'xyz' } },
+		{ ...ENCLAVE, baseUrl: 'https://api.deepseek.com' },
+		{ ...ENCLAVE, baseUrl: 'http://api.libertai.io/v1' },
+		{ ...ENCLAVE, baseUrl: 'https://api.libertai.io.example.com/v1' },
+		{ ...ENCLAVE, model: '' },
+		'not an object'
+	]) {
+		assert.equal(enclaveLlm(llm), null);
+		assert.equal(hostedConfig(JSON.stringify({ llm })).llm, undefined);
+	}
+});
+
+test('the model’s key is written only beside a model in the enclave', async () => {
+	for (const [llm, kept] of [
+		[ENCLAVE, true],
+		[{ ...ENCLAVE, tee: null }, false]
+	]) {
+		const run = await mkdtemp(join(tmpdir(), 'belege-tee-'));
+		try {
+			const r = sortSecrets(run, {
+				BELEGE_BRIDGE_SECRETS: JSON.stringify({
+					imap: 'pw',
+					llm: 'key',
+					bridge_config: JSON.stringify({ llm })
+				})
+			});
+			assert.equal(r.llm, kept);
+			assert.deepEqual(
+				(await readdir(join(run, 'secrets'))).sort(),
+				kept ? ['imap', 'llm'] : ['imap']
+			);
+			const config = JSON.parse(await readFile(join(run, 'bridge.json'), 'utf8'));
+			assert.equal(Boolean(config.llm), kept);
+		} finally {
+			await rm(run, { recursive: true, force: true });
+		}
 	}
 });
 

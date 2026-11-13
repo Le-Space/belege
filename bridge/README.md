@@ -127,7 +127,11 @@ runs as `cli.js --hosted`:
   browser has checked the VM's attestation, and is read from `$BELEGE_BRIDGE_SECRETS_DIR` (one
   file per keychain account, in a tmpfs; `unlockedKeychain` in `src/keychain.js`). What the bridge
   writes – a handover's key – stays in memory and is gone at the next start.
-- **No language model** (#251): the LLM key is never read, and `llm` is removed from `bridge.json`.
+- **A language model only in LibertAI's attested enclave** (#754; before it none, #251): `llm`
+  stays in `bridge.json` only with a LibertAI pin (`llm.tee`) and LibertAI's base URL, and the key
+  is written only beside it (`sort-secrets.mjs` `enclaveLlm`, `belege-bridge-run`); any other
+  model counts as not set up (`startBridge` `llmEnclaveOnly`). Every request goes to the pinned
+  enclave, attested (`src/llm/confidential.js`), or fails.
 - **Its node is announced under the VM's name** (`node.announce` in `bridge.json`, only a
   `/dns4/<name>/tcp/<port>/tls/ws` address): Caddy in the VM ends TLS on 443 and passes the
   WebSocket on to the node on 127.0.0.1, so a device dials it directly besides the relays. The
