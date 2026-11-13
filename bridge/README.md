@@ -216,7 +216,8 @@ no books.
   a device sees over the stream what it would see over HTTP. Not over the stream: `/pair`,
   `/unpair` and `/share…` (HTTP's own), and `POST /backup/aleph` (bytes in: a block in M2). Bytes
   out (a mail attachment, a Paperless original) go base64 while they fit UCEP's limit – 1 MiB on
-  a direct connection, 64 KiB relayed – and are refused `TOO_LARGE` above it. Each command needs
+  a direct connection or through a relay that grants at least 32 MiB, 64 KiB through one that
+  grants less – and are refused `TOO_LARGE` above it. Each command needs
   its scope (below).
 - **Taking the settings to a hosted bridge (#728):** `settings.export` answers the accounts a
   hosted bridge reads (mail, Kraken, Paperless, Enable Banking with its file
