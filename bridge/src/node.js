@@ -75,11 +75,12 @@ import {
 import { UcepError, createProvider } from '@le-space/ucep';
 
 import { createGrants, limitsOf, parseDevices, scopesOf } from './grants.js';
-import { answerRequest, offered } from './stream.js';
+import { PROTOCOL_VERSION, command as protocolCommand } from '@le-space/bridge-protocol';
+import { answerNamed, answerRequest, offered } from './stream.js';
 
 /** The UCEP extension the bridge offers: pairing, the device list, and `request` onto commands.js. */
 export const EXTENSION = 'belege-bridge';
-export const EXTENSION_VERSION = '0.3.0';
+export const EXTENSION_VERSION = '2.0.0';
 /** The scope of pairing itself: the handover (UCEP wants `extension:resource:action`). */
 export const PAIR_SCOPE = 'belege-bridge:pairing:manage';
 /** The keychain account the bridge's own key is kept under (#575). */
@@ -337,6 +338,8 @@ export async function startBridgeNode({
 		help: {
 			handler: () => ({
 				commands: Object.keys(ucepCommands),
+				// The commands by name from version 2 on (#577): their schemas are @le-space/bridge-protocol's.
+				protocol: PROTOCOL_VERSION,
 				armed,
 				// What `request` dispatches on, by the HTTP method and path the app knows (stream.js).
 				requests: offeredCommands.map((c) => ({
@@ -466,6 +469,32 @@ export async function startBridgeNode({
 				}
 			: {})
 	};
+
+	// Each command of the table by its name (`bank.transactions`), the
+	// arguments as @le-space/bridge-protocol describes them, checked against
+	// their schema before the command runs (#577). Same gate, scopes and
+	// answer as `request`, which stays for clients that still send paths.
+	for (const command of offeredCommands) {
+		const spec = protocolCommand(command.name);
+		if (!spec || spec.via === 'http') continue;
+		ucepCommands[command.name] = {
+			description: spec.description,
+			handler: async ({ argsJson, peerId, limited }) => {
+				assertDevice(peerId);
+				return answerNamed({
+					command,
+					args: argsJson,
+					limited,
+					authorize: async (c) =>
+						deviceGrants.authorize(peerId, c.scope, { holder: await pairedBy(peerId) }),
+					spent: (c, json) => {
+						if (c.scope === 'bridge:llm') deviceGrants.spent(peerId, json);
+					},
+					log
+				});
+			}
+		};
+	}
 
 	/** @type {ReturnType<typeof createProvider>} */
 	let provider;

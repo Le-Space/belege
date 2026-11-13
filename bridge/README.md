@@ -213,9 +213,13 @@ no books.
   then runs over HTTP only, as before. `/unpair`, or `unpair` over the stream ("Kopplung lösen" on
   the device that paired it), removes the bridge's key and the node runs on unarmed, with a new invitation. A key a
   build before #575 kept under `device-auth` is removed at start.
-- **What the stream offers:** `help`, `handover`, `devices`, `unpair`, and – armed – `request`: one
-  bridge call, `{ method, path, body? }` with the method and path of the API below, answered
-  `{ status, contentType, json | base64 }` (`src/stream.js`). It dispatches onto the same command
+- **What the stream offers:** `help`, `handover`, `devices`, `unpair`, and – armed – every command
+  of the table below by its own name (`bank.transactions`, `mail.search`; protocol version 2,
+  #577), its arguments one JSON object as `@le-space/bridge-protocol` (`packages/bridge-protocol`)
+  describes them, checked against the command's schema before it runs, answered
+  `{ status, contentType, json | base64 }`; an unknown name is `UNKNOWN_COMMAND`, an argument
+  outside the schema `INVALID_ARGUMENTS`. `request`, the older form, stays for clients that still
+  send `{ method, path, body? }` with the method and path of the API below (`src/stream.js`). It dispatches onto the same command
   table as HTTP (`src/commands.js`), with the same body limit per command and the same answer, so
   a device sees over the stream what it would see over HTTP. Not over the stream: `/pair`,
   `/unpair` and `/share…` (HTTP's own), and `POST /backup/aleph` (bytes in: a block in M2). Bytes
@@ -249,9 +253,10 @@ no books.
 
 ### Commands and scopes
 
-Every function of the bridge is a command (`src/commands.js`). Over HTTP the token is all of
-them. Over the stream (`request`) a device needs the command's scope (#579, above); a public
-command needs none. `test/readme.test.js` keeps this table complete.
+Every function of the bridge is a command (`src/commands.js`), with its arguments' and answer's
+schema in `@le-space/bridge-protocol` (`test/protocol.test.js` keeps the two the same). Over HTTP
+the token is all of them. Over the stream (by name, or `request`) a device needs the command's
+scope (#579, above); a public command needs none. `test/readme.test.js` keeps this table complete.
 
 | Command | HTTP | Scope | Over the stream |
 |---|---|---|---|
@@ -303,17 +308,17 @@ command needs none. `test/readme.test.js` keeps this table complete.
 | `llm.status` | `GET /llm/status` | `bridge:llm` | yes |
 | `llm.extract` | `POST /extract` | `bridge:llm` | yes |
 
-The node's own commands, outside `request`:
+The node's own commands, beside those of the table:
 
 | Command | Who may call | What it does |
 |---|---|---|
-| `help` | any peer that reaches the extension | the commands, armed or not, the requests offered with their scopes, and the scopes |
+| `help` | any peer that reaches the extension | the commands, armed or not, the protocol version, the requests offered with their scopes, and the scopes |
 | `handover` | the device that paired by invitation (UCEP scope `belege-bridge:pairing:manage`), unarmed only | the bridge's key, relays and devices; the node restarts armed |
 | `devices` | the device that paired by invitation; any other proved device of the books only to take devices off (never the one that paired) | the books' device list: each a peer id (every scope) or `{ peerId, scopes }` |
 | `grants` | a proved device of the books | per device its scopes, last use and when they lapse – every device's for the device that paired the bridge, its own for any other |
 | `renew` | the device that paired by invitation (UCEP scope `belege-bridge:pairing:manage`), proved | a device whose scopes lapsed counts from now again |
 | `unpair` | the device that paired by invitation (UCEP scope `belege-bridge:pairing:manage`), proved | the key leaves the keychain; the node runs unarmed with a new invitation |
-| `request` | a proved device of the books, armed only, holding the command's scope, within the limits | one command of the table above |
+| `request` | a proved device of the books, armed only, holding the command's scope, within the limits | one command of the table above, by its method and path |
 
 **What a relay sees** of the bridge: its peer id, the peer ids of the devices that call it,
 when and how much – never content. Noise encrypts every connection end to end, and the relay

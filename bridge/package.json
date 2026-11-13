@@ -50,6 +50,7 @@
 		"@belege/device-gate": "workspace:*",
 		"@chainsafe/libp2p-noise": "17.0.0",
 		"@chainsafe/libp2p-yamux": "8.0.1",
+		"@le-space/bridge-protocol": "workspace:^",
 		"@le-space/chains": "workspace:^",
 		"@le-space/orbitdb-storage-bridge": "0.28.0",
 		"@le-space/rates": "workspace:^",

@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **The bridge's commands by name, with schemas: `@le-space/bridge-protocol`** (`packages/bridge-protocol`, #577, M2.1 of #567). One catalogue of the bridge's 47 commands – name, version, scope, how HTTP carries it, and a schema for the arguments and the answer's shape – that the bridge and every client import, in a browser and in Node. The bridge's node now offers every command under its own name (`bank.transactions`, `mail.search`, protocol version 2): the arguments are checked against the command's schema before it runs, an unknown name answers `UNKNOWN_COMMAND`. `request` with a method and a path stays for the app until it calls by name too.
+
 ### Changed
 
 - **The demo films' kit is a package of its own, `@le-space/video-kit`** (`packages/video-kit`). The scenes, the narrator, the pointer, the captions, the title cards and compose moved there with their history, so Le Space's other apps record their films with it; what makes a card Belege's (the signet, Sora, the colours, the texts) stays in `app/e2e-video/belege.js`. Belege's films record as before: every card of every film list was compared frame by frame against the old kit.

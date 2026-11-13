@@ -29,6 +29,7 @@
 // files become blocks in M2 too.
 
 import { LIMITS, UcepError } from '@le-space/ucep';
+import { checkArgs, commandInput, command as protocolCommand } from '@le-space/bridge-protocol';
 
 import { MAX_BODY, errorJson, findCommand, statusOf } from './commands.js';
 
@@ -104,6 +105,80 @@ export async function answerRequest({
 				: `${command.name} is not offered over the stream`
 		);
 	}
+	const kind = command.body ?? (command.method === 'GET' ? 'none' : 'json');
+	const body = kind === 'json' && args?.body !== undefined ? args.body : {};
+	return runCommand({
+		command,
+		input: { query: url.searchParams, params, body },
+		limited,
+		authorize,
+		spent,
+		log
+	});
+}
+
+/**
+ * One command by its name, the arguments as the catalogue describes them
+ * (@le-space/bridge-protocol, #577): checked against the command's schema,
+ * then run as `request` runs it. An argument the schema does not expect is
+ * refused before anything runs; the command's own checks follow.
+ *
+ * @param {object} p
+ * @param {import('./commands.js').Command} p.command a command of the table, offered over the stream
+ * @param {unknown} p.args the arguments as the device sent them
+ * @param {boolean} p.limited
+ * @param {(command: import('./commands.js').Command) => Promise<void>} [p.authorize]
+ * @param {(command: import('./commands.js').Command, json: unknown) => void} [p.spent]
+ * @param {(line: string) => void} [p.log]
+ * @returns {Promise<StreamAnswer>}
+ */
+export async function answerNamed({ command, args, limited, authorize, spent, log = () => {} }) {
+	const problems = checkArgs(command.name, args ?? {});
+	if (problems.length) {
+		log(`${command.name} over the stream: refused INVALID_ARGUMENTS`);
+		throw new UcepError('INVALID_ARGUMENTS', problems.join('; ').slice(0, 500));
+	}
+	/** @type {import('./commands.js').Input} */
+	let input;
+	try {
+		input = { ...commandInput(command.name, /** @type {any} */ (args ?? {})), token: null };
+	} catch (/** @type {any} */ error) {
+		throw new UcepError('INVALID_ARGUMENTS', error.message);
+	}
+	// A path the table's matcher refuses (a chain the wallets do not have) is unknown, as over HTTP.
+	if (typeof command.path === 'function') {
+		const spec = protocolCommand(command.name);
+		const path = (spec?.path ?? '').replace(/\{([a-zA-Z]+)\}/g, (_, k) =>
+			encodeURIComponent(input.params[k] ?? '')
+		);
+		const params = command.path(path);
+		if (!params) return { status: 404, contentType: JSON_TYPE, json: { error: 'not found' } };
+		input.params = params;
+	}
+	return runCommand({ command, input, limited, authorize, spent, log });
+}
+
+/**
+ * A command onto its `run`, for `request` and for a call by name alike: the
+ * device's scopes first, then the body limit, then the answer in UCEP's limits.
+ *
+ * @param {object} p
+ * @param {import('./commands.js').Command} p.command
+ * @param {Omit<import('./commands.js').Input, 'token'> & { token?: null }} p.input
+ * @param {boolean} p.limited
+ * @param {(command: import('./commands.js').Command) => Promise<void>} [p.authorize]
+ * @param {(command: import('./commands.js').Command, json: unknown) => void} [p.spent]
+ * @param {(line: string) => void} [p.log]
+ * @returns {Promise<StreamAnswer>}
+ */
+async function runCommand({
+	command,
+	input,
+	limited,
+	authorize = async () => {},
+	spent = () => {},
+	log = () => {}
+}) {
 	try {
 		await authorize(command);
 	} catch (/** @type {any} */ error) {
@@ -113,15 +188,19 @@ export async function answerRequest({
 
 	try {
 		const kind = command.body ?? (command.method === 'GET' ? 'none' : 'json');
-		let body = {};
-		if (kind === 'json' && args?.body !== undefined) {
-			body = args.body;
+		const body = kind === 'json' ? (input.body ?? {}) : {};
+		if (kind === 'json') {
 			const limit = command.bodyLimit ?? MAX_BODY;
 			if (Buffer.byteLength(JSON.stringify(body) ?? '') > limit) {
 				throw Object.assign(new Error('Body too large'), { status: 413 });
 			}
 		}
-		const answer = await command.run({ query: url.searchParams, params, body, token: null });
+		const answer = await command.run({
+			query: input.query,
+			params: input.params,
+			body,
+			token: null
+		});
 		if ('bytes' in answer) {
 			const max = limited ? LIMITS.limitedResponse : LIMITS.response;
 			if (Math.ceil(answer.bytes.length / 3) * 4 + ENVELOPE > max) {

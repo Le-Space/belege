@@ -245,6 +245,9 @@ importers:
       '@chainsafe/libp2p-yamux':
         specifier: 8.0.1
         version: 8.0.1
+      '@le-space/bridge-protocol':
+        specifier: workspace:^
+        version: link:../packages/bridge-protocol
       '@le-space/chains':
         specifier: workspace:^
         version: link:../packages/chains
@@ -361,6 +364,15 @@ importers:
         specifier: 1.2.6
         version: 1.2.6
     devDependencies:
+      prettier:
+        specifier: 3.6.2
+        version: 3.6.2
+
+  packages/bridge-protocol:
+    devDependencies:
+      '@le-space/browser-test':
+        specifier: workspace:*
+        version: link:../browser-test
       prettier:
         specifier: 3.6.2
         version: 3.6.2
