@@ -23,6 +23,12 @@
 // What is kept: per device its scopes, when they were granted and when last
 // used – in `<config dir>/node/device-grants.json`, beside UCEP's grants.
 // Peer ids, scope names and times; never an argument or an answer.
+//
+// Usage (#579, item 7). Per device and command: how often it was let through,
+// how often refused, and when last – for the Geräte card. Command names,
+// counts and times only; never an argument, an answer or an error's text. It
+// goes with the device's grant, and is written at most once a minute (and at
+// stop), so a call is no file write.
 
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
@@ -63,6 +69,12 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** lastUsedAt is written at most this often per device: a call is no file write. */
 const TOUCH_MS = 60 * 60 * 1000;
 const SCOPE = /^bridge:[a-z]+(:[a-z]+)?$/;
+/** A command's name as the catalogue has it (`mail.search`). */
+const COMMAND = /^[a-z][a-zA-Z]*\.[a-z][a-zA-Z]*$/;
+/** At most this many commands are counted per device: the catalogue has fewer. */
+const MAX_COMMANDS = 100;
+/** Usage is written at most this often. */
+const USAGE_SAVE_MS = 60_000;
 const PEER_ID = /^12D3KooW[1-9A-HJ-NP-Za-km-z]{44}$/;
 
 /**
@@ -128,11 +140,42 @@ export function parseDevices(list, all) {
 }
 
 /**
+ * @typedef {object} Use
+ * @property {number} calls let through
+ * @property {number} refused refused by scope, expiry or limit
+ * @property {number} lastAt
+ */
+
+/**
  * @typedef {object} Grant
  * @property {string[]} scopes
  * @property {number} grantedAt
  * @property {number} lastUsedAt
+ * @property {Record<string, Use>} [usage] per command name
  */
+
+/** @param {unknown} n */
+const count = (n) =>
+	Number.isSafeInteger(n) && /** @type {number} */ (n) >= 0 ? /** @type {number} */ (n) : 0;
+
+/**
+ * A device's usage as the file had it: known shapes only, so an edited file
+ * brings nothing else back.
+ *
+ * @param {unknown} raw
+ * @returns {Record<string, Use>}
+ */
+export function usageOf(raw) {
+	/** @type {Record<string, Use>} */
+	const out = {};
+	if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+	for (const [name, u] of Object.entries(raw).slice(0, MAX_COMMANDS)) {
+		if (!COMMAND.test(name) || !u || typeof u !== 'object') continue;
+		const use = /** @type {any} */ (u);
+		out[name] = { calls: count(use.calls), refused: count(use.refused), lastAt: count(use.lastAt) };
+	}
+	return out;
+}
 
 /**
  * The tokens an answer of the language model reports: every `usage` object
@@ -181,6 +224,8 @@ export function createGrants({ file, scopes: all, limits = DEFAULT_LIMITS, now =
 	let loaded = false;
 	/** @type {Promise<void>} */
 	let writing = Promise.resolve();
+	/** @type {ReturnType<typeof setTimeout> | null} usage waiting to be written */
+	let usageTimer = null;
 
 	async function load() {
 		if (loaded) return;
@@ -192,7 +237,8 @@ export function createGrants({ file, scopes: all, limits = DEFAULT_LIMITS, now =
 				grants.set(peer, {
 					scopes: g.scopes.filter((/** @type {unknown} */ s) => all.includes(String(s))),
 					grantedAt: Number(g.grantedAt) || now(),
-					lastUsedAt: Number(g.lastUsedAt) || 0
+					lastUsedAt: Number(g.lastUsedAt) || 0,
+					usage: usageOf(g.usage)
 				});
 			}
 		} catch {
@@ -201,6 +247,10 @@ export function createGrants({ file, scopes: all, limits = DEFAULT_LIMITS, now =
 	}
 
 	function save() {
+		if (usageTimer) {
+			clearTimeout(usageTimer);
+			usageTimer = null;
+		}
 		const devices = Object.fromEntries(grants);
 		writing = writing
 			.catch(() => {})
@@ -248,7 +298,12 @@ export function createGrants({ file, scopes: all, limits = DEFAULT_LIMITS, now =
 			for (const [peer, scopes] of devices) {
 				const had = grants.get(peer);
 				if (had && had.scopes.join(' ') === scopes.join(' ')) continue;
-				grants.set(peer, { scopes, grantedAt: now(), lastUsedAt: had?.lastUsedAt ?? 0 });
+				grants.set(peer, {
+					scopes,
+					grantedAt: now(),
+					lastUsedAt: had?.lastUsedAt ?? 0,
+					usage: had?.usage ?? {}
+				});
 				changed = true;
 			}
 			if (changed) await save();
@@ -272,7 +327,7 @@ export function createGrants({ file, scopes: all, limits = DEFAULT_LIMITS, now =
 			}
 			for (const peer of peers) {
 				if (grants.has(peer)) continue;
-				grants.set(peer, { scopes: [...all], grantedAt: now(), lastUsedAt: 0 });
+				grants.set(peer, { scopes: [...all], grantedAt: now(), lastUsedAt: 0, usage: {} });
 				changed = true;
 			}
 			if (changed) await save();
@@ -332,6 +387,38 @@ export function createGrants({ file, scopes: all, limits = DEFAULT_LIMITS, now =
 		},
 
 		/**
+		 * One call of a command by a device, let through or refused: counted,
+		 * by the command's name only. Written within a minute.
+		 *
+		 * @param {string} peer
+		 * @param {string} command its name (`mail.search`)
+		 * @param {boolean} ok let through
+		 */
+		record(peer, command, ok) {
+			const g = grants.get(peer);
+			if (!g || !COMMAND.test(command)) return;
+			const usage = (g.usage ??= {});
+			if (!usage[command] && Object.keys(usage).length >= MAX_COMMANDS) return;
+			const use = (usage[command] ??= { calls: 0, refused: 0, lastAt: 0 });
+			if (ok) use.calls++;
+			else use.refused++;
+			use.lastAt = now();
+			if (!usageTimer) {
+				usageTimer = setTimeout(() => {
+					usageTimer = null;
+					save().catch(() => {});
+				}, USAGE_SAVE_MS);
+				usageTimer.unref?.();
+			}
+		},
+
+		/** Usage not yet written goes to the file now (at stop). */
+		async flush() {
+			if (usageTimer) await save().catch(() => {});
+			await writing.catch(() => {});
+		},
+
+		/**
 		 * What a call of the model cost, from its answer.
 		 *
 		 * @param {string} peer
@@ -356,7 +443,11 @@ export function createGrants({ file, scopes: all, limits = DEFAULT_LIMITS, now =
 				peerId,
 				scopes: [...g.scopes],
 				lastUsedAt: g.lastUsedAt || null,
-				expiresAt: expiresAt(g, isHolder(peerId))
+				expiresAt: expiresAt(g, isHolder(peerId)),
+				// Per command, the most recent first: name, counts, time – no content.
+				usage: Object.entries(g.usage ?? {})
+					.map(([command, u]) => ({ command, ...u }))
+					.sort((a, b) => b.lastAt - a.lastAt || a.command.localeCompare(b.command))
 			}));
 		},
 

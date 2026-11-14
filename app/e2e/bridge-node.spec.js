@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { defaultConfig, saveConfig } from '@belege/bridge';
 import { FAKE_LLM_KEY, startFakeLlm } from '@belege/bridge/testing/llm';
 import { acceptConsent } from './consent.js';
-import { openIntegration } from './integrations.js';
+import { openDevicesAdvanced, openIntegration } from './integrations.js';
 import { device } from './devices.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
@@ -134,6 +134,17 @@ test('a device pairs the bridge’s node by invitation and reaches it over the s
 				.filter({ hasText: 'Bridge' })
 				.getByTestId('devices-item-state')
 		).toContainText('verbunden', { timeout: 60_000 });
+
+		// What this device called at the bridge (#579): by command, how often – no content.
+		await openDevicesAdvanced(mac.page);
+		const mine = mac.page.getByTestId('bridge-access-device').filter({ hasText: 'Dieses Gerät' });
+		await mine.getByTestId('bridge-access-usage-total').click();
+		await expect(mine.getByTestId('bridge-access-usage-total')).toContainText(/Aufrufe: [1-9]/, {
+			timeout: 60_000
+		});
+		await expect(
+			mine.locator('[data-testid="bridge-access-usage-item"][data-command="bridge.health"]')
+		).toContainText(/[1-9]\d*× erlaubt/);
 
 		// "Kopplung lösen": the bridge forgets its key over the stream and offers a new invitation;
 		// the books move on to the next generation of the bridge's key.

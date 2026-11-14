@@ -333,6 +333,23 @@ export async function startBridgeNode({
 		);
 	}
 
+	/**
+	 * May this device call this command now (grants.js)? Let through or
+	 * refused, the call is counted by the command's name – no content (#579).
+	 *
+	 * @param {string} peerId
+	 * @param {{ name: string, scope: string }} command
+	 */
+	async function authorizeCall(peerId, command) {
+		try {
+			await deviceGrants.authorize(peerId, command.scope, { holder: await pairedBy(peerId) });
+		} catch (error) {
+			deviceGrants.record(peerId, command.name, false);
+			throw error;
+		}
+		deviceGrants.record(peerId, command.name, true);
+	}
+
 	/** @type {Record<string, { handler: (ctx: any) => unknown, scope?: string, description?: string }>} */
 	const ucepCommands = {
 		help: {
@@ -403,7 +420,7 @@ export async function startBridgeNode({
 		grants: {
 			// What each device may call, for the Geräte card: the device that paired
 			// the bridge sees every device's, any other its own. No content.
-			description: 'Per device: scopes, last use, when they lapse',
+			description: 'Per device: scopes, last use, when they lapse, calls per command',
 			handler: async ({ peerId }) => {
 				assertDevice(peerId);
 				const holder = await pairedBy(peerId);
@@ -455,10 +472,7 @@ export async function startBridgeNode({
 								commands,
 								args: argsJson,
 								limited,
-								authorize: async (command) =>
-									deviceGrants.authorize(peerId, command.scope, {
-										holder: await pairedBy(peerId)
-									}),
+								authorize: (command) => authorizeCall(peerId, command),
 								spent: (command, json) => {
 									if (command.scope === 'bridge:llm') deviceGrants.spent(peerId, json);
 								},
@@ -485,8 +499,7 @@ export async function startBridgeNode({
 					command,
 					args: argsJson,
 					limited,
-					authorize: async (c) =>
-						deviceGrants.authorize(peerId, c.scope, { holder: await pairedBy(peerId) }),
+					authorize: (c) => authorizeCall(peerId, c),
 					spent: (c, json) => {
 						if (c.scope === 'bridge:llm') deviceGrants.spent(peerId, json);
 					},
@@ -551,6 +564,7 @@ export async function startBridgeNode({
 		async stop() {
 			await provider.stop().catch(() => {});
 			await libp2p.stop();
+			await deviceGrants.flush();
 		}
 	};
 }
