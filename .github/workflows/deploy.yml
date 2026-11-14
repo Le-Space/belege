@@ -67,7 +67,7 @@ jobs:
       # A production build: no test hooks, no "Testbuchung anlegen".
       - run: pnpm run build
       - name: Install isolated Aleph deploy tooling
-        run: npm install --prefix /tmp/le-space-deployer @le-space/node@0.12.4
+        run: npm install --prefix /tmp/le-space-deployer @le-space/node@0.12.6
       - name: Publish to Aleph IPFS
         id: publish
         env:
@@ -103,6 +103,15 @@ jobs:
               echo "::error::Aleph did not process the STORE within 20 minutes. The files are on IPFS; run this workflow again later instead of re-uploading now."
               exit 1
             fi
+            # From @le-space/node 0.12.6 the check after a processed STORE asks
+            # every gateway and then fetches the site over libp2p (Helia). If
+            # even that fails, the files are pinned: uploading them again pays
+            # another STORE and does not help (2026-11-14: four STOREs for one
+            # release while one gateway hung).
+            if grep -q 'Site verification failed after the STORE was processed' /tmp/publish-err.txt; then
+              echo "::error::The STORE was processed, but neither a gateway nor libp2p served the site yet. Not uploading again; run this workflow again later."
+              exit 1
+            fi
             echo "::warning::publish attempt $attempt failed, retrying in 30 s"
             sleep 30
           done
@@ -117,7 +126,7 @@ jobs:
       contents: write # the CID goes onto the release
     steps:
       - name: Install isolated Aleph deploy tooling
-        run: npm install --prefix /tmp/le-space-deployer @le-space/node@0.12.4
+        run: npm install --prefix /tmp/le-space-deployer @le-space/node@0.12.6
       - name: Link the custom domain
         env:
           ALEPH_VM_MODE: site-domain-link
