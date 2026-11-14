@@ -13,6 +13,8 @@
 		takeOverBridgeSettings
 	} from '$lib/session.svelte.js';
 	import { bridge } from './bridge-state.svelte.js';
+	import { hostedVmRunning } from './bridge-status.js';
+	import { booksBridgeHosted, hosted, loadHostedPeers } from './hosted-status.svelte.js';
 
 	/** @type {{ accounts: string[], sections: string[] }} */
 	let kept = $state({ accounts: [], sections: [] });
@@ -39,6 +41,14 @@
 	$effect(() => {
 		if (app.sync.online) refresh();
 	});
+	$effect(() => {
+		void app.sync.online;
+		loadHostedPeers().catch(() => {});
+	});
+	// Once a hosted bridge is the books' bridge, `settings.export` would ask the VM, not this computer.
+	let asksTheVm = $derived(Boolean(booksBridgeHosted()));
+	// What is kept reaches a VM only at its start: a running one has to be stopped and started.
+	let vmRuns = $derived(hostedVmRunning(hosted) || asksTheVm);
 
 	/** @param {string} what @param {() => Promise<unknown>} f */
 	async function run(what, f) {
@@ -152,7 +162,8 @@
 </script>
 
 <section
-	class="mt-4 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm"
+	id="hosted-settings"
+	class="mt-4 scroll-mt-4 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm"
 	data-testid="hosted-settings"
 >
 	<h2 class="text-lg font-semibold text-heading">{t('integrationen.hostedSettings.title')}</h2>
@@ -176,7 +187,8 @@
 				<button
 					type="button"
 					class={save}
-					disabled={Boolean(busy) || !bridge.peerId}
+					disabled={Boolean(busy) || !bridge.peerId || asksTheVm}
+					aria-describedby="hosted-settings-take-over-hint"
 					onclick={takeOver}
 					data-testid="hosted-settings-take-over"
 					>{t('integrationen.hostedSettings.takeOver')}</button
@@ -190,7 +202,18 @@
 					>
 				{/if}
 			</div>
-			<p class="mt-1 text-xs text-faint">{t('integrationen.hostedSettings.takeOverHint')}</p>
+			<p
+				id="hosted-settings-take-over-hint"
+				class="mt-1 text-xs {asksTheVm ? 'text-text' : 'text-faint'}"
+				data-testid="hosted-settings-take-over-hint"
+				data-hosted={asksTheVm ? 'true' : 'false'}
+			>
+				{t(
+					asksTheVm
+						? 'integrationen.hostedSettings.takeOverHosted'
+						: 'integrationen.hostedSettings.takeOverHint'
+				)}
+			</p>
 
 			<details class="mt-4">
 				<summary class="cursor-pointer text-sm font-medium"
@@ -367,7 +390,9 @@
 	{/if}
 	{#if done && !busy}
 		<p class="mt-2 text-sm text-success" data-testid="hosted-settings-done">
-			{t('integrationen.hostedSettings.saved')}
+			{t(
+				vmRuns ? 'integrationen.hostedSettings.savedRunning' : 'integrationen.hostedSettings.saved'
+			)}
 		</p>
 	{/if}
 	{#if error}

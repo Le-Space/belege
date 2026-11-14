@@ -252,8 +252,10 @@ no books.
 - **Taking the settings to a hosted bridge (#728):** `settings.export` answers the accounts a
   hosted bridge reads (mail, Kraken, Paperless, Enable Banking with its file
   `enablebanking.sealed` as it is, CoinGecko, a Bitcoin zpub, Alchemy) and the integrations'
-  non-secret settings – not Hibiscus, not the language model, not portal passwords (a hosted
-  image has no browser), not the bridge's own keys, origins or paired tokens. Only over the
+  non-secret settings. The language model goes along only when it is pinned to LibertAI's
+  attested enclave (#754), with its key and pin: a hosted bridge uses no other. Not Hibiscus,
+  not portal passwords (a hosted image has no browser), not the bridge's own keys, origins or
+  paired tokens. Only over the
   stream, and only to the device that paired this bridge; never over HTTP to a page. The app
   keeps them sealed in the books and hands them only to an attested VM at its start. This
   bridge keeps its own.

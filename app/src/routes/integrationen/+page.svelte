@@ -75,7 +75,8 @@
 			{#each view.rows.filter((r) => r.group === g) as r (r.id + r.initials)}
 				<li data-testid="integration-row" data-id={r.id || 'mail'} data-kind={r.kind}>
 					{#if r.id === 'bridge'}
-						<div class="px-4 py-3">
+						<!-- One link, stretched over the row (its ::after); the panel's own controls lie above it. -->
+						<div class="relative px-4 py-3 hover:bg-surface-2">
 							<div class="flex items-center gap-3">
 								<span
 									class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-sm font-bold text-heading"
@@ -83,14 +84,18 @@
 								>
 								<a
 									href={hrefOf(r)}
-									class="font-semibold text-heading hover:underline"
+									class="font-semibold text-heading after:absolute after:inset-0 after:content-['']"
 									data-testid="integration-bridge">{nameOf(r.id)}</a
 								>
 								<span class="rounded-full px-2 py-0.5 text-xs font-semibold {CHIP[r.kind]}"
 									>{t(`integrationen.overview.state.${r.state}`)}</span
 								>
+								<span aria-hidden="true" class="ml-auto text-lg text-faint">›</span>
 							</div>
-							<div class="mt-2 sm:pl-13">
+							<div
+								class="mt-2 sm:pl-13 [&_a]:relative [&_a]:z-10 [&_button]:relative [&_button]:z-10 [&_details]:relative [&_details]:z-10 [&_form]:relative [&_form]:z-10"
+								data-testid="integration-bridge-controls"
+							>
 								<BridgePanel intro={false} />
 							</div>
 						</div>

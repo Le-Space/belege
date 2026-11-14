@@ -1242,6 +1242,19 @@ export async function hostedBridgeRecord() {
 const NEAR_HOSTED_SETTING = 'bridge/hosted-near';
 
 /**
+ * The bridge on Phala this browser started last, as the books keep it (no
+ * network): its peer id and when it was attested; never the peer key.
+ *
+ * @returns {Promise<{ peerId: string, attestedAt: string | null } | null>}
+ */
+export async function nearHostedRecord() {
+	if (!session?.store) return null;
+	const kept = /** @type {any} */ (await getSetting(session.store.settings, NEAR_HOSTED_SETTING));
+	if (typeof kept?.peerId !== 'string') return null;
+	return { peerId: kept.peerId, attestedAt: kept.attestedAt ?? null };
+}
+
+/**
  * The books on NEAR for the hosted bridge on Phala: their account (made on
  * the owner's device), its balance, the contract's view and the bridge this
  * browser last started.

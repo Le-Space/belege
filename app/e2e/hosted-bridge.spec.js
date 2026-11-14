@@ -411,6 +411,31 @@ test('a device starts the hosted bridge on Aleph, short of credits first, fetche
 			)
 			.toBe('online/stream');
 
+		// The hosted bridge is the books' bridge now: taking over would ask the VM, not this
+		// computer, so the button is off and says what to do instead.
+		await expect(settings.getByTestId('hosted-settings-take-over')).toBeDisabled();
+		await expect(settings.getByTestId('hosted-settings-take-over-hint')).toContainText(
+			'Die Bridge der Bücher ist jetzt eine gehostete'
+		);
+		// KI: no model for the hosted bridge – not the defaults of a bridge on a computer, no
+		// terminal advice, but where to enter it and that the VM has to start again.
+		await openIntegration(mac.page, 'ki');
+		const ki = mac.page.getByTestId('ki-card');
+		await expect(ki.getByTestId('ki-hosted-no-model')).toContainText(
+			'Für die gehostete Bridge ist kein Sprachmodell eingerichtet',
+			{ timeout: 60_000 }
+		);
+		await expect(ki.getByTestId('ki-hosted-no-model')).toContainText('stoppen und wieder starten');
+		await expect(ki.getByTestId('ki-provider')).toHaveCount(0);
+		await expect(ki.getByTestId('ki-ollama')).toHaveCount(0);
+		await expect(ki).not.toContainText('pnpm setup:llm');
+		await expect(mac.page.getByTestId('integration-help-how')).toContainText(
+			'Hier antwortet eine gehostete Bridge'
+		);
+		await expect(mac.page.getByTestId('integration-help-command')).toHaveCount(0);
+		await ki.getByTestId('ki-hosted-settings-link').click();
+		await expect(mac.page.getByTestId('hosted-settings')).toBeVisible();
+
 		// Mail through the hosted bridge: this month's and last month's accounting mails.
 		await mac.page
 			.getByRole('navigation', { name: 'Hauptnavigation' })

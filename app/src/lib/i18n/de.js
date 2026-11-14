@@ -4319,7 +4319,9 @@ export default {
 			},
 			ki: {
 				what: 'Ein Sprachmodell liest Anbieter, Betrag, Datum und Nummer aus Belegen und hilft an vier weiteren Stellen – immer nur auf Klick (✦).',
-				how: 'Du richtest dein eigenes Modell in der Bridge ein, etwa DeepSeek oder ein lokales mit Ollama. Vor dem Senden wird geschwärzt, soweit Muster und Listen reichen; mit einem lokalen Modell geht nichts hinaus – dazu raten wir derzeit. Le Space betreibt keine KI.'
+				how: 'Du richtest dein eigenes Modell in der Bridge ein, etwa DeepSeek oder ein lokales mit Ollama. Vor dem Senden wird geschwärzt, soweit Muster und Listen reichen; mit einem lokalen Modell geht nichts hinaus – dazu raten wir derzeit. Le Space betreibt keine KI.',
+				howHosted:
+					'Hier antwortet eine gehostete Bridge. Sie nutzt nur ein Modell in LibertAIs attestierter Enklave, deren Attestierung sie vor jeder Anfrage prüft – kein anderes, auch kein lokales. Schlüssel, Modell und Pin der Enklave trägst du unter Integrationen → Bridge → „Einstellungen für die gehostete Bridge“ ein; sie gehen beim nächsten Start der VM mit. Le Space betreibt keine KI.'
 			},
 			kraken: {
 				what: 'Belege liest dein Kraken-Konto nur lesend: Ledger, Bestände und Trades, je Asset ein Konto, in Euro zum Tageskurs.',
@@ -4690,6 +4692,8 @@ export default {
 			takeOver: 'Von der Bridge auf diesem Rechner übernehmen',
 			takeOverHint:
 				'Die gekoppelte Bridge gibt ihre Konten und Einstellungen über den Stream an dieses Gerät – nur an das Gerät, das sie gekoppelt hat –, und sie werden hier versiegelt gehalten. Mach das, bevor eine gehostete Bridge die Bridge der Bücher wird.',
+			takeOverHosted:
+				'Geht gerade nicht: Die Bridge der Bücher ist jetzt eine gehostete. Die Frage ginge an die VM, nicht an diesen Rechner, und brächte nichts Neues. Trag die Werte unten von Hand ein – oder kopple zuerst wieder die Bridge auf diesem Rechner und übernimm dann.',
 			forget: 'Vergessen',
 			forgetConfirm:
 				'Die für die gehostete Bridge gehaltenen Einstellungen vergessen? Die Bridge auf deinem Rechner behält ihre eigenen.',
@@ -4705,6 +4709,8 @@ export default {
 			paperlessUrl: 'Adresse von Paperless (https://…)',
 			keep: 'Für die gehostete Bridge halten',
 			saved: 'Versiegelt gehalten. Es geht beim nächsten Start mit.',
+			savedRunning:
+				'Versiegelt gehalten. Eine laufende VM bekommt es erst bei ihrem nächsten Start: stoppen und wieder starten.',
 			llm: 'KI in LibertAIs attestierter Enklave',
 			llmHint:
 				'Kommt mit, wenn du von der Bridge auf diesem Rechner übernimmst und sie mit pnpm setup:llm an LibertAI vertraulich gebunden ist. Oder hier eintragen: Schlüssel, Modell und den Pin der Enklave (Item-Hash und Messung, aus llm.tee in der bridge.json dieses Rechners). Die gehostete Bridge prüft die Enklave vor jeder Anfrage gegen diesen Pin und schickt sonst nichts.',
@@ -4851,6 +4857,20 @@ export default {
 				'Die KI liest nur Belege aus: Anbieter, Betrag, Datum, Rechnungsnummer. Die Zuordnung zu Zahlungen macht die App selbst, nachvollziehbar nach Punkten.',
 			keyWhere:
 				'Der API-Key liegt nur im Schlüsselbund der Bridge – ändern mit pnpm setup:llm. Er kommt nie in den Browser.',
+			keyWhereHosted:
+				'Hier antwortet eine gehostete Bridge. Ihr API-Key wird versiegelt in diesen Büchern gehalten und beim Start nur an eine VM übergeben, deren Attestierung hält – ändern unter „Einstellungen für die gehostete Bridge“, dann die VM stoppen und wieder starten. Angezeigt wird er nie wieder.',
+			hostedNoModel: 'Für die gehostete Bridge ist kein Sprachmodell eingerichtet.',
+			hostedNoModelHow:
+				'Sie nimmt nur ein Modell in LibertAIs attestierter Enklave an. Schlüssel, Modell und Pin der Enklave trägst du hier ein:',
+			hostedNoModelRestart:
+				'Danach die VM stoppen und wieder starten: Das Modell kommt erst bei ihrem nächsten Start mit.',
+			keyMissingHosted: 'fehlt – unter „Einstellungen für die gehostete Bridge“ eintragen',
+			authServNoneHosted: 'nicht gesetzt',
+			technicalHosted: [
+				'Die gehostete Bridge schickt die Textebene eines PDFs (oder den Text einer E-Mail) nur an ein Modell in LibertAIs attestierter Enklave. Vor jeder Anfrage prüft sie die Attestierung der Enklave gegen den Pin (Item-Hash und Messung); hält sie nicht, wird nichts gesendet. Was gesendet wurde, steht beim Beleg unter „An die KI gesendet“.',
+				'Die Antwort wird geprüft (Brutto da, Währung ISO, Daten gültig, Netto + USt = Brutto). Fällt sie durch oder bricht sie ab, fragt die Bridge ein zweites Mal.',
+				'Schlüssel, Modell und Pin stehen versiegelt in diesen Büchern und gehen beim Start nur an eine VM, deren Attestierung hält. Keine Antwort der Bridge enthält den Schlüssel – ihr Status sagt nur „da“ oder „fehlt“.'
+			],
 			ollama: {
 				title: 'Anleitung: lokal mit Ollama lesen – dann verlässt nichts den Rechner',
 				intro:

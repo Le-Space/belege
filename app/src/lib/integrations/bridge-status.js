@@ -81,3 +81,30 @@ export function bridgeStatusRows(f) {
 
 	return [localRow, alephRow, nearRow];
 }
+
+/**
+ * Which hosted bridge the books' bridge is, by its node's peer id: the VM on
+ * Aleph or the one on Phala that was unlocked last, else none (the bridge on
+ * a computer, or no bridge). What the app asks over the stream goes to it.
+ *
+ * @param {string | null | undefined} peerId the books' bridge (settings `bridge.peerId`)
+ * @param {{ aleph?: string | null, near?: string | null } | null | undefined} peers the hosted bridges' peer ids
+ * @returns {'aleph' | 'near' | null}
+ */
+export function hostedBridgeOf(peerId, peers) {
+	if (!peerId) return null;
+	if (peers?.aleph && peerId === peers.aleph) return 'aleph';
+	if (peers?.near && peerId === peers.near) return 'near';
+	return null;
+}
+
+/**
+ * A hosted VM runs right now: what is kept for it reaches it only at its
+ * next start.
+ *
+ * @param {{ aleph?: { vm?: any } | null, near?: { running: boolean } | null }} f
+ */
+export function hostedVmRunning(f) {
+	const vm = f.aleph?.vm ?? null;
+	return Boolean(vm && !vm.stoppedAt) || Boolean(f.near?.running);
+}
