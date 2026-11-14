@@ -1,5 +1,6 @@
 import { intlLocale, t } from '../i18n/index.js';
 import { noteWayOut, wayOutKind } from '../help/way-out.js';
+import { scopeLabel } from './scopes.js';
 // The app's side of the bridge on 127.0.0.1 (see bridge/README.md).
 
 /**
@@ -353,7 +354,12 @@ export function createBridgeClient({
 				throw failed(t(`messages.bridge.paperless.${body.code}`, { cause }), res.status, body);
 			}
 			if (GRANT_REFUSALS.has(body?.code)) {
-				throw failed(t(`messages.bridge.grant.${body.code}`), res.status, body);
+				// SCOPE_MISSING names the scope (grants.js): said as the area it is.
+				throw failed(
+					t(`messages.bridge.grant.${body.code}`, { scope: scopeLabel(body.error) }),
+					res.status,
+					body
+				);
 			}
 			if (res.status === 403 && body?.code === 'SENDER_UNVERIFIED') {
 				throw new BridgeError(t('messages.bridge.senderUnverified'), 403);

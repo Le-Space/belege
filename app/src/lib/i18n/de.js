@@ -451,7 +451,7 @@ export default {
 			},
 			grant: {
 				BRIDGE_SCOPE_MISSING:
-					'Dieses Gerät darf das an der Bridge nicht. Das Gerät, das die Bridge gekoppelt hat, legt fest, was es darf.',
+					'Dieses Gerät darf an der Bridge nicht: {scope}. Das Gerät, das die Bridge gekoppelt hat, legt unter Integrationen → Eigene Geräte → Erweitert fest, was es darf.',
 				BRIDGE_GRANT_EXPIRED:
 					'Der Zugang dieses Geräts zur Bridge ist abgelaufen, weil es sie 90 Tage nicht genutzt hat. Auf dem Gerät, das die Bridge gekoppelt hat: Integrationen → Eigene Geräte → Erweitert → Erneuern.',
 				BRIDGE_BACKUP_HOUR:
@@ -1740,7 +1740,7 @@ export default {
 		bridgeServed: 'Die Bridge dieses Rechners steht deinen Geräten zur Verfügung.',
 		bridgeAccess: {
 			title: 'Zugang zur Bridge',
-			text: 'Jedes eigene Gerät darf an der Bridge, was es bisher durfte. Wer sie 90 Tage nicht nutzt, verliert den Zugang, bis das Gerät, das die Bridge gekoppelt hat, ihn hier erneuert. Ein Mitglied hat Zugang nur, wenn du es beim Aufnehmen erlaubt hast.',
+			text: 'Ein neues eigenes Gerät darf an der Bridge alles, was es bisher durfte. Das Gerät, das die Bridge gekoppelt hat, legt hier je Gerät fest, welche Bereiche es nutzen darf. Wer die Bridge 90 Tage nicht nutzt, verliert den Zugang, bis dieses Gerät ihn erneuert. Ein Mitglied hat Zugang nur, wenn du es beim Aufnehmen erlaubt hast.',
 			thisDevice: 'Dieses Gerät',
 			holder: 'hat die Bridge gekoppelt, läuft nicht ab',
 			until: 'Zugang bis {date}',
@@ -1749,6 +1749,21 @@ export default {
 			narrowed: 'eingeschränkt auf {count} Bereiche',
 			renew: 'Erneuern',
 			askHolder: 'auf dem Gerät erneuern, das die Bridge gekoppelt hat',
+			scopes: 'Darf an der Bridge',
+			onlyHolder: 'Ändern kann das nur das Gerät, das die Bridge gekoppelt hat.',
+			saving: 'wird gespeichert …',
+			saveFailed: 'Nicht gespeichert: {reason}',
+			scope: {
+				bankRead: 'Bank lesen',
+				bankLink: 'Banken verbinden',
+				mailRead: 'Mails lesen',
+				mailWrite: 'Mails in den Papierkorb',
+				paperlessRead: 'Paperless lesen',
+				llm: 'KI-Modell',
+				backup: 'Sicherung',
+				share: 'Teilen',
+				chainsRead: 'Wallets und Kurse lesen'
+			},
 			usage: 'Aufrufe: {calls} · abgelehnt: {refused}',
 			usageText:
 				'Was dieses Gerät an der Bridge aufgerufen hat: nur Befehl, Anzahl und Zeit, keine Inhalte.',

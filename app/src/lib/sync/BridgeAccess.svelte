@@ -1,18 +1,28 @@
 <script>
 	// What each device may do with the bridge's own node (#579), under
 	// Geräte → Erweitert. The device that paired the bridge sees every device's
-	// access and renews one that lapsed after 90 days unused; any other device
-	// sees its own. Shown only while the bridge's node is connected.
-	import { app, bridgeGrants, renewBridgeDevice } from '$lib/session.svelte.js';
+	// access, ticks per device which areas it may use (`device.scopes`), and
+	// renews one that lapsed after 90 days unused; any other device sees its
+	// own, the boxes disabled. Shown only while the bridge's node is connected.
+	import {
+		app,
+		bridgeGrants,
+		renewBridgeDevice,
+		setBridgeDeviceScopes
+	} from '$lib/session.svelte.js';
 	import { intlLocale, t } from '$lib/i18n/index.js';
+	import { scopeChoices, scopeLabel, toggled } from '$lib/bridge/scopes.js';
 	import { usageList, usageTotal } from './bridge-usage.js';
 
-	/** @type {{ holder: boolean, scopes: string[], devices: { peerId: string, scopes: string[], lastUsedAt: number | null, expiresAt: number | null, usage?: unknown }[] } | null} */
+	/** @type {{ holder: boolean, scopes: string[], settable?: string[], devices: { peerId: string, scopes: string[], lastUsedAt: number | null, expiresAt: number | null, usage?: unknown }[] } | null} */
 	let grants = $state(null);
 	/** @type {string | null} */
 	let error = $state(null);
 	/** @type {string | null} the device being renewed */
 	let renewing = $state(null);
+	/** @type {string | null} the device whose scopes are being saved */
+	let saving = $state(null);
+	const choices = $derived(grants ? scopeChoices(grants) : []);
 
 	async function load() {
 		try {
@@ -42,6 +52,28 @@
 		}
 	}
 
+	/**
+	 * One box ticked or not: saved at once, then read back from the bridge.
+	 *
+	 * @param {{ peerId: string, scopes: string[] }} g
+	 * @param {string} scope
+	 * @param {boolean} on
+	 */
+	async function tick(g, scope, on) {
+		saving = g.peerId;
+		error = null;
+		try {
+			await setBridgeDeviceScopes(g.peerId, toggled(g.scopes, choices, scope, on));
+		} catch (e) {
+			error = t('devices.bridgeAccess.saveFailed', {
+				reason: e instanceof Error ? e.message : String(e)
+			});
+		} finally {
+			await load();
+			saving = null;
+		}
+	}
+
 	/** @param {number} at */
 	const moment = (at) =>
 		new Intl.DateTimeFormat(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(
@@ -56,8 +88,8 @@
 			? t('devices.bridgeAccess.thisDevice')
 			: app.sync.state?.devices.find((d) => d.peerId === peerId)?.label ||
 				`${peerId.slice(0, 10)}…`;
-	/** @param {{ scopes: string[] }} g */
-	const narrowed = (g) => Boolean(grants && g.scopes.length < grants.scopes.length);
+	/** @param {{ scopes: string[] }} g some area not ticked */
+	const narrowed = (g) => choices.some((s) => !g.scopes.includes(s));
 	const button =
 		'rounded-md border border-border px-3 py-1 text-xs text-text hover:bg-surface-2 hover:text-heading disabled:opacity-50';
 </script>
@@ -85,7 +117,9 @@
 							· {t('devices.bridgeAccess.lastUsed', { date: day(g.lastUsedAt) })}
 						{/if}
 						{#if narrowed(g)}
-							· {t('devices.bridgeAccess.narrowed', { count: g.scopes.length })}
+							· {t('devices.bridgeAccess.narrowed', {
+								count: g.scopes.filter((s) => choices.includes(s)).length
+							})}
 						{/if}
 					</span>
 					{#if lapsed && grants.holder}
@@ -98,6 +132,32 @@
 						>
 					{:else if lapsed}
 						<span class="text-xs text-faint">{t('devices.bridgeAccess.askHolder')}</span>
+					{/if}
+					{#if choices.length}
+						<fieldset
+							class="w-full"
+							disabled={!grants.holder || saving !== null}
+							data-testid="bridge-access-scopes"
+						>
+							<legend class="sr-only">{t('devices.bridgeAccess.scopes')}</legend>
+							<div class="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+								{#each choices as scope (scope)}
+									<label class="inline-flex items-center gap-1 text-text">
+										<input
+											type="checkbox"
+											checked={g.scopes.includes(scope)}
+											onchange={(e) => tick(g, scope, e.currentTarget.checked)}
+											data-testid="bridge-access-scope"
+											data-scope={scope}
+										/>
+										{scopeLabel(scope)}
+									</label>
+								{/each}
+								{#if saving === g.peerId}
+									<span class="text-faint">{t('devices.bridgeAccess.saving')}</span>
+								{/if}
+							</div>
+						</fieldset>
 					{/if}
 					<details class="w-full text-xs" data-testid="bridge-access-usage">
 						<summary class="cursor-pointer text-faint" data-testid="bridge-access-usage-total">
@@ -126,6 +186,9 @@
 				</li>
 			{/each}
 		</ul>
+		{#if !grants.holder}
+			<p class="mt-1 text-xs text-faint">{t('devices.bridgeAccess.onlyHolder')}</p>
+		{/if}
 		{#if error}
 			<p class="mt-1 text-xs text-danger" role="alert">{error}</p>
 		{/if}

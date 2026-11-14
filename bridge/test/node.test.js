@@ -202,7 +202,15 @@ describe('the bridge’s node', () => {
 				authKey: AUTH_KEY,
 				relays: [],
 				devices: [own.peerId, other.peerId],
-				commands: emptyCommands(),
+				// As index.js: `device.scopes` reaches the node through its handle.
+				commands: emptyCommands({
+					node: {
+						status: () => ({}),
+						disarm: async () => {},
+						setScopes: (/** @type {unknown} */ p, /** @type {unknown} */ s) =>
+							/** @type {any} */ (node).setScopes(p, s)
+					}
+				}),
 				transports: [memory()],
 				listen: ['/memory/bridge-two'],
 				onUnpair: async () => void unpaired++
@@ -353,6 +361,58 @@ describe('the bridge’s node', () => {
 				null,
 				'the device that paired the bridge does not lapse'
 			);
+			// One device's scopes, set by name (`device.scopes`): only the device that paired the bridge.
+			await assert.rejects(
+				other.consumer.call(node.peerId, 'belege-bridge', 'device.scopes', {
+					peerId: other.peerId,
+					scopes: ['bridge:paperless:read', 'bridge:bank:read']
+				}),
+				(/** @type {any} */ e) => e.code === 'SCOPE_MISSING'
+			);
+			const set = await own.consumer.call(node.peerId, 'belege-bridge', 'device.scopes', {
+				peerId: other.peerId,
+				scopes: ['bridge:paperless:read', 'bridge:bank:read']
+			});
+			assert.equal(set.status, 200);
+			assert.deepEqual(set.json.scopes, ['bridge:bank:read', 'bridge:paperless:read']);
+			const now = await other.consumer.call(node.peerId, 'belege-bridge', 'request', {
+				method: 'GET',
+				path: '/paperless/documents?since=2026-01-01T00:00:00Z'
+			});
+			assert.equal(now.status, 503, 'ticked again: let through to the command');
+			// The device list told again by peer ids keeps the set.
+			await own.consumer.call(node.peerId, 'belege-bridge', 'devices', {
+				devices: [own.peerId, other.peerId]
+			});
+			const kept2 = await other.consumer.call(node.peerId, 'belege-bridge', 'grants', {});
+			assert.deepEqual(kept2.devices[0].scopes, ['bridge:bank:read', 'bridge:paperless:read']);
+			// An unknown scope, or the holder's own, is refused; so is a stranger's peer id.
+			for (const scopes of [['bridge:nope'], ['bridge:grants:manage']]) {
+				const bad = await own.consumer.call(node.peerId, 'belege-bridge', 'device.scopes', {
+					peerId: other.peerId,
+					scopes
+				});
+				assert.equal(bad.status, 400);
+				assert.equal(bad.json.code, 'INVALID_ARGUMENTS');
+			}
+			const strangerSet = await own.consumer.call(node.peerId, 'belege-bridge', 'device.scopes', {
+				peerId: stranger.peerId,
+				scopes: []
+			});
+			assert.equal(strangerSet.status, 400);
+			// The schema refuses more than peerId and scopes before anything runs.
+			await assert.rejects(
+				own.consumer.call(node.peerId, 'belege-bridge', 'device.scopes', {
+					peerId: other.peerId,
+					scopes: [],
+					holder: true
+				}),
+				(/** @type {any} */ e) => e.code === 'INVALID_ARGUMENTS'
+			);
+			const settable = await own.consumer.call(node.peerId, 'belege-bridge', 'grants', {});
+			assert.ok(settable.settable.includes('bridge:mail:read'));
+			assert.ok(!settable.settable.includes('bridge:grants:manage'));
+
 			// Renewing is for the device that paired the bridge.
 			await assert.rejects(
 				other.consumer.call(node.peerId, 'belege-bridge', 'renew', { peerId: other.peerId }),

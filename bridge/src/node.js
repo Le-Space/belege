@@ -74,7 +74,7 @@ import {
 } from '@belege/device-gate';
 import { UcepError, createProvider } from '@le-space/ucep';
 
-import { createGrants, limitsOf, parseDevices, scopesOf } from './grants.js';
+import { createGrants, limitsOf, parseDevices, scopesOf, settableOf } from './grants.js';
 import { PROTOCOL_VERSION, command as protocolCommand } from '@le-space/bridge-protocol';
 import { answerNamed, answerRequest, offered } from './stream.js';
 
@@ -205,6 +205,7 @@ const relayPeerOf = (addr) => /\/p2p\/(12D3KooW[1-9A-HJ-NP-Za-km-z]{44})/.exec(a
  * @property {() => Promise<string>} invite an invitation to pair, `web+ucep:pair?…` (unarmed only)
  * @property {(peerIds: string[]) => void} setDevices the books' device list, as the app keeps it current
  * @property {() => Set<string>} devices
+ * @property {(peerId: unknown, scopes: unknown) => Promise<string[]>} setScopes one device's scopes (grants.js)
  * @property {() => Promise<void>} stop
  * @property {any} libp2p
  */
@@ -429,7 +430,8 @@ export async function startBridgeNode({
 				const list = (await deviceGrants.list((p) => holders.has(p))).filter(
 					(g) => known.has(g.peerId) && (holder || g.peerId === peerId)
 				);
-				return { holder, scopes: allScopes, devices: list };
+				// `settable`: what a device's set is made of (device.scopes); the holder's own are not.
+				return { holder, scopes: allScopes, settable: settableOf(allScopes), devices: list };
 			}
 		},
 		renew: {
@@ -561,6 +563,23 @@ export async function startBridgeNode({
 		},
 		setDevices,
 		devices: () => new Set(known),
+		/**
+		 * One device's scopes (`device.scopes`, commands.js): the caller is the
+		 * device that paired the bridge (grants.js HOLDER_ONLY) or the owner
+		 * over HTTP with the token.
+		 *
+		 * @param {unknown} peer
+		 * @param {unknown} scopes
+		 */
+		async setScopes(peer, scopes) {
+			if (!armed) throw new UcepError('PAIRING_REQUIRED', 'pair the bridge with the books first');
+			if (!isPeerId(peer) || !known.has(peer)) {
+				throw new UcepError('INVALID_ARGUMENTS', 'peerId must be a device of the books');
+			}
+			const now = await deviceGrants.setScopes(peer, scopes);
+			log(`device.scopes: a device holds ${now.length} scope(s) now`);
+			return now;
+		},
 		async stop() {
 			await provider.stop().catch(() => {});
 			await libp2p.stop();

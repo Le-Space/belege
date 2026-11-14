@@ -432,7 +432,15 @@ export async function startBridge({
 					addrs: node?.addrs() ?? [],
 					devices: node ? node.devices().size : 0
 				}),
-				disarm: () => disarmNode()
+				disarm: () => disarmNode(),
+				/** One device's scopes (`device.scopes`): over HTTP with the token, or from the device that paired the bridge. @param {unknown} peerId @param {unknown} scopes */
+				setScopes: async (peerId, scopes) => {
+					if (!node)
+						throw Object.assign(new Error('the bridge’s node is not running'), {
+							code: 'PAIRING_REQUIRED'
+						});
+					return node.setScopes(peerId, scopes);
+				}
 			}
 		: null;
 

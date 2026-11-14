@@ -49,6 +49,9 @@ importers:
       '@le-space/attest-wasm':
         specifier: 0.12.4
         version: 0.12.4
+      '@le-space/bridge-protocol':
+        specifier: workspace:^
+        version: link:../packages/bridge-protocol
       '@le-space/chains':
         specifier: workspace:^
         version: link:../packages/chains

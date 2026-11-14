@@ -245,7 +245,7 @@ export function errorJson(error) {
  * @param {any} deps.alephBackup
  * @param {{ addr: string | null, stats: () => object } | null} deps.lanRelay
  * @param {any} [deps.portals] the portal connector, for /health only (its routes stay in portals/routes.js)
- * @param {{ status: () => object, disarm: () => Promise<void> } | null} [deps.node] the bridge's libp2p node (node.js, #573)
+ * @param {{ status: () => object, disarm: () => Promise<void>, setScopes?: (peerId: unknown, scopes: unknown) => Promise<string[]> } | null} [deps.node] the bridge's libp2p node (node.js, #573)
  * @param {(() => Promise<{ config: object, secrets: Record<string, string> }>) | null} [deps.settingsExport]
  *   what a hosted bridge may take over (#728)
  * @param {(message: string) => void} deps.log
@@ -1337,6 +1337,38 @@ export function createCommands({
 					`extracted with ${result.model} (${result.attempts.length} attempt(s), ${result.ms} ms, ${result.redactions.total} redaction(s))`
 				);
 				return json(200, result);
+			}
+		},
+		{
+			// What one device may call over the stream (#579): the device that
+			// paired the bridge (grants.js HOLDER_ONLY), or the owner here over
+			// HTTP with the token. A subset of the scopes offered; an unknown
+			// name is refused. Peer ids and scope names, nothing else.
+			name: 'device.scopes',
+			method: 'POST',
+			path: '/node/scopes',
+			scope: 'bridge:grants:manage',
+			bodyLimit: 2048,
+			run: async ({ body }) => {
+				if (!node?.setScopes) {
+					return json(503, { error: 'the bridge’s node is off', code: 'NODE_OFF' });
+				}
+				const b = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
+				const extra = Object.keys(b).filter((k) => k !== 'peerId' && k !== 'scopes');
+				if (extra.length)
+					return json(400, { error: 'only peerId and scopes', code: 'INVALID_ARGUMENTS' });
+				try {
+					const scopes = await node.setScopes(b.peerId, b.scopes);
+					return json(200, { peerId: b.peerId, scopes });
+				} catch (/** @type {any} */ error) {
+					if (error?.code === 'INVALID_ARGUMENTS' || error?.code === 'PAIRING_REQUIRED') {
+						return json(error.code === 'PAIRING_REQUIRED' ? 409 : 400, {
+							error: String(error.message ?? error.code).slice(0, 500),
+							code: error.code
+						});
+					}
+					throw error;
+				}
 			}
 		},
 		// What a hosted bridge may take over from this one (#728): the accounts

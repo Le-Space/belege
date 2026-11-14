@@ -57,12 +57,12 @@ describe('grants', () => {
 		);
 	});
 
-	test('parseDevices: a peer id holds all scopes; { peerId, scopes } only those offered', () => {
+	test('parseDevices: a peer id keeps what it holds; { peerId, scopes } only those offered', () => {
 		const m = parseDevices(
 			[A, { peerId: B, scopes: ['bridge:llm', 'bridge:llm', 'bridge:other'] }],
 			ALL
 		);
-		assert.deepEqual(m.get(A), ALL);
+		assert.equal(m.get(A), null);
 		assert.deepEqual(m.get(B), ['bridge:llm']);
 		assert.throws(() => parseDevices(['not a peer'], ALL), refused('INVALID_ARGUMENTS'));
 		assert.throws(
@@ -160,6 +160,58 @@ describe('grants', () => {
 		await grants.set(new Map([[B, ['bridge:settings:export']]]));
 		await assert.rejects(
 			grants.authorize(B, 'bridge:settings:export', {}),
+			refused('SCOPE_MISSING')
+		);
+	});
+
+	test('setScopes: a subset of those offered, kept when the list is told again (#579)', async () => {
+		let now = Date.UTC(2026, 0, 1);
+		const all = [...ALL, 'bridge:settings:export', 'bridge:grants:manage'];
+		const grants = createGrants({ file: join(dir, 'scopes.json'), scopes: all, now: () => now });
+		await grants.adopt([A, B]);
+		now += DAY;
+		assert.deepEqual(await grants.setScopes(B, ['bridge:llm', 'bridge:bank:read', 'bridge:llm']), [
+			'bridge:bank:read',
+			'bridge:llm'
+		]);
+		await assert.rejects(grants.authorize(B, 'bridge:mail:read'), refused('SCOPE_MISSING'));
+		await grants.authorize(B, 'bridge:llm');
+		// Set anew: the time counts from now.
+		assert.equal((await grants.list()).find((g) => g.peerId === B)?.expiresAt, now + 90 * DAY);
+		// Unknown names, and those only the holder holds, are refused – nothing changes.
+		for (const bad of [
+			['bridge:other'],
+			['bridge:grants:manage'],
+			['bridge:settings:export'],
+			'x',
+			[1]
+		]) {
+			await assert.rejects(grants.setScopes(B, bad), refused('INVALID_ARGUMENTS'));
+		}
+		await assert.rejects(grants.setScopes('12D3KooWnope', []), refused('INVALID_ARGUMENTS'));
+		await grants.authorize(B, 'bridge:llm');
+		// The list told again by peer ids alone keeps the set; a new device gets every scope.
+		const C = '12D3KooWRBy97UB99e3J6hiPesre1MZeuNQvfan4gBziswrRJsNK';
+		await grants.set(parseDevices([A, B, C], all));
+		await assert.rejects(grants.authorize(B, 'bridge:mail:read'), refused('SCOPE_MISSING'));
+		await grants.authorize(C, 'bridge:mail:read');
+		// The holder narrowed to nothing still manages the bridge: HOLDER_ONLY reads no list.
+		await grants.setScopes(A, []);
+		await assert.rejects(
+			grants.authorize(A, 'bridge:llm', { holder: true }),
+			refused('SCOPE_MISSING')
+		);
+		await grants.authorize(A, 'bridge:grants:manage', { holder: true });
+		await assert.rejects(grants.authorize(B, 'bridge:grants:manage'), refused('SCOPE_MISSING'));
+		// Ticked again: back.
+		await grants.setScopes(B, ALL);
+		await grants.authorize(B, 'bridge:mail:read');
+		// Kept on disk, read back at the next start.
+		await grants.flushed();
+		const again = createGrants({ file: join(dir, 'scopes.json'), scopes: all, now: () => now });
+		await again.adopt([A, B, C]);
+		await assert.rejects(
+			again.authorize(A, 'bridge:llm', { holder: true }),
 			refused('SCOPE_MISSING')
 		);
 	});

@@ -1617,6 +1617,17 @@ export async function renewBridgeDevice(peerId) {
 }
 
 /**
+ * The device that paired the bridge sets what one device may call there (#579).
+ *
+ * @param {string} peerId
+ * @param {string[]} scopes
+ * @returns {Promise<string[] | null>} what it holds now; null: the bridge's node is not connected
+ */
+export async function setBridgeDeviceScopes(peerId, scopes) {
+	return (await bridgeConsumer?.setDeviceScopes(peerId, scopes)) ?? null;
+}
+
+/**
  * The hosted bridge's VM as the books last recorded it (#587): which
  * instance, on which node, since when, at what price; null when none.
  */
