@@ -216,7 +216,8 @@ no books.
   generation of its pairing, and hands it over at pairing. The books' device key never leaves the
   browser. Devices prove themselves with the bridge's key toward this one peer only and let it
   reach none of their own protocols (no gossipsub, no Bitswap), so a copy of the key opens no
-  device. "Kopplung lösen" moves the books to the next generation: the old key is then worth
+  device. The one exception is `/le-space/bridge-blocks/1.0.0`, a Bitswap of its own on which the
+  bridge hands over big answers (below); the books' own Bitswap stays shut to it. "Kopplung lösen" moves the books to the next generation: the old key is then worth
   nothing (#575).
 - **Pairing by invitation:** until a device has handed the bridge's key over, the node is
   *unarmed* and offers one thing, pairing (UCEP): `pnpm bridge` prints an invitation,
@@ -245,10 +246,19 @@ no books.
   table as HTTP (`src/commands.js`), with the same body limit per command and the same answer, so
   a device sees over the stream what it would see over HTTP. Not over the stream: `/pair`,
   `/unpair` and `/share…` (HTTP's own), and `POST /backup/aleph` (bytes in: a block in M2). Bytes
-  out (a mail attachment, a Paperless original) go base64 while they fit UCEP's limit – 1 MiB on
-  a direct connection or through a relay that grants at least 32 MiB, 64 KiB through one that
-  grants less – and are refused `TOO_LARGE` above it. Each command needs
-  its scope (below).
+  out (a mail attachment, a raw mail, a Paperless original) go base64 while they fit UCEP's limit
+  – 1 MiB on a direct connection or through a relay that grants at least 32 MiB, 64 KiB through
+  one that grants less. **Bigger ones as blocks (#578):** a device that sends `$accept: ["blocks"]`
+  beside the arguments gets bytes from 32 KiB on as `block: { cid, size, key }`. The bridge seals
+  them with AES-256-GCM under a key made for this one answer, cuts them into blocks of at most
+  1 MiB with a dag-cbor root (the layout of receipt files between devices), and offers them on
+  `/le-space/bridge-blocks/1.0.0`, a Bitswap of its own (`@le-space/bridge-protocol/exchange`)
+  that only proved devices reach, with no routing and nothing provided. The device fetches the
+  blocks over the same proved connection, relayed too, checks each against its CID and the whole
+  against the key and the size, and says `blob.done`; only the device the answer is for may.
+  The bridge holds the blocks in memory only, at most 96 MiB, and drops them on `blob.done` or
+  after ten minutes. A device that does not say `$accept` gets `TOO_LARGE` above the limit, as
+  before. Each command needs its scope (below).
 - **Taking the settings to a hosted bridge (#728):** `settings.export` answers the accounts a
   hosted bridge reads (mail, Kraken, Paperless, Enable Banking with its file
   `enablebanking.sealed` as it is, CoinGecko, a Bitcoin zpub, Alchemy) and the integrations'

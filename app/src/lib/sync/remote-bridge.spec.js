@@ -345,4 +345,53 @@ describe('by name (#577)', () => {
 			askPeer({ call: scope, peerId: 'p3', input, init, pathOnly })
 		).rejects.toMatchObject({ code: 'SCOPE_MISSING' });
 	});
+
+	it('a big answer as blocks: `$accept` beside the arguments, once refused not again (#578)', async () => {
+		/** @type {[string, any][]} */
+		const asked = [];
+		const init = /** @type {any} */ ({
+			method: 'GET',
+			command: { name: 'paperless.document', args: { id: 7 } }
+		});
+		const input = 'http://127.0.0.1:8765/paperless/document?id=7';
+		const pathOnly = new Set();
+		const noBlocks = new Set();
+		const answer = {
+			status: 200,
+			contentType: 'application/pdf',
+			block: { cid: 'b', size: 1, key: 'k' }
+		};
+		await askPeer({
+			call: async (name, args) => (asked.push([name, args]), answer),
+			peerId: 'p1',
+			input,
+			init,
+			pathOnly,
+			blocks: true,
+			noBlocks
+		});
+		expect(asked).toEqual([['paperless.document', { id: 7, $accept: ['blocks'] }]]);
+
+		// A bridge from before #578 refuses the unknown argument: asked again without, and remembered.
+		asked.length = 0;
+		const old = async (/** @type {string} */ name, /** @type {any} */ args) => {
+			asked.push([name, args]);
+			if (args.$accept) throw new UcepError('INVALID_ARGUMENTS', '$accept: not expected');
+			return { status: 200, contentType: 'application/pdf', base64: 'AA==' };
+		};
+		const p = { call: old, peerId: 'p2', input, init, pathOnly, blocks: true, noBlocks };
+		await askPeer(p);
+		await askPeer(p);
+		expect(asked.map(([, a]) => Boolean(a.$accept))).toEqual([true, false, false]);
+
+		// JSON answers and a desktop (no blocks) never send it.
+		asked.length = 0;
+		await askPeer({ ...p, peerId: 'p3', blocks: false });
+		await askPeer({
+			...p,
+			peerId: 'p4',
+			init: /** @type {any} */ ({ method: 'GET', command: { name: 'bank.accounts', args: {} } })
+		});
+		expect(asked.every(([, a]) => !a.$accept)).toBe(true);
+	});
 });

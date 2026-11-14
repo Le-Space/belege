@@ -38,7 +38,8 @@
 // that is too large falls back to HTTP on this machine, when there is one.
 
 import { UcepError, createConsumer, createProvider, parseInvitation } from '@le-space/ucep';
-import { COMMANDS, checkArgs, httpRequest } from '@le-space/bridge-protocol';
+import { COMMANDS, checkArgs, command as specOf, httpRequest } from '@le-space/bridge-protocol';
+import { createBlockExchange } from '@le-space/bridge-protocol/exchange';
 
 export const EXTENSION = 'belege-bridge';
 export const SHARE_FLAG_KEY = 'belege.bridge-share';
@@ -46,6 +47,8 @@ export const SHARE_FLAG_KEY = 'belege.bridge-share';
 const HTTP_ONLY_PATH = /^\/(pair|unpair)$/;
 /** How long a call without a token waits for the bridge's node after an unlock. */
 export const STREAM_WAIT_MS = 20_000;
+/** How long a block answer may take to arrive: a 15 MB original through a relay (#578). */
+export const BLOCK_WAIT_MS = 120_000;
 const PEER_ID = /^12D3KooW[1-9A-HJ-NP-Za-km-z]{44}$/;
 
 /**
@@ -284,8 +287,19 @@ export async function startBridgeProvider({ libp2p, isOwnDevice, bridge, log = (
  * @param {string | URL | Request} p.input
  * @param {RequestInit} p.init
  * @param {Set<string>} p.pathOnly `<peer> <command>` known to go as `request`; added to here
+ * @param {boolean} [p.blocks] this device takes big answers as blocks (#578): `$accept` goes along
+ *   with a command that answers bytes
+ * @param {Set<string>} [p.noBlocks] peers that refused `$accept` (a bridge from before #578); added to here
  */
-export async function askPeer({ call, peerId, input, init, pathOnly }) {
+export async function askPeer({
+	call,
+	peerId,
+	input,
+	init,
+	pathOnly,
+	blocks = false,
+	noBlocks = new Set()
+}) {
 	const url = new URL(String(input instanceof Request ? input.url : input));
 	const body = typeof init.body === 'string' && init.body ? JSON.parse(init.body) : undefined;
 	/** @type {{ name: string, args: Record<string, unknown> } | undefined} */
@@ -298,7 +312,17 @@ export async function askPeer({ call, peerId, input, init, pathOnly }) {
 		});
 	const key = named ? `${peerId} ${named.name}` : '';
 	if (!named || pathOnly.has(key)) return byPath();
+	const accept = blocks && specOf(named.name)?.answer === 'bytes' && !noBlocks.has(peerId);
 	try {
+		if (accept) {
+			try {
+				return await call(named.name, { ...(named.args ?? {}), $accept: ['blocks'] });
+			} catch (error) {
+				// A bridge from before #578 checks `$accept` as an argument it does not know.
+				if (/** @type {any} */ (error)?.code !== 'INVALID_ARGUMENTS') throw error;
+				noBlocks.add(peerId);
+			}
+		}
 		return await call(named.name, named.args ?? {});
 	} catch (error) {
 		// A bridge or desktop from before #577 knows `request` only, and a
@@ -328,6 +352,12 @@ export async function startBridgeConsumer({
 }) {
 	const consumer = createConsumer({ libp2p, label });
 	await consumer.start?.();
+	// Big answers of the bridge's node as blocks (#578): Bitswap on the
+	// bridge's own protocol, which the device gate lets the bridge reach
+	// (node.js `reach`). Without it, such an answer goes over HTTP as before.
+	const blocks = await createBlockExchange({ libp2p }).catch(() => null);
+	/** @type {Set<string>} */
+	const noBlocks = new Set();
 
 	/**
 	 * `<peer> <command>` that a peer answered with UNKNOWN_COMMAND – a bridge
@@ -375,8 +405,9 @@ export async function startBridgeConsumer({
 	 * @param {string} peerId
 	 * @param {string | URL | Request} input
 	 * @param {RequestInit} [init]
+	 * @param {{ takesBlocks?: boolean }} [options] the peer is the bridge's own node, which hands big answers over as blocks
 	 */
-	async function callThrough(peerId, input, init = {}) {
+	async function callThrough(peerId, input, init = {}, { takesBlocks = false } = {}) {
 		/** @type {any} */
 		let answer;
 		try {
@@ -386,7 +417,9 @@ export async function startBridgeConsumer({
 				peerId,
 				input,
 				init,
-				pathOnly
+				pathOnly,
+				blocks: takesBlocks && blocks !== null,
+				noBlocks
 			});
 		} catch (error) {
 			// The bridge said no to this device: an answer, not a way that failed –
@@ -398,8 +431,20 @@ export async function startBridgeConsumer({
 				headers: { 'content-type': 'application/json' }
 			});
 		}
-		const payload =
-			answer.base64 !== undefined ? fromBase64(answer.base64) : JSON.stringify(answer.json ?? {});
+		/** @type {BodyInit} */
+		let payload;
+		if (answer.block && blocks) {
+			// The sealed blocks over the bridge's Bitswap, checked and opened;
+			// then the bridge may let them go (#578).
+			payload = /** @type {BodyInit} */ (
+				await blocks.fetch(answer.block, { signal: AbortSignal.timeout(BLOCK_WAIT_MS) })
+			);
+			consumer.call(peerId, EXTENSION, 'blob.done', { cid: answer.block.cid }).catch(() => {});
+		} else if (answer.base64 !== undefined) {
+			payload = /** @type {BodyInit} */ (fromBase64(answer.base64));
+		} else {
+			payload = JSON.stringify(answer.json ?? {});
+		}
 		return new Response(payload, {
 			status: answer.status,
 			headers: { 'content-type': answer.contentType || 'application/json' }
@@ -437,7 +482,7 @@ export async function startBridgeConsumer({
 			peerId = streamServer();
 		}
 		if (!peerId) throw new TypeError('the bridge’s node is not connected');
-		return callThrough(peerId, input, init);
+		return callThrough(peerId, input, init, { takesBlocks: true });
 	}
 
 	/**
@@ -558,7 +603,10 @@ export async function startBridgeConsumer({
 		streamFetch,
 		pairBridge,
 		tellDevices,
-		stop: () => consumer.stop?.()
+		async stop() {
+			await blocks?.stop().catch(() => {});
+			await consumer.stop?.();
+		}
 	};
 }
 

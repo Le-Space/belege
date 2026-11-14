@@ -18,7 +18,11 @@ import { fileURLToPath } from 'node:url';
 import { defaultConfig, saveConfig } from '@belege/bridge';
 import { FAKE_PASSWORD, sampleData, startFakeHibiscus } from '@belege/bridge/testing';
 import { FAKE_LLM_KEY, startFakeLlm } from '@belege/bridge/testing/llm';
-import { FAKE_PAPERLESS_TOKEN, startFakePaperless } from '@belege/bridge/testing/paperless';
+import {
+	FAKE_PAPERLESS_TOKEN,
+	sampleDocuments,
+	startFakePaperless
+} from '@belege/bridge/testing/paperless';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
@@ -27,6 +31,8 @@ import { pairBridge } from './bridge.js';
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
 const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
+/** The scan's size: well above what one stream answer carries (1 MiB, 64 KiB relayed). */
+const BIG_SCAN = 3 * 1024 * 1024;
 
 /** @type {Awaited<ReturnType<typeof startFakeHibiscus>>} */ let hibiscus;
 /** @type {Awaited<ReturnType<typeof startFakeLlm>>} */ let llm;
@@ -38,7 +44,14 @@ let bridgeOut = '';
 test.beforeAll(async () => {
 	hibiscus = await startFakeHibiscus({ data: sampleData() });
 	llm = await startFakeLlm();
-	paperless = await startFakePaperless();
+	// The photographed till receipt as a scan of 3 MB: over the stream too big
+	// for one answer, so it comes as blocks over the bridge's Bitswap (#578);
+	// HTTP to the bridge is refused there (e2e/bridge.js).
+	paperless = await startFakePaperless({
+		documents: sampleDocuments().map((d) =>
+			d.id === 12 ? { ...d, original: Buffer.concat([d.original, Buffer.alloc(BIG_SCAN, 7)]) } : d
+		)
+	});
 	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-paperless-'));
 	const configPath = join(dir, 'bridge.json');
 	await saveConfig(

@@ -26,6 +26,15 @@ commandInput('chains.wallet', { chain: 'akash', address: 'akash1…' });
 
 A problem names the field, never the value: problems may end up in a log.
 
+## Big answers as blocks (#578)
+
+An answer of bytes too big for one stream answer goes as sealed blocks:
+
+- `@le-space/bridge-protocol/blocks`: `sealBlocks(bytes)` seals with AES-256-GCM under a key made for this answer and cuts the sealed bytes into raw blocks of at most 1 MiB with a dag-cbor root; `openBlocks(get, root, key, { size })` fetches, checks every block against its CID, and opens.
+- `@le-space/bridge-protocol/exchange`: `createBlockExchange({ libp2p })` runs Bitswap on `/le-space/bridge-blocks/1.0.0`, a protocol of its own beside the books' `/ipfs/bitswap/`, with a store in memory and no routing. The bridge `offer`s an answer's bytes and `drop`s them when the device has them (or after ten minutes); the device `fetch`es and keeps nothing.
+
+Who may speak the protocol is the node's device gate's business (`@belege/device-gate`, `reach`).
+
 ```bash
 pnpm --filter @le-space/bridge-protocol test   # Node, and a scenario in Chromium
 ```
