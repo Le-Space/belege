@@ -238,6 +238,56 @@ describe('the bridge’s own key (#575)', () => {
 	});
 });
 
+describe('what the bridge reaches all the same (#578)', () => {
+	it('the protocol named in `reach`, and still not the books', async () => {
+		const deviceKey = await deriveDeviceAuthKey(new Uint8Array(32).fill(7));
+		const bridgeKey = new Uint8Array(32).fill(5);
+		const BLOCKS = '/test/bridge-blocks/1.0.0';
+		const bridgeGate = createDeviceGate({ authKey: bridgeKey, waitMs: 800 });
+		const bridge = await node('reach-bridge', bridgeGate);
+		const bridgePeer = bridge.peerId.toString();
+		const deviceGate = createDeviceGate({
+			keyFor: (peer) => (peer === bridgePeer ? bridgeKey : deviceKey),
+			limited: (peer) => peer === bridgePeer,
+			reach: ['/test/bridge-blocks/'],
+			waitMs: 800
+		});
+		const d = await node('reach-d', deviceGate);
+		/** @type {string[]} */
+		const told = [];
+		await d.register(BLOCKS, {
+			onConnect: (/** @type {any} */ peer) => void told.push(peer.toString())
+		});
+		await d.handle(BLOCKS, async (/** @type {any} */ stream) => {
+			await lpStream(stream).write(new TextEncoder().encode('a block'));
+			await stream.close();
+		});
+		const stranger = await node('reach-stranger', null);
+		/** @param {any} from */
+		const askBlocks = async (from) => {
+			const stream = await from.dialProtocol(d.peerId, BLOCKS, {
+				signal: AbortSignal.timeout(3000)
+			});
+			const got = await lpStream(stream).read({ signal: AbortSignal.timeout(3000) });
+			return new TextDecoder().decode(got.subarray());
+		};
+		await bridge.handle(BLOCKS, async (/** @type {any} */ stream) => stream.close());
+		try {
+			await d.dial(multiaddr('/memory/reach-bridge'));
+			await until(() => deviceGate.isProved(bridgePeer));
+			expect(await askBlocks(bridge)).toBe('a block');
+			await expect(askBooks(bridge, d)).rejects.toThrow();
+			// Its topology learns of the bridge (identify names the protocol to it).
+			await until(() => told.includes(bridgePeer), 5000);
+			// A stranger reaches neither.
+			await stranger.dial(multiaddr('/memory/reach-d'));
+			await expect(askBlocks(stranger)).rejects.toThrow();
+		} finally {
+			await Promise.all([bridge, d, stranger].map((n) => n.stop()));
+		}
+	});
+});
+
 describe('whom the proof is offered to', () => {
 	it('not to a relay the node dials: the relay never sees the protocol’s name', async () => {
 		const key = await deriveDeviceAuthKey(new Uint8Array(32).fill(9));

@@ -76,6 +76,7 @@ import { UcepError, createProvider } from '@le-space/ucep';
 
 import { createGrants, limitsOf, parseDevices, scopesOf, settableOf } from './grants.js';
 import { PROTOCOL_VERSION, command as protocolCommand } from '@le-space/bridge-protocol';
+import { createBlockExchange } from '@le-space/bridge-protocol/exchange';
 import { answerNamed, answerRequest, offered } from './stream.js';
 
 /** The UCEP extension the bridge offers: pairing, the device list, and `request` onto commands.js. */
@@ -316,6 +317,32 @@ export async function startBridgeNode({
 		if (!gate?.isProved(peerId) || !known.has(peerId)) throw new UcepError('PAIRING_REQUIRED');
 	}
 
+	// Big answers as blocks (#578): Bitswap on a protocol of its own, gated
+	// like everything else, holding only the sealed blocks of answers not yet
+	// fetched. `owners`: which device an answer is for, so only it drops it.
+	/** @type {Awaited<ReturnType<typeof createBlockExchange>> | null} */
+	let blocks = null;
+	/** @type {Map<string, string>} */
+	const owners = new Map();
+	if (armed) {
+		try {
+			blocks = await createBlockExchange({ libp2p });
+		} catch (error) {
+			await libp2p.stop().catch(() => {});
+			throw error;
+		}
+	}
+	/** The bridge's Bitswap for one device's answers. @param {string} peerId */
+	const blocksFor = (peerId) =>
+		blocks && {
+			/** @param {Uint8Array} bytes */
+			async offer(bytes) {
+				const answer = await /** @type {NonNullable<typeof blocks>} */ (blocks).offer(bytes);
+				owners.set(answer.cid, peerId);
+				return answer;
+			}
+		};
+
 	const grants = fileStore(join(dir, 'grants.json'));
 	/**
 	 * The device that paired this bridge by invitation: it holds the pairing
@@ -502,12 +529,28 @@ export async function startBridgeNode({
 					command,
 					args: argsJson,
 					limited,
+					blocks: blocksFor(peerId),
 					authorize: (c) => authorizeCall(peerId, c),
 					spent: (c, json) => {
 						if (c.scope === 'bridge:llm') deviceGrants.spent(peerId, json);
 					},
 					log
 				});
+			}
+		};
+	}
+
+	if (blocks) {
+		ucepCommands['blob.done'] = {
+			description:
+				'A block answer arrived: its blocks leave the bridge. { cid } → { dropped } (#578)',
+			handler: async ({ argsJson, peerId }) => {
+				assertDevice(peerId);
+				const cid = typeof argsJson?.cid === 'string' ? argsJson.cid : '';
+				if (!/^[a-z0-9]{8,128}$/.test(cid)) throw new UcepError('INVALID_ARGUMENTS', 'cid');
+				if (owners.get(cid) !== peerId) return { dropped: false };
+				owners.delete(cid);
+				return { dropped: await /** @type {NonNullable<typeof blocks>} */ (blocks).drop(cid) };
 			}
 		};
 	}
@@ -581,8 +624,11 @@ export async function startBridgeNode({
 			log(`device.scopes: a device holds ${now.length} scope(s) now`);
 			return now;
 		},
+		/** Whether no block answer waits on the bridge (#578). */
+		blocksEmpty: () => blocks?.isEmpty() ?? true,
 		async stop() {
 			await provider.stop().catch(() => {});
+			await blocks?.stop().catch(() => {});
 			await libp2p.stop();
 			await deviceGrants.flush();
 		}

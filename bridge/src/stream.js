@@ -25,8 +25,15 @@
 // attachment, a Paperless original) goes base64 while it fits UCEP's limit –
 // 1 MiB on a direct connection or through a relay that grants at least 32 MiB
 // (the books' own), 64 KiB through one that grants less (js-libp2p's default
-// 128 KiB) – and is refused `TOO_LARGE` above it, before it is encoded; bigger
-// files become blocks in M2 too.
+// 128 KiB) – and is refused `TOO_LARGE` above it, before it is encoded.
+//
+// Bigger answers as blocks (#578): a device that calls by name and says it
+// takes blocks (`$accept: ['blocks']` beside the arguments) gets an answer of
+// bytes above `BLOCK_FROM` as `block: { cid, size, key }` instead: the bridge
+// seals the bytes with a key made for this answer, offers the blocks on its
+// own Bitswap (`@le-space/bridge-protocol/exchange`, node.js) and the device
+// fetches them over the proved connection, then says `blob.done`. A client
+// that does not say so gets base64 or TOO_LARGE as before.
 
 import { LIMITS, UcepError } from '@le-space/ucep';
 import { checkArgs, commandInput, command as protocolCommand } from '@le-space/bridge-protocol';
@@ -48,6 +55,10 @@ const METHODS = new Set(['GET', 'POST', 'DELETE']);
 const MAX_PATH = 8192;
 /** Room for the answer's envelope (status, content type, request id) under UCEP's limit. */
 const ENVELOPE = 512;
+/** Bytes from this size on go as blocks to a device that takes them: base64 below fits even relayed. */
+export const BLOCK_FROM = 32 * 1024;
+/** What a device says beside the arguments when it takes block answers. */
+export const ACCEPT = '$accept';
 
 /**
  * Whether a command is offered over the stream.
@@ -57,8 +68,14 @@ const ENVELOPE = 512;
 export const offered = (command) => !HTTP_ONLY.has(command.name) && command.body !== 'bytes';
 
 /**
- * @typedef {{ status: number, contentType: string, json?: unknown, base64?: string }} StreamAnswer
- *   what `request` answers: JSON as it is, bytes as base64 with their mime type
+ * @typedef {{ status: number, contentType: string, json?: unknown, base64?: string, block?: import('@le-space/bridge-protocol/exchange').BlockAnswer }} StreamAnswer
+ *   what `request` answers: JSON as it is, bytes as base64 with their mime type; for a
+ *   device that takes them, big bytes as a block answer
+ */
+
+/**
+ * @typedef {object} Blocks the bridge's Bitswap for block answers (node.js)
+ * @property {(bytes: Uint8Array) => Promise<import('@le-space/bridge-protocol/exchange').BlockAnswer>} offer
  */
 
 /**
@@ -130,10 +147,28 @@ export async function answerRequest({
  * @param {(command: import('./commands.js').Command) => Promise<void>} [p.authorize]
  * @param {(command: import('./commands.js').Command, json: unknown) => void} [p.spent]
  * @param {(line: string) => void} [p.log]
+ * @param {Blocks | null} [p.blocks] the bridge's Bitswap, for a device that takes block answers
  * @returns {Promise<StreamAnswer>}
  */
-export async function answerNamed({ command, args, limited, authorize, spent, log = () => {} }) {
-	const problems = checkArgs(command.name, args ?? {});
+export async function answerNamed({
+	command,
+	args: sent,
+	limited,
+	authorize,
+	spent,
+	log = () => {},
+	blocks = null
+}) {
+	// Beside the arguments, not one of them: whether the device takes block answers.
+	const { [ACCEPT]: accept, ...args } = /** @type {Record<string, unknown>} */ (
+		sent && typeof sent === 'object' && !Array.isArray(sent) ? sent : {}
+	);
+	const takesBlocks = Array.isArray(accept) && accept.includes('blocks') && blocks !== null;
+	if (sent !== undefined && sent !== null && (typeof sent !== 'object' || Array.isArray(sent))) {
+		log(`${command.name} over the stream: refused INVALID_ARGUMENTS`);
+		throw new UcepError('INVALID_ARGUMENTS', 'the arguments: must be object');
+	}
+	const problems = checkArgs(command.name, args);
 	if (problems.length) {
 		log(`${command.name} over the stream: refused INVALID_ARGUMENTS`);
 		throw new UcepError('INVALID_ARGUMENTS', problems.join('; ').slice(0, 500));
@@ -155,7 +190,15 @@ export async function answerNamed({ command, args, limited, authorize, spent, lo
 		if (!params) return { status: 404, contentType: JSON_TYPE, json: { error: 'not found' } };
 		input.params = params;
 	}
-	return runCommand({ command, input, limited, authorize, spent, log });
+	return runCommand({
+		command,
+		input,
+		limited,
+		authorize,
+		spent,
+		log,
+		blocks: takesBlocks ? blocks : null
+	});
 }
 
 /**
@@ -169,6 +212,7 @@ export async function answerNamed({ command, args, limited, authorize, spent, lo
  * @param {(command: import('./commands.js').Command) => Promise<void>} [p.authorize]
  * @param {(command: import('./commands.js').Command, json: unknown) => void} [p.spent]
  * @param {(line: string) => void} [p.log]
+ * @param {Blocks | null} [p.blocks] set when the device takes block answers
  * @returns {Promise<StreamAnswer>}
  */
 async function runCommand({
@@ -177,7 +221,8 @@ async function runCommand({
 	limited,
 	authorize = async () => {},
 	spent = () => {},
-	log = () => {}
+	log = () => {},
+	blocks = null
 }) {
 	try {
 		await authorize(command);
@@ -202,6 +247,19 @@ async function runCommand({
 			token: null
 		});
 		if ('bytes' in answer) {
+			if (blocks && answer.bytes.length >= BLOCK_FROM) {
+				try {
+					return {
+						status: answer.status,
+						contentType: answer.mime,
+						block: await blocks.offer(answer.bytes)
+					};
+				} catch (/** @type {any} */ error) {
+					if (!(error instanceof RangeError)) throw error;
+					// The bridge holds too much now: as without blocks.
+					log(`${command.name} over the stream: no room for blocks`);
+				}
+			}
 			const max = limited ? LIMITS.limitedResponse : LIMITS.response;
 			if (Math.ceil(answer.bytes.length / 3) * 4 + ENVELOPE > max) {
 				throw new UcepError(

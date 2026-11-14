@@ -372,10 +372,44 @@ importers:
         version: 3.6.2
 
   packages/bridge-protocol:
+    dependencies:
+      '@helia/bitswap':
+        specifier: 4.0.6
+        version: 4.0.6(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))
+      '@ipld/dag-cbor':
+        specifier: 10.0.1
+        version: 10.0.1
+      blockstore-core:
+        specifier: ^6.0.0
+        version: 6.1.3
+      multiformats:
+        specifier: 14.0.5
+        version: 14.0.5
     devDependencies:
+      '@chainsafe/libp2p-noise':
+        specifier: 17.0.0
+        version: 17.0.0
+      '@chainsafe/libp2p-yamux':
+        specifier: 8.0.1
+        version: 8.0.1
       '@le-space/browser-test':
         specifier: workspace:*
         version: link:../browser-test
+      '@libp2p/circuit-relay-v2':
+        specifier: 4.2.9
+        version: 4.2.9
+      '@libp2p/identify':
+        specifier: 4.1.10
+        version: 4.1.10
+      '@libp2p/memory':
+        specifier: 2.0.28
+        version: 2.0.28
+      '@libp2p/tcp':
+        specifier: 11.0.32
+        version: 11.0.32
+      libp2p:
+        specifier: 3.3.7
+        version: 3.3.7
       prettier:
         specifier: 3.6.2
         version: 3.6.2
@@ -1184,9 +1218,6 @@ packages:
 
   '@libp2p/record@4.0.15':
     resolution: {integrity: sha512-EaHFtQAlZuM9vCpd+0KnZhTVgV26Uzje7DkyUseGNKTy+Wit9Q94C/+wDThpZuRHnK1FH/CvPxJ4kLj7AoQ1WA==}
-
-  '@libp2p/tcp@11.0.28':
-    resolution: {integrity: sha512-+YD59zz1V8YT47ZiInqoHAeSx45BC2bb5FVu3Bplo5zOxMMNXcH5WATIgn+IYIbusNPpMcs5wKd0QimQwzBl6Q==}
 
   '@libp2p/tcp@11.0.32':
     resolution: {integrity: sha512-L3bgTQrKnFaDWsDxsPErJ7/VZmJiyb8959ByIJIB1whs06bbZJDyTG0yej+xvp6xgXzqXeWeCV6eh8S4B4gqwQ==}
@@ -5124,7 +5155,7 @@ snapshots:
     dependencies:
       '@achingbrain/ssdp': 4.2.4
       '@chainsafe/is-ip': 2.1.0
-      '@libp2p/logger': 6.2.13
+      '@libp2p/logger': 6.2.16
       abort-error: 1.0.2
       err-code: 3.0.1
       netmask: 2.1.1
@@ -5474,11 +5505,11 @@ snapshots:
 
   '@helia/bitswap@4.0.6(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))':
     dependencies:
-      '@helia/interface': 7.1.1
+      '@helia/interface': 7.1.2
       '@helia/libp2p': 1.0.6(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))
-      '@helia/utils': 3.0.5
+      '@helia/utils': 3.0.6
       '@libp2p/interface': 3.3.0
-      '@libp2p/logger': 6.2.13
+      '@libp2p/logger': 6.2.16
       '@libp2p/peer-collections': 7.0.28
       '@libp2p/peer-id': 6.0.15
       '@libp2p/utils': 7.4.1
@@ -5647,7 +5678,7 @@ snapshots:
       '@libp2p/mplex': 12.0.32
       '@libp2p/peer-id': 6.0.15
       '@libp2p/ping': 3.1.13
-      '@libp2p/tcp': 11.0.28
+      '@libp2p/tcp': 11.0.32
       '@libp2p/tls': 3.1.10
       '@libp2p/upnp-nat': 4.0.28
       '@libp2p/webrtc': 6.0.27(react-native@0.87.1(@babel/core@7.29.7)(react@19.3.0))
@@ -6127,7 +6158,7 @@ snapshots:
       '@libp2p/crypto': 5.1.23
       '@libp2p/interface': 3.3.0
       '@libp2p/keychain': 6.1.7
-      '@libp2p/logger': 6.2.13
+      '@libp2p/logger': 6.2.16
       interface-datastore: 10.0.1
 
   '@libp2p/crypto@5.1.23':
@@ -6444,17 +6475,6 @@ snapshots:
       protons-runtime: 7.1.2
       uint8arraylist: 3.0.2
       uint8arrays: 6.1.1
-
-  '@libp2p/tcp@11.0.28':
-    dependencies:
-      '@libp2p/interface': 3.3.0
-      '@libp2p/utils': 7.4.1
-      '@multiformats/multiaddr': 13.0.3
-      '@multiformats/multiaddr-matcher': 3.0.2
-      main-event: 1.0.5
-      p-event: 7.1.1
-      progress-events: 1.1.0
-      uint8arraylist: 3.0.2
 
   '@libp2p/tcp@11.0.32':
     dependencies:
@@ -9367,7 +9387,7 @@ snapshots:
       '@libp2p/crypto': 5.1.23
       '@libp2p/interface': 3.3.0
       '@libp2p/interface-internal': 3.1.13
-      '@libp2p/logger': 6.2.13
+      '@libp2p/logger': 6.2.16
       '@libp2p/multistream-select': 7.0.28
       '@libp2p/peer-collections': 7.0.28
       '@libp2p/peer-id': 6.0.15

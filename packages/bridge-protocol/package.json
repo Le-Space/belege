@@ -12,9 +12,13 @@
 	"homepage": "https://github.com/Le-Space/belege/tree/main/packages/bridge-protocol#readme",
 	"sideEffects": false,
 	"exports": {
-		".": "./src/index.js"
+		".": "./src/index.js",
+		"./blocks": "./src/blocks.js",
+		"./exchange": "./src/exchange.js"
 	},
-	"files": ["src"],
+	"files": [
+		"src"
+	],
 	"engines": {
 		"node": ">=22"
 	},
@@ -27,7 +31,20 @@
 		"lint": "prettier --check src test"
 	},
 	"devDependencies": {
+		"@chainsafe/libp2p-noise": "17.0.0",
+		"@chainsafe/libp2p-yamux": "8.0.1",
 		"@le-space/browser-test": "workspace:*",
+		"@libp2p/circuit-relay-v2": "4.2.9",
+		"@libp2p/identify": "4.1.10",
+		"@libp2p/memory": "2.0.28",
+		"@libp2p/tcp": "11.0.32",
+		"libp2p": "3.3.7",
 		"prettier": "3.6.2"
+	},
+	"dependencies": {
+		"@helia/bitswap": "4.0.6",
+		"@ipld/dag-cbor": "10.0.1",
+		"blockstore-core": "^6.0.0",
+		"multiformats": "14.0.5"
 	}
 }

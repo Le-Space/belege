@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The bridge hands over big answers as blocks (#578): a mail attachment, a raw mail or a Paperless original that does not fit one stream answer (1 MiB, 64 KiB through a relay) reaches a device over the bridge's own node as sealed blocks – AES-256-GCM under a key made for that answer, fetched over a Bitswap of its own (`/le-space/bridge-blocks/1.0.0`, `@le-space/bridge-protocol/exchange`) on the proved connection, relayed too, each block checked against its CID. The device's gate lets the bridge reach that one protocol and still none of the books' own; the bridge keeps the blocks in memory until the device has them, at most ten minutes. A phone without HTTP to the bridge now gets originals of any size up to 32 MB.
+
 ## [0.32.7] – 2026-11-14
 
 ### Changed

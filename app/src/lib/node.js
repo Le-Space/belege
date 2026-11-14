@@ -37,6 +37,7 @@ import { attachQrSession, closeQrSession, qrPeers } from './sync/qr-link.js';
 import { relayAddrs } from './ucep/net.js';
 import { createHeliaLight } from 'helia';
 import { withBitswap } from '@helia/bitswap';
+import { BLOCKS_PROTOCOL } from '@le-space/bridge-protocol/exchange';
 import { withLibp2p } from '@helia/libp2p';
 import { LevelBlockstore } from 'blockstore-level';
 import { LevelDatastore } from 'datastore-level';
@@ -416,6 +417,8 @@ export async function startSession(
 				keyFor: (peer) =>
 					peer === bridgeAuth.peerId && bridgeAuth.key ? bridgeAuth.key : deviceAuthKey,
 				limited: (peer) => peer === bridgeAuth.peerId,
+				// …except the Bitswap on which it hands over big answers (#578), never the books' own.
+				reach: [BLOCKS_PROTOCOL],
 				// The proof is offered to devices, never to a relay this node dials.
 				offer: (peer) => !relayPeers.has(peer),
 				admit: firstContactPolicy({

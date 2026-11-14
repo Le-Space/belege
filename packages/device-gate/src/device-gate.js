@@ -93,9 +93,12 @@ export async function checkDeviceProof(authKey, proof, prover, verifier) {
  *
  * `limited` names peers that are proved but reach none of this node's gated
  * protocols and no topology (gossipsub, Bitswap): the bridge, which this node
- * only calls and which holds no books.
+ * only calls and which holds no books. `reach` names the protocols a limited
+ * peer reaches all the same, handler and topology, by prefix: the Bitswap on
+ * which the bridge hands over its big answers (Le-Space/belege#578), never
+ * the books' own.
  *
- * @param {{ authKey?: Uint8Array, keyFor?: (peer: string) => Uint8Array, waitMs?: number, admit?: (peer: string, connection: any) => boolean, offer?: (peer: string) => boolean, limited?: (peer: string) => boolean }} p
+ * @param {{ authKey?: Uint8Array, keyFor?: (peer: string) => Uint8Array, waitMs?: number, admit?: (peer: string, connection: any) => boolean, offer?: (peer: string) => boolean, limited?: (peer: string) => boolean, reach?: string[] }} p
  */
 export function createDeviceGate({
 	authKey,
@@ -103,8 +106,11 @@ export function createDeviceGate({
 	waitMs = PROOF_WAIT_MS,
 	admit = () => true,
 	offer = () => true,
-	limited = () => false
+	limited = () => false,
+	reach = []
 }) {
+	/** Whether a limited peer reaches this protocol. @param {string} protocol */
+	const reachable = (protocol) => reach.some((p) => String(protocol).startsWith(p));
 	if (!authKey && !chosen) throw new Error('A device gate needs a key.');
 	/** @type {(peer: string) => Uint8Array} */
 	const keyFor = chosen ?? (() => /** @type {Uint8Array} */ (authKey));
@@ -136,9 +142,6 @@ export function createDeviceGate({
 		for (const listener of listeners) listener(peer);
 	}
 
-	/** Proved, and not limited: what a gated protocol and a topology need. @param {string} peer */
-	const admitted = (peer) => proved.has(peer) && !limited(peer);
-
 	/** @param {string} peer @returns {Promise<boolean>} */
 	function waitProved(peer) {
 		if (proved.has(peer)) return Promise.resolve(true);
@@ -161,17 +164,19 @@ export function createDeviceGate({
 	 * @returns {any}
 	 */
 	const gatedHandler =
-		(handler) => async (/** @type {any} */ stream, /** @type {any} */ connection) => {
+		(handler, protocol = '') =>
+		async (/** @type {any} */ stream, /** @type {any} */ connection) => {
 			const peer = connection.remotePeer.toString();
-			if (!(await waitProved(peer)) || limited(peer)) {
+			if (!(await waitProved(peer)) || (limited(peer) && !reachable(protocol))) {
 				stream.abort(new Error('not an own device'));
 				return;
 			}
 			return handler(stream, connection);
 		};
 
-	/** @param {any} topology */
-	function gatedTopology(topology) {
+	/** @param {any} topology @param {string} [protocol] */
+	function gatedTopology(topology, protocol = '') {
+		const shut = (/** @type {string} */ peer) => limited(peer) && !reachable(protocol);
 		/** Peers this topology was told about. */
 		const told = new Set();
 		return {
@@ -179,11 +184,11 @@ export function createDeviceGate({
 			onConnect: (/** @type {any} */ peerId, /** @type {any} */ connection) => {
 				const peer = peerId.toString();
 				const tell = () => {
-					if (connection.status !== 'open' || limited(peer)) return;
+					if (connection.status !== 'open' || shut(peer)) return;
 					told.add(peer);
 					return topology.onConnect?.(peerId, connection);
 				};
-				if (admitted(peer)) return tell();
+				if (proved.has(peer) && !shut(peer)) return tell();
 				if (!held.has(peer)) held.set(peer, new Set());
 				/** @type {Set<() => void>} */ (held.get(peer)).add(() => {
 					Promise.resolve(tell()).catch(() => {});
@@ -263,9 +268,10 @@ export function createDeviceGate({
 			/** @type {string} */ protocol,
 			/** @type {any} */ handler,
 			/** @type {any} */ opts
-		) => handle(protocol, isOpenProtocol(protocol) ? handler : gatedHandler(handler), opts);
+		) =>
+			handle(protocol, isOpenProtocol(protocol) ? handler : gatedHandler(handler, protocol), opts);
 		registrar.register = (/** @type {string} */ protocol, /** @type {any} */ topology) =>
-			register(protocol, isOpenProtocol(protocol) ? topology : gatedTopology(topology));
+			register(protocol, isOpenProtocol(protocol) ? topology : gatedTopology(topology, protocol));
 
 		/** @param {any} e */
 		const onOpen = (e) => {
