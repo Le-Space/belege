@@ -217,6 +217,35 @@ describe('a VM of the books’ key', () => {
 		expect(aleph.instances.get(hash)?.status).toBe('forgotten');
 	});
 
+	it('says when the node gave up bringing it up', async () => {
+		aleph.fund(owner, 30 * FAKE_INSTANCE_CREDITS_PER_HOUR);
+		aleph.failStarts(true);
+		try {
+			const hash = await sendMessage(
+				await signedMessage({
+					type: 'INSTANCE',
+					content: instanceContent({
+						payer: owner,
+						image: HOSTED_IMAGE,
+						crn: FAKE_CRN,
+						trustedExecution: pins,
+						name: 'belege-bridge-stuck'
+					}),
+					sign
+				}),
+				{ apiHost: aleph.url, ...patience }
+			);
+			await notifyNode(aleph.url, hash, { delayMs: 10 });
+			expect(await onNode(aleph.url, hash)).toEqual({
+				running: false,
+				port443: null,
+				failed: { code: 'startup_failed', attempts: 5 }
+			});
+		} finally {
+			aleph.failStarts(false);
+		}
+	});
+
 	it('pins a measurement, or nothing is asked for', () => {
 		expect(() =>
 			instanceContent({
