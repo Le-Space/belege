@@ -352,7 +352,7 @@ test('a device starts the hosted bridge on Aleph, short of credits first, fetche
 			true
 		);
 		await expect(mac.page.getByTestId('hosted-bridge-vm')).toContainText('VM läuft seit');
-		await expect(mac.page.getByTestId('hosted-bridge-vm')).toContainText(instance.slice(0, 12));
+		await expect(mac.page.getByTestId('hosted-bridge-vm-hash')).toHaveText(instance);
 		await expect(mac.page.getByTestId('hosted-bridge-usage')).toContainText(
 			`${FAKE_INSTANCE_CREDITS_PER_HOUR.toLocaleString('de-DE')} Credits/h`
 		);
@@ -696,4 +696,97 @@ test('a VM the node cannot bring up: the card says so and stops it (#587)', asyn
 	} finally {
 		aleph.failStarts(false);
 	}
+});
+
+test('a VM that does not answer: the card says which try and why, cancels, lists the books’ VMs and stops one (#587)', async ({
+	browser
+}) => {
+	test.setTimeout(150_000);
+	const mac = await device(browser);
+	await mac.page.addInitScript(
+		(url) => localStorage.setItem('belege.e2e.alephUrl', url),
+		aleph.url
+	);
+	await mac.page.goto('/');
+	await acceptConsent(mac.page);
+	await mac.page.getByTestId('passkey-label').fill('E2E VM antwortet nicht');
+	await mac.page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(mac.page.getByTestId('own-did')).toBeVisible();
+	await openIntegration(mac.page, 'geraete');
+	await expect(mac.page.getByTestId('devices-reachable')).toContainText(
+		'über den Relay erreichbar',
+		{ timeout: 30_000 }
+	);
+	const owner = await mac.page.evaluate(() =>
+		/** @type {any} */ (window).__belegeE2E.alephAddress()
+	);
+	// No agent behind this /attest: every try fails as a VM still booting does.
+	await mac.page.evaluate(
+		([pins]) => {
+			localStorage.setItem('belege.e2e.hostedPins', pins);
+			localStorage.setItem('belege.e2e.attestUrl', 'ws://127.0.0.1:9/attest');
+			localStorage.setItem(
+				'belege.e2e.hostedPatience',
+				JSON.stringify({ tries: 20, delayMs: 3_000 })
+			);
+		},
+		[JSON.stringify(published)]
+	);
+	aleph.fund(owner, 30 * FAKE_INSTANCE_CREDITS_PER_HOUR);
+
+	await openIntegration(mac.page, 'bridge');
+	await expect(mac.page.getByTestId('hosted-bridge-instances')).toContainText(
+		'Aleph hält keine VM dieser Bücher'
+	);
+	await mac.page.getByTestId('hosted-bridge-pays-books').check();
+	await mac.page.getByTestId('hosted-bridge-start-passphrase').fill('not-the-real-passphrase');
+	await mac.page.getByTestId('hosted-bridge-start').click();
+
+	// Which try, of how many, and the last reason – without the query that names VM and node.
+	const progress = mac.page.getByTestId('hosted-bridge-progress');
+	await expect(progress).toContainText(
+		/Versuch \d+ von 20: Die VM antwortet noch nicht – .*WebSocket/,
+		{
+			timeout: 60_000
+		}
+	);
+	await expect(progress).not.toContainText('?crn=');
+	await mac.page.getByTestId('hosted-bridge-cancel').click();
+	await expect(mac.page.getByTestId('hosted-bridge-notice')).toContainText('Abgebrochen');
+	await expect(mac.page.getByTestId('hosted-bridge-error')).toHaveCount(0);
+	await expect(mac.page.getByTestId('hosted-bridge-cancel')).toHaveCount(0);
+
+	// The VM runs on: its full hash, its node, and the books' list of VMs that names it.
+	const [instance] = [...aleph.instances].find(
+		([, v]) => v.address.toLowerCase() === owner.toLowerCase() && v.status === 'processed'
+	) ?? [''];
+	expect(instance).toMatch(/^[0-9a-f]{64}$/);
+	await expect(mac.page.getByTestId('hosted-bridge-vm-hash')).toHaveText(instance);
+	await expect(mac.page.getByTestId('hosted-bridge-vm-node')).toContainText('http://127.0.0.1:');
+	const item = mac.page.locator(
+		`[data-testid="hosted-bridge-instance-item"][data-hash="${instance}"]`
+	);
+	await expect(item).toContainText(instance);
+	await expect(item.getByTestId('hosted-bridge-instance-known')).toContainText('Die kennt Belege');
+	await expect(item).toContainText('Fake TEE node');
+
+	// Nothing a later try changes: no relay with /attest. Said at once, not after 20 tries.
+	await mac.page.evaluate(() => localStorage.removeItem('belege.e2e.attestUrl'));
+	await mac.page.getByTestId('hosted-bridge-start-passphrase').fill('not-the-real-passphrase');
+	await mac.page.getByTestId('hosted-bridge-start').click();
+	await expect(mac.page.getByTestId('hosted-bridge-error')).toContainText('/attest', {
+		timeout: 20_000
+	});
+
+	// Picked from the list into the unlock form, then stopped from the list.
+	await item.getByTestId('hosted-bridge-instance-pick').click();
+	await expect(mac.page.getByTestId('hosted-bridge-instance')).toHaveValue(instance);
+	await expect(mac.page.getByTestId('hosted-bridge-passphrase')).toBeVisible();
+	mac.page.once('dialog', (dialog) => dialog.accept());
+	await item.getByTestId('hosted-bridge-instance-stop').click();
+	await expect(mac.page.getByTestId('hosted-bridge-vm')).toContainText('Gestoppt', {
+		timeout: 60_000
+	});
+	expect(aleph.instances.get(instance)?.status).toBe('forgotten');
+	await expect(item).toHaveCount(0);
 });

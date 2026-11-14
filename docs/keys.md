@@ -102,6 +102,7 @@ The other way round, the bridge limits what a device may do with it ([#579](http
 - A new device of your own holds all areas, as before. The device that paired the bridge ticks, per device, which areas it keeps under _Integrationen → Eigene Geräte → Erweitert_; any other device sees only its own there. When a device lacks an area, the bridge refuses the command and the app says which area is missing – it does not try another way. Only that device may set the areas, and it cannot take that right from itself. On the bridge's machine the owner can do it too, with the token (`POST /node/scopes`).
 - A member has access only if you allowed it when admitting them.
 - A device that does not use the bridge for 90 days loses access. The device that paired the bridge renews it under _Integrationen → Eigene Geräte → Erweitert_.
+- The bridge counts per device and command how often it was allowed or refused, and when last. You see it under _Integrationen → Eigene Geräte → Erweitert_. Only the command, the count and the time are kept, never content; the count goes with the device.
 - What costs money is limited per device: calls to the language model a minute, its tokens a day and backups an hour. So a stolen phone cannot run down your credit before you remove it.
 
 ## Members

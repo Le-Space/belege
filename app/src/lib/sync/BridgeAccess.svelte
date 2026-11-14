@@ -12,8 +12,9 @@
 	} from '$lib/session.svelte.js';
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { scopeChoices, scopeLabel, toggled } from '$lib/bridge/scopes.js';
+	import { usageList, usageTotal } from './bridge-usage.js';
 
-	/** @type {{ holder: boolean, scopes: string[], settable?: string[], devices: { peerId: string, scopes: string[], lastUsedAt: number | null, expiresAt: number | null }[] } | null} */
+	/** @type {{ holder: boolean, scopes: string[], settable?: string[], devices: { peerId: string, scopes: string[], lastUsedAt: number | null, expiresAt: number | null, usage?: unknown }[] } | null} */
 	let grants = $state(null);
 	/** @type {string | null} */
 	let error = $state(null);
@@ -74,6 +75,11 @@
 	}
 
 	/** @param {number} at */
+	const moment = (at) =>
+		new Intl.DateTimeFormat(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(
+			new Date(at)
+		);
+	/** @param {number} at */
 	const day = (at) =>
 		new Intl.DateTimeFormat(intlLocale(), { dateStyle: 'medium' }).format(new Date(at));
 	/** @param {string} peerId */
@@ -95,6 +101,8 @@
 		<ul class="mt-2 space-y-1">
 			{#each grants.devices as g (g.peerId)}
 				{@const lapsed = g.expiresAt !== null && g.expiresAt < Date.now()}
+				{@const used = usageList(g.usage)}
+				{@const total = usageTotal(used)}
 				<li class="flex flex-wrap items-center gap-x-2 gap-y-1" data-testid="bridge-access-device">
 					<span class="text-heading">{name(g.peerId)}</span>
 					<span class="text-xs {lapsed ? 'text-warning' : 'text-faint'}">
@@ -151,6 +159,30 @@
 							</div>
 						</fieldset>
 					{/if}
+					<details class="w-full text-xs" data-testid="bridge-access-usage">
+						<summary class="cursor-pointer text-faint" data-testid="bridge-access-usage-total">
+							{used.length
+								? t('devices.bridgeAccess.usage', total)
+								: t('devices.bridgeAccess.usageNone')}
+						</summary>
+						<p class="mt-1 text-faint">{t('devices.bridgeAccess.usageText')}</p>
+						{#if used.length}
+							<ul class="mt-1 space-y-0.5">
+								{#each used as u (u.command)}
+									<li data-testid="bridge-access-usage-item" data-command={u.command}>
+										<code class="text-heading">{u.command}</code>
+										<span class="text-faint">
+											{t('devices.bridgeAccess.usageItem', {
+												calls: u.calls,
+												refused: u.refused,
+												date: u.lastAt ? moment(u.lastAt) : '–'
+											})}
+										</span>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</details>
 				</li>
 			{/each}
 		</ul>
