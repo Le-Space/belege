@@ -50,10 +50,17 @@ addressed to the accounting alias, and sends only redacted text to the LLM.
    address (default `buchhaltung@le-space.de`) and the password or Mailu auth token (hidden prompt,
    into the keychain). `IMAP_*` from the repo's `.env` are offered as defaults, `IMAP_PASSWORD`
    once instead of the prompt. It offers one test login that only counts folders.
-7. **LLM** (optional): `pnpm setup:llm` asks for the provider's base URL (default
-   `https://api.deepseek.com`, https only), the model and the retry model (default `deepseek-flash`,
-   `deepseek-v4-pro`), the terms to black out (your name, family names; `;`-separated) and the API
-   key (hidden prompt, into the keychain). `DEEPSEEK_*` and `REDACT_TERMS` from `.env` are offered.
+7. **LLM** (optional): `pnpm setup:llm` first asks which kind of model (see [LLM](#llm)):
+   - **1, an OpenAI-compatible URL** (DeepSeek, a model on this machine, any other): the base URL
+     (default `https://api.deepseek.com`, https only, `http://localhost` for a local model), the
+     model and the retry model (default `deepseek-flash`, `deepseek-v4-pro`), the terms to black
+     out (your name, family names; `;`-separated) and the API key (hidden prompt, into the
+     keychain). `DEEPSEEK_*` and `REDACT_TERMS` from `.env` are offered.
+   - **2, LibertAI confidential** (#416): the model in LibertAI's attested enclave
+     (`qwen3.8-27b-tee`). It looks the enclave up in LibertAI's signed manifest, attests it, shows
+     what it pinned (and the source commit to rebuild), and asks for the API key from
+     console.libertai.io (hidden prompt, into the keychain; `LIBERTAI_API_KEY` from `.env` is
+     offered).
 8. **Alchemy** (optional, for own EVM wallets): `pnpm setup:alchemy` asks for an Alchemy API key
    in a hidden prompt (Enter keeps a stored one, `-` deletes it), checks it with `eth_chainId` on
    each network (Ethereum, Base, Arbitrum, OP Mainnet, Polygon – enable them for the app in the
@@ -119,9 +126,16 @@ Linux has no secret store in the bridge yet, except in the hosted VM below.
 
 ## Hosted, in a confidential VM
 
-The bridge can also run in an Aleph confidential VM (AMD SEV-SNP), started when needed (#251,
-#583). Its image is built from this directory: [`rootfs/README.md`](rootfs/README.md). There it
-runs as `cli.js --hosted`:
+The bridge can also run in a confidential VM, started when needed:
+
+- **on Aleph**, an AMD SEV-SNP VM (#251, #583), started and paid from Belege as described below;
+- **on Phala, started through NEAR** (#696, testnet, a prototype): an Intel TDX VM under dstack.
+  A contract on NEAR checks its attestation before the browser seals the bridge's keys to the
+  VM's own key (Integrationen → Bridge → _Gehostete Bridge auf Phala, über NEAR_). The image is
+  the same bridge as a container (`.github/workflows/bridge-dstack-image.yml`).
+
+Both images are made by `rootfs/deploy-bridge.sh` from this directory:
+[`rootfs/README.md`](rootfs/README.md). In both the bridge runs as `cli.js --hosted`:
 
 - **No keychain, nothing secret on disk.** Every secret comes with the unlock, after the owner's
   browser has checked the VM's attestation, and is read from `$BELEGE_BRIDGE_SECRETS_DIR` (one
@@ -412,6 +426,21 @@ All portal calls answer 409 `PORTAL_BUSY` while another run of the same portal i
   as terms, ± 30 days.
 
 ### LLM
+
+Which language model reads, and where it runs:
+
+| Where the bridge runs | Model | What is checked |
+| --- | --- | --- |
+| On your computer | a local model (Ollama, LM Studio), any OpenAI-compatible URL (`setup:llm` 1, DeepSeek by default), or LibertAI confidential (`setup:llm` 2) | LibertAI confidential: the enclave's attestation before every connection (`src/llm/confidential.js`); the others: nothing, the provider sees the redacted text |
+| Hosted, on Aleph or on Phala through NEAR | only LibertAI confidential, pinned (#754) | the same attestation, from inside the VM; any other model is dropped at the start |
+
+LibertAI confidential: the bridge looks the enclave up in LibertAI's signed manifest, checks AMD's
+signature chain, that the report binds the TLS key it talks to and that the measurement is the
+pinned one. It proves which image runs, not what it does (for that, rebuild
+`Libertai/confidential-inference`, VERIFYING.md); LibertAI still sees the caller's IP address,
+sizes and times. LibertAI's other models (without an enclave) work through `setup:llm` 1 like any
+OpenAI-compatible URL; the node's operator could read their text. More in
+[`docs/ai.md`](../docs/ai.md).
 
 - The bridge redacts, not the browser: every `/extract` goes through `src/llm/redact.js` (the
   phase-0 rules: the terms from `bridge.json`, IBANs with the last four characters kept, SEPA
