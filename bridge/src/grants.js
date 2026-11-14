@@ -7,7 +7,10 @@
 // device the books list without saying which scopes – every device paired
 // before #579, and every device the app tells today – holds all of them: what
 // it could do before, it can do now. Nothing more is granted by itself; a
-// device that is not on the books' list holds nothing.
+// device that is not on the books' list holds nothing. The device that paired
+// the bridge, or the bridge's owner over HTTP, sets one device's scopes
+// (`device.scopes`, commands.js): a subset of those offered, kept until set
+// again – telling the device list again keeps them.
 //
 // Expiry. A device's scopes lapse when it has not used the bridge for
 // `idleDays` (90). It is refused `GRANT_EXPIRED` until the device that paired
@@ -40,9 +43,19 @@ import { UcepError } from '@le-space/ucep';
 /**
  * Scopes only the device that paired the bridge holds, whatever the list
  * says: handing the bridge's settings to a hosted bridge (#728) gives away
- * its accounts' secrets, so a member's device or any other device may not.
+ * its accounts' secrets, and setting what each device may call would let a
+ * device widen its own – so a member's device or any other device may not.
+ * No list grants or takes them: the device that paired the bridge cannot
+ * lock itself out of managing it.
  */
-export const HOLDER_ONLY = new Set(['bridge:settings:export']);
+export const HOLDER_ONLY = new Set(['bridge:settings:export', 'bridge:grants:manage']);
+
+/**
+ * The scopes a device's set is made of: those offered, but the holder's own.
+ *
+ * @param {string[]} all what the bridge offers (scopesOf)
+ */
+export const settableOf = (all) => all.filter((s) => !HOLDER_ONLY.has(s));
 
 /** @type {Limits} */
 export const DEFAULT_LIMITS = Object.freeze({
@@ -92,22 +105,23 @@ export const scopesOf = (commands) =>
 	[...new Set(commands.map((c) => c.scope).filter(Boolean))].sort();
 
 /**
- * The books' device list as a device sends it: a peer id alone (all scopes,
- * as before #579), or `{ peerId, scopes }`.
+ * The books' device list as a device sends it: a peer id alone (what the
+ * device holds; all scopes for a new one, as before #579), or
+ * `{ peerId, scopes }`.
  *
  * @param {unknown} list
  * @param {string[]} all the scopes the bridge offers
- * @returns {Map<string, string[]>} peer id → scopes
+ * @returns {Map<string, string[] | null>} peer id → scopes; null: as held, all for a new device
  */
 export function parseDevices(list, all) {
 	if (!Array.isArray(list) || list.length > 64) {
 		throw new UcepError('INVALID_ARGUMENTS', 'devices must be up to 64 entries');
 	}
-	/** @type {Map<string, string[]>} */
+	/** @type {Map<string, string[] | null>} */
 	const out = new Map();
 	for (const entry of list) {
 		if (typeof entry === 'string' && PEER_ID.test(entry)) {
-			out.set(entry, [...all]);
+			out.set(entry, null);
 			continue;
 		}
 		const peerId = /** @type {any} */ (entry)?.peerId;
@@ -232,9 +246,10 @@ export function createGrants({ file, scopes: all, limits = DEFAULT_LIMITS, now =
 		 * The books' devices with their scopes: a new device is granted now, one
 		 * whose scopes changed is granted anew, one that is gone loses its grant.
 		 * A device whose scopes are unchanged keeps its times – telling the list
-		 * again renews nothing.
+		 * again renews nothing. A device without scopes (null) keeps what it
+		 * holds; a new one gets every scope.
 		 *
-		 * @param {Map<string, string[]>} devices
+		 * @param {Map<string, string[] | null>} devices
 		 */
 		async set(devices) {
 			await load();
@@ -245,8 +260,10 @@ export function createGrants({ file, scopes: all, limits = DEFAULT_LIMITS, now =
 					changed = true;
 				}
 			}
-			for (const [peer, scopes] of devices) {
+			for (const [peer, wanted] of devices) {
 				const had = grants.get(peer);
+				if (had && wanted === null) continue;
+				const scopes = wanted ?? [...all];
 				if (had && had.scopes.join(' ') === scopes.join(' ')) continue;
 				grants.set(peer, { scopes, grantedAt: now(), lastUsedAt: had?.lastUsedAt ?? 0 });
 				changed = true;
@@ -278,6 +295,43 @@ export function createGrants({ file, scopes: all, limits = DEFAULT_LIMITS, now =
 			if (changed) await save();
 		},
 
+		/**
+		 * One device's scopes, as the device that paired the bridge or the
+		 * owner over HTTP ticked them: a subset of those offered, the holder's
+		 * own (HOLDER_ONLY) not among them. An unknown name is refused, not
+		 * dropped: the caller should know it set less than it asked.
+		 *
+		 * @param {string} peer a device with a grant
+		 * @param {unknown} scopes
+		 * @returns {Promise<string[]>} the scopes it holds now
+		 */
+		async setScopes(peer, scopes) {
+			await load();
+			const settable = settableOf(all);
+			if (
+				!Array.isArray(scopes) ||
+				scopes.length > 32 ||
+				!scopes.every((s) => typeof s === 'string' && settable.includes(s))
+			) {
+				throw new UcepError(
+					'INVALID_ARGUMENTS',
+					`scopes must be some of: ${settable.join(', ')}`.slice(0, 500)
+				);
+			}
+			const g = grants.get(peer);
+			if (!g) throw new UcepError('INVALID_ARGUMENTS', 'peerId must be a device of the books');
+			const next = [...new Set(/** @type {string[]} */ (scopes))].sort();
+			// What only the holder holds stays as it was in the list: authorize does not read it.
+			const kept = g.scopes.filter((s) => HOLDER_ONLY.has(s));
+			const want = [...new Set([...next, ...kept])].sort();
+			if (want.join(' ') !== g.scopes.join(' ')) {
+				g.scopes = want;
+				g.grantedAt = now();
+				await save();
+			}
+			return next;
+		},
+
 		/** @param {string} peer the device's scopes count from now again */
 		async renew(peer) {
 			await load();
@@ -307,8 +361,11 @@ export function createGrants({ file, scopes: all, limits = DEFAULT_LIMITS, now =
 					'renew this device on the device that paired the bridge'
 				);
 			}
-			if (scope && !g.scopes.includes(scope)) throw new UcepError('SCOPE_MISSING', scope);
-			if (HOLDER_ONLY.has(scope) && !holder) throw new UcepError('SCOPE_MISSING', scope);
+			if (HOLDER_ONLY.has(scope)) {
+				if (!holder) throw new UcepError('SCOPE_MISSING', scope);
+			} else if (scope && !g.scopes.includes(scope)) {
+				throw new UcepError('SCOPE_MISSING', scope);
+			}
 			if (scope === 'bridge:llm') {
 				const used = tokens.get(peer);
 				if (used && used.day === today() && used.tokens >= limits.llmTokensPerDay) {

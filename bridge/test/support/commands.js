@@ -3,8 +3,10 @@
 // single service behind it. Made-up config; nothing is called.
 import { createCommands } from '../../src/commands.js';
 
-export function emptyCommands() {
+/** @param {{ node?: any }} [o] the node's handle (index.js), for `device.scopes` */
+export function emptyCommands({ node = null } = {}) {
 	return createCommands({
+		node,
 		config: /** @type {any} */ ({
 			appOrigins: [],
 			hibiscus: { ibanSuffixes: [] },

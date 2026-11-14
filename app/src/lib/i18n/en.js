@@ -429,7 +429,7 @@ export default {
 			},
 			grant: {
 				BRIDGE_SCOPE_MISSING:
-					'This device may not do that with the bridge. The device that paired the bridge decides what it may do.',
+					'This device may not use this at the bridge: {scope}. The device that paired the bridge decides what it may do, under Integrationen → Eigene Geräte → Erweitert.',
 				BRIDGE_GRANT_EXPIRED:
 					'This device’s access to the bridge has lapsed because it did not use it for 90 days. On the device that paired the bridge: Integrationen → Eigene Geräte → Erweitert → Renew.',
 				BRIDGE_BACKUP_HOUR:
@@ -1701,7 +1701,7 @@ export default {
 		bridgeServed: 'This computer’s bridge is available to your devices.',
 		bridgeAccess: {
 			title: 'Access to the bridge',
-			text: 'Each of your own devices may do with the bridge what it could do before. One that does not use it for 90 days loses access until the device that paired the bridge renews it here. A member has access only if you allowed it when admitting them.',
+			text: 'A new device of your own may do with the bridge all it could do before. The device that paired the bridge decides here, per device, which areas it may use. One that does not use the bridge for 90 days loses access until that device renews it. A member has access only if you allowed it when admitting them.',
 			thisDevice: 'This device',
 			holder: 'paired the bridge, does not lapse',
 			until: 'Access until {date}',
@@ -1709,7 +1709,22 @@ export default {
 			lastUsed: 'last used on {date}',
 			narrowed: 'limited to {count} areas',
 			renew: 'Renew',
-			askHolder: 'renew it on the device that paired the bridge'
+			askHolder: 'renew it on the device that paired the bridge',
+			scopes: 'May use at the bridge',
+			onlyHolder: 'Only the device that paired the bridge can change this.',
+			saving: 'saving …',
+			saveFailed: 'Not saved: {reason}',
+			scope: {
+				bankRead: 'Read the bank',
+				bankLink: 'Link banks',
+				mailRead: 'Read mail',
+				mailWrite: 'Move mail to the trash',
+				paperlessRead: 'Read Paperless',
+				llm: 'AI model',
+				backup: 'Backup',
+				share: 'Share',
+				chainsRead: 'Read wallets and rates'
+			}
 		},
 		bridgePending: 'Shared – applies from the next unlock (reload the page).',
 		notConnected: 'not connected',

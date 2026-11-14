@@ -144,6 +144,29 @@ describe('bridge server', () => {
 		assert.equal((await request(port(), '/health')).json.paired, true);
 	});
 
+	test('a device’s scopes over HTTP: the token, a body limit, and the node it needs (#579)', async () => {
+		const body = { peerId: '12D3KooWGzN9EoHWJ3u4ZyiDpm7DVpNcwRVaUPfYzCgxGmnpHsGp', scopes: [] };
+		const without = await request(port(), '/node/scopes', {
+			method: 'POST',
+			headers: { origin: APP },
+			body
+		});
+		assert.equal(without.status, 401);
+		const off = await request(port(), '/node/scopes', {
+			method: 'POST',
+			headers: { origin: APP, ...auth() },
+			body
+		});
+		assert.equal(off.status, 503, 'the node is off in this test');
+		assert.equal(off.json.code, 'NODE_OFF');
+		// Above the body limit: 413, or the connection closed before the body is read.
+		const big = await request(port(), '/node/scopes', {
+			method: 'POST',
+			headers: { origin: APP, ...auth() },
+			body: { ...body, scopes: new Array(200).fill('bridge:mail:read') }
+		}).catch((/** @type {any} */ e) => ({ status: e.code === 'ECONNRESET' ? 413 : 0 }));
+		assert.equal(big.status, 413);
+	});
 	test('CORS: a foreign origin gets 403 and no CORS headers, with or without a token', async () => {
 		for (const origin of [
 			'https://evil.example',

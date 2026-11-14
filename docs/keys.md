@@ -99,7 +99,8 @@ not the bridge.
 The other way round, the bridge limits what a device may do with it ([#579](https://github.com/Le-Space/belege/issues/579)):
 
 - Each command belongs to an area, such as reading the bank, reading the mailbox or the language model. A device may only use the areas it holds.
-- Your own devices hold all areas, as before. A member has access only if you allowed it when admitting them.
+- A new device of your own holds all areas, as before. The device that paired the bridge ticks, per device, which areas it keeps under _Integrationen → Eigene Geräte → Erweitert_; any other device sees only its own there. When a device lacks an area, the bridge refuses the command and the app says which area is missing – it does not try another way. Only that device may set the areas, and it cannot take that right from itself. On the bridge's machine the owner can do it too, with the token (`POST /node/scopes`).
+- A member has access only if you allowed it when admitting them.
 - A device that does not use the bridge for 90 days loses access. The device that paired the bridge renews it under _Integrationen → Eigene Geräte → Erweitert_.
 - What costs money is limited per device: calls to the language model a minute, its tokens a day and backups an hour. So a stolen phone cannot run down your credit before you remove it.
 

@@ -394,7 +394,7 @@ export async function startBridgeConsumer({
 	 * What each device may do with the bridge (bridge/src/node.js `grants`):
 	 * the device that paired it sees every device's, another its own.
 	 *
-	 * @returns {Promise<{ holder: boolean, scopes: string[], devices: { peerId: string, scopes: string[], lastUsedAt: number | null, expiresAt: number | null }[] } | null>}
+	 * @returns {Promise<{ holder: boolean, scopes: string[], settable?: string[], devices: { peerId: string, scopes: string[], lastUsedAt: number | null, expiresAt: number | null }[] } | null>}
 	 *   null: the bridge's node is not connected
 	 */
 	async function bridgeGrants() {
@@ -416,11 +416,32 @@ export async function startBridgeConsumer({
 		return true;
 	}
 
+	/**
+	 * What one device may call at the bridge (bridge/src/commands.js
+	 * `device.scopes`): only the device that paired the bridge may set it.
+	 *
+	 * @param {string} device peer id
+	 * @param {string[]} scopes
+	 * @returns {Promise<string[] | null>} the scopes it holds now; null: the node is not connected
+	 */
+	async function setDeviceScopes(device, scopes) {
+		const peerId = streamServer();
+		if (!peerId) return null;
+		const answer = /** @type {any} */ (
+			await consumer.call(peerId, EXTENSION, 'device.scopes', { peerId: device, scopes })
+		);
+		if (answer?.status !== 200) {
+			throw new Error(String(answer?.json?.error ?? answer?.json?.code ?? answer?.status));
+		}
+		return Array.isArray(answer.json?.scopes) ? answer.json.scopes : [];
+	}
+
 	return {
 		consumer,
 		forgetBridge,
 		bridgeGrants,
 		renewDevice,
+		setDeviceScopes,
 		server,
 		streamServer,
 		remoteFetch,

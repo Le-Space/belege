@@ -101,7 +101,8 @@ die Wiederherstellungswörter, nicht die Bridge.
 Umgekehrt begrenzt die Bridge, was ein Gerät bei ihr darf ([#579](https://github.com/Le-Space/belege/issues/579)):
 
 - Jeder Befehl gehört zu einem Bereich, etwa Bank lesen, Postfach lesen oder Sprachmodell. Ein Gerät darf nur die Bereiche, die es hat.
-- Deine eigenen Geräte haben alle Bereiche, wie bisher. Ein Mitglied hat Zugang nur, wenn du es beim Aufnehmen erlaubt hast.
+- Ein neues eigenes Gerät hat alle Bereiche, wie bisher. Das Gerät, das die Bridge gekoppelt hat, hakt unter _Integrationen → Eigene Geräte → Erweitert_ je Gerät an, welche Bereiche es behält; ein anderes Gerät sieht dort nur seine eigenen. Fehlt einem Gerät ein Bereich, lehnt die Bridge den Befehl ab, und die App sagt, welcher Bereich fehlt – sie versucht es nicht auf einem anderen Weg. Das Recht, die Bereiche zu setzen, hat nur dieses Gerät; es kann es sich selbst nicht nehmen. Auf dem Rechner der Bridge kann es auch der Besitzer mit dem Token (`POST /node/scopes`).
+- Ein Mitglied hat Zugang nur, wenn du es beim Aufnehmen erlaubt hast.
 - Nutzt ein Gerät die Bridge 90 Tage nicht, verliert es den Zugang. Das Gerät, das die Bridge gekoppelt hat, erneuert ihn unter _Integrationen → Eigene Geräte → Erweitert_.
 - Was Geld kostet, ist pro Gerät begrenzt: Aufrufe des Sprachmodells pro Minute, seine Tokens pro Tag und Backups pro Stunde. Ein gestohlenes Telefon kann so nicht dein Guthaben leeren, bevor du es entfernst.
 

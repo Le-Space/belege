@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 
 import {
 	COMMANDS,
+	DEVICE_SCOPES,
 	check,
 	checkAnswer,
 	checkArgs,
@@ -199,4 +200,21 @@ test('commandInput: a call by name reads as HTTP would have given it', () => {
 	assert.deepEqual(w.params, { chain: 'akash' });
 	assert.deepEqual(w.body, { address: 'akash1example' });
 	assert.deepEqual(commandInput('bank.accounts').params, {});
+});
+
+test('device.scopes: a peer id and scope names, nothing else; DEVICE_SCOPES leaves the holder’s own out (#579)', () => {
+	const peerId = '12D3KooWGzN9EoHWJ3u4ZyiDpm7DVpNcwRVaUPfYzCgxGmnpHsGp';
+	assert.deepEqual(checkArgs('device.scopes', { peerId, scopes: ['bridge:mail:read'] }), []);
+	assert.notDeepEqual(checkArgs('device.scopes', { peerId, scopes: ['../x'] }), []);
+	assert.notDeepEqual(checkArgs('device.scopes', { peerId: 'nope', scopes: [] }), []);
+	assert.notDeepEqual(checkArgs('device.scopes', { peerId, scopes: [], holder: true }), []);
+	assert.notDeepEqual(
+		checkArgs('device.scopes', { peerId, scopes: new Array(33).fill('bridge:llm') }),
+		[]
+	);
+	assert.ok(DEVICE_SCOPES.includes('bridge:mail:read'));
+	assert.ok(DEVICE_SCOPES.includes('bridge:chains:read'));
+	assert.ok(!DEVICE_SCOPES.includes('bridge:grants:manage'));
+	assert.ok(!DEVICE_SCOPES.includes('bridge:settings:export'));
+	assert.ok(!DEVICE_SCOPES.includes(''));
 });

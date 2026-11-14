@@ -6,7 +6,7 @@
 import { command } from './catalogue.js';
 import { check } from './schema.js';
 
-export { COMMANDS, PROTOCOL_VERSION, command } from './catalogue.js';
+export { COMMANDS, DEVICE_SCOPES, PROTOCOL_VERSION, command } from './catalogue.js';
 export { check } from './schema.js';
 export { commandInput, httpRequest, pathParams, toQuery } from './http.js';
 

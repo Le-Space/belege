@@ -40,6 +40,7 @@
 //   GET  /chains                                                  token → chains, endpoints, explorers, alchemy: bool (@le-space/chains)
 //   GET  /bitcoin/key                                             token → the zpub's fingerprint, never the zpub
 //   GET  /lan-relay                                               token → the relay for own devices in the own network: its address (lan-relay.js)
+//   POST /node/scopes { peerId, scopes }                          token → what one device may call over the stream (grants.js, #579)
 //   POST /<chain>/wallet { address, endpoints? }                  token → an own wallet's transfers and balance
 //   POST /akash/deployments { address, endpoints? }               token → an Akash wallet's deployments, what each cost, and the ACT it holds (#305)
 //   POST /aleph/accounts { addresses, api? }                      token → which are Aleph accounts: credits, entries (aleph.js)

@@ -27,6 +27,7 @@ export const BRIDGE_SPECS = [
 	'bank-import',
 	'books-identity',
 	'bridge-node',
+	'bridge-scopes',
 	'enablebanking',
 	'export',
 	'filecoin-swap',

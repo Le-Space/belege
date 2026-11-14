@@ -47,6 +47,8 @@ const DAY = '^\\d{4}-\\d{2}-\\d{2}$';
 const MAIL_ID = '^[A-Za-z0-9_-]{8,700}$';
 const AMOUNT = '^-?[\\d.,]{1,15}$';
 const ACCOUNT_NUMBER = '^\\d{4,8}$';
+const PEER_ID = '^12D3KooW[1-9A-HJ-NP-Za-km-z]{44}$';
+const SCOPE = '^bridge:[a-z]+(:[a-z]+)?$';
 
 /** @param {number} max @returns {Schema} */
 const text = (max) => ({ type: 'string', maxLength: max });
@@ -890,8 +892,41 @@ export const COMMANDS = [
 		request: none,
 		response: answerWith(['config', 'secrets']),
 		description: 'What a hosted bridge may take over: settings and secrets (#728)'
+	},
+	{
+		name: 'device.scopes',
+		version: 1,
+		scope: 'bridge:grants:manage',
+		method: 'POST',
+		path: '/node/scopes',
+		args: 'json',
+		answer: 'json',
+		via: 'both',
+		request: object(
+			{
+				peerId: { type: 'string', pattern: PEER_ID },
+				scopes: { type: 'array', maxItems: 32, items: { type: 'string', pattern: SCOPE } }
+			},
+			['peerId', 'scopes']
+		),
+		response: answerWith(['peerId', 'scopes']),
+		description:
+			'What one device may call over the stream: the device that paired the bridge, or its owner over HTTP (#579)'
 	}
 ];
+
+/**
+ * The scopes a device can hold, by what the bridge offers: every command's
+ * scope but those only the device that paired the bridge holds (the
+ * bridge's grants.js HOLDER_ONLY). What the app ticks per device.
+ */
+export const DEVICE_SCOPES = [
+	...new Set(
+		COMMANDS.map((c) => c.scope).filter(
+			(s) => s && s !== 'bridge:settings:export' && s !== 'bridge:grants:manage'
+		)
+	)
+].sort();
 
 /** @type {Map<string, CommandSpec>} */
 const byName = new Map(COMMANDS.map((c) => [c.name, c]));
