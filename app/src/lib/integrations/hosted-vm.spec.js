@@ -18,6 +18,7 @@ import {
 	forgetContent,
 	forward443Content,
 	instanceContent,
+	listInstances,
 	loadNodes,
 	nodeUrlOf,
 	notifyNode,
@@ -138,6 +139,12 @@ describe('a VM of the books’ key', () => {
 		expect(held.content.address).toBe(owner);
 		expect(held.content.rootfs.parent.ref).toBe(HOSTED_IMAGE);
 		expect(held.crn).toBe(FAKE_CRN);
+		// Listed among the key's VMs, with its node; another key's list does not hold it.
+		const listed = (await listInstances(owner, endpoints)).find((i) => i.hash === hash);
+		expect(listed).toMatchObject({ crn: FAKE_CRN, payer: owner });
+		expect(Date.parse(String(listed?.createdAt))).toBeGreaterThan(0);
+		const stranger = alephAddressOf(newAlephKey());
+		expect((await listInstances(stranger, endpoints)).map((i) => i.hash)).not.toContain(hash);
 
 		expect(await onNode(node.url, hash)).toBeNull();
 		await notifyNode(node.url, hash, { delayMs: 10 });
@@ -155,6 +162,8 @@ describe('a VM of the books’ key', () => {
 		expect(aleph.instances.get(hash)?.status).toBe('forgotten');
 		expect(await onNode(node.url, hash)).toBeNull();
 		await expect(fetchInstance(hash, endpoints)).rejects.toThrow(/no running INSTANCE/);
+		// Forgotten: Aleph no longer lists it.
+		expect((await listInstances(owner, endpoints)).map((i) => i.hash)).not.toContain(hash);
 	});
 
 	it('cannot be forgotten by another key', async () => {
