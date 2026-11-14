@@ -4421,6 +4421,7 @@ export default {
 				'No bridge runs here: it is a program on your computer. This phone uses it over device sync – on the computer, under Devices, switch on “Share this computer’s bridge with your own devices”, add this phone as a device there, and keep the Belege tab on the computer open and unlocked.',
 			noHibiscus: 'Hibiscus is not set up yet',
 			offline: 'Bridge not reachable',
+			noneHere: 'No bridge answers on this computer',
 			originRefused:
 				'The bridge runs but does not let this page ({origin}) in: it is not on its list of allowed pages (appOrigins).',
 			unknown: 'Status unknown',
@@ -4435,6 +4436,44 @@ export default {
 				'The bridge was not reachable: the pairing is only removed on this device. On the bridge, `pnpm bridge -- --revoke-all` removes all pairings.',
 			unpairElsewhere:
 				'Only the device that paired the bridge, or the computer the bridge runs on, removes this pairing. Nothing was changed here.'
+		},
+		bridgeStatus: {
+			title: 'Which bridge answers?',
+			hint: 'Green: running and unlocked. Amber: running, but still waiting for you. Grey: nothing started. Red only when a paired bridge does not answer.',
+			name: {
+				local: 'This computer',
+				aleph: 'Aleph VM (AMD SEV-SNP)',
+				near: 'Phala VM over NEAR (Intel TDX)'
+			},
+			state: {
+				local: {
+					answers: 'answers',
+					viaDevice: 'answers through your own device',
+					silent: 'paired, not answering',
+					none: 'no bridge here'
+				},
+				aleph: {
+					answers: 'unlocked · confidential · answers',
+					unlocked: 'unlocked · confidential',
+					silent: 'unlocked, not answering',
+					locked: 'running · still locked',
+					stopped: 'stopped',
+					none: 'no VM'
+				},
+				near: {
+					answers: 'attested · confidential · answers',
+					unlocked: 'attested · confidential',
+					silent: 'attested, not answering',
+					pending: 'request pending',
+					none: 'no VM'
+				}
+			},
+			detail: {
+				locked: 'Type the image’s passphrase below and unlock.',
+				attested: 'last attested {date}',
+				stopped: 'since {date}',
+				localSilent: 'Is it running (pnpm bridge)?'
+			}
 		},
 		hostedBridge: {
 			title: 'Hosted bridge on Aleph',
@@ -4476,7 +4515,11 @@ export default {
 			usageHours: '{hours} h',
 			stop: 'Stop',
 			stopped: 'Stopped {date}',
-			resume: 'Carry on starting',
+			resume: 'Unlock',
+			resumeHint:
+				'The browser checks the VM’s attestation first; the passphrase is stored nowhere. If the VM does not come up, stop it here and start again on another node.',
+			locked:
+				'The VM is running at Aleph but still locked: it has neither the passphrase nor its key, so it does not answer yet. Type the image’s passphrase and unlock it.',
 			existing: 'Unlock a VM that is already running',
 			phase: {
 				node: 'Checking the node …',

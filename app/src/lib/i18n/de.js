@@ -4482,6 +4482,7 @@ export default {
 				'Hier läuft keine Bridge: Sie ist ein Programm auf deinem Rechner. Dieses Telefon nutzt sie über Gerätesync – am Rechner unter Geräte „Bridge dieses Rechners für eigene Geräte freigeben“ einschalten, dieses Telefon dort als Gerät hinzufügen, und den Belege-Tab am Rechner offen und entsperrt lassen.',
 			noHibiscus: 'Hibiscus ist noch nicht eingerichtet',
 			offline: 'Bridge nicht erreichbar',
+			noneHere: 'Auf diesem Rechner antwortet keine Bridge',
 			originRefused:
 				'Die Bridge läuft, lässt diese Seite ({origin}) aber nicht herein: Sie steht nicht in ihrer Liste der erlaubten Seiten (appOrigins).',
 			unknown: 'Status unbekannt',
@@ -4496,6 +4497,44 @@ export default {
 				'Die Bridge war nicht erreichbar: Die Kopplung ist nur auf diesem Gerät gelöst. Auf der Bridge entfernt `pnpm bridge -- --revoke-all` alle Kopplungen.',
 			unpairElsewhere:
 				'Diese Kopplung löst nur das Gerät, das die Bridge gekoppelt hat, oder der Rechner, auf dem die Bridge läuft. Hier wurde nichts geändert.'
+		},
+		bridgeStatus: {
+			title: 'Welche Bridge antwortet?',
+			hint: 'Grün: läuft und ist entsperrt. Gelb: läuft, wartet aber noch auf dich. Grau: nichts gestartet. Rot nur, wenn eine gekoppelte Bridge nicht antwortet.',
+			name: {
+				local: 'Dieser Rechner',
+				aleph: 'Aleph-VM (AMD SEV-SNP)',
+				near: 'Phala-VM über NEAR (Intel TDX)'
+			},
+			state: {
+				local: {
+					answers: 'antwortet',
+					viaDevice: 'antwortet über dein eigenes Gerät',
+					silent: 'gekoppelt, antwortet nicht',
+					none: 'keine Bridge hier'
+				},
+				aleph: {
+					answers: 'entsperrt · vertraulich · antwortet',
+					unlocked: 'entsperrt · vertraulich',
+					silent: 'entsperrt, antwortet nicht',
+					locked: 'läuft · noch gesperrt',
+					stopped: 'gestoppt',
+					none: 'keine VM'
+				},
+				near: {
+					answers: 'attestiert · vertraulich · antwortet',
+					unlocked: 'attestiert · vertraulich',
+					silent: 'attestiert, antwortet nicht',
+					pending: 'Auftrag läuft',
+					none: 'keine VM'
+				}
+			},
+			detail: {
+				locked: 'Passphrase des Images unten eingeben und entsperren.',
+				attested: 'zuletzt attestiert {date}',
+				stopped: 'seit {date}',
+				localSilent: 'Läuft sie (pnpm bridge)?'
+			}
 		},
 		hostedBridge: {
 			title: 'Gehostete Bridge auf Aleph',
@@ -4537,7 +4576,11 @@ export default {
 			usageHours: '{hours} h',
 			stop: 'Stoppen',
 			stopped: 'Gestoppt {date}',
-			resume: 'Weiter starten',
+			resume: 'Entsperren',
+			resumeHint:
+				'Der Browser prüft erst die Attestierung der VM; die Passphrase wird nirgends gespeichert. Startet die VM nicht, hier stoppen und auf einem anderen Knoten neu starten.',
+			locked:
+				'Die VM läuft bei Aleph, ist aber noch gesperrt: Sie hat weder die Passphrase noch ihren Schlüssel und antwortet deshalb noch nicht. Gib die Passphrase des Images ein und entsperre sie.',
 			existing: 'Eine schon laufende VM entsperren',
 			phase: {
 				node: 'Prüfe den Knoten …',
