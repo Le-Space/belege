@@ -8,11 +8,18 @@
 	import { extractionTotals } from '$lib/activity/events.js';
 	import { integer } from '$lib/receipts/how.js';
 	import { describeMoment } from '$lib/moment.js';
-	import { app } from '$lib/session.svelte.js';
+	import { app, hostedSettingsView } from '$lib/session.svelte.js';
 	import { redactionFromStatus } from '$lib/llm-redaction.js';
 	import { currentLocale, list, t } from '$lib/i18n/index.js';
 	import { docUrl } from '$lib/help/integration-help.js';
-	import { bridge, bridgeClient, bridgePaired } from './bridge-state.svelte.js';
+	import { bridge, bridgeClient, bridgePaired, checkBridge } from './bridge-state.svelte.js';
+	import { llmAttested } from './bridge-status.js';
+	import {
+		booksExpectedBridge,
+		hostedBridgeAnswers,
+		loadAleph,
+		loadHostedPeers
+	} from './hosted-status.svelte.js';
 
 	/** @type {Awaited<ReturnType<ReturnType<typeof bridgeClient>['llmStatus']>> | null} */
 	let llmStatus = $state(null);
@@ -31,16 +38,52 @@
 	/** A confidential model's pin and last proof (#416), as /llm/status says. */
 	let tee = $derived(/** @type {any} */ (llmStatus)?.tee ?? null);
 	let token = $derived(bridgePaired());
+	// A hosted bridge answers (#754): only LibertAI's enclave, set up in the books, not in a terminal.
+	let hosted = $derived(Boolean(hostedBridgeAnswers()));
+	let hostedNoModel = $derived(
+		hosted && Boolean(llmStatus) && !(/** @type {any} */ (llmStatus)?.configured)
+	);
+	/** The model kept for a hosted bridge (non-secret values only), shown even while its VM is down. */
+	let keptModel = $state(/** @type {{ model: string, itemHash: string } | null} */ (null));
+	$effect(() => {
+		// Whose node the books' bridge is, and what is kept for a hosted one; read again when sync may have brought it.
+		void app.sync.online;
+		loadHostedPeers().catch(() => {});
+		loadAleph().catch(() => {});
+		hostedSettingsView()
+			.then((view) => {
+				const llm = view.find((e) => e.id === 'llm');
+				const value = (/** @type {string} */ key) =>
+					llm?.fields.find((f) => f.key === key)?.value ?? '';
+				keptModel = llm ? { model: value('model'), itemHash: value('itemHash') } : null;
+			})
+			.catch(() => (keptModel = null));
+	});
+	// No bridge answers: which one the books expect, to say what to do.
+	let silent = $derived(!bridgePaired() || bridge.state === 'offline');
+	let expected = $derived(silent ? booksExpectedBridge() : null);
+	// Green only when the bridge itself reports the enclave's attestation as checked.
+	let attested = $derived(llmAttested(llmStatus));
+	let attestedMoment = $derived(attested ? describeMoment(attested.verifiedAt) : null);
 
+	/** The bridge was asked again after a failed status: once, until a status comes. */
+	let rechecked = false;
 	async function loadLlmStatus() {
 		llmError = null;
 		try {
 			llmStatus = await bridgeClient().llmStatus();
+			rechecked = false;
 			// The AI hints elsewhere follow what the bridge says here (ai-text.js).
 			app.llmRedaction = redactionFromStatus(llmStatus);
 		} catch (error) {
 			llmStatus = null;
 			llmError = error instanceof Error ? error.message : String(error);
+			// It answered a moment ago and does not now (a VM stopped since): ask it once more,
+			// so the page says that no bridge answers instead of only this error.
+			if (!rechecked) {
+				rechecked = true;
+				checkBridge();
+			}
 		}
 	}
 	$effect(() => {
@@ -55,8 +98,36 @@
 >
 	<h2 id="ki-h" class="text-lg font-semibold">{t('integrationen.ki.title')}</h2>
 	<p class="mt-1 text-sm text-text" data-testid="ki-simple">{t('integrationen.ki.simple')}</p>
-	<p class="mt-1 text-sm text-text" data-testid="ki-key-where">{t('integrationen.ki.keyWhere')}</p>
-	{#if !token}
+	<p class="mt-1 text-sm text-text" data-testid="ki-key-where">
+		{t(hosted ? 'integrationen.ki.keyWhereHosted' : 'integrationen.ki.keyWhere')}
+	</p>
+	{#if keptModel && !(hosted && llmStatus?.configured)}
+		<!-- Kept for the hosted bridge: visible while its VM is down; a setting, not a state. -->
+		<p class="mt-3 text-sm text-text" data-testid="ki-kept-model">
+			{t('integrationen.ki.keptModel', {
+				model: keptModel.model || '—',
+				item: `${keptModel.itemHash.slice(0, 12)}…`
+			})}
+		</p>
+	{/if}
+	{#if expected}
+		<!-- Nothing answers: say so, which bridge the books expect, and where to bring it up. -->
+		<div
+			class="mt-3 rounded-md border border-border bg-surface-2 px-4 py-3 text-sm text-text"
+			data-testid="ki-no-bridge"
+			data-expected={expected}
+		>
+			<p class="font-medium text-heading">{t('integrationen.ki.silent')}</p>
+			<p class="mt-1">
+				{t(`integrationen.ki.silentWhich.${expected}`)}
+				<a
+					class="underline hover:text-heading"
+					href={resolve('/integrationen/bridge')}
+					data-testid="ki-no-bridge-link">{t('integrationen.ki.silentWhere')}</a
+				>.
+			</p>
+		</div>
+	{:else if !token}
 		<p class="mt-3 text-sm text-faint">{t('integrationen.ki.noBridge')}</p>
 	{:else if llmError}
 		<p class="mt-3 text-sm text-danger" role="alert" data-testid="ki-error">
@@ -64,96 +135,138 @@
 		</p>
 		<WayOut message={llmError} />
 	{:else if llmStatus}
+		{#if hostedNoModel}
+			<!-- No defaults of a bridge on a computer here: a hosted one takes only the enclave (#754). -->
+			<div
+				class="mt-3 rounded-md border border-border bg-surface-2 px-4 py-3 text-sm text-text"
+				data-testid="ki-hosted-no-model"
+			>
+				<p class="font-medium text-heading">{t('integrationen.ki.hostedNoModel')}</p>
+				<p class="mt-1">
+					{t('integrationen.ki.hostedNoModelHow')}
+					<a
+						class="underline hover:text-heading"
+						href={`${resolve('/integrationen/bridge')}#hosted-settings`}
+						data-testid="ki-hosted-settings-link">{t('integrationen.hostedSettings.title')}</a
+					>.
+				</p>
+				<p class="mt-1">{t('integrationen.ki.hostedNoModelRestart')}</p>
+			</div>
+		{/if}
+		{#if attested}
+			<p class="mt-3 text-sm" data-testid="ki-attested">
+				<span
+					class="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
+					>{t('integrationen.overview.state.attested')}</span
+				>
+				<span class="ml-1 text-text"
+					>{t('integrationen.ki.attestedDetail', {
+						model: attested.model || '—',
+						time: attestedMoment?.local ?? attested.verifiedAt
+					})}</span
+				>
+			</p>
+		{/if}
 		<dl
 			class="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm"
 			data-testid="ki-status"
 		>
-			<dt class="text-faint">{t('integrationen.ki.provider')}</dt>
-			<dd class="font-mono text-xs break-all text-heading" data-testid="ki-provider">
-				{llmStatus.provider ?? '—'}
-				{#if !llmStatus.configured}
-					<span class="font-sans text-danger">· {t('integrationen.ki.notSetUp')}</span>
-				{/if}
-			</dd>
-			{#if tee}
-				<!-- A model in an attested enclave (#416): which one is pinned, and the last proof. -->
-				<dt class="text-faint">{t('integrationen.ki.tee')}</dt>
-				<dd
-					class="text-heading"
-					data-testid="ki-tee"
-					data-state={tee.error ? 'failed' : tee.verifiedAt ? 'verified' : 'pinned'}
-				>
-					{tee.error
-						? t('integrationen.ki.teeFailed', { error: tee.error })
-						: tee.verifiedAt
-							? t('integrationen.ki.teeVerified', {
-									time: new Date(tee.verifiedAt).toLocaleString()
-								})
-							: t('integrationen.ki.teePinned')}
-					<span class="mt-0.5 block font-mono text-xs break-all text-faint" data-testid="ki-tee-pin"
-						>{t('integrationen.ki.teePin', {
-							item: tee.itemHash,
-							measurement: `${String(tee.measurement).slice(0, 16)}…`,
-							commit: tee.sourceCommit ?? '—'
-						})}</span
-					>
+			{#if !hostedNoModel}
+				<dt class="text-faint">{t('integrationen.ki.provider')}</dt>
+				<dd class="font-mono text-xs break-all text-heading" data-testid="ki-provider">
+					{llmStatus.provider ?? '—'}
+					{#if !llmStatus.configured}
+						<span class="font-sans text-danger">· {t('integrationen.ki.notSetUp')}</span>
+					{/if}
 				</dd>
-			{/if}
-			<dt class="text-faint">{t('integrationen.ki.models')}</dt>
-			<dd class="text-heading" data-testid="ki-models">
-				{llmStatus.models.fallback
-					? t('integrationen.ki.modelsValue', {
-							primary: llmStatus.models.primary ?? '—',
-							fallback: llmStatus.models.fallback
-						})
-					: (llmStatus.models.primary ?? '—')}
-			</dd>
-			<dt class="text-faint">{t('integrationen.ki.key')}</dt>
-			<dd
-				class={llmStatus.keyConfigured ? 'font-medium text-success' : 'font-medium text-danger'}
-				data-testid="ki-key"
-				data-configured={llmStatus.keyConfigured ? 'true' : 'false'}
-			>
-				{llmStatus.keyConfigured ? t('integrationen.ki.keyOk') : t('integrationen.ki.keyMissing')}
-			</dd>
-			{#if llmStatus.redaction}
-				<dt class="text-faint">{t('integrationen.ki.redaction')}</dt>
+				{#if tee}
+					<!-- A model in an attested enclave (#416): which one is pinned, and the last proof. -->
+					<dt class="text-faint">{t('integrationen.ki.tee')}</dt>
+					<dd
+						class="text-heading"
+						data-testid="ki-tee"
+						data-state={tee.error ? 'failed' : tee.verifiedAt ? 'verified' : 'pinned'}
+					>
+						{tee.error
+							? t('integrationen.ki.teeFailed', { error: tee.error })
+							: tee.verifiedAt
+								? t('integrationen.ki.teeVerified', {
+										time: new Date(tee.verifiedAt).toLocaleString()
+									})
+								: t('integrationen.ki.teePinned')}
+						<span
+							class="mt-0.5 block font-mono text-xs break-all text-faint"
+							data-testid="ki-tee-pin"
+							>{t('integrationen.ki.teePin', {
+								item: tee.itemHash,
+								measurement: `${String(tee.measurement).slice(0, 16)}…`,
+								commit: tee.sourceCommit ?? '—'
+							})}</span
+						>
+					</dd>
+				{/if}
+				<dt class="text-faint">{t('integrationen.ki.models')}</dt>
+				<dd class="text-heading" data-testid="ki-models">
+					{llmStatus.models.fallback
+						? t('integrationen.ki.modelsValue', {
+								primary: llmStatus.models.primary ?? '—',
+								fallback: llmStatus.models.fallback
+							})
+						: (llmStatus.models.primary ?? '—')}
+				</dd>
+				<dt class="text-faint">{t('integrationen.ki.key')}</dt>
 				<dd
-					class="text-heading"
-					data-testid="ki-redaction"
-					data-active={llmStatus.redaction.active ? 'true' : 'false'}
+					class={llmStatus.keyConfigured ? 'font-medium text-success' : 'font-medium text-danger'}
+					data-testid="ki-key"
+					data-configured={llmStatus.keyConfigured ? 'true' : 'false'}
 				>
-					{llmStatus.redaction.active
-						? t('integrationen.ki.redactionOn')
-						: /** @type {any} */ (llmStatus.redaction).enclave
-							? t('integrationen.ki.redactionOffEnclave')
-							: t('integrationen.ki.redactionOff')}
-					{#if unconfirmedLocal}
-						<!-- A model on this computer that setup:llm was not told about: blacked out until it is (#438). -->
-						<span class="mt-1 block text-xs text-text" data-testid="ki-redaction-confirm">
-							{t('integrationen.ki.redactionConfirm')}
-							<CopyButton
-								text="pnpm setup:llm"
-								label={t('help.copyCommand')}
-								testid="ki-redaction-command"
-								valueClass="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs whitespace-nowrap text-heading"
-								>pnpm setup:llm</CopyButton
-							>
-						</span>
+					{llmStatus.keyConfigured
+						? t('integrationen.ki.keyOk')
+						: t(hosted ? 'integrationen.ki.keyMissingHosted' : 'integrationen.ki.keyMissing')}
+				</dd>
+				{#if llmStatus.redaction}
+					<dt class="text-faint">{t('integrationen.ki.redaction')}</dt>
+					<dd
+						class="text-heading"
+						data-testid="ki-redaction"
+						data-active={llmStatus.redaction.active ? 'true' : 'false'}
+					>
+						{llmStatus.redaction.active
+							? t('integrationen.ki.redactionOn')
+							: /** @type {any} */ (llmStatus.redaction).enclave
+								? t('integrationen.ki.redactionOffEnclave')
+								: t('integrationen.ki.redactionOff')}
+						{#if unconfirmedLocal}
+							<!-- A model on this computer that setup:llm was not told about: blacked out until it is (#438). -->
+							<span class="mt-1 block text-xs text-text" data-testid="ki-redaction-confirm">
+								{t('integrationen.ki.redactionConfirm')}
+								<CopyButton
+									text="pnpm setup:llm"
+									label={t('help.copyCommand')}
+									testid="ki-redaction-command"
+									valueClass="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs whitespace-nowrap text-heading"
+									>pnpm setup:llm</CopyButton
+								>
+							</span>
+						{/if}
+					</dd>
+				{/if}
+				<dt class="text-faint">{t('integrationen.ki.terms')}</dt>
+				<dd class="text-heading tabular-nums" data-testid="ki-terms">{llmStatus.redactTerms}</dd>
+				<dt class="text-faint">{t('integrationen.ki.authServ')}</dt>
+				<dd class="text-heading" data-testid="ki-authserv">
+					{#if llmStatus.mail?.authServId}
+						<span class="font-mono text-xs">{llmStatus.mail.authServId}</span>
+					{:else}
+						<span class="text-text"
+							>{t(
+								hosted ? 'integrationen.ki.authServNoneHosted' : 'integrationen.ki.authServNone'
+							)}</span
+						>
+						<span class="block text-xs text-faint">{t('integrationen.ki.authServNoneHint')}</span>
 					{/if}
 				</dd>
 			{/if}
-			<dt class="text-faint">{t('integrationen.ki.terms')}</dt>
-			<dd class="text-heading tabular-nums" data-testid="ki-terms">{llmStatus.redactTerms}</dd>
-			<dt class="text-faint">{t('integrationen.ki.authServ')}</dt>
-			<dd class="text-heading" data-testid="ki-authserv">
-				{#if llmStatus.mail?.authServId}
-					<span class="font-mono text-xs">{llmStatus.mail.authServId}</span>
-				{:else}
-					<span class="text-text">{t('integrationen.ki.authServNone')}</span>
-					<span class="block text-xs text-faint">{t('integrationen.ki.authServNoneHint')}</span>
-				{/if}
-			</dd>
 			<dt class="text-faint">{t('integrationen.ki.last')}</dt>
 			<dd class="text-heading" data-testid="ki-last">
 				{#if lastMoment}
@@ -193,28 +306,33 @@
 			data-testid="ki-verlauf">{t('integrationen.ki.verlauf')}</a
 		>
 	{/if}
-	<!-- A model on this computer (docs/ollama.md): open while none is set up or one is local. -->
-	<details
-		class="mt-3 rounded-lg border border-border bg-surface px-4 py-2 text-sm"
-		open={!llmStatus?.configured || /:11434$/.test(String(llmStatus?.provider ?? ''))}
-		data-testid="ki-ollama"
-	>
-		<!-- Not flex: that hides the disclosure triangle, and a closed guide read as a statement. -->
-		<summary class="min-h-11 cursor-pointer py-2.5 font-medium text-heading">
-			{t('integrationen.ki.ollama.title')}
-		</summary>
-		<p class="text-text">{t('integrationen.ki.ollama.intro')}</p>
-		<ol class="mt-2 list-decimal space-y-1 pl-5 text-text">
-			{#each list('integrationen.ki.ollama.steps') as step (step)}
-				<li>{step}</li>
-			{/each}
-		</ol>
-		<a
-			class="mt-2 mb-2 inline-block text-text underline hover:text-heading"
-			href={docUrl('docs/ollama{de}.md', currentLocale())}
-			rel="noreferrer"
-			data-testid="ki-ollama-doc">{t('integrationen.ki.ollama.doc')}</a
+	<!-- A model on this computer (docs/ollama.md): open while none is set up or one is local. Not for a hosted bridge. -->
+	{#if !hosted}
+		<details
+			class="mt-3 rounded-lg border border-border bg-surface px-4 py-2 text-sm"
+			open={!llmStatus?.configured || /:11434$/.test(String(llmStatus?.provider ?? ''))}
+			data-testid="ki-ollama"
 		>
-	</details>
-	<TechnicalNote class="mt-3" lines={list('integrationen.ki.technical')} />
+			<!-- Not flex: that hides the disclosure triangle, and a closed guide read as a statement. -->
+			<summary class="min-h-11 cursor-pointer py-2.5 font-medium text-heading">
+				{t('integrationen.ki.ollama.title')}
+			</summary>
+			<p class="text-text">{t('integrationen.ki.ollama.intro')}</p>
+			<ol class="mt-2 list-decimal space-y-1 pl-5 text-text">
+				{#each list('integrationen.ki.ollama.steps') as step (step)}
+					<li>{step}</li>
+				{/each}
+			</ol>
+			<a
+				class="mt-2 mb-2 inline-block text-text underline hover:text-heading"
+				href={docUrl('docs/ollama{de}.md', currentLocale())}
+				rel="noreferrer"
+				data-testid="ki-ollama-doc">{t('integrationen.ki.ollama.doc')}</a
+			>
+		</details>
+	{/if}
+	<TechnicalNote
+		class="mt-3"
+		lines={list(hosted ? 'integrationen.ki.technicalHosted' : 'integrationen.ki.technical')}
+	/>
 </section>

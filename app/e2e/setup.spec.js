@@ -175,6 +175,18 @@ test('"Status prüfen" names a bridge that does not let this page in, with the c
 	await stopBridge();
 	await startBridge(['http://localhost:5173']);
 	try {
+		// The Bridge row opens its page from anywhere on it, as the other rows do – not only from its name.
+		await page.getByTestId('tab-integrationen').click();
+		const row = page.locator('[data-testid="integration-row"][data-id="bridge"]');
+		await row.click({ position: { x: 30, y: 30 } });
+		await expect(page.getByTestId('integration-title')).toHaveText('Bridge');
+		await page.getByTestId('integration-back').click();
+		// One link in the row's head, and its own controls are not swallowed: checking stays on the overview.
+		await expect(row.getByRole('link', { name: 'Bridge', exact: true })).toHaveCount(1);
+		await row.getByTestId('bridge-check').click();
+		await expect(row.getByTestId('bridge-error')).toBeVisible();
+		await expect(page).toHaveURL(/\/integrationen\/?$/);
+
 		await openIntegration(page, 'bridge');
 		await page.getByRole('button', { name: 'Status prüfen' }).click();
 		await expect(page.getByTestId('bridge-error')).toContainText(

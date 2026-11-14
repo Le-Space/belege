@@ -30,6 +30,24 @@ describe('the Integrationen overview', () => {
 		expect(v.counts.ok + v.counts.off).toBeLessThanOrEqual(v.rows.length);
 	});
 
+	it('the model’s enclave attested, as the bridge that answers reports it: the KI row says so', () => {
+		const llm = { model: 'model-a', time: '01.01.2026, 10:00' };
+		expect(row(integrationsOverview(facts({ llm })), 'ki')).toMatchObject({
+			kind: 'ok',
+			state: 'attested',
+			line: 'kiAttested',
+			params: llm
+		});
+		// Not while that bridge is silent or has no model: then it is not a state to claim.
+		const silent = facts({ llm });
+		silent.bridge = { ...silent.bridge, state: 'offline' };
+		expect(row(integrationsOverview(silent), 'ki')).toMatchObject({ kind: 'off', line: 'ki' });
+		const none = facts({ llm });
+		none.bridge = { ...none.bridge, health: { ...none.bridge.health, llm: false } };
+		expect(row(integrationsOverview(none), 'ki')).toMatchObject({ state: 'notSetUp' });
+		expect(row(integrationsOverview(facts({ llm: null })), 'ki').state).toBe('setUp');
+	});
+
 	it('Hibiscus set up but never synced needs the person; after a sync it does not', () => {
 		expect(integrationsOverview(facts()).needs).toEqual([
 			{ id: 'bank', kind: 'warn', text: 'neverSynced', params: { name: 'Hibiscus' } }

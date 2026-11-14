@@ -26,6 +26,7 @@
 	import IntegrationHelp from '$lib/help/IntegrationHelp.svelte';
 	import { integrationFacts, loadIntegrationFacts } from '$lib/integrations/facts.svelte.js';
 	import { integrationsOverview } from '$lib/integrations/overview.js';
+	import { hostedBridgeAnswers, loadHostedPeers } from '$lib/integrations/hosted-status.svelte.js';
 
 	const KNOWN = [
 		'bridge',
@@ -46,6 +47,7 @@
 	onMount(() => {
 		if (!bridge.loaded) loadBridge();
 		loadIntegrationFacts();
+		loadHostedPeers().catch(() => {});
 	});
 	// The help is unfolded while the integration is not working yet.
 	let row = $derived(integrationsOverview(integrationFacts()).rows.find((r) => r.id === id));
@@ -72,7 +74,7 @@
 	<h1 class="mt-2 text-2xl font-bold text-heading" data-testid="integration-title">
 		{t(`integrationen.overview.name.${id}`)}
 	</h1>
-	{#key id}<IntegrationHelp {id} open={needsHelp} />{/key}
+	{#key id}<IntegrationHelp {id} open={needsHelp} hosted={Boolean(hostedBridgeAnswers())} />{/key}
 	<div class="integration-page" class:hide-card-title={id !== 'bank'}>
 		{#if id === 'bridge'}
 			<BridgeStatus />

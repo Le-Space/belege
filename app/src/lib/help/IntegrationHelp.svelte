@@ -6,8 +6,11 @@
 	import { currentLocale, t } from '$lib/i18n/index.js';
 	import { INTEGRATION_HELP, helpDoc } from './integration-help.js';
 
-	/** @type {{ id: string, open?: boolean }} */
-	let { id, open = false } = $props();
+	/** @type {{ id: string, open?: boolean, hosted?: boolean }} `hosted`: a hosted bridge answers – no terminal there */
+	let { id, open = false, hosted = false } = $props();
+	// Where setting up differs on a hosted bridge, the catalogue has `howHosted`.
+	const HOSTED_HOW = ['ki'];
+	let hostedHelp = $derived(hosted && HOSTED_HOW.includes(id));
 
 	let help = $derived(INTEGRATION_HELP[id]);
 	let doc = $derived(helpDoc(id, currentLocale()));
@@ -29,8 +32,10 @@
 		</summary>
 		<div class="space-y-2 pb-2">
 			<p class="text-text">{t(`integrationen.help.${id}.what`)}</p>
-			<p class="text-text">{t(`integrationen.help.${id}.how`)}</p>
-			{#if help.command}
+			<p class="text-text" data-testid="integration-help-how">
+				{t(`integrationen.help.${id}.${hostedHelp ? 'howHosted' : 'how'}`)}
+			</p>
+			{#if help.command && !hostedHelp}
 				<p class="text-text">
 					{t('integrationen.help.command')}
 					<CopyButton

@@ -9,10 +9,13 @@
 		app,
 		forgetHostedSettings,
 		hostedSettingsNames,
+		hostedSettingsView,
 		keepHostedSettings,
 		takeOverBridgeSettings
 	} from '$lib/session.svelte.js';
 	import { bridge } from './bridge-state.svelte.js';
+	import { hostedVmRunning } from './bridge-status.js';
+	import { booksBridgeHosted, hosted, loadHostedPeers } from './hosted-status.svelte.js';
 
 	/** @type {{ accounts: string[], sections: string[] }} */
 	let kept = $state({ accounts: [], sections: [] });
@@ -33,12 +36,38 @@
 			/^[0-9a-f]{32,}$/i.test(llm.measurement.trim())
 	);
 
+	/** What is kept, to show: non-secret values, and of a secret only that it is there. */
+	/** @type {import('./hosted-settings.js').KeptEntry[]} */
+	let view = $state([]);
+	/** The integrations' names; brands are not translated. @type {Record<string, string>} */
+	const NAME = {
+		kraken: 'Kraken',
+		paperless: 'Paperless-ngx',
+		enablebanking: 'Enable Banking',
+		alchemy: 'Alchemy',
+		coingecko: 'CoinGecko',
+		bitcoin: 'Bitcoin (zpub)'
+	};
+	/** @param {string} id */
+	const nameOf = (id) => NAME[id] ?? t(`integrationen.hostedSettings.${id}`);
+
 	async function refresh() {
-		kept = await hostedSettingsNames().catch(() => ({ accounts: [], sections: [] }));
+		[kept, view] = await Promise.all([
+			hostedSettingsNames().catch(() => ({ accounts: [], sections: [] })),
+			hostedSettingsView().catch(() => [])
+		]);
 	}
 	$effect(() => {
 		if (app.sync.online) refresh();
 	});
+	$effect(() => {
+		void app.sync.online;
+		loadHostedPeers().catch(() => {});
+	});
+	// Once a hosted bridge is the books' bridge, `settings.export` would ask the VM, not this computer.
+	let asksTheVm = $derived(Boolean(booksBridgeHosted()));
+	// What is kept reaches a VM only at its start: a running one has to be stopped and started.
+	let vmRuns = $derived(hostedVmRunning(hosted) || asksTheVm);
 
 	/** @param {string} what @param {() => Promise<unknown>} f */
 	async function run(what, f) {
@@ -152,7 +181,8 @@
 </script>
 
 <section
-	class="mt-4 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm"
+	id="hosted-settings"
+	class="mt-4 scroll-mt-4 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm"
 	data-testid="hosted-settings"
 >
 	<h2 class="text-lg font-semibold text-heading">{t('integrationen.hostedSettings.title')}</h2>
@@ -171,12 +201,43 @@
 			{/if}
 		</p>
 
+		{#if view.length}
+			<!-- Everything that is not secret, read-only; of a secret only that it is kept. -->
+			<p class="mt-3 text-xs text-faint">{t('integrationen.hostedSettings.viewHint')}</p>
+			<ul class="mt-1 divide-y divide-border text-sm" data-testid="hosted-settings-view">
+				{#each view as entry (entry.id)}
+					<li class="py-2" data-testid="hosted-settings-view-{entry.id}">
+						<span class="font-medium text-heading">{nameOf(entry.id)}</span>
+						<dl class="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-0.5">
+							{#each entry.fields as field (field.key)}
+								<dt class="text-faint">{t(`integrationen.hostedSettings.field.${field.key}`)}</dt>
+								<dd class="font-mono text-xs break-all text-heading">{field.value}</dd>
+							{/each}
+							<dt class="text-faint">{t('integrationen.hostedSettings.secretPart')}</dt>
+							<dd
+								class={entry.secret ? 'text-success' : 'text-danger'}
+								data-testid="hosted-settings-view-secret"
+								data-kept={entry.secret ? 'true' : 'false'}
+							>
+								{t(
+									entry.secret
+										? 'integrationen.hostedSettings.secretKept'
+										: 'integrationen.hostedSettings.secretMissing'
+								)}
+							</dd>
+						</dl>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+
 		{#if !app.member}
 			<div class="mt-3 flex flex-wrap gap-2">
 				<button
 					type="button"
 					class={save}
-					disabled={Boolean(busy) || !bridge.peerId}
+					disabled={Boolean(busy) || !bridge.peerId || asksTheVm}
+					aria-describedby="hosted-settings-take-over-hint"
 					onclick={takeOver}
 					data-testid="hosted-settings-take-over"
 					>{t('integrationen.hostedSettings.takeOver')}</button
@@ -190,7 +251,18 @@
 					>
 				{/if}
 			</div>
-			<p class="mt-1 text-xs text-faint">{t('integrationen.hostedSettings.takeOverHint')}</p>
+			<p
+				id="hosted-settings-take-over-hint"
+				class="mt-1 text-xs {asksTheVm ? 'text-text' : 'text-faint'}"
+				data-testid="hosted-settings-take-over-hint"
+				data-hosted={asksTheVm ? 'true' : 'false'}
+			>
+				{t(
+					asksTheVm
+						? 'integrationen.hostedSettings.takeOverHosted'
+						: 'integrationen.hostedSettings.takeOverHint'
+				)}
+			</p>
 
 			<details class="mt-4">
 				<summary class="cursor-pointer text-sm font-medium"
@@ -367,7 +439,9 @@
 	{/if}
 	{#if done && !busy}
 		<p class="mt-2 text-sm text-success" data-testid="hosted-settings-done">
-			{t('integrationen.hostedSettings.saved')}
+			{t(
+				vmRuns ? 'integrationen.hostedSettings.savedRunning' : 'integrationen.hostedSettings.saved'
+			)}
 		</p>
 	{/if}
 	{#if error}

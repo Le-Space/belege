@@ -4263,7 +4263,9 @@ export default {
 			},
 			ki: {
 				what: 'A language model reads vendor, amount, date and number from receipts and helps in four more places – always only on a click (✦).',
-				how: 'You set up your own model in the bridge, such as DeepSeek or a local one with Ollama. Text is redacted before it is sent, as far as patterns and lists reach; with a local model nothing goes out – which is what we advise for now. Le Space runs no AI.'
+				how: 'You set up your own model in the bridge, such as DeepSeek or a local one with Ollama. Text is redacted before it is sent, as far as patterns and lists reach; with a local model nothing goes out – which is what we advise for now. Le Space runs no AI.',
+				howHosted:
+					'A hosted bridge answers here. It uses only a model in LibertAI’s attested enclave, whose attestation it checks before every request – no other, and no local one. You enter key, model and the enclave’s pin under Integrations → Bridge → “Settings for the hosted bridge”; they go along at the VM’s next start. Le Space runs no AI.'
 			},
 			kraken: {
 				what: 'Belege reads your Kraken account read-only: ledger, balances and trades, one account per asset, in euros at the day’s rate.',
@@ -4354,6 +4356,7 @@ export default {
 				error: 'error',
 				checking: 'checking',
 				setUp: 'set up',
+				attested: 'LibertAI confidential · attestation checked',
 				notSetUp: 'not set up',
 				on: 'on',
 				off: 'off',
@@ -4371,6 +4374,7 @@ export default {
 				bridge: 'On this Mac; fetches transactions, reads receipts, queries nodes',
 				bridgeViaDevice: 'Runs on your Mac; this device uses it via device sync',
 				ki: 'Reads vendor, amount, date and number from receipts',
+				kiAttested: 'Reads receipts · {model} · last checked {time}',
 				devicesOn: 'The same books on your devices · {count} connected',
 				devicesOff: 'The same books on a phone or second computer',
 				bankAccounts: '{count} accounts in the books',
@@ -4629,9 +4633,26 @@ export default {
 				'What a hosted bridge – on Aleph or on Phala through NEAR – starts with besides its pairing: mail, Kraken, Paperless, Alchemy, Enable Banking and a language model in LibertAI’s attested enclave. Kept sealed in these books and handed only to a VM whose attestation holds, at each start. The bridge on this computer keeps its own and keeps working. Not here: Hibiscus (it stays on your computer), any other language model (a hosted bridge uses only one in the enclave, whose attestation it checks before every request) and portals (a hosted bridge has no browser to log in with).',
 			kept: 'Kept for the hosted bridge: {names}.',
 			none: 'Nothing kept for the hosted bridge yet: it starts paired, without accounts.',
+			viewHint:
+				'What is kept. Anything secret – passwords, keys, tokens – is never shown again, only that it is stored. Entering it anew overwrites it.',
+			secretPart: 'Secret part',
+			secretKept: 'stored',
+			secretMissing: 'missing',
+			field: {
+				host: 'IMAP server',
+				port: 'Port',
+				user: 'User',
+				accountingAddress: 'Accounting address',
+				model: 'Model',
+				itemHash: 'Enclave item hash',
+				measurement: 'Enclave measurement',
+				baseUrl: 'Address'
+			},
 			takeOver: 'Take over from the bridge on this computer',
 			takeOverHint:
 				'The bridge you paired hands its accounts and settings to this device over the stream – only to the device that paired it – and they are kept here, sealed. Do this before a hosted bridge becomes the books’ bridge.',
+			takeOverHosted:
+				'Not possible right now: the books’ bridge is a hosted one. The question would go to the VM, not to this computer, and bring nothing new. Enter the values by hand below – or pair the bridge on this computer again first and take over then.',
 			forget: 'Forget',
 			forgetConfirm:
 				'Forget the settings kept for the hosted bridge? The bridge on your computer keeps its own.',
@@ -4647,6 +4668,8 @@ export default {
 			paperlessUrl: 'Paperless address (https://…)',
 			keep: 'Keep for the hosted bridge',
 			saved: 'Kept, sealed. It goes along at the next start.',
+			savedRunning:
+				'Kept, sealed. A running VM gets it only at its next start: stop it and start it again.',
 			llm: 'AI in LibertAI’s attested enclave',
 			llmHint:
 				'Comes along when taken over from the bridge on this computer, once pnpm setup:llm bound it to LibertAI confidential. Or enter it here: key, model and the enclave’s pin (item hash and measurement, from llm.tee in this computer’s bridge.json). The hosted bridge checks the enclave against this pin before every request and sends nothing otherwise.',
@@ -4792,6 +4815,20 @@ export default {
 				'The AI only reads receipts: vendor, amount, date, invoice number. Linking them to payments is done by the app itself, traceably by points.',
 			keyWhere:
 				'The API key lives only in the bridge’s keychain – change it with pnpm setup:llm. It never reaches the browser.',
+			keyWhereHosted:
+				'A hosted bridge answers here. Its API key is kept sealed in these books and handed only to a VM whose attestation holds, at its start – change it under “Settings for the hosted bridge”, then stop the VM and start it again. It is never shown again.',
+			hostedNoModel: 'No language model is set up for the hosted bridge.',
+			hostedNoModelHow:
+				'It accepts only a model in LibertAI’s attested enclave. Enter key, model and the enclave’s pin here:',
+			hostedNoModelRestart:
+				'Then stop the VM and start it again: the model comes along only at its next start.',
+			keyMissingHosted: 'missing – enter it under “Settings for the hosted bridge”',
+			authServNoneHosted: 'not set',
+			technicalHosted: [
+				'The hosted bridge sends a PDF’s text layer (or the text of an email) only to a model in LibertAI’s attested enclave. Before every request it checks the enclave’s attestation against the pin (item hash and measurement); if it does not hold, nothing is sent. What was sent is shown at the receipt under “Sent to the AI”.',
+				'The answer is checked (gross present, currency ISO, dates valid, net + VAT = gross). If it fails or breaks off, the bridge asks a second time.',
+				'Key, model and pin are kept sealed in these books and go only to a VM whose attestation holds, at its start. No answer of the bridge contains the key – its status only says “present” or “missing”.'
+			],
 			ollama: {
 				title: 'Guide: reading locally with Ollama – then nothing leaves the computer',
 				intro:
@@ -4806,6 +4843,18 @@ export default {
 				doc: 'The whole guide, with measurements and help when something goes wrong'
 			},
 			noBridge: 'The bridge is not paired: settings only visible after pairing.',
+			silent: 'No bridge answers right now – that is why no status of the reading shows here.',
+			silentWhich: {
+				aleph:
+					'These books expect the hosted bridge on Aleph. If its VM is not running or still locked: start and unlock it under',
+				near: 'These books expect the hosted bridge on Phala (through NEAR). If it is not running: start it under',
+				local:
+					'These books expect the bridge on a computer. Start it there (pnpm bridge), then check the status under'
+			},
+			silentWhere: 'Integrations → Bridge',
+			keptModel:
+				'Kept for the hosted bridge: LibertAI, confidential – {model}, pin {item}. Goes along at the hosted bridge’s next start.',
+			attestedDetail: '{model} · last checked {time}',
 			unreachable: 'The bridge says nothing about receipt reading (older version?): {error}',
 			provider: 'Provider (host)',
 			models: 'Models',
