@@ -55,6 +55,11 @@ test("the bridge's fakes run every spec", () => {
 	assert.deepEqual(pr('bridge/package.json'), all);
 });
 
+test('the launcher and the Phala image run every spec: the Phala spec runs them', () => {
+	assert.deepEqual(pr('bridge/tee/launcher/src/launcher.js'), all);
+	assert.deepEqual(pr('bridge/tee/dstack/registrar.mjs'), all);
+});
+
 test('the app: unit and every spec, not the bridge', () => {
 	assert.deepEqual(pr('app/src/lib/ledger.js', 'docs/ai.md'), {
 		unit: true,

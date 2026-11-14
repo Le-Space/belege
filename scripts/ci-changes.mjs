@@ -50,6 +50,9 @@ export function needsOf(file) {
 		// The fakes the browser specs start (@belege/bridge/testing/*, in
 		// test/support), and the exports the app imports.
 		if (/^bridge\/test\/support\//.test(file) || file === 'bridge/package.json') return FULL;
+		// The launcher and what the Phala image runs before the bridge: the
+		// Phala spec runs them for real (app/e2e/hosted-bridge-phala.spec.js).
+		if (/^bridge\/tee\/(launcher|dstack)\/.*\.(m?js|json)$/.test(file)) return FULL;
 		// The specs that pair a bridge run it.
 		return { unit: true, bridge: true, e2e: 'bridge' };
 	}

@@ -25,7 +25,8 @@
 		"./testing/chains": "./test/support/fake-chains.js",
 		"./testing/alchemy": "./test/support/fake-alchemy.js",
 		"./testing/aleph": "./test/support/fake-aleph.js",
-		"./testing/attest-agent": "./test/support/fake-attest-agent.js"
+		"./testing/attest-agent": "./test/support/fake-attest-agent.js",
+		"./testing/phala": "./test/support/fake-phala.js"
 	},
 	"scripts": {
 		"start": "node src/cli.js",
