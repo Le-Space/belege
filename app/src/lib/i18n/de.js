@@ -1744,7 +1744,12 @@ export default {
 			lastUsed: 'zuletzt genutzt am {date}',
 			narrowed: 'eingeschränkt auf {count} Bereiche',
 			renew: 'Erneuern',
-			askHolder: 'auf dem Gerät erneuern, das die Bridge gekoppelt hat'
+			askHolder: 'auf dem Gerät erneuern, das die Bridge gekoppelt hat',
+			usage: 'Aufrufe: {calls} · abgelehnt: {refused}',
+			usageText:
+				'Was dieses Gerät an der Bridge aufgerufen hat: nur Befehl, Anzahl und Zeit, keine Inhalte.',
+			usageNone: 'noch keine Aufrufe',
+			usageItem: '{calls}× erlaubt · {refused}× abgelehnt · zuletzt {date}'
 		},
 		bridgePending: 'Freigegeben – gilt ab dem nächsten Entsperren (Seite neu laden).',
 		notConnected: 'nicht verbunden',

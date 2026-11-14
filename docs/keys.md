@@ -101,6 +101,7 @@ The other way round, the bridge limits what a device may do with it ([#579](http
 - Each command belongs to an area, such as reading the bank, reading the mailbox or the language model. A device may only use the areas it holds.
 - Your own devices hold all areas, as before. A member has access only if you allowed it when admitting them.
 - A device that does not use the bridge for 90 days loses access. The device that paired the bridge renews it under _Integrationen → Eigene Geräte → Erweitert_.
+- The bridge counts per device and command how often it was allowed or refused, and when last. You see it under _Integrationen → Eigene Geräte → Erweitert_. Only the command, the count and the time are kept, never content; the count goes with the device.
 - What costs money is limited per device: calls to the language model a minute, its tokens a day and backups an hour. So a stolen phone cannot run down your credit before you remove it.
 
 ## Members

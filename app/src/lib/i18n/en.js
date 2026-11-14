@@ -1709,7 +1709,12 @@ export default {
 			lastUsed: 'last used on {date}',
 			narrowed: 'limited to {count} areas',
 			renew: 'Renew',
-			askHolder: 'renew it on the device that paired the bridge'
+			askHolder: 'renew it on the device that paired the bridge',
+			usage: 'Calls: {calls} · refused: {refused}',
+			usageText:
+				'What this device called at the bridge: only the command, how often and when, no content.',
+			usageNone: 'no calls yet',
+			usageItem: '{calls}× allowed · {refused}× refused · last {date}'
 		},
 		bridgePending: 'Shared – applies from the next unlock (reload the page).',
 		notConnected: 'not connected',

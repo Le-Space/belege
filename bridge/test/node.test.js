@@ -338,6 +338,13 @@ describe('the bridge’s node', () => {
 				[[other.peerId, ['bridge:bank:read']]]
 			);
 			assert.equal(typeof mine.devices[0].expiresAt, 'number');
+			// What it called, by name and count, let through or refused – no arguments, no answers.
+			const used = Object.fromEntries(
+				mine.devices[0].usage.map((/** @type {any} */ u) => [u.command, [u.calls, u.refused]])
+			);
+			assert.deepEqual(used['paperless.documents'], [1, 1]);
+			assert.deepEqual(used['bridge.health'], [1, 0]);
+			assert.ok(!JSON.stringify(mine.devices[0].usage).includes('since'), 'no arguments');
 			const all = await own.consumer.call(node.peerId, 'belege-bridge', 'grants', {});
 			assert.equal(all.holder, true);
 			assert.equal(all.devices.length, 2);

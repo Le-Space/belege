@@ -13,7 +13,8 @@ import {
 	limitsOf,
 	parseDevices,
 	scopesOf,
-	tokensIn
+	tokensIn,
+	usageOf
 } from '../src/grants.js';
 
 const A = '12D3KooWGzN9EoHWJ3u4ZyiDpm7DVpNcwRVaUPfYzCgxGmnpHsGp';
@@ -103,7 +104,12 @@ describe('grants', () => {
 		await grants.flushed();
 		const kept = JSON.parse(await readFile(join(dir, 'one.json'), 'utf8'));
 		assert.deepEqual(Object.keys(kept.devices), [A]);
-		assert.deepEqual(Object.keys(kept.devices[A]).sort(), ['grantedAt', 'lastUsedAt', 'scopes']);
+		assert.deepEqual(Object.keys(kept.devices[A]).sort(), [
+			'grantedAt',
+			'lastUsedAt',
+			'scopes',
+			'usage'
+		]);
 		// A second start reads them back; a device no longer listed goes.
 		const again = createGrants({ file: join(dir, 'one.json'), scopes: ALL });
 		await again.adopt([A, B]);
@@ -156,6 +162,63 @@ describe('grants', () => {
 			grants.authorize(B, 'bridge:settings:export', {}),
 			refused('SCOPE_MISSING')
 		);
+	});
+
+	test('usage: per device and command, counts and times only, kept with the grant (#579)', async () => {
+		let now = Date.UTC(2026, 0, 1);
+		const file = join(dir, 'usage.json');
+		const grants = createGrants({ file, scopes: ALL, now: () => now });
+		await grants.adopt([A, B]);
+		grants.record(A, 'mail.search', true);
+		now += 1000;
+		grants.record(A, 'mail.search', true);
+		grants.record(A, 'mail.search', false);
+		now += 1000;
+		grants.record(A, 'llm.extract', true);
+		// Not a device, not a command name: nothing counted.
+		grants.record('12D3KooWnope', 'mail.search', true);
+		grants.record(B, '../etc', true);
+		const listed = await grants.list();
+		assert.deepEqual(listed.find((g) => g.peerId === A)?.usage, [
+			{ command: 'llm.extract', calls: 1, refused: 0, lastAt: now },
+			{ command: 'mail.search', calls: 2, refused: 1, lastAt: now - 1000 }
+		]);
+		assert.deepEqual(listed.find((g) => g.peerId === B)?.usage, []);
+		// Written at stop (else within a minute); new scopes keep the counts.
+		await grants.set(
+			new Map([
+				[A, ['bridge:mail:read']],
+				[B, ALL]
+			])
+		);
+		await grants.flush();
+		const kept = JSON.parse(await readFile(file, 'utf8'));
+		assert.deepEqual(Object.keys(kept.devices[A].usage).sort(), ['llm.extract', 'mail.search']);
+		assert.deepEqual(Object.keys(kept.devices[A].usage['mail.search']).sort(), [
+			'calls',
+			'lastAt',
+			'refused'
+		]);
+		// Read back at the next start; a device off the list takes its usage with it.
+		const again = createGrants({ file, scopes: ALL, now: () => now });
+		await again.adopt([A]);
+		assert.equal((await again.list())[0].usage.length, 2);
+		await again.adopt([B]);
+		await again.adopt([A, B]);
+		assert.deepEqual((await again.list()).find((g) => g.peerId === A)?.usage, []);
+	});
+
+	test('usageOf: only command names with counts and times come back from the file', () => {
+		assert.deepEqual(
+			usageOf({
+				'mail.search': { calls: 3, refused: -1, lastAt: 5, body: 'Rechnung' },
+				'../x': { calls: 1 },
+				'llm.extract': 'nope'
+			}),
+			{ 'mail.search': { calls: 3, refused: 0, lastAt: 5 } }
+		);
+		assert.deepEqual(usageOf(null), {});
+		assert.deepEqual(usageOf([1]), {});
 	});
 
 	test('limits per device: model calls a minute, tokens a day, backups an hour', async () => {
