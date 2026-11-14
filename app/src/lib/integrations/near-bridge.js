@@ -36,6 +36,34 @@ export const NEAR_BRIDGE = Object.freeze({
 	launcherUrl: env.VITE_NEAR_BRIDGE_LAUNCHER || 'https://bridge-launcher.le-space.de'
 });
 
+/**
+ * In E2E builds only: a fake NEAR, a fake launcher and the fake KMS's key
+ * (`{ rpcUrl, contractId, launcherUrl, kms: { slug: key } }`), as the Aleph
+ * fakes are named (hosted-bridge.js `E2E_HOSTED_PINS_KEY`).
+ */
+const E2E_NEAR_KEY = 'belege.e2e.near';
+
+/** @returns {{ rpcUrl?: string, contractId?: string, launcherUrl?: string, kms?: Record<string, string> } | null} */
+function e2eNear() {
+	if (import.meta.env.VITE_E2E !== 'true') return null;
+	try {
+		const raw = globalThis.localStorage?.getItem(E2E_NEAR_KEY);
+		return raw ? JSON.parse(raw) : null;
+	} catch {
+		return null;
+	}
+}
+
+/** Where the books talk to now: NEAR_BRIDGE, or an E2E build's fakes. */
+export function nearEndpoints() {
+	const fake = e2eNear();
+	return {
+		rpcUrl: fake?.rpcUrl || NEAR_BRIDGE.rpcUrl,
+		contractId: fake?.contractId || NEAR_BRIDGE.contractId,
+		launcherUrl: fake?.launcherUrl || NEAR_BRIDGE.launcherUrl
+	};
+}
+
 /** The sealed settings record with the books' NEAR key (32-byte ed25519 seed, hex). */
 export const NEAR_KEY_SETTING = 'bridge/near-key';
 
@@ -185,8 +213,8 @@ export function signedTransaction(tx, signature) {
  */
 export function nearBooks({
 	seed,
-	rpcUrl = NEAR_BRIDGE.rpcUrl,
-	contractId = NEAR_BRIDGE.contractId,
+	rpcUrl = nearEndpoints().rpcUrl,
+	contractId = nearEndpoints().contractId,
 	fetch: f = (...a) => globalThis.fetch(...a)
 }) {
 	const books = nearAccountOf(seed);
@@ -335,9 +363,9 @@ export function envKeySigner({ appId, publicKey, signature, timestamp }) {
  * @param {{ kms: string, appId: string, publicKey: string, signature: string, timestamp?: number }} o
  */
 export function checkEnvKey({ kms, ...signed }) {
-	const expected = Object.hasOwn(KNOWN_KMS, kms)
-		? KNOWN_KMS[/** @type {keyof typeof KNOWN_KMS} */ (kms)]
-		: null;
+	/** @type {Record<string, string>} */
+	const known = { ...KNOWN_KMS, ...(e2eNear()?.kms ?? {}) };
+	const expected = Object.hasOwn(known, kms) ? known[kms] : null;
 	if (!expected) throw new Error(`unknown KMS ${String(kms).slice(0, 40)}`);
 	if (envKeySigner(signed) !== expected) throw new Error('the env key is not signed by the KMS');
 }
@@ -429,7 +457,7 @@ export const secretsMessage = (books, atMs, hex) =>
  * @param {{ url?: string, books: { accountId: string, publicKey: string, sign: (m: Uint8Array) => Uint8Array }, fetch?: typeof fetch }} o
  */
 export function launcherClient({
-	url = NEAR_BRIDGE.launcherUrl,
+	url = nearEndpoints().launcherUrl,
 	books,
 	fetch: f = (...a) => globalThis.fetch(...a)
 }) {
