@@ -1375,7 +1375,7 @@ export default {
 			'You can go on working in Belege: the backup carries on, and the header shows how far it is. Just do not close or reload the tab.',
 		auto: {
 			label: 'Back up automatically (on this device)',
-			hint: 'Five minutes after the last change Belege backs up what is new by itself – as an increment, never as a full backup. Only while the tab is open, the network is not paused, this browser is let in or the bridge runs, and the credits last more than 30 days. Switch it on on one device, not on several.',
+			hint: 'Five minutes after the last change Belege backs up what is new by itself – as an increment, never as a full backup. Only while the tab is open, the network is not paused, this browser is let in or the bridge runs, the credits last more than 30 days, and Aleph did not refuse the last increment. Switch it on on one device, not on several.',
 			unsaved: 'Not backed up yet: {list}.'
 		},
 		badge: {
@@ -1390,6 +1390,8 @@ export default {
 				key: 'This browser is not let in and the bridge is not running: no automatic backup.',
 				credits:
 					'The credits last less than 30 days: no automatic backup. "Back up now" still works.',
+				refused:
+					'Aleph refused the last increment: no automatic backup until one is kept again. The reason, and "Back up now", under Backup.',
 				error: 'The last automatic backup failed – details under Backup.'
 			},
 			title: 'To the backup',

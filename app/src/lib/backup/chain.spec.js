@@ -4,7 +4,7 @@
 // nothing is when no backup is kept at all. Made-up CIDs and sizes.
 import { describe, expect, it } from 'vitest';
 
-import { chainAfter, olderChains, reconcileChain } from './chain.js';
+import { chainAfter, olderChains, reconcileChain, refusedIncrement } from './chain.js';
 
 /** @param {Partial<import('./history.js').BackupRecord>} b */
 const row = (b) =>
@@ -212,5 +212,78 @@ describe('the chain as far as Aleph keeps it', () => {
 			files: 1
 		});
 		expect(await reconcileChain(/** @type {any} */ (old), [inc(1, 'pending')])).toBe(old);
+	});
+});
+
+describe('refusedIncrement', () => {
+	const inc = (/** @type {Partial<import('./history.js').BackupRecord>} */ b) =>
+		row({ kind: 'increment', base: 'QmBase', ...b });
+	const full = row({ at: '2026-11-01T10:00:00Z', cid: 'QmBase' });
+
+	it('is the newest increment of the chain when Aleph refused it', () => {
+		const refused = inc({
+			at: '2026-11-02T10:05:00Z',
+			cid: 'QmInc1b',
+			sequence: 1,
+			status: 'rejected',
+			errorCode: 4
+		});
+		const backups = [
+			refused,
+			inc({ at: '2026-11-02T10:00:00Z', cid: 'QmInc1a', sequence: 1, status: 'rejected' }),
+			full
+		];
+		expect(refusedIncrement(backups, 'QmBase')).toBe(refused);
+	});
+
+	it('counts a refusal for credits the same (no error code)', () => {
+		const backups = [
+			inc({ at: '2026-11-02T10:00:00Z', cid: 'QmInc1', sequence: 1, status: 'rejected' }),
+			full
+		];
+		expect(refusedIncrement(backups, 'QmBase')?.cid).toBe('QmInc1');
+	});
+
+	it('is lifted by a later one Aleph keeps or is still deciding on', () => {
+		const refused = inc({
+			at: '2026-11-02T10:00:00Z',
+			cid: 'QmInc1',
+			sequence: 1,
+			status: 'rejected'
+		});
+		for (const status of ['processed', 'pending']) {
+			const later = inc({ at: '2026-11-02T11:00:00Z', cid: 'QmInc1c', sequence: 1, status });
+			expect(refusedIncrement([later, refused, full], 'QmBase')).toBeNull();
+		}
+		// The refused one kept again: a second row for the same file.
+		const again = inc({ at: '2026-11-02T10:30:00Z', cid: 'QmInc1', sequence: 1 });
+		expect(refusedIncrement([again, refused, full], 'QmBase')).toBeNull();
+	});
+
+	it('looks only at the chain backups go on with, and only at increments', () => {
+		const other = inc({
+			at: '2026-11-03T10:00:00Z',
+			cid: 'QmOtherInc',
+			base: 'QmOther',
+			sequence: 1,
+			status: 'rejected'
+		});
+		const kept = inc({ at: '2026-11-02T10:00:00Z', cid: 'QmInc1', sequence: 1 });
+		expect(refusedIncrement([other, kept, full], 'QmBase')).toBeNull();
+		expect(refusedIncrement([other, kept, full], 'QmOther')).toBe(other);
+		// A refused full backup is the chain's block (auto.svelte.js), not this one.
+		const refusedFull = row({ at: '2026-11-04T10:00:00Z', cid: 'QmNewBase', status: 'rejected' });
+		expect(refusedIncrement([refusedFull], 'QmNewBase')).toBeNull();
+		expect(refusedIncrement([full], 'QmBase')).toBeNull();
+		expect(refusedIncrement([other], null)).toBeNull();
+	});
+
+	it('takes the higher number when two rows have the same time', () => {
+		const at = '2026-11-02T10:00:00Z';
+		const backups = [
+			inc({ at, cid: 'QmInc1', sequence: 1 }),
+			inc({ at, cid: 'QmInc2', sequence: 2, status: 'rejected' })
+		];
+		expect(refusedIncrement(backups, 'QmBase')?.cid).toBe('QmInc2');
 	});
 });
