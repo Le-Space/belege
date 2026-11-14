@@ -78,7 +78,8 @@
 //                          `owners` (the paying account), `channels` and
 //                          `refs` (a STORE's free-text `ref`), processed ones
 //                          only, by `pagination` and `page`, with the total of
-//                          what matched
+//                          what matched; with `msgTypes=INSTANCE`, the
+//                          processed INSTANCEs by `addresses` (the sender)
 //
 // Any page may ask, as Aleph's API answers browsers (checked 2026-10-04): a
 // preflight gets the asking origin back with POST and CONTENT-TYPE allowed,
@@ -356,9 +357,28 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 			const owners = (url.searchParams.get('owners') ?? '').split(',').filter(Boolean);
 			const channels = (url.searchParams.get('channels') ?? '').split(',').filter(Boolean);
 			const refs = (url.searchParams.get('refs') ?? '').split(',').filter(Boolean);
-			if (url.searchParams.get('msgTypes') !== 'STORE') return reply(400, { error: 'msgTypes' });
 			const per = Math.max(1, Number(url.searchParams.get('pagination') ?? 20));
 			const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
+			if (url.searchParams.get('msgTypes') === 'INSTANCE') {
+				// The VMs Aleph still holds (a forgotten one it no longer lists), by sender.
+				const vms = [...instances]
+					.filter(([, v]) => v.status === 'processed')
+					.filter(([, v]) => !senders.length || senders.includes(v.sender))
+					.sort(([, a], [, b]) => b.time - a.time);
+				return reply(200, {
+					messages: vms.slice((page - 1) * per, page * per).map(([hash, v]) => ({
+						type: 'INSTANCE',
+						item_hash: hash,
+						sender: v.sender,
+						time: v.time,
+						content: v.content
+					})),
+					pagination_page: page,
+					pagination_total: vms.length,
+					pagination_per_page: per
+				});
+			}
+			if (url.searchParams.get('msgTypes') !== 'STORE') return reply(400, { error: 'msgTypes' });
 			const matched = stores
 				.filter((s) => s.status === 'processed')
 				.filter((s) => !senders.length || senders.includes(s.sender))

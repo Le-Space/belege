@@ -371,3 +371,49 @@ export function usage(vm, now = Date.now()) {
 	const perHour = Number(vm?.creditsPerHour);
 	return { hours, credits: perHour > 0 ? Math.round(hours * perHour) : null };
 }
+
+/**
+ * @typedef {{ hash: string, createdAt: string | null, crn: string | null, payer: string | null, name: string | null }} OwnInstance
+ */
+
+/**
+ * The INSTANCEs `sender` sent that Aleph still holds (a FORGOTTEN one it no
+ * longer lists), newest first: the books' key's VMs, whoever pays them.
+ *
+ * @param {string} sender the books' key's address
+ * @param {{ apiHost: string, fetch?: typeof fetch, pagination?: number }} p
+ * @returns {Promise<OwnInstance[]>}
+ */
+export async function listInstances(sender, { apiHost, fetch: f = fetch, pagination = 50 }) {
+	if (!/^0x[0-9a-fA-F]{40}$/.test(String(sender ?? ''))) throw new Error('no sender address');
+	const query = new URLSearchParams({
+		msgTypes: 'INSTANCE',
+		addresses: sender,
+		pagination: String(pagination),
+		page: '1'
+	});
+	const res = await f(`${apiHost}/api/v0/messages.json?${query}`, { cache: 'no-store' });
+	if (!res.ok) throw new Error(`Aleph answered ${res.status} for the INSTANCE list`);
+	const body = /** @type {any} */ (await res.json().catch(() => null));
+	/** @type {OwnInstance[]} */
+	const out = [];
+	for (const m of Array.isArray(body?.messages) ? body.messages : []) {
+		const hash = String(m?.item_hash ?? '');
+		if (m?.type !== 'INSTANCE' || !HASH.test(hash)) continue;
+		if (REFUSED.includes(String(m?.status ?? ''))) continue;
+		if (String(m?.sender ?? '').toLowerCase() !== sender.toLowerCase()) continue;
+		const content = m.content ?? {};
+		const time = Number(m.time ?? content.time);
+		const crn = String(content.requirements?.node?.node_hash ?? '');
+		const payer = String(content.address ?? '');
+		const name = content.metadata?.name;
+		out.push({
+			hash,
+			createdAt: Number.isFinite(time) && time > 0 ? new Date(time * 1000).toISOString() : null,
+			crn: HASH.test(crn) ? crn : null,
+			payer: /^0x[0-9a-fA-F]{40}$/.test(payer) ? payer : null,
+			name: typeof name === 'string' ? name.slice(0, 80) : null
+		});
+	}
+	return out.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+}
