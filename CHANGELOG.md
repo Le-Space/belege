@@ -11,8 +11,17 @@ All notable changes to Le Space Belege. The format follows
 ### Changed
 
 - Unlocking or starting the hosted bridge on Aleph says when Aleph is slow or down: how far the SEV-SNP runtime has downloaded (about 15 MB), a note after 20 s that the delay is on Aleph's side, and an error naming what each Aleph host answered. When api2.aleph.im does not answer, the app asks api.aleph.im; the public runtime stays in the browser's cache once its bytes match their hash, so later unlocks skip the download. Consent screen version 50 (#587).
+- Geräte → Erweitert → Zugang zur Bridge shows, per device, how often it called the bridge and how often a call was refused; opened, each command with its counts and the last time. The bridge keeps only command names, counts and times with the device's grant (`device-grants.json`), never an argument or an answer (#775, #579).
+
+### Fixed
+
+- Automatic backup no longer sends the same increment again and again after Aleph refused it (for example because it could not fetch the file, or for credits): it waits, and the header badge and the backup card say that Aleph refused the last increment. "Jetzt sichern" by hand lifts the block once Aleph keeps an increment (#774).
 
 ## [0.32.6] – 2026-11-14
+
+### Changed
+
+- Unlocking a hosted bridge on Aleph says which try it is and why the last one failed (the reason shortened to one line, without keys or long hashes), and "Abbrechen" stops the waiting while the VM keeps running. Errors a later try does not change – no relay with /attest, a refusal from Aleph or the VM – end the waiting at once instead of after up to two hours. The card shows the full INSTANCE hash, copyable, and its node, and lists the VMs the books' Aleph key started that Aleph still holds, to pick one for unlocking or to stop it. Consent screen version 49 (#776, #587).
 
 ## [0.32.5] – 2026-11-14
 
