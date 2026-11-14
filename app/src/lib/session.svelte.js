@@ -69,6 +69,16 @@ export const app = $state({
 	 * @type {{ days: number, credits: number } | null}
 	 */
 	backupCredits: null,
+	/**
+	 * Receipt files this device does not have yet, and those on their way
+	 * from an own device (receipts/prefetch.js): root CIDs.
+	 */
+	files: {
+		/** @type {string[]} */
+		missing: [],
+		/** @type {string[]} */
+		fetching: []
+	},
 	/** Device sync (#123): off, or this device's id and the devices it knows. */
 	sync: {
 		online: false,
@@ -236,6 +246,7 @@ export async function resumeNetwork() {
 	const closed = await applySyncGate();
 	const { deviceSyncOn } = await import('./sync/device-sync.js');
 	if (!closed && session?.online) await redialRelays();
+	if (!closed) filePrefetch?.retryAll();
 	// Paused at unlock: the node has no transports; going online takes a new unlock.
 	app.network.reloadNeeded = deviceSyncOn() && !session?.online;
 	if (pause?.ucep) await startUcep();
@@ -1014,7 +1025,7 @@ async function startDeviceSyncIfOn() {
 	app.sync.online = Boolean(session?.online);
 	if (!session?.online || deviceSync) return;
 	try {
-		const { startDeviceSync, deviceSyncSince, setDeviceSync } = await import(
+		const { startDeviceSync, deviceSyncSince, setDeviceSync, deviceSyncOn } = await import(
 			'./sync/device-sync.js'
 		);
 		// Before anyone is dialled: the books' bridge proves with its own key (#575).
@@ -1026,7 +1037,13 @@ async function startDeviceSyncIfOn() {
 			label: deviceLabel(),
 			since: deviceSyncSince(),
 			onState: (state) => {
+				const before = ownDevicesConnected();
+				const directBefore = ownDevicesConnected({ direct: true });
 				app.sync.state = state;
+				// An own device came, or is reached directly now – where the books'
+				// Bitswap runs: what did not come before may come now.
+				if (ownDevicesConnected() > before || ownDevicesConnected({ direct: true }) > directBefore)
+					filePrefetch?.retryAll();
 			},
 			onPulse: (pulse) => {
 				app.sync.pulse = pulse;
@@ -1038,10 +1055,55 @@ async function startDeviceSyncIfOn() {
 				app.sync.state = null;
 			}
 		});
+		startFilePrefetch(deviceSyncOn);
 		await startBridgeForDevices();
 	} catch (error) {
 		app.sync.error = error instanceof Error ? error.message : String(error);
 	}
+}
+
+/**
+ * Own devices connected now – the books' bridge is none: it holds no books.
+ * With `direct`, only those reached without a relay.
+ *
+ * @param {{ direct?: boolean }} [options]
+ */
+export function ownDevicesConnected({ direct = false } = {}) {
+	return (app.sync.state?.devices ?? []).filter(
+		(d) => d.connected && !d.bridge && (!direct || d.direct)
+	).length;
+}
+
+/** @type {ReturnType<typeof import('./receipts/prefetch.js').createFilePrefetcher> | null} */
+let filePrefetch = null;
+
+/**
+ * Receipt files to this device in the background (receipts/prefetch.js):
+ * what the receipts name and this device lacks, from the own devices
+ * connected – at once for what came while it was locked, then whenever a
+ * receipt comes by sync or an own device connects. Never while paused.
+ *
+ * @param {() => boolean} deviceSyncOn
+ */
+async function startFilePrefetch(deviceSyncOn) {
+	if (!session?.online || filePrefetch) return;
+	const { createFilePrefetcher } = await import('./receipts/prefetch.js');
+	const open = session;
+	filePrefetch = createFilePrefetcher({
+		blobs: open.blobs,
+		receipts: () => open.store.receipts.list(),
+		canFetch: () => !networkPause() && deviceSyncOn() && ownDevicesConnected() > 0,
+		onState: ({ missing, fetching }) => {
+			app.files = { missing, fetching };
+		}
+	});
+	open.store.receipts.onChange(() => filePrefetch?.kick());
+	filePrefetch.run().catch(() => {});
+}
+
+function stopFilePrefetch() {
+	filePrefetch?.stop();
+	filePrefetch = null;
 }
 
 /** @type {Awaited<ReturnType<typeof import('./sync/remote-bridge.js').startBridgeConsumer>> | null} */
@@ -2761,6 +2823,7 @@ export async function renewBooksKeys(stay) {
 		root.fill(0);
 		for (const a of answers) a.prfOutput.fill(0);
 	}
+	stopFilePrefetch();
 	await session.stop().catch(() => {});
 	session = null;
 	location.reload();
@@ -3114,6 +3177,9 @@ function installE2EHooks() {
 			const fileCid = await blobs.put(new Uint8Array(bytes));
 			return session.store.receipts.put({ ...r, fileCid });
 		},
+		// Whether a receipt's file is whole on this device (receipts/prefetch.js).
+		fileHere: (/** @type {string} */ cid) => currentBlobs()?.has(cid) ?? false,
+		filesState: () => ({ missing: [...app.files.missing], fetching: [...app.files.fetching] }),
 		// The matching over what a test put in (questions, own transfers).
 		runMatching: () => runMatchingNow(),
 		// A bank account as an import creates it (bank/import.js), for the export spec.

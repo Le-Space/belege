@@ -7,7 +7,7 @@
 	// rendered with more pixels than shown (`oversample`), and a round lens
 	// follows the pointer over it, drawn from those pixels – the date or an
 	// amount read without opening the file. Nothing is rendered again.
-	import { currentBlobs } from './session.svelte.js';
+	import { currentBlobs, ownDevicesConnected } from './session.svelte.js';
 	import { needsConfirmation } from './receipts/import.js';
 	import { t } from './i18n/index.js';
 	import MailText from './receipts/MailText.svelte';
@@ -82,6 +82,8 @@
 	let imageUrl = $state(null);
 	let rendered = $state(false);
 	let failed = $state(false);
+	/** @type {'' | 'coming' | 'missing'} the file is not on this device (yet) */
+	let notHere = $state('');
 
 	let key = $derived(
 		receipt.fileCid && !needsConfirmation(receipt)
@@ -94,6 +96,7 @@
 		const target = canvas;
 		rendered = false;
 		failed = false;
+		notHere = '';
 		if (!k) return;
 		const [, fileCid, mime] = k.split('|');
 		const blobs = currentBlobs();
@@ -102,9 +105,14 @@
 		/** @type {string | null} */
 		let url = null;
 		(async () => {
+			let here = true;
 			try {
+				// Not here yet: said so while it is asked of the own devices (receipts/prefetch.js).
+				here = await blobs.has(fileCid);
+				if (!here && !cancelled) notHere = ownDevicesConnected() > 0 ? 'coming' : 'missing';
 				const bytes = await blobs.get(fileCid);
 				if (cancelled) return;
+				notHere = '';
 				if (mime === 'application/pdf' && target) {
 					const { renderFirstPage } = await import('./receipts/pdf.js');
 					if (cancelled) return;
@@ -116,8 +124,11 @@
 					rendered = true;
 				}
 			} catch (error) {
-				console.error('preview failed:', error);
-				if (!cancelled) failed = true;
+				if (cancelled) return;
+				if (here) {
+					console.error('preview failed:', error);
+					failed = true;
+				} else notHere = 'missing';
 			}
 		})();
 		return () => {
@@ -184,6 +195,10 @@
 {:else if !receipt.fileCid && receipt.excerpt}
 	<MailText {receipt} class="max-h-40" testid="tx-receipt-preview" />
 {/if}
-{#if failed}
+{#if notHere}
+	<p class="mt-1 text-xs text-warning" data-testid="file-not-here" data-state={notHere}>
+		{t(notHere === 'coming' ? 'belege.fileComing' : 'belege.fileNotHere')}
+	</p>
+{:else if failed}
 	<p class="mt-1 text-xs text-danger">{t('belege.previewFailed')}</p>
 {/if}

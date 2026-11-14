@@ -106,7 +106,10 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     (#587): Aleph's API is asked for that key's INSTANCEs.
 // 50: the hosted bridge asks api.aleph.im when api2.aleph.im does not answer,
 //     and keeps Aleph's public SEV-SNP runtime in this browser's cache (#587).
-export const CONSENT_VERSION = '50';
+// 51: receipt files go to every own device in the background, not only when
+//     one is opened: each device fetches the sealed blocks it lacks over
+//     Bitswap from the own devices connected directly (never via a relay).
+export const CONSENT_VERSION = '51';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

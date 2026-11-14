@@ -14,6 +14,11 @@
 // device sync on (sync/device-sync.js, issue #123) the node is online: a block
 // this device lacks is fetched from the own devices over bitswap, for at most
 // 30 s (`online`). Either way the blocks hold ciphertext only.
+//
+// `has` tells whether a file is whole on this device, without asking anyone;
+// `fetch` brings its blocks here from the own devices without opening them –
+// what the background prefetch does (receipts/prefetch.js), so that a file
+// is on every device before the one that added it goes offline.
 
 import * as dagCbor from '@ipld/dag-cbor';
 import * as raw from 'multiformats/codecs/raw';
@@ -68,7 +73,88 @@ export async function createBlobStore({ blockstore, key, online = false }) {
 			blockstore.get(cid, online ? { signal: AbortSignal.timeout(30_000) } : { offline: true })
 		);
 
+	/** @param {Uint8Array} bytes @returns {CID[] | null} the chunks a root lists, or null */
+	function chunksOf(bytes) {
+		/** @type {any} */
+		const root = dagCbor.decode(bytes);
+		if (root?.v !== VERSION || !Array.isArray(root.chunks)) return null;
+		return root.chunks.map((/** @type {any} */ c) => CID.asCID(c) ?? CID.parse(String(c)));
+	}
+
+	/** @param {string} cid @returns {CID} */
+	function rootOf(cid) {
+		const rootCid = CID.parse(cid);
+		if (rootCid.code !== dagCbor.code) throw new Error('Not a receipt file.');
+		return rootCid;
+	}
+
+	/** @param {CID} cid */
+	const here = async (cid) => {
+		try {
+			return Boolean(await blockstore.has(cid));
+		} catch {
+			return false;
+		}
+	};
+
 	return {
+		/**
+		 * Whether the file is whole on this device: its root and every chunk.
+		 * Asks nobody.
+		 *
+		 * @param {string} cid the root CID from `put`
+		 * @returns {Promise<boolean>}
+		 */
+		async has(cid) {
+			let rootCid;
+			try {
+				rootCid = rootOf(cid);
+			} catch {
+				return false;
+			}
+			if (!(await here(rootCid))) return false;
+			const chunks = chunksOf(await collect(blockstore.get(rootCid, { offline: true })));
+			if (!chunks) return false;
+			for (const chunk of chunks) if (!(await here(chunk))) return false;
+			return true;
+		},
+
+		/**
+		 * Bring the file's blocks to this device from the connected own devices,
+		 * without opening them: sealed they come, sealed they stay. A file
+		 * larger than `maxBytes` (as its root says) is left for when it is
+		 * opened. Throws when a block does not come within `blockMs`.
+		 *
+		 * @param {string} cid the root CID from `put`
+		 * @param {{ signal?: AbortSignal, blockMs?: number, maxBytes?: number }} [options]
+		 * @returns {Promise<'here' | 'fetched' | 'too-large'>}
+		 */
+		async fetch(cid, { signal, blockMs = 30_000, maxBytes = Infinity } = {}) {
+			const rootCid = rootOf(cid);
+			let fetched = false;
+			/** @param {CID} c */
+			const bring = async (c) => {
+				if (await here(c)) return collect(blockstore.get(c, { offline: true }));
+				if (!online) throw new Error('A receipt file is not on this device.');
+				fetched = true;
+				const timeout = AbortSignal.timeout(blockMs);
+				return collect(
+					blockstore.get(c, { signal: signal ? AbortSignal.any([signal, timeout]) : timeout })
+				);
+			};
+			const rootBytes = await bring(rootCid);
+			/** @type {any} */
+			const root = dagCbor.decode(rootBytes);
+			const chunks = chunksOf(rootBytes);
+			if (!chunks || typeof root.size !== 'number') throw new Error('Not a receipt file.');
+			if (root.size > maxBytes) return 'too-large';
+			for (const chunk of chunks) {
+				signal?.throwIfAborted();
+				if (!(await here(chunk))) await bring(chunk);
+			}
+			return fetched ? 'fetched' : 'here';
+		},
+
 		/**
 		 * @param {Uint8Array} bytes the plaintext file
 		 * @returns {Promise<string>} the root CID
