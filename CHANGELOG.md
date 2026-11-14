@@ -8,13 +8,30 @@ All notable changes to Le Space Belege. The format follows
 
 ### Changed
 
+- The bridge README says how a language model is wired in: `pnpm setup:llm` offers an OpenAI-compatible URL or LibertAI's attested enclave, a table names which model runs where and what is checked, and the hosted bridge on Phala through NEAR is named beside the one on Aleph (#770).
 - Integrationen → Bridge opens with "Welche Bridge antwortet?": one line each for the bridge on this computer, the VM on Aleph and the VM on Phala over NEAR, with a coloured badge – unlocked and answering, running but still locked, stopped, or paired and silent. A hosted VM that runs but is not unlocked yet says so on its card, and its button is "Entsperren". With nothing paired, the computer's bridge is "none here" instead of a red error (#587).
 
 ## [0.32.3] – 2026-11-14
 
+### Changed
+
+- The consent screen names the Le Space Credits as a balance for what Le Space offers for Belege – today the hosted bridge – instead of for services Le Space runs (#768).
+
+### Fixed
+
+- A deploy no longer uploads the site again when Aleph has processed its STORE and only the check after it fails. The check now tries the subdomain gateway, the path gateways and finally the IPFS network itself (`@le-space/node` 0.12.6), and otherwise stops with a clear error (#767).
+
 ## [0.32.2] – 2026-11-14
 
+### Changed
+
+- The credits card says only what Le Space offers today: the hosted bridge, AI through Le Space later. Le Space pays the VM's computing time at Aleph with the balance; an AI with the customer's own access is set up in the bridge and runs without Le Space (#766).
+
 ## [0.32.1] – 2026-11-14
+
+### Added
+
+- **The backup card shows a backup Aleph has not confirmed yet, and asks again by itself** (#764). While the newest backup or an increment is still pending, the headline has an amber dot and _Gesichert – Aleph bestätigt noch_ instead of a green _Alles gesichert_. After such a run the card asks Aleph again after about 15 s, 45 s, 2 min and 5 min, through the same path as before (no new host), and updates the headline and the last-run line without a reload. It stops once nothing is pending, when the card closes, and while the network is paused.
 
 ### Fixed
 
@@ -33,6 +50,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Changed
 
+- **The Le Space Credits card says what the credits are** (#761): a euro balance with Le Space, like a voucher, not a cryptocurrency; nothing is bought for the person or into a wallet, Le Space itself pays the computing time at Aleph with it. The address line reads _Kennung deiner Bücher bei credits.le-space.de_, and that Le Space transfers nothing to it.
 - **The demo films' kit is a package of its own, `@le-space/video-kit`** (`packages/video-kit`). The scenes, the narrator, the pointer, the captions, the title cards and compose moved there with their history, so Le Space's other apps record their films with it; what makes a card Belege's (the signet, Sora, the colours, the texts) stays in `app/e2e-video/belege.js`. Belege's films record as before: every card of every film list was compared frame by frame against the old kit.
 
 ## [0.31.0] – 2026-11-13
