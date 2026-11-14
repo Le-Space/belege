@@ -5,10 +5,13 @@ import { UcepError } from '@le-space/ucep';
 import { describe, expect, it } from 'vitest';
 
 import {
+	DEVICE_COMMANDS,
 	allowed,
+	askPeer,
 	bridgeFetch,
 	bridgeNodePeer,
 	grantRefusal,
+	serveNamed,
 	serveRequest,
 	setBridgeNode
 } from './remote-bridge.js';
@@ -255,5 +258,91 @@ describe('what the bridge’s node refuses a device (#579)', () => {
 		expect(grantRefusal(new UcepError('TOO_LARGE'))).toBeNull();
 		expect(grantRefusal(new UcepError('RATE_LIMITED', 'relayed'))).toBeNull();
 		expect(grantRefusal(new TypeError('not connected'))).toBeNull();
+	});
+});
+
+describe('by name (#577)', () => {
+	it('a desktop serves by name what it serves by path, nothing more', () => {
+		expect(DEVICE_COMMANDS).toContain('bank.transactions');
+		expect(DEVICE_COMMANDS).toContain('chains.wallet');
+		for (const name of [
+			'session.pair',
+			'share.create',
+			'mail.trash',
+			'backup.put',
+			'device.scopes'
+		])
+			expect(DEVICE_COMMANDS, name).not.toContain(name);
+	});
+
+	it('the desktop asks its bridge the same path, after the catalogue’s check', async () => {
+		const b = fakeBridge(json({ transactions: [] }));
+		const answer = await serveNamed({
+			name: 'bank.transactions',
+			args: { account: 'a1', since: '2026-01-01' },
+			peerId: OWN,
+			isOwnDevice,
+			bridge,
+			fetch: b.fetch
+		});
+		expect(answer.status).toBe(200);
+		expect(b.calls[0].url).toBe(
+			'http://127.0.0.1:8765/hibiscus/transactions?account=a1&since=2026-01-01'
+		);
+		expect(b.calls[0].init.headers.Authorization).toBe('Bearer desktop-token');
+		const refused = (/** @type {any} */ p) =>
+			serveNamed({ peerId: OWN, isOwnDevice, bridge, fetch: b.fetch, ...p });
+		await expect(refused({ name: 'mail.trash', args: { id: 'm1' } })).rejects.toMatchObject({
+			code: 'UNKNOWN_COMMAND'
+		});
+		await expect(
+			refused({ name: 'bank.transactions', args: { account: 'a1', since: '01.01.2026' } })
+		).rejects.toMatchObject({ code: 'INVALID_ARGUMENTS' });
+		await expect(
+			serveNamed({
+				name: 'bridge.health',
+				args: {},
+				peerId: STRANGER,
+				isOwnDevice,
+				bridge,
+				fetch: b.fetch
+			})
+		).rejects.toMatchObject({ code: 'PAIRING_REQUIRED' });
+		expect(b.calls).toHaveLength(1);
+	});
+
+	it('a device calls by name, and by path where the peer does not know the command', async () => {
+		/** @type {[string, unknown][]} */
+		const asked = [];
+		/** @param {Set<string>} known */
+		const peer = (known) => async (/** @type {string} */ name, /** @type {any} */ args) => {
+			asked.push([name, args]);
+			if (name !== 'request' && !known.has(name)) throw new UcepError('UNKNOWN_COMMAND', name);
+			return { status: 200, contentType: 'application/json', json: {} };
+		};
+		const init = /** @type {any} */ ({
+			method: 'GET',
+			command: { name: 'bank.accounts', args: {} }
+		});
+		const pathOnly = new Set();
+		const input = 'http://127.0.0.1:8765/hibiscus/accounts';
+		await askPeer({ call: peer(new Set(['bank.accounts'])), peerId: 'p1', input, init, pathOnly });
+		expect(asked).toEqual([['bank.accounts', {}]]);
+
+		// A bridge from before: once by name, then by path – and only by path after.
+		asked.length = 0;
+		const old = peer(new Set());
+		await askPeer({ call: old, peerId: 'p2', input, init, pathOnly });
+		await askPeer({ call: old, peerId: 'p2', input, init, pathOnly });
+		expect(asked.map(([n]) => n)).toEqual(['bank.accounts', 'request', 'request']);
+		expect(asked[1][1]).toEqual({ method: 'GET', path: '/hibiscus/accounts' });
+
+		// Any other refusal is the answer, not a reason to try the path.
+		const scope = async () => {
+			throw new UcepError('SCOPE_MISSING', 'bank');
+		};
+		await expect(
+			askPeer({ call: scope, peerId: 'p3', input, init, pathOnly })
+		).rejects.toMatchObject({ code: 'SCOPE_MISSING' });
 	});
 });

@@ -8,6 +8,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Changed
 
+- The app calls the bridge's commands by their names (#577): every call in the bridge client names a command of `@le-space/bridge-protocol`, which builds the HTTP request; over the stream to the bridge's node, and to a desktop that shares its bridge, the command goes by name and is checked against its schema there. A bridge or desktop from before answers `UNKNOWN_COMMAND`, and that call goes as `request` with its path from then on. Pairing, shares and the backup upload stay on HTTP.
 - Unlocking or starting the hosted bridge on Aleph says when Aleph is slow or down: how far the SEV-SNP runtime has downloaded (about 15 MB), a note after 20 s that the delay is on Aleph's side, and an error naming what each Aleph host answered. When api2.aleph.im does not answer, the app asks api.aleph.im; the public runtime stays in the browser's cache once its bytes match their hash, so later unlocks skip the download. Consent screen version 50 (#587).
 
 ## [0.32.6] – 2026-11-14

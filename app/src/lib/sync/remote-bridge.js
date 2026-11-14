@@ -4,8 +4,9 @@
 // books cannot reach it. A desktop that has the bridge paired can serve it to
 // its own devices: with "Bridge für eigene Geräte freigeben" switched on (a
 // flag in that browser), its device-sync node (sync/device-sync.js) offers
-// the UCEP extension `belege-bridge` with one command, `request`. A request
-// names a method and a path; the desktop checks both against a fixed list
+// the UCEP extension `belege-bridge` with its commands by name
+// (@le-space/bridge-protocol, #577) and `request`, which names a method and a
+// path, for devices from before. The desktop checks each against a fixed list
 // (no pairing, no setup, nothing that changes the bridge or deletes), makes
 // the same call to its own bridge with its own token, and sends the answer
 // back. The token never leaves the desktop.
@@ -37,6 +38,7 @@
 // that is too large falls back to HTTP on this machine, when there is one.
 
 import { UcepError, createConsumer, createProvider, parseInvitation } from '@le-space/ucep';
+import { COMMANDS, checkArgs, httpRequest } from '@le-space/bridge-protocol';
 
 export const EXTENSION = 'belege-bridge';
 export const SHARE_FLAG_KEY = 'belege.bridge-share';
@@ -101,6 +103,19 @@ const ALLOWED = /** @type {const} */ ([
 
 /** Whether another device may make this call. @param {string} method @param {string} path without query */
 export const allowed = (method, path) => ALLOWED.some(([m, re]) => m === method && re.test(path));
+
+/**
+ * The same calls by their names (@le-space/bridge-protocol, #577): every
+ * command whose route is in the list above and that may go over a stream.
+ */
+export const DEVICE_COMMANDS = Object.freeze(
+	COMMANDS.filter(
+		(c) =>
+			c.via !== 'http' &&
+			c.args !== 'bytes' &&
+			allowed(c.method, c.path.replace(/\{[a-zA-Z]+\}/g, 'sample'))
+	).map((c) => c.name)
+);
 
 /** @returns {Storage | null} */
 function storage() {
@@ -180,6 +195,32 @@ export async function serveRequest({ args, peerId, isOwnDevice, bridge, fetch: f
 }
 
 /**
+ * One command by its name for an own device: checked against the catalogue,
+ * then the same call to the own bridge as `request` makes.
+ *
+ * @param {object} p
+ * @param {string} p.name
+ * @param {unknown} p.args
+ * @param {string} p.peerId
+ * @param {(peerId: string) => boolean | Promise<boolean>} p.isOwnDevice
+ * @param {() => { url: string, token: string } | null} p.bridge
+ * @param {typeof fetch} [p.fetch]
+ */
+export async function serveNamed({ name, args, ...rest }) {
+	if (!DEVICE_COMMANDS.includes(name)) throw new UcepError('UNKNOWN_COMMAND', name);
+	const problems = checkArgs(name, args ?? {});
+	if (problems.length) throw new UcepError('INVALID_ARGUMENTS', problems.join('; '));
+	const { method, path, body } = httpRequest(
+		name,
+		/** @type {Record<string, unknown>} */ (args ?? {})
+	);
+	return serveRequest({
+		...rest,
+		args: { method, path, ...(body !== null ? { body: JSON.parse(body) } : {}) }
+	});
+}
+
+/**
  * Serve the own bridge to own devices on the device-sync node.
  *
  * @param {object} p
@@ -194,7 +235,7 @@ export async function startBridgeProvider({ libp2p, isOwnDevice, bridge, log = (
 		manifest: {
 			id: EXTENSION,
 			name: 'Belege bridge for own devices',
-			version: '0.1.0',
+			version: '0.2.0',
 			description: 'The bridge of this desktop, for devices of the same books.'
 		},
 		commands: {
@@ -205,12 +246,67 @@ export async function startBridgeProvider({ libp2p, isOwnDevice, bridge, log = (
 					log(`bridge for a device: ${String(argsJson?.method)} → ${answer.status}`);
 					return answer;
 				}
-			}
+			},
+			...Object.fromEntries(
+				DEVICE_COMMANDS.map((name) => [
+					name,
+					{
+						description: `The bridge's ${name}, by its name (@le-space/bridge-protocol)`,
+						handler: async (/** @type {any} */ { argsJson, peerId }) => {
+							const answer = await serveNamed({
+								name,
+								args: argsJson,
+								peerId,
+								isOwnDevice,
+								bridge
+							});
+							log(`bridge for a device: ${name} → ${answer.status}`);
+							return answer;
+						}
+					}
+				])
+			)
 		},
 		pairingModes: []
 	});
 	await provider.start();
 	return provider;
+}
+
+/**
+ * One call to a peer that serves the extension: the command by its name when
+ * the caller named one (`init.command`, bridge/client.js), else – and for a
+ * peer that does not know the command – `request` with the method and path.
+ *
+ * @param {object} p
+ * @param {(command: string, args: unknown) => Promise<any>} p.call the UCEP call to that peer
+ * @param {string} p.peerId
+ * @param {string | URL | Request} p.input
+ * @param {RequestInit} p.init
+ * @param {Set<string>} p.pathOnly `<peer> <command>` known to go as `request`; added to here
+ */
+export async function askPeer({ call, peerId, input, init, pathOnly }) {
+	const url = new URL(String(input instanceof Request ? input.url : input));
+	const body = typeof init.body === 'string' && init.body ? JSON.parse(init.body) : undefined;
+	/** @type {{ name: string, args: Record<string, unknown> } | undefined} */
+	const named = /** @type {any} */ (init).command;
+	const byPath = () =>
+		call('request', {
+			method: String(init.method ?? 'GET').toUpperCase(),
+			path: `${url.pathname}${url.search}`,
+			...(body !== undefined ? { body } : {})
+		});
+	const key = named ? `${peerId} ${named.name}` : '';
+	if (!named || pathOnly.has(key)) return byPath();
+	try {
+		return await call(named.name, named.args ?? {});
+	} catch (error) {
+		// A bridge or desktop from before #577 knows `request` only, and a
+		// desktop serves fewer commands than the bridge's node.
+		if (/** @type {any} */ (error)?.code !== 'UNKNOWN_COMMAND') throw error;
+		pathOnly.add(key);
+		return byPath();
+	}
 }
 
 /**
@@ -232,6 +328,15 @@ export async function startBridgeConsumer({
 }) {
 	const consumer = createConsumer({ libp2p, label });
 	await consumer.start?.();
+
+	/**
+	 * `<peer> <command>` that a peer answered with UNKNOWN_COMMAND – a bridge
+	 * or desktop from before #577, or a command a desktop does not serve: that
+	 * call goes as `request` from then on.
+	 *
+	 * @type {Set<string>}
+	 */
+	const pathOnly = new Set();
 
 	/** The device found last, kept a minute while it stays connected. */
 	/** @type {{ peerId: string, at: number } | null} */
@@ -272,15 +377,16 @@ export async function startBridgeConsumer({
 	 * @param {RequestInit} [init]
 	 */
 	async function callThrough(peerId, input, init = {}) {
-		const url = new URL(String(input instanceof Request ? input.url : input));
-		const body = typeof init.body === 'string' && init.body ? JSON.parse(init.body) : undefined;
 		/** @type {any} */
 		let answer;
 		try {
-			answer = await consumer.call(peerId, EXTENSION, 'request', {
-				method: String(init.method ?? 'GET').toUpperCase(),
-				path: `${url.pathname}${url.search}`,
-				...(body !== undefined ? { body } : {})
+			answer = await askPeer({
+				call: (/** @type {string} */ name, /** @type {any} */ args) =>
+					consumer.call(peerId, EXTENSION, name, args),
+				peerId,
+				input,
+				init,
+				pathOnly
 			});
 		} catch (error) {
 			// The bridge said no to this device: an answer, not a way that failed –

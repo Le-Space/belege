@@ -1,7 +1,14 @@
 import { intlLocale, t } from '../i18n/index.js';
 import { noteWayOut, wayOutKind } from '../help/way-out.js';
+import { checkArgs, command as specOf, httpRequest } from '@le-space/bridge-protocol';
 import { scopeLabel } from './scopes.js';
 // The app's side of the bridge on 127.0.0.1 (see bridge/README.md).
+//
+// Every call names a command of @le-space/bridge-protocol (#577) with its
+// arguments; the catalogue says how HTTP carries it. The fetch gets both: the
+// HTTP request, and the command in `init.command` – a transport that talks to
+// the bridge's node (sync/remote-bridge.js) calls it by its name there, plain
+// fetch ignores it. No path is built here.
 
 /**
  * @typedef {{ gave: { asset: string, amount: string, listed: boolean }[], got: { asset: string, amount: string, listed: boolean }[], via: string, fee?: { asset: string, amount: string } }} SwapSides
@@ -106,7 +113,7 @@ function restoreCompany(result) {
 }
 
 /** A body for an LLM route: the caller's, and the terms to black out. @param {any} body */
-const withTerms = (body) => JSON.stringify({ ...body, redactTerms: redactTerms().slice(0, 20) });
+const withTerms = (body) => ({ ...body, redactTerms: redactTerms().slice(0, 20) });
 
 /**
  * A failed call, with its way out noted for the card that shows the message
@@ -387,29 +394,60 @@ export function createBridgeClient({
 		return body;
 	}
 
+	/**
+	 * One command by its name: its HTTP request from the catalogue, and the
+	 * command itself for a transport that calls by name. Arguments the
+	 * catalogue's schema would refuse, and the HTTP-only commands, go by path
+	 * only (`command` left out), as before #577, so a named call never fails
+	 * where the path worked.
+	 *
+	 * @param {string} name
+	 * @param {Record<string, unknown>} [args]
+	 * @param {boolean} [binary] the answer is bytes
+	 * @param {BodyInit} [bytes] a `bytes` command's body
+	 */
+	function command(name, args = {}, binary = false, bytes = undefined) {
+		const { method, path, body } = httpRequest(name, args);
+		// HTTP-only commands (pairing, shares, the upload) never go by name.
+		const named = specOf(name)?.via !== 'http' && checkArgs(name, args).length === 0;
+		return call(
+			path,
+			/** @type {RequestInit} */ ({
+				method,
+				...(bytes !== undefined
+					? { body: bytes, headers: { 'Content-Type': 'application/octet-stream' } }
+					: body !== null
+						? { body }
+						: {}),
+				...(named ? { command: { name, args } } : {})
+			}),
+			binary
+		);
+	}
+
 	return {
 		url: base,
 		/** @returns {Promise<{ ok: boolean, paired: boolean, pairingOpen: boolean, hibiscus: { configured: boolean }, mail?: { configured: boolean, accountingAddress: string | null }, llm?: { configured: boolean, models: string[] }, kraken?: { configured: boolean }, paperless?: { configured: boolean }, enablebanking?: { configured: boolean }, backup?: { aleph: boolean }, wallets?: { available: boolean } }>} */
-		health: () => call('/health'),
+		health: () => command('bridge.health'),
 		/**
 		 * What a hosted bridge may take over from this bridge (#728): the accounts
 		 * it reads and the integrations' settings. Over the stream only, and only
 		 * for the device that paired the bridge; over HTTP it is not there.
 		 * @returns {Promise<{ config: Record<string, any>, secrets: Record<string, string> }>}
 		 */
-		settingsExport: () => call('/settings/export'),
+		settingsExport: () => command('settings.export'),
 		/** @param {string} code @returns {Promise<string>} the token */
 		async pair(code) {
-			const { token } = await call('/pair', { method: 'POST', body: JSON.stringify({ code }) });
+			const { token } = await command('session.pair', { code });
 			return token;
 		},
 		/** Tells the bridge to forget this device's token. */
 		async unpair() {
-			await call('/unpair', { method: 'POST' });
+			await command('session.unpair');
 		},
 		/** @returns {Promise<BridgeAccount[]>} */
 		async accounts() {
-			return (await call('/hibiscus/accounts')).accounts;
+			return (await command('bank.accounts')).accounts;
 		},
 		/**
 		 * @param {string} accountId
@@ -417,8 +455,7 @@ export function createBridgeClient({
 		 * @returns {Promise<import('../bank/import.js').IncomingTransaction[]>}
 		 */
 		async transactions(accountId, since) {
-			const q = new URLSearchParams({ account: accountId, since });
-			return (await call(`/hibiscus/transactions?${q}`)).transactions;
+			return (await command('bank.transactions', { account: accountId, since })).transactions;
 		},
 		/**
 		 * Mails to the accounting address that arrived in [since, until).
@@ -428,9 +465,7 @@ export function createBridgeClient({
 		 * @returns {Promise<{ accountingAddress: string, messages: any[] }>}
 		 */
 		async mailMessages(since, until = null) {
-			const q = new URLSearchParams({ since, scope: 'accounting' });
-			if (until) q.set('until', until);
-			return call(`/mail/messages?${q}`);
+			return command('mail.messages', { since, scope: 'accounting', ...(until ? { until } : {}) });
 		},
 		/**
 		 * @param {string} id
@@ -438,8 +473,7 @@ export function createBridgeClient({
 		 * @returns {Promise<Uint8Array>}
 		 */
 		async mailAttachment(id, part) {
-			const q = new URLSearchParams({ id, part });
-			return /** @type {Promise<Uint8Array>} */ (call(`/mail/attachment?${q}`, {}, true));
+			return /** @type {Promise<Uint8Array>} */ (command('mail.attachment', { id, part }, true));
 		},
 		/**
 		 * One mail as it was received (RFC 822), to keep as the original of a
@@ -450,8 +484,7 @@ export function createBridgeClient({
 		 * @returns {Promise<Uint8Array>}
 		 */
 		async mailRaw(id) {
-			const q = new URLSearchParams({ id });
-			return /** @type {Promise<Uint8Array>} */ (call(`/mail/raw?${q}`, {}, true));
+			return /** @type {Promise<Uint8Array>} */ (command('mail.raw', { id }, true));
 		},
 		/**
 		 * Move one mail to the mailbox's Trash – the bridge's only write to the
@@ -460,11 +493,7 @@ export function createBridgeClient({
 		 * @param {string} id the mail's id
 		 * @returns {Promise<{ trashed: true, trash: string }>}
 		 */
-		mailTrash: (id) =>
-			call('/mail/trash', {
-				method: 'POST',
-				body: JSON.stringify({ id })
-			}),
+		mailTrash: (id) => command('mail.trash', { id }),
 		/**
 		 * The targeted search in the whole mailbox for one missing receipt: vendor
 		 * text and every spelling of an amount, ± days around a day. Only the hits
@@ -482,13 +511,14 @@ export function createBridgeClient({
 			around = null,
 			days = 14
 		}) {
-			const q = new URLSearchParams({ days: String(days) });
-			if (text) q.set('text', text);
-			for (const term of terms.slice(0, 6)) q.append('term', term);
-			if (amount) q.set('amount', amount);
-			if (from.length) q.set('from', from.slice(0, 3).join(','));
-			if (around) q.set('around', around);
-			return call(`/mail/search?${q}`);
+			return command('mail.search', {
+				days,
+				...(text ? { text } : {}),
+				...(terms.length ? { term: terms.slice(0, 6) } : {}),
+				...(amount ? { amount } : {}),
+				...(from.length ? { from: from.slice(0, 3).join(',') } : {}),
+				...(around ? { around } : {})
+			});
 		},
 		/**
 		 * What the bridge reads receipts with: the provider's host, the models,
@@ -497,7 +527,7 @@ export function createBridgeClient({
 		 *
 		 * @returns {Promise<{ configured: boolean, provider: string | null, models: { primary: string | null, fallback: string | null }, keyConfigured: boolean, redactTerms: number, redaction?: { mode: 'auto' | 'on' | 'off', active: boolean }, mail: { authServId: string | null } }>}
 		 */
-		llmStatus: () => call('/llm/status'),
+		llmStatus: () => command('llm.status'),
 		/**
 		 * What one unit of an asset was worth in EUR on a day, and where that
 		 * number comes from (packages/rates/src/rates.js).
@@ -510,9 +540,15 @@ export function createBridgeClient({
 		 * @returns {Promise<import('../assets/valuation.js').Rate>}
 		 */
 		rate: (asset, date, { prefer, contract, chain, block, decimals } = {}) =>
-			call(
-				`/rates?asset=${encodeURIComponent(asset)}&date=${encodeURIComponent(date)}${prefer ? `&prefer=${prefer}` : ''}${contract && chain ? `&contract=${encodeURIComponent(contract)}&chain=${encodeURIComponent(chain)}` : ''}${contract && chain && Number.isSafeInteger(block) && Number.isInteger(decimals) ? `&block=${block}&decimals=${decimals}` : ''}`
-			),
+			command('rates.rate', {
+				asset,
+				date,
+				...(prefer ? { prefer } : {}),
+				...(contract && chain ? { contract, chain } : {}),
+				...(contract && chain && Number.isSafeInteger(block) && Number.isInteger(decimals)
+					? { block, decimals }
+					: {})
+			}),
 		/**
 		 * Kraken's non-zero balances (bridge/src/kraken.js).
 		 *
@@ -525,7 +561,7 @@ export function createBridgeClient({
 		 * @returns {Promise<EnableBankingBank[]>}
 		 */
 		async enableBankingBanks(country) {
-			return (await call(`/enablebanking/banks?country=${encodeURIComponent(country)}`)).banks;
+			return (await command('enablebanking.banks', { country })).banks;
 		},
 		/**
 		 * Start a link: the bridge answers with the bank's page and the state it keeps.
@@ -533,8 +569,7 @@ export function createBridgeClient({
 		 * @param {{ bank: string, country: string, psuType?: 'personal' | 'business' }} body
 		 * @returns {Promise<{ url: string, state: string, validUntil: string }>}
 		 */
-		enableBankingLink: (body) =>
-			call('/enablebanking/link', { method: 'POST', body: JSON.stringify(body) }),
+		enableBankingLink: (body) => command('enablebanking.link', body),
 		/**
 		 * Finish a link with the bank's answer.
 		 *
@@ -542,12 +577,11 @@ export function createBridgeClient({
 		 * @returns {Promise<EnableBankingLink>}
 		 */
 		async enableBankingFinish(body) {
-			return (await call('/enablebanking/finish', { method: 'POST', body: JSON.stringify(body) }))
-				.link;
+			return (await command('enablebanking.finish', body)).link;
 		},
 		/** @returns {Promise<EnableBankingAccount[]>} every linked account, and whether it may leave the bridge */
 		async enableBankingAccounts() {
-			return (await call('/enablebanking/accounts')).accounts;
+			return (await command('enablebanking.accounts')).accounts;
 		},
 		/**
 		 * An allowed account's booked transactions from a day on.
@@ -557,16 +591,16 @@ export function createBridgeClient({
 		 * @returns {Promise<{ since: string, transactions: import('../bank/import.js').IncomingTransaction[], pending: number, complete: boolean }>}
 		 */
 		enableBankingTransactions: (uid, since) =>
-			call(`/enablebanking/transactions?${new URLSearchParams({ account: uid, since })}`),
+			command('enablebanking.transactions', { account: uid, since }),
 		/** @returns {Promise<EnableBankingLink[]>} */
 		async enableBankingLinks() {
-			return (await call('/enablebanking/links')).links;
+			return (await command('enablebanking.links')).links;
 		},
 		/** @param {string} id */
 		async enableBankingUnlink(id) {
-			await call(`/enablebanking/links/${encodeURIComponent(id)}`, { method: 'DELETE' });
+			await command('enablebanking.unlink', { id });
 		},
-		krakenBalances: () => call('/kraken/balances'),
+		krakenBalances: () => command('kraken.balances'),
 		/**
 		 * Kraken's ledger from the start of `since` (UTC), oldest first.
 		 *
@@ -574,7 +608,7 @@ export function createBridgeClient({
 		 * @returns {Promise<{ since: string, entries: KrakenLedgerEntry[], transferRefs?: 'ok' | 'refused' }>}
 		 *   `transferRefs`: whether Kraken gave the on-chain hashes of deposits and withdrawals
 		 */
-		krakenLedgers: (since) => call(`/kraken/ledgers?since=${encodeURIComponent(since)}`),
+		krakenLedgers: (since) => command('kraken.ledgers', { since }),
 		/**
 		 * What Paperless-ngx added after `since`, with its OCR text (#318).
 		 *
@@ -582,8 +616,7 @@ export function createBridgeClient({
 		 * @returns {Promise<import('../paperless/import.js').PaperlessDocument[]>}
 		 */
 		async paperlessDocuments(since) {
-			const q = since ? `?${new URLSearchParams({ since })}` : '';
-			return (await call(`/paperless/documents${q}`)).documents ?? [];
+			return (await command('paperless.documents', since ? { since } : {})).documents ?? [];
 		},
 		/**
 		 * Paperless' full-text search: at most 25 documents, without their OCR text.
@@ -592,7 +625,7 @@ export function createBridgeClient({
 		 * @returns {Promise<Omit<import('../paperless/import.js').PaperlessDocument, 'content'>[]>}
 		 */
 		async paperlessSearch(query) {
-			return (await call(`/paperless/search?${new URLSearchParams({ query })}`)).documents ?? [];
+			return (await command('paperless.search', { query })).documents ?? [];
 		},
 		/**
 		 * One Paperless document's bytes: the original PDF or image, else its archive PDF.
@@ -601,30 +634,28 @@ export function createBridgeClient({
 		 * @returns {Promise<Uint8Array>}
 		 */
 		paperlessDocument: (id) =>
-			/** @type {Promise<Uint8Array>} */ (
-				call(`/paperless/document?${new URLSearchParams({ id: String(id) })}`, {}, true)
-			),
+			/** @type {Promise<Uint8Array>} */ (command('paperless.document', { id }, true)),
 		/**
 		 * The chains an own wallet can be on: endpoints and explorers.
 		 *
 		 * @returns {Promise<{ chains: ChainInfo[], alchemy?: boolean }>} `alchemy`: whether an
 		 *   Alchemy API key is set up in the bridge (never the key)
 		 */
-		chains: () => call('/chains'),
+		chains: () => command('chains.list'),
 		/**
 		 * The fingerprint of the Bitcoin key in the bridge's keychain (`btc-…`),
 		 * never the key.
 		 *
 		 * @returns {Promise<{ configured: boolean, fingerprint: string | null }>}
 		 */
-		bitcoinKey: () => call('/bitcoin/key'),
+		bitcoinKey: () => command('chains.bitcoinKey'),
 		/**
 		 * The relay for own devices in the own network, when the bridge runs one
 		 * (bridge/src/lan-relay.js): its WebRTC-Direct address.
 		 *
 		 * @returns {Promise<{ configured: boolean, running: boolean, addr: string | null }>}
 		 */
-		lanRelay: () => call('/lan-relay'),
+		lanRelay: () => command('lanRelay.status'),
 		/**
 		 * An own wallet's whole history and balance, read by the bridge from a
 		 * public node (in the body, so the address is in no URL).
@@ -634,8 +665,7 @@ export function createBridgeClient({
 		 *   `hashes`: exchange withdrawals the indexer is asked for by hash (Akash, #303)
 		 * @returns {Promise<WalletHistory>}
 		 */
-		walletHistory: (chain, body) =>
-			call(`/${encodeURIComponent(chain)}/wallet`, { method: 'POST', body: JSON.stringify(body) }),
+		walletHistory: (chain, body) => command('chains.wallet', { ...body, chain }),
 		/**
 		 * An Akash wallet's deployments with what each cost (#305), for the
 		 * monthly usage statement (in the body, so the address is in no URL).
@@ -643,8 +673,7 @@ export function createBridgeClient({
 		 * @param {{ address: string, endpoints?: Record<string, string> }} body
 		 * @returns {Promise<{ deployments: AkashDeployment[], actBalance: string }>}
 		 */
-		akashDeployments: (body) =>
-			call('/akash/deployments', { method: 'POST', body: JSON.stringify(body) }),
+		akashDeployments: (body) => command('chains.akashDeployments', body),
 		/**
 		 * Which of these 0x addresses are Aleph accounts: their credits now and
 		 * how many credit entries they ever had (issue #113). Read only.
@@ -654,12 +683,7 @@ export function createBridgeClient({
 		 * @returns {Promise<{ address: string, credits: number, entries: number }[]>}
 		 */
 		alephAccounts: async (addresses, api) =>
-			(
-				await call('/aleph/accounts', {
-					method: 'POST',
-					body: JSON.stringify({ addresses, ...(api ? { api } : {}) })
-				})
-			).accounts,
+			(await command('aleph.accounts', { addresses, ...(api ? { api } : {}) })).accounts,
 		/**
 		 * One Aleph account's credits in one month: balances, top-ups, consumption
 		 * per day and resource, valued in EUR (packages/chains/src/aleph.js).
@@ -670,9 +694,7 @@ export function createBridgeClient({
 		 * @returns {Promise<AlephStatement>}
 		 */
 		alephStatement: (address, month, api) =>
-			call(
-				`/aleph/statement?address=${encodeURIComponent(address)}&month=${encodeURIComponent(month)}${api ? `&api=${encodeURIComponent(api)}` : ''}`
-			),
+			command('aleph.statement', { address, month, ...(api ? { api } : {}) }),
 		/**
 		 * The backup on Aleph (issue #77): whether `pnpm setup:aleph` has made the
 		 * bridge's backup key, the account that pays, its credits, where the app
@@ -680,7 +702,7 @@ export function createBridgeClient({
 		 *
 		 * @returns {Promise<{ aleph: { configured: boolean, address?: string, credits?: number | null, ingestUrl?: string, gateways?: string[], apiHost?: string, putRef?: boolean } }>}
 		 */
-		backupStatus: () => call('/backup/status'),
+		backupStatus: () => command('backup.status'),
 		/**
 		 * Upload a sealed backup through the bridge: it sends the bytes to Aleph
 		 * with the STORE signed by its backup key in the same request, so Aleph
@@ -693,11 +715,7 @@ export function createBridgeClient({
 		 * @returns {Promise<{ cid: string, size: number, address: string, itemHash: string, status: string, ref?: string }>}
 		 */
 		alephPut: (bytes, name, ref) =>
-			call(`/backup/aleph?${new URLSearchParams({ name, ...(ref ? { ref } : {}) })}`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/octet-stream' },
-				body: /** @type {any} */ (bytes)
-			}),
+			command('backup.put', { name, ...(ref ? { ref } : {}) }, false, /** @type {any} */ (bytes)),
 		/**
 		 * Have Aleph keep a backup the app uploaded to its IPFS host: the bridge
 		 * signs the STORE message with its backup key. An increment names the
@@ -710,13 +728,10 @@ export function createBridgeClient({
 		 * @returns {Promise<{ cid: string, address: string, itemHash: string, status: string, ref?: string, size?: number }>}
 		 */
 		alephKeep: (cid, ref, size) =>
-			call('/backup/aleph/pin', {
-				method: 'POST',
-				body: JSON.stringify({
-					cid,
-					...(ref ? { ref } : {}),
-					...(Number.isInteger(size) ? { size } : {})
-				})
+			command('backup.keep', {
+				cid,
+				...(ref ? { ref } : {}),
+				...(Number.isInteger(size) ? { size } : {})
 			}),
 		/**
 		 * "Mit KI weitersuchen": the LLM suggests search words and sender domains
@@ -726,7 +741,7 @@ export function createBridgeClient({
 		 * @param {{ counterparty: string, purpose?: string, amount?: string | null, around?: string | null, days?: number, knownDomains?: string[] }} body
 		 * @returns {Promise<{ vendor: string | null, terms: string[], domains: string[], messages: any[], pick: { id: string, confidence: 'high' | 'medium' | 'low', reason: string } | null, llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
 		 */
-		mailAssist: (body) => call('/mail/assist', { method: 'POST', body: withTerms(body) }),
+		mailAssist: (body) => command('llm.mail', withTerms(body)),
 		/**
 		 * "✦ KI-Vorschlag" under "Beleg zuordnen": the LLM picks among receipts,
 		 * from their read fields; the bridge redacts.
@@ -734,7 +749,7 @@ export function createBridgeClient({
 		 * @param {{ booking: { counterparty?: string, purpose?: string, amount?: string, day?: string }, candidates: { id: string, vendor?: string, amount?: string, currency?: string, date?: string, number?: string, summary?: string }[] }} body
 		 * @returns {Promise<{ pick: { id: string, confidence: 'high' | 'medium' | 'low', reason: string } | null, reason?: string, llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
 		 */
-		matchAssist: (body) => call('/match/assist', { method: 'POST', body: withTerms(body) }),
+		matchAssist: (body) => command('llm.match', withTerms(body)),
 		/**
 		 * "✦ KI-Vorschlag" under "Als Gegenbuchung verknüpfen …": the LLM picks
 		 * the other side of an own transfer among up to 8 bookings; the bridge
@@ -743,7 +758,7 @@ export function createBridgeClient({
 		 * @param {{ booking: TransferAssistBooking, candidates: (TransferAssistBooking & { id: string })[] }} body
 		 * @returns {Promise<{ pick: { id: string, confidence: 'high' | 'medium' | 'low', reason: string } | null, llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
 		 */
-		transferAssist: (body) => call('/transfer/assist', { method: 'POST', body: withTerms(body) }),
+		transferAssist: (body) => command('llm.transfer', withTerms(body)),
 		/**
 		 * "✦ Ungereimtheiten erklären" on a vendor account (#121): a few notes on
 		 * what does not add up; the bridge redacts.
@@ -751,7 +766,7 @@ export function createBridgeClient({
 		 * @param {{ vendor: string, from: string, until: string, opening: string | null, closing: string, rows: any[], findings: string[] }} body
 		 * @returns {Promise<{ notes: string[], llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
 		 */
-		vendorAssist: (body) => call('/vendor/assist', { method: 'POST', body: withTerms(body) }),
+		vendorAssist: (body) => command('llm.vendor', withTerms(body)),
 		/**
 		 * "✦ Reise prüfen" on a trip (#693 d): up to six notes, each naming the
 		 * legs (L1 …) or receipts (R1 …) it is about. Unredacted, so the bridge
@@ -761,7 +776,7 @@ export function createBridgeClient({
 		 * @param {import('$lib/travel/review.js').TripReview} body
 		 * @returns {Promise<{ notes: { text: string, refs: string[] }[], llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
 		 */
-		travelAssist: (body) => call('/travel/assist', { method: 'POST', body: JSON.stringify(body) }),
+		travelAssist: (body) => command('llm.travel', /** @type {any} */ (body)),
 		/**
 		 * "✦ Konto vorschlagen" on a payment's "Konto": up to two accounts of the
 		 * chart sent, with a reason; the bridge redacts unless the model is local
@@ -770,7 +785,7 @@ export function createBridgeClient({
 		 * @param {{ booking: Record<string, any>, receipt: Record<string, any> | null, learned: { vendor: string, account: string }[], accounts: { number: string, name: string }[] }} body
 		 * @returns {Promise<{ picks: { account: string, confidence: 'high' | 'medium' | 'low', reason: string }[], llm: { calls: { model: string, ms: number, usage: any }[], sent: string[] } }>}
 		 */
-		bookingAssist: (body) => call('/booking/assist', { method: 'POST', body: withTerms(body) }),
+		bookingAssist: (body) => command('llm.booking', withTerms(body)),
 		/**
 		 * A read share for an assistant (issue #124): the snapshot goes to the
 		 * bridge, which keeps it in memory and serves it by its id until it expires.
@@ -778,17 +793,17 @@ export function createBridgeClient({
 		 * @param {{ scope: string, redacted: boolean, minutes: number, data: unknown }} body
 		 * @returns {Promise<ShareInfo>}
 		 */
-		createShare: (body) => call('/share', { method: 'POST', body: JSON.stringify(body) }),
+		createShare: (body) => command('share.create', body),
 		/** @returns {Promise<{ shares: ShareInfo[] }>} */
-		listShares: () => call('/share'),
+		listShares: () => command('share.list'),
 		/** @param {string} id @returns {Promise<{ ok: boolean }>} */
-		revokeShare: (id) => call(`/share/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+		revokeShare: (id) => command('share.revoke', { id }),
 		/**
 		 * @param {{ text: string, hints?: Record<string, string>, source?: { mailId: string }, confirmedByUser?: boolean }} body
 		 * @returns {Promise<{ extraction: any, model: string, usage: any, ms?: number, attempts: any[], fallback?: { used: boolean, reason: string | null }, redactions?: any, sentText?: string }>}
 		 */
 		async extract(body) {
-			return restoreCompany(await call('/extract', { method: 'POST', body: withTerms(body) }));
+			return restoreCompany(await command('llm.extract', withTerms(body)));
 		}
 	};
 }

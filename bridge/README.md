@@ -352,7 +352,7 @@ The node's own commands, beside those of the table:
 | `grants` | a proved device of the books | per device its scopes, last use, when they lapse, and its calls per command (`usage`: name, let through, refused, last time) – every device's for the device that paired the bridge, its own for any other; `settable`: what a set is made of |
 | `renew` | the device that paired by invitation (UCEP scope `belege-bridge:pairing:manage`), proved | a device whose scopes lapsed counts from now again |
 | `unpair` | the device that paired by invitation (UCEP scope `belege-bridge:pairing:manage`), proved | the key leaves the keychain; the node runs unarmed with a new invitation |
-| `request` | a proved device of the books, armed only, holding the command's scope, within the limits | one command of the table above, by its method and path |
+| `request` | a proved device of the books, armed only, holding the command's scope, within the limits | one command of the table above, by its method and path – for a client from before #577; the app calls each command by its name and falls back to `request` only where a bridge answers `UNKNOWN_COMMAND` |
 
 **What a relay sees** of the bridge: its peer id, the peer ids of the devices that call it,
 when and how much – never content. Noise encrypts every connection end to end, and the relay
