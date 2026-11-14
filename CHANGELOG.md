@@ -9,6 +9,7 @@ All notable changes to Le Space Belege. The format follows
 ### Changed
 
 - The bridge README says how a language model is wired in: `pnpm setup:llm` offers an OpenAI-compatible URL or LibertAI's attested enclave, a table names which model runs where and what is checked, and the hosted bridge on Phala through NEAR is named beside the one on Aleph (#770).
+- Integrationen → Bridge opens with "Welche Bridge antwortet?": one line each for the bridge on this computer, the VM on Aleph and the VM on Phala over NEAR, with a coloured badge – unlocked and answering, running but still locked, stopped, or paired and silent. A hosted VM that runs but is not unlocked yet says so on its card, and its button is "Entsperren". With nothing paired, the computer's bridge is "none here" instead of a red error (#587).
 
 ## [0.32.3] – 2026-11-14
 

@@ -12,6 +12,7 @@
 	} from '$lib/session.svelte.js';
 	import { PHASES } from './near-bridge.js';
 	import { bridge, checkBridge } from './bridge-state.svelte.js';
+	import { noteNear } from './hosted-status.svelte.js';
 
 	/** @type {{ accountId: string, balance: bigint | null, contract: any, kept: any } | null} */
 	let status = $state(/** @type {any} */ (null));
@@ -23,6 +24,7 @@
 
 	async function refresh() {
 		status = await nearBridgeStatus().catch(() => null);
+		noteNear(status);
 	}
 	$effect(() => {
 		if (app.sync.online) refresh();
@@ -72,6 +74,7 @@
 
 <section
 	class="mt-4 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm"
+	id="near-bridge"
 	data-testid="near-bridge"
 >
 	<h2 class="text-lg font-semibold text-heading">{t('integrationen.nearBridge.title')}</h2>

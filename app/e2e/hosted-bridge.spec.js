@@ -195,6 +195,12 @@ test('a device attests and unlocks the hosted bridge, which comes up paired: hos
 			{ timeout: 90_000, intervals: [2_000] }
 		)
 		.toBe('online/stream');
+	// "Welche Bridge antwortet?": the VM, unlocked; this computer has none.
+	await expect(mac.page.getByTestId('bridge-overall-aleph')).toHaveAttribute(
+		'data-state',
+		'answers'
+	);
+	await expect(mac.page.getByTestId('bridge-overall-local')).toHaveAttribute('data-state', 'none');
 });
 
 test('a VM on another runtime gets nothing, and the card says why', async ({ browser }) => {
@@ -675,7 +681,12 @@ test('a VM the node cannot bring up: the card says so and stops it (#587)', asyn
 		expect(instance).toBeTruthy();
 
 		// Half started: carry on, or stop it here.
-		await expect(mac.page.getByTestId('hosted-bridge-start')).toContainText('Weiter starten');
+		await expect(mac.page.getByTestId('hosted-bridge-start')).toContainText('Entsperren');
+		await expect(mac.page.getByTestId('hosted-bridge-locked')).toBeVisible();
+		await expect(mac.page.getByTestId('bridge-overall-aleph')).toHaveAttribute(
+			'data-state',
+			'locked'
+		);
 		await mac.page.getByTestId('hosted-bridge-stop').click();
 		await expect(mac.page.getByTestId('hosted-bridge-vm')).toContainText('Gestoppt', {
 			timeout: 60_000

@@ -5,6 +5,7 @@
 	import { resolve } from '$app/paths';
 	import { t } from '$lib/i18n/index.js';
 	import BridgePanel from '$lib/integrations/BridgePanel.svelte';
+	import BridgeStatus from '$lib/integrations/BridgeStatus.svelte';
 	import HostedBridgeCard from '$lib/integrations/HostedBridgeCard.svelte';
 	import NearBridgeCard from '$lib/integrations/NearBridgeCard.svelte';
 	import HostedSettingsCard from '$lib/integrations/HostedSettingsCard.svelte';
@@ -74,7 +75,11 @@
 	{#key id}<IntegrationHelp {id} open={needsHelp} />{/key}
 	<div class="integration-page" class:hide-card-title={id !== 'bank'}>
 		{#if id === 'bridge'}
-			<section class="mt-4 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm">
+			<BridgeStatus />
+			<section
+				id="bridge-local"
+				class="mt-4 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm"
+			>
 				<BridgePanel />
 			</section>
 			<HostedSettingsCard />
