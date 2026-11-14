@@ -367,13 +367,17 @@ export async function startBridgeConsumer({
 	 * The books' device list to the bridge's node, when it is connected: a
 	 * device removed in the app is refused there too.
 	 *
-	 * @param {string[]} list peer ids
+	 * @param {(string | { peerId: string, initial: string[] })[]} list peer ids, or with what a
+	 *   device was given when added to the books (#579): the bridge gives that to a device new to it
 	 * @returns {Promise<boolean>} whether the bridge took it
 	 */
 	async function tellDevices(list) {
 		const peerId = streamServer();
 		if (!peerId) return false;
-		await consumer.call(peerId, EXTENSION, 'devices', { devices: [...new Set(list)].slice(0, 64) });
+		/** @type {Map<string, string | { peerId: string, initial: string[] }>} */
+		const once = new Map();
+		for (const d of list) once.set(typeof d === 'string' ? d : d.peerId, d);
+		await consumer.call(peerId, EXTENSION, 'devices', { devices: [...once.values()].slice(0, 64) });
 		return true;
 	}
 

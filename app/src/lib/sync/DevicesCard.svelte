@@ -22,6 +22,7 @@
 	import QrExchange from './QrExchange.svelte';
 	import QrScan from './QrScan.svelte';
 	import BridgeAccess from './BridgeAccess.svelte';
+	import NewDeviceScopes from './NewDeviceScopes.svelte';
 	import { deviceCode, deviceSyncOn, parseDeviceCode } from './device-sync.js';
 	import { bridgeShareOn, setBridgeShare } from './remote-bridge.js';
 
@@ -340,6 +341,7 @@
 			data-testid="devices-advanced"
 		>
 			<summary class="cursor-pointer font-medium text-heading">{t('devices.advanced')}</summary>
+			<NewDeviceScopes />
 			{#if app.network.mode === 'qr'}
 				<QrExchange />
 			{:else}

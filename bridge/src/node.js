@@ -394,7 +394,8 @@ export async function startBridgeNode({
 			// removal reaches the bridge from wherever it was made – and never the
 			// device that paired it. Unarmed, the handover brings the list.
 			description: 'The books’ device list, as the app keeps it',
-			// Each entry a peer id (all scopes) or `{ peerId, scopes }` (grants.js).
+			// Each entry a peer id (as held; all scopes for a new device), `{ peerId, scopes }`
+			// or `{ peerId, initial }`: what it was given when added to the books (grants.js).
 			handler: async ({ argsJson, peerId }) => {
 				const wanted = parseDevices(argsJson?.devices ?? [], allScopes);
 				assertDevice(peerId);

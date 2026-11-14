@@ -32,9 +32,10 @@
 		}
 	}
 	$effect(() => {
-		// Again when the way to the bridge or the device list changes.
+		// Again when the way to the bridge or the device list changes, here or at the bridge.
 		void app.sync.bridgeRoute;
 		void app.sync.state?.devices.length;
+		void app.sync.bridgeDevicesAt;
 		load();
 	});
 

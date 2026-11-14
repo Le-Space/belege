@@ -93,7 +93,9 @@ export const app = $state({
 		 * here over HTTP, or through an own device's (#142).
 		 * @type {'stream' | 'local' | 'device'}
 		 */
-		bridgeRoute: 'local'
+		bridgeRoute: 'local',
+		/** When the bridge's node last took the books' device list (#579): its grants are read again. */
+		bridgeDevicesAt: 0
 	},
 	/** @type {StoredRecord[]} */
 	transactions: [],
@@ -352,8 +354,37 @@ export async function setNetworkMode(mode) {
 /** How long a device connected by QR has to prove the passkey. */
 const QR_PROOF_MS = 30_000;
 
-/** @param {string} peerId */
-async function addWhenProved(peerId) {
+/**
+ * What a device added from the Geräte card may use at the bridge (#579): the
+ * boxes ticked there; null: every scope, as before. Kept in the device's
+ * record, and the bridge gives it to a device new to it.
+ *
+ * @type {string[] | null}
+ */
+let newDeviceBridgeScopes = null;
+
+/** @param {string[] | null} scopes */
+export function setNewDeviceBridgeScopes(scopes) {
+	newDeviceBridgeScopes = scopes ? [...scopes] : null;
+}
+
+/**
+ * A device added from the Geräte card, with what it may use at the bridge.
+ *
+ * @param {string} peerId
+ * @param {string[] | null} scopes as ticked when the add began
+ */
+const addOwnDevice = (peerId, scopes) =>
+	/** @type {NonNullable<typeof deviceSync>} */ (deviceSync).addDevice(peerId, '', {
+		bridgeScopes: scopes
+	});
+
+/**
+ * @param {string} peerId
+ * @param {string[] | null} [scopes] what it may use at the bridge, as ticked when the add began:
+ *   the proof may take a while, and the card may change or close meanwhile
+ */
+async function addWhenProved(peerId, scopes = newDeviceBridgeScopes) {
 	const gate = session?.deviceGate;
 	if (!gate) throw new Error(t('messages.sync.off'));
 	const until = Date.now() + QR_PROOF_MS;
@@ -368,7 +399,7 @@ async function addWhenProved(peerId) {
 		if (!gate.isProved(peerId)) await new Promise((r) => setTimeout(r, 1000));
 	}
 	if (!deviceSync) throw new Error(t('messages.sync.off'));
-	await deviceSync.addDevice(peerId);
+	await addOwnDevice(peerId, scopes);
 }
 
 /** Watch the QR session for the connections this device answered. */
@@ -1062,14 +1093,18 @@ async function startBridgeForDevices() {
 		const records = await settings.list({ includeDeleted: true });
 		const { whose } = await import('./members/whose.js');
 		const members = whose(records);
-		// Own devices, and a writing member's the owner let use the bridge (#641, #579).
+		// Own devices, and a writing member's the owner let use the bridge (#641, #579);
+		// with what each was given when added, for a device new to the bridge.
 		const list = knownDevices(records)
 			.filter((d) => !d.bridge && members.mayUseBridge(d.peerId))
-			.map((d) => d.peerId)
-			.sort();
-		const key = list.join(',');
+			.sort((a, b) => (a.peerId < b.peerId ? -1 : 1))
+			.map((d) => (d.bridgeScopes ? { peerId: d.peerId, initial: d.bridgeScopes } : d.peerId));
+		const key = JSON.stringify(list);
 		if (key === toldDevices) return;
-		if (await consumer.tellDevices(list).catch(() => false)) toldDevices = key;
+		if (await consumer.tellDevices(list).catch(() => false)) {
+			toldDevices = key;
+			app.sync.bridgeDevicesAt = Date.now();
+		}
 	};
 	settings.onChange(() => {
 		readNode().catch(() => {});
@@ -2350,7 +2385,8 @@ function deviceLabel() {
 export async function addSyncDevice(peerId) {
 	if (!deviceSync) throw new Error(t('messages.sync.off'));
 	const id = peerId.trim();
-	if (session?.mode !== 'both') return deviceSync.addDevice(id);
+	const scopes = newDeviceBridgeScopes;
+	if (session?.mode !== 'both') return addOwnDevice(id, scopes);
 	// "Beides": a new device only over the own network – through the bridge's
 	// relay here, and into the books once it proved the passkey on that path.
 	const { lanRelayAddr } = await import('./sync/network-mode.js');
@@ -2362,7 +2398,7 @@ export async function addSyncDevice(peerId) {
 	await session.libp2p.dial(multiaddr(`${relay}/p2p-circuit/p2p/${id}`), {
 		signal: AbortSignal.timeout(15_000)
 	});
-	await addWhenProved(id);
+	await addWhenProved(id, scopes);
 }
 
 /**
@@ -2376,7 +2412,7 @@ export async function answerAskingDevice(peerId, letIn) {
 	if (!deviceSync) throw new Error(t('messages.sync.off'));
 	const { asking } = await import('./sync/device-sync.js');
 	asking.delete(peerId);
-	if (letIn) await deviceSync.addDevice(peerId);
+	if (letIn) await addOwnDevice(peerId, newDeviceBridgeScopes);
 	else deviceSync.refresh();
 }
 

@@ -1677,6 +1677,9 @@ export default {
 			connected: 'Other devices connected: {connected} of {count}',
 			none: 'No other device yet – add one under “Advanced”.'
 		},
+		newScopes: 'What a new device may use at the bridge',
+		newScopesText:
+			'Applies to the next device you add here – by QR code, by its id, or when you let it in. Change it per device later under “May use at the bridge” below.',
 		advanced: 'Advanced',
 		off: 'Sync is off on this device. Switch it on in the “Privacy & technology” notice under “Sync own devices”; it applies from the next unlock.',
 		openConsent: 'Open notice',

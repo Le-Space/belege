@@ -9,6 +9,7 @@ import {
 	DEVICE_PREFIX,
 	blocked,
 	deviceCode,
+	bridgeScopesOf,
 	deviceRecords,
 	isDirectAddr,
 	isPeerId,
@@ -213,6 +214,26 @@ describe('deviceRecords', () => {
 			{ key, updatedAt: at('2'), value: { label: '' } }
 		]);
 		expect(named).toMatchObject([{ label: 'Chrome auf Mac' }]);
+	});
+
+	it('carries what a device was given at the bridge when added, names only (#579)', async () => {
+		const id = await peerOf(SALT_A);
+		const key = `${DEVICE_PREFIX}${id}`;
+		const at = '2026-01-01T00:00:00.000Z';
+		const [given] = deviceRecords([
+			{
+				key,
+				updatedAt: at,
+				value: { bridgeScopes: ['bridge:mail:read', 'bridge:llm', 'bridge:llm', '../x', 7] }
+			}
+		]);
+		expect(given.bridgeScopes).toEqual(['bridge:llm', 'bridge:mail:read']);
+		// None ticked is a choice too; no list at all is every scope, as before.
+		expect(
+			deviceRecords([{ key, updatedAt: at, value: { bridgeScopes: [] } }])[0].bridgeScopes
+		).toEqual([]);
+		expect(deviceRecords([{ key, updatedAt: at, value: {} }])[0].bridgeScopes).toBeNull();
+		expect(bridgeScopesOf('bridge:llm')).toBeNull();
 	});
 });
 

@@ -72,6 +72,42 @@ describe('grants', () => {
 		assert.throws(() => parseDevices(new Array(65).fill(A), ALL), refused('INVALID_ARGUMENTS'));
 	});
 
+	test('initial: what a device was given when added, for a device new to the bridge only (#579)', async () => {
+		let now = Date.UTC(2026, 0, 1);
+		const all = [...ALL, 'bridge:settings:export', 'bridge:grants:manage'];
+		const C = '12D3KooWRBy97UB99e3J6hiPesre1MZeuNQvfan4gBziswrRJsNK';
+		// Only what the bridge offers a device; never what only the holder holds.
+		assert.deepEqual(
+			parseDevices(
+				[{ peerId: C, initial: ['bridge:llm', 'bridge:grants:manage', 'bridge:other'] }],
+				all
+			).get(C),
+			{ initial: ['bridge:llm'] }
+		);
+		assert.throws(
+			() => parseDevices([{ peerId: C, initial: 'bridge:llm' }], all),
+			refused('INVALID_ARGUMENTS')
+		);
+		const grants = createGrants({ file: join(dir, 'initial.json'), scopes: all, now: () => now });
+		await grants.adopt([A]);
+		// New to the bridge: it starts with what it was given, nothing else.
+		await grants.set(parseDevices([A, { peerId: C, initial: ['bridge:mail:read'] }], all));
+		await grants.authorize(C, 'bridge:mail:read');
+		await assert.rejects(grants.authorize(C, 'bridge:llm'), refused('SCOPE_MISSING'));
+		await assert.rejects(grants.authorize(C, 'bridge:grants:manage'), refused('SCOPE_MISSING'));
+		// Changed on the Geräte card afterwards: the list told again does not undo it.
+		now += DAY;
+		await grants.setScopes(C, ['bridge:llm']);
+		await grants.set(parseDevices([A, { peerId: C, initial: ['bridge:mail:read'] }], all));
+		await grants.authorize(C, 'bridge:llm');
+		await assert.rejects(grants.authorize(C, 'bridge:mail:read'), refused('SCOPE_MISSING'));
+		// Nothing ticked: it may call nothing that needs a scope.
+		const D = '12D3KooWHcKUzVSKzRQGGgmTn6NuAD3a8Lq9GmjAVJjUoxkuwrW8';
+		await grants.set(parseDevices([A, C, { peerId: D, initial: [] }], all));
+		await assert.rejects(grants.authorize(D, 'bridge:llm'), refused('SCOPE_MISSING'));
+		assert.deepEqual((await grants.list()).find((g) => g.peerId === D)?.scopes, []);
+	});
+
 	test('limitsOf: positive integers from bridge.json, else the default', () => {
 		assert.deepEqual(limitsOf(undefined), DEFAULT_LIMITS);
 		assert.deepEqual(limitsOf({ llmPerMinute: 5, idleDays: -1, backupPerHour: 1.5 }), {

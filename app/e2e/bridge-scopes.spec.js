@@ -4,7 +4,8 @@
 // names the area – over the stream, with no other way tried – and works again
 // once the box is ticked. The bridge runs in test mode against a fake mail
 // server; HTTP to it is refused from the start, so this spec runs over the
-// stream in both E2E modes. Towns, vendors and mails are made up.
+// stream in both E2E modes. A device added afterwards gets what was ticked
+// before it was added. Towns, vendors, mails and the device's id are made up.
 import { test, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -225,6 +226,30 @@ test('a device without “Mails lesen” is refused a mail search, said as such,
 		await expect(night.getByTestId('reise-mail-hit')).toContainText(HOSTEL_BOOKING.vendor);
 		await expect(night.getByTestId('reise-mail-error')).toHaveCount(0);
 		expect(http).toEqual([]);
+
+		// A device added from here gets what was ticked before it was added, not
+		// every area: "Mails lesen" off, the rest on. Its id is made up; it
+		// never comes online, the bridge takes it from the device list.
+		const other = '12D3KooWRBy97UB99e3J6hiPesre1MZeuNQvfan4gBziswrRJsNK';
+		await openIntegration(page, 'geraete');
+		await openDevicesAdvanced(page);
+		const fresh = page.getByTestId('devices-new-scopes');
+		await expect(fresh).toBeVisible();
+		await fresh
+			.locator('[data-testid="devices-new-scope"][data-scope="bridge:mail:read"]')
+			.uncheck();
+		await page.getByTestId('devices-add-input').fill(other);
+		await page.getByTestId('devices-add').click();
+		const added = page
+			.getByTestId('bridge-access-device')
+			.filter({ hasText: `${other.slice(0, 10)}…` });
+		await expect(added.getByTestId('bridge-access-scopes')).toBeVisible({ timeout: 60_000 });
+		await expect(
+			added.locator('[data-testid="bridge-access-scope"][data-scope="bridge:mail:read"]')
+		).not.toBeChecked();
+		await expect(
+			added.locator('[data-testid="bridge-access-scope"][data-scope="bridge:llm"]')
+		).toBeChecked();
 	} finally {
 		await mac.context.close();
 	}
