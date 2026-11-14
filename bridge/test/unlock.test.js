@@ -152,3 +152,86 @@ test('releaseCheck returns the pins to attest with', () => {
 		/not a STORE hash/
 	);
 });
+
+// An image of its own per set of books (#777): the same plain image, sealed
+// again with another passphrase, is another STORE. The launch measurement
+// covers the runtime and the owner, not the rootfs, so it stays the one the
+// unlocking side computes; only the image the INSTANCE names differs.
+const OWN_IMAGE = 'f'.repeat(64);
+const ownInstance = (/** @type {Record<string, any>} */ over = {}) =>
+	instance({
+		rootfs: { parent: { ref: OWN_IMAGE, use_latest: true }, persistence: 'host', size_mib: 10240 },
+		...over
+	});
+/** The owner's unlock of a VM expected to boot `image`, with that image's passphrase. */
+const unlockImage = (
+	/** @type {any} */ vm,
+	/** @type {any} */ content,
+	/** @type {string} */ image,
+	/** @type {string} */ passphrase
+) =>
+	unlockHosted({
+		instance: content,
+		published,
+		image,
+		owner,
+		wasm,
+		relayUrl: 'wss://relay.example/attest',
+		crnHash: CRN,
+		instanceItemHash: VM,
+		passphrase,
+		secrets: SECRETS,
+		sign,
+		verify,
+		transport: vm.transport,
+		sleep: async () => assert.fail('a verdict is not retried'),
+		attempts: 1
+	});
+
+test('a VM from a re-sealed image shows the same measurement and pins as one from the shared image', async () => {
+	const shared = instance();
+	const own = ownInstance();
+	// What the INSTANCE pins is the same block; only the rootfs' STORE differs.
+	assert.deepEqual(own.environment.trusted_execution, shared.environment.trusted_execution);
+	assert.deepEqual(
+		{ ...own, rootfs: { ...own.rootfs, parent: { ...own.rootfs.parent, ref: IMAGE } } },
+		shared
+	);
+	assert.deepEqual(
+		releaseCheck({ instance: own, published, image: OWN_IMAGE, owner }),
+		releaseCheck({ instance: shared, published, image: IMAGE, owner })
+	);
+
+	// The guest proves the measurement computed for the shared image's VM, and
+	// gets the passphrase of its own image.
+	const vm = await started(PUBLISHED);
+	const result = await unlockImage(vm, own, OWN_IMAGE, 'made-up-own-passphrase');
+	assert.equal(result.measurement, PUBLISHED);
+	assert.equal(vm.received.luks_passphrase, 'made-up-own-passphrase');
+	assert.deepEqual(Object.keys(vm.received).sort(), ['bridge_config', 'imap', 'luks_passphrase']);
+});
+
+test('a re-sealed image on a changed runtime gets no secret', async () => {
+	const vm = await started(CHANGED);
+	await assert.rejects(
+		unlockImage(vm, ownInstance(), OWN_IMAGE, 'made-up-own-passphrase'),
+		/measurement/
+	);
+	assert.deepEqual(vm.received, {});
+});
+
+test('the passphrase of one image never goes to a VM that boots the other', async () => {
+	const vm = await started(PUBLISHED);
+	// The books expect their own image; the INSTANCE names the shared one.
+	await assert.rejects(
+		unlockImage(vm, instance(), OWN_IMAGE, 'made-up-own-passphrase'),
+		/another image than the published one: no secret goes out/
+	);
+	// The books expect the shared image; the INSTANCE names a re-sealed one.
+	await assert.rejects(
+		unlockImage(vm, ownInstance(), IMAGE, 'not-the-real-passphrase'),
+		/another image than the published one: no secret goes out/
+	);
+	assert.equal(vm.connections(), 0);
+	assert.deepEqual(vm.received, {});
+});
