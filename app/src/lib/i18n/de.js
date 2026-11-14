@@ -955,7 +955,7 @@ export default {
 			},
 			credits: {
 				name: 'Le Space Credits (credits.le-space.de, Stripe)',
-				text: 'Erst wenn du es unter Integrationen → Aleph einschaltest: Guthaben für die Dienste, die Le Space für Belege betreibt, aufgeladen mit Karte.',
+				text: 'Erst wenn du es unter Integrationen → Aleph einschaltest: Guthaben für die Angebote von Le Space für Belege (heute die gehostete Bridge), aufgeladen mit Karte.',
 				leaves:
 					'An credits.le-space.de (Le Space): die Adresse des Aleph-Schlüssels deiner Bücher, mit jeder Anfrage unterschrieben, und die IP-Adresse dieses Geräts – für Guthaben, Käufe und Erstattungen. Beim Aufladen an Stripe, in einem Fenster von credits.le-space.de: Karte, E-Mail und Rechnungsland, wie Stripe sie für die Zahlung und die Rechnung braucht. Nie deine Bücher, nie ein Beleg.',
 				technical:

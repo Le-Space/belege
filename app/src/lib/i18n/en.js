@@ -927,7 +927,7 @@ export default {
 			},
 			credits: {
 				name: 'Le Space Credits (credits.le-space.de, Stripe)',
-				text: 'Only once you switch it on under Integrations → Aleph: a balance for the services Le Space runs for Belege, topped up by card.',
+				text: 'Only once you switch it on under Integrations → Aleph: a balance for what Le Space offers for Belege (today the hosted bridge), topped up by card.',
 				leaves:
 					'To credits.le-space.de (Le Space): the address of your books’ Aleph key, signed with every request, and this device’s IP address – for the balance, purchases and refunds. When topping up, to Stripe, in a frame of credits.le-space.de: card, e-mail and billing country, as Stripe needs them for the payment and the invoice. Never your books, never a receipt.',
 				technical:
