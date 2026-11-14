@@ -71,6 +71,30 @@ of the plain image and the pinned inputs.
 The plain image is not yet byte-for-byte reproducible (Debian's packages at build time, file
 times, the ext4 UUID); the encrypted one cannot be (LUKS salts).
 
+## The plain image, published (#777)
+
+Run with **plain**, the workflow also publishes the image without encryption, as a STORE of its
+own: the image after relay-button's confidential conversion and before the encryption, gzipped.
+It holds no secret – no key, no passphrase, no account – and is the first piece of an image of
+its own per set of books (#777), as in
+[Paperless anywhere](https://github.com/Le-Space/paperless-anywhere/blob/main/docs/own-image.md):
+what an attested image builder seals with a passphrase from the books. Nothing in the app uses
+it yet; the hosted bridge still starts the encrypted image above.
+
+`bridge-image.json` names it under `sealable`: the STORE's hash, the SHA-256 and size of the
+image itself (unpacked), the stored size, and GitHub's signed statement that this workflow built
+a file with that SHA-256 at that commit. Anyone can compare:
+
+```sh
+curl -fsS https://api2.aleph.im/api/v0/messages/<sealable.store> | jq -r '.message.content.item_hash'
+curl -fL https://api2.aleph.im/api/v0/storage/raw/<that hash> | gunzip > bridge-plain.ext4
+sha256sum bridge-plain.ext4                                    # sealable.sha256
+gh attestation verify bridge-plain.ext4 --repo Le-Space/belege
+```
+
+A pull request that changes the image converts it too and fails if it has grown beyond what an
+image builder takes (Aleph's 1 GiB upload, less what the encryption adds); it publishes nothing.
+
 ## Trying it
 
 **Bridge on a confidential node** (`.github/workflows/bridge-try.yml`) creates a VM from a STORE,
@@ -81,4 +105,5 @@ through the VM's own `/attest`, checks what faces the network, and forgets the V
 starts unpaired, with nothing but the relay's address; the browser pairs it with the unlock
 ("Gehostete Bridge" in the app, #585).
 
-Both workflows need the `ALEPH_PRIVATE_KEY` and `BRIDGE_LUKS_PASSPHRASE` secrets.
+Both workflows need the `ALEPH_PRIVATE_KEY` and `BRIDGE_LUKS_PASSPHRASE` secrets; the image
+workflow run with **plain** only needs the first.
