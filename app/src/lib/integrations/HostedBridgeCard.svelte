@@ -20,6 +20,7 @@
 	} from '$lib/session.svelte.js';
 	import HackathonBand from './HackathonBand.svelte';
 	import { bridge, checkBridge } from './bridge-state.svelte.js';
+	import { noteAleph } from './hosted-status.svelte.js';
 	import { usage } from './hosted-vm.js';
 	import { BRIDGE_PLANS, euro } from '$lib/credits/credits.js';
 
@@ -51,6 +52,7 @@
 
 	async function reload() {
 		[kept, vm] = await Promise.all([hostedBridgeRecord(), hostedVmRecord()]);
+		noteAleph(kept, vm);
 	}
 
 	$effect(() => {
@@ -153,6 +155,7 @@
 
 <section
 	class="mt-4 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm"
+	id="hosted-bridge"
 	data-testid="hosted-bridge"
 >
 	<HackathonBand />
@@ -162,6 +165,15 @@
 	{#if vm}
 		<p class="mt-3 text-sm text-text" data-testid="hosted-bridge-vm">
 			{#if running}
+				<span
+					class="mr-1 rounded-full px-2.5 py-0.5 text-xs font-medium {halfway
+						? 'bg-warning/15 text-warning'
+						: 'bg-success/15 text-success'}"
+					data-testid="hosted-bridge-badge"
+					>{halfway
+						? t('integrationen.bridgeStatus.state.aleph.locked')
+						: t('integrationen.bridgeStatus.state.aleph.unlocked')}</span
+				>
 				{t('integrationen.hostedBridge.running', { date: when(vm.startedAt) })}
 			{:else}
 				{t('integrationen.hostedBridge.stopped', { date: when(vm.stoppedAt) })}
@@ -268,6 +280,14 @@
 					</div>
 				{/if}
 			{/if}
+			{#if halfway}
+				<p
+					class="mt-3 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-text"
+					data-testid="hosted-bridge-locked"
+				>
+					{t('integrationen.hostedBridge.locked')}
+				</p>
+			{/if}
 			<form class="mt-4 flex flex-wrap items-end gap-3" onsubmit={start}>
 				{#if !halfway}
 					<label class="flex min-w-0 flex-1 flex-col text-sm">
@@ -315,7 +335,11 @@
 						: t('integrationen.hostedBridge.start')}</button
 				>
 			</form>
-			<p class="mt-2 text-xs text-faint">{t('integrationen.hostedBridge.startHint')}</p>
+			<p class="mt-2 text-xs text-faint">
+				{halfway
+					? t('integrationen.hostedBridge.resumeHint')
+					: t('integrationen.hostedBridge.startHint')}
+			</p>
 			{#if halfway}
 				<!-- A start Aleph has but that never came up (the node failed it, or the tab closed): stop it here. -->
 				<button

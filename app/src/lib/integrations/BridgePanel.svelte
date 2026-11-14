@@ -69,6 +69,9 @@
 								? t('integrationen.bridge.paired')
 								: t('integrationen.bridge.unpaired')}
 					{#if !bridge.health.hibiscus}· {t('integrationen.bridge.noHibiscus')}{/if}
+				{:else if bridge.state === 'offline' && !bridgePaired()}
+					<!-- Nothing paired and nothing answering: no bridge here, not a failure. -->
+					<span class="font-medium text-text">{t('integrationen.bridge.noneHere')}</span>
 				{:else if bridge.state === 'offline'}
 					<span class="font-medium text-danger">{t('integrationen.bridge.offline')}</span>
 				{:else}

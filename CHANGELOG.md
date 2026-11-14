@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Integrationen → Bridge opens with "Welche Bridge antwortet?": one line each for the bridge on this computer, the VM on Aleph and the VM on Phala over NEAR, with a coloured badge – unlocked and answering, running but still locked, stopped, or paired and silent. A hosted VM that runs but is not unlocked yet says so on its card, and its button is "Entsperren". With nothing paired, the computer's bridge is "none here" instead of a red error (#587).
+
 ## [0.32.3] – 2026-11-14
 
 ## [0.32.2] – 2026-11-14
