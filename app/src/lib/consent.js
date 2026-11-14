@@ -102,7 +102,9 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 48: a hosted bridge on Aleph may be paid by Le Space from the books' plan
 //     (#587): its sub-account for these books pays, the books' key is its
 //     delegate, and the browser asks credits.le-space.de for that.
-export const CONSENT_VERSION = '48';
+// 49: the hosted bridge card lists the VMs the books' Aleph key started
+//     (#587): Aleph's API is asked for that key's INSTANCEs.
+export const CONSENT_VERSION = '49';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

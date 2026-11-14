@@ -3,8 +3,11 @@
 	// this browser (hosted-vm.js), owned by the books' Aleph key and paid by Le
 	// Space from the books' plan or by that key itself, attest and unlock it,
 	// paired in the same step (hosted-bridge.js), see how long it runs, and
-	// stop it. A VM that runs already can be unlocked by its hash. The
-	// passphrase is the image's, typed here and kept nowhere.
+	// stop it. A VM that runs already can be unlocked by its hash, or picked
+	// from the books' key's VMs Aleph lists. While a VM boots, the card says
+	// which try of the unlock it is and why the last one failed, and the
+	// waiting can be cancelled. The passphrase is the image's, typed here and
+	// kept nowhere.
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import {
 		app,
@@ -12,16 +15,19 @@
 		continueHostedStart,
 		hostedBridgeRecord,
 		hostedCredits,
+		hostedInstances,
 		hostedNodes,
 		hostedVmRecord,
 		startHostedBridge,
 		stopHostedBridge,
+		stopHostedInstance,
 		unlockHostedBridge
 	} from '$lib/session.svelte.js';
 	import HackathonBand from './HackathonBand.svelte';
 	import { bridge, checkBridge } from './bridge-state.svelte.js';
 	import { noteAleph } from './hosted-status.svelte.js';
 	import { usage } from './hosted-vm.js';
+	import { isCancelled, reasonOf } from './hosted-unlock.js';
 	import { BRIDGE_PLANS, euro } from '$lib/credits/credits.js';
 
 	let instance = $state('');
@@ -33,6 +39,16 @@
 	let error = $state(null);
 	/** @type {string} */
 	let progress = $state('');
+	/** A note that is no error: the waiting was cancelled. @type {string | null} */
+	let notice = $state(null);
+	/** Cancels the unlock's waiting while it runs. @type {AbortController | null} */
+	let controller = $state(null);
+	/** @type {Awaited<ReturnType<typeof hostedInstances>> | null} */
+	let instances = $state(null);
+	let instancesError = $state(false);
+	let existingOpen = $state(false);
+	/** Which hash was just copied. */
+	let copied = $state('');
 	/** @type {Awaited<ReturnType<typeof hostedBridgeRecord>>} */
 	let kept = $state(null);
 	/** @type {any} */
@@ -55,11 +71,24 @@
 		noteAleph(kept, vm);
 	}
 
+	async function loadInstances() {
+		instancesError = false;
+		try {
+			instances = await hostedInstances();
+		} catch {
+			instancesError = true;
+			instances = instances ?? [];
+		}
+	}
+
 	$effect(() => {
 		if (app.sync.online) reload();
 	});
 	$effect(() => {
 		if (kept && !instance) instance = kept.instance;
+	});
+	$effect(() => {
+		if (app.sync.online && instances === null) loadInstances();
 	});
 	$effect(() => {
 		if (!app.sync.online || running || nodes) return;
@@ -88,31 +117,91 @@
 		return () => clearInterval(timer);
 	});
 
-	/** @param {{ phase: string }} p */
-	const onProgress = ({ phase }) => {
+	/** @param {{ phase: string, detail?: string, attempt?: number, tries?: number }} p */
+	const onProgress = ({ phase, detail, attempt, tries }) => {
+		const counted = Number.isInteger(attempt) && Number.isInteger(tries);
+		if (phase === 'boot' && counted) {
+			progress = t('integrationen.hostedBridge.phase.bootTry', {
+				attempt: String(attempt),
+				tries: String(tries),
+				reason: reasonOf(detail) || '–'
+			});
+			return;
+		}
+		if (phase === 'network' && counted) {
+			progress = t('integrationen.hostedBridge.phase.networkTry', {
+				attempt: String(attempt),
+				tries: String(tries)
+			});
+			return;
+		}
+		if (phase === 'wait' && detail) {
+			progress = t('integrationen.hostedBridge.phase.waitWhy', { reason: reasonOf(detail) });
+			return;
+		}
 		const key = `integrationen.hostedBridge.phase.${phase}`;
 		const text = t(key);
 		if (text !== key) progress = text;
 	};
 
-	/** @param {() => Promise<any>} run */
+	/** @param {(signal: AbortSignal) => Promise<any>} run */
 	async function step(run) {
 		busy = true;
 		error = null;
+		notice = null;
 		progress = '';
+		const own = new AbortController();
+		controller = own;
 		try {
-			const result = await run();
+			const result = await run(own.signal);
 			if (result?.peerId) {
 				bridge.peerId = result.peerId;
 				await checkBridge();
 			}
 		} catch (e) {
-			error = e instanceof Error ? e.message : String(e);
+			if (isCancelled(e) || own.signal.aborted) notice = t('integrationen.hostedBridge.cancelled');
+			else error = e instanceof Error ? e.message : String(e);
 		} finally {
 			busy = false;
 			progress = '';
+			controller = null;
 			await reload();
+			await loadInstances();
 		}
+	}
+
+	function cancel() {
+		controller?.abort();
+	}
+
+	/** @param {string} text */
+	async function copy(text) {
+		try {
+			await navigator.clipboard.writeText(text);
+			copied = text;
+			setTimeout(() => {
+				if (copied === text) copied = '';
+			}, 2000);
+		} catch {
+			copied = '';
+		}
+	}
+
+	/** "Zum Entsperren wählen": the hash into the form below. @param {string} hash */
+	function pick(hash) {
+		instance = hash;
+		existingOpen = true;
+		requestAnimationFrame(() =>
+			/** @type {HTMLInputElement | null} */ (
+				document.querySelector('[data-testid="hosted-bridge-passphrase"]')
+			)?.focus()
+		);
+	}
+
+	/** @param {string} hash */
+	function stopListed(hash) {
+		if (!confirm(t('integrationen.hostedBridge.instances.confirmStop', { hash }))) return;
+		step(() => stopHostedInstance(hash));
 	}
 
 	/** @param {SubmitEvent} event */
@@ -120,10 +209,10 @@
 		event.preventDefault();
 		const typed = startPassphrase;
 		startPassphrase = '';
-		step(() =>
+		step((signal) =>
 			halfway
-				? continueHostedStart({ passphrase: typed, onProgress })
-				: startHostedBridge({ crn, passphrase: typed, paidBy, onProgress })
+				? continueHostedStart({ passphrase: typed, signal, onProgress })
+				: startHostedBridge({ crn, passphrase: typed, paidBy, signal, onProgress })
 		);
 	}
 
@@ -143,7 +232,7 @@
 		event.preventDefault();
 		const typed = passphrase;
 		passphrase = '';
-		step(() => unlockHostedBridge({ instance, passphrase: typed, onProgress }));
+		step((signal) => unlockHostedBridge({ instance, passphrase: typed, signal, onProgress }));
 	}
 
 	/** @param {string} iso */
@@ -178,7 +267,6 @@
 			{:else}
 				{t('integrationen.hostedBridge.stopped', { date: when(vm.stoppedAt) })}
 			{/if}
-			· <span class="font-mono">{vm.instance.slice(0, 12)}</span>
 			{#if used}
 				· <span data-testid="hosted-bridge-usage"
 					>{used.credits !== null
@@ -193,6 +281,26 @@
 				>
 			{/if}
 		</p>
+		<p class="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-faint">
+			<span>{t('integrationen.hostedBridge.instanceHash')}</span>
+			<code class="font-mono break-all text-text" data-testid="hosted-bridge-vm-hash"
+				>{vm.instance}</code
+			>
+			<button
+				type="button"
+				class="hover:bg-surface-muted min-h-8 rounded border border-border px-2 text-xs text-text"
+				onclick={() => copy(vm.instance)}
+				data-testid="hosted-bridge-vm-copy"
+				>{copied === vm.instance
+					? t('integrationen.hostedBridge.copied')
+					: t('integrationen.hostedBridge.copy')}</button
+			>
+		</p>
+		{#if vm.nodeUrl}
+			<p class="mt-1 text-xs break-all text-faint" data-testid="hosted-bridge-vm-node">
+				{t('integrationen.hostedBridge.node')}: <span class="font-mono">{vm.nodeUrl}</span>
+			</p>
+		{/if}
 	{/if}
 
 	{#if kept && (!vm || (running && kept.instance === vm.instance))}
@@ -351,11 +459,114 @@
 				>
 			{/if}
 		{/if}
-		{#if busy && progress}
-			<p class="mt-2 text-sm text-text" data-testid="hosted-bridge-progress">{progress}</p>
+		{#if busy && (progress || controller)}
+			<div class="mt-2 flex flex-wrap items-center gap-3">
+				{#if progress}
+					<p
+						class="min-w-0 flex-1 text-sm break-words text-text"
+						data-testid="hosted-bridge-progress"
+					>
+						{progress}
+					</p>
+				{/if}
+				{#if controller}
+					<button
+						type="button"
+						class="hover:bg-surface-muted min-h-11 rounded-md border border-border px-4 text-sm font-medium text-text"
+						onclick={cancel}
+						data-testid="hosted-bridge-cancel">{t('integrationen.hostedBridge.cancel')}</button
+					>
+				{/if}
+			</div>
+		{/if}
+		{#if notice}
+			<p class="mt-2 text-sm text-text" role="status" data-testid="hosted-bridge-notice">
+				{notice}
+			</p>
 		{/if}
 
-		<details class="mt-4 text-sm" data-testid="hosted-bridge-existing">
+		<section class="mt-4 text-sm" data-testid="hosted-bridge-instances">
+			<div class="flex flex-wrap items-center gap-3">
+				<h3 class="font-medium text-heading">{t('integrationen.hostedBridge.instances.title')}</h3>
+				<button
+					type="button"
+					class="hover:bg-surface-muted min-h-8 rounded border border-border px-2 text-xs text-text disabled:opacity-50"
+					disabled={busy}
+					onclick={loadInstances}
+					data-testid="hosted-bridge-instances-refresh"
+					>{t('integrationen.hostedBridge.instances.refresh')}</button
+				>
+			</div>
+			{#if instances === null}
+				<p class="mt-1 text-faint">{t('integrationen.hostedBridge.instances.loading')}</p>
+			{:else if instancesError}
+				<p class="mt-1 text-danger">{t('integrationen.hostedBridge.instances.error')}</p>
+			{:else if instances.length === 0}
+				<p class="mt-1 text-faint">{t('integrationen.hostedBridge.instances.none')}</p>
+			{:else}
+				<ul class="mt-2 space-y-2">
+					{#each instances as i (i.hash)}
+						<li
+							class="rounded-md border border-border px-3 py-2"
+							data-testid="hosted-bridge-instance-item"
+							data-hash={i.hash}
+						>
+							<div class="flex flex-wrap items-center gap-x-2">
+								<code class="font-mono text-xs break-all text-text">{i.hash}</code>
+								{#if i.known}
+									<span
+										class="rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success"
+										data-testid="hosted-bridge-instance-known"
+										>{t('integrationen.hostedBridge.instances.known')}</span
+									>
+								{/if}
+							</div>
+							<p class="mt-1 text-xs text-faint">
+								{#if i.createdAt}{t('integrationen.hostedBridge.instances.created', {
+										date: when(i.createdAt)
+									})}{/if}
+								{#if i.nodeName || i.crn}
+									· {t('integrationen.hostedBridge.node')}:
+									{i.nodeName ?? i.crn?.slice(0, 12)}
+								{/if}
+								{#if i.nodeUrl}
+									· <span class="font-mono break-all">{i.nodeUrl}</span>
+								{/if}
+							</p>
+							<div class="mt-2 flex flex-wrap gap-2">
+								<button
+									type="button"
+									class="hover:bg-surface-muted min-h-9 rounded border border-border px-3 text-xs text-text"
+									onclick={() => copy(i.hash)}
+									data-testid="hosted-bridge-instance-copy"
+									>{copied === i.hash
+										? t('integrationen.hostedBridge.copied')
+										: t('integrationen.hostedBridge.copy')}</button
+								>
+								<button
+									type="button"
+									class="hover:bg-surface-muted min-h-9 rounded border border-border px-3 text-xs text-text disabled:opacity-50"
+									disabled={busy}
+									onclick={() => pick(i.hash)}
+									data-testid="hosted-bridge-instance-pick"
+									>{t('integrationen.hostedBridge.instances.pick')}</button
+								>
+								<button
+									type="button"
+									class="hover:bg-surface-muted min-h-9 rounded border border-border px-3 text-xs text-text disabled:opacity-50"
+									disabled={busy}
+									onclick={() => stopListed(i.hash)}
+									data-testid="hosted-bridge-instance-stop"
+									>{t('integrationen.hostedBridge.stop')}</button
+								>
+							</div>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</section>
+
+		<details class="mt-4 text-sm" data-testid="hosted-bridge-existing" bind:open={existingOpen}>
 			<summary class="cursor-pointer text-text underline"
 				>{t('integrationen.hostedBridge.existing')}</summary
 			>
