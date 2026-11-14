@@ -392,6 +392,8 @@ export default {
 			creditsOff: 'Le Space Credits sind aus. Unter Integrationen → Aleph einschalten.',
 			noVm: 'Diese Bücher haben keine laufende gehostete VM.',
 			noPort: 'Der Knoten hat Port 443 der VM nicht freigegeben.',
+			nodeUnverifiable:
+				'Die Attestierung dieses Knotens lässt sich nicht prüfen: AMD hat für seinen Prozessor auf dem gemeldeten Firmware-Stand kein Zertifikat. An die VM ist nichts gegangen. Bitte „Stoppen“ und auf einem anderen Knoten neu starten – dieser wird nicht mehr vorausgewählt.',
 			alephDown:
 				'Aleph antwortet gerade nicht ({detail}). Das liegt bei Aleph, nicht an deinen Büchern: Die VM läuft weiter, später noch einmal entsperren.',
 			startupFailed:
@@ -4597,6 +4599,8 @@ export default {
 			nodesLoading: 'Lade Alephs vertrauliche Knoten …',
 			nodesNone: 'Gerade bietet kein Knoten bei Aleph eine vertrauliche VM an.',
 			nodeTight: '{name} (wenig frei)',
+			nodeUnverifiable: '{name} (zuletzt nicht prüfbar)',
+			errorDetail: 'Die Meldung im Wortlaut: {detail}',
 			start: 'Starten',
 			running: 'VM läuft seit {date}',
 			usage: '{hours} h, etwa {credits} Credits ({perHour} Credits/h)',

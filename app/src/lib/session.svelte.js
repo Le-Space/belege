@@ -1589,25 +1589,50 @@ export async function unlockHostedBridge({
 	const startWith = withHostedSettings(secrets, await keptHostedSettings());
 
 	signal?.throwIfAborted();
-	const result = await hosted.unlockHosted({
-		instance: content,
-		published,
-		image: hosted.HOSTED_IMAGE,
-		owner,
-		payers,
-		wasm,
-		relayUrl,
-		crnHash: crn,
-		instanceItemHash: hash,
-		passphrase,
-		secrets: startWith,
-		sign: async (/** @type {string} */ payload) => alephSign(ownerKey, payload),
-		onProgress,
-		sleep: (/** @type {number} */ ms) => pause(ms, signal),
-		...(attempts ? { attempts } : {}),
-		...(verify ? { verify } : {})
-	});
+	const nodesOf = await import('./integrations/hosted-nodes.js');
+	/** What the books remember about nodes, changed and kept; never in the way of the unlock. */
+	const rememberNode = async (
+		/** @type {(h: import('./integrations/hosted-nodes.js').NodeHistory) => import('./integrations/hosted-nodes.js').NodeHistory} */ change
+	) => {
+		try {
+			const history = nodesOf.nodeHistoryOf(await getSetting(settings, nodesOf.NODES_SETTING));
+			await setSetting(settings, nodesOf.NODES_SETTING, change(history));
+		} catch {
+			// A device that may not write the settings: the next one remembers.
+		}
+	};
+	const result = await hosted
+		.unlockHosted({
+			instance: content,
+			published,
+			image: hosted.HOSTED_IMAGE,
+			owner,
+			payers,
+			wasm,
+			relayUrl,
+			crnHash: crn,
+			instanceItemHash: hash,
+			passphrase,
+			secrets: startWith,
+			sign: async (/** @type {string} */ payload) => alephSign(ownerKey, payload),
+			onProgress,
+			sleep: (/** @type {number} */ ms) => pause(ms, signal),
+			...(attempts ? { attempts } : {}),
+			...(verify ? { verify } : {})
+		})
+		.catch(async (/** @type {unknown} */ e) => {
+			// AMD has no certificate for this node's processor and firmware: the attestation
+			// cannot be checked, so nothing went to the VM. Said plainly, and the node remembered.
+			if (!nodesOf.isUnverifiableNode(e)) throw e;
+			if (crn) await rememberNode((h) => nodesOf.noteUnverifiable(h, crn, isoNow()));
+			const { reasonOf } = await import('./integrations/hosted-unlock.js');
+			const error = fatal(t('messages.hostedBridge.nodeUnverifiable'));
+			/** @type {any} */ (error).code = 'NODE_UNVERIFIABLE';
+			/** @type {any} */ (error).detail = reasonOf(e);
+			throw error;
+		});
 	const attestedAt = isoNow();
+	if (crn) await rememberNode((h) => nodesOf.noteUnlocked(h, crn, attestedAt));
 	await setSetting(settings, hosted.HOSTED_SETTING, {
 		instance: hash,
 		host,
@@ -1682,6 +1707,19 @@ async function hostedNodeList() {
 		if (base) return { url: `${base}/crns.json`, loopback: true };
 	}
 	return { url: vm.CRN_LIST, loopback: false };
+}
+
+/**
+ * What the books remember about nodes (sealed settings): which could not be
+ * attested and when, and where the last unlock held.
+ *
+ * @returns {Promise<import('./integrations/hosted-nodes.js').NodeHistory>}
+ */
+export async function hostedNodeHistory() {
+	const { NODES_SETTING, nodeHistoryOf } = await import('./integrations/hosted-nodes.js');
+	return nodeHistoryOf(
+		session?.store ? await getSetting(session.store.settings, NODES_SETTING) : null
+	);
 }
 
 /** The confidential nodes a hosted bridge can start on, best first (#587). */

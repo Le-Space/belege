@@ -16,6 +16,7 @@
 		hostedBridgeRecord,
 		hostedCredits,
 		hostedInstances,
+		hostedNodeHistory,
 		hostedNodes,
 		hostedVmRecord,
 		startHostedBridge,
@@ -27,6 +28,8 @@
 	import { bridge, checkBridge } from './bridge-state.svelte.js';
 	import { noteAleph } from './hosted-status.svelte.js';
 	import { usage } from './hosted-vm.js';
+	import { nodeHistoryOf, preferredNode } from './hosted-nodes.js';
+	import TechnicalNote from '$lib/TechnicalNote.svelte';
 	import { isCancelled, reasonOf } from './hosted-unlock.js';
 	import { BRIDGE_PLANS, euro } from '$lib/credits/credits.js';
 
@@ -37,6 +40,10 @@
 	let busy = $state(false);
 	/** @type {string | null} */
 	let error = $state(null);
+	/** The error as it came, for the technical view, when the card says it in its own words. */
+	let errorDetail = $state('');
+	/** Which nodes could not be attested, and where the last unlock held (sealed settings). */
+	let history = $state(nodeHistoryOf(null));
 	/** @type {string} */
 	let progress = $state('');
 	/** A note that is no error: the waiting was cancelled. @type {string | null} */
@@ -67,7 +74,11 @@
 	const used = $derived(usage(vm, vm?.stoppedAt ? Date.parse(vm.stoppedAt) : now));
 
 	async function reload() {
-		[kept, vm] = await Promise.all([hostedBridgeRecord(), hostedVmRecord()]);
+		[kept, vm, history] = await Promise.all([
+			hostedBridgeRecord(),
+			hostedVmRecord(),
+			hostedNodeHistory()
+		]);
 		noteAleph(kept, vm);
 	}
 
@@ -92,10 +103,12 @@
 	});
 	$effect(() => {
 		if (!app.sync.online || running || nodes) return;
-		hostedNodes()
-			.then((list) => {
+		Promise.all([hostedNodes(), hostedNodeHistory()])
+			.then(([list, remembered]) => {
 				nodes = list;
-				if (!crn) crn = list.find((n) => n.fits)?.hash ?? list[0]?.hash ?? '';
+				history = remembered;
+				// Where the last unlock held, not a node that could not be attested last time.
+				if (!crn) crn = preferredNode(list, remembered);
 			})
 			.catch((e) => (error = e instanceof Error ? e.message : String(e)));
 	});
@@ -189,6 +202,7 @@
 	async function step(run) {
 		busy = true;
 		error = null;
+		errorDetail = '';
 		notice = null;
 		progress = '';
 		download = '';
@@ -203,7 +217,10 @@
 			}
 		} catch (e) {
 			if (isCancelled(e) || own.signal.aborted) notice = t('integrationen.hostedBridge.cancelled');
-			else error = e instanceof Error ? e.message : String(e);
+			else {
+				error = e instanceof Error ? e.message : String(e);
+				errorDetail = String(/** @type {any} */ (e)?.detail ?? '');
+			}
 		} finally {
 			busy = false;
 			progress = '';
@@ -211,6 +228,8 @@
 			slow = false;
 			controller = null;
 			await reload();
+			// The node just found not checkable is not the one to start on next; any other choice stays.
+			if (nodes && history.unverifiable[crn]) crn = preferredNode(nodes, history);
 			await loadInstances();
 		}
 	}
@@ -455,10 +474,14 @@
 						{:else}
 							<select class="{field} w-full" bind:value={crn} data-testid="hosted-bridge-node">
 								{#each nodes as n (n.hash)}
-									<option value={n.hash}
-										>{n.fits
-											? n.name
-											: t('integrationen.hostedBridge.nodeTight', { name: n.name })}</option
+									<option
+										value={n.hash}
+										data-unverifiable={history.unverifiable[n.hash] ? 'true' : null}
+										>{history.unverifiable[n.hash]
+											? t('integrationen.hostedBridge.nodeUnverifiable', { name: n.name })
+											: n.fits
+												? n.name
+												: t('integrationen.hostedBridge.nodeTight', { name: n.name })}</option
 									>
 								{/each}
 							</select>
@@ -658,5 +681,12 @@
 	{/if}
 	{#if error}
 		<p class="mt-2 text-sm text-danger" role="alert" data-testid="hosted-bridge-error">{error}</p>
+		{#if errorDetail}
+			<TechnicalNote
+				class="mt-2"
+				testid="hosted-bridge-error-detail"
+				lines={[t('integrationen.hostedBridge.errorDetail', { detail: errorDetail })]}
+			/>
+		{/if}
 	{/if}
 </section>

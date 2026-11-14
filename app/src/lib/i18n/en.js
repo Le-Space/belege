@@ -375,6 +375,8 @@ export default {
 			creditsOff: 'Le Space Credits are off. Switch them on under Integrations → Aleph.',
 			noVm: 'These books have no hosted VM running.',
 			noPort: 'The node did not open the VM’s port 443.',
+			nodeUnverifiable:
+				'This node’s attestation cannot be checked: AMD has no certificate for its processor at the firmware level it reports. Nothing was sent to the VM. Please “Stop” and start again on another node – this one is no longer preselected.',
 			alephDown:
 				'Aleph is not answering right now ({detail}). That is on Aleph’s side, not your books’: the VM keeps running, unlock it again later.',
 			startupFailed:
@@ -4536,6 +4538,8 @@ export default {
 			nodesLoading: 'Loading Aleph’s confidential nodes …',
 			nodesNone: 'No node on Aleph offers a confidential VM right now.',
 			nodeTight: '{name} (little room)',
+			nodeUnverifiable: '{name} (could not be checked last time)',
+			errorDetail: 'The message as it came: {detail}',
 			start: 'Start',
 			running: 'VM running since {date}',
 			usage: '{hours} h, about {credits} credits ({perHour} credits/h)',
