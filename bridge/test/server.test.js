@@ -8,7 +8,8 @@ import { join } from 'node:path';
 
 import { startBridge } from '../src/index.js';
 import { saveConfig, defaultConfig } from '../src/config.js';
-import { createBridgeServer } from '../src/server.js';
+import { COMMANDS } from '@le-space/bridge-protocol';
+import { DEPRECATED_SINCE, createBridgeServer, deprecatedOverHttp } from '../src/server.js';
 import { createPairing } from '../src/pairing.js';
 import { memoryKeychain } from '../src/keychain.js';
 import { FAKE_PASSWORD, startFakeHibiscus } from './support/fake-hibiscus.js';
@@ -142,6 +143,47 @@ describe('bridge server', () => {
 		assert.equal(JSON.parse(stored).pairedTokens.length, 1);
 		assert.equal((await stat(configPath)).mode & 0o777, 0o600);
 		assert.equal((await request(port(), '/health')).json.paired, true);
+	});
+
+	test('a route the stream serves is deprecated over HTTP; what HTTP keeps is not (#580)', async () => {
+		const deprecated = await request(port(), '/hibiscus/accounts', {
+			headers: { origin: APP, ...auth() }
+		});
+		assert.equal(deprecated.headers.deprecation, DEPRECATED_SINCE);
+		assert.match(String(deprecated.headers.link), /issues\/580>; rel="deprecation"/);
+		assert.match(String(deprecated.headers['access-control-expose-headers']), /Deprecation/);
+		// An error answer says it too.
+		const failing = await request(port(), '/mail/messages?since=2026-01-01', {
+			headers: { origin: APP, ...auth() }
+		});
+		assert.equal(failing.status, 503);
+		assert.equal(failing.headers.deprecation, DEPRECATED_SINCE);
+		for (const path of ['/health', '/lan-relay', '/share']) {
+			const kept = await request(port(), path, { headers: { origin: APP, ...auth() } });
+			assert.equal(kept.headers.deprecation, undefined, path);
+		}
+		// Without the token: refused, and nothing said about the route.
+		const refused = await request(port(), '/hibiscus/accounts', { headers: { origin: APP } });
+		assert.equal(refused.status, 401);
+		assert.equal(refused.headers.deprecation, undefined);
+	});
+
+	test('what HTTP keeps: pairing, health, lan-relay, shares, the backup upload (#580)', () => {
+		const kept = COMMANDS.filter((c) => !deprecatedOverHttp(c))
+			.map((c) => c.name)
+			.sort();
+		assert.deepEqual(kept, [
+			'backup.put',
+			'bridge.health',
+			'lanRelay.status',
+			'session.pair',
+			'session.unpair',
+			'settings.export',
+			'share.create',
+			'share.list',
+			'share.read',
+			'share.revoke'
+		]);
 	});
 
 	test('a device’s scopes over HTTP: the token, a body limit, and the node it needs (#579)', async () => {
