@@ -35,7 +35,8 @@
 		currentBlobs,
 		currentStore,
 		refreshNow,
-		runMatchingNow
+		runMatchingNow,
+		ownDevicesConnected
 	} from '$lib/session.svelte.js';
 	import { activeMatchesByReceipt, matchOfReceipt } from '$lib/matching/view.js';
 	import { belegeChoice } from '$lib/receipts/month-choice.svelte.js';
@@ -559,6 +560,8 @@
 	/** @type {string | null} */
 	let imageUrl = $state(null);
 	let previewError = $state(false);
+	/** @type {'' | 'coming' | 'missing'} the file is not on this device (yet) */
+	let fileNotHere = $state('');
 	/** @type {string | null} which receipt's page 1 is on the canvas */
 	let renderedFor = $state(null);
 	let previewKey = $derived(
@@ -573,6 +576,7 @@
 		const key = previewKey;
 		const target = canvas;
 		previewError = false;
+		fileNotHere = '';
 		if (!key) return;
 		const [id, fileCid, mime] = key.split('|');
 		const blobs = currentBlobs();
@@ -582,9 +586,14 @@
 		let url = null;
 		renderQueue = renderQueue.then(async () => {
 			if (cancelled) return;
+			let here = true;
 			try {
+				// Not here yet: said so while it is asked of the own devices (receipts/prefetch.js).
+				here = await blobs.has(fileCid);
+				if (!here && !cancelled) fileNotHere = ownDevicesConnected() > 0 ? 'coming' : 'missing';
 				const bytes = await blobs.get(fileCid);
 				if (cancelled) return;
+				fileNotHere = '';
 				if (mime === 'application/pdf') {
 					if (!target) return;
 					const { renderFirstPage } = await import('$lib/receipts/pdf.js');
@@ -596,8 +605,11 @@
 					imageUrl = url;
 				}
 			} catch (error) {
-				console.error('preview failed:', error);
-				if (!cancelled) previewError = true;
+				if (cancelled) return;
+				if (here) {
+					console.error('preview failed:', error);
+					previewError = true;
+				} else fileNotHere = 'missing';
 			}
 		});
 		return () => {
@@ -1219,7 +1231,15 @@
 								<MailText receipt={selected} {client} class="max-h-64" />
 							</div>
 						{/if}
-						{#if previewError}
+						{#if fileNotHere}
+							<p
+								class="mt-2 text-sm text-warning"
+								data-testid="file-not-here"
+								data-state={fileNotHere}
+							>
+								{t(fileNotHere === 'coming' ? 'belege.fileComing' : 'belege.fileNotHere')}
+							</p>
+						{:else if previewError}
 							<p class="mt-2 text-sm text-danger">{t('belege.previewFailed')}</p>
 						{/if}
 						{#if selected.xmlCid && selected.source === 'invoice-app'}
