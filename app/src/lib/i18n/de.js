@@ -1408,7 +1408,7 @@ export default {
 			'Du kannst in Belege weiterarbeiten: Das Backup läuft weiter, oben im Kopf siehst du, wie weit es ist. Nur den Tab nicht schließen oder neu laden.',
 		auto: {
 			label: 'Automatisch sichern (auf diesem Gerät)',
-			hint: 'Fünf Minuten nach der letzten Änderung sichert Belege von selbst, was neu ist – als Zuwachs, nie als Vollbackup. Nur solange der Tab offen ist, das Netz nicht pausiert, dieser Browser freigegeben ist oder die Bridge läuft und die Credits länger als 30 Tage reichen. Auf einem Gerät einschalten, nicht auf mehreren.',
+			hint: 'Fünf Minuten nach der letzten Änderung sichert Belege von selbst, was neu ist – als Zuwachs, nie als Vollbackup. Nur solange der Tab offen ist, das Netz nicht pausiert, dieser Browser freigegeben ist oder die Bridge läuft die Credits länger als 30 Tage reichen und Aleph den letzten Zuwachs nicht abgelehnt hat. Auf einem Gerät einschalten, nicht auf mehreren.',
 			unsaved: 'Noch nicht gesichert: {list}.'
 		},
 		badge: {
@@ -1423,6 +1423,8 @@ export default {
 				key: 'Weder ist dieser Browser freigegeben noch läuft die Bridge: kein automatisches Backup.',
 				credits:
 					'Die Credits reichen keine 30 Tage mehr: kein automatisches Backup. „Jetzt sichern“ geht weiter.',
+				refused:
+					'Aleph hat den letzten Zuwachs abgelehnt: kein automatisches Backup, bis wieder eines aufbewahrt ist. Gründe und „Jetzt sichern“ im Backup.',
 				error: 'Das letzte automatische Backup ist fehlgeschlagen – Details im Backup.'
 			},
 			title: 'Zum Backup',

@@ -450,6 +450,53 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 	await expect(headline).toContainText('Alles gesichert');
 	await expect(card.getByTestId('backup-made')).toContainText('von Aleph aufbewahrt');
 
+	// Aleph takes the next increment "pending" and refuses it later: it could
+	// not fetch the file (errorCode 4). The chain goes back to what Aleph
+	// keeps, so the books look unsaved again – but automatic backup does not
+	// ship everything since then again (and again): the header says Aleph
+	// refused, and it waits for a person.
+	// Made by hand here: an automatic run asks the bridge first, and over the
+	// stream those calls are counted (ten an hour).
+	aleph.judge.pending = true;
+	await page.evaluate(async () => {
+		/** @type {any} */ (window).__belegeBackupAutoDelayMs = 10 * 60_000;
+		await /** @type {any} */ (window).__belegeE2E.addTransaction({
+			bookedOn: new Date().toISOString().slice(0, 10),
+			counterparty: 'Fünfte Probe',
+			purpose: 'Backup-Probe',
+			amountCents: -33
+		});
+	});
+	await expect(card.getByTestId('backup-unsaved')).toBeVisible({ timeout: 30_000 });
+	await card.getByTestId('backup-now').click();
+	await expect(card.getByTestId('backup-row')).toHaveCount(6 + TWO_STEPS, { timeout: 30_000 });
+	aleph.judge.pending = false;
+	await page.evaluate(() => {
+		/** @type {any} */ (window).__belegeBackupAutoDelayMs = 1500;
+	});
+	const refusedLater = /** @type {any} */ (aleph.stores.at(-1));
+	expect(refusedLater).toMatchObject({ sender: browserKey, status: 'pending', ref: newFull.cid });
+	refusedLater.status = 'rejected';
+	refusedLater.errorCode = 4;
+	await expect(due).toHaveAttribute('data-blocked', 'refused', { timeout: 30_000 });
+	await expect(due).toContainText('Nicht gesichert (1)');
+	await expect(due).toHaveAttribute('title', /Aleph hat den letzten Zuwachs abgelehnt/);
+	await expect(card.getByTestId('backup-auto-blocked')).toContainText(
+		'Aleph hat den letzten Zuwachs abgelehnt'
+	);
+	// The quiet time (1.5 s here) passes a few times: nothing new goes up.
+	const storesAfterRefusal = aleph.stores.length;
+	await page.waitForTimeout(5_000);
+	expect(aleph.stores.length).toBe(storesAfterRefusal);
+	await expect(card.getByTestId('backup-row')).toHaveCount(6 + TWO_STEPS);
+	// "Jetzt sichern" by hand still goes; once Aleph keeps it, the wait ends.
+	await card.getByTestId('backup-now').click();
+	await expect(card.getByTestId('backup-row')).toHaveCount(7 + TWO_STEPS, { timeout: 30_000 });
+	await expect(card.getByTestId('backup-made')).toContainText('von Aleph aufbewahrt');
+	expect(aleph.stores.at(-1)).toMatchObject({ status: 'processed', ref: newFull.cid });
+	await expect(due).toHaveCount(0, { timeout: 30_000 });
+	await expect(card.getByTestId('backup-auto-blocked')).toHaveCount(0);
+
 	// It stays on for this device, after a reload too.
 	await page.reload();
 	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();

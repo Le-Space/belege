@@ -239,3 +239,28 @@ export function olderChains(backups, current) {
 		})
 		.sort((a, b) => (a.at < b.at ? 1 : -1));
 }
+
+/**
+ * Aleph refused the newest increment on this full backup – after the run
+ * that shipped it, or during it. The chain has gone back to what Aleph keeps
+ * (reconcileChain), so the books look unsaved again, and an automatic
+ * increment would ship everything since then once more – often refused
+ * again, for the same reason. Automatic backup waits for a person then
+ * (auto.svelte.js); a later row for the same chain that Aleph keeps or is
+ * still deciding on – "Jetzt sichern", or the refused one kept again – ends
+ * the wait. A refusal for credits counts the same: another try does not
+ * bring credits either.
+ *
+ * @param {import('./history.js').BackupRecord[]} backups
+ * @param {string | null | undefined} base the chain's full backup's CID
+ * @returns {import('./history.js').BackupRecord | null} the refused row, or null
+ */
+export function refusedIncrement(backups, base) {
+	if (!base) return null;
+	const newest = backups
+		.filter((b) => b.kind === 'increment' && b.base === base)
+		.sort((a, b) =>
+			a.at === b.at ? (b.sequence ?? 0) - (a.sequence ?? 0) : a.at < b.at ? 1 : -1
+		)[0];
+	return newest?.status === 'rejected' ? newest : null;
+}

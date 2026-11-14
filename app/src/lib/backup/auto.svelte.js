@@ -12,14 +12,19 @@
 // without a question: a chain this device can go on with, the network not
 // paused, a key that may keep it – this browser's own once granted, else a
 // paired bridge that answers – and credits for more than ASK_BELOW_DAYS.
-// Otherwise the header says the backup needs the person. On for this device
-// only (localStorage): two devices backing up the same chain at once would
-// both write its next increment.
+// Not after Aleph refused the chain's newest increment (chain.js
+// refusedIncrement): the chain went back, the next one would ship all of it
+// again, and be refused again – every five minutes, megabytes each time. A
+// backup by hand that Aleph keeps ends that. Otherwise the header says the
+// backup needs the person. On for this device only (localStorage): two
+// devices backing up the same chain at once would both write its next
+// increment.
 
 import { app, chainFitsBooks, currentStore, unsavedCollections } from '$lib/session.svelte.js';
 import { bridgeClient, bridgePaired } from '$lib/integrations/bridge-state.svelte.js';
 import { loadBackups } from './history.js';
-import { loadChain } from './chain.js';
+import { loadChain, refusedIncrement } from './chain.js';
+import { settlePending } from './recheck.js';
 import {
 	alephEndpoints,
 	backupAddressOf,
@@ -60,7 +65,7 @@ export const backupDue = $state({
 	auto: false,
 	/** When the next automatic increment starts (ms), 0: none planned. */
 	at: 0,
-	/** @type {'' | 'paused' | 'chain' | 'key' | 'credits' | 'error'} why it does not run by itself */
+	/** @type {'' | 'paused' | 'chain' | 'key' | 'credits' | 'refused' | 'error'} why it does not run by itself */
 	blocked: ''
 });
 
@@ -89,6 +94,8 @@ export function setAutoBackup(on) {
 	backupDue.auto = on;
 	backupDue.blocked = '';
 	plan();
+	// Aleph may have refused the last increment: then it waits for a person.
+	check().catch((e) => console.warn('backup due:', e));
 }
 
 /** The quiet time, shorter in the end-to-end tests. */
@@ -119,6 +126,12 @@ export async function check() {
 	const chain = await loadChain(store.settings);
 	backupDue.known = Boolean(chain);
 	backupDue.collections = chain && chainFitsBooks(chain) ? await unsavedCollections(chain) : [];
+	// A refusal shows at once, not when the quiet time is over; a backup
+	// Aleph keeps after it – by hand – lifts it.
+	const refusedNow =
+		backupDue.auto && refusedIncrement(await loadBackups(store.settings), chain?.base);
+	if (refusedNow) backupDue.blocked = 'refused';
+	else if (backupDue.blocked === 'refused') backupDue.blocked = '';
 	plan();
 }
 
@@ -128,6 +141,7 @@ function plan() {
 	autoTimer = null;
 	backupDue.at = 0;
 	if (!backupDue.auto || !backupDue.collections.length || backupRun.step) return;
+	if (backupDue.blocked === 'refused') return;
 	// Who only reads backs nothing up (#641).
 	if (app.member?.role === 'reader') return;
 	backupDue.at = Date.now() + delay();
@@ -193,6 +207,12 @@ async function backUpByItself() {
 	if (app.network.paused) return void (backupDue.blocked = 'paused');
 	const ctx = await context();
 	if (!ctx) return;
+	// Increments Aleph had not decided on: asked first, so a refusal stops
+	// this run instead of being shipped past (run.svelte.js would ask too,
+	// and then send everything since again).
+	if ((await loadChain(ctx.store.settings))?.pending?.length) {
+		await settlePending(ctx.store.settings, ctx.endpoints).catch(() => null);
+	}
 	const chain = await loadChain(ctx.store.settings);
 	const backups = await loadBackups(ctx.store.settings);
 	const base = chain ? backups.find((b) => b.cid === chain.base) : undefined;
@@ -203,6 +223,7 @@ async function backUpByItself() {
 	) {
 		return void (backupDue.blocked = 'chain');
 	}
+	if (refusedIncrement(backups, chain.base)) return void (backupDue.blocked = 'refused');
 	if (!ctx.uploader) return void (backupDue.blocked = 'key');
 	const credits = await creditsOf({ owner: ctx.owner, endpoints: ctx.endpoints }).catch(() => null);
 	const kept = backups.filter((b) => b.status === 'processed').reduce((n, b) => n + b.size, 0);

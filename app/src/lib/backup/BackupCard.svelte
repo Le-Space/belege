@@ -1019,7 +1019,9 @@
 							list: backupDue.collections.map((c) => t(`storage.databases.${c}`)).join(', ')
 						})}
 						{#if backupDue.auto && backupDue.blocked}
-							<span class="text-warning">{t(`backup.badge.blocked.${backupDue.blocked}`)}</span>
+							<span class="text-warning" data-testid="backup-auto-blocked"
+								>{t(`backup.badge.blocked.${backupDue.blocked}`)}</span
+							>
 						{/if}
 					</p>
 				{/if}
