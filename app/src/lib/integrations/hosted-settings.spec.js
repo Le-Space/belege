@@ -3,6 +3,7 @@ import {
 	cleanSettings,
 	isEnclaveLlm,
 	keptNames,
+	keptView,
 	mergeSettings,
 	secretFileOf,
 	withHostedSettings
@@ -109,5 +110,96 @@ describe('the hosted bridge’s settings', () => {
 			expect(dropped.config.llm).toBeUndefined();
 			expect(dropped.secrets.llm).toBeUndefined();
 		}
+	});
+});
+
+describe('what the card shows of the kept settings', () => {
+	const SECRETS = {
+		imap: 'SECRET-imap-password',
+		llm: 'SECRET-llm-key',
+		kraken: '{"key":"SECRET-kraken-key","secret":"SECRET-kraken-secret"}',
+		paperless: 'SECRET-paperless-token',
+		enablebanking: 'SECRET-enablebanking-key',
+		alchemy: 'SECRET-alchemy-key',
+		coingecko: 'SECRET-coingecko-key',
+		bitcoin: 'SECRET-zpub'
+	};
+	const kept = {
+		secrets: SECRETS,
+		files: { enablebanking_sealed: 'SECRET-sealed-file' },
+		config: {
+			mail: {
+				host: 'imap.example.com',
+				port: 993,
+				user: 'belege@example.com',
+				accountingAddress: 'buchhaltung@example.com',
+				password: 'SECRET-stray-password'
+			},
+			llm: {
+				baseUrl: 'https://api.libertai.io/v1',
+				model: 'model-a',
+				apiKey: 'SECRET-stray-key',
+				tee: { provider: 'libertai', itemHash: 'a'.repeat(64), measurement: 'b'.repeat(96) }
+			},
+			kraken: { configured: true },
+			paperless: {
+				configured: true,
+				baseUrl: 'https://user:SECRET-in-url@paperless.example.com/docs?token=SECRET-query'
+			},
+			enablebanking: { configured: true, appId: 'SECRET-app-id' }
+		}
+	};
+
+	it('the non-secret values, by name', () => {
+		const view = keptView(kept);
+		expect(view.map((e) => e.id)).toEqual([
+			'mail',
+			'llm',
+			'kraken',
+			'paperless',
+			'enablebanking',
+			'alchemy',
+			'coingecko',
+			'bitcoin'
+		]);
+		expect(view[0]).toEqual({
+			id: 'mail',
+			fields: [
+				{ key: 'host', value: 'imap.example.com' },
+				{ key: 'port', value: '993' },
+				{ key: 'user', value: 'belege@example.com' },
+				{ key: 'accountingAddress', value: 'buchhaltung@example.com' }
+			],
+			secret: true
+		});
+		expect(view[1].fields).toEqual([
+			{ key: 'model', value: 'model-a' },
+			{ key: 'itemHash', value: 'a'.repeat(64) },
+			{ key: 'measurement', value: 'b'.repeat(96) }
+		]);
+		expect(view[3].fields).toEqual([
+			{ key: 'baseUrl', value: 'https://paperless.example.com/docs' }
+		]);
+		expect(view[2]).toEqual({ id: 'kraken', fields: [], secret: true });
+	});
+
+	it('no secret in it: no account’s value, no file, no field that is not named', () => {
+		const text = JSON.stringify(keptView(kept));
+		expect(text).not.toContain('SECRET');
+		for (const value of Object.values(SECRETS)) expect(text).not.toContain(value);
+		// Of a secret only whether it is there – a boolean, not its length or a mask.
+		for (const entry of keptView(kept)) {
+			expect(Object.keys(entry).sort()).toEqual(['fields', 'id', 'secret']);
+			expect(typeof entry.secret).toBe('boolean');
+		}
+	});
+
+	it('a section without its secret says so, and nothing kept shows nothing', () => {
+		expect(
+			keptView({ config: { mail: { host: 'imap.example.com' } }, secrets: {}, files: {} })
+		).toEqual([
+			{ id: 'mail', fields: [{ key: 'host', value: 'imap.example.com' }], secret: false }
+		]);
+		expect(keptView({ config: {}, secrets: {}, files: {} })).toEqual([]);
 	});
 });

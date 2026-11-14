@@ -32,6 +32,7 @@ import { formatDate } from '../bank/format.js';
  * @typedef {object} Facts
  * @property {{ token: string | null, paired?: boolean, state: string, via?: 'stream' | 'local' | 'device', health: { hibiscus: boolean, kraken: boolean, paperless?: boolean, mail: boolean, llm: boolean, backup?: boolean } }} bridge
  * @property {{ flag: boolean, online: boolean, removed: boolean, error: string | null, connected: number }} devices
+ * @property {{ model: string, time: string } | null} [llm] the model's enclave, as the bridge that answers reports it attested (bridge-status.js `llmAttested`), with the time to show
  * @property {boolean} [hostsBridge] whether a bridge can run on this device at all (host.js); a phone cannot
  * @property {Record<string, any>[]} accounts the books' accounts
  * @property {Record<string, any>[]} events newest first
@@ -58,6 +59,7 @@ export function integrationsOverview(f) {
 	const online = f.bridge.state === 'online';
 	// A phone using the Mac's bridge (#142): working, not a pairing to fix here.
 	const viaDevice = online && f.bridge.via === 'device';
+	const attestedLlm = paired && online && f.bridge.health.llm && f.llm ? f.llm : null;
 	/** Needs the bridge and something set up on it. @param {boolean} setUp */
 	const viaBridge = (setUp) => (!paired ? 'off' : !online ? 'off' : setUp ? 'ok' : 'off');
 	const hibiscus = f.accounts.filter((a) => a.source === 'hibiscus' && !a.deleted);
@@ -100,8 +102,10 @@ export function integrationsOverview(f) {
 			group: 'basis',
 			initials: 'KI',
 			kind: viaBridge(f.bridge.health.llm),
-			state: f.bridge.health.llm && paired ? 'setUp' : 'notSetUp',
-			line: 'ki',
+			// Attested only as the bridge that answers reports it (bridge-status.js llmAttested).
+			...(attestedLlm
+				? { state: 'attested', line: 'kiAttested', params: attestedLlm }
+				: { state: f.bridge.health.llm && paired ? 'setUp' : 'notSetUp', line: 'ki' }),
 			when: f.events.find((e) => e.kind === 'extract')?.at ?? null
 		},
 		{

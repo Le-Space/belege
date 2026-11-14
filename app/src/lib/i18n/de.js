@@ -4414,6 +4414,7 @@ export default {
 				error: 'Fehler',
 				checking: 'wird geprüft',
 				setUp: 'eingerichtet',
+				attested: 'LibertAI vertraulich · Attestierung geprüft',
 				notSetUp: 'nicht eingerichtet',
 				on: 'an',
 				off: 'aus',
@@ -4432,6 +4433,7 @@ export default {
 				bridgeViaDevice:
 					'Läuft auf deinem Mac; dieses Gerät nutzt sie über die Gerätesynchronisation',
 				ki: 'Liest Anbieter, Betrag, Datum und Nummer aus Belegen',
+				kiAttested: 'Liest Belege aus · {model} · zuletzt geprüft {time}',
 				devicesOn: 'Dieselben Bücher auf deinen Geräten · {count} verbunden',
 				devicesOff: 'Dieselben Bücher auf Telefon oder zweitem Rechner',
 				bankAccounts: '{count} Konten in den Büchern',
@@ -4689,6 +4691,21 @@ export default {
 				'Womit eine gehostete Bridge – bei Aleph oder bei Phala über NEAR – neben ihrer Kopplung startet: Mail, Kraken, Paperless, Alchemy, Enable Banking und ein Sprachmodell in LibertAIs attestierter Enklave. Versiegelt in diesen Büchern gehalten und bei jedem Start nur an eine VM übergeben, deren Attestierung hält. Die Bridge auf diesem Rechner behält ihre eigenen und läuft weiter. Nicht hier: Hibiscus (bleibt auf deinem Rechner), jedes andere Sprachmodell (eine gehostete Bridge nutzt nur eines in der Enklave, deren Attestierung sie vor jeder Anfrage prüft) und Portale (eine gehostete Bridge hat keinen Browser zum Anmelden).',
 			kept: 'Für die gehostete Bridge gehalten: {names}.',
 			none: 'Noch nichts für die gehostete Bridge gehalten: Sie startet gekoppelt, ohne Konten.',
+			viewHint:
+				'Was gehalten wird. Geheimes – Passwörter, Schlüssel, Tokens – wird nie wieder angezeigt, nur dass es gespeichert ist. Neu eintragen überschreibt.',
+			secretPart: 'Geheimer Teil',
+			secretKept: 'gespeichert',
+			secretMissing: 'fehlt',
+			field: {
+				host: 'IMAP-Server',
+				port: 'Port',
+				user: 'Benutzer',
+				accountingAddress: 'Adresse der Buchhaltung',
+				model: 'Modell',
+				itemHash: 'Item-Hash der Enklave',
+				measurement: 'Messung der Enklave',
+				baseUrl: 'Adresse'
+			},
 			takeOver: 'Von der Bridge auf diesem Rechner übernehmen',
 			takeOverHint:
 				'Die gekoppelte Bridge gibt ihre Konten und Einstellungen über den Stream an dieses Gerät – nur an das Gerät, das sie gekoppelt hat –, und sie werden hier versiegelt gehalten. Mach das, bevor eine gehostete Bridge die Bridge der Bücher wird.',
@@ -4885,6 +4902,18 @@ export default {
 				doc: 'Die ganze Anleitung, mit Messwerten und Hilfe bei Fehlern'
 			},
 			noBridge: 'Die Bridge ist nicht gekoppelt: Einstellungen erst nach dem Koppeln sichtbar.',
+			silent: 'Gerade antwortet keine Bridge – deshalb steht hier kein Status des Auslesens.',
+			silentWhich: {
+				aleph:
+					'Diese Bücher erwarten die gehostete Bridge bei Aleph. Läuft ihre VM nicht oder ist sie noch gesperrt: starten und entsperren unter',
+				near: 'Diese Bücher erwarten die gehostete Bridge bei Phala (über NEAR). Läuft sie nicht: starten unter',
+				local:
+					'Diese Bücher erwarten die Bridge auf einem Rechner. Dort starten (pnpm bridge), dann den Status prüfen unter'
+			},
+			silentWhere: 'Integrationen → Bridge',
+			keptModel:
+				'Für die gehostete Bridge gehalten: LibertAI, vertraulich – {model}, Pin {item}. Geht beim nächsten Start der gehosteten Bridge mit.',
+			attestedDetail: '{model} · zuletzt geprüft {time}',
 			unreachable: 'Die Bridge sagt nichts über das Auslesen (ältere Version?): {error}',
 			provider: 'Anbieter (Host)',
 			models: 'Modelle',

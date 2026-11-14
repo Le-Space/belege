@@ -9,6 +9,7 @@
 		app,
 		forgetHostedSettings,
 		hostedSettingsNames,
+		hostedSettingsView,
 		keepHostedSettings,
 		takeOverBridgeSettings
 	} from '$lib/session.svelte.js';
@@ -35,8 +36,26 @@
 			/^[0-9a-f]{32,}$/i.test(llm.measurement.trim())
 	);
 
+	/** What is kept, to show: non-secret values, and of a secret only that it is there. */
+	/** @type {import('./hosted-settings.js').KeptEntry[]} */
+	let view = $state([]);
+	/** The integrations' names; brands are not translated. @type {Record<string, string>} */
+	const NAME = {
+		kraken: 'Kraken',
+		paperless: 'Paperless-ngx',
+		enablebanking: 'Enable Banking',
+		alchemy: 'Alchemy',
+		coingecko: 'CoinGecko',
+		bitcoin: 'Bitcoin (zpub)'
+	};
+	/** @param {string} id */
+	const nameOf = (id) => NAME[id] ?? t(`integrationen.hostedSettings.${id}`);
+
 	async function refresh() {
-		kept = await hostedSettingsNames().catch(() => ({ accounts: [], sections: [] }));
+		[kept, view] = await Promise.all([
+			hostedSettingsNames().catch(() => ({ accounts: [], sections: [] })),
+			hostedSettingsView().catch(() => [])
+		]);
 	}
 	$effect(() => {
 		if (app.sync.online) refresh();
@@ -181,6 +200,36 @@
 				{t('integrationen.hostedSettings.none')}
 			{/if}
 		</p>
+
+		{#if view.length}
+			<!-- Everything that is not secret, read-only; of a secret only that it is kept. -->
+			<p class="mt-3 text-xs text-faint">{t('integrationen.hostedSettings.viewHint')}</p>
+			<ul class="mt-1 divide-y divide-border text-sm" data-testid="hosted-settings-view">
+				{#each view as entry (entry.id)}
+					<li class="py-2" data-testid="hosted-settings-view-{entry.id}">
+						<span class="font-medium text-heading">{nameOf(entry.id)}</span>
+						<dl class="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-0.5">
+							{#each entry.fields as field (field.key)}
+								<dt class="text-faint">{t(`integrationen.hostedSettings.field.${field.key}`)}</dt>
+								<dd class="font-mono text-xs break-all text-heading">{field.value}</dd>
+							{/each}
+							<dt class="text-faint">{t('integrationen.hostedSettings.secretPart')}</dt>
+							<dd
+								class={entry.secret ? 'text-success' : 'text-danger'}
+								data-testid="hosted-settings-view-secret"
+								data-kept={entry.secret ? 'true' : 'false'}
+							>
+								{t(
+									entry.secret
+										? 'integrationen.hostedSettings.secretKept'
+										: 'integrationen.hostedSettings.secretMissing'
+								)}
+							</dd>
+						</dl>
+					</li>
+				{/each}
+			</ul>
+		{/if}
 
 		{#if !app.member}
 			<div class="mt-3 flex flex-wrap gap-2">

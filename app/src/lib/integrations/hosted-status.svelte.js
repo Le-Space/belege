@@ -2,8 +2,8 @@
 // shared with the status block above them (BridgeStatus.svelte) so a start,
 // an unlock or a stop on a card shows there at once.
 import { app, hostedBridgeRecord, hostedVmRecord, nearHostedRecord } from '$lib/session.svelte.js';
-import { bridge } from './bridge-state.svelte.js';
-import { hostedBridgeOf } from './bridge-status.js';
+import { bridge, bridgePaired } from './bridge-state.svelte.js';
+import { expectedBridge, hostedBridgeOf } from './bridge-status.js';
 
 export const hosted = $state({
 	/** @type {{ vm: any, kept: any }} */
@@ -54,3 +54,12 @@ export const booksBridgeHosted = () => hostedBridgeOf(bridge.peerId, hosted.peer
 /** A hosted bridge answers this device right now (over the stream, never over HTTP). */
 export const hostedBridgeAnswers = () =>
 	bridge.state === 'online' && app.sync.bridgeRoute === 'stream' ? booksBridgeHosted() : null;
+
+/** Which bridge the books expect to answer: a hosted one, the one on a computer, or none. */
+export const booksExpectedBridge = () =>
+	expectedBridge({
+		peerId: bridge.peerId,
+		paired: bridgePaired(),
+		peers: hosted.peers,
+		alephVm: hosted.aleph.vm
+	});

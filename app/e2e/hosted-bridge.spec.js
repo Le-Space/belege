@@ -310,6 +310,13 @@ test('a device starts the hosted bridge on Aleph, short of credits first, fetche
 		await settings.getByRole('button', { name: 'Für die gehostete Bridge halten' }).first().click();
 		await expect(settings.getByTestId('hosted-settings-kept')).toContainText('imap');
 		expect((await mac.page.content()).includes(FAKE_IMAP_PASSWORD)).toBe(false);
+		// What is not secret shows, read-only; of the password only that it is stored.
+		const keptMail = settings.getByTestId('hosted-settings-view-mail');
+		await expect(keptMail).toContainText(imap.host);
+		await expect(keptMail).toContainText(FAKE_IMAP_USER);
+		await expect(keptMail).toContainText(ACCOUNTING);
+		await expect(keptMail.getByTestId('hosted-settings-view-secret')).toHaveText('gespeichert');
+		expect((await mac.page.content()).includes(FAKE_IMAP_PASSWORD)).toBe(false);
 
 		const node = mac.page.getByTestId('hosted-bridge-node');
 		await expect(node).toHaveValue(FAKE_CRN);
@@ -460,6 +467,14 @@ test('a device starts the hosted bridge on Aleph, short of credits first, fetche
 		});
 		expect(aleph.instances.get(instance)?.status).toBe('forgotten');
 		await expect(mac.page.getByTestId('hosted-bridge-start')).toBeVisible();
+		// KI, with the VM stopped: no bridge answers, and the page says which one the books expect.
+		await openIntegration(mac.page, 'ki');
+		await expect(mac.page.getByTestId('ki-no-bridge')).toContainText(
+			'Gerade antwortet keine Bridge',
+			{ timeout: 60_000 }
+		);
+		await expect(mac.page.getByTestId('ki-no-bridge')).toHaveAttribute('data-expected', 'aleph');
+		await expect(mac.page.getByTestId('ki-status')).toHaveCount(0);
 		await openIntegration(mac.page, 'geraete');
 		await expect(
 			mac.page.getByTestId('devices-item').filter({ hasText: 'Gehostete Bridge' })

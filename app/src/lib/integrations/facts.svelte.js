@@ -9,7 +9,9 @@ import { loadAleph } from '$lib/aleph/aleph.js';
 import { loadBackups } from '$lib/backup/history.js';
 import { isWalletSource } from '$lib/wallets/chains.js';
 import { loadAlerts } from './alerts.js';
-import { bridge, bridgePaired, loadBridge } from './bridge-state.svelte.js';
+import { bridge, bridgeClient, bridgePaired, loadBridge } from './bridge-state.svelte.js';
+import { llmAttested } from './bridge-status.js';
+import { describeMoment } from '$lib/moment.js';
 import { hostsBridge } from './host.js';
 
 const kept = $state({
@@ -19,6 +21,8 @@ const kept = $state({
 	/** @type {string | null} */
 	lastBackup: null,
 	deviceFlag: false,
+	/** @type {{ model: string, time: string } | null} the model's enclave, attested as the bridge reports it */
+	llm: null,
 	/** @type {import('./alerts.js').Alerts} */
 	alerts: { kraken: null, wallets: {}, enablebanking: [] }
 });
@@ -52,6 +56,24 @@ export async function loadIntegrationFacts({ recheck = false } = {}) {
 	// No token yet: read it again. On a device that reaches the bridge through
 	// another one, it comes with the books by sync, possibly after the first read.
 	if (recheck || !bridge.loaded || !bridgePaired()) await loadBridge();
+	await loadLlmAttested();
+}
+
+/** Ask the bridge that answers whether its model's enclave is attested; anything else is "not". */
+async function loadLlmAttested() {
+	if (!bridgePaired() || bridge.state !== 'online' || !bridge.health.llm) {
+		kept.llm = null;
+		return;
+	}
+	try {
+		const attested = llmAttested(await bridgeClient().llmStatus());
+		kept.llm = attested && {
+			model: attested.model || '—',
+			time: describeMoment(attested.verifiedAt)?.local ?? attested.verifiedAt
+		};
+	} catch {
+		kept.llm = null;
+	}
 }
 
 /** @returns {import('./overview.js').Facts} */
@@ -64,6 +86,7 @@ export const integrationFacts = () => ({
 		health: bridge.health
 	},
 	hostsBridge: hostsBridge(),
+	llm: kept.llm,
 	devices: {
 		flag: kept.deviceFlag,
 		online: app.sync.online,

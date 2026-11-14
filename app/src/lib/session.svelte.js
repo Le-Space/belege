@@ -1400,6 +1400,18 @@ export async function hostedSettingsNames() {
 }
 
 /**
+ * What is kept for a hosted bridge, for the cards: per integration its
+ * non-secret values and whether its secret part is there – never a secret
+ * (integrations/hosted-settings.js `keptView`).
+ *
+ * @returns {Promise<import('./integrations/hosted-settings.js').KeptEntry[]>}
+ */
+export async function hostedSettingsView() {
+	const hs = await import('./integrations/hosted-settings.js');
+	return hs.keptView(await keptHostedSettings());
+}
+
+/**
  * Keep settings for a hosted bridge, sealed in the books: over what is kept,
  * a section or an account replacing the one before. Only an owner's device.
  *

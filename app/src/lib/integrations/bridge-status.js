@@ -108,3 +108,34 @@ export function hostedVmRunning(f) {
 	const vm = f.aleph?.vm ?? null;
 	return Boolean(vm && !vm.stoppedAt) || Boolean(f.near?.running);
 }
+
+/**
+ * Which bridge the books expect to answer, for a page that has to say why
+ * none does: a hosted one when it is the books' bridge, or when the books
+ * started a VM on Aleph and no other bridge is paired; else the one on a
+ * computer, if one is paired; else none.
+ *
+ * @param {{ peerId?: string | null, paired: boolean, peers?: { aleph?: string | null, near?: string | null } | null, alephVm?: any }} f
+ * @returns {'aleph' | 'near' | 'local' | null}
+ */
+export function expectedBridge(f) {
+	const hosted = hostedBridgeOf(f.peerId, f.peers);
+	if (hosted) return hosted;
+	if (f.paired) return 'local';
+	return f.alephVm ? 'aleph' : null;
+}
+
+/**
+ * The model's enclave as the bridge itself reports it attested (`/llm/status`):
+ * a model set up, a pin, a check that held and no failure since. A setting
+ * that is only kept, or a pin not yet checked, is not this.
+ *
+ * @param {any} status what `/llm/status` answered
+ * @returns {{ model: string, verifiedAt: string } | null}
+ */
+export function llmAttested(status) {
+	const tee = status?.tee;
+	if (!status?.configured || !tee || tee.error) return null;
+	if (typeof tee.verifiedAt !== 'string' || Number.isNaN(Date.parse(tee.verifiedAt))) return null;
+	return { model: String(status.models?.primary ?? ''), verifiedAt: tee.verifiedAt };
+}

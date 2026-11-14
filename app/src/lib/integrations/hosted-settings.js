@@ -155,3 +155,99 @@ export function keptNames(kept) {
 		sections: Object.keys(clean.config).sort()
 	};
 }
+
+/**
+ * What the card shows of one kept integration: its non-secret values, and of
+ * the secret part only whether it is kept.
+ *
+ * @typedef {{ id: string, fields: { key: string, value: string }[], secret: boolean }} KeptEntry
+ */
+
+/** A value to show: text or a number, one line, of a sane length; else nothing. @param {unknown} v */
+function shown(v) {
+	if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+	if (typeof v !== 'string') return '';
+	return v
+		.replace(/\p{Cc}+/gu, ' ')
+		.trim()
+		.slice(0, 200);
+}
+
+/** An address without what could be a credential in it: no user, password, query or fragment. @param {unknown} v */
+function shownUrl(v) {
+	try {
+		const url = new URL(String(v ?? ''));
+		if (url.protocol !== 'https:' && url.protocol !== 'http:') return '';
+		return shown(`${url.origin}${url.pathname === '/' ? '' : url.pathname}`);
+	} catch {
+		return '';
+	}
+}
+
+/**
+ * Which values of a kept section are not secret, by name: everything else –
+ * every account's value, and any field not listed here – is never shown.
+ *
+ * @type {{ id: string, account: string, section?: string, fields?: (config: any) => Record<string, string> }[]}
+ */
+const SHOWN = [
+	{
+		id: 'mail',
+		account: 'imap',
+		section: 'mail',
+		fields: (c) => ({
+			host: shown(c.host),
+			port: shown(c.port),
+			user: shown(c.user),
+			accountingAddress: shown(c.accountingAddress)
+		})
+	},
+	{
+		id: 'llm',
+		account: 'llm',
+		section: 'llm',
+		fields: (c) => ({
+			model: shown(c.model),
+			itemHash: shown(c.tee?.itemHash),
+			measurement: shown(c.tee?.measurement)
+		})
+	},
+	{ id: 'kraken', account: 'kraken', section: 'kraken' },
+	{
+		id: 'paperless',
+		account: 'paperless',
+		section: 'paperless',
+		fields: (c) => ({ baseUrl: shownUrl(c.baseUrl) })
+	},
+	{ id: 'enablebanking', account: 'enablebanking', section: 'enablebanking' },
+	{ id: 'alchemy', account: 'alchemy' },
+	{ id: 'coingecko', account: 'coingecko' },
+	{ id: 'bitcoin', account: 'bitcoin' }
+];
+
+/**
+ * What is kept, for the card: per integration its non-secret values and
+ * whether its secret part is there. No secret, no file and no field that is
+ * not named in `SHOWN` is in what this returns.
+ *
+ * @param {HostedSettings} kept
+ * @returns {KeptEntry[]}
+ */
+export function keptView(kept) {
+	const clean = cleanSettings(kept);
+	/** @type {KeptEntry[]} */
+	const out = [];
+	for (const { id, account, section, fields } of SHOWN) {
+		const config = section ? clean.config[section] : undefined;
+		const secret = Object.hasOwn(clean.secrets, account);
+		if (!config && !secret) continue;
+		out.push({
+			id,
+			fields: Object.entries(config && fields ? fields(config) : {})
+				.filter(([, value]) => value)
+				.map(([key, value]) => ({ key, value })),
+			secret
+		});
+	}
+	return out;
+}

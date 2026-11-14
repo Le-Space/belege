@@ -8,12 +8,18 @@
 	import { extractionTotals } from '$lib/activity/events.js';
 	import { integer } from '$lib/receipts/how.js';
 	import { describeMoment } from '$lib/moment.js';
-	import { app } from '$lib/session.svelte.js';
+	import { app, hostedSettingsView } from '$lib/session.svelte.js';
 	import { redactionFromStatus } from '$lib/llm-redaction.js';
 	import { currentLocale, list, t } from '$lib/i18n/index.js';
 	import { docUrl } from '$lib/help/integration-help.js';
-	import { bridge, bridgeClient, bridgePaired } from './bridge-state.svelte.js';
-	import { hostedBridgeAnswers, loadHostedPeers } from './hosted-status.svelte.js';
+	import { bridge, bridgeClient, bridgePaired, checkBridge } from './bridge-state.svelte.js';
+	import { llmAttested } from './bridge-status.js';
+	import {
+		booksExpectedBridge,
+		hostedBridgeAnswers,
+		loadAleph,
+		loadHostedPeers
+	} from './hosted-status.svelte.js';
 
 	/** @type {Awaited<ReturnType<ReturnType<typeof bridgeClient>['llmStatus']>> | null} */
 	let llmStatus = $state(null);
@@ -37,21 +43,47 @@
 	let hostedNoModel = $derived(
 		hosted && Boolean(llmStatus) && !(/** @type {any} */ (llmStatus)?.configured)
 	);
+	/** The model kept for a hosted bridge (non-secret values only), shown even while its VM is down. */
+	let keptModel = $state(/** @type {{ model: string, itemHash: string } | null} */ (null));
 	$effect(() => {
-		// Whose node the books' bridge is; read again when sync may have brought it.
+		// Whose node the books' bridge is, and what is kept for a hosted one; read again when sync may have brought it.
 		void app.sync.online;
 		loadHostedPeers().catch(() => {});
+		loadAleph().catch(() => {});
+		hostedSettingsView()
+			.then((view) => {
+				const llm = view.find((e) => e.id === 'llm');
+				const value = (/** @type {string} */ key) =>
+					llm?.fields.find((f) => f.key === key)?.value ?? '';
+				keptModel = llm ? { model: value('model'), itemHash: value('itemHash') } : null;
+			})
+			.catch(() => (keptModel = null));
 	});
+	// No bridge answers: which one the books expect, to say what to do.
+	let silent = $derived(!bridgePaired() || bridge.state === 'offline');
+	let expected = $derived(silent ? booksExpectedBridge() : null);
+	// Green only when the bridge itself reports the enclave's attestation as checked.
+	let attested = $derived(llmAttested(llmStatus));
+	let attestedMoment = $derived(attested ? describeMoment(attested.verifiedAt) : null);
 
+	/** The bridge was asked again after a failed status: once, until a status comes. */
+	let rechecked = false;
 	async function loadLlmStatus() {
 		llmError = null;
 		try {
 			llmStatus = await bridgeClient().llmStatus();
+			rechecked = false;
 			// The AI hints elsewhere follow what the bridge says here (ai-text.js).
 			app.llmRedaction = redactionFromStatus(llmStatus);
 		} catch (error) {
 			llmStatus = null;
 			llmError = error instanceof Error ? error.message : String(error);
+			// It answered a moment ago and does not now (a VM stopped since): ask it once more,
+			// so the page says that no bridge answers instead of only this error.
+			if (!rechecked) {
+				rechecked = true;
+				checkBridge();
+			}
 		}
 	}
 	$effect(() => {
@@ -69,7 +101,33 @@
 	<p class="mt-1 text-sm text-text" data-testid="ki-key-where">
 		{t(hosted ? 'integrationen.ki.keyWhereHosted' : 'integrationen.ki.keyWhere')}
 	</p>
-	{#if !token}
+	{#if keptModel && !(hosted && llmStatus?.configured)}
+		<!-- Kept for the hosted bridge: visible while its VM is down; a setting, not a state. -->
+		<p class="mt-3 text-sm text-text" data-testid="ki-kept-model">
+			{t('integrationen.ki.keptModel', {
+				model: keptModel.model || '—',
+				item: `${keptModel.itemHash.slice(0, 12)}…`
+			})}
+		</p>
+	{/if}
+	{#if expected}
+		<!-- Nothing answers: say so, which bridge the books expect, and where to bring it up. -->
+		<div
+			class="mt-3 rounded-md border border-border bg-surface-2 px-4 py-3 text-sm text-text"
+			data-testid="ki-no-bridge"
+			data-expected={expected}
+		>
+			<p class="font-medium text-heading">{t('integrationen.ki.silent')}</p>
+			<p class="mt-1">
+				{t(`integrationen.ki.silentWhich.${expected}`)}
+				<a
+					class="underline hover:text-heading"
+					href={resolve('/integrationen/bridge')}
+					data-testid="ki-no-bridge-link">{t('integrationen.ki.silentWhere')}</a
+				>.
+			</p>
+		</div>
+	{:else if !token}
 		<p class="mt-3 text-sm text-faint">{t('integrationen.ki.noBridge')}</p>
 	{:else if llmError}
 		<p class="mt-3 text-sm text-danger" role="alert" data-testid="ki-error">
@@ -94,6 +152,20 @@
 				</p>
 				<p class="mt-1">{t('integrationen.ki.hostedNoModelRestart')}</p>
 			</div>
+		{/if}
+		{#if attested}
+			<p class="mt-3 text-sm" data-testid="ki-attested">
+				<span
+					class="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
+					>{t('integrationen.overview.state.attested')}</span
+				>
+				<span class="ml-1 text-text"
+					>{t('integrationen.ki.attestedDetail', {
+						model: attested.model || '—',
+						time: attestedMoment?.local ?? attested.verifiedAt
+					})}</span
+				>
+			</p>
 		{/if}
 		<dl
 			class="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm"

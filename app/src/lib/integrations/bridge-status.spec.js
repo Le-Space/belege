@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { bridgeStatusRows, hostedBridgeOf, hostedVmRunning } from './bridge-status.js';
+import {
+	bridgeStatusRows,
+	expectedBridge,
+	hostedBridgeOf,
+	hostedVmRunning,
+	llmAttested
+} from './bridge-status.js';
 
 const HASH = 'a'.repeat(64);
 /** @param {ReturnType<typeof bridgeStatusRows>} rows */
@@ -115,5 +121,55 @@ describe('hostedVmRunning', () => {
 			hostedVmRunning({ aleph: { vm: { instance: HASH, stoppedAt: '2026-01-01T00:00:00Z' } } })
 		).toBe(false);
 		expect(hostedVmRunning({ near: { running: false } })).toBe(false);
+	});
+});
+
+describe('expectedBridge', () => {
+	const peers = { aleph: 'peer-aleph', near: 'peer-near' };
+
+	it('the hosted bridge that is the books’ bridge', () => {
+		expect(expectedBridge({ peerId: 'peer-aleph', paired: true, peers })).toBe('aleph');
+		expect(expectedBridge({ peerId: 'peer-near', paired: true, peers })).toBe('near');
+	});
+
+	it('the bridge on a computer when that is paired, whatever VM the books once started', () => {
+		expect(expectedBridge({ peerId: 'peer-mac', paired: true, peers })).toBe('local');
+		expect(expectedBridge({ peerId: null, paired: true, peers, alephVm: { instance: HASH } })).toBe(
+			'local'
+		);
+	});
+
+	it('nothing paired: a VM the books started and did not unlock yet, or stopped; else none', () => {
+		expect(expectedBridge({ paired: false, alephVm: { instance: HASH } })).toBe('aleph');
+		expect(
+			expectedBridge({
+				paired: false,
+				alephVm: { instance: HASH, stoppedAt: '2026-01-01T00:00:00Z' }
+			})
+		).toBe('aleph');
+		expect(expectedBridge({ paired: false })).toBe(null);
+	});
+});
+
+describe('llmAttested', () => {
+	const at = '2026-01-01T10:00:00.000Z';
+	const tee = { itemHash: HASH, measurement: 'b'.repeat(96), verifiedAt: at, error: null };
+
+	it('only what the bridge itself reports as checked', () => {
+		expect(llmAttested({ configured: true, models: { primary: 'model-a' }, tee })).toEqual({
+			model: 'model-a',
+			verifiedAt: at
+		});
+	});
+
+	it('not a pin that was not checked yet, a check that failed, or no model', () => {
+		expect(llmAttested({ configured: true, tee: { ...tee, verifiedAt: null } })).toBe(null);
+		expect(llmAttested({ configured: true, tee: { ...tee, error: 'measurement differs' } })).toBe(
+			null
+		);
+		expect(llmAttested({ configured: false, tee })).toBe(null);
+		expect(llmAttested({ configured: true, tee: null })).toBe(null);
+		expect(llmAttested({ configured: true, tee: { ...tee, verifiedAt: 'yes' } })).toBe(null);
+		expect(llmAttested(null)).toBe(null);
 	});
 });

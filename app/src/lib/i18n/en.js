@@ -4354,6 +4354,7 @@ export default {
 				error: 'error',
 				checking: 'checking',
 				setUp: 'set up',
+				attested: 'LibertAI confidential · attestation checked',
 				notSetUp: 'not set up',
 				on: 'on',
 				off: 'off',
@@ -4371,6 +4372,7 @@ export default {
 				bridge: 'On this Mac; fetches transactions, reads receipts, queries nodes',
 				bridgeViaDevice: 'Runs on your Mac; this device uses it via device sync',
 				ki: 'Reads vendor, amount, date and number from receipts',
+				kiAttested: 'Reads receipts · {model} · last checked {time}',
 				devicesOn: 'The same books on your devices · {count} connected',
 				devicesOff: 'The same books on a phone or second computer',
 				bankAccounts: '{count} accounts in the books',
@@ -4627,6 +4629,21 @@ export default {
 				'What a hosted bridge – on Aleph or on Phala through NEAR – starts with besides its pairing: mail, Kraken, Paperless, Alchemy, Enable Banking and a language model in LibertAI’s attested enclave. Kept sealed in these books and handed only to a VM whose attestation holds, at each start. The bridge on this computer keeps its own and keeps working. Not here: Hibiscus (it stays on your computer), any other language model (a hosted bridge uses only one in the enclave, whose attestation it checks before every request) and portals (a hosted bridge has no browser to log in with).',
 			kept: 'Kept for the hosted bridge: {names}.',
 			none: 'Nothing kept for the hosted bridge yet: it starts paired, without accounts.',
+			viewHint:
+				'What is kept. Anything secret – passwords, keys, tokens – is never shown again, only that it is stored. Entering it anew overwrites it.',
+			secretPart: 'Secret part',
+			secretKept: 'stored',
+			secretMissing: 'missing',
+			field: {
+				host: 'IMAP server',
+				port: 'Port',
+				user: 'User',
+				accountingAddress: 'Accounting address',
+				model: 'Model',
+				itemHash: 'Enclave item hash',
+				measurement: 'Enclave measurement',
+				baseUrl: 'Address'
+			},
 			takeOver: 'Take over from the bridge on this computer',
 			takeOverHint:
 				'The bridge you paired hands its accounts and settings to this device over the stream – only to the device that paired it – and they are kept here, sealed. Do this before a hosted bridge becomes the books’ bridge.',
@@ -4822,6 +4839,18 @@ export default {
 				doc: 'The whole guide, with measurements and help when something goes wrong'
 			},
 			noBridge: 'The bridge is not paired: settings only visible after pairing.',
+			silent: 'No bridge answers right now – that is why no status of the reading shows here.',
+			silentWhich: {
+				aleph:
+					'These books expect the hosted bridge on Aleph. If its VM is not running or still locked: start and unlock it under',
+				near: 'These books expect the hosted bridge on Phala (through NEAR). If it is not running: start it under',
+				local:
+					'These books expect the bridge on a computer. Start it there (pnpm bridge), then check the status under'
+			},
+			silentWhere: 'Integrations → Bridge',
+			keptModel:
+				'Kept for the hosted bridge: LibertAI, confidential – {model}, pin {item}. Goes along at the hosted bridge’s next start.',
+			attestedDetail: '{model} · last checked {time}',
 			unreachable: 'The bridge says nothing about receipt reading (older version?): {error}',
 			provider: 'Provider (host)',
 			models: 'Models',
