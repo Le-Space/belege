@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.32.4] – 2026-11-14
+
 ### Changed
 
 - The bridge README says how a language model is wired in: `pnpm setup:llm` offers an OpenAI-compatible URL or LibertAI's attested enclave, a table names which model runs where and what is checked, and the hosted bridge on Phala through NEAR is named beside the one on Aleph (#770).
